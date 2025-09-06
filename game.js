@@ -129,7 +129,6 @@ function selectCharacter(charIndex) {
         fall_speed: 0,
         fall_scale: 1.0,
         last_attacker_id: null,
-        // ⭐ 추가: 공격 및 방어 애니메이션 상태
         is_attacking_anim: false,
         attack_anim_alpha: 0,
         defense_anim_alpha: 0
@@ -294,48 +293,81 @@ function updateGame(deltaTime) {
     });
 
     projectiles.forEach(p => {
+        // ⭐ 수정: 투사체 이동 및 적/아군 충돌 처리
+        if (p.homingTargetId) {
+            const target = players.find(player => player.id === p.homingTargetId);
+            if (target) {
+                const dx = target.x - p.x;
+                const dy = target.y - p.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > 1) {
+                    p.vx = (dx / dist) * projectileSpeed;
+                    p.vy = (dy / dist) * projectileSpeed;
+                }
+            }
+        }
+
         p.x += p.vx;
         p.y += p.vy;
 
         players.forEach(target => {
-            if (target.health <= 0 || target.id === p.ownerId || target.team === p.ownerTeam) return;
+            if (target.health <= 0 || target.id === p.ownerId) return;
+
+            // 힐 투사체는 아군에게만
+            if (p.type === 'heal' && target.team !== p.ownerTeam) return;
+            // 공격 투사체는 적에게만
+            if (p.type === 'damage' && target.team === p.ownerTeam) return;
 
             if (checkCollision(p.x, p.y, 10, target.x, target.y, playerSize)) {
-                if (target.is_defending) {
-                    if (characters[target.char_index].id === 'warrior') {
-                        projectiles.push(createProjectile(target, p.ownerId));
-                    }
-                    if (characters[target.char_index].id === 'archer') {
-                         const closestEnemy = findClosestEnemy(target.id);
-                         if (closestEnemy) {
-                           projectiles.push(createHomingProjectile(target, closestEnemy));
-                         }
-                    }
-                } else {
-                    const damage = p.damage;
-                    target.health -= damage;
-                    target.last_attacker_id = p.ownerId;
-                    
-                    const isCritical = damage > 2;
+                if (p.type === 'heal') {
+                    const healAmount = 5;
+                    target.health = Math.min(target.max_health, target.health + healAmount);
                     activeEffects.push({
-                         text: damage,
-                         x: target.x + playerSize / 2,
-                         y: target.y,
-                         color: isCritical ? 'yellow' : 'white',
-                         alpha: 1,
-                         y_velocity: -1,
-                         lifetime: 60
+                        text: `+${healAmount}`,
+                        x: target.x + playerSize / 2,
+                        y: target.y,
+                        color: 'lime',
+                        alpha: 1,
+                        y_velocity: -1,
+                        lifetime: 60
                     });
-
-                    const knockbackStrength = 10;
-                    target.knockback_vector.x = (p.vx > 0 ? 1 : -1) * knockbackStrength;
-                    target.knockback_vector.y = (p.vy > 0 ? 1 : -1) * knockbackStrength;
-
-                    if (p.charId === 'mage' && Math.random() < mageDebuffChance) {
-                         target.active_debuffs.stun = { endTime: performance.now() + 2000 };
-                    }
-                    if (p.charId === 'rogue') {
-                        // ... 출혈 로직
+                } else { // 'damage' type
+                    if (target.is_defending) {
+                        if (characters[target.char_index].id === 'warrior') {
+                            projectiles.push(createProjectile(target, p.ownerId));
+                        }
+                        if (characters[target.char_index].id === 'archer') {
+                             const closestEnemy = findClosestEnemy(target.id);
+                             if (closestEnemy) {
+                               projectiles.push(createHomingProjectile(target, closestEnemy));
+                             }
+                        }
+                    } else {
+                        const damage = p.damage;
+                        target.health -= damage;
+                        target.last_attacker_id = p.ownerId;
+                        
+                        const isCritical = damage > 2;
+                        activeEffects.push({
+                             text: damage,
+                             x: target.x + playerSize / 2,
+                             y: target.y,
+                             color: isCritical ? 'yellow' : 'white',
+                             alpha: 1,
+                             y_velocity: -1,
+                             lifetime: 60
+                        });
+    
+                        const knockbackStrength = 10;
+                        target.knockback_vector.x = (p.vx > 0 ? 1 : -1) * knockbackStrength;
+                        target.knockback_vector.y = (p.vy > 0 ? 1 : -1) * knockbackStrength;
+    
+                        if (p.charId === 'mage' && Math.random() < mageDebuffChance) {
+                             target.active_debuffs.stun = { endTime: performance.now() + 2000 };
+                        }
+                        if (p.charId === 'rogue') {
+                            // ... 출혈 로직
+                        }
                     }
                 }
                 projectiles = projectiles.filter(proj => proj !== p);
@@ -354,10 +386,9 @@ function updateGame(deltaTime) {
     });
     activeEffects = activeEffects.filter(effect => effect.lifetime > 0);
 
-    // ⭐ 추가: 공격 애니메이션 업데이트
     players.forEach(player => {
         if (player.is_attacking_anim) {
-            player.attack_anim_alpha = Math.max(0, player.attack_anim_alpha - deltaTime * 4); // 0.25초에 사라지도록
+            player.attack_anim_alpha = Math.max(0, player.attack_anim_alpha - deltaTime * 4);
         }
         if (player.attack_anim_alpha <= 0) {
             player.is_attacking_anim = false;
@@ -441,8 +472,7 @@ function drawGame() {
         
         if (player.is_defending) drawDefenseShield(player);
         
-        // ⭐ 수정: 모든 플레이어의 공격 애니메이션
-        if (player.is_attacking_anim && charInfo.id === 'warrior') { // 검사만 검을 휘두르는 모션
+        if (player.is_attacking_anim && charInfo.id === 'warrior') {
             drawWarriorAttackEffect(player);
         }
     });
@@ -455,7 +485,6 @@ function drawGame() {
     });
 }
 
-// ⭐ 수정: 검사 공격 효과를 부채꼴로 변경
 function drawWarriorAttackEffect(player) {
     const attackAngle = Math.PI / 2; // 검이 휘둘러지는 각도 (90도)
     let startAngle = 0;
@@ -465,33 +494,29 @@ function drawWarriorAttackEffect(player) {
     const playerCenterY = player.y + playerSize / 2;
 
     switch (player.last_direction) {
-        case 'a': // left
-        case 'ArrowLeft':
+        case 'a': case 'ArrowLeft':
             startAngle = Math.PI - attackAngle / 2;
             endAngle = Math.PI + attackAngle / 2;
             break;
-        case 'd': // right
-        case 'ArrowRight':
+        case 'd': case 'ArrowRight':
             startAngle = -attackAngle / 2;
             endAngle = attackAngle / 2;
             break;
-        case 'w': // up
-        case 'ArrowUp':
+        case 'w': case 'ArrowUp':
             startAngle = -Math.PI / 2 - attackAngle / 2;
             endAngle = -Math.PI / 2 + attackAngle / 2;
             break;
-        case 's': // down
-        case 'ArrowDown':
+        case 's': case 'ArrowDown':
             startAngle = Math.PI / 2 - attackAngle / 2;
             endAngle = Math.PI / 2 + attackAngle / 2;
             break;
-        default: // 기본은 오른쪽
+        default:
             startAngle = -attackAngle / 2;
             endAngle = attackAngle / 2;
             break;
     }
 
-    ctx.fillStyle = `rgba(255, 255, 255, ${player.attack_anim_alpha * 0.5})`; // 투명도 조절
+    ctx.fillStyle = `rgba(255, 255, 255, ${player.attack_anim_alpha * 0.5})`;
     ctx.beginPath();
     ctx.moveTo(playerCenterX, playerCenterY);
     ctx.arc(playerCenterX, playerCenterY, playerSize * 1.5, startAngle, endAngle);
@@ -503,13 +528,11 @@ function drawWarriorAttackEffect(player) {
 function drawPlayerUI(player) {
     const now = performance.now();
 
-    // 닉네임
     ctx.fillStyle = 'white';
     ctx.font = '16px Arial';
     ctx.textAlign = 'center';
     ctx.fillText(player.nickname, player.x + playerSize / 2, player.y - 35);
     
-    // 체력바
     const barWidth = playerSize;
     const barHeight = 5;
     ctx.fillStyle = 'black';
@@ -519,7 +542,6 @@ function drawPlayerUI(player) {
     ctx.fillStyle = 'red';
     ctx.fillRect(player.x, player.y - 20, barWidth * healthRatio, barHeight);
 
-    // 남은 체력 숫자
     ctx.fillStyle = 'white';
     ctx.font = '12px Arial';
     ctx.textAlign = 'center';
@@ -530,19 +552,16 @@ function drawPlayerUI(player) {
         ctx.fillText('마비', player.x + playerSize / 2, player.y - 50);
     }
 
-    // ⭐ 추가: 공격 스킬 쿨타임 표시
     const attackCooldownRemaining = Math.max(0, (player.last_attack_time + player.attack_cooldown * 1000 - now) / 1000);
     drawSkillCooldown(player.x - 20, player.y + playerSize + 10, 'A', attackCooldownRemaining, player.attack_cooldown);
 
-    // ⭐ 추가: 방어 스킬 쿨타임 표시
     const defenseCooldownRemaining = Math.max(0, (player.last_defense_time + player.defense_cooldown * 1000 - now) / 1000);
     drawSkillCooldown(player.x + playerSize + 5, player.y + playerSize + 10, 'D', defenseCooldownRemaining, player.defense_cooldown);
 }
 
-// ⭐ 추가: 스킬 쿨타임을 그리는 함수
 function drawSkillCooldown(x, y, label, remaining, totalCooldown) {
     const size = 20;
-    ctx.fillStyle = 'rgba(50, 50, 50, 0.8)'; // 스킬 아이콘 배경
+    ctx.fillStyle = 'rgba(50, 50, 50, 0.8)';
     ctx.fillRect(x, y, size, size);
 
     ctx.fillStyle = 'white';
@@ -553,12 +572,12 @@ function drawSkillCooldown(x, y, label, remaining, totalCooldown) {
 
     if (remaining > 0) {
         const progress = remaining / totalCooldown;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; // 쿨타임 가리는 색
-        ctx.fillRect(x, y, size, size * progress); // 위에서 아래로 채워지도록
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(x, y, size, size * progress);
 
         ctx.fillStyle = 'white';
         ctx.font = '10px Arial';
-        ctx.fillText(Math.ceil(remaining), x + size / 2, y + size / 2); // 남은 시간 표시
+        ctx.fillText(Math.ceil(remaining), x + size / 2, y + size / 2);
     }
 }
 
@@ -652,14 +671,12 @@ function attack(player) {
     player.last_attack_time = now;
 
     if (charInfo.id === 'warrior') {
-        // ⭐ 수정: 검사 공격 애니메이션 시작
         player.is_attacking_anim = true;
         player.attack_anim_alpha = 1;
-
         players.forEach(target => {
             if (target.id === player.id || target.team === player.team) return;
             const dist = Math.sqrt(Math.pow(player.x - target.x, 2) + Math.pow(player.y - target.y, 2));
-            if (dist < playerSize * 1.5) { // 검사 공격 범위 (플레이어 크기의 1.5배 반경)
+            if (dist < playerSize * 1.5) {
                 const damage = Math.random() < criticalHitChance ? 4 : 2;
                 target.health -= damage;
                 target.last_attacker_id = player.id;
@@ -700,7 +717,7 @@ function attack(player) {
         createDagger(0);
         createDagger(200);
     } else if (charInfo.id === 'healer') {
-        const closestAlly = players.find(p => p.id !== player.id && p.team === player.team);
+        const closestAlly = findClosestAlly(player.id);
         if (closestAlly) {
              projectiles.push(createProjectile(player, closestAlly, 'heal'));
         }
@@ -719,12 +736,11 @@ function defend(player) {
 
     const charInfo = characters[player.char_index];
     if (charInfo.id === 'warrior') {
-        // 전사 방어 로직 (반격)은 projectile collision에 이미 구현됨
     } else if (charInfo.id === 'archer') {
         const closestEnemy = findClosestEnemy(player.id);
         if (closestEnemy) {
             const projectile = createProjectile(player, closestEnemy, 'damage', 0);
-            projectile.homingTarget = closestEnemy.id;
+            projectile.homingTargetId = closestEnemy.id;
             projectiles.push(projectile);
         }
     } else if (charInfo.id === 'rogue') {
@@ -749,6 +765,7 @@ function getDirectionAngle(direction) {
 function createProjectile(owner, target = null, type = 'damage', angle = 0) {
     const charInfo = characters[owner.char_index];
     let vx = 0, vy = 0;
+    
     if (target) {
         const dx = target.x - owner.x;
         const dy = target.y - owner.y;
@@ -792,6 +809,21 @@ function findClosestEnemy(playerId) {
         }
     });
     return closestEnemy;
+}
+
+function findClosestAlly(playerId) {
+    const player = players.find(p => p.id === playerId);
+    let closestAlly = null;
+    let minDistance = Infinity;
+    players.forEach(ally => {
+        if (ally.id === playerId || ally.team !== player.team || ally.health <= 0) return;
+        const dist = Math.sqrt(Math.pow(ally.x - player.x, 2) + Math.pow(ally.y - player.y, 2));
+        if (dist < minDistance) {
+            minDistance = dist;
+            closestAlly = ally;
+        }
+    });
+    return closestAlly;
 }
 
 function checkCollision(x1, y1, r1, x2, y2, s2) {
