@@ -12,7 +12,7 @@ let players = [];
 let walls = [];
 let healthPotions = [];
 let projectiles = [];
-let activeEffects = []; // 데미지 텍스트를 위한 배열
+let activeEffects = []; 
 let currentInputPlayer = 1;
 
 const characters = [
@@ -293,7 +293,6 @@ function updateGame(deltaTime) {
     });
 
     projectiles.forEach(p => {
-        // ⭐ 수정: 투사체 이동 및 적/아군 충돌 처리
         if (p.homingTargetId) {
             const target = players.find(player => player.id === p.homingTargetId);
             if (target) {
@@ -313,9 +312,7 @@ function updateGame(deltaTime) {
         players.forEach(target => {
             if (target.health <= 0 || target.id === p.ownerId) return;
 
-            // 힐 투사체는 아군에게만
             if (p.type === 'heal' && target.team !== p.ownerTeam) return;
-            // 공격 투사체는 적에게만
             if (p.type === 'damage' && target.team === p.ownerTeam) return;
 
             if (checkCollision(p.x, p.y, 10, target.x, target.y, playerSize)) {
@@ -331,7 +328,7 @@ function updateGame(deltaTime) {
                         y_velocity: -1,
                         lifetime: 60
                     });
-                } else { // 'damage' type
+                } else { 
                     if (target.is_defending) {
                         if (characters[target.char_index].id === 'warrior') {
                             projectiles.push(createProjectile(target, p.ownerId));
@@ -366,7 +363,7 @@ function updateGame(deltaTime) {
                              target.active_debuffs.stun = { endTime: performance.now() + 2000 };
                         }
                         if (p.charId === 'rogue') {
-                            // ... 출혈 로직
+                            // 출혈 로직
                         }
                     }
                 }
@@ -486,7 +483,7 @@ function drawGame() {
 }
 
 function drawWarriorAttackEffect(player) {
-    const attackAngle = Math.PI / 2; // 검이 휘둘러지는 각도 (90도)
+    const attackAngle = Math.PI / 2; 
     let startAngle = 0;
     let endAngle = 0;
     
@@ -794,6 +791,12 @@ function createProjectile(owner, target = null, type = 'damage', angle = 0) {
         radius: 10,
         charId: charInfo.id
     };
+}
+
+function createHomingProjectile(owner, target) {
+    const projectile = createProjectile(owner, target, 'damage', 0);
+    projectile.homingTargetId = target.id;
+    return projectile;
 }
 
 function findClosestEnemy(playerId) {
