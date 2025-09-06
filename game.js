@@ -12,8 +12,10 @@ let players = [];
 let walls = [];
 let healthPotions = [];
 let projectiles = [];
+let activeEffects = []; // ⭐ 추가: 데미지 텍스트를 위한 배열
 let currentInputPlayer = 1;
 
+// 캐릭터 데이터 (기존과 동일)
 const characters = [
     { name: "검사", color: "red", id: "warrior", symbol_color: "white", max_health: 12, speed_factor: 0.8, stats: { "공격력": "보통 (2~4)", "체력": "높음 (12)", "이동 속도": "느림" }, skill_description: "전방위로 검을 휘둘러 적에게 피해를 입힙니다. 방어 시 투사체를 막아내고 반격할 수 있습니다." },
     { name: "마법사", color: "blue", id: "mage", symbol_color: "yellow", max_health: 15, speed_factor: 1.0, stats: { "공격력": "보통 (2~4)", "체력": "보통 (15)", "이동 속도": "보통" }, skill_description: "마법 구체를 발사하여 적에게 피해를 입힙니다. 공격 시 일정 확률로 적을 기절시킵니다." },
@@ -311,6 +313,18 @@ function updateGame(deltaTime) {
                     target.health -= damage;
                     target.last_attacker_id = p.ownerId;
                     
+                    // ⭐ 추가: 데미지 이펙트
+                    const isCritical = damage > 2;
+                    activeEffects.push({
+                         text: damage,
+                         x: target.x + playerSize / 2,
+                         y: target.y,
+                         color: isCritical ? 'yellow' : 'white',
+                         alpha: 1,
+                         y_velocity: -1,
+                         lifetime: 60
+                    });
+
                     const knockbackStrength = 10;
                     target.knockback_vector.x = (p.vx > 0 ? 1 : -1) * knockbackStrength;
                     target.knockback_vector.y = (p.vy > 0 ? 1 : -1) * knockbackStrength;
@@ -330,6 +344,14 @@ function updateGame(deltaTime) {
             projectiles = projectiles.filter(proj => proj !== p);
         }
     });
+    
+    // ⭐ 추가: 이펙트 업데이트
+    activeEffects.forEach(effect => {
+        effect.y += effect.y_velocity;
+        effect.alpha -= 1 / 60;
+        effect.lifetime--;
+    });
+    activeEffects = activeEffects.filter(effect => effect.lifetime > 0);
 
     if (selectedMap !== 'fallout' && performance.now() - (lastGameLoopTime) > 8000) {
         if (healthPotions.length < 3) {
@@ -372,6 +394,17 @@ function drawGame() {
         ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
         ctx.fill();
     });
+    
+    // ⭐ 추가: 이펙트 먼저 그리기 (캐릭터 위로 뜨도록)
+    activeEffects.forEach(effect => {
+         ctx.save();
+         ctx.globalAlpha = effect.alpha;
+         ctx.fillStyle = effect.color;
+         ctx.font = '20px Arial';
+         ctx.textAlign = 'center';
+         ctx.fillText(`-${effect.text}`, effect.x, effect.y);
+         ctx.restore();
+    });
 
     players.forEach(player => {
         if (player.health <= 0) return;
@@ -397,6 +430,11 @@ function drawGame() {
         drawPlayerUI(player);
         
         if (player.is_defending) drawDefenseShield(player);
+        
+        // ⭐ 추가: 검사 공격 이펙트
+        if (player.id === 1 && player.is_attacking_warrior) {
+            drawWarriorAttackEffect(player);
+        }
     });
 
     projectiles.forEach(p => {
@@ -407,24 +445,42 @@ function drawGame() {
     });
 }
 
+// ⭐ 추가: 검사 공격 효과 그리기
+function drawWarriorAttackEffect(player) {
+    ctx.fillStyle = `rgba(255, 255, 255, ${player.attack_alpha})`;
+    ctx.beginPath();
+    ctx.arc(player.x + playerSize / 2, player.y + playerSize / 2, playerSize * 1.5, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+
+// ⭐ 수정된 부분: drawPlayerUI 함수 수정 ⭐
 function drawPlayerUI(player) {
+    // 닉네임
     ctx.fillStyle = 'white';
     ctx.font = '16px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText(player.nickname, player.x + playerSize / 2, player.y - 10);
+    ctx.fillText(player.nickname, player.x + playerSize / 2, player.y - 30);
     
+    // 체력바
     const barWidth = playerSize;
     const barHeight = 5;
     ctx.fillStyle = 'black';
-    ctx.fillRect(player.x, player.y - 5, barWidth, barHeight);
+    ctx.fillRect(player.x, player.y - 15, barWidth, barHeight);
     
     const healthRatio = player.health / player.max_health;
     ctx.fillStyle = 'red';
-    ctx.fillRect(player.x, player.y - 5, barWidth * healthRatio, barHeight);
+    ctx.fillRect(player.x, player.y - 15, barWidth * healthRatio, barHeight);
+
+    // ⭐ 추가: 남은 체력 숫자
+    ctx.fillStyle = 'white';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${Math.max(0, Math.floor(player.health))}/${player.max_health}`, player.x + playerSize / 2, player.y - 20);
     
     if (player.active_debuffs.stun) {
         ctx.fillStyle = 'white';
-        ctx.fillText('마비', player.x + playerSize / 2, player.y - 25);
+        ctx.fillText('마비', player.x + playerSize / 2, player.y - 45);
     }
 }
 
@@ -518,12 +574,32 @@ function attack(player) {
     player.last_attack_time = now;
 
     if (charInfo.id === 'warrior') {
+        // ⭐ 수정: 검사 공격 시각화 추가
+        player.is_attacking_warrior = true;
+        player.attack_alpha = 1;
+        setTimeout(() => {
+            player.is_attacking_warrior = false;
+        }, 200);
+
         players.forEach(target => {
             if (target.id === player.id || target.team === player.team) return;
             const dist = Math.sqrt(Math.pow(player.x - target.x, 2) + Math.pow(player.y - target.y, 2));
             if (dist < playerSize * 1.5) {
-                target.health -= 3;
+                const damage = Math.random() < criticalHitChance ? 4 : 2;
+                target.health -= damage;
                 target.last_attacker_id = player.id;
+                
+                // ⭐ 추가: 데미지 이펙트
+                const isCritical = damage > 2;
+                activeEffects.push({
+                     text: damage,
+                     x: target.x + playerSize / 2,
+                     y: target.y,
+                     color: isCritical ? 'yellow' : 'white',
+                     alpha: 1,
+                     y_velocity: -1,
+                     lifetime: 60
+                });
             }
         });
     } else if (charInfo.id === 'mage') {
