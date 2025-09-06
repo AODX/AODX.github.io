@@ -44,7 +44,6 @@ let lastGameLoopTime = 0;
 let gameLoopId = null;
 let startTime = 0;
 
-// UI 상태 관리 (기존과 동일)
 function showScreen(id) {
     document.querySelectorAll('.screen').forEach(screen => screen.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
@@ -181,13 +180,14 @@ function processNickname() {
     }
 }
 
-// 게임 로직
+// ⭐ 수정된 부분: startGameLoop 함수 수정 ⭐
 function startGameLoop() {
     gameState = 'playing';
-    uiOverlay.style.display = 'none'; // 게임 시작 시 UI 오버레이 숨기기
+    uiOverlay.style.display = 'none';
     gameInfoOverlay.classList.remove('hidden');
 
-    const positions = [(300, 400), (900, 400), (600, 200), (600, 600)];
+    // ⭐ 수정: 파이썬 튜플을 JavaScript 배열로 변경 ⭐
+    const positions = [[300, 400], [900, 400], [600, 200], [600, 600]];
     players.forEach((player, i) => {
         const charInfo = characters[player.char_index];
         player.max_health = charInfo.max_health;
@@ -210,10 +210,9 @@ function startGameLoop() {
         spawnHealthPotion();
     }
 
-    // ⭐ 수정된 부분: 이벤트 리스너 추가 ⭐
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
-    canvas.addEventListener('click', onCanvasClick); // 마우스 클릭 이벤트 추가
+    canvas.addEventListener('click', onCanvasClick);
     
     startTime = performance.now();
     lastGameLoopTime = startTime;
@@ -249,7 +248,6 @@ function updateGame(deltaTime) {
     players.forEach(player => {
         if (player.health <= 0) return;
         
-        // 낙하 로직 (기존과 동일)
         if (player.is_falling) {
             player.y += player.fall_speed;
             player.fall_speed += 0.5;
@@ -261,7 +259,6 @@ function updateGame(deltaTime) {
             return;
         }
 
-        // 스턴 상태 확인 (기존과 동일)
         if (player.active_debuffs.stun) {
             if (performance.now() > player.active_debuffs.stun.endTime) {
                 delete player.active_debuffs.stun;
@@ -277,7 +274,6 @@ function updateGame(deltaTime) {
         if (player.moving.left) dx -= currentSpeed;
         if (player.moving.right) dx += currentSpeed;
 
-        // 넉백 적용 (기존과 동일)
         player.x += player.knockback_vector.x;
         player.y += player.knockback_vector.y;
         player.knockback_vector.x *= 0.8;
@@ -285,7 +281,6 @@ function updateGame(deltaTime) {
         if (Math.abs(player.knockback_vector.x) < 1) player.knockback_vector.x = 0;
         if (Math.abs(player.knockback_vector.y) < 1) player.knockback_vector.y = 0;
 
-        // 이동 및 벽 충돌 처리 (기존과 동일)
         let newX = player.x + dx * deltaTime * 60;
         let newY = player.y + dy * deltaTime * 60;
         
@@ -297,7 +292,6 @@ function updateGame(deltaTime) {
         }
     });
 
-    // 투사체 업데이트 (기존과 동일)
     projectiles.forEach(p => {
         p.x += p.vx;
         p.y += p.vy;
@@ -341,7 +335,6 @@ function updateGame(deltaTime) {
         }
     });
 
-    // 체력 포션 생성 및 충돌 (기존과 동일)
     if (selectedMap !== 'fallout' && performance.now() - (lastGameLoopTime) > 8000) {
         if (healthPotions.length < 3) {
             spawnHealthPotion();
@@ -357,16 +350,16 @@ function updateGame(deltaTime) {
         });
     });
 
-    // 추락 맵 경계 체크 (기존과 동일)
     if (selectedMap === 'fallout') {
         checkFalloutBoundary();
     }
 }
 
-// 그리기 로직 (기존과 동일)
+// ⭐ 수정된 부분: drawGame 함수 수정 ⭐
 function drawGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+    // 맵 그리기 (가장 아래)
     if (selectedMap === 'fallout') {
         ctx.fillStyle = 'saddlebrown';
         ctx.beginPath();
@@ -374,11 +367,13 @@ function drawGame() {
         ctx.fill();
     }
     
+    // 벽 그리기
     walls.forEach(wall => {
         ctx.fillStyle = 'gray';
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
     });
     
+    // 체력 포션 그리기
     healthPotions.forEach(p => {
         ctx.fillStyle = 'purple';
         ctx.beginPath();
@@ -386,6 +381,7 @@ function drawGame() {
         ctx.fill();
     });
 
+    // 플레이어 그리기 (중간 레이어)
     players.forEach(player => {
         if (player.health <= 0) return;
 
@@ -408,6 +404,7 @@ function drawGame() {
         if (player.is_defending) drawDefenseShield(player);
     });
 
+    // 투사체 그리기 (가장 위)
     projectiles.forEach(p => {
         ctx.fillStyle = p.color;
         ctx.beginPath();
@@ -416,12 +413,15 @@ function drawGame() {
     });
 }
 
+// ⭐ 수정된 부분: drawPlayerUI 함수 수정 ⭐
 function drawPlayerUI(player) {
+    // 닉네임
     ctx.fillStyle = 'white';
     ctx.font = '16px Arial';
     ctx.textAlign = 'center';
     ctx.fillText(player.nickname, player.x + playerSize / 2, player.y - 10);
     
+    // 체력바
     const barWidth = playerSize;
     const barHeight = 5;
     ctx.fillStyle = 'black';
@@ -452,7 +452,6 @@ function drawDefenseShield(player) {
     }
 }
 
-// 키 이벤트 핸들러 (기존과 동일)
 function onKeyDown(event) {
     const key = event.key;
     const player = players.find(p => {
@@ -485,13 +484,12 @@ function onKeyUp(event) {
         if (controls) {
             if (key === controls.move.up) player.moving.up = false;
             if (key === controls.move.down) player.moving.down = false;
-            if (key === controls[player.id].move.left) player.moving.left = false;
+            if (key === controls.move.left) player.moving.left = false;
             if (key === controls.move.right) player.moving.right = false;
         }
     });
 }
 
-// ⭐ 추가된 부분: 마우스 클릭 핸들러 ⭐
 function onCanvasClick(event) {
     if (gameState !== 'playing') return;
 
@@ -499,7 +497,6 @@ function onCanvasClick(event) {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
-    // 플레이어 1이 마우스로 공격한다고 가정
     const player1 = players.find(p => p.id === 1);
     if (player1) {
         const now = performance.now();
@@ -507,7 +504,6 @@ function onCanvasClick(event) {
         
         player1.last_attack_time = now;
 
-        // 클릭 위치를 향하는 투사체 발사
         const dx = x - (player1.x + playerSize / 2);
         const dy = y - (player1.y + playerSize / 2);
         const angle = Math.atan2(dy, dx);
@@ -516,14 +512,68 @@ function onCanvasClick(event) {
     }
 }
 
-
 function attack(player) {
-    // ... (기존과 동일)
-    // 이 함수는 키보드 공격만 처리
+    const now = performance.now();
+    if (now - player.last_attack_time < player.attack_cooldown * 1000) return;
+    
+    const charInfo = characters[player.char_index];
+    
+    player.last_attack_time = now;
+
+    if (charInfo.id === 'warrior') {
+        players.forEach(target => {
+            if (target.id === player.id || target.team === player.team) return;
+            const dist = Math.sqrt(Math.pow(player.x - target.x, 2) + Math.pow(player.y - target.y, 2));
+            if (dist < playerSize * 1.5) {
+                target.health -= 3;
+                target.last_attacker_id = player.id;
+            }
+        });
+    } else if (charInfo.id === 'healer') {
+        const closestAlly = players.find(p => p.id !== player.id && p.team === player.team);
+        if (closestAlly) {
+             projectiles.push(createProjectile(player, closestAlly, 'heal'));
+        }
+    } else if (charInfo.id === 'rogue') {
+        const createDagger = (delay) => {
+             setTimeout(() => {
+                const angle = getDirectionAngle(player.last_direction);
+                projectiles.push(createProjectile(player, null, 'damage', angle));
+             }, delay);
+        };
+        createDagger(0);
+        createDagger(200);
+    } else {
+        const angle = getDirectionAngle(player.last_direction);
+        projectiles.push(createProjectile(player, null, 'damage', angle));
+        
+        if (charInfo.id === 'archer' && Math.random() < archerDoubleShotChance) {
+             setTimeout(() => {
+                const angle2 = getDirectionAngle(player.last_direction) + (Math.PI / 16);
+                projectiles.push(createProjectile(player, null, 'damage', angle2));
+             }, 100);
+        }
+    }
 }
 
 function defend(player) {
-    // ... (기존과 동일)
+    const now = performance.now();
+    if (now - player.last_defense_time < player.defense_cooldown * 1000) return;
+    
+    player.last_defense_time = now;
+    player.is_defending = true;
+    setTimeout(() => {
+        player.is_defending = false;
+    }, 700);
+
+    const charInfo = characters[player.char_index];
+    if (charInfo.id === 'rogue') {
+        const closestEnemy = findClosestEnemy(player.id);
+        if (closestEnemy) {
+            player.x = closestEnemy.x + (closestEnemy.x > player.x ? -playerSize - 10 : playerSize + 10);
+            player.y = closestEnemy.y;
+        }
+    }
 }
 
 function getDirectionAngle(direction) {
@@ -535,7 +585,6 @@ function getDirectionAngle(direction) {
 }
 
 function createProjectile(owner, target = null, type = 'damage', angle = 0) {
-    // ... (기존과 동일)
     const charInfo = characters[owner.char_index];
     let vx = 0, vy = 0;
     if (target) {
