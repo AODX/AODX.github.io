@@ -9,7 +9,6 @@
 <body>
     <div id="game-container">
         <canvas id="gameCanvas" width="1200" height="800"></canvas>
-        
         <div id="ui-overlay">
             <div id="start-screen" class="screen active">
                 <h1>플레이어 인원 선택</h1>
@@ -19,7 +18,6 @@
                     <button onclick="startGame(4)">4인 플레이</button>
                 </div>
             </div>
-
             <div id="map-selection-screen" class="screen hidden">
                 <h1>맵을 선택하세요</h1>
                 <div class="button-group">
@@ -28,13 +26,11 @@
                     <button onclick="selectMap('fallout')">추락 맵</button>
                 </div>
             </div>
-
             <div id="character-selection-screen" class="screen hidden">
                 <h1 id="character-selection-title"></h1>
                 <div id="character-buttons" class="button-group"></div>
                 <div id="character-details"></div>
             </div>
-
             <div id="team-selection-screen" class="screen hidden">
                 <h1 id="team-selection-title"></h1>
                 <div class="button-group">
@@ -42,13 +38,14 @@
                     <button onclick="selectTeam(2)">팀 2</button>
                 </div>
             </div>
-
             <div id="nickname-input-screen" class="screen hidden">
                 <h1 id="nickname-input-title"></h1>
-                <input type="text" id="nickname-entry" placeholder="닉네임을 입력하세요">
+                <input type="text" id="nickname-entry" placeholder="닉네임을 입력하세요" onkeypress="handleNicknameEnter(event)">
                 <button onclick="processNickname()">확인</button>
             </div>
-
+            <div id="game-info-overlay" class="hidden">
+                <span id="time-limit-text">남은 시간: 120</span>
+            </div>
             <div id="game-over-screen" class="screen hidden">
                 <h1 id="game-over-text"></h1>
                 <button onclick="resetGame()">메인 화면으로</button>
@@ -58,6 +55,7 @@
     <script src="game.js"></script>
 </body>
 </html>
+
 
 
 
