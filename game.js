@@ -14,7 +14,6 @@ let healthPotions = [];
 let projectiles = [];
 let currentInputPlayer = 1;
 
-// 캐릭터 데이터 (기존과 동일)
 const characters = [
     { name: "검사", color: "red", id: "warrior", symbol_color: "white", max_health: 12, speed_factor: 0.8, stats: { "공격력": "보통 (2~4)", "체력": "높음 (12)", "이동 속도": "느림" }, skill_description: "전방위로 검을 휘둘러 적에게 피해를 입힙니다. 방어 시 투사체를 막아내고 반격할 수 있습니다." },
     { name: "마법사", color: "blue", id: "mage", symbol_color: "yellow", max_health: 15, speed_factor: 1.0, stats: { "공격력": "보통 (2~4)", "체력": "보통 (15)", "이동 속도": "보통" }, skill_description: "마법 구체를 발사하여 적에게 피해를 입힙니다. 공격 시 일정 확률로 적을 기절시킵니다." },
@@ -23,7 +22,6 @@ const characters = [
     { name: "힐러", color: "white", id: "healer", symbol_color: "gold", max_health: 15, speed_factor: 1.0, stats: { "공격력": "없음", "체력": "높음 (15)", "이동 속도": "보통" }, skill_description: "자신과 아군을 회복시키는 힐링 투사체를 발사합니다." }
 ];
 
-// 조작 키 (기존과 동일)
 const playerControls = {
     1: { move: { up: 'w', down: 's', left: 'a', right: 'd' }, attack: 'q', defense: 'e' },
     2: { move: { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' }, attack: 'o', defense: 'p' },
@@ -353,7 +351,6 @@ function updateGame(deltaTime) {
     }
 }
 
-// ⭐ 수정된 부분: drawGame 함수 수정 ⭐
 function drawGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
@@ -386,20 +383,17 @@ function drawGame() {
         ctx.translate(player.x + playerSize / 2, player.y + playerSize / 2);
         ctx.scale(scale, scale);
         
-        // 플레이어 몸체
         ctx.fillStyle = charInfo.color;
         ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
         
-        // 심볼
         ctx.fillStyle = 'white';
         ctx.font = '30px Arial';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle'; // 텍스트를 정중앙에 정렬
+        ctx.textBaseline = 'middle';
         ctx.fillText('★', 0, 0);
 
         ctx.restore();
         
-        // UI (닉네임, 체력바)는 플레이어 몸체와 분리해서 그리기
         drawPlayerUI(player);
         
         if (player.is_defending) drawDefenseShield(player);
@@ -414,13 +408,11 @@ function drawGame() {
 }
 
 function drawPlayerUI(player) {
-    // 닉네임
     ctx.fillStyle = 'white';
     ctx.font = '16px Arial';
     ctx.textAlign = 'center';
     ctx.fillText(player.nickname, player.x + playerSize / 2, player.y - 10);
     
-    // 체력바
     const barWidth = playerSize;
     const barHeight = 5;
     ctx.fillStyle = 'black';
@@ -451,14 +443,12 @@ function drawDefenseShield(player) {
     }
 }
 
-// ⭐ 수정된 부분: onKeyDown 함수 수정 ⭐
 function onKeyDown(event) {
     const key = event.key;
     
-    // Esc 키를 가장 먼저 처리
     if (key === 'Escape' && gameState === 'playing') {
         resetGame();
-        return; // Esc 키가 눌리면 다른 로직은 실행하지 않음
+        return;
     }
     
     const player = players.find(p => {
@@ -536,10 +526,19 @@ function attack(player) {
                 target.last_attacker_id = player.id;
             }
         });
-    } else if (charInfo.id === 'healer') {
-        const closestAlly = players.find(p => p.id !== player.id && p.team === player.team);
-        if (closestAlly) {
-             projectiles.push(createProjectile(player, closestAlly, 'heal'));
+    } else if (charInfo.id === 'mage') {
+        const angle = getDirectionAngle(player.last_direction);
+        const projectile = createProjectile(player, null, 'damage', angle);
+        projectile.debuff = 'stun';
+        projectiles.push(projectile);
+    } else if (charInfo.id === 'archer') {
+        const angle = getDirectionAngle(player.last_direction);
+        projectiles.push(createProjectile(player, null, 'damage', angle));
+        if (Math.random() < archerDoubleShotChance) {
+             setTimeout(() => {
+                const angle2 = getDirectionAngle(player.last_direction) + (Math.PI / 16);
+                projectiles.push(createProjectile(player, null, 'damage', angle2));
+             }, 100);
         }
     } else if (charInfo.id === 'rogue') {
         const createDagger = (delay) => {
@@ -550,15 +549,10 @@ function attack(player) {
         };
         createDagger(0);
         createDagger(200);
-    } else {
-        const angle = getDirectionAngle(player.last_direction);
-        projectiles.push(createProjectile(player, null, 'damage', angle));
-        
-        if (charInfo.id === 'archer' && Math.random() < archerDoubleShotChance) {
-             setTimeout(() => {
-                const angle2 = getDirectionAngle(player.last_direction) + (Math.PI / 16);
-                projectiles.push(createProjectile(player, null, 'damage', angle2));
-             }, 100);
+    } else if (charInfo.id === 'healer') {
+        const closestAlly = players.find(p => p.id !== player.id && p.team === player.team);
+        if (closestAlly) {
+             projectiles.push(createProjectile(player, closestAlly, 'heal'));
         }
     }
 }
@@ -574,11 +568,22 @@ function defend(player) {
     }, 700);
 
     const charInfo = characters[player.char_index];
-    if (charInfo.id === 'rogue') {
+    if (charInfo.id === 'warrior') {
+        // 전사 방어 로직 (반격)은 projectile collision에 이미 구현됨
+    } else if (charInfo.id === 'archer') {
         const closestEnemy = findClosestEnemy(player.id);
         if (closestEnemy) {
-            player.x = closestEnemy.x + (closestEnemy.x > player.x ? -playerSize - 10 : playerSize + 10);
-            player.y = closestEnemy.y;
+            const projectile = createProjectile(player, closestEnemy, 'damage', 0);
+            projectile.homingTarget = closestEnemy.id;
+            projectiles.push(projectile);
+        }
+    } else if (charInfo.id === 'rogue') {
+        const closestEnemy = findClosestEnemy(player.id);
+        if (closestEnemy) {
+            const teleportX = closestEnemy.x + (closestEnemy.x > player.x ? -playerSize - 10 : playerSize + 10);
+            const teleportY = closestEnemy.y;
+            player.x = teleportX;
+            player.y = teleportY;
         }
     }
 }
