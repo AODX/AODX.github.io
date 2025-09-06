@@ -1,383 +1,63 @@
-// game.js
-
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const uiOverlay = document.getElementById('ui-overlay');
-
-let gameState = 'player_selection';
-let playerCount = 2;
-let selectedMap = 'blank';
-let players = [];
-let walls = [];
-let healthPotions = [];
-let projectiles = [];
-let currentInputPlayer = 1;
-
-const characters = [
-    { name: "검사", color: "red", id: "warrior", symbol_color: "white", max_health: 12, speed_factor: 0.8, stats: { "공격력": "보통 (2~4)", "체력": "높음 (12)", "이동 속도": "느림" }, skill_description: "전방위로 검을 휘둘러 적에게 피해를 입힙니다. 방어 시 투사체를 막아내고 반격할 수 있습니다." },
-    { name: "마법사", color: "blue", id: "mage", symbol_color: "yellow", max_health: 15, speed_factor: 1.0, stats: { "공격력": "보통 (2~4)", "체력": "보통 (15)", "이동 속도": "보통" }, skill_description: "마법 구체를 발사하여 적에게 피해를 입힙니다. 공격 시 일정 확률로 적을 기절시킵니다." },
-    { name: "궁수", color: "green", id: "archer", symbol_color: "orange", max_health: 10, speed_factor: 1.2, stats: { "공격력": "약함 (1~2)", "체력": "낮음 (10)", "이동 속도": "빠름" }, skill_description: "화살을 발사하여 적에게 피해를 입힙니다. 방어 시 가장 가까운 적을 추적하는 유도 화살을 발사합니다." },
-    { name: "도적", color: "yellow", id: "rogue", symbol_color: "purple", max_health: 7, speed_factor: 1.4, stats: { "공격력": "매우 약함 (1~2)", "체력": "매우 낮음 (7)", "이동 속도": "매우 빠름" }, skill_description: "단검을 빠르게 2번 던집니다. 방어 시 순간이동 단검을 던져 적의 등 뒤로 순간이동합니다." },
-    { name: "힐러", color: "white", id: "healer", symbol_color: "gold", max_health: 15, speed_factor: 1.0, stats: { "공격력": "없음", "체력": "높음 (15)", "이동 속도": "보통" }, skill_description: "자신과 아군을 회복시키는 힐링 투사체를 발사합니다." }
-];
-
-const playerControls = {
-    1: { move: { up: 'w', down: 's', left: 'a', right: 'd' }, attack: 'q', defense: 'e' },
-    2: { move: { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' }, attack: 'o', defense: 'p' },
-    3: { move: { up: 'i', down: 'k', left: 'j', right: 'l' }, attack: 'u', defense: 'm' },
-    4: { move: { up: 't', down: 'g', left: 'f', right: 'h' }, attack: 'r', defense: 'y' }
-};
-
-const playerSize = 50;
-const baseSpeed = 5;
-const projectileSpeed = 20;
-
-const keys = {};
-let lastGameLoopTime = 0;
-let gameLoopId = null;
-
-function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(screen => {
-        screen.classList.add('hidden');
-    });
-    document.getElementById(id).classList.remove('hidden');
-}
-
-function startGame(count) {
-    playerCount = count;
-    showScreen('map-selection-screen');
-    gameState = 'map_selection';
-}
-
-function selectMap(mapType) {
-    selectedMap = mapType;
-    if (selectedMap === "walled") {
-        walls = [
-            { x: 100, y: 100, width: 200, height: 20 },
-            { x: 500, y: 250, width: 100, height: 200 },
-            { x: 900, y: 500, width: 200, height: 20 },
-            { x: 200, y: 600, width: 200, height: 20 },
-            { x: 700, y: 150, width: 20, height: 200 }
-        ];
-    } else {
-        walls = [];
-    }
-    currentInputPlayer = 1;
-    showCharacterSelection();
-}
-
-function showCharacterSelection() {
-    gameState = 'character_selection';
-    showScreen('character-selection-screen');
-    document.getElementById('character-selection-title').innerText = `플레이어 ${currentInputPlayer} 캐릭터를 선택하세요`;
-    const charButtonsContainer = document.getElementById('character-buttons');
-    charButtonsContainer.innerHTML = '';
-    
-    characters.forEach((char, index) => {
-        const button = document.createElement('button');
-        button.innerText = char.name;
-        button.style.backgroundColor = char.color;
-        button.onclick = () => selectCharacter(index);
-        button.addEventListener('mouseover', () => showCharacterDetails(char));
-        button.addEventListener('mouseout', hideCharacterDetails);
-        charButtonsContainer.appendChild(button);
-    });
-}
-
-function showCharacterDetails(char) {
-    let detailsText = `--- ${char.name} ---\n\n**능력치**\n`;
-    for (const stat in char.stats) {
-        detailsText += `- ${stat}: ${char.stats[stat]}\n`;
-    }
-    detailsText += `\n**스킬 설명**\n- ${char.skill_description}`;
-    document.getElementById('character-details').innerText = detailsText;
-}
-
-function hideCharacterDetails() {
-    document.getElementById('character-details').innerText = '';
-}
-
-function selectCharacter(charIndex) {
-    players.push({
-        id: players.length + 1,
-        char_index: charIndex,
-        team: 0,
-        x: 0, y: 0,
-        moving: { up: false, down: false, left: false, right: false },
-        last_direction: 'right',
-        health: 0,
-        max_health: 0,
-        is_defending: false,
-        last_attack_time: 0,
-        attack_cooldown: 0.5,
-        last_defense_time: 0,
-        defense_cooldown: 3.0,
-        knockback_vector: { x: 0, y: 0 },
-        active_debuffs: {},
-        is_falling: false,
-        fall_speed: 0,
-    });
-
-    if (currentInputPlayer < playerCount) {
-        currentInputPlayer++;
-        showCharacterSelection();
-    } else {
-        currentInputPlayer = 1;
-        showTeamSelection();
-    }
-}
-
-function showTeamSelection() {
-    gameState = 'team_selection';
-    showScreen('team-selection-screen');
-    document.getElementById('team-selection-title').innerText = `플레이어 ${currentInputPlayer} 팀 선택:`;
-}
-
-function selectTeam(team) {
-    players[currentInputPlayer - 1].team = team;
-    if (currentInputPlayer < playerCount) {
-        currentInputPlayer++;
-        showTeamSelection();
-    } else {
-        currentInputPlayer = 1;
-        showNicknameInput();
-    }
-}
-
-function showNicknameInput() {
-    gameState = 'nickname_input';
-    showScreen('nickname-input-screen');
-    document.getElementById('nickname-input-title').innerText = `플레이어 ${currentInputPlayer} 닉네임 입력:`;
-    document.getElementById('nickname-entry').focus();
-}
-
-function processNickname() {
-    let nickname = document.getElementById('nickname-entry').value;
-    if (!nickname) {
-        nickname = `플레이어 ${currentInputPlayer}`;
-    }
-    players[currentInputPlayer - 1].nickname = nickname;
-
-    if (currentInputPlayer < playerCount) {
-        currentInputPlayer++;
-        showNicknameInput();
-    } else {
-        startGameLoop();
-    }
-}
-
-function startGameLoop() {
-    gameState = 'playing';
-    uiOverlay.style.display = 'none';
-    
-    // 캐릭터 초기화
-    const positions = [(300, 400), (900, 400), (600, 200), (600, 600)];
-    players.forEach((player, i) => {
-        const charInfo = characters[player.char_index];
-        player.max_health = charInfo.max_health;
-        player.health = player.max_health;
-        player.speed = baseSpeed * charInfo.speed_factor;
-        player.x = positions[i][0];
-        player.y = positions[i][1];
-
-        // 특수 캐릭터 설정
-        if (charInfo.id === "warrior") player.attack_cooldown = 1.0;
-        if (charInfo.id === "healer") player.attack_cooldown = 2.0;
-        if (charInfo.id === "rogue") player.attack_cooldown = 0.7;
-        if (charInfo.id === "mage") player.debuff_chance = 0.25;
-    });
-
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
-    
-    lastGameLoopTime = performance.now();
-    gameLoopId = requestAnimationFrame(gameLoop);
-}
-
-function gameLoop(timestamp) {
-    const deltaTime = (timestamp - lastGameLoopTime) / 1000;
-    lastGameLoopTime = timestamp;
-
-    // 캔버스 초기화
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // 게임 요소 업데이트 및 그리기
-    updateGame(deltaTime);
-    drawGame();
-
-    // 게임 상태 확인
-    const alivePlayers = players.filter(p => p.health > 0);
-    const aliveTeams = new Set(alivePlayers.map(p => p.team));
-
-    if (aliveTeams.size <= 1 && players.length > 1) {
-        endGame(alivePlayers);
-    } else {
-        gameLoopId = requestAnimationFrame(gameLoop);
-    }
-}
-
-function updateGame(deltaTime) {
-    players.forEach(player => {
-        if (player.health <= 0) return;
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Battle Character Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="1200" height="800"></canvas>
         
-        let dx = 0, dy = 0;
-        if (player.moving.up) dy -= player.speed;
-        if (player.moving.down) dy += player.speed;
-        if (player.moving.left) dx -= player.speed;
-        if (player.moving.right) dx += player.speed;
+        <div id="ui-overlay">
+            <div id="start-screen" class="screen active">
+                <h1>플레이어 인원 선택</h1>
+                <div class="button-group">
+                    <button onclick="startGame(2)">2인 플레이</button>
+                    <button onclick="startGame(3)">3인 플레이</button>
+                    <button onclick="startGame(4)">4인 플레이</button>
+                </div>
+            </div>
 
-        // 이동 및 충돌 처리 (부분적으로 구현)
-        player.x += dx * deltaTime * 60;
-        player.y += dy * deltaTime * 60;
+            <div id="map-selection-screen" class="screen hidden">
+                <h1>맵을 선택하세요</h1>
+                <div class="button-group">
+                    <button onclick="selectMap('blank')">빈 맵</button>
+                    <button onclick="selectMap('walled')">벽이 있는 맵</button>
+                    <button onclick="selectMap('fallout')">추락 맵</button>
+                </div>
+            </div>
 
-        // 경계 충돌 처리
-        player.x = Math.max(0, Math.min(canvas.width - playerSize, player.x));
-        player.y = Math.max(0, Math.min(canvas.height - playerSize, player.y));
-    });
+            <div id="character-selection-screen" class="screen hidden">
+                <h1 id="character-selection-title"></h1>
+                <div id="character-buttons" class="button-group"></div>
+                <div id="character-details"></div>
+            </div>
 
-    // 프로젝트일 이동 및 충돌 처리
-    projectiles.forEach(p => {
-        p.x += p.vx * deltaTime * 60;
-        p.y += p.vy * deltaTime * 60;
-        
-        // 충돌 체크 (부분적으로 구현)
-        // ...
-    });
-}
+            <div id="team-selection-screen" class="screen hidden">
+                <h1 id="team-selection-title"></h1>
+                <div class="button-group">
+                    <button onclick="selectTeam(1)">팀 1</button>
+                    <button onclick="selectTeam(2)">팀 2</button>
+                </div>
+            </div>
 
-function drawGame() {
-    // 맵 그리기
-    drawMap();
-    
-    // 플레이어 그리기
-    players.forEach(player => {
-        if (player.health <= 0) return;
-        const charInfo = characters[player.char_index];
+            <div id="nickname-input-screen" class="screen hidden">
+                <h1 id="nickname-input-title"></h1>
+                <input type="text" id="nickname-entry" placeholder="닉네임을 입력하세요">
+                <button onclick="processNickname()">확인</button>
+            </div>
 
-        // 몸체
-        ctx.fillStyle = charInfo.color;
-        ctx.fillRect(player.x, player.y, playerSize, playerSize);
+            <div id="game-over-screen" class="screen hidden">
+                <h1 id="game-over-text"></h1>
+                <button onclick="resetGame()">메인 화면으로</button>
+            </div>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
 
-        // 닉네임 및 체력바
-        drawPlayerUI(player);
-    });
-
-    // 투사체 그리기
-    projectiles.forEach(p => {
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fill();
-    });
-}
-
-function drawMap() {
-    if (selectedMap === 'fallout') {
-        ctx.fillStyle = 'saddlebrown';
-        ctx.beginPath();
-        ctx.arc(canvas.width / 2, canvas.height / 2, 350, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    
-    walls.forEach(wall => {
-        ctx.fillStyle = 'gray';
-        ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
-    });
-}
-
-function drawPlayerUI(player) {
-    // 닉네임
-    ctx.fillStyle = 'white';
-    ctx.font = '16px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(player.nickname, player.x + playerSize / 2, player.y - 10);
-    
-    // 체력바
-    const barWidth = playerSize;
-    const barHeight = 5;
-    ctx.fillStyle = 'black';
-    ctx.fillRect(player.x, player.y - 5, barWidth, barHeight);
-    
-    const healthRatio = player.health / player.max_health;
-    ctx.fillStyle = 'red';
-    ctx.fillRect(player.x, player.y - 5, barWidth * healthRatio, barHeight);
-}
-
-function onKeyDown(event) {
-    const key = event.key;
-    const playerIndex = players.findIndex(p => {
-        const controls = playerControls[p.id];
-        return Object.values(controls.move).includes(key) || controls.attack === key || controls.defense === key;
-    });
-
-    if (playerIndex !== -1) {
-        const player = players[playerIndex];
-        const controls = playerControls[player.id];
-        
-        if (key === controls.move.up) player.moving.up = true;
-        if (key === controls.move.down) player.moving.down = true;
-        if (key === controls.move.left) player.moving.left = true;
-        if (key === controls.move.right) player.moving.right = true;
-
-        if (key === controls.attack) attack(player);
-        if (key === controls.defense) defend(player);
-    }
-}
-
-function onKeyUp(event) {
-    const key = event.key;
-    const playerIndex = players.findIndex(p => {
-        const controls = playerControls[p.id];
-        return Object.values(controls.move).includes(key);
-    });
-
-    if (playerIndex !== -1) {
-        const player = players[playerIndex];
-        const controls = playerControls[player.id];
-        
-        if (key === controls.move.up) player.moving.up = false;
-        if (key === controls.move.down) player.moving.down = false;
-        if (key === controls.move.left) player.moving.left = false;
-        if (key === controls.move.right) player.moving.right = false;
-    }
-}
-
-// TODO: 파이썬 코드의 `attack`과 `defend` 함수 로직을 여기에 구현
-function attack(player) {
-    // ... 파이썬 코드의 공격 로직을 JavaScript로 변환하여 구현
-}
-
-function defend(player) {
-    // ... 파이썬 코드의 방어 로직을 JavaScript로 변환하여 구현
-}
-
-function endGame(winningPlayers) {
-    cancelAnimationFrame(gameLoopId);
-    uiOverlay.style.display = 'flex';
-    showScreen('game-over-screen');
-    
-    let endText = "게임 종료! 승자 없음 (무승부)";
-    if (winningPlayers.length > 0) {
-        const winnerNames = winningPlayers.map(p => p.nickname).join(', ');
-        const winnerTeam = winningPlayers[0].team;
-        endText = `팀 ${winnerTeam} 승리! (${winnerNames})`;
-    }
-    document.getElementById('game-over-text').innerText = endText;
-}
-
-function resetGame() {
-    // 변수 초기화
-    players = [];
-    projectiles = [];
-    healthPotions = [];
-    walls = [];
-    
-    showScreen('start-screen');
-    gameState = 'player_selection';
-    uiOverlay.style.display = 'flex';
-}
-
-// 게임 시작
-showScreen('start-screen');
 
 
