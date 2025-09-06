@@ -12,10 +12,9 @@ let players = [];
 let walls = [];
 let healthPotions = [];
 let projectiles = [];
-let activeEffects = []; // ⭐ 추가: 데미지 텍스트를 위한 배열
+let activeEffects = []; // 데미지 텍스트를 위한 배열
 let currentInputPlayer = 1;
 
-// 캐릭터 데이터 (기존과 동일)
 const characters = [
     { name: "검사", color: "red", id: "warrior", symbol_color: "white", max_health: 12, speed_factor: 0.8, stats: { "공격력": "보통 (2~4)", "체력": "높음 (12)", "이동 속도": "느림" }, skill_description: "전방위로 검을 휘둘러 적에게 피해를 입힙니다. 방어 시 투사체를 막아내고 반격할 수 있습니다." },
     { name: "마법사", color: "blue", id: "mage", symbol_color: "yellow", max_health: 15, speed_factor: 1.0, stats: { "공격력": "보통 (2~4)", "체력": "보통 (15)", "이동 속도": "보통" }, skill_description: "마법 구체를 발사하여 적에게 피해를 입힙니다. 공격 시 일정 확률로 적을 기절시킵니다." },
@@ -129,7 +128,11 @@ function selectCharacter(charIndex) {
         is_falling: false,
         fall_speed: 0,
         fall_scale: 1.0,
-        last_attacker_id: null
+        last_attacker_id: null,
+        // ⭐ 추가: 공격 및 방어 애니메이션 상태
+        is_attacking_anim: false,
+        attack_anim_alpha: 0,
+        defense_anim_alpha: 0
     });
 
     if (currentInputPlayer < playerCount) {
@@ -313,7 +316,6 @@ function updateGame(deltaTime) {
                     target.health -= damage;
                     target.last_attacker_id = p.ownerId;
                     
-                    // ⭐ 추가: 데미지 이펙트
                     const isCritical = damage > 2;
                     activeEffects.push({
                          text: damage,
@@ -345,13 +347,22 @@ function updateGame(deltaTime) {
         }
     });
     
-    // ⭐ 추가: 이펙트 업데이트
     activeEffects.forEach(effect => {
         effect.y += effect.y_velocity;
         effect.alpha -= 1 / 60;
         effect.lifetime--;
     });
     activeEffects = activeEffects.filter(effect => effect.lifetime > 0);
+
+    // ⭐ 추가: 공격 애니메이션 업데이트
+    players.forEach(player => {
+        if (player.is_attacking_anim) {
+            player.attack_anim_alpha = Math.max(0, player.attack_anim_alpha - deltaTime * 4); // 0.25초에 사라지도록
+        }
+        if (player.attack_anim_alpha <= 0) {
+            player.is_attacking_anim = false;
+        }
+    });
 
     if (selectedMap !== 'fallout' && performance.now() - (lastGameLoopTime) > 8000) {
         if (healthPotions.length < 3) {
@@ -395,7 +406,6 @@ function drawGame() {
         ctx.fill();
     });
     
-    // ⭐ 추가: 이펙트 먼저 그리기 (캐릭터 위로 뜨도록)
     activeEffects.forEach(effect => {
          ctx.save();
          ctx.globalAlpha = effect.alpha;
@@ -431,8 +441,8 @@ function drawGame() {
         
         if (player.is_defending) drawDefenseShield(player);
         
-        // ⭐ 추가: 검사 공격 이펙트
-        if (player.id === 1 && player.is_attacking_warrior) {
+        // ⭐ 수정: 모든 플레이어의 공격 애니메이션
+        if (player.is_attacking_anim && charInfo.id === 'warrior') { // 검사만 검을 휘두르는 모션
             drawWarriorAttackEffect(player);
         }
     });
@@ -445,42 +455,110 @@ function drawGame() {
     });
 }
 
-// ⭐ 추가: 검사 공격 효과 그리기
+// ⭐ 수정: 검사 공격 효과를 부채꼴로 변경
 function drawWarriorAttackEffect(player) {
-    ctx.fillStyle = `rgba(255, 255, 255, ${player.attack_alpha})`;
+    const attackAngle = Math.PI / 2; // 검이 휘둘러지는 각도 (90도)
+    let startAngle = 0;
+    let endAngle = 0;
+    
+    const playerCenterX = player.x + playerSize / 2;
+    const playerCenterY = player.y + playerSize / 2;
+
+    switch (player.last_direction) {
+        case 'a': // left
+        case 'ArrowLeft':
+            startAngle = Math.PI - attackAngle / 2;
+            endAngle = Math.PI + attackAngle / 2;
+            break;
+        case 'd': // right
+        case 'ArrowRight':
+            startAngle = -attackAngle / 2;
+            endAngle = attackAngle / 2;
+            break;
+        case 'w': // up
+        case 'ArrowUp':
+            startAngle = -Math.PI / 2 - attackAngle / 2;
+            endAngle = -Math.PI / 2 + attackAngle / 2;
+            break;
+        case 's': // down
+        case 'ArrowDown':
+            startAngle = Math.PI / 2 - attackAngle / 2;
+            endAngle = Math.PI / 2 + attackAngle / 2;
+            break;
+        default: // 기본은 오른쪽
+            startAngle = -attackAngle / 2;
+            endAngle = attackAngle / 2;
+            break;
+    }
+
+    ctx.fillStyle = `rgba(255, 255, 255, ${player.attack_anim_alpha * 0.5})`; // 투명도 조절
     ctx.beginPath();
-    ctx.arc(player.x + playerSize / 2, player.y + playerSize / 2, playerSize * 1.5, 0, Math.PI * 2);
+    ctx.moveTo(playerCenterX, playerCenterY);
+    ctx.arc(playerCenterX, playerCenterY, playerSize * 1.5, startAngle, endAngle);
+    ctx.closePath();
     ctx.fill();
 }
 
 
-// ⭐ 수정된 부분: drawPlayerUI 함수 수정 ⭐
 function drawPlayerUI(player) {
+    const now = performance.now();
+
     // 닉네임
     ctx.fillStyle = 'white';
     ctx.font = '16px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText(player.nickname, player.x + playerSize / 2, player.y - 30);
+    ctx.fillText(player.nickname, player.x + playerSize / 2, player.y - 35);
     
     // 체력바
     const barWidth = playerSize;
     const barHeight = 5;
     ctx.fillStyle = 'black';
-    ctx.fillRect(player.x, player.y - 15, barWidth, barHeight);
+    ctx.fillRect(player.x, player.y - 20, barWidth, barHeight);
     
     const healthRatio = player.health / player.max_health;
     ctx.fillStyle = 'red';
-    ctx.fillRect(player.x, player.y - 15, barWidth * healthRatio, barHeight);
+    ctx.fillRect(player.x, player.y - 20, barWidth * healthRatio, barHeight);
 
-    // ⭐ 추가: 남은 체력 숫자
+    // 남은 체력 숫자
     ctx.fillStyle = 'white';
     ctx.font = '12px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText(`${Math.max(0, Math.floor(player.health))}/${player.max_health}`, player.x + playerSize / 2, player.y - 20);
+    ctx.fillText(`${Math.max(0, Math.floor(player.health))}/${player.max_health}`, player.x + playerSize / 2, player.y - 25);
     
     if (player.active_debuffs.stun) {
         ctx.fillStyle = 'white';
-        ctx.fillText('마비', player.x + playerSize / 2, player.y - 45);
+        ctx.fillText('마비', player.x + playerSize / 2, player.y - 50);
+    }
+
+    // ⭐ 추가: 공격 스킬 쿨타임 표시
+    const attackCooldownRemaining = Math.max(0, (player.last_attack_time + player.attack_cooldown * 1000 - now) / 1000);
+    drawSkillCooldown(player.x - 20, player.y + playerSize + 10, 'A', attackCooldownRemaining, player.attack_cooldown);
+
+    // ⭐ 추가: 방어 스킬 쿨타임 표시
+    const defenseCooldownRemaining = Math.max(0, (player.last_defense_time + player.defense_cooldown * 1000 - now) / 1000);
+    drawSkillCooldown(player.x + playerSize + 5, player.y + playerSize + 10, 'D', defenseCooldownRemaining, player.defense_cooldown);
+}
+
+// ⭐ 추가: 스킬 쿨타임을 그리는 함수
+function drawSkillCooldown(x, y, label, remaining, totalCooldown) {
+    const size = 20;
+    ctx.fillStyle = 'rgba(50, 50, 50, 0.8)'; // 스킬 아이콘 배경
+    ctx.fillRect(x, y, size, size);
+
+    ctx.fillStyle = 'white';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x + size / 2, y + size / 2);
+
+    if (remaining > 0) {
+        const progress = remaining / totalCooldown;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; // 쿨타임 가리는 색
+        ctx.fillRect(x, y, size, size * progress); // 위에서 아래로 채워지도록
+
+        ctx.fillStyle = 'white';
+        ctx.font = '10px Arial';
+        ctx.fillText(Math.ceil(remaining), x + size / 2, y + size / 2); // 남은 시간 표시
     }
 }
 
@@ -574,22 +652,18 @@ function attack(player) {
     player.last_attack_time = now;
 
     if (charInfo.id === 'warrior') {
-        // ⭐ 수정: 검사 공격 시각화 추가
-        player.is_attacking_warrior = true;
-        player.attack_alpha = 1;
-        setTimeout(() => {
-            player.is_attacking_warrior = false;
-        }, 200);
+        // ⭐ 수정: 검사 공격 애니메이션 시작
+        player.is_attacking_anim = true;
+        player.attack_anim_alpha = 1;
 
         players.forEach(target => {
             if (target.id === player.id || target.team === player.team) return;
             const dist = Math.sqrt(Math.pow(player.x - target.x, 2) + Math.pow(player.y - target.y, 2));
-            if (dist < playerSize * 1.5) {
+            if (dist < playerSize * 1.5) { // 검사 공격 범위 (플레이어 크기의 1.5배 반경)
                 const damage = Math.random() < criticalHitChance ? 4 : 2;
                 target.health -= damage;
                 target.last_attacker_id = player.id;
                 
-                // ⭐ 추가: 데미지 이펙트
                 const isCritical = damage > 2;
                 activeEffects.push({
                      text: damage,
