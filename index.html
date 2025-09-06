@@ -1,387 +1,754 @@
-<!DOCTYPE HTML>
-<!--
-	Helios by HTML5 UP
-	html5up.net | @ajlkn
-	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
--->
-<html>
-	<head>
-		<title>소개 사이트</title>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-		<link rel="stylesheet" href="assets/css/main.css" />
-		<noscript><link rel="stylesheet" href="assets/css/noscript.css" /></noscript>
-	</head>
-	<body class="homepage is-preload">
-		<div id="page-wrapper">
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1대1 대전 게임</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+        }
 
-			<!-- Header -->
-				<div id="header">
+        h1 {
+            color: #3498db;
+            text-shadow: 2px 2px 4px #000;
+        }
 
-					<!-- Inner -->
-						<div class="inner">
-							<header>
-								<h1><a href="index.html" id="logo">김민성 그는 누구인가...</a></h1>
-								<hr />
-								<p>김민성이라는 괴수에 대하여</p>
-							</header>
-							<footer>
-								<a href="#banner" class="button circled scrolly">Start</a>
-							</footer>
-						</div>
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 500px;
+            border: 5px solid #34495e;
+            background-color: #34495e;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
 
-					<!-- Nav -->
-						<nav id="nav">
-							<ul>
-								<li><a href="index.html">~~~</a></li>
-								<li>
-									<a href="#">~~~</a>
-									<ul>
-										<li><a href="#">Lorem ipsum dolor</a></li>
-										<li><a href="#">Magna phasellus</a></li>
-										<li><a href="#">Etiam dolore nisl</a></li>
-										<li>
-											<a href="#">And a submenu &hellip;</a>
-											<ul>
-												<li><a href="#">Lorem ipsum dolor</a></li>
-												<li><a href="#">Phasellus consequat</a></li>
-												<li><a href="#">Magna phasellus</a></li>
-												<li><a href="#">Etiam dolore nisl</a></li>
-											</ul>
-										</li>
-										<li><a href="#">Veroeros feugiat</a></li>
-									</ul>
-								</li>
-								<li><a href="left-sidebar.html">~~~</a></li>
-								<li><a href="right-sidebar.html">~~~</a></li>
-								<li><a href="no-sidebar.html">~~~</a></li>
-							</ul>
-						</nav>
+        canvas {
+            background-color: #1a232e;
+            border-radius: 10px;
+        }
 
-				</div>
+        .ui-container {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            box-sizing: border-box;
+            background-color: #2c3e50;
+        }
 
-			<!-- Banner -->
-				<section id="banner">
-					<header>
-						<h2>나의 관한 <strong>정보들</strong>.</h2>
-						<p>
-							나의 <a href="http://html5up.net">초중고 학교, 수상 기록, 희망 대학교,</a>
-							등등<a href="http://html5up.net/license"a> .
-						</p>
-					</header>
-				</section>
+        .hp-bar-container {
+            width: 40%;
+            height: 30px;
+            background-color: #7f8c8d;
+            border-radius: 15px;
+            overflow: hidden;
+            border: 2px solid #bdc3c7;
+            position: relative;
+        }
 
-			<!-- Carousel -->
-				<section class="carousel">
-					<div class="reel">
+        .hp-bar {
+            height: 100%;
+            background-color: #e74c3c;
+            transition: width 0.3s ease-in-out;
+        }
 
-						<article>
-							<a href="#" class="image featured"><img src="images/school.webp" alt="" /></a>
-							<header>
-								<h3><a href="#"><백신 고등학교></a></h3>
-							</header>
-							<p>나의 고등학교 성장을 담당한 학교.</p>
-						</article>
+        .hp-bar-text {
+            position: absolute;
+            width: 100%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px #000;
+        }
 
-						<article>
-							<a href="#" class="image featured"><img src="images/pic02.jpg" alt="" /></a>
-							<header>
-								<h3><a href="#">대충 중학교 넣음</a></h3>
-							</header>
-							<p>Commodo id natoque malesuada sollicitudin elit suscipit magna.</p>
-						</article>
+        .controls-info {
+            font-size: 14px;
+            margin-top: 10px;
+            text-align: left;
+            width: 800px;
+        }
 
-						<article>
-							<a href="#" class="image featured"><img src="images/pic03.jpg" alt="" /></a>
-							<header>
-								<h3><a href="#">Sed quis rhoncus placerat</a></h3>
-							</header>
-							<p>Commodo id natoque malesuada sollicitudin elit suscipit magna.</p>
-						</article>
+        .controls-info span {
+            font-weight: bold;
+            color: #3498db;
+        }
 
-						<article>
-							<a href="#" class="image featured"><img src="images/pic04.jpg" alt="" /></a>
-							<header>
-								<h3><a href="#">Ultrices urna sit lobortis</a></h3>
-							</header>
-							<p>Commodo id natoque malesuada sollicitudin elit suscipit magna.</p>
-						</article>
+        .buttons-container {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+        }
 
-						<article>
-							<a href="#" class="image featured"><img src="images/pic05.jpg" alt="" /></a>
-							<header>
-								<h3><a href="#">Varius magnis sollicitudin</a></h3>
-							</header>
-							<p>Commodo id natoque malesuada sollicitudin elit suscipit magna.</p>
-						</article>
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
 
-						<article>
-							<a href="#" class="image featured"><img src="images/school.webp" alt="" /></a>
-							<header>
-								<h3><a href="#">Pulvinar sagittis congue</a></h3>
-							</header>
-							<p>Commodo id natoque malesuada sollicitudin elit suscipit magna.</p>
-						</article>
+        button:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.3);
+        }
 
-						<article>
-							<a href="#" class="image featured"><img src="images/pic02.jpg" alt="" /></a>
-							<header>
-								<h3><a href="#">Fermentum sagittis proin</a></h3>
-							</header>
-							<p>Commodo id natoque malesuada sollicitudin elit suscipit magna.</p>
-						</article>
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
 
-						<article>
-							<a href="#" class="image featured"><img src="images/pic03.jpg" alt="" /></a>
-							<header>
-								<h3><a href="#">Sed quis rhoncus placerat</a></h3>
-							</header>
-							<p>Commodo id natoque malesuada sollicitudin elit suscipit magna.</p>
-						</article>
+        .char-select-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
 
-						<article>
-							<a href="#" class="image featured"><img src="images/pic04.jpg" alt="" /></a>
-							<header>
-								<h3><a href="#">Ultrices urna sit lobortis</a></h3>
-							</header>
-							<p>Commodo id natoque malesuada sollicitudin elit suscipit magna.</p>
-						</article>
+        .char-select-row {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .char-card {
+            background-color: #34495e;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: border-color 0.2s, background-color 0.2s;
+            width: 150px;
+        }
+        
+        .char-card.selected {
+            border-color: #f1c40f;
+            background-color: #2c3e50;
+        }
 
-						<article>
-							<a href="#" class="image featured"><img src="images/pic05.jpg" alt="" /></a>
-							<header>
-								<h3><a href="#">Varius magnis sollicitudin</a></h3>
-							</header>
-							<p>Commodo id natoque malesuada sollicitudin elit suscipit magna.</p>
-						</article>
+        .char-card h3 {
+            margin: 0;
+            color: #f1c40f;
+        }
+        
+        .char-card p {
+            margin: 5px 0;
+            font-size: 12px;
+            color: #bdc3c7;
+        }
 
-					</div>
-				</section>
+        #game-state-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4em;
+            font-weight: bold;
+            color: #e74c3c;
+            text-shadow: 4px 4px 6px #000;
+            display: none;
+            z-index: 10;
+        }
 
-			<!-- Main -->
-				<div class="wrapper style2">
+        .cooldown-text {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #f1c40f;
+            text-shadow: 1px 1px 2px #000;
+        }
 
-					<article id="main" class="container special">
-						<a href="#" class="image featured"><img src="images/pic06.jpg" alt="" /></a>
-						<header>
-							<h2><a href="#">Sed massa imperdiet magnis</a></h2>
-							<p>
-								Sociis aenean eu aenean mollis mollis facilisis primis ornare penatibus aenean. Cursus ac enim
-								pulvinar curabitur morbi convallis. Lectus malesuada sed fermentum dolore amet.
-							</p>
-						</header>
-						<p>
-							Commodo id natoque malesuada sollicitudin elit suscipit. Curae suspendisse mauris posuere accumsan massa
-							posuere lacus convallis tellus interdum. Amet nullam fringilla nibh nulla convallis ut venenatis purus
-							sit arcu sociis. Nunc fermentum adipiscing tempor cursus nascetur adipiscing adipiscing. Primis aliquam
-							mus lacinia lobortis phasellus suscipit. Fermentum lobortis non tristique ante proin sociis accumsan
-							lobortis. Auctor etiam porttitor phasellus tempus cubilia ultrices tempor sagittis. Nisl fermentum
-							consequat integer interdum integer purus sapien. Nibh eleifend nulla nascetur pharetra commodo mi augue
-							interdum tellus. Ornare cursus augue feugiat sodales velit lorem. Semper elementum ullamcorper lacinia
-							natoque aenean scelerisque.
-						</p>
-						<footer>
-							<a href="#" class="button">Continue Reading</a>
-						</footer>
-					</article>
+        .status-text {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2ecc71;
+            text-shadow: 1px 1px 2px #000;
+        }
 
-				</div>
+        .cooldown-icon {
+            position: relative;
+            width: 50px;
+            height: 50px;
+            background-color: #7f8c8d;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em;
+            font-weight: bold;
+            color: white;
+            border: 2px solid #bdc3c7;
+        }
 
-			<!-- Features -->
-				<div class="wrapper style1">
+        .cooldown-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 1em;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
 
-					<section id="features" class="container special">
-						<header>
-							<h2>Morbi ullamcorper et varius leo lacus</h2>
-							<p>Ipsum volutpat consectetur orci metus consequat imperdiet duis integer semper magna.</p>
-						</header>
-						<div class="row">
-							<article class="col-4 col-12-mobile special">
-								<a href="#" class="image featured"><img src="images/pic07.jpg" alt="" /></a>
-								<header>
-									<h3><a href="#">Gravida aliquam penatibus</a></h3>
-								</header>
-								<p>
-									Amet nullam fringilla nibh nulla convallis tique ante proin sociis accumsan lobortis. Auctor etiam
-									porttitor phasellus tempus cubilia ultrices tempor sagittis. Nisl fermentum consequat integer interdum.
-								</p>
-							</article>
-							<article class="col-4 col-12-mobile special">
-								<a href="#" class="image featured"><img src="images/pic08.jpg" alt="" /></a>
-								<header>
-									<h3><a href="#">Sed quis rhoncus placerat</a></h3>
-								</header>
-								<p>
-									Amet nullam fringilla nibh nulla convallis tique ante proin sociis accumsan lobortis. Auctor etiam
-									porttitor phasellus tempus cubilia ultrices tempor sagittis. Nisl fermentum consequat integer interdum.
-								</p>
-							</article>
-							<article class="col-4 col-12-mobile special">
-								<a href="#" class="image featured"><img src="images/pic09.jpg" alt="" /></a>
-								<header>
-									<h3><a href="#">Magna laoreet et aliquam</a></h3>
-								</header>
-								<p>
-									Amet nullam fringilla nibh nulla convallis tique ante proin sociis accumsan lobortis. Auctor etiam
-									porttitor phasellus tempus cubilia ultrices tempor sagittis. Nisl fermentum consequat integer interdum.
-								</p>
-							</article>
-						</div>
-					</section>
+        .cooldown-icon.on-cooldown .cooldown-overlay {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <h1>1대1 대전 게임</h1>
+    
+    <div id="game-container">
+        <div id="game-state-message"></div>
+        <div class="ui-container">
+            <div class="hp-bar-container">
+                <div id="player1-hp-bar" class="hp-bar"></div>
+                <div id="player1-hp-text" class="hp-bar-text"></div>
+            </div>
+            <div class="cooldown-icon" id="player1-cooldown-icon">
+                <div class="cooldown-overlay" id="player1-cooldown-overlay"></div>
+                <span>스킬</span>
+            </div>
+            <div class="status-text" id="player1-status-text"></div>
+            <span class="cooldown-text" id="player1-cooldown-text"></span>
+            
+            <div class="status-text" id="player2-status-text"></div>
+            <span class="cooldown-text" id="player2-cooldown-text"></span>
+            <div class="cooldown-icon" id="player2-cooldown-icon">
+                <div class="cooldown-overlay" id="player2-cooldown-overlay"></div>
+                <span>스킬</span>
+            </div>
+            <div class="hp-bar-container">
+                <div id="player2-hp-bar" class="hp-bar"></div>
+                <div id="player2-hp-text" class="hp-bar-text"></div>
+            </div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    
+    <div class="buttons-container" id="selection-buttons">
+        <div class="char-select-container">
+            <h2>P1 캐릭터 선택</h2>
+            <div class="char-select-row" id="p1-char-select">
+                <div class="char-card" data-char="swordsman">
+                    <h3>검사</h3>
+                    <p>HP: 12 / 데미지: 4</p>
+                    <p>특수 능력: 방어 (반사)</p>
+                </div>
+                <div class="char-card" data-char="rogue">
+                    <h3>도적</h3>
+                    <p>HP: 7 / 데미지: 3</p>
+                    <p>특수 능력: 순간이동 단검</p>
+                </div>
+                <div class="char-card" data-char="mage">
+                    <h3>마법사</h3>
+                    <p>HP: 9 / 데미지: 3</p>
+                    <p>특수 능력: 기절</p>
+                </div>
+                <div class="char-card" data-char="archer">
+                    <h3>궁수</h3>
+                    <p>HP: 10 / 데미지: 3</p>
+                    <p>특수 능력: 삼연발 화살</p>
+                </div>
+            </div>
+        </div>
 
-				</div>
+        <div class="char-select-container">
+            <h2>P2 캐릭터 선택</h2>
+            <div class="char-select-row" id="p2-char-select">
+                 <div class="char-card" data-char="swordsman">
+                    <h3>검사</h3>
+                    <p>HP: 12 / 데미지: 4</p>
+                    <p>특수 능력: 방어 (반사)</p>
+                </div>
+                <div class="char-card" data-char="rogue">
+                    <h3>도적</h3>
+                    <p>HP: 7 / 데미지: 3</p>
+                    <p>특수 능력: 순간이동 단검</p>
+                </div>
+                <div class="char-card" data-char="mage">
+                    <h3>마법사</h3>
+                    <p>HP: 9 / 데미지: 3</p>
+                    <p>특수 능력: 기절</p>
+                </div>
+                <div class="char-card" data-char="archer">
+                    <h3>궁수</h3>
+                    <p>HP: 10 / 데미지: 3</p>
+                    <p>특수 능력: 삼연발 화살</p>
+                </div>
+            </div>
+        </div>
+        <button id="startButton">게임 시작</button>
+    </div>
 
-			<!-- Footer -->
-				<div id="footer">
-					<div class="container">
-						<div class="row">
+    <div class="controls-info">
+        <p>
+            <span>P1 조작법:</span> WASD (이동), F (공격), G (특수 능력)
+        </p>
+        <p>
+            <span>P2 조작법:</span> 방향키 (이동), L (공격), K (특수 능력)
+        </p>
+    </div>
 
-							<!-- Tweets -->
-								<section class="col-4 col-12-mobile">
-									<header>
-										<h2 class="icon brands fa-twitter circled"><span class="label">Tweets</span></h2>
-									</header>
-									<ul class="divided">
-										<li>
-											<article class="tweet">
-												Amet nullam fringilla nibh nulla convallis tique ante sociis accumsan.
-												<span class="timestamp">5 minutes ago</span>
-											</article>
-										</li>
-										<li>
-											<article class="tweet">
-												Hendrerit rutrum quisque.
-												<span class="timestamp">30 minutes ago</span>
-											</article>
-										</li>
-										<li>
-											<article class="tweet">
-												Curabitur donec nulla massa laoreet nibh. Lorem praesent montes.
-												<span class="timestamp">3 hours ago</span>
-											</article>
-										</li>
-										<li>
-											<article class="tweet">
-												Lacus natoque cras rhoncus curae dignissim ultricies. Convallis orci aliquet.
-												<span class="timestamp">5 hours ago</span>
-											</article>
-										</li>
-									</ul>
-								</section>
+    <script>
+        // 게임 상태와 설정
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameContainer = document.getElementById('game-container');
+        const startButton = document.getElementById('startButton');
+        const selectionButtons = document.getElementById('selection-buttons');
+        const gameStateMessage = document.getElementById('game-state-message');
+        
+        let player1, player2;
+        let projectiles = [];
+        let keys = {};
+        let gameActive = false;
+        let lastUpdateTime = 0;
+        
+        const characterStats = {
+            swordsman: { name: '검사', maxHp: 12, damage: 4, speed: 4, specialCooldown: 3000, color: 'blue' },
+            rogue: { name: '도적', maxHp: 7, damage: 3, speed: 4, specialCooldown: 5000, color: 'purple' },
+            mage: { name: '마법사', maxHp: 9, damage: 3, speed: 4.5, specialCooldown: 5000, color: 'red' },
+            archer: { name: '궁수', maxHp: 10, damage: 3, speed: 5, specialCooldown: 4000, color: 'green' }
+        };
+        
+        let p1Char, p2Char;
 
-							<!-- Posts -->
-								<section class="col-4 col-12-mobile">
-									<header>
-										<h2 class="icon solid fa-file circled"><span class="label">Posts</span></h2>
-									</header>
-									<ul class="divided">
-										<li>
-											<article class="post stub">
-												<header>
-													<h3><a href="#">Nisl fermentum integer</a></h3>
-												</header>
-												<span class="timestamp">3 hours ago</span>
-											</article>
-										</li>
-										<li>
-											<article class="post stub">
-												<header>
-													<h3><a href="#">Phasellus portitor lorem</a></h3>
-												</header>
-												<span class="timestamp">6 hours ago</span>
-											</article>
-										</li>
-										<li>
-											<article class="post stub">
-												<header>
-													<h3><a href="#">Magna tempus consequat</a></h3>
-												</header>
-												<span class="timestamp">Yesterday</span>
-											</article>
-										</li>
-										<li>
-											<article class="post stub">
-												<header>
-													<h3><a href="#">Feugiat lorem ipsum</a></h3>
-												</header>
-												<span class="timestamp">2 days ago</span>
-											</article>
-										</li>
-									</ul>
-								</section>
+        // 캔버스 크기 조정
+        function resizeCanvas() {
+            canvas.width = gameContainer.clientWidth;
+            canvas.height = gameContainer.clientHeight - 80; // UI 공간 확보
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
 
-							<!-- Photos -->
-								<section class="col-4 col-12-mobile">
-									<header>
-										<h2 class="icon solid fa-camera circled"><span class="label">Photos</span></h2>
-									</header>
-									<div class="row gtr-25">
-										<div class="col-6">
-											<a href="#" class="image fit"><img src="images/pic10.jpg" alt="" /></a>
-										</div>
-										<div class="col-6">
-											<a href="#" class="image fit"><img src="images/pic11.jpg" alt="" /></a>
-										</div>
-										<div class="col-6">
-											<a href="#" class="image fit"><img src="images/pic12.jpg" alt="" /></a>
-										</div>
-										<div class="col-6">
-											<a href="#" class="image fit"><img src="images/pic13.jpg" alt="" /></a>
-										</div>
-										<div class="col-6">
-											<a href="#" class="image fit"><img src="images/pic14.jpg" alt="" /></a>
-										</div>
-										<div class="col-6">
-											<a href="#" class="image fit"><img src="images/pic15.jpg" alt="" /></a>
-										</div>
-									</div>
-								</section>
+        // 플레이어 클래스 정의
+        class Player {
+            constructor(x, y, playerNum, characterType) {
+                this.x = x;
+                this.y = y;
+                this.width = 50;
+                this.height = 50;
+                this.playerNum = playerNum;
+                this.characterType = characterType;
+                
+                // 캐릭터 통계 적용
+                const stats = characterStats[characterType];
+                this.name = stats.name;
+                this.maxHp = stats.maxHp;
+                this.hp = this.maxHp;
+                this.damage = stats.damage;
+                this.speed = stats.speed;
+                this.color = stats.color;
+                this.specialCooldown = stats.specialCooldown;
+                this.lastSpecialTime = 0;
+                
+                // 상태 변수
+                this.isAttacking = false;
+                this.isStunned = false;
+                this.isDefending = false;
+            }
 
-						</div>
-						<hr />
-						<div class="row">
-							<div class="col-12">
+            // 플레이어 그리기
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // 캐릭터 이름 표시
+                ctx.fillStyle = 'white';
+                ctx.textAlign = 'center';
+                ctx.font = '16px Inter';
+                ctx.fillText(this.name, this.x + this.width / 2, this.y - 10);
 
-								<!-- Contact -->
-									<section class="contact">
-										<header>
-											<h3>Nisl turpis nascetur interdum?</h3>
-										</header>
-										<p>Urna nisl non quis interdum mus ornare ridiculus egestas ridiculus lobortis vivamus tempor aliquet.</p>
-										<ul class="icons">
-											<li><a href="#" class="icon brands fa-twitter"><span class="label">Twitter</span></a></li>
-											<li><a href="#" class="icon brands fa-facebook-f"><span class="label">Facebook</span></a></li>
-											<li><a href="#" class="icon brands fa-instagram"><span class="label">Instagram</span></a></li>
-											<li><a href="#" class="icon brands fa-pinterest"><span class="label">Pinterest</span></a></li>
-											<li><a href="#" class="icon brands fa-dribbble"><span class="label">Dribbble</span></a></li>
-											<li><a href="#" class="icon brands fa-linkedin-in"><span class="label">Linkedin</span></a></li>
-										</ul>
-									</section>
+                // 방어 상태 표시 (검사)
+                if (this.isDefending) {
+                    ctx.strokeStyle = 'cyan';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.arc(this.x + this.width / 2, this.y + this.height / 2, 40, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
 
-								<!-- Copyright -->
-									<div class="copyright">
-										<ul class="menu">
-											<li>&copy; Untitled. All rights reserved.</li><li>Design: <a href="http://html5up.net">HTML5 UP</a></li>
-										</ul>
-									</div>
+            // 플레이어 위치 업데이트
+            update() {
+                if (this.isStunned) return;
 
-							</div>
+                if (this.playerNum === 1) {
+                    if (keys['w'] && this.y > 0) this.y -= this.speed;
+                    if (keys['s'] && this.y + this.height < canvas.height) this.y += this.speed;
+                    if (keys['a'] && this.x > 0) this.x -= this.speed;
+                    if (keys['d'] && this.x + this.width < canvas.width) this.x += this.speed;
+                } else {
+                    if (keys['ArrowUp'] && this.y > 0) this.y -= this.speed;
+                    if (keys['ArrowDown'] && this.y + this.height < canvas.height) this.y += this.speed;
+                    if (keys['ArrowLeft'] && this.x > 0) this.x -= this.speed;
+                    if (keys['ArrowRight'] && this.x + this.width < canvas.width) this.x += this.speed;
+                }
 
-						</div>
-					</div>
-				</div>
+                // 경계 충돌 방지
+                this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
+                this.y = Math.max(0, Math.min(canvas.height - this.height, this.y));
+            }
 
-		</div>
+            // 일반 공격
+            attack(target) {
+                const angle = Math.atan2(target.y - this.y, target.x - this.x);
+                let projectile;
 
-		<!-- Scripts -->
-			<script src="assets/js/jquery.min.js"></script>
-			<script src="assets/js/jquery.dropotron.min.js"></script>
-			<script src="assets/js/jquery.scrolly.min.js"></script>
-			<script src="assets/js/jquery.scrollex.min.js"></script>
-			<script src="assets/js/browser.min.js"></script>
-			<script src="assets/js/breakpoints.min.js"></script>
-			<script src="assets/js/util.js"></script>
-			<script src="assets/js/main.js"></script>
+                if (this.characterType === 'archer') {
+                    // 궁수 화살을 더 잘 보이게
+                    projectile = new Projectile(this.x + this.width / 2, this.y + this.height / 2, 
+                                                angle, this.damage, 'arrow', this.playerNum, '#ffff00', 10, 3);
+                } else if (this.characterType === 'mage') {
+                    projectile = new Projectile(this.x + this.width / 2, this.y + this.height / 2, 
+                                                angle, this.damage, 'fireball', this.playerNum);
+                } else {
+                    projectile = new Projectile(this.x + this.width / 2, this.y + this.height / 2, 
+                                                angle, this.damage, 'normal_attack', this.playerNum);
+                }
 
-	</body>
+                projectiles.push(projectile);
+            }
+
+            // 특수 능력
+            special(target) {
+                const now = Date.now();
+                if (now - this.lastSpecialTime < this.specialCooldown) {
+                    return; // 쿨타임 중
+                }
+                this.lastSpecialTime = now;
+
+                if (this.characterType === 'swordsman') {
+                    // 검사: 방어
+                    this.isDefending = true;
+                    setTimeout(() => {
+                        this.isDefending = false;
+                    }, 1000); // 1초간 방어
+                } else if (this.characterType === 'rogue') {
+                    // 도적: 순간이동 단검
+                    const angle = Math.atan2(target.y - this.y, target.x - this.x);
+                    const dagger = new Projectile(this.x + this.width / 2, this.y + this.height / 2, 
+                                                  angle, 2, 'teleport_dagger', this.playerNum, 'gold');
+                    projectiles.push(dagger);
+                } else if (this.characterType === 'mage') {
+                    // 마법사: 기절은 일반 공격에 포함
+                } else if (this.characterType === 'archer') {
+                    // 궁수: 삼연발 화살
+                    const baseAngle = Math.atan2(target.y - this.y, target.x - this.x);
+                    const spread = Math.PI / 10;
+                    projectiles.push(new Projectile(this.x + this.width / 2, this.y + this.height / 2, baseAngle - spread, this.damage, 'arrow', this.playerNum, '#ffff00', 10, 3));
+                    projectiles.push(new Projectile(this.x + this.width / 2, this.y + this.height / 2, baseAngle, this.damage, 'arrow', this.playerNum, '#ffff00', 10, 3));
+                    projectiles.push(new Projectile(this.x + this.width / 2, this.y + this.height / 2, baseAngle + spread, this.damage, 'arrow', this.playerNum, '#ffff00', 10, 3));
+                }
+            }
+        }
+
+        // 투사체 클래스 정의
+        class Projectile {
+            constructor(x, y, angle, damage, type, playerNum, color = 'white', size = 5, speed = 7) {
+                this.x = x;
+                this.y = y;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.damage = damage;
+                this.type = type;
+                this.playerNum = playerNum;
+                this.color = color;
+                this.size = size;
+                this.isDestroyed = false;
+            }
+
+            // 투사체 그리기
+            draw() {
+                if (this.type === 'arrow') {
+                    // 화살 이펙트 (직선)
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = this.size;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.x - this.vx * 3, this.y - this.vy * 3);
+                    ctx.stroke();
+                } else {
+                    // 일반 원형 투사체
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // 투사체 위치 업데이트
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+        }
+        
+        // UI 업데이트
+        function updateUI() {
+            // HP 바 업데이트
+            document.getElementById('player1-hp-bar').style.width = `${(player1.hp / player1.maxHp) * 100}%`;
+            document.getElementById('player2-hp-bar').style.width = `${(player2.hp / player2.maxHp) * 100}%`;
+            document.getElementById('player1-hp-text').innerText = `${player1.name} HP: ${Math.max(0, player1.hp)} / ${player1.maxHp}`;
+            document.getElementById('player2-hp-text').innerText = `${player2.name} HP: ${Math.max(0, player2.hp)} / ${player2.maxHp}`;
+
+            // 쿨타임 업데이트
+            const p1Cooldown = Math.max(0, player1.specialCooldown - (Date.now() - player1.lastSpecialTime));
+            const p2Cooldown = Math.max(0, player2.specialCooldown - (Date.now() - player2.lastSpecialTime));
+            document.getElementById('player1-cooldown-text').innerText = `쿨타임: ${(p1Cooldown / 1000).toFixed(1)}s`;
+            document.getElementById('player2-cooldown-text').innerText = `쿨타임: ${(p2Cooldown / 1000).toFixed(1)}s`;
+            
+            const p1CooldownIcon = document.getElementById('player1-cooldown-icon');
+            const p2CooldownIcon = document.getElementById('player2-cooldown-icon');
+            const p1CooldownOverlay = document.getElementById('player1-cooldown-overlay');
+            const p2CooldownOverlay = document.getElementById('player2-cooldown-overlay');
+
+            if (p1Cooldown > 0) {
+                p1CooldownIcon.classList.add('on-cooldown');
+                p1CooldownOverlay.style.opacity = 1;
+                p1CooldownOverlay.innerText = `${(p1Cooldown / 1000).toFixed(1)}`;
+            } else {
+                p1CooldownIcon.classList.remove('on-cooldown');
+                p1CooldownOverlay.style.opacity = 0;
+            }
+            if (p2Cooldown > 0) {
+                p2CooldownIcon.classList.add('on-cooldown');
+                p2CooldownOverlay.style.opacity = 1;
+                p2CooldownOverlay.innerText = `${(p2Cooldown / 1000).toFixed(1)}`;
+            } else {
+                p2CooldownIcon.classList.remove('on-cooldown');
+                p2CooldownOverlay.style.opacity = 0;
+            }
+
+            // 상태 텍스트 업데이트
+            document.getElementById('player1-status-text').innerText = player1.isStunned ? '기절' : player1.isDefending ? '방어 중' : '';
+            document.getElementById('player2-status-text').innerText = player2.isStunned ? '기절' : player2.isDefending ? '방어 중' : '';
+        }
+
+        // 충돌 감지
+        function checkCollision(obj1, obj2) {
+            return obj1.x < obj2.x + obj2.width &&
+                   obj1.x + obj1.width > obj2.x &&
+                   obj1.y < obj2.y + obj2.height &&
+                   obj1.y + obj1.height > obj2.y;
+        }
+
+        // 게임 루프
+        function gameLoop() {
+            if (!gameActive) return;
+
+            // 델타 타임 계산
+            const now = Date.now();
+            const deltaTime = now - lastUpdateTime;
+            lastUpdateTime = now;
+
+            // 캔버스 초기화
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 플레이어 업데이트 및 그리기
+            player1.update();
+            player2.update();
+            player1.draw();
+            player2.draw();
+            
+            // 투사체 업데이트, 그리기, 충돌 감지
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const projectile = projectiles[i];
+                projectile.update();
+                projectile.draw();
+
+                let hitPlayer = null;
+                if (projectile.playerNum === 1) {
+                    hitPlayer = player2;
+                } else {
+                    hitPlayer = player1;
+                }
+                
+                // 충돌 감지
+                if (checkCollision(projectile, hitPlayer) && !projectile.isDestroyed) {
+                    projectile.isDestroyed = true;
+
+                    if (hitPlayer.characterType === 'swordsman' && hitPlayer.isDefending && projectile.type === 'normal_attack') {
+                        // 검사의 반사 능력
+                        hitPlayer.hp -= 0; // 데미지 없음
+                        projectile.isDestroyed = true;
+                        projectile.x = -100; // 화면 밖으로 이동
+                        const attacker = projectile.playerNum === 1 ? player1 : player2;
+                        attacker.hp -= projectile.damage; // 공격자가 데미지 입음
+                        
+                    } else if (projectile.type === 'fireball') {
+                        // 마법사의 기절 공격
+                        hitPlayer.hp -= projectile.damage;
+                        hitPlayer.isStunned = true;
+                        setTimeout(() => { hitPlayer.isStunned = false; }, 1000);
+                    } else if (projectile.type === 'teleport_dagger') {
+                        // 도적의 순간이동 단검
+                        hitPlayer.hp -= projectile.damage;
+                        const rogue = projectile.playerNum === 1 ? player1 : player2;
+                        rogue.x = hitPlayer.x;
+                        rogue.y = hitPlayer.y;
+                    } else {
+                        // 일반 공격
+                        hitPlayer.hp -= projectile.damage;
+                    }
+                }
+
+                // 화면 밖으로 나간 투사체 제거
+                if (projectile.x < -20 || projectile.x > canvas.width + 20 ||
+                    projectile.y < -20 || projectile.y > canvas.height + 20) {
+                    projectile.isDestroyed = true;
+                }
+            }
+
+            // 파괴된 투사체 필터링
+            projectiles = projectiles.filter(p => !p.isDestroyed);
+
+            // UI 업데이트
+            updateUI();
+
+            // 게임 종료 조건
+            if (player1.hp <= 0) {
+                endGame(2);
+            } else if (player2.hp <= 0) {
+                endGame(1);
+            } else {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // 게임 종료
+        function endGame(winner) {
+            gameActive = false;
+            gameStateMessage.style.display = 'block';
+            gameStateMessage.innerText = `P${winner} 승리!`;
+            setTimeout(() => {
+                location.reload();
+            }, 3000);
+        }
+
+        // 이벤트 리스너 설정
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        // 공격 및 특수키 처리
+        document.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
+            if (e.key === 'f') {
+                if (!player1.isAttacking) {
+                    player1.isAttacking = true;
+                    player1.attack(player2);
+                }
+            } else if (e.key === 'g') {
+                player1.special(player2);
+            } else if (e.key === 'l') {
+                if (!player2.isAttacking) {
+                    player2.isAttacking = true;
+                    player2.attack(player1);
+                }
+            } else if (e.key === 'k') {
+                player2.special(player1);
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'f') {
+                player1.isAttacking = false;
+            } else if (e.key === 'l') {
+                player2.isAttacking = false;
+            }
+        });
+
+        // 캐릭터 선택 로직
+        document.querySelectorAll('.char-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const player = card.closest('.char-select-container').querySelector('h2').innerText.includes('P1') ? 'p1' : 'p2';
+                const charType = card.dataset.char;
+                
+                // 선택 초기화
+                document.querySelectorAll(`#${player}-char-select .char-card`).forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                
+                if (player === 'p1') {
+                    p1Char = charType;
+                } else {
+                    p2Char = charType;
+                }
+                
+                // 게임 시작 버튼 활성화
+                if (p1Char && p2Char) {
+                    startButton.disabled = false;
+                    startButton.style.backgroundColor = '#3498db';
+                    startButton.style.cursor = 'pointer';
+                }
+            });
+        });
+
+        // 게임 시작 버튼 클릭 이벤트
+        startButton.addEventListener('click', () => {
+            if (p1Char && p2Char) {
+                selectionButtons.style.display = 'none';
+                gameContainer.style.display = 'flex';
+                gameActive = true;
+                
+                // 플레이어 초기화
+                player1 = new Player(100, canvas.height / 2 - 25, 1, p1Char);
+                player2 = new Player(canvas.width - 150, canvas.height / 2 - 25, 2, p2Char);
+
+                lastUpdateTime = Date.now();
+                requestAnimationFrame(gameLoop);
+            } else {
+                gameStateMessage.style.display = 'block';
+                gameStateMessage.innerText = '캐릭터를 선택하세요!';
+                setTimeout(() => { gameStateMessage.style.display = 'none'; }, 2000);
+            }
+        });
+
+        // 초기 시작 버튼 상태 설정
+        startButton.disabled = true;
+        startButton.style.backgroundColor = '#7f8c8d';
+        startButton.style.cursor = 'not-allowed';
+
+        // 초기 화면 설정
+        gameContainer.style.display = 'none';
+
+    </script>
+</body>
 </html>
+
