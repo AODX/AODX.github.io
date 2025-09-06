@@ -180,13 +180,11 @@ function processNickname() {
     }
 }
 
-// ⭐ 수정된 부분: startGameLoop 함수 수정 ⭐
 function startGameLoop() {
     gameState = 'playing';
     uiOverlay.style.display = 'none';
     gameInfoOverlay.classList.remove('hidden');
 
-    // ⭐ 수정: 파이썬 튜플을 JavaScript 배열로 변경 ⭐
     const positions = [[300, 400], [900, 400], [600, 200], [600, 600]];
     players.forEach((player, i) => {
         const charInfo = characters[player.char_index];
@@ -359,7 +357,6 @@ function updateGame(deltaTime) {
 function drawGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // 맵 그리기 (가장 아래)
     if (selectedMap === 'fallout') {
         ctx.fillStyle = 'saddlebrown';
         ctx.beginPath();
@@ -367,13 +364,11 @@ function drawGame() {
         ctx.fill();
     }
     
-    // 벽 그리기
     walls.forEach(wall => {
         ctx.fillStyle = 'gray';
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
     });
     
-    // 체력 포션 그리기
     healthPotions.forEach(p => {
         ctx.fillStyle = 'purple';
         ctx.beginPath();
@@ -381,30 +376,28 @@ function drawGame() {
         ctx.fill();
     });
 
-    // 플레이어 그리기 (중간 레이어)
     players.forEach(player => {
         if (player.health <= 0) return;
 
         const charInfo = characters[player.char_index];
         const scale = player.is_falling ? player.fall_scale : 1;
 
-        ctx.save();
-        ctx.translate(player.x + playerSize / 2, player.y + playerSize / 2);
-        ctx.scale(scale, scale);
-        ctx.translate(-(player.x + playerSize / 2), -(player.y + playerSize / 2));
-        
+        // 플레이어 몸체
         ctx.fillStyle = charInfo.color;
         ctx.fillRect(player.x, player.y, playerSize, playerSize);
         
+        // 심볼
         ctx.fillStyle = 'white';
-        ctx.fillText('★', player.x + playerSize / 2, player.y + playerSize / 2);
-        ctx.restore();
+        ctx.font = '30px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('★', player.x + playerSize / 2, player.y + playerSize * 0.7);
         
+        // UI (닉네임, 체력바)
         drawPlayerUI(player);
+        
         if (player.is_defending) drawDefenseShield(player);
     });
 
-    // 투사체 그리기 (가장 위)
     projectiles.forEach(p => {
         ctx.fillStyle = p.color;
         ctx.beginPath();
@@ -452,8 +445,15 @@ function drawDefenseShield(player) {
     }
 }
 
+// ⭐ 수정된 부분: onKeyDown 함수에 Esc 기능 추가 ⭐
 function onKeyDown(event) {
     const key = event.key;
+    
+    if (key === 'Escape' && gameState === 'playing') {
+        resetGame();
+        return;
+    }
+    
     const player = players.find(p => {
         const controls = playerControls[p.id];
         return controls && Object.values(controls.move).includes(key);
