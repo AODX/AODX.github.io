@@ -382,17 +382,24 @@ function drawGame() {
         const charInfo = characters[player.char_index];
         const scale = player.is_falling ? player.fall_scale : 1;
 
+        ctx.save();
+        ctx.translate(player.x + playerSize / 2, player.y + playerSize / 2);
+        ctx.scale(scale, scale);
+        
         // 플레이어 몸체
         ctx.fillStyle = charInfo.color;
-        ctx.fillRect(player.x, player.y, playerSize, playerSize);
+        ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
         
         // 심볼
         ctx.fillStyle = 'white';
         ctx.font = '30px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('★', player.x + playerSize / 2, player.y + playerSize * 0.7);
+        ctx.textBaseline = 'middle'; // 텍스트를 정중앙에 정렬
+        ctx.fillText('★', 0, 0);
+
+        ctx.restore();
         
-        // UI (닉네임, 체력바)
+        // UI (닉네임, 체력바)는 플레이어 몸체와 분리해서 그리기
         drawPlayerUI(player);
         
         if (player.is_defending) drawDefenseShield(player);
@@ -406,7 +413,6 @@ function drawGame() {
     });
 }
 
-// ⭐ 수정된 부분: drawPlayerUI 함수 수정 ⭐
 function drawPlayerUI(player) {
     // 닉네임
     ctx.fillStyle = 'white';
@@ -445,13 +451,14 @@ function drawDefenseShield(player) {
     }
 }
 
-// ⭐ 수정된 부분: onKeyDown 함수에 Esc 기능 추가 ⭐
+// ⭐ 수정된 부분: onKeyDown 함수 수정 ⭐
 function onKeyDown(event) {
     const key = event.key;
     
+    // Esc 키를 가장 먼저 처리
     if (key === 'Escape' && gameState === 'playing') {
         resetGame();
-        return;
+        return; // Esc 키가 눌리면 다른 로직은 실행하지 않음
     }
     
     const player = players.find(p => {
