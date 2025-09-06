@@ -1,754 +1,383 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>1대1 대전 게임</title>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #2c3e50;
-            color: #ecf0f1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            text-align: center;
-        }
+// game.js
 
-        h1 {
-            color: #3498db;
-            text-shadow: 2px 2px 4px #000;
-        }
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const uiOverlay = document.getElementById('ui-overlay');
 
-        #game-container {
-            position: relative;
-            width: 800px;
-            height: 500px;
-            border: 5px solid #34495e;
-            background-color: #34495e;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-            border-radius: 15px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
+let gameState = 'player_selection';
+let playerCount = 2;
+let selectedMap = 'blank';
+let players = [];
+let walls = [];
+let healthPotions = [];
+let projectiles = [];
+let currentInputPlayer = 1;
 
-        canvas {
-            background-color: #1a232e;
-            border-radius: 10px;
-        }
+const characters = [
+    { name: "검사", color: "red", id: "warrior", symbol_color: "white", max_health: 12, speed_factor: 0.8, stats: { "공격력": "보통 (2~4)", "체력": "높음 (12)", "이동 속도": "느림" }, skill_description: "전방위로 검을 휘둘러 적에게 피해를 입힙니다. 방어 시 투사체를 막아내고 반격할 수 있습니다." },
+    { name: "마법사", color: "blue", id: "mage", symbol_color: "yellow", max_health: 15, speed_factor: 1.0, stats: { "공격력": "보통 (2~4)", "체력": "보통 (15)", "이동 속도": "보통" }, skill_description: "마법 구체를 발사하여 적에게 피해를 입힙니다. 공격 시 일정 확률로 적을 기절시킵니다." },
+    { name: "궁수", color: "green", id: "archer", symbol_color: "orange", max_health: 10, speed_factor: 1.2, stats: { "공격력": "약함 (1~2)", "체력": "낮음 (10)", "이동 속도": "빠름" }, skill_description: "화살을 발사하여 적에게 피해를 입힙니다. 방어 시 가장 가까운 적을 추적하는 유도 화살을 발사합니다." },
+    { name: "도적", color: "yellow", id: "rogue", symbol_color: "purple", max_health: 7, speed_factor: 1.4, stats: { "공격력": "매우 약함 (1~2)", "체력": "매우 낮음 (7)", "이동 속도": "매우 빠름" }, skill_description: "단검을 빠르게 2번 던집니다. 방어 시 순간이동 단검을 던져 적의 등 뒤로 순간이동합니다." },
+    { name: "힐러", color: "white", id: "healer", symbol_color: "gold", max_health: 15, speed_factor: 1.0, stats: { "공격력": "없음", "체력": "높음 (15)", "이동 속도": "보통" }, skill_description: "자신과 아군을 회복시키는 힐링 투사체를 발사합니다." }
+];
 
-        .ui-container {
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 20px;
-            box-sizing: border-box;
-            background-color: #2c3e50;
-        }
+const playerControls = {
+    1: { move: { up: 'w', down: 's', left: 'a', right: 'd' }, attack: 'q', defense: 'e' },
+    2: { move: { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' }, attack: 'o', defense: 'p' },
+    3: { move: { up: 'i', down: 'k', left: 'j', right: 'l' }, attack: 'u', defense: 'm' },
+    4: { move: { up: 't', down: 'g', left: 'f', right: 'h' }, attack: 'r', defense: 'y' }
+};
 
-        .hp-bar-container {
-            width: 40%;
-            height: 30px;
-            background-color: #7f8c8d;
-            border-radius: 15px;
-            overflow: hidden;
-            border: 2px solid #bdc3c7;
-            position: relative;
-        }
+const playerSize = 50;
+const baseSpeed = 5;
+const projectileSpeed = 20;
 
-        .hp-bar {
-            height: 100%;
-            background-color: #e74c3c;
-            transition: width 0.3s ease-in-out;
-        }
+const keys = {};
+let lastGameLoopTime = 0;
+let gameLoopId = null;
 
-        .hp-bar-text {
-            position: absolute;
-            width: 100%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-weight: bold;
-            text-shadow: 1px 1px 2px #000;
-        }
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.add('hidden');
+    });
+    document.getElementById(id).classList.remove('hidden');
+}
 
-        .controls-info {
-            font-size: 14px;
-            margin-top: 10px;
-            text-align: left;
-            width: 800px;
-        }
+function startGame(count) {
+    playerCount = count;
+    showScreen('map-selection-screen');
+    gameState = 'map_selection';
+}
 
-        .controls-info span {
-            font-weight: bold;
-            color: #3498db;
-        }
+function selectMap(mapType) {
+    selectedMap = mapType;
+    if (selectedMap === "walled") {
+        walls = [
+            { x: 100, y: 100, width: 200, height: 20 },
+            { x: 500, y: 250, width: 100, height: 200 },
+            { x: 900, y: 500, width: 200, height: 20 },
+            { x: 200, y: 600, width: 200, height: 20 },
+            { x: 700, y: 150, width: 20, height: 200 }
+        ];
+    } else {
+        walls = [];
+    }
+    currentInputPlayer = 1;
+    showCharacterSelection();
+}
 
-        .buttons-container {
-            margin-top: 20px;
-            display: flex;
-            gap: 15px;
-        }
-
-        button {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.3s, transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-        }
-
-        button:hover {
-            background-color: #2980b9;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.3);
-        }
-
-        button:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        .char-select-container {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .char-select-row {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .char-card {
-            background-color: #34495e;
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-            cursor: pointer;
-            border: 3px solid transparent;
-            transition: border-color 0.2s, background-color 0.2s;
-            width: 150px;
-        }
-        
-        .char-card.selected {
-            border-color: #f1c40f;
-            background-color: #2c3e50;
-        }
-
-        .char-card h3 {
-            margin: 0;
-            color: #f1c40f;
-        }
-        
-        .char-card p {
-            margin: 5px 0;
-            font-size: 12px;
-            color: #bdc3c7;
-        }
-
-        #game-state-message {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 4em;
-            font-weight: bold;
-            color: #e74c3c;
-            text-shadow: 4px 4px 6px #000;
-            display: none;
-            z-index: 10;
-        }
-
-        .cooldown-text {
-            font-size: 1.5em;
-            font-weight: bold;
-            color: #f1c40f;
-            text-shadow: 1px 1px 2px #000;
-        }
-
-        .status-text {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #2ecc71;
-            text-shadow: 1px 1px 2px #000;
-        }
-
-        .cooldown-icon {
-            position: relative;
-            width: 50px;
-            height: 50px;
-            background-color: #7f8c8d;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 2em;
-            font-weight: bold;
-            color: white;
-            border: 2px solid #bdc3c7;
-        }
-
-        .cooldown-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 1em;
-            font-weight: bold;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .cooldown-icon.on-cooldown .cooldown-overlay {
-            opacity: 1;
-        }
-    </style>
-</head>
-<body>
-    <h1>1대1 대전 게임</h1>
+function showCharacterSelection() {
+    gameState = 'character_selection';
+    showScreen('character-selection-screen');
+    document.getElementById('character-selection-title').innerText = `플레이어 ${currentInputPlayer} 캐릭터를 선택하세요`;
+    const charButtonsContainer = document.getElementById('character-buttons');
+    charButtonsContainer.innerHTML = '';
     
-    <div id="game-container">
-        <div id="game-state-message"></div>
-        <div class="ui-container">
-            <div class="hp-bar-container">
-                <div id="player1-hp-bar" class="hp-bar"></div>
-                <div id="player1-hp-text" class="hp-bar-text"></div>
-            </div>
-            <div class="cooldown-icon" id="player1-cooldown-icon">
-                <div class="cooldown-overlay" id="player1-cooldown-overlay"></div>
-                <span>스킬</span>
-            </div>
-            <div class="status-text" id="player1-status-text"></div>
-            <span class="cooldown-text" id="player1-cooldown-text"></span>
-            
-            <div class="status-text" id="player2-status-text"></div>
-            <span class="cooldown-text" id="player2-cooldown-text"></span>
-            <div class="cooldown-icon" id="player2-cooldown-icon">
-                <div class="cooldown-overlay" id="player2-cooldown-overlay"></div>
-                <span>스킬</span>
-            </div>
-            <div class="hp-bar-container">
-                <div id="player2-hp-bar" class="hp-bar"></div>
-                <div id="player2-hp-text" class="hp-bar-text"></div>
-            </div>
-        </div>
-        <canvas id="gameCanvas"></canvas>
-    </div>
+    characters.forEach((char, index) => {
+        const button = document.createElement('button');
+        button.innerText = char.name;
+        button.style.backgroundColor = char.color;
+        button.onclick = () => selectCharacter(index);
+        button.addEventListener('mouseover', () => showCharacterDetails(char));
+        button.addEventListener('mouseout', hideCharacterDetails);
+        charButtonsContainer.appendChild(button);
+    });
+}
+
+function showCharacterDetails(char) {
+    let detailsText = `--- ${char.name} ---\n\n**능력치**\n`;
+    for (const stat in char.stats) {
+        detailsText += `- ${stat}: ${char.stats[stat]}\n`;
+    }
+    detailsText += `\n**스킬 설명**\n- ${char.skill_description}`;
+    document.getElementById('character-details').innerText = detailsText;
+}
+
+function hideCharacterDetails() {
+    document.getElementById('character-details').innerText = '';
+}
+
+function selectCharacter(charIndex) {
+    players.push({
+        id: players.length + 1,
+        char_index: charIndex,
+        team: 0,
+        x: 0, y: 0,
+        moving: { up: false, down: false, left: false, right: false },
+        last_direction: 'right',
+        health: 0,
+        max_health: 0,
+        is_defending: false,
+        last_attack_time: 0,
+        attack_cooldown: 0.5,
+        last_defense_time: 0,
+        defense_cooldown: 3.0,
+        knockback_vector: { x: 0, y: 0 },
+        active_debuffs: {},
+        is_falling: false,
+        fall_speed: 0,
+    });
+
+    if (currentInputPlayer < playerCount) {
+        currentInputPlayer++;
+        showCharacterSelection();
+    } else {
+        currentInputPlayer = 1;
+        showTeamSelection();
+    }
+}
+
+function showTeamSelection() {
+    gameState = 'team_selection';
+    showScreen('team-selection-screen');
+    document.getElementById('team-selection-title').innerText = `플레이어 ${currentInputPlayer} 팀 선택:`;
+}
+
+function selectTeam(team) {
+    players[currentInputPlayer - 1].team = team;
+    if (currentInputPlayer < playerCount) {
+        currentInputPlayer++;
+        showTeamSelection();
+    } else {
+        currentInputPlayer = 1;
+        showNicknameInput();
+    }
+}
+
+function showNicknameInput() {
+    gameState = 'nickname_input';
+    showScreen('nickname-input-screen');
+    document.getElementById('nickname-input-title').innerText = `플레이어 ${currentInputPlayer} 닉네임 입력:`;
+    document.getElementById('nickname-entry').focus();
+}
+
+function processNickname() {
+    let nickname = document.getElementById('nickname-entry').value;
+    if (!nickname) {
+        nickname = `플레이어 ${currentInputPlayer}`;
+    }
+    players[currentInputPlayer - 1].nickname = nickname;
+
+    if (currentInputPlayer < playerCount) {
+        currentInputPlayer++;
+        showNicknameInput();
+    } else {
+        startGameLoop();
+    }
+}
+
+function startGameLoop() {
+    gameState = 'playing';
+    uiOverlay.style.display = 'none';
     
-    <div class="buttons-container" id="selection-buttons">
-        <div class="char-select-container">
-            <h2>P1 캐릭터 선택</h2>
-            <div class="char-select-row" id="p1-char-select">
-                <div class="char-card" data-char="swordsman">
-                    <h3>검사</h3>
-                    <p>HP: 12 / 데미지: 4</p>
-                    <p>특수 능력: 방어 (반사)</p>
-                </div>
-                <div class="char-card" data-char="rogue">
-                    <h3>도적</h3>
-                    <p>HP: 7 / 데미지: 3</p>
-                    <p>특수 능력: 순간이동 단검</p>
-                </div>
-                <div class="char-card" data-char="mage">
-                    <h3>마법사</h3>
-                    <p>HP: 9 / 데미지: 3</p>
-                    <p>특수 능력: 기절</p>
-                </div>
-                <div class="char-card" data-char="archer">
-                    <h3>궁수</h3>
-                    <p>HP: 10 / 데미지: 3</p>
-                    <p>특수 능력: 삼연발 화살</p>
-                </div>
-            </div>
-        </div>
+    // 캐릭터 초기화
+    const positions = [(300, 400), (900, 400), (600, 200), (600, 600)];
+    players.forEach((player, i) => {
+        const charInfo = characters[player.char_index];
+        player.max_health = charInfo.max_health;
+        player.health = player.max_health;
+        player.speed = baseSpeed * charInfo.speed_factor;
+        player.x = positions[i][0];
+        player.y = positions[i][1];
 
-        <div class="char-select-container">
-            <h2>P2 캐릭터 선택</h2>
-            <div class="char-select-row" id="p2-char-select">
-                 <div class="char-card" data-char="swordsman">
-                    <h3>검사</h3>
-                    <p>HP: 12 / 데미지: 4</p>
-                    <p>특수 능력: 방어 (반사)</p>
-                </div>
-                <div class="char-card" data-char="rogue">
-                    <h3>도적</h3>
-                    <p>HP: 7 / 데미지: 3</p>
-                    <p>특수 능력: 순간이동 단검</p>
-                </div>
-                <div class="char-card" data-char="mage">
-                    <h3>마법사</h3>
-                    <p>HP: 9 / 데미지: 3</p>
-                    <p>특수 능력: 기절</p>
-                </div>
-                <div class="char-card" data-char="archer">
-                    <h3>궁수</h3>
-                    <p>HP: 10 / 데미지: 3</p>
-                    <p>특수 능력: 삼연발 화살</p>
-                </div>
-            </div>
-        </div>
-        <button id="startButton">게임 시작</button>
-    </div>
+        // 특수 캐릭터 설정
+        if (charInfo.id === "warrior") player.attack_cooldown = 1.0;
+        if (charInfo.id === "healer") player.attack_cooldown = 2.0;
+        if (charInfo.id === "rogue") player.attack_cooldown = 0.7;
+        if (charInfo.id === "mage") player.debuff_chance = 0.25;
+    });
 
-    <div class="controls-info">
-        <p>
-            <span>P1 조작법:</span> WASD (이동), F (공격), G (특수 능력)
-        </p>
-        <p>
-            <span>P2 조작법:</span> 방향키 (이동), L (공격), K (특수 능력)
-        </p>
-    </div>
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    
+    lastGameLoopTime = performance.now();
+    gameLoopId = requestAnimationFrame(gameLoop);
+}
 
-    <script>
-        // 게임 상태와 설정
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const gameContainer = document.getElementById('game-container');
-        const startButton = document.getElementById('startButton');
-        const selectionButtons = document.getElementById('selection-buttons');
-        const gameStateMessage = document.getElementById('game-state-message');
+function gameLoop(timestamp) {
+    const deltaTime = (timestamp - lastGameLoopTime) / 1000;
+    lastGameLoopTime = timestamp;
+
+    // 캔버스 초기화
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 게임 요소 업데이트 및 그리기
+    updateGame(deltaTime);
+    drawGame();
+
+    // 게임 상태 확인
+    const alivePlayers = players.filter(p => p.health > 0);
+    const aliveTeams = new Set(alivePlayers.map(p => p.team));
+
+    if (aliveTeams.size <= 1 && players.length > 1) {
+        endGame(alivePlayers);
+    } else {
+        gameLoopId = requestAnimationFrame(gameLoop);
+    }
+}
+
+function updateGame(deltaTime) {
+    players.forEach(player => {
+        if (player.health <= 0) return;
         
-        let player1, player2;
-        let projectiles = [];
-        let keys = {};
-        let gameActive = false;
-        let lastUpdateTime = 0;
+        let dx = 0, dy = 0;
+        if (player.moving.up) dy -= player.speed;
+        if (player.moving.down) dy += player.speed;
+        if (player.moving.left) dx -= player.speed;
+        if (player.moving.right) dx += player.speed;
+
+        // 이동 및 충돌 처리 (부분적으로 구현)
+        player.x += dx * deltaTime * 60;
+        player.y += dy * deltaTime * 60;
+
+        // 경계 충돌 처리
+        player.x = Math.max(0, Math.min(canvas.width - playerSize, player.x));
+        player.y = Math.max(0, Math.min(canvas.height - playerSize, player.y));
+    });
+
+    // 프로젝트일 이동 및 충돌 처리
+    projectiles.forEach(p => {
+        p.x += p.vx * deltaTime * 60;
+        p.y += p.vy * deltaTime * 60;
         
-        const characterStats = {
-            swordsman: { name: '검사', maxHp: 12, damage: 4, speed: 4, specialCooldown: 3000, color: 'blue' },
-            rogue: { name: '도적', maxHp: 7, damage: 3, speed: 4, specialCooldown: 5000, color: 'purple' },
-            mage: { name: '마법사', maxHp: 9, damage: 3, speed: 4.5, specialCooldown: 5000, color: 'red' },
-            archer: { name: '궁수', maxHp: 10, damage: 3, speed: 5, specialCooldown: 4000, color: 'green' }
-        };
+        // 충돌 체크 (부분적으로 구현)
+        // ...
+    });
+}
+
+function drawGame() {
+    // 맵 그리기
+    drawMap();
+    
+    // 플레이어 그리기
+    players.forEach(player => {
+        if (player.health <= 0) return;
+        const charInfo = characters[player.char_index];
+
+        // 몸체
+        ctx.fillStyle = charInfo.color;
+        ctx.fillRect(player.x, player.y, playerSize, playerSize);
+
+        // 닉네임 및 체력바
+        drawPlayerUI(player);
+    });
+
+    // 투사체 그리기
+    projectiles.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+function drawMap() {
+    if (selectedMap === 'fallout') {
+        ctx.fillStyle = 'saddlebrown';
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, canvas.height / 2, 350, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    walls.forEach(wall => {
+        ctx.fillStyle = 'gray';
+        ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+    });
+}
+
+function drawPlayerUI(player) {
+    // 닉네임
+    ctx.fillStyle = 'white';
+    ctx.font = '16px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(player.nickname, player.x + playerSize / 2, player.y - 10);
+    
+    // 체력바
+    const barWidth = playerSize;
+    const barHeight = 5;
+    ctx.fillStyle = 'black';
+    ctx.fillRect(player.x, player.y - 5, barWidth, barHeight);
+    
+    const healthRatio = player.health / player.max_health;
+    ctx.fillStyle = 'red';
+    ctx.fillRect(player.x, player.y - 5, barWidth * healthRatio, barHeight);
+}
+
+function onKeyDown(event) {
+    const key = event.key;
+    const playerIndex = players.findIndex(p => {
+        const controls = playerControls[p.id];
+        return Object.values(controls.move).includes(key) || controls.attack === key || controls.defense === key;
+    });
+
+    if (playerIndex !== -1) {
+        const player = players[playerIndex];
+        const controls = playerControls[player.id];
         
-        let p1Char, p2Char;
+        if (key === controls.move.up) player.moving.up = true;
+        if (key === controls.move.down) player.moving.down = true;
+        if (key === controls.move.left) player.moving.left = true;
+        if (key === controls.move.right) player.moving.right = true;
 
-        // 캔버스 크기 조정
-        function resizeCanvas() {
-            canvas.width = gameContainer.clientWidth;
-            canvas.height = gameContainer.clientHeight - 80; // UI 공간 확보
-        }
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
+        if (key === controls.attack) attack(player);
+        if (key === controls.defense) defend(player);
+    }
+}
 
-        // 플레이어 클래스 정의
-        class Player {
-            constructor(x, y, playerNum, characterType) {
-                this.x = x;
-                this.y = y;
-                this.width = 50;
-                this.height = 50;
-                this.playerNum = playerNum;
-                this.characterType = characterType;
-                
-                // 캐릭터 통계 적용
-                const stats = characterStats[characterType];
-                this.name = stats.name;
-                this.maxHp = stats.maxHp;
-                this.hp = this.maxHp;
-                this.damage = stats.damage;
-                this.speed = stats.speed;
-                this.color = stats.color;
-                this.specialCooldown = stats.specialCooldown;
-                this.lastSpecialTime = 0;
-                
-                // 상태 변수
-                this.isAttacking = false;
-                this.isStunned = false;
-                this.isDefending = false;
-            }
+function onKeyUp(event) {
+    const key = event.key;
+    const playerIndex = players.findIndex(p => {
+        const controls = playerControls[p.id];
+        return Object.values(controls.move).includes(key);
+    });
 
-            // 플레이어 그리기
-            draw() {
-                ctx.fillStyle = this.color;
-                ctx.fillRect(this.x, this.y, this.width, this.height);
-                
-                // 캐릭터 이름 표시
-                ctx.fillStyle = 'white';
-                ctx.textAlign = 'center';
-                ctx.font = '16px Inter';
-                ctx.fillText(this.name, this.x + this.width / 2, this.y - 10);
-
-                // 방어 상태 표시 (검사)
-                if (this.isDefending) {
-                    ctx.strokeStyle = 'cyan';
-                    ctx.lineWidth = 4;
-                    ctx.beginPath();
-                    ctx.arc(this.x + this.width / 2, this.y + this.height / 2, 40, 0, Math.PI * 2);
-                    ctx.stroke();
-                }
-            }
-
-            // 플레이어 위치 업데이트
-            update() {
-                if (this.isStunned) return;
-
-                if (this.playerNum === 1) {
-                    if (keys['w'] && this.y > 0) this.y -= this.speed;
-                    if (keys['s'] && this.y + this.height < canvas.height) this.y += this.speed;
-                    if (keys['a'] && this.x > 0) this.x -= this.speed;
-                    if (keys['d'] && this.x + this.width < canvas.width) this.x += this.speed;
-                } else {
-                    if (keys['ArrowUp'] && this.y > 0) this.y -= this.speed;
-                    if (keys['ArrowDown'] && this.y + this.height < canvas.height) this.y += this.speed;
-                    if (keys['ArrowLeft'] && this.x > 0) this.x -= this.speed;
-                    if (keys['ArrowRight'] && this.x + this.width < canvas.width) this.x += this.speed;
-                }
-
-                // 경계 충돌 방지
-                this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
-                this.y = Math.max(0, Math.min(canvas.height - this.height, this.y));
-            }
-
-            // 일반 공격
-            attack(target) {
-                const angle = Math.atan2(target.y - this.y, target.x - this.x);
-                let projectile;
-
-                if (this.characterType === 'archer') {
-                    // 궁수 화살을 더 잘 보이게
-                    projectile = new Projectile(this.x + this.width / 2, this.y + this.height / 2, 
-                                                angle, this.damage, 'arrow', this.playerNum, '#ffff00', 10, 3);
-                } else if (this.characterType === 'mage') {
-                    projectile = new Projectile(this.x + this.width / 2, this.y + this.height / 2, 
-                                                angle, this.damage, 'fireball', this.playerNum);
-                } else {
-                    projectile = new Projectile(this.x + this.width / 2, this.y + this.height / 2, 
-                                                angle, this.damage, 'normal_attack', this.playerNum);
-                }
-
-                projectiles.push(projectile);
-            }
-
-            // 특수 능력
-            special(target) {
-                const now = Date.now();
-                if (now - this.lastSpecialTime < this.specialCooldown) {
-                    return; // 쿨타임 중
-                }
-                this.lastSpecialTime = now;
-
-                if (this.characterType === 'swordsman') {
-                    // 검사: 방어
-                    this.isDefending = true;
-                    setTimeout(() => {
-                        this.isDefending = false;
-                    }, 1000); // 1초간 방어
-                } else if (this.characterType === 'rogue') {
-                    // 도적: 순간이동 단검
-                    const angle = Math.atan2(target.y - this.y, target.x - this.x);
-                    const dagger = new Projectile(this.x + this.width / 2, this.y + this.height / 2, 
-                                                  angle, 2, 'teleport_dagger', this.playerNum, 'gold');
-                    projectiles.push(dagger);
-                } else if (this.characterType === 'mage') {
-                    // 마법사: 기절은 일반 공격에 포함
-                } else if (this.characterType === 'archer') {
-                    // 궁수: 삼연발 화살
-                    const baseAngle = Math.atan2(target.y - this.y, target.x - this.x);
-                    const spread = Math.PI / 10;
-                    projectiles.push(new Projectile(this.x + this.width / 2, this.y + this.height / 2, baseAngle - spread, this.damage, 'arrow', this.playerNum, '#ffff00', 10, 3));
-                    projectiles.push(new Projectile(this.x + this.width / 2, this.y + this.height / 2, baseAngle, this.damage, 'arrow', this.playerNum, '#ffff00', 10, 3));
-                    projectiles.push(new Projectile(this.x + this.width / 2, this.y + this.height / 2, baseAngle + spread, this.damage, 'arrow', this.playerNum, '#ffff00', 10, 3));
-                }
-            }
-        }
-
-        // 투사체 클래스 정의
-        class Projectile {
-            constructor(x, y, angle, damage, type, playerNum, color = 'white', size = 5, speed = 7) {
-                this.x = x;
-                this.y = y;
-                this.vx = Math.cos(angle) * speed;
-                this.vy = Math.sin(angle) * speed;
-                this.damage = damage;
-                this.type = type;
-                this.playerNum = playerNum;
-                this.color = color;
-                this.size = size;
-                this.isDestroyed = false;
-            }
-
-            // 투사체 그리기
-            draw() {
-                if (this.type === 'arrow') {
-                    // 화살 이펙트 (직선)
-                    ctx.strokeStyle = this.color;
-                    ctx.lineWidth = this.size;
-                    ctx.beginPath();
-                    ctx.moveTo(this.x, this.y);
-                    ctx.lineTo(this.x - this.vx * 3, this.y - this.vy * 3);
-                    ctx.stroke();
-                } else {
-                    // 일반 원형 투사체
-                    ctx.fillStyle = this.color;
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-
-            // 투사체 위치 업데이트
-            update() {
-                this.x += this.vx;
-                this.y += this.vy;
-            }
-        }
+    if (playerIndex !== -1) {
+        const player = players[playerIndex];
+        const controls = playerControls[player.id];
         
-        // UI 업데이트
-        function updateUI() {
-            // HP 바 업데이트
-            document.getElementById('player1-hp-bar').style.width = `${(player1.hp / player1.maxHp) * 100}%`;
-            document.getElementById('player2-hp-bar').style.width = `${(player2.hp / player2.maxHp) * 100}%`;
-            document.getElementById('player1-hp-text').innerText = `${player1.name} HP: ${Math.max(0, player1.hp)} / ${player1.maxHp}`;
-            document.getElementById('player2-hp-text').innerText = `${player2.name} HP: ${Math.max(0, player2.hp)} / ${player2.maxHp}`;
+        if (key === controls.move.up) player.moving.up = false;
+        if (key === controls.move.down) player.moving.down = false;
+        if (key === controls.move.left) player.moving.left = false;
+        if (key === controls.move.right) player.moving.right = false;
+    }
+}
 
-            // 쿨타임 업데이트
-            const p1Cooldown = Math.max(0, player1.specialCooldown - (Date.now() - player1.lastSpecialTime));
-            const p2Cooldown = Math.max(0, player2.specialCooldown - (Date.now() - player2.lastSpecialTime));
-            document.getElementById('player1-cooldown-text').innerText = `쿨타임: ${(p1Cooldown / 1000).toFixed(1)}s`;
-            document.getElementById('player2-cooldown-text').innerText = `쿨타임: ${(p2Cooldown / 1000).toFixed(1)}s`;
-            
-            const p1CooldownIcon = document.getElementById('player1-cooldown-icon');
-            const p2CooldownIcon = document.getElementById('player2-cooldown-icon');
-            const p1CooldownOverlay = document.getElementById('player1-cooldown-overlay');
-            const p2CooldownOverlay = document.getElementById('player2-cooldown-overlay');
+// TODO: 파이썬 코드의 `attack`과 `defend` 함수 로직을 여기에 구현
+function attack(player) {
+    // ... 파이썬 코드의 공격 로직을 JavaScript로 변환하여 구현
+}
 
-            if (p1Cooldown > 0) {
-                p1CooldownIcon.classList.add('on-cooldown');
-                p1CooldownOverlay.style.opacity = 1;
-                p1CooldownOverlay.innerText = `${(p1Cooldown / 1000).toFixed(1)}`;
-            } else {
-                p1CooldownIcon.classList.remove('on-cooldown');
-                p1CooldownOverlay.style.opacity = 0;
-            }
-            if (p2Cooldown > 0) {
-                p2CooldownIcon.classList.add('on-cooldown');
-                p2CooldownOverlay.style.opacity = 1;
-                p2CooldownOverlay.innerText = `${(p2Cooldown / 1000).toFixed(1)}`;
-            } else {
-                p2CooldownIcon.classList.remove('on-cooldown');
-                p2CooldownOverlay.style.opacity = 0;
-            }
+function defend(player) {
+    // ... 파이썬 코드의 방어 로직을 JavaScript로 변환하여 구현
+}
 
-            // 상태 텍스트 업데이트
-            document.getElementById('player1-status-text').innerText = player1.isStunned ? '기절' : player1.isDefending ? '방어 중' : '';
-            document.getElementById('player2-status-text').innerText = player2.isStunned ? '기절' : player2.isDefending ? '방어 중' : '';
-        }
+function endGame(winningPlayers) {
+    cancelAnimationFrame(gameLoopId);
+    uiOverlay.style.display = 'flex';
+    showScreen('game-over-screen');
+    
+    let endText = "게임 종료! 승자 없음 (무승부)";
+    if (winningPlayers.length > 0) {
+        const winnerNames = winningPlayers.map(p => p.nickname).join(', ');
+        const winnerTeam = winningPlayers[0].team;
+        endText = `팀 ${winnerTeam} 승리! (${winnerNames})`;
+    }
+    document.getElementById('game-over-text').innerText = endText;
+}
 
-        // 충돌 감지
-        function checkCollision(obj1, obj2) {
-            return obj1.x < obj2.x + obj2.width &&
-                   obj1.x + obj1.width > obj2.x &&
-                   obj1.y < obj2.y + obj2.height &&
-                   obj1.y + obj1.height > obj2.y;
-        }
+function resetGame() {
+    // 변수 초기화
+    players = [];
+    projectiles = [];
+    healthPotions = [];
+    walls = [];
+    
+    showScreen('start-screen');
+    gameState = 'player_selection';
+    uiOverlay.style.display = 'flex';
+}
 
-        // 게임 루프
-        function gameLoop() {
-            if (!gameActive) return;
+// 게임 시작
+showScreen('start-screen');
 
-            // 델타 타임 계산
-            const now = Date.now();
-            const deltaTime = now - lastUpdateTime;
-            lastUpdateTime = now;
-
-            // 캔버스 초기화
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // 플레이어 업데이트 및 그리기
-            player1.update();
-            player2.update();
-            player1.draw();
-            player2.draw();
-            
-            // 투사체 업데이트, 그리기, 충돌 감지
-            for (let i = projectiles.length - 1; i >= 0; i--) {
-                const projectile = projectiles[i];
-                projectile.update();
-                projectile.draw();
-
-                let hitPlayer = null;
-                if (projectile.playerNum === 1) {
-                    hitPlayer = player2;
-                } else {
-                    hitPlayer = player1;
-                }
-                
-                // 충돌 감지
-                if (checkCollision(projectile, hitPlayer) && !projectile.isDestroyed) {
-                    projectile.isDestroyed = true;
-
-                    if (hitPlayer.characterType === 'swordsman' && hitPlayer.isDefending && projectile.type === 'normal_attack') {
-                        // 검사의 반사 능력
-                        hitPlayer.hp -= 0; // 데미지 없음
-                        projectile.isDestroyed = true;
-                        projectile.x = -100; // 화면 밖으로 이동
-                        const attacker = projectile.playerNum === 1 ? player1 : player2;
-                        attacker.hp -= projectile.damage; // 공격자가 데미지 입음
-                        
-                    } else if (projectile.type === 'fireball') {
-                        // 마법사의 기절 공격
-                        hitPlayer.hp -= projectile.damage;
-                        hitPlayer.isStunned = true;
-                        setTimeout(() => { hitPlayer.isStunned = false; }, 1000);
-                    } else if (projectile.type === 'teleport_dagger') {
-                        // 도적의 순간이동 단검
-                        hitPlayer.hp -= projectile.damage;
-                        const rogue = projectile.playerNum === 1 ? player1 : player2;
-                        rogue.x = hitPlayer.x;
-                        rogue.y = hitPlayer.y;
-                    } else {
-                        // 일반 공격
-                        hitPlayer.hp -= projectile.damage;
-                    }
-                }
-
-                // 화면 밖으로 나간 투사체 제거
-                if (projectile.x < -20 || projectile.x > canvas.width + 20 ||
-                    projectile.y < -20 || projectile.y > canvas.height + 20) {
-                    projectile.isDestroyed = true;
-                }
-            }
-
-            // 파괴된 투사체 필터링
-            projectiles = projectiles.filter(p => !p.isDestroyed);
-
-            // UI 업데이트
-            updateUI();
-
-            // 게임 종료 조건
-            if (player1.hp <= 0) {
-                endGame(2);
-            } else if (player2.hp <= 0) {
-                endGame(1);
-            } else {
-                requestAnimationFrame(gameLoop);
-            }
-        }
-
-        // 게임 종료
-        function endGame(winner) {
-            gameActive = false;
-            gameStateMessage.style.display = 'block';
-            gameStateMessage.innerText = `P${winner} 승리!`;
-            setTimeout(() => {
-                location.reload();
-            }, 3000);
-        }
-
-        // 이벤트 리스너 설정
-        document.addEventListener('keydown', (e) => {
-            keys[e.key] = true;
-        });
-
-        document.addEventListener('keyup', (e) => {
-            keys[e.key] = false;
-        });
-
-        // 공격 및 특수키 처리
-        document.addEventListener('keydown', (e) => {
-            if (!gameActive) return;
-            if (e.key === 'f') {
-                if (!player1.isAttacking) {
-                    player1.isAttacking = true;
-                    player1.attack(player2);
-                }
-            } else if (e.key === 'g') {
-                player1.special(player2);
-            } else if (e.key === 'l') {
-                if (!player2.isAttacking) {
-                    player2.isAttacking = true;
-                    player2.attack(player1);
-                }
-            } else if (e.key === 'k') {
-                player2.special(player1);
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            if (e.key === 'f') {
-                player1.isAttacking = false;
-            } else if (e.key === 'l') {
-                player2.isAttacking = false;
-            }
-        });
-
-        // 캐릭터 선택 로직
-        document.querySelectorAll('.char-card').forEach(card => {
-            card.addEventListener('click', () => {
-                const player = card.closest('.char-select-container').querySelector('h2').innerText.includes('P1') ? 'p1' : 'p2';
-                const charType = card.dataset.char;
-                
-                // 선택 초기화
-                document.querySelectorAll(`#${player}-char-select .char-card`).forEach(c => c.classList.remove('selected'));
-                card.classList.add('selected');
-                
-                if (player === 'p1') {
-                    p1Char = charType;
-                } else {
-                    p2Char = charType;
-                }
-                
-                // 게임 시작 버튼 활성화
-                if (p1Char && p2Char) {
-                    startButton.disabled = false;
-                    startButton.style.backgroundColor = '#3498db';
-                    startButton.style.cursor = 'pointer';
-                }
-            });
-        });
-
-        // 게임 시작 버튼 클릭 이벤트
-        startButton.addEventListener('click', () => {
-            if (p1Char && p2Char) {
-                selectionButtons.style.display = 'none';
-                gameContainer.style.display = 'flex';
-                gameActive = true;
-                
-                // 플레이어 초기화
-                player1 = new Player(100, canvas.height / 2 - 25, 1, p1Char);
-                player2 = new Player(canvas.width - 150, canvas.height / 2 - 25, 2, p2Char);
-
-                lastUpdateTime = Date.now();
-                requestAnimationFrame(gameLoop);
-            } else {
-                gameStateMessage.style.display = 'block';
-                gameStateMessage.innerText = '캐릭터를 선택하세요!';
-                setTimeout(() => { gameStateMessage.style.display = 'none'; }, 2000);
-            }
-        });
-
-        // 초기 시작 버튼 상태 설정
-        startButton.disabled = true;
-        startButton.style.backgroundColor = '#7f8c8d';
-        startButton.style.cursor = 'not-allowed';
-
-        // 초기 화면 설정
-        gameContainer.style.display = 'none';
-
-    </script>
-</body>
-</html>
 
