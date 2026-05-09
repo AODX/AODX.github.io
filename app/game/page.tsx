@@ -96,6 +96,8 @@ const sortInfo: Record<SortKind, { label: string; emoji: string; key: string }> 
 
 export default function GamePage() {
   const [cash, setCash] = useState(10000);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isSaveLoaded, setIsSaveLoaded] = useState(false);
   const [warningCount, setWarningCount] = useState(0);
   const [unpaidTax, setUnpaidTax] = useState(0);
   const [taxCountdown, setTaxCountdown] = useState(TAX_INTERVAL_SECONDS);
@@ -712,7 +714,7 @@ function SortingGame({ item, combo, miss, difficulty }: { item: SortItem; combo:
         </div>
       </div>
       <div style={{ ...sortBinsStyle, gridTemplateColumns: `repeat(${activeKinds.length}, 1fr)` }}>
-        {activeKinds.map((kind) => <div key={kind} style={sortBinStyle}>{sortInfo[kind].key}번 {sortInfo[kind].emoji} {sortInfo[kind].label}</div>)}
+        {activeKinds.map((kind) => <div key={kind} style={sortBinStyle}>{sortInfo[kind].key}키 {sortInfo[kind].emoji} {sortInfo[kind].label}</div>)}
       </div>
     </div>
   );
@@ -842,7 +844,7 @@ function getDifficultyMessage(jobId: JobId, level: number) {
 }
 
 function getControlHint(activeJobId: JobId | null) {
-  if (activeJobId === "sorting") return "중앙 구역에서 1/2/3/4/5 입력";
+  if (activeJobId === "sorting") return "중앙 구역에서 r/b/y/g/p 입력";
   if (activeJobId === "delivery") return "A/D 또는 ←/→ 이동 · 🍱 통과";
   if (activeJobId === "cashier") return "W/A/S/D 순서 입력";
   if (activeJobId === "cafe") return "Space 누르고 있다가 떼기";
