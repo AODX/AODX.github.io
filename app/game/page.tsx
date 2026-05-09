@@ -2229,6 +2229,7 @@ const roomSideControlsStyle: CSSProperties = {
   top: "10px",
   display: "flex",
   gap: "8px",
+  zIndex: 5,
 };
 
 const trophyButtonStyle: CSSProperties = {
@@ -2350,7 +2351,6 @@ const streetBottomNavStyle: CSSProperties = {
   transform: "translateX(-50%)",
   display: "flex",
   gap: "8px",
-  zIndex: 5,
 };
 
 const panelSceneStyle: CSSProperties = {
@@ -3213,5 +3213,4 @@ const firedStampReasonStyle: CSSProperties = {
   color: "#111827",
   whiteSpace: "nowrap",
 };
-
 
