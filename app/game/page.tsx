@@ -932,13 +932,51 @@ function CafeGame({ fill, targetStart, targetEnd, success, miss, holding, diffic
 function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal; success: number; miss: number; round: number }) {
   const character = signal === "thief" ? "🕵️‍♂️" : signal === "vip" ? "🤵" : "🚶";
   const label = signal === "thief" ? "수상한 사람!" : signal === "vip" ? "VIP 손님" : "평범한 손님";
+  const mood = signal === "thief" ? "검문하세요" : signal === "vip" ? "통과시키세요" : "그냥 보내세요";
+  const badgeColor = signal === "thief" ? "#f87171" : signal === "vip" ? "#facc15" : "#86efac";
+
   return (
     <div style={securityStageStyle}>
-      <div style={miniGameTopInfoStyle}><strong>대응 {success}회</strong><strong>실수 {miss}/3</strong></div>
+      <style>{`
+        @keyframes securityWalkIn {
+          0% { transform: translateX(-130%) scale(0.9); opacity: 0; }
+          35% { opacity: 1; }
+          100% { transform: translateX(0) scale(1); opacity: 1; }
+        }
+
+        @keyframes securityPulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.04); }
+        }
+      `}</style>
+
+      <div style={miniGameTopInfoStyle}>
+        <strong>대응 {success}회</strong>
+        <strong>실수 {miss}/3</strong>
+      </div>
+
       <div style={securityPanelStyle}>
-        <div key={round} style={securityCharacterStyle}>{character}</div>
-        <div style={securityLabelStyle}>{label}</div>
-        <div style={securityHintStyle}>수상한 사람일 때만 <strong>Space</strong> · VIP 차단 시 -{PAY.vipPenalty.toLocaleString()}원</div>
+        <div style={securityQueueStyle}>
+          <div style={securityGateStyle}>입구</div>
+          <div style={securityLineStyle} />
+          <div style={securityDeskStyle}>검문대</div>
+          <div style={securityLineStyle} />
+          <div style={securityGateStyle}>출구</div>
+        </div>
+
+        <div style={securitySceneStyle}>
+          <div key={round} style={securityCharacterWrapStyle}>
+            <div style={securityCharacterStyle}>{character}</div>
+          </div>
+        </div>
+
+        <div style={{ ...securityBadgeStyle, borderColor: badgeColor, color: badgeColor }}>
+          {label} · {mood}
+        </div>
+
+        <div style={securityHintStyle}>
+          다음 손님 #{round + 1} · 수상한 사람일 때만 <strong>Space</strong> · VIP 차단 시 -{PAY.vipPenalty.toLocaleString()}원
+        </div>
       </div>
     </div>
   );
@@ -1547,21 +1585,80 @@ const cafeGaugeTextStyle: CSSProperties = {
 };
 
 const securityStageStyle: CSSProperties = {
-  width: "min(580px, 90vw)",
-  height: "min(380px, 54svh)",
+  width: "min(660px, 92vw)",
+  height: "min(430px, 58svh)",
   display: "grid",
   gridTemplateRows: "auto 1fr",
   gap: "7px",
 };
 
 const securityPanelStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
+  display: "grid",
+  gridTemplateRows: "44px 1fr auto auto",
   alignItems: "center",
-  justifyContent: "center",
+  justifyContent: "stretch",
   background: "rgba(15,23,42,0.88)",
   border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "22px",
+  borderRadiconst securityCharacterStyle: CSSProperties = {
+  fontSize: "92px",
+  marginBottom: "6px",
+  filter: "drop-shadow(0 18px 20px rgba(0,0,0,0.28))",
+};
+
+const securityBadgeStyle: CSSProperties = {
+  justifySelf: "center",
+  minWidth: "min(420px, 86%)",
+  textAlign: "center",
+  border: "2px solid #86efac",
+  background: "rgba(255,255,255,0.07)",
+  borderRadius: "18px",
+  padding: "10px 16px",
+  fontWeight: 900,
+  fontSize: "22px",
+  animation: "securityPulse 900ms ease infinite",
+};
+
+const securityLabelStyle
+  gridTemplateColumns: "auto 1fr auto 1fr auto",
+  alignItems: "center",
+  gap: "8px",
+  color: "#cbd5e1",
+  fontWeight: 900,
+  fontSize: "13px",
+};
+
+const securityGateStyle: CSSProperties = {
+  border: "1px solid rgba(255,255,255,0.18)",
+  background: "rgba(255,255,255,0.08)",
+  borderRadius: "999px",
+  padding: "7px 12px",
+};
+
+const securityLineStyle: CSSProperties = {
+  height: "3px",
+  borderRadius: "999px",
+  background: "linear-gradient(90deg, rgba(56,189,248,0.1), rgba(56,189,248,0.75), rgba(56,189,248,0.1))",
+};
+
+const securityDeskStyle: CSSProperties = {
+  border: "1px solid rgba(56,189,248,0.5)",
+  background: "rgba(56,189,248,0.14)",
+  color: "#bae6fd",
+  borderRadius: "999px",
+  padding: "7px 14px",
+};
+
+const securitySceneStyle: CSSProperties = {
+  position: "relative",
+  height: "100%",
+  minHeight: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const securityCharacterWrapStyle: CSSProperties = {
+  animation: "securityWalkIn 420ms ease both",
 };
 
 const securityCharacterStyle: CSSProperties = {
@@ -1619,6 +1716,7 @@ const firedStampReasonStyle: CSSProperties = {
   color: "rgba(255, 228, 230, 0.92)",
   whiteSpace: "nowrap",
 };
+
 
 
 
