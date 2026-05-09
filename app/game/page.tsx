@@ -1664,6 +1664,17 @@ function StreetArtwork() {
       </g>
 
       <g filter="url(#softStreetShadow)">
+        <rect x="780" y="360" width="260" height="170" rx="12" fill="#ffffff" stroke="#111827" strokeWidth="7" />
+        <rect x="808" y="306" width="204" height="62" rx="10" fill="#dbeafe" stroke="#111827" strokeWidth="6" />
+        <text x="910" y="346" textAnchor="middle" fill="#111827" fontSize="28" fontWeight="900">주식 거래소</text>
+        <rect x="814" y="398" width="196" height="82" rx="8" fill="#111827" stroke="#111827" strokeWidth="5" />
+        <polyline points="832,458 858,438 884,448 912,416 944,432 984,394" fill="none" stroke="#22c55e" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+        <polygon points="984,394 972,398 980,408" fill="#22c55e" />
+        <rect x="846" y="492" width="34" height="38" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+        <rect x="922" y="492" width="34" height="38" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+      </g>
+
+      <g filter="url(#softStreetShadow)">
         <rect x="230" y="448" width="220" height="130" rx="12" fill="#ffffff" stroke="#111827" strokeWidth="7" />
         <rect x="248" y="405" width="184" height="50" rx="8" fill="#fef3c7" stroke="#111827" strokeWidth="6" />
         <text x="340" y="438" textAnchor="middle" fill="#111827" fontSize="25" fontWeight="900">직업 사무소</text>
@@ -2294,6 +2305,7 @@ const sunStyle: CSSProperties = {
 
 const buildingButtonStyle: CSSProperties = {
   position: "absolute",
+  zIndex: 6,
   border: "5px solid #111827",
   borderRadius: "10px 10px 3px 3px",
   background: "linear-gradient(180deg, #ffffff 0 20%, #e5e7eb 20% 21%, #ffffff 21% 43%, #e5e7eb 43% 44%, #ffffff 44% 66%, #e5e7eb 66% 67%, #ffffff 67% 100%)",
@@ -2320,6 +2332,7 @@ const roadStyle: CSSProperties = {
 
 const streetLabelStyle: CSSProperties = {
   position: "absolute",
+  zIndex: 6,
   right: "22%",
   bottom: "28%",
   background: "#ffffff",
@@ -2332,6 +2345,7 @@ const streetLabelStyle: CSSProperties = {
 
 const streetBottomNavStyle: CSSProperties = {
   position: "absolute",
+  zIndex: 6,
   left: "50%",
   bottom: "12px",
   transform: "translateX(-50%)",
