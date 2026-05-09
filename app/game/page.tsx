@@ -154,6 +154,7 @@ export default function GamePage() {
   const [securityRound, setSecurityRound] = useState(0);
 
   const firedLockRef = useRef(false);
+  const runnerSpawnCooldownRef = useRef(0);
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs[0], [selectedJobId]);
   const activeJob = useMemo(() => (activeJobId ? jobs.find((job) => job.id === activeJobId) ?? null : null), [activeJobId]);
   const taxRate = getTaxRate(cash);
@@ -348,14 +349,38 @@ export default function GamePage() {
         return moved.filter((coin) => !(coin.lane === runnerLane && coin.y >= 78 && coin.y <= 93));
       });
 
-      if (Math.random() < 0.044 + difficulty * 0.011) {
-        setRunnerObstacles((current) => [...current, { id: runnerObjectId, lane: Math.floor(Math.random() * 3), y: -12 }]);
-        setRunnerObjectId((id) => id + 1);
-      }
+      runnerSpawnCooldownRef.current -= 1;
 
-      if (Math.random() < 0.018 + difficulty * 0.003) {
-        setRunnerCoins((current) => [...current, { id: runnerObjectId + 10000, lane: Math.floor(Math.random() * 3), y: -12 }]);
-        setRunnerObjectId((id) => id + 1);
+      if (runnerSpawnCooldownRef.current <= 0) {
+        const safeLane = Math.floor(Math.random() * 3);
+        const obstacleLanes = makeDeliveryObstacleLanes(difficulty, safeLane);
+        const shouldSpawnCoin = Math.random() < 0.7;
+
+        setRunnerObjectId((id) => {
+          setRunnerObstacles((current) => [
+            ...current,
+            ...obstacleLanes.map((lane, index) => ({
+              id: id + index,
+              lane,
+              y: -16,
+            })),
+          ]);
+
+          if (shouldSpawnCoin) {
+            setRunnerCoins((current) => [
+              ...current,
+              {
+                id: id + obstacleLanes.length + 10000,
+                lane: safeLane,
+                y: -24,
+              },
+            ]);
+          }
+
+          return id + obstacleLanes.length + 1;
+        });
+
+        runnerSpawnCooldownRef.current = getDeliverySpawnCooldown(difficulty);
       }
     }, 24);
 
@@ -534,6 +559,7 @@ export default function GamePage() {
     setRunnerObjectId(1);
     setRunnerHitFlash(false);
     setRunnerMiss(0);
+    runnerSpawnCooldownRef.current = 0;
     setMessage(`🛵 A/D로 이동하세요. 장애물 충돌 3회면 해고, 충돌마다 ${PAY.deliveryCrashPenalty.toLocaleString()}원 차감됩니다.`);
   }
 
@@ -970,7 +996,22 @@ function getSortingSpeed(difficulty: number) {
 }
 
 function getDeliverySpeed(difficulty: number) {
-  return 1.0 + difficulty * 0.3;
+  return 0.9 + difficulty * 0.22;
+}
+
+function getDeliverySpawnCooldown(difficulty: number) {
+  return Math.max(18, 34 - difficulty * 2);
+}
+
+function makeDeliveryObstacleLanes(difficulty: number, safeLane: number) {
+  const lanes = [0, 1, 2].filter((lane) => lane !== safeLane);
+  const shouldBlockTwoLanes = difficulty >= 4 && Math.random() < 0.35 + difficulty * 0.04;
+
+  if (shouldBlockTwoLanes) {
+    return lanes;
+  }
+
+  return [lanes[Math.floor(Math.random() * lanes.length)]];
 }
 
 function formatTime(seconds: number) {
@@ -1578,5 +1619,6 @@ const firedStampReasonStyle: CSSProperties = {
   color: "rgba(255, 228, 230, 0.92)",
   whiteSpace: "nowrap",
 };
+
 
 
