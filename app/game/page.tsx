@@ -765,62 +765,335 @@ function getControlHint(activeJobId: JobId | null) {
   return "알바를 선택하세요";
 }
 
-const pageStyle: CSSProperties = { width: "100vw", height: "100svh", maxHeight: "100svh", overflow: "hidden", background: "radial-gradient(circle at top left, #1e3a8a 0, transparent 35%), linear-gradient(135deg, #020617 0%, #0f172a 55%, #1e1b4b 100%)", color: "white", fontFamily: "Arial, sans-serif" };
-const lobbyLayoutStyle: CSSProperties = { width: "100%", height: "100%", padding: "10px 14px", display: "grid", gridTemplateRows: "auto minmax(0, 1fr) auto", gap: "10px" };
-const lobbyHeaderStyle: CSSProperties = { display: "grid", gridTemplateColumns: "1fr auto", alignItems: "start", gap: "14px" };
-const smallLabelStyle: CSSProperties = { color: "#7dd3fc", fontSize: "13px", fontWeight: 900, letterSpacing: "0.12em" };
-const mainTitleStyle: CSSProperties = { margin: "1px 0", fontSize: "clamp(30px, 3.2vw, 38px)", lineHeight: 1 };
-const subtitleStyle: CSSProperties = { margin: 0, color: "#dbeafe", fontSize: "clamp(13px, 1.2vw, 15px)" };
-const moneyPanelStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(6, minmax(88px, 104px))", gap: "6px" };
-const statusPillStyle: CSSProperties = { background: "rgba(15,23,42,0.78)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "11px", padding: "6px 8px", minWidth: "82px", display: "grid", gap: "1px", fontSize: "12px" };
-const statusLabelStyle: CSSProperties = { color: "#94a3b8", fontSize: "10px" };
-const jobGridStyle: CSSProperties = { minHeight: 0, display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: "12px", alignItems: "stretch", overflow: "hidden" };
-const jobCardStyle: CSSProperties = { height: "100%", minHeight: 0, borderRadius: "18px", padding: "clamp(14px, 1.4vw, 20px)", background: "rgba(255,255,255,0.10)", color: "white", textAlign: "left", cursor: "pointer", boxShadow: "0 16px 40px rgba(0,0,0,0.25)", overflow: "hidden" };
-const jobIconStyle: CSSProperties = { fontSize: "clamp(34px, 3.5vw, 46px)", marginBottom: "clamp(8px, 1vw, 14px)" };
-const jobCardTitleStyle: CSSProperties = { margin: "0 0 8px", fontSize: "clamp(17px, 1.6vw, 21px)" };
-const jobCardTextStyle: CSSProperties = { margin: 0, color: "#dbeafe", lineHeight: 1.35, fontSize: "clamp(12px, 1.05vw, 14px)" };
-const rewardTextStyle: CSSProperties = { marginTop: "clamp(10px, 1.1vw, 16px)", color: "#86efac", fontWeight: 900, fontSize: "clamp(12px, 1.05vw, 14px)" };
-const lobbyFooterStyle: CSSProperties = { display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: "8px" };
-const messageBoxStyle: CSSProperties = { minHeight: "36px", display: "flex", alignItems: "center", background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.28)", borderRadius: "12px", padding: "8px 12px", color: "#dcfce7", lineHeight: 1.25, fontSize: "13px" };
-const bigStartButtonStyle: CSSProperties = { border: "none", borderRadius: "12px", background: "#38bdf8", color: "#020617", padding: "10px 16px", fontWeight: 900, fontSize: "14px", cursor: "pointer" };
-const jobOnlyLayoutStyle: CSSProperties = { width: "100%", height: "100%", padding: "8px 12px", display: "grid", gridTemplateRows: "auto auto minmax(0, 1fr) auto", gap: "6px" };
-const compactHeaderStyle: CSSProperties = { display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: "10px" };
-const jobTitleStyle: CSSProperties = { margin: "1px 0 0", fontSize: "clamp(22px, 2.4vw, 28px)" };
-const topStatusGroupStyle: CSSProperties = { display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", justifyContent: "flex-end" };
-const leaveButtonStyle: CSSProperties = { border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.08)", color: "white", borderRadius: "10px", padding: "10px 12px", fontWeight: 900, cursor: "pointer" };
-const difficultyBannerStyle: CSSProperties = { background: "rgba(250,204,21,0.16)", border: "1px solid rgba(250,204,21,0.5)", color: "#fef3c7", borderRadius: "10px", padding: "6px 10px", textAlign: "center", fontWeight: 900, fontSize: "13px" };
-const jobStageStyle: CSSProperties = { minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center" };
-const jobFooterStyle: CSSProperties = { display: "grid", gridTemplateColumns: "1fr auto", gap: "7px", alignItems: "center" };
-const controlHintStyle: CSSProperties = { background: "rgba(15,23,42,0.75)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: "10px", padding: "8px 10px", color: "#cbd5e1", fontWeight: 900, fontSize: "12px" };
-const centerGameStyle: CSSProperties = { width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" };
-const miniGameTopInfoStyle: CSSProperties = { display: "flex", justifyContent: "space-between", color: "#86efac", fontSize: "15px" };
-const sortingStageStyle: CSSProperties = { width: "min(820px, 94vw)", height: "min(405px, 58svh)", display: "grid", gridTemplateRows: "auto 1fr auto", gap: "10px" };
-const conveyorStyle: CSSProperties = { position: "relative", background: "rgba(15,23,42,0.88)", border: "1px solid rgba(255,255,255,0.16)", borderRadius: "24px", overflow: "hidden" };
-const sortJudgeZoneStyle: CSSProperties = { position: "absolute", left: "37%", width: "26%", top: 0, bottom: 0, background: "rgba(34,197,94,0.15)", borderLeft: "3px solid rgba(34,197,94,0.8)", borderRight: "3px solid rgba(34,197,94,0.8)", display: "flex", alignItems: "center", justifyContent: "center", color: "#86efac", fontWeight: 900, fontSize: "18px" };
-const sortPackageStyle: CSSProperties = { position: "absolute", top: "50%", fontSize: "72px", transition: "left 25ms linear, transform 120ms ease, filter 120ms ease", zIndex: 3 };
-const sortBinsStyle: CSSProperties = { display: "grid", gap: "8px" };
-const sortBinStyle: CSSProperties = { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.16)", borderRadius: "14px", padding: "12px", textAlign: "center", fontWeight: 900, fontSize: "15px" };
-const runnerStageStyle: CSSProperties = { width: "min(660px, 92vw)", height: "min(480px, 64svh)", display: "grid", gridTemplateRows: "1fr auto", gap: "7px" };
-const runnerRoadStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px", background: "rgba(15,23,42,0.88)", border: "1px solid rgba(255,255,255,0.16)", borderRadius: "24px", padding: "10px", overflow: "hidden" };
-const runnerLaneStyle: CSSProperties = { position: "relative", background: "rgba(255,255,255,0.07)", borderRadius: "16px", border: "1px dashed rgba(255,255,255,0.18)", overflow: "hidden" };
-const runnerPlayerStyle: CSSProperties = { position: "absolute", bottom: "7%", left: "50%", transform: "translateX(-50%)", fontSize: "62px", zIndex: 4 };
-const runnerObstacleStyle: CSSProperties = { position: "absolute", left: "50%", transform: "translateX(-50%)", fontSize: "58px", transition: "top 25ms linear" };
-const runnerCoinStyle: CSSProperties = { position: "absolute", left: "50%", transform: "translateX(-50%)", fontSize: "50px", transition: "top 25ms linear", filter: "drop-shadow(0 0 12px #facc15)" };
-const runnerProgressStyle: CSSProperties = { textAlign: "center", color: "#86efac", fontWeight: 900, fontSize: "15px" };
-const cashierPanelStyle: CSSProperties = { width: "min(740px, 90vw)", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.16)", borderRadius: "22px", padding: "26px", textAlign: "center" };
-const cashierTitleStyle: CSSProperties = { color: "#93c5fd", fontWeight: 900, margin: "14px 0" };
-const sequenceRowStyle: CSSProperties = { display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "8px" };
-const keyBoxStyle: CSSProperties = { width: "50px", height: "50px", borderRadius: "14px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", fontWeight: 900, border: "1px solid rgba(255,255,255,0.2)" };
-const cashierHintStyle: CSSProperties = { marginTop: "15px", color: "#cbd5e1", fontSize: "15px" };
-const cafeStageStyle: CSSProperties = { width: "min(580px, 90vw)", height: "min(430px, 60svh)", display: "grid", gridTemplateRows: "auto 1fr", gap: "8px" };
-const cupAreaStyle: CSSProperties = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(15,23,42,0.88)", border: "1px solid rgba(255,255,255,0.16)", borderRadius: "22px", padding: "12px" };
-const cupStyle: CSSProperties = { position: "relative", width: "170px", height: "245px", border: "6px solid rgba(255,255,255,0.85)", borderTop: "none", overflow: "hidden", background: "rgba(255,255,255,0.08)" };
-const coffeeFillStyle: CSSProperties = { position: "absolute", left: 0, right: 0, bottom: 0, background: "linear-gradient(180deg, #d97706, #92400e)", transition: "height 25ms linear" };
-const cafeTargetZoneStyle: CSSProperties = { position: "absolute", left: 0, right: 0, background: "rgba(34,197,94,0.35)", borderTop: "2px solid #22c55e", borderBottom: "2px solid #22c55e", zIndex: 3 };
-const cafeGaugeTextStyle: CSSProperties = { marginTop: "12px", color: "#cbd5e1", fontWeight: 900, fontSize: "14px" };
-const securityStageStyle: CSSProperties = { width: "min(580px, 90vw)", height: "min(380px, 54svh)", display: "grid", gridTemplateRows: "auto 1fr", gap: "7px" };
-const securityPanelStyle: CSSProperties = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(15,23,42,0.88)", border: "1px solid rgba(255,255,255,0.16)", borderRadius: "22px" };
-const securityCharacterStyle: CSSProperties = { fontSize: "88px", marginBottom: "8px" };
-const securityLabelStyle: CSSProperties = { fontSize: "24px", fontWeight: 900 };
-const securityHintStyle: CSSProperties = { marginTop: "10px", color: "#cbd5e1", fontSize: "14px" };
+const pageStyle: CSSProperties = {
+  width: "100%",
+  height: "100svh",
+  maxWidth: "100%",
+  maxHeight: "100svh",
+  overflow: "hidden",
+  background:
+    "radial-gradient(circle at top left, #1e3a8a 0, transparent 35%), linear-gradient(135deg, #020617 0%, #0f172a 55%, #1e1b4b 100%)",
+  color: "white",
+  fontFamily: "Arial, sans-serif",
+};
+
+const lobbyLayoutStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  maxWidth: "100%",
+  padding: "10px 14px",
+  display: "grid",
+  gridTemplateRows: "78px minmax(0, 1fr) 48px",
+  gap: "10px",
+  overflow: "hidden",
+};
+
+const lobbyHeaderStyle: CSSProperties = {
+  minWidth: 0,
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  alignItems: "start",
+  gap: "14px",
+  overflow: "hidden",
+};
+
+const smallLabelStyle: CSSProperties = {
+  color: "#7dd3fc",
+  fontSize: "13px",
+  fontWeight: 900,
+  letterSpacing: "0.12em",
+};
+
+const mainTitleStyle: CSSProperties = {
+  margin: "1px 0",
+  fontSize: "34px",
+  lineHeight: 1,
+  whiteSpace: "nowrap",
+};
+
+const subtitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#dbeafe",
+  fontSize: "14px",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+
+const moneyPanelStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(6, 98px)",
+  gap: "6px",
+  maxWidth: "624px",
+  overflow: "hidden",
+};
+
+const statusPillStyle: CSSProperties = {
+  background: "rgba(15,23,42,0.78)",
+  border: "1px solid rgba(255,255,255,0.18)",
+  borderRadius: "11px",
+  padding: "6px 8px",
+  minWidth: 0,
+  display: "grid",
+  gap: "1px",
+  fontSize: "12px",
+};
+
+const statusLabelStyle: CSSProperties = {
+  color: "#94a3b8",
+  fontSize: "10px",
+};
+
+const jobGridStyle: CSSProperties = {
+  minWidth: 0,
+  minHeight: 0,
+  width: "100%",
+  height: "100%",
+  display: "grid",
+  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+  gap: "10px",
+  overflow: "hidden",
+};
+
+const jobCardStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  minWidth: 0,
+  minHeight: 0,
+  borderRadius: "18px",
+  padding: "16px",
+  background: "rgba(255,255,255,0.10)",
+  color: "white",
+  textAlign: "left",
+  cursor: "pointer",
+  boxShadow: "0 16px 40px rgba(0,0,0,0.25)",
+  overflow: "hidden",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+};
+
+const jobIconStyle: CSSProperties = {
+  fontSize: "38px",
+  marginBottom: "12px",
+  flexShrink: 0,
+};
+
+const jobCardTitleStyle: CSSProperties = {
+  margin: "0 0 8px",
+  fontSize: "21px",
+  lineHeight: 1.15,
+  wordBreak: "keep-all",
+};
+
+const jobCardTextStyle: CSSProperties = {
+  margin: 0,
+  color: "#dbeafe",
+  lineHeight: 1.35,
+  fontSize: "14px",
+  wordBreak: "keep-all",
+};
+
+const rewardTextStyle: CSSProperties = {
+  marginTop: "14px",
+  color: "#86efac",
+  fontWeight: 900,
+  fontSize: "14px",
+  lineHeight: 1.25,
+};
+
+const lobbyFooterStyle: CSSProperties = {
+  minWidth: 0,
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  alignItems: "center",
+  gap: "8px",
+  overflow: "hidden",
+};
+
+const messageBoxStyle: CSSProperties = {
+  minHeight: "40px",
+  display: "flex",
+  alignItems: "center",
+  background: "rgba(34,197,94,0.12)",
+  border: "1px solid rgba(34,197,94,0.28)",
+  borderRadius: "12px",
+  padding: "8px 12px",
+  color: "#dcfce7",
+  lineHeight: 1.25,
+  fontSize: "13px",
+  overflow: "hidden",
+};
+
+const bigStartButtonStyle: CSSProperties = {
+  border: "none",
+  borderRadius: "12px",
+  background: "#38bdf8",
+  color: "#020617",
+  padding: "10px 16px",
+  fontWeight: 900,
+  fontSize: "14px",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
+const jobOnlyLayoutStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  padding: "8px 12px",
+  display: "grid",
+  gridTemplateRows: "auto auto minmax(0, 1fr) auto",
+  gap: "6px",
+  overflow: "hidden",
+};
+
+const compactHeaderStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  alignItems: "center",
+  gap: "8px",
+  minWidth: 0,
+  overflow: "hidden",
+};
+
+const jobTitleStyle: CSSProperties = {
+  margin: "1px 0 0",
+  fontSize: "clamp(22px, 2.4vw, 28px)",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+
+const topStatusGroupStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "6px",
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
+};
+
+const leaveButtonStyle: CSSProperties = {
+  border: "1px solid rgba(255,255,255,0.18)",
+  background: "rgba(255,255,255,0.08)",
+  color: "white",
+  borderRadius: "10px",
+  padding: "9px 11px",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const difficultyBannerStyle: CSSProperties = {
+  background: "rgba(250,204,21,0.16)",
+  border: "1px solid rgba(250,204,21,0.5)",
+  color: "#fef3c7",
+  borderRadius: "10px",
+  padding: "6px 10px",
+  textAlign: "center",
+  fontWeight: 900,
+  fontSize: "13px",
+};
+
+const jobStageStyle: CSSProperties = {
+  minHeight: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  overflow: "hidden",
+};
+
+const jobFooterStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gap: "7px",
+  alignItems: "center",
+  minWidth: 0,
+  overflow: "hidden",
+};
+
+const controlHintStyle: CSSProperties = {
+  background: "rgba(15,23,42,0.75)",
+  border: "1px solid rgba(255,255,255,0.14)",
+  borderRadius: "10px",
+  padding: "8px 10px",
+  color: "#cbd5e1",
+  fontWeight: 900,
+  fontSize: "12px",
+  whiteSpace: "nowrap",
+};
+
+const centerGameStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  overflow: "hidden",
+};
+
+const miniGameTopInfoStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  color: "#86efac",
+  fontSize: "15px",
+};
+
+const sortingStageStyle: CSSProperties = {
+  width: "min(820px, 94vw)",
+  height: "min(405px, 58svh)",
+  display: "grid",
+  gridTemplateRows: "auto 1fr auto",
+  gap: "10px",
+};
+
+const conveyorStyle: CSSProperties = {
+  position: "relative",
+  background: "rgba(15,23,42,0.88)",
+  border: "1px solid rgba(255,255,255,0.16)",
+  borderRadius: "24px",
+  overflow: "hidden",
+};
+
+const sortJudgeZoneStyle: CSSProperties = {
+  position: "absolute",
+  left: "37%",
+  width: "26%",
+  top: 0,
+  bottom: 0,
+  background: "rgba(34,197,94,0.15)",
+  borderLeft: "3px solid rgba(34,197,94,0.8)",
+  borderRight: "3px solid rgba(34,197,94,0.8)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "#86efac",
+  fontWeight: 900,
+  fontSize: "18px",
+};
+
+const sortPackageStyle: CSSProperties = {
+  position: "absolute",
+  top: "50%",
+  fontSize: "72px",
+  transition: "left 25ms linear, transform 120ms ease, filter 120ms ease",
+  zIndex: 3,
+};
+
+const sortBinsStyle: CSSProperties = {
+  display: "grid",
+  gap: "8px",
+};
+
+const sortBinStyle: CSSProperties = {
+  background: "rgba(255,255,255,0.10)",
+  border: "1px solid rgba(255,255,255,0.16)",
+  borderRadius: "14px",
+  padding: "10px",
+  textAlign: "center",
+  fontWeight: 900,
+  fontSize: "14px",
+};
+
+const runnerStageStyle: CSSProperties = {
+  width: "min(660px, 92vw)",
+  height: "min(
 
