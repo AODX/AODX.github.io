@@ -60,7 +60,7 @@ const jobs: Job[] = [
     id: "cashier",
     name: "편의점 계산 알바",
     subtitle: "나오는 키를 순서대로 빠르게 입력하세요.",
-    rewardText: "계산 성공 1회당 150원",
+    rewardText: "계산 성공 1회당 450원",
     timeLimit: 9999,
     icon: "🏪",
   },
@@ -86,11 +86,11 @@ const cashierKeyPool = ["W", "A", "S", "D"];
 const allSortKinds: SortKind[] = ["red", "blue", "yellow", "green", "purple"];
 
 const sortInfo: Record<SortKind, { label: string; emoji: string; key: string }> = {
-  red: { label: "빨강", emoji: "🟥", key: "1" },
-  blue: { label: "파랑", emoji: "🟦", key: "2" },
-  yellow: { label: "노랑", emoji: "🟨", key: "3" },
-  green: { label: "초록", emoji: "🟩", key: "4" },
-  purple: { label: "보라", emoji: "🟪", key: "5" },
+  red: { label: "빨강", emoji: "🟥", key: "r" },
+  blue: { label: "파랑", emoji: "🟦", key: "b" },
+  yellow: { label: "노랑", emoji: "🟨", key: "y" },
+  green: { label: "초록", emoji: "🟩", key: "g" },
+  purple: { label: "보라", emoji: "🟪", key: "p" },
 };
 
 export default function GamePage() {
@@ -287,7 +287,7 @@ export default function GamePage() {
       const key = event.key.toLowerCase();
 
       if (activeJobId === "sorting") {
-        if (["1", "2", "3", "4", "5"].includes(key)) {
+        if (["r", "b", "y", "g", "p"].includes(key)) {
           event.preventDefault();
           handleSortKey(key);
         }
@@ -558,7 +558,7 @@ export default function GamePage() {
     setCashierIndex(nextIndex);
 
     if (nextIndex >= cashierSequence.length) {
-      const reward = 150 + difficulty * 20;
+      const reward = 450 + difficulty * 20;
       setCash((money) => money + reward);
       setCashierSuccess((success) => success + 1);
       setCashierSequence(makeCashierSequence(difficulty));
