@@ -4,8 +4,9 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
-type JobId = "sorting" | "delivery" | "cashier" | "rhythm";
+type JobId = "sorting" | "delivery" | "cashier" | "cafe" | "security";
 type SortKind = "red" | "blue" | "yellow";
+type SecuritySignal = "normal" | "thief" | "vip";
 
 type Job = {
   id: JobId;
@@ -27,12 +28,6 @@ type RunnerObstacle = {
   y: number;
 };
 
-type RhythmNote = {
-  id: number;
-  key: string;
-  y: number;
-};
-
 const TAX_INTERVAL_SECONDS = 600;
 const TAX_WARNING_SECONDS = 60;
 
@@ -48,7 +43,7 @@ const jobs: Job[] = [
   {
     id: "delivery",
     name: "음식 배달 알바",
-    subtitle: "템플런처럼 좌우 이동으로 장애물을 피하세요.",
+    subtitle: "3차선 도로에서 장애물을 피해 배달하세요.",
     reward: 2500,
     timeLimit: 35,
     icon: "🛵",
@@ -62,24 +57,31 @@ const jobs: Job[] = [
     icon: "🏪",
   },
   {
-    id: "rhythm",
-    name: "공연장 스태프 알바",
-    subtitle: "리듬에 맞춰 D/F/J/K 키를 입력하세요.",
-    reward: 2800,
+    id: "cafe",
+    name: "카페 음료 알바",
+    subtitle: "음료 게이지를 목표 구간에 맞춰 제조하세요.",
+    reward: 2300,
+    timeLimit: 28,
+    icon: "☕",
+  },
+  {
+    id: "security",
+    name: "보안요원 알바",
+    subtitle: "수상한 사람이 나타나면 빠르게 대응하세요.",
+    reward: 2600,
     timeLimit: 30,
-    icon: "🎵",
+    icon: "🛡️",
   },
 ];
 
 const cashierKeyPool = ["W", "A", "S", "D"];
-const rhythmKeys = ["D", "F", "J", "K"];
 const sortKinds: SortKind[] = ["red", "blue", "yellow"];
 
 const sortInfo: Record<SortKind, { label: string; emoji: string; key: string }> =
   {
-    red: { label: "빨강 구역", emoji: "🟥", key: "1" },
-    blue: { label: "파랑 구역", emoji: "🟦", key: "2" },
-    yellow: { label: "노랑 구역", emoji: "🟨", key: "3" },
+    red: { label: "빨강", emoji: "🟥", key: "1" },
+    blue: { label: "파랑", emoji: "🟦", key: "2" },
+    yellow: { label: "노랑", emoji: "🟨", key: "3" },
   };
 
 export default function GamePage() {
@@ -97,7 +99,7 @@ export default function GamePage() {
 
   const [sortItem, setSortItem] = useState<SortItem>({
     kind: "red",
-    x: 0,
+    x: -8,
   });
   const [sortScore, setSortScore] = useState(0);
   const [sortMiss, setSortMiss] = useState(0);
@@ -110,10 +112,18 @@ export default function GamePage() {
   const [cashierSequence, setCashierSequence] = useState<string[]>([]);
   const [cashierIndex, setCashierIndex] = useState(0);
 
-  const [rhythmNotes, setRhythmNotes] = useState<RhythmNote[]>([]);
-  const [rhythmScore, setRhythmScore] = useState(0);
-  const [rhythmMiss, setRhythmMiss] = useState(0);
-  const [rhythmNoteId, setRhythmNoteId] = useState(1);
+  const [cafeFill, setCafeFill] = useState(0);
+  const [cafeTargetStart, setCafeTargetStart] = useState(62);
+  const [cafeTargetEnd, setCafeTargetEnd] = useState(76);
+  const [cafeHolding, setCafeHolding] = useState(false);
+  const [cafeSuccessCount, setCafeSuccessCount] = useState(0);
+  const [cafeMiss, setCafeMiss] = useState(0);
+
+  const [securitySignal, setSecuritySignal] =
+    useState<SecuritySignal>("normal");
+  const [securitySuccess, setSecuritySuccess] = useState(0);
+  const [securityMiss, setSecurityMiss] = useState(0);
+  const [securityRound, setSecurityRound] = useState(0);
 
   const selectedJob = useMemo(() => {
     return jobs.find((job) => job.id === selectedJobId) ?? jobs[0];
@@ -181,10 +191,10 @@ export default function GamePage() {
 
     const timer = window.setInterval(() => {
       setSortItem((current) => {
-        const nextX = current.x + 0.9;
+        const nextX = current.x + 0.75;
 
-        if (nextX >= 100) {
-          registerSortMiss();
+        if (nextX >= 105) {
+          registerSortMiss("택배가 지나가 버렸습니다.");
           return makeSortItem();
         }
 
@@ -202,7 +212,7 @@ export default function GamePage() {
 
     const timer = window.setInterval(() => {
       setRunnerDistance((current) => {
-        const next = current + 0.35;
+        const next = current + 0.28;
 
         if (next >= 100) {
           completeJob("🛵 배달 완료! 목적지까지 무사히 도착했습니다.");
@@ -214,14 +224,14 @@ export default function GamePage() {
 
       setRunnerObstacles((current) => {
         const moved = current
-          .map((obstacle) => ({ ...obstacle, y: obstacle.y + 1.15 }))
+          .map((obstacle) => ({ ...obstacle, y: obstacle.y + 0.95 }))
           .filter((obstacle) => obstacle.y <= 110);
 
         const collision = moved.some(
           (obstacle) =>
             obstacle.lane === runnerLane &&
-            obstacle.y >= 75 &&
-            obstacle.y <= 90
+            obstacle.y >= 76 &&
+            obstacle.y <= 91
         );
 
         if (collision) {
@@ -229,7 +239,7 @@ export default function GamePage() {
           return moved;
         }
 
-        if (Math.random() < 0.045) {
+        if (Math.random() < 0.032) {
           const newObstacle = {
             id: runnerObstacleId,
             lane: Math.floor(Math.random() * 3),
@@ -242,52 +252,53 @@ export default function GamePage() {
 
         return moved;
       });
-    }, 45);
+    }, 35);
 
     return () => window.clearInterval(timer);
   }, [activeJobId, jobFinished, runnerLane, runnerObstacleId]);
 
   useEffect(() => {
-    if (activeJobId !== "rhythm" || jobFinished) {
+    if (activeJobId !== "cafe" || jobFinished) {
       return;
     }
 
     const timer = window.setInterval(() => {
-      setRhythmNotes((current) => {
-        const moved = current.map((note) => ({ ...note, y: note.y + 0.85 }));
+      setCafeFill((current) => {
+        if (cafeHolding) {
+          const next = current + 1.2;
 
-        const missedNotes = moved.filter((note) => note.y > 100);
-        const aliveNotes = moved.filter((note) => note.y <= 100);
+          if (next >= 100) {
+            registerCafeMiss("음료가 넘쳤습니다!");
+            return 0;
+          }
 
-        if (missedNotes.length > 0) {
-          setRhythmMiss((currentMiss) => {
-            const nextMiss = currentMiss + missedNotes.length;
-
-            if (nextMiss >= 3) {
-              failJob("🎵 노트를 3번 놓쳤습니다. 알바 실패!");
-            }
-
-            return nextMiss;
-          });
+          return next;
         }
 
-        if (Math.random() < 0.035) {
-          const newNote = {
-            id: rhythmNoteId,
-            key: rhythmKeys[Math.floor(Math.random() * rhythmKeys.length)],
-            y: -10,
-          };
-
-          setRhythmNoteId((id) => id + 1);
-          return [...aliveNotes, newNote];
-        }
-
-        return aliveNotes;
+        return Math.max(0, current - 0.35);
       });
     }, 35);
 
     return () => window.clearInterval(timer);
-  }, [activeJobId, jobFinished, rhythmNoteId]);
+  }, [activeJobId, cafeHolding, jobFinished, cafeMiss]);
+
+  useEffect(() => {
+    if (activeJobId !== "security" || jobFinished) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      if (securitySignal === "thief") {
+        registerSecurityMiss("수상한 사람을 놓쳤습니다.");
+        return;
+      }
+
+      setSecuritySignal(makeSecuritySignal());
+      setSecurityRound((current) => current + 1);
+    }, 1050);
+
+    return () => window.clearInterval(timer);
+  }, [activeJobId, jobFinished, securitySignal, securityMiss]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -325,21 +336,53 @@ export default function GamePage() {
         return;
       }
 
-      if (activeJobId === "rhythm") {
-        handleRhythmKey(key);
+      if (activeJobId === "cafe") {
+        if (key === " ") {
+          event.preventDefault();
+          setCafeHolding(true);
+        }
+
+        return;
+      }
+
+      if (activeJobId === "security") {
+        if (key === " ") {
+          event.preventDefault();
+          handleSecurityAction();
+        }
+      }
+    }
+
+    function handleKeyUp(event: KeyboardEvent) {
+      if (activeJobId !== "cafe" || jobFinished) {
+        return;
+      }
+
+      if (event.key === " ") {
+        event.preventDefault();
+        setCafeHolding(false);
+        judgeCafeFill();
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
 
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
   }, [
     activeJobId,
+    cafeFill,
+    cafeMiss,
+    cafeSuccessCount,
     cashierIndex,
     cashierSequence,
     jobFinished,
-    rhythmNotes,
-    rhythmScore,
+    securityMiss,
+    securitySignal,
+    securitySuccess,
     sortItem,
     sortMiss,
     sortScore,
@@ -398,8 +441,12 @@ export default function GamePage() {
       setupCashierJob();
     }
 
-    if (jobId === "rhythm") {
-      setupRhythmJob();
+    if (jobId === "cafe") {
+      setupCafeJob();
+    }
+
+    if (jobId === "security") {
+      setupSecurityJob();
     }
   }
 
@@ -424,12 +471,24 @@ export default function GamePage() {
     setMessage("🏪 화면에 나오는 키를 순서대로 입력하세요.");
   }
 
-  function setupRhythmJob() {
-    setRhythmNotes([]);
-    setRhythmScore(0);
-    setRhythmMiss(0);
-    setRhythmNoteId(1);
-    setMessage("🎵 판정선에 노트가 오면 D/F/J/K를 입력하세요.");
+  function setupCafeJob() {
+    const targetStart = Math.floor(Math.random() * 20) + 55;
+
+    setCafeFill(0);
+    setCafeHolding(false);
+    setCafeSuccessCount(0);
+    setCafeMiss(0);
+    setCafeTargetStart(targetStart);
+    setCafeTargetEnd(targetStart + 14);
+    setMessage("☕ Space를 누르고 있다가 목표 구간에서 떼세요.");
+  }
+
+  function setupSecurityJob() {
+    setSecuritySignal("normal");
+    setSecuritySuccess(0);
+    setSecurityMiss(0);
+    setSecurityRound(0);
+    setMessage("🛡️ 수상한 사람일 때만 Space를 누르세요.");
   }
 
   function completeJob(customMessage?: string) {
@@ -447,12 +506,14 @@ export default function GamePage() {
 
   function failJob(reason: string) {
     setJobFinished(true);
+    setCafeHolding(false);
     setMessage(reason);
   }
 
   function leaveJob() {
     setActiveJobId(null);
     setJobFinished(false);
+    setCafeHolding(false);
     setMessage("알바를 선택하고 시작하세요.");
   }
 
@@ -518,45 +579,75 @@ export default function GamePage() {
     setMessage(`좋아요! 다음 키: ${cashierSequence[nextIndex]}`);
   }
 
-  function handleRhythmKey(key: string) {
-    const pressed = key.toUpperCase();
+  function judgeCafeFill() {
+    if (cafeFill >= cafeTargetStart && cafeFill <= cafeTargetEnd) {
+      const nextSuccess = cafeSuccessCount + 1;
 
-    if (!rhythmKeys.includes(pressed)) {
-      return;
-    }
+      setCafeSuccessCount(nextSuccess);
+      setCafeFill(0);
 
-    const targetNote = rhythmNotes.find(
-      (note) => note.key === pressed && note.y >= 76 && note.y <= 91
-    );
+      const nextTargetStart = Math.floor(Math.random() * 20) + 55;
+      setCafeTargetStart(nextTargetStart);
+      setCafeTargetEnd(nextTargetStart + 14);
 
-    if (!targetNote) {
-      const nextMiss = rhythmMiss + 1;
-
-      setRhythmMiss(nextMiss);
-
-      if (nextMiss >= 3) {
-        failJob("🎵 타이밍이 맞지 않았습니다. 알바 실패!");
+      if (nextSuccess >= 4) {
+        completeJob("☕ 음료 제조 완료! 카페 알바 성공!");
         return;
       }
 
-      setMessage(`🎵 타이밍이 맞지 않았습니다. 실수 ${nextMiss}/3`);
+      setMessage(`☕ 정확합니다! ${nextSuccess}/4잔 완성`);
       return;
     }
 
-    setRhythmNotes((current) =>
-      current.filter((note) => note.id !== targetNote.id)
-    );
+    registerCafeMiss("☕ 양이 맞지 않습니다.");
+  }
 
-    const nextScore = rhythmScore + 1;
+  function registerCafeMiss(customMessage: string) {
+    const nextMiss = cafeMiss + 1;
 
-    setRhythmScore(nextScore);
+    setCafeMiss(nextMiss);
+    setCafeFill(0);
+    setCafeHolding(false);
 
-    if (nextScore >= 10) {
-      completeJob("🎵 리듬 성공! 공연장 스태프 알바 완료!");
+    if (nextMiss >= 3) {
+      failJob("☕ 제조 실수 3회! 알바 실패!");
       return;
     }
 
-    setMessage(`🎵 Perfect! ${nextScore}/10`);
+    setMessage(`${customMessage} 실수 ${nextMiss}/3`);
+  }
+
+  function handleSecurityAction() {
+    if (securitySignal === "thief") {
+      const nextSuccess = securitySuccess + 1;
+
+      setSecuritySuccess(nextSuccess);
+      setSecuritySignal("normal");
+
+      if (nextSuccess >= 6) {
+        completeJob("🛡️ 수상한 사람을 모두 막았습니다! 보안 알바 성공!");
+        return;
+      }
+
+      setMessage(`🛡️ 대응 성공! ${nextSuccess}/6`);
+      return;
+    }
+
+    registerSecurityMiss("🛡️ 평범한 손님을 잘못 막았습니다.");
+  }
+
+  function registerSecurityMiss(customMessage: string) {
+    const nextMiss = securityMiss + 1;
+
+    setSecurityMiss(nextMiss);
+    setSecuritySignal("normal");
+
+    if (nextMiss >= 3) {
+      failJob("🛡️ 실수 3회! 보안 알바 실패!");
+      return;
+    }
+
+    setMessage(`${customMessage} 실수 ${nextMiss}/3`);
   }
 
   if (activeJob) {
@@ -613,11 +704,23 @@ export default function GamePage() {
               />
             )}
 
-            {activeJobId === "rhythm" && (
-              <RhythmGame
-                notes={rhythmNotes}
-                score={rhythmScore}
-                miss={rhythmMiss}
+            {activeJobId === "cafe" && (
+              <CafeGame
+                fill={cafeFill}
+                targetStart={cafeTargetStart}
+                targetEnd={cafeTargetEnd}
+                success={cafeSuccessCount}
+                miss={cafeMiss}
+                holding={cafeHolding}
+              />
+            )}
+
+            {activeJobId === "security" && (
+              <SecurityGame
+                signal={securitySignal}
+                success={securitySuccess}
+                miss={securityMiss}
+                round={securityRound}
               />
             )}
           </section>
@@ -825,44 +928,89 @@ function CashierGame({
   );
 }
 
-function RhythmGame({
-  notes,
-  score,
+function CafeGame({
+  fill,
+  targetStart,
+  targetEnd,
+  success,
   miss,
+  holding,
 }: {
-  notes: RhythmNote[];
-  score: number;
+  fill: number;
+  targetStart: number;
+  targetEnd: number;
+  success: number;
   miss: number;
+  holding: boolean;
 }) {
   return (
-    <div style={rhythmStageStyle}>
+    <div style={cafeStageStyle}>
       <div style={miniGameTopInfoStyle}>
-        <strong>점수 {score}/10</strong>
+        <strong>완성 {success}/4</strong>
         <strong>실수 {miss}/3</strong>
       </div>
 
-      <div style={rhythmLaneWrapStyle}>
-        {rhythmKeys.map((key) => (
-          <div key={key} style={rhythmLaneStyle}>
-            <div style={rhythmKeyLabelStyle}>{key}</div>
+      <div style={cupAreaStyle}>
+        <div style={cupStyle}>
+          <div
+            style={{
+              ...coffeeFillStyle,
+              height: `${fill}%`,
+            }}
+          />
+          <div
+            style={{
+              ...cafeTargetZoneStyle,
+              bottom: `${targetStart}%`,
+              height: `${targetEnd - targetStart}%`,
+            }}
+          />
+        </div>
 
-            {notes
-              .filter((note) => note.key === key)
-              .map((note) => (
-                <div
-                  key={note.id}
-                  style={{
-                    ...rhythmNoteStyle,
-                    top: `${note.y}%`,
-                  }}
-                >
-                  ●
-                </div>
-              ))}
-          </div>
-        ))}
+        <div style={cafeGaugeTextStyle}>
+          {holding ? "따르는 중..." : "Space를 누르고 있다가 목표 구간에서 떼기"}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-        <div style={rhythmJudgeLineStyle} />
+function SecurityGame({
+  signal,
+  success,
+  miss,
+  round,
+}: {
+  signal: SecuritySignal;
+  success: number;
+  miss: number;
+  round: number;
+}) {
+  const character =
+    signal === "thief" ? "🕵️‍♂️" : signal === "vip" ? "🤵" : "🚶";
+
+  const label =
+    signal === "thief"
+      ? "수상한 사람!"
+      : signal === "vip"
+        ? "VIP 손님"
+        : "평범한 손님";
+
+  return (
+    <div style={securityStageStyle}>
+      <div style={miniGameTopInfoStyle}>
+        <strong>대응 {success}/6</strong>
+        <strong>실수 {miss}/3</strong>
+      </div>
+
+      <div style={securityPanelStyle}>
+        <div key={round} style={securityCharacterStyle}>
+          {character}
+        </div>
+        <div style={securityLabelStyle}>{label}</div>
+        <div style={securityHintStyle}>
+          수상한 사람일 때만 <strong>Space</strong>
+        </div>
       </div>
     </div>
   );
@@ -924,6 +1072,20 @@ function makeSortItem(): SortItem {
   };
 }
 
+function makeSecuritySignal(): SecuritySignal {
+  const random = Math.random();
+
+  if (random < 0.34) {
+    return "thief";
+  }
+
+  if (random < 0.5) {
+    return "vip";
+  }
+
+  return "normal";
+}
+
 function formatTime(seconds: number) {
   const minutes = Math.floor(seconds / 60);
   const restSeconds = seconds % 60;
@@ -944,8 +1106,12 @@ function getControlHint(activeJobId: JobId | null) {
     return "W/A/S/D 키를 순서대로 입력";
   }
 
-  if (activeJobId === "rhythm") {
-    return "판정선에 맞춰 D/F/J/K 입력";
+  if (activeJobId === "cafe") {
+    return "Space 누르고 있다가 목표 구간에서 떼기";
+  }
+
+  if (activeJobId === "security") {
+    return "수상한 사람일 때만 Space";
   }
 
   return "알바를 선택하세요";
@@ -965,161 +1131,161 @@ const pageStyle: CSSProperties = {
 const lobbyLayoutStyle: CSSProperties = {
   width: "100%",
   height: "100%",
-  padding: "10px",
+  padding: "8px",
   display: "grid",
   gridTemplateRows: "auto 1fr auto",
-  gap: "8px",
+  gap: "6px",
 };
 
 const lobbyHeaderStyle: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
-  gap: "12px",
+  gap: "10px",
 };
 
 const smallLabelStyle: CSSProperties = {
   color: "#38bdf8",
-  fontSize: "11px",
+  fontSize: "10px",
   fontWeight: 900,
   letterSpacing: "0.12em",
 };
 
 const mainTitleStyle: CSSProperties = {
-  margin: "2px 0",
-  fontSize: "28px",
+  margin: "1px 0",
+  fontSize: "25px",
   lineHeight: 1,
 };
 
 const subtitleStyle: CSSProperties = {
   margin: 0,
   color: "#cbd5e1",
-  fontSize: "13px",
+  fontSize: "12px",
 };
 
 const moneyPanelStyle: CSSProperties = {
   display: "flex",
-  gap: "6px",
+  gap: "5px",
   flexWrap: "wrap",
   justifyContent: "flex-end",
-  maxWidth: "760px",
+  maxWidth: "740px",
 };
 
 const statusPillStyle: CSSProperties = {
   background: "rgba(15,23,42,0.75)",
   border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "10px",
-  padding: "6px 8px",
-  minWidth: "76px",
+  borderRadius: "9px",
+  padding: "5px 7px",
+  minWidth: "72px",
   display: "grid",
   gap: "1px",
-  fontSize: "12px",
+  fontSize: "11px",
 };
 
 const statusLabelStyle: CSSProperties = {
   color: "#94a3b8",
-  fontSize: "10px",
+  fontSize: "9px",
 };
 
 const jobGridStyle: CSSProperties = {
   minHeight: 0,
   display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: "8px",
+  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+  gap: "7px",
   alignContent: "center",
 };
 
 const jobCardStyle: CSSProperties = {
-  height: "165px",
-  borderRadius: "16px",
-  padding: "12px",
+  height: "142px",
+  borderRadius: "14px",
+  padding: "9px",
   background: "rgba(255,255,255,0.08)",
   color: "white",
   textAlign: "left",
   cursor: "pointer",
-  boxShadow: "0 12px 28px rgba(0,0,0,0.22)",
+  boxShadow: "0 10px 24px rgba(0,0,0,0.22)",
 };
 
 const jobIconStyle: CSSProperties = {
-  fontSize: "32px",
-  marginBottom: "8px",
+  fontSize: "27px",
+  marginBottom: "5px",
 };
 
 const jobCardTitleStyle: CSSProperties = {
-  margin: "0 0 6px",
-  fontSize: "17px",
+  margin: "0 0 4px",
+  fontSize: "15px",
 };
 
 const jobCardTextStyle: CSSProperties = {
   margin: 0,
   color: "#cbd5e1",
-  lineHeight: 1.35,
-  fontSize: "12px",
+  lineHeight: 1.25,
+  fontSize: "11px",
 };
 
 const rewardTextStyle: CSSProperties = {
-  marginTop: "9px",
+  marginTop: "7px",
   color: "#86efac",
   fontWeight: 800,
-  fontSize: "12px",
+  fontSize: "11px",
 };
 
 const lobbyFooterStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "8px",
+  gap: "7px",
 };
 
 const messageBoxStyle: CSSProperties = {
   flex: 1,
-  minHeight: "38px",
+  minHeight: "34px",
   display: "flex",
   alignItems: "center",
   background: "rgba(34,197,94,0.12)",
   border: "1px solid rgba(34,197,94,0.28)",
-  borderRadius: "12px",
-  padding: "8px 10px",
+  borderRadius: "10px",
+  padding: "7px 9px",
   color: "#dcfce7",
-  lineHeight: 1.35,
-  fontSize: "13px",
+  lineHeight: 1.25,
+  fontSize: "12px",
 };
 
 const bigStartButtonStyle: CSSProperties = {
   border: "none",
-  borderRadius: "12px",
+  borderRadius: "10px",
   background: "#38bdf8",
   color: "#020617",
-  padding: "11px 14px",
+  padding: "9px 12px",
   fontWeight: 900,
-  fontSize: "13px",
+  fontSize: "12px",
   cursor: "pointer",
 };
 
 const jobOnlyLayoutStyle: CSSProperties = {
   width: "100%",
   height: "100%",
-  padding: "10px",
+  padding: "8px",
   display: "grid",
   gridTemplateRows: "auto 1fr auto",
-  gap: "8px",
+  gap: "6px",
 };
 
 const compactHeaderStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: "8px",
+  gap: "7px",
 };
 
 const jobTitleStyle: CSSProperties = {
-  margin: "2px 0 0",
-  fontSize: "23px",
+  margin: "1px 0 0",
+  fontSize: "21px",
 };
 
 const topStatusGroupStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "6px",
+  gap: "5px",
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
@@ -1128,8 +1294,8 @@ const leaveButtonStyle: CSSProperties = {
   border: "1px solid rgba(255,255,255,0.18)",
   background: "rgba(255,255,255,0.08)",
   color: "white",
-  borderRadius: "10px",
-  padding: "9px 11px",
+  borderRadius: "9px",
+  padding: "8px 10px",
   fontWeight: 900,
   cursor: "pointer",
 };
@@ -1144,26 +1310,26 @@ const jobStageStyle: CSSProperties = {
 const jobFooterStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr auto auto",
-  gap: "8px",
+  gap: "7px",
   alignItems: "center",
 };
 
 const controlHintStyle: CSSProperties = {
   background: "rgba(15,23,42,0.75)",
   border: "1px solid rgba(255,255,255,0.14)",
-  borderRadius: "12px",
-  padding: "9px 11px",
+  borderRadius: "10px",
+  padding: "8px 10px",
   color: "#cbd5e1",
   fontWeight: 800,
-  fontSize: "13px",
+  fontSize: "12px",
 };
 
 const retryButtonStyle: CSSProperties = {
   border: "none",
-  borderRadius: "12px",
+  borderRadius: "10px",
   background: "#facc15",
   color: "#020617",
-  padding: "9px 12px",
+  padding: "8px 11px",
   fontWeight: 900,
   cursor: "pointer",
 };
@@ -1180,22 +1346,22 @@ const miniGameTopInfoStyle: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   color: "#86efac",
-  fontSize: "14px",
+  fontSize: "13px",
 };
 
 const sortingStageStyle: CSSProperties = {
-  width: "min(720px, 92vw)",
-  height: "min(360px, 54svh)",
+  width: "min(680px, 90vw)",
+  height: "min(330px, 50svh)",
   display: "grid",
   gridTemplateRows: "auto 1fr auto",
-  gap: "10px",
+  gap: "8px",
 };
 
 const conveyorStyle: CSSProperties = {
   position: "relative",
   background: "rgba(15,23,42,0.88)",
   border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "22px",
+  borderRadius: "18px",
   overflow: "hidden",
 };
 
@@ -1213,14 +1379,14 @@ const sortJudgeZoneStyle: CSSProperties = {
   justifyContent: "center",
   color: "#86efac",
   fontWeight: 900,
-  fontSize: "14px",
+  fontSize: "13px",
 };
 
 const sortPackageStyle: CSSProperties = {
   position: "absolute",
   top: "50%",
   transform: "translate(-50%, -50%)",
-  fontSize: "54px",
+  fontSize: "46px",
   transition: "left 35ms linear",
   zIndex: 3,
 };
@@ -1228,41 +1394,42 @@ const sortPackageStyle: CSSProperties = {
 const sortBinsStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(3, 1fr)",
-  gap: "8px",
+  gap: "7px",
 };
 
 const sortBinStyle: CSSProperties = {
   background: "rgba(255,255,255,0.08)",
   border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "14px",
-  padding: "10px",
+  borderRadius: "12px",
+  padding: "8px",
   textAlign: "center",
   fontWeight: 900,
+  fontSize: "12px",
 };
 
 const runnerStageStyle: CSSProperties = {
-  width: "min(560px, 92vw)",
-  height: "min(430px, 58svh)",
+  width: "min(520px, 90vw)",
+  height: "min(390px, 54svh)",
   display: "grid",
   gridTemplateRows: "1fr auto",
-  gap: "8px",
+  gap: "7px",
 };
 
 const runnerRoadStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(3, 1fr)",
-  gap: "7px",
+  gap: "6px",
   background: "rgba(15,23,42,0.88)",
   border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "22px",
-  padding: "10px",
+  borderRadius: "18px",
+  padding: "8px",
   overflow: "hidden",
 };
 
 const runnerLaneStyle: CSSProperties = {
   position: "relative",
   background: "rgba(255,255,255,0.07)",
-  borderRadius: "16px",
+  borderRadius: "14px",
   border: "1px dashed rgba(255,255,255,0.18)",
   overflow: "hidden",
 };
@@ -1272,7 +1439,7 @@ const runnerPlayerStyle: CSSProperties = {
   bottom: "9%",
   left: "50%",
   transform: "translateX(-50%)",
-  fontSize: "38px",
+  fontSize: "34px",
   zIndex: 4,
 };
 
@@ -1280,118 +1447,143 @@ const runnerObstacleStyle: CSSProperties = {
   position: "absolute",
   left: "50%",
   transform: "translateX(-50%)",
-  fontSize: "36px",
-  transition: "top 45ms linear",
+  fontSize: "32px",
+  transition: "top 35ms linear",
 };
 
 const runnerProgressStyle: CSSProperties = {
   textAlign: "center",
   color: "#86efac",
   fontWeight: 900,
-  fontSize: "14px",
+  fontSize: "13px",
 };
 
 const cashierPanelStyle: CSSProperties = {
-  width: "min(650px, 90vw)",
+  width: "min(620px, 90vw)",
   background: "rgba(255,255,255,0.08)",
   border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "22px",
-  padding: "24px",
+  borderRadius: "18px",
+  padding: "20px",
   textAlign: "center",
 };
 
 const cashierTitleStyle: CSSProperties = {
   color: "#93c5fd",
   fontWeight: 900,
-  marginBottom: "14px",
+  marginBottom: "12px",
 };
 
 const sequenceRowStyle: CSSProperties = {
   display: "flex",
   justifyContent: "center",
   flexWrap: "wrap",
-  gap: "8px",
+  gap: "7px",
 };
 
 const keyBoxStyle: CSSProperties = {
-  width: "48px",
-  height: "48px",
-  borderRadius: "13px",
+  width: "44px",
+  height: "44px",
+  borderRadius: "12px",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  fontSize: "20px",
+  fontSize: "18px",
   fontWeight: 900,
   border: "1px solid rgba(255,255,255,0.2)",
 };
 
 const cashierHintStyle: CSSProperties = {
-  marginTop: "16px",
+  marginTop: "14px",
   color: "#cbd5e1",
-  fontSize: "15px",
+  fontSize: "14px",
 };
 
-const rhythmStageStyle: CSSProperties = {
-  width: "min(620px, 92vw)",
-  height: "min(430px, 58svh)",
+const cafeStageStyle: CSSProperties = {
+  width: "min(520px, 90vw)",
+  height: "min(380px, 52svh)",
   display: "grid",
   gridTemplateRows: "auto 1fr",
   gap: "8px",
 };
 
-const rhythmLaneWrapStyle: CSSProperties = {
-  position: "relative",
-  display: "grid",
-  gridTemplateColumns: "repeat(4, 1fr)",
-  gap: "7px",
-  background: "rgba(15,23,42,0.88)",
-  border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "22px",
-  padding: "10px",
-  overflow: "hidden",
-};
-
-const rhythmLaneStyle: CSSProperties = {
-  position: "relative",
-  background: "rgba(255,255,255,0.07)",
-  borderRadius: "16px",
-  border: "1px solid rgba(255,255,255,0.10)",
-  overflow: "hidden",
-};
-
-const rhythmKeyLabelStyle: CSSProperties = {
-  position: "absolute",
-  bottom: "8px",
-  left: "50%",
-  transform: "translateX(-50%)",
-  width: "46px",
-  height: "46px",
-  borderRadius: "14px",
+const cupAreaStyle: CSSProperties = {
   display: "flex",
+  flexDirection: "column",
   alignItems: "center",
   justifyContent: "center",
-  background: "#38bdf8",
-  color: "#020617",
-  fontWeight: 900,
-  zIndex: 4,
+  background: "rgba(15,23,42,0.88)",
+  border: "1px solid rgba(255,255,255,0.16)",
+  borderRadius: "20px",
+  padding: "12px",
 };
 
-const rhythmNoteStyle: CSSProperties = {
+const cupStyle: CSSProperties = {
+  position: "relative",
+  width: "150px",
+  height: "220px",
+  border: "5px solid rgba(255,255,255,0.8)",
+  borderTop: "none",
+  borderRadius: "0 0 26px 26px",
+  overflow: "hidden",
+  background: "rgba(255,255,255,0.08)",
+};
+
+const coffeeFillStyle: CSSProperties = {
   position: "absolute",
-  left: "50%",
-  transform: "translateX(-50%)",
-  color: "#facc15",
-  fontSize: "30px",
+  left: 0,
+  right: 0,
+  bottom: 0,
+  background: "linear-gradient(180deg, #d97706, #92400e)",
+  transition: "height 35ms linear",
+};
+
+const cafeTargetZoneStyle: CSSProperties = {
+  position: "absolute",
+  left: 0,
+  right: 0,
+  background: "rgba(34,197,94,0.35)",
+  borderTop: "2px solid #22c55e",
+  borderBottom: "2px solid #22c55e",
   zIndex: 3,
-  transition: "top 35ms linear",
 };
 
-const rhythmJudgeLineStyle: CSSProperties = {
-  position: "absolute",
-  left: "10px",
-  right: "10px",
-  bottom: "66px",
-  height: "4px",
-  background: "#22c55e",
-  borderRadius: "999px",
+const cafeGaugeTextStyle: CSSProperties = {
+  marginTop: "12px",
+  color: "#cbd5e1",
+  fontWeight: 900,
+  fontSize: "13px",
+};
+
+const securityStageStyle: CSSProperties = {
+  width: "min(560px, 90vw)",
+  height: "min(360px, 50svh)",
+  display: "grid",
+  gridTemplateRows: "auto 1fr",
+  gap: "8px",
+};
+
+const securityPanelStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(15,23,42,0.88)",
+  border: "1px solid rgba(255,255,255,0.16)",
+  borderRadius: "20px",
+};
+
+const securityCharacterStyle: CSSProperties = {
+  fontSize: "74px",
+  marginBottom: "8px",
+};
+
+const securityLabelStyle: CSSProperties = {
+  fontSize: "22px",
+  fontWeight: 900,
+};
+
+const securityHintStyle: CSSProperties = {
+  marginTop: "10px",
+  color: "#cbd5e1",
+  fontSize: "14px",
 };
