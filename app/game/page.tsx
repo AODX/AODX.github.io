@@ -146,19 +146,83 @@ export default function GamePage() {
   const nextTax = calculateTax(cash, unpaidTax);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setTaxCountdown((current) => {
-        if (current === TAX_WARNING_SECONDS + 1) setMessage("⚠️ 1분 후 자동으로 세금이 납부됩니다.");
-        if (current <= 1) {
-          setTaxTriggerCount((count) => count + 1);
-          return TAX_INTERVAL_SECONDS;
-        }
-        return current - 1;
-      });
-    }, 1000);
+  async function loadSave() {
+    const supabase = createClient();
 
-    return () => window.clearInterval(timer);
-  }, []);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      window.location.href = "/login";
+      return;
+    }
+
+    setUserId(user.id);
+
+    const { data, error } = await supabase
+      .from("game_saves")
+      .select("cash, warning_count, unpaid_tax")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("저장 데이터 불러오기 실패:", error.message);
+      setIsSaveLoaded(true);
+      return;
+    }
+
+    if (!data) {
+      const { error: insertError } = await supabase.from("game_saves").insert({
+        user_id: user.id,
+        cash: 10000,
+        warning_count: 0,
+        unpaid_tax: 0,
+      });
+
+      if (insertError) {
+        console.error("초기 저장 데이터 생성 실패:", insertError.message);
+      }
+
+      setCash(10000);
+      setWarningCount(0);
+      setUnpaidTax(0);
+      setIsSaveLoaded(true);
+      return;
+    }
+
+    setCash(Number(data.cash));
+    setWarningCount(Number(data.warning_count));
+    setUnpaidTax(Number(data.unpaid_tax));
+    setIsSaveLoaded(true);
+  }
+
+  loadSave();
+}, []);
+
+  useEffect(() => {
+  if (!userId || !isSaveLoaded) {
+    return;
+  }
+
+  const timer = window.setTimeout(async () => {
+    const supabase = createClient();
+
+    const { error } = await supabase.from("game_saves").upsert({
+      user_id: userId,
+      cash,
+      warning_count: warningCount,
+      unpaid_tax: unpaidTax,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      console.error("자동 저장 실패:", error.message);
+    }
+  }, 500);
+
+  return () => window.clearTimeout(timer);
+}, [userId, isSaveLoaded, cash, warningCount, unpaidTax]);
 
   useEffect(() => {
     if (taxTriggerCount > 0) applyTaxAutomatically();
