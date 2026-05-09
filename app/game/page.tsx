@@ -63,6 +63,19 @@ type RankingRow = {
   isMe?: boolean;
 };
 
+type ProfileRow = {
+  id: string;
+  nickname: string | null;
+  room_kind: string | null;
+  occupation_id: string | null;
+};
+
+type RankingSaveRow = {
+  user_id: string;
+  cash: number | string;
+};
+
+const PROFILE_TABLE = "game_profiles";
 const TAX_INTERVAL_SECONDS = 420;
 const TAX_WARNING_SECONDS = 60;
 
@@ -188,6 +201,7 @@ export default function GamePage() {
   const [nicknameDraft, setNicknameDraft] = useState("우리집");
   const [roomKind, setRoomKind] = useState<RoomKind>("basic");
   const [occupationId, setOccupationId] = useState<OccupationId>("unemployed");
+  const [rankingRows, setRankingRows] = useState<RankingRow[]>([]);
   const [rankingUpdatedAt, setRankingUpdatedAt] = useState(new Date());
 
   const [warningCount, setWarningCount] = useState(0);
@@ -237,7 +251,6 @@ export default function GamePage() {
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs[0], [selectedJobId]);
   const activeJob = useMemo(() => (activeJobId ? jobs.find((job) => job.id === activeJobId) ?? null : null), [activeJobId]);
   const occupation = occupationInfo[occupationId];
-  const rankingRows = useMemo(() => makeRankingRows(nickname, cash, occupation.name), [nickname, cash, occupation.name, rankingUpdatedAt]);
   const taxRate = getTaxRate(cash);
   const nextTax = calculateTax(cash, unpaidTax);
 
@@ -308,31 +321,72 @@ export default function GamePage() {
   useEffect(() => {
     if (!userId) return;
 
-    const savedNickname = window.localStorage.getItem(`alba-money-nickname-${userId}`);
-    const savedRoomKind = window.localStorage.getItem(`alba-money-room-${userId}`) as RoomKind | null;
-    const savedOccupationId = window.localStorage.getItem(`alba-money-occupation-${userId}`) as OccupationId | null;
+    async function loadProfilePreferences() {
+      const savedNickname = window.localStorage.getItem(`alba-money-nickname-${userId}`);
+      const savedRoomKind = window.localStorage.getItem(`alba-money-room-${userId}`) as RoomKind | null;
+      const savedOccupationId = window.localStorage.getItem(`alba-money-occupation-${userId}`) as OccupationId | null;
 
-    if (savedNickname) {
-      setNickname(savedNickname);
-      setNicknameDraft(savedNickname);
+      if (savedNickname) {
+        setNickname(savedNickname);
+        setNicknameDraft(savedNickname);
+      }
+
+      if (savedRoomKind && savedRoomKind in roomInfo) {
+        setRoomKind(savedRoomKind);
+      }
+
+      if (savedOccupationId && savedOccupationId in occupationInfo) {
+        setOccupationId(savedOccupationId);
+      }
+
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from(PROFILE_TABLE)
+        .select("id, nickname, room_kind, occupation_id")
+        .eq("id", userId)
+        .maybeSingle<ProfileRow>();
+
+      if (error) {
+        console.warn("프로필 테이블을 읽지 못했습니다. localStorage 값을 사용합니다:", error.message);
+        return;
+      }
+
+      if (data?.nickname) {
+        setNickname(data.nickname);
+        setNicknameDraft(data.nickname);
+        window.localStorage.setItem(`alba-money-nickname-${userId}`, data.nickname);
+      }
+
+      if (data?.room_kind && data.room_kind in roomInfo) {
+        const nextRoomKind = data.room_kind as RoomKind;
+        setRoomKind(nextRoomKind);
+        window.localStorage.setItem(`alba-money-room-${userId}`, nextRoomKind);
+      }
+
+      if (data?.occupation_id && data.occupation_id in occupationInfo) {
+        const nextOccupationId = data.occupation_id as OccupationId;
+        setOccupationId(nextOccupationId);
+        window.localStorage.setItem(`alba-money-occupation-${userId}`, nextOccupationId);
+      }
     }
 
-    if (savedRoomKind && savedRoomKind in roomInfo) {
-      setRoomKind(savedRoomKind);
-    }
-
-    if (savedOccupationId && savedOccupationId in occupationInfo) {
-      setOccupationId(savedOccupationId);
-    }
+    loadProfilePreferences();
   }, [userId]);
 
   useEffect(() => {
+    if (!userId) return;
+
+    refreshRanking();
     const timer = window.setInterval(() => {
-      setRankingUpdatedAt(new Date());
+      refreshRanking();
     }, 30 * 60 * 1000);
 
     return () => window.clearInterval(timer);
-  }, []);
+  }, [userId]);
+
+  useEffect(() => {
+    if (lobbyView === "ranking") refreshRanking();
+  }, [lobbyView]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
@@ -866,17 +920,55 @@ export default function GamePage() {
     setSecuritySignal("normal");
   }
 
-  function saveNickname() {
+  async function saveNickname() {
     const trimmed = nicknameDraft.trim().slice(0, 12);
     const nextNickname = trimmed || "우리집";
-    setNickname(nextNickname);
-    setNicknameDraft(nextNickname);
 
-    if (userId) {
-      window.localStorage.setItem(`alba-money-nickname-${userId}`, nextNickname);
+    if (!userId) {
+      setMessage("로그인 정보를 확인한 뒤 다시 시도해주세요.");
+      return;
     }
 
-    setMessage(`닉네임이 ${nextNickname}(으)로 변경되었습니다.`);
+    const supabase = createClient();
+    const { data: duplicatedProfile, error: duplicateError } = await supabase
+      .from(PROFILE_TABLE)
+      .select("id")
+      .eq("nickname", nextNickname)
+      .neq("id", userId)
+      .maybeSingle<{ id: string }>();
+
+    if (duplicateError) {
+      console.warn("닉네임 중복 확인 실패:", duplicateError.message);
+    }
+
+    if (duplicatedProfile) {
+      setNicknameDraft(nickname);
+      setMessage(`이미 다른 유저가 사용 중인 닉네임입니다: ${nextNickname}`);
+      return;
+    }
+
+    const { error } = await supabase.from(PROFILE_TABLE).upsert(
+      {
+        id: userId,
+        nickname: nextNickname,
+        room_kind: roomKind,
+        occupation_id: occupationId,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" }
+    );
+
+    if (error) {
+      console.warn("프로필 저장 실패. localStorage에만 저장합니다:", error.message);
+      setMessage("프로필 테이블 저장에 실패해서 이 브라우저에만 닉네임을 저장했습니다. 중복 방지는 Supabase 테이블 설정 후 적용됩니다.");
+    } else {
+      setMessage(`닉네임이 ${nextNickname}(으)로 변경되었습니다.`);
+    }
+
+    setNickname(nextNickname);
+    setNicknameDraft(nextNickname);
+    window.localStorage.setItem(`alba-money-nickname-${userId}`, nextNickname);
+    refreshRanking(nextNickname);
   }
 
   function changeRoom(nextRoomKind: RoomKind) {
@@ -884,6 +976,7 @@ export default function GamePage() {
 
     if (userId) {
       window.localStorage.setItem(`alba-money-room-${userId}`, nextRoomKind);
+      saveProfilePatch({ room_kind: nextRoomKind });
     }
 
     setLobbyView("room");
@@ -914,6 +1007,73 @@ export default function GamePage() {
     }
 
     setMessage(`직업이 ${nextOccupation.icon} ${nextOccupation.name}(으)로 변경되었습니다.`);
+  }
+
+  async function saveProfilePatch(patch: Partial<{ nickname: string; room_kind: RoomKind; occupation_id: OccupationId }>) {
+    if (!userId) return;
+
+    const supabase = createClient();
+    const { error } = await supabase.from(PROFILE_TABLE).upsert(
+      {
+        id: userId,
+        nickname,
+        room_kind: roomKind,
+        occupation_id: occupationId,
+        updated_at: new Date().toISOString(),
+        ...patch,
+      },
+      { onConflict: "id" }
+    );
+
+    if (error) {
+      console.warn("프로필 부분 저장 실패:", error.message);
+    }
+  }
+
+  async function refreshRanking(currentNickname = nickname) {
+    if (!userId) return;
+
+    const fallbackRows = makeRankingRows(currentNickname, cash, occupationInfo[occupationId].name);
+    const supabase = createClient();
+    const { data: saves, error: savesError } = await supabase
+      .from("game_saves")
+      .select("user_id, cash")
+      .order("cash", { ascending: false })
+      .limit(50);
+
+    if (savesError || !saves || saves.length === 0) {
+      if (savesError) console.warn("랭킹 저장 데이터 불러오기 실패:", savesError.message);
+      setRankingRows(fallbackRows);
+      setRankingUpdatedAt(new Date());
+      return;
+    }
+
+    const ids = saves.map((row) => row.user_id);
+    const { data: profiles, error: profilesError } = await supabase
+      .from(PROFILE_TABLE)
+      .select("id, nickname, room_kind, occupation_id")
+      .in("id", ids);
+
+    if (profilesError) {
+      console.warn("랭킹 프로필 불러오기 실패:", profilesError.message);
+    }
+
+    const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile as ProfileRow]));
+
+    const rows = (saves as RankingSaveRow[]).map((save, index) => {
+      const profile = profileMap.get(save.user_id);
+      const profileOccupationId = profile?.occupation_id && profile.occupation_id in occupationInfo ? (profile.occupation_id as OccupationId) : "unemployed";
+      return {
+        rank: index + 1,
+        nickname: save.user_id === userId ? currentNickname : profile?.nickname || "이름 없음",
+        cash: Number(save.cash),
+        job: save.user_id === userId ? occupationInfo[occupationId].name : occupationInfo[profileOccupationId].name,
+        isMe: save.user_id === userId,
+      };
+    });
+
+    setRankingRows(rows.length > 0 ? rows : fallbackRows);
+    setRankingUpdatedAt(new Date());
   }
 
   async function signOut() {
@@ -1326,7 +1486,12 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
 }
 
 function StatusPill({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) {
-  return <div style={{ ...statusPillStyle, borderColor: warning ? "#f97316" : "rgba(255,255,255,0.16)", color: warning ? "#fed7aa" : "white" }}><span style={statusLabelStyle}>{label}</span><strong>{value}</strong></div>;
+  return (
+    <div style={{ ...statusPillStyle, borderColor: warning ? "#f97316" : "#111827", color: warning ? "#9a3412" : "#111827" }}>
+      <span style={{ ...statusLabelStyle, color: warning ? "#c2410c" : "#64748b" }}>{label}</span>
+      <strong style={{ color: warning ? "#9a3412" : "#111827" }}>{value}</strong>
+    </div>
+  );
 }
 
 function getTaxRate(cash: number) {
@@ -1938,8 +2103,9 @@ const statusPillStyle: CSSProperties = {
 };
 
 const statusLabelStyle: CSSProperties = {
-  color: "#94a3b8",
+  color: "#64748b",
   fontSize: "10px",
+  fontWeight: 900,
 };
 
 const jobGridStyle: CSSProperties = {
@@ -2139,8 +2305,9 @@ const centerGameStyle: CSSProperties = {
 const miniGameTopInfoStyle: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  color: "#86efac",
+  color: "#14532d",
   fontSize: "15px",
+  fontWeight: 900,
 };
 
 const sortingStageStyle: CSSProperties = {
@@ -2254,7 +2421,7 @@ const runnerCoinStyle: CSSProperties = {
 
 const runnerProgressStyle: CSSProperties = {
   textAlign: "center",
-  color: "#86efac",
+  color: "#14532d",
   fontWeight: 900,
   fontSize: "14px",
 };
