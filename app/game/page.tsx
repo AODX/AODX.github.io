@@ -1667,11 +1667,6 @@ const securityCharacterStyle: CSSProperties = {
   marginBottom: "8px",
 };
 
-const securityLabelStyle: CSSProperties = {
-  fontSize: "22px",
-  fontWeight: 900,
-};
-
 const securityHintStyle: CSSProperties = {
   marginTop: "10px",
   color: "#cbd5e1",
