@@ -1,8 +1,11 @@
 "use client";
 
+/* eslint-disable react-hooks/exhaustive-deps */
+
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
-type JobId = "loading" | "delivery" | "cashier" | "rhythm";
+type JobId = "sorting" | "delivery" | "cashier" | "rhythm";
+type SortKind = "red" | "blue" | "yellow";
 
 type Job = {
   id: JobId;
@@ -11,6 +14,11 @@ type Job = {
   reward: number;
   timeLimit: number;
   icon: string;
+};
+
+type SortItem = {
+  kind: SortKind;
+  x: number;
 };
 
 type RunnerObstacle = {
@@ -30,18 +38,18 @@ const TAX_WARNING_SECONDS = 60;
 
 const jobs: Job[] = [
   {
-    id: "loading",
-    name: "상하차 알바",
-    subtitle: "크레인을 움직여 박스를 정확히 집으세요.",
-    reward: 1700,
-    timeLimit: 25,
-    icon: "🏗️",
+    id: "sorting",
+    name: "택배 분류 알바",
+    subtitle: "컨베이어 벨트의 택배를 알맞은 구역으로 분류하세요.",
+    reward: 1800,
+    timeLimit: 30,
+    icon: "📦",
   },
   {
     id: "delivery",
     name: "음식 배달 알바",
-    subtitle: "3개 차선을 이동하며 장애물을 피해 배달하세요.",
-    reward: 2400,
+    subtitle: "템플런처럼 좌우 이동으로 장애물을 피하세요.",
+    reward: 2500,
     timeLimit: 35,
     icon: "🛵",
   },
@@ -65,6 +73,14 @@ const jobs: Job[] = [
 
 const cashierKeyPool = ["W", "A", "S", "D"];
 const rhythmKeys = ["D", "F", "J", "K"];
+const sortKinds: SortKind[] = ["red", "blue", "yellow"];
+
+const sortInfo: Record<SortKind, { label: string; emoji: string; key: string }> =
+  {
+    red: { label: "빨강 구역", emoji: "🟥", key: "1" },
+    blue: { label: "파랑 구역", emoji: "🟦", key: "2" },
+    yellow: { label: "노랑 구역", emoji: "🟨", key: "3" },
+  };
 
 export default function GamePage() {
   const [cash, setCash] = useState(10000);
@@ -73,22 +89,23 @@ export default function GamePage() {
   const [taxCountdown, setTaxCountdown] = useState(TAX_INTERVAL_SECONDS);
   const [taxTriggerCount, setTaxTriggerCount] = useState(0);
 
-  const [selectedJobId, setSelectedJobId] = useState<JobId>("loading");
+  const [selectedJobId, setSelectedJobId] = useState<JobId>("sorting");
   const [activeJobId, setActiveJobId] = useState<JobId | null>(null);
   const [jobTimeLeft, setJobTimeLeft] = useState(0);
   const [jobFinished, setJobFinished] = useState(false);
   const [message, setMessage] = useState("알바를 선택하고 시작하세요.");
 
-  const [clawX, setClawX] = useState(50);
-  const [clawDirection, setClawDirection] = useState(1);
-  const [boxX, setBoxX] = useState(50);
-  const [clawDropped, setClawDropped] = useState(false);
+  const [sortItem, setSortItem] = useState<SortItem>({
+    kind: "red",
+    x: 0,
+  });
+  const [sortScore, setSortScore] = useState(0);
+  const [sortMiss, setSortMiss] = useState(0);
 
   const [runnerLane, setRunnerLane] = useState(1);
   const [runnerDistance, setRunnerDistance] = useState(0);
   const [runnerObstacles, setRunnerObstacles] = useState<RunnerObstacle[]>([]);
-  const [runnerTick, setRunnerTick] = useState(0);
-  const [obstacleId, setObstacleId] = useState(1);
+  const [runnerObstacleId, setRunnerObstacleId] = useState(1);
 
   const [cashierSequence, setCashierSequence] = useState<string[]>([]);
   const [cashierIndex, setCashierIndex] = useState(0);
@@ -96,7 +113,6 @@ export default function GamePage() {
   const [rhythmNotes, setRhythmNotes] = useState<RhythmNote[]>([]);
   const [rhythmScore, setRhythmScore] = useState(0);
   const [rhythmMiss, setRhythmMiss] = useState(0);
-  const [rhythmTick, setRhythmTick] = useState(0);
   const [rhythmNoteId, setRhythmNoteId] = useState(1);
 
   const selectedJob = useMemo(() => {
@@ -159,30 +175,25 @@ export default function GamePage() {
   }, [activeJobId, jobFinished, jobTimeLeft]);
 
   useEffect(() => {
-    if (activeJobId !== "loading" || jobFinished || clawDropped) {
+    if (activeJobId !== "sorting" || jobFinished) {
       return;
     }
 
     const timer = window.setInterval(() => {
-      setClawX((current) => {
-        const next = current + clawDirection * 2.2;
+      setSortItem((current) => {
+        const nextX = current.x + 0.9;
 
-        if (next >= 94) {
-          setClawDirection(-1);
-          return 94;
+        if (nextX >= 100) {
+          registerSortMiss();
+          return makeSortItem();
         }
 
-        if (next <= 6) {
-          setClawDirection(1);
-          return 6;
-        }
-
-        return next;
+        return { ...current, x: nextX };
       });
     }, 35);
 
     return () => window.clearInterval(timer);
-  }, [activeJobId, clawDirection, clawDropped, jobFinished]);
+  }, [activeJobId, jobFinished, sortMiss]);
 
   useEffect(() => {
     if (activeJobId !== "delivery" || jobFinished) {
@@ -190,55 +201,51 @@ export default function GamePage() {
     }
 
     const timer = window.setInterval(() => {
-      setRunnerTick((current) => current + 1);
-    }, 360);
+      setRunnerDistance((current) => {
+        const next = current + 0.35;
+
+        if (next >= 100) {
+          completeJob("🛵 배달 완료! 목적지까지 무사히 도착했습니다.");
+          return 100;
+        }
+
+        return next;
+      });
+
+      setRunnerObstacles((current) => {
+        const moved = current
+          .map((obstacle) => ({ ...obstacle, y: obstacle.y + 1.15 }))
+          .filter((obstacle) => obstacle.y <= 110);
+
+        const collision = moved.some(
+          (obstacle) =>
+            obstacle.lane === runnerLane &&
+            obstacle.y >= 75 &&
+            obstacle.y <= 90
+        );
+
+        if (collision) {
+          failJob("💥 장애물에 부딪혔습니다! 배달 실패!");
+          return moved;
+        }
+
+        if (Math.random() < 0.045) {
+          const newObstacle = {
+            id: runnerObstacleId,
+            lane: Math.floor(Math.random() * 3),
+            y: -12,
+          };
+
+          setRunnerObstacleId((id) => id + 1);
+          return [...moved, newObstacle];
+        }
+
+        return moved;
+      });
+    }, 45);
 
     return () => window.clearInterval(timer);
-  }, [activeJobId, jobFinished]);
-
-  useEffect(() => {
-    if (activeJobId !== "delivery" || jobFinished || runnerTick === 0) {
-      return;
-    }
-
-    setRunnerDistance((current) => {
-      const next = current + 1;
-
-      if (next >= 55) {
-        completeJob("🛵 배달 완료! 장애물을 피해 목적지에 도착했습니다.");
-      }
-
-      return next;
-    });
-
-    setRunnerObstacles((current) => {
-      const moved = current
-        .map((obstacle) => ({ ...obstacle, y: obstacle.y + 1 }))
-        .filter((obstacle) => obstacle.y <= 6);
-
-      const collision = moved.some(
-        (obstacle) => obstacle.lane === runnerLane && obstacle.y >= 5
-      );
-
-      if (collision) {
-        failJob("💥 장애물에 부딪혔습니다! 배달 실패!");
-        return moved;
-      }
-
-      if (runnerTick % 3 === 0) {
-        const newObstacle = {
-          id: obstacleId,
-          lane: Math.floor(Math.random() * 3),
-          y: 0,
-        };
-
-        setObstacleId((id) => id + 1);
-        return [...moved, newObstacle];
-      }
-
-      return moved;
-    });
-  }, [activeJobId, jobFinished, obstacleId, runnerLane, runnerTick]);
+  }, [activeJobId, jobFinished, runnerLane, runnerObstacleId]);
 
   useEffect(() => {
     if (activeJobId !== "rhythm" || jobFinished) {
@@ -246,52 +253,41 @@ export default function GamePage() {
     }
 
     const timer = window.setInterval(() => {
-      setRhythmTick((current) => current + 1);
-    }, 90);
+      setRhythmNotes((current) => {
+        const moved = current.map((note) => ({ ...note, y: note.y + 0.85 }));
+
+        const missedNotes = moved.filter((note) => note.y > 100);
+        const aliveNotes = moved.filter((note) => note.y <= 100);
+
+        if (missedNotes.length > 0) {
+          setRhythmMiss((currentMiss) => {
+            const nextMiss = currentMiss + missedNotes.length;
+
+            if (nextMiss >= 3) {
+              failJob("🎵 노트를 3번 놓쳤습니다. 알바 실패!");
+            }
+
+            return nextMiss;
+          });
+        }
+
+        if (Math.random() < 0.035) {
+          const newNote = {
+            id: rhythmNoteId,
+            key: rhythmKeys[Math.floor(Math.random() * rhythmKeys.length)],
+            y: -10,
+          };
+
+          setRhythmNoteId((id) => id + 1);
+          return [...aliveNotes, newNote];
+        }
+
+        return aliveNotes;
+      });
+    }, 35);
 
     return () => window.clearInterval(timer);
-  }, [activeJobId, jobFinished]);
-
-  useEffect(() => {
-    if (activeJobId !== "rhythm" || jobFinished || rhythmTick === 0) {
-      return;
-    }
-
-    setRhythmNotes((current) => {
-      const moved = current
-        .map((note) => ({ ...note, y: note.y + 4 }))
-        .filter((note) => note.y <= 105);
-
-      const missed = moved.filter((note) => note.y > 94).length;
-
-      if (missed > 0) {
-        setRhythmMiss((currentMiss) => {
-          const nextMiss = currentMiss + missed;
-
-          if (nextMiss >= 3) {
-            failJob("🎵 노트를 3번 놓쳤습니다. 알바 실패!");
-          }
-
-          return nextMiss;
-        });
-      }
-
-      const alive = moved.filter((note) => note.y <= 94);
-
-      if (rhythmTick % 8 === 0) {
-        const newNote = {
-          id: rhythmNoteId,
-          key: rhythmKeys[Math.floor(Math.random() * rhythmKeys.length)],
-          y: 0,
-        };
-
-        setRhythmNoteId((id) => id + 1);
-        return [...alive, newNote];
-      }
-
-      return alive;
-    });
-  }, [activeJobId, jobFinished, rhythmNoteId, rhythmTick]);
+  }, [activeJobId, jobFinished, rhythmNoteId]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -301,10 +297,10 @@ export default function GamePage() {
 
       const key = event.key.toLowerCase();
 
-      if (activeJobId === "loading") {
-        if (key === " " || key === "enter") {
+      if (activeJobId === "sorting") {
+        if (["1", "2", "3"].includes(key)) {
           event.preventDefault();
-          dropClaw();
+          handleSortKey(key);
         }
 
         return;
@@ -339,14 +335,14 @@ export default function GamePage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     activeJobId,
-    boxX,
     cashierIndex,
     cashierSequence,
-    clawDropped,
-    clawX,
     jobFinished,
     rhythmNotes,
     rhythmScore,
+    sortItem,
+    sortMiss,
+    sortScore,
   ]);
 
   function applyTaxAutomatically() {
@@ -390,8 +386,8 @@ export default function GamePage() {
     setJobFinished(false);
     setMessage(`${job.icon} ${job.name} 시작!`);
 
-    if (jobId === "loading") {
-      setupLoadingJob();
+    if (jobId === "sorting") {
+      setupSortingJob();
     }
 
     if (jobId === "delivery") {
@@ -407,20 +403,18 @@ export default function GamePage() {
     }
   }
 
-  function setupLoadingJob() {
-    setClawX(50);
-    setClawDirection(1);
-    setBoxX(randomPercent());
-    setClawDropped(false);
-    setMessage("🏗️ Space 또는 Enter를 눌러 크레인을 떨어뜨리세요.");
+  function setupSortingJob() {
+    setSortItem(makeSortItem());
+    setSortScore(0);
+    setSortMiss(0);
+    setMessage("📦 택배 색에 맞춰 1, 2, 3번 구역으로 분류하세요.");
   }
 
   function setupDeliveryJob() {
     setRunnerLane(1);
     setRunnerDistance(0);
     setRunnerObstacles([]);
-    setRunnerTick(0);
-    setObstacleId(1);
+    setRunnerObstacleId(1);
     setMessage("🛵 A/D 또는 ←/→ 키로 차선을 바꾸며 장애물을 피하세요.");
   }
 
@@ -434,7 +428,6 @@ export default function GamePage() {
     setRhythmNotes([]);
     setRhythmScore(0);
     setRhythmMiss(0);
-    setRhythmTick(0);
     setRhythmNoteId(1);
     setMessage("🎵 판정선에 노트가 오면 D/F/J/K를 입력하세요.");
   }
@@ -463,21 +456,42 @@ export default function GamePage() {
     setMessage("알바를 선택하고 시작하세요.");
   }
 
-  function dropClaw() {
-    if (clawDropped) {
+  function handleSortKey(key: string) {
+    if (sortItem.x < 36 || sortItem.x > 64) {
+      registerSortMiss("타이밍이 맞지 않았습니다. 중앙 판정 구역에서 눌러야 합니다.");
       return;
     }
 
-    setClawDropped(true);
-
-    const diff = Math.abs(clawX - boxX);
-
-    if (diff <= 8) {
-      completeJob("🏗️ 박스 집기 성공! 상하차 보상을 받았습니다.");
+    if (sortInfo[sortItem.kind].key !== key) {
+      registerSortMiss("분류 구역이 틀렸습니다.");
       return;
     }
 
-    failJob("🏗️ 아깝습니다! 크레인이 박스를 놓쳤습니다.");
+    const nextScore = sortScore + 1;
+
+    setSortScore(nextScore);
+    setSortItem(makeSortItem());
+
+    if (nextScore >= 8) {
+      completeJob("📦 택배 분류 완료! 보상을 받았습니다.");
+      return;
+    }
+
+    setMessage(`좋아요! ${nextScore}/8개 분류 완료`);
+  }
+
+  function registerSortMiss(customMessage?: string) {
+    const nextMiss = sortMiss + 1;
+
+    setSortMiss(nextMiss);
+    setSortItem(makeSortItem());
+
+    if (nextMiss >= 3) {
+      failJob("📦 분류 실수 3회! 알바 실패!");
+      return;
+    }
+
+    setMessage(customMessage ?? `분류하지 못했습니다. 실수 ${nextMiss}/3`);
   }
 
   function handleCashierKey(key: string) {
@@ -512,21 +526,20 @@ export default function GamePage() {
     }
 
     const targetNote = rhythmNotes.find(
-      (note) => note.key === pressed && note.y >= 72 && note.y <= 92
+      (note) => note.key === pressed && note.y >= 76 && note.y <= 91
     );
 
     if (!targetNote) {
-      setRhythmMiss((current) => {
-        const next = current + 1;
+      const nextMiss = rhythmMiss + 1;
 
-        if (next >= 3) {
-          failJob("🎵 타이밍이 맞지 않았습니다. 알바 실패!");
-        }
+      setRhythmMiss(nextMiss);
 
-        return next;
-      });
+      if (nextMiss >= 3) {
+        failJob("🎵 타이밍이 맞지 않았습니다. 알바 실패!");
+        return;
+      }
 
-      setMessage("🎵 타이밍이 맞지 않았습니다.");
+      setMessage(`🎵 타이밍이 맞지 않았습니다. 실수 ${nextMiss}/3`);
       return;
     }
 
@@ -534,17 +547,16 @@ export default function GamePage() {
       current.filter((note) => note.id !== targetNote.id)
     );
 
-    setRhythmScore((current) => {
-      const next = current + 1;
+    const nextScore = rhythmScore + 1;
 
-      if (next >= 10) {
-        completeJob("🎵 리듬 성공! 공연장 스태프 알바 완료!");
-      }
+    setRhythmScore(nextScore);
 
-      return next;
-    });
+    if (nextScore >= 10) {
+      completeJob("🎵 리듬 성공! 공연장 스태프 알바 완료!");
+      return;
+    }
 
-    setMessage(`🎵 Perfect! ${rhythmScore + 1}/10`);
+    setMessage(`🎵 Perfect! ${nextScore}/10`);
   }
 
   if (activeJob) {
@@ -565,7 +577,7 @@ export default function GamePage() {
                 label="다음 세금"
                 value={`${nextTax.toLocaleString()}원`}
               />
-              <StatusPill label="남은 시간" value={`${jobTimeLeft}초`} />
+              <StatusPill label="시간" value={`${jobTimeLeft}초`} />
               <StatusPill
                 label="세금까지"
                 value={formatTime(taxCountdown)}
@@ -578,8 +590,12 @@ export default function GamePage() {
           </header>
 
           <section style={jobStageStyle}>
-            {activeJobId === "loading" && (
-              <ClawGame clawX={clawX} boxX={boxX} clawDropped={clawDropped} />
+            {activeJobId === "sorting" && (
+              <SortingGame
+                item={sortItem}
+                score={sortScore}
+                miss={sortMiss}
+              />
             )}
 
             {activeJobId === "delivery" && (
@@ -691,47 +707,39 @@ export default function GamePage() {
   );
 }
 
-function ClawGame({
-  clawX,
-  boxX,
-  clawDropped,
+function SortingGame({
+  item,
+  score,
+  miss,
 }: {
-  clawX: number;
-  boxX: number;
-  clawDropped: boolean;
+  item: SortItem;
+  score: number;
+  miss: number;
 }) {
   return (
-    <div style={clawStageStyle}>
-      <div style={clawTopBarStyle} />
-      <div
-        style={{
-          ...clawMachineStyle,
-          left: `${clawX}%`,
-        }}
-      >
-        <div style={clawLineStyle} />
-        <div style={clawHookStyle}>🪝</div>
+    <div style={sortingStageStyle}>
+      <div style={miniGameTopInfoStyle}>
+        <strong>분류 {score}/8</strong>
+        <strong>실수 {miss}/3</strong>
       </div>
 
-      {clawDropped && (
+      <div style={conveyorStyle}>
+        <div style={sortJudgeZoneStyle}>판정 구역</div>
         <div
           style={{
-            ...clawDropLineStyle,
-            left: `${clawX}%`,
+            ...sortPackageStyle,
+            left: `${item.x}%`,
           }}
-        />
-      )}
-
-      <div
-        style={{
-          ...boxStyle,
-          left: `${boxX}%`,
-        }}
-      >
-        📦
+        >
+          {sortInfo[item.kind].emoji}
+        </div>
       </div>
 
-      <div style={clawHintTextStyle}>Space 또는 Enter로 크레인 내리기</div>
+      <div style={sortBinsStyle}>
+        <div style={sortBinStyle}>1번 {sortInfo.red.emoji} 빨강</div>
+        <div style={sortBinStyle}>2번 {sortInfo.blue.emoji} 파랑</div>
+        <div style={sortBinStyle}>3번 {sortInfo.yellow.emoji} 노랑</div>
+      </div>
     </div>
   );
 }
@@ -759,7 +767,7 @@ function DeliveryGame({
                   key={obstacle.id}
                   style={{
                     ...runnerObstacleStyle,
-                    top: `${obstacle.y * 15}%`,
+                    top: `${obstacle.y}%`,
                   }}
                 >
                   🚧
@@ -770,7 +778,7 @@ function DeliveryGame({
       </div>
 
       <div style={runnerProgressStyle}>
-        배달 진행도: {Math.min(distance, 55)} / 55
+        배달 진행도: {Math.floor(Math.min(distance, 100))}%
       </div>
     </div>
   );
@@ -828,7 +836,7 @@ function RhythmGame({
 }) {
   return (
     <div style={rhythmStageStyle}>
-      <div style={rhythmInfoStyle}>
+      <div style={miniGameTopInfoStyle}>
         <strong>점수 {score}/10</strong>
         <strong>실수 {miss}/3</strong>
       </div>
@@ -909,6 +917,13 @@ function makeCashierSequence() {
   });
 }
 
+function makeSortItem(): SortItem {
+  return {
+    kind: sortKinds[Math.floor(Math.random() * sortKinds.length)],
+    x: -8,
+  };
+}
+
 function formatTime(seconds: number) {
   const minutes = Math.floor(seconds / 60);
   const restSeconds = seconds % 60;
@@ -916,13 +931,9 @@ function formatTime(seconds: number) {
   return `${minutes}:${String(restSeconds).padStart(2, "0")}`;
 }
 
-function randomPercent() {
-  return Math.floor(Math.random() * 76) + 12;
-}
-
 function getControlHint(activeJobId: JobId | null) {
-  if (activeJobId === "loading") {
-    return "Space 또는 Enter로 크레인 내리기";
+  if (activeJobId === "sorting") {
+    return "중앙 판정 구역에서 1/2/3 입력";
   }
 
   if (activeJobId === "delivery") {
@@ -942,7 +953,8 @@ function getControlHint(activeJobId: JobId | null) {
 
 const pageStyle: CSSProperties = {
   width: "100vw",
-  height: "100dvh",
+  height: "100svh",
+  maxHeight: "100svh",
   overflow: "hidden",
   background:
     "radial-gradient(circle at top left, #1e3a8a 0, transparent 35%), linear-gradient(135deg, #020617 0%, #0f172a 55%, #1e1b4b 100%)",
@@ -953,41 +965,41 @@ const pageStyle: CSSProperties = {
 const lobbyLayoutStyle: CSSProperties = {
   width: "100%",
   height: "100%",
-  padding: "16px",
+  padding: "10px",
   display: "grid",
   gridTemplateRows: "auto 1fr auto",
-  gap: "12px",
+  gap: "8px",
 };
 
 const lobbyHeaderStyle: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
-  gap: "16px",
+  gap: "12px",
 };
 
 const smallLabelStyle: CSSProperties = {
   color: "#38bdf8",
-  fontSize: "12px",
+  fontSize: "11px",
   fontWeight: 900,
   letterSpacing: "0.12em",
 };
 
 const mainTitleStyle: CSSProperties = {
-  margin: "4px 0",
-  fontSize: "34px",
+  margin: "2px 0",
+  fontSize: "28px",
   lineHeight: 1,
 };
 
 const subtitleStyle: CSSProperties = {
   margin: 0,
   color: "#cbd5e1",
-  fontSize: "14px",
+  fontSize: "13px",
 };
 
 const moneyPanelStyle: CSSProperties = {
   display: "flex",
-  gap: "8px",
+  gap: "6px",
   flexWrap: "wrap",
   justifyContent: "flex-end",
   maxWidth: "760px",
@@ -996,118 +1008,118 @@ const moneyPanelStyle: CSSProperties = {
 const statusPillStyle: CSSProperties = {
   background: "rgba(15,23,42,0.75)",
   border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "12px",
-  padding: "8px 10px",
-  minWidth: "86px",
+  borderRadius: "10px",
+  padding: "6px 8px",
+  minWidth: "76px",
   display: "grid",
-  gap: "2px",
-  fontSize: "13px",
+  gap: "1px",
+  fontSize: "12px",
 };
 
 const statusLabelStyle: CSSProperties = {
   color: "#94a3b8",
-  fontSize: "11px",
+  fontSize: "10px",
 };
 
 const jobGridStyle: CSSProperties = {
   minHeight: 0,
   display: "grid",
   gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: "12px",
+  gap: "8px",
   alignContent: "center",
 };
 
 const jobCardStyle: CSSProperties = {
-  height: "220px",
-  borderRadius: "20px",
-  padding: "16px",
+  height: "165px",
+  borderRadius: "16px",
+  padding: "12px",
   background: "rgba(255,255,255,0.08)",
   color: "white",
   textAlign: "left",
   cursor: "pointer",
-  boxShadow: "0 16px 40px rgba(0,0,0,0.22)",
+  boxShadow: "0 12px 28px rgba(0,0,0,0.22)",
 };
 
 const jobIconStyle: CSSProperties = {
-  fontSize: "40px",
-  marginBottom: "12px",
+  fontSize: "32px",
+  marginBottom: "8px",
 };
 
 const jobCardTitleStyle: CSSProperties = {
-  margin: "0 0 8px",
-  fontSize: "20px",
+  margin: "0 0 6px",
+  fontSize: "17px",
 };
 
 const jobCardTextStyle: CSSProperties = {
   margin: 0,
   color: "#cbd5e1",
-  lineHeight: 1.4,
-  fontSize: "14px",
+  lineHeight: 1.35,
+  fontSize: "12px",
 };
 
 const rewardTextStyle: CSSProperties = {
-  marginTop: "14px",
+  marginTop: "9px",
   color: "#86efac",
   fontWeight: 800,
-  fontSize: "13px",
+  fontSize: "12px",
 };
 
 const lobbyFooterStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "12px",
+  gap: "8px",
 };
 
 const messageBoxStyle: CSSProperties = {
   flex: 1,
-  minHeight: "46px",
+  minHeight: "38px",
   display: "flex",
   alignItems: "center",
   background: "rgba(34,197,94,0.12)",
   border: "1px solid rgba(34,197,94,0.28)",
-  borderRadius: "14px",
-  padding: "10px 14px",
+  borderRadius: "12px",
+  padding: "8px 10px",
   color: "#dcfce7",
-  lineHeight: 1.4,
-  fontSize: "14px",
+  lineHeight: 1.35,
+  fontSize: "13px",
 };
 
 const bigStartButtonStyle: CSSProperties = {
   border: "none",
-  borderRadius: "14px",
+  borderRadius: "12px",
   background: "#38bdf8",
   color: "#020617",
-  padding: "14px 18px",
+  padding: "11px 14px",
   fontWeight: 900,
-  fontSize: "15px",
+  fontSize: "13px",
   cursor: "pointer",
 };
 
 const jobOnlyLayoutStyle: CSSProperties = {
   width: "100%",
   height: "100%",
-  padding: "14px",
+  padding: "10px",
   display: "grid",
   gridTemplateRows: "auto 1fr auto",
-  gap: "10px",
+  gap: "8px",
 };
 
 const compactHeaderStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: "12px",
+  gap: "8px",
 };
 
 const jobTitleStyle: CSSProperties = {
-  margin: "3px 0 0",
-  fontSize: "26px",
+  margin: "2px 0 0",
+  fontSize: "23px",
 };
 
 const topStatusGroupStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "8px",
+  gap: "6px",
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
@@ -1116,8 +1128,8 @@ const leaveButtonStyle: CSSProperties = {
   border: "1px solid rgba(255,255,255,0.18)",
   background: "rgba(255,255,255,0.08)",
   color: "white",
-  borderRadius: "12px",
-  padding: "12px 14px",
+  borderRadius: "10px",
+  padding: "9px 11px",
   fontWeight: 900,
   cursor: "pointer",
 };
@@ -1132,26 +1144,26 @@ const jobStageStyle: CSSProperties = {
 const jobFooterStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr auto auto",
-  gap: "10px",
+  gap: "8px",
   alignItems: "center",
 };
 
 const controlHintStyle: CSSProperties = {
   background: "rgba(15,23,42,0.75)",
   border: "1px solid rgba(255,255,255,0.14)",
-  borderRadius: "14px",
-  padding: "12px 14px",
+  borderRadius: "12px",
+  padding: "9px 11px",
   color: "#cbd5e1",
   fontWeight: 800,
-  fontSize: "14px",
+  fontSize: "13px",
 };
 
 const retryButtonStyle: CSSProperties = {
   border: "none",
-  borderRadius: "14px",
+  borderRadius: "12px",
   background: "#facc15",
   color: "#020617",
-  padding: "12px 16px",
+  padding: "9px 12px",
   fontWeight: 900,
   cursor: "pointer",
 };
@@ -1164,104 +1176,103 @@ const centerGameStyle: CSSProperties = {
   justifyContent: "center",
 };
 
-const clawStageStyle: CSSProperties = {
+const miniGameTopInfoStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  color: "#86efac",
+  fontSize: "14px",
+};
+
+const sortingStageStyle: CSSProperties = {
+  width: "min(720px, 92vw)",
+  height: "min(360px, 54svh)",
+  display: "grid",
+  gridTemplateRows: "auto 1fr auto",
+  gap: "10px",
+};
+
+const conveyorStyle: CSSProperties = {
   position: "relative",
-  width: "min(760px, 92vw)",
-  height: "min(460px, 62vh)",
-  background: "linear-gradient(180deg, rgba(15,23,42,0.95), rgba(30,41,59,0.9))",
+  background: "rgba(15,23,42,0.88)",
   border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "28px",
+  borderRadius: "22px",
   overflow: "hidden",
-  boxShadow: "0 24px 80px rgba(0,0,0,0.28)",
 };
 
-const clawTopBarStyle: CSSProperties = {
+const sortJudgeZoneStyle: CSSProperties = {
   position: "absolute",
-  top: "46px",
-  left: "8%",
-  right: "8%",
-  height: "10px",
-  background: "#64748b",
-  borderRadius: "999px",
+  left: "36%",
+  width: "28%",
+  top: 0,
+  bottom: 0,
+  background: "rgba(34,197,94,0.15)",
+  borderLeft: "2px solid rgba(34,197,94,0.8)",
+  borderRight: "2px solid rgba(34,197,94,0.8)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "#86efac",
+  fontWeight: 900,
+  fontSize: "14px",
 };
 
-const clawMachineStyle: CSSProperties = {
+const sortPackageStyle: CSSProperties = {
   position: "absolute",
-  top: "28px",
-  transform: "translateX(-50%)",
+  top: "50%",
+  transform: "translate(-50%, -50%)",
+  fontSize: "54px",
+  transition: "left 35ms linear",
+  zIndex: 3,
+};
+
+const sortBinsStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: "8px",
+};
+
+const sortBinStyle: CSSProperties = {
+  background: "rgba(255,255,255,0.08)",
+  border: "1px solid rgba(255,255,255,0.16)",
+  borderRadius: "14px",
+  padding: "10px",
   textAlign: "center",
-  transition: "left 0.03s linear",
-};
-
-const clawLineStyle: CSSProperties = {
-  width: "4px",
-  height: "80px",
-  margin: "0 auto",
-  background: "#38bdf8",
-};
-
-const clawHookStyle: CSSProperties = {
-  fontSize: "46px",
-};
-
-const clawDropLineStyle: CSSProperties = {
-  position: "absolute",
-  top: "56px",
-  bottom: "110px",
-  width: "4px",
-  background: "#facc15",
-  transform: "translateX(-50%)",
-};
-
-const boxStyle: CSSProperties = {
-  position: "absolute",
-  bottom: "70px",
-  transform: "translateX(-50%)",
-  fontSize: "56px",
-};
-
-const clawHintTextStyle: CSSProperties = {
-  position: "absolute",
-  left: 0,
-  right: 0,
-  bottom: "20px",
-  textAlign: "center",
-  color: "#cbd5e1",
-  fontWeight: 800,
+  fontWeight: 900,
 };
 
 const runnerStageStyle: CSSProperties = {
-  width: "min(620px, 92vw)",
-  height: "min(520px, 68vh)",
+  width: "min(560px, 92vw)",
+  height: "min(430px, 58svh)",
   display: "grid",
   gridTemplateRows: "1fr auto",
-  gap: "10px",
+  gap: "8px",
 };
 
 const runnerRoadStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(3, 1fr)",
-  gap: "8px",
+  gap: "7px",
   background: "rgba(15,23,42,0.88)",
   border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "26px",
-  padding: "12px",
+  borderRadius: "22px",
+  padding: "10px",
   overflow: "hidden",
 };
 
 const runnerLaneStyle: CSSProperties = {
   position: "relative",
   background: "rgba(255,255,255,0.07)",
-  borderRadius: "18px",
+  borderRadius: "16px",
   border: "1px dashed rgba(255,255,255,0.18)",
+  overflow: "hidden",
 };
 
 const runnerPlayerStyle: CSSProperties = {
   position: "absolute",
-  bottom: "18px",
+  bottom: "9%",
   left: "50%",
   transform: "translateX(-50%)",
-  fontSize: "44px",
+  fontSize: "38px",
   zIndex: 4,
 };
 
@@ -1269,96 +1280,93 @@ const runnerObstacleStyle: CSSProperties = {
   position: "absolute",
   left: "50%",
   transform: "translateX(-50%)",
-  fontSize: "42px",
+  fontSize: "36px",
+  transition: "top 45ms linear",
 };
 
 const runnerProgressStyle: CSSProperties = {
   textAlign: "center",
   color: "#86efac",
   fontWeight: 900,
+  fontSize: "14px",
 };
 
 const cashierPanelStyle: CSSProperties = {
-  width: "min(720px, 90vw)",
+  width: "min(650px, 90vw)",
   background: "rgba(255,255,255,0.08)",
   border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "28px",
-  padding: "30px",
+  borderRadius: "22px",
+  padding: "24px",
   textAlign: "center",
 };
 
 const cashierTitleStyle: CSSProperties = {
   color: "#93c5fd",
   fontWeight: 900,
-  marginBottom: "18px",
+  marginBottom: "14px",
 };
 
 const sequenceRowStyle: CSSProperties = {
   display: "flex",
   justifyContent: "center",
   flexWrap: "wrap",
-  gap: "10px",
+  gap: "8px",
 };
 
 const keyBoxStyle: CSSProperties = {
-  width: "54px",
-  height: "54px",
-  borderRadius: "15px",
+  width: "48px",
+  height: "48px",
+  borderRadius: "13px",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  fontSize: "22px",
+  fontSize: "20px",
   fontWeight: 900,
   border: "1px solid rgba(255,255,255,0.2)",
 };
 
 const cashierHintStyle: CSSProperties = {
-  marginTop: "20px",
+  marginTop: "16px",
   color: "#cbd5e1",
-  fontSize: "17px",
+  fontSize: "15px",
 };
 
 const rhythmStageStyle: CSSProperties = {
-  width: "min(680px, 92vw)",
-  height: "min(520px, 68vh)",
+  width: "min(620px, 92vw)",
+  height: "min(430px, 58svh)",
   display: "grid",
   gridTemplateRows: "auto 1fr",
-  gap: "10px",
-};
-
-const rhythmInfoStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  color: "#86efac",
+  gap: "8px",
 };
 
 const rhythmLaneWrapStyle: CSSProperties = {
   position: "relative",
   display: "grid",
   gridTemplateColumns: "repeat(4, 1fr)",
-  gap: "8px",
+  gap: "7px",
   background: "rgba(15,23,42,0.88)",
   border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "26px",
-  padding: "12px",
+  borderRadius: "22px",
+  padding: "10px",
   overflow: "hidden",
 };
 
 const rhythmLaneStyle: CSSProperties = {
   position: "relative",
   background: "rgba(255,255,255,0.07)",
-  borderRadius: "18px",
+  borderRadius: "16px",
   border: "1px solid rgba(255,255,255,0.10)",
+  overflow: "hidden",
 };
 
 const rhythmKeyLabelStyle: CSSProperties = {
   position: "absolute",
-  bottom: "12px",
+  bottom: "8px",
   left: "50%",
   transform: "translateX(-50%)",
-  width: "52px",
-  height: "52px",
-  borderRadius: "16px",
+  width: "46px",
+  height: "46px",
+  borderRadius: "14px",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -1373,15 +1381,16 @@ const rhythmNoteStyle: CSSProperties = {
   left: "50%",
   transform: "translateX(-50%)",
   color: "#facc15",
-  fontSize: "34px",
+  fontSize: "30px",
   zIndex: 3,
+  transition: "top 35ms linear",
 };
 
 const rhythmJudgeLineStyle: CSSProperties = {
   position: "absolute",
-  left: "12px",
-  right: "12px",
-  bottom: "78px",
+  left: "10px",
+  right: "10px",
+  bottom: "66px",
   height: "4px",
   background: "#22c55e",
   borderRadius: "999px",
