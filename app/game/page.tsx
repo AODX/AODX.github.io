@@ -3,6 +3,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 type JobId = "sorting" | "delivery" | "cashier" | "cafe" | "security";
 type SortKind = "red" | "blue" | "yellow" | "green" | "purple";
