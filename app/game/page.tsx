@@ -42,10 +42,28 @@ type SaveRow = {
   unpaid_tax: number | string;
 };
 
-type LobbyView = "room" | "street" | "jobs" | "housing" | "tax";
+type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking";
 type RoomKind = "basic" | "studio" | "office";
+type OccupationId = "unemployed" | "officeWorker" | "singer" | "developer" | "buildingOwner";
 
-const TAX_INTERVAL_SECONDS = 600;
+type Occupation = {
+  id: OccupationId;
+  name: string;
+  icon: string;
+  description: string;
+  conditionText: string;
+  salaryText: string;
+};
+
+type RankingRow = {
+  rank: number;
+  nickname: string;
+  cash: number;
+  job: string;
+  isMe?: boolean;
+};
+
+const TAX_INTERVAL_SECONDS = 420;
 const TAX_WARNING_SECONDS = 60;
 
 const PAY = {
@@ -102,6 +120,51 @@ const roomInfo: Record<RoomKind, { name: string; floor: string; description: str
   office: { name: "작업실 방", floor: "5F", description: "알바와 사업 준비를 위한 작업실 느낌의 방입니다.", priceText: "무료 변경" },
 };
 
+const occupationInfo: Record<OccupationId, Occupation> = {
+  unemployed: {
+    id: "unemployed",
+    name: "백수",
+    icon: "🧍",
+    description: "아직 정식 직업이 없습니다. 알바로 돈을 모으고 조건을 달성해보세요.",
+    conditionText: "기본 상태",
+    salaryText: "월급 없음",
+  },
+  officeWorker: {
+    id: "officeWorker",
+    name: "일반 회사원",
+    icon: "💼",
+    description: "안정적인 월급을 받는 직업입니다. 기본적인 생활 기반이 필요합니다.",
+    conditionText: "현금 50,000원 이상",
+    salaryText: "추후 월급 시스템 연결 가능",
+  },
+  singer: {
+    id: "singer",
+    name: "가수",
+    icon: "🎤",
+    description: "무대에 서는 직업입니다. 인지도와 준비 자금이 필요합니다.",
+    conditionText: "현금 100,000원 이상 + 넓은 원룸 이상",
+    salaryText: "추후 공연 미션 연결 가능",
+  },
+  developer: {
+    id: "developer",
+    name: "개발자",
+    icon: "💻",
+    description: "작업실에서 프로젝트를 만드는 직업입니다.",
+    conditionText: "작업실 방 보유 + 현금 150,000원 이상",
+    salaryText: "추후 프로젝트 보상 연결 가능",
+  },
+  buildingOwner: {
+    id: "buildingOwner",
+    name: "건물주",
+    icon: "🏢",
+    description: "주거 지역과 자산 조건을 크게 올린 최종 목표형 직업입니다.",
+    conditionText: "작업실 방 보유 + 현금 1,000,000원 이상",
+    salaryText: "추후 임대 수익 연결 가능",
+  },
+};
+
+const careerList: OccupationId[] = ["officeWorker", "singer", "developer", "buildingOwner"];
+
 const cashierKeyPool = ["W", "A", "S", "D"];
 const allSortKinds: SortKind[] = ["red", "blue", "yellow", "green", "purple"];
 
@@ -124,6 +187,8 @@ export default function GamePage() {
   const [nickname, setNickname] = useState("우리집");
   const [nicknameDraft, setNicknameDraft] = useState("우리집");
   const [roomKind, setRoomKind] = useState<RoomKind>("basic");
+  const [occupationId, setOccupationId] = useState<OccupationId>("unemployed");
+  const [rankingUpdatedAt, setRankingUpdatedAt] = useState(new Date());
 
   const [warningCount, setWarningCount] = useState(0);
   const [unpaidTax, setUnpaidTax] = useState(0);
@@ -171,6 +236,8 @@ export default function GamePage() {
   const runnerSpawnCooldownRef = useRef(0);
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs[0], [selectedJobId]);
   const activeJob = useMemo(() => (activeJobId ? jobs.find((job) => job.id === activeJobId) ?? null : null), [activeJobId]);
+  const occupation = occupationInfo[occupationId];
+  const rankingRows = useMemo(() => makeRankingRows(nickname, cash, occupation.name), [nickname, cash, occupation.name, rankingUpdatedAt]);
   const taxRate = getTaxRate(cash);
   const nextTax = calculateTax(cash, unpaidTax);
 
@@ -243,6 +310,7 @@ export default function GamePage() {
 
     const savedNickname = window.localStorage.getItem(`alba-money-nickname-${userId}`);
     const savedRoomKind = window.localStorage.getItem(`alba-money-room-${userId}`) as RoomKind | null;
+    const savedOccupationId = window.localStorage.getItem(`alba-money-occupation-${userId}`) as OccupationId | null;
 
     if (savedNickname) {
       setNickname(savedNickname);
@@ -252,7 +320,19 @@ export default function GamePage() {
     if (savedRoomKind && savedRoomKind in roomInfo) {
       setRoomKind(savedRoomKind);
     }
+
+    if (savedOccupationId && savedOccupationId in occupationInfo) {
+      setOccupationId(savedOccupationId);
+    }
   }, [userId]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setRankingUpdatedAt(new Date());
+    }, 30 * 60 * 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
@@ -810,6 +890,32 @@ export default function GamePage() {
     setMessage(`${roomInfo[nextRoomKind].name}(으)로 메인 화면이 변경되었습니다.`);
   }
 
+  function canSelectOccupation(nextOccupationId: OccupationId) {
+    if (nextOccupationId === "unemployed") return true;
+    if (nextOccupationId === "officeWorker") return cash >= 50000;
+    if (nextOccupationId === "singer") return cash >= 100000 && roomKind !== "basic";
+    if (nextOccupationId === "developer") return cash >= 150000 && roomKind === "office";
+    if (nextOccupationId === "buildingOwner") return cash >= 1000000 && roomKind === "office";
+    return false;
+  }
+
+  function selectOccupation(nextOccupationId: OccupationId) {
+    const nextOccupation = occupationInfo[nextOccupationId];
+
+    if (!canSelectOccupation(nextOccupationId)) {
+      setMessage(`${nextOccupation.name} 조건 미달: ${nextOccupation.conditionText}`);
+      return;
+    }
+
+    setOccupationId(nextOccupationId);
+
+    if (userId) {
+      window.localStorage.setItem(`alba-money-occupation-${userId}`, nextOccupationId);
+    }
+
+    setMessage(`직업이 ${nextOccupation.icon} ${nextOccupation.name}(으)로 변경되었습니다.`);
+  }
+
   async function signOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -903,8 +1009,8 @@ export default function GamePage() {
               <div style={roomMoneyStyle}>◎ {cash.toLocaleString()}</div>
               <div style={roomInfoTextStyle}>
                 <strong>{nickname}</strong><br />
-                아이큐 30<br />
-                체력 5
+                직업 {occupation.name}<br />
+                세금까지 {formatTime(taxCountdown)}
               </div>
               <div style={roomFloorStyle}>{roomInfo[roomKind].floor}</div>
               <div style={roomWindowStyle} />
@@ -913,15 +1019,11 @@ export default function GamePage() {
               <div style={roomTvStyle}>TV</div>
               <div style={roomCharacterStyle}>ㅇㅅㅇ</div>
               <div style={roomSideControlsStyle}>
-                <button style={roundIconButtonStyle}>🔊</button>
-                <button style={roundIconButtonStyle}>🏆</button>
-                <button style={roundIconButtonStyle}>NO<br />광고</button>
+                <button onClick={() => setLobbyView("ranking")} style={trophyButtonStyle}>🏆</button>
               </div>
               <div style={roomNavStyle}>
-                <button onClick={() => setLobbyView("jobs")} style={bottomNavButtonStyle}>돈벌기</button>
-                <button style={bottomNavButtonStyle}>상점</button>
+                <button onClick={() => setLobbyView("jobs")} style={bottomNavButtonStyle}>알바 가기</button>
                 <button onClick={() => setLobbyView("street")} style={bottomNavButtonStyle}>길거리</button>
-                <button style={bottomNavButtonStyle}>미션</button>
               </div>
             </div>
           )}
@@ -930,8 +1032,8 @@ export default function GamePage() {
             <div style={streetSceneStyle}>
               <div style={streetMoneyStyle}>◎ {cash.toLocaleString()}</div>
               <div style={sunStyle}>☼</div>
-              <button onClick={() => setLobbyView("jobs")} style={{ ...buildingButtonStyle, left: "4%", bottom: "34%", width: "18%", height: "34%" }}>
-                🏢<br />알바 사무소
+              <button onClick={() => setLobbyView("career")} style={{ ...buildingButtonStyle, left: "4%", bottom: "34%", width: "18%", height: "34%" }}>
+                🏢<br />직업 사무소
               </button>
               <button onClick={() => setLobbyView("tax")} style={{ ...buildingButtonStyle, left: "31%", bottom: "43%", width: "16%", height: "24%" }}>
                 🏛️<br />구청
@@ -953,8 +1055,8 @@ export default function GamePage() {
               <div style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>JOB OFFICE</div>
-                  <h2 style={panelTitleStyle}>알바 사무소</h2>
-                  <p style={panelDescStyle}>기존 알바를 선택해서 바로 시작할 수 있습니다.</p>
+                  <h2 style={panelTitleStyle}>알바 가기</h2>
+                  <p style={panelDescStyle}>단기 알바를 선택해서 바로 돈을 벌 수 있습니다.</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
               </div>
@@ -974,6 +1076,37 @@ export default function GamePage() {
                 <div style={messageBoxStyle}>{message}</div>
                 <button onClick={() => startJob(selectedJob.id)} style={bigStartButtonStyle}>{selectedJob.icon} {selectedJob.name} 시작하기</button>
               </footer>
+            </div>
+          )}
+
+          {lobbyView === "career" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>CAREER OFFICE</div>
+                  <h2 style={panelTitleStyle}>직업 사무소</h2>
+                  <p style={panelDescStyle}>조건을 만족하면 정식 직업을 가질 수 있습니다. 현재 직업: {occupation.icon} {occupation.name}</p>
+                </div>
+                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+              </div>
+
+              <div style={careerGridStyle}>
+                {careerList.map((careerId) => {
+                  const career = occupationInfo[careerId];
+                  const available = canSelectOccupation(careerId);
+                  const selected = occupationId === careerId;
+
+                  return (
+                    <button key={careerId} onClick={() => selectOccupation(careerId)} style={{ ...careerCardStyle, opacity: available ? 1 : 0.58, border: selected ? "2px solid #38bdf8" : "1px solid rgba(255,255,255,0.14)" }}>
+                      <div style={careerIconStyle}>{career.icon}</div>
+                      <h3 style={jobCardTitleStyle}>{career.name}</h3>
+                      <p style={jobCardTextStyle}>{career.description}</p>
+                      <p style={conditionTextStyle}>조건: {career.conditionText}</p>
+                      <p style={rewardTextStyle}>{available ? selected ? "현재 직업" : "선택 가능" : "조건 미달"}</p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -1024,6 +1157,30 @@ export default function GamePage() {
 
               <div style={taxNoticeStyle}>
                 자동 납부 시점에 현금이 부족하면 경고장이 발급됩니다. 경고 3회가 되면 현금 일부가 압류됩니다.
+              </div>
+            </div>
+          )}
+
+          {lobbyView === "ranking" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>RANKING</div>
+                  <h2 style={panelTitleStyle}>랭킹</h2>
+                  <p style={panelDescStyle}>30분마다 갱신됩니다. 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
+                </div>
+                <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
+              </div>
+
+              <div style={rankingTableStyle}>
+                {rankingRows.map((row) => (
+                  <div key={`${row.rank}-${row.nickname}`} style={{ ...rankingRowStyle, borderColor: row.isMe ? "#38bdf8" : "rgba(255,255,255,0.14)", background: row.isMe ? "rgba(56,189,248,0.16)" : "rgba(255,255,255,0.06)" }}>
+                    <strong>{row.rank}위</strong>
+                    <span>{row.isMe ? "👤 " : ""}{row.nickname}</span>
+                    <span>{row.job}</span>
+                    <strong>{row.cash.toLocaleString()}원</strong>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -1238,6 +1395,21 @@ function makeDeliveryObstacleLanes(difficulty: number, safeLane: number) {
   return [lanes[Math.floor(Math.random() * lanes.length)]];
 }
 
+function makeRankingRows(nickname: string, cash: number, job: string): RankingRow[] {
+  const rows: Omit<RankingRow, "rank">[] = [
+    { nickname: "알바왕", cash: 930000, job: "건물주" },
+    { nickname: "퇴근요정", cash: 410000, job: "개발자" },
+    { nickname: "월급루팡", cash: 210000, job: "일반 회사원" },
+    { nickname: "무대천재", cash: 170000, job: "가수" },
+    { nickname, cash, job, isMe: true },
+    { nickname: "초보알바", cash: 32000, job: "백수" },
+  ];
+
+  return rows
+    .sort((a, b) => b.cash - a.cash)
+    .map((row, index) => ({ ...row, rank: index + 1 }));
+}
+
 function formatTime(seconds: number) {
   const minutes = Math.floor(seconds / 60);
   const restSeconds = seconds % 60;
@@ -1435,16 +1607,17 @@ const roomSideControlsStyle: CSSProperties = {
   gap: "8px",
 };
 
-const roundIconButtonStyle: CSSProperties = {
-  width: "38px",
-  height: "38px",
+const trophyButtonStyle: CSSProperties = {
+  width: "58px",
+  height: "58px",
   borderRadius: "50%",
-  border: "2px solid #111",
+  border: "3px solid #111",
   background: "white",
   color: "#111",
-  fontSize: "11px",
+  fontSize: "30px",
   fontWeight: 900,
   cursor: "pointer",
+  boxShadow: "3px 3px 0 rgba(0,0,0,0.18)",
 };
 
 const roomNavStyle: CSSProperties = {
@@ -1453,8 +1626,8 @@ const roomNavStyle: CSSProperties = {
   bottom: "12px",
   transform: "translateX(-50%)",
   display: "grid",
-  gridTemplateColumns: "repeat(4, 120px)",
-  gap: "6px",
+  gridTemplateColumns: "repeat(2, 150px)",
+  gap: "8px",
 };
 
 const bottomNavButtonStyle: CSSProperties = {
@@ -1603,6 +1776,61 @@ const roomPreviewStyle: CSSProperties = {
   fontWeight: 900,
   marginBottom: "12px",
   background: "rgba(255,255,255,0.08)",
+};
+
+
+const careerGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: "12px",
+  minHeight: 0,
+  overflow: "hidden",
+};
+
+const careerCardStyle: CSSProperties = {
+  minWidth: 0,
+  minHeight: 0,
+  borderRadius: "18px",
+  padding: "16px",
+  background: "rgba(255,255,255,0.10)",
+  color: "white",
+  textAlign: "left",
+  cursor: "pointer",
+  overflow: "hidden",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+};
+
+const careerIconStyle: CSSProperties = {
+  fontSize: "42px",
+  marginBottom: "10px",
+};
+
+const conditionTextStyle: CSSProperties = {
+  marginTop: "12px",
+  color: "#fef3c7",
+  fontWeight: 900,
+  fontSize: "13px",
+  lineHeight: 1.3,
+};
+
+const rankingTableStyle: CSSProperties = {
+  display: "grid",
+  alignContent: "start",
+  gap: "8px",
+  overflow: "hidden",
+};
+
+const rankingRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "80px minmax(0, 1fr) minmax(120px, auto) 160px",
+  gap: "10px",
+  alignItems: "center",
+  border: "1px solid rgba(255,255,255,0.14)",
+  borderRadius: "14px",
+  padding: "12px 14px",
+  fontSize: "16px",
 };
 
 const taxCardStyle: CSSProperties = {
