@@ -103,6 +103,7 @@ export default function GamePage() {
   const [selectedJobId, setSelectedJobId] = useState<JobId>("sorting");
   const [activeJobId, setActiveJobId] = useState<JobId | null>(null);
   const [message, setMessage] = useState("알바를 선택하고 시작하세요.");
+  const [firedStamp, setFiredStamp] = useState<string | null>(null);
   const [difficulty, setDifficulty] = useState(1);
   const [difficultyNotice, setDifficultyNotice] = useState("");
 
@@ -369,6 +370,7 @@ export default function GamePage() {
   function startJob(jobId: JobId) {
     setSelectedJobId(jobId);
     setActiveJobId(jobId);
+    setFiredStamp(null);
     setDifficulty(1);
     setDifficultyNotice("");
     setMessage(`${jobs.find((job) => job.id === jobId)?.icon} ${jobs.find((job) => job.id === jobId)?.name} 시작!`);
@@ -430,6 +432,7 @@ export default function GamePage() {
     setActiveJobId(null);
     setCafeHolding(false);
     setDifficultyNotice("");
+    setFiredStamp(null);
     setMessage("알바를 선택하고 시작하세요.");
   }
 
@@ -437,7 +440,12 @@ export default function GamePage() {
     setActiveJobId(null);
     setCafeHolding(false);
     setDifficultyNotice("");
+    setFiredStamp(reason);
     setMessage(`${reason} 다시 도전하려면 알바를 새로 시작하세요.`);
+
+    window.setTimeout(() => {
+      setFiredStamp(null);
+    }, 2400);
   }
 
   function registerSortingMistake(reason: string) {
@@ -675,6 +683,15 @@ export default function GamePage() {
           <button onClick={() => startJob(selectedJob.id)} style={bigStartButtonStyle}>{selectedJob.icon} {selectedJob.name} 시작하기</button>
         </footer>
       </section>
+
+      {firedStamp && (
+        <div style={firedOverlayWrapStyle}>
+          <div style={firedStampCardStyle}>
+            <div style={firedStampTitleStyle}>해고</div>
+            <div style={firedStampReasonStyle}>{firedStamp}</div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -838,6 +855,8 @@ const pageStyle: CSSProperties = {
   maxWidth: "100%",
   maxHeight: "100svh",
   overflow: "hidden",
+  position: "relative",
+  isolation: "isolate",
   background:
     "radial-gradient(circle at top left, #1e3a8a 0, transparent 35%), linear-gradient(135deg, #020617 0%, #0f172a 55%, #1e1b4b 100%)",
   color: "white",
@@ -973,35 +992,37 @@ const lobbyFooterStyle: CSSProperties = {
   minWidth: 0,
   display: "grid",
   gridTemplateColumns: "minmax(0, 1fr) auto",
-  alignItems: "center",
-  gap: "8px",
+  alignItems: "stretch",
+  gap: "10px",
   overflow: "hidden",
 };
 
 const messageBoxStyle: CSSProperties = {
-  minHeight: "40px",
+  minHeight: "48px",
   display: "flex",
   alignItems: "center",
-  background: "rgba(34,197,94,0.12)",
-  border: "1px solid rgba(34,197,94,0.28)",
-  borderRadius: "12px",
-  padding: "8px 12px",
-  color: "#dcfce7",
-  lineHeight: 1.25,
-  fontSize: "13px",
+  background: "rgba(34,197,94,0.14)",
+  border: "1px solid rgba(34,197,94,0.34)",
+  borderRadius: "16px",
+  padding: "10px 16px",
+  color: "#ecfeff",
+  lineHeight: 1.3,
+  fontSize: "18px",
+  fontWeight: 800,
   overflow: "hidden",
 };
 
 const bigStartButtonStyle: CSSProperties = {
   border: "none",
-  borderRadius: "12px",
-  background: "#38bdf8",
+  borderRadius: "16px",
+  background: "#67c7ff",
   color: "#020617",
-  padding: "10px 16px",
+  padding: "12px 20px",
   fontWeight: 900,
-  fontSize: "14px",
+  fontSize: "18px",
   cursor: "pointer",
   whiteSpace: "nowrap",
+  boxShadow: "0 8px 22px rgba(56,189,248,0.28)",
 };
 
 const jobOnlyLayoutStyle: CSSProperties = {
@@ -1348,3 +1369,44 @@ const securityHintStyle: CSSProperties = {
   color: "#cbd5e1",
   fontSize: "14px",
 };
+
+const firedOverlayWrapStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  pointerEvents: "none",
+  zIndex: 50,
+};
+
+const firedStampCardStyle: CSSProperties = {
+  transform: "rotate(-12deg)",
+  background: "rgba(127, 29, 29, 0.10)",
+  border: "6px solid rgba(248, 113, 113, 0.72)",
+  borderRadius: "24px",
+  padding: "28px 42px",
+  textAlign: "center",
+  boxShadow:
+    "0 0 0 10px rgba(127, 29, 29, 0.06), 0 18px 40px rgba(0,0,0,0.28)",
+  backdropFilter: "blur(2px)",
+};
+
+const firedStampTitleStyle: CSSProperties = {
+  fontSize: "72px",
+  fontWeight: 900,
+  letterSpacing: "0.18em",
+  color: "rgba(254, 202, 202, 0.88)",
+  lineHeight: 1,
+  textTransform: "uppercase",
+  textShadow: "0 0 12px rgba(239,68,68,0.18)",
+};
+
+const firedStampReasonStyle: CSSProperties = {
+  marginTop: "10px",
+  fontSize: "20px",
+  fontWeight: 800,
+  color: "rgba(255, 228, 230, 0.92)",
+  whiteSpace: "nowrap",
+};
+
