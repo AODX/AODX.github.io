@@ -85,13 +85,14 @@ const jobs: Job[] = [
 const cashierKeyPool = ["W", "A", "S", "D"];
 const allSortKinds: SortKind[] = ["red", "blue", "yellow", "green", "purple"];
 
-const sortInfo: Record<SortKind, { label: string; emoji: string; key: string }> = {
-  red: { label: "빨강", emoji: "🟥", key: "1" },
-  blue: { label: "파랑", emoji: "🟦", key: "2" },
-  yellow: { label: "노랑", emoji: "🟨", key: "3" },
-  green: { label: "초록", emoji: "🟩", key: "4" },
-  purple: { label: "보라", emoji: "🟪", key: "5" },
-};
+const sortInfo: Record<SortKind, { label: string; emoji: string; key: string }> =
+  {
+    red: { label: "빨강", emoji: "🟥", key: "1" },
+    blue: { label: "파랑", emoji: "🟦", key: "2" },
+    yellow: { label: "노랑", emoji: "🟨", key: "3" },
+    green: { label: "초록", emoji: "🟩", key: "4" },
+    purple: { label: "보라", emoji: "🟪", key: "5" },
+  };
 
 export default function GamePage() {
   const [cash, setCash] = useState(10000);
@@ -130,24 +131,38 @@ export default function GamePage() {
   const [cafeSuccess, setCafeSuccess] = useState(0);
   const [cafeMiss, setCafeMiss] = useState(0);
 
-  const [securitySignal, setSecuritySignal] = useState<SecuritySignal>("normal");
+  const [securitySignal, setSecuritySignal] =
+    useState<SecuritySignal>("normal");
   const [securitySuccess, setSecuritySuccess] = useState(0);
   const [securityMiss, setSecurityMiss] = useState(0);
   const [securityRound, setSecurityRound] = useState(0);
 
-  const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs[0], [selectedJobId]);
-  const activeJob = useMemo(() => (activeJobId ? jobs.find((job) => job.id === activeJobId) ?? null : null), [activeJobId]);
+  const selectedJob = useMemo(
+    () => jobs.find((job) => job.id === selectedJobId) ?? jobs[0],
+    [selectedJobId]
+  );
+
+  const activeJob = useMemo(
+    () =>
+      activeJobId ? jobs.find((job) => job.id === activeJobId) ?? null : null,
+    [activeJobId]
+  );
+
   const taxRate = getTaxRate(cash);
   const nextTax = calculateTax(cash, unpaidTax);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
       setTaxCountdown((current) => {
-        if (current === TAX_WARNING_SECONDS + 1) setMessage("⚠️ 1분 후 자동으로 세금이 납부됩니다.");
+        if (current === TAX_WARNING_SECONDS + 1) {
+          setMessage("⚠️ 1분 후 자동으로 세금이 납부됩니다.");
+        }
+
         if (current <= 1) {
           setTaxTriggerCount((count) => count + 1);
           return TAX_INTERVAL_SECONDS;
         }
+
         return current - 1;
       });
     }, 1000);
@@ -156,20 +171,29 @@ export default function GamePage() {
   }, []);
 
   useEffect(() => {
-    if (taxTriggerCount > 0) applyTaxAutomatically();
+    if (taxTriggerCount > 0) {
+      applyTaxAutomatically();
+    }
   }, [taxTriggerCount]);
 
   useEffect(() => {
-    if (!activeJobId) return;
+    if (!activeJobId) {
+      return;
+    }
 
     const timer = window.setInterval(() => {
       setDifficulty((current) => {
         const next = Math.min(7, current + 1);
+
         if (next !== current) {
           setDifficultyNotice(`⚡ 난이도 상승! Lv.${next}`);
           setMessage(getDifficultyMessage(activeJobId, next));
-          window.setTimeout(() => setDifficultyNotice(""), 1400);
+
+          window.setTimeout(() => {
+            setDifficultyNotice("");
+          }, 1400);
         }
+
         return next;
       });
     }, 18000);
@@ -178,19 +202,27 @@ export default function GamePage() {
   }, [activeJobId]);
 
   useEffect(() => {
-    if (activeJobId !== "sorting") return;
+    if (activeJobId !== "sorting") {
+      return;
+    }
 
     const timer = window.setInterval(() => {
       setSortItem((current) => {
         const nextX = current.x + (0.45 + difficulty * 0.12);
+
         if (nextX >= 108) {
           setSortMiss((miss) => miss + 1);
           setSortCombo(0);
-          setMessage("📦 택배가 지나갔습니다. 중앙 구역에서 맞는 번호를 누르세요.");
+          setMessage(
+            "📦 택배가 지나갔습니다. 중앙 구역에서 맞는 번호를 누르세요."
+          );
+
           const nextItem = makeSortItem(difficulty, sortItemId);
           setSortItemId((id) => id + 1);
+
           return nextItem;
         }
+
         return { ...current, x: nextX };
       });
     }, 25);
@@ -199,7 +231,9 @@ export default function GamePage() {
   }, [activeJobId, difficulty, sortItemId]);
 
   useEffect(() => {
-    if (activeJobId !== "delivery") return;
+    if (activeJobId !== "delivery") {
+      return;
+    }
 
     const timer = window.setInterval(() => {
       const speed = 0.85 + difficulty * 0.24;
@@ -207,38 +241,79 @@ export default function GamePage() {
       setRunnerDistance((current) => current + 0.2 + difficulty * 0.05);
 
       setRunnerObstacles((current) => {
-        const moved = current.map((obstacle) => ({ ...obstacle, y: obstacle.y + speed })).filter((obstacle) => obstacle.y <= 112);
-        const collision = moved.some((obstacle) => obstacle.lane === runnerLane && obstacle.y >= 78 && obstacle.y <= 93);
+        const moved = current
+          .map((obstacle) => ({ ...obstacle, y: obstacle.y + speed }))
+          .filter((obstacle) => obstacle.y <= 112);
+
+        const collision = moved.some(
+          (obstacle) =>
+            obstacle.lane === runnerLane &&
+            obstacle.y >= 78 &&
+            obstacle.y <= 93
+        );
+
         if (collision) {
           setRunnerHitFlash(true);
           setCash((money) => Math.max(0, money - 100));
           setMessage("💥 장애물 충돌! 벌금 100원. 계속 진행합니다.");
-          window.setTimeout(() => setRunnerHitFlash(false), 250);
-          return moved.filter((obstacle) => !(obstacle.lane === runnerLane && obstacle.y >= 78 && obstacle.y <= 93));
+
+          window.setTimeout(() => {
+            setRunnerHitFlash(false);
+          }, 250);
+
+          return moved.filter(
+            (obstacle) =>
+              !(
+                obstacle.lane === runnerLane &&
+                obstacle.y >= 78 &&
+                obstacle.y <= 93
+              )
+          );
         }
+
         return moved;
       });
 
       setRunnerCoins((current) => {
-        const moved = current.map((coin) => ({ ...coin, y: coin.y + speed })).filter((coin) => coin.y <= 112);
-        const collected = moved.filter((coin) => coin.lane === runnerLane && coin.y >= 78 && coin.y <= 93);
+        const moved = current
+          .map((coin) => ({ ...coin, y: coin.y + speed }))
+          .filter((coin) => coin.y <= 112);
+
+        const collected = moved.filter(
+          (coin) => coin.lane === runnerLane && coin.y >= 78 && coin.y <= 93
+        );
+
         if (collected.length > 0) {
           const reward = collected.length * 300;
           setCash((money) => money + reward);
           setMessage(`🍱 배달 포인트 통과! +${reward.toLocaleString()}원`);
         }
-        return moved.filter((coin) => !(coin.lane === runnerLane && coin.y >= 78 && coin.y <= 93));
+
+        return moved.filter(
+          (coin) =>
+            !(coin.lane === runnerLane && coin.y >= 78 && coin.y <= 93)
+        );
       });
 
       if (Math.random() < 0.035 + difficulty * 0.008) {
         const objectLane = Math.floor(Math.random() * 3);
-        setRunnerObstacles((current) => [...current, { id: runnerObjectId, lane: objectLane, y: -12 }]);
+
+        setRunnerObstacles((current) => [
+          ...current,
+          { id: runnerObjectId, lane: objectLane, y: -12 },
+        ]);
+
         setRunnerObjectId((id) => id + 1);
       }
 
       if (Math.random() < 0.024 + difficulty * 0.004) {
         const objectLane = Math.floor(Math.random() * 3);
-        setRunnerCoins((current) => [...current, { id: runnerObjectId + 10000, lane: objectLane, y: -12 }]);
+
+        setRunnerCoins((current) => [
+          ...current,
+          { id: runnerObjectId + 10000, lane: objectLane, y: -12 },
+        ]);
+
         setRunnerObjectId((id) => id + 1);
       }
     }, 25);
@@ -247,12 +322,18 @@ export default function GamePage() {
   }, [activeJobId, difficulty, runnerLane, runnerObjectId]);
 
   useEffect(() => {
-    if (activeJobId !== "cafe") return;
+    if (activeJobId !== "cafe") {
+      return;
+    }
 
     const timer = window.setInterval(() => {
       setCafeFill((current) => {
-        if (!cafeHolding) return Math.max(0, current - 0.25);
+        if (!cafeHolding) {
+          return Math.max(0, current - 0.25);
+        }
+
         const next = current + 0.9 + difficulty * 0.18;
+
         if (next >= 100) {
           setCafeFill(0);
           setCafeHolding(false);
@@ -260,6 +341,7 @@ export default function GamePage() {
           setMessage("☕ 넘쳤습니다! 컵 모양이 어려워질수록 더 조심하세요.");
           return 0;
         }
+
         return next;
       });
     }, 25);
@@ -268,13 +350,16 @@ export default function GamePage() {
   }, [activeJobId, cafeHolding, difficulty]);
 
   useEffect(() => {
-    if (activeJobId !== "security") return;
+    if (activeJobId !== "security") {
+      return;
+    }
 
     const timer = window.setInterval(() => {
       if (securitySignal === "thief") {
         setSecurityMiss((miss) => miss + 1);
         setMessage("🛡️ 수상한 사람을 놓쳤습니다.");
       }
+
       setSecuritySignal(makeSecuritySignal(difficulty));
       setSecurityRound((round) => round + 1);
     }, Math.max(520, 1300 - difficulty * 90));
@@ -284,7 +369,10 @@ export default function GamePage() {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (!activeJobId) return;
+      if (!activeJobId) {
+        return;
+      }
+
       const key = event.key.toLowerCase();
 
       if (activeJobId === "sorting") {
@@ -292,6 +380,7 @@ export default function GamePage() {
           event.preventDefault();
           handleSortKey(key);
         }
+
         return;
       }
 
@@ -300,10 +389,12 @@ export default function GamePage() {
           event.preventDefault();
           setRunnerLane((lane) => Math.max(0, lane - 1));
         }
+
         if (key === "d" || key === "arrowright") {
           event.preventDefault();
           setRunnerLane((lane) => Math.min(2, lane + 1));
         }
+
         return;
       }
 
@@ -317,6 +408,7 @@ export default function GamePage() {
           event.preventDefault();
           setCafeHolding(true);
         }
+
         return;
       }
 
@@ -327,7 +419,10 @@ export default function GamePage() {
     }
 
     function handleKeyUp(event: KeyboardEvent) {
-      if (activeJobId !== "cafe") return;
+      if (activeJobId !== "cafe") {
+        return;
+      }
+
       if (event.key === " ") {
         event.preventDefault();
         setCafeHolding(false);
@@ -337,14 +432,26 @@ export default function GamePage() {
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [activeJobId, sortItem, cashierIndex, cashierSequence, cafeFill, cafeTargetStart, cafeTargetEnd, securitySignal, difficulty]);
+  }, [
+    activeJobId,
+    sortItem,
+    cashierIndex,
+    cashierSequence,
+    cafeFill,
+    cafeTargetStart,
+    cafeTargetEnd,
+    securitySignal,
+    difficulty,
+  ]);
 
   function applyTaxAutomatically() {
     const tax = calculateTax(cash, unpaidTax);
+
     if (cash >= tax) {
       setCash((current) => current - tax);
       setUnpaidTax(0);
@@ -354,12 +461,16 @@ export default function GamePage() {
     }
 
     const nextWarning = warningCount + 1;
+
     if (nextWarning >= 3) {
       const seizedCash = Math.floor(cash * 0.8);
+
       setCash((current) => current - seizedCash);
       setUnpaidTax(0);
       setWarningCount(0);
-      setMessage(`🚨 세금 미납 경고 3회! ${seizedCash.toLocaleString()}원이 압류되었습니다.`);
+      setMessage(
+        `🚨 세금 미납 경고 3회! ${seizedCash.toLocaleString()}원이 압류되었습니다.`
+      );
       return;
     }
 
@@ -369,17 +480,33 @@ export default function GamePage() {
   }
 
   function startJob(jobId: JobId) {
+    const job = jobs.find((item) => item.id === jobId);
+
     setSelectedJobId(jobId);
     setActiveJobId(jobId);
     setDifficulty(1);
     setDifficultyNotice("");
-    setMessage(`${jobs.find((job) => job.id === jobId)?.icon} ${jobs.find((job) => job.id === jobId)?.name} 시작!`);
+    setMessage(`${job?.icon} ${job?.name} 시작!`);
 
-    if (jobId === "sorting") setupSortingJob();
-    if (jobId === "delivery") setupDeliveryJob();
-    if (jobId === "cashier") setupCashierJob();
-    if (jobId === "cafe") setupCafeJob();
-    if (jobId === "security") setupSecurityJob();
+    if (jobId === "sorting") {
+      setupSortingJob();
+    }
+
+    if (jobId === "delivery") {
+      setupDeliveryJob();
+    }
+
+    if (jobId === "cashier") {
+      setupCashierJob();
+    }
+
+    if (jobId === "cafe") {
+      setupCafeJob();
+    }
+
+    if (jobId === "security") {
+      setupSecurityJob();
+    }
   }
 
   function setupSortingJob() {
@@ -397,7 +524,9 @@ export default function GamePage() {
     setRunnerCoins([]);
     setRunnerObjectId(1);
     setRunnerHitFlash(false);
-    setMessage("🛵 A/D로 움직이며 🍱 배달 포인트를 지나가세요. 장애물은 피하세요!");
+    setMessage(
+      "🛵 A/D로 움직이며 🍱 배달 포인트를 지나가세요. 장애물은 피하세요!"
+    );
   }
 
   function setupCashierJob() {
@@ -410,6 +539,7 @@ export default function GamePage() {
 
   function setupCafeJob() {
     const target = makeCafeTarget(1);
+
     setCafeFill(0);
     setCafeHolding(false);
     setCafeSuccess(0);
@@ -436,13 +566,20 @@ export default function GamePage() {
 
   function handleSortKey(key: string) {
     const activeKinds = getActiveSortKinds(difficulty);
-    if (!activeKinds.includes(sortItem.kind)) return;
+
+    if (!activeKinds.includes(sortItem.kind)) {
+      return;
+    }
 
     if (sortItem.x < 37 || sortItem.x > 63) {
       setSortMiss((miss) => miss + 1);
       setSortCombo(0);
       setSortItem(markSortFeedback(sortItem, "bad"));
-      window.setTimeout(() => setSortItem(makeNextSortItem()), 180);
+
+      window.setTimeout(() => {
+        setSortItem(makeNextSortItem());
+      }, 180);
+
       setMessage("📦 타이밍 실패! 중앙 판정 구역에서 눌러야 합니다.");
       return;
     }
@@ -451,29 +588,42 @@ export default function GamePage() {
       setSortMiss((miss) => miss + 1);
       setSortCombo(0);
       setSortItem(markSortFeedback(sortItem, "bad"));
-      window.setTimeout(() => setSortItem(makeNextSortItem()), 180);
+
+      window.setTimeout(() => {
+        setSortItem(makeNextSortItem());
+      }, 180);
+
       setMessage("📦 색깔 분류가 틀렸습니다.");
       return;
     }
 
     const combo = sortCombo + 1;
     const reward = 200 + Math.min(200, combo * 10);
+
     setCash((money) => money + reward);
     setSortCombo(combo);
     setSortItem(markSortFeedback(sortItem, "good"));
     setMessage(`✨ 분류 성공! +${reward.toLocaleString()}원 / 콤보 ${combo}`);
-    window.setTimeout(() => setSortItem(makeNextSortItem()), 180);
+
+    window.setTimeout(() => {
+      setSortItem(makeNextSortItem());
+    }, 180);
   }
 
   function makeNextSortItem() {
     const next = makeSortItem(difficulty, sortItemId);
+
     setSortItemId((id) => id + 1);
+
     return next;
   }
 
   function handleCashierKey(key: string) {
     const expectedKey = cashierSequence[cashierIndex]?.toLowerCase();
-    if (!expectedKey) return;
+
+    if (!expectedKey) {
+      return;
+    }
 
     if (key !== expectedKey) {
       setCashierMiss((miss) => miss + 1);
@@ -484,10 +634,12 @@ export default function GamePage() {
     }
 
     const nextIndex = cashierIndex + 1;
+
     setCashierIndex(nextIndex);
 
     if (nextIndex >= cashierSequence.length) {
       const reward = 150 + difficulty * 20;
+
       setCash((money) => money + reward);
       setCashierSuccess((success) => success + 1);
       setCashierSequence(makeCashierSequence(difficulty));
@@ -503,6 +655,7 @@ export default function GamePage() {
     if (cafeFill >= cafeTargetStart && cafeFill <= cafeTargetEnd) {
       const reward = 250 + difficulty * 30;
       const target = makeCafeTarget(difficulty);
+
       setCash((money) => money + reward);
       setCafeSuccess((success) => success + 1);
       setCafeFill(0);
@@ -521,6 +674,7 @@ export default function GamePage() {
   function handleSecurityAction() {
     if (securitySignal === "thief") {
       const reward = 200 + difficulty * 20;
+
       setCash((money) => money + reward);
       setSecuritySuccess((success) => success + 1);
       setSecuritySignal("normal");
@@ -541,26 +695,83 @@ export default function GamePage() {
           <header style={compactHeaderStyle}>
             <div>
               <div style={smallLabelStyle}>진행 중인 알바</div>
-              <h1 style={jobTitleStyle}>{activeJob.icon} {activeJob.name}</h1>
+              <h1 style={jobTitleStyle}>
+                {activeJob.icon} {activeJob.name}
+              </h1>
             </div>
 
             <div style={topStatusGroupStyle}>
               <StatusPill label="현금" value={`${cash.toLocaleString()}원`} />
-              <StatusPill label="난이도" value={`Lv.${difficulty}`} warning={difficulty >= 4} />
+              <StatusPill
+                label="난이도"
+                value={`Lv.${difficulty}`}
+                warning={difficulty >= 4}
+              />
               <StatusPill label="세금" value={`${nextTax.toLocaleString()}원`} />
-              <StatusPill label="세금까지" value={formatTime(taxCountdown)} warning={taxCountdown <= TAX_WARNING_SECONDS} />
-              <button onClick={leaveJob} style={leaveButtonStyle}>나가기</button>
+              <StatusPill
+                label="세금까지"
+                value={formatTime(taxCountdown)}
+                warning={taxCountdown <= TAX_WARNING_SECONDS}
+              />
+              <button onClick={leaveJob} style={leaveButtonStyle}>
+                나가기
+              </button>
             </div>
           </header>
 
-          {difficultyNotice && <div style={difficultyBannerStyle}>{difficultyNotice}</div>}
+          {difficultyNotice && (
+            <div style={difficultyBannerStyle}>{difficultyNotice}</div>
+          )}
 
           <section style={jobStageStyle}>
-            {activeJobId === "sorting" && <SortingGame item={sortItem} combo={sortCombo} miss={sortMiss} difficulty={difficulty} />}
-            {activeJobId === "delivery" && <DeliveryGame lane={runnerLane} obstacles={runnerObstacles} coins={runnerCoins} distance={runnerDistance} flash={runnerHitFlash} />}
-            {activeJobId === "cashier" && <CashierGame sequence={cashierSequence} currentIndex={cashierIndex} success={cashierSuccess} miss={cashierMiss} />}
-            {activeJobId === "cafe" && <CafeGame fill={cafeFill} targetStart={cafeTargetStart} targetEnd={cafeTargetEnd} success={cafeSuccess} miss={cafeMiss} holding={cafeHolding} difficulty={difficulty} />}
-            {activeJobId === "security" && <SecurityGame signal={securitySignal} success={securitySuccess} miss={securityMiss} round={securityRound} />}
+            {activeJobId === "sorting" && (
+              <SortingGame
+                item={sortItem}
+                combo={sortCombo}
+                miss={sortMiss}
+                difficulty={difficulty}
+              />
+            )}
+
+            {activeJobId === "delivery" && (
+              <DeliveryGame
+                lane={runnerLane}
+                obstacles={runnerObstacles}
+                coins={runnerCoins}
+                distance={runnerDistance}
+                flash={runnerHitFlash}
+              />
+            )}
+
+            {activeJobId === "cashier" && (
+              <CashierGame
+                sequence={cashierSequence}
+                currentIndex={cashierIndex}
+                success={cashierSuccess}
+                miss={cashierMiss}
+              />
+            )}
+
+            {activeJobId === "cafe" && (
+              <CafeGame
+                fill={cafeFill}
+                targetStart={cafeTargetStart}
+                targetEnd={cafeTargetEnd}
+                success={cafeSuccess}
+                miss={cafeMiss}
+                holding={cafeHolding}
+                difficulty={difficulty}
+              />
+            )}
+
+            {activeJobId === "security" && (
+              <SecurityGame
+                signal={securitySignal}
+                success={securitySuccess}
+                miss={securityMiss}
+                round={securityRound}
+              />
+            )}
           </section>
 
           <footer style={jobFooterStyle}>
@@ -579,22 +790,42 @@ export default function GamePage() {
           <div>
             <div style={smallLabelStyle}>ALBA MONEY GAME</div>
             <h1 style={mainTitleStyle}>알바 머니 게임</h1>
-            <p style={subtitleStyle}>화면 안에서 바로 보이도록 넓게 배치했습니다. 원하는 알바를 골라 계속 돈을 벌어보세요.</p>
+            <p style={subtitleStyle}>
+              화면 안에서 바로 보이도록 넓게 배치했습니다. 원하는 알바를 골라
+              계속 돈을 벌어보세요.
+            </p>
           </div>
 
           <div style={moneyPanelStyle}>
             <StatusPill label="현금" value={`${cash.toLocaleString()}원`} />
             <StatusPill label="세율" value={`${(taxRate * 100).toFixed(0)}%`} />
-            <StatusPill label="다음 세금" value={`${nextTax.toLocaleString()}원`} />
+            <StatusPill
+              label="다음 세금"
+              value={`${nextTax.toLocaleString()}원`}
+            />
             <StatusPill label="미납" value={`${unpaidTax.toLocaleString()}원`} />
             <StatusPill label="경고" value={`${warningCount}장`} />
-            <StatusPill label="세금까지" value={formatTime(taxCountdown)} warning={taxCountdown <= TAX_WARNING_SECONDS} />
+            <StatusPill
+              label="세금까지"
+              value={formatTime(taxCountdown)}
+              warning={taxCountdown <= TAX_WARNING_SECONDS}
+            />
           </div>
         </header>
 
         <section style={jobGridStyle}>
           {jobs.map((job) => (
-            <button key={job.id} onClick={() => setSelectedJobId(job.id)} style={{ ...jobCardStyle, border: selectedJobId === job.id ? "2px solid #38bdf8" : "1px solid rgba(255,255,255,0.14)" }}>
+            <button
+              key={job.id}
+              onClick={() => setSelectedJobId(job.id)}
+              style={{
+                ...jobCardStyle,
+                border:
+                  selectedJobId === job.id
+                    ? "2px solid #38bdf8"
+                    : "1px solid rgba(255,255,255,0.14)",
+              }}
+            >
               <div style={jobIconStyle}>{job.icon}</div>
               <h2 style={jobCardTitleStyle}>{job.name}</h2>
               <p style={jobCardTextStyle}>{job.subtitle}</p>
@@ -605,104 +836,332 @@ export default function GamePage() {
 
         <footer style={lobbyFooterStyle}>
           <div style={messageBoxStyle}>{message}</div>
-          <button onClick={() => startJob(selectedJob.id)} style={bigStartButtonStyle}>{selectedJob.icon} {selectedJob.name} 시작하기</button>
+          <button
+            onClick={() => startJob(selectedJob.id)}
+            style={bigStartButtonStyle}
+          >
+            {selectedJob.icon} {selectedJob.name} 시작하기
+          </button>
         </footer>
       </section>
     </main>
   );
 }
 
-function SortingGame({ item, combo, miss, difficulty }: { item: SortItem; combo: number; miss: number; difficulty: number }) {
+function SortingGame({
+  item,
+  combo,
+  miss,
+  difficulty,
+}: {
+  item: SortItem;
+  combo: number;
+  miss: number;
+  difficulty: number;
+}) {
   const activeKinds = getActiveSortKinds(difficulty);
+
   return (
     <div style={sortingStageStyle}>
       <div style={miniGameTopInfoStyle}>
         <strong>콤보 {combo}</strong>
         <strong>실수 {miss}</strong>
       </div>
+
       <div style={conveyorStyle}>
         <div style={sortJudgeZoneStyle}>판정 구역</div>
-        <div style={{ ...sortPackageStyle, left: `${item.x}%`, filter: item.feedback === "good" ? "drop-shadow(0 0 18px #22c55e)" : item.feedback === "bad" ? "drop-shadow(0 0 18px #ef4444)" : "none", transform: item.feedback === "good" ? "translate(-50%, -50%) scale(1.25)" : item.feedback === "bad" ? "translate(-50%, -50%) rotate(-8deg)" : "translate(-50%, -50%)" }}>
-          {item.feedback === "good" ? "✨" : item.feedback === "bad" ? "💥" : sortInfo[item.kind].emoji}
+        <div
+          style={{
+            ...sortPackageStyle,
+            left: `${item.x}%`,
+            filter:
+              item.feedback === "good"
+                ? "drop-shadow(0 0 18px #22c55e)"
+                : item.feedback === "bad"
+                  ? "drop-shadow(0 0 18px #ef4444)"
+                  : "none",
+            transform:
+              item.feedback === "good"
+                ? "translate(-50%, -50%) scale(1.25)"
+                : item.feedback === "bad"
+                  ? "translate(-50%, -50%) rotate(-8deg)"
+                  : "translate(-50%, -50%)",
+          }}
+        >
+          {item.feedback === "good"
+            ? "✨"
+            : item.feedback === "bad"
+              ? "💥"
+              : sortInfo[item.kind].emoji}
         </div>
       </div>
-      <div style={{ ...sortBinsStyle, gridTemplateColumns: `repeat(${activeKinds.length}, 1fr)` }}>
-        {activeKinds.map((kind) => <div key={kind} style={sortBinStyle}>{sortInfo[kind].key}번 {sortInfo[kind].emoji} {sortInfo[kind].label}</div>)}
-      </div>
-    </div>
-  );
-}
 
-function DeliveryGame({ lane, obstacles, coins, distance, flash }: { lane: number; obstacles: RunnerObstacle[]; coins: RunnerCoin[]; distance: number; flash: boolean }) {
-  return (
-    <div style={runnerStageStyle}>
-      <div style={{ ...runnerRoadStyle, boxShadow: flash ? "0 0 0 5px rgba(239,68,68,0.55) inset" : "none" }}>
-        {[0, 1, 2].map((roadLane) => (
-          <div key={roadLane} style={runnerLaneStyle}>
-            {lane === roadLane && <div style={runnerPlayerStyle}>🛵</div>}
-            {coins.filter((coin) => coin.lane === roadLane).map((coin) => <div key={coin.id} style={{ ...runnerCoinStyle, top: `${coin.y}%` }}>🍱</div>)}
-            {obstacles.filter((obstacle) => obstacle.lane === roadLane).map((obstacle) => <div key={obstacle.id} style={{ ...runnerObstacleStyle, top: `${obstacle.y}%` }}>🚧</div>)}
+      <div
+        style={{
+          ...sortBinsStyle,
+          gridTemplateColumns: `repeat(${activeKinds.length}, 1fr)`,
+        }}
+      >
+        {activeKinds.map((kind) => (
+          <div key={kind} style={sortBinStyle}>
+            {sortInfo[kind].key}번 {sortInfo[kind].emoji} {sortInfo[kind].label}
           </div>
         ))}
       </div>
-      <div style={runnerProgressStyle}>주행 거리: {Math.floor(distance)}m · 🍱 통과 시 +300원</div>
     </div>
   );
 }
 
-function CashierGame({ sequence, currentIndex, success, miss }: { sequence: string[]; currentIndex: number; success: number; miss: number }) {
+function DeliveryGame({
+  lane,
+  obstacles,
+  coins,
+  distance,
+  flash,
+}: {
+  lane: number;
+  obstacles: RunnerObstacle[];
+  coins: RunnerCoin[];
+  distance: number;
+  flash: boolean;
+}) {
+  return (
+    <div style={runnerStageStyle}>
+      <div
+        style={{
+          ...runnerRoadStyle,
+          boxShadow: flash ? "0 0 0 5px rgba(239,68,68,0.55) inset" : "none",
+        }}
+      >
+        {[0, 1, 2].map((roadLane) => (
+          <div key={roadLane} style={runnerLaneStyle}>
+            {lane === roadLane && <div style={runnerPlayerStyle}>🛵</div>}
+
+            {coins
+              .filter((coin) => coin.lane === roadLane)
+              .map((coin) => (
+                <div
+                  key={coin.id}
+                  style={{
+                    ...runnerCoinStyle,
+                    top: `${coin.y}%`,
+                  }}
+                >
+                  🍱
+                </div>
+              ))}
+
+            {obstacles
+              .filter((obstacle) => obstacle.lane === roadLane)
+              .map((obstacle) => (
+                <div
+                  key={obstacle.id}
+                  style={{
+                    ...runnerObstacleStyle,
+                    top: `${obstacle.y}%`,
+                  }}
+                >
+                  🚧
+                </div>
+              ))}
+          </div>
+        ))}
+      </div>
+
+      <div style={runnerProgressStyle}>
+        주행 거리: {Math.floor(distance)}m · 🍱 통과 시 +300원
+      </div>
+    </div>
+  );
+}
+
+function CashierGame({
+  sequence,
+  currentIndex,
+  success,
+  miss,
+}: {
+  sequence: string[];
+  currentIndex: number;
+  success: number;
+  miss: number;
+}) {
   return (
     <div style={centerGameStyle}>
       <div style={cashierPanelStyle}>
-        <div style={miniGameTopInfoStyle}><strong>계산 {success}회</strong><strong>실수 {miss}</strong></div>
-        <div style={cashierTitleStyle}>입력할 키</div>
-        <div style={sequenceRowStyle}>
-          {sequence.map((key, index) => <div key={`${key}-${index}`} style={{ ...keyBoxStyle, background: index < currentIndex ? "#22c55e" : index === currentIndex ? "#38bdf8" : "rgba(255,255,255,0.08)", color: index <= currentIndex ? "#020617" : "white" }}>{key}</div>)}
+        <div style={miniGameTopInfoStyle}>
+          <strong>계산 {success}회</strong>
+          <strong>실수 {miss}</strong>
         </div>
-        <p style={cashierHintStyle}>현재 입력: <strong>{sequence[currentIndex] ?? "완료"}</strong></p>
+
+        <div style={cashierTitleStyle}>입력할 키</div>
+
+        <div style={sequenceRowStyle}>
+          {sequence.map((key, index) => (
+            <div
+              key={`${key}-${index}`}
+              style={{
+                ...keyBoxStyle,
+                background:
+                  index < currentIndex
+                    ? "#22c55e"
+                    : index === currentIndex
+                      ? "#38bdf8"
+                      : "rgba(255,255,255,0.08)",
+                color: index <= currentIndex ? "#020617" : "white",
+              }}
+            >
+              {key}
+            </div>
+          ))}
+        </div>
+
+        <p style={cashierHintStyle}>
+          현재 입력: <strong>{sequence[currentIndex] ?? "완료"}</strong>
+        </p>
       </div>
     </div>
   );
 }
 
-function CafeGame({ fill, targetStart, targetEnd, success, miss, holding, difficulty }: { fill: number; targetStart: number; targetEnd: number; success: number; miss: number; holding: boolean; difficulty: number }) {
+function CafeGame({
+  fill,
+  targetStart,
+  targetEnd,
+  success,
+  miss,
+  holding,
+  difficulty,
+}: {
+  fill: number;
+  targetStart: number;
+  targetEnd: number;
+  success: number;
+  miss: number;
+  holding: boolean;
+  difficulty: number;
+}) {
   return (
     <div style={cafeStageStyle}>
-      <div style={miniGameTopInfoStyle}><strong>완성 {success}잔</strong><strong>실수 {miss}</strong></div>
+      <div style={miniGameTopInfoStyle}>
+        <strong>완성 {success}잔</strong>
+        <strong>실수 {miss}</strong>
+      </div>
+
       <div style={cupAreaStyle}>
-        <div style={{ ...cupStyle, borderRadius: difficulty >= 5 ? "18px 8px 34px 20px" : difficulty >= 3 ? "8px 8px 30px 30px" : "0 0 26px 26px", transform: difficulty >= 6 ? "skewX(-5deg)" : "none" }}>
-          <div style={{ ...coffeeFillStyle, height: `${fill}%` }} />
-          <div style={{ ...cafeTargetZoneStyle, bottom: `${targetStart}%`, height: `${targetEnd - targetStart}%` }} />
+        <div
+          style={{
+            ...cupStyle,
+            borderRadius:
+              difficulty >= 5
+                ? "18px 8px 34px 20px"
+                : difficulty >= 3
+                  ? "8px 8px 30px 30px"
+                  : "0 0 26px 26px",
+            transform: difficulty >= 6 ? "skewX(-5deg)" : "none",
+          }}
+        >
+          <div
+            style={{
+              ...coffeeFillStyle,
+              height: `${fill}%`,
+            }}
+          />
+
+          <div
+            style={{
+              ...cafeTargetZoneStyle,
+              bottom: `${targetStart}%`,
+              height: `${targetEnd - targetStart}%`,
+            }}
+          />
         </div>
-        <div style={cafeGaugeTextStyle}>{holding ? "따르는 중..." : "Space를 누르고 있다가 목표 구간에서 떼기"}</div>
+
+        <div style={cafeGaugeTextStyle}>
+          {holding ? "따르는 중..." : "Space를 누르고 있다가 목표 구간에서 떼기"}
+        </div>
       </div>
     </div>
   );
 }
 
-function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal; success: number; miss: number; round: number }) {
-  const character = signal === "thief" ? "🕵️‍♂️" : signal === "vip" ? "🤵" : "🚶";
-  const label = signal === "thief" ? "수상한 사람!" : signal === "vip" ? "VIP 손님" : "평범한 손님";
+function SecurityGame({
+  signal,
+  success,
+  miss,
+  round,
+}: {
+  signal: SecuritySignal;
+  success: number;
+  miss: number;
+  round: number;
+}) {
+  const character =
+    signal === "thief" ? "🕵️‍♂️" : signal === "vip" ? "🤵" : "🚶";
+
+  const label =
+    signal === "thief"
+      ? "수상한 사람!"
+      : signal === "vip"
+        ? "VIP 손님"
+        : "평범한 손님";
+
   return (
     <div style={securityStageStyle}>
-      <div style={miniGameTopInfoStyle}><strong>대응 {success}회</strong><strong>실수 {miss}</strong></div>
+      <div style={miniGameTopInfoStyle}>
+        <strong>대응 {success}회</strong>
+        <strong>실수 {miss}</strong>
+      </div>
+
       <div style={securityPanelStyle}>
-        <div key={round} style={securityCharacterStyle}>{character}</div>
+        <div key={round} style={securityCharacterStyle}>
+          {character}
+        </div>
         <div style={securityLabelStyle}>{label}</div>
-        <div style={securityHintStyle}>수상한 사람일 때만 <strong>Space</strong></div>
+        <div style={securityHintStyle}>
+          수상한 사람일 때만 <strong>Space</strong>
+        </div>
       </div>
     </div>
   );
 }
 
-function StatusPill({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) {
-  return <div style={{ ...statusPillStyle, borderColor: warning ? "#f97316" : "rgba(255,255,255,0.16)", color: warning ? "#fed7aa" : "white" }}><span style={statusLabelStyle}>{label}</span><strong>{value}</strong></div>;
+function StatusPill({
+  label,
+  value,
+  warning = false,
+}: {
+  label: string;
+  value: string;
+  warning?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        ...statusPillStyle,
+        borderColor: warning ? "#f97316" : "rgba(255,255,255,0.16)",
+        color: warning ? "#fed7aa" : "white",
+      }}
+    >
+      <span style={statusLabelStyle}>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
 }
 
 function getTaxRate(cash: number) {
-  if (cash <= 100000) return 0.01;
-  if (cash <= 1000000) return 0.05;
-  if (cash <= 10000000) return 0.1;
+  if (cash <= 100000) {
+    return 0.01;
+  }
+
+  if (cash <= 1000000) {
+    return 0.05;
+  }
+
+  if (cash <= 10000000) {
+    return 0.1;
+  }
+
   return 0.2;
 }
 
@@ -711,18 +1170,31 @@ function calculateTax(cash: number, unpaidTax: number) {
 }
 
 function makeCashierSequence(difficulty: number) {
-  return Array.from({ length: Math.min(18, 8 + difficulty * 2) }, () => cashierKeyPool[Math.floor(Math.random() * cashierKeyPool.length)]);
+  return Array.from({ length: Math.min(18, 8 + difficulty * 2) }, () => {
+    return cashierKeyPool[Math.floor(Math.random() * cashierKeyPool.length)];
+  });
 }
 
 function getActiveSortKinds(difficulty: number) {
-  if (difficulty >= 5) return allSortKinds;
-  if (difficulty >= 3) return allSortKinds.slice(0, 4);
+  if (difficulty >= 5) {
+    return allSortKinds;
+  }
+
+  if (difficulty >= 3) {
+    return allSortKinds.slice(0, 4);
+  }
+
   return allSortKinds.slice(0, 3);
 }
 
 function makeSortItem(difficulty: number, id: number): SortItem {
   const kinds = getActiveSortKinds(difficulty);
-  return { id, kind: kinds[Math.floor(Math.random() * kinds.length)], x: -8 };
+
+  return {
+    id,
+    kind: kinds[Math.floor(Math.random() * kinds.length)],
+    x: -8,
+  };
 }
 
 function markSortFeedback(item: SortItem, feedback: "good" | "bad"): SortItem {
@@ -732,36 +1204,75 @@ function markSortFeedback(item: SortItem, feedback: "good" | "bad"): SortItem {
 function makeCafeTarget(difficulty: number) {
   const width = Math.max(7, 16 - difficulty * 1.3);
   const start = Math.floor(Math.random() * 22) + 52;
-  return { start, end: start + width };
+
+  return {
+    start,
+    end: start + width,
+  };
 }
 
 function makeSecuritySignal(difficulty: number): SecuritySignal {
   const random = Math.random();
-  if (random < 0.28 + difficulty * 0.018) return "thief";
-  if (random < 0.48) return "vip";
+
+  if (random < 0.28 + difficulty * 0.018) {
+    return "thief";
+  }
+
+  if (random < 0.48) {
+    return "vip";
+  }
+
   return "normal";
 }
 
 function formatTime(seconds: number) {
   const minutes = Math.floor(seconds / 60);
   const restSeconds = seconds % 60;
+
   return `${minutes}:${String(restSeconds).padStart(2, "0")}`;
 }
 
 function getDifficultyMessage(jobId: JobId, level: number) {
-  if (jobId === "sorting") return `⚡ 난이도 상승! 분류 색상이 늘어나고 택배가 더 빨라집니다. Lv.${level}`;
-  if (jobId === "delivery") return `⚡ 난이도 상승! 도로 속도가 빨라집니다. Lv.${level}`;
-  if (jobId === "cashier") return `⚡ 난이도 상승! 계산 키가 더 길어집니다. Lv.${level}`;
-  if (jobId === "cafe") return `⚡ 난이도 상승! 컵 모양이 점점 까다로워집니다. Lv.${level}`;
+  if (jobId === "sorting") {
+    return `⚡ 난이도 상승! 분류 색상이 늘어나고 택배가 더 빨라집니다. Lv.${level}`;
+  }
+
+  if (jobId === "delivery") {
+    return `⚡ 난이도 상승! 도로 속도가 빨라집니다. Lv.${level}`;
+  }
+
+  if (jobId === "cashier") {
+    return `⚡ 난이도 상승! 계산 키가 더 길어집니다. Lv.${level}`;
+  }
+
+  if (jobId === "cafe") {
+    return `⚡ 난이도 상승! 컵 모양이 점점 까다로워집니다. Lv.${level}`;
+  }
+
   return `⚡ 난이도 상승! 손님 판단 속도가 빨라집니다. Lv.${level}`;
 }
 
 function getControlHint(activeJobId: JobId | null) {
-  if (activeJobId === "sorting") return "중앙 구역에서 1/2/3/4/5 입력";
-  if (activeJobId === "delivery") return "A/D 또는 ←/→ 이동 · 🍱 통과";
-  if (activeJobId === "cashier") return "W/A/S/D 순서 입력";
-  if (activeJobId === "cafe") return "Space 누르고 있다가 떼기";
-  if (activeJobId === "security") return "수상한 사람일 때만 Space";
+  if (activeJobId === "sorting") {
+    return "중앙 구역에서 1/2/3/4/5 입력";
+  }
+
+  if (activeJobId === "delivery") {
+    return "A/D 또는 ←/→ 이동 · 🍱 통과";
+  }
+
+  if (activeJobId === "cashier") {
+    return "W/A/S/D 순서 입력";
+  }
+
+  if (activeJobId === "cafe") {
+    return "Space 누르고 있다가 떼기";
+  }
+
+  if (activeJobId === "security") {
+    return "수상한 사람일 때만 Space";
+  }
+
   return "알바를 선택하세요";
 }
 
