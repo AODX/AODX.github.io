@@ -1172,12 +1172,15 @@ export default function GamePage() {
                 직업 {occupation.name}<br />
                 세금까지 {formatTime(taxCountdown)}
               </div>
-              <div style={roomFloorStyle}>{roomInfo[roomKind].floor}</div>
-              <div style={roomWindowStyle} />
-              <div style={roomSofaStyle} />
-              <div style={roomDeskStyle} />
-              <div style={roomTvStyle}>TV</div>
-              <div style={roomCharacterStyle}>ㅇㅅㅇ</div>
+              <RoomArtwork roomKind={roomKind} nickname={nickname} occupationName={occupation.name} />
+              <div style={hiddenLegacySceneStyle}>
+                <div style={roomFloorStyle} />
+                <div style={roomWindowStyle} />
+                <div style={roomSofaStyle} />
+                <div style={roomDeskStyle} />
+                <div style={roomTvStyle} />
+                <div style={roomCharacterStyle} />
+              </div>
               <div style={roomSideControlsStyle}>
                 <button onClick={() => setLobbyView("ranking")} style={trophyButtonStyle}>🏆</button>
               </div>
@@ -1191,8 +1194,12 @@ export default function GamePage() {
           {lobbyView === "street" && (
             <div style={streetSceneStyle}>
               <div style={streetMoneyStyle}>◎ {cash.toLocaleString()}</div>
-              <div style={sunStyle}>☼</div>
-              <button onClick={() => setLobbyView("career")} style={{ ...buildingButtonStyle, left: "4%", bottom: "34%", width: "18%", height: "34%" }}>
+              <StreetArtwork />
+              <div style={hiddenLegacySceneStyle}>
+                <div style={sunStyle} />
+                <div style={roadStyle} />
+              </div>
+              <button onClick={() => setLobbyView("career")} style={{ ...buildingButtonStyle, left: "5%", bottom: "35%", width: "19%", height: "30%" }}>
                 🏢<br />직업 사무소
               </button>
               <button onClick={() => setLobbyView("tax")} style={{ ...buildingButtonStyle, left: "31%", bottom: "43%", width: "16%", height: "24%" }}>
@@ -1201,7 +1208,6 @@ export default function GamePage() {
               <button onClick={() => setLobbyView("housing")} style={{ ...buildingButtonStyle, right: "7%", bottom: "42%", width: "19%", height: "28%" }}>
                 🏠<br />건물 사무소
               </button>
-              <div style={roadStyle} />
               <div style={streetLabelStyle}>길거리</div>
               <div style={streetBottomNavStyle}>
                 <button onClick={() => setLobbyView("room")} style={bottomNavButtonStyle}>돌아가기</button>
@@ -1364,6 +1370,155 @@ export default function GamePage() {
   );
 }
 
+
+function RoomArtwork({ roomKind, nickname, occupationName }: { roomKind: RoomKind; nickname: string; occupationName: string }) {
+  const accent = roomKind === "office" ? "#60a5fa" : roomKind === "studio" ? "#f59e0b" : "#22c55e";
+
+  return (
+    <svg style={sceneSvgStyle} viewBox="0 0 1600 760" preserveAspectRatio="none" role="img" aria-label="메인 방 일러스트">
+      <defs>
+        <linearGradient id="roomWallGradient" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="58%" stopColor="#f8fafc" />
+          <stop offset="100%" stopColor="#e2e8f0" />
+        </linearGradient>
+        <linearGradient id="roomFloorGradient" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#f1f5f9" />
+          <stop offset="100%" stopColor="#cbd5e1" />
+        </linearGradient>
+        <filter id="softRoomShadow" x="-20%" y="-20%" width="140%" height="160%">
+          <feDropShadow dx="0" dy="12" stdDeviation="8" floodColor="#0f172a" floodOpacity="0.22" />
+        </filter>
+      </defs>
+
+      <rect x="0" y="0" width="1600" height="760" fill="url(#roomWallGradient)" />
+      <polygon points="0,520 1600,520 1600,760 0,760" fill="url(#roomFloorGradient)" />
+      <path d="M115 112 L360 170 L360 520" fill="none" stroke="#111827" strokeWidth="5" />
+      <path d="M1485 112 L1240 170 L1240 520" fill="none" stroke="#111827" strokeWidth="5" />
+      <path d="M360 170 L1240 170" fill="none" stroke="#111827" strokeWidth="5" />
+      <path d="M0 520 L360 520" fill="none" stroke="#111827" strokeWidth="5" />
+      <path d="M1240 520 L1600 520" fill="none" stroke="#111827" strokeWidth="5" />
+
+      <text x="800" y="82" textAnchor="middle" fill="#111827" fontSize="52" fontWeight="900">{roomInfo[roomKind].floor}</text>
+
+      <g filter="url(#softRoomShadow)">
+        <rect x="610" y="130" width="380" height="145" rx="10" fill="#dbeafe" stroke="#111827" strokeWidth="6" />
+        <line x1="800" y1="130" x2="800" y2="275" stroke="#111827" strokeWidth="4" />
+        <path d="M635 245 C700 190 750 210 795 245 C845 198 900 205 965 245" fill="none" stroke="#93c5fd" strokeWidth="7" strokeLinecap="round" />
+        <rect x="622" y="142" width="356" height="121" fill="none" stroke="#ffffff" strokeWidth="4" />
+      </g>
+
+      <g filter="url(#softRoomShadow)">
+        <rect x="92" y="418" width="330" height="128" rx="28" fill="#ffffff" stroke="#111827" strokeWidth="8" />
+        <rect x="125" y="362" width="230" height="88" rx="22" fill="#f8fafc" stroke="#111827" strokeWidth="8" />
+        <rect x="150" y="378" width="82" height="48" rx="12" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+        <rect x="245" y="378" width="82" height="48" rx="12" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+        <line x1="112" y1="546" x2="88" y2="610" stroke="#111827" strokeWidth="7" />
+        <line x1="390" y1="546" x2="424" y2="610" stroke="#111827" strokeWidth="7" />
+      </g>
+
+      <g filter="url(#softRoomShadow)">
+        <rect x="610" y="455" width="640" height="108" rx="12" fill="#ffffff" stroke="#111827" strokeWidth="8" />
+        <rect x="650" y="478" width="145" height="62" rx="6" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+        <rect x="840" y="478" width="145" height="62" rx="6" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+        <rect x="1030" y="478" width="145" height="62" rx="6" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+        <rect x="706" y="352" width="106" height="132" rx="12" fill="#f8fafc" stroke="#111827" strokeWidth="7" transform="rotate(-8 759 418)" />
+        <rect x="906" y="390" width="92" height="72" rx="12" fill={accent} stroke="#111827" strokeWidth="7" />
+        <rect x="918" y="402" width="68" height="48" rx="8" fill="#ffffff" opacity="0.72" />
+      </g>
+
+      <g filter="url(#softRoomShadow)">
+        <rect x="1310" y="342" width="145" height="110" rx="16" fill="#f8fafc" stroke="#111827" strokeWidth="8" />
+        <rect x="1328" y="360" width="109" height="74" rx="10" fill="#0f172a" />
+        <circle cx="1382" cy="397" r="20" fill={accent} opacity="0.85" />
+        <line x1="1360" y1="333" x2="1330" y2="296" stroke="#111827" strokeWidth="5" />
+        <line x1="1406" y1="333" x2="1438" y2="296" stroke="#111827" strokeWidth="5" />
+      </g>
+
+      <g filter="url(#softRoomShadow)">
+        <circle cx="800" cy="428" r="64" fill="#ffffff" stroke="#111827" strokeWidth="8" />
+        <circle cx="778" cy="420" r="5" fill="#111827" />
+        <circle cx="824" cy="420" r="5" fill="#111827" />
+        <path d="M787 443 Q800 454 814 443" fill="none" stroke="#111827" strokeWidth="5" strokeLinecap="round" />
+        <path d="M800 492 L800 575" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
+        <path d="M800 522 L738 560" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
+        <path d="M800 522 L862 560" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
+        <path d="M800 575 L760 640" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
+        <path d="M800 575 L840 640" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
+        <rect x="705" y="298" width="190" height="42" rx="21" fill="#ffffff" stroke="#111827" strokeWidth="5" />
+        <text x="800" y="326" textAnchor="middle" fill="#111827" fontSize="22" fontWeight="900">{nickname} · {occupationName}</text>
+      </g>
+    </svg>
+  );
+}
+
+function StreetArtwork() {
+  return (
+    <svg style={sceneSvgStyle} viewBox="0 0 1600 760" preserveAspectRatio="none" role="img" aria-label="길거리 일러스트">
+      <defs>
+        <linearGradient id="streetSkyGradient" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#eff6ff" />
+          <stop offset="72%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#e2e8f0" />
+        </linearGradient>
+        <filter id="softStreetShadow" x="-20%" y="-20%" width="140%" height="160%">
+          <feDropShadow dx="0" dy="10" stdDeviation="7" floodColor="#0f172a" floodOpacity="0.18" />
+        </filter>
+      </defs>
+
+      <rect x="0" y="0" width="1600" height="760" fill="url(#streetSkyGradient)" />
+      <circle cx="150" cy="105" r="46" fill="#fef3c7" stroke="#111827" strokeWidth="6" />
+      {Array.from({ length: 12 }).map((_, index) => {
+        const angle = (Math.PI * 2 * index) / 12;
+        const x1 = 150 + Math.cos(angle) * 64;
+        const y1 = 105 + Math.sin(angle) * 64;
+        const x2 = 150 + Math.cos(angle) * 88;
+        const y2 = 105 + Math.sin(angle) * 88;
+        return <line key={index} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#111827" strokeWidth="5" strokeLinecap="round" />;
+      })}
+
+      <path d="M100 340 C420 220 760 250 1060 318 C1235 358 1390 338 1510 288" fill="none" stroke="#111827" strokeWidth="7" />
+      <path d="M70 405 C405 284 760 314 1062 380 C1250 420 1404 395 1544 340" fill="none" stroke="#111827" strokeWidth="7" />
+      <path d="M-80 615 C390 470 794 500 1170 575 C1360 612 1494 592 1680 510 L1680 760 L-80 760 Z" fill="#ffffff" stroke="#111827" strokeWidth="7" />
+      <path d="M0 660 C430 520 800 550 1160 620 C1370 660 1510 640 1600 595" fill="none" stroke="#111827" strokeWidth="5" strokeDasharray="48 32" />
+
+      <g filter="url(#softStreetShadow)">
+        <rect x="92" y="320" width="210" height="170" rx="8" fill="#ffffff" stroke="#111827" strokeWidth="7" />
+        <polygon points="92,320 197,245 302,320" fill="#dbeafe" stroke="#111827" strokeWidth="7" />
+        <rect x="126" y="365" width="46" height="44" fill="#e0f2fe" stroke="#111827" strokeWidth="5" />
+        <rect x="220" y="365" width="46" height="44" fill="#e0f2fe" stroke="#111827" strokeWidth="5" />
+        <rect x="172" y="424" width="52" height="66" fill="#fef3c7" stroke="#111827" strokeWidth="5" />
+      </g>
+
+      <g filter="url(#softStreetShadow)">
+        <rect x="500" y="300" width="230" height="160" rx="8" fill="#ffffff" stroke="#111827" strokeWidth="7" />
+        <rect x="525" y="250" width="180" height="58" rx="8" fill="#f8fafc" stroke="#111827" strokeWidth="6" />
+        <text x="615" y="288" textAnchor="middle" fill="#111827" fontSize="28" fontWeight="900">구청</text>
+        <path d="M535 342 H695" stroke="#111827" strokeWidth="5" />
+        <rect x="545" y="370" width="42" height="90" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+        <rect x="610" y="370" width="42" height="90" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+        <rect x="675" y="370" width="42" height="90" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+      </g>
+
+      <g filter="url(#softStreetShadow)">
+        <rect x="1180" y="294" width="250" height="176" rx="12" fill="#ffffff" stroke="#111827" strokeWidth="7" />
+        <polygon points="1180,294 1305,218 1430,294" fill="#dcfce7" stroke="#111827" strokeWidth="7" />
+        <text x="1305" y="338" textAnchor="middle" fill="#111827" fontSize="27" fontWeight="900">건물 사무소</text>
+        <rect x="1218" y="370" width="50" height="48" fill="#e0f2fe" stroke="#111827" strokeWidth="5" />
+        <rect x="1342" y="370" width="50" height="48" fill="#e0f2fe" stroke="#111827" strokeWidth="5" />
+      </g>
+
+      <g filter="url(#softStreetShadow)">
+        <rect x="230" y="448" width="220" height="130" rx="12" fill="#ffffff" stroke="#111827" strokeWidth="7" />
+        <rect x="248" y="405" width="184" height="50" rx="8" fill="#fef3c7" stroke="#111827" strokeWidth="6" />
+        <text x="340" y="438" textAnchor="middle" fill="#111827" fontSize="25" fontWeight="900">직업 사무소</text>
+        <rect x="265" y="488" width="54" height="90" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+        <rect x="345" y="488" width="54" height="90" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+      </g>
+    </svg>
+  );
+}
+
 function SortingGame({ item, combo, miss, difficulty }: { item: SortItem; combo: number; miss: number; difficulty: number }) {
   const activeKinds = getActiveSortKinds(difficulty);
   return (
@@ -1409,7 +1564,7 @@ function CashierGame({ sequence, currentIndex, success, miss }: { sequence: stri
         <div style={miniGameTopInfoStyle}><strong>계산 {success}회</strong><strong>실수 {miss}/3</strong></div>
         <div style={cashierTitleStyle}>입력할 키</div>
         <div style={sequenceRowStyle}>
-          {sequence.map((key, index) => <div key={`${key}-${index}`} style={{ ...keyBoxStyle, background: index < currentIndex ? "#22c55e" : index === currentIndex ? "#38bdf8" : "rgba(255,255,255,0.08)", color: index <= currentIndex ? "#020617" : "white" }}>{key}</div>)}
+          {sequence.map((key, index) => <div key={`${key}-${index}`} style={getCashierKeyVisualStyle(index, currentIndex)}>{key}</div>)}
         </div>
         <p style={cashierHintStyle}>현재 입력: <strong>{sequence[currentIndex] ?? "완료"}</strong></p>
       </div>
@@ -1492,6 +1647,39 @@ function StatusPill({ label, value, warning = false }: { label: string; value: s
       <strong style={{ color: warning ? "#9a3412" : "#111827", fontSize: "17px", lineHeight: 1.1 }}>{value}</strong>
     </div>
   );
+}
+
+
+function getCashierKeyVisualStyle(index: number, currentIndex: number): CSSProperties {
+  if (index < currentIndex) {
+    return {
+      ...keyBoxStyle,
+      background: "linear-gradient(180deg, #bbf7d0, #22c55e)",
+      color: "#052e16",
+      border: "3px solid #15803d",
+      boxShadow: "0 6px 0 #14532d",
+      opacity: 0.95,
+    };
+  }
+
+  if (index === currentIndex) {
+    return {
+      ...keyBoxStyle,
+      background: "linear-gradient(180deg, #fde68a, #f59e0b)",
+      color: "#111827",
+      border: "4px solid #111827",
+      boxShadow: "0 0 0 5px rgba(245,158,11,0.28), 0 8px 0 #92400e",
+      transform: "translateY(-4px) scale(1.08)",
+    };
+  }
+
+  return {
+    ...keyBoxStyle,
+    background: "#ffffff",
+    color: "#111827",
+    border: "3px solid #94a3b8",
+    boxShadow: "0 5px 0 #64748b",
+  };
 }
 
 function getTaxRate(cash: number) {
@@ -1663,13 +1851,25 @@ const worldFooterStyle: CSSProperties = {
   minWidth: 0,
 };
 
+const hiddenLegacySceneStyle: CSSProperties = {
+  display: "none",
+};
+
+const sceneSvgStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  display: "block",
+  zIndex: 1,
+};
+
 const roomSceneStyle: CSSProperties = {
   position: "relative",
   width: "100%",
   height: "100%",
   overflow: "hidden",
-  background:
-    "linear-gradient(115deg, transparent 0 18%, rgba(17,24,39,0.08) 18.2% 18.8%, transparent 19%), linear-gradient(245deg, transparent 0 20%, rgba(17,24,39,0.08) 20.2% 20.8%, transparent 21%), linear-gradient(180deg, #ffffff 0 66%, #f1f5f9 66% 100%)",
+  background: "#f8fafc",
   color: "#111827",
   borderRadius: "22px",
   border: "4px solid #111827",
@@ -1682,17 +1882,26 @@ const roomMoneyStyle: CSSProperties = {
   left: "12px",
   color: "#ef4444",
   fontWeight: 900,
+  fontSize: "22px",
   zIndex: 5,
+  background: "rgba(255,255,255,0.88)",
+  borderRadius: "999px",
+  padding: "6px 12px",
 };
 
 const roomInfoTextStyle: CSSProperties = {
   position: "absolute",
   top: "52px",
   left: "12px",
-  fontSize: "12px",
+  fontSize: "15px",
   fontWeight: 900,
-  lineHeight: 1.25,
+  lineHeight: 1.35,
   zIndex: 5,
+  background: "rgba(255,255,255,0.88)",
+  border: "3px solid #111827",
+  borderRadius: "12px",
+  padding: "10px 12px",
+  boxShadow: "4px 4px 0 rgba(17,24,39,0.18)",
 };
 
 const roomFloorStyle: CSSProperties = {
@@ -1780,6 +1989,7 @@ const roomSideControlsStyle: CSSProperties = {
   top: "10px",
   display: "flex",
   gap: "8px",
+  zIndex: 5,
 };
 
 const trophyButtonStyle: CSSProperties = {
@@ -1801,8 +2011,9 @@ const roomNavStyle: CSSProperties = {
   bottom: "12px",
   transform: "translateX(-50%)",
   display: "grid",
-  gridTemplateColumns: "repeat(2, 150px)",
-  gap: "8px",
+  gridTemplateColumns: "repeat(2, 170px)",
+  gap: "10px",
+  zIndex: 5,
 };
 
 const bottomNavButtonStyle: CSSProperties = {
@@ -1836,6 +2047,11 @@ const streetMoneyStyle: CSSProperties = {
   left: "12px",
   color: "#ef4444",
   fontWeight: 900,
+  fontSize: "22px",
+  zIndex: 5,
+  background: "rgba(255,255,255,0.88)",
+  borderRadius: "999px",
+  padding: "6px 12px",
 };
 
 const sunStyle: CSSProperties = {
@@ -1892,6 +2108,7 @@ const streetBottomNavStyle: CSSProperties = {
   transform: "translateX(-50%)",
   display: "flex",
   gap: "8px",
+  zIndex: 5,
 };
 
 const panelSceneStyle: CSSProperties = {
@@ -2434,12 +2651,13 @@ const runnerProgressStyle: CSSProperties = {
 };
 
 const cashierPanelStyle: CSSProperties = {
-  width: "min(720px, 90vw)",
-  background: "rgba(255,255,255,0.08)",
-  border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "22px",
-  padding: "22px",
+  width: "min(820px, 92vw)",
+  background: "#ffffff",
+  border: "5px solid #111827",
+  borderRadius: "24px",
+  padding: "28px",
   textAlign: "center",
+  boxShadow: "8px 8px 0 rgba(17,24,39,0.18)",
 };
 
 const cashierTitleStyle: CSSProperties = {
@@ -2452,25 +2670,26 @@ const sequenceRowStyle: CSSProperties = {
   display: "flex",
   justifyContent: "center",
   flexWrap: "wrap",
-  gap: "8px",
+  gap: "14px",
 };
 
 const keyBoxStyle: CSSProperties = {
-  width: "48px",
-  height: "48px",
-  borderRadius: "13px",
+  width: "58px",
+  height: "58px",
+  borderRadius: "16px",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  fontSize: "20px",
+  fontSize: "25px",
   fontWeight: 900,
-  border: "1px solid rgba(255,255,255,0.2)",
+  transition: "transform 120ms ease, box-shadow 120ms ease, background 120ms ease",
 };
 
 const cashierHintStyle: CSSProperties = {
-  marginTop: "14px",
-  color: "#cbd5e1",
-  fontSize: "14px",
+  marginTop: "18px",
+  color: "#111827",
+  fontSize: "18px",
+  fontWeight: 900,
 };
 
 const cafeStageStyle: CSSProperties = {
@@ -2656,6 +2875,5 @@ const firedStampReasonStyle: CSSProperties = {
   color: "#111827",
   whiteSpace: "nowrap",
 };
-
 
 
