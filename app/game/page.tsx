@@ -658,6 +658,7 @@ export default function GamePage() {
   function handleSecurityAction() {
     if (securitySignal === "thief") {
       const reward = 200 + difficulty * 20;
+      
       setCash((money) => money + reward);
       setSecuritySuccess((success) => success + 1);
       setSecuritySignal("normal");
@@ -675,6 +676,28 @@ export default function GamePage() {
     registerSecurityMistake("🛡️ 평범한 손님을 막았습니다.");
     setSecuritySignal("normal");
   }
+
+  if (!isSaveLoaded) {
+  return (
+    <main
+      style={{
+        minHeight: "100svh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background:
+          "linear-gradient(135deg, #020617 0%, #0f172a 55%, #1e1b4b 100%)",
+        color: "white",
+        fontFamily: "Arial, sans-serif",
+      }}
+    >
+      <div style={{ textAlign: "center" }}>
+        <h1>저장된 게임을 불러오는 중...</h1>
+        <p>잠시만 기다려주세요.</p>
+      </div>
+    </main>
+  );
+}
 
   if (activeJob) {
     return (
