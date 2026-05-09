@@ -2,7 +2,7 @@
 
 /* eslint-disable react-hooks/exhaustive-deps */
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type JobId = "sorting" | "delivery" | "cashier" | "cafe" | "security";
@@ -14,7 +14,6 @@ type Job = {
   name: string;
   subtitle: string;
   rewardText: string;
-  timeLimit: number;
   icon: string;
 };
 
@@ -37,48 +36,59 @@ type RunnerCoin = {
   y: number;
 };
 
+type SaveRow = {
+  cash: number | string;
+  warning_count: number | string;
+  unpaid_tax: number | string;
+};
+
 const TAX_INTERVAL_SECONDS = 600;
 const TAX_WARNING_SECONDS = 60;
+
+const PAY = {
+  sorting: 320,
+  delivery: 700,
+  cashier: 110,
+  cafe: 180,
+  security: 260,
+  deliveryCrashPenalty: 250,
+  vipPenalty: 1000,
+};
 
 const jobs: Job[] = [
   {
     id: "sorting",
     name: "택배 분류 알바",
-    subtitle: "흘러가는 택배를 색깔에 맞춰 분류하세요.",
-    rewardText: "성공 1개당 200원",
-    timeLimit: 9999,
+    subtitle: "빠르게 지나가는 택배를 색깔 키로 분류하세요.",
+    rewardText: `분류 성공 1개당 ${PAY.sorting.toLocaleString()}원`,
     icon: "📦",
   },
   {
     id: "delivery",
     name: "음식 배달 알바",
-    subtitle: "장애물을 피하고 배달 포인트를 지나가세요.",
-    rewardText: "배달 포인트 1개당 300원",
-    timeLimit: 9999,
+    subtitle: "빠른 도로에서 장애물을 피하고 배달 포인트를 통과하세요.",
+    rewardText: `배달 포인트 1개당 ${PAY.delivery.toLocaleString()}원`,
     icon: "🛵",
   },
   {
     id: "cashier",
     name: "편의점 계산 알바",
-    subtitle: "나오는 키를 순서대로 빠르게 입력하세요.",
-    rewardText: "계산 성공 1회당 450원",
-    timeLimit: 9999,
+    subtitle: "나오는 키를 순서대로 정확히 입력하세요.",
+    rewardText: `계산 성공 1회당 ${PAY.cashier.toLocaleString()}원`,
     icon: "🏪",
   },
   {
     id: "cafe",
     name: "카페 음료 알바",
-    subtitle: "컵 모양에 맞춰 음료 양을 정확히 맞추세요.",
-    rewardText: "음료 1잔당 250원",
-    timeLimit: 9999,
+    subtitle: "컵 목표선에 맞춰 음료 양을 정확히 조절하세요.",
+    rewardText: `음료 1잔당 ${PAY.cafe.toLocaleString()}원`,
     icon: "☕",
   },
   {
     id: "security",
     name: "보안요원 알바",
-    subtitle: "수상한 사람일 때만 Space로 대응하세요.",
-    rewardText: "대응 성공 1회당 200원 · VIP 차단 시 -1,000원",
-    timeLimit: 9999,
+    subtitle: "수상한 사람만 막고 VIP는 통과시키세요.",
+    rewardText: `대응 성공 1회당 ${PAY.security.toLocaleString()}원 · VIP 차단 시 -${PAY.vipPenalty.toLocaleString()}원`,
     icon: "🛡️",
   },
 ];
@@ -98,6 +108,9 @@ export default function GamePage() {
   const [cash, setCash] = useState(10000);
   const [userId, setUserId] = useState<string | null>(null);
   const [isSaveLoaded, setIsSaveLoaded] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("저장 대기 중");
+
   const [warningCount, setWarningCount] = useState(0);
   const [unpaidTax, setUnpaidTax] = useState(0);
   const [taxCountdown, setTaxCountdown] = useState(TAX_INTERVAL_SECONDS);
@@ -140,89 +153,128 @@ export default function GamePage() {
   const [securityMiss, setSecurityMiss] = useState(0);
   const [securityRound, setSecurityRound] = useState(0);
 
+  const firedLockRef = useRef(false);
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs[0], [selectedJobId]);
   const activeJob = useMemo(() => (activeJobId ? jobs.find((job) => job.id === activeJobId) ?? null : null), [activeJobId]);
   const taxRate = getTaxRate(cash);
   const nextTax = calculateTax(cash, unpaidTax);
 
   useEffect(() => {
-  async function loadSave() {
-    const supabase = createClient();
+    async function loadSave() {
+      const supabase = createClient();
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      window.location.href = "/login";
-      return;
-    }
-
-    setUserId(user.id);
-
-    const { data, error } = await supabase
-      .from("game_saves")
-      .select("cash, warning_count, unpaid_tax")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (error) {
-      console.error("저장 데이터 불러오기 실패:", error.message);
-      setIsSaveLoaded(true);
-      return;
-    }
-
-    if (!data) {
-      const { error: insertError } = await supabase.from("game_saves").insert({
-        user_id: user.id,
-        cash: 10000,
-        warning_count: 0,
-        unpaid_tax: 0,
-      });
-
-      if (insertError) {
-        console.error("초기 저장 데이터 생성 실패:", insertError.message);
+      if (userError || !user) {
+        window.location.href = "/login";
+        return;
       }
 
-      setCash(10000);
-      setWarningCount(0);
-      setUnpaidTax(0);
+      setUserId(user.id);
+
+      const { data, error } = await supabase
+        .from("game_saves")
+        .select("cash, warning_count, unpaid_tax")
+        .eq("user_id", user.id)
+        .maybeSingle<SaveRow>();
+
+      if (error) {
+        console.error("저장 데이터 불러오기 실패:", error.message);
+        setMessage("저장 데이터를 불러오지 못했습니다. 새로고침하거나 Supabase 정책을 확인해주세요.");
+        setSaveMessage("불러오기 실패");
+        setIsSaveLoaded(true);
+        return;
+      }
+
+      if (!data) {
+        const { error: insertError } = await supabase.from("game_saves").insert({
+          user_id: user.id,
+          cash: 10000,
+          warning_count: 0,
+          unpaid_tax: 0,
+          updated_at: new Date().toISOString(),
+        });
+
+        if (insertError) {
+          console.error("초기 저장 데이터 생성 실패:", insertError.message);
+          setMessage("초기 저장 데이터를 만들지 못했습니다. Supabase RLS 정책을 확인해주세요.");
+          setSaveMessage("저장 생성 실패");
+        } else {
+          setSaveMessage("새 저장 생성 완료");
+        }
+
+        setCash(10000);
+        setWarningCount(0);
+        setUnpaidTax(0);
+        setIsSaveLoaded(true);
+        return;
+      }
+
+      setCash(Number(data.cash));
+      setWarningCount(Number(data.warning_count));
+      setUnpaidTax(Number(data.unpaid_tax));
+      setSaveMessage("저장 불러오기 완료");
       setIsSaveLoaded(true);
-      return;
     }
 
-    setCash(Number(data.cash));
-    setWarningCount(Number(data.warning_count));
-    setUnpaidTax(Number(data.unpaid_tax));
-    setIsSaveLoaded(true);
-  }
-
-  loadSave();
-}, []);
+    loadSave();
+  }, []);
 
   useEffect(() => {
-  if (!userId || !isSaveLoaded) {
-    return;
-  }
+    if (!userId || !isSaveLoaded) return;
 
-  const timer = window.setTimeout(async () => {
-    const supabase = createClient();
+    setIsSaving(true);
+    setSaveMessage("저장 중...");
 
-    const { error } = await supabase.from("game_saves").upsert({
-      user_id: userId,
-      cash,
-      warning_count: warningCount,
-      unpaid_tax: unpaidTax,
-      updated_at: new Date().toISOString(),
-    });
+    const timer = window.setTimeout(async () => {
+      const supabase = createClient();
+      const { error } = await supabase.from("game_saves").upsert(
+        {
+          user_id: userId,
+          cash,
+          warning_count: warningCount,
+          unpaid_tax: unpaidTax,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
 
-    if (error) {
-      console.error("자동 저장 실패:", error.message);
-    }
-  }, 500);
+      if (error) {
+        console.error("자동 저장 실패:", error.message);
+        setSaveMessage("자동 저장 실패");
+      } else {
+        setSaveMessage("자동 저장 완료");
+      }
 
-  return () => window.clearTimeout(timer);
-}, [userId, isSaveLoaded, cash, warningCount, unpaidTax]);
+      setIsSaving(false);
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [userId, isSaveLoaded, cash, warningCount, unpaidTax]);
+
+  useEffect(() => {
+    if (!isSaveLoaded) return;
+
+    const timer = window.setInterval(() => {
+      setTaxCountdown((current) => {
+        if (current === TAX_WARNING_SECONDS + 1) {
+          setMessage("⚠️ 1분 후 자동으로 세금이 납부됩니다.");
+        }
+
+        if (current <= 1) {
+          setTaxTriggerCount((count) => count + 1);
+          return TAX_INTERVAL_SECONDS;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [isSaveLoaded]);
 
   useEffect(() => {
     if (taxTriggerCount > 0) applyTaxAutomatically();
@@ -233,7 +285,7 @@ export default function GamePage() {
 
     const timer = window.setInterval(() => {
       setDifficulty((current) => {
-        const next = Math.min(7, current + 1);
+        const next = Math.min(9, current + 1);
         if (next !== current) {
           setDifficultyNotice(`⚡ 난이도 상승! Lv.${next}`);
           setMessage(getDifficultyMessage(activeJobId, next));
@@ -241,7 +293,7 @@ export default function GamePage() {
         }
         return next;
       });
-    }, 18000);
+    }, 15000);
 
     return () => window.clearInterval(timer);
   }, [activeJobId]);
@@ -251,17 +303,15 @@ export default function GamePage() {
 
     const timer = window.setInterval(() => {
       setSortItem((current) => {
-        const nextX = current.x + (0.45 + difficulty * 0.12);
+        const nextX = current.x + getSortingSpeed(difficulty);
         if (nextX >= 108) {
-          registerSortingMistake("📦 택배가 지나갔습니다. 중앙 구역에서 맞는 번호를 누르세요.");
+          registerSortingMistake("📦 택배가 지나갔습니다. 중앙 구역에서 맞는 색상 키를 누르세요.");
           setSortCombo(0);
-          const nextItem = makeSortItem(difficulty, sortItemId);
-          setSortItemId((id) => id + 1);
-          return nextItem;
+          return makeNextSortItem();
         }
         return { ...current, x: nextX };
       });
-    }, 25);
+    }, 22);
 
     return () => window.clearInterval(timer);
   }, [activeJobId, difficulty, sortItemId]);
@@ -270,17 +320,17 @@ export default function GamePage() {
     if (activeJobId !== "delivery") return;
 
     const timer = window.setInterval(() => {
-      const speed = 0.85 + difficulty * 0.24;
+      const speed = getDeliverySpeed(difficulty);
 
-      setRunnerDistance((current) => current + 0.2 + difficulty * 0.05);
+      setRunnerDistance((current) => current + 0.24 + difficulty * 0.06);
 
       setRunnerObstacles((current) => {
         const moved = current.map((obstacle) => ({ ...obstacle, y: obstacle.y + speed })).filter((obstacle) => obstacle.y <= 112);
         const collision = moved.some((obstacle) => obstacle.lane === runnerLane && obstacle.y >= 78 && obstacle.y <= 93);
         if (collision) {
           setRunnerHitFlash(true);
-          setCash((money) => Math.max(0, money - 100));
-          registerDeliveryMistake("💥 장애물 충돌! 벌금 100원.");
+          setCash((money) => Math.max(0, money - PAY.deliveryCrashPenalty));
+          registerDeliveryMistake(`💥 장애물 충돌! 수리비 ${PAY.deliveryCrashPenalty.toLocaleString()}원.`);
           window.setTimeout(() => setRunnerHitFlash(false), 250);
           return moved.filter((obstacle) => !(obstacle.lane === runnerLane && obstacle.y >= 78 && obstacle.y <= 93));
         }
@@ -291,25 +341,23 @@ export default function GamePage() {
         const moved = current.map((coin) => ({ ...coin, y: coin.y + speed })).filter((coin) => coin.y <= 112);
         const collected = moved.filter((coin) => coin.lane === runnerLane && coin.y >= 78 && coin.y <= 93);
         if (collected.length > 0) {
-          const reward = collected.length * 300;
+          const reward = collected.length * PAY.delivery;
           setCash((money) => money + reward);
           setMessage(`🍱 배달 포인트 통과! +${reward.toLocaleString()}원`);
         }
         return moved.filter((coin) => !(coin.lane === runnerLane && coin.y >= 78 && coin.y <= 93));
       });
 
-      if (Math.random() < 0.035 + difficulty * 0.008) {
-        const objectLane = Math.floor(Math.random() * 3);
-        setRunnerObstacles((current) => [...current, { id: runnerObjectId, lane: objectLane, y: -12 }]);
+      if (Math.random() < 0.044 + difficulty * 0.011) {
+        setRunnerObstacles((current) => [...current, { id: runnerObjectId, lane: Math.floor(Math.random() * 3), y: -12 }]);
         setRunnerObjectId((id) => id + 1);
       }
 
-      if (Math.random() < 0.024 + difficulty * 0.004) {
-        const objectLane = Math.floor(Math.random() * 3);
-        setRunnerCoins((current) => [...current, { id: runnerObjectId + 10000, lane: objectLane, y: -12 }]);
+      if (Math.random() < 0.018 + difficulty * 0.003) {
+        setRunnerCoins((current) => [...current, { id: runnerObjectId + 10000, lane: Math.floor(Math.random() * 3), y: -12 }]);
         setRunnerObjectId((id) => id + 1);
       }
-    }, 25);
+    }, 24);
 
     return () => window.clearInterval(timer);
   }, [activeJobId, difficulty, runnerLane, runnerObjectId]);
@@ -319,12 +367,12 @@ export default function GamePage() {
 
     const timer = window.setInterval(() => {
       setCafeFill((current) => {
-        if (!cafeHolding) return Math.max(0, current - 0.25);
-        const next = current + 0.9 + difficulty * 0.18;
+        if (!cafeHolding) return Math.max(0, current - (0.18 + difficulty * 0.02));
+        const next = current + 0.95 + difficulty * 0.24;
         if (next >= 100) {
           setCafeFill(0);
           setCafeHolding(false);
-          registerCafeMistake("☕ 넘쳤습니다! 컵 모양이 어려워질수록 더 조심하세요.");
+          registerCafeMistake("☕ 음료가 넘쳤습니다. 낮은 보상 대신 목표 구간이 좁습니다.");
           return 0;
         }
         return next;
@@ -343,10 +391,30 @@ export default function GamePage() {
       }
       setSecuritySignal(makeSecuritySignal(difficulty));
       setSecurityRound((round) => round + 1);
-    }, Math.max(520, 1300 - difficulty * 90));
+    }, Math.max(430, 1250 - difficulty * 95));
 
     return () => window.clearInterval(timer);
   }, [activeJobId, securitySignal, difficulty]);
+
+  useEffect(() => {
+    if (activeJobId === "sorting" && sortMiss >= 3) fireFromJob("📦 실수 3회! 택배 분류 알바에서 해고되었습니다.");
+  }, [activeJobId, sortMiss]);
+
+  useEffect(() => {
+    if (activeJobId === "delivery" && runnerMiss >= 3) fireFromJob("🛵 사고 3회! 음식 배달 알바에서 해고되었습니다.");
+  }, [activeJobId, runnerMiss]);
+
+  useEffect(() => {
+    if (activeJobId === "cashier" && cashierMiss >= 3) fireFromJob("🏪 실수 3회! 편의점 계산 알바에서 해고되었습니다.");
+  }, [activeJobId, cashierMiss]);
+
+  useEffect(() => {
+    if (activeJobId === "cafe" && cafeMiss >= 3) fireFromJob("☕ 제조 실수 3회! 카페 음료 알바에서 해고되었습니다.");
+  }, [activeJobId, cafeMiss]);
+
+  useEffect(() => {
+    if (activeJobId === "security" && securityMiss >= 3) fireFromJob("🛡️ 실수 3회! 보안요원 알바에서 해고되었습니다.");
+  }, [activeJobId, securityMiss]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -437,6 +505,7 @@ export default function GamePage() {
   function startJob(jobId: JobId) {
     setSelectedJobId(jobId);
     setActiveJobId(jobId);
+    firedLockRef.current = false;
     setFiredStamp(null);
     setDifficulty(1);
     setDifficultyNotice("");
@@ -454,7 +523,7 @@ export default function GamePage() {
     setSortItemId(2);
     setSortCombo(0);
     setSortMiss(0);
-    setMessage("📦 중앙 판정 구역에서 택배 색에 맞는 번호를 누르세요.");
+    setMessage("📦 중앙 판정 구역에서 택배 색에 맞는 r/b/y/g/p 키를 누르세요.");
   }
 
   function setupDeliveryJob() {
@@ -465,7 +534,7 @@ export default function GamePage() {
     setRunnerObjectId(1);
     setRunnerHitFlash(false);
     setRunnerMiss(0);
-    setMessage("🛵 A/D로 움직이며 🍱 배달 포인트를 지나가세요. 장애물은 피하세요!");
+    setMessage(`🛵 A/D로 이동하세요. 장애물 충돌 3회면 해고, 충돌마다 ${PAY.deliveryCrashPenalty.toLocaleString()}원 차감됩니다.`);
   }
 
   function setupCashierJob() {
@@ -473,7 +542,7 @@ export default function GamePage() {
     setCashierIndex(0);
     setCashierSuccess(0);
     setCashierMiss(0);
-    setMessage("🏪 화면에 나오는 키를 순서대로 입력하세요.");
+    setMessage("🏪 낮은 보상이지만 빠르게 반복됩니다. W/A/S/D를 정확히 입력하세요.");
   }
 
   function setupCafeJob() {
@@ -484,7 +553,7 @@ export default function GamePage() {
     setCafeMiss(0);
     setCafeTargetStart(target.start);
     setCafeTargetEnd(target.end);
-    setMessage("☕ Space를 누르고 있다가 목표 구간에서 떼세요.");
+    setMessage("☕ Space를 누르고 있다가 목표 구간에서 떼세요. 목표 구간이 좁습니다.");
   }
 
   function setupSecurityJob() {
@@ -492,7 +561,7 @@ export default function GamePage() {
     setSecuritySuccess(0);
     setSecurityMiss(0);
     setSecurityRound(0);
-    setMessage("🛡️ 수상한 사람일 때만 Space를 누르세요. VIP 손님을 막으면 1,000원을 물어냅니다.");
+    setMessage(`🛡️ 수상한 사람만 막으세요. VIP를 막으면 ${PAY.vipPenalty.toLocaleString()}원을 물어냅니다.`);
   }
 
   function leaveJob() {
@@ -500,10 +569,14 @@ export default function GamePage() {
     setCafeHolding(false);
     setDifficultyNotice("");
     setFiredStamp(null);
+    firedLockRef.current = false;
     setMessage("알바를 선택하고 시작하세요.");
   }
 
   function fireFromJob(reason: string) {
+    if (firedLockRef.current) return;
+    firedLockRef.current = true;
+
     setActiveJobId(null);
     setCafeHolding(false);
     setDifficultyNotice("");
@@ -512,17 +585,14 @@ export default function GamePage() {
 
     window.setTimeout(() => {
       setFiredStamp(null);
+      firedLockRef.current = false;
     }, 2400);
   }
 
   function registerSortingMistake(reason: string) {
     setSortMiss((current) => {
       const next = current + 1;
-      if (next >= 3) {
-        fireFromJob("📦 실수 3회! 택배 분류 알바에서 해고되었습니다.");
-        return next;
-      }
-      setMessage(`${reason} 실수 ${next}/3`);
+      setMessage(next >= 3 ? "📦 실수 3회! 택배 분류 알바에서 해고됩니다." : `${reason} 실수 ${next}/3`);
       return next;
     });
   }
@@ -530,11 +600,7 @@ export default function GamePage() {
   function registerDeliveryMistake(reason: string) {
     setRunnerMiss((current) => {
       const next = current + 1;
-      if (next >= 3) {
-        fireFromJob("🛵 사고 3회! 음식 배달 알바에서 해고되었습니다.");
-        return next;
-      }
-      setMessage(`${reason} 실수 ${next}/3`);
+      setMessage(next >= 3 ? "🛵 사고 3회! 음식 배달 알바에서 해고됩니다." : `${reason} 실수 ${next}/3`);
       return next;
     });
   }
@@ -542,11 +608,7 @@ export default function GamePage() {
   function registerCashierMistake(reason: string) {
     setCashierMiss((current) => {
       const next = current + 1;
-      if (next >= 3) {
-        fireFromJob("🏪 실수 3회! 편의점 계산 알바에서 해고되었습니다.");
-        return next;
-      }
-      setMessage(`${reason} 실수 ${next}/3`);
+      setMessage(next >= 3 ? "🏪 실수 3회! 편의점 계산 알바에서 해고됩니다." : `${reason} 실수 ${next}/3`);
       return next;
     });
   }
@@ -554,11 +616,7 @@ export default function GamePage() {
   function registerCafeMistake(reason: string) {
     setCafeMiss((current) => {
       const next = current + 1;
-      if (next >= 3) {
-        fireFromJob("☕ 제조 실수 3회! 카페 음료 알바에서 해고되었습니다.");
-        return next;
-      }
-      setMessage(`${reason} 실수 ${next}/3`);
+      setMessage(next >= 3 ? "☕ 제조 실수 3회! 카페 음료 알바에서 해고됩니다." : `${reason} 실수 ${next}/3`);
       return next;
     });
   }
@@ -566,11 +624,7 @@ export default function GamePage() {
   function registerSecurityMistake(reason: string) {
     setSecurityMiss((current) => {
       const next = current + 1;
-      if (next >= 3) {
-        fireFromJob("🛡️ 실수 3회! 보안요원 알바에서 해고되었습니다.");
-        return next;
-      }
-      setMessage(`${reason} 실수 ${next}/3`);
+      setMessage(next >= 3 ? "🛡️ 실수 3회! 보안요원 알바에서 해고됩니다." : `${reason} 실수 ${next}/3`);
       return next;
     });
   }
@@ -579,11 +633,11 @@ export default function GamePage() {
     const activeKinds = getActiveSortKinds(difficulty);
     if (!activeKinds.includes(sortItem.kind)) return;
 
-    if (sortItem.x < 37 || sortItem.x > 63) {
-      registerSortingMistake("📦 타이밍 실패! 중앙 판정 구역에서 눌러야 합니다.");
+    if (sortItem.x < 39 || sortItem.x > 61) {
+      registerSortingMistake("📦 타이밍 실패! 중앙 판정 구역이 더 좁아졌습니다.");
       setSortCombo(0);
       setSortItem(markSortFeedback(sortItem, "bad"));
-      window.setTimeout(() => setSortItem(makeNextSortItem()), 180);
+      window.setTimeout(() => setSortItem(makeNextSortItem()), 160);
       return;
     }
 
@@ -591,17 +645,17 @@ export default function GamePage() {
       registerSortingMistake("📦 색깔 분류가 틀렸습니다.");
       setSortCombo(0);
       setSortItem(markSortFeedback(sortItem, "bad"));
-      window.setTimeout(() => setSortItem(makeNextSortItem()), 180);
+      window.setTimeout(() => setSortItem(makeNextSortItem()), 160);
       return;
     }
 
     const combo = sortCombo + 1;
-    const reward = 200 + Math.min(200, combo * 10);
+    const reward = PAY.sorting + Math.min(120, combo * 8);
     setCash((money) => money + reward);
     setSortCombo(combo);
     setSortItem(markSortFeedback(sortItem, "good"));
     setMessage(`✨ 분류 성공! +${reward.toLocaleString()}원 / 콤보 ${combo}`);
-    window.setTimeout(() => setSortItem(makeNextSortItem()), 180);
+    window.setTimeout(() => setSortItem(makeNextSortItem()), 150);
   }
 
   function makeNextSortItem() {
@@ -625,7 +679,7 @@ export default function GamePage() {
     setCashierIndex(nextIndex);
 
     if (nextIndex >= cashierSequence.length) {
-      const reward = 450 + difficulty * 20;
+      const reward = PAY.cashier + difficulty * 8;
       setCash((money) => money + reward);
       setCashierSuccess((success) => success + 1);
       setCashierSequence(makeCashierSequence(difficulty));
@@ -639,7 +693,7 @@ export default function GamePage() {
 
   function judgeCafeFill() {
     if (cafeFill >= cafeTargetStart && cafeFill <= cafeTargetEnd) {
-      const reward = 250 + difficulty * 30;
+      const reward = PAY.cafe + difficulty * 12;
       const target = makeCafeTarget(difficulty);
       setCash((money) => money + reward);
       setCafeSuccess((success) => success + 1);
@@ -657,8 +711,7 @@ export default function GamePage() {
 
   function handleSecurityAction() {
     if (securitySignal === "thief") {
-      const reward = 200 + difficulty * 20;
-      
+      const reward = PAY.security + difficulty * 10;
       setCash((money) => money + reward);
       setSecuritySuccess((success) => success + 1);
       setSecuritySignal("normal");
@@ -667,8 +720,8 @@ export default function GamePage() {
     }
 
     if (securitySignal === "vip") {
-      setCash((money) => Math.max(0, money - 1000));
-      registerSecurityMistake("🛡️ VIP 손님을 막았습니다. 배상금 1,000원!");
+      setCash((money) => Math.max(0, money - PAY.vipPenalty));
+      registerSecurityMistake(`🛡️ VIP 손님을 막았습니다. 배상금 ${PAY.vipPenalty.toLocaleString()}원!`);
       setSecuritySignal("normal");
       return;
     }
@@ -677,27 +730,22 @@ export default function GamePage() {
     setSecuritySignal("normal");
   }
 
+  async function signOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  }
+
   if (!isSaveLoaded) {
-  return (
-    <main
-      style={{
-        minHeight: "100svh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background:
-          "linear-gradient(135deg, #020617 0%, #0f172a 55%, #1e1b4b 100%)",
-        color: "white",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
-      <div style={{ textAlign: "center" }}>
-        <h1>저장된 게임을 불러오는 중...</h1>
-        <p>잠시만 기다려주세요.</p>
-      </div>
-    </main>
-  );
-}
+    return (
+      <main style={loadingPageStyle}>
+        <div style={{ textAlign: "center" }}>
+          <h1>저장된 게임을 불러오는 중...</h1>
+          <p>잠시만 기다려주세요.</p>
+        </div>
+      </main>
+    );
+  }
 
   if (activeJob) {
     return (
@@ -744,7 +792,7 @@ export default function GamePage() {
           <div>
             <div style={smallLabelStyle}>ALBA MONEY GAME</div>
             <h1 style={mainTitleStyle}>알바 머니 게임</h1>
-            <p style={subtitleStyle}>화면 안에서 바로 보이도록 넓게 배치했습니다. 원하는 알바를 골라 계속 돈을 벌어보세요.</p>
+            <p style={subtitleStyle}>계정에 자동 저장됩니다. 현실적인 보상에 맞춰 난이도도 조정되었습니다.</p>
           </div>
 
           <div style={moneyPanelStyle}>
@@ -753,7 +801,7 @@ export default function GamePage() {
             <StatusPill label="다음 세금" value={`${nextTax.toLocaleString()}원`} />
             <StatusPill label="미납" value={`${unpaidTax.toLocaleString()}원`} />
             <StatusPill label="경고" value={`${warningCount}장`} />
-            <StatusPill label="세금까지" value={formatTime(taxCountdown)} warning={taxCountdown <= TAX_WARNING_SECONDS} />
+            <StatusPill label="저장" value={isSaving ? "저장 중" : saveMessage} warning={saveMessage.includes("실패")} />
           </div>
         </header>
 
@@ -771,6 +819,7 @@ export default function GamePage() {
         <footer style={lobbyFooterStyle}>
           <div style={messageBoxStyle}>{message}</div>
           <button onClick={() => startJob(selectedJob.id)} style={bigStartButtonStyle}>{selectedJob.icon} {selectedJob.name} 시작하기</button>
+          <button onClick={signOut} style={logoutButtonStyle}>로그아웃</button>
         </footer>
       </section>
 
@@ -792,10 +841,10 @@ function SortingGame({ item, combo, miss, difficulty }: { item: SortItem; combo:
     <div style={sortingStageStyle}>
       <div style={miniGameTopInfoStyle}>
         <strong>콤보 {combo}</strong>
-        <strong>실수 {miss}</strong>
+        <strong>실수 {miss}/3</strong>
       </div>
       <div style={conveyorStyle}>
-        <div style={sortJudgeZoneStyle}>판정 구역</div>
+        <div style={sortJudgeZoneStyle}>좁은 판정 구역</div>
         <div style={{ ...sortPackageStyle, left: `${item.x}%`, filter: item.feedback === "good" ? "drop-shadow(0 0 18px #22c55e)" : item.feedback === "bad" ? "drop-shadow(0 0 18px #ef4444)" : "none", transform: item.feedback === "good" ? "translate(-50%, -50%) scale(1.25)" : item.feedback === "bad" ? "translate(-50%, -50%) rotate(-8deg)" : "translate(-50%, -50%)" }}>
           {item.feedback === "good" ? "✨" : item.feedback === "bad" ? "💥" : sortInfo[item.kind].emoji}
         </div>
@@ -819,7 +868,7 @@ function DeliveryGame({ lane, obstacles, coins, distance, flash, miss }: { lane:
           </div>
         ))}
       </div>
-      <div style={runnerProgressStyle}>주행 거리: {Math.floor(distance)}m · 실수 {miss}/3 · 🍱 통과 시 +300원</div>
+      <div style={runnerProgressStyle}>주행 거리: {Math.floor(distance)}m · 사고 {miss}/3 · 🍱 통과 시 +{PAY.delivery.toLocaleString()}원</div>
     </div>
   );
 }
@@ -828,7 +877,7 @@ function CashierGame({ sequence, currentIndex, success, miss }: { sequence: stri
   return (
     <div style={centerGameStyle}>
       <div style={cashierPanelStyle}>
-        <div style={miniGameTopInfoStyle}><strong>계산 {success}회</strong><strong>실수 {miss}</strong></div>
+        <div style={miniGameTopInfoStyle}><strong>계산 {success}회</strong><strong>실수 {miss}/3</strong></div>
         <div style={cashierTitleStyle}>입력할 키</div>
         <div style={sequenceRowStyle}>
           {sequence.map((key, index) => <div key={`${key}-${index}`} style={{ ...keyBoxStyle, background: index < currentIndex ? "#22c55e" : index === currentIndex ? "#38bdf8" : "rgba(255,255,255,0.08)", color: index <= currentIndex ? "#020617" : "white" }}>{key}</div>)}
@@ -842,7 +891,7 @@ function CashierGame({ sequence, currentIndex, success, miss }: { sequence: stri
 function CafeGame({ fill, targetStart, targetEnd, success, miss, holding, difficulty }: { fill: number; targetStart: number; targetEnd: number; success: number; miss: number; holding: boolean; difficulty: number }) {
   return (
     <div style={cafeStageStyle}>
-      <div style={miniGameTopInfoStyle}><strong>완성 {success}잔</strong><strong>실수 {miss}</strong></div>
+      <div style={miniGameTopInfoStyle}><strong>완성 {success}잔</strong><strong>실수 {miss}/3</strong></div>
       <div style={cupAreaStyle}>
         <div style={{ ...cupStyle, borderRadius: difficulty >= 5 ? "18px 8px 34px 20px" : difficulty >= 3 ? "8px 8px 30px 30px" : "0 0 26px 26px", transform: difficulty >= 6 ? "skewX(-5deg)" : "none" }}>
           <div style={{ ...coffeeFillStyle, height: `${fill}%` }} />
@@ -859,11 +908,11 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
   const label = signal === "thief" ? "수상한 사람!" : signal === "vip" ? "VIP 손님" : "평범한 손님";
   return (
     <div style={securityStageStyle}>
-      <div style={miniGameTopInfoStyle}><strong>대응 {success}회</strong><strong>실수 {miss}</strong></div>
+      <div style={miniGameTopInfoStyle}><strong>대응 {success}회</strong><strong>실수 {miss}/3</strong></div>
       <div style={securityPanelStyle}>
         <div key={round} style={securityCharacterStyle}>{character}</div>
         <div style={securityLabelStyle}>{label}</div>
-        <div style={securityHintStyle}>수상한 사람일 때만 <strong>Space</strong> · VIP 차단 시 -1,000원</div>
+        <div style={securityHintStyle}>수상한 사람일 때만 <strong>Space</strong> · VIP 차단 시 -{PAY.vipPenalty.toLocaleString()}원</div>
       </div>
     </div>
   );
@@ -885,7 +934,7 @@ function calculateTax(cash: number, unpaidTax: number) {
 }
 
 function makeCashierSequence(difficulty: number) {
-  return Array.from({ length: Math.min(18, 8 + difficulty * 2) }, () => cashierKeyPool[Math.floor(Math.random() * cashierKeyPool.length)]);
+  return Array.from({ length: Math.min(22, 8 + difficulty * 2) }, () => cashierKeyPool[Math.floor(Math.random() * cashierKeyPool.length)]);
 }
 
 function getActiveSortKinds(difficulty: number) {
@@ -904,16 +953,24 @@ function markSortFeedback(item: SortItem, feedback: "good" | "bad"): SortItem {
 }
 
 function makeCafeTarget(difficulty: number) {
-  const width = Math.max(7, 16 - difficulty * 1.3);
-  const start = Math.floor(Math.random() * 22) + 52;
+  const width = Math.max(5, 13 - difficulty * 0.9);
+  const start = Math.floor(Math.random() * 25) + 50;
   return { start, end: start + width };
 }
 
 function makeSecuritySignal(difficulty: number): SecuritySignal {
   const random = Math.random();
-  if (random < 0.28 + difficulty * 0.018) return "thief";
-  if (random < 0.48) return "vip";
+  if (random < 0.3 + difficulty * 0.018) return "thief";
+  if (random < 0.56) return "vip";
   return "normal";
+}
+
+function getSortingSpeed(difficulty: number) {
+  return 0.62 + difficulty * 0.16;
+}
+
+function getDeliverySpeed(difficulty: number) {
+  return 1.0 + difficulty * 0.3;
 }
 
 function formatTime(seconds: number) {
@@ -923,11 +980,11 @@ function formatTime(seconds: number) {
 }
 
 function getDifficultyMessage(jobId: JobId, level: number) {
-  if (jobId === "sorting") return `⚡ 난이도 상승! 분류 색상이 늘어나고 택배가 더 빨라집니다. Lv.${level}`;
-  if (jobId === "delivery") return `⚡ 난이도 상승! 도로 속도가 빨라집니다. Lv.${level}`;
+  if (jobId === "sorting") return `⚡ 난이도 상승! 택배 속도와 색상 종류가 늘어납니다. Lv.${level}`;
+  if (jobId === "delivery") return `⚡ 난이도 상승! 속도가 빨라지고 장애물이 더 자주 나옵니다. Lv.${level}`;
   if (jobId === "cashier") return `⚡ 난이도 상승! 계산 키가 더 길어집니다. Lv.${level}`;
-  if (jobId === "cafe") return `⚡ 난이도 상승! 컵 모양이 점점 까다로워집니다. Lv.${level}`;
-  return `⚡ 난이도 상승! 손님 판단 속도가 빨라집니다. Lv.${level}`;
+  if (jobId === "cafe") return `⚡ 난이도 상승! 목표 구간이 더 좁아집니다. Lv.${level}`;
+  return `⚡ 난이도 상승! 손님 판단 시간이 짧아지고 VIP 비율이 늘어납니다. Lv.${level}`;
 }
 
 function getControlHint(activeJobId: JobId | null) {
@@ -938,6 +995,16 @@ function getControlHint(activeJobId: JobId | null) {
   if (activeJobId === "security") return "수상한 사람일 때만 Space";
   return "알바를 선택하세요";
 }
+
+const loadingPageStyle: CSSProperties = {
+  minHeight: "100svh",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "linear-gradient(135deg, #020617 0%, #0f172a 55%, #1e1b4b 100%)",
+  color: "white",
+  fontFamily: "Arial, sans-serif",
+};
 
 const pageStyle: CSSProperties = {
   width: "100%",
@@ -998,9 +1065,9 @@ const subtitleStyle: CSSProperties = {
 
 const moneyPanelStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(6, 98px)",
+  gridTemplateColumns: "repeat(6, 106px)",
   gap: "6px",
-  maxWidth: "624px",
+  maxWidth: "672px",
   overflow: "hidden",
 };
 
@@ -1081,7 +1148,7 @@ const rewardTextStyle: CSSProperties = {
 const lobbyFooterStyle: CSSProperties = {
   minWidth: 0,
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gridTemplateColumns: "minmax(0, 1fr) auto auto",
   alignItems: "stretch",
   gap: "10px",
   overflow: "hidden",
@@ -1113,6 +1180,18 @@ const bigStartButtonStyle: CSSProperties = {
   cursor: "pointer",
   whiteSpace: "nowrap",
   boxShadow: "0 8px 22px rgba(56,189,248,0.28)",
+};
+
+const logoutButtonStyle: CSSProperties = {
+  border: "1px solid rgba(255,255,255,0.22)",
+  borderRadius: "16px",
+  background: "rgba(255,255,255,0.08)",
+  color: "white",
+  padding: "12px 16px",
+  fontWeight: 900,
+  fontSize: "16px",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
 };
 
 const jobOnlyLayoutStyle: CSSProperties = {
@@ -1233,8 +1312,8 @@ const conveyorStyle: CSSProperties = {
 
 const sortJudgeZoneStyle: CSSProperties = {
   position: "absolute",
-  left: "37%",
-  width: "26%",
+  left: "39%",
+  width: "22%",
   top: 0,
   bottom: 0,
   background: "rgba(34,197,94,0.15)",
@@ -1252,7 +1331,7 @@ const sortPackageStyle: CSSProperties = {
   position: "absolute",
   top: "50%",
   fontSize: "72px",
-  transition: "left 25ms linear, transform 120ms ease, filter 120ms ease",
+  transition: "left 22ms linear, transform 120ms ease, filter 120ms ease",
   zIndex: 3,
 };
 
@@ -1312,7 +1391,7 @@ const runnerObstacleStyle: CSSProperties = {
   left: "50%",
   transform: "translateX(-50%)",
   fontSize: "54px",
-  transition: "top 25ms linear",
+  transition: "top 24ms linear",
 };
 
 const runnerCoinStyle: CSSProperties = {
@@ -1320,7 +1399,7 @@ const runnerCoinStyle: CSSProperties = {
   left: "50%",
   transform: "translateX(-50%)",
   fontSize: "48px",
-  transition: "top 25ms linear",
+  transition: "top 24ms linear",
   filter: "drop-shadow(0 0 12px #facc15)",
 };
 
@@ -1499,4 +1578,5 @@ const firedStampReasonStyle: CSSProperties = {
   color: "rgba(255, 228, 230, 0.92)",
   whiteSpace: "nowrap",
 };
+
 
