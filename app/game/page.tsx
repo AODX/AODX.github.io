@@ -1108,7 +1108,7 @@ export default function GamePage() {
               <StatusPill label="난이도" value={`Lv.${difficulty}`} warning={difficulty >= 4} />
               <StatusPill label="세금" value={`${nextTax.toLocaleString()}원`} />
               <StatusPill label="세금까지" value={formatTime(taxCountdown)} warning={taxCountdown <= TAX_WARNING_SECONDS} />
-              <button onClick={leaveJob} style={leaveButtonStyle}>나가기</button>
+              <button onClick={leaveJob} style={leaveButtonStyle}>방으로 가기</button>
             </div>
           </header>
 
@@ -1489,7 +1489,7 @@ function StatusPill({ label, value, warning = false }: { label: string; value: s
   return (
     <div style={{ ...statusPillStyle, borderColor: warning ? "#f97316" : "#111827", color: warning ? "#9a3412" : "#111827" }}>
       <span style={{ ...statusLabelStyle, color: warning ? "#c2410c" : "#64748b" }}>{label}</span>
-      <strong style={{ color: warning ? "#9a3412" : "#111827" }}>{value}</strong>
+      <strong style={{ color: warning ? "#9a3412" : "#111827", fontSize: "17px", lineHeight: 1.1 }}>{value}</strong>
     </div>
   );
 }
@@ -2083,28 +2083,28 @@ const mainTitleStyle: CSSProperties = {
 
 const moneyPanelStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(6, 106px)",
-  gap: "6px",
-  maxWidth: "672px",
-  overflow: "hidden",
+  gridTemplateColumns: "repeat(6, minmax(124px, 1fr))",
+  gap: "8px",
+  maxWidth: "820px",
+  overflow: "visible",
 };
 
 const statusPillStyle: CSSProperties = {
   background: "#ffffff",
   border: "3px solid #111827",
-  borderRadius: "13px",
-  padding: "6px 8px",
-  minWidth: 0,
+  borderRadius: "16px",
+  padding: "10px 12px",
+  minWidth: "118px",
   display: "grid",
-  gap: "1px",
-  fontSize: "12px",
+  gap: "3px",
+  fontSize: "16px",
   color: "#111827",
-  boxShadow: "2px 2px 0 rgba(17,24,39,0.9)",
+  boxShadow: "3px 3px 0 rgba(17,24,39,0.95)",
 };
 
 const statusLabelStyle: CSSProperties = {
   color: "#64748b",
-  fontSize: "10px",
+  fontSize: "12px",
   fontWeight: 900,
 };
 
@@ -2177,7 +2177,7 @@ const messageBoxStyle: CSSProperties = {
   padding: "10px 16px",
   color: "#111827",
   lineHeight: 1.3,
-  fontSize: "18px",
+  fontSize: "22px",
   fontWeight: 900,
   overflow: "hidden",
   boxShadow: "3px 3px 0 #111827",
@@ -2239,30 +2239,36 @@ const jobTitleStyle: CSSProperties = {
 const topStatusGroupStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "6px",
+  gap: "10px",
   flexWrap: "wrap",
   justifyContent: "flex-end",
+  overflow: "visible",
 };
 
 const leaveButtonStyle: CSSProperties = {
-  border: "1px solid rgba(255,255,255,0.18)",
-  background: "rgba(255,255,255,0.08)",
-  color: "white",
-  borderRadius: "10px",
-  padding: "9px 11px",
+  border: "3px solid #111827",
+  background: "#facc15",
+  color: "#111827",
+  borderRadius: "16px",
+  padding: "13px 18px",
   fontWeight: 900,
+  fontSize: "17px",
   cursor: "pointer",
+  whiteSpace: "nowrap",
+  boxShadow: "3px 3px 0 rgba(17,24,39,0.95)",
 };
 
 const difficultyBannerStyle: CSSProperties = {
-  background: "rgba(250,204,21,0.16)",
-  border: "1px solid rgba(250,204,21,0.5)",
-  color: "#fef3c7",
-  borderRadius: "10px",
-  padding: "6px 10px",
+  background: "#facc15",
+  border: "4px solid #111827",
+  color: "#111827",
+  borderRadius: "18px",
+  padding: "12px 18px",
   textAlign: "center",
   fontWeight: 900,
-  fontSize: "13px",
+  fontSize: "24px",
+  boxShadow: "4px 4px 0 rgba(17,24,39,0.95)",
+  zIndex: 20,
 };
 
 const jobStageStyle: CSSProperties = {
@@ -2276,21 +2282,22 @@ const jobStageStyle: CSSProperties = {
 const jobFooterStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "minmax(0, 1fr) auto",
-  gap: "7px",
+  gap: "10px",
   alignItems: "center",
   minWidth: 0,
-  overflow: "hidden",
+  overflow: "visible",
 };
 
 const controlHintStyle: CSSProperties = {
-  background: "rgba(15,23,42,0.75)",
-  border: "1px solid rgba(255,255,255,0.14)",
-  borderRadius: "10px",
-  padding: "8px 10px",
-  color: "#cbd5e1",
+  background: "#334155",
+  border: "3px solid #111827",
+  borderRadius: "14px",
+  padding: "12px 16px",
+  color: "#ffffff",
   fontWeight: 900,
-  fontSize: "12px",
+  fontSize: "15px",
   whiteSpace: "nowrap",
+  boxShadow: "3px 3px 0 rgba(17,24,39,0.95)",
 };
 
 const centerGameStyle: CSSProperties = {
@@ -2618,36 +2625,35 @@ const firedOverlayWrapStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   pointerEvents: "none",
-  zIndex: 50,
+  zIndex: 999,
+  background: "rgba(15,23,42,0.48)",
 };
 
 const firedStampCardStyle: CSSProperties = {
-  transform: "rotate(-12deg)",
-  background: "rgba(127, 29, 29, 0.10)",
-  border: "6px solid rgba(248, 113, 113, 0.72)",
-  borderRadius: "24px",
-  padding: "28px 42px",
+  transform: "rotate(-10deg)",
+  background: "#fee2e2",
+  border: "10px solid #dc2626",
+  borderRadius: "28px",
+  padding: "38px 56px",
   textAlign: "center",
-  boxShadow:
-    "0 0 0 10px rgba(127, 29, 29, 0.06), 0 18px 40px rgba(0,0,0,0.28)",
-  backdropFilter: "blur(2px)",
+  boxShadow: "0 0 0 8px #ffffff, 0 0 0 16px #111827, 0 24px 60px rgba(0,0,0,0.45)",
 };
 
 const firedStampTitleStyle: CSSProperties = {
-  fontSize: "72px",
+  fontSize: "96px",
   fontWeight: 900,
   letterSpacing: "0.18em",
-  color: "rgba(254, 202, 202, 0.88)",
+  color: "#dc2626",
   lineHeight: 1,
   textTransform: "uppercase",
-  textShadow: "0 0 12px rgba(239,68,68,0.18)",
+  textShadow: "4px 4px 0 #111827",
 };
 
 const firedStampReasonStyle: CSSProperties = {
-  marginTop: "10px",
-  fontSize: "20px",
-  fontWeight: 800,
-  color: "rgba(255, 228, 230, 0.92)",
+  marginTop: "18px",
+  fontSize: "26px",
+  fontWeight: 900,
+  color: "#111827",
   whiteSpace: "nowrap",
 };
 
