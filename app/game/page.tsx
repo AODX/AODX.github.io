@@ -1095,5 +1095,189 @@ const sortBinStyle: CSSProperties = {
 
 const runnerStageStyle: CSSProperties = {
   width: "min(660px, 92vw)",
-  height: "min(
+  height: "min(480px, 64svh)",
+  display: "grid",
+  gridTemplateRows: "1fr auto",
+  gap: "7px",
+};
 
+const runnerRoadStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: "8px",
+  background: "rgba(15,23,42,0.88)",
+  border: "1px solid rgba(255,255,255,0.16)",
+  borderRadius: "24px",
+  padding: "10px",
+  overflow: "hidden",
+};
+
+const runnerLaneStyle: CSSProperties = {
+  position: "relative",
+  background: "rgba(255,255,255,0.07)",
+  borderRadius: "16px",
+  border: "1px dashed rgba(255,255,255,0.18)",
+  overflow: "hidden",
+};
+
+const runnerPlayerStyle: CSSProperties = {
+  position: "absolute",
+  bottom: "7%",
+  left: "50%",
+  transform: "translateX(-50%)",
+  fontSize: "58px",
+  zIndex: 4,
+};
+
+const runnerObstacleStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  transform: "translateX(-50%)",
+  fontSize: "54px",
+  transition: "top 25ms linear",
+};
+
+const runnerCoinStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  transform: "translateX(-50%)",
+  fontSize: "48px",
+  transition: "top 25ms linear",
+  filter: "drop-shadow(0 0 12px #facc15)",
+};
+
+const runnerProgressStyle: CSSProperties = {
+  textAlign: "center",
+  color: "#86efac",
+  fontWeight: 900,
+  fontSize: "14px",
+};
+
+const cashierPanelStyle: CSSProperties = {
+  width: "min(720px, 90vw)",
+  background: "rgba(255,255,255,0.08)",
+  border: "1px solid rgba(255,255,255,0.16)",
+  borderRadius: "22px",
+  padding: "22px",
+  textAlign: "center",
+};
+
+const cashierTitleStyle: CSSProperties = {
+  color: "#93c5fd",
+  fontWeight: 900,
+  margin: "12px 0",
+};
+
+const sequenceRowStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  flexWrap: "wrap",
+  gap: "8px",
+};
+
+const keyBoxStyle: CSSProperties = {
+  width: "48px",
+  height: "48px",
+  borderRadius: "13px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: "20px",
+  fontWeight: 900,
+  border: "1px solid rgba(255,255,255,0.2)",
+};
+
+const cashierHintStyle: CSSProperties = {
+  marginTop: "14px",
+  color: "#cbd5e1",
+  fontSize: "14px",
+};
+
+const cafeStageStyle: CSSProperties = {
+  width: "min(580px, 90vw)",
+  height: "min(430px, 60svh)",
+  display: "grid",
+  gridTemplateRows: "auto 1fr",
+  gap: "8px",
+};
+
+const cupAreaStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(15,23,42,0.88)",
+  border: "1px solid rgba(255,255,255,0.16)",
+  borderRadius: "22px",
+  padding: "10px",
+};
+
+const cupStyle: CSSProperties = {
+  position: "relative",
+  width: "170px",
+  height: "245px",
+  border: "6px solid rgba(255,255,255,0.85)",
+  borderTop: "none",
+  overflow: "hidden",
+  background: "rgba(255,255,255,0.08)",
+};
+
+const coffeeFillStyle: CSSProperties = {
+  position: "absolute",
+  left: 0,
+  right: 0,
+  bottom: 0,
+  background: "linear-gradient(180deg, #d97706, #92400e)",
+  transition: "height 25ms linear",
+};
+
+const cafeTargetZoneStyle: CSSProperties = {
+  position: "absolute",
+  left: 0,
+  right: 0,
+  background: "rgba(34,197,94,0.35)",
+  borderTop: "2px solid #22c55e",
+  borderBottom: "2px solid #22c55e",
+  zIndex: 3,
+};
+
+const cafeGaugeTextStyle: CSSProperties = {
+  marginTop: "10px",
+  color: "#cbd5e1",
+  fontWeight: 900,
+  fontSize: "13px",
+};
+
+const securityStageStyle: CSSProperties = {
+  width: "min(580px, 90vw)",
+  height: "min(380px, 54svh)",
+  display: "grid",
+  gridTemplateRows: "auto 1fr",
+  gap: "7px",
+};
+
+const securityPanelStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(15,23,42,0.88)",
+  border: "1px solid rgba(255,255,255,0.16)",
+  borderRadius: "22px",
+};
+
+const securityCharacterStyle: CSSProperties = {
+  fontSize: "80px",
+  marginBottom: "8px",
+};
+
+const securityLabelStyle: CSSProperties = {
+  fontSize: "22px",
+  fontWeight: 900,
+};
+
+const securityHintStyle: CSSProperties = {
+  marginTop: "10px",
+  color: "#cbd5e1",
+  fontSize: "14px",
+};
