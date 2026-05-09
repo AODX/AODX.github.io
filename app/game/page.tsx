@@ -4,12 +4,11 @@ import { useState } from "react";
 
 export default function GamePage() {
   const [balance, setBalance] = useState(10000);
-  const [totalAssets, setTotalAssets] = useState(10000);
-  const [stocks, setStocks] = useState(0);
-  const [crypto, setCrypto] = useState(0);
-  const [taxWarnings, setTaxWarnings] = useState(0);
-  const [lastWork, setLastWork] = useState<Date | null>(null);
-
+const [totalAssets] = useState(10000);
+const [stocks] = useState(0);
+const [crypto] = useState(0);
+const [taxWarnings, setTaxWarnings] = useState(0);
+const [lastWork, setLastWork] = useState<Date | null>(null);
   const handleWork = () => {
     const now = new Date();
     if (lastWork && now.getTime() - lastWork.getTime() < 60000) {
