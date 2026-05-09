@@ -82,7 +82,10 @@ export default function GamePage() {
 
   const [player, setPlayer] = useState<Position>({ x: 0, y: 0 });
   const [itemPosition, setItemPosition] = useState<Position>({ x: 2, y: 2 });
-  const [targetPosition, setTargetPosition] = useState<Position>({ x: 6, y: 6 });
+  const [targetPosition, setTargetPosition] = useState<Position>({
+    x: 6,
+    y: 6,
+  });
   const [restaurantPosition, setRestaurantPosition] = useState<Position>({
     x: 1,
     y: 6,
@@ -422,7 +425,9 @@ export default function GamePage() {
           return;
         }
 
-        setMessage(`🧹 쓰레기를 치웠습니다. 남은 쓰레기 ${remainingTrash.length}개`);
+        setMessage(
+          `🧹 쓰레기를 치웠습니다. 남은 쓰레기 ${remainingTrash.length}개`
+        );
       }
     }
   }
@@ -483,6 +488,10 @@ export default function GamePage() {
 
             <div style={topStatusGroupStyle}>
               <StatusPill label="현금" value={`${cash.toLocaleString()}원`} />
+              <StatusPill
+                label="다음 세금"
+                value={`${nextTax.toLocaleString()}원`}
+              />
               <StatusPill label="남은 시간" value={`${jobTimeLeft}초`} />
               <StatusPill
                 label="세금까지"
@@ -550,12 +559,7 @@ export default function GamePage() {
           <footer style={jobFooterStyle}>
             <div style={messageBoxStyle}>{message}</div>
 
-            <div style={controlHintStyle}>
-              {activeJobId === "cashier" && "W/A/S/D 키를 순서대로 입력"}
-              {activeJobId === "mining" && "초록 구역에서 Space"}
-              {["loading", "delivery", "cleaning"].includes(activeJobId) &&
-                "WASD 또는 방향키로 이동"}
-            </div>
+            <div style={controlHintStyle}>{getControlHint(activeJobId)}</div>
 
             {jobFinished && (
               <button
@@ -586,6 +590,10 @@ export default function GamePage() {
           <div style={moneyPanelStyle}>
             <StatusPill label="현금" value={`${cash.toLocaleString()}원`} />
             <StatusPill label="세율" value={`${(taxRate * 100).toFixed(0)}%`} />
+            <StatusPill
+              label="다음 세금"
+              value={`${nextTax.toLocaleString()}원`}
+            />
             <StatusPill label="미납" value={`${unpaidTax.toLocaleString()}원`} />
             <StatusPill label="경고" value={`${warningCount}장`} />
             <StatusPill
@@ -658,7 +666,9 @@ function BoardGame({
       const position = { x, y };
       const isPlayer = isSamePosition(player, position);
       const isItem =
-        mode !== "cleaning" && !hasItem && isSamePosition(itemPosition, position);
+        mode !== "cleaning" &&
+        !hasItem &&
+        isSamePosition(itemPosition, position);
       const isTarget =
         mode !== "cleaning" && isSamePosition(targetPosition, position);
       const isObstacleCell = isObstacle(position, obstacles);
@@ -731,8 +741,8 @@ function CashierGame({
                   index < currentIndex
                     ? "#22c55e"
                     : index === currentIndex
-                    ? "#38bdf8"
-                    : "rgba(255,255,255,0.08)",
+                      ? "#38bdf8"
+                      : "rgba(255,255,255,0.08)",
                 color: index <= currentIndex ? "#020617" : "white",
               }}
             >
@@ -903,6 +913,18 @@ function formatTime(seconds: number) {
   return `${minutes}:${String(restSeconds).padStart(2, "0")}`;
 }
 
+function getControlHint(activeJobId: JobId | null) {
+  if (activeJobId === "cashier") {
+    return "W/A/S/D 키를 순서대로 입력";
+  }
+
+  if (activeJobId === "mining") {
+    return "초록 구역에서 Space";
+  }
+
+  return "WASD 또는 방향키로 이동";
+}
+
 const pageStyle: CSSProperties = {
   width: "100vw",
   height: "100vh",
@@ -952,7 +974,7 @@ const moneyPanelStyle: CSSProperties = {
   gap: "10px",
   flexWrap: "wrap",
   justifyContent: "flex-end",
-  maxWidth: "620px",
+  maxWidth: "760px",
 };
 
 const statusPillStyle: CSSProperties = {
@@ -1066,6 +1088,8 @@ const topStatusGroupStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: "8px",
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
 };
 
 const leaveButtonStyle: CSSProperties = {
