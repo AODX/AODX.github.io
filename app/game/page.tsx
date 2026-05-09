@@ -42,7 +42,7 @@ type SaveRow = {
   unpaid_tax: number | string;
 };
 
-type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking";
+type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks";
 type RoomKind = "basic" | "studio" | "office";
 type OccupationId = "unemployed" | "officeWorker" | "singer" | "developer" | "buildingOwner";
 
@@ -75,7 +75,28 @@ type RankingSaveRow = {
   cash: number | string;
 };
 
+type StockId = "kongStudio" | "zephyrLogistics" | "raelAir" | "dongshimLivestock" | "blmaSteel";
+
+type StockCompany = {
+  id: StockId;
+  name: string;
+  icon: string;
+  description: string;
+};
+
+type StockRow = {
+  id: StockId;
+  name: string;
+  icon: string;
+  description: string;
+  price: number;
+  previousPrice: number;
+  owned: number;
+  history: number[];
+};
+
 const PROFILE_TABLE = "game_profiles";
+const STOCK_INTERVAL_MS = 3 * 60 * 1000;
 const TAX_INTERVAL_SECONDS = 420;
 const TAX_WARNING_SECONDS = 60;
 
@@ -178,6 +199,14 @@ const occupationInfo: Record<OccupationId, Occupation> = {
 
 const careerList: OccupationId[] = ["officeWorker", "singer", "developer", "buildingOwner"];
 
+const stockCompanies: StockCompany[] = [
+  { id: "kongStudio", name: "콩 스튜디오", icon: "🎮", description: "귀여운 게임과 캐릭터 IP를 만드는 성장형 회사" },
+  { id: "zephyrLogistics", name: "제피르 물류", icon: "🚚", description: "전국 배송망을 가진 빠른 물류 회사" },
+  { id: "raelAir", name: "라엘 항공", icon: "✈️", description: "여행 수요에 민감하게 움직이는 항공 회사" },
+  { id: "dongshimLivestock", name: "동쉼 축산", icon: "🐄", description: "식품 가격과 수요에 영향을 받는 축산 회사" },
+  { id: "blmaSteel", name: "블마 철강", icon: "🏭", description: "건설 경기와 원자재 흐름을 타는 철강 회사" },
+];
+
 const cashierKeyPool = ["W", "A", "S", "D"];
 const allSortKinds: SortKind[] = ["red", "blue", "yellow", "green", "purple"];
 
@@ -203,6 +232,8 @@ export default function GamePage() {
   const [occupationId, setOccupationId] = useState<OccupationId>("unemployed");
   const [rankingRows, setRankingRows] = useState<RankingRow[]>([]);
   const [rankingUpdatedAt, setRankingUpdatedAt] = useState(new Date());
+  const [stockRows, setStockRows] = useState<StockRow[]>([]);
+  const [stockUpdatedAt, setStockUpdatedAt] = useState(new Date());
 
   const [warningCount, setWarningCount] = useState(0);
   const [unpaidTax, setUnpaidTax] = useState(0);
@@ -387,6 +418,50 @@ export default function GamePage() {
   useEffect(() => {
     if (lobbyView === "ranking") refreshRanking();
   }, [lobbyView]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const storageKey = `alba-money-stocks-${userId}`;
+    const saved = window.localStorage.getItem(storageKey);
+
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as { rows?: StockRow[]; updatedAt?: string };
+        if (Array.isArray(parsed.rows) && parsed.rows.length > 0) {
+          setStockRows(parsed.rows);
+          setStockUpdatedAt(parsed.updatedAt ? new Date(parsed.updatedAt) : new Date());
+          return;
+        }
+      } catch {
+        window.localStorage.removeItem(storageKey);
+      }
+    }
+
+    const initialStocks = makeInitialStocks();
+    setStockRows(initialStocks);
+    setStockUpdatedAt(new Date());
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || stockRows.length === 0) return;
+
+    window.localStorage.setItem(
+      `alba-money-stocks-${userId}`,
+      JSON.stringify({ rows: stockRows, updatedAt: stockUpdatedAt.toISOString() })
+    );
+  }, [userId, stockRows, stockUpdatedAt]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const timer = window.setInterval(() => {
+      setStockRows((current) => updateStockMarket(current.length > 0 ? current : makeInitialStocks()));
+      setStockUpdatedAt(new Date());
+    }, STOCK_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
+  }, [userId]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
@@ -1076,6 +1151,29 @@ export default function GamePage() {
     setRankingUpdatedAt(new Date());
   }
 
+  function buyStock(stockId: StockId) {
+    const stock = stockRows.find((row) => row.id === stockId);
+    if (!stock) return;
+
+    if (cash < stock.price) {
+      setMessage("현금이 부족해서 주식을 살 수 없습니다.");
+      return;
+    }
+
+    setCash((money) => money - stock.price);
+    setStockRows((rows) => rows.map((row) => row.id === stockId ? { ...row, owned: row.owned + 1 } : row));
+    setMessage(`${stock.name} 1주를 ${stock.price.toLocaleString()}원에 매수했습니다.`);
+  }
+
+  function sellStock(stockId: StockId) {
+    const stock = stockRows.find((row) => row.id === stockId);
+    if (!stock || stock.owned <= 0) return;
+
+    setCash((money) => money + stock.price);
+    setStockRows((rows) => rows.map((row) => row.id === stockId ? { ...row, owned: Math.max(0, row.owned - 1) } : row));
+    setMessage(`${stock.name} 1주를 ${stock.price.toLocaleString()}원에 매도했습니다.`);
+  }
+
   async function signOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -1208,6 +1306,9 @@ export default function GamePage() {
               <button onClick={() => setLobbyView("housing")} style={{ ...buildingButtonStyle, right: "7%", bottom: "42%", width: "19%", height: "28%" }}>
                 🏠<br />건물 사무소
               </button>
+              <button onClick={() => setLobbyView("stocks")} style={{ ...buildingButtonStyle, right: "30%", bottom: "32%", width: "18%", height: "26%" }}>
+                📈<br />주식 거래소
+              </button>
               <div style={streetLabelStyle}>길거리</div>
               <div style={streetBottomNavStyle}>
                 <button onClick={() => setLobbyView("room")} style={bottomNavButtonStyle}>돌아가기</button>
@@ -1323,6 +1424,60 @@ export default function GamePage() {
 
               <div style={taxNoticeStyle}>
                 자동 납부 시점에 현금이 부족하면 경고장이 발급됩니다. 경고 3회가 되면 현금 일부가 압류됩니다.
+              </div>
+            </div>
+          )}
+
+          {lobbyView === "stocks" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>STOCK EXCHANGE</div>
+                  <h2 style={panelTitleStyle}>주식 거래소</h2>
+                  <p style={panelDescStyle}>3분마다 가격이 변동됩니다. 각 회사는 한 번에 1주씩 매수/매도할 수 있습니다. 마지막 변동: {stockUpdatedAt.toLocaleTimeString()}</p>
+                </div>
+                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+              </div>
+
+              <div style={stockSummaryStyle}>
+                <StatusPill label="보유 현금" value={`${cash.toLocaleString()}원`} />
+                <StatusPill label="평가 금액" value={`${stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0).toLocaleString()}원`} />
+                <StatusPill label="변동 주기" value="3분" />
+              </div>
+
+              <div style={stockBoardStyle}>
+                {stockRows.map((stock) => {
+                  const diff = stock.price - stock.previousPrice;
+                  const percent = stock.previousPrice > 0 ? (diff / stock.previousPrice) * 100 : 0;
+                  const isUp = diff >= 0;
+
+                  return (
+                    <div key={stock.id} style={stockCardStyle}>
+                      <div style={stockCardHeaderStyle}>
+                        <div>
+                          <div style={stockNameStyle}>{stock.icon} {stock.name}</div>
+                          <div style={stockDescStyle}>{stock.description}</div>
+                        </div>
+                        <div style={{ ...stockChangeBadgeStyle, color: isUp ? "#dc2626" : "#2563eb", borderColor: isUp ? "#fecaca" : "#bfdbfe", background: isUp ? "#fff1f2" : "#eff6ff" }}>
+                          {isUp ? "▲" : "▼"} {Math.abs(percent).toFixed(2)}%
+                        </div>
+                      </div>
+
+                      <StockMiniChart history={stock.history} />
+
+                      <div style={stockBottomRowStyle}>
+                        <div>
+                          <div style={stockPriceStyle}>{stock.price.toLocaleString()}원</div>
+                          <div style={stockOwnedStyle}>보유 {stock.owned}주 · 평가 {(stock.owned * stock.price).toLocaleString()}원</div>
+                        </div>
+                        <div style={stockActionGroupStyle}>
+                          <button onClick={() => buyStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, opacity: cash < stock.price ? 0.45 : 1 }}>매수</button>
+                          <button onClick={() => sellStock(stock.id)} disabled={stock.owned <= 0} style={{ ...stockTradeButtonStyle, opacity: stock.owned <= 0 ? 0.45 : 1 }}>매도</button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1640,6 +1795,42 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
   );
 }
 
+function StockMiniChart({ history }: { history: number[] }) {
+  const points = history.length > 0 ? history : [1000];
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = Math.max(1, max - min);
+  const width = 360;
+  const height = 92;
+  const step = points.length > 1 ? width / (points.length - 1) : width;
+  const path = points.map((price, index) => {
+    const x = index * step;
+    const y = height - ((price - min) / range) * (height - 16) - 8;
+    return `${index === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={stockChartStyle} role="img" aria-label="주식 가격 변동 그래프">
+      <line x1="0" y1="18" x2={width} y2="18" stroke="#d1d5db" strokeWidth="1" />
+      <line x1="0" y1="48" x2={width} y2="48" stroke="#e5e7eb" strokeWidth="1" />
+      <line x1="0" y1="78" x2={width} y2="78" stroke="#d1d5db" strokeWidth="1" />
+      {points.map((price, index) => {
+        const x = index * step;
+        const prev = points[Math.max(0, index - 1)];
+        const y = height - ((price - min) / range) * (height - 16) - 8;
+        const up = price >= prev;
+        return (
+          <g key={`${price}-${index}`}>
+            <line x1={x} x2={x} y1={Math.max(8, y - 12)} y2={Math.min(height - 8, y + 12)} stroke={up ? "#dc2626" : "#2563eb"} strokeWidth="2" />
+            <rect x={x - 4} y={up ? y - 6 : y} width="8" height="12" fill={up ? "#ef4444" : "#3b82f6"} rx="1" />
+          </g>
+        );
+      })}
+      <path d={path} fill="none" stroke="#111827" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function StatusPill({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) {
   return (
     <div style={{ ...statusPillStyle, borderColor: warning ? "#f97316" : "#111827", color: warning ? "#9a3412" : "#111827" }}>
@@ -1758,6 +1949,44 @@ function makeRankingRows(nickname: string, cash: number, job: string): RankingRo
       isMe: true,
     },
   ];
+}
+
+function makeInitialStocks(): StockRow[] {
+  return stockCompanies.map((company) => {
+    const price = randomInt(1000, 50000);
+    const history = Array.from({ length: 18 }, (_, index) => {
+      const wave = Math.sin(index / 2.2) * price * 0.035;
+      const noise = randomInt(-Math.floor(price * 0.025), Math.floor(price * 0.025));
+      return Math.max(100, Math.round(price + wave + noise));
+    });
+
+    return {
+      ...company,
+      price,
+      previousPrice: history[history.length - 2] ?? price,
+      owned: 0,
+      history: [...history.slice(-17), price],
+    };
+  });
+}
+
+function updateStockMarket(rows: StockRow[]): StockRow[] {
+  return rows.map((stock) => {
+    const direction = Math.random() < 0.52 ? 1 : -1;
+    const percent = Math.random() * 10;
+    const nextPrice = Math.max(100, Math.round(stock.price * (1 + direction * percent / 100)));
+
+    return {
+      ...stock,
+      previousPrice: stock.price,
+      price: nextPrice,
+      history: [...stock.history, nextPrice].slice(-24),
+    };
+  });
+}
+
+function randomInt(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 function formatTime(seconds: number) {
@@ -2256,6 +2485,102 @@ const taxNoticeStyle: CSSProperties = {
   color: "#111827",
   fontWeight: 900,
   boxShadow: "3px 3px 0 rgba(17,24,39,0.14)",
+};
+
+const stockSummaryStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: "10px",
+};
+
+const stockBoardStyle: CSSProperties = {
+  minHeight: 0,
+  overflow: "auto",
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "12px",
+  paddingRight: "4px",
+};
+
+const stockCardStyle: CSSProperties = {
+  background: "#ffffff",
+  color: "#111827",
+  border: "3px solid #111827",
+  borderRadius: "18px",
+  padding: "14px",
+  boxShadow: "5px 5px 0 rgba(17,24,39,0.18)",
+  display: "grid",
+  gap: "10px",
+};
+
+const stockCardHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "start",
+  gap: "10px",
+};
+
+const stockNameStyle: CSSProperties = {
+  fontSize: "20px",
+  fontWeight: 900,
+};
+
+const stockDescStyle: CSSProperties = {
+  marginTop: "4px",
+  color: "#4b5563",
+  fontSize: "12px",
+  fontWeight: 800,
+  lineHeight: 1.35,
+};
+
+const stockChangeBadgeStyle: CSSProperties = {
+  border: "2px solid",
+  borderRadius: "999px",
+  padding: "6px 10px",
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+};
+
+const stockChartStyle: CSSProperties = {
+  width: "100%",
+  height: "110px",
+  background: "linear-gradient(180deg, #f8fafc, #eef2ff)",
+  border: "2px solid #d1d5db",
+  borderRadius: "12px",
+};
+
+const stockBottomRowStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "10px",
+};
+
+const stockPriceStyle: CSSProperties = {
+  fontSize: "24px",
+  fontWeight: 900,
+};
+
+const stockOwnedStyle: CSSProperties = {
+  color: "#4b5563",
+  fontSize: "12px",
+  fontWeight: 900,
+};
+
+const stockActionGroupStyle: CSSProperties = {
+  display: "flex",
+  gap: "6px",
+};
+
+const stockTradeButtonStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "10px",
+  background: "#fef3c7",
+  color: "#111827",
+  padding: "8px 12px",
+  fontWeight: 900,
+  cursor: "pointer",
+  boxShadow: "2px 2px 0 #111827",
 };
 
 const loadingPageStyle: CSSProperties = {
