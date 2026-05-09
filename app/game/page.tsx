@@ -1599,10 +1599,20 @@ const securityPanelStyle: CSSProperties = {
   justifyContent: "stretch",
   background: "rgba(15,23,42,0.88)",
   border: "1px solid rgba(255,255,255,0.16)",
-  borderRadiconst securityCharacterStyle: CSSProperties = {
-  fontSize: "92px",
-  marginBottom: "6px",
-  filter: "drop-shadow(0 18px 20px rgba(0,0,0,0.28))",
+  borderRadius: "22px",
+  padding: "12px",
+  gap: "10px",
+  overflow: "hidden",
+};
+
+const securityQueueStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "auto 1fr auto 1fr auto",
+  alignItems: "center",
+  gap: "8px",
+  color: "#cbd5e1",
+  fontWeight: 900,
+  fontSize: "13px",
 };
 
 const securityBadgeStyle: CSSProperties = {
@@ -1616,15 +1626,6 @@ const securityBadgeStyle: CSSProperties = {
   fontWeight: 900,
   fontSize: "22px",
   animation: "securityPulse 900ms ease infinite",
-};
-
-const securityLabelStyle
-  gridTemplateColumns: "auto 1fr auto 1fr auto",
-  alignItems: "center",
-  gap: "8px",
-  color: "#cbd5e1",
-  fontWeight: 900,
-  fontSize: "13px",
 };
 
 const securityGateStyle: CSSProperties = {
@@ -1716,7 +1717,6 @@ const firedStampReasonStyle: CSSProperties = {
   color: "rgba(255, 228, 230, 0.92)",
   whiteSpace: "nowrap",
 };
-
 
 
 
