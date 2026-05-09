@@ -42,6 +42,9 @@ type SaveRow = {
   unpaid_tax: number | string;
 };
 
+type LobbyView = "room" | "street" | "jobs" | "housing" | "tax";
+type RoomKind = "basic" | "studio" | "office";
+
 const TAX_INTERVAL_SECONDS = 600;
 const TAX_WARNING_SECONDS = 60;
 
@@ -93,6 +96,12 @@ const jobs: Job[] = [
   },
 ];
 
+const roomInfo: Record<RoomKind, { name: string; floor: string; description: string; priceText: string }> = {
+  basic: { name: "기본 방", floor: "2F", description: "처음 지급되는 작은 방입니다.", priceText: "기본 제공" },
+  studio: { name: "넓은 원룸", floor: "3F", description: "소파와 책상이 있는 넓은 생활 공간입니다.", priceText: "무료 변경" },
+  office: { name: "작업실 방", floor: "5F", description: "알바와 사업 준비를 위한 작업실 느낌의 방입니다.", priceText: "무료 변경" },
+};
+
 const cashierKeyPool = ["W", "A", "S", "D"];
 const allSortKinds: SortKind[] = ["red", "blue", "yellow", "green", "purple"];
 
@@ -110,6 +119,11 @@ export default function GamePage() {
   const [isSaveLoaded, setIsSaveLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("저장 대기 중");
+
+  const [lobbyView, setLobbyView] = useState<LobbyView>("room");
+  const [nickname, setNickname] = useState("우리집");
+  const [nicknameDraft, setNicknameDraft] = useState("우리집");
+  const [roomKind, setRoomKind] = useState<RoomKind>("basic");
 
   const [warningCount, setWarningCount] = useState(0);
   const [unpaidTax, setUnpaidTax] = useState(0);
@@ -223,6 +237,22 @@ export default function GamePage() {
 
     loadSave();
   }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const savedNickname = window.localStorage.getItem(`alba-money-nickname-${userId}`);
+    const savedRoomKind = window.localStorage.getItem(`alba-money-room-${userId}`) as RoomKind | null;
+
+    if (savedNickname) {
+      setNickname(savedNickname);
+      setNicknameDraft(savedNickname);
+    }
+
+    if (savedRoomKind && savedRoomKind in roomInfo) {
+      setRoomKind(savedRoomKind);
+    }
+  }, [userId]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
@@ -756,6 +786,30 @@ export default function GamePage() {
     setSecuritySignal("normal");
   }
 
+  function saveNickname() {
+    const trimmed = nicknameDraft.trim().slice(0, 12);
+    const nextNickname = trimmed || "우리집";
+    setNickname(nextNickname);
+    setNicknameDraft(nextNickname);
+
+    if (userId) {
+      window.localStorage.setItem(`alba-money-nickname-${userId}`, nextNickname);
+    }
+
+    setMessage(`닉네임이 ${nextNickname}(으)로 변경되었습니다.`);
+  }
+
+  function changeRoom(nextRoomKind: RoomKind) {
+    setRoomKind(nextRoomKind);
+
+    if (userId) {
+      window.localStorage.setItem(`alba-money-room-${userId}`, nextRoomKind);
+    }
+
+    setLobbyView("room");
+    setMessage(`${roomInfo[nextRoomKind].name}(으)로 메인 화면이 변경되었습니다.`);
+  }
+
   async function signOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -813,12 +867,24 @@ export default function GamePage() {
 
   return (
     <main style={pageStyle}>
-      <section style={lobbyLayoutStyle}>
-        <header style={lobbyHeaderStyle}>
-          <div>
+      <section style={worldLayoutStyle}>
+        <header style={worldHeaderStyle}>
+          <div style={profileAreaStyle}>
             <div style={smallLabelStyle}>ALBA MONEY GAME</div>
-            <h1 style={mainTitleStyle}>알바 머니 게임</h1>
-            <p style={subtitleStyle}>계정에 자동 저장됩니다. 현실적인 보상에 맞춰 난이도도 조정되었습니다.</p>
+            <h1 style={mainTitleStyle}>{nickname}의 하루</h1>
+            <div style={nicknameEditStyle}>
+              <input
+                value={nicknameDraft}
+                onChange={(event) => setNicknameDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") saveNickname();
+                }}
+                maxLength={12}
+                placeholder="닉네임 입력"
+                style={nicknameInputStyle}
+              />
+              <button onClick={saveNickname} style={smallActionButtonStyle}>닉네임 변경</button>
+            </div>
           </div>
 
           <div style={moneyPanelStyle}>
@@ -831,20 +897,140 @@ export default function GamePage() {
           </div>
         </header>
 
-        <section style={jobGridStyle}>
-          {jobs.map((job) => (
-            <button key={job.id} onClick={() => setSelectedJobId(job.id)} style={{ ...jobCardStyle, border: selectedJobId === job.id ? "2px solid #38bdf8" : "1px solid rgba(255,255,255,0.14)" }}>
-              <div style={jobIconStyle}>{job.icon}</div>
-              <h2 style={jobCardTitleStyle}>{job.name}</h2>
-              <p style={jobCardTextStyle}>{job.subtitle}</p>
-              <p style={rewardTextStyle}>{job.rewardText}</p>
-            </button>
-          ))}
+        <section style={worldBodyStyle}>
+          {lobbyView === "room" && (
+            <div style={roomSceneStyle}>
+              <div style={roomMoneyStyle}>◎ {cash.toLocaleString()}</div>
+              <div style={roomInfoTextStyle}>
+                <strong>{nickname}</strong><br />
+                아이큐 30<br />
+                체력 5
+              </div>
+              <div style={roomFloorStyle}>{roomInfo[roomKind].floor}</div>
+              <div style={roomWindowStyle} />
+              <div style={roomSofaStyle} />
+              <div style={roomDeskStyle} />
+              <div style={roomTvStyle}>TV</div>
+              <div style={roomCharacterStyle}>ㅇㅅㅇ</div>
+              <div style={roomSideControlsStyle}>
+                <button style={roundIconButtonStyle}>🔊</button>
+                <button style={roundIconButtonStyle}>🏆</button>
+                <button style={roundIconButtonStyle}>NO<br />광고</button>
+              </div>
+              <div style={roomNavStyle}>
+                <button onClick={() => setLobbyView("jobs")} style={bottomNavButtonStyle}>돈벌기</button>
+                <button style={bottomNavButtonStyle}>상점</button>
+                <button onClick={() => setLobbyView("street")} style={bottomNavButtonStyle}>길거리</button>
+                <button style={bottomNavButtonStyle}>미션</button>
+              </div>
+            </div>
+          )}
+
+          {lobbyView === "street" && (
+            <div style={streetSceneStyle}>
+              <div style={streetMoneyStyle}>◎ {cash.toLocaleString()}</div>
+              <div style={sunStyle}>☼</div>
+              <button onClick={() => setLobbyView("jobs")} style={{ ...buildingButtonStyle, left: "4%", bottom: "34%", width: "18%", height: "34%" }}>
+                🏢<br />알바 사무소
+              </button>
+              <button onClick={() => setLobbyView("tax")} style={{ ...buildingButtonStyle, left: "31%", bottom: "43%", width: "16%", height: "24%" }}>
+                🏛️<br />구청
+              </button>
+              <button onClick={() => setLobbyView("housing")} style={{ ...buildingButtonStyle, right: "7%", bottom: "42%", width: "19%", height: "28%" }}>
+                🏠<br />건물 사무소
+              </button>
+              <div style={roadStyle} />
+              <div style={streetLabelStyle}>길거리</div>
+              <div style={streetBottomNavStyle}>
+                <button onClick={() => setLobbyView("room")} style={bottomNavButtonStyle}>돌아가기</button>
+                <button style={bottomNavButtonStyle}>지도보기</button>
+              </div>
+            </div>
+          )}
+
+          {lobbyView === "jobs" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>JOB OFFICE</div>
+                  <h2 style={panelTitleStyle}>알바 사무소</h2>
+                  <p style={panelDescStyle}>기존 알바를 선택해서 바로 시작할 수 있습니다.</p>
+                </div>
+                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+              </div>
+
+              <section style={jobGridStyle}>
+                {jobs.map((job) => (
+                  <button key={job.id} onClick={() => setSelectedJobId(job.id)} style={{ ...jobCardStyle, border: selectedJobId === job.id ? "2px solid #38bdf8" : "1px solid rgba(255,255,255,0.14)" }}>
+                    <div style={jobIconStyle}>{job.icon}</div>
+                    <h2 style={jobCardTitleStyle}>{job.name}</h2>
+                    <p style={jobCardTextStyle}>{job.subtitle}</p>
+                    <p style={rewardTextStyle}>{job.rewardText}</p>
+                  </button>
+                ))}
+              </section>
+
+              <footer style={officeFooterStyle}>
+                <div style={messageBoxStyle}>{message}</div>
+                <button onClick={() => startJob(selectedJob.id)} style={bigStartButtonStyle}>{selectedJob.icon} {selectedJob.name} 시작하기</button>
+              </footer>
+            </div>
+          )}
+
+          {lobbyView === "housing" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>BUILDING OFFICE</div>
+                  <h2 style={panelTitleStyle}>건물 사무소</h2>
+                  <p style={panelDescStyle}>메인 화면으로 사용할 방 분위기를 변경합니다. 돈은 차감하지 않습니다.</p>
+                </div>
+                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+              </div>
+
+              <div style={roomSelectGridStyle}>
+                {(Object.keys(roomInfo) as RoomKind[]).map((key) => (
+                  <button key={key} onClick={() => changeRoom(key)} style={{ ...roomSelectCardStyle, border: roomKind === key ? "2px solid #38bdf8" : "1px solid rgba(255,255,255,0.14)" }}>
+                    <div style={roomPreviewStyle}>{roomInfo[key].floor}</div>
+                    <h3 style={jobCardTitleStyle}>{roomInfo[key].name}</h3>
+                    <p style={jobCardTextStyle}>{roomInfo[key].description}</p>
+                    <p style={rewardTextStyle}>{roomInfo[key].priceText}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {lobbyView === "tax" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>CITY HALL</div>
+                  <h2 style={panelTitleStyle}>구청 세금 확인</h2>
+                  <p style={panelDescStyle}>현재 납부해야 할 세금과 미납 경고를 확인합니다.</p>
+                </div>
+                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+              </div>
+
+              <div style={taxCardStyle}>
+                <StatusPill label="현재 현금" value={`${cash.toLocaleString()}원`} />
+                <StatusPill label="적용 세율" value={`${(taxRate * 100).toFixed(0)}%`} />
+                <StatusPill label="예정 세금" value={`${Math.floor(cash * taxRate).toLocaleString()}원`} />
+                <StatusPill label="미납 세금" value={`${unpaidTax.toLocaleString()}원`} warning={unpaidTax > 0} />
+                <StatusPill label="총 납부 예정" value={`${nextTax.toLocaleString()}원`} warning={nextTax > cash} />
+                <StatusPill label="자동 납부까지" value={formatTime(taxCountdown)} warning={taxCountdown <= TAX_WARNING_SECONDS} />
+                <StatusPill label="경고장" value={`${warningCount}/3장`} warning={warningCount > 0} />
+              </div>
+
+              <div style={taxNoticeStyle}>
+                자동 납부 시점에 현금이 부족하면 경고장이 발급됩니다. 경고 3회가 되면 현금 일부가 압류됩니다.
+              </div>
+            </div>
+          )}
         </section>
 
-        <footer style={lobbyFooterStyle}>
+        <footer style={worldFooterStyle}>
           <div style={messageBoxStyle}>{message}</div>
-          <button onClick={() => startJob(selectedJob.id)} style={bigStartButtonStyle}>{selectedJob.icon} {selectedJob.name} 시작하기</button>
           <button onClick={signOut} style={logoutButtonStyle}>로그아웃</button>
         </footer>
       </section>
@@ -1075,6 +1261,367 @@ function getControlHint(activeJobId: JobId | null) {
   return "알바를 선택하세요";
 }
 
+
+const worldLayoutStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  padding: "8px 10px",
+  display: "grid",
+  gridTemplateRows: "84px minmax(0, 1fr) 54px",
+  gap: "8px",
+  overflow: "hidden",
+};
+
+const worldHeaderStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  alignItems: "start",
+  gap: "12px",
+  minWidth: 0,
+};
+
+const profileAreaStyle: CSSProperties = {
+  minWidth: 0,
+  overflow: "hidden",
+};
+
+const nicknameEditStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "6px",
+  marginTop: "6px",
+};
+
+const nicknameInputStyle: CSSProperties = {
+  width: "150px",
+  border: "1px solid rgba(255,255,255,0.22)",
+  borderRadius: "10px",
+  background: "rgba(255,255,255,0.1)",
+  color: "white",
+  padding: "8px 10px",
+  fontWeight: 900,
+  outline: "none",
+};
+
+const smallActionButtonStyle: CSSProperties = {
+  border: "1px solid rgba(255,255,255,0.2)",
+  borderRadius: "10px",
+  background: "rgba(255,255,255,0.1)",
+  color: "white",
+  padding: "8px 11px",
+  fontWeight: 900,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
+const worldBodyStyle: CSSProperties = {
+  minHeight: 0,
+  overflow: "hidden",
+};
+
+const worldFooterStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gap: "8px",
+  alignItems: "stretch",
+  minWidth: 0,
+};
+
+const roomSceneStyle: CSSProperties = {
+  position: "relative",
+  width: "100%",
+  height: "100%",
+  overflow: "hidden",
+  background: "#fff",
+  color: "#111",
+  borderRadius: "18px",
+  border: "3px solid #111",
+  boxShadow: "0 18px 44px rgba(0,0,0,0.25)",
+};
+
+const roomMoneyStyle: CSSProperties = {
+  position: "absolute",
+  top: "8px",
+  left: "12px",
+  color: "#ef4444",
+  fontWeight: 900,
+  zIndex: 5,
+};
+
+const roomInfoTextStyle: CSSProperties = {
+  position: "absolute",
+  top: "52px",
+  left: "12px",
+  fontSize: "12px",
+  fontWeight: 900,
+  lineHeight: 1.25,
+  zIndex: 5,
+};
+
+const roomFloorStyle: CSSProperties = {
+  position: "absolute",
+  top: "42px",
+  left: "50%",
+  transform: "translateX(-50%)",
+  fontSize: "28px",
+  fontWeight: 900,
+};
+
+const roomWindowStyle: CSSProperties = {
+  position: "absolute",
+  top: "92px",
+  left: "42%",
+  width: "22%",
+  height: "19%",
+  border: "5px double #111",
+  background: "rgba(226,232,240,0.7)",
+};
+
+const roomSofaStyle: CSSProperties = {
+  position: "absolute",
+  left: "5%",
+  bottom: "20%",
+  width: "20%",
+  height: "28%",
+  border: "4px solid #111",
+  borderRadius: "12px 12px 4px 4px",
+};
+
+const roomDeskStyle: CSSProperties = {
+  position: "absolute",
+  right: "14%",
+  bottom: "23%",
+  width: "44%",
+  height: "13%",
+  border: "4px solid #111",
+  borderTopWidth: "7px",
+};
+
+const roomTvStyle: CSSProperties = {
+  position: "absolute",
+  right: "8%",
+  bottom: "39%",
+  width: "10%",
+  height: "18%",
+  border: "4px solid #111",
+  borderRadius: "8px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: 900,
+};
+
+const roomCharacterStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  bottom: "24%",
+  transform: "translateX(-50%)",
+  width: "74px",
+  height: "74px",
+  border: "4px solid #111",
+  borderRadius: "50%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: 900,
+  fontSize: "13px",
+};
+
+const roomSideControlsStyle: CSSProperties = {
+  position: "absolute",
+  right: "12px",
+  top: "10px",
+  display: "flex",
+  gap: "8px",
+};
+
+const roundIconButtonStyle: CSSProperties = {
+  width: "38px",
+  height: "38px",
+  borderRadius: "50%",
+  border: "2px solid #111",
+  background: "white",
+  color: "#111",
+  fontSize: "11px",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const roomNavStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  bottom: "12px",
+  transform: "translateX(-50%)",
+  display: "grid",
+  gridTemplateColumns: "repeat(4, 120px)",
+  gap: "6px",
+};
+
+const bottomNavButtonStyle: CSSProperties = {
+  border: "3px solid #111",
+  background: "#f8fafc",
+  color: "#111",
+  padding: "10px 14px",
+  fontWeight: 900,
+  cursor: "pointer",
+  boxShadow: "2px 2px 0 #111",
+};
+
+const streetSceneStyle: CSSProperties = {
+  position: "relative",
+  width: "100%",
+  height: "100%",
+  overflow: "hidden",
+  background: "#fff",
+  color: "#111",
+  borderRadius: "18px",
+  border: "3px solid #111",
+  boxShadow: "0 18px 44px rgba(0,0,0,0.25)",
+};
+
+const streetMoneyStyle: CSSProperties = {
+  position: "absolute",
+  top: "8px",
+  left: "12px",
+  color: "#ef4444",
+  fontWeight: 900,
+};
+
+const sunStyle: CSSProperties = {
+  position: "absolute",
+  top: "42px",
+  left: "12%",
+  fontSize: "70px",
+  lineHeight: 1,
+};
+
+const buildingButtonStyle: CSSProperties = {
+  position: "absolute",
+  border: "4px solid #111",
+  background: "white",
+  color: "#111",
+  fontWeight: 900,
+  fontSize: "15px",
+  cursor: "pointer",
+  boxShadow: "4px 4px 0 rgba(0,0,0,0.15)",
+};
+
+const roadStyle: CSSProperties = {
+  position: "absolute",
+  left: "-8%",
+  right: "-8%",
+  bottom: "12%",
+  height: "28%",
+  borderTop: "4px solid #111",
+  borderBottom: "4px solid #111",
+  transform: "rotate(-8deg)",
+  background: "repeating-linear-gradient(90deg, transparent 0 42px, rgba(0,0,0,0.9) 42px 72px, transparent 72px 112px)",
+  opacity: 0.88,
+};
+
+const streetLabelStyle: CSSProperties = {
+  position: "absolute",
+  right: "22%",
+  bottom: "28%",
+  background: "#e5e7eb",
+  border: "1px solid #9ca3af",
+  padding: "5px 16px",
+  fontWeight: 900,
+};
+
+const streetBottomNavStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  bottom: "12px",
+  transform: "translateX(-50%)",
+  display: "flex",
+  gap: "8px",
+};
+
+const panelSceneStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "grid",
+  gridTemplateRows: "auto minmax(0, 1fr) auto",
+  gap: "10px",
+  overflow: "hidden",
+  background: "rgba(15,23,42,0.72)",
+  border: "1px solid rgba(255,255,255,0.14)",
+  borderRadius: "18px",
+  padding: "14px",
+};
+
+const panelHeaderRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "start",
+  justifyContent: "space-between",
+  gap: "12px",
+};
+
+const panelTitleStyle: CSSProperties = {
+  margin: "2px 0 4px",
+  fontSize: "28px",
+};
+
+const panelDescStyle: CSSProperties = {
+  margin: 0,
+  color: "#dbeafe",
+  fontSize: "14px",
+};
+
+const officeFooterStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gap: "10px",
+  alignItems: "stretch",
+};
+
+const roomSelectGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: "12px",
+  minHeight: 0,
+};
+
+const roomSelectCardStyle: CSSProperties = {
+  background: "rgba(255,255,255,0.10)",
+  color: "white",
+  borderRadius: "18px",
+  padding: "16px",
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+const roomPreviewStyle: CSSProperties = {
+  height: "120px",
+  border: "3px solid rgba(255,255,255,0.75)",
+  borderRadius: "14px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: "34px",
+  fontWeight: 900,
+  marginBottom: "12px",
+  background: "rgba(255,255,255,0.08)",
+};
+
+const taxCardStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: "10px",
+  alignContent: "start",
+};
+
+const taxNoticeStyle: CSSProperties = {
+  marginTop: "12px",
+  padding: "14px",
+  borderRadius: "14px",
+  background: "rgba(250,204,21,0.14)",
+  border: "1px solid rgba(250,204,21,0.35)",
+  color: "#fef3c7",
+  fontWeight: 900,
+};
+
 const loadingPageStyle: CSSProperties = {
   minHeight: "100svh",
   display: "flex",
@@ -1099,25 +1646,7 @@ const pageStyle: CSSProperties = {
   fontFamily: "Arial, sans-serif",
 };
 
-const lobbyLayoutStyle: CSSProperties = {
-  width: "100%",
-  height: "100%",
-  maxWidth: "100%",
-  padding: "10px 14px",
-  display: "grid",
-  gridTemplateRows: "78px minmax(0, 1fr) 48px",
-  gap: "10px",
-  overflow: "hidden",
-};
 
-const lobbyHeaderStyle: CSSProperties = {
-  minWidth: 0,
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) auto",
-  alignItems: "start",
-  gap: "14px",
-  overflow: "hidden",
-};
 
 const smallLabelStyle: CSSProperties = {
   color: "#7dd3fc",
@@ -1133,14 +1662,6 @@ const mainTitleStyle: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const subtitleStyle: CSSProperties = {
-  margin: 0,
-  color: "#dbeafe",
-  fontSize: "14px",
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-};
 
 const moneyPanelStyle: CSSProperties = {
   display: "grid",
@@ -1224,14 +1745,6 @@ const rewardTextStyle: CSSProperties = {
   lineHeight: 1.25,
 };
 
-const lobbyFooterStyle: CSSProperties = {
-  minWidth: 0,
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) auto auto",
-  alignItems: "stretch",
-  gap: "10px",
-  overflow: "hidden",
-};
 
 const messageBoxStyle: CSSProperties = {
   minHeight: "48px",
@@ -1666,6 +2179,7 @@ const securityCharacterStyle: CSSProperties = {
   fontSize: "80px",
   marginBottom: "8px",
 };
+
 
 const securityHintStyle: CSSProperties = {
   marginTop: "10px",
