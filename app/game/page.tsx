@@ -1058,7 +1058,7 @@ export default function GamePage() {
                   <h2 style={panelTitleStyle}>알바 가기</h2>
                   <p style={panelDescStyle}>단기 알바를 선택해서 바로 돈을 벌 수 있습니다.</p>
                 </div>
-                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
               </div>
 
               <section style={jobGridStyle}>
@@ -1167,7 +1167,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>RANKING</div>
                   <h2 style={panelTitleStyle}>랭킹</h2>
-                  <p style={panelDescStyle}>30분마다 갱신됩니다. 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
+                  <p style={panelDescStyle}>계정이 있는 유저만 표시됩니다. 30분마다 갱신됩니다. 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
                 </div>
                 <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
               </div>
@@ -1396,18 +1396,15 @@ function makeDeliveryObstacleLanes(difficulty: number, safeLane: number) {
 }
 
 function makeRankingRows(nickname: string, cash: number, job: string): RankingRow[] {
-  const rows: Omit<RankingRow, "rank">[] = [
-    { nickname: "알바왕", cash: 930000, job: "건물주" },
-    { nickname: "퇴근요정", cash: 410000, job: "개발자" },
-    { nickname: "월급루팡", cash: 210000, job: "일반 회사원" },
-    { nickname: "무대천재", cash: 170000, job: "가수" },
-    { nickname, cash, job, isMe: true },
-    { nickname: "초보알바", cash: 32000, job: "백수" },
+  return [
+    {
+      rank: 1,
+      nickname,
+      cash,
+      job,
+      isMe: true,
+    },
   ];
-
-  return rows
-    .sort((a, b) => b.cash - a.cash)
-    .map((row, index) => ({ ...row, rank: index + 1 }));
 }
 
 function formatTime(seconds: number) {
@@ -1466,24 +1463,26 @@ const nicknameEditStyle: CSSProperties = {
 
 const nicknameInputStyle: CSSProperties = {
   width: "150px",
-  border: "1px solid rgba(255,255,255,0.22)",
-  borderRadius: "10px",
-  background: "rgba(255,255,255,0.1)",
-  color: "white",
+  border: "3px solid #111827",
+  borderRadius: "12px",
+  background: "#ffffff",
+  color: "#111827",
   padding: "8px 10px",
   fontWeight: 900,
   outline: "none",
+  boxShadow: "2px 2px 0 #111827",
 };
 
 const smallActionButtonStyle: CSSProperties = {
-  border: "1px solid rgba(255,255,255,0.2)",
-  borderRadius: "10px",
-  background: "rgba(255,255,255,0.1)",
-  color: "white",
-  padding: "8px 11px",
+  border: "3px solid #111827",
+  borderRadius: "12px",
+  background: "#ffffff",
+  color: "#111827",
+  padding: "8px 12px",
   fontWeight: 900,
   cursor: "pointer",
   whiteSpace: "nowrap",
+  boxShadow: "2px 2px 0 #111827",
 };
 
 const worldBodyStyle: CSSProperties = {
@@ -1504,11 +1503,12 @@ const roomSceneStyle: CSSProperties = {
   width: "100%",
   height: "100%",
   overflow: "hidden",
-  background: "#fff",
-  color: "#111",
-  borderRadius: "18px",
-  border: "3px solid #111",
-  boxShadow: "0 18px 44px rgba(0,0,0,0.25)",
+  background:
+    "linear-gradient(115deg, transparent 0 18%, rgba(17,24,39,0.08) 18.2% 18.8%, transparent 19%), linear-gradient(245deg, transparent 0 20%, rgba(17,24,39,0.08) 20.2% 20.8%, transparent 21%), linear-gradient(180deg, #ffffff 0 66%, #f1f5f9 66% 100%)",
+  color: "#111827",
+  borderRadius: "22px",
+  border: "4px solid #111827",
+  boxShadow: "0 18px 0 rgba(17,24,39,0.10), 0 24px 46px rgba(15,23,42,0.18)",
 };
 
 const roomMoneyStyle: CSSProperties = {
@@ -1541,62 +1541,72 @@ const roomFloorStyle: CSSProperties = {
 
 const roomWindowStyle: CSSProperties = {
   position: "absolute",
-  top: "92px",
-  left: "42%",
-  width: "22%",
-  height: "19%",
-  border: "5px double #111",
-  background: "rgba(226,232,240,0.7)",
+  top: "70px",
+  left: "43%",
+  width: "25%",
+  height: "21%",
+  border: "5px solid #111827",
+  boxShadow: "inset 0 0 0 4px #ffffff, 4px 4px 0 rgba(17,24,39,0.18)",
+  background: "linear-gradient(180deg, #dbeafe 0%, #f8fafc 100%)",
 };
 
 const roomSofaStyle: CSSProperties = {
   position: "absolute",
   left: "5%",
   bottom: "20%",
-  width: "20%",
-  height: "28%",
-  border: "4px solid #111",
-  borderRadius: "12px 12px 4px 4px",
+  width: "24%",
+  height: "30%",
+  border: "5px solid #111827",
+  borderRadius: "20px 20px 8px 8px",
+  background: "linear-gradient(180deg, #ffffff 0 55%, #e2e8f0 55% 100%)",
+  boxShadow: "8px 8px 0 rgba(17,24,39,0.14)",
 };
 
 const roomDeskStyle: CSSProperties = {
   position: "absolute",
   right: "14%",
   bottom: "23%",
-  width: "44%",
-  height: "13%",
-  border: "4px solid #111",
-  borderTopWidth: "7px",
+  width: "46%",
+  height: "14%",
+  border: "5px solid #111827",
+  borderTopWidth: "8px",
+  borderRadius: "4px",
+  background: "linear-gradient(90deg, #f8fafc 0 24%, #ffffff 24% 28%, #f8fafc 28% 52%, #ffffff 52% 56%, #f8fafc 56% 100%)",
+  boxShadow: "6px 6px 0 rgba(17,24,39,0.16)",
 };
 
 const roomTvStyle: CSSProperties = {
   position: "absolute",
   right: "8%",
   bottom: "39%",
-  width: "10%",
+  width: "11%",
   height: "18%",
-  border: "4px solid #111",
-  borderRadius: "8px",
+  border: "5px solid #111827",
+  borderRadius: "12px",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   fontWeight: 900,
+  background: "radial-gradient(circle at 70% 30%, #ffffff 0 8%, #e5e7eb 9% 100%)",
+  boxShadow: "5px 5px 0 rgba(17,24,39,0.16)",
 };
 
 const roomCharacterStyle: CSSProperties = {
   position: "absolute",
   left: "50%",
-  bottom: "24%",
+  bottom: "25%",
   transform: "translateX(-50%)",
-  width: "74px",
-  height: "74px",
-  border: "4px solid #111",
+  width: "82px",
+  height: "82px",
+  border: "5px solid #111827",
   borderRadius: "50%",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   fontWeight: 900,
-  fontSize: "13px",
+  fontSize: "14px",
+  background: "#ffffff",
+  boxShadow: "0 16px 0 -10px rgba(17,24,39,0.25)",
 };
 
 const roomSideControlsStyle: CSSProperties = {
@@ -1608,16 +1618,16 @@ const roomSideControlsStyle: CSSProperties = {
 };
 
 const trophyButtonStyle: CSSProperties = {
-  width: "58px",
-  height: "58px",
+  width: "66px",
+  height: "66px",
   borderRadius: "50%",
-  border: "3px solid #111",
-  background: "white",
-  color: "#111",
-  fontSize: "30px",
+  border: "4px solid #111827",
+  background: "linear-gradient(180deg, #fef3c7, #facc15)",
+  color: "#111827",
+  fontSize: "34px",
   fontWeight: 900,
   cursor: "pointer",
-  boxShadow: "3px 3px 0 rgba(0,0,0,0.18)",
+  boxShadow: "4px 4px 0 #111827",
 };
 
 const roomNavStyle: CSSProperties = {
@@ -1631,13 +1641,15 @@ const roomNavStyle: CSSProperties = {
 };
 
 const bottomNavButtonStyle: CSSProperties = {
-  border: "3px solid #111",
-  background: "#f8fafc",
-  color: "#111",
-  padding: "10px 14px",
+  border: "4px solid #111827",
+  borderRadius: "4px",
+  background: "#ffffff",
+  color: "#111827",
+  padding: "12px 18px",
   fontWeight: 900,
   cursor: "pointer",
-  boxShadow: "2px 2px 0 #111",
+  boxShadow: "3px 3px 0 #111827",
+  fontSize: "16px",
 };
 
 const streetSceneStyle: CSSProperties = {
@@ -1645,11 +1657,12 @@ const streetSceneStyle: CSSProperties = {
   width: "100%",
   height: "100%",
   overflow: "hidden",
-  background: "#fff",
-  color: "#111",
-  borderRadius: "18px",
-  border: "3px solid #111",
-  boxShadow: "0 18px 44px rgba(0,0,0,0.25)",
+  background:
+    "radial-gradient(circle at 12% 20%, #fef3c7 0 7%, transparent 7.5%), linear-gradient(180deg, #ffffff 0 58%, #f1f5f9 58% 100%)",
+  color: "#111827",
+  borderRadius: "22px",
+  border: "4px solid #111827",
+  boxShadow: "0 18px 0 rgba(17,24,39,0.10), 0 24px 46px rgba(15,23,42,0.18)",
 };
 
 const streetMoneyStyle: CSSProperties = {
@@ -1662,44 +1675,49 @@ const streetMoneyStyle: CSSProperties = {
 
 const sunStyle: CSSProperties = {
   position: "absolute",
-  top: "42px",
-  left: "12%",
-  fontSize: "70px",
+  top: "36px",
+  left: "10%",
+  fontSize: "78px",
   lineHeight: 1,
+  filter: "drop-shadow(3px 3px 0 rgba(17,24,39,0.16))",
 };
 
 const buildingButtonStyle: CSSProperties = {
   position: "absolute",
-  border: "4px solid #111",
-  background: "white",
-  color: "#111",
+  border: "5px solid #111827",
+  borderRadius: "10px 10px 3px 3px",
+  background: "linear-gradient(180deg, #ffffff 0 20%, #e5e7eb 20% 21%, #ffffff 21% 43%, #e5e7eb 43% 44%, #ffffff 44% 66%, #e5e7eb 66% 67%, #ffffff 67% 100%)",
+  color: "#111827",
   fontWeight: 900,
-  fontSize: "15px",
+  fontSize: "16px",
   cursor: "pointer",
-  boxShadow: "4px 4px 0 rgba(0,0,0,0.15)",
+  boxShadow: "7px 7px 0 rgba(17,24,39,0.16)",
 };
 
 const roadStyle: CSSProperties = {
   position: "absolute",
-  left: "-8%",
-  right: "-8%",
-  bottom: "12%",
-  height: "28%",
-  borderTop: "4px solid #111",
-  borderBottom: "4px solid #111",
+  left: "-10%",
+  right: "-10%",
+  bottom: "10%",
+  height: "30%",
+  borderTop: "5px solid #111827",
+  borderBottom: "5px solid #111827",
   transform: "rotate(-8deg)",
-  background: "repeating-linear-gradient(90deg, transparent 0 42px, rgba(0,0,0,0.9) 42px 72px, transparent 72px 112px)",
-  opacity: 0.88,
+  background: "linear-gradient(180deg, #ffffff 0 44%, transparent 44% 56%, #ffffff 56% 100%), repeating-linear-gradient(90deg, transparent 0 46px, #111827 46px 84px, transparent 84px 128px)",
+  opacity: 0.95,
+  boxShadow: "0 -6px 0 rgba(17,24,39,0.08), 0 6px 0 rgba(17,24,39,0.08)",
 };
 
 const streetLabelStyle: CSSProperties = {
   position: "absolute",
   right: "22%",
   bottom: "28%",
-  background: "#e5e7eb",
-  border: "1px solid #9ca3af",
-  padding: "5px 16px",
+  background: "#ffffff",
+  border: "3px solid #111827",
+  borderRadius: "8px",
+  padding: "6px 18px",
   fontWeight: 900,
+  boxShadow: "3px 3px 0 rgba(17,24,39,0.18)",
 };
 
 const streetBottomNavStyle: CSSProperties = {
@@ -1718,10 +1736,12 @@ const panelSceneStyle: CSSProperties = {
   gridTemplateRows: "auto minmax(0, 1fr) auto",
   gap: "10px",
   overflow: "hidden",
-  background: "rgba(15,23,42,0.72)",
-  border: "1px solid rgba(255,255,255,0.14)",
-  borderRadius: "18px",
+  background: "#ffffff",
+  color: "#111827",
+  border: "4px solid #111827",
+  borderRadius: "22px",
   padding: "14px",
+  boxShadow: "0 18px 0 rgba(17,24,39,0.10), 0 24px 46px rgba(15,23,42,0.18)",
 };
 
 const panelHeaderRowStyle: CSSProperties = {
@@ -1738,7 +1758,7 @@ const panelTitleStyle: CSSProperties = {
 
 const panelDescStyle: CSSProperties = {
   margin: 0,
-  color: "#dbeafe",
+  color: "#475569",
   fontSize: "14px",
 };
 
@@ -1757,17 +1777,18 @@ const roomSelectGridStyle: CSSProperties = {
 };
 
 const roomSelectCardStyle: CSSProperties = {
-  background: "rgba(255,255,255,0.10)",
-  color: "white",
+  background: "#ffffff",
+  color: "#111827",
   borderRadius: "18px",
   padding: "16px",
   cursor: "pointer",
   textAlign: "left",
+  boxShadow: "5px 5px 0 rgba(17,24,39,0.16)",
 };
 
 const roomPreviewStyle: CSSProperties = {
   height: "120px",
-  border: "3px solid rgba(255,255,255,0.75)",
+  border: "4px solid #111827",
   borderRadius: "14px",
   display: "flex",
   alignItems: "center",
@@ -1775,7 +1796,7 @@ const roomPreviewStyle: CSSProperties = {
   fontSize: "34px",
   fontWeight: 900,
   marginBottom: "12px",
-  background: "rgba(255,255,255,0.08)",
+  background: "linear-gradient(180deg, #ffffff 0 66%, #f1f5f9 66% 100%)",
 };
 
 
@@ -1792,14 +1813,15 @@ const careerCardStyle: CSSProperties = {
   minHeight: 0,
   borderRadius: "18px",
   padding: "16px",
-  background: "rgba(255,255,255,0.10)",
-  color: "white",
+  background: "#ffffff",
+  color: "#111827",
   textAlign: "left",
   cursor: "pointer",
   overflow: "hidden",
   display: "flex",
   flexDirection: "column",
   justifyContent: "center",
+  boxShadow: "5px 5px 0 rgba(17,24,39,0.16)",
 };
 
 const careerIconStyle: CSSProperties = {
@@ -1809,7 +1831,7 @@ const careerIconStyle: CSSProperties = {
 
 const conditionTextStyle: CSSProperties = {
   marginTop: "12px",
-  color: "#fef3c7",
+  color: "#92400e",
   fontWeight: 900,
   fontSize: "13px",
   lineHeight: 1.3,
@@ -1827,10 +1849,13 @@ const rankingRowStyle: CSSProperties = {
   gridTemplateColumns: "80px minmax(0, 1fr) minmax(120px, auto) 160px",
   gap: "10px",
   alignItems: "center",
-  border: "1px solid rgba(255,255,255,0.14)",
+  border: "3px solid #111827",
   borderRadius: "14px",
   padding: "12px 14px",
   fontSize: "16px",
+  background: "#ffffff",
+  color: "#111827",
+  boxShadow: "3px 3px 0 rgba(17,24,39,0.14)",
 };
 
 const taxCardStyle: CSSProperties = {
@@ -1844,10 +1869,11 @@ const taxNoticeStyle: CSSProperties = {
   marginTop: "12px",
   padding: "14px",
   borderRadius: "14px",
-  background: "rgba(250,204,21,0.14)",
-  border: "1px solid rgba(250,204,21,0.35)",
-  color: "#fef3c7",
+  background: "#fef3c7",
+  border: "3px solid #111827",
+  color: "#111827",
   fontWeight: 900,
+  boxShadow: "3px 3px 0 rgba(17,24,39,0.14)",
 };
 
 const loadingPageStyle: CSSProperties = {
@@ -1868,16 +1894,15 @@ const pageStyle: CSSProperties = {
   overflow: "hidden",
   position: "relative",
   isolation: "isolate",
-  background:
-    "radial-gradient(circle at top left, #1e3a8a 0, transparent 35%), linear-gradient(135deg, #020617 0%, #0f172a 55%, #1e1b4b 100%)",
-  color: "white",
+  background: "linear-gradient(180deg, #f8fafc 0%, #eef2f7 46%, #e2e8f0 100%)",
+  color: "#111827",
   fontFamily: "Arial, sans-serif",
 };
 
 
 
 const smallLabelStyle: CSSProperties = {
-  color: "#7dd3fc",
+  color: "#2563eb",
   fontSize: "13px",
   fontWeight: 900,
   letterSpacing: "0.12em",
@@ -1900,14 +1925,16 @@ const moneyPanelStyle: CSSProperties = {
 };
 
 const statusPillStyle: CSSProperties = {
-  background: "rgba(15,23,42,0.78)",
-  border: "1px solid rgba(255,255,255,0.18)",
-  borderRadius: "11px",
+  background: "#ffffff",
+  border: "3px solid #111827",
+  borderRadius: "13px",
   padding: "6px 8px",
   minWidth: 0,
   display: "grid",
   gap: "1px",
   fontSize: "12px",
+  color: "#111827",
+  boxShadow: "2px 2px 0 rgba(17,24,39,0.9)",
 };
 
 const statusLabelStyle: CSSProperties = {
@@ -1933,11 +1960,11 @@ const jobCardStyle: CSSProperties = {
   minHeight: 0,
   borderRadius: "18px",
   padding: "16px",
-  background: "rgba(255,255,255,0.10)",
-  color: "white",
+  background: "#ffffff",
+  color: "#111827",
   textAlign: "left",
   cursor: "pointer",
-  boxShadow: "0 16px 40px rgba(0,0,0,0.25)",
+  boxShadow: "5px 5px 0 rgba(17,24,39,0.16)",
   overflow: "hidden",
   display: "flex",
   flexDirection: "column",
@@ -1959,7 +1986,7 @@ const jobCardTitleStyle: CSSProperties = {
 
 const jobCardTextStyle: CSSProperties = {
   margin: 0,
-  color: "#dbeafe",
+  color: "#475569",
   lineHeight: 1.35,
   fontSize: "14px",
   wordBreak: "keep-all",
@@ -1978,40 +2005,42 @@ const messageBoxStyle: CSSProperties = {
   minHeight: "48px",
   display: "flex",
   alignItems: "center",
-  background: "rgba(34,197,94,0.14)",
-  border: "1px solid rgba(34,197,94,0.34)",
+  background: "#ffffff",
+  border: "3px solid #111827",
   borderRadius: "16px",
   padding: "10px 16px",
-  color: "#ecfeff",
+  color: "#111827",
   lineHeight: 1.3,
   fontSize: "18px",
-  fontWeight: 800,
+  fontWeight: 900,
   overflow: "hidden",
+  boxShadow: "3px 3px 0 #111827",
 };
 
 const bigStartButtonStyle: CSSProperties = {
-  border: "none",
+  border: "3px solid #111827",
   borderRadius: "16px",
-  background: "#67c7ff",
-  color: "#020617",
+  background: "#facc15",
+  color: "#111827",
   padding: "12px 20px",
   fontWeight: 900,
   fontSize: "18px",
   cursor: "pointer",
   whiteSpace: "nowrap",
-  boxShadow: "0 8px 22px rgba(56,189,248,0.28)",
+  boxShadow: "3px 3px 0 #111827",
 };
 
 const logoutButtonStyle: CSSProperties = {
-  border: "1px solid rgba(255,255,255,0.22)",
+  border: "3px solid #111827",
   borderRadius: "16px",
-  background: "rgba(255,255,255,0.08)",
-  color: "white",
+  background: "#ffffff",
+  color: "#111827",
   padding: "12px 16px",
   fontWeight: 900,
   fontSize: "16px",
   cursor: "pointer",
   whiteSpace: "nowrap",
+  boxShadow: "3px 3px 0 #111827",
 };
 
 const jobOnlyLayoutStyle: CSSProperties = {
