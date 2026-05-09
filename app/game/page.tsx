@@ -2229,7 +2229,6 @@ const roomSideControlsStyle: CSSProperties = {
   top: "10px",
   display: "flex",
   gap: "8px",
-  zIndex: 5,
 };
 
 const trophyButtonStyle: CSSProperties = {
