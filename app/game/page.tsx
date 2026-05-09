@@ -2,12 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
-type JobId = "loading" | "delivery" | "cleaning" | "cashier" | "mining";
-
-type Position = {
-  x: number;
-  y: number;
-};
+type JobId = "loading" | "delivery" | "cashier" | "rhythm";
 
 type Job = {
   id: JobId;
@@ -18,34 +13,37 @@ type Job = {
   icon: string;
 };
 
+type RunnerObstacle = {
+  id: number;
+  lane: number;
+  y: number;
+};
+
+type RhythmNote = {
+  id: number;
+  key: string;
+  y: number;
+};
+
 const TAX_INTERVAL_SECONDS = 600;
 const TAX_WARNING_SECONDS = 60;
-const BOARD_SIZE = 8;
 
 const jobs: Job[] = [
   {
     id: "loading",
     name: "상하차 알바",
-    subtitle: "박스를 집어 창고로 옮기세요.",
-    reward: 1500,
-    timeLimit: 35,
-    icon: "📦",
+    subtitle: "크레인을 움직여 박스를 정확히 집으세요.",
+    reward: 1700,
+    timeLimit: 25,
+    icon: "🏗️",
   },
   {
     id: "delivery",
     name: "음식 배달 알바",
-    subtitle: "장애물을 피해 음식을 배달하세요.",
+    subtitle: "3개 차선을 이동하며 장애물을 피해 배달하세요.",
     reward: 2400,
     timeLimit: 35,
-    icon: "🍔",
-  },
-  {
-    id: "cleaning",
-    name: "청소 알바",
-    subtitle: "맵 곳곳의 쓰레기를 모두 치우세요.",
-    reward: 1800,
-    timeLimit: 30,
-    icon: "🧹",
+    icon: "🛵",
   },
   {
     id: "cashier",
@@ -56,16 +54,17 @@ const jobs: Job[] = [
     icon: "🏪",
   },
   {
-    id: "mining",
-    name: "광산 채굴 알바",
-    subtitle: "게이지가 초록 구역에 있을 때 스페이스를 누르세요.",
-    reward: 2600,
-    timeLimit: 25,
-    icon: "⛏️",
+    id: "rhythm",
+    name: "공연장 스태프 알바",
+    subtitle: "리듬에 맞춰 D/F/J/K 키를 입력하세요.",
+    reward: 2800,
+    timeLimit: 30,
+    icon: "🎵",
   },
 ];
 
-const keyPool = ["W", "A", "S", "D"];
+const cashierKeyPool = ["W", "A", "S", "D"];
+const rhythmKeys = ["D", "F", "J", "K"];
 
 export default function GamePage() {
   const [cash, setCash] = useState(10000);
@@ -74,32 +73,31 @@ export default function GamePage() {
   const [taxCountdown, setTaxCountdown] = useState(TAX_INTERVAL_SECONDS);
   const [taxTriggerCount, setTaxTriggerCount] = useState(0);
 
-  const [activeJobId, setActiveJobId] = useState<JobId | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<JobId>("loading");
-  const [message, setMessage] = useState("알바를 선택하고 시작하세요.");
+  const [activeJobId, setActiveJobId] = useState<JobId | null>(null);
   const [jobTimeLeft, setJobTimeLeft] = useState(0);
   const [jobFinished, setJobFinished] = useState(false);
+  const [message, setMessage] = useState("알바를 선택하고 시작하세요.");
 
-  const [player, setPlayer] = useState<Position>({ x: 0, y: 0 });
-  const [itemPosition, setItemPosition] = useState<Position>({ x: 2, y: 2 });
-  const [targetPosition, setTargetPosition] = useState<Position>({
-    x: 6,
-    y: 6,
-  });
-  const [restaurantPosition, setRestaurantPosition] = useState<Position>({
-    x: 1,
-    y: 6,
-  });
-  const [obstacles, setObstacles] = useState<Position[]>([]);
-  const [hasItem, setHasItem] = useState(false);
-  const [trashPositions, setTrashPositions] = useState<Position[]>([]);
+  const [clawX, setClawX] = useState(50);
+  const [clawDirection, setClawDirection] = useState(1);
+  const [boxX, setBoxX] = useState(50);
+  const [clawDropped, setClawDropped] = useState(false);
+
+  const [runnerLane, setRunnerLane] = useState(1);
+  const [runnerDistance, setRunnerDistance] = useState(0);
+  const [runnerObstacles, setRunnerObstacles] = useState<RunnerObstacle[]>([]);
+  const [runnerTick, setRunnerTick] = useState(0);
+  const [obstacleId, setObstacleId] = useState(1);
 
   const [cashierSequence, setCashierSequence] = useState<string[]>([]);
   const [cashierIndex, setCashierIndex] = useState(0);
 
-  const [miningPower, setMiningPower] = useState(0);
-  const [miningDirection, setMiningDirection] = useState(1);
-  const [miningSuccessCount, setMiningSuccessCount] = useState(0);
+  const [rhythmNotes, setRhythmNotes] = useState<RhythmNote[]>([]);
+  const [rhythmScore, setRhythmScore] = useState(0);
+  const [rhythmMiss, setRhythmMiss] = useState(0);
+  const [rhythmTick, setRhythmTick] = useState(0);
+  const [rhythmNoteId, setRhythmNoteId] = useState(1);
 
   const selectedJob = useMemo(() => {
     return jobs.find((job) => job.id === selectedJobId) ?? jobs[0];
@@ -161,30 +159,139 @@ export default function GamePage() {
   }, [activeJobId, jobFinished, jobTimeLeft]);
 
   useEffect(() => {
-    if (activeJobId !== "mining" || jobFinished) {
+    if (activeJobId !== "loading" || jobFinished || clawDropped) {
       return;
     }
 
     const timer = window.setInterval(() => {
-      setMiningPower((current) => {
-        const next = current + miningDirection * 4;
+      setClawX((current) => {
+        const next = current + clawDirection * 2.2;
 
-        if (next >= 100) {
-          setMiningDirection(-1);
-          return 100;
+        if (next >= 94) {
+          setClawDirection(-1);
+          return 94;
         }
 
-        if (next <= 0) {
-          setMiningDirection(1);
-          return 0;
+        if (next <= 6) {
+          setClawDirection(1);
+          return 6;
         }
 
         return next;
       });
-    }, 45);
+    }, 35);
 
     return () => window.clearInterval(timer);
-  }, [activeJobId, jobFinished, miningDirection]);
+  }, [activeJobId, clawDirection, clawDropped, jobFinished]);
+
+  useEffect(() => {
+    if (activeJobId !== "delivery" || jobFinished) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setRunnerTick((current) => current + 1);
+    }, 360);
+
+    return () => window.clearInterval(timer);
+  }, [activeJobId, jobFinished]);
+
+  useEffect(() => {
+    if (activeJobId !== "delivery" || jobFinished || runnerTick === 0) {
+      return;
+    }
+
+    setRunnerDistance((current) => {
+      const next = current + 1;
+
+      if (next >= 55) {
+        completeJob("🛵 배달 완료! 장애물을 피해 목적지에 도착했습니다.");
+      }
+
+      return next;
+    });
+
+    setRunnerObstacles((current) => {
+      const moved = current
+        .map((obstacle) => ({ ...obstacle, y: obstacle.y + 1 }))
+        .filter((obstacle) => obstacle.y <= 6);
+
+      const collision = moved.some(
+        (obstacle) => obstacle.lane === runnerLane && obstacle.y >= 5
+      );
+
+      if (collision) {
+        failJob("💥 장애물에 부딪혔습니다! 배달 실패!");
+        return moved;
+      }
+
+      if (runnerTick % 3 === 0) {
+        const newObstacle = {
+          id: obstacleId,
+          lane: Math.floor(Math.random() * 3),
+          y: 0,
+        };
+
+        setObstacleId((id) => id + 1);
+        return [...moved, newObstacle];
+      }
+
+      return moved;
+    });
+  }, [activeJobId, jobFinished, obstacleId, runnerLane, runnerTick]);
+
+  useEffect(() => {
+    if (activeJobId !== "rhythm" || jobFinished) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setRhythmTick((current) => current + 1);
+    }, 90);
+
+    return () => window.clearInterval(timer);
+  }, [activeJobId, jobFinished]);
+
+  useEffect(() => {
+    if (activeJobId !== "rhythm" || jobFinished || rhythmTick === 0) {
+      return;
+    }
+
+    setRhythmNotes((current) => {
+      const moved = current
+        .map((note) => ({ ...note, y: note.y + 4 }))
+        .filter((note) => note.y <= 105);
+
+      const missed = moved.filter((note) => note.y > 94).length;
+
+      if (missed > 0) {
+        setRhythmMiss((currentMiss) => {
+          const nextMiss = currentMiss + missed;
+
+          if (nextMiss >= 3) {
+            failJob("🎵 노트를 3번 놓쳤습니다. 알바 실패!");
+          }
+
+          return nextMiss;
+        });
+      }
+
+      const alive = moved.filter((note) => note.y <= 94);
+
+      if (rhythmTick % 8 === 0) {
+        const newNote = {
+          id: rhythmNoteId,
+          key: rhythmKeys[Math.floor(Math.random() * rhythmKeys.length)],
+          y: 0,
+        };
+
+        setRhythmNoteId((id) => id + 1);
+        return [...alive, newNote];
+      }
+
+      return alive;
+    });
+  }, [activeJobId, jobFinished, rhythmNoteId, rhythmTick]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -194,37 +301,37 @@ export default function GamePage() {
 
       const key = event.key.toLowerCase();
 
-      if (activeJobId === "cashier") {
-        handleCashierKey(key);
-        return;
-      }
-
-      if (activeJobId === "mining") {
-        if (key === " ") {
+      if (activeJobId === "loading") {
+        if (key === " " || key === "enter") {
           event.preventDefault();
-          handleMiningHit();
+          dropClaw();
         }
 
         return;
       }
 
-      if (
-        ![
-          "w",
-          "a",
-          "s",
-          "d",
-          "arrowup",
-          "arrowdown",
-          "arrowleft",
-          "arrowright",
-        ].includes(key)
-      ) {
+      if (activeJobId === "delivery") {
+        if (key === "a" || key === "arrowleft") {
+          event.preventDefault();
+          setRunnerLane((lane) => Math.max(0, lane - 1));
+        }
+
+        if (key === "d" || key === "arrowright") {
+          event.preventDefault();
+          setRunnerLane((lane) => Math.min(2, lane + 1));
+        }
+
         return;
       }
 
-      event.preventDefault();
-      movePlayer(key);
+      if (activeJobId === "cashier") {
+        handleCashierKey(key);
+        return;
+      }
+
+      if (activeJobId === "rhythm") {
+        handleRhythmKey(key);
+      }
     }
 
     window.addEventListener("keydown", handleKeyDown);
@@ -232,15 +339,14 @@ export default function GamePage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     activeJobId,
+    boxX,
     cashierIndex,
     cashierSequence,
-    hasItem,
+    clawDropped,
+    clawX,
     jobFinished,
-    miningPower,
-    miningSuccessCount,
-    obstacles,
-    player,
-    trashPositions,
+    rhythmNotes,
+    rhythmScore,
   ]);
 
   function applyTaxAutomatically() {
@@ -282,74 +388,55 @@ export default function GamePage() {
     setActiveJobId(jobId);
     setJobTimeLeft(job.timeLimit);
     setJobFinished(false);
-    setHasItem(false);
-    setCashierIndex(0);
-    setMiningPower(0);
-    setMiningDirection(1);
-    setMiningSuccessCount(0);
+    setMessage(`${job.icon} ${job.name} 시작!`);
 
     if (jobId === "loading") {
       setupLoadingJob();
-      setMessage("📦 박스를 찾은 뒤 창고로 옮기세요.");
     }
 
     if (jobId === "delivery") {
       setupDeliveryJob();
-      setMessage("🍔 식당에서 음식을 받고, 장애물을 피해 집까지 배달하세요.");
-    }
-
-    if (jobId === "cleaning") {
-      setupCleaningJob();
-      setMessage("🧹 쓰레기 6개를 모두 청소하세요.");
     }
 
     if (jobId === "cashier") {
-      setCashierSequence(makeCashierSequence());
-      setMessage("🏪 화면에 나오는 키를 순서대로 입력하세요.");
+      setupCashierJob();
     }
 
-    if (jobId === "mining") {
-      setMessage("⛏️ 게이지가 초록 구역에 들어왔을 때 스페이스를 누르세요.");
+    if (jobId === "rhythm") {
+      setupRhythmJob();
     }
   }
 
   function setupLoadingJob() {
-    const playerStart = randomPosition([]);
-    const itemStart = randomPosition([playerStart]);
-    const targetStart = randomPosition([playerStart, itemStart]);
-
-    setPlayer(playerStart);
-    setItemPosition(itemStart);
-    setTargetPosition(targetStart);
-    setObstacles([]);
-    setTrashPositions([]);
+    setClawX(50);
+    setClawDirection(1);
+    setBoxX(randomPercent());
+    setClawDropped(false);
+    setMessage("🏗️ Space 또는 Enter를 눌러 크레인을 떨어뜨리세요.");
   }
 
   function setupDeliveryJob() {
-    const playerStart = randomPosition([]);
-    const restaurantStart = randomPosition([playerStart]);
-    const targetStart = randomPosition([playerStart, restaurantStart]);
-    const obstacleList = makeRandomPositions(9, [
-      playerStart,
-      restaurantStart,
-      targetStart,
-    ]);
-
-    setPlayer(playerStart);
-    setRestaurantPosition(restaurantStart);
-    setTargetPosition(targetStart);
-    setObstacles(obstacleList);
-    setTrashPositions([]);
+    setRunnerLane(1);
+    setRunnerDistance(0);
+    setRunnerObstacles([]);
+    setRunnerTick(0);
+    setObstacleId(1);
+    setMessage("🛵 A/D 또는 ←/→ 키로 차선을 바꾸며 장애물을 피하세요.");
   }
 
-  function setupCleaningJob() {
-    const playerStart = randomPosition([]);
-    const trashList = makeRandomPositions(6, [playerStart]);
+  function setupCashierJob() {
+    setCashierSequence(makeCashierSequence());
+    setCashierIndex(0);
+    setMessage("🏪 화면에 나오는 키를 순서대로 입력하세요.");
+  }
 
-    setPlayer(playerStart);
-    setTrashPositions(trashList);
-    setObstacles([]);
-    setHasItem(false);
+  function setupRhythmJob() {
+    setRhythmNotes([]);
+    setRhythmScore(0);
+    setRhythmMiss(0);
+    setRhythmTick(0);
+    setRhythmNoteId(1);
+    setMessage("🎵 판정선에 노트가 오면 D/F/J/K를 입력하세요.");
   }
 
   function completeJob(customMessage?: string) {
@@ -376,60 +463,21 @@ export default function GamePage() {
     setMessage("알바를 선택하고 시작하세요.");
   }
 
-  function movePlayer(key: string) {
-    const nextPosition = limitPosition(getNextPosition(player, key));
-
-    if (isObstacle(nextPosition, obstacles)) {
-      setMessage("🚧 장애물 때문에 이동할 수 없습니다.");
+  function dropClaw() {
+    if (clawDropped) {
       return;
     }
 
-    setPlayer(nextPosition);
+    setClawDropped(true);
 
-    if (activeJobId === "loading") {
-      if (!hasItem && isSamePosition(nextPosition, itemPosition)) {
-        setHasItem(true);
-        setMessage("📦 박스를 들었습니다. 창고로 이동하세요.");
-        return;
-      }
+    const diff = Math.abs(clawX - boxX);
 
-      if (hasItem && isSamePosition(nextPosition, targetPosition)) {
-        completeJob("📦 상하차 성공! 보상을 받았습니다.");
-        return;
-      }
+    if (diff <= 8) {
+      completeJob("🏗️ 박스 집기 성공! 상하차 보상을 받았습니다.");
+      return;
     }
 
-    if (activeJobId === "delivery") {
-      if (!hasItem && isSamePosition(nextPosition, restaurantPosition)) {
-        setHasItem(true);
-        setMessage("🍔 음식을 받았습니다. 집까지 배달하세요.");
-        return;
-      }
-
-      if (hasItem && isSamePosition(nextPosition, targetPosition)) {
-        completeJob("🍔 배달 완료! 보상을 받았습니다.");
-        return;
-      }
-    }
-
-    if (activeJobId === "cleaning") {
-      const remainingTrash = trashPositions.filter(
-        (trash) => !isSamePosition(trash, nextPosition)
-      );
-
-      if (remainingTrash.length !== trashPositions.length) {
-        setTrashPositions(remainingTrash);
-
-        if (remainingTrash.length === 0) {
-          completeJob("🧹 청소 완료! 보상을 받았습니다.");
-          return;
-        }
-
-        setMessage(
-          `🧹 쓰레기를 치웠습니다. 남은 쓰레기 ${remainingTrash.length}개`
-        );
-      }
-    }
+    failJob("🏗️ 아깝습니다! 크레인이 박스를 놓쳤습니다.");
   }
 
   function handleCashierKey(key: string) {
@@ -456,22 +504,47 @@ export default function GamePage() {
     setMessage(`좋아요! 다음 키: ${cashierSequence[nextIndex]}`);
   }
 
-  function handleMiningHit() {
-    if (miningPower >= 42 && miningPower <= 58) {
-      const nextSuccessCount = miningSuccessCount + 1;
+  function handleRhythmKey(key: string) {
+    const pressed = key.toUpperCase();
 
-      setMiningSuccessCount(nextSuccessCount);
-
-      if (nextSuccessCount >= 4) {
-        completeJob("⛏️ 채굴 성공! 좋은 광물을 찾았습니다.");
-        return;
-      }
-
-      setMessage(`성공! ${nextSuccessCount}/4회 적중했습니다.`);
+    if (!rhythmKeys.includes(pressed)) {
       return;
     }
 
-    failJob("실패! 초록 구역에서 스페이스를 눌러야 합니다.");
+    const targetNote = rhythmNotes.find(
+      (note) => note.key === pressed && note.y >= 72 && note.y <= 92
+    );
+
+    if (!targetNote) {
+      setRhythmMiss((current) => {
+        const next = current + 1;
+
+        if (next >= 3) {
+          failJob("🎵 타이밍이 맞지 않았습니다. 알바 실패!");
+        }
+
+        return next;
+      });
+
+      setMessage("🎵 타이밍이 맞지 않았습니다.");
+      return;
+    }
+
+    setRhythmNotes((current) =>
+      current.filter((note) => note.id !== targetNote.id)
+    );
+
+    setRhythmScore((current) => {
+      const next = current + 1;
+
+      if (next >= 10) {
+        completeJob("🎵 리듬 성공! 공연장 스태프 알바 완료!");
+      }
+
+      return next;
+    });
+
+    setMessage(`🎵 Perfect! ${rhythmScore + 1}/10`);
   }
 
   if (activeJob) {
@@ -506,38 +579,14 @@ export default function GamePage() {
 
           <section style={jobStageStyle}>
             {activeJobId === "loading" && (
-              <BoardGame
-                player={player}
-                itemPosition={itemPosition}
-                targetPosition={targetPosition}
-                hasItem={hasItem}
-                obstacles={[]}
-                trashPositions={[]}
-                mode="loading"
-              />
+              <ClawGame clawX={clawX} boxX={boxX} clawDropped={clawDropped} />
             )}
 
             {activeJobId === "delivery" && (
-              <BoardGame
-                player={player}
-                itemPosition={restaurantPosition}
-                targetPosition={targetPosition}
-                hasItem={hasItem}
-                obstacles={obstacles}
-                trashPositions={[]}
-                mode="delivery"
-              />
-            )}
-
-            {activeJobId === "cleaning" && (
-              <BoardGame
-                player={player}
-                itemPosition={itemPosition}
-                targetPosition={targetPosition}
-                hasItem={false}
-                obstacles={[]}
-                trashPositions={trashPositions}
-                mode="cleaning"
+              <DeliveryGame
+                lane={runnerLane}
+                obstacles={runnerObstacles}
+                distance={runnerDistance}
               />
             )}
 
@@ -548,17 +597,17 @@ export default function GamePage() {
               />
             )}
 
-            {activeJobId === "mining" && (
-              <MiningGame
-                power={miningPower}
-                successCount={miningSuccessCount}
+            {activeJobId === "rhythm" && (
+              <RhythmGame
+                notes={rhythmNotes}
+                score={rhythmScore}
+                miss={rhythmMiss}
               />
             )}
           </section>
 
           <footer style={jobFooterStyle}>
             <div style={messageBoxStyle}>{message}</div>
-
             <div style={controlHintStyle}>{getControlHint(activeJobId)}</div>
 
             {jobFinished && (
@@ -583,7 +632,7 @@ export default function GamePage() {
             <div style={smallLabelStyle}>ALBA MONEY GAME</div>
             <h1 style={mainTitleStyle}>알바 머니 게임</h1>
             <p style={subtitleStyle}>
-              원하는 알바를 선택해서 미니게임으로 돈을 벌어보세요.
+              서로 다른 미니게임 알바로 돈을 벌고 세금을 관리하세요.
             </p>
           </div>
 
@@ -642,81 +691,89 @@ export default function GamePage() {
   );
 }
 
-function BoardGame({
-  player,
-  itemPosition,
-  targetPosition,
-  hasItem,
-  obstacles,
-  trashPositions,
-  mode,
+function ClawGame({
+  clawX,
+  boxX,
+  clawDropped,
 }: {
-  player: Position;
-  itemPosition: Position;
-  targetPosition: Position;
-  hasItem: boolean;
-  obstacles: Position[];
-  trashPositions: Position[];
-  mode: "loading" | "delivery" | "cleaning";
+  clawX: number;
+  boxX: number;
+  clawDropped: boolean;
 }) {
-  const cells = [];
+  return (
+    <div style={clawStageStyle}>
+      <div style={clawTopBarStyle} />
+      <div
+        style={{
+          ...clawMachineStyle,
+          left: `${clawX}%`,
+        }}
+      >
+        <div style={clawLineStyle} />
+        <div style={clawHookStyle}>🪝</div>
+      </div>
 
-  for (let y = 0; y < BOARD_SIZE; y += 1) {
-    for (let x = 0; x < BOARD_SIZE; x += 1) {
-      const position = { x, y };
-      const isPlayer = isSamePosition(player, position);
-      const isItem =
-        mode !== "cleaning" &&
-        !hasItem &&
-        isSamePosition(itemPosition, position);
-      const isTarget =
-        mode !== "cleaning" && isSamePosition(targetPosition, position);
-      const isObstacleCell = isObstacle(position, obstacles);
-      const isTrash = trashPositions.some((trash) =>
-        isSamePosition(trash, position)
-      );
+      {clawDropped && (
+        <div
+          style={{
+            ...clawDropLineStyle,
+            left: `${clawX}%`,
+          }}
+        />
+      )}
 
-      let content = "";
+      <div
+        style={{
+          ...boxStyle,
+          left: `${boxX}%`,
+        }}
+      >
+        📦
+      </div>
 
-      if (isTarget) {
-        content = mode === "loading" ? "🏭" : "🏠";
-      }
+      <div style={clawHintTextStyle}>Space 또는 Enter로 크레인 내리기</div>
+    </div>
+  );
+}
 
-      if (isItem) {
-        content = mode === "loading" ? "📦" : "🍔";
-      }
+function DeliveryGame({
+  lane,
+  obstacles,
+  distance,
+}: {
+  lane: number;
+  obstacles: RunnerObstacle[];
+  distance: number;
+}) {
+  return (
+    <div style={runnerStageStyle}>
+      <div style={runnerRoadStyle}>
+        {[0, 1, 2].map((roadLane) => (
+          <div key={roadLane} style={runnerLaneStyle}>
+            {lane === roadLane && <div style={runnerPlayerStyle}>🛵</div>}
 
-      if (isObstacleCell) {
-        content = "🚧";
-      }
+            {obstacles
+              .filter((obstacle) => obstacle.lane === roadLane)
+              .map((obstacle) => (
+                <div
+                  key={obstacle.id}
+                  style={{
+                    ...runnerObstacleStyle,
+                    top: `${obstacle.y * 15}%`,
+                  }}
+                >
+                  🚧
+                </div>
+              ))}
+          </div>
+        ))}
+      </div>
 
-      if (isTrash) {
-        content = "🗑️";
-      }
-
-      if (isPlayer) {
-        if (mode === "loading" && hasItem) {
-          content = "🧍‍♂️📦";
-        } else if (mode === "delivery" && hasItem) {
-          content = "🛵🍔";
-        } else if (mode === "delivery") {
-          content = "🛵";
-        } else if (mode === "cleaning") {
-          content = "🧹";
-        } else {
-          content = "🧍‍♂️";
-        }
-      }
-
-      cells.push(
-        <div key={`${x}-${y}`} style={cellStyle}>
-          {content}
-        </div>
-      );
-    }
-  }
-
-  return <div style={boardStyle}>{cells}</div>;
+      <div style={runnerProgressStyle}>
+        배달 진행도: {Math.min(distance, 55)} / 55
+      </div>
+    </div>
+  );
 }
 
 function CashierGame({
@@ -760,33 +817,44 @@ function CashierGame({
   );
 }
 
-function MiningGame({
-  power,
-  successCount,
+function RhythmGame({
+  notes,
+  score,
+  miss,
 }: {
-  power: number;
-  successCount: number;
+  notes: RhythmNote[];
+  score: number;
+  miss: number;
 }) {
   return (
-    <div style={centerGameStyle}>
-      <div style={miningPanelStyle}>
-        <div style={miningTitleStyle}>채굴 게이지</div>
+    <div style={rhythmStageStyle}>
+      <div style={rhythmInfoStyle}>
+        <strong>점수 {score}/10</strong>
+        <strong>실수 {miss}/3</strong>
+      </div>
 
-        <div style={gaugeOuterStyle}>
-          <div style={greenZoneStyle} />
-          <div
-            style={{
-              ...gaugeNeedleStyle,
-              left: `${power}%`,
-            }}
-          />
-        </div>
+      <div style={rhythmLaneWrapStyle}>
+        {rhythmKeys.map((key) => (
+          <div key={key} style={rhythmLaneStyle}>
+            <div style={rhythmKeyLabelStyle}>{key}</div>
 
-        <p style={cashierHintStyle}>
-          초록 구역에서 <strong>Space</strong>를 누르세요.
-        </p>
+            {notes
+              .filter((note) => note.key === key)
+              .map((note) => (
+                <div
+                  key={note.id}
+                  style={{
+                    ...rhythmNoteStyle,
+                    top: `${note.y}%`,
+                  }}
+                >
+                  ●
+                </div>
+              ))}
+          </div>
+        ))}
 
-        <div style={miningCountStyle}>{successCount}/4 성공</div>
+        <div style={rhythmJudgeLineStyle} />
       </div>
     </div>
   );
@@ -835,74 +903,9 @@ function calculateTax(cash: number, unpaidTax: number) {
   return Math.floor(cash * getTaxRate(cash)) + unpaidTax;
 }
 
-function getNextPosition(position: Position, key: string) {
-  if (key === "w" || key === "arrowup") {
-    return { x: position.x, y: position.y - 1 };
-  }
-
-  if (key === "s" || key === "arrowdown") {
-    return { x: position.x, y: position.y + 1 };
-  }
-
-  if (key === "a" || key === "arrowleft") {
-    return { x: position.x - 1, y: position.y };
-  }
-
-  if (key === "d" || key === "arrowright") {
-    return { x: position.x + 1, y: position.y };
-  }
-
-  return position;
-}
-
-function limitPosition(position: Position) {
-  return {
-    x: Math.max(0, Math.min(BOARD_SIZE - 1, position.x)),
-    y: Math.max(0, Math.min(BOARD_SIZE - 1, position.y)),
-  };
-}
-
-function isSamePosition(a: Position, b: Position) {
-  return a.x === b.x && a.y === b.y;
-}
-
-function isObstacle(position: Position, obstacles: Position[]) {
-  return obstacles.some((obstacle) => isSamePosition(obstacle, position));
-}
-
-function randomPosition(exclude: Position[]) {
-  let position = {
-    x: Math.floor(Math.random() * BOARD_SIZE),
-    y: Math.floor(Math.random() * BOARD_SIZE),
-  };
-
-  while (exclude.some((item) => isSamePosition(item, position))) {
-    position = {
-      x: Math.floor(Math.random() * BOARD_SIZE),
-      y: Math.floor(Math.random() * BOARD_SIZE),
-    };
-  }
-
-  return position;
-}
-
-function makeRandomPositions(count: number, exclude: Position[]) {
-  const positions: Position[] = [];
-  const blocked = [...exclude];
-
-  while (positions.length < count) {
-    const position = randomPosition(blocked);
-
-    positions.push(position);
-    blocked.push(position);
-  }
-
-  return positions;
-}
-
 function makeCashierSequence() {
   return Array.from({ length: 12 }, () => {
-    return keyPool[Math.floor(Math.random() * keyPool.length)];
+    return cashierKeyPool[Math.floor(Math.random() * cashierKeyPool.length)];
   });
 }
 
@@ -913,21 +916,33 @@ function formatTime(seconds: number) {
   return `${minutes}:${String(restSeconds).padStart(2, "0")}`;
 }
 
+function randomPercent() {
+  return Math.floor(Math.random() * 76) + 12;
+}
+
 function getControlHint(activeJobId: JobId | null) {
+  if (activeJobId === "loading") {
+    return "Space 또는 Enter로 크레인 내리기";
+  }
+
+  if (activeJobId === "delivery") {
+    return "A/D 또는 ←/→ 로 차선 이동";
+  }
+
   if (activeJobId === "cashier") {
     return "W/A/S/D 키를 순서대로 입력";
   }
 
-  if (activeJobId === "mining") {
-    return "초록 구역에서 Space";
+  if (activeJobId === "rhythm") {
+    return "판정선에 맞춰 D/F/J/K 입력";
   }
 
-  return "WASD 또는 방향키로 이동";
+  return "알바를 선택하세요";
 }
 
 const pageStyle: CSSProperties = {
   width: "100vw",
-  height: "100vh",
+  height: "100dvh",
   overflow: "hidden",
   background:
     "radial-gradient(circle at top left, #1e3a8a 0, transparent 35%), linear-gradient(135deg, #020617 0%, #0f172a 55%, #1e1b4b 100%)",
@@ -938,40 +953,41 @@ const pageStyle: CSSProperties = {
 const lobbyLayoutStyle: CSSProperties = {
   width: "100%",
   height: "100%",
-  padding: "24px",
+  padding: "16px",
   display: "grid",
   gridTemplateRows: "auto 1fr auto",
-  gap: "18px",
+  gap: "12px",
 };
 
 const lobbyHeaderStyle: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
-  gap: "20px",
+  gap: "16px",
 };
 
 const smallLabelStyle: CSSProperties = {
   color: "#38bdf8",
-  fontSize: "13px",
+  fontSize: "12px",
   fontWeight: 900,
   letterSpacing: "0.12em",
 };
 
 const mainTitleStyle: CSSProperties = {
-  margin: "6px 0",
-  fontSize: "42px",
+  margin: "4px 0",
+  fontSize: "34px",
   lineHeight: 1,
 };
 
 const subtitleStyle: CSSProperties = {
   margin: 0,
   color: "#cbd5e1",
+  fontSize: "14px",
 };
 
 const moneyPanelStyle: CSSProperties = {
   display: "flex",
-  gap: "10px",
+  gap: "8px",
   flexWrap: "wrap",
   justifyContent: "flex-end",
   maxWidth: "760px",
@@ -980,108 +996,112 @@ const moneyPanelStyle: CSSProperties = {
 const statusPillStyle: CSSProperties = {
   background: "rgba(15,23,42,0.75)",
   border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "14px",
-  padding: "10px 12px",
-  minWidth: "96px",
+  borderRadius: "12px",
+  padding: "8px 10px",
+  minWidth: "86px",
   display: "grid",
-  gap: "3px",
+  gap: "2px",
+  fontSize: "13px",
 };
 
 const statusLabelStyle: CSSProperties = {
   color: "#94a3b8",
-  fontSize: "12px",
+  fontSize: "11px",
 };
 
 const jobGridStyle: CSSProperties = {
   minHeight: 0,
   display: "grid",
-  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
-  gap: "14px",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: "12px",
   alignContent: "center",
 };
 
 const jobCardStyle: CSSProperties = {
-  height: "260px",
-  borderRadius: "24px",
-  padding: "20px",
+  height: "220px",
+  borderRadius: "20px",
+  padding: "16px",
   background: "rgba(255,255,255,0.08)",
   color: "white",
   textAlign: "left",
   cursor: "pointer",
-  boxShadow: "0 20px 50px rgba(0,0,0,0.22)",
+  boxShadow: "0 16px 40px rgba(0,0,0,0.22)",
 };
 
 const jobIconStyle: CSSProperties = {
-  fontSize: "46px",
-  marginBottom: "16px",
+  fontSize: "40px",
+  marginBottom: "12px",
 };
 
 const jobCardTitleStyle: CSSProperties = {
   margin: "0 0 8px",
-  fontSize: "22px",
+  fontSize: "20px",
 };
 
 const jobCardTextStyle: CSSProperties = {
   margin: 0,
   color: "#cbd5e1",
-  lineHeight: 1.45,
+  lineHeight: 1.4,
+  fontSize: "14px",
 };
 
 const rewardTextStyle: CSSProperties = {
-  marginTop: "18px",
+  marginTop: "14px",
   color: "#86efac",
   fontWeight: 800,
+  fontSize: "13px",
 };
 
 const lobbyFooterStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "14px",
+  gap: "12px",
 };
 
 const messageBoxStyle: CSSProperties = {
   flex: 1,
-  minHeight: "52px",
+  minHeight: "46px",
   display: "flex",
   alignItems: "center",
   background: "rgba(34,197,94,0.12)",
   border: "1px solid rgba(34,197,94,0.28)",
-  borderRadius: "16px",
-  padding: "12px 16px",
+  borderRadius: "14px",
+  padding: "10px 14px",
   color: "#dcfce7",
   lineHeight: 1.4,
+  fontSize: "14px",
 };
 
 const bigStartButtonStyle: CSSProperties = {
   border: "none",
-  borderRadius: "16px",
+  borderRadius: "14px",
   background: "#38bdf8",
   color: "#020617",
-  padding: "16px 22px",
+  padding: "14px 18px",
   fontWeight: 900,
-  fontSize: "16px",
+  fontSize: "15px",
   cursor: "pointer",
 };
 
 const jobOnlyLayoutStyle: CSSProperties = {
   width: "100%",
   height: "100%",
-  padding: "18px",
+  padding: "14px",
   display: "grid",
   gridTemplateRows: "auto 1fr auto",
-  gap: "14px",
+  gap: "10px",
 };
 
 const compactHeaderStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: "14px",
+  gap: "12px",
 };
 
 const jobTitleStyle: CSSProperties = {
-  margin: "4px 0 0",
-  fontSize: "30px",
+  margin: "3px 0 0",
+  fontSize: "26px",
 };
 
 const topStatusGroupStyle: CSSProperties = {
@@ -1096,8 +1116,8 @@ const leaveButtonStyle: CSSProperties = {
   border: "1px solid rgba(255,255,255,0.18)",
   background: "rgba(255,255,255,0.08)",
   color: "white",
-  borderRadius: "14px",
-  padding: "14px 16px",
+  borderRadius: "12px",
+  padding: "12px 14px",
   fontWeight: 900,
   cursor: "pointer",
 };
@@ -1112,7 +1132,7 @@ const jobStageStyle: CSSProperties = {
 const jobFooterStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr auto auto",
-  gap: "12px",
+  gap: "10px",
   alignItems: "center",
 };
 
@@ -1120,9 +1140,10 @@ const controlHintStyle: CSSProperties = {
   background: "rgba(15,23,42,0.75)",
   border: "1px solid rgba(255,255,255,0.14)",
   borderRadius: "14px",
-  padding: "14px 16px",
+  padding: "12px 14px",
   color: "#cbd5e1",
   fontWeight: 800,
+  fontSize: "14px",
 };
 
 const retryButtonStyle: CSSProperties = {
@@ -1130,33 +1151,9 @@ const retryButtonStyle: CSSProperties = {
   borderRadius: "14px",
   background: "#facc15",
   color: "#020617",
-  padding: "14px 18px",
+  padding: "12px 16px",
   fontWeight: 900,
   cursor: "pointer",
-};
-
-const boardStyle: CSSProperties = {
-  width: "min(74vh, 640px)",
-  height: "min(74vh, 640px)",
-  display: "grid",
-  gridTemplateColumns: `repeat(${BOARD_SIZE}, 1fr)`,
-  gridTemplateRows: `repeat(${BOARD_SIZE}, 1fr)`,
-  gap: "7px",
-  padding: "12px",
-  background: "rgba(15,23,42,0.86)",
-  border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "24px",
-  boxShadow: "0 24px 80px rgba(0,0,0,0.28)",
-};
-
-const cellStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "rgba(255,255,255,0.07)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  borderRadius: "13px",
-  fontSize: "clamp(22px, 4vh, 38px)",
 };
 
 const centerGameStyle: CSSProperties = {
@@ -1167,91 +1164,225 @@ const centerGameStyle: CSSProperties = {
   justifyContent: "center",
 };
 
+const clawStageStyle: CSSProperties = {
+  position: "relative",
+  width: "min(760px, 92vw)",
+  height: "min(460px, 62vh)",
+  background: "linear-gradient(180deg, rgba(15,23,42,0.95), rgba(30,41,59,0.9))",
+  border: "1px solid rgba(255,255,255,0.16)",
+  borderRadius: "28px",
+  overflow: "hidden",
+  boxShadow: "0 24px 80px rgba(0,0,0,0.28)",
+};
+
+const clawTopBarStyle: CSSProperties = {
+  position: "absolute",
+  top: "46px",
+  left: "8%",
+  right: "8%",
+  height: "10px",
+  background: "#64748b",
+  borderRadius: "999px",
+};
+
+const clawMachineStyle: CSSProperties = {
+  position: "absolute",
+  top: "28px",
+  transform: "translateX(-50%)",
+  textAlign: "center",
+  transition: "left 0.03s linear",
+};
+
+const clawLineStyle: CSSProperties = {
+  width: "4px",
+  height: "80px",
+  margin: "0 auto",
+  background: "#38bdf8",
+};
+
+const clawHookStyle: CSSProperties = {
+  fontSize: "46px",
+};
+
+const clawDropLineStyle: CSSProperties = {
+  position: "absolute",
+  top: "56px",
+  bottom: "110px",
+  width: "4px",
+  background: "#facc15",
+  transform: "translateX(-50%)",
+};
+
+const boxStyle: CSSProperties = {
+  position: "absolute",
+  bottom: "70px",
+  transform: "translateX(-50%)",
+  fontSize: "56px",
+};
+
+const clawHintTextStyle: CSSProperties = {
+  position: "absolute",
+  left: 0,
+  right: 0,
+  bottom: "20px",
+  textAlign: "center",
+  color: "#cbd5e1",
+  fontWeight: 800,
+};
+
+const runnerStageStyle: CSSProperties = {
+  width: "min(620px, 92vw)",
+  height: "min(520px, 68vh)",
+  display: "grid",
+  gridTemplateRows: "1fr auto",
+  gap: "10px",
+};
+
+const runnerRoadStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: "8px",
+  background: "rgba(15,23,42,0.88)",
+  border: "1px solid rgba(255,255,255,0.16)",
+  borderRadius: "26px",
+  padding: "12px",
+  overflow: "hidden",
+};
+
+const runnerLaneStyle: CSSProperties = {
+  position: "relative",
+  background: "rgba(255,255,255,0.07)",
+  borderRadius: "18px",
+  border: "1px dashed rgba(255,255,255,0.18)",
+};
+
+const runnerPlayerStyle: CSSProperties = {
+  position: "absolute",
+  bottom: "18px",
+  left: "50%",
+  transform: "translateX(-50%)",
+  fontSize: "44px",
+  zIndex: 4,
+};
+
+const runnerObstacleStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  transform: "translateX(-50%)",
+  fontSize: "42px",
+};
+
+const runnerProgressStyle: CSSProperties = {
+  textAlign: "center",
+  color: "#86efac",
+  fontWeight: 900,
+};
+
 const cashierPanelStyle: CSSProperties = {
-  width: "min(760px, 90vw)",
+  width: "min(720px, 90vw)",
   background: "rgba(255,255,255,0.08)",
   border: "1px solid rgba(255,255,255,0.16)",
   borderRadius: "28px",
-  padding: "36px",
+  padding: "30px",
   textAlign: "center",
 };
 
 const cashierTitleStyle: CSSProperties = {
   color: "#93c5fd",
   fontWeight: 900,
-  marginBottom: "22px",
+  marginBottom: "18px",
 };
 
 const sequenceRowStyle: CSSProperties = {
   display: "flex",
   justifyContent: "center",
   flexWrap: "wrap",
-  gap: "12px",
+  gap: "10px",
 };
 
 const keyBoxStyle: CSSProperties = {
-  width: "58px",
-  height: "58px",
-  borderRadius: "16px",
+  width: "54px",
+  height: "54px",
+  borderRadius: "15px",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  fontSize: "24px",
+  fontSize: "22px",
   fontWeight: 900,
   border: "1px solid rgba(255,255,255,0.2)",
 };
 
 const cashierHintStyle: CSSProperties = {
-  marginTop: "24px",
+  marginTop: "20px",
   color: "#cbd5e1",
-  fontSize: "18px",
+  fontSize: "17px",
 };
 
-const miningPanelStyle: CSSProperties = {
-  width: "min(760px, 90vw)",
-  background: "rgba(255,255,255,0.08)",
-  border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "28px",
-  padding: "40px",
-  textAlign: "center",
+const rhythmStageStyle: CSSProperties = {
+  width: "min(680px, 92vw)",
+  height: "min(520px, 68vh)",
+  display: "grid",
+  gridTemplateRows: "auto 1fr",
+  gap: "10px",
 };
 
-const miningTitleStyle: CSSProperties = {
-  fontSize: "28px",
-  fontWeight: 900,
-  marginBottom: "30px",
+const rhythmInfoStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  color: "#86efac",
 };
 
-const gaugeOuterStyle: CSSProperties = {
+const rhythmLaneWrapStyle: CSSProperties = {
   position: "relative",
-  height: "70px",
-  background: "#020617",
+  display: "grid",
+  gridTemplateColumns: "repeat(4, 1fr)",
+  gap: "8px",
+  background: "rgba(15,23,42,0.88)",
   border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: "999px",
+  borderRadius: "26px",
+  padding: "12px",
   overflow: "hidden",
 };
 
-const greenZoneStyle: CSSProperties = {
-  position: "absolute",
-  left: "42%",
-  width: "16%",
-  top: 0,
-  bottom: 0,
-  background: "#22c55e",
+const rhythmLaneStyle: CSSProperties = {
+  position: "relative",
+  background: "rgba(255,255,255,0.07)",
+  borderRadius: "18px",
+  border: "1px solid rgba(255,255,255,0.10)",
 };
 
-const gaugeNeedleStyle: CSSProperties = {
+const rhythmKeyLabelStyle: CSSProperties = {
   position: "absolute",
-  top: 0,
-  bottom: 0,
-  width: "6px",
-  background: "#facc15",
-  transform: "translateX(-3px)",
-};
-
-const miningCountStyle: CSSProperties = {
-  marginTop: "24px",
-  fontSize: "32px",
+  bottom: "12px",
+  left: "50%",
+  transform: "translateX(-50%)",
+  width: "52px",
+  height: "52px",
+  borderRadius: "16px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "#38bdf8",
+  color: "#020617",
   fontWeight: 900,
-  color: "#86efac",
+  zIndex: 4,
+};
+
+const rhythmNoteStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  transform: "translateX(-50%)",
+  color: "#facc15",
+  fontSize: "34px",
+  zIndex: 3,
+};
+
+const rhythmJudgeLineStyle: CSSProperties = {
+  position: "absolute",
+  left: "12px",
+  right: "12px",
+  bottom: "78px",
+  height: "4px",
+  background: "#22c55e",
+  borderRadius: "999px",
 };
