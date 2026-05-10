@@ -50,6 +50,7 @@ type SaveRow = {
 type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks";
 type RoomKind = "basic" | "studio" | "office";
 type CareerBuildingId = "company" | "entertainment" | "logistics" | "finance";
+type StreetBuildingId = CareerBuildingId | "stocks";
 type OccupationId =
   | "unemployed"
   | "officeIntern"
@@ -84,6 +85,7 @@ type RankingRow = {
   nickname: string;
   cash: number;
   job: string;
+  hasSave: boolean;
   isMe?: boolean;
 };
 
@@ -349,6 +351,14 @@ const careerList: OccupationId[] = [
   "investor",
 ];
 
+const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: string; emoji: string }> = [
+  { id: "company", title: "회사 빌딩", subtitle: "인턴 · 회사원 · 과장", emoji: "🏢" },
+  { id: "entertainment", title: "엔터테인먼트", subtitle: "연습생 · 신인 가수 · 톱스타", emoji: "🎤" },
+  { id: "logistics", title: "물류 센터", subtitle: "물류 정직원 · 물류 관리자", emoji: "🚚" },
+  { id: "finance", title: "투자 회사", subtitle: "투자자 테스트 · 금융 직업", emoji: "🏦" },
+  { id: "stocks", title: "주식 거래소", subtitle: "투자 · 시세 · 보유 주식", emoji: "📈" },
+];
+
 const stockCompanies: StockCompany[] = [
   { id: "kongStudio", name: "콩 스튜디오", icon: "🎮", description: "귀여운 게임과 캐릭터 IP를 만드는 성장형 회사" },
   { id: "zephyrLogistics", name: "제피르 물류", icon: "🚚", description: "전국 배송망을 가진 빠른 물류 회사" },
@@ -386,6 +396,10 @@ export default function GamePage() {
   const [careerMiniGame, setCareerMiniGame] = useState<Occupation | null>(null);
   const [careerMiniGameScore, setCareerMiniGameScore] = useState(0);
   const [careerMiniGameStep, setCareerMiniGameStep] = useState(0);
+  const [careerTypingPrompt, setCareerTypingPrompt] = useState("");
+  const [careerTypingInput, setCareerTypingInput] = useState("");
+  const [careerTypingTimeLeft, setCareerTypingTimeLeft] = useState(0);
+  const [careerTypingMistakes, setCareerTypingMistakes] = useState(0);
   const [careerIncomeCountdown, setCareerIncomeCountdown] = useState(180);
   const [sortingSuccessTotal, setSortingSuccessTotal] = useState(0);
   const [deliverySuccessTotal, setDeliverySuccessTotal] = useState(0);
@@ -609,6 +623,21 @@ export default function GamePage() {
   useEffect(() => {
     if (lobbyView === "ranking") refreshRanking();
   }, [lobbyView]);
+
+  useEffect(() => {
+    if (!careerMiniGame) return;
+
+    if (careerTypingTimeLeft <= 0) {
+      void failCareerMiniGame("⏱️ 제한 시간이 끝났습니다. 다시 도전해보세요.");
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setCareerTypingTimeLeft((current) => Math.max(0, current - 1));
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [careerMiniGame, careerTypingTimeLeft]);
 
   useEffect(() => {
     if (!userId) return;
@@ -1384,6 +1413,16 @@ export default function GamePage() {
     return true;
   }
 
+  function handleStreetBuildingClick(buildingId: StreetBuildingId) {
+    if (buildingId === "stocks") {
+      setLobbyView("stocks");
+      return;
+    }
+
+    setCareerBuildingId(buildingId);
+    setLobbyView("career");
+  }
+
   function challengeOccupation(nextOccupationId: OccupationId) {
     const nextOccupation = occupationInfo[nextOccupationId];
 
@@ -1397,10 +1436,7 @@ export default function GamePage() {
       return;
     }
 
-    setCareerMiniGame(nextOccupation);
-    setCareerMiniGameScore(0);
-    setCareerMiniGameStep(0);
-    setMessage(`💼 ${nextOccupation.name} 테스트를 시작합니다.`);
+    startCareerTypingGame(nextOccupation);
   }
 
   async function equipOccupation(nextOccupationId: OccupationId) {
@@ -1415,32 +1451,55 @@ export default function GamePage() {
     setMessage(`직업이 ${nextOccupation.icon} ${nextOccupation.name}(으)로 변경되었습니다.`);
   }
 
-  async function playCareerMiniGameStep() {
+  function startCareerTypingGame(nextOccupation: Occupation) {
+    setCareerMiniGame(nextOccupation);
+    setCareerMiniGameScore(0);
+    setCareerMiniGameStep(0);
+    setCareerTypingMistakes(0);
+    setCareerTypingInput("");
+    setCareerTypingPrompt(makeCareerPrompt(nextOccupation, 0));
+    setCareerTypingTimeLeft(getCareerTimeLimit(nextOccupation));
+    setMessage(`💼 ${nextOccupation.name} 테스트 시작! 제한 시간 안에 업무 문장을 정확히 입력하세요.`);
+  }
+
+  async function submitCareerTypingAnswer() {
     if (!careerMiniGame || !userId) return;
 
-    const targetScore = 3 + careerMiniGame.minigameDifficulty;
-    const maxSteps = targetScore + 2;
-    const successRate = Math.max(0.36, 0.82 - careerMiniGame.minigameDifficulty * 0.08);
-    const success = Math.random() < successRate;
+    const targetScore = getCareerTargetScore(careerMiniGame);
+    const maxSteps = getCareerMaxSteps(careerMiniGame);
+    const typed = normalizeTypingText(careerTypingInput);
+    const answer = normalizeTypingText(careerTypingPrompt);
+    const success = typed === answer;
     const nextScore = careerMiniGameScore + (success ? 1 : 0);
     const nextStep = careerMiniGameStep + 1;
+    const nextMistakes = careerTypingMistakes + (success ? 0 : 1);
 
     setCareerMiniGameScore(nextScore);
     setCareerMiniGameStep(nextStep);
+    setCareerTypingMistakes(nextMistakes);
+    setCareerTypingInput("");
 
     if (nextScore >= targetScore) {
       await unlockOccupation(careerMiniGame);
       return;
     }
 
-    if (nextStep >= maxSteps) {
-      await logCareerMiniGame(careerMiniGame, "fail", 0);
-      setMessage(`💼 ${careerMiniGame.name} 테스트에 실패했습니다. 다시 도전해보세요.`);
-      resetCareerMiniGame();
+    if (nextStep >= maxSteps || nextMistakes >= 3) {
+      await failCareerMiniGame("💼 테스트에 실패했습니다. 정확도와 속도를 더 올려서 다시 도전하세요.");
       return;
     }
 
-    setMessage(success ? "✅ 좋은 판단입니다. 점수가 올랐습니다." : "❌ 실수했습니다. 다음 선택이 중요합니다.");
+    setCareerTypingPrompt(makeCareerPrompt(careerMiniGame, nextStep));
+    setCareerTypingTimeLeft(getCareerTimeLimit(careerMiniGame));
+    setMessage(success ? "✅ 업무 문장을 정확히 처리했습니다." : "❌ 오타가 있습니다. 다음 문장은 더 정확히 입력하세요.");
+  }
+
+  async function failCareerMiniGame(reason: string) {
+    if (!careerMiniGame) return;
+
+    await logCareerMiniGame(careerMiniGame, "fail", 0);
+    setMessage(reason);
+    resetCareerMiniGame();
   }
 
   async function unlockOccupation(nextOccupation: Occupation) {
@@ -1453,7 +1512,7 @@ export default function GamePage() {
     window.localStorage.setItem(`alba-money-occupation-${userId}`, nextOccupation.id);
     window.localStorage.setItem(`alba-money-unlocked-occupations-${userId}`, JSON.stringify(nextUnlocked));
 
-    await saveProfilePatch({ occupation_id: nextOccupation.id });
+    await saveProfilePatch({ occupation_id: nextOccupation.id, occupation_level: nextOccupation.minigameDifficulty, unlocked_occupations: nextUnlocked });
     await logCareerMiniGame(nextOccupation, "success", nextOccupation.incomeEvery3Min);
     setMessage(`🎉 ${nextOccupation.icon} ${nextOccupation.name} 직업을 획득했습니다!`);
     resetCareerMiniGame();
@@ -1478,6 +1537,10 @@ export default function GamePage() {
     setCareerMiniGame(null);
     setCareerMiniGameScore(0);
     setCareerMiniGameStep(0);
+    setCareerTypingPrompt("");
+    setCareerTypingInput("");
+    setCareerTypingTimeLeft(0);
+    setCareerTypingMistakes(0);
   }
 
   async function saveProfilePatch(patch: Partial<{ nickname: string; room_kind: RoomKind; occupation_id: OccupationId; occupation_level: number; unlocked_occupations: OccupationId[] }>) {
@@ -1542,6 +1605,7 @@ export default function GamePage() {
           rank: 0,
           nickname: profile.id === userId ? currentNickname : profile.nickname || "이름 없음",
           cash: Number(save?.cash ?? 0),
+          hasSave: !!save,
           job: profile.id === userId ? occupationInfo[occupationId].name : occupationInfo[profileOccupationId].name,
           isMe: profile.id === userId,
         };
@@ -1722,27 +1786,28 @@ export default function GamePage() {
             <div style={streetSceneStyle}>
               <div style={streetMoneyStyle}>◎ {cash.toLocaleString()}</div>
               <StreetArtwork />
-              <div style={hiddenLegacySceneStyle}>
-                <div style={sunStyle} />
-                <div style={roadStyle} />
-                <div style={streetLabelStyle}>길거리</div>
-                <button type="button" style={buildingButtonStyle}>숨김 건물</button>
+              <div style={streetBuildingsRowStyle}>
+                {streetBuildings.map((building, index) => (
+                  <button
+                    key={building.id}
+                    onClick={() => handleStreetBuildingClick(building.id)}
+                    style={{
+                      ...streetBuildingStyle,
+                      ...getStreetBuildingTheme(building.id),
+                      minHeight: index === 1 ? "410px" : index === 2 ? "330px" : index === 4 ? "470px" : "380px",
+                    }}
+                  >
+                    <div style={streetBuildingRoofStyle}>{building.emoji}</div>
+                    <div style={streetBuildingWindowGridStyle}>
+                      {Array.from({ length: building.id === "logistics" ? 6 : 15 }).map((_, windowIndex) => (
+                        <span key={windowIndex} style={streetBuildingWindowStyle} />
+                      ))}
+                    </div>
+                    <div style={streetBuildingSignStyle}>{building.title}</div>
+                    <div style={streetBuildingSubtitleStyle}>{building.subtitle}</div>
+                  </button>
+                ))}
               </div>
-              <div style={careerStreetButtonGroupStyle}>
-                <button onClick={() => { setCareerBuildingId("company"); setLobbyView("career"); }} style={careerStreetButtonStyle}>🏢 회사 빌딩</button>
-                <button onClick={() => { setCareerBuildingId("entertainment"); setLobbyView("career"); }} style={careerStreetButtonStyle}>🎤 엔터테인먼트</button>
-                <button onClick={() => { setCareerBuildingId("logistics"); setLobbyView("career"); }} style={careerStreetButtonStyle}>🚚 물류 센터</button>
-                <button onClick={() => { setCareerBuildingId("finance"); setLobbyView("career"); }} style={careerStreetButtonStyle}>🏦 투자 회사</button>
-              </div>
-              <button
-                onClick={() => setLobbyView("stocks")}
-                style={stockExchangeBuildingButtonStyle}
-                aria-label="주식 거래소 들어가기"
-              >
-                <span style={stockExchangeButtonIconStyle}>📈</span>
-                <span style={stockExchangeButtonTitleStyle}>주식 거래소</span>
-                <span style={stockExchangeButtonSubStyle}>투자 · 시세 · 보유 주식</span>
-              </button>
               <div style={streetBottomNavStyle}>
                 <button onClick={() => setLobbyView("room")} style={bottomNavButtonStyle}>방으로 돌아가기</button>
               </div>
@@ -1936,7 +2001,7 @@ export default function GamePage() {
                     <strong>{row.rank}위</strong>
                     <span>{row.isMe ? "👤 " : ""}{row.nickname}</span>
                     <span>{row.job}</span>
-                    <strong>{row.cash.toLocaleString()}원</strong>
+                    <strong>{row.hasSave ? `${row.cash.toLocaleString()}원` : "미플레이"}</strong>
                   </div>
                 ))}
               </div>
@@ -1953,12 +2018,35 @@ export default function GamePage() {
       {careerMiniGame && (
         <div style={careerMiniGameOverlayStyle}>
           <div style={careerMiniGameBoxStyle}>
-            <div style={smallLabelStyle}>CAREER TEST</div>
-            <h2 style={panelTitleStyle}>{careerMiniGame.icon} {careerMiniGame.name} 테스트</h2>
-            <p style={panelDescStyle}>{careerMiniGame.minigameName}을 수행합니다. 높은 직급일수록 성공 확률이 낮고 필요한 점수가 높습니다.</p>
-            <div style={careerMiniGameScoreStyle}>성공 점수 {careerMiniGameScore} / {3 + careerMiniGame.minigameDifficulty} · 시도 {careerMiniGameStep} / {5 + careerMiniGame.minigameDifficulty}</div>
-            <button onClick={playCareerMiniGameStep} style={bigStartButtonStyle}>업무 처리하기</button>
-            <button onClick={resetCareerMiniGame} style={logoutButtonStyle}>포기</button>
+            <div style={smallLabelStyle}>CAREER TYPING TEST</div>
+            <h2 style={panelTitleStyle}>{careerMiniGame.icon} {careerMiniGame.name} 실무 테스트</h2>
+            <p style={panelDescStyle}>
+              {careerMiniGame.minigameName}에 맞는 업무 문장을 제한 시간 안에 정확히 입력하세요. 높은 직급일수록 문장이 길어지고 제한 시간이 짧아집니다.
+            </p>
+            <div style={careerMiniGameStatusGridStyle}>
+              <div style={careerMiniGameScoreStyle}>점수 {careerMiniGameScore} / {getCareerTargetScore(careerMiniGame)}</div>
+              <div style={careerMiniGameScoreStyle}>시도 {careerMiniGameStep} / {getCareerMaxSteps(careerMiniGame)}</div>
+              <div style={{ ...careerMiniGameScoreStyle, color: careerTypingTimeLeft <= 5 ? "#dc2626" : "#111827" }}>남은 시간 {careerTypingTimeLeft}초</div>
+              <div style={careerMiniGameScoreStyle}>오타 {careerTypingMistakes} / 3</div>
+            </div>
+            <div style={careerTypingPromptStyle}>{careerTypingPrompt}</div>
+            <input
+              value={careerTypingInput}
+              onChange={(event) => setCareerTypingInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void submitCareerTypingAnswer();
+                }
+              }}
+              autoFocus
+              placeholder="위 문장을 그대로 입력하고 Enter"
+              style={careerTypingInputStyle}
+            />
+            <div style={careerMiniGameButtonRowStyle}>
+              <button onClick={() => void submitCareerTypingAnswer()} style={bigStartButtonStyle}>제출하기</button>
+              <button onClick={resetCareerMiniGame} style={logoutButtonStyle}>포기</button>
+            </div>
           </div>
         </div>
       )}
@@ -2059,80 +2147,33 @@ function RoomArtwork({ roomKind, nickname, occupationName }: { roomKind: RoomKin
 
 function StreetArtwork() {
   return (
-    <svg style={sceneSvgStyle} viewBox="0 0 1600 760" preserveAspectRatio="none" role="img" aria-label="주식 거래소 거리">
+    <svg style={sceneSvgStyle} viewBox="0 0 1600 760" preserveAspectRatio="none" role="img" aria-label="직업 건물이 있는 거리">
       <defs>
-        <linearGradient id="premiumSky" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id="careerSky" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor="#dbeafe" />
-          <stop offset="58%" stopColor="#f8fafc" />
+          <stop offset="62%" stopColor="#f8fafc" />
           <stop offset="100%" stopColor="#e2e8f0" />
         </linearGradient>
-        <linearGradient id="premiumRoad" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#0f172a" />
-          <stop offset="100%" stopColor="#1e293b" />
+        <linearGradient id="careerRoad" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#111827" />
+          <stop offset="100%" stopColor="#243045" />
         </linearGradient>
-        <linearGradient id="towerGold" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#fff7cc" />
-          <stop offset="45%" stopColor="#f6c453" />
-          <stop offset="100%" stopColor="#b7791f" />
-        </linearGradient>
-        <linearGradient id="towerGlass" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#e0f2fe" />
-          <stop offset="100%" stopColor="#38bdf8" />
-        </linearGradient>
-        <filter id="towerShadow" x="-35%" y="-20%" width="170%" height="160%">
-          <feDropShadow dx="0" dy="20" stdDeviation="12" floodColor="#0f172a" floodOpacity="0.24" />
-        </filter>
       </defs>
-
-      <rect x="0" y="0" width="1600" height="760" fill="url(#premiumSky)" />
-      <circle cx="250" cy="128" r="56" fill="#fde68a" opacity="0.95" />
-      <circle cx="250" cy="128" r="112" fill="#fde68a" opacity="0.18" />
-
-      <path d="M0 470 C250 430 500 456 720 490 C960 528 1185 506 1600 444 L1600 760 L0 760 Z" fill="#cbd5e1" />
-      <path d="M-60 612 C230 548 520 558 780 620 C1060 686 1328 674 1660 584 L1660 760 L-60 760 Z" fill="url(#premiumRoad)" />
-      <path d="M82 656 C330 600 584 610 826 664 C1088 722 1315 714 1524 638" fill="none" stroke="#f8fafc" strokeWidth="13" strokeLinecap="round" strokeDasharray="72 54" opacity="0.95" />
-
+      <rect x="0" y="0" width="1600" height="760" fill="url(#careerSky)" />
+      <circle cx="238" cy="132" r="56" fill="#fde68a" opacity="0.95" />
+      <circle cx="238" cy="132" r="118" fill="#fde68a" opacity="0.18" />
+      <path d="M0 505 C280 460 520 476 760 512 C1040 556 1260 528 1600 470 L1600 760 L0 760 Z" fill="#cbd5e1" />
+      <path d="M-80 628 C220 566 520 578 810 642 C1088 704 1320 690 1680 604 L1680 760 L-80 760 Z" fill="url(#careerRoad)" />
+      <path d="M82 666 C326 608 594 622 842 674 C1098 726 1326 716 1532 650" fill="none" stroke="#f8fafc" strokeWidth="13" strokeLinecap="round" strokeDasharray="72 54" opacity="0.96" />
       <g opacity="0.55">
-        <rect x="142" y="338" width="92" height="132" rx="12" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
-        <rect x="1264" y="326" width="112" height="148" rx="12" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
-        <rect x="1398" y="292" width="90" height="182" rx="12" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
-      </g>
-
-      <g filter="url(#towerShadow)">
-        <ellipse cx="800" cy="520" rx="190" ry="26" fill="#0f172a" opacity="0.18" />
-        <path d="M710 500 L890 500 L860 142 Q800 82 740 142 Z" fill="url(#towerGold)" stroke="#111827" strokeWidth="8" strokeLinejoin="round" />
-        <path d="M760 150 Q800 112 840 150 L860 500 L740 500 Z" fill="url(#towerGlass)" opacity="0.45" />
-        {Array.from({ length: 10 }).map((_, row) => (
-          <g key={`tower-row-${row}`}>
-            {Array.from({ length: 4 }).map((__, col) => (
-              <rect
-                key={`tower-window-${row}-${col}`}
-                x={746 + col * 29}
-                y={178 + row * 30}
-                width="16"
-                height="18"
-                rx="4"
-                fill={row % 2 === 0 ? "#f8fafc" : "#dbeafe"}
-                opacity="0.88"
-              />
-            ))}
-          </g>
-        ))}
-        <rect x="728" y="112" width="144" height="52" rx="24" fill="#ffffff" stroke="#111827" strokeWidth="7" />
-        <text x="800" y="147" textAnchor="middle" fill="#111827" fontSize="24" fontWeight="900">주식 거래소</text>
-        <rect x="752" y="455" width="96" height="45" rx="14" fill="#111827" />
-        <path d="M726 420 C754 398 782 424 808 400 C832 378 856 392 884 368" fill="none" stroke="#22c55e" strokeWidth="9" strokeLinecap="round" />
-        <path d="M726 428 C760 442 784 410 812 430 C842 450 858 410 884 422" fill="none" stroke="#ef4444" strokeWidth="6" strokeLinecap="round" />
-      </g>
-
-      <g opacity="0.92">
-        <rect x="1172" y="574" width="122" height="60" rx="22" fill="#38bdf8" stroke="#111827" strokeWidth="6" />
-        <circle cx="1206" cy="640" r="17" fill="#111827" />
-        <circle cx="1262" cy="640" r="17" fill="#111827" />
+        <rect x="78" y="360" width="90" height="128" rx="14" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
+        <rect x="1314" y="324" width="108" height="164" rx="14" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
+        <rect x="1442" y="292" width="92" height="196" rx="14" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
       </g>
     </svg>
   );
 }
+
 function SortingGame({ item, combo, miss, difficulty }: { item: SortItem; combo: number; miss: number; difficulty: number }) {
   const activeKinds = getActiveSortKinds(difficulty);
   return (
@@ -2252,6 +2293,101 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
       </div>
     </div>
   );
+}
+
+function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
+  if (buildingId === "stocks") {
+    return {
+      background: "linear-gradient(180deg, #dbeafe 0%, #60a5fa 100%)",
+      borderColor: "#1e3a8a",
+    };
+  }
+
+  if (buildingId === "company") {
+    return {
+      background: "linear-gradient(180deg, #f8fafc 0%, #cbd5e1 100%)",
+      borderColor: "#334155",
+    };
+  }
+
+  if (buildingId === "entertainment") {
+    return {
+      background: "linear-gradient(180deg, #fce7f3 0%, #e879f9 100%)",
+      borderColor: "#86198f",
+    };
+  }
+
+  if (buildingId === "logistics") {
+    return {
+      background: "linear-gradient(180deg, #fef3c7 0%, #f59e0b 100%)",
+      borderColor: "#92400e",
+    };
+  }
+
+  return {
+    background: "linear-gradient(180deg, #ecfeff 0%, #67e8f9 100%)",
+    borderColor: "#155e75",
+  };
+}
+
+function getCareerTargetScore(occupation: Occupation) {
+  return Math.min(7, 2 + occupation.minigameDifficulty);
+}
+
+function getCareerMaxSteps(occupation: Occupation) {
+  return getCareerTargetScore(occupation) + 3;
+}
+
+function getCareerTimeLimit(occupation: Occupation) {
+  return Math.max(10, 24 - occupation.minigameDifficulty * 3);
+}
+
+function normalizeTypingText(text: string) {
+  return text.trim().replace(/\s+/g, " ");
+}
+
+function makeCareerPrompt(occupation: Occupation, step: number) {
+  const companyPrompts = [
+    "분기 매출 보고서를 정리하고 팀장에게 공유한다",
+    "오전 회의 전까지 업무 우선순위를 다시 작성한다",
+    "거래처 요청 사항을 확인하고 회신 메일을 보낸다",
+    "프로젝트 일정표를 검토하고 지연 위험을 표시한다",
+    "회의록을 작성하고 다음 액션 아이템을 정리한다",
+  ];
+
+  const entertainmentPrompts = [
+    "무대 동선을 확인하고 리허설 박자를 맞춘다",
+    "팬미팅 순서를 정리하고 진행 큐시트를 확인한다",
+    "녹음 일정에 맞춰 보컬 파트를 다시 연습한다",
+    "콘서트 리허설에서 조명 큐와 안무 타이밍을 맞춘다",
+    "광고 촬영 전 대본과 표정 연기를 점검한다",
+  ];
+
+  const logisticsPrompts = [
+    "긴급 배송 물량을 지역별로 분류하고 출고 시간을 확인한다",
+    "파손 위험 상품을 별도 라인으로 이동시킨다",
+    "배송 지연 구역을 확인하고 대체 차량을 배정한다",
+    "물류 센터 재고표를 확인하고 부족 수량을 기록한다",
+    "상차 순서를 다시 정렬해 배송 동선을 줄인다",
+  ];
+
+  const financePrompts = [
+    "기업 실적과 차트 흐름을 비교해 투자 의견을 작성한다",
+    "손절 기준과 목표 수익률을 확인하고 주문을 검토한다",
+    "시장 변동성을 확인하고 포트폴리오 비중을 조정한다",
+    "거래량 증가 종목을 분석하고 위험 신호를 표시한다",
+    "분산 투자를 위해 보유 종목의 평가 금액을 계산한다",
+  ];
+
+  const promptsByBuilding: Record<CareerBuildingId, string[]> = {
+    company: companyPrompts,
+    entertainment: entertainmentPrompts,
+    logistics: logisticsPrompts,
+    finance: financePrompts,
+  };
+
+  const prompts = promptsByBuilding[occupation.buildingId];
+  return prompts[(step + occupation.minigameDifficulty) % prompts.length];
 }
 
 function getCareerBuildingName(buildingId: CareerBuildingId) {
@@ -2448,6 +2584,7 @@ function makeRankingRows(nickname: string, cash: number, job: string): RankingRo
       nickname,
       cash,
       job,
+      hasSave: true,
       isMe: true,
     },
   ];
@@ -2847,96 +2984,14 @@ const streetMoneyStyle: CSSProperties = {
   padding: "6px 12px",
 };
 
-const sunStyle: CSSProperties = {
-  position: "absolute",
-  top: "36px",
-  left: "10%",
-  fontSize: "78px",
-  lineHeight: 1,
-  filter: "drop-shadow(3px 3px 0 rgba(17,24,39,0.16))",
-};
-
-const buildingButtonStyle: CSSProperties = {
-  position: "absolute",
-  zIndex: 6,
-  border: "5px solid #111827",
-  borderRadius: "10px 10px 3px 3px",
-  background: "linear-gradient(180deg, #ffffff 0 20%, #e5e7eb 20% 21%, #ffffff 21% 43%, #e5e7eb 43% 44%, #ffffff 44% 66%, #e5e7eb 66% 67%, #ffffff 67% 100%)",
-  color: "#111827",
-  fontWeight: 900,
-  fontSize: "16px",
-  cursor: "pointer",
-  boxShadow: "7px 7px 0 rgba(17,24,39,0.16)",
-};
-
-const roadStyle: CSSProperties = {
-  position: "absolute",
-  left: "-10%",
-  right: "-10%",
-  bottom: "10%",
-  height: "30%",
-  borderTop: "5px solid #111827",
-  borderBottom: "5px solid #111827",
-  transform: "rotate(-8deg)",
-  background: "linear-gradient(180deg, #ffffff 0 44%, transparent 44% 56%, #ffffff 56% 100%), repeating-linear-gradient(90deg, transparent 0 46px, #111827 46px 84px, transparent 84px 128px)",
-  opacity: 0.95,
-  boxShadow: "0 -6px 0 rgba(17,24,39,0.08), 0 6px 0 rgba(17,24,39,0.08)",
-};
-
-const streetLabelStyle: CSSProperties = {
-  position: "absolute",
-  zIndex: 6,
-  right: "22%",
-  bottom: "28%",
-  background: "#ffffff",
-  border: "3px solid #111827",
-  borderRadius: "8px",
-  padding: "6px 18px",
-  fontWeight: 900,
-  boxShadow: "3px 3px 0 rgba(17,24,39,0.18)",
-};
 
 
-const stockExchangeBuildingButtonStyle: CSSProperties = {
-  position: "absolute",
-  zIndex: 8,
-  left: "50%",
-  bottom: "28%",
-  transform: "translateX(-50%)",
-  width: "230px",
-  height: "430px",
-  border: "none",
-  background: "transparent",
-  color: "#111827",
-  cursor: "pointer",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "flex-start",
-  textAlign: "center",
-  outline: "none",
-  padding: 0,
-};
 
-const stockExchangeButtonIconStyle: CSSProperties = {
-  display: "none",
-};
 
-const stockExchangeButtonTitleStyle: CSSProperties = {
-  marginTop: "10px",
-  background: "rgba(255,255,255,0.96)",
-  border: "3px solid #111827",
-  borderRadius: "999px",
-  padding: "7px 16px",
-  fontSize: "15px",
-  fontWeight: 900,
-  lineHeight: 1.12,
-  boxShadow: "3px 3px 0 rgba(17,24,39,0.16)",
-};
 
-const stockExchangeButtonSubStyle: CSSProperties = {
-  display: "none",
-};
+
+
+
 
 const streetBottomNavStyle: CSSProperties = {
   position: "absolute",
@@ -3785,27 +3840,83 @@ const securityHintStyle: CSSProperties = {
 };
 
 
-const careerStreetButtonGroupStyle: CSSProperties = {
+
+
+const streetBuildingsRowStyle: CSSProperties = {
   position: "absolute",
+  zIndex: 7,
   left: "34px",
-  top: "34px",
-  zIndex: 8,
+  right: "34px",
+  bottom: "118px",
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(150px, 1fr))",
-  gap: "10px",
-  maxWidth: "360px",
+  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+  gap: "18px",
+  alignItems: "end",
 };
 
-const careerStreetButtonStyle: CSSProperties = {
+const streetBuildingStyle: CSSProperties = {
+  position: "relative",
+  border: "5px solid #111827",
+  borderRadius: "28px 28px 16px 16px",
+  padding: "16px 12px 14px",
+  boxShadow: "0 13px 0 rgba(15,23,42,0.18), 0 22px 34px rgba(15,23,42,0.14)",
+  display: "grid",
+  gridTemplateRows: "48px minmax(0, 1fr) auto auto",
+  gap: "10px",
+  cursor: "pointer",
+  textAlign: "center",
+  color: "#0f172a",
+  transition: "transform 120ms ease, filter 120ms ease",
+  overflow: "hidden",
+};
+
+const streetBuildingRoofStyle: CSSProperties = {
+  width: "64px",
+  height: "48px",
   border: "4px solid #111827",
   borderRadius: "18px",
-  background: "linear-gradient(180deg, #ffffff, #dbeafe)",
-  color: "#111827",
-  padding: "12px 14px",
-  fontSize: "16px",
+  background: "rgba(255,255,255,0.86)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  justifySelf: "center",
+  fontSize: "28px",
+  boxShadow: "3px 3px 0 rgba(17,24,39,0.16)",
+};
+
+const streetBuildingWindowGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: "8px",
+  alignContent: "start",
+  padding: "8px 18px",
+};
+
+const streetBuildingWindowStyle: CSSProperties = {
+  height: "24px",
+  borderRadius: "8px",
+  background: "rgba(255,255,255,0.62)",
+  border: "2px solid rgba(255,255,255,0.82)",
+  boxShadow: "inset 0 -3px 0 rgba(15,23,42,0.08)",
+};
+
+const streetBuildingSignStyle: CSSProperties = {
+  background: "rgba(255,255,255,0.92)",
+  border: "4px solid #111827",
+  borderRadius: "16px",
+  padding: "9px 10px",
+  fontSize: "18px",
   fontWeight: 900,
-  cursor: "pointer",
-  boxShadow: "0 7px 0 rgba(15,23,42,0.2)",
+  lineHeight: 1.1,
+  boxShadow: "3px 3px 0 rgba(17,24,39,0.14)",
+};
+
+const streetBuildingSubtitleStyle: CSSProperties = {
+  fontSize: "12px",
+  fontWeight: 900,
+  color: "#334155",
+  lineHeight: 1.25,
+  minHeight: "32px",
 };
 
 const careerOfficeStyle: CSSProperties = {
@@ -3881,6 +3992,43 @@ const careerButtonLikeStyle: CSSProperties = {
   fontWeight: 900,
   fontSize: "16px",
   textAlign: "center",
+};
+
+const careerMiniGameStatusGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: "8px",
+};
+
+const careerTypingPromptStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "18px",
+  background: "linear-gradient(180deg, #eff6ff, #dbeafe)",
+  color: "#111827",
+  padding: "18px",
+  fontSize: "24px",
+  fontWeight: 900,
+  lineHeight: 1.35,
+  textAlign: "center",
+  boxShadow: "4px 4px 0 rgba(17,24,39,0.16)",
+};
+
+const careerTypingInputStyle: CSSProperties = {
+  width: "100%",
+  border: "4px solid #111827",
+  borderRadius: "16px",
+  background: "#ffffff",
+  color: "#111827",
+  padding: "16px",
+  fontSize: "20px",
+  fontWeight: 900,
+  outline: "none",
+};
+
+const careerMiniGameButtonRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gap: "10px",
 };
 
 const careerMiniGameOverlayStyle: CSSProperties = {
