@@ -2189,9 +2189,6 @@ function hashSeed(text: string) {
   return hash >>> 0;
 }
 
-function randomInt(min: number, max: number) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
 
 function formatTime(seconds: number) {
   const minutes = Math.floor(seconds / 60);
