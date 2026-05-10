@@ -359,9 +359,6 @@ export default function GamePage() {
 
   useEffect(() => {
     if (!userId) return;
-  const currentUserId = userId;
-
-  let cancelled = false;
 
     async function loadProfilePreferences() {
       const savedNickname = window.localStorage.getItem(`alba-money-nickname-${userId}`);
@@ -432,12 +429,13 @@ export default function GamePage() {
 
   useEffect(() => {
     if (!userId) return;
+    const currentUserId = userId;
 
     let cancelled = false;
 
     async function loadStocks() {
       setIsStockLoaded(false);
-      const storageKey = `alba-money-stocks-${userId}`;
+      const storageKey = `alba-money-stocks-${currentUserId}`;
       let remoteRows: StockRow[] | null = null;
       let remoteAt: Date | null = null;
       let localRows: StockRow[] | null = null;
@@ -448,7 +446,7 @@ export default function GamePage() {
         const { data, error } = await supabase
           .from(STOCK_TABLE)
           .select("rows, updated_at")
-          .eq("user_id", userId)
+          .eq("user_id", currentUserId)
           .maybeSingle<StockSaveRow>();
 
         if (!error && data?.rows) {
@@ -504,16 +502,17 @@ export default function GamePage() {
 
   useEffect(() => {
     if (!userId || !isStockLoaded || stockRows.length === 0) return;
+    const currentUserId = userId;
 
     const payload = { rows: stockRows, updatedAt: stockUpdatedAt.toISOString() };
-    window.localStorage.setItem(`alba-money-stocks-${userId}`, JSON.stringify(payload));
+    window.localStorage.setItem(`alba-money-stocks-${currentUserId}`, JSON.stringify(payload));
 
     const timer = window.setTimeout(async () => {
       try {
         const supabase = createClient();
         const { error } = await supabase.from(STOCK_TABLE).upsert(
           {
-            user_id: userId,
+            user_id: currentUserId,
             rows: stockRows,
             updated_at: stockUpdatedAt.toISOString(),
           },
@@ -1248,15 +1247,16 @@ export default function GamePage() {
 
   function persistStocksNow(rows: StockRow[], updatedAt: Date = stockUpdatedAt) {
     if (!userId) return;
+    const currentUserId = userId;
 
     const payload = { rows, updatedAt: updatedAt.toISOString() };
-    window.localStorage.setItem(`alba-money-stocks-${userId}`, JSON.stringify(payload));
+    window.localStorage.setItem(`alba-money-stocks-${currentUserId}`, JSON.stringify(payload));
 
     try {
       const supabase = createClient();
       void supabase.from(STOCK_TABLE).upsert(
         {
-          user_id: userId,
+          user_id: currentUserId,
           rows,
           updated_at: updatedAt.toISOString(),
         },
