@@ -2298,7 +2298,7 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
 }
 
 function getStreetBuildingHeight(buildingId: StreetBuildingId) {
-  if (buildingId === "stock") return "354px";
+  if (buildingId === "stocks") return "354px";
   if (buildingId === "entertainment") return "342px";
   if (buildingId === "logistics") return "286px";
   if (buildingId === "finance") return "326px";
