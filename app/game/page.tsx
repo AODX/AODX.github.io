@@ -666,7 +666,6 @@ const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: st
   { id: "news", title: "경제 뉴스", subtitle: "시장 이벤트 · 흐름", emoji: "📰" },
   { id: "insurance", title: "보험사", subtitle: "사고 · 세금 · 사업 보장", emoji: "🛡️" },
   { id: "employees", title: "인력 사무소", subtitle: "직원 고용 · 인건비", emoji: "👥" },
-  { id: "auction", title: "경매장", subtitle: "할인 매물 · 즉시 구매", emoji: "🔨" },
   { id: "academy", title: "교육원", subtitle: "자격증 · 교육 효과", emoji: "🎓" },
   { id: "gacha", title: "가챠 숍", subtitle: "장신구 · 자판기", emoji: "🎁" },
   { id: "itemMarket", title: "아이템 거래소", subtitle: "유저 장신구 매매", emoji: "🤝" },
@@ -4389,6 +4388,46 @@ function StreetBuildingIllustration({ id }: { id: StreetBuildingId }) {
     );
   }
 
+  if (id === "academy") {
+    return (
+      <svg viewBox="0 0 220 150" style={streetFacadeSvgStyle} aria-hidden="true">
+        <rect x="34" y="44" width="152" height="88" rx="14" fill="#ddd6fe" stroke="#111827" strokeWidth="6" />
+        <path d="M36 48 L110 18 L184 48" fill="#8b5cf6" stroke="#111827" strokeWidth="6" strokeLinejoin="round" />
+        <rect x="68" y="74" width="84" height="42" rx="10" fill="#ffffff" stroke="#111827" strokeWidth="5" />
+        <text x="110" y="101" textAnchor="middle" fontSize="16" fontWeight="900" fill="#111827">EDU</text>
+        <rect x="50" y="62" width="18" height="56" rx="8" fill="rgba(255,255,255,0.65)" />
+        <rect x="154" y="62" width="18" height="56" rx="8" fill="rgba(255,255,255,0.65)" />
+      </svg>
+    );
+  }
+
+  if (id === "gacha") {
+    return (
+      <svg viewBox="0 0 220 150" style={streetFacadeSvgStyle} aria-hidden="true">
+        <rect x="42" y="34" width="136" height="104" rx="22" fill="#f9a8d4" stroke="#111827" strokeWidth="6" />
+        <rect x="66" y="52" width="88" height="34" rx="14" fill="#ffffff" stroke="#111827" strokeWidth="5" />
+        <text x="110" y="76" textAnchor="middle" fontSize="15" fontWeight="900" fill="#be123c">GACHA</text>
+        <circle cx="82" cy="106" r="15" fill="#fef3c7" stroke="#111827" strokeWidth="4" />
+        <circle cx="118" cy="106" r="15" fill="#bfdbfe" stroke="#111827" strokeWidth="4" />
+        <circle cx="154" cy="106" r="15" fill="#bbf7d0" stroke="#111827" strokeWidth="4" />
+        <rect x="96" y="122" width="30" height="16" rx="5" fill="#111827" />
+      </svg>
+    );
+  }
+
+  if (id === "itemMarket") {
+    return (
+      <svg viewBox="0 0 220 150" style={streetFacadeSvgStyle} aria-hidden="true">
+        <rect x="30" y="52" width="160" height="82" rx="14" fill="#67e8f9" stroke="#111827" strokeWidth="6" />
+        <path d="M32 52 H188 L166 26 H54 Z" fill="#06b6d4" stroke="#111827" strokeWidth="6" strokeLinejoin="round" />
+        <rect x="56" y="78" width="42" height="38" rx="8" fill="#ffffff" stroke="#111827" strokeWidth="4" />
+        <rect x="122" y="78" width="42" height="38" rx="8" fill="#ffffff" stroke="#111827" strokeWidth="4" />
+        <path d="M98 96 H122" stroke="#111827" strokeWidth="6" strokeLinecap="round" />
+        <text x="110" y="47" textAnchor="middle" fontSize="14" fontWeight="900" fill="#111827">MARKET</text>
+      </svg>
+    );
+  }
+
   return (
     <svg viewBox="0 0 220 150" style={streetFacadeSvgStyle} aria-hidden="true">
       <rect x="35" y="42" width="150" height="90" rx="14" fill="#fdba74" stroke="#111827" strokeWidth="6" />
@@ -4533,8 +4572,8 @@ function getStreetPageLabel(page: number) {
   if (page === 0) return "도심 업무 지구";
   if (page === 1) return "투자 · 금융 지구";
   if (page === 2) return "자산 · 사업 지구";
-  if (page === 3) return "리스크 · 인력 · 경매 지구";
-  return "레저 · 카지노 지구";
+  if (page === 3) return "리스크 · 교육 지구";
+  return "가챠 · 거래 지구";
 }
 
 function getStreetBuildingHeight(buildingId: StreetBuildingId) {
@@ -4548,6 +4587,9 @@ function getStreetBuildingHeight(buildingId: StreetBuildingId) {
   if (buildingId === "business") return "192px";
   if (buildingId === "news") return "178px";
   if (buildingId === "casino") return "198px";
+  if (buildingId === "academy") return "206px";
+  if (buildingId === "gacha") return "198px";
+  if (buildingId === "itemMarket") return "192px";
   return "200px";
 }
 
@@ -4571,12 +4613,19 @@ function getStreetBuildingPlacement(buildingId: StreetBuildingId, page: number):
   }
 
   if (page === 3) {
-    if (buildingId === "casino") return { left: "39%", bottom: "132px", width: "22%" };
+    if (buildingId === "insurance") return { left: "11%", bottom: "138px", width: "20%" };
+    if (buildingId === "employees") return { left: "40%", bottom: "132px", width: "22%" };
+    if (buildingId === "academy") return { left: "70%", bottom: "130px", width: "20%" };
+  }
+
+  if (page === 4) {
+    if (buildingId === "gacha") return { left: "12%", bottom: "132px", width: "22%" };
+    if (buildingId === "itemMarket") return { left: "40%", bottom: "132px", width: "22%" };
+    if (buildingId === "casino") return { left: "69%", bottom: "132px", width: "22%" };
   }
 
   return { left: "38%", bottom: "132px", width: "22%" };
 }
-
 function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
   if (buildingId === "stocks") {
     return {
@@ -7251,4 +7300,3 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
-
