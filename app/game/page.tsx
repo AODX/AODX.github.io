@@ -95,7 +95,13 @@ type StockRow = {
   history: number[];
 };
 
+type StockSaveRow = {
+  rows: StockRow[] | string | null;
+  updated_at: string | null;
+};
+
 const PROFILE_TABLE = "game_profiles";
+const STOCK_TABLE = "game_stock_saves";
 const STOCK_INTERVAL_MS = 3 * 60 * 1000;
 const TAX_INTERVAL_SECONDS = 420;
 const TAX_WARNING_SECONDS = 60;
@@ -234,6 +240,8 @@ export default function GamePage() {
   const [rankingUpdatedAt, setRankingUpdatedAt] = useState(new Date());
   const [stockRows, setStockRows] = useState<StockRow[]>([]);
   const [stockUpdatedAt, setStockUpdatedAt] = useState(new Date());
+  const [stockCountdownMs, setStockCountdownMs] = useState(STOCK_INTERVAL_MS);
+  const [isStockLoaded, setIsStockLoaded] = useState(false);
 
   const [warningCount, setWarningCount] = useState(0);
   const [unpaidTax, setUnpaidTax] = useState(0);
@@ -422,46 +430,121 @@ export default function GamePage() {
   useEffect(() => {
     if (!userId) return;
 
-    const storageKey = `alba-money-stocks-${userId}`;
-    const saved = window.localStorage.getItem(storageKey);
+    let cancelled = false;
 
-    if (saved) {
+    async function loadStocks() {
+      setIsStockLoaded(false);
+      const storageKey = `alba-money-stocks-${userId}`;
+      let loadedRows: StockRow[] | null = null;
+      let loadedAt: Date | null = null;
+
       try {
-        const parsed = JSON.parse(saved) as { rows?: StockRow[]; updatedAt?: string };
-        if (Array.isArray(parsed.rows) && parsed.rows.length > 0) {
-          setStockRows(parsed.rows);
-          setStockUpdatedAt(parsed.updatedAt ? new Date(parsed.updatedAt) : new Date());
-          return;
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from(STOCK_TABLE)
+          .select("rows, updated_at")
+          .eq("user_id", userId)
+          .maybeSingle<StockSaveRow>();
+
+        if (!error && data?.rows) {
+          const rows = typeof data.rows === "string" ? JSON.parse(data.rows) : data.rows;
+          if (Array.isArray(rows) && rows.length > 0) {
+            loadedRows = normalizeStockRows(rows);
+            loadedAt = data.updated_at ? new Date(data.updated_at) : new Date();
+          }
+        } else if (error) {
+          console.warn("주식 저장 테이블을 읽지 못했습니다. localStorage를 사용합니다:", error.message);
         }
-      } catch {
-        window.localStorage.removeItem(storageKey);
+      } catch (error) {
+        console.warn("주식 저장 데이터를 불러오지 못했습니다. localStorage를 사용합니다:", error);
       }
+
+      if (!loadedRows) {
+        const saved = window.localStorage.getItem(storageKey);
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved) as { rows?: StockRow[]; updatedAt?: string };
+            if (Array.isArray(parsed.rows) && parsed.rows.length > 0) {
+              loadedRows = normalizeStockRows(parsed.rows);
+              loadedAt = parsed.updatedAt ? new Date(parsed.updatedAt) : new Date();
+            }
+          } catch {
+            window.localStorage.removeItem(storageKey);
+          }
+        }
+      }
+
+      if (!loadedRows) {
+        loadedRows = makeInitialStocks();
+        loadedAt = new Date();
+      }
+
+      const elapsedApplied = applyElapsedStockUpdates(loadedRows, loadedAt ?? new Date());
+
+      if (cancelled) return;
+      setStockRows(elapsedApplied.rows);
+      setStockUpdatedAt(elapsedApplied.updatedAt);
+      setStockCountdownMs(Math.max(0, STOCK_INTERVAL_MS - (Date.now() - elapsedApplied.updatedAt.getTime())));
+      setIsStockLoaded(true);
     }
 
-    const initialStocks = makeInitialStocks();
-    setStockRows(initialStocks);
-    setStockUpdatedAt(new Date());
+    loadStocks();
+
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
   useEffect(() => {
-    if (!userId || stockRows.length === 0) return;
+    if (!userId || !isStockLoaded || stockRows.length === 0) return;
 
-    window.localStorage.setItem(
-      `alba-money-stocks-${userId}`,
-      JSON.stringify({ rows: stockRows, updatedAt: stockUpdatedAt.toISOString() })
-    );
-  }, [userId, stockRows, stockUpdatedAt]);
+    const payload = { rows: stockRows, updatedAt: stockUpdatedAt.toISOString() };
+    window.localStorage.setItem(`alba-money-stocks-${userId}`, JSON.stringify(payload));
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const supabase = createClient();
+        const { error } = await supabase.from(STOCK_TABLE).upsert(
+          {
+            user_id: userId,
+            rows: stockRows,
+            updated_at: stockUpdatedAt.toISOString(),
+          },
+          { onConflict: "user_id" }
+        );
+
+        if (error) {
+          console.warn("주식 저장 실패. localStorage에는 저장되었습니다:", error.message);
+        }
+      } catch (error) {
+        console.warn("주식 저장 실패. localStorage에는 저장되었습니다:", error);
+      }
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [userId, isStockLoaded, stockRows, stockUpdatedAt]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !isStockLoaded) return;
 
-    const timer = window.setInterval(() => {
-      setStockRows((current) => updateStockMarket(current.length > 0 ? current : makeInitialStocks()));
-      setStockUpdatedAt(new Date());
-    }, STOCK_INTERVAL_MS);
+    const tick = () => {
+      const remaining = stockUpdatedAt.getTime() + STOCK_INTERVAL_MS - Date.now();
+
+      if (remaining <= 0) {
+        setStockRows((current) => updateStockMarket(current.length > 0 ? current : makeInitialStocks()));
+        setStockUpdatedAt(new Date());
+        setStockCountdownMs(STOCK_INTERVAL_MS);
+        return;
+      }
+
+      setStockCountdownMs(remaining);
+    };
+
+    tick();
+    const timer = window.setInterval(tick, 1000);
 
     return () => window.clearInterval(timer);
-  }, [userId]);
+  }, [userId, isStockLoaded, stockUpdatedAt]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
@@ -1434,7 +1517,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>STOCK EXCHANGE</div>
                   <h2 style={panelTitleStyle}>주식 거래소</h2>
-                  <p style={panelDescStyle}>3분마다 가격이 변동됩니다. 각 회사는 한 번에 1주씩 매수/매도할 수 있습니다. 마지막 변동: {stockUpdatedAt.toLocaleTimeString()}</p>
+                  <p style={panelDescStyle}>3분마다 가격이 변동됩니다. 다음 변동까지 <strong>{formatStockCountdown(stockCountdownMs)}</strong> · 마지막 변동: {stockUpdatedAt.toLocaleTimeString()}</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
               </div>
@@ -1443,6 +1526,7 @@ export default function GamePage() {
                 <StatusPill label="보유 현금" value={`${cash.toLocaleString()}원`} />
                 <StatusPill label="평가 금액" value={`${stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0).toLocaleString()}원`} />
                 <StatusPill label="변동 주기" value="3분" />
+                <StatusPill label="다음 변동" value={formatStockCountdown(stockCountdownMs)} warning={stockCountdownMs <= 30000} />
               </div>
 
               <div style={stockBoardStyle}>
@@ -1609,77 +1693,81 @@ function RoomArtwork({ roomKind, nickname, occupationName }: { roomKind: RoomKin
 
 function StreetArtwork() {
   return (
-    <svg style={sceneSvgStyle} viewBox="0 0 1600 760" preserveAspectRatio="none" role="img" aria-label="길거리 일러스트">
+    <svg style={sceneSvgStyle} viewBox="0 0 1600 760" preserveAspectRatio="none" role="img" aria-label="깔끔한 길거리 일러스트">
       <defs>
-        <linearGradient id="streetSkyGradient" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#eff6ff" />
-          <stop offset="72%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#e2e8f0" />
+        <linearGradient id="cleanSky" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#dbeafe" />
+          <stop offset="58%" stopColor="#f8fafc" />
+          <stop offset="100%" stopColor="#e5e7eb" />
         </linearGradient>
-        <filter id="softStreetShadow" x="-20%" y="-20%" width="140%" height="160%">
-          <feDropShadow dx="0" dy="10" stdDeviation="7" floodColor="#0f172a" floodOpacity="0.18" />
+        <linearGradient id="cleanRoad" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#1f2937" />
+          <stop offset="100%" stopColor="#0f172a" />
+        </linearGradient>
+        <linearGradient id="glassBlue" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#e0f2fe" />
+          <stop offset="100%" stopColor="#93c5fd" />
+        </linearGradient>
+        <filter id="cityShadow" x="-20%" y="-20%" width="140%" height="160%">
+          <feDropShadow dx="0" dy="14" stdDeviation="10" floodColor="#0f172a" floodOpacity="0.18" />
         </filter>
       </defs>
 
-      <rect x="0" y="0" width="1600" height="760" fill="url(#streetSkyGradient)" />
-      <circle cx="150" cy="105" r="46" fill="#fef3c7" stroke="#111827" strokeWidth="6" />
-      {Array.from({ length: 12 }).map((_, index) => {
-        const angle = (Math.PI * 2 * index) / 12;
-        const x1 = 150 + Math.cos(angle) * 64;
-        const y1 = 105 + Math.sin(angle) * 64;
-        const x2 = 150 + Math.cos(angle) * 88;
-        const y2 = 105 + Math.sin(angle) * 88;
-        return <line key={index} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#111827" strokeWidth="5" strokeLinecap="round" />;
-      })}
+      <rect x="0" y="0" width="1600" height="760" fill="url(#cleanSky)" />
+      <circle cx="138" cy="112" r="58" fill="#fde68a" opacity="0.95" />
+      <circle cx="138" cy="112" r="84" fill="#fde68a" opacity="0.18" />
 
-      <path d="M100 340 C420 220 760 250 1060 318 C1235 358 1390 338 1510 288" fill="none" stroke="#111827" strokeWidth="7" />
-      <path d="M70 405 C405 284 760 314 1062 380 C1250 420 1404 395 1544 340" fill="none" stroke="#111827" strokeWidth="7" />
-      <path d="M-80 615 C390 470 794 500 1170 575 C1360 612 1494 592 1680 510 L1680 760 L-80 760 Z" fill="#ffffff" stroke="#111827" strokeWidth="7" />
-      <path d="M0 660 C430 520 800 550 1160 620 C1370 660 1510 640 1600 595" fill="none" stroke="#111827" strokeWidth="5" strokeDasharray="48 32" />
+      <rect x="0" y="492" width="1600" height="268" fill="#d1d5db" />
+      <path d="M-40 615 C260 510 530 520 800 610 C1080 704 1320 686 1640 570 L1640 760 L-40 760 Z" fill="url(#cleanRoad)" />
+      <path d="M80 652 C360 574 570 582 800 652 C1045 724 1280 714 1518 628" fill="none" stroke="#f8fafc" strokeWidth="10" strokeLinecap="round" strokeDasharray="70 46" opacity="0.9" />
+      <path d="M0 490 H1600" stroke="#111827" strokeWidth="5" opacity="0.28" />
 
-      <g filter="url(#softStreetShadow)">
-        <rect x="92" y="320" width="210" height="170" rx="8" fill="#ffffff" stroke="#111827" strokeWidth="7" />
-        <polygon points="92,320 197,245 302,320" fill="#dbeafe" stroke="#111827" strokeWidth="7" />
-        <rect x="126" y="365" width="46" height="44" fill="#e0f2fe" stroke="#111827" strokeWidth="5" />
-        <rect x="220" y="365" width="46" height="44" fill="#e0f2fe" stroke="#111827" strokeWidth="5" />
-        <rect x="172" y="424" width="52" height="66" fill="#fef3c7" stroke="#111827" strokeWidth="5" />
+      <g filter="url(#cityShadow)">
+        <rect x="78" y="278" width="250" height="220" rx="22" fill="#ffffff" stroke="#111827" strokeWidth="7" />
+        <rect x="104" y="228" width="198" height="72" rx="20" fill="#fef3c7" stroke="#111827" strokeWidth="7" />
+        <text x="203" y="275" textAnchor="middle" fill="#111827" fontSize="32" fontWeight="900">직업 사무소</text>
+        <rect x="118" y="332" width="60" height="62" rx="10" fill="url(#glassBlue)" stroke="#111827" strokeWidth="5" />
+        <rect x="226" y="332" width="60" height="62" rx="10" fill="url(#glassBlue)" stroke="#111827" strokeWidth="5" />
+        <rect x="172" y="414" width="64" height="84" rx="10" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
       </g>
 
-      <g filter="url(#softStreetShadow)">
-        <rect x="500" y="300" width="230" height="160" rx="8" fill="#ffffff" stroke="#111827" strokeWidth="7" />
-        <rect x="525" y="250" width="180" height="58" rx="8" fill="#f8fafc" stroke="#111827" strokeWidth="6" />
-        <text x="615" y="288" textAnchor="middle" fill="#111827" fontSize="28" fontWeight="900">구청</text>
-        <path d="M535 342 H695" stroke="#111827" strokeWidth="5" />
-        <rect x="545" y="370" width="42" height="90" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
-        <rect x="610" y="370" width="42" height="90" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
-        <rect x="675" y="370" width="42" height="90" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+      <g filter="url(#cityShadow)">
+        <rect x="448" y="246" width="260" height="252" rx="24" fill="#ffffff" stroke="#111827" strokeWidth="7" />
+        <polygon points="448,246 578,170 708,246" fill="#bfdbfe" stroke="#111827" strokeWidth="7" />
+        <text x="578" y="285" textAnchor="middle" fill="#111827" fontSize="34" fontWeight="900">구청</text>
+        <rect x="486" y="330" width="48" height="168" fill="#e5e7eb" stroke="#111827" strokeWidth="5" />
+        <rect x="554" y="330" width="48" height="168" fill="#e5e7eb" stroke="#111827" strokeWidth="5" />
+        <rect x="622" y="330" width="48" height="168" fill="#e5e7eb" stroke="#111827" strokeWidth="5" />
+        <path d="M480 320 H676" stroke="#111827" strokeWidth="6" />
       </g>
 
-      <g filter="url(#softStreetShadow)">
-        <rect x="1180" y="294" width="250" height="176" rx="12" fill="#ffffff" stroke="#111827" strokeWidth="7" />
-        <polygon points="1180,294 1305,218 1430,294" fill="#dcfce7" stroke="#111827" strokeWidth="7" />
-        <text x="1305" y="338" textAnchor="middle" fill="#111827" fontSize="27" fontWeight="900">건물 사무소</text>
-        <rect x="1218" y="370" width="50" height="48" fill="#e0f2fe" stroke="#111827" strokeWidth="5" />
-        <rect x="1342" y="370" width="50" height="48" fill="#e0f2fe" stroke="#111827" strokeWidth="5" />
+      <g filter="url(#cityShadow)">
+        <rect x="820" y="196" width="318" height="302" rx="28" fill="#111827" stroke="#111827" strokeWidth="7" />
+        <rect x="846" y="160" width="266" height="74" rx="22" fill="#0ea5e9" stroke="#111827" strokeWidth="7" />
+        <text x="979" y="209" textAnchor="middle" fill="#ffffff" fontSize="34" fontWeight="900">주식 거래소</text>
+        <rect x="860" y="258" width="238" height="142" rx="16" fill="#020617" stroke="#334155" strokeWidth="5" />
+        <polyline points="882,366 916,334 956,348 1004,294 1048,318 1082,276" fill="none" stroke="#22c55e" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+        <polyline points="884,308 920,320 952,290 986,306 1022,270 1080,286" fill="none" stroke="#ef4444" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+        <rect x="878" y="422" width="58" height="76" rx="8" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+        <rect x="1018" y="422" width="58" height="76" rx="8" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
       </g>
 
-      <g filter="url(#softStreetShadow)">
-        <rect x="780" y="360" width="260" height="170" rx="12" fill="#ffffff" stroke="#111827" strokeWidth="7" />
-        <rect x="808" y="306" width="204" height="62" rx="10" fill="#dbeafe" stroke="#111827" strokeWidth="6" />
-        <text x="910" y="346" textAnchor="middle" fill="#111827" fontSize="28" fontWeight="900">주식 거래소</text>
-        <rect x="814" y="398" width="196" height="82" rx="8" fill="#111827" stroke="#111827" strokeWidth="5" />
-        <polyline points="832,458 858,438 884,448 912,416 944,432 984,394" fill="none" stroke="#22c55e" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-        <polygon points="984,394 972,398 980,408" fill="#22c55e" />
-        <rect x="846" y="492" width="34" height="38" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
-        <rect x="922" y="492" width="34" height="38" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+      <g filter="url(#cityShadow)">
+        <rect x="1240" y="276" width="276" height="222" rx="24" fill="#ffffff" stroke="#111827" strokeWidth="7" />
+        <rect x="1274" y="216" width="208" height="82" rx="22" fill="#dcfce7" stroke="#111827" strokeWidth="7" />
+        <text x="1378" y="268" textAnchor="middle" fill="#111827" fontSize="32" fontWeight="900">건물 사무소</text>
+        <rect x="1286" y="338" width="64" height="62" rx="10" fill="url(#glassBlue)" stroke="#111827" strokeWidth="5" />
+        <rect x="1404" y="338" width="64" height="62" rx="10" fill="url(#glassBlue)" stroke="#111827" strokeWidth="5" />
+        <rect x="1350" y="420" width="62" height="78" rx="10" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
       </g>
 
-      <g filter="url(#softStreetShadow)">
-        <rect x="230" y="448" width="220" height="130" rx="12" fill="#ffffff" stroke="#111827" strokeWidth="7" />
-        <rect x="248" y="405" width="184" height="50" rx="8" fill="#fef3c7" stroke="#111827" strokeWidth="6" />
-        <text x="340" y="438" textAnchor="middle" fill="#111827" fontSize="25" fontWeight="900">직업 사무소</text>
-        <rect x="265" y="488" width="54" height="90" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
-        <rect x="345" y="488" width="54" height="90" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+      <g opacity="0.9">
+        <rect x="366" y="568" width="76" height="42" rx="14" fill="#f97316" stroke="#111827" strokeWidth="5" />
+        <circle cx="386" cy="612" r="13" fill="#111827" />
+        <circle cx="424" cy="612" r="13" fill="#111827" />
+        <rect x="1178" y="604" width="88" height="46" rx="16" fill="#38bdf8" stroke="#111827" strokeWidth="5" />
+        <circle cx="1200" cy="652" r="13" fill="#111827" />
+        <circle cx="1244" cy="652" r="13" fill="#111827" />
       </g>
     </svg>
   );
@@ -1960,6 +2048,52 @@ function makeRankingRows(nickname: string, cash: number, job: string): RankingRo
       isMe: true,
     },
   ];
+}
+
+function normalizeStockRows(rows: StockRow[]): StockRow[] {
+  return stockCompanies.map((company) => {
+    const saved = rows.find((row) => row.id === company.id);
+    if (!saved) {
+      const [fresh] = makeInitialStocks().filter((row) => row.id === company.id);
+      return fresh;
+    }
+
+    const price = Number(saved.price) || 1000;
+    const previousPrice = Number(saved.previousPrice) || price;
+    const owned = Math.max(0, Math.floor(Number(saved.owned) || 0));
+    const history = Array.isArray(saved.history) && saved.history.length > 0
+      ? saved.history.map((value) => Math.max(100, Math.round(Number(value) || price))).slice(-24)
+      : [previousPrice, price];
+
+    return {
+      ...company,
+      price,
+      previousPrice,
+      owned,
+      history,
+    };
+  });
+}
+
+function applyElapsedStockUpdates(rows: StockRow[], updatedAt: Date) {
+  const elapsedCount = Math.floor(Math.max(0, Date.now() - updatedAt.getTime()) / STOCK_INTERVAL_MS);
+  let nextRows = rows;
+
+  for (let index = 0; index < Math.min(elapsedCount, 24); index += 1) {
+    nextRows = updateStockMarket(nextRows);
+  }
+
+  return {
+    rows: nextRows,
+    updatedAt: elapsedCount > 0 ? new Date() : updatedAt,
+  };
+}
+
+function formatStockCountdown(milliseconds: number) {
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function makeInitialStocks(): StockRow[] {
@@ -2502,7 +2636,7 @@ const taxNoticeStyle: CSSProperties = {
 
 const stockSummaryStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
   gap: "10px",
 };
 
