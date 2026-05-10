@@ -3176,21 +3176,23 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
 }
 
 function getStreetBuildingHeight(buildingId: StreetBuildingId) {
+  if (buildingId === "company") return "250px";
+  if (buildingId === "entertainment") return "270px";
+  if (buildingId === "finance") return "238px";
   if (buildingId === "stocks") return "272px";
-  if (buildingId === "casino") return "226px";
-  if (buildingId === "entertainment") return "264px";
-  if (buildingId === "logistics") return "224px";
-  if (buildingId === "finance") return "248px";
-  return "258px";
+  if (buildingId === "logistics") return "190px";
+  if (buildingId === "casino") return "198px";
+  return "230px";
 }
 
 function getStreetBuildingPlacement(buildingId: StreetBuildingId): CSSProperties {
-  if (buildingId === "company") return { gridColumn: "1", gridRow: "1" };
-  if (buildingId === "entertainment") return { gridColumn: "2", gridRow: "1" };
-  if (buildingId === "finance") return { gridColumn: "3", gridRow: "1" };
-  if (buildingId === "logistics") return { gridColumn: "1", gridRow: "2" };
-  if (buildingId === "casino") return { gridColumn: "2", gridRow: "2" };
-  return { gridColumn: "3", gridRow: "2" };
+  if (buildingId === "company") return { left: "4.5%", bottom: "178px", width: "18.5%" };
+  if (buildingId === "entertainment") return { left: "25.2%", bottom: "178px", width: "17.5%" };
+  if (buildingId === "finance") return { left: "48%", bottom: "178px", width: "17.5%" };
+  if (buildingId === "stocks") return { right: "4.5%", bottom: "178px", width: "18.5%" };
+  if (buildingId === "logistics") return { left: "14%", bottom: "34px", width: "17%" };
+  if (buildingId === "casino") return { left: "41.5%", bottom: "30px", width: "17%" };
+  return { left: "4%", bottom: "120px", width: "18%" };
 }
 
 function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
@@ -3972,10 +3974,9 @@ const streetMoneyStyle: CSSProperties = {
 
 const streetBottomNavStyle: CSSProperties = {
   position: "absolute",
-  zIndex: 8,
-  left: "50%",
-  bottom: "10px",
-  transform: "translateX(-50%)",
+  zIndex: 10,
+  right: "28px",
+  bottom: "16px",
   display: "flex",
   gap: "8px",
 };
@@ -4093,7 +4094,9 @@ const rankingTableStyle: CSSProperties = {
   display: "grid",
   alignContent: "start",
   gap: "8px",
-  overflow: "hidden",
+  overflowY: "auto",
+  minHeight: 0,
+  paddingRight: "8px",
 };
 
 const rankingRowStyle: CSSProperties = {
@@ -4822,82 +4825,77 @@ const securityHintStyle: CSSProperties = {
 const streetBuildingsRowStyle: CSSProperties = {
   position: "absolute",
   zIndex: 7,
-  left: "50%",
-  top: "78px",
-  transform: "translateX(-50%)",
-  width: "min(1380px, calc(100% - 80px))",
-  display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(220px, 1fr))",
-  gridTemplateRows: "repeat(2, auto)",
-  gap: "18px 28px",
-  alignItems: "end",
-  justifyItems: "stretch",
+  left: 0,
+  right: 0,
+  top: 0,
+  bottom: "72px",
+  pointerEvents: "none",
 };
 
 const streetBuildingStyle: CSSProperties = {
-  position: "relative",
+  position: "absolute",
   border: "5px solid #111827",
   borderRadius: "26px 26px 14px 14px",
-  padding: "10px 10px 12px",
+  padding: "9px 9px 10px",
   boxShadow: "0 12px 0 rgba(15,23,42,0.18), 0 20px 30px rgba(15,23,42,0.14)",
   display: "grid",
-  gridTemplateRows: "38px minmax(66px, 1fr) auto auto",
-  gap: "8px",
+  gridTemplateRows: "34px minmax(44px, 1fr) auto auto",
+  gap: "7px",
   cursor: "pointer",
   textAlign: "center",
   color: "#0f172a",
   transition: "transform 120ms ease, filter 120ms ease",
   overflow: "hidden",
-  alignSelf: "end",
+  pointerEvents: "auto",
 };
 
 const streetBuildingRoofStyle: CSSProperties = {
-  width: "56px",
-  height: "42px",
+  width: "48px",
+  height: "34px",
   border: "4px solid #111827",
-  borderRadius: "18px",
-  background: "rgba(255,255,255,0.86)",
+  borderRadius: "16px",
+  background: "rgba(255,255,255,0.88)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   justifySelf: "center",
-  fontSize: "28px",
+  fontSize: "24px",
   boxShadow: "3px 3px 0 rgba(17,24,39,0.16)",
 };
 
 const streetBuildingWindowGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(3, 1fr)",
-  gap: "7px",
+  gap: "6px",
   alignContent: "start",
-  padding: "6px 14px",
+  padding: "4px 12px",
 };
 
 const streetBuildingWindowStyle: CSSProperties = {
-  height: "20px",
-  borderRadius: "8px",
-  background: "rgba(255,255,255,0.62)",
+  height: "16px",
+  borderRadius: "7px",
+  background: "rgba(255,255,255,0.64)",
   border: "2px solid rgba(255,255,255,0.82)",
   boxShadow: "inset 0 -3px 0 rgba(15,23,42,0.08)",
 };
 
 const streetBuildingSignStyle: CSSProperties = {
-  background: "rgba(255,255,255,0.92)",
+  background: "rgba(255,255,255,0.94)",
   border: "4px solid #111827",
-  borderRadius: "16px",
-  padding: "8px 9px",
-  fontSize: "16px",
+  borderRadius: "15px",
+  padding: "7px 8px",
+  fontSize: "15px",
   fontWeight: 900,
   lineHeight: 1.1,
   boxShadow: "3px 3px 0 rgba(17,24,39,0.14)",
 };
 
 const streetBuildingSubtitleStyle: CSSProperties = {
-  fontSize: "12px",
+  fontSize: "11px",
   fontWeight: 900,
   color: "#334155",
-  lineHeight: 1.25,
-  minHeight: "32px",
+  lineHeight: 1.2,
+  minHeight: "28px",
 };
 
 const careerOfficeStyle: CSSProperties = {
