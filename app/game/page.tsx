@@ -40,19 +40,43 @@ type SaveRow = {
   cash: number | string;
   warning_count: number | string;
   unpaid_tax: number | string;
+  sorting_success_total?: number | string | null;
+  delivery_success_total?: number | string | null;
+  cashier_success_total?: number | string | null;
+  cafe_success_total?: number | string | null;
+  security_success_total?: number | string | null;
 };
 
 type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks";
 type RoomKind = "basic" | "studio" | "office";
-type OccupationId = "unemployed" | "officeWorker" | "singer" | "developer" | "buildingOwner";
+type CareerBuildingId = "company" | "entertainment" | "logistics" | "finance";
+type OccupationId =
+  | "unemployed"
+  | "officeIntern"
+  | "officeStaff"
+  | "officeManager"
+  | "trainee"
+  | "rookieSinger"
+  | "topSinger"
+  | "logisticsStaff"
+  | "logisticsManager"
+  | "investor";
 
 type Occupation = {
   id: OccupationId;
+  buildingId: CareerBuildingId;
   name: string;
   icon: string;
+  grade: string;
   description: string;
   conditionText: string;
   salaryText: string;
+  incomeEvery3Min: number;
+  requiredCash: number;
+  requiredPrevious?: OccupationId;
+  requiredSuccess?: Partial<Record<JobId, number>>;
+  minigameName: string;
+  minigameDifficulty: number;
 };
 
 type RankingRow = {
@@ -68,6 +92,8 @@ type ProfileRow = {
   nickname: string | null;
   room_kind: string | null;
   occupation_id: string | null;
+  occupation_level?: number | null;
+  unlocked_occupations?: OccupationId[] | string | null;
 };
 
 type RankingSaveRow = {
@@ -163,47 +189,165 @@ const roomInfo: Record<RoomKind, { name: string; floor: string; description: str
 const occupationInfo: Record<OccupationId, Occupation> = {
   unemployed: {
     id: "unemployed",
+    buildingId: "company",
     name: "백수",
     icon: "🧍",
-    description: "아직 정식 직업이 없습니다. 알바로 돈을 모으고 조건을 달성해보세요.",
+    grade: "기본",
+    description: "아직 정식 직업이 없습니다. 알바와 투자로 조건을 달성해보세요.",
     conditionText: "기본 상태",
-    salaryText: "월급 없음",
+    salaryText: "고정 수입 없음",
+    incomeEvery3Min: 0,
+    requiredCash: 0,
+    minigameName: "없음",
+    minigameDifficulty: 0,
   },
-  officeWorker: {
-    id: "officeWorker",
+  officeIntern: {
+    id: "officeIntern",
+    buildingId: "company",
+    name: "인턴",
+    icon: "📎",
+    grade: "회사 1단계",
+    description: "회사 생활을 배우는 첫 단계입니다. 서류 정리와 기본 업무를 처리합니다.",
+    conditionText: "현금 30,000원 이상 + 입사 테스트 클리어",
+    salaryText: "3분마다 1,500원",
+    incomeEvery3Min: 1500,
+    requiredCash: 30000,
+    minigameName: "면접 답변",
+    minigameDifficulty: 1,
+  },
+  officeStaff: {
+    id: "officeStaff",
+    buildingId: "company",
     name: "일반 회사원",
     icon: "💼",
-    description: "안정적인 월급을 받는 직업입니다. 기본적인 생활 기반이 필요합니다.",
-    conditionText: "현금 50,000원 이상",
-    salaryText: "추후 월급 시스템 연결 가능",
+    grade: "회사 2단계",
+    description: "정식 회사원입니다. 안정적인 급여를 받습니다.",
+    conditionText: "인턴 보유 + 현금 80,000원 이상 + 문서 정리 테스트 클리어",
+    salaryText: "3분마다 3,500원",
+    incomeEvery3Min: 3500,
+    requiredCash: 80000,
+    requiredPrevious: "officeIntern",
+    minigameName: "문서 정리",
+    minigameDifficulty: 2,
   },
-  singer: {
-    id: "singer",
-    name: "가수",
+  officeManager: {
+    id: "officeManager",
+    buildingId: "company",
+    name: "과장",
+    icon: "📊",
+    grade: "회사 3단계",
+    description: "회의와 업무 배분을 담당하는 중간 관리자입니다.",
+    conditionText: "일반 회사원 보유 + 현금 300,000원 이상 + 회의 발표 테스트 클리어",
+    salaryText: "3분마다 10,000원",
+    incomeEvery3Min: 10000,
+    requiredCash: 300000,
+    requiredPrevious: "officeStaff",
+    minigameName: "회의 발표",
+    minigameDifficulty: 3,
+  },
+  trainee: {
+    id: "trainee",
+    buildingId: "entertainment",
+    name: "연습생",
+    icon: "🎧",
+    grade: "연예 1단계",
+    description: "데뷔를 위해 리듬과 무대 감각을 연습합니다.",
+    conditionText: "현금 50,000원 이상 + 리듬 연습 테스트 클리어",
+    salaryText: "3분마다 1,200원",
+    incomeEvery3Min: 1200,
+    requiredCash: 50000,
+    minigameName: "리듬 연습",
+    minigameDifficulty: 1,
+  },
+  rookieSinger: {
+    id: "rookieSinger",
+    buildingId: "entertainment",
+    name: "신인 가수",
     icon: "🎤",
-    description: "무대에 서는 직업입니다. 인지도와 준비 자금이 필요합니다.",
-    conditionText: "현금 100,000원 이상 + 넓은 원룸 이상",
-    salaryText: "추후 공연 미션 연결 가능",
+    grade: "연예 2단계",
+    description: "작은 무대와 행사를 뛰며 인지도를 쌓습니다.",
+    conditionText: "연습생 보유 + 현금 150,000원 이상 + 카페 제조 성공 10회 + 무대 공연 테스트 클리어",
+    salaryText: "3분마다 7,000원",
+    incomeEvery3Min: 7000,
+    requiredCash: 150000,
+    requiredPrevious: "trainee",
+    requiredSuccess: { cafe: 10 },
+    minigameName: "무대 공연",
+    minigameDifficulty: 2,
   },
-  developer: {
-    id: "developer",
-    name: "개발자",
-    icon: "💻",
-    description: "작업실에서 프로젝트를 만드는 직업입니다.",
-    conditionText: "작업실 방 보유 + 현금 150,000원 이상",
-    salaryText: "추후 프로젝트 보상 연결 가능",
+  topSinger: {
+    id: "topSinger",
+    buildingId: "entertainment",
+    name: "톱스타",
+    icon: "🌟",
+    grade: "연예 3단계",
+    description: "공연과 광고로 큰 수입을 얻는 스타입니다.",
+    conditionText: "신인 가수 보유 + 현금 800,000원 이상 + 콘서트 관리 테스트 클리어",
+    salaryText: "3분마다 35,000원",
+    incomeEvery3Min: 35000,
+    requiredCash: 800000,
+    requiredPrevious: "rookieSinger",
+    minigameName: "콘서트 관리",
+    minigameDifficulty: 4,
   },
-  buildingOwner: {
-    id: "buildingOwner",
-    name: "건물주",
-    icon: "🏢",
-    description: "주거 지역과 자산 조건을 크게 올린 최종 목표형 직업입니다.",
-    conditionText: "작업실 방 보유 + 현금 1,000,000원 이상",
-    salaryText: "추후 임대 수익 연결 가능",
+  logisticsStaff: {
+    id: "logisticsStaff",
+    buildingId: "logistics",
+    name: "물류 정직원",
+    icon: "🚚",
+    grade: "물류 1단계",
+    description: "분류와 배송 흐름을 안정적으로 처리합니다.",
+    conditionText: "현금 70,000원 이상 + 택배 분류 성공 15회 + 배달 성공 10회 + 물류 테스트 클리어",
+    salaryText: "3분마다 4,000원",
+    incomeEvery3Min: 4000,
+    requiredCash: 70000,
+    requiredSuccess: { sorting: 15, delivery: 10 },
+    minigameName: "물류 분류 테스트",
+    minigameDifficulty: 2,
+  },
+  logisticsManager: {
+    id: "logisticsManager",
+    buildingId: "logistics",
+    name: "물류 관리자",
+    icon: "📦",
+    grade: "물류 2단계",
+    description: "여러 배송 라인을 관리하고 사고를 줄입니다.",
+    conditionText: "물류 정직원 보유 + 현금 300,000원 이상 + 택배 성공 30회 + 배달 성공 25회 + 배송 라인 관리 테스트 클리어",
+    salaryText: "3분마다 12,000원",
+    incomeEvery3Min: 12000,
+    requiredCash: 300000,
+    requiredPrevious: "logisticsStaff",
+    requiredSuccess: { sorting: 30, delivery: 25 },
+    minigameName: "배송 라인 관리",
+    minigameDifficulty: 3,
+  },
+  investor: {
+    id: "investor",
+    buildingId: "finance",
+    name: "투자자",
+    icon: "📈",
+    grade: "금융 1단계",
+    description: "자산과 투자 판단력을 바탕으로 수익을 만드는 직업입니다.",
+    conditionText: "현금 100,000원 이상 + 투자 판단 테스트 클리어",
+    salaryText: "3분마다 5,000원",
+    incomeEvery3Min: 5000,
+    requiredCash: 100000,
+    minigameName: "투자 판단 테스트",
+    minigameDifficulty: 2,
   },
 };
 
-const careerList: OccupationId[] = ["officeWorker", "singer", "developer", "buildingOwner"];
+const careerList: OccupationId[] = [
+  "officeIntern",
+  "officeStaff",
+  "officeManager",
+  "trainee",
+  "rookieSinger",
+  "topSinger",
+  "logisticsStaff",
+  "logisticsManager",
+  "investor",
+];
 
 const stockCompanies: StockCompany[] = [
   { id: "kongStudio", name: "콩 스튜디오", icon: "🎮", description: "귀여운 게임과 캐릭터 IP를 만드는 성장형 회사" },
@@ -236,6 +380,18 @@ export default function GamePage() {
   const [nicknameDraft, setNicknameDraft] = useState("우리집");
   const [roomKind, setRoomKind] = useState<RoomKind>("basic");
   const [occupationId, setOccupationId] = useState<OccupationId>("unemployed");
+  const [occupationLevel, setOccupationLevel] = useState(0);
+  const [unlockedOccupations, setUnlockedOccupations] = useState<OccupationId[]>(["unemployed"]);
+  const [careerBuildingId, setCareerBuildingId] = useState<CareerBuildingId>("company");
+  const [careerMiniGame, setCareerMiniGame] = useState<Occupation | null>(null);
+  const [careerMiniGameScore, setCareerMiniGameScore] = useState(0);
+  const [careerMiniGameStep, setCareerMiniGameStep] = useState(0);
+  const [careerIncomeCountdown, setCareerIncomeCountdown] = useState(180);
+  const [sortingSuccessTotal, setSortingSuccessTotal] = useState(0);
+  const [deliverySuccessTotal, setDeliverySuccessTotal] = useState(0);
+  const [cashierSuccessTotal, setCashierSuccessTotal] = useState(0);
+  const [cafeSuccessTotal, setCafeSuccessTotal] = useState(0);
+  const [securitySuccessTotal, setSecuritySuccessTotal] = useState(0);
   const [rankingRows, setRankingRows] = useState<RankingRow[]>([]);
   const [rankingUpdatedAt, setRankingUpdatedAt] = useState(new Date());
   const [stockRows, setStockRows] = useState<StockRow[]>([]);
@@ -311,7 +467,7 @@ export default function GamePage() {
 
       const { data, error } = await supabase
         .from("game_saves")
-        .select("cash, warning_count, unpaid_tax")
+        .select("cash, warning_count, unpaid_tax, sorting_success_total, delivery_success_total, cashier_success_total, cafe_success_total, security_success_total")
         .eq("user_id", user.id)
         .maybeSingle<SaveRow>();
 
@@ -329,6 +485,11 @@ export default function GamePage() {
           cash: 10000,
           warning_count: 0,
           unpaid_tax: 0,
+          sorting_success_total: 0,
+          delivery_success_total: 0,
+          cashier_success_total: 0,
+          cafe_success_total: 0,
+          security_success_total: 0,
           updated_at: new Date().toISOString(),
         });
 
@@ -350,6 +511,11 @@ export default function GamePage() {
       setCash(Number(data.cash));
       setWarningCount(Number(data.warning_count));
       setUnpaidTax(Number(data.unpaid_tax));
+      setSortingSuccessTotal(Number(data.sorting_success_total ?? 0));
+      setDeliverySuccessTotal(Number(data.delivery_success_total ?? 0));
+      setCashierSuccessTotal(Number(data.cashier_success_total ?? 0));
+      setCafeSuccessTotal(Number(data.cafe_success_total ?? 0));
+      setSecuritySuccessTotal(Number(data.security_success_total ?? 0));
       setSaveMessage("저장 불러오기 완료");
       setIsSaveLoaded(true);
     }
@@ -364,6 +530,7 @@ export default function GamePage() {
       const savedNickname = window.localStorage.getItem(`alba-money-nickname-${userId}`);
       const savedRoomKind = window.localStorage.getItem(`alba-money-room-${userId}`) as RoomKind | null;
       const savedOccupationId = window.localStorage.getItem(`alba-money-occupation-${userId}`) as OccupationId | null;
+      const savedUnlocked = window.localStorage.getItem(`alba-money-unlocked-occupations-${userId}`);
 
       if (savedNickname) {
         setNickname(savedNickname);
@@ -378,10 +545,14 @@ export default function GamePage() {
         setOccupationId(savedOccupationId);
       }
 
+      if (savedUnlocked) {
+        setUnlockedOccupations(normalizeUnlockedOccupations(safeParseOccupationList(savedUnlocked)));
+      }
+
       const supabase = createClient();
       const { data, error } = await supabase
         .from(PROFILE_TABLE)
-        .select("id, nickname, room_kind, occupation_id")
+        .select("id, nickname, room_kind, occupation_id, occupation_level, unlocked_occupations")
         .eq("id", userId)
         .maybeSingle<ProfileRow>();
 
@@ -406,6 +577,18 @@ export default function GamePage() {
         const nextOccupationId = data.occupation_id as OccupationId;
         setOccupationId(nextOccupationId);
         window.localStorage.setItem(`alba-money-occupation-${userId}`, nextOccupationId);
+      }
+
+      if (typeof data?.occupation_level === "number") {
+        setOccupationLevel(data.occupation_level);
+      }
+
+      const rawUnlocked = data?.unlocked_occupations;
+      const parsedUnlocked = typeof rawUnlocked === "string" ? safeParseOccupationList(rawUnlocked) : rawUnlocked;
+      if (Array.isArray(parsedUnlocked)) {
+        const nextUnlocked = normalizeUnlockedOccupations(parsedUnlocked);
+        setUnlockedOccupations(nextUnlocked);
+        window.localStorage.setItem(`alba-money-unlocked-occupations-${userId}`, JSON.stringify(nextUnlocked));
       }
     }
 
@@ -572,6 +755,11 @@ export default function GamePage() {
           cash,
           warning_count: warningCount,
           unpaid_tax: unpaidTax,
+          sorting_success_total: sortingSuccessTotal,
+          delivery_success_total: deliverySuccessTotal,
+          cashier_success_total: cashierSuccessTotal,
+          cafe_success_total: cafeSuccessTotal,
+          security_success_total: securitySuccessTotal,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "user_id" }
@@ -588,7 +776,7 @@ export default function GamePage() {
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [userId, isSaveLoaded, cash, warningCount, unpaidTax]);
+  }, [userId, isSaveLoaded, cash, warningCount, unpaidTax, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -614,6 +802,26 @@ export default function GamePage() {
   useEffect(() => {
     if (taxTriggerCount > 0) applyTaxAutomatically();
   }, [taxTriggerCount]);
+
+  useEffect(() => {
+    if (!isSaveLoaded || !userId) return;
+
+    const timer = window.setInterval(() => {
+      setCareerIncomeCountdown((current) => {
+        if (current <= 1) {
+          const income = occupationInfo[occupationId].incomeEvery3Min;
+          if (income > 0) {
+            setCash((money) => money + income);
+            setMessage(`💼 ${occupationInfo[occupationId].name} 고정 수입 +${income.toLocaleString()}원`);
+          }
+          return 180;
+        }
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [isSaveLoaded, userId, occupationId]);
 
   useEffect(() => {
     if (!activeJobId) return;
@@ -678,6 +886,7 @@ export default function GamePage() {
         if (collected.length > 0) {
           const reward = collected.length * PAY.delivery;
           setCash((money) => money + reward);
+          setDeliverySuccessTotal((count) => count + collected.length);
           setMessage(`🍱 배달 포인트 통과! +${reward.toLocaleString()}원`);
         }
         return moved.filter((coin) => !(coin.lane === runnerLane && coin.y >= 78 && coin.y <= 93));
@@ -1012,6 +1221,7 @@ export default function GamePage() {
     const combo = sortCombo + 1;
     const reward = PAY.sorting + Math.min(120, combo * 8);
     setCash((money) => money + reward);
+    setSortingSuccessTotal((count) => count + 1);
     setSortCombo(combo);
     setSortItem(markSortFeedback(sortItem, "good"));
     setMessage(`✨ 분류 성공! +${reward.toLocaleString()}원 / 콤보 ${combo}`);
@@ -1042,6 +1252,7 @@ export default function GamePage() {
       const reward = PAY.cashier + difficulty * 8;
       setCash((money) => money + reward);
       setCashierSuccess((success) => success + 1);
+      setCashierSuccessTotal((count) => count + 1);
       setCashierSequence(makeCashierSequence(difficulty));
       setCashierIndex(0);
       setMessage(`🏪 계산 성공! +${reward.toLocaleString()}원`);
@@ -1057,6 +1268,7 @@ export default function GamePage() {
       const target = makeCafeTarget(difficulty);
       setCash((money) => money + reward);
       setCafeSuccess((success) => success + 1);
+      setCafeSuccessTotal((count) => count + 1);
       setCafeFill(0);
       setCafeTargetStart(target.start);
       setCafeTargetEnd(target.end);
@@ -1074,6 +1286,7 @@ export default function GamePage() {
       const reward = PAY.security + difficulty * 10;
       setCash((money) => money + reward);
       setSecuritySuccess((success) => success + 1);
+      setSecuritySuccessTotal((count) => count + 1);
       setSecuritySignal("normal");
       setMessage(`🛡️ 대응 성공! +${reward.toLocaleString()}원`);
       return;
@@ -1123,6 +1336,8 @@ export default function GamePage() {
         nickname: nextNickname,
         room_kind: roomKind,
         occupation_id: occupationId,
+        occupation_level: occupationLevel,
+        unlocked_occupations: unlockedOccupations,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" }
@@ -1153,33 +1368,119 @@ export default function GamePage() {
     setMessage(`${roomInfo[nextRoomKind].name}(으)로 메인 화면이 변경되었습니다.`);
   }
 
-  function canSelectOccupation(nextOccupationId: OccupationId) {
+  function canChallengeOccupation(nextOccupationId: OccupationId) {
+    const nextOccupation = occupationInfo[nextOccupationId];
     if (nextOccupationId === "unemployed") return true;
-    if (nextOccupationId === "officeWorker") return cash >= 50000;
-    if (nextOccupationId === "singer") return cash >= 100000 && roomKind !== "basic";
-    if (nextOccupationId === "developer") return cash >= 150000 && roomKind === "office";
-    if (nextOccupationId === "buildingOwner") return cash >= 1000000 && roomKind === "office";
-    return false;
+    if (cash < nextOccupation.requiredCash) return false;
+    if (nextOccupation.requiredPrevious && !unlockedOccupations.includes(nextOccupation.requiredPrevious)) return false;
+
+    const required = nextOccupation.requiredSuccess;
+    if (required?.sorting && sortingSuccessTotal < required.sorting) return false;
+    if (required?.delivery && deliverySuccessTotal < required.delivery) return false;
+    if (required?.cashier && cashierSuccessTotal < required.cashier) return false;
+    if (required?.cafe && cafeSuccessTotal < required.cafe) return false;
+    if (required?.security && securitySuccessTotal < required.security) return false;
+
+    return true;
   }
 
-  function selectOccupation(nextOccupationId: OccupationId) {
+  function challengeOccupation(nextOccupationId: OccupationId) {
     const nextOccupation = occupationInfo[nextOccupationId];
 
-    if (!canSelectOccupation(nextOccupationId)) {
+    if (unlockedOccupations.includes(nextOccupationId)) {
+      equipOccupation(nextOccupationId);
+      return;
+    }
+
+    if (!canChallengeOccupation(nextOccupationId)) {
       setMessage(`${nextOccupation.name} 조건 미달: ${nextOccupation.conditionText}`);
       return;
     }
 
+    setCareerMiniGame(nextOccupation);
+    setCareerMiniGameScore(0);
+    setCareerMiniGameStep(0);
+    setMessage(`💼 ${nextOccupation.name} 테스트를 시작합니다.`);
+  }
+
+  async function equipOccupation(nextOccupationId: OccupationId) {
+    const nextOccupation = occupationInfo[nextOccupationId];
     setOccupationId(nextOccupationId);
 
     if (userId) {
       window.localStorage.setItem(`alba-money-occupation-${userId}`, nextOccupationId);
+      await saveProfilePatch({ occupation_id: nextOccupationId });
     }
 
     setMessage(`직업이 ${nextOccupation.icon} ${nextOccupation.name}(으)로 변경되었습니다.`);
   }
 
-  async function saveProfilePatch(patch: Partial<{ nickname: string; room_kind: RoomKind; occupation_id: OccupationId }>) {
+  async function playCareerMiniGameStep() {
+    if (!careerMiniGame || !userId) return;
+
+    const targetScore = 3 + careerMiniGame.minigameDifficulty;
+    const maxSteps = targetScore + 2;
+    const successRate = Math.max(0.36, 0.82 - careerMiniGame.minigameDifficulty * 0.08);
+    const success = Math.random() < successRate;
+    const nextScore = careerMiniGameScore + (success ? 1 : 0);
+    const nextStep = careerMiniGameStep + 1;
+
+    setCareerMiniGameScore(nextScore);
+    setCareerMiniGameStep(nextStep);
+
+    if (nextScore >= targetScore) {
+      await unlockOccupation(careerMiniGame);
+      return;
+    }
+
+    if (nextStep >= maxSteps) {
+      await logCareerMiniGame(careerMiniGame, "fail", 0);
+      setMessage(`💼 ${careerMiniGame.name} 테스트에 실패했습니다. 다시 도전해보세요.`);
+      resetCareerMiniGame();
+      return;
+    }
+
+    setMessage(success ? "✅ 좋은 판단입니다. 점수가 올랐습니다." : "❌ 실수했습니다. 다음 선택이 중요합니다.");
+  }
+
+  async function unlockOccupation(nextOccupation: Occupation) {
+    if (!userId) return;
+
+    const nextUnlocked = normalizeUnlockedOccupations([...unlockedOccupations, nextOccupation.id]);
+    setUnlockedOccupations(nextUnlocked);
+    setOccupationId(nextOccupation.id);
+    setOccupationLevel(nextOccupation.minigameDifficulty);
+    window.localStorage.setItem(`alba-money-occupation-${userId}`, nextOccupation.id);
+    window.localStorage.setItem(`alba-money-unlocked-occupations-${userId}`, JSON.stringify(nextUnlocked));
+
+    await saveProfilePatch({ occupation_id: nextOccupation.id });
+    await logCareerMiniGame(nextOccupation, "success", nextOccupation.incomeEvery3Min);
+    setMessage(`🎉 ${nextOccupation.icon} ${nextOccupation.name} 직업을 획득했습니다!`);
+    resetCareerMiniGame();
+  }
+
+  async function logCareerMiniGame(nextOccupation: Occupation, result: "success" | "fail", reward: number) {
+    if (!userId) return;
+
+    const supabase = createClient();
+    const { error } = await supabase.from("game_career_logs").insert({
+      user_id: userId,
+      occupation_id: nextOccupation.id,
+      career_level: nextOccupation.minigameDifficulty,
+      result,
+      reward,
+    });
+
+    if (error) console.warn("직업 테스트 기록 저장 실패:", error.message);
+  }
+
+  function resetCareerMiniGame() {
+    setCareerMiniGame(null);
+    setCareerMiniGameScore(0);
+    setCareerMiniGameStep(0);
+  }
+
+  async function saveProfilePatch(patch: Partial<{ nickname: string; room_kind: RoomKind; occupation_id: OccupationId; occupation_level: number; unlocked_occupations: OccupationId[] }>) {
     if (!userId) return;
 
     const supabase = createClient();
@@ -1189,6 +1490,8 @@ export default function GamePage() {
         nickname,
         room_kind: roomKind,
         occupation_id: occupationId,
+        occupation_level: occupationLevel,
+        unlocked_occupations: unlockedOccupations,
         updated_at: new Date().toISOString(),
         ...patch,
       },
@@ -1221,14 +1524,15 @@ export default function GamePage() {
     const ids = saves.map((row) => row.user_id);
     const { data: profiles, error: profilesError } = await supabase
       .from(PROFILE_TABLE)
-      .select("id, nickname, room_kind, occupation_id")
+      .select("id, nickname, room_kind, occupation_id, occupation_level, unlocked_occupations")
       .in("id", ids);
 
     if (profilesError) {
       console.warn("랭킹 프로필 불러오기 실패:", profilesError.message);
     }
 
-    const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile as ProfileRow]));
+    const typedProfiles = (profiles ?? []) as ProfileRow[];
+    const profileMap = new Map(typedProfiles.map((profile) => [profile.id, profile]));
 
     const rows = (saves as RankingSaveRow[]).map((save, index) => {
       const profile = profileMap.get(save.user_id);
@@ -1420,6 +1724,12 @@ export default function GamePage() {
                 <div style={streetLabelStyle}>길거리</div>
                 <button type="button" style={buildingButtonStyle}>숨김 건물</button>
               </div>
+              <div style={careerStreetButtonGroupStyle}>
+                <button onClick={() => { setCareerBuildingId("company"); setLobbyView("career"); }} style={careerStreetButtonStyle}>🏢 회사 빌딩</button>
+                <button onClick={() => { setCareerBuildingId("entertainment"); setLobbyView("career"); }} style={careerStreetButtonStyle}>🎤 엔터테인먼트</button>
+                <button onClick={() => { setCareerBuildingId("logistics"); setLobbyView("career"); }} style={careerStreetButtonStyle}>🚚 물류 센터</button>
+                <button onClick={() => { setCareerBuildingId("finance"); setLobbyView("career"); }} style={careerStreetButtonStyle}>🏦 투자 회사</button>
+              </div>
               <button
                 onClick={() => setLobbyView("stocks")}
                 style={stockExchangeBuildingButtonStyle}
@@ -1465,32 +1775,42 @@ export default function GamePage() {
           )}
 
           {lobbyView === "career" && (
-            <div style={panelSceneStyle}>
+            <div style={careerOfficeStyle}>
               <div style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>CAREER OFFICE</div>
-                  <h2 style={panelTitleStyle}>직업 사무소</h2>
-                  <p style={panelDescStyle}>조건을 만족하면 정식 직업을 가질 수 있습니다. 현재 직업: {occupation.icon} {occupation.name}</p>
+                  <h2 style={panelTitleStyle}>{getCareerBuildingName(careerBuildingId)}</h2>
+                  <p style={panelDescStyle}>
+                    조건을 만족하고 직업 테스트를 클리어하면 직업을 얻거나 승급할 수 있습니다. 현재 직업: {occupation.icon} {occupation.name} · 직업 수입까지 {formatTime(careerIncomeCountdown)}
+                  </p>
                 </div>
                 <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
               </div>
 
-              <div style={careerGridStyle}>
-                {careerList.map((careerId) => {
-                  const career = occupationInfo[careerId];
-                  const available = canSelectOccupation(careerId);
-                  const selected = occupationId === careerId;
+              <div style={careerCardGridStyle}>
+                {careerList
+                  .filter((careerId) => occupationInfo[careerId].buildingId === careerBuildingId)
+                  .map((careerId) => {
+                    const career = occupationInfo[careerId];
+                    const unlocked = unlockedOccupations.includes(careerId);
+                    const available = canChallengeOccupation(careerId);
+                    const selected = occupationId === careerId;
 
-                  return (
-                    <button key={careerId} onClick={() => selectOccupation(careerId)} style={{ ...careerCardStyle, opacity: available ? 1 : 0.58, border: selected ? "2px solid #38bdf8" : "1px solid rgba(255,255,255,0.14)" }}>
-                      <div style={careerIconStyle}>{career.icon}</div>
-                      <h3 style={jobCardTitleStyle}>{career.name}</h3>
-                      <p style={jobCardTextStyle}>{career.description}</p>
-                      <p style={conditionTextStyle}>조건: {career.conditionText}</p>
-                      <p style={rewardTextStyle}>{available ? selected ? "현재 직업" : "선택 가능" : "조건 미달"}</p>
-                    </button>
-                  );
-                })}
+                    return (
+                      <button key={careerId} onClick={() => challengeOccupation(careerId)} style={{ ...careerCardStyle, opacity: available || unlocked ? 1 : 0.58, border: selected ? "4px solid #38bdf8" : "4px solid #111827" }}>
+                        <div style={careerTopLineStyle}>
+                          <span style={careerIconStyle}>{career.icon}</span>
+                          <span style={careerGradeStyle}>{career.grade}</span>
+                        </div>
+                        <h3 style={careerNameStyle}>{career.name}</h3>
+                        <p style={careerDescStyle}>{career.description}</p>
+                        <p style={careerIncomeStyle}>{career.salaryText}</p>
+                        <p style={careerConditionStyle}>조건: {career.conditionText}</p>
+                        <p style={careerConditionStyle}>테스트: {career.minigameName} · 난이도 {career.minigameDifficulty}</p>
+                        <div style={careerButtonLikeStyle}>{selected ? "현재 직업" : unlocked ? "직업 장착" : available ? "테스트 도전" : "조건 미달"}</div>
+                      </button>
+                    );
+                  })}
               </div>
             </div>
           )}
@@ -1625,6 +1945,19 @@ export default function GamePage() {
           <button onClick={signOut} style={logoutButtonStyle}>로그아웃</button>
         </footer>
       </section>
+
+      {careerMiniGame && (
+        <div style={careerMiniGameOverlayStyle}>
+          <div style={careerMiniGameBoxStyle}>
+            <div style={smallLabelStyle}>CAREER TEST</div>
+            <h2 style={panelTitleStyle}>{careerMiniGame.icon} {careerMiniGame.name} 테스트</h2>
+            <p style={panelDescStyle}>{careerMiniGame.minigameName}을 수행합니다. 높은 직급일수록 성공 확률이 낮고 필요한 점수가 높습니다.</p>
+            <div style={careerMiniGameScoreStyle}>성공 점수 {careerMiniGameScore} / {3 + careerMiniGame.minigameDifficulty} · 시도 {careerMiniGameStep} / {5 + careerMiniGame.minigameDifficulty}</div>
+            <button onClick={playCareerMiniGameStep} style={bigStartButtonStyle}>업무 처리하기</button>
+            <button onClick={resetCareerMiniGame} style={logoutButtonStyle}>포기</button>
+          </div>
+        </div>
+      )}
 
       {firedStamp && (
         <div style={firedOverlayWrapStyle}>
@@ -1916,6 +2249,28 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
     </div>
   );
 }
+
+function getCareerBuildingName(buildingId: CareerBuildingId) {
+  if (buildingId === "company") return "회사 빌딩";
+  if (buildingId === "entertainment") return "엔터테인먼트";
+  if (buildingId === "logistics") return "물류 센터";
+  return "투자 회사";
+}
+
+function safeParseOccupationList(value: string): OccupationId[] {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? normalizeUnlockedOccupations(parsed) : ["unemployed"];
+  } catch {
+    return ["unemployed"];
+  }
+}
+
+function normalizeUnlockedOccupations(values: unknown[]): OccupationId[] {
+  const valid = values.filter((value): value is OccupationId => typeof value === "string" && value in occupationInfo);
+  return Array.from(new Set<OccupationId>(["unemployed", ...valid]));
+}
+
 
 function StockMiniChart({ stockId, history }: { stockId: StockId; history: number[] }) {
   const points = history.length > 0 ? history : [1000];
@@ -2685,17 +3040,17 @@ const careerGridStyle: CSSProperties = {
 
 const careerCardStyle: CSSProperties = {
   minWidth: 0,
-  minHeight: 0,
+  minHeight: "320px",
   borderRadius: "18px",
   padding: "16px",
   background: "#ffffff",
   color: "#111827",
   textAlign: "left",
   cursor: "pointer",
-  overflow: "hidden",
+  overflow: "auto",
   display: "flex",
   flexDirection: "column",
-  justifyContent: "center",
+  justifyContent: "flex-start",
   boxShadow: "5px 5px 0 rgba(17,24,39,0.16)",
 };
 
@@ -3438,6 +3793,138 @@ const securityHintStyle: CSSProperties = {
   color: "#cbd5e1",
   fontSize: "14px",
 };
+
+
+const careerStreetButtonGroupStyle: CSSProperties = {
+  position: "absolute",
+  left: "34px",
+  top: "34px",
+  zIndex: 8,
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(150px, 1fr))",
+  gap: "10px",
+  maxWidth: "360px",
+};
+
+const careerStreetButtonStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "18px",
+  background: "linear-gradient(180deg, #ffffff, #dbeafe)",
+  color: "#111827",
+  padding: "12px 14px",
+  fontSize: "16px",
+  fontWeight: 900,
+  cursor: "pointer",
+  boxShadow: "0 7px 0 rgba(15,23,42,0.2)",
+};
+
+const careerOfficeStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "grid",
+  gridTemplateRows: "auto minmax(0, 1fr)",
+  gap: "14px",
+  background: "linear-gradient(180deg, #f8fafc, #e0f2fe)",
+  border: "4px solid #111827",
+  borderRadius: "28px",
+  padding: "22px",
+  overflow: "hidden",
+  color: "#0f172a",
+};
+
+const careerCardGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: "14px",
+  overflowY: "auto",
+  paddingRight: "8px",
+};
+
+const careerTopLineStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "10px",
+};
+
+const careerGradeStyle: CSSProperties = {
+  color: "#2563eb",
+  fontWeight: 900,
+  letterSpacing: "0.08em",
+  fontSize: "13px",
+};
+
+const careerNameStyle: CSSProperties = {
+  margin: "8px 0 6px",
+  fontSize: "25px",
+  fontWeight: 900,
+  color: "#0f172a",
+};
+
+const careerDescStyle: CSSProperties = {
+  margin: "0 0 10px",
+  color: "#334155",
+  fontWeight: 800,
+  lineHeight: 1.35,
+};
+
+const careerIncomeStyle: CSSProperties = {
+  color: "#16a34a",
+  fontWeight: 900,
+  fontSize: "17px",
+};
+
+const careerConditionStyle: CSSProperties = {
+  margin: "5px 0",
+  color: "#475569",
+  fontWeight: 800,
+  fontSize: "14px",
+};
+
+const careerButtonLikeStyle: CSSProperties = {
+  marginTop: "12px",
+  border: "3px solid #111827",
+  borderRadius: "14px",
+  background: "#fef3c7",
+  color: "#111827",
+  padding: "11px",
+  fontWeight: 900,
+  fontSize: "16px",
+  textAlign: "center",
+};
+
+const careerMiniGameOverlayStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  zIndex: 80,
+  background: "rgba(15,23,42,0.62)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const careerMiniGameBoxStyle: CSSProperties = {
+  width: "min(600px, 92vw)",
+  background: "#ffffff",
+  color: "#0f172a",
+  border: "5px solid #111827",
+  borderRadius: "28px",
+  padding: "26px",
+  boxShadow: "0 20px 0 rgba(15,23,42,0.25)",
+  display: "grid",
+  gap: "12px",
+};
+
+const careerMiniGameScoreStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "16px",
+  background: "#eff6ff",
+  padding: "14px",
+  fontWeight: 900,
+  fontSize: "20px",
+  textAlign: "center",
+};
+
 
 const firedOverlayWrapStyle: CSSProperties = {
   position: "absolute",
