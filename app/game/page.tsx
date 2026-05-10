@@ -5623,36 +5623,6 @@ const streetFacadeSvgStyle: CSSProperties = {
   filter: "drop-shadow(0 8px 0 rgba(15,23,42,0.10))",
 };
 
-const streetBuildingRoofStyle: CSSProperties = {
-  width: "48px",
-  height: "34px",
-  border: "4px solid #111827",
-  borderRadius: "16px",
-  background: "rgba(255,255,255,0.88)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  justifySelf: "center",
-  fontSize: "24px",
-  boxShadow: "3px 3px 0 rgba(17,24,39,0.16)",
-};
-
-const streetBuildingWindowGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, 1fr)",
-  gap: "6px",
-  alignContent: "start",
-  padding: "4px 12px",
-};
-
-const streetBuildingWindowStyle: CSSProperties = {
-  height: "16px",
-  borderRadius: "7px",
-  background: "rgba(255,255,255,0.64)",
-  border: "2px solid rgba(255,255,255,0.82)",
-  boxShadow: "inset 0 -3px 0 rgba(15,23,42,0.08)",
-};
-
 const streetBuildingSignStyle: CSSProperties = {
   background: "rgba(255,255,255,0.96)",
   border: "4px solid #111827",
@@ -6293,7 +6263,6 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
-
 
 
 
