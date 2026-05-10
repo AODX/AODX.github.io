@@ -47,7 +47,7 @@ type SaveRow = {
   security_success_total?: number | string | null;
 };
 
-type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news";
+type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "titles";
 type RoomKind = "basic" | "studio" | "office";
 type CareerBuildingId = "company" | "entertainment" | "logistics" | "finance";
 type StreetBuildingId = CareerBuildingId | "stocks" | "casino" | "bank" | "estate" | "business" | "news";
@@ -112,10 +112,19 @@ type RankingSaveRow = {
   cash: number | string;
 };
 
-type StockId = "kongStudio" | "zephyrLogistics" | "raelAir" | "dongshimLivestock" | "blmaSteel";
+type StockId = "kongStudio" | "zephyrLogistics" | "raelAir" | "dongshimLivestock" | "blmaSteel" | "guardianTales" | "epicGames" | "leagueLegends" | "valorantLabs" | "overwatchWorks" | "gachindong" | "babyPrincess" | "futurePrincess" | "summonerRift" | "heroWatch";
 
 type StockCompany = {
   id: StockId;
+  name: string;
+  icon: string;
+  description: string;
+};
+
+type PlayerTitleId = "newbie" | "worker" | "saver" | "investor" | "realEstate" | "businessOwner" | "casinoRookie" | "millionaire" | "taxPayer" | "marketMaster";
+
+type PlayerTitle = {
+  id: PlayerTitleId;
   name: string;
   icon: string;
   description: string;
@@ -602,6 +611,29 @@ const stockCompanies: StockCompany[] = [
   { id: "raelAir", name: "라엘 항공", icon: "✈️", description: "여행 수요에 민감하게 움직이는 항공 회사" },
   { id: "dongshimLivestock", name: "동쉼 축산", icon: "🐄", description: "식품 가격과 수요에 영향을 받는 축산 회사" },
   { id: "blmaSteel", name: "블마 철강", icon: "🏭", description: "건설 경기와 원자재 흐름을 타는 철강 회사" },
+  { id: "guardianTales", name: "가디언테일즈", icon: "🛡️", description: "레트로 감성 어드벤처 IP를 운영하는 게임 회사" },
+  { id: "epicGames", name: "에픽 게임즈", icon: "🧱", description: "엔진 기술과 글로벌 게임 플랫폼을 보유한 회사" },
+  { id: "leagueLegends", name: "리그오브레전드", icon: "🏆", description: "e스포츠와 챔피언 IP 매출에 강한 게임 회사" },
+  { id: "valorantLabs", name: "발로란트 랩스", icon: "🎯", description: "전술 슈팅과 대회 흥행에 민감한 성장 회사" },
+  { id: "overwatchWorks", name: "오버워치 웍스", icon: "🦾", description: "히어로 슈팅과 스킨 판매 흐름을 타는 회사" },
+  { id: "gachindong", name: "가친동 미디어", icon: "🏘️", description: "커뮤니티 기반 콘텐츠와 광고 수익을 노리는 회사" },
+  { id: "babyPrincess", name: "아기공주 토이즈", icon: "👑", description: "캐릭터 굿즈와 키즈 IP를 판매하는 회사" },
+  { id: "futurePrincess", name: "미래공주 테크", icon: "🔮", description: "미래형 캐릭터 IP와 AI 콘텐츠를 개발하는 회사" },
+  { id: "summonerRift", name: "소환사의 협곡", icon: "🗡️", description: "MOBA 리그와 스트리밍 흥행에 영향을 받는 회사" },
+  { id: "heroWatch", name: "히어로 워치", icon: "⌚", description: "히어로 IP와 팀 기반 슈팅 콘텐츠 회사" },
+];
+
+const playerTitles: PlayerTitle[] = [
+  { id: "newbie", name: "초보 경제인", icon: "🌱", description: "게임을 시작한 기본 칭호입니다." },
+  { id: "worker", name: "성실한 알바생", icon: "💼", description: "알바 성공 누적 30회 이상" },
+  { id: "saver", name: "저축왕", icon: "🏦", description: "은행 예금 100,000원 이상" },
+  { id: "investor", name: "신중한 투자자", icon: "📈", description: "주식 평가금액 100,000원 이상" },
+  { id: "realEstate", name: "부동산 입문자", icon: "🏘️", description: "부동산 1개 이상 보유" },
+  { id: "businessOwner", name: "사장님", icon: "🏪", description: "사업 1개 이상 보유" },
+  { id: "casinoRookie", name: "카지노 손님", icon: "🎰", description: "카지노에 입장 가능한 플레이어" },
+  { id: "millionaire", name: "백만장자", icon: "💰", description: "순자산 1,000,000원 이상" },
+  { id: "taxPayer", name: "모범 납세자", icon: "🧾", description: "미납 세금이 없는 플레이어" },
+  { id: "marketMaster", name: "시장 분석가", icon: "📊", description: "주식 종목 3개 이상 보유" },
 ];
 
 const estateItems: EstateItem[] = [
@@ -648,6 +680,7 @@ export default function GamePage() {
 
   const [lobbyView, setLobbyView] = useState<LobbyView>("room");
   const [streetPage, setStreetPage] = useState(0);
+  const [currentTitleId, setCurrentTitleId] = useState<PlayerTitleId>("newbie");
   const [nickname, setNickname] = useState("우리집");
   const [nicknameDraft, setNicknameDraft] = useState("우리집");
   const [roomKind, setRoomKind] = useState<RoomKind>("basic");
@@ -752,6 +785,7 @@ export default function GamePage() {
   const occupation = occupationInfo[occupationId];
   const taxRate = getTaxRate(cash);
   const nextTax = calculateTax(cash, unpaidTax);
+  const currentTitle = playerTitles.find((title) => title.id === currentTitleId) ?? playerTitles[0];
   const stockAssetValue = useMemo(() => stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0), [stockRows]);
   const estateAssetValue = useMemo(() => ownedEstates.reduce((sum, id) => sum + (estateItems.find((item) => item.id === id)?.price ?? 0), 0), [ownedEstates]);
   const businessAssetValue = useMemo(() => ownedBusinesses.reduce((sum, id) => sum + (businessItems.find((item) => item.id === id)?.price ?? 0), 0), [ownedBusinesses]);
@@ -761,6 +795,10 @@ export default function GamePage() {
     return estateIncome + businessIncome;
   }, [ownedEstates, ownedBusinesses]);
   const netWorth = cash + bankDeposit + stockAssetValue + estateAssetValue + businessAssetValue - bankLoan - unpaidTax;
+  const unlockedTitles = useMemo(
+    () => getUnlockedTitles({ cash, stockRows, bankDeposit, ownedEstates, ownedBusinesses, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal }),
+    [cash, stockRows, bankDeposit, ownedEstates, ownedBusinesses, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal]
+  );
 
   useEffect(() => {
     async function loadSave() {
@@ -844,6 +882,7 @@ export default function GamePage() {
       const savedRoomKind = window.localStorage.getItem(`alba-money-room-${userId}`) as RoomKind | null;
       const savedOccupationId = window.localStorage.getItem(`alba-money-occupation-${userId}`) as OccupationId | null;
       const savedUnlocked = window.localStorage.getItem(`alba-money-unlocked-occupations-${userId}`);
+      const savedTitle = window.localStorage.getItem(`alba-money-title-${userId}`) as PlayerTitleId | null;
 
       if (savedNickname) {
         setNickname(savedNickname);
@@ -860,6 +899,10 @@ export default function GamePage() {
 
       if (savedUnlocked) {
         setUnlockedOccupations(normalizeUnlockedOccupations(safeParseOccupationList(savedUnlocked)));
+      }
+
+      if (savedTitle && playerTitles.some((title) => title.id === savedTitle)) {
+        setCurrentTitleId(savedTitle);
       }
 
       const supabase = createClient();
@@ -2650,6 +2693,7 @@ export default function GamePage() {
           <div style={profileAreaStyle}>
             <div style={smallLabelStyle}>ALBA MONEY GAME</div>
             <h1 style={mainTitleStyle}>{nickname}의 하루</h1>
+            <div style={titleBadgeStyle}>{currentTitle.icon} {currentTitle.name}</div>
             <div style={nicknameEditStyle}>
               <input
                 value={nicknameDraft}
@@ -2662,6 +2706,7 @@ export default function GamePage() {
                 style={nicknameInputStyle}
               />
               <button onClick={saveNickname} style={smallActionButtonStyle}>닉네임 변경</button>
+              <button onClick={() => setLobbyView("titles")} style={smallActionButtonStyle}>칭호</button>
             </div>
           </div>
 
@@ -2681,6 +2726,7 @@ export default function GamePage() {
               <div style={roomMoneyStyle}>◎ {cash.toLocaleString()}</div>
               <div style={roomInfoTextStyle}>
                 <strong style={roomInfoNameStyle}>{nickname}</strong>
+                <span style={roomInfoLineStyle}>칭호 {currentTitle.name}</span>
                 <span style={roomInfoLineStyle}>직업 {occupation.name}</span>
                 <span style={roomInfoLineStyle}>세금까지 {formatTime(taxCountdown)}</span>
               </div>
@@ -3201,6 +3247,42 @@ export default function GamePage() {
                     <p style={economyCardTextStyle}>{news.effect}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {lobbyView === "titles" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>TITLE COLLECTION</div>
+                  <h2 style={panelTitleStyle}>칭호</h2>
+                  <p style={panelDescStyle}>조건을 만족한 칭호를 장착할 수 있습니다. 현재 칭호: {currentTitle.icon} {currentTitle.name}</p>
+                </div>
+                <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
+              </div>
+              <div style={titleGridStyle}>
+                {playerTitles.map((title) => {
+                  const unlocked = unlockedTitles.some((item) => item.id === title.id);
+                  return (
+                    <div key={title.id} style={{ ...titleCardStyle, opacity: unlocked ? 1 : 0.48 }}>
+                      <div style={titleCardIconStyle}>{title.icon}</div>
+                      <h3 style={economyCardTitleStyle}>{title.name}</h3>
+                      <p style={economyCardTextStyle}>{title.description}</p>
+                      <button
+                        disabled={!unlocked}
+                        onClick={() => {
+                          setCurrentTitleId(title.id);
+                          if (userId) window.localStorage.setItem(`alba-money-title-${userId}`, title.id);
+                          setMessage(`🏷️ 칭호를 ${title.name}(으)로 변경했습니다.`);
+                        }}
+                        style={{ ...casinoSmallButtonStyle, opacity: unlocked ? 1 : 0.5 }}
+                      >
+                        {currentTitleId === title.id ? "장착 중" : unlocked ? "장착하기" : "잠김"}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -4295,8 +4377,13 @@ function makeInitialStocks(seedKey = "default"): StockRow[] {
 
 function updateStockMarket(rows: StockRow[]): StockRow[] {
   return rows.map((stock) => {
-    const direction = Math.random() < 0.52 ? 1 : -1;
-    const percent = Math.random() * 10;
+    const trend = getStockTrendStreak(stock.history);
+    const upProbability = clampNumber(0.5 - Math.max(0, trend) * 0.075 + Math.max(0, -trend) * 0.055, 0.24, 0.76);
+    const direction = Math.random() < upProbability ? 1 : -1;
+    const streakPenalty = direction === 1 ? Math.max(0, trend) * 0.45 : Math.max(0, -trend) * 0.28;
+    const maxPercent = clampNumber(10 - streakPenalty, 3.2, 10);
+    const minPercent = 0.25;
+    const percent = minPercent + Math.random() * (maxPercent - minPercent);
     const nextPrice = Math.max(100, Math.round(stock.price * (1 + direction * percent / 100)));
 
     return {
@@ -4308,6 +4395,27 @@ function updateStockMarket(rows: StockRow[]): StockRow[] {
   });
 }
 
+function getStockTrendStreak(history: number[]) {
+  let streak = 0;
+  for (let index = history.length - 1; index > 0; index -= 1) {
+    const diff = history[index] - history[index - 1];
+    if (diff === 0) break;
+    const direction = diff > 0 ? 1 : -1;
+    if (streak === 0) {
+      streak = direction;
+    } else if ((streak > 0 && direction > 0) || (streak < 0 && direction < 0)) {
+      streak += direction;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
 function hashSeed(text: string) {
   let hash = 2166136261;
   for (let index = 0; index < text.length; index += 1) {
@@ -4317,6 +4425,26 @@ function hashSeed(text: string) {
   return hash >>> 0;
 }
 
+
+function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDeposit: number; ownedEstates: EstateId[]; ownedBusinesses: BusinessId[]; unpaidTax: number; netWorth: number; sortingSuccessTotal: number; deliverySuccessTotal: number; cashierSuccessTotal: number; cafeSuccessTotal: number; securitySuccessTotal: number; }) {
+  const totalJobSuccess = params.sortingSuccessTotal + params.deliverySuccessTotal + params.cashierSuccessTotal + params.cafeSuccessTotal + params.securitySuccessTotal;
+  const stockValue = params.stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0);
+  const stockKindsOwned = params.stockRows.filter((stock) => stock.owned > 0).length;
+
+  return playerTitles.filter((title) => {
+    if (title.id === "newbie") return true;
+    if (title.id === "worker") return totalJobSuccess >= 30;
+    if (title.id === "saver") return params.bankDeposit >= 100000;
+    if (title.id === "investor") return stockValue >= 100000;
+    if (title.id === "realEstate") return params.ownedEstates.length >= 1;
+    if (title.id === "businessOwner") return params.ownedBusinesses.length >= 1;
+    if (title.id === "casinoRookie") return true;
+    if (title.id === "millionaire") return params.netWorth >= 1000000;
+    if (title.id === "taxPayer") return params.unpaidTax <= 0;
+    if (title.id === "marketMaster") return stockKindsOwned >= 3;
+    return false;
+  });
+}
 
 function formatTime(seconds: number) {
   const minutes = Math.floor(seconds / 60);
@@ -5891,6 +6019,43 @@ const careerMiniGameScoreStyle: CSSProperties = {
 };
 
 
+const titleBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
+  marginTop: "4px",
+  border: "3px solid #111827",
+  borderRadius: "999px",
+  background: "linear-gradient(180deg, #fef3c7, #fde68a)",
+  color: "#111827",
+  padding: "6px 12px",
+  fontWeight: 900,
+  boxShadow: "0 5px 0 rgba(15,23,42,0.16)",
+};
+
+const titleGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: "14px",
+  overflowY: "auto",
+  paddingRight: "8px",
+  paddingBottom: "28px",
+};
+
+const titleCardStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "22px",
+  background: "linear-gradient(180deg, #ffffff, #eff6ff)",
+  padding: "16px",
+  display: "grid",
+  gap: "8px",
+  boxShadow: "0 8px 0 rgba(15,23,42,0.14)",
+};
+
+const titleCardIconStyle: CSSProperties = {
+  fontSize: "36px",
+};
+
 const firedOverlayWrapStyle: CSSProperties = {
   position: "absolute",
   inset: 0,
@@ -5935,13 +6100,13 @@ const casinoSceneStyle: CSSProperties = {
   height: "100%",
   display: "grid",
   gridTemplateRows: "auto auto auto",
-  gap: "14px",
+  gap: "16px",
   overflowY: "auto",
-  background: "linear-gradient(180deg, #fff8e8 0%, #ffefcf 100%)",
-  border: "4px solid #111827",
+  background: "radial-gradient(circle at 18% 8%, rgba(250,204,21,0.28), transparent 22%), radial-gradient(circle at 86% 18%, rgba(244,63,94,0.20), transparent 24%), linear-gradient(180deg, #20142f 0%, #111827 58%, #2a1608 100%)",
+  border: "4px solid #facc15",
   borderRadius: "28px",
-  padding: "18px",
-  color: "#111827",
+  padding: "20px",
+  color: "#f8fafc",
 };
 
 const casinoContentGridStyle: CSSProperties = {
@@ -5959,25 +6124,27 @@ const casinoLowerGridStyle: CSSProperties = {
 };
 
 const casinoCardStyle: CSSProperties = {
-  background: "rgba(255,255,255,0.94)",
-  border: "4px solid #111827",
-  borderRadius: "22px",
-  padding: "16px",
-  boxShadow: "0 8px 0 rgba(15,23,42,0.14)",
+  background: "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,247,237,0.94))",
+  border: "4px solid #facc15",
+  borderRadius: "24px",
+  padding: "18px",
+  boxShadow: "0 10px 0 rgba(250,204,21,0.26), 0 24px 46px rgba(0,0,0,0.28)",
   display: "grid",
-  gap: "12px",
+  gap: "14px",
   overflow: "visible",
   alignContent: "start",
+  color: "#111827",
 };
 
 const casinoListCardStyle: CSSProperties = {
-  background: "rgba(255,255,255,0.94)",
-  border: "4px solid #111827",
+  background: "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(239,246,255,0.92))",
+  border: "4px solid #facc15",
   borderRadius: "22px",
   padding: "14px",
-  boxShadow: "0 8px 0 rgba(15,23,42,0.14)",
+  boxShadow: "0 8px 0 rgba(250,204,21,0.20), 0 20px 38px rgba(0,0,0,0.22)",
   overflowY: "auto",
   maxHeight: "280px",
+  color: "#111827",
 };
 
 const casinoCardHeaderStyle: CSSProperties = {
@@ -5988,15 +6155,16 @@ const casinoCardHeaderStyle: CSSProperties = {
 };
 
 const casinoIconStyle: CSSProperties = {
-  width: "58px",
-  height: "58px",
+  width: "64px",
+  height: "64px",
   border: "4px solid #111827",
-  borderRadius: "18px",
+  borderRadius: "20px",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  fontSize: "30px",
-  background: "#fef3c7",
+  fontSize: "34px",
+  background: "radial-gradient(circle at 35% 25%, #ffffff, #fde68a 48%, #f59e0b)",
+  boxShadow: "0 0 0 5px rgba(250,204,21,0.18), 0 8px 0 rgba(15,23,42,0.18)",
   flexShrink: 0,
 };
 
@@ -6030,13 +6198,13 @@ const casinoInputStyle: CSSProperties = {
 const casinoPrimaryButtonStyle: CSSProperties = {
   border: "4px solid #111827",
   borderRadius: "16px",
-  background: "#facc15",
+  background: "linear-gradient(180deg, #fde68a, #f59e0b)",
   color: "#111827",
   padding: "12px 16px",
   fontSize: "17px",
   fontWeight: 900,
   cursor: "pointer",
-  boxShadow: "0 5px 0 rgba(15,23,42,0.18)",
+  boxShadow: "0 6px 0 rgba(120,53,15,0.55), 0 0 18px rgba(250,204,21,0.22)",
 };
 
 const casinoDangerButtonStyle: CSSProperties = {
@@ -6073,14 +6241,14 @@ const slotMachinePanelStyle: CSSProperties = {
 };
 
 const slotMachineCabinetStyle: CSSProperties = {
-  border: "4px solid #111827",
-  borderRadius: "24px",
-  background: "linear-gradient(180deg, #1f2937, #111827)",
+  border: "4px solid #facc15",
+  borderRadius: "26px",
+  background: "radial-gradient(circle at 50% 0%, rgba(250,204,21,0.30), transparent 38%), linear-gradient(180deg, #3b0764, #111827)",
   color: "#f8fafc",
-  padding: "14px",
+  padding: "16px",
   display: "grid",
   gap: "12px",
-  boxShadow: "inset 0 0 0 3px rgba(250,204,21,0.22), 0 8px 0 rgba(15,23,42,0.2)",
+  boxShadow: "inset 0 0 0 3px rgba(255,255,255,0.10), 0 10px 0 rgba(120,53,15,0.55), 0 0 32px rgba(250,204,21,0.24)",
 };
 
 const slotMachineHeaderStyle: CSSProperties = {
