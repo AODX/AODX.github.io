@@ -3056,13 +3056,6 @@ const careerIconStyle: CSSProperties = {
   marginBottom: "10px",
 };
 
-const conditionTextStyle: CSSProperties = {
-  marginTop: "12px",
-  color: "#92400e",
-  fontWeight: 900,
-  fontSize: "13px",
-  lineHeight: 1.3,
-};
 
 const rankingTableStyle: CSSProperties = {
   display: "grid",
