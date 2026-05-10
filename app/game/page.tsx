@@ -676,9 +676,8 @@ const streetBuildingPages: StreetBuildingId[][] = [
   ["company", "entertainment", "finance"],
   ["bank", "stocks", "logistics"],
   ["estate", "business", "news"],
-  ["insurance", "employees", "auction"],
-  ["academy", "gacha", "itemMarket"],
-  ["casino"],
+  ["insurance", "employees", "academy"],
+  ["gacha", "itemMarket", "casino"],
 ];
 
 const stockCompanies: StockCompany[] = [
@@ -1603,7 +1602,14 @@ export default function GamePage() {
   }, [isSaveLoaded, shopLevel]);
 
   useEffect(() => {
-    if (lobbyView === "gacha" || lobbyView === "itemMarket") refreshMarketListings();
+    if (shopOffers.length === 0) {
+      setShopOffers(makeShopOffers(shopLevel));
+      setShopUpdatedAt(new Date());
+    }
+  }, [shopOffers.length, shopLevel]);
+
+  useEffect(() => {
+    if (lobbyView === "itemMarket") refreshMarketListings();
   }, [lobbyView]);
 
   useEffect(() => {
@@ -3737,15 +3743,15 @@ export default function GamePage() {
               <div style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>GACHA SHOP</div>
-                  <h2 style={panelTitleStyle}>가챠 숍 & 유저 거래소</h2>
-                  <p style={panelDescStyle}>10분마다 3개 상품이 입고됩니다. 상점 등급 Lv.{shopLevel} · 구매 {shopPurchaseCount}회 · 장착 {equippedItems.length}/{itemSlotCount}</p>
+                  <h2 style={panelTitleStyle}>가챠 숍</h2>
+                  <p style={panelDescStyle}>10분마다 3개 장신구가 입고됩니다. 상점 등급 Lv.{shopLevel} · 구매 {shopPurchaseCount}회 · 장착 {equippedItems.length}/{itemSlotCount}</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
               </div>
 
               <div style={economyCardGridStyle}>
-                {shopOffers.map((item) => (
-                  <div key={`${item.id}-${shopUpdatedAt.toISOString()}`} style={economyCardStyle}>
+                {(shopOffers.length > 0 ? shopOffers : makeShopOffers(shopLevel)).slice(0, 3).map((item) => (
+                  <div key={`${item.id}-${shopUpdatedAt.toISOString()}`} style={{ ...economyCardStyle, borderColor: getRarityColor(item.rarity) }}>
                     <h3 style={economyCardTitleStyle}>{item.icon} {item.name}</h3>
                     <p style={economyCardTextStyle}>{item.rarity} · {item.description}</p>
                     <strong>{item.price.toLocaleString()}원</strong>
@@ -3758,7 +3764,7 @@ export default function GamePage() {
               <div style={casinoLowerGridStyle}>
                 <section style={casinoListCardStyle}>
                   <h3 style={casinoTitleStyle}>가챠 자판기</h3>
-                  <p style={casinoTextStyle}>1회 50,000원. 대부분 꽝이지만 보물/유물도 나올 수 있습니다.</p>
+                  <p style={casinoTextStyle}>1회 50,000원. 대부분 꽝이지만 아주 낮은 확률로 보물/유물 장신구가 나옵니다.</p>
                   <button onClick={pullGachaMachine} style={casinoPrimaryButtonStyle}>가챠 돌리기</button>
                 </section>
                 <section style={casinoListCardStyle}>
@@ -3766,31 +3772,7 @@ export default function GamePage() {
                   {ownedItems.length === 0 ? <p style={casinoTextStyle}>보유 장신구가 없습니다.</p> : ownedItems.map((id, index) => {
                     const item = shopItems.find((entry) => entry.id === id);
                     if (!item) return null;
-                    return <div key={`${id}-${index}`} style={marketMiniRowStyle}><span>{item.icon} {item.name}</span><button onClick={() => toggleEquipItem(id)} style={casinoSmallButtonStyle}>{equippedItems.includes(id) ? "해제" : "장착"}</button></div>;
-                  })}
-                </section>
-              </div>
-
-              <div style={casinoLowerGridStyle}>
-                <section style={casinoListCardStyle}>
-                  <h3 style={casinoTitleStyle}>판매 등록</h3>
-                  <select value={sellItemId} onChange={(event) => setSellItemId(event.target.value)} style={casinoInputStyle}>
-                    <option value="">판매할 아이템 선택</option>
-                    {ownedItems.map((id, index) => {
-                      const item = shopItems.find((entry) => entry.id === id);
-                      return item ? <option key={`${id}-${index}`} value={id}>{item.rarity} · {item.name}</option> : null;
-                    })}
-                  </select>
-                  <input value={sellPrice} onChange={(event) => setSellPrice(event.target.value)} style={casinoInputStyle} type="number" min={1000} step={1000} />
-                  <button onClick={listItemForSale} style={casinoPrimaryButtonStyle}>거래소 등록</button>
-                </section>
-                <section style={casinoListCardStyle}>
-                  <h3 style={casinoTitleStyle}>유저 거래소</h3>
-                  <button onClick={refreshMarketListings} style={casinoSmallButtonStyle}>새로고침</button>
-                  {marketListings.length === 0 ? <p style={casinoTextStyle}>등록된 매물이 없습니다.</p> : marketListings.map((listing) => {
-                    const item = shopItems.find((entry) => entry.id === listing.item_id);
-                    if (!item) return null;
-                    return <div key={listing.id} style={marketMiniRowStyle}><span>{item.icon} {item.name}<br /><small>{listing.seller_nickname ?? "판매자"} · {Number(listing.price).toLocaleString()}원</small></span><button onClick={() => buyMarketListing(listing)} style={casinoSmallButtonStyle}>구매</button></div>;
+                    return <div key={`${id}-${index}`} style={marketMiniRowStyle}><span>{item.icon} {item.name}<br /><small>{item.rarity} · {getItemEffectText(item)}</small></span><button onClick={() => toggleEquipItem(id)} style={casinoSmallButtonStyle}>{equippedItems.includes(id) ? "해제" : "장착"}</button></div>;
                   })}
                 </section>
               </div>
@@ -7300,3 +7282,4 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
+
