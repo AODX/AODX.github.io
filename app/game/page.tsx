@@ -59,11 +59,17 @@ type OccupationId =
   | "officeDirector"
   | "salesAssociate"
   | "marketingPlanner"
+  | "convenienceManager"
+  | "cafeManager"
+  | "securityCaptain"
+  | "franchiseOwner"
   | "trainee"
   | "rookieSinger"
   | "topSinger"
   | "logisticsStaff"
   | "logisticsManager"
+  | "dispatchController"
+  | "platformOpsManager"
   | "investor";
 
 type Occupation = {
@@ -212,12 +218,12 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     name: "인턴",
     icon: "📎",
     grade: "회사 1단계",
-    description: "회사 생활을 배우는 첫 단계입니다. 서류 정리와 기본 업무를 처리합니다.",
+    description: "회사 생활을 배우는 첫 단계입니다. 기본 보고와 업무 정리를 처리합니다.",
     conditionText: "현금 30,000원 이상 + 입사 테스트 클리어",
     salaryText: "3분마다 1,500원",
     incomeEvery3Min: 1500,
     requiredCash: 30000,
-    minigameName: "면접 답변",
+    minigameName: "입사 테스트",
     minigameDifficulty: 1,
   },
   officeStaff: {
@@ -226,7 +232,7 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     name: "일반 회사원",
     icon: "💼",
     grade: "회사 2단계",
-    description: "정식 회사원입니다. 안정적인 급여를 받습니다.",
+    description: "정식 회사원입니다. 회사 업무 미니게임을 통해 안정적인 급여를 얻습니다.",
     conditionText: "인턴 보유 + 현금 80,000원 이상 + 문서 정리 테스트 클리어",
     salaryText: "3분마다 3,500원",
     incomeEvery3Min: 3500,
@@ -256,7 +262,7 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     name: "부장",
     icon: "🗂️",
     grade: "회사 4단계",
-    description: "팀의 목표와 인력을 관리하는 고급 관리자입니다.",
+    description: "팀 목표와 인력을 관리하는 고급 관리자입니다. 편의점 계산 알바의 빠른 입력 경험이 도움이 됩니다.",
     conditionText: "과장 보유 + 현금 900,000원 이상 + 편의점 계산 성공 35회 + 임원 보고 테스트 클리어",
     salaryText: "3분마다 18,000원",
     incomeEvery3Min: 18000,
@@ -272,7 +278,7 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     name: "영업 사원",
     icon: "🤝",
     grade: "회사 영업직",
-    description: "고객 응대와 계약 관리를 담당합니다.",
+    description: "고객 응대와 계약 관리를 담당합니다. 보안요원 알바의 판단 경험과 연결됩니다.",
     conditionText: "현금 120,000원 이상 + 보안 대응 성공 12회 + 고객 상담 테스트 클리어",
     salaryText: "3분마다 4,500원",
     incomeEvery3Min: 4500,
@@ -287,7 +293,7 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     name: "마케팅 기획자",
     icon: "📣",
     grade: "회사 기획직",
-    description: "광고 문구와 캠페인 일정을 빠르게 정리합니다.",
+    description: "광고 문구와 캠페인 일정을 빠르게 정리합니다. 카페 알바의 서비스 경험과 연결됩니다.",
     conditionText: "현금 180,000원 이상 + 카페 제조 성공 15회 + 캠페인 기획 테스트 클리어",
     salaryText: "3분마다 6,000원",
     incomeEvery3Min: 6000,
@@ -295,6 +301,66 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     requiredSuccess: { cafe: 15 },
     minigameName: "캠페인 기획",
     minigameDifficulty: 3,
+  },
+  convenienceManager: {
+    id: "convenienceManager",
+    buildingId: "company",
+    name: "편의점 점장",
+    icon: "🏪",
+    grade: "유통 관리직",
+    description: "편의점 계산 알바 경험을 살려 매장 운영과 재고를 관리합니다.",
+    conditionText: "현금 220,000원 이상 + 편의점 계산 성공 30회 + 매장 운영 테스트 클리어",
+    salaryText: "3분마다 7,500원",
+    incomeEvery3Min: 7500,
+    requiredCash: 220000,
+    requiredSuccess: { cashier: 30 },
+    minigameName: "매장 운영",
+    minigameDifficulty: 3,
+  },
+  cafeManager: {
+    id: "cafeManager",
+    buildingId: "company",
+    name: "카페 매니저",
+    icon: "☕",
+    grade: "외식 관리직",
+    description: "카페 음료 알바 경험을 바탕으로 제조 품질과 직원 스케줄을 관리합니다.",
+    conditionText: "현금 180,000원 이상 + 카페 제조 성공 25회 + 매장 스케줄 테스트 클리어",
+    salaryText: "3분마다 8,000원",
+    incomeEvery3Min: 8000,
+    requiredCash: 180000,
+    requiredSuccess: { cafe: 25 },
+    minigameName: "매장 스케줄",
+    minigameDifficulty: 3,
+  },
+  securityCaptain: {
+    id: "securityCaptain",
+    buildingId: "company",
+    name: "보안 팀장",
+    icon: "🛡️",
+    grade: "안전 관리직",
+    description: "보안요원 알바 경험을 살려 출입 통제와 팀 배치를 담당합니다.",
+    conditionText: "현금 250,000원 이상 + 보안 대응 성공 30회 + 출입 통제 테스트 클리어",
+    salaryText: "3분마다 9,500원",
+    incomeEvery3Min: 9500,
+    requiredCash: 250000,
+    requiredSuccess: { security: 30 },
+    minigameName: "출입 통제",
+    minigameDifficulty: 3,
+  },
+  franchiseOwner: {
+    id: "franchiseOwner",
+    buildingId: "company",
+    name: "프랜차이즈 지점장",
+    icon: "🏬",
+    grade: "복합 매장 관리자",
+    description: "편의점과 카페 운영 경험을 합쳐 여러 매장을 책임지는 직업입니다.",
+    conditionText: "편의점 점장 또는 카페 매니저 보유 + 현금 900,000원 이상 + 편의점 성공 50회 + 카페 성공 40회 + 지점 관리 테스트 클리어",
+    salaryText: "3분마다 24,000원",
+    incomeEvery3Min: 24000,
+    requiredCash: 900000,
+    requiredSuccess: { cashier: 50, cafe: 40 },
+    minigameName: "지점 관리",
+    minigameDifficulty: 4,
   },
   trainee: {
     id: "trainee",
@@ -316,7 +382,7 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     name: "신인 가수",
     icon: "🎤",
     grade: "연예 2단계",
-    description: "작은 무대와 행사를 뛰며 인지도를 쌓습니다.",
+    description: "작은 무대와 행사를 뛰며 인지도를 쌓습니다. 카페 알바 경험이 팬 응대에 도움을 줍니다.",
     conditionText: "연습생 보유 + 현금 150,000원 이상 + 카페 제조 성공 10회 + 무대 공연 테스트 클리어",
     salaryText: "3분마다 7,000원",
     incomeEvery3Min: 7000,
@@ -347,7 +413,7 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     name: "물류 정직원",
     icon: "🚚",
     grade: "물류 1단계",
-    description: "분류와 배송 흐름을 안정적으로 처리합니다.",
+    description: "택배 분류와 배달 알바 경험을 바탕으로 물류 흐름을 안정적으로 처리합니다.",
     conditionText: "현금 70,000원 이상 + 택배 분류 성공 15회 + 배달 성공 10회 + 물류 테스트 클리어",
     salaryText: "3분마다 4,000원",
     incomeEvery3Min: 4000,
@@ -372,6 +438,37 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     minigameName: "배송 라인 관리",
     minigameDifficulty: 3,
   },
+  dispatchController: {
+    id: "dispatchController",
+    buildingId: "logistics",
+    name: "배차 관제사",
+    icon: "🧭",
+    grade: "물류 관제직",
+    description: "배달 알바 경험을 살려 차량 배차와 도착 시간을 관리합니다.",
+    conditionText: "현금 350,000원 이상 + 배달 성공 35회 + 택배 분류 성공 20회 + 배차 관제 테스트 클리어",
+    salaryText: "3분마다 13,000원",
+    incomeEvery3Min: 13000,
+    requiredCash: 350000,
+    requiredSuccess: { delivery: 35, sorting: 20 },
+    minigameName: "배차 관제",
+    minigameDifficulty: 3,
+  },
+  platformOpsManager: {
+    id: "platformOpsManager",
+    buildingId: "logistics",
+    name: "배달 플랫폼 매니저",
+    icon: "🛵",
+    grade: "플랫폼 운영직",
+    description: "배달 데이터를 보고 라이더 동선과 주문 흐름을 최적화합니다.",
+    conditionText: "배차 관제사 보유 + 현금 650,000원 이상 + 배달 성공 60회 + 플랫폼 운영 테스트 클리어",
+    salaryText: "3분마다 20,000원",
+    incomeEvery3Min: 20000,
+    requiredCash: 650000,
+    requiredPrevious: "dispatchController",
+    requiredSuccess: { delivery: 60 },
+    minigameName: "플랫폼 운영",
+    minigameDifficulty: 4,
+  },
   investor: {
     id: "investor",
     buildingId: "finance",
@@ -395,18 +492,24 @@ const careerList: OccupationId[] = [
   "officeDirector",
   "salesAssociate",
   "marketingPlanner",
+  "convenienceManager",
+  "cafeManager",
+  "securityCaptain",
+  "franchiseOwner",
   "trainee",
   "rookieSinger",
   "topSinger",
   "logisticsStaff",
   "logisticsManager",
+  "dispatchController",
+  "platformOpsManager",
   "investor",
 ];
 
 const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: string; emoji: string }> = [
-  { id: "company", title: "회사 빌딩", subtitle: "인턴 · 회사원 · 부장 · 영업 · 마케팅", emoji: "🏢" },
+  { id: "company", title: "회사 빌딩", subtitle: "회사원 · 점장 · 카페 · 보안 · 지점장", emoji: "🏢" },
   { id: "entertainment", title: "엔터테인먼트", subtitle: "연습생 · 신인 가수 · 톱스타", emoji: "🎤" },
-  { id: "logistics", title: "물류 센터", subtitle: "물류 정직원 · 물류 관리자", emoji: "🚚" },
+  { id: "logistics", title: "물류 센터", subtitle: "물류 · 배차 · 배달 플랫폼", emoji: "🚚" },
   { id: "finance", title: "투자 회사", subtitle: "투자자 테스트 · 금융 직업", emoji: "🏦" },
   { id: "stocks", title: "주식 거래소", subtitle: "투자 · 시세 · 보유 주식", emoji: "📈" },
 ];
@@ -697,9 +800,10 @@ export default function GamePage() {
 
   useEffect(() => {
     if (!careerMiniGame) return;
+    const activeCareerMiniGame = careerMiniGame;
 
     function handleCareerKeyDown(event: KeyboardEvent) {
-      const mode = getCareerGameMode(careerMiniGame);
+      const mode = getCareerGameMode(activeCareerMiniGame);
       const key = event.key.toUpperCase();
 
       if ((mode === "office" || mode === "rhythm") && careerKeySequence.includes(key)) {
