@@ -1379,23 +1379,20 @@ export default function GamePage() {
               <div style={hiddenLegacySceneStyle}>
                 <div style={sunStyle} />
                 <div style={roadStyle} />
+                <div style={streetLabelStyle}>길거리</div>
+                <button type="button" style={buildingButtonStyle}>숨김 건물</button>
               </div>
-              <button onClick={() => setLobbyView("career")} style={{ ...buildingButtonStyle, left: "5%", bottom: "35%", width: "19%", height: "30%" }}>
-                🏢<br />직업 사무소
+              <button
+                onClick={() => setLobbyView("stocks")}
+                style={stockExchangeBuildingButtonStyle}
+                aria-label="주식 거래소 들어가기"
+              >
+                <span style={stockExchangeButtonIconStyle}>📈</span>
+                <span style={stockExchangeButtonTitleStyle}>주식 거래소</span>
+                <span style={stockExchangeButtonSubStyle}>투자 · 시세 · 보유 주식</span>
               </button>
-              <button onClick={() => setLobbyView("tax")} style={{ ...buildingButtonStyle, left: "31%", bottom: "43%", width: "16%", height: "24%" }}>
-                🏛️<br />구청
-              </button>
-              <button onClick={() => setLobbyView("housing")} style={{ ...buildingButtonStyle, right: "7%", bottom: "42%", width: "19%", height: "28%" }}>
-                🏠<br />건물 사무소
-              </button>
-              <button onClick={() => setLobbyView("stocks")} style={{ ...buildingButtonStyle, right: "30%", bottom: "32%", width: "18%", height: "26%" }}>
-                📈<br />주식 거래소
-              </button>
-              <div style={streetLabelStyle}>길거리</div>
               <div style={streetBottomNavStyle}>
-                <button onClick={() => setLobbyView("room")} style={bottomNavButtonStyle}>돌아가기</button>
-                <button style={bottomNavButtonStyle}>지도보기</button>
+                <button onClick={() => setLobbyView("room")} style={bottomNavButtonStyle}>방으로 돌아가기</button>
               </div>
             </div>
           )}
@@ -1693,81 +1690,73 @@ function RoomArtwork({ roomKind, nickname, occupationName }: { roomKind: RoomKin
 
 function StreetArtwork() {
   return (
-    <svg style={sceneSvgStyle} viewBox="0 0 1600 760" preserveAspectRatio="none" role="img" aria-label="깔끔한 길거리 일러스트">
+    <svg style={sceneSvgStyle} viewBox="0 0 1600 760" preserveAspectRatio="none" role="img" aria-label="주식 거래소가 있는 깔끔한 길거리 일러스트">
       <defs>
-        <linearGradient id="cleanSky" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id="stockStreetSky" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor="#dbeafe" />
           <stop offset="58%" stopColor="#f8fafc" />
-          <stop offset="100%" stopColor="#e5e7eb" />
+          <stop offset="100%" stopColor="#e2e8f0" />
         </linearGradient>
-        <linearGradient id="cleanRoad" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#1f2937" />
+        <linearGradient id="exchangeGlass" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#0f172a" />
+          <stop offset="52%" stopColor="#1e3a8a" />
+          <stop offset="100%" stopColor="#075985" />
+        </linearGradient>
+        <linearGradient id="cleanStreetRoad" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#334155" />
           <stop offset="100%" stopColor="#0f172a" />
         </linearGradient>
-        <linearGradient id="glassBlue" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#e0f2fe" />
-          <stop offset="100%" stopColor="#93c5fd" />
-        </linearGradient>
-        <filter id="cityShadow" x="-20%" y="-20%" width="140%" height="160%">
-          <feDropShadow dx="0" dy="14" stdDeviation="10" floodColor="#0f172a" floodOpacity="0.18" />
+        <filter id="exchangeShadow" x="-20%" y="-20%" width="140%" height="160%">
+          <feDropShadow dx="0" dy="20" stdDeviation="12" floodColor="#0f172a" floodOpacity="0.25" />
+        </filter>
+        <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="12" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
         </filter>
       </defs>
 
-      <rect x="0" y="0" width="1600" height="760" fill="url(#cleanSky)" />
-      <circle cx="138" cy="112" r="58" fill="#fde68a" opacity="0.95" />
-      <circle cx="138" cy="112" r="84" fill="#fde68a" opacity="0.18" />
+      <rect x="0" y="0" width="1600" height="760" fill="url(#stockStreetSky)" />
+      <circle cx="186" cy="118" r="66" fill="#fde68a" />
+      <circle cx="186" cy="118" r="105" fill="#fde68a" opacity="0.18" />
+      <path d="M0 528 C260 482 428 506 612 540 C868 588 1088 560 1600 500 L1600 760 L0 760 Z" fill="#cbd5e1" />
+      <path d="M-80 628 C260 548 560 564 824 628 C1080 690 1310 684 1680 590 L1680 760 L-80 760 Z" fill="url(#cleanStreetRoad)" />
+      <path d="M110 662 C356 602 584 604 818 662 C1070 724 1308 714 1510 640" fill="none" stroke="#f8fafc" strokeWidth="12" strokeLinecap="round" strokeDasharray="76 52" opacity="0.92" />
+      <path d="M0 526 H1600" stroke="#111827" strokeWidth="5" opacity="0.18" />
 
-      <rect x="0" y="492" width="1600" height="268" fill="#d1d5db" />
-      <path d="M-40 615 C260 510 530 520 800 610 C1080 704 1320 686 1640 570 L1640 760 L-40 760 Z" fill="url(#cleanRoad)" />
-      <path d="M80 652 C360 574 570 582 800 652 C1045 724 1280 714 1518 628" fill="none" stroke="#f8fafc" strokeWidth="10" strokeLinecap="round" strokeDasharray="70 46" opacity="0.9" />
-      <path d="M0 490 H1600" stroke="#111827" strokeWidth="5" opacity="0.28" />
-
-      <g filter="url(#cityShadow)">
-        <rect x="78" y="278" width="250" height="220" rx="22" fill="#ffffff" stroke="#111827" strokeWidth="7" />
-        <rect x="104" y="228" width="198" height="72" rx="20" fill="#fef3c7" stroke="#111827" strokeWidth="7" />
-        <text x="203" y="275" textAnchor="middle" fill="#111827" fontSize="32" fontWeight="900">직업 사무소</text>
-        <rect x="118" y="332" width="60" height="62" rx="10" fill="url(#glassBlue)" stroke="#111827" strokeWidth="5" />
-        <rect x="226" y="332" width="60" height="62" rx="10" fill="url(#glassBlue)" stroke="#111827" strokeWidth="5" />
-        <rect x="172" y="414" width="64" height="84" rx="10" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
-      </g>
-
-      <g filter="url(#cityShadow)">
-        <rect x="448" y="246" width="260" height="252" rx="24" fill="#ffffff" stroke="#111827" strokeWidth="7" />
-        <polygon points="448,246 578,170 708,246" fill="#bfdbfe" stroke="#111827" strokeWidth="7" />
-        <text x="578" y="285" textAnchor="middle" fill="#111827" fontSize="34" fontWeight="900">구청</text>
-        <rect x="486" y="330" width="48" height="168" fill="#e5e7eb" stroke="#111827" strokeWidth="5" />
-        <rect x="554" y="330" width="48" height="168" fill="#e5e7eb" stroke="#111827" strokeWidth="5" />
-        <rect x="622" y="330" width="48" height="168" fill="#e5e7eb" stroke="#111827" strokeWidth="5" />
-        <path d="M480 320 H676" stroke="#111827" strokeWidth="6" />
-      </g>
-
-      <g filter="url(#cityShadow)">
-        <rect x="820" y="196" width="318" height="302" rx="28" fill="#111827" stroke="#111827" strokeWidth="7" />
-        <rect x="846" y="160" width="266" height="74" rx="22" fill="#0ea5e9" stroke="#111827" strokeWidth="7" />
-        <text x="979" y="209" textAnchor="middle" fill="#ffffff" fontSize="34" fontWeight="900">주식 거래소</text>
-        <rect x="860" y="258" width="238" height="142" rx="16" fill="#020617" stroke="#334155" strokeWidth="5" />
-        <polyline points="882,366 916,334 956,348 1004,294 1048,318 1082,276" fill="none" stroke="#22c55e" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
-        <polyline points="884,308 920,320 952,290 986,306 1022,270 1080,286" fill="none" stroke="#ef4444" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
-        <rect x="878" y="422" width="58" height="76" rx="8" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
-        <rect x="1018" y="422" width="58" height="76" rx="8" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
-      </g>
-
-      <g filter="url(#cityShadow)">
-        <rect x="1240" y="276" width="276" height="222" rx="24" fill="#ffffff" stroke="#111827" strokeWidth="7" />
-        <rect x="1274" y="216" width="208" height="82" rx="22" fill="#dcfce7" stroke="#111827" strokeWidth="7" />
-        <text x="1378" y="268" textAnchor="middle" fill="#111827" fontSize="32" fontWeight="900">건물 사무소</text>
-        <rect x="1286" y="338" width="64" height="62" rx="10" fill="url(#glassBlue)" stroke="#111827" strokeWidth="5" />
-        <rect x="1404" y="338" width="64" height="62" rx="10" fill="url(#glassBlue)" stroke="#111827" strokeWidth="5" />
-        <rect x="1350" y="420" width="62" height="78" rx="10" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
+      <g filter="url(#exchangeShadow)">
+        <rect x="510" y="138" width="580" height="398" rx="38" fill="url(#exchangeGlass)" stroke="#111827" strokeWidth="9" />
+        <rect x="552" y="90" width="496" height="96" rx="30" fill="#ffffff" stroke="#111827" strokeWidth="9" />
+        <text x="800" y="151" textAnchor="middle" fill="#111827" fontSize="45" fontWeight="900">주식 거래소</text>
+        <rect x="558" y="222" width="484" height="192" rx="24" fill="#020617" stroke="#475569" strokeWidth="6" />
+        <g opacity="0.95">
+          <line x1="590" y1="374" x2="1012" y2="374" stroke="#334155" strokeWidth="3" />
+          <line x1="590" y1="326" x2="1012" y2="326" stroke="#334155" strokeWidth="3" />
+          <line x1="590" y1="278" x2="1012" y2="278" stroke="#334155" strokeWidth="3" />
+          <polyline points="594,354 636,322 684,338 734,286 778,306 828,252 872,292 924,264 998,238" fill="none" stroke="#22c55e" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" filter="url(#softGlow)" />
+          <polyline points="596,286 642,304 686,270 730,292 776,258 826,274 874,246 920,256 1000,236" fill="none" stroke="#ef4444" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+          <rect x="612" y="396" width="34" height="16" rx="6" fill="#22c55e" />
+          <rect x="670" y="396" width="34" height="16" rx="6" fill="#ef4444" />
+          <rect x="728" y="396" width="34" height="16" rx="6" fill="#facc15" />
+          <text x="842" y="410" fill="#e5e7eb" fontSize="22" fontWeight="900">3분마다 변동</text>
+        </g>
+        <rect x="594" y="438" width="112" height="98" rx="16" fill="#e2e8f0" stroke="#111827" strokeWidth="7" />
+        <rect x="894" y="438" width="112" height="98" rx="16" fill="#e2e8f0" stroke="#111827" strokeWidth="7" />
+        <rect x="732" y="450" width="136" height="86" rx="18" fill="#f8fafc" stroke="#111827" strokeWidth="7" />
+        <path d="M486 536 H1114" stroke="#111827" strokeWidth="11" strokeLinecap="round" />
+        <rect x="474" y="538" width="652" height="34" rx="17" fill="#475569" opacity="0.35" />
       </g>
 
       <g opacity="0.9">
-        <rect x="366" y="568" width="76" height="42" rx="14" fill="#f97316" stroke="#111827" strokeWidth="5" />
-        <circle cx="386" cy="612" r="13" fill="#111827" />
-        <circle cx="424" cy="612" r="13" fill="#111827" />
-        <rect x="1178" y="604" width="88" height="46" rx="16" fill="#38bdf8" stroke="#111827" strokeWidth="5" />
-        <circle cx="1200" cy="652" r="13" fill="#111827" />
-        <circle cx="1244" cy="652" r="13" fill="#111827" />
+        <rect x="216" y="588" width="108" height="54" rx="18" fill="#f97316" stroke="#111827" strokeWidth="6" />
+        <rect x="246" y="552" width="70" height="48" rx="14" fill="#fb7185" stroke="#111827" strokeWidth="6" />
+        <circle cx="244" cy="646" r="16" fill="#111827" />
+        <circle cx="304" cy="646" r="16" fill="#111827" />
+        <rect x="1282" y="604" width="116" height="58" rx="20" fill="#38bdf8" stroke="#111827" strokeWidth="6" />
+        <circle cx="1312" cy="666" r="16" fill="#111827" />
+        <circle cx="1370" cy="666" r="16" fill="#111827" />
       </g>
     </svg>
   );
@@ -2475,6 +2464,46 @@ const streetLabelStyle: CSSProperties = {
   padding: "6px 18px",
   fontWeight: 900,
   boxShadow: "3px 3px 0 rgba(17,24,39,0.18)",
+};
+
+
+const stockExchangeBuildingButtonStyle: CSSProperties = {
+  position: "absolute",
+  zIndex: 8,
+  left: "50%",
+  top: "50%",
+  transform: "translate(-50%, -50%)",
+  width: "min(430px, 52vw)",
+  minHeight: "150px",
+  border: "5px solid #111827",
+  borderRadius: "24px",
+  background: "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(219,234,254,0.96))",
+  color: "#111827",
+  boxShadow: "8px 8px 0 rgba(17,24,39,0.22), 0 18px 42px rgba(15,23,42,0.22)",
+  cursor: "pointer",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "6px",
+  textAlign: "center",
+};
+
+const stockExchangeButtonIconStyle: CSSProperties = {
+  fontSize: "42px",
+  lineHeight: 1,
+};
+
+const stockExchangeButtonTitleStyle: CSSProperties = {
+  fontSize: "32px",
+  fontWeight: 900,
+  lineHeight: 1.1,
+};
+
+const stockExchangeButtonSubStyle: CSSProperties = {
+  fontSize: "15px",
+  fontWeight: 900,
+  color: "#475569",
 };
 
 const streetBottomNavStyle: CSSProperties = {
