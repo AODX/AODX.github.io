@@ -47,10 +47,10 @@ type SaveRow = {
   security_success_total?: number | string | null;
 };
 
-type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino";
+type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news";
 type RoomKind = "basic" | "studio" | "office";
 type CareerBuildingId = "company" | "entertainment" | "logistics" | "finance";
-type StreetBuildingId = CareerBuildingId | "stocks" | "casino";
+type StreetBuildingId = CareerBuildingId | "stocks" | "casino" | "bank" | "estate" | "business" | "news";
 type OccupationId =
   | "unemployed"
   | "officeIntern"
@@ -176,6 +176,35 @@ type PvpSubmitResult = {
 };
 
 type PvpReactionState = "idle" | "waiting" | "go" | "submitted";
+
+type EstateId = "semiBasement" | "officetel" | "apartment" | "smallStore" | "building";
+type BusinessId = "coffeeShop" | "convenienceStore" | "deliveryAgency" | "entertainmentAgency";
+
+type EstateItem = {
+  id: EstateId;
+  name: string;
+  icon: string;
+  price: number;
+  incomeEvery5Min: number;
+  description: string;
+};
+
+type BusinessItem = {
+  id: BusinessId;
+  name: string;
+  icon: string;
+  price: number;
+  incomeEvery5Min: number;
+  requiredOccupation?: OccupationId;
+  description: string;
+};
+
+type NewsEvent = {
+  id: number;
+  title: string;
+  effect: string;
+  tone: "good" | "bad" | "neutral";
+};
 
 const PROFILE_TABLE = "game_profiles";
 const STOCK_TABLE = "game_stock_saves";
@@ -548,11 +577,15 @@ const careerList: OccupationId[] = [
 ];
 
 const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: string; emoji: string }> = [
-  { id: "company", title: "회사 빌딩", subtitle: "회사원 · 점장 · 카페 · 보안 · 지점장", emoji: "🏢" },
-  { id: "entertainment", title: "엔터테인먼트", subtitle: "연습생 · 신인 가수 · 톱스타", emoji: "🎤" },
-  { id: "logistics", title: "물류 센터", subtitle: "물류 · 배차 · 배달 플랫폼", emoji: "🚚" },
+  { id: "company", title: "회사 빌딩", subtitle: "회사원 · 점장 · 카페 · 보안", emoji: "🏢" },
+  { id: "entertainment", title: "엔터테인먼트", subtitle: "연습생 · 가수 · 톱스타", emoji: "🎤" },
+  { id: "logistics", title: "물류 센터", subtitle: "물류 · 배차 · 플랫폼", emoji: "🚚" },
   { id: "finance", title: "투자 회사", subtitle: "투자자 테스트 · 금융 직업", emoji: "🏦" },
   { id: "stocks", title: "주식 거래소", subtitle: "투자 · 시세 · 보유 주식", emoji: "📈" },
+  { id: "bank", title: "은행", subtitle: "예금 · 대출 · 신용", emoji: "🏧" },
+  { id: "estate", title: "부동산", subtitle: "원룸 · 상가 · 빌딩", emoji: "🏘️" },
+  { id: "business", title: "창업 센터", subtitle: "카페 · 편의점 · 사업", emoji: "🧾" },
+  { id: "news", title: "경제 뉴스", subtitle: "시장 이벤트 · 흐름", emoji: "📰" },
   { id: "casino", title: "도박장", subtitle: "슬롯 머신 · 유저 대전", emoji: "🎰" },
 ];
 
@@ -562,6 +595,30 @@ const stockCompanies: StockCompany[] = [
   { id: "raelAir", name: "라엘 항공", icon: "✈️", description: "여행 수요에 민감하게 움직이는 항공 회사" },
   { id: "dongshimLivestock", name: "동쉼 축산", icon: "🐄", description: "식품 가격과 수요에 영향을 받는 축산 회사" },
   { id: "blmaSteel", name: "블마 철강", icon: "🏭", description: "건설 경기와 원자재 흐름을 타는 철강 회사" },
+];
+
+const estateItems: EstateItem[] = [
+  { id: "semiBasement", name: "반지하 원룸", icon: "🏚️", price: 300000, incomeEvery5Min: 1500, description: "가장 저렴하게 시작하는 첫 부동산입니다." },
+  { id: "officetel", name: "오피스텔", icon: "🏢", price: 1500000, incomeEvery5Min: 8000, description: "안정적인 월세 수익을 주는 소형 부동산입니다." },
+  { id: "apartment", name: "아파트", icon: "🏙️", price: 4500000, incomeEvery5Min: 22000, description: "생활권이 좋아 가치가 비교적 안정적입니다." },
+  { id: "smallStore", name: "소형 상가", icon: "🏬", price: 9000000, incomeEvery5Min: 58000, description: "경기 영향을 받지만 수익성이 좋은 상가입니다." },
+  { id: "building", name: "미니 빌딩", icon: "🏦", price: 50000000, incomeEvery5Min: 400000, description: "경제 게임 후반부의 대표 자산입니다." },
+];
+
+const businessItems: BusinessItem[] = [
+  { id: "coffeeShop", name: "개인 카페 창업", icon: "☕", price: 2000000, incomeEvery5Min: 13000, requiredOccupation: "cafeManager", description: "카페 매니저 경험을 바탕으로 작은 매장을 엽니다." },
+  { id: "convenienceStore", name: "편의점 창업", icon: "🏪", price: 3000000, incomeEvery5Min: 18000, requiredOccupation: "convenienceManager", description: "편의점 계산 경험을 매장 운영으로 확장합니다." },
+  { id: "deliveryAgency", name: "배달 대행사", icon: "🛵", price: 8000000, incomeEvery5Min: 62000, requiredOccupation: "dispatchController", description: "배차와 플랫폼 운영 경험으로 배달망을 운영합니다." },
+  { id: "entertainmentAgency", name: "엔터 기획사", icon: "🎙️", price: 20000000, incomeEvery5Min: 170000, requiredOccupation: "topSinger", description: "톱스타 경험으로 공연과 광고 사업을 운영합니다." },
+];
+
+const newsPool: NewsEvent[] = [
+  { id: 1, title: "금리 인상 뉴스", effect: "은행 예금은 유리하지만 대출 부담이 커집니다.", tone: "bad" },
+  { id: 2, title: "배달 수요 증가", effect: "물류와 배달 관련 직업·사업이 주목받습니다.", tone: "good" },
+  { id: 3, title: "한류 공연 흥행", effect: "엔터테인먼트 관련 수익 기대감이 커집니다.", tone: "good" },
+  { id: 4, title: "부동산 거래 회복", effect: "상가와 오피스텔 평가 분위기가 좋아집니다.", tone: "good" },
+  { id: 5, title: "경기 둔화 우려", effect: "사업 매출 변동성이 커지고 현금 관리가 중요해집니다.", tone: "bad" },
+  { id: 6, title: "소비 심리 개선", effect: "카페와 편의점 같은 생활형 사업에 긍정적입니다.", tone: "good" },
 ];
 
 const cashierKeyPool = ["W", "A", "S", "D"];
@@ -613,6 +670,14 @@ export default function GamePage() {
   const [stockUpdatedAt, setStockUpdatedAt] = useState(new Date());
   const [stockCountdownMs, setStockCountdownMs] = useState(STOCK_INTERVAL_MS);
   const [isStockLoaded, setIsStockLoaded] = useState(false);
+  const [bankDeposit, setBankDeposit] = useState(0);
+  const [bankLoan, setBankLoan] = useState(0);
+  const [creditScore, setCreditScore] = useState(700);
+  const [bankInput, setBankInput] = useState("10000");
+  const [ownedEstates, setOwnedEstates] = useState<EstateId[]>([]);
+  const [ownedBusinesses, setOwnedBusinesses] = useState<BusinessId[]>([]);
+  const [newsEvents, setNewsEvents] = useState<NewsEvent[]>(() => makeNewsEvents());
+  const [economyUpdatedAt, setEconomyUpdatedAt] = useState(new Date());
 
   const [slotStake, setSlotStake] = useState("1000");
   const [slotResult, setSlotResult] = useState<SlotResult | null>(null);
@@ -679,6 +744,15 @@ export default function GamePage() {
   const occupation = occupationInfo[occupationId];
   const taxRate = getTaxRate(cash);
   const nextTax = calculateTax(cash, unpaidTax);
+  const stockAssetValue = useMemo(() => stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0), [stockRows]);
+  const estateAssetValue = useMemo(() => ownedEstates.reduce((sum, id) => sum + (estateItems.find((item) => item.id === id)?.price ?? 0), 0), [ownedEstates]);
+  const businessAssetValue = useMemo(() => ownedBusinesses.reduce((sum, id) => sum + (businessItems.find((item) => item.id === id)?.price ?? 0), 0), [ownedBusinesses]);
+  const passiveIncomeEvery5Min = useMemo(() => {
+    const estateIncome = ownedEstates.reduce((sum, id) => sum + (estateItems.find((item) => item.id === id)?.incomeEvery5Min ?? 0), 0);
+    const businessIncome = ownedBusinesses.reduce((sum, id) => sum + (businessItems.find((item) => item.id === id)?.incomeEvery5Min ?? 0), 0);
+    return estateIncome + businessIncome;
+  }, [ownedEstates, ownedBusinesses]);
+  const netWorth = cash + bankDeposit + stockAssetValue + estateAssetValue + businessAssetValue - bankLoan - unpaidTax;
 
   useEffect(() => {
     async function loadSave() {
@@ -825,6 +899,70 @@ export default function GamePage() {
 
     loadProfilePreferences();
   }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const stored = window.localStorage.getItem(`alba-money-economy-${userId}`);
+    if (!stored) return;
+
+    try {
+      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string };
+      setBankDeposit(Number(parsed.bankDeposit ?? 0));
+      setBankLoan(Number(parsed.bankLoan ?? 0));
+      setCreditScore(Number(parsed.creditScore ?? 700));
+      if (Array.isArray(parsed.ownedEstates)) setOwnedEstates(parsed.ownedEstates.filter((id): id is EstateId => estateItems.some((item) => item.id === id)));
+      if (Array.isArray(parsed.ownedBusinesses)) setOwnedBusinesses(parsed.ownedBusinesses.filter((id): id is BusinessId => businessItems.some((item) => item.id === id)));
+      if (Array.isArray(parsed.newsEvents) && parsed.newsEvents.length > 0) setNewsEvents(parsed.newsEvents);
+      if (parsed.economyUpdatedAt) setEconomyUpdatedAt(new Date(parsed.economyUpdatedAt));
+    } catch (error) {
+      console.warn("경제 데이터 불러오기 실패:", error);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || !isSaveLoaded) return;
+
+    window.localStorage.setItem(`alba-money-economy-${userId}`, JSON.stringify({
+      bankDeposit,
+      bankLoan,
+      creditScore,
+      ownedEstates,
+      ownedBusinesses,
+      newsEvents,
+      economyUpdatedAt: economyUpdatedAt.toISOString(),
+    }));
+  }, [userId, isSaveLoaded, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, economyUpdatedAt]);
+
+  useEffect(() => {
+    if (!isSaveLoaded) return;
+
+    const timer = window.setInterval(() => {
+      setBankDeposit((current) => Math.floor(current * 1.003));
+      setBankLoan((current) => Math.floor(current * 1.012));
+      const income = passiveIncomeEvery5Min;
+      if (income > 0) {
+        setCash((money) => money + income);
+        setMessage(`🏘️ 자산/사업 수익 +${income.toLocaleString()}원`);
+      }
+    }, 5 * 60 * 1000);
+
+    return () => window.clearInterval(timer);
+  }, [isSaveLoaded, passiveIncomeEvery5Min]);
+
+  useEffect(() => {
+    if (!isSaveLoaded) return;
+
+    const timer = window.setInterval(() => {
+      const nextNews = makeNewsEvents();
+      setNewsEvents(nextNews);
+      setEconomyUpdatedAt(new Date());
+      setStockRows((rows) => applyNewsToStocks(rows, nextNews));
+      setMessage("📰 경제 뉴스가 갱신되어 시장 분위기가 바뀌었습니다.");
+    }, 5 * 60 * 1000);
+
+    return () => window.clearInterval(timer);
+  }, [isSaveLoaded]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
@@ -1725,6 +1863,109 @@ export default function GamePage() {
     return true;
   }
 
+  function getBankAmount() {
+    return Math.max(0, Math.floor(Number(bankInput) || 0));
+  }
+
+  function depositToBank() {
+    const amount = getBankAmount();
+    if (amount < 100) {
+      setMessage("🏦 최소 100원 이상 예금할 수 있습니다.");
+      return;
+    }
+    if (amount > cash) {
+      setMessage("🏦 보유 현금보다 많이 예금할 수 없습니다.");
+      return;
+    }
+    setCash((money) => money - amount);
+    setBankDeposit((deposit) => deposit + amount);
+    setMessage(`🏦 예금 ${amount.toLocaleString()}원 완료`);
+  }
+
+  function withdrawFromBank() {
+    const amount = getBankAmount();
+    if (amount < 100) {
+      setMessage("🏦 최소 100원 이상 출금할 수 있습니다.");
+      return;
+    }
+    if (amount > bankDeposit) {
+      setMessage("🏦 예금 잔액보다 많이 출금할 수 없습니다.");
+      return;
+    }
+    setBankDeposit((deposit) => deposit - amount);
+    setCash((money) => money + amount);
+    setMessage(`🏦 출금 ${amount.toLocaleString()}원 완료`);
+  }
+
+  function borrowFromBank() {
+    const amount = getBankAmount();
+    const limit = getLoanLimit(creditScore, netWorth);
+    if (amount < 1000) {
+      setMessage("🏦 최소 1,000원 이상 대출할 수 있습니다.");
+      return;
+    }
+    if (bankLoan + amount > limit) {
+      setMessage(`🏦 현재 대출 한도는 ${limit.toLocaleString()}원입니다.`);
+      return;
+    }
+    setBankLoan((loan) => loan + amount);
+    setCreditScore((score) => Math.max(300, score - 8));
+    setCash((money) => money + amount);
+    setMessage(`🏦 대출 ${amount.toLocaleString()}원 실행`);
+  }
+
+  function repayBankLoan() {
+    const amount = Math.min(getBankAmount(), bankLoan);
+    if (amount < 100) {
+      setMessage("🏦 상환할 대출이 없거나 금액이 너무 작습니다.");
+      return;
+    }
+    if (amount > cash) {
+      setMessage("🏦 보유 현금보다 많이 상환할 수 없습니다.");
+      return;
+    }
+    setCash((money) => money - amount);
+    setBankLoan((loan) => Math.max(0, loan - amount));
+    setCreditScore((score) => Math.min(900, score + 5));
+    setMessage(`🏦 대출 ${amount.toLocaleString()}원 상환 완료`);
+  }
+
+  function buyEstate(estateId: EstateId) {
+    const estate = estateItems.find((item) => item.id === estateId);
+    if (!estate || ownedEstates.includes(estateId)) return;
+    if (cash < estate.price) {
+      setMessage(`🏘️ ${estate.name} 구매에는 ${estate.price.toLocaleString()}원이 필요합니다.`);
+      return;
+    }
+    setCash((money) => money - estate.price);
+    setOwnedEstates((owned) => [...owned, estateId]);
+    setMessage(`🏘️ ${estate.name} 구매 완료. 5분마다 ${estate.incomeEvery5Min.toLocaleString()}원 수익이 들어옵니다.`);
+  }
+
+  function buyBusiness(businessId: BusinessId) {
+    const business = businessItems.find((item) => item.id === businessId);
+    if (!business || ownedBusinesses.includes(businessId)) return;
+    if (business.requiredOccupation && !unlockedOccupations.includes(business.requiredOccupation)) {
+      setMessage(`🧾 ${business.name} 조건 미달: ${occupationInfo[business.requiredOccupation].name} 직업이 필요합니다.`);
+      return;
+    }
+    if (cash < business.price) {
+      setMessage(`🧾 ${business.name} 창업에는 ${business.price.toLocaleString()}원이 필요합니다.`);
+      return;
+    }
+    setCash((money) => money - business.price);
+    setOwnedBusinesses((owned) => [...owned, businessId]);
+    setMessage(`🧾 ${business.name} 창업 완료. 5분마다 ${business.incomeEvery5Min.toLocaleString()}원 사업 수익이 들어옵니다.`);
+  }
+
+  function refreshNewsNow() {
+    const nextNews = makeNewsEvents();
+    setNewsEvents(nextNews);
+    setEconomyUpdatedAt(new Date());
+    setStockRows((rows) => applyNewsToStocks(rows, nextNews));
+    setMessage("📰 경제 뉴스가 새로 들어왔습니다.");
+  }
+
   function handleStreetBuildingClick(buildingId: StreetBuildingId) {
     if (buildingId === "stocks") {
       setLobbyView("stocks");
@@ -1734,6 +1975,11 @@ export default function GamePage() {
     if (buildingId === "casino") {
       setLobbyView("casino");
       refreshCasinoData();
+      return;
+    }
+
+    if (buildingId === "bank" || buildingId === "estate" || buildingId === "business" || buildingId === "news") {
+      setLobbyView(buildingId);
       return;
     }
 
@@ -2820,13 +3066,129 @@ export default function GamePage() {
             </div>
           )}
 
+          {lobbyView === "bank" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>BANK</div>
+                  <h2 style={panelTitleStyle}>은행</h2>
+                  <p style={panelDescStyle}>예금은 5분마다 0.3% 이자가 붙고, 대출은 5분마다 1.2% 이자가 붙습니다.</p>
+                </div>
+                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+              </div>
+
+              <div style={economySummaryGridStyle}>
+                <StatusPill label="현금" value={`${cash.toLocaleString()}원`} />
+                <StatusPill label="예금" value={`${bankDeposit.toLocaleString()}원`} />
+                <StatusPill label="대출" value={`${bankLoan.toLocaleString()}원`} warning={bankLoan > 0} />
+                <StatusPill label="신용점수" value={`${creditScore}점`} warning={creditScore < 600} />
+                <StatusPill label="대출한도" value={`${getLoanLimit(creditScore, netWorth).toLocaleString()}원`} />
+                <StatusPill label="순자산" value={`${netWorth.toLocaleString()}원`} warning={netWorth < 0} />
+              </div>
+
+              <div style={economyActionPanelStyle}>
+                <input type="number" value={bankInput} min={100} step={1000} onChange={(event) => setBankInput(event.target.value)} style={casinoInputStyle} />
+                <div style={economyButtonRowStyle}>
+                  <button onClick={depositToBank} style={casinoPrimaryButtonStyle}>예금</button>
+                  <button onClick={withdrawFromBank} style={casinoSmallButtonStyle}>출금</button>
+                  <button onClick={borrowFromBank} style={casinoSmallButtonStyle}>대출</button>
+                  <button onClick={repayBankLoan} style={casinoSmallButtonStyle}>상환</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {lobbyView === "estate" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>REAL ESTATE</div>
+                  <h2 style={panelTitleStyle}>부동산</h2>
+                  <p style={panelDescStyle}>부동산을 구매하면 5분마다 임대 수익이 들어오고 순자산 랭킹에 반영됩니다.</p>
+                </div>
+                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+              </div>
+              <div style={economyCardGridStyle}>
+                {estateItems.map((estate) => {
+                  const owned = ownedEstates.includes(estate.id);
+                  return (
+                    <div key={estate.id} style={economyCardStyle}>
+                      <h3 style={economyCardTitleStyle}>{estate.icon} {estate.name}</h3>
+                      <p style={economyCardTextStyle}>{estate.description}</p>
+                      <strong>가격 {estate.price.toLocaleString()}원</strong>
+                      <strong style={{ color: "#16a34a" }}>5분 수익 +{estate.incomeEvery5Min.toLocaleString()}원</strong>
+                      <button onClick={() => buyEstate(estate.id)} disabled={owned || cash < estate.price} style={{ ...casinoPrimaryButtonStyle, opacity: owned || cash < estate.price ? 0.45 : 1 }}>
+                        {owned ? "보유 중" : "구매"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {lobbyView === "business" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>BUSINESS CENTER</div>
+                  <h2 style={panelTitleStyle}>창업 센터</h2>
+                  <p style={panelDescStyle}>알바와 직업 경험을 사업으로 확장합니다. 사업은 5분마다 매출을 만듭니다.</p>
+                </div>
+                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+              </div>
+              <div style={economyCardGridStyle}>
+                {businessItems.map((business) => {
+                  const owned = ownedBusinesses.includes(business.id);
+                  const requiredOk = !business.requiredOccupation || unlockedOccupations.includes(business.requiredOccupation);
+                  return (
+                    <div key={business.id} style={economyCardStyle}>
+                      <h3 style={economyCardTitleStyle}>{business.icon} {business.name}</h3>
+                      <p style={economyCardTextStyle}>{business.description}</p>
+                      <strong>창업 비용 {business.price.toLocaleString()}원</strong>
+                      <strong style={{ color: "#16a34a" }}>5분 매출 +{business.incomeEvery5Min.toLocaleString()}원</strong>
+                      <span style={economyConditionStyle}>조건: {business.requiredOccupation ? occupationInfo[business.requiredOccupation].name : "없음"}</span>
+                      <button onClick={() => buyBusiness(business.id)} disabled={owned || cash < business.price || !requiredOk} style={{ ...casinoPrimaryButtonStyle, opacity: owned || cash < business.price || !requiredOk ? 0.45 : 1 }}>
+                        {owned ? "운영 중" : requiredOk ? "창업" : "조건 미달"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {lobbyView === "news" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>ECONOMY NEWS</div>
+                  <h2 style={panelTitleStyle}>경제 뉴스</h2>
+                  <p style={panelDescStyle}>5분마다 뉴스가 바뀌고 주식 시장 분위기에 작은 영향을 줍니다. 마지막 갱신: {economyUpdatedAt.toLocaleTimeString()}</p>
+                </div>
+                <div style={economyButtonRowStyle}>
+                  <button onClick={refreshNewsNow} style={smallActionButtonStyle}>새 뉴스</button>
+                  <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                </div>
+              </div>
+              <div style={economyNewsListStyle}>
+                {newsEvents.map((news) => (
+                  <div key={news.id} style={{ ...economyNewsCardStyle, borderColor: news.tone === "good" ? "#16a34a" : news.tone === "bad" ? "#dc2626" : "#111827" }}>
+                    <h3 style={economyCardTitleStyle}>{news.tone === "good" ? "📈" : news.tone === "bad" ? "📉" : "📰"} {news.title}</h3>
+                    <p style={economyCardTextStyle}>{news.effect}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {lobbyView === "ranking" && (
             <div style={panelSceneStyle}>
               <div style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>RANKING</div>
                   <h2 style={panelTitleStyle}>랭킹</h2>
-                  <p style={panelDescStyle}>프로필이 생성된 계정 중 보유 현금 상위 10명이 표시됩니다. 실시간으로 갱신됩니다. 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
+                  <p style={panelDescStyle}>프로필이 생성된 계정 중 순자산 기준 상위 10명이 표시됩니다. 다른 유저는 저장된 현금 기준, 내 계정은 주식/예금/부동산/사업까지 반영됩니다. 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
                 </div>
                 <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
               </div>
@@ -3176,23 +3538,31 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
 }
 
 function getStreetBuildingHeight(buildingId: StreetBuildingId) {
-  if (buildingId === "company") return "250px";
-  if (buildingId === "entertainment") return "270px";
-  if (buildingId === "finance") return "238px";
-  if (buildingId === "stocks") return "272px";
-  if (buildingId === "logistics") return "190px";
-  if (buildingId === "casino") return "198px";
-  return "230px";
+  if (buildingId === "company") return "206px";
+  if (buildingId === "entertainment") return "218px";
+  if (buildingId === "finance") return "198px";
+  if (buildingId === "stocks") return "224px";
+  if (buildingId === "bank") return "190px";
+  if (buildingId === "estate") return "160px";
+  if (buildingId === "business") return "168px";
+  if (buildingId === "news") return "150px";
+  if (buildingId === "logistics") return "156px";
+  if (buildingId === "casino") return "166px";
+  return "180px";
 }
 
 function getStreetBuildingPlacement(buildingId: StreetBuildingId): CSSProperties {
-  if (buildingId === "company") return { left: "4.5%", bottom: "178px", width: "18.5%" };
-  if (buildingId === "entertainment") return { left: "25.2%", bottom: "178px", width: "17.5%" };
-  if (buildingId === "finance") return { left: "48%", bottom: "178px", width: "17.5%" };
-  if (buildingId === "stocks") return { right: "4.5%", bottom: "178px", width: "18.5%" };
-  if (buildingId === "logistics") return { left: "14%", bottom: "34px", width: "17%" };
-  if (buildingId === "casino") return { left: "41.5%", bottom: "30px", width: "17%" };
-  return { left: "4%", bottom: "120px", width: "18%" };
+  if (buildingId === "company") return { left: "3.2%", bottom: "238px", width: "14.2%" };
+  if (buildingId === "entertainment") return { left: "19.1%", bottom: "238px", width: "14.2%" };
+  if (buildingId === "finance") return { left: "35%", bottom: "238px", width: "14.2%" };
+  if (buildingId === "stocks") return { left: "51%", bottom: "238px", width: "14.2%" };
+  if (buildingId === "bank") return { left: "67%", bottom: "238px", width: "14.2%" };
+  if (buildingId === "logistics") return { left: "9%", bottom: "52px", width: "13.5%" };
+  if (buildingId === "estate") return { left: "25%", bottom: "52px", width: "13.5%" };
+  if (buildingId === "business") return { left: "41%", bottom: "52px", width: "13.5%" };
+  if (buildingId === "news") return { left: "57%", bottom: "52px", width: "13.5%" };
+  if (buildingId === "casino") return { left: "73%", bottom: "52px", width: "13.5%" };
+  return { left: "4%", bottom: "120px", width: "14%" };
 }
 
 function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
@@ -3231,10 +3601,67 @@ function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
     };
   }
 
+  if (buildingId === "bank") {
+    return {
+      background: "linear-gradient(180deg, #dcfce7 0%, #22c55e 100%)",
+      borderColor: "#166534",
+    };
+  }
+
+  if (buildingId === "estate") {
+    return {
+      background: "linear-gradient(180deg, #f5f5f4 0%, #a8a29e 100%)",
+      borderColor: "#44403c",
+    };
+  }
+
+  if (buildingId === "business") {
+    return {
+      background: "linear-gradient(180deg, #ffedd5 0%, #fb923c 100%)",
+      borderColor: "#9a3412",
+    };
+  }
+
+  if (buildingId === "news") {
+    return {
+      background: "linear-gradient(180deg, #e0e7ff 0%, #818cf8 100%)",
+      borderColor: "#3730a3",
+    };
+  }
+
   return {
     background: "linear-gradient(180deg, #ecfeff 0%, #67e8f9 100%)",
     borderColor: "#155e75",
   };
+}
+
+function makeNewsEvents() {
+  const shuffled = [...newsPool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, 3);
+}
+
+function applyNewsToStocks(rows: StockRow[], events: NewsEvent[]) {
+  if (rows.length === 0) return rows;
+  const positive = events.filter((event) => event.tone === "good").length;
+  const negative = events.filter((event) => event.tone === "bad").length;
+  const bias = Math.max(-0.025, Math.min(0.025, (positive - negative) * 0.008));
+
+  return rows.map((stock) => {
+    const randomMove = (Math.random() - 0.5) * 0.035 + bias;
+    const nextPrice = Math.max(100, Math.round(stock.price * (1 + randomMove)));
+    return {
+      ...stock,
+      previousPrice: stock.price,
+      price: nextPrice,
+      history: [...stock.history.slice(-23), nextPrice],
+    };
+  });
+}
+
+function getLoanLimit(creditScore: number, netWorth: number) {
+  const base = Math.max(50000, Math.floor(Math.max(0, netWorth) * 0.35) + 100000);
+  const creditMultiplier = creditScore >= 800 ? 1.8 : creditScore >= 700 ? 1.35 : creditScore >= 600 ? 1 : 0.55;
+  return Math.floor(base * creditMultiplier);
 }
 
 function normalizePvpMatch(match: PvpMatchRow): PvpMatchRow {
@@ -4090,12 +4517,94 @@ const careerIconStyle: CSSProperties = {
 };
 
 
+const economySummaryGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: "10px",
+};
+
+const economyActionPanelStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gap: "12px",
+  alignItems: "end",
+  background: "#ffffff",
+  border: "4px solid #111827",
+  borderRadius: "20px",
+  padding: "16px",
+  boxShadow: "0 8px 0 rgba(17,24,39,0.12)",
+};
+
+const economyButtonRowStyle: CSSProperties = {
+  display: "flex",
+  gap: "8px",
+  flexWrap: "wrap",
+  alignItems: "center",
+};
+
+const economyCardGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: "12px",
+  overflowY: "auto",
+  minHeight: 0,
+  paddingRight: "8px",
+};
+
+const economyCardStyle: CSSProperties = {
+  display: "grid",
+  gap: "9px",
+  alignContent: "start",
+  background: "#ffffff",
+  border: "4px solid #111827",
+  borderRadius: "20px",
+  padding: "16px",
+  boxShadow: "0 8px 0 rgba(17,24,39,0.12)",
+  color: "#111827",
+};
+
+const economyCardTitleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "22px",
+  fontWeight: 900,
+};
+
+const economyCardTextStyle: CSSProperties = {
+  margin: 0,
+  color: "#475569",
+  fontWeight: 800,
+  lineHeight: 1.35,
+};
+
+const economyConditionStyle: CSSProperties = {
+  color: "#92400e",
+  fontWeight: 900,
+  fontSize: "13px",
+};
+
+const economyNewsListStyle: CSSProperties = {
+  display: "grid",
+  gap: "12px",
+  overflowY: "auto",
+  minHeight: 0,
+  paddingRight: "8px",
+};
+
+const economyNewsCardStyle: CSSProperties = {
+  background: "#ffffff",
+  border: "4px solid #111827",
+  borderRadius: "20px",
+  padding: "16px",
+  boxShadow: "0 8px 0 rgba(17,24,39,0.12)",
+};
+
 const rankingTableStyle: CSSProperties = {
   display: "grid",
   alignContent: "start",
   gap: "8px",
   overflowY: "auto",
   minHeight: 0,
+  maxHeight: "100%",
   paddingRight: "8px",
 };
 
@@ -5483,5 +5992,6 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
+
 
 
