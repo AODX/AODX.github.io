@@ -1759,9 +1759,9 @@ export default function GamePage() {
             <div style={roomSceneStyle}>
               <div style={roomMoneyStyle}>◎ {cash.toLocaleString()}</div>
               <div style={roomInfoTextStyle}>
-                <strong>{nickname}</strong><br />
-                직업 {occupation.name}<br />
-                세금까지 {formatTime(taxCountdown)}
+                <strong style={roomInfoNameStyle}>{nickname}</strong>
+                <span style={roomInfoLineStyle}>직업 {occupation.name}</span>
+                <span style={roomInfoLineStyle}>세금까지 {formatTime(taxCountdown)}</span>
               </div>
               <RoomArtwork roomKind={roomKind} nickname={nickname} occupationName={occupation.name} />
               <div style={hiddenLegacySceneStyle}>
@@ -1787,14 +1787,14 @@ export default function GamePage() {
               <div style={streetMoneyStyle}>◎ {cash.toLocaleString()}</div>
               <StreetArtwork />
               <div style={streetBuildingsRowStyle}>
-                {streetBuildings.map((building, index) => (
+                {streetBuildings.map((building) => (
                   <button
                     key={building.id}
                     onClick={() => handleStreetBuildingClick(building.id)}
                     style={{
                       ...streetBuildingStyle,
                       ...getStreetBuildingTheme(building.id),
-                      minHeight: index === 1 ? "410px" : index === 2 ? "330px" : index === 4 ? "470px" : "380px",
+                      height: getStreetBuildingHeight(building.id),
                     }}
                   >
                     <div style={streetBuildingRoofStyle}>{building.emoji}</div>
@@ -2066,6 +2066,8 @@ export default function GamePage() {
 
 function RoomArtwork({ roomKind, nickname, occupationName }: { roomKind: RoomKind; nickname: string; occupationName: string }) {
   const accent = roomKind === "office" ? "#60a5fa" : roomKind === "studio" ? "#f59e0b" : "#22c55e";
+  const characterLabel = `${nickname} · ${occupationName}`;
+  const shortCharacterLabel = characterLabel.length > 16 ? `${characterLabel.slice(0, 15)}…` : characterLabel;
 
   return (
     <svg style={sceneSvgStyle} viewBox="0 0 1600 760" preserveAspectRatio="none" role="img" aria-label="메인 방 일러스트">
@@ -2138,8 +2140,8 @@ function RoomArtwork({ roomKind, nickname, occupationName }: { roomKind: RoomKin
         <path d="M800 522 L862 560" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
         <path d="M800 575 L760 640" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
         <path d="M800 575 L840 640" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
-        <rect x="705" y="298" width="190" height="42" rx="21" fill="#ffffff" stroke="#111827" strokeWidth="5" />
-        <text x="800" y="326" textAnchor="middle" fill="#111827" fontSize="22" fontWeight="900">{nickname} · {occupationName}</text>
+        <rect x="632" y="292" width="336" height="52" rx="26" fill="#ffffff" stroke="#111827" strokeWidth="5" />
+        <text x="800" y="326" textAnchor="middle" fill="#111827" fontSize="20" fontWeight="900">{shortCharacterLabel}</text>
       </g>
     </svg>
   );
@@ -2293,6 +2295,14 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
       </div>
     </div>
   );
+}
+
+function getStreetBuildingHeight(buildingId: StreetBuildingId) {
+  if (buildingId === "stock") return "354px";
+  if (buildingId === "entertainment") return "342px";
+  if (buildingId === "logistics") return "286px";
+  if (buildingId === "finance") return "326px";
+  return "318px";
 }
 
 function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
@@ -2823,15 +2833,34 @@ const roomInfoTextStyle: CSSProperties = {
   position: "absolute",
   top: "52px",
   left: "12px",
-  fontSize: "15px",
+  width: "210px",
+  maxWidth: "calc(100% - 24px)",
+  fontSize: "14px",
   fontWeight: 900,
-  lineHeight: 1.35,
-  zIndex: 5,
-  background: "rgba(255,255,255,0.88)",
+  lineHeight: 1.25,
+  zIndex: 8,
+  background: "rgba(255,255,255,0.94)",
   border: "3px solid #111827",
-  borderRadius: "12px",
+  borderRadius: "14px",
   padding: "10px 12px",
   boxShadow: "4px 4px 0 rgba(17,24,39,0.18)",
+  display: "grid",
+  gap: "4px",
+  overflow: "hidden",
+};
+
+const roomInfoNameStyle: CSSProperties = {
+  display: "block",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+
+const roomInfoLineStyle: CSSProperties = {
+  display: "block",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 };
 
 const roomFloorStyle: CSSProperties = {
@@ -2839,7 +2868,7 @@ const roomFloorStyle: CSSProperties = {
   top: "42px",
   left: "50%",
   transform: "translateX(-50%)",
-  fontSize: "28px",
+  fontSize: "24px",
   fontWeight: 900,
 };
 
@@ -3323,7 +3352,7 @@ const statusPillStyle: CSSProperties = {
 
 const statusLabelStyle: CSSProperties = {
   color: "#64748b",
-  fontSize: "12px",
+  fontSize: "11px",
   fontWeight: 900,
 };
 
@@ -3845,24 +3874,25 @@ const securityHintStyle: CSSProperties = {
 const streetBuildingsRowStyle: CSSProperties = {
   position: "absolute",
   zIndex: 7,
-  left: "34px",
-  right: "34px",
-  bottom: "118px",
+  left: "48px",
+  right: "48px",
+  bottom: "116px",
   display: "grid",
   gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
-  gap: "18px",
+  gap: "20px",
   alignItems: "end",
+  maxHeight: "calc(100% - 150px)",
 };
 
 const streetBuildingStyle: CSSProperties = {
   position: "relative",
   border: "5px solid #111827",
-  borderRadius: "28px 28px 16px 16px",
-  padding: "16px 12px 14px",
-  boxShadow: "0 13px 0 rgba(15,23,42,0.18), 0 22px 34px rgba(15,23,42,0.14)",
+  borderRadius: "26px 26px 14px 14px",
+  padding: "12px 10px 12px",
+  boxShadow: "0 12px 0 rgba(15,23,42,0.18), 0 20px 30px rgba(15,23,42,0.14)",
   display: "grid",
-  gridTemplateRows: "48px minmax(0, 1fr) auto auto",
-  gap: "10px",
+  gridTemplateRows: "42px minmax(76px, 1fr) auto auto",
+  gap: "8px",
   cursor: "pointer",
   textAlign: "center",
   color: "#0f172a",
@@ -3871,8 +3901,8 @@ const streetBuildingStyle: CSSProperties = {
 };
 
 const streetBuildingRoofStyle: CSSProperties = {
-  width: "64px",
-  height: "48px",
+  width: "56px",
+  height: "42px",
   border: "4px solid #111827",
   borderRadius: "18px",
   background: "rgba(255,255,255,0.86)",
@@ -3887,13 +3917,13 @@ const streetBuildingRoofStyle: CSSProperties = {
 const streetBuildingWindowGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(3, 1fr)",
-  gap: "8px",
+  gap: "7px",
   alignContent: "start",
-  padding: "8px 18px",
+  padding: "6px 14px",
 };
 
 const streetBuildingWindowStyle: CSSProperties = {
-  height: "24px",
+  height: "20px",
   borderRadius: "8px",
   background: "rgba(255,255,255,0.62)",
   border: "2px solid rgba(255,255,255,0.82)",
@@ -3904,8 +3934,8 @@ const streetBuildingSignStyle: CSSProperties = {
   background: "rgba(255,255,255,0.92)",
   border: "4px solid #111827",
   borderRadius: "16px",
-  padding: "9px 10px",
-  fontSize: "18px",
+  padding: "8px 9px",
+  fontSize: "16px",
   fontWeight: 900,
   lineHeight: 1.1,
   boxShadow: "3px 3px 0 rgba(17,24,39,0.14)",
