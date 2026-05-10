@@ -1197,7 +1197,7 @@ export default function GamePage() {
       .from("game_saves")
       .select("user_id, cash")
       .order("cash", { ascending: false })
-      .limit(50);
+      .limit(30);
 
     if (savesError || !saves || saves.length === 0) {
       if (savesError) console.warn("랭킹 저장 데이터 불러오기 실패:", savesError.message);
@@ -1569,7 +1569,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>RANKING</div>
                   <h2 style={panelTitleStyle}>랭킹</h2>
-                  <p style={panelDescStyle}>계정이 있는 유저만 표시됩니다. 30분마다 갱신됩니다. 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
+                  <p style={panelDescStyle}>계정을 생성하고 게임에 접속한 유저 중 상위 30명이 표시됩니다. 30분마다 갱신됩니다. 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
                 </div>
                 <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
               </div>
@@ -1884,32 +1884,49 @@ function StockMiniChart({ history }: { history: number[] }) {
   const max = Math.max(...points);
   const range = Math.max(1, max - min);
   const width = 360;
-  const height = 92;
-  const step = points.length > 1 ? width / (points.length - 1) : width;
+  const height = 116;
+  const padX = 18;
+  const padY = 14;
+  const innerWidth = width - padX * 2;
+  const innerHeight = height - padY * 2;
+  const step = points.length > 1 ? innerWidth / (points.length - 1) : innerWidth;
+  const chartId = `stockClip-${points.length}-${min}-${max}`.replace(/[^a-zA-Z0-9-]/g, "");
   const path = points.map((price, index) => {
-    const x = index * step;
-    const y = height - ((price - min) / range) * (height - 16) - 8;
+    const x = padX + index * step;
+    const y = padY + innerHeight - ((price - min) / range) * innerHeight;
     return `${index === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(" ");
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={stockChartStyle} role="img" aria-label="주식 가격 변동 그래프">
-      <line x1="0" y1="18" x2={width} y2="18" stroke="#d1d5db" strokeWidth="1" />
-      <line x1="0" y1="48" x2={width} y2="48" stroke="#e5e7eb" strokeWidth="1" />
-      <line x1="0" y1="78" x2={width} y2="78" stroke="#d1d5db" strokeWidth="1" />
-      {points.map((price, index) => {
-        const x = index * step;
-        const prev = points[Math.max(0, index - 1)];
-        const y = height - ((price - min) / range) * (height - 16) - 8;
-        const up = price >= prev;
-        return (
-          <g key={`${price}-${index}`}>
-            <line x1={x} x2={x} y1={Math.max(8, y - 12)} y2={Math.min(height - 8, y + 12)} stroke={up ? "#dc2626" : "#2563eb"} strokeWidth="2" />
-            <rect x={x - 4} y={up ? y - 6 : y} width="8" height="12" fill={up ? "#ef4444" : "#3b82f6"} rx="1" />
-          </g>
-        );
-      })}
-      <path d={path} fill="none" stroke="#111827" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg viewBox={`0 0 ${width} ${height}`} style={stockChartStyle} role="img" aria-label="주식 가격 변동 그래프" preserveAspectRatio="none">
+      <defs>
+        <clipPath id={chartId}>
+          <rect x="10" y="8" width={width - 20} height={height - 16} rx="14" />
+        </clipPath>
+        <linearGradient id={`${chartId}-bg`} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#f8fbff" />
+          <stop offset="100%" stopColor="#eaf1ff" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width={width - 2} height={height - 2} rx="16" fill={`url(#${chartId}-bg)`} />
+      <g clipPath={`url(#${chartId})`}>
+        {[0.25, 0.5, 0.75].map((ratio) => (
+          <line key={ratio} x1={padX} y1={padY + innerHeight * ratio} x2={width - padX} y2={padY + innerHeight * ratio} stroke="#d7deea" strokeWidth="1" />
+        ))}
+        {points.map((price, index) => {
+          const x = padX + index * step;
+          const prev = points[Math.max(0, index - 1)];
+          const y = padY + innerHeight - ((price - min) / range) * innerHeight;
+          const up = price >= prev;
+          return (
+            <g key={`${price}-${index}`}>
+              <line x1={x} x2={x} y1={Math.max(padY, y - 13)} y2={Math.min(height - padY, y + 13)} stroke={up ? "#ef4444" : "#2563eb"} strokeWidth="2" />
+              <rect x={x - 4.5} y={up ? y - 7 : y} width="9" height="14" fill={up ? "#ef4444" : "#3b82f6"} rx="2" />
+            </g>
+          );
+        })}
+        <path d={path} fill="none" stroke="#101827" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
     </svg>
   );
 }
@@ -2396,9 +2413,9 @@ const streetSceneStyle: CSSProperties = {
   height: "100%",
   overflow: "hidden",
   background:
-    "radial-gradient(circle at 12% 20%, #fef3c7 0 7%, transparent 7.5%), linear-gradient(180deg, #ffffff 0 58%, #f1f5f9 58% 100%)",
+    "linear-gradient(180deg, #dbeafe 0 48%, #cbd5e1 48% 55%, #1f2937 55% 100%)",
   color: "#111827",
-  borderRadius: "22px",
+  borderRadius: "26px",
   border: "4px solid #111827",
   boxShadow: "0 18px 0 rgba(17,24,39,0.10), 0 24px 46px rgba(15,23,42,0.18)",
 };
@@ -2470,42 +2487,53 @@ const stockExchangeBuildingButtonStyle: CSSProperties = {
   position: "absolute",
   zIndex: 8,
   left: "50%",
-  top: "46%",
-  transform: "translate(-50%, -50%)",
-  width: "190px",
-  minHeight: "330px",
-  border: "5px solid #111827",
-  borderRadius: "22px 22px 12px 12px",
-  background: "linear-gradient(180deg, #ffffff 0%, #e0f2fe 38%, #93c5fd 100%)",
+  bottom: "30%",
+  transform: "translateX(-50%)",
+  width: "170px",
+  height: "360px",
+  border: "4px solid #111827",
+  borderRadius: "28px 28px 8px 8px",
+  background:
+    "linear-gradient(180deg, rgba(255,255,255,0.92) 0 12%, rgba(125,211,252,0.95) 12% 100%), repeating-linear-gradient(180deg, transparent 0 22px, rgba(15,23,42,0.18) 22px 25px), repeating-linear-gradient(90deg, transparent 0 34px, rgba(15,23,42,0.12) 34px 37px)",
   color: "#111827",
-  boxShadow: "8px 8px 0 rgba(17,24,39,0.20), 0 18px 42px rgba(15,23,42,0.18)",
+  boxShadow: "8px 12px 0 rgba(17,24,39,0.16), 0 26px 48px rgba(15,23,42,0.24)",
   cursor: "pointer",
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
-  justifyContent: "center",
-  gap: "10px",
+  justifyContent: "flex-start",
+  gap: "6px",
   textAlign: "center",
   outline: "none",
+  paddingTop: "18px",
 };
 
 const stockExchangeButtonIconStyle: CSSProperties = {
-  fontSize: "48px",
+  fontSize: "26px",
   lineHeight: 1,
-  filter: "drop-shadow(0 4px 0 rgba(17,24,39,0.14))",
+  filter: "drop-shadow(0 3px 0 rgba(17,24,39,0.14))",
 };
 
 const stockExchangeButtonTitleStyle: CSSProperties = {
-  fontSize: "26px",
+  background: "rgba(255,255,255,0.92)",
+  border: "3px solid #111827",
+  borderRadius: "999px",
+  padding: "5px 12px",
+  fontSize: "15px",
   fontWeight: 900,
   lineHeight: 1.12,
+  boxShadow: "3px 3px 0 rgba(17,24,39,0.14)",
 };
 
 const stockExchangeButtonSubStyle: CSSProperties = {
+  marginTop: "auto",
+  marginBottom: "20px",
   width: "128px",
-  borderTop: "3px solid #111827",
-  paddingTop: "10px",
-  fontSize: "13px",
+  border: "3px solid #111827",
+  borderRadius: "14px",
+  background: "rgba(255,255,255,0.86)",
+  padding: "8px 10px",
+  fontSize: "12px",
   fontWeight: 900,
   color: "#334155",
 };
@@ -2525,13 +2553,13 @@ const panelSceneStyle: CSSProperties = {
   height: "100%",
   display: "grid",
   gridTemplateRows: "auto minmax(0, 1fr) auto",
-  gap: "10px",
+  gap: "12px",
   overflow: "hidden",
-  background: "#ffffff",
+  background: "linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%)",
   color: "#111827",
   border: "4px solid #111827",
-  borderRadius: "22px",
-  padding: "14px",
+  borderRadius: "26px",
+  padding: "16px",
   boxShadow: "0 18px 0 rgba(17,24,39,0.10), 0 24px 46px rgba(15,23,42,0.18)",
 };
 
@@ -2675,22 +2703,25 @@ const stockSummaryStyle: CSSProperties = {
 
 const stockBoardStyle: CSSProperties = {
   minHeight: 0,
-  overflow: "auto",
+  overflowY: "auto",
+  overflowX: "hidden",
   display: "grid",
-  gridTemplateColumns: "1fr",
-  gap: "16px",
-  padding: "6px 10px 12px 2px",
+  gridTemplateColumns: "repeat(auto-fit, minmax(520px, 1fr))",
+  gap: "18px",
+  padding: "6px 14px 18px 4px",
 };
 
 const stockCardStyle: CSSProperties = {
-  background: "#ffffff",
+  background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)",
   color: "#111827",
-  border: "3px solid #111827",
-  borderRadius: "18px",
+  border: "4px solid #111827",
+  borderRadius: "22px",
   padding: "16px",
-  boxShadow: "5px 5px 0 rgba(17,24,39,0.16)",
+  boxShadow: "6px 7px 0 rgba(17,24,39,0.16)",
   display: "grid",
   gap: "12px",
+  minWidth: 0,
+  overflow: "hidden",
 };
 
 const stockCardHeaderStyle: CSSProperties = {
@@ -2722,11 +2753,14 @@ const stockChangeBadgeStyle: CSSProperties = {
 };
 
 const stockChartStyle: CSSProperties = {
+  display: "block",
   width: "100%",
-  height: "110px",
-  background: "linear-gradient(180deg, #f8fafc, #eef2ff)",
-  border: "2px solid #d1d5db",
-  borderRadius: "12px",
+  height: "128px",
+  background: "linear-gradient(180deg, #f8fbff, #eaf1ff)",
+  border: "3px solid #d1d8e6",
+  borderRadius: "16px",
+  overflow: "hidden",
+  boxSizing: "border-box",
 };
 
 const stockBottomRowStyle: CSSProperties = {
