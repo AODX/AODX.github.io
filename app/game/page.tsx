@@ -1508,43 +1508,47 @@ export default function GamePage() {
 
     const fallbackRows = makeRankingRows(currentNickname, cash, occupationInfo[occupationId].name);
     const supabase = createClient();
-    const { data: saves, error: savesError } = await supabase
-      .from("game_saves")
-      .select("user_id, cash")
-      .order("cash", { ascending: false })
-      .limit(10);
 
-    if (savesError || !saves || saves.length === 0) {
-      if (savesError) console.warn("랭킹 저장 데이터 불러오기 실패:", savesError.message);
+    const { data: profiles, error: profilesError } = await supabase
+      .from(PROFILE_TABLE)
+      .select("id, nickname, room_kind, occupation_id, occupation_level, unlocked_occupations")
+      .limit(1000);
+
+    if (profilesError || !profiles || profiles.length === 0) {
+      if (profilesError) console.warn("랭킹 프로필 불러오기 실패:", profilesError.message);
       setRankingRows(fallbackRows);
       setRankingUpdatedAt(new Date());
       return;
     }
 
-    const ids = saves.map((row) => row.user_id);
-    const { data: profiles, error: profilesError } = await supabase
-      .from(PROFILE_TABLE)
-      .select("id, nickname, room_kind, occupation_id, occupation_level, unlocked_occupations")
-      .in("id", ids);
+    const typedProfiles = profiles as ProfileRow[];
+    const ids = typedProfiles.map((profile) => profile.id);
+    const { data: saves, error: savesError } = await supabase
+      .from("game_saves")
+      .select("user_id, cash")
+      .in("user_id", ids);
 
-    if (profilesError) {
-      console.warn("랭킹 프로필 불러오기 실패:", profilesError.message);
+    if (savesError) {
+      console.warn("랭킹 저장 데이터 불러오기 실패:", savesError.message);
     }
 
-    const typedProfiles = (profiles ?? []) as ProfileRow[];
-    const profileMap = new Map(typedProfiles.map((profile) => [profile.id, profile]));
+    const saveMap = new Map((saves ?? []).map((save) => [save.user_id, save as RankingSaveRow]));
 
-    const rows = (saves as RankingSaveRow[]).map((save, index) => {
-      const profile = profileMap.get(save.user_id);
-      const profileOccupationId = profile?.occupation_id && profile.occupation_id in occupationInfo ? (profile.occupation_id as OccupationId) : "unemployed";
-      return {
-        rank: index + 1,
-        nickname: save.user_id === userId ? currentNickname : profile?.nickname || "이름 없음",
-        cash: Number(save.cash),
-        job: save.user_id === userId ? occupationInfo[occupationId].name : occupationInfo[profileOccupationId].name,
-        isMe: save.user_id === userId,
-      };
-    });
+    const rows = typedProfiles
+      .map((profile) => {
+        const save = saveMap.get(profile.id);
+        const profileOccupationId = profile.occupation_id && profile.occupation_id in occupationInfo ? (profile.occupation_id as OccupationId) : "unemployed";
+        return {
+          rank: 0,
+          nickname: profile.id === userId ? currentNickname : profile.nickname || "이름 없음",
+          cash: Number(save?.cash ?? 0),
+          job: profile.id === userId ? occupationInfo[occupationId].name : occupationInfo[profileOccupationId].name,
+          isMe: profile.id === userId,
+        };
+      })
+      .sort((a, b) => b.cash - a.cash)
+      .slice(0, 10)
+      .map((row, index) => ({ ...row, rank: index + 1 }));
 
     setRankingRows(rows.length > 0 ? rows : fallbackRows);
     setRankingUpdatedAt(new Date());
@@ -1921,7 +1925,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>RANKING</div>
                   <h2 style={panelTitleStyle}>랭킹</h2>
-                  <p style={panelDescStyle}>계정을 생성하고 게임에 접속한 유저 중 상위 10명이 표시됩니다. 30분마다 갱신됩니다. 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
+                  <p style={panelDescStyle}>프로필이 생성된 계정 중 보유 현금 상위 10명이 표시됩니다. 30분마다 갱신됩니다. 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
                 </div>
                 <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
               </div>
@@ -3030,13 +3034,6 @@ const roomPreviewStyle: CSSProperties = {
 };
 
 
-const careerGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: "12px",
-  minHeight: 0,
-  overflow: "hidden",
-};
 
 const careerCardStyle: CSSProperties = {
   minWidth: 0,
