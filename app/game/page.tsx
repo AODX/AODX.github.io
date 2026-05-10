@@ -435,8 +435,10 @@ export default function GamePage() {
     async function loadStocks() {
       setIsStockLoaded(false);
       const storageKey = `alba-money-stocks-${userId}`;
-      let loadedRows: StockRow[] | null = null;
-      let loadedAt: Date | null = null;
+      let remoteRows: StockRow[] | null = null;
+      let remoteAt: Date | null = null;
+      let localRows: StockRow[] | null = null;
+      let localAt: Date | null = null;
 
       try {
         const supabase = createClient();
@@ -449,8 +451,8 @@ export default function GamePage() {
         if (!error && data?.rows) {
           const rows = typeof data.rows === "string" ? JSON.parse(data.rows) : data.rows;
           if (Array.isArray(rows) && rows.length > 0) {
-            loadedRows = normalizeStockRows(rows);
-            loadedAt = data.updated_at ? new Date(data.updated_at) : new Date();
+            remoteRows = normalizeStockRows(rows, userId);
+            remoteAt = data.updated_at ? new Date(data.updated_at) : new Date(0);
           }
         } else if (error) {
           console.warn("주식 저장 테이블을 읽지 못했습니다. localStorage를 사용합니다:", error.message);
@@ -459,23 +461,25 @@ export default function GamePage() {
         console.warn("주식 저장 데이터를 불러오지 못했습니다. localStorage를 사용합니다:", error);
       }
 
-      if (!loadedRows) {
-        const saved = window.localStorage.getItem(storageKey);
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved) as { rows?: StockRow[]; updatedAt?: string };
-            if (Array.isArray(parsed.rows) && parsed.rows.length > 0) {
-              loadedRows = normalizeStockRows(parsed.rows);
-              loadedAt = parsed.updatedAt ? new Date(parsed.updatedAt) : new Date();
-            }
-          } catch {
-            window.localStorage.removeItem(storageKey);
+      const saved = window.localStorage.getItem(storageKey);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved) as { rows?: StockRow[]; updatedAt?: string };
+          if (Array.isArray(parsed.rows) && parsed.rows.length > 0) {
+            localRows = normalizeStockRows(parsed.rows, userId);
+            localAt = parsed.updatedAt ? new Date(parsed.updatedAt) : new Date(0);
           }
+        } catch {
+          window.localStorage.removeItem(storageKey);
         }
       }
 
+      const useLocal = Boolean(localRows && (!remoteRows || (localAt?.getTime() ?? 0) >= (remoteAt?.getTime() ?? 0)));
+      let loadedRows = useLocal ? localRows : remoteRows;
+      let loadedAt = useLocal ? localAt : remoteAt;
+
       if (!loadedRows) {
-        loadedRows = makeInitialStocks();
+        loadedRows = makeInitialStocks(userId);
         loadedAt = new Date();
       }
 
@@ -531,8 +535,13 @@ export default function GamePage() {
       const remaining = stockUpdatedAt.getTime() + STOCK_INTERVAL_MS - Date.now();
 
       if (remaining <= 0) {
-        setStockRows((current) => updateStockMarket(current.length > 0 ? current : makeInitialStocks()));
-        setStockUpdatedAt(new Date());
+        const now = new Date();
+        setStockRows((current) => {
+          const nextRows = updateStockMarket(current.length > 0 ? current : makeInitialStocks(userId));
+          persistStocksNow(nextRows, now);
+          return nextRows;
+        });
+        setStockUpdatedAt(now);
         setStockCountdownMs(STOCK_INTERVAL_MS);
         return;
       }
@@ -1234,6 +1243,27 @@ export default function GamePage() {
     setRankingUpdatedAt(new Date());
   }
 
+  function persistStocksNow(rows: StockRow[], updatedAt: Date = stockUpdatedAt) {
+    if (!userId) return;
+
+    const payload = { rows, updatedAt: updatedAt.toISOString() };
+    window.localStorage.setItem(`alba-money-stocks-${userId}`, JSON.stringify(payload));
+
+    try {
+      const supabase = createClient();
+      void supabase.from(STOCK_TABLE).upsert(
+        {
+          user_id: userId,
+          rows,
+          updated_at: updatedAt.toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
+    } catch (error) {
+      console.warn("주식 즉시 저장 실패. localStorage에는 저장되었습니다:", error);
+    }
+  }
+
   function buyStock(stockId: StockId) {
     const stock = stockRows.find((row) => row.id === stockId);
     if (!stock) return;
@@ -1243,8 +1273,10 @@ export default function GamePage() {
       return;
     }
 
+    const nextRows = stockRows.map((row) => row.id === stockId ? { ...row, owned: row.owned + 1 } : row);
     setCash((money) => money - stock.price);
-    setStockRows((rows) => rows.map((row) => row.id === stockId ? { ...row, owned: row.owned + 1 } : row));
+    setStockRows(nextRows);
+    persistStocksNow(nextRows);
     setMessage(`${stock.name} 1주를 ${stock.price.toLocaleString()}원에 매수했습니다.`);
   }
 
@@ -1252,8 +1284,10 @@ export default function GamePage() {
     const stock = stockRows.find((row) => row.id === stockId);
     if (!stock || stock.owned <= 0) return;
 
+    const nextRows = stockRows.map((row) => row.id === stockId ? { ...row, owned: Math.max(0, row.owned - 1) } : row);
     setCash((money) => money + stock.price);
-    setStockRows((rows) => rows.map((row) => row.id === stockId ? { ...row, owned: Math.max(0, row.owned - 1) } : row));
+    setStockRows(nextRows);
+    persistStocksNow(nextRows);
     setMessage(`${stock.name} 1주를 ${stock.price.toLocaleString()}원에 매도했습니다.`);
   }
 
@@ -2056,11 +2090,11 @@ function makeRankingRows(nickname: string, cash: number, job: string): RankingRo
   ];
 }
 
-function normalizeStockRows(rows: StockRow[]): StockRow[] {
+function normalizeStockRows(rows: StockRow[], seedKey = "default"): StockRow[] {
   return stockCompanies.map((company) => {
     const saved = rows.find((row) => row.id === company.id);
     if (!saved) {
-      const [fresh] = makeInitialStocks().filter((row) => row.id === company.id);
+      const [fresh] = makeInitialStocks(seedKey).filter((row) => row.id === company.id);
       return fresh;
     }
 
@@ -2102,12 +2136,18 @@ function formatStockCountdown(milliseconds: number) {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-function makeInitialStocks(): StockRow[] {
+function makeInitialStocks(seedKey = "default"): StockRow[] {
   return stockCompanies.map((company) => {
-    const price = randomInt(1000, 50000);
+    let seed = hashSeed(`${seedKey}-${company.id}`);
+    const nextRandom = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+
+    const price = Math.floor(1000 + nextRandom() * 49001);
     const history = Array.from({ length: 18 }, (_, index) => {
       const wave = Math.sin(index / 2.2) * price * 0.035;
-      const noise = randomInt(-Math.floor(price * 0.025), Math.floor(price * 0.025));
+      const noise = Math.round((nextRandom() - 0.5) * price * 0.05);
       return Math.max(100, Math.round(price + wave + noise));
     });
 
@@ -2134,6 +2174,15 @@ function updateStockMarket(rows: StockRow[]): StockRow[] {
       history: [...stock.history, nextPrice].slice(-24),
     };
   });
+}
+
+function hashSeed(text: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }
 
 function randomInt(min: number, max: number) {
@@ -2558,7 +2607,7 @@ const stockExchangeSceneStyle: CSSProperties = {
   width: "100%",
   height: "100%",
   display: "grid",
-  gridTemplateRows: "auto auto minmax(0, 1fr)",
+  gridTemplateRows: "auto minmax(0, 1fr)",
   gap: "14px",
   overflow: "hidden",
   background: "linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%)",
@@ -2721,11 +2770,11 @@ const stockCardStyle: CSSProperties = {
   padding: "18px",
   boxShadow: "7px 8px 0 rgba(17,24,39,0.14)",
   display: "grid",
-  gridTemplateRows: "auto 220px auto",
+  gridTemplateRows: "auto 240px 76px",
   gap: "14px",
   minWidth: 0,
-  minHeight: "360px",
-  overflow: "hidden",
+  minHeight: "430px",
+  overflow: "visible",
 };
 
 const stockCardHeaderStyle: CSSProperties = {
@@ -2760,8 +2809,8 @@ const stockChangeBadgeStyle: CSSProperties = {
 
 const stockChartFrameStyle: CSSProperties = {
   width: "100%",
-  height: "220px",
-  minHeight: "220px",
+  height: "240px",
+  minHeight: "240px",
   border: "3px solid #cbd5e1",
   borderRadius: "22px",
   overflow: "hidden",
