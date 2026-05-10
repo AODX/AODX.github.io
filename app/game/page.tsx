@@ -121,7 +121,7 @@ type StockCompany = {
   description: string;
 };
 
-type PlayerTitleId = "newbie" | "worker" | "saver" | "investor" | "realEstate" | "businessOwner" | "casinoRookie" | "millionaire" | "taxPayer" | "marketMaster";
+type PlayerTitleId = string;
 
 type PlayerTitle = {
   id: PlayerTitleId;
@@ -215,6 +215,9 @@ type NewsEvent = {
   title: string;
   effect: string;
   tone: "good" | "bad" | "neutral";
+  targetStocks: StockId[];
+  impactPercent: number;
+  sector: string;
 };
 
 type InsuranceItem = {
@@ -658,15 +661,35 @@ const stockCompanies: StockCompany[] = [
 
 const playerTitles: PlayerTitle[] = [
   { id: "newbie", name: "초보 경제인", icon: "🌱", description: "게임을 시작한 기본 칭호입니다." },
+  { id: "firstPay", name: "첫 월급", icon: "💵", description: "현금 50,000원 이상 보유" },
   { id: "worker", name: "성실한 알바생", icon: "💼", description: "알바 성공 누적 30회 이상" },
+  { id: "proWorker", name: "프로 알바러", icon: "🧰", description: "알바 성공 누적 100회 이상" },
+  { id: "deliveryAce", name: "배달 에이스", icon: "🛵", description: "배달 성공 50회 이상" },
+  { id: "cashierMaster", name: "계산의 달인", icon: "🏪", description: "편의점 계산 성공 50회 이상" },
+  { id: "cafeMaster", name: "라떼 장인", icon: "☕", description: "카페 제조 성공 50회 이상" },
+  { id: "securityGuard", name: "철벽 보안", icon: "🛡️", description: "보안 대응 성공 40회 이상" },
   { id: "saver", name: "저축왕", icon: "🏦", description: "은행 예금 100,000원 이상" },
+  { id: "bankVip", name: "은행 VIP", icon: "💳", description: "은행 예금 1,000,000원 이상" },
+  { id: "loanManager", name: "레버리지 관리자", icon: "📑", description: "대출이 있어도 신용점수 750점 이상 유지" },
   { id: "investor", name: "신중한 투자자", icon: "📈", description: "주식 평가금액 100,000원 이상" },
-  { id: "realEstate", name: "부동산 입문자", icon: "🏘️", description: "부동산 1개 이상 보유" },
-  { id: "businessOwner", name: "사장님", icon: "🏪", description: "사업 1개 이상 보유" },
-  { id: "casinoRookie", name: "카지노 손님", icon: "🎰", description: "카지노에 입장 가능한 플레이어" },
-  { id: "millionaire", name: "백만장자", icon: "💰", description: "순자산 1,000,000원 이상" },
-  { id: "taxPayer", name: "모범 납세자", icon: "🧾", description: "미납 세금이 없는 플레이어" },
   { id: "marketMaster", name: "시장 분석가", icon: "📊", description: "주식 종목 3개 이상 보유" },
+  { id: "portfolioKing", name: "분산투자왕", icon: "🧺", description: "주식 종목 8개 이상 보유" },
+  { id: "stockWhale", name: "개미들의 고래", icon: "🐋", description: "주식 평가금액 2,000,000원 이상" },
+  { id: "realEstate", name: "부동산 입문자", icon: "🏘️", description: "부동산 1개 이상 보유" },
+  { id: "landlord", name: "월세 받는 사람", icon: "🏠", description: "부동산 3개 이상 보유" },
+  { id: "buildingOwner", name: "빌딩주", icon: "🏙️", description: "미니 빌딩 보유" },
+  { id: "businessOwner", name: "사장님", icon: "🏪", description: "사업 1개 이상 보유" },
+  { id: "chainOwner", name: "체인점 대표", icon: "🏬", description: "사업 3개 이상 보유" },
+  { id: "ceo", name: "대표님", icon: "👔", description: "사업 4개 이상 보유" },
+  { id: "employeeBoss", name: "고용주", icon: "👥", description: "직원 고용 레벨 합계 3 이상" },
+  { id: "casinoRookie", name: "카지노 손님", icon: "🎰", description: "카지노에 입장 가능한 플레이어" },
+  { id: "riskTaker", name: "승부사", icon: "🎲", description: "현금 300,000원 이상 보유" },
+  { id: "taxPayer", name: "모범 납세자", icon: "🧾", description: "미납 세금이 없는 플레이어" },
+  { id: "insurancePlanner", name: "위험 관리자", icon: "☂️", description: "보험 2개 이상 보유" },
+  { id: "auctionHunter", name: "경매 사냥꾼", icon: "🔨", description: "순자산 500,000원 이상" },
+  { id: "millionaire", name: "백만장자", icon: "💰", description: "순자산 1,000,000원 이상" },
+  { id: "multiMillionaire", name: "천만장자", icon: "💎", description: "순자산 10,000,000원 이상" },
+  { id: "tycoon", name: "경제 거물", icon: "👑", description: "순자산 50,000,000원 이상" },
 ];
 
 const estateItems: EstateItem[] = [
@@ -706,12 +729,21 @@ const auctionDealPool: AuctionDeal[] = [
 ];
 
 const newsPool: NewsEvent[] = [
-  { id: 1, title: "금리 인상 뉴스", effect: "은행 예금은 유리하지만 대출 부담이 커집니다.", tone: "bad" },
-  { id: 2, title: "배달 수요 증가", effect: "물류와 배달 관련 직업·사업이 주목받습니다.", tone: "good" },
-  { id: 3, title: "한류 공연 흥행", effect: "엔터테인먼트 관련 수익 기대감이 커집니다.", tone: "good" },
-  { id: 4, title: "부동산 거래 회복", effect: "상가와 오피스텔 평가 분위기가 좋아집니다.", tone: "good" },
-  { id: 5, title: "경기 둔화 우려", effect: "사업 매출 변동성이 커지고 현금 관리가 중요해집니다.", tone: "bad" },
-  { id: 6, title: "소비 심리 개선", effect: "카페와 편의점 같은 생활형 사업에 긍정적입니다.", tone: "good" },
+  { id: 1, title: "금리 인상 발표", effect: "은행주는 안정적이지만 성장주와 게임주는 부담을 받습니다.", tone: "bad", sector: "금리", targetStocks: ["epicGames", "guardianTales", "futurePrincess", "kongStudio"], impactPercent: -3.2 },
+  { id: 2, title: "배달 수요 급증", effect: "물류·배송 수요가 늘며 제피르 물류가 직접 수혜를 받습니다.", tone: "good", sector: "물류", targetStocks: ["zephyrLogistics"], impactPercent: 5.5 },
+  { id: 3, title: "항공 여행 예약 회복", effect: "여행 수요가 살아나 라엘 항공 실적 기대감이 커집니다.", tone: "good", sector: "항공", targetStocks: ["raelAir"], impactPercent: 5.0 },
+  { id: 4, title: "축산 원가 부담 확대", effect: "사료와 유통 비용이 올라 축산 관련 종목이 압박을 받습니다.", tone: "bad", sector: "식품", targetStocks: ["dongshimLivestock"], impactPercent: -4.6 },
+  { id: 5, title: "철강 수주 증가", effect: "건설과 제조 수주가 늘며 철강 회사에 호재가 발생했습니다.", tone: "good", sector: "소재", targetStocks: ["blmaSteel"], impactPercent: 4.8 },
+  { id: 6, title: "신작 모바일 RPG 흥행", effect: "귀여운 캐릭터 IP와 가디언 감성 게임주가 함께 주목받습니다.", tone: "good", sector: "게임", targetStocks: ["guardianTales", "kongStudio", "babyPrincess", "futurePrincess"], impactPercent: 5.8 },
+  { id: 7, title: "글로벌 게임 플랫폼 수수료 논란", effect: "대형 게임 플랫폼의 비용 부담 우려로 관련 종목이 흔들립니다.", tone: "bad", sector: "플랫폼", targetStocks: ["epicGames", "leagueLegends", "valorantLabs"], impactPercent: -3.8 },
+  { id: 8, title: "e스포츠 결승전 흥행", effect: "MOBA와 전술 슈팅 리그 흥행으로 관련 종목에 매수세가 몰립니다.", tone: "good", sector: "e스포츠", targetStocks: ["leagueLegends", "summonerRift", "valorantLabs", "heroWatch"], impactPercent: 5.2 },
+  { id: 9, title: "슈팅 게임 밸런스 논란", effect: "업데이트 반응이 엇갈리며 슈팅 게임 관련 종목 변동성이 커집니다.", tone: "bad", sector: "게임", targetStocks: ["overwatchWorks", "valorantLabs", "heroWatch"], impactPercent: -4.1 },
+  { id: 10, title: "캐릭터 굿즈 완판", effect: "공주 IP와 캐릭터 굿즈 판매가 호조를 보입니다.", tone: "good", sector: "IP", targetStocks: ["babyPrincess", "futurePrincess", "gachindong"], impactPercent: 4.7 },
+  { id: 11, title: "커뮤니티 광고 시장 위축", effect: "광고 단가 하락으로 커뮤니티·미디어 관련 회사가 약세입니다.", tone: "bad", sector: "광고", targetStocks: ["gachindong", "summonerRift"], impactPercent: -3.5 },
+  { id: 12, title: "신규 AI 콘텐츠 투자 확대", effect: "미래형 캐릭터와 AI 콘텐츠 기업이 투자 기대를 받습니다.", tone: "good", sector: "AI", targetStocks: ["futurePrincess", "epicGames", "kongStudio"], impactPercent: 4.4 },
+  { id: 13, title: "게임 규제 강화 우려", effect: "게임·e스포츠 전반에 규제 리스크가 반영됩니다.", tone: "bad", sector: "규제", targetStocks: ["guardianTales", "leagueLegends", "overwatchWorks", "kongStudio", "epicGames"], impactPercent: -4.8 },
+  { id: 14, title: "콘텐츠 소비 심리 개선", effect: "게임, 캐릭터, 미디어 종목 전반에 약한 호재가 반영됩니다.", tone: "good", sector: "소비", targetStocks: ["kongStudio", "babyPrincess", "gachindong", "heroWatch"], impactPercent: 3.3 },
+  { id: 15, title: "경기 둔화 우려", effect: "위험자산 회피 심리로 대부분의 성장주가 약세를 보입니다.", tone: "bad", sector: "거시경제", targetStocks: ["epicGames", "guardianTales", "futurePrincess", "leagueLegends", "valorantLabs"], impactPercent: -3.1 },
 ];
 
 const cashierKeyPool = ["W", "A", "S", "D"];
@@ -874,8 +906,8 @@ export default function GamePage() {
   );
   const netWorth = cash + bankDeposit + stockAssetValue + estateAssetValue + businessAssetValue - bankLoan - unpaidTax;
   const unlockedTitles = useMemo(
-    () => getUnlockedTitles({ cash, stockRows, bankDeposit, ownedEstates, ownedBusinesses, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal }),
-    [cash, stockRows, bankDeposit, ownedEstates, ownedBusinesses, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal]
+    () => getUnlockedTitles({ cash, stockRows, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal }),
+    [cash, stockRows, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal]
   );
 
   useEffect(() => {
@@ -1089,7 +1121,7 @@ export default function GamePage() {
       } else if (premium > 0) {
         setMessage(`🛡️ 보험료 ${premium.toLocaleString()}원이 납부되었습니다.`);
       }
-    }, 5 * 60 * 1000);
+    }, 10 * 60 * 1000);
 
     return () => window.clearInterval(timer);
   }, [isSaveLoaded, estateIncomeEvery5Min, insurancePremiumEvery5Min, inflationIndex]);
@@ -3424,6 +3456,7 @@ export default function GamePage() {
                   <div key={news.id} style={{ ...economyNewsCardStyle, borderColor: news.tone === "good" ? "#16a34a" : news.tone === "bad" ? "#dc2626" : "#111827" }}>
                     <h3 style={economyCardTitleStyle}>{news.tone === "good" ? "📈" : news.tone === "bad" ? "📉" : "📰"} {news.title}</h3>
                     <p style={economyCardTextStyle}>{news.effect}</p>
+                    <p style={economyCardTextStyle}>영향 종목: {news.targetStocks.map(getStockCompanyName).join(" · ")} / 예상 영향 {news.impactPercent > 0 ? "+" : ""}{news.impactPercent.toFixed(1)}%</p>
                   </div>
                 ))}
               </div>
@@ -4256,18 +4289,28 @@ function makeAuctionDeals() {
 
 function makeNewsEvents() {
   const shuffled = [...newsPool].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, 3);
+  const selected: NewsEvent[] = [];
+
+  for (const event of shuffled) {
+    const duplicatedSector = selected.some((item) => item.sector === event.sector);
+    if (!duplicatedSector || selected.length < 2) selected.push(event);
+    if (selected.length >= 3) break;
+  }
+
+  return selected;
 }
 
 function applyNewsToStocks(rows: StockRow[], events: NewsEvent[]) {
   if (rows.length === 0) return rows;
-  const positive = events.filter((event) => event.tone === "good").length;
-  const negative = events.filter((event) => event.tone === "bad").length;
-  const bias = Math.max(-0.025, Math.min(0.025, (positive - negative) * 0.008));
 
   return rows.map((stock) => {
-    const randomMove = (Math.random() - 0.5) * 0.035 + bias;
-    const nextPrice = Math.max(100, Math.round(stock.price * (1 + randomMove)));
+    const matchedEvents = events.filter((event) => event.targetStocks.includes(stock.id));
+    const directImpact = matchedEvents.reduce((sum, event) => sum + event.impactPercent, 0);
+    const marketMood = events.reduce((sum, event) => sum + event.impactPercent, 0) * 0.06;
+    const noise = (Math.random() - 0.5) * 1.2;
+    const cappedImpact = clampNumber(directImpact + marketMood + noise, -9.5, 9.5);
+    const nextPrice = Math.max(100, Math.round(stock.price * (1 + cappedImpact / 100)));
+
     return {
       ...stock,
       previousPrice: stock.price,
@@ -4275,6 +4318,10 @@ function applyNewsToStocks(rows: StockRow[], events: NewsEvent[]) {
       history: [...stock.history.slice(-23), nextPrice],
     };
   });
+}
+
+function getStockCompanyName(id: StockId) {
+  return stockCompanies.find((company) => company.id === id)?.name ?? id;
 }
 
 function getLoanLimit(creditScore: number, netWorth: number) {
@@ -4718,22 +4765,44 @@ function hashSeed(text: string) {
 }
 
 
-function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDeposit: number; ownedEstates: EstateId[]; ownedBusinesses: BusinessId[]; unpaidTax: number; netWorth: number; sortingSuccessTotal: number; deliverySuccessTotal: number; cashierSuccessTotal: number; cafeSuccessTotal: number; securitySuccessTotal: number; }) {
+function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDeposit: number; bankLoan?: number; creditScore?: number; ownedEstates: EstateId[]; ownedBusinesses: BusinessId[]; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; unpaidTax: number; netWorth: number; sortingSuccessTotal: number; deliverySuccessTotal: number; cashierSuccessTotal: number; cafeSuccessTotal: number; securitySuccessTotal: number; }) {
   const totalJobSuccess = params.sortingSuccessTotal + params.deliverySuccessTotal + params.cashierSuccessTotal + params.cafeSuccessTotal + params.securitySuccessTotal;
   const stockValue = params.stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0);
   const stockKindsOwned = params.stockRows.filter((stock) => stock.owned > 0).length;
+  const employeeLevelTotal = Object.values(params.businessEmployees ?? {}).reduce((sum, level) => sum + Number(level ?? 0), 0);
+  const ownsBuilding = params.ownedEstates.includes("building");
 
   return playerTitles.filter((title) => {
     if (title.id === "newbie") return true;
+    if (title.id === "firstPay") return params.cash >= 50000;
     if (title.id === "worker") return totalJobSuccess >= 30;
+    if (title.id === "proWorker") return totalJobSuccess >= 100;
+    if (title.id === "deliveryAce") return params.deliverySuccessTotal >= 50;
+    if (title.id === "cashierMaster") return params.cashierSuccessTotal >= 50;
+    if (title.id === "cafeMaster") return params.cafeSuccessTotal >= 50;
+    if (title.id === "securityGuard") return params.securitySuccessTotal >= 40;
     if (title.id === "saver") return params.bankDeposit >= 100000;
+    if (title.id === "bankVip") return params.bankDeposit >= 1000000;
+    if (title.id === "loanManager") return Number(params.bankLoan ?? 0) > 0 && Number(params.creditScore ?? 0) >= 750;
     if (title.id === "investor") return stockValue >= 100000;
-    if (title.id === "realEstate") return params.ownedEstates.length >= 1;
-    if (title.id === "businessOwner") return params.ownedBusinesses.length >= 1;
-    if (title.id === "casinoRookie") return true;
-    if (title.id === "millionaire") return params.netWorth >= 1000000;
-    if (title.id === "taxPayer") return params.unpaidTax <= 0;
     if (title.id === "marketMaster") return stockKindsOwned >= 3;
+    if (title.id === "portfolioKing") return stockKindsOwned >= 8;
+    if (title.id === "stockWhale") return stockValue >= 2000000;
+    if (title.id === "realEstate") return params.ownedEstates.length >= 1;
+    if (title.id === "landlord") return params.ownedEstates.length >= 3;
+    if (title.id === "buildingOwner") return ownsBuilding;
+    if (title.id === "businessOwner") return params.ownedBusinesses.length >= 1;
+    if (title.id === "chainOwner") return params.ownedBusinesses.length >= 3;
+    if (title.id === "ceo") return params.ownedBusinesses.length >= 4;
+    if (title.id === "employeeBoss") return employeeLevelTotal >= 3;
+    if (title.id === "casinoRookie") return true;
+    if (title.id === "riskTaker") return params.cash >= 300000;
+    if (title.id === "taxPayer") return params.unpaidTax <= 0;
+    if (title.id === "insurancePlanner") return (params.ownedInsurances ?? []).length >= 2;
+    if (title.id === "auctionHunter") return params.netWorth >= 500000;
+    if (title.id === "millionaire") return params.netWorth >= 1000000;
+    if (title.id === "multiMillionaire") return params.netWorth >= 10000000;
+    if (title.id === "tycoon") return params.netWorth >= 50000000;
     return false;
   });
 }
