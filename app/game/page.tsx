@@ -589,6 +589,13 @@ const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: st
   { id: "casino", title: "도박장", subtitle: "슬롯 머신 · 유저 대전", emoji: "🎰" },
 ];
 
+const streetBuildingPages: StreetBuildingId[][] = [
+  ["company", "entertainment", "finance"],
+  ["bank", "stocks", "logistics"],
+  ["estate", "business", "news"],
+  ["casino"],
+];
+
 const stockCompanies: StockCompany[] = [
   { id: "kongStudio", name: "콩 스튜디오", icon: "🎮", description: "귀여운 게임과 캐릭터 IP를 만드는 성장형 회사" },
   { id: "zephyrLogistics", name: "제피르 물류", icon: "🚚", description: "전국 배송망을 가진 빠른 물류 회사" },
@@ -640,6 +647,7 @@ export default function GamePage() {
   const [saveMessage, setSaveMessage] = useState("저장 대기 중");
 
   const [lobbyView, setLobbyView] = useState<LobbyView>("room");
+  const [streetPage, setStreetPage] = useState(0);
   const [nickname, setNickname] = useState("우리집");
   const [nicknameDraft, setNicknameDraft] = useState("우리집");
   const [roomKind, setRoomKind] = useState<RoomKind>("basic");
@@ -2699,21 +2707,43 @@ export default function GamePage() {
             <div style={streetSceneStyle}>
               <div style={streetMoneyStyle}>◎ {cash.toLocaleString()}</div>
               <StreetArtwork />
+
+              <div style={streetPageInfoStyle}>
+                <div style={smallLabelStyle}>STREET MAP</div>
+                <strong>{streetPage + 1} / {streetBuildingPages.length} 구역</strong>
+                <span>{getStreetPageLabel(streetPage)}</span>
+              </div>
+
+              <button
+                onClick={() => setStreetPage((page) => Math.max(0, page - 1))}
+                disabled={streetPage === 0}
+                style={{ ...streetPageArrowStyle, left: "14px", opacity: streetPage === 0 ? 0.45 : 1 }}
+              >
+                ◀
+              </button>
+              <button
+                onClick={() => setStreetPage((page) => Math.min(streetBuildingPages.length - 1, page + 1))}
+                disabled={streetPage === streetBuildingPages.length - 1}
+                style={{ ...streetPageArrowStyle, right: "14px", opacity: streetPage === streetBuildingPages.length - 1 ? 0.45 : 1 }}
+              >
+                ▶
+              </button>
+
               <div style={streetBuildingsRowStyle}>
-                {streetBuildings.map((building) => (
+                {getStreetBuildingsForPage(streetPage).map((building) => (
                   <button
                     key={building.id}
                     onClick={() => handleStreetBuildingClick(building.id)}
                     style={{
                       ...streetBuildingStyle,
                       ...getStreetBuildingTheme(building.id),
-                      ...getStreetBuildingPlacement(building.id),
+                      ...getStreetBuildingPlacement(building.id, streetPage),
                       height: getStreetBuildingHeight(building.id),
                     }}
                   >
                     <div style={streetBuildingRoofStyle}>{building.emoji}</div>
                     <div style={streetBuildingWindowGridStyle}>
-                      {Array.from({ length: building.id === "logistics" ? 6 : 15 }).map((_, windowIndex) => (
+                      {Array.from({ length: building.id === "logistics" ? 6 : building.id === "casino" ? 9 : 15 }).map((_, windowIndex) => (
                         <span key={windowIndex} style={streetBuildingWindowStyle} />
                       ))}
                     </div>
@@ -3537,6 +3567,20 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
   );
 }
 
+function getStreetBuildingsForPage(page: number) {
+  const ids = streetBuildingPages[page] ?? [];
+  return ids
+    .map((id) => streetBuildings.find((building) => building.id === id))
+    .filter((building): building is NonNullable<typeof building> => Boolean(building));
+}
+
+function getStreetPageLabel(page: number) {
+  if (page === 0) return "도심 업무 지구";
+  if (page === 1) return "투자 · 금융 지구";
+  if (page === 2) return "자산 · 사업 지구";
+  return "레저 · 카지노 지구";
+}
+
 function getStreetBuildingHeight(buildingId: StreetBuildingId) {
   if (buildingId === "company") return "206px";
   if (buildingId === "entertainment") return "218px";
@@ -3551,18 +3595,30 @@ function getStreetBuildingHeight(buildingId: StreetBuildingId) {
   return "180px";
 }
 
-function getStreetBuildingPlacement(buildingId: StreetBuildingId): CSSProperties {
-  if (buildingId === "company") return { left: "3.2%", bottom: "238px", width: "14.2%" };
-  if (buildingId === "entertainment") return { left: "19.1%", bottom: "238px", width: "14.2%" };
-  if (buildingId === "finance") return { left: "35%", bottom: "238px", width: "14.2%" };
-  if (buildingId === "stocks") return { left: "51%", bottom: "238px", width: "14.2%" };
-  if (buildingId === "bank") return { left: "67%", bottom: "238px", width: "14.2%" };
-  if (buildingId === "logistics") return { left: "9%", bottom: "52px", width: "13.5%" };
-  if (buildingId === "estate") return { left: "25%", bottom: "52px", width: "13.5%" };
-  if (buildingId === "business") return { left: "41%", bottom: "52px", width: "13.5%" };
-  if (buildingId === "news") return { left: "57%", bottom: "52px", width: "13.5%" };
-  if (buildingId === "casino") return { left: "73%", bottom: "52px", width: "13.5%" };
-  return { left: "4%", bottom: "120px", width: "14%" };
+function getStreetBuildingPlacement(buildingId: StreetBuildingId, page: number): CSSProperties {
+  if (page === 0) {
+    if (buildingId === "company") return { left: "5%", bottom: "182px", width: "28%" };
+    if (buildingId === "entertainment") return { left: "37%", bottom: "176px", width: "28%" };
+    if (buildingId === "finance") return { left: "68%", bottom: "182px", width: "28%" };
+  }
+
+  if (page === 1) {
+    if (buildingId === "bank") return { left: "10%", bottom: "176px", width: "23%" };
+    if (buildingId === "stocks") return { left: "37%", bottom: "154px", width: "27%" };
+    if (buildingId === "logistics") return { left: "69%", bottom: "172px", width: "21%" };
+  }
+
+  if (page === 2) {
+    if (buildingId === "estate") return { left: "10%", bottom: "168px", width: "21%" };
+    if (buildingId === "business") return { left: "39%", bottom: "162px", width: "22%" };
+    if (buildingId === "news") return { left: "69%", bottom: "170px", width: "20%" };
+  }
+
+  if (page === 3) {
+    if (buildingId === "casino") return { left: "37%", bottom: "150px", width: "26%" };
+  }
+
+  return { left: "38%", bottom: "170px", width: "24%" };
 }
 
 function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
@@ -4402,8 +4458,9 @@ const streetMoneyStyle: CSSProperties = {
 const streetBottomNavStyle: CSSProperties = {
   position: "absolute",
   zIndex: 10,
-  right: "28px",
-  bottom: "16px",
+  left: "50%",
+  transform: "translateX(-50%)",
+  bottom: "18px",
   display: "flex",
   gap: "8px",
 };
@@ -4606,6 +4663,9 @@ const rankingTableStyle: CSSProperties = {
   minHeight: 0,
   maxHeight: "100%",
   paddingRight: "8px",
+  paddingBottom: "32px",
+  scrollbarGutter: "stable",
+  WebkitOverflowScrolling: "touch",
 };
 
 const rankingRowStyle: CSSProperties = {
@@ -5344,8 +5404,8 @@ const streetBuildingsRowStyle: CSSProperties = {
 const streetBuildingStyle: CSSProperties = {
   position: "absolute",
   border: "5px solid #111827",
-  borderRadius: "26px 26px 14px 14px",
-  padding: "9px 9px 10px",
+  borderRadius: "28px 28px 16px 16px",
+  padding: "10px 10px 12px",
   boxShadow: "0 12px 0 rgba(15,23,42,0.18), 0 20px 30px rgba(15,23,42,0.14)",
   display: "grid",
   gridTemplateRows: "34px minmax(44px, 1fr) auto auto",
@@ -5405,6 +5465,40 @@ const streetBuildingSubtitleStyle: CSSProperties = {
   color: "#334155",
   lineHeight: 1.2,
   minHeight: "28px",
+};
+
+const streetPageInfoStyle: CSSProperties = {
+  position: "absolute",
+  zIndex: 9,
+  top: "12px",
+  right: "18px",
+  display: "grid",
+  justifyItems: "end",
+  gap: "2px",
+  padding: "8px 12px",
+  background: "rgba(255,255,255,0.88)",
+  border: "3px solid #111827",
+  borderRadius: "16px",
+  boxShadow: "0 8px 0 rgba(17,24,39,0.10)",
+  color: "#111827",
+  fontWeight: 900,
+};
+
+const streetPageArrowStyle: CSSProperties = {
+  position: "absolute",
+  zIndex: 10,
+  top: "50%",
+  transform: "translateY(-50%)",
+  width: "54px",
+  height: "54px",
+  borderRadius: "999px",
+  border: "4px solid #111827",
+  background: "rgba(255,255,255,0.94)",
+  color: "#111827",
+  fontSize: "24px",
+  fontWeight: 900,
+  boxShadow: "0 8px 0 rgba(17,24,39,0.12)",
+  cursor: "pointer",
 };
 
 const careerOfficeStyle: CSSProperties = {
@@ -5992,6 +6086,7 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
+
 
 
 
