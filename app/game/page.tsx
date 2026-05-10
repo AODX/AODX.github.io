@@ -359,6 +359,9 @@ export default function GamePage() {
 
   useEffect(() => {
     if (!userId) return;
+  const currentUserId = userId;
+
+  let cancelled = false;
 
     async function loadProfilePreferences() {
       const savedNickname = window.localStorage.getItem(`alba-money-nickname-${userId}`);
@@ -451,7 +454,7 @@ export default function GamePage() {
         if (!error && data?.rows) {
           const rows = typeof data.rows === "string" ? JSON.parse(data.rows) : data.rows;
           if (Array.isArray(rows) && rows.length > 0) {
-            remoteRows = normalizeStockRows(rows, userId);
+            remoteRows = normalizeStockRows(rows, currentUserId);
             remoteAt = data.updated_at ? new Date(data.updated_at) : new Date(0);
           }
         } else if (error) {
@@ -466,7 +469,7 @@ export default function GamePage() {
         try {
           const parsed = JSON.parse(saved) as { rows?: StockRow[]; updatedAt?: string };
           if (Array.isArray(parsed.rows) && parsed.rows.length > 0) {
-            localRows = normalizeStockRows(parsed.rows, userId);
+            localRows = normalizeStockRows(parsed.rows, currentUserId);
             localAt = parsed.updatedAt ? new Date(parsed.updatedAt) : new Date(0);
           }
         } catch {
