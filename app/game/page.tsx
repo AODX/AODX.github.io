@@ -1197,7 +1197,7 @@ export default function GamePage() {
       .from("game_saves")
       .select("user_id, cash")
       .order("cash", { ascending: false })
-      .limit(30);
+      .limit(10);
 
     if (savesError || !saves || saves.length === 0) {
       if (savesError) console.warn("랭킹 저장 데이터 불러오기 실패:", savesError.message);
@@ -1519,12 +1519,6 @@ export default function GamePage() {
                 <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
               </div>
 
-              <div style={stockSummaryStyle}>
-                <StatusPill label="보유 현금" value={`${cash.toLocaleString()}원`} />
-                <StatusPill label="평가 금액" value={`${stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0).toLocaleString()}원`} />
-                <StatusPill label="변동 주기" value="3분" />
-                <StatusPill label="다음 변동" value={formatStockCountdown(stockCountdownMs)} warning={stockCountdownMs <= 30000} />
-              </div>
 
               <div style={stockBoardStyle}>
                 {stockRows.map((stock) => {
@@ -1569,7 +1563,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>RANKING</div>
                   <h2 style={panelTitleStyle}>랭킹</h2>
-                  <p style={panelDescStyle}>계정을 생성하고 게임에 접속한 유저 중 상위 30명이 표시됩니다. 30분마다 갱신됩니다. 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
+                  <p style={panelDescStyle}>계정을 생성하고 게임에 접속한 유저 중 상위 10명이 표시됩니다. 30분마다 갱신됩니다. 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
                 </div>
                 <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
               </div>
@@ -2705,13 +2699,6 @@ const taxNoticeStyle: CSSProperties = {
   color: "#111827",
   fontWeight: 900,
   boxShadow: "3px 3px 0 rgba(17,24,39,0.14)",
-};
-
-const stockSummaryStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: "10px",
-  minHeight: 0,
 };
 
 const stockBoardStyle: CSSProperties = {
