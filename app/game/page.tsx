@@ -1509,7 +1509,7 @@ export default function GamePage() {
           )}
 
           {lobbyView === "stocks" && (
-            <div style={panelSceneStyle}>
+            <div style={stockExchangeSceneStyle}>
               <div style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>STOCK EXCHANGE</div>
@@ -1544,7 +1544,7 @@ export default function GamePage() {
                         </div>
                       </div>
 
-                      <StockMiniChart history={stock.history} />
+                      <StockMiniChart stockId={stock.id} history={stock.history} />
 
                       <div style={stockBottomRowStyle}>
                         <div>
@@ -1692,71 +1692,78 @@ function StreetArtwork() {
   return (
     <svg style={sceneSvgStyle} viewBox="0 0 1600 760" preserveAspectRatio="none" role="img" aria-label="주식 거래소 거리">
       <defs>
-        <linearGradient id="cleanSky63" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id="premiumSky" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor="#dbeafe" />
           <stop offset="58%" stopColor="#f8fafc" />
-          <stop offset="100%" stopColor="#e5e7eb" />
+          <stop offset="100%" stopColor="#e2e8f0" />
         </linearGradient>
-        <linearGradient id="cleanRoad63" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#1f2937" />
-          <stop offset="100%" stopColor="#0f172a" />
+        <linearGradient id="premiumRoad" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#0f172a" />
+          <stop offset="100%" stopColor="#1e293b" />
         </linearGradient>
-        <filter id="streetSoftShadow63" x="-20%" y="-20%" width="140%" height="160%">
-          <feDropShadow dx="0" dy="18" stdDeviation="10" floodColor="#0f172a" floodOpacity="0.22" />
+        <linearGradient id="towerGold" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#fff7cc" />
+          <stop offset="45%" stopColor="#f6c453" />
+          <stop offset="100%" stopColor="#b7791f" />
+        </linearGradient>
+        <linearGradient id="towerGlass" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#e0f2fe" />
+          <stop offset="100%" stopColor="#38bdf8" />
+        </linearGradient>
+        <filter id="towerShadow" x="-35%" y="-20%" width="170%" height="160%">
+          <feDropShadow dx="0" dy="20" stdDeviation="12" floodColor="#0f172a" floodOpacity="0.24" />
         </filter>
       </defs>
 
-      <rect x="0" y="0" width="1600" height="760" fill="url(#cleanSky63)" />
-      <circle cx="180" cy="118" r="54" fill="#fef3c7" />
-      <circle cx="180" cy="118" r="92" fill="#fef3c7" opacity="0.28" />
+      <rect x="0" y="0" width="1600" height="760" fill="url(#premiumSky)" />
+      <circle cx="250" cy="128" r="56" fill="#fde68a" opacity="0.95" />
+      <circle cx="250" cy="128" r="112" fill="#fde68a" opacity="0.18" />
 
-      <path d="M0 472 C220 438 410 456 610 488 C850 528 1082 510 1600 448 L1600 760 L0 760 Z" fill="#cbd5e1" />
-      <path d="M0 506 C260 482 460 492 640 526 C900 576 1170 570 1600 506" fill="none" stroke="#94a3b8" strokeWidth="4" opacity="0.35" />
-      <path d="M-80 622 C248 554 548 562 812 628 C1068 690 1320 684 1680 588 L1680 760 L-80 760 Z" fill="url(#cleanRoad63)" />
-      <path d="M92 660 C330 606 584 610 822 664 C1082 722 1306 714 1518 640" fill="none" stroke="#f8fafc" strokeWidth="12" strokeLinecap="round" strokeDasharray="74 54" opacity="0.95" />
+      <path d="M0 470 C250 430 500 456 720 490 C960 528 1185 506 1600 444 L1600 760 L0 760 Z" fill="#cbd5e1" />
+      <path d="M-60 612 C230 548 520 558 780 620 C1060 686 1328 674 1660 584 L1660 760 L-60 760 Z" fill="url(#premiumRoad)" />
+      <path d="M82 656 C330 600 584 610 826 664 C1088 722 1315 714 1524 638" fill="none" stroke="#f8fafc" strokeWidth="13" strokeLinecap="round" strokeDasharray="72 54" opacity="0.95" />
 
-      <g opacity="0.68">
-        <rect x="114" y="332" width="96" height="142" rx="10" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
-        <rect x="248" y="300" width="116" height="174" rx="10" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
-        <rect x="1264" y="314" width="112" height="160" rx="10" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
-        <rect x="1404" y="278" width="94" height="196" rx="10" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
+      <g opacity="0.55">
+        <rect x="142" y="338" width="92" height="132" rx="12" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
+        <rect x="1264" y="326" width="112" height="148" rx="12" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
+        <rect x="1398" y="292" width="90" height="182" rx="12" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
       </g>
 
-      <g filter="url(#streetSoftShadow63)">
-        <rect x="692" y="492" width="216" height="20" rx="10" fill="#111827" opacity="0.22" />
-        <rect x="714" y="152" width="172" height="344" rx="20" fill="#f8fafc" stroke="#111827" strokeWidth="8" />
-        <path d="M720 152 L800 78 L880 152 Z" fill="#fde68a" stroke="#111827" strokeWidth="8" strokeLinejoin="round" />
-        <rect x="750" y="112" width="100" height="58" rx="16" fill="#ffffff" stroke="#111827" strokeWidth="7" />
-        <text x="800" y="151" textAnchor="middle" fill="#111827" fontSize="28" fontWeight="900">KRX</text>
-        {Array.from({ length: 7 }).map((_, row) =>
-          Array.from({ length: 3 }).map((__, col) => (
-            <rect
-              key={`${row}-${col}`}
-              x={742 + col * 42}
-              y={198 + row * 36}
-              width="24"
-              height="20"
-              rx="5"
-              fill={row % 2 === 0 ? "#bfdbfe" : "#dbeafe"}
-              stroke="#60a5fa"
-              strokeWidth="2"
-            />
-          ))
-        )}
-        <rect x="758" y="454" width="84" height="42" rx="12" fill="#111827" />
-        <path d="M736 434 C774 410 816 410 864 434" fill="none" stroke="#22c55e" strokeWidth="8" strokeLinecap="round" />
-        <path d="M736 438 C772 454 818 426 864 448" fill="none" stroke="#ef4444" strokeWidth="6" strokeLinecap="round" />
+      <g filter="url(#towerShadow)">
+        <ellipse cx="800" cy="520" rx="190" ry="26" fill="#0f172a" opacity="0.18" />
+        <path d="M710 500 L890 500 L860 142 Q800 82 740 142 Z" fill="url(#towerGold)" stroke="#111827" strokeWidth="8" strokeLinejoin="round" />
+        <path d="M760 150 Q800 112 840 150 L860 500 L740 500 Z" fill="url(#towerGlass)" opacity="0.45" />
+        {Array.from({ length: 10 }).map((_, row) => (
+          <g key={`tower-row-${row}`}>
+            {Array.from({ length: 4 }).map((__, col) => (
+              <rect
+                key={`tower-window-${row}-${col}`}
+                x={746 + col * 29}
+                y={178 + row * 30}
+                width="16"
+                height="18"
+                rx="4"
+                fill={row % 2 === 0 ? "#f8fafc" : "#dbeafe"}
+                opacity="0.88"
+              />
+            ))}
+          </g>
+        ))}
+        <rect x="728" y="112" width="144" height="52" rx="24" fill="#ffffff" stroke="#111827" strokeWidth="7" />
+        <text x="800" y="147" textAnchor="middle" fill="#111827" fontSize="24" fontWeight="900">주식 거래소</text>
+        <rect x="752" y="455" width="96" height="45" rx="14" fill="#111827" />
+        <path d="M726 420 C754 398 782 424 808 400 C832 378 856 392 884 368" fill="none" stroke="#22c55e" strokeWidth="9" strokeLinecap="round" />
+        <path d="M726 428 C760 442 784 410 812 430 C842 450 858 410 884 422" fill="none" stroke="#ef4444" strokeWidth="6" strokeLinecap="round" />
       </g>
 
       <g opacity="0.92">
-        <rect x="1170" y="574" width="124" height="62" rx="22" fill="#38bdf8" stroke="#111827" strokeWidth="6" />
-        <circle cx="1204" cy="640" r="17" fill="#111827" />
+        <rect x="1172" y="574" width="122" height="60" rx="22" fill="#38bdf8" stroke="#111827" strokeWidth="6" />
+        <circle cx="1206" cy="640" r="17" fill="#111827" />
         <circle cx="1262" cy="640" r="17" fill="#111827" />
       </g>
     </svg>
   );
 }
-
 function SortingGame({ item, combo, miss, difficulty }: { item: SortItem; combo: number; miss: number; difficulty: number }) {
   const activeKinds = getActiveSortKinds(difficulty);
   return (
@@ -1878,59 +1885,63 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
   );
 }
 
-function StockMiniChart({ history }: { history: number[] }) {
+function StockMiniChart({ stockId, history }: { stockId: StockId; history: number[] }) {
   const points = history.length > 0 ? history : [1000];
   const min = Math.min(...points);
   const max = Math.max(...points);
   const range = Math.max(1, max - min);
-  const width = 360;
-  const height = 116;
-  const padX = 18;
-  const padY = 14;
+  const width = 720;
+  const height = 210;
+  const padX = 42;
+  const padY = 26;
   const innerWidth = width - padX * 2;
   const innerHeight = height - padY * 2;
   const step = points.length > 1 ? innerWidth / (points.length - 1) : innerWidth;
-  const chartId = `stockClip-${points.length}-${min}-${max}`.replace(/[^a-zA-Z0-9-]/g, "");
-  const path = points.map((price, index) => {
+  const clipId = `stock-chart-clip-${stockId}`;
+  const bgId = `stock-chart-bg-${stockId}`;
+  const linePath = points.map((price, index) => {
     const x = padX + index * step;
     const y = padY + innerHeight - ((price - min) / range) * innerHeight;
     return `${index === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(" ");
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={stockChartStyle} role="img" aria-label="주식 가격 변동 그래프" preserveAspectRatio="none">
-      <defs>
-        <clipPath id={chartId}>
-          <rect x="10" y="8" width={width - 20} height={height - 16} rx="14" />
-        </clipPath>
-        <linearGradient id={`${chartId}-bg`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#f8fbff" />
-          <stop offset="100%" stopColor="#eaf1ff" />
-        </linearGradient>
-      </defs>
-      <rect x="1" y="1" width={width - 2} height={height - 2} rx="16" fill={`url(#${chartId}-bg)`} />
-      <g clipPath={`url(#${chartId})`}>
-        {[0.25, 0.5, 0.75].map((ratio) => (
-          <line key={ratio} x1={padX} y1={padY + innerHeight * ratio} x2={width - padX} y2={padY + innerHeight * ratio} stroke="#d7deea" strokeWidth="1" />
-        ))}
-        {points.map((price, index) => {
-          const x = padX + index * step;
-          const prev = points[Math.max(0, index - 1)];
-          const y = padY + innerHeight - ((price - min) / range) * innerHeight;
-          const up = price >= prev;
-          return (
-            <g key={`${price}-${index}`}>
-              <line x1={x} x2={x} y1={Math.max(padY, y - 13)} y2={Math.min(height - padY, y + 13)} stroke={up ? "#ef4444" : "#2563eb"} strokeWidth="2" />
-              <rect x={x - 4.5} y={up ? y - 7 : y} width="9" height="14" fill={up ? "#ef4444" : "#3b82f6"} rx="2" />
-            </g>
-          );
-        })}
-        <path d={path} fill="none" stroke="#101827" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
-    </svg>
+    <div style={stockChartFrameStyle}>
+      <svg viewBox={`0 0 ${width} ${height}`} style={stockChartStyle} role="img" aria-label="주식 가격 변동 그래프" preserveAspectRatio="none">
+        <defs>
+          <clipPath id={clipId}>
+            <rect x="0" y="0" width={width} height={height} rx="22" />
+          </clipPath>
+          <linearGradient id={bgId} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#fbfdff" />
+            <stop offset="100%" stopColor="#eaf2ff" />
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width={width} height={height} rx="22" fill={`url(#${bgId})`} />
+        <g clipPath={`url(#${clipId})`}>
+          {[0.25, 0.5, 0.75].map((ratio) => (
+            <line key={ratio} x1={padX} y1={padY + innerHeight * ratio} x2={width - padX} y2={padY + innerHeight * ratio} stroke="#d7deea" strokeWidth="2" />
+          ))}
+          {points.map((price, index) => {
+            const x = padX + index * step;
+            const prev = points[Math.max(0, index - 1)];
+            const y = padY + innerHeight - ((price - min) / range) * innerHeight;
+            const up = price >= prev;
+            const candleTop = Math.max(padY + 2, y - 18);
+            const candleBottom = Math.min(height - padY - 2, y + 18);
+            return (
+              <g key={`${stockId}-${index}-${price}`}>
+                <line x1={x} x2={x} y1={candleTop} y2={candleBottom} stroke={up ? "#ef4444" : "#2563eb"} strokeWidth="4" strokeLinecap="round" />
+                <rect x={x - 7} y={up ? y - 10 : y} width="14" height="20" fill={up ? "#ef4444" : "#3b82f6"} rx="3" />
+              </g>
+            );
+          })}
+          <path d={linePath} fill="none" stroke="#101827" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+        </g>
+      </svg>
+    </div>
   );
 }
-
 function StatusPill({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) {
   return (
     <div style={{ ...statusPillStyle, borderColor: warning ? "#f97316" : "#111827", color: warning ? "#9a3412" : "#111827" }}>
@@ -2487,55 +2498,41 @@ const stockExchangeBuildingButtonStyle: CSSProperties = {
   position: "absolute",
   zIndex: 8,
   left: "50%",
-  bottom: "30%",
+  bottom: "28%",
   transform: "translateX(-50%)",
-  width: "170px",
-  height: "360px",
-  border: "4px solid #111827",
-  borderRadius: "28px 28px 8px 8px",
-  background:
-    "linear-gradient(180deg, rgba(255,255,255,0.92) 0 12%, rgba(125,211,252,0.95) 12% 100%), repeating-linear-gradient(180deg, transparent 0 22px, rgba(15,23,42,0.18) 22px 25px), repeating-linear-gradient(90deg, transparent 0 34px, rgba(15,23,42,0.12) 34px 37px)",
+  width: "230px",
+  height: "430px",
+  border: "none",
+  background: "transparent",
   color: "#111827",
-  boxShadow: "8px 12px 0 rgba(17,24,39,0.16), 0 26px 48px rgba(15,23,42,0.24)",
   cursor: "pointer",
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
   justifyContent: "flex-start",
-  gap: "6px",
   textAlign: "center",
   outline: "none",
-  paddingTop: "18px",
+  padding: 0,
 };
 
 const stockExchangeButtonIconStyle: CSSProperties = {
-  fontSize: "26px",
-  lineHeight: 1,
-  filter: "drop-shadow(0 3px 0 rgba(17,24,39,0.14))",
+  display: "none",
 };
 
 const stockExchangeButtonTitleStyle: CSSProperties = {
-  background: "rgba(255,255,255,0.92)",
+  marginTop: "10px",
+  background: "rgba(255,255,255,0.96)",
   border: "3px solid #111827",
   borderRadius: "999px",
-  padding: "5px 12px",
+  padding: "7px 16px",
   fontSize: "15px",
   fontWeight: 900,
   lineHeight: 1.12,
-  boxShadow: "3px 3px 0 rgba(17,24,39,0.14)",
+  boxShadow: "3px 3px 0 rgba(17,24,39,0.16)",
 };
 
 const stockExchangeButtonSubStyle: CSSProperties = {
-  marginTop: "auto",
-  marginBottom: "20px",
-  width: "128px",
-  border: "3px solid #111827",
-  borderRadius: "14px",
-  background: "rgba(255,255,255,0.86)",
-  padding: "8px 10px",
-  fontSize: "12px",
-  fontWeight: 900,
-  color: "#334155",
+  display: "none",
 };
 
 const streetBottomNavStyle: CSSProperties = {
@@ -2554,6 +2551,21 @@ const panelSceneStyle: CSSProperties = {
   display: "grid",
   gridTemplateRows: "auto minmax(0, 1fr) auto",
   gap: "12px",
+  overflow: "hidden",
+  background: "linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%)",
+  color: "#111827",
+  border: "4px solid #111827",
+  borderRadius: "26px",
+  padding: "16px",
+  boxShadow: "0 18px 0 rgba(17,24,39,0.10), 0 24px 46px rgba(15,23,42,0.18)",
+};
+
+const stockExchangeSceneStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "grid",
+  gridTemplateRows: "auto auto minmax(0, 1fr)",
+  gap: "14px",
   overflow: "hidden",
   background: "linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%)",
   color: "#111827",
@@ -2699,28 +2711,33 @@ const stockSummaryStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
   gap: "10px",
+  minHeight: 0,
 };
 
 const stockBoardStyle: CSSProperties = {
   minHeight: 0,
+  height: "100%",
   overflowY: "auto",
   overflowX: "hidden",
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(520px, 1fr))",
-  gap: "18px",
-  padding: "6px 14px 18px 4px",
+  gridTemplateColumns: "1fr",
+  alignContent: "start",
+  gap: "16px",
+  padding: "4px 12px 22px 4px",
 };
 
 const stockCardStyle: CSSProperties = {
   background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)",
   color: "#111827",
   border: "4px solid #111827",
-  borderRadius: "22px",
-  padding: "16px",
-  boxShadow: "6px 7px 0 rgba(17,24,39,0.16)",
+  borderRadius: "24px",
+  padding: "18px",
+  boxShadow: "7px 8px 0 rgba(17,24,39,0.14)",
   display: "grid",
-  gap: "12px",
+  gridTemplateRows: "auto 220px auto",
+  gap: "14px",
   minWidth: 0,
+  minHeight: "360px",
   overflow: "hidden",
 };
 
@@ -2729,17 +2746,18 @@ const stockCardHeaderStyle: CSSProperties = {
   justifyContent: "space-between",
   alignItems: "start",
   gap: "10px",
+  minWidth: 0,
 };
 
 const stockNameStyle: CSSProperties = {
-  fontSize: "20px",
+  fontSize: "24px",
   fontWeight: 900,
 };
 
 const stockDescStyle: CSSProperties = {
-  marginTop: "4px",
+  marginTop: "5px",
   color: "#4b5563",
-  fontSize: "12px",
+  fontSize: "13px",
   fontWeight: 800,
   lineHeight: 1.35,
 };
@@ -2747,54 +2765,62 @@ const stockDescStyle: CSSProperties = {
 const stockChangeBadgeStyle: CSSProperties = {
   border: "2px solid",
   borderRadius: "999px",
-  padding: "6px 10px",
+  padding: "8px 14px",
+  fontSize: "18px",
   fontWeight: 900,
   whiteSpace: "nowrap",
+};
+
+const stockChartFrameStyle: CSSProperties = {
+  width: "100%",
+  height: "220px",
+  minHeight: "220px",
+  border: "3px solid #cbd5e1",
+  borderRadius: "22px",
+  overflow: "hidden",
+  background: "linear-gradient(180deg, #fbfdff, #eaf2ff)",
+  boxShadow: "inset 0 0 0 2px rgba(255,255,255,0.72)",
 };
 
 const stockChartStyle: CSSProperties = {
   display: "block",
   width: "100%",
-  height: "128px",
-  background: "linear-gradient(180deg, #f8fbff, #eaf1ff)",
-  border: "3px solid #d1d8e6",
-  borderRadius: "16px",
-  overflow: "hidden",
-  boxSizing: "border-box",
+  height: "100%",
 };
 
 const stockBottomRowStyle: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  gap: "10px",
+  gap: "12px",
 };
 
 const stockPriceStyle: CSSProperties = {
-  fontSize: "24px",
+  fontSize: "30px",
   fontWeight: 900,
 };
 
 const stockOwnedStyle: CSSProperties = {
   color: "#4b5563",
-  fontSize: "12px",
+  fontSize: "13px",
   fontWeight: 900,
 };
 
 const stockActionGroupStyle: CSSProperties = {
   display: "flex",
-  gap: "6px",
+  gap: "8px",
 };
 
 const stockTradeButtonStyle: CSSProperties = {
   border: "3px solid #111827",
-  borderRadius: "10px",
+  borderRadius: "13px",
   background: "#fef3c7",
   color: "#111827",
-  padding: "8px 12px",
+  padding: "10px 16px",
+  fontSize: "16px",
   fontWeight: 900,
   cursor: "pointer",
-  boxShadow: "2px 2px 0 #111827",
+  boxShadow: "3px 3px 0 #111827",
 };
 
 const loadingPageStyle: CSSProperties = {
@@ -3414,4 +3440,3 @@ const firedStampReasonStyle: CSSProperties = {
   color: "#111827",
   whiteSpace: "nowrap",
 };
-
