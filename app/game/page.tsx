@@ -2741,14 +2741,7 @@ export default function GamePage() {
                       height: getStreetBuildingHeight(building.id),
                     }}
                   >
-                    <div style={streetBuildingRoofStyle}>{building.emoji}</div>
-                    <div style={streetBuildingWindowGridStyle}>
-                      {Array.from({ length: building.id === "logistics" ? 6 : building.id === "casino" ? 9 : 15 }).map((_, windowIndex) => (
-                        <span key={windowIndex} style={streetBuildingWindowStyle} />
-                      ))}
-                    </div>
-                    <div style={streetBuildingSignStyle}>{building.title}</div>
-                    <div style={streetBuildingSubtitleStyle}>{building.subtitle}</div>
+                    <StreetBuildingFacade building={building} />
                   </button>
                 ))}
               </div>
@@ -3446,6 +3439,98 @@ function StreetArtwork() {
   );
 }
 
+function StreetBuildingFacade({ building }: { building: { id: StreetBuildingId; title: string; subtitle: string; emoji: string } }) {
+  const windowCount = building.id === "logistics" ? 6 : building.id === "casino" ? 9 : building.id === "estate" ? 8 : 15;
+
+  if (building.id === "stocks") {
+    return (
+      <>
+        <div style={{ ...streetBuildingRoofStyle, borderRadius: "18px 18px 8px 8px", background: "#eff6ff" }}>{building.emoji}</div>
+        <div style={{ ...streetBuildingWindowGridStyle, gridTemplateColumns: "repeat(2, 1fr)", padding: "4px 28%", gap: "5px", alignContent: "center" }}>
+          {Array.from({ length: 14 }).map((_, index) => (
+            <span key={index} style={{ ...streetBuildingWindowStyle, height: "11px", borderRadius: "4px", background: index % 3 === 0 ? "#fde68a" : "rgba(255,255,255,0.74)" }} />
+          ))}
+        </div>
+        <div style={{ ...streetBuildingSignStyle, fontSize: "14px" }}>{building.title}</div>
+        <div style={streetBuildingSubtitleStyle}>{building.subtitle}</div>
+      </>
+    );
+  }
+
+  if (building.id === "bank" || building.id === "finance") {
+    return (
+      <>
+        <div style={{ ...streetBuildingRoofStyle, width: "62px", borderRadius: "22px 22px 8px 8px" }}>{building.emoji}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "7px", padding: "4px 16px", alignItems: "end" }}>
+          {Array.from({ length: 4 }).map((_, index) => (
+            <span key={index} style={{ height: index % 2 === 0 ? "74px" : "60px", borderRadius: "999px 999px 8px 8px", background: "rgba(255,255,255,0.62)", border: "3px solid rgba(255,255,255,0.88)", boxShadow: "inset 0 -6px 0 rgba(15,23,42,0.08)" }} />
+          ))}
+        </div>
+        <div style={streetBuildingSignStyle}>{building.title}</div>
+        <div style={streetBuildingSubtitleStyle}>{building.subtitle}</div>
+      </>
+    );
+  }
+
+  if (building.id === "logistics") {
+    return (
+      <>
+        <div style={{ ...streetBuildingRoofStyle, width: "64px" }}>{building.emoji}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: "8px", alignItems: "end", padding: "4px 12px" }}>
+          <span style={{ height: "42px", borderRadius: "10px", background: "rgba(255,255,255,0.58)", border: "3px solid rgba(255,255,255,0.82)" }} />
+          <span style={{ height: "28px", borderRadius: "8px", background: "rgba(255,255,255,0.58)", border: "3px solid rgba(255,255,255,0.82)" }} />
+          <span style={{ height: "34px", borderRadius: "8px", background: "rgba(255,255,255,0.58)", border: "3px solid rgba(255,255,255,0.82)" }} />
+        </div>
+        <div style={streetBuildingSignStyle}>{building.title}</div>
+        <div style={streetBuildingSubtitleStyle}>{building.subtitle}</div>
+      </>
+    );
+  }
+
+  if (building.id === "entertainment" || building.id === "casino") {
+    return (
+      <>
+        <div style={{ ...streetBuildingRoofStyle, background: "#fff7ed", borderRadius: building.id === "casino" ? "999px" : "16px" }}>{building.emoji}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "7px", padding: "4px 14px", alignContent: "center" }}>
+          {Array.from({ length: windowCount }).map((_, index) => (
+            <span key={index} style={{ ...streetBuildingWindowStyle, height: building.id === "casino" ? "14px" : "12px", background: index % 2 === 0 ? "rgba(255,255,255,0.78)" : "rgba(253,230,138,0.74)" }} />
+          ))}
+        </div>
+        <div style={{ ...streetBuildingSignStyle, boxShadow: "0 0 14px rgba(250,204,21,0.32), 3px 3px 0 rgba(17,24,39,0.14)" }}>{building.title}</div>
+        <div style={streetBuildingSubtitleStyle}>{building.subtitle}</div>
+      </>
+    );
+  }
+
+  if (building.id === "estate") {
+    return (
+      <>
+        <div style={{ ...streetBuildingRoofStyle, background: "#ecfccb" }}>{building.emoji}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", padding: "4px 18px", alignContent: "center" }}>
+          {Array.from({ length: windowCount }).map((_, index) => (
+            <span key={index} style={{ ...streetBuildingWindowStyle, height: "14px", borderRadius: index % 2 === 0 ? "12px 12px 4px 4px" : "4px" }} />
+          ))}
+        </div>
+        <div style={streetBuildingSignStyle}>{building.title}</div>
+        <div style={streetBuildingSubtitleStyle}>{building.subtitle}</div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div style={streetBuildingRoofStyle}>{building.emoji}</div>
+      <div style={streetBuildingWindowGridStyle}>
+        {Array.from({ length: windowCount }).map((_, windowIndex) => (
+          <span key={windowIndex} style={streetBuildingWindowStyle} />
+        ))}
+      </div>
+      <div style={streetBuildingSignStyle}>{building.title}</div>
+      <div style={streetBuildingSubtitleStyle}>{building.subtitle}</div>
+    </>
+  );
+}
+
 function SortingGame({ item, combo, miss, difficulty }: { item: SortItem; combo: number; miss: number; difficulty: number }) {
   const activeKinds = getActiveSortKinds(difficulty);
   return (
@@ -3582,43 +3667,43 @@ function getStreetPageLabel(page: number) {
 }
 
 function getStreetBuildingHeight(buildingId: StreetBuildingId) {
-  if (buildingId === "company") return "206px";
+  if (buildingId === "stocks") return "268px";
+  if (buildingId === "company") return "226px";
   if (buildingId === "entertainment") return "218px";
-  if (buildingId === "finance") return "198px";
-  if (buildingId === "stocks") return "224px";
-  if (buildingId === "bank") return "190px";
-  if (buildingId === "estate") return "160px";
-  if (buildingId === "business") return "168px";
-  if (buildingId === "news") return "150px";
-  if (buildingId === "logistics") return "156px";
-  if (buildingId === "casino") return "166px";
-  return "180px";
+  if (buildingId === "finance") return "206px";
+  if (buildingId === "bank") return "206px";
+  if (buildingId === "estate") return "174px";
+  if (buildingId === "business") return "188px";
+  if (buildingId === "news") return "168px";
+  if (buildingId === "logistics") return "162px";
+  if (buildingId === "casino") return "178px";
+  return "190px";
 }
 
 function getStreetBuildingPlacement(buildingId: StreetBuildingId, page: number): CSSProperties {
   if (page === 0) {
-    if (buildingId === "company") return { left: "5%", bottom: "182px", width: "28%" };
-    if (buildingId === "entertainment") return { left: "37%", bottom: "176px", width: "28%" };
-    if (buildingId === "finance") return { left: "68%", bottom: "182px", width: "28%" };
+    if (buildingId === "company") return { left: "7%", bottom: "132px", width: "22%" };
+    if (buildingId === "entertainment") return { left: "39%", bottom: "126px", width: "23%" };
+    if (buildingId === "finance") return { left: "72%", bottom: "134px", width: "20%" };
   }
 
   if (page === 1) {
-    if (buildingId === "bank") return { left: "10%", bottom: "176px", width: "23%" };
-    if (buildingId === "stocks") return { left: "37%", bottom: "154px", width: "27%" };
-    if (buildingId === "logistics") return { left: "69%", bottom: "172px", width: "21%" };
+    if (buildingId === "bank") return { left: "12%", bottom: "132px", width: "19%" };
+    if (buildingId === "stocks") return { left: "43%", bottom: "112px", width: "16%" };
+    if (buildingId === "logistics") return { left: "70%", bottom: "128px", width: "22%" };
   }
 
   if (page === 2) {
-    if (buildingId === "estate") return { left: "10%", bottom: "168px", width: "21%" };
-    if (buildingId === "business") return { left: "39%", bottom: "162px", width: "22%" };
-    if (buildingId === "news") return { left: "69%", bottom: "170px", width: "20%" };
+    if (buildingId === "estate") return { left: "13%", bottom: "128px", width: "20%" };
+    if (buildingId === "business") return { left: "41%", bottom: "120px", width: "21%" };
+    if (buildingId === "news") return { left: "70%", bottom: "132px", width: "18%" };
   }
 
   if (page === 3) {
-    if (buildingId === "casino") return { left: "37%", bottom: "150px", width: "26%" };
+    if (buildingId === "casino") return { left: "39%", bottom: "126px", width: "22%" };
   }
 
-  return { left: "38%", bottom: "170px", width: "24%" };
+  return { left: "38%", bottom: "132px", width: "22%" };
 }
 
 function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
@@ -5470,7 +5555,7 @@ const streetBuildingSubtitleStyle: CSSProperties = {
 const streetPageInfoStyle: CSSProperties = {
   position: "absolute",
   zIndex: 9,
-  top: "12px",
+  top: "14px",
   right: "18px",
   display: "grid",
   justifyItems: "end",
@@ -6086,6 +6171,7 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
+
 
 
 
