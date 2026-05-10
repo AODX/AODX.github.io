@@ -47,10 +47,10 @@ type SaveRow = {
   security_success_total?: number | string | null;
 };
 
-type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks";
+type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino";
 type RoomKind = "basic" | "studio" | "office";
 type CareerBuildingId = "company" | "entertainment" | "logistics" | "finance";
-type StreetBuildingId = CareerBuildingId | "stocks";
+type StreetBuildingId = CareerBuildingId | "stocks" | "casino";
 type OccupationId =
   | "unemployed"
   | "officeIntern"
@@ -136,6 +136,46 @@ type StockSaveRow = {
   rows: StockRow[] | string | null;
   updated_at: string | null;
 };
+
+
+type CasinoUserRow = {
+  id: string;
+  nickname: string;
+  cash: number;
+  job: string;
+};
+
+type PvpMatchRow = {
+  id: string;
+  challenger_id: string;
+  opponent_id: string | null;
+  stake: number | string;
+  status: "waiting" | "accepted" | "playing" | "finished" | "cancelled";
+  challenger_score: number | null;
+  opponent_score: number | null;
+  winner_id: string | null;
+  game_type: string | null;
+  created_at: string | null;
+  accepted_at: string | null;
+  finished_at: string | null;
+};
+
+type SlotResult = {
+  result: string;
+  stake: number;
+  reward: number;
+  profit: number;
+};
+
+type PvpSubmitResult = {
+  status: string;
+  winner_id?: string;
+  reward?: number;
+  challenger_score?: number;
+  opponent_score?: number;
+};
+
+type PvpReactionState = "idle" | "waiting" | "go" | "submitted";
 
 const PROFILE_TABLE = "game_profiles";
 const STOCK_TABLE = "game_stock_saves";
@@ -512,6 +552,7 @@ const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: st
   { id: "logistics", title: "물류 센터", subtitle: "물류 · 배차 · 배달 플랫폼", emoji: "🚚" },
   { id: "finance", title: "투자 회사", subtitle: "투자자 테스트 · 금융 직업", emoji: "🏦" },
   { id: "stocks", title: "주식 거래소", subtitle: "투자 · 시세 · 보유 주식", emoji: "📈" },
+  { id: "casino", title: "도박장", subtitle: "슬롯 머신 · 유저 대전", emoji: "🎰" },
 ];
 
 const stockCompanies: StockCompany[] = [
@@ -571,6 +612,19 @@ export default function GamePage() {
   const [stockUpdatedAt, setStockUpdatedAt] = useState(new Date());
   const [stockCountdownMs, setStockCountdownMs] = useState(STOCK_INTERVAL_MS);
   const [isStockLoaded, setIsStockLoaded] = useState(false);
+
+  const [slotStake, setSlotStake] = useState("1000");
+  const [slotResult, setSlotResult] = useState<SlotResult | null>(null);
+  const [isSlotPlaying, setIsSlotPlaying] = useState(false);
+  const [casinoUsers, setCasinoUsers] = useState<CasinoUserRow[]>([]);
+  const [pvpMatches, setPvpMatches] = useState<PvpMatchRow[]>([]);
+  const [pvpStake, setPvpStake] = useState("1000");
+  const [selectedOpponentId, setSelectedOpponentId] = useState("");
+  const [pvpMessage, setPvpMessage] = useState("상대를 선택하고 판돈을 걸어 대전을 신청하세요.");
+  const [activePvpMatch, setActivePvpMatch] = useState<PvpMatchRow | null>(null);
+  const [pvpReactionState, setPvpReactionState] = useState<PvpReactionState>("idle");
+  const [pvpReactionStartAt, setPvpReactionStartAt] = useState(0);
+  const [pvpReactionScore, setPvpReactionScore] = useState(0);
 
   const [warningCount, setWarningCount] = useState(0);
   const [unpaidTax, setUnpaidTax] = useState(0);
@@ -769,19 +823,72 @@ export default function GamePage() {
   }, [userId]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !isSaveLoaded) return;
 
     refreshRanking();
+
+    const supabase = createClient();
+    const rankingChannel = supabase
+      .channel("game-ranking-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "game_saves" },
+        () => {
+          refreshRanking();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: PROFILE_TABLE },
+        () => {
+          refreshRanking();
+        }
+      )
+      .subscribe();
+
     const timer = window.setInterval(() => {
       refreshRanking();
-    }, 30 * 60 * 1000);
+    }, 60 * 1000);
 
-    return () => window.clearInterval(timer);
-  }, [userId]);
+    return () => {
+      window.clearInterval(timer);
+      void supabase.removeChannel(rankingChannel);
+    };
+  }, [userId, isSaveLoaded, nickname, cash, occupationId]);
 
   useEffect(() => {
     if (lobbyView === "ranking") refreshRanking();
+    if (lobbyView === "casino") refreshCasinoData();
   }, [lobbyView]);
+
+  useEffect(() => {
+    if (!userId || !isSaveLoaded) return;
+
+    refreshCasinoData();
+
+    const supabase = createClient();
+    const casinoChannel = supabase
+      .channel("game-casino-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "game_pvp_matches" }, () => {
+        refreshCasinoData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "game_saves" }, () => {
+        refreshCasinoData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: PROFILE_TABLE }, () => {
+        refreshCasinoData();
+      })
+      .subscribe();
+
+    const timer = window.setInterval(() => {
+      if (lobbyView === "casino") refreshCasinoData();
+    }, 30 * 1000);
+
+    return () => {
+      window.clearInterval(timer);
+      void supabase.removeChannel(casinoChannel);
+    };
+  }, [userId, isSaveLoaded, lobbyView, nickname, cash, occupationId]);
 
   useEffect(() => {
     if (!careerMiniGame) return;
@@ -1611,6 +1718,12 @@ export default function GamePage() {
       return;
     }
 
+    if (buildingId === "casino") {
+      setLobbyView("casino");
+      refreshCasinoData();
+      return;
+    }
+
     setCareerBuildingId(buildingId);
     setLobbyView("career");
   }
@@ -1892,6 +2005,240 @@ export default function GamePage() {
 
     setRankingRows(rows.length > 0 ? rows : fallbackRows);
     setRankingUpdatedAt(new Date());
+  }
+
+  async function refreshCasinoData() {
+    if (!userId) return;
+
+    const supabase = createClient();
+
+    const { data: profiles, error: profilesError } = await supabase
+      .from(PROFILE_TABLE)
+      .select("id, nickname, occupation_id")
+      .limit(1000);
+
+    if (profilesError) {
+      console.warn("도박장 유저 목록 불러오기 실패:", profilesError.message);
+      return;
+    }
+
+    const typedProfiles = (profiles ?? []) as ProfileRow[];
+    const profileIds = typedProfiles.map((profile) => profile.id);
+
+    const { data: saves, error: savesError } = await supabase
+      .from("game_saves")
+      .select("user_id, cash")
+      .in("user_id", profileIds.length > 0 ? profileIds : [userId]);
+
+    if (savesError) {
+      console.warn("도박장 자금 불러오기 실패:", savesError.message);
+    }
+
+    const saveMap = new Map<string, RankingSaveRow>(
+      ((saves ?? []) as RankingSaveRow[]).map((save) => [save.user_id, save])
+    );
+
+    const users = typedProfiles
+      .filter((profile) => profile.id !== userId)
+      .map((profile) => {
+        const profileOccupationId = profile.occupation_id && profile.occupation_id in occupationInfo ? (profile.occupation_id as OccupationId) : "unemployed";
+        return {
+          id: profile.id,
+          nickname: profile.nickname || `유저-${profile.id.slice(0, 8)}`,
+          cash: Number(saveMap.get(profile.id)?.cash ?? 0),
+          job: occupationInfo[profileOccupationId].name,
+        };
+      })
+      .sort((a, b) => b.cash - a.cash);
+
+    setCasinoUsers(users);
+
+    if (!selectedOpponentId && users.length > 0) {
+      setSelectedOpponentId(users[0].id);
+    }
+
+    const { data: matches, error: matchesError } = await supabase
+      .from("game_pvp_matches")
+      .select("id, challenger_id, opponent_id, stake, status, challenger_score, opponent_score, winner_id, game_type, created_at, accepted_at, finished_at")
+      .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (matchesError) {
+      console.warn("대전 목록 불러오기 실패:", matchesError.message);
+      return;
+    }
+
+    setPvpMatches(((matches ?? []) as PvpMatchRow[]).map(normalizePvpMatch));
+  }
+
+  async function playSlotMachine() {
+    if (!userId || isSlotPlaying) return;
+
+    const stake = Math.floor(Number(slotStake));
+    if (!Number.isFinite(stake) || stake < 100) {
+      setMessage("🎰 슬롯 머신 최소 베팅 금액은 100원입니다.");
+      return;
+    }
+
+    if (stake > cash) {
+      setMessage("🎰 보유 현금보다 많이 걸 수 없습니다.");
+      return;
+    }
+
+    setIsSlotPlaying(true);
+    setSlotResult(null);
+
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc("play_slot_machine", { p_stake: stake });
+
+    setIsSlotPlaying(false);
+
+    if (error) {
+      setMessage(`🎰 슬롯 실패: ${error.message}`);
+      return;
+    }
+
+    const result = data as SlotResult;
+    setSlotResult(result);
+    setCash((money) => Math.max(0, money + Number(result.profit ?? 0)));
+    setMessage(getSlotResultMessage(result));
+    refreshRanking();
+    refreshCasinoData();
+  }
+
+  async function createPvpChallenge() {
+    if (!userId) return;
+
+    const stake = Math.floor(Number(pvpStake));
+    if (!selectedOpponentId) {
+      setPvpMessage("상대를 먼저 선택하세요.");
+      return;
+    }
+
+    if (!Number.isFinite(stake) || stake < 100) {
+      setPvpMessage("최소 판돈은 100원입니다.");
+      return;
+    }
+
+    if (stake > cash) {
+      setPvpMessage("보유 현금보다 많이 걸 수 없습니다.");
+      return;
+    }
+
+    const supabase = createClient();
+    const { error } = await supabase.rpc("create_pvp_match", {
+      p_opponent_id: selectedOpponentId,
+      p_stake: stake,
+    });
+
+    if (error) {
+      setPvpMessage(`도전 생성 실패: ${error.message}`);
+      return;
+    }
+
+    setCash((money) => Math.max(0, money - stake));
+    setPvpMessage("도전장을 보냈습니다. 상대가 수락하면 반응속도 미니게임을 시작할 수 있습니다.");
+    refreshRanking();
+    refreshCasinoData();
+  }
+
+  async function acceptPvpChallenge(match: PvpMatchRow) {
+    if (!userId) return;
+    const stake = Number(match.stake);
+
+    if (stake > cash) {
+      setPvpMessage("수락하기에는 보유 현금이 부족합니다.");
+      return;
+    }
+
+    const supabase = createClient();
+    const { error } = await supabase.rpc("accept_pvp_match", { p_match_id: match.id });
+
+    if (error) {
+      setPvpMessage(`대전 수락 실패: ${error.message}`);
+      return;
+    }
+
+    setCash((money) => Math.max(0, money - stake));
+    const acceptedMatch = { ...match, status: "accepted" as const };
+    setActivePvpMatch(acceptedMatch);
+    resetPvpReaction(acceptedMatch);
+    setPvpMessage("대전을 수락했습니다. 반응속도 미니게임을 시작하세요.");
+    refreshRanking();
+    refreshCasinoData();
+  }
+
+  function startPvpReaction(match: PvpMatchRow) {
+    setActivePvpMatch(match);
+    resetPvpReaction(match);
+  }
+
+  function resetPvpReaction(match = activePvpMatch) {
+    setActivePvpMatch(match);
+    setPvpReactionState("idle");
+    setPvpReactionStartAt(0);
+    setPvpReactionScore(0);
+  }
+
+  function beginPvpReactionRound() {
+    if (!activePvpMatch) return;
+
+    setPvpReactionState("waiting");
+    setPvpReactionScore(0);
+
+    const delay = 1000 + Math.floor(Math.random() * 2200);
+    window.setTimeout(() => {
+      setPvpReactionStartAt(Date.now());
+      setPvpReactionState("go");
+    }, delay);
+  }
+
+  async function hitPvpReactionButton() {
+    if (!activePvpMatch) return;
+
+    if (pvpReactionState === "waiting") {
+      setPvpReactionScore(1);
+      setPvpReactionState("submitted");
+      await submitPvpScore(activePvpMatch, 1);
+      return;
+    }
+
+    if (pvpReactionState !== "go") return;
+
+    const reactionMs = Math.max(1, Date.now() - pvpReactionStartAt);
+    const score = Math.max(1, 1200 - reactionMs);
+    setPvpReactionScore(score);
+    setPvpReactionState("submitted");
+    await submitPvpScore(activePvpMatch, score);
+  }
+
+  async function submitPvpScore(match: PvpMatchRow, score: number) {
+    if (!userId) return;
+
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc("finish_pvp_match", {
+      p_match_id: match.id,
+      p_my_score: Math.max(1, Math.floor(score)),
+    });
+
+    if (error) {
+      setPvpMessage(`점수 제출 실패: ${error.message}`);
+      return;
+    }
+
+    const result = data as PvpSubmitResult;
+    if (result.status === "finished") {
+      const won = result.winner_id === userId;
+      const reward = Number(result.reward ?? 0);
+      if (won) setCash((money) => money + reward);
+      setPvpMessage(won ? `🏆 승리! 상금 ${reward.toLocaleString()}원을 획득했습니다.` : "패배했습니다. 다음 대전에 다시 도전하세요.");
+    } else {
+      setPvpMessage("점수를 제출했습니다. 상대 점수를 기다리는 중입니다.");
+    }
+
+    refreshRanking();
+    refreshCasinoData();
   }
 
   function persistStocksNow(rows: StockRow[], updatedAt: Date = stockUpdatedAt) {
@@ -2260,13 +2607,147 @@ export default function GamePage() {
             </div>
           )}
 
+          {lobbyView === "casino" && (
+            <div style={casinoSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>CASINO</div>
+                  <h2 style={panelTitleStyle}>도박장</h2>
+                  <p style={panelDescStyle}>게임머니 전용 콘텐츠입니다. 슬롯 머신과 유저 대전을 진행할 수 있습니다.</p>
+                </div>
+                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+              </div>
+
+              <div style={casinoContentGridStyle}>
+                <section style={casinoCardStyle}>
+                  <div style={casinoCardHeaderStyle}>
+                    <div style={casinoIconStyle}>🎰</div>
+                    <div>
+                      <h3 style={casinoTitleStyle}>슬롯 머신</h3>
+                      <p style={casinoTextStyle}>베팅 금액을 정하고 서버 확률로 결과가 결정됩니다.</p>
+                    </div>
+                  </div>
+                  <input
+                    type="number"
+                    min={100}
+                    step={100}
+                    value={slotStake}
+                    onChange={(event) => setSlotStake(event.target.value)}
+                    style={casinoInputStyle}
+                  />
+                  <button onClick={playSlotMachine} disabled={isSlotPlaying} style={casinoPrimaryButtonStyle}>
+                    {isSlotPlaying ? "돌리는 중..." : "슬롯 돌리기"}
+                  </button>
+                  {slotResult && (
+                    <div style={slotResultBoxStyle}>
+                      <strong>{getSlotResultLabel(slotResult.result)}</strong>
+                      <span>베팅 {slotResult.stake.toLocaleString()}원 · 보상 {slotResult.reward.toLocaleString()}원</span>
+                      <span style={{ color: slotResult.profit >= 0 ? "#16a34a" : "#dc2626" }}>
+                        손익 {slotResult.profit >= 0 ? "+" : ""}{slotResult.profit.toLocaleString()}원
+                      </span>
+                    </div>
+                  )}
+                </section>
+
+                <section style={casinoCardStyle}>
+                  <div style={casinoCardHeaderStyle}>
+                    <div style={casinoIconStyle}>⚔️</div>
+                    <div>
+                      <h3 style={casinoTitleStyle}>유저 대전</h3>
+                      <p style={casinoTextStyle}>상대를 선택하고 같은 금액을 걸어 반응속도 미니게임으로 겨룹니다.</p>
+                    </div>
+                  </div>
+
+                  <select value={selectedOpponentId} onChange={(event) => setSelectedOpponentId(event.target.value)} style={casinoInputStyle}>
+                    {casinoUsers.length === 0 ? (
+                      <option value="">대전 가능한 유저 없음</option>
+                    ) : (
+                      casinoUsers.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.nickname} · {user.cash.toLocaleString()}원 · {user.job}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <input
+                    type="number"
+                    min={100}
+                    step={100}
+                    value={pvpStake}
+                    onChange={(event) => setPvpStake(event.target.value)}
+                    style={casinoInputStyle}
+                  />
+                  <button onClick={createPvpChallenge} disabled={!selectedOpponentId} style={casinoPrimaryButtonStyle}>도전장 보내기</button>
+                  <div style={pvpMessageStyle}>{pvpMessage}</div>
+                </section>
+              </div>
+
+              <div style={casinoLowerGridStyle}>
+                <section style={casinoListCardStyle}>
+                  <h3 style={casinoTitleStyle}>받은 도전</h3>
+                  {pvpMatches.filter((match) => match.status === "waiting" && match.opponent_id === userId).length === 0 ? (
+                    <p style={casinoTextStyle}>받은 도전이 없습니다.</p>
+                  ) : (
+                    pvpMatches
+                      .filter((match) => match.status === "waiting" && match.opponent_id === userId)
+                      .map((match) => (
+                        <div key={match.id} style={pvpMatchRowStyle}>
+                          <div>
+                            <strong>{getCasinoUserName(match.challenger_id, casinoUsers, userId, nickname)}</strong>
+                            <span>판돈 {Number(match.stake).toLocaleString()}원</span>
+                          </div>
+                          <button onClick={() => acceptPvpChallenge(match)} style={casinoSmallButtonStyle}>수락</button>
+                        </div>
+                      ))
+                  )}
+                </section>
+
+                <section style={casinoListCardStyle}>
+                  <h3 style={casinoTitleStyle}>진행 중인 대전</h3>
+                  {pvpMatches.filter((match) => match.status === "accepted" || match.status === "playing").length === 0 ? (
+                    <p style={casinoTextStyle}>진행 중인 대전이 없습니다.</p>
+                  ) : (
+                    pvpMatches
+                      .filter((match) => match.status === "accepted" || match.status === "playing")
+                      .map((match) => (
+                        <div key={match.id} style={pvpMatchRowStyle}>
+                          <div>
+                            <strong>{getPvpOpponentName(match, userId, casinoUsers, nickname)}</strong>
+                            <span>판돈 {Number(match.stake).toLocaleString()}원 · 상태 {getPvpStatusLabel(match.status)}</span>
+                          </div>
+                          <button onClick={() => startPvpReaction(match)} style={casinoSmallButtonStyle}>플레이</button>
+                        </div>
+                      ))
+                  )}
+                </section>
+              </div>
+
+              {activePvpMatch && (
+                <section style={pvpGamePanelStyle}>
+                  <div>
+                    <h3 style={casinoTitleStyle}>반응속도 대전</h3>
+                    <p style={casinoTextStyle}>초록 불이 켜진 뒤 최대한 빨리 버튼을 누르세요. 먼저 누르면 실격 점수입니다.</p>
+                  </div>
+                  <div style={{ ...pvpLightStyle, background: pvpReactionState === "go" ? "#22c55e" : pvpReactionState === "waiting" ? "#ef4444" : "#e5e7eb" }}>
+                    {pvpReactionState === "go" ? "지금!" : pvpReactionState === "waiting" ? "기다려!" : pvpReactionState === "submitted" ? `점수 ${pvpReactionScore}` : "준비"}
+                  </div>
+                  <div style={pvpButtonRowStyle}>
+                    <button onClick={beginPvpReactionRound} disabled={pvpReactionState === "waiting" || pvpReactionState === "go"} style={casinoPrimaryButtonStyle}>시작</button>
+                    <button onClick={hitPvpReactionButton} disabled={pvpReactionState === "idle" || pvpReactionState === "submitted"} style={casinoDangerButtonStyle}>누르기</button>
+                    <button onClick={() => setActivePvpMatch(null)} style={casinoSmallButtonStyle}>닫기</button>
+                  </div>
+                </section>
+              )}
+            </div>
+          )}
+
           {lobbyView === "ranking" && (
             <div style={panelSceneStyle}>
               <div style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>RANKING</div>
                   <h2 style={panelTitleStyle}>랭킹</h2>
-                  <p style={panelDescStyle}>프로필이 생성된 계정 중 보유 현금 상위 10명이 표시됩니다. 30분마다 갱신됩니다. 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
+                  <p style={panelDescStyle}>프로필이 생성된 계정 중 보유 현금 상위 10명이 표시됩니다. 실시간으로 갱신됩니다. 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
                 </div>
                 <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
               </div>
@@ -2277,7 +2758,7 @@ export default function GamePage() {
                     <strong>{row.rank}위</strong>
                     <span>{row.isMe ? "👤 " : ""}{row.nickname}</span>
                     <span>{row.job}</span>
-                    <strong>{row.hasSave ? `${row.cash.toLocaleString()}원` : "미플레이"}</strong>
+                    <strong>{`${row.cash.toLocaleString()}원`}</strong>
                   </div>
                 ))}
               </div>
@@ -2617,6 +3098,7 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
 
 function getStreetBuildingHeight(buildingId: StreetBuildingId) {
   if (buildingId === "stocks") return "354px";
+  if (buildingId === "casino") return "334px";
   if (buildingId === "entertainment") return "342px";
   if (buildingId === "logistics") return "286px";
   if (buildingId === "finance") return "326px";
@@ -2628,6 +3110,13 @@ function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
     return {
       background: "linear-gradient(180deg, #dbeafe 0%, #60a5fa 100%)",
       borderColor: "#1e3a8a",
+    };
+  }
+
+  if (buildingId === "casino") {
+    return {
+      background: "linear-gradient(180deg, #fee2e2 0%, #f97316 100%)",
+      borderColor: "#7c2d12",
     };
   }
 
@@ -2656,6 +3145,49 @@ function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
     background: "linear-gradient(180deg, #ecfeff 0%, #67e8f9 100%)",
     borderColor: "#155e75",
   };
+}
+
+function normalizePvpMatch(match: PvpMatchRow): PvpMatchRow {
+  return {
+    ...match,
+    stake: Number(match.stake ?? 0),
+    challenger_score: Number(match.challenger_score ?? 0),
+    opponent_score: Number(match.opponent_score ?? 0),
+  };
+}
+
+function getSlotResultLabel(result: string) {
+  if (result === "jackpot") return "대박";
+  if (result === "win") return "성공";
+  if (result === "draw") return "본전";
+  return "실패";
+}
+
+function getSlotResultMessage(result: SlotResult) {
+  const profit = Number(result.profit ?? 0);
+  if (result.result === "jackpot") return `🎰 대박! +${profit.toLocaleString()}원`;
+  if (result.result === "win") return `🎰 슬롯 성공! +${profit.toLocaleString()}원`;
+  if (result.result === "draw") return "🎰 본전입니다.";
+  return `🎰 실패! ${Math.abs(profit).toLocaleString()}원을 잃었습니다.`;
+}
+
+function getPvpStatusLabel(status: PvpMatchRow["status"]) {
+  if (status === "waiting") return "수락 대기";
+  if (status === "accepted") return "플레이 가능";
+  if (status === "playing") return "점수 대기";
+  if (status === "finished") return "종료";
+  return "취소";
+}
+
+function getCasinoUserName(id: string | null, users: CasinoUserRow[], currentUserId: string | null, nickname: string) {
+  if (!id) return "알 수 없음";
+  if (id === currentUserId) return nickname;
+  return users.find((user) => user.id === id)?.nickname ?? `유저-${id.slice(0, 8)}`;
+}
+
+function getPvpOpponentName(match: PvpMatchRow, currentUserId: string | null, users: CasinoUserRow[], nickname: string) {
+  const opponentId = match.challenger_id === currentUserId ? match.opponent_id : match.challenger_id;
+  return getCasinoUserName(opponentId, users, currentUserId, nickname);
 }
 
 function getCareerTargetScore(occupation: Occupation) {
@@ -4513,3 +5045,196 @@ const firedStampReasonStyle: CSSProperties = {
   color: "#111827",
   whiteSpace: "nowrap",
 };
+
+const casinoSceneStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "grid",
+  gridTemplateRows: "auto minmax(0, 1fr) minmax(0, 0.9fr) auto",
+  gap: "12px",
+  overflow: "hidden",
+  background: "linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%)",
+  border: "4px solid #111827",
+  borderRadius: "28px",
+  padding: "18px",
+  color: "#111827",
+};
+
+const casinoContentGridStyle: CSSProperties = {
+  minHeight: 0,
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "12px",
+  overflow: "hidden",
+};
+
+const casinoLowerGridStyle: CSSProperties = {
+  minHeight: 0,
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "12px",
+  overflow: "hidden",
+};
+
+const casinoCardStyle: CSSProperties = {
+  minHeight: 0,
+  background: "rgba(255,255,255,0.92)",
+  border: "4px solid #111827",
+  borderRadius: "22px",
+  padding: "14px",
+  boxShadow: "0 8px 0 rgba(15,23,42,0.14)",
+  display: "grid",
+  gap: "10px",
+  overflow: "hidden",
+};
+
+const casinoListCardStyle: CSSProperties = {
+  minHeight: 0,
+  background: "rgba(255,255,255,0.92)",
+  border: "4px solid #111827",
+  borderRadius: "22px",
+  padding: "14px",
+  boxShadow: "0 8px 0 rgba(15,23,42,0.14)",
+  overflowY: "auto",
+};
+
+const casinoCardHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+  minWidth: 0,
+};
+
+const casinoIconStyle: CSSProperties = {
+  width: "58px",
+  height: "58px",
+  border: "4px solid #111827",
+  borderRadius: "18px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: "30px",
+  background: "#fef3c7",
+  flexShrink: 0,
+};
+
+const casinoTitleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "22px",
+  fontWeight: 900,
+  color: "#111827",
+};
+
+const casinoTextStyle: CSSProperties = {
+  margin: "4px 0 0",
+  color: "#475569",
+  fontWeight: 800,
+  fontSize: "14px",
+  lineHeight: 1.35,
+};
+
+const casinoInputStyle: CSSProperties = {
+  width: "100%",
+  border: "3px solid #111827",
+  borderRadius: "14px",
+  background: "#ffffff",
+  color: "#111827",
+  padding: "11px 12px",
+  fontWeight: 900,
+  fontSize: "16px",
+  outline: "none",
+};
+
+const casinoPrimaryButtonStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "16px",
+  background: "#facc15",
+  color: "#111827",
+  padding: "12px 16px",
+  fontSize: "17px",
+  fontWeight: 900,
+  cursor: "pointer",
+  boxShadow: "0 5px 0 rgba(15,23,42,0.18)",
+};
+
+const casinoDangerButtonStyle: CSSProperties = {
+  ...casinoPrimaryButtonStyle,
+  background: "#22c55e",
+};
+
+const casinoSmallButtonStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "12px",
+  background: "#ffffff",
+  color: "#111827",
+  padding: "9px 12px",
+  fontWeight: 900,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
+const slotResultBoxStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "16px",
+  background: "#f8fafc",
+  padding: "12px",
+  display: "grid",
+  gap: "4px",
+  fontWeight: 900,
+};
+
+const pvpMessageStyle: CSSProperties = {
+  minHeight: "42px",
+  borderRadius: "14px",
+  background: "#eff6ff",
+  border: "2px solid #bfdbfe",
+  color: "#1e3a8a",
+  padding: "10px",
+  fontWeight: 900,
+  lineHeight: 1.35,
+};
+
+const pvpMatchRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "10px",
+  border: "3px solid #111827",
+  borderRadius: "16px",
+  background: "#f8fafc",
+  padding: "10px",
+  marginBottom: "8px",
+};
+
+const pvpGamePanelStyle: CSSProperties = {
+  minHeight: 0,
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) 160px auto",
+  gap: "12px",
+  alignItems: "center",
+  border: "4px solid #111827",
+  borderRadius: "22px",
+  background: "#ffffff",
+  padding: "12px",
+  boxShadow: "0 8px 0 rgba(15,23,42,0.14)",
+};
+
+const pvpLightStyle: CSSProperties = {
+  height: "92px",
+  border: "4px solid #111827",
+  borderRadius: "22px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "#111827",
+  fontSize: "24px",
+  fontWeight: 900,
+};
+
+const pvpButtonRowStyle: CSSProperties = {
+  display: "flex",
+  gap: "8px",
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
+};
+
