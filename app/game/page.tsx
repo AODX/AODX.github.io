@@ -47,10 +47,10 @@ type SaveRow = {
   security_success_total?: number | string | null;
 };
 
-type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "titles";
+type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "titles" | "insurance" | "employees" | "auction";
 type RoomKind = "basic" | "studio" | "office";
 type CareerBuildingId = "company" | "entertainment" | "logistics" | "finance";
-type StreetBuildingId = CareerBuildingId | "stocks" | "casino" | "bank" | "estate" | "business" | "news";
+type StreetBuildingId = CareerBuildingId | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "insurance" | "employees" | "auction";
 type OccupationId =
   | "unemployed"
   | "officeIntern"
@@ -188,6 +188,8 @@ type PvpReactionState = "idle" | "waiting" | "go" | "submitted";
 
 type EstateId = "semiBasement" | "officetel" | "apartment" | "smallStore" | "building";
 type BusinessId = "coffeeShop" | "convenienceStore" | "deliveryAgency" | "entertainmentAgency";
+type InsuranceId = "delivery" | "tax" | "business" | "casino";
+type AuctionId = "estate_apartment" | "estate_store" | "business_cafe" | "stock_bundle";
 
 type EstateItem = {
   id: EstateId;
@@ -213,6 +215,33 @@ type NewsEvent = {
   title: string;
   effect: string;
   tone: "good" | "bad" | "neutral";
+};
+
+type InsuranceItem = {
+  id: InsuranceId;
+  name: string;
+  icon: string;
+  premiumEvery5Min: number;
+  description: string;
+};
+
+type EmployeePlan = {
+  level: number;
+  name: string;
+  cost: number;
+  payrollEvery60Sec: number;
+  revenueBonusRate: number;
+  description: string;
+};
+
+type AuctionDeal = {
+  id: AuctionId;
+  name: string;
+  icon: string;
+  type: "estate" | "business" | "stock";
+  price: number;
+  value: number;
+  description: string;
 };
 
 const PROFILE_TABLE = "game_profiles";
@@ -595,6 +624,9 @@ const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: st
   { id: "estate", title: "부동산", subtitle: "원룸 · 상가 · 빌딩", emoji: "🏘️" },
   { id: "business", title: "창업 센터", subtitle: "카페 · 편의점 · 사업", emoji: "🧾" },
   { id: "news", title: "경제 뉴스", subtitle: "시장 이벤트 · 흐름", emoji: "📰" },
+  { id: "insurance", title: "보험사", subtitle: "사고 · 세금 · 사업 보장", emoji: "🛡️" },
+  { id: "employees", title: "인력 사무소", subtitle: "직원 고용 · 인건비", emoji: "👥" },
+  { id: "auction", title: "경매장", subtitle: "할인 매물 · 즉시 구매", emoji: "🔨" },
   { id: "casino", title: "도박장", subtitle: "슬롯 머신 · 유저 대전", emoji: "🎰" },
 ];
 
@@ -602,6 +634,7 @@ const streetBuildingPages: StreetBuildingId[][] = [
   ["company", "entertainment", "finance"],
   ["bank", "stocks", "logistics"],
   ["estate", "business", "news"],
+  ["insurance", "employees", "auction"],
   ["casino"],
 ];
 
@@ -649,6 +682,27 @@ const businessItems: BusinessItem[] = [
   { id: "convenienceStore", name: "편의점 창업", icon: "🏪", price: 3000000, incomeEvery5Min: 18000, requiredOccupation: "convenienceManager", description: "편의점 계산 경험을 매장 운영으로 확장합니다." },
   { id: "deliveryAgency", name: "배달 대행사", icon: "🛵", price: 8000000, incomeEvery5Min: 62000, requiredOccupation: "dispatchController", description: "배차와 플랫폼 운영 경험으로 배달망을 운영합니다." },
   { id: "entertainmentAgency", name: "엔터 기획사", icon: "🎙️", price: 20000000, incomeEvery5Min: 170000, requiredOccupation: "topSinger", description: "톱스타 경험으로 공연과 광고 사업을 운영합니다." },
+];
+
+const insuranceItems: InsuranceItem[] = [
+  { id: "delivery", name: "배달 사고 보험", icon: "🛵", premiumEvery5Min: 1200, description: "배달 사고와 알바 벌금이 발생했을 때 손실을 일부 줄여주는 보험입니다." },
+  { id: "tax", name: "세금 방어 보험", icon: "🧾", premiumEvery5Min: 2500, description: "세금 미납 경고가 쌓일 때 압류 위험을 줄이는 보험입니다." },
+  { id: "business", name: "사업 손실 보험", icon: "🏪", premiumEvery5Min: 4200, description: "경제 뉴스 악재로 사업 매출이 흔들릴 때 안정성을 높여줍니다." },
+  { id: "casino", name: "도박 손실 보험", icon: "🎰", premiumEvery5Min: 5000, description: "카지노 손실이 커졌을 때 심리적 안정감을 주는 고급 보험입니다." },
+];
+
+const employeePlans: EmployeePlan[] = [
+  { level: 0, name: "무인 운영", cost: 0, payrollEvery60Sec: 0, revenueBonusRate: 0, description: "직원 없이 직접 운영합니다." },
+  { level: 1, name: "파트타이머", cost: 80000, payrollEvery60Sec: 1800, revenueBonusRate: 0.15, description: "작은 인건비로 매출을 조금 늘립니다." },
+  { level: 2, name: "정직원", cost: 250000, payrollEvery60Sec: 5200, revenueBonusRate: 0.38, description: "안정적인 운영으로 매출이 크게 증가합니다." },
+  { level: 3, name: "매니저 팀", cost: 850000, payrollEvery60Sec: 16000, revenueBonusRate: 0.8, description: "사업을 조직적으로 굴려 높은 매출을 노립니다." },
+];
+
+const auctionDealPool: AuctionDeal[] = [
+  { id: "estate_apartment", name: "급매 아파트 지분", icon: "🏙️", type: "estate", price: 3500000, value: 4500000, description: "시세보다 싸게 나온 아파트성 매물입니다." },
+  { id: "estate_store", name: "소형 상가 경매권", icon: "🏬", type: "estate", price: 7200000, value: 9000000, description: "상가 매입가를 줄일 수 있는 경매 물건입니다." },
+  { id: "business_cafe", name: "카페 설비 일괄 매각", icon: "☕", type: "business", price: 1500000, value: 2000000, description: "카페 창업 비용을 아낄 수 있는 설비 패키지입니다." },
+  { id: "stock_bundle", name: "성장주 묶음 매수권", icon: "📈", type: "stock", price: 500000, value: 650000, description: "랜덤 주식 몇 주를 시세보다 저렴하게 확보합니다." },
 ];
 
 const newsPool: NewsEvent[] = [
@@ -719,6 +773,10 @@ export default function GamePage() {
   const [ownedBusinesses, setOwnedBusinesses] = useState<BusinessId[]>([]);
   const [newsEvents, setNewsEvents] = useState<NewsEvent[]>(() => makeNewsEvents());
   const [economyUpdatedAt, setEconomyUpdatedAt] = useState(new Date());
+  const [inflationIndex, setInflationIndex] = useState(1);
+  const [ownedInsurances, setOwnedInsurances] = useState<InsuranceId[]>([]);
+  const [businessEmployees, setBusinessEmployees] = useState<Partial<Record<BusinessId, number>>>({});
+  const [auctionDeals, setAuctionDeals] = useState<AuctionDeal[]>(() => makeAuctionDeals());
 
   const [slotStake, setSlotStake] = useState("1000");
   const [slotResult, setSlotResult] = useState<SlotResult | null>(null);
@@ -794,8 +852,25 @@ export default function GamePage() {
     [ownedEstates]
   );
   const businessIncomeEvery30Sec = useMemo(
-    () => ownedBusinesses.reduce((sum, id) => sum + (businessItems.find((item) => item.id === id)?.incomeEvery5Min ?? 0), 0),
-    [ownedBusinesses]
+    () => ownedBusinesses.reduce((sum, id) => {
+      const base = businessItems.find((item) => item.id === id)?.incomeEvery5Min ?? 0;
+      const employeeLevel = businessEmployees[id] ?? 0;
+      const plan = employeePlans.find((item) => item.level === employeeLevel) ?? employeePlans[0];
+      return sum + Math.floor(base * (1 + plan.revenueBonusRate) * inflationIndex);
+    }, 0),
+    [ownedBusinesses, businessEmployees, inflationIndex]
+  );
+  const employeePayrollEvery60Sec = useMemo(
+    () => ownedBusinesses.reduce((sum, id) => {
+      const employeeLevel = businessEmployees[id] ?? 0;
+      const plan = employeePlans.find((item) => item.level === employeeLevel) ?? employeePlans[0];
+      return sum + plan.payrollEvery60Sec;
+    }, 0),
+    [ownedBusinesses, businessEmployees]
+  );
+  const insurancePremiumEvery5Min = useMemo(
+    () => ownedInsurances.reduce((sum, id) => sum + (insuranceItems.find((item) => item.id === id)?.premiumEvery5Min ?? 0), 0),
+    [ownedInsurances]
   );
   const netWorth = cash + bankDeposit + stockAssetValue + estateAssetValue + businessAssetValue - bankLoan - unpaidTax;
   const unlockedTitles = useMemo(
@@ -961,13 +1036,17 @@ export default function GamePage() {
     if (!stored) return;
 
     try {
-      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string };
+      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[] };
       setBankDeposit(Number(parsed.bankDeposit ?? 0));
       setBankLoan(Number(parsed.bankLoan ?? 0));
       setCreditScore(Number(parsed.creditScore ?? 700));
       if (Array.isArray(parsed.ownedEstates)) setOwnedEstates(parsed.ownedEstates.filter((id): id is EstateId => estateItems.some((item) => item.id === id)));
       if (Array.isArray(parsed.ownedBusinesses)) setOwnedBusinesses(parsed.ownedBusinesses.filter((id): id is BusinessId => businessItems.some((item) => item.id === id)));
       if (Array.isArray(parsed.newsEvents) && parsed.newsEvents.length > 0) setNewsEvents(parsed.newsEvents);
+      if (typeof parsed.inflationIndex === "number") setInflationIndex(Math.max(0.8, Math.min(2.5, parsed.inflationIndex)));
+      if (Array.isArray(parsed.ownedInsurances)) setOwnedInsurances(parsed.ownedInsurances.filter((id): id is InsuranceId => insuranceItems.some((item) => item.id === id)));
+      if (parsed.businessEmployees && typeof parsed.businessEmployees === "object") setBusinessEmployees(parsed.businessEmployees);
+      if (Array.isArray(parsed.auctionDeals) && parsed.auctionDeals.length > 0) setAuctionDeals(parsed.auctionDeals);
       if (parsed.economyUpdatedAt) setEconomyUpdatedAt(new Date(parsed.economyUpdatedAt));
     } catch (error) {
       console.warn("경제 데이터 불러오기 실패:", error);
@@ -984,9 +1063,13 @@ export default function GamePage() {
       ownedEstates,
       ownedBusinesses,
       newsEvents,
+      inflationIndex,
+      ownedInsurances,
+      businessEmployees,
+      auctionDeals,
       economyUpdatedAt: economyUpdatedAt.toISOString(),
     }));
-  }, [userId, isSaveLoaded, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, economyUpdatedAt]);
+  }, [userId, isSaveLoaded, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, economyUpdatedAt]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -994,14 +1077,22 @@ export default function GamePage() {
     const timer = window.setInterval(() => {
       setBankDeposit((current) => Math.floor(current * 1.003));
       setBankLoan((current) => Math.floor(current * 1.012));
+      setInflationIndex((current) => Math.min(2.5, Number((current * 1.003).toFixed(4))));
+      const premium = insurancePremiumEvery5Min;
+      if (premium > 0) {
+        setCash((money) => Math.max(0, money - premium));
+      }
       if (estateIncomeEvery5Min > 0) {
-        setCash((money) => money + estateIncomeEvery5Min);
-        setMessage(`🏘️ 부동산 임대 수익 +${estateIncomeEvery5Min.toLocaleString()}원`);
+        const adjustedEstateIncome = Math.floor(estateIncomeEvery5Min * inflationIndex);
+        setCash((money) => money + adjustedEstateIncome);
+        setMessage(`🏘️ 임대 수익 +${adjustedEstateIncome.toLocaleString()}원${premium > 0 ? ` · 보험료 -${premium.toLocaleString()}원` : ""}`);
+      } else if (premium > 0) {
+        setMessage(`🛡️ 보험료 ${premium.toLocaleString()}원이 납부되었습니다.`);
       }
     }, 5 * 60 * 1000);
 
     return () => window.clearInterval(timer);
-  }, [isSaveLoaded, estateIncomeEvery5Min]);
+  }, [isSaveLoaded, estateIncomeEvery5Min, insurancePremiumEvery5Min, inflationIndex]);
 
   useEffect(() => {
     if (!isSaveLoaded || businessIncomeEvery30Sec <= 0) return;
@@ -1013,6 +1104,17 @@ export default function GamePage() {
 
     return () => window.clearInterval(timer);
   }, [isSaveLoaded, businessIncomeEvery30Sec]);
+
+  useEffect(() => {
+    if (!isSaveLoaded || employeePayrollEvery60Sec <= 0) return;
+
+    const timer = window.setInterval(() => {
+      setCash((money) => Math.max(0, money - employeePayrollEvery60Sec));
+      setMessage(`👥 직원 인건비 -${employeePayrollEvery60Sec.toLocaleString()}원`);
+    }, 60 * 1000);
+
+    return () => window.clearInterval(timer);
+  }, [isSaveLoaded, employeePayrollEvery60Sec]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -2022,6 +2124,70 @@ export default function GamePage() {
     setMessage(`🧾 ${business.name} 창업 완료. 30초마다 ${business.incomeEvery5Min.toLocaleString()}원 사업 매출이 들어옵니다.`);
   }
 
+  function toggleInsurance(insuranceId: InsuranceId) {
+    const insurance = insuranceItems.find((item) => item.id === insuranceId);
+    if (!insurance) return;
+    if (ownedInsurances.includes(insuranceId)) {
+      setOwnedInsurances((owned) => owned.filter((id) => id !== insuranceId));
+      setMessage(`🛡️ ${insurance.name} 해지 완료`);
+      return;
+    }
+    if (cash < insurance.premiumEvery5Min) {
+      setMessage(`🛡️ 첫 보험료 ${insurance.premiumEvery5Min.toLocaleString()}원이 필요합니다.`);
+      return;
+    }
+    setCash((money) => money - insurance.premiumEvery5Min);
+    setOwnedInsurances((owned) => [...owned, insuranceId]);
+    setMessage(`🛡️ ${insurance.name} 가입 완료. 5분마다 보험료가 납부됩니다.`);
+  }
+
+  function hireEmployee(businessId: BusinessId) {
+    const currentLevel = businessEmployees[businessId] ?? 0;
+    const nextPlan = employeePlans.find((plan) => plan.level === currentLevel + 1);
+    if (!ownedBusinesses.includes(businessId)) {
+      setMessage("👥 먼저 해당 사업을 창업해야 직원을 고용할 수 있습니다.");
+      return;
+    }
+    if (!nextPlan) {
+      setMessage("👥 이미 최고 단계의 직원을 고용했습니다.");
+      return;
+    }
+    if (cash < nextPlan.cost) {
+      setMessage(`👥 ${nextPlan.name} 고용에는 ${nextPlan.cost.toLocaleString()}원이 필요합니다.`);
+      return;
+    }
+    setCash((money) => money - nextPlan.cost);
+    setBusinessEmployees((current) => ({ ...current, [businessId]: nextPlan.level }));
+    setMessage(`👥 ${nextPlan.name} 고용 완료. 사업 매출 보너스 +${Math.round(nextPlan.revenueBonusRate * 100)}%`);
+  }
+
+  function refreshAuctionDeals() {
+    const deals = makeAuctionDeals();
+    setAuctionDeals(deals);
+    setMessage("🔨 경매장 매물이 새로 갱신되었습니다.");
+  }
+
+  function buyAuctionDeal(deal: AuctionDeal) {
+    if (cash < deal.price) {
+      setMessage(`🔨 ${deal.name} 구매에는 ${deal.price.toLocaleString()}원이 필요합니다.`);
+      return;
+    }
+    setCash((money) => money - deal.price);
+
+    if (deal.id === "estate_apartment" && !ownedEstates.includes("apartment")) {
+      setOwnedEstates((owned) => [...owned, "apartment"]);
+    } else if (deal.id === "estate_store" && !ownedEstates.includes("smallStore")) {
+      setOwnedEstates((owned) => [...owned, "smallStore"]);
+    } else if (deal.id === "business_cafe" && !ownedBusinesses.includes("coffeeShop")) {
+      setOwnedBusinesses((owned) => [...owned, "coffeeShop"]);
+    } else if (deal.id === "stock_bundle") {
+      setStockRows((rows) => rows.map((row, index) => index < 3 ? { ...row, owned: row.owned + 1 } : row));
+    }
+
+    setAuctionDeals((deals) => deals.filter((item) => item.id !== deal.id));
+    setMessage(`🔨 ${deal.name} 낙찰 완료. 시세 차익 약 ${(deal.value - deal.price).toLocaleString()}원`);
+  }
+
   function refreshNewsNow() {
     const nextNews = makeNewsEvents();
     setNewsEvents(nextNews);
@@ -2042,7 +2208,7 @@ export default function GamePage() {
       return;
     }
 
-    if (buildingId === "bank" || buildingId === "estate" || buildingId === "business" || buildingId === "news") {
+    if (buildingId === "bank" || buildingId === "estate" || buildingId === "business" || buildingId === "news" || buildingId === "insurance" || buildingId === "employees" || buildingId === "auction") {
       setLobbyView(buildingId);
       return;
     }
@@ -3300,6 +3466,96 @@ export default function GamePage() {
             </div>
           )}
 
+          {lobbyView === "insurance" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>INSURANCE</div>
+                  <h2 style={panelTitleStyle}>보험사</h2>
+                  <p style={panelDescStyle}>위험을 줄이는 대신 5분마다 보험료가 나갑니다. 현재 보험료: {insurancePremiumEvery5Min.toLocaleString()}원</p>
+                </div>
+                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+              </div>
+              <div style={economyCardGridStyle}>
+                {insuranceItems.map((insurance) => {
+                  const owned = ownedInsurances.includes(insurance.id);
+                  return (
+                    <div key={insurance.id} style={economyCardStyle}>
+                      <h3 style={economyCardTitleStyle}>{insurance.icon} {insurance.name}</h3>
+                      <p style={economyCardTextStyle}>{insurance.description}</p>
+                      <strong>5분 보험료 {insurance.premiumEvery5Min.toLocaleString()}원</strong>
+                      <button onClick={() => toggleInsurance(insurance.id)} style={{ ...casinoPrimaryButtonStyle, background: owned ? "#fecaca" : "#bfdbfe" }}>
+                        {owned ? "해지하기" : "가입하기"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {lobbyView === "employees" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>STAFF OFFICE</div>
+                  <h2 style={panelTitleStyle}>인력 사무소</h2>
+                  <p style={panelDescStyle}>사업별 직원을 고용하면 30초 매출이 증가하지만 1분마다 인건비가 나갑니다. 현재 인건비: {employeePayrollEvery60Sec.toLocaleString()}원</p>
+                </div>
+                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+              </div>
+              <div style={economyCardGridStyle}>
+                {businessItems.map((business) => {
+                  const owned = ownedBusinesses.includes(business.id);
+                  const level = businessEmployees[business.id] ?? 0;
+                  const plan = employeePlans.find((item) => item.level === level) ?? employeePlans[0];
+                  const nextPlan = employeePlans.find((item) => item.level === level + 1);
+                  return (
+                    <div key={business.id} style={economyCardStyle}>
+                      <h3 style={economyCardTitleStyle}>{business.icon} {business.name}</h3>
+                      <p style={economyCardTextStyle}>{owned ? plan.description : "먼저 창업 센터에서 사업을 열어야 합니다."}</p>
+                      <strong>현재 직원: {plan.name}</strong>
+                      <strong style={{ color: "#16a34a" }}>매출 보너스 +{Math.round(plan.revenueBonusRate * 100)}%</strong>
+                      <span style={economyConditionStyle}>1분 인건비 {plan.payrollEvery60Sec.toLocaleString()}원</span>
+                      <button onClick={() => hireEmployee(business.id)} disabled={!owned || !nextPlan || cash < (nextPlan?.cost ?? 0)} style={{ ...casinoPrimaryButtonStyle, opacity: !owned || !nextPlan || cash < (nextPlan?.cost ?? 0) ? 0.45 : 1 }}>
+                        {nextPlan ? `${nextPlan.name} 고용 ${nextPlan.cost.toLocaleString()}원` : "최고 단계"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {lobbyView === "auction" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>AUCTION HOUSE</div>
+                  <h2 style={panelTitleStyle}>경매장</h2>
+                  <p style={panelDescStyle}>시세보다 저렴한 매물을 빠르게 낙찰받는 공간입니다. 매물은 직접 갱신할 수 있습니다.</p>
+                </div>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <button onClick={refreshAuctionDeals} style={smallActionButtonStyle}>매물 갱신</button>
+                  <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                </div>
+              </div>
+              <div style={economyCardGridStyle}>
+                {auctionDeals.map((deal) => (
+                  <div key={deal.id} style={economyCardStyle}>
+                    <h3 style={economyCardTitleStyle}>{deal.icon} {deal.name}</h3>
+                    <p style={economyCardTextStyle}>{deal.description}</p>
+                    <strong>낙찰가 {deal.price.toLocaleString()}원</strong>
+                    <strong style={{ color: "#16a34a" }}>추정 가치 {deal.value.toLocaleString()}원</strong>
+                    <button onClick={() => buyAuctionDeal(deal)} disabled={cash < deal.price} style={{ ...casinoPrimaryButtonStyle, opacity: cash < deal.price ? 0.45 : 1 }}>
+                      즉시 낙찰
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {lobbyView === "ranking" && (
             <div style={panelSceneStyle}>
               <div style={panelHeaderRowStyle}>
@@ -3862,6 +4118,7 @@ function getStreetPageLabel(page: number) {
   if (page === 0) return "도심 업무 지구";
   if (page === 1) return "투자 · 금융 지구";
   if (page === 2) return "자산 · 사업 지구";
+  if (page === 3) return "리스크 · 인력 · 경매 지구";
   return "레저 · 카지노 지구";
 }
 
@@ -3911,6 +4168,18 @@ function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
       background: "linear-gradient(180deg, #dbeafe 0%, #60a5fa 100%)",
       borderColor: "#1e3a8a",
     };
+  }
+
+  if (buildingId === "insurance") {
+    return { background: "linear-gradient(180deg, #dbeafe 0%, #93c5fd 100%)", borderColor: "#1d4ed8" };
+  }
+
+  if (buildingId === "employees") {
+    return { background: "linear-gradient(180deg, #dcfce7 0%, #4ade80 100%)", borderColor: "#166534" };
+  }
+
+  if (buildingId === "auction") {
+    return { background: "linear-gradient(180deg, #fef3c7 0%, #fbbf24 100%)", borderColor: "#92400e" };
   }
 
   if (buildingId === "casino") {
@@ -3973,6 +4242,16 @@ function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
     background: "linear-gradient(180deg, #ecfeff 0%, #67e8f9 100%)",
     borderColor: "#155e75",
   };
+}
+
+function makeAuctionDeals() {
+  return [...auctionDealPool]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 3)
+    .map((deal) => {
+      const discount = 0.72 + Math.random() * 0.16;
+      return { ...deal, price: Math.max(1000, Math.floor(deal.value * discount)) };
+    });
 }
 
 function makeNewsEvents() {
@@ -6444,6 +6723,3 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
-
-
-
