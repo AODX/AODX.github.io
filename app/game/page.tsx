@@ -3440,94 +3440,198 @@ function StreetArtwork() {
 }
 
 function StreetBuildingFacade({ building }: { building: { id: StreetBuildingId; title: string; subtitle: string; emoji: string } }) {
-  const windowCount = building.id === "logistics" ? 6 : building.id === "casino" ? 9 : building.id === "estate" ? 8 : 15;
-
-  if (building.id === "stocks") {
-    return (
-      <>
-        <div style={{ ...streetBuildingRoofStyle, borderRadius: "18px 18px 8px 8px", background: "#eff6ff" }}>{building.emoji}</div>
-        <div style={{ ...streetBuildingWindowGridStyle, gridTemplateColumns: "repeat(2, 1fr)", padding: "4px 28%", gap: "5px", alignContent: "center" }}>
-          {Array.from({ length: 14 }).map((_, index) => (
-            <span key={index} style={{ ...streetBuildingWindowStyle, height: "11px", borderRadius: "4px", background: index % 3 === 0 ? "#fde68a" : "rgba(255,255,255,0.74)" }} />
-          ))}
-        </div>
-        <div style={{ ...streetBuildingSignStyle, fontSize: "14px" }}>{building.title}</div>
-        <div style={streetBuildingSubtitleStyle}>{building.subtitle}</div>
-      </>
-    );
-  }
-
-  if (building.id === "bank" || building.id === "finance") {
-    return (
-      <>
-        <div style={{ ...streetBuildingRoofStyle, width: "62px", borderRadius: "22px 22px 8px 8px" }}>{building.emoji}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "7px", padding: "4px 16px", alignItems: "end" }}>
-          {Array.from({ length: 4 }).map((_, index) => (
-            <span key={index} style={{ height: index % 2 === 0 ? "74px" : "60px", borderRadius: "999px 999px 8px 8px", background: "rgba(255,255,255,0.62)", border: "3px solid rgba(255,255,255,0.88)", boxShadow: "inset 0 -6px 0 rgba(15,23,42,0.08)" }} />
-          ))}
-        </div>
-        <div style={streetBuildingSignStyle}>{building.title}</div>
-        <div style={streetBuildingSubtitleStyle}>{building.subtitle}</div>
-      </>
-    );
-  }
-
-  if (building.id === "logistics") {
-    return (
-      <>
-        <div style={{ ...streetBuildingRoofStyle, width: "64px" }}>{building.emoji}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: "8px", alignItems: "end", padding: "4px 12px" }}>
-          <span style={{ height: "42px", borderRadius: "10px", background: "rgba(255,255,255,0.58)", border: "3px solid rgba(255,255,255,0.82)" }} />
-          <span style={{ height: "28px", borderRadius: "8px", background: "rgba(255,255,255,0.58)", border: "3px solid rgba(255,255,255,0.82)" }} />
-          <span style={{ height: "34px", borderRadius: "8px", background: "rgba(255,255,255,0.58)", border: "3px solid rgba(255,255,255,0.82)" }} />
-        </div>
-        <div style={streetBuildingSignStyle}>{building.title}</div>
-        <div style={streetBuildingSubtitleStyle}>{building.subtitle}</div>
-      </>
-    );
-  }
-
-  if (building.id === "entertainment" || building.id === "casino") {
-    return (
-      <>
-        <div style={{ ...streetBuildingRoofStyle, background: "#fff7ed", borderRadius: building.id === "casino" ? "999px" : "16px" }}>{building.emoji}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "7px", padding: "4px 14px", alignContent: "center" }}>
-          {Array.from({ length: windowCount }).map((_, index) => (
-            <span key={index} style={{ ...streetBuildingWindowStyle, height: building.id === "casino" ? "14px" : "12px", background: index % 2 === 0 ? "rgba(255,255,255,0.78)" : "rgba(253,230,138,0.74)" }} />
-          ))}
-        </div>
-        <div style={{ ...streetBuildingSignStyle, boxShadow: "0 0 14px rgba(250,204,21,0.32), 3px 3px 0 rgba(17,24,39,0.14)" }}>{building.title}</div>
-        <div style={streetBuildingSubtitleStyle}>{building.subtitle}</div>
-      </>
-    );
-  }
-
-  if (building.id === "estate") {
-    return (
-      <>
-        <div style={{ ...streetBuildingRoofStyle, background: "#ecfccb" }}>{building.emoji}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", padding: "4px 18px", alignContent: "center" }}>
-          {Array.from({ length: windowCount }).map((_, index) => (
-            <span key={index} style={{ ...streetBuildingWindowStyle, height: "14px", borderRadius: index % 2 === 0 ? "12px 12px 4px 4px" : "4px" }} />
-          ))}
-        </div>
-        <div style={streetBuildingSignStyle}>{building.title}</div>
-        <div style={streetBuildingSubtitleStyle}>{building.subtitle}</div>
-      </>
-    );
-  }
-
   return (
     <>
-      <div style={streetBuildingRoofStyle}>{building.emoji}</div>
-      <div style={streetBuildingWindowGridStyle}>
-        {Array.from({ length: windowCount }).map((_, windowIndex) => (
-          <span key={windowIndex} style={streetBuildingWindowStyle} />
-        ))}
+      <div style={streetFacadeCanvasStyle}>
+        <StreetBuildingIllustration id={building.id} />
       </div>
       <div style={streetBuildingSignStyle}>{building.title}</div>
       <div style={streetBuildingSubtitleStyle}>{building.subtitle}</div>
     </>
+  );
+}
+
+function StreetBuildingIllustration({ id }: { id: StreetBuildingId }) {
+  if (id === "stocks") {
+    return (
+      <svg viewBox="0 0 160 210" style={streetFacadeSvgStyle} aria-hidden="true">
+        <defs>
+          <linearGradient id="stocksTowerGlass" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor="#e0f2fe" />
+            <stop offset="45%" stopColor="#93c5fd" />
+            <stop offset="100%" stopColor="#2563eb" />
+          </linearGradient>
+          <linearGradient id="stocksTowerSide" x1="0" x2="1">
+            <stop offset="0%" stopColor="#1e40af" />
+            <stop offset="100%" stopColor="#60a5fa" />
+          </linearGradient>
+        </defs>
+        <path d="M80 8 L122 36 L137 198 H23 L38 36 Z" fill="url(#stocksTowerGlass)" stroke="#111827" strokeWidth="6" strokeLinejoin="round" />
+        <path d="M80 8 L122 36 L114 198 H80 Z" fill="url(#stocksTowerSide)" opacity="0.28" />
+        <path d="M80 8 L92 44 L80 198 L68 44 Z" fill="rgba(255,255,255,0.35)" />
+        {Array.from({ length: 9 }).map((_, row) => (
+          <g key={row} opacity="0.82">
+            <rect x="48" y={46 + row * 15} width="13" height="8" rx="3" fill="#eff6ff" />
+            <rect x="73" y={46 + row * 15} width="13" height="8" rx="3" fill="#eff6ff" />
+            <rect x="98" y={46 + row * 15} width="13" height="8" rx="3" fill="#dbeafe" />
+          </g>
+        ))}
+        <path d="M46 28 L80 8 L114 28" fill="none" stroke="#111827" strokeWidth="5" strokeLinecap="round" />
+        <circle cx="80" cy="26" r="12" fill="#facc15" stroke="#111827" strokeWidth="5" />
+      </svg>
+    );
+  }
+
+  if (id === "entertainment") {
+    return (
+      <svg viewBox="0 0 240 170" style={streetFacadeSvgStyle} aria-hidden="true">
+        <defs>
+          <linearGradient id="entGlass" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor="#e9d5ff" />
+            <stop offset="55%" stopColor="#c084fc" />
+            <stop offset="100%" stopColor="#7e22ce" />
+          </linearGradient>
+        </defs>
+        <path d="M38 160 L54 18 L218 18 L198 160 Z" fill="url(#entGlass)" stroke="#111827" strokeWidth="7" strokeLinejoin="round" />
+        <path d="M56 20 L92 160" stroke="rgba(255,255,255,0.5)" strokeWidth="8" />
+        <path d="M119 20 L153 160" stroke="rgba(255,255,255,0.35)" strokeWidth="8" />
+        <text x="164" y="43" fontSize="22" fontWeight="900" fill="#f8fafc" stroke="#111827" strokeWidth="1.5">ENT</text>
+        {Array.from({ length: 5 }).map((_, row) => (
+          <g key={row}>
+            {Array.from({ length: 4 }).map((__, col) => (
+              <rect key={col} x={70 + col * 31} y={58 + row * 17} width="20" height="9" rx="4" fill={col % 2 === 0 ? "#fef3c7" : "#fdf2f8"} opacity="0.9" />
+            ))}
+          </g>
+        ))}
+        <rect x="26" y="132" width="188" height="28" rx="10" fill="rgba(17,24,39,0.74)" />
+        <circle cx="52" cy="143" r="5" fill="#f472b6" />
+        <circle cx="70" cy="143" r="5" fill="#facc15" />
+        <circle cx="88" cy="143" r="5" fill="#60a5fa" />
+      </svg>
+    );
+  }
+
+  if (id === "logistics") {
+    return (
+      <svg viewBox="0 0 260 150" style={streetFacadeSvgStyle} aria-hidden="true">
+        <defs>
+          <linearGradient id="logisticsWall" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#fef3c7" />
+            <stop offset="60%" stopColor="#f59e0b" />
+            <stop offset="100%" stopColor="#b45309" />
+          </linearGradient>
+        </defs>
+        <rect x="18" y="48" width="220" height="88" rx="10" fill="url(#logisticsWall)" stroke="#111827" strokeWidth="7" />
+        <rect x="18" y="30" width="220" height="26" rx="5" fill="#ef4444" stroke="#111827" strokeWidth="5" />
+        <rect x="50" y="78" width="44" height="58" rx="5" fill="#e5e7eb" stroke="#111827" strokeWidth="5" />
+        <rect x="119" y="76" width="78" height="60" rx="6" fill="#f8fafc" stroke="#111827" strokeWidth="5" />
+        <path d="M119 96 H197 M119 116 H197" stroke="#94a3b8" strokeWidth="4" />
+        <rect x="202" y="105" width="48" height="24" rx="5" fill="#f97316" stroke="#111827" strokeWidth="4" />
+        <circle cx="215" cy="132" r="8" fill="#111827" />
+        <circle cx="238" cy="132" r="8" fill="#111827" />
+        <rect x="34" y="59" width="20" height="10" rx="3" fill="#dbeafe" />
+        <rect x="66" y="59" width="20" height="10" rx="3" fill="#dbeafe" />
+        <rect x="98" y="59" width="20" height="10" rx="3" fill="#dbeafe" />
+      </svg>
+    );
+  }
+
+  if (id === "company") {
+    return (
+      <svg viewBox="0 0 220 170" style={streetFacadeSvgStyle} aria-hidden="true">
+        <defs>
+          <linearGradient id="officeWall" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor="#f8fafc" />
+            <stop offset="100%" stopColor="#94a3b8" />
+          </linearGradient>
+        </defs>
+        <rect x="36" y="20" width="150" height="136" rx="16" fill="url(#officeWall)" stroke="#111827" strokeWidth="7" />
+        <rect x="62" y="38" width="36" height="104" rx="8" fill="rgba(255,255,255,0.32)" />
+        <rect x="116" y="38" width="36" height="104" rx="8" fill="rgba(255,255,255,0.24)" />
+        {Array.from({ length: 5 }).map((_, row) => (
+          <g key={row}>
+            {Array.from({ length: 3 }).map((__, col) => (
+              <rect key={col} x={56 + col * 42} y={44 + row * 19} width="25" height="10" rx="4" fill="#ffffff" opacity="0.85" />
+            ))}
+          </g>
+        ))}
+        <rect x="88" y="128" width="46" height="28" rx="8" fill="#475569" stroke="#111827" strokeWidth="4" />
+      </svg>
+    );
+  }
+
+  if (id === "finance" || id === "bank") {
+    const label = id === "bank" ? "BANK" : "FUND";
+    return (
+      <svg viewBox="0 0 230 155" style={streetFacadeSvgStyle} aria-hidden="true">
+        <defs>
+          <linearGradient id={`${id}Stone`} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor={id === "bank" ? "#dcfce7" : "#e0f2fe"} />
+            <stop offset="100%" stopColor={id === "bank" ? "#22c55e" : "#67e8f9"} />
+          </linearGradient>
+        </defs>
+        <path d="M30 60 L115 20 L200 60 Z" fill="#f8fafc" stroke="#111827" strokeWidth="7" strokeLinejoin="round" />
+        <rect x="42" y="60" width="146" height="78" rx="10" fill={`url(#${id}Stone)`} stroke="#111827" strokeWidth="7" />
+        {Array.from({ length: 4 }).map((_, col) => (
+          <rect key={col} x={58 + col * 31} y="70" width="18" height="58" rx="9" fill="rgba(255,255,255,0.72)" stroke="rgba(17,24,39,0.32)" strokeWidth="3" />
+        ))}
+        <rect x="74" y="30" width="82" height="30" rx="12" fill="rgba(255,255,255,0.88)" stroke="#111827" strokeWidth="5" />
+        <text x="115" y="50" textAnchor="middle" fontSize="16" fontWeight="900" fill="#111827">{label}</text>
+      </svg>
+    );
+  }
+
+  if (id === "estate") {
+    return (
+      <svg viewBox="0 0 220 150" style={streetFacadeSvgStyle} aria-hidden="true">
+        <rect x="46" y="48" width="54" height="86" rx="8" fill="#e5e7eb" stroke="#111827" strokeWidth="5" />
+        <rect x="114" y="28" width="64" height="106" rx="8" fill="#cbd5e1" stroke="#111827" strokeWidth="5" />
+        <path d="M38 52 L72 22 L108 52" fill="#f97316" stroke="#111827" strokeWidth="5" strokeLinejoin="round" />
+        {Array.from({ length: 4 }).map((_, row) => (
+          <g key={row}>
+            <rect x="60" y={62 + row * 16} width="16" height="9" rx="3" fill="#ffffff" />
+            <rect x="130" y={44 + row * 19} width="15" height="10" rx="3" fill="#ffffff" />
+            <rect x="154" y={44 + row * 19} width="15" height="10" rx="3" fill="#ffffff" />
+          </g>
+        ))}
+      </svg>
+    );
+  }
+
+  if (id === "business") {
+    return (
+      <svg viewBox="0 0 220 150" style={streetFacadeSvgStyle} aria-hidden="true">
+        <rect x="30" y="58" width="160" height="78" rx="12" fill="#fed7aa" stroke="#111827" strokeWidth="6" />
+        <path d="M26 58 H194 L176 28 H44 Z" fill="#fb923c" stroke="#111827" strokeWidth="6" strokeLinejoin="round" />
+        <rect x="58" y="82" width="34" height="54" rx="7" fill="#f8fafc" stroke="#111827" strokeWidth="4" />
+        <rect x="112" y="82" width="52" height="28" rx="8" fill="#ffffff" stroke="#111827" strokeWidth="4" />
+        <text x="138" y="101" textAnchor="middle" fontSize="12" fontWeight="900" fill="#111827">OPEN</text>
+      </svg>
+    );
+  }
+
+  if (id === "news") {
+    return (
+      <svg viewBox="0 0 200 140" style={streetFacadeSvgStyle} aria-hidden="true">
+        <rect x="32" y="40" width="136" height="86" rx="12" fill="#c4b5fd" stroke="#111827" strokeWidth="6" />
+        <rect x="54" y="22" width="92" height="42" rx="14" fill="#ffffff" stroke="#111827" strokeWidth="5" />
+        <text x="100" y="50" textAnchor="middle" fontSize="14" fontWeight="900" fill="#111827">NEWS</text>
+        <rect x="54" y="76" width="92" height="9" rx="4" fill="#ffffff" opacity="0.85" />
+        <rect x="54" y="94" width="70" height="9" rx="4" fill="#ffffff" opacity="0.85" />
+        <rect x="54" y="112" width="100" height="9" rx="4" fill="#ffffff" opacity="0.85" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 220 150" style={streetFacadeSvgStyle} aria-hidden="true">
+      <rect x="35" y="42" width="150" height="90" rx="14" fill="#fdba74" stroke="#111827" strokeWidth="6" />
+      <rect x="62" y="34" width="96" height="34" rx="16" fill="#ffffff" stroke="#111827" strokeWidth="5" />
+      <text x="110" y="56" textAnchor="middle" fontSize="18" fontWeight="900" fill="#111827">777</text>
+      {Array.from({ length: 6 }).map((_, index) => (
+        <rect key={index} x={60 + (index % 3) * 38} y={82 + Math.floor(index / 3) * 22} width="28" height="12" rx="5" fill="#fff7ed" opacity="0.95" />
+      ))}
+    </svg>
   );
 }
 
@@ -3667,40 +3771,40 @@ function getStreetPageLabel(page: number) {
 }
 
 function getStreetBuildingHeight(buildingId: StreetBuildingId) {
-  if (buildingId === "stocks") return "268px";
-  if (buildingId === "company") return "226px";
-  if (buildingId === "entertainment") return "218px";
-  if (buildingId === "finance") return "206px";
-  if (buildingId === "bank") return "206px";
-  if (buildingId === "estate") return "174px";
-  if (buildingId === "business") return "188px";
-  if (buildingId === "news") return "168px";
-  if (buildingId === "logistics") return "162px";
-  if (buildingId === "casino") return "178px";
-  return "190px";
+  if (buildingId === "stocks") return "330px";
+  if (buildingId === "entertainment") return "252px";
+  if (buildingId === "company") return "246px";
+  if (buildingId === "finance") return "224px";
+  if (buildingId === "bank") return "224px";
+  if (buildingId === "logistics") return "184px";
+  if (buildingId === "estate") return "196px";
+  if (buildingId === "business") return "192px";
+  if (buildingId === "news") return "178px";
+  if (buildingId === "casino") return "198px";
+  return "200px";
 }
 
 function getStreetBuildingPlacement(buildingId: StreetBuildingId, page: number): CSSProperties {
   if (page === 0) {
-    if (buildingId === "company") return { left: "7%", bottom: "132px", width: "22%" };
-    if (buildingId === "entertainment") return { left: "39%", bottom: "126px", width: "23%" };
-    if (buildingId === "finance") return { left: "72%", bottom: "134px", width: "20%" };
+    if (buildingId === "company") return { left: "8%", bottom: "136px", width: "20%" };
+    if (buildingId === "entertainment") return { left: "39%", bottom: "132px", width: "24%" };
+    if (buildingId === "finance") return { left: "73%", bottom: "140px", width: "18%" };
   }
 
   if (page === 1) {
-    if (buildingId === "bank") return { left: "12%", bottom: "132px", width: "19%" };
-    if (buildingId === "stocks") return { left: "43%", bottom: "112px", width: "16%" };
-    if (buildingId === "logistics") return { left: "70%", bottom: "128px", width: "22%" };
+    if (buildingId === "bank") return { left: "10%", bottom: "138px", width: "18%" };
+    if (buildingId === "stocks") return { left: "43%", bottom: "110px", width: "14%" };
+    if (buildingId === "logistics") return { left: "68%", bottom: "134px", width: "26%" };
   }
 
   if (page === 2) {
-    if (buildingId === "estate") return { left: "13%", bottom: "128px", width: "20%" };
-    if (buildingId === "business") return { left: "41%", bottom: "120px", width: "21%" };
-    if (buildingId === "news") return { left: "70%", bottom: "132px", width: "18%" };
+    if (buildingId === "estate") return { left: "12%", bottom: "132px", width: "20%" };
+    if (buildingId === "business") return { left: "40%", bottom: "130px", width: "22%" };
+    if (buildingId === "news") return { left: "70%", bottom: "138px", width: "18%" };
   }
 
   if (page === 3) {
-    if (buildingId === "casino") return { left: "39%", bottom: "126px", width: "22%" };
+    if (buildingId === "casino") return { left: "39%", bottom: "132px", width: "22%" };
   }
 
   return { left: "38%", bottom: "132px", width: "22%" };
@@ -5490,10 +5594,10 @@ const streetBuildingStyle: CSSProperties = {
   position: "absolute",
   border: "5px solid #111827",
   borderRadius: "28px 28px 16px 16px",
-  padding: "10px 10px 12px",
+  padding: "8px 8px 10px",
   boxShadow: "0 12px 0 rgba(15,23,42,0.18), 0 20px 30px rgba(15,23,42,0.14)",
   display: "grid",
-  gridTemplateRows: "34px minmax(44px, 1fr) auto auto",
+  gridTemplateRows: "minmax(0, 1fr) auto auto",
   gap: "7px",
   cursor: "pointer",
   textAlign: "center",
@@ -5501,6 +5605,22 @@ const streetBuildingStyle: CSSProperties = {
   transition: "transform 120ms ease, filter 120ms ease",
   overflow: "hidden",
   pointerEvents: "auto",
+};
+
+const streetFacadeCanvasStyle: CSSProperties = {
+  minHeight: 0,
+  display: "flex",
+  alignItems: "end",
+  justifyContent: "center",
+  overflow: "hidden",
+  padding: "2px 0 0",
+};
+
+const streetFacadeSvgStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "block",
+  filter: "drop-shadow(0 8px 0 rgba(15,23,42,0.10))",
 };
 
 const streetBuildingRoofStyle: CSSProperties = {
@@ -5534,7 +5654,7 @@ const streetBuildingWindowStyle: CSSProperties = {
 };
 
 const streetBuildingSignStyle: CSSProperties = {
-  background: "rgba(255,255,255,0.94)",
+  background: "rgba(255,255,255,0.96)",
   border: "4px solid #111827",
   borderRadius: "15px",
   padding: "7px 8px",
@@ -5542,6 +5662,8 @@ const streetBuildingSignStyle: CSSProperties = {
   fontWeight: 900,
   lineHeight: 1.1,
   boxShadow: "3px 3px 0 rgba(17,24,39,0.14)",
+  position: "relative",
+  zIndex: 2,
 };
 
 const streetBuildingSubtitleStyle: CSSProperties = {
