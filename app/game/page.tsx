@@ -180,6 +180,7 @@ type PvpReactionState = "idle" | "waiting" | "go" | "submitted";
 const PROFILE_TABLE = "game_profiles";
 const STOCK_TABLE = "game_stock_saves";
 const STOCK_INTERVAL_MS = 3 * 60 * 1000;
+const SLOT_SYMBOLS = ["7", "🍒", "💎", "🍀", "⭐", "🍋"];
 const TAX_INTERVAL_SECONDS = 420;
 const TAX_WARNING_SECONDS = 60;
 
@@ -616,6 +617,8 @@ export default function GamePage() {
   const [slotStake, setSlotStake] = useState("1000");
   const [slotResult, setSlotResult] = useState<SlotResult | null>(null);
   const [isSlotPlaying, setIsSlotPlaying] = useState(false);
+  const [slotReels, setSlotReels] = useState<string[]>(["7", "7", "7"]);
+  const [slotLeverDown, setSlotLeverDown] = useState(false);
   const [casinoUsers, setCasinoUsers] = useState<CasinoUserRow[]>([]);
   const [pvpMatches, setPvpMatches] = useState<PvpMatchRow[]>([]);
   const [pvpStake, setPvpStake] = useState("1000");
@@ -670,6 +673,7 @@ export default function GamePage() {
 
   const firedLockRef = useRef(false);
   const runnerSpawnCooldownRef = useRef(0);
+  const slotSpinIntervalRef = useRef<number | null>(null);
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs[0], [selectedJobId]);
   const activeJob = useMemo(() => (activeJobId ? jobs.find((job) => job.id === activeJobId) ?? null : null), [activeJobId]);
   const occupation = occupationInfo[occupationId];
@@ -1372,6 +1376,15 @@ export default function GamePage() {
       window.removeEventListener("keyup", handleKeyUp);
     };
   }, [activeJobId, sortItem, cashierIndex, cashierSequence, cafeFill, cafeTargetStart, cafeTargetEnd, securitySignal, difficulty]);
+
+  useEffect(() => {
+    return () => {
+      if (slotSpinIntervalRef.current) {
+        window.clearInterval(slotSpinIntervalRef.current);
+        slotSpinIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   function applyTaxAutomatically() {
     const tax = calculateTax(cash, unpaidTax);
@@ -2088,23 +2101,54 @@ export default function GamePage() {
 
     setIsSlotPlaying(true);
     setSlotResult(null);
+    setSlotLeverDown(true);
 
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc("play_slot_machine", { p_stake: stake });
-
-    setIsSlotPlaying(false);
-
-    if (error) {
-      setMessage(`🎰 슬롯 실패: ${error.message}`);
-      return;
+    if (slotSpinIntervalRef.current) {
+      window.clearInterval(slotSpinIntervalRef.current);
+      slotSpinIntervalRef.current = null;
     }
 
-    const result = data as SlotResult;
-    setSlotResult(result);
-    setCash((money) => Math.max(0, money + Number(result.profit ?? 0)));
-    setMessage(getSlotResultMessage(result));
-    refreshRanking();
-    refreshCasinoData();
+    setSlotReels(getRandomSlotSymbols());
+    slotSpinIntervalRef.current = window.setInterval(() => {
+      setSlotReels(getRandomSlotSymbols());
+    }, 110);
+
+    try {
+      const supabase = createClient();
+      const rpcPromise = supabase.rpc("play_slot_machine", { p_stake: stake });
+      await delay(1600);
+      const { data, error } = await rpcPromise;
+
+      if (slotSpinIntervalRef.current) {
+        window.clearInterval(slotSpinIntervalRef.current);
+        slotSpinIntervalRef.current = null;
+      }
+
+      setSlotLeverDown(false);
+      setIsSlotPlaying(false);
+
+      if (error) {
+        setMessage(`🎰 슬롯 실패: ${error.message}`);
+        setSlotReels(["💥", "💥", "💥"]);
+        return;
+      }
+
+      const result = data as SlotResult;
+      setSlotResult(result);
+      setSlotReels(getSlotDisplaySymbols(result.result));
+      setCash((money) => Math.max(0, money + Number(result.profit ?? 0)));
+      setMessage(getSlotResultMessage(result));
+      refreshRanking();
+      refreshCasinoData();
+    } catch (error) {
+      if (slotSpinIntervalRef.current) {
+        window.clearInterval(slotSpinIntervalRef.current);
+        slotSpinIntervalRef.current = null;
+      }
+      setSlotLeverDown(false);
+      setIsSlotPlaying(false);
+      setMessage(`🎰 슬롯 실패: ${error instanceof Error ? error.message : "알 수 없는 오류"}`);
+    }
   }
 
   async function createPvpChallenge() {
@@ -2417,6 +2461,7 @@ export default function GamePage() {
                     style={{
                       ...streetBuildingStyle,
                       ...getStreetBuildingTheme(building.id),
+                      ...getStreetBuildingPlacement(building.id),
                       height: getStreetBuildingHeight(building.id),
                     }}
                   >
@@ -2624,20 +2669,54 @@ export default function GamePage() {
                     <div style={casinoIconStyle}>🎰</div>
                     <div>
                       <h3 style={casinoTitleStyle}>슬롯 머신</h3>
-                      <p style={casinoTextStyle}>베팅 금액을 정하고 서버 확률로 결과가 결정됩니다.</p>
+                      <p style={casinoTextStyle}>돈을 넣고 레버를 당기면 슬롯이 돌아갑니다. 결과는 서버 확률로 결정됩니다.</p>
                     </div>
                   </div>
-                  <input
-                    type="number"
-                    min={100}
-                    step={100}
-                    value={slotStake}
-                    onChange={(event) => setSlotStake(event.target.value)}
-                    style={casinoInputStyle}
-                  />
-                  <button onClick={playSlotMachine} disabled={isSlotPlaying} style={casinoPrimaryButtonStyle}>
-                    {isSlotPlaying ? "돌리는 중..." : "슬롯 돌리기"}
-                  </button>
+
+                  <div style={slotMachinePanelStyle}>
+                    <div style={slotMachineCabinetStyle}>
+                      <div style={slotMachineHeaderStyle}>JACKPOT SLOT</div>
+                      <div style={slotMachineDisplayStyle}>
+                        {slotReels.map((symbol, index) => (
+                          <div key={`${symbol}-${index}-${isSlotPlaying ? "spin" : "stop"}`} style={{ ...slotReelWindowStyle, transform: isSlotPlaying ? `translateY(${index % 2 === 0 ? -2 : 2}px)` : "translateY(0)" }}>
+                            <span style={slotReelSymbolStyle}>{symbol}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={slotMachineFooterStyle}>
+                        <span>최소 베팅 100원</span>
+                        <span>대박 확률 서버 계산</span>
+                      </div>
+                    </div>
+
+                    <button onClick={playSlotMachine} disabled={isSlotPlaying} style={{ ...slotLeverButtonStyle, opacity: isSlotPlaying ? 0.92 : 1 }}>
+                      <div style={{ ...slotLeverStickStyle, transform: slotLeverDown ? "rotate(18deg) translateY(12px)" : "rotate(-12deg) translateY(0)" }} />
+                      <div style={{ ...slotLeverKnobStyle, transform: slotLeverDown ? "translateY(20px) translateX(7px)" : "translateY(0) translateX(0)" }} />
+                      <span style={slotLeverLabelStyle}>{isSlotPlaying ? "회전 중" : "레버"}</span>
+                    </button>
+                  </div>
+
+                  <div style={slotControlGridStyle}>
+                    <label style={slotStakeFieldStyle}>
+                      <span style={slotStakeLabelStyle}>베팅 금액</span>
+                      <input
+                        type="number"
+                        min={100}
+                        step={100}
+                        value={slotStake}
+                        onChange={(event) => setSlotStake(event.target.value)}
+                        style={casinoInputStyle}
+                      />
+                    </label>
+                    <div style={slotQuickRowStyle}>
+                      {[1000, 5000, 10000].map((amount) => (
+                        <button key={amount} onClick={() => setSlotStake(String(amount))} style={slotQuickButtonStyle}>
+                          {amount.toLocaleString()}원
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {slotResult && (
                     <div style={slotResultBoxStyle}>
                       <strong>{getSlotResultLabel(slotResult.result)}</strong>
@@ -3097,12 +3176,21 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
 }
 
 function getStreetBuildingHeight(buildingId: StreetBuildingId) {
-  if (buildingId === "stocks") return "354px";
-  if (buildingId === "casino") return "334px";
-  if (buildingId === "entertainment") return "342px";
-  if (buildingId === "logistics") return "286px";
-  if (buildingId === "finance") return "326px";
-  return "318px";
+  if (buildingId === "stocks") return "272px";
+  if (buildingId === "casino") return "226px";
+  if (buildingId === "entertainment") return "264px";
+  if (buildingId === "logistics") return "224px";
+  if (buildingId === "finance") return "248px";
+  return "258px";
+}
+
+function getStreetBuildingPlacement(buildingId: StreetBuildingId): CSSProperties {
+  if (buildingId === "company") return { gridColumn: "1", gridRow: "1" };
+  if (buildingId === "entertainment") return { gridColumn: "2", gridRow: "1" };
+  if (buildingId === "finance") return { gridColumn: "3", gridRow: "1" };
+  if (buildingId === "logistics") return { gridColumn: "1", gridRow: "2" };
+  if (buildingId === "casino") return { gridColumn: "2", gridRow: "2" };
+  return { gridColumn: "3", gridRow: "2" };
 }
 
 function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
@@ -3169,6 +3257,21 @@ function getSlotResultMessage(result: SlotResult) {
   if (result.result === "win") return `🎰 슬롯 성공! +${profit.toLocaleString()}원`;
   if (result.result === "draw") return "🎰 본전입니다.";
   return `🎰 실패! ${Math.abs(profit).toLocaleString()}원을 잃었습니다.`;
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function getRandomSlotSymbols() {
+  return Array.from({ length: 3 }, () => SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)]);
+}
+
+function getSlotDisplaySymbols(result: string) {
+  if (result === "jackpot") return ["7", "7", "7"];
+  if (result === "win") return ["💎", "💎", "💎"];
+  if (result === "draw") return ["🍒", "🍒", "🍒"];
+  return ["🍋", "🍀", "⭐"];
 }
 
 function getPvpStatusLabel(status: PvpMatchRow["status"]) {
@@ -3869,9 +3972,9 @@ const streetMoneyStyle: CSSProperties = {
 
 const streetBottomNavStyle: CSSProperties = {
   position: "absolute",
-  zIndex: 6,
+  zIndex: 8,
   left: "50%",
-  bottom: "12px",
+  bottom: "10px",
   transform: "translateX(-50%)",
   display: "flex",
   gap: "8px",
@@ -4719,30 +4822,33 @@ const securityHintStyle: CSSProperties = {
 const streetBuildingsRowStyle: CSSProperties = {
   position: "absolute",
   zIndex: 7,
-  left: "48px",
-  right: "48px",
-  bottom: "116px",
+  left: "50%",
+  top: "78px",
+  transform: "translateX(-50%)",
+  width: "min(1380px, calc(100% - 80px))",
   display: "grid",
-  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
-  gap: "20px",
+  gridTemplateColumns: "repeat(3, minmax(220px, 1fr))",
+  gridTemplateRows: "repeat(2, auto)",
+  gap: "18px 28px",
   alignItems: "end",
-  maxHeight: "calc(100% - 150px)",
+  justifyItems: "stretch",
 };
 
 const streetBuildingStyle: CSSProperties = {
   position: "relative",
   border: "5px solid #111827",
   borderRadius: "26px 26px 14px 14px",
-  padding: "12px 10px 12px",
+  padding: "10px 10px 12px",
   boxShadow: "0 12px 0 rgba(15,23,42,0.18), 0 20px 30px rgba(15,23,42,0.14)",
   display: "grid",
-  gridTemplateRows: "42px minmax(76px, 1fr) auto auto",
+  gridTemplateRows: "38px minmax(66px, 1fr) auto auto",
   gap: "8px",
   cursor: "pointer",
   textAlign: "center",
   color: "#0f172a",
   transition: "transform 120ms ease, filter 120ms ease",
   overflow: "hidden",
+  alignSelf: "end",
 };
 
 const streetBuildingRoofStyle: CSSProperties = {
@@ -5050,10 +5156,10 @@ const casinoSceneStyle: CSSProperties = {
   width: "100%",
   height: "100%",
   display: "grid",
-  gridTemplateRows: "auto minmax(0, 1fr) minmax(0, 0.9fr) auto",
-  gap: "12px",
-  overflow: "hidden",
-  background: "linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%)",
+  gridTemplateRows: "auto auto auto",
+  gap: "14px",
+  overflowY: "auto",
+  background: "linear-gradient(180deg, #fff8e8 0%, #ffefcf 100%)",
   border: "4px solid #111827",
   borderRadius: "28px",
   padding: "18px",
@@ -5061,41 +5167,39 @@ const casinoSceneStyle: CSSProperties = {
 };
 
 const casinoContentGridStyle: CSSProperties = {
-  minHeight: 0,
   display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "12px",
-  overflow: "hidden",
+  gridTemplateColumns: "1.08fr 1fr",
+  gap: "14px",
+  alignItems: "start",
 };
 
 const casinoLowerGridStyle: CSSProperties = {
-  minHeight: 0,
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: "12px",
-  overflow: "hidden",
+  gap: "14px",
+  alignItems: "start",
 };
 
 const casinoCardStyle: CSSProperties = {
-  minHeight: 0,
-  background: "rgba(255,255,255,0.92)",
+  background: "rgba(255,255,255,0.94)",
   border: "4px solid #111827",
   borderRadius: "22px",
-  padding: "14px",
+  padding: "16px",
   boxShadow: "0 8px 0 rgba(15,23,42,0.14)",
   display: "grid",
-  gap: "10px",
-  overflow: "hidden",
+  gap: "12px",
+  overflow: "visible",
+  alignContent: "start",
 };
 
 const casinoListCardStyle: CSSProperties = {
-  minHeight: 0,
-  background: "rgba(255,255,255,0.92)",
+  background: "rgba(255,255,255,0.94)",
   border: "4px solid #111827",
   borderRadius: "22px",
   padding: "14px",
   boxShadow: "0 8px 0 rgba(15,23,42,0.14)",
   overflowY: "auto",
+  maxHeight: "280px",
 };
 
 const casinoCardHeaderStyle: CSSProperties = {
@@ -5176,11 +5280,155 @@ const casinoSmallButtonStyle: CSSProperties = {
 const slotResultBoxStyle: CSSProperties = {
   border: "3px solid #111827",
   borderRadius: "16px",
-  background: "#f8fafc",
+  background: "linear-gradient(180deg, #fefce8, #fff7ed)",
   padding: "12px",
   display: "grid",
   gap: "4px",
   fontWeight: 900,
+};
+
+const slotMachinePanelStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) 96px",
+  gap: "14px",
+  alignItems: "center",
+};
+
+const slotMachineCabinetStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "24px",
+  background: "linear-gradient(180deg, #1f2937, #111827)",
+  color: "#f8fafc",
+  padding: "14px",
+  display: "grid",
+  gap: "12px",
+  boxShadow: "inset 0 0 0 3px rgba(250,204,21,0.22), 0 8px 0 rgba(15,23,42,0.2)",
+};
+
+const slotMachineHeaderStyle: CSSProperties = {
+  justifySelf: "center",
+  fontSize: "14px",
+  fontWeight: 900,
+  letterSpacing: "0.16em",
+  color: "#fde68a",
+};
+
+const slotMachineDisplayStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: "10px",
+  background: "linear-gradient(180deg, #fff8dc, #ffffff)",
+  border: "4px solid #475569",
+  borderRadius: "18px",
+  padding: "12px",
+  boxShadow: "inset 0 10px 18px rgba(15,23,42,0.10)",
+};
+
+const slotReelWindowStyle: CSSProperties = {
+  height: "94px",
+  borderRadius: "16px",
+  background: "linear-gradient(180deg, #ffffff, #e2e8f0)",
+  border: "3px solid #94a3b8",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  boxShadow: "inset 0 -10px 12px rgba(15,23,42,0.08)",
+  transition: "transform 120ms ease",
+};
+
+const slotReelSymbolStyle: CSSProperties = {
+  fontSize: "44px",
+  lineHeight: 1,
+  filter: "drop-shadow(0 3px 0 rgba(15,23,42,0.10))",
+};
+
+const slotMachineFooterStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "8px",
+  flexWrap: "wrap",
+  color: "#cbd5e1",
+  fontSize: "12px",
+  fontWeight: 900,
+};
+
+const slotLeverButtonStyle: CSSProperties = {
+  position: "relative",
+  border: "4px solid #111827",
+  borderRadius: "22px",
+  background: "linear-gradient(180deg, #fee2e2, #fecaca)",
+  height: "168px",
+  cursor: "pointer",
+  boxShadow: "0 8px 0 rgba(15,23,42,0.18)",
+  display: "flex",
+  alignItems: "flex-end",
+  justifyContent: "center",
+  overflow: "hidden",
+};
+
+const slotLeverStickStyle: CSSProperties = {
+  position: "absolute",
+  top: "34px",
+  width: "10px",
+  height: "78px",
+  borderRadius: "999px",
+  background: "linear-gradient(180deg, #f8fafc, #94a3b8)",
+  transition: "transform 160ms ease",
+};
+
+const slotLeverKnobStyle: CSSProperties = {
+  position: "absolute",
+  top: "22px",
+  width: "28px",
+  height: "28px",
+  borderRadius: "999px",
+  background: "#ef4444",
+  border: "4px solid #111827",
+  transition: "transform 160ms ease",
+};
+
+const slotLeverLabelStyle: CSSProperties = {
+  marginBottom: "12px",
+  fontSize: "13px",
+  fontWeight: 900,
+  color: "#7f1d1d",
+};
+
+const slotControlGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gap: "12px",
+  alignItems: "end",
+};
+
+const slotStakeFieldStyle: CSSProperties = {
+  display: "grid",
+  gap: "6px",
+};
+
+const slotStakeLabelStyle: CSSProperties = {
+  fontSize: "12px",
+  fontWeight: 900,
+  color: "#475569",
+};
+
+const slotQuickRowStyle: CSSProperties = {
+  display: "flex",
+  gap: "8px",
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
+};
+
+const slotQuickButtonStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "12px",
+  background: "#ffffff",
+  color: "#111827",
+  padding: "10px 12px",
+  fontSize: "13px",
+  fontWeight: 900,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
 };
 
 const pvpMessageStyle: CSSProperties = {
@@ -5237,4 +5485,5 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
+
 
