@@ -47,10 +47,10 @@ type SaveRow = {
   security_success_total?: number | string | null;
 };
 
-type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "titles" | "insurance" | "employees" | "auction" | "academy" | "gacha";
+type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "titles" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket";
 type RoomKind = "basic" | "studio" | "office";
 type CareerBuildingId = "company" | "entertainment" | "logistics" | "finance";
-type StreetBuildingId = CareerBuildingId | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "insurance" | "employees" | "auction" | "academy" | "gacha";
+type StreetBuildingId = CareerBuildingId | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket";
 type OccupationId =
   | "unemployed"
   | "officeIntern"
@@ -668,7 +668,8 @@ const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: st
   { id: "employees", title: "인력 사무소", subtitle: "직원 고용 · 인건비", emoji: "👥" },
   { id: "auction", title: "경매장", subtitle: "할인 매물 · 즉시 구매", emoji: "🔨" },
   { id: "academy", title: "교육원", subtitle: "자격증 · 교육 효과", emoji: "🎓" },
-  { id: "gacha", title: "가챠 숍", subtitle: "장신구 · 유저 거래", emoji: "🎁" },
+  { id: "gacha", title: "가챠 숍", subtitle: "장신구 · 자판기", emoji: "🎁" },
+  { id: "itemMarket", title: "아이템 거래소", subtitle: "유저 장신구 매매", emoji: "🤝" },
   { id: "casino", title: "도박장", subtitle: "슬롯 머신 · 유저 대전", emoji: "🎰" },
 ];
 
@@ -677,7 +678,8 @@ const streetBuildingPages: StreetBuildingId[][] = [
   ["bank", "stocks", "logistics"],
   ["estate", "business", "news"],
   ["insurance", "employees", "auction"],
-  ["academy", "gacha", "casino"],
+  ["academy", "gacha", "itemMarket"],
+  ["casino"],
 ];
 
 const stockCompanies: StockCompany[] = [
@@ -1602,7 +1604,7 @@ export default function GamePage() {
   }, [isSaveLoaded, shopLevel]);
 
   useEffect(() => {
-    if (lobbyView === "gacha") refreshMarketListings();
+    if (lobbyView === "gacha" || lobbyView === "itemMarket") refreshMarketListings();
   }, [lobbyView]);
 
   useEffect(() => {
@@ -2475,7 +2477,7 @@ export default function GamePage() {
       return;
     }
 
-    if (buildingId === "bank" || buildingId === "estate" || buildingId === "business" || buildingId === "news" || buildingId === "insurance" || buildingId === "employees" || buildingId === "auction" || buildingId === "academy" || buildingId === "gacha") {
+    if (buildingId === "bank" || buildingId === "estate" || buildingId === "business" || buildingId === "news" || buildingId === "insurance" || buildingId === "employees" || buildingId === "auction" || buildingId === "academy" || buildingId === "gacha" || buildingId === "itemMarket") {
       setLobbyView(buildingId);
       return;
     }
@@ -3796,6 +3798,51 @@ export default function GamePage() {
             </div>
           )}
 
+          {lobbyView === "itemMarket" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>ITEM MARKET</div>
+                  <h2 style={panelTitleStyle}>아이템 거래소</h2>
+                  <p style={panelDescStyle}>다른 유저가 등록한 장신구를 사고, 내 장신구를 판매 등록할 수 있습니다.</p>
+                </div>
+                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+              </div>
+
+              <div style={casinoLowerGridStyle}>
+                <section style={casinoListCardStyle}>
+                  <h3 style={casinoTitleStyle}>내 장신구 판매 등록</h3>
+                  <p style={casinoTextStyle}>판매 등록 후 다른 유저가 구매하면 판매 금액이 지급됩니다.</p>
+                  <select value={sellItemId} onChange={(event) => setSellItemId(event.target.value)} style={casinoInputStyle}>
+                    <option value="">판매할 아이템 선택</option>
+                    {ownedItems.map((id, index) => {
+                      const item = shopItems.find((entry) => entry.id === id);
+                      return item ? <option key={`${id}-${index}`} value={id}>{item.rarity} · {item.name}</option> : null;
+                    })}
+                  </select>
+                  <input value={sellPrice} onChange={(event) => setSellPrice(event.target.value)} style={casinoInputStyle} type="number" min={1000} step={1000} />
+                  <button onClick={listItemForSale} style={casinoPrimaryButtonStyle}>거래소 등록</button>
+                </section>
+
+                <section style={casinoListCardStyle}>
+                  <h3 style={casinoTitleStyle}>유저 매물</h3>
+                  <p style={casinoTextStyle}>등록된 아이템은 Supabase 거래소 기준으로 불러옵니다.</p>
+                  <button onClick={refreshMarketListings} style={casinoSmallButtonStyle}>새로고침</button>
+                  {marketListings.length === 0 ? <p style={casinoTextStyle}>등록된 매물이 없습니다.</p> : marketListings.map((listing) => {
+                    const item = shopItems.find((entry) => entry.id === listing.item_id);
+                    if (!item) return null;
+                    return (
+                      <div key={listing.id} style={marketMiniRowStyle}>
+                        <span>{item.icon} {item.name}<br /><small>{item.rarity} · {listing.seller_nickname ?? "판매자"} · {Number(listing.price).toLocaleString()}원</small></span>
+                        <button onClick={() => buyMarketListing(listing)} style={casinoSmallButtonStyle}>구매</button>
+                      </div>
+                    );
+                  })}
+                </section>
+              </div>
+            </div>
+          )}
+
           {lobbyView === "titles" && (
             <div style={panelSceneStyle}>
               <div style={panelHeaderRowStyle}>
@@ -4553,6 +4600,7 @@ function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
   if (buildingId === "academy") return { background: "linear-gradient(180deg, #ede9fe 0%, #a78bfa 100%)", borderColor: "#5b21b6" };
 
   if (buildingId === "gacha") return { background: "linear-gradient(180deg, #fdf2f8 0%, #f472b6 100%)", borderColor: "#9d174d" };
+  if (buildingId === "itemMarket") return { background: "linear-gradient(180deg, #ecfeff 0%, #22d3ee 100%)", borderColor: "#155e75" };
 
   if (buildingId === "casino") {
     return {
