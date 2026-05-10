@@ -954,9 +954,6 @@ export default function GamePage() {
   const itemSlotCount = currentTitleId === "treasureCollector" ? 2 : 1;
   const allIncomeBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "allIncome" ? item.bonusValue : 0), currentTitleId === "relicOwner" ? 0.03 : 0);
   const businessItemBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "businessIncome" ? item.bonusValue : 0), 0);
-  const jobItemBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "jobIncome" ? item.bonusValue : 0), currentTitleId === "certifiedExpert" ? 0.02 : 0);
-  const stockLuckBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "stockLuck" ? item.bonusValue : 0), ownedCertifications.includes("investment") ? 0.02 : 0);
-  const casinoLuckBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "casinoLuck" ? item.bonusValue : 0), 0);
   const stockAssetValue = useMemo(() => stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0), [stockRows]);
   const estateAssetValue = useMemo(() => ownedEstates.reduce((sum, id) => sum + (estateItems.find((item) => item.id === id)?.price ?? 0), 0), [ownedEstates]);
   const businessAssetValue = useMemo(() => ownedBusinesses.reduce((sum, id) => sum + (businessItems.find((item) => item.id === id)?.price ?? 0), 0), [ownedBusinesses]);
@@ -2805,7 +2802,6 @@ export default function GamePage() {
       .filter((profile) => profile.id !== userId)
       .map((profile) => {
         const profileOccupationId = profile.occupation_id && profile.occupation_id in occupationInfo ? (profile.occupation_id as OccupationId) : "unemployed";
-        const profileTitle = playerTitles.find((title) => title.id === (profile.id === userId ? currentTitleId : profile.current_title)) ?? playerTitles[0];
         return {
           id: profile.id,
           nickname: profile.nickname || `유저-${profile.id.slice(0, 8)}`,
