@@ -480,7 +480,7 @@ export default function GamePage() {
       let loadedAt = useLocal ? localAt : remoteAt;
 
       if (!loadedRows) {
-        loadedRows = makeInitialStocks(userId);
+        loadedRows = makeInitialStocks(currentUserId);
         loadedAt = new Date();
       }
 
@@ -532,6 +532,7 @@ export default function GamePage() {
 
   useEffect(() => {
     if (!userId || !isStockLoaded) return;
+    const currentUserId = userId;
 
     const tick = () => {
       const remaining = stockUpdatedAt.getTime() + STOCK_INTERVAL_MS - Date.now();
@@ -539,7 +540,7 @@ export default function GamePage() {
       if (remaining <= 0) {
         const now = new Date();
         setStockRows((current) => {
-          const nextRows = updateStockMarket(current.length > 0 ? current : makeInitialStocks(userId));
+          const nextRows = updateStockMarket(current.length > 0 ? current : makeInitialStocks(currentUserId));
           persistStocksNow(nextRows, now);
           return nextRows;
         });
