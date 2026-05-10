@@ -1690,73 +1690,68 @@ function RoomArtwork({ roomKind, nickname, occupationName }: { roomKind: RoomKin
 
 function StreetArtwork() {
   return (
-    <svg style={sceneSvgStyle} viewBox="0 0 1600 760" preserveAspectRatio="none" role="img" aria-label="주식 거래소가 있는 깔끔한 길거리 일러스트">
+    <svg style={sceneSvgStyle} viewBox="0 0 1600 760" preserveAspectRatio="none" role="img" aria-label="주식 거래소 거리">
       <defs>
-        <linearGradient id="stockStreetSky" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id="cleanSky63" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor="#dbeafe" />
           <stop offset="58%" stopColor="#f8fafc" />
-          <stop offset="100%" stopColor="#e2e8f0" />
+          <stop offset="100%" stopColor="#e5e7eb" />
         </linearGradient>
-        <linearGradient id="exchangeGlass" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#0f172a" />
-          <stop offset="52%" stopColor="#1e3a8a" />
-          <stop offset="100%" stopColor="#075985" />
-        </linearGradient>
-        <linearGradient id="cleanStreetRoad" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#334155" />
+        <linearGradient id="cleanRoad63" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#1f2937" />
           <stop offset="100%" stopColor="#0f172a" />
         </linearGradient>
-        <filter id="exchangeShadow" x="-20%" y="-20%" width="140%" height="160%">
-          <feDropShadow dx="0" dy="20" stdDeviation="12" floodColor="#0f172a" floodOpacity="0.25" />
-        </filter>
-        <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="12" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
+        <filter id="streetSoftShadow63" x="-20%" y="-20%" width="140%" height="160%">
+          <feDropShadow dx="0" dy="18" stdDeviation="10" floodColor="#0f172a" floodOpacity="0.22" />
         </filter>
       </defs>
 
-      <rect x="0" y="0" width="1600" height="760" fill="url(#stockStreetSky)" />
-      <circle cx="186" cy="118" r="66" fill="#fde68a" />
-      <circle cx="186" cy="118" r="105" fill="#fde68a" opacity="0.18" />
-      <path d="M0 528 C260 482 428 506 612 540 C868 588 1088 560 1600 500 L1600 760 L0 760 Z" fill="#cbd5e1" />
-      <path d="M-80 628 C260 548 560 564 824 628 C1080 690 1310 684 1680 590 L1680 760 L-80 760 Z" fill="url(#cleanStreetRoad)" />
-      <path d="M110 662 C356 602 584 604 818 662 C1070 724 1308 714 1510 640" fill="none" stroke="#f8fafc" strokeWidth="12" strokeLinecap="round" strokeDasharray="76 52" opacity="0.92" />
-      <path d="M0 526 H1600" stroke="#111827" strokeWidth="5" opacity="0.18" />
+      <rect x="0" y="0" width="1600" height="760" fill="url(#cleanSky63)" />
+      <circle cx="180" cy="118" r="54" fill="#fef3c7" />
+      <circle cx="180" cy="118" r="92" fill="#fef3c7" opacity="0.28" />
 
-      <g filter="url(#exchangeShadow)">
-        <rect x="510" y="138" width="580" height="398" rx="38" fill="url(#exchangeGlass)" stroke="#111827" strokeWidth="9" />
-        <rect x="552" y="90" width="496" height="96" rx="30" fill="#ffffff" stroke="#111827" strokeWidth="9" />
-        <text x="800" y="151" textAnchor="middle" fill="#111827" fontSize="45" fontWeight="900">주식 거래소</text>
-        <rect x="558" y="222" width="484" height="192" rx="24" fill="#020617" stroke="#475569" strokeWidth="6" />
-        <g opacity="0.95">
-          <line x1="590" y1="374" x2="1012" y2="374" stroke="#334155" strokeWidth="3" />
-          <line x1="590" y1="326" x2="1012" y2="326" stroke="#334155" strokeWidth="3" />
-          <line x1="590" y1="278" x2="1012" y2="278" stroke="#334155" strokeWidth="3" />
-          <polyline points="594,354 636,322 684,338 734,286 778,306 828,252 872,292 924,264 998,238" fill="none" stroke="#22c55e" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" filter="url(#softGlow)" />
-          <polyline points="596,286 642,304 686,270 730,292 776,258 826,274 874,246 920,256 1000,236" fill="none" stroke="#ef4444" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
-          <rect x="612" y="396" width="34" height="16" rx="6" fill="#22c55e" />
-          <rect x="670" y="396" width="34" height="16" rx="6" fill="#ef4444" />
-          <rect x="728" y="396" width="34" height="16" rx="6" fill="#facc15" />
-          <text x="842" y="410" fill="#e5e7eb" fontSize="22" fontWeight="900">3분마다 변동</text>
-        </g>
-        <rect x="594" y="438" width="112" height="98" rx="16" fill="#e2e8f0" stroke="#111827" strokeWidth="7" />
-        <rect x="894" y="438" width="112" height="98" rx="16" fill="#e2e8f0" stroke="#111827" strokeWidth="7" />
-        <rect x="732" y="450" width="136" height="86" rx="18" fill="#f8fafc" stroke="#111827" strokeWidth="7" />
-        <path d="M486 536 H1114" stroke="#111827" strokeWidth="11" strokeLinecap="round" />
-        <rect x="474" y="538" width="652" height="34" rx="17" fill="#475569" opacity="0.35" />
+      <path d="M0 472 C220 438 410 456 610 488 C850 528 1082 510 1600 448 L1600 760 L0 760 Z" fill="#cbd5e1" />
+      <path d="M0 506 C260 482 460 492 640 526 C900 576 1170 570 1600 506" fill="none" stroke="#94a3b8" strokeWidth="4" opacity="0.35" />
+      <path d="M-80 622 C248 554 548 562 812 628 C1068 690 1320 684 1680 588 L1680 760 L-80 760 Z" fill="url(#cleanRoad63)" />
+      <path d="M92 660 C330 606 584 610 822 664 C1082 722 1306 714 1518 640" fill="none" stroke="#f8fafc" strokeWidth="12" strokeLinecap="round" strokeDasharray="74 54" opacity="0.95" />
+
+      <g opacity="0.68">
+        <rect x="114" y="332" width="96" height="142" rx="10" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
+        <rect x="248" y="300" width="116" height="174" rx="10" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
+        <rect x="1264" y="314" width="112" height="160" rx="10" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
+        <rect x="1404" y="278" width="94" height="196" rx="10" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
       </g>
 
-      <g opacity="0.9">
-        <rect x="216" y="588" width="108" height="54" rx="18" fill="#f97316" stroke="#111827" strokeWidth="6" />
-        <rect x="246" y="552" width="70" height="48" rx="14" fill="#fb7185" stroke="#111827" strokeWidth="6" />
-        <circle cx="244" cy="646" r="16" fill="#111827" />
-        <circle cx="304" cy="646" r="16" fill="#111827" />
-        <rect x="1282" y="604" width="116" height="58" rx="20" fill="#38bdf8" stroke="#111827" strokeWidth="6" />
-        <circle cx="1312" cy="666" r="16" fill="#111827" />
-        <circle cx="1370" cy="666" r="16" fill="#111827" />
+      <g filter="url(#streetSoftShadow63)">
+        <rect x="692" y="492" width="216" height="20" rx="10" fill="#111827" opacity="0.22" />
+        <rect x="714" y="152" width="172" height="344" rx="20" fill="#f8fafc" stroke="#111827" strokeWidth="8" />
+        <path d="M720 152 L800 78 L880 152 Z" fill="#fde68a" stroke="#111827" strokeWidth="8" strokeLinejoin="round" />
+        <rect x="750" y="112" width="100" height="58" rx="16" fill="#ffffff" stroke="#111827" strokeWidth="7" />
+        <text x="800" y="151" textAnchor="middle" fill="#111827" fontSize="28" fontWeight="900">KRX</text>
+        {Array.from({ length: 7 }).map((_, row) =>
+          Array.from({ length: 3 }).map((__, col) => (
+            <rect
+              key={`${row}-${col}`}
+              x={742 + col * 42}
+              y={198 + row * 36}
+              width="24"
+              height="20"
+              rx="5"
+              fill={row % 2 === 0 ? "#bfdbfe" : "#dbeafe"}
+              stroke="#60a5fa"
+              strokeWidth="2"
+            />
+          ))
+        )}
+        <rect x="758" y="454" width="84" height="42" rx="12" fill="#111827" />
+        <path d="M736 434 C774 410 816 410 864 434" fill="none" stroke="#22c55e" strokeWidth="8" strokeLinecap="round" />
+        <path d="M736 438 C772 454 818 426 864 448" fill="none" stroke="#ef4444" strokeWidth="6" strokeLinecap="round" />
+      </g>
+
+      <g opacity="0.92">
+        <rect x="1170" y="574" width="124" height="62" rx="22" fill="#38bdf8" stroke="#111827" strokeWidth="6" />
+        <circle cx="1204" cy="640" r="17" fill="#111827" />
+        <circle cx="1262" cy="640" r="17" fill="#111827" />
       </g>
     </svg>
   );
@@ -2152,7 +2147,7 @@ const worldLayoutStyle: CSSProperties = {
   height: "100%",
   padding: "8px 10px",
   display: "grid",
-  gridTemplateRows: "84px minmax(0, 1fr) 54px",
+  gridTemplateRows: "112px minmax(0, 1fr) 54px",
   gap: "8px",
   overflow: "hidden",
 };
@@ -2167,14 +2162,18 @@ const worldHeaderStyle: CSSProperties = {
 
 const profileAreaStyle: CSSProperties = {
   minWidth: 0,
-  overflow: "hidden",
+  overflow: "visible",
+  position: "relative",
+  zIndex: 20,
 };
 
 const nicknameEditStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "6px",
-  marginTop: "6px",
+  gap: "8px",
+  marginTop: "8px",
+  position: "relative",
+  zIndex: 30,
 };
 
 const nicknameInputStyle: CSSProperties = {
@@ -2471,39 +2470,44 @@ const stockExchangeBuildingButtonStyle: CSSProperties = {
   position: "absolute",
   zIndex: 8,
   left: "50%",
-  top: "50%",
+  top: "46%",
   transform: "translate(-50%, -50%)",
-  width: "min(430px, 52vw)",
-  minHeight: "150px",
+  width: "190px",
+  minHeight: "330px",
   border: "5px solid #111827",
-  borderRadius: "24px",
-  background: "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(219,234,254,0.96))",
+  borderRadius: "22px 22px 12px 12px",
+  background: "linear-gradient(180deg, #ffffff 0%, #e0f2fe 38%, #93c5fd 100%)",
   color: "#111827",
-  boxShadow: "8px 8px 0 rgba(17,24,39,0.22), 0 18px 42px rgba(15,23,42,0.22)",
+  boxShadow: "8px 8px 0 rgba(17,24,39,0.20), 0 18px 42px rgba(15,23,42,0.18)",
   cursor: "pointer",
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
   justifyContent: "center",
-  gap: "6px",
+  gap: "10px",
   textAlign: "center",
+  outline: "none",
 };
 
 const stockExchangeButtonIconStyle: CSSProperties = {
-  fontSize: "42px",
+  fontSize: "48px",
   lineHeight: 1,
+  filter: "drop-shadow(0 4px 0 rgba(17,24,39,0.14))",
 };
 
 const stockExchangeButtonTitleStyle: CSSProperties = {
-  fontSize: "32px",
+  fontSize: "26px",
   fontWeight: 900,
-  lineHeight: 1.1,
+  lineHeight: 1.12,
 };
 
 const stockExchangeButtonSubStyle: CSSProperties = {
-  fontSize: "15px",
+  width: "128px",
+  borderTop: "3px solid #111827",
+  paddingTop: "10px",
+  fontSize: "13px",
   fontWeight: 900,
-  color: "#475569",
+  color: "#334155",
 };
 
 const streetBottomNavStyle: CSSProperties = {
@@ -2673,9 +2677,9 @@ const stockBoardStyle: CSSProperties = {
   minHeight: 0,
   overflow: "auto",
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: "12px",
-  paddingRight: "4px",
+  gridTemplateColumns: "1fr",
+  gap: "16px",
+  padding: "6px 10px 12px 2px",
 };
 
 const stockCardStyle: CSSProperties = {
@@ -2683,10 +2687,10 @@ const stockCardStyle: CSSProperties = {
   color: "#111827",
   border: "3px solid #111827",
   borderRadius: "18px",
-  padding: "14px",
-  boxShadow: "5px 5px 0 rgba(17,24,39,0.18)",
+  padding: "16px",
+  boxShadow: "5px 5px 0 rgba(17,24,39,0.16)",
   display: "grid",
-  gap: "10px",
+  gap: "12px",
 };
 
 const stockCardHeaderStyle: CSSProperties = {
@@ -2793,7 +2797,7 @@ const smallLabelStyle: CSSProperties = {
 
 const mainTitleStyle: CSSProperties = {
   margin: "1px 0",
-  fontSize: "34px",
+  fontSize: "30px",
   lineHeight: 1,
   whiteSpace: "nowrap",
 };
