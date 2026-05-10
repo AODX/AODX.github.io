@@ -47,10 +47,10 @@ type SaveRow = {
   security_success_total?: number | string | null;
 };
 
-type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "titles" | "insurance" | "employees" | "auction";
+type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "titles" | "insurance" | "employees" | "auction" | "academy" | "gacha";
 type RoomKind = "basic" | "studio" | "office";
 type CareerBuildingId = "company" | "entertainment" | "logistics" | "finance";
-type StreetBuildingId = CareerBuildingId | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "insurance" | "employees" | "auction";
+type StreetBuildingId = CareerBuildingId | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "insurance" | "employees" | "auction" | "academy" | "gacha";
 type OccupationId =
   | "unemployed"
   | "officeIntern"
@@ -94,6 +94,8 @@ type RankingRow = {
   nickname: string;
   cash: number;
   job: string;
+  titleName?: string;
+  titleIcon?: string;
   hasSave: boolean;
   isMe?: boolean;
 };
@@ -103,6 +105,7 @@ type ProfileRow = {
   nickname: string | null;
   room_kind: string | null;
   occupation_id: string | null;
+  current_title?: string | null;
   occupation_level?: number | null;
   unlocked_occupations?: OccupationId[] | string | null;
 };
@@ -128,6 +131,40 @@ type PlayerTitle = {
   name: string;
   icon: string;
   description: string;
+  passiveText?: string;
+};
+
+type CertificationId = "office" | "barista" | "logistics" | "investment" | "business";
+type Certification = {
+  id: CertificationId;
+  name: string;
+  icon: string;
+  price: number;
+  description: string;
+  effectText: string;
+};
+
+type ItemRarity = "일반" | "희소" | "진귀" | "보물" | "유물";
+type ShopItemId = string;
+type ShopItem = {
+  id: ShopItemId;
+  name: string;
+  icon: string;
+  rarity: ItemRarity;
+  price: number;
+  description: string;
+  bonusType: "allIncome" | "businessIncome" | "stockLuck" | "jobIncome" | "casinoLuck";
+  bonusValue: number;
+};
+
+type MarketListing = {
+  id: string;
+  seller_id: string;
+  seller_nickname?: string | null;
+  item_id: ShopItemId;
+  price: number | string;
+  status?: string | null;
+  created_at?: string | null;
 };
 
 type StockRow = {
@@ -630,6 +667,8 @@ const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: st
   { id: "insurance", title: "보험사", subtitle: "사고 · 세금 · 사업 보장", emoji: "🛡️" },
   { id: "employees", title: "인력 사무소", subtitle: "직원 고용 · 인건비", emoji: "👥" },
   { id: "auction", title: "경매장", subtitle: "할인 매물 · 즉시 구매", emoji: "🔨" },
+  { id: "academy", title: "교육원", subtitle: "자격증 · 교육 효과", emoji: "🎓" },
+  { id: "gacha", title: "가챠 숍", subtitle: "장신구 · 유저 거래", emoji: "🎁" },
   { id: "casino", title: "도박장", subtitle: "슬롯 머신 · 유저 대전", emoji: "🎰" },
 ];
 
@@ -638,7 +677,7 @@ const streetBuildingPages: StreetBuildingId[][] = [
   ["bank", "stocks", "logistics"],
   ["estate", "business", "news"],
   ["insurance", "employees", "auction"],
-  ["casino"],
+  ["academy", "gacha", "casino"],
 ];
 
 const stockCompanies: StockCompany[] = [
@@ -657,6 +696,27 @@ const stockCompanies: StockCompany[] = [
   { id: "futurePrincess", name: "미래공주 테크", icon: "🔮", description: "미래형 캐릭터 IP와 AI 콘텐츠를 개발하는 회사" },
   { id: "summonerRift", name: "소환사의 협곡", icon: "🗡️", description: "MOBA 리그와 스트리밍 흥행에 영향을 받는 회사" },
   { id: "heroWatch", name: "히어로 워치", icon: "⌚", description: "히어로 IP와 팀 기반 슈팅 콘텐츠 회사" },
+];
+
+const certifications: Certification[] = [
+  { id: "office", name: "컴퓨터활용 자격증", icon: "💻", price: 120000, description: "회사 업무 승급과 사무직 수익에 도움이 됩니다.", effectText: "직업 수익 +3%" },
+  { id: "barista", name: "바리스타 자격증", icon: "☕", price: 90000, description: "카페 계열 창업과 수익에 도움이 됩니다.", effectText: "사업 수익 +3%" },
+  { id: "logistics", name: "물류관리사", icon: "📦", price: 150000, description: "물류/배송 계열 직업과 사업 운영에 도움이 됩니다.", effectText: "전체 수익 +2%" },
+  { id: "investment", name: "투자분석 자격증", icon: "📈", price: 180000, description: "주식 투자 판단력과 운을 조금 올려줍니다.", effectText: "주식 상승 확률 +2%" },
+  { id: "business", name: "창업 교육 수료증", icon: "🏪", price: 220000, description: "창업 비용 감각과 사업 운영력을 높입니다.", effectText: "사업 수익 +5%" },
+];
+
+const shopItems: ShopItem[] = [
+  { id: "lucky_coin", name: "행운의 동전", icon: "🪙", rarity: "일반", price: 30000, description: "소소하게 운을 올려주는 낡은 동전입니다.", bonusType: "stockLuck", bonusValue: 0.01 },
+  { id: "salary_pin", name: "월급 핀", icon: "📌", rarity: "일반", price: 45000, description: "직업 수익을 조금 올려줍니다.", bonusType: "jobIncome", bonusValue: 0.03 },
+  { id: "silver_abacus", name: "은 주판", icon: "🧮", rarity: "희소", price: 120000, description: "모든 수익이 소폭 증가합니다.", bonusType: "allIncome", bonusValue: 0.03 },
+  { id: "delivery_charm", name: "배달 부적", icon: "🛵", rarity: "희소", price: 150000, description: "알바와 직업 수익에 도움이 되는 부적입니다.", bonusType: "jobIncome", bonusValue: 0.06 },
+  { id: "golden_register", name: "황금 계산대", icon: "🏪", rarity: "진귀", price: 380000, description: "사업 수익을 크게 올려줍니다.", bonusType: "businessIncome", bonusValue: 0.10 },
+  { id: "market_lens", name: "시장 분석 렌즈", icon: "🔍", rarity: "진귀", price: 420000, description: "주식 흐름을 읽는 감각을 올려줍니다.", bonusType: "stockLuck", bonusValue: 0.03 },
+  { id: "casino_glove", name: "딜러의 장갑", icon: "🧤", rarity: "보물", price: 900000, description: "카지노 운을 아주 조금 올려줍니다.", bonusType: "casinoLuck", bonusValue: 0.04 },
+  { id: "merchant_crown", name: "상인의 왕관", icon: "👑", rarity: "보물", price: 1300000, description: "모든 수익이 눈에 띄게 증가합니다.", bonusType: "allIncome", bonusValue: 0.08 },
+  { id: "ancient_cashbook", name: "고대 장부", icon: "📜", rarity: "유물", price: 3500000, description: "사업과 직업 수익을 강하게 올려주는 유물입니다.", bonusType: "allIncome", bonusValue: 0.14 },
+  { id: "fortune_core", name: "행운 핵", icon: "💠", rarity: "유물", price: 5000000, description: "극악 확률로만 얻는 전설적인 행운 장신구입니다.", bonusType: "stockLuck", bonusValue: 0.07 },
 ];
 
 const playerTitles: PlayerTitle[] = [
@@ -690,6 +750,10 @@ const playerTitles: PlayerTitle[] = [
   { id: "millionaire", name: "백만장자", icon: "💰", description: "순자산 1,000,000원 이상" },
   { id: "multiMillionaire", name: "천만장자", icon: "💎", description: "순자산 10,000,000원 이상" },
   { id: "tycoon", name: "경제 거물", icon: "👑", description: "순자산 50,000,000원 이상" },
+  { id: "certifiedExpert", name: "자격증 수집가", icon: "🎓", description: "자격증 3개 이상 보유", passiveText: "직업 수익 +2%" },
+  { id: "treasureCollector", name: "보물 수집가", icon: "💠", description: "보물 등급 이상 아이템 2개 이상 보유", passiveText: "아이템 장착 슬롯 +1" },
+  { id: "relicOwner", name: "유물의 주인", icon: "🏺", description: "유물 등급 아이템 1개 이상 보유", passiveText: "전체 수익 +3%" },
+  { id: "marketTrader", name: "거래의 달인", icon: "🤝", description: "장신구 5개 이상 보유", passiveText: "상점 등급 성장 가속" },
 ];
 
 const estateItems: EstateItem[] = [
@@ -767,6 +831,16 @@ export default function GamePage() {
   const [lobbyView, setLobbyView] = useState<LobbyView>("room");
   const [streetPage, setStreetPage] = useState(0);
   const [currentTitleId, setCurrentTitleId] = useState<PlayerTitleId>("newbie");
+  const [ownedCertifications, setOwnedCertifications] = useState<CertificationId[]>([]);
+  const [ownedItems, setOwnedItems] = useState<ShopItemId[]>([]);
+  const [equippedItems, setEquippedItems] = useState<ShopItemId[]>([]);
+  const [shopLevel, setShopLevel] = useState(1);
+  const [shopPurchaseCount, setShopPurchaseCount] = useState(0);
+  const [shopOffers, setShopOffers] = useState<ShopItem[]>(() => makeShopOffers(1));
+  const [shopUpdatedAt, setShopUpdatedAt] = useState(new Date());
+  const [marketListings, setMarketListings] = useState<MarketListing[]>([]);
+  const [sellItemId, setSellItemId] = useState("");
+  const [sellPrice, setSellPrice] = useState("100000");
   const [nickname, setNickname] = useState("우리집");
   const [nicknameDraft, setNicknameDraft] = useState("우리집");
   const [roomKind, setRoomKind] = useState<RoomKind>("basic");
@@ -876,6 +950,13 @@ export default function GamePage() {
   const taxRate = getTaxRate(cash);
   const nextTax = calculateTax(cash, unpaidTax);
   const currentTitle = playerTitles.find((title) => title.id === currentTitleId) ?? playerTitles[0];
+  const equippedShopItems = useMemo(() => equippedItems.map((id) => shopItems.find((item) => item.id === id)).filter((item): item is ShopItem => Boolean(item)), [equippedItems]);
+  const itemSlotCount = currentTitleId === "treasureCollector" ? 2 : 1;
+  const allIncomeBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "allIncome" ? item.bonusValue : 0), currentTitleId === "relicOwner" ? 0.03 : 0);
+  const businessItemBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "businessIncome" ? item.bonusValue : 0), 0);
+  const jobItemBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "jobIncome" ? item.bonusValue : 0), currentTitleId === "certifiedExpert" ? 0.02 : 0);
+  const stockLuckBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "stockLuck" ? item.bonusValue : 0), ownedCertifications.includes("investment") ? 0.02 : 0);
+  const casinoLuckBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "casinoLuck" ? item.bonusValue : 0), 0);
   const stockAssetValue = useMemo(() => stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0), [stockRows]);
   const estateAssetValue = useMemo(() => ownedEstates.reduce((sum, id) => sum + (estateItems.find((item) => item.id === id)?.price ?? 0), 0), [ownedEstates]);
   const businessAssetValue = useMemo(() => ownedBusinesses.reduce((sum, id) => sum + (businessItems.find((item) => item.id === id)?.price ?? 0), 0), [ownedBusinesses]);
@@ -888,9 +969,9 @@ export default function GamePage() {
       const base = businessItems.find((item) => item.id === id)?.incomeEvery5Min ?? 0;
       const employeeLevel = businessEmployees[id] ?? 0;
       const plan = employeePlans.find((item) => item.level === employeeLevel) ?? employeePlans[0];
-      return sum + Math.floor(base * (1 + plan.revenueBonusRate) * inflationIndex);
+      return sum + Math.floor(base * (1 + plan.revenueBonusRate + businessItemBonus + allIncomeBonus + (ownedCertifications.includes("business") ? 0.05 : 0) + (ownedCertifications.includes("barista") ? 0.03 : 0)) * inflationIndex);
     }, 0),
-    [ownedBusinesses, businessEmployees, inflationIndex]
+    [ownedBusinesses, businessEmployees, inflationIndex, businessItemBonus, allIncomeBonus, ownedCertifications]
   );
   const employeePayrollEvery60Sec = useMemo(
     () => ownedBusinesses.reduce((sum, id) => {
@@ -904,10 +985,11 @@ export default function GamePage() {
     () => ownedInsurances.reduce((sum, id) => sum + (insuranceItems.find((item) => item.id === id)?.premiumEvery5Min ?? 0), 0),
     [ownedInsurances]
   );
-  const netWorth = cash + bankDeposit + stockAssetValue + estateAssetValue + businessAssetValue - bankLoan - unpaidTax;
+  const itemAssetValue = ownedItems.reduce((sum, id) => sum + (shopItems.find((item) => item.id === id)?.price ?? 0), 0);
+  const netWorth = cash + bankDeposit + stockAssetValue + estateAssetValue + businessAssetValue + itemAssetValue - bankLoan - unpaidTax;
   const unlockedTitles = useMemo(
-    () => getUnlockedTitles({ cash, stockRows, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal }),
-    [cash, stockRows, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal]
+    () => getUnlockedTitles({ cash, stockRows, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems }),
+    [cash, stockRows, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems]
   );
 
   useEffect(() => {
@@ -1018,7 +1100,7 @@ export default function GamePage() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from(PROFILE_TABLE)
-        .select("id, nickname, room_kind, occupation_id, occupation_level, unlocked_occupations")
+        .select("id, nickname, room_kind, occupation_id, occupation_level, unlocked_occupations, current_title")
         .eq("id", userId)
         .maybeSingle<ProfileRow>();
 
@@ -1049,6 +1131,11 @@ export default function GamePage() {
         setOccupationLevel(data.occupation_level);
       }
 
+      if (data?.current_title && playerTitles.some((title) => title.id === data.current_title)) {
+        setCurrentTitleId(data.current_title);
+        window.localStorage.setItem(`alba-money-title-${userId}`, data.current_title);
+      }
+
       const rawUnlocked = data?.unlocked_occupations;
       const parsedUnlocked = typeof rawUnlocked === "string" ? safeParseOccupationList(rawUnlocked) : rawUnlocked;
       if (Array.isArray(parsedUnlocked)) {
@@ -1068,7 +1155,7 @@ export default function GamePage() {
     if (!stored) return;
 
     try {
-      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[] };
+      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; equippedItems?: ShopItemId[]; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string };
       setBankDeposit(Number(parsed.bankDeposit ?? 0));
       setBankLoan(Number(parsed.bankLoan ?? 0));
       setCreditScore(Number(parsed.creditScore ?? 700));
@@ -1079,6 +1166,13 @@ export default function GamePage() {
       if (Array.isArray(parsed.ownedInsurances)) setOwnedInsurances(parsed.ownedInsurances.filter((id): id is InsuranceId => insuranceItems.some((item) => item.id === id)));
       if (parsed.businessEmployees && typeof parsed.businessEmployees === "object") setBusinessEmployees(parsed.businessEmployees);
       if (Array.isArray(parsed.auctionDeals) && parsed.auctionDeals.length > 0) setAuctionDeals(parsed.auctionDeals);
+      if (Array.isArray(parsed.ownedCertifications)) setOwnedCertifications(parsed.ownedCertifications.filter((id): id is CertificationId => certifications.some((item) => item.id === id)));
+      if (Array.isArray(parsed.ownedItems)) setOwnedItems(parsed.ownedItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id)));
+      if (Array.isArray(parsed.equippedItems)) setEquippedItems(parsed.equippedItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id)));
+      if (typeof parsed.shopLevel === "number") setShopLevel(parsed.shopLevel);
+      if (typeof parsed.shopPurchaseCount === "number") setShopPurchaseCount(parsed.shopPurchaseCount);
+      if (Array.isArray(parsed.shopOffers) && parsed.shopOffers.length > 0) setShopOffers(parsed.shopOffers);
+      if (parsed.shopUpdatedAt) setShopUpdatedAt(new Date(parsed.shopUpdatedAt));
       if (parsed.economyUpdatedAt) setEconomyUpdatedAt(new Date(parsed.economyUpdatedAt));
     } catch (error) {
       console.warn("경제 데이터 불러오기 실패:", error);
@@ -1099,9 +1193,16 @@ export default function GamePage() {
       ownedInsurances,
       businessEmployees,
       auctionDeals,
+      ownedCertifications,
+      ownedItems,
+      equippedItems,
+      shopLevel,
+      shopPurchaseCount,
+      shopOffers,
+      shopUpdatedAt: shopUpdatedAt.toISOString(),
       economyUpdatedAt: economyUpdatedAt.toISOString(),
     }));
-  }, [userId, isSaveLoaded, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, economyUpdatedAt]);
+  }, [userId, isSaveLoaded, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, equippedItems, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, economyUpdatedAt]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -1444,7 +1545,7 @@ export default function GamePage() {
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [userId, isSaveLoaded, cash, warningCount, unpaidTax, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal]);
+  }, [userId, isSaveLoaded, cash, warningCount, unpaidTax, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -1490,6 +1591,22 @@ export default function GamePage() {
 
     return () => window.clearInterval(timer);
   }, [isSaveLoaded, userId, occupationId]);
+
+  useEffect(() => {
+    if (!isSaveLoaded) return;
+
+    const timer = window.setInterval(() => {
+      setShopOffers(makeShopOffers(shopLevel));
+      setShopUpdatedAt(new Date());
+      setMessage("🎁 가챠 숍 상품 3개가 새로 입고되었습니다.");
+    }, 10 * 60 * 1000);
+
+    return () => window.clearInterval(timer);
+  }, [isSaveLoaded, shopLevel]);
+
+  useEffect(() => {
+    if (lobbyView === "gacha") refreshMarketListings();
+  }, [lobbyView]);
 
   useEffect(() => {
     if (!activeJobId) return;
@@ -2015,6 +2132,7 @@ export default function GamePage() {
         occupation_id: occupationId,
         occupation_level: occupationLevel,
         unlocked_occupations: unlockedOccupations,
+        current_title: currentTitleId,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" }
@@ -2228,6 +2346,126 @@ export default function GamePage() {
     setMessage("📰 경제 뉴스가 새로 들어왔습니다.");
   }
 
+  function buyCertification(certificationId: CertificationId) {
+    const certification = certifications.find((item) => item.id === certificationId);
+    if (!certification || ownedCertifications.includes(certificationId)) return;
+    if (cash < certification.price) {
+      setMessage(`🎓 ${certification.name} 취득에는 ${certification.price.toLocaleString()}원이 필요합니다.`);
+      return;
+    }
+    setCash((money) => money - certification.price);
+    setOwnedCertifications((owned) => [...owned, certificationId]);
+    setMessage(`🎓 ${certification.name} 취득 완료! ${certification.effectText}`);
+  }
+
+  function buyShopOffer(item: ShopItem) {
+    if (cash < item.price) {
+      setMessage(`🎁 ${item.name} 구매에는 ${item.price.toLocaleString()}원이 필요합니다.`);
+      return;
+    }
+    setCash((money) => money - item.price);
+    setOwnedItems((owned) => [...owned, item.id]);
+    setShopPurchaseCount((count) => count + 1);
+    setShopLevel((level) => Math.min(5, Math.max(level, 1 + Math.floor((shopPurchaseCount + 1) / 5))));
+    setMessage(`🎁 ${item.rarity} 등급 ${item.name} 구매 완료!`);
+  }
+
+  function pullGachaMachine() {
+    const cost = 50000;
+    if (cash < cost) {
+      setMessage(`🎰 가챠 자판기 이용에는 ${cost.toLocaleString()}원이 필요합니다.`);
+      return;
+    }
+    setCash((money) => money - cost);
+    const item = rollGachaItem(shopLevel);
+    if (!item) {
+      setMessage("🎰 아무것도 나오지 않았습니다... 극악 확률입니다.");
+      return;
+    }
+    setOwnedItems((owned) => [...owned, item.id]);
+    setShopPurchaseCount((count) => count + 1);
+    setMessage(`🎰 가챠 성공! ${item.rarity} 등급 ${item.name} 획득!`);
+  }
+
+  function toggleEquipItem(itemId: ShopItemId) {
+    if (!ownedItems.includes(itemId)) return;
+    if (equippedItems.includes(itemId)) {
+      setEquippedItems((equipped) => equipped.filter((id) => id !== itemId));
+      return;
+    }
+    if (equippedItems.length >= itemSlotCount) {
+      setMessage(`🎁 현재 칭호에서는 아이템을 ${itemSlotCount}개만 장착할 수 있습니다.`);
+      return;
+    }
+    setEquippedItems((equipped) => [...equipped, itemId]);
+  }
+
+  async function refreshMarketListings() {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("game_item_market")
+      .select("id, seller_id, seller_nickname, item_id, price, status, created_at")
+      .eq("status", "listed")
+      .order("created_at", { ascending: false })
+      .limit(30);
+    if (error) {
+      console.warn("아이템 거래소를 불러오지 못했습니다:", error.message);
+      setMarketListings([]);
+      return;
+    }
+    setMarketListings((data ?? []) as MarketListing[]);
+  }
+
+  async function listItemForSale() {
+    if (!userId || !sellItemId) return;
+    const price = Math.floor(Number(sellPrice));
+    if (!Number.isFinite(price) || price < 1000) {
+      setMessage("🤝 판매 가격은 1,000원 이상이어야 합니다.");
+      return;
+    }
+    if (!ownedItems.includes(sellItemId)) return;
+    const supabase = createClient();
+    const { error } = await supabase.from("game_item_market").insert({
+      seller_id: userId,
+      seller_nickname: nickname,
+      item_id: sellItemId,
+      price,
+      status: "listed",
+    });
+    if (error) {
+      setMessage(`🤝 판매 등록 실패: ${error.message}`);
+      return;
+    }
+    setOwnedItems((items) => removeFirst(items, sellItemId));
+    setEquippedItems((items) => items.filter((id) => id !== sellItemId));
+    setSellItemId("");
+    setMessage("🤝 아이템을 거래소에 등록했습니다.");
+    refreshMarketListings();
+  }
+
+  async function buyMarketListing(listing: MarketListing) {
+    if (!userId) return;
+    const price = Number(listing.price);
+    if (listing.seller_id === userId) {
+      setMessage("🤝 내 매물은 직접 구매할 수 없습니다.");
+      return;
+    }
+    if (cash < price) {
+      setMessage("🤝 현금이 부족합니다.");
+      return;
+    }
+    const supabase = createClient();
+    const { error } = await supabase.rpc("buy_market_item", { p_listing_id: listing.id });
+    if (error) {
+      setMessage(`🤝 구매 실패: ${error.message}`);
+      return;
+    }
+    setCash((money) => money - price);
+    setOwnedItems((items) => [...items, listing.item_id]);
+    setMessage("🤝 유저 거래소에서 아이템을 구매했습니다.");
+    refreshMarketListings();
+  }
+
   function handleStreetBuildingClick(buildingId: StreetBuildingId) {
     if (buildingId === "stocks") {
       setLobbyView("stocks");
@@ -2240,7 +2478,7 @@ export default function GamePage() {
       return;
     }
 
-    if (buildingId === "bank" || buildingId === "estate" || buildingId === "business" || buildingId === "news" || buildingId === "insurance" || buildingId === "employees" || buildingId === "auction") {
+    if (buildingId === "bank" || buildingId === "estate" || buildingId === "business" || buildingId === "news" || buildingId === "insurance" || buildingId === "employees" || buildingId === "auction" || buildingId === "academy" || buildingId === "gacha") {
       setLobbyView(buildingId);
       return;
     }
@@ -2452,7 +2690,7 @@ export default function GamePage() {
     setCareerFinanceAnswer("");
   }
 
-  async function saveProfilePatch(patch: Partial<{ nickname: string; room_kind: RoomKind; occupation_id: OccupationId; occupation_level: number; unlocked_occupations: OccupationId[] }>) {
+  async function saveProfilePatch(patch: Partial<{ nickname: string; room_kind: RoomKind; occupation_id: OccupationId; occupation_level: number; unlocked_occupations: OccupationId[]; current_title: PlayerTitleId }>) {
     if (!userId) return;
 
     const supabase = createClient();
@@ -2464,6 +2702,7 @@ export default function GamePage() {
         occupation_id: occupationId,
         occupation_level: occupationLevel,
         unlocked_occupations: unlockedOccupations,
+        current_title: currentTitleId,
         updated_at: new Date().toISOString(),
         ...patch,
       },
@@ -2483,7 +2722,7 @@ export default function GamePage() {
 
     const { data: profiles, error: profilesError } = await supabase
       .from(PROFILE_TABLE)
-      .select("id, nickname, room_kind, occupation_id, occupation_level, unlocked_occupations")
+      .select("id, nickname, room_kind, occupation_id, occupation_level, unlocked_occupations, current_title")
       .limit(1000);
 
     if (profilesError || !profiles || profiles.length === 0) {
@@ -2511,12 +2750,15 @@ export default function GamePage() {
       .map((profile) => {
         const save = saveMap.get(profile.id);
         const profileOccupationId = profile.occupation_id && profile.occupation_id in occupationInfo ? (profile.occupation_id as OccupationId) : "unemployed";
+        const profileTitle = playerTitles.find((title) => title.id === (profile.id === userId ? currentTitleId : profile.current_title)) ?? playerTitles[0];
         return {
           rank: 0,
           nickname: profile.id === userId ? currentNickname : profile.nickname || "이름 없음",
           cash: Number(save?.cash ?? 0),
           hasSave: !!save,
           job: profile.id === userId ? occupationInfo[occupationId].name : occupationInfo[profileOccupationId].name,
+          titleName: profileTitle.name,
+          titleIcon: profileTitle.icon,
           isMe: profile.id === userId,
         };
       })
@@ -2563,6 +2805,7 @@ export default function GamePage() {
       .filter((profile) => profile.id !== userId)
       .map((profile) => {
         const profileOccupationId = profile.occupation_id && profile.occupation_id in occupationInfo ? (profile.occupation_id as OccupationId) : "unemployed";
+        const profileTitle = playerTitles.find((title) => title.id === (profile.id === userId ? currentTitleId : profile.current_title)) ?? playerTitles[0];
         return {
           id: profile.id,
           nickname: profile.nickname || `유저-${profile.id.slice(0, 8)}`,
@@ -3463,6 +3706,100 @@ export default function GamePage() {
             </div>
           )}
 
+          {lobbyView === "academy" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>ACADEMY</div>
+                  <h2 style={panelTitleStyle}>교육원</h2>
+                  <p style={panelDescStyle}>자격증은 경제 활동에 작은 패시브 효과를 줍니다.</p>
+                </div>
+                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+              </div>
+              <div style={economyCardGridStyle}>
+                {certifications.map((certification) => {
+                  const owned = ownedCertifications.includes(certification.id);
+                  return (
+                    <div key={certification.id} style={economyCardStyle}>
+                      <h3 style={economyCardTitleStyle}>{certification.icon} {certification.name}</h3>
+                      <p style={economyCardTextStyle}>{certification.description}</p>
+                      <strong>교육비 {certification.price.toLocaleString()}원</strong>
+                      <strong style={{ color: "#16a34a" }}>{certification.effectText}</strong>
+                      <button onClick={() => buyCertification(certification.id)} disabled={owned || cash < certification.price} style={{ ...casinoPrimaryButtonStyle, opacity: owned || cash < certification.price ? 0.45 : 1 }}>
+                        {owned ? "취득 완료" : "자격증 취득"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {lobbyView === "gacha" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>GACHA SHOP</div>
+                  <h2 style={panelTitleStyle}>가챠 숍 & 유저 거래소</h2>
+                  <p style={panelDescStyle}>10분마다 3개 상품이 입고됩니다. 상점 등급 Lv.{shopLevel} · 구매 {shopPurchaseCount}회 · 장착 {equippedItems.length}/{itemSlotCount}</p>
+                </div>
+                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+              </div>
+
+              <div style={economyCardGridStyle}>
+                {shopOffers.map((item) => (
+                  <div key={`${item.id}-${shopUpdatedAt.toISOString()}`} style={economyCardStyle}>
+                    <h3 style={economyCardTitleStyle}>{item.icon} {item.name}</h3>
+                    <p style={economyCardTextStyle}>{item.rarity} · {item.description}</p>
+                    <strong>{item.price.toLocaleString()}원</strong>
+                    <strong style={{ color: getRarityColor(item.rarity) }}>{getItemEffectText(item)}</strong>
+                    <button onClick={() => buyShopOffer(item)} disabled={cash < item.price} style={{ ...casinoPrimaryButtonStyle, opacity: cash < item.price ? 0.45 : 1 }}>구매</button>
+                  </div>
+                ))}
+              </div>
+
+              <div style={casinoLowerGridStyle}>
+                <section style={casinoListCardStyle}>
+                  <h3 style={casinoTitleStyle}>가챠 자판기</h3>
+                  <p style={casinoTextStyle}>1회 50,000원. 대부분 꽝이지만 보물/유물도 나올 수 있습니다.</p>
+                  <button onClick={pullGachaMachine} style={casinoPrimaryButtonStyle}>가챠 돌리기</button>
+                </section>
+                <section style={casinoListCardStyle}>
+                  <h3 style={casinoTitleStyle}>내 장신구</h3>
+                  {ownedItems.length === 0 ? <p style={casinoTextStyle}>보유 장신구가 없습니다.</p> : ownedItems.map((id, index) => {
+                    const item = shopItems.find((entry) => entry.id === id);
+                    if (!item) return null;
+                    return <div key={`${id}-${index}`} style={marketMiniRowStyle}><span>{item.icon} {item.name}</span><button onClick={() => toggleEquipItem(id)} style={casinoSmallButtonStyle}>{equippedItems.includes(id) ? "해제" : "장착"}</button></div>;
+                  })}
+                </section>
+              </div>
+
+              <div style={casinoLowerGridStyle}>
+                <section style={casinoListCardStyle}>
+                  <h3 style={casinoTitleStyle}>판매 등록</h3>
+                  <select value={sellItemId} onChange={(event) => setSellItemId(event.target.value)} style={casinoInputStyle}>
+                    <option value="">판매할 아이템 선택</option>
+                    {ownedItems.map((id, index) => {
+                      const item = shopItems.find((entry) => entry.id === id);
+                      return item ? <option key={`${id}-${index}`} value={id}>{item.rarity} · {item.name}</option> : null;
+                    })}
+                  </select>
+                  <input value={sellPrice} onChange={(event) => setSellPrice(event.target.value)} style={casinoInputStyle} type="number" min={1000} step={1000} />
+                  <button onClick={listItemForSale} style={casinoPrimaryButtonStyle}>거래소 등록</button>
+                </section>
+                <section style={casinoListCardStyle}>
+                  <h3 style={casinoTitleStyle}>유저 거래소</h3>
+                  <button onClick={refreshMarketListings} style={casinoSmallButtonStyle}>새로고침</button>
+                  {marketListings.length === 0 ? <p style={casinoTextStyle}>등록된 매물이 없습니다.</p> : marketListings.map((listing) => {
+                    const item = shopItems.find((entry) => entry.id === listing.item_id);
+                    if (!item) return null;
+                    return <div key={listing.id} style={marketMiniRowStyle}><span>{item.icon} {item.name}<br /><small>{listing.seller_nickname ?? "판매자"} · {Number(listing.price).toLocaleString()}원</small></span><button onClick={() => buyMarketListing(listing)} style={casinoSmallButtonStyle}>구매</button></div>;
+                  })}
+                </section>
+              </div>
+            </div>
+          )}
+
           {lobbyView === "titles" && (
             <div style={panelSceneStyle}>
               <div style={panelHeaderRowStyle}>
@@ -3481,11 +3818,13 @@ export default function GamePage() {
                       <div style={titleCardIconStyle}>{title.icon}</div>
                       <h3 style={economyCardTitleStyle}>{title.name}</h3>
                       <p style={economyCardTextStyle}>{title.description}</p>
+                      {title.passiveText && <strong style={{ color: "#7c3aed" }}>패시브: {title.passiveText}</strong>}
                       <button
                         disabled={!unlocked}
                         onClick={() => {
                           setCurrentTitleId(title.id);
                           if (userId) window.localStorage.setItem(`alba-money-title-${userId}`, title.id);
+                          saveProfilePatch({ current_title: title.id });
                           setMessage(`🏷️ 칭호를 ${title.name}(으)로 변경했습니다.`);
                         }}
                         style={{ ...casinoSmallButtonStyle, opacity: unlocked ? 1 : 0.5 }}
@@ -3605,7 +3944,7 @@ export default function GamePage() {
                   <div key={`${row.rank}-${row.nickname}`} style={{ ...rankingRowStyle, borderColor: row.isMe ? "#38bdf8" : "rgba(255,255,255,0.14)", background: row.isMe ? "rgba(56,189,248,0.16)" : "rgba(255,255,255,0.06)" }}>
                     <strong>{row.rank}위</strong>
                     <span>{row.isMe ? "👤 " : ""}{row.nickname}</span>
-                    <span>{row.job}</span>
+                    <span>{row.titleIcon} {row.titleName}<br /><small>{row.job}</small></span>
                     <strong>{`${row.cash.toLocaleString()}원`}</strong>
                   </div>
                 ))}
@@ -4215,6 +4554,10 @@ function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
     return { background: "linear-gradient(180deg, #fef3c7 0%, #fbbf24 100%)", borderColor: "#92400e" };
   }
 
+  if (buildingId === "academy") return { background: "linear-gradient(180deg, #ede9fe 0%, #a78bfa 100%)", borderColor: "#5b21b6" };
+
+  if (buildingId === "gacha") return { background: "linear-gradient(180deg, #fdf2f8 0%, #f472b6 100%)", borderColor: "#9d174d" };
+
   if (buildingId === "casino") {
     return {
       background: "linear-gradient(180deg, #fee2e2 0%, #f97316 100%)",
@@ -4765,7 +5108,62 @@ function hashSeed(text: string) {
 }
 
 
-function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDeposit: number; bankLoan?: number; creditScore?: number; ownedEstates: EstateId[]; ownedBusinesses: BusinessId[]; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; unpaidTax: number; netWorth: number; sortingSuccessTotal: number; deliverySuccessTotal: number; cashierSuccessTotal: number; cafeSuccessTotal: number; securitySuccessTotal: number; }) {
+function makeShopOffers(level: number) {
+  return Array.from({ length: 3 }, () => rollShopOffer(level));
+}
+
+function rollShopOffer(level: number) {
+  const roll = Math.random();
+  let rarity: ItemRarity = "일반";
+  if (level >= 5 && roll > 0.985) rarity = "유물";
+  else if (level >= 4 && roll > 0.92) rarity = "보물";
+  else if (level >= 3 && roll > 0.78) rarity = "진귀";
+  else if (level >= 2 && roll > 0.52) rarity = "희소";
+  const candidates = shopItems.filter((item) => item.rarity === rarity);
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? shopItems[0];
+}
+
+function rollGachaItem(level: number) {
+  const roll = Math.random();
+  const boost = Math.min(0.012, level * 0.002);
+  if (roll > 0.997 - boost) return randomItemByRarity("유물");
+  if (roll > 0.982 - boost) return randomItemByRarity("보물");
+  if (roll > 0.94 - boost) return randomItemByRarity("진귀");
+  if (roll > 0.82 - boost) return randomItemByRarity("희소");
+  if (roll > 0.62) return randomItemByRarity("일반");
+  return null;
+}
+
+function randomItemByRarity(rarity: ItemRarity) {
+  const candidates = shopItems.filter((item) => item.rarity === rarity);
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? null;
+}
+
+function getRarityColor(rarity: ItemRarity) {
+  if (rarity === "유물") return "#7c3aed";
+  if (rarity === "보물") return "#d97706";
+  if (rarity === "진귀") return "#dc2626";
+  if (rarity === "희소") return "#2563eb";
+  return "#16a34a";
+}
+
+function getItemEffectText(item: ShopItem) {
+  const percent = Math.round(item.bonusValue * 100);
+  if (item.bonusType === "allIncome") return `전체 수익 +${percent}%`;
+  if (item.bonusType === "businessIncome") return `사업 수익 +${percent}%`;
+  if (item.bonusType === "stockLuck") return `주식 상승 보정 +${percent}%`;
+  if (item.bonusType === "jobIncome") return `직업 수익 +${percent}%`;
+  return `카지노 운 +${percent}%`;
+}
+
+function removeFirst(items: string[], target: string) {
+  const copy = [...items];
+  const index = copy.indexOf(target);
+  if (index >= 0) copy.splice(index, 1);
+  return copy;
+}
+
+function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDeposit: number; bankLoan?: number; creditScore?: number; ownedEstates: EstateId[]; ownedBusinesses: BusinessId[]; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; unpaidTax: number; netWorth: number; sortingSuccessTotal: number; deliverySuccessTotal: number; cashierSuccessTotal: number; cafeSuccessTotal: number; securitySuccessTotal: number; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; }) {
   const totalJobSuccess = params.sortingSuccessTotal + params.deliverySuccessTotal + params.cashierSuccessTotal + params.cafeSuccessTotal + params.securitySuccessTotal;
   const stockValue = params.stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0);
   const stockKindsOwned = params.stockRows.filter((stock) => stock.owned > 0).length;
@@ -4800,6 +5198,10 @@ function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDe
     if (title.id === "taxPayer") return params.unpaidTax <= 0;
     if (title.id === "insurancePlanner") return (params.ownedInsurances ?? []).length >= 2;
     if (title.id === "auctionHunter") return params.netWorth >= 500000;
+    if (title.id === "certifiedExpert") return (params.ownedCertifications ?? []).length >= 3;
+    if (title.id === "treasureCollector") return (params.ownedItems ?? []).filter((id) => { const item = shopItems.find((entry) => entry.id === id); return item?.rarity === "보물" || item?.rarity === "유물"; }).length >= 2;
+    if (title.id === "relicOwner") return (params.ownedItems ?? []).some((id) => shopItems.find((entry) => entry.id === id)?.rarity === "유물");
+    if (title.id === "marketTrader") return (params.ownedItems ?? []).length >= 5;
     if (title.id === "millionaire") return params.netWorth >= 1000000;
     if (title.id === "multiMillionaire") return params.netWorth >= 10000000;
     if (title.id === "tycoon") return params.netWorth >= 50000000;
@@ -6584,6 +6986,19 @@ const casinoSmallButtonStyle: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
+const marketMiniRowStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "10px",
+  border: "3px solid #111827",
+  borderRadius: "14px",
+  background: "rgba(255,255,255,0.8)",
+  padding: "10px",
+  fontWeight: 900,
+  color: "#111827",
+};
+
 const slotResultBoxStyle: CSSProperties = {
   border: "3px solid #111827",
   borderRadius: "16px",
@@ -6792,3 +7207,4 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
+
