@@ -789,11 +789,14 @@ export default function GamePage() {
   const stockAssetValue = useMemo(() => stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0), [stockRows]);
   const estateAssetValue = useMemo(() => ownedEstates.reduce((sum, id) => sum + (estateItems.find((item) => item.id === id)?.price ?? 0), 0), [ownedEstates]);
   const businessAssetValue = useMemo(() => ownedBusinesses.reduce((sum, id) => sum + (businessItems.find((item) => item.id === id)?.price ?? 0), 0), [ownedBusinesses]);
-  const passiveIncomeEvery5Min = useMemo(() => {
-    const estateIncome = ownedEstates.reduce((sum, id) => sum + (estateItems.find((item) => item.id === id)?.incomeEvery5Min ?? 0), 0);
-    const businessIncome = ownedBusinesses.reduce((sum, id) => sum + (businessItems.find((item) => item.id === id)?.incomeEvery5Min ?? 0), 0);
-    return estateIncome + businessIncome;
-  }, [ownedEstates, ownedBusinesses]);
+  const estateIncomeEvery5Min = useMemo(
+    () => ownedEstates.reduce((sum, id) => sum + (estateItems.find((item) => item.id === id)?.incomeEvery5Min ?? 0), 0),
+    [ownedEstates]
+  );
+  const businessIncomeEvery30Sec = useMemo(
+    () => ownedBusinesses.reduce((sum, id) => sum + (businessItems.find((item) => item.id === id)?.incomeEvery5Min ?? 0), 0),
+    [ownedBusinesses]
+  );
   const netWorth = cash + bankDeposit + stockAssetValue + estateAssetValue + businessAssetValue - bankLoan - unpaidTax;
   const unlockedTitles = useMemo(
     () => getUnlockedTitles({ cash, stockRows, bankDeposit, ownedEstates, ownedBusinesses, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal }),
@@ -991,15 +994,25 @@ export default function GamePage() {
     const timer = window.setInterval(() => {
       setBankDeposit((current) => Math.floor(current * 1.003));
       setBankLoan((current) => Math.floor(current * 1.012));
-      const income = passiveIncomeEvery5Min;
-      if (income > 0) {
-        setCash((money) => money + income);
-        setMessage(`🏘️ 자산/사업 수익 +${income.toLocaleString()}원`);
+      if (estateIncomeEvery5Min > 0) {
+        setCash((money) => money + estateIncomeEvery5Min);
+        setMessage(`🏘️ 부동산 임대 수익 +${estateIncomeEvery5Min.toLocaleString()}원`);
       }
     }, 5 * 60 * 1000);
 
     return () => window.clearInterval(timer);
-  }, [isSaveLoaded, passiveIncomeEvery5Min]);
+  }, [isSaveLoaded, estateIncomeEvery5Min]);
+
+  useEffect(() => {
+    if (!isSaveLoaded || businessIncomeEvery30Sec <= 0) return;
+
+    const timer = window.setInterval(() => {
+      setCash((money) => money + businessIncomeEvery30Sec);
+      setMessage(`🧾 사업 매출 +${businessIncomeEvery30Sec.toLocaleString()}원`);
+    }, 30 * 1000);
+
+    return () => window.clearInterval(timer);
+  }, [isSaveLoaded, businessIncomeEvery30Sec]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -2006,7 +2019,7 @@ export default function GamePage() {
     }
     setCash((money) => money - business.price);
     setOwnedBusinesses((owned) => [...owned, businessId]);
-    setMessage(`🧾 ${business.name} 창업 완료. 5분마다 ${business.incomeEvery5Min.toLocaleString()}원 사업 수익이 들어옵니다.`);
+    setMessage(`🧾 ${business.name} 창업 완료. 30초마다 ${business.incomeEvery5Min.toLocaleString()}원 사업 매출이 들어옵니다.`);
   }
 
   function refreshNewsNow() {
@@ -3202,7 +3215,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>BUSINESS CENTER</div>
                   <h2 style={panelTitleStyle}>창업 센터</h2>
-                  <p style={panelDescStyle}>알바와 직업 경험을 사업으로 확장합니다. 사업은 5분마다 매출을 만듭니다.</p>
+                  <p style={panelDescStyle}>알바와 직업 경험을 사업으로 확장합니다. 사업은 30초마다 강한 매출을 만듭니다.</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
               </div>
@@ -3215,7 +3228,7 @@ export default function GamePage() {
                       <h3 style={economyCardTitleStyle}>{business.icon} {business.name}</h3>
                       <p style={economyCardTextStyle}>{business.description}</p>
                       <strong>창업 비용 {business.price.toLocaleString()}원</strong>
-                      <strong style={{ color: "#16a34a" }}>5분 매출 +{business.incomeEvery5Min.toLocaleString()}원</strong>
+                      <strong style={{ color: "#16a34a" }}>30초 매출 +{business.incomeEvery5Min.toLocaleString()}원</strong>
                       <span style={economyConditionStyle}>조건: {business.requiredOccupation ? occupationInfo[business.requiredOccupation].name : "없음"}</span>
                       <button onClick={() => buyBusiness(business.id)} disabled={owned || cash < business.price || !requiredOk} style={{ ...casinoPrimaryButtonStyle, opacity: owned || cash < business.price || !requiredOk ? 0.45 : 1 }}>
                         {owned ? "운영 중" : requiredOk ? "창업" : "조건 미달"}
@@ -6431,7 +6444,6 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
-
 
 
 
