@@ -996,7 +996,7 @@ export default function GamePage() {
   const [shopUpdatedAt, setShopUpdatedAt] = useState(new Date());
   const [shopSoldOfferKeys, setShopSoldOfferKeys] = useState<string[]>([]);
   const [gachaMachinePullCount, setGachaMachinePullCount] = useState(0);
-  const [announcedSecretTitles, setAnnouncedSecretTitles] = useState<PlayerTitleId[]>([]);
+  const [announcedSecretTitles] = useState<PlayerTitleId[]>([]);
   const [marketListings, setMarketListings] = useState<MarketListing[]>([]);
   const [sellItemId, setSellItemId] = useState("");
   const [sellPrice, setSellPrice] = useState("100000");
@@ -8724,8 +8724,6 @@ const chatSendButtonStyle: CSSProperties = {
   fontWeight: 900,
   cursor: "pointer",
 };
-
-
 
 
 
