@@ -184,12 +184,14 @@ type StockSaveRow = {
   updated_at: string | null;
 };
 
-type GlobalStockMarketResult = {
+type GlobalStockMarketResultRow = {
   rows: StockRow[] | string | null;
   news_events: NewsEvent[] | string | null;
   updated_at: string | null;
   news_updated_at: string | null;
 };
+
+type GlobalStockMarketResult = GlobalStockMarketResultRow | GlobalStockMarketResultRow[];
 
 
 type CasinoUserRow = {
@@ -5176,16 +5178,21 @@ function makeRankingRows(nickname: string, cash: number, job: string): RankingRo
 function parseGlobalStockMarketResult(data: GlobalStockMarketResult | null) {
   if (!data) return null;
 
-  const rawRows = typeof data.rows === "string" ? safeJsonParse<StockRow[]>(data.rows, []) : data.rows;
-  const rawNews = typeof data.news_events === "string" ? safeJsonParse<NewsEvent[]>(data.news_events, []) : data.news_events;
+  const marketRow = Array.isArray(data) ? data[0] : data;
+  if (!marketRow) return null;
+
+  const rawRows = typeof marketRow.rows === "string" ? safeJsonParse<StockRow[]>(marketRow.rows, []) : marketRow.rows;
+  const rawNews = typeof marketRow.news_events === "string" ? safeJsonParse<NewsEvent[]>(marketRow.news_events, []) : marketRow.news_events;
   const rows = normalizeGlobalStockRows(Array.isArray(rawRows) ? rawRows : []);
   const newsEvents = normalizeNewsEvents(Array.isArray(rawNews) ? rawNews : []);
+  const updatedAt = marketRow.updated_at ? new Date(marketRow.updated_at) : new Date();
+  const newsUpdatedAt = marketRow.news_updated_at ? new Date(marketRow.news_updated_at) : new Date();
 
   return {
     rows,
     newsEvents: newsEvents.length > 0 ? newsEvents : makeNewsEvents(),
-    updatedAt: data.updated_at ? new Date(data.updated_at) : new Date(),
-    newsUpdatedAt: data.news_updated_at ? new Date(data.news_updated_at) : new Date(),
+    updatedAt: Number.isNaN(updatedAt.getTime()) ? new Date() : updatedAt,
+    newsUpdatedAt: Number.isNaN(newsUpdatedAt.getTime()) ? new Date() : newsUpdatedAt,
   };
 }
 
