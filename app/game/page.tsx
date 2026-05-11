@@ -953,6 +953,7 @@ export default function GamePage() {
   const firedLockRef = useRef(false);
   const runnerSpawnCooldownRef = useRef(0);
   const slotSpinIntervalRef = useRef<number | null>(null);
+  const globalStockSyncingRef = useRef(false);
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs[0], [selectedJobId]);
   const activeJob = useMemo(() => (activeJobId ? jobs.find((job) => job.id === activeJobId) ?? null : null), [activeJobId]);
   const occupation = occupationInfo[occupationId];
@@ -1431,7 +1432,7 @@ export default function GamePage() {
       if (cancelled) return;
       setStockRows(nextRows);
       setStockUpdatedAt(globalMarket?.updatedAt ?? new Date());
-      setStockCountdownMs(Math.max(0, STOCK_INTERVAL_MS - (Date.now() - (globalMarket?.updatedAt ?? new Date()).getTime())));
+      setStockCountdownMs(getStockRemainingMs(globalMarket?.updatedAt ?? new Date()));
       if (globalMarket?.newsEvents?.length) {
         setNewsEvents(globalMarket.newsEvents);
         setEconomyUpdatedAt(globalMarket.newsUpdatedAt ?? new Date());
@@ -1480,14 +1481,12 @@ export default function GamePage() {
     if (!userId || !isStockLoaded) return;
 
     const tick = () => {
-      const remaining = stockUpdatedAt.getTime() + STOCK_INTERVAL_MS - Date.now();
-
-      if (remaining <= 0) {
-        void syncGlobalStockMarket();
-        return;
-      }
-
+      const remaining = getStockRemainingMs(stockUpdatedAt);
       setStockCountdownMs(remaining);
+
+      if (remaining <= 0 && !globalStockSyncingRef.current) {
+        void syncGlobalStockMarket();
+      }
     };
 
     tick();
@@ -1497,7 +1496,7 @@ export default function GamePage() {
     const channel = supabase
       .channel("game-global-stock-market-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: GLOBAL_STOCK_TABLE }, () => {
-        void syncGlobalStockMarket();
+        if (!globalStockSyncingRef.current) void syncGlobalStockMarket();
       })
       .subscribe();
 
@@ -1613,7 +1612,7 @@ export default function GamePage() {
   }, [lobbyView]);
 
   useEffect(() => {
-    if (!activeJobId) return;
+    if (!activeJobId || activeJobId === "cashier") return;
 
     const timer = window.setInterval(() => {
       setDifficulty((current) => {
@@ -1799,7 +1798,10 @@ export default function GamePage() {
       }
 
       if (activeJobId === "cashier") {
-        handleCashierKey(key);
+        if (cashierKeyPool.map((item) => item.toLowerCase()).includes(key)) {
+          event.preventDefault();
+          handleCashierKey(key);
+        }
         return;
       }
 
@@ -2047,13 +2049,22 @@ export default function GamePage() {
     setCashierIndex(nextIndex);
 
     if (nextIndex >= cashierSequence.length) {
-      const reward = PAY.cashier + difficulty * 8;
+      const nextSuccess = cashierSuccess + 1;
+      const nextDifficulty = getCashierDifficultyBySuccess(nextSuccess);
+      const reward = PAY.cashier + nextDifficulty * 8;
       setCash((money) => money + reward);
-      setCashierSuccess((success) => success + 1);
+      setCashierSuccess(nextSuccess);
       setCashierSuccessTotal((count) => count + 1);
-      setCashierSequence(makeCashierSequence(difficulty));
+      setCashierSequence(makeCashierSequence(nextDifficulty));
       setCashierIndex(0);
-      setMessage(`🏪 계산 성공! +${reward.toLocaleString()}원`);
+
+      if (nextDifficulty !== difficulty) {
+        setDifficulty(nextDifficulty);
+        setDifficultyNotice(`⚡ 계산 ${nextSuccess}회 달성! 난이도 Lv.${nextDifficulty}`);
+        window.setTimeout(() => setDifficultyNotice(""), 1400);
+      }
+
+      setMessage(`🏪 계산 성공 ${nextSuccess}회! +${reward.toLocaleString()}원 · 현재 난이도 Lv.${nextDifficulty}`);
       return;
     }
 
@@ -3049,14 +3060,21 @@ export default function GamePage() {
   }
 
   async function syncGlobalStockMarket() {
-    const globalMarket = await fetchGlobalStockMarket();
-    if (!globalMarket) return;
+    if (globalStockSyncingRef.current) return;
+    globalStockSyncingRef.current = true;
 
-    setNewsEvents(globalMarket.newsEvents);
-    setEconomyUpdatedAt(globalMarket.newsUpdatedAt);
-    setStockUpdatedAt(globalMarket.updatedAt);
-    setStockCountdownMs(Math.max(0, STOCK_INTERVAL_MS - (Date.now() - globalMarket.updatedAt.getTime())));
-    setStockRows((current) => mergeGlobalPricesWithOwned(globalMarket.rows, current));
+    try {
+      const globalMarket = await fetchGlobalStockMarket();
+      if (!globalMarket) return;
+
+      setNewsEvents(globalMarket.newsEvents);
+      setEconomyUpdatedAt(globalMarket.newsUpdatedAt);
+      setStockUpdatedAt(globalMarket.updatedAt);
+      setStockCountdownMs(getStockRemainingMs(globalMarket.updatedAt));
+      setStockRows((current) => mergeGlobalPricesWithOwned(globalMarket.rows, current));
+    } finally {
+      globalStockSyncingRef.current = false;
+    }
   }
 
   function persistStocksNow(rows: StockRow[], updatedAt: Date = stockUpdatedAt) {
@@ -3198,7 +3216,7 @@ export default function GamePage() {
           <section style={jobStageStyle}>
             {activeJobId === "sorting" && <SortingGame item={sortItem} combo={sortCombo} miss={sortMiss} difficulty={difficulty} />}
             {activeJobId === "delivery" && <DeliveryGame lane={runnerLane} obstacles={runnerObstacles} coins={runnerCoins} distance={runnerDistance} flash={runnerHitFlash} miss={runnerMiss} />}
-            {activeJobId === "cashier" && <CashierGame sequence={cashierSequence} currentIndex={cashierIndex} success={cashierSuccess} miss={cashierMiss} />}
+            {activeJobId === "cashier" && <CashierGame sequence={cashierSequence} currentIndex={cashierIndex} success={cashierSuccess} miss={cashierMiss} difficulty={difficulty} />}
             {activeJobId === "cafe" && <CafeGame fill={cafeFill} targetStart={cafeTargetStart} targetEnd={cafeTargetEnd} success={cafeSuccess} miss={cafeMiss} holding={cafeHolding} difficulty={difficulty} />}
             {activeJobId === "security" && <SecurityGame signal={securitySignal} success={securitySuccess} miss={securityMiss} round={securityRound} />}
           </section>
@@ -4537,11 +4555,11 @@ function DeliveryGame({ lane, obstacles, coins, distance, flash, miss }: { lane:
   );
 }
 
-function CashierGame({ sequence, currentIndex, success, miss }: { sequence: string[]; currentIndex: number; success: number; miss: number }) {
+function CashierGame({ sequence, currentIndex, success, miss, difficulty }: { sequence: string[]; currentIndex: number; success: number; miss: number; difficulty: number }) {
   return (
     <div style={centerGameStyle}>
       <div style={cashierPanelStyle}>
-        <div style={miniGameTopInfoStyle}><strong>계산 {success}회</strong><strong>실수 {miss}/3</strong></div>
+        <div style={miniGameTopInfoStyle}><strong>계산 {success}회</strong><strong>난이도 Lv.{difficulty}</strong><strong>실수 {miss}/3</strong></div>
         <div style={cashierTitleStyle}>입력할 키</div>
         <div style={sequenceRowStyle}>
           {sequence.map((key, index) => <div key={`${key}-${index}`} style={getCashierKeyVisualStyle(index, currentIndex)}>{key}</div>)}
@@ -5076,6 +5094,15 @@ function getTaxRate(cash: number) {
 
 function calculateTax(cash: number, unpaidTax: number) {
   return Math.floor(cash * getTaxRate(cash)) + unpaidTax;
+}
+
+function getStockRemainingMs(updatedAt: Date) {
+  const nextUpdateAt = updatedAt.getTime() + STOCK_INTERVAL_MS;
+  return Math.max(0, nextUpdateAt - Date.now());
+}
+
+function getCashierDifficultyBySuccess(success: number) {
+  return Math.min(9, 1 + Math.floor(success / 5));
 }
 
 function makeCashierSequence(difficulty: number) {
@@ -7373,6 +7400,7 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
+
 
 
 
