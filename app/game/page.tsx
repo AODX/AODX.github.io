@@ -7505,12 +7505,6 @@ const phoneCardTitleStyle: CSSProperties = {
   fontWeight: 900,
 };
 
-const phoneTwoColumnStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr",
-  gap: "10px",
-};
-
 const phoneListStyle: CSSProperties = {
   display: "grid",
   gap: "8px",
@@ -8062,6 +8056,7 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
+
 
 
 
