@@ -894,6 +894,9 @@ export default function GamePage() {
   const [stockCountdownMs, setStockCountdownMs] = useState(STOCK_INTERVAL_MS);
   const [isStockLoaded, setIsStockLoaded] = useState(false);
   const [bankDeposit, setBankDeposit] = useState(0);
+  const [bankDepositPrincipal, setBankDepositPrincipal] = useState(0);
+  const [bankSavings, setBankSavings] = useState(0);
+  const [bankSavingsPrincipal, setBankSavingsPrincipal] = useState(0);
   const [bankLoan, setBankLoan] = useState(0);
   const [creditScore, setCreditScore] = useState(700);
   const [bankInput, setBankInput] = useState("10000");
@@ -1012,7 +1015,7 @@ export default function GamePage() {
     [ownedInsurances]
   );
   const itemAssetValue = ownedItems.reduce((sum, id) => sum + (shopItems.find((item) => item.id === id)?.price ?? 0), 0);
-  const netWorth = cash + bankDeposit + stockAssetValue + estateAssetValue + businessAssetValue + itemAssetValue - bankLoan - unpaidTax;
+  const netWorth = cash + bankDeposit + bankSavings + stockAssetValue + estateAssetValue + businessAssetValue + itemAssetValue - bankLoan - unpaidTax;
   const unlockedTitles = useMemo(
     () => getUnlockedTitles({ cash, stockRows, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems }),
     [cash, stockRows, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems]
@@ -1181,8 +1184,13 @@ export default function GamePage() {
     if (!stored) return;
 
     try {
-      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; equippedItems?: ShopItemId[]; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[] };
-      setBankDeposit(Number(parsed.bankDeposit ?? 0));
+      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; equippedItems?: ShopItemId[]; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[] };
+      const loadedDeposit = Number(parsed.bankDeposit ?? 0);
+      const loadedSavings = Number(parsed.bankSavings ?? 0);
+      setBankDeposit(loadedDeposit);
+      setBankDepositPrincipal(Number(parsed.bankDepositPrincipal ?? loadedDeposit));
+      setBankSavings(loadedSavings);
+      setBankSavingsPrincipal(Number(parsed.bankSavingsPrincipal ?? loadedSavings));
       setBankLoan(Number(parsed.bankLoan ?? 0));
       setCreditScore(Number(parsed.creditScore ?? 700));
       if (Array.isArray(parsed.ownedEstates)) setOwnedEstates(parsed.ownedEstates.filter((id): id is EstateId => estateItems.some((item) => item.id === id)));
@@ -1213,6 +1221,9 @@ export default function GamePage() {
 
     window.localStorage.setItem(`alba-money-economy-${userId}`, JSON.stringify({
       bankDeposit,
+      bankDepositPrincipal,
+      bankSavings,
+      bankSavingsPrincipal,
       bankLoan,
       creditScore,
       ownedEstates,
@@ -1234,14 +1245,30 @@ export default function GamePage() {
       financeHistory,
       economyUpdatedAt: economyUpdatedAt.toISOString(),
     }));
-  }, [userId, isSaveLoaded, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, equippedItems, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, totalIncome, totalExpense, financeHistory, economyUpdatedAt]);
+  }, [userId, isSaveLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, equippedItems, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, totalIncome, totalExpense, financeHistory, economyUpdatedAt]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
 
     const timer = window.setInterval(() => {
-      setBankDeposit((current) => Math.floor(current * 1.003));
-      setBankLoan((current) => Math.floor(current * 1.012));
+      setBankDeposit((current) => {
+        const next = Math.floor(current * 1.003);
+        const gain = Math.max(0, next - current);
+        if (gain > 0) setTotalIncome((value) => value + gain);
+        return next;
+      });
+      setBankSavings((current) => {
+        const next = Math.floor(current * 1.006);
+        const gain = Math.max(0, next - current);
+        if (gain > 0) setTotalIncome((value) => value + gain);
+        return next;
+      });
+      setBankLoan((current) => {
+        const next = Math.floor(current * 1.012);
+        const expense = Math.max(0, next - current);
+        if (expense > 0) setTotalExpense((value) => value + expense);
+        return next;
+      });
       setInflationIndex((current) => Math.min(2.5, Number((current * 1.003).toFixed(4))));
       const premium = insurancePremiumEvery5Min;
       if (premium > 0) {
@@ -2256,6 +2283,12 @@ export default function GamePage() {
     return Math.max(0, Math.floor(Number(bankInput) || 0));
   }
 
+  function reducePrincipal(currentPrincipal: number, currentBalance: number, withdrawAmount: number) {
+    if (currentBalance <= 0 || currentPrincipal <= 0) return 0;
+    const ratio = Math.min(1, withdrawAmount / currentBalance);
+    return Math.max(0, Math.floor(currentPrincipal * (1 - ratio)));
+  }
+
   function depositToBank() {
     const amount = getBankAmount();
     if (amount < 100) {
@@ -2268,6 +2301,7 @@ export default function GamePage() {
     }
     setCash((money) => money - amount);
     setBankDeposit((deposit) => deposit + amount);
+    setBankDepositPrincipal((principal) => principal + amount);
     setMessage(`🏦 예금 ${amount.toLocaleString()}원 완료`);
   }
 
@@ -2281,9 +2315,90 @@ export default function GamePage() {
       setMessage("🏦 예금 잔액보다 많이 출금할 수 없습니다.");
       return;
     }
+    setBankDepositPrincipal((principal) => reducePrincipal(principal, bankDeposit, amount));
     setBankDeposit((deposit) => deposit - amount);
     setCash((money) => money + amount);
     setMessage(`🏦 출금 ${amount.toLocaleString()}원 완료`);
+  }
+
+  function depositAllToBank() {
+    const amount = Math.floor(cash);
+    if (amount < 100) {
+      setMessage("🏦 예금할 현금이 부족합니다.");
+      return;
+    }
+    setCash(0);
+    setBankDeposit((deposit) => deposit + amount);
+    setBankDepositPrincipal((principal) => principal + amount);
+    setMessage(`🏦 보유 현금 전액 ${amount.toLocaleString()}원을 예금했습니다.`);
+  }
+
+  function withdrawAllFromBank() {
+    const amount = Math.floor(bankDeposit);
+    if (amount < 1) {
+      setMessage("🏦 출금할 예금이 없습니다.");
+      return;
+    }
+    setBankDeposit(0);
+    setBankDepositPrincipal(0);
+    setCash((money) => money + amount);
+    setMessage(`🏦 예금 전액 ${amount.toLocaleString()}원을 출금했습니다.`);
+  }
+
+  function depositToSavings() {
+    const amount = getBankAmount();
+    if (amount < 1000) {
+      setMessage("🏦 적금은 최소 1,000원 이상 넣을 수 있습니다.");
+      return;
+    }
+    if (amount > cash) {
+      setMessage("🏦 보유 현금보다 많이 적금할 수 없습니다.");
+      return;
+    }
+    setCash((money) => money - amount);
+    setBankSavings((savings) => savings + amount);
+    setBankSavingsPrincipal((principal) => principal + amount);
+    setMessage(`🏦 적금 ${amount.toLocaleString()}원 납입 완료`);
+  }
+
+  function depositAllToSavings() {
+    const amount = Math.floor(cash);
+    if (amount < 1000) {
+      setMessage("🏦 적금할 현금이 부족합니다.");
+      return;
+    }
+    setCash(0);
+    setBankSavings((savings) => savings + amount);
+    setBankSavingsPrincipal((principal) => principal + amount);
+    setMessage(`🏦 보유 현금 전액 ${amount.toLocaleString()}원을 적금했습니다.`);
+  }
+
+  function withdrawSavings() {
+    const amount = getBankAmount();
+    if (amount < 1000) {
+      setMessage("🏦 적금 출금은 최소 1,000원 이상 가능합니다.");
+      return;
+    }
+    if (amount > bankSavings) {
+      setMessage("🏦 적금 잔액보다 많이 출금할 수 없습니다.");
+      return;
+    }
+    setBankSavingsPrincipal((principal) => reducePrincipal(principal, bankSavings, amount));
+    setBankSavings((savings) => savings - amount);
+    setCash((money) => money + amount);
+    setMessage(`🏦 적금 ${amount.toLocaleString()}원 출금 완료`);
+  }
+
+  function withdrawAllSavings() {
+    const amount = Math.floor(bankSavings);
+    if (amount < 1) {
+      setMessage("🏦 출금할 적금이 없습니다.");
+      return;
+    }
+    setBankSavings(0);
+    setBankSavingsPrincipal(0);
+    setCash((money) => money + amount);
+    setMessage(`🏦 적금 전액 ${amount.toLocaleString()}원을 출금했습니다.`);
   }
 
   function borrowFromBank() {
@@ -3771,7 +3886,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>BANK</div>
                   <h2 style={panelTitleStyle}>은행</h2>
-                  <p style={panelDescStyle}>예금은 5분마다 0.3% 이자가 붙고, 대출은 5분마다 1.2% 이자가 붙습니다.</p>
+                  <p style={panelDescStyle}>예금은 10분마다 0.3%, 적금은 10분마다 0.6% 이자가 붙고, 대출은 10분마다 1.2% 이자가 붙습니다.</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
               </div>
@@ -3779,6 +3894,9 @@ export default function GamePage() {
               <div style={economySummaryGridStyle}>
                 <StatusPill label="현금" value={`${cash.toLocaleString()}원`} />
                 <StatusPill label="예금" value={`${bankDeposit.toLocaleString()}원`} />
+                <StatusPill label="예금 수익" value={`원금 ${bankDepositPrincipal.toLocaleString()}원 · +${Math.max(0, bankDeposit - bankDepositPrincipal).toLocaleString()}원 (${getReturnRate(bankDeposit, bankDepositPrincipal)})`} />
+                <StatusPill label="적금" value={`${bankSavings.toLocaleString()}원`} />
+                <StatusPill label="적금 수익" value={`원금 ${bankSavingsPrincipal.toLocaleString()}원 · +${Math.max(0, bankSavings - bankSavingsPrincipal).toLocaleString()}원 (${getReturnRate(bankSavings, bankSavingsPrincipal)})`} />
                 <StatusPill label="대출" value={`${bankLoan.toLocaleString()}원`} warning={bankLoan > 0} />
                 <StatusPill label="신용점수" value={`${creditScore}점`} warning={creditScore < 600} />
                 <StatusPill label="대출한도" value={`${getLoanLimit(creditScore, netWorth).toLocaleString()}원`} />
@@ -3789,7 +3907,13 @@ export default function GamePage() {
                 <input type="number" value={bankInput} min={100} step={1000} onChange={(event) => setBankInput(event.target.value)} style={casinoInputStyle} />
                 <div style={economyButtonRowStyle}>
                   <button onClick={depositToBank} style={casinoPrimaryButtonStyle}>예금</button>
-                  <button onClick={withdrawFromBank} style={casinoSmallButtonStyle}>출금</button>
+                  <button onClick={depositAllToBank} style={casinoSmallButtonStyle}>예금 전액</button>
+                  <button onClick={withdrawFromBank} style={casinoSmallButtonStyle}>예금 출금</button>
+                  <button onClick={withdrawAllFromBank} style={casinoSmallButtonStyle}>예금 전액 출금</button>
+                  <button onClick={depositToSavings} style={casinoPrimaryButtonStyle}>적금</button>
+                  <button onClick={depositAllToSavings} style={casinoSmallButtonStyle}>적금 전액</button>
+                  <button onClick={withdrawSavings} style={casinoSmallButtonStyle}>적금 출금</button>
+                  <button onClick={withdrawAllSavings} style={casinoSmallButtonStyle}>적금 전액 출금</button>
                   <button onClick={borrowFromBank} style={casinoSmallButtonStyle}>대출</button>
                   <button onClick={repayBankLoan} style={casinoSmallButtonStyle}>상환</button>
                 </div>
@@ -4155,7 +4279,7 @@ export default function GamePage() {
                         <div>
                           <div style={phoneHeroLabelStyle}>오늘의 자산</div>
                           <strong style={phoneHeroMoneyStyle}>{netWorth.toLocaleString()}원</strong>
-                          <span style={phoneHeroSubStyle}>예금 {bankDeposit.toLocaleString()}원 · 현금 {cash.toLocaleString()}원</span>
+                          <span style={phoneHeroSubStyle}>예금 {bankDeposit.toLocaleString()}원 · 적금 {bankSavings.toLocaleString()}원 · 현금 {cash.toLocaleString()}원</span>
                         </div>
                       </section>
 
@@ -4198,6 +4322,7 @@ export default function GamePage() {
                         <section style={phoneSummaryGridStyle}>
                           <StatusPill label="현재 현금" value={`${cash.toLocaleString()}원`} />
                           <StatusPill label="은행 예금" value={`${bankDeposit.toLocaleString()}원`} />
+                          <StatusPill label="은행 적금" value={`${bankSavings.toLocaleString()}원`} />
                           <StatusPill label="순자산" value={`${netWorth.toLocaleString()}원`} />
                           <StatusPill label="미납 세금" value={`${unpaidTax.toLocaleString()}원`} warning={unpaidTax > 0} />
                         </section>
@@ -4224,6 +4349,7 @@ export default function GamePage() {
                             <span>🧾 사업 매출: {businessIncomeEvery30Sec.toLocaleString()}원 / 30초</span>
                             <span>🏘️ 임대 수익: {Math.floor(estateIncomeEvery5Min * inflationIndex * totalIncomeMultiplier).toLocaleString()}원 / 10분</span>
                             <span>🏦 예금 이자: 약 {Math.floor(bankDeposit * 0.003).toLocaleString()}원 / 10분</span>
+                            <span>🏦 적금 이자: 약 {Math.floor(bankSavings * 0.006).toLocaleString()}원 / 10분</span>
                           </div>
                         </section>
                       )}
@@ -5019,6 +5145,11 @@ function makeNewsEvents() {
 
 function getStockCompanyName(id: StockId) {
   return stockCompanies.find((company) => company.id === id)?.name ?? id;
+}
+
+function getReturnRate(balance: number, principal: number) {
+  if (principal <= 0) return "0.00%";
+  return `${(((balance - principal) / principal) * 100).toFixed(2)}%`;
 }
 
 function getLoanLimit(creditScore: number, netWorth: number) {
