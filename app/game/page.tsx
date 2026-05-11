@@ -175,6 +175,7 @@ type StockRow = {
   price: number;
   previousPrice: number;
   owned: number;
+  averageBuyPrice?: number;
   history: number[];
 };
 
@@ -295,7 +296,6 @@ const PROFILE_TABLE = "game_profiles";
 const STOCK_TABLE = "game_stock_saves";
 const GLOBAL_STOCK_TABLE = "game_global_stock_market";
 const STOCK_INTERVAL_MS = 3 * 60 * 1000;
-const NEWS_INTERVAL_MS = 10 * 60 * 1000;
 const SLOT_SYMBOLS = ["7", "🍒", "💎", "🍀", "⭐", "🍋"];
 const TAX_INTERVAL_SECONDS = 420;
 const TAX_WARNING_SECONDS = 60;
@@ -3081,31 +3081,80 @@ export default function GamePage() {
     }
   }
 
-  function buyStock(stockId: StockId) {
+  function buyStock(stockId: StockId, amount = 1) {
     const stock = stockRows.find((row) => row.id === stockId);
     if (!stock) return;
 
-    if (cash < stock.price) {
+    const buyAmount = Math.max(1, Math.floor(amount));
+    const totalPrice = stock.price * buyAmount;
+
+    if (cash < totalPrice) {
       setMessage("현금이 부족해서 주식을 살 수 없습니다.");
       return;
     }
 
-    const nextRows = stockRows.map((row) => row.id === stockId ? { ...row, owned: row.owned + 1 } : row);
-    setCash((money) => money - stock.price);
+    const nextRows = stockRows.map((row) => {
+      if (row.id !== stockId) return row;
+      const previousOwned = Math.max(0, row.owned);
+      const previousAverage = Math.max(0, Number(row.averageBuyPrice) || 0);
+      const nextOwned = previousOwned + buyAmount;
+      const nextAverage = nextOwned > 0
+        ? Math.round(((previousAverage * previousOwned) + totalPrice) / nextOwned)
+        : 0;
+
+      return {
+        ...row,
+        owned: nextOwned,
+        averageBuyPrice: nextAverage,
+      };
+    });
+
+    setCash((money) => money - totalPrice);
     setStockRows(nextRows);
     persistStocksNow(nextRows);
-    setMessage(`${stock.name} 1주를 ${stock.price.toLocaleString()}원에 매수했습니다.`);
+    setMessage(`${stock.name} ${buyAmount.toLocaleString()}주를 총 ${totalPrice.toLocaleString()}원에 매수했습니다.`);
   }
 
-  function sellStock(stockId: StockId) {
+  function buyMaxStock(stockId: StockId) {
+    const stock = stockRows.find((row) => row.id === stockId);
+    if (!stock) return;
+
+    const amount = Math.floor(cash / stock.price);
+    if (amount <= 0) {
+      setMessage("현금이 부족해서 주식을 살 수 없습니다.");
+      return;
+    }
+
+    buyStock(stockId, amount);
+  }
+
+  function sellStock(stockId: StockId, amount = 1) {
     const stock = stockRows.find((row) => row.id === stockId);
     if (!stock || stock.owned <= 0) return;
 
-    const nextRows = stockRows.map((row) => row.id === stockId ? { ...row, owned: Math.max(0, row.owned - 1) } : row);
-    setCash((money) => money + stock.price);
+    const sellAmount = Math.min(stock.owned, Math.max(1, Math.floor(amount)));
+    const totalPrice = stock.price * sellAmount;
+
+    const nextRows = stockRows.map((row) => {
+      if (row.id !== stockId) return row;
+      const nextOwned = Math.max(0, row.owned - sellAmount);
+      return {
+        ...row,
+        owned: nextOwned,
+        averageBuyPrice: nextOwned > 0 ? row.averageBuyPrice : 0,
+      };
+    });
+
+    setCash((money) => money + totalPrice);
     setStockRows(nextRows);
     persistStocksNow(nextRows);
-    setMessage(`${stock.name} 1주를 ${stock.price.toLocaleString()}원에 매도했습니다.`);
+    setMessage(`${stock.name} ${sellAmount.toLocaleString()}주를 총 ${totalPrice.toLocaleString()}원에 매도했습니다.`);
+  }
+
+  function sellAllStock(stockId: StockId) {
+    const stock = stockRows.find((row) => row.id === stockId);
+    if (!stock || stock.owned <= 0) return;
+    sellStock(stockId, stock.owned);
   }
 
   async function signOut() {
@@ -3412,6 +3461,8 @@ export default function GamePage() {
                   const diff = stock.price - stock.previousPrice;
                   const percent = stock.previousPrice > 0 ? (diff / stock.previousPrice) * 100 : 0;
                   const isUp = diff >= 0;
+                  const performance = getStockHoldingPerformance(stock);
+                  const profitIsUp = performance.profit >= 0;
 
                   return (
                     <div key={stock.id} style={stockCardStyle}>
@@ -3431,10 +3482,17 @@ export default function GamePage() {
                         <div>
                           <div style={stockPriceStyle}>{stock.price.toLocaleString()}원</div>
                           <div style={stockOwnedStyle}>보유 {stock.owned}주 · 평가 {(stock.owned * stock.price).toLocaleString()}원</div>
+                          {stock.owned > 0 && (
+                            <div style={{ ...stockOwnedStyle, color: profitIsUp ? "#dc2626" : "#2563eb" }}>
+                              평균 매수가 {performance.averageBuyPrice.toLocaleString()}원 · 손익 {performance.profit >= 0 ? "+" : ""}{performance.profit.toLocaleString()}원 ({performance.profitRate >= 0 ? "+" : ""}{performance.profitRate.toFixed(2)}%)
+                            </div>
+                          )}
                         </div>
                         <div style={stockActionGroupStyle}>
-                          <button onClick={() => buyStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, opacity: cash < stock.price ? 0.45 : 1 }}>매수</button>
-                          <button onClick={() => sellStock(stock.id)} disabled={stock.owned <= 0} style={{ ...stockTradeButtonStyle, opacity: stock.owned <= 0 ? 0.45 : 1 }}>매도</button>
+                          <button onClick={() => buyStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, opacity: cash < stock.price ? 0.45 : 1 }}>1주 매수</button>
+                          <button onClick={() => buyMaxStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, opacity: cash < stock.price ? 0.45 : 1 }}>최대 매수</button>
+                          <button onClick={() => sellStock(stock.id)} disabled={stock.owned <= 0} style={{ ...stockTradeButtonStyle, opacity: stock.owned <= 0 ? 0.45 : 1 }}>1주 매도</button>
+                          <button onClick={() => sellAllStock(stock.id)} disabled={stock.owned <= 0} style={{ ...stockTradeButtonStyle, opacity: stock.owned <= 0 ? 0.45 : 1 }}>전량 매도</button>
                         </div>
                       </div>
                     </div>
@@ -4882,6 +4940,34 @@ function normalizeUnlockedOccupations(values: unknown[]): OccupationId[] {
 }
 
 
+function getStockHoldingPerformance(stock: StockRow) {
+  const owned = Math.max(0, Math.floor(Number(stock.owned) || 0));
+  const averageBuyPrice = Math.max(0, Math.round(Number(stock.averageBuyPrice) || 0));
+
+  if (owned <= 0 || averageBuyPrice <= 0) {
+    return {
+      averageBuyPrice,
+      profit: 0,
+      profitRate: 0,
+      totalBuyValue: 0,
+      currentValue: stock.price * owned,
+    };
+  }
+
+  const totalBuyValue = averageBuyPrice * owned;
+  const currentValue = stock.price * owned;
+  const profit = currentValue - totalBuyValue;
+  const profitRate = totalBuyValue > 0 ? (profit / totalBuyValue) * 100 : 0;
+
+  return {
+    averageBuyPrice,
+    profit,
+    profitRate,
+    totalBuyValue,
+    currentValue,
+  };
+}
+
 function StockMiniChart({ stockId, history }: { stockId: StockId; history: number[] }) {
   const points = history.length > 0 ? history : [1000];
   const min = Math.min(...points);
@@ -5099,11 +5185,24 @@ function normalizeGlobalStockRows(rows: StockRow[]): StockRow[] {
 }
 
 function mergeGlobalPricesWithOwned(globalRows: StockRow[], ownedRows: StockRow[]): StockRow[] {
-  const ownedMap = new Map(ownedRows.map((row) => [row.id, Math.max(0, Math.floor(Number(row.owned) || 0))]));
-  return normalizeGlobalStockRows(globalRows).map((row) => ({
-    ...row,
-    owned: ownedMap.get(row.id) ?? 0,
-  }));
+  const ownedMap = new Map(
+    ownedRows.map((row) => [
+      row.id,
+      {
+        owned: Math.max(0, Math.floor(Number(row.owned) || 0)),
+        averageBuyPrice: Math.max(0, Math.round(Number(row.averageBuyPrice) || 0)),
+      },
+    ])
+  );
+
+  return normalizeGlobalStockRows(globalRows).map((row) => {
+    const saved = ownedMap.get(row.id);
+    return {
+      ...row,
+      owned: saved?.owned ?? 0,
+      averageBuyPrice: saved?.averageBuyPrice ?? 0,
+    };
+  });
 }
 
 function normalizeStockRows(rows: StockRow[], seedKey = "default"): StockRow[] {
@@ -5117,6 +5216,7 @@ function normalizeStockRows(rows: StockRow[], seedKey = "default"): StockRow[] {
     const price = Number(saved.price) || 1000;
     const previousPrice = Number(saved.previousPrice) || price;
     const owned = Math.max(0, Math.floor(Number(saved.owned) || 0));
+    const averageBuyPrice = Math.max(0, Math.round(Number(saved.averageBuyPrice) || 0));
     const history = Array.isArray(saved.history) && saved.history.length > 0
       ? saved.history.map((value) => Math.max(100, Math.round(Number(value) || price))).slice(-24)
       : [previousPrice, price];
@@ -5126,6 +5226,7 @@ function normalizeStockRows(rows: StockRow[], seedKey = "default"): StockRow[] {
       price,
       previousPrice,
       owned,
+      averageBuyPrice,
       history,
     };
   });
