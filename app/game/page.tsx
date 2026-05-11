@@ -47,7 +47,7 @@ type SaveRow = {
   security_success_total?: number | string | null;
 };
 
-type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "titles" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket";
+type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "titles" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket" | "phone";
 type RoomKind = "basic" | "studio" | "office";
 type CareerBuildingId = "company" | "entertainment" | "logistics" | "finance";
 type StreetBuildingId = CareerBuildingId | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket";
@@ -232,6 +232,13 @@ type PvpSubmitResult = {
 };
 
 type PvpReactionState = "idle" | "waiting" | "go" | "submitted";
+
+type FinanceHistoryPoint = {
+  label: string;
+  income: number;
+  expense: number;
+  netWorth: number;
+};
 
 type EstateId = "semiBasement" | "officetel" | "apartment" | "smallStore" | "building";
 type BusinessId = "coffeeShop" | "convenienceStore" | "deliveryAgency" | "entertainmentAgency";
@@ -845,6 +852,9 @@ export default function GamePage() {
   const [ownedCertifications, setOwnedCertifications] = useState<CertificationId[]>([]);
   const [ownedItems, setOwnedItems] = useState<ShopItemId[]>([]);
   const [equippedItems, setEquippedItems] = useState<ShopItemId[]>([]);
+  const [totalIncome, setTotalIncome] = useState(0);
+  const [totalExpense, setTotalExpense] = useState(0);
+  const [financeHistory, setFinanceHistory] = useState<FinanceHistoryPoint[]>([]);
   const [shopLevel, setShopLevel] = useState(1);
   const [shopPurchaseCount, setShopPurchaseCount] = useState(0);
   const [shopOffers, setShopOffers] = useState<ShopItem[]>(() => makeShopOffers(1));
@@ -955,6 +965,7 @@ export default function GamePage() {
   const firedLockRef = useRef(false);
   const runnerSpawnCooldownRef = useRef(0);
   const slotSpinIntervalRef = useRef<number | null>(null);
+  const previousCashForStatsRef = useRef<number | null>(null);
   const globalStockSyncingRef = useRef(false);
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs[0], [selectedJobId]);
   const activeJob = useMemo(() => (activeJobId ? jobs.find((job) => job.id === activeJobId) ?? null : null), [activeJobId]);
@@ -966,6 +977,11 @@ export default function GamePage() {
   const itemSlotCount = currentTitleId === "treasureCollector" ? 2 : 1;
   const allIncomeBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "allIncome" ? item.bonusValue : 0), currentTitleId === "relicOwner" ? 0.03 : 0);
   const businessItemBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "businessIncome" ? item.bonusValue : 0), 0);
+  const jobItemBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "jobIncome" ? item.bonusValue : 0), 0) + (ownedCertifications.includes("office") ? 0.03 : 0) + (ownedCertifications.includes("logistics") ? 0.02 : 0) + (currentTitleId === "certifiedExpert" ? 0.02 : 0);
+  const stockSaleBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "stockLuck" ? item.bonusValue : 0), 0) + (ownedCertifications.includes("investment") ? 0.02 : 0);
+  const casinoLuckBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "casinoLuck" ? item.bonusValue : 0), 0);
+  const totalIncomeMultiplier = 1 + allIncomeBonus;
+  const jobIncomeMultiplier = 1 + allIncomeBonus + jobItemBonus;
   const stockAssetValue = useMemo(() => stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0), [stockRows]);
   const estateAssetValue = useMemo(() => ownedEstates.reduce((sum, id) => sum + (estateItems.find((item) => item.id === id)?.price ?? 0), 0), [ownedEstates]);
   const businessAssetValue = useMemo(() => ownedBusinesses.reduce((sum, id) => sum + (businessItems.find((item) => item.id === id)?.price ?? 0), 0), [ownedBusinesses]);
@@ -1164,7 +1180,7 @@ export default function GamePage() {
     if (!stored) return;
 
     try {
-      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; equippedItems?: ShopItemId[]; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string };
+      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; equippedItems?: ShopItemId[]; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[] };
       setBankDeposit(Number(parsed.bankDeposit ?? 0));
       setBankLoan(Number(parsed.bankLoan ?? 0));
       setCreditScore(Number(parsed.creditScore ?? 700));
@@ -1182,6 +1198,9 @@ export default function GamePage() {
       if (typeof parsed.shopPurchaseCount === "number") setShopPurchaseCount(parsed.shopPurchaseCount);
       if (Array.isArray(parsed.shopOffers) && parsed.shopOffers.length > 0) setShopOffers(parsed.shopOffers);
       if (parsed.shopUpdatedAt) setShopUpdatedAt(new Date(parsed.shopUpdatedAt));
+      if (typeof parsed.totalIncome === "number") setTotalIncome(parsed.totalIncome);
+      if (typeof parsed.totalExpense === "number") setTotalExpense(parsed.totalExpense);
+      if (Array.isArray(parsed.financeHistory)) setFinanceHistory(parsed.financeHistory.slice(-18));
       if (parsed.economyUpdatedAt) setEconomyUpdatedAt(new Date(parsed.economyUpdatedAt));
     } catch (error) {
       console.warn("경제 데이터 불러오기 실패:", error);
@@ -1209,9 +1228,12 @@ export default function GamePage() {
       shopPurchaseCount,
       shopOffers,
       shopUpdatedAt: shopUpdatedAt.toISOString(),
+      totalIncome,
+      totalExpense,
+      financeHistory,
       economyUpdatedAt: economyUpdatedAt.toISOString(),
     }));
-  }, [userId, isSaveLoaded, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, equippedItems, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, economyUpdatedAt]);
+  }, [userId, isSaveLoaded, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, equippedItems, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, totalIncome, totalExpense, financeHistory, economyUpdatedAt]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -1225,7 +1247,7 @@ export default function GamePage() {
         setCash((money) => Math.max(0, money - premium));
       }
       if (estateIncomeEvery5Min > 0) {
-        const adjustedEstateIncome = Math.floor(estateIncomeEvery5Min * inflationIndex);
+        const adjustedEstateIncome = Math.floor(estateIncomeEvery5Min * inflationIndex * totalIncomeMultiplier);
         setCash((money) => money + adjustedEstateIncome);
         setMessage(`🏘️ 임대 수익 +${adjustedEstateIncome.toLocaleString()}원${premium > 0 ? ` · 보험료 -${premium.toLocaleString()}원` : ""}`);
       } else if (premium > 0) {
@@ -1568,6 +1590,38 @@ export default function GamePage() {
   }, [isSaveLoaded]);
 
   useEffect(() => {
+    if (!isSaveLoaded) return;
+
+    if (previousCashForStatsRef.current === null) {
+      previousCashForStatsRef.current = cash;
+      return;
+    }
+
+    const previousCash = previousCashForStatsRef.current;
+    const delta = cash - previousCash;
+    previousCashForStatsRef.current = cash;
+
+    if (delta === 0) return;
+
+    if (delta > 0) {
+      setTotalIncome((value) => value + delta);
+    } else {
+      setTotalExpense((value) => value + Math.abs(delta));
+    }
+
+    const label = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    setFinanceHistory((history) => [
+      ...history.slice(-17),
+      {
+        label,
+        income: delta > 0 ? delta : 0,
+        expense: delta < 0 ? Math.abs(delta) : 0,
+        netWorth,
+      },
+    ]);
+  }, [isSaveLoaded, cash, netWorth]);
+
+  useEffect(() => {
     if (taxTriggerCount > 0) applyTaxAutomatically();
   }, [taxTriggerCount]);
 
@@ -1577,7 +1631,7 @@ export default function GamePage() {
     const timer = window.setInterval(() => {
       setCareerIncomeCountdown((current) => {
         if (current <= 1) {
-          const income = occupationInfo[occupationId].incomeEvery3Min;
+          const income = Math.floor(occupationInfo[occupationId].incomeEvery3Min * jobIncomeMultiplier);
           if (income > 0) {
             setCash((money) => money + income);
             setMessage(`💼 ${occupationInfo[occupationId].name} 고정 수입 +${income.toLocaleString()}원`);
@@ -1589,7 +1643,7 @@ export default function GamePage() {
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [isSaveLoaded, userId, occupationId]);
+  }, [isSaveLoaded, userId, occupationId, jobIncomeMultiplier]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -1675,7 +1729,7 @@ export default function GamePage() {
         const moved = current.map((coin) => ({ ...coin, y: coin.y + speed })).filter((coin) => coin.y <= 112);
         const collected = moved.filter((coin) => coin.lane === runnerLane && coin.y >= 78 && coin.y <= 93);
         if (collected.length > 0) {
-          const reward = collected.length * PAY.delivery;
+          const reward = Math.floor(collected.length * PAY.delivery * jobIncomeMultiplier);
           setCash((money) => money + reward);
           setDeliverySuccessTotal((count) => count + collected.length);
           setMessage(`🍱 배달 포인트 통과! +${reward.toLocaleString()}원`);
@@ -2022,7 +2076,7 @@ export default function GamePage() {
     }
 
     const combo = sortCombo + 1;
-    const reward = PAY.sorting + Math.min(120, combo * 8);
+    const reward = Math.floor((PAY.sorting + Math.min(120, combo * 8)) * jobIncomeMultiplier);
     setCash((money) => money + reward);
     setSortingSuccessTotal((count) => count + 1);
     setSortCombo(combo);
@@ -2054,7 +2108,7 @@ export default function GamePage() {
     if (nextIndex >= cashierSequence.length) {
       const nextSuccess = cashierSuccess + 1;
       const nextDifficulty = getCashierDifficultyBySuccess(nextSuccess);
-      const reward = PAY.cashier + nextDifficulty * 8;
+      const reward = Math.floor((PAY.cashier + nextDifficulty * 8) * jobIncomeMultiplier);
       setCash((money) => money + reward);
       setCashierSuccess(nextSuccess);
       setCashierSuccessTotal((count) => count + 1);
@@ -2076,7 +2130,7 @@ export default function GamePage() {
 
   function judgeCafeFill() {
     if (cafeFill >= cafeTargetStart && cafeFill <= cafeTargetEnd) {
-      const reward = PAY.cafe + difficulty * 12;
+      const reward = Math.floor((PAY.cafe + difficulty * 12) * jobIncomeMultiplier);
       const target = makeCafeTarget(difficulty);
       setCash((money) => money + reward);
       setCafeSuccess((success) => success + 1);
@@ -2095,7 +2149,7 @@ export default function GamePage() {
 
   function handleSecurityAction() {
     if (securitySignal === "thief") {
-      const reward = PAY.security + difficulty * 10;
+      const reward = Math.floor((PAY.security + difficulty * 10) * jobIncomeMultiplier);
       setCash((money) => money + reward);
       setSecuritySuccess((success) => success + 1);
       setSecuritySuccessTotal((count) => count + 1);
@@ -3034,7 +3088,7 @@ export default function GamePage() {
     const result = data as PvpSubmitResult;
     if (result.status === "finished") {
       const won = result.winner_id === userId;
-      const reward = Number(result.reward ?? 0);
+      const reward = Math.floor(Number(result.reward ?? 0) * (1 + casinoLuckBonus));
       if (won) setCash((money) => money + reward);
       setPvpMessage(won ? `🏆 승리! 상금 ${reward.toLocaleString()}원을 획득했습니다.` : "패배했습니다. 다음 대전에 다시 도전하세요.");
     } else {
@@ -3168,7 +3222,8 @@ export default function GamePage() {
     if (!stock || stock.owned <= 0) return;
 
     const sellAmount = Math.min(stock.owned, Math.max(1, Math.floor(amount)));
-    const totalPrice = stock.price * sellAmount;
+    const baseTotalPrice = stock.price * sellAmount;
+    const totalPrice = Math.floor(baseTotalPrice * (1 + stockSaleBonus));
 
     const nextRows = stockRows.map((row) => {
       if (row.id !== stockId) return row;
@@ -3183,7 +3238,7 @@ export default function GamePage() {
     setCash((money) => money + totalPrice);
     setStockRows(nextRows);
     persistStocksNow(nextRows);
-    setMessage(`${stock.name} ${sellAmount.toLocaleString()}주를 총 ${totalPrice.toLocaleString()}원에 매도했습니다.`);
+    setMessage(`${stock.name} ${sellAmount.toLocaleString()}주를 총 ${totalPrice.toLocaleString()}원에 매도했습니다.${stockSaleBonus > 0 ? ` (아이템/자격증 효과 +${Math.round(stockSaleBonus * 100)}%)` : ""}`);
   }
 
   function sellAllStock(stockId: StockId) {
@@ -3306,6 +3361,7 @@ export default function GamePage() {
               <div style={roomNavStyle}>
                 <button onClick={() => setLobbyView("jobs")} style={bottomNavButtonStyle}>알바 가기</button>
                 <button onClick={() => setLobbyView("street")} style={bottomNavButtonStyle}>길거리</button>
+                <button onClick={() => setLobbyView("phone")} style={bottomNavButtonStyle}>휴대폰 확인</button>
               </div>
             </div>
           )}
@@ -3521,6 +3577,9 @@ export default function GamePage() {
                             <div style={{ ...stockOwnedStyle, color: profitIsUp ? "#dc2626" : "#2563eb" }}>
                               평균 매수가 {performance.averageBuyPrice.toLocaleString()}원 · 손익 {performance.profit >= 0 ? "+" : ""}{performance.profit.toLocaleString()}원 ({performance.profitRate >= 0 ? "+" : ""}{performance.profitRate.toFixed(2)}%)
                             </div>
+                          )}
+                          {stock.owned > 0 && stockSaleBonus > 0 && (
+                            <div style={{ ...stockOwnedStyle, color: "#7c3aed" }}>장신구/자격증 효과로 판매 금액 +{Math.round(stockSaleBonus * 100)}%</div>
                           )}
                         </div>
                         <div style={stockActionGroupStyle}>
@@ -4060,6 +4119,66 @@ export default function GamePage() {
                     </button>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {lobbyView === "phone" && (
+            <div style={phoneSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>SMART MONEY PHONE</div>
+                  <h2 style={panelTitleStyle}>휴대폰 자산 현황</h2>
+                  <p style={panelDescStyle}>예금, 수익/지출, 월급, 패시브 효과를 한 화면에서 확인합니다.</p>
+                </div>
+                <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
+              </div>
+
+              <div style={phoneFrameStyle}>
+                <div style={phoneTopBarStyle}>
+                  <span>9:41</span>
+                  <strong>{nickname}</strong>
+                  <span>{currentTitle.icon}</span>
+                </div>
+
+                <div style={phoneContentStyle}>
+                  <section style={phoneSummaryGridStyle}>
+                    <StatusPill label="현재 현금" value={`${cash.toLocaleString()}원`} />
+                    <StatusPill label="은행 예금" value={`${bankDeposit.toLocaleString()}원`} />
+                    <StatusPill label="총 수익" value={`${totalIncome.toLocaleString()}원`} />
+                    <StatusPill label="총 지출" value={`${totalExpense.toLocaleString()}원`} warning={totalExpense > totalIncome} />
+                    <StatusPill label="월급/직업 수익" value={`${Math.floor(occupationInfo[occupationId].incomeEvery3Min * jobIncomeMultiplier).toLocaleString()}원 / 3분`} />
+                    <StatusPill label="순자산" value={`${netWorth.toLocaleString()}원`} />
+                  </section>
+
+                  <section style={phoneCardStyle}>
+                    <h3 style={phoneCardTitleStyle}>수익 / 지출 그래프</h3>
+                    <FinanceMiniChart history={financeHistory} />
+                  </section>
+
+                  <section style={phoneTwoColumnStyle}>
+                    <div style={phoneCardStyle}>
+                      <h3 style={phoneCardTitleStyle}>들어오는 돈</h3>
+                      <div style={phoneListStyle}>
+                        <span>💼 직업 수익: {Math.floor(occupationInfo[occupationId].incomeEvery3Min * jobIncomeMultiplier).toLocaleString()}원 / 3분</span>
+                        <span>🧾 사업 매출: {businessIncomeEvery30Sec.toLocaleString()}원 / 30초</span>
+                        <span>🏘️ 임대 수익: {Math.floor(estateIncomeEvery5Min * inflationIndex * totalIncomeMultiplier).toLocaleString()}원 / 10분</span>
+                        <span>🏦 예금 이자: 약 {Math.floor(bankDeposit * 0.003).toLocaleString()}원 / 10분</span>
+                      </div>
+                    </div>
+
+                    <div style={phoneCardStyle}>
+                      <h3 style={phoneCardTitleStyle}>버프 / 패시브</h3>
+                      <div style={phoneListStyle}>
+                        <span>{currentTitle.icon} 칭호: {currentTitle.name}{currentTitle.passiveText ? ` · ${currentTitle.passiveText}` : ""}</span>
+                        <span>🎁 장신구: {equippedShopItems.length > 0 ? equippedShopItems.map((item) => `${item.icon} ${item.name}`).join(", ") : "없음"}</span>
+                        <span>🎓 자격증: {ownedCertifications.length > 0 ? ownedCertifications.map((id) => certifications.find((cert) => cert.id === id)?.name ?? id).join(", ") : "없음"}</span>
+                        <span>📈 주식 판매 보너스: +{Math.round(stockSaleBonus * 100)}%</span>
+                        <span>💰 전체 수익 보너스: +{Math.round(allIncomeBonus * 100)}%</span>
+                      </div>
+                    </div>
+                  </section>
+                </div>
               </div>
             </div>
           )}
@@ -5060,6 +5179,30 @@ function StockMiniChart({ stockId, history }: { stockId: StockId; history: numbe
     </div>
   );
 }
+function FinanceMiniChart({ history }: { history: FinanceHistoryPoint[] }) {
+  const points = history.length > 0 ? history.slice(-12) : [{ label: "현재", income: 0, expense: 0, netWorth: 0 }];
+  const maxValue = Math.max(1, ...points.map((point) => Math.max(point.income, point.expense)));
+
+  return (
+    <div style={financeChartStyle}>
+      {points.map((point, index) => {
+        const incomeHeight = Math.max(5, Math.round((point.income / maxValue) * 100));
+        const expenseHeight = Math.max(5, Math.round((point.expense / maxValue) * 100));
+
+        return (
+          <div key={`${point.label}-${index}`} style={financeChartColumnStyle}>
+            <div style={financeChartBarsStyle}>
+              <div title={`수익 ${point.income.toLocaleString()}원`} style={{ ...financeIncomeBarStyle, height: `${incomeHeight}%` }} />
+              <div title={`지출 ${point.expense.toLocaleString()}원`} style={{ ...financeExpenseBarStyle, height: `${expenseHeight}%` }} />
+            </div>
+            <small style={financeChartLabelStyle}>{point.label}</small>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function StatusPill({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) {
   return (
     <div style={{ ...statusPillStyle, borderColor: warning ? "#f97316" : "#111827", color: warning ? "#9a3412" : "#111827" }}>
@@ -7045,6 +7188,135 @@ const titleCardIconStyle: CSSProperties = {
   fontSize: "36px",
 };
 
+const phoneSceneStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "grid",
+  gridTemplateRows: "auto minmax(0, 1fr)",
+  gap: "12px",
+  background: "linear-gradient(180deg, #eef2ff, #dbeafe)",
+  border: "4px solid #111827",
+  borderRadius: "28px",
+  padding: "18px",
+  color: "#111827",
+  overflow: "hidden",
+};
+
+const phoneFrameStyle: CSSProperties = {
+  width: "min(760px, 100%)",
+  height: "100%",
+  justifySelf: "center",
+  border: "9px solid #111827",
+  borderRadius: "42px",
+  background: "linear-gradient(180deg, #0f172a, #020617)",
+  padding: "14px",
+  boxShadow: "0 18px 0 rgba(15,23,42,0.18)",
+  overflow: "hidden",
+  display: "grid",
+  gridTemplateRows: "34px minmax(0, 1fr)",
+};
+
+const phoneTopBarStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  color: "white",
+  fontSize: "13px",
+  fontWeight: 900,
+  padding: "0 12px",
+};
+
+const phoneContentStyle: CSSProperties = {
+  minHeight: 0,
+  overflowY: "auto",
+  background: "#f8fafc",
+  borderRadius: "28px",
+  padding: "14px",
+  display: "grid",
+  gap: "12px",
+};
+
+const phoneSummaryGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "8px",
+};
+
+const phoneCardStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "22px",
+  background: "white",
+  padding: "13px",
+  boxShadow: "0 7px 0 rgba(15,23,42,0.12)",
+};
+
+const phoneCardTitleStyle: CSSProperties = {
+  margin: "0 0 10px",
+  fontSize: "18px",
+  fontWeight: 900,
+};
+
+const phoneTwoColumnStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "10px",
+};
+
+const phoneListStyle: CSSProperties = {
+  display: "grid",
+  gap: "8px",
+  color: "#334155",
+  fontSize: "13px",
+  fontWeight: 900,
+  lineHeight: 1.35,
+};
+
+const financeChartStyle: CSSProperties = {
+  height: "180px",
+  display: "grid",
+  gridTemplateColumns: "repeat(12, minmax(0, 1fr))",
+  gap: "8px",
+  alignItems: "end",
+  borderRadius: "16px",
+  background: "linear-gradient(180deg, #eff6ff, #f8fafc)",
+  border: "2px solid #cbd5e1",
+  padding: "12px",
+};
+
+const financeChartColumnStyle: CSSProperties = {
+  height: "100%",
+  display: "grid",
+  gridTemplateRows: "1fr auto",
+  gap: "5px",
+  alignItems: "end",
+};
+
+const financeChartBarsStyle: CSSProperties = {
+  height: "100%",
+  display: "flex",
+  gap: "3px",
+  alignItems: "end",
+  justifyContent: "center",
+};
+
+const financeIncomeBarStyle: CSSProperties = {
+  width: "10px",
+  borderRadius: "999px 999px 3px 3px",
+  background: "linear-gradient(180deg, #4ade80, #16a34a)",
+};
+
+const financeExpenseBarStyle: CSSProperties = {
+  width: "10px",
+  borderRadius: "999px 999px 3px 3px",
+  background: "linear-gradient(180deg, #fb7185, #dc2626)",
+};
+
+const financeChartLabelStyle: CSSProperties = {
+  fontSize: "9px",
+  color: "#64748b",
+  textAlign: "center",
+};
+
 const firedOverlayWrapStyle: CSSProperties = {
   position: "absolute",
   inset: 0,
@@ -7433,6 +7705,7 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
+
 
 
 
