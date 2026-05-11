@@ -4135,6 +4135,12 @@ export default function GamePage() {
               </div>
 
               <div style={phoneFrameStyle}>
+                <div style={phoneHardwareTopStyle}>
+                  <div style={phoneSpeakerNotchStyle}>
+                    <div style={phoneCameraDotStyle} />
+                  </div>
+                </div>
+
                 <div style={phoneTopBarStyle}>
                   <span>9:41</span>
                   <strong>{nickname}</strong>
@@ -4178,6 +4184,10 @@ export default function GamePage() {
                       </div>
                     </div>
                   </section>
+                </div>
+
+                <div style={phoneHomeIndicatorWrapStyle}>
+                  <div style={phoneHomeIndicatorStyle} />
                 </div>
               </div>
             </div>
@@ -5852,21 +5862,27 @@ const roomNavStyle: CSSProperties = {
   bottom: "12px",
   transform: "translateX(-50%)",
   display: "grid",
-  gridTemplateColumns: "repeat(2, 170px)",
+  gridAutoFlow: "column",
+  gridAutoColumns: "minmax(150px, 190px)",
   gap: "10px",
+  alignItems: "center",
+  justifyContent: "center",
   zIndex: 5,
 };
 
 const bottomNavButtonStyle: CSSProperties = {
   border: "4px solid #111827",
-  borderRadius: "4px",
+  borderRadius: "6px",
   background: "#ffffff",
   color: "#111827",
-  padding: "12px 18px",
+  padding: "14px 18px",
+  minWidth: "170px",
+  textAlign: "center",
   fontWeight: 900,
   cursor: "pointer",
   boxShadow: "3px 3px 0 #111827",
   fontSize: "16px",
+  whiteSpace: "nowrap",
 };
 
 const streetSceneStyle: CSSProperties = {
@@ -7193,7 +7209,9 @@ const phoneSceneStyle: CSSProperties = {
   height: "100%",
   display: "grid",
   gridTemplateRows: "auto minmax(0, 1fr)",
-  gap: "12px",
+  gap: "14px",
+  alignItems: "start",
+  justifyItems: "center",
   background: "linear-gradient(180deg, #eef2ff, #dbeafe)",
   border: "4px solid #111827",
   borderRadius: "28px",
@@ -7203,17 +7221,50 @@ const phoneSceneStyle: CSSProperties = {
 };
 
 const phoneFrameStyle: CSSProperties = {
-  width: "min(760px, 100%)",
+  width: "min(430px, 100%)",
   height: "100%",
+  maxHeight: "100%",
+  aspectRatio: "9 / 19",
   justifySelf: "center",
-  border: "9px solid #111827",
-  borderRadius: "42px",
-  background: "linear-gradient(180deg, #0f172a, #020617)",
-  padding: "14px",
-  boxShadow: "0 18px 0 rgba(15,23,42,0.18)",
+  alignSelf: "center",
+  border: "10px solid #111827",
+  borderRadius: "44px",
+  background: "linear-gradient(180deg, #0b1220, #020617)",
+  padding: "10px 10px 12px",
+  boxShadow: "0 24px 0 rgba(15,23,42,0.20)",
   overflow: "hidden",
   display: "grid",
-  gridTemplateRows: "34px minmax(0, 1fr)",
+  gridTemplateRows: "18px 34px minmax(0, 1fr) 18px",
+  position: "relative",
+};
+
+const phoneHardwareTopStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  paddingTop: "2px",
+};
+
+const phoneSpeakerNotchStyle: CSSProperties = {
+  width: "132px",
+  height: "18px",
+  borderRadius: "999px",
+  background: "#020617",
+  border: "2px solid rgba(255,255,255,0.08)",
+  position: "relative",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const phoneCameraDotStyle: CSSProperties = {
+  position: "absolute",
+  right: "14px",
+  width: "8px",
+  height: "8px",
+  borderRadius: "50%",
+  background: "radial-gradient(circle at 35% 35%, #93c5fd, #1d4ed8 55%, #0f172a)",
+  boxShadow: "0 0 0 2px rgba(255,255,255,0.06)",
 };
 
 const phoneTopBarStyle: CSSProperties = {
@@ -7229,23 +7280,24 @@ const phoneTopBarStyle: CSSProperties = {
 const phoneContentStyle: CSSProperties = {
   minHeight: 0,
   overflowY: "auto",
-  background: "#f8fafc",
-  borderRadius: "28px",
+  background: "linear-gradient(180deg, #f8fafc, #eef2ff)",
+  borderRadius: "30px",
   padding: "14px",
   display: "grid",
   gap: "12px",
+  border: "2px solid rgba(148,163,184,0.32)",
 };
 
 const phoneSummaryGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gridTemplateColumns: "1fr",
   gap: "8px",
 };
 
 const phoneCardStyle: CSSProperties = {
   border: "3px solid #111827",
   borderRadius: "22px",
-  background: "white",
+  background: "rgba(255,255,255,0.96)",
   padding: "13px",
   boxShadow: "0 7px 0 rgba(15,23,42,0.12)",
 };
@@ -7258,7 +7310,7 @@ const phoneCardTitleStyle: CSSProperties = {
 
 const phoneTwoColumnStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gridTemplateColumns: "1fr",
   gap: "10px",
 };
 
@@ -7269,6 +7321,19 @@ const phoneListStyle: CSSProperties = {
   fontSize: "13px",
   fontWeight: 900,
   lineHeight: 1.35,
+};
+
+const phoneHomeIndicatorWrapStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const phoneHomeIndicatorStyle: CSSProperties = {
+  width: "120px",
+  height: "5px",
+  borderRadius: "999px",
+  background: "rgba(255,255,255,0.82)",
 };
 
 const financeChartStyle: CSSProperties = {
