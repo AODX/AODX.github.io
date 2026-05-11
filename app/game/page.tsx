@@ -735,6 +735,27 @@ const shopItems: ShopItem[] = [
   { id: "merchant_crown", name: "상인의 왕관", icon: "👑", rarity: "보물", price: 1300000, description: "모든 수익이 눈에 띄게 증가합니다.", bonusType: "allIncome", bonusValue: 0.08 },
   { id: "ancient_cashbook", name: "고대 장부", icon: "📜", rarity: "유물", price: 3500000, description: "사업과 직업 수익을 강하게 올려주는 유물입니다.", bonusType: "allIncome", bonusValue: 0.14 },
   { id: "fortune_core", name: "행운 핵", icon: "💠", rarity: "유물", price: 5000000, description: "극악 확률로만 얻는 전설적인 행운 장신구입니다.", bonusType: "stockLuck", bonusValue: 0.07 },
+  { id: "bronze_wallet", name: "청동 지갑", icon: "👛", rarity: "일반", price: 28000, description: "잔돈을 더 잘 챙기는 평범한 지갑입니다.", bonusType: "allIncome", bonusValue: 0.01 },
+  { id: "work_badge", name: "근면 배지", icon: "🏷️", rarity: "일반", price: 36000, description: "직업 수익에 작은 보탬이 됩니다.", bonusType: "jobIncome", bonusValue: 0.025 },
+  { id: "coffee_stamp", name: "카페 스탬프", icon: "☕", rarity: "일반", price: 42000, description: "작은 사업 감각을 올려줍니다.", bonusType: "businessIncome", bonusValue: 0.025 },
+  { id: "tiny_four_leaf", name: "작은 네잎클로버", icon: "🍀", rarity: "일반", price: 50000, description: "아주 작은 행운을 줍니다.", bonusType: "stockLuck", bonusValue: 0.008 },
+  { id: "blue_pocket_watch", name: "푸른 회중시계", icon: "🕰️", rarity: "희소", price: 135000, description: "일하는 리듬을 정돈해줍니다.", bonusType: "jobIncome", bonusValue: 0.05 },
+  { id: "mini_safe", name: "소형 금고", icon: "🔐", rarity: "희소", price: 160000, description: "수익 관리가 쉬워집니다.", bonusType: "allIncome", bonusValue: 0.035 },
+  { id: "store_neon", name: "상점 네온사인", icon: "💡", rarity: "희소", price: 190000, description: "사업 손님을 더 끌어옵니다.", bonusType: "businessIncome", bonusValue: 0.06 },
+  { id: "trader_notebook", name: "트레이더 노트", icon: "📒", rarity: "희소", price: 210000, description: "매도 판단을 조금 좋게 만듭니다.", bonusType: "stockLuck", bonusValue: 0.018 },
+  { id: "ruby_calculator", name: "루비 계산기", icon: "🧮", rarity: "진귀", price: 520000, description: "모든 돈 흐름을 빠르게 계산합니다.", bonusType: "allIncome", bonusValue: 0.055 },
+  { id: "ceo_pen", name: "대표의 만년필", icon: "🖋️", rarity: "진귀", price: 650000, description: "사업 계약에 강해집니다.", bonusType: "businessIncome", bonusValue: 0.12 },
+  { id: "premium_id_card", name: "프리미엄 사원증", icon: "💳", rarity: "진귀", price: 580000, description: "직장 수익을 크게 올립니다.", bonusType: "jobIncome", bonusValue: 0.10 },
+  { id: "chart_crystal", name: "차트 수정구", icon: "🔮", rarity: "진귀", price: 720000, description: "주식 매도 시 보너스가 붙습니다.", bonusType: "stockLuck", bonusValue: 0.035 },
+  { id: "golden_slot_chip", name: "황금 슬롯칩", icon: "🟡", rarity: "진귀", price: 740000, description: "카지노 감각을 올려줍니다.", bonusType: "casinoLuck", bonusValue: 0.035 },
+  { id: "platinum_briefcase", name: "플래티넘 서류가방", icon: "💼", rarity: "보물", price: 1600000, description: "직업과 사업 양쪽에 강한 보너스를 줍니다.", bonusType: "allIncome", bonusValue: 0.09 },
+  { id: "franchise_key", name: "프랜차이즈 황금열쇠", icon: "🗝️", rarity: "보물", price: 1850000, description: "사업 확장에 특화된 보물입니다.", bonusType: "businessIncome", bonusValue: 0.18 },
+  { id: "wallstreet_ring", name: "월스트리트 반지", icon: "💍", rarity: "보물", price: 2100000, description: "주식 판매 보너스를 크게 올립니다.", bonusType: "stockLuck", bonusValue: 0.055 },
+  { id: "jackpot_bell", name: "잭팟 종", icon: "🔔", rarity: "보물", price: 2300000, description: "카지노 운을 크게 올립니다.", bonusType: "casinoLuck", bonusValue: 0.07 },
+  { id: "mythic_ledger", name: "신화의 장부", icon: "📚", rarity: "유물", price: 7800000, description: "모든 수익을 강하게 끌어올립니다.", bonusType: "allIncome", bonusValue: 0.18 },
+  { id: "phoenix_contract", name: "불사조 계약서", icon: "🔥", rarity: "유물", price: 9200000, description: "사업 수익을 압도적으로 강화합니다.", bonusType: "businessIncome", bonusValue: 0.28 },
+  { id: "oracle_ticker", name: "예언의 시세판", icon: "📟", rarity: "유물", price: 10500000, description: "주식 판매 금액에 강력한 보너스를 줍니다.", bonusType: "stockLuck", bonusValue: 0.10 },
+  { id: "royal_casino_dice", name: "왕가의 주사위", icon: "🎲", rarity: "유물", price: 8800000, description: "카지노 운을 크게 높여줍니다.", bonusType: "casinoLuck", bonusValue: 0.12 },
 ];
 
 const playerTitles: PlayerTitle[] = [
@@ -775,18 +796,18 @@ const playerTitles: PlayerTitle[] = [
 ];
 
 const estateItems: EstateItem[] = [
-  { id: "semiBasement", name: "반지하 원룸", icon: "🏚️", price: 300000, incomeEvery5Min: 1500, description: "가장 저렴하게 시작하는 첫 부동산입니다." },
-  { id: "officetel", name: "오피스텔", icon: "🏢", price: 1500000, incomeEvery5Min: 8000, description: "안정적인 월세 수익을 주는 소형 부동산입니다." },
-  { id: "apartment", name: "아파트", icon: "🏙️", price: 4500000, incomeEvery5Min: 22000, description: "생활권이 좋아 가치가 비교적 안정적입니다." },
-  { id: "smallStore", name: "소형 상가", icon: "🏬", price: 9000000, incomeEvery5Min: 58000, description: "경기 영향을 받지만 수익성이 좋은 상가입니다." },
-  { id: "building", name: "미니 빌딩", icon: "🏦", price: 50000000, incomeEvery5Min: 400000, description: "경제 게임 후반부의 대표 자산입니다." },
+  { id: "semiBasement", name: "반지하 원룸", icon: "🏚️", price: 300000, incomeEvery5Min: 900, description: "가장 저렴하게 시작하는 첫 부동산입니다. 현실 월세 수익률을 낮게 반영했습니다." },
+  { id: "officetel", name: "오피스텔", icon: "🏢", price: 1500000, incomeEvery5Min: 4500, description: "안정적인 월세 수익을 주는 소형 부동산입니다." },
+  { id: "apartment", name: "아파트", icon: "🏙️", price: 4500000, incomeEvery5Min: 12000, description: "생활권이 좋아 가치가 비교적 안정적입니다." },
+  { id: "smallStore", name: "소형 상가", icon: "🏬", price: 9000000, incomeEvery5Min: 27000, description: "상가는 공실 위험 대신 주거보다 높은 수익률을 반영했습니다." },
+  { id: "building", name: "미니 빌딩", icon: "🏦", price: 50000000, incomeEvery5Min: 120000, description: "초대형 자산이지만 부동산답게 수익률은 사업보다 안정적으로 낮습니다." },
 ];
 
 const businessItems: BusinessItem[] = [
-  { id: "coffeeShop", name: "개인 카페 창업", icon: "☕", price: 2000000, incomeEvery5Min: 13000, requiredOccupation: "cafeManager", description: "카페 매니저 경험을 바탕으로 작은 매장을 엽니다." },
-  { id: "convenienceStore", name: "편의점 창업", icon: "🏪", price: 3000000, incomeEvery5Min: 18000, requiredOccupation: "convenienceManager", description: "편의점 계산 경험을 매장 운영으로 확장합니다." },
-  { id: "deliveryAgency", name: "배달 대행사", icon: "🛵", price: 8000000, incomeEvery5Min: 62000, requiredOccupation: "dispatchController", description: "배차와 플랫폼 운영 경험으로 배달망을 운영합니다." },
-  { id: "entertainmentAgency", name: "엔터 기획사", icon: "🎙️", price: 20000000, incomeEvery5Min: 170000, requiredOccupation: "topSinger", description: "톱스타 경험으로 공연과 광고 사업을 운영합니다." },
+  { id: "coffeeShop", name: "개인 카페 창업", icon: "☕", price: 2000000, incomeEvery5Min: 4500, requiredOccupation: "cafeManager", description: "카페 매니저 경험을 바탕으로 작은 매장을 엽니다. 30초 순이익 기준입니다." },
+  { id: "convenienceStore", name: "편의점 창업", icon: "🏪", price: 3000000, incomeEvery5Min: 7000, requiredOccupation: "convenienceManager", description: "편의점 계산 경험을 매장 운영으로 확장합니다." },
+  { id: "deliveryAgency", name: "배달 대행사", icon: "🛵", price: 8000000, incomeEvery5Min: 18000, requiredOccupation: "dispatchController", description: "배차와 플랫폼 운영 경험으로 배달망을 운영합니다." },
+  { id: "entertainmentAgency", name: "엔터 기획사", icon: "🎙️", price: 20000000, incomeEvery5Min: 45000, requiredOccupation: "topSinger", description: "톱스타 경험으로 공연과 광고 사업을 운영합니다." },
 ];
 
 const insuranceItems: InsuranceItem[] = [
@@ -848,7 +869,7 @@ export default function GamePage() {
 
   const [lobbyView, setLobbyView] = useState<LobbyView>("room");
   const [streetPage, setStreetPage] = useState(0);
-  const [phoneApp, setPhoneApp] = useState<"home" | "wallet" | "chart" | "income" | "buffs">("home");
+  const [phoneApp, setPhoneApp] = useState<"home" | "wallet" | "chart" | "income" | "buffs" | "collection">("home");
   const [currentTitleId, setCurrentTitleId] = useState<PlayerTitleId>("newbie");
   const [ownedCertifications, setOwnedCertifications] = useState<CertificationId[]>([]);
   const [ownedItems, setOwnedItems] = useState<ShopItemId[]>([]);
@@ -860,6 +881,7 @@ export default function GamePage() {
   const [shopPurchaseCount, setShopPurchaseCount] = useState(0);
   const [shopOffers, setShopOffers] = useState<ShopItem[]>(() => makeShopOffers(1));
   const [shopUpdatedAt, setShopUpdatedAt] = useState(new Date());
+  const [shopSoldOfferKeys, setShopSoldOfferKeys] = useState<string[]>([]);
   const [marketListings, setMarketListings] = useState<MarketListing[]>([]);
   const [sellItemId, setSellItemId] = useState("");
   const [sellPrice, setSellPrice] = useState("100000");
@@ -1184,7 +1206,7 @@ export default function GamePage() {
     if (!stored) return;
 
     try {
-      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; equippedItems?: ShopItemId[]; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[] };
+      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; equippedItems?: ShopItemId[]; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[] };
       const loadedDeposit = Number(parsed.bankDeposit ?? 0);
       const loadedSavings = Number(parsed.bankSavings ?? 0);
       setBankDeposit(loadedDeposit);
@@ -1207,6 +1229,7 @@ export default function GamePage() {
       if (typeof parsed.shopPurchaseCount === "number") setShopPurchaseCount(parsed.shopPurchaseCount);
       if (Array.isArray(parsed.shopOffers) && parsed.shopOffers.length > 0) setShopOffers(parsed.shopOffers);
       if (parsed.shopUpdatedAt) setShopUpdatedAt(new Date(parsed.shopUpdatedAt));
+      if (Array.isArray(parsed.shopSoldOfferKeys)) setShopSoldOfferKeys(parsed.shopSoldOfferKeys.filter((key): key is string => typeof key === "string"));
       if (typeof parsed.totalIncome === "number") setTotalIncome(parsed.totalIncome);
       if (typeof parsed.totalExpense === "number") setTotalExpense(parsed.totalExpense);
       if (Array.isArray(parsed.financeHistory)) setFinanceHistory(parsed.financeHistory.slice(-18));
@@ -1240,12 +1263,13 @@ export default function GamePage() {
       shopPurchaseCount,
       shopOffers,
       shopUpdatedAt: shopUpdatedAt.toISOString(),
+      shopSoldOfferKeys,
       totalIncome,
       totalExpense,
       financeHistory,
       economyUpdatedAt: economyUpdatedAt.toISOString(),
     }));
-  }, [userId, isSaveLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, equippedItems, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, totalIncome, totalExpense, financeHistory, economyUpdatedAt]);
+  }, [userId, isSaveLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, equippedItems, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, totalIncome, totalExpense, financeHistory, economyUpdatedAt]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -1679,6 +1703,7 @@ export default function GamePage() {
     const timer = window.setInterval(() => {
       setShopOffers(makeShopOffers(shopLevel));
       setShopUpdatedAt(new Date());
+      setShopSoldOfferKeys([]);
       setMessage("🎁 가챠 숍 상품 3개가 새로 입고되었습니다.");
     }, 10 * 60 * 1000);
 
@@ -1689,6 +1714,7 @@ export default function GamePage() {
     if (shopOffers.length === 0) {
       setShopOffers(makeShopOffers(shopLevel));
       setShopUpdatedAt(new Date());
+      setShopSoldOfferKeys([]);
     }
   }, [shopOffers.length, shopLevel]);
 
@@ -2538,16 +2564,33 @@ export default function GamePage() {
     setMessage(`🎓 ${certification.name} 취득 완료! ${certification.effectText}`);
   }
 
-  function buyShopOffer(item: ShopItem) {
+  function buyShopOffer(item: ShopItem, offerKey?: string) {
+    if (offerKey && shopSoldOfferKeys.includes(offerKey)) {
+      setMessage("🎁 이미 SOLD OUT 된 상품입니다. 다음 입고를 기다려주세요.");
+      return;
+    }
     if (cash < item.price) {
       setMessage(`🎁 ${item.name} 구매에는 ${item.price.toLocaleString()}원이 필요합니다.`);
       return;
     }
     setCash((money) => money - item.price);
     setOwnedItems((owned) => [...owned, item.id]);
+    if (offerKey) setShopSoldOfferKeys((keys) => Array.from(new Set([...keys, offerKey])));
     setShopPurchaseCount((count) => count + 1);
     setShopLevel((level) => Math.min(5, Math.max(level, 1 + Math.floor((shopPurchaseCount + 1) / 5))));
     setMessage(`🎁 ${item.rarity} 등급 ${item.name} 구매 완료!`);
+  }
+
+  function quickSellItem(itemId: ShopItemId) {
+    const item = shopItems.find((entry) => entry.id === itemId);
+    if (!item || !ownedItems.includes(itemId)) return;
+    const sellValue = Math.floor(item.price * 0.5);
+    setOwnedItems((items) => removeFirst(items, itemId));
+    setEquippedItems((items) => items.filter((id) => id !== itemId));
+    setCash((money) => money + sellValue);
+    setTotalIncome((income) => income + sellValue);
+    setFinanceHistory((history) => [...history.slice(-17), { label: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), income: sellValue, expense: 0, netWorth }]);
+    setMessage(`🎁 ${item.name}을(를) 정가의 50%인 ${sellValue.toLocaleString()}원에 판매했습니다.`);
   }
 
   function pullGachaMachine() {
@@ -2620,6 +2663,23 @@ export default function GamePage() {
     setEquippedItems((items) => items.filter((id) => id !== sellItemId));
     setSellItemId("");
     setMessage("🤝 아이템을 거래소에 등록했습니다.");
+    refreshMarketListings();
+  }
+
+  async function cancelMarketListing(listing: MarketListing) {
+    if (!userId || listing.seller_id !== userId) return;
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("game_item_market")
+      .update({ status: "cancelled" })
+      .eq("id", listing.id)
+      .eq("seller_id", userId);
+    if (error) {
+      setMessage(`🤝 회수 실패: ${error.message}`);
+      return;
+    }
+    setOwnedItems((items) => [...items, listing.item_id]);
+    setMessage("🤝 거래소에 올린 아이템을 회수했습니다.");
     refreshMarketListings();
   }
 
@@ -4046,15 +4106,20 @@ export default function GamePage() {
               </div>
 
               <div style={economyCardGridStyle}>
-                {(shopOffers.length > 0 ? shopOffers : makeShopOffers(shopLevel)).slice(0, 3).map((item) => (
-                  <div key={`${item.id}-${shopUpdatedAt.toISOString()}`} style={{ ...economyCardStyle, borderColor: getRarityColor(item.rarity) }}>
+                {(shopOffers.length > 0 ? shopOffers : makeShopOffers(shopLevel)).slice(0, 3).map((item, index) => {
+                  const offerKey = `${shopUpdatedAt.toISOString()}-${index}-${item.id}`;
+                  const soldOut = shopSoldOfferKeys.includes(offerKey);
+                  return (
+                  <div key={offerKey} style={{ ...economyCardStyle, borderColor: getRarityColor(item.rarity), opacity: soldOut ? 0.58 : 1 }}>
                     <h3 style={economyCardTitleStyle}>{item.icon} {item.name}</h3>
                     <p style={economyCardTextStyle}>{item.rarity} · {item.description}</p>
                     <strong>{item.price.toLocaleString()}원</strong>
                     <strong style={{ color: getRarityColor(item.rarity) }}>{getItemEffectText(item)}</strong>
-                    <button onClick={() => buyShopOffer(item)} disabled={cash < item.price} style={{ ...casinoPrimaryButtonStyle, opacity: cash < item.price ? 0.45 : 1 }}>구매</button>
+                    <small style={{ color: getRarityColor(item.rarity), fontWeight: 900 }}>{getRarityPerformanceText(item.rarity)}</small>
+                    <button onClick={() => buyShopOffer(item, offerKey)} disabled={soldOut || cash < item.price} style={{ ...casinoPrimaryButtonStyle, opacity: soldOut || cash < item.price ? 0.45 : 1 }}>{soldOut ? "SOLD OUT" : "구매"}</button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div style={casinoLowerGridStyle}>
@@ -4068,7 +4133,7 @@ export default function GamePage() {
                   {ownedItems.length === 0 ? <p style={casinoTextStyle}>보유 장신구가 없습니다.</p> : ownedItems.map((id, index) => {
                     const item = shopItems.find((entry) => entry.id === id);
                     if (!item) return null;
-                    return <div key={`${id}-${index}`} style={marketMiniRowStyle}><span>{item.icon} {item.name}<br /><small>{item.rarity} · {getItemEffectText(item)}</small></span><button onClick={() => toggleEquipItem(id)} style={casinoSmallButtonStyle}>{equippedItems.includes(id) ? "해제" : "장착"}</button></div>;
+                    return <div key={`${id}-${index}`} style={marketMiniRowStyle}><span>{item.icon} {item.name}<br /><small>{item.rarity} · {getItemEffectText(item)} · 50% 판매가 {Math.floor(item.price * 0.5).toLocaleString()}원</small></span><span style={marketButtonGroupStyle}><button onClick={() => toggleEquipItem(id)} style={casinoSmallButtonStyle}>{equippedItems.includes(id) ? "해제" : "장착"}</button><button onClick={() => quickSellItem(id)} style={casinoSmallButtonStyle}>즉시 판매</button></span></div>;
                   })}
                 </section>
               </div>
@@ -4111,7 +4176,7 @@ export default function GamePage() {
                     return (
                       <div key={listing.id} style={marketMiniRowStyle}>
                         <span>{item.icon} {item.name}<br /><small>{item.rarity} · {listing.seller_nickname ?? "판매자"} · {Number(listing.price).toLocaleString()}원</small></span>
-                        <button onClick={() => buyMarketListing(listing)} style={casinoSmallButtonStyle}>구매</button>
+                        {listing.seller_id === userId ? <button onClick={() => cancelMarketListing(listing)} style={casinoSmallButtonStyle}>회수</button> : <button onClick={() => buyMarketListing(listing)} style={casinoSmallButtonStyle}>구매</button>}
                       </div>
                     );
                   })}
@@ -4304,6 +4369,11 @@ export default function GamePage() {
                           <strong>버프</strong>
                           <small>칭호·장신구</small>
                         </button>
+                        <button onClick={() => setPhoneApp("collection")} style={phoneAppIconButtonStyle}>
+                          <span style={{ ...phoneAppIconStyle, background: "linear-gradient(180deg, #ede9fe, #8b5cf6)" }}>📚</span>
+                          <strong>도감</strong>
+                          <small>장신구 수집</small>
+                        </button>
                       </section>
 
                       <section style={phoneMiniDockStyle}>
@@ -4363,6 +4433,24 @@ export default function GamePage() {
                             <span>🎓 자격증: {ownedCertifications.length > 0 ? ownedCertifications.map((id) => certifications.find((cert) => cert.id === id)?.name ?? id).join(", ") : "없음"}</span>
                             <span>📈 주식 판매 보너스: +{Math.round(stockSaleBonus * 100)}%</span>
                             <span>💰 전체 수익 보너스: +{Math.round(allIncomeBonus * 100)}%</span>
+                          </div>
+                        </section>
+                      )}
+                      {phoneApp === "collection" && (
+                        <section style={phoneCardStyle}>
+                          <h3 style={phoneCardTitleStyle}>아이템 도감</h3>
+                          <p style={casinoTextStyle}>수집 {new Set(ownedItems).size}/{shopItems.length}종 · 등급이 높을수록 성능 차이가 확실합니다.</p>
+                          <div style={itemCollectionGridStyle}>
+                            {shopItems.map((item) => {
+                              const owned = ownedItems.includes(item.id);
+                              return (
+                                <div key={item.id} style={{ ...itemCollectionCardStyle, borderColor: getRarityColor(item.rarity), opacity: owned ? 1 : 0.42 }}>
+                                  <strong>{owned ? item.icon : "❔"} {owned ? item.name : "미수집"}</strong>
+                                  <small style={{ color: getRarityColor(item.rarity), fontWeight: 900 }}>{item.rarity} · {getRarityPerformanceText(item.rarity)}</small>
+                                  <small>{owned ? getItemEffectText(item) : "획득하면 효과 공개"}</small>
+                                </div>
+                              );
+                            })}
                           </div>
                         </section>
                       )}
@@ -5721,6 +5809,14 @@ function getRarityColor(rarity: ItemRarity) {
   if (rarity === "진귀") return "#dc2626";
   if (rarity === "희소") return "#2563eb";
   return "#16a34a";
+}
+
+function getRarityPerformanceText(rarity: ItemRarity) {
+  if (rarity === "유물") return "최상급 성능 · 게임 후반 핵심 효과";
+  if (rarity === "보물") return "상급 성능 · 체감 큰 보너스";
+  if (rarity === "진귀") return "중상급 성능 · 특정 수익 강화";
+  if (rarity === "희소") return "중급 성능 · 초중반 유용";
+  return "기본 성능 · 초반 보조";
 }
 
 function getItemEffectText(item: ShopItem) {
@@ -7833,6 +7929,29 @@ const casinoSmallButtonStyle: CSSProperties = {
   fontWeight: 900,
   cursor: "pointer",
   whiteSpace: "nowrap",
+};
+
+const marketButtonGroupStyle: CSSProperties = {
+  display: "flex",
+  gap: "6px",
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
+};
+
+const itemCollectionGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr",
+  gap: "8px",
+};
+
+const itemCollectionCardStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "16px",
+  background: "rgba(255,255,255,0.92)",
+  padding: "10px",
+  display: "grid",
+  gap: "4px",
+  fontSize: "12px",
 };
 
 const marketMiniRowStyle: CSSProperties = {
