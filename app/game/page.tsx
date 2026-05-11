@@ -183,6 +183,13 @@ type StockSaveRow = {
   updated_at: string | null;
 };
 
+type GlobalStockMarketResult = {
+  rows: StockRow[] | string | null;
+  news_events: NewsEvent[] | string | null;
+  updated_at: string | null;
+  news_updated_at: string | null;
+};
+
 
 type CasinoUserRow = {
   id: string;
@@ -286,7 +293,9 @@ type AuctionDeal = {
 
 const PROFILE_TABLE = "game_profiles";
 const STOCK_TABLE = "game_stock_saves";
+const GLOBAL_STOCK_TABLE = "game_global_stock_market";
 const STOCK_INTERVAL_MS = 3 * 60 * 1000;
+const NEWS_INTERVAL_MS = 10 * 60 * 1000;
 const SLOT_SYMBOLS = ["7", "🍒", "💎", "🍀", "⭐", "🍋"];
 const TAX_INTERVAL_SECONDS = 420;
 const TAX_WARNING_SECONDS = 60;
@@ -1247,18 +1256,14 @@ export default function GamePage() {
   }, [isSaveLoaded, employeePayrollEvery60Sec]);
 
   useEffect(() => {
-    if (!isSaveLoaded) return;
+    if (!isSaveLoaded || !isStockLoaded) return;
 
     const timer = window.setInterval(() => {
-      const nextNews = makeNewsEvents();
-      setNewsEvents(nextNews);
-      setEconomyUpdatedAt(new Date());
-      setStockRows((rows) => applyNewsToStocks(rows, nextNews));
-      setMessage("📰 경제 뉴스가 갱신되어 시장 분위기가 바뀌었습니다.");
-    }, 5 * 60 * 1000);
+      void syncGlobalStockMarket();
+    }, 30 * 1000);
 
     return () => window.clearInterval(timer);
-  }, [isSaveLoaded]);
+  }, [isSaveLoaded, isStockLoaded]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
@@ -1385,10 +1390,7 @@ export default function GamePage() {
     async function loadStocks() {
       setIsStockLoaded(false);
       const storageKey = `alba-money-stocks-${currentUserId}`;
-      let remoteRows: StockRow[] | null = null;
-      let remoteAt: Date | null = null;
-      let localRows: StockRow[] | null = null;
-      let localAt: Date | null = null;
+      let savedOwnedRows: StockRow[] | null = null;
 
       try {
         const supabase = createClient();
@@ -1401,44 +1403,39 @@ export default function GamePage() {
         if (!error && data?.rows) {
           const rows = typeof data.rows === "string" ? JSON.parse(data.rows) : data.rows;
           if (Array.isArray(rows) && rows.length > 0) {
-            remoteRows = normalizeStockRows(rows, currentUserId);
-            remoteAt = data.updated_at ? new Date(data.updated_at) : new Date(0);
+            savedOwnedRows = normalizeStockRows(rows, currentUserId);
           }
         } else if (error) {
-          console.warn("주식 저장 테이블을 읽지 못했습니다. localStorage를 사용합니다:", error.message);
+          console.warn("주식 보유량 저장 테이블을 읽지 못했습니다. localStorage를 사용합니다:", error.message);
         }
       } catch (error) {
-        console.warn("주식 저장 데이터를 불러오지 못했습니다. localStorage를 사용합니다:", error);
+        console.warn("주식 보유량 저장 데이터를 불러오지 못했습니다. localStorage를 사용합니다:", error);
       }
 
       const saved = window.localStorage.getItem(storageKey);
-      if (saved) {
+      if (!savedOwnedRows && saved) {
         try {
           const parsed = JSON.parse(saved) as { rows?: StockRow[]; updatedAt?: string };
           if (Array.isArray(parsed.rows) && parsed.rows.length > 0) {
-            localRows = normalizeStockRows(parsed.rows, currentUserId);
-            localAt = parsed.updatedAt ? new Date(parsed.updatedAt) : new Date(0);
+            savedOwnedRows = normalizeStockRows(parsed.rows, currentUserId);
           }
         } catch {
           window.localStorage.removeItem(storageKey);
         }
       }
 
-      const useLocal = Boolean(localRows && (!remoteRows || (localAt?.getTime() ?? 0) >= (remoteAt?.getTime() ?? 0)));
-      let loadedRows = useLocal ? localRows : remoteRows;
-      let loadedAt = useLocal ? localAt : remoteAt;
-
-      if (!loadedRows) {
-        loadedRows = makeInitialStocks(currentUserId);
-        loadedAt = new Date();
-      }
-
-      const elapsedApplied = applyElapsedStockUpdates(loadedRows, loadedAt ?? new Date());
+      const globalMarket = await fetchGlobalStockMarket();
+      const globalRows = globalMarket?.rows ?? makeInitialStocks("global-market").map((row) => ({ ...row, owned: 0 }));
+      const nextRows = mergeGlobalPricesWithOwned(globalRows, savedOwnedRows ?? []);
 
       if (cancelled) return;
-      setStockRows(elapsedApplied.rows);
-      setStockUpdatedAt(elapsedApplied.updatedAt);
-      setStockCountdownMs(Math.max(0, STOCK_INTERVAL_MS - (Date.now() - elapsedApplied.updatedAt.getTime())));
+      setStockRows(nextRows);
+      setStockUpdatedAt(globalMarket?.updatedAt ?? new Date());
+      setStockCountdownMs(Math.max(0, STOCK_INTERVAL_MS - (Date.now() - (globalMarket?.updatedAt ?? new Date()).getTime())));
+      if (globalMarket?.newsEvents?.length) {
+        setNewsEvents(globalMarket.newsEvents);
+        setEconomyUpdatedAt(globalMarket.newsUpdatedAt ?? new Date());
+      }
       setIsStockLoaded(true);
     }
 
@@ -1481,20 +1478,12 @@ export default function GamePage() {
 
   useEffect(() => {
     if (!userId || !isStockLoaded) return;
-    const currentUserId = userId;
 
     const tick = () => {
       const remaining = stockUpdatedAt.getTime() + STOCK_INTERVAL_MS - Date.now();
 
       if (remaining <= 0) {
-        const now = new Date();
-        setStockRows((current) => {
-          const nextRows = updateStockMarket(current.length > 0 ? current : makeInitialStocks(currentUserId));
-          persistStocksNow(nextRows, now);
-          return nextRows;
-        });
-        setStockUpdatedAt(now);
-        setStockCountdownMs(STOCK_INTERVAL_MS);
+        void syncGlobalStockMarket();
         return;
       }
 
@@ -1504,7 +1493,18 @@ export default function GamePage() {
     tick();
     const timer = window.setInterval(tick, 1000);
 
-    return () => window.clearInterval(timer);
+    const supabase = createClient();
+    const channel = supabase
+      .channel("game-global-stock-market-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: GLOBAL_STOCK_TABLE }, () => {
+        void syncGlobalStockMarket();
+      })
+      .subscribe();
+
+    return () => {
+      window.clearInterval(timer);
+      void supabase.removeChannel(channel);
+    };
   }, [userId, isStockLoaded, stockUpdatedAt]);
 
   useEffect(() => {
@@ -2342,14 +2342,6 @@ export default function GamePage() {
     setMessage(`🔨 ${deal.name} 낙찰 완료. 시세 차익 약 ${(deal.value - deal.price).toLocaleString()}원`);
   }
 
-  function refreshNewsNow() {
-    const nextNews = makeNewsEvents();
-    setNewsEvents(nextNews);
-    setEconomyUpdatedAt(new Date());
-    setStockRows((rows) => applyNewsToStocks(rows, nextNews));
-    setMessage("📰 경제 뉴스가 새로 들어왔습니다.");
-  }
-
   function buyCertification(certificationId: CertificationId) {
     const certification = certifications.find((item) => item.id === certificationId);
     if (!certification || ownedCertifications.includes(certificationId)) return;
@@ -3039,6 +3031,34 @@ export default function GamePage() {
     refreshCasinoData();
   }
 
+  async function fetchGlobalStockMarket() {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("sync_global_stock_market");
+
+      if (error) {
+        console.warn("전역 주식 시장 동기화 실패. 임시 로컬 시세를 사용합니다:", error.message);
+        return null;
+      }
+
+      return parseGlobalStockMarketResult(data as GlobalStockMarketResult);
+    } catch (error) {
+      console.warn("전역 주식 시장 동기화 실패. 임시 로컬 시세를 사용합니다:", error);
+      return null;
+    }
+  }
+
+  async function syncGlobalStockMarket() {
+    const globalMarket = await fetchGlobalStockMarket();
+    if (!globalMarket) return;
+
+    setNewsEvents(globalMarket.newsEvents);
+    setEconomyUpdatedAt(globalMarket.newsUpdatedAt);
+    setStockUpdatedAt(globalMarket.updatedAt);
+    setStockCountdownMs(Math.max(0, STOCK_INTERVAL_MS - (Date.now() - globalMarket.updatedAt.getTime())));
+    setStockRows((current) => mergeGlobalPricesWithOwned(globalMarket.rows, current));
+  }
+
   function persistStocksNow(rows: StockRow[], updatedAt: Date = stockUpdatedAt) {
     if (!userId) return;
     const currentUserId = userId;
@@ -3381,7 +3401,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>STOCK EXCHANGE</div>
                   <h2 style={panelTitleStyle}>주식 거래소</h2>
-                  <p style={panelDescStyle}>3분마다 가격이 변동됩니다. 다음 변동까지 <strong>{formatStockCountdown(stockCountdownMs)}</strong> · 마지막 변동: {stockUpdatedAt.toLocaleTimeString()}</p>
+                  <p style={panelDescStyle}>모든 유저가 같은 시세를 봅니다. 3분마다 전역 가격이 변동됩니다. 다음 변동까지 <strong>{formatStockCountdown(stockCountdownMs)}</strong> · 마지막 변동: {stockUpdatedAt.toLocaleTimeString()}</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
               </div>
@@ -3690,10 +3710,9 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>ECONOMY NEWS</div>
                   <h2 style={panelTitleStyle}>경제 뉴스</h2>
-                  <p style={panelDescStyle}>5분마다 뉴스가 바뀌고 주식 시장 분위기에 작은 영향을 줍니다. 마지막 갱신: {economyUpdatedAt.toLocaleTimeString()}</p>
+                  <p style={panelDescStyle}>10분마다 모든 유저에게 같은 뉴스가 갱신되고, 다음 주식 변동부터 관련 종목에 영향을 줍니다. 마지막 갱신: {economyUpdatedAt.toLocaleTimeString()}</p>
                 </div>
                 <div style={economyButtonRowStyle}>
-                  <button onClick={refreshNewsNow} style={smallActionButtonStyle}>새 뉴스</button>
                   <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
                 </div>
               </div>
@@ -4718,26 +4737,6 @@ function makeNewsEvents() {
   return selected;
 }
 
-function applyNewsToStocks(rows: StockRow[], events: NewsEvent[]) {
-  if (rows.length === 0) return rows;
-
-  return rows.map((stock) => {
-    const matchedEvents = events.filter((event) => event.targetStocks.includes(stock.id));
-    const directImpact = matchedEvents.reduce((sum, event) => sum + event.impactPercent, 0);
-    const marketMood = events.reduce((sum, event) => sum + event.impactPercent, 0) * 0.06;
-    const noise = (Math.random() - 0.5) * 1.2;
-    const cappedImpact = clampNumber(directImpact + marketMood + noise, -9.5, 9.5);
-    const nextPrice = Math.max(100, Math.round(stock.price * (1 + cappedImpact / 100)));
-
-    return {
-      ...stock,
-      previousPrice: stock.price,
-      price: nextPrice,
-      history: [...stock.history.slice(-23), nextPrice],
-    };
-  });
-}
-
 function getStockCompanyName(id: StockId) {
   return stockCompanies.find((company) => company.id === id)?.name ?? id;
 }
@@ -5061,6 +5060,52 @@ function makeRankingRows(nickname: string, cash: number, job: string): RankingRo
   ];
 }
 
+function parseGlobalStockMarketResult(data: GlobalStockMarketResult | null) {
+  if (!data) return null;
+
+  const rawRows = typeof data.rows === "string" ? safeJsonParse<StockRow[]>(data.rows, []) : data.rows;
+  const rawNews = typeof data.news_events === "string" ? safeJsonParse<NewsEvent[]>(data.news_events, []) : data.news_events;
+  const rows = normalizeGlobalStockRows(Array.isArray(rawRows) ? rawRows : []);
+  const newsEvents = normalizeNewsEvents(Array.isArray(rawNews) ? rawNews : []);
+
+  return {
+    rows,
+    newsEvents: newsEvents.length > 0 ? newsEvents : makeNewsEvents(),
+    updatedAt: data.updated_at ? new Date(data.updated_at) : new Date(),
+    newsUpdatedAt: data.news_updated_at ? new Date(data.news_updated_at) : new Date(),
+  };
+}
+
+function safeJsonParse<T>(value: string, fallback: T): T {
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeNewsEvents(events: NewsEvent[]): NewsEvent[] {
+  const validIds = new Set(newsPool.map((event) => event.id));
+  const normalized = events
+    .filter((event) => event && validIds.has(Number(event.id)))
+    .map((event) => newsPool.find((item) => item.id === Number(event.id)) ?? event)
+    .slice(0, 3);
+
+  return normalized.length > 0 ? normalized : makeNewsEvents();
+}
+
+function normalizeGlobalStockRows(rows: StockRow[]): StockRow[] {
+  return normalizeStockRows(rows, "global-market").map((row) => ({ ...row, owned: 0 }));
+}
+
+function mergeGlobalPricesWithOwned(globalRows: StockRow[], ownedRows: StockRow[]): StockRow[] {
+  const ownedMap = new Map(ownedRows.map((row) => [row.id, Math.max(0, Math.floor(Number(row.owned) || 0))]));
+  return normalizeGlobalStockRows(globalRows).map((row) => ({
+    ...row,
+    owned: ownedMap.get(row.id) ?? 0,
+  }));
+}
+
 function normalizeStockRows(rows: StockRow[], seedKey = "default"): StockRow[] {
   return stockCompanies.map((company) => {
     const saved = rows.find((row) => row.id === company.id);
@@ -5132,13 +5177,18 @@ function makeInitialStocks(seedKey = "default"): StockRow[] {
   });
 }
 
-function updateStockMarket(rows: StockRow[]): StockRow[] {
+function updateStockMarket(rows: StockRow[], events: NewsEvent[] = []): StockRow[] {
   return rows.map((stock) => {
     const trend = getStockTrendStreak(stock.history);
-    const upProbability = clampNumber(0.5 - Math.max(0, trend) * 0.075 + Math.max(0, -trend) * 0.055, 0.24, 0.76);
+    const newsImpact = events
+      .filter((event) => event.targetStocks.includes(stock.id))
+      .reduce((sum, event) => sum + event.impactPercent, 0);
+    const newsBias = clampNumber(newsImpact / 18, -0.28, 0.28);
+    const upProbability = clampNumber(0.5 + newsBias - Math.max(0, trend) * 0.075 + Math.max(0, -trend) * 0.055, 0.18, 0.82);
     const direction = Math.random() < upProbability ? 1 : -1;
     const streakPenalty = direction === 1 ? Math.max(0, trend) * 0.45 : Math.max(0, -trend) * 0.28;
-    const maxPercent = clampNumber(10 - streakPenalty, 3.2, 10);
+    const newsMagnitude = Math.min(2.2, Math.abs(newsImpact) * 0.22);
+    const maxPercent = clampNumber(10 - streakPenalty + newsMagnitude, 2.8, 10);
     const minPercent = 0.25;
     const percent = minPercent + Math.random() * (maxPercent - minPercent);
     const nextPrice = Math.max(100, Math.round(stock.price * (1 + direction * percent / 100)));
@@ -7282,4 +7332,5 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
+
 
