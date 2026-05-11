@@ -848,6 +848,7 @@ export default function GamePage() {
 
   const [lobbyView, setLobbyView] = useState<LobbyView>("room");
   const [streetPage, setStreetPage] = useState(0);
+  const [phoneApp, setPhoneApp] = useState<"home" | "wallet" | "chart" | "income" | "buffs">("home");
   const [currentTitleId, setCurrentTitleId] = useState<PlayerTitleId>("newbie");
   const [ownedCertifications, setOwnedCertifications] = useState<CertificationId[]>([]);
   const [ownedItems, setOwnedItems] = useState<ShopItemId[]>([]);
@@ -4148,42 +4149,99 @@ export default function GamePage() {
                 </div>
 
                 <div style={phoneContentStyle}>
-                  <section style={phoneSummaryGridStyle}>
-                    <StatusPill label="현재 현금" value={`${cash.toLocaleString()}원`} />
-                    <StatusPill label="은행 예금" value={`${bankDeposit.toLocaleString()}원`} />
-                    <StatusPill label="총 수익" value={`${totalIncome.toLocaleString()}원`} />
-                    <StatusPill label="총 지출" value={`${totalExpense.toLocaleString()}원`} warning={totalExpense > totalIncome} />
-                    <StatusPill label="월급/직업 수익" value={`${Math.floor(occupationInfo[occupationId].incomeEvery3Min * jobIncomeMultiplier).toLocaleString()}원 / 3분`} />
-                    <StatusPill label="순자산" value={`${netWorth.toLocaleString()}원`} />
-                  </section>
+                  {phoneApp === "home" ? (
+                    <>
+                      <section style={phoneHeroCardStyle}>
+                        <div>
+                          <div style={phoneHeroLabelStyle}>오늘의 자산</div>
+                          <strong style={phoneHeroMoneyStyle}>{netWorth.toLocaleString()}원</strong>
+                          <span style={phoneHeroSubStyle}>예금 {bankDeposit.toLocaleString()}원 · 현금 {cash.toLocaleString()}원</span>
+                        </div>
+                      </section>
 
-                  <section style={phoneCardStyle}>
-                    <h3 style={phoneCardTitleStyle}>수익 / 지출 그래프</h3>
-                    <FinanceMiniChart history={financeHistory} />
-                  </section>
+                      <section style={phoneAppGridStyle}>
+                        <button onClick={() => setPhoneApp("wallet")} style={phoneAppIconButtonStyle}>
+                          <span style={{ ...phoneAppIconStyle, background: "linear-gradient(180deg, #dbeafe, #60a5fa)" }}>💰</span>
+                          <strong>자산</strong>
+                          <small>현금·예금</small>
+                        </button>
+                        <button onClick={() => setPhoneApp("chart")} style={phoneAppIconButtonStyle}>
+                          <span style={{ ...phoneAppIconStyle, background: "linear-gradient(180deg, #dcfce7, #22c55e)" }}>📊</span>
+                          <strong>통계</strong>
+                          <small>수익·지출</small>
+                        </button>
+                        <button onClick={() => setPhoneApp("income")} style={phoneAppIconButtonStyle}>
+                          <span style={{ ...phoneAppIconStyle, background: "linear-gradient(180deg, #fef3c7, #f59e0b)" }}>🏦</span>
+                          <strong>수입</strong>
+                          <small>월급·사업</small>
+                        </button>
+                        <button onClick={() => setPhoneApp("buffs")} style={phoneAppIconButtonStyle}>
+                          <span style={{ ...phoneAppIconStyle, background: "linear-gradient(180deg, #fce7f3, #ec4899)" }}>✨</span>
+                          <strong>버프</strong>
+                          <small>칭호·장신구</small>
+                        </button>
+                      </section>
 
-                  <section style={phoneTwoColumnStyle}>
-                    <div style={phoneCardStyle}>
-                      <h3 style={phoneCardTitleStyle}>들어오는 돈</h3>
-                      <div style={phoneListStyle}>
-                        <span>💼 직업 수익: {Math.floor(occupationInfo[occupationId].incomeEvery3Min * jobIncomeMultiplier).toLocaleString()}원 / 3분</span>
-                        <span>🧾 사업 매출: {businessIncomeEvery30Sec.toLocaleString()}원 / 30초</span>
-                        <span>🏘️ 임대 수익: {Math.floor(estateIncomeEvery5Min * inflationIndex * totalIncomeMultiplier).toLocaleString()}원 / 10분</span>
-                        <span>🏦 예금 이자: 약 {Math.floor(bankDeposit * 0.003).toLocaleString()}원 / 10분</span>
+                      <section style={phoneMiniDockStyle}>
+                        <span>{currentTitle.icon} {currentTitle.name}</span>
+                        <span>📈 주식 판매 +{Math.round(stockSaleBonus * 100)}%</span>
+                      </section>
+                    </>
+                  ) : (
+                    <>
+                      <div style={phoneAppHeaderStyle}>
+                        <button onClick={() => setPhoneApp("home")} style={phoneBackAppButtonStyle}>← 홈</button>
+                        <strong>{getPhoneAppTitle(phoneApp)}</strong>
                       </div>
-                    </div>
 
-                    <div style={phoneCardStyle}>
-                      <h3 style={phoneCardTitleStyle}>버프 / 패시브</h3>
-                      <div style={phoneListStyle}>
-                        <span>{currentTitle.icon} 칭호: {currentTitle.name}{currentTitle.passiveText ? ` · ${currentTitle.passiveText}` : ""}</span>
-                        <span>🎁 장신구: {equippedShopItems.length > 0 ? equippedShopItems.map((item) => `${item.icon} ${item.name}`).join(", ") : "없음"}</span>
-                        <span>🎓 자격증: {ownedCertifications.length > 0 ? ownedCertifications.map((id) => certifications.find((cert) => cert.id === id)?.name ?? id).join(", ") : "없음"}</span>
-                        <span>📈 주식 판매 보너스: +{Math.round(stockSaleBonus * 100)}%</span>
-                        <span>💰 전체 수익 보너스: +{Math.round(allIncomeBonus * 100)}%</span>
-                      </div>
-                    </div>
-                  </section>
+                      {phoneApp === "wallet" && (
+                        <section style={phoneSummaryGridStyle}>
+                          <StatusPill label="현재 현금" value={`${cash.toLocaleString()}원`} />
+                          <StatusPill label="은행 예금" value={`${bankDeposit.toLocaleString()}원`} />
+                          <StatusPill label="순자산" value={`${netWorth.toLocaleString()}원`} />
+                          <StatusPill label="미납 세금" value={`${unpaidTax.toLocaleString()}원`} warning={unpaidTax > 0} />
+                        </section>
+                      )}
+
+                      {phoneApp === "chart" && (
+                        <>
+                          <section style={phoneSummaryGridStyle}>
+                            <StatusPill label="총 수익" value={`${totalIncome.toLocaleString()}원`} />
+                            <StatusPill label="총 지출" value={`${totalExpense.toLocaleString()}원`} warning={totalExpense > totalIncome} />
+                          </section>
+                          <section style={phoneCardStyle}>
+                            <h3 style={phoneCardTitleStyle}>수익 / 지출 그래프</h3>
+                            <FinanceMiniChart history={financeHistory} />
+                          </section>
+                        </>
+                      )}
+
+                      {phoneApp === "income" && (
+                        <section style={phoneCardStyle}>
+                          <h3 style={phoneCardTitleStyle}>들어오는 돈</h3>
+                          <div style={phoneListStyle}>
+                            <span>💼 직업 수익: {Math.floor(occupationInfo[occupationId].incomeEvery3Min * jobIncomeMultiplier).toLocaleString()}원 / 3분</span>
+                            <span>🧾 사업 매출: {businessIncomeEvery30Sec.toLocaleString()}원 / 30초</span>
+                            <span>🏘️ 임대 수익: {Math.floor(estateIncomeEvery5Min * inflationIndex * totalIncomeMultiplier).toLocaleString()}원 / 10분</span>
+                            <span>🏦 예금 이자: 약 {Math.floor(bankDeposit * 0.003).toLocaleString()}원 / 10분</span>
+                          </div>
+                        </section>
+                      )}
+
+                      {phoneApp === "buffs" && (
+                        <section style={phoneCardStyle}>
+                          <h3 style={phoneCardTitleStyle}>버프 / 패시브</h3>
+                          <div style={phoneListStyle}>
+                            <span>{currentTitle.icon} 칭호: {currentTitle.name}{currentTitle.passiveText ? ` · ${currentTitle.passiveText}` : ""}</span>
+                            <span>🎁 장신구: {equippedShopItems.length > 0 ? equippedShopItems.map((item) => `${item.icon} ${item.name}`).join(", ") : "없음"}</span>
+                            <span>🎓 자격증: {ownedCertifications.length > 0 ? ownedCertifications.map((id) => certifications.find((cert) => cert.id === id)?.name ?? id).join(", ") : "없음"}</span>
+                            <span>📈 주식 판매 보너스: +{Math.round(stockSaleBonus * 100)}%</span>
+                            <span>💰 전체 수익 보너스: +{Math.round(allIncomeBonus * 100)}%</span>
+                          </div>
+                        </section>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 <div style={phoneHomeIndicatorWrapStyle}>
@@ -5006,6 +5064,14 @@ function getSlotDisplaySymbols(result: string) {
   if (result === "win") return ["💎", "💎", "💎"];
   if (result === "draw") return ["🍒", "🍒", "🍒"];
   return ["🍋", "🍀", "⭐"];
+}
+
+function getPhoneAppTitle(app: "home" | "wallet" | "chart" | "income" | "buffs") {
+  if (app === "wallet") return "자산 지갑";
+  if (app === "chart") return "수익 통계";
+  if (app === "income") return "수입 일정";
+  if (app === "buffs") return "버프 관리";
+  return "홈";
 }
 
 function getPvpStatusLabel(status: PvpMatchRow["status"]) {
@@ -7323,6 +7389,101 @@ const phoneListStyle: CSSProperties = {
   lineHeight: 1.35,
 };
 
+const phoneHeroCardStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "26px",
+  background: "linear-gradient(135deg, #111827, #1e3a8a)",
+  color: "#ffffff",
+  padding: "18px",
+  display: "grid",
+  gap: "5px",
+  boxShadow: "0 8px 0 rgba(15,23,42,0.18)",
+};
+
+const phoneHeroLabelStyle: CSSProperties = {
+  color: "#bfdbfe",
+  fontWeight: 900,
+  fontSize: "12px",
+};
+
+const phoneHeroMoneyStyle: CSSProperties = {
+  fontSize: "28px",
+  lineHeight: 1.1,
+};
+
+const phoneHeroSubStyle: CSSProperties = {
+  color: "#dbeafe",
+  fontWeight: 800,
+  fontSize: "12px",
+};
+
+const phoneAppGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "12px",
+};
+
+const phoneAppIconButtonStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "24px",
+  background: "rgba(255,255,255,0.96)",
+  padding: "14px 8px",
+  minHeight: "130px",
+  display: "grid",
+  justifyItems: "center",
+  alignContent: "center",
+  gap: "6px",
+  cursor: "pointer",
+  boxShadow: "0 7px 0 rgba(15,23,42,0.12)",
+  color: "#111827",
+  fontWeight: 900,
+};
+
+const phoneAppIconStyle: CSSProperties = {
+  width: "56px",
+  height: "56px",
+  borderRadius: "18px",
+  border: "3px solid #111827",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: "28px",
+  boxShadow: "0 5px 0 rgba(15,23,42,0.14)",
+};
+
+const phoneMiniDockStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "22px",
+  background: "rgba(255,255,255,0.82)",
+  padding: "12px",
+  display: "grid",
+  gap: "6px",
+  fontSize: "13px",
+  fontWeight: 900,
+  color: "#334155",
+};
+
+const phoneAppHeaderStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "auto 1fr",
+  alignItems: "center",
+  gap: "10px",
+  color: "#111827",
+  fontWeight: 900,
+  fontSize: "18px",
+};
+
+const phoneBackAppButtonStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "14px",
+  background: "#ffffff",
+  color: "#111827",
+  padding: "8px 10px",
+  fontWeight: 900,
+  cursor: "pointer",
+  boxShadow: "0 4px 0 rgba(15,23,42,0.12)",
+};
+
 const phoneHomeIndicatorWrapStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -7770,7 +7931,6 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
-
 
 
 
