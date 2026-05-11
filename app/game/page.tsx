@@ -5285,11 +5285,12 @@ function getSlotDisplaySymbols(result: string) {
   return ["🍋", "🍀", "⭐"];
 }
 
-function getPhoneAppTitle(app: "home" | "wallet" | "chart" | "income" | "buffs") {
+function getPhoneAppTitle(app: "home" | "wallet" | "chart" | "income" | "buffs" | "collection") {
   if (app === "wallet") return "자산 지갑";
   if (app === "chart") return "수익 통계";
   if (app === "income") return "수입 일정";
   if (app === "buffs") return "버프 관리";
+  if (app === "collection") return "아이템 도감";
   return "홈";
 }
 
@@ -8175,6 +8176,7 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
+
 
 
 
