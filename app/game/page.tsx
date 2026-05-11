@@ -1453,7 +1453,8 @@ export default function GamePage() {
     if (!userId || !isStockLoaded || stockRows.length === 0) return;
     const currentUserId = userId;
 
-    const payload = { rows: stockRows, updatedAt: stockUpdatedAt.toISOString() };
+    const ownedOnlyRows = extractOwnedStockRows(stockRows);
+    const payload = { rows: ownedOnlyRows, updatedAt: stockUpdatedAt.toISOString() };
     window.localStorage.setItem(`alba-money-stocks-${currentUserId}`, JSON.stringify(payload));
 
     const timer = window.setTimeout(async () => {
@@ -1462,7 +1463,7 @@ export default function GamePage() {
         const { error } = await supabase.from(STOCK_TABLE).upsert(
           {
             user_id: currentUserId,
-            rows: stockRows,
+            rows: ownedOnlyRows,
             updated_at: stockUpdatedAt.toISOString(),
           },
           { onConflict: "user_id" }
@@ -3050,8 +3051,21 @@ export default function GamePage() {
       const { data, error } = await supabase.rpc("sync_global_stock_market");
 
       if (error) {
-        console.warn("전역 주식 시장 동기화 실패. 임시 로컬 시세를 사용합니다:", error.message);
-        return null;
+        console.warn("전역 주식 시장 동기화 실패. 저장된 전역 시세를 조회합니다:", error.message);
+      }
+
+      const { data: tableRow, error: tableError } = await supabase
+        .from(GLOBAL_STOCK_TABLE)
+        .select("rows, news_events, updated_at, news_updated_at")
+        .eq("market_id", "main")
+        .maybeSingle<GlobalStockMarketResultRow>();
+
+      if (!tableError && tableRow) {
+        return parseGlobalStockMarketResult(tableRow);
+      }
+
+      if (tableError) {
+        console.warn("전역 주식 시장 테이블 조회 실패:", tableError.message);
       }
 
       return parseGlobalStockMarketResult(data as GlobalStockMarketResult);
@@ -3083,7 +3097,8 @@ export default function GamePage() {
     if (!userId) return;
     const currentUserId = userId;
 
-    const payload = { rows, updatedAt: updatedAt.toISOString() };
+    const ownedOnlyRows = extractOwnedStockRows(rows);
+    const payload = { rows: ownedOnlyRows, updatedAt: updatedAt.toISOString() };
     window.localStorage.setItem(`alba-money-stocks-${currentUserId}`, JSON.stringify(payload));
 
     try {
@@ -3091,7 +3106,7 @@ export default function GamePage() {
       void supabase.from(STOCK_TABLE).upsert(
         {
           user_id: currentUserId,
-          rows,
+          rows: ownedOnlyRows,
           updated_at: updatedAt.toISOString(),
         },
         { onConflict: "user_id" }
@@ -3470,7 +3485,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>STOCK EXCHANGE</div>
                   <h2 style={panelTitleStyle}>주식 거래소</h2>
-                  <p style={panelDescStyle}>모든 유저가 같은 시세를 봅니다. 3분마다 전역 가격이 변동됩니다. 다음 변동까지 <strong>{formatStockCountdown(stockCountdownMs)}</strong> · 마지막 변동: {stockUpdatedAt.toLocaleTimeString()}</p>
+                  <p style={panelDescStyle}>모든 유저가 하나의 전역 시세를 공유합니다. 3분마다 서버에서 한 번만 변동됩니다. 다음 변동까지 <strong>{formatStockCountdown(stockCountdownMs)}</strong> · 마지막 변동: {stockUpdatedAt.toLocaleTimeString()}</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
               </div>
@@ -5212,6 +5227,17 @@ function normalizeNewsEvents(events: NewsEvent[]): NewsEvent[] {
     .slice(0, 3);
 
   return normalized.length > 0 ? normalized : makeNewsEvents();
+}
+
+function extractOwnedStockRows(rows: StockRow[]): StockRow[] {
+  return rows.map((row) => ({
+    ...row,
+    price: 0,
+    previousPrice: 0,
+    history: [],
+    owned: Math.max(0, Math.floor(Number(row.owned) || 0)),
+    averageBuyPrice: Math.max(0, Math.round(Number(row.averageBuyPrice) || 0)),
+  }));
 }
 
 function normalizeGlobalStockRows(rows: StockRow[]): StockRow[] {
