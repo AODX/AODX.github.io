@@ -325,6 +325,7 @@ const PROFILE_TABLE = "game_profiles";
 const CHAT_TABLE = "game_global_chat";
 const STOCK_TABLE = "game_stock_saves";
 const GLOBAL_STOCK_TABLE = "game_global_stock_market";
+const ECONOMY_TABLE = "game_economy_saves";
 const STOCK_INTERVAL_MS = 3 * 60 * 1000;
 const SLOT_SYMBOLS = ["7", "🍒", "💎", "🍀", "⭐", "🍋"];
 const TAX_INTERVAL_SECONDS = 420;
@@ -1324,7 +1325,27 @@ export default function GamePage() {
     if (!userId) return;
 
     setIsEconomyLoaded(false);
-    const stored = window.localStorage.getItem(`alba-money-economy-${userId}`);
+    let stored = window.localStorage.getItem(`alba-money-economy-${userId}`);
+
+    const loadRemoteEconomy = async () => {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from(ECONOMY_TABLE)
+          .select("data")
+          .eq("user_id", userId)
+          .maybeSingle<{ data: string | Record<string, unknown> | null }>();
+
+        if (!error && data?.data) {
+          stored = typeof data.data === "string" ? data.data : JSON.stringify(data.data);
+          window.localStorage.setItem(`alba-money-economy-${userId}`, stored);
+        }
+      } catch {
+        // Supabase economy table may not exist yet. Local backup still works.
+      }
+    };
+
+    void loadRemoteEconomy().finally(() => {
     if (!stored) {
       setLottoPurchaseDate(getTodayKey());
       setLottoPurchaseCount(0);
@@ -1376,12 +1397,13 @@ export default function GamePage() {
     } finally {
       setIsEconomyLoaded(true);
     }
+    });
   }, [userId]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded || !isEconomyLoaded) return;
 
-    window.localStorage.setItem(`alba-money-economy-${userId}`, JSON.stringify({
+    const economyPayload = JSON.stringify({
       bankDeposit,
       bankDepositPrincipal,
       bankSavings,
@@ -1412,7 +1434,24 @@ export default function GamePage() {
       totalExpense,
       financeHistory,
       economyUpdatedAt: economyUpdatedAt.toISOString(),
-    }));
+    });
+
+    window.localStorage.setItem(`alba-money-economy-${userId}`, economyPayload);
+
+    const supabase = createClient();
+    supabase
+      .from(ECONOMY_TABLE)
+      .upsert(
+        {
+          user_id: userId,
+          data: economyPayload,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      )
+      .then(({ error }) => {
+        if (error) console.warn("경제 데이터 Supabase 저장 실패. localStorage에는 저장되었습니다:", error.message);
+      });
   }, [userId, isSaveLoaded, isEconomyLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, equippedItems, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, announcedSecretTitles, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, economyUpdatedAt]);
 
   useEffect(() => {
@@ -8685,6 +8724,7 @@ const chatSendButtonStyle: CSSProperties = {
   fontWeight: 900,
   cursor: "pointer",
 };
+
 
 
 
