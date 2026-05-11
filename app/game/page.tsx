@@ -47,10 +47,10 @@ type SaveRow = {
   security_success_total?: number | string | null;
 };
 
-type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "titles" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket" | "phone";
+type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "titles" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket" | "lotto" | "phone";
 type RoomKind = "basic" | "studio" | "office";
 type CareerBuildingId = "company" | "entertainment" | "logistics" | "finance";
-type StreetBuildingId = CareerBuildingId | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket";
+type StreetBuildingId = CareerBuildingId | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket" | "lotto";
 type OccupationId =
   | "unemployed"
   | "officeIntern"
@@ -165,6 +165,14 @@ type MarketListing = {
   price: number | string;
   status?: string | null;
   created_at?: string | null;
+};
+
+type LottoTicket = {
+  id: string;
+  price: number;
+  prize: number;
+  scratched: boolean;
+  createdDate: string;
 };
 
 type StockRow = {
@@ -687,6 +695,7 @@ const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: st
   { id: "academy", title: "교육원", subtitle: "자격증 · 교육 효과", emoji: "🎓" },
   { id: "gacha", title: "가챠 숍", subtitle: "장신구 · 자판기", emoji: "🎁" },
   { id: "itemMarket", title: "아이템 거래소", subtitle: "유저 장신구 매매", emoji: "🤝" },
+  { id: "lotto", title: "로또 판매소", subtitle: "하루 3회 · 긁는 복권", emoji: "🎫" },
   { id: "casino", title: "도박장", subtitle: "슬롯 머신 · 유저 대전", emoji: "🎰" },
 ];
 
@@ -695,7 +704,8 @@ const streetBuildingPages: StreetBuildingId[][] = [
   ["bank", "stocks", "logistics"],
   ["estate", "business", "news"],
   ["insurance", "employees", "academy"],
-  ["gacha", "itemMarket", "casino"],
+  ["gacha", "itemMarket", "lotto"],
+  ["casino"],
 ];
 
 const stockCompanies: StockCompany[] = [
@@ -933,6 +943,7 @@ export default function GamePage() {
   const [cash, setCash] = useState(10000);
   const [userId, setUserId] = useState<string | null>(null);
   const [isSaveLoaded, setIsSaveLoaded] = useState(false);
+  const [isEconomyLoaded, setIsEconomyLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("저장 대기 중");
 
@@ -954,6 +965,10 @@ export default function GamePage() {
   const [marketListings, setMarketListings] = useState<MarketListing[]>([]);
   const [sellItemId, setSellItemId] = useState("");
   const [sellPrice, setSellPrice] = useState("100000");
+  const [lottoTickets, setLottoTickets] = useState<LottoTicket[]>([]);
+  const [lottoPurchaseDate, setLottoPurchaseDate] = useState(getTodayKey());
+  const [lottoPurchaseCount, setLottoPurchaseCount] = useState(0);
+  const [lottoPrice, setLottoPrice] = useState("5000");
   const [nickname, setNickname] = useState("우리집");
   const [nicknameDraft, setNicknameDraft] = useState("우리집");
   const [roomKind, setRoomKind] = useState<RoomKind>("basic");
@@ -1271,11 +1286,18 @@ export default function GamePage() {
   useEffect(() => {
     if (!userId) return;
 
+    setIsEconomyLoaded(false);
     const stored = window.localStorage.getItem(`alba-money-economy-${userId}`);
-    if (!stored) return;
+    if (!stored) {
+      setLottoPurchaseDate(getTodayKey());
+      setLottoPurchaseCount(0);
+      setLottoTickets([]);
+      setIsEconomyLoaded(true);
+      return;
+    }
 
     try {
-      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; equippedItems?: ShopItemId[]; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[] };
+      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; equippedItems?: ShopItemId[]; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; lottoTickets?: LottoTicket[]; lottoPurchaseDate?: string; lottoPurchaseCount?: number; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[] };
       const loadedDeposit = Number(parsed.bankDeposit ?? 0);
       const loadedSavings = Number(parsed.bankSavings ?? 0);
       setBankDeposit(loadedDeposit);
@@ -1302,14 +1324,25 @@ export default function GamePage() {
       if (typeof parsed.totalIncome === "number") setTotalIncome(parsed.totalIncome);
       if (typeof parsed.totalExpense === "number") setTotalExpense(parsed.totalExpense);
       if (Array.isArray(parsed.financeHistory)) setFinanceHistory(parsed.financeHistory.slice(-18));
+      if (Array.isArray(parsed.lottoTickets)) setLottoTickets(parsed.lottoTickets.filter(isValidLottoTicket).slice(-12));
+      const storedLottoDate = typeof parsed.lottoPurchaseDate === "string" ? parsed.lottoPurchaseDate : getTodayKey();
+      if (storedLottoDate === getTodayKey()) {
+        setLottoPurchaseDate(storedLottoDate);
+        setLottoPurchaseCount(Number(parsed.lottoPurchaseCount ?? 0));
+      } else {
+        setLottoPurchaseDate(getTodayKey());
+        setLottoPurchaseCount(0);
+      }
       if (parsed.economyUpdatedAt) setEconomyUpdatedAt(new Date(parsed.economyUpdatedAt));
     } catch (error) {
       console.warn("경제 데이터 불러오기 실패:", error);
+    } finally {
+      setIsEconomyLoaded(true);
     }
   }, [userId]);
 
   useEffect(() => {
-    if (!userId || !isSaveLoaded) return;
+    if (!userId || !isSaveLoaded || !isEconomyLoaded) return;
 
     window.localStorage.setItem(`alba-money-economy-${userId}`, JSON.stringify({
       bankDeposit,
@@ -1333,12 +1366,15 @@ export default function GamePage() {
       shopOffers,
       shopUpdatedAt: shopUpdatedAt.toISOString(),
       shopSoldOfferKeys,
+      lottoTickets,
+      lottoPurchaseDate,
+      lottoPurchaseCount,
       totalIncome,
       totalExpense,
       financeHistory,
       economyUpdatedAt: economyUpdatedAt.toISOString(),
     }));
-  }, [userId, isSaveLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, equippedItems, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, totalIncome, totalExpense, financeHistory, economyUpdatedAt]);
+  }, [userId, isSaveLoaded, isEconomyLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, equippedItems, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, economyUpdatedAt]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -1367,17 +1403,27 @@ export default function GamePage() {
       if (premium > 0) {
         setCash((money) => Math.max(0, money - premium));
       }
-      if (estateIncomeEvery5Min > 0) {
-        const adjustedEstateIncome = Math.floor(estateIncomeEvery5Min * inflationIndex * totalIncomeMultiplier);
-        setCash((money) => money + adjustedEstateIncome);
-        setMessage(`🏘️ 임대 수익 +${adjustedEstateIncome.toLocaleString()}원${premium > 0 ? ` · 보험료 -${premium.toLocaleString()}원` : ""}`);
-      } else if (premium > 0) {
+      if (premium > 0) {
         setMessage(`🛡️ 보험료 ${premium.toLocaleString()}원이 납부되었습니다.`);
       }
     }, 10 * 60 * 1000);
 
     return () => window.clearInterval(timer);
-  }, [isSaveLoaded, estateIncomeEvery5Min, insurancePremiumEvery5Min, inflationIndex]);
+  }, [isSaveLoaded, insurancePremiumEvery5Min, inflationIndex]);
+
+  useEffect(() => {
+    if (!isSaveLoaded || estateIncomeEvery5Min <= 0) return;
+
+    const timer = window.setInterval(() => {
+      const adjustedEstateIncome = Math.floor(estateIncomeEvery5Min * inflationIndex * totalIncomeMultiplier);
+      if (adjustedEstateIncome <= 0) return;
+      setCash((money) => money + adjustedEstateIncome);
+      setTotalIncome((income) => income + adjustedEstateIncome);
+      setMessage(`🏘️ 부동산 임대 수익 +${adjustedEstateIncome.toLocaleString()}원 / 30초`);
+    }, 30 * 1000);
+
+    return () => window.clearInterval(timer);
+  }, [isSaveLoaded, estateIncomeEvery5Min, inflationIndex, totalIncomeMultiplier]);
 
   useEffect(() => {
     if (!isSaveLoaded || businessIncomeEvery30Sec <= 0) return;
@@ -2538,7 +2584,7 @@ export default function GamePage() {
     }
     setCash((money) => money - estate.price);
     setOwnedEstates((owned) => [...owned, estateId]);
-    setMessage(`🏘️ ${estate.name} 구매 완료. 5분마다 ${estate.incomeEvery5Min.toLocaleString()}원 수익이 들어옵니다.`);
+    setMessage(`🏘️ ${estate.name} 구매 완료. 30초마다 ${estate.incomeEvery5Min.toLocaleString()}원 수익이 들어옵니다.`);
   }
 
   function buyBusiness(businessId: BusinessId) {
@@ -2619,6 +2665,50 @@ export default function GamePage() {
 
     setAuctionDeals((deals) => deals.filter((item) => item.id !== deal.id));
     setMessage(`🔨 ${deal.name} 낙찰 완료. 시세 차익 약 ${(deal.value - deal.price).toLocaleString()}원`);
+  }
+
+  function buyLottoTicket() {
+    const today = getTodayKey();
+    const currentCount = lottoPurchaseDate === today ? lottoPurchaseCount : 0;
+    const price = Math.floor(Number(lottoPrice));
+
+    if (!Number.isFinite(price) || price < 1000) {
+      setMessage("🎫 로또는 1,000원 이상부터 구매할 수 있습니다.");
+      return;
+    }
+
+    if (currentCount >= 3) {
+      setMessage("🎫 로또는 하루에 3번까지만 구매할 수 있습니다.");
+      return;
+    }
+
+    if (cash < price) {
+      setMessage(`🎫 로또 구매에는 ${price.toLocaleString()}원이 필요합니다.`);
+      return;
+    }
+
+    const ticket = makeLottoTicket(price);
+    setCash((money) => money - price);
+    setTotalExpense((expense) => expense + price);
+    setLottoPurchaseDate(today);
+    setLottoPurchaseCount(currentCount + 1);
+    setLottoTickets((tickets) => [ticket, ...tickets].slice(0, 12));
+    setMessage(`🎫 로또를 구매했습니다. 오늘 ${currentCount + 1}/3회 구매`);
+  }
+
+  function scratchLottoTicket(ticketId: string) {
+    const ticket = lottoTickets.find((item) => item.id === ticketId);
+    if (!ticket || ticket.scratched) return;
+
+    setLottoTickets((tickets) => tickets.map((item) => item.id === ticketId ? { ...item, scratched: true } : item));
+
+    if (ticket.prize > 0) {
+      setCash((money) => money + ticket.prize);
+      setTotalIncome((income) => income + ticket.prize);
+      setMessage(`🎫 당첨! 로또 상금 +${ticket.prize.toLocaleString()}원`);
+    } else {
+      setMessage("🎫 아쉽게도 꽝입니다.");
+    }
   }
 
   function buyCertification(certificationId: CertificationId) {
@@ -2787,7 +2877,7 @@ export default function GamePage() {
       return;
     }
 
-    if (buildingId === "bank" || buildingId === "estate" || buildingId === "business" || buildingId === "news" || buildingId === "insurance" || buildingId === "employees" || buildingId === "auction" || buildingId === "academy" || buildingId === "gacha" || buildingId === "itemMarket") {
+    if (buildingId === "bank" || buildingId === "estate" || buildingId === "business" || buildingId === "news" || buildingId === "insurance" || buildingId === "employees" || buildingId === "auction" || buildingId === "academy" || buildingId === "gacha" || buildingId === "itemMarket" || buildingId === "lotto") {
       setLobbyView(buildingId);
       return;
     }
@@ -4068,7 +4158,7 @@ export default function GamePage() {
                       <h3 style={economyCardTitleStyle}>{estate.icon} {estate.name}</h3>
                       <p style={economyCardTextStyle}>{estate.description}</p>
                       <strong>가격 {estate.price.toLocaleString()}원</strong>
-                      <strong style={{ color: "#16a34a" }}>5분 수익 +{estate.incomeEvery5Min.toLocaleString()}원</strong>
+                      <strong style={{ color: "#16a34a" }}>30초 수익 +{estate.incomeEvery5Min.toLocaleString()}원</strong>
                       <button onClick={() => buyEstate(estate.id)} disabled={owned || cash < estate.price} style={{ ...casinoPrimaryButtonStyle, opacity: owned || cash < estate.price ? 0.45 : 1 }}>
                         {owned ? "보유 중" : "구매"}
                       </button>
@@ -4159,6 +4249,50 @@ export default function GamePage() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {lobbyView === "lotto" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>LOTTO SHOP</div>
+                  <h2 style={panelTitleStyle}>로또 판매소</h2>
+                  <p style={panelDescStyle}>하루 3번까지 구매할 수 있습니다. 가격이 높을수록 최대 상금도 커집니다. 오늘 {lottoPurchaseDate === getTodayKey() ? lottoPurchaseCount : 0}/3회 구매</p>
+                </div>
+                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+              </div>
+
+              <div style={casinoLowerGridStyle}>
+                <section style={casinoListCardStyle}>
+                  <h3 style={casinoTitleStyle}>로또 구매</h3>
+                  <p style={casinoTextStyle}>구매 후 직접 긁어서 결과를 확인하세요. 구매 횟수는 날짜가 바뀌기 전까지 초기화되지 않습니다.</p>
+                  <select value={lottoPrice} onChange={(event) => setLottoPrice(event.target.value)} style={casinoInputStyle}>
+                    <option value="1000">1,000원권 · 최대 50,000원</option>
+                    <option value="5000">5,000원권 · 최대 500,000원</option>
+                    <option value="10000">10,000원권 · 최대 2,000,000원</option>
+                    <option value="50000">50,000원권 · 최대 20,000,000원</option>
+                  </select>
+                  <button onClick={buyLottoTicket} disabled={(lottoPurchaseDate === getTodayKey() ? lottoPurchaseCount : 0) >= 3 || cash < Number(lottoPrice)} style={{ ...casinoPrimaryButtonStyle, opacity: (lottoPurchaseDate === getTodayKey() ? lottoPurchaseCount : 0) >= 3 || cash < Number(lottoPrice) ? 0.45 : 1 }}>로또 구매</button>
+                </section>
+
+                <section style={casinoListCardStyle}>
+                  <h3 style={casinoTitleStyle}>내 로또</h3>
+                  {lottoTickets.length === 0 ? <p style={casinoTextStyle}>보유한 로또가 없습니다.</p> : lottoTickets.map((ticket) => (
+                    <div key={ticket.id} style={lottoTicketStyle}>
+                      <div>
+                        <strong>🎫 {ticket.price.toLocaleString()}원권</strong>
+                        <p style={casinoTextStyle}>{ticket.scratched ? ticket.prize > 0 ? `당첨금 ${ticket.prize.toLocaleString()}원` : "꽝" : "아직 긁지 않은 복권"}</p>
+                      </div>
+                      {ticket.scratched ? (
+                        <div style={lottoResultBadgeStyle}>{ticket.prize > 0 ? "당첨" : "꽝"}</div>
+                      ) : (
+                        <button onClick={() => scratchLottoTicket(ticket.id)} style={lottoScratchButtonStyle}>긁기</button>
+                      )}
+                    </div>
+                  ))}
+                </section>
               </div>
             </div>
           )}
@@ -4486,7 +4620,7 @@ export default function GamePage() {
                           <div style={phoneListStyle}>
                             <span>💼 직업 수익: {Math.floor(occupationInfo[occupationId].incomeEvery3Min * jobIncomeMultiplier).toLocaleString()}원 / 3분</span>
                             <span>🧾 사업 매출: {businessIncomeEvery30Sec.toLocaleString()}원 / 30초</span>
-                            <span>🏘️ 임대 수익: {Math.floor(estateIncomeEvery5Min * inflationIndex * totalIncomeMultiplier).toLocaleString()}원 / 10분</span>
+                            <span>🏘️ 임대 수익: {Math.floor(estateIncomeEvery5Min * inflationIndex * totalIncomeMultiplier).toLocaleString()}원 / 30초</span>
                             <span>🏦 예금 이자: 약 {Math.floor(bankDeposit * 0.003).toLocaleString()}원 / 10분</span>
                             <span>🏦 적금 이자: 약 {Math.floor(bankSavings * 0.006).toLocaleString()}원 / 10분</span>
                           </div>
@@ -4979,6 +5113,20 @@ function StreetBuildingIllustration({ id }: { id: StreetBuildingId }) {
     );
   }
 
+  if (id === "lotto") {
+    return (
+      <svg viewBox="0 0 220 150" style={streetFacadeSvgStyle} aria-hidden="true">
+        <rect x="34" y="48" width="152" height="86" rx="18" fill="#bbf7d0" stroke="#111827" strokeWidth="6" />
+        <rect x="56" y="24" width="108" height="40" rx="16" fill="#ffffff" stroke="#111827" strokeWidth="5" />
+        <text x="110" y="50" textAnchor="middle" fontSize="16" fontWeight="900" fill="#166534">LOTTO</text>
+        {Array.from({ length: 5 }).map((_, index) => (
+          <circle key={index} cx={60 + index * 25} cy="91" r="11" fill={index % 2 === 0 ? "#facc15" : "#60a5fa"} stroke="#111827" strokeWidth="3" />
+        ))}
+        <rect x="72" y="113" width="76" height="18" rx="7" fill="#ffffff" stroke="#111827" strokeWidth="4" />
+      </svg>
+    );
+  }
+
   if (id === "itemMarket") {
     return (
       <svg viewBox="0 0 220 150" style={streetFacadeSvgStyle} aria-hidden="true">
@@ -5125,6 +5273,35 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
   );
 }
 
+function getTodayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function makeLottoTicket(price: number): LottoTicket {
+  const roll = Math.random();
+  let multiplier = 0;
+
+  if (roll < 0.0008) multiplier = 400;
+  else if (roll < 0.004) multiplier = 80;
+  else if (roll < 0.018) multiplier = 15;
+  else if (roll < 0.07) multiplier = 3;
+  else if (roll < 0.18) multiplier = 1;
+
+  return {
+    id: `lotto-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    price,
+    prize: Math.floor(price * multiplier),
+    scratched: false,
+    createdDate: getTodayKey(),
+  };
+}
+
+function isValidLottoTicket(value: unknown): value is LottoTicket {
+  if (!value || typeof value !== "object") return false;
+  const ticket = value as Partial<LottoTicket>;
+  return typeof ticket.id === "string" && typeof ticket.price === "number" && typeof ticket.prize === "number" && typeof ticket.scratched === "boolean" && typeof ticket.createdDate === "string";
+}
+
 function getStreetBuildingsForPage(page: number) {
   const ids = streetBuildingPages[page] ?? [];
   return ids
@@ -5137,7 +5314,8 @@ function getStreetPageLabel(page: number) {
   if (page === 1) return "투자 · 금융 지구";
   if (page === 2) return "자산 · 사업 지구";
   if (page === 3) return "리스크 · 교육 지구";
-  return "가챠 · 거래 지구";
+  if (page === 4) return "가챠 · 거래 지구";
+  return "카지노 지구";
 }
 
 function getStreetBuildingHeight(buildingId: StreetBuildingId) {
@@ -5154,6 +5332,7 @@ function getStreetBuildingHeight(buildingId: StreetBuildingId) {
   if (buildingId === "academy") return "206px";
   if (buildingId === "gacha") return "198px";
   if (buildingId === "itemMarket") return "192px";
+  if (buildingId === "lotto") return "188px";
   return "200px";
 }
 
@@ -5214,6 +5393,13 @@ function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
 
   if (buildingId === "gacha") return { background: "linear-gradient(180deg, #fdf2f8 0%, #f472b6 100%)", borderColor: "#9d174d" };
   if (buildingId === "itemMarket") return { background: "linear-gradient(180deg, #ecfeff 0%, #22d3ee 100%)", borderColor: "#155e75" };
+
+  if (buildingId === "lotto") {
+    return {
+      background: "linear-gradient(180deg, #dcfce7 0%, #22c55e 100%)",
+      borderColor: "#166534",
+    };
+  }
 
   if (buildingId === "casino") {
     return {
@@ -7786,6 +7972,38 @@ const phoneHomeIndicatorStyle: CSSProperties = {
   height: "5px",
   borderRadius: "999px",
   background: "rgba(255,255,255,0.82)",
+};
+
+const lottoTicketStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gap: "10px",
+  alignItems: "center",
+  border: "3px dashed #166534",
+  borderRadius: "18px",
+  background: "linear-gradient(135deg, #f0fdf4, #dcfce7)",
+  padding: "12px",
+  marginTop: "8px",
+};
+
+const lottoScratchButtonStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "14px",
+  background: "linear-gradient(180deg, #fef3c7, #f59e0b)",
+  color: "#111827",
+  padding: "10px 14px",
+  fontWeight: 900,
+  cursor: "pointer",
+  boxShadow: "3px 3px 0 #111827",
+};
+
+const lottoResultBadgeStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "999px",
+  background: "#ffffff",
+  color: "#111827",
+  padding: "8px 12px",
+  fontWeight: 900,
 };
 
 const financeChartStyle: CSSProperties = {
