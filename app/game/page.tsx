@@ -5232,20 +5232,6 @@ function normalizeStockRows(rows: StockRow[], seedKey = "default"): StockRow[] {
   });
 }
 
-function applyElapsedStockUpdates(rows: StockRow[], updatedAt: Date) {
-  const elapsedCount = Math.floor(Math.max(0, Date.now() - updatedAt.getTime()) / STOCK_INTERVAL_MS);
-  let nextRows = rows;
-
-  for (let index = 0; index < Math.min(elapsedCount, 24); index += 1) {
-    nextRows = updateStockMarket(nextRows);
-  }
-
-  return {
-    rows: nextRows,
-    updatedAt: elapsedCount > 0 ? new Date() : updatedAt,
-  };
-}
-
 function formatStockCountdown(milliseconds: number) {
   const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -7433,5 +7419,6 @@ const pvpButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
 };
+
 
 
