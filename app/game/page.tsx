@@ -6254,14 +6254,6 @@ function getRankingBuffRate(rank?: number) {
   return 0;
 }
 
-function getTitleIncomeBonus(titleId: PlayerTitleId) {
-  if (titleId === "hiddenEconomyGod") return 0.05;
-  if (titleId === "relicOwner") return 0.03;
-  if (titleId === "hiddenDebtFree") return 0.02;
-  if (titleId === "collectionMaster" || titleId === "hiddenZero") return 0.01;
-  return 0;
-}
-
 function getTitleStockBonus(titleId: PlayerTitleId) {
   if (titleId === "hiddenWhale") return 0.03;
   if (titleId === "hiddenMarketGhost") return 0.02;
@@ -8724,6 +8716,9 @@ const chatSendButtonStyle: CSSProperties = {
   fontWeight: 900,
   cursor: "pointer",
 };
+
+ 
+
 
 
 
