@@ -100,12 +100,23 @@ type RankingRow = {
   isMe?: boolean;
 };
 
+type ChatMessageRow = {
+  id: string;
+  user_id: string | null;
+  nickname: string | null;
+  title_name: string | null;
+  message: string;
+  kind: "user" | "system";
+  created_at: string;
+};
+
 type ProfileRow = {
   id: string;
   nickname: string | null;
   room_kind: string | null;
   occupation_id: string | null;
   current_title?: string | null;
+  net_worth?: number | string | null;
   occupation_level?: number | null;
   unlocked_occupations?: OccupationId[] | string | null;
 };
@@ -132,6 +143,7 @@ type PlayerTitle = {
   icon: string;
   description: string;
   passiveText?: string;
+  hidden?: boolean;
 };
 
 type CertificationId = "office" | "barista" | "logistics" | "investment" | "business";
@@ -310,6 +322,7 @@ type AuctionDeal = {
 };
 
 const PROFILE_TABLE = "game_profiles";
+const CHAT_TABLE = "game_global_chat";
 const STOCK_TABLE = "game_stock_saves";
 const GLOBAL_STOCK_TABLE = "game_global_stock_market";
 const STOCK_INTERVAL_MS = 3 * 60 * 1000;
@@ -871,7 +884,26 @@ const playerTitles: PlayerTitle[] = [
   { id: "certifiedExpert", name: "자격증 수집가", icon: "🎓", description: "자격증 3개 이상 보유", passiveText: "직업 수익 +2%" },
   { id: "treasureCollector", name: "보물 수집가", icon: "💠", description: "보물 등급 이상 아이템 2개 이상 보유", passiveText: "아이템 장착 슬롯 +1" },
   { id: "relicOwner", name: "유물의 주인", icon: "🏺", description: "유물 등급 아이템 1개 이상 보유", passiveText: "전체 수익 +3%" },
-  { id: "marketTrader", name: "거래의 달인", icon: "🤝", description: "장신구 5개 이상 보유", passiveText: "상점 등급 성장 가속" },
+  { id: "lottoDreamer", name: "복권 드리머", icon: "🎫", description: "로또를 3회 이상 구매" },
+  { id: "phoneAnalyst", name: "모바일 분석가", icon: "📱", description: "휴대폰 대시보드를 활용하는 플레이어" },
+  { id: "savingsPlanner", name: "적금 설계자", icon: "📘", description: "적금 500,000원 이상 보유", passiveText: "예금/적금 관리 보너스" },
+  { id: "estateCollector", name: "부동산 컬렉터", icon: "🏗️", description: "부동산 5개 보유", passiveText: "임대 수익 +2%" },
+  { id: "shopRegular", name: "가챠숍 단골", icon: "🎁", description: "상점 구매 10회 이상" },
+  { id: "gachaAddict", name: "자판기 중독자", icon: "🕹️", description: "가챠 머신 10회 이상 이용", passiveText: "상점 등급 성장 가속" },
+  { id: "rankChaser", name: "랭킹 추격자", icon: "🏁", description: "순자산 3,000,000원 이상" },
+  { id: "topRanker", name: "상위 랭커", icon: "🏆", description: "랭킹 상위 5위 안에 진입", passiveText: "랭킹 버프 대상" },
+  { id: "taxFreeMind", name: "납세 우등생", icon: "📄", description: "미납 세금 0원 + 순자산 2,000,000원 이상", passiveText: "세금 압박 완화" },
+  { id: "collectionMaster", name: "도감 수집가", icon: "📖", description: "장신구 25종 이상 수집", passiveText: "전체 수익 +1%" },
+  { id: "hiddenZero", name: "숨겨진 시작점", icon: "🕯️", description: "조건 비공개", hidden: true, passiveText: "전체 수익 +1%" },
+  { id: "hiddenWhale", name: "조용한 고래", icon: "🐳", description: "조건 비공개", hidden: true, passiveText: "주식 판매 보너스" },
+  { id: "hiddenLucky", name: "확률의 선택자", icon: "🍀", description: "조건 비공개", hidden: true, passiveText: "가챠/카지노 행운" },
+  { id: "hiddenEstateLord", name: "밤의 건물주", icon: "🌃", description: "조건 비공개", hidden: true, passiveText: "임대 수익 +3%" },
+  { id: "hiddenLaborKing", name: "알바의 전설", icon: "⚒️", description: "조건 비공개", hidden: true, passiveText: "알바/직업 수익 +3%" },
+  { id: "hiddenMarketGhost", name: "시장 유령", icon: "👻", description: "조건 비공개", hidden: true, passiveText: "주식 판매 +2%" },
+  { id: "hiddenRelicDealer", name: "유물 거래상", icon: "🏺", description: "조건 비공개", hidden: true, passiveText: "아이템 슬롯 +1" },
+  { id: "hiddenDebtFree", name: "빚 없는 왕", icon: "🕊️", description: "조건 비공개", hidden: true, passiveText: "전체 수익 +2%" },
+  { id: "hiddenCasinoDemon", name: "카지노 악마", icon: "😈", description: "조건 비공개", hidden: true, passiveText: "카지노 행운" },
+  { id: "hiddenEconomyGod", name: "경제의 신", icon: "🌌", description: "조건 비공개", hidden: true, passiveText: "전체 수익 +5%" },
 ];
 
 const estateItems: EstateItem[] = [
@@ -962,6 +994,8 @@ export default function GamePage() {
   const [shopOffers, setShopOffers] = useState<ShopItem[]>(() => makeShopOffers(1));
   const [shopUpdatedAt, setShopUpdatedAt] = useState(new Date());
   const [shopSoldOfferKeys, setShopSoldOfferKeys] = useState<string[]>([]);
+  const [gachaMachinePullCount, setGachaMachinePullCount] = useState(0);
+  const [announcedSecretTitles, setAnnouncedSecretTitles] = useState<PlayerTitleId[]>([]);
   const [marketListings, setMarketListings] = useState<MarketListing[]>([]);
   const [sellItemId, setSellItemId] = useState("");
   const [sellPrice, setSellPrice] = useState("100000");
@@ -995,6 +1029,9 @@ export default function GamePage() {
   const [securitySuccessTotal, setSecuritySuccessTotal] = useState(0);
   const [rankingRows, setRankingRows] = useState<RankingRow[]>([]);
   const [rankingUpdatedAt, setRankingUpdatedAt] = useState(new Date());
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessageRow[]>([]);
+  const [chatInput, setChatInput] = useState("");
   const [stockRows, setStockRows] = useState<StockRow[]>([]);
   const [stockUpdatedAt, setStockUpdatedAt] = useState(new Date());
   const [stockCountdownMs, setStockCountdownMs] = useState(STOCK_INTERVAL_MS);
@@ -1088,7 +1125,7 @@ export default function GamePage() {
   const allIncomeBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "allIncome" ? item.bonusValue : 0), currentTitleId === "relicOwner" ? 0.03 : 0);
   const businessItemBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "businessIncome" ? item.bonusValue : 0), 0);
   const jobItemBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "jobIncome" ? item.bonusValue : 0), 0) + (ownedCertifications.includes("office") ? 0.03 : 0) + (ownedCertifications.includes("logistics") ? 0.02 : 0) + (currentTitleId === "certifiedExpert" ? 0.02 : 0);
-  const stockSaleBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "stockLuck" ? item.bonusValue : 0), 0) + (ownedCertifications.includes("investment") ? 0.02 : 0);
+  const stockSaleBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "stockLuck" ? item.bonusValue : 0), getTitleStockBonus(currentTitleId)) + (ownedCertifications.includes("investment") ? 0.02 : 0);
   const casinoLuckBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "casinoLuck" ? item.bonusValue : 0), 0);
   const totalIncomeMultiplier = 1 + allIncomeBonus;
   const jobIncomeMultiplier = 1 + allIncomeBonus + jobItemBonus;
@@ -1235,7 +1272,7 @@ export default function GamePage() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from(PROFILE_TABLE)
-        .select("id, nickname, room_kind, occupation_id, occupation_level, unlocked_occupations, current_title")
+        .select("id, nickname, room_kind, occupation_id, occupation_level, unlocked_occupations, current_title, net_worth")
         .eq("id", userId)
         .maybeSingle<ProfileRow>();
 
@@ -1297,7 +1334,7 @@ export default function GamePage() {
     }
 
     try {
-      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; equippedItems?: ShopItemId[]; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; lottoTickets?: LottoTicket[]; lottoPurchaseDate?: string; lottoPurchaseCount?: number; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[] };
+      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; equippedItems?: ShopItemId[]; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; gachaMachinePullCount?: number; announcedSecretTitles?: PlayerTitleId[]; lottoTickets?: LottoTicket[]; lottoPurchaseDate?: string; lottoPurchaseCount?: number; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[] };
       const loadedDeposit = Number(parsed.bankDeposit ?? 0);
       const loadedSavings = Number(parsed.bankSavings ?? 0);
       setBankDeposit(loadedDeposit);
@@ -1366,6 +1403,8 @@ export default function GamePage() {
       shopOffers,
       shopUpdatedAt: shopUpdatedAt.toISOString(),
       shopSoldOfferKeys,
+      gachaMachinePullCount,
+      announcedSecretTitles,
       lottoTickets,
       lottoPurchaseDate,
       lottoPurchaseCount,
@@ -1374,7 +1413,7 @@ export default function GamePage() {
       financeHistory,
       economyUpdatedAt: economyUpdatedAt.toISOString(),
     }));
-  }, [userId, isSaveLoaded, isEconomyLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, equippedItems, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, economyUpdatedAt]);
+  }, [userId, isSaveLoaded, isEconomyLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, equippedItems, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, announcedSecretTitles, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, economyUpdatedAt]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -1726,6 +1765,10 @@ export default function GamePage() {
         console.error("자동 저장 실패:", error.message);
         setSaveMessage("자동 저장 실패");
       } else {
+        await supabase.from(PROFILE_TABLE).upsert(
+          { id: userId, nickname, room_kind: roomKind, occupation_id: occupationId, current_title: currentTitleId, net_worth: netWorth, updated_at: new Date().toISOString() },
+          { onConflict: "id" }
+        );
         setSaveMessage("자동 저장 완료");
       }
 
@@ -1733,7 +1776,7 @@ export default function GamePage() {
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [userId, isSaveLoaded, cash, warningCount, unpaidTax, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems]);
+  }, [userId, isSaveLoaded, cash, warningCount, unpaidTax, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems, nickname, roomKind, occupationId, currentTitleId, netWorth]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -2374,6 +2417,7 @@ export default function GamePage() {
         occupation_level: occupationLevel,
         unlocked_occupations: unlockedOccupations,
         current_title: currentTitleId,
+        net_worth: netWorth,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" }
@@ -2753,7 +2797,7 @@ export default function GamePage() {
   }
 
   function pullGachaMachine() {
-    const cost = 50000;
+    const cost = getGachaMachineCost(gachaMachinePullCount);
     if (cash < cost) {
       setMessage(`🎰 가챠 자판기 이용에는 ${cost.toLocaleString()}원이 필요합니다.`);
       return;
@@ -2761,11 +2805,13 @@ export default function GamePage() {
     setCash((money) => money - cost);
     const item = rollGachaItem(shopLevel);
     if (!item) {
+      setGachaMachinePullCount((count) => count + 1);
       setMessage("🎰 아무것도 나오지 않았습니다... 극악 확률입니다.");
       return;
     }
     setOwnedItems((owned) => [...owned, item.id]);
     setShopPurchaseCount((count) => count + 1);
+    setGachaMachinePullCount((count) => count + 1);
     setMessage(`🎰 가챠 성공! ${item.rarity} 등급 ${item.name} 획득!`);
   }
 
@@ -3102,6 +3148,7 @@ export default function GamePage() {
         occupation_level: occupationLevel,
         unlocked_occupations: unlockedOccupations,
         current_title: currentTitleId,
+        net_worth: netWorth,
         updated_at: new Date().toISOString(),
         ...patch,
       },
@@ -3113,6 +3160,45 @@ export default function GamePage() {
     }
   }
 
+  async function loadGlobalChat() {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from(CHAT_TABLE)
+      .select("id, user_id, nickname, title_name, message, kind, created_at")
+      .order("created_at", { ascending: false })
+      .limit(40);
+
+    if (error) {
+      console.warn("전체 채팅을 불러오지 못했습니다:", error.message);
+      return;
+    }
+
+    setChatMessages(((data ?? []) as ChatMessageRow[]).reverse());
+  }
+
+  async function sendGlobalChatMessage(messageOverride?: string, kind: "user" | "system" = "user") {
+    const message = (messageOverride ?? chatInput).trim().slice(0, 120);
+    if (!message) return;
+
+    const supabase = createClient();
+    const { error } = await supabase.from(CHAT_TABLE).insert({
+      user_id: kind === "system" ? null : userId,
+      nickname: kind === "system" ? "시스템" : nickname,
+      title_name: kind === "system" ? "공지" : currentTitle.name,
+      message,
+      kind,
+    });
+
+    if (error) {
+      console.warn("전체 채팅 전송 실패:", error.message);
+      setMessage("채팅 전송에 실패했습니다. Supabase 채팅 테이블을 확인해주세요.");
+      return;
+    }
+
+    if (!messageOverride) setChatInput("");
+    await loadGlobalChat();
+  }
+
   async function refreshRanking(currentNickname = nickname) {
     if (!userId) return;
 
@@ -3121,7 +3207,7 @@ export default function GamePage() {
 
     const { data: profiles, error: profilesError } = await supabase
       .from(PROFILE_TABLE)
-      .select("id, nickname, room_kind, occupation_id, occupation_level, unlocked_occupations, current_title")
+      .select("id, nickname, room_kind, occupation_id, occupation_level, unlocked_occupations, current_title, net_worth")
       .limit(1000);
 
     if (profilesError || !profiles || profiles.length === 0) {
@@ -3153,7 +3239,7 @@ export default function GamePage() {
         return {
           rank: 0,
           nickname: profile.id === userId ? currentNickname : profile.nickname || "이름 없음",
-          cash: Number(save?.cash ?? 0),
+          cash: profile.id === userId ? netWorth : Number(profile.net_worth ?? save?.cash ?? 0),
           hasSave: !!save,
           job: profile.id === userId ? occupationInfo[occupationId].name : occupationInfo[profileOccupationId].name,
           titleName: profileTitle.name,
@@ -3162,7 +3248,7 @@ export default function GamePage() {
         };
       })
       .sort((a, b) => b.cash - a.cash)
-      .slice(0, 10)
+      .slice(0, 5)
       .map((row, index) => ({ ...row, rank: index + 1 }));
 
     setRankingRows(rows.length > 0 ? rows : fallbackRows);
@@ -3658,6 +3744,7 @@ export default function GamePage() {
               />
               <button onClick={saveNickname} style={smallActionButtonStyle}>닉네임 변경</button>
               <button onClick={() => setLobbyView("titles")} style={smallActionButtonStyle}>칭호</button>
+              <button onClick={() => setChatOpen((open) => !open)} style={smallActionButtonStyle}>{chatOpen ? "채팅 끄기" : "채팅 켜기"}</button>
             </div>
           </div>
 
@@ -4328,7 +4415,7 @@ export default function GamePage() {
               <div style={casinoLowerGridStyle}>
                 <section style={casinoListCardStyle}>
                   <h3 style={casinoTitleStyle}>가챠 자판기</h3>
-                  <p style={casinoTextStyle}>1회 50,000원. 대부분 꽝이지만 아주 낮은 확률로 보물/유물 장신구가 나옵니다.</p>
+                  <p style={casinoTextStyle}>현재 1회 {getGachaMachineCost(gachaMachinePullCount).toLocaleString()}원. 5번 이상 돌릴 때마다 가격이 2배씩 상승합니다.</p>
                   <button onClick={pullGachaMachine} style={casinoPrimaryButtonStyle}>가챠 돌리기</button>
                 </section>
                 <section style={casinoListCardStyle}>
@@ -4403,10 +4490,10 @@ export default function GamePage() {
                   const unlocked = unlockedTitles.some((item) => item.id === title.id);
                   return (
                     <div key={title.id} style={{ ...titleCardStyle, opacity: unlocked ? 1 : 0.48 }}>
-                      <div style={titleCardIconStyle}>{title.icon}</div>
-                      <h3 style={economyCardTitleStyle}>{title.name}</h3>
-                      <p style={economyCardTextStyle}>{title.description}</p>
-                      {title.passiveText && <strong style={{ color: "#7c3aed" }}>패시브: {title.passiveText}</strong>}
+                      <div style={titleCardIconStyle}>{title.hidden && !unlocked ? "❔" : title.icon}</div>
+                      <h3 style={economyCardTitleStyle}>{title.hidden && !unlocked ? "???" : title.name}</h3>
+                      <p style={economyCardTextStyle}>{title.hidden && !unlocked ? "조건 비공개 · 아주 희귀한 칭호입니다." : title.description}</p>
+                      {title.passiveText && (!title.hidden || unlocked) && <strong style={{ color: "#7c3aed" }}>패시브: {title.passiveText}</strong>}
                       <button
                         disabled={!unlocked}
                         onClick={() => {
@@ -4674,7 +4761,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>RANKING</div>
                   <h2 style={panelTitleStyle}>랭킹</h2>
-                  <p style={panelDescStyle}>프로필이 생성된 계정 중 순자산 기준 상위 10명이 표시됩니다. 다른 유저는 저장된 현금 기준, 내 계정은 주식/예금/부동산/사업까지 반영됩니다. 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
+                  <p style={panelDescStyle}>프로필이 생성된 계정 중 순자산 기준 상위 5명이 표시됩니다. 1~3위에게는 자동 랭킹 버프가 지급됩니다. 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
                 </div>
                 <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
               </div>
@@ -4682,10 +4769,10 @@ export default function GamePage() {
               <div style={rankingTableStyle}>
                 {rankingRows.map((row) => (
                   <div key={`${row.rank}-${row.nickname}`} style={{ ...rankingRowStyle, borderColor: row.isMe ? "#38bdf8" : "rgba(255,255,255,0.14)", background: row.isMe ? "rgba(56,189,248,0.16)" : "rgba(255,255,255,0.06)" }}>
-                    <strong>{row.rank}위</strong>
+                    <strong>{row.rank}위 {row.rank === 1 ? "🥇" : row.rank === 2 ? "🥈" : row.rank === 3 ? "🥉" : ""}</strong>
                     <span>{row.isMe ? "👤 " : ""}{row.nickname}</span>
                     <span>{row.titleIcon} {row.titleName}<br /><small>{row.job}</small></span>
-                    <strong>{`${row.cash.toLocaleString()}원`}</strong>
+                    <strong>{`${row.cash.toLocaleString()}원`}<br />{row.rank <= 3 && <small style={{ color: "#7c3aed" }}>랭킹 버프 +{Math.round(getRankingBuffRate(row.rank) * 100)}%</small>}</strong>
                   </div>
                 ))}
               </div>
@@ -4698,6 +4785,36 @@ export default function GamePage() {
           <button onClick={signOut} style={logoutButtonStyle}>로그아웃</button>
         </footer>
       </section>
+
+      {chatOpen && (
+        <aside style={globalChatStyle}>
+          <div style={globalChatHeaderStyle}>
+            <strong>💬 전체 채팅</strong>
+            <button onClick={() => setChatOpen(false)} style={chatCloseButtonStyle}>×</button>
+          </div>
+          <div style={chatMessageListStyle}>
+            {chatMessages.length === 0 ? (
+              <p style={casinoTextStyle}>아직 채팅이 없습니다.</p>
+            ) : chatMessages.map((chat) => (
+              <div key={chat.id} style={{ ...chatBubbleStyle, borderColor: chat.kind === "system" ? "#facc15" : "rgba(255,255,255,0.18)" }}>
+                <strong>{chat.kind === "system" ? "📢 시스템" : `${chat.nickname ?? "유저"} · ${chat.title_name ?? "칭호 없음"}`}</strong>
+                <span>{chat.message}</span>
+              </div>
+            ))}
+          </div>
+          <div style={chatInputRowStyle}>
+            <input
+              value={chatInput}
+              onChange={(event) => setChatInput(event.target.value)}
+              onKeyDown={(event) => { if (event.key === "Enter") void sendGlobalChatMessage(); }}
+              placeholder="전체 채팅 입력"
+              maxLength={120}
+              style={chatInputStyle}
+            />
+            <button onClick={() => void sendGlobalChatMessage()} style={chatSendButtonStyle}>전송</button>
+          </div>
+        </aside>
+      )}
 
       {careerMiniGame && (
         <div style={careerMiniGameOverlayStyle}>
@@ -5274,7 +5391,7 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
 }
 
 function getTodayKey() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toISOString().slice(0, 5);
 }
 
 function makeLottoTicket(price: number): LottoTicket {
@@ -6089,6 +6206,31 @@ function removeFirst(items: string[], target: string) {
   const index = copy.indexOf(target);
   if (index >= 0) copy.splice(index, 1);
   return copy;
+}
+
+function getRankingBuffRate(rank?: number) {
+  if (rank === 1) return 0.05;
+  if (rank === 2) return 0.03;
+  if (rank === 3) return 0.015;
+  return 0;
+}
+
+function getTitleIncomeBonus(titleId: PlayerTitleId) {
+  if (titleId === "hiddenEconomyGod") return 0.05;
+  if (titleId === "relicOwner") return 0.03;
+  if (titleId === "hiddenDebtFree") return 0.02;
+  if (titleId === "collectionMaster" || titleId === "hiddenZero") return 0.01;
+  return 0;
+}
+
+function getTitleStockBonus(titleId: PlayerTitleId) {
+  if (titleId === "hiddenWhale") return 0.03;
+  if (titleId === "hiddenMarketGhost") return 0.02;
+  return 0;
+}
+
+function getGachaMachineCost(pullCount: number) {
+  return 50000 * Math.pow(2, Math.floor(Math.max(0, pullCount) / 5));
 }
 
 function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDeposit: number; bankLoan?: number; creditScore?: number; ownedEstates: EstateId[]; ownedBusinesses: BusinessId[]; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; unpaidTax: number; netWorth: number; sortingSuccessTotal: number; deliverySuccessTotal: number; cashierSuccessTotal: number; cafeSuccessTotal: number; securitySuccessTotal: number; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; }) {
@@ -8462,6 +8604,86 @@ const pvpButtonRowStyle: CSSProperties = {
   gap: "8px",
   flexWrap: "wrap",
   justifyContent: "flex-end",
+};
+
+const globalChatStyle: CSSProperties = {
+  position: "fixed",
+  right: "18px",
+  bottom: "18px",
+  zIndex: 120,
+  width: "min(380px, calc(100vw - 36px))",
+  maxHeight: "460px",
+  display: "grid",
+  gridTemplateRows: "auto minmax(0, 1fr) auto",
+  gap: "8px",
+  padding: "12px",
+  border: "4px solid rgba(17,24,39,0.88)",
+  borderRadius: "22px",
+  background: "rgba(15,23,42,0.76)",
+  backdropFilter: "blur(8px)",
+  color: "#ffffff",
+  boxShadow: "0 18px 40px rgba(15,23,42,0.28)",
+};
+
+const globalChatHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  fontWeight: 900,
+};
+
+const chatCloseButtonStyle: CSSProperties = {
+  border: "2px solid rgba(255,255,255,0.65)",
+  borderRadius: "10px",
+  background: "rgba(255,255,255,0.12)",
+  color: "#ffffff",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const chatMessageListStyle: CSSProperties = {
+  minHeight: "180px",
+  maxHeight: "320px",
+  overflowY: "auto",
+  display: "grid",
+  alignContent: "start",
+  gap: "7px",
+};
+
+const chatBubbleStyle: CSSProperties = {
+  display: "grid",
+  gap: "3px",
+  padding: "8px",
+  border: "2px solid rgba(255,255,255,0.18)",
+  borderRadius: "14px",
+  background: "rgba(255,255,255,0.10)",
+  fontSize: "13px",
+  lineHeight: 1.3,
+};
+
+const chatInputRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr auto",
+  gap: "7px",
+};
+
+const chatInputStyle: CSSProperties = {
+  border: "2px solid rgba(255,255,255,0.5)",
+  borderRadius: "12px",
+  padding: "10px",
+  background: "rgba(255,255,255,0.92)",
+  color: "#111827",
+  fontWeight: 900,
+};
+
+const chatSendButtonStyle: CSSProperties = {
+  border: "2px solid #facc15",
+  borderRadius: "12px",
+  background: "#facc15",
+  color: "#111827",
+  padding: "8px 12px",
+  fontWeight: 900,
+  cursor: "pointer",
 };
 
 
