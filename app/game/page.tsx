@@ -5264,52 +5264,6 @@ function makeInitialStocks(seedKey = "default"): StockRow[] {
   });
 }
 
-function updateStockMarket(rows: StockRow[], events: NewsEvent[] = []): StockRow[] {
-  return rows.map((stock) => {
-    const trend = getStockTrendStreak(stock.history);
-    const newsImpact = events
-      .filter((event) => event.targetStocks.includes(stock.id))
-      .reduce((sum, event) => sum + event.impactPercent, 0);
-    const newsBias = clampNumber(newsImpact / 18, -0.28, 0.28);
-    const upProbability = clampNumber(0.5 + newsBias - Math.max(0, trend) * 0.075 + Math.max(0, -trend) * 0.055, 0.18, 0.82);
-    const direction = Math.random() < upProbability ? 1 : -1;
-    const streakPenalty = direction === 1 ? Math.max(0, trend) * 0.45 : Math.max(0, -trend) * 0.28;
-    const newsMagnitude = Math.min(2.2, Math.abs(newsImpact) * 0.22);
-    const maxPercent = clampNumber(10 - streakPenalty + newsMagnitude, 2.8, 10);
-    const minPercent = 0.25;
-    const percent = minPercent + Math.random() * (maxPercent - minPercent);
-    const nextPrice = Math.max(100, Math.round(stock.price * (1 + direction * percent / 100)));
-
-    return {
-      ...stock,
-      previousPrice: stock.price,
-      price: nextPrice,
-      history: [...stock.history, nextPrice].slice(-24),
-    };
-  });
-}
-
-function getStockTrendStreak(history: number[]) {
-  let streak = 0;
-  for (let index = history.length - 1; index > 0; index -= 1) {
-    const diff = history[index] - history[index - 1];
-    if (diff === 0) break;
-    const direction = diff > 0 ? 1 : -1;
-    if (streak === 0) {
-      streak = direction;
-    } else if ((streak > 0 && direction > 0) || (streak < 0 && direction < 0)) {
-      streak += direction;
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
-
-function clampNumber(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
 function hashSeed(text: string) {
   let hash = 2166136261;
   for (let index = 0; index < text.length; index += 1) {
