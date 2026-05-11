@@ -3241,7 +3241,7 @@ export default function GamePage() {
   async function refreshRanking(currentNickname = nickname) {
     if (!userId) return;
 
-    const fallbackRows = makeRankingRows(currentNickname, cash, occupationInfo[occupationId].name);
+    const fallbackRows = makeRankingRows(currentNickname, netWorth, occupationInfo[occupationId].name);
     const supabase = createClient();
 
     const { data: profiles, error: profilesError } = await supabase
@@ -3258,17 +3258,63 @@ export default function GamePage() {
 
     const typedProfiles = profiles as ProfileRow[];
     const ids = typedProfiles.map((profile) => profile.id);
+
     const { data: saves, error: savesError } = await supabase
       .from("game_saves")
       .select("user_id, cash")
       .in("user_id", ids);
 
     if (savesError) {
-      console.warn("랭킹 저장 데이터 불러오기 실패:", savesError.message);
+      console.warn("랭킹 현금 데이터 불러오기 실패:", savesError.message);
+    }
+
+    const { data: economyRows, error: economyError } = await supabase
+      .from(ECONOMY_TABLE)
+      .select("user_id, data")
+      .in("user_id", ids);
+
+    if (economyError) {
+      console.warn("랭킹 경제 데이터 불러오기 실패:", economyError.message);
     }
 
     const typedSaves = (saves ?? []) as RankingSaveRow[];
     const saveMap = new Map<string, RankingSaveRow>(typedSaves.map((save) => [save.user_id, save]));
+    const economyMap = new Map<string, Record<string, unknown>>(
+      ((economyRows ?? []) as Array<{ user_id: string; data?: Record<string, unknown> | null }>).map((row) => [row.user_id, row.data ?? {}])
+    );
+
+    const getNumberFromEconomy = (data: Record<string, unknown>, key: string) => {
+      const value = data[key];
+      return typeof value === "number" && Number.isFinite(value) ? value : 0;
+    };
+
+    const getIdArrayFromEconomy = <T extends string>(data: Record<string, unknown>, key: string, validIds: readonly T[]) => {
+      const value = data[key];
+      if (!Array.isArray(value)) return [] as T[];
+      return value.filter((id): id is T => typeof id === "string" && (validIds as readonly string[]).includes(id));
+    };
+
+    const estateIds = estateItems.map((item) => item.id);
+    const businessIds = businessItems.map((item) => item.id);
+
+    const calculateRankingNetWorth = (profile: ProfileRow) => {
+      if (profile.id === userId) return netWorth;
+
+      const save = saveMap.get(profile.id);
+      const economy = economyMap.get(profile.id) ?? {};
+      const savedCash = Number(save?.cash ?? 0);
+      const bankDepositValue = getNumberFromEconomy(economy, "bankDeposit");
+      const bankSavingsValue = getNumberFromEconomy(economy, "bankSavings");
+      const bankLoanValue = getNumberFromEconomy(economy, "bankLoan");
+      const ownedEstateIds = getIdArrayFromEconomy(economy, "ownedEstates", estateIds);
+      const ownedBusinessIds = getIdArrayFromEconomy(economy, "ownedBusinesses", businessIds);
+      const estateValue = ownedEstateIds.reduce((sum, id) => sum + (estateItems.find((item) => item.id === id)?.price ?? 0), 0);
+      const businessValue = ownedBusinessIds.reduce((sum, id) => sum + (businessItems.find((item) => item.id === id)?.price ?? 0), 0);
+      const computed = savedCash + bankDepositValue + bankSavingsValue + estateValue + businessValue - bankLoanValue;
+
+      if (computed > 0) return computed;
+      return Number(profile.net_worth ?? 0);
+    };
 
     const rows = typedProfiles
       .map((profile) => {
@@ -3278,7 +3324,7 @@ export default function GamePage() {
         return {
           rank: 0,
           nickname: profile.id === userId ? currentNickname : profile.nickname || "이름 없음",
-          cash: profile.id === userId ? netWorth : Number(profile.net_worth ?? save?.cash ?? 0),
+          cash: Math.max(0, Math.floor(calculateRankingNetWorth(profile))),
           hasSave: !!save,
           job: profile.id === userId ? occupationInfo[occupationId].name : occupationInfo[profileOccupationId].name,
           titleName: profileTitle.name,
@@ -5518,9 +5564,13 @@ function getStreetBuildingPlacement(buildingId: StreetBuildingId, page: number):
   }
 
   if (page === 4) {
-    if (buildingId === "gacha") return { left: "12%", bottom: "132px", width: "22%" };
-    if (buildingId === "itemMarket") return { left: "40%", bottom: "132px", width: "22%" };
-    if (buildingId === "casino") return { left: "69%", bottom: "132px", width: "22%" };
+    if (buildingId === "gacha") return { left: "7%", bottom: "134px", width: "24%" };
+    if (buildingId === "lotto") return { left: "38%", bottom: "134px", width: "24%" };
+    if (buildingId === "itemMarket") return { left: "69%", bottom: "134px", width: "24%" };
+  }
+
+  if (page === 5) {
+    if (buildingId === "casino") return { left: "37%", bottom: "132px", width: "26%" };
   }
 
   return { left: "38%", bottom: "132px", width: "22%" };
