@@ -898,13 +898,37 @@ const extraShopItems: ShopItem[] = Array.from({ length: 100 }, (_, index) => {
 });
 
 const rawShopItems: ShopItem[] = [...baseShopItems, ...extraShopItems];
+const itemRarityBaseBonus: Record<ItemRarity, number> = {
+  일반: 0.015,
+  희소: 0.045,
+  진귀: 0.085,
+  보물: 0.15,
+  유물: 0.24,
+};
+const itemBonusTypeMultiplier: Record<ShopItem["bonusType"], number> = {
+  allIncome: 0.72,
+  businessIncome: 1,
+  jobIncome: 0.92,
+  casinoLuck: 0.62,
+  estateIncome: 0.95,
+  bankInterest: 1.15,
+  lottoLuck: 0.56,
+  gachaLuck: 0.48,
+  taxShield: 0.72,
+  employeeEfficiency: 0.68,
+};
 const maxTreasureItemPrice = Math.max(...rawShopItems.filter((item) => item.rarity === "보물").map((item) => item.price), 0);
 const shopItems: ShopItem[] = rawShopItems.map((item, index) => {
-  if (item.rarity !== "유물" || item.price > maxTreasureItemPrice) return item;
+  const rarityIndexOffset = index % 6;
+  const balancedBonusValue = Number((itemRarityBaseBonus[item.rarity] * itemBonusTypeMultiplier[item.bonusType] + rarityIndexOffset * 0.003).toFixed(3));
+  const relicPricePatch = item.rarity === "유물" && item.price <= maxTreasureItemPrice
+    ? { price: maxTreasureItemPrice + 500000 + index * 25000, description: `${item.description} 유물 등급은 보물 등급보다 항상 높은 기준가를 가집니다.` }
+    : {};
+
   return {
     ...item,
-    price: maxTreasureItemPrice + 500000 + index * 25000,
-    description: `${item.description} 유물 등급은 보물 등급보다 항상 높은 기준가를 가집니다.`,
+    ...relicPricePatch,
+    bonusValue: balancedBonusValue,
   };
 });
 
@@ -1195,8 +1219,9 @@ export default function GamePage() {
   const nextTax = Math.floor(calculateTax(cash, unpaidTax) * Math.max(0.55, 1 - insuranceTaxDiscount));
   const currentTitle = playerTitles.find((title) => title.id === currentTitleId) ?? playerTitles[0];
   const equippedShopItems = useMemo(() => equippedItems.map((id) => shopItems.find((item) => item.id === id)).filter((item): item is ShopItem => Boolean(item)), [equippedItems]);
-  const itemSlotCount = currentTitleId === "treasureCollector" ? 2 : 1;
-  const allIncomeBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "allIncome" ? item.bonusValue : 0), currentTitleId === "relicOwner" ? 0.03 : 0);
+  const itemSlotCount = currentTitleId === "treasureCollector" || currentTitleId === "hiddenRelicDealer" ? 2 : 1;
+  const titleAllIncomeBonus = currentTitleId === "hiddenEconomyGod" ? 0.05 : currentTitleId === "relicOwner" ? 0.03 : currentTitleId === "hiddenDebtFree" ? 0.02 : currentTitleId === "collectionMaster" || currentTitleId === "hiddenZero" ? 0.01 : 0;
+  const allIncomeBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "allIncome" ? item.bonusValue : 0), titleAllIncomeBonus);
   const businessItemBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "businessIncome" ? item.bonusValue : 0), 0);
   const jobItemBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "jobIncome" ? item.bonusValue : 0), 0) + (ownedCertifications.includes("office") ? 0.03 : 0) + (ownedCertifications.includes("logistics") ? 0.02 : 0) + (currentTitleId === "certifiedExpert" ? 0.02 : 0);
   const casinoLuckBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "casinoLuck" ? item.bonusValue : 0), 0);
@@ -1239,9 +1264,26 @@ export default function GamePage() {
   const itemAssetValue = ownedItems.reduce((sum, id) => sum + (shopItems.find((item) => item.id === id)?.price ?? 0), 0);
   const netWorth = cash + bankDeposit + bankSavings + stockAssetValue + estateAssetValue + businessAssetValue + itemAssetValue - bankLoan - unpaidTax;
   const unlockedTitles = useMemo(
-    () => getUnlockedTitles({ cash, stockRows, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems }),
-    [cash, stockRows, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems]
+    () => getUnlockedTitles({ cash, stockRows, bankDeposit, bankSavings, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems, discoveredItems, shopPurchaseCount, gachaMachinePullCount, lottoPurchaseCount }),
+    [cash, stockRows, bankDeposit, bankSavings, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems, discoveredItems, shopPurchaseCount, gachaMachinePullCount, lottoPurchaseCount]
   );
+
+  useEffect(() => {
+    if (!userId || !isSaveLoaded) return;
+
+    const key = `alba-money-announced-secret-titles-${userId}`;
+    const announced = new Set((window.localStorage.getItem(key) ?? "").split(",").filter(Boolean));
+    const newlyUnlockedHidden = unlockedTitles.filter((title) => title.hidden && !announced.has(title.id));
+
+    if (newlyUnlockedHidden.length === 0) return;
+
+    for (const title of newlyUnlockedHidden) {
+      announced.add(title.id);
+      void sendGlobalChatMessage(`🌌 ${nickname}님이 비공개 칭호 [${title.name}]을 해금했습니다!`, "system");
+    }
+
+    window.localStorage.setItem(key, Array.from(announced).join(","));
+  }, [userId, isSaveLoaded, unlockedTitles, nickname]);
 
   useEffect(() => {
     async function loadSave() {
@@ -1661,6 +1703,32 @@ export default function GamePage() {
     if (lobbyView === "ranking") refreshRanking();
     if (lobbyView === "casino") refreshCasinoData();
   }, [lobbyView]);
+
+  useEffect(() => {
+    if (!userId || !isSaveLoaded) return;
+
+    loadGlobalChat();
+
+    const supabase = createClient();
+    const chatChannel = supabase
+      .channel("game-global-chat-realtime-visible")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: CHAT_TABLE }, () => {
+        loadGlobalChat();
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: CHAT_TABLE }, () => {
+        loadGlobalChat();
+      })
+      .subscribe();
+
+    const chatTimer = window.setInterval(() => {
+      loadGlobalChat();
+    }, 15000);
+
+    return () => {
+      window.clearInterval(chatTimer);
+      void supabase.removeChannel(chatChannel);
+    };
+  }, [userId, isSaveLoaded]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
@@ -6447,7 +6515,7 @@ function getInsuranceEffectText(insurance: InsuranceItem) {
   return parts.join(" · ");
 }
 
-function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDeposit: number; bankLoan?: number; creditScore?: number; ownedEstates: EstateId[]; ownedBusinesses: BusinessId[]; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; unpaidTax: number; netWorth: number; sortingSuccessTotal: number; deliverySuccessTotal: number; cashierSuccessTotal: number; cafeSuccessTotal: number; securitySuccessTotal: number; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; }) {
+function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDeposit: number; bankSavings?: number; bankLoan?: number; creditScore?: number; ownedEstates: EstateId[]; ownedBusinesses: BusinessId[]; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; unpaidTax: number; netWorth: number; sortingSuccessTotal: number; deliverySuccessTotal: number; cashierSuccessTotal: number; cafeSuccessTotal: number; securitySuccessTotal: number; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; discoveredItems?: ShopItemId[]; shopPurchaseCount?: number; gachaMachinePullCount?: number; lottoPurchaseCount?: number; }) {
   const totalJobSuccess = params.sortingSuccessTotal + params.deliverySuccessTotal + params.cashierSuccessTotal + params.cafeSuccessTotal + params.securitySuccessTotal;
   const stockValue = params.stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0);
   const stockKindsOwned = params.stockRows.filter((stock) => stock.owned > 0).length;
@@ -6486,9 +6554,29 @@ function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDe
     if (title.id === "treasureCollector") return (params.ownedItems ?? []).filter((id) => { const item = shopItems.find((entry) => entry.id === id); return item?.rarity === "보물" || item?.rarity === "유물"; }).length >= 2;
     if (title.id === "relicOwner") return (params.ownedItems ?? []).some((id) => shopItems.find((entry) => entry.id === id)?.rarity === "유물");
     if (title.id === "marketTrader") return (params.ownedItems ?? []).length >= 5;
+    if (title.id === "lottoDreamer") return Number(params.lottoPurchaseCount ?? 0) >= 3;
+    if (title.id === "phoneAnalyst") return params.netWorth >= 100000;
+    if (title.id === "savingsPlanner") return Number(params.bankSavings ?? 0) >= 500000;
+    if (title.id === "estateCollector") return params.ownedEstates.length >= 5;
+    if (title.id === "shopRegular") return Number(params.shopPurchaseCount ?? 0) >= 10;
+    if (title.id === "gachaAddict") return Number(params.gachaMachinePullCount ?? 0) >= 10;
+    if (title.id === "rankChaser") return params.netWorth >= 3000000;
+    if (title.id === "topRanker") return params.netWorth >= 5000000;
+    if (title.id === "taxFreeMind") return params.unpaidTax <= 0 && params.netWorth >= 2000000;
+    if (title.id === "collectionMaster") return new Set(params.discoveredItems ?? []).size >= 25;
     if (title.id === "millionaire") return params.netWorth >= 1000000;
     if (title.id === "multiMillionaire") return params.netWorth >= 10000000;
     if (title.id === "tycoon") return params.netWorth >= 50000000;
+    if (title.id === "hiddenZero") return params.netWorth >= 25000000 && totalJobSuccess >= 250 && params.unpaidTax <= 0;
+    if (title.id === "hiddenWhale") return stockValue >= 30000000 && stockKindsOwned >= 10;
+    if (title.id === "hiddenLucky") return Number(params.gachaMachinePullCount ?? 0) >= 80 && new Set(params.discoveredItems ?? []).size >= 50;
+    if (title.id === "hiddenEstateLord") return params.ownedEstates.length >= 5 && params.netWorth >= 100000000;
+    if (title.id === "hiddenLaborKing") return totalJobSuccess >= 700;
+    if (title.id === "hiddenMarketGhost") return stockKindsOwned >= 12 && params.netWorth >= 75000000;
+    if (title.id === "hiddenRelicDealer") return (params.ownedItems ?? []).filter((id) => shopItems.find((entry) => entry.id === id)?.rarity === "유물").length >= 3;
+    if (title.id === "hiddenDebtFree") return params.netWorth >= 50000000 && Number(params.bankLoan ?? 0) === 0 && params.unpaidTax === 0;
+    if (title.id === "hiddenCasinoDemon") return Number(params.gachaMachinePullCount ?? 0) >= 120 && params.cash >= 10000000;
+    if (title.id === "hiddenEconomyGod") return params.netWorth >= 500000000 && new Set(params.discoveredItems ?? []).size >= 100;
     return false;
   });
 }
@@ -9036,7 +9124,6 @@ const chatSendButtonStyle: CSSProperties = {
   fontWeight: 900,
   cursor: "pointer",
 };
-
 
  
 
