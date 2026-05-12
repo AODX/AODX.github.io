@@ -1079,6 +1079,53 @@ function normalizePlayerTitleIdList(values: unknown): PlayerTitleId[] {
   return values.filter((id): id is PlayerTitleId => typeof id === "string" && playerTitles.some((title) => title.id === id));
 }
 
+function getStoredEarnedTitleIds(userId: string): PlayerTitleId[] {
+  if (typeof window === "undefined") return ["newbie"];
+
+  const collected: PlayerTitleId[] = ["newbie"];
+  const rawTitleCache = window.localStorage.getItem(`alba-money-earned-titles-${userId}`);
+  const rawEconomyCache = window.localStorage.getItem(`alba-money-economy-${userId}`);
+  const rawCurrentTitle = window.localStorage.getItem(`alba-money-title-${userId}`);
+
+  try {
+    collected.push(...normalizePlayerTitleIdList(JSON.parse(rawTitleCache ?? "[]")));
+  } catch {
+    // Ignore broken title cache.
+  }
+
+  try {
+    const parsed = JSON.parse(rawEconomyCache ?? "{}") as { earnedTitleIds?: unknown; announcedSecretTitles?: unknown };
+    collected.push(...normalizePlayerTitleIdList(parsed.earnedTitleIds));
+    collected.push(...normalizePlayerTitleIdList(parsed.announcedSecretTitles));
+  } catch {
+    // Ignore broken economy cache.
+  }
+
+  if (rawCurrentTitle) collected.push(...normalizePlayerTitleIdList([rawCurrentTitle]));
+
+  return Array.from(new Set<PlayerTitleId>(collected));
+}
+
+function persistEarnedTitleIds(userId: string, ids: PlayerTitleId[]) {
+  if (typeof window === "undefined") return;
+  const nextIds = Array.from(new Set<PlayerTitleId>(["newbie", ...ids]));
+  window.localStorage.setItem(`alba-money-earned-titles-${userId}`, JSON.stringify(nextIds));
+
+  const rawEconomyCache = window.localStorage.getItem(`alba-money-economy-${userId}`);
+  try {
+    const parsed = JSON.parse(rawEconomyCache ?? "{}") as Record<string, unknown>;
+    window.localStorage.setItem(
+      `alba-money-economy-${userId}`,
+      JSON.stringify({
+        ...parsed,
+        earnedTitleIds: nextIds,
+      })
+    );
+  } catch {
+    window.localStorage.setItem(`alba-money-economy-${userId}`, JSON.stringify({ earnedTitleIds: nextIds }));
+  }
+}
+
 function mergeEconomySavePayloads(localPayload: string | null, remotePayload: string | null): string | null {
   if (!localPayload && !remotePayload) return null;
 
@@ -1119,6 +1166,7 @@ export default function GamePage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [isSaveLoaded, setIsSaveLoaded] = useState(false);
   const [isEconomyLoaded, setIsEconomyLoaded] = useState(false);
+  const [isProfileLoaded, setIsProfileLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("저장 대기 중");
 
@@ -1324,8 +1372,8 @@ export default function GamePage() {
   const itemAssetValue = ownedItems.reduce((sum, id) => sum + (shopItems.find((item) => item.id === id)?.price ?? 0), 0);
   const netWorth = cash + bankDeposit + bankSavings + stockAssetValue + estateAssetValue + businessAssetValue + itemAssetValue - bankLoan - unpaidTax;
   const conditionUnlockedTitles = useMemo(
-    () => getUnlockedTitles({ cash, stockRows, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems }),
-    [cash, stockRows, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems]
+    () => getUnlockedTitles({ cash, stockRows, bankDeposit, bankSavings, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems, discoveredItems, shopPurchaseCount, gachaMachinePullCount, lottoPurchaseCount }),
+    [cash, stockRows, bankDeposit, bankSavings, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems, discoveredItems, shopPurchaseCount, gachaMachinePullCount, lottoPurchaseCount]
   );
   const unlockedTitles = useMemo(() => {
     const unlockedIdSet = new Set<PlayerTitleId>(["newbie", ...earnedTitleIds, ...conditionUnlockedTitles.map((title) => title.id)]);
@@ -1340,6 +1388,7 @@ export default function GamePage() {
     if (hasNewTitle) {
       const newlyUnlocked = nextIds.filter((id) => !earnedTitleIds.includes(id));
       setEarnedTitleIds(nextIds);
+      if (userId) persistEarnedTitleIds(userId, nextIds);
 
       newlyUnlocked.forEach((titleId) => {
         const title = playerTitles.find((item) => item.id === titleId);
@@ -1426,6 +1475,7 @@ export default function GamePage() {
 
   useEffect(() => {
     if (!userId) return;
+    setIsProfileLoaded(false);
 
     async function loadProfilePreferences() {
       const savedNickname = window.localStorage.getItem(`alba-money-nickname-${userId}`);
@@ -1433,6 +1483,8 @@ export default function GamePage() {
       const savedOccupationId = window.localStorage.getItem(`alba-money-occupation-${userId}`) as OccupationId | null;
       const savedUnlocked = window.localStorage.getItem(`alba-money-unlocked-occupations-${userId}`);
       const savedTitle = window.localStorage.getItem(`alba-money-title-${userId}`) as PlayerTitleId | null;
+      const cachedTitleIds = getStoredEarnedTitleIds(userId);
+      setEarnedTitleIds((prev) => Array.from(new Set<PlayerTitleId>(["newbie", ...prev, ...cachedTitleIds])));
 
       if (savedNickname) {
         setNickname(savedNickname);
@@ -1503,9 +1555,10 @@ export default function GamePage() {
         setUnlockedOccupations(nextUnlocked);
         window.localStorage.setItem(`alba-money-unlocked-occupations-${userId}`, JSON.stringify(nextUnlocked));
       }
+      setIsProfileLoaded(true);
     }
 
-    loadProfilePreferences();
+    void loadProfilePreferences();
   }, [userId]);
 
   useEffect(() => {
@@ -1575,9 +1628,11 @@ export default function GamePage() {
       if (Array.isArray(parsed.equippedItems)) setEquippedItems(parsed.equippedItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id)));
       if (Array.isArray(parsed.favoriteItems)) setFavoriteItems(parsed.favoriteItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id)));
       if (Array.isArray(parsed.earnedTitleIds)) {
-        setEarnedTitleIds(Array.from(new Set<PlayerTitleId>(["newbie", ...parsed.earnedTitleIds.filter((id): id is PlayerTitleId => playerTitles.some((title) => title.id === id))])));
-      } else if (Array.isArray(parsed.announcedSecretTitles)) {
-        const loadedAnnouncedSecretTitles = parsed.announcedSecretTitles.filter((id): id is PlayerTitleId => playerTitles.some((title) => title.id === id));
+        const loadedEarnedTitleIds = normalizePlayerTitleIdList(parsed.earnedTitleIds);
+        setEarnedTitleIds((prev) => Array.from(new Set<PlayerTitleId>(["newbie", ...prev, ...loadedEarnedTitleIds])));
+      }
+      if (Array.isArray(parsed.announcedSecretTitles)) {
+        const loadedAnnouncedSecretTitles = normalizePlayerTitleIdList(parsed.announcedSecretTitles);
         setEarnedTitleIds((prev) => Array.from(new Set<PlayerTitleId>(["newbie", ...prev, ...loadedAnnouncedSecretTitles])));
       }
       if (parsed.inventorySortMode && ["favorite", "rarity", "priceDesc", "priceAsc", "name", "count"].includes(parsed.inventorySortMode)) setInventorySortMode(parsed.inventorySortMode);
@@ -1608,7 +1663,7 @@ export default function GamePage() {
   }, [userId]);
 
   useEffect(() => {
-    if (!userId || !isSaveLoaded || !isEconomyLoaded) return;
+    if (!userId || !isSaveLoaded || !isEconomyLoaded || !isProfileLoaded) return;
 
     const economyData = {
       bankDeposit,
@@ -1648,6 +1703,7 @@ export default function GamePage() {
     const economyPayload = JSON.stringify(economyData);
 
     window.localStorage.setItem(`alba-money-economy-${userId}`, economyPayload);
+    persistEarnedTitleIds(userId, earnedTitleIds);
 
     const supabase = createClient();
     supabase
@@ -1663,7 +1719,7 @@ export default function GamePage() {
       .then(({ error }) => {
         if (error) console.warn("경제 데이터 Supabase 저장 실패. localStorage에는 저장되었습니다:", error.message);
       });
-  }, [userId, isSaveLoaded, isEconomyLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, discoveredItems, equippedItems, favoriteItems, inventorySortMode, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, economyUpdatedAt, earnedTitleIds]);
+  }, [userId, isSaveLoaded, isEconomyLoaded, isProfileLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, discoveredItems, equippedItems, favoriteItems, inventorySortMode, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, economyUpdatedAt, earnedTitleIds]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -4904,7 +4960,10 @@ export default function GamePage() {
                         onClick={() => {
                           setCurrentTitleId(title.id);
                           setEarnedTitleIds((prev) => Array.from(new Set<PlayerTitleId>(["newbie", ...prev, title.id])));
-                          if (userId) window.localStorage.setItem(`alba-money-title-${userId}`, title.id);
+                          if (userId) {
+                            window.localStorage.setItem(`alba-money-title-${userId}`, title.id);
+                            persistEarnedTitleIds(userId, Array.from(new Set<PlayerTitleId>(["newbie", ...earnedTitleIds, title.id])));
+                          }
                           saveProfilePatch({ current_title: title.id });
                           setMessage(`🏷️ 칭호를 ${title.name}(으)로 변경했습니다.`);
                         }}
@@ -6757,12 +6816,23 @@ function getInsuranceEffectText(insurance: InsuranceItem) {
   return parts.join(" · ");
 }
 
-function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDeposit: number; bankLoan?: number; creditScore?: number; ownedEstates: EstateId[]; ownedBusinesses: BusinessId[]; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; unpaidTax: number; netWorth: number; sortingSuccessTotal: number; deliverySuccessTotal: number; cashierSuccessTotal: number; cafeSuccessTotal: number; securitySuccessTotal: number; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; }) {
+function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDeposit: number; bankSavings?: number; bankLoan?: number; creditScore?: number; ownedEstates: EstateId[]; ownedBusinesses: BusinessId[]; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; unpaidTax: number; netWorth: number; sortingSuccessTotal: number; deliverySuccessTotal: number; cashierSuccessTotal: number; cafeSuccessTotal: number; securitySuccessTotal: number; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; discoveredItems?: ShopItemId[]; shopPurchaseCount?: number; gachaMachinePullCount?: number; lottoPurchaseCount?: number; }) {
   const totalJobSuccess = params.sortingSuccessTotal + params.deliverySuccessTotal + params.cashierSuccessTotal + params.cafeSuccessTotal + params.securitySuccessTotal;
   const stockValue = params.stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0);
   const stockKindsOwned = params.stockRows.filter((stock) => stock.owned > 0).length;
   const employeeLevelTotal = Object.values(params.businessEmployees ?? {}).reduce((sum, level) => sum + Number(level ?? 0), 0);
   const ownsBuilding = params.ownedEstates.includes("building");
+  const ownedItems = params.ownedItems ?? [];
+  const discoveredItems = params.discoveredItems ?? [];
+  const treasureOrRelicCount = ownedItems.filter((id) => {
+    const item = shopItems.find((entry) => entry.id === id);
+    return item?.rarity === "보물" || item?.rarity === "유물" || item?.rarity === "고대 유물";
+  }).length;
+  const hasRelic = ownedItems.some((id) => {
+    const item = shopItems.find((entry) => entry.id === id);
+    return item?.rarity === "유물" || item?.rarity === "고대 유물";
+  });
+  const hasAncientRelic = ownedItems.some((id) => shopItems.find((entry) => entry.id === id)?.rarity === "고대 유물");
 
   return playerTitles.filter((title) => {
     if (title.id === "newbie") return true;
@@ -6793,12 +6863,32 @@ function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDe
     if (title.id === "insurancePlanner") return (params.ownedInsurances ?? []).length >= 2;
     if (title.id === "auctionHunter") return params.netWorth >= 500000;
     if (title.id === "certifiedExpert") return (params.ownedCertifications ?? []).length >= 3;
-    if (title.id === "treasureCollector") return (params.ownedItems ?? []).filter((id) => { const item = shopItems.find((entry) => entry.id === id); return item?.rarity === "보물" || item?.rarity === "유물"; }).length >= 2;
-    if (title.id === "relicOwner") return (params.ownedItems ?? []).some((id) => shopItems.find((entry) => entry.id === id)?.rarity === "유물");
-    if (title.id === "marketTrader") return (params.ownedItems ?? []).length >= 5;
+    if (title.id === "treasureCollector") return treasureOrRelicCount >= 2;
+    if (title.id === "relicOwner") return hasRelic;
+    if (title.id === "marketTrader") return ownedItems.length >= 5;
     if (title.id === "millionaire") return params.netWorth >= 1000000;
     if (title.id === "multiMillionaire") return params.netWorth >= 10000000;
     if (title.id === "tycoon") return params.netWorth >= 50000000;
+    if (title.id === "lottoDreamer") return Number(params.lottoPurchaseCount ?? 0) >= 3;
+    if (title.id === "phoneAnalyst") return params.netWorth >= 100000;
+    if (title.id === "savingsPlanner") return Number(params.bankSavings ?? 0) >= 500000;
+    if (title.id === "estateCollector") return params.ownedEstates.length >= 5;
+    if (title.id === "shopRegular") return Number(params.shopPurchaseCount ?? 0) >= 10;
+    if (title.id === "gachaAddict") return Number(params.gachaMachinePullCount ?? 0) >= 10;
+    if (title.id === "rankChaser") return params.netWorth >= 3000000;
+    if (title.id === "topRanker") return params.netWorth >= 5000000;
+    if (title.id === "taxFreeMind") return params.unpaidTax <= 0 && params.netWorth >= 2000000;
+    if (title.id === "collectionMaster") return discoveredItems.length >= 25;
+    if (title.id === "hiddenZero") return params.netWorth >= 7777777 && params.unpaidTax <= 0;
+    if (title.id === "hiddenWhale") return params.netWorth >= 30000000 && stockValue >= 5000000;
+    if (title.id === "hiddenLucky") return Number(params.gachaMachinePullCount ?? 0) >= 77 || Number(params.lottoPurchaseCount ?? 0) >= 30;
+    if (title.id === "hiddenEstateLord") return params.ownedEstates.length >= estateItems.length && params.netWorth >= 20000000;
+    if (title.id === "hiddenLaborKing") return totalJobSuccess >= 300;
+    if (title.id === "hiddenMarketGhost") return discoveredItems.length >= 80;
+    if (title.id === "hiddenRelicDealer") return treasureOrRelicCount >= 10 || hasAncientRelic;
+    if (title.id === "hiddenDebtFree") return Number(params.bankLoan ?? 0) <= 0 && params.netWorth >= 10000000;
+    if (title.id === "hiddenCasinoDemon") return Number(params.gachaMachinePullCount ?? 0) >= 100 && params.cash >= 1000000;
+    if (title.id === "hiddenEconomyGod") return params.netWorth >= 100000000 || hasAncientRelic;
     return false;
   });
 }
