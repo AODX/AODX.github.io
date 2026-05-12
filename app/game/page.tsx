@@ -4202,7 +4202,7 @@ export default function GamePage() {
                       <StockMiniChart stockId={stock.id} history={stock.history} />
 
                       <div style={stockBottomRowStyle}>
-                        <div>
+                        <div style={stockInfoStackStyle}>
                           <div style={stockPriceStyle}>{stock.price.toLocaleString()}원</div>
                           <div style={stockOwnedStyle}>보유 {stock.owned}주 · 평가 {(stock.owned * stock.price).toLocaleString()}원</div>
                           {stock.owned > 0 && (
@@ -4210,6 +4210,10 @@ export default function GamePage() {
                               평균 매수가 {performance.averageBuyPrice.toLocaleString()}원 · 손익 {performance.profit >= 0 ? "+" : ""}{performance.profit.toLocaleString()}원 ({performance.profitRate >= 0 ? "+" : ""}{performance.profitRate.toFixed(2)}%)
                             </div>
                           )}
+                        </div>
+                        <div style={stockBuffInlineStyle}>
+                          <strong>버프 효과</strong>
+                          <span>주식 매도 보너스 없음 · 전역 시세 기준으로 모든 유저가 같은 가격을 사용합니다.</span>
                         </div>
                         <div style={stockActionGroupStyle}>
                           <button onClick={() => buyStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, opacity: cash < stock.price ? 0.45 : 1 }}>1주 매수</button>
@@ -4633,7 +4637,7 @@ export default function GamePage() {
                     {equippedItems.length === 0 ? <p style={casinoTextStyle}>장착 중인 아이템이 없습니다.</p> : equippedItems.map((id, index) => {
                       const item = shopItems.find((entry) => entry.id === id);
                       if (!item) return null;
-                      return <div key={`equipped-${id}-${index}`} style={marketMiniRowStyle}><span>{item.icon} {item.name}<br /><small>{item.rarity} · {getItemEffectText(item)} · 도감 등록 · {item.description}</small></span><button onClick={() => toggleEquipItem(id)} style={casinoSmallButtonStyle}>해제</button></div>;
+                      return <div key={`equipped-${id}-${index}`} style={marketMiniRowStyle}><span>{item.icon} {item.name}<br /><small>{item.rarity} · {getItemEffectText(item)} · 도감 등록 · {item.description}</small></span><button onClick={() => toggleEquipItem(id)} style={unequipButtonStyle}>해제</button></div>;
                     })}
                   </div>
                 </section>
@@ -4666,7 +4670,7 @@ export default function GamePage() {
                       <span>{item.icon} {item.name} <strong>×{group.count}</strong> {isFavorite ? "⭐" : ""}<br /><small>{item.rarity} · {getItemEffectText(item)} · {discoveredItems.includes(group.id) ? "도감 등록" : "도감 미등록"} · 50% 판매가 {Math.floor(item.price * 0.5).toLocaleString()}원</small></span>
                       <span style={marketButtonGroupStyle}>
                         <button onClick={() => toggleFavoriteItem(group.id)} style={casinoSmallButtonStyle}>{isFavorite ? "즐겨찾기 해제" : "즐겨찾기"}</button>
-                        <button onClick={() => toggleEquipItem(group.id)} style={casinoSmallButtonStyle}>{isEquipped ? "해제" : "장착"}</button>
+                        <button onClick={() => toggleEquipItem(group.id)} style={isEquipped ? unequipButtonStyle : equipButtonStyle}>{isEquipped ? "해제" : "장착"}</button>
                         <button onClick={() => quickSellItem(group.id, 1)} style={casinoSmallButtonStyle}>1개 판매</button>
                         {group.count > 1 && <button onClick={() => quickSellItem(group.id, group.count)} style={casinoSmallButtonStyle}>전부 판매</button>}
                       </span>
@@ -7194,10 +7198,10 @@ const stockCardStyle: CSSProperties = {
   padding: "18px",
   boxShadow: "7px 8px 0 rgba(17,24,39,0.14)",
   display: "grid",
-  gridTemplateRows: "auto 240px 76px",
+  gridTemplateRows: "auto 240px auto",
   gap: "14px",
   minWidth: 0,
-  minHeight: "430px",
+  minHeight: "470px",
   overflow: "visible",
 };
 
@@ -7249,10 +7253,31 @@ const stockChartStyle: CSSProperties = {
 };
 
 const stockBottomRowStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
+  display: "grid",
+  gridTemplateColumns: "minmax(220px, 1.1fr) minmax(220px, 1fr) auto",
   alignItems: "center",
   gap: "12px",
+  minWidth: 0,
+};
+
+const stockInfoStackStyle: CSSProperties = {
+  minWidth: 0,
+  display: "grid",
+  gap: "3px",
+};
+
+const stockBuffInlineStyle: CSSProperties = {
+  minWidth: 0,
+  border: "2px solid #dbeafe",
+  borderRadius: "14px",
+  background: "#eff6ff",
+  padding: "9px 12px",
+  color: "#1e3a8a",
+  fontSize: "12px",
+  fontWeight: 900,
+  lineHeight: 1.35,
+  display: "grid",
+  gap: "2px",
 };
 
 const stockPriceStyle: CSSProperties = {
@@ -7267,8 +7292,10 @@ const stockOwnedStyle: CSSProperties = {
 };
 
 const stockActionGroupStyle: CSSProperties = {
-  display: "flex",
+  display: "grid",
+  gridTemplateColumns: "repeat(2, max-content)",
   gap: "8px",
+  justifyContent: "end",
 };
 
 const stockTradeButtonStyle: CSSProperties = {
@@ -8690,6 +8717,20 @@ const casinoSmallButtonStyle: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
+const equipButtonStyle: CSSProperties = {
+  ...casinoSmallButtonStyle,
+  background: "#dcfce7",
+  borderColor: "#15803d",
+  color: "#166534",
+};
+
+const unequipButtonStyle: CSSProperties = {
+  ...casinoSmallButtonStyle,
+  background: "#fee2e2",
+  borderColor: "#dc2626",
+  color: "#991b1b",
+};
+
 const marketButtonGroupStyle: CSSProperties = {
   display: "flex",
   gap: "6px",
@@ -9180,8 +9221,6 @@ const chatSendButtonStyle: CSSProperties = {
   fontWeight: 900,
   cursor: "pointer",
 };
-
-
 
 
 
