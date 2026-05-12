@@ -158,6 +158,7 @@ type Certification = {
 
 type ItemRarity = "일반" | "희소" | "진귀" | "보물" | "유물";
 type ShopItemId = string;
+type ItemSortMode = "favorite" | "rarity" | "priceDesc" | "priceAsc" | "name" | "count";
 type ShopItem = {
   id: ShopItemId;
   name: string;
@@ -898,37 +899,13 @@ const extraShopItems: ShopItem[] = Array.from({ length: 100 }, (_, index) => {
 });
 
 const rawShopItems: ShopItem[] = [...baseShopItems, ...extraShopItems];
-const itemRarityBaseBonus: Record<ItemRarity, number> = {
-  일반: 0.015,
-  희소: 0.045,
-  진귀: 0.085,
-  보물: 0.15,
-  유물: 0.24,
-};
-const itemBonusTypeMultiplier: Record<ShopItem["bonusType"], number> = {
-  allIncome: 0.72,
-  businessIncome: 1,
-  jobIncome: 0.92,
-  casinoLuck: 0.62,
-  estateIncome: 0.95,
-  bankInterest: 1.15,
-  lottoLuck: 0.56,
-  gachaLuck: 0.48,
-  taxShield: 0.72,
-  employeeEfficiency: 0.68,
-};
 const maxTreasureItemPrice = Math.max(...rawShopItems.filter((item) => item.rarity === "보물").map((item) => item.price), 0);
 const shopItems: ShopItem[] = rawShopItems.map((item, index) => {
-  const rarityIndexOffset = index % 6;
-  const balancedBonusValue = Number((itemRarityBaseBonus[item.rarity] * itemBonusTypeMultiplier[item.bonusType] + rarityIndexOffset * 0.003).toFixed(3));
-  const relicPricePatch = item.rarity === "유물" && item.price <= maxTreasureItemPrice
-    ? { price: maxTreasureItemPrice + 500000 + index * 25000, description: `${item.description} 유물 등급은 보물 등급보다 항상 높은 기준가를 가집니다.` }
-    : {};
-
+  if (item.rarity !== "유물" || item.price > maxTreasureItemPrice) return item;
   return {
     ...item,
-    ...relicPricePatch,
-    bonusValue: balancedBonusValue,
+    price: maxTreasureItemPrice + 500000 + index * 25000,
+    description: `${item.description} 유물 등급은 보물 등급보다 항상 높은 기준가를 가집니다.`,
   };
 });
 
@@ -1078,6 +1055,9 @@ export default function GamePage() {
   const [ownedItems, setOwnedItems] = useState<ShopItemId[]>([]);
   const [discoveredItems, setDiscoveredItems] = useState<ShopItemId[]>([]);
   const [equippedItems, setEquippedItems] = useState<ShopItemId[]>([]);
+  const [favoriteItems, setFavoriteItems] = useState<ShopItemId[]>([]);
+  const [inventorySortMode, setInventorySortMode] = useState<ItemSortMode>("favorite");
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpense, setTotalExpense] = useState(0);
   const [financeHistory, setFinanceHistory] = useState<FinanceHistoryPoint[]>([]);
@@ -1090,6 +1070,7 @@ export default function GamePage() {
   const [marketListings, setMarketListings] = useState<MarketListing[]>([]);
   const [sellItemId, setSellItemId] = useState("");
   const [sellPrice, setSellPrice] = useState("100000");
+  const [sellQuantity, setSellQuantity] = useState("1");
   const [lottoTickets, setLottoTickets] = useState<LottoTicket[]>([]);
   const [lottoPurchaseDate, setLottoPurchaseDate] = useState(getTodayKey());
   const [lottoPurchaseCount, setLottoPurchaseCount] = useState(0);
@@ -1219,9 +1200,10 @@ export default function GamePage() {
   const nextTax = Math.floor(calculateTax(cash, unpaidTax) * Math.max(0.55, 1 - insuranceTaxDiscount));
   const currentTitle = playerTitles.find((title) => title.id === currentTitleId) ?? playerTitles[0];
   const equippedShopItems = useMemo(() => equippedItems.map((id) => shopItems.find((item) => item.id === id)).filter((item): item is ShopItem => Boolean(item)), [equippedItems]);
-  const itemSlotCount = currentTitleId === "treasureCollector" || currentTitleId === "hiddenRelicDealer" ? 2 : 1;
-  const titleAllIncomeBonus = currentTitleId === "hiddenEconomyGod" ? 0.05 : currentTitleId === "relicOwner" ? 0.03 : currentTitleId === "hiddenDebtFree" ? 0.02 : currentTitleId === "collectionMaster" || currentTitleId === "hiddenZero" ? 0.01 : 0;
-  const allIncomeBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "allIncome" ? item.bonusValue : 0), titleAllIncomeBonus);
+  const groupedOwnedItems = useMemo(() => sortGroupedShopItems(groupOwnedShopItems(ownedItems), inventorySortMode, favoriteItems), [ownedItems, inventorySortMode, favoriteItems]);
+  const visibleInventoryItems = useMemo(() => groupedOwnedItems.filter((group) => !showFavoritesOnly || favoriteItems.includes(group.id)), [groupedOwnedItems, showFavoritesOnly, favoriteItems]);
+  const itemSlotCount = currentTitleId === "treasureCollector" ? 2 : 1;
+  const allIncomeBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "allIncome" ? item.bonusValue : 0), currentTitleId === "relicOwner" ? 0.03 : 0);
   const businessItemBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "businessIncome" ? item.bonusValue : 0), 0);
   const jobItemBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "jobIncome" ? item.bonusValue : 0), 0) + (ownedCertifications.includes("office") ? 0.03 : 0) + (ownedCertifications.includes("logistics") ? 0.02 : 0) + (currentTitleId === "certifiedExpert" ? 0.02 : 0);
   const casinoLuckBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "casinoLuck" ? item.bonusValue : 0), 0);
@@ -1264,26 +1246,9 @@ export default function GamePage() {
   const itemAssetValue = ownedItems.reduce((sum, id) => sum + (shopItems.find((item) => item.id === id)?.price ?? 0), 0);
   const netWorth = cash + bankDeposit + bankSavings + stockAssetValue + estateAssetValue + businessAssetValue + itemAssetValue - bankLoan - unpaidTax;
   const unlockedTitles = useMemo(
-    () => getUnlockedTitles({ cash, stockRows, bankDeposit, bankSavings, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems, discoveredItems, shopPurchaseCount, gachaMachinePullCount, lottoPurchaseCount }),
-    [cash, stockRows, bankDeposit, bankSavings, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems, discoveredItems, shopPurchaseCount, gachaMachinePullCount, lottoPurchaseCount]
+    () => getUnlockedTitles({ cash, stockRows, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems }),
+    [cash, stockRows, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems]
   );
-
-  useEffect(() => {
-    if (!userId || !isSaveLoaded) return;
-
-    const key = `alba-money-announced-secret-titles-${userId}`;
-    const announced = new Set((window.localStorage.getItem(key) ?? "").split(",").filter(Boolean));
-    const newlyUnlockedHidden = unlockedTitles.filter((title) => title.hidden && !announced.has(title.id));
-
-    if (newlyUnlockedHidden.length === 0) return;
-
-    for (const title of newlyUnlockedHidden) {
-      announced.add(title.id);
-      void sendGlobalChatMessage(`🌌 ${nickname}님이 비공개 칭호 [${title.name}]을 해금했습니다!`, "system");
-    }
-
-    window.localStorage.setItem(key, Array.from(announced).join(","));
-  }, [userId, isSaveLoaded, unlockedTitles, nickname]);
 
   useEffect(() => {
     async function loadSave() {
@@ -1475,7 +1440,7 @@ export default function GamePage() {
     }
 
     try {
-      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; discoveredItems?: ShopItemId[]; equippedItems?: ShopItemId[]; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; gachaMachinePullCount?: number; announcedSecretTitles?: PlayerTitleId[]; lottoTickets?: LottoTicket[]; lottoPurchaseDate?: string; lottoPurchaseCount?: number; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[] };
+      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; discoveredItems?: ShopItemId[]; equippedItems?: ShopItemId[]; favoriteItems?: ShopItemId[]; inventorySortMode?: ItemSortMode; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; gachaMachinePullCount?: number; announcedSecretTitles?: PlayerTitleId[]; lottoTickets?: LottoTicket[]; lottoPurchaseDate?: string; lottoPurchaseCount?: number; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[] };
       const loadedDeposit = Number(parsed.bankDeposit ?? 0);
       const loadedSavings = Number(parsed.bankSavings ?? 0);
       setBankDeposit(loadedDeposit);
@@ -1504,6 +1469,8 @@ export default function GamePage() {
         setDiscoveredItems(parsed.discoveredItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id)));
       }
       if (Array.isArray(parsed.equippedItems)) setEquippedItems(parsed.equippedItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id)));
+      if (Array.isArray(parsed.favoriteItems)) setFavoriteItems(parsed.favoriteItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id)));
+      if (parsed.inventorySortMode && ["favorite", "rarity", "priceDesc", "priceAsc", "name", "count"].includes(parsed.inventorySortMode)) setInventorySortMode(parsed.inventorySortMode);
       if (typeof parsed.shopLevel === "number") setShopLevel(parsed.shopLevel);
       if (typeof parsed.shopPurchaseCount === "number") setShopPurchaseCount(parsed.shopPurchaseCount);
       if (Array.isArray(parsed.shopOffers) && parsed.shopOffers.length > 0) setShopOffers(parsed.shopOffers);
@@ -1551,6 +1518,8 @@ export default function GamePage() {
       ownedItems,
       discoveredItems,
       equippedItems,
+      favoriteItems,
+      inventorySortMode,
       shopLevel,
       shopPurchaseCount,
       shopOffers,
@@ -1582,7 +1551,7 @@ export default function GamePage() {
       .then(({ error }) => {
         if (error) console.warn("경제 데이터 Supabase 저장 실패. localStorage에는 저장되었습니다:", error.message);
       });
-  }, [userId, isSaveLoaded, isEconomyLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, discoveredItems, equippedItems, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, economyUpdatedAt]);
+  }, [userId, isSaveLoaded, isEconomyLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, discoveredItems, equippedItems, favoriteItems, inventorySortMode, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, economyUpdatedAt]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -1703,32 +1672,6 @@ export default function GamePage() {
     if (lobbyView === "ranking") refreshRanking();
     if (lobbyView === "casino") refreshCasinoData();
   }, [lobbyView]);
-
-  useEffect(() => {
-    if (!userId || !isSaveLoaded) return;
-
-    loadGlobalChat();
-
-    const supabase = createClient();
-    const chatChannel = supabase
-      .channel("game-global-chat-realtime-visible")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: CHAT_TABLE }, () => {
-        loadGlobalChat();
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: CHAT_TABLE }, () => {
-        loadGlobalChat();
-      })
-      .subscribe();
-
-    const chatTimer = window.setInterval(() => {
-      loadGlobalChat();
-    }, 15000);
-
-    return () => {
-      window.clearInterval(chatTimer);
-      void supabase.removeChannel(chatChannel);
-    };
-  }, [userId, isSaveLoaded]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
@@ -2983,16 +2926,18 @@ export default function GamePage() {
     setMessage(`🎁 ${item.rarity} 등급 ${item.name} 구매 완료!`);
   }
 
-  function quickSellItem(itemId: ShopItemId) {
+  function quickSellItem(itemId: ShopItemId, quantity = 1) {
     const item = shopItems.find((entry) => entry.id === itemId);
-    if (!item || !ownedItems.includes(itemId)) return;
-    const sellValue = Math.floor(item.price * 0.5);
-    setOwnedItems((items) => removeFirst(items, itemId));
-    setEquippedItems((items) => items.filter((id) => id !== itemId));
+    const ownedCount = ownedItems.filter((id) => id === itemId).length;
+    const sellCount = Math.min(ownedCount, Math.max(1, Math.floor(quantity)));
+    if (!item || ownedCount <= 0 || sellCount <= 0) return;
+    const sellValue = Math.floor(item.price * 0.5) * sellCount;
+    setOwnedItems((items) => removeMany(items, itemId, sellCount));
+    setEquippedItems((items) => removeMany(items, itemId, sellCount));
     setCash((money) => money + sellValue);
     setTotalIncome((income) => income + sellValue);
     setFinanceHistory((history) => [...history.slice(-17), { label: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), income: sellValue, expense: 0, netWorth }]);
-    setMessage(`🎁 ${item.name}을(를) 정가의 50%인 ${sellValue.toLocaleString()}원에 판매했습니다.`);
+    setMessage(`🎁 ${item.name} ×${sellCount}개를 정가의 50%인 ${sellValue.toLocaleString()}원에 판매했습니다.`);
   }
 
   function pullGachaMachine() {
@@ -3028,6 +2973,10 @@ export default function GamePage() {
     setEquippedItems((equipped) => [...equipped, itemId]);
   }
 
+  function toggleFavoriteItem(itemId: ShopItemId) {
+    setFavoriteItems((items) => items.includes(itemId) ? items.filter((id) => id !== itemId) : [...items, itemId]);
+  }
+
   async function refreshMarketListings() {
     const supabase = createClient();
     const { data, error } = await supabase
@@ -3047,27 +2996,38 @@ export default function GamePage() {
   async function listItemForSale() {
     if (!userId || !sellItemId) return;
     const price = Math.floor(Number(sellPrice));
+    const quantity = Math.max(1, Math.floor(Number(sellQuantity)));
+    const ownedCount = ownedItems.filter((id) => id === sellItemId).length;
     if (!Number.isFinite(price) || price < 1000) {
       setMessage("🤝 판매 가격은 1,000원 이상이어야 합니다.");
       return;
     }
-    if (!ownedItems.includes(sellItemId)) return;
+    if (!Number.isFinite(quantity) || quantity < 1) {
+      setMessage("🤝 판매 수량은 1개 이상이어야 합니다.");
+      return;
+    }
+    if (ownedCount < quantity) {
+      setMessage(`🤝 보유 수량이 부족합니다. 현재 ${ownedCount}개 보유 중입니다.`);
+      return;
+    }
     const supabase = createClient();
-    const { error } = await supabase.from("game_item_market").insert({
+    const rows = Array.from({ length: quantity }, () => ({
       seller_id: userId,
       seller_nickname: nickname,
       item_id: sellItemId,
       price,
       status: "listed",
-    });
+    }));
+    const { error } = await supabase.from("game_item_market").insert(rows);
     if (error) {
       setMessage(`🤝 판매 등록 실패: ${error.message}`);
       return;
     }
-    setOwnedItems((items) => removeFirst(items, sellItemId));
-    setEquippedItems((items) => items.filter((id) => id !== sellItemId));
+    setOwnedItems((items) => removeMany(items, sellItemId, quantity));
+    setEquippedItems((items) => removeMany(items, sellItemId, quantity));
     setSellItemId("");
-    setMessage("🤝 아이템을 거래소에 등록했습니다.");
+    setSellQuantity("1");
+    setMessage(`🤝 아이템 ×${quantity}개를 거래소에 등록했습니다.`);
     refreshMarketListings();
   }
 
@@ -4637,7 +4597,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>GACHA SHOP</div>
                   <h2 style={panelTitleStyle}>가챠 숍</h2>
-                  <p style={panelDescStyle}>10분마다 랜덤 장신구 3개만 입고됩니다. 입고 상품은 원래 가격의 1.3배로 판매되며, 한 번 구매하면 SOLD OUT 처리됩니다. 상점 등급 Lv.{shopLevel} · 구매 {shopPurchaseCount}회 · 장착 {equippedItems.length}/{itemSlotCount}</p>
+                  <p style={panelDescStyle}>10분마다 랜덤 장신구 3개만 입고됩니다. 입고 상품은 원래 가격의 2배로 판매되며, 한 번 구매하면 SOLD OUT 처리됩니다. 상점 등급 Lv.{shopLevel} · 구매 {shopPurchaseCount}회 · 장착 {equippedItems.length}/{itemSlotCount} · 재입고까지 {formatTime(Math.ceil(getShopRemainingMs(shopUpdatedAt) / 1000))}</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
               </div>
@@ -4649,9 +4609,10 @@ export default function GamePage() {
                   const offerPrice = getShopOfferPrice(item);
                   return (
                   <div key={offerKey} style={{ ...gachaOfferCardStyle, borderColor: getRarityColor(item.rarity), opacity: soldOut ? 0.58 : 1 }}>
+                    <span style={{ ...gachaDiscoveredBadgeStyle, background: discoveredItems.includes(item.id) ? "#dcfce7" : "#f1f5f9", color: discoveredItems.includes(item.id) ? "#166534" : "#64748b", borderColor: discoveredItems.includes(item.id) ? "#22c55e" : "#cbd5e1" }}>{discoveredItems.includes(item.id) ? "도감 등록" : "미수집"}</span>
                     <h3 style={gachaOfferTitleStyle}>{item.icon} {item.name}</h3>
                     <p style={gachaOfferDescStyle}>{item.rarity} · {item.description}</p>
-                    <strong style={gachaOfferPriceStyle}>{offerPrice.toLocaleString()}원 <small style={gachaOfferSmallTextStyle}>(정가 {item.price.toLocaleString()}원 × 1.3)</small></strong>
+                    <strong style={gachaOfferPriceStyle}>{offerPrice.toLocaleString()}원 <small style={gachaOfferSmallTextStyle}>(정가 {item.price.toLocaleString()}원 × 2)</small></strong>
                     <strong style={{ ...gachaOfferEffectStyle, color: getRarityColor(item.rarity) }}>{getItemEffectText(item)}</strong>
                     <small style={{ ...gachaOfferSmallTextStyle, color: getRarityColor(item.rarity), fontWeight: 900 }}>{getRarityPerformanceText(item.rarity)}</small>
                     <button onClick={() => buyShopOffer(item, offerKey, offerPrice)} disabled={soldOut || cash < offerPrice} style={{ ...gachaOfferBuyButtonStyle, opacity: soldOut || cash < offerPrice ? 0.45 : 1 }}>{soldOut ? "SOLD OUT" : "구매"}</button>
@@ -4664,7 +4625,7 @@ export default function GamePage() {
               <div style={gachaLowerGridStyle}>
                 <section style={gachaListCardStyle}>
                   <h3 style={casinoTitleStyle}>가챠 자판기</h3>
-                  <p style={casinoTextStyle}>현재 1회 {getGachaMachineCost(gachaMachinePullCount).toLocaleString()}원. 10뽑을 할 때마다 가격이 2배씩 상승하며, 10분 재입고 시 50,000원으로 초기화됩니다.</p>
+                  <p style={casinoTextStyle}>현재 1회 {getGachaMachineCost(gachaMachinePullCount).toLocaleString()}원. 10뽑을 할 때마다 가격이 2배씩 상승하며, 10분 재입고 시 50,000원으로 초기화됩니다. 재입고까지 {formatTime(Math.ceil(getShopRemainingMs(shopUpdatedAt) / 1000))}</p>
                   <button onClick={pullGachaMachine} style={casinoPrimaryButtonStyle}>가챠 돌리기</button>
                   <div style={gachaEquippedPanelStyle}>
                     <h4 style={gachaEquippedTitleStyle}>장착 중인 아이템</h4>
@@ -4672,16 +4633,44 @@ export default function GamePage() {
                     {equippedItems.length === 0 ? <p style={casinoTextStyle}>장착 중인 아이템이 없습니다.</p> : equippedItems.map((id, index) => {
                       const item = shopItems.find((entry) => entry.id === id);
                       if (!item) return null;
-                      return <div key={`equipped-${id}-${index}`} style={marketMiniRowStyle}><span>{item.icon} {item.name}<br /><small>{item.rarity} · {getItemEffectText(item)} · {item.description}</small></span><button onClick={() => toggleEquipItem(id)} style={casinoSmallButtonStyle}>해제</button></div>;
+                      return <div key={`equipped-${id}-${index}`} style={marketMiniRowStyle}><span>{item.icon} {item.name}<br /><small>{item.rarity} · {getItemEffectText(item)} · 도감 등록 · {item.description}</small></span><button onClick={() => toggleEquipItem(id)} style={casinoSmallButtonStyle}>해제</button></div>;
                     })}
                   </div>
                 </section>
                 <section style={gachaListCardStyle}>
-                  <h3 style={casinoTitleStyle}>아이템 인벤토리</h3>
-                  {ownedItems.length === 0 ? <p style={casinoTextStyle}>보유 장신구가 없습니다.</p> : ownedItems.map((id, index) => {
-                    const item = shopItems.find((entry) => entry.id === id);
-                    if (!item) return null;
-                    return <div key={`${id}-${index}`} style={marketMiniRowStyle}><span>{item.icon} {item.name}<br /><small>{item.rarity} · {getItemEffectText(item)} · 50% 판매가 {Math.floor(item.price * 0.5).toLocaleString()}원</small></span><span style={marketButtonGroupStyle}><button onClick={() => toggleEquipItem(id)} style={casinoSmallButtonStyle}>{equippedItems.includes(id) ? "해제" : "장착"}</button><button onClick={() => quickSellItem(id)} style={casinoSmallButtonStyle}>즉시 판매</button></span></div>;
+                  <div style={itemInventoryHeaderStyle}>
+                    <div>
+                      <h3 style={casinoTitleStyle}>아이템 인벤토리</h3>
+                      <p style={casinoTextStyle}>중복 장신구는 ×수량으로 묶어서 표시됩니다.</p>
+                    </div>
+                    <span style={gachaDiscoveredBadgeStyle}>총 {ownedItems.length}개</span>
+                  </div>
+                  <div style={itemInventoryControlStyle}>
+                    <select value={inventorySortMode} onChange={(event) => setInventorySortMode(event.target.value as ItemSortMode)} style={itemInventorySelectStyle}>
+                      <option value="favorite">즐겨찾기 우선</option>
+                      <option value="rarity">등급 높은 순</option>
+                      <option value="priceDesc">가격 높은 순</option>
+                      <option value="priceAsc">가격 낮은 순</option>
+                      <option value="count">수량 많은 순</option>
+                      <option value="name">이름순</option>
+                    </select>
+                    <button onClick={() => setShowFavoritesOnly((value) => !value)} style={casinoSmallButtonStyle}>
+                      {showFavoritesOnly ? "전체 보기" : "즐겨찾기만"}
+                    </button>
+                  </div>
+                  {visibleInventoryItems.length === 0 ? <p style={casinoTextStyle}>{showFavoritesOnly ? "즐겨찾기 아이템이 없습니다." : "보유 장신구가 없습니다."}</p> : visibleInventoryItems.map((group) => {
+                    const item = group.item;
+                    const isFavorite = favoriteItems.includes(group.id);
+                    const isEquipped = equippedItems.includes(group.id);
+                    return <div key={group.id} style={{ ...marketMiniRowStyle, borderColor: isFavorite ? "#f59e0b" : "#111827", background: isFavorite ? "#fffbeb" : "#ffffff" }}>
+                      <span>{item.icon} {item.name} <strong>×{group.count}</strong> {isFavorite ? "⭐" : ""}<br /><small>{item.rarity} · {getItemEffectText(item)} · {discoveredItems.includes(group.id) ? "도감 등록" : "도감 미등록"} · 50% 판매가 {Math.floor(item.price * 0.5).toLocaleString()}원</small></span>
+                      <span style={marketButtonGroupStyle}>
+                        <button onClick={() => toggleFavoriteItem(group.id)} style={casinoSmallButtonStyle}>{isFavorite ? "즐겨찾기 해제" : "즐겨찾기"}</button>
+                        <button onClick={() => toggleEquipItem(group.id)} style={casinoSmallButtonStyle}>{isEquipped ? "해제" : "장착"}</button>
+                        <button onClick={() => quickSellItem(group.id, 1)} style={casinoSmallButtonStyle}>1개 판매</button>
+                        {group.count > 1 && <button onClick={() => quickSellItem(group.id, group.count)} style={casinoSmallButtonStyle}>전부 판매</button>}
+                      </span>
+                    </div>;
                   })}
                 </section>
               </div>
@@ -4705,12 +4694,13 @@ export default function GamePage() {
                   <p style={casinoTextStyle}>판매 등록 후 다른 유저가 구매하면 판매 금액이 지급됩니다.</p>
                   <select value={sellItemId} onChange={(event) => setSellItemId(event.target.value)} style={casinoInputStyle}>
                     <option value="">판매할 아이템 선택</option>
-                    {ownedItems.map((id, index) => {
-                      const item = shopItems.find((entry) => entry.id === id);
-                      return item ? <option key={`${id}-${index}`} value={id}>{item.rarity} · {item.name}</option> : null;
-                    })}
+                    {groupedOwnedItems.map((group) => (
+                      <option key={group.id} value={group.id}>{group.item.rarity} · {group.item.name} ×{group.count}</option>
+                    ))}
                   </select>
-                  <input value={sellPrice} onChange={(event) => setSellPrice(event.target.value)} style={casinoInputStyle} type="number" min={1000} step={1000} />
+                  <input value={sellPrice} onChange={(event) => setSellPrice(event.target.value)} style={casinoInputStyle} type="number" min={1000} step={1000} placeholder="개당 판매 가격" />
+                  <input value={sellQuantity} onChange={(event) => setSellQuantity(event.target.value)} style={casinoInputStyle} type="number" min={1} max={Math.max(1, ownedItems.filter((id) => id === sellItemId).length)} step={1} placeholder="판매 수량" />
+                  {sellItemId && <p style={casinoTextStyle}>보유 수량 {ownedItems.filter((id) => id === sellItemId).length}개 중 {Math.max(1, Math.floor(Number(sellQuantity) || 1))}개 등록 예정</p>}
                   <button onClick={listItemForSale} style={casinoPrimaryButtonStyle}>거래소 등록</button>
                 </section>
 
@@ -6197,6 +6187,11 @@ function getStockRemainingMs(updatedAt: Date) {
   return Math.max(0, nextUpdateAt - Date.now());
 }
 
+function getShopRemainingMs(updatedAt: Date) {
+  const nextUpdateAt = updatedAt.getTime() + 10 * 60 * 1000;
+  return Math.max(0, nextUpdateAt - Date.now());
+}
+
 function getCashierDifficultyBySuccess(success: number) {
   return Math.min(9, 1 + Math.floor(success / 5));
 }
@@ -6480,6 +6475,53 @@ function getItemEffectText(item: ShopItem) {
   return `${getBonusTypeLabel(item.bonusType)} +${percent}%`;
 }
 
+
+type GroupedShopItem = { id: ShopItemId; item: ShopItem; count: number };
+
+function groupOwnedShopItems(items: ShopItemId[]): GroupedShopItem[] {
+  const countMap = new Map<ShopItemId, number>();
+  items.forEach((id) => countMap.set(id, (countMap.get(id) ?? 0) + 1));
+  return Array.from(countMap.entries())
+    .map(([id, count]) => {
+      const item = shopItems.find((entry) => entry.id === id);
+      return item ? { id, item, count } : null;
+    })
+    .filter((group): group is GroupedShopItem => Boolean(group));
+}
+
+function getRarityRank(rarity: ShopItem["rarity"]) {
+  if (rarity === "유물") return 5;
+  if (rarity === "보물") return 4;
+  if (rarity === "진귀") return 3;
+  if (rarity === "희소") return 2;
+  return 1;
+}
+
+function sortGroupedShopItems(groups: GroupedShopItem[], mode: ItemSortMode, favorites: ShopItemId[]) {
+  return [...groups].sort((a, b) => {
+    const favoriteDiff = Number(favorites.includes(b.id)) - Number(favorites.includes(a.id));
+    if (mode === "favorite" && favoriteDiff !== 0) return favoriteDiff;
+    if (mode === "rarity") return getRarityRank(b.item.rarity) - getRarityRank(a.item.rarity) || b.item.price - a.item.price;
+    if (mode === "priceDesc") return b.item.price - a.item.price;
+    if (mode === "priceAsc") return a.item.price - b.item.price;
+    if (mode === "count") return b.count - a.count || b.item.price - a.item.price;
+    if (mode === "name") return a.item.name.localeCompare(b.item.name, "ko");
+    return favoriteDiff || getRarityRank(b.item.rarity) - getRarityRank(a.item.rarity) || b.item.price - a.item.price;
+  });
+}
+
+function removeMany(items: string[], target: string, quantity: number) {
+  const copy = [...items];
+  let remaining = Math.max(0, Math.floor(quantity));
+  while (remaining > 0) {
+    const index = copy.indexOf(target);
+    if (index < 0) break;
+    copy.splice(index, 1);
+    remaining -= 1;
+  }
+  return copy;
+}
+
 function removeFirst(items: string[], target: string) {
   const copy = [...items];
   const index = copy.indexOf(target);
@@ -6496,7 +6538,7 @@ function getRankingBuffRate(rank?: number) {
 
 
 function getShopOfferPrice(item: ShopItem) {
-  return Math.ceil(item.price * 1.3);
+  return Math.ceil(item.price * 2);
 }
 
 function getGachaMachineCost(pullCount: number) {
@@ -6515,7 +6557,7 @@ function getInsuranceEffectText(insurance: InsuranceItem) {
   return parts.join(" · ");
 }
 
-function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDeposit: number; bankSavings?: number; bankLoan?: number; creditScore?: number; ownedEstates: EstateId[]; ownedBusinesses: BusinessId[]; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; unpaidTax: number; netWorth: number; sortingSuccessTotal: number; deliverySuccessTotal: number; cashierSuccessTotal: number; cafeSuccessTotal: number; securitySuccessTotal: number; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; discoveredItems?: ShopItemId[]; shopPurchaseCount?: number; gachaMachinePullCount?: number; lottoPurchaseCount?: number; }) {
+function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDeposit: number; bankLoan?: number; creditScore?: number; ownedEstates: EstateId[]; ownedBusinesses: BusinessId[]; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; unpaidTax: number; netWorth: number; sortingSuccessTotal: number; deliverySuccessTotal: number; cashierSuccessTotal: number; cafeSuccessTotal: number; securitySuccessTotal: number; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; }) {
   const totalJobSuccess = params.sortingSuccessTotal + params.deliverySuccessTotal + params.cashierSuccessTotal + params.cafeSuccessTotal + params.securitySuccessTotal;
   const stockValue = params.stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0);
   const stockKindsOwned = params.stockRows.filter((stock) => stock.owned > 0).length;
@@ -6554,29 +6596,9 @@ function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDe
     if (title.id === "treasureCollector") return (params.ownedItems ?? []).filter((id) => { const item = shopItems.find((entry) => entry.id === id); return item?.rarity === "보물" || item?.rarity === "유물"; }).length >= 2;
     if (title.id === "relicOwner") return (params.ownedItems ?? []).some((id) => shopItems.find((entry) => entry.id === id)?.rarity === "유물");
     if (title.id === "marketTrader") return (params.ownedItems ?? []).length >= 5;
-    if (title.id === "lottoDreamer") return Number(params.lottoPurchaseCount ?? 0) >= 3;
-    if (title.id === "phoneAnalyst") return params.netWorth >= 100000;
-    if (title.id === "savingsPlanner") return Number(params.bankSavings ?? 0) >= 500000;
-    if (title.id === "estateCollector") return params.ownedEstates.length >= 5;
-    if (title.id === "shopRegular") return Number(params.shopPurchaseCount ?? 0) >= 10;
-    if (title.id === "gachaAddict") return Number(params.gachaMachinePullCount ?? 0) >= 10;
-    if (title.id === "rankChaser") return params.netWorth >= 3000000;
-    if (title.id === "topRanker") return params.netWorth >= 5000000;
-    if (title.id === "taxFreeMind") return params.unpaidTax <= 0 && params.netWorth >= 2000000;
-    if (title.id === "collectionMaster") return new Set(params.discoveredItems ?? []).size >= 25;
     if (title.id === "millionaire") return params.netWorth >= 1000000;
     if (title.id === "multiMillionaire") return params.netWorth >= 10000000;
     if (title.id === "tycoon") return params.netWorth >= 50000000;
-    if (title.id === "hiddenZero") return params.netWorth >= 25000000 && totalJobSuccess >= 250 && params.unpaidTax <= 0;
-    if (title.id === "hiddenWhale") return stockValue >= 30000000 && stockKindsOwned >= 10;
-    if (title.id === "hiddenLucky") return Number(params.gachaMachinePullCount ?? 0) >= 80 && new Set(params.discoveredItems ?? []).size >= 50;
-    if (title.id === "hiddenEstateLord") return params.ownedEstates.length >= 5 && params.netWorth >= 100000000;
-    if (title.id === "hiddenLaborKing") return totalJobSuccess >= 700;
-    if (title.id === "hiddenMarketGhost") return stockKindsOwned >= 12 && params.netWorth >= 75000000;
-    if (title.id === "hiddenRelicDealer") return (params.ownedItems ?? []).filter((id) => shopItems.find((entry) => entry.id === id)?.rarity === "유물").length >= 3;
-    if (title.id === "hiddenDebtFree") return params.netWorth >= 50000000 && Number(params.bankLoan ?? 0) === 0 && params.unpaidTax === 0;
-    if (title.id === "hiddenCasinoDemon") return Number(params.gachaMachinePullCount ?? 0) >= 120 && params.cash >= 10000000;
-    if (title.id === "hiddenEconomyGod") return params.netWorth >= 500000000 && new Set(params.discoveredItems ?? []).size >= 100;
     return false;
   });
 }
@@ -8697,6 +8719,32 @@ const itemCollectionCardStyle: CSSProperties = {
   fontSize: "12px",
 };
 
+
+const itemInventoryHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "10px",
+  alignItems: "start",
+};
+
+const itemInventoryControlStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gap: "8px",
+  alignItems: "center",
+  marginBottom: "8px",
+};
+
+const itemInventorySelectStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "12px",
+  background: "#ffffff",
+  color: "#111827",
+  padding: "9px 10px",
+  fontWeight: 900,
+  minWidth: 0,
+};
+
 const gachaShopSceneStyle: CSSProperties = {
   width: "100%",
   height: "100%",
@@ -8712,6 +8760,19 @@ const gachaShopSceneStyle: CSSProperties = {
   boxShadow: "0 18px 0 rgba(17,24,39,0.10), 0 24px 46px rgba(15,23,42,0.18)",
 };
 
+const gachaDiscoveredBadgeStyle: CSSProperties = {
+  position: "absolute",
+  top: "8px",
+  right: "8px",
+  border: "2px solid #cbd5e1",
+  borderRadius: "999px",
+  padding: "3px 7px",
+  fontSize: "10px",
+  fontWeight: 900,
+  lineHeight: 1,
+  zIndex: 2,
+};
+
 const gachaOfferGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
@@ -8721,6 +8782,7 @@ const gachaOfferGridStyle: CSSProperties = {
 };
 
 const gachaOfferCardStyle: CSSProperties = {
+  position: "relative",
   display: "grid",
   gridTemplateRows: "auto auto auto auto auto 36px",
   gap: "4px",
@@ -9125,7 +9187,6 @@ const chatSendButtonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
- 
 
 
 
