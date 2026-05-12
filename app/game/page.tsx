@@ -1990,19 +1990,22 @@ export default function GamePage() {
       setShopOffers(makeShopOffers(shopLevel));
       setShopUpdatedAt(new Date());
       setShopSoldOfferKeys([]);
-      setMessage("🎁 가챠 숍 상품 3개가 새로 입고되었습니다.");
+      setGachaMachinePullCount(0);
+      setMessage("🎁 가챠 숍 상품 3개가 새로 입고되었습니다. 가챠 자판기 가격도 50,000원으로 초기화되었습니다.");
     }, 10 * 60 * 1000);
 
     return () => window.clearInterval(timer);
   }, [isSaveLoaded, shopLevel]);
 
   useEffect(() => {
-    if (shopOffers.length === 0) {
+    const elapsedMs = Date.now() - shopUpdatedAt.getTime();
+    if (shopOffers.length === 0 || elapsedMs >= 10 * 60 * 1000) {
       setShopOffers(makeShopOffers(shopLevel));
       setShopUpdatedAt(new Date());
       setShopSoldOfferKeys([]);
+      setGachaMachinePullCount(0);
     }
-  }, [shopOffers.length, shopLevel]);
+  }, [shopOffers.length, shopLevel, shopUpdatedAt]);
 
   useEffect(() => {
     if (lobbyView === "itemMarket") refreshMarketListings();
@@ -2895,16 +2898,16 @@ export default function GamePage() {
     setMessage(`🎓 ${certification.name} 취득 완료! ${certification.effectText}`);
   }
 
-  function buyShopOffer(item: ShopItem, offerKey?: string) {
+  function buyShopOffer(item: ShopItem, offerKey?: string, offerPrice = getShopOfferPrice(item)) {
     if (offerKey && shopSoldOfferKeys.includes(offerKey)) {
       setMessage("🎁 이미 SOLD OUT 된 상품입니다. 다음 입고를 기다려주세요.");
       return;
     }
-    if (cash < item.price) {
-      setMessage(`🎁 ${item.name} 구매에는 ${item.price.toLocaleString()}원이 필요합니다.`);
+    if (cash < offerPrice) {
+      setMessage(`🎁 ${item.name} 구매에는 ${offerPrice.toLocaleString()}원이 필요합니다.`);
       return;
     }
-    setCash((money) => money - item.price);
+    setCash((money) => money - offerPrice);
     setOwnedItems((owned) => [...owned, item.id]);
     setDiscoveredItems((items) => Array.from(new Set([...items, item.id])));
     if (offerKey) setShopSoldOfferKeys((keys) => Array.from(new Set([...keys, offerKey])));
@@ -4570,7 +4573,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>GACHA SHOP</div>
                   <h2 style={panelTitleStyle}>가챠 숍</h2>
-                  <p style={panelDescStyle}>10분마다 3개 장신구가 입고됩니다. 상점 등급 Lv.{shopLevel} · 구매 {shopPurchaseCount}회 · 장착 {equippedItems.length}/{itemSlotCount}</p>
+                  <p style={panelDescStyle}>10분마다 랜덤 장신구 3개만 입고됩니다. 입고 상품은 원래 가격의 1.3배로 판매되며, 한 번 구매하면 SOLD OUT 처리됩니다. 상점 등급 Lv.{shopLevel} · 구매 {shopPurchaseCount}회 · 장착 {equippedItems.length}/{itemSlotCount}</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
               </div>
@@ -4579,34 +4582,35 @@ export default function GamePage() {
                 {(shopOffers.length > 0 ? shopOffers : makeShopOffers(shopLevel)).slice(0, 3).map((item, index) => {
                   const offerKey = `${shopUpdatedAt.toISOString()}-${index}-${item.id}`;
                   const soldOut = shopSoldOfferKeys.includes(offerKey);
+                  const offerPrice = getShopOfferPrice(item);
                   return (
                   <div key={offerKey} style={{ ...economyCardStyle, borderColor: getRarityColor(item.rarity), opacity: soldOut ? 0.58 : 1 }}>
                     <h3 style={economyCardTitleStyle}>{item.icon} {item.name}</h3>
                     <p style={economyCardTextStyle}>{item.rarity} · {item.description}</p>
-                    <strong>{item.price.toLocaleString()}원</strong>
+                    <strong>{offerPrice.toLocaleString()}원 <small style={{ color: "#64748b" }}>(정가 {item.price.toLocaleString()}원 × 1.3)</small></strong>
                     <strong style={{ color: getRarityColor(item.rarity) }}>{getItemEffectText(item)}</strong>
                     <small style={{ color: getRarityColor(item.rarity), fontWeight: 900 }}>{getRarityPerformanceText(item.rarity)}</small>
-                    <button onClick={() => buyShopOffer(item, offerKey)} disabled={soldOut || cash < item.price} style={{ ...casinoPrimaryButtonStyle, opacity: soldOut || cash < item.price ? 0.45 : 1 }}>{soldOut ? "SOLD OUT" : "구매"}</button>
+                    <button onClick={() => buyShopOffer(item, offerKey, offerPrice)} disabled={soldOut || cash < offerPrice} style={{ ...casinoPrimaryButtonStyle, opacity: soldOut || cash < offerPrice ? 0.45 : 1 }}>{soldOut ? "SOLD OUT" : "구매"}</button>
                   </div>
                   );
                 })}
               </div>
 
-              <section style={casinoListCardStyle}>
-                <h3 style={casinoTitleStyle}>장착 중인 아이템</h3>
-                <p style={casinoTextStyle}>현재 장착 {equippedItems.length}/{itemSlotCount}. 여기서 효과를 확인하고 바로 해제할 수 있습니다.</p>
-                {equippedItems.length === 0 ? <p style={casinoTextStyle}>장착 중인 아이템이 없습니다.</p> : equippedItems.map((id, index) => {
-                  const item = shopItems.find((entry) => entry.id === id);
-                  if (!item) return null;
-                  return <div key={`equipped-${id}-${index}`} style={marketMiniRowStyle}><span>{item.icon} {item.name}<br /><small>{item.rarity} · {getItemEffectText(item)} · {item.description}</small></span><button onClick={() => toggleEquipItem(id)} style={casinoSmallButtonStyle}>해제</button></div>;
-                })}
-              </section>
 
               <div style={casinoLowerGridStyle}>
                 <section style={casinoListCardStyle}>
                   <h3 style={casinoTitleStyle}>가챠 자판기</h3>
-                  <p style={casinoTextStyle}>현재 1회 {getGachaMachineCost(gachaMachinePullCount).toLocaleString()}원. 5번 이상 돌릴 때마다 가격이 2배씩 상승합니다.</p>
+                  <p style={casinoTextStyle}>현재 1회 {getGachaMachineCost(gachaMachinePullCount).toLocaleString()}원. 10뽑을 할 때마다 가격이 2배씩 상승하며, 10분 재입고 시 50,000원으로 초기화됩니다.</p>
                   <button onClick={pullGachaMachine} style={casinoPrimaryButtonStyle}>가챠 돌리기</button>
+                  <div style={gachaEquippedPanelStyle}>
+                    <h4 style={gachaEquippedTitleStyle}>장착 중인 아이템</h4>
+                    <p style={casinoTextStyle}>현재 장착 {equippedItems.length}/{itemSlotCount}. 효과 확인과 해제를 바로 할 수 있습니다.</p>
+                    {equippedItems.length === 0 ? <p style={casinoTextStyle}>장착 중인 아이템이 없습니다.</p> : equippedItems.map((id, index) => {
+                      const item = shopItems.find((entry) => entry.id === id);
+                      if (!item) return null;
+                      return <div key={`equipped-${id}-${index}`} style={marketMiniRowStyle}><span>{item.icon} {item.name}<br /><small>{item.rarity} · {getItemEffectText(item)} · {item.description}</small></span><button onClick={() => toggleEquipItem(id)} style={casinoSmallButtonStyle}>해제</button></div>;
+                    })}
+                  </div>
                 </section>
                 <section style={casinoListCardStyle}>
                   <h3 style={casinoTitleStyle}>아이템 인벤토리</h3>
@@ -6433,8 +6437,12 @@ function getTitleStockBonus(titleId: PlayerTitleId) {
   return 0;
 }
 
+function getShopOfferPrice(item: ShopItem) {
+  return Math.ceil(item.price * 1.3);
+}
+
 function getGachaMachineCost(pullCount: number) {
-  return 50000 * Math.pow(2, Math.floor(Math.max(0, pullCount) / 5));
+  return 50000 * Math.pow(2, Math.floor(Math.max(0, pullCount) / 10));
 }
 
 function getInsuranceEffectText(insurance: InsuranceItem) {
@@ -8609,6 +8617,22 @@ const itemCollectionCardStyle: CSSProperties = {
   display: "grid",
   gap: "4px",
   fontSize: "12px",
+};
+
+const gachaEquippedPanelStyle: CSSProperties = {
+  border: "3px solid rgba(250,204,21,0.9)",
+  borderRadius: "18px",
+  background: "linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,251,235,0.95))",
+  padding: "12px",
+  display: "grid",
+  gap: "8px",
+};
+
+const gachaEquippedTitleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "18px",
+  fontWeight: 900,
+  color: "#111827",
 };
 
 const marketMiniRowStyle: CSSProperties = {
