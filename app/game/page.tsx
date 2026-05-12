@@ -50,7 +50,7 @@ type SaveRow = {
 type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "titles" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket" | "lotto" | "phone" | "luxury";
 type RoomKind = "basic" | "studio" | "office";
 type CareerBuildingId = "company" | "entertainment" | "logistics" | "finance";
-type StreetBuildingId = CareerBuildingId | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket" | "lotto";
+type StreetBuildingId = CareerBuildingId | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket" | "lotto" | "luxury";
 type OccupationId =
   | "unemployed"
   | "officeIntern"
@@ -92,6 +92,7 @@ type Occupation = {
 type RankingRow = {
   rank: number;
   nickname: string;
+  nicknameColorId?: NicknameColorId;
   cash: number;
   job: string;
   titleName?: string;
@@ -271,6 +272,7 @@ type GlobalStockMarketResult = GlobalStockMarketResultRow | GlobalStockMarketRes
 type CasinoUserRow = {
   id: string;
   nickname: string;
+  nicknameColorId?: NicknameColorId;
   cash: number;
   job: string;
 };
@@ -869,6 +871,7 @@ const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: st
   { id: "gacha", title: "가챠 숍", subtitle: "장신구 · 자판기", emoji: "🎁" },
   { id: "itemMarket", title: "아이템 거래소", subtitle: "유저 장신구 매매", emoji: "🤝" },
   { id: "lotto", title: "로또 판매소", subtitle: "하루 3회 · 긁는 복권", emoji: "🎫" },
+  { id: "luxury", title: "사치 아이템 숍", subtitle: "닉네임 · 이름표 · 배경", emoji: "💎" },
   { id: "casino", title: "도박장", subtitle: "슬롯 머신 · 유저 대전", emoji: "🎰" },
 ];
 
@@ -878,7 +881,7 @@ const streetBuildingPages: StreetBuildingId[][] = [
   ["estate", "business", "news"],
   ["insurance", "employees", "academy"],
   ["gacha", "itemMarket", "lotto"],
-  ["casino"],
+  ["luxury", "casino"],
 ];
 
 const stockCompanies: StockCompany[] = [
@@ -2042,7 +2045,7 @@ export default function GamePage() {
   useEffect(() => {
     if (lobbyView === "ranking") refreshRanking();
     if (lobbyView === "casino") refreshCasinoData();
-  }, [lobbyView, rankingMode]);
+  }, [lobbyView, rankingMode, selectedNicknameColorId]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
@@ -3455,7 +3458,7 @@ export default function GamePage() {
       return;
     }
 
-    if (buildingId === "bank" || buildingId === "estate" || buildingId === "business" || buildingId === "news" || buildingId === "insurance" || buildingId === "employees" || buildingId === "auction" || buildingId === "academy" || buildingId === "gacha" || buildingId === "itemMarket" || buildingId === "lotto") {
+    if (buildingId === "bank" || buildingId === "estate" || buildingId === "business" || buildingId === "news" || buildingId === "insurance" || buildingId === "employees" || buildingId === "auction" || buildingId === "academy" || buildingId === "gacha" || buildingId === "itemMarket" || buildingId === "lotto" || buildingId === "luxury") {
       setLobbyView(buildingId);
       return;
     }
@@ -3897,6 +3900,11 @@ export default function GamePage() {
         return {
           rank: 0,
           nickname: profile.id === userId ? currentNickname : profile.nickname || "이름 없음",
+          nicknameColorId: profile.id === userId
+            ? selectedNicknameColorId
+            : (typeof economy.selectedNicknameColorId === "string" && (economy.selectedNicknameColorId === defaultNicknameColorTheme.id || luxuryNicknameColors.some((theme) => theme.id === economy.selectedNicknameColorId))
+              ? (economy.selectedNicknameColorId as NicknameColorId)
+              : defaultNicknameColorTheme.id),
           cash: rankingMode === "collection" ? discoveredCount : Math.max(0, Math.floor(calculateRankingNetWorth(profile))),
           hasSave: !!save,
           job: profile.id === userId ? occupationInfo[occupationId].name : occupationInfo[profileOccupationId].name,
@@ -4405,7 +4413,6 @@ export default function GamePage() {
               />
               <button onClick={saveNickname} style={smallActionButtonStyle}>닉네임 변경</button>
               <button onClick={() => setLobbyView("titles")} style={smallActionButtonStyle}>칭호</button>
-              <button onClick={() => setLobbyView("luxury")} style={smallActionButtonStyle}>사치 숍</button>
               <button onClick={() => setChatOpen((open) => !open)} style={smallActionButtonStyle}>{chatOpen ? "채팅 끄기" : "채팅 켜기"}</button>
             </div>
           </div>
@@ -5136,14 +5143,14 @@ export default function GamePage() {
           )}
 
           {lobbyView === "luxury" && (
-            <div style={panelSceneStyle}>
+            <div style={luxuryShopSceneStyle}>
               <div style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>LUXURY SHOP</div>
                   <h2 style={panelTitleStyle}>사치 아이템 숍</h2>
                   <p style={panelDescStyle}>닉네임 장식, 이름표, 메인 배경, 메인 캐릭터를 구매하고 바로 적용할 수 있습니다. 모든 상품은 매우 비싸며, 더 화려할수록 가격이 올라갑니다.</p>
                 </div>
-                <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
+                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
               </div>
 
               <div style={luxurySummaryBarStyle}>
@@ -5637,7 +5644,7 @@ export default function GamePage() {
                 {rankingRows.map((row) => (
                   <div key={`${row.rank}-${row.nickname}`} style={{ ...rankingRowStyle, borderColor: row.isMe ? "#38bdf8" : "rgba(255,255,255,0.14)", background: row.isMe ? "rgba(56,189,248,0.16)" : "rgba(255,255,255,0.06)" }}>
                     <strong>{row.rank}위 {row.rank === 1 ? "🥇" : row.rank === 2 ? "🥈" : row.rank === 3 ? "🥉" : ""}</strong>
-                    <span>{row.isMe ? "👤 " : ""}{row.nickname}</span>
+                    <span>{row.isMe ? "👤 " : ""}<span style={getNicknameTextStyle(row.isMe ? activeNicknameColor : (luxuryNicknameColors.find((theme) => theme.id === row.nicknameColorId) ?? defaultNicknameColorTheme))}>{row.nickname}</span></span>
                     <span>{row.titleIcon} {row.titleName}<br /><small>{row.job}</small></span>
                     <strong>{rankingMode === "netWorth" ? `${row.cash.toLocaleString()}원` : `${row.cash.toLocaleString()}종`}<br />{rankingMode === "netWorth" && row.rank <= 3 && <small style={{ color: "#7c3aed" }}>랭킹 버프 +{Math.round(getRankingBuffRate(row.rank) * 100)}%</small>}</strong>
                   </div>
@@ -6481,6 +6488,28 @@ function StreetBuildingIllustration({ id }: { id: StreetBuildingId }) {
     );
   }
 
+
+  if (id === "luxury") {
+    return (
+      <svg viewBox="0 0 240 170" style={streetFacadeSvgStyle} aria-hidden="true">
+        <defs>
+          <linearGradient id="luxuryShopWall" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor="#fdf2f8" />
+            <stop offset="55%" stopColor="#f9a8d4" />
+            <stop offset="100%" stopColor="#a78bfa" />
+          </linearGradient>
+        </defs>
+        <rect x="34" y="48" width="172" height="92" rx="16" fill="url(#luxuryShopWall)" stroke="#111827" strokeWidth="7" />
+        <path d="M42 50 L68 22 H182 L206 50 Z" fill="#facc15" stroke="#111827" strokeWidth="6" strokeLinejoin="round" />
+        <rect x="72" y="64" width="96" height="34" rx="15" fill="#ffffff" stroke="#111827" strokeWidth="5" />
+        <text x="120" y="87" textAnchor="middle" fontSize="16" fontWeight="900" fill="#7c3aed">LUX</text>
+        <rect x="58" y="102" width="42" height="38" rx="8" fill="#fff7ed" stroke="#111827" strokeWidth="4" />
+        <rect x="140" y="102" width="42" height="38" rx="8" fill="#eff6ff" stroke="#111827" strokeWidth="4" />
+        <circle cx="120" cy="120" r="14" fill="#facc15" stroke="#111827" strokeWidth="4" />
+      </svg>
+    );
+  }
+
   if (id === "itemMarket") {
     return (
       <svg viewBox="0 0 220 150" style={streetFacadeSvgStyle} aria-hidden="true">
@@ -6669,7 +6698,7 @@ function getStreetPageLabel(page: number) {
   if (page === 2) return "자산 · 사업 지구";
   if (page === 3) return "리스크 · 교육 지구";
   if (page === 4) return "가챠 · 거래 지구";
-  return "카지노 지구";
+  return "럭셔리 · 카지노 지구";
 }
 
 function getStreetBuildingHeight(buildingId: StreetBuildingId) {
@@ -6683,6 +6712,7 @@ function getStreetBuildingHeight(buildingId: StreetBuildingId) {
   if (buildingId === "business") return "192px";
   if (buildingId === "news") return "178px";
   if (buildingId === "casino") return "198px";
+  if (buildingId === "luxury") return "214px";
   if (buildingId === "academy") return "206px";
   if (buildingId === "gacha") return "198px";
   if (buildingId === "itemMarket") return "192px";
@@ -6722,7 +6752,8 @@ function getStreetBuildingPlacement(buildingId: StreetBuildingId, page: number):
   }
 
   if (page === 5) {
-    if (buildingId === "casino") return { left: "37%", bottom: "132px", width: "26%" };
+    if (buildingId === "luxury") return { left: "19%", bottom: "132px", width: "26%" };
+    if (buildingId === "casino") return { left: "55%", bottom: "132px", width: "26%" };
   }
 
   return { left: "38%", bottom: "132px", width: "22%" };
@@ -6756,6 +6787,13 @@ function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
     return {
       background: "linear-gradient(180deg, #dcfce7 0%, #22c55e 100%)",
       borderColor: "#166534",
+    };
+  }
+
+  if (buildingId === "luxury") {
+    return {
+      background: "linear-gradient(180deg, #fdf2f8 0%, #c084fc 100%)",
+      borderColor: "#7e22ce",
     };
   }
 
@@ -7259,6 +7297,7 @@ function makeRankingRows(nickname: string, cash: number, job: string): RankingRo
     {
       rank: 1,
       nickname,
+      nicknameColorId: defaultNicknameColorTheme.id,
       cash,
       job,
       hasSave: true,
@@ -7780,9 +7819,9 @@ const roomMoneyStyle: CSSProperties = {
 
 const roomInfoTextStyle: CSSProperties = {
   position: "absolute",
-  top: "52px",
-  left: "12px",
-  width: "210px",
+  top: "92px",
+  left: "18px",
+  width: "238px",
   maxWidth: "calc(100% - 24px)",
   fontSize: "14px",
   fontWeight: 900,
@@ -7794,8 +7833,8 @@ const roomInfoTextStyle: CSSProperties = {
   padding: "10px 12px",
   boxShadow: "4px 4px 0 rgba(17,24,39,0.18)",
   display: "grid",
-  gap: "4px",
-  overflow: "hidden",
+  gap: "5px",
+  overflow: "visible",
 };
 
 const roomInfoNameStyle: CSSProperties = {
@@ -10297,6 +10336,21 @@ const profileNameplateMetaStyle: CSSProperties = {
   fontWeight: 900,
 };
 
+
+const luxuryShopSceneStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "block",
+  overflowY: "auto",
+  overflowX: "hidden",
+  background: "linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%)",
+  color: "#111827",
+  border: "4px solid #111827",
+  borderRadius: "26px",
+  padding: "18px",
+  boxShadow: "0 18px 0 rgba(17,24,39,0.10), 0 24px 46px rgba(15,23,42,0.18)",
+};
+
 const luxurySummaryBarStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
@@ -10338,7 +10392,7 @@ const luxuryMiniBadgeStyle: CSSProperties = {
 
 const luxuryGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
   gap: "12px",
 };
 
@@ -10353,7 +10407,7 @@ const luxuryCardStyle: CSSProperties = {
 };
 
 const luxuryPreviewFrameStyle: CSSProperties = {
-  minHeight: "116px",
+  minHeight: "132px",
   border: "3px solid #cbd5e1",
   borderRadius: "16px",
   background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
