@@ -165,7 +165,7 @@ type ShopItem = {
   rarity: ItemRarity;
   price: number;
   description: string;
-  bonusType: "allIncome" | "businessIncome" | "stockLuck" | "jobIncome" | "casinoLuck";
+  bonusType: "allIncome" | "businessIncome" | "marketInsight" | "jobIncome" | "casinoLuck";
   bonusValue: number;
 };
 
@@ -744,17 +744,17 @@ const certifications: Certification[] = [
   { id: "office", name: "컴퓨터활용 자격증", icon: "💻", price: 120000, description: "회사 업무 승급과 사무직 수익에 도움이 됩니다.", effectText: "직업 수익 +3%" },
   { id: "barista", name: "바리스타 자격증", icon: "☕", price: 90000, description: "카페 계열 창업과 수익에 도움이 됩니다.", effectText: "사업 수익 +3%" },
   { id: "logistics", name: "물류관리사", icon: "📦", price: 150000, description: "물류/배송 계열 직업과 사업 운영에 도움이 됩니다.", effectText: "전체 수익 +2%" },
-  { id: "investment", name: "투자분석 자격증", icon: "📈", price: 180000, description: "주식 투자 판단력과 운을 조금 올려줍니다.", effectText: "주식 상승 확률 +2%" },
+  { id: "investment", name: "투자분석 자격증", icon: "📈", price: 180000, description: "주식 투자 판단력과 리스크 관리 능력을 올려줍니다.", effectText: "주식 분석 보정 +2%" },
   { id: "business", name: "창업 교육 수료증", icon: "🏪", price: 220000, description: "창업 비용 감각과 사업 운영력을 높입니다.", effectText: "사업 수익 +5%" },
 ];
 
-const shopItems: ShopItem[] = [
-  { id: "lucky_coin", name: "행운의 동전", icon: "🪙", rarity: "일반", price: 30000, description: "소소하게 운을 올려주는 낡은 동전입니다.", bonusType: "stockLuck", bonusValue: 0.01 },
+const baseShopItems: ShopItem[] = [
+  { id: "lucky_coin", name: "행운의 동전", icon: "🪙", rarity: "일반", price: 30000, description: "소소하게 운을 올려주는 낡은 동전입니다.", bonusType: "marketInsight", bonusValue: 0.01 },
   { id: "salary_pin", name: "월급 핀", icon: "📌", rarity: "일반", price: 45000, description: "직업 수익을 조금 올려줍니다.", bonusType: "jobIncome", bonusValue: 0.03 },
   { id: "bronze_wallet", name: "청동 지갑", icon: "👛", rarity: "일반", price: 28000, description: "잔돈을 더 잘 챙기는 평범한 지갑입니다.", bonusType: "allIncome", bonusValue: 0.01 },
   { id: "work_badge", name: "근면 배지", icon: "🏷️", rarity: "일반", price: 36000, description: "직업 수익에 작은 보탬이 됩니다.", bonusType: "jobIncome", bonusValue: 0.025 },
   { id: "coffee_stamp", name: "카페 스탬프", icon: "☕", rarity: "일반", price: 42000, description: "작은 사업 감각을 올려줍니다.", bonusType: "businessIncome", bonusValue: 0.025 },
-  { id: "tiny_four_leaf", name: "작은 네잎클로버", icon: "🍀", rarity: "일반", price: 50000, description: "아주 작은 행운을 줍니다.", bonusType: "stockLuck", bonusValue: 0.008 },
+  { id: "tiny_four_leaf", name: "작은 네잎클로버", icon: "🍀", rarity: "일반", price: 50000, description: "아주 작은 행운을 줍니다.", bonusType: "marketInsight", bonusValue: 0.008 },
   { id: "cheap_calculator", name: "싸구려 계산기", icon: "🧮", rarity: "일반", price: 26000, description: "손익 계산을 조금 빠르게 합니다.", bonusType: "allIncome", bonusValue: 0.012 },
   { id: "delivery_receipt", name: "배달 영수증", icon: "🧾", rarity: "일반", price: 33000, description: "배달과 직업 수익에 작은 도움이 됩니다.", bonusType: "jobIncome", bonusValue: 0.022 },
   { id: "plastic_name_tag", name: "플라스틱 명찰", icon: "📛", rarity: "일반", price: 39000, description: "손님 응대 능력이 소폭 증가합니다.", bonusType: "jobIncome", bonusValue: 0.024 },
@@ -764,62 +764,62 @@ const shopItems: ShopItem[] = [
   { id: "store_coupon", name: "상점 쿠폰", icon: "🎟️", rarity: "일반", price: 44000, description: "사업 운영 감각을 조금 올립니다.", bonusType: "businessIncome", bonusValue: 0.028 },
   { id: "mini_lamp", name: "작은 스탠드", icon: "💡", rarity: "일반", price: 48000, description: "야간 업무 집중력을 조금 올립니다.", bonusType: "jobIncome", bonusValue: 0.028 },
   { id: "paper_clip", name: "행운 클립", icon: "📎", rarity: "일반", price: 25000, description: "문서 정리 운이 조금 좋아집니다.", bonusType: "allIncome", bonusValue: 0.01 },
-  { id: "market_sticker", name: "시장 스티커", icon: "🏷️", rarity: "일반", price: 46000, description: "주식 판매 판단에 아주 작은 보너스가 생깁니다.", bonusType: "stockLuck", bonusValue: 0.01 },
+  { id: "market_sticker", name: "시장 스티커", icon: "🏷️", rarity: "일반", price: 46000, description: "주식 판매 판단에 아주 작은 보너스가 생깁니다.", bonusType: "marketInsight", bonusValue: 0.01 },
   { id: "red_pencil", name: "빨간 연필", icon: "✏️", rarity: "일반", price: 32000, description: "가계부 작성 능력이 좋아집니다.", bonusType: "allIncome", bonusValue: 0.012 },
   { id: "cafe_keyring", name: "카페 키링", icon: "🔑", rarity: "일반", price: 41000, description: "카페 계열 사업 수익을 아주 조금 올립니다.", bonusType: "businessIncome", bonusValue: 0.027 },
   { id: "tiny_dice", name: "작은 주사위", icon: "🎲", rarity: "일반", price: 52000, description: "카지노 운이 아주 조금 오릅니다.", bonusType: "casinoLuck", bonusValue: 0.012 },
   { id: "receipt_box", name: "영수증 상자", icon: "📥", rarity: "일반", price: 35000, description: "돈 흐름 관리가 조금 좋아집니다.", bonusType: "allIncome", bonusValue: 0.014 },
   { id: "security_whistle", name: "보안 호루라기", icon: "📣", rarity: "일반", price: 43000, description: "보안 계열 업무 수익이 소폭 증가합니다.", bonusType: "jobIncome", bonusValue: 0.027 },
   { id: "delivery_cap", name: "배달 모자", icon: "🧢", rarity: "일반", price: 47000, description: "알바 수익에 작은 보너스가 붙습니다.", bonusType: "jobIncome", bonusValue: 0.029 },
-  { id: "stock_memo", name: "주식 메모지", icon: "📝", rarity: "일반", price: 49000, description: "매도 수익에 아주 작은 보너스가 붙습니다.", bonusType: "stockLuck", bonusValue: 0.012 },
+  { id: "stock_memo", name: "주식 메모지", icon: "📝", rarity: "일반", price: 49000, description: "매도 수익에 아주 작은 보너스가 붙습니다.", bonusType: "marketInsight", bonusValue: 0.012 },
   { id: "wooden_abacus", name: "나무 주판", icon: "🧮", rarity: "일반", price: 54000, description: "전체 수익이 조금 늘어납니다.", bonusType: "allIncome", bonusValue: 0.015 },
   { id: "small_piggybank", name: "작은 저금통", icon: "🐷", rarity: "일반", price: 58000, description: "절약 습관으로 수익 관리가 좋아집니다.", bonusType: "allIncome", bonusValue: 0.016 },
   { id: "employee_badge", name: "임시 사원증", icon: "🪪", rarity: "일반", price: 53000, description: "직업 수익이 조금 증가합니다.", bonusType: "jobIncome", bonusValue: 0.03 },
   { id: "neon_ticket", name: "네온 티켓", icon: "🎫", rarity: "일반", price: 56000, description: "엔터 관련 활동 수익이 소폭 좋아집니다.", bonusType: "jobIncome", bonusValue: 0.031 },
   { id: "basic_contract", name: "기본 계약서", icon: "📄", rarity: "일반", price: 60000, description: "사업 계약 운이 아주 조금 상승합니다.", bonusType: "businessIncome", bonusValue: 0.03 },
-  { id: "lucky_button", name: "행운 단추", icon: "🔘", rarity: "일반", price: 62000, description: "작지만 꾸준한 행운을 줍니다.", bonusType: "stockLuck", bonusValue: 0.014 },
+  { id: "lucky_button", name: "행운 단추", icon: "🔘", rarity: "일반", price: 62000, description: "작지만 꾸준한 행운을 줍니다.", bonusType: "marketInsight", bonusValue: 0.014 },
   { id: "starter_chip", name: "입문 칩", icon: "🟤", rarity: "일반", price: 65000, description: "카지노 감각이 아주 조금 좋아집니다.", bonusType: "casinoLuck", bonusValue: 0.014 },
   { id: "silver_abacus", name: "은 주판", icon: "🧮", rarity: "희소", price: 120000, description: "모든 수익이 소폭 증가합니다.", bonusType: "allIncome", bonusValue: 0.03 },
   { id: "delivery_charm", name: "배달 부적", icon: "🛵", rarity: "희소", price: 150000, description: "알바와 직업 수익에 도움이 되는 부적입니다.", bonusType: "jobIncome", bonusValue: 0.06 },
   { id: "blue_pocket_watch", name: "푸른 회중시계", icon: "🕰️", rarity: "희소", price: 135000, description: "일하는 리듬을 정돈해줍니다.", bonusType: "jobIncome", bonusValue: 0.05 },
   { id: "mini_safe", name: "소형 금고", icon: "🔐", rarity: "희소", price: 160000, description: "수익 관리가 쉬워집니다.", bonusType: "allIncome", bonusValue: 0.035 },
   { id: "store_neon", name: "상점 네온사인", icon: "💡", rarity: "희소", price: 190000, description: "사업 손님을 더 끌어옵니다.", bonusType: "businessIncome", bonusValue: 0.06 },
-  { id: "trader_notebook", name: "트레이더 노트", icon: "📒", rarity: "희소", price: 210000, description: "매도 판단을 조금 좋게 만듭니다.", bonusType: "stockLuck", bonusValue: 0.018 },
+  { id: "trader_notebook", name: "트레이더 노트", icon: "📒", rarity: "희소", price: 210000, description: "매도 판단을 조금 좋게 만듭니다.", bonusType: "marketInsight", bonusValue: 0.018 },
   { id: "blue_chip", name: "블루 칩", icon: "🔵", rarity: "희소", price: 170000, description: "카지노 운을 조금 높여줍니다.", bonusType: "casinoLuck", bonusValue: 0.025 },
   { id: "silver_wallet", name: "은빛 지갑", icon: "👛", rarity: "희소", price: 180000, description: "전체 수익이 안정적으로 증가합니다.", bonusType: "allIncome", bonusValue: 0.038 },
   { id: "office_tie", name: "사무용 넥타이", icon: "👔", rarity: "희소", price: 155000, description: "직업 수익에 실속 있는 보너스를 줍니다.", bonusType: "jobIncome", bonusValue: 0.055 },
   { id: "cafe_apron", name: "바리스타 앞치마", icon: "🥼", rarity: "희소", price: 165000, description: "카페와 사업 수익에 도움이 됩니다.", bonusType: "businessIncome", bonusValue: 0.058 },
   { id: "shipping_label", name: "물류 라벨러", icon: "🏷️", rarity: "희소", price: 145000, description: "물류 계열 업무 효율을 높입니다.", bonusType: "jobIncome", bonusValue: 0.052 },
   { id: "savings_stamp", name: "저축 스탬프", icon: "🏦", rarity: "희소", price: 195000, description: "돈 관리 능력이 좋아집니다.", bonusType: "allIncome", bonusValue: 0.04 },
-  { id: "lucky_loupe", name: "행운 돋보기", icon: "🔎", rarity: "희소", price: 220000, description: "주식 판매 보너스가 증가합니다.", bonusType: "stockLuck", bonusValue: 0.022 },
+  { id: "lucky_loupe", name: "행운 돋보기", icon: "🔎", rarity: "희소", price: 220000, description: "주식 분석 보정가 증가합니다.", bonusType: "marketInsight", bonusValue: 0.022 },
   { id: "dealer_token", name: "딜러 토큰", icon: "🪙", rarity: "희소", price: 230000, description: "카지노 확률 감각이 좋아집니다.", bonusType: "casinoLuck", bonusValue: 0.03 },
   { id: "market_banner", name: "시장 배너", icon: "🏪", rarity: "희소", price: 240000, description: "사업 홍보력이 증가합니다.", bonusType: "businessIncome", bonusValue: 0.065 },
   { id: "premium_stamp", name: "프리미엄 도장", icon: "🔖", rarity: "희소", price: 250000, description: "직업과 업무 수익이 올라갑니다.", bonusType: "jobIncome", bonusValue: 0.062 },
   { id: "silver_ring", name: "은 반지", icon: "💍", rarity: "희소", price: 260000, description: "전체 수익이 준수하게 오릅니다.", bonusType: "allIncome", bonusValue: 0.042 },
-  { id: "green_candle", name: "초록 캔들", icon: "🕯️", rarity: "희소", price: 270000, description: "주식 매도 운이 좋아집니다.", bonusType: "stockLuck", bonusValue: 0.025 },
+  { id: "green_candle", name: "초록 캔들", icon: "🕯️", rarity: "희소", price: 270000, description: "주식 매도 운이 좋아집니다.", bonusType: "marketInsight", bonusValue: 0.025 },
   { id: "slot_coupon", name: "슬롯 쿠폰", icon: "🎟️", rarity: "희소", price: 280000, description: "카지노 운에 보너스가 붙습니다.", bonusType: "casinoLuck", bonusValue: 0.034 },
   { id: "franchise_manual", name: "가맹 매뉴얼", icon: "📘", rarity: "희소", price: 290000, description: "사업 운영 수익을 올립니다.", bonusType: "businessIncome", bonusValue: 0.07 },
   { id: "career_compass", name: "커리어 나침반", icon: "🧭", rarity: "희소", price: 300000, description: "직업 수익 방향성이 좋아집니다.", bonusType: "jobIncome", bonusValue: 0.068 },
   { id: "silver_cashbook", name: "은빛 장부", icon: "📔", rarity: "희소", price: 310000, description: "전체 수익률이 올라갑니다.", bonusType: "allIncome", bonusValue: 0.045 },
-  { id: "fund_ticket", name: "펀드 티켓", icon: "🎫", rarity: "희소", price: 320000, description: "주식 판매 보너스가 더 붙습니다.", bonusType: "stockLuck", bonusValue: 0.028 },
+  { id: "fund_ticket", name: "펀드 티켓", icon: "🎫", rarity: "희소", price: 320000, description: "주식 분석 보정가 더 붙습니다.", bonusType: "marketInsight", bonusValue: 0.028 },
   { id: "golden_coffee_spoon", name: "황금 커피스푼", icon: "🥄", rarity: "희소", price: 330000, description: "사업 수익에 좋은 보너스가 붙습니다.", bonusType: "businessIncome", bonusValue: 0.074 },
-  { id: "lucky_rabbit_pin", name: "토끼 행운핀", icon: "🐰", rarity: "희소", price: 340000, description: "주식과 카지노 운이 조금 좋아집니다.", bonusType: "stockLuck", bonusValue: 0.03 },
+  { id: "lucky_rabbit_pin", name: "토끼 행운핀", icon: "🐰", rarity: "희소", price: 340000, description: "주식과 카지노 운이 조금 좋아집니다.", bonusType: "marketInsight", bonusValue: 0.03 },
   { id: "golden_register", name: "황금 계산대", icon: "🏪", rarity: "진귀", price: 380000, description: "사업 수익을 크게 올려줍니다.", bonusType: "businessIncome", bonusValue: 0.1 },
-  { id: "market_lens", name: "시장 분석 렌즈", icon: "🔍", rarity: "진귀", price: 420000, description: "주식 흐름을 읽는 감각을 올려줍니다.", bonusType: "stockLuck", bonusValue: 0.03 },
+  { id: "market_lens", name: "시장 분석 렌즈", icon: "🔍", rarity: "진귀", price: 420000, description: "주식 흐름을 읽는 감각을 올려줍니다.", bonusType: "marketInsight", bonusValue: 0.03 },
   { id: "ruby_calculator", name: "루비 계산기", icon: "🧮", rarity: "진귀", price: 520000, description: "모든 돈 흐름을 빠르게 계산합니다.", bonusType: "allIncome", bonusValue: 0.055 },
   { id: "ceo_pen", name: "대표의 만년필", icon: "🖋️", rarity: "진귀", price: 650000, description: "사업 계약에 강해집니다.", bonusType: "businessIncome", bonusValue: 0.12 },
   { id: "premium_id_card", name: "프리미엄 사원증", icon: "💳", rarity: "진귀", price: 580000, description: "직장 수익을 크게 올립니다.", bonusType: "jobIncome", bonusValue: 0.1 },
-  { id: "chart_crystal", name: "차트 수정구", icon: "🔮", rarity: "진귀", price: 720000, description: "주식 매도 시 보너스가 붙습니다.", bonusType: "stockLuck", bonusValue: 0.035 },
+  { id: "chart_crystal", name: "차트 수정구", icon: "🔮", rarity: "진귀", price: 720000, description: "주식 매도 시 보너스가 붙습니다.", bonusType: "marketInsight", bonusValue: 0.035 },
   { id: "golden_slot_chip", name: "황금 슬롯칩", icon: "🟡", rarity: "진귀", price: 740000, description: "카지노 감각을 올려줍니다.", bonusType: "casinoLuck", bonusValue: 0.035 },
   { id: "emerald_briefcase", name: "에메랄드 서류가방", icon: "💼", rarity: "진귀", price: 760000, description: "직업 수익이 크게 상승합니다.", bonusType: "jobIncome", bonusValue: 0.115 },
   { id: "rare_franchise_map", name: "진귀한 상권 지도", icon: "🗺️", rarity: "진귀", price: 820000, description: "사업 매출 포인트를 찾아냅니다.", bonusType: "businessIncome", bonusValue: 0.13 },
   { id: "red_profit_gem", name: "수익의 붉은 보석", icon: "♦️", rarity: "진귀", price: 880000, description: "전체 수익을 확실하게 올립니다.", bonusType: "allIncome", bonusValue: 0.065 },
-  { id: "blue_market_orb", name: "푸른 시장 구슬", icon: "🔵", rarity: "진귀", price: 900000, description: "주식 판매 보너스가 꽤 증가합니다.", bonusType: "stockLuck", bonusValue: 0.04 },
+  { id: "blue_market_orb", name: "푸른 시장 구슬", icon: "🔵", rarity: "진귀", price: 900000, description: "주식 분석 보정가 꽤 증가합니다.", bonusType: "marketInsight", bonusValue: 0.04 },
   { id: "dealer_watch", name: "딜러의 시계", icon: "⌚", rarity: "진귀", price: 930000, description: "카지노 판 흐름을 읽습니다.", bonusType: "casinoLuck", bonusValue: 0.045 },
   { id: "executive_card", name: "임원 카드", icon: "💳", rarity: "진귀", price: 980000, description: "직업 수익에 강한 보너스가 붙습니다.", bonusType: "jobIncome", bonusValue: 0.125 },
   { id: "golden_menu_board", name: "황금 메뉴판", icon: "📋", rarity: "진귀", price: 1040000, description: "사업 수익을 크게 끌어올립니다.", bonusType: "businessIncome", bonusValue: 0.14 },
   { id: "diamond_receipt", name: "다이아 영수증", icon: "🧾", rarity: "진귀", price: 1100000, description: "전체 수익 관리가 탁월해집니다.", bonusType: "allIncome", bonusValue: 0.075 },
-  { id: "bullish_talisman", name: "상승장 부적", icon: "🐂", rarity: "진귀", price: 1160000, description: "주식 판매 수익 보너스가 증가합니다.", bonusType: "stockLuck", bonusValue: 0.045 },
+  { id: "bullish_talisman", name: "상승장 부적", icon: "🐂", rarity: "진귀", price: 1160000, description: "주식 판매 수익 보너스가 증가합니다.", bonusType: "marketInsight", bonusValue: 0.045 },
   { id: "royal_chip_case", name: "왕실 칩 케이스", icon: "🎰", rarity: "진귀", price: 1220000, description: "카지노 운을 중상급으로 올립니다.", bonusType: "casinoLuck", bonusValue: 0.052 },
   { id: "master_badge", name: "마스터 배지", icon: "🏅", rarity: "진귀", price: 1280000, description: "직업 수익이 큰 폭으로 증가합니다.", bonusType: "jobIncome", bonusValue: 0.135 },
   { id: "golden_store_bell", name: "황금 상점 종", icon: "🔔", rarity: "진귀", price: 1340000, description: "사업 손님을 크게 늘립니다.", bonusType: "businessIncome", bonusValue: 0.15 },
@@ -828,28 +828,75 @@ const shopItems: ShopItem[] = [
   { id: "merchant_crown", name: "상인의 왕관", icon: "👑", rarity: "보물", price: 1300000, description: "모든 수익이 눈에 띄게 증가합니다.", bonusType: "allIncome", bonusValue: 0.08 },
   { id: "platinum_briefcase", name: "플래티넘 서류가방", icon: "💼", rarity: "보물", price: 1600000, description: "직업과 사업 양쪽에 강한 보너스를 줍니다.", bonusType: "allIncome", bonusValue: 0.09 },
   { id: "franchise_key", name: "프랜차이즈 황금열쇠", icon: "🗝️", rarity: "보물", price: 1850000, description: "사업 확장에 특화된 보물입니다.", bonusType: "businessIncome", bonusValue: 0.18 },
-  { id: "wallstreet_ring", name: "월스트리트 반지", icon: "💍", rarity: "보물", price: 2100000, description: "주식 판매 보너스를 크게 올립니다.", bonusType: "stockLuck", bonusValue: 0.055 },
+  { id: "wallstreet_ring", name: "월스트리트 반지", icon: "💍", rarity: "보물", price: 2100000, description: "주식 분석 보정를 크게 올립니다.", bonusType: "marketInsight", bonusValue: 0.055 },
   { id: "jackpot_bell", name: "잭팟 종", icon: "🔔", rarity: "보물", price: 2300000, description: "카지노 운을 크게 올립니다.", bonusType: "casinoLuck", bonusValue: 0.07 },
   { id: "golden_tower_badge", name: "황금 타워 배지", icon: "🏙️", rarity: "보물", price: 2500000, description: "전체 수익이 보물급으로 증가합니다.", bonusType: "allIncome", bonusValue: 0.1 },
   { id: "legend_office_stamp", name: "전설 사무 도장", icon: "🏢", rarity: "보물", price: 2700000, description: "직업 수익을 매우 크게 올립니다.", bonusType: "jobIncome", bonusValue: 0.18 },
   { id: "dragon_contract", name: "용의 계약서", icon: "🐉", rarity: "보물", price: 3000000, description: "사업 수익을 강하게 끌어올립니다.", bonusType: "businessIncome", bonusValue: 0.21 },
   { id: "profit_crown", name: "수익왕관", icon: "👑", rarity: "보물", price: 3300000, description: "전체 수익에 강한 보너스를 줍니다.", bonusType: "allIncome", bonusValue: 0.115 },
-  { id: "stock_king_medal", name: "주식왕 메달", icon: "🥇", rarity: "보물", price: 3600000, description: "주식 판매 금액이 크게 증가합니다.", bonusType: "stockLuck", bonusValue: 0.07 },
+  { id: "stock_king_medal", name: "주식왕 메달", icon: "🥇", rarity: "보물", price: 3600000, description: "주식 판매 금액이 크게 증가합니다.", bonusType: "marketInsight", bonusValue: 0.07 },
   { id: "casino_royal_key", name: "카지노 왕실열쇠", icon: "🗝️", rarity: "보물", price: 3900000, description: "카지노 운을 보물급으로 올립니다.", bonusType: "casinoLuck", bonusValue: 0.09 },
   { id: "tycoon_glasses", name: "재벌 안경", icon: "🕶️", rarity: "보물", price: 4200000, description: "사업과 전체 수익을 함께 올립니다.", bonusType: "allIncome", bonusValue: 0.12 },
   { id: "black_card", name: "블랙 카드", icon: "🖤", rarity: "보물", price: 4600000, description: "직업과 사업 수익을 크게 강화합니다.", bonusType: "businessIncome", bonusValue: 0.23 },
   { id: "treasure_account_book", name: "보물 장부", icon: "📚", rarity: "보물", price: 5000000, description: "전체 수익을 안정적으로 크게 올립니다.", bonusType: "allIncome", bonusValue: 0.13 },
   { id: "ancient_cashbook", name: "고대 장부", icon: "📜", rarity: "유물", price: 3500000, description: "사업과 직업 수익을 강하게 올려주는 유물입니다.", bonusType: "allIncome", bonusValue: 0.14 },
-  { id: "fortune_core", name: "행운 핵", icon: "💠", rarity: "유물", price: 5000000, description: "극악 확률로만 얻는 전설적인 행운 장신구입니다.", bonusType: "stockLuck", bonusValue: 0.07 },
+  { id: "fortune_core", name: "행운 핵", icon: "💠", rarity: "유물", price: 5000000, description: "극악 확률로만 얻는 전설적인 행운 장신구입니다.", bonusType: "marketInsight", bonusValue: 0.07 },
   { id: "mythic_ledger", name: "신화의 장부", icon: "📚", rarity: "유물", price: 7800000, description: "모든 수익을 강하게 끌어올립니다.", bonusType: "allIncome", bonusValue: 0.18 },
   { id: "phoenix_contract", name: "불사조 계약서", icon: "🔥", rarity: "유물", price: 9200000, description: "사업 수익을 압도적으로 강화합니다.", bonusType: "businessIncome", bonusValue: 0.28 },
-  { id: "oracle_ticker", name: "예언의 시세판", icon: "📟", rarity: "유물", price: 10500000, description: "주식 판매 금액에 강력한 보너스를 줍니다.", bonusType: "stockLuck", bonusValue: 0.1 },
+  { id: "oracle_ticker", name: "예언의 시세판", icon: "📟", rarity: "유물", price: 10500000, description: "주식 판매 금액에 강력한 보너스를 줍니다.", bonusType: "marketInsight", bonusValue: 0.1 },
   { id: "royal_casino_dice", name: "왕가의 주사위", icon: "🎲", rarity: "유물", price: 8800000, description: "카지노 운을 크게 높여줍니다.", bonusType: "casinoLuck", bonusValue: 0.12 },
   { id: "time_bank_relic", name: "시간 은행 유물", icon: "⏳", rarity: "유물", price: 12000000, description: "전체 수익이 유물급으로 증가합니다.", bonusType: "allIncome", bonusValue: 0.21 },
   { id: "world_franchise_core", name: "세계 프랜차이즈 코어", icon: "🌐", rarity: "유물", price: 14000000, description: "사업 수익을 압도적으로 끌어올립니다.", bonusType: "businessIncome", bonusValue: 0.33 },
-  { id: "market_prophet_eye", name: "시장 예언자의 눈", icon: "👁️", rarity: "유물", price: 16000000, description: "주식 매도 보너스가 최고급으로 증가합니다.", bonusType: "stockLuck", bonusValue: 0.13 },
+  { id: "market_prophet_eye", name: "시장 예언자의 눈", icon: "👁️", rarity: "유물", price: 16000000, description: "주식 매도 보너스가 최고급으로 증가합니다.", bonusType: "marketInsight", bonusValue: 0.13 },
   { id: "emperor_coin", name: "황제의 코인", icon: "🪙", rarity: "유물", price: 20000000, description: "모든 수익이 극적으로 상승합니다.", bonusType: "allIncome", bonusValue: 0.25 },
 ];
+
+const extraShopItems: ShopItem[] = Array.from({ length: 100 }, (_, index) => {
+  const rarityPlan: ItemRarity[] = [
+    ...Array(30).fill("일반"),
+    ...Array(25).fill("희소"),
+    ...Array(20).fill("진귀"),
+    ...Array(15).fill("보물"),
+    ...Array(10).fill("유물"),
+  ] as ItemRarity[];
+  const rarity = rarityPlan[index] ?? "일반";
+  const rarityMeta: Record<ItemRarity, { basePrice: number; step: number; baseBonus: number; icons: string[]; labels: string[] }> = {
+    일반: { basePrice: 38000, step: 3500, baseBonus: 0.012, icons: ["🧾", "🪙", "🧢", "📎", "🔑"], labels: ["생활", "알바", "절약", "소액", "근면"] },
+    희소: { basePrice: 150000, step: 12000, baseBonus: 0.035, icons: ["💳", "📘", "🧭", "🔐", "💡"], labels: ["실버", "상점", "운영", "효율", "관리"] },
+    진귀: { basePrice: 520000, step: 36000, baseBonus: 0.072, icons: ["🔮", "💎", "📊", "🧿", "🏵️"], labels: ["진귀", "분석", "고급", "전문", "전략"] },
+    보물: { basePrice: 2100000, step: 160000, baseBonus: 0.13, icons: ["👑", "🏆", "💠", "🗝️", "📜"], labels: ["보물", "재벌", "황금", "왕실", "명품"] },
+    유물: { basePrice: 8000000, step: 650000, baseBonus: 0.2, icons: ["🏺", "🌌", "🔥", "⏳", "🪬"], labels: ["고대", "신화", "유물", "전설", "차원"] },
+  };
+  const bonusCycle: ShopItem["bonusType"][] = ["allIncome", "jobIncome", "businessIncome", "casinoLuck", "marketInsight"];
+  const bonusType = bonusCycle[index % bonusCycle.length];
+  const meta = rarityMeta[rarity];
+  const icon = meta.icons[index % meta.icons.length];
+  const label = meta.labels[index % meta.labels.length];
+  const price = meta.basePrice + meta.step * (index + 1);
+  const bonusValue = Number((meta.baseBonus + (index % 5) * 0.004).toFixed(3));
+  const bonusText = bonusType === "allIncome"
+    ? "전체 수익"
+    : bonusType === "jobIncome"
+      ? "직업 수익"
+      : bonusType === "businessIncome"
+        ? "사업 수익"
+        : bonusType === "casinoLuck"
+          ? "카지노 운"
+          : "주식 분석";
+
+  return {
+    id: `collection_extra_${index + 1}`,
+    name: `${label} 장신구 ${index + 1}`,
+    icon,
+    rarity,
+    price,
+    description: `${rarity} 등급의 수집형 장신구입니다. ${bonusText}에 특화되어 있습니다.`,
+    bonusType,
+    bonusValue,
+  };
+});
+
+const shopItems: ShopItem[] = [...baseShopItems, ...extraShopItems];
 
 const playerTitles: PlayerTitle[] = [
   { id: "newbie", name: "초보 경제인", icon: "🌱", description: "게임을 시작한 기본 칭호입니다." },
@@ -896,11 +943,11 @@ const playerTitles: PlayerTitle[] = [
   { id: "taxFreeMind", name: "납세 우등생", icon: "📄", description: "미납 세금 0원 + 순자산 2,000,000원 이상", passiveText: "세금 압박 완화" },
   { id: "collectionMaster", name: "도감 수집가", icon: "📖", description: "장신구 25종 이상 수집", passiveText: "전체 수익 +1%" },
   { id: "hiddenZero", name: "숨겨진 시작점", icon: "🕯️", description: "조건 비공개", hidden: true, passiveText: "전체 수익 +1%" },
-  { id: "hiddenWhale", name: "조용한 고래", icon: "🐳", description: "조건 비공개", hidden: true, passiveText: "주식 판매 보너스" },
+  { id: "hiddenWhale", name: "조용한 고래", icon: "🐳", description: "조건 비공개", hidden: true, passiveText: "주식 분석 보정" },
   { id: "hiddenLucky", name: "확률의 선택자", icon: "🍀", description: "조건 비공개", hidden: true, passiveText: "가챠/카지노 행운" },
   { id: "hiddenEstateLord", name: "밤의 건물주", icon: "🌃", description: "조건 비공개", hidden: true, passiveText: "임대 수익 +3%" },
   { id: "hiddenLaborKing", name: "알바의 전설", icon: "⚒️", description: "조건 비공개", hidden: true, passiveText: "알바/직업 수익 +3%" },
-  { id: "hiddenMarketGhost", name: "시장 유령", icon: "👻", description: "조건 비공개", hidden: true, passiveText: "주식 판매 +2%" },
+  { id: "hiddenMarketGhost", name: "시장 유령", icon: "👻", description: "조건 비공개", hidden: true, passiveText: "주식 분석 +2%" },
   { id: "hiddenRelicDealer", name: "유물 거래상", icon: "🏺", description: "조건 비공개", hidden: true, passiveText: "아이템 슬롯 +1" },
   { id: "hiddenDebtFree", name: "빚 없는 왕", icon: "🕊️", description: "조건 비공개", hidden: true, passiveText: "전체 수익 +2%" },
   { id: "hiddenCasinoDemon", name: "카지노 악마", icon: "😈", description: "조건 비공개", hidden: true, passiveText: "카지노 행운" },
@@ -986,6 +1033,7 @@ export default function GamePage() {
   const [currentTitleId, setCurrentTitleId] = useState<PlayerTitleId>("newbie");
   const [ownedCertifications, setOwnedCertifications] = useState<CertificationId[]>([]);
   const [ownedItems, setOwnedItems] = useState<ShopItemId[]>([]);
+  const [discoveredItems, setDiscoveredItems] = useState<ShopItemId[]>([]);
   const [equippedItems, setEquippedItems] = useState<ShopItemId[]>([]);
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpense, setTotalExpense] = useState(0);
@@ -1126,7 +1174,7 @@ export default function GamePage() {
   const allIncomeBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "allIncome" ? item.bonusValue : 0), currentTitleId === "relicOwner" ? 0.03 : 0);
   const businessItemBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "businessIncome" ? item.bonusValue : 0), 0);
   const jobItemBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "jobIncome" ? item.bonusValue : 0), 0) + (ownedCertifications.includes("office") ? 0.03 : 0) + (ownedCertifications.includes("logistics") ? 0.02 : 0) + (currentTitleId === "certifiedExpert" ? 0.02 : 0);
-  const stockSaleBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "stockLuck" ? item.bonusValue : 0), getTitleStockBonus(currentTitleId)) + (ownedCertifications.includes("investment") ? 0.02 : 0);
+  const marketInsightBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "marketInsight" ? item.bonusValue : 0), getTitleStockBonus(currentTitleId)) + (ownedCertifications.includes("investment") ? 0.02 : 0);
   const casinoLuckBonus = equippedShopItems.reduce((sum, item) => sum + (item.bonusType === "casinoLuck" ? item.bonusValue : 0), 0);
   const totalIncomeMultiplier = 1 + allIncomeBonus;
   const jobIncomeMultiplier = 1 + allIncomeBonus + jobItemBonus;
@@ -1355,7 +1403,7 @@ export default function GamePage() {
     }
 
     try {
-      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; equippedItems?: ShopItemId[]; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; gachaMachinePullCount?: number; announcedSecretTitles?: PlayerTitleId[]; lottoTickets?: LottoTicket[]; lottoPurchaseDate?: string; lottoPurchaseCount?: number; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[] };
+      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; discoveredItems?: ShopItemId[]; equippedItems?: ShopItemId[]; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; gachaMachinePullCount?: number; announcedSecretTitles?: PlayerTitleId[]; lottoTickets?: LottoTicket[]; lottoPurchaseDate?: string; lottoPurchaseCount?: number; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[] };
       const loadedDeposit = Number(parsed.bankDeposit ?? 0);
       const loadedSavings = Number(parsed.bankSavings ?? 0);
       setBankDeposit(loadedDeposit);
@@ -1372,7 +1420,17 @@ export default function GamePage() {
       if (parsed.businessEmployees && typeof parsed.businessEmployees === "object") setBusinessEmployees(parsed.businessEmployees);
       if (Array.isArray(parsed.auctionDeals) && parsed.auctionDeals.length > 0) setAuctionDeals(parsed.auctionDeals);
       if (Array.isArray(parsed.ownedCertifications)) setOwnedCertifications(parsed.ownedCertifications.filter((id): id is CertificationId => certifications.some((item) => item.id === id)));
-      if (Array.isArray(parsed.ownedItems)) setOwnedItems(parsed.ownedItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id)));
+      if (Array.isArray(parsed.ownedItems)) {
+        const loadedOwned = parsed.ownedItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id));
+        setOwnedItems(loadedOwned);
+        if (Array.isArray(parsed.discoveredItems)) {
+          setDiscoveredItems(parsed.discoveredItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id)));
+        } else {
+          setDiscoveredItems(Array.from(new Set(loadedOwned)));
+        }
+      } else if (Array.isArray(parsed.discoveredItems)) {
+        setDiscoveredItems(parsed.discoveredItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id)));
+      }
       if (Array.isArray(parsed.equippedItems)) setEquippedItems(parsed.equippedItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id)));
       if (typeof parsed.shopLevel === "number") setShopLevel(parsed.shopLevel);
       if (typeof parsed.shopPurchaseCount === "number") setShopPurchaseCount(parsed.shopPurchaseCount);
@@ -1419,6 +1477,7 @@ export default function GamePage() {
       auctionDeals,
       ownedCertifications,
       ownedItems,
+      discoveredItems,
       equippedItems,
       shopLevel,
       shopPurchaseCount,
@@ -1452,7 +1511,7 @@ export default function GamePage() {
       .then(({ error }) => {
         if (error) console.warn("경제 데이터 Supabase 저장 실패. localStorage에는 저장되었습니다:", error.message);
       });
-  }, [userId, isSaveLoaded, isEconomyLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, equippedItems, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, announcedSecretTitles, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, economyUpdatedAt]);
+  }, [userId, isSaveLoaded, isEconomyLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, discoveredItems, equippedItems, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, announcedSecretTitles, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, economyUpdatedAt]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -2817,6 +2876,7 @@ export default function GamePage() {
     }
     setCash((money) => money - item.price);
     setOwnedItems((owned) => [...owned, item.id]);
+    setDiscoveredItems((items) => Array.from(new Set([...items, item.id])));
     if (offerKey) setShopSoldOfferKeys((keys) => Array.from(new Set([...keys, offerKey])));
     setShopPurchaseCount((count) => count + 1);
     setShopLevel((level) => Math.min(5, Math.max(level, 1 + Math.floor((shopPurchaseCount + 1) / 5))));
@@ -2849,6 +2909,7 @@ export default function GamePage() {
       return;
     }
     setOwnedItems((owned) => [...owned, item.id]);
+    setDiscoveredItems((items) => Array.from(new Set([...items, item.id])));
     setShopPurchaseCount((count) => count + 1);
     setGachaMachinePullCount((count) => count + 1);
     setMessage(`🎰 가챠 성공! ${item.rarity} 등급 ${item.name} 획득!`);
@@ -2923,6 +2984,7 @@ export default function GamePage() {
       return;
     }
     setOwnedItems((items) => [...items, listing.item_id]);
+    setDiscoveredItems((items) => Array.from(new Set([...items, listing.item_id])));
     setMessage("🤝 거래소에 올린 아이템을 회수했습니다.");
     refreshMarketListings();
   }
@@ -2946,6 +3008,7 @@ export default function GamePage() {
     }
     setCash((money) => money - price);
     setOwnedItems((items) => [...items, listing.item_id]);
+    setDiscoveredItems((items) => Array.from(new Set([...items, listing.item_id])));
     setMessage("🤝 유저 거래소에서 아이템을 구매했습니다.");
     refreshMarketListings();
   }
@@ -3729,7 +3792,7 @@ export default function GamePage() {
 
     const sellAmount = Math.min(stock.owned, Math.max(1, Math.floor(amount)));
     const baseTotalPrice = stock.price * sellAmount;
-    const totalPrice = Math.floor(baseTotalPrice * (1 + stockSaleBonus));
+    const totalPrice = baseTotalPrice;
 
     const nextRows = stockRows.map((row) => {
       if (row.id !== stockId) return row;
@@ -3744,7 +3807,7 @@ export default function GamePage() {
     setCash((money) => money + totalPrice);
     setStockRows(nextRows);
     persistStocksNow(nextRows);
-    setMessage(`${stock.name} ${sellAmount.toLocaleString()}주를 총 ${totalPrice.toLocaleString()}원에 매도했습니다.${stockSaleBonus > 0 ? ` (아이템/자격증 효과 +${Math.round(stockSaleBonus * 100)}%)` : ""}`);
+    setMessage(`${stock.name} ${sellAmount.toLocaleString()}주를 총 ${totalPrice.toLocaleString()}원에 매도했습니다.${marketInsightBonus > 0 ? ` (주식 분석 보정 +${Math.round(marketInsightBonus * 100)}%, 매도가 보너스 없음)` : ""}`);
   }
 
   function sellAllStock(stockId: StockId) {
@@ -4085,8 +4148,8 @@ export default function GamePage() {
                               평균 매수가 {performance.averageBuyPrice.toLocaleString()}원 · 손익 {performance.profit >= 0 ? "+" : ""}{performance.profit.toLocaleString()}원 ({performance.profitRate >= 0 ? "+" : ""}{performance.profitRate.toFixed(2)}%)
                             </div>
                           )}
-                          {stock.owned > 0 && stockSaleBonus > 0 && (
-                            <div style={{ ...stockOwnedStyle, color: "#7c3aed" }}>장신구/자격증 효과로 판매 금액 +{Math.round(stockSaleBonus * 100)}%</div>
+                          {stock.owned > 0 && marketInsightBonus > 0 && (
+                            <div style={{ ...stockOwnedStyle, color: "#7c3aed" }}>장신구/자격증 효과: 주식 분석 보정 +{Math.round(marketInsightBonus * 100)}%</div>
                           )}
                         </div>
                         <div style={stockActionGroupStyle}>
@@ -4497,6 +4560,16 @@ export default function GamePage() {
                 })}
               </div>
 
+              <section style={casinoListCardStyle}>
+                <h3 style={casinoTitleStyle}>장착 중인 아이템</h3>
+                <p style={casinoTextStyle}>현재 장착 {equippedItems.length}/{itemSlotCount}. 여기서 효과를 확인하고 바로 해제할 수 있습니다.</p>
+                {equippedItems.length === 0 ? <p style={casinoTextStyle}>장착 중인 아이템이 없습니다.</p> : equippedItems.map((id, index) => {
+                  const item = shopItems.find((entry) => entry.id === id);
+                  if (!item) return null;
+                  return <div key={`equipped-${id}-${index}`} style={marketMiniRowStyle}><span>{item.icon} {item.name}<br /><small>{item.rarity} · {getItemEffectText(item)} · {item.description}</small></span><button onClick={() => toggleEquipItem(id)} style={casinoSmallButtonStyle}>해제</button></div>;
+                })}
+              </section>
+
               <div style={casinoLowerGridStyle}>
                 <section style={casinoListCardStyle}>
                   <h3 style={casinoTitleStyle}>가챠 자판기</h3>
@@ -4504,7 +4577,7 @@ export default function GamePage() {
                   <button onClick={pullGachaMachine} style={casinoPrimaryButtonStyle}>가챠 돌리기</button>
                 </section>
                 <section style={casinoListCardStyle}>
-                  <h3 style={casinoTitleStyle}>내 장신구</h3>
+                  <h3 style={casinoTitleStyle}>아이템 인벤토리</h3>
                   {ownedItems.length === 0 ? <p style={casinoTextStyle}>보유 장신구가 없습니다.</p> : ownedItems.map((id, index) => {
                     const item = shopItems.find((entry) => entry.id === id);
                     if (!item) return null;
@@ -4753,7 +4826,7 @@ export default function GamePage() {
 
                       <section style={phoneMiniDockStyle}>
                         <span>{currentTitle.icon} {currentTitle.name}</span>
-                        <span>📈 주식 판매 +{Math.round(stockSaleBonus * 100)}%</span>
+                        <span>📈 주식 분석 +{Math.round(marketInsightBonus * 100)}%</span>
                       </section>
                     </>
                   ) : (
@@ -4806,7 +4879,7 @@ export default function GamePage() {
                             <span>{currentTitle.icon} 칭호: {currentTitle.name}{currentTitle.passiveText ? ` · ${currentTitle.passiveText}` : ""}</span>
                             <span>🎁 장신구: {equippedShopItems.length > 0 ? equippedShopItems.map((item) => `${item.icon} ${item.name}`).join(", ") : "없음"}</span>
                             <span>🎓 자격증: {ownedCertifications.length > 0 ? ownedCertifications.map((id) => certifications.find((cert) => cert.id === id)?.name ?? id).join(", ") : "없음"}</span>
-                            <span>📈 주식 판매 보너스: +{Math.round(stockSaleBonus * 100)}%</span>
+                            <span>📈 주식 분석 보정: +{Math.round(marketInsightBonus * 100)}%</span>
                             <span>💰 전체 수익 보너스: +{Math.round(allIncomeBonus * 100)}%</span>
                           </div>
                         </section>
@@ -4814,10 +4887,10 @@ export default function GamePage() {
                       {phoneApp === "collection" && (
                         <section style={phoneCardStyle}>
                           <h3 style={phoneCardTitleStyle}>아이템 도감</h3>
-                          <p style={casinoTextStyle}>수집 {new Set(ownedItems).size}/{shopItems.length}종 · 등급이 높을수록 성능 차이가 확실합니다.</p>
+                          <p style={casinoTextStyle}>수집 {new Set(discoveredItems).size}/{shopItems.length}종 · 등급이 높을수록 성능 차이가 확실합니다.</p>
                           <div style={itemCollectionGridStyle}>
                             {shopItems.map((item) => {
-                              const owned = ownedItems.includes(item.id);
+                              const owned = discoveredItems.includes(item.id);
                               return (
                                 <div key={item.id} style={{ ...itemCollectionCardStyle, borderColor: getRarityColor(item.rarity), opacity: owned ? 1 : 0.42 }}>
                                   <strong>{owned ? item.icon : "❔"} {owned ? item.name : "미수집"}</strong>
@@ -6285,7 +6358,7 @@ function getItemEffectText(item: ShopItem) {
   const percent = Math.round(item.bonusValue * 100);
   if (item.bonusType === "allIncome") return `전체 수익 +${percent}%`;
   if (item.bonusType === "businessIncome") return `사업 수익 +${percent}%`;
-  if (item.bonusType === "stockLuck") return `주식 상승 보정 +${percent}%`;
+  if (item.bonusType === "marketInsight") return `주식 분석 보정 +${percent}%`;
   if (item.bonusType === "jobIncome") return `직업 수익 +${percent}%`;
   return `카지노 운 +${percent}%`;
 }
