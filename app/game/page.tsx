@@ -156,7 +156,7 @@ type Certification = {
   effectText: string;
 };
 
-type ItemRarity = "일반" | "희소" | "진귀" | "보물" | "유물";
+type ItemRarity = "일반" | "희소" | "진귀" | "보물" | "유물" | "고대 유물";
 type ShopItemId = string;
 type ItemSortMode = "favorite" | "rarity" | "priceDesc" | "priceAsc" | "name" | "count";
 type ShopItem = {
@@ -861,6 +861,39 @@ const baseShopItems: ShopItem[] = [
   { id: "emperor_coin", name: "황제의 코인", icon: "🪙", rarity: "유물", price: 20000000, description: "모든 수익이 극적으로 상승합니다.", bonusType: "allIncome", bonusValue: 0.25 },
 ];
 
+const ancientRelicItems: ShopItem[] = [
+  {
+    id: "ancient_princess_gem",
+    name: "꼬마 공주님의 보석",
+    icon: "💎",
+    rarity: "고대 유물",
+    price: 250000000,
+    description: "도트빛으로 반짝이는 전설의 보석입니다. 모든 수익과 가챠 행운을 압도적으로 끌어올립니다.",
+    bonusType: "allIncome",
+    bonusValue: 0.75,
+  },
+  {
+    id: "ancient_princess_bat",
+    name: "꼬마 공주님의 방망이",
+    icon: "🏏",
+    rarity: "고대 유물",
+    price: 280000000,
+    description: "픽셀 모험가가 남긴 장난감 방망이입니다. 사업 수익과 직업 수익을 어마무시하게 강화합니다.",
+    bonusType: "businessIncome",
+    bonusValue: 1.15,
+  },
+  {
+    id: "ancient_knight_helmet",
+    name: "어느 기사의 투구",
+    icon: "🛡️",
+    rarity: "고대 유물",
+    price: 320000000,
+    description: "중세 왕국의 정예 기사가 쓰던 도트풍 투구입니다. 고풍스러운 철제 투구의 위엄을 담아 부동산 수익과 은행 이자 효율을 크게 높입니다.",
+    bonusType: "estateIncome",
+    bonusValue: 1.05,
+  },
+];
+
 const extraShopItems: ShopItem[] = Array.from({ length: 100 }, (_, index) => {
   const rarityPlan: ItemRarity[] = [
     ...Array(30).fill("일반"),
@@ -876,6 +909,7 @@ const extraShopItems: ShopItem[] = Array.from({ length: 100 }, (_, index) => {
     진귀: { basePrice: 520000, step: 36000, baseBonus: 0.072, icons: ["🔮", "💎", "📊", "🧿", "🏵️"], labels: ["진귀", "분석", "고급", "전문", "전략"] },
     보물: { basePrice: 2100000, step: 160000, baseBonus: 0.13, icons: ["👑", "🏆", "💠", "🗝️", "📜"], labels: ["보물", "재벌", "황금", "왕실", "명품"] },
     유물: { basePrice: 8000000, step: 650000, baseBonus: 0.2, icons: ["🏺", "🌌", "🔥", "⏳", "🪬"], labels: ["고대", "신화", "유물", "전설", "차원"] },
+    "고대 유물": { basePrice: 250000000, step: 35000000, baseBonus: 0.75, icons: ["💎", "🏏", "🪖"], labels: ["공주", "기사", "전설"] },
   };
   const bonusCycle: ShopItem["bonusType"][] = ["allIncome", "jobIncome", "businessIncome", "casinoLuck", "estateIncome", "bankInterest", "lottoLuck", "gachaLuck", "taxShield", "employeeEfficiency"];
   const bonusType = bonusCycle[index % bonusCycle.length];
@@ -898,7 +932,7 @@ const extraShopItems: ShopItem[] = Array.from({ length: 100 }, (_, index) => {
   };
 });
 
-const rawShopItems: ShopItem[] = [...baseShopItems, ...extraShopItems];
+const rawShopItems: ShopItem[] = [...baseShopItems, ...extraShopItems, ...ancientRelicItems];
 const maxTreasureItemPrice = Math.max(...rawShopItems.filter((item) => item.rarity === "보물").map((item) => item.price), 0);
 const shopItems: ShopItem[] = rawShopItems.map((item, index) => {
   if (item.rarity !== "유물" || item.price > maxTreasureItemPrice) return item;
@@ -1051,6 +1085,7 @@ export default function GamePage() {
   const [streetPage, setStreetPage] = useState(0);
   const [phoneApp, setPhoneApp] = useState<"home" | "wallet" | "chart" | "income" | "buffs" | "collection">("home");
   const [currentTitleId, setCurrentTitleId] = useState<PlayerTitleId>("newbie");
+  const [earnedTitleIds, setEarnedTitleIds] = useState<PlayerTitleId[]>(["newbie"]);
   const [ownedCertifications, setOwnedCertifications] = useState<CertificationId[]>([]);
   const [ownedItems, setOwnedItems] = useState<ShopItemId[]>([]);
   const [discoveredItems, setDiscoveredItems] = useState<ShopItemId[]>([]);
@@ -1247,10 +1282,32 @@ export default function GamePage() {
   );
   const itemAssetValue = ownedItems.reduce((sum, id) => sum + (shopItems.find((item) => item.id === id)?.price ?? 0), 0);
   const netWorth = cash + bankDeposit + bankSavings + stockAssetValue + estateAssetValue + businessAssetValue + itemAssetValue - bankLoan - unpaidTax;
-  const unlockedTitles = useMemo(
+  const conditionUnlockedTitles = useMemo(
     () => getUnlockedTitles({ cash, stockRows, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems }),
     [cash, stockRows, bankDeposit, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems]
   );
+  const unlockedTitles = useMemo(() => {
+    const unlockedIdSet = new Set<PlayerTitleId>(["newbie", ...earnedTitleIds, ...conditionUnlockedTitles.map((title) => title.id)]);
+    return playerTitles.filter((title) => unlockedIdSet.has(title.id));
+  }, [earnedTitleIds, conditionUnlockedTitles]);
+
+  useEffect(() => {
+    const conditionIds = conditionUnlockedTitles.map((title) => title.id);
+    const nextIds = Array.from(new Set<PlayerTitleId>(["newbie", ...earnedTitleIds, ...conditionIds]));
+    const hasNewTitle = nextIds.some((id) => !earnedTitleIds.includes(id));
+
+    if (hasNewTitle) {
+      const newlyUnlocked = nextIds.filter((id) => !earnedTitleIds.includes(id));
+      setEarnedTitleIds(nextIds);
+
+      newlyUnlocked.forEach((titleId) => {
+        const title = playerTitles.find((item) => item.id === titleId);
+        if (userId && title?.hidden) {
+          void sendGlobalChatMessage(`🏆 ${nickname}님이 비공개 칭호 [${title.name}]을 해금했습니다! 이제 조건이 공개됩니다.`, "system");
+        }
+      });
+    }
+  }, [conditionUnlockedTitles, earnedTitleIds, nickname, userId]);
 
   useEffect(() => {
     async function loadSave() {
@@ -1393,6 +1450,7 @@ export default function GamePage() {
 
       if (data?.current_title && playerTitles.some((title) => title.id === data.current_title)) {
         setCurrentTitleId(data.current_title);
+        setEarnedTitleIds((prev) => Array.from(new Set<PlayerTitleId>(["newbie", ...prev, data.current_title as PlayerTitleId])));
         window.localStorage.setItem(`alba-money-title-${userId}`, data.current_title);
       }
 
@@ -1442,7 +1500,7 @@ export default function GamePage() {
     }
 
     try {
-      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; discoveredItems?: ShopItemId[]; equippedItems?: ShopItemId[]; favoriteItems?: ShopItemId[]; inventorySortMode?: ItemSortMode; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; gachaMachinePullCount?: number; announcedSecretTitles?: PlayerTitleId[]; lottoTickets?: LottoTicket[]; lottoPurchaseDate?: string; lottoPurchaseCount?: number; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[] };
+      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; discoveredItems?: ShopItemId[]; equippedItems?: ShopItemId[]; favoriteItems?: ShopItemId[]; inventorySortMode?: ItemSortMode; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; gachaMachinePullCount?: number; announcedSecretTitles?: PlayerTitleId[]; earnedTitleIds?: PlayerTitleId[]; lottoTickets?: LottoTicket[]; lottoPurchaseDate?: string; lottoPurchaseCount?: number; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[] };
       const loadedDeposit = Number(parsed.bankDeposit ?? 0);
       const loadedSavings = Number(parsed.bankSavings ?? 0);
       setBankDeposit(loadedDeposit);
@@ -1472,6 +1530,11 @@ export default function GamePage() {
       }
       if (Array.isArray(parsed.equippedItems)) setEquippedItems(parsed.equippedItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id)));
       if (Array.isArray(parsed.favoriteItems)) setFavoriteItems(parsed.favoriteItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id)));
+      if (Array.isArray(parsed.earnedTitleIds)) {
+        setEarnedTitleIds(Array.from(new Set<PlayerTitleId>(["newbie", ...parsed.earnedTitleIds.filter((id): id is PlayerTitleId => playerTitles.some((title) => title.id === id))])));
+      } else if (Array.isArray(parsed.announcedSecretTitles)) {
+        setEarnedTitleIds((prev) => Array.from(new Set<PlayerTitleId>(["newbie", ...prev, ...parsed.announcedSecretTitles.filter((id): id is PlayerTitleId => playerTitles.some((title) => title.id === id))])));
+      }
       if (parsed.inventorySortMode && ["favorite", "rarity", "priceDesc", "priceAsc", "name", "count"].includes(parsed.inventorySortMode)) setInventorySortMode(parsed.inventorySortMode);
       if (typeof parsed.shopLevel === "number") setShopLevel(parsed.shopLevel);
       if (typeof parsed.shopPurchaseCount === "number") setShopPurchaseCount(parsed.shopPurchaseCount);
@@ -1502,7 +1565,7 @@ export default function GamePage() {
   useEffect(() => {
     if (!userId || !isSaveLoaded || !isEconomyLoaded) return;
 
-    const economyPayload = JSON.stringify({
+    const economyData = {
       bankDeposit,
       bankDepositPrincipal,
       bankSavings,
@@ -1535,7 +1598,9 @@ export default function GamePage() {
       totalExpense,
       financeHistory,
       economyUpdatedAt: economyUpdatedAt.toISOString(),
-    });
+      earnedTitleIds,
+    };
+    const economyPayload = JSON.stringify(economyData);
 
     window.localStorage.setItem(`alba-money-economy-${userId}`, economyPayload);
 
@@ -1545,7 +1610,7 @@ export default function GamePage() {
       .upsert(
         {
           user_id: userId,
-          data: economyPayload,
+          data: economyData,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "user_id" }
@@ -1553,24 +1618,44 @@ export default function GamePage() {
       .then(({ error }) => {
         if (error) console.warn("경제 데이터 Supabase 저장 실패. localStorage에는 저장되었습니다:", error.message);
       });
-  }, [userId, isSaveLoaded, isEconomyLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, discoveredItems, equippedItems, favoriteItems, inventorySortMode, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, economyUpdatedAt]);
+  }, [userId, isSaveLoaded, isEconomyLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, discoveredItems, equippedItems, favoriteItems, inventorySortMode, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, economyUpdatedAt, earnedTitleIds]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
 
     const timer = window.setInterval(() => {
       setBankDeposit((current) => {
-        const next = Math.floor(current * (1 + 0.003 * (1 + bankInterestBonus)));
+        const next = Math.floor(current * (1 + 0.0025 * (1 + bankInterestBonus)));
         const gain = Math.max(0, next - current);
         if (gain > 0) setTotalIncome((value) => value + gain);
+        if (gain > 0) setMessage(`🏦 예금 이자 ${gain.toLocaleString()}원이 15분 정산으로 들어왔습니다.`);
         return next;
       });
+    }, 15 * 60 * 1000);
+
+    return () => window.clearInterval(timer);
+  }, [isSaveLoaded, bankInterestBonus]);
+
+  useEffect(() => {
+    if (!isSaveLoaded) return;
+
+    const timer = window.setInterval(() => {
       setBankSavings((current) => {
-        const next = Math.floor(current * (1 + 0.006 * (1 + bankInterestBonus)));
+        const next = Math.floor(current * (1 + 0.009 * (1 + bankInterestBonus)));
         const gain = Math.max(0, next - current);
         if (gain > 0) setTotalIncome((value) => value + gain);
+        if (gain > 0) setMessage(`🏦 적금 이자 ${gain.toLocaleString()}원이 30분 정산으로 들어왔습니다.`);
         return next;
       });
+    }, 30 * 60 * 1000);
+
+    return () => window.clearInterval(timer);
+  }, [isSaveLoaded, bankInterestBonus]);
+
+  useEffect(() => {
+    if (!isSaveLoaded) return;
+
+    const timer = window.setInterval(() => {
       setBankLoan((current) => {
         const next = Math.floor(current * 1.012);
         const expense = Math.max(0, next - current);
@@ -1581,14 +1666,12 @@ export default function GamePage() {
       const premium = Math.floor(insurancePremiumEvery5Min * Math.max(0.65, 1 - taxShieldBonus));
       if (premium > 0) {
         setCash((money) => Math.max(0, money - premium));
-      }
-      if (premium > 0) {
         setMessage(`🛡️ 보험료 ${premium.toLocaleString()}원이 납부되었습니다.`);
       }
     }, 10 * 60 * 1000);
 
     return () => window.clearInterval(timer);
-  }, [isSaveLoaded, insurancePremiumEvery5Min, inflationIndex, bankInterestBonus, taxShieldBonus]);
+  }, [isSaveLoaded, insurancePremiumEvery5Min, inflationIndex, taxShieldBonus]);
 
   useEffect(() => {
     if (!isSaveLoaded || estateIncomeEvery5Min <= 0) return;
@@ -3410,8 +3493,15 @@ export default function GamePage() {
 
     const typedSaves = (saves ?? []) as RankingSaveRow[];
     const saveMap = new Map<string, RankingSaveRow>(typedSaves.map((save) => [save.user_id, save]));
+    const normalizeEconomyData = (value: unknown): Record<string, unknown> => {
+      if (!value) return {};
+      if (typeof value === "string") return safeJsonParse<Record<string, unknown>>(value, {});
+      if (typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
+      return {};
+    };
+
     const economyMap = new Map<string, Record<string, unknown>>(
-      ((economyRows ?? []) as Array<{ user_id: string; data?: Record<string, unknown> | null }>).map((row) => [row.user_id, row.data ?? {}])
+      ((economyRows ?? []) as Array<{ user_id: string; data?: unknown }>).map((row) => [row.user_id, normalizeEconomyData(row.data)])
     );
 
     const getNumberFromEconomy = (data: Record<string, unknown>, key: string) => {
@@ -3453,11 +3543,15 @@ export default function GamePage() {
         const economy = economyMap.get(profile.id) ?? {};
         const profileOccupationId = profile.occupation_id && profile.occupation_id in occupationInfo ? (profile.occupation_id as OccupationId) : "unemployed";
         const profileTitle = playerTitles.find((title) => title.id === (profile.id === userId ? currentTitleId : profile.current_title)) ?? playerTitles[0];
+        const discoveredRaw = economy.discoveredItems;
+        const discoveredList = Array.isArray(discoveredRaw)
+          ? discoveredRaw
+          : typeof discoveredRaw === "string"
+            ? safeJsonParse<unknown[]>(discoveredRaw, [])
+            : [];
         const discoveredCount = profile.id === userId
-          ? discoveredItems.length
-          : Array.isArray(economy.discoveredItems)
-            ? economy.discoveredItems.filter((id) => typeof id === "string" && shopItems.some((item) => item.id === id)).length
-            : 0;
+          ? new Set(discoveredItems).size
+          : new Set(discoveredList.filter((id) => typeof id === "string" && shopItems.some((item) => item.id === id))).size;
         return {
           rank: 0,
           nickname: profile.id === userId ? currentNickname : profile.nickname || "이름 없음",
@@ -4417,7 +4511,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>BANK</div>
                   <h2 style={panelTitleStyle}>은행</h2>
-                  <p style={panelDescStyle}>예금은 10분마다 0.3%, 적금은 10분마다 0.6% 이자가 붙고, 대출은 10분마다 1.2% 이자가 붙습니다.</p>
+                  <p style={panelDescStyle}>예금은 낮은 이자율로 15분마다 0.25%, 적금은 높은 이자율로 30분마다 0.9% 이자가 붙고, 대출은 10분마다 1.2% 이자가 붙습니다.</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
               </div>
@@ -4975,8 +5069,8 @@ export default function GamePage() {
                             <span>💼 직업 수익: {Math.floor(occupationInfo[occupationId].incomeEvery3Min * jobIncomeMultiplier).toLocaleString()}원 / 3분</span>
                             <span>🧾 사업 매출: {businessIncomeEvery30Sec.toLocaleString()}원 / 30초</span>
                             <span>🏘️ 임대 수익: {Math.floor(estateIncomeEvery5Min * inflationIndex * totalIncomeMultiplier).toLocaleString()}원 / 30초</span>
-                            <span>🏦 예금 이자: 약 {Math.floor(bankDeposit * 0.003 * (1 + bankInterestBonus)).toLocaleString()}원 / 10분</span>
-                            <span>🏦 적금 이자: 약 {Math.floor(bankSavings * 0.006 * (1 + bankInterestBonus)).toLocaleString()}원 / 10분</span>
+                            <span>🏦 예금 이자: 약 {Math.floor(bankDeposit * 0.0025 * (1 + bankInterestBonus)).toLocaleString()}원 / 15분</span>
+                            <span>🏦 적금 이자: 약 {Math.floor(bankSavings * 0.009 * (1 + bankInterestBonus)).toLocaleString()}원 / 30분</span>
                           </div>
                         </section>
                       )}
@@ -6478,6 +6572,7 @@ function rollShopOffer(level: number) {
 function rollGachaItem(level: number) {
   const roll = Math.random();
   const boost = Math.min(0.012, level * 0.002);
+  if (roll > 0.99999999) return randomItemByRarity("고대 유물");
   if (roll > 0.997 - boost) return randomItemByRarity("유물");
   if (roll > 0.982 - boost) return randomItemByRarity("보물");
   if (roll > 0.94 - boost) return randomItemByRarity("진귀");
@@ -6502,6 +6597,7 @@ function getCollectionItemsByRarity() {
 }
 
 function getRarityColor(rarity: ItemRarity) {
+  if (rarity === "고대 유물") return "#f0abfc";
   if (rarity === "유물") return "#7c3aed";
   if (rarity === "보물") return "#d97706";
   if (rarity === "진귀") return "#dc2626";
@@ -6510,6 +6606,7 @@ function getRarityColor(rarity: ItemRarity) {
 }
 
 function getRarityPerformanceText(rarity: ItemRarity) {
+  if (rarity === "고대 유물") return "초월급 성능 · 가챠 전용 극초희귀 효과";
   if (rarity === "유물") return "최상급 성능 · 게임 후반 핵심 효과";
   if (rarity === "보물") return "상급 성능 · 체감 큰 보너스";
   if (rarity === "진귀") return "중상급 성능 · 특정 수익 강화";
@@ -6552,6 +6649,7 @@ function groupOwnedShopItems(items: ShopItemId[]): GroupedShopItem[] {
 }
 
 function getRarityRank(rarity: ShopItem["rarity"]) {
+  if (rarity === "고대 유물") return 6;
   if (rarity === "유물") return 5;
   if (rarity === "보물") return 4;
   if (rarity === "진귀") return 3;
