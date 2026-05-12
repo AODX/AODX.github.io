@@ -4581,12 +4581,12 @@ export default function GamePage() {
                   const offerPrice = getShopOfferPrice(item);
                   return (
                   <div key={offerKey} style={{ ...gachaOfferCardStyle, borderColor: getRarityColor(item.rarity), opacity: soldOut ? 0.58 : 1 }}>
-                    <h3 style={economyCardTitleStyle}>{item.icon} {item.name}</h3>
-                    <p style={economyCardTextStyle}>{item.rarity} · {item.description}</p>
-                    <strong>{offerPrice.toLocaleString()}원 <small style={{ color: "#64748b" }}>(정가 {item.price.toLocaleString()}원 × 1.3)</small></strong>
-                    <strong style={{ color: getRarityColor(item.rarity) }}>{getItemEffectText(item)}</strong>
-                    <small style={{ color: getRarityColor(item.rarity), fontWeight: 900 }}>{getRarityPerformanceText(item.rarity)}</small>
-                    <button onClick={() => buyShopOffer(item, offerKey, offerPrice)} disabled={soldOut || cash < offerPrice} style={{ ...casinoPrimaryButtonStyle, opacity: soldOut || cash < offerPrice ? 0.45 : 1 }}>{soldOut ? "SOLD OUT" : "구매"}</button>
+                    <h3 style={gachaOfferTitleStyle}>{item.icon} {item.name}</h3>
+                    <p style={gachaOfferDescStyle}>{item.rarity} · {item.description}</p>
+                    <strong style={gachaOfferPriceStyle}>{offerPrice.toLocaleString()}원 <small style={gachaOfferSmallTextStyle}>(정가 {item.price.toLocaleString()}원 × 1.3)</small></strong>
+                    <strong style={{ ...gachaOfferEffectStyle, color: getRarityColor(item.rarity) }}>{getItemEffectText(item)}</strong>
+                    <small style={{ ...gachaOfferSmallTextStyle, color: getRarityColor(item.rarity), fontWeight: 900 }}>{getRarityPerformanceText(item.rarity)}</small>
+                    <button onClick={() => buyShopOffer(item, offerKey, offerPrice)} disabled={soldOut || cash < offerPrice} style={{ ...gachaOfferBuyButtonStyle, opacity: soldOut || cash < offerPrice ? 0.45 : 1 }}>{soldOut ? "SOLD OUT" : "구매"}</button>
                   </div>
                   );
                 })}
@@ -8613,44 +8613,97 @@ const gachaShopSceneStyle: CSSProperties = {
   width: "100%",
   height: "100%",
   display: "grid",
-  gridTemplateRows: "auto 210px minmax(0, 1fr)",
-  gap: "12px",
+  gridTemplateRows: "auto 182px minmax(0, 1fr)",
+  gap: "10px",
   overflow: "hidden",
   background: "linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%)",
   color: "#111827",
   border: "4px solid #111827",
   borderRadius: "26px",
-  padding: "16px",
+  padding: "14px",
   boxShadow: "0 18px 0 rgba(17,24,39,0.10), 0 24px 46px rgba(15,23,42,0.18)",
 };
 
 const gachaOfferGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: "12px",
+  gap: "10px",
   minHeight: 0,
   overflow: "hidden",
 };
 
 const gachaOfferCardStyle: CSSProperties = {
   display: "grid",
-  gridTemplateRows: "auto minmax(0, 1fr) auto auto auto",
-  gap: "6px",
+  gridTemplateRows: "auto auto auto auto auto 36px",
+  gap: "4px",
   alignContent: "start",
   minHeight: 0,
   overflow: "hidden",
   background: "#ffffff",
   border: "4px solid #111827",
-  borderRadius: "20px",
-  padding: "12px",
+  borderRadius: "18px",
+  padding: "10px",
   boxShadow: "0 8px 0 rgba(17,24,39,0.12)",
   color: "#111827",
+};
+
+const gachaOfferTitleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "18px",
+  fontWeight: 900,
+  lineHeight: 1.15,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+
+const gachaOfferDescStyle: CSSProperties = {
+  margin: 0,
+  color: "#334155",
+  fontSize: "12px",
+  fontWeight: 800,
+  lineHeight: 1.22,
+  display: "-webkit-box",
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
+};
+
+const gachaOfferPriceStyle: CSSProperties = {
+  fontSize: "12px",
+  fontWeight: 900,
+  lineHeight: 1.2,
+};
+
+const gachaOfferEffectStyle: CSSProperties = {
+  fontSize: "13px",
+  fontWeight: 900,
+  lineHeight: 1.2,
+};
+
+const gachaOfferSmallTextStyle: CSSProperties = {
+  color: "#64748b",
+  fontSize: "11px",
+  lineHeight: 1.15,
+};
+
+const gachaOfferBuyButtonStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "12px",
+  background: "linear-gradient(180deg, #fde68a, #f59e0b)",
+  color: "#111827",
+  fontSize: "15px",
+  fontWeight: 900,
+  cursor: "pointer",
+  boxShadow: "0 5px 0 rgba(17,24,39,0.28)",
+  minHeight: "34px",
+  padding: "4px 8px",
 };
 
 const gachaLowerGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: "14px",
+  gap: "12px",
   minHeight: 0,
   overflow: "hidden",
 };
@@ -8659,7 +8712,7 @@ const gachaListCardStyle: CSSProperties = {
   background: "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(239,246,255,0.92))",
   border: "4px solid #facc15",
   borderRadius: "22px",
-  padding: "14px",
+  padding: "12px",
   boxShadow: "0 8px 0 rgba(250,204,21,0.20), 0 20px 38px rgba(0,0,0,0.18)",
   overflowY: "auto",
   minHeight: 0,
