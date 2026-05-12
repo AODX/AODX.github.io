@@ -6522,12 +6522,6 @@ function removeMany(items: string[], target: string, quantity: number) {
   return copy;
 }
 
-function removeFirst(items: string[], target: string) {
-  const copy = [...items];
-  const index = copy.indexOf(target);
-  if (index >= 0) copy.splice(index, 1);
-  return copy;
-}
 
 function getRankingBuffRate(rank?: number) {
   if (rank === 1) return 0.05;
