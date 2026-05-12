@@ -1313,6 +1313,258 @@ function mergeEconomySavePayloads(localPayload: string | null, remotePayload: st
   });
 }
 
+function ResponsiveGameStyles() {
+  return (
+    <style>{`
+      .alba-game-root, .alba-game-root * { box-sizing: border-box; }
+      .alba-panel-scene, .alba-world-body, .alba-economy-card-grid, .alba-career-card-grid, .alba-luxury-section-stack { -webkit-overflow-scrolling: touch; }
+
+      @media (max-width: 900px) {
+        .alba-game-root {
+          height: auto !important;
+          min-height: 100svh !important;
+          max-height: none !important;
+          overflow: auto !important;
+        }
+
+        .alba-world-layout {
+          height: auto !important;
+          min-height: 100svh !important;
+          grid-template-rows: auto minmax(620px, auto) auto !important;
+          overflow: visible !important;
+          padding: 8px !important;
+          gap: 10px !important;
+        }
+
+        .alba-world-header {
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: stretch !important;
+          gap: 10px !important;
+          overflow: visible !important;
+        }
+
+        .alba-profile-area, .alba-money-panel {
+          width: 100% !important;
+          max-width: none !important;
+        }
+
+        .alba-main-title {
+          font-size: clamp(22px, 7vw, 30px) !important;
+          white-space: normal !important;
+          line-height: 1.1 !important;
+        }
+
+        .alba-nickname-edit {
+          flex-wrap: wrap !important;
+          align-items: stretch !important;
+          gap: 7px !important;
+          margin-top: 6px !important;
+        }
+
+        .alba-nickname-input {
+          width: min(100%, 180px) !important;
+          flex: 1 1 150px !important;
+        }
+
+        .alba-small-action-button {
+          min-height: 42px !important;
+          padding: 8px 10px !important;
+          flex: 1 1 auto !important;
+        }
+
+        .alba-money-panel {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 7px !important;
+          overflow: visible !important;
+        }
+
+        .alba-status-pill {
+          min-width: 0 !important;
+          padding: 8px 9px !important;
+          font-size: 13px !important;
+          overflow: hidden !important;
+        }
+
+        .alba-status-pill strong {
+          font-size: 14px !important;
+          overflow-wrap: anywhere !important;
+        }
+
+        .alba-world-body {
+          min-height: 620px !important;
+          overflow: visible !important;
+        }
+
+        .alba-room-scene, .alba-street-scene {
+          height: 620px !important;
+          min-height: 620px !important;
+          border-radius: 18px !important;
+        }
+
+        .alba-room-money, .alba-street-money {
+          font-size: 16px !important;
+          padding: 5px 9px !important;
+        }
+
+        .alba-room-info {
+          top: 64px !important;
+          left: 10px !important;
+          width: min(252px, calc(100% - 20px)) !important;
+          font-size: 12px !important;
+          padding: 8px 9px !important;
+          gap: 4px !important;
+        }
+
+        .alba-room-info > div {
+          transform: scale(0.88);
+          transform-origin: left center;
+          max-width: calc(100vw - 40px) !important;
+        }
+
+        .alba-room-side-controls {
+          right: 8px !important;
+          top: 8px !important;
+        }
+
+        .alba-trophy-button {
+          width: 54px !important;
+          height: 54px !important;
+          font-size: 28px !important;
+        }
+
+        .alba-room-nav {
+          grid-auto-flow: row !important;
+          grid-auto-columns: auto !important;
+          width: calc(100% - 24px) !important;
+          bottom: 10px !important;
+          gap: 7px !important;
+        }
+
+        .alba-bottom-nav-button {
+          width: 100% !important;
+          min-width: 0 !important;
+          padding: 11px 10px !important;
+          font-size: 14px !important;
+        }
+
+        .alba-panel-scene, .alba-stock-scene {
+          height: auto !important;
+          min-height: 720px !important;
+          overflow: auto !important;
+          border-radius: 18px !important;
+          padding: 12px !important;
+          grid-template-rows: auto auto minmax(0, 1fr) !important;
+        }
+
+        .alba-panel-header {
+          flex-direction: column !important;
+          align-items: stretch !important;
+          gap: 10px !important;
+        }
+
+        .alba-panel-title {
+          font-size: clamp(23px, 7vw, 30px) !important;
+        }
+
+        .alba-room-select-grid, .alba-job-grid, .alba-economy-card-grid, .alba-career-card-grid {
+          grid-template-columns: 1fr !important;
+          overflow: visible !important;
+          height: auto !important;
+          min-height: 0 !important;
+        }
+
+        .alba-luxury-grid {
+          grid-template-columns: 1fr !important;
+        }
+
+        .alba-luxury-card {
+          min-height: auto !important;
+        }
+
+        .alba-luxury-preview {
+          min-height: 96px !important;
+        }
+
+        .alba-street-page-info {
+          top: 10px !important;
+          right: 10px !important;
+          font-size: 12px !important;
+          max-width: 42% !important;
+          text-align: right !important;
+        }
+
+        .alba-street-bottom-nav {
+          width: calc(100% - 24px) !important;
+          bottom: 10px !important;
+        }
+
+        .alba-street-building-sign {
+          font-size: 12px !important;
+          padding: 5px 6px !important;
+          border-width: 3px !important;
+        }
+
+        .alba-street-building-subtitle {
+          font-size: 10px !important;
+          min-height: 22px !important;
+        }
+
+        .alba-job-only-layout {
+          height: auto !important;
+          min-height: 100svh !important;
+          overflow: visible !important;
+          grid-template-rows: auto auto minmax(460px, auto) auto !important;
+        }
+
+        .alba-compact-header, .alba-job-footer {
+          grid-template-columns: 1fr !important;
+          overflow: visible !important;
+        }
+
+        .alba-top-status-group {
+          justify-content: stretch !important;
+        }
+
+        .alba-top-status-group > * {
+          flex: 1 1 140px !important;
+        }
+
+        .alba-job-stage {
+          min-height: 460px !important;
+          overflow: auto !important;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .alba-money-panel {
+          grid-template-columns: 1fr 1fr !important;
+        }
+
+        .alba-world-layout {
+          grid-template-rows: auto minmax(600px, auto) auto !important;
+        }
+
+        .alba-world-body, .alba-room-scene, .alba-street-scene {
+          min-height: 600px !important;
+          height: 600px !important;
+        }
+
+        .alba-room-info {
+          top: 58px !important;
+          width: min(220px, calc(100% - 80px)) !important;
+        }
+
+        .alba-street-page-arrow {
+          width: 42px !important;
+          height: 42px !important;
+          font-size: 20px !important;
+        }
+      }
+    `}</style>
+  );
+}
+
 export default function GamePage() {
   const [cash, setCash] = useState(10000);
   const [userId, setUserId] = useState<string | null>(null);
@@ -4355,15 +4607,16 @@ export default function GamePage() {
 
   if (activeJob) {
     return (
-      <main style={pageStyle}>
-        <section style={jobOnlyLayoutStyle}>
-          <header style={compactHeaderStyle}>
+      <main className="alba-game-root" style={pageStyle}>
+        <ResponsiveGameStyles />
+        <section className="alba-job-only-layout" style={jobOnlyLayoutStyle}>
+          <header className="alba-compact-header" style={compactHeaderStyle}>
             <div>
               <div style={smallLabelStyle}>진행 중인 알바</div>
               <h1 style={jobTitleStyle}>{activeJob.icon} {activeJob.name}</h1>
             </div>
 
-            <div style={topStatusGroupStyle}>
+            <div className="alba-top-status-group" style={topStatusGroupStyle}>
               <StatusPill label="현금" value={`${cash.toLocaleString()}원`} />
               <StatusPill label="난이도" value={`Lv.${difficulty}`} warning={difficulty >= 4} />
               <StatusPill label="세금" value={`${nextTax.toLocaleString()}원`} />
@@ -4374,7 +4627,7 @@ export default function GamePage() {
 
           {difficultyNotice && <div style={difficultyBannerStyle}>{difficultyNotice}</div>}
 
-          <section style={jobStageStyle}>
+          <section className="alba-job-stage" style={jobStageStyle}>
             {activeJobId === "sorting" && <SortingGame item={sortItem} combo={sortCombo} miss={sortMiss} difficulty={difficulty} />}
             {activeJobId === "delivery" && <DeliveryGame lane={runnerLane} obstacles={runnerObstacles} coins={runnerCoins} distance={runnerDistance} flash={runnerHitFlash} miss={runnerMiss} />}
             {activeJobId === "cashier" && <CashierGame sequence={cashierSequence} currentIndex={cashierIndex} success={cashierSuccess} miss={cashierMiss} difficulty={difficulty} />}
@@ -4382,7 +4635,7 @@ export default function GamePage() {
             {activeJobId === "security" && <SecurityGame signal={securitySignal} success={securitySuccess} miss={securityMiss} round={securityRound} />}
           </section>
 
-          <footer style={jobFooterStyle}>
+          <footer className="alba-job-footer" style={jobFooterStyle}>
             <div style={messageBoxStyle}>{message}</div>
             <div style={controlHintStyle}>{getControlHint(activeJobId)}</div>
           </footer>
@@ -4392,15 +4645,16 @@ export default function GamePage() {
   }
 
   return (
-    <main style={pageStyle}>
-      <section style={worldLayoutStyle}>
-        <header style={worldHeaderStyle}>
-          <div style={profileAreaStyle}>
+    <main className="alba-game-root" style={pageStyle}>
+      <ResponsiveGameStyles />
+      <section className="alba-world-layout" style={worldLayoutStyle}>
+        <header className="alba-world-header" style={worldHeaderStyle}>
+          <div className="alba-profile-area" style={profileAreaStyle}>
             <div style={smallLabelStyle}>ALBA MONEY GAME</div>
-            <h1 style={mainTitleStyle}><span style={getNicknameTextStyle(activeNicknameColor)}>{nickname}</span>의 하루</h1>
+            <h1 className="alba-main-title" style={mainTitleStyle}><span style={getNicknameTextStyle(activeNicknameColor)}>{nickname}</span>의 하루</h1>
             <div style={buildNicknamePlateStyle(activeNicknameTag)}><span style={getNicknameTextStyle(activeNicknameColor)}>{nickname}</span><small style={profileNameplateMetaStyle}>{activeNicknameTag.name}</small></div>
             <div style={titleBadgeStyle}>{currentTitle.icon} {currentTitle.name}</div>
-            <div style={nicknameEditStyle}>
+            <div className="alba-nickname-edit" style={nicknameEditStyle}>
               <input
                 value={nicknameDraft}
                 onChange={(event) => setNicknameDraft(event.target.value)}
@@ -4409,15 +4663,16 @@ export default function GamePage() {
                 }}
                 maxLength={12}
                 placeholder="닉네임 입력"
+                className="alba-nickname-input"
                 style={nicknameInputStyle}
               />
-              <button onClick={saveNickname} style={smallActionButtonStyle}>닉네임 변경</button>
-              <button onClick={() => setLobbyView("titles")} style={smallActionButtonStyle}>칭호</button>
-              <button onClick={() => setChatOpen((open) => !open)} style={smallActionButtonStyle}>{chatOpen ? "채팅 끄기" : "채팅 켜기"}</button>
+              <button className="alba-small-action-button" onClick={saveNickname} style={smallActionButtonStyle}>닉네임 변경</button>
+              <button className="alba-small-action-button" onClick={() => setLobbyView("titles")} style={smallActionButtonStyle}>칭호</button>
+              <button className="alba-small-action-button" onClick={() => setChatOpen((open) => !open)} style={smallActionButtonStyle}>{chatOpen ? "채팅 끄기" : "채팅 켜기"}</button>
             </div>
           </div>
 
-          <div style={moneyPanelStyle}>
+          <div className="alba-money-panel" style={moneyPanelStyle}>
             <StatusPill label="현금" value={`${cash.toLocaleString()}원`} />
             <StatusPill label="세율" value={`${(taxRate * 100).toFixed(0)}%`} />
             <StatusPill label="다음 세금" value={`${nextTax.toLocaleString()}원`} />
@@ -4427,11 +4682,11 @@ export default function GamePage() {
           </div>
         </header>
 
-        <section style={worldBodyStyle}>
+        <section className="alba-world-body" style={worldBodyStyle}>
           {lobbyView === "room" && (
-            <div style={roomSceneStyle}>
-              <div style={roomMoneyStyle}>◎ {cash.toLocaleString()}</div>
-              <div style={roomInfoTextStyle}>
+            <div className="alba-room-scene" style={roomSceneStyle}>
+              <div className="alba-room-money" style={roomMoneyStyle}>◎ {cash.toLocaleString()}</div>
+              <div className="alba-room-info" style={roomInfoTextStyle}>
                 <div style={{ ...buildNicknamePlateStyle(activeNicknameTag), minWidth: "fit-content" }}>
                   <span style={{ ...roomInfoNameStyle, ...getNicknameTextStyle(activeNicknameColor), fontSize: "20px" }}>{nickname}</span>
                 </div>
@@ -4448,23 +4703,23 @@ export default function GamePage() {
                 <div style={roomTvStyle} />
                 <div style={roomCharacterStyle} />
               </div>
-              <div style={roomSideControlsStyle}>
-                <button onClick={() => setLobbyView("ranking")} style={trophyButtonStyle}>🏆</button>
+              <div className="alba-room-side-controls" style={roomSideControlsStyle}>
+                <button className="alba-trophy-button" onClick={() => setLobbyView("ranking")} style={trophyButtonStyle}>🏆</button>
               </div>
-              <div style={roomNavStyle}>
-                <button onClick={() => setLobbyView("jobs")} style={bottomNavButtonStyle}>알바 가기</button>
-                <button onClick={() => setLobbyView("street")} style={bottomNavButtonStyle}>길거리</button>
-                <button onClick={() => setLobbyView("phone")} style={bottomNavButtonStyle}>휴대폰 확인</button>
+              <div className="alba-room-nav" style={roomNavStyle}>
+                <button onClick={() => setLobbyView("jobs")} className="alba-bottom-nav-button" style={bottomNavButtonStyle}>알바 가기</button>
+                <button onClick={() => setLobbyView("street")} className="alba-bottom-nav-button" style={bottomNavButtonStyle}>길거리</button>
+                <button onClick={() => setLobbyView("phone")} className="alba-bottom-nav-button" style={bottomNavButtonStyle}>휴대폰 확인</button>
               </div>
             </div>
           )}
 
           {lobbyView === "street" && (
-            <div style={streetSceneStyle}>
-              <div style={streetMoneyStyle}>◎ {cash.toLocaleString()}</div>
+            <div className="alba-street-scene" style={streetSceneStyle}>
+              <div className="alba-street-money" style={streetMoneyStyle}>◎ {cash.toLocaleString()}</div>
               <StreetArtwork />
 
-              <div style={streetPageInfoStyle}>
+              <div className="alba-street-page-info" style={streetPageInfoStyle}>
                 <div style={smallLabelStyle}>STREET MAP</div>
                 <strong>{streetPage + 1} / {streetBuildingPages.length} 구역</strong>
                 <span>{getStreetPageLabel(streetPage)}</span>
@@ -4473,6 +4728,7 @@ export default function GamePage() {
               <button
                 onClick={() => setStreetPage((page) => Math.max(0, page - 1))}
                 disabled={streetPage === 0}
+                className="alba-street-page-arrow"
                 style={{ ...streetPageArrowStyle, left: "14px", opacity: streetPage === 0 ? 0.45 : 1 }}
               >
                 ◀
@@ -4480,12 +4736,13 @@ export default function GamePage() {
               <button
                 onClick={() => setStreetPage((page) => Math.min(streetBuildingPages.length - 1, page + 1))}
                 disabled={streetPage === streetBuildingPages.length - 1}
+                className="alba-street-page-arrow"
                 style={{ ...streetPageArrowStyle, right: "14px", opacity: streetPage === streetBuildingPages.length - 1 ? 0.45 : 1 }}
               >
                 ▶
               </button>
 
-              <div style={streetBuildingsRowStyle}>
+              <div className="alba-street-buildings-row" style={streetBuildingsRowStyle}>
                 {getStreetBuildingsForPage(streetPage).map((building) => (
                   <button
                     key={building.id}
@@ -4501,24 +4758,24 @@ export default function GamePage() {
                   </button>
                 ))}
               </div>
-              <div style={streetBottomNavStyle}>
-                <button onClick={() => setLobbyView("room")} style={bottomNavButtonStyle}>방으로 돌아가기</button>
+              <div className="alba-street-bottom-nav" style={streetBottomNavStyle}>
+                <button onClick={() => setLobbyView("room")} className="alba-bottom-nav-button" style={bottomNavButtonStyle}>방으로 돌아가기</button>
               </div>
             </div>
           )}
 
           {lobbyView === "jobs" && (
-            <div style={panelSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>JOB OFFICE</div>
-                  <h2 style={panelTitleStyle}>알바 가기</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>알바 가기</h2>
                   <p style={panelDescStyle}>단기 알바를 선택해서 바로 돈을 벌 수 있습니다.</p>
                 </div>
-                <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
+                <button onClick={() => setLobbyView("room")} className="alba-small-action-button" style={smallActionButtonStyle}>방으로</button>
               </div>
 
-              <section style={jobGridStyle}>
+              <section className="alba-job-grid" style={jobGridStyle}>
                 {jobs.map((job) => (
                   <button key={job.id} onClick={() => setSelectedJobId(job.id)} style={{ ...jobCardStyle, border: selectedJobId === job.id ? "2px solid #38bdf8" : "1px solid rgba(255,255,255,0.14)" }}>
                     <div style={jobIconStyle}>{job.icon}</div>
@@ -4538,18 +4795,18 @@ export default function GamePage() {
 
           {lobbyView === "career" && (
             <div style={careerOfficeStyle}>
-              <div style={panelHeaderRowStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>CAREER OFFICE</div>
-                  <h2 style={panelTitleStyle}>{getCareerBuildingName(careerBuildingId)}</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>{getCareerBuildingName(careerBuildingId)}</h2>
                   <p style={panelDescStyle}>
                     조건을 만족하고 직업 테스트를 클리어하면 직업을 얻거나 승급할 수 있습니다. 현재 직업: {occupation.icon} {occupation.name} · 직업 수입까지 {formatTime(careerIncomeCountdown)}
                   </p>
                 </div>
-                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
 
-              <div style={careerCardGridStyle}>
+              <div className="alba-career-card-grid" style={careerCardGridStyle}>
                 {careerList
                   .filter((careerId) => occupationInfo[careerId].buildingId === careerBuildingId)
                   .map((careerId) => {
@@ -4578,17 +4835,17 @@ export default function GamePage() {
           )}
 
           {lobbyView === "housing" && (
-            <div style={panelSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>BUILDING OFFICE</div>
-                  <h2 style={panelTitleStyle}>건물 사무소</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>건물 사무소</h2>
                   <p style={panelDescStyle}>메인 화면으로 사용할 방 분위기를 변경합니다. 돈은 차감하지 않습니다.</p>
                 </div>
-                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
 
-              <div style={roomSelectGridStyle}>
+              <div className="alba-room-select-grid" style={roomSelectGridStyle}>
                 {(Object.keys(roomInfo) as RoomKind[]).map((key) => (
                   <button key={key} onClick={() => changeRoom(key)} style={{ ...roomSelectCardStyle, border: roomKind === key ? "2px solid #38bdf8" : "1px solid rgba(255,255,255,0.14)" }}>
                     <div style={roomPreviewStyle}>{roomInfo[key].floor}</div>
@@ -4602,14 +4859,14 @@ export default function GamePage() {
           )}
 
           {lobbyView === "tax" && (
-            <div style={panelSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>CITY HALL</div>
-                  <h2 style={panelTitleStyle}>구청 세금 확인</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>구청 세금 확인</h2>
                   <p style={panelDescStyle}>현재 납부해야 할 세금과 미납 경고를 확인합니다.</p>
                 </div>
-                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
 
               <div style={taxCardStyle}>
@@ -4629,14 +4886,14 @@ export default function GamePage() {
           )}
 
           {lobbyView === "stocks" && (
-            <div style={stockExchangeSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+            <div className="alba-stock-scene" style={stockExchangeSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>STOCK EXCHANGE</div>
-                  <h2 style={panelTitleStyle}>주식 거래소</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>주식 거래소</h2>
                   <p style={panelDescStyle}>모든 유저가 하나의 전역 시세를 공유합니다. 3분마다 서버에서 한 번만 변동됩니다. 다음 변동까지 <strong>{formatStockCountdown(stockCountdownMs)}</strong> · 마지막 변동: {stockUpdatedAt.toLocaleTimeString()}</p>
                 </div>
-                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
 
 
@@ -4692,13 +4949,13 @@ export default function GamePage() {
 
           {lobbyView === "casino" && (
             <div style={casinoSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>CASINO</div>
-                  <h2 style={panelTitleStyle}>도박장</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>도박장</h2>
                   <p style={panelDescStyle}>게임머니 전용 콘텐츠입니다. 슬롯 머신과 유저 대전을 진행할 수 있습니다.</p>
                 </div>
-                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
 
               <div style={casinoContentGridStyle}>
@@ -4859,14 +5116,14 @@ export default function GamePage() {
           )}
 
           {lobbyView === "bank" && (
-            <div style={panelSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>BANK</div>
-                  <h2 style={panelTitleStyle}>은행</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>은행</h2>
                   <p style={panelDescStyle}>예금은 낮은 이자율로 15분마다 0.25%, 적금은 높은 이자율로 30분마다 0.9% 이자가 붙고, 대출은 10분마다 1.2% 이자가 붙습니다.</p>
                 </div>
-                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
 
               <div style={economySummaryGridStyle}>
@@ -4900,16 +5157,16 @@ export default function GamePage() {
           )}
 
           {lobbyView === "estate" && (
-            <div style={panelSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>REAL ESTATE</div>
-                  <h2 style={panelTitleStyle}>부동산</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>부동산</h2>
                   <p style={panelDescStyle}>부동산을 구매하면 5분마다 임대 수익이 들어오고 순자산 랭킹에 반영됩니다.</p>
                 </div>
-                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
-              <div style={economyCardGridStyle}>
+              <div className="alba-economy-card-grid" style={economyCardGridStyle}>
                 {estateItems.map((estate) => {
                   const owned = ownedEstates.includes(estate.id);
                   return (
@@ -4929,16 +5186,16 @@ export default function GamePage() {
           )}
 
           {lobbyView === "business" && (
-            <div style={panelSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>BUSINESS CENTER</div>
-                  <h2 style={panelTitleStyle}>창업 센터</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>창업 센터</h2>
                   <p style={panelDescStyle}>알바와 직업 경험을 사업으로 확장합니다. 사업은 30초마다 강한 매출을 만듭니다.</p>
                 </div>
-                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
-              <div style={economyCardGridStyle}>
+              <div className="alba-economy-card-grid" style={economyCardGridStyle}>
                 {businessItems.map((business) => {
                   const owned = ownedBusinesses.includes(business.id);
                   const requiredOk = !business.requiredOccupation || unlockedOccupations.includes(business.requiredOccupation);
@@ -4960,15 +5217,15 @@ export default function GamePage() {
           )}
 
           {lobbyView === "news" && (
-            <div style={panelSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>ECONOMY NEWS</div>
-                  <h2 style={panelTitleStyle}>경제 뉴스</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>경제 뉴스</h2>
                   <p style={panelDescStyle}>10분마다 모든 유저에게 같은 뉴스가 갱신되고, 다음 주식 변동부터 관련 종목에 영향을 줍니다. 마지막 갱신: {economyUpdatedAt.toLocaleTimeString()}</p>
                 </div>
                 <div style={economyButtonRowStyle}>
-                  <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                  <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
                 </div>
               </div>
               <div style={economyNewsListStyle}>
@@ -4984,16 +5241,16 @@ export default function GamePage() {
           )}
 
           {lobbyView === "academy" && (
-            <div style={panelSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>ACADEMY</div>
-                  <h2 style={panelTitleStyle}>교육원</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>교육원</h2>
                   <p style={panelDescStyle}>자격증은 경제 활동에 작은 패시브 효과를 줍니다.</p>
                 </div>
-                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
-              <div style={economyCardGridStyle}>
+              <div className="alba-economy-card-grid" style={economyCardGridStyle}>
                 {certifications.map((certification) => {
                   const owned = ownedCertifications.includes(certification.id);
                   return (
@@ -5013,14 +5270,14 @@ export default function GamePage() {
           )}
 
           {lobbyView === "lotto" && (
-            <div style={panelSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>LOTTO SHOP</div>
-                  <h2 style={panelTitleStyle}>로또 판매소</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>로또 판매소</h2>
                   <p style={panelDescStyle}>하루 3번까지 구매할 수 있습니다. 가격이 높을수록 최대 상금도 커집니다. 오늘 {lottoPurchaseDate === getTodayKey() ? lottoPurchaseCount : 0}/3회 구매</p>
                 </div>
-                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
 
               <div style={casinoLowerGridStyle}>
@@ -5058,13 +5315,13 @@ export default function GamePage() {
 
           {lobbyView === "gacha" && (
             <div style={gachaShopSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>GACHA SHOP</div>
-                  <h2 style={panelTitleStyle}>가챠 숍</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>가챠 숍</h2>
                   <p style={panelDescStyle}>10분마다 랜덤 장신구 3개만 입고됩니다. 입고 상품은 원래 가격의 2배로 판매되며, 한 번 구매하면 SOLD OUT 처리됩니다. 상점 등급 Lv.{shopLevel} · 구매 {shopPurchaseCount}회 · 장착 {equippedItems.length}/{itemSlotCount} · 재입고까지 {formatTime(shopCountdownSeconds)}</p>
                 </div>
-                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
 
               <div style={gachaOfferGridStyle}>
@@ -5144,13 +5401,13 @@ export default function GamePage() {
 
           {lobbyView === "luxury" && (
             <div style={luxuryShopSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>LUXURY SHOP</div>
-                  <h2 style={panelTitleStyle}>사치 아이템 숍</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>사치 아이템 숍</h2>
                   <p style={panelDescStyle}>닉네임 장식, 이름표, 메인 배경, 메인 캐릭터를 구매하고 바로 적용할 수 있습니다. 모든 상품은 매우 비싸며, 더 화려할수록 가격이 올라갑니다.</p>
                 </div>
-                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
 
               <div style={luxurySummaryBarStyle}>
@@ -5161,7 +5418,7 @@ export default function GamePage() {
                 <StatusPill label="캐릭터" value={`${ownedMainCharacters.length}/10`} />
               </div>
 
-              <div style={luxurySectionStackStyle}>
+              <div className="alba-luxury-section-stack" style={luxurySectionStackStyle}>
                 <section style={luxurySectionStyle}>
                   <div style={luxurySectionHeaderStyle}>
                     <div>
@@ -5170,13 +5427,13 @@ export default function GamePage() {
                     </div>
                     <span style={luxuryMiniBadgeStyle}>현재 적용: {activeNicknameColor.name}</span>
                   </div>
-                  <div style={luxuryGridStyle}>
+                  <div className="alba-luxury-grid" style={luxuryGridStyle}>
                     {luxuryNicknameColors.map((theme) => {
                       const owned = ownedNicknameColors.includes(theme.id);
                       const active = selectedNicknameColorId === theme.id;
                       return (
-                        <article key={theme.id} style={luxuryCardStyle}>
-                          <div style={luxuryPreviewFrameStyle}>
+                        <article className="alba-luxury-card" key={theme.id} style={luxuryCardStyle}>
+                          <div className="alba-luxury-preview" style={luxuryPreviewFrameStyle}>
                             <span style={{ fontSize: "24px", ...getNicknameTextStyle(theme) }}>{nickname}</span>
                           </div>
                           <h4 style={luxuryCardTitleStyle}>{theme.name}</h4>
@@ -5199,13 +5456,13 @@ export default function GamePage() {
                     </div>
                     <span style={luxuryMiniBadgeStyle}>현재 적용: {activeNicknameTag.name}</span>
                   </div>
-                  <div style={luxuryGridStyle}>
+                  <div className="alba-luxury-grid" style={luxuryGridStyle}>
                     {luxuryNicknameTags.map((tag) => {
                       const owned = ownedNicknameTags.includes(tag.id);
                       const active = selectedNicknameTagId === tag.id;
                       return (
-                        <article key={tag.id} style={luxuryCardStyle}>
-                          <div style={luxuryPreviewFrameStyle}>
+                        <article className="alba-luxury-card" key={tag.id} style={luxuryCardStyle}>
+                          <div className="alba-luxury-preview" style={luxuryPreviewFrameStyle}>
                             <div style={buildNicknamePlateStyle(tag)}>
                               <span style={getNicknameTextStyle(activeNicknameColor)}>{nickname}</span>
                             </div>
@@ -5230,12 +5487,12 @@ export default function GamePage() {
                     </div>
                     <span style={luxuryMiniBadgeStyle}>현재 적용: {activeMainBackground.name}</span>
                   </div>
-                  <div style={luxuryGridStyle}>
+                  <div className="alba-luxury-grid" style={luxuryGridStyle}>
                     {luxuryMainBackgrounds.map((background) => {
                       const owned = ownedMainBackgrounds.includes(background.id);
                       const active = selectedMainBackgroundId === background.id;
                       return (
-                        <article key={background.id} style={luxuryCardStyle}>
+                        <article className="alba-luxury-card" key={background.id} style={luxuryCardStyle}>
                           <LuxuryBackgroundPreview background={background} />
                           <h4 style={luxuryCardTitleStyle}>{background.name}</h4>
                           <p style={luxuryCardTextStyle}>{background.description}</p>
@@ -5257,12 +5514,12 @@ export default function GamePage() {
                     </div>
                     <span style={luxuryMiniBadgeStyle}>현재 적용: {activeMainCharacter.name}</span>
                   </div>
-                  <div style={luxuryGridStyle}>
+                  <div className="alba-luxury-grid" style={luxuryGridStyle}>
                     {luxuryMainCharacters.map((character) => {
                       const owned = ownedMainCharacters.includes(character.id);
                       const active = selectedMainCharacterId === character.id;
                       return (
-                        <article key={character.id} style={luxuryCardStyle}>
+                        <article className="alba-luxury-card" key={character.id} style={luxuryCardStyle}>
                           <LuxuryCharacterPreview character={character} />
                           <h4 style={luxuryCardTitleStyle}>{character.name}</h4>
                           <p style={luxuryCardTextStyle}>{character.description}</p>
@@ -5280,14 +5537,14 @@ export default function GamePage() {
           )}
 
           {lobbyView === "itemMarket" && (
-            <div style={panelSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>ITEM MARKET</div>
-                  <h2 style={panelTitleStyle}>아이템 거래소</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>아이템 거래소</h2>
                   <p style={panelDescStyle}>다른 유저가 등록한 장신구를 사고, 내 장신구를 판매 등록할 수 있습니다.</p>
                 </div>
-                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
 
               <div style={casinoLowerGridStyle}>
@@ -5326,14 +5583,14 @@ export default function GamePage() {
           )}
 
           {lobbyView === "titles" && (
-            <div style={panelSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>TITLE COLLECTION</div>
-                  <h2 style={panelTitleStyle}>칭호</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>칭호</h2>
                   <p style={panelDescStyle}>조건을 만족한 칭호를 장착할 수 있습니다. 현재 칭호: {currentTitle.icon} {currentTitle.name}</p>
                 </div>
-                <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
+                <button onClick={() => setLobbyView("room")} className="alba-small-action-button" style={smallActionButtonStyle}>방으로</button>
               </div>
               <div style={titleGridStyle}>
                 {playerTitles.map((title) => {
@@ -5368,16 +5625,16 @@ export default function GamePage() {
           )}
 
           {lobbyView === "insurance" && (
-            <div style={panelSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>INSURANCE</div>
-                  <h2 style={panelTitleStyle}>보험사</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>보험사</h2>
                   <p style={panelDescStyle}>보험은 이제 실제 수익과 손실에 영향을 줍니다. 높은 등급일수록 보장률이 커지고, 10분마다 보험료가 납부됩니다. 현재 보험료: {insurancePremiumEvery5Min.toLocaleString()}원</p>
                 </div>
-                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
-              <div style={economyCardGridStyle}>
+              <div className="alba-economy-card-grid" style={economyCardGridStyle}>
                 {insuranceItems.map((insurance) => {
                   const owned = ownedInsurances.includes(insurance.id);
                   return (
@@ -5397,16 +5654,16 @@ export default function GamePage() {
           )}
 
           {lobbyView === "employees" && (
-            <div style={panelSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>STAFF OFFICE</div>
-                  <h2 style={panelTitleStyle}>인력 사무소</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>인력 사무소</h2>
                   <p style={panelDescStyle}>사업별 직원을 고용하면 30초 매출이 증가하지만 1분마다 인건비가 나갑니다. 현재 인건비: {employeePayrollEvery60Sec.toLocaleString()}원</p>
                 </div>
-                <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
-              <div style={economyCardGridStyle}>
+              <div className="alba-economy-card-grid" style={economyCardGridStyle}>
                 {businessItems.map((business) => {
                   const owned = ownedBusinesses.includes(business.id);
                   const level = businessEmployees[business.id] ?? 0;
@@ -5430,19 +5687,19 @@ export default function GamePage() {
           )}
 
           {lobbyView === "auction" && (
-            <div style={panelSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>AUCTION HOUSE</div>
-                  <h2 style={panelTitleStyle}>경매장</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>경매장</h2>
                   <p style={panelDescStyle}>시세보다 저렴한 매물을 빠르게 낙찰받는 공간입니다. 매물은 직접 갱신할 수 있습니다.</p>
                 </div>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                  <button onClick={refreshAuctionDeals} style={smallActionButtonStyle}>매물 갱신</button>
-                  <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
+                  <button onClick={refreshAuctionDeals} className="alba-small-action-button" style={smallActionButtonStyle}>매물 갱신</button>
+                  <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
                 </div>
               </div>
-              <div style={economyCardGridStyle}>
+              <div className="alba-economy-card-grid" style={economyCardGridStyle}>
                 {auctionDeals.map((deal) => (
                   <div key={deal.id} style={economyCardStyle}>
                     <h3 style={economyCardTitleStyle}>{deal.icon} {deal.name}</h3>
@@ -5460,13 +5717,13 @@ export default function GamePage() {
 
           {lobbyView === "phone" && (
             <div style={phoneSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>SMART MONEY PHONE</div>
-                  <h2 style={panelTitleStyle}>휴대폰 자산 현황</h2>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>휴대폰 자산 현황</h2>
                   <p style={panelDescStyle}>예금, 수익/지출, 월급, 패시브 효과를 한 화면에서 확인합니다.</p>
                 </div>
-                <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
+                <button onClick={() => setLobbyView("room")} className="alba-small-action-button" style={smallActionButtonStyle}>방으로</button>
               </div>
 
               <div style={phoneFrameStyle}>
@@ -5626,18 +5883,18 @@ export default function GamePage() {
           )}
 
           {lobbyView === "ranking" && (
-            <div style={panelSceneStyle}>
-              <div style={panelHeaderRowStyle}>
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>RANKING</div>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                    <button onClick={() => setRankingMode((mode) => mode === "netWorth" ? "collection" : "netWorth")} style={smallActionButtonStyle}>◀</button>
-                    <h2 style={panelTitleStyle}>{rankingMode === "netWorth" ? "순자산 랭킹" : "아이템 도감 랭킹"}</h2>
-                    <button onClick={() => setRankingMode((mode) => mode === "netWorth" ? "collection" : "netWorth")} style={smallActionButtonStyle}>▶</button>
+                    <button onClick={() => setRankingMode((mode) => mode === "netWorth" ? "collection" : "netWorth")} className="alba-small-action-button" style={smallActionButtonStyle}>◀</button>
+                    <h2 className="alba-panel-title" style={panelTitleStyle}>{rankingMode === "netWorth" ? "순자산 랭킹" : "아이템 도감 랭킹"}</h2>
+                    <button onClick={() => setRankingMode((mode) => mode === "netWorth" ? "collection" : "netWorth")} className="alba-small-action-button" style={smallActionButtonStyle}>▶</button>
                   </div>
                   <p style={panelDescStyle}>{rankingMode === "netWorth" ? "프로필이 생성된 계정 중 현금·예금·적금·부동산·사업을 합친 순자산 기준 상위 5명이 표시됩니다. 1~3위에게는 자동 랭킹 버프가 지급됩니다." : "한 번이라도 획득해 도감에 등록한 장신구 종류 수 기준 상위 5명이 표시됩니다."} 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
                 </div>
-                <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
+                <button onClick={() => setLobbyView("room")} className="alba-small-action-button" style={smallActionButtonStyle}>방으로</button>
               </div>
 
               <div style={rankingTableStyle}>
@@ -5694,7 +5951,7 @@ export default function GamePage() {
         <div style={careerMiniGameOverlayStyle}>
           <div style={careerMiniGameBoxStyle}>
             <div style={smallLabelStyle}>CAREER TEST</div>
-            <h2 style={panelTitleStyle}>{careerMiniGame.icon} {careerMiniGame.name} 실무 테스트</h2>
+            <h2 className="alba-panel-title" style={panelTitleStyle}>{careerMiniGame.icon} {careerMiniGame.name} 실무 테스트</h2>
             <p style={panelDescStyle}>{getCareerGameInstruction(careerMiniGame)}</p>
             <div style={careerMiniGameStatusGridStyle}>
               <div style={careerMiniGameScoreStyle}>점수 {careerMiniGameScore} / {getCareerTargetScore(careerMiniGame)}</div>
@@ -5743,9 +6000,9 @@ export default function GamePage() {
                 </div>
                 <div style={careerMiniGameSubTextStyle}>목표 라인: {Number(careerKeySequence[careerKeyIndex]) + 1}번 · 현재 라인: {careerLogisticsColumn + 1}번</div>
                 <div style={careerMiniGameButtonRowStyle}>
-                  <button onClick={() => setCareerLogisticsColumn((current) => Math.max(0, current - 1))} style={smallActionButtonStyle}>왼쪽</button>
+                  <button onClick={() => setCareerLogisticsColumn((current) => Math.max(0, current - 1))} className="alba-small-action-button" style={smallActionButtonStyle}>왼쪽</button>
                   <button onClick={() => void placeCareerLogisticsBlock()} style={bigStartButtonStyle}>블록 내리기</button>
-                  <button onClick={() => setCareerLogisticsColumn((current) => Math.min(5, current + 1))} style={smallActionButtonStyle}>오른쪽</button>
+                  <button onClick={() => setCareerLogisticsColumn((current) => Math.min(5, current + 1))} className="alba-small-action-button" style={smallActionButtonStyle}>오른쪽</button>
                 </div>
               </div>
             )}
@@ -6269,8 +6526,8 @@ function StreetBuildingFacade({ building }: { building: { id: StreetBuildingId; 
       <div style={streetFacadeCanvasStyle}>
         <StreetBuildingIllustration id={building.id} />
       </div>
-      <div style={streetBuildingSignStyle}>{building.title}</div>
-      <div style={streetBuildingSubtitleStyle}>{building.subtitle}</div>
+      <div className="alba-street-building-sign" style={streetBuildingSignStyle}>{building.title}</div>
+      <div className="alba-street-building-subtitle" style={streetBuildingSubtitleStyle}>{building.subtitle}</div>
     </>
   );
 }
@@ -7172,7 +7429,7 @@ function FinanceMiniChart({ history }: { history: FinanceHistoryPoint[] }) {
 
 function StatusPill({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) {
   return (
-    <div style={{ ...statusPillStyle, borderColor: warning ? "#f97316" : "#111827", color: warning ? "#9a3412" : "#111827" }}>
+    <div className="alba-status-pill" style={{ ...statusPillStyle, borderColor: warning ? "#f97316" : "#111827", color: warning ? "#9a3412" : "#111827" }}>
       <span style={{ ...statusLabelStyle, color: warning ? "#c2410c" : "#64748b" }}>{label}</span>
       <strong style={{ color: warning ? "#9a3412" : "#111827", fontSize: "17px", lineHeight: 1.1 }}>{value}</strong>
     </div>
@@ -7768,7 +8025,7 @@ const smallActionButtonStyle: CSSProperties = {
 
 const worldBodyStyle: CSSProperties = {
   minHeight: 0,
-  overflow: "hidden",
+  overflow: "auto",
 };
 
 const worldFooterStyle: CSSProperties = {
@@ -8032,7 +8289,7 @@ const panelSceneStyle: CSSProperties = {
   display: "grid",
   gridTemplateRows: "auto minmax(0, 1fr) auto",
   gap: "12px",
-  overflow: "hidden",
+  overflow: "auto",
   background: "linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%)",
   color: "#111827",
   border: "4px solid #111827",
@@ -8047,7 +8304,7 @@ const stockExchangeSceneStyle: CSSProperties = {
   display: "grid",
   gridTemplateRows: "auto minmax(0, 1fr)",
   gap: "14px",
-  overflow: "hidden",
+  overflow: "auto",
   background: "linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%)",
   color: "#111827",
   border: "4px solid #111827",
@@ -8083,7 +8340,7 @@ const officeFooterStyle: CSSProperties = {
 
 const roomSelectGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
   gap: "12px",
   minHeight: 0,
 };
@@ -8162,7 +8419,7 @@ const economyButtonRowStyle: CSSProperties = {
 
 const economyCardGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
   gap: "12px",
   overflowY: "auto",
   minHeight: 0,
@@ -8466,9 +8723,9 @@ const jobGridStyle: CSSProperties = {
   width: "100%",
   height: "100%",
   display: "grid",
-  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
   gap: "10px",
-  overflow: "hidden",
+  overflow: "auto",
 };
 
 const jobCardStyle: CSSProperties = {
@@ -9100,7 +9357,7 @@ const careerOfficeStyle: CSSProperties = {
 
 const careerCardGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
   gap: "14px",
   overflowY: "auto",
   paddingRight: "8px",
@@ -9893,7 +10150,7 @@ const gachaShopSceneStyle: CSSProperties = {
   display: "grid",
   gridTemplateRows: "auto 182px minmax(0, 1fr)",
   gap: "10px",
-  overflow: "hidden",
+  overflow: "auto",
   background: "linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%)",
   color: "#111827",
   border: "4px solid #111827",
