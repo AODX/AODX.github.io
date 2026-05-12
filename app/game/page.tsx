@@ -6113,7 +6113,6 @@ function renderLuxuryCharacter(character: MainCharacterOption, background: MainB
 function renderLuxuryCharacterGlyph(character: MainCharacterOption, x: number, y: number, scale: number) {
   const transform = `translate(${x} ${y}) scale(${scale})`;
   const p = character.primaryColor;
-  const s = character.secondaryColor;
   const h = character.highlightColor;
 
   if (character.spriteKey === "catScholar") {
@@ -10384,7 +10383,6 @@ const luxuryPriceStyle: CSSProperties = {
   fontSize: "18px",
   fontWeight: 900,
 };
-
 
 
 
