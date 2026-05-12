@@ -1533,7 +1533,8 @@ export default function GamePage() {
       if (Array.isArray(parsed.earnedTitleIds)) {
         setEarnedTitleIds(Array.from(new Set<PlayerTitleId>(["newbie", ...parsed.earnedTitleIds.filter((id): id is PlayerTitleId => playerTitles.some((title) => title.id === id))])));
       } else if (Array.isArray(parsed.announcedSecretTitles)) {
-        setEarnedTitleIds((prev) => Array.from(new Set<PlayerTitleId>(["newbie", ...prev, ...parsed.announcedSecretTitles.filter((id): id is PlayerTitleId => playerTitles.some((title) => title.id === id))])));
+        const loadedAnnouncedSecretTitles = parsed.announcedSecretTitles.filter((id): id is PlayerTitleId => playerTitles.some((title) => title.id === id));
+        setEarnedTitleIds((prev) => Array.from(new Set<PlayerTitleId>(["newbie", ...prev, ...loadedAnnouncedSecretTitles])));
       }
       if (parsed.inventorySortMode && ["favorite", "rarity", "priceDesc", "priceAsc", "name", "count"].includes(parsed.inventorySortMode)) setInventorySortMode(parsed.inventorySortMode);
       if (typeof parsed.shopLevel === "number") setShopLevel(parsed.shopLevel);
@@ -9401,6 +9402,7 @@ const chatSendButtonStyle: CSSProperties = {
   fontWeight: 900,
   cursor: "pointer",
 };
+
 
 
 
