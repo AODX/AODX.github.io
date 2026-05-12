@@ -884,7 +884,7 @@ const ancientRelicItems: ShopItem[] = [
   },
   {
     id: "ancient_knight_helmet",
-    name: "어느 기사의 투구",
+    name: "어느 기사의 방패",
     icon: "🛡️",
     rarity: "고대 유물",
     price: 320000000,
@@ -1475,15 +1475,16 @@ export default function GamePage() {
 
   useEffect(() => {
     if (!userId) return;
+    const currentUserId = userId;
     setIsProfileLoaded(false);
 
     async function loadProfilePreferences() {
-      const savedNickname = window.localStorage.getItem(`alba-money-nickname-${userId}`);
-      const savedRoomKind = window.localStorage.getItem(`alba-money-room-${userId}`) as RoomKind | null;
-      const savedOccupationId = window.localStorage.getItem(`alba-money-occupation-${userId}`) as OccupationId | null;
-      const savedUnlocked = window.localStorage.getItem(`alba-money-unlocked-occupations-${userId}`);
-      const savedTitle = window.localStorage.getItem(`alba-money-title-${userId}`) as PlayerTitleId | null;
-      const cachedTitleIds = getStoredEarnedTitleIds(userId);
+      const savedNickname = window.localStorage.getItem(`alba-money-nickname-${currentUserId}`);
+      const savedRoomKind = window.localStorage.getItem(`alba-money-room-${currentUserId}`) as RoomKind | null;
+      const savedOccupationId = window.localStorage.getItem(`alba-money-occupation-${currentUserId}`) as OccupationId | null;
+      const savedUnlocked = window.localStorage.getItem(`alba-money-unlocked-occupations-${currentUserId}`);
+      const savedTitle = window.localStorage.getItem(`alba-money-title-${currentUserId}`) as PlayerTitleId | null;
+      const cachedTitleIds = getStoredEarnedTitleIds(currentUserId);
       setEarnedTitleIds((prev) => Array.from(new Set<PlayerTitleId>(["newbie", ...prev, ...cachedTitleIds])));
 
       if (savedNickname) {
@@ -1512,7 +1513,7 @@ export default function GamePage() {
       const { data, error } = await supabase
         .from(PROFILE_TABLE)
         .select("id, nickname, room_kind, occupation_id, occupation_level, unlocked_occupations, current_title, net_worth")
-        .eq("id", userId)
+        .eq("id", currentUserId)
         .maybeSingle<ProfileRow>();
 
       if (error) {
@@ -1523,19 +1524,19 @@ export default function GamePage() {
       if (data?.nickname) {
         setNickname(data.nickname);
         setNicknameDraft(data.nickname);
-        window.localStorage.setItem(`alba-money-nickname-${userId}`, data.nickname);
+        window.localStorage.setItem(`alba-money-nickname-${currentUserId}`, data.nickname);
       }
 
       if (data?.room_kind && data.room_kind in roomInfo) {
         const nextRoomKind = data.room_kind as RoomKind;
         setRoomKind(nextRoomKind);
-        window.localStorage.setItem(`alba-money-room-${userId}`, nextRoomKind);
+        window.localStorage.setItem(`alba-money-room-${currentUserId}`, nextRoomKind);
       }
 
       if (data?.occupation_id && data.occupation_id in occupationInfo) {
         const nextOccupationId = data.occupation_id as OccupationId;
         setOccupationId(nextOccupationId);
-        window.localStorage.setItem(`alba-money-occupation-${userId}`, nextOccupationId);
+        window.localStorage.setItem(`alba-money-occupation-${currentUserId}`, nextOccupationId);
       }
 
       if (typeof data?.occupation_level === "number") {
@@ -1545,7 +1546,7 @@ export default function GamePage() {
       if (data?.current_title && playerTitles.some((title) => title.id === data.current_title)) {
         setCurrentTitleId(data.current_title);
         setEarnedTitleIds((prev) => Array.from(new Set<PlayerTitleId>(["newbie", ...prev, data.current_title as PlayerTitleId])));
-        window.localStorage.setItem(`alba-money-title-${userId}`, data.current_title);
+        window.localStorage.setItem(`alba-money-title-${currentUserId}`, data.current_title);
       }
 
       const rawUnlocked = data?.unlocked_occupations;
@@ -1553,7 +1554,7 @@ export default function GamePage() {
       if (Array.isArray(parsedUnlocked)) {
         const nextUnlocked = normalizeUnlockedOccupations(parsedUnlocked);
         setUnlockedOccupations(nextUnlocked);
-        window.localStorage.setItem(`alba-money-unlocked-occupations-${userId}`, JSON.stringify(nextUnlocked));
+        window.localStorage.setItem(`alba-money-unlocked-occupations-${currentUserId}`, JSON.stringify(nextUnlocked));
       }
       setIsProfileLoaded(true);
     }
@@ -9537,8 +9538,6 @@ const chatSendButtonStyle: CSSProperties = {
   fontWeight: 900,
   cursor: "pointer",
 };
-
-
 
 
 
