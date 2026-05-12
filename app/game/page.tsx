@@ -1073,6 +1073,47 @@ const sortInfo: Record<SortKind, { label: string; emoji: string; key: string }> 
   purple: { label: "보라", emoji: "🟪", key: "p" },
 };
 
+
+function normalizePlayerTitleIdList(values: unknown): PlayerTitleId[] {
+  if (!Array.isArray(values)) return [];
+  return values.filter((id): id is PlayerTitleId => typeof id === "string" && playerTitles.some((title) => title.id === id));
+}
+
+function mergeEconomySavePayloads(localPayload: string | null, remotePayload: string | null): string | null {
+  if (!localPayload && !remotePayload) return null;
+
+  let localData: Record<string, unknown> = {};
+  let remoteData: Record<string, unknown> = {};
+
+  try {
+    if (localPayload) localData = JSON.parse(localPayload) as Record<string, unknown>;
+  } catch {
+    localData = {};
+  }
+
+  try {
+    if (remotePayload) remoteData = JSON.parse(remotePayload) as Record<string, unknown>;
+  } catch {
+    remoteData = {};
+  }
+
+  const mergedEarnedTitleIds = Array.from(
+    new Set<PlayerTitleId>([
+      "newbie",
+      ...normalizePlayerTitleIdList(localData.earnedTitleIds),
+      ...normalizePlayerTitleIdList(remoteData.earnedTitleIds),
+      ...normalizePlayerTitleIdList(localData.announcedSecretTitles),
+      ...normalizePlayerTitleIdList(remoteData.announcedSecretTitles),
+    ])
+  );
+
+  return JSON.stringify({
+    ...localData,
+    ...remoteData,
+    earnedTitleIds: mergedEarnedTitleIds,
+  });
+}
+
 export default function GamePage() {
   const [cash, setCash] = useState(10000);
   const [userId, setUserId] = useState<string | null>(null);
@@ -1412,6 +1453,7 @@ export default function GamePage() {
 
       if (savedTitle && playerTitles.some((title) => title.id === savedTitle)) {
         setCurrentTitleId(savedTitle);
+        setEarnedTitleIds((prev) => Array.from(new Set<PlayerTitleId>(["newbie", ...prev, savedTitle])));
       }
 
       const supabase = createClient();
@@ -1470,7 +1512,8 @@ export default function GamePage() {
     if (!userId) return;
 
     setIsEconomyLoaded(false);
-    let stored = window.localStorage.getItem(`alba-money-economy-${userId}`);
+    const localStoredEconomy = window.localStorage.getItem(`alba-money-economy-${userId}`);
+    let stored = localStoredEconomy;
 
     const loadRemoteEconomy = async () => {
       try {
@@ -1482,8 +1525,9 @@ export default function GamePage() {
           .maybeSingle<{ data: string | Record<string, unknown> | null }>();
 
         if (!error && data?.data) {
-          stored = typeof data.data === "string" ? data.data : JSON.stringify(data.data);
-          window.localStorage.setItem(`alba-money-economy-${userId}`, stored);
+          const remoteStoredEconomy = typeof data.data === "string" ? data.data : JSON.stringify(data.data);
+          stored = mergeEconomySavePayloads(localStoredEconomy, remoteStoredEconomy);
+          if (stored) window.localStorage.setItem(`alba-money-economy-${userId}`, stored);
         }
       } catch {
         // Supabase economy table may not exist yet. Local backup still works.
@@ -4859,6 +4903,7 @@ export default function GamePage() {
                         disabled={!unlocked}
                         onClick={() => {
                           setCurrentTitleId(title.id);
+                          setEarnedTitleIds((prev) => Array.from(new Set<PlayerTitleId>(["newbie", ...prev, title.id])));
                           if (userId) window.localStorage.setItem(`alba-money-title-${userId}`, title.id);
                           saveProfilePatch({ current_title: title.id });
                           setMessage(`🏷️ 칭호를 ${title.name}(으)로 변경했습니다.`);
