@@ -1065,6 +1065,7 @@ export default function GamePage() {
   const [shopPurchaseCount, setShopPurchaseCount] = useState(0);
   const [shopOffers, setShopOffers] = useState<ShopItem[]>(() => makeShopOffers(1));
   const [shopUpdatedAt, setShopUpdatedAt] = useState(new Date());
+  const [shopCountdownSeconds, setShopCountdownSeconds] = useState(() => Math.ceil(getShopRemainingMs(new Date()) / 1000));
   const [shopSoldOfferKeys, setShopSoldOfferKeys] = useState<string[]>([]);
   const [gachaMachinePullCount, setGachaMachinePullCount] = useState(0);
   const [marketListings, setMarketListings] = useState<MarketListing[]>([]);
@@ -1100,6 +1101,7 @@ export default function GamePage() {
   const [cafeSuccessTotal, setCafeSuccessTotal] = useState(0);
   const [securitySuccessTotal, setSecuritySuccessTotal] = useState(0);
   const [rankingRows, setRankingRows] = useState<RankingRow[]>([]);
+  const [rankingMode, setRankingMode] = useState<"netWorth" | "collection">("netWorth");
   const [rankingUpdatedAt, setRankingUpdatedAt] = useState(new Date());
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessageRow[]>([]);
@@ -1996,26 +1998,25 @@ export default function GamePage() {
   useEffect(() => {
     if (!isSaveLoaded) return;
 
-    const timer = window.setInterval(() => {
+    const restock = () => {
       setShopOffers(makeShopOffers(shopLevel));
       setShopUpdatedAt(new Date());
       setShopSoldOfferKeys([]);
       setGachaMachinePullCount(0);
+      setShopCountdownSeconds(Math.ceil((10 * 60 * 1000) / 1000));
       setMessage("🎁 가챠 숍 상품 3개가 새로 입고되었습니다. 가챠 자판기 가격도 50,000원으로 초기화되었습니다.");
-    }, 10 * 60 * 1000);
+    };
 
+    const tick = () => {
+      const remainingSeconds = Math.ceil(getShopRemainingMs(shopUpdatedAt) / 1000);
+      setShopCountdownSeconds(Math.max(0, remainingSeconds));
+      if (shopOffers.length === 0 || remainingSeconds <= 0) restock();
+    };
+
+    tick();
+    const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
-  }, [isSaveLoaded, shopLevel]);
-
-  useEffect(() => {
-    const elapsedMs = Date.now() - shopUpdatedAt.getTime();
-    if (shopOffers.length === 0 || elapsedMs >= 10 * 60 * 1000) {
-      setShopOffers(makeShopOffers(shopLevel));
-      setShopUpdatedAt(new Date());
-      setShopSoldOfferKeys([]);
-      setGachaMachinePullCount(0);
-    }
-  }, [shopOffers.length, shopLevel, shopUpdatedAt]);
+  }, [isSaveLoaded, shopLevel, shopOffers.length, shopUpdatedAt]);
 
   useEffect(() => {
     if (lobbyView === "itemMarket") refreshMarketListings();
@@ -3364,7 +3365,7 @@ export default function GamePage() {
   async function refreshRanking(currentNickname = nickname) {
     if (!userId) return;
 
-    const fallbackRows = makeRankingRows(currentNickname, netWorth, occupationInfo[occupationId].name);
+    const fallbackRows = makeRankingRows(currentNickname, rankingMode === "collection" ? discoveredItems.length : netWorth, occupationInfo[occupationId].name);
     const supabase = createClient();
 
     const { data: profiles, error: profilesError } = await supabase
@@ -3442,12 +3443,18 @@ export default function GamePage() {
     const rows = typedProfiles
       .map((profile) => {
         const save = saveMap.get(profile.id);
+        const economy = economyMap.get(profile.id) ?? {};
         const profileOccupationId = profile.occupation_id && profile.occupation_id in occupationInfo ? (profile.occupation_id as OccupationId) : "unemployed";
         const profileTitle = playerTitles.find((title) => title.id === (profile.id === userId ? currentTitleId : profile.current_title)) ?? playerTitles[0];
+        const discoveredCount = profile.id === userId
+          ? discoveredItems.length
+          : Array.isArray(economy.discoveredItems)
+            ? economy.discoveredItems.filter((id) => typeof id === "string" && shopItems.some((item) => item.id === id)).length
+            : 0;
         return {
           rank: 0,
           nickname: profile.id === userId ? currentNickname : profile.nickname || "이름 없음",
-          cash: Math.max(0, Math.floor(calculateRankingNetWorth(profile))),
+          cash: rankingMode === "collection" ? discoveredCount : Math.max(0, Math.floor(calculateRankingNetWorth(profile))),
           hasSave: !!save,
           job: profile.id === userId ? occupationInfo[occupationId].name : occupationInfo[profileOccupationId].name,
           titleName: profileTitle.name,
@@ -4601,7 +4608,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>GACHA SHOP</div>
                   <h2 style={panelTitleStyle}>가챠 숍</h2>
-                  <p style={panelDescStyle}>10분마다 랜덤 장신구 3개만 입고됩니다. 입고 상품은 원래 가격의 2배로 판매되며, 한 번 구매하면 SOLD OUT 처리됩니다. 상점 등급 Lv.{shopLevel} · 구매 {shopPurchaseCount}회 · 장착 {equippedItems.length}/{itemSlotCount} · 재입고까지 {formatTime(Math.ceil(getShopRemainingMs(shopUpdatedAt) / 1000))}</p>
+                  <p style={panelDescStyle}>10분마다 랜덤 장신구 3개만 입고됩니다. 입고 상품은 원래 가격의 2배로 판매되며, 한 번 구매하면 SOLD OUT 처리됩니다. 상점 등급 Lv.{shopLevel} · 구매 {shopPurchaseCount}회 · 장착 {equippedItems.length}/{itemSlotCount} · 재입고까지 {formatTime(shopCountdownSeconds)}</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} style={smallActionButtonStyle}>길거리로</button>
               </div>
@@ -4629,7 +4636,7 @@ export default function GamePage() {
               <div style={gachaLowerGridStyle}>
                 <section style={gachaListCardStyle}>
                   <h3 style={casinoTitleStyle}>가챠 자판기</h3>
-                  <p style={casinoTextStyle}>현재 1회 {getGachaMachineCost(gachaMachinePullCount).toLocaleString()}원. 10뽑을 할 때마다 가격이 2배씩 상승하며, 10분 재입고 시 50,000원으로 초기화됩니다. 재입고까지 {formatTime(Math.ceil(getShopRemainingMs(shopUpdatedAt) / 1000))}</p>
+                  <p style={casinoTextStyle}>현재 1회 {getGachaMachineCost(gachaMachinePullCount).toLocaleString()}원. 10뽑을 할 때마다 가격이 2배씩 상승하며, 10분 재입고 시 50,000원으로 초기화됩니다. 재입고까지 {formatTime(shopCountdownSeconds)}</p>
                   <button onClick={pullGachaMachine} style={casinoPrimaryButtonStyle}>가챠 돌리기</button>
                   <div style={gachaEquippedPanelStyle}>
                     <h4 style={gachaEquippedTitleStyle}>장착 중인 아이템</h4>
@@ -4744,7 +4751,7 @@ export default function GamePage() {
                     <div key={title.id} style={{ ...titleCardStyle, opacity: unlocked ? 1 : 0.48 }}>
                       <div style={titleCardIconStyle}>{title.hidden && !unlocked ? "❔" : title.icon}</div>
                       <h3 style={economyCardTitleStyle}>{title.hidden && !unlocked ? "???" : title.name}</h3>
-                      <p style={economyCardTextStyle}>{title.hidden && !unlocked ? "조건 비공개 · 아주 희귀한 칭호입니다." : title.description}</p>
+                      <p style={economyCardTextStyle}>{getTitleDisplayDescription(title, unlocked)}</p>
                       {title.passiveText && (!title.hidden || unlocked) && <strong style={{ color: "#7c3aed" }}>패시브: {title.passiveText}</strong>}
                       <button
                         disabled={!unlocked}
@@ -4989,16 +4996,26 @@ export default function GamePage() {
                           <h3 style={phoneCardTitleStyle}>아이템 도감</h3>
                           <p style={casinoTextStyle}>수집 {new Set(discoveredItems).size}/{shopItems.length}종 · 등급이 높을수록 성능 차이가 확실합니다.</p>
                           <div style={itemCollectionGridStyle}>
-                            {shopItems.map((item) => {
-                              const owned = discoveredItems.includes(item.id);
-                              return (
-                                <div key={item.id} style={{ ...itemCollectionCardStyle, borderColor: getRarityColor(item.rarity), opacity: owned ? 1 : 0.42 }}>
-                                  <strong>{owned ? item.icon : "❔"} {owned ? item.name : "미수집"}</strong>
-                                  <small style={{ color: getRarityColor(item.rarity), fontWeight: 900 }}>{item.rarity} · {getRarityPerformanceText(item.rarity)}</small>
-                                  <small>{owned ? getItemEffectText(item) : "획득하면 효과 공개"}</small>
+                            {getCollectionItemsByRarity().map((group) => (
+                              <div key={group.rarity} style={itemCollectionSectionStyle}>
+                                <div style={{ ...itemCollectionSectionTitleStyle, color: getRarityColor(group.rarity), borderColor: getRarityColor(group.rarity) }}>
+                                  <strong>{group.rarity}</strong>
+                                  <span>{group.items.filter((item) => discoveredItems.includes(item.id)).length}/{group.items.length}종 수집</span>
                                 </div>
-                              );
-                            })}
+                                <div style={itemCollectionSectionGridStyle}>
+                                  {group.items.map((item) => {
+                                    const owned = discoveredItems.includes(item.id);
+                                    return (
+                                      <div key={item.id} style={{ ...itemCollectionCardStyle, borderColor: getRarityColor(item.rarity), opacity: owned ? 1 : 0.42 }}>
+                                        <strong>{owned ? item.icon : "❔"} {owned ? item.name : "미수집"}</strong>
+                                        <small style={{ color: getRarityColor(item.rarity), fontWeight: 900 }}>{item.rarity} · {getRarityPerformanceText(item.rarity)}</small>
+                                        <small>{owned ? getItemEffectText(item) : "획득하면 효과 공개"}</small>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </section>
                       )}
@@ -5018,8 +5035,12 @@ export default function GamePage() {
               <div style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>RANKING</div>
-                  <h2 style={panelTitleStyle}>랭킹</h2>
-                  <p style={panelDescStyle}>프로필이 생성된 계정 중 순자산 기준 상위 5명이 표시됩니다. 1~3위에게는 자동 랭킹 버프가 지급됩니다. 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                    <button onClick={() => setRankingMode((mode) => mode === "netWorth" ? "collection" : "netWorth")} style={smallActionButtonStyle}>◀</button>
+                    <h2 style={panelTitleStyle}>{rankingMode === "netWorth" ? "순자산 랭킹" : "아이템 도감 랭킹"}</h2>
+                    <button onClick={() => setRankingMode((mode) => mode === "netWorth" ? "collection" : "netWorth")} style={smallActionButtonStyle}>▶</button>
+                  </div>
+                  <p style={panelDescStyle}>{rankingMode === "netWorth" ? "프로필이 생성된 계정 중 현금·예금·적금·부동산·사업을 합친 순자산 기준 상위 5명이 표시됩니다. 1~3위에게는 자동 랭킹 버프가 지급됩니다." : "한 번이라도 획득해 도감에 등록한 장신구 종류 수 기준 상위 5명이 표시됩니다."} 마지막 갱신: {rankingUpdatedAt.toLocaleTimeString()}</p>
                 </div>
                 <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
               </div>
@@ -5030,7 +5051,7 @@ export default function GamePage() {
                     <strong>{row.rank}위 {row.rank === 1 ? "🥇" : row.rank === 2 ? "🥈" : row.rank === 3 ? "🥉" : ""}</strong>
                     <span>{row.isMe ? "👤 " : ""}{row.nickname}</span>
                     <span>{row.titleIcon} {row.titleName}<br /><small>{row.job}</small></span>
-                    <strong>{`${row.cash.toLocaleString()}원`}<br />{row.rank <= 3 && <small style={{ color: "#7c3aed" }}>랭킹 버프 +{Math.round(getRankingBuffRate(row.rank) * 100)}%</small>}</strong>
+                    <strong>{rankingMode === "netWorth" ? `${row.cash.toLocaleString()}원` : `${row.cash.toLocaleString()}종`}<br />{rankingMode === "netWorth" && row.rank <= 3 && <small style={{ color: "#7c3aed" }}>랭킹 버프 +{Math.round(getRankingBuffRate(row.rank) * 100)}%</small>}</strong>
                   </div>
                 ))}
               </div>
@@ -5928,6 +5949,26 @@ function getPhoneAppTitle(app: "home" | "wallet" | "chart" | "income" | "buffs" 
   return "홈";
 }
 
+
+function getTitleDisplayDescription(title: PlayerTitle, unlocked: boolean) {
+  if (!title.hidden) return title.description;
+  if (!unlocked) return "조건 비공개 · 아주 희귀한 칭호입니다.";
+  return secretTitleConditionText[title.id] ?? title.description;
+}
+
+const secretTitleConditionText: Partial<Record<PlayerTitleId, string>> = {
+  hiddenZero: "해금 완료: 현금 0원 이하에서 다시 100,000원 이상 회복",
+  hiddenWhale: "해금 완료: 순자산 20,000,000원 이상 달성",
+  hiddenLucky: "해금 완료: 로또 또는 가챠에서 고등급 보상을 여러 번 획득",
+  hiddenEstateLord: "해금 완료: 고급 부동산 3개 이상 보유",
+  hiddenLaborKing: "해금 완료: 알바 성공 총합 250회 이상",
+  hiddenMarketGhost: "해금 완료: 주식 10종 이상 보유 및 큰 손익 변동 경험",
+  hiddenRelicDealer: "해금 완료: 유물 아이템 2개 이상 획득",
+  hiddenDebtFree: "해금 완료: 대출 0원 상태에서 순자산 5,000,000원 이상",
+  hiddenCasinoDemon: "해금 완료: 카지노에서 큰 승부를 여러 번 진행",
+  hiddenEconomyGod: "해금 완료: 순자산 100,000,000원 이상과 주요 경제 콘텐츠 대부분 달성",
+};
+
 function getPvpStatusLabel(status: PvpMatchRow["status"]) {
   if (status === "waiting") return "수락 대기";
   if (status === "accepted") return "플레이 가능";
@@ -6441,6 +6482,16 @@ function rollGachaItem(level: number) {
 function randomItemByRarity(rarity: ItemRarity) {
   const candidates = shopItems.filter((item) => item.rarity === rarity);
   return candidates[Math.floor(Math.random() * candidates.length)] ?? null;
+}
+
+function getCollectionItemsByRarity() {
+  const order: ItemRarity[] = ["일반", "희소", "진귀", "보물", "유물"];
+  return order.map((rarity) => ({
+    rarity,
+    items: shopItems
+      .filter((item) => item.rarity === rarity)
+      .sort((a, b) => a.price - b.price || a.name.localeCompare(b.name, "ko")),
+  }));
 }
 
 function getRarityColor(rarity: ItemRarity) {
@@ -8744,6 +8795,30 @@ const itemCollectionGridStyle: CSSProperties = {
   gap: "8px",
 };
 
+const itemCollectionSectionStyle: CSSProperties = {
+  display: "grid",
+  gap: "8px",
+};
+
+const itemCollectionSectionTitleStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "14px",
+  background: "rgba(255,255,255,0.96)",
+  padding: "8px 10px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "8px",
+  fontSize: "13px",
+  fontWeight: 900,
+};
+
+const itemCollectionSectionGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr",
+  gap: "8px",
+};
+
 const itemCollectionCardStyle: CSSProperties = {
   border: "3px solid #111827",
   borderRadius: "16px",
@@ -9221,6 +9296,7 @@ const chatSendButtonStyle: CSSProperties = {
   fontWeight: 900,
   cursor: "pointer",
 };
+
 
 
 
