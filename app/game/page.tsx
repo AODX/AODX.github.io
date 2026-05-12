@@ -1658,6 +1658,13 @@ export default function GamePage() {
           refreshRanking();
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: ECONOMY_TABLE },
+        () => {
+          refreshRanking();
+        }
+      )
       .subscribe();
 
     const timer = window.setInterval(() => {
@@ -1668,12 +1675,12 @@ export default function GamePage() {
       window.clearInterval(timer);
       void supabase.removeChannel(rankingChannel);
     };
-  }, [userId, isSaveLoaded, nickname, cash, occupationId]);
+  }, [userId, isSaveLoaded, nickname, cash, occupationId, rankingMode, netWorth, discoveredItems.length]);
 
   useEffect(() => {
     if (lobbyView === "ranking") refreshRanking();
     if (lobbyView === "casino") refreshCasinoData();
-  }, [lobbyView]);
+  }, [lobbyView, rankingMode]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
