@@ -158,6 +158,59 @@ type Certification = {
 
 type ItemRarity = "일반" | "희소" | "진귀" | "보물" | "유물" | "고대 유물";
 type ShopItemId = string;
+type NicknameColorId = string;
+type NicknameTagId = string;
+type MainBackgroundId = string;
+type MainCharacterId = string;
+
+type NicknameColorTheme = {
+  id: NicknameColorId;
+  name: string;
+  price: number;
+  description: string;
+  previewText: string;
+  color?: string;
+  gradient?: string;
+  shadow?: string;
+  letterSpacing?: string;
+  fontStyle?: CSSProperties["fontStyle"];
+  textTransform?: CSSProperties["textTransform"];
+};
+
+type NicknameTagItem = {
+  id: NicknameTagId;
+  name: string;
+  price: number;
+  description: string;
+  background: string;
+  borderColor: string;
+  accentColor: string;
+  shape: "pill" | "ticket" | "panel" | "ribbon";
+};
+
+type MainBackgroundOption = {
+  id: MainBackgroundId;
+  name: string;
+  price: number;
+  description: string;
+  palette: [string, string, string];
+  accent: string;
+  sceneKey: string;
+  anchorX: number;
+  anchorY: number;
+  anchorScale: number;
+};
+
+type MainCharacterOption = {
+  id: MainCharacterId;
+  name: string;
+  price: number;
+  description: string;
+  primaryColor: string;
+  secondaryColor: string;
+  highlightColor: string;
+  spriteKey: string;
+};
 type ItemSortMode = "favorite" | "rarity" | "priceDesc" | "priceAsc" | "name" | "count";
 type ShopItem = {
   id: ShopItemId;
@@ -1429,6 +1482,10 @@ export default function GamePage() {
   const insuranceCasinoCashback = Math.min(0.22, ownedInsuranceItems.reduce((sum, item) => sum + (item.casinoCashback ?? 0), 0));
   const nextTax = Math.floor(calculateTax(cash, unpaidTax) * Math.max(0.55, 1 - insuranceTaxDiscount));
   const currentTitle = playerTitles.find((title) => title.id === currentTitleId) ?? playerTitles[0];
+  const activeNicknameColor = luxuryNicknameColors.find((theme) => theme.id === selectedNicknameColorId) ?? defaultNicknameColorTheme;
+  const activeNicknameTag = luxuryNicknameTags.find((tag) => tag.id === selectedNicknameTagId) ?? defaultNicknameTag;
+  const activeMainBackground = luxuryMainBackgrounds.find((background) => background.id === selectedMainBackgroundId) ?? defaultMainBackground;
+  const activeMainCharacter = luxuryMainCharacters.find((character) => character.id === selectedMainCharacterId) ?? defaultMainCharacter;
   const equippedShopItems = useMemo(() => equippedItems.map((id) => shopItems.find((item) => item.id === id)).filter((item): item is ShopItem => Boolean(item)), [equippedItems]);
   const groupedOwnedItems = useMemo(() => sortGroupedShopItems(groupOwnedShopItems(ownedItems), inventorySortMode, favoriteItems), [ownedItems, inventorySortMode, favoriteItems]);
   const visibleInventoryItems = useMemo(() => groupedOwnedItems.filter((group) => !showFavoritesOnly || favoriteItems.includes(group.id)), [groupedOwnedItems, showFavoritesOnly, favoriteItems]);
@@ -10327,6 +10384,7 @@ const luxuryPriceStyle: CSSProperties = {
   fontSize: "18px",
   fontWeight: 900,
 };
+
 
 
 
