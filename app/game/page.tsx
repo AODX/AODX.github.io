@@ -1561,6 +1561,217 @@ function ResponsiveGameStyles() {
           font-size: 20px !important;
         }
       }
+
+      .alba-mobile-only {
+        display: none !important;
+      }
+
+      @media (max-width: 1100px), (pointer: coarse) {
+        html, body {
+          overflow-x: hidden !important;
+          touch-action: manipulation;
+        }
+
+        .alba-game-root {
+          width: 100% !important;
+          min-height: 100svh !important;
+          height: auto !important;
+          overflow: auto !important;
+          padding: 0 !important;
+        }
+
+        .alba-world-layout {
+          width: 100% !important;
+          height: auto !important;
+          min-height: 100svh !important;
+          display: flex !important;
+          flex-direction: column !important;
+          overflow: visible !important;
+          padding: 8px !important;
+          gap: 10px !important;
+        }
+
+        .alba-world-body {
+          width: 100% !important;
+          min-height: 0 !important;
+          height: auto !important;
+          overflow: visible !important;
+        }
+
+        .alba-mobile-only {
+          display: flex !important;
+        }
+
+        .alba-mobile-nav {
+          position: sticky !important;
+          top: 0 !important;
+          z-index: 80 !important;
+          gap: 7px !important;
+          overflow-x: auto !important;
+          padding: 8px !important;
+          margin: 0 -2px 4px !important;
+          border: 3px solid #111827 !important;
+          border-radius: 18px !important;
+          background: rgba(255,255,255,0.96) !important;
+          box-shadow: 0 8px 0 rgba(17,24,39,0.10) !important;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .alba-mobile-nav button,
+        .alba-mobile-touch-controls button,
+        .alba-mobile-street-list button {
+          min-height: 48px !important;
+          min-width: 74px !important;
+          border: 3px solid #111827 !important;
+          border-radius: 16px !important;
+          background: #ffffff !important;
+          color: #111827 !important;
+          font-weight: 900 !important;
+          font-size: 14px !important;
+          box-shadow: 0 5px 0 rgba(17,24,39,0.14) !important;
+        }
+
+        .alba-room-scene,
+        .alba-street-scene {
+          height: auto !important;
+          min-height: 0 !important;
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 10px !important;
+          padding: 12px !important;
+          overflow: visible !important;
+          border-radius: 20px !important;
+        }
+
+        .alba-room-scene > svg,
+        .alba-street-scene > svg {
+          position: relative !important;
+          inset: auto !important;
+          width: 100% !important;
+          height: clamp(210px, 45vw, 360px) !important;
+          min-height: 210px !important;
+          border: 3px solid #111827 !important;
+          border-radius: 18px !important;
+          background: #f8fafc !important;
+          overflow: hidden !important;
+          z-index: 1 !important;
+          order: 2 !important;
+        }
+
+        .alba-room-money,
+        .alba-street-money,
+        .alba-room-info,
+        .alba-street-page-info,
+        .alba-room-side-controls,
+        .alba-room-nav,
+        .alba-street-bottom-nav {
+          position: relative !important;
+          inset: auto !important;
+          left: auto !important;
+          right: auto !important;
+          top: auto !important;
+          bottom: auto !important;
+          transform: none !important;
+          width: 100% !important;
+          max-width: none !important;
+          z-index: 5 !important;
+        }
+
+        .alba-room-money,
+        .alba-street-money {
+          order: 0 !important;
+          font-size: 16px !important;
+          display: inline-flex !important;
+          align-self: flex-start !important;
+          width: auto !important;
+          max-width: 100% !important;
+        }
+
+        .alba-room-info,
+        .alba-street-page-info {
+          order: 1 !important;
+          font-size: 13px !important;
+          text-align: left !important;
+        }
+
+        .alba-room-side-controls {
+          display: none !important;
+        }
+
+        .alba-room-nav,
+        .alba-street-bottom-nav {
+          order: 4 !important;
+          display: grid !important;
+          grid-template-columns: 1fr !important;
+          gap: 8px !important;
+        }
+
+        .alba-street-page-arrow,
+        .alba-street-buildings-row {
+          display: none !important;
+        }
+
+        .alba-mobile-street-list {
+          order: 3 !important;
+          display: grid !important;
+          grid-template-columns: 1fr 1fr !important;
+          gap: 8px !important;
+        }
+
+        .alba-panel-scene,
+        .alba-stock-scene,
+        .alba-job-only-layout {
+          height: auto !important;
+          min-height: 100svh !important;
+          overflow: visible !important;
+        }
+
+        .alba-job-stage {
+          min-height: 360px !important;
+          height: auto !important;
+          overflow: visible !important;
+        }
+
+        .alba-job-footer {
+          gap: 8px !important;
+        }
+
+        .alba-mobile-touch-controls {
+          display: grid !important;
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 8px !important;
+          width: 100% !important;
+        }
+
+        .alba-mobile-touch-controls.sorting,
+        .alba-mobile-touch-controls.cashier {
+          grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        }
+
+        .alba-mobile-touch-controls.cafe,
+        .alba-mobile-touch-controls.security {
+          grid-template-columns: 1fr !important;
+        }
+
+        .alba-mobile-touch-controls .wide {
+          grid-column: 1 / -1 !important;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .alba-mobile-street-list,
+        .alba-mobile-touch-controls.sorting,
+        .alba-mobile-touch-controls.cashier {
+          grid-template-columns: 1fr 1fr !important;
+        }
+
+        .alba-room-scene > svg,
+        .alba-street-scene > svg {
+          height: 220px !important;
+        }
+      }
+
+
     `}</style>
   );
 }
@@ -4594,6 +4805,75 @@ export default function GamePage() {
     window.location.href = "/login";
   }
 
+  function renderMobileJobControls() {
+    if (!activeJobId) return null;
+
+    if (activeJobId === "sorting") {
+      return (
+        <div className="alba-mobile-only alba-mobile-touch-controls sorting" aria-label="모바일 택배 분류 조작">
+          {getActiveSortKinds(difficulty).map((kind) => (
+            <button key={kind} onClick={() => handleSortKey(sortInfo[kind].key)}>
+              {sortInfo[kind].emoji} {sortInfo[kind].label}
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    if (activeJobId === "delivery") {
+      return (
+        <div className="alba-mobile-only alba-mobile-touch-controls delivery" aria-label="모바일 배달 조작">
+          <button onClick={() => setRunnerLane((lane) => Math.max(0, lane - 1))}>◀ 왼쪽</button>
+          <button onClick={() => setRunnerLane((lane) => Math.min(2, lane + 1))}>오른쪽 ▶</button>
+        </div>
+      );
+    }
+
+    if (activeJobId === "cashier") {
+      return (
+        <div className="alba-mobile-only alba-mobile-touch-controls cashier" aria-label="모바일 계산대 조작">
+          {cashierKeyPool.map((key) => (
+            <button key={key} onClick={() => handleCashierKey(key.toLowerCase())}>
+              {key}
+            </button>
+          ))}
+          <div className="wide" style={{ fontWeight: 900, textAlign: "center" }}>
+            다음 입력: {cashierSequence[cashierIndex] ?? "완료"}
+          </div>
+        </div>
+      );
+    }
+
+    if (activeJobId === "cafe") {
+      return (
+        <div className="alba-mobile-only alba-mobile-touch-controls cafe" aria-label="모바일 카페 조작">
+          <button
+            className="wide"
+            onPointerDown={() => setCafeHolding(true)}
+            onPointerUp={() => {
+              setCafeHolding(false);
+              judgeCafeFill();
+            }}
+            onPointerCancel={() => setCafeHolding(false)}
+            onPointerLeave={() => setCafeHolding(false)}
+          >
+            꾹 눌러 따르기 / 떼면 판정
+          </button>
+        </div>
+      );
+    }
+
+    if (activeJobId === "security") {
+      return (
+        <div className="alba-mobile-only alba-mobile-touch-controls security" aria-label="모바일 보안 조작">
+          <button className="wide" onClick={handleSecurityAction}>수상한 사람 막기</button>
+        </div>
+      );
+    }
+
+    return null;
+  }
+
   if (!isSaveLoaded) {
     return (
       <main style={loadingPageStyle}>
@@ -4638,6 +4918,7 @@ export default function GamePage() {
           <footer className="alba-job-footer" style={jobFooterStyle}>
             <div style={messageBoxStyle}>{message}</div>
             <div style={controlHintStyle}>{getControlHint(activeJobId)}</div>
+            {renderMobileJobControls()}
           </footer>
         </section>
       </main>
@@ -4682,6 +4963,14 @@ export default function GamePage() {
           </div>
         </header>
 
+        <nav className="alba-mobile-only alba-mobile-nav" aria-label="모바일 빠른 이동">
+          <button onClick={() => setLobbyView("room")}>방</button>
+          <button onClick={() => setLobbyView("street")}>길거리</button>
+          <button onClick={() => setLobbyView("jobs")}>알바</button>
+          <button onClick={() => setLobbyView("phone")}>휴대폰</button>
+          <button onClick={() => setLobbyView("ranking")}>랭킹</button>
+        </nav>
+
         <section className="alba-world-body" style={worldBodyStyle}>
           {lobbyView === "room" && (
             <div className="alba-room-scene" style={roomSceneStyle}>
@@ -4718,6 +5007,14 @@ export default function GamePage() {
             <div className="alba-street-scene" style={streetSceneStyle}>
               <div className="alba-street-money" style={streetMoneyStyle}>◎ {cash.toLocaleString()}</div>
               <StreetArtwork />
+
+              <div className="alba-mobile-only alba-mobile-street-list" aria-label="모바일 길거리 건물 목록">
+                {getStreetBuildingsForPage(streetPage).map((building) => (
+                  <button key={`mobile-${building.id}`} onClick={() => handleStreetBuildingClick(building.id)}>
+                    <span>{building.emoji}</span> {building.title}
+                  </button>
+                ))}
+              </div>
 
               <div className="alba-street-page-info" style={streetPageInfoStyle}>
                 <div style={smallLabelStyle}>STREET MAP</div>
@@ -5978,7 +6275,7 @@ export default function GamePage() {
                     </button>
                   ))}
                 </div>
-                <div style={careerMiniGameSubTextStyle}>키보드로도 입력할 수 있습니다. 현재 키: {careerKeySequence[careerKeyIndex] ?? "완료"}</div>
+                <div style={careerMiniGameSubTextStyle}>버튼 또는 키보드로 입력할 수 있습니다. 현재 키: {careerKeySequence[careerKeyIndex] ?? "완료"}</div>
               </div>
             )}
 
@@ -6879,7 +7176,218 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.04); }
         }
-      `}</style>
+  
+      .alba-mobile-only {
+        display: none !important;
+      }
+
+      @media (max-width: 1100px), (pointer: coarse) {
+        html, body {
+          overflow-x: hidden !important;
+          touch-action: manipulation;
+        }
+
+        .alba-game-root {
+          width: 100% !important;
+          min-height: 100svh !important;
+          height: auto !important;
+          overflow: auto !important;
+          padding: 0 !important;
+        }
+
+        .alba-world-layout {
+          width: 100% !important;
+          height: auto !important;
+          min-height: 100svh !important;
+          display: flex !important;
+          flex-direction: column !important;
+          overflow: visible !important;
+          padding: 8px !important;
+          gap: 10px !important;
+        }
+
+        .alba-world-body {
+          width: 100% !important;
+          min-height: 0 !important;
+          height: auto !important;
+          overflow: visible !important;
+        }
+
+        .alba-mobile-only {
+          display: flex !important;
+        }
+
+        .alba-mobile-nav {
+          position: sticky !important;
+          top: 0 !important;
+          z-index: 80 !important;
+          gap: 7px !important;
+          overflow-x: auto !important;
+          padding: 8px !important;
+          margin: 0 -2px 4px !important;
+          border: 3px solid #111827 !important;
+          border-radius: 18px !important;
+          background: rgba(255,255,255,0.96) !important;
+          box-shadow: 0 8px 0 rgba(17,24,39,0.10) !important;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .alba-mobile-nav button,
+        .alba-mobile-touch-controls button,
+        .alba-mobile-street-list button {
+          min-height: 48px !important;
+          min-width: 74px !important;
+          border: 3px solid #111827 !important;
+          border-radius: 16px !important;
+          background: #ffffff !important;
+          color: #111827 !important;
+          font-weight: 900 !important;
+          font-size: 14px !important;
+          box-shadow: 0 5px 0 rgba(17,24,39,0.14) !important;
+        }
+
+        .alba-room-scene,
+        .alba-street-scene {
+          height: auto !important;
+          min-height: 0 !important;
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 10px !important;
+          padding: 12px !important;
+          overflow: visible !important;
+          border-radius: 20px !important;
+        }
+
+        .alba-room-scene > svg,
+        .alba-street-scene > svg {
+          position: relative !important;
+          inset: auto !important;
+          width: 100% !important;
+          height: clamp(210px, 45vw, 360px) !important;
+          min-height: 210px !important;
+          border: 3px solid #111827 !important;
+          border-radius: 18px !important;
+          background: #f8fafc !important;
+          overflow: hidden !important;
+          z-index: 1 !important;
+          order: 2 !important;
+        }
+
+        .alba-room-money,
+        .alba-street-money,
+        .alba-room-info,
+        .alba-street-page-info,
+        .alba-room-side-controls,
+        .alba-room-nav,
+        .alba-street-bottom-nav {
+          position: relative !important;
+          inset: auto !important;
+          left: auto !important;
+          right: auto !important;
+          top: auto !important;
+          bottom: auto !important;
+          transform: none !important;
+          width: 100% !important;
+          max-width: none !important;
+          z-index: 5 !important;
+        }
+
+        .alba-room-money,
+        .alba-street-money {
+          order: 0 !important;
+          font-size: 16px !important;
+          display: inline-flex !important;
+          align-self: flex-start !important;
+          width: auto !important;
+          max-width: 100% !important;
+        }
+
+        .alba-room-info,
+        .alba-street-page-info {
+          order: 1 !important;
+          font-size: 13px !important;
+          text-align: left !important;
+        }
+
+        .alba-room-side-controls {
+          display: none !important;
+        }
+
+        .alba-room-nav,
+        .alba-street-bottom-nav {
+          order: 4 !important;
+          display: grid !important;
+          grid-template-columns: 1fr !important;
+          gap: 8px !important;
+        }
+
+        .alba-street-page-arrow,
+        .alba-street-buildings-row {
+          display: none !important;
+        }
+
+        .alba-mobile-street-list {
+          order: 3 !important;
+          display: grid !important;
+          grid-template-columns: 1fr 1fr !important;
+          gap: 8px !important;
+        }
+
+        .alba-panel-scene,
+        .alba-stock-scene,
+        .alba-job-only-layout {
+          height: auto !important;
+          min-height: 100svh !important;
+          overflow: visible !important;
+        }
+
+        .alba-job-stage {
+          min-height: 360px !important;
+          height: auto !important;
+          overflow: visible !important;
+        }
+
+        .alba-job-footer {
+          gap: 8px !important;
+        }
+
+        .alba-mobile-touch-controls {
+          display: grid !important;
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 8px !important;
+          width: 100% !important;
+        }
+
+        .alba-mobile-touch-controls.sorting,
+        .alba-mobile-touch-controls.cashier {
+          grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        }
+
+        .alba-mobile-touch-controls.cafe,
+        .alba-mobile-touch-controls.security {
+          grid-template-columns: 1fr !important;
+        }
+
+        .alba-mobile-touch-controls .wide {
+          grid-column: 1 / -1 !important;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .alba-mobile-street-list,
+        .alba-mobile-touch-controls.sorting,
+        .alba-mobile-touch-controls.cashier {
+          grid-template-columns: 1fr 1fr !important;
+        }
+
+        .alba-room-scene > svg,
+        .alba-street-scene > svg {
+          height: 220px !important;
+        }
+      }
+
+
+    `}</style>
 
       <div style={miniGameTopInfoStyle}>
         <strong>대응 {success}회</strong>
