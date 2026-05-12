@@ -47,7 +47,7 @@ type SaveRow = {
   security_success_total?: number | string | null;
 };
 
-type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "titles" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket" | "lotto" | "phone";
+type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "titles" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket" | "lotto" | "phone" | "luxury";
 type RoomKind = "basic" | "studio" | "office";
 type CareerBuildingId = "company" | "entertainment" | "logistics" | "finance";
 type StreetBuildingId = CareerBuildingId | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket" | "lotto";
@@ -394,6 +394,102 @@ const roomInfo: Record<RoomKind, { name: string; floor: string; description: str
   studio: { name: "넓은 원룸", floor: "3F", description: "소파와 책상이 있는 넓은 생활 공간입니다.", priceText: "무료 변경" },
   office: { name: "작업실 방", floor: "5F", description: "알바와 사업 준비를 위한 작업실 느낌의 방입니다.", priceText: "무료 변경" },
 };
+
+const defaultNicknameColorTheme: NicknameColorTheme = {
+  id: "default",
+  name: "기본 닉네임",
+  price: 0,
+  description: "가장 기본적인 닉네임 색상입니다.",
+  previewText: "기본",
+  color: "#111827",
+};
+
+const luxuryNicknameColors: NicknameColorTheme[] = [
+  { id: "neonPink", name: "네온 핑크", price: 100000000, description: "형광 간판처럼 반짝이는 강렬한 핑크 효과", previewText: "NEON", color: "#ff4fd8", shadow: "0 0 10px rgba(255,79,216,0.75), 0 0 24px rgba(255,79,216,0.5)" },
+  { id: "neonBlue", name: "네온 블루", price: 120000000, description: "차가운 푸른빛이 번지는 네온 톤", previewText: "BLUE", color: "#38bdf8", shadow: "0 0 10px rgba(56,189,248,0.8), 0 0 22px rgba(56,189,248,0.45)" },
+  { id: "sunsetGold", name: "선셋 골드", price: 145000000, description: "노을빛 오렌지와 금빛이 섞인 고급 색감", previewText: "GOLD", gradient: "linear-gradient(135deg, #fde68a 0%, #f59e0b 45%, #f97316 100%)", shadow: "0 4px 14px rgba(249,115,22,0.35)" },
+  { id: "mintAurora", name: "민트 오로라", price: 170000000, description: "민트와 하늘빛이 섞인 오로라 감성", previewText: "AURORA", gradient: "linear-gradient(135deg, #99f6e4 0%, #67e8f9 50%, #60a5fa 100%)", shadow: "0 4px 14px rgba(103,232,249,0.35)" },
+  { id: "violetDream", name: "바이올렛 드림", price: 200000000, description: "보라빛 글로우와 몽환적인 느낌", previewText: "DREAM", gradient: "linear-gradient(135deg, #ddd6fe 0%, #c084fc 45%, #7c3aed 100%)", shadow: "0 4px 16px rgba(124,58,237,0.42)" },
+  { id: "emeraldPulse", name: "에메랄드 펄스", price: 240000000, description: "진한 에메랄드 광채가 도는 희귀 효과", previewText: "PULSE", color: "#34d399", shadow: "0 0 10px rgba(52,211,153,0.8), 0 0 22px rgba(16,185,129,0.45)", letterSpacing: "0.05em" },
+  { id: "roseScript", name: "로즈 스크립트", price: 290000000, description: "우아한 핑크 계열 필기체 느낌의 닉네임", previewText: "Rose", gradient: "linear-gradient(135deg, #fecdd3 0%, #fb7185 55%, #be185d 100%)", fontStyle: "italic", shadow: "0 4px 14px rgba(190,24,93,0.35)" },
+  { id: "rainbowShine", name: "무지개 샤인", price: 360000000, description: "화려한 무지개 그라데이션이 흐르는 효과", previewText: "RAINBOW", gradient: "linear-gradient(90deg, #ef4444 0%, #f59e0b 18%, #facc15 36%, #22c55e 54%, #3b82f6 72%, #8b5cf6 90%, #ec4899 100%)", shadow: "0 4px 16px rgba(59,130,246,0.3)" },
+  { id: "galaxyCore", name: "갤럭시 코어", price: 460000000, description: "밤하늘 같은 어두운 배경에 별빛이 반짝이는 느낌", previewText: "GALAXY", gradient: "linear-gradient(135deg, #ffffff 0%, #c4b5fd 18%, #60a5fa 48%, #0f172a 100%)", shadow: "0 0 16px rgba(96,165,250,0.45), 0 0 30px rgba(196,181,253,0.28)", letterSpacing: "0.08em", textTransform: "uppercase" },
+  { id: "royalPrism", name: "로열 프리즘", price: 650000000, description: "가장 화려한 프리즘 골드 + 레인보우 조합", previewText: "PRISM", gradient: "linear-gradient(120deg, #fff7ae 0%, #ffffff 14%, #f472b6 30%, #60a5fa 52%, #86efac 72%, #facc15 100%)", shadow: "0 0 16px rgba(250,204,21,0.55), 0 0 28px rgba(244,114,182,0.32)", letterSpacing: "0.12em", textTransform: "uppercase" },
+];
+
+const defaultNicknameTag: NicknameTagItem = {
+  id: "default",
+  name: "기본 이름표",
+  price: 0,
+  description: "기본 닉네임 이름표입니다.",
+  background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+  borderColor: "#111827",
+  accentColor: "#111827",
+  shape: "pill",
+};
+
+const luxuryNicknameTags: NicknameTagItem[] = [
+  { id: "crystalTag", name: "크리스탈 태그", price: 100000000, description: "맑고 투명한 크리스탈 느낌의 이름표", background: "linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(219,234,254,0.95) 100%)", borderColor: "#60a5fa", accentColor: "#1d4ed8", shape: "pill" },
+  { id: "roseRibbon", name: "로즈 리본", price: 125000000, description: "분홍 리본 장식이 달린 사랑스러운 이름표", background: "linear-gradient(135deg, #ffe4e6 0%, #fbcfe8 100%)", borderColor: "#ec4899", accentColor: "#9d174d", shape: "ribbon" },
+  { id: "arcadePanel", name: "아케이드 패널", price: 150000000, description: "게임 센터 감성의 전광판형 이름표", background: "linear-gradient(135deg, #111827 0%, #1f2937 100%)", borderColor: "#22d3ee", accentColor: "#ecfeff", shape: "panel" },
+  { id: "royalSeal", name: "로열 씰", price: 185000000, description: "왕실 휘장 느낌의 고급 이름표", background: "linear-gradient(135deg, #fef3c7 0%, #f59e0b 100%)", borderColor: "#92400e", accentColor: "#78350f", shape: "ticket" },
+  { id: "forestPassport", name: "포레스트 패스", price: 230000000, description: "숲의 요정 느낌이 나는 자연 테마 이름표", background: "linear-gradient(135deg, #dcfce7 0%, #86efac 100%)", borderColor: "#16a34a", accentColor: "#166534", shape: "ticket" },
+  { id: "sunsetTicket", name: "선셋 티켓", price: 280000000, description: "노을빛 콘서트 티켓을 닮은 이름표", background: "linear-gradient(135deg, #ffedd5 0%, #fdba74 50%, #fb7185 100%)", borderColor: "#ea580c", accentColor: "#7c2d12", shape: "ticket" },
+  { id: "nightClubTag", name: "나이트 클럽 태그", price: 340000000, description: "보랏빛 조명 아래 빛나는 럭셔리 태그", background: "linear-gradient(135deg, #312e81 0%, #7c3aed 100%)", borderColor: "#ddd6fe", accentColor: "#ffffff", shape: "pill" },
+  { id: "starlightBadge", name: "스타라이트 배지", price: 420000000, description: "별 조각이 박힌 듯한 배지 스타일 이름표", background: "linear-gradient(135deg, #0f172a 0%, #1d4ed8 52%, #c084fc 100%)", borderColor: "#f8fafc", accentColor: "#ffffff", shape: "panel" },
+  { id: "hologramPass", name: "홀로그램 패스", price: 520000000, description: "빛에 따라 색이 달라지는 홀로그램 이름표", background: "linear-gradient(120deg, #cffafe 0%, #e9d5ff 30%, #fbcfe8 60%, #fef3c7 100%)", borderColor: "#6366f1", accentColor: "#312e81", shape: "ribbon" },
+  { id: "celestialFrame", name: "천상 프레임", price: 700000000, description: "가장 고급스러운 금장 프레임 이름표", background: "linear-gradient(135deg, #fff7ed 0%, #fef3c7 48%, #fde68a 100%)", borderColor: "#d97706", accentColor: "#78350f", shape: "ribbon" },
+];
+
+const defaultMainBackground: MainBackgroundOption = {
+  id: "default",
+  name: "기본 메인 방",
+  price: 0,
+  description: "기본 메인 화면 배경입니다.",
+  palette: ["#ffffff", "#f8fafc", "#cbd5e1"],
+  accent: "#60a5fa",
+  sceneKey: "default",
+  anchorX: 1080,
+  anchorY: 455,
+  anchorScale: 1,
+};
+
+const luxuryMainBackgrounds: MainBackgroundOption[] = [
+  { id: "moldRoom", name: "반지하 생활관", price: 100000000, description: "지저분하지만 생동감 있는 생활형 메인 배경", palette: ["#f7f4e8", "#d6c9a8", "#8b7355"], accent: "#94a3b8", sceneKey: "moldRoom", anchorX: 1120, anchorY: 470, anchorScale: 0.98 },
+  { id: "controlLab", name: "통제실 연구소", price: 140000000, description: "밝은 빛과 모니터가 가득한 미래형 연구실", palette: ["#eff6ff", "#dbeafe", "#bfdbfe"], accent: "#93c5fd", sceneKey: "controlLab", anchorX: 1125, anchorY: 480, anchorScale: 1.02 },
+  { id: "pastelStudio", name: "파스텔 스튜디오", price: 180000000, description: "아늑하고 따뜻한 파스텔 톤 개인 스튜디오", palette: ["#fff7ed", "#ffe4e6", "#fde68a"], accent: "#fb7185", sceneKey: "pastelStudio", anchorX: 1090, anchorY: 475, anchorScale: 1 },
+  { id: "cyberArcade", name: "사이버 아케이드", price: 220000000, description: "네온 조명이 흐르는 전자오락실 분위기", palette: ["#0f172a", "#1e293b", "#312e81"], accent: "#22d3ee", sceneKey: "cyberArcade", anchorX: 1110, anchorY: 470, anchorScale: 1.03 },
+  { id: "moonPenthouse", name: "문라이트 펜트하우스", price: 270000000, description: "야경이 보이는 세련된 펜트하우스", palette: ["#0f172a", "#1e3a8a", "#1d4ed8"], accent: "#93c5fd", sceneKey: "moonPenthouse", anchorX: 1105, anchorY: 472, anchorScale: 1 },
+  { id: "royalHall", name: "로열 홀", price: 330000000, description: "화려한 샹들리에가 있는 왕실 홀", palette: ["#fff7ed", "#fef3c7", "#f59e0b"], accent: "#f59e0b", sceneKey: "royalHall", anchorX: 1095, anchorY: 472, anchorScale: 1.01 },
+  { id: "forestCabin", name: "포레스트 캐빈", price: 410000000, description: "자연광이 드는 숲속 오두막 휴식 공간", palette: ["#ecfccb", "#bbf7d0", "#65a30d"], accent: "#22c55e", sceneKey: "forestCabin", anchorX: 1100, anchorY: 478, anchorScale: 1 },
+  { id: "seasideLounge", name: "시사이드 라운지", price: 510000000, description: "바다가 보이는 고급 휴양지 라운지", palette: ["#ecfeff", "#a5f3fc", "#38bdf8"], accent: "#06b6d4", sceneKey: "seasideLounge", anchorX: 1088, anchorY: 474, anchorScale: 1 },
+  { id: "skyGarden", name: "스카이 가든", price: 650000000, description: "구름 위 정원처럼 몽환적인 풍경", palette: ["#f0f9ff", "#dbeafe", "#c4b5fd"], accent: "#8b5cf6", sceneKey: "skyGarden", anchorX: 1098, anchorY: 470, anchorScale: 1.02 },
+  { id: "orbitalBridge", name: "오비탈 브릿지", price: 850000000, description: "우주 정거장 느낌의 최고급 메인 브릿지", palette: ["#020617", "#0f172a", "#1d4ed8"], accent: "#a78bfa", sceneKey: "orbitalBridge", anchorX: 1116, anchorY: 468, anchorScale: 1.04 },
+];
+
+const defaultMainCharacter: MainCharacterOption = {
+  id: "default",
+  name: "기본 캐릭터",
+  price: 0,
+  description: "기본 메인 캐릭터입니다.",
+  primaryColor: "#ffffff",
+  secondaryColor: "#e2e8f0",
+  highlightColor: "#60a5fa",
+  spriteKey: "default",
+};
+
+const luxuryMainCharacters: MainCharacterOption[] = [
+  { id: "catScholar", name: "호박 고양이", price: 100000000, description: "모자를 눌러쓴 귀여운 호박빛 고양이", primaryColor: "#fdba74", secondaryColor: "#fed7aa", highlightColor: "#f43f5e", spriteKey: "catScholar" },
+  { id: "miniPrincess", name: "꼬마 프린세스", price: 130000000, description: "왕관과 드레스를 입은 초소형 프린세스", primaryColor: "#facc15", secondaryColor: "#fde68a", highlightColor: "#0ea5e9", spriteKey: "miniPrincess" },
+  { id: "bunnyHacker", name: "버니 해커", price: 165000000, description: "헤드셋과 토끼 장식이 있는 sleepy 스타일", primaryColor: "#f9a8d4", secondaryColor: "#fef3c7", highlightColor: "#94a3b8", spriteKey: "bunnyHacker" },
+  { id: "crimsonKnight", name: "크림슨 나이트", price: 210000000, description: "방패와 붉은 검을 든 기사 캐릭터", primaryColor: "#d1d5db", secondaryColor: "#fca5a5", highlightColor: "#dc2626", spriteKey: "crimsonKnight" },
+  { id: "idolSinger", name: "아이돌 싱어", price: 270000000, description: "스포트라이트를 받는 무대형 캐릭터", primaryColor: "#c4b5fd", secondaryColor: "#f9a8d4", highlightColor: "#facc15", spriteKey: "idolSinger" },
+  { id: "baristaDreamer", name: "바리스타 드리머", price: 340000000, description: "커피 향이 어울리는 따뜻한 감성 캐릭터", primaryColor: "#d6b38c", secondaryColor: "#f5e1c8", highlightColor: "#22c55e", spriteKey: "baristaDreamer" },
+  { id: "hoodieTrader", name: "후드 트레이더", price: 430000000, description: "차트 홀로그램을 다루는 투자자 캐릭터", primaryColor: "#475569", secondaryColor: "#cbd5e1", highlightColor: "#22d3ee", spriteKey: "hoodieTrader" },
+  { id: "fairyMechanic", name: "페어리 메카닉", price: 530000000, description: "작은 날개와 공구를 든 수리공 요정", primaryColor: "#86efac", secondaryColor: "#d9f99d", highlightColor: "#34d399", spriteKey: "fairyMechanic" },
+  { id: "guardianRobo", name: "가디언 로보", price: 660000000, description: "도시를 지키는 수호 로봇형 캐릭터", primaryColor: "#93c5fd", secondaryColor: "#e2e8f0", highlightColor: "#f59e0b", spriteKey: "guardianRobo" },
+  { id: "dragonMage", name: "드래곤 메이지", price: 900000000, description: "작은 드래곤 오라를 두른 최고급 마도사", primaryColor: "#8b5cf6", secondaryColor: "#c4b5fd", highlightColor: "#fb7185", spriteKey: "dragonMage" },
+];
 
 const occupationInfo: Record<OccupationId, Occupation> = {
   unemployed: {
@@ -1202,6 +1298,14 @@ export default function GamePage() {
   const [lottoPrice, setLottoPrice] = useState("5000");
   const [nickname, setNickname] = useState("우리집");
   const [nicknameDraft, setNicknameDraft] = useState("우리집");
+  const [ownedNicknameColors, setOwnedNicknameColors] = useState<NicknameColorId[]>([]);
+  const [selectedNicknameColorId, setSelectedNicknameColorId] = useState<NicknameColorId>(defaultNicknameColorTheme.id);
+  const [ownedNicknameTags, setOwnedNicknameTags] = useState<NicknameTagId[]>([]);
+  const [selectedNicknameTagId, setSelectedNicknameTagId] = useState<NicknameTagId>(defaultNicknameTag.id);
+  const [ownedMainBackgrounds, setOwnedMainBackgrounds] = useState<MainBackgroundId[]>([]);
+  const [selectedMainBackgroundId, setSelectedMainBackgroundId] = useState<MainBackgroundId>(defaultMainBackground.id);
+  const [ownedMainCharacters, setOwnedMainCharacters] = useState<MainCharacterId[]>([]);
+  const [selectedMainCharacterId, setSelectedMainCharacterId] = useState<MainCharacterId>(defaultMainCharacter.id);
   const [roomKind, setRoomKind] = useState<RoomKind>("basic");
   const [occupationId, setOccupationId] = useState<OccupationId>("unemployed");
   const [occupationLevel, setOccupationLevel] = useState(0);
@@ -1598,7 +1702,7 @@ export default function GamePage() {
     }
 
     try {
-      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; discoveredItems?: ShopItemId[]; equippedItems?: ShopItemId[]; favoriteItems?: ShopItemId[]; inventorySortMode?: ItemSortMode; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; gachaMachinePullCount?: number; announcedSecretTitles?: PlayerTitleId[]; earnedTitleIds?: PlayerTitleId[]; lottoTickets?: LottoTicket[]; lottoPurchaseDate?: string; lottoPurchaseCount?: number; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[] };
+      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; discoveredItems?: ShopItemId[]; equippedItems?: ShopItemId[]; favoriteItems?: ShopItemId[]; inventorySortMode?: ItemSortMode; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; gachaMachinePullCount?: number; announcedSecretTitles?: PlayerTitleId[]; earnedTitleIds?: PlayerTitleId[]; lottoTickets?: LottoTicket[]; lottoPurchaseDate?: string; lottoPurchaseCount?: number; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[]; ownedNicknameColors?: NicknameColorId[]; selectedNicknameColorId?: NicknameColorId; ownedNicknameTags?: NicknameTagId[]; selectedNicknameTagId?: NicknameTagId; ownedMainBackgrounds?: MainBackgroundId[]; selectedMainBackgroundId?: MainBackgroundId; ownedMainCharacters?: MainCharacterId[]; selectedMainCharacterId?: MainCharacterId };
       const loadedDeposit = Number(parsed.bankDeposit ?? 0);
       const loadedSavings = Number(parsed.bankSavings ?? 0);
       setBankDeposit(loadedDeposit);
@@ -1645,6 +1749,14 @@ export default function GamePage() {
       if (typeof parsed.totalIncome === "number") setTotalIncome(parsed.totalIncome);
       if (typeof parsed.totalExpense === "number") setTotalExpense(parsed.totalExpense);
       if (Array.isArray(parsed.financeHistory)) setFinanceHistory(parsed.financeHistory.slice(-18));
+      if (Array.isArray(parsed.ownedNicknameColors)) setOwnedNicknameColors(parsed.ownedNicknameColors.filter((id): id is NicknameColorId => luxuryNicknameColors.some((item) => item.id === id)));
+      if (typeof parsed.selectedNicknameColorId === "string" && (parsed.selectedNicknameColorId === defaultNicknameColorTheme.id || luxuryNicknameColors.some((item) => item.id === parsed.selectedNicknameColorId))) setSelectedNicknameColorId(parsed.selectedNicknameColorId);
+      if (Array.isArray(parsed.ownedNicknameTags)) setOwnedNicknameTags(parsed.ownedNicknameTags.filter((id): id is NicknameTagId => luxuryNicknameTags.some((item) => item.id === id)));
+      if (typeof parsed.selectedNicknameTagId === "string" && (parsed.selectedNicknameTagId === defaultNicknameTag.id || luxuryNicknameTags.some((item) => item.id === parsed.selectedNicknameTagId))) setSelectedNicknameTagId(parsed.selectedNicknameTagId);
+      if (Array.isArray(parsed.ownedMainBackgrounds)) setOwnedMainBackgrounds(parsed.ownedMainBackgrounds.filter((id): id is MainBackgroundId => luxuryMainBackgrounds.some((item) => item.id === id)));
+      if (typeof parsed.selectedMainBackgroundId === "string" && (parsed.selectedMainBackgroundId === defaultMainBackground.id || luxuryMainBackgrounds.some((item) => item.id === parsed.selectedMainBackgroundId))) setSelectedMainBackgroundId(parsed.selectedMainBackgroundId);
+      if (Array.isArray(parsed.ownedMainCharacters)) setOwnedMainCharacters(parsed.ownedMainCharacters.filter((id): id is MainCharacterId => luxuryMainCharacters.some((item) => item.id === id)));
+      if (typeof parsed.selectedMainCharacterId === "string" && (parsed.selectedMainCharacterId === defaultMainCharacter.id || luxuryMainCharacters.some((item) => item.id === parsed.selectedMainCharacterId))) setSelectedMainCharacterId(parsed.selectedMainCharacterId);
       if (Array.isArray(parsed.lottoTickets)) setLottoTickets(parsed.lottoTickets.filter(isValidLottoTicket).slice(-12));
       const storedLottoDate = typeof parsed.lottoPurchaseDate === "string" ? parsed.lottoPurchaseDate : getTodayKey();
       if (storedLottoDate === getTodayKey()) {
@@ -1698,6 +1810,14 @@ export default function GamePage() {
       totalIncome,
       totalExpense,
       financeHistory,
+      ownedNicknameColors,
+      selectedNicknameColorId,
+      ownedNicknameTags,
+      selectedNicknameTagId,
+      ownedMainBackgrounds,
+      selectedMainBackgroundId,
+      ownedMainCharacters,
+      selectedMainCharacterId,
       economyUpdatedAt: economyUpdatedAt.toISOString(),
       earnedTitleIds,
     };
@@ -1720,7 +1840,7 @@ export default function GamePage() {
       .then(({ error }) => {
         if (error) console.warn("경제 데이터 Supabase 저장 실패. localStorage에는 저장되었습니다:", error.message);
       });
-  }, [userId, isSaveLoaded, isEconomyLoaded, isProfileLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, discoveredItems, equippedItems, favoriteItems, inventorySortMode, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, economyUpdatedAt, earnedTitleIds]);
+  }, [userId, isSaveLoaded, isEconomyLoaded, isProfileLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, discoveredItems, equippedItems, favoriteItems, inventorySortMode, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, ownedNicknameColors, selectedNicknameColorId, ownedNicknameTags, selectedNicknameTagId, ownedMainBackgrounds, selectedMainBackgroundId, ownedMainCharacters, selectedMainCharacterId, economyUpdatedAt, earnedTitleIds]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -3287,6 +3407,69 @@ export default function GamePage() {
     setLobbyView("career");
   }
 
+  function handleLuxuryPurchase(price: number, successMessage: string, apply: () => void) {
+    if (cash < price) {
+      setMessage(`현금이 부족합니다. ${price.toLocaleString()}원이 필요합니다.`);
+      return;
+    }
+
+    setCash((prev) => prev - price);
+    apply();
+    setMessage(successMessage);
+  }
+
+  function buyNicknameColorTheme(theme: NicknameColorTheme) {
+    if (ownedNicknameColors.includes(theme.id)) {
+      setSelectedNicknameColorId(theme.id);
+      setMessage(`닉네임 색상 "${theme.name}" 적용 완료!`);
+      return;
+    }
+
+    handleLuxuryPurchase(theme.price, `닉네임 색상 "${theme.name}" 구매 후 적용 완료!`, () => {
+      setOwnedNicknameColors((prev) => Array.from(new Set<NicknameColorId>([...prev, theme.id])));
+      setSelectedNicknameColorId(theme.id);
+    });
+  }
+
+  function buyNicknameTagItem(tag: NicknameTagItem) {
+    if (ownedNicknameTags.includes(tag.id)) {
+      setSelectedNicknameTagId(tag.id);
+      setMessage(`이름표 "${tag.name}" 적용 완료!`);
+      return;
+    }
+
+    handleLuxuryPurchase(tag.price, `이름표 "${tag.name}" 구매 후 적용 완료!`, () => {
+      setOwnedNicknameTags((prev) => Array.from(new Set<NicknameTagId>([...prev, tag.id])));
+      setSelectedNicknameTagId(tag.id);
+    });
+  }
+
+  function buyMainBackgroundItem(background: MainBackgroundOption) {
+    if (ownedMainBackgrounds.includes(background.id)) {
+      setSelectedMainBackgroundId(background.id);
+      setMessage(`메인 배경 "${background.name}" 적용 완료!`);
+      return;
+    }
+
+    handleLuxuryPurchase(background.price, `메인 배경 "${background.name}" 구매 후 적용 완료!`, () => {
+      setOwnedMainBackgrounds((prev) => Array.from(new Set<MainBackgroundId>([...prev, background.id])));
+      setSelectedMainBackgroundId(background.id);
+    });
+  }
+
+  function buyMainCharacterItem(character: MainCharacterOption) {
+    if (ownedMainCharacters.includes(character.id)) {
+      setSelectedMainCharacterId(character.id);
+      setMessage(`메인 캐릭터 "${character.name}" 적용 완료!`);
+      return;
+    }
+
+    handleLuxuryPurchase(character.price, `메인 캐릭터 "${character.name}" 구매 후 적용 완료!`, () => {
+      setOwnedMainCharacters((prev) => Array.from(new Set<MainCharacterId>([...prev, character.id])));
+      setSelectedMainCharacterId(character.id);
+    });
+  }
+
   function challengeOccupation(nextOccupationId: OccupationId) {
     const nextOccupation = occupationInfo[nextOccupationId];
 
@@ -4149,7 +4332,8 @@ export default function GamePage() {
         <header style={worldHeaderStyle}>
           <div style={profileAreaStyle}>
             <div style={smallLabelStyle}>ALBA MONEY GAME</div>
-            <h1 style={mainTitleStyle}>{nickname}의 하루</h1>
+            <h1 style={mainTitleStyle}><span style={getNicknameTextStyle(activeNicknameColor)}>{nickname}</span>의 하루</h1>
+            <div style={buildNicknamePlateStyle(activeNicknameTag)}><span style={getNicknameTextStyle(activeNicknameColor)}>{nickname}</span><small style={profileNameplateMetaStyle}>{activeNicknameTag.name}</small></div>
             <div style={titleBadgeStyle}>{currentTitle.icon} {currentTitle.name}</div>
             <div style={nicknameEditStyle}>
               <input
@@ -4164,6 +4348,7 @@ export default function GamePage() {
               />
               <button onClick={saveNickname} style={smallActionButtonStyle}>닉네임 변경</button>
               <button onClick={() => setLobbyView("titles")} style={smallActionButtonStyle}>칭호</button>
+              <button onClick={() => setLobbyView("luxury")} style={smallActionButtonStyle}>사치 숍</button>
               <button onClick={() => setChatOpen((open) => !open)} style={smallActionButtonStyle}>{chatOpen ? "채팅 끄기" : "채팅 켜기"}</button>
             </div>
           </div>
@@ -4183,12 +4368,14 @@ export default function GamePage() {
             <div style={roomSceneStyle}>
               <div style={roomMoneyStyle}>◎ {cash.toLocaleString()}</div>
               <div style={roomInfoTextStyle}>
-                <strong style={roomInfoNameStyle}>{nickname}</strong>
+                <div style={{ ...buildNicknamePlateStyle(activeNicknameTag), minWidth: "fit-content" }}>
+                  <span style={{ ...roomInfoNameStyle, ...getNicknameTextStyle(activeNicknameColor), fontSize: "20px" }}>{nickname}</span>
+                </div>
                 <span style={roomInfoLineStyle}>칭호 {currentTitle.name}</span>
                 <span style={roomInfoLineStyle}>직업 {occupation.name}</span>
                 <span style={roomInfoLineStyle}>세금까지 {formatTime(taxCountdown)}</span>
               </div>
-              <RoomArtwork roomKind={roomKind} nickname={nickname} occupationName={occupation.name} />
+              <RoomArtwork roomKind={roomKind} nickname={nickname} occupationName={occupation.name} backgroundId={selectedMainBackgroundId} characterId={selectedMainCharacterId} />
               <div style={hiddenLegacySceneStyle}>
                 <div style={roomFloorStyle} />
                 <div style={roomWindowStyle} />
@@ -4891,6 +5078,143 @@ export default function GamePage() {
             </div>
           )}
 
+          {lobbyView === "luxury" && (
+            <div style={panelSceneStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>LUXURY SHOP</div>
+                  <h2 style={panelTitleStyle}>사치 아이템 숍</h2>
+                  <p style={panelDescStyle}>닉네임 장식, 이름표, 메인 배경, 메인 캐릭터를 구매하고 바로 적용할 수 있습니다. 모든 상품은 매우 비싸며, 더 화려할수록 가격이 올라갑니다.</p>
+                </div>
+                <button onClick={() => setLobbyView("room")} style={smallActionButtonStyle}>방으로</button>
+              </div>
+
+              <div style={luxurySummaryBarStyle}>
+                <StatusPill label="현금" value={`${cash.toLocaleString()}원`} />
+                <StatusPill label="닉네임 색상" value={`${ownedNicknameColors.length}/10`} />
+                <StatusPill label="이름표" value={`${ownedNicknameTags.length}/10`} />
+                <StatusPill label="배경" value={`${ownedMainBackgrounds.length}/10`} />
+                <StatusPill label="캐릭터" value={`${ownedMainCharacters.length}/10`} />
+              </div>
+
+              <div style={luxurySectionStackStyle}>
+                <section style={luxurySectionStyle}>
+                  <div style={luxurySectionHeaderStyle}>
+                    <div>
+                      <h3 style={economyCardTitleStyle}>닉네임 색상 / 폰트</h3>
+                      <p style={economyCardTextStyle}>네온, 무지개, 필기체 등 10종. 구매 시 즉시 적용됩니다.</p>
+                    </div>
+                    <span style={luxuryMiniBadgeStyle}>현재 적용: {activeNicknameColor.name}</span>
+                  </div>
+                  <div style={luxuryGridStyle}>
+                    {luxuryNicknameColors.map((theme) => {
+                      const owned = ownedNicknameColors.includes(theme.id);
+                      const active = selectedNicknameColorId === theme.id;
+                      return (
+                        <article key={theme.id} style={luxuryCardStyle}>
+                          <div style={luxuryPreviewFrameStyle}>
+                            <span style={{ fontSize: "24px", ...getNicknameTextStyle(theme) }}>{nickname}</span>
+                          </div>
+                          <h4 style={luxuryCardTitleStyle}>{theme.name}</h4>
+                          <p style={luxuryCardTextStyle}>{theme.description}</p>
+                          <strong style={luxuryPriceStyle}>{theme.price.toLocaleString()}원</strong>
+                          <button onClick={() => buyNicknameColorTheme(theme)} disabled={!owned && cash < theme.price} style={{ ...casinoPrimaryButtonStyle, opacity: !owned && cash < theme.price ? 0.45 : 1 }}>
+                            {active ? "적용 중" : owned ? "적용하기" : "구매 후 적용"}
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                <section style={luxurySectionStyle}>
+                  <div style={luxurySectionHeaderStyle}>
+                    <div>
+                      <h3 style={economyCardTitleStyle}>닉네임 이름표</h3>
+                      <p style={economyCardTextStyle}>닉네임을 감싸는 전용 이름표 10종.</p>
+                    </div>
+                    <span style={luxuryMiniBadgeStyle}>현재 적용: {activeNicknameTag.name}</span>
+                  </div>
+                  <div style={luxuryGridStyle}>
+                    {luxuryNicknameTags.map((tag) => {
+                      const owned = ownedNicknameTags.includes(tag.id);
+                      const active = selectedNicknameTagId === tag.id;
+                      return (
+                        <article key={tag.id} style={luxuryCardStyle}>
+                          <div style={luxuryPreviewFrameStyle}>
+                            <div style={buildNicknamePlateStyle(tag)}>
+                              <span style={getNicknameTextStyle(activeNicknameColor)}>{nickname}</span>
+                            </div>
+                          </div>
+                          <h4 style={luxuryCardTitleStyle}>{tag.name}</h4>
+                          <p style={luxuryCardTextStyle}>{tag.description}</p>
+                          <strong style={luxuryPriceStyle}>{tag.price.toLocaleString()}원</strong>
+                          <button onClick={() => buyNicknameTagItem(tag)} disabled={!owned && cash < tag.price} style={{ ...casinoPrimaryButtonStyle, opacity: !owned && cash < tag.price ? 0.45 : 1 }}>
+                            {active ? "적용 중" : owned ? "적용하기" : "구매 후 적용"}
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                <section style={luxurySectionStyle}>
+                  <div style={luxurySectionHeaderStyle}>
+                    <div>
+                      <h3 style={economyCardTitleStyle}>메인 배경</h3>
+                      <p style={economyCardTextStyle}>메인 화면 전체 분위기를 바꾸는 배경 10종.</p>
+                    </div>
+                    <span style={luxuryMiniBadgeStyle}>현재 적용: {activeMainBackground.name}</span>
+                  </div>
+                  <div style={luxuryGridStyle}>
+                    {luxuryMainBackgrounds.map((background) => {
+                      const owned = ownedMainBackgrounds.includes(background.id);
+                      const active = selectedMainBackgroundId === background.id;
+                      return (
+                        <article key={background.id} style={luxuryCardStyle}>
+                          <LuxuryBackgroundPreview background={background} />
+                          <h4 style={luxuryCardTitleStyle}>{background.name}</h4>
+                          <p style={luxuryCardTextStyle}>{background.description}</p>
+                          <strong style={luxuryPriceStyle}>{background.price.toLocaleString()}원</strong>
+                          <button onClick={() => buyMainBackgroundItem(background)} disabled={!owned && cash < background.price} style={{ ...casinoPrimaryButtonStyle, opacity: !owned && cash < background.price ? 0.45 : 1 }}>
+                            {active ? "적용 중" : owned ? "적용하기" : "구매 후 적용"}
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                <section style={luxurySectionStyle}>
+                  <div style={luxurySectionHeaderStyle}>
+                    <div>
+                      <h3 style={economyCardTitleStyle}>메인 캐릭터</h3>
+                      <p style={economyCardTextStyle}>메인 화면에 배치되는 대표 캐릭터 10종.</p>
+                    </div>
+                    <span style={luxuryMiniBadgeStyle}>현재 적용: {activeMainCharacter.name}</span>
+                  </div>
+                  <div style={luxuryGridStyle}>
+                    {luxuryMainCharacters.map((character) => {
+                      const owned = ownedMainCharacters.includes(character.id);
+                      const active = selectedMainCharacterId === character.id;
+                      return (
+                        <article key={character.id} style={luxuryCardStyle}>
+                          <LuxuryCharacterPreview character={character} />
+                          <h4 style={luxuryCardTitleStyle}>{character.name}</h4>
+                          <p style={luxuryCardTextStyle}>{character.description}</p>
+                          <strong style={luxuryPriceStyle}>{character.price.toLocaleString()}원</strong>
+                          <button onClick={() => buyMainCharacterItem(character)} disabled={!owned && cash < character.price} style={{ ...casinoPrimaryButtonStyle, opacity: !owned && cash < character.price ? 0.45 : 1 }}>
+                            {active ? "적용 중" : owned ? "적용하기" : "구매 후 적용"}
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              </div>
+            </div>
+          )}
+
           {lobbyView === "itemMarket" && (
             <div style={panelSceneStyle}>
               <div style={panelHeaderRowStyle}>
@@ -5393,84 +5717,38 @@ export default function GamePage() {
 }
 
 
-function RoomArtwork({ roomKind, nickname, occupationName }: { roomKind: RoomKind; nickname: string; occupationName: string }) {
-  const accent = roomKind === "office" ? "#60a5fa" : roomKind === "studio" ? "#f59e0b" : "#22c55e";
+function RoomArtwork({ roomKind, nickname, occupationName, backgroundId, characterId }: { roomKind: RoomKind; nickname: string; occupationName: string; backgroundId: MainBackgroundId; characterId: MainCharacterId }) {
+  const fallbackAccent = roomKind === "office" ? "#60a5fa" : roomKind === "studio" ? "#f59e0b" : "#22c55e";
+  const background = luxuryMainBackgrounds.find((item) => item.id === backgroundId) ?? defaultMainBackground;
+  const character = luxuryMainCharacters.find((item) => item.id === characterId) ?? defaultMainCharacter;
+  const accent = background.accent || fallbackAccent;
   const characterLabel = `${nickname} · ${occupationName}`;
-  const shortCharacterLabel = characterLabel.length > 16 ? `${characterLabel.slice(0, 15)}…` : characterLabel;
+  const shortCharacterLabel = characterLabel.length > 18 ? `${characterLabel.slice(0, 17)}…` : characterLabel;
 
   return (
     <svg style={sceneSvgStyle} viewBox="0 0 1600 760" preserveAspectRatio="none" role="img" aria-label="메인 방 일러스트">
       <defs>
-        <linearGradient id="roomWallGradient" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="58%" stopColor="#f8fafc" />
-          <stop offset="100%" stopColor="#e2e8f0" />
-        </linearGradient>
-        <linearGradient id="roomFloorGradient" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#f1f5f9" />
-          <stop offset="100%" stopColor="#cbd5e1" />
-        </linearGradient>
-        <filter id="softRoomShadow" x="-20%" y="-20%" width="140%" height="160%">
+        <filter id="luxuryDropShadow" x="-30%" y="-30%" width="160%" height="180%">
           <feDropShadow dx="0" dy="12" stdDeviation="8" floodColor="#0f172a" floodOpacity="0.22" />
         </filter>
+        <linearGradient id="luxuryFloorGradient" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#e2e8f0" />
+          <stop offset="100%" stopColor="#94a3b8" />
+        </linearGradient>
       </defs>
 
-      <rect x="0" y="0" width="1600" height="760" fill="url(#roomWallGradient)" />
-      <polygon points="0,520 1600,520 1600,760 0,760" fill="url(#roomFloorGradient)" />
-      <path d="M115 112 L360 170 L360 520" fill="none" stroke="#111827" strokeWidth="5" />
-      <path d="M1485 112 L1240 170 L1240 520" fill="none" stroke="#111827" strokeWidth="5" />
-      <path d="M360 170 L1240 170" fill="none" stroke="#111827" strokeWidth="5" />
-      <path d="M0 520 L360 520" fill="none" stroke="#111827" strokeWidth="5" />
-      <path d="M1240 520 L1600 520" fill="none" stroke="#111827" strokeWidth="5" />
+      {renderLuxuryRoomBackground(background, accent)}
 
-      <text x="800" y="82" textAnchor="middle" fill="#111827" fontSize="52" fontWeight="900">{roomInfo[roomKind].floor}</text>
-
-      <g filter="url(#softRoomShadow)">
-        <rect x="610" y="130" width="380" height="145" rx="10" fill="#dbeafe" stroke="#111827" strokeWidth="6" />
-        <line x1="800" y1="130" x2="800" y2="275" stroke="#111827" strokeWidth="4" />
-        <path d="M635 245 C700 190 750 210 795 245 C845 198 900 205 965 245" fill="none" stroke="#93c5fd" strokeWidth="7" strokeLinecap="round" />
-        <rect x="622" y="142" width="356" height="121" fill="none" stroke="#ffffff" strokeWidth="4" />
+      <g filter="url(#luxuryDropShadow)">
+        <rect x="952" y="176" width="422" height="56" rx="24" fill="rgba(255,255,255,0.86)" stroke="#111827" strokeWidth="4" />
+        <text x="1163" y="212" textAnchor="middle" fill="#111827" fontSize="22" fontWeight="900">{background.name}</text>
       </g>
 
-      <g filter="url(#softRoomShadow)">
-        <rect x="92" y="418" width="330" height="128" rx="28" fill="#ffffff" stroke="#111827" strokeWidth="8" />
-        <rect x="125" y="362" width="230" height="88" rx="22" fill="#f8fafc" stroke="#111827" strokeWidth="8" />
-        <rect x="150" y="378" width="82" height="48" rx="12" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
-        <rect x="245" y="378" width="82" height="48" rx="12" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
-        <line x1="112" y1="546" x2="88" y2="610" stroke="#111827" strokeWidth="7" />
-        <line x1="390" y1="546" x2="424" y2="610" stroke="#111827" strokeWidth="7" />
-      </g>
+      {renderLuxuryCharacter(character, background)}
 
-      <g filter="url(#softRoomShadow)">
-        <rect x="610" y="455" width="640" height="108" rx="12" fill="#ffffff" stroke="#111827" strokeWidth="8" />
-        <rect x="650" y="478" width="145" height="62" rx="6" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
-        <rect x="840" y="478" width="145" height="62" rx="6" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
-        <rect x="1030" y="478" width="145" height="62" rx="6" fill="#e2e8f0" stroke="#111827" strokeWidth="5" />
-        <rect x="706" y="352" width="106" height="132" rx="12" fill="#f8fafc" stroke="#111827" strokeWidth="7" transform="rotate(-8 759 418)" />
-        <rect x="906" y="390" width="92" height="72" rx="12" fill={accent} stroke="#111827" strokeWidth="7" />
-        <rect x="918" y="402" width="68" height="48" rx="8" fill="#ffffff" opacity="0.72" />
-      </g>
-
-      <g filter="url(#softRoomShadow)">
-        <rect x="1310" y="342" width="145" height="110" rx="16" fill="#f8fafc" stroke="#111827" strokeWidth="8" />
-        <rect x="1328" y="360" width="109" height="74" rx="10" fill="#0f172a" />
-        <circle cx="1382" cy="397" r="20" fill={accent} opacity="0.85" />
-        <line x1="1360" y1="333" x2="1330" y2="296" stroke="#111827" strokeWidth="5" />
-        <line x1="1406" y1="333" x2="1438" y2="296" stroke="#111827" strokeWidth="5" />
-      </g>
-
-      <g filter="url(#softRoomShadow)">
-        <circle cx="800" cy="428" r="64" fill="#ffffff" stroke="#111827" strokeWidth="8" />
-        <circle cx="778" cy="420" r="5" fill="#111827" />
-        <circle cx="824" cy="420" r="5" fill="#111827" />
-        <path d="M787 443 Q800 454 814 443" fill="none" stroke="#111827" strokeWidth="5" strokeLinecap="round" />
-        <path d="M800 492 L800 575" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
-        <path d="M800 522 L738 560" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
-        <path d="M800 522 L862 560" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
-        <path d="M800 575 L760 640" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
-        <path d="M800 575 L840 640" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
-        <rect x="632" y="292" width="336" height="52" rx="26" fill="#ffffff" stroke="#111827" strokeWidth="5" />
-        <text x="800" y="326" textAnchor="middle" fill="#111827" fontSize="20" fontWeight="900">{shortCharacterLabel}</text>
+      <g filter="url(#luxuryDropShadow)">
+        <rect x="1010" y="616" width="300" height="54" rx="24" fill="rgba(255,255,255,0.92)" stroke="#111827" strokeWidth="4" />
+        <text x="1160" y="650" textAnchor="middle" fill="#111827" fontSize="21" fontWeight="900">{shortCharacterLabel}</text>
       </g>
     </svg>
   );
@@ -5502,6 +5780,423 @@ function StreetArtwork() {
         <rect x="1442" y="292" width="92" height="196" rx="14" fill="#ffffff" stroke="#cbd5e1" strokeWidth="4" />
       </g>
     </svg>
+  );
+}
+
+function getNicknameTextStyle(theme: NicknameColorTheme): CSSProperties {
+  const style: CSSProperties = {
+    fontWeight: 900,
+    letterSpacing: theme.letterSpacing ?? "0.02em",
+  };
+
+  if (theme.gradient) {
+    Object.assign(style, {
+      backgroundImage: theme.gradient,
+      backgroundClip: "text",
+      WebkitBackgroundClip: "text",
+      color: "transparent",
+      WebkitTextFillColor: "transparent",
+    } as CSSProperties);
+  } else {
+    style.color = theme.color ?? "#111827";
+  }
+
+  if (theme.shadow) style.textShadow = theme.shadow;
+  if (theme.fontStyle) style.fontStyle = theme.fontStyle;
+  if (theme.textTransform) style.textTransform = theme.textTransform;
+
+  return style;
+}
+
+function buildNicknamePlateStyle(tag: NicknameTagItem): CSSProperties {
+  const radius = tag.shape === "ticket" ? "18px" : tag.shape === "panel" ? "14px" : tag.shape === "ribbon" ? "20px 20px 12px 12px" : "999px";
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: tag.shape === "panel" ? "10px 14px" : "9px 16px",
+    border: `3px solid ${tag.borderColor}`,
+    borderRadius: radius,
+    background: tag.background,
+    color: tag.accentColor,
+    boxShadow: "0 8px 0 rgba(15,23,42,0.12)",
+    fontWeight: 900,
+    maxWidth: "100%",
+    width: "fit-content",
+  };
+}
+
+function LuxuryBackgroundPreview({ background }: { background: MainBackgroundOption }) {
+  return (
+    <div style={{ ...luxuryPreviewFrameStyle, padding: 0, overflow: "hidden" }}>
+      <svg viewBox="0 0 280 140" style={{ width: "100%", height: "100%", display: "block" }} aria-hidden="true">
+        <defs>
+          <linearGradient id={`preview-${background.id}`} x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor={background.palette[0]} />
+            <stop offset="55%" stopColor={background.palette[1]} />
+            <stop offset="100%" stopColor={background.palette[2]} />
+          </linearGradient>
+        </defs>
+        <rect width="280" height="140" fill={`url(#preview-${background.id})`} />
+        <rect x="12" y="14" width="88" height="14" rx="7" fill="rgba(255,255,255,0.72)" />
+        <rect x="14" y="98" width="252" height="30" rx="14" fill="rgba(255,255,255,0.85)" />
+        <circle cx="228" cy="74" r="24" fill={background.accent} opacity="0.92" />
+        <circle cx="228" cy="62" r="10" fill="#ffffff" />
+        <rect x="210" y="84" width="36" height="22" rx="11" fill="#ffffff" opacity="0.92" />
+      </svg>
+    </div>
+  );
+}
+
+function LuxuryCharacterPreview({ character }: { character: MainCharacterOption }) {
+  return (
+    <div style={{ ...luxuryPreviewFrameStyle, padding: 0, overflow: "hidden" }}>
+      <svg viewBox="0 0 180 140" style={{ width: "100%", height: "100%", display: "block" }} aria-hidden="true">
+        <rect width="180" height="140" fill="#f8fafc" />
+        {renderLuxuryCharacterGlyph(character, 90, 90, 0.7)}
+      </svg>
+    </div>
+  );
+}
+
+function renderLuxuryRoomBackground(background: MainBackgroundOption, accent: string) {
+  if (background.sceneKey === "controlLab") {
+    return (
+      <>
+        <rect width="1600" height="760" fill="#f8fafc" />
+        <rect x="0" y="0" width="1600" height="520" fill="#f8fafc" />
+        <rect x="0" y="520" width="1600" height="240" fill="#e2e8f0" />
+        {Array.from({ length: 11 }).map((_, index) => <line key={index} x1={index * 145} y1="0" x2={index * 145} y2="520" stroke="#e5e7eb" strokeWidth="2" />)}
+        {Array.from({ length: 6 }).map((_, index) => <line key={index} x1="0" y1={index * 80} x2="1600" y2={index * 80} stroke="#e5e7eb" strokeWidth="2" />)}
+        <rect x="36" y="552" width="1500" height="164" rx="10" fill="#ffffff" stroke="#94a3b8" strokeWidth="4" />
+        <rect x="560" y="282" width="420" height="168" rx="10" fill="#ffffff" stroke="#cbd5e1" strokeWidth="5" />
+        <rect x="1060" y="248" width="270" height="220" rx="10" fill="#ffffff" stroke="#cbd5e1" strokeWidth="5" />
+        <rect x="650" y="314" width="170" height="84" rx="10" fill={accent} opacity="0.4" />
+        <rect x="1160" y="292" width="120" height="70" rx="10" fill="#fee2e2" />
+        <rect x="1160" y="384" width="120" height="54" rx="10" fill="#dbeafe" />
+        <rect x="114" y="558" width="272" height="116" rx="14" fill="#e0f2fe" stroke="#94a3b8" strokeWidth="4" />
+        <rect x="986" y="560" width="420" height="110" rx="14" fill="#eff6ff" stroke="#94a3b8" strokeWidth="4" />
+        <path d="M0 0 C130 60 150 180 182 310 C240 560 392 318 425 162" fill="none" stroke="rgba(250,204,21,0.35)" strokeWidth="30" />
+        <path d="M1600 24 C1420 40 1360 180 1298 290 C1220 430 1020 182 960 90" fill="none" stroke="rgba(56,189,248,0.28)" strokeWidth="28" />
+      </>
+    );
+  }
+
+  if (background.sceneKey === "moldRoom") {
+    return (
+      <>
+        <rect width="1600" height="760" fill="#f8f5eb" />
+        <rect x="0" y="0" width="1600" height="520" fill="#f8f4ea" />
+        <rect x="0" y="520" width="1600" height="240" fill="#d6b98a" />
+        <rect x="120" y="74" width="450" height="122" rx="12" fill="#f8fafc" stroke="#6b4f38" strokeWidth="6" />
+        {Array.from({ length: 4 }).map((_, index) => <line key={index} x1={200 + index * 94} y1="74" x2={200 + index * 94} y2="196" stroke="#6b4f38" strokeWidth="4" />)}
+        <ellipse cx="560" cy="510" rx="150" ry="18" fill="#94a3b8" opacity="0.18" />
+        <ellipse cx="320" cy="248" rx="72" ry="58" fill="rgba(100,116,139,0.24)" />
+        <ellipse cx="1330" cy="184" rx="68" ry="50" fill="rgba(100,116,139,0.22)" />
+        <ellipse cx="1270" cy="414" rx="82" ry="62" fill="rgba(100,116,139,0.18)" />
+        <rect x="110" y="568" width="310" height="104" rx="14" fill="#ffffff" stroke="#475569" strokeWidth="5" />
+        <rect x="520" y="544" width="256" height="82" rx="10" fill="#ffffff" stroke="#475569" strokeWidth="5" />
+        <rect x="842" y="458" width="256" height="168" rx="10" fill="#f8fafc" stroke="#475569" strokeWidth="5" />
+        <rect x="1240" y="378" width="132" height="208" rx="12" fill="#e5e7eb" stroke="#475569" strokeWidth="5" />
+        <line x1="74" y1="92" x2="74" y2="674" stroke="#64748b" strokeWidth="4" />
+        <text x="1340" y="118" fill="#475569" fontSize="40" fontWeight="900">1</text>
+      </>
+    );
+  }
+
+  if (background.sceneKey === "pastelStudio") {
+    return (
+      <>
+        <rect width="1600" height="760" fill="#fff7ed" />
+        <rect x="0" y="0" width="1600" height="520" fill="#fff1f2" />
+        <rect x="0" y="520" width="1600" height="240" fill="#fde68a" opacity="0.55" />
+        <circle cx="1320" cy="110" r="62" fill="#f9a8d4" opacity="0.55" />
+        <rect x="88" y="130" width="420" height="240" rx="24" fill="#ffffff" stroke="#fb7185" strokeWidth="6" />
+        <rect x="540" y="332" width="282" height="182" rx="24" fill="#ffffff" stroke="#fda4af" strokeWidth="6" />
+        <rect x="1150" y="292" width="198" height="212" rx="20" fill="#ffffff" stroke="#fdba74" strokeWidth="6" />
+        <path d="M48 492 C260 442 520 462 820 520 C1120 578 1360 560 1592 490" fill="none" stroke="#fb7185" strokeWidth="12" opacity="0.5" />
+      </>
+    );
+  }
+
+  if (background.sceneKey === "cyberArcade") {
+    return (
+      <>
+        <rect width="1600" height="760" fill="#020617" />
+        <rect x="0" y="0" width="1600" height="520" fill="#0f172a" />
+        <rect x="0" y="520" width="1600" height="240" fill="#111827" />
+        {Array.from({ length: 13 }).map((_, index) => <line key={index} x1={index * 125} y1="0" x2={index * 125} y2="760" stroke="rgba(34,211,238,0.12)" strokeWidth="3" />)}
+        {Array.from({ length: 8 }).map((_, index) => <line key={index} x1="0" y1={index * 90} x2="1600" y2={index * 90} stroke="rgba(168,85,247,0.10)" strokeWidth="3" />)}
+        <rect x="102" y="240" width="260" height="250" rx="20" fill="#111827" stroke="#22d3ee" strokeWidth="6" />
+        <rect x="432" y="188" width="260" height="302" rx="20" fill="#111827" stroke="#f472b6" strokeWidth="6" />
+        <rect x="762" y="222" width="260" height="268" rx="20" fill="#111827" stroke="#facc15" strokeWidth="6" />
+        <path d="M0 588 C300 518 600 536 860 602 C1110 666 1360 662 1600 590" fill="none" stroke="rgba(34,211,238,0.55)" strokeWidth="9" />
+      </>
+    );
+  }
+
+  if (background.sceneKey === "moonPenthouse") {
+    return (
+      <>
+        <rect width="1600" height="760" fill="#0f172a" />
+        <linearGradient id="moonSky" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#0f172a" />
+          <stop offset="100%" stopColor="#1e3a8a" />
+        </linearGradient>
+        <rect x="0" y="0" width="1600" height="520" fill="url(#moonSky)" />
+        <rect x="0" y="520" width="1600" height="240" fill="#111827" />
+        <circle cx="1320" cy="112" r="62" fill="#f8fafc" opacity="0.9" />
+        {Array.from({ length: 13 }).map((_, index) => <circle key={index} cx={90 + index * 110} cy={70 + (index % 3) * 36} r="3" fill="#ffffff" opacity="0.8" />)}
+        <rect x="84" y="112" width="1110" height="344" rx="18" fill="rgba(15,23,42,0.28)" stroke="#93c5fd" strokeWidth="8" />
+        {Array.from({ length: 8 }).map((_, index) => <rect key={index} x={154 + index * 118} y={248 - (index % 4) * 32} width="82" height={160 + (index % 3) * 42} fill="rgba(255,255,255,0.12)" />)}
+        <rect x="110" y="562" width="420" height="90" rx="16" fill="rgba(255,255,255,0.12)" stroke="#93c5fd" strokeWidth="4" />
+        <rect x="580" y="548" width="248" height="92" rx="16" fill="rgba(255,255,255,0.12)" stroke="#93c5fd" strokeWidth="4" />
+      </>
+    );
+  }
+
+  if (background.sceneKey === "royalHall") {
+    return (
+      <>
+        <rect width="1600" height="760" fill="#fef3c7" />
+        <rect x="0" y="0" width="1600" height="520" fill="#fff7ed" />
+        <rect x="0" y="520" width="1600" height="240" fill="#f59e0b" opacity="0.32" />
+        <rect x="202" y="72" width="1196" height="416" rx="24" fill="#fffaf0" stroke="#d97706" strokeWidth="7" />
+        {Array.from({ length: 5 }).map((_, index) => <rect key={index} x={278 + index * 232} y="108" width="120" height="304" rx="16" fill="#fef3c7" stroke="#f59e0b" strokeWidth="5" />)}
+        <path d="M786 92 L824 92 L852 152 L758 152 Z" fill="#fde68a" stroke="#d97706" strokeWidth="5" />
+        <circle cx="805" cy="170" r="48" fill="#fff7ed" stroke="#d97706" strokeWidth="5" />
+      </>
+    );
+  }
+
+  if (background.sceneKey === "forestCabin") {
+    return (
+      <>
+        <rect width="1600" height="760" fill="#dcfce7" />
+        <rect x="0" y="0" width="1600" height="520" fill="#ecfccb" />
+        <rect x="0" y="520" width="1600" height="240" fill="#bbf7d0" />
+        <circle cx="1280" cy="116" r="64" fill="#fef9c3" opacity="0.85" />
+        {Array.from({ length: 7 }).map((_, index) => <circle key={index} cx={110 + index * 210} cy={160 + (index % 2) * 40} r="88" fill="#4d7c0f" opacity="0.28" />)}
+        <rect x="82" y="168" width="428" height="220" rx="18" fill="#ffffff" stroke="#84cc16" strokeWidth="6" />
+        <rect x="610" y="448" width="268" height="112" rx="16" fill="#a16207" opacity="0.6" />
+        <rect x="968" y="452" width="302" height="120" rx="16" fill="#92400e" opacity="0.6" />
+      </>
+    );
+  }
+
+  if (background.sceneKey === "seasideLounge") {
+    return (
+      <>
+        <rect width="1600" height="760" fill="#ecfeff" />
+        <rect x="0" y="0" width="1600" height="520" fill="#e0f2fe" />
+        <rect x="0" y="520" width="1600" height="240" fill="#bae6fd" />
+        <rect x="62" y="94" width="1120" height="334" rx="18" fill="#ffffff" stroke="#38bdf8" strokeWidth="8" />
+        <rect x="94" y="126" width="1056" height="270" rx="12" fill="#7dd3fc" opacity="0.38" />
+        <path d="M108 330 C252 282 426 278 562 330 C716 390 890 396 1096 302" fill="none" stroke="#ffffff" strokeWidth="12" opacity="0.86" />
+        <path d="M0 560 C300 522 640 550 952 592 C1184 622 1360 620 1600 564" fill="none" stroke="#38bdf8" strokeWidth="10" opacity="0.64" />
+        <rect x="1220" y="530" width="280" height="110" rx="18" fill="#ffffff" stroke="#38bdf8" strokeWidth="5" />
+      </>
+    );
+  }
+
+  if (background.sceneKey === "skyGarden") {
+    return (
+      <>
+        <rect width="1600" height="760" fill="#f0f9ff" />
+        <rect x="0" y="0" width="1600" height="520" fill="#dbeafe" />
+        <rect x="0" y="520" width="1600" height="240" fill="#e9d5ff" opacity="0.45" />
+        {Array.from({ length: 6 }).map((_, index) => <ellipse key={index} cx={180 + index * 230} cy={118 + (index % 2) * 48} rx="96" ry="42" fill="#ffffff" opacity="0.85" />)}
+        <rect x="74" y="468" width="1452" height="72" rx="30" fill="#ffffff" stroke="#c4b5fd" strokeWidth="6" />
+        {Array.from({ length: 6 }).map((_, index) => <rect key={index} x={164 + index * 220} y="396" width="112" height="82" rx="18" fill="#dcfce7" stroke="#86efac" strokeWidth="4" />)}
+        <circle cx="242" cy="404" r="22" fill="#86efac" />
+        <circle cx="902" cy="404" r="22" fill="#f9a8d4" />
+      </>
+    );
+  }
+
+  if (background.sceneKey === "orbitalBridge") {
+    return (
+      <>
+        <rect width="1600" height="760" fill="#020617" />
+        <rect x="0" y="0" width="1600" height="520" fill="#020617" />
+        <rect x="0" y="520" width="1600" height="240" fill="#0f172a" />
+        {Array.from({ length: 22 }).map((_, index) => <circle key={index} cx={60 + index * 70} cy={72 + (index % 4) * 36} r={index % 3 === 0 ? 3 : 2} fill="#ffffff" opacity="0.75" />)}
+        <path d="M210 88 Q800 212 1390 88 L1390 420 Q800 620 210 420 Z" fill="none" stroke="#64748b" strokeWidth="8" />
+        <path d="M318 136 Q800 246 1280 136 L1280 372 Q800 540 318 372 Z" fill="none" stroke="#1d4ed8" strokeWidth="6" opacity="0.8" />
+        <circle cx="802" cy="252" r="84" fill="rgba(96,165,250,0.16)" stroke="#a78bfa" strokeWidth="6" />
+        <rect x="542" y="548" width="520" height="92" rx="22" fill="rgba(255,255,255,0.08)" stroke="#64748b" strokeWidth="4" />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <rect x="0" y="0" width="1600" height="760" fill="#f8fafc" />
+      <polygon points="0,520 1600,520 1600,760 0,760" fill="url(#luxuryFloorGradient)" />
+      <path d="M115 112 L360 170 L360 520" fill="none" stroke="#111827" strokeWidth="5" />
+      <path d="M1485 112 L1240 170 L1240 520" fill="none" stroke="#111827" strokeWidth="5" />
+      <path d="M360 170 L1240 170" fill="none" stroke="#111827" strokeWidth="5" />
+      <path d="M0 520 L360 520" fill="none" stroke="#111827" strokeWidth="5" />
+      <path d="M1240 520 L1600 520" fill="none" stroke="#111827" strokeWidth="5" />
+      <rect x="610" y="130" width="380" height="145" rx="10" fill="#dbeafe" stroke="#111827" strokeWidth="6" />
+      <rect x="92" y="418" width="330" height="128" rx="28" fill="#ffffff" stroke="#111827" strokeWidth="8" />
+      <rect x="610" y="455" width="640" height="108" rx="12" fill="#ffffff" stroke="#111827" strokeWidth="8" />
+    </>
+  );
+}
+
+function renderLuxuryCharacter(character: MainCharacterOption, background: MainBackgroundOption) {
+  return (
+    <g transform={`translate(${background.anchorX} ${background.anchorY}) scale(${background.anchorScale})`} filter="url(#luxuryDropShadow)">
+      {renderLuxuryCharacterGlyph(character, 0, 0, 1)}
+    </g>
+  );
+}
+
+function renderLuxuryCharacterGlyph(character: MainCharacterOption, x: number, y: number, scale: number) {
+  const transform = `translate(${x} ${y}) scale(${scale})`;
+  const p = character.primaryColor;
+  const s = character.secondaryColor;
+  const h = character.highlightColor;
+
+  if (character.spriteKey === "catScholar") {
+    return (
+      <g transform={transform}>
+        <path d="M-66 52 C-48 28 -16 12 0 8 C18 12 48 28 66 52 L66 112 L-66 112 Z" fill={p} stroke="#111827" strokeWidth="8" />
+        <path d="M-52 12 L-30 -30 L-6 6" fill={p} stroke="#111827" strokeWidth="8" strokeLinejoin="round" />
+        <path d="M52 12 L30 -30 L6 6" fill={p} stroke="#111827" strokeWidth="8" strokeLinejoin="round" />
+        <rect x="-32" y="-60" width="96" height="34" rx="10" fill="#f5d0a9" stroke="#111827" strokeWidth="7" transform="rotate(12)" />
+        <circle cx="-22" cy="48" r="7" fill="#1d4ed8" /><circle cx="22" cy="48" r="7" fill="#1d4ed8" />
+        <path d="M-18 78 Q0 92 18 78" fill="none" stroke="#111827" strokeWidth="6" strokeLinecap="round" />
+        <path d="M-88 76 C-116 88 -114 132 -88 136" fill="none" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
+        <path d="M74 82 L112 106" stroke={h} strokeWidth="10" strokeLinecap="round" />
+      </g>
+    );
+  }
+
+  if (character.spriteKey === "miniPrincess") {
+    return (
+      <g transform={transform}>
+        <circle cx="0" cy="-6" r="46" fill="#fde68a" stroke="#111827" strokeWidth="8" />
+        <path d="M-46 120 L0 46 L46 120 Z" fill={h} stroke="#111827" strokeWidth="8" />
+        <path d="M-56 24 L-14 -12 L-40 34 Z" fill="#fbbf24" /><path d="M56 24 L14 -12 L40 34 Z" fill="#fbbf24" />
+        <path d="M-18 -56 L0 -82 L18 -56" fill="#34d399" stroke="#111827" strokeWidth="7" strokeLinejoin="round" />
+        <circle cx="-16" cy="0" r="6" fill="#0ea5e9" /><circle cx="16" cy="0" r="6" fill="#0ea5e9" />
+        <rect x="-24" y="66" width="48" height="24" rx="10" fill="#ffffff" opacity="0.82" />
+      </g>
+    );
+  }
+
+  if (character.spriteKey === "bunnyHacker") {
+    return (
+      <g transform={transform}>
+        <circle cx="0" cy="-2" r="48" fill="#fef3c7" stroke="#111827" strokeWidth="8" />
+        <path d="M-54 -50 C-70 -112 -22 -126 -22 -44" fill="#f9a8d4" stroke="#111827" strokeWidth="8" />
+        <path d="M54 -50 C70 -112 22 -126 22 -44" fill="#f9a8d4" stroke="#111827" strokeWidth="8" />
+        <rect x="-60" y="-4" width="120" height="26" rx="10" fill="#94a3b8" />
+        <rect x="-58" y="40" width="116" height="66" rx="24" fill="#fce7f3" stroke="#111827" strokeWidth="8" />
+        <path d="M-20 10 H-2" stroke="#111827" strokeWidth="6" strokeLinecap="round" />
+        <path d="M18 10 H36" stroke="#111827" strokeWidth="6" strokeLinecap="round" />
+        <rect x="-30" y="28" width="60" height="26" rx="8" fill="#ffffff" stroke="#64748b" strokeWidth="4" />
+      </g>
+    );
+  }
+
+  if (character.spriteKey === "crimsonKnight") {
+    return (
+      <g transform={transform}>
+        <circle cx="-4" cy="-10" r="38" fill="#f3f4f6" stroke="#111827" strokeWidth="8" />
+        <path d="M-42 112 L-12 28 L44 28 L62 112 Z" fill="#dc2626" opacity="0.76" stroke="#111827" strokeWidth="8" />
+        <rect x="-22" y="116" width="20" height="58" rx="10" fill="#d1d5db" stroke="#111827" strokeWidth="6" />
+        <rect x="24" y="116" width="20" height="58" rx="10" fill="#d1d5db" stroke="#111827" strokeWidth="6" />
+        <path d="M-96 18 L-126 146" stroke={h} strokeWidth="10" strokeLinecap="round" />
+        <path d="M-126 146 Q-88 124 -64 164" fill="none" stroke={h} strokeWidth="8" />
+        <path d="M86 34 L132 58 L104 140 L64 126 Z" fill="#f8fafc" stroke="#111827" strokeWidth="7" />
+      </g>
+    );
+  }
+
+  if (character.spriteKey === "idolSinger") {
+    return (
+      <g transform={transform}>
+        <circle cx="0" cy="-10" r="42" fill="#fce7f3" stroke="#111827" strokeWidth="8" />
+        <path d="M-44 110 Q0 52 44 110 L24 160 H-24 Z" fill="#c4b5fd" stroke="#111827" strokeWidth="8" />
+        <circle cx="-18" cy="-10" r="6" fill="#111827" /><circle cx="18" cy="-10" r="6" fill="#111827" />
+        <circle cx="74" cy="30" r="16" fill={h} stroke="#111827" strokeWidth="6" />
+        <path d="M64 46 L104 80" stroke="#111827" strokeWidth="6" />
+      </g>
+    );
+  }
+
+  if (character.spriteKey === "baristaDreamer") {
+    return (
+      <g transform={transform}>
+        <circle cx="0" cy="-8" r="44" fill="#f5e1c8" stroke="#111827" strokeWidth="8" />
+        <path d="M-42 110 L-18 30 L24 30 L48 110 Z" fill="#d6b38c" stroke="#111827" strokeWidth="8" />
+        <rect x="-30" y="58" width="60" height="32" rx="12" fill="#ffffff" opacity="0.85" />
+        <path d="M72 78 C96 42 128 60 116 96 C106 124 76 118 72 78 Z" fill="#ffffff" stroke="#111827" strokeWidth="6" />
+        <path d="M76 74 H106" stroke={h} strokeWidth="5" />
+      </g>
+    );
+  }
+
+  if (character.spriteKey === "hoodieTrader") {
+    return (
+      <g transform={transform}>
+        <circle cx="0" cy="-8" r="42" fill="#e2e8f0" stroke="#111827" strokeWidth="8" />
+        <path d="M-52 114 Q0 42 52 114 L38 164 H-38 Z" fill="#475569" stroke="#111827" strokeWidth="8" />
+        <rect x="48" y="-8" width="66" height="88" rx="10" fill="rgba(34,211,238,0.18)" stroke="#22d3ee" strokeWidth="5" />
+        <path d="M60 62 C78 36 88 72 106 44" fill="none" stroke="#22d3ee" strokeWidth="6" />
+      </g>
+    );
+  }
+
+  if (character.spriteKey === "fairyMechanic") {
+    return (
+      <g transform={transform}>
+        <ellipse cx="-42" cy="26" rx="28" ry="46" fill="#d9f99d" opacity="0.7" stroke="#111827" strokeWidth="6" />
+        <ellipse cx="42" cy="26" rx="28" ry="46" fill="#d9f99d" opacity="0.7" stroke="#111827" strokeWidth="6" />
+        <circle cx="0" cy="-8" r="40" fill="#fef3c7" stroke="#111827" strokeWidth="8" />
+        <path d="M-42 112 L0 32 L42 112 Z" fill="#86efac" stroke="#111827" strokeWidth="8" />
+        <path d="M74 82 L116 50" stroke="#111827" strokeWidth="8" />
+        <circle cx="118" cy="48" r="12" fill={h} stroke="#111827" strokeWidth="5" />
+      </g>
+    );
+  }
+
+  if (character.spriteKey === "guardianRobo") {
+    return (
+      <g transform={transform}>
+        <rect x="-42" y="-52" width="84" height="84" rx="20" fill="#dbeafe" stroke="#111827" strokeWidth="8" />
+        <rect x="-58" y="44" width="116" height="98" rx="20" fill="#93c5fd" stroke="#111827" strokeWidth="8" />
+        <circle cx="-16" cy="-10" r="8" fill="#111827" /><circle cx="16" cy="-10" r="8" fill="#111827" />
+        <rect x="-20" y="58" width="40" height="26" rx="8" fill="#ffffff" />
+        <path d="M74 32 L116 52 L116 110 L72 94 Z" fill="#fde68a" stroke="#111827" strokeWidth="7" />
+      </g>
+    );
+  }
+
+  if (character.spriteKey === "dragonMage") {
+    return (
+      <g transform={transform}>
+        <circle cx="0" cy="-10" r="42" fill="#ede9fe" stroke="#111827" strokeWidth="8" />
+        <path d="M-52 110 Q0 42 52 110 L34 164 H-34 Z" fill="#8b5cf6" stroke="#111827" strokeWidth="8" />
+        <path d="M74 -8 C112 -52 152 10 122 46 C110 58 88 54 74 30" fill="none" stroke={h} strokeWidth="8" strokeLinecap="round" />
+        <path d="M86 94 Q126 54 142 122" fill="none" stroke="#fb7185" strokeWidth="8" strokeLinecap="round" />
+      </g>
+    );
+  }
+
+  return (
+    <g transform={transform}>
+      <circle cx="0" cy="0" r="56" fill="#ffffff" stroke="#111827" strokeWidth="8" />
+      <circle cx="-22" cy="-8" r="5" fill="#111827" />
+      <circle cx="22" cy="-8" r="5" fill="#111827" />
+      <path d="M-18 16 Q0 28 18 16" fill="none" stroke="#111827" strokeWidth="6" strokeLinecap="round" />
+      <path d="M0 58 L0 142" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
+      <path d="M0 92 L-54 124" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
+      <path d="M0 92 L54 124" stroke="#111827" strokeWidth="8" strokeLinecap="round" />
+    </g>
   );
 }
 
@@ -9539,6 +10234,99 @@ const chatSendButtonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
+
+const profileNameplateMetaStyle: CSSProperties = {
+  fontSize: "11px",
+  opacity: 0.82,
+  fontWeight: 900,
+};
+
+const luxurySummaryBarStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "10px",
+  marginBottom: "16px",
+};
+
+const luxurySectionStackStyle: CSSProperties = {
+  display: "grid",
+  gap: "16px",
+};
+
+const luxurySectionStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "22px",
+  background: "#ffffff",
+  padding: "16px",
+  boxShadow: "0 12px 0 rgba(15,23,42,0.08)",
+  display: "grid",
+  gap: "14px",
+};
+
+const luxurySectionHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: "10px",
+  flexWrap: "wrap",
+};
+
+const luxuryMiniBadgeStyle: CSSProperties = {
+  border: "2px solid #111827",
+  borderRadius: "999px",
+  padding: "8px 12px",
+  background: "#f8fafc",
+  fontWeight: 900,
+  fontSize: "12px",
+};
+
+const luxuryGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+  gap: "12px",
+};
+
+const luxuryCardStyle: CSSProperties = {
+  display: "grid",
+  gap: "10px",
+  border: "3px solid #111827",
+  borderRadius: "18px",
+  background: "#f8fafc",
+  padding: "12px",
+  alignContent: "start",
+};
+
+const luxuryPreviewFrameStyle: CSSProperties = {
+  minHeight: "116px",
+  border: "3px solid #cbd5e1",
+  borderRadius: "16px",
+  background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "12px",
+  overflow: "hidden",
+};
+
+const luxuryCardTitleStyle: CSSProperties = {
+  fontSize: "18px",
+  fontWeight: 900,
+  color: "#111827",
+  margin: 0,
+};
+
+const luxuryCardTextStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "13px",
+  lineHeight: 1.5,
+  color: "#475569",
+};
+
+const luxuryPriceStyle: CSSProperties = {
+  color: "#b45309",
+  fontSize: "18px",
+  fontWeight: 900,
+};
 
 
 
