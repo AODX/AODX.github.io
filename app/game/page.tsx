@@ -6588,7 +6588,7 @@ function randomItemByRarity(rarity: ItemRarity) {
 }
 
 function getCollectionItemsByRarity() {
-  const order: ItemRarity[] = ["일반", "희소", "진귀", "보물", "유물"];
+  const order: ItemRarity[] = ["일반", "희소", "진귀", "보물", "유물", "고대 유물"];
   return order.map((rarity) => ({
     rarity,
     items: shopItems
