@@ -9330,10 +9330,6 @@ const careerCardStyle: CSSProperties = {
   boxShadow: "5px 5px 0 rgba(17,24,39,0.16)",
 };
 
-const careerIconStyle: CSSProperties = {
-  fontSize: "42px",
-  marginBottom: "10px",
-};
 
 
 const economySummaryGridStyle: CSSProperties = {
@@ -11808,6 +11804,7 @@ const rpgQuestListButtonStyle: CSSProperties = {
   fontWeight: 900,
   cursor: "pointer",
 };
+
 
 
 
