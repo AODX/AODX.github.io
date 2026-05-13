@@ -468,7 +468,6 @@ const PAY = {
 };
 
 const NEWS_ARTICLE_INTERVAL_MS = 10 * 60 * 1000;
-const NEWS_ARTICLE_PRICE = 25000;
 const newsCompanies: Array<{ id: NewsCompanyId; name: string; icon: string; style: string; reliability: number; description: string }> = [
   { id: "dailyBull", name: "황소일보", icon: "🐂", style: "강세장 전문", reliability: 0.82, description: "성장주와 호재를 빠르게 다룹니다." },
   { id: "moneyLens", name: "머니렌즈", icon: "🔎", style: "팩트체크", reliability: 0.9, description: "느리지만 정확한 기업 분석을 제공합니다." },
@@ -2619,8 +2618,8 @@ function ResponsiveGameStyles() {
         }
 
         .alba-world-body, .alba-room-scene, .alba-street-scene {
-          min-height: 600px !important;
-          height: 600px !important;
+          min-height: 0 !important;
+          height: auto !important;
         }
 
         .alba-room-info {
@@ -2829,6 +2828,101 @@ function ResponsiveGameStyles() {
         .alba-mobile-touch-controls .wide {
           grid-column: 1 / -1 !important;
         }
+
+        /* Mobile/tablet usability patch: show all core navigation and street buildings as real touch buttons. */
+        .alba-mobile-nav {
+          position: static !important;
+          display: grid !important;
+          grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)) !important;
+          overflow: visible !important;
+          width: 100% !important;
+        }
+
+        .alba-mobile-nav button {
+          min-width: 0 !important;
+          width: 100% !important;
+          white-space: nowrap !important;
+        }
+
+        .alba-world-body {
+          padding-bottom: 120px !important;
+        }
+
+        .alba-street-page-arrow {
+          display: grid !important;
+          position: absolute !important;
+          top: 44% !important;
+          z-index: 20 !important;
+          width: 46px !important;
+          height: 46px !important;
+          place-items: center !important;
+          border-radius: 999px !important;
+          background: rgba(255,255,255,0.96) !important;
+        }
+
+        .alba-street-buildings-row {
+          display: none !important;
+        }
+
+        .alba-mobile-street-pager {
+          order: 2 !important;
+          display: grid !important;
+          grid-template-columns: 1fr auto 1fr !important;
+          gap: 8px !important;
+          align-items: center !important;
+          width: 100% !important;
+          padding: 8px !important;
+          border: 3px solid #111827 !important;
+          border-radius: 16px !important;
+          background: #ffffff !important;
+        }
+
+        .alba-mobile-street-pager button {
+          min-height: 46px !important;
+          min-width: 0 !important;
+          border: 3px solid #111827 !important;
+          border-radius: 14px !important;
+          background: #ffffff !important;
+          color: #111827 !important;
+          font-weight: 900 !important;
+        }
+
+        .alba-mobile-street-pager strong {
+          white-space: nowrap !important;
+          font-weight: 900 !important;
+          color: #111827 !important;
+        }
+
+        .alba-mobile-street-list {
+          order: 3 !important;
+          display: grid !important;
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+          gap: 10px !important;
+          width: 100% !important;
+        }
+
+        .alba-mobile-street-list button {
+          min-width: 0 !important;
+          min-height: 78px !important;
+          display: grid !important;
+          grid-template-columns: auto 1fr !important;
+          grid-template-rows: auto auto !important;
+          column-gap: 8px !important;
+          align-items: center !important;
+          text-align: left !important;
+          padding: 10px !important;
+        }
+
+        .alba-mobile-street-list button span {
+          grid-row: 1 / 3 !important;
+          font-size: 24px !important;
+        }
+
+        .alba-mobile-street-list button small {
+          font-size: 11px !important;
+          color: #64748b !important;
+          line-height: 1.25 !important;
+        }
       }
 
       @media (max-width: 560px) {
@@ -2840,7 +2934,7 @@ function ResponsiveGameStyles() {
 
         .alba-room-scene > svg,
         .alba-street-scene > svg {
-          height: 220px !important;
+          height: 180px !important;
         }
       }
 
@@ -6016,34 +6110,14 @@ export default function GamePage() {
     }
   }
 
-  function buyNewspaperArticle(companyId: NewsCompanyId) {
+  function readNewspaperArticle(companyId: NewsCompanyId) {
     if (!canBuyNewspaper) {
-      setMessage(`📰 다음 신문은 ${formatTime(Math.ceil(newspaperRemainingMs / 1000))} 후에 살 수 있습니다.`);
+      setMessage(`📰 다음 신문 기사는 ${formatTime(Math.ceil(newspaperRemainingMs / 1000))} 후에 살 수 있습니다.`);
       return;
     }
 
-    if (cash < NEWS_ARTICLE_PRICE) {
-      setMessage(`📰 신문 기사 구매에는 ${NEWS_ARTICLE_PRICE.toLocaleString()}원이 필요합니다.`);
-      return;
-    }
+    const article = makeSharedNewspaperArticle(companyId);
 
-    const company = newsCompanies.find((item) => item.id === companyId) ?? newsCompanies[0];
-    const baseEvent = makeNewsEvents()[0] ?? newsPool[0];
-    const fake = Math.random() > company.reliability;
-    const impact = fake ? -baseEvent.impactPercent : baseEvent.impactPercent;
-    const article: NewsEvent = {
-      ...baseEvent,
-      id: Date.now(),
-      sourceCompanyId: company.id,
-      isFake: fake,
-      title: `${company.name} 단독: ${baseEvent.title}`,
-      effect: fake ? `검증되지 않은 기사입니다. 실제 시장은 반대로 움직일 수 있습니다. ${baseEvent.effect}` : `${company.style} 분석 기사입니다. ${baseEvent.effect}`,
-      impactPercent: impact,
-      tone: impact > 0 ? "good" : impact < 0 ? "bad" : "neutral",
-    };
-
-    setCash((money) => money - NEWS_ARTICLE_PRICE);
-    setTotalExpense((expense) => expense + NEWS_ARTICLE_PRICE);
     setLastNewsArticleAt(new Date());
     setNewspaperEvent(article);
     setNewsEvents([article, ...newsEvents.filter((news) => news.id !== article.id)].slice(0, 3));
@@ -6052,7 +6126,7 @@ export default function GamePage() {
       const nextPrice = Math.max(100, Math.floor(row.price * (1 + article.impactPercent / 100)));
       return { ...row, previousPrice: row.price, price: nextPrice, history: [...row.history.slice(-23), nextPrice] };
     }));
-    setMessage(fake ? `📰 ${company.name} 기사를 샀지만 가짜 정보였습니다. 관련 종목이 반대로 흔들렸습니다.` : `📰 ${company.name} 신문을 구매했습니다. 기사 영향이 관련 종목에 반영되었습니다.`);
+    setMessage(article.isFake ? `📰 ${getNewsCompanyName(article.sourceCompanyId)} 기사를 확인했지만 가짜 정보였습니다. 같은 회차의 모든 유저에게도 같은 기사로 보입니다.` : `📰 ${getNewsCompanyName(article.sourceCompanyId)} 신문 기사를 확인했습니다. 같은 회차의 모든 유저에게도 같은 기사로 보입니다.`);
   }
 
   function buyStock(stockId: StockId, amount = 1) {
@@ -6301,6 +6375,10 @@ export default function GamePage() {
           <button onClick={() => setLobbyView("jobs")}>알바</button>
           <button onClick={() => setLobbyView("phone")}>휴대폰</button>
           <button onClick={() => setLobbyView("ranking")}>랭킹</button>
+          <button onClick={() => setLobbyView("bank")}>은행</button>
+          <button onClick={() => setLobbyView("stocks")}>주식</button>
+          <button onClick={() => setLobbyView("gacha")}>가챠</button>
+          <button onClick={() => setLobbyView("luxury")}>사치숍</button>
         </nav>
 
         <section className="alba-world-body" style={worldBodyStyle}>
@@ -6340,10 +6418,18 @@ export default function GamePage() {
               <div className="alba-street-money" style={streetMoneyStyle}>◎ {cash.toLocaleString()}</div>
               <StreetArtwork />
 
+              <div className="alba-mobile-only alba-mobile-street-pager" aria-label="모바일 길거리 구역 이동">
+                <button onClick={() => setStreetPage((page) => Math.max(0, page - 1))} disabled={streetPage === 0}>◀ 이전 구역</button>
+                <strong>{streetPage + 1} / {streetBuildingPages.length} 구역</strong>
+                <button onClick={() => setStreetPage((page) => Math.min(streetBuildingPages.length - 1, page + 1))} disabled={streetPage === streetBuildingPages.length - 1}>다음 구역 ▶</button>
+              </div>
+
               <div className="alba-mobile-only alba-mobile-street-list" aria-label="모바일 길거리 건물 목록">
-                {getStreetBuildingsForPage(streetPage).map((building) => (
+                {streetBuildings.map((building) => (
                   <button key={`mobile-${building.id}`} onClick={() => handleStreetBuildingClick(building.id)}>
-                    <span>{building.emoji}</span> {building.title}
+                    <span>{building.emoji}</span>
+                    <strong>{building.title}</strong>
+                    <small>{building.subtitle}</small>
                   </button>
                 ))}
               </div>
@@ -6923,12 +7009,12 @@ export default function GamePage() {
           )}
 
           {lobbyView === "news" && (
-            <div className="alba-panel-scene" style={panelSceneStyle}>
+            <div className="alba-panel-scene" style={newspaperStandSceneStyle}>
               <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>NEWSPAPER STAND</div>
                   <h2 className="alba-panel-title" style={panelTitleStyle}>신문 기사 판매소</h2>
-                  <p style={panelDescStyle}>10분마다 신문 기사 1개를 살 수 있습니다. 기사 내용은 관련 종목 가격에 바로 영향을 주며, 일부 회사는 가짜 정보를 흘릴 수 있습니다. 다음 구매까지 {formatTime(Math.ceil(newspaperRemainingMs / 1000))}</p>
+                  <p style={panelDescStyle}>10분마다 뉴스 회사 1곳을 무료로 선택해서 신문 기사를 볼 수 있습니다. 같은 10분 회차에서는 모든 유저가 같은 신문사에서 같은 기사 내용을 보게 됩니다. 일부 회사는 가짜 정보를 흘릴 수 있습니다. 다음 열람까지 {formatTime(Math.ceil(newspaperRemainingMs / 1000))}</p>
                 </div>
                 <div style={economyButtonRowStyle}>
                   <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
@@ -6941,8 +7027,8 @@ export default function GamePage() {
                     <h3 style={economyCardTitleStyle}>{company.icon} {company.name}</h3>
                     <p style={economyCardTextStyle}>{company.description}</p>
                     <p style={economyCardTextStyle}>성향: {company.style} · 신뢰도 {Math.round(company.reliability * 100)}%</p>
-                    <button onClick={() => buyNewspaperArticle(company.id)} disabled={!canBuyNewspaper || cash < NEWS_ARTICLE_PRICE} style={{ ...casinoPrimaryButtonStyle, opacity: !canBuyNewspaper || cash < NEWS_ARTICLE_PRICE ? 0.45 : 1 }}>
-                      {canBuyNewspaper ? `${NEWS_ARTICLE_PRICE.toLocaleString()}원에 신문 구매` : "아직 구매 불가"}
+                    <button onClick={() => readNewspaperArticle(company.id)} disabled={!canBuyNewspaper} style={{ ...casinoPrimaryButtonStyle, opacity: !canBuyNewspaper ? 0.45 : 1 }}>
+                      {canBuyNewspaper ? "무료로 신문 보기" : "아직 열람 불가"}
                     </button>
                   </section>
                 ))}
@@ -6953,11 +7039,11 @@ export default function GamePage() {
                   <div style={smallLabelStyle}>TODAY'S PAPER</div>
                   <h3 style={newspaperHeadlineStyle}>{newspaperEvent.isFake ? "⚠️ 수상한 기사" : "📰 구매한 신문 기사"} · {newspaperEvent.title}</h3>
                   <p style={newspaperBodyStyle}>{newspaperEvent.effect}</p>
-                  <p style={newspaperBodyStyle}>영향 종목: {newspaperEvent.targetStocks.map(getStockCompanyName).join(" · ")} / 시장 영향 {newspaperEvent.impactPercent > 0 ? "+" : ""}{newspaperEvent.impactPercent.toFixed(1)}%</p>
+                  <p style={newspaperBodyStyle}>공유 회차: {Math.floor(newspaperEvent.id / 10)} · 신문사: {getNewsCompanyName(newspaperEvent.sourceCompanyId)} · 영향 종목: {newspaperEvent.targetStocks.map(getStockCompanyName).join(" · ")} / 시장 영향 {newspaperEvent.impactPercent > 0 ? "+" : ""}{newspaperEvent.impactPercent.toFixed(1)}%</p>
                 </section>
               )}
 
-              <div style={economyNewsListStyle}>
+              <div style={newspaperHistoryListStyle}>
                 {newsEvents.map((news) => (
                   <div key={news.id} style={{ ...economyNewsCardStyle, borderColor: news.isFake ? "#7c2d12" : news.tone === "good" ? "#16a34a" : news.tone === "bad" ? "#dc2626" : "#111827" }}>
                     <h3 style={economyCardTitleStyle}>{news.isFake ? "🕵️" : news.tone === "good" ? "📈" : news.tone === "bad" ? "📉" : "📰"} {news.title}</h3>
@@ -8889,7 +8975,7 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
 
         .alba-room-scene > svg,
         .alba-street-scene > svg {
-          height: 220px !important;
+          height: 180px !important;
         }
       }
 
@@ -9139,6 +9225,47 @@ function makeAuctionDeals() {
       const discount = 0.72 + Math.random() * 0.16;
       return { ...deal, price: Math.max(1000, Math.floor(deal.value * discount)) };
     });
+}
+
+function getNewsArticleSlot(now = new Date()) {
+  return Math.floor(now.getTime() / NEWS_ARTICLE_INTERVAL_MS);
+}
+
+function getNewsCompanyName(companyId?: NewsCompanyId) {
+  return newsCompanies.find((company) => company.id === companyId)?.name ?? "신문사";
+}
+
+function getStableHash(input: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash >>> 0);
+}
+
+function makeSharedNewspaperArticle(companyId: NewsCompanyId, now = new Date()): NewsEvent {
+  const company = newsCompanies.find((item) => item.id === companyId) ?? newsCompanies[0];
+  const slot = getNewsArticleSlot(now);
+  const baseHash = getStableHash(`${slot}-${company.id}-article`);
+  const baseEvent = newsPool[baseHash % newsPool.length] ?? newsPool[0];
+  const fakeHash = getStableHash(`${slot}-${company.id}-fake`);
+  const fakeRoll = (fakeHash % 1000) / 1000;
+  const fake = fakeRoll > company.reliability;
+  const impact = fake ? -baseEvent.impactPercent : baseEvent.impactPercent;
+
+  return {
+    ...baseEvent,
+    id: slot * 10 + newsCompanies.findIndex((item) => item.id === company.id),
+    sourceCompanyId: company.id,
+    isFake: fake,
+    title: `${company.name} ${slot % 10000}호: ${baseEvent.title}`,
+    effect: fake
+      ? `검증되지 않은 기사입니다. 같은 회차에서 모든 유저에게 동일하게 보이지만 실제 시장은 반대로 움직일 수 있습니다. ${baseEvent.effect}`
+      : `${company.style} 분석 기사입니다. 같은 회차에서 모든 유저에게 동일하게 제공됩니다. ${baseEvent.effect}`,
+    impactPercent: impact,
+    tone: impact > 0 ? "good" : impact < 0 ? "bad" : "neutral",
+  };
 }
 
 function makeNewsEvents() {
@@ -10644,13 +10771,6 @@ const economyConditionStyle: CSSProperties = {
   fontSize: "13px",
 };
 
-const economyNewsListStyle: CSSProperties = {
-  display: "grid",
-  gap: "12px",
-  overflowY: "auto",
-  minHeight: 0,
-  paddingRight: "8px",
-};
 
 const economyNewsCardStyle: CSSProperties = {
   background: "#ffffff",
@@ -13155,10 +13275,37 @@ const careerPortfolioBarsStyle: CSSProperties = {
 
 
 
+
+const newspaperStandSceneStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "flex",
+  flexDirection: "column",
+  gap: "16px",
+  overflowY: "auto",
+  overflowX: "hidden",
+  background: "linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%)",
+  color: "#111827",
+  border: "4px solid #111827",
+  borderRadius: "26px",
+  padding: "16px",
+  boxShadow: "0 18px 0 rgba(17,24,39,0.10), 0 24px 46px rgba(15,23,42,0.18)",
+};
+
+const newspaperHistoryListStyle: CSSProperties = {
+  display: "grid",
+  gap: "12px",
+  paddingRight: "4px",
+  paddingBottom: "24px",
+};
+
 const newspaperCompanyGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "12px",
+  gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+  gap: "14px",
+  alignItems: "stretch",
+  position: "relative",
+  zIndex: 1,
 };
 
 const newspaperCompanyCardStyle: CSSProperties = {
@@ -13167,9 +13314,13 @@ const newspaperCompanyCardStyle: CSSProperties = {
   background: "linear-gradient(180deg, #ffffff 0%, #fef3c7 100%)",
   padding: "14px",
   display: "grid",
+  gridTemplateRows: "auto auto auto auto",
   gap: "8px",
   color: "#111827",
   boxShadow: "0 8px 0 rgba(17,24,39,0.10)",
+  minHeight: "230px",
+  position: "relative",
+  zIndex: 1,
 };
 
 const newspaperArticleStyle: CSSProperties = {
@@ -13181,6 +13332,8 @@ const newspaperArticleStyle: CSSProperties = {
   display: "grid",
   gap: "10px",
   boxShadow: "0 12px 0 rgba(17,24,39,0.10)",
+  position: "relative",
+  zIndex: 0,
 };
 
 const newspaperHeadlineStyle: CSSProperties = {
@@ -13197,6 +13350,7 @@ const newspaperBodyStyle: CSSProperties = {
   lineHeight: 1.6,
   fontWeight: 800,
 };
+
 
 
 
