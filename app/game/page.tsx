@@ -1215,6 +1215,10 @@ const newsPool: NewsEvent[] = [
 ];
 
 const cashierKeyPool = ["W", "A", "S", "D"];
+const BANK_DEPOSIT_RATE = 0.0035;
+const BANK_SAVINGS_RATE = 0.009;
+const BANK_SAVINGS_CAP = 3000000;
+const BANK_LOAN_RATE = 0.012;
 const allSortKinds: SortKind[] = ["red", "blue", "yellow", "green", "purple"];
 
 const sortInfo: Record<SortKind, { label: string; emoji: string; key: string }> = {
@@ -1998,6 +2002,8 @@ export default function GamePage() {
   );
   const itemAssetValue = ownedItems.reduce((sum, id) => sum + (shopItems.find((item) => item.id === id)?.price ?? 0), 0);
   const netWorth = cash + bankDeposit + bankSavings + stockAssetValue + estateAssetValue + businessAssetValue + itemAssetValue - bankLoan - unpaidTax;
+  const savingsCapRemaining = Math.max(0, BANK_SAVINGS_CAP - bankSavings);
+  const savingsCapProgress = Math.min(100, Math.floor((bankSavings / BANK_SAVINGS_CAP) * 100));
   const conditionUnlockedTitles = useMemo(
     () => getUnlockedTitles({ cash, stockRows, bankDeposit, bankSavings, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems, discoveredItems, shopPurchaseCount, gachaMachinePullCount, lottoPurchaseCount }),
     [cash, stockRows, bankDeposit, bankSavings, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems, discoveredItems, shopPurchaseCount, gachaMachinePullCount, lottoPurchaseCount]
@@ -2370,10 +2376,10 @@ export default function GamePage() {
 
     const timer = window.setInterval(() => {
       setBankDeposit((current) => {
-        const next = Math.floor(current * (1 + 0.0025 * (1 + bankInterestBonus)));
+        const next = Math.floor(current * (1 + BANK_DEPOSIT_RATE * (1 + bankInterestBonus)));
         const gain = Math.max(0, next - current);
         if (gain > 0) setTotalIncome((value) => value + gain);
-        if (gain > 0) setMessage(`🏦 예금 이자 ${gain.toLocaleString()}원이 15분 정산으로 들어왔습니다.`);
+        if (gain > 0) setMessage(`🏦 목돈 예금 이자 ${gain.toLocaleString()}원이 15분 정산으로 들어왔습니다.`);
         return next;
       });
     }, 15 * 60 * 1000);
@@ -2386,10 +2392,11 @@ export default function GamePage() {
 
     const timer = window.setInterval(() => {
       setBankSavings((current) => {
-        const next = Math.floor(current * (1 + 0.009 * (1 + bankInterestBonus)));
+        if (current >= BANK_SAVINGS_CAP) return current;
+        const next = Math.min(BANK_SAVINGS_CAP, Math.floor(current * (1 + BANK_SAVINGS_RATE * (1 + bankInterestBonus))));
         const gain = Math.max(0, next - current);
         if (gain > 0) setTotalIncome((value) => value + gain);
-        if (gain > 0) setMessage(`🏦 적금 이자 ${gain.toLocaleString()}원이 30분 정산으로 들어왔습니다.`);
+        if (gain > 0) setMessage(`🏦 시드 적금 이자 ${gain.toLocaleString()}원이 30분 정산으로 들어왔습니다. 적금은 ${BANK_SAVINGS_CAP.toLocaleString()}원까지만 불어납니다.`);
         return next;
       });
     }, 30 * 60 * 1000);
@@ -2402,7 +2409,7 @@ export default function GamePage() {
 
     const timer = window.setInterval(() => {
       setBankLoan((current) => {
-        const next = Math.floor(current * 1.012);
+        const next = Math.floor(current * (1 + BANK_LOAN_RATE));
         const expense = Math.max(0, next - current);
         if (expense > 0) setTotalExpense((value) => value + expense);
         return next;
@@ -3508,31 +3515,46 @@ export default function GamePage() {
   }
 
   function depositToSavings() {
-    const amount = getBankAmount();
-    if (amount < 1000) {
+    const requestedAmount = getBankAmount();
+    const remainingCap = Math.max(0, BANK_SAVINGS_CAP - bankSavings);
+    const amount = Math.min(requestedAmount, cash, remainingCap);
+    if (remainingCap <= 0) {
+      setMessage(`🏦 적금은 시드머니 모으기 용이라 ${BANK_SAVINGS_CAP.toLocaleString()}원까지만 납입/성장할 수 있습니다. 목돈은 예금으로 굴려보세요.`);
+      return;
+    }
+    if (requestedAmount < 1000) {
       setMessage("🏦 적금은 최소 1,000원 이상 넣을 수 있습니다.");
       return;
     }
-    if (amount > cash) {
+    if (requestedAmount > cash) {
       setMessage("🏦 보유 현금보다 많이 적금할 수 없습니다.");
       return;
     }
+    if (amount < 1000 && remainingCap >= 1000) {
+      setMessage("🏦 적금 가능 금액이 너무 작습니다.");
+      return;
+    }
     setCash((money) => money - amount);
-    setBankSavings((savings) => savings + amount);
-    setBankSavingsPrincipal((principal) => principal + amount);
-    setMessage(`🏦 적금 ${amount.toLocaleString()}원 납입 완료`);
+    setBankSavings((savings) => Math.min(BANK_SAVINGS_CAP, savings + amount));
+    setBankSavingsPrincipal((principal) => Math.min(BANK_SAVINGS_CAP, principal + amount));
+    setMessage(`🏦 시드 적금 ${amount.toLocaleString()}원 납입 완료. 남은 적금 한도는 ${Math.max(0, remainingCap - amount).toLocaleString()}원입니다.`);
   }
 
   function depositAllToSavings() {
-    const amount = Math.floor(cash);
-    if (amount < 1000) {
-      setMessage("🏦 적금할 현금이 부족합니다.");
+    const remainingCap = Math.max(0, BANK_SAVINGS_CAP - bankSavings);
+    const amount = Math.min(Math.floor(cash), remainingCap);
+    if (remainingCap <= 0) {
+      setMessage(`🏦 적금은 이미 상한 ${BANK_SAVINGS_CAP.toLocaleString()}원에 도달했습니다. 추가 목돈은 예금으로 굴릴 수 있습니다.`);
       return;
     }
-    setCash(0);
-    setBankSavings((savings) => savings + amount);
-    setBankSavingsPrincipal((principal) => principal + amount);
-    setMessage(`🏦 보유 현금 전액 ${amount.toLocaleString()}원을 적금했습니다.`);
+    if (amount < 1000) {
+      setMessage("🏦 적금할 현금 또는 남은 적금 한도가 부족합니다.");
+      return;
+    }
+    setCash((money) => money - amount);
+    setBankSavings((savings) => Math.min(BANK_SAVINGS_CAP, savings + amount));
+    setBankSavingsPrincipal((principal) => Math.min(BANK_SAVINGS_CAP, principal + amount));
+    setMessage(`🏦 시드 적금 한도 안에서 ${amount.toLocaleString()}원을 납입했습니다. 남은 적금 한도는 ${Math.max(0, remainingCap - amount).toLocaleString()}원입니다.`);
   }
 
   function withdrawSavings() {
@@ -5418,7 +5440,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>BANK</div>
                   <h2 className="alba-panel-title" style={panelTitleStyle}>은행</h2>
-                  <p style={panelDescStyle}>예금은 낮은 이자율로 15분마다 0.25%, 적금은 높은 이자율로 30분마다 0.9% 이자가 붙고, 대출은 10분마다 1.2% 이자가 붙습니다.</p>
+                  <p style={panelDescStyle}>예금은 목돈 굴리기 용으로 한도 없이 15분마다 0.35% 복리 이자가 붙습니다. 적금은 시드머니 모으기 용으로 30분마다 0.9% 이자가 붙지만 최대 3,000,000원까지만 불어납니다. 대출은 10분마다 1.2% 이자가 붙습니다.</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
@@ -5428,6 +5450,7 @@ export default function GamePage() {
                 <StatusPill label="예금" value={`${bankDeposit.toLocaleString()}원`} />
                 <StatusPill label="예금 수익" value={`원금 ${bankDepositPrincipal.toLocaleString()}원 · +${Math.max(0, bankDeposit - bankDepositPrincipal).toLocaleString()}원 (${getReturnRate(bankDeposit, bankDepositPrincipal)})`} />
                 <StatusPill label="적금" value={`${bankSavings.toLocaleString()}원`} />
+                <StatusPill label="적금 한도" value={`${savingsCapProgress}% · 남은 ${savingsCapRemaining.toLocaleString()}원`} warning={savingsCapRemaining <= 0} />
                 <StatusPill label="적금 수익" value={`원금 ${bankSavingsPrincipal.toLocaleString()}원 · +${Math.max(0, bankSavings - bankSavingsPrincipal).toLocaleString()}원 (${getReturnRate(bankSavings, bankSavingsPrincipal)})`} />
                 <StatusPill label="대출" value={`${bankLoan.toLocaleString()}원`} warning={bankLoan > 0} />
                 <StatusPill label="신용점수" value={`${creditScore}점`} warning={creditScore < 600} />
@@ -5435,15 +5458,26 @@ export default function GamePage() {
                 <StatusPill label="순자산" value={`${netWorth.toLocaleString()}원`} warning={netWorth < 0} />
               </div>
 
+              <div style={bankGuideGridStyle}>
+                <div style={bankGuideCardStyle}>
+                  <strong>예금: 목돈 굴리기</strong>
+                  <span>한도 없이 계속 복리 성장합니다. 큰돈을 오래 묶어둘수록 유리합니다.</span>
+                </div>
+                <div style={bankGuideCardStyle}>
+                  <strong>적금: 시드머니 모으기</strong>
+                  <span>최대 {BANK_SAVINGS_CAP.toLocaleString()}원까지만 납입/성장합니다. 상한 이후에는 예금을 이용하세요.</span>
+                </div>
+              </div>
+
               <div style={economyActionPanelStyle}>
                 <input type="number" value={bankInput} min={100} step={1000} onChange={(event) => setBankInput(event.target.value)} style={casinoInputStyle} />
                 <div style={economyButtonRowStyle}>
-                  <button onClick={depositToBank} style={casinoPrimaryButtonStyle}>예금</button>
-                  <button onClick={depositAllToBank} style={casinoSmallButtonStyle}>예금 전액</button>
+                  <button onClick={depositToBank} style={casinoPrimaryButtonStyle}>예금 넣기</button>
+                  <button onClick={depositAllToBank} style={casinoSmallButtonStyle}>현금 전액 예금</button>
                   <button onClick={withdrawFromBank} style={casinoSmallButtonStyle}>예금 출금</button>
                   <button onClick={withdrawAllFromBank} style={casinoSmallButtonStyle}>예금 전액 출금</button>
-                  <button onClick={depositToSavings} style={casinoPrimaryButtonStyle}>적금</button>
-                  <button onClick={depositAllToSavings} style={casinoSmallButtonStyle}>적금 전액</button>
+                  <button onClick={depositToSavings} style={casinoPrimaryButtonStyle}>적금 납입</button>
+                  <button onClick={depositAllToSavings} style={casinoSmallButtonStyle}>한도까지 적금</button>
                   <button onClick={withdrawSavings} style={casinoSmallButtonStyle}>적금 출금</button>
                   <button onClick={withdrawAllSavings} style={casinoSmallButtonStyle}>적금 전액 출금</button>
                   <button onClick={borrowFromBank} style={casinoSmallButtonStyle}>대출</button>
@@ -11202,6 +11236,25 @@ const luxuryPriceStyle: CSSProperties = {
   fontSize: "18px",
   fontWeight: 900,
 };
+
+
+const bankGuideGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "10px",
+};
+
+const bankGuideCardStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "16px",
+  background: "#ffffff",
+  padding: "12px",
+  display: "grid",
+  gap: "6px",
+  color: "#111827",
+  boxShadow: "0 7px 0 rgba(17,24,39,0.10)",
+};
+
 
 
 
