@@ -58,23 +58,51 @@ type OccupationId =
   | "officeManager"
   | "officeDirector"
   | "salesAssociate"
+  | "salesManager"
+  | "hrSpecialist"
+  | "peopleChief"
   | "marketingPlanner"
+  | "brandDirector"
+  | "planningCoordinator"
+  | "strategyConsultant"
+  | "projectManager"
+  | "operationsDirector"
   | "convenienceManager"
   | "cafeManager"
   | "securityCaptain"
   | "franchiseOwner"
+  | "chiefExecutive"
+  | "shadowExecutive"
   | "trainee"
   | "rookieSinger"
   | "topSinger"
+  | "choreographer"
+  | "streamer"
+  | "actor"
+  | "musicProducer"
+  | "idolManager"
+  | "legendaryIdol"
+  | "mythicMuse"
   | "logisticsStaff"
   | "logisticsManager"
+  | "warehousePlanner"
+  | "routeOptimizer"
   | "dispatchController"
+  | "droneDispatcher"
+  | "portCaptain"
   | "platformOpsManager"
-  | "investor"
-  | "chiefExecutive"
-  | "legendaryIdol"
+  | "supplyChainDirector"
   | "logisticsLegend"
-  | "quantMaster";
+  | "phantomCourier"
+  | "investor"
+  | "bankAnalyst"
+  | "fundManager"
+  | "riskManager"
+  | "ventureCapitalist"
+  | "financialDirector"
+  | "quantMaster"
+  | "marketOracle"
+  | "blackCardBroker";
 
 type Occupation = {
   id: OccupationId;
@@ -656,6 +684,7 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     salaryText: "3분마다 4,500원",
     incomeEvery3Min: 4500,
     requiredCash: 120000,
+    requiredPrevious: "officeStaff",
     requiredSuccess: { security: 12 },
     minigameName: "고객 상담",
     minigameDifficulty: 2,
@@ -671,6 +700,7 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     salaryText: "3분마다 6,000원",
     incomeEvery3Min: 6000,
     requiredCash: 180000,
+    requiredPrevious: "officeStaff",
     requiredSuccess: { cafe: 15 },
     minigameName: "캠페인 기획",
     minigameDifficulty: 3,
@@ -686,6 +716,7 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     salaryText: "3분마다 7,500원",
     incomeEvery3Min: 7500,
     requiredCash: 220000,
+    requiredPrevious: "officeStaff",
     requiredSuccess: { cashier: 30 },
     minigameName: "매장 운영",
     minigameDifficulty: 3,
@@ -701,6 +732,7 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     salaryText: "3분마다 8,000원",
     incomeEvery3Min: 8000,
     requiredCash: 180000,
+    requiredPrevious: "officeStaff",
     requiredSuccess: { cafe: 25 },
     minigameName: "매장 스케줄",
     minigameDifficulty: 3,
@@ -716,6 +748,7 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     salaryText: "3분마다 9,500원",
     incomeEvery3Min: 9500,
     requiredCash: 250000,
+    requiredPrevious: "officeStaff",
     requiredSuccess: { security: 30 },
     minigameName: "출입 통제",
     minigameDifficulty: 3,
@@ -731,6 +764,7 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     salaryText: "3분마다 24,000원",
     incomeEvery3Min: 24000,
     requiredCash: 900000,
+    requiredPrevious: "convenienceManager",
     requiredSuccess: { cashier: 50, cafe: 40 },
     minigameName: "지점 관리",
     minigameDifficulty: 4,
@@ -779,6 +813,24 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     requiredPrevious: "rookieSinger",
     minigameName: "콘서트 관리",
     minigameDifficulty: 4,
+  },
+  mythicMuse: {
+    id: "mythicMuse",
+    buildingId: "entertainment",
+    name: "신화의 뮤즈",
+    icon: "🪽",
+    grade: "극희귀 히든 연예직",
+    description: "대중문화의 흐름을 바꾸는 전설급 히든 엔터 직업입니다.",
+    conditionText: "히든 조건: 완벽한 월드 투어 수행 + 톱스타/프로듀서 루트 + 순자산 4,500,000원 이상",
+    salaryText: "3분마다 78,000원",
+    incomeEvery3Min: 78000,
+    requiredCash: 3000000,
+    requiredPrevious: "legendaryIdol",
+    requiredSuccess: { cafe: 120, security: 90 },
+    minigameName: "신화의 무대",
+    minigameDifficulty: 6,
+    hidden: true,
+    questNpc: "프로듀서 루나",
   },
   logisticsStaff: {
     id: "logisticsStaff",
@@ -842,6 +894,24 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     minigameName: "플랫폼 운영",
     minigameDifficulty: 4,
   },
+  phantomCourier: {
+    id: "phantomCourier",
+    buildingId: "logistics",
+    name: "팬텀 쿠리어",
+    icon: "👻",
+    grade: "극희귀 히든 물류직",
+    description: "지도에 남지 않는 특수 배송을 처리하는 극희귀 히든 직업입니다.",
+    conditionText: "히든 조건: 완벽한 물류 수행 + 드론/공급망 조건 + 배달 성공 180회",
+    salaryText: "3분마다 72,000원",
+    incomeEvery3Min: 72000,
+    requiredCash: 2500000,
+    requiredPrevious: "supplyChainDirector",
+    requiredSuccess: { delivery: 180, sorting: 140 },
+    minigameName: "무음 배송",
+    minigameDifficulty: 6,
+    hidden: true,
+    questNpc: "관제장 박 반장",
+  },
   investor: {
     id: "investor",
     buildingId: "finance",
@@ -856,6 +926,134 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     minigameName: "투자 판단 테스트",
     minigameDifficulty: 2,
     questNpc: "차트 분석가 민",
+  },
+  salesManager: {
+    id: "salesManager",
+    buildingId: "company",
+    name: "영업 팀장",
+    icon: "📞",
+    grade: "회사 영업 2단계",
+    description: "고객 파이프라인과 계약 흐름을 관리하는 영업 루트 상위 직업입니다.",
+    conditionText: "영업 사원 보유 + 현금 450,000원 이상 + 보안 대응 성공 35회 + 계약 전략 테스트 클리어",
+    salaryText: "3분마다 14,000원",
+    incomeEvery3Min: 14000,
+    requiredCash: 450000,
+    requiredPrevious: "salesAssociate",
+    requiredSuccess: { security: 35 },
+    minigameName: "계약 전략",
+    minigameDifficulty: 4,
+  },
+  hrSpecialist: {
+    id: "hrSpecialist",
+    buildingId: "company",
+    name: "인사 담당자",
+    icon: "🧑‍🤝‍🧑",
+    grade: "회사 인사직",
+    description: "채용과 평가, 직원 배치를 담당하는 인사 루트 직업입니다.",
+    conditionText: "일반 회사원 보유 + 현금 160,000원 이상 + 보안 대응 성공 10회 + 면접 평가 테스트 클리어",
+    salaryText: "3분마다 5,800원",
+    incomeEvery3Min: 5800,
+    requiredCash: 160000,
+    requiredPrevious: "officeStaff",
+    requiredSuccess: { security: 10 },
+    minigameName: "면접 평가",
+    minigameDifficulty: 3,
+  },
+  peopleChief: {
+    id: "peopleChief",
+    buildingId: "company",
+    name: "인사 총괄",
+    icon: "🧠",
+    grade: "회사 인사 2단계",
+    description: "조직문화와 성과 보상 체계를 설계하는 인사 루트 상위 직업입니다.",
+    conditionText: "인사 담당자 보유 + 현금 700,000원 이상 + 카페 성공 35회 + 조직 설계 테스트 클리어",
+    salaryText: "3분마다 19,000원",
+    incomeEvery3Min: 19000,
+    requiredCash: 700000,
+    requiredPrevious: "hrSpecialist",
+    requiredSuccess: { cafe: 35 },
+    minigameName: "조직 설계",
+    minigameDifficulty: 4,
+  },
+  brandDirector: {
+    id: "brandDirector",
+    buildingId: "company",
+    name: "브랜드 디렉터",
+    icon: "🎨",
+    grade: "회사 기획 2단계",
+    description: "광고와 브랜드 전략을 총괄하는 기획 루트 상위 직업입니다.",
+    conditionText: "마케팅 기획자 보유 + 현금 650,000원 이상 + 카페 성공 45회 + 브랜드 전략 테스트 클리어",
+    salaryText: "3분마다 20,000원",
+    incomeEvery3Min: 20000,
+    requiredCash: 650000,
+    requiredPrevious: "marketingPlanner",
+    requiredSuccess: { cafe: 45 },
+    minigameName: "브랜드 전략",
+    minigameDifficulty: 4,
+  },
+  planningCoordinator: {
+    id: "planningCoordinator",
+    buildingId: "company",
+    name: "기획 조정자",
+    icon: "🧩",
+    grade: "회사 조정직",
+    description: "여러 부서의 일정과 목표를 연결하는 기획 조정 루트 직업입니다.",
+    conditionText: "일반 회사원 보유 + 현금 220,000원 이상 + 편의점 성공 20회 + 일정 조율 테스트 클리어",
+    salaryText: "3분마다 7,200원",
+    incomeEvery3Min: 7200,
+    requiredCash: 220000,
+    requiredPrevious: "officeStaff",
+    requiredSuccess: { cashier: 20 },
+    minigameName: "일정 조율",
+    minigameDifficulty: 3,
+  },
+  strategyConsultant: {
+    id: "strategyConsultant",
+    buildingId: "company",
+    name: "전략 컨설턴트",
+    icon: "♟️",
+    grade: "회사 전략직",
+    description: "부서 문제를 분석하고 회사 방향을 제안하는 전략 루트 상위 직업입니다.",
+    conditionText: "기획 조정자 보유 + 현금 850,000원 이상 + 편의점 성공 55회 + 전략 제안 테스트 클리어",
+    salaryText: "3분마다 25,000원",
+    incomeEvery3Min: 25000,
+    requiredCash: 850000,
+    requiredPrevious: "planningCoordinator",
+    requiredSuccess: { cashier: 55 },
+    minigameName: "전략 제안",
+    minigameDifficulty: 5,
+  },
+  projectManager: {
+    id: "projectManager",
+    buildingId: "company",
+    name: "프로젝트 매니저",
+    icon: "📌",
+    grade: "회사 PM직",
+    description: "프로젝트 일정과 리스크를 조율하는 관리 루트 직업입니다.",
+    conditionText: "과장 보유 + 현금 500,000원 이상 + 편의점 성공 25회 + 프로젝트 관리 테스트 클리어",
+    salaryText: "3분마다 16,000원",
+    incomeEvery3Min: 16000,
+    requiredCash: 500000,
+    requiredPrevious: "officeManager",
+    requiredSuccess: { cashier: 25 },
+    minigameName: "프로젝트 관리",
+    minigameDifficulty: 4,
+  },
+  operationsDirector: {
+    id: "operationsDirector",
+    buildingId: "company",
+    name: "운영 이사",
+    icon: "🏛️",
+    grade: "회사 운영 임원",
+    description: "프로젝트와 부서 운영을 모두 총괄하는 운영 임원 직업입니다.",
+    conditionText: "프로젝트 매니저 보유 + 현금 1,200,000원 이상 + 편의점 성공 70회 + 운영 총괄 테스트 클리어",
+    salaryText: "3분마다 32,000원",
+    incomeEvery3Min: 32000,
+    requiredCash: 1200000,
+    requiredPrevious: "projectManager",
+    requiredSuccess: { cashier: 70 },
+    minigameName: "운영 총괄",
+    minigameDifficulty: 5,
   },
   chiefExecutive: {
     id: "chiefExecutive",
@@ -873,6 +1071,104 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     minigameDifficulty: 5,
     hidden: true,
     questNpc: "전직 멘토 한 실장",
+  },
+  shadowExecutive: {
+    id: "shadowExecutive",
+    buildingId: "company",
+    name: "그림자 임원",
+    icon: "🕶️",
+    grade: "극희귀 히든 회사직",
+    description: "공식 직책 없이 회사를 움직이는 극희귀 히든 직업입니다.",
+    conditionText: "히든 조건: 완벽한 회사 퀘스트 수행 + 운영/전략 계열 조건 + 순자산 5,000,000원 이상",
+    salaryText: "3분마다 75,000원",
+    incomeEvery3Min: 75000,
+    requiredCash: 3000000,
+    requiredPrevious: "operationsDirector",
+    requiredSuccess: { cashier: 100, security: 80 },
+    minigameName: "비밀 이사회",
+    minigameDifficulty: 6,
+    hidden: true,
+    questNpc: "전직 멘토 한 실장",
+  },
+  choreographer: {
+    id: "choreographer",
+    buildingId: "entertainment",
+    name: "안무가",
+    icon: "💃",
+    grade: "연예 안무직",
+    description: "무대 동선과 안무를 만드는 창작형 엔터 루트입니다.",
+    conditionText: "연습생 보유 + 현금 180,000원 이상 + 카페 성공 15회 + 안무 구성 테스트 클리어",
+    salaryText: "3분마다 8,500원",
+    incomeEvery3Min: 8500,
+    requiredCash: 180000,
+    requiredPrevious: "trainee",
+    requiredSuccess: { cafe: 15 },
+    minigameName: "안무 구성",
+    minigameDifficulty: 3,
+  },
+  streamer: {
+    id: "streamer",
+    buildingId: "entertainment",
+    name: "스트리머",
+    icon: "📹",
+    grade: "연예 방송직",
+    description: "개인 방송과 팬 소통으로 성장하는 자유형 엔터 루트입니다.",
+    conditionText: "연습생 보유 + 현금 160,000원 이상 + 편의점 성공 15회 + 방송 진행 테스트 클리어",
+    salaryText: "3분마다 8,000원",
+    incomeEvery3Min: 8000,
+    requiredCash: 160000,
+    requiredPrevious: "trainee",
+    requiredSuccess: { cashier: 15 },
+    minigameName: "방송 진행",
+    minigameDifficulty: 3,
+  },
+  actor: {
+    id: "actor",
+    buildingId: "entertainment",
+    name: "배우",
+    icon: "🎭",
+    grade: "연예 연기직",
+    description: "대사와 감정선을 익혀 작품에 출연하는 연기 루트입니다.",
+    conditionText: "연습생 보유 + 현금 200,000원 이상 + 보안 성공 15회 + 대본 리딩 테스트 클리어",
+    salaryText: "3분마다 9,500원",
+    incomeEvery3Min: 9500,
+    requiredCash: 200000,
+    requiredPrevious: "trainee",
+    requiredSuccess: { security: 15 },
+    minigameName: "대본 리딩",
+    minigameDifficulty: 3,
+  },
+  musicProducer: {
+    id: "musicProducer",
+    buildingId: "entertainment",
+    name: "음악 프로듀서",
+    icon: "🎛️",
+    grade: "연예 제작직",
+    description: "곡 제작과 무대 연출을 맡는 제작 루트 상위 직업입니다.",
+    conditionText: "안무가 또는 신인 가수 보유 + 현금 700,000원 이상 + 카페 성공 55회 + 편곡 테스트 클리어",
+    salaryText: "3분마다 24,000원",
+    incomeEvery3Min: 24000,
+    requiredCash: 700000,
+    requiredPrevious: "choreographer",
+    requiredSuccess: { cafe: 55 },
+    minigameName: "편곡",
+    minigameDifficulty: 4,
+  },
+  idolManager: {
+    id: "idolManager",
+    buildingId: "entertainment",
+    name: "아이돌 매니저",
+    icon: "🗓️",
+    grade: "연예 관리직",
+    description: "아티스트 스케줄과 팬 이벤트를 조율하는 관리 루트입니다.",
+    conditionText: "스트리머 또는 배우 보유 + 현금 650,000원 이상 + 보안 성공 50회 + 스케줄 관리 테스트 클리어",
+    salaryText: "3분마다 22,000원",
+    incomeEvery3Min: 22000,
+    requiredCash: 650000,
+    requiredPrevious: "streamer",
+    requiredSuccess: { security: 50 },
+    minigameName: "스케줄 관리",
+    minigameDifficulty: 4,
   },
   legendaryIdol: {
     id: "legendaryIdol",
@@ -892,6 +1188,86 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     hidden: true,
     questNpc: "프로듀서 루나",
   },
+  warehousePlanner: {
+    id: "warehousePlanner",
+    buildingId: "logistics",
+    name: "창고 설계사",
+    icon: "🏗️",
+    grade: "물류 설계직",
+    description: "창고 배치와 적재 효율을 설계하는 물류 루트입니다.",
+    conditionText: "물류 정직원 보유 + 현금 220,000원 이상 + 택배 성공 45회 + 창고 설계 테스트 클리어",
+    salaryText: "3분마다 10,500원",
+    incomeEvery3Min: 10500,
+    requiredCash: 220000,
+    requiredPrevious: "logisticsStaff",
+    requiredSuccess: { sorting: 45 },
+    minigameName: "창고 설계",
+    minigameDifficulty: 3,
+  },
+  routeOptimizer: {
+    id: "routeOptimizer",
+    buildingId: "logistics",
+    name: "동선 최적화 전문가",
+    icon: "🗺️",
+    grade: "물류 동선직",
+    description: "배송 동선을 최적화하는 분석형 물류 루트입니다.",
+    conditionText: "물류 정직원 보유 + 현금 260,000원 이상 + 배달 성공 45회 + 동선 최적화 테스트 클리어",
+    salaryText: "3분마다 11,500원",
+    incomeEvery3Min: 11500,
+    requiredCash: 260000,
+    requiredPrevious: "logisticsStaff",
+    requiredSuccess: { delivery: 45 },
+    minigameName: "동선 최적화",
+    minigameDifficulty: 3,
+  },
+  droneDispatcher: {
+    id: "droneDispatcher",
+    buildingId: "logistics",
+    name: "드론 관제사",
+    icon: "🛸",
+    grade: "첨단 물류직",
+    description: "드론 배송망을 관리하는 첨단 물류 루트입니다.",
+    conditionText: "배차 관제사 또는 동선 최적화 전문가 보유 + 현금 900,000원 이상 + 배달 성공 85회 + 드론 관제 테스트 클리어",
+    salaryText: "3분마다 27,000원",
+    incomeEvery3Min: 27000,
+    requiredCash: 900000,
+    requiredPrevious: "dispatchController",
+    requiredSuccess: { delivery: 85 },
+    minigameName: "드론 관제",
+    minigameDifficulty: 5,
+  },
+  portCaptain: {
+    id: "portCaptain",
+    buildingId: "logistics",
+    name: "항만 물류장",
+    icon: "⚓",
+    grade: "대형 물류직",
+    description: "대형 화물과 항만 입출고를 관리하는 물류 루트입니다.",
+    conditionText: "창고 설계사 보유 + 현금 950,000원 이상 + 택배 성공 85회 + 항만 적재 테스트 클리어",
+    salaryText: "3분마다 28,000원",
+    incomeEvery3Min: 28000,
+    requiredCash: 950000,
+    requiredPrevious: "warehousePlanner",
+    requiredSuccess: { sorting: 85 },
+    minigameName: "항만 적재",
+    minigameDifficulty: 5,
+  },
+  supplyChainDirector: {
+    id: "supplyChainDirector",
+    buildingId: "logistics",
+    name: "공급망 총괄",
+    icon: "🌐",
+    grade: "물류 임원직",
+    description: "전국 공급망과 배송 리스크를 총괄하는 물류 최상위 루트입니다.",
+    conditionText: "플랫폼 매니저 또는 항만 물류장 보유 + 현금 1,700,000원 이상 + 택배/배달 성공 110회 + 공급망 설계 테스트 클리어",
+    salaryText: "3분마다 36,000원",
+    incomeEvery3Min: 36000,
+    requiredCash: 1700000,
+    requiredPrevious: "platformOpsManager",
+    requiredSuccess: { sorting: 110, delivery: 110 },
+    minigameName: "공급망 설계",
+    minigameDifficulty: 5,
+  },
   logisticsLegend: {
     id: "logisticsLegend",
     buildingId: "logistics",
@@ -910,6 +1286,81 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     hidden: true,
     questNpc: "관제장 박 반장",
   },
+  bankAnalyst: {
+    id: "bankAnalyst",
+    buildingId: "finance",
+    name: "은행 분석가",
+    icon: "🏦",
+    grade: "금융 은행직",
+    description: "예금, 적금, 대출 구조를 분석하는 안정형 금융 루트입니다.",
+    conditionText: "투자자 보유 + 예금 300,000원 이상 + 현금 250,000원 이상 + 금융 분석 테스트 클리어",
+    salaryText: "3분마다 10,500원",
+    incomeEvery3Min: 10500,
+    requiredCash: 250000,
+    requiredPrevious: "investor",
+    minigameName: "금융 분석",
+    minigameDifficulty: 3,
+  },
+  fundManager: {
+    id: "fundManager",
+    buildingId: "finance",
+    name: "펀드 매니저",
+    icon: "💹",
+    grade: "금융 운용직",
+    description: "여러 자산을 분산 운용하는 투자 루트 직업입니다.",
+    conditionText: "투자자 보유 + 현금 500,000원 이상 + 주식 평가액 500,000원 이상 + 포트폴리오 테스트 클리어",
+    salaryText: "3분마다 18,000원",
+    incomeEvery3Min: 18000,
+    requiredCash: 500000,
+    requiredPrevious: "investor",
+    minigameName: "포트폴리오 운용",
+    minigameDifficulty: 4,
+  },
+  riskManager: {
+    id: "riskManager",
+    buildingId: "finance",
+    name: "리스크 매니저",
+    icon: "🧯",
+    grade: "금융 위험관리직",
+    description: "손실 가능성을 줄이는 방어형 금융 루트입니다.",
+    conditionText: "투자자 보유 + 현금 450,000원 이상 + 은행 예금 500,000원 이상 + 리스크 평가 테스트 클리어",
+    salaryText: "3분마다 17,000원",
+    incomeEvery3Min: 17000,
+    requiredCash: 450000,
+    requiredPrevious: "investor",
+    minigameName: "리스크 평가",
+    minigameDifficulty: 4,
+  },
+  ventureCapitalist: {
+    id: "ventureCapitalist",
+    buildingId: "finance",
+    name: "벤처 캐피탈리스트",
+    icon: "🚀",
+    grade: "금융 성장투자직",
+    description: "성장 가능성이 높은 사업과 주식을 발굴하는 공격형 금융 루트입니다.",
+    conditionText: "펀드 매니저 보유 + 현금 1,200,000원 이상 + 사업 1개 이상 보유 + 벤처 심사 테스트 클리어",
+    salaryText: "3분마다 31,000원",
+    incomeEvery3Min: 31000,
+    requiredCash: 1200000,
+    requiredPrevious: "fundManager",
+    minigameName: "벤처 심사",
+    minigameDifficulty: 5,
+  },
+  financialDirector: {
+    id: "financialDirector",
+    buildingId: "finance",
+    name: "재무 이사",
+    icon: "📑",
+    grade: "금융 임원직",
+    description: "회사 자금 조달과 자산 운용을 총괄하는 금융 루트 최상위 직업입니다.",
+    conditionText: "리스크 매니저 또는 은행 분석가 보유 + 현금 1,500,000원 이상 + 예금 1,000,000원 이상 + 재무 총괄 테스트 클리어",
+    salaryText: "3분마다 34,000원",
+    incomeEvery3Min: 34000,
+    requiredCash: 1500000,
+    requiredPrevious: "riskManager",
+    minigameName: "재무 총괄",
+    minigameDifficulty: 5,
+  },
   quantMaster: {
     id: "quantMaster",
     buildingId: "finance",
@@ -926,6 +1377,40 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     minigameDifficulty: 5,
     hidden: true,
     questNpc: "퀀트 연구원 서 박사",
+  },
+  marketOracle: {
+    id: "marketOracle",
+    buildingId: "finance",
+    name: "시장 예언가",
+    icon: "🔮",
+    grade: "극희귀 히든 금융직",
+    description: "시장 흐름을 거의 예언처럼 읽어내는 극희귀 히든 직업입니다.",
+    conditionText: "히든 조건: 완벽한 금융 퀘스트 수행 + 퀀트/펀드 조건 + 순자산 6,000,000원 이상",
+    salaryText: "3분마다 82,000원",
+    incomeEvery3Min: 82000,
+    requiredCash: 3500000,
+    requiredPrevious: "quantMaster",
+    minigameName: "시장 예언",
+    minigameDifficulty: 6,
+    hidden: true,
+    questNpc: "차트 분석가 민",
+  },
+  blackCardBroker: {
+    id: "blackCardBroker",
+    buildingId: "finance",
+    name: "블랙카드 브로커",
+    icon: "🃏",
+    grade: "극희귀 히든 금융직",
+    description: "초고액 자산가의 비밀 거래를 연결하는 위험한 히든 직업입니다.",
+    conditionText: "히든 조건: 완벽한 금융 퀘스트 수행 + 벤처/재무 조건 + 현금 5,000,000원 이상",
+    salaryText: "3분마다 88,000원",
+    incomeEvery3Min: 88000,
+    requiredCash: 5000000,
+    requiredPrevious: "ventureCapitalist",
+    minigameName: "비밀 거래",
+    minigameDifficulty: 6,
+    hidden: true,
+    questNpc: "차트 분석가 민",
   },
 };
 
@@ -950,6 +1435,26 @@ const careerQuestBoards: Record<CareerBuildingId, CareerQuest[]> = {
       request: "인턴을 획득하고 현금 80,000원 이상을 준비하세요.",
       successText: "문서 정리 테스트를 통과하면 일반 회사원으로 승급합니다.",
       failText: "정확도가 부족하면 정규직 승급이 보류됩니다.",
+    },
+    {
+      id: "company-hr",
+      npc: "전직 멘토 한 실장",
+      title: "부서 이동: 인사부 퀘스트",
+      targetId: "hrSpecialist",
+      story: "한 실장이 인사부 전환 기회를 제안합니다. 사람을 보는 눈을 증명하세요.",
+      request: "일반 회사원 보유 + 현금 160,000원 이상 + 보안 대응 성공 10회.",
+      successText: "인사부로 이동해 인사 담당자가 됩니다.",
+      failText: "사람을 잘못 판단하면 부서 이동이 보류됩니다.",
+    },
+    {
+      id: "company-planning",
+      npc: "전직 멘토 한 실장",
+      title: "부서 이동: 기획 조정부 퀘스트",
+      targetId: "planningCoordinator",
+      story: "여러 부서 일정을 조율하는 기획 조정부 루트가 열립니다.",
+      request: "일반 회사원 보유 + 현금 220,000원 이상 + 편의점 성공 20회.",
+      successText: "기획 조정부로 이동해 기획 조정자가 됩니다.",
+      failText: "일정 조율이 꼬이면 이동이 보류됩니다.",
     },
     {
       id: "company-manager",
@@ -982,6 +1487,16 @@ const careerQuestBoards: Record<CareerBuildingId, CareerQuest[]> = {
       failText: "고객 분류를 틀리면 퀘스트 실패입니다.",
     },
     {
+      id: "company-sales-manager",
+      npc: "전직 멘토 한 실장",
+      title: "영업 팀장 승급 퀘스트",
+      targetId: "salesManager",
+      story: "영업 사원의 계약 흐름을 팀 단위로 확장하는 퀘스트입니다.",
+      request: "영업 사원 보유 + 현금 450,000원 이상 + 보안 성공 35회.",
+      successText: "영업 팀장으로 승급합니다.",
+      failText: "계약 전략을 놓치면 승급이 보류됩니다.",
+    },
+    {
       id: "company-marketing",
       npc: "전직 멘토 한 실장",
       title: "캠페인 기획 퀘스트",
@@ -992,6 +1507,56 @@ const careerQuestBoards: Record<CareerBuildingId, CareerQuest[]> = {
       failText: "기획 흐름이 끊기면 퀘스트 실패입니다.",
     },
     {
+      id: "company-brand-director",
+      npc: "전직 멘토 한 실장",
+      title: "브랜드 디렉터 승급 퀘스트",
+      targetId: "brandDirector",
+      story: "캠페인 기획 경험을 브랜드 전략으로 확장합니다.",
+      request: "마케팅 기획자 보유 + 현금 650,000원 이상 + 카페 성공 45회.",
+      successText: "브랜드 디렉터가 됩니다.",
+      failText: "브랜드 방향이 흔들리면 승급 실패입니다.",
+    },
+    {
+      id: "company-people-chief",
+      npc: "전직 멘토 한 실장",
+      title: "인사 총괄 승급 퀘스트",
+      targetId: "peopleChief",
+      story: "인사 담당자 경험을 바탕으로 조직문화를 설계합니다.",
+      request: "인사 담당자 보유 + 현금 700,000원 이상 + 카페 성공 35회.",
+      successText: "인사 총괄이 됩니다.",
+      failText: "조직 설계가 어긋나면 승급 실패입니다.",
+    },
+    {
+      id: "company-strategy-consultant",
+      npc: "전직 멘토 한 실장",
+      title: "전략 컨설턴트 퀘스트",
+      targetId: "strategyConsultant",
+      story: "기획 조정 경험을 회사 전체 전략으로 확장합니다.",
+      request: "기획 조정자 보유 + 현금 850,000원 이상 + 편의점 성공 55회.",
+      successText: "전략 컨설턴트가 됩니다.",
+      failText: "전략 제안이 엇나가면 실패입니다.",
+    },
+    {
+      id: "company-project-manager",
+      npc: "전직 멘토 한 실장",
+      title: "프로젝트 매니저 퀘스트",
+      targetId: "projectManager",
+      story: "과장 이후 프로젝트 단위의 책임자가 되는 루트입니다.",
+      request: "과장 보유 + 현금 500,000원 이상 + 편의점 성공 25회.",
+      successText: "프로젝트 매니저가 됩니다.",
+      failText: "프로젝트 관리가 꼬이면 실패입니다.",
+    },
+    {
+      id: "company-operations-director",
+      npc: "전직 멘토 한 실장",
+      title: "운영 이사 퀘스트",
+      targetId: "operationsDirector",
+      story: "프로젝트 매니저 경험을 회사 운영 총괄로 확장합니다.",
+      request: "프로젝트 매니저 보유 + 현금 1,200,000원 이상 + 편의점 성공 70회.",
+      successText: "운영 이사가 됩니다.",
+      failText: "운영 계획이 무너지면 실패입니다.",
+    },
+    {
       id: "company-store",
       npc: "전직 멘토 한 실장",
       title: "매장 운영 퀘스트",
@@ -1000,6 +1565,17 @@ const careerQuestBoards: Record<CareerBuildingId, CareerQuest[]> = {
       request: "현금 900,000원 이상 + 편의점 성공 50회 + 카페 성공 40회.",
       successText: "지점 관리 테스트를 통과하면 프랜차이즈 지점장이 됩니다.",
       failText: "매장 운영 순서를 놓치면 퀘스트 실패입니다.",
+    },
+    {
+      id: "hidden-shadow-executive",
+      npc: "전직 멘토 한 실장",
+      title: "극희귀: 그림자 이사회 퀘스트",
+      targetId: "shadowExecutive",
+      story: "한 실장이 아무 기록에도 남지 않는 비밀 이사회를 제안합니다.",
+      request: "극희귀 조건 충족 후 비밀 이사회 테스트를 완벽히 수행하세요.",
+      successText: "그림자 임원 직업을 획득합니다.",
+      failText: "정체가 드러나면 히든 퀘스트 실패입니다.",
+      hidden: true,
     },
     {
       id: "hidden-ceo",
@@ -1025,6 +1601,36 @@ const careerQuestBoards: Record<CareerBuildingId, CareerQuest[]> = {
       failText: "박자를 놓치면 오디션 실패입니다.",
     },
     {
+      id: "ent-choreographer",
+      npc: "프로듀서 루나",
+      title: "진로 선택: 안무가 퀘스트",
+      targetId: "choreographer",
+      story: "루나가 무대 뒤에서 무대를 만드는 안무 루트를 제안합니다.",
+      request: "연습생 보유 + 현금 180,000원 이상 + 카페 성공 15회.",
+      successText: "안무가가 됩니다.",
+      failText: "동선 구성이 무너지면 실패입니다.",
+    },
+    {
+      id: "ent-streamer",
+      npc: "프로듀서 루나",
+      title: "진로 선택: 스트리머 퀘스트",
+      targetId: "streamer",
+      story: "개인 방송과 팬 소통으로 성장하는 루트입니다.",
+      request: "연습생 보유 + 현금 160,000원 이상 + 편의점 성공 15회.",
+      successText: "스트리머가 됩니다.",
+      failText: "방송 흐름이 끊기면 실패입니다.",
+    },
+    {
+      id: "ent-actor",
+      npc: "프로듀서 루나",
+      title: "진로 선택: 배우 퀘스트",
+      targetId: "actor",
+      story: "감정선과 대사 흐름을 증명하는 연기 루트입니다.",
+      request: "연습생 보유 + 현금 200,000원 이상 + 보안 성공 15회.",
+      successText: "배우가 됩니다.",
+      failText: "대사 흐름이 무너지면 실패입니다.",
+    },
+    {
       id: "ent-rookie",
       npc: "프로듀서 루나",
       title: "데뷔 무대 퀘스트",
@@ -1043,6 +1649,37 @@ const careerQuestBoards: Record<CareerBuildingId, CareerQuest[]> = {
       request: "신인 가수 보유 + 현금 800,000원 이상.",
       successText: "콘서트 테스트를 통과하면 톱스타가 됩니다.",
       failText: "콘서트 운영이 꼬이면 퀘스트 실패입니다.",
+    },
+    {
+      id: "ent-producer",
+      npc: "프로듀서 루나",
+      title: "음악 프로듀서 퀘스트",
+      targetId: "musicProducer",
+      story: "무대 감각을 곡 제작과 편곡으로 확장합니다.",
+      request: "안무가 보유 + 현금 700,000원 이상 + 카페 성공 55회.",
+      successText: "음악 프로듀서가 됩니다.",
+      failText: "편곡 흐름을 놓치면 실패입니다.",
+    },
+    {
+      id: "ent-idol-manager",
+      npc: "프로듀서 루나",
+      title: "아이돌 매니저 퀘스트",
+      targetId: "idolManager",
+      story: "방송/연기 경험을 스케줄 관리로 확장합니다.",
+      request: "스트리머 보유 + 현금 650,000원 이상 + 보안 성공 50회.",
+      successText: "아이돌 매니저가 됩니다.",
+      failText: "스케줄 동선이 꼬이면 실패입니다.",
+    },
+    {
+      id: "hidden-mythic-muse",
+      npc: "프로듀서 루나",
+      title: "극희귀: 신화의 무대 퀘스트",
+      targetId: "mythicMuse",
+      story: "루나가 아주 드물게 전설을 넘어선 무대 계약을 제안합니다.",
+      request: "극희귀 조건 충족 후 신화의 무대를 완벽히 수행하세요.",
+      successText: "신화의 뮤즈 직업을 획득합니다.",
+      failText: "무대의 흐름이 끊기면 극희귀 퀘스트 실패입니다.",
+      hidden: true,
     },
     {
       id: "hidden-idol",
@@ -1066,6 +1703,26 @@ const careerQuestBoards: Record<CareerBuildingId, CareerQuest[]> = {
       request: "현금 70,000원 이상 + 택배 성공 15회 + 배달 성공 10회.",
       successText: "물류 정직원이 됩니다.",
       failText: "분류 라인을 놓치면 퀘스트 실패입니다.",
+    },
+    {
+      id: "log-warehouse",
+      npc: "관제장 박 반장",
+      title: "진로 선택: 창고 설계 퀘스트",
+      targetId: "warehousePlanner",
+      story: "창고 배치와 적재 구조를 설계하는 루트입니다.",
+      request: "물류 정직원 보유 + 현금 220,000원 이상 + 택배 성공 45회.",
+      successText: "창고 설계사가 됩니다.",
+      failText: "적재 구조가 무너지면 실패입니다.",
+    },
+    {
+      id: "log-route",
+      npc: "관제장 박 반장",
+      title: "진로 선택: 동선 최적화 퀘스트",
+      targetId: "routeOptimizer",
+      story: "배송 경로를 분석하고 최단 루트를 찾는 루트입니다.",
+      request: "물류 정직원 보유 + 현금 260,000원 이상 + 배달 성공 45회.",
+      successText: "동선 최적화 전문가가 됩니다.",
+      failText: "동선 계산이 틀리면 실패입니다.",
     },
     {
       id: "log-manager",
@@ -1098,6 +1755,47 @@ const careerQuestBoards: Record<CareerBuildingId, CareerQuest[]> = {
       failText: "플랫폼 흐름을 놓치면 퀘스트 실패입니다.",
     },
     {
+      id: "log-drone",
+      npc: "관제장 박 반장",
+      title: "드론 관제 퀘스트",
+      targetId: "droneDispatcher",
+      story: "드론 배송망을 관리하는 첨단 물류 루트입니다.",
+      request: "배차 관제사 보유 + 현금 900,000원 이상 + 배달 성공 85회.",
+      successText: "드론 관제사가 됩니다.",
+      failText: "드론 배치가 엉키면 실패입니다.",
+    },
+    {
+      id: "log-port",
+      npc: "관제장 박 반장",
+      title: "항만 물류 퀘스트",
+      targetId: "portCaptain",
+      story: "대형 화물과 항만 적재를 관리하는 루트입니다.",
+      request: "창고 설계사 보유 + 현금 950,000원 이상 + 택배 성공 85회.",
+      successText: "항만 물류장이 됩니다.",
+      failText: "항만 적재가 무너지면 실패입니다.",
+    },
+    {
+      id: "log-supply",
+      npc: "관제장 박 반장",
+      title: "공급망 총괄 퀘스트",
+      targetId: "supplyChainDirector",
+      story: "전국 공급망을 총괄하는 물류 임원 루트입니다.",
+      request: "플랫폼 매니저 보유 + 현금 1,700,000원 이상 + 택배/배달 성공 110회.",
+      successText: "공급망 총괄이 됩니다.",
+      failText: "공급망 설계가 끊기면 실패입니다.",
+    },
+    {
+      id: "hidden-phantom-courier",
+      npc: "관제장 박 반장",
+      title: "극희귀: 팬텀 배송 퀘스트",
+      targetId: "phantomCourier",
+      story: "어디에도 기록되지 않는 특수 배송 루트가 아주 드물게 열립니다.",
+      request: "극희귀 조건 충족 후 무음 배송을 완벽히 수행하세요.",
+      successText: "팬텀 쿠리어 직업을 획득합니다.",
+      failText: "흔적이 남으면 극희귀 퀘스트 실패입니다.",
+      hidden: true,
+    },
+    {
       id: "hidden-logistics",
       npc: "관제장 박 반장",
       title: "히든: 전국 배송망 퀘스트",
@@ -1121,6 +1819,56 @@ const careerQuestBoards: Record<CareerBuildingId, CareerQuest[]> = {
       failText: "차트 판단을 틀리면 퀘스트 실패입니다.",
     },
     {
+      id: "fin-bank-analyst",
+      npc: "차트 분석가 민",
+      title: "진로 선택: 은행 분석 퀘스트",
+      targetId: "bankAnalyst",
+      story: "안정적인 자금 흐름을 읽는 은행 분석 루트입니다.",
+      request: "투자자 보유 + 예금 300,000원 이상 + 현금 250,000원 이상.",
+      successText: "은행 분석가가 됩니다.",
+      failText: "금융 구조 판단을 틀리면 실패입니다.",
+    },
+    {
+      id: "fin-fund",
+      npc: "차트 분석가 민",
+      title: "진로 선택: 펀드 운용 퀘스트",
+      targetId: "fundManager",
+      story: "여러 자산을 섞어 수익과 리스크를 맞추는 루트입니다.",
+      request: "투자자 보유 + 현금 500,000원 이상 + 주식 평가액 500,000원 이상.",
+      successText: "펀드 매니저가 됩니다.",
+      failText: "포트폴리오 판단이 빗나가면 실패입니다.",
+    },
+    {
+      id: "fin-risk",
+      npc: "차트 분석가 민",
+      title: "진로 선택: 리스크 관리 퀘스트",
+      targetId: "riskManager",
+      story: "손실을 줄이고 위험 신호를 찾는 방어형 금융 루트입니다.",
+      request: "투자자 보유 + 현금 450,000원 이상 + 예금 500,000원 이상.",
+      successText: "리스크 매니저가 됩니다.",
+      failText: "위험 신호를 놓치면 실패입니다.",
+    },
+    {
+      id: "fin-venture",
+      npc: "차트 분석가 민",
+      title: "벤처 투자 퀘스트",
+      targetId: "ventureCapitalist",
+      story: "성장주와 사업 가능성을 동시에 읽는 공격형 투자 루트입니다.",
+      request: "펀드 매니저 보유 + 현금 1,200,000원 이상.",
+      successText: "벤처 캐피탈리스트가 됩니다.",
+      failText: "성장성 판단을 놓치면 실패입니다.",
+    },
+    {
+      id: "fin-director",
+      npc: "차트 분석가 민",
+      title: "재무 이사 퀘스트",
+      targetId: "financialDirector",
+      story: "자금 조달과 재무 리스크를 총괄하는 임원 루트입니다.",
+      request: "리스크 매니저 보유 + 현금 1,500,000원 이상 + 예금 1,000,000원 이상.",
+      successText: "재무 이사가 됩니다.",
+      failText: "재무 판단이 흔들리면 실패입니다.",
+    },
+    {
       id: "hidden-quant",
       npc: "차트 분석가 민",
       title: "히든: 알고리즘 투자 퀘스트",
@@ -1129,6 +1877,28 @@ const careerQuestBoards: Record<CareerBuildingId, CareerQuest[]> = {
       request: "히든 조건 충족 후 알고리즘 투자 테스트를 통과하세요.",
       successText: "퀀트 마스터 직업을 획득합니다.",
       failText: "투자 알고리즘 판단에 실패하면 히든 퀘스트 실패입니다.",
+      hidden: true,
+    },
+    {
+      id: "hidden-market-oracle",
+      npc: "차트 분석가 민",
+      title: "극희귀: 시장 예언 퀘스트",
+      targetId: "marketOracle",
+      story: "민이 극히 드물게 시장의 다음 흐름을 맞히는 예언 시험을 제안합니다.",
+      request: "극희귀 조건 충족 후 시장 예언 테스트를 완벽히 수행하세요.",
+      successText: "시장 예언가 직업을 획득합니다.",
+      failText: "한 번이라도 흐름을 놓치면 극희귀 퀘스트 실패입니다.",
+      hidden: true,
+    },
+    {
+      id: "hidden-black-card",
+      npc: "차트 분석가 민",
+      title: "극희귀: 블랙카드 거래 퀘스트",
+      targetId: "blackCardBroker",
+      story: "초고액 거래를 연결하는 비밀 제안이 들어왔습니다.",
+      request: "극희귀 조건 충족 후 비밀 거래 테스트를 완벽히 수행하세요.",
+      successText: "블랙카드 브로커 직업을 획득합니다.",
+      failText: "거래 흔적을 남기면 극희귀 퀘스트 실패입니다.",
       hidden: true,
     },
   ],
@@ -2113,6 +2883,7 @@ export default function GamePage() {
   const [occupationLevel, setOccupationLevel] = useState(0);
   const [unlockedOccupations, setUnlockedOccupations] = useState<OccupationId[]>(["unemployed"]);
   const [careerBuildingId, setCareerBuildingId] = useState<CareerBuildingId>("company");
+  const [selectedCareerRouteId, setSelectedCareerRouteId] = useState<OccupationId | null>(null);
   const [careerMiniGame, setCareerMiniGame] = useState<Occupation | null>(null);
   const [careerMiniGameScore, setCareerMiniGameScore] = useState(0);
   const [careerMiniGameStep, setCareerMiniGameStep] = useState(0);
@@ -2281,6 +3052,7 @@ export default function GamePage() {
   );
   const itemAssetValue = ownedItems.reduce((sum, id) => sum + (shopItems.find((item) => item.id === id)?.price ?? 0), 0);
   const netWorth = cash + bankDeposit + bankSavings + stockAssetValue + estateAssetValue + businessAssetValue + itemAssetValue - bankLoan - unpaidTax;
+  const careerRouteOptions = getCareerRouteOptions(careerBuildingId);
   const currentCareerQuest = getCurrentCareerQuest(careerBuildingId);
   const currentQuestCareer = currentCareerQuest ? occupationInfo[currentCareerQuest.targetId] : null;
   const savingsCapRemaining = Math.max(0, BANK_SAVINGS_CAP - bankSavings);
@@ -2313,6 +3085,17 @@ export default function GamePage() {
     }
   }, [conditionUnlockedTitles, earnedTitleIds, nickname, userId]);
 
+
+  useEffect(() => {
+    if (careerRouteOptions.length === 0) {
+      if (selectedCareerRouteId !== null) setSelectedCareerRouteId(null);
+      return;
+    }
+
+    if (!selectedCareerRouteId || !careerRouteOptions.some((quest) => quest.targetId === selectedCareerRouteId)) {
+      setSelectedCareerRouteId(careerRouteOptions[0].targetId);
+    }
+  }, [careerBuildingId, occupationId, selectedCareerRouteId, careerRouteOptions]);
 
   useEffect(() => {
     async function loadSave() {
@@ -3736,19 +4519,39 @@ export default function GamePage() {
     if (!career.hidden) return true;
 
     if (careerId === "chiefExecutive") {
-      return netWorth >= 2000000 && (unlockedOccupations.includes("officeDirector") || unlockedOccupations.includes("franchiseOwner"));
+      return netWorth >= 2000000 && (unlockedOccupations.includes("officeDirector") || unlockedOccupations.includes("franchiseOwner") || occupationId === "officeDirector" || occupationId === "franchiseOwner");
+    }
+
+    if (careerId === "shadowExecutive") {
+      return netWorth >= 5000000 && (occupationId === "operationsDirector" || occupationId === "strategyConsultant" || unlockedOccupations.includes("operationsDirector") || unlockedOccupations.includes("strategyConsultant"));
     }
 
     if (careerId === "legendaryIdol") {
-      return unlockedOccupations.includes("topSinger") && cafeSuccessTotal >= 60;
+      return (unlockedOccupations.includes("topSinger") || occupationId === "topSinger" || occupationId === "musicProducer") && cafeSuccessTotal >= 60;
+    }
+
+    if (careerId === "mythicMuse") {
+      return netWorth >= 4500000 && (occupationId === "legendaryIdol" || occupationId === "musicProducer" || unlockedOccupations.includes("legendaryIdol")) && cafeSuccessTotal >= 120;
     }
 
     if (careerId === "logisticsLegend") {
-      return unlockedOccupations.includes("platformOpsManager") && sortingSuccessTotal >= 90 && deliverySuccessTotal >= 90;
+      return (unlockedOccupations.includes("platformOpsManager") || occupationId === "platformOpsManager" || occupationId === "supplyChainDirector") && sortingSuccessTotal >= 90 && deliverySuccessTotal >= 90;
+    }
+
+    if (careerId === "phantomCourier") {
+      return netWorth >= 3500000 && (occupationId === "supplyChainDirector" || occupationId === "droneDispatcher" || unlockedOccupations.includes("supplyChainDirector")) && deliverySuccessTotal >= 180;
     }
 
     if (careerId === "quantMaster") {
-      return unlockedOccupations.includes("investor") && (bankDeposit >= 1000000 || stockAssetValue >= 1000000);
+      return (unlockedOccupations.includes("investor") || occupationId === "investor" || occupationId === "fundManager") && (bankDeposit >= 1000000 || stockAssetValue >= 1000000);
+    }
+
+    if (careerId === "marketOracle") {
+      return netWorth >= 6000000 && (occupationId === "quantMaster" || occupationId === "fundManager" || unlockedOccupations.includes("quantMaster")) && stockAssetValue >= 1500000;
+    }
+
+    if (careerId === "blackCardBroker") {
+      return cash >= 5000000 && (occupationId === "ventureCapitalist" || occupationId === "financialDirector" || unlockedOccupations.includes("ventureCapitalist"));
     }
 
     return false;
@@ -3759,7 +4562,7 @@ export default function GamePage() {
     if (nextOccupationId === "unemployed") return true;
     if (nextOccupation.hidden && !isHiddenCareerVisible(nextOccupationId)) return false;
     if (cash < nextOccupation.requiredCash) return false;
-    if (nextOccupation.requiredPrevious && !unlockedOccupations.includes(nextOccupation.requiredPrevious)) return false;
+    if (nextOccupation.requiredPrevious && !unlockedOccupations.includes(nextOccupation.requiredPrevious) && nextOccupation.requiredPrevious !== occupationId) return false;
 
     const required = nextOccupation.requiredSuccess;
     if (required?.sorting && sortingSuccessTotal < required.sorting) return false;
@@ -3774,15 +4577,22 @@ export default function GamePage() {
     return true;
   }
 
+  function getCareerRouteOptions(buildingId: CareerBuildingId) {
+    if (occupationId === "unemployed") return [] as CareerQuest[];
+    return careerQuestBoards[buildingId].filter((quest) => {
+      const career = occupationInfo[quest.targetId];
+      return (!quest.hidden || isHiddenCareerVisible(quest.targetId)) && career.requiredPrevious === occupationId;
+    });
+  }
+
   function getCurrentCareerQuest(buildingId: CareerBuildingId) {
     const quests = careerQuestBoards[buildingId].filter((quest) => !quest.hidden || isHiddenCareerVisible(quest.targetId));
     if (quests.length === 0) return null;
 
-    const chainQuest = quests.find((quest) => {
-      const career = occupationInfo[quest.targetId];
-      return occupationId !== "unemployed" && career.requiredPrevious === occupationId;
-    });
-    if (chainQuest) return chainQuest;
+    const routeOptions = getCareerRouteOptions(buildingId);
+    if (routeOptions.length > 0) {
+      return routeOptions.find((quest) => quest.targetId === selectedCareerRouteId) ?? routeOptions[0];
+    }
 
     const firstQuest = quests.find((quest) => !occupationInfo[quest.targetId].requiredPrevious && !quest.hidden);
     return firstQuest ?? quests[0];
@@ -5553,6 +6363,25 @@ export default function GamePage() {
                           <p style={rpgWarningTextStyle}>다른 계열로 전직하려면 먼저 현재 직업을 포기해야 합니다.</p>
                         )}
                       </div>
+
+                      {careerRouteOptions.length > 1 && (
+                        <div style={careerRouteChoicePanelStyle}>
+                          <strong>진로 선택지가 열렸습니다</strong>
+                          <span>현재 직업에서 이어지는 루트 중 하나를 선택하세요. 선택한 루트의 NPC 퀘스트가 아래에 표시됩니다.</span>
+                          <div style={careerRouteChoiceGridStyle}>
+                            {careerRouteOptions.map((quest) => {
+                              const routeCareer = occupationInfo[quest.targetId];
+                              const active = currentCareerQuest?.targetId === quest.targetId;
+                              return (
+                                <button key={quest.id} onClick={() => setSelectedCareerRouteId(quest.targetId)} style={{ ...careerRouteChoiceButtonStyle, borderColor: active ? "#2563eb" : "#111827", background: active ? "#dbeafe" : "#ffffff" }}>
+                                  <strong>{routeCareer.icon} {routeCareer.name}</strong>
+                                  <small>{quest.title}</small>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       <div style={rpgQuestActionPanelStyle}>
                         <div>
@@ -11786,8 +12615,32 @@ const rpgQuestActionButtonGroupStyle: CSSProperties = {
 };
 
 
+const careerRouteChoicePanelStyle: CSSProperties = {
+  border: "3px dashed #2563eb",
+  borderRadius: "18px",
+  background: "#eff6ff",
+  padding: "12px",
+  display: "grid",
+  gap: "10px",
+};
 
+const careerRouteChoiceGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gap: "8px",
+};
 
+const careerRouteChoiceButtonStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "14px",
+  padding: "10px",
+  display: "grid",
+  gap: "4px",
+  textAlign: "left",
+  color: "#111827",
+  cursor: "pointer",
+  fontWeight: 900,
+};
 
 
 
