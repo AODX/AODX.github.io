@@ -6338,7 +6338,7 @@ export default function GamePage() {
                 <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
 
-              <div style={rpgQuestLayoutStyle}>
+              <div className="alba-career-rpg-mobile-fix" style={rpgQuestLayoutStyle}>
                 <aside style={rpgNpcPortraitStyle}>
                   <div style={rpgNpcAvatarStyle}>{getCareerNpcAvatar(careerBuildingId)}</div>
                   <strong>{getCareerQuestNpc(careerBuildingId)}</strong>
@@ -11161,15 +11161,18 @@ const insuranceBenefitStyle: CSSProperties = {
 
 const careerOfficeStyle: CSSProperties = {
   width: "100%",
-  height: "100%",
+  minHeight: "100%",
+  height: "auto",
+  maxHeight: "calc(100vh - 150px)",
   display: "grid",
-  gridTemplateRows: "auto minmax(0, 1fr)",
+  gridTemplateRows: "auto auto",
   gap: "14px",
   background: "linear-gradient(180deg, #f8fafc, #e0f2fe)",
   border: "4px solid #111827",
   borderRadius: "28px",
-  padding: "22px",
-  overflow: "hidden",
+  padding: "18px",
+  overflowY: "auto",
+  overflowX: "hidden",
   color: "#0f172a",
 };
 
@@ -12469,40 +12472,41 @@ const luxuryPriceStyle: CSSProperties = {
 
 const rpgQuestLayoutStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "280px minmax(0, 1fr)",
+  gridTemplateColumns: "minmax(210px, 260px) minmax(0, 1fr)",
   gap: "14px",
-  alignItems: "stretch",
+  alignItems: "start",
+  minHeight: 0,
 };
 
 const rpgNpcPortraitStyle: CSSProperties = {
   border: "4px solid #111827",
   borderRadius: "22px",
   background: "linear-gradient(180deg, #fff7ed 0%, #ffffff 100%)",
-  padding: "16px",
+  padding: "14px",
   display: "grid",
-  gap: "12px",
+  gap: "10px",
   alignContent: "start",
-  minHeight: "520px",
+  minHeight: 0,
 };
 
 const rpgNpcAvatarStyle: CSSProperties = {
-  width: "140px",
-  height: "140px",
+  width: "118px",
+  height: "118px",
   border: "4px solid #111827",
-  borderRadius: "28px",
+  borderRadius: "26px",
   background: "#fef3c7",
   display: "grid",
   placeItems: "center",
-  fontSize: "74px",
-  boxShadow: "0 10px 0 rgba(17,24,39,0.12)",
+  fontSize: "62px",
+  boxShadow: "0 8px 0 rgba(17,24,39,0.12)",
 };
 
 const rpgCurrentJobBoxStyle: CSSProperties = {
   border: "3px dashed #111827",
   borderRadius: "18px",
-  padding: "12px",
+  padding: "10px",
   display: "grid",
-  gap: "8px",
+  gap: "7px",
   background: "#f8fafc",
 };
 
@@ -12510,11 +12514,11 @@ const rpgDialoguePanelStyle: CSSProperties = {
   border: "4px solid #111827",
   borderRadius: "22px",
   background: "linear-gradient(180deg, #eff6ff 0%, #ffffff 100%)",
-  padding: "18px",
+  padding: "16px",
   display: "grid",
-  gap: "14px",
+  gap: "12px",
   alignContent: "start",
-  minHeight: "520px",
+  minHeight: 0,
   minWidth: 0,
 };
 
@@ -12556,7 +12560,7 @@ const rpgWarningTextStyle: CSSProperties = {
 
 const rpgQuestDetailGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
   gap: "10px",
 };
 
