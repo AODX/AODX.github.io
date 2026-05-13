@@ -409,7 +409,7 @@ const CHAT_TABLE = "game_global_chat";
 const STOCK_TABLE = "game_stock_saves";
 const GLOBAL_STOCK_TABLE = "game_global_stock_market";
 const ECONOMY_TABLE = "game_economy_saves";
-const CAREER_RESET_VERSION = "career-quest-reset-v1";
+const CAREER_RESET_VERSION = "rpg-npc-career-reset-v2";
 const STOCK_INTERVAL_MS = 3 * 60 * 1000;
 const SLOT_SYMBOLS = ["7", "🍒", "💎", "🍀", "⭐", "🍋"];
 const TAX_INTERVAL_SECONDS = 420;
@@ -11569,16 +11569,6 @@ const luxuryPriceStyle: CSSProperties = {
 
 
 
-const careerNpcPanelStyle: CSSProperties = {
-  display: "grid",
-  gap: "5px",
-  border: "3px solid #111827",
-  borderRadius: "18px",
-  background: "#fff7ed",
-  padding: "12px 14px",
-  color: "#111827",
-  boxShadow: "0 8px 0 rgba(17,24,39,0.10)",
-};
 
 
 
@@ -11716,6 +11706,8 @@ const rpgQuestListButtonStyle: CSSProperties = {
   fontWeight: 900,
   cursor: "pointer",
 };
+
+
 
 
 
