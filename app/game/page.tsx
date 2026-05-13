@@ -10255,11 +10255,6 @@ const careerDescStyle: CSSProperties = {
   lineHeight: 1.35,
 };
 
-const careerIncomeStyle: CSSProperties = {
-  color: "#16a34a",
-  fontWeight: 900,
-  fontSize: "17px",
-};
 
 const careerConditionStyle: CSSProperties = {
   margin: "5px 0",
@@ -11599,6 +11594,7 @@ const careerQuestRewardStyle: CSSProperties = {
   fontWeight: 900,
   lineHeight: 1.35,
 };
+
 
 
 
