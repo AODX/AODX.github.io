@@ -5265,20 +5265,19 @@ export default function GamePage() {
     setCareerTypingMistakes(nextMistakes);
     setCareerFinanceAnswer("");
     setCareerTypingTimeLeft(getCareerTimeLimit(nextOccupation));
+    setCareerLogisticsBlocks([]);
 
-    if (mode === "office") {
-      setCareerKeySequence(makeCareerOfficeSequence(nextOccupation, nextStep));
+    if (mode === "documentDesk") {
+      setCareerKeySequence(makeCareerDocumentDeskSequence(nextOccupation, nextStep));
       setCareerKeyIndex(0);
-      setCareerTypingPrompt("업무 키를 순서대로 처리하세요. 틀리면 실수가 누적됩니다.");
-      setCareerLogisticsBlocks([]);
+      setCareerTypingPrompt(getCareerOfficeRoundPrompt(nextOccupation));
       return;
     }
 
-    if (mode === "rhythm") {
-      setCareerKeySequence(makeCareerRhythmSequence(nextOccupation, nextStep));
+    if (mode === "stageTiming") {
+      setCareerKeySequence(makeCareerStageSequence(nextOccupation, nextStep));
       setCareerKeyIndex(0);
-      setCareerTypingPrompt("박자에 맞춰 키를 순서대로 입력하세요. 연예계 테스트는 속도가 중요합니다.");
-      setCareerLogisticsBlocks([]);
+      setCareerTypingPrompt(getCareerRhythmRoundPrompt(nextOccupation));
       return;
     }
 
@@ -5286,17 +5285,42 @@ export default function GamePage() {
       setCareerKeySequence(makeCareerLogisticsTargets(nextOccupation, nextStep));
       setCareerKeyIndex(0);
       setCareerLogisticsColumn(2);
-      setCareerLogisticsBlocks([]);
-      setCareerTypingPrompt("A/D 또는 방향키로 이동하고 Space/Enter로 블록을 내려 목표 열에 맞추세요.");
+      setCareerTypingPrompt("물류 전용 적재 테스트입니다. 목표 라인으로 이동해 박스를 내려 쌓으세요.");
       return;
     }
 
-    const financeRound = makeCareerFinanceRound(nextOccupation, nextStep);
-    setCareerTypingPrompt(financeRound.prompt);
-    setCareerKeySequence(financeRound.choices);
+    if (mode === "routePlanner") {
+      const routeRound = makeCareerRoutePlannerRound(nextOccupation, nextStep);
+      setCareerTypingPrompt(routeRound.prompt);
+      setCareerKeySequence(routeRound.choices);
+      setCareerKeyIndex(0);
+      setCareerFinanceAnswer(routeRound.answer);
+      return;
+    }
+
+    if (mode === "portfolio") {
+      const portfolioRound = makeCareerPortfolioRound(nextOccupation, nextStep);
+      setCareerTypingPrompt(portfolioRound.prompt);
+      setCareerKeySequence(portfolioRound.choices);
+      setCareerKeyIndex(0);
+      setCareerFinanceAnswer(portfolioRound.answer);
+      return;
+    }
+
+    if (mode === "finance") {
+      const financeRound = makeCareerFinanceRound(nextOccupation, nextStep);
+      setCareerTypingPrompt(financeRound.prompt);
+      setCareerKeySequence(financeRound.choices);
+      setCareerKeyIndex(0);
+      setCareerFinanceAnswer(financeRound.answer);
+      return;
+    }
+
+    const decisionRound = makeCareerDecisionRound(nextOccupation, nextStep);
+    setCareerTypingPrompt(decisionRound.prompt);
+    setCareerKeySequence(decisionRound.choices);
     setCareerKeyIndex(0);
-    setCareerFinanceAnswer(financeRound.answer);
-    setCareerLogisticsBlocks([]);
+    setCareerFinanceAnswer(decisionRound.answer);
   }
 
   async function pressCareerSequenceKey(key: string) {
@@ -5341,7 +5365,15 @@ export default function GamePage() {
 
   async function chooseCareerFinanceAnswer(choice: string) {
     if (!careerMiniGame) return;
-    await completeCareerMiniGameRound(choice === careerFinanceAnswer, choice === careerFinanceAnswer ? "✅ 시장 판단이 맞았습니다." : `❌ 정답은 ${careerFinanceAnswer}였습니다.`);
+    const mode = getCareerGameMode(careerMiniGame);
+    const successNotice = mode === "portfolio"
+      ? "✅ 포트폴리오 판단이 맞았습니다."
+      : mode === "routePlanner"
+        ? "✅ 배송 경로 판단이 맞았습니다."
+        : mode === "finance"
+          ? "✅ 시장 판단이 맞았습니다."
+          : "✅ 상황 판단이 맞았습니다.";
+    await completeCareerMiniGameRound(choice === careerFinanceAnswer, choice === careerFinanceAnswer ? successNotice : `❌ 정답은 ${careerFinanceAnswer}였습니다.`);
   }
 
   async function completeCareerMiniGameRound(success: boolean, notice: string) {
@@ -7570,24 +7602,53 @@ export default function GamePage() {
             </div>
             <div style={careerTypingPromptStyle}>{careerTypingPrompt}</div>
 
-            {(getCareerGameMode(careerMiniGame) === "office" || getCareerGameMode(careerMiniGame) === "rhythm") && (
-              <div style={careerSequencePanelStyle}>
-                <div style={careerSequenceRowStyle}>
+            {getCareerGameMode(careerMiniGame) === "documentDesk" && (
+              <div style={careerDocumentDeskStyle}>
+                <div style={careerDeskHeaderStyle}>
+                  <strong>📥 업무 문서함</strong>
+                  <span>현재 처리해야 할 문서: {careerKeySequence[careerKeyIndex] ?? "완료"}</span>
+                </div>
+                <div style={careerDocumentGridStyle}>
                   {careerKeySequence.map((key, index) => (
                     <button
                       key={`${key}-${index}`}
                       onClick={() => void pressCareerSequenceKey(key)}
                       style={{
-                        ...careerSequenceKeyStyle,
-                        background: index < careerKeyIndex ? "#bbf7d0" : index === careerKeyIndex ? "#fde68a" : "#ffffff",
-                        transform: index === careerKeyIndex ? "scale(1.1)" : "scale(1)",
+                        ...careerDocumentCardStyle,
+                        background: index < careerKeyIndex ? "#dcfce7" : index === careerKeyIndex ? "#fef3c7" : "#ffffff",
+                        opacity: index < careerKeyIndex ? 0.62 : 1,
                       }}
                     >
-                      {key}
+                      <span style={{ fontSize: "24px" }}>{getDocumentIcon(key)}</span>
+                      <strong>{key}</strong>
+                      <small>{index < careerKeyIndex ? "처리 완료" : index === careerKeyIndex ? "지금 처리" : "대기"}</small>
                     </button>
                   ))}
                 </div>
-                <div style={careerMiniGameSubTextStyle}>버튼 또는 키보드로 입력할 수 있습니다. 현재 키: {careerKeySequence[careerKeyIndex] ?? "완료"}</div>
+                <div style={careerMiniGameSubTextStyle}>순서가 틀리면 실수입니다. 이 미니게임은 문서 처리 전용입니다.</div>
+              </div>
+            )}
+
+            {getCareerGameMode(careerMiniGame) === "stageTiming" && (
+              <div style={careerStagePanelStyle}>
+                <div style={careerStageLightStyle}>STAGE</div>
+                <div style={careerStageRowStyle}>
+                  {careerKeySequence.map((key, index) => (
+                    <button
+                      key={`${key}-${index}`}
+                      onClick={() => void pressCareerSequenceKey(key)}
+                      style={{
+                        ...careerStageMoveStyle,
+                        background: index < careerKeyIndex ? "#bbf7d0" : index === careerKeyIndex ? "#f9a8d4" : "#ffffff",
+                        transform: index === careerKeyIndex ? "translateY(-8px) scale(1.06)" : "translateY(0)",
+                      }}
+                    >
+                      <span>{getStageIcon(key)}</span>
+                      <strong>{key}</strong>
+                    </button>
+                  ))}
+                </div>
+                <div style={careerMiniGameSubTextStyle}>무대 동작을 흐름대로 누르세요. 키보드 입력식 미니게임이 아닙니다.</div>
               </div>
             )}
 
@@ -7613,6 +7674,52 @@ export default function GamePage() {
                   <button onClick={() => void placeCareerLogisticsBlock()} style={bigStartButtonStyle}>블록 내리기</button>
                   <button onClick={() => setCareerLogisticsColumn((current) => Math.min(5, current + 1))} className="alba-small-action-button" style={smallActionButtonStyle}>오른쪽</button>
                 </div>
+              </div>
+            )}
+
+            {["clientPitch", "interview", "strategyBoard", "operationsBoard", "productionBoard"].includes(getCareerGameMode(careerMiniGame)) && (
+              <div style={careerDecisionPanelStyle}>
+                <div style={careerDecisionSceneStyle}>{getDecisionSceneIcon(careerMiniGame)}</div>
+                <div style={careerDecisionChoiceGridStyle}>
+                  {careerKeySequence.map((choice) => (
+                    <button key={choice} onClick={() => void chooseCareerFinanceAnswer(choice)} style={careerDecisionChoiceStyle}>{choice}</button>
+                  ))}
+                </div>
+                <div style={careerMiniGameSubTextStyle}>상황에 맞는 선택지를 고르세요. 직업 루트별 판단 미니게임입니다.</div>
+              </div>
+            )}
+
+            {getCareerGameMode(careerMiniGame) === "routePlanner" && (
+              <div style={careerRoutePlannerPanelStyle}>
+                <div style={careerRouteMapStyle}>
+                  <span>🏭</span>
+                  <span>─</span>
+                  <span>📦</span>
+                  <span>─</span>
+                  <span>🏠</span>
+                </div>
+                <div style={careerDecisionChoiceGridStyle}>
+                  {careerKeySequence.map((choice) => (
+                    <button key={choice} onClick={() => void chooseCareerFinanceAnswer(choice)} style={careerDecisionChoiceStyle}>{choice}</button>
+                  ))}
+                </div>
+                <div style={careerMiniGameSubTextStyle}>배송 조건을 보고 최적의 경로 전략을 선택하세요.</div>
+              </div>
+            )}
+
+            {getCareerGameMode(careerMiniGame) === "portfolio" && (
+              <div style={careerPortfolioPanelStyle}>
+                <div style={careerPortfolioBarsStyle}>
+                  {careerKeySequence.map((choice, index) => (
+                    <span key={choice} style={{ height: `${42 + index * 18}px` }}>{choice.slice(0, 2)}</span>
+                  ))}
+                </div>
+                <div style={careerMiniGameButtonRowStyle}>
+                  {careerKeySequence.map((choice) => (
+                    <button key={choice} onClick={() => void chooseCareerFinanceAnswer(choice)} style={bigStartButtonStyle}>{choice}</button>
+                  ))}
+                </div>
+                <div style={careerMiniGameSubTextStyle}>자산 흐름을 보고 가장 알맞은 운용 전략을 고르세요.</div>
               </div>
             )}
 
@@ -9074,29 +9181,100 @@ function getCareerTimeLimit(occupation: Occupation) {
 }
 
 function getCareerGameMode(occupation: Occupation) {
-  if (occupation.buildingId === "company") return "office";
-  if (occupation.buildingId === "entertainment") return "rhythm";
-  if (occupation.buildingId === "logistics") return "logistics";
-  return "finance";
+  if (occupation.buildingId === "finance") {
+    if (["fundManager", "riskManager", "ventureCapitalist", "financialDirector", "quantMaster", "marketOracle", "blackCardBroker"].includes(occupation.id)) return "portfolio";
+    return "finance";
+  }
+
+  if (occupation.buildingId === "logistics") {
+    if (["routeOptimizer", "droneDispatcher", "portCaptain", "supplyChainDirector", "phantomCourier"].includes(occupation.id)) return "routePlanner";
+    return "logistics";
+  }
+
+  if (occupation.buildingId === "entertainment") {
+    if (["streamer", "actor", "musicProducer", "idolManager"].includes(occupation.id)) return "productionBoard";
+    return "stageTiming";
+  }
+
+  if (["salesAssociate", "salesManager"].includes(occupation.id)) return "clientPitch";
+  if (["hrSpecialist", "peopleChief"].includes(occupation.id)) return "interview";
+  if (["marketingPlanner", "brandDirector", "planningCoordinator", "strategyConsultant", "projectManager", "operationsDirector", "chiefExecutive", "shadowExecutive"].includes(occupation.id)) return "strategyBoard";
+  if (["convenienceManager", "cafeManager", "securityCaptain", "franchiseOwner"].includes(occupation.id)) return "operationsBoard";
+  return "documentDesk";
 }
 
 function getCareerGameInstruction(occupation: Occupation) {
-  if (occupation.buildingId === "company") return "회사 업무처럼 W/A/S/D 키를 빠르고 정확하게 처리하세요. 직급이 높을수록 처리할 업무 키가 길어집니다.";
-  if (occupation.buildingId === "entertainment") return "리듬게임처럼 A/S/D/F 키를 박자 순서대로 입력하세요. 높은 단계일수록 패턴이 길어집니다.";
-  if (occupation.buildingId === "logistics") return "테트리스처럼 물류 블록을 목표 라인에 쌓으세요. A/D 이동, Space 또는 Enter로 적재합니다.";
+  const mode = getCareerGameMode(occupation);
+  if (mode === "documentDesk") return "문서함에 쌓인 업무 카드를 올바른 순서로 처리하는 사무 전용 미니게임입니다.";
+  if (mode === "clientPitch") return "고객 상황을 읽고 맞는 제안/협상 카드를 고르는 영업 전용 미니게임입니다.";
+  if (mode === "interview") return "지원자/직원 상황을 보고 적합한 인사 판단을 고르는 인사 전용 미니게임입니다.";
+  if (mode === "strategyBoard") return "회사 현황판을 보고 전략, 일정, 리스크 중 최적 선택을 고르는 기획/전략 미니게임입니다.";
+  if (mode === "operationsBoard") return "매장과 현장 상황을 보고 운영 조치를 선택하는 관리 미니게임입니다.";
+  if (mode === "stageTiming") return "무대 동작 카드를 순서대로 눌러 공연 흐름을 완성하는 엔터 미니게임입니다.";
+  if (mode === "productionBoard") return "콘텐츠 제작/방송/매니지먼트 상황에서 알맞은 연출 판단을 고르는 엔터 제작 미니게임입니다.";
+  if (mode === "logistics") return "물류 전용 적재 미니게임입니다. 목표 라인으로 이동하고 블록을 내려 쌓으세요.";
+  if (mode === "routePlanner") return "배송 조건을 보고 최적 경로를 고르는 물류 경로 설계 미니게임입니다.";
+  if (mode === "portfolio") return "자산 흐름을 보고 포트폴리오 운용 전략을 고르는 고급 금융 미니게임입니다.";
   return "투자 뉴스와 차트 흐름을 보고 매수/매도/보류 중 올바른 판단을 선택하세요.";
 }
 
-function makeCareerOfficeSequence(occupation: Occupation, step: number) {
-  const keys = ["W", "A", "S", "D"];
+function makeCareerDocumentDeskSequence(occupation: Occupation, step: number) {
+  const pools: Partial<Record<OccupationId, string[]>> = {
+    officeIntern: ["접수", "정리", "보고", "확인"],
+    officeStaff: ["기안", "검토", "승인", "보고"],
+    officeManager: ["회의", "배정", "점검", "보고"],
+    officeDirector: ["전략", "결재", "조율", "보고"],
+  };
+  const keys = pools[occupation.id] ?? ["접수", "정리", "보고", "확인"];
   const length = Math.min(12, 4 + occupation.minigameDifficulty * 2 + (step % 2));
   return Array.from({ length }, () => keys[Math.floor(Math.random() * keys.length)]);
 }
 
-function makeCareerRhythmSequence(occupation: Occupation, step: number) {
-  const keys = ["A", "S", "D", "F"];
+function makeCareerStageSequence(occupation: Occupation, step: number) {
+  const keys = occupation.id === "mythicMuse"
+    ? ["신화", "날개", "광휘", "피날레"]
+    : occupation.id === "legendaryIdol"
+      ? ["오프닝", "고음", "댄스", "엔딩"]
+      : occupation.id === "topSinger"
+        ? ["입장", "후렴", "팬서비스", "엔딩"]
+        : occupation.id === "choreographer"
+          ? ["스텝", "턴", "웨이브", "포즈"]
+          : ["박수", "스텝", "노래", "포즈"];
   const length = Math.min(14, 5 + occupation.minigameDifficulty * 2 + (step % 3));
   return Array.from({ length }, (_, index) => keys[(index + Math.floor(Math.random() * keys.length)) % keys.length]);
+}
+
+function makeCareerDecisionRound(occupation: Occupation, step: number) {
+  const mode = getCareerGameMode(occupation);
+  const rounds: Record<string, Array<{ prompt: string; answer: string; choices: string[] }>> = {
+    clientPitch: [
+      { prompt: "고객이 가격은 부담스럽지만 장기 계약에는 관심이 있습니다. 어떤 제안이 좋을까요?", answer: "장기 할인 제안", choices: ["장기 할인 제안", "즉시 계약 압박", "상담 종료"] },
+      { prompt: "VIP 고객이 빠른 응답을 원합니다. 우선순위는?", answer: "전담 응대", choices: ["전담 응대", "대기 요청", "무작위 견적"] },
+      { prompt: "계약 직전 경쟁사 제안이 들어왔습니다. 대응은?", answer: "차별점 비교", choices: ["차별점 비교", "가격 포기", "연락 차단"] },
+    ],
+    interview: [
+      { prompt: "지원자는 실력은 높지만 팀 협업 경험이 부족합니다. 가장 좋은 판단은?", answer: "수습 과제", choices: ["즉시 채용", "수습 과제", "즉시 탈락"] },
+      { prompt: "팀 갈등이 생겼습니다. 먼저 해야 할 일은?", answer: "양쪽 면담", choices: ["양쪽 면담", "한 명 해고", "무시"] },
+      { prompt: "성과는 낮지만 성장 속도가 빠른 직원입니다. 조치는?", answer: "멘토 배정", choices: ["멘토 배정", "감봉", "방치"] },
+    ],
+    strategyBoard: [
+      { prompt: "일정이 밀리고 품질도 흔들립니다. 먼저 잡아야 할 것은?", answer: "범위 축소", choices: ["범위 축소", "광고 확대", "회의 취소"] },
+      { prompt: "새 캠페인 반응은 좋은데 비용이 큽니다. 전략은?", answer: "성과 높은 채널 집중", choices: ["성과 높은 채널 집중", "전면 중단", "무제한 집행"] },
+      { prompt: "신규 사업이 빠르게 성장하지만 리스크가 큽니다. 판단은?", answer: "단계별 확장", choices: ["단계별 확장", "즉시 전액 투자", "즉시 철수"] },
+    ],
+    operationsBoard: [
+      { prompt: "점심 시간에 주문이 몰리고 직원이 부족합니다. 조치는?", answer: "피크 인력 배치", choices: ["피크 인력 배치", "매장 닫기", "가격 인상"] },
+      { prompt: "재고는 부족하고 수요는 계속 늘고 있습니다. 먼저 할 일은?", answer: "긴급 발주", choices: ["긴급 발주", "홍보 확대", "직원 감축"] },
+      { prompt: "VIP와 일반 고객 대기열이 동시에 길어졌습니다. 운영 선택은?", answer: "대기열 분리", choices: ["대기열 분리", "한 줄 유지", "응대 중단"] },
+    ],
+    productionBoard: [
+      { prompt: "방송 시청자가 줄고 채팅 반응이 느립니다. 가장 좋은 선택은?", answer: "참여 이벤트", choices: ["참여 이벤트", "무음 진행", "방송 종료"] },
+      { prompt: "배우의 감정선이 흔들립니다. 연출 판단은?", answer: "장면 리허설", choices: ["장면 리허설", "즉흥 촬영", "대본 삭제"] },
+      { prompt: "신곡 후렴은 좋은데 인트로가 약합니다. 제작 판단은?", answer: "인트로 재편곡", choices: ["인트로 재편곡", "후렴 삭제", "발매 취소"] },
+    ],
+  };
+  const list = rounds[mode] ?? rounds.strategyBoard;
+  return list[(step + occupation.minigameDifficulty) % list.length];
 }
 
 function makeCareerLogisticsTargets(occupation: Occupation, step: number) {
@@ -9104,16 +9282,57 @@ function makeCareerLogisticsTargets(occupation: Occupation, step: number) {
   return Array.from({ length }, () => String(Math.floor(Math.random() * 6)));
 }
 
+function makeCareerRoutePlannerRound(occupation: Occupation, step: number) {
+  const rounds = [
+    { prompt: "비가 오고 도심 도로가 막혔습니다. 깨지기 쉬운 화물을 보내야 합니다.", answer: "안전 우회", choices: ["최단 직진", "안전 우회", "무리한 야간"] },
+    { prompt: "드론 배터리가 30% 남았고 긴급 배송 요청이 왔습니다.", answer: "중간 충전 경유", choices: ["중간 충전 경유", "직선 강행", "배송 포기"] },
+    { prompt: "항만에 대형 화물이 몰렸습니다. 먼저 처리할 화물은?", answer: "부패 위험 화물", choices: ["부패 위험 화물", "가벼운 빈 상자", "임의 선택"] },
+    { prompt: "전국 배송망 일부가 지연 중입니다. 공급망 조치는?", answer: "허브 분산", choices: ["허브 분산", "모든 물량 집중", "알림 무시"] },
+  ];
+  return rounds[(step + occupation.minigameDifficulty) % rounds.length];
+}
+
 function makeCareerFinanceRound(occupation: Occupation, step: number) {
   const rounds = [
-    { prompt: "반도체 수출이 증가하고 환율이 안정되었습니다. 성장주에는 어떤 판단이 적절할까요?", answer: "매수" },
-    { prompt: "원자재 가격이 급등하고 실적 전망이 하향되었습니다. 위험 관리 판단은?", answer: "매도" },
-    { prompt: "실적 발표 전이고 거래량이 낮습니다. 무리한 진입보다 적절한 판단은?", answer: "보류" },
-    { prompt: "기관 매수세가 강하고 5일선이 20일선을 돌파했습니다. 단기 판단은?", answer: "매수" },
-    { prompt: "급등 후 거래량이 줄고 악재 뉴스가 나왔습니다. 적절한 판단은?", answer: "매도" },
+    { prompt: "반도체 수출이 증가하고 환율이 안정되었습니다. 성장주에는 어떤 판단이 적절할까요?", answer: "매수", choices: ["매수", "매도", "보류"] },
+    { prompt: "원자재 가격이 급등하고 실적 전망이 하향되었습니다. 위험 관리 판단은?", answer: "매도", choices: ["매수", "매도", "보류"] },
+    { prompt: "실적 발표 전이고 거래량이 낮습니다. 무리한 진입보다 적절한 판단은?", answer: "보류", choices: ["매수", "매도", "보류"] },
+    { prompt: "기관 매수세가 강하고 5일선이 20일선을 돌파했습니다. 단기 판단은?", answer: "매수", choices: ["매수", "매도", "보류"] },
+    { prompt: "급등 후 거래량이 줄고 악재 뉴스가 나왔습니다. 적절한 판단은?", answer: "매도", choices: ["매수", "매도", "보류"] },
   ];
-  const selected = rounds[(step + occupation.minigameDifficulty) % rounds.length];
-  return { ...selected, choices: ["매수", "매도", "보류"] };
+  return rounds[(step + occupation.minigameDifficulty) % rounds.length];
+}
+
+function makeCareerPortfolioRound(occupation: Occupation, step: number) {
+  const rounds = [
+    { prompt: "성장주는 강하지만 변동성이 큽니다. 고객은 중간 위험을 원합니다.", answer: "분산 성장형", choices: ["현금 100%", "분산 성장형", "몰빵 공격형"] },
+    { prompt: "금리가 오르고 대출 부담이 커졌습니다. 방어적 운용은?", answer: "현금+채권", choices: ["현금+채권", "레버리지 확대", "테마주 몰빵"] },
+    { prompt: "스타트업은 유망하지만 아직 매출이 없습니다. 벤처 판단은?", answer: "소액 단계 투자", choices: ["전액 투자", "소액 단계 투자", "검토 없이 거절"] },
+    { prompt: "포트폴리오가 한 업종에 치우쳤습니다. 필요한 조치는?", answer: "리밸런싱", choices: ["리밸런싱", "동일 업종 추가", "전부 매도"] },
+  ];
+  return rounds[(step + occupation.minigameDifficulty) % rounds.length];
+}
+
+function getDocumentIcon(label: string) {
+  if (["보고", "승인", "결재", "검증"].includes(label)) return "📌";
+  if (["회의", "배정", "조율", "전략"].includes(label)) return "📊";
+  return "📄";
+}
+
+function getStageIcon(label: string) {
+  if (["고음", "노래", "후렴"].includes(label)) return "🎤";
+  if (["댄스", "스텝", "턴", "웨이브"].includes(label)) return "💃";
+  if (["엔딩", "피날레", "포즈"].includes(label)) return "✨";
+  return "🎵";
+}
+
+function getDecisionSceneIcon(occupation: Occupation) {
+  const mode = getCareerGameMode(occupation);
+  if (mode === "clientPitch") return "🤝";
+  if (mode === "interview") return "🧑‍🤝‍🧑";
+  if (mode === "operationsBoard") return "🏪";
+  if (mode === "productionBoard") return "🎬";
+  return "🧩";
 }
 
 function getCareerQuestNpc(buildingId: CareerBuildingId) {
@@ -11184,31 +11403,8 @@ const careerOfficeStyle: CSSProperties = {
 
 
 
-const careerSequencePanelStyle: CSSProperties = {
-  background: "#f8fafc",
-  border: "4px solid #111827",
-  borderRadius: "22px",
-  padding: "18px",
-};
 
-const careerSequenceRowStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  justifyContent: "center",
-  gap: "10px",
-};
 
-const careerSequenceKeyStyle: CSSProperties = {
-  width: "58px",
-  height: "58px",
-  border: "4px solid #111827",
-  borderRadius: "16px",
-  color: "#111827",
-  fontWeight: 900,
-  fontSize: "24px",
-  cursor: "pointer",
-  boxShadow: "0 5px 0 rgba(15,23,42,0.18)",
-};
 
 const careerMiniGameSubTextStyle: CSSProperties = {
   marginTop: "12px",
@@ -12645,6 +12841,169 @@ const careerRouteChoiceButtonStyle: CSSProperties = {
   cursor: "pointer",
   fontWeight: 900,
 };
+
+
+const careerDocumentDeskStyle: CSSProperties = {
+  background: "#f8fafc",
+  border: "4px solid #111827",
+  borderRadius: "22px",
+  padding: "16px",
+  display: "grid",
+  gap: "12px",
+};
+
+const careerDeskHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "10px",
+  flexWrap: "wrap",
+  fontWeight: 900,
+  color: "#111827",
+};
+
+const careerDocumentGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+  gap: "10px",
+};
+
+const careerDocumentCardStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "16px",
+  padding: "12px",
+  minHeight: "104px",
+  display: "grid",
+  gap: "4px",
+  placeItems: "center",
+  color: "#111827",
+  cursor: "pointer",
+  fontWeight: 900,
+  boxShadow: "0 6px 0 rgba(17,24,39,0.14)",
+};
+
+const careerStagePanelStyle: CSSProperties = {
+  background: "linear-gradient(180deg, #1f1147 0%, #111827 100%)",
+  border: "4px solid #111827",
+  borderRadius: "24px",
+  padding: "18px",
+  display: "grid",
+  gap: "14px",
+  color: "#ffffff",
+};
+
+const careerStageLightStyle: CSSProperties = {
+  justifySelf: "center",
+  border: "3px solid #f9a8d4",
+  borderRadius: "999px",
+  padding: "8px 22px",
+  color: "#fdf2f8",
+  fontWeight: 900,
+  letterSpacing: "0.18em",
+  boxShadow: "0 0 22px rgba(244,114,182,0.7)",
+};
+
+const careerStageRowStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  flexWrap: "wrap",
+  gap: "12px",
+};
+
+const careerStageMoveStyle: CSSProperties = {
+  border: "3px solid #ffffff",
+  borderRadius: "18px",
+  padding: "12px 16px",
+  minWidth: "110px",
+  display: "grid",
+  gap: "5px",
+  placeItems: "center",
+  color: "#111827",
+  cursor: "pointer",
+  fontWeight: 900,
+  boxShadow: "0 10px 0 rgba(255,255,255,0.20)",
+};
+
+const careerDecisionPanelStyle: CSSProperties = {
+  background: "#f8fafc",
+  border: "4px solid #111827",
+  borderRadius: "22px",
+  padding: "16px",
+  display: "grid",
+  gap: "14px",
+};
+
+const careerDecisionSceneStyle: CSSProperties = {
+  height: "96px",
+  border: "3px dashed #111827",
+  borderRadius: "18px",
+  display: "grid",
+  placeItems: "center",
+  background: "linear-gradient(135deg, #e0f2fe, #fff7ed)",
+  fontSize: "54px",
+};
+
+const careerDecisionChoiceGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gap: "10px",
+};
+
+const careerDecisionChoiceStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "18px",
+  padding: "14px",
+  minHeight: "74px",
+  background: "#ffffff",
+  color: "#111827",
+  fontWeight: 900,
+  cursor: "pointer",
+  boxShadow: "0 7px 0 rgba(17,24,39,0.15)",
+};
+
+const careerRoutePlannerPanelStyle: CSSProperties = {
+  background: "#ecfeff",
+  border: "4px solid #111827",
+  borderRadius: "22px",
+  padding: "16px",
+  display: "grid",
+  gap: "14px",
+};
+
+const careerRouteMapStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  gap: "14px",
+  border: "3px solid #111827",
+  borderRadius: "18px",
+  background: "#ffffff",
+  padding: "18px",
+  fontSize: "44px",
+  fontWeight: 900,
+};
+
+const careerPortfolioPanelStyle: CSSProperties = {
+  background: "#f0fdf4",
+  border: "4px solid #111827",
+  borderRadius: "22px",
+  padding: "16px",
+  display: "grid",
+  gap: "14px",
+};
+
+const careerPortfolioBarsStyle: CSSProperties = {
+  minHeight: "128px",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "end",
+  gap: "14px",
+  border: "3px solid #111827",
+  borderRadius: "18px",
+  background: "#ffffff",
+  padding: "16px",
+};
+
+
 
 
 
