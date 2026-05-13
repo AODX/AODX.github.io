@@ -3784,8 +3784,55 @@ export default function GamePage() {
     });
     if (chainQuest) return chainQuest;
 
-    const unfinishedQuest = quests.find((quest) => !unlockedOccupations.includes(quest.targetId));
-    return unfinishedQuest ?? quests[quests.length - 1];
+    const firstQuest = quests.find((quest) => !occupationInfo[quest.targetId].requiredPrevious && !quest.hidden);
+    return firstQuest ?? quests[0];
+  }
+
+  function isOutcomeEligible(candidate: Occupation, baseOccupation: Occupation) {
+    if (cash < candidate.requiredCash) return false;
+
+    if (candidate.requiredPrevious && !unlockedOccupations.includes(candidate.requiredPrevious) && candidate.requiredPrevious !== baseOccupation.id) {
+      return false;
+    }
+
+    const required = candidate.requiredSuccess;
+    if (required?.sorting && sortingSuccessTotal < required.sorting) return false;
+    if (required?.delivery && deliverySuccessTotal < required.delivery) return false;
+    if (required?.cashier && cashierSuccessTotal < required.cashier) return false;
+    if (required?.cafe && cafeSuccessTotal < required.cafe) return false;
+    if (required?.security && securitySuccessTotal < required.security) return false;
+
+    if (candidate.id === "chiefExecutive" && !(baseOccupation.id === "officeDirector" || baseOccupation.id === "franchiseOwner" || unlockedOccupations.includes("officeDirector") || unlockedOccupations.includes("franchiseOwner"))) return false;
+    if (candidate.id === "quantMaster" && !(bankDeposit >= 1000000 && stockAssetValue >= 1000000)) return false;
+
+    return true;
+  }
+
+  function resolveCareerQuestOutcome(baseOccupation: Occupation, finalScore: number, finalStep: number, finalMistakes: number) {
+    const targetScore = getCareerTargetScore(baseOccupation);
+    const maxSteps = getCareerMaxSteps(baseOccupation);
+    const perfectClear = finalMistakes === 0 && finalScore >= targetScore;
+    const fastClear = finalStep <= Math.max(targetScore, maxSteps - 1);
+
+    if (perfectClear && fastClear) {
+      const hiddenCandidate = careerQuestBoards[baseOccupation.buildingId]
+        .map((quest) => occupationInfo[quest.targetId])
+        .find((candidate) => candidate.hidden && isHiddenCareerVisible(candidate.id) && isOutcomeEligible(candidate, baseOccupation));
+
+      if (hiddenCandidate) {
+        return { occupation: hiddenCandidate, resultType: "hidden" as const };
+      }
+
+      const promotionCandidate = careerQuestBoards[baseOccupation.buildingId]
+        .map((quest) => occupationInfo[quest.targetId])
+        .find((candidate) => !candidate.hidden && candidate.requiredPrevious === baseOccupation.id && isOutcomeEligible(candidate, baseOccupation));
+
+      if (promotionCandidate) {
+        return { occupation: promotionCandidate, resultType: "promotion" as const };
+      }
+    }
+
+    return { occupation: baseOccupation, resultType: "normal" as const };
   }
 
   function getBankAmount() {
@@ -4501,7 +4548,8 @@ export default function GamePage() {
     setCareerTypingMistakes(nextMistakes);
 
     if (nextScore >= targetScore) {
-      await unlockOccupation(careerMiniGame);
+      const outcome = resolveCareerQuestOutcome(careerMiniGame, nextScore, nextStep, nextMistakes);
+      await unlockOccupation(outcome.occupation, outcome.resultType);
       return;
     }
 
@@ -4522,7 +4570,7 @@ export default function GamePage() {
     resetCareerMiniGame();
   }
 
-  async function unlockOccupation(nextOccupation: Occupation) {
+  async function unlockOccupation(nextOccupation: Occupation, resultType: "normal" | "promotion" | "hidden" = "normal") {
     if (!userId) return;
 
     const nextUnlocked = normalizeUnlockedOccupations(["unemployed", nextOccupation.id]);
@@ -4534,7 +4582,14 @@ export default function GamePage() {
 
     await saveProfilePatch({ occupation_id: nextOccupation.id, occupation_level: nextOccupation.minigameDifficulty, unlocked_occupations: nextUnlocked });
     await logCareerMiniGame(nextOccupation, "success", nextOccupation.incomeEvery3Min);
-    setMessage(`🎉 ${nextOccupation.questNpc ?? "전직 NPC"}의 퀘스트 완료! ${nextOccupation.icon} ${nextOccupation.name} 직업을 획득했습니다!`);
+
+    const resultMessage = resultType === "hidden"
+      ? `🌟 완벽한 수행으로 숨겨진 길이 열렸습니다! ${nextOccupation.icon} ${nextOccupation.name} 히든 직업을 획득했습니다!`
+      : resultType === "promotion"
+        ? `🚀 퀘스트를 아주 잘 수행해서 한 단계 더 좋은 직업으로 발탁되었습니다! ${nextOccupation.icon} ${nextOccupation.name} 획득!`
+        : `🎉 ${nextOccupation.questNpc ?? "전직 NPC"}의 퀘스트 완료! ${nextOccupation.icon} ${nextOccupation.name} 직업을 획득했습니다!`;
+
+    setMessage(resultMessage);
     resetCareerMiniGame();
   }
 
@@ -4741,7 +4796,7 @@ export default function GamePage() {
               : defaultNicknameColorTheme.id),
           cash: rankingMode === "collection" ? discoveredCount : Math.max(0, Math.floor(calculateRankingNetWorth(profile))),
           hasSave: !!save,
-          job: profile.id === userId ? occupationInfo[occupationId].name : occupationInfo.unemployed.name,
+          job: profile.id === userId ? occupationInfo[occupationId].name : occupationInfo[profileOccupationId].name,
           titleName: profileTitle.name,
           titleIcon: profileTitle.icon,
           isMe: profile.id === userId,
@@ -5467,7 +5522,7 @@ export default function GamePage() {
                   <div style={smallLabelStyle}>CAREER OFFICE</div>
                   <h2 className="alba-panel-title" style={panelTitleStyle}>{getCareerBuildingName(careerBuildingId)}</h2>
                   <p style={panelDescStyle}>
-                    NPC에게 말을 걸어 하나의 전직 퀘스트를 받고 순서대로 진행합니다. 현재 직업: {occupation.icon} {occupation.name} · 직업 수입까지 {formatTime(careerIncomeCountdown)}
+                    NPC에게서 현재 단계의 전직 퀘스트 1개만 받고, 수행 결과에 따라 기본 직업·상위 직업·히든 직업 중 하나를 얻을 수 있습니다. 현재 직업: {occupation.icon} {occupation.name} · 직업 수입까지 {formatTime(careerIncomeCountdown)}
                   </p>
                 </div>
                 <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
@@ -5477,7 +5532,7 @@ export default function GamePage() {
                 <aside style={rpgNpcPortraitStyle}>
                   <div style={rpgNpcAvatarStyle}>{getCareerNpcAvatar(careerBuildingId)}</div>
                   <strong>{getCareerQuestNpc(careerBuildingId)}</strong>
-                  <span>{getCareerNpcLine(careerBuildingId)}</span>
+                  <span>{getCareerNpcLine(careerBuildingId)} 완벽하게 수행하면 예상보다 좋은 길이 열릴 수도 있습니다.</span>
                   <div style={rpgCurrentJobBoxStyle}>
                     <span>현재 직업</span>
                     <strong>{occupation.icon} {occupation.name}</strong>
@@ -5503,6 +5558,7 @@ export default function GamePage() {
                         <div style={rpgQuestDetailCardStyle}>
                           <span>이번 퀘스트</span>
                           <strong>{currentCareerQuest.title}</strong>
+                          <small>수행 결과에 따라 보상이 달라질 수 있음</small>
                         </div>
                         <div style={rpgQuestDetailCardStyle}>
                           <span>보상 직업</span>
@@ -11670,6 +11726,8 @@ const rpgDialogueButtonRowStyle: CSSProperties = {
   flexWrap: "wrap",
   gap: "10px",
 };
+
+
 
 
 
