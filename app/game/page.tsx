@@ -95,6 +95,18 @@ type Occupation = {
   questNpc?: string;
 };
 
+type CareerQuest = {
+  id: string;
+  npc: string;
+  title: string;
+  targetId: OccupationId;
+  story: string;
+  request: string;
+  successText: string;
+  failText: string;
+  hidden?: boolean;
+};
+
 type RankingRow = {
   rank: number;
   nickname: string;
@@ -917,30 +929,210 @@ const occupationInfo: Record<OccupationId, Occupation> = {
   },
 };
 
-const careerList: OccupationId[] = [
-  "officeIntern",
-  "officeStaff",
-  "officeManager",
-  "officeDirector",
-  "salesAssociate",
-  "marketingPlanner",
-  "convenienceManager",
-  "cafeManager",
-  "securityCaptain",
-  "franchiseOwner",
-  "trainee",
-  "rookieSinger",
-  "topSinger",
-  "logisticsStaff",
-  "logisticsManager",
-  "dispatchController",
-  "platformOpsManager",
-  "investor",
-  "chiefExecutive",
-  "legendaryIdol",
-  "logisticsLegend",
-  "quantMaster",
-];
+const careerQuestBoards: Record<CareerBuildingId, CareerQuest[]> = {
+  company: [
+    {
+      id: "company-intro",
+      npc: "전직 멘토 한 실장",
+      title: "사무실 첫 출근 퀘스트",
+      targetId: "officeIntern",
+      story: "한 실장이 기본 업무 태도를 확인합니다. 현금과 간단한 업무 처리 능력을 보여주세요.",
+      request: "현금 30,000원 이상을 모은 뒤 입사 테스트를 통과하세요.",
+      successText: "서류 정리와 보고 흐름을 익혀 인턴으로 전직합니다.",
+      failText: "업무 순서가 꼬이면 퀘스트 실패입니다. 다시 도전하세요.",
+    },
+    {
+      id: "company-staff",
+      npc: "전직 멘토 한 실장",
+      title: "정규직 승급 퀘스트",
+      targetId: "officeStaff",
+      story: "인턴 경험을 바탕으로 실제 문서 정리와 회의 준비를 맡습니다.",
+      request: "인턴을 획득하고 현금 80,000원 이상을 준비하세요.",
+      successText: "문서 정리 테스트를 통과하면 일반 회사원으로 승급합니다.",
+      failText: "정확도가 부족하면 정규직 승급이 보류됩니다.",
+    },
+    {
+      id: "company-manager",
+      npc: "전직 멘토 한 실장",
+      title: "관리자 승진 퀘스트",
+      targetId: "officeManager",
+      story: "팀원에게 업무를 배분하고 회의 발표를 처리하는 승진 퀘스트입니다.",
+      request: "일반 회사원 보유 + 현금 300,000원 이상.",
+      successText: "회의 발표 테스트를 통과하면 과장으로 승진합니다.",
+      failText: "보고 타이밍을 놓치면 퀘스트 실패입니다.",
+    },
+    {
+      id: "company-director",
+      npc: "전직 멘토 한 실장",
+      title: "임원 보고 퀘스트",
+      targetId: "officeDirector",
+      story: "편의점 계산 경험으로 빠른 판단력을 증명하고 임원 보고를 수행합니다.",
+      request: "과장 보유 + 현금 900,000원 이상 + 편의점 계산 성공 35회.",
+      successText: "임원 보고를 통과하면 부장이 됩니다.",
+      failText: "보고 순서가 틀리면 승진 심사가 실패합니다.",
+    },
+    {
+      id: "company-sales",
+      npc: "전직 멘토 한 실장",
+      title: "고객 상담 퀘스트",
+      targetId: "salesAssociate",
+      story: "보안 알바에서 쌓은 판단력으로 고객을 응대합니다.",
+      request: "현금 120,000원 이상 + 보안 대응 성공 12회.",
+      successText: "상담 테스트를 통과하면 영업 사원이 됩니다.",
+      failText: "고객 분류를 틀리면 퀘스트 실패입니다.",
+    },
+    {
+      id: "company-marketing",
+      npc: "전직 멘토 한 실장",
+      title: "캠페인 기획 퀘스트",
+      targetId: "marketingPlanner",
+      story: "카페 서비스 경험을 광고 문구와 캠페인 일정으로 연결합니다.",
+      request: "현금 180,000원 이상 + 카페 제조 성공 15회.",
+      successText: "캠페인 테스트를 통과하면 마케팅 기획자가 됩니다.",
+      failText: "기획 흐름이 끊기면 퀘스트 실패입니다.",
+    },
+    {
+      id: "company-store",
+      npc: "전직 멘토 한 실장",
+      title: "매장 운영 퀘스트",
+      targetId: "franchiseOwner",
+      story: "편의점과 카페 운영 경험을 합쳐 지점을 관리하는 상위 퀘스트입니다.",
+      request: "현금 900,000원 이상 + 편의점 성공 50회 + 카페 성공 40회.",
+      successText: "지점 관리 테스트를 통과하면 프랜차이즈 지점장이 됩니다.",
+      failText: "매장 운영 순서를 놓치면 퀘스트 실패입니다.",
+    },
+    {
+      id: "hidden-ceo",
+      npc: "전직 멘토 한 실장",
+      title: "히든: 경영 승계 퀘스트",
+      targetId: "chiefExecutive",
+      story: "회사 계열을 깊게 파고든 유저에게만 한 실장이 비밀 승계 시험을 제안합니다.",
+      request: "히든 조건 충족 후 경영 승계 테스트를 통과하세요.",
+      successText: "히든 CEO 직업을 획득합니다.",
+      failText: "경영 판단을 틀리면 히든 퀘스트 실패입니다.",
+      hidden: true,
+    },
+  ],
+  entertainment: [
+    {
+      id: "ent-trainee",
+      npc: "프로듀서 루나",
+      title: "오디션 예선 퀘스트",
+      targetId: "trainee",
+      story: "루나가 리듬감과 기본 무대 태도를 확인합니다.",
+      request: "현금 50,000원 이상을 준비하고 리듬 연습 테스트를 통과하세요.",
+      successText: "연습생으로 전직합니다.",
+      failText: "박자를 놓치면 오디션 실패입니다.",
+    },
+    {
+      id: "ent-rookie",
+      npc: "프로듀서 루나",
+      title: "데뷔 무대 퀘스트",
+      targetId: "rookieSinger",
+      story: "팬 응대와 무대 감각을 함께 증명해야 하는 데뷔 퀘스트입니다.",
+      request: "연습생 보유 + 현금 150,000원 이상 + 카페 제조 성공 10회.",
+      successText: "무대 공연 테스트를 통과하면 신인 가수가 됩니다.",
+      failText: "무대 순서를 틀리면 데뷔가 연기됩니다.",
+    },
+    {
+      id: "ent-star",
+      npc: "프로듀서 루나",
+      title: "콘서트 관리 퀘스트",
+      targetId: "topSinger",
+      story: "콘서트 동선과 팬서비스를 모두 관리해야 하는 스타 승급 퀘스트입니다.",
+      request: "신인 가수 보유 + 현금 800,000원 이상.",
+      successText: "콘서트 테스트를 통과하면 톱스타가 됩니다.",
+      failText: "콘서트 운영이 꼬이면 퀘스트 실패입니다.",
+    },
+    {
+      id: "hidden-idol",
+      npc: "프로듀서 루나",
+      title: "히든: 월드 투어 퀘스트",
+      targetId: "legendaryIdol",
+      story: "톱스타 이후 조건을 달성하면 루나가 비밀 월드 투어 계약을 제안합니다.",
+      request: "히든 조건 충족 후 월드 투어 테스트를 통과하세요.",
+      successText: "전설의 아이돌 직업을 획득합니다.",
+      failText: "무대 장악에 실패하면 히든 퀘스트 실패입니다.",
+      hidden: true,
+    },
+  ],
+  logistics: [
+    {
+      id: "log-staff",
+      npc: "관제장 박 반장",
+      title: "입고 분류 퀘스트",
+      targetId: "logisticsStaff",
+      story: "박 반장이 실제 물류 라인에 들어갈 수 있는지 검증합니다.",
+      request: "현금 70,000원 이상 + 택배 성공 15회 + 배달 성공 10회.",
+      successText: "물류 정직원이 됩니다.",
+      failText: "분류 라인을 놓치면 퀘스트 실패입니다.",
+    },
+    {
+      id: "log-manager",
+      npc: "관제장 박 반장",
+      title: "배송 라인 관리 퀘스트",
+      targetId: "logisticsManager",
+      story: "여러 배송 라인을 동시에 관리하는 승급 퀘스트입니다.",
+      request: "물류 정직원 보유 + 현금 300,000원 이상 + 택배 30회 + 배달 25회.",
+      successText: "물류 관리자로 승급합니다.",
+      failText: "라인 배치가 틀리면 퀘스트 실패입니다.",
+    },
+    {
+      id: "log-dispatch",
+      npc: "관제장 박 반장",
+      title: "배차 관제 퀘스트",
+      targetId: "dispatchController",
+      story: "배송 데이터와 도착 시간을 읽어 최적 배차를 만드는 퀘스트입니다.",
+      request: "현금 350,000원 이상 + 배달 35회 + 택배 20회.",
+      successText: "배차 관제사가 됩니다.",
+      failText: "배차 순서를 틀리면 퀘스트 실패입니다.",
+    },
+    {
+      id: "log-platform",
+      npc: "관제장 박 반장",
+      title: "플랫폼 운영 퀘스트",
+      targetId: "platformOpsManager",
+      story: "라이더 동선과 주문 흐름을 최적화하는 상위 물류 퀘스트입니다.",
+      request: "배차 관제사 보유 + 현금 650,000원 이상 + 배달 성공 60회.",
+      successText: "배달 플랫폼 매니저가 됩니다.",
+      failText: "플랫폼 흐름을 놓치면 퀘스트 실패입니다.",
+    },
+    {
+      id: "hidden-logistics",
+      npc: "관제장 박 반장",
+      title: "히든: 전국 배송망 퀘스트",
+      targetId: "logisticsLegend",
+      story: "물류 계열을 통달하면 박 반장이 전국 배송망을 맡깁니다.",
+      request: "히든 조건 충족 후 전국 배송망 테스트를 통과하세요.",
+      successText: "물류의 전설 직업을 획득합니다.",
+      failText: "배송망이 붕괴하면 히든 퀘스트 실패입니다.",
+      hidden: true,
+    },
+  ],
+  finance: [
+    {
+      id: "fin-investor",
+      npc: "차트 분석가 민",
+      title: "투자 판단 퀘스트",
+      targetId: "investor",
+      story: "민이 기본 자금 관리와 차트 판단력을 시험합니다.",
+      request: "현금 100,000원 이상을 준비하고 투자 판단 테스트를 통과하세요.",
+      successText: "투자자 직업을 획득합니다.",
+      failText: "차트 판단을 틀리면 퀘스트 실패입니다.",
+    },
+    {
+      id: "hidden-quant",
+      npc: "차트 분석가 민",
+      title: "히든: 알고리즘 투자 퀘스트",
+      targetId: "quantMaster",
+      story: "예금과 주식 자산을 모두 증명하면 민이 비밀 알고리즘 시험을 제안합니다.",
+      request: "히든 조건 충족 후 알고리즘 투자 테스트를 통과하세요.",
+      successText: "퀀트 마스터 직업을 획득합니다.",
+      failText: "투자 알고리즘 판단에 실패하면 히든 퀘스트 실패입니다.",
+      hidden: true,
+    },
+  ],
+};
 
 const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: string; emoji: string }> = [
   { id: "company", title: "회사 빌딩", subtitle: "회사원 · 점장 · 카페 · 보안", emoji: "🏢" },
@@ -2217,7 +2409,8 @@ export default function GamePage() {
       }
 
       const careerResetDone = window.localStorage.getItem(`alba-money-career-reset-${currentUserId}`) === CAREER_RESET_VERSION;
-      if (!careerResetDone) {
+      const shouldForceCareerReset = !careerResetDone;
+      if (shouldForceCareerReset) {
         setOccupationId("unemployed");
         setOccupationLevel(0);
         setUnlockedOccupations(["unemployed"]);
@@ -2265,13 +2458,13 @@ export default function GamePage() {
       }
 
       const careerResetDoneAfterRemote = window.localStorage.getItem(`alba-money-career-reset-${currentUserId}`) === CAREER_RESET_VERSION;
-      if (careerResetDoneAfterRemote && data?.occupation_id && data.occupation_id in occupationInfo) {
+      if (!shouldForceCareerReset && careerResetDoneAfterRemote && data?.occupation_id && data.occupation_id in occupationInfo) {
         const nextOccupationId = data.occupation_id as OccupationId;
         setOccupationId(nextOccupationId);
         window.localStorage.setItem(`alba-money-occupation-${currentUserId}`, nextOccupationId);
       }
 
-      if (careerResetDoneAfterRemote && typeof data?.occupation_level === "number") {
+      if (!shouldForceCareerReset && careerResetDoneAfterRemote && typeof data?.occupation_level === "number") {
         setOccupationLevel(data.occupation_level);
       }
 
@@ -2283,7 +2476,7 @@ export default function GamePage() {
 
       const rawUnlocked = data?.unlocked_occupations;
       const parsedUnlocked = typeof rawUnlocked === "string" ? safeParseOccupationList(rawUnlocked) : rawUnlocked;
-      if (careerResetDoneAfterRemote && Array.isArray(parsedUnlocked)) {
+      if (!shouldForceCareerReset && careerResetDoneAfterRemote && Array.isArray(parsedUnlocked)) {
         const nextUnlocked = normalizeUnlockedOccupations(parsedUnlocked);
         setUnlockedOccupations(nextUnlocked);
         window.localStorage.setItem(`alba-money-unlocked-occupations-${currentUserId}`, JSON.stringify(nextUnlocked));
@@ -3576,6 +3769,10 @@ export default function GamePage() {
     if (nextOccupationId === "quantMaster" && !(bankDeposit >= 1000000 && stockAssetValue >= 1000000)) return false;
 
     return true;
+  }
+
+  function getVisibleCareerQuests(buildingId: CareerBuildingId) {
+    return careerQuestBoards[buildingId].filter((quest) => !quest.hidden || isHiddenCareerVisible(quest.targetId));
   }
 
   function getBankAmount() {
@@ -5244,7 +5441,7 @@ export default function GamePage() {
                   <div style={smallLabelStyle}>CAREER OFFICE</div>
                   <h2 className="alba-panel-title" style={panelTitleStyle}>{getCareerBuildingName(careerBuildingId)}</h2>
                   <p style={panelDescStyle}>
-                    조건을 만족하고 직업 테스트를 클리어하면 직업을 얻거나 승급할 수 있습니다. 현재 직업: {occupation.icon} {occupation.name} · 직업 수입까지 {formatTime(careerIncomeCountdown)}
+                    NPC 전직 퀘스트를 수락하고 클리어하면 직업을 획득합니다. 현재 직업: {occupation.icon} {occupation.name} · 직업 수입까지 {formatTime(careerIncomeCountdown)}
                   </p>
                 </div>
                 <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
@@ -5252,34 +5449,37 @@ export default function GamePage() {
 
               <div style={careerNpcPanelStyle}>
                 <strong>{getCareerQuestNpc(careerBuildingId)}</strong>
-                <span>전직 퀘스트 NPC가 조건을 확인합니다. 테스트 중 실수 3회 또는 제한 횟수 초과 시 퀘스트 실패, 조건을 더 달성하면 히든 퀘스트가 나타납니다.</span>
+                <span>이 건물에는 기존 직업 목록이 없고, NPC가 주는 전직 퀘스트만 남아 있습니다. 퀘스트를 완료하면 직업을 획득하고, 조건을 더 달성하면 히든 퀘스트가 등장합니다.</span>
               </div>
 
               <div className="alba-career-card-grid" style={careerCardGridStyle}>
-                {careerList
-                  .filter((careerId) => occupationInfo[careerId].buildingId === careerBuildingId && isHiddenCareerVisible(careerId))
-                  .map((careerId) => {
-                    const career = occupationInfo[careerId];
-                    const unlocked = unlockedOccupations.includes(careerId);
-                    const available = canChallengeOccupation(careerId);
-                    const selected = occupationId === careerId;
+                {getVisibleCareerQuests(careerBuildingId).map((quest) => {
+                  const career = occupationInfo[quest.targetId];
+                  const unlocked = unlockedOccupations.includes(quest.targetId);
+                  const available = canChallengeOccupation(quest.targetId);
+                  const selected = occupationId === quest.targetId;
+                  const statusText = selected ? "현재 직업" : unlocked ? "획득 완료 · 장착하기" : available ? "퀘스트 수락" : "조건 부족";
 
-                    return (
-                      <button key={careerId} onClick={() => challengeOccupation(careerId)} style={{ ...careerCardStyle, opacity: available || unlocked ? 1 : 0.58, border: selected ? "4px solid #38bdf8" : "4px solid #111827" }}>
-                        <div style={careerTopLineStyle}>
-                          <span style={careerIconStyle}>{career.icon}</span>
-                          <span style={careerGradeStyle}>{career.grade}</span>
-                        </div>
-                        <h3 style={careerNameStyle}>{career.name}</h3>
-                        <p style={careerDescStyle}>{career.description}</p>
-                        <p style={careerIncomeStyle}>{career.salaryText}</p>
-                        <p style={careerConditionStyle}>NPC: {career.questNpc ?? getCareerQuestNpc(career.buildingId)}</p>
-                        <p style={careerConditionStyle}>조건: {career.conditionText}</p>
-                        <p style={careerConditionStyle}>퀘스트: {career.minigameName} · 난이도 {career.minigameDifficulty}</p>
-                        <div style={careerButtonLikeStyle}>{selected ? "현재 직업" : unlocked ? "직업 장착" : available ? "테스트 도전" : "조건 미달"}</div>
-                      </button>
-                    );
-                  })}
+                  return (
+                    <button key={quest.id} onClick={() => challengeOccupation(quest.targetId)} style={{ ...careerQuestCardStyle, opacity: available || unlocked ? 1 : 0.58, border: selected ? "4px solid #38bdf8" : quest.hidden ? "4px solid #7c3aed" : "4px solid #111827" }}>
+                      <div style={careerTopLineStyle}>
+                        <span style={careerIconStyle}>{career.icon}</span>
+                        <span style={careerGradeStyle}>{quest.hidden ? "히든 퀘스트" : career.grade}</span>
+                      </div>
+                      <div style={careerNpcNameStyle}>{quest.npc}</div>
+                      <h3 style={careerNameStyle}>{quest.title}</h3>
+                      <p style={careerDescStyle}>{quest.story}</p>
+                      <div style={careerQuestRewardStyle}>
+                        보상: {career.icon} {career.name} · {career.salaryText}
+                      </div>
+                      <p style={careerConditionStyle}>요청: {quest.request}</p>
+                      <p style={careerConditionStyle}>성공: {quest.successText}</p>
+                      <p style={careerConditionStyle}>실패: {quest.failText}</p>
+                      <p style={careerConditionStyle}>미니게임: {career.minigameName} · 난이도 {career.minigameDifficulty}</p>
+                      <div style={careerButtonLikeStyle}>{statusText}</div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -11370,6 +11570,34 @@ const careerNpcPanelStyle: CSSProperties = {
   padding: "12px 14px",
   color: "#111827",
   boxShadow: "0 8px 0 rgba(17,24,39,0.10)",
+};
+
+const careerQuestCardStyle: CSSProperties = {
+  ...careerCardStyle,
+  background: "linear-gradient(180deg, #ffffff 0%, #fff7ed 100%)",
+  alignContent: "start",
+};
+
+const careerNpcNameStyle: CSSProperties = {
+  display: "inline-flex",
+  width: "fit-content",
+  border: "2px solid #111827",
+  borderRadius: "999px",
+  padding: "5px 10px",
+  background: "#fef3c7",
+  color: "#111827",
+  fontSize: "13px",
+  fontWeight: 900,
+};
+
+const careerQuestRewardStyle: CSSProperties = {
+  border: "2px dashed #111827",
+  borderRadius: "14px",
+  padding: "8px 10px",
+  background: "#ecfeff",
+  color: "#0f172a",
+  fontWeight: 900,
+  lineHeight: 1.35,
 };
 
 
