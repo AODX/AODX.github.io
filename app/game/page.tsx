@@ -70,7 +70,11 @@ type OccupationId =
   | "logisticsManager"
   | "dispatchController"
   | "platformOpsManager"
-  | "investor";
+  | "investor"
+  | "chiefExecutive"
+  | "legendaryIdol"
+  | "logisticsLegend"
+  | "quantMaster";
 
 type Occupation = {
   id: OccupationId;
@@ -87,6 +91,8 @@ type Occupation = {
   requiredSuccess?: Partial<Record<JobId, number>>;
   minigameName: string;
   minigameDifficulty: number;
+  hidden?: boolean;
+  questNpc?: string;
 };
 
 type RankingRow = {
@@ -391,6 +397,7 @@ const CHAT_TABLE = "game_global_chat";
 const STOCK_TABLE = "game_stock_saves";
 const GLOBAL_STOCK_TABLE = "game_global_stock_market";
 const ECONOMY_TABLE = "game_economy_saves";
+const CAREER_RESET_VERSION = "career-quest-reset-v1";
 const STOCK_INTERVAL_MS = 3 * 60 * 1000;
 const SLOT_SYMBOLS = ["7", "🍒", "💎", "🍀", "⭐", "🍋"];
 const TAX_INTERVAL_SECONDS = 420;
@@ -398,12 +405,17 @@ const TAX_WARNING_SECONDS = 60;
 
 const PAY = {
   sorting: 320,
+  sortingComboBonus: 50,
   delivery: 700,
-  cashier: 110,
+  cashier: 140,
+  cashierSuccessBonus: 45,
+  cashierDifficultyBonus: 25,
   cafe: 180,
-  security: 260,
+  securityPass: 300,
+  securityCatch: 500,
+  securityNormalPenalty: 200,
   deliveryCrashPenalty: 250,
-  vipPenalty: 1000,
+  vipPenalty: 1500,
 };
 
 const jobs: Job[] = [
@@ -411,7 +423,7 @@ const jobs: Job[] = [
     id: "sorting",
     name: "택배 분류 알바",
     subtitle: "빠르게 지나가는 택배를 색깔 키로 분류하세요.",
-    rewardText: `분류 성공 1개당 ${PAY.sorting.toLocaleString()}원`,
+    rewardText: `기본 ${PAY.sorting.toLocaleString()}원 + 콤보당 ${PAY.sortingComboBonus.toLocaleString()}원`,
     icon: "📦",
   },
   {
@@ -425,7 +437,7 @@ const jobs: Job[] = [
     id: "cashier",
     name: "편의점 계산 알바",
     subtitle: "나오는 키를 순서대로 정확히 입력하세요.",
-    rewardText: `계산 성공 1회당 ${PAY.cashier.toLocaleString()}원`,
+    rewardText: `기본 ${PAY.cashier.toLocaleString()}원 + 성공 횟수 보너스`,
     icon: "🏪",
   },
   {
@@ -439,7 +451,7 @@ const jobs: Job[] = [
     id: "security",
     name: "보안요원 알바",
     subtitle: "수상한 사람만 막고 VIP는 통과시키세요.",
-    rewardText: `대응 성공 1회당 ${PAY.security.toLocaleString()}원 · VIP 차단 시 -${PAY.vipPenalty.toLocaleString()}원`,
+    rewardText: `일반/VIP 통과 ${PAY.securityPass.toLocaleString()}원 · 수상한 사람 검거 ${PAY.securityCatch.toLocaleString()}원 · VIP 차단 시 -${PAY.vipPenalty.toLocaleString()}원`,
     icon: "🛡️",
   },
 ];
@@ -831,6 +843,77 @@ const occupationInfo: Record<OccupationId, Occupation> = {
     requiredCash: 100000,
     minigameName: "투자 판단 테스트",
     minigameDifficulty: 2,
+    questNpc: "차트 분석가 민",
+  },
+  chiefExecutive: {
+    id: "chiefExecutive",
+    buildingId: "company",
+    name: "히든 CEO",
+    icon: "👔",
+    grade: "히든 회사직",
+    description: "회사의 여러 흐름을 한 번에 읽고 사업을 지휘하는 히든 직업입니다.",
+    conditionText: "히든 조건: 과장 이상 계열 직업 + 순자산 2,000,000원 이상 + 편의점/보안/카페 경험",
+    salaryText: "3분마다 45,000원",
+    incomeEvery3Min: 45000,
+    requiredCash: 1500000,
+    requiredSuccess: { cashier: 65, security: 45, cafe: 45 },
+    minigameName: "경영 승계 히든 퀘스트",
+    minigameDifficulty: 5,
+    hidden: true,
+    questNpc: "전직 멘토 한 실장",
+  },
+  legendaryIdol: {
+    id: "legendaryIdol",
+    buildingId: "entertainment",
+    name: "전설의 아이돌",
+    icon: "💫",
+    grade: "히든 연예직",
+    description: "톱스타 이후 팬 응대와 무대 감각을 모두 증명해야 열리는 히든 직업입니다.",
+    conditionText: "히든 조건: 톱스타 보유 + 카페 성공 80회 + 보안 성공 50회 + 순자산 1,500,000원 이상",
+    salaryText: "3분마다 48,000원",
+    incomeEvery3Min: 48000,
+    requiredCash: 1500000,
+    requiredPrevious: "topSinger",
+    requiredSuccess: { cafe: 80, security: 50 },
+    minigameName: "월드 투어 히든 퀘스트",
+    minigameDifficulty: 5,
+    hidden: true,
+    questNpc: "프로듀서 루나",
+  },
+  logisticsLegend: {
+    id: "logisticsLegend",
+    buildingId: "logistics",
+    name: "물류의 전설",
+    icon: "🚀",
+    grade: "히든 물류직",
+    description: "배송, 분류, 관제를 모두 통달한 유저에게만 열리는 히든 직업입니다.",
+    conditionText: "히든 조건: 플랫폼 운영 계열 + 택배 성공 120회 + 배달 성공 120회 + 순자산 1,800,000원 이상",
+    salaryText: "3분마다 43,000원",
+    incomeEvery3Min: 43000,
+    requiredCash: 1200000,
+    requiredPrevious: "platformOpsManager",
+    requiredSuccess: { sorting: 120, delivery: 120 },
+    minigameName: "전국 배송망 히든 퀘스트",
+    minigameDifficulty: 5,
+    hidden: true,
+    questNpc: "관제장 박 반장",
+  },
+  quantMaster: {
+    id: "quantMaster",
+    buildingId: "finance",
+    name: "퀀트 마스터",
+    icon: "🧮",
+    grade: "히든 금융직",
+    description: "현금, 예금, 주식 자산을 모두 운용할 줄 아는 투자자에게 열리는 히든 직업입니다.",
+    conditionText: "히든 조건: 투자자 보유 + 예금 1,000,000원 이상 + 주식 평가액 1,000,000원 이상",
+    salaryText: "3분마다 42,000원",
+    incomeEvery3Min: 42000,
+    requiredCash: 500000,
+    requiredPrevious: "investor",
+    minigameName: "알고리즘 투자 히든 퀘스트",
+    minigameDifficulty: 5,
+    hidden: true,
+    questNpc: "퀀트 연구원 서 박사",
   },
 };
 
@@ -853,6 +936,10 @@ const careerList: OccupationId[] = [
   "dispatchController",
   "platformOpsManager",
   "investor",
+  "chiefExecutive",
+  "legendaryIdol",
+  "logisticsLegend",
+  "quantMaster",
 ];
 
 const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: string; emoji: string }> = [
@@ -1892,7 +1979,7 @@ export default function GamePage() {
   const [pvpReactionStartAt, setPvpReactionStartAt] = useState(0);
   const [pvpReactionScore, setPvpReactionScore] = useState(0);
 
-  const [warningCount, setWarningCount] = useState(0);
+  const [, setWarningCount] = useState(0);
   const [unpaidTax, setUnpaidTax] = useState(0);
   const [taxCountdown, setTaxCountdown] = useState(TAX_INTERVAL_SECONDS);
   const [taxTriggerCount, setTaxTriggerCount] = useState(0);
@@ -1946,11 +2033,11 @@ export default function GamePage() {
   const ownedInsuranceItems = useMemo(() => ownedInsurances.map((id) => insuranceItems.find((item) => item.id === id)).filter((item): item is InsuranceItem => Boolean(item)), [ownedInsurances]);
   const insuranceJobBonus = Math.min(0.18, ownedInsuranceItems.reduce((sum, item) => sum + (item.jobBonus ?? 0), 0));
   const insuranceTaxDiscount = Math.min(0.32, ownedInsuranceItems.reduce((sum, item) => sum + (item.taxDiscount ?? 0), 0));
-  const insuranceSeizureProtection = Math.min(0.45, ownedInsuranceItems.reduce((sum, item) => sum + (item.seizureProtection ?? 0), 0));
   const insuranceBusinessBonus = Math.min(0.28, ownedInsuranceItems.reduce((sum, item) => sum + (item.businessBonus ?? 0), 0));
   const insuranceEstateBonus = Math.min(0.2, ownedInsuranceItems.reduce((sum, item) => sum + (item.estateBonus ?? 0), 0));
   const insuranceCasinoCashback = Math.min(0.22, ownedInsuranceItems.reduce((sum, item) => sum + (item.casinoCashback ?? 0), 0));
-  const nextTax = Math.floor(calculateTax(cash, unpaidTax) * Math.max(0.55, 1 - insuranceTaxDiscount));
+  const currentTaxDue = Math.floor(cash * getTaxRate(cash) * Math.max(0.55, 1 - insuranceTaxDiscount));
+  const nextTax = currentTaxDue + unpaidTax;
   const currentTitle = playerTitles.find((title) => title.id === currentTitleId) ?? playerTitles[0];
   const activeNicknameColor = luxuryNicknameColors.find((theme) => theme.id === selectedNicknameColorId) ?? defaultNicknameColorTheme;
   const activeNicknameTag = luxuryNicknameTags.find((tag) => tag.id === selectedNicknameTagId) ?? defaultNicknameTag;
@@ -2092,7 +2179,7 @@ export default function GamePage() {
       }
 
       setCash(Number(data.cash));
-      setWarningCount(Number(data.warning_count));
+      setWarningCount(0);
       setUnpaidTax(Number(data.unpaid_tax));
       setSortingSuccessTotal(Number(data.sorting_success_total ?? 0));
       setDeliverySuccessTotal(Number(data.delivery_success_total ?? 0));
@@ -2129,12 +2216,23 @@ export default function GamePage() {
         setRoomKind(savedRoomKind);
       }
 
-      if (savedOccupationId && savedOccupationId in occupationInfo) {
-        setOccupationId(savedOccupationId);
-      }
+      const careerResetDone = window.localStorage.getItem(`alba-money-career-reset-${currentUserId}`) === CAREER_RESET_VERSION;
+      if (!careerResetDone) {
+        setOccupationId("unemployed");
+        setOccupationLevel(0);
+        setUnlockedOccupations(["unemployed"]);
+        window.localStorage.setItem(`alba-money-occupation-${currentUserId}`, "unemployed");
+        window.localStorage.setItem(`alba-money-unlocked-occupations-${currentUserId}`, JSON.stringify(["unemployed"]));
+        window.localStorage.setItem(`alba-money-career-reset-${currentUserId}`, CAREER_RESET_VERSION);
+        void saveProfilePatch({ occupation_id: "unemployed", occupation_level: 0, unlocked_occupations: ["unemployed"] });
+      } else {
+        if (savedOccupationId && savedOccupationId in occupationInfo) {
+          setOccupationId(savedOccupationId);
+        }
 
-      if (savedUnlocked) {
-        setUnlockedOccupations(normalizeUnlockedOccupations(safeParseOccupationList(savedUnlocked)));
+        if (savedUnlocked) {
+          setUnlockedOccupations(normalizeUnlockedOccupations(safeParseOccupationList(savedUnlocked)));
+        }
       }
 
       if (savedTitle && playerTitles.some((title) => title.id === savedTitle)) {
@@ -2166,13 +2264,14 @@ export default function GamePage() {
         window.localStorage.setItem(`alba-money-room-${currentUserId}`, nextRoomKind);
       }
 
-      if (data?.occupation_id && data.occupation_id in occupationInfo) {
+      const careerResetDoneAfterRemote = window.localStorage.getItem(`alba-money-career-reset-${currentUserId}`) === CAREER_RESET_VERSION;
+      if (careerResetDoneAfterRemote && data?.occupation_id && data.occupation_id in occupationInfo) {
         const nextOccupationId = data.occupation_id as OccupationId;
         setOccupationId(nextOccupationId);
         window.localStorage.setItem(`alba-money-occupation-${currentUserId}`, nextOccupationId);
       }
 
-      if (typeof data?.occupation_level === "number") {
+      if (careerResetDoneAfterRemote && typeof data?.occupation_level === "number") {
         setOccupationLevel(data.occupation_level);
       }
 
@@ -2184,7 +2283,7 @@ export default function GamePage() {
 
       const rawUnlocked = data?.unlocked_occupations;
       const parsedUnlocked = typeof rawUnlocked === "string" ? safeParseOccupationList(rawUnlocked) : rawUnlocked;
-      if (Array.isArray(parsedUnlocked)) {
+      if (careerResetDoneAfterRemote && Array.isArray(parsedUnlocked)) {
         const nextUnlocked = normalizeUnlockedOccupations(parsedUnlocked);
         setUnlockedOccupations(nextUnlocked);
         window.localStorage.setItem(`alba-money-unlocked-occupations-${currentUserId}`, JSON.stringify(nextUnlocked));
@@ -2731,7 +2830,7 @@ export default function GamePage() {
         {
           user_id: userId,
           cash,
-          warning_count: warningCount,
+          warning_count: 0,
           unpaid_tax: unpaidTax,
           sorting_success_total: sortingSuccessTotal,
           delivery_success_total: deliverySuccessTotal,
@@ -2758,7 +2857,7 @@ export default function GamePage() {
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [userId, isSaveLoaded, cash, warningCount, unpaidTax, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems, nickname, roomKind, occupationId, currentTitleId, netWorth]);
+  }, [userId, isSaveLoaded, cash, unpaidTax, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems, nickname, roomKind, occupationId, currentTitleId, netWorth]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -2997,6 +3096,12 @@ export default function GamePage() {
     const timer = window.setInterval(() => {
       if (securitySignal === "thief") {
         registerSecurityMistake("🛡️ 수상한 사람을 놓쳤습니다.");
+      } else {
+        const reward = Math.floor(PAY.securityPass * jobIncomeMultiplier);
+        setCash((money) => money + reward);
+        setSecuritySuccess((success) => success + 1);
+        setSecuritySuccessTotal((count) => count + 1);
+        setMessage(`🛡️ 통과 처리 성공! +${reward.toLocaleString()}원`);
       }
       setSecuritySignal(makeSecuritySignal(difficulty));
       setSecurityRound((round) => round + 1);
@@ -3099,7 +3204,14 @@ export default function GamePage() {
   }, []);
 
   function applyTaxAutomatically() {
-    const tax = Math.floor(calculateTax(cash, unpaidTax) * Math.max(0.55, 1 - insuranceTaxDiscount));
+    const currentTax = Math.floor(cash * getTaxRate(cash) * Math.max(0.55, 1 - insuranceTaxDiscount));
+    const tax = currentTax + unpaidTax;
+
+    if (tax <= 0) {
+      setMessage("💸 이번 세금은 없습니다.");
+      return;
+    }
+
     if (cash >= tax) {
       setCash((current) => current - tax);
       setUnpaidTax(0);
@@ -3108,19 +3220,9 @@ export default function GamePage() {
       return;
     }
 
-    const nextWarning = warningCount + 1;
-    if (nextWarning >= 3) {
-      const seizedCash = Math.floor(cash * 0.8 * Math.max(0.35, 1 - insuranceSeizureProtection));
-      setCash((current) => current - seizedCash);
-      setUnpaidTax(0);
-      setWarningCount(0);
-      setMessage(`🚨 세금 미납 경고 3회! ${seizedCash.toLocaleString()}원이 압류되었습니다.`);
-      return;
-    }
-
-    setWarningCount(nextWarning);
     setUnpaidTax(tax);
-    setMessage(`⚠️ 자동 세금 납부 실패! 경고장 ${nextWarning}장`);
+    setWarningCount(0);
+    setMessage(`⚠️ 현금이 부족해 세금 ${tax.toLocaleString()}원이 미납으로 이월되었습니다. 다음 세금 제출 때 합산됩니다.`);
   }
 
   function startJob(jobId: JobId) {
@@ -3164,7 +3266,7 @@ export default function GamePage() {
     setCashierIndex(0);
     setCashierSuccess(0);
     setCashierMiss(0);
-    setMessage("🏪 낮은 보상이지만 빠르게 반복됩니다. W/A/S/D를 정확히 입력하세요.");
+    setMessage("🏪 성공 횟수가 쌓일수록 보상이 크게 증가합니다. W/A/S/D를 정확히 입력하세요.");
   }
 
   function setupCafeJob() {
@@ -3272,7 +3374,7 @@ export default function GamePage() {
     }
 
     const combo = sortCombo + 1;
-    const reward = Math.floor((PAY.sorting + Math.min(120, combo * 8)) * jobIncomeMultiplier);
+    const reward = Math.floor((PAY.sorting + combo * PAY.sortingComboBonus) * jobIncomeMultiplier);
     setCash((money) => money + reward);
     setSortingSuccessTotal((count) => count + 1);
     setSortCombo(combo);
@@ -3304,7 +3406,7 @@ export default function GamePage() {
     if (nextIndex >= cashierSequence.length) {
       const nextSuccess = cashierSuccess + 1;
       const nextDifficulty = getCashierDifficultyBySuccess(nextSuccess);
-      const reward = Math.floor((PAY.cashier + nextDifficulty * 8) * jobIncomeMultiplier);
+      const reward = Math.floor((PAY.cashier + nextSuccess * PAY.cashierSuccessBonus + nextDifficulty * PAY.cashierDifficultyBonus) * jobIncomeMultiplier);
       setCash((money) => money + reward);
       setCashierSuccess(nextSuccess);
       setCashierSuccessTotal((count) => count + 1);
@@ -3345,23 +3447,24 @@ export default function GamePage() {
 
   function handleSecurityAction() {
     if (securitySignal === "thief") {
-      const reward = Math.floor((PAY.security + difficulty * 10) * jobIncomeMultiplier);
+      const reward = Math.floor(PAY.securityCatch * jobIncomeMultiplier);
       setCash((money) => money + reward);
       setSecuritySuccess((success) => success + 1);
       setSecuritySuccessTotal((count) => count + 1);
       setSecuritySignal("normal");
-      setMessage(`🛡️ 대응 성공! +${reward.toLocaleString()}원`);
+      setMessage(`🛡️ 수상한 사람 검거 성공! +${reward.toLocaleString()}원`);
       return;
     }
 
     if (securitySignal === "vip") {
       setCash((money) => Math.max(0, money - PAY.vipPenalty));
-      registerSecurityMistake(`🛡️ VIP 손님을 막았습니다. 배상금 ${PAY.vipPenalty.toLocaleString()}원!`);
+      registerSecurityMistake(`🛡️ VIP 손님을 잘못 막았습니다. ${PAY.vipPenalty.toLocaleString()}원 차감!`);
       setSecuritySignal("normal");
       return;
     }
 
-    registerSecurityMistake("🛡️ 평범한 손님을 막았습니다.");
+    setCash((money) => Math.max(0, money - PAY.securityNormalPenalty));
+    registerSecurityMistake(`🛡️ 일반인을 잘못 막았습니다. ${PAY.securityNormalPenalty.toLocaleString()}원 차감!`);
     setSecuritySignal("normal");
   }
 
@@ -3432,9 +3535,33 @@ export default function GamePage() {
     setMessage(`${roomInfo[nextRoomKind].name}(으)로 메인 화면이 변경되었습니다.`);
   }
 
+  function isHiddenCareerVisible(careerId: OccupationId) {
+    const career = occupationInfo[careerId];
+    if (!career.hidden) return true;
+
+    if (careerId === "chiefExecutive") {
+      return netWorth >= 2000000 && (unlockedOccupations.includes("officeDirector") || unlockedOccupations.includes("franchiseOwner"));
+    }
+
+    if (careerId === "legendaryIdol") {
+      return unlockedOccupations.includes("topSinger") && cafeSuccessTotal >= 60;
+    }
+
+    if (careerId === "logisticsLegend") {
+      return unlockedOccupations.includes("platformOpsManager") && sortingSuccessTotal >= 90 && deliverySuccessTotal >= 90;
+    }
+
+    if (careerId === "quantMaster") {
+      return unlockedOccupations.includes("investor") && (bankDeposit >= 1000000 || stockAssetValue >= 1000000);
+    }
+
+    return false;
+  }
+
   function canChallengeOccupation(nextOccupationId: OccupationId) {
     const nextOccupation = occupationInfo[nextOccupationId];
     if (nextOccupationId === "unemployed") return true;
+    if (nextOccupation.hidden && !isHiddenCareerVisible(nextOccupationId)) return false;
     if (cash < nextOccupation.requiredCash) return false;
     if (nextOccupation.requiredPrevious && !unlockedOccupations.includes(nextOccupation.requiredPrevious)) return false;
 
@@ -3444,6 +3571,9 @@ export default function GamePage() {
     if (required?.cashier && cashierSuccessTotal < required.cashier) return false;
     if (required?.cafe && cafeSuccessTotal < required.cafe) return false;
     if (required?.security && securitySuccessTotal < required.security) return false;
+
+    if (nextOccupationId === "chiefExecutive" && !(unlockedOccupations.includes("officeDirector") || unlockedOccupations.includes("franchiseOwner"))) return false;
+    if (nextOccupationId === "quantMaster" && !(bankDeposit >= 1000000 && stockAssetValue >= 1000000)) return false;
 
     return true;
   }
@@ -3633,10 +3763,6 @@ export default function GamePage() {
   function buyBusiness(businessId: BusinessId) {
     const business = businessItems.find((item) => item.id === businessId);
     if (!business || ownedBusinesses.includes(businessId)) return;
-    if (business.requiredOccupation && !unlockedOccupations.includes(business.requiredOccupation)) {
-      setMessage(`🧾 ${business.name} 조건 미달: ${occupationInfo[business.requiredOccupation].name} 직업이 필요합니다.`);
-      return;
-    }
     if (cash < business.price) {
       setMessage(`🧾 ${business.name} 창업에는 ${business.price.toLocaleString()}원이 필요합니다.`);
       return;
@@ -4024,7 +4150,7 @@ export default function GamePage() {
     }
 
     if (!canChallengeOccupation(nextOccupationId)) {
-      setMessage(`${nextOccupation.name} 조건 미달: ${nextOccupation.conditionText}`);
+      setMessage(`${nextOccupation.questNpc ?? "전직 NPC"}: 아직 전직 퀘스트 조건이 부족합니다. ${nextOccupation.conditionText}`);
       return;
     }
 
@@ -4050,7 +4176,7 @@ export default function GamePage() {
     setCareerTypingMistakes(0);
     setCareerFinanceAnswer("");
     prepareCareerMiniGameRound(nextOccupation, 0, 0);
-    setMessage(`💼 ${nextOccupation.name} 테스트 시작! 직업 건물에 맞는 실무 미니게임을 클리어하세요.`);
+    setMessage(`${nextOccupation.questNpc ?? "전직 NPC"}의 전직 퀘스트 시작! ${nextOccupation.name} 미니게임을 클리어하면 직업을 획득합니다.`);
   }
 
   function prepareCareerMiniGameRound(nextOccupation: Occupation, nextStep: number, nextMistakes: number) {
@@ -4185,7 +4311,7 @@ export default function GamePage() {
 
     await saveProfilePatch({ occupation_id: nextOccupation.id, occupation_level: nextOccupation.minigameDifficulty, unlocked_occupations: nextUnlocked });
     await logCareerMiniGame(nextOccupation, "success", nextOccupation.incomeEvery3Min);
-    setMessage(`🎉 ${nextOccupation.icon} ${nextOccupation.name} 직업을 획득했습니다!`);
+    setMessage(`🎉 ${nextOccupation.questNpc ?? "전직 NPC"}의 퀘스트 완료! ${nextOccupation.icon} ${nextOccupation.name} 직업을 획득했습니다!`);
     resetCareerMiniGame();
   }
 
@@ -4980,7 +5106,6 @@ export default function GamePage() {
             <StatusPill label="세율" value={`${(taxRate * 100).toFixed(0)}%`} />
             <StatusPill label="다음 세금" value={`${nextTax.toLocaleString()}원`} />
             <StatusPill label="미납" value={`${unpaidTax.toLocaleString()}원`} />
-            <StatusPill label="경고" value={`${warningCount}장`} />
             <StatusPill label="저장" value={isSaving ? "저장 중" : saveMessage} warning={saveMessage.includes("실패")} />
           </div>
         </header>
@@ -5125,9 +5250,14 @@ export default function GamePage() {
                 <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
 
+              <div style={careerNpcPanelStyle}>
+                <strong>{getCareerQuestNpc(careerBuildingId)}</strong>
+                <span>전직 퀘스트 NPC가 조건을 확인합니다. 테스트 중 실수 3회 또는 제한 횟수 초과 시 퀘스트 실패, 조건을 더 달성하면 히든 퀘스트가 나타납니다.</span>
+              </div>
+
               <div className="alba-career-card-grid" style={careerCardGridStyle}>
                 {careerList
-                  .filter((careerId) => occupationInfo[careerId].buildingId === careerBuildingId)
+                  .filter((careerId) => occupationInfo[careerId].buildingId === careerBuildingId && isHiddenCareerVisible(careerId))
                   .map((careerId) => {
                     const career = occupationInfo[careerId];
                     const unlocked = unlockedOccupations.includes(careerId);
@@ -5143,8 +5273,9 @@ export default function GamePage() {
                         <h3 style={careerNameStyle}>{career.name}</h3>
                         <p style={careerDescStyle}>{career.description}</p>
                         <p style={careerIncomeStyle}>{career.salaryText}</p>
+                        <p style={careerConditionStyle}>NPC: {career.questNpc ?? getCareerQuestNpc(career.buildingId)}</p>
                         <p style={careerConditionStyle}>조건: {career.conditionText}</p>
-                        <p style={careerConditionStyle}>테스트: {career.minigameName} · 난이도 {career.minigameDifficulty}</p>
+                        <p style={careerConditionStyle}>퀘스트: {career.minigameName} · 난이도 {career.minigameDifficulty}</p>
                         <div style={careerButtonLikeStyle}>{selected ? "현재 직업" : unlocked ? "직업 장착" : available ? "테스트 도전" : "조건 미달"}</div>
                       </button>
                     );
@@ -5183,7 +5314,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>CITY HALL</div>
                   <h2 className="alba-panel-title" style={panelTitleStyle}>구청 세금 확인</h2>
-                  <p style={panelDescStyle}>현재 납부해야 할 세금과 미납 경고를 확인합니다.</p>
+                  <p style={panelDescStyle}>현재 납부해야 할 세금과 이월된 미납 세금을 확인합니다.</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
@@ -5191,15 +5322,14 @@ export default function GamePage() {
               <div style={taxCardStyle}>
                 <StatusPill label="현재 현금" value={`${cash.toLocaleString()}원`} />
                 <StatusPill label="적용 세율" value={`${(taxRate * 100).toFixed(0)}%`} />
-                <StatusPill label="예정 세금" value={`${Math.floor(cash * taxRate).toLocaleString()}원`} />
+                <StatusPill label="이번 세금" value={`${currentTaxDue.toLocaleString()}원`} />
                 <StatusPill label="미납 세금" value={`${unpaidTax.toLocaleString()}원`} warning={unpaidTax > 0} />
                 <StatusPill label="총 납부 예정" value={`${nextTax.toLocaleString()}원`} warning={nextTax > cash} />
                 <StatusPill label="자동 납부까지" value={formatTime(taxCountdown)} warning={taxCountdown <= TAX_WARNING_SECONDS} />
-                <StatusPill label="경고장" value={`${warningCount}/3장`} warning={warningCount > 0} />
               </div>
 
               <div style={taxNoticeStyle}>
-                자동 납부 시점에 현금이 부족하면 경고장이 발급됩니다. 경고 3회가 되면 현금 일부가 압류됩니다.
+                자동 납부 시점에 현금이 부족하면 납부하지 못한 세금이 미납으로 이월됩니다. 다음 세금 제출 때 이번 세금과 미납금이 합산되어 청구됩니다.
               </div>
             </div>
           )}
@@ -5440,7 +5570,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>BANK</div>
                   <h2 className="alba-panel-title" style={panelTitleStyle}>은행</h2>
-                  <p style={panelDescStyle}>예금은 목돈 굴리기 용으로 한도 없이 15분마다 0.35% 복리 이자가 붙습니다. 적금은 시드머니 모으기 용으로 30분마다 0.9% 이자가 붙지만 최대 3,000,000원까지만 불어납니다. 대출은 10분마다 1.2% 이자가 붙습니다.</p>
+                  <p style={panelDescStyle}>예금은 목돈 굴리기 용으로 한도 없이 15분마다 0.35% 복리 이자가 붙습니다. 적금은 시드머니 모으기 용으로 30분마다 0.9% 이자가 붙지만 최대 3,000,000원까지만 불어납니다. 세금은 현금이 부족하면 미납으로 이월되어 다음 세금에 합산됩니다. 대출은 10분마다 1.2% 이자가 붙습니다.</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
@@ -5456,17 +5586,6 @@ export default function GamePage() {
                 <StatusPill label="신용점수" value={`${creditScore}점`} warning={creditScore < 600} />
                 <StatusPill label="대출한도" value={`${getLoanLimit(creditScore, netWorth).toLocaleString()}원`} />
                 <StatusPill label="순자산" value={`${netWorth.toLocaleString()}원`} warning={netWorth < 0} />
-              </div>
-
-              <div style={bankGuideGridStyle}>
-                <div style={bankGuideCardStyle}>
-                  <strong>예금: 목돈 굴리기</strong>
-                  <span>한도 없이 계속 복리 성장합니다. 큰돈을 오래 묶어둘수록 유리합니다.</span>
-                </div>
-                <div style={bankGuideCardStyle}>
-                  <strong>적금: 시드머니 모으기</strong>
-                  <span>최대 {BANK_SAVINGS_CAP.toLocaleString()}원까지만 납입/성장합니다. 상한 이후에는 예금을 이용하세요.</span>
-                </div>
               </div>
 
               <div style={economyActionPanelStyle}>
@@ -7836,6 +7955,13 @@ function makeCareerFinanceRound(occupation: Occupation, step: number) {
   ];
   const selected = rounds[(step + occupation.minigameDifficulty) % rounds.length];
   return { ...selected, choices: ["매수", "매도", "보류"] };
+}
+
+function getCareerQuestNpc(buildingId: CareerBuildingId) {
+  if (buildingId === "company") return "전직 멘토 한 실장";
+  if (buildingId === "entertainment") return "프로듀서 루나";
+  if (buildingId === "logistics") return "관제장 박 반장";
+  return "차트 분석가 민";
 }
 
 function getCareerBuildingName(buildingId: CareerBuildingId) {
@@ -11238,23 +11364,17 @@ const luxuryPriceStyle: CSSProperties = {
 };
 
 
-const bankGuideGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "10px",
-};
 
-const bankGuideCardStyle: CSSProperties = {
+const careerNpcPanelStyle: CSSProperties = {
+  display: "grid",
+  gap: "5px",
   border: "3px solid #111827",
-  borderRadius: "16px",
-  background: "#ffffff",
-  padding: "12px",
-  display: "grid",
-  gap: "6px",
+  borderRadius: "18px",
+  background: "#fff7ed",
+  padding: "12px 14px",
   color: "#111827",
-  boxShadow: "0 7px 0 rgba(17,24,39,0.10)",
+  boxShadow: "0 8px 0 rgba(17,24,39,0.10)",
 };
-
 
 
 
