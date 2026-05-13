@@ -5554,6 +5554,27 @@ export default function GamePage() {
                         )}
                       </div>
 
+                      <div style={rpgQuestActionPanelStyle}>
+                        <div>
+                          <strong style={rpgQuestActionTitleStyle}>
+                            {canChallengeOccupation(currentCareerQuest.targetId) ? "지금 할 일: 퀘스트를 수락하세요" : "지금 할 일: 조건을 먼저 채우세요"}
+                          </strong>
+                          <p style={rpgQuestActionTextStyle}>
+                            {canChallengeOccupation(currentCareerQuest.targetId)
+                              ? "버튼을 누르면 전직 미니게임이 시작됩니다. 수행 결과에 따라 기본 직업, 상위 직업, 히든 직업 중 하나를 얻을 수 있습니다."
+                              : currentCareerQuest.request}
+                          </p>
+                        </div>
+                        <div style={rpgQuestActionButtonGroupStyle}>
+                          <button onClick={() => challengeOccupation(currentCareerQuest.targetId)} disabled={occupationId !== "unemployed" && currentQuestCareer.requiredPrevious !== occupationId && occupationId !== currentCareerQuest.targetId} style={{ ...casinoPrimaryButtonStyle, minWidth: "180px", opacity: occupationId !== "unemployed" && currentQuestCareer.requiredPrevious !== occupationId && occupationId !== currentCareerQuest.targetId ? 0.48 : 1 }}>
+                            {occupationId === currentCareerQuest.targetId ? "이미 가진 직업" : canChallengeOccupation(currentCareerQuest.targetId) ? "퀘스트 수락하고 시작" : "조건 확인하기"}
+                          </button>
+                          {!canChallengeOccupation(currentCareerQuest.targetId) && (
+                            <button onClick={() => setLobbyView("jobs")} style={casinoSmallButtonStyle}>알바하러 가기</button>
+                          )}
+                        </div>
+                      </div>
+
                       <div style={rpgQuestDetailGridStyle}>
                         <div style={rpgQuestDetailCardStyle}>
                           <span>이번 퀘스트</span>
@@ -5581,10 +5602,8 @@ export default function GamePage() {
                       </div>
 
                       <div style={rpgDialogueButtonRowStyle}>
-                        <button onClick={() => challengeOccupation(currentCareerQuest.targetId)} disabled={occupationId !== "unemployed" && currentQuestCareer.requiredPrevious !== occupationId && occupationId !== currentCareerQuest.targetId} style={{ ...casinoPrimaryButtonStyle, opacity: occupationId !== "unemployed" && currentQuestCareer.requiredPrevious !== occupationId && occupationId !== currentCareerQuest.targetId ? 0.48 : 1 }}>
-                          {occupationId === currentCareerQuest.targetId ? "이미 가진 직업" : canChallengeOccupation(currentCareerQuest.targetId) ? "퀘스트 수락" : "조건 확인"}
-                        </button>
-                        <button onClick={() => setMessage(`${currentCareerQuest.npc}: ${currentCareerQuest.request}`)} style={casinoSmallButtonStyle}>다시 듣기</button>
+                        <button onClick={() => setMessage(`${currentCareerQuest.npc}: ${currentCareerQuest.request}`)} style={casinoSmallButtonStyle}>NPC 말 다시 듣기</button>
+                        <button onClick={() => setLobbyView("street")} style={casinoSmallButtonStyle}>다른 건물 보기</button>
                       </div>
                     </>
                   ) : (
@@ -11729,6 +11748,42 @@ const rpgDialogueButtonRowStyle: CSSProperties = {
 
 
 
+
+
+const rpgQuestActionPanelStyle: CSSProperties = {
+  border: "4px solid #2563eb",
+  borderRadius: "20px",
+  background: "linear-gradient(135deg, #dbeafe 0%, #ffffff 100%)",
+  padding: "14px",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "14px",
+  flexWrap: "wrap",
+  boxShadow: "0 8px 0 rgba(37,99,235,0.16)",
+};
+
+const rpgQuestActionTitleStyle: CSSProperties = {
+  display: "block",
+  fontSize: "20px",
+  color: "#111827",
+  marginBottom: "6px",
+};
+
+const rpgQuestActionTextStyle: CSSProperties = {
+  margin: 0,
+  color: "#334155",
+  fontSize: "15px",
+  lineHeight: 1.55,
+  fontWeight: 800,
+};
+
+const rpgQuestActionButtonGroupStyle: CSSProperties = {
+  display: "flex",
+  gap: "8px",
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
+};
 
 
 
