@@ -139,6 +139,7 @@ type RankingRow = {
   rank: number;
   nickname: string;
   nicknameColorId?: NicknameColorId;
+  nicknameTagId?: NicknameTagId;
   cash: number;
   job: string;
   titleName?: string;
@@ -3360,14 +3361,33 @@ export default function GamePage() {
       }
 
       const careerResetDoneAfterRemote = window.localStorage.getItem(`alba-money-career-reset-${currentUserId}`) === CAREER_RESET_VERSION;
-      if (!shouldForceCareerReset && careerResetDoneAfterRemote && data?.occupation_id && data.occupation_id in occupationInfo) {
-        const nextOccupationId = data.occupation_id as OccupationId;
+      const localOccupationId = window.localStorage.getItem(`alba-money-occupation-${currentUserId}`) as OccupationId | null;
+      const localUnlockedRaw = window.localStorage.getItem(`alba-money-unlocked-occupations-${currentUserId}`);
+      const localUnlockedIds = normalizeUnlockedOccupations(safeParseOccupationList(localUnlockedRaw));
+
+      if (!shouldForceCareerReset && careerResetDoneAfterRemote) {
+        const remoteOccupationId = data?.occupation_id && data.occupation_id in occupationInfo ? (data.occupation_id as OccupationId) : "unemployed";
+        const shouldKeepLocalOccupation = !!localOccupationId && localOccupationId in occupationInfo && localOccupationId !== "unemployed" && remoteOccupationId === "unemployed";
+        const nextOccupationId = shouldKeepLocalOccupation ? localOccupationId : remoteOccupationId;
+
         setOccupationId(nextOccupationId);
         window.localStorage.setItem(`alba-money-occupation-${currentUserId}`, nextOccupationId);
+
+        if (shouldKeepLocalOccupation) {
+          const nextUnlockedIds = localUnlockedIds.includes(nextOccupationId) ? localUnlockedIds : normalizeUnlockedOccupations([...localUnlockedIds, nextOccupationId]);
+          setUnlockedOccupations(nextUnlockedIds);
+          window.localStorage.setItem(`alba-money-unlocked-occupations-${currentUserId}`, JSON.stringify(nextUnlockedIds));
+          void saveProfilePatch({
+            occupation_id: nextOccupationId,
+            occupation_level: occupationInfo[nextOccupationId].minigameDifficulty,
+            unlocked_occupations: nextUnlockedIds,
+          });
+        }
       }
 
       if (!shouldForceCareerReset && careerResetDoneAfterRemote && typeof data?.occupation_level === "number") {
-        setOccupationLevel(data.occupation_level);
+        const localOccupationIdForLevel = window.localStorage.getItem(`alba-money-occupation-${currentUserId}`) as OccupationId | null;
+        setOccupationLevel(localOccupationIdForLevel && localOccupationIdForLevel in occupationInfo && localOccupationIdForLevel !== "unemployed" ? occupationInfo[localOccupationIdForLevel].minigameDifficulty : data.occupation_level);
       }
 
       if (data?.current_title && playerTitles.some((title) => title.id === data.current_title)) {
@@ -3379,7 +3399,11 @@ export default function GamePage() {
       const rawUnlocked = data?.unlocked_occupations;
       const parsedUnlocked = typeof rawUnlocked === "string" ? safeParseOccupationList(rawUnlocked) : rawUnlocked;
       if (!shouldForceCareerReset && careerResetDoneAfterRemote && Array.isArray(parsedUnlocked)) {
-        const nextUnlocked = normalizeUnlockedOccupations(parsedUnlocked);
+        const currentLocalOccupation = window.localStorage.getItem(`alba-money-occupation-${currentUserId}`) as OccupationId | null;
+        const remoteUnlocked = normalizeUnlockedOccupations(parsedUnlocked);
+        const nextUnlocked = currentLocalOccupation && currentLocalOccupation in occupationInfo && currentLocalOccupation !== "unemployed"
+          ? normalizeUnlockedOccupations([...remoteUnlocked, currentLocalOccupation])
+          : remoteUnlocked;
         setUnlockedOccupations(nextUnlocked);
         window.localStorage.setItem(`alba-money-unlocked-occupations-${currentUserId}`, JSON.stringify(nextUnlocked));
       }
@@ -3436,9 +3460,11 @@ export default function GamePage() {
       setCreditScore(Number(parsed.creditScore ?? 700));
       if (Array.isArray(parsed.ownedEstates)) setOwnedEstates(parsed.ownedEstates.filter((id): id is EstateId => estateItems.some((item) => item.id === id)));
       if (Array.isArray(parsed.ownedBusinesses)) setOwnedBusinesses(parsed.ownedBusinesses.filter((id): id is BusinessId => businessItems.some((item) => item.id === id)));
-      if (Array.isArray(parsed.newsEvents) && parsed.newsEvents.length > 0) setNewsEvents(parsed.newsEvents);
-      if (parsed.lastNewsArticleAt) setLastNewsArticleAt(new Date(parsed.lastNewsArticleAt));
-      if (parsed.newspaperEvent && typeof parsed.newspaperEvent === "object") setNewspaperEvent(parsed.newspaperEvent as NewsEvent);
+      const loadedLastNewsAt = parsed.lastNewsArticleAt ? new Date(parsed.lastNewsArticleAt) : null;
+      const newsStillFresh = !!loadedLastNewsAt && Date.now() - loadedLastNewsAt.getTime() < NEWS_ARTICLE_INTERVAL_MS;
+      if (Array.isArray(parsed.newsEvents) && parsed.newsEvents.length > 0 && newsStillFresh) setNewsEvents(parsed.newsEvents.slice(0, 2));
+      if (newsStillFresh && loadedLastNewsAt) setLastNewsArticleAt(loadedLastNewsAt);
+      if (newsStillFresh && parsed.newspaperEvent && typeof parsed.newspaperEvent === "object") setNewspaperEvent(parsed.newspaperEvent as NewsEvent);
       if (typeof parsed.inflationIndex === "number") setInflationIndex(Math.max(0.8, Math.min(2.5, parsed.inflationIndex)));
       if (Array.isArray(parsed.ownedInsurances)) setOwnedInsurances(parsed.ownedInsurances.filter((id): id is InsuranceId => insuranceItems.some((item) => item.id === id)));
       if (parsed.businessEmployees && typeof parsed.businessEmployees === "object") setBusinessEmployees(parsed.businessEmployees);
@@ -5756,6 +5782,11 @@ export default function GamePage() {
             : (typeof economy.selectedNicknameColorId === "string" && (economy.selectedNicknameColorId === defaultNicknameColorTheme.id || luxuryNicknameColors.some((theme) => theme.id === economy.selectedNicknameColorId))
               ? (economy.selectedNicknameColorId as NicknameColorId)
               : defaultNicknameColorTheme.id),
+          nicknameTagId: profile.id === userId
+            ? selectedNicknameTagId
+            : (typeof economy.selectedNicknameTagId === "string" && (economy.selectedNicknameTagId === defaultNicknameTag.id || luxuryNicknameTags.some((tag) => tag.id === economy.selectedNicknameTagId))
+              ? (economy.selectedNicknameTagId as NicknameTagId)
+              : defaultNicknameTag.id),
           cash: rankingMode === "collection" ? discoveredCount : Math.max(0, Math.floor(calculateRankingNetWorth(profile))),
           hasSave: !!save,
           job: profile.id === userId ? occupationInfo[occupationId].name : occupationInfo[profileOccupationId].name,
@@ -6116,17 +6147,21 @@ export default function GamePage() {
       return;
     }
 
-    const article = makeSharedNewspaperArticle(companyId);
+    const articles = makeSharedNewspaperArticles(companyId);
+    const primaryArticle = articles[0];
 
     setLastNewsArticleAt(new Date());
-    setNewspaperEvent(article);
-    setNewsEvents([article, ...newsEvents.filter((news) => news.id !== article.id)].slice(0, 3));
+    setNewspaperEvent(primaryArticle);
+    setNewsEvents(articles);
     setStockRows((rows) => rows.map((row) => {
-      if (!article.targetStocks.includes(row.id)) return row;
-      const nextPrice = Math.max(100, Math.floor(row.price * (1 + article.impactPercent / 100)));
+      const relatedArticles = articles.filter((article) => article.targetStocks.includes(row.id));
+      if (relatedArticles.length === 0) return row;
+      const totalImpact = relatedArticles.reduce((sum, article) => sum + article.impactPercent, 0);
+      const nextPrice = Math.max(100, Math.floor(row.price * (1 + totalImpact / 100)));
       return { ...row, previousPrice: row.price, price: nextPrice, history: [...row.history.slice(-23), nextPrice] };
     }));
-    setMessage(article.isFake ? `📰 ${getNewsCompanyName(article.sourceCompanyId)} 기사를 확인했지만 가짜 정보였습니다. 같은 회차의 모든 유저에게도 같은 기사로 보입니다.` : `📰 ${getNewsCompanyName(article.sourceCompanyId)} 신문 기사를 확인했습니다. 같은 회차의 모든 유저에게도 같은 기사로 보입니다.`);
+    const fakeCount = articles.filter((article) => article.isFake).length;
+    setMessage(fakeCount > 0 ? `📰 ${getNewsCompanyName(primaryArticle.sourceCompanyId)} 기사 ${articles.length}개를 확인했습니다. 이 중 ${fakeCount}개는 가짜 정보였습니다.` : `📰 ${getNewsCompanyName(primaryArticle.sourceCompanyId)} 신문 기사 ${articles.length}개를 확인했습니다. 같은 회차의 모든 유저에게도 같은 기사로 보입니다.`);
   }
 
   function buyStock(stockId: StockId, amount = 1) {
@@ -7034,24 +7069,24 @@ export default function GamePage() {
                 ))}
               </div>
 
-              {newspaperEvent && (
+              {newspaperEvent ? (
+                <div style={newspaperHistoryListStyle}>
+                  {newsEvents.slice(0, 2).map((news) => (
+                    <section key={news.id} style={{ ...newspaperArticleStyle, borderColor: news.isFake ? "#7c2d12" : news.tone === "good" ? "#16a34a" : news.tone === "bad" ? "#dc2626" : "#111827" }}>
+                      <div style={smallLabelStyle}>TODAY'S PAPER</div>
+                      <h3 style={newspaperHeadlineStyle}>{news.isFake ? "⚠️ 수상한 기사" : "📰 열람한 신문 기사"} · {news.title}</h3>
+                      <p style={newspaperBodyStyle}>{news.effect}</p>
+                      <p style={newspaperBodyStyle}>공유 회차: {Math.floor(news.id / 100)} · 신문사: {getNewsCompanyName(news.sourceCompanyId)} · 영향 종목: {news.targetStocks.map(getStockCompanyName).join(" · ")} / 시장 영향 {news.impactPercent > 0 ? "+" : ""}{news.impactPercent.toFixed(1)}%</p>
+                    </section>
+                  ))}
+                </div>
+              ) : (
                 <section style={newspaperArticleStyle}>
-                  <div style={smallLabelStyle}>TODAY'S PAPER</div>
-                  <h3 style={newspaperHeadlineStyle}>{newspaperEvent.isFake ? "⚠️ 수상한 기사" : "📰 구매한 신문 기사"} · {newspaperEvent.title}</h3>
-                  <p style={newspaperBodyStyle}>{newspaperEvent.effect}</p>
-                  <p style={newspaperBodyStyle}>공유 회차: {Math.floor(newspaperEvent.id / 10)} · 신문사: {getNewsCompanyName(newspaperEvent.sourceCompanyId)} · 영향 종목: {newspaperEvent.targetStocks.map(getStockCompanyName).join(" · ")} / 시장 영향 {newspaperEvent.impactPercent > 0 ? "+" : ""}{newspaperEvent.impactPercent.toFixed(1)}%</p>
+                  <div style={smallLabelStyle}>NO PAPER YET</div>
+                  <h3 style={newspaperHeadlineStyle}>아직 열람한 신문 기사가 없습니다</h3>
+                  <p style={newspaperBodyStyle}>위 뉴스 회사 중 하나를 무료로 선택하면 이번 10분 회차의 공유 신문 기사 1~2개가 표시됩니다.</p>
                 </section>
               )}
-
-              <div style={newspaperHistoryListStyle}>
-                {newsEvents.map((news) => (
-                  <div key={news.id} style={{ ...economyNewsCardStyle, borderColor: news.isFake ? "#7c2d12" : news.tone === "good" ? "#16a34a" : news.tone === "bad" ? "#dc2626" : "#111827" }}>
-                    <h3 style={economyCardTitleStyle}>{news.isFake ? "🕵️" : news.tone === "good" ? "📈" : news.tone === "bad" ? "📉" : "📰"} {news.title}</h3>
-                    <p style={economyCardTextStyle}>{news.effect}</p>
-                    <p style={economyCardTextStyle}>영향 종목: {news.targetStocks.map(getStockCompanyName).join(" · ")} / 영향 {news.impactPercent > 0 ? "+" : ""}{news.impactPercent.toFixed(1)}%</p>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
 
@@ -7716,7 +7751,7 @@ export default function GamePage() {
                 {rankingRows.map((row) => (
                   <div key={`${row.rank}-${row.nickname}`} style={{ ...rankingRowStyle, borderColor: row.isMe ? "#38bdf8" : "rgba(255,255,255,0.14)", background: row.isMe ? "rgba(56,189,248,0.16)" : "rgba(255,255,255,0.06)" }}>
                     <strong>{row.rank}위 {row.rank === 1 ? "🥇" : row.rank === 2 ? "🥈" : row.rank === 3 ? "🥉" : ""}</strong>
-                    <span>{row.isMe ? "👤 " : ""}<span style={getNicknameTextStyle(row.isMe ? activeNicknameColor : (luxuryNicknameColors.find((theme) => theme.id === row.nicknameColorId) ?? defaultNicknameColorTheme))}>{row.nickname}</span></span>
+                    <span>{row.isMe ? "👤 " : ""}<span style={{ ...buildNicknamePlateStyle(row.isMe ? activeNicknameTag : (luxuryNicknameTags.find((tag) => tag.id === row.nicknameTagId) ?? defaultNicknameTag)), display: "inline-flex", width: "fit-content", maxWidth: "100%" }}><span style={getNicknameTextStyle(row.isMe ? activeNicknameColor : (luxuryNicknameColors.find((theme) => theme.id === row.nicknameColorId) ?? defaultNicknameColorTheme))}>{row.nickname}</span></span></span>
                     <span>{row.titleIcon} {row.titleName}<br /><small>{row.job}</small></span>
                     <strong>{rankingMode === "netWorth" ? `${row.cash.toLocaleString()}원` : `${row.cash.toLocaleString()}종`}<br />{rankingMode === "netWorth" && row.rank <= 3 && <small style={{ color: "#7c3aed" }}>랭킹 버프 +{Math.round(getRankingBuffRate(row.rank) * 100)}%</small>}</strong>
                   </div>
@@ -9244,28 +9279,37 @@ function getStableHash(input: string) {
   return Math.abs(hash >>> 0);
 }
 
-function makeSharedNewspaperArticle(companyId: NewsCompanyId, now = new Date()): NewsEvent {
+function makeSharedNewspaperArticle(companyId: NewsCompanyId, now = new Date(), articleOffset = 0): NewsEvent {
   const company = newsCompanies.find((item) => item.id === companyId) ?? newsCompanies[0];
   const slot = getNewsArticleSlot(now);
-  const baseHash = getStableHash(`${slot}-${company.id}-article`);
+  const baseHash = getStableHash(`${slot}-${company.id}-article-${articleOffset}`);
   const baseEvent = newsPool[baseHash % newsPool.length] ?? newsPool[0];
-  const fakeHash = getStableHash(`${slot}-${company.id}-fake`);
+  const fakeHash = getStableHash(`${slot}-${company.id}-fake-${articleOffset}`);
   const fakeRoll = (fakeHash % 1000) / 1000;
   const fake = fakeRoll > company.reliability;
   const impact = fake ? -baseEvent.impactPercent : baseEvent.impactPercent;
 
   return {
     ...baseEvent,
-    id: slot * 10 + newsCompanies.findIndex((item) => item.id === company.id),
+    id: slot * 100 + newsCompanies.findIndex((item) => item.id === company.id) * 10 + articleOffset,
     sourceCompanyId: company.id,
     isFake: fake,
-    title: `${company.name} ${slot % 10000}호: ${baseEvent.title}`,
+    title: `${company.name} ${slot % 10000}호-${articleOffset + 1}: ${baseEvent.title}`,
     effect: fake
       ? `검증되지 않은 기사입니다. 같은 회차에서 모든 유저에게 동일하게 보이지만 실제 시장은 반대로 움직일 수 있습니다. ${baseEvent.effect}`
       : `${company.style} 분석 기사입니다. 같은 회차에서 모든 유저에게 동일하게 제공됩니다. ${baseEvent.effect}`,
     impactPercent: impact,
     tone: impact > 0 ? "good" : impact < 0 ? "bad" : "neutral",
   };
+}
+
+function makeSharedNewspaperArticles(companyId: NewsCompanyId, now = new Date()): NewsEvent[] {
+  const first = makeSharedNewspaperArticle(companyId, now, 0);
+  const slot = getNewsArticleSlot(now);
+  const company = newsCompanies.find((item) => item.id === companyId) ?? newsCompanies[0];
+  const secondRoll = getStableHash(`${slot}-${company.id}-second-article`) % 100;
+  if (secondRoll < 52) return [first, makeSharedNewspaperArticle(companyId, now, 1)];
+  return [first];
 }
 
 function makeNewsEvents() {
@@ -9843,6 +9887,7 @@ function makeRankingRows(nickname: string, cash: number, job: string): RankingRo
       rank: 1,
       nickname,
       nicknameColorId: defaultNicknameColorTheme.id,
+      nicknameTagId: defaultNicknameTag.id,
       cash,
       job,
       hasSave: true,
@@ -10772,13 +10817,6 @@ const economyConditionStyle: CSSProperties = {
 };
 
 
-const economyNewsCardStyle: CSSProperties = {
-  background: "#ffffff",
-  border: "4px solid #111827",
-  borderRadius: "20px",
-  padding: "16px",
-  boxShadow: "0 8px 0 rgba(17,24,39,0.12)",
-};
 
 const rankingTableStyle: CSSProperties = {
   display: "grid",
@@ -13350,7 +13388,6 @@ const newspaperBodyStyle: CSSProperties = {
   lineHeight: 1.6,
   fontWeight: 800,
 };
-
 
 
 
