@@ -9639,7 +9639,9 @@ function getCareerBuildingName(buildingId: CareerBuildingId) {
   return "투자 회사";
 }
 
-function safeParseOccupationList(value: string): OccupationId[] {
+function safeParseOccupationList(value: string | null | undefined): OccupationId[] {
+  if (!value) return ["unemployed"];
+
   try {
     const parsed = JSON.parse(value) as unknown;
     return Array.isArray(parsed) ? normalizeUnlockedOccupations(parsed) : ["unemployed"];
@@ -13388,7 +13390,6 @@ const newspaperBodyStyle: CSSProperties = {
   lineHeight: 1.6,
   fontWeight: 800,
 };
-
 
 
 
