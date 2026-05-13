@@ -2221,9 +2221,6 @@ export default function GamePage() {
   const globalStockSyncingRef = useRef(false);
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs[0], [selectedJobId]);
   const activeJob = useMemo(() => (activeJobId ? jobs.find((job) => job.id === activeJobId) ?? null : null), [activeJobId]);
-  const visibleCareerQuests = getVisibleCareerQuests(careerBuildingId);
-  const selectedCareerQuest = visibleCareerQuests.find((quest) => quest.id === selectedCareerQuestId) ?? visibleCareerQuests[0] ?? null;
-  const selectedQuestCareer = selectedCareerQuest ? occupationInfo[selectedCareerQuest.targetId] : null;
   const occupation = occupationInfo[occupationId];
   const taxRate = getTaxRate(cash);
   const ownedInsuranceItems = useMemo(() => ownedInsurances.map((id) => insuranceItems.find((item) => item.id === id)).filter((item): item is InsuranceItem => Boolean(item)), [ownedInsurances]);
@@ -2285,6 +2282,9 @@ export default function GamePage() {
   );
   const itemAssetValue = ownedItems.reduce((sum, id) => sum + (shopItems.find((item) => item.id === id)?.price ?? 0), 0);
   const netWorth = cash + bankDeposit + bankSavings + stockAssetValue + estateAssetValue + businessAssetValue + itemAssetValue - bankLoan - unpaidTax;
+  const visibleCareerQuests = getVisibleCareerQuests(careerBuildingId);
+  const selectedCareerQuest = visibleCareerQuests.find((quest) => quest.id === selectedCareerQuestId) ?? visibleCareerQuests[0] ?? null;
+  const selectedQuestCareer = selectedCareerQuest ? occupationInfo[selectedCareerQuest.targetId] : null;
   const savingsCapRemaining = Math.max(0, BANK_SAVINGS_CAP - bankSavings);
   const savingsCapProgress = Math.min(100, Math.floor((bankSavings / BANK_SAVINGS_CAP) * 100));
   const conditionUnlockedTitles = useMemo(
@@ -11706,6 +11706,7 @@ const rpgQuestListButtonStyle: CSSProperties = {
   fontWeight: 900,
   cursor: "pointer",
 };
+
 
 
 
