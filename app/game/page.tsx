@@ -8144,10 +8144,6 @@ function getTaxRate(cash: number) {
   return 0.2;
 }
 
-function calculateTax(cash: number, unpaidTax: number) {
-  return Math.floor(cash * getTaxRate(cash)) + unpaidTax;
-}
-
 function getStockRemainingMs(updatedAt: Date) {
   const nextUpdateAt = updatedAt.getTime() + STOCK_INTERVAL_MS;
   return Math.max(0, nextUpdateAt - Date.now());
@@ -11375,6 +11371,7 @@ const careerNpcPanelStyle: CSSProperties = {
   color: "#111827",
   boxShadow: "0 8px 0 rgba(17,24,39,0.10)",
 };
+
 
 
 
