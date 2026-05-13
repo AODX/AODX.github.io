@@ -9314,21 +9314,6 @@ const roomPreviewStyle: CSSProperties = {
 
 
 
-const careerCardStyle: CSSProperties = {
-  minWidth: 0,
-  minHeight: "320px",
-  borderRadius: "18px",
-  padding: "16px",
-  background: "#ffffff",
-  color: "#111827",
-  textAlign: "left",
-  cursor: "pointer",
-  overflow: "auto",
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "flex-start",
-  boxShadow: "5px 5px 0 rgba(17,24,39,0.16)",
-};
 
 
 
@@ -10295,61 +10280,13 @@ const careerOfficeStyle: CSSProperties = {
   color: "#0f172a",
 };
 
-const careerCardGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-  gap: "14px",
-  overflowY: "auto",
-  paddingRight: "8px",
-};
-
-const careerTopLineStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "10px",
-};
-
-const careerGradeStyle: CSSProperties = {
-  color: "#2563eb",
-  fontWeight: 900,
-  letterSpacing: "0.08em",
-  fontSize: "13px",
-};
-
-const careerNameStyle: CSSProperties = {
-  margin: "8px 0 6px",
-  fontSize: "25px",
-  fontWeight: 900,
-  color: "#0f172a",
-};
-
-const careerDescStyle: CSSProperties = {
-  margin: "0 0 10px",
-  color: "#334155",
-  fontWeight: 800,
-  lineHeight: 1.35,
-};
 
 
-const careerConditionStyle: CSSProperties = {
-  margin: "5px 0",
-  color: "#475569",
-  fontWeight: 800,
-  fontSize: "14px",
-};
 
-const careerButtonLikeStyle: CSSProperties = {
-  marginTop: "12px",
-  border: "3px solid #111827",
-  borderRadius: "14px",
-  background: "#fef3c7",
-  color: "#111827",
-  padding: "11px",
-  fontWeight: 900,
-  fontSize: "16px",
-  textAlign: "center",
-};
+
+
+
+
 
 const careerSequencePanelStyle: CSSProperties = {
   background: "#f8fafc",
@@ -11643,33 +11580,8 @@ const careerNpcPanelStyle: CSSProperties = {
   boxShadow: "0 8px 0 rgba(17,24,39,0.10)",
 };
 
-const careerQuestCardStyle: CSSProperties = {
-  ...careerCardStyle,
-  background: "linear-gradient(180deg, #ffffff 0%, #fff7ed 100%)",
-  alignContent: "start",
-};
 
-const careerNpcNameStyle: CSSProperties = {
-  display: "inline-flex",
-  width: "fit-content",
-  border: "2px solid #111827",
-  borderRadius: "999px",
-  padding: "5px 10px",
-  background: "#fef3c7",
-  color: "#111827",
-  fontSize: "13px",
-  fontWeight: 900,
-};
 
-const careerQuestRewardStyle: CSSProperties = {
-  border: "2px dashed #111827",
-  borderRadius: "14px",
-  padding: "8px 10px",
-  background: "#ecfeff",
-  color: "#0f172a",
-  fontWeight: 900,
-  lineHeight: 1.35,
-};
 
 
 const rpgQuestLayoutStyle: CSSProperties = {
@@ -11804,6 +11716,8 @@ const rpgQuestListButtonStyle: CSSProperties = {
   fontWeight: 900,
   cursor: "pointer",
 };
+
+
 
 
 
