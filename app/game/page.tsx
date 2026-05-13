@@ -2113,7 +2113,6 @@ export default function GamePage() {
   const [occupationLevel, setOccupationLevel] = useState(0);
   const [unlockedOccupations, setUnlockedOccupations] = useState<OccupationId[]>(["unemployed"]);
   const [careerBuildingId, setCareerBuildingId] = useState<CareerBuildingId>("company");
-  const [selectedCareerQuestId, setSelectedCareerQuestId] = useState<string | null>(null);
   const [careerMiniGame, setCareerMiniGame] = useState<Occupation | null>(null);
   const [careerMiniGameScore, setCareerMiniGameScore] = useState(0);
   const [careerMiniGameStep, setCareerMiniGameStep] = useState(0);
@@ -2282,9 +2281,8 @@ export default function GamePage() {
   );
   const itemAssetValue = ownedItems.reduce((sum, id) => sum + (shopItems.find((item) => item.id === id)?.price ?? 0), 0);
   const netWorth = cash + bankDeposit + bankSavings + stockAssetValue + estateAssetValue + businessAssetValue + itemAssetValue - bankLoan - unpaidTax;
-  const visibleCareerQuests = getVisibleCareerQuests(careerBuildingId);
-  const selectedCareerQuest = visibleCareerQuests.find((quest) => quest.id === selectedCareerQuestId) ?? visibleCareerQuests[0] ?? null;
-  const selectedQuestCareer = selectedCareerQuest ? occupationInfo[selectedCareerQuest.targetId] : null;
+  const currentCareerQuest = getCurrentCareerQuest(careerBuildingId);
+  const currentQuestCareer = currentCareerQuest ? occupationInfo[currentCareerQuest.targetId] : null;
   const savingsCapRemaining = Math.max(0, BANK_SAVINGS_CAP - bankSavings);
   const savingsCapProgress = Math.min(100, Math.floor((bankSavings / BANK_SAVINGS_CAP) * 100));
   const conditionUnlockedTitles = useMemo(
@@ -2315,13 +2313,6 @@ export default function GamePage() {
     }
   }, [conditionUnlockedTitles, earnedTitleIds, nickname, userId]);
 
-  useEffect(() => {
-    const quests = careerQuestBoards[careerBuildingId].filter((quest) => !quest.hidden || isHiddenCareerVisible(quest.targetId));
-    setSelectedCareerQuestId((current) => {
-      if (current && quests.some((quest) => quest.id === current)) return current;
-      return quests[0]?.id ?? null;
-    });
-  }, [careerBuildingId, unlockedOccupations, cash, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, bankDeposit, stockAssetValue]);
 
   useEffect(() => {
     async function loadSave() {
@@ -3783,8 +3774,18 @@ export default function GamePage() {
     return true;
   }
 
-  function getVisibleCareerQuests(buildingId: CareerBuildingId) {
-    return careerQuestBoards[buildingId].filter((quest) => !quest.hidden || isHiddenCareerVisible(quest.targetId));
+  function getCurrentCareerQuest(buildingId: CareerBuildingId) {
+    const quests = careerQuestBoards[buildingId].filter((quest) => !quest.hidden || isHiddenCareerVisible(quest.targetId));
+    if (quests.length === 0) return null;
+
+    const chainQuest = quests.find((quest) => {
+      const career = occupationInfo[quest.targetId];
+      return occupationId !== "unemployed" && career.requiredPrevious === occupationId;
+    });
+    if (chainQuest) return chainQuest;
+
+    const unfinishedQuest = quests.find((quest) => !unlockedOccupations.includes(quest.targetId));
+    return unfinishedQuest ?? quests[quests.length - 1];
   }
 
   function getBankAmount() {
@@ -4284,8 +4285,6 @@ export default function GamePage() {
     }
 
     setCareerBuildingId(buildingId);
-    const quests = careerQuestBoards[buildingId].filter((quest) => !quest.hidden || isHiddenCareerVisible(quest.targetId));
-    setSelectedCareerQuestId(quests[0]?.id ?? null);
     setLobbyView("career");
   }
 
@@ -4374,13 +4373,14 @@ export default function GamePage() {
   function challengeOccupation(nextOccupationId: OccupationId) {
     const nextOccupation = occupationInfo[nextOccupationId];
 
-    if (occupationId !== "unemployed" && occupationId !== nextOccupationId) {
-      setMessage(`현재 ${occupationInfo[occupationId].name} 직업을 가진 상태입니다. 새 직업을 얻으려면 먼저 현재 직업을 포기해야 합니다.`);
+    if (occupationId === nextOccupationId) {
+      setMessage(`이미 ${nextOccupation.icon} ${nextOccupation.name} 직업을 가지고 있습니다.`);
       return;
     }
 
-    if (unlockedOccupations.includes(nextOccupationId) && occupationId === nextOccupationId) {
-      setMessage(`이미 ${nextOccupation.icon} ${nextOccupation.name} 직업을 가지고 있습니다.`);
+    const isSequentialPromotion = occupationId !== "unemployed" && nextOccupation.requiredPrevious === occupationId;
+    if (occupationId !== "unemployed" && !isSequentialPromotion) {
+      setMessage(`현재 ${occupationInfo[occupationId].name} 직업을 가진 상태입니다. 다른 계열 직업을 얻으려면 먼저 현재 직업을 포기해야 합니다.`);
       return;
     }
 
@@ -4741,7 +4741,7 @@ export default function GamePage() {
               : defaultNicknameColorTheme.id),
           cash: rankingMode === "collection" ? discoveredCount : Math.max(0, Math.floor(calculateRankingNetWorth(profile))),
           hasSave: !!save,
-          job: profile.id === userId ? occupationInfo[occupationId].name : occupationInfo[profileOccupationId].name,
+          job: profile.id === userId ? occupationInfo[occupationId].name : occupationInfo.unemployed.name,
           titleName: profileTitle.name,
           titleIcon: profileTitle.icon,
           isMe: profile.id === userId,
@@ -5467,7 +5467,7 @@ export default function GamePage() {
                   <div style={smallLabelStyle}>CAREER OFFICE</div>
                   <h2 className="alba-panel-title" style={panelTitleStyle}>{getCareerBuildingName(careerBuildingId)}</h2>
                   <p style={panelDescStyle}>
-                    RPG처럼 NPC에게 말을 걸어 전직 퀘스트를 받고, 완료하면 직업을 딱 하나 획득합니다. 현재 직업: {occupation.icon} {occupation.name} · 직업 수입까지 {formatTime(careerIncomeCountdown)}
+                    NPC에게 말을 걸어 하나의 전직 퀘스트를 받고 순서대로 진행합니다. 현재 직업: {occupation.icon} {occupation.name} · 직업 수입까지 {formatTime(careerIncomeCountdown)}
                   </p>
                 </div>
                 <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
@@ -5488,64 +5488,53 @@ export default function GamePage() {
                 </aside>
 
                 <section style={rpgDialoguePanelStyle}>
-                  {selectedCareerQuest && selectedQuestCareer ? (
+                  {currentCareerQuest && currentQuestCareer ? (
                     <>
-                      <div style={rpgDialogueNameStyle}>{selectedCareerQuest.npc}</div>
+                      <div style={rpgDialogueNameStyle}>{currentCareerQuest.npc}</div>
                       <div style={rpgDialogueBubbleStyle}>
-                        <p style={rpgDialogueTextStyle}>{selectedCareerQuest.story}</p>
-                        <p style={rpgDialogueTextStyle}>“{selectedCareerQuest.request}”</p>
-                        {occupationId !== "unemployed" && occupationId !== selectedCareerQuest.targetId && (
-                          <p style={rpgWarningTextStyle}>이미 직업을 가지고 있습니다. 새 직업 퀘스트를 받으려면 먼저 현재 직업을 포기해야 합니다.</p>
+                        <p style={rpgDialogueTextStyle}>{currentCareerQuest.story}</p>
+                        <p style={rpgDialogueTextStyle}>“{currentCareerQuest.request}”</p>
+                        {occupationId !== "unemployed" && currentQuestCareer.requiredPrevious !== occupationId && occupationId !== currentCareerQuest.targetId && (
+                          <p style={rpgWarningTextStyle}>다른 계열로 전직하려면 먼저 현재 직업을 포기해야 합니다.</p>
                         )}
                       </div>
 
                       <div style={rpgQuestDetailGridStyle}>
                         <div style={rpgQuestDetailCardStyle}>
-                          <span>퀘스트 보상</span>
-                          <strong>{selectedQuestCareer.icon} {selectedQuestCareer.name}</strong>
-                          <small>{selectedQuestCareer.salaryText}</small>
+                          <span>이번 퀘스트</span>
+                          <strong>{currentCareerQuest.title}</strong>
+                        </div>
+                        <div style={rpgQuestDetailCardStyle}>
+                          <span>보상 직업</span>
+                          <strong>{currentQuestCareer.icon} {currentQuestCareer.name}</strong>
+                          <small>{currentQuestCareer.salaryText}</small>
                         </div>
                         <div style={rpgQuestDetailCardStyle}>
                           <span>성공</span>
-                          <strong>{selectedCareerQuest.successText}</strong>
+                          <strong>{currentCareerQuest.successText}</strong>
                         </div>
                         <div style={rpgQuestDetailCardStyle}>
                           <span>실패</span>
-                          <strong>{selectedCareerQuest.failText}</strong>
+                          <strong>{currentCareerQuest.failText}</strong>
                         </div>
                         <div style={rpgQuestDetailCardStyle}>
                           <span>미니게임</span>
-                          <strong>{selectedQuestCareer.minigameName}</strong>
-                          <small>난이도 {selectedQuestCareer.minigameDifficulty}</small>
+                          <strong>{currentQuestCareer.minigameName}</strong>
+                          <small>난이도 {currentQuestCareer.minigameDifficulty}</small>
                         </div>
                       </div>
 
                       <div style={rpgDialogueButtonRowStyle}>
-                        <button onClick={() => challengeOccupation(selectedCareerQuest.targetId)} disabled={occupationId !== "unemployed" && occupationId !== selectedCareerQuest.targetId} style={{ ...casinoPrimaryButtonStyle, opacity: occupationId !== "unemployed" && occupationId !== selectedCareerQuest.targetId ? 0.48 : 1 }}>
-                          {occupationId === selectedCareerQuest.targetId ? "이미 가진 직업" : canChallengeOccupation(selectedCareerQuest.targetId) ? "퀘스트 수락" : "조건 확인"}
+                        <button onClick={() => challengeOccupation(currentCareerQuest.targetId)} disabled={occupationId !== "unemployed" && currentQuestCareer.requiredPrevious !== occupationId && occupationId !== currentCareerQuest.targetId} style={{ ...casinoPrimaryButtonStyle, opacity: occupationId !== "unemployed" && currentQuestCareer.requiredPrevious !== occupationId && occupationId !== currentCareerQuest.targetId ? 0.48 : 1 }}>
+                          {occupationId === currentCareerQuest.targetId ? "이미 가진 직업" : canChallengeOccupation(currentCareerQuest.targetId) ? "퀘스트 수락" : "조건 확인"}
                         </button>
-                        <button onClick={() => setMessage(`${selectedCareerQuest.npc}: ${selectedCareerQuest.request}`)} style={casinoSmallButtonStyle}>다시 듣기</button>
+                        <button onClick={() => setMessage(`${currentCareerQuest.npc}: ${currentCareerQuest.request}`)} style={casinoSmallButtonStyle}>다시 듣기</button>
                       </div>
                     </>
                   ) : (
-                    <div style={rpgDialogueBubbleStyle}>아직 이 건물에서 받을 수 있는 퀘스트가 없습니다. 알바 성공 횟수나 자산 조건을 더 달성해보세요.</div>
+                    <div style={rpgDialogueBubbleStyle}>아직 이 NPC에게서 받을 수 있는 퀘스트가 없습니다. 알바 성공 횟수나 자산 조건을 더 달성해보세요.</div>
                   )}
                 </section>
-
-                <aside style={rpgQuestListStyle}>
-                  <strong>대화 가능한 퀘스트</strong>
-                  {visibleCareerQuests.map((quest) => {
-                    const questCareer = occupationInfo[quest.targetId];
-                    const active = selectedCareerQuest?.id === quest.id;
-                    return (
-                      <button key={quest.id} onClick={() => setSelectedCareerQuestId(quest.id)} style={{ ...rpgQuestListButtonStyle, borderColor: active ? "#2563eb" : "#111827", background: active ? "#dbeafe" : "#ffffff" }}>
-                        <span>{quest.hidden ? "✨ 히든" : "💬 대화"}</span>
-                        <strong>{quest.title}</strong>
-                        <small>{questCareer.icon} {questCareer.name}</small>
-                      </button>
-                    );
-                  })}
-                </aside>
               </div>
             </div>
           )}
@@ -11576,7 +11565,7 @@ const luxuryPriceStyle: CSSProperties = {
 
 const rpgQuestLayoutStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "260px minmax(0, 1fr) 260px",
+  gridTemplateColumns: "280px minmax(0, 1fr)",
   gap: "14px",
   alignItems: "stretch",
 };
@@ -11682,30 +11671,7 @@ const rpgDialogueButtonRowStyle: CSSProperties = {
   gap: "10px",
 };
 
-const rpgQuestListStyle: CSSProperties = {
-  border: "4px solid #111827",
-  borderRadius: "22px",
-  background: "#ffffff",
-  padding: "12px",
-  display: "grid",
-  gap: "10px",
-  alignContent: "start",
-  maxHeight: "620px",
-  overflowY: "auto",
-};
 
-const rpgQuestListButtonStyle: CSSProperties = {
-  border: "3px solid #111827",
-  borderRadius: "16px",
-  background: "#ffffff",
-  padding: "10px",
-  display: "grid",
-  gap: "4px",
-  textAlign: "left",
-  color: "#111827",
-  fontWeight: 900,
-  cursor: "pointer",
-};
 
 
 
