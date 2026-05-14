@@ -2549,6 +2549,10 @@ function ResponsiveGameStyles() {
           min-height: 0 !important;
         }
 
+        .alba-bank-summary-grid {
+          grid-template-columns: 1fr !important;
+        }
+
         .alba-luxury-grid {
           grid-template-columns: 1fr !important;
         }
@@ -3326,23 +3330,18 @@ export default function GamePage() {
       }
 
       const careerResetDone = window.localStorage.getItem(`alba-money-career-reset-${currentUserId}`) === CAREER_RESET_VERSION;
-      const shouldForceCareerReset = !careerResetDone;
-      if (shouldForceCareerReset) {
-        setOccupationId("unemployed");
-        setOccupationLevel(0);
-        setUnlockedOccupations(["unemployed"]);
-        window.localStorage.setItem(`alba-money-occupation-${currentUserId}`, "unemployed");
-        window.localStorage.setItem(`alba-money-unlocked-occupations-${currentUserId}`, JSON.stringify(["unemployed"]));
+      const shouldForceCareerReset = false;
+      if (!careerResetDone) {
+        // 새 전직 시스템 도입 후에도 기존/획득 직업을 지우지 않습니다. 버전 플래그만 기록합니다.
         window.localStorage.setItem(`alba-money-career-reset-${currentUserId}`, CAREER_RESET_VERSION);
-        void saveProfilePatch({ occupation_id: "unemployed", occupation_level: 0, unlocked_occupations: ["unemployed"] });
-      } else {
-        if (savedOccupationId && savedOccupationId in occupationInfo) {
-          setOccupationId(savedOccupationId);
-        }
+      }
 
-        if (savedUnlocked) {
-          setUnlockedOccupations(normalizeUnlockedOccupations(safeParseOccupationList(savedUnlocked)));
-        }
+      if (savedOccupationId && savedOccupationId in occupationInfo) {
+        setOccupationId(savedOccupationId);
+      }
+
+      if (savedUnlocked) {
+        setUnlockedOccupations(normalizeUnlockedOccupations(safeParseOccupationList(savedUnlocked)));
       }
 
       if (savedTitle && playerTitles.some((title) => title.id === savedTitle)) {
@@ -6514,7 +6513,6 @@ export default function GamePage() {
             <StatusPill label="세율" value={`${(taxRate * 100).toFixed(0)}%`} />
             <StatusPill label="다음 세금" value={`${nextTax.toLocaleString()}원`} />
             <StatusPill label="미납" value={`${unpaidTax.toLocaleString()}원`} />
-            <StatusPill label="저장" value={getCompactSaveMessage(isSaving, saveMessage)} warning={saveMessage.includes("실패")} />
           </div>
         </header>
 
@@ -7066,17 +7064,17 @@ export default function GamePage() {
                 <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
 
-              <div style={economySummaryGridStyle}>
-                <StatusPill label="현금" value={`${cash.toLocaleString()}원`} />
-                <StatusPill label="예금" value={`${bankDeposit.toLocaleString()}원`} />
-                <StatusPill label="예금 수익" value={`원금 ${bankDepositPrincipal.toLocaleString()}원 · +${Math.max(0, bankDeposit - bankDepositPrincipal).toLocaleString()}원 (${getReturnRate(bankDeposit, bankDepositPrincipal)})`} />
-                <StatusPill label="적금" value={`${bankSavings.toLocaleString()}원`} />
-                <StatusPill label="적금 한도" value={`${savingsCapProgress}% · 남은 ${savingsCapRemaining.toLocaleString()}원`} warning={savingsCapRemaining <= 0} />
-                <StatusPill label="적금 수익" value={`원금 ${bankSavingsPrincipal.toLocaleString()}원 · +${Math.max(0, bankSavings - bankSavingsPrincipal).toLocaleString()}원 (${getReturnRate(bankSavings, bankSavingsPrincipal)})`} />
-                <StatusPill label="대출" value={`${bankLoan.toLocaleString()}원`} warning={bankLoan > 0} />
-                <StatusPill label="신용점수" value={`${creditScore}점`} warning={creditScore < 600} />
-                <StatusPill label="대출한도" value={`${getLoanLimit(creditScore, netWorth).toLocaleString()}원`} />
-                <StatusPill label="순자산" value={`${netWorth.toLocaleString()}원`} warning={netWorth < 0} />
+              <div className="alba-bank-summary-grid" style={economySummaryGridStyle}>
+                <BankStatusPill label="현금" value={`${cash.toLocaleString()}원`} />
+                <BankStatusPill label="예금" value={`${bankDeposit.toLocaleString()}원`} />
+                <BankStatusPill label="예금 수익" value={`원금 ${bankDepositPrincipal.toLocaleString()}원 · +${Math.max(0, bankDeposit - bankDepositPrincipal).toLocaleString()}원 (${getReturnRate(bankDeposit, bankDepositPrincipal)})`} />
+                <BankStatusPill label="적금" value={`${bankSavings.toLocaleString()}원`} />
+                <BankStatusPill label="적금 한도" value={`${savingsCapProgress}% · 남은 ${savingsCapRemaining.toLocaleString()}원`} warning={savingsCapRemaining <= 0} />
+                <BankStatusPill label="적금 수익" value={`원금 ${bankSavingsPrincipal.toLocaleString()}원 · +${Math.max(0, bankSavings - bankSavingsPrincipal).toLocaleString()}원 (${getReturnRate(bankSavings, bankSavingsPrincipal)})`} />
+                <BankStatusPill label="대출" value={`${bankLoan.toLocaleString()}원`} warning={bankLoan > 0} />
+                <BankStatusPill label="신용점수" value={`${creditScore}점`} warning={creditScore < 600} />
+                <BankStatusPill label="대출한도" value={`${getLoanLimit(creditScore, netWorth).toLocaleString()}원`} />
+                <BankStatusPill label="순자산" value={`${netWorth.toLocaleString()}원`} warning={netWorth < 0} />
               </div>
 
               <div style={economyActionPanelStyle}>
@@ -9909,6 +9907,15 @@ function StatusPill({ label, value, warning = false }: { label: string; value: s
   );
 }
 
+function BankStatusPill({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) {
+  return (
+    <div style={{ ...bankStatusPillStyle, borderColor: warning ? "#f97316" : "#111827", color: warning ? "#9a3412" : "#111827" }}>
+      <span style={{ ...statusLabelStyle, color: warning ? "#c2410c" : "#64748b" }}>{label}</span>
+      <strong style={{ color: warning ? "#9a3412" : "#111827", fontSize: "18px", lineHeight: 1.2, whiteSpace: "normal", overflowWrap: "anywhere" }}>{value}</strong>
+    </div>
+  );
+}
+
 
 function getCashierKeyVisualStyle(index: number, currentIndex: number): CSSProperties {
   if (index < currentIndex) {
@@ -10890,13 +10897,14 @@ const roomPreviewStyle: CSSProperties = {
 
 const economySummaryGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: "10px",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gap: "12px",
+  alignItems: "stretch",
 };
 
 const economyActionPanelStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gridTemplateColumns: "minmax(220px, 1fr)",
   gap: "12px",
   alignItems: "end",
   background: "#ffffff",
@@ -10911,6 +10919,7 @@ const economyButtonRowStyle: CSSProperties = {
   gap: "8px",
   flexWrap: "wrap",
   alignItems: "center",
+  minWidth: 0,
 };
 
 const economyCardGridStyle: CSSProperties = {
@@ -11174,9 +11183,9 @@ const mainTitleStyle: CSSProperties = {
 
 const moneyPanelStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(6, minmax(124px, 1fr))",
+  gridTemplateColumns: "repeat(4, minmax(132px, 1fr))",
   gap: "8px",
-  maxWidth: "820px",
+  maxWidth: "720px",
   overflow: "visible",
 };
 
@@ -11196,6 +11205,23 @@ const statusPillStyle: CSSProperties = {
   color: "#111827",
   boxShadow: "3px 3px 0 rgba(17,24,39,0.95)",
   overflow: "hidden",
+};
+
+const bankStatusPillStyle: CSSProperties = {
+  background: "#ffffff",
+  border: "3px solid #111827",
+  borderRadius: "16px",
+  padding: "12px 14px",
+  minHeight: "82px",
+  width: "100%",
+  minWidth: 0,
+  display: "grid",
+  alignContent: "center",
+  gap: "4px",
+  fontSize: "16px",
+  color: "#111827",
+  boxShadow: "3px 3px 0 rgba(17,24,39,0.95)",
+  overflow: "visible",
 };
 
 const statusLabelStyle: CSSProperties = {
@@ -13556,8 +13582,6 @@ const newspaperBodyStyle: CSSProperties = {
   lineHeight: 1.6,
   fontWeight: 800,
 };
-
-
 
 
 
