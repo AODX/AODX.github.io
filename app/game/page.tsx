@@ -452,6 +452,7 @@ const STOCK_INTERVAL_MS = 3 * 60 * 1000;
 const SLOT_SYMBOLS = ["7", "🍒", "💎", "🍀", "⭐", "🍋"];
 const TAX_INTERVAL_SECONDS = 420;
 const TAX_WARNING_SECONDS = 60;
+const CHAT_RETENTION_MS = 30 * 60 * 1000;
 
 const PAY = {
   sorting: 320,
@@ -3021,6 +3022,7 @@ export default function GamePage() {
   const [rankingUpdatedAt, setRankingUpdatedAt] = useState(new Date());
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessageRow[]>([]);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const [chatInput, setChatInput] = useState("");
   const [stockRows, setStockRows] = useState<StockRow[]>([]);
   const [stockUpdatedAt, setStockUpdatedAt] = useState(new Date());
@@ -3106,6 +3108,7 @@ export default function GamePage() {
   const slotSpinIntervalRef = useRef<number | null>(null);
   const previousCashForStatsRef = useRef<number | null>(null);
   const globalStockSyncingRef = useRef(false);
+  const chatListRef = useRef<HTMLDivElement | null>(null);
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs[0], [selectedJobId]);
   const activeJob = useMemo(() => (activeJobId ? jobs.find((job) => job.id === activeJobId) ?? null : null), [activeJobId]);
   const occupation = occupationInfo[occupationId];
@@ -3232,7 +3235,7 @@ export default function GamePage() {
 
       const { data, error } = await supabase
         .from("game_saves")
-        .select("cash, warning_count, unpaid_tax, sorting_success_total, delivery_success_total, cashier_success_total, cafe_success_total, security_success_total")
+        .select("cash, warning_count, unpaid_tax, tax_countdown, sorting_success_total, delivery_success_total, cashier_success_total, cafe_success_total, security_success_total")
         .eq("user_id", user.id)
         .maybeSingle<SaveRow>();
 
@@ -3269,6 +3272,8 @@ export default function GamePage() {
         setCash(10000);
         setWarningCount(0);
         setUnpaidTax(0);
+        setTaxCountdown(TAX_INTERVAL_SECONDS);
+        window.localStorage.setItem(`alba-money-tax-countdown-${user.id}`, String(TAX_INTERVAL_SECONDS));
         setIsSaveLoaded(true);
         return;
       }
@@ -3276,6 +3281,8 @@ export default function GamePage() {
       setCash(Number(data.cash));
       setWarningCount(0);
       setUnpaidTax(Number(data.unpaid_tax));
+      const loadedTaxCountdown = Number(data.tax_countdown ?? window.localStorage.getItem(`alba-money-tax-countdown-${user.id}`) ?? TAX_INTERVAL_SECONDS);
+      setTaxCountdown(Number.isFinite(loadedTaxCountdown) ? Math.max(1, Math.min(TAX_INTERVAL_SECONDS, Math.floor(loadedTaxCountdown))) : TAX_INTERVAL_SECONDS);
       setSortingSuccessTotal(Number(data.sorting_success_total ?? 0));
       setDeliverySuccessTotal(Number(data.delivery_success_total ?? 0));
       setCashierSuccessTotal(Number(data.cashier_success_total ?? 0));
@@ -3494,9 +3501,18 @@ export default function GamePage() {
       if (parsed.inventorySortMode && ["favorite", "rarity", "priceDesc", "priceAsc", "name", "count"].includes(parsed.inventorySortMode)) setInventorySortMode(parsed.inventorySortMode);
       if (typeof parsed.shopLevel === "number") setShopLevel(parsed.shopLevel);
       if (typeof parsed.shopPurchaseCount === "number") setShopPurchaseCount(parsed.shopPurchaseCount);
-      if (Array.isArray(parsed.shopOffers) && parsed.shopOffers.length > 0) setShopOffers(parsed.shopOffers);
-      if (parsed.shopUpdatedAt) setShopUpdatedAt(new Date(parsed.shopUpdatedAt));
-      if (Array.isArray(parsed.shopSoldOfferKeys)) setShopSoldOfferKeys(parsed.shopSoldOfferKeys.filter((key): key is string => typeof key === "string"));
+      const localGachaPullCount = Number(window.localStorage.getItem(`alba-money-gacha-pull-count-${userId}`) ?? NaN);
+      const localShopUpdatedAt = window.localStorage.getItem(`alba-money-shop-updated-at-${userId}`);
+      const localShopOffers = safeJsonParse<ShopItem[]>(window.localStorage.getItem(`alba-money-shop-offers-${userId}`) ?? "", []);
+      const localSoldOfferKeys = safeJsonParse<string[]>(window.localStorage.getItem(`alba-money-shop-sold-offers-${userId}`) ?? "", []);
+      if (Array.isArray(localShopOffers) && localShopOffers.length > 0) setShopOffers(localShopOffers);
+      else if (Array.isArray(parsed.shopOffers) && parsed.shopOffers.length > 0) setShopOffers(parsed.shopOffers);
+      if (localShopUpdatedAt) setShopUpdatedAt(new Date(localShopUpdatedAt));
+      else if (parsed.shopUpdatedAt) setShopUpdatedAt(new Date(parsed.shopUpdatedAt));
+      if (Array.isArray(localSoldOfferKeys) && localSoldOfferKeys.length > 0) setShopSoldOfferKeys(localSoldOfferKeys.filter((key): key is string => typeof key === "string"));
+      else if (Array.isArray(parsed.shopSoldOfferKeys)) setShopSoldOfferKeys(parsed.shopSoldOfferKeys.filter((key): key is string => typeof key === "string"));
+      if (Number.isFinite(localGachaPullCount)) setGachaMachinePullCount(Math.max(0, Math.floor(localGachaPullCount)));
+      else if (typeof parsed.gachaMachinePullCount === "number") setGachaMachinePullCount(parsed.gachaMachinePullCount);
       if (typeof parsed.totalIncome === "number") setTotalIncome(parsed.totalIncome);
       if (typeof parsed.totalExpense === "number") setTotalExpense(parsed.totalExpense);
       if (Array.isArray(parsed.financeHistory)) setFinanceHistory(parsed.financeHistory.slice(-18));
@@ -3509,13 +3525,18 @@ export default function GamePage() {
       if (Array.isArray(parsed.ownedMainCharacters)) setOwnedMainCharacters(parsed.ownedMainCharacters.filter((id): id is MainCharacterId => luxuryMainCharacters.some((item) => item.id === id)));
       if (typeof parsed.selectedMainCharacterId === "string" && (parsed.selectedMainCharacterId === defaultMainCharacter.id || luxuryMainCharacters.some((item) => item.id === parsed.selectedMainCharacterId))) setSelectedMainCharacterId(parsed.selectedMainCharacterId);
       if (Array.isArray(parsed.lottoTickets)) setLottoTickets(parsed.lottoTickets.filter(isValidLottoTicket).slice(-12));
-      const storedLottoDate = typeof parsed.lottoPurchaseDate === "string" ? parsed.lottoPurchaseDate : getTodayKey();
+      const localLottoDate = window.localStorage.getItem(`alba-money-lotto-date-${userId}`);
+      const localLottoCount = Number(window.localStorage.getItem(`alba-money-lotto-count-${userId}`) ?? NaN);
+      const storedLottoDate = typeof localLottoDate === "string" && localLottoDate ? localLottoDate : typeof parsed.lottoPurchaseDate === "string" ? parsed.lottoPurchaseDate : getTodayKey();
+      const storedLottoCount = Number.isFinite(localLottoCount) ? localLottoCount : Number(parsed.lottoPurchaseCount ?? 0);
       if (storedLottoDate === getTodayKey()) {
         setLottoPurchaseDate(storedLottoDate);
-        setLottoPurchaseCount(Number(parsed.lottoPurchaseCount ?? 0));
+        setLottoPurchaseCount(Math.max(0, Math.min(3, Math.floor(storedLottoCount))));
       } else {
         setLottoPurchaseDate(getTodayKey());
         setLottoPurchaseCount(0);
+        window.localStorage.setItem(`alba-money-lotto-date-${userId}`, getTodayKey());
+        window.localStorage.setItem(`alba-money-lotto-count-${userId}`, "0");
       }
       if (parsed.economyUpdatedAt) setEconomyUpdatedAt(new Date(parsed.economyUpdatedAt));
     } catch (error) {
@@ -3525,6 +3546,22 @@ export default function GamePage() {
     }
     });
   }, [userId]);
+
+  useEffect(() => {
+    if (!userId || !isEconomyLoaded) return;
+
+    const syncLottoDay = () => {
+      const today = getTodayKey();
+      if (lottoPurchaseDate !== today) {
+        setLottoPurchaseDate(today);
+        setLottoPurchaseCount(0);
+      }
+    };
+
+    syncLottoDay();
+    const timer = window.setInterval(syncLottoDay, 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [userId, isEconomyLoaded, lottoPurchaseDate]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded || !isEconomyLoaded || !isProfileLoaded) return;
@@ -3594,6 +3631,11 @@ export default function GamePage() {
         if (error) console.warn("경제 데이터 Supabase 저장 실패. localStorage에는 저장되었습니다:", error.message);
       });
   }, [userId, isSaveLoaded, isEconomyLoaded, isProfileLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, lastNewsArticleAt, newspaperEvent, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, discoveredItems, equippedItems, favoriteItems, inventorySortMode, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, ownedNicknameColors, selectedNicknameColorId, ownedNicknameTags, selectedNicknameTagId, ownedMainBackgrounds, selectedMainBackgroundId, ownedMainCharacters, selectedMainCharacterId, economyUpdatedAt, earnedTitleIds]);
+
+  useEffect(() => {
+    if (!userId || !isSaveLoaded) return;
+    window.localStorage.setItem(`alba-money-tax-countdown-${userId}`, String(taxCountdown));
+  }, [userId, isSaveLoaded, taxCountdown]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -3694,6 +3736,37 @@ export default function GamePage() {
 
     return () => window.clearInterval(timer);
   }, [isSaveLoaded, isStockLoaded]);
+
+  useEffect(() => {
+    if (!userId || !isSaveLoaded) return;
+
+    void loadGlobalChat(chatOpen);
+
+    const supabase = createClient();
+    const chatChannel = supabase
+      .channel("game-global-chat-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: CHAT_TABLE }, () => {
+        void loadGlobalChat(chatOpen);
+      })
+      .subscribe();
+
+    const timer = window.setInterval(() => {
+      void loadGlobalChat(chatOpen);
+    }, 30 * 1000);
+
+    return () => {
+      window.clearInterval(timer);
+      void supabase.removeChannel(chatChannel);
+    };
+  }, [userId, isSaveLoaded, chatOpen, chatMessages.length]);
+
+  useEffect(() => {
+    if (!chatOpen) return;
+    setChatUnreadCount(0);
+    window.setTimeout(() => {
+      chatListRef.current?.scrollTo({ top: chatListRef.current.scrollHeight, behavior: "smooth" });
+    }, 50);
+  }, [chatOpen, chatMessages.length]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
@@ -3957,6 +4030,7 @@ export default function GamePage() {
           cash,
           warning_count: 0,
           unpaid_tax: unpaidTax,
+          tax_countdown: taxCountdown,
           sorting_success_total: sortingSuccessTotal,
           delivery_success_total: deliverySuccessTotal,
           cashier_success_total: cashierSuccessTotal,
@@ -3982,7 +4056,12 @@ export default function GamePage() {
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [userId, isSaveLoaded, cash, unpaidTax, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems, nickname, roomKind, occupationId, currentTitleId, netWorth]);
+  }, [userId, isSaveLoaded, cash, unpaidTax, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, taxCountdown, ownedCertifications, ownedItems, nickname, roomKind, occupationId, currentTitleId, netWorth]);
+
+  useEffect(() => {
+    if (!userId || !isSaveLoaded) return;
+    window.localStorage.setItem(`alba-money-tax-countdown-${userId}`, String(taxCountdown));
+  }, [userId, isSaveLoaded, taxCountdown]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -4060,6 +4139,14 @@ export default function GamePage() {
 
     return () => window.clearInterval(timer);
   }, [isSaveLoaded, userId, occupationId, jobIncomeMultiplier]);
+
+  useEffect(() => {
+    if (!userId || !isEconomyLoaded) return;
+    window.localStorage.setItem(`alba-money-gacha-pull-count-${userId}`, String(gachaMachinePullCount));
+    window.localStorage.setItem(`alba-money-shop-updated-at-${userId}`, shopUpdatedAt.toISOString());
+    window.localStorage.setItem(`alba-money-shop-offers-${userId}`, JSON.stringify(shopOffers));
+    window.localStorage.setItem(`alba-money-shop-sold-offers-${userId}`, JSON.stringify(shopSoldOfferKeys));
+  }, [userId, isEconomyLoaded, gachaMachinePullCount, shopUpdatedAt, shopOffers, shopSoldOfferKeys]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -5074,6 +5161,10 @@ export default function GamePage() {
     setTotalExpense((expense) => expense + price);
     setLottoPurchaseDate(today);
     setLottoPurchaseCount(currentCount + 1);
+    if (userId) {
+      window.localStorage.setItem(`alba-money-lotto-date-${userId}`, today);
+      window.localStorage.setItem(`alba-money-lotto-count-${userId}`, String(currentCount + 1));
+    }
     setLottoTickets((tickets) => [ticket, ...tickets].slice(0, 12));
     setMessage(`🎫 로또를 구매했습니다. 오늘 ${currentCount + 1}/3회 구매`);
   }
@@ -5635,20 +5726,34 @@ export default function GamePage() {
     }
   }
 
-  async function loadGlobalChat() {
+  async function loadGlobalChat(markRead = chatOpen) {
     const supabase = createClient();
+    const cutoffIso = new Date(Date.now() - CHAT_RETENTION_MS).toISOString();
+
+    await supabase.from(CHAT_TABLE).delete().lt("created_at", cutoffIso);
+
     const { data, error } = await supabase
       .from(CHAT_TABLE)
       .select("id, user_id, nickname, title_name, message, kind, created_at")
-      .order("created_at", { ascending: false })
-      .limit(40);
+      .gte("created_at", cutoffIso)
+      .order("created_at", { ascending: true })
+      .limit(60);
 
     if (error) {
       console.warn("전체 채팅을 불러오지 못했습니다:", error.message);
       return;
     }
 
-    setChatMessages(((data ?? []) as ChatMessageRow[]).reverse());
+    const nextMessages = (data ?? []) as ChatMessageRow[];
+    setChatMessages(nextMessages);
+    if (markRead) setChatUnreadCount(0);
+    else {
+      setChatUnreadCount((count) => {
+        const currentIds = new Set(chatMessages.map((message) => message.id));
+        const newCount = nextMessages.filter((message) => !currentIds.has(message.id) && message.user_id !== userId).length;
+        return Math.min(99, count + newCount);
+      });
+    }
   }
 
   async function sendGlobalChatMessage(messageOverride?: string, kind: "user" | "system" = "user") {
@@ -6391,7 +6496,10 @@ export default function GamePage() {
               />
               <button className="alba-small-action-button" onClick={saveNickname} style={smallActionButtonStyle}>닉네임 변경</button>
               <button className="alba-small-action-button" onClick={() => setLobbyView("titles")} style={smallActionButtonStyle}>칭호</button>
-              <button className="alba-small-action-button" onClick={() => setChatOpen((open) => !open)} style={smallActionButtonStyle}>{chatOpen ? "채팅 끄기" : "채팅 켜기"}</button>
+              <button className="alba-small-action-button" onClick={() => setChatOpen((open) => !open)} style={{ ...smallActionButtonStyle, position: "relative" }}>
+                {chatOpen ? "채팅 끄기" : "채팅 켜기"}
+                {!chatOpen && chatUnreadCount > 0 && <span style={chatUnreadBadgeStyle}>{chatUnreadCount > 9 ? "9+" : chatUnreadCount}</span>}
+              </button>
             </div>
           </div>
 
@@ -7773,7 +7881,7 @@ export default function GamePage() {
             <strong>💬 전체 채팅</strong>
             <button onClick={() => setChatOpen(false)} style={chatCloseButtonStyle}>×</button>
           </div>
-          <div style={chatMessageListStyle}>
+          <div ref={chatListRef} style={chatMessageListStyle}>
             {chatMessages.length === 0 ? (
               <p style={casinoTextStyle}>아직 채팅이 없습니다.</p>
             ) : chatMessages.map((chat) => (
@@ -9503,6 +9611,14 @@ function makeCareerStageSequence(occupation: Occupation, step: number) {
   return Array.from({ length }, (_, index) => keys[(index + Math.floor(Math.random() * keys.length)) % keys.length]);
 }
 
+function shuffleCareerChoices(choices: string[], seed: string) {
+  return [...choices].sort((a, b) => getStableHash(`${seed}-${a}`) - getStableHash(`${seed}-${b}`));
+}
+
+function withShuffledCareerChoices(round: { prompt: string; answer: string; choices: string[] }, seed: string) {
+  return { ...round, choices: shuffleCareerChoices(round.choices, seed) };
+}
+
 function makeCareerDecisionRound(occupation: Occupation, step: number) {
   const mode = getCareerGameMode(occupation);
   const rounds: Record<string, Array<{ prompt: string; answer: string; choices: string[] }>> = {
@@ -9533,7 +9649,8 @@ function makeCareerDecisionRound(occupation: Occupation, step: number) {
     ],
   };
   const list = rounds[mode] ?? rounds.strategyBoard;
-  return list[(step + occupation.minigameDifficulty) % list.length];
+  const roundIndex = (step + occupation.minigameDifficulty) % list.length;
+  return withShuffledCareerChoices(list[roundIndex], `${occupation.id}-${step}-${roundIndex}`);
 }
 
 function makeCareerLogisticsTargets(occupation: Occupation, step: number) {
@@ -9548,7 +9665,8 @@ function makeCareerRoutePlannerRound(occupation: Occupation, step: number) {
     { prompt: "항만에 대형 화물이 몰렸습니다. 먼저 처리할 화물은?", answer: "부패 위험 화물", choices: ["부패 위험 화물", "가벼운 빈 상자", "임의 선택"] },
     { prompt: "전국 배송망 일부가 지연 중입니다. 공급망 조치는?", answer: "허브 분산", choices: ["허브 분산", "모든 물량 집중", "알림 무시"] },
   ];
-  return rounds[(step + occupation.minigameDifficulty) % rounds.length];
+  const roundIndex = (step + occupation.minigameDifficulty) % rounds.length;
+  return withShuffledCareerChoices(rounds[roundIndex], `${occupation.id}-route-${step}-${roundIndex}`);
 }
 
 function makeCareerFinanceRound(occupation: Occupation, step: number) {
@@ -9559,7 +9677,8 @@ function makeCareerFinanceRound(occupation: Occupation, step: number) {
     { prompt: "기관 매수세가 강하고 5일선이 20일선을 돌파했습니다. 단기 판단은?", answer: "매수", choices: ["매수", "매도", "보류"] },
     { prompt: "급등 후 거래량이 줄고 악재 뉴스가 나왔습니다. 적절한 판단은?", answer: "매도", choices: ["매수", "매도", "보류"] },
   ];
-  return rounds[(step + occupation.minigameDifficulty) % rounds.length];
+  const roundIndex = (step + occupation.minigameDifficulty) % rounds.length;
+  return withShuffledCareerChoices(rounds[roundIndex], `${occupation.id}-finance-${step}-${roundIndex}`);
 }
 
 function makeCareerPortfolioRound(occupation: Occupation, step: number) {
@@ -9569,7 +9688,8 @@ function makeCareerPortfolioRound(occupation: Occupation, step: number) {
     { prompt: "스타트업은 유망하지만 아직 매출이 없습니다. 벤처 판단은?", answer: "소액 단계 투자", choices: ["전액 투자", "소액 단계 투자", "검토 없이 거절"] },
     { prompt: "포트폴리오가 한 업종에 치우쳤습니다. 필요한 조치는?", answer: "리밸런싱", choices: ["리밸런싱", "동일 업종 추가", "전부 매도"] },
   ];
-  return rounds[(step + occupation.minigameDifficulty) % rounds.length];
+  const roundIndex = (step + occupation.minigameDifficulty) % rounds.length;
+  return withShuffledCareerChoices(rounds[roundIndex], `${occupation.id}-portfolio-${step}-${roundIndex}`);
 }
 
 function getDocumentIcon(label: string) {
@@ -12804,6 +12924,25 @@ const globalChatHeaderStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   fontWeight: 900,
+};
+
+const chatUnreadBadgeStyle: CSSProperties = {
+  position: "absolute",
+  top: "-9px",
+  right: "-9px",
+  minWidth: "22px",
+  height: "22px",
+  padding: "0 6px",
+  borderRadius: "999px",
+  border: "3px solid #ffffff",
+  background: "#ef4444",
+  color: "#ffffff",
+  display: "inline-grid",
+  placeItems: "center",
+  fontSize: "12px",
+  fontWeight: 900,
+  lineHeight: 1,
+  boxShadow: "0 4px 0 rgba(17,24,39,0.18)",
 };
 
 const chatCloseButtonStyle: CSSProperties = {
