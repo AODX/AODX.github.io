@@ -2344,37 +2344,25 @@ const artifactCatalog: ArtifactItem[] = makeArtifactCatalog();
 function makeArtifactSvgPath(artifact: ArtifactItem) {
   const n = Number(artifact.id.replace(/\D/g, "")) || 1;
   const wobble = artifact.weirdness / 10;
-  const x1 = 30 + (n % 16);
-  const y1 = 28 + (n % 10);
-  const x2 = 76 + ((n * 7) % 26);
-  const y2 = 18 + ((n * 5) % 28);
-  const x3 = 132 + ((n * 3) % 30);
-  const y3 = 28 + ((n * 11) % 28);
-  const x4 = 188 - ((n * 2) % 22);
-  const y4 = 70 + ((n * 13) % 30);
-  const x5 = 138 + ((n * 17) % 30) - wobble;
-  const y5 = 128 - ((n * 19) % 22);
-  const x6 = 54 + ((n * 23) % 36);
-  const y6 = 120 + ((n * 29) % 22);
-
-  if (artifact.rarity === "초월") {
-    return `M ${x1} ${y1} C ${x2} ${y2 - wobble}, ${x2 + 18} ${y2 + 28}, ${x3} ${y3} L ${x3 + 18} ${y3 + 18} C ${x4 + wobble} ${y4 - 26}, ${x4 - 18} ${y4 + 24}, ${x5} ${y5} L ${x5 - 24} ${y5 - 16} C ${x3 - wobble} ${y5 + wobble}, ${x6 + 8} ${y6}, ${x6 - 18} ${y6 - 22} L ${x1 + 12} ${y1 + 34} C ${x1 - 14} ${y1 + 16}, ${x1 + 18} ${y1 - 10}, ${x1} ${y1} Z`;
-  }
-
-  if (artifact.rarity === "신화") {
-    return `M ${x1} ${y1} Q ${x2} ${y2 - wobble} ${x3} ${y3} T ${x4} ${y4} L ${x5} ${y5} Q ${x3 - 24} ${y5 + 18} ${x6} ${y6} L ${x6 - 18} ${y6 - 30} Q ${x2 - 12} ${y2 + 40} ${x1} ${y1} Z`;
-  }
-
-  if (artifact.rarity === "왕실") {
-    return `M ${x1} ${y1} L ${x2} ${y2} L ${x3 - 8} ${y3 + 18} C ${x3} ${y3}, ${x4} ${y4}, ${x5} ${y5} L ${x5 - 30} ${y5 - 4} L ${x6} ${y6} Z`;
-  }
-
-  if (artifact.rarity === "희귀") {
-    return `M ${x1} ${y1} C ${x2} ${y2}, ${x3} ${y3}, ${x4} ${y4} C ${x5} ${y5}, ${x6} ${y6}, ${x1 + 10} ${y1 + 16} Z`;
-  }
-
+  const x1 = 36 + (n % 13);
+  const y1 = 28 + (n % 9);
+  const x2 = 88 + ((n * 7) % 18);
+  const y2 = 18 + ((n * 5) % 22);
+  const x3 = 146 + ((n * 3) % 20);
+  const y3 = 34 + ((n * 11) % 25);
+  const x4 = 184 - ((n * 2) % 18);
+  const y4 = 82 + ((n * 13) % 24);
+  const x5 = 128 + ((n * 17) % 28) - wobble;
+  const y5 = 128 - ((n * 19) % 18);
+  const x6 = 54 + ((n * 23) % 32);
+  const y6 = 118 + ((n * 29) % 20);
+  if (artifact.rarity === "초월") return `M ${x1} ${y1} C ${x2} ${y2}, ${x3} ${y3}, ${x4} ${y4} L ${x5} ${y5} C ${x3 - wobble} ${y5 + wobble}, ${x6} ${y6}, ${x1} ${y1} Z`;
+  if (artifact.rarity === "신화") return `M ${x1} ${y1} Q ${x2} ${y2} ${x3} ${y3} T ${x4} ${y4} L ${x5} ${y5} Q ${x6} ${y6} ${x1} ${y1} Z`;
+  if (artifact.rarity === "왕실") return `M ${x1} ${y1} L ${x2} ${y2} C ${x3} ${y3}, ${x4} ${y4}, ${x5} ${y5} L ${x6} ${y6} Z`;
+  if (artifact.rarity === "희귀") return `M ${x1} ${y1} C ${x2} ${y2}, ${x3} ${y3}, ${x4} ${y4} C ${x5} ${y5}, ${x6} ${y6}, ${x1} ${y1} Z`;
   return `M ${x1} ${y1} L ${x3} ${y3} L ${x4} ${y4} L ${x5} ${y5} L ${x6} ${y6} Z`;
 }
+
 
 function getArtifactById(id: ArtifactId) {
   return artifactCatalog.find((artifact) => artifact.id === id);
@@ -2400,13 +2388,11 @@ function removeArtifactFromInventory(inventory: ArtifactInventoryEntry[], artifa
 
 
 function getExcavationTraceTargetCount(artifact: ArtifactItem) {
-  const rarityBonus: Record<ArtifactRarity, number> = { "흔적": 0, "희귀": 4, "왕실": 8, "신화": 12, "초월": 18 };
-  return Math.max(14, Math.min(46, Math.floor(artifact.weirdness / 4.8) + 12 + rarityBonus[artifact.rarity]));
+  return Math.max(12, Math.min(28, Math.floor(artifact.weirdness / 6) + 10));
 }
 
 function getExcavationTraceTolerance(artifact: ArtifactItem) {
-  const rarityPenalty: Record<ArtifactRarity, number> = { "흔적": 0, "희귀": 2, "왕실": 4, "신화": 6, "초월": 8 };
-  return Math.max(12, 34 - artifact.weirdness / 5.2 - rarityPenalty[artifact.rarity]);
+  return Math.max(18, 36 - artifact.weirdness / 4.5);
 }
 
 function pickExcavationArtifact() {
@@ -6054,9 +6040,13 @@ export default function GamePage() {
         .select("artifact_id, artifact_name, rarity, category, donor_id, donor_name, donated_at")
         .order("donated_at", { ascending: true });
 
-      if (!error && data) nextRows = normalizeMuseumDonations(data);
+      if (error) {
+        setMessage("🏛️ 전역 박물관 동기화 테이블을 찾지 못했습니다. Supabase에 game_museum_donations 테이블을 생성하면 모든 유저가 같은 박물관을 공유합니다.");
+      } else {
+        nextRows = normalizeMuseumDonations(data ?? []);
+      }
     } catch {
-      // 박물관 전용 테이블이 아직 없어도 로컬 박물관은 계속 동작합니다.
+      setMessage("🏛️ 전역 박물관 동기화에 실패했습니다. 임시로 이 기기 기록을 표시합니다.");
     }
 
     setMuseumDonations(nextRows);
@@ -6151,18 +6141,16 @@ export default function GamePage() {
 
     const tolerance = getExcavationTraceTolerance(artifact);
     const currentIndex = Math.min(excavationGame.step, excavationTraceTargets.length - 1);
-    const target = excavationTraceTargets[currentIndex];
-    const distanceToTarget = Math.hypot(point.x - target.x, point.y - target.y);
+    const candidateIndexes = excavationTraceTargets.map((_, index) => index).filter((index) => index >= Math.max(0, currentIndex - 2));
+    const distances = candidateIndexes.map((index) => ({
+      index,
+      distance: Math.hypot(point.x - excavationTraceTargets[index].x, point.y - excavationTraceTargets[index].y),
+    }));
+    const nearest = distances.reduce((best, current) => (current.distance < best.distance ? current : best), distances[0]);
 
-    if (distanceToTarget <= tolerance) {
-      const nextStep = excavationGame.step + 1;
-
+    if (nearest.distance <= tolerance) {
+      const nextStep = Math.max(excavationGame.step + 1, nearest.index + 1);
       if (nextStep >= excavationTraceTargets.length) {
-        if (excavationTracePoints.length < Math.max(8, Math.floor(excavationTraceTargets.length * 0.55))) {
-          setMessage("⛏️ 실루엣을 더 길게 따라 그려야 발굴할 수 있습니다.");
-          return;
-        }
-
         setArtifactInventory((inventory) => addArtifactToInventory(inventory, artifact.id));
         setExcavationGame(null);
         setExcavationTracePoints([]);
@@ -6172,20 +6160,17 @@ export default function GamePage() {
         return;
       }
 
-      setExcavationGame({ ...excavationGame, step: nextStep });
+      if (nextStep !== excavationGame.step) {
+        setExcavationGame({ ...excavationGame, step: nextStep });
+      }
       return;
     }
 
-    const previousIndex = Math.max(0, currentIndex - 1);
-    const previousTarget = excavationTraceTargets[previousIndex];
-    const distanceToPrevious = Math.hypot(point.x - previousTarget.x, point.y - previousTarget.y);
-    const distanceToGuide = Math.min(distanceToTarget, distanceToPrevious);
-
-    if (distanceToGuide > tolerance * 1.75 && excavationTracePoints.length > 3) {
+    if (nearest.distance > tolerance * 2.5 && excavationTracePoints.length > 4) {
       const now = Date.now();
-      if (now - excavationPenaltyCooldownRef.current > 320) {
+      if (now - excavationPenaltyCooldownRef.current > 5500) {
         excavationPenaltyCooldownRef.current = now;
-        applyExcavationCrack(artifact, "⚠️ 실루엣에서 많이 벗어났습니다. 표면에 금이 갔습니다.");
+        applyExcavationCrack(artifact, "⚠️ 실루엣에서 많이 벗어났습니다. 균열이 생겼지만 5.5초 동안 추가 균열은 발생하지 않습니다.");
       }
     }
   }
@@ -6246,20 +6231,30 @@ export default function GamePage() {
       donated_at: new Date().toISOString(),
     };
 
-    const nextRows = [...museumDonations, donation];
-    setArtifactInventory((inventory) => removeArtifactFromInventory(inventory, artifactId));
-    setMuseumDonations(nextRows);
-    setDonatedArtifactIds((ids) => Array.from(new Set([...ids, artifactId])));
-    window.localStorage.setItem("alba-money-museum-donations", JSON.stringify(nextRows));
-
     try {
       const supabase = createClient();
-      await supabase.from(MUSEUM_DONATION_TABLE).insert(donation);
+      const { error } = await supabase
+        .from(MUSEUM_DONATION_TABLE)
+        .upsert(donation, { onConflict: "artifact_id", ignoreDuplicates: true });
+
+      if (error) {
+        const nextRows = [...museumDonations, donation];
+        setMuseumDonations(nextRows);
+        window.localStorage.setItem("alba-money-museum-donations", JSON.stringify(nextRows));
+        setMessage("🏛️ 전역 박물관 저장에 실패해 임시 기록으로 기증했습니다. game_museum_donations 테이블을 확인해주세요.");
+      } else {
+        await refreshMuseumDonations();
+        setMessage(`🏛️ ${artifact.name}을 전역 박물관에 기증했습니다. 다른 유저에게도 기증자 ${nickname}으로 표시됩니다.`);
+      }
     } catch {
-      // 전역 박물관 테이블이 없어도 로컬 기록은 유지합니다.
+      const nextRows = [...museumDonations, donation];
+      setMuseumDonations(nextRows);
+      window.localStorage.setItem("alba-money-museum-donations", JSON.stringify(nextRows));
+      setMessage("🏛️ 전역 박물관 저장에 실패해 임시 기록으로 기증했습니다. 네트워크 또는 Supabase 테이블을 확인해주세요.");
     }
 
-    setMessage(`🏛️ ${artifact.name}을 박물관에 기증했습니다. 10분 후원 수익이 늘어납니다.`);
+    setArtifactInventory((inventory) => removeArtifactFromInventory(inventory, artifactId));
+    setDonatedArtifactIds((ids) => Array.from(new Set([...ids, artifactId])));
   }
 
   function handleStreetBuildingClick(buildingId: StreetBuildingId) {
@@ -7802,8 +7797,10 @@ export default function GamePage() {
                         </div>
                         <div style={stockActionGroupStyle}>
                           <button onClick={() => buyStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, opacity: cash < stock.price ? 0.45 : 1 }}>1주 매수</button>
+                          <button onClick={() => buyStock(stock.id, 100)} disabled={cash < stock.price * 100} style={{ ...stockTradeButtonStyle, opacity: cash < stock.price * 100 ? 0.45 : 1 }}>100주 매수</button>
                           <button onClick={() => buyMaxStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, opacity: cash < stock.price ? 0.45 : 1 }}>최대 매수</button>
                           <button onClick={() => sellStock(stock.id)} disabled={stock.owned <= 0} style={{ ...stockTradeButtonStyle, opacity: stock.owned <= 0 ? 0.45 : 1 }}>1주 매도</button>
+                          <button onClick={() => sellStock(stock.id, 100)} disabled={stock.owned < 100} style={{ ...stockTradeButtonStyle, opacity: stock.owned < 100 ? 0.45 : 1 }}>100주 매도</button>
                           <button onClick={() => sellAllStock(stock.id)} disabled={stock.owned <= 0} style={{ ...stockTradeButtonStyle, opacity: stock.owned <= 0 ? 0.45 : 1 }}>전량 매도</button>
                         </div>
                       </div>
@@ -8046,19 +8043,10 @@ export default function GamePage() {
                   <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
                 </div>
 
-                <div style={{ ...excavationSiteAtmosphereStyle, marginBottom: "14px" }}>
-                  <div style={excavationBriefCardStyle}>
-                    <strong>🏜️ 현장 브리핑</strong>
-                    <span>사암층, 붓, 정밀 송곳, 기록판을 활용하는 발굴 구역입니다. 화석 실루엣은 5분마다 1번만 조사할 수 있습니다.</span>
-                  </div>
-                  <div style={excavationBriefCardStyle}>
-                    <strong>🦴 발굴 규칙</strong>
-                    <span>실루엣의 시작점부터 마우스나 손가락으로 직접 따라 그리세요. 선에서 크게 벗어나면 금이 생기고, 한도를 넘으면 파손됩니다.</span>
-                  </div>
-                  <div style={excavationBriefCardStyle}>
-                    <strong>📜 수집 목표</strong>
-                    <span>화석과 문화유산을 발굴해 판매하거나 박물관에 기증하세요. 기증품은 10분마다 후원 수익을 만들어 줍니다.</span>
-                  </div>
+                <div style={excavationNoticeBarStyle}>
+                  <span>🏜️ 사암층 · 붓 · 정밀 송곳 · 기록판을 사용하는 발굴 구역</span>
+                  <span>🦴 5분마다 1회 조사</span>
+                  <span>📜 발굴품은 판매하거나 전역 박물관에 기증 가능</span>
                 </div>
 
                 <div className="alba-excavation-layout" style={excavationLayoutStyle}>
@@ -8124,7 +8112,7 @@ export default function GamePage() {
                         <div style={excavationProgressBarStyle}>
                           <div style={{ ...excavationProgressFillStyle, width: `${excavationProgressPercent}%` }} />
                         </div>
-                        <p style={economyCardTextStyle}>초록 점부터 빨간 점까지 실루엣의 다음 목표점을 차례대로 따라 그리세요. 한 번 점을 찍는 것만으로는 성공하지 않고, 선에서 많이 벗어나면 표면이 갈라집니다.</p>
+                        <p style={economyCardTextStyle}>초록 점 근처에서 시작해 빨간 점 방향으로 선을 따라 그리세요. 조금 흔들려도 괜찮지만, 실루엣에서 많이 벗어나면 표면이 갈라집니다.</p>
                         <div style={economyButtonRowStyle}>
                           <button onClick={() => setExcavationTracePoints([])} style={casinoSmallButtonStyle}>그리기 흔적 지우기</button>
                           <button onClick={startExcavation} disabled={!excavationReady} style={{ ...casinoSmallButtonStyle, opacity: excavationReady ? 1 : 0.55 }}>{excavationReady ? "다른 실루엣 찾기" : formatTime(excavationCooldownRemainingSeconds)}</button>
@@ -8165,14 +8153,14 @@ export default function GamePage() {
           })()}
 
           {lobbyView === "museum" && (() => {
-            const featuredExhibits = museumDonations.slice(0, 12);
+            const featuredExhibits = [museumDonations[0] ?? null, museumDonations[1] ?? null, museumDonations[2] ?? null];
             return (
               <div className="alba-panel-scene" style={panelSceneStyle}>
                 <div className="alba-panel-header" style={panelHeaderRowStyle}>
                   <div>
                     <div style={smallLabelStyle}>GLOBAL MUSEUM</div>
                     <h2 className="alba-panel-title" style={panelTitleStyle}>박물관</h2>
-                    <p style={panelDescStyle}>모든 유저가 함께 채우는 화려한 전시관입니다. 실제로 기증된 발굴품만 전시되며, 각 전시품에는 기증자 이름이 남습니다.</p>
+                    <p style={panelDescStyle}>모든 유저가 함께 채우는 화려한 전시관입니다. 이미 기증된 발굴품은 중복 기증할 수 없고, 기증자는 이름이 남습니다.</p>
                   </div>
                   <div style={economyButtonRowStyle}>
                     <button onClick={() => void refreshMuseumDonations()} style={smallActionButtonStyle}>새로고침</button>
@@ -8183,28 +8171,24 @@ export default function GamePage() {
                 <section style={museumHeroHallStyle}>
                   <div style={museumHeroWallStyle}>
                     <div style={museumHorizontalRailStyle} aria-label="박물관 대표 전시">
-                      {featuredExhibits.length === 0 && (
-                        <div style={museumEmptyGalleryStyle}>
-                          <strong>아직 전시된 기증품이 없습니다.</strong>
-                          <span>발굴 단지에서 화석이나 문화유산을 얻은 뒤 박물관에 기증하면 이 전시관에 표시됩니다.</span>
-                        </div>
-                      )}
-                      {featuredExhibits.map((donation) => {
-                        const artifact = getArtifactById(donation.artifact_id);
+                      {featuredExhibits.map((donation, index) => {
+                        const artifact = donation ? getArtifactById(donation.artifact_id) : null;
                         return (
-                          <div key={`featured-${donation.artifact_id}`} style={museumFrameStyle}>
+                          <div key={`featured-${index}`} style={museumFrameStyle}>
                             <div style={museumFrameInnerStyle}>
                               <div style={museumArtworkStyle}>
-                                <span style={{ fontSize: donation.category === "문화유산" ? "54px" : "48px" }}>
-                                  {donation.category === "문화유산" ? (donation.rarity === "신화" || donation.rarity === "초월" ? "🖼️" : "🏺") : artifact?.rarity === "초월" ? "🦖" : "🦴"}
+                                <span style={{ fontSize: donation?.category === "문화유산" ? "54px" : "48px" }}>
+                                  {donation ? (donation.category === "문화유산" ? (donation.rarity === "신화" || donation.rarity === "초월" ? "🖼️" : "🏺") : artifact?.rarity === "초월" ? "🦖" : "🦴") : index === 0 ? "🖼️" : index === 1 ? "🗿" : "🏺"}
                                 </span>
-                                <strong style={{ textAlign: "center", fontSize: "14px" }}>{donation.artifact_name}</strong>
-                                <small style={{ color: "#fee2e2", fontWeight: 900 }}>기증자: {donation.donor_name}</small>
+                                <strong style={{ textAlign: "center", fontSize: "14px" }}>{donation?.artifact_name ?? (index === 0 ? "명화 전시 구역" : index === 1 ? "조각상 전시 구역" : "유물 진열 구역")}</strong>
                               </div>
                             </div>
                           </div>
                         );
                       })}
+                      <div style={museumPedestalStyle}><span style={{ fontSize: "44px" }}>🗿</span><small>조각 전시</small></div>
+                      <div style={museumDisplayCaseStyle}><span style={{ fontSize: "40px" }}>🔍</span><small>도구 · 유물</small></div>
+                      <div style={museumPedestalStyle}><span style={{ fontSize: "44px" }}>🏺</span><small>특별 기증품</small></div>
                     </div>
                   </div>
                 </section>
@@ -12263,7 +12247,7 @@ const panelSceneStyle: CSSProperties = {
   display: "grid",
   gridTemplateRows: "auto",
   alignContent: "start",
-  gap: "16px",
+  gap: "18px",
   overflow: "auto",
   background: "linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%)",
   color: "#111827",
@@ -15066,6 +15050,22 @@ const excavationLayoutStyle: CSSProperties = {
   zIndex: 1,
 };
 
+const excavationNoticeBarStyle: CSSProperties = {
+  border: "4px solid #78350f",
+  borderRadius: "20px",
+  background: "linear-gradient(180deg, #fff7ed 0%, #fef3c7 100%)",
+  padding: "12px 14px",
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "10px 16px",
+  alignItems: "center",
+  color: "#111827",
+  fontWeight: 900,
+  boxShadow: "0 8px 0 rgba(120,53,15,0.12)",
+  position: "relative",
+  zIndex: 2,
+};
+
 const excavationGamePanelStyle: CSSProperties = {
   border: "4px solid #111827",
   borderRadius: "24px",
@@ -15080,34 +15080,7 @@ const excavationGamePanelStyle: CSSProperties = {
   alignSelf: "start",
 };
 
-const excavationSiteAtmosphereStyle: CSSProperties = {
-  display: "flex",
-  gap: "12px",
-  overflowX: "auto",
-  overflowY: "visible",
-  padding: "4px 4px 24px",
-  alignItems: "stretch",
-  scrollSnapType: "x mandatory",
-  position: "relative",
-  zIndex: 0,
-};
 
-const excavationBriefCardStyle: CSSProperties = {
-  border: "4px solid #78350f",
-  borderRadius: "20px",
-  background: "linear-gradient(180deg, #fff7ed 0%, #fef3c7 100%)",
-  padding: "14px",
-  display: "grid",
-  gap: "8px",
-  boxShadow: "0 8px 0 rgba(120,53,15,0.12)",
-  minWidth: "300px",
-  maxWidth: "390px",
-  minHeight: "132px",
-  height: "auto",
-  alignContent: "start",
-  scrollSnapAlign: "start",
-  flex: "0 0 auto",
-};
 
 const excavationHeroIllustrationStyle: CSSProperties = {
   position: "relative",
@@ -15311,22 +15284,6 @@ const museumEmptyDonateStyle: CSSProperties = {
   fontWeight: 900,
 };
 
-const museumEmptyGalleryStyle: CSSProperties = {
-  minWidth: "360px",
-  minHeight: "170px",
-  border: "4px dashed rgba(255,255,255,0.55)",
-  borderRadius: "20px",
-  color: "#ffffff",
-  background: "rgba(15,23,42,0.22)",
-  padding: "22px",
-  display: "grid",
-  gap: "10px",
-  alignContent: "center",
-  scrollSnapAlign: "start",
-  flex: "0 0 auto",
-  textShadow: "0 2px 0 rgba(15,23,42,0.35)",
-};
-
 
 const museumFrameStyle: CSSProperties = {
   padding: "10px",
@@ -15363,7 +15320,31 @@ const museumArtworkStyle: CSSProperties = {
 };
 
 
+const museumPedestalStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "18px",
+  background: "linear-gradient(180deg, #f8fafc 0%, #cbd5e1 100%)",
+  minHeight: "120px",
+  minWidth: "190px",
+  display: "grid",
+  placeItems: "center",
+  gap: "8px",
+  fontWeight: 900,
+  scrollSnapAlign: "start",
+};
 
+const museumDisplayCaseStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "18px",
+  background: "linear-gradient(180deg, #dbeafe 0%, #f8fafc 100%)",
+  minHeight: "120px",
+  minWidth: "190px",
+  display: "grid",
+  placeItems: "center",
+  gap: "8px",
+  fontWeight: 900,
+  scrollSnapAlign: "start",
+};
 
 const museumSummaryStyle: CSSProperties = {
   display: "flex",
@@ -15420,8 +15401,6 @@ const museumDonationPreviewFrameStyle: CSSProperties = {
   placeItems: "center",
   color: "#f8fafc",
 };
-
-
 
 
 
