@@ -1980,6 +1980,8 @@ const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: st
   { id: "gacha", title: "가챠 숍", subtitle: "장신구 · 자판기", emoji: "🎁" },
   { id: "itemMarket", title: "아이템 거래소", subtitle: "유저 장신구 매매", emoji: "🤝" },
   { id: "lotto", title: "로또 판매소", subtitle: "하루 3회 · 긁는 복권", emoji: "🎫" },
+  { id: "digSite", title: "발굴 단지", subtitle: "화석 · 문화유산 발굴", emoji: "⛏️" },
+  { id: "museum", title: "박물관", subtitle: "공동 전시 · 기증 후원", emoji: "🏛️" },
   { id: "luxury", title: "사치 아이템 숍", subtitle: "닉네임 · 이름표 · 배경", emoji: "💎" },
   { id: "casino", title: "도박장", subtitle: "슬롯 머신 · 유저 대전", emoji: "🎰" },
 ];
@@ -1991,6 +1993,7 @@ const streetBuildingPages: StreetBuildingId[][] = [
   ["insurance", "employees", "academy"],
   ["gacha", "itemMarket", "lotto"],
   ["luxury", "casino"],
+  ["digSite", "museum"],
 ];
 
 const stockCompanies: StockCompany[] = [
@@ -5776,10 +5779,18 @@ export default function GamePage() {
   }
 
   function startExcavation() {
+    const discoveryRoll = Math.random();
+
+    if (discoveryRoll < 0.22) {
+      setExcavationGame(null);
+      setMessage("⛏️ 땅을 조사했지만 이번에는 특별한 실루엣을 찾지 못했습니다. 다시 조사해보세요.");
+      return;
+    }
+
     const artifact = pickExcavationArtifact();
     const rarityInfo = artifactRarityInfo[artifact.rarity];
     setExcavationGame({ artifactId: artifact.id, step: 0, cracks: 0, maxCracks: rarityInfo.crackLimit });
-    setMessage(`⛏️ ${artifact.rarity} 등급 실루엣을 발견했습니다. 선을 벗어나지 않게 조심해서 파내세요.`);
+    setMessage(`⛏️ ${artifact.rarity} 등급 ${artifact.category} 실루엣을 발견했습니다. 달고나 뽑기처럼 선을 벗어나지 않게 파내세요.`);
   }
 
   function pressExcavationAction(action: string) {
@@ -7604,7 +7615,7 @@ export default function GamePage() {
                   {!excavationGame ? (
                     <>
                       <h3 style={economyCardTitleStyle}>⛏️ 미확인 실루엣 조사</h3>
-                      <p style={economyCardTextStyle}>발굴을 시작하면 180종 이상의 실루엣 중 하나가 등장합니다. 버튼 순서를 맞춰 실루엣을 벗어나지 않게 파내세요.</p>
+                      <p style={economyCardTextStyle}>발굴을 시작하면 확률적으로 실루엣을 발견합니다. 발견에 성공하면 180종 이상의 실루엣 중 하나가 등장하고, 버튼 순서를 맞춰 실루엣을 벗어나지 않게 파내야 합니다.</p>
                       <button onClick={startExcavation} style={casinoPrimaryButtonStyle}>발굴 시작</button>
                     </>
                   ) : (() => {
@@ -9803,7 +9814,8 @@ function getStreetPageLabel(page: number) {
   if (page === 2) return "자산 · 사업 지구";
   if (page === 3) return "리스크 · 교육 지구";
   if (page === 4) return "가챠 · 거래 지구";
-  return "럭셔리 · 카지노 지구";
+  if (page === 5) return "럭셔리 · 카지노 지구";
+  return "발굴 · 박물관 지구";
 }
 
 function getStreetBuildingHeight(buildingId: StreetBuildingId) {
@@ -9822,6 +9834,8 @@ function getStreetBuildingHeight(buildingId: StreetBuildingId) {
   if (buildingId === "gacha") return "198px";
   if (buildingId === "itemMarket") return "192px";
   if (buildingId === "lotto") return "188px";
+  if (buildingId === "digSite") return "218px";
+  if (buildingId === "museum") return "238px";
   return "200px";
 }
 
@@ -9859,6 +9873,11 @@ function getStreetBuildingPlacement(buildingId: StreetBuildingId, page: number):
   if (page === 5) {
     if (buildingId === "luxury") return { left: "19%", bottom: "132px", width: "26%" };
     if (buildingId === "casino") return { left: "55%", bottom: "132px", width: "26%" };
+  }
+
+  if (page === 6) {
+    if (buildingId === "digSite") return { left: "17%", bottom: "122px", width: "30%" };
+    if (buildingId === "museum") return { left: "56%", bottom: "126px", width: "30%" };
   }
 
   return { left: "38%", bottom: "132px", width: "22%" };
@@ -9906,6 +9925,20 @@ function getStreetBuildingTheme(buildingId: StreetBuildingId): CSSProperties {
     return {
       background: "linear-gradient(180deg, #fee2e2 0%, #f97316 100%)",
       borderColor: "#7c2d12",
+    };
+  }
+
+  if (buildingId === "digSite") {
+    return {
+      background: "linear-gradient(180deg, #fef3c7 0%, #a16207 100%)",
+      borderColor: "#713f12",
+    };
+  }
+
+  if (buildingId === "museum") {
+    return {
+      background: "linear-gradient(180deg, #f8fafc 0%, #94a3b8 100%)",
+      borderColor: "#334155",
     };
   }
 
