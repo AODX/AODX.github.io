@@ -3236,7 +3236,7 @@ export default function GamePage() {
 
       const { data, error } = await supabase
         .from("game_saves")
-        .select("cash, warning_count, unpaid_tax, tax_countdown, sorting_success_total, delivery_success_total, cashier_success_total, cafe_success_total, security_success_total")
+        .select("cash, warning_count, unpaid_tax, sorting_success_total, delivery_success_total, cashier_success_total, cafe_success_total, security_success_total")
         .eq("user_id", user.id)
         .maybeSingle<SaveRow>();
 
@@ -3282,7 +3282,7 @@ export default function GamePage() {
       setCash(Number(data.cash));
       setWarningCount(0);
       setUnpaidTax(Number(data.unpaid_tax));
-      const loadedTaxCountdown = Number(data.tax_countdown ?? window.localStorage.getItem(`alba-money-tax-countdown-${user.id}`) ?? TAX_INTERVAL_SECONDS);
+      const loadedTaxCountdown = Number(window.localStorage.getItem(`alba-money-tax-countdown-${user.id}`) ?? TAX_INTERVAL_SECONDS);
       setTaxCountdown(Number.isFinite(loadedTaxCountdown) ? Math.max(1, Math.min(TAX_INTERVAL_SECONDS, Math.floor(loadedTaxCountdown))) : TAX_INTERVAL_SECONDS);
       setSortingSuccessTotal(Number(data.sorting_success_total ?? 0));
       setDeliverySuccessTotal(Number(data.delivery_success_total ?? 0));
@@ -4031,7 +4031,6 @@ export default function GamePage() {
           cash,
           warning_count: 0,
           unpaid_tax: unpaidTax,
-          tax_countdown: taxCountdown,
           sorting_success_total: sortingSuccessTotal,
           delivery_success_total: deliverySuccessTotal,
           cashier_success_total: cashierSuccessTotal,
@@ -13530,6 +13529,7 @@ const newspaperBodyStyle: CSSProperties = {
   lineHeight: 1.6,
   fontWeight: 800,
 };
+
 
 
 
