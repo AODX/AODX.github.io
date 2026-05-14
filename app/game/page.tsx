@@ -48,10 +48,10 @@ type SaveRow = {
   security_success_total?: number | string | null;
 };
 
-type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "titles" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket" | "lotto" | "phone" | "luxury";
+type LobbyView = "room" | "street" | "jobs" | "housing" | "tax" | "career" | "ranking" | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "titles" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket" | "lotto" | "phone" | "luxury" | "digSite" | "museum";
 type RoomKind = "basic" | "studio" | "office";
 type CareerBuildingId = "company" | "entertainment" | "logistics" | "finance";
-type StreetBuildingId = CareerBuildingId | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket" | "lotto" | "luxury";
+type StreetBuildingId = CareerBuildingId | "stocks" | "casino" | "bank" | "estate" | "business" | "news" | "insurance" | "employees" | "auction" | "academy" | "gacha" | "itemMarket" | "lotto" | "luxury" | "digSite" | "museum";
 type OccupationId =
   | "unemployed"
   | "officeIntern"
@@ -276,6 +276,45 @@ type ShopItem = {
   bonusValue: number;
   bonuses?: ShopItemBonus[];
 };
+
+type ArtifactRarity = "흔적" | "희귀" | "왕실" | "신화" | "초월";
+type ArtifactCategory = "화석" | "문화유산";
+type ArtifactId = string;
+
+type ArtifactItem = {
+  id: ArtifactId;
+  name: string;
+  category: ArtifactCategory;
+  rarity: ArtifactRarity;
+  silhouette: string;
+  weirdness: number;
+  value: number;
+  museumIncome: number;
+  sequence: string[];
+};
+
+type ArtifactInventoryEntry = {
+  artifactId: ArtifactId;
+  count: number;
+};
+
+type MuseumDonationRow = {
+  artifact_id: string;
+  artifact_name: string;
+  rarity: ArtifactRarity;
+  category: ArtifactCategory;
+  donor_id: string;
+  donor_name: string;
+  donated_at: string;
+};
+
+type ExcavationGameState = {
+  artifactId: ArtifactId;
+  step: number;
+  cracks: number;
+  maxCracks: number;
+};
+
 
 type MarketListing = {
   id: string;
@@ -2166,6 +2205,166 @@ const shopItems: ShopItem[] = rawShopItems.map((item, index) => {
   };
 });
 
+
+const MUSEUM_DONATION_TABLE = "game_museum_donations";
+const MUSEUM_INCOME_INTERVAL_MS = 10 * 60 * 1000;
+const artifactRarityInfo: Record<ArtifactRarity, { icon: string; weight: number; crackLimit: number; valueMultiplier: number; incomeMultiplier: number }> = {
+  "흔적": { icon: "🦴", weight: 46, crackLimit: 5, valueMultiplier: 1, incomeMultiplier: 1 },
+  "희귀": { icon: "🏺", weight: 28, crackLimit: 4, valueMultiplier: 2.4, incomeMultiplier: 2.2 },
+  "왕실": { icon: "👑", weight: 15, crackLimit: 3, valueMultiplier: 5.8, incomeMultiplier: 5.4 },
+  "신화": { icon: "🐉", weight: 8, crackLimit: 3, valueMultiplier: 13, incomeMultiplier: 12 },
+  "초월": { icon: "✨", weight: 3, crackLimit: 2, valueMultiplier: 32, incomeMultiplier: 30 },
+};
+const excavationActions = ["좌상", "우상", "좌하", "우하", "곡선", "홈", "집중", "분리"];
+
+function getArtifactRarityByIndex(index: number): ArtifactRarity {
+  if (index % 97 === 0 || index % 131 === 0) return "초월";
+  if (index % 37 === 0 || index % 53 === 0) return "신화";
+  if (index % 17 === 0 || index % 29 === 0) return "왕실";
+  if (index % 5 === 0 || index % 7 === 0) return "희귀";
+  return "흔적";
+}
+
+function makeArtifactName(index: number, category: ArtifactCategory, rarity: ArtifactRarity) {
+  const fossilPrefixes = ["새벽 협곡의", "검은 해안의", "푸른 단층의", "별빛 사암의", "얼어붙은 밀림의", "붉은 분지의", "안개 계곡의", "잊힌 호수의", "고요한 화산의", "황금 사막의"];
+  const fossilBodies = ["나선 뿔 화석", "월광 조개 화석", "고대 익룡 발톱", "삼엽 파수꾼", "거대 잎맥 석판", "운석 물고기 흔적", "수정 척추 조각", "심해 암모나이트", "용골 산호 표본", "태초의 알 껍질"];
+  const relicPrefixes = ["달의 제단에서 나온", "왕실 기록관의", "유리 사원의", "무너진 항구의", "별무늬 궁전의", "청동 종탑의", "사라진 상단의", "백야 성채의", "비밀 수도원의", "황혼 왕릉의"];
+  const relicBodies = ["봉인 열쇠", "청동 의식잔", "별자리 나침반", "금박 서판", "왕관 파편", "수호 부적", "푸른 유리 인장", "전쟁 북 장식", "제례용 단검", "노래하는 도자기"];
+  const epithets: Record<ArtifactRarity, string[]> = {
+    "흔적": ["작은", "낡은", "먼지 묻은", "희미한"],
+    "희귀": ["선명한", "보존된", "빛바랜", "정교한"],
+    "왕실": ["왕의", "황금빛", "문장 새겨진", "의식용"],
+    "신화": ["전설 속", "용이 감싼", "별이 잠든", "신관의"],
+    "초월": ["시간 밖의", "차원을 건넌", "태초 이전의", "불멸의"],
+  };
+  const prefix = category === "화석" ? fossilPrefixes[index % fossilPrefixes.length] : relicPrefixes[index % relicPrefixes.length];
+  const body = category === "화석" ? fossilBodies[Math.floor(index / 2) % fossilBodies.length] : relicBodies[Math.floor(index / 2) % relicBodies.length];
+  const epithet = epithets[rarity][index % epithets[rarity].length];
+  return `${prefix} ${epithet} ${body}`;
+}
+
+function makeArtifactSequence(index: number, rarity: ArtifactRarity) {
+  const lengthByRarity: Record<ArtifactRarity, number> = { "흔적": 5, "희귀": 6, "왕실": 8, "신화": 10, "초월": 12 };
+  const length = lengthByRarity[rarity] + (index % 3);
+  return Array.from({ length }, (_, step) => excavationActions[(index * 7 + step * 5 + Math.floor(step / 2)) % excavationActions.length]);
+}
+
+function makeArtifactCatalog() {
+  return Array.from({ length: 180 }, (_, zeroIndex) => {
+    const index = zeroIndex + 1;
+    const category: ArtifactCategory = index % 3 === 0 ? "문화유산" : "화석";
+    const rarity = getArtifactRarityByIndex(index);
+    const rarityInfo = artifactRarityInfo[rarity];
+    const weirdness = Math.min(98, 14 + index % 19 + (rarity === "희귀" ? 8 : rarity === "왕실" ? 18 : rarity === "신화" ? 32 : rarity === "초월" ? 48 : 0));
+    const value = Math.floor((9000 + index * 1370 + weirdness * 420) * rarityInfo.valueMultiplier);
+    const museumIncome = Math.floor((650 + index * 55 + weirdness * 18) * rarityInfo.incomeMultiplier);
+    return {
+      id: `artifact_${String(index).padStart(3, "0")}`,
+      name: makeArtifactName(index, category, rarity),
+      category,
+      rarity,
+      silhouette: `silhouette-${index}`,
+      weirdness,
+      value,
+      museumIncome,
+      sequence: makeArtifactSequence(index, rarity),
+    };
+  });
+}
+
+const artifactCatalog: ArtifactItem[] = makeArtifactCatalog();
+
+
+function makeArtifactSvgPath(artifact: ArtifactItem) {
+  const n = Number(artifact.id.replace(/\D/g, "")) || 1;
+  const wobble = artifact.weirdness / 10;
+  const x1 = 36 + (n % 13);
+  const y1 = 28 + (n % 9);
+  const x2 = 88 + ((n * 7) % 18);
+  const y2 = 18 + ((n * 5) % 22);
+  const x3 = 146 + ((n * 3) % 20);
+  const y3 = 34 + ((n * 11) % 25);
+  const x4 = 184 - ((n * 2) % 18);
+  const y4 = 82 + ((n * 13) % 24);
+  const x5 = 128 + ((n * 17) % 28) - wobble;
+  const y5 = 128 - ((n * 19) % 18);
+  const x6 = 54 + ((n * 23) % 32);
+  const y6 = 118 + ((n * 29) % 20);
+  if (artifact.rarity === "초월") return `M ${x1} ${y1} C ${x2} ${y2}, ${x3} ${y3}, ${x4} ${y4} L ${x5} ${y5} C ${x3 - wobble} ${y5 + wobble}, ${x6} ${y6}, ${x1} ${y1} Z`;
+  if (artifact.rarity === "신화") return `M ${x1} ${y1} Q ${x2} ${y2} ${x3} ${y3} T ${x4} ${y4} L ${x5} ${y5} Q ${x6} ${y6} ${x1} ${y1} Z`;
+  if (artifact.rarity === "왕실") return `M ${x1} ${y1} L ${x2} ${y2} C ${x3} ${y3}, ${x4} ${y4}, ${x5} ${y5} L ${x6} ${y6} Z`;
+  if (artifact.rarity === "희귀") return `M ${x1} ${y1} C ${x2} ${y2}, ${x3} ${y3}, ${x4} ${y4} C ${x5} ${y5}, ${x6} ${y6}, ${x1} ${y1} Z`;
+  return `M ${x1} ${y1} L ${x3} ${y3} L ${x4} ${y4} L ${x5} ${y5} L ${x6} ${y6} Z`;
+}
+
+
+function getArtifactById(id: ArtifactId) {
+  return artifactCatalog.find((artifact) => artifact.id === id);
+}
+
+function getArtifactInventoryCount(inventory: ArtifactInventoryEntry[], artifactId: ArtifactId) {
+  return inventory.find((entry) => entry.artifactId === artifactId)?.count ?? 0;
+}
+
+function addArtifactToInventory(inventory: ArtifactInventoryEntry[], artifactId: ArtifactId) {
+  const existing = inventory.find((entry) => entry.artifactId === artifactId);
+  if (existing) return inventory.map((entry) => entry.artifactId === artifactId ? { ...entry, count: entry.count + 1 } : entry);
+  return [...inventory, { artifactId, count: 1 }];
+}
+
+function removeArtifactFromInventory(inventory: ArtifactInventoryEntry[], artifactId: ArtifactId) {
+  return inventory.flatMap((entry) => {
+    if (entry.artifactId !== artifactId) return [entry];
+    if (entry.count <= 1) return [];
+    return [{ ...entry, count: entry.count - 1 }];
+  });
+}
+
+function pickExcavationArtifact() {
+  const roll = Math.random() * 100;
+  let rarity: ArtifactRarity = "흔적";
+  if (roll > 97) rarity = "초월";
+  else if (roll > 89) rarity = "신화";
+  else if (roll > 74) rarity = "왕실";
+  else if (roll > 46) rarity = "희귀";
+  const candidates = artifactCatalog.filter((artifact) => artifact.rarity === rarity);
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? artifactCatalog[0];
+}
+
+function normalizeArtifactInventory(value: unknown): ArtifactInventoryEntry[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => {
+      if (typeof entry === "string") return { artifactId: entry, count: 1 };
+      if (!entry || typeof entry !== "object") return null;
+      const candidate = entry as { artifactId?: unknown; count?: unknown };
+      if (typeof candidate.artifactId !== "string" || !getArtifactById(candidate.artifactId)) return null;
+      return { artifactId: candidate.artifactId, count: Math.max(1, Math.floor(Number(candidate.count ?? 1))) };
+    })
+    .filter((entry): entry is ArtifactInventoryEntry => !!entry);
+}
+
+function normalizeMuseumDonations(value: unknown): MuseumDonationRow[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((row) => {
+      if (!row || typeof row !== "object") return null;
+      const candidate = row as Partial<MuseumDonationRow>;
+      if (!candidate.artifact_id || !candidate.artifact_name || !candidate.donor_name) return null;
+      return {
+        artifact_id: String(candidate.artifact_id),
+        artifact_name: String(candidate.artifact_name),
+        rarity: (candidate.rarity ?? "흔적") as ArtifactRarity,
+        category: (candidate.category ?? "화석") as ArtifactCategory,
+        donor_id: String(candidate.donor_id ?? ""),
+        donor_name: String(candidate.donor_name),
+        donated_at: String(candidate.donated_at ?? new Date().toISOString()),
+      };
+    })
+    .filter((row): row is MuseumDonationRow => !!row);
+}
+
+
 const playerTitles: PlayerTitle[] = [
   { id: "newbie", name: "초보 경제인", icon: "🌱", description: "게임을 시작한 기본 칭호입니다." },
   { id: "firstPay", name: "첫 월급", icon: "💵", description: "현금 50,000원 이상 보유" },
@@ -2616,7 +2815,7 @@ function ResponsiveGameStyles() {
           font-size: clamp(23px, 7vw, 30px) !important;
         }
 
-        .alba-room-select-grid, .alba-job-grid, .alba-economy-card-grid, .alba-career-card-grid {
+        .alba-room-select-grid, .alba-job-grid, .alba-economy-card-grid, .alba-career-card-grid, .alba-excavation-layout {
           grid-template-columns: 1fr !important;
           overflow: visible !important;
           height: auto !important;
@@ -3065,6 +3264,11 @@ export default function GamePage() {
   const [lottoTickets, setLottoTickets] = useState<LottoTicket[]>([]);
   const [lottoPurchaseDate, setLottoPurchaseDate] = useState(getTodayKey());
   const [lottoPurchaseCount, setLottoPurchaseCount] = useState(0);
+  const [artifactInventory, setArtifactInventory] = useState<ArtifactInventoryEntry[]>([]);
+  const [donatedArtifactIds, setDonatedArtifactIds] = useState<ArtifactId[]>([]);
+  const [museumDonations, setMuseumDonations] = useState<MuseumDonationRow[]>([]);
+  const [lastMuseumIncomeAt, setLastMuseumIncomeAt] = useState<Date | null>(null);
+  const [excavationGame, setExcavationGame] = useState<ExcavationGameState | null>(null);
   const [lottoPrice, setLottoPrice] = useState("5000");
   const [nickname, setNickname] = useState("우리집");
   const [nicknameDraft, setNicknameDraft] = useState("우리집");
@@ -3260,8 +3464,8 @@ export default function GamePage() {
   const newspaperRemainingMs = lastNewsArticleAt ? Math.max(0, NEWS_ARTICLE_INTERVAL_MS - (Date.now() - lastNewsArticleAt.getTime())) : 0;
   const canBuyNewspaper = newspaperRemainingMs <= 0;
   const conditionUnlockedTitles = useMemo(
-    () => getUnlockedTitles({ cash, stockRows, bankDeposit, bankSavings, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems, discoveredItems, shopPurchaseCount, gachaMachinePullCount, lottoPurchaseCount }),
-    [cash, stockRows, bankDeposit, bankSavings, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems, discoveredItems, shopPurchaseCount, gachaMachinePullCount, lottoPurchaseCount]
+    () => getUnlockedTitles({ cash, stockRows, bankDeposit, bankSavings, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems, discoveredItems, shopPurchaseCount, gachaMachinePullCount, lottoPurchaseCount, artifactInventory, donatedArtifactIds }),
+    [cash, stockRows, bankDeposit, bankSavings, bankLoan, creditScore, ownedEstates, ownedBusinesses, ownedInsurances, businessEmployees, unpaidTax, netWorth, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, ownedCertifications, ownedItems, discoveredItems, shopPurchaseCount, gachaMachinePullCount, lottoPurchaseCount, artifactInventory, donatedArtifactIds]
   );
   const unlockedTitles = useMemo(() => {
     const unlockedIdSet = new Set<PlayerTitleId>(["newbie", ...earnedTitleIds, ...conditionUnlockedTitles.map((title) => title.id)]);
@@ -3610,6 +3814,11 @@ export default function GamePage() {
       if (typeof parsed.selectedMainBackgroundId === "string" && (parsed.selectedMainBackgroundId === defaultMainBackground.id || luxuryMainBackgrounds.some((item) => item.id === parsed.selectedMainBackgroundId))) setSelectedMainBackgroundId(parsed.selectedMainBackgroundId);
       if (Array.isArray(parsed.ownedMainCharacters)) setOwnedMainCharacters(parsed.ownedMainCharacters.filter((id): id is MainCharacterId => luxuryMainCharacters.some((item) => item.id === id)));
       if (typeof parsed.selectedMainCharacterId === "string" && (parsed.selectedMainCharacterId === defaultMainCharacter.id || luxuryMainCharacters.some((item) => item.id === parsed.selectedMainCharacterId))) setSelectedMainCharacterId(parsed.selectedMainCharacterId);
+      setArtifactInventory(normalizeArtifactInventory(parsed.artifactInventory));
+      const parsedDonatedIds = Array.isArray(parsed.donatedArtifactIds) ? parsed.donatedArtifactIds.filter((id): id is string => typeof id === "string") : [];
+      setDonatedArtifactIds(parsedDonatedIds);
+      setMuseumDonations(normalizeMuseumDonations(parsed.museumDonations));
+      if (parsed.lastMuseumIncomeAt) setLastMuseumIncomeAt(new Date(String(parsed.lastMuseumIncomeAt)));
       if (Array.isArray(parsed.lottoTickets)) setLottoTickets(parsed.lottoTickets.filter(isValidLottoTicket).slice(-12));
       const localLottoDate = window.localStorage.getItem(`alba-money-lotto-date-${userId}`);
       const localLottoCount = Number(window.localStorage.getItem(`alba-money-lotto-count-${userId}`) ?? NaN);
@@ -3683,6 +3892,10 @@ export default function GamePage() {
       lottoTickets,
       lottoPurchaseDate,
       lottoPurchaseCount,
+      artifactInventory,
+      donatedArtifactIds,
+      museumDonations,
+      lastMuseumIncomeAt: lastMuseumIncomeAt?.toISOString() ?? null,
       totalIncome,
       totalExpense,
       financeHistory,
@@ -3716,7 +3929,7 @@ export default function GamePage() {
       .then(({ error }) => {
         if (error) console.warn("경제 데이터 Supabase 저장 실패. localStorage에는 저장되었습니다:", error.message);
       });
-  }, [userId, isSaveLoaded, isEconomyLoaded, isProfileLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, lastNewsArticleAt, newspaperEvent, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, discoveredItems, equippedItems, favoriteItems, inventorySortMode, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, ownedNicknameColors, selectedNicknameColorId, ownedNicknameTags, selectedNicknameTagId, ownedMainBackgrounds, selectedMainBackgroundId, ownedMainCharacters, selectedMainCharacterId, economyUpdatedAt, earnedTitleIds]);
+  }, [userId, isSaveLoaded, isEconomyLoaded, isProfileLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, lastNewsArticleAt, newspaperEvent, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, discoveredItems, equippedItems, favoriteItems, inventorySortMode, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, artifactInventory, donatedArtifactIds, museumDonations, lastMuseumIncomeAt, totalIncome, totalExpense, financeHistory, ownedNicknameColors, selectedNicknameColorId, ownedNicknameTags, selectedNicknameTagId, ownedMainBackgrounds, selectedMainBackgroundId, ownedMainCharacters, selectedMainCharacterId, economyUpdatedAt, earnedTitleIds]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
@@ -3727,6 +3940,34 @@ export default function GamePage() {
     if (!userId || !isSaveLoaded) return;
     window.localStorage.setItem(`alba-money-tax-countdown-${userId}`, String(taxCountdown));
   }, [userId, isSaveLoaded, taxCountdown]);
+
+
+  useEffect(() => {
+    if (!userId || !isSaveLoaded || donatedArtifactIds.length === 0) return;
+
+    const payout = () => {
+      const now = Date.now();
+      const last = lastMuseumIncomeAt?.getTime() ?? now;
+      if (now - last < MUSEUM_INCOME_INTERVAL_MS) return;
+
+      const intervals = Math.floor((now - last) / MUSEUM_INCOME_INTERVAL_MS);
+      const incomePerTick = donatedArtifactIds.reduce((sum, artifactId) => sum + (getArtifactById(artifactId)?.museumIncome ?? 0), 0);
+      const income = incomePerTick * Math.max(1, intervals);
+      if (income <= 0) return;
+      setCash((money) => money + income);
+      setTotalIncome((value) => value + income);
+      setLastMuseumIncomeAt(new Date(last + intervals * MUSEUM_INCOME_INTERVAL_MS));
+      setMessage(`🏛️ 박물관 기증 후원 수익 ${income.toLocaleString()}원이 들어왔습니다.`);
+    };
+
+    payout();
+    const timer = window.setInterval(payout, 30 * 1000);
+    return () => window.clearInterval(timer);
+  }, [userId, isSaveLoaded, donatedArtifactIds, lastMuseumIncomeAt]);
+
+  useEffect(() => {
+    if (lobbyView === "museum") void refreshMuseumDonations();
+  }, [lobbyView]);
 
   useEffect(() => {
     if (!isSaveLoaded) return;
@@ -5513,6 +5754,108 @@ export default function GamePage() {
     refreshMarketListings();
   }
 
+
+  async function refreshMuseumDonations() {
+    const localRows = normalizeMuseumDonations(safeJsonParse<unknown>(window.localStorage.getItem("alba-money-museum-donations") ?? "[]", []));
+    let nextRows = localRows;
+
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from(MUSEUM_DONATION_TABLE)
+        .select("artifact_id, artifact_name, rarity, category, donor_id, donor_name, donated_at")
+        .order("donated_at", { ascending: true });
+
+      if (!error && data) nextRows = normalizeMuseumDonations(data);
+    } catch {
+      // 박물관 전용 테이블이 아직 없어도 로컬 박물관은 계속 동작합니다.
+    }
+
+    setMuseumDonations(nextRows);
+    window.localStorage.setItem("alba-money-museum-donations", JSON.stringify(nextRows));
+  }
+
+  function startExcavation() {
+    const artifact = pickExcavationArtifact();
+    const rarityInfo = artifactRarityInfo[artifact.rarity];
+    setExcavationGame({ artifactId: artifact.id, step: 0, cracks: 0, maxCracks: rarityInfo.crackLimit });
+    setMessage(`⛏️ ${artifact.rarity} 등급 실루엣을 발견했습니다. 선을 벗어나지 않게 조심해서 파내세요.`);
+  }
+
+  function pressExcavationAction(action: string) {
+    if (!excavationGame) return;
+    const artifact = getArtifactById(excavationGame.artifactId);
+    if (!artifact) {
+      setExcavationGame(null);
+      return;
+    }
+
+    const expected = artifact.sequence[excavationGame.step];
+    const isCorrect = action === expected;
+    const nextCracks = excavationGame.cracks + (isCorrect ? 0 : 1);
+
+    if (nextCracks >= excavationGame.maxCracks) {
+      setExcavationGame(null);
+      setMessage(`💥 ${artifact.name}에 금이 너무 많이 가서 부서졌습니다. 발굴 실패!`);
+      return;
+    }
+
+    if (isCorrect && excavationGame.step + 1 >= artifact.sequence.length) {
+      setArtifactInventory((inventory) => addArtifactToInventory(inventory, artifact.id));
+      setExcavationGame(null);
+      setMessage(`🏺 발굴 성공! ${artifact.rarity} 등급 ${artifact.name}을 획득했습니다.`);
+      return;
+    }
+
+    setExcavationGame((game) => game ? { ...game, step: game.step + (isCorrect ? 1 : 0), cracks: nextCracks } : null);
+    setMessage(isCorrect ? "⛏️ 실루엣을 따라 조심스럽게 파냈습니다." : "⚠️ 실루엣에서 벗어났습니다. 화석에 금이 갔습니다.");
+  }
+
+  function sellArtifact(artifactId: ArtifactId) {
+    const artifact = getArtifactById(artifactId);
+    if (!artifact || getArtifactInventoryCount(artifactInventory, artifactId) <= 0) return;
+    setArtifactInventory((inventory) => removeArtifactFromInventory(inventory, artifactId));
+    setCash((money) => money + artifact.value);
+    setTotalIncome((income) => income + artifact.value);
+    setMessage(`🏺 ${artifact.name}을 ${artifact.value.toLocaleString()}원에 판매했습니다.`);
+  }
+
+  async function donateArtifact(artifactId: ArtifactId) {
+    const artifact = getArtifactById(artifactId);
+    if (!artifact || !userId || getArtifactInventoryCount(artifactInventory, artifactId) <= 0) return;
+
+    const alreadyDonated = museumDonations.some((row) => row.artifact_id === artifactId);
+    if (alreadyDonated) {
+      setMessage("🏛️ 이미 박물관에 기증된 발굴품입니다. 같은 발굴품은 중복 기증할 수 없습니다.");
+      return;
+    }
+
+    const donation: MuseumDonationRow = {
+      artifact_id: artifact.id,
+      artifact_name: artifact.name,
+      rarity: artifact.rarity,
+      category: artifact.category,
+      donor_id: userId,
+      donor_name: nickname,
+      donated_at: new Date().toISOString(),
+    };
+
+    const nextRows = [...museumDonations, donation];
+    setArtifactInventory((inventory) => removeArtifactFromInventory(inventory, artifactId));
+    setMuseumDonations(nextRows);
+    setDonatedArtifactIds((ids) => Array.from(new Set([...ids, artifactId])));
+    window.localStorage.setItem("alba-money-museum-donations", JSON.stringify(nextRows));
+
+    try {
+      const supabase = createClient();
+      await supabase.from(MUSEUM_DONATION_TABLE).insert(donation);
+    } catch {
+      // 전역 박물관 테이블이 없어도 로컬 기록은 유지합니다.
+    }
+
+    setMessage(`🏛️ ${artifact.name}을 박물관에 기증했습니다. 10분 후원 수익이 늘어납니다.`);
+  }
+
   function handleStreetBuildingClick(buildingId: StreetBuildingId) {
     if (buildingId === "stocks") {
       setLobbyView("stocks");
@@ -5525,7 +5868,7 @@ export default function GamePage() {
       return;
     }
 
-    if (buildingId === "bank" || buildingId === "estate" || buildingId === "business" || buildingId === "news" || buildingId === "insurance" || buildingId === "employees" || buildingId === "auction" || buildingId === "academy" || buildingId === "gacha" || buildingId === "itemMarket" || buildingId === "lotto" || buildingId === "luxury") {
+    if (buildingId === "bank" || buildingId === "estate" || buildingId === "business" || buildingId === "news" || buildingId === "insurance" || buildingId === "employees" || buildingId === "auction" || buildingId === "academy" || buildingId === "gacha" || buildingId === "itemMarket" || buildingId === "lotto" || buildingId === "luxury" || buildingId === "digSite" || buildingId === "museum") {
       setLobbyView(buildingId);
       return;
     }
@@ -6673,6 +7016,8 @@ export default function GamePage() {
           <button onClick={() => setLobbyView("stocks")}>주식</button>
           <button onClick={() => setLobbyView("gacha")}>가챠</button>
           <button onClick={() => setLobbyView("luxury")}>사치숍</button>
+          <button onClick={() => setLobbyView("digSite")}>발굴</button>
+          <button onClick={() => setLobbyView("museum")}>박물관</button>
         </nav>
 
         <section className="alba-world-body" style={worldBodyStyle}>
@@ -7238,6 +7583,114 @@ export default function GamePage() {
                   <button onClick={borrowFromBank} style={casinoSmallButtonStyle}>대출</button>
                   <button onClick={repayBankLoan} style={casinoSmallButtonStyle}>상환</button>
                 </div>
+              </div>
+            </div>
+          )}
+
+
+          {lobbyView === "digSite" && (
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>EXCAVATION SITE</div>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>발굴 단지</h2>
+                  <p style={panelDescStyle}>달고나 뽑기처럼 실루엣을 따라 조심스럽게 파내면 화석과 문화유산을 얻습니다. 등급이 높을수록 실루엣이 괴상하고 금이 적게 버팁니다.</p>
+                </div>
+                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
+              </div>
+
+              <div className="alba-excavation-layout" style={excavationLayoutStyle}>
+                <section style={excavationGamePanelStyle}>
+                  {!excavationGame ? (
+                    <>
+                      <h3 style={economyCardTitleStyle}>⛏️ 미확인 실루엣 조사</h3>
+                      <p style={economyCardTextStyle}>발굴을 시작하면 180종 이상의 실루엣 중 하나가 등장합니다. 버튼 순서를 맞춰 실루엣을 벗어나지 않게 파내세요.</p>
+                      <button onClick={startExcavation} style={casinoPrimaryButtonStyle}>발굴 시작</button>
+                    </>
+                  ) : (() => {
+                    const artifact = getArtifactById(excavationGame.artifactId);
+                    if (!artifact) return null;
+                    return (
+                      <>
+                        <div style={artifactSilhouetteBoxStyle}>
+                          <svg viewBox="0 0 220 160" width="100%" height="180" role="img" aria-label="발굴 실루엣">
+                            <path d={makeArtifactSvgPath(artifact)} fill="rgba(15,23,42,0.10)" stroke="#111827" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d={makeArtifactSvgPath(artifact)} fill="none" stroke="#facc15" strokeWidth="3" strokeDasharray={`${Math.max(8, 30 - artifact.weirdness / 4)} 12`} opacity="0.9" />
+                            {Array.from({ length: excavationGame.cracks }).map((_, index) => (
+                              <line key={index} x1={35 + index * 31} y1={32 + (index % 3) * 24} x2={55 + index * 28} y2={70 + (index % 4) * 16} stroke="#dc2626" strokeWidth="5" strokeLinecap="round" />
+                            ))}
+                          </svg>
+                        </div>
+                        <h3 style={economyCardTitleStyle}>{artifactRarityInfo[artifact.rarity].icon} {artifact.rarity} 실루엣</h3>
+                        <p style={economyCardTextStyle}>진행 {excavationGame.step}/{artifact.sequence.length} · 균열 {excavationGame.cracks}/{excavationGame.maxCracks - 1} · 이상도 {artifact.weirdness}</p>
+                        <div style={excavationActionGridStyle}>
+                          {excavationActions.map((action) => (
+                            <button key={action} onClick={() => pressExcavationAction(action)} style={casinoSmallButtonStyle}>{action}</button>
+                          ))}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </section>
+
+                <section style={artifactInventoryPanelStyle}>
+                  <h3 style={economyCardTitleStyle}>🎒 내 발굴품</h3>
+                  <div style={artifactListStyle}>
+                    {artifactInventory.length === 0 && <p style={economyCardTextStyle}>아직 발굴품이 없습니다.</p>}
+                    {artifactInventory.map((entry) => {
+                      const artifact = getArtifactById(entry.artifactId);
+                      if (!artifact) return null;
+                      const donated = museumDonations.some((row) => row.artifact_id === artifact.id);
+                      return (
+                        <div key={entry.artifactId} style={artifactCardStyle}>
+                          <strong>{artifactRarityInfo[artifact.rarity].icon} {artifact.name} × {entry.count}</strong>
+                          <span>{artifact.category} · {artifact.rarity} · 판매가 {artifact.value.toLocaleString()}원 · 기증수익 10분당 {artifact.museumIncome.toLocaleString()}원</span>
+                          <div style={economyButtonRowStyle}>
+                            <button onClick={() => sellArtifact(artifact.id)} style={casinoSmallButtonStyle}>판매</button>
+                            <button onClick={() => void donateArtifact(artifact.id)} disabled={donated} style={{ ...casinoSmallButtonStyle, opacity: donated ? 0.45 : 1 }}>{donated ? "이미 기증됨" : "박물관 기증"}</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              </div>
+            </div>
+          )}
+
+          {lobbyView === "museum" && (
+            <div className="alba-panel-scene" style={panelSceneStyle}>
+              <div className="alba-panel-header" style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallLabelStyle}>GLOBAL MUSEUM</div>
+                  <h2 className="alba-panel-title" style={panelTitleStyle}>박물관</h2>
+                  <p style={panelDescStyle}>모든 유저가 함께 채우는 전시관입니다. 이미 기증된 발굴품은 중복 기증할 수 없고, 기증자는 이름이 남습니다.</p>
+                </div>
+                <div style={economyButtonRowStyle}>
+                  <button onClick={() => void refreshMuseumDonations()} style={smallActionButtonStyle}>새로고침</button>
+                  <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
+                </div>
+              </div>
+
+              <div style={museumSummaryStyle}>
+                <strong>내 기증품 {donatedArtifactIds.length}개</strong>
+                <span>10분 후원 수익: {donatedArtifactIds.reduce((sum, artifactId) => sum + (getArtifactById(artifactId)?.museumIncome ?? 0), 0).toLocaleString()}원</span>
+                <span>전체 전시품: {museumDonations.length} / {artifactCatalog.length}</span>
+              </div>
+
+              <div style={museumGridStyle}>
+                {museumDonations.length === 0 && <p style={economyCardTextStyle}>아직 전시된 발굴품이 없습니다. 발굴 단지에서 첫 기증자가 되어보세요.</p>}
+                {museumDonations.map((donation) => {
+                  const artifact = getArtifactById(donation.artifact_id);
+                  return (
+                    <article key={donation.artifact_id} style={museumDonationCardStyle}>
+                      <strong>{artifactRarityInfo[donation.rarity]?.icon ?? "🏺"} {donation.artifact_name}</strong>
+                      <span>{donation.category} · {donation.rarity}</span>
+                      <span>기증자: {donation.donor_name}</span>
+                      <span>후원 수익: 10분당 {(artifact?.museumIncome ?? 0).toLocaleString()}원</span>
+                    </article>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -10524,7 +10977,7 @@ function getInsuranceEffectText(insurance: InsuranceItem) {
   return parts.join(" · ");
 }
 
-function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDeposit: number; bankSavings?: number; bankLoan?: number; creditScore?: number; ownedEstates: EstateId[]; ownedBusinesses: BusinessId[]; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; unpaidTax: number; netWorth: number; sortingSuccessTotal: number; deliverySuccessTotal: number; cashierSuccessTotal: number; cafeSuccessTotal: number; securitySuccessTotal: number; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; discoveredItems?: ShopItemId[]; shopPurchaseCount?: number; gachaMachinePullCount?: number; lottoPurchaseCount?: number; }) {
+function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDeposit: number; bankSavings?: number; bankLoan?: number; creditScore?: number; ownedEstates: EstateId[]; ownedBusinesses: BusinessId[]; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; unpaidTax: number; netWorth: number; sortingSuccessTotal: number; deliverySuccessTotal: number; cashierSuccessTotal: number; cafeSuccessTotal: number; securitySuccessTotal: number; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; discoveredItems?: ShopItemId[]; shopPurchaseCount?: number; gachaMachinePullCount?: number; lottoPurchaseCount?: number; artifactInventory?: ArtifactInventoryEntry[]; donatedArtifactIds?: ArtifactId[]; }) {
   const totalJobSuccess = params.sortingSuccessTotal + params.deliverySuccessTotal + params.cashierSuccessTotal + params.cafeSuccessTotal + params.securitySuccessTotal;
   const stockValue = params.stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0);
   const stockKindsOwned = params.stockRows.filter((stock) => stock.owned > 0).length;
@@ -10541,6 +10994,12 @@ function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDe
     return item?.rarity === "유물" || item?.rarity === "고대 유물";
   });
   const hasAncientRelic = ownedItems.some((id) => shopItems.find((entry) => entry.id === id)?.rarity === "고대 유물");
+  const artifactInventory = params.artifactInventory ?? [];
+  const artifactTotalCount = artifactInventory.reduce((sum, entry) => sum + entry.count, 0);
+  const discoveredArtifactRarities = artifactInventory.map((entry) => getArtifactById(entry.artifactId)?.rarity).filter(Boolean) as ArtifactRarity[];
+  const hasRareArtifact = discoveredArtifactRarities.some((rarity) => rarity === "희귀" || rarity === "왕실" || rarity === "신화" || rarity === "초월");
+  const hasMythArtifact = discoveredArtifactRarities.some((rarity) => rarity === "신화" || rarity === "초월");
+  const donatedCount = (params.donatedArtifactIds ?? []).length;
 
   return playerTitles.filter((title) => {
     if (title.id === "newbie") return true;
@@ -10587,6 +11046,11 @@ function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDe
     if (title.id === "topRanker") return params.netWorth >= 5000000;
     if (title.id === "taxFreeMind") return params.unpaidTax <= 0 && params.netWorth >= 2000000;
     if (title.id === "collectionMaster") return discoveredItems.length >= 25;
+    if (title.id === "hiddenDalgonaHand") return artifactTotalCount >= 5;
+    if (title.id === "hiddenFossilWhisperer") return hasRareArtifact;
+    if (title.id === "hiddenMuseumPatron") return donatedCount >= 1;
+    if (title.id === "hiddenMythCurator") return hasMythArtifact;
+    if (title.id === "hiddenTimeArchaeologist") return artifactTotalCount >= 20 && donatedCount >= 5;
     if (title.id === "hiddenZero") return params.netWorth >= 7777777 && params.unpaidTax <= 0;
     if (title.id === "hiddenWhale") return params.netWorth >= 30000000 && stockValue >= 5000000;
     if (title.id === "hiddenLucky") return Number(params.gachaMachinePullCount ?? 0) >= 77 || Number(params.lottoPurchaseCount ?? 0) >= 30;
@@ -13723,6 +14187,96 @@ const newspaperBodyStyle: CSSProperties = {
 
 
 
+const excavationLayoutStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(320px, 0.9fr) minmax(360px, 1.1fr)",
+  gap: "14px",
+  alignItems: "start",
+};
+
+const excavationGamePanelStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "24px",
+  background: "linear-gradient(180deg, #fffbeb 0%, #ffffff 100%)",
+  padding: "18px",
+  display: "grid",
+  gap: "14px",
+  color: "#111827",
+};
+
+const artifactSilhouetteBoxStyle: CSSProperties = {
+  border: "4px dashed #111827",
+  borderRadius: "22px",
+  background: "radial-gradient(circle at 50% 45%, #fef3c7 0%, #f8fafc 70%)",
+  display: "grid",
+  placeItems: "center",
+  minHeight: "220px",
+};
+
+const excavationActionGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))",
+  gap: "8px",
+};
+
+const artifactInventoryPanelStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "24px",
+  background: "#ffffff",
+  padding: "18px",
+  display: "grid",
+  gap: "12px",
+  color: "#111827",
+};
+
+const artifactListStyle: CSSProperties = {
+  display: "grid",
+  gap: "10px",
+  maxHeight: "560px",
+  overflowY: "auto",
+  paddingRight: "4px",
+};
+
+const artifactCardStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "18px",
+  padding: "12px",
+  display: "grid",
+  gap: "8px",
+  background: "#f8fafc",
+  boxShadow: "0 6px 0 rgba(17,24,39,0.10)",
+};
+
+const museumSummaryStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "10px",
+  border: "4px solid #111827",
+  borderRadius: "20px",
+  background: "#ffffff",
+  padding: "14px",
+  fontWeight: 900,
+  color: "#111827",
+};
+
+const museumGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+  gap: "12px",
+  overflowY: "auto",
+  paddingRight: "4px",
+};
+
+const museumDonationCardStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "20px",
+  background: "linear-gradient(180deg, #f8fafc 0%, #fff7ed 100%)",
+  padding: "14px",
+  display: "grid",
+  gap: "7px",
+  color: "#111827",
+  boxShadow: "0 8px 0 rgba(17,24,39,0.10)",
+};
 
 
 
