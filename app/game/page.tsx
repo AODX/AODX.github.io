@@ -5,9 +5,10 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type JobId = "sorting" | "delivery" | "cashier" | "cafe" | "security";
+type JobId = "sorting" | "delivery" | "cashier" | "cafe" | "security" | "artModel" | "pcCafeCook";
 type SortKind = "red" | "blue" | "yellow" | "green" | "purple";
 type SecuritySignal = "normal" | "thief" | "vip";
+type DirectionKey = "up" | "down" | "left" | "right";
 
 type Job = {
   id: JobId;
@@ -34,6 +35,13 @@ type RunnerCoin = {
   id: number;
   lane: number;
   y: number;
+};
+
+type PcCafeCookOrder = {
+  name: string;
+  icon: string;
+  steps: string[];
+  reward: number;
 };
 
 type SaveRow = {
@@ -507,6 +515,8 @@ const PAY = {
   securityNormalPenalty: 200,
   deliveryCrashPenalty: 250,
   vipPenalty: 1500,
+  artModel: 520,
+  pcCafeCookBase: 650,
 };
 
 const NEWS_ARTICLE_INTERVAL_MS = 10 * 60 * 1000;
@@ -517,6 +527,44 @@ const newsCompanies: Array<{ id: NewsCompanyId; name: string; icon: string; styl
   { id: "deepValue", name: "딥밸류 신문", icon: "📚", style: "가치투자", reliability: 0.76, description: "저평가와 실적 회복 신호를 분석합니다." },
   { id: "flashWire", name: "플래시와이어", icon: "⚡", style: "속보 전문", reliability: 0.63, description: "빠른 속보를 제공하지만 오보 가능성도 있습니다." },
 ];
+
+
+const artModelDirectionInfo: Record<DirectionKey, { label: string; icon: string; key: string }> = {
+  up: { label: "위", icon: "↑", key: "ArrowUp" },
+  down: { label: "아래", icon: "↓", key: "ArrowDown" },
+  left: { label: "왼쪽", icon: "←", key: "ArrowLeft" },
+  right: { label: "오른쪽", icon: "→", key: "ArrowRight" },
+};
+
+const pcCafeCookOrders: PcCafeCookOrder[] = [
+  { name: "기본 라면", icon: "🍜", steps: ["물", "면", "스프", "계란"], reward: 760 },
+  { name: "치즈 라면", icon: "🧀", steps: ["물", "면", "스프", "치즈"], reward: 880 },
+  { name: "김치 볶음밥", icon: "🍚", steps: ["밥", "김치", "계란", "볶기"], reward: 960 },
+  { name: "참치 볶음밥", icon: "🐟", steps: ["밥", "참치", "파", "볶기"], reward: 1040 },
+  { name: "PC방 세트", icon: "🥤", steps: ["라면", "볶음밥", "단무지", "음료"], reward: 1250 },
+];
+
+const pcCafeCookButtons = ["물", "면", "스프", "계란", "치즈", "밥", "김치", "참치", "파", "볶기", "라면", "볶음밥", "단무지", "음료"];
+
+function makeArtModelSequence(difficulty: number) {
+  const directions: DirectionKey[] = ["up", "down", "left", "right"];
+  const length = Math.min(9, 3 + Math.floor(difficulty / 2));
+  return Array.from({ length }, (_, index) => directions[Math.floor(Math.random() * directions.length + index) % directions.length]);
+}
+
+function normalizeModelDirection(key: string): DirectionKey | null {
+  const lowered = key.toLowerCase();
+  if (lowered === "arrowup" || lowered === "w") return "up";
+  if (lowered === "arrowdown" || lowered === "s") return "down";
+  if (lowered === "arrowleft" || lowered === "a") return "left";
+  if (lowered === "arrowright" || lowered === "d") return "right";
+  return null;
+}
+
+function makePcCafeCookOrder(difficulty: number) {
+  const pool = pcCafeCookOrders.slice(0, Math.min(pcCafeCookOrders.length, 2 + Math.ceil(difficulty / 2)));
+  return pool[Math.floor(Math.random() * pool.length)] ?? pcCafeCookOrders[0];
+}
 
 const jobs: Job[] = [
   {
@@ -553,6 +601,20 @@ const jobs: Job[] = [
     subtitle: "수상한 사람만 막고 VIP는 통과시키세요.",
     rewardText: `일반/VIP 통과 ${PAY.securityPass.toLocaleString()}원 · 수상한 사람 검거 ${PAY.securityCatch.toLocaleString()}원 · VIP 차단 시 -${PAY.vipPenalty.toLocaleString()}원`,
     icon: "🛡️",
+  },
+  {
+    id: "artModel",
+    name: "미술 학원 모델 알바",
+    subtitle: "선생님이 보여주는 포즈 방향을 기억하고 순서대로 입력하세요.",
+    rewardText: `포즈 성공 1회당 ${PAY.artModel.toLocaleString()}원 + 난이도 보너스`,
+    icon: "🎨",
+  },
+  {
+    id: "pcCafeCook",
+    name: "피씨방 요리 알바",
+    subtitle: "라면과 볶음밥 주문에 맞춰 재료를 순서대로 조리하세요.",
+    rewardText: `주문 1개당 기본 ${PAY.pcCafeCookBase.toLocaleString()}원 + 메뉴 보너스`,
+    icon: "🍜",
   },
 ];
 
@@ -2326,11 +2388,11 @@ function removeArtifactFromInventory(inventory: ArtifactInventoryEntry[], artifa
 
 
 function getExcavationTraceTargetCount(artifact: ArtifactItem) {
-  return Math.max(22, Math.min(52, Math.floor(artifact.weirdness / 2.4) + 18));
+  return Math.max(12, Math.min(28, Math.floor(artifact.weirdness / 6) + 10));
 }
 
 function getExcavationTraceTolerance(artifact: ArtifactItem) {
-  return Math.max(5.5, 15 - artifact.weirdness / 8);
+  return Math.max(18, 36 - artifact.weirdness / 4.5);
 }
 
 function pickExcavationArtifact() {
@@ -2848,6 +2910,11 @@ function ResponsiveGameStyles() {
           overflow: visible !important;
         }
 
+        .alba-panel-scene {
+          align-content: start !important;
+          overflow: auto !important;
+        }
+
         .alba-luxury-grid {
           grid-template-columns: 1fr !important;
         }
@@ -3133,6 +3200,14 @@ function ResponsiveGameStyles() {
           grid-template-columns: 1fr !important;
         }
 
+        .alba-mobile-touch-controls.artModel {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
+
+        .alba-mobile-touch-controls.pcCafeCook {
+          grid-template-columns: repeat(auto-fit, minmax(86px, 1fr)) !important;
+        }
+
         .alba-mobile-touch-controls .wide {
           grid-column: 1 / -1 !important;
         }
@@ -3414,6 +3489,17 @@ export default function GamePage() {
   const [securitySuccess, setSecuritySuccess] = useState(0);
   const [securityMiss, setSecurityMiss] = useState(0);
   const [securityRound, setSecurityRound] = useState(0);
+
+  const [artModelSequence, setArtModelSequence] = useState<DirectionKey[]>([]);
+  const [artModelIndex, setArtModelIndex] = useState(0);
+  const [artModelShowCue, setArtModelShowCue] = useState(true);
+  const [artModelSuccess, setArtModelSuccess] = useState(0);
+  const [artModelMiss, setArtModelMiss] = useState(0);
+
+  const [pcCafeOrder, setPcCafeOrder] = useState<PcCafeCookOrder>(pcCafeCookOrders[0]);
+  const [pcCafeCookIndex, setPcCafeCookIndex] = useState(0);
+  const [pcCafeCookSuccess, setPcCafeCookSuccess] = useState(0);
+  const [pcCafeCookMiss, setPcCafeCookMiss] = useState(0);
 
   const firedLockRef = useRef(false);
   const runnerSpawnCooldownRef = useRef(0);
@@ -4729,6 +4815,81 @@ export default function GamePage() {
   }, [activeJobId, securityMiss]);
 
   useEffect(() => {
+    if (activeJobId === "artModel" && artModelMiss >= 3) fireFromJob("🎨 포즈 실수 3회! 미술 학원 모델 알바에서 해고되었습니다.");
+  }, [activeJobId, artModelMiss]);
+
+  useEffect(() => {
+    if (activeJobId === "pcCafeCook" && pcCafeCookMiss >= 3) fireFromJob("🍜 조리 실수 3회! 피씨방 요리 알바에서 해고되었습니다.");
+  }, [activeJobId, pcCafeCookMiss]);
+
+  function prepareNextArtModelRound(successNotice?: string) {
+    const nextSequence = makeArtModelSequence(difficulty);
+    setArtModelSequence(nextSequence);
+    setArtModelIndex(0);
+    setArtModelShowCue(true);
+    setMessage(successNotice ?? "🎨 새 포즈가 나옵니다. 방향을 기억하세요.");
+    window.setTimeout(() => setArtModelShowCue(false), Math.max(900, 1700 - difficulty * 80));
+  }
+
+  function handleArtModelDirection(direction: DirectionKey) {
+    if (activeJobId !== "artModel") return;
+    if (artModelShowCue) {
+      setMessage("🎨 아직 포즈를 보여주는 중입니다. 방향이 사라진 뒤 입력하세요.");
+      return;
+    }
+
+    const expected = artModelSequence[artModelIndex];
+    if (direction !== expected) {
+      setArtModelMiss((miss) => miss + 1);
+      prepareNextArtModelRound(`❌ 포즈가 틀렸습니다. 정답은 ${artModelDirectionInfo[expected]?.label ?? "방향"}였습니다.`);
+      return;
+    }
+
+    const nextIndex = artModelIndex + 1;
+    setArtModelIndex(nextIndex);
+
+    if (nextIndex >= artModelSequence.length) {
+      const reward = Math.floor((PAY.artModel + difficulty * 90 + artModelSequence.length * 45) * jobIncomeMultiplier);
+      setCash((money) => money + reward);
+      setArtModelSuccess((success) => success + 1);
+      prepareNextArtModelRound(`✅ 포즈 기억 성공! +${reward.toLocaleString()}원`);
+      return;
+    }
+
+    setMessage(`🎨 좋아요. 다음 포즈 ${nextIndex + 1}/${artModelSequence.length}`);
+  }
+
+  function handlePcCafeCookIngredient(ingredient: string) {
+    if (activeJobId !== "pcCafeCook") return;
+
+    const expected = pcCafeOrder.steps[pcCafeCookIndex];
+    if (ingredient !== expected) {
+      setPcCafeCookMiss((miss) => miss + 1);
+      const nextOrder = makePcCafeCookOrder(difficulty);
+      setPcCafeOrder(nextOrder);
+      setPcCafeCookIndex(0);
+      setMessage(`❌ 조리 순서 오류! 정답은 ${expected}였습니다. 새 주문: ${nextOrder.icon} ${nextOrder.name}`);
+      return;
+    }
+
+    const nextIndex = pcCafeCookIndex + 1;
+    setPcCafeCookIndex(nextIndex);
+
+    if (nextIndex >= pcCafeOrder.steps.length) {
+      const reward = Math.floor((PAY.pcCafeCookBase + pcCafeOrder.reward + difficulty * 120) * jobIncomeMultiplier);
+      const nextOrder = makePcCafeCookOrder(difficulty);
+      setCash((money) => money + reward);
+      setPcCafeCookSuccess((success) => success + 1);
+      setPcCafeOrder(nextOrder);
+      setPcCafeCookIndex(0);
+      setMessage(`🍳 ${pcCafeOrder.name} 완성! +${reward.toLocaleString()}원 · 다음 주문: ${nextOrder.icon} ${nextOrder.name}`);
+      return;
+    }
+
+    setMessage(`🍳 ${ingredient} 완료. 다음 재료: ${pcCafeOrder.steps[nextIndex]}`);
+  }
+
+  useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (!activeJobId) return;
       const key = event.key.toLowerCase();
@@ -4772,6 +4933,24 @@ export default function GamePage() {
       if (activeJobId === "security" && key === " ") {
         event.preventDefault();
         handleSecurityAction();
+        return;
+      }
+
+      if (activeJobId === "artModel") {
+        const direction = normalizeModelDirection(event.key);
+        if (direction) {
+          event.preventDefault();
+          handleArtModelDirection(direction);
+        }
+        return;
+      }
+
+      if (activeJobId === "pcCafeCook") {
+        const numberIndex = Number(key) - 1;
+        if (Number.isInteger(numberIndex) && numberIndex >= 0 && numberIndex < pcCafeCookButtons.length) {
+          event.preventDefault();
+          handlePcCafeCookIngredient(pcCafeCookButtons[numberIndex]);
+        }
       }
     }
 
@@ -4790,7 +4969,7 @@ export default function GamePage() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [activeJobId, sortItem, cashierIndex, cashierSequence, cafeFill, cafeTargetStart, cafeTargetEnd, securitySignal, difficulty]);
+  }, [activeJobId, sortItem, cashierIndex, cashierSequence, cafeFill, cafeTargetStart, cafeTargetEnd, securitySignal, difficulty, artModelSequence, artModelIndex, artModelShowCue, pcCafeOrder, pcCafeCookIndex]);
 
   useEffect(() => {
     return () => {
@@ -4837,6 +5016,8 @@ export default function GamePage() {
     if (jobId === "cashier") setupCashierJob();
     if (jobId === "cafe") setupCafeJob();
     if (jobId === "security") setupSecurityJob();
+    if (jobId === "artModel") setupArtModelJob();
+    if (jobId === "pcCafeCook") setupPcCafeCookJob();
   }
 
   function setupSortingJob() {
@@ -4884,6 +5065,26 @@ export default function GamePage() {
     setSecurityMiss(0);
     setSecurityRound(0);
     setMessage(`🛡️ 수상한 사람만 막으세요. VIP를 막으면 ${PAY.vipPenalty.toLocaleString()}원을 물어냅니다.`);
+  }
+
+  function setupArtModelJob() {
+    const nextSequence = makeArtModelSequence(1);
+    setArtModelSequence(nextSequence);
+    setArtModelIndex(0);
+    setArtModelShowCue(true);
+    setArtModelSuccess(0);
+    setArtModelMiss(0);
+    setMessage("🎨 선생님이 보여주는 포즈 방향을 기억하세요. 잠시 후 방향키 순서 입력이 시작됩니다.");
+    window.setTimeout(() => setArtModelShowCue(false), 1600);
+  }
+
+  function setupPcCafeCookJob() {
+    const order = makePcCafeCookOrder(1);
+    setPcCafeOrder(order);
+    setPcCafeCookIndex(0);
+    setPcCafeCookSuccess(0);
+    setPcCafeCookMiss(0);
+    setMessage(`🍜 주문 접수: ${order.icon} ${order.name}. 재료를 순서대로 눌러 조리하세요.`);
   }
 
   function leaveJob() {
@@ -5198,10 +5399,22 @@ export default function GamePage() {
 
   function getCareerRouteOptions(buildingId: CareerBuildingId) {
     if (occupationId === "unemployed") return [] as CareerQuest[];
-    return careerQuestBoards[buildingId].filter((quest) => {
+
+    const normalRoutes = careerQuestBoards[buildingId].filter((quest) => {
       const career = occupationInfo[quest.targetId];
-      return (!quest.hidden || isHiddenCareerVisible(quest.targetId)) && career.requiredPrevious === occupationId;
+      return !quest.hidden && career.requiredPrevious === occupationId;
     });
+
+    const hiddenRoutes = careerQuestBoards[buildingId].filter((quest) => {
+      const career = occupationInfo[quest.targetId];
+      if (!quest.hidden || !isHiddenCareerVisible(quest.targetId)) return false;
+      if (!career.requiredPrevious) return false;
+      if (career.requiredPrevious !== occupationId && !unlockedOccupations.includes(career.requiredPrevious)) return false;
+      const rareOfferScore = (Date.now() / 1000 / 60 + getStableHash(`${userId ?? "guest"}-${quest.targetId}`)) % 100;
+      return rareOfferScore < 18;
+    });
+
+    return [...normalRoutes, ...hiddenRoutes];
   }
 
   function getCurrentCareerQuest(buildingId: CareerBuildingId) {
@@ -5248,7 +5461,7 @@ export default function GamePage() {
         .map((quest) => occupationInfo[quest.targetId])
         .find((candidate) => candidate.hidden && isHiddenCareerVisible(candidate.id) && isOutcomeEligible(candidate, baseOccupation));
 
-      if (hiddenCandidate) {
+      if (hiddenCandidate && Math.random() < 0.28) {
         return { occupation: hiddenCandidate, resultType: "hidden" as const };
       }
 
@@ -5924,7 +6137,7 @@ export default function GamePage() {
 
     const tolerance = getExcavationTraceTolerance(artifact);
     const currentIndex = Math.min(excavationGame.step, excavationTraceTargets.length - 1);
-    const candidateIndexes = Array.from({ length: 5 }, (_, offset) => Math.min(excavationTraceTargets.length - 1, currentIndex + offset));
+    const candidateIndexes = excavationTraceTargets.map((_, index) => index).filter((index) => index >= Math.max(0, currentIndex - 2));
     const distances = candidateIndexes.map((index) => ({
       index,
       distance: Math.hypot(point.x - excavationTraceTargets[index].x, point.y - excavationTraceTargets[index].y),
@@ -5949,11 +6162,11 @@ export default function GamePage() {
       return;
     }
 
-    if (nearest.distance > tolerance * 1.25) {
+    if (nearest.distance > tolerance * 2.5 && excavationTracePoints.length > 4) {
       const now = Date.now();
-      if (now - excavationPenaltyCooldownRef.current > 140) {
+      if (now - excavationPenaltyCooldownRef.current > 420) {
         excavationPenaltyCooldownRef.current = now;
-        applyExcavationCrack(artifact, "⚠️ 실루엣에서 벗어났습니다. 표면에 금이 갔습니다.");
+        applyExcavationCrack(artifact, "⚠️ 실루엣에서 많이 벗어났습니다. 표면에 금이 갔습니다.");
       }
     }
   }
@@ -5961,7 +6174,11 @@ export default function GamePage() {
   function beginExcavationTracing(event: any) {
     if (!excavationGame) return;
     event.preventDefault?.();
-    event.currentTarget?.setPointerCapture?.(event.pointerId);
+    try {
+      event.currentTarget?.setPointerCapture?.(event.pointerId);
+    } catch {
+      // Some mobile browsers do not allow pointer capture here.
+    }
     excavationPenaltyCooldownRef.current = 0;
     const point = getExcavationPointerPoint(event);
     setIsExcavationTracing(true);
@@ -7083,6 +7300,30 @@ export default function GamePage() {
       );
     }
 
+    if (activeJobId === "artModel") {
+      return (
+        <div className="alba-mobile-only alba-mobile-touch-controls artModel" aria-label="모바일 미술 학원 모델 조작">
+          {(["up", "left", "right", "down"] as DirectionKey[]).map((direction) => (
+            <button key={direction} onClick={() => handleArtModelDirection(direction)}>
+              {artModelDirectionInfo[direction].icon} {artModelDirectionInfo[direction].label}
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    if (activeJobId === "pcCafeCook") {
+      return (
+        <div className="alba-mobile-only alba-mobile-touch-controls pcCafeCook" aria-label="모바일 피씨방 요리 조작">
+          {pcCafeCookButtons.map((ingredient) => (
+            <button key={ingredient} onClick={() => handlePcCafeCookIngredient(ingredient)}>
+              {ingredient}
+            </button>
+          ))}
+        </div>
+      );
+    }
+
     return null;
   }
 
@@ -7125,6 +7366,8 @@ export default function GamePage() {
             {activeJobId === "cashier" && <CashierGame sequence={cashierSequence} currentIndex={cashierIndex} success={cashierSuccess} miss={cashierMiss} difficulty={difficulty} />}
             {activeJobId === "cafe" && <CafeGame fill={cafeFill} targetStart={cafeTargetStart} targetEnd={cafeTargetEnd} success={cafeSuccess} miss={cafeMiss} holding={cafeHolding} difficulty={difficulty} />}
             {activeJobId === "security" && <SecurityGame signal={securitySignal} success={securitySuccess} miss={securityMiss} round={securityRound} />}
+            {activeJobId === "artModel" && <ArtModelGame sequence={artModelSequence} currentIndex={artModelIndex} showCue={artModelShowCue} success={artModelSuccess} miss={artModelMiss} difficulty={difficulty} />}
+            {activeJobId === "pcCafeCook" && <PcCafeCookGame order={pcCafeOrder} currentIndex={pcCafeCookIndex} success={pcCafeCookSuccess} miss={pcCafeCookMiss} difficulty={difficulty} />}
           </section>
 
           <footer className="alba-job-footer" style={jobFooterStyle}>
@@ -7359,7 +7602,7 @@ export default function GamePage() {
                       {careerRouteOptions.length > 1 && (
                         <div style={careerRouteChoicePanelStyle}>
                           <strong>진로 선택지가 열렸습니다</strong>
-                          <span>현재 직업에서 이어지는 루트 중 하나를 선택하세요. 선택한 루트의 NPC 퀘스트가 아래에 표시됩니다.</span>
+                          <span>현재 직업에서 이어지는 팀/부서 루트 중 하나를 직접 선택하세요. 조건을 만족하면 드물게 히든 직업 루트도 후보로 나타나고, 완벽히 수행하면 낮은 확률로 히든 직업을 얻을 수 있습니다.</span>
                           <div style={careerRouteChoiceGridStyle}>
                             {careerRouteOptions.map((quest) => {
                               const routeCareer = occupationInfo[quest.targetId];
@@ -7367,7 +7610,7 @@ export default function GamePage() {
                               return (
                                 <button key={quest.id} onClick={() => setSelectedCareerRouteId(quest.targetId)} style={{ ...careerRouteChoiceButtonStyle, borderColor: active ? "#2563eb" : "#111827", background: active ? "#dbeafe" : "#ffffff" }}>
                                   <strong>{routeCareer.icon} {routeCareer.name}</strong>
-                                  <small>{quest.title}</small>
+                                  <small>{routeCareer.hidden ? "희귀 히든 루트" : quest.title.includes("인사") ? "인사팀 루트" : quest.title.includes("영업") ? "영업팀 루트" : quest.title.includes("기획") || quest.title.includes("전략") ? "기획/전략팀 루트" : quest.title.includes("마케팅") || quest.title.includes("브랜드") ? "홍보/마케팅팀 루트" : quest.title}</small>
                                 </button>
                               );
                             })}
@@ -7857,7 +8100,7 @@ export default function GamePage() {
                         <div style={excavationProgressBarStyle}>
                           <div style={{ ...excavationProgressFillStyle, width: `${excavationProgressPercent}%` }} />
                         </div>
-                        <p style={economyCardTextStyle}>초록 점에서 시작해 빨간 점까지 직접 선을 따라 그리세요. 허용 오차를 넘어서면 표면이 갈라집니다. 초월 등급일수록 실루엣이 더 복잡합니다.</p>
+                        <p style={economyCardTextStyle}>초록 점 근처에서 시작해 빨간 점 방향으로 선을 따라 그리세요. 조금 흔들려도 괜찮지만, 실루엣에서 많이 벗어나면 표면이 갈라집니다.</p>
                         <div style={economyButtonRowStyle}>
                           <button onClick={() => setExcavationTracePoints([])} style={casinoSmallButtonStyle}>그리기 흔적 지우기</button>
                           <button onClick={startExcavation} disabled={!excavationReady} style={{ ...casinoSmallButtonStyle, opacity: excavationReady ? 1 : 0.55 }}>{excavationReady ? "다른 실루엣 찾기" : formatTime(excavationCooldownRemainingSeconds)}</button>
@@ -10120,6 +10363,70 @@ function SecurityGame({ signal, success, miss, round }: { signal: SecuritySignal
   );
 }
 
+
+function ArtModelGame({ sequence, currentIndex, showCue, success, miss, difficulty }: { sequence: DirectionKey[]; currentIndex: number; showCue: boolean; success: number; miss: number; difficulty: number }) {
+  return (
+    <div style={artModelStageStyle}>
+      <div style={miniGameTopInfoStyle}><strong>포즈 {success}회</strong><strong>난이도 Lv.{difficulty}</strong><strong>실수 {miss}/3</strong></div>
+      <div style={artModelStudioStyle}>
+        <div style={artModelTeacherStyle}>👩‍🎨<span>선생님</span></div>
+        <div style={artModelCanvasStyle}>
+          <strong>{showCue ? "기억하세요" : "입력하세요"}</strong>
+          <div style={artModelSequenceRowStyle}>
+            {sequence.map((direction, index) => (
+              <span key={`${direction}-${index}`} style={{
+                ...artModelDirectionChipStyle,
+                opacity: showCue || index < currentIndex ? 1 : 0.22,
+                borderColor: index === currentIndex && !showCue ? "#2563eb" : "#111827",
+                background: index < currentIndex ? "#dcfce7" : index === currentIndex && !showCue ? "#dbeafe" : "#ffffff",
+              }}>
+                {showCue || index < currentIndex || index === currentIndex ? artModelDirectionInfo[direction].icon : "?"}
+              </span>
+            ))}
+          </div>
+          <p style={cashierHintStyle}>{showCue ? "방향을 외운 뒤 사라지면 입력합니다." : `다음 입력: ${artModelDirectionInfo[sequence[currentIndex]]?.label ?? "완료"}`}</p>
+        </div>
+        <div style={artModelPoseStyle}>
+          <span>{showCue ? "🧍" : "🤔"}</span>
+          <small>모델 포즈</small>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PcCafeCookGame({ order, currentIndex, success, miss, difficulty }: { order: PcCafeCookOrder; currentIndex: number; success: number; miss: number; difficulty: number }) {
+  return (
+    <div style={pcCafeCookStageStyle}>
+      <div style={miniGameTopInfoStyle}><strong>완성 {success}개</strong><strong>난이도 Lv.{difficulty}</strong><strong>실수 {miss}/3</strong></div>
+      <div style={pcCafeKitchenStyle}>
+        <div style={pcCafeOrderTicketStyle}>
+          <strong>{order.icon} 주문: {order.name}</strong>
+          <small>순서대로 조리하세요</small>
+        </div>
+        <div style={pcCafeRecipeRowStyle}>
+          {order.steps.map((step, index) => (
+            <span key={`${step}-${index}`} style={{
+              ...pcCafeRecipeStepStyle,
+              background: index < currentIndex ? "#dcfce7" : index === currentIndex ? "#fef3c7" : "#ffffff",
+              borderColor: index === currentIndex ? "#f59e0b" : "#111827",
+            }}>
+              {index + 1}. {step}
+            </span>
+          ))}
+        </div>
+        <div style={pcCafeCookButtonGridStyle}>
+          {pcCafeCookButtons.map((ingredient, index) => (
+            <span key={ingredient} style={{ ...pcCafeIngredientPreviewStyle, opacity: order.steps.includes(ingredient) ? 1 : 0.45 }}>
+              {index + 1 > 9 ? 0 : index + 1} · {ingredient}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function getTodayKey() {
   return new Date().toISOString().slice(0, 5);
 }
@@ -11466,8 +11773,141 @@ function getControlHint(activeJobId: JobId | null) {
   if (activeJobId === "cashier") return "W/A/S/D 순서 입력";
   if (activeJobId === "cafe") return "Space 누르고 있다가 떼기";
   if (activeJobId === "security") return "수상한 사람일 때만 Space";
+  if (activeJobId === "artModel") return "포즈를 외운 뒤 방향키 또는 W/A/S/D 순서 입력";
+  if (activeJobId === "pcCafeCook") return "숫자키 1~9/0 또는 모바일 재료 버튼으로 주문 순서 조리";
   return "알바를 선택하세요";
 }
+
+const artModelStageStyle: CSSProperties = {
+  height: "100%",
+  display: "grid",
+  gap: "14px",
+  alignContent: "start",
+  color: "#111827",
+};
+
+const artModelStudioStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "28px",
+  background: "linear-gradient(180deg, #fff7ed 0%, #f8fafc 100%)",
+  padding: "18px",
+  display: "grid",
+  gridTemplateColumns: "150px minmax(0, 1fr) 150px",
+  gap: "16px",
+  alignItems: "center",
+  boxShadow: "0 12px 0 rgba(17,24,39,0.10)",
+};
+
+const artModelTeacherStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "22px",
+  background: "#ffffff",
+  minHeight: "150px",
+  display: "grid",
+  placeItems: "center",
+  fontSize: "52px",
+  fontWeight: 900,
+};
+
+const artModelCanvasStyle: CSSProperties = {
+  border: "4px dashed #111827",
+  borderRadius: "22px",
+  background: "#ffffff",
+  padding: "18px",
+  display: "grid",
+  gap: "14px",
+  textAlign: "center",
+};
+
+const artModelSequenceRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  justifyContent: "center",
+  gap: "10px",
+};
+
+const artModelDirectionChipStyle: CSSProperties = {
+  width: "62px",
+  height: "62px",
+  border: "4px solid #111827",
+  borderRadius: "18px",
+  display: "grid",
+  placeItems: "center",
+  fontSize: "30px",
+  fontWeight: 900,
+  boxShadow: "0 6px 0 rgba(17,24,39,0.13)",
+};
+
+const artModelPoseStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "999px 999px 28px 28px",
+  background: "linear-gradient(180deg, #dbeafe 0%, #ffffff 100%)",
+  minHeight: "170px",
+  display: "grid",
+  placeItems: "center",
+  fontSize: "60px",
+  fontWeight: 900,
+};
+
+const pcCafeCookStageStyle: CSSProperties = {
+  height: "100%",
+  display: "grid",
+  gap: "14px",
+  alignContent: "start",
+  color: "#111827",
+};
+
+const pcCafeKitchenStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "28px",
+  background: "linear-gradient(180deg, #0f172a 0%, #1e293b 45%, #fff7ed 45%, #ffffff 100%)",
+  padding: "18px",
+  display: "grid",
+  gap: "14px",
+  boxShadow: "0 12px 0 rgba(17,24,39,0.18)",
+};
+
+const pcCafeOrderTicketStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "20px",
+  background: "#ffffff",
+  color: "#111827",
+  padding: "14px",
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "10px",
+  alignItems: "center",
+  fontWeight: 900,
+};
+
+const pcCafeRecipeRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "10px",
+};
+
+const pcCafeRecipeStepStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "16px",
+  padding: "10px 12px",
+  fontWeight: 900,
+  boxShadow: "0 5px 0 rgba(17,24,39,0.10)",
+};
+
+const pcCafeCookButtonGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+  gap: "8px",
+};
+
+const pcCafeIngredientPreviewStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "14px",
+  background: "#ffffff",
+  padding: "8px 10px",
+  fontWeight: 900,
+  textAlign: "center",
+};
 
 
 const worldLayoutStyle: CSSProperties = {
@@ -11790,10 +12230,12 @@ const streetBottomNavStyle: CSSProperties = {
 
 const panelSceneStyle: CSSProperties = {
   width: "100%",
+  minHeight: "100%",
   height: "100%",
   display: "grid",
-  gridTemplateRows: "auto minmax(0, 1fr) auto",
-  gap: "12px",
+  gridTemplateRows: "auto",
+  alignContent: "start",
+  gap: "16px",
   overflow: "auto",
   background: "linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%)",
   color: "#111827",
@@ -14571,11 +15013,13 @@ const newspaperBodyStyle: CSSProperties = {
 const excavationLayoutStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-  gap: "16px",
+  gap: "18px",
   alignItems: "start",
   width: "100%",
   minWidth: 0,
   overflow: "visible",
+  position: "relative",
+  zIndex: 1,
 };
 
 const excavationGamePanelStyle: CSSProperties = {
@@ -14589,6 +15033,7 @@ const excavationGamePanelStyle: CSSProperties = {
   boxShadow: "0 16px 0 rgba(120,53,15,0.14)",
   minWidth: 0,
   overflow: "hidden",
+  alignSelf: "start",
 };
 
 const excavationSiteAtmosphereStyle: CSSProperties = {
@@ -14596,8 +15041,12 @@ const excavationSiteAtmosphereStyle: CSSProperties = {
   gap: "12px",
   overflowX: "auto",
   overflowY: "hidden",
-  paddingBottom: "10px",
+  padding: "4px 4px 18px",
+  minHeight: "132px",
+  alignItems: "stretch",
   scrollSnapType: "x mandatory",
+  position: "relative",
+  zIndex: 0,
 };
 
 const excavationBriefCardStyle: CSSProperties = {
@@ -14608,8 +15057,11 @@ const excavationBriefCardStyle: CSSProperties = {
   display: "grid",
   gap: "8px",
   boxShadow: "0 8px 0 rgba(120,53,15,0.12)",
-  minWidth: "260px",
+  minWidth: "280px",
+  maxWidth: "360px",
+  minHeight: "96px",
   scrollSnapAlign: "start",
+  flex: "0 0 auto",
 };
 
 const excavationHeroIllustrationStyle: CSSProperties = {
@@ -14701,6 +15153,7 @@ const artifactInventoryPanelStyle: CSSProperties = {
   color: "#111827",
   minWidth: 0,
   overflow: "hidden",
+  alignSelf: "start",
 };
 
 const artifactMiniPreviewStyle: CSSProperties = {
@@ -14737,11 +15190,13 @@ const artifactCardStyle: CSSProperties = {
 const museumHeroHallStyle: CSSProperties = {
   border: "4px solid #111827",
   borderRadius: "28px",
-  background: "linear-gradient(180deg, #7f1d1d 0%, #991b1b 38%, #d6b08b 38%, #f8fafc 100%)",
+  background: "linear-gradient(180deg, #7f1d1d 0%, #991b1b 40%, #d6b08b 40%, #f8fafc 100%)",
   padding: "18px",
   boxShadow: "0 16px 0 rgba(17,24,39,0.12)",
   overflow: "hidden",
-  minHeight: 0,
+  minHeight: "286px",
+  position: "relative",
+  zIndex: 0,
 };
 
 const museumHeroWallStyle: CSSProperties = {
@@ -14751,6 +15206,7 @@ const museumHeroWallStyle: CSSProperties = {
   display: "grid",
   gap: "18px",
   overflow: "hidden",
+  minHeight: "236px",
 };
 
 const museumHorizontalRailStyle: CSSProperties = {
@@ -14758,7 +15214,9 @@ const museumHorizontalRailStyle: CSSProperties = {
   gap: "18px",
   overflowX: "auto",
   overflowY: "hidden",
-  padding: "4px 6px 18px",
+  padding: "4px 6px 22px",
+  minHeight: "202px",
+  alignItems: "stretch",
   scrollSnapType: "x mandatory",
   WebkitOverflowScrolling: "touch",
 };
@@ -14816,14 +15274,16 @@ const museumFrameStyle: CSSProperties = {
   boxShadow: "0 10px 0 rgba(120,53,15,0.25)",
   minWidth: "260px",
   maxWidth: "320px",
+  height: "184px",
   scrollSnapAlign: "start",
+  flex: "0 0 auto",
 };
 
 const museumFrameInnerStyle: CSSProperties = {
   border: "4px solid #111827",
   borderRadius: "14px",
   background: "linear-gradient(180deg, #7f1d1d 0%, #b91c1c 100%)",
-  minHeight: "168px",
+  height: "100%",
   padding: "12px",
   display: "grid",
   placeItems: "center",
@@ -14880,7 +15340,8 @@ const museumSummaryStyle: CSSProperties = {
   color: "#111827",
   boxShadow: "0 8px 0 rgba(17,24,39,0.08)",
   position: "relative",
-  zIndex: 1,
+  zIndex: 2,
+  marginTop: "4px",
 };
 
 const museumGridStyle: CSSProperties = {
@@ -14922,6 +15383,7 @@ const museumDonationPreviewFrameStyle: CSSProperties = {
   placeItems: "center",
   color: "#f8fafc",
 };
+
 
 
 
