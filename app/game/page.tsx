@@ -2962,8 +2962,8 @@ export default function GamePage() {
   const [isSaveLoaded, setIsSaveLoaded] = useState(false);
   const [isEconomyLoaded, setIsEconomyLoaded] = useState(false);
   const [isProfileLoaded, setIsProfileLoaded] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState("저장 대기 중");
+  const [, setIsSaving] = useState(false);
+  const [, setSaveMessage] = useState("저장 대기 중");
 
   const [lobbyView, setLobbyView] = useState<LobbyView>("room");
   const [streetPage, setStreetPage] = useState(0);
@@ -9889,15 +9889,6 @@ function FinanceMiniChart({ history }: { history: FinanceHistoryPoint[] }) {
   );
 }
 
-function getCompactSaveMessage(isSaving: boolean, message: string) {
-  if (isSaving) return "저장중";
-  if (message.includes("실패")) return "실패";
-  if (message.includes("대기")) return "대기";
-  if (message.includes("불러오기")) return "불러옴";
-  if (message.includes("생성")) return "생성됨";
-  return "완료";
-}
-
 function StatusPill({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) {
   return (
     <div className="alba-status-pill" style={{ ...statusPillStyle, borderColor: warning ? "#f97316" : "#111827", color: warning ? "#9a3412" : "#111827" }}>
@@ -13582,6 +13573,8 @@ const newspaperBodyStyle: CSSProperties = {
   lineHeight: 1.6,
   fontWeight: 800,
 };
+
+
 
 
 
