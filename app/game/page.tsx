@@ -1980,8 +1980,8 @@ const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: st
   { id: "gacha", title: "가챠 숍", subtitle: "장신구 · 자판기", emoji: "🎁" },
   { id: "itemMarket", title: "아이템 거래소", subtitle: "유저 장신구 매매", emoji: "🤝" },
   { id: "lotto", title: "로또 판매소", subtitle: "하루 3회 · 긁는 복권", emoji: "🎫" },
-  { id: "digSite", title: "발굴 단지", subtitle: "화석 · 문화유산 발굴", emoji: "⛏️" },
-  { id: "museum", title: "박물관", subtitle: "공동 전시 · 기증 후원", emoji: "🏛️" },
+  { id: "digSite", title: "발굴 단지", subtitle: "화석 · 문화유산 발굴", emoji: "🦴" },
+  { id: "museum", title: "박물관", subtitle: "공동 전시 · 기증 후원", emoji: "🖼️" },
   { id: "luxury", title: "사치 아이템 숍", subtitle: "닉네임 · 이름표 · 배경", emoji: "💎" },
   { id: "casino", title: "도박장", subtitle: "슬롯 머신 · 유저 대전", emoji: "🎰" },
 ];
@@ -2321,6 +2321,14 @@ function removeArtifactFromInventory(inventory: ArtifactInventoryEntry[], artifa
     if (entry.count <= 1) return [];
     return [{ ...entry, count: entry.count - 1 }];
   });
+}
+
+function getExcavationTraceTargetCount(artifact: ArtifactItem) {
+  return Math.max(16, Math.min(40, Math.floor(artifact.weirdness / 3) + 14));
+}
+
+function getExcavationTraceTolerance(artifact: ArtifactItem) {
+  return Math.max(8, 20 - artifact.weirdness / 7);
 }
 
 function pickExcavationArtifact() {
@@ -3272,6 +3280,9 @@ export default function GamePage() {
   const [museumDonations, setMuseumDonations] = useState<MuseumDonationRow[]>([]);
   const [lastMuseumIncomeAt, setLastMuseumIncomeAt] = useState<Date | null>(null);
   const [excavationGame, setExcavationGame] = useState<ExcavationGameState | null>(null);
+  const [excavationTracePoints, setExcavationTracePoints] = useState<Array<{ x: number; y: number }>>([]);
+  const [excavationTraceTargets, setExcavationTraceTargets] = useState<Array<{ x: number; y: number }>>([]);
+  const [isExcavationTracing, setIsExcavationTracing] = useState(false);
   const [lottoPrice, setLottoPrice] = useState("5000");
   const [nickname, setNickname] = useState("우리집");
   const [nicknameDraft, setNicknameDraft] = useState("우리집");
@@ -3398,6 +3409,8 @@ export default function GamePage() {
   const previousCashForStatsRef = useRef<number | null>(null);
   const globalStockSyncingRef = useRef(false);
   const chatListRef = useRef<HTMLDivElement | null>(null);
+  const excavationGuidePathRef = useRef<SVGPathElement | null>(null);
+  const excavationPenaltyCooldownRef = useRef(0);
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs[0], [selectedJobId]);
   const activeJob = useMemo(() => (activeJobId ? jobs.find((job) => job.id === activeJobId) ?? null : null), [activeJobId]);
   const occupation = occupationInfo[occupationId];
@@ -5783,43 +5796,106 @@ export default function GamePage() {
 
     if (discoveryRoll < 0.22) {
       setExcavationGame(null);
+      setExcavationTracePoints([]);
+      setExcavationTraceTargets([]);
+      setIsExcavationTracing(false);
       setMessage("⛏️ 땅을 조사했지만 이번에는 특별한 실루엣을 찾지 못했습니다. 다시 조사해보세요.");
       return;
     }
 
     const artifact = pickExcavationArtifact();
     const rarityInfo = artifactRarityInfo[artifact.rarity];
+    setExcavationTracePoints([]);
+    setExcavationTraceTargets([]);
+    setIsExcavationTracing(false);
     setExcavationGame({ artifactId: artifact.id, step: 0, cracks: 0, maxCracks: rarityInfo.crackLimit });
-    setMessage(`⛏️ ${artifact.rarity} 등급 ${artifact.category} 실루엣을 발견했습니다. 달고나 뽑기처럼 선을 벗어나지 않게 파내세요.`);
+    setMessage(`⛏️ ${artifact.rarity} 등급 ${artifact.category} 실루엣을 발견했습니다. 달고나 뽑기처럼 시작점부터 직접 선을 따라 조심스럽게 파내세요.`);
   }
 
-  function pressExcavationAction(action: string) {
+  function applyExcavationCrack(artifact: ArtifactItem, reason: string) {
     if (!excavationGame) return;
-    const artifact = getArtifactById(excavationGame.artifactId);
-    if (!artifact) {
-      setExcavationGame(null);
-      return;
-    }
-
-    const expected = artifact.sequence[excavationGame.step];
-    const isCorrect = action === expected;
-    const nextCracks = excavationGame.cracks + (isCorrect ? 0 : 1);
-
+    const nextCracks = excavationGame.cracks + 1;
     if (nextCracks >= excavationGame.maxCracks) {
       setExcavationGame(null);
+      setExcavationTracePoints([]);
+      setExcavationTraceTargets([]);
+      setIsExcavationTracing(false);
       setMessage(`💥 ${artifact.name}에 금이 너무 많이 가서 부서졌습니다. 발굴 실패!`);
       return;
     }
 
-    if (isCorrect && excavationGame.step + 1 >= artifact.sequence.length) {
-      setArtifactInventory((inventory) => addArtifactToInventory(inventory, artifact.id));
-      setExcavationGame(null);
-      setMessage(`🏺 발굴 성공! ${artifact.rarity} 등급 ${artifact.name}을 획득했습니다.`);
+    setExcavationGame({ ...excavationGame, cracks: nextCracks });
+    setMessage(reason);
+  }
+
+  function getExcavationPointerPoint(event: any) {
+    const svg = event.currentTarget as SVGSVGElement;
+    const rect = svg.getBoundingClientRect();
+    const viewBox = svg.viewBox.baseVal;
+    return {
+      x: ((event.clientX - rect.left) / Math.max(1, rect.width)) * viewBox.width,
+      y: ((event.clientY - rect.top) / Math.max(1, rect.height)) * viewBox.height,
+    };
+  }
+
+  function handleExcavationTrace(point: { x: number; y: number }) {
+    if (!excavationGame) return;
+    const artifact = getArtifactById(excavationGame.artifactId);
+    if (!artifact || excavationTraceTargets.length === 0) return;
+
+    const tolerance = getExcavationTraceTolerance(artifact);
+    const currentIndex = Math.min(excavationGame.step, excavationTraceTargets.length - 1);
+    const candidateIndexes = Array.from({ length: 5 }, (_, offset) => Math.min(excavationTraceTargets.length - 1, currentIndex + offset));
+    const distances = candidateIndexes.map((index) => ({
+      index,
+      distance: Math.hypot(point.x - excavationTraceTargets[index].x, point.y - excavationTraceTargets[index].y),
+    }));
+    const nearest = distances.reduce((best, current) => (current.distance < best.distance ? current : best), distances[0]);
+
+    if (nearest.distance <= tolerance) {
+      const nextStep = Math.max(excavationGame.step + 1, nearest.index + 1);
+      if (nextStep >= excavationTraceTargets.length) {
+        setArtifactInventory((inventory) => addArtifactToInventory(inventory, artifact.id));
+        setExcavationGame(null);
+        setExcavationTracePoints([]);
+        setExcavationTraceTargets([]);
+        setIsExcavationTracing(false);
+        setMessage(`🏺 발굴 성공! ${artifact.rarity} 등급 ${artifact.name}을 획득했습니다.`);
+        return;
+      }
+
+      if (nextStep !== excavationGame.step) {
+        setExcavationGame({ ...excavationGame, step: nextStep });
+      }
       return;
     }
 
-    setExcavationGame((game) => game ? { ...game, step: game.step + (isCorrect ? 1 : 0), cracks: nextCracks } : null);
-    setMessage(isCorrect ? "⛏️ 실루엣을 따라 조심스럽게 파냈습니다." : "⚠️ 실루엣에서 벗어났습니다. 화석에 금이 갔습니다.");
+    if (nearest.distance > tolerance * 1.9) {
+      const now = Date.now();
+      if (now - excavationPenaltyCooldownRef.current > 220) {
+        excavationPenaltyCooldownRef.current = now;
+        applyExcavationCrack(artifact, "⚠️ 실루엣에서 벗어났습니다. 표면에 금이 갔습니다.");
+      }
+    }
+  }
+
+  function beginExcavationTracing(event: any) {
+    if (!excavationGame) return;
+    const point = getExcavationPointerPoint(event);
+    setIsExcavationTracing(true);
+    setExcavationTracePoints([point]);
+    handleExcavationTrace(point);
+  }
+
+  function moveExcavationTracing(event: any) {
+    if (!isExcavationTracing || !excavationGame) return;
+    const point = getExcavationPointerPoint(event);
+    setExcavationTracePoints((current) => [...current, point]);
+    handleExcavationTrace(point);
+  }
+
+  function endExcavationTracing() {
+    setIsExcavationTracing(false);
   }
 
   function sellArtifact(artifactId: ArtifactId) {
@@ -7599,112 +7675,212 @@ export default function GamePage() {
           )}
 
 
-          {lobbyView === "digSite" && (
-            <div className="alba-panel-scene" style={panelSceneStyle}>
-              <div className="alba-panel-header" style={panelHeaderRowStyle}>
-                <div>
-                  <div style={smallLabelStyle}>EXCAVATION SITE</div>
-                  <h2 className="alba-panel-title" style={panelTitleStyle}>발굴 단지</h2>
-                  <p style={panelDescStyle}>달고나 뽑기처럼 실루엣을 따라 조심스럽게 파내면 화석과 문화유산을 얻습니다. 등급이 높을수록 실루엣이 괴상하고 금이 적게 버팁니다.</p>
+          {lobbyView === "digSite" && (() => {
+            const activeArtifact = excavationGame ? getArtifactById(excavationGame.artifactId) : null;
+            const excavationProgressPercent = excavationGame && excavationTraceTargets.length > 0
+              ? Math.min(100, Math.round((excavationGame.step / excavationTraceTargets.length) * 100))
+              : 0;
+            const tracePath = excavationTracePoints.map((point) => `${point.x},${point.y}`).join(" ");
+            return (
+              <div className="alba-panel-scene" style={panelSceneStyle}>
+                <div className="alba-panel-header" style={panelHeaderRowStyle}>
+                  <div>
+                    <div style={smallLabelStyle}>ARCHEOLOGY DIG SITE</div>
+                    <h2 className="alba-panel-title" style={panelTitleStyle}>발굴 단지</h2>
+                    <p style={panelDescStyle}>모래층 아래 숨은 실루엣을 직접 따라 그리며 발굴하는 고고학 현장입니다. 등급이 높을수록 선이 더 기묘하고, 허용 오차가 좁아져 난도가 높아집니다.</p>
+                  </div>
+                  <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
                 </div>
-                <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
-              </div>
 
-              <div className="alba-excavation-layout" style={excavationLayoutStyle}>
-                <section style={excavationGamePanelStyle}>
-                  {!excavationGame ? (
-                    <>
-                      <h3 style={economyCardTitleStyle}>⛏️ 미확인 실루엣 조사</h3>
-                      <p style={economyCardTextStyle}>발굴을 시작하면 확률적으로 실루엣을 발견합니다. 발견에 성공하면 180종 이상의 실루엣 중 하나가 등장하고, 버튼 순서를 맞춰 실루엣을 벗어나지 않게 파내야 합니다.</p>
-                      <button onClick={startExcavation} style={casinoPrimaryButtonStyle}>발굴 시작</button>
-                    </>
-                  ) : (() => {
-                    const artifact = getArtifactById(excavationGame.artifactId);
-                    if (!artifact) return null;
-                    return (
+                <div style={{ ...excavationSiteAtmosphereStyle, marginBottom: "14px" }}>
+                  <div style={excavationBriefCardStyle}>
+                    <strong>🏜️ 현장 브리핑</strong>
+                    <span>사암층, 붓, 정밀 송곳, 기록판을 활용하는 발굴 구역입니다. 첫 흔적을 찾기 전까지는 발견 확률이 적용됩니다.</span>
+                  </div>
+                  <div style={excavationBriefCardStyle}>
+                    <strong>🦴 발굴 규칙</strong>
+                    <span>실루엣의 시작점부터 마우스나 손가락으로 직접 따라 그리세요. 선에서 크게 벗어나면 금이 생기고, 한도를 넘으면 파손됩니다.</span>
+                  </div>
+                  <div style={excavationBriefCardStyle}>
+                    <strong>📜 수집 목표</strong>
+                    <span>화석과 문화유산을 발굴해 판매하거나 박물관에 기증하세요. 기증품은 10분마다 후원 수익을 만들어 줍니다.</span>
+                  </div>
+                </div>
+
+                <div className="alba-excavation-layout" style={excavationLayoutStyle}>
+                  <section style={excavationGamePanelStyle}>
+                    {!excavationGame || !activeArtifact ? (
+                      <>
+                        <div style={excavationHeroIllustrationStyle}>
+                          <div style={excavationTentStyle}>⛺</div>
+                          <div style={excavationHeroBadgeStyle}>FIELD 07</div>
+                          <div style={excavationPitStyle}>
+                            <span style={{ position: "absolute", left: "16%", top: "35%", fontSize: "34px" }}>🦴</span>
+                            <span style={{ position: "absolute", left: "40%", top: "24%", fontSize: "26px" }}>⛏️</span>
+                            <span style={{ position: "absolute", right: "18%", top: "38%", fontSize: "28px" }}>🏺</span>
+                            <span style={{ position: "absolute", right: "10%", bottom: "10%", fontSize: "24px" }}>🖌️</span>
+                          </div>
+                        </div>
+                        <h3 style={economyCardTitleStyle}>⛏️ 미확인 실루엣 조사</h3>
+                        <p style={economyCardTextStyle}>발굴을 시작하면 확률적으로 화석 또는 문화유산 실루엣을 발견합니다. 발견에 성공하면 180종 이상의 실루엣 중 하나가 등장하며, 실루엣의 선을 직접 따라 그려야 합니다.</p>
+                        <button onClick={startExcavation} style={casinoPrimaryButtonStyle}>발굴 시작</button>
+                      </>
+                    ) : (
                       <>
                         <div style={artifactSilhouetteBoxStyle}>
-                          <svg viewBox="0 0 220 160" width="100%" height="180" role="img" aria-label="발굴 실루엣">
-                            <path d={makeArtifactSvgPath(artifact)} fill="rgba(15,23,42,0.10)" stroke="#111827" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d={makeArtifactSvgPath(artifact)} fill="none" stroke="#facc15" strokeWidth="3" strokeDasharray={`${Math.max(8, 30 - artifact.weirdness / 4)} 12`} opacity="0.9" />
+                          <svg
+                            viewBox="0 0 220 160"
+                            width="100%"
+                            height="220"
+                            role="img"
+                            aria-label="발굴 실루엣"
+                            style={{ touchAction: "none" }}
+                            onPointerDown={beginExcavationTracing}
+                            onPointerMove={moveExcavationTracing}
+                            onPointerUp={endExcavationTracing}
+                            onPointerLeave={endExcavationTracing}
+                            onPointerCancel={endExcavationTracing}
+                          >
+                            <rect x="8" y="8" width="204" height="144" rx="18" fill="rgba(255,248,220,0.56)" stroke="rgba(120,53,15,0.18)" strokeWidth="2" />
+                            <path d={makeArtifactSvgPath(activeArtifact)} fill="rgba(120,53,15,0.08)" stroke="#111827" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" opacity="0.2" />
+                            <path ref={excavationGuidePathRef} d={makeArtifactSvgPath(activeArtifact)} fill="none" stroke="#facc15" strokeWidth="6" strokeDasharray={`${Math.max(10, 36 - activeArtifact.weirdness / 5)} 10`} strokeLinecap="round" strokeLinejoin="round" opacity="0.96" />
+                            {excavationTraceTargets.length > 0 && (
+                              <>
+                                <circle cx={excavationTraceTargets[0]?.x ?? 0} cy={excavationTraceTargets[0]?.y ?? 0} r="7" fill="#22c55e" stroke="#111827" strokeWidth="3" />
+                                <circle cx={excavationTraceTargets[excavationTraceTargets.length - 1]?.x ?? 0} cy={excavationTraceTargets[excavationTraceTargets.length - 1]?.y ?? 0} r="7" fill="#ef4444" stroke="#111827" strokeWidth="3" />
+                              </>
+                            )}
+                            {tracePath && <polyline points={tracePath} fill="none" stroke="#0f172a" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" opacity="0.92" />}
                             {Array.from({ length: excavationGame.cracks }).map((_, index) => (
-                              <line key={index} x1={35 + index * 31} y1={32 + (index % 3) * 24} x2={55 + index * 28} y2={70 + (index % 4) * 16} stroke="#dc2626" strokeWidth="5" strokeLinecap="round" />
+                              <g key={index}>
+                                <line x1={32 + index * 28} y1={24 + (index % 3) * 28} x2={54 + index * 26} y2={58 + (index % 4) * 20} stroke="#dc2626" strokeWidth="5" strokeLinecap="round" />
+                                <line x1={54 + index * 26} y1={58 + (index % 4) * 20} x2={70 + index * 22} y2={42 + (index % 5) * 14} stroke="#dc2626" strokeWidth="3" strokeLinecap="round" />
+                              </g>
                             ))}
                           </svg>
                         </div>
-                        <h3 style={economyCardTitleStyle}>{artifactRarityInfo[artifact.rarity].icon} {artifact.rarity} 실루엣</h3>
-                        <p style={economyCardTextStyle}>진행 {excavationGame.step}/{artifact.sequence.length} · 균열 {excavationGame.cracks}/{excavationGame.maxCracks - 1} · 이상도 {artifact.weirdness}</p>
-                        <div style={excavationActionGridStyle}>
-                          {excavationActions.map((action) => (
-                            <button key={action} onClick={() => pressExcavationAction(action)} style={casinoSmallButtonStyle}>{action}</button>
-                          ))}
+                        <h3 style={economyCardTitleStyle}>{artifactRarityInfo[activeArtifact.rarity].icon} {activeArtifact.rarity} 등급 {activeArtifact.category}</h3>
+                        <div style={excavationStatusRowStyle}>
+                          <div style={excavationStatusPillStyle}>진행도 {excavationProgressPercent}%</div>
+                          <div style={excavationStatusPillStyle}>균열 {excavationGame.cracks}/{Math.max(1, excavationGame.maxCracks - 1)}</div>
+                          <div style={excavationStatusPillStyle}>이상도 {activeArtifact.weirdness}</div>
+                        </div>
+                        <div style={excavationProgressBarStyle}>
+                          <div style={{ ...excavationProgressFillStyle, width: `${excavationProgressPercent}%` }} />
+                        </div>
+                        <p style={economyCardTextStyle}>초록 점에서 시작해 빨간 점까지 직접 선을 따라 그리세요. 허용 오차를 넘어서면 표면이 갈라집니다. 초월 등급일수록 실루엣이 더 복잡합니다.</p>
+                        <div style={economyButtonRowStyle}>
+                          <button onClick={() => setExcavationTracePoints([])} style={casinoSmallButtonStyle}>그리기 흔적 지우기</button>
+                          <button onClick={startExcavation} style={casinoSmallButtonStyle}>다른 실루엣 찾기</button>
                         </div>
                       </>
-                    );
-                  })()}
-                </section>
+                    )}
+                  </section>
 
-                <section style={artifactInventoryPanelStyle}>
-                  <h3 style={economyCardTitleStyle}>🎒 내 발굴품</h3>
-                  <div style={artifactListStyle}>
-                    {artifactInventory.length === 0 && <p style={economyCardTextStyle}>아직 발굴품이 없습니다.</p>}
-                    {artifactInventory.map((entry) => {
-                      const artifact = getArtifactById(entry.artifactId);
-                      if (!artifact) return null;
-                      const donated = museumDonations.some((row) => row.artifact_id === artifact.id);
-                      return (
-                        <div key={entry.artifactId} style={artifactCardStyle}>
-                          <strong>{artifactRarityInfo[artifact.rarity].icon} {artifact.name} × {entry.count}</strong>
-                          <span>{artifact.category} · {artifact.rarity} · 판매가 {artifact.value.toLocaleString()}원 · 기증수익 10분당 {artifact.museumIncome.toLocaleString()}원</span>
-                          <div style={economyButtonRowStyle}>
-                            <button onClick={() => sellArtifact(artifact.id)} style={casinoSmallButtonStyle}>판매</button>
-                            <button onClick={() => void donateArtifact(artifact.id)} disabled={donated} style={{ ...casinoSmallButtonStyle, opacity: donated ? 0.45 : 1 }}>{donated ? "이미 기증됨" : "박물관 기증"}</button>
+                  <section style={artifactInventoryPanelStyle}>
+                    <h3 style={economyCardTitleStyle}>🎒 내 발굴품</h3>
+                    <div style={artifactListStyle}>
+                      {artifactInventory.length === 0 && <p style={economyCardTextStyle}>아직 발굴품이 없습니다.</p>}
+                      {artifactInventory.map((entry) => {
+                        const artifact = getArtifactById(entry.artifactId);
+                        if (!artifact) return null;
+                        const donated = museumDonations.some((row) => row.artifact_id === artifact.id);
+                        return (
+                          <div key={entry.artifactId} style={artifactCardStyle}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              <div style={artifactMiniPreviewStyle}>{artifact.category === "문화유산" ? (artifact.rarity === "신화" || artifact.rarity === "초월" ? "🖼️" : "🏺") : artifact.rarity === "초월" ? "🦖" : "🦴"}</div>
+                              <div style={{ display: "grid", gap: "4px" }}>
+                                <strong>{artifactRarityInfo[artifact.rarity].icon} {artifact.name} × {entry.count}</strong>
+                                <span>{artifact.category} · {artifact.rarity} · 판매가 {artifact.value.toLocaleString()}원 · 기증수익 10분당 {artifact.museumIncome.toLocaleString()}원</span>
+                              </div>
+                            </div>
+                            <div style={economyButtonRowStyle}>
+                              <button onClick={() => sellArtifact(artifact.id)} style={casinoSmallButtonStyle}>판매</button>
+                              <button onClick={() => void donateArtifact(artifact.id)} disabled={donated} style={{ ...casinoSmallButtonStyle, opacity: donated ? 0.45 : 1 }}>{donated ? "이미 기증됨" : "박물관 기증"}</button>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
+                  </section>
+                </div>
+              </div>
+            );
+          })()}
+
+          {lobbyView === "museum" && (() => {
+            const featuredExhibits = [museumDonations[0] ?? null, museumDonations[1] ?? null, museumDonations[2] ?? null];
+            return (
+              <div className="alba-panel-scene" style={panelSceneStyle}>
+                <div className="alba-panel-header" style={panelHeaderRowStyle}>
+                  <div>
+                    <div style={smallLabelStyle}>GLOBAL MUSEUM</div>
+                    <h2 className="alba-panel-title" style={panelTitleStyle}>박물관</h2>
+                    <p style={panelDescStyle}>모든 유저가 함께 채우는 화려한 전시관입니다. 이미 기증된 발굴품은 중복 기증할 수 없고, 기증자는 이름이 남습니다.</p>
+                  </div>
+                  <div style={economyButtonRowStyle}>
+                    <button onClick={() => void refreshMuseumDonations()} style={smallActionButtonStyle}>새로고침</button>
+                    <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
+                  </div>
+                </div>
+
+                <section style={museumHeroHallStyle}>
+                  <div style={museumHeroWallStyle}>
+                    <div style={museumFrameRowStyle}>
+                      {featuredExhibits.map((donation, index) => {
+                        const artifact = donation ? getArtifactById(donation.artifact_id) : null;
+                        return (
+                          <div key={`featured-${index}`} style={museumFrameStyle}>
+                            <div style={museumFrameInnerStyle}>
+                              <div style={museumArtworkStyle}>
+                                <span style={{ fontSize: donation?.category === "문화유산" ? "54px" : "48px" }}>
+                                  {donation ? (donation.category === "문화유산" ? (donation.rarity === "신화" || donation.rarity === "초월" ? "🖼️" : "🏺") : artifact?.rarity === "초월" ? "🦖" : "🦴") : index === 0 ? "🖼️" : index === 1 ? "🗿" : "🏺"}
+                                </span>
+                                <strong style={{ textAlign: "center", fontSize: "14px" }}>{donation?.artifact_name ?? (index === 0 ? "명화 전시 구역" : index === 1 ? "조각상 전시 구역" : "유물 진열 구역")}</strong>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={museumPedestalRowStyle}>
+                      <div style={museumPedestalStyle}><span style={{ fontSize: "44px" }}>🗿</span><small>조각 전시</small></div>
+                      <div style={museumDisplayCaseStyle}><span style={{ fontSize: "40px" }}>🔍</span><small>도구 · 유물</small></div>
+                      <div style={museumPedestalStyle}><span style={{ fontSize: "44px" }}>🏺</span><small>특별 기증품</small></div>
+                    </div>
                   </div>
                 </section>
-              </div>
-            </div>
-          )}
 
-          {lobbyView === "museum" && (
-            <div className="alba-panel-scene" style={panelSceneStyle}>
-              <div className="alba-panel-header" style={panelHeaderRowStyle}>
-                <div>
-                  <div style={smallLabelStyle}>GLOBAL MUSEUM</div>
-                  <h2 className="alba-panel-title" style={panelTitleStyle}>박물관</h2>
-                  <p style={panelDescStyle}>모든 유저가 함께 채우는 전시관입니다. 이미 기증된 발굴품은 중복 기증할 수 없고, 기증자는 이름이 남습니다.</p>
+                <div style={museumSummaryStyle}>
+                  <strong>내 기증품 {donatedArtifactIds.length}개</strong>
+                  <span>10분 후원 수익: {donatedArtifactIds.reduce((sum, artifactId) => sum + (getArtifactById(artifactId)?.museumIncome ?? 0), 0).toLocaleString()}원</span>
+                  <span>전체 전시품: {museumDonations.length} / {artifactCatalog.length}</span>
                 </div>
-                <div style={economyButtonRowStyle}>
-                  <button onClick={() => void refreshMuseumDonations()} style={smallActionButtonStyle}>새로고침</button>
-                  <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
+
+                <div style={museumGridStyle}>
+                  {museumDonations.length === 0 && <p style={economyCardTextStyle}>아직 전시된 발굴품이 없습니다. 발굴 단지에서 첫 기증자가 되어보세요.</p>}
+                  {museumDonations.map((donation) => {
+                    const artifact = getArtifactById(donation.artifact_id);
+                    return (
+                      <article key={donation.artifact_id} style={museumDonationCardStyle}>
+                        <div style={museumDonationPreviewStyle}>
+                          <div style={museumDonationPreviewFrameStyle}>
+                            <span style={{ fontSize: donation.category === "문화유산" ? "46px" : "42px" }}>
+                              {donation.category === "문화유산" ? (donation.rarity === "신화" || donation.rarity === "초월" ? "🖼️" : "🏺") : artifact?.rarity === "초월" ? "🦖" : "🦴"}
+                            </span>
+                          </div>
+                        </div>
+                        <strong>{artifactRarityInfo[donation.rarity]?.icon ?? "🏺"} {donation.artifact_name}</strong>
+                        <span>{donation.category} · {donation.rarity}</span>
+                        <span>기증자: {donation.donor_name}</span>
+                        <span>후원 수익: 10분당 {(artifact?.museumIncome ?? 0).toLocaleString()}원</span>
+                      </article>
+                    );
+                  })}
                 </div>
               </div>
-
-              <div style={museumSummaryStyle}>
-                <strong>내 기증품 {donatedArtifactIds.length}개</strong>
-                <span>10분 후원 수익: {donatedArtifactIds.reduce((sum, artifactId) => sum + (getArtifactById(artifactId)?.museumIncome ?? 0), 0).toLocaleString()}원</span>
-                <span>전체 전시품: {museumDonations.length} / {artifactCatalog.length}</span>
-              </div>
-
-              <div style={museumGridStyle}>
-                {museumDonations.length === 0 && <p style={economyCardTextStyle}>아직 전시된 발굴품이 없습니다. 발굴 단지에서 첫 기증자가 되어보세요.</p>}
-                {museumDonations.map((donation) => {
-                  const artifact = getArtifactById(donation.artifact_id);
-                  return (
-                    <article key={donation.artifact_id} style={museumDonationCardStyle}>
-                      <strong>{artifactRarityInfo[donation.rarity]?.icon ?? "🏺"} {donation.artifact_name}</strong>
-                      <span>{donation.category} · {donation.rarity}</span>
-                      <span>기증자: {donation.donor_name}</span>
-                      <span>후원 수익: 10분당 {(artifact?.museumIncome ?? 0).toLocaleString()}원</span>
-                    </article>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {lobbyView === "estate" && (
             <div className="alba-panel-scene" style={panelSceneStyle}>
@@ -9389,6 +9565,64 @@ function StreetBuildingIllustration({ id }: { id: StreetBuildingId }) {
           <circle key={index} cx={60 + index * 25} cy="91" r="11" fill={index % 2 === 0 ? "#facc15" : "#60a5fa"} stroke="#111827" strokeWidth="3" />
         ))}
         <rect x="72" y="113" width="76" height="18" rx="7" fill="#ffffff" stroke="#111827" strokeWidth="4" />
+      </svg>
+    );
+  }
+
+
+  if (id === "digSite") {
+    return (
+      <svg viewBox="0 0 260 170" style={streetFacadeSvgStyle} aria-hidden="true">
+        <defs>
+          <linearGradient id="digSky" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#fde68a" />
+            <stop offset="100%" stopColor="#f59e0b" />
+          </linearGradient>
+          <linearGradient id="digEarth" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#d6b37a" />
+            <stop offset="100%" stopColor="#8b5a2b" />
+          </linearGradient>
+        </defs>
+        <rect x="22" y="24" width="216" height="110" rx="18" fill="url(#digSky)" stroke="#111827" strokeWidth="7" />
+        <path d="M24 108 Q132 64 236 108 V134 H24 Z" fill="url(#digEarth)" stroke="#111827" strokeWidth="6" strokeLinejoin="round" />
+        <path d="M82 96 Q116 70 150 96 Q136 122 116 124 Q94 122 82 96 Z" fill="#fef3c7" stroke="#111827" strokeWidth="5" />
+        <circle cx="98" cy="92" r="10" fill="#facc15" stroke="#111827" strokeWidth="4" />
+        <path d="M178 44 L198 72 L158 72 Z" fill="#f8fafc" stroke="#111827" strokeWidth="5" strokeLinejoin="round" />
+        <path d="M178 44 V92" stroke="#111827" strokeWidth="5" strokeLinecap="round" />
+        <rect x="46" y="44" width="60" height="28" rx="12" fill="#fff7ed" stroke="#111827" strokeWidth="5" />
+        <text x="76" y="62" textAnchor="middle" fontSize="13" fontWeight="900" fill="#7c2d12">DIG</text>
+        <path d="M188 108 L210 90" stroke="#111827" strokeWidth="5" strokeLinecap="round" />
+        <path d="M206 88 L220 98" stroke="#111827" strokeWidth="5" strokeLinecap="round" />
+        <circle cx="126" cy="110" r="8" fill="#fff7ed" stroke="#111827" strokeWidth="4" />
+        <path d="M114 118 Q126 96 138 118" fill="none" stroke="#111827" strokeWidth="4" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (id === "museum") {
+    return (
+      <svg viewBox="0 0 260 180" style={streetFacadeSvgStyle} aria-hidden="true">
+        <defs>
+          <linearGradient id="museumStoneFront" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#f8fafc" />
+            <stop offset="100%" stopColor="#94a3b8" />
+          </linearGradient>
+          <linearGradient id="museumBanner" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor="#7f1d1d" />
+            <stop offset="100%" stopColor="#ef4444" />
+          </linearGradient>
+        </defs>
+        <path d="M34 72 L130 24 L226 72 Z" fill="#f8fafc" stroke="#111827" strokeWidth="7" strokeLinejoin="round" />
+        <rect x="46" y="72" width="168" height="80" rx="12" fill="url(#museumStoneFront)" stroke="#111827" strokeWidth="7" />
+        {Array.from({ length: 4 }).map((_, col) => (
+          <rect key={col} x={64 + col * 34} y="84" width="18" height="58" rx="9" fill="rgba(255,255,255,0.84)" stroke="rgba(17,24,39,0.3)" strokeWidth="3" />
+        ))}
+        <rect x="96" y="42" width="68" height="28" rx="12" fill="#ffffff" stroke="#111827" strokeWidth="5" />
+        <text x="130" y="61" textAnchor="middle" fontSize="14" fontWeight="900" fill="#111827">MUSEUM</text>
+        <rect x="62" y="88" width="18" height="36" fill="url(#museumBanner)" stroke="#111827" strokeWidth="4" rx="4" />
+        <rect x="180" y="88" width="18" height="36" fill="url(#museumBanner)" stroke="#111827" strokeWidth="4" rx="4" />
+        <rect x="104" y="96" width="52" height="34" rx="7" fill="#7f1d1d" stroke="#111827" strokeWidth="4" />
+        <circle cx="130" cy="113" r="11" fill="#facc15" stroke="#111827" strokeWidth="4" />
       </svg>
     );
   }
@@ -14230,36 +14464,129 @@ const excavationLayoutStyle: CSSProperties = {
 const excavationGamePanelStyle: CSSProperties = {
   border: "4px solid #111827",
   borderRadius: "24px",
-  background: "linear-gradient(180deg, #fffbeb 0%, #ffffff 100%)",
+  background: "linear-gradient(180deg, #fffbeb 0%, #f5e3c1 58%, #ffffff 100%)",
   padding: "18px",
   display: "grid",
   gap: "14px",
   color: "#111827",
+  boxShadow: "0 16px 0 rgba(120,53,15,0.14)",
+};
+
+const excavationSiteAtmosphereStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "12px",
+};
+
+const excavationBriefCardStyle: CSSProperties = {
+  border: "4px solid #78350f",
+  borderRadius: "20px",
+  background: "linear-gradient(180deg, #fff7ed 0%, #fef3c7 100%)",
+  padding: "14px",
+  display: "grid",
+  gap: "8px",
+  boxShadow: "0 8px 0 rgba(120,53,15,0.12)",
+};
+
+const excavationHeroIllustrationStyle: CSSProperties = {
+  position: "relative",
+  border: "4px solid #78350f",
+  borderRadius: "22px",
+  minHeight: "160px",
+  background: "linear-gradient(180deg, #fde68a 0%, #f59e0b 48%, #a16207 100%)",
+  overflow: "hidden",
+};
+
+const excavationTentStyle: CSSProperties = {
+  position: "absolute",
+  left: "24px",
+  top: "18px",
+  fontSize: "48px",
+};
+
+const excavationHeroBadgeStyle: CSSProperties = {
+  position: "absolute",
+  right: "18px",
+  top: "18px",
+  border: "3px solid #111827",
+  borderRadius: "999px",
+  padding: "6px 12px",
+  background: "rgba(255,255,255,0.85)",
+  fontWeight: 900,
+};
+
+const excavationPitStyle: CSSProperties = {
+  position: "absolute",
+  left: "26px",
+  right: "26px",
+  bottom: "18px",
+  height: "84px",
+  borderRadius: "999px",
+  background: "radial-gradient(circle at 50% 40%, #fef3c7 0%, #d6b37a 46%, #8b5a2b 100%)",
+  border: "4px solid #78350f",
+  overflow: "hidden",
 };
 
 const artifactSilhouetteBoxStyle: CSSProperties = {
   border: "4px dashed #111827",
   borderRadius: "22px",
-  background: "radial-gradient(circle at 50% 45%, #fef3c7 0%, #f8fafc 70%)",
+  background: "radial-gradient(circle at 50% 36%, #fff7ed 0%, #fef3c7 46%, #f8fafc 100%)",
   display: "grid",
   placeItems: "center",
-  minHeight: "220px",
+  minHeight: "240px",
+  boxShadow: "inset 0 0 0 4px rgba(120,53,15,0.08)",
 };
 
-const excavationActionGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))",
+const excavationStatusRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
   gap: "8px",
+};
+
+const excavationStatusPillStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "999px",
+  padding: "6px 12px",
+  background: "rgba(255,255,255,0.86)",
+  fontWeight: 900,
+};
+
+const excavationProgressBarStyle: CSSProperties = {
+  width: "100%",
+  height: "18px",
+  borderRadius: "999px",
+  border: "3px solid #111827",
+  background: "rgba(255,255,255,0.72)",
+  overflow: "hidden",
+};
+
+const excavationProgressFillStyle: CSSProperties = {
+  height: "100%",
+  borderRadius: "999px",
+  background: "linear-gradient(90deg, #f59e0b 0%, #facc15 55%, #fde68a 100%)",
+  transition: "width 0.18s ease",
 };
 
 const artifactInventoryPanelStyle: CSSProperties = {
   border: "4px solid #111827",
   borderRadius: "24px",
-  background: "#ffffff",
+  background: "linear-gradient(180deg, #fffdf4 0%, #ffffff 100%)",
   padding: "18px",
   display: "grid",
   gap: "12px",
   color: "#111827",
+};
+
+const artifactMiniPreviewStyle: CSSProperties = {
+  width: "52px",
+  height: "52px",
+  borderRadius: "16px",
+  border: "3px solid #111827",
+  background: "linear-gradient(180deg, #fff7ed 0%, #fde68a 100%)",
+  display: "grid",
+  placeItems: "center",
+  fontSize: "28px",
+  flexShrink: 0,
 };
 
 const artifactListStyle: CSSProperties = {
@@ -14280,16 +14607,97 @@ const artifactCardStyle: CSSProperties = {
   boxShadow: "0 6px 0 rgba(17,24,39,0.10)",
 };
 
+const museumHeroHallStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "28px",
+  background: "linear-gradient(180deg, #7f1d1d 0%, #991b1b 34%, #d6b08b 34%, #f8fafc 100%)",
+  padding: "18px",
+  boxShadow: "0 16px 0 rgba(17,24,39,0.12)",
+};
+
+const museumHeroWallStyle: CSSProperties = {
+  borderRadius: "22px",
+  background: "linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 34%, rgba(255,255,255,0.86) 34%, rgba(255,255,255,0.96) 100%)",
+  padding: "18px",
+  display: "grid",
+  gap: "18px",
+};
+
+const museumFrameRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: "16px",
+  alignItems: "end",
+};
+
+const museumFrameStyle: CSSProperties = {
+  padding: "10px",
+  borderRadius: "18px",
+  background: "linear-gradient(180deg, #facc15 0%, #b45309 100%)",
+  boxShadow: "0 10px 0 rgba(120,53,15,0.25)",
+};
+
+const museumFrameInnerStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "14px",
+  background: "linear-gradient(180deg, #7f1d1d 0%, #b91c1c 100%)",
+  minHeight: "168px",
+  padding: "12px",
+  display: "grid",
+  placeItems: "center",
+};
+
+const museumArtworkStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  borderRadius: "10px",
+  background: "radial-gradient(circle at 50% 40%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.08) 100%)",
+  color: "#f8fafc",
+  display: "grid",
+  placeItems: "center",
+  gap: "10px",
+  textShadow: "0 2px 0 rgba(17,24,39,0.3)",
+};
+
+const museumPedestalRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gap: "14px",
+};
+
+const museumPedestalStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "18px",
+  background: "linear-gradient(180deg, #f8fafc 0%, #cbd5e1 100%)",
+  minHeight: "120px",
+  display: "grid",
+  placeItems: "center",
+  gap: "8px",
+  fontWeight: 900,
+};
+
+const museumDisplayCaseStyle: CSSProperties = {
+  border: "4px solid #111827",
+  borderRadius: "18px",
+  background: "linear-gradient(180deg, #dbeafe 0%, #f8fafc 100%)",
+  minHeight: "120px",
+  display: "grid",
+  placeItems: "center",
+  gap: "8px",
+  fontWeight: 900,
+};
+
 const museumSummaryStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: "10px",
   border: "4px solid #111827",
   borderRadius: "20px",
-  background: "#ffffff",
+  background: "linear-gradient(180deg, #fff7ed 0%, #ffffff 100%)",
   padding: "14px",
   fontWeight: 900,
   color: "#111827",
+  boxShadow: "0 8px 0 rgba(17,24,39,0.08)",
 };
 
 const museumGridStyle: CSSProperties = {
@@ -14303,12 +14711,28 @@ const museumGridStyle: CSSProperties = {
 const museumDonationCardStyle: CSSProperties = {
   border: "4px solid #111827",
   borderRadius: "20px",
-  background: "linear-gradient(180deg, #f8fafc 0%, #fff7ed 100%)",
+  background: "linear-gradient(180deg, #fffef8 0%, #fff7ed 100%)",
   padding: "14px",
   display: "grid",
-  gap: "7px",
+  gap: "9px",
   color: "#111827",
   boxShadow: "0 8px 0 rgba(17,24,39,0.10)",
+};
+
+const museumDonationPreviewStyle: CSSProperties = {
+  borderRadius: "16px",
+  padding: "10px",
+  background: "linear-gradient(180deg, #7f1d1d 0%, #991b1b 100%)",
+};
+
+const museumDonationPreviewFrameStyle: CSSProperties = {
+  border: "4px solid #facc15",
+  borderRadius: "14px",
+  background: "radial-gradient(circle at 50% 40%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.08) 100%)",
+  minHeight: "120px",
+  display: "grid",
+  placeItems: "center",
+  color: "#f8fafc",
 };
 
 
