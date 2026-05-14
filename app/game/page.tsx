@@ -2426,11 +2426,40 @@ function mergeEconomySavePayloads(localPayload: string | null, remotePayload: st
     ])
   );
 
-  return JSON.stringify({
-    ...localData,
+  const mergedData: Record<string, unknown> = {
     ...remoteData,
+    ...localData,
     earnedTitleIds: mergedEarnedTitleIds,
-  });
+  };
+
+  // 로컬에서 막 실행한 은행/주식/대출 행동이 Supabase의 오래된 economy 데이터에 덮여
+  // 예금 원금(bankDepositPrincipal)이 줄어드는 것처럼 보이는 문제를 막습니다.
+  // 같은 기기에서는 localStorage가 가장 마지막 조작을 담고 있으므로 로컬 값을 우선합니다.
+  const localDeposit = typeof localData.bankDeposit === "number" ? localData.bankDeposit : undefined;
+  const localDepositPrincipal = typeof localData.bankDepositPrincipal === "number" ? localData.bankDepositPrincipal : undefined;
+  const remoteDeposit = typeof remoteData.bankDeposit === "number" ? remoteData.bankDeposit : undefined;
+  const remoteDepositPrincipal = typeof remoteData.bankDepositPrincipal === "number" ? remoteData.bankDepositPrincipal : undefined;
+  const mergedDeposit = typeof mergedData.bankDeposit === "number" ? mergedData.bankDeposit : (localDeposit ?? remoteDeposit ?? 0);
+
+  if (typeof localDepositPrincipal === "number") {
+    mergedData.bankDepositPrincipal = Math.max(0, Math.min(mergedDeposit, localDepositPrincipal));
+  } else if (typeof remoteDepositPrincipal === "number") {
+    mergedData.bankDepositPrincipal = Math.max(0, Math.min(mergedDeposit, remoteDepositPrincipal));
+  }
+
+  const localSavings = typeof localData.bankSavings === "number" ? localData.bankSavings : undefined;
+  const localSavingsPrincipal = typeof localData.bankSavingsPrincipal === "number" ? localData.bankSavingsPrincipal : undefined;
+  const remoteSavings = typeof remoteData.bankSavings === "number" ? remoteData.bankSavings : undefined;
+  const remoteSavingsPrincipal = typeof remoteData.bankSavingsPrincipal === "number" ? remoteData.bankSavingsPrincipal : undefined;
+  const mergedSavings = typeof mergedData.bankSavings === "number" ? mergedData.bankSavings : (localSavings ?? remoteSavings ?? 0);
+
+  if (typeof localSavingsPrincipal === "number") {
+    mergedData.bankSavingsPrincipal = Math.max(0, Math.min(mergedSavings, localSavingsPrincipal));
+  } else if (typeof remoteSavingsPrincipal === "number") {
+    mergedData.bankSavingsPrincipal = Math.max(0, Math.min(mergedSavings, remoteSavingsPrincipal));
+  }
+
+  return JSON.stringify(mergedData);
 }
 
 function ResponsiveGameStyles() {
@@ -3338,7 +3367,8 @@ export default function GamePage() {
         return;
       }
 
-      setCash(Number(data.cash));
+      const localCashValue = Number(window.localStorage.getItem(`alba-money-cash-${user.id}`) ?? NaN);
+      setCash(Number.isFinite(localCashValue) ? Math.max(0, Math.floor(localCashValue)) : Number(data.cash));
       setWarningCount(0);
       setUnpaidTax(Number(data.unpaid_tax));
       const loadedTaxCountdown = Number(window.localStorage.getItem(`alba-money-tax-countdown-${user.id}`) ?? TAX_INTERVAL_SECONDS);
@@ -3511,12 +3541,14 @@ export default function GamePage() {
 
     try {
       const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; lastNewsArticleAt?: string; newspaperEvent?: NewsEvent; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; discoveredItems?: ShopItemId[]; equippedItems?: ShopItemId[]; favoriteItems?: ShopItemId[]; inventorySortMode?: ItemSortMode; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; gachaMachinePullCount?: number; announcedSecretTitles?: PlayerTitleId[]; earnedTitleIds?: PlayerTitleId[]; lottoTickets?: LottoTicket[]; lottoPurchaseDate?: string; lottoPurchaseCount?: number; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[]; ownedNicknameColors?: NicknameColorId[]; selectedNicknameColorId?: NicknameColorId; ownedNicknameTags?: NicknameTagId[]; selectedNicknameTagId?: NicknameTagId; ownedMainBackgrounds?: MainBackgroundId[]; selectedMainBackgroundId?: MainBackgroundId; ownedMainCharacters?: MainCharacterId[]; selectedMainCharacterId?: MainCharacterId };
-      const loadedDeposit = Number(parsed.bankDeposit ?? 0);
-      const loadedSavings = Number(parsed.bankSavings ?? 0);
+      const loadedDeposit = Math.max(0, Number(parsed.bankDeposit ?? 0) || 0);
+      const loadedSavings = Math.max(0, Number(parsed.bankSavings ?? 0) || 0);
+      const loadedDepositPrincipal = Math.max(0, Math.min(loadedDeposit, Number(parsed.bankDepositPrincipal ?? loadedDeposit) || 0));
+      const loadedSavingsPrincipal = Math.max(0, Math.min(loadedSavings, Number(parsed.bankSavingsPrincipal ?? loadedSavings) || 0));
       setBankDeposit(loadedDeposit);
-      setBankDepositPrincipal(Number(parsed.bankDepositPrincipal ?? loadedDeposit));
+      setBankDepositPrincipal(loadedDepositPrincipal);
       setBankSavings(loadedSavings);
-      setBankSavingsPrincipal(Number(parsed.bankSavingsPrincipal ?? loadedSavings));
+      setBankSavingsPrincipal(loadedSavingsPrincipal);
       setBankLoan(Number(parsed.bankLoan ?? 0));
       setCreditScore(Number(parsed.creditScore ?? 700));
       if (Array.isArray(parsed.ownedEstates)) setOwnedEstates(parsed.ownedEstates.filter((id): id is EstateId => estateItems.some((item) => item.id === id)));
@@ -3685,6 +3717,11 @@ export default function GamePage() {
         if (error) console.warn("경제 데이터 Supabase 저장 실패. localStorage에는 저장되었습니다:", error.message);
       });
   }, [userId, isSaveLoaded, isEconomyLoaded, isProfileLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, lastNewsArticleAt, newspaperEvent, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, discoveredItems, equippedItems, favoriteItems, inventorySortMode, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, totalIncome, totalExpense, financeHistory, ownedNicknameColors, selectedNicknameColorId, ownedNicknameTags, selectedNicknameTagId, ownedMainBackgrounds, selectedMainBackgroundId, ownedMainCharacters, selectedMainCharacterId, economyUpdatedAt, earnedTitleIds]);
+
+  useEffect(() => {
+    if (!userId || !isSaveLoaded) return;
+    window.localStorage.setItem(`alba-money-cash-${userId}`, String(Math.max(0, Math.floor(cash))));
+  }, [userId, isSaveLoaded, cash]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
@@ -4926,7 +4963,43 @@ export default function GamePage() {
   }
 
   function getBankAmount() {
-    return Math.max(0, Math.floor(Number(bankInput) || 0));
+    const normalized = String(bankInput).replace(/,/g, "").trim();
+    return Math.max(0, Math.floor(Number(normalized) || 0));
+  }
+
+  function persistBankTransactionSnapshot(nextCash: number, nextBankLoan: number, nextCreditScore: number) {
+    if (!userId || typeof window === "undefined") return;
+
+    window.localStorage.setItem(`alba-money-cash-${userId}`, String(Math.max(0, Math.floor(nextCash))));
+
+    const rawEconomyCache = window.localStorage.getItem(`alba-money-economy-${userId}`);
+    try {
+      const parsed = JSON.parse(rawEconomyCache ?? "{}") as Record<string, unknown>;
+      window.localStorage.setItem(
+        `alba-money-economy-${userId}`,
+        JSON.stringify({
+          ...parsed,
+          bankDeposit,
+          bankDepositPrincipal,
+          bankSavings,
+          bankSavingsPrincipal,
+          bankLoan: Math.max(0, Math.floor(nextBankLoan)),
+          creditScore: Math.max(300, Math.min(900, Math.floor(nextCreditScore))),
+        })
+      );
+    } catch {
+      window.localStorage.setItem(
+        `alba-money-economy-${userId}`,
+        JSON.stringify({
+          bankDeposit,
+          bankDepositPrincipal,
+          bankSavings,
+          bankSavingsPrincipal,
+          bankLoan: Math.max(0, Math.floor(nextBankLoan)),
+          creditScore: Math.max(300, Math.min(900, Math.floor(nextCreditScore))),
+        })
+      );
+    }
   }
 
   function reducePrincipal(currentPrincipal: number, currentBalance: number, withdrawAmount: number) {
@@ -5063,20 +5136,34 @@ export default function GamePage() {
   }
 
   function borrowFromBank() {
-    const amount = getBankAmount();
+    const requestedAmount = getBankAmount();
     const limit = getLoanLimit(creditScore, netWorth);
-    if (amount < 1000) {
+    const remainingLoanLimit = Math.max(0, limit - bankLoan);
+
+    if (requestedAmount < 1000) {
       setMessage("🏦 최소 1,000원 이상 대출할 수 있습니다.");
       return;
     }
-    if (bankLoan + amount > limit) {
-      setMessage(`🏦 현재 대출 한도는 ${limit.toLocaleString()}원입니다.`);
+
+    if (remainingLoanLimit < 1000) {
+      setMessage("🏦 현재 추가로 대출할 수 있는 한도가 없습니다.");
       return;
     }
-    setBankLoan((loan) => loan + amount);
-    setCreditScore((score) => Math.max(300, score - 8));
-    setCash((money) => money + amount);
-    setMessage(`🏦 대출 ${amount.toLocaleString()}원 실행`);
+
+    if (requestedAmount > remainingLoanLimit) {
+      setMessage(`🏦 남은 대출 가능 금액은 ${remainingLoanLimit.toLocaleString()}원입니다. 입력 금액을 낮춰주세요.`);
+      return;
+    }
+
+    const nextLoan = bankLoan + requestedAmount;
+    const nextCash = cash + requestedAmount;
+    const nextCreditScore = Math.max(300, creditScore - 8);
+
+    setBankLoan(nextLoan);
+    setCash(nextCash);
+    setCreditScore(nextCreditScore);
+    persistBankTransactionSnapshot(nextCash, nextLoan, nextCreditScore);
+    setMessage(`🏦 대출 ${requestedAmount.toLocaleString()}원 실행 완료. 현금과 대출 잔액에 정확히 반영되었습니다.`);
   }
 
   function repayBankLoan() {
@@ -5102,10 +5189,15 @@ export default function GamePage() {
       return;
     }
 
-    setCash((money) => money - requestedAmount);
-    setBankLoan((loan) => Math.max(0, loan - requestedAmount));
-    setCreditScore((score) => Math.min(900, score + 5));
-    setMessage(`🏦 대출 ${requestedAmount.toLocaleString()}원 상환 완료`);
+    const nextCash = cash - requestedAmount;
+    const nextLoan = Math.max(0, bankLoan - requestedAmount);
+    const nextCreditScore = Math.min(900, creditScore + 5);
+
+    setCash(nextCash);
+    setBankLoan(nextLoan);
+    setCreditScore(nextCreditScore);
+    persistBankTransactionSnapshot(nextCash, nextLoan, nextCreditScore);
+    setMessage(`🏦 대출 ${requestedAmount.toLocaleString()}원 상환 완료. 예금/적금 원금은 변하지 않습니다.`);
   }
 
   function buyEstate(estateId: EstateId) {
@@ -7128,7 +7220,7 @@ export default function GamePage() {
                 <BankStatusPill label="적금 수익" value={`원금 ${bankSavingsPrincipal.toLocaleString()}원 · +${Math.max(0, bankSavings - bankSavingsPrincipal).toLocaleString()}원 (${getReturnRate(bankSavings, bankSavingsPrincipal)})`} />
                 <BankStatusPill label="대출" value={`${bankLoan.toLocaleString()}원`} warning={bankLoan > 0} />
                 <BankStatusPill label="신용점수" value={`${creditScore}점`} warning={creditScore < 600} />
-                <BankStatusPill label="대출한도" value={`${getLoanLimit(creditScore, netWorth).toLocaleString()}원`} />
+                <BankStatusPill label="대출한도" value={`${getLoanLimit(creditScore, netWorth).toLocaleString()}원 · 가능 ${Math.max(0, getLoanLimit(creditScore, netWorth) - bankLoan).toLocaleString()}원`} />
                 <BankStatusPill label="순자산" value={`${netWorth.toLocaleString()}원`} warning={netWorth < 0} />
               </div>
 
@@ -13628,6 +13720,7 @@ const newspaperBodyStyle: CSSProperties = {
   lineHeight: 1.6,
   fontWeight: 800,
 };
+
 
 
 
