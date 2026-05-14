@@ -2589,7 +2589,7 @@ function ResponsiveGameStyles() {
           height: auto !important;
           min-height: 100svh !important;
           overflow: visible !important;
-          grid-template-rows: auto auto minmax(460px, auto) auto !important;
+          grid-template-rows: auto minmax(460px, auto) auto !important;
         }
 
         .alba-compact-header, .alba-job-footer {
@@ -2614,6 +2614,12 @@ function ResponsiveGameStyles() {
       @media (max-width: 520px) {
         .alba-money-panel {
           grid-template-columns: 1fr 1fr !important;
+        }
+
+        .alba-status-pill {
+          width: 100% !important;
+          min-width: 0 !important;
+          height: 76px !important;
         }
 
         .alba-world-layout {
@@ -6452,7 +6458,7 @@ export default function GamePage() {
             </div>
           </header>
 
-          {difficultyNotice && <div style={difficultyBannerStyle}>{difficultyNotice}</div>}
+          <div aria-hidden={!difficultyNotice} style={{ ...difficultyBannerStyle, opacity: difficultyNotice ? 1 : 0, transform: difficultyNotice ? "translateX(-50%) translateY(0)" : "translateX(-50%) translateY(-8px)" }}>{difficultyNotice || " "}</div>
 
           <section className="alba-job-stage" style={jobStageStyle}>
             {activeJobId === "sorting" && <SortingGame item={sortItem} combo={sortCombo} miss={sortMiss} difficulty={difficulty} />}
@@ -6508,7 +6514,7 @@ export default function GamePage() {
             <StatusPill label="세율" value={`${(taxRate * 100).toFixed(0)}%`} />
             <StatusPill label="다음 세금" value={`${nextTax.toLocaleString()}원`} />
             <StatusPill label="미납" value={`${unpaidTax.toLocaleString()}원`} />
-            <StatusPill label="저장" value={isSaving ? "저장 중" : saveMessage} warning={saveMessage.includes("실패")} />
+            <StatusPill label="저장" value={getCompactSaveMessage(isSaving, saveMessage)} warning={saveMessage.includes("실패")} />
           </div>
         </header>
 
@@ -9885,11 +9891,20 @@ function FinanceMiniChart({ history }: { history: FinanceHistoryPoint[] }) {
   );
 }
 
+function getCompactSaveMessage(isSaving: boolean, message: string) {
+  if (isSaving) return "저장중";
+  if (message.includes("실패")) return "실패";
+  if (message.includes("대기")) return "대기";
+  if (message.includes("불러오기")) return "불러옴";
+  if (message.includes("생성")) return "생성됨";
+  return "완료";
+}
+
 function StatusPill({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) {
   return (
     <div className="alba-status-pill" style={{ ...statusPillStyle, borderColor: warning ? "#f97316" : "#111827", color: warning ? "#9a3412" : "#111827" }}>
       <span style={{ ...statusLabelStyle, color: warning ? "#c2410c" : "#64748b" }}>{label}</span>
-      <strong style={{ color: warning ? "#9a3412" : "#111827", fontSize: "17px", lineHeight: 1.1 }}>{value}</strong>
+      <strong style={{ color: warning ? "#9a3412" : "#111827", fontSize: "17px", lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", alignSelf: "center" }}>{value}</strong>
     </div>
   );
 }
@@ -11170,12 +11185,17 @@ const statusPillStyle: CSSProperties = {
   border: "3px solid #111827",
   borderRadius: "16px",
   padding: "10px 12px",
-  minWidth: "118px",
+  width: "132px",
+  minWidth: "132px",
+  height: "76px",
+  minHeight: "76px",
   display: "grid",
+  gridTemplateRows: "auto 1fr",
   gap: "3px",
   fontSize: "16px",
   color: "#111827",
   boxShadow: "3px 3px 0 rgba(17,24,39,0.95)",
+  overflow: "hidden",
 };
 
 const statusLabelStyle: CSSProperties = {
@@ -11290,9 +11310,10 @@ const jobOnlyLayoutStyle: CSSProperties = {
   height: "100%",
   padding: "8px 12px",
   display: "grid",
-  gridTemplateRows: "auto auto minmax(0, 1fr) auto",
+  gridTemplateRows: "auto minmax(0, 1fr) auto",
   gap: "6px",
   overflow: "hidden",
+  position: "relative",
 };
 
 const compactHeaderStyle: CSSProperties = {
@@ -11335,6 +11356,10 @@ const leaveButtonStyle: CSSProperties = {
 };
 
 const difficultyBannerStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  top: "86px",
+  width: "min(520px, calc(100% - 32px))",
   background: "#facc15",
   border: "4px solid #111827",
   color: "#111827",
@@ -11345,6 +11370,8 @@ const difficultyBannerStyle: CSSProperties = {
   fontSize: "24px",
   boxShadow: "4px 4px 0 rgba(17,24,39,0.95)",
   zIndex: 20,
+  pointerEvents: "none",
+  transition: "opacity 160ms ease, transform 160ms ease",
 };
 
 const jobStageStyle: CSSProperties = {
@@ -13529,8 +13556,6 @@ const newspaperBodyStyle: CSSProperties = {
   lineHeight: 1.6,
   fontWeight: 800,
 };
-
-
 
 
 
