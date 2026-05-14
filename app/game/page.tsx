@@ -40,6 +40,7 @@ type SaveRow = {
   cash: number | string;
   warning_count: number | string;
   unpaid_tax: number | string;
+  tax_countdown?: number | string | null;
   sorting_success_total?: number | string | null;
   delivery_success_total?: number | string | null;
   cashier_success_total?: number | string | null;
@@ -13529,6 +13530,8 @@ const newspaperBodyStyle: CSSProperties = {
   lineHeight: 1.6,
   fontWeight: 800,
 };
+
+
 
 
 
