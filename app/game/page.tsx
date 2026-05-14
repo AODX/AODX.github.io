@@ -2353,6 +2353,51 @@ function persistEarnedTitleIds(userId: string, ids: PlayerTitleId[]) {
   }
 }
 
+function getStoredAnnouncedSecretTitleIds(userId: string): PlayerTitleId[] {
+  if (typeof window === "undefined") return [];
+
+  const collected: PlayerTitleId[] = [];
+  const rawAnnouncedCache = window.localStorage.getItem(`alba-money-announced-secret-titles-${userId}`);
+  const rawEconomyCache = window.localStorage.getItem(`alba-money-economy-${userId}`);
+
+  try {
+    collected.push(...normalizePlayerTitleIdList(JSON.parse(rawAnnouncedCache ?? "[]")));
+  } catch {
+    // Ignore broken announced title cache.
+  }
+
+  try {
+    const parsed = JSON.parse(rawEconomyCache ?? "{}") as { announcedSecretTitles?: unknown };
+    collected.push(...normalizePlayerTitleIdList(parsed.announcedSecretTitles));
+  } catch {
+    // Ignore broken economy cache.
+  }
+
+  return Array.from(new Set<PlayerTitleId>(collected));
+}
+
+function persistAnnouncedSecretTitleIds(userId: string, ids: PlayerTitleId[]) {
+  if (typeof window === "undefined") return;
+
+  const nextIds = Array.from(new Set<PlayerTitleId>(ids));
+  window.localStorage.setItem(`alba-money-announced-secret-titles-${userId}`, JSON.stringify(nextIds));
+
+  const rawEconomyCache = window.localStorage.getItem(`alba-money-economy-${userId}`);
+  try {
+    const parsed = JSON.parse(rawEconomyCache ?? "{}") as Record<string, unknown>;
+    window.localStorage.setItem(
+      `alba-money-economy-${userId}`,
+      JSON.stringify({
+        ...parsed,
+        announcedSecretTitles: nextIds,
+      })
+    );
+  } catch {
+    window.localStorage.setItem(`alba-money-economy-${userId}`, JSON.stringify({ announcedSecretTitles: nextIds }));
+  }
+}
+
+
 function mergeEconomySavePayloads(localPayload: string | null, remotePayload: string | null): string | null {
   if (!localPayload && !remotePayload) return null;
 
@@ -2962,9 +3007,6 @@ export default function GamePage() {
   const [isSaveLoaded, setIsSaveLoaded] = useState(false);
   const [isEconomyLoaded, setIsEconomyLoaded] = useState(false);
   const [isProfileLoaded, setIsProfileLoaded] = useState(false);
-  const [, setIsSaving] = useState(false);
-  const [, setSaveMessage] = useState("저장 대기 중");
-
   const [lobbyView, setLobbyView] = useState<LobbyView>("room");
   const [streetPage, setStreetPage] = useState(0);
   const [phoneApp, setPhoneApp] = useState<"home" | "wallet" | "chart" | "income" | "buffs" | "collection">("home");
@@ -3198,23 +3240,33 @@ export default function GamePage() {
   }, [earnedTitleIds, conditionUnlockedTitles]);
 
   useEffect(() => {
+    if (!userId || !isSaveLoaded || !isEconomyLoaded || !isProfileLoaded) return;
+
     const conditionIds = conditionUnlockedTitles.map((title) => title.id);
-    const nextIds = Array.from(new Set<PlayerTitleId>(["newbie", ...earnedTitleIds, ...conditionIds]));
-    const hasNewTitle = nextIds.some((id) => !earnedTitleIds.includes(id));
+    const storedEarnedIds = getStoredEarnedTitleIds(userId);
+    const nextIds = Array.from(new Set<PlayerTitleId>(["newbie", ...storedEarnedIds, ...earnedTitleIds, ...conditionIds]));
+    const newlyUnlocked = nextIds.filter((id) => !earnedTitleIds.includes(id));
 
-    if (hasNewTitle) {
-      const newlyUnlocked = nextIds.filter((id) => !earnedTitleIds.includes(id));
-      setEarnedTitleIds(nextIds);
-      if (userId) persistEarnedTitleIds(userId, nextIds);
+    if (newlyUnlocked.length === 0) return;
 
-      newlyUnlocked.forEach((titleId) => {
-        const title = playerTitles.find((item) => item.id === titleId);
-        if (userId && title?.hidden) {
-          void sendGlobalChatMessage(`🏆 ${nickname}님이 비공개 칭호 [${title.name}]을 해금했습니다! 이제 조건이 공개됩니다.`, "system");
-        }
-      });
+    setEarnedTitleIds(nextIds);
+    persistEarnedTitleIds(userId, nextIds);
+
+    const announcedSecretIds = getStoredAnnouncedSecretTitleIds(userId);
+    const nextAnnouncedSecretIds = [...announcedSecretIds];
+
+    newlyUnlocked.forEach((titleId) => {
+      const title = playerTitles.find((item) => item.id === titleId);
+      if (!title?.hidden || announcedSecretIds.includes(titleId)) return;
+
+      nextAnnouncedSecretIds.push(titleId);
+      void sendGlobalChatMessage(`🏆 ${nickname}님이 비공개 칭호 [${title.name}]을 해금했습니다! 이제 조건이 공개됩니다.`, "system");
+    });
+
+    if (nextAnnouncedSecretIds.length !== announcedSecretIds.length) {
+      persistAnnouncedSecretTitleIds(userId, nextAnnouncedSecretIds);
     }
-  }, [conditionUnlockedTitles, earnedTitleIds, nickname, userId]);
+  }, [conditionUnlockedTitles, earnedTitleIds, isEconomyLoaded, isProfileLoaded, isSaveLoaded, nickname, userId]);
 
 
   useEffect(() => {
@@ -3253,7 +3305,6 @@ export default function GamePage() {
       if (error) {
         console.error("저장 데이터 불러오기 실패:", error.message);
         setMessage("저장 데이터를 불러오지 못했습니다. 새로고침하거나 Supabase 정책을 확인해주세요.");
-        setSaveMessage("불러오기 실패");
         setIsSaveLoaded(true);
         return;
       }
@@ -3275,9 +3326,7 @@ export default function GamePage() {
         if (insertError) {
           console.error("초기 저장 데이터 생성 실패:", insertError.message);
           setMessage("초기 저장 데이터를 만들지 못했습니다. Supabase RLS 정책을 확인해주세요.");
-          setSaveMessage("저장 생성 실패");
         } else {
-          setSaveMessage("새 저장 생성 완료");
         }
 
         setCash(10000);
@@ -3299,7 +3348,6 @@ export default function GamePage() {
       setCashierSuccessTotal(Number(data.cashier_success_total ?? 0));
       setCafeSuccessTotal(Number(data.cafe_success_total ?? 0));
       setSecuritySuccessTotal(Number(data.security_success_total ?? 0));
-      setSaveMessage("저장 불러오기 완료");
       setIsSaveLoaded(true);
     }
 
@@ -4025,9 +4073,6 @@ export default function GamePage() {
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
 
-    setIsSaving(true);
-    setSaveMessage("저장 중...");
-
     const timer = window.setTimeout(async () => {
       const supabase = createClient();
       const { error } = await supabase.from("game_saves").upsert(
@@ -4047,17 +4092,14 @@ export default function GamePage() {
       );
 
       if (error) {
-        console.error("자동 저장 실패:", error.message);
-        setSaveMessage("자동 저장 실패");
-      } else {
+        console.warn("자동 저장 실패. 화면에는 표시하지 않습니다:", error.message);
+          } else {
         await supabase.from(PROFILE_TABLE).upsert(
           { id: userId, nickname, room_kind: roomKind, occupation_id: occupationId, current_title: currentTitleId, net_worth: netWorth, updated_at: new Date().toISOString() },
           { onConflict: "id" }
         );
-        setSaveMessage("자동 저장 완료");
       }
 
-      setIsSaving(false);
     }, 450);
 
     return () => window.clearTimeout(timer);
@@ -5038,19 +5080,32 @@ export default function GamePage() {
   }
 
   function repayBankLoan() {
-    const amount = Math.min(getBankAmount(), bankLoan);
-    if (amount < 100) {
-      setMessage("🏦 상환할 대출이 없거나 금액이 너무 작습니다.");
+    const requestedAmount = getBankAmount();
+
+    if (bankLoan <= 0) {
+      setMessage("🏦 상환할 대출이 없습니다.");
       return;
     }
-    if (amount > cash) {
+
+    if (requestedAmount < 100) {
+      setMessage("🏦 최소 100원 이상 상환할 수 있습니다.");
+      return;
+    }
+
+    if (requestedAmount > bankLoan) {
+      setMessage(`🏦 현재 남은 대출은 ${bankLoan.toLocaleString()}원입니다. 상환 금액은 남은 대출보다 클 수 없습니다.`);
+      return;
+    }
+
+    if (requestedAmount > cash) {
       setMessage("🏦 보유 현금보다 많이 상환할 수 없습니다.");
       return;
     }
-    setCash((money) => money - amount);
-    setBankLoan((loan) => Math.max(0, loan - amount));
+
+    setCash((money) => money - requestedAmount);
+    setBankLoan((loan) => Math.max(0, loan - requestedAmount));
     setCreditScore((score) => Math.min(900, score + 5));
-    setMessage(`🏦 대출 ${amount.toLocaleString()}원 상환 완료`);
+    setMessage(`🏦 대출 ${requestedAmount.toLocaleString()}원 상환 완료`);
   }
 
   function buyEstate(estateId: EstateId) {
@@ -13573,7 +13628,6 @@ const newspaperBodyStyle: CSSProperties = {
   lineHeight: 1.6,
   fontWeight: 800,
 };
-
 
 
 
