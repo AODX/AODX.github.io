@@ -2323,9 +2323,6 @@ function removeArtifactFromInventory(inventory: ArtifactInventoryEntry[], artifa
   });
 }
 
-function getExcavationTraceTargetCount(artifact: ArtifactItem) {
-  return Math.max(16, Math.min(40, Math.floor(artifact.weirdness / 3) + 14));
-}
 
 function getExcavationTraceTolerance(artifact: ArtifactItem) {
   return Math.max(8, 20 - artifact.weirdness / 7);
@@ -14734,6 +14731,7 @@ const museumDonationPreviewFrameStyle: CSSProperties = {
   placeItems: "center",
   color: "#f8fafc",
 };
+
 
 
 
