@@ -2397,6 +2397,13 @@ function getExcavationTraceTolerance(artifact: ArtifactItem) {
   return Math.max(12, 34 - artifact.weirdness / 5.2 - rarityPenalty[artifact.rarity]);
 }
 
+function getExcavationTraceDistance(points: Array<{ x: number; y: number }>) {
+  return points.slice(1).reduce((sum, point, index) => {
+    const previous = points[index];
+    return sum + Math.hypot(point.x - previous.x, point.y - previous.y);
+  }, 0);
+}
+
 function pickExcavationArtifact() {
   const roll = Math.random() * 100;
   let rarity: ArtifactRarity = "흔적";
@@ -3965,9 +3972,14 @@ export default function GamePage() {
       if (typeof parsed.selectedMainBackgroundId === "string" && (parsed.selectedMainBackgroundId === defaultMainBackground.id || luxuryMainBackgrounds.some((item) => item.id === parsed.selectedMainBackgroundId))) setSelectedMainBackgroundId(parsed.selectedMainBackgroundId);
       if (Array.isArray(parsed.ownedMainCharacters)) setOwnedMainCharacters(parsed.ownedMainCharacters.filter((id): id is MainCharacterId => luxuryMainCharacters.some((item) => item.id === id)));
       if (typeof parsed.selectedMainCharacterId === "string" && (parsed.selectedMainCharacterId === defaultMainCharacter.id || luxuryMainCharacters.some((item) => item.id === parsed.selectedMainCharacterId))) setSelectedMainCharacterId(parsed.selectedMainCharacterId);
-      setArtifactInventory(normalizeArtifactInventory(parsed.artifactInventory));
+      const localArtifactInventoryRaw = window.localStorage.getItem(`alba-money-artifact-inventory-${userId}`);
+      const localDonatedIdsRaw = window.localStorage.getItem(`alba-money-donated-artifact-ids-${userId}`);
+      const loadedArtifactInventory = normalizeArtifactInventory(parsed.artifactInventory);
+      const localArtifactInventory = normalizeArtifactInventory(safeJsonParse<unknown>(localArtifactInventoryRaw ?? "[]", []));
+      setArtifactInventory(loadedArtifactInventory.length > 0 ? loadedArtifactInventory : localArtifactInventory);
       const parsedDonatedIds = Array.isArray(parsed.donatedArtifactIds) ? parsed.donatedArtifactIds.filter((id): id is string => typeof id === "string") : [];
-      setDonatedArtifactIds(parsedDonatedIds);
+      const localDonatedIds = Array.isArray(safeJsonParse<unknown>(localDonatedIdsRaw ?? "[]", [])) ? (safeJsonParse<unknown>(localDonatedIdsRaw ?? "[]", []) as unknown[]).filter((id): id is string => typeof id === "string") : [];
+      setDonatedArtifactIds(parsedDonatedIds.length > 0 ? parsedDonatedIds : localDonatedIds);
       setMuseumDonations(normalizeMuseumDonations(parsed.museumDonations));
       if (parsed.lastMuseumIncomeAt) setLastMuseumIncomeAt(new Date(String(parsed.lastMuseumIncomeAt)));
       if (parsed.lastExcavationSpawnAt) setLastExcavationSpawnAt(new Date(String(parsed.lastExcavationSpawnAt)));
@@ -4009,6 +4021,12 @@ export default function GamePage() {
     const timer = window.setInterval(syncLottoDay, 60 * 1000);
     return () => window.clearInterval(timer);
   }, [userId, isEconomyLoaded, lottoPurchaseDate]);
+
+  useEffect(() => {
+    if (!userId || !isEconomyLoaded) return;
+    window.localStorage.setItem(`alba-money-artifact-inventory-${userId}`, JSON.stringify(artifactInventory));
+    window.localStorage.setItem(`alba-money-donated-artifact-ids-${userId}`, JSON.stringify(donatedArtifactIds));
+  }, [userId, isEconomyLoaded, artifactInventory, donatedArtifactIds]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded || !isEconomyLoaded || !isProfileLoaded) return;
@@ -6047,12 +6065,12 @@ export default function GamePage() {
         .order("donated_at", { ascending: true });
 
       if (error) {
-        setMessage("🏛️ 전역 박물관 동기화 테이블을 찾지 못했습니다. Supabase에 game_museum_donations 테이블을 생성하면 모든 유저가 같은 박물관을 공유합니다.");
+        console.warn("전역 박물관 동기화 테이블 없음: game_museum_donations");
       } else {
         nextRows = normalizeMuseumDonations(data ?? []);
       }
     } catch {
-      setMessage("🏛️ 전역 박물관 동기화에 실패했습니다. 임시로 이 기기 기록을 표시합니다.");
+      console.warn("전역 박물관 동기화 실패");
     }
 
     setMuseumDonations(nextRows);
@@ -6155,7 +6173,8 @@ export default function GamePage() {
 
       if (nextStep >= excavationTraceTargets.length) {
         const requiredTracePoints = Math.max(10, Math.floor(excavationTraceTargets.length * 0.7));
-        if (excavationTracePoints.length < requiredTracePoints) {
+        const requiredTraceDistance = Math.max(70, artifact.weirdness * 1.15);
+        if (excavationTracePoints.length < requiredTracePoints || getExcavationTraceDistance(excavationTracePoints) < requiredTraceDistance) {
           setMessage("⛏️ 실루엣을 더 길게 따라 그려야 발굴할 수 있습니다. 한 점만 찍으면 성공하지 않습니다.");
           return;
         }
@@ -8171,14 +8190,14 @@ export default function GamePage() {
           })()}
 
           {lobbyView === "museum" && (() => {
-            const featuredExhibits = museumDonations.slice(0, 12);
+            const donatedExhibits = museumDonations;
             return (
               <div className="alba-panel-scene" style={panelSceneStyle}>
                 <div className="alba-panel-header" style={panelHeaderRowStyle}>
                   <div>
                     <div style={smallLabelStyle}>GLOBAL MUSEUM</div>
                     <h2 className="alba-panel-title" style={panelTitleStyle}>박물관</h2>
-                    <p style={panelDescStyle}>모든 유저가 함께 채우는 전역 전시관입니다. 실제로 기증된 화석과 문화유산만 전시되며, 각 전시품에는 기증자 이름이 남습니다.</p>
+                    <p style={panelDescStyle}>모든 유저가 함께 채우는 전역 박물관입니다. 실제로 기증된 화석과 문화유산만 표시되고, 기증자 이름이 전시품 아래에 남습니다.</p>
                   </div>
                   <div style={economyButtonRowStyle}>
                     <button onClick={() => void refreshMuseumDonations()} style={smallActionButtonStyle}>새로고침</button>
@@ -8186,33 +8205,28 @@ export default function GamePage() {
                   </div>
                 </div>
 
-                <section style={museumHeroHallStyle}>
-                  <div style={museumHeroWallStyle}>
-                    <div style={museumHorizontalRailStyle} aria-label="박물관 대표 전시">
-                      {featuredExhibits.length === 0 && (
-                        <div style={museumEmptyGalleryStyle}>
-                          <strong>아직 전시된 기증품이 없습니다.</strong>
-                          <span>발굴 단지에서 화석이나 문화유산을 획득한 뒤 기증하면 이 전시관에 표시됩니다.</span>
-                        </div>
-                      )}
-                      {featuredExhibits.map((donation) => {
-                        const artifact = getArtifactById(donation.artifact_id);
-                        return (
-                          <div key={`featured-${donation.artifact_id}`} style={museumFrameStyle}>
-                            <div style={museumFrameInnerStyle}>
-                              <div style={museumArtworkStyle}>
-                                <span style={{ fontSize: donation.category === "문화유산" ? "54px" : "48px" }}>
-                                  {donation.category === "문화유산" ? (donation.rarity === "신화" || donation.rarity === "초월" ? "🖼️" : "🏺") : artifact?.rarity === "초월" ? "🦖" : "🦴"}
-                                </span>
-                                <strong style={{ textAlign: "center", fontSize: "14px" }}>{donation.artifact_name}</strong>
-                                <small style={{ color: "#fee2e2", fontWeight: 900 }}>기증자: {donation.donor_name}</small>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
+                <section style={museumEmptyHallStyle}>
+                  {donatedExhibits.length === 0 && (
+                    <div style={museumEmptyGalleryStyle}>
+                      <strong>아직 전시된 기증품이 없습니다.</strong>
+                      <span>발굴 단지에서 얻은 화석이나 문화유산을 기증하면 이 빈 전시장에 옆으로 하나씩 전시됩니다.</span>
                     </div>
-                  </div>
+                  )}
+                  {donatedExhibits.map((donation) => {
+                    const artifact = getArtifactById(donation.artifact_id);
+                    return (
+                      <article key={`hall-${donation.artifact_id}`} style={museumSimpleExhibitStyle}>
+                        <div style={museumSimpleArtifactStyle}>
+                          <span style={{ fontSize: donation.category === "문화유산" ? "58px" : "54px" }}>
+                            {donation.category === "문화유산" ? (donation.rarity === "신화" || donation.rarity === "초월" ? "🖼️" : "🏺") : artifact?.rarity === "초월" ? "🦖" : "🦴"}
+                          </span>
+                        </div>
+                        <strong>{donation.artifact_name}</strong>
+                        <span>{donation.category} · {donation.rarity}</span>
+                        <small>기증자: {donation.donor_name}</small>
+                      </article>
+                    );
+                  })}
                 </section>
 
                 <div style={museumSummaryStyle}>
@@ -8224,7 +8238,7 @@ export default function GamePage() {
                 <section style={museumDonatePanelStyle}>
                   <div>
                     <strong>🎁 박물관에 기증 가능한 내 발굴품</strong>
-                    <p style={{ ...economyCardTextStyle, margin: 0 }}>기증하면 전역 박물관에 전시되고, 전시품 아래에 기증자 이름이 남습니다.</p>
+                    <p style={{ ...economyCardTextStyle, margin: 0 }}>기증하면 전역 박물관에 저장되고, 다른 유저의 박물관에도 같은 기증품과 기증자 이름이 표시됩니다.</p>
                   </div>
                   <div style={museumDonateRailStyle}>
                     {artifactInventory.filter((entry) => !museumDonations.some((row) => row.artifact_id === entry.artifactId)).length === 0 && (
@@ -8247,28 +8261,6 @@ export default function GamePage() {
                       })}
                   </div>
                 </section>
-
-                <div style={museumGridStyle}>
-                  {museumDonations.length === 0 && <p style={economyCardTextStyle}>아직 전시된 발굴품이 없습니다. 발굴 단지에서 첫 기증자가 되어보세요.</p>}
-                  {museumDonations.map((donation) => {
-                    const artifact = getArtifactById(donation.artifact_id);
-                    return (
-                      <article key={donation.artifact_id} style={museumDonationCardStyle}>
-                        <div style={museumDonationPreviewStyle}>
-                          <div style={museumDonationPreviewFrameStyle}>
-                            <span style={{ fontSize: donation.category === "문화유산" ? "46px" : "42px" }}>
-                              {donation.category === "문화유산" ? (donation.rarity === "신화" || donation.rarity === "초월" ? "🖼️" : "🏺") : artifact?.rarity === "초월" ? "🦖" : "🦴"}
-                            </span>
-                          </div>
-                        </div>
-                        <strong>{artifactRarityInfo[donation.rarity]?.icon ?? "🏺"} {donation.artifact_name}</strong>
-                        <span>{donation.category} · {donation.rarity}</span>
-                        <span>기증자: {donation.donor_name}</span>
-                        <span>후원 수익: 10분당 {(artifact?.museumIncome ?? 0).toLocaleString()}원</span>
-                      </article>
-                    );
-                  })}
-                </div>
               </div>
             );
           })()}
@@ -12491,7 +12483,7 @@ const stockCardStyle: CSSProperties = {
   gridTemplateRows: "auto 240px auto",
   gap: "14px",
   minWidth: 0,
-  minHeight: "520px",
+  minHeight: "590px",
   overflow: "hidden",
 };
 
@@ -12544,9 +12536,9 @@ const stockChartStyle: CSSProperties = {
 
 const stockBottomRowStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(220px, 0.95fr) minmax(360px, 1.55fr) minmax(320px, auto)",
-  alignItems: "center",
-  gap: "14px",
+  gridTemplateColumns: "minmax(0, 1fr)",
+  alignItems: "stretch",
+  gap: "12px",
   minWidth: 0,
 };
 
@@ -12559,7 +12551,7 @@ const stockInfoStackStyle: CSSProperties = {
 const stockBuffInlineStyle: CSSProperties = {
   minWidth: 0,
   width: "100%",
-  justifySelf: "start",
+  justifySelf: "stretch",
   border: "2px solid #dbeafe",
   borderRadius: "14px",
   background: "#eff6ff",
@@ -12585,10 +12577,11 @@ const stockOwnedStyle: CSSProperties = {
 
 const stockActionGroupStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(92px, max-content))",
+  gridTemplateColumns: "repeat(3, minmax(92px, 1fr))",
   gap: "8px",
-  justifyContent: "end",
+  justifyContent: "stretch",
   alignItems: "center",
+  width: "100%",
 };
 
 const stockTradeButtonStyle: CSSProperties = {
@@ -15080,16 +15073,18 @@ const excavationNoticeBarStyle: CSSProperties = {
   border: "4px solid #78350f",
   borderRadius: "20px",
   background: "linear-gradient(180deg, #fff7ed 0%, #fef3c7 100%)",
-  padding: "12px 14px",
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "10px 16px",
+  padding: "10px 14px",
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "8px 14px",
   alignItems: "center",
   color: "#111827",
   fontWeight: 900,
   boxShadow: "0 8px 0 rgba(120,53,15,0.12)",
   position: "relative",
   zIndex: 2,
+  minHeight: "auto",
+  overflow: "visible",
 };
 
 const excavationGamePanelStyle: CSSProperties = {
@@ -15231,39 +15226,8 @@ const artifactCardStyle: CSSProperties = {
   boxShadow: "0 6px 0 rgba(17,24,39,0.10)",
 };
 
-const museumHeroHallStyle: CSSProperties = {
-  border: "4px solid #111827",
-  borderRadius: "28px",
-  background: "linear-gradient(180deg, #7f1d1d 0%, #991b1b 40%, #d6b08b 40%, #f8fafc 100%)",
-  padding: "18px",
-  boxShadow: "0 16px 0 rgba(17,24,39,0.12)",
-  overflow: "hidden",
-  minHeight: "286px",
-  position: "relative",
-  zIndex: 0,
-};
 
-const museumHeroWallStyle: CSSProperties = {
-  borderRadius: "22px",
-  background: "linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 34%, rgba(255,255,255,0.86) 34%, rgba(255,255,255,0.96) 100%)",
-  padding: "18px",
-  display: "grid",
-  gap: "18px",
-  overflow: "hidden",
-  minHeight: "236px",
-};
 
-const museumHorizontalRailStyle: CSSProperties = {
-  display: "flex",
-  gap: "18px",
-  overflowX: "auto",
-  overflowY: "hidden",
-  padding: "4px 6px 22px",
-  minHeight: "202px",
-  alignItems: "stretch",
-  scrollSnapType: "x mandatory",
-  WebkitOverflowScrolling: "touch",
-};
 
 const museumDonatePanelStyle: CSSProperties = {
   border: "4px solid #111827",
@@ -15327,41 +15291,51 @@ const museumEmptyGalleryStyle: CSSProperties = {
 };
 
 
-const museumFrameStyle: CSSProperties = {
-  padding: "10px",
-  borderRadius: "18px",
-  background: "linear-gradient(180deg, #facc15 0%, #b45309 100%)",
-  boxShadow: "0 10px 0 rgba(120,53,15,0.25)",
-  minWidth: "260px",
-  maxWidth: "320px",
-  height: "184px",
-  scrollSnapAlign: "start",
-  flex: "0 0 auto",
-};
 
-const museumFrameInnerStyle: CSSProperties = {
+
+
+
+
+
+const museumEmptyHallStyle: CSSProperties = {
   border: "4px solid #111827",
-  borderRadius: "14px",
-  background: "linear-gradient(180deg, #7f1d1d 0%, #b91c1c 100%)",
-  height: "100%",
-  padding: "12px",
+  borderRadius: "26px",
+  background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
+  minHeight: "260px",
+  padding: "18px",
+  display: "flex",
+  alignItems: "stretch",
+  gap: "16px",
+  overflowX: "auto",
+  overflowY: "hidden",
+  scrollSnapType: "x mandatory",
+  boxShadow: "0 12px 0 rgba(17,24,39,0.08)",
+};
+
+const museumSimpleExhibitStyle: CSSProperties = {
+  minWidth: "230px",
+  maxWidth: "260px",
+  flex: "0 0 auto",
+  scrollSnapAlign: "start",
+  border: "4px solid #111827",
+  borderRadius: "22px",
+  background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+  padding: "16px",
+  display: "grid",
+  gridTemplateRows: "120px auto auto auto",
+  gap: "8px",
+  textAlign: "center",
+  color: "#111827",
+  boxShadow: "0 8px 0 rgba(17,24,39,0.10)",
+};
+
+const museumSimpleArtifactStyle: CSSProperties = {
+  border: "3px solid #cbd5e1",
+  borderRadius: "18px",
+  background: "radial-gradient(circle at 50% 45%, #fef3c7 0%, #f8fafc 70%)",
   display: "grid",
   placeItems: "center",
 };
-
-const museumArtworkStyle: CSSProperties = {
-  width: "100%",
-  height: "100%",
-  borderRadius: "10px",
-  background: "radial-gradient(circle at 50% 40%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.08) 100%)",
-  color: "#f8fafc",
-  display: "grid",
-  placeItems: "center",
-  gap: "10px",
-  textShadow: "0 2px 0 rgba(17,24,39,0.3)",
-};
-
-
 
 
 const museumSummaryStyle: CSSProperties = {
@@ -15378,46 +15352,6 @@ const museumSummaryStyle: CSSProperties = {
   position: "relative",
   zIndex: 2,
   marginTop: "4px",
-};
-
-const museumGridStyle: CSSProperties = {
-  display: "flex",
-  gap: "12px",
-  overflowX: "auto",
-  overflowY: "hidden",
-  padding: "4px 4px 18px",
-  scrollSnapType: "x mandatory",
-};
-
-const museumDonationCardStyle: CSSProperties = {
-  border: "4px solid #111827",
-  borderRadius: "20px",
-  background: "linear-gradient(180deg, #fffef8 0%, #fff7ed 100%)",
-  padding: "14px",
-  display: "grid",
-  gap: "9px",
-  color: "#111827",
-  boxShadow: "0 8px 0 rgba(17,24,39,0.10)",
-  minWidth: "260px",
-  maxWidth: "300px",
-  scrollSnapAlign: "start",
-  flex: "0 0 auto",
-};
-
-const museumDonationPreviewStyle: CSSProperties = {
-  borderRadius: "16px",
-  padding: "10px",
-  background: "linear-gradient(180deg, #7f1d1d 0%, #991b1b 100%)",
-};
-
-const museumDonationPreviewFrameStyle: CSSProperties = {
-  border: "4px solid #facc15",
-  borderRadius: "14px",
-  background: "radial-gradient(circle at 50% 40%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.08) 100%)",
-  minHeight: "120px",
-  display: "grid",
-  placeItems: "center",
-  color: "#f8fafc",
 };
 
 
