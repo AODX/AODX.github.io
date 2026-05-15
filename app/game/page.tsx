@@ -286,7 +286,7 @@ type ShopItem = {
 };
 
 type ArtifactRarity = "하급" | "중급" | "상급" | "최상급";
-type ArtifactCategory = "화석" | "문화유산";
+type ArtifactCategory = "화석" | "미술작품" | "도서" | "조각상";
 type ArtifactId = string;
 
 type ArtifactItem = {
@@ -2042,7 +2042,7 @@ const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: st
   { id: "gacha", title: "가챠 숍", subtitle: "장신구 · 자판기", emoji: "🎁" },
   { id: "itemMarket", title: "아이템 거래소", subtitle: "유저 장신구 매매", emoji: "🤝" },
   { id: "lotto", title: "로또 판매소", subtitle: "하루 3회 · 긁는 복권", emoji: "🎫" },
-  { id: "digSite", title: "발굴 단지", subtitle: "화석 · 문화유산 발굴", emoji: "🦴" },
+  { id: "digSite", title: "발굴 단지", subtitle: "화석 · 미술작품 발굴", emoji: "🦴" },
   { id: "museum", title: "박물관", subtitle: "공동 전시 · 기증 후원", emoji: "🖼️" },
   { id: "luxury", title: "사치 아이템 숍", subtitle: "닉네임 · 이름표 · 배경", emoji: "💎" },
   { id: "casino", title: "도박장", subtitle: "슬롯 머신 · 유저 대전", emoji: "🎰" },
@@ -2290,9 +2290,24 @@ function getArtifactRarityByIndex(index: number): ArtifactRarity {
 }
 
 const artifactKindIconMap: Record<ArtifactCategory, string[]> = {
-  "화석": ["🦴", "🦷", "🐚", "🪨", "🦕", "🦖", "🐟", "🌿", "🥚", "🦀", "🪶", "🦎"],
-  "문화유산": ["🏺", "🗿", "📜", "📚", "🖼️", "⚱️", "🛡️", "🗡️", "🔔", "🧭", "🔑", "💍"],
+  "화석": ["🦴", "🦷", "🐚", "🪨", "🦕", "🦖", "🐟", "🌿", "🥚", "🦀"],
+  "미술작품": ["🖼️", "🎨", "🖌️", "🌄", "🌌", "🏞️", "🪷", "🌙", "🔥", "💎"],
+  "도서": ["📚", "📖", "📜", "📝", "📕", "📘", "📙", "📗", "🔖", "🪶"],
+  "조각상": ["🗿", "🏛️", "⚱️", "🛡️", "🗽", "🪨", "🔱", "🕯️", "👑", "💠"],
 };
+
+function normalizeArtifactCategory(category: unknown): ArtifactCategory {
+  if (category === "미술작품" || category === "도서" || category === "조각상" || category === "화석") return category;
+  if (category === "미술작품") return "미술작품";
+  return "화석";
+}
+
+function normalizeArtifactRarity(rarity: unknown): ArtifactRarity {
+  if (rarity === "하급" || rarity === "중급" || rarity === "상급" || rarity === "최상급") return rarity;
+  if (rarity === "희귀") return "중급";
+  if (rarity === "왕실" || rarity === "신화" || rarity === "초월") return "최상급";
+  return "하급";
+}
 
 function getArtifactVisualIcon(artifact: Pick<ArtifactItem, "category" | "silhouette">) {
   const index = Number(String(artifact.silhouette).replace(/\D/g, "")) || 1;
@@ -2300,30 +2315,24 @@ function getArtifactVisualIcon(artifact: Pick<ArtifactItem, "category" | "silhou
   return pool[index % pool.length];
 }
 
-function getArtifactDisplayKind(index: number, category: ArtifactCategory) {
-  if (category === "화석") {
-    const kinds = ["척추 화석", "턱뼈 화석", "암모나이트", "발자국 석판", "익룡 날개뼈", "공룡 알", "삼엽충", "고대 물고기", "나뭇잎 화석", "산호 화석", "깃털 흔적", "발톱 화석"];
-    return kinds[index % kinds.length];
-  }
-
-  const kinds = ["도자기", "조각상", "미술작품", "고문서", "고서", "청동 방패", "의식용 검", "성소 종", "별자리 나침반", "봉인 열쇠", "왕가 반지", "벽화 조각"];
-  return kinds[index % kinds.length];
+function getArtifactCategoryByIndex(index: number): ArtifactCategory {
+  const categories: ArtifactCategory[] = ["화석", "미술작품", "도서", "조각상"];
+  return categories[(index - 1) % categories.length];
 }
 
-function makeArtifactName(index: number, category: ArtifactCategory, rarity: ArtifactRarity) {
-  const siteNames = ["새벽 협곡", "검은 해안", "푸른 단층", "별빛 사암", "얼어붙은 밀림", "붉은 분지", "안개 계곡", "잊힌 호수", "고요한 화산", "황금 사막", "유리 사원", "백야 성채", "황혼 왕릉", "달의 제단", "청동 종탑"];
-  const motifs = ["나선", "월광", "운석", "수정", "태초", "비취", "흑요석", "황금", "은하", "노래하는", "푸른", "붉은"];
-  const gradeWords: Record<ArtifactRarity, string[]> = {
-    "하급": ["작은", "낡은", "먼지 묻은", "균열 난"],
-    "중급": ["보존된", "선명한", "정교한", "빛바랜"],
-    "상급": ["왕실의", "문장 새겨진", "의식용", "황금빛"],
-    "최상급": ["전설의", "별이 잠든", "시간 밖의", "불멸의"],
+function makeArtifactName(index: number, category: ArtifactCategory) {
+  // 180종 모두 서로 다른 짧은 이름입니다. 화면에서 잘리지 않도록 보통 4~7글자로 구성합니다.
+  const shortSites = ["새벽", "푸른", "백야", "황혼", "검은", "달빛", "별빛", "붉은", "은빛", "비취", "유리", "고요", "운석", "청동", "서리"];
+  const suffixes: Record<ArtifactCategory, string[]> = {
+    "화석": ["뼈", "이빨", "알", "발톱", "깃", "조개", "잎", "척추", "물고기", "삼엽"],
+    "미술작품": ["화폭", "초상", "벽화", "풍경", "채색", "문양", "별그림", "달그림", "궁정화", "유화"],
+    "도서": ["고서", "서책", "기록", "두루마리", "왕실서", "비망록", "항해록", "연대기", "시집", "지도책"],
+    "조각상": ["석상", "흉상", "토우", "부조", "수호상", "청동상", "기둥상", "가면상", "왕관상", "신상"],
   };
-  const kind = getArtifactDisplayKind(index, category);
-  const site = siteNames[(index * 5 + category.length) % siteNames.length];
-  const motif = motifs[(index * 7 + rarity.length) % motifs.length];
-  const grade = gradeWords[rarity][index % gradeWords[rarity].length];
-  return `${site}의 ${grade} ${motif} ${kind}`;
+  const site = shortSites[(index * 7 + category.length) % shortSites.length];
+  const suffix = suffixes[category][Math.floor((index - 1) / 4) % suffixes[category].length];
+  const mark = String(index).padStart(3, "0");
+  return `${site}${suffix}${mark}`;
 }
 
 function makeArtifactSequence(index: number, rarity: ArtifactRarity) {
@@ -2335,7 +2344,7 @@ function makeArtifactSequence(index: number, rarity: ArtifactRarity) {
 function makeArtifactCatalog() {
   return Array.from({ length: 180 }, (_, zeroIndex) => {
     const index = zeroIndex + 1;
-    const category: ArtifactCategory = index % 4 === 0 ? "문화유산" : "화석";
+    const category = getArtifactCategoryByIndex(index);
     const rarity = getArtifactRarityByIndex(index);
     const rarityInfo = artifactRarityInfo[rarity];
     const rarityWeirdness: Record<ArtifactRarity, number> = { "하급": 0, "중급": 12, "상급": 30, "최상급": 54 };
@@ -2344,7 +2353,7 @@ function makeArtifactCatalog() {
     const museumIncome = Math.floor((650 + index * 55 + weirdness * 18) * rarityInfo.incomeMultiplier);
     return {
       id: `artifact_${String(index).padStart(3, "0")}`,
-      name: makeArtifactName(index, category, rarity),
+      name: makeArtifactName(index, category),
       category,
       rarity,
       silhouette: `silhouette-${index}`,
@@ -2380,7 +2389,7 @@ function makeArtifactSvgPath(artifact: ArtifactItem) {
     return { x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) };
   });
 
-  if (artifact.category === "문화유산") {
+  if (artifact.category !== "화석") {
     return coords.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ") + " Z";
   }
 
@@ -2467,8 +2476,8 @@ function normalizeMuseumDonations(value: unknown): MuseumDonationRow[] {
       return {
         artifact_id: String(candidate.artifact_id),
         artifact_name: String(candidate.artifact_name),
-        rarity: (candidate.rarity ?? "하급") as ArtifactRarity,
-        category: (candidate.category ?? "화석") as ArtifactCategory,
+        rarity: normalizeArtifactRarity(candidate.rarity),
+        category: normalizeArtifactCategory(candidate.category),
         donor_id: String(candidate.donor_id ?? ""),
         donor_name: String(candidate.donor_name),
         donated_at: String(candidate.donated_at ?? new Date().toISOString()),
@@ -2977,11 +2986,16 @@ function ResponsiveGameStyles() {
         }
 
         .alba-stock-action-group {
-          grid-template-columns: 1fr 1fr !important;
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         }
 
-        .alba-stock-action-group input {
-          grid-column: 1 / -1 !important;
+        .alba-stock-trade-panel {
+          grid-area: auto !important;
+        }
+
+        .alba-stock-bottom-row {
+          grid-template-columns: 1fr !important;
+          grid-template-areas: "info" "buff" "trade" !important;
         }
 
         .alba-panel-scene {
@@ -7914,7 +7928,7 @@ export default function GamePage() {
 
                       <StockMiniChart stockId={stock.id} history={stock.history} />
 
-                      <div style={stockBottomRowStyle}>
+                      <div className="alba-stock-bottom-row" style={stockBottomRowStyle}>
                         <div style={stockInfoStackStyle}>
                           <div style={stockPriceStyle}>{stock.price.toLocaleString()}원</div>
                           <div style={stockOwnedStyle}>보유 {stock.owned}주 · 평가 {(stock.owned * stock.price).toLocaleString()}원</div>
@@ -7928,18 +7942,23 @@ export default function GamePage() {
                           <strong>버프 효과</strong>
                           <span>주식 매도 보너스 없음 · 전역 시세 기준으로 모든 유저가 같은 가격을 사용합니다.</span>
                         </div>
-                        <div className="alba-stock-action-group" style={stockActionGroupStyle}>
-                          <input
-                            value={stockTradeAmount}
-                            onChange={(event) => setStockTradeAmount(event.target.value.replace(/[^0-9]/g, ""))}
-                            inputMode="numeric"
-                            placeholder="주식 수"
-                            style={stockAmountInputStyle}
-                          />
-                          <button onClick={() => buyRequestedStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, opacity: cash < stock.price ? 0.45 : 1 }}>입력 수 매수</button>
-                          <button onClick={() => buyMaxStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, opacity: cash < stock.price ? 0.45 : 1 }}>전액 매수</button>
-                          <button onClick={() => sellRequestedStock(stock.id)} disabled={stock.owned <= 0} style={{ ...stockTradeButtonStyle, opacity: stock.owned <= 0 ? 0.45 : 1 }}>입력 수 매도</button>
-                          <button onClick={() => sellAllStock(stock.id)} disabled={stock.owned <= 0} style={{ ...stockTradeButtonStyle, opacity: stock.owned <= 0 ? 0.45 : 1 }}>전량 매도</button>
+                        <div className="alba-stock-trade-panel" style={stockTradePanelStyle}>
+                          <label style={stockAmountFieldStyle}>
+                            <span>거래 수량</span>
+                            <input
+                              value={stockTradeAmount}
+                              onChange={(event) => setStockTradeAmount(event.target.value.replace(/[^0-9]/g, ""))}
+                              inputMode="numeric"
+                              placeholder="예: 100"
+                              style={stockAmountInputStyle}
+                            />
+                          </label>
+                          <div className="alba-stock-action-group" style={stockActionGroupStyle}>
+                            <button onClick={() => buyRequestedStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, background: "#fef3c7", opacity: cash < stock.price ? 0.45 : 1 }}>수량 매수</button>
+                            <button onClick={() => sellRequestedStock(stock.id)} disabled={stock.owned <= 0} style={{ ...stockTradeButtonStyle, background: "#e0f2fe", opacity: stock.owned <= 0 ? 0.45 : 1 }}>수량 매도</button>
+                            <button onClick={() => buyMaxStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, background: "#fde68a", opacity: cash < stock.price ? 0.45 : 1 }}>전액 매수</button>
+                            <button onClick={() => sellAllStock(stock.id)} disabled={stock.owned <= 0} style={{ ...stockTradeButtonStyle, background: "#dbeafe", opacity: stock.owned <= 0 ? 0.45 : 1 }}>전량 매도</button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -8202,7 +8221,7 @@ export default function GamePage() {
                           </div>
                         </div>
                         <h3 style={economyCardTitleStyle}>⛏️ 미확인 실루엣 조사</h3>
-                        <p style={economyCardTextStyle}>발굴을 시작하면 확률적으로 화석 또는 문화유산 실루엣을 발견합니다. 발견에 성공하면 180종 이상의 실루엣 중 하나가 등장하며, 실루엣의 선을 직접 따라 그려야 합니다.</p>
+                        <p style={economyCardTextStyle}>발굴을 시작하면 확률적으로 화석 또는 미술작품 실루엣을 발견합니다. 발견에 성공하면 180종 이상의 실루엣 중 하나가 등장하며, 실루엣의 선을 직접 따라 그려야 합니다.</p>
                         <button onClick={startExcavation} disabled={!excavationReady} style={{ ...casinoPrimaryButtonStyle, opacity: excavationReady ? 1 : 0.55 }}>
                           {excavationReady ? "발굴 시작" : `다음 발굴까지 ${formatTime(excavationCooldownRemainingSeconds)}`}
                         </button>
@@ -8270,7 +8289,7 @@ export default function GamePage() {
                         return (
                           <div key={entry.artifactId} style={artifactCardStyle}>
                             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                              <div style={artifactMiniPreviewStyle}>{artifact.category === "문화유산" ? (artifact.rarity === "최상급" ? "🖼️" : getArtifactVisualIcon(artifact)) : getArtifactVisualIcon(artifact)}</div>
+                              <div style={artifactMiniPreviewStyle}>{getArtifactVisualIcon(artifact)}</div>
                               <div style={{ display: "grid", gap: "4px" }}>
                                 <strong>{artifactRarityInfo[artifact.rarity].icon} {artifact.name} × {entry.count}</strong>
                                 <span>{artifact.category} · {artifact.rarity} · 판매가 {artifact.value.toLocaleString()}원 · 기증수익 10분당 {artifact.museumIncome.toLocaleString()}원</span>
@@ -8298,7 +8317,7 @@ export default function GamePage() {
                   <div>
                     <div style={smallLabelStyle}>GLOBAL MUSEUM</div>
                     <h2 className="alba-panel-title" style={panelTitleStyle}>박물관</h2>
-                    <p style={panelDescStyle}>모든 유저가 함께 채우는 전역 박물관입니다. 실제로 기증된 화석과 문화유산만 표시되고, 기증자 이름이 전시품 아래에 남습니다.</p>
+                    <p style={panelDescStyle}>모든 유저가 함께 채우는 전역 박물관입니다. 실제로 기증된 발굴품만 표시되고, 기증자 이름이 전시품 아래에 남습니다.</p>
                   </div>
                   <div style={economyButtonRowStyle}>
                     <button onClick={() => void refreshMuseumDonations()} style={smallActionButtonStyle}>새로고침</button>
@@ -8310,7 +8329,7 @@ export default function GamePage() {
                   {donatedExhibits.length === 0 && (
                     <div style={museumEmptyGalleryStyle}>
                       <strong>아직 전시된 기증품이 없습니다.</strong>
-                      <span>발굴 단지에서 얻은 화석이나 문화유산을 기증하면 이 빈 전시장에 옆으로 하나씩 전시됩니다.</span>
+                      <span>발굴 단지에서 얻은 화석·미술작품·도서·조각상을 기증하면 이 빈 전시장에 옆으로 하나씩 전시됩니다.</span>
                     </div>
                   )}
                   {donatedExhibits.map((donation) => {
@@ -8318,13 +8337,13 @@ export default function GamePage() {
                     return (
                       <article key={`hall-${donation.artifact_id}`} style={museumSimpleExhibitStyle}>
                         <div style={museumSimpleArtifactStyle}>
-                          <span style={{ fontSize: donation.category === "문화유산" ? "58px" : "54px" }}>
-                            {donation.category === "문화유산" ? (donation.rarity === "최상급" ? "🖼️" : "🏺") : artifact ? getArtifactVisualIcon(artifact) : "🦴"}
+                          <span style={{ fontSize: "54px" }}>
+                            {artifact ? getArtifactVisualIcon(artifact) : artifactKindIconMap[donation.category]?.[0] ?? "🦴"}
                           </span>
                         </div>
-                        <strong>{donation.artifact_name}</strong>
-                        <span>{donation.category} · {donation.rarity}</span>
-                        <small>기증자: {donation.donor_name}</small>
+                        <strong style={museumExhibitNameStyle}>{donation.artifact_name}</strong>
+                        <span style={museumExhibitMetaStyle}>{donation.category} · {donation.rarity}</span>
+                        <small style={museumExhibitDonorStyle}>기증자: {donation.donor_name}</small>
                       </article>
                     );
                   })}
@@ -8352,7 +8371,7 @@ export default function GamePage() {
                         if (!artifact) return null;
                         return (
                           <article key={`donate-${entry.artifactId}`} style={museumDonateCardStyle}>
-                            <div style={artifactMiniPreviewStyle}>{artifact.category === "문화유산" ? (artifact.rarity === "최상급" ? "🖼️" : getArtifactVisualIcon(artifact)) : getArtifactVisualIcon(artifact)}</div>
+                            <div style={artifactMiniPreviewStyle}>{artifact.category === "미술작품" ? (artifact.rarity === "최상급" ? "🖼️" : getArtifactVisualIcon(artifact)) : getArtifactVisualIcon(artifact)}</div>
                             <strong>{artifact.name}</strong>
                             <span>{artifact.rarity} · 보유 {entry.count}개</span>
                             <span>후원 수익 10분당 {artifact.museumIncome.toLocaleString()}원</span>
@@ -12594,7 +12613,7 @@ const stockCardStyle: CSSProperties = {
   gridTemplateRows: "auto 240px auto",
   gap: "14px",
   minWidth: 0,
-  minHeight: "610px",
+  minHeight: "540px",
   overflow: "hidden",
 };
 
@@ -12647,9 +12666,10 @@ const stockChartStyle: CSSProperties = {
 
 const stockBottomRowStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr)",
+  gridTemplateColumns: "minmax(240px, 0.9fr) minmax(240px, 1.1fr)",
+  gridTemplateAreas: `"info trade" "buff trade"`,
   alignItems: "stretch",
-  gap: "12px",
+  gap: "10px 14px",
   minWidth: 0,
 };
 
@@ -12657,6 +12677,7 @@ const stockInfoStackStyle: CSSProperties = {
   minWidth: 0,
   display: "grid",
   gap: "3px",
+  gridArea: "info",
 };
 
 const stockBuffInlineStyle: CSSProperties = {
@@ -12666,13 +12687,14 @@ const stockBuffInlineStyle: CSSProperties = {
   border: "2px solid #dbeafe",
   borderRadius: "14px",
   background: "#eff6ff",
-  padding: "10px 12px",
+  padding: "8px 10px",
   color: "#1e3a8a",
-  fontSize: "12px",
+  fontSize: "11px",
   fontWeight: 900,
-  lineHeight: 1.35,
+  lineHeight: 1.3,
   display: "grid",
-  gap: "2px",
+  gap: "1px",
+  gridArea: "buff",
 };
 
 const stockPriceStyle: CSSProperties = {
@@ -12688,24 +12710,46 @@ const stockOwnedStyle: CSSProperties = {
 
 const stockActionGroupStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(130px, 1.2fr) repeat(2, minmax(100px, 1fr))",
+  gridTemplateColumns: "repeat(2, minmax(88px, 1fr))",
   gap: "8px",
   justifyContent: "stretch",
   alignItems: "center",
   width: "100%",
 };
 
+const stockTradePanelStyle: CSSProperties = {
+  gridArea: "trade",
+  border: "2px solid #cbd5e1",
+  borderRadius: "16px",
+  background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+  padding: "10px",
+  display: "grid",
+  gap: "9px",
+  alignContent: "start",
+  minWidth: 0,
+};
+
+const stockAmountFieldStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "76px minmax(0, 1fr)",
+  gap: "8px",
+  alignItems: "center",
+  color: "#334155",
+  fontSize: "12px",
+  fontWeight: 900,
+};
+
 const stockTradeButtonStyle: CSSProperties = {
   border: "3px solid #111827",
   borderRadius: "13px",
-  background: "#fef3c7",
   color: "#111827",
-  padding: "9px 13px",
-  fontSize: "15px",
+  padding: "8px 10px",
+  fontSize: "14px",
   fontWeight: 900,
   cursor: "pointer",
   boxShadow: "3px 3px 0 #111827",
   whiteSpace: "nowrap",
+  minHeight: "42px",
 };
 
 
@@ -12714,7 +12758,7 @@ const stockAmountInputStyle: CSSProperties = {
   borderRadius: "13px",
   background: "#ffffff",
   color: "#111827",
-  padding: "9px 13px",
+  padding: "8px 10px",
   fontSize: "15px",
   fontWeight: 900,
   outline: "none",
@@ -15427,8 +15471,8 @@ const museumEmptyHallStyle: CSSProperties = {
   border: "4px solid #111827",
   borderRadius: "26px",
   background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
-  minHeight: "260px",
-  padding: "18px",
+  minHeight: "340px",
+  padding: "18px 18px 28px",
   display: "flex",
   alignItems: "stretch",
   gap: "16px",
@@ -15439,20 +15483,22 @@ const museumEmptyHallStyle: CSSProperties = {
 };
 
 const museumSimpleExhibitStyle: CSSProperties = {
-  minWidth: "230px",
+  minWidth: "240px",
   maxWidth: "260px",
+  minHeight: "270px",
   flex: "0 0 auto",
   scrollSnapAlign: "start",
   border: "4px solid #111827",
   borderRadius: "22px",
   background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
-  padding: "16px",
+  padding: "14px",
   display: "grid",
-  gridTemplateRows: "120px auto auto auto",
-  gap: "8px",
+  gridTemplateRows: "118px minmax(44px, auto) 24px 24px",
+  gap: "7px",
   textAlign: "center",
   color: "#111827",
   boxShadow: "0 8px 0 rgba(17,24,39,0.10)",
+  overflow: "visible",
 };
 
 const museumSimpleArtifactStyle: CSSProperties = {
@@ -15461,6 +15507,32 @@ const museumSimpleArtifactStyle: CSSProperties = {
   background: "radial-gradient(circle at 50% 45%, #fef3c7 0%, #f8fafc 70%)",
   display: "grid",
   placeItems: "center",
+  minHeight: "118px",
+};
+
+const museumExhibitNameStyle: CSSProperties = {
+  fontSize: "15px",
+  fontWeight: 900,
+  lineHeight: 1.25,
+  wordBreak: "keep-all",
+  overflow: "visible",
+};
+
+const museumExhibitMetaStyle: CSSProperties = {
+  fontSize: "13px",
+  fontWeight: 800,
+  color: "#334155",
+  lineHeight: 1.25,
+};
+
+const museumExhibitDonorStyle: CSSProperties = {
+  fontSize: "12px",
+  fontWeight: 900,
+  color: "#475569",
+  lineHeight: 1.25,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 };
 
 
@@ -15479,6 +15551,10 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
+
 
 
 
