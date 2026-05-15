@@ -2685,7 +2685,34 @@ function persistAnnouncedSecretTitleIds(userId: string, ids: PlayerTitleId[]) {
 }
 
 
-function mergeEconomySavePayloads(localPayload: string | null, remotePayload: string | null): string | null {
+function readPayloadTime(data: Record<string, unknown>, fallback?: string | null) {
+  const value = typeof data.economyUpdatedAt === "string" ? data.economyUpdatedAt : fallback;
+  const time = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(time) ? time : 0;
+}
+
+function mergeUniqueArrayValues(...values: unknown[]) {
+  const result: unknown[] = [];
+  values.forEach((value) => {
+    if (!Array.isArray(value)) return;
+    value.forEach((item) => {
+      if (typeof item === "string" && !result.includes(item)) result.push(item);
+    });
+  });
+  return result;
+}
+
+function mergeArtifactInventoryValues(...values: unknown[]) {
+  const counts = new Map<string, number>();
+  values.forEach((value) => {
+    normalizeArtifactInventory(value).forEach((entry) => {
+      counts.set(entry.artifactId, Math.max(counts.get(entry.artifactId) ?? 0, entry.count));
+    });
+  });
+  return Array.from(counts.entries()).map(([artifactId, count]) => ({ artifactId, count }));
+}
+
+function mergeEconomySavePayloads(localPayload: string | null, remotePayload: string | null, remoteUpdatedAt?: string | null): string | null {
   if (!localPayload && !remotePayload) return null;
 
   let localData: Record<string, unknown> = {};
@@ -2703,6 +2730,14 @@ function mergeEconomySavePayloads(localPayload: string | null, remotePayload: st
     remoteData = {};
   }
 
+  const localTime = readPayloadTime(localData);
+  const remoteTime = readPayloadTime(remoteData, remoteUpdatedAt);
+
+  // 휴대폰/패드의 오래된 localStorage가 최신 Supabase 데이터를 덮어쓰지 않도록
+  // 기본값은 더 최근 economyUpdatedAt/updated_at을 가진 쪽을 사용합니다.
+  const baseData = remoteTime >= localTime ? remoteData : localData;
+  const otherData = remoteTime >= localTime ? localData : remoteData;
+
   const mergedEarnedTitleIds = Array.from(
     new Set<PlayerTitleId>([
       "newbie",
@@ -2714,37 +2749,34 @@ function mergeEconomySavePayloads(localPayload: string | null, remotePayload: st
   );
 
   const mergedData: Record<string, unknown> = {
-    ...remoteData,
-    ...localData,
+    ...otherData,
+    ...baseData,
     earnedTitleIds: mergedEarnedTitleIds,
+    economyUpdatedAt: new Date(Math.max(localTime, remoteTime, Date.now())).toISOString(),
   };
 
-  // 로컬에서 막 실행한 은행/주식/대출 행동이 Supabase의 오래된 economy 데이터에 덮여
-  // 예금 원금(bankDepositPrincipal)이 줄어드는 것처럼 보이는 문제를 막습니다.
-  // 같은 기기에서는 localStorage가 가장 마지막 조작을 담고 있으므로 로컬 값을 우선합니다.
-  const localDeposit = typeof localData.bankDeposit === "number" ? localData.bankDeposit : undefined;
-  const localDepositPrincipal = typeof localData.bankDepositPrincipal === "number" ? localData.bankDepositPrincipal : undefined;
-  const remoteDeposit = typeof remoteData.bankDeposit === "number" ? remoteData.bankDeposit : undefined;
-  const remoteDepositPrincipal = typeof remoteData.bankDepositPrincipal === "number" ? remoteData.bankDepositPrincipal : undefined;
-  const mergedDeposit = typeof mergedData.bankDeposit === "number" ? mergedData.bankDeposit : (localDeposit ?? remoteDeposit ?? 0);
+  // 구매/획득형 목록은 기기 간에 사라지면 안 되므로 합집합으로 보존합니다.
+  mergedData.ownedItems = mergeUniqueArrayValues(localData.ownedItems, remoteData.ownedItems);
+  mergedData.discoveredItems = mergeUniqueArrayValues(localData.discoveredItems, remoteData.discoveredItems, mergedData.ownedItems);
+  mergedData.equippedItems = mergeUniqueArrayValues(localData.equippedItems, remoteData.equippedItems);
+  mergedData.favoriteItems = mergeUniqueArrayValues(localData.favoriteItems, remoteData.favoriteItems);
+  mergedData.ownedCertifications = mergeUniqueArrayValues(localData.ownedCertifications, remoteData.ownedCertifications);
+  mergedData.ownedNicknameColors = mergeUniqueArrayValues(localData.ownedNicknameColors, remoteData.ownedNicknameColors);
+  mergedData.ownedNicknameTags = mergeUniqueArrayValues(localData.ownedNicknameTags, remoteData.ownedNicknameTags);
+  mergedData.ownedMainBackgrounds = mergeUniqueArrayValues(localData.ownedMainBackgrounds, remoteData.ownedMainBackgrounds);
+  mergedData.ownedMainCharacters = mergeUniqueArrayValues(localData.ownedMainCharacters, remoteData.ownedMainCharacters);
+  mergedData.ownedEstates = mergeUniqueArrayValues(localData.ownedEstates, remoteData.ownedEstates);
+  mergedData.ownedBusinesses = mergeUniqueArrayValues(localData.ownedBusinesses, remoteData.ownedBusinesses);
+  mergedData.donatedArtifactIds = mergeUniqueArrayValues(localData.donatedArtifactIds, remoteData.donatedArtifactIds);
+  mergedData.artifactInventory = mergeArtifactInventoryValues(localData.artifactInventory, remoteData.artifactInventory);
 
-  if (typeof localDepositPrincipal === "number") {
-    mergedData.bankDepositPrincipal = Math.max(0, Math.min(mergedDeposit, localDepositPrincipal));
-  } else if (typeof remoteDepositPrincipal === "number") {
-    mergedData.bankDepositPrincipal = Math.max(0, Math.min(mergedDeposit, remoteDepositPrincipal));
-  }
+  const mergedSavings = Math.min(BANK_SAVINGS_CAP, Math.max(0, Number(mergedData.bankSavings ?? 0) || 0));
+  mergedData.bankSavings = mergedSavings;
+  mergedData.bankSavingsPrincipal = Math.max(0, Math.min(mergedSavings, Number(mergedData.bankSavingsPrincipal ?? mergedSavings) || 0));
 
-  const localSavings = typeof localData.bankSavings === "number" ? localData.bankSavings : undefined;
-  const localSavingsPrincipal = typeof localData.bankSavingsPrincipal === "number" ? localData.bankSavingsPrincipal : undefined;
-  const remoteSavings = typeof remoteData.bankSavings === "number" ? remoteData.bankSavings : undefined;
-  const remoteSavingsPrincipal = typeof remoteData.bankSavingsPrincipal === "number" ? remoteData.bankSavingsPrincipal : undefined;
-  const mergedSavings = typeof mergedData.bankSavings === "number" ? mergedData.bankSavings : (localSavings ?? remoteSavings ?? 0);
-
-  if (typeof localSavingsPrincipal === "number") {
-    mergedData.bankSavingsPrincipal = Math.max(0, Math.min(mergedSavings, localSavingsPrincipal));
-  } else if (typeof remoteSavingsPrincipal === "number") {
-    mergedData.bankSavingsPrincipal = Math.max(0, Math.min(mergedSavings, remoteSavingsPrincipal));
-  }
+  const mergedDeposit = Math.max(0, Number(mergedData.bankDeposit ?? 0) || 0);
+  mergedData.bankDeposit = mergedDeposit;
+  mergedData.bankDepositPrincipal = Math.max(0, Math.min(mergedDeposit, Number(mergedData.bankDepositPrincipal ?? mergedDeposit) || 0));
 
   return JSON.stringify(mergedData);
 }
@@ -2920,7 +2952,11 @@ function ResponsiveGameStyles() {
         }
 
         .alba-stock-action-group {
-          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          grid-template-columns: 1fr 1fr !important;
+        }
+
+        .alba-stock-action-group input {
+          grid-column: 1 / -1 !important;
         }
 
         .alba-panel-scene {
@@ -3425,6 +3461,7 @@ export default function GamePage() {
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const [chatInput, setChatInput] = useState("");
   const [stockRows, setStockRows] = useState<StockRow[]>([]);
+  const [stockTradeAmount, setStockTradeAmount] = useState("100");
   const [stockUpdatedAt, setStockUpdatedAt] = useState(new Date());
   const [stockCountdownMs, setStockCountdownMs] = useState(STOCK_INTERVAL_MS);
   const [isStockLoaded, setIsStockLoaded] = useState(false);
@@ -3729,8 +3766,9 @@ export default function GamePage() {
         return;
       }
 
-      const localCashValue = Number(window.localStorage.getItem(`alba-money-cash-${user.id}`) ?? NaN);
-      setCash(Number.isFinite(localCashValue) ? Math.max(0, Math.floor(localCashValue)) : Number(data.cash));
+      const serverCashValue = Number(data.cash);
+      setCash(Number.isFinite(serverCashValue) ? Math.max(0, Math.floor(serverCashValue)) : 10000);
+      window.localStorage.setItem(`alba-money-cash-${user.id}`, String(Math.max(0, Math.floor(Number.isFinite(serverCashValue) ? serverCashValue : 10000))));
       setWarningCount(0);
       setUnpaidTax(Number(data.unpaid_tax));
       const loadedTaxCountdown = Number(window.localStorage.getItem(`alba-money-tax-countdown-${user.id}`) ?? TAX_INTERVAL_SECONDS);
@@ -3798,6 +3836,7 @@ export default function GamePage() {
 
       if (error) {
         console.warn("프로필 테이블을 읽지 못했습니다. localStorage 값을 사용합니다:", error.message);
+        setIsProfileLoaded(true);
         return;
       }
 
@@ -3878,13 +3917,13 @@ export default function GamePage() {
         const supabase = createClient();
         const { data, error } = await supabase
           .from(ECONOMY_TABLE)
-          .select("data")
+          .select("data, updated_at")
           .eq("user_id", userId)
-          .maybeSingle<{ data: string | Record<string, unknown> | null }>();
+          .maybeSingle<{ data: string | Record<string, unknown> | null; updated_at?: string | null }>();
 
         if (!error && data?.data) {
           const remoteStoredEconomy = typeof data.data === "string" ? data.data : JSON.stringify(data.data);
-          stored = mergeEconomySavePayloads(localStoredEconomy, remoteStoredEconomy);
+          stored = mergeEconomySavePayloads(localStoredEconomy, remoteStoredEconomy, data.updated_at ?? null);
           if (stored) window.localStorage.setItem(`alba-money-economy-${userId}`, stored);
         }
       } catch {
@@ -3904,7 +3943,7 @@ export default function GamePage() {
     try {
       const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; lastNewsArticleAt?: string; newspaperEvent?: NewsEvent; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; discoveredItems?: ShopItemId[]; equippedItems?: ShopItemId[]; favoriteItems?: ShopItemId[]; inventorySortMode?: ItemSortMode; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; gachaMachinePullCount?: number; announcedSecretTitles?: PlayerTitleId[]; earnedTitleIds?: PlayerTitleId[]; lottoTickets?: LottoTicket[]; lottoPurchaseDate?: string; lottoPurchaseCount?: number; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[]; ownedNicknameColors?: NicknameColorId[]; selectedNicknameColorId?: NicknameColorId; ownedNicknameTags?: NicknameTagId[]; selectedNicknameTagId?: NicknameTagId; ownedMainBackgrounds?: MainBackgroundId[]; selectedMainBackgroundId?: MainBackgroundId; ownedMainCharacters?: MainCharacterId[]; selectedMainCharacterId?: MainCharacterId; artifactInventory?: unknown; donatedArtifactIds?: unknown; museumDonations?: unknown; lastMuseumIncomeAt?: string | null; lastExcavationSpawnAt?: string | null };
       const loadedDeposit = Math.max(0, Number(parsed.bankDeposit ?? 0) || 0);
-      const loadedSavings = Math.max(0, Number(parsed.bankSavings ?? 0) || 0);
+      const loadedSavings = Math.min(BANK_SAVINGS_CAP, Math.max(0, Number(parsed.bankSavings ?? 0) || 0));
       const loadedDepositPrincipal = Math.max(0, Math.min(loadedDeposit, Number(parsed.bankDepositPrincipal ?? loadedDeposit) || 0));
       const loadedSavingsPrincipal = Math.max(0, Math.min(loadedSavings, Number(parsed.bankSavingsPrincipal ?? loadedSavings) || 0));
       setBankDeposit(loadedDeposit);
@@ -7202,6 +7241,29 @@ export default function GamePage() {
     setMessage(fakeCount > 0 ? `📰 ${getNewsCompanyName(primaryArticle.sourceCompanyId)} 기사 ${articles.length}개를 확인했습니다. 이 중 ${fakeCount}개는 가짜 정보였습니다.` : `📰 ${getNewsCompanyName(primaryArticle.sourceCompanyId)} 신문 기사 ${articles.length}개를 확인했습니다. 같은 회차의 모든 유저에게도 같은 기사로 보입니다.`);
   }
 
+  function getRequestedStockAmount(stock: StockRow) {
+    const requested = Math.floor(Number(stockTradeAmount.replace(/,/g, "")));
+    if (!Number.isFinite(requested) || requested <= 0) {
+      setMessage("매수/매도할 주식 수를 1 이상으로 입력해주세요.");
+      return 0;
+    }
+    return requested;
+  }
+
+  function buyRequestedStock(stockId: StockId) {
+    const stock = stockRows.find((row) => row.id === stockId);
+    if (!stock) return;
+    const amount = getRequestedStockAmount(stock);
+    if (amount > 0) buyStock(stockId, amount);
+  }
+
+  function sellRequestedStock(stockId: StockId) {
+    const stock = stockRows.find((row) => row.id === stockId);
+    if (!stock) return;
+    const amount = getRequestedStockAmount(stock);
+    if (amount > 0) sellStock(stockId, amount);
+  }
+
   function buyStock(stockId: StockId, amount = 1) {
     const stock = stockRows.find((row) => row.id === stockId);
     if (!stock) return;
@@ -7367,7 +7429,7 @@ export default function GamePage() {
       return (
         <div className="alba-mobile-only alba-mobile-touch-controls pcCafeCook" aria-label="모바일 피씨방 요리 조작">
           {pcCafeCookButtons.map((ingredient) => (
-            <button key={ingredient} onClick={() => handlePcCafeCookIngredient(ingredient)}>
+            <button key={ingredient} onClick={() => onIngredient(ingredient)}>
               {ingredient}
             </button>
           ))}
@@ -7418,7 +7480,7 @@ export default function GamePage() {
             {activeJobId === "cafe" && <CafeGame fill={cafeFill} targetStart={cafeTargetStart} targetEnd={cafeTargetEnd} success={cafeSuccess} miss={cafeMiss} holding={cafeHolding} difficulty={difficulty} />}
             {activeJobId === "security" && <SecurityGame signal={securitySignal} success={securitySuccess} miss={securityMiss} round={securityRound} />}
             {activeJobId === "artModel" && <ArtModelGame sequence={artModelSequence} currentIndex={artModelIndex} showCue={artModelShowCue} success={artModelSuccess} miss={artModelMiss} difficulty={difficulty} />}
-            {activeJobId === "pcCafeCook" && <PcCafeCookGame order={pcCafeOrder} currentIndex={pcCafeCookIndex} success={pcCafeCookSuccess} miss={pcCafeCookMiss} difficulty={difficulty} />}
+            {activeJobId === "pcCafeCook" && <PcCafeCookGame order={pcCafeOrder} currentIndex={pcCafeCookIndex} success={pcCafeCookSuccess} miss={pcCafeCookMiss} difficulty={difficulty} onIngredient={handlePcCafeCookIngredient} />}
           </section>
 
           <footer className="alba-job-footer" style={jobFooterStyle}>
@@ -7833,11 +7895,16 @@ export default function GamePage() {
                           <span>주식 매도 보너스 없음 · 전역 시세 기준으로 모든 유저가 같은 가격을 사용합니다.</span>
                         </div>
                         <div className="alba-stock-action-group" style={stockActionGroupStyle}>
-                          <button onClick={() => buyStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, opacity: cash < stock.price ? 0.45 : 1 }}>1주 매수</button>
-                          <button onClick={() => buyStock(stock.id, 100)} disabled={cash < stock.price * 100} style={{ ...stockTradeButtonStyle, opacity: cash < stock.price * 100 ? 0.45 : 1 }}>100주 매수</button>
-                          <button onClick={() => buyMaxStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, opacity: cash < stock.price ? 0.45 : 1 }}>최대 매수</button>
-                          <button onClick={() => sellStock(stock.id)} disabled={stock.owned <= 0} style={{ ...stockTradeButtonStyle, opacity: stock.owned <= 0 ? 0.45 : 1 }}>1주 매도</button>
-                          <button onClick={() => sellStock(stock.id, 100)} disabled={stock.owned < 100} style={{ ...stockTradeButtonStyle, opacity: stock.owned < 100 ? 0.45 : 1 }}>100주 매도</button>
+                          <input
+                            value={stockTradeAmount}
+                            onChange={(event) => setStockTradeAmount(event.target.value.replace(/[^0-9]/g, ""))}
+                            inputMode="numeric"
+                            placeholder="주식 수"
+                            style={stockAmountInputStyle}
+                          />
+                          <button onClick={() => buyRequestedStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, opacity: cash < stock.price ? 0.45 : 1 }}>입력 수 매수</button>
+                          <button onClick={() => buyMaxStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, opacity: cash < stock.price ? 0.45 : 1 }}>전액 매수</button>
+                          <button onClick={() => sellRequestedStock(stock.id)} disabled={stock.owned <= 0} style={{ ...stockTradeButtonStyle, opacity: stock.owned <= 0 ? 0.45 : 1 }}>입력 수 매도</button>
                           <button onClick={() => sellAllStock(stock.id)} disabled={stock.owned <= 0} style={{ ...stockTradeButtonStyle, opacity: stock.owned <= 0 ? 0.45 : 1 }}>전량 매도</button>
                         </div>
                       </div>
@@ -10421,7 +10488,7 @@ function ArtModelGame({ sequence, currentIndex, showCue, success, miss, difficul
   );
 }
 
-function PcCafeCookGame({ order, currentIndex, success, miss, difficulty }: { order: PcCafeCookOrder; currentIndex: number; success: number; miss: number; difficulty: number }) {
+function PcCafeCookGame({ order, currentIndex, success, miss, difficulty, onIngredient }: { order: PcCafeCookOrder; currentIndex: number; success: number; miss: number; difficulty: number; onIngredient: (ingredient: string) => void }) {
   return (
     <div style={pcCafeCookStageStyle}>
       <div style={miniGameTopInfoStyle}><strong>완성 {success}개</strong><strong>난이도 Lv.{difficulty}</strong><strong>실수 {miss}/3</strong></div>
@@ -10443,9 +10510,14 @@ function PcCafeCookGame({ order, currentIndex, success, miss, difficulty }: { or
         </div>
         <div style={pcCafeCookButtonGridStyle}>
           {pcCafeCookButtons.map((ingredient, index) => (
-            <span key={ingredient} style={{ ...pcCafeIngredientPreviewStyle, opacity: order.steps.includes(ingredient) ? 1 : 0.45 }}>
+            <button
+              key={ingredient}
+              type="button"
+              onClick={() => onIngredient(ingredient)}
+              style={{ ...pcCafeIngredientPreviewStyle, opacity: order.steps.includes(ingredient) ? 1 : 0.72 }}
+            >
               {index + 1 > 9 ? 0 : index + 1} · {ingredient}
-            </span>
+            </button>
           ))}
         </div>
       </div>
@@ -11886,11 +11958,12 @@ const pcCafeCookStageStyle: CSSProperties = {
 const pcCafeKitchenStyle: CSSProperties = {
   border: "4px solid #111827",
   borderRadius: "28px",
-  background: "linear-gradient(180deg, #0f172a 0%, #1e293b 45%, #fff7ed 45%, #ffffff 100%)",
+  background: "linear-gradient(180deg, #0f172a 0%, #1e293b 35%, #fff7ed 35%, #ffffff 100%)",
   padding: "18px",
   display: "grid",
   gap: "14px",
   boxShadow: "0 12px 0 rgba(17,24,39,0.18)",
+  overflow: "auto",
 };
 
 const pcCafeOrderTicketStyle: CSSProperties = {
@@ -11922,7 +11995,7 @@ const pcCafeRecipeStepStyle: CSSProperties = {
 
 const pcCafeCookButtonGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))",
   gap: "8px",
 };
 
@@ -11930,9 +12003,13 @@ const pcCafeIngredientPreviewStyle: CSSProperties = {
   border: "3px solid #111827",
   borderRadius: "14px",
   background: "#ffffff",
-  padding: "8px 10px",
+  padding: "8px 8px",
   fontWeight: 900,
   textAlign: "center",
+  minHeight: "42px",
+  cursor: "pointer",
+  boxShadow: "0 4px 0 rgba(17,24,39,0.14)",
+  whiteSpace: "nowrap",
 };
 
 
@@ -12483,7 +12560,7 @@ const stockCardStyle: CSSProperties = {
   gridTemplateRows: "auto 240px auto",
   gap: "14px",
   minWidth: 0,
-  minHeight: "590px",
+  minHeight: "610px",
   overflow: "hidden",
 };
 
@@ -12577,7 +12654,7 @@ const stockOwnedStyle: CSSProperties = {
 
 const stockActionGroupStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(92px, 1fr))",
+  gridTemplateColumns: "minmax(130px, 1.2fr) repeat(2, minmax(100px, 1fr))",
   gap: "8px",
   justifyContent: "stretch",
   alignItems: "center",
@@ -12595,6 +12672,21 @@ const stockTradeButtonStyle: CSSProperties = {
   cursor: "pointer",
   boxShadow: "3px 3px 0 #111827",
   whiteSpace: "nowrap",
+};
+
+
+const stockAmountInputStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "13px",
+  background: "#ffffff",
+  color: "#111827",
+  padding: "9px 13px",
+  fontSize: "15px",
+  fontWeight: 900,
+  outline: "none",
+  width: "100%",
+  minWidth: 0,
+  boxShadow: "3px 3px 0 #111827",
 };
 
 const loadingPageStyle: CSSProperties = {
@@ -15353,6 +15445,10 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
+
 
 
 
