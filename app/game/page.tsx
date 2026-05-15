@@ -12062,7 +12062,7 @@ function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDe
     if (title.id === "hiddenDebtFree") return Number(params.bankLoan ?? 0) <= 0 && params.netWorth >= 10000000;
     if (title.id === "hiddenCasinoDemon") return Number(params.gachaMachinePullCount ?? 0) >= 100 && params.cash >= 1000000;
     if (title.id === "hiddenEconomyGod") return params.netWorth >= 100000000 || hasAncientRelic;
-    if (title.id === "hiddenArchiveMaster") return Number(params.ownedCertifications ?? []).length >= 5 && discoveredItems.length >= 40;
+    if (title.id === "hiddenArchiveMaster") return (params.ownedCertifications ?? []).length >= 5 && discoveredItems.length >= 40;
     if (title.id === "hiddenGrandCurator") return donatedCount >= 12 && artifactTotalCount >= 30;
     if (title.id === "hiddenVaultMaster") return Number(params.bankSavings ?? 0) >= BANK_SAVINGS_CAP && params.bankDeposit >= 5000000;
     if (title.id === "hiddenEmpireBuilder") return params.ownedBusinesses.length >= 4 && employeeLevelTotal >= 10 && params.netWorth >= 30000000;
@@ -15720,6 +15720,9 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
 
 
 
