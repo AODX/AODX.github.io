@@ -10547,7 +10547,7 @@ function PcCafeCookGame({ order, currentIndex, success, miss, difficulty, onIngr
             <button
               key={ingredient}
               type="button"
-              onClick={() => handlePcCafeCookIngredient(ingredient)}
+              onClick={() => onIngredient(ingredient)}
               style={{ ...pcCafeIngredientPreviewStyle, opacity: order.steps.includes(ingredient) ? 1 : 0.72 }}
             >
               {index + 1 > 9 ? 0 : index + 1} · {ingredient}
@@ -15479,6 +15479,11 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
+
+
 
 
 
