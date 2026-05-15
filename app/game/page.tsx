@@ -7463,7 +7463,7 @@ export default function GamePage() {
       return (
         <div className="alba-mobile-only alba-mobile-touch-controls pcCafeCook" aria-label="모바일 피씨방 요리 조작">
           {pcCafeCookButtons.map((ingredient) => (
-            <button key={ingredient} onClick={() => onIngredient(ingredient)}>
+            <button key={ingredient} onClick={() => handlePcCafeCookIngredient(ingredient)}>
               {ingredient}
             </button>
           ))}
@@ -10547,7 +10547,7 @@ function PcCafeCookGame({ order, currentIndex, success, miss, difficulty, onIngr
             <button
               key={ingredient}
               type="button"
-              onClick={() => onIngredient(ingredient)}
+              onClick={() => handlePcCafeCookIngredient(ingredient)}
               style={{ ...pcCafeIngredientPreviewStyle, opacity: order.steps.includes(ingredient) ? 1 : 0.72 }}
             >
               {index + 1 > 9 ? 0 : index + 1} · {ingredient}
@@ -15479,6 +15479,10 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
+
 
 
 
