@@ -2042,7 +2042,7 @@ const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: st
   { id: "gacha", title: "가챠 숍", subtitle: "장신구 · 자판기", emoji: "🎁" },
   { id: "itemMarket", title: "아이템 거래소", subtitle: "유저 장신구 매매", emoji: "🤝" },
   { id: "lotto", title: "로또 판매소", subtitle: "하루 3회 · 긁는 복권", emoji: "🎫" },
-  { id: "digSite", title: "발굴 단지", subtitle: "화석 · 미술작품 발굴", emoji: "🦴" },
+  { id: "digSite", title: "발굴 단지", subtitle: "화석 · 미술작품 · 도서 · 조각상", emoji: "🦴" },
   { id: "museum", title: "박물관", subtitle: "공동 전시 · 기증 후원", emoji: "🖼️" },
   { id: "luxury", title: "사치 아이템 숍", subtitle: "닉네임 · 이름표 · 배경", emoji: "💎" },
   { id: "casino", title: "도박장", subtitle: "슬롯 머신 · 유저 대전", emoji: "🎰" },
@@ -2296,19 +2296,25 @@ const artifactKindIconMap: Record<ArtifactCategory, string[]> = {
   "조각상": ["🗿", "🏛️", "🛡️", "🎭", "🕯️", "👑"],
 };
 
-const artifactNameSeeds = [
-  "월광", "성운", "비취", "흑해", "청화", "유성", "홍련", "설야", "금운", "해무",
-  "서광", "은조", "청룡", "유영", "백조", "천공", "노을", "적운", "서리", "성해",
-  "낙원", "설광", "창해", "금홍", "심연", "태양", "유리", "설풍", "남월", "청운",
-  "홍염", "자운", "풍화", "황혼", "성야", "오로라", "청비", "고대", "월영", "흑운",
-  "광휘", "별무리", "운해", "새벽", "은하",
-] as const;
+const artifactNamePrefixesByCategory: Record<ArtifactCategory, readonly string[]> = {
+  "화석": ["월광", "성운", "비취", "흑해", "청화", "유성", "홍련", "설야", "금운", "해무", "서광", "은조", "청룡", "유영", "백조", "천공", "노을", "적운", "서리", "성해", "낙원", "설광", "창해", "금홍", "심연", "태양", "유리", "설풍", "남월", "청운", "홍염", "자운", "풍화", "황혼", "성야", "오로라", "청비", "고대", "월영", "흑운", "광휘", "별무리", "운해", "새벽", "은하"],
+  "미술작품": ["노을", "여운", "청파", "화원", "성채", "유성", "달빛", "백야", "금채", "비단", "별빛", "설원", "해무", "홍벽", "서광", "유리", "심해", "청람", "자야", "은하", "황혼", "서리", "풍경", "월영", "고요", "파랑", "미명", "유채", "성운", "단청", "아침", "낙조", "서정", "몽환", "청연", "적월", "금혼", "설채", "별무", "하늬", "유영", "은빛", "새벽", "화염", "달무리"],
+  "도서": ["쌍엽", "청인", "봉인", "초록", "항해", "성문", "은사", "비밀", "서고", "청람", "노을", "월광", "흑장", "금서", "명문", "고성", "서약", "비전", "성운", "적사", "유리", "백은", "만조", "서리", "청해", "별빛", "낙원", "풍설", "해명", "청동", "유화", "서편", "몽서", "월인", "심연", "광휘", "설인", "창해", "현문", "은월", "자흔", "유성", "성해", "노성", "달서"],
+  "조각상": ["수호", "석가", "문양", "쌍안", "왕관", "성문", "백야", "청동", "금빛", "별무", "해안", "흑암", "설무", "유적", "광휘", "월령", "은수", "천공", "비취", "용염", "단청", "서광", "황혼", "빙하", "유성", "고대", "성좌", "심연", "청풍", "명예", "낙조", "백금", "자운", "적월", "흑조", "풍연", "노을", "청야", "은하", "성흔", "운무", "설광", "홍련", "태양", "월하"],
+};
 
-const artifactNameSuffixMap: Record<ArtifactCategory, string[]> = {
-  "화석": ["패각", "익편", "용치", "삼엽", "골편", "갑흔", "척추", "용란", "수각"],
-  "미술작품": ["화폭", "초상", "벽화", "풍경", "유화", "채화"],
-  "도서": ["고서", "비전", "연대", "필사", "금서", "지도"],
-  "조각상": ["석상", "흉상", "토우", "부조", "수호", "가면"],
+const artifactMotifNames: Record<ArtifactCategory, readonly string[]> = {
+  "화석": ["패각", "익편", "용치", "삼엽", "골편", "늑골", "척추", "용란", "수각"],
+  "미술작품": ["풍경", "초상", "산맥", "청파", "화원", "색채"],
+  "도서": ["고서", "장부", "문서", "도감", "해도", "필사"],
+  "조각상": ["흉상", "가면", "비주", "부조", "수호상", "토우"],
+};
+
+const artifactFlavorWords: Record<ArtifactCategory, readonly string[]> = {
+  "화석": ["고대", "잠든", "빛나는", "깊은", "숨은", "부서진", "남겨진", "잊힌", "드문"],
+  "미술작품": ["고요한", "찬란한", "푸른", "붉은", "은은한", "눈부신"],
+  "도서": ["오래된", "비밀의", "봉인된", "희귀한", "정교한", "고풍의"],
+  "조각상": ["엄숙한", "신비한", "묵직한", "찬란한", "고요한", "장엄한"],
 };
 
 function normalizeArtifactCategory(category: unknown): ArtifactCategory {
@@ -2339,8 +2345,13 @@ function getArtifactLocalIndex(input: Pick<ArtifactItem, "id"> | string) {
 }
 
 function getArtifactMotifIndex(category: ArtifactCategory, input: Pick<ArtifactItem, "id"> | string) {
-  const motifs = artifactNameSuffixMap[category] ?? artifactNameSuffixMap["화석"];
+  const motifs = artifactMotifNames[category] ?? artifactMotifNames["화석"];
   return (getArtifactLocalIndex(input) - 1) % motifs.length;
+}
+
+function getArtifactMotifName(category: ArtifactCategory, input: Pick<ArtifactItem, "id"> | string) {
+  const motifs = artifactMotifNames[category] ?? artifactMotifNames["화석"];
+  return motifs[getArtifactMotifIndex(category, input)] ?? motifs[0];
 }
 
 function getArtifactVisualIcon(artifact: Pick<ArtifactItem, "category" | "id">) {
@@ -2349,10 +2360,11 @@ function getArtifactVisualIcon(artifact: Pick<ArtifactItem, "category" | "id">) 
 }
 
 function makeArtifactName(index: number, category: ArtifactCategory) {
-  const localIndex = getArtifactLocalIndex(`artifact_${String(index).padStart(3, "0")}`);
-  const seed = artifactNameSeeds[(localIndex - 1) % artifactNameSeeds.length];
-  const suffixes = artifactNameSuffixMap[category] ?? artifactNameSuffixMap["화석"];
-  return `${seed}${suffixes[(localIndex - 1) % suffixes.length]}`;
+  const artifactId = `artifact_${String(index).padStart(3, "0")}`;
+  const localIndex = getArtifactLocalIndex(artifactId);
+  const prefixes = artifactNamePrefixesByCategory[category] ?? artifactNamePrefixesByCategory["화석"];
+  const prefix = prefixes[(localIndex - 1) % prefixes.length];
+  return `${prefix}${getArtifactMotifName(category, artifactId)}`;
 }
 
 function makeArtifactSequence(index: number, rarity: ArtifactRarity) {
@@ -2454,9 +2466,9 @@ function renderBookScene(motif: number, serial: number, palette: ReturnType<type
   if (motif === 0) return <g><path d="M 54 42 h48 q16 0 16 16 v52 h-64 q-10 0 -10 10 V 54 q0 -12 10 -12 Z" fill="#fef3c7" stroke={palette.line} strokeWidth="4" /><path d="M 166 42 h-48 q-16 0 -16 16 v52 h64 q10 0 10 10 V 54 q0 -12 -10 -12 Z" fill="#fff7ed" stroke={palette.line} strokeWidth="4" /><path d={`M 72 ${62 + mark * 2} h24 M 126 ${62 + mark * 2} h24 M 72 78 h18 M 130 78 h18`} stroke={palette.shadow} strokeWidth="4" strokeLinecap="round" /></g>;
   if (motif === 1) return <g><rect x="78" y="34" width="64" height="92" rx="8" fill="#dbeafe" stroke={palette.line} strokeWidth="5" /><rect x="72" y="34" width="12" height="92" rx="4" fill={palette.accent} /><path d={`M 92 58 h32 M 92 76 h32 M 92 94 h22`} stroke={palette.shadow} strokeWidth="4" strokeLinecap="round" /><circle cx="122" cy="46" r="6" fill="#facc15" /></g>;
   if (motif === 2) return <g><path d="M 74 42 h72 q10 0 10 10 v52 q0 10 -10 10 h-72 q-10 0 -10 -10 V 52 q0 -10 10 -10 Z" fill="#fef2f2" stroke={palette.line} strokeWidth="4" /><path d={`M 92 42 v72`} stroke={palette.accent} strokeWidth="8" strokeLinecap="round" /><path d={`M 102 64 q18 -10 32 0 M 102 82 q18 -10 32 0`} stroke={palette.shadow} strokeWidth="4" fill="none" strokeLinecap="round" /></g>;
-  if (motif === 3) return <g><rect x="60" y="48" width="90" height="62" rx="10" fill="#ecfccb" stroke={palette.line} strokeWidth="4" /><path d="M 72 62 h50 M 72 78 h62 M 72 94 h42" stroke={palette.shadow} strokeWidth="4" strokeLinecap="round" /><path d="M 144 48 q10 10 10 22 v30" stroke={palette.accent} strokeWidth="6" fill="none" /></g>;
-  if (motif === 4) return <g><rect x="58" y="46" width="106" height="70" rx="10" fill="#e0f2fe" stroke={palette.line} strokeWidth="4" /><path d="M 70 60 h82 M 70 76 h82 M 70 92 h60" stroke={palette.shadow} strokeWidth="4" strokeLinecap="round" /><circle cx="138" cy="96" r="10" fill="#38bdf8" /></g>;
-  return <g><rect x="48" y="44" width="124" height="76" rx="10" fill="#fff7ed" stroke={palette.line} strokeWidth="4" /><path d="M 62 58 q26 -14 52 0 q26 14 56 0" fill="none" stroke={palette.shadow} strokeWidth="4" /><path d="M 62 102 q24 -16 44 -6 q22 10 52 -10" fill="none" stroke={palette.accent} strokeWidth="4" /><circle cx="92" cy="82" r="6" fill="#ef4444" /><circle cx="132" cy="86" r="6" fill="#2563eb" /></g>;
+  if (motif === 3) return <g><rect x="60" y="48" width="90" height="62" rx="10" fill="#ecfccb" stroke={palette.line} strokeWidth="4" /><path d="M 72 62 h50 M 72 78 h62 M 72 94 h42" stroke={palette.shadow} strokeWidth="4" strokeLinecap="round" /><path d="M 144 48 q10 10 10 22 v30" stroke={palette.accent} strokeWidth="6" fill="none" /><path d="M 120 60 c10 10 10 26 0 36" stroke="#16a34a" strokeWidth="4" fill="none" /><path d="M 126 60 c-10 10 -10 26 0 36" stroke="#22c55e" strokeWidth="4" fill="none" /></g>;
+  if (motif === 4) return <g><rect x="58" y="46" width="106" height="70" rx="10" fill="#e0f2fe" stroke={palette.line} strokeWidth="4" /><path d="M 70 60 h82 M 70 76 h82 M 70 92 h60" stroke={palette.shadow} strokeWidth="4" strokeLinecap="round" /><circle cx="138" cy="96" r="10" fill="#38bdf8" /><path d="M 138 84 l0 24 M 126 96 l24 0" stroke="#1d4ed8" strokeWidth="3" /></g>;
+  return <g><rect x="48" y="44" width="124" height="76" rx="10" fill="#fff7ed" stroke={palette.line} strokeWidth="4" /><path d="M 62 102 q24 -16 44 -6 q22 10 52 -10" fill="none" stroke={palette.accent} strokeWidth="4" /><circle cx="92" cy="72" r="5" fill="#f59e0b" /><circle cx="112" cy="64" r="4" fill="#e11d48" /><circle cx="132" cy="78" r="5" fill="#2563eb" /><path d="M 72 86 l18 -10 l12 10 l16 -14 l22 12" stroke={palette.shadow} strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" /></g>;
 }
 
 function renderSculptureScene(motif: number, serial: number, palette: ReturnType<typeof getArtifactPalette>) {
@@ -2466,7 +2478,15 @@ function renderSculptureScene(motif: number, serial: number, palette: ReturnType
   if (motif === 2) return <g><rect x="84" y="110" width="52" height="16" rx="5" fill="#d7e0ea" stroke={palette.line} strokeWidth="4" /><rect x="92" y="44" width="36" height="66" rx="10" fill={palette.base} stroke={palette.line} strokeWidth="5" /><rect x="98" y="54" width="24" height="8" rx="3" fill={palette.shine} /><rect x="98" y="72" width="24" height="8" rx="3" fill={palette.shine} /><rect x="98" y="90" width="24" height="8" rx="3" fill={palette.shine} /></g>;
   if (motif === 3) return <g><rect x="74" y="108" width="72" height="18" rx="5" fill="#cbd5e1" stroke={palette.line} strokeWidth="4" /><path d={`M 78 90 q32 -34 64 0 v18 h-64 Z`} fill={palette.base} stroke={palette.line} strokeWidth="5" /><circle cx="94" cy="84" r="6" fill={palette.shine} /><circle cx="126" cy="84" r="6" fill={palette.shine} /></g>;
   if (motif === 4) return <g><rect x="74" y="108" width="72" height="18" rx="5" fill="#cbd5e1" stroke={palette.line} strokeWidth="4" /><path d={`M 110 40 l18 18 -6 8 h10 l-4 14 h-12 l-6 28 h-12 l-6 -28 h-12 l-4 -14 h10 l-6 -8 18 -18 Z`} fill={palette.base} stroke={palette.line} strokeWidth="5" strokeLinejoin="round" /></g>;
-  return <g><rect x="74" y="108" width="72" height="18" rx="5" fill="#cbd5e1" stroke={palette.line} strokeWidth="4" /><path d={`M 84 58 q26 -28 52 0 l-8 40 h-36 Z`} fill={palette.base} stroke={palette.line} strokeWidth="5" /><path d={`M 94 80 q16 -12 32 0`} stroke={palette.shadow} strokeWidth="4" fill="none" strokeLinecap="round" /><path d={`M 102 52 h16`} stroke={palette.accent} strokeWidth="5" strokeLinecap="round" /></g>;
+  return <g><rect x="74" y="108" width="72" height="18" rx="5" fill="#cbd5e1" stroke={palette.line} strokeWidth="4" /><path d={`M 86 56 q24 -22 48 0 l8 26 q-12 20 -32 20 q-20 0 -32 -20 Z`} fill={palette.base} stroke={palette.line} strokeWidth="5" /><circle cx="98" cy="76" r="4" fill={palette.shadow} /><circle cx="122" cy="76" r="4" fill={palette.shadow} /><path d={`M 98 90 q12 10 24 0`} stroke={palette.accent} strokeWidth="4" fill="none" strokeLinecap="round" /></g>;
+}
+
+function getArtifactDisplayHint(artifact: ArtifactItem) {
+  const motifName = getArtifactMotifName(artifact.category, artifact.id);
+  if (artifact.category === "화석") return `${artifactFlavorWords[artifact.category][getArtifactMotifIndex(artifact.category, artifact.id) % artifactFlavorWords[artifact.category].length]} ${motifName}`;
+  if (artifact.category === "미술작품") return motifName === "초상" ? "인물 초상화" : motifName === "풍경" ? "노을 풍경화" : motifName === "산맥" ? "산맥 풍경화" : motifName === "청파" ? "푸른 파도화" : motifName === "화원" ? "꽃 정원화" : "색채 추상화";
+  if (artifact.category === "도서") return motifName === "고서" ? "펼친 고서" : motifName === "장부" ? "푸른 장부" : motifName === "문서" ? "봉인 문서" : motifName === "도감" ? "식물 도감" : motifName === "해도" ? "항해 지도" : "별 문양 필사본";
+  return motifName === "흉상" ? "인물 흉상" : motifName === "가면" ? "석재 가면" : motifName === "비주" ? "문양 비석" : motifName === "부조" ? "얼굴 부조" : motifName === "수호상" ? "왕관 수호상" : "수호 토우";
 }
 
 function ArtifactArtwork({ artifact, size = 92 }: { artifact: ArtifactItem; size?: number }) {
@@ -2479,7 +2499,7 @@ function ArtifactArtwork({ artifact, size = 92 }: { artifact: ArtifactItem; size
   const fossilPath = makeArtifactSvgPath(artifact);
 
   return (
-    <svg viewBox="0 0 220 160" width={width} height={height} role="img" aria-label={artifact.name} style={{ display: "block", overflow: "visible" }}>
+    <svg viewBox="0 0 220 160" width={width} height={height} role="img" aria-label={`${artifact.name} ${getArtifactDisplayHint(artifact)}`} style={{ display: "block", overflow: "visible" }}>
       <defs>
         <linearGradient id={`${clipId}-bg`} x1="0" x2="1" y1="0" y2="1">
           <stop offset="0%" stopColor={palette.panelA} />
@@ -2664,16 +2684,21 @@ const playerTitles: PlayerTitle[] = [
   { id: "topRanker", name: "상위 랭커", icon: "🏆", description: "랭킹 상위 5위 안에 진입", passiveText: "랭킹 버프 대상" },
   { id: "taxFreeMind", name: "납세 우등생", icon: "📄", description: "미납 세금 0원 + 순자산 2,000,000원 이상", passiveText: "세금 압박 완화" },
   { id: "collectionMaster", name: "도감 수집가", icon: "📖", description: "장신구 25종 이상 수집", passiveText: "직업/사업 수익 +1%" },
-  { id: "hiddenZero", name: "숨겨진 시작점", icon: "🕯️", description: "조건 비공개", hidden: true, passiveText: "직업/사업 수익 +1%" },
-  { id: "hiddenWhale", name: "조용한 고래", icon: "🐳", description: "조건 비공개", hidden: true, passiveText: "가챠 행운" },
-  { id: "hiddenLucky", name: "확률의 선택자", icon: "🍀", description: "조건 비공개", hidden: true, passiveText: "가챠/카지노 행운" },
-  { id: "hiddenEstateLord", name: "밤의 건물주", icon: "🌃", description: "조건 비공개", hidden: true, passiveText: "임대 수익 +3%" },
-  { id: "hiddenLaborKing", name: "알바의 전설", icon: "⚒️", description: "조건 비공개", hidden: true, passiveText: "알바/직업 수익 +3%" },
-  { id: "hiddenMarketGhost", name: "시장 유령", icon: "👻", description: "조건 비공개", hidden: true, passiveText: "가챠 행운 +2%" },
-  { id: "hiddenRelicDealer", name: "유물 거래상", icon: "🏺", description: "조건 비공개", hidden: true, passiveText: "아이템 슬롯 +1" },
-  { id: "hiddenDebtFree", name: "빚 없는 왕", icon: "🕊️", description: "조건 비공개", hidden: true, passiveText: "직업 수익 +2%" },
-  { id: "hiddenCasinoDemon", name: "카지노 악마", icon: "😈", description: "조건 비공개", hidden: true, passiveText: "카지노 행운" },
+  { id: "hiddenZero", name: "무명의 불씨", icon: "🕯️", description: "조건 비공개", hidden: true, passiveText: "직업/사업 수익 +1%" },
+  { id: "hiddenWhale", name: "잠든 거상", icon: "🐳", description: "조건 비공개", hidden: true, passiveText: "가챠 행운" },
+  { id: "hiddenLucky", name: "행운의 개척자", icon: "🍀", description: "조건 비공개", hidden: true, passiveText: "가챠/카지노 행운" },
+  { id: "hiddenEstateLord", name: "심야의 건물주", icon: "🌃", description: "조건 비공개", hidden: true, passiveText: "임대 수익 +3%" },
+  { id: "hiddenLaborKing", name: "노동의 전설", icon: "⚒️", description: "조건 비공개", hidden: true, passiveText: "알바/직업 수익 +3%" },
+  { id: "hiddenMarketGhost", name: "장터의 그림자", icon: "👻", description: "조건 비공개", hidden: true, passiveText: "가챠 행운 +2%" },
+  { id: "hiddenRelicDealer", name: "유물 장인", icon: "🏺", description: "조건 비공개", hidden: true, passiveText: "아이템 슬롯 +1" },
+  { id: "hiddenDebtFree", name: "무채의 군주", icon: "🕊️", description: "조건 비공개", hidden: true, passiveText: "직업 수익 +2%" },
+  { id: "hiddenCasinoDemon", name: "확률의 악동", icon: "😈", description: "조건 비공개", hidden: true, passiveText: "카지노 행운" },
   { id: "hiddenEconomyGod", name: "경제의 신", icon: "🌌", description: "조건 비공개", hidden: true, passiveText: "직업/사업 수익 +5%" },
+  { id: "hiddenArchiveMaster", name: "비밀 서고 수호자", icon: "📚", description: "조건 비공개", hidden: true, passiveText: "자격증/도감 수익 보너스" },
+  { id: "hiddenGrandCurator", name: "황금 전시관장", icon: "🖼️", description: "조건 비공개", hidden: true, passiveText: "박물관 후원 수익 +5%" },
+  { id: "hiddenVaultMaster", name: "황금 금고지기", icon: "🏦", description: "조건 비공개", hidden: true, passiveText: "예금/적금 보너스" },
+  { id: "hiddenEmpireBuilder", name: "제국 건축가", icon: "🏛️", description: "조건 비공개", hidden: true, passiveText: "사업/직원 수익 +4%" },
+  { id: "hiddenCompletionist", name: "완성의 증명자", icon: "🌠", description: "조건 비공개", hidden: true, passiveText: "전반 능력 소폭 상승" },
 ];
 
 const estateItems: EstateItem[] = [
@@ -11088,6 +11113,11 @@ const secretTitleConditionText: Partial<Record<PlayerTitleId, string>> = {
   hiddenDebtFree: "해금 완료: 대출 0원 상태에서 순자산 5,000,000원 이상",
   hiddenCasinoDemon: "해금 완료: 카지노에서 큰 승부를 여러 번 진행",
   hiddenEconomyGod: "해금 완료: 순자산 100,000,000원 이상과 주요 경제 콘텐츠 대부분 달성",
+  hiddenArchiveMaster: "해금 완료: 자격증 5개 이상 + 장신구 도감 40종 이상 수집",
+  hiddenGrandCurator: "해금 완료: 박물관 기증 12개 이상 + 발굴품 30개 이상 수집",
+  hiddenVaultMaster: "해금 완료: 적금 한도 달성 + 예금 5,000,000원 이상 보유",
+  hiddenEmpireBuilder: "해금 완료: 사업 4개 이상 + 직원 레벨 합계 10 이상 달성",
+  hiddenCompletionist: "해금 완료: 최상급 발굴품 보유 + 부동산/사업/도감/박물관 조건을 폭넓게 달성",
 };
 
 function getPvpStatusLabel(status: PvpMatchRow["status"]) {
@@ -11970,6 +12000,7 @@ function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDe
   const hasRareArtifact = discoveredArtifactRarities.some((rarity) => rarity !== "하급");
   const hasMythArtifact = discoveredArtifactRarities.some((rarity) => rarity === "최상급");
   const donatedCount = (params.donatedArtifactIds ?? []).length;
+  const artifactCategorySet = new Set(artifactInventory.map((entry) => getArtifactById(entry.artifactId)?.category).filter(Boolean));
 
   return playerTitles.filter((title) => {
     if (title.id === "newbie") return true;
@@ -12031,6 +12062,11 @@ function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDe
     if (title.id === "hiddenDebtFree") return Number(params.bankLoan ?? 0) <= 0 && params.netWorth >= 10000000;
     if (title.id === "hiddenCasinoDemon") return Number(params.gachaMachinePullCount ?? 0) >= 100 && params.cash >= 1000000;
     if (title.id === "hiddenEconomyGod") return params.netWorth >= 100000000 || hasAncientRelic;
+    if (title.id === "hiddenArchiveMaster") return Number(params.ownedCertifications ?? []).length >= 5 && discoveredItems.length >= 40;
+    if (title.id === "hiddenGrandCurator") return donatedCount >= 12 && artifactTotalCount >= 30;
+    if (title.id === "hiddenVaultMaster") return Number(params.bankSavings ?? 0) >= BANK_SAVINGS_CAP && params.bankDeposit >= 5000000;
+    if (title.id === "hiddenEmpireBuilder") return params.ownedBusinesses.length >= 4 && employeeLevelTotal >= 10 && params.netWorth >= 30000000;
+    if (title.id === "hiddenCompletionist") return hasMythArtifact && artifactCategorySet.size >= 4 && params.ownedEstates.length >= 3 && params.ownedBusinesses.length >= 2 && discoveredItems.length >= 25 && donatedCount >= 5;
     return false;
   });
 }
@@ -15684,6 +15720,15 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
+
+
+
+
+
+
 
 
 
