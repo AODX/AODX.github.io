@@ -11817,8 +11817,8 @@ function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDe
   const artifactInventory = params.artifactInventory ?? [];
   const artifactTotalCount = artifactInventory.reduce((sum, entry) => sum + entry.count, 0);
   const discoveredArtifactRarities = artifactInventory.map((entry) => getArtifactById(entry.artifactId)?.rarity).filter(Boolean) as ArtifactRarity[];
-  const hasRareArtifact = discoveredArtifactRarities.some((rarity) => rarity === "중급" || rarity === "상급" || rarity === "최상급" || rarity === "최상급");
-  const hasMythArtifact = discoveredArtifactRarities.some((rarity) => rarity === "최상급" || rarity === "최상급");
+  const hasRareArtifact = discoveredArtifactRarities.some((rarity) => rarity !== "하급");
+  const hasMythArtifact = discoveredArtifactRarities.some((rarity) => rarity === "최상급");
   const donatedCount = (params.donatedArtifactIds ?? []).length;
 
   return playerTitles.filter((title) => {
@@ -15479,6 +15479,10 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
+
 
 
 
