@@ -2684,21 +2684,21 @@ const playerTitles: PlayerTitle[] = [
   { id: "topRanker", name: "상위 랭커", icon: "🏆", description: "랭킹 상위 5위 안에 진입", passiveText: "랭킹 버프 대상" },
   { id: "taxFreeMind", name: "납세 우등생", icon: "📄", description: "미납 세금 0원 + 순자산 2,000,000원 이상", passiveText: "세금 압박 완화" },
   { id: "collectionMaster", name: "도감 수집가", icon: "📖", description: "장신구 25종 이상 수집", passiveText: "직업/사업 수익 +1%" },
-  { id: "hiddenZero", name: "무명의 불씨", icon: "🕯️", description: "조건 비공개", hidden: true, passiveText: "직업/사업 수익 +1%" },
-  { id: "hiddenWhale", name: "잠든 거상", icon: "🐳", description: "조건 비공개", hidden: true, passiveText: "가챠 행운" },
-  { id: "hiddenLucky", name: "행운의 개척자", icon: "🍀", description: "조건 비공개", hidden: true, passiveText: "가챠/카지노 행운" },
-  { id: "hiddenEstateLord", name: "심야의 건물주", icon: "🌃", description: "조건 비공개", hidden: true, passiveText: "임대 수익 +3%" },
-  { id: "hiddenLaborKing", name: "노동의 전설", icon: "⚒️", description: "조건 비공개", hidden: true, passiveText: "알바/직업 수익 +3%" },
-  { id: "hiddenMarketGhost", name: "장터의 그림자", icon: "👻", description: "조건 비공개", hidden: true, passiveText: "가챠 행운 +2%" },
-  { id: "hiddenRelicDealer", name: "유물 장인", icon: "🏺", description: "조건 비공개", hidden: true, passiveText: "아이템 슬롯 +1" },
-  { id: "hiddenDebtFree", name: "무채의 군주", icon: "🕊️", description: "조건 비공개", hidden: true, passiveText: "직업 수익 +2%" },
-  { id: "hiddenCasinoDemon", name: "확률의 악동", icon: "😈", description: "조건 비공개", hidden: true, passiveText: "카지노 행운" },
+  { id: "hiddenZero", name: "숨겨진 시작점", icon: "🕯️", description: "조건 비공개", hidden: true, passiveText: "직업/사업 수익 +1%" },
+  { id: "hiddenWhale", name: "조용한 고래", icon: "🐳", description: "조건 비공개", hidden: true, passiveText: "가챠 행운" },
+  { id: "hiddenLucky", name: "확률의 선택자", icon: "🍀", description: "조건 비공개", hidden: true, passiveText: "가챠/카지노 행운" },
+  { id: "hiddenEstateLord", name: "밤의 건물주", icon: "🌃", description: "조건 비공개", hidden: true, passiveText: "임대 수익 +3%" },
+  { id: "hiddenLaborKing", name: "알바의 전설", icon: "⚒️", description: "조건 비공개", hidden: true, passiveText: "알바/직업 수익 +3%" },
+  { id: "hiddenMarketGhost", name: "시장 유령", icon: "👻", description: "조건 비공개", hidden: true, passiveText: "가챠 행운 +2%" },
+  { id: "hiddenRelicDealer", name: "유물 거래상", icon: "🏺", description: "조건 비공개", hidden: true, passiveText: "아이템 슬롯 +1" },
+  { id: "hiddenDebtFree", name: "빚 없는 왕", icon: "🕊️", description: "조건 비공개", hidden: true, passiveText: "직업 수익 +2%" },
+  { id: "hiddenCasinoDemon", name: "카지노 악마", icon: "😈", description: "조건 비공개", hidden: true, passiveText: "카지노 행운" },
   { id: "hiddenEconomyGod", name: "경제의 신", icon: "🌌", description: "조건 비공개", hidden: true, passiveText: "직업/사업 수익 +5%" },
-  { id: "hiddenArchiveMaster", name: "비밀 서고 수호자", icon: "📚", description: "조건 비공개", hidden: true, passiveText: "자격증/도감 수익 보너스" },
-  { id: "hiddenGrandCurator", name: "황금 전시관장", icon: "🖼️", description: "조건 비공개", hidden: true, passiveText: "박물관 후원 수익 +5%" },
-  { id: "hiddenVaultMaster", name: "황금 금고지기", icon: "🏦", description: "조건 비공개", hidden: true, passiveText: "예금/적금 보너스" },
-  { id: "hiddenEmpireBuilder", name: "제국 건축가", icon: "🏛️", description: "조건 비공개", hidden: true, passiveText: "사업/직원 수익 +4%" },
-  { id: "hiddenCompletionist", name: "완성의 증명자", icon: "🌠", description: "조건 비공개", hidden: true, passiveText: "전반 능력 소폭 상승" },
+  { id: "hiddenArchiveMaster", name: "비밀 서고지기", icon: "📚", description: "조건 비공개", hidden: true, passiveText: "자격증/도감 수익 보너스" },
+  { id: "hiddenGrandCurator", name: "황금 큐레이터", icon: "🖼️", description: "조건 비공개", hidden: true, passiveText: "박물관 후원 수익 +5%" },
+  { id: "hiddenVaultMaster", name: "금고의 주인", icon: "🏦", description: "조건 비공개", hidden: true, passiveText: "예금/적금 보너스" },
+  { id: "hiddenEmpireBuilder", name: "제국 설계자", icon: "🏛️", description: "조건 비공개", hidden: true, passiveText: "사업/직원 수익 +4%" },
+  { id: "hiddenCompletionist", name: "완성의 증인", icon: "🌠", description: "조건 비공개", hidden: true, passiveText: "전반 능력 소폭 상승" },
 ];
 
 const estateItems: EstateItem[] = [
@@ -15720,6 +15720,11 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
+
+
 
 
 
