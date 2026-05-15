@@ -285,7 +285,7 @@ type ShopItem = {
   bonuses?: ShopItemBonus[];
 };
 
-type ArtifactRarity = "흔적" | "희귀" | "왕실" | "신화" | "초월";
+type ArtifactRarity = "하급" | "중급" | "상급" | "최상급";
 type ArtifactCategory = "화석" | "문화유산";
 type ArtifactId = string;
 
@@ -2233,8 +2233,8 @@ const extraShopItems: ShopItem[] = Array.from({ length: 100 }, (_, index) => {
     일반: { basePrice: 38000, step: 3500, baseBonus: 0.012, icons: ["🧾", "🪙", "🧢", "📎", "🔑"], labels: ["생활", "알바", "절약", "소액", "근면"] },
     희소: { basePrice: 150000, step: 12000, baseBonus: 0.035, icons: ["💳", "📘", "🧭", "🔐", "💡"], labels: ["실버", "상점", "운영", "효율", "관리"] },
     진귀: { basePrice: 520000, step: 36000, baseBonus: 0.072, icons: ["🔮", "💎", "📊", "🧿", "🏵️"], labels: ["진귀", "분석", "고급", "전문", "전략"] },
-    보물: { basePrice: 2100000, step: 160000, baseBonus: 0.13, icons: ["👑", "🏆", "💠", "🗝️", "📜"], labels: ["보물", "재벌", "황금", "왕실", "명품"] },
-    유물: { basePrice: 8000000, step: 650000, baseBonus: 0.2, icons: ["🏺", "🌌", "🔥", "⏳", "🪬"], labels: ["고대", "신화", "유물", "전설", "차원"] },
+    보물: { basePrice: 2100000, step: 160000, baseBonus: 0.13, icons: ["👑", "🏆", "💠", "🗝️", "📜"], labels: ["보물", "재벌", "황금", "상급", "명품"] },
+    유물: { basePrice: 8000000, step: 650000, baseBonus: 0.2, icons: ["🏺", "🌌", "🔥", "⏳", "🪬"], labels: ["고대", "최상급", "유물", "전설", "차원"] },
     "고대 유물": { basePrice: 250000000, step: 35000000, baseBonus: 0.75, icons: ["💎", "🏏", "🪖"], labels: ["공주", "기사", "전설"] },
   };
   const bonusCycle: ShopItem["bonusType"][] = ["allIncome", "jobIncome", "businessIncome", "casinoLuck", "estateIncome", "bankInterest", "lottoLuck", "gachaLuck", "taxShield", "employeeEfficiency"];
@@ -2275,53 +2275,71 @@ const MUSEUM_DONATION_TABLE = "game_museum_donations";
 const MUSEUM_INCOME_INTERVAL_MS = 10 * 60 * 1000;
 const EXCAVATION_SPAWN_INTERVAL_MS = 5 * 60 * 1000;
 const artifactRarityInfo: Record<ArtifactRarity, { icon: string; weight: number; crackLimit: number; valueMultiplier: number; incomeMultiplier: number }> = {
-  "흔적": { icon: "🦴", weight: 46, crackLimit: 5, valueMultiplier: 1, incomeMultiplier: 1 },
-  "희귀": { icon: "🏺", weight: 28, crackLimit: 4, valueMultiplier: 2.4, incomeMultiplier: 2.2 },
-  "왕실": { icon: "👑", weight: 15, crackLimit: 3, valueMultiplier: 5.8, incomeMultiplier: 5.4 },
-  "신화": { icon: "🐉", weight: 8, crackLimit: 3, valueMultiplier: 13, incomeMultiplier: 12 },
-  "초월": { icon: "✨", weight: 3, crackLimit: 2, valueMultiplier: 32, incomeMultiplier: 30 },
+  "하급": { icon: "🟫", weight: 72, crackLimit: 6, valueMultiplier: 1, incomeMultiplier: 1 },
+  "중급": { icon: "🟦", weight: 22, crackLimit: 5, valueMultiplier: 2.7, incomeMultiplier: 2.3 },
+  "상급": { icon: "🟪", weight: 5.4, crackLimit: 4, valueMultiplier: 7.8, incomeMultiplier: 6.2 },
+  "최상급": { icon: "🟨", weight: 0.6, crackLimit: 3, valueMultiplier: 24, incomeMultiplier: 18 },
 };
 const excavationActions = ["좌상", "우상", "좌하", "우하", "곡선", "홈", "집중", "분리"];
 
 function getArtifactRarityByIndex(index: number): ArtifactRarity {
-  if (index % 97 === 0 || index % 131 === 0) return "초월";
-  if (index % 37 === 0 || index % 53 === 0) return "신화";
-  if (index % 17 === 0 || index % 29 === 0) return "왕실";
-  if (index % 5 === 0 || index % 7 === 0) return "희귀";
-  return "흔적";
+  if (index % 89 === 0 || index % 137 === 0) return "최상급";
+  if (index % 23 === 0 || index % 31 === 0 || index % 47 === 0) return "상급";
+  if (index % 5 === 0 || index % 7 === 0 || index % 11 === 0) return "중급";
+  return "하급";
+}
+
+const artifactKindIconMap: Record<ArtifactCategory, string[]> = {
+  "화석": ["🦴", "🦷", "🐚", "🪨", "🦕", "🦖", "🐟", "🌿", "🥚", "🦀", "🪶", "🦎"],
+  "문화유산": ["🏺", "🗿", "📜", "📚", "🖼️", "⚱️", "🛡️", "🗡️", "🔔", "🧭", "🔑", "💍"],
+};
+
+function getArtifactVisualIcon(artifact: Pick<ArtifactItem, "category" | "silhouette">) {
+  const index = Number(String(artifact.silhouette).replace(/\D/g, "")) || 1;
+  const pool = artifactKindIconMap[artifact.category] ?? artifactKindIconMap["화석"];
+  return pool[index % pool.length];
+}
+
+function getArtifactDisplayKind(index: number, category: ArtifactCategory) {
+  if (category === "화석") {
+    const kinds = ["척추 화석", "턱뼈 화석", "암모나이트", "발자국 석판", "익룡 날개뼈", "공룡 알", "삼엽충", "고대 물고기", "나뭇잎 화석", "산호 화석", "깃털 흔적", "발톱 화석"];
+    return kinds[index % kinds.length];
+  }
+
+  const kinds = ["도자기", "조각상", "미술작품", "고문서", "고서", "청동 방패", "의식용 검", "성소 종", "별자리 나침반", "봉인 열쇠", "왕가 반지", "벽화 조각"];
+  return kinds[index % kinds.length];
 }
 
 function makeArtifactName(index: number, category: ArtifactCategory, rarity: ArtifactRarity) {
-  const fossilPrefixes = ["새벽 협곡의", "검은 해안의", "푸른 단층의", "별빛 사암의", "얼어붙은 밀림의", "붉은 분지의", "안개 계곡의", "잊힌 호수의", "고요한 화산의", "황금 사막의"];
-  const fossilBodies = ["나선 뿔 화석", "월광 조개 화석", "고대 익룡 발톱", "삼엽 파수꾼", "거대 잎맥 석판", "운석 물고기 흔적", "수정 척추 조각", "심해 암모나이트", "용골 산호 표본", "태초의 알 껍질"];
-  const relicPrefixes = ["달의 제단에서 나온", "왕실 기록관의", "유리 사원의", "무너진 항구의", "별무늬 궁전의", "청동 종탑의", "사라진 상단의", "백야 성채의", "비밀 수도원의", "황혼 왕릉의"];
-  const relicBodies = ["봉인 열쇠", "청동 의식잔", "별자리 나침반", "금박 서판", "왕관 파편", "수호 부적", "푸른 유리 인장", "전쟁 북 장식", "제례용 단검", "노래하는 도자기"];
-  const epithets: Record<ArtifactRarity, string[]> = {
-    "흔적": ["작은", "낡은", "먼지 묻은", "희미한"],
-    "희귀": ["선명한", "보존된", "빛바랜", "정교한"],
-    "왕실": ["왕의", "황금빛", "문장 새겨진", "의식용"],
-    "신화": ["전설 속", "용이 감싼", "별이 잠든", "신관의"],
-    "초월": ["시간 밖의", "차원을 건넌", "태초 이전의", "불멸의"],
+  const siteNames = ["새벽 협곡", "검은 해안", "푸른 단층", "별빛 사암", "얼어붙은 밀림", "붉은 분지", "안개 계곡", "잊힌 호수", "고요한 화산", "황금 사막", "유리 사원", "백야 성채", "황혼 왕릉", "달의 제단", "청동 종탑"];
+  const motifs = ["나선", "월광", "운석", "수정", "태초", "비취", "흑요석", "황금", "은하", "노래하는", "푸른", "붉은"];
+  const gradeWords: Record<ArtifactRarity, string[]> = {
+    "하급": ["작은", "낡은", "먼지 묻은", "균열 난"],
+    "중급": ["보존된", "선명한", "정교한", "빛바랜"],
+    "상급": ["왕실의", "문장 새겨진", "의식용", "황금빛"],
+    "최상급": ["전설의", "별이 잠든", "시간 밖의", "불멸의"],
   };
-  const prefix = category === "화석" ? fossilPrefixes[index % fossilPrefixes.length] : relicPrefixes[index % relicPrefixes.length];
-  const body = category === "화석" ? fossilBodies[Math.floor(index / 2) % fossilBodies.length] : relicBodies[Math.floor(index / 2) % relicBodies.length];
-  const epithet = epithets[rarity][index % epithets[rarity].length];
-  return `${prefix} ${epithet} ${body}`;
+  const kind = getArtifactDisplayKind(index, category);
+  const site = siteNames[(index * 5 + category.length) % siteNames.length];
+  const motif = motifs[(index * 7 + rarity.length) % motifs.length];
+  const grade = gradeWords[rarity][index % gradeWords[rarity].length];
+  return `${site}의 ${grade} ${motif} ${kind}`;
 }
 
 function makeArtifactSequence(index: number, rarity: ArtifactRarity) {
-  const lengthByRarity: Record<ArtifactRarity, number> = { "흔적": 5, "희귀": 6, "왕실": 8, "신화": 10, "초월": 12 };
-  const length = lengthByRarity[rarity] + (index % 3);
+  const lengthByRarity: Record<ArtifactRarity, number> = { "하급": 5, "중급": 7, "상급": 9, "최상급": 12 };
+  const length = lengthByRarity[rarity] + (index % 4);
   return Array.from({ length }, (_, step) => excavationActions[(index * 7 + step * 5 + Math.floor(step / 2)) % excavationActions.length]);
 }
 
 function makeArtifactCatalog() {
   return Array.from({ length: 180 }, (_, zeroIndex) => {
     const index = zeroIndex + 1;
-    const category: ArtifactCategory = index % 3 === 0 ? "문화유산" : "화석";
+    const category: ArtifactCategory = index % 4 === 0 ? "문화유산" : "화석";
     const rarity = getArtifactRarityByIndex(index);
     const rarityInfo = artifactRarityInfo[rarity];
-    const weirdness = Math.min(98, 14 + index % 19 + (rarity === "희귀" ? 8 : rarity === "왕실" ? 18 : rarity === "신화" ? 32 : rarity === "초월" ? 48 : 0));
+    const rarityWeirdness: Record<ArtifactRarity, number> = { "하급": 0, "중급": 12, "상급": 30, "최상급": 54 };
+    const weirdness = Math.min(98, 12 + (index * 13) % 27 + rarityWeirdness[rarity]);
     const value = Math.floor((9000 + index * 1370 + weirdness * 420) * rarityInfo.valueMultiplier);
     const museumIncome = Math.floor((650 + index * 55 + weirdness * 18) * rarityInfo.incomeMultiplier);
     return {
@@ -2343,26 +2361,36 @@ const artifactCatalog: ArtifactItem[] = makeArtifactCatalog();
 
 function makeArtifactSvgPath(artifact: ArtifactItem) {
   const n = Number(artifact.id.replace(/\D/g, "")) || 1;
-  const wobble = artifact.weirdness / 10;
-  const x1 = 36 + (n % 13);
-  const y1 = 28 + (n % 9);
-  const x2 = 88 + ((n * 7) % 18);
-  const y2 = 18 + ((n * 5) % 22);
-  const x3 = 146 + ((n * 3) % 20);
-  const y3 = 34 + ((n * 11) % 25);
-  const x4 = 184 - ((n * 2) % 18);
-  const y4 = 82 + ((n * 13) % 24);
-  const x5 = 128 + ((n * 17) % 28) - wobble;
-  const y5 = 128 - ((n * 19) % 18);
-  const x6 = 54 + ((n * 23) % 32);
-  const y6 = 118 + ((n * 29) % 20);
-  if (artifact.rarity === "초월") return `M ${x1} ${y1} C ${x2} ${y2}, ${x3} ${y3}, ${x4} ${y4} L ${x5} ${y5} C ${x3 - wobble} ${y5 + wobble}, ${x6} ${y6}, ${x1} ${y1} Z`;
-  if (artifact.rarity === "신화") return `M ${x1} ${y1} Q ${x2} ${y2} ${x3} ${y3} T ${x4} ${y4} L ${x5} ${y5} Q ${x6} ${y6} ${x1} ${y1} Z`;
-  if (artifact.rarity === "왕실") return `M ${x1} ${y1} L ${x2} ${y2} C ${x3} ${y3}, ${x4} ${y4}, ${x5} ${y5} L ${x6} ${y6} Z`;
-  if (artifact.rarity === "희귀") return `M ${x1} ${y1} C ${x2} ${y2}, ${x3} ${y3}, ${x4} ${y4} C ${x5} ${y5}, ${x6} ${y6}, ${x1} ${y1} Z`;
-  return `M ${x1} ${y1} L ${x3} ${y3} L ${x4} ${y4} L ${x5} ${y5} L ${x6} ${y6} Z`;
-}
+  const rarityPoints: Record<ArtifactRarity, number> = { "하급": 7, "중급": 9, "상급": 12, "최상급": 16 };
+  const points = rarityPoints[artifact.rarity] + (n % 3);
+  const cx = 110 + ((n * 17) % 13) - 6;
+  const cy = 82 + ((n * 19) % 11) - 5;
+  const baseRx = artifact.category === "화석" ? 58 : 50;
+  const baseRy = artifact.category === "화석" ? 42 : 50;
+  const twist = ((n * 37) % 360) * Math.PI / 180;
+  const coords = Array.from({ length: points }, (_, index) => {
+    const angle = twist + (Math.PI * 2 * index) / points;
+    const jag = 0.72 + (((n * (index + 3) * 29) % 41) / 100);
+    const notch = index % 4 === 0 && artifact.rarity !== "하급" ? 0.58 : 1;
+    const spike = artifact.rarity === "최상급" && index % 5 === 2 ? 1.22 : 1;
+    const rx = baseRx * jag * notch * spike;
+    const ry = baseRy * (1.05 - (jag - 0.72) / 3) * (index % 3 === 1 ? 1.12 : 0.96);
+    const x = Math.max(18, Math.min(202, cx + Math.cos(angle) * rx));
+    const y = Math.max(18, Math.min(146, cy + Math.sin(angle) * ry));
+    return { x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) };
+  });
 
+  if (artifact.category === "문화유산") {
+    return coords.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ") + " Z";
+  }
+
+  return coords.map((point, index) => {
+    const next = coords[(index + 1) % coords.length];
+    const midX = ((point.x + next.x) / 2).toFixed(1);
+    const midY = ((point.y + next.y) / 2).toFixed(1);
+    return index === 0 ? `M ${point.x} ${point.y} Q ${midX} ${midY} ${next.x} ${next.y}` : `Q ${midX} ${midY} ${next.x} ${next.y}`;
+  }).join(" ") + " Z";
+}
 
 function getArtifactById(id: ArtifactId) {
   return artifactCatalog.find((artifact) => artifact.id === id);
@@ -2388,13 +2416,13 @@ function removeArtifactFromInventory(inventory: ArtifactInventoryEntry[], artifa
 
 
 function getExcavationTraceTargetCount(artifact: ArtifactItem) {
-  const rarityBonus: Record<ArtifactRarity, number> = { "흔적": 0, "희귀": 4, "왕실": 8, "신화": 12, "초월": 18 };
-  return Math.max(14, Math.min(46, Math.floor(artifact.weirdness / 4.8) + 12 + rarityBonus[artifact.rarity]));
+  const rarityBonus: Record<ArtifactRarity, number> = { "하급": 0, "중급": 3, "상급": 6, "최상급": 10 };
+  return Math.max(12, Math.min(34, Math.floor(artifact.weirdness / 7) + 10 + rarityBonus[artifact.rarity]));
 }
 
 function getExcavationTraceTolerance(artifact: ArtifactItem) {
-  const rarityPenalty: Record<ArtifactRarity, number> = { "흔적": 0, "희귀": 2, "왕실": 4, "신화": 6, "초월": 8 };
-  return Math.max(12, 34 - artifact.weirdness / 5.2 - rarityPenalty[artifact.rarity]);
+  const rarityPenalty: Record<ArtifactRarity, number> = { "하급": 0, "중급": 2, "상급": 4, "최상급": 6 };
+  return Math.max(14, 38 - artifact.weirdness / 5.6 - rarityPenalty[artifact.rarity]);
 }
 
 function getExcavationTraceDistance(points: Array<{ x: number; y: number }>) {
@@ -2406,14 +2434,11 @@ function getExcavationTraceDistance(points: Array<{ x: number; y: number }>) {
 
 function pickExcavationArtifact() {
   const roll = Math.random() * 100;
-  let rarity: ArtifactRarity = "흔적";
+  let rarity: ArtifactRarity = "하급";
 
-  // 고등급은 의도적으로 매우 낮은 확률입니다.
-  // 희귀 약 13.3%, 왕실 약 3.2%, 신화 약 0.65%, 초월 약 0.15%
-  if (roll >= 99.85) rarity = "초월";
-  else if (roll >= 99.2) rarity = "신화";
-  else if (roll >= 96) rarity = "왕실";
-  else if (roll >= 82.7) rarity = "희귀";
+  if (roll >= 99.65) rarity = "최상급";
+  else if (roll >= 96.15) rarity = "상급";
+  else if (roll >= 78.15) rarity = "중급";
 
   const candidates = artifactCatalog.filter((artifact) => artifact.rarity === rarity);
   return candidates[Math.floor(Math.random() * candidates.length)] ?? artifactCatalog[0];
@@ -2442,7 +2467,7 @@ function normalizeMuseumDonations(value: unknown): MuseumDonationRow[] {
       return {
         artifact_id: String(candidate.artifact_id),
         artifact_name: String(candidate.artifact_name),
-        rarity: (candidate.rarity ?? "흔적") as ArtifactRarity,
+        rarity: (candidate.rarity ?? "하급") as ArtifactRarity,
         category: (candidate.category ?? "화석") as ArtifactCategory,
         donor_id: String(candidate.donor_id ?? ""),
         donor_name: String(candidate.donor_name),
@@ -3573,7 +3598,7 @@ export default function GamePage() {
       if (!artifact || !pathNode) return;
 
       try {
-        const totalLength = pathNode.getTotalLength();
+        const totalLength = pathNode.getTotalLength() * 0.92;
         const sampleCount = getExcavationTraceTargetCount(artifact);
         const nextTargets = Array.from({ length: sampleCount }, (_, index) => {
           const point = pathNode.getPointAtLength((totalLength * index) / Math.max(1, sampleCount - 1));
@@ -6203,16 +6228,22 @@ export default function GamePage() {
     if (!artifact || excavationTraceTargets.length === 0) return;
 
     const tolerance = getExcavationTraceTolerance(artifact);
-    const currentIndex = Math.min(excavationGame.step, excavationTraceTargets.length - 1);
-    const target = excavationTraceTargets[currentIndex];
-    const distanceToTarget = Math.hypot(point.x - target.x, point.y - target.y);
+    let nextStep = excavationGame.step;
 
-    if (distanceToTarget <= tolerance) {
-      const nextStep = excavationGame.step + 1;
+    for (let index = excavationGame.step; index < Math.min(excavationTraceTargets.length, excavationGame.step + 4); index += 1) {
+      const target = excavationTraceTargets[index];
+      const distance = Math.hypot(point.x - target.x, point.y - target.y);
+      if (distance <= tolerance * (index === excavationGame.step ? 1.15 : 0.95)) {
+        nextStep = index + 1;
+      } else {
+        break;
+      }
+    }
 
+    if (nextStep > excavationGame.step) {
       if (nextStep >= excavationTraceTargets.length) {
-        const requiredTracePoints = Math.max(10, Math.floor(excavationTraceTargets.length * 0.7));
-        const requiredTraceDistance = Math.max(70, artifact.weirdness * 1.15);
+        const requiredTracePoints = Math.max(8, Math.floor(excavationTraceTargets.length * 0.45));
+        const requiredTraceDistance = Math.max(50, artifact.weirdness * 0.75);
         if (excavationTracePoints.length < requiredTracePoints || getExcavationTraceDistance(excavationTracePoints) < requiredTraceDistance) {
           setMessage("⛏️ 실루엣을 더 길게 따라 그려야 발굴할 수 있습니다. 한 점만 찍으면 성공하지 않습니다.");
           return;
@@ -6231,12 +6262,15 @@ export default function GamePage() {
       return;
     }
 
-    const previousIndex = Math.max(0, currentIndex - 1);
-    const previousTarget = excavationTraceTargets[previousIndex];
-    const distanceToPrevious = Math.hypot(point.x - previousTarget.x, point.y - previousTarget.y);
-    const distanceToGuide = Math.min(distanceToTarget, distanceToPrevious);
+    const currentIndex = Math.min(excavationGame.step, excavationTraceTargets.length - 1);
+    const target = excavationTraceTargets[currentIndex];
+    const previousTarget = excavationTraceTargets[Math.max(0, currentIndex - 1)];
+    const distanceToGuide = Math.min(
+      Math.hypot(point.x - target.x, point.y - target.y),
+      Math.hypot(point.x - previousTarget.x, point.y - previousTarget.y)
+    );
 
-    if (distanceToGuide > tolerance * 1.9 && excavationTracePoints.length > 4) {
+    if (distanceToGuide > tolerance * 2.15 && excavationTracePoints.length > 4) {
       const now = Date.now();
       if (now - excavationPenaltyCooldownRef.current > 5500) {
         excavationPenaltyCooldownRef.current = now;
@@ -7241,7 +7275,7 @@ export default function GamePage() {
     setMessage(fakeCount > 0 ? `📰 ${getNewsCompanyName(primaryArticle.sourceCompanyId)} 기사 ${articles.length}개를 확인했습니다. 이 중 ${fakeCount}개는 가짜 정보였습니다.` : `📰 ${getNewsCompanyName(primaryArticle.sourceCompanyId)} 신문 기사 ${articles.length}개를 확인했습니다. 같은 회차의 모든 유저에게도 같은 기사로 보입니다.`);
   }
 
-  function getRequestedStockAmount(stock: StockRow) {
+  function getRequestedStockAmount() {
     const requested = Math.floor(Number(stockTradeAmount.replace(/,/g, "")));
     if (!Number.isFinite(requested) || requested <= 0) {
       setMessage("매수/매도할 주식 수를 1 이상으로 입력해주세요.");
@@ -7253,14 +7287,14 @@ export default function GamePage() {
   function buyRequestedStock(stockId: StockId) {
     const stock = stockRows.find((row) => row.id === stockId);
     if (!stock) return;
-    const amount = getRequestedStockAmount(stock);
+    const amount = getRequestedStockAmount();
     if (amount > 0) buyStock(stockId, amount);
   }
 
   function sellRequestedStock(stockId: StockId) {
     const stock = stockRows.find((row) => row.id === stockId);
     if (!stock) return;
-    const amount = getRequestedStockAmount(stock);
+    const amount = getRequestedStockAmount();
     if (amount > 0) sellStock(stockId, amount);
   }
 
@@ -8236,7 +8270,7 @@ export default function GamePage() {
                         return (
                           <div key={entry.artifactId} style={artifactCardStyle}>
                             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                              <div style={artifactMiniPreviewStyle}>{artifact.category === "문화유산" ? (artifact.rarity === "신화" || artifact.rarity === "초월" ? "🖼️" : "🏺") : artifact.rarity === "초월" ? "🦖" : "🦴"}</div>
+                              <div style={artifactMiniPreviewStyle}>{artifact.category === "문화유산" ? (artifact.rarity === "최상급" ? "🖼️" : getArtifactVisualIcon(artifact)) : getArtifactVisualIcon(artifact)}</div>
                               <div style={{ display: "grid", gap: "4px" }}>
                                 <strong>{artifactRarityInfo[artifact.rarity].icon} {artifact.name} × {entry.count}</strong>
                                 <span>{artifact.category} · {artifact.rarity} · 판매가 {artifact.value.toLocaleString()}원 · 기증수익 10분당 {artifact.museumIncome.toLocaleString()}원</span>
@@ -8285,7 +8319,7 @@ export default function GamePage() {
                       <article key={`hall-${donation.artifact_id}`} style={museumSimpleExhibitStyle}>
                         <div style={museumSimpleArtifactStyle}>
                           <span style={{ fontSize: donation.category === "문화유산" ? "58px" : "54px" }}>
-                            {donation.category === "문화유산" ? (donation.rarity === "신화" || donation.rarity === "초월" ? "🖼️" : "🏺") : artifact?.rarity === "초월" ? "🦖" : "🦴"}
+                            {donation.category === "문화유산" ? (donation.rarity === "최상급" ? "🖼️" : "🏺") : artifact ? getArtifactVisualIcon(artifact) : "🦴"}
                           </span>
                         </div>
                         <strong>{donation.artifact_name}</strong>
@@ -8318,7 +8352,7 @@ export default function GamePage() {
                         if (!artifact) return null;
                         return (
                           <article key={`donate-${entry.artifactId}`} style={museumDonateCardStyle}>
-                            <div style={artifactMiniPreviewStyle}>{artifact.category === "문화유산" ? (artifact.rarity === "신화" || artifact.rarity === "초월" ? "🖼️" : "🏺") : artifact.rarity === "초월" ? "🦖" : "🦴"}</div>
+                            <div style={artifactMiniPreviewStyle}>{artifact.category === "문화유산" ? (artifact.rarity === "최상급" ? "🖼️" : getArtifactVisualIcon(artifact)) : getArtifactVisualIcon(artifact)}</div>
                             <strong>{artifact.name}</strong>
                             <span>{artifact.rarity} · 보유 {entry.count}개</span>
                             <span>후원 수익 10분당 {artifact.museumIncome.toLocaleString()}원</span>
@@ -10989,7 +11023,7 @@ function makeCareerDocumentDeskSequence(occupation: Occupation, step: number) {
 
 function makeCareerStageSequence(occupation: Occupation, step: number) {
   const keys = occupation.id === "mythicMuse"
-    ? ["신화", "날개", "광휘", "피날레"]
+    ? ["최상급", "날개", "광휘", "피날레"]
     : occupation.id === "legendaryIdol"
       ? ["오프닝", "고음", "댄스", "엔딩"]
       : occupation.id === "topSinger"
@@ -11783,8 +11817,8 @@ function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDe
   const artifactInventory = params.artifactInventory ?? [];
   const artifactTotalCount = artifactInventory.reduce((sum, entry) => sum + entry.count, 0);
   const discoveredArtifactRarities = artifactInventory.map((entry) => getArtifactById(entry.artifactId)?.rarity).filter(Boolean) as ArtifactRarity[];
-  const hasRareArtifact = discoveredArtifactRarities.some((rarity) => rarity === "희귀" || rarity === "왕실" || rarity === "신화" || rarity === "초월");
-  const hasMythArtifact = discoveredArtifactRarities.some((rarity) => rarity === "신화" || rarity === "초월");
+  const hasRareArtifact = discoveredArtifactRarities.some((rarity) => rarity === "중급" || rarity === "상급" || rarity === "최상급" || rarity === "최상급");
+  const hasMythArtifact = discoveredArtifactRarities.some((rarity) => rarity === "최상급" || rarity === "최상급");
   const donatedCount = (params.donatedArtifactIds ?? []).length;
 
   return playerTitles.filter((title) => {
@@ -15445,6 +15479,10 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
+
 
 
 
