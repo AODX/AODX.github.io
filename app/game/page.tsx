@@ -2290,15 +2290,30 @@ function getArtifactRarityByIndex(index: number): ArtifactRarity {
 }
 
 const artifactKindIconMap: Record<ArtifactCategory, string[]> = {
-  "화석": ["🦴", "🦷", "🐚", "🪨", "🦕", "🦖", "🐟", "🌿", "🥚", "🦀"],
-  "미술작품": ["🖼️", "🎨", "🖌️", "🌄", "🌌", "🏞️", "🪷", "🌙", "🔥", "💎"],
-  "도서": ["📚", "📖", "📜", "📝", "📕", "📘", "📙", "📗", "🔖", "🪶"],
-  "조각상": ["🗿", "🏛️", "⚱️", "🛡️", "🗽", "🪨", "🔱", "🕯️", "👑", "💠"],
+  "화석": ["🦴", "🦷", "🐚", "🪨", "🦕", "🦖", "🐟", "🌿", "🥚"],
+  "미술작품": ["🖼️", "🎨", "🖌️", "🌄", "🌌", "🏞️"],
+  "도서": ["📚", "📖", "📜", "📝", "📕", "🗺️"],
+  "조각상": ["🗿", "🏛️", "🛡️", "🎭", "🕯️", "👑"],
+};
+
+const artifactNameSeeds = [
+  "월광", "성운", "비취", "흑해", "청화", "유성", "홍련", "설야", "금운", "해무",
+  "서광", "은조", "청룡", "유영", "백조", "천공", "노을", "적운", "서리", "성해",
+  "낙원", "설광", "창해", "금홍", "심연", "태양", "유리", "설풍", "남월", "청운",
+  "홍염", "자운", "풍화", "황혼", "성야", "오로라", "청비", "고대", "월영", "흑운",
+  "광휘", "별무리", "운해", "새벽", "은하",
+] as const;
+
+const artifactNameSuffixMap: Record<ArtifactCategory, string[]> = {
+  "화석": ["패각", "익편", "용치", "삼엽", "골편", "갑흔", "척추", "용란", "수각"],
+  "미술작품": ["화폭", "초상", "벽화", "풍경", "유화", "채화"],
+  "도서": ["고서", "비전", "연대", "필사", "금서", "지도"],
+  "조각상": ["석상", "흉상", "토우", "부조", "수호", "가면"],
 };
 
 function normalizeArtifactCategory(category: unknown): ArtifactCategory {
   if (category === "미술작품" || category === "도서" || category === "조각상" || category === "화석") return category;
-  if (category === "미술작품") return "미술작품";
+  if (category === "문화유산") return "조각상";
   return "화석";
 }
 
@@ -2309,10 +2324,9 @@ function normalizeArtifactRarity(rarity: unknown): ArtifactRarity {
   return "하급";
 }
 
-function getArtifactVisualIcon(artifact: Pick<ArtifactItem, "category" | "silhouette">) {
-  const index = Number(String(artifact.silhouette).replace(/\D/g, "")) || 1;
-  const pool = artifactKindIconMap[artifact.category] ?? artifactKindIconMap["화석"];
-  return pool[index % pool.length];
+function getArtifactSerial(input: Pick<ArtifactItem, "id"> | string) {
+  const value = typeof input === "string" ? input : input.id;
+  return Number(String(value).replace(/\D/g, "")) || 1;
 }
 
 function getArtifactCategoryByIndex(index: number): ArtifactCategory {
@@ -2320,19 +2334,25 @@ function getArtifactCategoryByIndex(index: number): ArtifactCategory {
   return categories[(index - 1) % categories.length];
 }
 
+function getArtifactLocalIndex(input: Pick<ArtifactItem, "id"> | string) {
+  return Math.floor((getArtifactSerial(input) - 1) / 4) + 1;
+}
+
+function getArtifactMotifIndex(category: ArtifactCategory, input: Pick<ArtifactItem, "id"> | string) {
+  const motifs = artifactNameSuffixMap[category] ?? artifactNameSuffixMap["화석"];
+  return (getArtifactLocalIndex(input) - 1) % motifs.length;
+}
+
+function getArtifactVisualIcon(artifact: Pick<ArtifactItem, "category" | "id">) {
+  const pool = artifactKindIconMap[artifact.category] ?? artifactKindIconMap["화석"];
+  return pool[getArtifactMotifIndex(artifact.category, artifact.id) % pool.length];
+}
+
 function makeArtifactName(index: number, category: ArtifactCategory) {
-  // 180종 모두 서로 다른 짧은 이름입니다. 화면에서 잘리지 않도록 보통 4~7글자로 구성합니다.
-  const shortSites = ["새벽", "푸른", "백야", "황혼", "검은", "달빛", "별빛", "붉은", "은빛", "비취", "유리", "고요", "운석", "청동", "서리"];
-  const suffixes: Record<ArtifactCategory, string[]> = {
-    "화석": ["뼈", "이빨", "알", "발톱", "깃", "조개", "잎", "척추", "물고기", "삼엽"],
-    "미술작품": ["화폭", "초상", "벽화", "풍경", "채색", "문양", "별그림", "달그림", "궁정화", "유화"],
-    "도서": ["고서", "서책", "기록", "두루마리", "왕실서", "비망록", "항해록", "연대기", "시집", "지도책"],
-    "조각상": ["석상", "흉상", "토우", "부조", "수호상", "청동상", "기둥상", "가면상", "왕관상", "신상"],
-  };
-  const site = shortSites[(index * 7 + category.length) % shortSites.length];
-  const suffix = suffixes[category][Math.floor((index - 1) / 4) % suffixes[category].length];
-  const mark = String(index).padStart(3, "0");
-  return `${site}${suffix}${mark}`;
+  const localIndex = getArtifactLocalIndex(`artifact_${String(index).padStart(3, "0")}`);
+  const seed = artifactNameSeeds[(localIndex - 1) % artifactNameSeeds.length];
+  const suffixes = artifactNameSuffixMap[category] ?? artifactNameSuffixMap["화석"];
+  return `${seed}${suffixes[(localIndex - 1) % suffixes.length]}`;
 }
 
 function makeArtifactSequence(index: number, rarity: ArtifactRarity) {
@@ -2399,6 +2419,119 @@ function makeArtifactSvgPath(artifact: ArtifactItem) {
     const midY = ((point.y + next.y) / 2).toFixed(1);
     return index === 0 ? `M ${point.x} ${point.y} Q ${midX} ${midY} ${next.x} ${next.y}` : `Q ${midX} ${midY} ${next.x} ${next.y}`;
   }).join(" ") + " Z";
+}
+
+
+function getArtifactPalette(artifact: Pick<ArtifactItem, "rarity" | "category" | "id">) {
+  const serial = getArtifactSerial(artifact);
+  const rarityPalettes: Record<ArtifactRarity, { base: string; shadow: string; line: string; shine: string; accent: string }> = {
+    "하급": { base: "#d9c3a3", shadow: "#a67c52", line: "#6b4f3a", shine: "#f7efe1", accent: "#8b5e34" },
+    "중급": { base: "#c4d6f2", shadow: "#5f7fa5", line: "#264861", shine: "#ecf5ff", accent: "#446f9f" },
+    "상급": { base: "#dcc7f7", shadow: "#7a56ad", line: "#40235f", shine: "#f4ecff", accent: "#a44af4" },
+    "최상급": { base: "#f7dfa3", shadow: "#c3871f", line: "#6f4611", shine: "#fff8da", accent: "#eab308" },
+  };
+  const palette = rarityPalettes[artifact.rarity];
+  const hueRotate = (serial * 17) % 36;
+  return {
+    ...palette,
+    panelA: artifact.category === "미술작품" ? `hsl(${20 + hueRotate}, 70%, 93%)` : artifact.category === "도서" ? `hsl(${42 + hueRotate}, 65%, 94%)` : artifact.category === "조각상" ? `hsl(${210 + hueRotate}, 28%, 95%)` : `hsl(${40 + hueRotate}, 70%, 91%)`,
+    panelB: artifact.category === "미술작품" ? `hsl(${10 + hueRotate}, 72%, 84%)` : artifact.category === "도서" ? `hsl(${38 + hueRotate}, 72%, 82%)` : artifact.category === "조각상" ? `hsl(${214 + hueRotate}, 32%, 86%)` : `hsl(${38 + hueRotate}, 78%, 79%)`,
+  };
+}
+
+function renderPaintingScene(motif: number, serial: number, palette: ReturnType<typeof getArtifactPalette>) {
+  const offset = serial % 14;
+  if (motif === 0) return <g><circle cx={158} cy={52} r={12} fill="#f59e0b" /><path d={`M 38 112 Q 80 ${72 + offset} 108 104 T 182 94 V 122 H 38 Z`} fill="#60a5fa" /><path d={`M 38 114 Q 72 ${96 - offset} 94 86 T 160 100 V 122 H 38 Z`} fill="#34d399" /></g>;
+  if (motif === 1) return <g><rect x="38" y="34" width="148" height="88" rx="12" fill="#f5d0fe" /><ellipse cx="110" cy="78" rx="28" ry="34" fill="#334155" /><circle cx="110" cy="62" r="18" fill="#475569" /><path d="M 70 118 Q 110 86 150 118" fill="#fb7185" opacity="0.7" /></g>;
+  if (motif === 2) return <g><rect x="40" y="36" width="144" height="84" rx="10" fill="#fde68a" /><path d={`M 48 110 L 70 ${42 + offset} L 98 110 Z`} fill="#ef4444" /><path d={`M 88 110 L 118 ${52 + offset} L 150 110 Z`} fill="#3b82f6" /><path d={`M 130 110 L 166 ${46 + offset} L 178 110 Z`} fill="#10b981" /></g>;
+  if (motif === 3) return <g><rect x="38" y="36" width="148" height="86" rx="12" fill="#dbeafe" /><path d={`M 38 90 Q 72 ${54 + offset} 106 82 T 186 90`} fill="none" stroke="#2563eb" strokeWidth="8" strokeLinecap="round" /><path d={`M 38 112 Q 82 ${86 + offset} 118 104 T 186 106`} fill="none" stroke="#0284c7" strokeWidth="8" strokeLinecap="round" /></g>;
+  if (motif === 4) return <g><rect x="38" y="36" width="148" height="86" rx="12" fill="#fae8ff" /><circle cx="80" cy="74" r="14" fill="#f472b6" /><circle cx="106" cy="60" r="12" fill="#fb7185" /><circle cx="128" cy="82" r="14" fill="#f9a8d4" /><path d="M 108 118 C 108 98 108 84 106 58" stroke="#15803d" strokeWidth="6" strokeLinecap="round" fill="none" /></g>;
+  return <g><rect x="38" y="36" width="148" height="86" rx="12" fill="#ede9fe" /><rect x="58" y="52" width="34" height="22" rx="5" fill="#a78bfa" /><rect x="98" y="68" width="42" height="18" rx="5" fill="#60a5fa" /><rect x="132" y="48" width="26" height="36" rx="5" fill="#f472b6" /><circle cx="94" cy="100" r="10" fill={palette.accent} /></g>;
+}
+
+function renderBookScene(motif: number, serial: number, palette: ReturnType<typeof getArtifactPalette>) {
+  const mark = serial % 5;
+  if (motif === 0) return <g><path d="M 54 42 h48 q16 0 16 16 v52 h-64 q-10 0 -10 10 V 54 q0 -12 10 -12 Z" fill="#fef3c7" stroke={palette.line} strokeWidth="4" /><path d="M 166 42 h-48 q-16 0 -16 16 v52 h64 q10 0 10 10 V 54 q0 -12 -10 -12 Z" fill="#fff7ed" stroke={palette.line} strokeWidth="4" /><path d={`M 72 ${62 + mark * 2} h24 M 126 ${62 + mark * 2} h24 M 72 78 h18 M 130 78 h18`} stroke={palette.shadow} strokeWidth="4" strokeLinecap="round" /></g>;
+  if (motif === 1) return <g><rect x="78" y="34" width="64" height="92" rx="8" fill="#dbeafe" stroke={palette.line} strokeWidth="5" /><rect x="72" y="34" width="12" height="92" rx="4" fill={palette.accent} /><path d={`M 92 58 h32 M 92 76 h32 M 92 94 h22`} stroke={palette.shadow} strokeWidth="4" strokeLinecap="round" /><circle cx="122" cy="46" r="6" fill="#facc15" /></g>;
+  if (motif === 2) return <g><path d="M 74 42 h72 q10 0 10 10 v52 q0 10 -10 10 h-72 q-10 0 -10 -10 V 52 q0 -10 10 -10 Z" fill="#fef2f2" stroke={palette.line} strokeWidth="4" /><path d={`M 92 42 v72`} stroke={palette.accent} strokeWidth="8" strokeLinecap="round" /><path d={`M 102 64 q18 -10 32 0 M 102 82 q18 -10 32 0`} stroke={palette.shadow} strokeWidth="4" fill="none" strokeLinecap="round" /></g>;
+  if (motif === 3) return <g><rect x="60" y="48" width="90" height="62" rx="10" fill="#ecfccb" stroke={palette.line} strokeWidth="4" /><path d="M 72 62 h50 M 72 78 h62 M 72 94 h42" stroke={palette.shadow} strokeWidth="4" strokeLinecap="round" /><path d="M 144 48 q10 10 10 22 v30" stroke={palette.accent} strokeWidth="6" fill="none" /></g>;
+  if (motif === 4) return <g><rect x="58" y="46" width="106" height="70" rx="10" fill="#e0f2fe" stroke={palette.line} strokeWidth="4" /><path d="M 70 60 h82 M 70 76 h82 M 70 92 h60" stroke={palette.shadow} strokeWidth="4" strokeLinecap="round" /><circle cx="138" cy="96" r="10" fill="#38bdf8" /></g>;
+  return <g><rect x="48" y="44" width="124" height="76" rx="10" fill="#fff7ed" stroke={palette.line} strokeWidth="4" /><path d="M 62 58 q26 -14 52 0 q26 14 56 0" fill="none" stroke={palette.shadow} strokeWidth="4" /><path d="M 62 102 q24 -16 44 -6 q22 10 52 -10" fill="none" stroke={palette.accent} strokeWidth="4" /><circle cx="92" cy="82" r="6" fill="#ef4444" /><circle cx="132" cy="86" r="6" fill="#2563eb" /></g>;
+}
+
+function renderSculptureScene(motif: number, serial: number, palette: ReturnType<typeof getArtifactPalette>) {
+  const wobble = serial % 8;
+  if (motif === 0) return <g><rect x="78" y="108" width="64" height="18" rx="5" fill="#cbd5e1" stroke={palette.line} strokeWidth="4" /><path d={`M 110 46 c-22 0 -28 22 -24 40 l6 22 h36 l6 -22 c4 -18 -2 -40 -24 -40 Z`} fill={palette.base} stroke={palette.line} strokeWidth="5" /><circle cx="110" cy="42" r="16" fill={palette.shine} stroke={palette.line} strokeWidth="5" /></g>;
+  if (motif === 1) return <g><rect x="86" y="108" width="48" height="18" rx="5" fill="#dbe4ee" stroke={palette.line} strokeWidth="4" /><path d={`M 92 54 q18 -16 36 0 v44 h-36 Z`} fill={palette.base} stroke={palette.line} strokeWidth="5" /><path d={`M 102 72 h16 M 100 88 q10 ${10 + wobble} 20 0`} stroke={palette.shadow} strokeWidth="4" strokeLinecap="round" fill="none" /></g>;
+  if (motif === 2) return <g><rect x="84" y="110" width="52" height="16" rx="5" fill="#d7e0ea" stroke={palette.line} strokeWidth="4" /><rect x="92" y="44" width="36" height="66" rx="10" fill={palette.base} stroke={palette.line} strokeWidth="5" /><rect x="98" y="54" width="24" height="8" rx="3" fill={palette.shine} /><rect x="98" y="72" width="24" height="8" rx="3" fill={palette.shine} /><rect x="98" y="90" width="24" height="8" rx="3" fill={palette.shine} /></g>;
+  if (motif === 3) return <g><rect x="74" y="108" width="72" height="18" rx="5" fill="#cbd5e1" stroke={palette.line} strokeWidth="4" /><path d={`M 78 90 q32 -34 64 0 v18 h-64 Z`} fill={palette.base} stroke={palette.line} strokeWidth="5" /><circle cx="94" cy="84" r="6" fill={palette.shine} /><circle cx="126" cy="84" r="6" fill={palette.shine} /></g>;
+  if (motif === 4) return <g><rect x="74" y="108" width="72" height="18" rx="5" fill="#cbd5e1" stroke={palette.line} strokeWidth="4" /><path d={`M 110 40 l18 18 -6 8 h10 l-4 14 h-12 l-6 28 h-12 l-6 -28 h-12 l-4 -14 h10 l-6 -8 18 -18 Z`} fill={palette.base} stroke={palette.line} strokeWidth="5" strokeLinejoin="round" /></g>;
+  return <g><rect x="74" y="108" width="72" height="18" rx="5" fill="#cbd5e1" stroke={palette.line} strokeWidth="4" /><path d={`M 84 58 q26 -28 52 0 l-8 40 h-36 Z`} fill={palette.base} stroke={palette.line} strokeWidth="5" /><path d={`M 94 80 q16 -12 32 0`} stroke={palette.shadow} strokeWidth="4" fill="none" strokeLinecap="round" /><path d={`M 102 52 h16`} stroke={palette.accent} strokeWidth="5" strokeLinecap="round" /></g>;
+}
+
+function ArtifactArtwork({ artifact, size = 92 }: { artifact: ArtifactItem; size?: number }) {
+  const serial = getArtifactSerial(artifact);
+  const palette = getArtifactPalette(artifact);
+  const motif = getArtifactMotifIndex(artifact.category, artifact.id);
+  const clipId = `artifact-clip-${artifact.id.replace(/[^a-zA-Z0-9_-]/g, "")}-${size}`;
+  const width = size;
+  const height = Math.round(size * 0.74);
+  const fossilPath = makeArtifactSvgPath(artifact);
+
+  return (
+    <svg viewBox="0 0 220 160" width={width} height={height} role="img" aria-label={artifact.name} style={{ display: "block", overflow: "visible" }}>
+      <defs>
+        <linearGradient id={`${clipId}-bg`} x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor={palette.panelA} />
+          <stop offset="100%" stopColor={palette.panelB} />
+        </linearGradient>
+        <linearGradient id={`${clipId}-shine`} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor={palette.shine} />
+          <stop offset="100%" stopColor={palette.base} />
+        </linearGradient>
+        <clipPath id={clipId}>
+          <rect x="12" y="12" width="196" height="136" rx="22" />
+        </clipPath>
+      </defs>
+      <rect x="12" y="12" width="196" height="136" rx="22" fill={`url(#${clipId}-bg)`} stroke="#cbd5e1" strokeWidth="4" />
+      <g clipPath={`url(#${clipId})`}>
+        {artifact.category === "화석" && (
+          <>
+            <path d={fossilPath} fill={`url(#${clipId}-shine)`} stroke={palette.line} strokeWidth="5" strokeLinejoin="round" opacity="0.97" />
+            <clipPath id={`${clipId}-fossil-shape`}><path d={fossilPath} /></clipPath>
+            <g clipPath={`url(#${clipId}-fossil-shape)`} opacity="0.9">
+              {Array.from({ length: 3 }, (_, lineIndex) => {
+                const x = 62 + lineIndex * 34 + (serial % 9);
+                const y1 = 50 + ((serial + lineIndex * 7) % 12);
+                const y2 = 112 - ((serial + lineIndex * 5) % 10);
+                return <path key={`rib-${lineIndex}`} d={`M ${x} ${y1} Q ${112 + lineIndex * 6} ${(y1 + y2) / 2} ${x + 18} ${y2}`} stroke={palette.shadow} strokeWidth="4" fill="none" strokeLinecap="round" />;
+              })}
+              {motif === 0 && <path d="M 86 92 q18 -32 42 -8 q-14 12 -6 28 q-22 0 -36 -20 Z" fill="none" stroke={palette.accent} strokeWidth="4" />}
+              {motif === 1 && <path d="M 70 104 Q 110 60 150 92 M 84 112 Q 112 76 144 100" fill="none" stroke={palette.accent} strokeWidth="4" strokeLinecap="round" />}
+              {motif === 2 && <path d="M 88 112 Q 110 58 132 112" fill="none" stroke={palette.accent} strokeWidth="5" strokeLinecap="round" />}
+              {motif === 3 && [72, 92, 112, 132].map((x, idx) => <path key={`tri-${idx}`} d={`M ${x} 60 v48`} stroke={palette.accent} strokeWidth="4" strokeLinecap="round" />)}
+              {motif === 4 && [86, 110, 134].map((cx, idx) => <circle key={`joint-${idx}`} cx={cx} cy={84 + idx * 4} r={9 + (idx % 2) * 2} fill="none" stroke={palette.accent} strokeWidth="4" />)}
+              {motif === 5 && <path d="M 84 74 q26 -16 52 0 M 78 92 q32 -18 64 0" fill="none" stroke={palette.accent} strokeWidth="4" />}
+              {motif === 6 && <path d="M 110 54 v60 M 90 72 l20 12 l20 -12 M 84 96 l26 10 l26 -10" fill="none" stroke={palette.accent} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />}
+              {motif === 7 && [0,1,2,3].map((i) => <circle key={`egg-${i}`} cx={86 + i * 16} cy={78 + (i % 2) * 10} r={4} fill={palette.accent} opacity="0.9" />)}
+              {motif === 8 && <path d="M 84 108 l18 -34 M 110 112 l10 -42 M 136 104 l-4 -28" fill="none" stroke={palette.accent} strokeWidth="5" strokeLinecap="round" />}
+            </g>
+          </>
+        )}
+        {artifact.category === "미술작품" && (
+          <>
+            <rect x="50" y="24" width="120" height="108" rx="12" fill="#8b5e34" stroke="#5b3418" strokeWidth="6" />
+            <rect x="62" y="36" width="96" height="84" rx="10" fill="#fffaf0" stroke="#d6b47f" strokeWidth="4" />
+            {renderPaintingScene(motif, serial, palette)}
+          </>
+        )}
+        {artifact.category === "도서" && renderBookScene(motif, serial, palette)}
+        {artifact.category === "조각상" && renderSculptureScene(motif, serial, palette)}
+      </g>
+      <rect x="12" y="12" width="196" height="136" rx="22" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" />
+      <text x="186" y="136" fontSize="18" textAnchor="end" opacity="0.22">{getArtifactVisualIcon(artifact)}</text>
+    </svg>
+  );
 }
 
 function getArtifactById(id: ArtifactId) {
@@ -8221,7 +8354,7 @@ export default function GamePage() {
                           </div>
                         </div>
                         <h3 style={economyCardTitleStyle}>⛏️ 미확인 실루엣 조사</h3>
-                        <p style={economyCardTextStyle}>발굴을 시작하면 확률적으로 화석 또는 미술작품 실루엣을 발견합니다. 발견에 성공하면 180종 이상의 실루엣 중 하나가 등장하며, 실루엣의 선을 직접 따라 그려야 합니다.</p>
+                        <p style={economyCardTextStyle}>발굴을 시작하면 확률적으로 화석·미술작품·도서·조각상 실루엣을 발견합니다. 발견에 성공하면 180종 이상의 실루엣 중 하나가 등장하며, 실루엣의 선을 직접 따라 그려야 합니다.</p>
                         <button onClick={startExcavation} disabled={!excavationReady} style={{ ...casinoPrimaryButtonStyle, opacity: excavationReady ? 1 : 0.55 }}>
                           {excavationReady ? "발굴 시작" : `다음 발굴까지 ${formatTime(excavationCooldownRemainingSeconds)}`}
                         </button>
@@ -8289,7 +8422,7 @@ export default function GamePage() {
                         return (
                           <div key={entry.artifactId} style={artifactCardStyle}>
                             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                              <div style={artifactMiniPreviewStyle}>{getArtifactVisualIcon(artifact)}</div>
+                              <div style={artifactMiniPreviewStyle}><ArtifactArtwork artifact={artifact} size={60} /></div>
                               <div style={{ display: "grid", gap: "4px" }}>
                                 <strong>{artifactRarityInfo[artifact.rarity].icon} {artifact.name} × {entry.count}</strong>
                                 <span>{artifact.category} · {artifact.rarity} · 판매가 {artifact.value.toLocaleString()}원 · 기증수익 10분당 {artifact.museumIncome.toLocaleString()}원</span>
@@ -8337,9 +8470,7 @@ export default function GamePage() {
                     return (
                       <article key={`hall-${donation.artifact_id}`} style={museumSimpleExhibitStyle}>
                         <div style={museumSimpleArtifactStyle}>
-                          <span style={{ fontSize: "54px" }}>
-                            {artifact ? getArtifactVisualIcon(artifact) : artifactKindIconMap[donation.category]?.[0] ?? "🦴"}
-                          </span>
+                          {artifact ? <ArtifactArtwork artifact={artifact} size={126} /> : <span style={{ fontSize: "36px" }}>{artifactKindIconMap[donation.category]?.[0] ?? "🦴"}</span>}
                         </div>
                         <strong style={museumExhibitNameStyle}>{donation.artifact_name}</strong>
                         <span style={museumExhibitMetaStyle}>{donation.category} · {donation.rarity}</span>
@@ -8371,7 +8502,7 @@ export default function GamePage() {
                         if (!artifact) return null;
                         return (
                           <article key={`donate-${entry.artifactId}`} style={museumDonateCardStyle}>
-                            <div style={artifactMiniPreviewStyle}>{artifact.category === "미술작품" ? (artifact.rarity === "최상급" ? "🖼️" : getArtifactVisualIcon(artifact)) : getArtifactVisualIcon(artifact)}</div>
+                            <div style={artifactMiniPreviewStyle}><ArtifactArtwork artifact={artifact} size={64} /></div>
                             <strong>{artifact.name}</strong>
                             <span>{artifact.rarity} · 보유 {entry.count}개</span>
                             <span>후원 수익 10분당 {artifact.museumIncome.toLocaleString()}원</span>
@@ -15366,15 +15497,16 @@ const artifactInventoryPanelStyle: CSSProperties = {
 };
 
 const artifactMiniPreviewStyle: CSSProperties = {
-  width: "52px",
-  height: "52px",
+  width: "72px",
+  height: "56px",
   borderRadius: "16px",
   border: "3px solid #111827",
-  background: "linear-gradient(180deg, #fff7ed 0%, #fde68a 100%)",
+  background: "#ffffff",
   display: "grid",
   placeItems: "center",
-  fontSize: "28px",
   flexShrink: 0,
+  overflow: "hidden",
+  padding: 0,
 };
 
 const artifactListStyle: CSSProperties = {
@@ -15485,7 +15617,7 @@ const museumEmptyHallStyle: CSSProperties = {
 const museumSimpleExhibitStyle: CSSProperties = {
   minWidth: "240px",
   maxWidth: "260px",
-  minHeight: "270px",
+  minHeight: "286px",
   flex: "0 0 auto",
   scrollSnapAlign: "start",
   border: "4px solid #111827",
@@ -15493,8 +15625,8 @@ const museumSimpleExhibitStyle: CSSProperties = {
   background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
   padding: "14px",
   display: "grid",
-  gridTemplateRows: "118px minmax(44px, auto) 24px 24px",
-  gap: "7px",
+  gridTemplateRows: "132px minmax(48px, auto) 26px 26px",
+  gap: "8px",
   textAlign: "center",
   color: "#111827",
   boxShadow: "0 8px 0 rgba(17,24,39,0.10)",
@@ -15504,10 +15636,11 @@ const museumSimpleExhibitStyle: CSSProperties = {
 const museumSimpleArtifactStyle: CSSProperties = {
   border: "3px solid #cbd5e1",
   borderRadius: "18px",
-  background: "radial-gradient(circle at 50% 45%, #fef3c7 0%, #f8fafc 70%)",
+  background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
   display: "grid",
   placeItems: "center",
-  minHeight: "118px",
+  minHeight: "132px",
+  overflow: "hidden",
 };
 
 const museumExhibitNameStyle: CSSProperties = {
@@ -15551,6 +15684,9 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
 
 
 
