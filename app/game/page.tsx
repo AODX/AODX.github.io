@@ -178,6 +178,22 @@ type ChatMessageRow = {
   created_at: string;
 };
 
+type GachaRateConfig = {
+  none: number;
+  common: number;
+  rare: number;
+  epic: number;
+  treasure: number;
+  relic: number;
+  ancient: number;
+};
+
+type AdminConfigRow = {
+  key: string;
+  value?: unknown;
+  updated_at?: string | null;
+};
+
 type ProfileRow = {
   id: string;
   nickname: string | null;
@@ -457,7 +473,7 @@ type BusinessItem = {
   icon: string;
   price: number;
   incomeEvery5Min: number;
-  requiredOccupation?: OccupationId;
+  requiredCertification?: CertificationId;
   description: string;
 };
 
@@ -760,13 +776,13 @@ const defaultMainCharacter: MainCharacterOption = {
 };
 
 const luxuryMainCharacters: MainCharacterOption[] = [
-  { id: "pumpkinCat", name: "그저 땃쥐", price: 800000000, description: "땃쥐와 함께라면 당신은 최강이라구", primaryColor: "#fdba74", secondaryColor: "#fed7aa", highlightColor: "#f97316", spriteKey: "customPixel", imageSrc: premiumCharacterArt.pumpkinCat, imageScale: 1.08, imageOffsetX: -8, imageOffsetY: -12 },
-  { id: "miniPrincess", name: "응애 공주", price: 920000000, description: "응애 공주님이 세상을 지배하신다", primaryColor: "#facc15", secondaryColor: "#fde68a", highlightColor: "#0ea5e9", spriteKey: "customPixel", imageSrc: premiumCharacterArt.miniPrincess, imageScale: 0.92, imageOffsetY: -2 },
-  { id: "frostKnight", name: "미래 공주", price: 1080000000, description: "미래에서 온 응애 공주님", primaryColor: "#d1d5db", secondaryColor: "#e5e7eb", highlightColor: "#2563eb", spriteKey: "customPixel", imageSrc: premiumCharacterArt.frostKnight, imageScale: 1.02, imageOffsetX: -10, imageOffsetY: -4 },
+  { id: "pumpkinCat", name: "호박 모험냥", price: 800000000, description: "책과 호박 장식을 품은 귀여운 모험가 고양이 캐릭터", primaryColor: "#fdba74", secondaryColor: "#fed7aa", highlightColor: "#f97316", spriteKey: "customPixel", imageSrc: premiumCharacterArt.pumpkinCat, imageScale: 1.08, imageOffsetX: -8, imageOffsetY: -12 },
+  { id: "miniPrincess", name: "에메랄드 프린세스", price: 920000000, description: "왕관 장식과 보석 포인트가 돋보이는 프린세스 픽셀 캐릭터", primaryColor: "#facc15", secondaryColor: "#fde68a", highlightColor: "#0ea5e9", spriteKey: "customPixel", imageSrc: premiumCharacterArt.miniPrincess, imageScale: 0.92, imageOffsetY: -2 },
+  { id: "frostKnight", name: "설원 기사", price: 1080000000, description: "차가운 눈빛과 장비가 돋보이는 기사형 메인 캐릭터", primaryColor: "#d1d5db", secondaryColor: "#e5e7eb", highlightColor: "#2563eb", spriteKey: "customPixel", imageSrc: premiumCharacterArt.frostKnight, imageScale: 1.02, imageOffsetX: -10, imageOffsetY: -4 },
   { id: "starlightBusker", name: "별빛 기타리스트", price: 1240000000, description: "기타와 작은 펫이 함께 등장하는 감성 버스커 캐릭터", primaryColor: "#ddd6fe", secondaryColor: "#f9a8d4", highlightColor: "#facc15", spriteKey: "customPixel", imageSrc: premiumCharacterArt.starlightBusker, imageScale: 1.02, imageOffsetX: -6, imageOffsetY: -6 },
   { id: "yogaHamster", name: "요가 햄찌", price: 1410000000, description: "귀엽지만 존재감 강한 요가 마스터 햄스터 캐릭터", primaryColor: "#d6b38c", secondaryColor: "#f5e1c8", highlightColor: "#22c55e", spriteKey: "customPixel", imageSrc: premiumCharacterArt.yogaHamster, imageScale: 1.08, imageOffsetY: 0 },
   { id: "crimsonMuse", name: "크림슨 뮤즈", price: 1650000000, description: "붉은 드레스와 차가운 분위기가 공존하는 우아한 메인 캐릭터", primaryColor: "#fb7185", secondaryColor: "#fecdd3", highlightColor: "#ffffff", spriteKey: "customPixel", imageSrc: premiumCharacterArt.crimsonMuse, imageScale: 1.03, imageOffsetY: -8 },
-  { id: "desertScout", name: "티~모", price: 1880000000, description: "풀숲의 정찰꾼", primaryColor: "#84cc16", secondaryColor: "#facc15", highlightColor: "#fb923c", spriteKey: "customPixel", imageSrc: premiumCharacterArt.desertScout, imageScale: 0.98, imageOffsetY: -4 },
+  { id: "desertScout", name: "사막 정찰꾼", price: 1880000000, description: "고글과 활을 든 정찰꾼 콘셉트의 고급 픽셀 캐릭터", primaryColor: "#84cc16", secondaryColor: "#facc15", highlightColor: "#fb923c", spriteKey: "customPixel", imageSrc: premiumCharacterArt.desertScout, imageScale: 0.98, imageOffsetY: -4 },
   { id: "frogTrickster", name: "개구리 장난술사", price: 2150000000, description: "개구리 얼굴과 장난기 가득한 표정이 인상적인 한정 캐릭터", primaryColor: "#22c55e", secondaryColor: "#86efac", highlightColor: "#3b82f6", spriteKey: "customPixel", imageSrc: premiumCharacterArt.frogTrickster, imageScale: 1, imageOffsetY: -2 },
 ];
 
@@ -2387,7 +2403,7 @@ const streetBuildings: Array<{ id: StreetBuildingId; title: string; subtitle: st
   { id: "digSite", title: "발굴 단지", subtitle: "화석 · 미술작품 · 도서 · 조각상", emoji: "🦴" },
   { id: "museum", title: "박물관", subtitle: "공동 전시 · 기증 후원", emoji: "🖼️" },
   { id: "luxury", title: "사치 아이템 숍", subtitle: "닉네임 · 이름표 · 배경", emoji: "💎" },
-  { id: "casino", title: "도박장", subtitle: "슬롯 머신 · 유저 대전", emoji: "🎰" },
+  { id: "casino", title: "도박장", subtitle: "슬롯 머신", emoji: "🎰" },
 ];
 
 const streetBuildingPages: StreetBuildingId[][] = [
@@ -2614,6 +2630,21 @@ const shopItems: ShopItem[] = rawShopItems.map((item, index) => {
 
 
 const MUSEUM_DONATION_TABLE = "game_museum_donations";
+const ADMIN_CONFIG_TABLE = "game_admin_config";
+const ADMIN_GACHA_RATE_KEY = "gacha_rates";
+const DEV_ACCOUNT_NICKNAME = "개발자";
+const DEVELOPER_EMAILS = ["swkim@tacss.or.kr", "developer@tacss.local", "developer@example.com"];
+const DEVELOPER_USER_IDS: string[] = [];
+const DEFAULT_GACHA_RATE_CONFIG: GachaRateConfig = { none: 62, common: 20, rare: 12, epic: 4.2, treasure: 1.5, relic: 0.299999, ancient: 0.000001 };
+const GACHA_RATE_FIELDS: Array<{ key: keyof GachaRateConfig; label: string; rarity?: ItemRarity }> = [
+  { key: "none", label: "꽝" },
+  { key: "common", label: "일반", rarity: "일반" },
+  { key: "rare", label: "희소", rarity: "희소" },
+  { key: "epic", label: "진귀", rarity: "진귀" },
+  { key: "treasure", label: "보물", rarity: "보물" },
+  { key: "relic", label: "유물", rarity: "유물" },
+  { key: "ancient", label: "고대 유물", rarity: "고대 유물" },
+];
 const MUSEUM_INCOME_INTERVAL_MS = 10 * 60 * 1000;
 const EXCAVATION_SPAWN_INTERVAL_MS = 5 * 60 * 1000;
 const artifactRarityInfo: Record<ArtifactRarity, { icon: string; weight: number; crackLimit: number; valueMultiplier: number; incomeMultiplier: number }> = {
@@ -3052,10 +3083,10 @@ const estateItems: EstateItem[] = [
 ];
 
 const businessItems: BusinessItem[] = [
-  { id: "coffeeShop", name: "개인 카페 창업", icon: "☕", price: 2000000, incomeEvery5Min: 4500, requiredOccupation: "cafeManager", description: "카페 매니저 경험을 바탕으로 작은 매장을 엽니다. 30초 순이익 기준입니다." },
-  { id: "convenienceStore", name: "편의점 창업", icon: "🏪", price: 3000000, incomeEvery5Min: 7000, requiredOccupation: "convenienceManager", description: "편의점 계산 경험을 매장 운영으로 확장합니다." },
-  { id: "deliveryAgency", name: "배달 대행사", icon: "🛵", price: 8000000, incomeEvery5Min: 18000, requiredOccupation: "dispatchController", description: "배차와 플랫폼 운영 경험으로 배달망을 운영합니다." },
-  { id: "entertainmentAgency", name: "엔터 기획사", icon: "🎙️", price: 20000000, incomeEvery5Min: 45000, requiredOccupation: "topSinger", description: "톱스타 경험으로 공연과 광고 사업을 운영합니다." },
+  { id: "coffeeShop", name: "개인 카페 창업", icon: "☕", price: 2000000, incomeEvery5Min: 4500, requiredCertification: "barista", description: "바리스타 자격증을 바탕으로 작은 카페 매장을 엽니다. 30초 순이익 기준입니다." },
+  { id: "convenienceStore", name: "편의점 창업", icon: "🏪", price: 3000000, incomeEvery5Min: 7000, requiredCertification: "business", description: "창업 교육 수료증으로 매장 운영 감각을 익힌 뒤 편의점을 엽니다." },
+  { id: "deliveryAgency", name: "배달 대행사", icon: "🛵", price: 8000000, incomeEvery5Min: 18000, requiredCertification: "logistics", description: "물류관리사 자격증을 바탕으로 배달망과 플랫폼 운영을 시작합니다." },
+  { id: "entertainmentAgency", name: "엔터 기획사", icon: "🎙️", price: 20000000, incomeEvery5Min: 45000, requiredCertification: "business", description: "창업 교육 수료증으로 공연과 광고 사업을 운영하는 엔터 기획사를 설립합니다." },
 ];
 
 const insuranceItems: InsuranceItem[] = [
@@ -3941,6 +3972,7 @@ function ResponsiveGameStyles() {
 export default function GamePage() {
   const [cash, setCash] = useState(10000);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isSaveLoaded, setIsSaveLoaded] = useState(false);
   const [isEconomyLoaded, setIsEconomyLoaded] = useState(false);
   const [isProfileLoaded, setIsProfileLoaded] = useState(false);
@@ -3966,6 +3998,10 @@ export default function GamePage() {
   const [shopCountdownSeconds, setShopCountdownSeconds] = useState(() => Math.ceil(getShopRemainingMs(new Date()) / 1000));
   const [shopSoldOfferKeys, setShopSoldOfferKeys] = useState<string[]>([]);
   const [gachaMachinePullCount, setGachaMachinePullCount] = useState(0);
+  const [globalGachaRates, setGlobalGachaRates] = useState<GachaRateConfig>(DEFAULT_GACHA_RATE_CONFIG);
+  const [adminGachaRates, setAdminGachaRates] = useState<GachaRateConfig>(DEFAULT_GACHA_RATE_CONFIG);
+  const [adminAnnouncement, setAdminAnnouncement] = useState("");
+  const [globalAnnouncement, setGlobalAnnouncement] = useState<ChatMessageRow | null>(null);
   const [marketListings, setMarketListings] = useState<MarketListing[]>([]);
   const [sellItemId, setSellItemId] = useState("");
   const [sellPrice, setSellPrice] = useState("100000");
@@ -4046,6 +4082,8 @@ export default function GamePage() {
   const [businessEmployees, setBusinessEmployees] = useState<Partial<Record<BusinessId, number>>>({});
   const [auctionDeals, setAuctionDeals] = useState<AuctionDeal[]>(() => makeAuctionDeals());
 
+  const isDeveloperAccount = (!!userEmail && DEVELOPER_EMAILS.includes(userEmail.toLowerCase())) || (!!userId && DEVELOPER_USER_IDS.includes(userId));
+
   const [slotStake, setSlotStake] = useState("1000");
   const [slotResult, setSlotResult] = useState<SlotResult | null>(null);
   const [isSlotPlaying, setIsSlotPlaying] = useState(false);
@@ -4122,6 +4160,57 @@ export default function GamePage() {
   const chatListRef = useRef<HTMLDivElement | null>(null);
   const excavationGuidePathRef = useRef<SVGPathElement | null>(null);
   const excavationPenaltyCooldownRef = useRef(0);
+  const developerUnlockAppliedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isDeveloperAccount || developerUnlockAppliedRef.current) return;
+    developerUnlockAppliedRef.current = true;
+
+    const allOccupationIds = Object.keys(occupationInfo) as OccupationId[];
+    const allCertificationIds = certifications.map((item) => item.id);
+    const allShopItemIds = shopItems.map((item) => item.id);
+    const allTitleIds = playerTitles.map((title) => title.id);
+    const allEstateIds = estateItems.map((item) => item.id);
+    const allBusinessIds = businessItems.map((item) => item.id);
+    const allInsuranceIds = insuranceItems.map((item) => item.id);
+    const allBusinessEmployees = Object.fromEntries(businessItems.map((item) => [item.id, 3])) as Partial<Record<BusinessId, number>>;
+
+    setNickname(DEV_ACCOUNT_NICKNAME);
+    setNicknameDraft(DEV_ACCOUNT_NICKNAME);
+    setCash(999999999999);
+    setBankDeposit(500000000);
+    setBankDepositPrincipal(500000000);
+    setBankSavings(3000000);
+    setBankSavingsPrincipal(3000000);
+    setBankLoan(0);
+    setCreditScore(900);
+    setOwnedCertifications(allCertificationIds);
+    setUnlockedOccupations(allOccupationIds);
+    setOccupationId("chiefExecutive");
+    setOccupationLevel(9);
+    setOwnedEstates(allEstateIds);
+    setOwnedBusinesses(allBusinessIds);
+    setOwnedInsurances(allInsuranceIds);
+    setBusinessEmployees(allBusinessEmployees);
+    setOwnedItems(allShopItemIds);
+    setDiscoveredItems(allShopItemIds);
+    setEquippedItems(allShopItemIds.slice(0, itemSlotCount));
+    setShopLevel(5);
+    setShopPurchaseCount(Math.max(999, allShopItemIds.length));
+    setEarnedTitleIds(allTitleIds);
+    setCurrentTitleId("hiddenEconomyGod");
+    setOwnedNicknameColors(luxuryNicknameColors.map((item) => item.id));
+    setSelectedNicknameColorId(luxuryNicknameColors[luxuryNicknameColors.length - 1]?.id ?? defaultNicknameColorTheme.id);
+    setOwnedNicknameTags(luxuryNicknameTags.map((item) => item.id));
+    setSelectedNicknameTagId(luxuryNicknameTags[luxuryNicknameTags.length - 1]?.id ?? defaultNicknameTag.id);
+    setOwnedMainBackgrounds(luxuryMainBackgrounds.map((item) => item.id));
+    setSelectedMainBackgroundId(luxuryMainBackgrounds[luxuryMainBackgrounds.length - 1]?.id ?? defaultMainBackground.id);
+    setOwnedMainCharacters(luxuryMainCharacters.map((item) => item.id));
+    setSelectedMainCharacterId(luxuryMainCharacters[luxuryMainCharacters.length - 1]?.id ?? defaultMainCharacter.id);
+    setArtifactInventory(artifactCatalog.map((artifact) => ({ artifactId: artifact.id, count: 1 })));
+    setDonatedArtifactIds([]);
+    setMessage("🛠️ 개발자 계정으로 접속했습니다. 모든 콘텐츠가 해금되며 랭킹/전역 박물관에는 반영되지 않습니다.");
+  }, [isDeveloperAccount, itemSlotCount]);
   useEffect(() => {
     if (!excavationGame) {
       setExcavationTracePoints([]);
@@ -4286,6 +4375,7 @@ export default function GamePage() {
       }
 
       setUserId(user.id);
+      setUserEmail(user.email ?? null);
 
       const { data, error } = await supabase
         .from("game_saves")
@@ -4843,27 +4933,41 @@ export default function GamePage() {
   }, [isSaveLoaded, isStockLoaded]);
 
   useEffect(() => {
-    if (!userId || !isSaveLoaded) return;
+    if (!isSaveLoaded) return;
 
-    void loadGlobalChat(chatOpen);
+    void loadGlobalGachaRates();
+    void loadLatestGlobalAnnouncement();
+
+    const timer = window.setInterval(() => {
+      void loadGlobalGachaRates();
+      void loadLatestGlobalAnnouncement();
+    }, 30000);
+
+    return () => window.clearInterval(timer);
+  }, [isSaveLoaded]);
+
+  useEffect(() => {
+    if (!userId || !isSaveLoaded || !chatOpen) return;
+
+    void loadGlobalChat(true);
 
     const supabase = createClient();
     const chatChannel = supabase
       .channel("game-global-chat-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: CHAT_TABLE }, () => {
-        void loadGlobalChat(chatOpen);
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: CHAT_TABLE }, () => {
+        void loadGlobalChat(true);
       })
       .subscribe();
 
     const timer = window.setInterval(() => {
-      void loadGlobalChat(chatOpen);
-    }, 30 * 1000);
+      void loadGlobalChat(true);
+    }, 60 * 1000);
 
     return () => {
       window.clearInterval(timer);
       void supabase.removeChannel(chatChannel);
     };
-  }, [userId, isSaveLoaded, chatOpen, chatMessages.length]);
+  }, [userId, isSaveLoaded, chatOpen]);
 
   useEffect(() => {
     if (!chatOpen) return;
@@ -4874,45 +4978,35 @@ export default function GamePage() {
   }, [chatOpen, chatMessages.length]);
 
   useEffect(() => {
-    if (!userId || !isSaveLoaded) return;
+    if (!userId || !isSaveLoaded || lobbyView !== "ranking") return;
+
+    let refreshTimer: number | null = null;
+    const scheduleRankingRefresh = () => {
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        refreshRanking();
+      }, 3000);
+    };
 
     refreshRanking();
 
     const supabase = createClient();
     const rankingChannel = supabase
       .channel("game-ranking-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "game_saves" },
-        () => {
-          refreshRanking();
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: PROFILE_TABLE },
-        () => {
-          refreshRanking();
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: ECONOMY_TABLE },
-        () => {
-          refreshRanking();
-        }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "game_saves" }, scheduleRankingRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: PROFILE_TABLE }, scheduleRankingRefresh)
       .subscribe();
 
     const timer = window.setInterval(() => {
       refreshRanking();
-    }, 60 * 1000);
+    }, 120 * 1000);
 
     return () => {
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
       window.clearInterval(timer);
       void supabase.removeChannel(rankingChannel);
     };
-  }, [userId, isSaveLoaded, nickname, cash, occupationId, rankingMode, netWorth, discoveredItems.length]);
+  }, [userId, isSaveLoaded, lobbyView, rankingMode]);
 
   useEffect(() => {
     if (lobbyView === "ranking") refreshRanking();
@@ -4920,33 +5014,27 @@ export default function GamePage() {
   }, [lobbyView, rankingMode, selectedNicknameColorId]);
 
   useEffect(() => {
-    if (!userId || !isSaveLoaded) return;
+    if (!userId || !isSaveLoaded || lobbyView !== "casino") return;
 
     refreshCasinoData();
 
     const supabase = createClient();
     const casinoChannel = supabase
       .channel("game-casino-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "game_pvp_matches" }, () => {
-        refreshCasinoData();
-      })
       .on("postgres_changes", { event: "*", schema: "public", table: "game_saves" }, () => {
-        refreshCasinoData();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: PROFILE_TABLE }, () => {
         refreshCasinoData();
       })
       .subscribe();
 
     const timer = window.setInterval(() => {
-      if (lobbyView === "casino") refreshCasinoData();
-    }, 30 * 1000);
+      refreshCasinoData();
+    }, 120 * 1000);
 
     return () => {
       window.clearInterval(timer);
       void supabase.removeChannel(casinoChannel);
     };
-  }, [userId, isSaveLoaded, lobbyView, nickname, cash, occupationId]);
+  }, [userId, isSaveLoaded, lobbyView]);
 
   useEffect(() => {
     if (!careerMiniGame) return;
@@ -5146,7 +5234,7 @@ export default function GamePage() {
         console.warn("자동 저장 실패. 화면에는 표시하지 않습니다:", error.message);
           } else {
         await supabase.from(PROFILE_TABLE).upsert(
-          { id: userId, nickname, room_kind: roomKind, occupation_id: occupationId, current_title: currentTitleId, net_worth: netWorth, updated_at: new Date().toISOString() },
+          { id: userId, nickname: isDeveloperAccount ? DEV_ACCOUNT_NICKNAME : nickname, room_kind: roomKind, occupation_id: occupationId, current_title: currentTitleId, net_worth: isDeveloperAccount ? -1 : netWorth, updated_at: new Date().toISOString() },
           { onConflict: "id" }
         );
       }
@@ -5154,7 +5242,7 @@ export default function GamePage() {
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [userId, isSaveLoaded, cash, unpaidTax, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, taxCountdown, ownedCertifications, ownedItems, nickname, roomKind, occupationId, currentTitleId, netWorth]);
+  }, [userId, isSaveLoaded, cash, unpaidTax, sortingSuccessTotal, deliverySuccessTotal, cashierSuccessTotal, cafeSuccessTotal, securitySuccessTotal, taxCountdown, ownedCertifications, ownedItems, nickname, roomKind, occupationId, currentTitleId, netWorth, isDeveloperAccount]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
@@ -5929,7 +6017,7 @@ export default function GamePage() {
         occupation_level: occupationLevel,
         unlocked_occupations: unlockedOccupations,
         current_title: currentTitleId,
-        net_worth: netWorth,
+        net_worth: isDeveloperAccount ? -1 : netWorth,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" }
@@ -6353,6 +6441,52 @@ export default function GamePage() {
     setMessage(`🏦 대출 ${requestedAmount.toLocaleString()}원 상환 완료. 예금/적금 원금은 변하지 않습니다.`);
   }
 
+
+
+  function borrowMaxFromBank() {
+    const limit = getLoanLimit(creditScore, netWorth);
+    const amount = Math.max(0, Math.floor(limit - bankLoan));
+
+    if (amount < 1000) {
+      setMessage("🏦 현재 추가로 전액 대출할 수 있는 한도가 없습니다.");
+      return;
+    }
+
+    const nextLoan = bankLoan + amount;
+    const nextCash = cash + amount;
+    const nextCreditScore = Math.max(300, creditScore - 12);
+
+    setBankLoan(nextLoan);
+    setCash(nextCash);
+    setCreditScore(nextCreditScore);
+    persistBankTransactionSnapshot(nextCash, nextLoan, nextCreditScore);
+    setMessage(`🏦 대출 가능 금액 전액 ${amount.toLocaleString()}원을 실행했습니다.`);
+  }
+
+  function repayAllBankLoan() {
+    const amount = Math.floor(bankLoan);
+
+    if (amount <= 0) {
+      setMessage("🏦 상환할 대출이 없습니다.");
+      return;
+    }
+
+    if (cash < amount) {
+      setMessage(`🏦 전액 상환에는 ${amount.toLocaleString()}원이 필요합니다. 현재 현금은 ${cash.toLocaleString()}원입니다.`);
+      return;
+    }
+
+    const nextCash = cash - amount;
+    const nextLoan = 0;
+    const nextCreditScore = Math.min(900, creditScore + 12);
+
+    setCash(nextCash);
+    setBankLoan(nextLoan);
+    setCreditScore(nextCreditScore);
+    persistBankTransactionSnapshot(nextCash, nextLoan, nextCreditScore);
+    setMessage(`🏦 대출 전액 ${amount.toLocaleString()}원을 상환했습니다.`);
+  }
+
   function buyEstate(estateId: EstateId) {
     const estate = estateItems.find((item) => item.id === estateId);
     if (!estate || ownedEstates.includes(estateId)) return;
@@ -6370,6 +6504,11 @@ export default function GamePage() {
     if (!business || ownedBusinesses.includes(businessId)) return;
     if (cash < business.price) {
       setMessage(`🧾 ${business.name} 창업에는 ${business.price.toLocaleString()}원이 필요합니다.`);
+      return;
+    }
+    if (business.requiredCertification && !ownedCertifications.includes(business.requiredCertification)) {
+      const requiredCertificationName = certifications.find((cert) => cert.id === business.requiredCertification)?.name ?? "필요 자격증";
+      setMessage(`🧾 ${business.name} 창업에는 ${requiredCertificationName}이(가) 필요합니다.`);
       return;
     }
     setCash((money) => money - business.price);
@@ -6540,7 +6679,7 @@ export default function GamePage() {
       return;
     }
     setCash((money) => money - cost);
-    const item = rollGachaItem(shopLevel);
+    const item = rollGachaItem(shopLevel, globalGachaRates);
     if (!item) {
       setGachaMachinePullCount((count) => count + 1);
       setMessage("🎰 아무것도 나오지 않았습니다... 극악 확률입니다.");
@@ -6681,7 +6820,7 @@ export default function GamePage() {
       if (error) {
         console.warn("전역 박물관 동기화 테이블 없음: game_museum_donations");
       } else {
-        nextRows = normalizeMuseumDonations(data ?? []);
+        nextRows = normalizeMuseumDonations(data ?? []).filter((row) => row.donor_name !== DEV_ACCOUNT_NICKNAME && !DEVELOPER_USER_IDS.includes(row.donor_id));
       }
     } catch {
       console.warn("전역 박물관 동기화 실패");
@@ -6874,6 +7013,10 @@ export default function GamePage() {
   async function donateArtifact(artifactId: ArtifactId) {
     const artifact = getArtifactById(artifactId);
     if (!artifact || !userId || getArtifactInventoryCount(artifactInventory, artifactId) <= 0) return;
+    if (isDeveloperAccount) {
+      setMessage("🏛️ 개발자 계정은 전역 박물관에 기증되지 않습니다.");
+      return;
+    }
 
     const alreadyDonated = museumDonations.some((row) => row.artifact_id === artifactId);
     if (alreadyDonated) {
@@ -7264,13 +7407,13 @@ export default function GamePage() {
     const { error } = await supabase.from(PROFILE_TABLE).upsert(
       {
         id: userId,
-        nickname,
+        nickname: isDeveloperAccount ? DEV_ACCOUNT_NICKNAME : nickname,
         room_kind: roomKind,
         occupation_id: occupationId,
         occupation_level: occupationLevel,
         unlocked_occupations: unlockedOccupations,
         current_title: currentTitleId,
-        net_worth: netWorth,
+        net_worth: isDeveloperAccount ? -1 : netWorth,
         updated_at: new Date().toISOString(),
         ...patch,
       },
@@ -7335,6 +7478,133 @@ export default function GamePage() {
     await loadGlobalChat();
   }
 
+
+  function normalizeGachaRateConfig(value: unknown): GachaRateConfig {
+    const source = typeof value === "object" && value !== null && !Array.isArray(value) ? value as Partial<Record<keyof GachaRateConfig, unknown>> : {};
+    const next = { ...DEFAULT_GACHA_RATE_CONFIG };
+    GACHA_RATE_FIELDS.forEach(({ key }) => {
+      const numeric = Number(source[key]);
+      if (Number.isFinite(numeric)) next[key] = Math.max(0, numeric);
+    });
+    return next;
+  }
+
+  function getGachaRateTotal(config = adminGachaRates) {
+    return GACHA_RATE_FIELDS.reduce((sum, field) => sum + Math.max(0, Number(config[field.key]) || 0), 0);
+  }
+
+  async function loadGlobalGachaRates() {
+    const cached = safeJsonParse<GachaRateConfig>(window.localStorage.getItem("alba-money-global-gacha-rates") ?? "{}", DEFAULT_GACHA_RATE_CONFIG);
+    setGlobalGachaRates(normalizeGachaRateConfig(cached));
+    setAdminGachaRates(normalizeGachaRateConfig(cached));
+
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from(ADMIN_CONFIG_TABLE)
+        .select("key, value, updated_at")
+        .eq("key", ADMIN_GACHA_RATE_KEY)
+        .maybeSingle<AdminConfigRow>();
+
+      if (error || !data?.value) return;
+
+      const nextRates = normalizeGachaRateConfig(data.value);
+      setGlobalGachaRates(nextRates);
+      setAdminGachaRates(nextRates);
+      window.localStorage.setItem("alba-money-global-gacha-rates", JSON.stringify(nextRates));
+    } catch {
+      // game_admin_config 테이블이 없으면 localStorage 기본값을 사용합니다.
+    }
+  }
+
+  async function saveAdminGachaRates() {
+    if (!isDeveloperAccount) return;
+    const nextRates = normalizeGachaRateConfig(adminGachaRates);
+    const total = getGachaRateTotal(nextRates);
+
+    if (total <= 0) {
+      setMessage("🛠️ 가챠 확률 총합은 0보다 커야 합니다.");
+      return;
+    }
+
+    setGlobalGachaRates(nextRates);
+    setAdminGachaRates(nextRates);
+    window.localStorage.setItem("alba-money-global-gacha-rates", JSON.stringify(nextRates));
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from(ADMIN_CONFIG_TABLE).upsert(
+        { key: ADMIN_GACHA_RATE_KEY, value: nextRates, updated_at: new Date().toISOString() },
+        { onConflict: "key" }
+      );
+      if (error) {
+        setMessage("🛠️ 가챠 확률은 이 브라우저에만 저장되었습니다. 전역 적용에는 game_admin_config 테이블이 필요합니다.");
+        return;
+      }
+      setMessage(`🛠️ 전역 가챠 확률을 저장했습니다. 총합 ${total.toFixed(4)} 기준으로 추첨됩니다.`);
+    } catch {
+      setMessage("🛠️ 가챠 확률은 이 브라우저에만 저장되었습니다. Supabase 연결을 확인해주세요.");
+    }
+  }
+
+  async function resetAdminGachaRates() {
+    if (!isDeveloperAccount) return;
+    setAdminGachaRates(DEFAULT_GACHA_RATE_CONFIG);
+    setGlobalGachaRates(DEFAULT_GACHA_RATE_CONFIG);
+    window.localStorage.setItem("alba-money-global-gacha-rates", JSON.stringify(DEFAULT_GACHA_RATE_CONFIG));
+    setMessage("🛠️ 가챠 확률을 기본값으로 되돌렸습니다. 전역 저장 버튼을 누르면 전체에 적용됩니다.");
+  }
+
+  async function loadLatestGlobalAnnouncement() {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from(CHAT_TABLE)
+        .select("id, user_id, nickname, title_name, message, kind, created_at")
+        .eq("kind", "system")
+        .eq("title_name", "전체공지")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (error) return;
+      const latest = ((data ?? []) as ChatMessageRow[])[0] ?? null;
+      setGlobalAnnouncement(latest);
+    } catch {
+      // 채팅 테이블을 읽지 못하면 공지 배너를 생략합니다.
+    }
+  }
+
+  async function sendGlobalAnnouncement() {
+    if (!isDeveloperAccount) return;
+    const message = adminAnnouncement.trim().slice(0, 160);
+    if (!message) {
+      setMessage("🛠️ 전체 공지 내용을 입력해주세요.");
+      return;
+    }
+
+    const notice = {
+      user_id: null,
+      nickname: DEV_ACCOUNT_NICKNAME,
+      title_name: "전체공지",
+      message,
+      kind: "system" as const,
+    };
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from(CHAT_TABLE).insert(notice);
+      if (error) {
+        setMessage("🛠️ 전체 공지 전송에 실패했습니다. game_global_chat 테이블을 확인해주세요.");
+        return;
+      }
+      setAdminAnnouncement("");
+      await loadLatestGlobalAnnouncement();
+      setMessage("🛠️ 전체 공지를 전송했습니다.");
+    } catch {
+      setMessage("🛠️ 전체 공지 전송에 실패했습니다. Supabase 연결을 확인해주세요.");
+    }
+  }
+
   async function refreshRanking(currentNickname = nickname) {
     if (!userId) return;
 
@@ -7354,7 +7624,12 @@ export default function GamePage() {
     }
 
     const typedProfiles = profiles as ProfileRow[];
-    const ids = typedProfiles.map((profile) => profile.id);
+    const isDeveloperProfile = (profile: ProfileRow) =>
+      DEVELOPER_USER_IDS.includes(profile.id) ||
+      profile.nickname === DEV_ACCOUNT_NICKNAME ||
+      Number(profile.net_worth ?? 0) < 0;
+    const visibleProfiles = typedProfiles.filter((profile) => !isDeveloperProfile(profile));
+    const ids = visibleProfiles.map((profile) => profile.id);
 
     const { data: saves, error: savesError } = await supabase
       .from("game_saves")
@@ -7420,7 +7695,7 @@ export default function GamePage() {
       return Number(profile.net_worth ?? 0);
     };
 
-    const rows = typedProfiles
+    const rows = visibleProfiles
       .map((profile) => {
         const save = saveMap.get(profile.id);
         const economy = economyMap.get(profile.id) ?? {};
@@ -7465,68 +7740,11 @@ export default function GamePage() {
   }
 
   async function refreshCasinoData() {
-    if (!userId) return;
-
-    const supabase = createClient();
-
-    const { data: profiles, error: profilesError } = await supabase
-      .from(PROFILE_TABLE)
-      .select("id, nickname, occupation_id")
-      .limit(1000);
-
-    if (profilesError) {
-      console.warn("도박장 유저 목록 불러오기 실패:", profilesError.message);
-      return;
-    }
-
-    const typedProfiles = (profiles ?? []) as ProfileRow[];
-    const profileIds = typedProfiles.map((profile) => profile.id);
-
-    const { data: saves, error: savesError } = await supabase
-      .from("game_saves")
-      .select("user_id, cash")
-      .in("user_id", profileIds.length > 0 ? profileIds : [userId]);
-
-    if (savesError) {
-      console.warn("도박장 자금 불러오기 실패:", savesError.message);
-    }
-
-    const saveMap = new Map<string, RankingSaveRow>(
-      ((saves ?? []) as RankingSaveRow[]).map((save) => [save.user_id, save])
-    );
-
-    const users = typedProfiles
-      .filter((profile) => profile.id !== userId)
-      .map((profile) => {
-        const profileOccupationId = profile.occupation_id && profile.occupation_id in occupationInfo ? (profile.occupation_id as OccupationId) : "unemployed";
-        return {
-          id: profile.id,
-          nickname: profile.nickname || `유저-${profile.id.slice(0, 8)}`,
-          cash: Number(saveMap.get(profile.id)?.cash ?? 0),
-          job: occupationInfo[profileOccupationId].name,
-        };
-      })
-      .sort((a, b) => b.cash - a.cash);
-
-    setCasinoUsers(users);
-
-    if (!selectedOpponentId && users.length > 0) {
-      setSelectedOpponentId(users[0].id);
-    }
-
-    const { data: matches, error: matchesError } = await supabase
-      .from("game_pvp_matches")
-      .select("id, challenger_id, opponent_id, stake, status, challenger_score, opponent_score, winner_id, game_type, created_at, accepted_at, finished_at")
-      .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    if (matchesError) {
-      console.warn("대전 목록 불러오기 실패:", matchesError.message);
-      return;
-    }
-
-    setPvpMatches(((matches ?? []) as PvpMatchRow[]).map(normalizePvpMatch));
+    // PVP 기능을 제거했으므로 도박장에서는 별도 유저/대전 목록을 불러오지 않습니다.
+    // 슬롯머신은 playSlotMachine()에서 필요한 서버 RPC만 호출합니다.
+    setCasinoUsers([]);
+    setSelectedOpponentId("");
+    setPvpMatches([]);
   }
 
   async function playSlotMachine() {
@@ -8080,6 +8298,11 @@ export default function GamePage() {
   return (
     <main className="alba-game-root" style={pageStyle}>
       <ResponsiveGameStyles />
+      {globalAnnouncement && (
+        <div style={{ position: "fixed", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 200, width: "min(920px, calc(100% - 28px))", padding: "12px 18px", border: "3px solid rgba(17,24,39,0.72)", borderRadius: "999px", background: "rgba(15,23,42,0.72)", color: "#ffffff", boxShadow: "0 12px 30px rgba(15,23,42,0.22)", backdropFilter: "blur(10px)", textAlign: "center", fontWeight: 900, pointerEvents: "none" }}>
+          📢 {globalAnnouncement.message}
+        </div>
+      )}
       <section className="alba-world-layout" style={worldLayoutStyle}>
         <header className="alba-world-header" style={worldHeaderStyle}>
           <div className="alba-profile-area" style={profileAreaStyle}>
@@ -8087,6 +8310,7 @@ export default function GamePage() {
             <h1 className="alba-main-title" style={mainTitleStyle}><span style={getNicknameTextStyle(activeNicknameColor)}>{nickname}</span>의 하루</h1>
             <div style={buildNicknamePlateStyle(activeNicknameTag)}><span style={getNicknameTextStyle(activeNicknameColor)}>{nickname}</span><small style={profileNameplateMetaStyle}>{activeNicknameTag.name}</small></div>
             <div style={titleBadgeStyle}>{currentTitle.icon} {currentTitle.name}</div>
+            {isDeveloperAccount && <div style={{ ...titleBadgeStyle, background: "linear-gradient(135deg, #111827 0%, #334155 100%)", color: "#fef3c7", borderColor: "#facc15" }}>🛠️ 개발자 모드 · 랭킹/박물관 제외</div>}
             <div className="alba-nickname-edit" style={nicknameEditStyle}>
               <input
                 value={nicknameDraft}
@@ -8510,7 +8734,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>CASINO</div>
                   <h2 className="alba-panel-title" style={panelTitleStyle}>도박장</h2>
-                  <p style={panelDescStyle}>게임머니 전용 콘텐츠입니다. 슬롯 머신과 유저 대전을 진행할 수 있습니다.</p>
+                  <p style={panelDescStyle}>게임머니 전용 콘텐츠입니다. 현재 도박장에서는 슬롯 머신을 진행할 수 있습니다.</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
@@ -8580,95 +8804,7 @@ export default function GamePage() {
                   )}
                 </section>
 
-                <section style={casinoCardStyle}>
-                  <div style={casinoCardHeaderStyle}>
-                    <div style={casinoIconStyle}>⚔️</div>
-                    <div>
-                      <h3 style={casinoTitleStyle}>유저 대전</h3>
-                      <p style={casinoTextStyle}>상대를 선택하고 같은 금액을 걸어 반응속도 미니게임으로 겨룹니다.</p>
-                    </div>
-                  </div>
-
-                  <select value={selectedOpponentId} onChange={(event) => setSelectedOpponentId(event.target.value)} style={casinoInputStyle}>
-                    {casinoUsers.length === 0 ? (
-                      <option value="">대전 가능한 유저 없음</option>
-                    ) : (
-                      casinoUsers.map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.nickname} · {user.cash.toLocaleString()}원 · {user.job}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                  <input
-                    type="number"
-                    min={100}
-                    step={100}
-                    value={pvpStake}
-                    onChange={(event) => setPvpStake(event.target.value)}
-                    style={casinoInputStyle}
-                  />
-                  <button onClick={createPvpChallenge} disabled={!selectedOpponentId} style={casinoPrimaryButtonStyle}>도전장 보내기</button>
-                  <div style={pvpMessageStyle}>{pvpMessage}</div>
-                </section>
               </div>
-
-              <div style={casinoLowerGridStyle}>
-                <section style={casinoListCardStyle}>
-                  <h3 style={casinoTitleStyle}>받은 도전</h3>
-                  {pvpMatches.filter((match) => match.status === "waiting" && match.opponent_id === userId).length === 0 ? (
-                    <p style={casinoTextStyle}>받은 도전이 없습니다.</p>
-                  ) : (
-                    pvpMatches
-                      .filter((match) => match.status === "waiting" && match.opponent_id === userId)
-                      .map((match) => (
-                        <div key={match.id} style={pvpMatchRowStyle}>
-                          <div>
-                            <strong>{getCasinoUserName(match.challenger_id, casinoUsers, userId, nickname)}</strong>
-                            <span>판돈 {Number(match.stake).toLocaleString()}원</span>
-                          </div>
-                          <button onClick={() => acceptPvpChallenge(match)} style={casinoSmallButtonStyle}>수락</button>
-                        </div>
-                      ))
-                  )}
-                </section>
-
-                <section style={casinoListCardStyle}>
-                  <h3 style={casinoTitleStyle}>진행 중인 대전</h3>
-                  {pvpMatches.filter((match) => match.status === "accepted" || match.status === "playing").length === 0 ? (
-                    <p style={casinoTextStyle}>진행 중인 대전이 없습니다.</p>
-                  ) : (
-                    pvpMatches
-                      .filter((match) => match.status === "accepted" || match.status === "playing")
-                      .map((match) => (
-                        <div key={match.id} style={pvpMatchRowStyle}>
-                          <div>
-                            <strong>{getPvpOpponentName(match, userId, casinoUsers, nickname)}</strong>
-                            <span>판돈 {Number(match.stake).toLocaleString()}원 · 상태 {getPvpStatusLabel(match.status)}</span>
-                          </div>
-                          <button onClick={() => startPvpReaction(match)} style={casinoSmallButtonStyle}>플레이</button>
-                        </div>
-                      ))
-                  )}
-                </section>
-              </div>
-
-              {activePvpMatch && (
-                <section style={pvpGamePanelStyle}>
-                  <div>
-                    <h3 style={casinoTitleStyle}>반응속도 대전</h3>
-                    <p style={casinoTextStyle}>초록 불이 켜진 뒤 최대한 빨리 버튼을 누르세요. 먼저 누르면 실격 점수입니다.</p>
-                  </div>
-                  <div style={{ ...pvpLightStyle, background: pvpReactionState === "go" ? "#22c55e" : pvpReactionState === "waiting" ? "#ef4444" : "#e5e7eb" }}>
-                    {pvpReactionState === "go" ? "지금!" : pvpReactionState === "waiting" ? "기다려!" : pvpReactionState === "submitted" ? `점수 ${pvpReactionScore}` : "준비"}
-                  </div>
-                  <div style={pvpButtonRowStyle}>
-                    <button onClick={beginPvpReactionRound} disabled={pvpReactionState === "waiting" || pvpReactionState === "go"} style={casinoPrimaryButtonStyle}>시작</button>
-                    <button onClick={hitPvpReactionButton} disabled={pvpReactionState === "idle" || pvpReactionState === "submitted"} style={casinoDangerButtonStyle}>누르기</button>
-                    <button onClick={() => setActivePvpMatch(null)} style={casinoSmallButtonStyle}>닫기</button>
-                  </div>
-                </section>
-              )}
             </div>
           )}
 
@@ -8707,8 +8843,10 @@ export default function GamePage() {
                   <button onClick={depositAllToSavings} style={casinoSmallButtonStyle}>한도까지 적금</button>
                   <button onClick={withdrawSavings} style={casinoSmallButtonStyle}>적금 출금</button>
                   <button onClick={withdrawAllSavings} style={casinoSmallButtonStyle}>적금 전액 출금</button>
-                  <button onClick={borrowFromBank} style={casinoSmallButtonStyle}>대출</button>
-                  <button onClick={repayBankLoan} style={casinoSmallButtonStyle}>상환</button>
+                  <button onClick={borrowFromBank} style={casinoSmallButtonStyle}>입력 금액 대출</button>
+                  <button onClick={borrowMaxFromBank} style={casinoSmallButtonStyle}>가능 금액 전액 대출</button>
+                  <button onClick={repayBankLoan} style={casinoSmallButtonStyle}>입력 금액 상환</button>
+                  <button onClick={repayAllBankLoan} style={casinoSmallButtonStyle}>대출 전액 상환</button>
                 </div>
               </div>
             </div>
@@ -8833,7 +8971,7 @@ export default function GamePage() {
                             </div>
                             <div style={economyButtonRowStyle}>
                               <button onClick={() => sellArtifact(artifact.id)} style={casinoSmallButtonStyle}>판매</button>
-                              <button onClick={() => void donateArtifact(artifact.id)} disabled={donated} style={{ ...casinoSmallButtonStyle, opacity: donated ? 0.45 : 1 }}>{donated ? "이미 기증됨" : "박물관 기증"}</button>
+                              <button onClick={() => void donateArtifact(artifact.id)} disabled={donated || isDeveloperAccount} style={{ ...casinoSmallButtonStyle, opacity: donated || isDeveloperAccount ? 0.45 : 1 }}>{isDeveloperAccount ? "개발자 기증 제외" : donated ? "이미 기증됨" : "박물관 기증"}</button>
                             </div>
                           </div>
                         );
@@ -8909,7 +9047,7 @@ export default function GamePage() {
                             <strong>{artifact.name}</strong>
                             <span>{artifact.rarity} · 보유 {entry.count}개</span>
                             <span>후원 수익 10분당 {artifact.museumIncome.toLocaleString()}원</span>
-                            <button onClick={() => void donateArtifact(artifact.id)} style={casinoSmallButtonStyle}>박물관 기증</button>
+                            <button onClick={() => void donateArtifact(artifact.id)} disabled={isDeveloperAccount} style={{ ...casinoSmallButtonStyle, opacity: isDeveloperAccount ? 0.45 : 1 }}>{isDeveloperAccount ? "개발자 기증 제외" : "박물관 기증"}</button>
                           </article>
                         );
                       })}
@@ -8954,21 +9092,22 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>BUSINESS CENTER</div>
                   <h2 className="alba-panel-title" style={panelTitleStyle}>창업 센터</h2>
-                  <p style={panelDescStyle}>알바와 직업 경험을 사업으로 확장합니다. 사업은 30초마다 강한 매출을 만듭니다.</p>
+                  <p style={panelDescStyle}>알바 경험과 자격증을 사업으로 확장합니다. 사업은 30초마다 강한 매출을 만듭니다.</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
               <div className="alba-economy-card-grid" style={economyCardGridStyle}>
                 {businessItems.map((business) => {
                   const owned = ownedBusinesses.includes(business.id);
-                  const requiredOk = !business.requiredOccupation || unlockedOccupations.includes(business.requiredOccupation);
+                  const requiredCertification = business.requiredCertification ? certifications.find((cert) => cert.id === business.requiredCertification) : null;
+                  const requiredOk = !business.requiredCertification || ownedCertifications.includes(business.requiredCertification);
                   return (
                     <div key={business.id} style={economyCardStyle}>
                       <h3 style={economyCardTitleStyle}>{business.icon} {business.name}</h3>
                       <p style={economyCardTextStyle}>{business.description}</p>
                       <strong>창업 비용 {business.price.toLocaleString()}원</strong>
                       <strong style={{ color: "#16a34a" }}>30초 매출 +{business.incomeEvery5Min.toLocaleString()}원</strong>
-                      <span style={economyConditionStyle}>조건: {business.requiredOccupation ? occupationInfo[business.requiredOccupation].name : "없음"}</span>
+                      <span style={economyConditionStyle}>조건: {requiredCertification ? requiredCertification.name : "없음"}</span>
                       <button onClick={() => buyBusiness(business.id)} disabled={owned || cash < business.price || !requiredOk} style={{ ...casinoPrimaryButtonStyle, opacity: owned || cash < business.price || !requiredOk ? 0.45 : 1 }}>
                         {owned ? "운영 중" : requiredOk ? "창업" : "조건 미달"}
                       </button>
@@ -9109,6 +9248,46 @@ export default function GamePage() {
                 </div>
                 <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
+
+              {isDeveloperAccount && (
+                <section style={{ ...gachaListCardStyle, marginBottom: "14px", borderColor: "#facc15", background: "linear-gradient(135deg, rgba(255,251,235,0.96) 0%, rgba(254,243,199,0.92) 100%)" }}>
+                  <h3 style={casinoTitleStyle}>🛠️ 개발자 패널</h3>
+                  <p style={casinoTextStyle}>가챠 확률을 즉시 조정하고, 전체 유저에게 상단 반투명 현수막 공지를 보낼 수 있습니다. 확률은 입력값의 총합을 기준으로 가중 추첨됩니다.</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "8px", marginBottom: "10px" }}>
+                    {GACHA_RATE_FIELDS.map((field) => (
+                      <label key={field.key} style={{ display: "grid", gap: "4px", fontSize: "12px", fontWeight: 900, color: field.rarity ? getRarityColor(field.rarity) : "#64748b" }}>
+                        {field.label} %
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.000001"
+                          value={adminGachaRates[field.key]}
+                          onChange={(event) => {
+                            const value = Number(event.target.value);
+                            setAdminGachaRates((rates) => ({ ...rates, [field.key]: Number.isFinite(value) ? Math.max(0, value) : 0 }));
+                          }}
+                          style={{ ...casinoInputStyle, width: "100%" }}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <div style={{ ...economyButtonRowStyle, marginBottom: "12px" }}>
+                    <button onClick={saveAdminGachaRates} style={casinoPrimaryButtonStyle}>전역 확률 저장</button>
+                    <button onClick={resetAdminGachaRates} style={casinoSmallButtonStyle}>기본 확률로 되돌리기</button>
+                    <span style={gachaDiscoveredBadgeStyle}>총합 {getGachaRateTotal(adminGachaRates).toFixed(4)}</span>
+                  </div>
+                  <div style={{ display: "grid", gap: "8px" }}>
+                    <textarea
+                      value={adminAnnouncement}
+                      onChange={(event) => setAdminAnnouncement(event.target.value)}
+                      maxLength={160}
+                      placeholder="전체 공지 내용을 입력하세요"
+                      style={{ ...casinoInputStyle, width: "100%", minHeight: "74px", resize: "vertical" }}
+                    />
+                    <button onClick={sendGlobalAnnouncement} style={casinoPrimaryButtonStyle}>전체 공지 보내기</button>
+                  </div>
+                </section>
+              )}
 
               <div style={gachaOfferGridStyle}>
                 {(shopOffers.length > 0 ? shopOffers : makeShopOffers(shopLevel)).slice(0, 3).map((item, index) => {
@@ -12194,7 +12373,29 @@ function rollShopOffer(level: number) {
   return candidates[Math.floor(Math.random() * candidates.length)] ?? shopItems[0];
 }
 
-function rollGachaItem(level: number) {
+function rollGachaItem(level: number, rates: GachaRateConfig = DEFAULT_GACHA_RATE_CONFIG) {
+  const normalizedRates = { ...DEFAULT_GACHA_RATE_CONFIG, ...rates };
+  const weightedPool: Array<{ key: keyof GachaRateConfig; rarity?: ItemRarity; weight: number }> = [
+    { key: "none", weight: Math.max(0, normalizedRates.none) },
+    { key: "common", rarity: "일반", weight: Math.max(0, normalizedRates.common) },
+    { key: "rare", rarity: "희소", weight: Math.max(0, normalizedRates.rare) },
+    { key: "epic", rarity: "진귀", weight: Math.max(0, normalizedRates.epic) },
+    { key: "treasure", rarity: "보물", weight: Math.max(0, normalizedRates.treasure) },
+    { key: "relic", rarity: "유물", weight: Math.max(0, normalizedRates.relic) },
+    { key: "ancient", rarity: "고대 유물", weight: Math.max(0, normalizedRates.ancient) },
+  ];
+  const totalWeight = weightedPool.reduce((sum, entry) => sum + entry.weight, 0);
+
+  if (totalWeight > 0) {
+    let roll = Math.random() * totalWeight;
+    for (const entry of weightedPool) {
+      roll -= entry.weight;
+      if (roll <= 0) return entry.rarity ? randomItemByRarity(entry.rarity) : null;
+    }
+    const fallback = weightedPool[weightedPool.length - 1];
+    return fallback.rarity ? randomItemByRarity(fallback.rarity) : null;
+  }
+
   const roll = Math.random();
   const boost = Math.min(0.012, level * 0.002);
   if (roll > 0.99999999) return randomItemByRarity("고대 유물");
@@ -16124,6 +16325,7 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
 
 
 
