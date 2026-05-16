@@ -296,6 +296,8 @@ type MainBackgroundOption = {
   anchorScale: number;
   imageSrc?: string;
   imageFit?: "cover" | "contain";
+  characterFlipX?: boolean;
+  labelOffsetY?: number;
 };
 
 type MainCharacterOption = {
@@ -813,18 +815,18 @@ const luxuryMainBackgrounds: MainBackgroundOption[] = [
   { id: "seasideLounge", name: "시사이드 라운지", price: 510000000, description: "바다가 보이는 고급 휴양지 라운지", palette: ["#ecfeff", "#a5f3fc", "#38bdf8"], accent: "#06b6d4", sceneKey: "seasideLounge", anchorX: 1088, anchorY: 474, anchorScale: 1 },
   { id: "skyGarden", name: "스카이 가든", price: 650000000, description: "구름 위 정원처럼 몽환적인 풍경", palette: ["#f0f9ff", "#dbeafe", "#c4b5fd"], accent: "#8b5cf6", sceneKey: "skyGarden", anchorX: 1098, anchorY: 470, anchorScale: 1.02 },
   { id: "orbitalBridge", name: "오비탈 브릿지", price: 850000000, description: "우주 정거장 느낌의 최고급 메인 브릿지", palette: ["#020617", "#0f172a", "#1d4ed8"], accent: "#a78bfa", sceneKey: "orbitalBridge", anchorX: 1116, anchorY: 468, anchorScale: 1.04 },
-  { id: "offworldLawStreet", name: "오프월드 네온 거리", price: 5000000000, description: "분홍 네온과 사이버 법률가가 보이는 고가 메인 배경", palette: ["#0f1020", "#7c1d6f", "#f472b6"], accent: "#f472b6", sceneKey: "offworldLawStreet", anchorX: 1110, anchorY: 522, anchorScale: 0.72, imageSrc: luxuryMainBackgroundArt.offworldLawStreet },
-  { id: "blueStationDeck", name: "블루 스테이션 덱", price: 6200000000, description: "거대한 역 플랫폼과 푸른 도시광이 어우러진 사이버 배경", palette: ["#0f172a", "#1e3a8a", "#60a5fa"], accent: "#60a5fa", sceneKey: "blueStationDeck", anchorX: 1000, anchorY: 536, anchorScale: 0.68, imageSrc: luxuryMainBackgroundArt.blueStationDeck },
-  { id: "rainGardenAlley", name: "레인 가든 골목", price: 7600000000, description: "비 내리는 수변 골목과 정원이 어우러진 잔잔한 배경", palette: ["#e5f2df", "#4f6f6b", "#0f3a4a"], accent: "#38bdf8", sceneKey: "rainGardenAlley", anchorX: 1040, anchorY: 530, anchorScale: 0.7, imageSrc: luxuryMainBackgroundArt.rainGardenAlley },
-  { id: "snowPartsAvenue", name: "스노우 파츠 애비뉴", price: 9400000000, description: "눈 내리는 부품 상가 거리의 차가운 네온 배경", palette: ["#111827", "#1e3a8a", "#22d3ee"], accent: "#38bdf8", sceneKey: "snowPartsAvenue", anchorX: 1080, anchorY: 532, anchorScale: 0.69, imageSrc: luxuryMainBackgroundArt.snowPartsAvenue },
-  { id: "ecoLabBench", name: "에코랩 정원 벤치", price: 11200000000, description: "식물 연구 시설과 물가 벤치가 보이는 미래 정원 배경", palette: ["#064e3b", "#0f766e", "#5eead4"], accent: "#2dd4bf", sceneKey: "ecoLabBench", anchorX: 820, anchorY: 536, anchorScale: 0.64, imageSrc: luxuryMainBackgroundArt.ecoLabBench },
-  { id: "aquaShopLane", name: "아쿠아 상점 골목", price: 13500000000, description: "작은 어항 상점과 꽃길이 있는 감성 골목 배경", palette: ["#0f3a4a", "#0284c7", "#f0f9ff"], accent: "#0ea5e9", sceneKey: "aquaShopLane", anchorX: 1130, anchorY: 520, anchorScale: 0.66, imageSrc: luxuryMainBackgroundArt.aquaShopLane },
-  { id: "sakuraRiverWalk", name: "사쿠라 리버워크", price: 16200000000, description: "벚꽃과 강변 산책로가 있는 따뜻한 고급 배경", palette: ["#fff7ed", "#f9a8d4", "#bae6fd"], accent: "#fb7185", sceneKey: "sakuraRiverWalk", anchorX: 1045, anchorY: 542, anchorScale: 0.62, imageSrc: luxuryMainBackgroundArt.sakuraRiverWalk },
-  { id: "monoCyberBridge", name: "모노 사이버 브릿지", price: 19800000000, description: "흑백 네온 다리 위를 걷는 실루엣 감성 배경", palette: ["#020617", "#334155", "#a5b4fc"], accent: "#a5b4fc", sceneKey: "monoCyberBridge", anchorX: 930, anchorY: 520, anchorScale: 0.63, imageSrc: luxuryMainBackgroundArt.monoCyberBridge },
-  { id: "sunlitLoftOffice", name: "선라이트 로프트 오피스", price: 24000000000, description: "초고층 전망과 햇살이 들어오는 개인 사무실 배경", palette: ["#111827", "#d6d3d1", "#facc15"], accent: "#f59e0b", sceneKey: "sunlitLoftOffice", anchorX: 620, anchorY: 520, anchorScale: 0.68, imageSrc: luxuryMainBackgroundArt.sunlitLoftOffice },
-  { id: "glassAtriumVilla", name: "글래스 아트리움 빌라", price: 29500000000, description: "복층 빌라와 유리 채광이 어우러진 최상급 생활 배경", palette: ["#1f2937", "#86efac", "#e0f2fe"], accent: "#22c55e", sceneKey: "glassAtriumVilla", anchorX: 1010, anchorY: 526, anchorScale: 0.7, imageSrc: luxuryMainBackgroundArt.glassAtriumVilla },
-  { id: "skyBusTerrace", name: "스카이 버스 테라스", price: 36000000000, description: "옥상 버스와 푸른 하늘이 보이는 자유로운 배경", palette: ["#bae6fd", "#38bdf8", "#64748b"], accent: "#0ea5e9", sceneKey: "skyBusTerrace", anchorX: 1020, anchorY: 538, anchorScale: 0.63, imageSrc: luxuryMainBackgroundArt.skyBusTerrace },
-  { id: "midnightCafeCounter", name: "미드나잇 카페 카운터", price: 42000000000, description: "깊은 밤 카페 카운터와 은은한 조명이 있는 최고가 배경", palette: ["#111827", "#422006", "#14b8a6"], accent: "#14b8a6", sceneKey: "midnightCafeCounter", anchorX: 1180, anchorY: 520, anchorScale: 0.66, imageSrc: luxuryMainBackgroundArt.midnightCafeCounter },
+  { id: "offworldLawStreet", name: "오프월드 네온 거리", price: 5000000000, description: "분홍 네온과 사이버 법률가가 보이는 고가 메인 배경", palette: ["#0f1020", "#7c1d6f", "#f472b6"], accent: "#f472b6", sceneKey: "offworldLawStreet", anchorX: 1218, anchorY: 594, anchorScale: 0.42, imageSrc: luxuryMainBackgroundArt.offworldLawStreet, characterFlipX: true, labelOffsetY: 54 },
+  { id: "blueStationDeck", name: "블루 스테이션 덱", price: 6200000000, description: "거대한 역 플랫폼과 푸른 도시광이 어우러진 사이버 배경", palette: ["#0f172a", "#1e3a8a", "#60a5fa"], accent: "#60a5fa", sceneKey: "blueStationDeck", anchorX: 476, anchorY: 582, anchorScale: 0.43, imageSrc: luxuryMainBackgroundArt.blueStationDeck, labelOffsetY: 52 },
+  { id: "rainGardenAlley", name: "레인 가든 골목", price: 7600000000, description: "비 내리는 수변 골목과 정원이 어우러진 잔잔한 배경", palette: ["#e5f2df", "#4f6f6b", "#0f3a4a"], accent: "#38bdf8", sceneKey: "rainGardenAlley", anchorX: 462, anchorY: 582, anchorScale: 0.42, imageSrc: luxuryMainBackgroundArt.rainGardenAlley, labelOffsetY: 52 },
+  { id: "snowPartsAvenue", name: "스노우 파츠 애비뉴", price: 9400000000, description: "눈 내리는 부품 상가 거리의 차가운 네온 배경", palette: ["#111827", "#1e3a8a", "#22d3ee"], accent: "#38bdf8", sceneKey: "snowPartsAvenue", anchorX: 458, anchorY: 592, anchorScale: 0.43, imageSrc: luxuryMainBackgroundArt.snowPartsAvenue, characterFlipX: true, labelOffsetY: 52 },
+  { id: "ecoLabBench", name: "에코랩 정원 벤치", price: 11200000000, description: "식물 연구 시설과 물가 벤치가 보이는 미래 정원 배경", palette: ["#064e3b", "#0f766e", "#5eead4"], accent: "#2dd4bf", sceneKey: "ecoLabBench", anchorX: 1126, anchorY: 590, anchorScale: 0.40, imageSrc: luxuryMainBackgroundArt.ecoLabBench, labelOffsetY: 52 },
+  { id: "aquaShopLane", name: "아쿠아 상점 골목", price: 13500000000, description: "작은 어항 상점과 꽃길이 있는 감성 골목 배경", palette: ["#0f3a4a", "#0284c7", "#f0f9ff"], accent: "#0ea5e9", sceneKey: "aquaShopLane", anchorX: 1218, anchorY: 588, anchorScale: 0.41, imageSrc: luxuryMainBackgroundArt.aquaShopLane, characterFlipX: true, labelOffsetY: 52 },
+  { id: "sakuraRiverWalk", name: "사쿠라 리버워크", price: 16200000000, description: "벚꽃과 강변 산책로가 있는 따뜻한 고급 배경", palette: ["#fff7ed", "#f9a8d4", "#bae6fd"], accent: "#fb7185", sceneKey: "sakuraRiverWalk", anchorX: 1118, anchorY: 604, anchorScale: 0.38, imageSrc: luxuryMainBackgroundArt.sakuraRiverWalk, labelOffsetY: 50 },
+  { id: "monoCyberBridge", name: "모노 사이버 브릿지", price: 19800000000, description: "흑백 네온 다리 위를 걷는 실루엣 감성 배경", palette: ["#020617", "#334155", "#a5b4fc"], accent: "#a5b4fc", sceneKey: "monoCyberBridge", anchorX: 760, anchorY: 532, anchorScale: 0.36, imageSrc: luxuryMainBackgroundArt.monoCyberBridge, characterFlipX: true, labelOffsetY: 48 },
+  { id: "sunlitLoftOffice", name: "선라이트 로프트 오피스", price: 24000000000, description: "초고층 전망과 햇살이 들어오는 개인 사무실 배경", palette: ["#111827", "#d6d3d1", "#facc15"], accent: "#f59e0b", sceneKey: "sunlitLoftOffice", anchorX: 792, anchorY: 604, anchorScale: 0.42, imageSrc: luxuryMainBackgroundArt.sunlitLoftOffice, characterFlipX: true, labelOffsetY: 50 },
+  { id: "glassAtriumVilla", name: "글래스 아트리움 빌라", price: 29500000000, description: "복층 빌라와 유리 채광이 어우러진 최상급 생활 배경", palette: ["#1f2937", "#86efac", "#e0f2fe"], accent: "#22c55e", sceneKey: "glassAtriumVilla", anchorX: 492, anchorY: 596, anchorScale: 0.42, imageSrc: luxuryMainBackgroundArt.glassAtriumVilla, labelOffsetY: 52 },
+  { id: "skyBusTerrace", name: "스카이 버스 테라스", price: 36000000000, description: "옥상 버스와 푸른 하늘이 보이는 자유로운 배경", palette: ["#bae6fd", "#38bdf8", "#64748b"], accent: "#0ea5e9", sceneKey: "skyBusTerrace", anchorX: 1116, anchorY: 572, anchorScale: 0.38, imageSrc: luxuryMainBackgroundArt.skyBusTerrace, characterFlipX: true, labelOffsetY: 50 },
+  { id: "midnightCafeCounter", name: "미드나잇 카페 카운터", price: 42000000000, description: "깊은 밤 카페 카운터와 은은한 조명이 있는 최고가 배경", palette: ["#111827", "#422006", "#14b8a6"], accent: "#14b8a6", sceneKey: "midnightCafeCounter", anchorX: 1200, anchorY: 590, anchorScale: 0.40, imageSrc: luxuryMainBackgroundArt.midnightCafeCounter, characterFlipX: true, labelOffsetY: 52 },
 ];
 
 const premiumCharacterArt = {
@@ -10716,9 +10718,11 @@ function RoomArtwork({ roomKind, nickname, occupationName, backgroundId, charact
   const accent = background.accent || fallbackAccent;
   const characterLabel = `${nickname} · ${occupationName}`;
   const shortCharacterLabel = characterLabel.length > 18 ? `${characterLabel.slice(0, 17)}…` : characterLabel;
+  const characterLabelX = Math.max(180, Math.min(1420, background.anchorX));
+  const characterLabelY = Math.max(92, Math.min(710, background.anchorY + (background.labelOffsetY ?? 92)));
 
   return (
-    <svg style={sceneSvgStyle} viewBox="0 0 1600 760" preserveAspectRatio="none" role="img" aria-label="메인 방 일러스트">
+    <svg style={sceneSvgStyle} viewBox="0 0 1600 760" preserveAspectRatio="xMidYMid slice" role="img" aria-label="메인 방 일러스트">
       <defs>
         <filter id="luxuryDropShadow" x="-30%" y="-30%" width="160%" height="180%">
           <feDropShadow dx="0" dy="12" stdDeviation="8" floodColor="#0f172a" floodOpacity="0.22" />
@@ -10739,8 +10743,8 @@ function RoomArtwork({ roomKind, nickname, occupationName, backgroundId, charact
       {renderLuxuryCharacter(character, background)}
 
       <g filter="url(#luxuryDropShadow)">
-        <rect x="1010" y="616" width="300" height="54" rx="24" fill="rgba(255,255,255,0.92)" stroke="#111827" strokeWidth="4" />
-        <text x="1160" y="650" textAnchor="middle" fill="#111827" fontSize="21" fontWeight="900">{shortCharacterLabel}</text>
+        <rect x={characterLabelX - 150} y={characterLabelY - 30} width="300" height="54" rx="24" fill="rgba(255,255,255,0.9)" stroke="#111827" strokeWidth="4" />
+        <text x={characterLabelX} y={characterLabelY + 4} textAnchor="middle" fill="#111827" fontSize="21" fontWeight="900">{shortCharacterLabel}</text>
       </g>
     </svg>
   );
@@ -10866,21 +10870,68 @@ function LuxuryCharacterPreview({ character }: { character: MainCharacterOption 
   );
 }
 
+function renderLuxuryBackgroundAnimationOverlay(background: MainBackgroundOption) {
+  const isRain = ["rainGardenAlley", "snowPartsAvenue", "sakuraRiverWalk", "monoCyberBridge"].includes(background.sceneKey);
+  const isNeon = ["offworldLawStreet", "blueStationDeck", "snowPartsAvenue", "monoCyberBridge", "midnightCafeCounter"].includes(background.sceneKey);
+  const isWarmLight = ["sunlitLoftOffice", "glassAtriumVilla", "skyBusTerrace", "aquaShopLane"].includes(background.sceneKey);
+
+  return (
+    <g pointerEvents="none">
+      {isNeon && (
+        <>
+          <rect x="-420" y="0" width="280" height="760" fill="rgba(244,114,182,0.13)" transform="skewX(-18)">
+            <animate attributeName="x" values="-420;1800" dur="7.5s" repeatCount="indefinite" />
+          </rect>
+          {Array.from({ length: 9 }).map((_, index) => (
+            <rect key={`neon-line-${index}`} x="0" y={80 + index * 74} width="1600" height="2" fill="rgba(255,255,255,0.13)">
+              <animate attributeName="opacity" values="0.05;0.34;0.05" dur={`${2.4 + index * 0.18}s`} repeatCount="indefinite" />
+            </rect>
+          ))}
+        </>
+      )}
+      {isRain && Array.from({ length: 22 }).map((_, index) => (
+        <line
+          key={`rain-${index}`}
+          x1={40 + index * 76}
+          y1={-120 + (index % 5) * 34}
+          x2={18 + index * 76}
+          y2={18 + (index % 5) * 34}
+          stroke="rgba(186,230,253,0.34)"
+          strokeWidth="3"
+          strokeLinecap="round"
+        >
+          <animate attributeName="y1" values={`${-120 + (index % 5) * 34};820`} dur={`${2.8 + (index % 4) * 0.4}s`} repeatCount="indefinite" />
+          <animate attributeName="y2" values={`${18 + (index % 5) * 34};958`} dur={`${2.8 + (index % 4) * 0.4}s`} repeatCount="indefinite" />
+        </line>
+      ))}
+      {isWarmLight && (
+        <ellipse cx="1200" cy="120" rx="360" ry="130" fill="rgba(255,255,255,0.10)">
+          <animate attributeName="opacity" values="0.05;0.18;0.05" dur="5.8s" repeatCount="indefinite" />
+        </ellipse>
+      )}
+    </g>
+  );
+}
+
 function renderLuxuryRoomBackground(background: MainBackgroundOption, accent: string) {
   if (background.imageSrc) {
     return (
       <>
         <image
           href={background.imageSrc}
-          x="0"
-          y="0"
-          width="1600"
-          height="760"
+          x="-28"
+          y="-14"
+          width="1656"
+          height="788"
           preserveAspectRatio={background.imageFit === "contain" ? "xMidYMid meet" : "xMidYMid slice"}
           style={{ imageRendering: "pixelated" }}
-        />
-        <rect x="0" y="0" width="1600" height="760" fill="rgba(2,6,23,0.08)" />
-        <rect x="0" y="560" width="1600" height="200" fill="rgba(2,6,23,0.18)" />
+        >
+          <animate attributeName="x" values="-34;-18;-34" dur="18s" repeatCount="indefinite" />
+          <animate attributeName="y" values="-16;-8;-16" dur="14s" repeatCount="indefinite" />
+        </image>
+        {renderLuxuryBackgroundAnimationOverlay(background)}
+        <rect x="0" y="0" width="1600" height="760" fill="rgba(2,6,23,0.04)" />
+        <rect x="0" y="590" width="1600" height="170" fill="rgba(2,6,23,0.10)" />
       </>
     );
   }
@@ -11070,9 +11121,13 @@ function renderLuxuryRoomBackground(background: MainBackgroundOption, accent: st
 }
 
 function renderLuxuryCharacter(character: MainCharacterOption, background: MainBackgroundOption) {
+  const orientationScale = background.characterFlipX ? -1 : 1;
   return (
-    <g transform={`translate(${background.anchorX} ${background.anchorY}) scale(${background.anchorScale})`} filter="url(#luxuryDropShadow)">
-      {renderLuxuryCharacterGlyph(character, 0, 0, 1)}
+    <g transform={`translate(${background.anchorX} ${background.anchorY}) scale(${background.anchorScale})`}>
+      <ellipse cx="0" cy="112" rx="76" ry="16" fill="rgba(2,6,23,0.36)" />
+      <g transform={`scale(${orientationScale} 1)`} filter="url(#luxuryDropShadow)">
+        {renderLuxuryCharacterGlyph(character, 0, 0, 1)}
+      </g>
     </g>
   );
 }
