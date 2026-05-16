@@ -434,7 +434,32 @@ type SlotResult = {
   profit: number;
 };
 
+type HorseRacePhase = "waiting" | "betting" | "racing" | "finished";
 
+type HorseRaceHorse = {
+  id: number;
+  name: string;
+  emoji: string;
+  oddsLabel: string;
+};
+
+type HorseRaceState = {
+  raceId: number;
+  phase: HorseRacePhase;
+  startAt: number;
+  endAt: number;
+  nextStartAt: number;
+  remainingMs: number;
+  horses: HorseRaceHorse[];
+  winnerId: number;
+  progressByHorse: Record<number, number>;
+};
+
+type HorseRaceBet = {
+  raceId: number;
+  horseId: number;
+  stake: number;
+};
 
 type FinanceHistoryPoint = {
   label: string;
@@ -2657,6 +2682,22 @@ const DEVELOPER_NICKNAME_TAG_ID: NicknameTagId = "developerCommandFrame";
 const DEVELOPER_EMAILS = ["aodx1872@gmai.com"];
 const DEVELOPER_USER_IDS: string[] = [];
 const GLOBAL_ANNOUNCEMENT_VISIBLE_MS = 15000;
+const HORSE_RACE_INTERVAL_MS = 15 * 60 * 1000;
+const HORSE_RACE_NOTICE_MS = 3 * 60 * 1000;
+const HORSE_RACE_DURATION_MS = 45 * 1000;
+const HORSE_RACE_SETTLEMENT_MS = 60 * 1000;
+const HORSE_RACE_PAYOUT_MULTIPLIER = 3;
+const HORSE_RACE_POOL: HorseRaceHorse[] = [
+  { id: 0, name: "번개두리", emoji: "🐎", oddsLabel: "스피드형" },
+  { id: 1, name: "황금갈기", emoji: "🏇", oddsLabel: "폭발형" },
+  { id: 2, name: "달빛질주", emoji: "🐴", oddsLabel: "안정형" },
+  { id: 3, name: "무지개발굽", emoji: "🦄", oddsLabel: "변칙형" },
+  { id: 4, name: "검은태풍", emoji: "🐎", oddsLabel: "추격형" },
+  { id: 5, name: "새벽바람", emoji: "🏇", oddsLabel: "초반형" },
+  { id: 6, name: "왕관질주", emoji: "🐴", oddsLabel: "후반형" },
+  { id: 7, name: "소다로켓", emoji: "🦄", oddsLabel: "럭키형" },
+];
+
 const DEFAULT_GACHA_RATE_CONFIG: GachaRateConfig = { none: 62, common: 20, rare: 12, epic: 4.2, treasure: 1.5, relic: 0.299999, ancient: 0.000001 };
 const GACHA_RATE_FIELDS: Array<{ key: keyof GachaRateConfig; label: string; rarity?: ItemRarity }> = [
   { key: "none", label: "꽝" },
@@ -4117,6 +4158,12 @@ export default function GamePage() {
   const [isSlotPlaying, setIsSlotPlaying] = useState(false);
   const [slotReels, setSlotReels] = useState<string[]>(["7", "7", "7"]);
   const [slotLeverDown, setSlotLeverDown] = useState(false);
+  const [casinoNow, setCasinoNow] = useState(() => Date.now());
+  const [horseRaceGlobalNotice, setHorseRaceGlobalNotice] = useState<string | null>(null);
+  const [horseRaceStake, setHorseRaceStake] = useState("10000");
+  const [selectedHorseId, setSelectedHorseId] = useState(0);
+  const [activeHorseBet, setActiveHorseBet] = useState<HorseRaceBet | null>(null);
+  const [settledHorseRaceIds, setSettledHorseRaceIds] = useState<number[]>([]);
 
   const [, setWarningCount] = useState(0);
   const [unpaidTax, setUnpaidTax] = useState(0);
@@ -4174,6 +4221,7 @@ export default function GamePage() {
   const firedLockRef = useRef(false);
   const runnerSpawnCooldownRef = useRef(0);
   const slotSpinIntervalRef = useRef<number | null>(null);
+  const horseRaceNoticeShownRef = useRef<number | null>(null);
   const previousCashForStatsRef = useRef<number | null>(null);
   const globalStockSyncingRef = useRef(false);
   const chatListRef = useRef<HTMLDivElement | null>(null);
@@ -4281,6 +4329,16 @@ export default function GamePage() {
   const visibleLuxuryNicknameTags = luxuryNicknameTags.filter((tag) => isDeveloperAccount || !tag.developerOnly);
   const activeMainBackground = luxuryMainBackgrounds.find((background) => background.id === selectedMainBackgroundId) ?? defaultMainBackground;
   const activeMainCharacter = luxuryMainCharacters.find((character) => character.id === selectedMainCharacterId) ?? defaultMainCharacter;
+  const horseRaceState = getHorseRaceState(casinoNow);
+  const selectedHorse = horseRaceState.horses.find((horse) => horse.id === selectedHorseId) ?? horseRaceState.horses[0];
+  const activeHorseBetHorse = activeHorseBet ? horseRaceState.horses.find((horse) => horse.id === activeHorseBet.horseId) : null;
+  const horseRacePhaseLabel = horseRaceState.phase === "betting"
+    ? `출발 ${formatShortDuration(horseRaceState.remainingMs)} 전 · 베팅 접수 중`
+    : horseRaceState.phase === "racing"
+      ? `경주 진행 중 · ${formatShortDuration(horseRaceState.remainingMs)} 남음`
+      : horseRaceState.phase === "finished"
+        ? `결과 공개 · 다음 경주 ${formatShortDuration(horseRaceState.nextStartAt - casinoNow)} 후`
+        : `다음 경주 ${formatShortDuration(horseRaceState.remainingMs)} 후`;
   const equippedShopItems = useMemo(() => equippedItems.map((id) => shopItems.find((item) => item.id === id)).filter((item): item is ShopItem => Boolean(item)), [equippedItems]);
   const groupedOwnedItems = useMemo(() => sortGroupedShopItems(groupOwnedShopItems(ownedItems), inventorySortMode, favoriteItems), [ownedItems, inventorySortMode, favoriteItems]);
   const visibleInventoryItems = useMemo(() => groupedOwnedItems.filter((group) => !showFavoritesOnly || favoriteItems.includes(group.id)), [groupedOwnedItems, showFavoritesOnly, favoriteItems]);
@@ -5074,6 +5132,59 @@ export default function GamePage() {
       void supabase.removeChannel(casinoChannel);
     };
   }, [userId, isSaveLoaded, lobbyView]);
+
+  useEffect(() => {
+    if (!isSaveLoaded) return;
+
+    setCasinoNow(Date.now());
+    const timer = window.setInterval(() => {
+      setCasinoNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [isSaveLoaded]);
+
+  useEffect(() => {
+    if (!isSaveLoaded) return;
+    if (horseRaceState.phase !== "betting") return;
+    if (horseRaceNoticeShownRef.current === horseRaceState.raceId) return;
+
+    horseRaceNoticeShownRef.current = horseRaceState.raceId;
+    setHorseRaceGlobalNotice(`🏇 공동 경마 #${horseRaceState.raceId.toLocaleString()}가 3분 안에 시작됩니다! 도박장에서 출전마를 고르고 원하는 금액을 베팅하세요.`);
+  }, [isSaveLoaded, horseRaceState.phase, horseRaceState.raceId]);
+
+  useEffect(() => {
+    if (!horseRaceGlobalNotice) return;
+
+    const timer = window.setTimeout(() => {
+      setHorseRaceGlobalNotice(null);
+    }, 15000);
+
+    return () => window.clearTimeout(timer);
+  }, [horseRaceGlobalNotice]);
+
+
+  useEffect(() => {
+    if (!activeHorseBet || horseRaceState.phase !== "finished") return;
+    if (activeHorseBet.raceId !== horseRaceState.raceId) return;
+    if (settledHorseRaceIds.includes(activeHorseBet.raceId)) return;
+
+    const isWinner = activeHorseBet.horseId === horseRaceState.winnerId;
+    const payout = isWinner ? activeHorseBet.stake * HORSE_RACE_PAYOUT_MULTIPLIER : 0;
+    const winner = horseRaceState.horses.find((horse) => horse.id === horseRaceState.winnerId);
+
+    if (payout > 0) {
+      setCash((money) => money + payout);
+      setTotalIncome((income) => income + payout);
+    }
+
+    setSettledHorseRaceIds((ids) => [...ids.slice(-8), activeHorseBet.raceId]);
+    setMessage(isWinner
+      ? `🏇 ${winner?.name ?? "선택한 말"} 1등! 경마 배당금 ${payout.toLocaleString()}원을 받았습니다.`
+      : `🏇 ${winner?.name ?? "다른 말"} 1등. 경마 베팅 ${activeHorseBet.stake.toLocaleString()}원을 잃었습니다.`
+    );
+  }, [activeHorseBet, horseRaceState.phase, horseRaceState.raceId, horseRaceState.winnerId, settledHorseRaceIds]);
+
 
   useEffect(() => {
     if (!careerMiniGame) return;
@@ -7905,6 +8016,40 @@ export default function GamePage() {
     }
   }
 
+  function placeHorseRaceBet() {
+    if (horseRaceState.phase !== "betting") {
+      setMessage("🏇 경마 베팅은 출발 3분 전 안내가 뜬 뒤부터 출발 전까지만 가능합니다.");
+      return;
+    }
+
+    if (activeHorseBet?.raceId === horseRaceState.raceId) {
+      setMessage("🏇 이번 경주는 이미 베팅했습니다. 다음 경주를 기다려주세요.");
+      return;
+    }
+
+    const stake = Math.floor(Number(horseRaceStake));
+    if (!Number.isFinite(stake) || stake < 100) {
+      setMessage("🏇 경마 최소 베팅 금액은 100원입니다.");
+      return;
+    }
+
+    if (stake > cash) {
+      setMessage("🏇 보유 현금보다 많이 걸 수 없습니다.");
+      return;
+    }
+
+    const horse = selectedHorse ?? horseRaceState.horses[0];
+    if (!horse) {
+      setMessage("🏇 출전마 정보를 불러오지 못했습니다.");
+      return;
+    }
+
+    setCash((money) => Math.max(0, money - stake));
+    setTotalExpense((expense) => expense + stake);
+    setActiveHorseBet({ raceId: horseRaceState.raceId, horseId: horse.id, stake });
+    setMessage(`🏇 ${horse.name}에 ${stake.toLocaleString()}원을 베팅했습니다. 1등하면 ${HORSE_RACE_PAYOUT_MULTIPLIER}배를 받습니다.`);
+  }
+
   async function fetchGlobalStockMarket() {
     try {
       const supabase = createClient();
@@ -8309,6 +8454,32 @@ export default function GamePage() {
       {globalAnnouncement && (
         <div style={{ position: "fixed", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 200, width: "min(920px, calc(100% - 28px))", padding: "12px 18px", border: "3px solid rgba(17,24,39,0.72)", borderRadius: "999px", background: "rgba(15,23,42,0.72)", color: "#ffffff", boxShadow: "0 12px 30px rgba(15,23,42,0.22)", backdropFilter: "blur(10px)", textAlign: "center", fontWeight: 900, pointerEvents: "none" }}>
           📢 {globalAnnouncement.message}
+        </div>
+      )}
+      {horseRaceGlobalNotice && (
+        <div style={horseRaceGlobalNoticeStyle}>
+          {horseRaceGlobalNotice}
+        </div>
+      )}
+      {activeHorseBet && horseRaceState.phase === "racing" && lobbyView !== "casino" && (
+        <div style={horseRaceLiveOverlayStyle}>
+          <div style={horseRaceLiveHeaderStyle}>
+            <strong>🏇 공동 경마 실시간 중계</strong>
+            <span>내 베팅: {activeHorseBetHorse?.name ?? "선택한 말"} · {activeHorseBet.stake.toLocaleString()}원</span>
+          </div>
+          <div style={horseRaceLiveTrackStyle}>
+            {horseRaceState.horses.map((horse) => {
+              const betOnThis = activeHorseBet.horseId === horse.id;
+              return (
+                <div key={`live-${horseRaceState.raceId}-${horse.id}`} style={{ ...horseRaceLiveRowStyle, borderColor: betOnThis ? "#facc15" : "rgba(255,255,255,0.28)" }}>
+                  <span style={horseRaceLiveNameStyle}>{horse.emoji} {horse.name}</span>
+                  <span style={horseRaceLiveLaneStyle}>
+                    <span style={{ ...horseRaceLiveRunnerStyle, left: `${horseRaceState.progressByHorse[horse.id] ?? 3}%` }}>{horse.emoji}</span>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
       <section className="alba-world-layout" style={worldLayoutStyle}>
@@ -8747,7 +8918,7 @@ export default function GamePage() {
                 <div>
                   <div style={smallLabelStyle}>CASINO</div>
                   <h2 className="alba-panel-title" style={panelTitleStyle}>도박장</h2>
-                  <p style={panelDescStyle}>게임머니 전용 콘텐츠입니다. 현재 도박장에서는 슬롯 머신을 진행할 수 있습니다.</p>
+                  <p style={panelDescStyle}>게임머니 전용 콘텐츠입니다. 현재 도박장에서는 슬롯 머신과 정해진 시간에 열리는 공동 경마를 진행할 수 있습니다.</p>
                 </div>
                 <button onClick={() => setLobbyView("street")} className="alba-small-action-button" style={smallActionButtonStyle}>길거리로</button>
               </div>
@@ -8817,6 +8988,76 @@ export default function GamePage() {
                   )}
                 </section>
 
+                <section style={casinoCardStyle}>
+                  <div style={casinoCardHeaderStyle}>
+                    <div style={casinoIconStyle}>🏇</div>
+                    <div>
+                      <h3 style={casinoTitleStyle}>공동 경마장</h3>
+                      <p style={casinoTextStyle}>모든 유저가 같은 시간표의 경마에 참여합니다. 출발 3분 전부터 베팅 가능하며, 선택한 말이 1등하면 베팅금의 3배를 받습니다.</p>
+                    </div>
+                  </div>
+
+                  <div style={horseRaceNoticeStyle}>
+                    <strong>{horseRacePhaseLabel}</strong>
+                    <span>경주 #{horseRaceState.raceId.toLocaleString()} · 출전마 5마리 · 배당 {HORSE_RACE_PAYOUT_MULTIPLIER}배</span>
+                  </div>
+
+                  <div style={horseRaceTrackStyle}>
+                    {horseRaceState.horses.map((horse) => {
+                      const selected = selectedHorse?.id === horse.id;
+                      const betOnThis = activeHorseBet?.raceId === horseRaceState.raceId && activeHorseBet.horseId === horse.id;
+                      const winner = horseRaceState.phase === "finished" && horseRaceState.winnerId === horse.id;
+                      return (
+                        <button
+                          key={`${horseRaceState.raceId}-${horse.id}`}
+                          onClick={() => setSelectedHorseId(horse.id)}
+                          disabled={horseRaceState.phase !== "betting" || !!activeHorseBet && activeHorseBet.raceId === horseRaceState.raceId}
+                          style={{
+                            ...horseRaceRowStyle,
+                            borderColor: selected ? "#f59e0b" : winner ? "#22c55e" : "#111827",
+                            background: selected ? "linear-gradient(180deg, #fef3c7, #ffffff)" : winner ? "linear-gradient(180deg, #dcfce7, #ffffff)" : "#ffffff",
+                            opacity: horseRaceState.phase === "betting" || betOnThis || winner ? 1 : 0.9,
+                          }}
+                        >
+                          <span style={horseRaceHorseNameStyle}>{horse.emoji} {horse.name}</span>
+                          <span style={horseRaceOddsStyle}>{winner ? "1등" : betOnThis ? "내 베팅" : horse.oddsLabel}</span>
+                          <span style={horseRaceLaneStyle}>
+                            <span style={{ ...horseRaceRunnerStyle, left: `${horseRaceState.progressByHorse[horse.id] ?? 3}%` }}>{horse.emoji}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div style={horseRaceBetPanelStyle}>
+                    <label style={slotStakeFieldStyle}>
+                      <span style={slotStakeLabelStyle}>경마 베팅 금액</span>
+                      <input
+                        type="number"
+                        min={100}
+                        step={1000}
+                        value={horseRaceStake}
+                        onChange={(event) => setHorseRaceStake(event.target.value)}
+                        style={casinoInputStyle}
+                      />
+                    </label>
+                    <button
+                      onClick={placeHorseRaceBet}
+                      disabled={horseRaceState.phase !== "betting" || activeHorseBet?.raceId === horseRaceState.raceId}
+                      style={{ ...casinoPrimaryButtonStyle, opacity: horseRaceState.phase === "betting" && activeHorseBet?.raceId !== horseRaceState.raceId ? 1 : 0.55 }}
+                    >
+                      {horseRaceState.phase === "betting" ? `${selectedHorse?.name ?? "말"}에 베팅` : "베팅 대기"}
+                    </button>
+                  </div>
+
+                  {activeHorseBet && (
+                    <div style={slotResultBoxStyle}>
+                      <strong>내 경마 베팅</strong>
+                      <span>경주 #{activeHorseBet.raceId.toLocaleString()} · {activeHorseBetHorse?.name ?? "선택한 말"} · {activeHorseBet.stake.toLocaleString()}원</span>
+                      <span>당첨 시 {(activeHorseBet.stake * HORSE_RACE_PAYOUT_MULTIPLIER).toLocaleString()}원 지급</span>
+                    </div>
+                  )}
+                </section>
               </div>
             </div>
           )}
@@ -8846,20 +9087,41 @@ export default function GamePage() {
               </div>
 
               <div style={economyActionPanelStyle}>
-                <input type="number" value={bankInput} min={100} step={1000} onChange={(event) => setBankInput(event.target.value)} style={casinoInputStyle} />
-                <div style={economyButtonRowStyle}>
-                  <button onClick={depositToBank} style={casinoPrimaryButtonStyle}>예금 넣기</button>
-                  <button onClick={depositAllToBank} style={casinoSmallButtonStyle}>현금 전액 예금</button>
-                  <button onClick={withdrawFromBank} style={casinoSmallButtonStyle}>예금 출금</button>
-                  <button onClick={withdrawAllFromBank} style={casinoSmallButtonStyle}>예금 전액 출금</button>
-                  <button onClick={depositToSavings} style={casinoPrimaryButtonStyle}>적금 납입</button>
-                  <button onClick={depositAllToSavings} style={casinoSmallButtonStyle}>한도까지 적금</button>
-                  <button onClick={withdrawSavings} style={casinoSmallButtonStyle}>적금 출금</button>
-                  <button onClick={withdrawAllSavings} style={casinoSmallButtonStyle}>적금 전액 출금</button>
-                  <button onClick={borrowFromBank} style={casinoSmallButtonStyle}>입력 금액 대출</button>
-                  <button onClick={borrowMaxFromBank} style={casinoSmallButtonStyle}>가능 금액 전액 대출</button>
-                  <button onClick={repayBankLoan} style={casinoSmallButtonStyle}>입력 금액 상환</button>
-                  <button onClick={repayAllBankLoan} style={casinoSmallButtonStyle}>대출 전액 상환</button>
+                <label style={bankInputWrapStyle}>
+                  <span style={slotStakeLabelStyle}>거래 금액</span>
+                  <input type="number" value={bankInput} min={100} step={1000} onChange={(event) => setBankInput(event.target.value)} style={casinoInputStyle} />
+                </label>
+
+                <div style={bankActionSectionGridStyle}>
+                  <div style={bankActionGroupStyle}>
+                    <strong style={bankActionGroupTitleStyle}>예금</strong>
+                    <div style={bankButtonGridStyle}>
+                      <button onClick={depositToBank} style={casinoPrimaryButtonStyle}>예금 넣기</button>
+                      <button onClick={depositAllToBank} style={casinoSmallButtonStyle}>현금 전액 예금</button>
+                      <button onClick={withdrawFromBank} style={casinoSmallButtonStyle}>예금 출금</button>
+                      <button onClick={withdrawAllFromBank} style={casinoSmallButtonStyle}>예금 전액 출금</button>
+                    </div>
+                  </div>
+
+                  <div style={bankActionGroupStyle}>
+                    <strong style={bankActionGroupTitleStyle}>적금</strong>
+                    <div style={bankButtonGridStyle}>
+                      <button onClick={depositToSavings} style={casinoPrimaryButtonStyle}>적금 납입</button>
+                      <button onClick={depositAllToSavings} style={casinoSmallButtonStyle}>한도까지 적금</button>
+                      <button onClick={withdrawSavings} style={casinoSmallButtonStyle}>적금 출금</button>
+                      <button onClick={withdrawAllSavings} style={casinoSmallButtonStyle}>적금 전액 출금</button>
+                    </div>
+                  </div>
+
+                  <div style={bankActionGroupStyle}>
+                    <strong style={bankActionGroupTitleStyle}>대출</strong>
+                    <div style={bankButtonGridStyle}>
+                      <button onClick={borrowFromBank} style={casinoSmallButtonStyle}>입력 금액 대출</button>
+                      <button onClick={borrowMaxFromBank} style={casinoSmallButtonStyle}>가능 금액 전액 대출</button>
+                      <button onClick={repayBankLoan} style={casinoSmallButtonStyle}>입력 금액 상환</button>
+                      <button onClick={repayAllBankLoan} style={casinoSmallButtonStyle}>대출 전액 상환</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -12078,7 +12340,7 @@ function StatusPill({ label, value, warning = false }: { label: string; value: s
   return (
     <div className="alba-status-pill" style={{ ...statusPillStyle, borderColor: warning ? "#f97316" : "#111827", color: warning ? "#9a3412" : "#111827" }}>
       <span style={{ ...statusLabelStyle, color: warning ? "#c2410c" : "#64748b" }}>{label}</span>
-      <strong style={{ color: warning ? "#9a3412" : "#111827", fontSize: "17px", lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", alignSelf: "center" }}>{value}</strong>
+      <strong style={{ color: warning ? "#9a3412" : "#111827", fontSize: "clamp(13px, 1.25vw, 17px)", lineHeight: 1.12, whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word", alignSelf: "center" }}>{value}</strong>
     </div>
   );
 }
@@ -12125,11 +12387,92 @@ function getCashierKeyVisualStyle(index: number, currentIndex: number): CSSPrope
   };
 }
 
+
+function seededRandom(seed: number) {
+  let value = Math.sin(seed) * 10000;
+  return value - Math.floor(value);
+}
+
+function formatShortDuration(ms: number) {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function makeHorseRaceHorses(raceId: number) {
+  const pool = [...HORSE_RACE_POOL];
+  const selected: HorseRaceHorse[] = [];
+  for (let index = 0; index < 5; index += 1) {
+    const pickIndex = Math.floor(seededRandom(raceId * 31 + index * 17 + 7) * pool.length);
+    selected.push(pool.splice(pickIndex, 1)[0]);
+  }
+  return selected;
+}
+
+function getHorseRaceWinnerId(raceId: number, horses: HorseRaceHorse[]) {
+  const winnerIndex = Math.floor(seededRandom(raceId * 97 + 13) * horses.length);
+  return horses[Math.max(0, Math.min(horses.length - 1, winnerIndex))]?.id ?? horses[0]?.id ?? 0;
+}
+
+function getHorseRaceState(now: number): HorseRaceState {
+  const currentStartAt = Math.floor(now / HORSE_RACE_INTERVAL_MS) * HORSE_RACE_INTERVAL_MS;
+  const currentRaceId = Math.floor(currentStartAt / HORSE_RACE_INTERVAL_MS);
+  const currentEndAt = currentStartAt + HORSE_RACE_DURATION_MS;
+  const horses = makeHorseRaceHorses(currentRaceId);
+  const winnerId = getHorseRaceWinnerId(currentRaceId, horses);
+
+  if (now >= currentStartAt && now < currentEndAt + HORSE_RACE_SETTLEMENT_MS) {
+    const raceProgress = Math.max(0, Math.min(1, (now - currentStartAt) / HORSE_RACE_DURATION_MS));
+    const progressByHorse = Object.fromEntries(horses.map((horse, index) => {
+      const base = raceProgress * (horse.id === winnerId ? 94 : 72 + seededRandom(currentRaceId * 41 + horse.id * 23) * 16);
+      const wobble = Math.sin(raceProgress * Math.PI * (3 + index) + horse.id) * 4;
+      const finishBoost = horse.id === winnerId && raceProgress > 0.72 ? (raceProgress - 0.72) * 44 : 0;
+      const progress = now >= currentEndAt ? (horse.id === winnerId ? 100 : 74 + seededRandom(currentRaceId * 53 + horse.id) * 18) : Math.min(100, Math.max(2, base + wobble + finishBoost));
+      return [horse.id, progress];
+    }));
+
+    return {
+      raceId: currentRaceId,
+      phase: now < currentEndAt ? "racing" : "finished",
+      startAt: currentStartAt,
+      endAt: currentEndAt,
+      nextStartAt: currentStartAt + HORSE_RACE_INTERVAL_MS,
+      remainingMs: now < currentEndAt ? currentEndAt - now : currentStartAt + HORSE_RACE_DURATION_MS + HORSE_RACE_SETTLEMENT_MS - now,
+      horses,
+      winnerId,
+      progressByHorse,
+    };
+  }
+
+  const nextStartAt = currentStartAt + HORSE_RACE_INTERVAL_MS;
+  const nextRaceId = Math.floor(nextStartAt / HORSE_RACE_INTERVAL_MS);
+  const nextHorses = makeHorseRaceHorses(nextRaceId);
+  const nextWinnerId = getHorseRaceWinnerId(nextRaceId, nextHorses);
+  const phase: HorseRacePhase = now >= nextStartAt - HORSE_RACE_NOTICE_MS ? "betting" : "waiting";
+
+  return {
+    raceId: nextRaceId,
+    phase,
+    startAt: nextStartAt,
+    endAt: nextStartAt + HORSE_RACE_DURATION_MS,
+    nextStartAt,
+    remainingMs: nextStartAt - now,
+    horses: nextHorses,
+    winnerId: nextWinnerId,
+    progressByHorse: Object.fromEntries(nextHorses.map((horse) => [horse.id, 3])),
+  };
+}
+
 function getTaxRate(cash: number) {
   if (cash <= 100000) return 0.01;
   if (cash <= 1000000) return 0.05;
   if (cash <= 10000000) return 0.1;
-  return 0.2;
+  if (cash <= 100000000) return 0.2;
+  if (cash <= 1000000000) return 0.35;
+  if (cash <= 10000000000) return 0.5;
+  if (cash <= 100000000000) return 0.7;
+  return 0.9;
 }
 
 function getStockRemainingMs(updatedAt: Date) {
@@ -13770,9 +14113,9 @@ const mainTitleStyle: CSSProperties = {
 
 const moneyPanelStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(132px, 1fr))",
+  gridTemplateColumns: "repeat(4, minmax(160px, 1fr))",
   gap: "8px",
-  maxWidth: "720px",
+  maxWidth: "880px",
   overflow: "visible",
 };
 
@@ -13781,9 +14124,9 @@ const statusPillStyle: CSSProperties = {
   border: "3px solid #111827",
   borderRadius: "16px",
   padding: "10px 12px",
-  width: "132px",
-  minWidth: "132px",
-  height: "76px",
+  width: "160px",
+  minWidth: "160px",
+  height: "auto",
   minHeight: "76px",
   display: "grid",
   gridTemplateRows: "auto 1fr",
@@ -14979,7 +15322,7 @@ const casinoSceneStyle: CSSProperties = {
 
 const casinoContentGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1.08fr 1fr",
+  gridTemplateColumns: "minmax(420px, 0.92fr) minmax(440px, 1.08fr)",
   gap: "14px",
   alignItems: "start",
 };
@@ -15343,7 +15686,7 @@ const slotResultBoxStyle: CSSProperties = {
 
 const slotMachinePanelStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) 96px",
+  gridTemplateColumns: "minmax(0, 1fr) 82px",
   gap: "14px",
   alignItems: "center",
 };
@@ -15379,7 +15722,7 @@ const slotMachineDisplayStyle: CSSProperties = {
 };
 
 const slotReelWindowStyle: CSSProperties = {
-  height: "94px",
+  height: "78px",
   borderRadius: "16px",
   background: "linear-gradient(180deg, #ffffff, #e2e8f0)",
   border: "3px solid #94a3b8",
@@ -15411,7 +15754,7 @@ const slotLeverButtonStyle: CSSProperties = {
   border: "4px solid #111827",
   borderRadius: "22px",
   background: "linear-gradient(180deg, #fee2e2, #fecaca)",
-  height: "168px",
+  height: "148px",
   cursor: "pointer",
   boxShadow: "0 8px 0 rgba(15,23,42,0.18)",
   display: "flex",
@@ -15485,9 +15828,203 @@ const slotQuickButtonStyle: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
+const bankInputWrapStyle: CSSProperties = {
+  display: "grid",
+  gap: "6px",
+};
+
+const bankActionSectionGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(220px, 1fr))",
+  gap: "12px",
+  alignItems: "stretch",
+};
+
+const bankActionGroupStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "18px",
+  background: "linear-gradient(180deg, #ffffff, #f8fafc)",
+  padding: "12px",
+  display: "grid",
+  gap: "10px",
+  boxShadow: "0 6px 0 rgba(15,23,42,0.12)",
+};
+
+const bankActionGroupTitleStyle: CSSProperties = {
+  fontSize: "16px",
+  fontWeight: 900,
+  color: "#111827",
+};
+
+const bankButtonGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "8px",
+};
+
+const horseRaceNoticeStyle: CSSProperties = {
+  border: "3px solid #111827",
+  borderRadius: "16px",
+  background: "linear-gradient(180deg, #fef3c7, #fff7ed)",
+  padding: "12px",
+  display: "grid",
+  gap: "4px",
+  color: "#111827",
+  fontWeight: 900,
+};
+
+const horseRaceTrackStyle: CSSProperties = {
+  display: "grid",
+  gap: "8px",
+};
+
+const horseRaceRowStyle: CSSProperties = {
+  width: "100%",
+  border: "3px solid #111827",
+  borderRadius: "16px",
+  padding: "9px 10px",
+  background: "#ffffff",
+  color: "#111827",
+  display: "grid",
+  gridTemplateColumns: "130px 64px minmax(0, 1fr)",
+  alignItems: "center",
+  gap: "10px",
+  cursor: "pointer",
+  textAlign: "left",
+  boxShadow: "0 5px 0 rgba(15,23,42,0.12)",
+};
+
+const horseRaceHorseNameStyle: CSSProperties = {
+  fontWeight: 900,
+  fontSize: "14px",
+  whiteSpace: "nowrap",
+};
+
+const horseRaceOddsStyle: CSSProperties = {
+  justifySelf: "center",
+  border: "2px solid #cbd5e1",
+  borderRadius: "999px",
+  padding: "4px 7px",
+  fontSize: "11px",
+  fontWeight: 900,
+  background: "#f8fafc",
+  whiteSpace: "nowrap",
+};
+
+const horseRaceLaneStyle: CSSProperties = {
+  position: "relative",
+  height: "22px",
+  borderRadius: "999px",
+  background: "linear-gradient(90deg, #dcfce7, #fef3c7)",
+  border: "2px solid #94a3b8",
+  overflow: "hidden",
+};
+
+const horseRaceRunnerStyle: CSSProperties = {
+  position: "absolute",
+  top: "50%",
+  transform: "translate(-50%, -50%)",
+  fontSize: "18px",
+  transition: "left 500ms ease",
+};
+
+const horseRaceBetPanelStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gap: "10px",
+  alignItems: "end",
+};
 
 
 
+
+
+
+const horseRaceGlobalNoticeStyle: CSSProperties = {
+  position: "fixed",
+  top: "64px",
+  left: "50%",
+  transform: "translateX(-50%)",
+  zIndex: 210,
+  width: "min(960px, calc(100% - 28px))",
+  padding: "12px 18px",
+  border: "3px solid rgba(250,204,21,0.82)",
+  borderRadius: "999px",
+  background: "linear-gradient(90deg, rgba(67,56,202,0.78), rgba(124,58,237,0.72), rgba(15,23,42,0.78))",
+  color: "#ffffff",
+  boxShadow: "0 14px 34px rgba(15,23,42,0.28)",
+  backdropFilter: "blur(10px)",
+  textAlign: "center",
+  fontWeight: 900,
+  pointerEvents: "none",
+};
+
+const horseRaceLiveOverlayStyle: CSSProperties = {
+  position: "fixed",
+  left: "50%",
+  bottom: "18px",
+  transform: "translateX(-50%)",
+  zIndex: 190,
+  width: "min(680px, calc(100% - 24px))",
+  border: "4px solid rgba(250,204,21,0.95)",
+  borderRadius: "24px",
+  background: "linear-gradient(180deg, rgba(15,23,42,0.92), rgba(30,41,59,0.88))",
+  color: "#ffffff",
+  padding: "14px",
+  boxShadow: "0 18px 42px rgba(15,23,42,0.34)",
+  backdropFilter: "blur(12px)",
+};
+
+const horseRaceLiveHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "12px",
+  alignItems: "center",
+  marginBottom: "10px",
+  fontSize: "13px",
+  flexWrap: "wrap",
+};
+
+const horseRaceLiveTrackStyle: CSSProperties = {
+  display: "grid",
+  gap: "7px",
+};
+
+const horseRaceLiveRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "120px minmax(0, 1fr)",
+  alignItems: "center",
+  gap: "10px",
+  border: "2px solid rgba(255,255,255,0.28)",
+  borderRadius: "999px",
+  padding: "6px 9px",
+  background: "rgba(255,255,255,0.08)",
+};
+
+const horseRaceLiveNameStyle: CSSProperties = {
+  fontSize: "12px",
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+
+const horseRaceLiveLaneStyle: CSSProperties = {
+  position: "relative",
+  height: "18px",
+  borderRadius: "999px",
+  background: "linear-gradient(90deg, rgba(34,197,94,0.35), rgba(250,204,21,0.36), rgba(248,250,252,0.18))",
+  border: "1px solid rgba(255,255,255,0.28)",
+  overflow: "hidden",
+};
+
+const horseRaceLiveRunnerStyle: CSSProperties = {
+  position: "absolute",
+  top: "50%",
+  transform: "translate(-50%, -50%)",
+  fontSize: "17px",
+  transition: "left 600ms ease",
+};
 
 
 const globalChatStyle: CSSProperties = {
@@ -16464,6 +17001,10 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
+
 
 
 
