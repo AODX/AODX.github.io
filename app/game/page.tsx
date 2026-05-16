@@ -4550,6 +4550,32 @@ export default function GamePage() {
   const nextItemSlotUpgradeCost = itemSlotLevel >= ITEM_SLOT_MAX_LEVEL ? 0 : (ITEM_SLOT_UPGRADE_COSTS[nextItemSlotLevel] ?? 0);
 
   useEffect(() => {
+    if (!isDeveloperAccount) return;
+
+    const allNicknameColorIds = luxuryNicknameColors.map((item) => item.id);
+    const allNicknameTagIds = luxuryNicknameTags.map((item) => item.id);
+    const allMainBackgroundIds = luxuryMainBackgrounds.map((item) => item.id);
+    const allMainCharacterIds = luxuryMainCharacters.map((item) => item.id);
+
+    setOwnedNicknameColors((prev) => {
+      const merged = Array.from(new Set<NicknameColorId>([...prev, ...allNicknameColorIds]));
+      return merged.length === prev.length ? prev : merged;
+    });
+    setOwnedNicknameTags((prev) => {
+      const merged = Array.from(new Set<NicknameTagId>([...prev, ...allNicknameTagIds]));
+      return merged.length === prev.length ? prev : merged;
+    });
+    setOwnedMainBackgrounds((prev) => {
+      const merged = Array.from(new Set<MainBackgroundId>([...prev, ...allMainBackgroundIds]));
+      return merged.length === prev.length ? prev : merged;
+    });
+    setOwnedMainCharacters((prev) => {
+      const merged = Array.from(new Set<MainCharacterId>([...prev, ...allMainCharacterIds]));
+      return merged.length === prev.length ? prev : merged;
+    });
+  }, [isDeveloperAccount]);
+
+  useEffect(() => {
     if (equippedItems.length <= itemSlotCount) return;
     setEquippedItems((items) => items.slice(0, itemSlotCount));
   }, [equippedItems.length, itemSlotCount]);
@@ -7473,7 +7499,8 @@ export default function GamePage() {
   }
 
   function buyNicknameColorTheme(theme: NicknameColorTheme) {
-    if (ownedNicknameColors.includes(theme.id)) {
+    if (isDeveloperAccount || ownedNicknameColors.includes(theme.id)) {
+      setOwnedNicknameColors((prev) => Array.from(new Set<NicknameColorId>([...prev, theme.id])));
       setSelectedNicknameColorId(theme.id);
       setMessage(`닉네임 색상 "${theme.name}" 적용 완료!`);
       return;
@@ -7486,7 +7513,8 @@ export default function GamePage() {
   }
 
   function buyNicknameTagItem(tag: NicknameTagItem) {
-    if (ownedNicknameTags.includes(tag.id)) {
+    if (isDeveloperAccount || ownedNicknameTags.includes(tag.id)) {
+      setOwnedNicknameTags((prev) => Array.from(new Set<NicknameTagId>([...prev, tag.id])));
       setSelectedNicknameTagId(tag.id);
       setMessage(`이름표 "${tag.name}" 적용 완료!`);
       return;
@@ -7499,7 +7527,8 @@ export default function GamePage() {
   }
 
   function buyMainBackgroundItem(background: MainBackgroundOption) {
-    if (ownedMainBackgrounds.includes(background.id)) {
+    if (isDeveloperAccount || ownedMainBackgrounds.includes(background.id)) {
+      setOwnedMainBackgrounds((prev) => Array.from(new Set<MainBackgroundId>([...prev, background.id])));
       setSelectedMainBackgroundId(background.id);
       setMessage(`메인 배경 "${background.name}" 적용 완료!`);
       return;
@@ -7512,7 +7541,8 @@ export default function GamePage() {
   }
 
   function buyMainCharacterItem(character: MainCharacterOption) {
-    if (ownedMainCharacters.includes(character.id)) {
+    if (isDeveloperAccount || ownedMainCharacters.includes(character.id)) {
+      setOwnedMainCharacters((prev) => Array.from(new Set<MainCharacterId>([...prev, character.id])));
       setSelectedMainCharacterId(character.id);
       setMessage(`메인 캐릭터 "${character.name}" 적용 완료!`);
       return;
