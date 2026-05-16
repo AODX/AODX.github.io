@@ -3493,6 +3493,9 @@ function ResponsiveGameStyles() {
     <style>{`
       .alba-game-root, .alba-game-root * { box-sizing: border-box; }
       .alba-panel-scene, .alba-world-body, .alba-economy-card-grid, .alba-career-card-grid, .alba-luxury-section-stack { -webkit-overflow-scrolling: touch; }
+      .alba-luxury-section-stack { scrollbar-width: thin; }
+      .alba-luxury-section-stack::-webkit-scrollbar { width: 10px; }
+      .alba-luxury-section-stack::-webkit-scrollbar-thumb { background: rgba(17,24,39,0.35); border-radius: 999px; }
       @keyframes albaTextShimmer {
         0% { background-position: 0% 50%; }
         100% { background-position: 200% 50%; }
@@ -3772,6 +3775,12 @@ function ResponsiveGameStyles() {
         .alba-panel-scene {
           align-content: start !important;
           overflow: auto !important;
+        }
+
+        .alba-luxury-section-stack {
+          max-height: none !important;
+          overflow: visible !important;
+          padding-right: 0 !important;
         }
 
         .alba-luxury-grid {
@@ -4476,6 +4485,10 @@ export default function GamePage() {
   const activeNicknameTag = luxuryNicknameTags.find((tag) => tag.id === selectedNicknameTagId && (isDeveloperAccount || !tag.developerOnly)) ?? defaultNicknameTag;
   const visibleLuxuryNicknameColors = luxuryNicknameColors.filter((theme) => isDeveloperAccount || !theme.developerOnly);
   const visibleLuxuryNicknameTags = luxuryNicknameTags.filter((tag) => isDeveloperAccount || !tag.developerOnly);
+  const effectiveOwnedNicknameColors = isDeveloperAccount ? luxuryNicknameColors.map((item) => item.id) : ownedNicknameColors;
+  const effectiveOwnedNicknameTags = isDeveloperAccount ? luxuryNicknameTags.map((item) => item.id) : ownedNicknameTags;
+  const effectiveOwnedMainBackgrounds = isDeveloperAccount ? luxuryMainBackgrounds.map((item) => item.id) : ownedMainBackgrounds;
+  const effectiveOwnedMainCharacters = isDeveloperAccount ? luxuryMainCharacters.map((item) => item.id) : ownedMainCharacters;
   const activeMainBackground = luxuryMainBackgrounds.find((background) => background.id === selectedMainBackgroundId) ?? defaultMainBackground;
   const activeMainCharacter = luxuryMainCharacters.find((character) => character.id === selectedMainCharacterId) ?? defaultMainCharacter;
   const horseRaceState = getHorseRaceState(casinoNow);
@@ -9902,10 +9915,10 @@ export default function GamePage() {
 
               <div style={luxurySummaryBarStyle}>
                 <StatusPill label="현금" value={`${cash.toLocaleString()}원`} />
-                <StatusPill label="닉네임 색상" value={`${ownedNicknameColors.filter((id) => visibleLuxuryNicknameColors.some((theme) => theme.id === id)).length}/${visibleLuxuryNicknameColors.length}`} />
-                <StatusPill label="이름표" value={`${ownedNicknameTags.filter((id) => visibleLuxuryNicknameTags.some((tag) => tag.id === id)).length}/${visibleLuxuryNicknameTags.length}`} />
-                <StatusPill label="배경" value={`${ownedMainBackgrounds.length}/${luxuryMainBackgrounds.length}`} />
-                <StatusPill label="캐릭터" value={`${ownedMainCharacters.length}/${luxuryMainCharacters.length}`} />
+                <StatusPill label="닉네임 색상" value={`${effectiveOwnedNicknameColors.filter((id) => visibleLuxuryNicknameColors.some((theme) => theme.id === id)).length}/${visibleLuxuryNicknameColors.length}`} />
+                <StatusPill label="이름표" value={`${effectiveOwnedNicknameTags.filter((id) => visibleLuxuryNicknameTags.some((tag) => tag.id === id)).length}/${visibleLuxuryNicknameTags.length}`} />
+                <StatusPill label="배경" value={`${effectiveOwnedMainBackgrounds.length}/${luxuryMainBackgrounds.length}`} />
+                <StatusPill label="캐릭터" value={`${effectiveOwnedMainCharacters.length}/${luxuryMainCharacters.length}`} />
               </div>
 
               <div className="alba-luxury-section-stack" style={luxurySectionStackStyle}>
@@ -9919,7 +9932,7 @@ export default function GamePage() {
                   </div>
                   <div className="alba-luxury-grid" style={luxuryGridStyle}>
                     {visibleLuxuryNicknameColors.map((theme) => {
-                      const owned = ownedNicknameColors.includes(theme.id);
+                      const owned = effectiveOwnedNicknameColors.includes(theme.id);
                       const active = selectedNicknameColorId === theme.id;
                       return (
                         <article className="alba-luxury-card" key={theme.id} style={luxuryCardStyle}>
@@ -9948,7 +9961,7 @@ export default function GamePage() {
                   </div>
                   <div className="alba-luxury-grid" style={luxuryGridStyle}>
                     {visibleLuxuryNicknameTags.map((tag) => {
-                      const owned = ownedNicknameTags.includes(tag.id);
+                      const owned = effectiveOwnedNicknameTags.includes(tag.id);
                       const active = selectedNicknameTagId === tag.id;
                       return (
                         <article className="alba-luxury-card" key={tag.id} style={luxuryCardStyle}>
@@ -9979,7 +9992,7 @@ export default function GamePage() {
                   </div>
                   <div className="alba-luxury-grid" style={luxuryGridStyle}>
                     {luxuryMainBackgrounds.map((background) => {
-                      const owned = ownedMainBackgrounds.includes(background.id);
+                      const owned = effectiveOwnedMainBackgrounds.includes(background.id);
                       const active = selectedMainBackgroundId === background.id;
                       return (
                         <article className="alba-luxury-card" key={background.id} style={luxuryCardStyle}>
@@ -10006,7 +10019,7 @@ export default function GamePage() {
                   </div>
                   <div className="alba-luxury-grid" style={luxuryGridStyle}>
                     {luxuryMainCharacters.map((character) => {
-                      const owned = ownedMainCharacters.includes(character.id);
+                      const owned = effectiveOwnedMainCharacters.includes(character.id);
                       const active = selectedMainCharacterId === character.id;
                       return (
                         <article className="alba-luxury-card" key={character.id} style={luxuryCardStyle}>
@@ -16485,6 +16498,13 @@ const luxurySummaryBarStyle: CSSProperties = {
 const luxurySectionStackStyle: CSSProperties = {
   display: "grid",
   gap: "16px",
+  minHeight: 0,
+  maxHeight: "calc(100dvh - 260px)",
+  overflowY: "auto",
+  overflowX: "hidden",
+  paddingRight: "6px",
+  overscrollBehavior: "contain",
+  WebkitOverflowScrolling: "touch",
 };
 
 const luxurySectionStyle: CSSProperties = {
@@ -17328,95 +17348,6 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
