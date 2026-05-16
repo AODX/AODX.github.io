@@ -212,7 +212,7 @@ type RankingSaveRow = {
   cash: number | string;
 };
 
-type StockId = "kongStudio" | "zephyrLogistics" | "raelAir" | "dongshimLivestock" | "blmaSteel" | "guardianTales" | "epicGames" | "leagueLegends" | "valorantLabs" | "overwatchWorks" | "gachindong" | "babyPrincess" | "futurePrincess" | "summonerRift" | "heroWatch";
+type StockId = "kongStudio" | "zephyrLogistics" | "raelAir" | "dongshimLivestock" | "blmaSteel" | "guardianTales" | "epicGames" | "leagueLegends" | "valorantLabs" | "overwatchWorks" | "gachindong" | "babyPrincess" | "futurePrincess" | "summonerRift" | "heroWatch" | "novaSemiconductor" | "royalSpace" | "quantumBank" | "dragonEnergy" | "ancientRelicHoldings";
 
 type StockCompany = {
   id: StockId;
@@ -2456,25 +2456,36 @@ const stockCompanies: StockCompany[] = [
   { id: "futurePrincess", name: "미래공주 테크", icon: "🔮", description: "미래형 캐릭터 IP와 AI 콘텐츠를 개발하는 회사" },
   { id: "summonerRift", name: "소환사의 협곡", icon: "🗡️", description: "MOBA 리그와 스트리밍 흥행에 영향을 받는 회사" },
   { id: "heroWatch", name: "히어로 워치", icon: "⌚", description: "히어로 IP와 팀 기반 슈팅 콘텐츠 회사" },
+  { id: "novaSemiconductor", name: "노바 반도체", icon: "🧬", description: "초고가 성장주입니다. AI 반도체 수요에 민감하지만 공급 쇼크가 오면 크게 흔들립니다." },
+  { id: "royalSpace", name: "로열 스페이스", icon: "🚀", description: "우주 관광과 위성 발사 사업을 운영하는 초고가 위험주입니다. 성공하면 크게 오르지만 실패 뉴스에 취약합니다." },
+  { id: "quantumBank", name: "퀀텀 프라이빗뱅크", icon: "🏦", description: "고액 자산가를 대상으로 하는 초대형 금융주입니다. 안정적으로 보이지만 신용 위기 때 큰 손실이 날 수 있습니다." },
+  { id: "dragonEnergy", name: "드래곤 에너지", icon: "🐉", description: "차세대 에너지와 광산 개발을 하는 변동성 높은 대형주입니다. 원자재 뉴스에 크게 반응합니다." },
+  { id: "ancientRelicHoldings", name: "고대유물 홀딩스", icon: "🏺", description: "희귀 유물·박물관·경매장을 묶은 최고가 대체투자 종목입니다. 유동성이 얇아 가격이 급등락합니다." },
 ];
 
 
 const stockFundamentals: Record<StockId, { basePrice: number; totalShares: number; volatility: number; npcBias: number; sector: string }> = {
-  kongStudio: { basePrice: 125000, totalShares: 12000000, volatility: 0.08, npcBias: 0.54, sector: "게임" },
-  zephyrLogistics: { basePrice: 83000, totalShares: 30000000, volatility: 0.055, npcBias: 0.52, sector: "물류" },
-  raelAir: { basePrice: 56000, totalShares: 45000000, volatility: 0.075, npcBias: 0.49, sector: "항공" },
-  dongshimLivestock: { basePrice: 38000, totalShares: 60000000, volatility: 0.045, npcBias: 0.51, sector: "식품" },
-  blmaSteel: { basePrice: 92000, totalShares: 25000000, volatility: 0.06, npcBias: 0.5, sector: "소재" },
-  guardianTales: { basePrice: 240000, totalShares: 9000000, volatility: 0.09, npcBias: 0.56, sector: "게임" },
-  epicGames: { basePrice: 120000000, totalShares: 900000, volatility: 0.065, npcBias: 0.53, sector: "플랫폼" },
-  leagueLegends: { basePrice: 75000000, totalShares: 1500000, volatility: 0.055, npcBias: 0.55, sector: "e스포츠" },
-  valorantLabs: { basePrice: 42000000, totalShares: 1800000, volatility: 0.07, npcBias: 0.54, sector: "슈팅" },
-  overwatchWorks: { basePrice: 18000000, totalShares: 2200000, volatility: 0.08, npcBias: 0.48, sector: "슈팅" },
-  gachindong: { basePrice: 680000, totalShares: 6500000, volatility: 0.095, npcBias: 0.46, sector: "미디어" },
-  babyPrincess: { basePrice: 3100000, totalShares: 3500000, volatility: 0.07, npcBias: 0.52, sector: "IP" },
-  futurePrincess: { basePrice: 1000000000, totalShares: 120000, volatility: 0.11, npcBias: 0.57, sector: "AI" },
-  summonerRift: { basePrice: 9500000, totalShares: 2800000, volatility: 0.06, npcBias: 0.53, sector: "e스포츠" },
-  heroWatch: { basePrice: 7200000, totalShares: 3200000, volatility: 0.085, npcBias: 0.5, sector: "히어로" },
+  // 저가·중가주는 초반 유저도 접근 가능하지만, 초고가주는 인플레이션을 흡수하는 고위험 자산군입니다.
+  kongStudio: { basePrice: 85000, totalShares: 18000000, volatility: 0.09, npcBias: 0.53, sector: "게임" },
+  zephyrLogistics: { basePrice: 145000, totalShares: 22000000, volatility: 0.06, npcBias: 0.52, sector: "물류" },
+  raelAir: { basePrice: 62000, totalShares: 52000000, volatility: 0.085, npcBias: 0.49, sector: "항공" },
+  dongshimLivestock: { basePrice: 28000, totalShares: 80000000, volatility: 0.055, npcBias: 0.51, sector: "식품" },
+  blmaSteel: { basePrice: 210000, totalShares: 16000000, volatility: 0.07, npcBias: 0.5, sector: "소재" },
+  guardianTales: { basePrice: 480000, totalShares: 7000000, volatility: 0.11, npcBias: 0.55, sector: "게임" },
+  gachindong: { basePrice: 1250000, totalShares: 5200000, volatility: 0.13, npcBias: 0.46, sector: "미디어" },
+  babyPrincess: { basePrice: 4200000, totalShares: 3200000, volatility: 0.085, npcBias: 0.52, sector: "IP" },
+  heroWatch: { basePrice: 8800000, totalShares: 2800000, volatility: 0.105, npcBias: 0.5, sector: "히어로" },
+  summonerRift: { basePrice: 15000000, totalShares: 2100000, volatility: 0.075, npcBias: 0.53, sector: "e스포츠" },
+  overwatchWorks: { basePrice: 24000000, totalShares: 1900000, volatility: 0.105, npcBias: 0.48, sector: "슈팅" },
+  valorantLabs: { basePrice: 68000000, totalShares: 1400000, volatility: 0.095, npcBias: 0.54, sector: "슈팅" },
+  leagueLegends: { basePrice: 180000000, totalShares: 850000, volatility: 0.07, npcBias: 0.55, sector: "e스포츠" },
+  epicGames: { basePrice: 420000000, totalShares: 420000, volatility: 0.085, npcBias: 0.53, sector: "플랫폼" },
+  futurePrincess: { basePrice: 1350000000, totalShares: 180000, volatility: 0.14, npcBias: 0.56, sector: "AI" },
+  novaSemiconductor: { basePrice: 2800000000, totalShares: 110000, volatility: 0.16, npcBias: 0.54, sector: "반도체" },
+  quantumBank: { basePrice: 5200000000, totalShares: 90000, volatility: 0.13, npcBias: 0.51, sector: "금융" },
+  dragonEnergy: { basePrice: 8800000000, totalShares: 65000, volatility: 0.19, npcBias: 0.49, sector: "에너지" },
+  royalSpace: { basePrice: 12500000000, totalShares: 48000, volatility: 0.22, npcBias: 0.5, sector: "우주" },
+  ancientRelicHoldings: { basePrice: 25000000000, totalShares: 24000, volatility: 0.26, npcBias: 0.47, sector: "대체투자" },
 };
 
 const certifications: Certification[] = [
@@ -3204,6 +3215,15 @@ const newsPool: NewsEvent[] = [
   { id: 18, title: "분기 배당 공시", effect: "주주 친화 정책으로 현금 배당이 확정되어 투자자들의 관심이 몰립니다.", tone: "good", sector: "배당", targetStocks: ["leagueLegends", "epicGames", "zephyrLogistics", "babyPrincess"], impactPercent: 4.2, corporateAction: "dividend", dividendPerShare: 25000 },
   { id: 19, title: "회계 부정 의혹", effect: "분식회계 의혹으로 거래 정지와 상장폐지 가능성이 제기됩니다.", tone: "bad", sector: "리스크", targetStocks: ["futurePrincess", "gachindong", "overwatchWorks", "heroWatch"], impactPercent: -45, corporateAction: "accountingFraud", lockMinutes: 30 },
   { id: 20, title: "재상장 심사 통과", effect: "정지됐던 일부 종목이 재상장 심사를 통과해 제한적으로 거래가 재개됩니다.", tone: "good", sector: "재상장", targetStocks: ["gachindong", "overwatchWorks", "heroWatch"], impactPercent: 22, corporateAction: "relisting" },
+  { id: 21, title: "AI 반도체 수주 대박", effect: "대형 AI 데이터센터 발주가 몰리며 반도체와 AI 대형주에 강한 매수세가 유입됩니다.", tone: "good", sector: "반도체", targetStocks: ["novaSemiconductor", "futurePrincess", "epicGames"], impactPercent: 12.5 },
+  { id: 22, title: "우주 발사체 이상 신호", effect: "우주 관광 시험 발사에서 이상 신호가 포착되어 초고가 우주 관련주가 급락 위험에 노출됩니다.", tone: "bad", sector: "우주", targetStocks: ["royalSpace", "novaSemiconductor"], impactPercent: -24 },
+  { id: 23, title: "초고가주 유동성 경고", effect: "거래량이 얇은 초고가 종목에서 대량 매도 주문이 쌓이며 가격 급락 가능성이 커졌습니다.", tone: "bad", sector: "유동성", targetStocks: ["ancientRelicHoldings", "royalSpace", "dragonEnergy"], impactPercent: -32 },
+  { id: 24, title: "원자재 슈퍼사이클 기대", effect: "에너지와 광산 개발주가 원자재 가격 상승 기대감으로 강한 변동성을 보입니다.", tone: "good", sector: "에너지", targetStocks: ["dragonEnergy", "blmaSteel"], impactPercent: 14 },
+  { id: 25, title: "프라이빗뱅크 신용 경색", effect: "고액 자산가 대출 부실 우려가 커지며 초대형 금융주가 흔들립니다.", tone: "bad", sector: "금융", targetStocks: ["quantumBank", "epicGames"], impactPercent: -18 },
+  { id: 26, title: "희귀 유물 진품 논란", effect: "대체투자 시장의 핵심 유물 진위 논란으로 고대유물 홀딩스가 거래정지 위기에 몰렸습니다.", tone: "bad", sector: "대체투자", targetStocks: ["ancientRelicHoldings"], impactPercent: -55, corporateAction: "accountingFraud", lockMinutes: 45 },
+  { id: 27, title: "초고가주 무상감자 공시", effect: "고평가 논란이 있던 일부 초고가주가 재무구조 개선을 위해 무상감자를 공시했습니다.", tone: "bad", sector: "기업공시", targetStocks: ["royalSpace", "dragonEnergy", "quantumBank"], impactPercent: -26, corporateAction: "capitalReduction" },
+  { id: 28, title: "대체투자 펀드 배당 발표", effect: "대체투자와 초대형 금융 종목이 고액 배당을 발표해 단기 매수세가 유입됩니다.", tone: "good", sector: "배당", targetStocks: ["ancientRelicHoldings", "quantumBank"], impactPercent: 8.5, corporateAction: "dividend", dividendPerShare: 9500000 },
+  { id: 29, title: "초고가주 재상장 심사 통과", effect: "거래 정지됐던 대체투자·우주 관련 종목 일부가 재심사를 통과해 제한적으로 거래가 재개됩니다.", tone: "good", sector: "재상장", targetStocks: ["ancientRelicHoldings", "royalSpace", "dragonEnergy"], impactPercent: 28, corporateAction: "relisting" },
 ];
 
 const cashierKeyPool = ["W", "A", "S", "D"];
@@ -8853,6 +8873,7 @@ export default function GamePage() {
                   const performance = getStockHoldingPerformance(stock);
                   const profitIsUp = performance.profit >= 0;
                   const locked = isStockTradeLocked(stock);
+                  const riskNote = getHighValueStockRiskNote(stock.id);
                   const previewAmount = Math.max(1, Math.floor(Number(stockTradeAmount.replace(/,/g, "")) || 1));
                   const feePreview = getStockTradeFee(Math.max(0, stock.price * previewAmount));
 
@@ -8873,6 +8894,7 @@ export default function GamePage() {
                       <div className="alba-stock-bottom-row" style={stockBottomRowStyle}>
                         <div style={stockInfoStackStyle}>
                           <div style={stockPriceStyle}>{locked ? "거래정지" : `${stock.price.toLocaleString()}원`}</div>
+                          <div style={stockOwnedStyle}>투자 위험: {riskNote}</div>
                           <div style={stockOwnedStyle}>발행주식 {(stock.totalShares ?? 0).toLocaleString()}주 · 보유 {stock.owned}주 · 평가 {(stock.owned * getTradableStockPrice(stock)).toLocaleString()}원</div>
                           <div style={stockOwnedStyle}>매수량 {(stock.buyVolume ?? 0).toLocaleString()}주 · 매도량 {(stock.sellVolume ?? 0).toLocaleString()}주 · NPC {(stock.npcBuyVolume ?? 0).toLocaleString()}/{(stock.npcSellVolume ?? 0).toLocaleString()}주</div>
                           {stock.lastCorporateAction && stock.lastCorporateAction !== "none" && <div style={stockOwnedStyle}>최근 이벤트: {getStockCorporateActionLabel(stock.lastCorporateAction)} · {stock.eventSummary}</div>}
@@ -8884,7 +8906,7 @@ export default function GamePage() {
                         </div>
                         <div style={stockBuffInlineStyle}>
                           <strong>수수료/세금</strong>
-                          <span>거래 수수료 {(STOCK_TRADE_FEE_RATE * 100).toFixed(2)}% · 예상 수수료 {feePreview.toLocaleString()}원 · 수익 매도 시 소득세 3~32%</span>
+                          <span>거래 수수료 {(STOCK_TRADE_FEE_RATE * 100).toFixed(2)}% · 예상 수수료 {feePreview.toLocaleString()}원 · 수익 매도 시 소득세 3~45%</span>
                         </div>
                         <div className="alba-stock-trade-panel" style={stockTradePanelStyle}>
                           <label style={stockAmountFieldStyle}>
@@ -12608,7 +12630,9 @@ function getRealizedStockTaxRate(profit: number) {
   if (profit <= 1000000) return 0.08;
   if (profit <= 10000000) return 0.15;
   if (profit <= 100000000) return 0.22;
-  return 0.32;
+  if (profit <= 1000000000) return 0.32;
+  if (profit <= 10000000000) return 0.4;
+  return 0.45;
 }
 
 function getStockTradeFee(value: number) {
@@ -12618,6 +12642,24 @@ function getStockTradeFee(value: number) {
 
 function getStockFundamental(stockId: StockId) {
   return stockFundamentals[stockId];
+}
+
+function getInflationRiskMultiplier(stockId: StockId) {
+  const price = getStockFundamental(stockId).basePrice;
+  if (price >= 10000000000) return 2.6;
+  if (price >= 5000000000) return 2.1;
+  if (price >= 1000000000) return 1.7;
+  if (price >= 100000000) return 1.35;
+  return 1;
+}
+
+function getHighValueStockRiskNote(stockId: StockId) {
+  const multiplier = getInflationRiskMultiplier(stockId);
+  if (multiplier >= 2.5) return "초고가·초고위험: 신문 악재와 매도세에 매우 크게 흔들립니다.";
+  if (multiplier >= 2) return "초고가·고위험: 투자 예측 실패 시 손실 폭이 큽니다.";
+  if (multiplier >= 1.7) return "고가 성장주: 수익도 크지만 급락 리스크가 있습니다.";
+  if (multiplier >= 1.35) return "중대형주: 일반 종목보다 변동 폭이 큽니다.";
+  return "일반 종목: 비교적 접근하기 쉬운 가격대입니다.";
 }
 
 function isStockTradeLocked(row: StockRow, now = new Date()) {
@@ -12727,12 +12769,20 @@ function advanceStockMarketRows(rows: StockRow[], events: NewsEvent[], now = new
     const npcBuyVolume = computeNpcStockVolume(row.id, slot, "buy");
     const npcSellVolume = computeNpcStockVolume(row.id, slot, "sell");
     const volumeDiff = userBuyVolume + npcBuyVolume - userSellVolume - npcSellVolume;
-    const demandImpact = Math.max(-0.18, Math.min(0.18, volumeDiff * STOCK_SUPPLY_PRESSURE_SCALE));
-    const newsImpact = event ? Math.max(-0.75, Math.min(0.6, event.impactPercent / 100)) : 0;
+    const riskMultiplier = getInflationRiskMultiplier(row.id);
+    const demandImpact = Math.max(-0.34, Math.min(0.3, volumeDiff * STOCK_SUPPLY_PRESSURE_SCALE * riskMultiplier));
+    const rawNewsImpact = event ? event.impactPercent / 100 : 0;
+    const newsImpact = rawNewsImpact < 0
+      ? Math.max(-0.9, rawNewsImpact * riskMultiplier)
+      : Math.min(0.65, rawNewsImpact * (0.85 + riskMultiplier * 0.15));
     const randomHash = getStableHash(`${slot}-${row.id}-market-wave`);
-    const randomImpact = (((randomHash % 2001) - 1000) / 1000) * fundamental.volatility;
-    const supplyPenalty = ((withAction.floatingShares ?? fundamental.totalShares) / fundamental.totalShares - 1) * -0.03;
-    const totalImpact = Math.max(-0.85, Math.min(0.75, newsImpact + demandImpact + randomImpact + supplyPenalty));
+    const randomImpact = (((randomHash % 2001) - 1000) / 1000) * fundamental.volatility * riskMultiplier;
+    const shockHash = getStableHash(`${slot}-${row.id}-liquidity-shock`);
+    const liquidityShock = riskMultiplier >= 1.7 && shockHash % 100 < Math.min(18, Math.round(riskMultiplier * 5))
+      ? -0.08 * riskMultiplier
+      : 0;
+    const supplyPenalty = ((withAction.floatingShares ?? fundamental.totalShares) / fundamental.totalShares - 1) * -0.03 * riskMultiplier;
+    const totalImpact = Math.max(-0.92, Math.min(0.85, newsImpact + demandImpact + randomImpact + liquidityShock + supplyPenalty));
     const basePrice = Math.max(100, withAction.price || fundamental.basePrice);
     const nextPrice = Math.max(100, Math.round(basePrice * (1 + totalImpact)));
     return {
@@ -17001,6 +17051,11 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
+
+
 
 
 
