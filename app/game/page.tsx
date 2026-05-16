@@ -384,6 +384,9 @@ type LottoTicket = {
   createdDate: string;
 };
 
+type StockStatus = "active" | "delisted" | "suspended";
+type CorporateActionType = "none" | "paidOffering" | "capitalReduction" | "dividend" | "accountingFraud" | "relisting";
+
 type StockRow = {
   id: StockId;
   name: string;
@@ -394,6 +397,17 @@ type StockRow = {
   owned: number;
   averageBuyPrice?: number;
   history: number[];
+  totalShares?: number;
+  floatingShares?: number;
+  buyVolume?: number;
+  sellVolume?: number;
+  npcBuyVolume?: number;
+  npcSellVolume?: number;
+  status?: StockStatus;
+  delistedUntil?: string | null;
+  lastCorporateAction?: CorporateActionType;
+  dividendPerShare?: number;
+  eventSummary?: string;
 };
 
 type StockSaveRow = {
@@ -465,6 +479,9 @@ type NewsEvent = {
   sector: string;
   sourceCompanyId?: NewsCompanyId;
   isFake?: boolean;
+  corporateAction?: CorporateActionType;
+  dividendPerShare?: number;
+  lockMinutes?: number;
 };
 
 type InsuranceGrade = "일반" | "희소" | "진귀" | "보물";
@@ -507,6 +524,10 @@ const PROFILE_TABLE = "game_profiles";
 const CHAT_TABLE = "game_global_chat";
 const STOCK_TABLE = "game_stock_saves";
 const GLOBAL_STOCK_TABLE = "game_global_stock_market";
+const STOCK_TRADE_FEE_RATE = 0.0035;
+const STOCK_MIN_TRADE_FEE = 100;
+const STOCK_NPC_VOLUME_SCALE = 850;
+const STOCK_SUPPLY_PRESSURE_SCALE = 0.000000018;
 const ECONOMY_TABLE = "game_economy_saves";
 const CAREER_RESET_VERSION = "rpg-npc-career-reset-v2";
 const STOCK_INTERVAL_MS = 3 * 60 * 1000;
@@ -2412,6 +2433,25 @@ const stockCompanies: StockCompany[] = [
   { id: "heroWatch", name: "히어로 워치", icon: "⌚", description: "히어로 IP와 팀 기반 슈팅 콘텐츠 회사" },
 ];
 
+
+const stockFundamentals: Record<StockId, { basePrice: number; totalShares: number; volatility: number; npcBias: number; sector: string }> = {
+  kongStudio: { basePrice: 125000, totalShares: 12000000, volatility: 0.08, npcBias: 0.54, sector: "게임" },
+  zephyrLogistics: { basePrice: 83000, totalShares: 30000000, volatility: 0.055, npcBias: 0.52, sector: "물류" },
+  raelAir: { basePrice: 56000, totalShares: 45000000, volatility: 0.075, npcBias: 0.49, sector: "항공" },
+  dongshimLivestock: { basePrice: 38000, totalShares: 60000000, volatility: 0.045, npcBias: 0.51, sector: "식품" },
+  blmaSteel: { basePrice: 92000, totalShares: 25000000, volatility: 0.06, npcBias: 0.5, sector: "소재" },
+  guardianTales: { basePrice: 240000, totalShares: 9000000, volatility: 0.09, npcBias: 0.56, sector: "게임" },
+  epicGames: { basePrice: 120000000, totalShares: 900000, volatility: 0.065, npcBias: 0.53, sector: "플랫폼" },
+  leagueLegends: { basePrice: 75000000, totalShares: 1500000, volatility: 0.055, npcBias: 0.55, sector: "e스포츠" },
+  valorantLabs: { basePrice: 42000000, totalShares: 1800000, volatility: 0.07, npcBias: 0.54, sector: "슈팅" },
+  overwatchWorks: { basePrice: 18000000, totalShares: 2200000, volatility: 0.08, npcBias: 0.48, sector: "슈팅" },
+  gachindong: { basePrice: 680000, totalShares: 6500000, volatility: 0.095, npcBias: 0.46, sector: "미디어" },
+  babyPrincess: { basePrice: 3100000, totalShares: 3500000, volatility: 0.07, npcBias: 0.52, sector: "IP" },
+  futurePrincess: { basePrice: 1000000000, totalShares: 120000, volatility: 0.11, npcBias: 0.57, sector: "AI" },
+  summonerRift: { basePrice: 9500000, totalShares: 2800000, volatility: 0.06, npcBias: 0.53, sector: "e스포츠" },
+  heroWatch: { basePrice: 7200000, totalShares: 3200000, volatility: 0.085, npcBias: 0.5, sector: "히어로" },
+};
+
 const certifications: Certification[] = [
   { id: "office", name: "컴퓨터활용 자격증", icon: "💻", price: 120000, description: "회사 업무 승급과 사무직 수익에 도움이 됩니다.", effectText: "직업 수익 +3%" },
   { id: "barista", name: "바리스타 자격증", icon: "☕", price: 90000, description: "카페 계열 창업과 수익에 도움이 됩니다.", effectText: "사업 수익 +3%" },
@@ -3118,6 +3158,11 @@ const newsPool: NewsEvent[] = [
   { id: 13, title: "게임 규제 강화 우려", effect: "게임·e스포츠 전반에 규제 리스크가 반영됩니다.", tone: "bad", sector: "규제", targetStocks: ["guardianTales", "leagueLegends", "overwatchWorks", "kongStudio", "epicGames"], impactPercent: -4.8 },
   { id: 14, title: "콘텐츠 소비 심리 개선", effect: "게임, 캐릭터, 미디어 종목 전반에 약한 호재가 반영됩니다.", tone: "good", sector: "소비", targetStocks: ["kongStudio", "babyPrincess", "gachindong", "heroWatch"], impactPercent: 3.3 },
   { id: 15, title: "경기 둔화 우려", effect: "위험자산 회피 심리로 대부분의 성장주가 약세를 보입니다.", tone: "bad", sector: "거시경제", targetStocks: ["epicGames", "guardianTales", "futurePrincess", "leagueLegends", "valorantLabs"], impactPercent: -3.1 },
+  { id: 16, title: "유상증자 결정", effect: "회사 운영 자금을 확보하지만 단기적으로 주식 수 증가 부담이 반영됩니다.", tone: "bad", sector: "기업공시", targetStocks: ["gachindong", "overwatchWorks", "raelAir", "kongStudio"], impactPercent: -9.5, corporateAction: "paidOffering" },
+  { id: 17, title: "무상감자 발표", effect: "재무구조 개선 명목의 감자가 발표되어 보유 주식 수가 줄어들고 변동성이 커집니다.", tone: "bad", sector: "기업공시", targetStocks: ["dongshimLivestock", "blmaSteel", "gachindong"], impactPercent: -18, corporateAction: "capitalReduction" },
+  { id: 18, title: "분기 배당 공시", effect: "주주 친화 정책으로 현금 배당이 확정되어 투자자들의 관심이 몰립니다.", tone: "good", sector: "배당", targetStocks: ["leagueLegends", "epicGames", "zephyrLogistics", "babyPrincess"], impactPercent: 4.2, corporateAction: "dividend", dividendPerShare: 25000 },
+  { id: 19, title: "회계 부정 의혹", effect: "분식회계 의혹으로 거래 정지와 상장폐지 가능성이 제기됩니다.", tone: "bad", sector: "리스크", targetStocks: ["futurePrincess", "gachindong", "overwatchWorks", "heroWatch"], impactPercent: -45, corporateAction: "accountingFraud", lockMinutes: 30 },
+  { id: 20, title: "재상장 심사 통과", effect: "정지됐던 일부 종목이 재상장 심사를 통과해 제한적으로 거래가 재개됩니다.", tone: "good", sector: "재상장", targetStocks: ["gachindong", "overwatchWorks", "heroWatch"], impactPercent: 22, corporateAction: "relisting" },
 ];
 
 const cashierKeyPool = ["W", "A", "S", "D"];
@@ -4249,7 +4294,7 @@ export default function GamePage() {
   const taxShieldBonus = getEquippedItemBonusTotal(equippedShopItems, "taxShield");
   const employeeEfficiencyBonus = getEquippedItemBonusTotal(equippedShopItems, "employeeEfficiency");
   const jobIncomeMultiplier = 1 + jobItemBonus + insuranceJobBonus;
-  const stockAssetValue = useMemo(() => stockRows.reduce((sum, stock) => sum + stock.price * stock.owned, 0), [stockRows]);
+  const stockAssetValue = useMemo(() => stockRows.reduce((sum, stock) => sum + getTradableStockPrice(stock) * stock.owned, 0), [stockRows]);
   const estateAssetValue = useMemo(() => ownedEstates.reduce((sum, id) => sum + (estateItems.find((item) => item.id === id)?.price ?? 0), 0), [ownedEstates]);
   const businessAssetValue = useMemo(() => ownedBusinesses.reduce((sum, id) => sum + (businessItems.find((item) => item.id === id)?.price ?? 0), 0), [ownedBusinesses]);
   const estateIncomeEvery5Min = useMemo(
@@ -7898,11 +7943,16 @@ export default function GamePage() {
       const globalMarket = await fetchGlobalStockMarket();
       if (!globalMarket) return;
 
-      setNewsEvents(globalMarket.newsEvents);
-      setEconomyUpdatedAt(globalMarket.newsUpdatedAt);
-      setStockUpdatedAt(globalMarket.updatedAt);
-      setStockCountdownMs(getStockRemainingMs(globalMarket.updatedAt));
-      setStockRows((current) => mergeGlobalPricesWithOwned(globalMarket.rows, current));
+      const shouldAdvance = getStockRemainingMs(globalMarket.updatedAt) <= 0;
+      const nextUpdatedAt = shouldAdvance ? new Date() : globalMarket.updatedAt;
+      const nextEvents = shouldAdvance ? makeNewsEvents() : globalMarket.newsEvents;
+      const nextGlobalRows = shouldAdvance ? advanceStockMarketRows(globalMarket.rows, nextEvents, nextUpdatedAt) : globalMarket.rows;
+      if (shouldAdvance) void publishGlobalStockMarket(nextGlobalRows, nextEvents, nextUpdatedAt);
+      setNewsEvents(nextEvents);
+      setEconomyUpdatedAt(shouldAdvance ? nextUpdatedAt : globalMarket.newsUpdatedAt);
+      setStockUpdatedAt(nextUpdatedAt);
+      setStockCountdownMs(getStockRemainingMs(nextUpdatedAt));
+      setStockRows((current) => mergeGlobalPricesWithOwned(nextGlobalRows, current));
     } finally {
       globalStockSyncingRef.current = false;
     }
@@ -7931,7 +7981,34 @@ export default function GamePage() {
     }
   }
 
-  function readNewspaperArticle(companyId: NewsCompanyId) {
+  async function publishGlobalStockMarket(rows: StockRow[], events: NewsEvent[] = newsEvents, updatedAt: Date = new Date()) {
+    try {
+      const supabase = createClient();
+      await supabase.from(GLOBAL_STOCK_TABLE).upsert(
+        {
+          market_id: "main",
+          rows,
+          news_events: events,
+          updated_at: updatedAt.toISOString(),
+          news_updated_at: new Date().toISOString(),
+        },
+        { onConflict: "market_id" }
+      );
+    } catch (error) {
+      console.warn("전역 주식 시장 저장 실패:", error);
+    }
+  }
+
+  async function recordStockTradePressure(stockId: StockId, side: "buy" | "sell", amount: number) {
+    const currentRows = stockRows.map((row) => row.id === stockId ? {
+      ...row,
+      buyVolume: side === "buy" ? Math.max(0, Math.floor(Number(row.buyVolume) || 0)) + amount : row.buyVolume,
+      sellVolume: side === "sell" ? Math.max(0, Math.floor(Number(row.sellVolume) || 0)) + amount : row.sellVolume,
+    } : row);
+    await publishGlobalStockMarket(currentRows, newsEvents, stockUpdatedAt);
+  }
+
+  async function readNewspaperArticle(companyId: NewsCompanyId) {
     if (!canBuyNewspaper) {
       setMessage(`📰 다음 신문 기사는 ${formatTime(Math.ceil(newspaperRemainingMs / 1000))} 후에 살 수 있습니다.`);
       return;
@@ -7939,19 +8016,20 @@ export default function GamePage() {
 
     const articles = makeSharedNewspaperArticles(companyId);
     const primaryArticle = articles[0];
+    const now = new Date();
+    const updatedRows = advanceStockMarketRows(stockRows, articles, now);
 
-    setLastNewsArticleAt(new Date());
+    setLastNewsArticleAt(now);
     setNewspaperEvent(primaryArticle);
     setNewsEvents(articles);
-    setStockRows((rows) => rows.map((row) => {
-      const relatedArticles = articles.filter((article) => article.targetStocks.includes(row.id));
-      if (relatedArticles.length === 0) return row;
-      const totalImpact = relatedArticles.reduce((sum, article) => sum + article.impactPercent, 0);
-      const nextPrice = Math.max(100, Math.floor(row.price * (1 + totalImpact / 100)));
-      return { ...row, previousPrice: row.price, price: nextPrice, history: [...row.history.slice(-23), nextPrice] };
-    }));
+    setEconomyUpdatedAt(now);
+    setStockRows(updatedRows);
+    setStockUpdatedAt(now);
+    setStockCountdownMs(getStockRemainingMs(now));
+    await publishGlobalStockMarket(updatedRows.map((row) => ({ ...row, owned: 0, averageBuyPrice: 0 })), articles, now);
     const fakeCount = articles.filter((article) => article.isFake).length;
-    setMessage(fakeCount > 0 ? `📰 ${getNewsCompanyName(primaryArticle.sourceCompanyId)} 기사 ${articles.length}개를 확인했습니다. 이 중 ${fakeCount}개는 가짜 정보였습니다.` : `📰 ${getNewsCompanyName(primaryArticle.sourceCompanyId)} 신문 기사 ${articles.length}개를 확인했습니다. 같은 회차의 모든 유저에게도 같은 기사로 보입니다.`);
+    const actionText = articles.some((article) => article.corporateAction && article.corporateAction !== "none") ? " 기업 이벤트가 전역 시세에 즉시 반영되었습니다." : " 전역 시세에 즉시 반영되었습니다.";
+    setMessage(fakeCount > 0 ? `📰 ${getNewsCompanyName(primaryArticle.sourceCompanyId)} 기사 ${articles.length}개를 확인했습니다. 이 중 ${fakeCount}개는 가짜 정보였습니다.${actionText}` : `📰 ${getNewsCompanyName(primaryArticle.sourceCompanyId)} 신문 기사 ${articles.length}개를 확인했습니다.${actionText}`);
   }
 
   function getRequestedStockAmount() {
@@ -7980,12 +8058,18 @@ export default function GamePage() {
   function buyStock(stockId: StockId, amount = 1) {
     const stock = stockRows.find((row) => row.id === stockId);
     if (!stock) return;
+    if (isStockTradeLocked(stock)) {
+      setMessage(`${stock.name}은(는) 현재 ${stock.status === "delisted" ? "상장폐지/거래정지" : "거래정지"} 상태라 거래할 수 없습니다.`);
+      return;
+    }
 
     const buyAmount = Math.max(1, Math.floor(amount));
-    const totalPrice = stock.price * buyAmount;
+    const baseTotalPrice = stock.price * buyAmount;
+    const fee = getStockTradeFee(baseTotalPrice);
+    const totalCost = baseTotalPrice + fee;
 
-    if (cash < totalPrice) {
-      setMessage("현금이 부족해서 주식을 살 수 없습니다.");
+    if (cash < totalCost) {
+      setMessage(`현금이 부족합니다. 매수금 ${baseTotalPrice.toLocaleString()}원 + 수수료 ${fee.toLocaleString()}원이 필요합니다.`);
       return;
     }
 
@@ -7995,27 +8079,29 @@ export default function GamePage() {
       const previousAverage = Math.max(0, Number(row.averageBuyPrice) || 0);
       const nextOwned = previousOwned + buyAmount;
       const nextAverage = nextOwned > 0
-        ? Math.round(((previousAverage * previousOwned) + totalPrice) / nextOwned)
+        ? Math.round(((previousAverage * previousOwned) + totalCost) / nextOwned)
         : 0;
 
       return {
         ...row,
         owned: nextOwned,
         averageBuyPrice: nextAverage,
+        buyVolume: Math.max(0, Math.floor(Number(row.buyVolume) || 0)) + buyAmount,
       };
     });
 
-    setCash((money) => money - totalPrice);
+    setCash((money) => money - totalCost);
     setStockRows(nextRows);
+    void recordStockTradePressure(stockId, "buy", buyAmount);
     persistStocksNow(nextRows);
-    setMessage(`${stock.name} ${buyAmount.toLocaleString()}주를 총 ${totalPrice.toLocaleString()}원에 매수했습니다.`);
+    setMessage(`${stock.name} ${buyAmount.toLocaleString()}주를 매수했습니다. 매수금 ${baseTotalPrice.toLocaleString()}원 + 수수료 ${fee.toLocaleString()}원`);
   }
 
   function buyMaxStock(stockId: StockId) {
     const stock = stockRows.find((row) => row.id === stockId);
     if (!stock) return;
 
-    const amount = Math.floor(cash / stock.price);
+    const amount = Math.floor(cash / (stock.price * (1 + STOCK_TRADE_FEE_RATE)));
     if (amount <= 0) {
       setMessage("현금이 부족해서 주식을 살 수 없습니다.");
       return;
@@ -8027,10 +8113,19 @@ export default function GamePage() {
   function sellStock(stockId: StockId, amount = 1) {
     const stock = stockRows.find((row) => row.id === stockId);
     if (!stock || stock.owned <= 0) return;
+    if (isStockTradeLocked(stock)) {
+      setMessage(`${stock.name}은(는) 현재 ${stock.status === "delisted" ? "상장폐지/거래정지" : "거래정지"} 상태라 매도할 수 없습니다. 재상장 또는 거래 재개까지 자금이 묶입니다.`);
+      return;
+    }
 
     const sellAmount = Math.min(stock.owned, Math.max(1, Math.floor(amount)));
     const baseTotalPrice = stock.price * sellAmount;
-    const totalPrice = baseTotalPrice;
+    const fee = getStockTradeFee(baseTotalPrice);
+    const averageBuyPrice = Math.max(0, Number(stock.averageBuyPrice) || 0);
+    const realizedProfit = Math.max(0, (stock.price - averageBuyPrice) * sellAmount);
+    const incomeTaxRate = getRealizedStockTaxRate(realizedProfit);
+    const incomeTax = Math.ceil(realizedProfit * incomeTaxRate);
+    const totalPrice = Math.max(0, baseTotalPrice - fee - incomeTax);
 
     const nextRows = stockRows.map((row) => {
       if (row.id !== stockId) return row;
@@ -8039,13 +8134,15 @@ export default function GamePage() {
         ...row,
         owned: nextOwned,
         averageBuyPrice: nextOwned > 0 ? row.averageBuyPrice : 0,
+        sellVolume: Math.max(0, Math.floor(Number(row.sellVolume) || 0)) + sellAmount,
       };
     });
 
     setCash((money) => money + totalPrice);
     setStockRows(nextRows);
+    void recordStockTradePressure(stockId, "sell", sellAmount);
     persistStocksNow(nextRows);
-    setMessage(`${stock.name} ${sellAmount.toLocaleString()}주를 총 ${totalPrice.toLocaleString()}원에 매도했습니다.`);
+    setMessage(`${stock.name} ${sellAmount.toLocaleString()}주 매도: 매도금 ${baseTotalPrice.toLocaleString()}원 - 수수료 ${fee.toLocaleString()}원 - 소득세 ${incomeTax.toLocaleString()}원 = ${totalPrice.toLocaleString()}원`);
   }
 
   function sellAllStock(stockId: StockId) {
@@ -8584,6 +8681,9 @@ export default function GamePage() {
                   const isUp = diff >= 0;
                   const performance = getStockHoldingPerformance(stock);
                   const profitIsUp = performance.profit >= 0;
+                  const locked = isStockTradeLocked(stock);
+                  const previewAmount = Math.max(1, Math.floor(Number(stockTradeAmount.replace(/,/g, "")) || 1));
+                  const feePreview = getStockTradeFee(Math.max(0, stock.price * previewAmount));
 
                   return (
                     <div key={stock.id} style={stockCardStyle}>
@@ -8601,8 +8701,10 @@ export default function GamePage() {
 
                       <div className="alba-stock-bottom-row" style={stockBottomRowStyle}>
                         <div style={stockInfoStackStyle}>
-                          <div style={stockPriceStyle}>{stock.price.toLocaleString()}원</div>
-                          <div style={stockOwnedStyle}>보유 {stock.owned}주 · 평가 {(stock.owned * stock.price).toLocaleString()}원</div>
+                          <div style={stockPriceStyle}>{locked ? "거래정지" : `${stock.price.toLocaleString()}원`}</div>
+                          <div style={stockOwnedStyle}>발행주식 {(stock.totalShares ?? 0).toLocaleString()}주 · 보유 {stock.owned}주 · 평가 {(stock.owned * getTradableStockPrice(stock)).toLocaleString()}원</div>
+                          <div style={stockOwnedStyle}>매수량 {(stock.buyVolume ?? 0).toLocaleString()}주 · 매도량 {(stock.sellVolume ?? 0).toLocaleString()}주 · NPC {(stock.npcBuyVolume ?? 0).toLocaleString()}/{(stock.npcSellVolume ?? 0).toLocaleString()}주</div>
+                          {stock.lastCorporateAction && stock.lastCorporateAction !== "none" && <div style={stockOwnedStyle}>최근 이벤트: {getStockCorporateActionLabel(stock.lastCorporateAction)} · {stock.eventSummary}</div>}
                           {stock.owned > 0 && (
                             <div style={{ ...stockOwnedStyle, color: profitIsUp ? "#dc2626" : "#2563eb" }}>
                               평균 매수가 {performance.averageBuyPrice.toLocaleString()}원 · 손익 {performance.profit >= 0 ? "+" : ""}{performance.profit.toLocaleString()}원 ({performance.profitRate >= 0 ? "+" : ""}{performance.profitRate.toFixed(2)}%)
@@ -8610,8 +8712,8 @@ export default function GamePage() {
                           )}
                         </div>
                         <div style={stockBuffInlineStyle}>
-                          <strong>버프 효과</strong>
-                          <span>주식 매도 보너스 없음 · 전역 시세 기준으로 모든 유저가 같은 가격을 사용합니다.</span>
+                          <strong>수수료/세금</strong>
+                          <span>거래 수수료 {(STOCK_TRADE_FEE_RATE * 100).toFixed(2)}% · 예상 수수료 {feePreview.toLocaleString()}원 · 수익 매도 시 소득세 3~32%</span>
                         </div>
                         <div className="alba-stock-trade-panel" style={stockTradePanelStyle}>
                           <label style={stockAmountFieldStyle}>
@@ -8625,10 +8727,10 @@ export default function GamePage() {
                             />
                           </label>
                           <div className="alba-stock-action-group" style={stockActionGroupStyle}>
-                            <button onClick={() => buyRequestedStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, background: "#fef3c7", opacity: cash < stock.price ? 0.45 : 1 }}>수량 매수</button>
-                            <button onClick={() => sellRequestedStock(stock.id)} disabled={stock.owned <= 0} style={{ ...stockTradeButtonStyle, background: "#e0f2fe", opacity: stock.owned <= 0 ? 0.45 : 1 }}>수량 매도</button>
-                            <button onClick={() => buyMaxStock(stock.id)} disabled={cash < stock.price} style={{ ...stockTradeButtonStyle, background: "#fde68a", opacity: cash < stock.price ? 0.45 : 1 }}>전액 매수</button>
-                            <button onClick={() => sellAllStock(stock.id)} disabled={stock.owned <= 0} style={{ ...stockTradeButtonStyle, background: "#dbeafe", opacity: stock.owned <= 0 ? 0.45 : 1 }}>전량 매도</button>
+                            <button onClick={() => buyRequestedStock(stock.id)} disabled={locked || cash < stock.price} style={{ ...stockTradeButtonStyle, background: "#fef3c7", opacity: locked || cash < stock.price ? 0.45 : 1 }}>수량 매수</button>
+                            <button onClick={() => sellRequestedStock(stock.id)} disabled={locked || stock.owned <= 0} style={{ ...stockTradeButtonStyle, background: "#e0f2fe", opacity: locked || stock.owned <= 0 ? 0.45 : 1 }}>수량 매도</button>
+                            <button onClick={() => buyMaxStock(stock.id)} disabled={locked || cash < stock.price} style={{ ...stockTradeButtonStyle, background: "#fde68a", opacity: locked || cash < stock.price ? 0.45 : 1 }}>전액 매수</button>
+                            <button onClick={() => sellAllStock(stock.id)} disabled={locked || stock.owned <= 0} style={{ ...stockTradeButtonStyle, background: "#dbeafe", opacity: locked || stock.owned <= 0 ? 0.45 : 1 }}>전량 매도</button>
                           </div>
                         </div>
                       </div>
@@ -12147,18 +12249,172 @@ function normalizeNewsEvents(events: NewsEvent[]): NewsEvent[] {
   const validIds = new Set(newsPool.map((event) => event.id));
   const normalized = events
     .filter((event) => event && validIds.has(Number(event.id)))
-    .map((event) => newsPool.find((item) => item.id === Number(event.id)) ?? event)
+    .map((event) => {
+      const base = newsPool.find((item) => item.id === Number(event.id));
+      return base ? { ...base, ...event } : event;
+    })
     .slice(0, 3);
 
   return normalized.length > 0 ? normalized : makeNewsEvents();
 }
 
+
+function getRealizedStockTaxRate(profit: number) {
+  if (profit <= 0) return 0;
+  if (profit <= 100000) return 0.03;
+  if (profit <= 1000000) return 0.08;
+  if (profit <= 10000000) return 0.15;
+  if (profit <= 100000000) return 0.22;
+  return 0.32;
+}
+
+function getStockTradeFee(value: number) {
+  if (value <= 0) return 0;
+  return Math.max(STOCK_MIN_TRADE_FEE, Math.ceil(value * STOCK_TRADE_FEE_RATE));
+}
+
+function getStockFundamental(stockId: StockId) {
+  return stockFundamentals[stockId];
+}
+
+function isStockTradeLocked(row: StockRow, now = new Date()) {
+  if (row.status !== "delisted" && row.status !== "suspended") return false;
+  if (!row.delistedUntil) return true;
+  const until = new Date(row.delistedUntil);
+  return !Number.isNaN(until.getTime()) && until.getTime() > now.getTime();
+}
+
+function getTradableStockPrice(row: StockRow) {
+  return isStockTradeLocked(row) ? 0 : Math.max(0, Math.round(row.price));
+}
+
+function getStockCorporateActionLabel(action?: CorporateActionType) {
+  if (action === "paidOffering") return "유상증자";
+  if (action === "capitalReduction") return "무상감자";
+  if (action === "dividend") return "배당";
+  if (action === "accountingFraud") return "회계 부정";
+  if (action === "relisting") return "재상장";
+  return "일반 변동";
+}
+
+function getStockEventForRow(row: StockRow, events: NewsEvent[]) {
+  return events.find((event) => event.targetStocks.includes(row.id));
+}
+
+function computeNpcStockVolume(stockId: StockId, slot: number, side: "buy" | "sell") {
+  const fundamental = getStockFundamental(stockId);
+  const hash = getStableHash(`${slot}-${stockId}-npc-${side}`);
+  const base = Math.max(1, Math.floor(fundamental.totalShares / 100000));
+  const bias = side === "buy" ? fundamental.npcBias : 1 - fundamental.npcBias;
+  return Math.max(0, Math.floor(base * (0.35 + (hash % 1000) / 820) * bias * STOCK_NPC_VOLUME_SCALE));
+}
+
+function applyCorporateActionToStock(row: StockRow, event: NewsEvent | undefined, now: Date) {
+  if (!event?.corporateAction || !event.targetStocks.includes(row.id)) return row;
+  const action = event.corporateAction;
+  if (action === "paidOffering") {
+    const issued = Math.max(1, Math.floor((row.totalShares ?? getStockFundamental(row.id).totalShares) * 0.18));
+    return {
+      ...row,
+      totalShares: (row.totalShares ?? getStockFundamental(row.id).totalShares) + issued,
+      floatingShares: (row.floatingShares ?? getStockFundamental(row.id).totalShares) + Math.floor(issued * 0.62),
+      lastCorporateAction: action,
+      eventSummary: `유상증자: 신주 ${issued.toLocaleString()}주 발행`,
+    };
+  }
+  if (action === "capitalReduction") {
+    const reductionRatio = 0.5;
+    return {
+      ...row,
+      owned: Math.floor(row.owned * reductionRatio),
+      totalShares: Math.max(1, Math.floor((row.totalShares ?? getStockFundamental(row.id).totalShares) * reductionRatio)),
+      floatingShares: Math.max(1, Math.floor((row.floatingShares ?? getStockFundamental(row.id).totalShares) * reductionRatio)),
+      averageBuyPrice: row.averageBuyPrice ? Math.round(row.averageBuyPrice / reductionRatio) : row.averageBuyPrice,
+      lastCorporateAction: action,
+      eventSummary: "무상감자: 보유 주식 수 50% 감소, 평균단가 보정",
+    };
+  }
+  if (action === "dividend") {
+    return {
+      ...row,
+      dividendPerShare: Math.max(0, Math.round(event.dividendPerShare ?? Math.max(50, row.price * 0.004))),
+      lastCorporateAction: action,
+      eventSummary: `배당: 1주당 ${(event.dividendPerShare ?? Math.max(50, row.price * 0.004)).toLocaleString()}원`,
+    };
+  }
+  if (action === "accountingFraud") {
+    const until = new Date(now.getTime() + (event.lockMinutes ?? 30) * 60 * 1000);
+    return {
+      ...row,
+      status: "delisted" as StockStatus,
+      delistedUntil: until.toISOString(),
+      price: 0,
+      lastCorporateAction: action,
+      eventSummary: `회계 부정: ${event.lockMinutes ?? 30}분 거래 정지/상장폐지 상태`,
+    };
+  }
+  if (action === "relisting") {
+    const relistPrice = Math.max(100, Math.round((row.previousPrice || getStockFundamental(row.id).basePrice) * 0.35));
+    return {
+      ...row,
+      status: "active" as StockStatus,
+      delistedUntil: null,
+      price: row.price > 0 ? row.price : relistPrice,
+      lastCorporateAction: action,
+      eventSummary: "재상장: 거래 재개",
+    };
+  }
+  return row;
+}
+
+function advanceStockMarketRows(rows: StockRow[], events: NewsEvent[], now = new Date()) {
+  const slot = Math.floor(now.getTime() / STOCK_INTERVAL_MS);
+  return normalizeStockRows(rows, "global-market").map((row) => {
+    const fundamental = getStockFundamental(row.id);
+    const event = getStockEventForRow(row, events);
+    const released = row.status === "delisted" && row.delistedUntil && new Date(row.delistedUntil).getTime() <= now.getTime();
+    const activeBase = released ? { ...row, status: "active" as StockStatus, delistedUntil: null, price: Math.max(100, row.previousPrice || fundamental.basePrice), eventSummary: "재상장 대기 종료: 거래 재개" } : row;
+    const withAction = applyCorporateActionToStock(activeBase, event, now);
+    if (isStockTradeLocked(withAction, now)) {
+      return { ...withAction, previousPrice: row.price, price: 0, history: [...row.history.slice(-23), 0] };
+    }
+
+    const userBuyVolume = Math.max(0, Math.floor(Number(withAction.buyVolume) || 0));
+    const userSellVolume = Math.max(0, Math.floor(Number(withAction.sellVolume) || 0));
+    const npcBuyVolume = computeNpcStockVolume(row.id, slot, "buy");
+    const npcSellVolume = computeNpcStockVolume(row.id, slot, "sell");
+    const volumeDiff = userBuyVolume + npcBuyVolume - userSellVolume - npcSellVolume;
+    const demandImpact = Math.max(-0.18, Math.min(0.18, volumeDiff * STOCK_SUPPLY_PRESSURE_SCALE));
+    const newsImpact = event ? Math.max(-0.75, Math.min(0.6, event.impactPercent / 100)) : 0;
+    const randomHash = getStableHash(`${slot}-${row.id}-market-wave`);
+    const randomImpact = (((randomHash % 2001) - 1000) / 1000) * fundamental.volatility;
+    const supplyPenalty = ((withAction.floatingShares ?? fundamental.totalShares) / fundamental.totalShares - 1) * -0.03;
+    const totalImpact = Math.max(-0.85, Math.min(0.75, newsImpact + demandImpact + randomImpact + supplyPenalty));
+    const basePrice = Math.max(100, withAction.price || fundamental.basePrice);
+    const nextPrice = Math.max(100, Math.round(basePrice * (1 + totalImpact)));
+    return {
+      ...withAction,
+      previousPrice: basePrice,
+      price: nextPrice,
+      buyVolume: 0,
+      sellVolume: 0,
+      npcBuyVolume,
+      npcSellVolume,
+      status: "active" as StockStatus,
+      history: [...withAction.history.slice(-23), nextPrice],
+    };
+  });
+}
 function extractOwnedStockRows(rows: StockRow[]): StockRow[] {
   return rows.map((row) => ({
     ...row,
     price: 0,
     previousPrice: 0,
     history: [],
+    buyVolume: 0,
+    sellVolume: 0,
+    npcBuyVolume: 0,
+    npcSellVolume: 0,
     owned: Math.max(0, Math.floor(Number(row.owned) || 0)),
     averageBuyPrice: Math.max(0, Math.round(Number(row.averageBuyPrice) || 0)),
   }));
@@ -12190,19 +12446,28 @@ function mergeGlobalPricesWithOwned(globalRows: StockRow[], ownedRows: StockRow[
 }
 
 function normalizeStockRows(rows: StockRow[], seedKey = "default"): StockRow[] {
+  const initialRows = makeInitialStocks(seedKey);
   return stockCompanies.map((company) => {
     const saved = rows.find((row) => row.id === company.id);
-    if (!saved) {
-      const [fresh] = makeInitialStocks(seedKey).filter((row) => row.id === company.id);
-      return fresh;
-    }
+    const fundamental = getStockFundamental(company.id);
+    const fresh = initialRows.find((row) => row.id === company.id) ?? {
+      ...company,
+      price: fundamental.basePrice,
+      previousPrice: fundamental.basePrice,
+      owned: 0,
+      history: [fundamental.basePrice],
+    };
+    if (!saved) return fresh;
 
-    const price = Number(saved.price) || 1000;
-    const previousPrice = Number(saved.previousPrice) || price;
+    const status = saved.status === "delisted" || saved.status === "suspended" ? saved.status : "active";
+    const locked = status !== "active";
+    const rawPrice = locked ? 0 : Number(saved.price) || fresh.price || fundamental.basePrice;
+    const price = Math.max(locked ? 0 : 100, Math.round(rawPrice));
+    const previousPrice = Math.max(0, Math.round(Number(saved.previousPrice) || price || fresh.previousPrice || fundamental.basePrice));
     const owned = Math.max(0, Math.floor(Number(saved.owned) || 0));
     const averageBuyPrice = Math.max(0, Math.round(Number(saved.averageBuyPrice) || 0));
     const history = Array.isArray(saved.history) && saved.history.length > 0
-      ? saved.history.map((value) => Math.max(100, Math.round(Number(value) || price))).slice(-24)
+      ? saved.history.map((value) => Math.max(0, Math.round(Number(value) || price))).slice(-24)
       : [previousPrice, price];
 
     return {
@@ -12212,6 +12477,17 @@ function normalizeStockRows(rows: StockRow[], seedKey = "default"): StockRow[] {
       owned,
       averageBuyPrice,
       history,
+      totalShares: Math.max(1, Math.floor(Number(saved.totalShares) || fundamental.totalShares)),
+      floatingShares: Math.max(1, Math.floor(Number(saved.floatingShares) || fundamental.totalShares)),
+      buyVolume: Math.max(0, Math.floor(Number(saved.buyVolume) || 0)),
+      sellVolume: Math.max(0, Math.floor(Number(saved.sellVolume) || 0)),
+      npcBuyVolume: Math.max(0, Math.floor(Number(saved.npcBuyVolume) || 0)),
+      npcSellVolume: Math.max(0, Math.floor(Number(saved.npcSellVolume) || 0)),
+      status,
+      delistedUntil: typeof saved.delistedUntil === "string" ? saved.delistedUntil : null,
+      lastCorporateAction: saved.lastCorporateAction ?? "none",
+      dividendPerShare: Math.max(0, Math.round(Number(saved.dividendPerShare) || 0)),
+      eventSummary: typeof saved.eventSummary === "string" ? saved.eventSummary : undefined,
     };
   });
 }
@@ -12226,15 +12502,16 @@ function formatStockCountdown(milliseconds: number) {
 function makeInitialStocks(seedKey = "default"): StockRow[] {
   return stockCompanies.map((company) => {
     let seed = hashSeed(`${seedKey}-${company.id}`);
+    const fundamental = getStockFundamental(company.id);
     const nextRandom = () => {
       seed = (seed * 1664525 + 1013904223) >>> 0;
       return seed / 4294967296;
     };
 
-    const price = Math.floor(1000 + nextRandom() * 49001);
+    const price = fundamental.basePrice;
     const history = Array.from({ length: 18 }, (_, index) => {
-      const wave = Math.sin(index / 2.2) * price * 0.035;
-      const noise = Math.round((nextRandom() - 0.5) * price * 0.05);
+      const wave = Math.sin(index / 2.2) * price * fundamental.volatility * 0.36;
+      const noise = Math.round((nextRandom() - 0.5) * price * fundamental.volatility * 0.42);
       return Math.max(100, Math.round(price + wave + noise));
     });
 
@@ -12243,7 +12520,18 @@ function makeInitialStocks(seedKey = "default"): StockRow[] {
       price,
       previousPrice: history[history.length - 2] ?? price,
       owned: 0,
+      averageBuyPrice: 0,
       history: [...history.slice(-17), price],
+      totalShares: fundamental.totalShares,
+      floatingShares: fundamental.totalShares,
+      buyVolume: 0,
+      sellVolume: 0,
+      npcBuyVolume: 0,
+      npcSellVolume: 0,
+      status: "active",
+      delistedUntil: null,
+      lastCorporateAction: "none",
+      dividendPerShare: 0,
     };
   });
 }
@@ -16176,6 +16464,10 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
+
 
 
 
