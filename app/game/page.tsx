@@ -399,6 +399,7 @@ type StockRow = {
   history: number[];
   totalShares?: number;
   floatingShares?: number;
+  publicHeldShares?: number;
   buyVolume?: number;
   sellVolume?: number;
   npcBuyVolume?: number;
@@ -2693,6 +2694,8 @@ const DEVELOPER_NICKNAME_TAG_ID: NicknameTagId = "developerCommandFrame";
 const DEVELOPER_EMAILS = ["aodx1872@gmai.com"];
 const DEVELOPER_USER_IDS: string[] = [];
 const GLOBAL_ANNOUNCEMENT_VISIBLE_MS = 15000;
+const ITEM_SLOT_MAX_LEVEL = 3;
+const ITEM_SLOT_UPGRADE_COSTS: Record<number, number> = { 2: 1000000000000, 3: 10000000000000 };
 const HORSE_RACE_INTERVAL_MS = 15 * 60 * 1000;
 const HORSE_RACE_NOTICE_MS = 3 * 60 * 1000;
 const HORSE_RACE_DURATION_MS = 45 * 1000;
@@ -3119,7 +3122,7 @@ const playerTitles: PlayerTitle[] = [
   { id: "multiMillionaire", name: "천만장자", icon: "💎", description: "순자산 10,000,000원 이상" },
   { id: "tycoon", name: "경제 거물", icon: "👑", description: "순자산 50,000,000원 이상" },
   { id: "certifiedExpert", name: "자격증 수집가", icon: "🎓", description: "자격증 3개 이상 보유", passiveText: "직업 수익 +2%" },
-  { id: "treasureCollector", name: "보물 수집가", icon: "💠", description: "보물 등급 이상 아이템 2개 이상 보유", passiveText: "아이템 장착 슬롯 +1" },
+  { id: "treasureCollector", name: "보물 수집가", icon: "💠", description: "보물 등급 이상 아이템 2개 이상 보유", passiveText: "가챠 행운 +4%" },
   { id: "relicOwner", name: "유물의 주인", icon: "🏺", description: "유물 등급 아이템 1개 이상 보유", passiveText: "직업/사업 수익 +3%" },
   { id: "lottoDreamer", name: "복권 드리머", icon: "🎫", description: "로또를 3회 이상 구매" },
   { id: "phoneAnalyst", name: "모바일 분석가", icon: "📱", description: "휴대폰 대시보드를 활용하는 플레이어" },
@@ -3423,6 +3426,7 @@ function mergeEconomySavePayloads(localPayload: string | null, remotePayload: st
   mergedData.ownedBusinesses = mergeUniqueArrayValues(localData.ownedBusinesses, remoteData.ownedBusinesses);
   mergedData.donatedArtifactIds = mergeUniqueArrayValues(localData.donatedArtifactIds, remoteData.donatedArtifactIds);
   mergedData.artifactInventory = mergeArtifactInventoryValues(localData.artifactInventory, remoteData.artifactInventory);
+  mergedData.itemSlotLevel = Math.max(1, Math.min(ITEM_SLOT_MAX_LEVEL, Math.floor(Math.max(Number(localData.itemSlotLevel ?? 1) || 1, Number(remoteData.itemSlotLevel ?? 1) || 1))));
 
   const mergedSavings = Math.min(BANK_SAVINGS_CAP, Math.max(0, Number(mergedData.bankSavings ?? 0) || 0));
   mergedData.bankSavings = mergedSavings;
@@ -4074,6 +4078,7 @@ export default function GamePage() {
   const [ownedItems, setOwnedItems] = useState<ShopItemId[]>([]);
   const [discoveredItems, setDiscoveredItems] = useState<ShopItemId[]>([]);
   const [equippedItems, setEquippedItems] = useState<ShopItemId[]>([]);
+  const [itemSlotLevel, setItemSlotLevel] = useState(1);
   const [favoriteItems, setFavoriteItems] = useState<ShopItemId[]>([]);
   const [inventorySortMode, setInventorySortMode] = useState<ItemSortMode>("favorite");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -4281,7 +4286,8 @@ export default function GamePage() {
     setBusinessEmployees(allBusinessEmployees);
     setOwnedItems(allShopItemIds);
     setDiscoveredItems(allShopItemIds);
-    setEquippedItems(allShopItemIds.slice(0, 2));
+    setItemSlotLevel(ITEM_SLOT_MAX_LEVEL);
+    setEquippedItems(allShopItemIds.slice(0, ITEM_SLOT_MAX_LEVEL));
     setShopLevel(5);
     setShopPurchaseCount(Math.max(999, allShopItemIds.length));
     setEarnedTitleIds(allTitleIds);
@@ -4362,13 +4368,21 @@ export default function GamePage() {
   const equippedShopItems = useMemo(() => equippedItems.map((id) => shopItems.find((item) => item.id === id)).filter((item): item is ShopItem => Boolean(item)), [equippedItems]);
   const groupedOwnedItems = useMemo(() => sortGroupedShopItems(groupOwnedShopItems(ownedItems), inventorySortMode, favoriteItems), [ownedItems, inventorySortMode, favoriteItems]);
   const visibleInventoryItems = useMemo(() => groupedOwnedItems.filter((group) => !showFavoritesOnly || favoriteItems.includes(group.id)), [groupedOwnedItems, showFavoritesOnly, favoriteItems]);
-  const itemSlotCount = currentTitleId === "treasureCollector" ? 2 : 1;
+  const itemSlotCount = Math.max(1, Math.min(ITEM_SLOT_MAX_LEVEL, isDeveloperAccount ? ITEM_SLOT_MAX_LEVEL : itemSlotLevel));
+  const nextItemSlotLevel = Math.min(ITEM_SLOT_MAX_LEVEL, itemSlotLevel + 1);
+  const nextItemSlotUpgradeCost = itemSlotLevel >= ITEM_SLOT_MAX_LEVEL ? 0 : (ITEM_SLOT_UPGRADE_COSTS[nextItemSlotLevel] ?? 0);
+
+  useEffect(() => {
+    if (equippedItems.length <= itemSlotCount) return;
+    setEquippedItems((items) => items.slice(0, itemSlotCount));
+  }, [equippedItems.length, itemSlotCount]);
+
   const businessItemBonus = getEquippedItemBonusTotal(equippedShopItems, "businessIncome");
   const jobItemBonus = getEquippedItemBonusTotal(equippedShopItems, "jobIncome") + (ownedCertifications.includes("office") ? 0.03 : 0) + (ownedCertifications.includes("logistics") ? 0.02 : 0) + (currentTitleId === "certifiedExpert" ? 0.02 : 0) + (currentTitleId === "relicOwner" ? 0.03 : 0);
   const estateItemBonus = getEquippedItemBonusTotal(equippedShopItems, "estateIncome");
   const bankInterestBonus = getEquippedItemBonusTotal(equippedShopItems, "bankInterest");
   const lottoLuckBonus = getEquippedItemBonusTotal(equippedShopItems, "lottoLuck");
-  const gachaLuckBonus = getEquippedItemBonusTotal(equippedShopItems, "gachaLuck");
+  const gachaLuckBonus = getEquippedItemBonusTotal(equippedShopItems, "gachaLuck") + (currentTitleId === "treasureCollector" ? 0.04 : 0);
   const taxShieldBonus = getEquippedItemBonusTotal(equippedShopItems, "taxShield");
   const employeeEfficiencyBonus = getEquippedItemBonusTotal(equippedShopItems, "employeeEfficiency");
   const jobIncomeMultiplier = 1 + jobItemBonus + insuranceJobBonus;
@@ -4693,7 +4707,7 @@ export default function GamePage() {
     }
 
     try {
-      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; lastNewsArticleAt?: string; newspaperEvent?: NewsEvent; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; discoveredItems?: ShopItemId[]; equippedItems?: ShopItemId[]; favoriteItems?: ShopItemId[]; inventorySortMode?: ItemSortMode; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; gachaMachinePullCount?: number; announcedSecretTitles?: PlayerTitleId[]; earnedTitleIds?: PlayerTitleId[]; lottoTickets?: LottoTicket[]; lottoPurchaseDate?: string; lottoPurchaseCount?: number; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[]; ownedNicknameColors?: NicknameColorId[]; selectedNicknameColorId?: NicknameColorId; ownedNicknameTags?: NicknameTagId[]; selectedNicknameTagId?: NicknameTagId; ownedMainBackgrounds?: MainBackgroundId[]; selectedMainBackgroundId?: MainBackgroundId; ownedMainCharacters?: MainCharacterId[]; selectedMainCharacterId?: MainCharacterId; artifactInventory?: unknown; donatedArtifactIds?: unknown; museumDonations?: unknown; lastMuseumIncomeAt?: string | null; lastExcavationSpawnAt?: string | null };
+      const parsed = JSON.parse(stored) as { bankDeposit?: number; bankDepositPrincipal?: number; bankSavings?: number; bankSavingsPrincipal?: number; bankLoan?: number; creditScore?: number; ownedEstates?: EstateId[]; ownedBusinesses?: BusinessId[]; newsEvents?: NewsEvent[]; economyUpdatedAt?: string; lastNewsArticleAt?: string; newspaperEvent?: NewsEvent; inflationIndex?: number; ownedInsurances?: InsuranceId[]; businessEmployees?: Partial<Record<BusinessId, number>>; auctionDeals?: AuctionDeal[]; ownedCertifications?: CertificationId[]; ownedItems?: ShopItemId[]; discoveredItems?: ShopItemId[]; equippedItems?: ShopItemId[]; itemSlotLevel?: number; favoriteItems?: ShopItemId[]; inventorySortMode?: ItemSortMode; shopLevel?: number; shopPurchaseCount?: number; shopOffers?: ShopItem[]; shopUpdatedAt?: string; shopSoldOfferKeys?: string[]; gachaMachinePullCount?: number; announcedSecretTitles?: PlayerTitleId[]; earnedTitleIds?: PlayerTitleId[]; lottoTickets?: LottoTicket[]; lottoPurchaseDate?: string; lottoPurchaseCount?: number; totalIncome?: number; totalExpense?: number; financeHistory?: FinanceHistoryPoint[]; ownedNicknameColors?: NicknameColorId[]; selectedNicknameColorId?: NicknameColorId; ownedNicknameTags?: NicknameTagId[]; selectedNicknameTagId?: NicknameTagId; ownedMainBackgrounds?: MainBackgroundId[]; selectedMainBackgroundId?: MainBackgroundId; ownedMainCharacters?: MainCharacterId[]; selectedMainCharacterId?: MainCharacterId; artifactInventory?: unknown; donatedArtifactIds?: unknown; museumDonations?: unknown; lastMuseumIncomeAt?: string | null; lastExcavationSpawnAt?: string | null };
       const loadedDeposit = Math.max(0, Number(parsed.bankDeposit ?? 0) || 0);
       const loadedSavings = Math.min(BANK_SAVINGS_CAP, Math.max(0, Number(parsed.bankSavings ?? 0) || 0));
       const loadedDepositPrincipal = Math.max(0, Math.min(loadedDeposit, Number(parsed.bankDepositPrincipal ?? loadedDeposit) || 0));
@@ -4727,6 +4741,7 @@ export default function GamePage() {
       } else if (Array.isArray(parsed.discoveredItems)) {
         setDiscoveredItems(parsed.discoveredItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id)));
       }
+      if (typeof parsed.itemSlotLevel === "number") setItemSlotLevel(Math.max(1, Math.min(ITEM_SLOT_MAX_LEVEL, Math.floor(parsed.itemSlotLevel))));
       if (Array.isArray(parsed.equippedItems)) setEquippedItems(parsed.equippedItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id)));
       if (Array.isArray(parsed.favoriteItems)) setFavoriteItems(parsed.favoriteItems.filter((id): id is ShopItemId => shopItems.some((item) => item.id === id)));
       if (Array.isArray(parsed.earnedTitleIds)) {
@@ -4842,6 +4857,7 @@ export default function GamePage() {
       ownedItems,
       discoveredItems,
       equippedItems,
+      itemSlotLevel,
       favoriteItems,
       inventorySortMode,
       shopLevel,
@@ -4891,7 +4907,7 @@ export default function GamePage() {
       .then(({ error }) => {
         if (error) console.warn("경제 데이터 Supabase 저장 실패. localStorage에는 저장되었습니다:", error.message);
       });
-  }, [userId, isSaveLoaded, isEconomyLoaded, isProfileLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, lastNewsArticleAt, newspaperEvent, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, discoveredItems, equippedItems, favoriteItems, inventorySortMode, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, artifactInventory, donatedArtifactIds, museumDonations, lastMuseumIncomeAt, lastExcavationSpawnAt, totalIncome, totalExpense, financeHistory, ownedNicknameColors, selectedNicknameColorId, ownedNicknameTags, selectedNicknameTagId, ownedMainBackgrounds, selectedMainBackgroundId, ownedMainCharacters, selectedMainCharacterId, economyUpdatedAt, earnedTitleIds]);
+  }, [userId, isSaveLoaded, isEconomyLoaded, isProfileLoaded, bankDeposit, bankDepositPrincipal, bankSavings, bankSavingsPrincipal, bankLoan, creditScore, ownedEstates, ownedBusinesses, newsEvents, lastNewsArticleAt, newspaperEvent, inflationIndex, ownedInsurances, businessEmployees, auctionDeals, ownedCertifications, ownedItems, discoveredItems, equippedItems, itemSlotLevel, favoriteItems, inventorySortMode, shopLevel, shopPurchaseCount, shopOffers, shopUpdatedAt, shopSoldOfferKeys, gachaMachinePullCount, lottoTickets, lottoPurchaseDate, lottoPurchaseCount, artifactInventory, donatedArtifactIds, museumDonations, lastMuseumIncomeAt, lastExcavationSpawnAt, totalIncome, totalExpense, financeHistory, ownedNicknameColors, selectedNicknameColorId, ownedNicknameTags, selectedNicknameTagId, ownedMainBackgrounds, selectedMainBackgroundId, ownedMainCharacters, selectedMainCharacterId, economyUpdatedAt, earnedTitleIds]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded) return;
@@ -6869,10 +6885,27 @@ export default function GamePage() {
       return;
     }
     if (equippedItems.length >= itemSlotCount) {
-      setMessage(`🎁 현재 칭호에서는 아이템을 ${itemSlotCount}개만 장착할 수 있습니다.`);
+      setMessage(`🎁 현재 슬롯 레벨에서는 아이템을 ${itemSlotCount}개만 장착할 수 있습니다. 아이템 슬롯 업그레이드를 이용해보세요.`);
       return;
     }
     setEquippedItems((equipped) => [...equipped, itemId]);
+  }
+
+  function upgradeItemSlotLevel() {
+    if (itemSlotLevel >= ITEM_SLOT_MAX_LEVEL) {
+      setMessage("🎁 아이템 장착 슬롯이 이미 최고 레벨입니다.");
+      return;
+    }
+    const targetLevel = Math.min(ITEM_SLOT_MAX_LEVEL, itemSlotLevel + 1);
+    const cost = ITEM_SLOT_UPGRADE_COSTS[targetLevel] ?? 0;
+    if (cash < cost) {
+      setMessage(`🎁 아이템 슬롯 Lv.${targetLevel} 업그레이드에는 ${cost.toLocaleString()}원이 필요합니다.`);
+      return;
+    }
+    setCash((money) => money - cost);
+    setTotalExpense((expense) => expense + cost);
+    setItemSlotLevel(targetLevel);
+    setMessage(`🎁 아이템 장착 슬롯이 Lv.${targetLevel}로 업그레이드되었습니다. 이제 ${targetLevel}개까지 장착할 수 있습니다.`);
   }
 
   function toggleFavoriteItem(itemId: ShopItemId) {
@@ -8108,10 +8141,11 @@ export default function GamePage() {
       const globalMarket = await fetchGlobalStockMarket();
       if (!globalMarket) return;
 
+      const rowsWithGlobalSupply = await applySavedStockOwnershipToGlobalSupply(globalMarket.rows);
       const shouldAdvance = getStockRemainingMs(globalMarket.updatedAt) <= 0;
       const nextUpdatedAt = shouldAdvance ? new Date() : globalMarket.updatedAt;
       const nextEvents = shouldAdvance ? makeNewsEvents() : globalMarket.newsEvents;
-      const nextGlobalRows = shouldAdvance ? advanceStockMarketRows(globalMarket.rows, nextEvents, nextUpdatedAt) : globalMarket.rows;
+      const nextGlobalRows = shouldAdvance ? advanceStockMarketRows(rowsWithGlobalSupply, nextEvents, nextUpdatedAt) : rowsWithGlobalSupply;
       if (shouldAdvance) void publishGlobalStockMarket(nextGlobalRows, nextEvents, nextUpdatedAt);
       setNewsEvents(nextEvents);
       setEconomyUpdatedAt(shouldAdvance ? nextUpdatedAt : globalMarket.newsUpdatedAt);
@@ -8152,7 +8186,7 @@ export default function GamePage() {
       await supabase.from(GLOBAL_STOCK_TABLE).upsert(
         {
           market_id: "main",
-          rows,
+          rows: normalizeGlobalStockRows(rows),
           news_events: events,
           updated_at: updatedAt.toISOString(),
           news_updated_at: new Date().toISOString(),
@@ -8164,12 +8198,58 @@ export default function GamePage() {
     }
   }
 
+  async function applySavedStockOwnershipToGlobalSupply(rows: StockRow[]) {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.from(STOCK_TABLE).select("rows");
+      if (error || !Array.isArray(data)) return rows;
+
+      const heldMap = new Map<StockId, number>();
+      for (const entry of data) {
+        const rawRows = typeof entry.rows === "string" ? safeJsonParse<StockRow[]>(entry.rows, []) : entry.rows;
+        if (!Array.isArray(rawRows)) continue;
+        for (const row of rawRows) {
+          if (!row || !stockCompanies.some((company) => company.id === row.id)) continue;
+          const owned = Math.max(0, Math.floor(Number(row.owned) || 0));
+          heldMap.set(row.id, (heldMap.get(row.id) ?? 0) + owned);
+        }
+      }
+
+      if (heldMap.size === 0) return rows;
+      return normalizeGlobalStockRows(rows).map((row) => {
+        return {
+          ...row,
+          // 기존 유저 보유량이 발행주식보다 많아도 보유분은 절대 잘라내지 않습니다.
+          // 이 경우 잔여 주식만 0이 되어 신규 매수만 막힙니다.
+          publicHeldShares: Math.max(
+            Math.max(0, Math.floor(Number(row.publicHeldShares) || 0)),
+            heldMap.get(row.id) ?? 0
+          ),
+        };
+      });
+    } catch (error) {
+      console.warn("전체 주식 보유량 합산 실패. 기존 전역 유통량을 사용합니다:", error);
+      return rows;
+    }
+  }
+
   async function recordStockTradePressure(stockId: StockId, side: "buy" | "sell", amount: number) {
-    const currentRows = stockRows.map((row) => row.id === stockId ? {
-      ...row,
-      buyVolume: side === "buy" ? Math.max(0, Math.floor(Number(row.buyVolume) || 0)) + amount : row.buyVolume,
-      sellVolume: side === "sell" ? Math.max(0, Math.floor(Number(row.sellVolume) || 0)) + amount : row.sellVolume,
-    } : row);
+    const currentRows = stockRows.map((row) => {
+      if (row.id !== stockId) return row;
+      const currentPublicHeld = Math.max(0, Math.floor(Number(row.publicHeldShares) || 0));
+      const nextPublicHeld = side === "buy"
+        // 발행주식보다 이미 많이 풀린 종목도 기존 보유분은 유지하고,
+        // 신규 매수 가능 수량은 getAvailableStockShares에서 0으로 제한합니다.
+        ? currentPublicHeld + amount
+        : Math.max(0, currentPublicHeld - amount);
+
+      return {
+        ...row,
+        publicHeldShares: nextPublicHeld,
+        buyVolume: side === "buy" ? Math.max(0, Math.floor(Number(row.buyVolume) || 0)) + amount : row.buyVolume,
+        sellVolume: side === "sell" ? Math.max(0, Math.floor(Number(row.sellVolume) || 0)) + amount : row.sellVolume,
+      };
+    });
     await publishGlobalStockMarket(currentRows, newsEvents, stockUpdatedAt);
   }
 
@@ -8228,7 +8308,14 @@ export default function GamePage() {
       return;
     }
 
-    const buyAmount = Math.max(1, Math.floor(amount));
+    const requestedAmount = Math.max(1, Math.floor(amount));
+    const availableShares = getAvailableStockShares(stock);
+    if (availableShares <= 0) {
+      setMessage(`${stock.name}은(는) 현재 시장에 남은 유통 주식이 없습니다. 다른 유저가 매도하거나 유상증자가 발생해야 매수할 수 있습니다.`);
+      return;
+    }
+
+    const buyAmount = Math.min(requestedAmount, availableShares);
     const baseTotalPrice = stock.price * buyAmount;
     const fee = getStockTradeFee(baseTotalPrice);
     const totalCost = baseTotalPrice + fee;
@@ -8246,27 +8333,36 @@ export default function GamePage() {
       const nextAverage = nextOwned > 0
         ? Math.round(((previousAverage * previousOwned) + totalCost) / nextOwned)
         : 0;
+      const nextPublicHeldShares = Math.max(0, Math.floor(Number(row.publicHeldShares) || 0)) + buyAmount;
 
       return {
         ...row,
         owned: nextOwned,
         averageBuyPrice: nextAverage,
+        publicHeldShares: nextPublicHeldShares,
         buyVolume: Math.max(0, Math.floor(Number(row.buyVolume) || 0)) + buyAmount,
       };
     });
 
     setCash((money) => money - totalCost);
     setStockRows(nextRows);
-    void recordStockTradePressure(stockId, "buy", buyAmount);
     persistStocksNow(nextRows);
-    setMessage(`${stock.name} ${buyAmount.toLocaleString()}주를 매수했습니다. 매수금 ${baseTotalPrice.toLocaleString()}원 + 수수료 ${fee.toLocaleString()}원`);
+    void recordStockTradePressure(stockId, "buy", buyAmount);
+    setMessage(`${stock.name} ${buyAmount.toLocaleString()}주를 매수했습니다. 매수금 ${baseTotalPrice.toLocaleString()}원 + 수수료 ${fee.toLocaleString()}원${buyAmount < requestedAmount ? ` · 시장 잔여 주식 부족으로 ${buyAmount.toLocaleString()}주만 체결` : ""}`);
   }
 
   function buyMaxStock(stockId: StockId) {
     const stock = stockRows.find((row) => row.id === stockId);
     if (!stock) return;
 
-    const amount = Math.floor(cash / (stock.price * (1 + STOCK_TRADE_FEE_RATE)));
+    const availableShares = getAvailableStockShares(stock);
+    if (availableShares <= 0) {
+      setMessage(`${stock.name}은(는) 현재 시장에 남은 유통 주식이 없습니다.`);
+      return;
+    }
+
+    const affordableAmount = Math.floor(cash / (stock.price * (1 + STOCK_TRADE_FEE_RATE)));
+    const amount = Math.min(availableShares, affordableAmount);
     if (amount <= 0) {
       setMessage("현금이 부족해서 주식을 살 수 없습니다.");
       return;
@@ -8299,6 +8395,7 @@ export default function GamePage() {
         ...row,
         owned: nextOwned,
         averageBuyPrice: nextOwned > 0 ? row.averageBuyPrice : 0,
+        publicHeldShares: Math.max(0, Math.floor(Number(row.publicHeldShares) || 0) - sellAmount),
         sellVolume: Math.max(0, Math.floor(Number(row.sellVolume) || 0)) + sellAmount,
       };
     });
@@ -8895,7 +8992,7 @@ export default function GamePage() {
                         <div style={stockInfoStackStyle}>
                           <div style={stockPriceStyle}>{locked ? "거래정지" : `${stock.price.toLocaleString()}원`}</div>
                           <div style={stockOwnedStyle}>투자 위험: {riskNote}</div>
-                          <div style={stockOwnedStyle}>발행주식 {(stock.totalShares ?? 0).toLocaleString()}주 · 보유 {stock.owned}주 · 평가 {(stock.owned * getTradableStockPrice(stock)).toLocaleString()}원</div>
+                          <div style={stockOwnedStyle}>발행 {(stock.totalShares ?? 0).toLocaleString()}주 · 시장잔여 {getAvailableStockShares(stock).toLocaleString()}주 · 내 보유 {stock.owned.toLocaleString()}주 · 평가 {(stock.owned * getTradableStockPrice(stock)).toLocaleString()}원</div>
                           <div style={stockOwnedStyle}>매수량 {(stock.buyVolume ?? 0).toLocaleString()}주 · 매도량 {(stock.sellVolume ?? 0).toLocaleString()}주 · NPC {(stock.npcBuyVolume ?? 0).toLocaleString()}/{(stock.npcSellVolume ?? 0).toLocaleString()}주</div>
                           {stock.lastCorporateAction && stock.lastCorporateAction !== "none" && <div style={stockOwnedStyle}>최근 이벤트: {getStockCorporateActionLabel(stock.lastCorporateAction)} · {stock.eventSummary}</div>}
                           {stock.owned > 0 && (
@@ -8920,9 +9017,9 @@ export default function GamePage() {
                             />
                           </label>
                           <div className="alba-stock-action-group" style={stockActionGroupStyle}>
-                            <button onClick={() => buyRequestedStock(stock.id)} disabled={locked || cash < stock.price} style={{ ...stockTradeButtonStyle, background: "#fef3c7", opacity: locked || cash < stock.price ? 0.45 : 1 }}>수량 매수</button>
+                            <button onClick={() => buyRequestedStock(stock.id)} disabled={locked || cash < stock.price || getAvailableStockShares(stock) <= 0} style={{ ...stockTradeButtonStyle, background: "#fef3c7", opacity: locked || cash < stock.price || getAvailableStockShares(stock) <= 0 ? 0.45 : 1 }}>수량 매수</button>
                             <button onClick={() => sellRequestedStock(stock.id)} disabled={locked || stock.owned <= 0} style={{ ...stockTradeButtonStyle, background: "#e0f2fe", opacity: locked || stock.owned <= 0 ? 0.45 : 1 }}>수량 매도</button>
-                            <button onClick={() => buyMaxStock(stock.id)} disabled={locked || cash < stock.price} style={{ ...stockTradeButtonStyle, background: "#fde68a", opacity: locked || cash < stock.price ? 0.45 : 1 }}>전액 매수</button>
+                            <button onClick={() => buyMaxStock(stock.id)} disabled={locked || cash < stock.price || getAvailableStockShares(stock) <= 0} style={{ ...stockTradeButtonStyle, background: "#fde68a", opacity: locked || cash < stock.price || getAvailableStockShares(stock) <= 0 ? 0.45 : 1 }}>전액 매수</button>
                             <button onClick={() => sellAllStock(stock.id)} disabled={locked || stock.owned <= 0} style={{ ...stockTradeButtonStyle, background: "#dbeafe", opacity: locked || stock.owned <= 0 ? 0.45 : 1 }}>전량 매도</button>
                           </div>
                         </div>
@@ -9614,6 +9711,14 @@ export default function GamePage() {
                   <div style={gachaEquippedPanelStyle}>
                     <h4 style={gachaEquippedTitleStyle}>장착 중인 아이템</h4>
                     <p style={casinoTextStyle}>현재 장착 {equippedItems.length}/{itemSlotCount}. 효과 확인과 해제를 바로 할 수 있습니다.</p>
+                    <div style={{ ...marketMiniRowStyle, alignItems: "center", background: "linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%)", borderColor: "#f59e0b" }}>
+                      <span>🧰 아이템 장착 슬롯 Lv.{itemSlotLevel}<br /><small>Lv.1: 1개 · Lv.2: 2개 · Lv.3: 3개까지 장착 가능</small></span>
+                      {itemSlotLevel >= ITEM_SLOT_MAX_LEVEL ? (
+                        <button disabled style={{ ...casinoSmallButtonStyle, opacity: 0.55 }}>최고 레벨</button>
+                      ) : (
+                        <button onClick={upgradeItemSlotLevel} disabled={cash < nextItemSlotUpgradeCost} style={{ ...casinoSmallButtonStyle, opacity: cash < nextItemSlotUpgradeCost ? 0.5 : 1 }}>Lv.{nextItemSlotLevel} 업그레이드 · {nextItemSlotUpgradeCost.toLocaleString()}원</button>
+                      )}
+                    </div>
                     {equippedItems.length === 0 ? <p style={casinoTextStyle}>장착 중인 아이템이 없습니다.</p> : equippedItems.map((id, index) => {
                       const item = shopItems.find((entry) => entry.id === id);
                       if (!item) return null;
@@ -12644,6 +12749,21 @@ function getStockFundamental(stockId: StockId) {
   return stockFundamentals[stockId];
 }
 
+function getStockTotalShares(row: StockRow) {
+  return Math.max(1, Math.floor(Number(row.totalShares) || getStockFundamental(row.id).totalShares));
+}
+
+function getPublicHeldStockShares(row: StockRow) {
+  // 기존 보유량 보호: 발행주식보다 많이 풀린 상태여도 publicHeldShares를 강제로 줄이지 않습니다.
+  // 대신 getAvailableStockShares()가 0을 반환해 신규 매수만 막습니다.
+  return Math.max(0, Math.floor(Number(row.publicHeldShares) || 0));
+}
+
+function getAvailableStockShares(row: StockRow) {
+  if (isStockTradeLocked(row)) return 0;
+  return Math.max(0, getStockTotalShares(row) - getPublicHeldStockShares(row));
+}
+
 function getInflationRiskMultiplier(stockId: StockId) {
   const price = getStockFundamental(stockId).basePrice;
   if (price >= 10000000000) return 2.6;
@@ -12714,6 +12834,7 @@ function applyCorporateActionToStock(row: StockRow, event: NewsEvent | undefined
       owned: Math.floor(row.owned * reductionRatio),
       totalShares: Math.max(1, Math.floor((row.totalShares ?? getStockFundamental(row.id).totalShares) * reductionRatio)),
       floatingShares: Math.max(1, Math.floor((row.floatingShares ?? getStockFundamental(row.id).totalShares) * reductionRatio)),
+      publicHeldShares: Math.max(0, Math.floor((row.publicHeldShares ?? 0) * reductionRatio)),
       averageBuyPrice: row.averageBuyPrice ? Math.round(row.averageBuyPrice / reductionRatio) : row.averageBuyPrice,
       lastCorporateAction: action,
       eventSummary: "무상감자: 보유 주식 수 50% 감소, 평균단가 보정",
@@ -12863,6 +12984,11 @@ function normalizeStockRows(rows: StockRow[], seedKey = "default"): StockRow[] {
       ? saved.history.map((value) => Math.max(0, Math.round(Number(value) || price))).slice(-24)
       : [previousPrice, price];
 
+    const totalShares = Math.max(1, Math.floor(Number(saved.totalShares) || fundamental.totalShares));
+    // 기존 유저 보유분 보호: publicHeldShares가 totalShares를 초과해도 보존합니다.
+    // 초과 상태는 시장 잔여 수량 0으로 처리되어 신규 매수만 제한됩니다.
+    const publicHeldShares = Math.max(0, Math.floor(Number(saved.publicHeldShares) || 0));
+
     return {
       ...company,
       price,
@@ -12870,8 +12996,9 @@ function normalizeStockRows(rows: StockRow[], seedKey = "default"): StockRow[] {
       owned,
       averageBuyPrice,
       history,
-      totalShares: Math.max(1, Math.floor(Number(saved.totalShares) || fundamental.totalShares)),
+      totalShares,
       floatingShares: Math.max(1, Math.floor(Number(saved.floatingShares) || fundamental.totalShares)),
+      publicHeldShares,
       buyVolume: Math.max(0, Math.floor(Number(saved.buyVolume) || 0)),
       sellVolume: Math.max(0, Math.floor(Number(saved.sellVolume) || 0)),
       npcBuyVolume: Math.max(0, Math.floor(Number(saved.npcBuyVolume) || 0)),
@@ -12917,6 +13044,7 @@ function makeInitialStocks(seedKey = "default"): StockRow[] {
       history: [...history.slice(-17), price],
       totalShares: fundamental.totalShares,
       floatingShares: fundamental.totalShares,
+      publicHeldShares: 0,
       buyVolume: 0,
       sellVolume: 0,
       npcBuyVolume: 0,
@@ -17051,6 +17179,11 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
+
+
 
 
 
