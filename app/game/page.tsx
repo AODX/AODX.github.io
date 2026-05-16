@@ -173,6 +173,8 @@ type ChatMessageRow = {
   user_id: string | null;
   nickname: string | null;
   title_name: string | null;
+  nickname_color_id?: NicknameColorId | null;
+  nickname_tag_id?: NicknameTagId | null;
   message: string;
   kind: "user" | "system";
   created_at: string;
@@ -228,6 +230,7 @@ type PlayerTitle = {
   description: string;
   passiveText?: string;
   hidden?: boolean;
+  developerOnly?: boolean;
 };
 
 type CertificationId = "office" | "barista" | "logistics" | "investment" | "business";
@@ -262,6 +265,7 @@ type NicknameColorTheme = {
   animation?: CSSProperties["animation"];
   backgroundSize?: CSSProperties["backgroundSize"];
   filter?: CSSProperties["filter"];
+  developerOnly?: boolean;
 };
 
 type NicknameTagItem = {
@@ -276,6 +280,7 @@ type NicknameTagItem = {
   animation?: CSSProperties["animation"];
   backgroundSize?: CSSProperties["backgroundSize"];
   boxShadow?: CSSProperties["boxShadow"];
+  developerOnly?: boolean;
 };
 
 type MainBackgroundOption = {
@@ -662,6 +667,7 @@ const luxuryNicknameColors: NicknameColorTheme[] = [
   { id: "thunderRoyal", name: "썬더 로열", price: 1590000000, description: "보랏빛 전류와 황금 광휘가 교차하는 압도적 효과", previewText: "THUNDER", gradient: "linear-gradient(90deg, #fef9c3 0%, #facc15 18%, #c084fc 54%, #7c3aed 82%, #fef9c3 100%)", shadow: "0 0 18px rgba(192,132,252,0.55)", animation: "albaTextFlicker 1.6s ease-in-out infinite", backgroundSize: "230% 100%", letterSpacing: "0.12em", textTransform: "uppercase" },
   { id: "eclipseNova", name: "이클립스 노바", price: 1820000000, description: "어둠과 별빛이 교차하며 묵직하게 반짝이는 초희귀 닉네임", previewText: "NOVA", gradient: "linear-gradient(120deg, #ffffff 0%, #a5b4fc 20%, #312e81 58%, #020617 100%)", shadow: "0 0 22px rgba(165,180,252,0.48), 0 0 32px rgba(2,6,23,0.55)", animation: "albaTextPulse 3.2s ease-in-out infinite", filter: "drop-shadow(0 0 4px rgba(255,255,255,0.5))" },
   { id: "eternalSpectrum", name: "이터널 스펙트럼", price: 2200000000, description: "빛의 스펙트럼이 끊임없이 흘러가는 최고급 애니메이션 닉네임", previewText: "SPECTRUM", gradient: "linear-gradient(90deg, #fef3c7 0%, #f472b6 16%, #60a5fa 38%, #86efac 60%, #facc15 82%, #ffffff 100%)", shadow: "0 0 24px rgba(255,255,255,0.6), 0 0 34px rgba(96,165,250,0.42)", animation: "albaTextShimmer 3.7s linear infinite", backgroundSize: "260% 100%", letterSpacing: "0.12em", textTransform: "uppercase" },
+  { id: "developerConsoleGlow", name: "개발자 콘솔 글로우", price: 0, description: "개발자 계정에만 지급되는 전용 닉네임 색상입니다.", previewText: "DEV", gradient: "linear-gradient(90deg, #22d3ee 0%, #ffffff 22%, #a78bfa 48%, #facc15 72%, #22d3ee 100%)", shadow: "0 0 18px rgba(34,211,238,0.85), 0 0 34px rgba(250,204,21,0.45)", animation: "albaTextShimmer 2.8s linear infinite", backgroundSize: "260% 100%", letterSpacing: "0.14em", textTransform: "uppercase", developerOnly: true },
 ];
 
 const defaultNicknameTag: NicknameTagItem = {
@@ -696,6 +702,7 @@ const luxuryNicknameTags: NicknameTagItem[] = [
   { id: "thunderPass", name: "썬더 패스", price: 1710000000, description: "번개 친 듯 강렬한 깜빡임이 들어간 한정형 패스", background: "linear-gradient(90deg, #312e81 0%, #7c3aed 24%, #facc15 60%, #312e81 100%)", borderColor: "#fef08a", accentColor: "#ffffff", shape: "ticket", animation: "albaPlateBlink 1.45s ease-in-out infinite", backgroundSize: "230% 100%" },
   { id: "prismVip", name: "프리즘 VIP", price: 1960000000, description: "색이 흐르는 VIP 전용 홀로그램 패스", background: "linear-gradient(90deg, #ffffff 0%, #f9a8d4 20%, #60a5fa 44%, #86efac 70%, #fde68a 100%)", borderColor: "#4338ca", accentColor: "#1e1b4b", shape: "ribbon", animation: "albaPlateRainbow 3.6s linear infinite", backgroundSize: "250% 100%", boxShadow: "0 10px 0 rgba(67,56,202,0.14), 0 0 22px rgba(96,165,250,0.28)" },
   { id: "mythicHalo", name: "미식 헤일로", price: 2380000000, description: "후광이 둘러지는 듯한 최고급 애니메이션 이름표", background: "linear-gradient(120deg, #fff7ed 0%, #fde68a 20%, #ffffff 42%, #c4b5fd 72%, #60a5fa 100%)", borderColor: "#d97706", accentColor: "#78350f", shape: "ribbon", animation: "albaPlateRainbow 3.2s linear infinite", backgroundSize: "260% 100%", boxShadow: "0 10px 0 rgba(120,53,15,0.14), 0 0 24px rgba(250,204,21,0.3)" },
+  { id: "developerCommandFrame", name: "개발자 커맨드 프레임", price: 0, description: "개발자 계정에만 표시되는 전용 이름표입니다.", background: "linear-gradient(90deg, rgba(2,6,23,0.96) 0%, rgba(30,64,175,0.92) 28%, rgba(126,34,206,0.92) 62%, rgba(234,179,8,0.92) 100%)", borderColor: "#f8fafc", accentColor: "#ffffff", shape: "panel", animation: "albaPlateRainbow 2.8s linear infinite", backgroundSize: "260% 100%", boxShadow: "0 10px 0 rgba(2,6,23,0.24), 0 0 24px rgba(34,211,238,0.4), 0 0 34px rgba(250,204,21,0.24)", developerOnly: true },
 ];
 
 const defaultMainBackground: MainBackgroundOption = {
@@ -2604,8 +2611,12 @@ const MUSEUM_DONATION_TABLE = "game_museum_donations";
 const ADMIN_CONFIG_TABLE = "game_admin_config";
 const ADMIN_GACHA_RATE_KEY = "gacha_rates";
 const DEV_ACCOUNT_NICKNAME = "개발자";
-const DEVELOPER_EMAILS = ["swkim@tacss.or.kr", "developer@tacss.local", "developer@example.com"];
+const DEVELOPER_TITLE_ID: PlayerTitleId = "developerArchitect";
+const DEVELOPER_NICKNAME_COLOR_ID: NicknameColorId = "developerConsoleGlow";
+const DEVELOPER_NICKNAME_TAG_ID: NicknameTagId = "developerCommandFrame";
+const DEVELOPER_EMAILS = ["aodx1872@gmai.com"];
 const DEVELOPER_USER_IDS: string[] = [];
+const GLOBAL_ANNOUNCEMENT_VISIBLE_MS = 15000;
 const DEFAULT_GACHA_RATE_CONFIG: GachaRateConfig = { none: 62, common: 20, rare: 12, epic: 4.2, treasure: 1.5, relic: 0.299999, ancient: 0.000001 };
 const GACHA_RATE_FIELDS: Array<{ key: keyof GachaRateConfig; label: string; rarity?: ItemRarity }> = [
   { key: "none", label: "꽝" },
@@ -3043,6 +3054,7 @@ const playerTitles: PlayerTitle[] = [
   { id: "hiddenVaultMaster", name: "금고의 주인", icon: "🏦", description: "조건 비공개", hidden: true, passiveText: "예금/적금 보너스" },
   { id: "hiddenEmpireBuilder", name: "제국 설계자", icon: "🏛️", description: "조건 비공개", hidden: true, passiveText: "사업/직원 수익 +4%" },
   { id: "hiddenCompletionist", name: "완성의 증인", icon: "🌠", description: "조건 비공개", hidden: true, passiveText: "전반 능력 소폭 상승" },
+  { id: "developerArchitect", name: "세계의 설계자", icon: "🛠️", description: "개발자 계정에만 존재하는 운영·테스트 전용 칭호입니다.", hidden: true, developerOnly: true, passiveText: "개발자 전용" },
 ];
 
 const estateItems: EstateItem[] = [
@@ -4162,9 +4174,10 @@ export default function GamePage() {
     setEarnedTitleIds(allTitleIds);
     setCurrentTitleId("hiddenEconomyGod");
     setOwnedNicknameColors(luxuryNicknameColors.map((item) => item.id));
-    setSelectedNicknameColorId(luxuryNicknameColors[luxuryNicknameColors.length - 1]?.id ?? defaultNicknameColorTheme.id);
+    setSelectedNicknameColorId(DEVELOPER_NICKNAME_COLOR_ID);
     setOwnedNicknameTags(luxuryNicknameTags.map((item) => item.id));
-    setSelectedNicknameTagId(luxuryNicknameTags[luxuryNicknameTags.length - 1]?.id ?? defaultNicknameTag.id);
+    setSelectedNicknameTagId(DEVELOPER_NICKNAME_TAG_ID);
+    setCurrentTitleId(DEVELOPER_TITLE_ID);
     setOwnedMainBackgrounds(luxuryMainBackgrounds.map((item) => item.id));
     setSelectedMainBackgroundId(luxuryMainBackgrounds[luxuryMainBackgrounds.length - 1]?.id ?? defaultMainBackground.id);
     setOwnedMainCharacters(luxuryMainCharacters.map((item) => item.id));
@@ -4216,9 +4229,11 @@ export default function GamePage() {
   const insuranceCasinoCashback = Math.min(0.22, ownedInsuranceItems.reduce((sum, item) => sum + (item.casinoCashback ?? 0), 0));
   const currentTaxDue = Math.floor(cash * getTaxRate(cash) * Math.max(0.55, 1 - insuranceTaxDiscount));
   const nextTax = currentTaxDue + unpaidTax;
-  const currentTitle = playerTitles.find((title) => title.id === currentTitleId) ?? playerTitles[0];
-  const activeNicknameColor = luxuryNicknameColors.find((theme) => theme.id === selectedNicknameColorId) ?? defaultNicknameColorTheme;
-  const activeNicknameTag = luxuryNicknameTags.find((tag) => tag.id === selectedNicknameTagId) ?? defaultNicknameTag;
+  const currentTitle = isDeveloperAccount ? (playerTitles.find((title) => title.id === DEVELOPER_TITLE_ID) ?? playerTitles[0]) : (playerTitles.find((title) => title.id === currentTitleId && !title.developerOnly) ?? playerTitles[0]);
+  const activeNicknameColor = luxuryNicknameColors.find((theme) => theme.id === selectedNicknameColorId && (isDeveloperAccount || !theme.developerOnly)) ?? defaultNicknameColorTheme;
+  const activeNicknameTag = luxuryNicknameTags.find((tag) => tag.id === selectedNicknameTagId && (isDeveloperAccount || !tag.developerOnly)) ?? defaultNicknameTag;
+  const visibleLuxuryNicknameColors = luxuryNicknameColors.filter((theme) => isDeveloperAccount || !theme.developerOnly);
+  const visibleLuxuryNicknameTags = luxuryNicknameTags.filter((tag) => isDeveloperAccount || !tag.developerOnly);
   const activeMainBackground = luxuryMainBackgrounds.find((background) => background.id === selectedMainBackgroundId) ?? defaultMainBackground;
   const activeMainCharacter = luxuryMainCharacters.find((character) => character.id === selectedMainCharacterId) ?? defaultMainCharacter;
   const equippedShopItems = useMemo(() => equippedItems.map((id) => shopItems.find((item) => item.id === id)).filter((item): item is ShopItem => Boolean(item)), [equippedItems]);
@@ -4277,8 +4292,8 @@ export default function GamePage() {
   );
   const unlockedTitles = useMemo(() => {
     const unlockedIdSet = new Set<PlayerTitleId>(["newbie", ...earnedTitleIds, ...conditionUnlockedTitles.map((title) => title.id)]);
-    return playerTitles.filter((title) => unlockedIdSet.has(title.id));
-  }, [earnedTitleIds, conditionUnlockedTitles]);
+    return playerTitles.filter((title) => unlockedIdSet.has(title.id) && (isDeveloperAccount || !title.developerOnly));
+  }, [earnedTitleIds, conditionUnlockedTitles, isDeveloperAccount]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded || !isEconomyLoaded || !isProfileLoaded) return;
@@ -4617,10 +4632,10 @@ export default function GamePage() {
       if (typeof parsed.totalIncome === "number") setTotalIncome(parsed.totalIncome);
       if (typeof parsed.totalExpense === "number") setTotalExpense(parsed.totalExpense);
       if (Array.isArray(parsed.financeHistory)) setFinanceHistory(parsed.financeHistory.slice(-18));
-      if (Array.isArray(parsed.ownedNicknameColors)) setOwnedNicknameColors(parsed.ownedNicknameColors.filter((id): id is NicknameColorId => luxuryNicknameColors.some((item) => item.id === id)));
-      if (typeof parsed.selectedNicknameColorId === "string" && (parsed.selectedNicknameColorId === defaultNicknameColorTheme.id || luxuryNicknameColors.some((item) => item.id === parsed.selectedNicknameColorId))) setSelectedNicknameColorId(parsed.selectedNicknameColorId);
-      if (Array.isArray(parsed.ownedNicknameTags)) setOwnedNicknameTags(parsed.ownedNicknameTags.filter((id): id is NicknameTagId => luxuryNicknameTags.some((item) => item.id === id)));
-      if (typeof parsed.selectedNicknameTagId === "string" && (parsed.selectedNicknameTagId === defaultNicknameTag.id || luxuryNicknameTags.some((item) => item.id === parsed.selectedNicknameTagId))) setSelectedNicknameTagId(parsed.selectedNicknameTagId);
+      if (Array.isArray(parsed.ownedNicknameColors)) setOwnedNicknameColors(parsed.ownedNicknameColors.filter((id): id is NicknameColorId => luxuryNicknameColors.some((item) => item.id === id && (isDeveloperAccount || !item.developerOnly))));
+      if (typeof parsed.selectedNicknameColorId === "string" && (parsed.selectedNicknameColorId === defaultNicknameColorTheme.id || luxuryNicknameColors.some((item) => item.id === parsed.selectedNicknameColorId && (isDeveloperAccount || !item.developerOnly)))) setSelectedNicknameColorId(parsed.selectedNicknameColorId);
+      if (Array.isArray(parsed.ownedNicknameTags)) setOwnedNicknameTags(parsed.ownedNicknameTags.filter((id): id is NicknameTagId => luxuryNicknameTags.some((item) => item.id === id && (isDeveloperAccount || !item.developerOnly))));
+      if (typeof parsed.selectedNicknameTagId === "string" && (parsed.selectedNicknameTagId === defaultNicknameTag.id || luxuryNicknameTags.some((item) => item.id === parsed.selectedNicknameTagId && (isDeveloperAccount || !item.developerOnly)))) setSelectedNicknameTagId(parsed.selectedNicknameTagId);
       if (Array.isArray(parsed.ownedMainBackgrounds)) setOwnedMainBackgrounds(parsed.ownedMainBackgrounds.filter((id): id is MainBackgroundId => luxuryMainBackgrounds.some((item) => item.id === id)));
       if (typeof parsed.selectedMainBackgroundId === "string" && (parsed.selectedMainBackgroundId === defaultMainBackground.id || luxuryMainBackgrounds.some((item) => item.id === parsed.selectedMainBackgroundId))) setSelectedMainBackgroundId(parsed.selectedMainBackgroundId);
       if (Array.isArray(parsed.ownedMainCharacters)) setOwnedMainCharacters(parsed.ownedMainCharacters.filter((id): id is MainCharacterId => luxuryMainCharacters.some((item) => item.id === id)));
@@ -4906,6 +4921,24 @@ export default function GamePage() {
 
     return () => window.clearInterval(timer);
   }, [isSaveLoaded]);
+
+  useEffect(() => {
+    if (!globalAnnouncement?.created_at) return;
+
+    const createdAt = new Date(globalAnnouncement.created_at).getTime();
+    const remainingMs = GLOBAL_ANNOUNCEMENT_VISIBLE_MS - (Date.now() - createdAt);
+
+    if (!Number.isFinite(createdAt) || remainingMs <= 0) {
+      setGlobalAnnouncement(null);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setGlobalAnnouncement((current) => current?.id === globalAnnouncement.id ? null : current);
+    }, remainingMs);
+
+    return () => window.clearTimeout(timer);
+  }, [globalAnnouncement?.id, globalAnnouncement?.created_at]);
 
   useEffect(() => {
     if (!userId || !isSaveLoaded || !chatOpen) return;
@@ -5195,7 +5228,7 @@ export default function GamePage() {
         console.warn("자동 저장 실패. 화면에는 표시하지 않습니다:", error.message);
           } else {
         await supabase.from(PROFILE_TABLE).upsert(
-          { id: userId, nickname: isDeveloperAccount ? DEV_ACCOUNT_NICKNAME : nickname, room_kind: roomKind, occupation_id: occupationId, current_title: currentTitleId, net_worth: isDeveloperAccount ? -1 : netWorth, updated_at: new Date().toISOString() },
+          { id: userId, nickname: isDeveloperAccount ? DEV_ACCOUNT_NICKNAME : nickname, room_kind: roomKind, occupation_id: occupationId, current_title: isDeveloperAccount ? DEVELOPER_TITLE_ID : currentTitleId, net_worth: isDeveloperAccount ? -1 : netWorth, updated_at: new Date().toISOString() },
           { onConflict: "id" }
         );
       }
@@ -5977,7 +6010,7 @@ export default function GamePage() {
         occupation_id: occupationId,
         occupation_level: occupationLevel,
         unlocked_occupations: unlockedOccupations,
-        current_title: currentTitleId,
+        current_title: isDeveloperAccount ? DEVELOPER_TITLE_ID : currentTitleId,
         net_worth: isDeveloperAccount ? -1 : netWorth,
         updated_at: new Date().toISOString(),
       },
@@ -7373,7 +7406,7 @@ export default function GamePage() {
         occupation_id: occupationId,
         occupation_level: occupationLevel,
         unlocked_occupations: unlockedOccupations,
-        current_title: currentTitleId,
+        current_title: isDeveloperAccount ? DEVELOPER_TITLE_ID : currentTitleId,
         net_worth: isDeveloperAccount ? -1 : netWorth,
         updated_at: new Date().toISOString(),
         ...patch,
@@ -7392,12 +7425,23 @@ export default function GamePage() {
 
     await supabase.from(CHAT_TABLE).delete().lt("created_at", cutoffIso);
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from(CHAT_TABLE)
-      .select("id, user_id, nickname, title_name, message, kind, created_at")
+      .select("id, user_id, nickname, title_name, nickname_color_id, nickname_tag_id, message, kind, created_at")
       .gte("created_at", cutoffIso)
       .order("created_at", { ascending: true })
       .limit(60);
+
+    if (error) {
+      const fallback = await supabase
+        .from(CHAT_TABLE)
+        .select("id, user_id, nickname, title_name, message, kind, created_at")
+        .gte("created_at", cutoffIso)
+        .order("created_at", { ascending: true })
+        .limit(60);
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) {
       console.warn("전체 채팅을 불러오지 못했습니다:", error.message);
@@ -7421,13 +7465,28 @@ export default function GamePage() {
     if (!message) return;
 
     const supabase = createClient();
-    const { error } = await supabase.from(CHAT_TABLE).insert({
+    const chatPayload = {
       user_id: kind === "system" ? null : userId,
       nickname: kind === "system" ? "시스템" : nickname,
       title_name: kind === "system" ? "공지" : currentTitle.name,
+      nickname_color_id: kind === "system" ? null : selectedNicknameColorId,
+      nickname_tag_id: kind === "system" ? null : selectedNicknameTagId,
       message,
       kind,
-    });
+    };
+    let { error } = await supabase.from(CHAT_TABLE).insert(chatPayload);
+
+    if (error) {
+      const fallbackPayload = {
+        user_id: chatPayload.user_id,
+        nickname: chatPayload.nickname,
+        title_name: chatPayload.title_name,
+        message: chatPayload.message,
+        kind: chatPayload.kind,
+      };
+      const fallback = await supabase.from(CHAT_TABLE).insert(fallbackPayload);
+      error = fallback.error;
+    }
 
     if (error) {
       console.warn("전체 채팅 전송 실패:", error.message);
@@ -7521,7 +7580,7 @@ export default function GamePage() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from(CHAT_TABLE)
-        .select("id, user_id, nickname, title_name, message, kind, created_at")
+        .select("id, user_id, nickname, title_name, nickname_color_id, nickname_tag_id, message, kind, created_at")
         .eq("kind", "system")
         .eq("title_name", "전체공지")
         .order("created_at", { ascending: false })
@@ -7529,6 +7588,17 @@ export default function GamePage() {
 
       if (error) return;
       const latest = ((data ?? []) as ChatMessageRow[])[0] ?? null;
+      if (!latest) {
+        setGlobalAnnouncement(null);
+        return;
+      }
+
+      const createdAt = new Date(latest.created_at).getTime();
+      if (!Number.isFinite(createdAt) || Date.now() - createdAt > GLOBAL_ANNOUNCEMENT_VISIBLE_MS) {
+        setGlobalAnnouncement(null);
+        return;
+      }
+
       setGlobalAnnouncement(latest);
     } catch {
       // 채팅 테이블을 읽지 못하면 공지 배너를 생략합니다.
@@ -7547,13 +7617,26 @@ export default function GamePage() {
       user_id: null,
       nickname: DEV_ACCOUNT_NICKNAME,
       title_name: "전체공지",
+      nickname_color_id: DEVELOPER_NICKNAME_COLOR_ID,
+      nickname_tag_id: DEVELOPER_NICKNAME_TAG_ID,
       message,
       kind: "system" as const,
     };
 
     try {
       const supabase = createClient();
-      const { error } = await supabase.from(CHAT_TABLE).insert(notice);
+      let { error } = await supabase.from(CHAT_TABLE).insert(notice);
+      if (error) {
+        const fallbackNotice = {
+          user_id: notice.user_id,
+          nickname: notice.nickname,
+          title_name: notice.title_name,
+          message: notice.message,
+          kind: notice.kind,
+        };
+        const fallback = await supabase.from(CHAT_TABLE).insert(fallbackNotice);
+        error = fallback.error;
+      }
       if (error) {
         setMessage("🛠️ 전체 공지 전송에 실패했습니다. game_global_chat 테이블을 확인해주세요.");
         return;
@@ -9201,8 +9284,8 @@ export default function GamePage() {
 
               <div style={luxurySummaryBarStyle}>
                 <StatusPill label="현금" value={`${cash.toLocaleString()}원`} />
-                <StatusPill label="닉네임 색상" value={`${ownedNicknameColors.length}/${luxuryNicknameColors.length}`} />
-                <StatusPill label="이름표" value={`${ownedNicknameTags.length}/${luxuryNicknameTags.length}`} />
+                <StatusPill label="닉네임 색상" value={`${ownedNicknameColors.filter((id) => visibleLuxuryNicknameColors.some((theme) => theme.id === id)).length}/${visibleLuxuryNicknameColors.length}`} />
+                <StatusPill label="이름표" value={`${ownedNicknameTags.filter((id) => visibleLuxuryNicknameTags.some((tag) => tag.id === id)).length}/${visibleLuxuryNicknameTags.length}`} />
                 <StatusPill label="배경" value={`${ownedMainBackgrounds.length}/${luxuryMainBackgrounds.length}`} />
                 <StatusPill label="캐릭터" value={`${ownedMainCharacters.length}/${luxuryMainCharacters.length}`} />
               </div>
@@ -9217,7 +9300,7 @@ export default function GamePage() {
                     <span style={luxuryMiniBadgeStyle}>현재 적용: {activeNicknameColor.name}</span>
                   </div>
                   <div className="alba-luxury-grid" style={luxuryGridStyle}>
-                    {luxuryNicknameColors.map((theme) => {
+                    {visibleLuxuryNicknameColors.map((theme) => {
                       const owned = ownedNicknameColors.includes(theme.id);
                       const active = selectedNicknameColorId === theme.id;
                       return (
@@ -9246,7 +9329,7 @@ export default function GamePage() {
                     <span style={luxuryMiniBadgeStyle}>현재 적용: {activeNicknameTag.name}</span>
                   </div>
                   <div className="alba-luxury-grid" style={luxuryGridStyle}>
-                    {luxuryNicknameTags.map((tag) => {
+                    {visibleLuxuryNicknameTags.map((tag) => {
                       const owned = ownedNicknameTags.includes(tag.id);
                       const active = selectedNicknameTagId === tag.id;
                       return (
@@ -9715,12 +9798,25 @@ export default function GamePage() {
           <div ref={chatListRef} style={chatMessageListStyle}>
             {chatMessages.length === 0 ? (
               <p style={casinoTextStyle}>아직 채팅이 없습니다.</p>
-            ) : chatMessages.map((chat) => (
-              <div key={chat.id} style={{ ...chatBubbleStyle, borderColor: chat.kind === "system" ? "#facc15" : "rgba(255,255,255,0.18)" }}>
-                <strong>{chat.kind === "system" ? "📢 시스템" : `${chat.nickname ?? "유저"} · ${chat.title_name ?? "칭호 없음"}`}</strong>
-                <span>{chat.message}</span>
-              </div>
-            ))}
+            ) : chatMessages.map((chat) => {
+              const chatNameColor = luxuryNicknameColors.find((theme) => theme.id === chat.nickname_color_id && (chat.user_id === userId || !theme.developerOnly || chat.nickname === DEV_ACCOUNT_NICKNAME)) ?? defaultNicknameColorTheme;
+              const chatNameTag = luxuryNicknameTags.find((tag) => tag.id === chat.nickname_tag_id && (chat.user_id === userId || !tag.developerOnly || chat.nickname === DEV_ACCOUNT_NICKNAME)) ?? defaultNicknameTag;
+              return (
+                <div key={chat.id} style={{ ...chatBubbleStyle, borderColor: chat.kind === "system" ? "#facc15" : "rgba(255,255,255,0.18)" }}>
+                  <strong>
+                    {chat.kind === "system" ? (
+                      "📢 시스템"
+                    ) : (
+                      <span style={{ ...buildNicknamePlateStyle(chatNameTag), padding: "4px 9px", boxShadow: "none", borderWidth: "2px" }}>
+                        <span style={getNicknameTextStyle(chatNameColor)}>{chat.nickname ?? "유저"}</span>
+                        <small style={{ opacity: 0.82 }}>· {chat.title_name ?? "칭호 없음"}</small>
+                      </span>
+                    )}
+                  </strong>
+                  <span>{chat.message}</span>
+                </div>
+              );
+            })}
           </div>
           <div style={chatInputRowStyle}>
             <input
@@ -12408,6 +12504,7 @@ function getUnlockedTitles(params: { cash: number; stockRows: StockRow[]; bankDe
   const artifactCategorySet = new Set(artifactInventory.map((entry) => getArtifactById(entry.artifactId)?.category).filter(Boolean));
 
   return playerTitles.filter((title) => {
+    if (title.developerOnly) return false;
     if (title.id === "newbie") return true;
     if (title.id === "firstPay") return params.cash >= 50000;
     if (title.id === "worker") return totalJobSuccess >= 30;
@@ -16075,6 +16172,10 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
+
 
 
 
