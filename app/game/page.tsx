@@ -3496,6 +3496,23 @@ function ResponsiveGameStyles() {
       .alba-luxury-section-stack { scrollbar-width: thin; }
       .alba-luxury-section-stack::-webkit-scrollbar { width: 10px; }
       .alba-luxury-section-stack::-webkit-scrollbar-thumb { background: rgba(17,24,39,0.35); border-radius: 999px; }
+      .alba-luxury-world-body {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        align-content: start !important;
+        padding-bottom: 32px !important;
+        overscroll-behavior: contain;
+      }
+      .alba-luxury-world-body .alba-luxury-shop-scene {
+        height: auto !important;
+        min-height: 100% !important;
+        overflow: visible !important;
+      }
+      .alba-luxury-world-body .alba-luxury-section-stack {
+        max-height: none !important;
+        overflow: visible !important;
+        padding-right: 0 !important;
+      }
       @keyframes albaTextShimmer {
         0% { background-position: 0% 50%; }
         100% { background-position: 200% 50%; }
@@ -3775,6 +3792,12 @@ function ResponsiveGameStyles() {
         .alba-panel-scene {
           align-content: start !important;
           overflow: auto !important;
+        }
+
+        .alba-luxury-world-body {
+          overflow-y: auto !important;
+          overflow-x: hidden !important;
+          padding-bottom: 42px !important;
         }
 
         .alba-luxury-section-stack {
@@ -8786,7 +8809,7 @@ export default function GamePage() {
           <button onClick={() => setLobbyView("museum")}>박물관</button>
         </nav>
 
-        <section className="alba-world-body" style={worldBodyStyle}>
+        <section className={`alba-world-body${lobbyView === "luxury" ? " alba-luxury-world-body" : ""}`} style={worldBodyStyle}>
           {lobbyView === "room" && (
             <div className="alba-room-scene" style={roomSceneStyle}>
               <div className="alba-room-money" style={roomMoneyStyle}>◎ {cash.toLocaleString()}</div>
@@ -9903,7 +9926,7 @@ export default function GamePage() {
           )}
 
           {lobbyView === "luxury" && (
-            <div style={luxuryShopSceneStyle}>
+            <div className="alba-luxury-shop-scene" style={luxuryShopSceneStyle}>
               <div className="alba-panel-header" style={panelHeaderRowStyle}>
                 <div>
                   <div style={smallLabelStyle}>LUXURY SHOP</div>
@@ -13770,7 +13793,9 @@ const smallActionButtonStyle: CSSProperties = {
 
 const worldBodyStyle: CSSProperties = {
   minHeight: 0,
-  overflow: "auto",
+  overflowY: "auto",
+  overflowX: "hidden",
+  WebkitOverflowScrolling: "touch",
 };
 
 const worldFooterStyle: CSSProperties = {
@@ -16476,15 +16501,16 @@ const profileNameplateMetaStyle: CSSProperties = {
 
 const luxuryShopSceneStyle: CSSProperties = {
   width: "100%",
-  height: "100%",
+  minHeight: "100%",
+  height: "auto",
   display: "block",
-  overflowY: "auto",
-  overflowX: "hidden",
+  overflow: "visible",
   background: "linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%)",
   color: "#111827",
   border: "4px solid #111827",
   borderRadius: "26px",
   padding: "18px",
+  paddingBottom: "42px",
   boxShadow: "0 18px 0 rgba(17,24,39,0.10), 0 24px 46px rgba(15,23,42,0.18)",
 };
 
@@ -16499,12 +16525,10 @@ const luxurySectionStackStyle: CSSProperties = {
   display: "grid",
   gap: "16px",
   minHeight: 0,
-  maxHeight: "calc(100dvh - 260px)",
-  overflowY: "auto",
-  overflowX: "hidden",
-  paddingRight: "6px",
-  overscrollBehavior: "contain",
-  WebkitOverflowScrolling: "touch",
+  maxHeight: "none",
+  overflow: "visible",
+  paddingRight: 0,
+  paddingBottom: "18px",
 };
 
 const luxurySectionStyle: CSSProperties = {
