@@ -7439,7 +7439,11 @@ export default function GamePage() {
         .gte("created_at", cutoffIso)
         .order("created_at", { ascending: true })
         .limit(60);
-      data = fallback.data;
+      data = (fallback.data ?? []).map((row) => ({
+        ...row,
+        nickname_color_id: null,
+        nickname_tag_id: null,
+      })) as typeof data;
       error = fallback.error;
     }
 
@@ -16172,6 +16176,10 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
+
 
 
 
