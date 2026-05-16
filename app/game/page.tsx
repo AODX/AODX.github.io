@@ -3496,9 +3496,27 @@ function ResponsiveGameStyles() {
       .alba-luxury-section-stack { scrollbar-width: thin; }
       .alba-luxury-section-stack::-webkit-scrollbar { width: 10px; }
       .alba-luxury-section-stack::-webkit-scrollbar-thumb { background: rgba(17,24,39,0.35); border-radius: 999px; }
-      .alba-luxury-world-body {
+      .alba-game-root.alba-luxury-scroll-page {
+        height: 100svh !important;
+        max-height: 100svh !important;
         overflow-y: auto !important;
         overflow-x: hidden !important;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+      }
+      .alba-luxury-scroll-page .alba-world-layout {
+        height: auto !important;
+        min-height: 100svh !important;
+        max-height: none !important;
+        grid-template-rows: 112px auto 54px !important;
+        overflow: visible !important;
+        padding-bottom: 96px !important;
+      }
+      .alba-luxury-world-body {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
         align-content: start !important;
         padding-bottom: 32px !important;
         overscroll-behavior: contain;
@@ -8725,7 +8743,10 @@ export default function GamePage() {
   }
 
   return (
-    <main className="alba-game-root" style={pageStyle}>
+    <main
+      className={`alba-game-root${lobbyView === "luxury" ? " alba-luxury-scroll-page" : ""}`}
+      style={lobbyView === "luxury" ? { ...pageStyle, height: "100svh", maxHeight: "100svh", overflowY: "auto", overflowX: "hidden" } : pageStyle}
+    >
       <ResponsiveGameStyles />
       {globalAnnouncement && (
         <div style={{ position: "fixed", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 200, width: "min(920px, calc(100% - 28px))", padding: "12px 18px", border: "3px solid rgba(17,24,39,0.72)", borderRadius: "999px", background: "rgba(15,23,42,0.72)", color: "#ffffff", boxShadow: "0 12px 30px rgba(15,23,42,0.22)", backdropFilter: "blur(10px)", textAlign: "center", fontWeight: 900, pointerEvents: "none" }}>
@@ -8758,7 +8779,10 @@ export default function GamePage() {
           </div>
         </div>
       )}
-      <section className="alba-world-layout" style={worldLayoutStyle}>
+      <section
+        className="alba-world-layout"
+        style={lobbyView === "luxury" ? { ...worldLayoutStyle, height: "auto", minHeight: "100svh", maxHeight: "none", gridTemplateRows: "112px auto 54px", overflow: "visible", paddingBottom: "96px" } : worldLayoutStyle}
+      >
         <header className="alba-world-header" style={worldHeaderStyle}>
           <div className="alba-profile-area" style={profileAreaStyle}>
             <div style={smallLabelStyle}>ALBA MONEY GAME</div>
@@ -8809,7 +8833,10 @@ export default function GamePage() {
           <button onClick={() => setLobbyView("museum")}>박물관</button>
         </nav>
 
-        <section className={`alba-world-body${lobbyView === "luxury" ? " alba-luxury-world-body" : ""}`} style={worldBodyStyle}>
+        <section
+          className={`alba-world-body${lobbyView === "luxury" ? " alba-luxury-world-body" : ""}`}
+          style={lobbyView === "luxury" ? { ...worldBodyStyle, height: "auto", minHeight: 0, maxHeight: "none", overflow: "visible", paddingBottom: 80 } : worldBodyStyle}
+        >
           {lobbyView === "room" && (
             <div className="alba-room-scene" style={roomSceneStyle}>
               <div className="alba-room-money" style={roomMoneyStyle}>◎ {cash.toLocaleString()}</div>
@@ -16501,7 +16528,7 @@ const profileNameplateMetaStyle: CSSProperties = {
 
 const luxuryShopSceneStyle: CSSProperties = {
   width: "100%",
-  minHeight: "100%",
+  minHeight: "auto",
   height: "auto",
   display: "block",
   overflow: "visible",
@@ -16524,7 +16551,7 @@ const luxurySummaryBarStyle: CSSProperties = {
 const luxurySectionStackStyle: CSSProperties = {
   display: "grid",
   gap: "16px",
-  minHeight: 0,
+  minHeight: "auto",
   maxHeight: "none",
   overflow: "visible",
   paddingRight: 0,
