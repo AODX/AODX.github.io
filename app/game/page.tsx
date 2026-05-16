@@ -406,28 +406,7 @@ type GlobalStockMarketResultRow = {
 type GlobalStockMarketResult = GlobalStockMarketResultRow | GlobalStockMarketResultRow[];
 
 
-type CasinoUserRow = {
-  id: string;
-  nickname: string;
-  nicknameColorId?: NicknameColorId;
-  cash: number;
-  job: string;
-};
 
-type PvpMatchRow = {
-  id: string;
-  challenger_id: string;
-  opponent_id: string | null;
-  stake: number | string;
-  status: "waiting" | "accepted" | "playing" | "finished" | "cancelled";
-  challenger_score: number | null;
-  opponent_score: number | null;
-  winner_id: string | null;
-  game_type: string | null;
-  created_at: string | null;
-  accepted_at: string | null;
-  finished_at: string | null;
-};
 
 type SlotResult = {
   result: string;
@@ -436,15 +415,7 @@ type SlotResult = {
   profit: number;
 };
 
-type PvpSubmitResult = {
-  status: string;
-  winner_id?: string;
-  reward?: number;
-  challenger_score?: number;
-  opponent_score?: number;
-};
 
-type PvpReactionState = "idle" | "waiting" | "go" | "submitted";
 
 type FinanceHistoryPoint = {
   label: string;
@@ -4089,15 +4060,6 @@ export default function GamePage() {
   const [isSlotPlaying, setIsSlotPlaying] = useState(false);
   const [slotReels, setSlotReels] = useState<string[]>(["7", "7", "7"]);
   const [slotLeverDown, setSlotLeverDown] = useState(false);
-  const [casinoUsers, setCasinoUsers] = useState<CasinoUserRow[]>([]);
-  const [pvpMatches, setPvpMatches] = useState<PvpMatchRow[]>([]);
-  const [pvpStake, setPvpStake] = useState("1000");
-  const [selectedOpponentId, setSelectedOpponentId] = useState("");
-  const [pvpMessage, setPvpMessage] = useState("상대를 선택하고 판돈을 걸어 대전을 신청하세요.");
-  const [activePvpMatch, setActivePvpMatch] = useState<PvpMatchRow | null>(null);
-  const [pvpReactionState, setPvpReactionState] = useState<PvpReactionState>("idle");
-  const [pvpReactionStartAt, setPvpReactionStartAt] = useState(0);
-  const [pvpReactionScore, setPvpReactionScore] = useState(0);
 
   const [, setWarningCount] = useState(0);
   const [unpaidTax, setUnpaidTax] = useState(0);
@@ -4194,7 +4156,7 @@ export default function GamePage() {
     setBusinessEmployees(allBusinessEmployees);
     setOwnedItems(allShopItemIds);
     setDiscoveredItems(allShopItemIds);
-    setEquippedItems(allShopItemIds.slice(0, itemSlotCount));
+    setEquippedItems(allShopItemIds.slice(0, 2));
     setShopLevel(5);
     setShopPurchaseCount(Math.max(999, allShopItemIds.length));
     setEarnedTitleIds(allTitleIds);
@@ -4210,7 +4172,7 @@ export default function GamePage() {
     setArtifactInventory(artifactCatalog.map((artifact) => ({ artifactId: artifact.id, count: 1 })));
     setDonatedArtifactIds([]);
     setMessage("🛠️ 개발자 계정으로 접속했습니다. 모든 콘텐츠가 해금되며 랭킹/전역 박물관에는 반영되지 않습니다.");
-  }, [isDeveloperAccount, itemSlotCount]);
+  }, [isDeveloperAccount]);
   useEffect(() => {
     if (!excavationGame) {
       setExcavationTracePoints([]);
@@ -4265,7 +4227,6 @@ export default function GamePage() {
   const itemSlotCount = currentTitleId === "treasureCollector" ? 2 : 1;
   const businessItemBonus = getEquippedItemBonusTotal(equippedShopItems, "businessIncome");
   const jobItemBonus = getEquippedItemBonusTotal(equippedShopItems, "jobIncome") + (ownedCertifications.includes("office") ? 0.03 : 0) + (ownedCertifications.includes("logistics") ? 0.02 : 0) + (currentTitleId === "certifiedExpert" ? 0.02 : 0) + (currentTitleId === "relicOwner" ? 0.03 : 0);
-  const casinoLuckBonus = getEquippedItemBonusTotal(equippedShopItems, "casinoLuck");
   const estateItemBonus = getEquippedItemBonusTotal(equippedShopItems, "estateIncome");
   const bankInterestBonus = getEquippedItemBonusTotal(equippedShopItems, "bankInterest");
   const lottoLuckBonus = getEquippedItemBonusTotal(equippedShopItems, "lottoLuck");
@@ -7742,9 +7703,6 @@ export default function GamePage() {
   async function refreshCasinoData() {
     // PVP 기능을 제거했으므로 도박장에서는 별도 유저/대전 목록을 불러오지 않습니다.
     // 슬롯머신은 playSlotMachine()에서 필요한 서버 RPC만 호출합니다.
-    setCasinoUsers([]);
-    setSelectedOpponentId("");
-    setPvpMatches([]);
   }
 
   async function playSlotMachine() {
@@ -7813,140 +7771,6 @@ export default function GamePage() {
       setIsSlotPlaying(false);
       setMessage(`🎰 슬롯 실패: ${error instanceof Error ? error.message : "알 수 없는 오류"}`);
     }
-  }
-
-  async function createPvpChallenge() {
-    if (!userId) return;
-
-    const stake = Math.floor(Number(pvpStake));
-    if (!selectedOpponentId) {
-      setPvpMessage("상대를 먼저 선택하세요.");
-      return;
-    }
-
-    if (!Number.isFinite(stake) || stake < 100) {
-      setPvpMessage("최소 판돈은 100원입니다.");
-      return;
-    }
-
-    if (stake > cash) {
-      setPvpMessage("보유 현금보다 많이 걸 수 없습니다.");
-      return;
-    }
-
-    const supabase = createClient();
-    const { error } = await supabase.rpc("create_pvp_match", {
-      p_opponent_id: selectedOpponentId,
-      p_stake: stake,
-    });
-
-    if (error) {
-      setPvpMessage(`도전 생성 실패: ${error.message}`);
-      return;
-    }
-
-    setCash((money) => Math.max(0, money - stake));
-    setPvpMessage("도전장을 보냈습니다. 상대가 수락하면 반응속도 미니게임을 시작할 수 있습니다.");
-    refreshRanking();
-    refreshCasinoData();
-  }
-
-  async function acceptPvpChallenge(match: PvpMatchRow) {
-    if (!userId) return;
-    const stake = Number(match.stake);
-
-    if (stake > cash) {
-      setPvpMessage("수락하기에는 보유 현금이 부족합니다.");
-      return;
-    }
-
-    const supabase = createClient();
-    const { error } = await supabase.rpc("accept_pvp_match", { p_match_id: match.id });
-
-    if (error) {
-      setPvpMessage(`대전 수락 실패: ${error.message}`);
-      return;
-    }
-
-    setCash((money) => Math.max(0, money - stake));
-    const acceptedMatch = { ...match, status: "accepted" as const };
-    setActivePvpMatch(acceptedMatch);
-    resetPvpReaction(acceptedMatch);
-    setPvpMessage("대전을 수락했습니다. 반응속도 미니게임을 시작하세요.");
-    refreshRanking();
-    refreshCasinoData();
-  }
-
-  function startPvpReaction(match: PvpMatchRow) {
-    setActivePvpMatch(match);
-    resetPvpReaction(match);
-  }
-
-  function resetPvpReaction(match = activePvpMatch) {
-    setActivePvpMatch(match);
-    setPvpReactionState("idle");
-    setPvpReactionStartAt(0);
-    setPvpReactionScore(0);
-  }
-
-  function beginPvpReactionRound() {
-    if (!activePvpMatch) return;
-
-    setPvpReactionState("waiting");
-    setPvpReactionScore(0);
-
-    const delay = 1000 + Math.floor(Math.random() * 2200);
-    window.setTimeout(() => {
-      setPvpReactionStartAt(Date.now());
-      setPvpReactionState("go");
-    }, delay);
-  }
-
-  async function hitPvpReactionButton() {
-    if (!activePvpMatch) return;
-
-    if (pvpReactionState === "waiting") {
-      setPvpReactionScore(1);
-      setPvpReactionState("submitted");
-      await submitPvpScore(activePvpMatch, 1);
-      return;
-    }
-
-    if (pvpReactionState !== "go") return;
-
-    const reactionMs = Math.max(1, Date.now() - pvpReactionStartAt);
-    const score = Math.max(1, 1200 - reactionMs);
-    setPvpReactionScore(score);
-    setPvpReactionState("submitted");
-    await submitPvpScore(activePvpMatch, score);
-  }
-
-  async function submitPvpScore(match: PvpMatchRow, score: number) {
-    if (!userId) return;
-
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc("finish_pvp_match", {
-      p_match_id: match.id,
-      p_my_score: Math.max(1, Math.floor(score)),
-    });
-
-    if (error) {
-      setPvpMessage(`점수 제출 실패: ${error.message}`);
-      return;
-    }
-
-    const result = data as PvpSubmitResult;
-    if (result.status === "finished") {
-      const won = result.winner_id === userId;
-      const reward = Math.floor(Number(result.reward ?? 0) * (1 + casinoLuckBonus));
-      if (won) setCash((money) => money + reward);
-      setPvpMessage(won ? `🏆 승리! 상금 ${reward.toLocaleString()}원을 획득했습니다.` : "패배했습니다. 다음 대전에 다시 도전하세요.");
-    } else {
-      setPvpMessage("점수를 제출했습니다. 상대 점수를 기다리는 중입니다.");
-    }
-
-    refreshRanking();
-    refreshCasinoData();
   }
 
   async function fetchGlobalStockMarket() {
@@ -11630,14 +11454,6 @@ function getLoanLimit(creditScore: number, netWorth: number) {
   return Math.floor(base * creditMultiplier);
 }
 
-function normalizePvpMatch(match: PvpMatchRow): PvpMatchRow {
-  return {
-    ...match,
-    stake: Number(match.stake ?? 0),
-    challenger_score: Number(match.challenger_score ?? 0),
-    opponent_score: Number(match.opponent_score ?? 0),
-  };
-}
 
 function getSlotResultLabel(result: string) {
   if (result === "jackpot") return "대박";
@@ -11703,24 +11519,8 @@ const secretTitleConditionText: Partial<Record<PlayerTitleId, string>> = {
   hiddenCompletionist: "해금 완료: 최상급 발굴품 보유 + 부동산/사업/도감/박물관 조건을 폭넓게 달성",
 };
 
-function getPvpStatusLabel(status: PvpMatchRow["status"]) {
-  if (status === "waiting") return "수락 대기";
-  if (status === "accepted") return "플레이 가능";
-  if (status === "playing") return "점수 대기";
-  if (status === "finished") return "종료";
-  return "취소";
-}
 
-function getCasinoUserName(id: string | null, users: CasinoUserRow[], currentUserId: string | null, nickname: string) {
-  if (!id) return "알 수 없음";
-  if (id === currentUserId) return nickname;
-  return users.find((user) => user.id === id)?.nickname ?? `유저-${id.slice(0, 8)}`;
-}
 
-function getPvpOpponentName(match: PvpMatchRow, currentUserId: string | null, users: CasinoUserRow[], nickname: string) {
-  const opponentId = match.challenger_id === currentUserId ? match.opponent_id : match.challenger_id;
-  return getCasinoUserName(opponentId, users, currentUserId, nickname);
-}
 
 function getCareerTargetScore(occupation: Occupation) {
   return 3 + occupation.minigameDifficulty;
@@ -15296,60 +15096,10 @@ const slotQuickButtonStyle: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const pvpMessageStyle: CSSProperties = {
-  minHeight: "42px",
-  borderRadius: "14px",
-  background: "#eff6ff",
-  border: "2px solid #bfdbfe",
-  color: "#1e3a8a",
-  padding: "10px",
-  fontWeight: 900,
-  lineHeight: 1.35,
-};
 
-const pvpMatchRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "10px",
-  border: "3px solid #111827",
-  borderRadius: "16px",
-  background: "#f8fafc",
-  padding: "10px",
-  marginBottom: "8px",
-};
 
-const pvpGamePanelStyle: CSSProperties = {
-  minHeight: 0,
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) 160px auto",
-  gap: "12px",
-  alignItems: "center",
-  border: "4px solid #111827",
-  borderRadius: "22px",
-  background: "#ffffff",
-  padding: "12px",
-  boxShadow: "0 8px 0 rgba(15,23,42,0.14)",
-};
 
-const pvpLightStyle: CSSProperties = {
-  height: "92px",
-  border: "4px solid #111827",
-  borderRadius: "22px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  color: "#111827",
-  fontSize: "24px",
-  fontWeight: 900,
-};
 
-const pvpButtonRowStyle: CSSProperties = {
-  display: "flex",
-  gap: "8px",
-  flexWrap: "wrap",
-  justifyContent: "flex-end",
-};
 
 const globalChatStyle: CSSProperties = {
   position: "fixed",
@@ -16325,6 +16075,9 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
 
 
 
