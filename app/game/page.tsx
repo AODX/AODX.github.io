@@ -4105,7 +4105,6 @@ export default function GamePage() {
   const [isSlotPlaying, setIsSlotPlaying] = useState(false);
   const [slotReels, setSlotReels] = useState<string[]>(["7", "7", "7"]);
   const [slotLeverDown, setSlotLeverDown] = useState(false);
-  const [casinoUsers, setCasinoUsers] = useState<CasinoUserRow[]>([]);
   const [pvpMatches, setPvpMatches] = useState<PvpMatchRow[]>([]);
   const [pvpStake, setPvpStake] = useState("1000");
   const [selectedOpponentId, setSelectedOpponentId] = useState("");
@@ -16303,6 +16302,10 @@ const museumSummaryStyle: CSSProperties = {
   zIndex: 2,
   marginTop: "4px",
 };
+
+
+
+
 
 
 
