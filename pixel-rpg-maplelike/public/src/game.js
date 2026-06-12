@@ -1,17 +1,17 @@
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-
 ctx.imageSmoothingEnabled = false;
 
 const W = canvas.width;
 const H = canvas.height;
-
 const keys = new Set();
 
 let last = performance.now();
 let cameraX = 0;
 let token = localStorage.getItem('pixel-rpg-token') || '';
 let loginMode = 'login';
+let currentUser = null;
+let nickTimer = null;
 
 let selected = {
   skin: '#ffd6a6',
@@ -21,18 +21,23 @@ let selected = {
 };
 
 const auth = document.getElementById('auth');
+const characterScreen = document.getElementById('characterScreen');
+const characterMenu = document.getElementById('characterMenu');
 const help = document.getElementById('hudHelp');
-const creator = document.getElementById('creator');
 const authBtn = document.getElementById('authBtn');
 const authMsg = document.getElementById('authMsg');
+const nickMsg = document.getElementById('nickMsg');
+const createMsg = document.getElementById('createMsg');
 const preview = document.getElementById('preview');
+const menuPreview = document.getElementById('menuPreview');
 const pctx = preview.getContext('2d');
+const mctx = menuPreview.getContext('2d');
 
 pctx.imageSmoothingEnabled = false;
+mctx.imageSmoothingEnabled = false;
 
 const state = {
   ready: false,
-  screen: 'auth',
   scene: 'town',
   townWidth: 2450,
   fieldWidth: 3600,
@@ -82,188 +87,11 @@ function defaultPlayer() {
       accent: '#ffd43b'
     },
     inventory: [
-      {
-        id: 'red_potion',
-        name: '빨간 포션',
-        type: 'use',
-        qty: 5
-      },
-      {
-        id: 'wood_sword',
-        name: '나무검',
-        type: 'weapon',
-        qty: 1,
-        atk: 2
-      }
+      { id: 'red_potion', name: '빨간 포션', type: 'use', qty: 5 },
+      { id: 'beginner_glove', name: '초보자 장갑', type: 'weapon', qty: 1, atk: 1 }
     ]
   };
 }
-
-function setupScene(scene) {
-  state.scene = scene;
-  state.particles = [];
-  state.texts = [];
-  state.hitboxes = [];
-  state.monsters = [];
-
-  if (scene === 'town') {
-    state.portals = [
-      {
-        x: 2180,
-        y: 515,
-        w: 72,
-        h: 110,
-        to: 'field',
-        label: '수련의 숲'
-      }
-    ];
-
-    state.npcs = [
-      {
-        id: 'elder',
-        name: '장로 구름',
-        x: 650,
-        y: 520,
-        text: [
-          '어서 오게, 초보자여!',
-          '동쪽 포탈로 나가 슬라임 5마리를 처치해 보게.'
-        ],
-        quest: 'slime_intro'
-      },
-      {
-        id: 'smith',
-        name: '대장장이 단단',
-        x: 1100,
-        y: 520,
-        text: [
-          '장비는 M키 인벤토리에서 볼 수 있다네.',
-          '처음에는 주먹 공격만 가능하니 J키를 연습해 보게.'
-        ]
-      },
-      {
-        id: 'mage',
-        name: '마법사 루나',
-        x: 1540,
-        y: 520,
-        text: [
-          '레벨 2가 되면 첫 스킬이 열릴 거야.',
-          '지금은 기본 공격으로 몸을 익혀!'
-        ]
-      }
-    ];
-  } else {
-    state.portals = [
-      {
-        x: 90,
-        y: 525,
-        w: 70,
-        h: 100,
-        to: 'town',
-        label: '초보자 마을'
-      }
-    ];
-
-    state.npcs = [];
-    spawnMonsters();
-  }
-}
-
-function spawnMonsters() {
-  state.monsters = [];
-
-  for (let i = 0; i < 16; i++) {
-    const mushroom = i % 3 === 2;
-
-    state.monsters.push({
-      type: mushroom ? 'mushroom' : 'slime',
-      x: 520 + i * 190,
-      y: 535,
-      vx: mushroom ? 18 : 30,
-      w: mushroom ? 48 : 42,
-      h: mushroom ? 48 : 34,
-      hp: mushroom ? 75 : 42,
-      maxHp: mushroom ? 75 : 42,
-      exp: mushroom ? 28 : 18,
-      face: Math.random() < 0.5 ? -1 : 1,
-      animTime: Math.random() * 5,
-      hit: 0,
-      dead: false,
-      respawn: 0
-    });
-  }
-}
-
-addEventListener('keydown', event => {
-  const key = event.key.toLowerCase();
-  keys.add(key);
-
-  if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
-    event.preventDefault();
-  }
-
-  if (!state.ready) return;
-
-  if (key === 'm') {
-    state.inventoryOpen = !state.inventoryOpen;
-  }
-
-  if (key === 'e') {
-    interact();
-  }
-
-  if (key === 's') {
-    saveGame();
-  }
-
-  if (key === 'j') {
-    punch();
-  }
-
-  if (key === 'k') {
-    trySkill();
-  }
-});
-
-addEventListener('keyup', event => {
-  keys.delete(event.key.toLowerCase());
-});
-
-function setMode(mode) {
-  loginMode = mode;
-
-  document.getElementById('tabLogin').classList.toggle('active', mode === 'login');
-  document.getElementById('tabRegister').classList.toggle('active', mode === 'register');
-
-  creator.classList.toggle('hidden', mode !== 'register');
-
-  authBtn.textContent = mode === 'login' ? '로그인' : '캐릭터 만들고 시작';
-  authMsg.textContent = '';
-
-  drawPreview();
-}
-
-document.getElementById('tabLogin').onclick = () => setMode('login');
-document.getElementById('tabRegister').onclick = () => setMode('register');
-
-document.querySelectorAll('.swatches').forEach(group => {
-  group.querySelectorAll('span').forEach(span => {
-    span.onclick = () => {
-      selected[group.dataset.target] = span.style.backgroundColor;
-
-      group.querySelectorAll('span').forEach(item => {
-        item.classList.remove('selected');
-      });
-
-      span.classList.add('selected');
-      drawPreview();
-    };
-  });
-
-  group.querySelector('span').classList.add('selected');
-});
-
-document.getElementById('charName').oninput = drawPreview;
-authBtn.onclick = submitAuth;
 
 async function api(path, body) {
   const response = await fetch(path, {
@@ -284,70 +112,188 @@ async function api(path, body) {
   return data;
 }
 
+function hideAllPanels() {
+  auth.classList.add('hidden');
+  characterScreen.classList.add('hidden');
+  characterMenu.classList.add('hidden');
+  help.classList.add('hidden');
+}
+
+function showAuth() {
+  state.ready = false;
+  hideAllPanels();
+  auth.classList.remove('hidden');
+}
+
+function showCreator() {
+  state.ready = false;
+  hideAllPanels();
+  characterScreen.classList.remove('hidden');
+  drawPreview();
+}
+
+function showCharacterMenu(save) {
+  state.ready = false;
+  hideAllPanels();
+  characterMenu.classList.remove('hidden');
+
+  document.getElementById('menuName').textContent = `${save.player.character.name}  Lv.${save.player.level}`;
+  drawMenuPreview(save.player.character);
+}
+
+function startWithSave(save) {
+  Object.assign(state.player, defaultPlayer(), save?.player || {});
+  setupScene(state.player.scene || 'town');
+
+  hideAllPanels();
+  help.classList.remove('hidden');
+  state.ready = true;
+
+  toast(`${state.player.character.name}님, 환영합니다!`, state.player.x, state.player.y - 110, '#ffe066');
+}
+
+function setMode(mode) {
+  loginMode = mode;
+
+  document.getElementById('tabLogin').classList.toggle('active', mode === 'login');
+  document.getElementById('tabRegister').classList.toggle('active', mode === 'register');
+
+  authBtn.textContent = mode === 'login' ? '로그인' : '회원가입';
+  authMsg.textContent = '';
+}
+
+document.getElementById('tabLogin').onclick = () => setMode('login');
+document.getElementById('tabRegister').onclick = () => setMode('register');
+authBtn.onclick = submitAuth;
+
+document.getElementById('startNewBtn').onclick = createCharacterAndStart;
+document.getElementById('continueBtn').onclick = () => startWithSave(currentUser.save);
+document.getElementById('logoutBtn').onclick = logout;
+document.getElementById('logoutBtn2').onclick = logout;
+
+document.getElementById('charName').addEventListener('input', () => {
+  drawPreview();
+  checkNicknameSoon();
+});
+
+document.querySelectorAll('.swatches').forEach(group => {
+  group.querySelectorAll('span').forEach(span => {
+    span.onclick = () => {
+      selected[group.dataset.target] = rgbToHex(span.style.backgroundColor);
+
+      group.querySelectorAll('span').forEach(item => item.classList.remove('selected'));
+      span.classList.add('selected');
+
+      drawPreview();
+    };
+  });
+
+  group.querySelector('span').classList.add('selected');
+});
+
 async function submitAuth() {
   try {
+    authMsg.textContent = '';
+
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
 
-    let data;
-
-    if (loginMode === 'register') {
-      const character = {
-        name: document.getElementById('charName').value.trim() || username,
-        ...selected
-      };
-
-      data = await api('/api/register', {
-        username,
-        password,
-        character
-      });
-    } else {
-      data = await api('/api/login', {
-        username,
-        password
-      });
-    }
+    const data = await api(
+      loginMode === 'login' ? '/api/login' : '/api/register',
+      { username, password }
+    );
 
     token = data.token;
     localStorage.setItem('pixel-rpg-token', token);
+    currentUser = data.user;
 
-    startWithSave(data.user.save);
+    if (currentUser.hasCharacter && currentUser.save) {
+      showCharacterMenu(currentUser.save);
+    } else {
+      showCreator();
+    }
   } catch (err) {
     authMsg.textContent = err.message;
   }
 }
 
-async function boot() {
-  drawPreview();
-  setMode('login');
-  setupScene('town');
+async function checkNicknameSoon() {
+  clearTimeout(nickTimer);
 
-  if (!token) return;
+  nickTimer = setTimeout(async () => {
+    const nickname = document.getElementById('charName').value.trim();
 
+    if (nickname.length < 2) {
+      nickMsg.className = 'nick-msg bad';
+      nickMsg.textContent = '닉네임은 2자 이상이어야 합니다.';
+      return;
+    }
+
+    try {
+      await api('/api/check-nickname', { nickname });
+      nickMsg.className = 'nick-msg ok';
+      nickMsg.textContent = '사용 가능한 닉네임입니다.';
+    } catch (err) {
+      nickMsg.className = 'nick-msg bad';
+      nickMsg.textContent = err.message;
+    }
+  }, 250);
+}
+
+async function createCharacterAndStart() {
   try {
-    const data = await api('/api/profile');
-    startWithSave(data.user.save);
-  } catch {
-    localStorage.removeItem('pixel-rpg-token');
-    token = '';
+    createMsg.textContent = '';
+
+    const character = {
+      name: document.getElementById('charName').value.trim(),
+      ...selected
+    };
+
+    const data = await api('/api/create-character', { character });
+
+    currentUser = data.user;
+    startWithSave(currentUser.save);
+  } catch (err) {
+    createMsg.textContent = err.message;
   }
 }
 
-function startWithSave(save) {
-  const player = state.player;
+async function boot() {
+  setMode('login');
+  setupScene('town');
+  drawPreview();
 
-  Object.assign(player, defaultPlayer(), save?.player || {});
+  if (!token) {
+    showAuth();
+    return;
+  }
 
-  setupScene(player.scene || 'town');
+  try {
+    const data = await api('/api/profile');
+    currentUser = data.user;
 
-  auth.classList.add('hidden');
-  help.classList.remove('hidden');
+    if (currentUser.hasCharacter && currentUser.save) {
+      showCharacterMenu(currentUser.save);
+    } else {
+      showCreator();
+    }
+  } catch {
+    localStorage.removeItem('pixel-rpg-token');
+    token = '';
+    showAuth();
+  }
+}
 
-  state.ready = true;
-  state.screen = 'game';
+async function logout() {
+  try {
+    await api('/api/logout', {});
+  } catch {}
 
-  toast(`${player.character.name}님, 환영합니다!`, player.x, player.y - 110, '#ffe066');
+  token = '';
+  currentUser = null;
+
+  localStorage.removeItem('pixel-rpg-token');
+  showAuth();
 }
 
 async function saveGame() {
@@ -377,17 +323,117 @@ async function saveGame() {
   };
 
   try {
-    await api('/api/save', save);
+    const data = await api('/api/save', save);
+
+    currentUser = {
+      ...(currentUser || {}),
+      save,
+      savedAt: data.savedAt,
+      hasCharacter: true
+    };
+
     state.saveFlash = 1;
     toast('서버 저장 완료', player.x, player.y - 105, '#9bf6ff');
   } catch {
-    toast('저장 실패: 로그인 확인', player.x, player.y - 105, '#ff8787');
+    toast('저장 실패', player.x, player.y - 105, '#ff8787');
   }
 }
 
 function pick(obj, keys) {
   return Object.fromEntries(keys.map(key => [key, obj[key]]));
 }
+
+function setupScene(scene) {
+  state.scene = scene;
+  state.particles = [];
+  state.texts = [];
+  state.hitboxes = [];
+  state.monsters = [];
+
+  if (scene === 'town') {
+    state.portals = [
+      { x: 2180, y: 515, w: 72, h: 110, to: 'field', label: '수련의 숲' }
+    ];
+
+    state.npcs = [
+      {
+        id: 'elder',
+        name: '장로 구름',
+        x: 650,
+        y: 520,
+        text: ['어서 오게, 초보자여!', '동쪽 포탈로 나가 슬라임 5마리를 처치해 보게.'],
+        quest: 'slime_intro'
+      },
+      {
+        id: 'smith',
+        name: '대장장이 단단',
+        x: 1100,
+        y: 520,
+        text: ['M키로 인벤토리를 열 수 있다네.', '초반에는 무기 없이 J키 주먹 공격만 가능하다네.']
+      },
+      {
+        id: 'mage',
+        name: '마법사 루나',
+        x: 1540,
+        y: 520,
+        text: ['레벨 2가 되면 화염 스킬 K가 열릴 거야.', '지금은 기본 공격으로 수련해 봐!']
+      }
+    ];
+  } else {
+    state.portals = [
+      { x: 90, y: 525, w: 70, h: 100, to: 'town', label: '초보자 마을' }
+    ];
+
+    state.npcs = [];
+    spawnMonsters();
+  }
+}
+
+function spawnMonsters() {
+  state.monsters = [];
+
+  for (let i = 0; i < 16; i++) {
+    const mushroom = i % 3 === 2;
+
+    state.monsters.push({
+      type: mushroom ? 'mushroom' : 'slime',
+      x: 520 + i * 190,
+      y: 535,
+      vx: mushroom ? 18 : 30,
+      w: mushroom ? 48 : 42,
+      h: mushroom ? 48 : 34,
+      hp: mushroom ? 75 : 42,
+      maxHp: mushroom ? 75 : 42,
+      exp: mushroom ? 28 : 18,
+      face: Math.random() < .5 ? -1 : 1,
+      animTime: Math.random() * 5,
+      hit: 0,
+      dead: false,
+      respawn: 0
+    });
+  }
+}
+
+addEventListener('keydown', event => {
+  const key = event.key.toLowerCase();
+  keys.add(key);
+
+  if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
+    event.preventDefault();
+  }
+
+  if (!state.ready) return;
+
+  if (key === 'm') state.inventoryOpen = !state.inventoryOpen;
+  if (key === 'e') interact();
+  if (key === 's') saveGame();
+  if (key === 'j') punch();
+  if (key === 'k') trySkill();
+});
+
+addEventListener('keyup', event => {
+  keys.delete(event.key.toLowerCase());
+});
 
 function interact() {
   if (state.dialogue) {
@@ -438,24 +484,17 @@ function openNpc(npc) {
       player.gold += 150;
       player.unlockedSkills = [...new Set([...player.unlockedSkills, 'fire'])];
 
-      lines = [
-        '훌륭하군! 보상을 받게.',
-        'EXP 80, 150 메소, 화염 스킬이 열렸네!'
-      ];
+      lines = ['훌륭하군! 보상을 받게.', 'EXP 80, 150 메소, 화염 스킬이 열렸네!'];
     } else if (quest.status === 'active') {
       lines.push(`진행도: ${quest.killed}/${quest.need}`);
     } else {
-      lines = [
-        '이미 훌륭히 해냈네.',
-        '더 강한 모험은 다음 업데이트에서 준비하겠네!'
-      ];
+      lines = ['이미 훌륭히 해냈네.', '더 강한 모험은 다음 업데이트에서 준비하겠네!'];
     }
   }
 
   state.dialogue = {
     name: npc.name,
-    lines,
-    page: 0
+    lines
   };
 }
 
@@ -464,7 +503,7 @@ function punch() {
 
   if (player.attackCd > 0 || state.dialogue) return;
 
-  player.attackCd = 0.38;
+  player.attackCd = .38;
   player.anim = 'punch';
   player.animTime = 0;
 
@@ -476,7 +515,7 @@ function punch() {
     y: hitY,
     w: 58,
     h: 50,
-    life: 0.12,
+    life: .12,
     damage: 14 + player.level * 3,
     owner: 'player',
     kind: 'punch'
@@ -504,7 +543,7 @@ function trySkill() {
   if (player.mp < 12 || player.skillCd > 0) return;
 
   player.mp -= 12;
-  player.skillCd = 0.8;
+  player.skillCd = .8;
   player.anim = 'skill';
   player.animTime = 0;
 
@@ -516,7 +555,7 @@ function trySkill() {
     y: hitY,
     w: 130,
     h: 64,
-    life: 0.25,
+    life: .25,
     damage: 36 + player.level * 4,
     owner: 'player',
     kind: 'fire'
@@ -532,7 +571,6 @@ function trySkill() {
     );
   }
 }
-
 function update(dt) {
   if (!state.ready) return;
 
@@ -548,7 +586,6 @@ function update(dt) {
   if (!state.dialogue && !state.inventoryOpen) {
     const left = keys.has('a') || keys.has('arrowleft');
     const right = keys.has('d') || keys.has('arrowright');
-
     const speed = 250;
 
     if (left) {
@@ -558,7 +595,7 @@ function update(dt) {
       player.vx = speed;
       player.face = 1;
     } else {
-      player.vx *= Math.pow(0.001, dt);
+      player.vx *= Math.pow(.001, dt);
     }
 
     if ((keys.has(' ') || keys.has('arrowup')) && player.grounded) {
@@ -568,17 +605,17 @@ function update(dt) {
       player.animTime = 0;
     }
 
-    if (player.attackCd <= 0.18 && player.skillCd <= 0.4) {
+    if (player.attackCd <= .18 && player.skillCd <= .4) {
       player.x += player.vx * dt;
     }
   } else {
-    player.vx *= Math.pow(0.001, dt);
+    player.vx *= Math.pow(.001, dt);
   }
 
   player.vy += 1550 * dt;
   player.y += player.vy * dt;
 
-  const ground = groundY(player.x);
+  const ground = state.scene === 'town' ? 540 : 560;
 
   if (player.y > ground) {
     player.y = ground;
@@ -590,16 +627,12 @@ function update(dt) {
   player.x = clamp(player.x, 80, maxWidth - 80);
 
   if (player.anim !== 'punch' && player.anim !== 'skill') {
-    player.anim = !player.grounded
-      ? 'jump'
-      : Math.abs(player.vx) > 20
-        ? 'run'
-        : 'idle';
+    player.anim = !player.grounded ? 'jump' : Math.abs(player.vx) > 20 ? 'run' : 'idle';
   }
 
   if (
-    (player.anim === 'punch' && player.attackCd <= 0.05) ||
-    (player.anim === 'skill' && player.skillCd <= 0.1)
+    (player.anim === 'punch' && player.attackCd <= .05) ||
+    (player.anim === 'skill' && player.skillCd <= .1)
   ) {
     player.anim = 'idle';
   }
@@ -611,12 +644,8 @@ function update(dt) {
   updateParticles(dt);
 
   cameraX += (
-    clamp(player.x - W * 0.42, 0, maxWidth - W) - cameraX
+    clamp(player.x - W * .42, 0, maxWidth - W) - cameraX
   ) * Math.min(1, dt * 7);
-}
-
-function groundY() {
-  return state.scene === 'town' ? 540 : 560;
 }
 
 function updateHitboxes(dt) {
@@ -628,23 +657,24 @@ function updateHitboxes(dt) {
     if (hitbox.owner !== 'player' || hitbox.used) continue;
 
     for (const monster of state.monsters) {
-      if (monster.dead) continue;
-
-      const hit = rects(
-        hitbox.x,
-        hitbox.y,
-        hitbox.w,
-        hitbox.h,
-        monster.x - monster.w / 2,
-        monster.y - monster.h,
-        monster.w,
-        monster.h
-      );
-
-      if (!hit) continue;
+      if (
+        monster.dead ||
+        !rects(
+          hitbox.x,
+          hitbox.y,
+          hitbox.w,
+          hitbox.h,
+          monster.x - monster.w / 2,
+          monster.y - monster.h,
+          monster.w,
+          monster.h
+        )
+      ) {
+        continue;
+      }
 
       monster.hp -= hitbox.damage;
-      monster.hit = 0.25;
+      monster.hit = .25;
       monster.face = state.player.x < monster.x ? -1 : 1;
       monster.x += state.player.face * 12;
 
@@ -654,7 +684,7 @@ function updateHitboxes(dt) {
         spark(
           monster.x + rand(-15, 15),
           monster.y - rand(10, monster.h),
-          hitbox.kind === 'fire' ? '#ff922b' : '#ffffff',
+          hitbox.kind === 'fire' ? '#ff922b' : '#fff',
           rand(-130, 130),
           rand(-170, 30)
         );
@@ -699,7 +729,7 @@ function updateMonsters(dt) {
     if (
       monster.x < 380 ||
       monster.x > state.fieldWidth - 180 ||
-      Math.random() < dt * 0.25
+      Math.random() < dt * .25
     ) {
       monster.face *= -1;
     }
@@ -710,7 +740,7 @@ function updateMonsters(dt) {
       player.inv <= 0
     ) {
       player.hp = Math.max(1, player.hp - (monster.type === 'mushroom' ? 12 : 8));
-      player.inv = 0.8;
+      player.inv = .8;
       text('-HP', player.x, player.y - 95, '#ff8787', 18);
     }
   }
@@ -770,7 +800,7 @@ function updateParticles(dt) {
     particle.x += particle.vx * dt;
     particle.y += particle.vy * dt;
     particle.vy += 360 * dt;
-    particle.r *= 0.985;
+    particle.r *= .985;
   }
 
   state.particles = state.particles.filter(particle => particle.life > 0);
@@ -792,7 +822,7 @@ function spark(x, y, color, vx, vy) {
     vx,
     vy,
     r: rand(2, 5),
-    life: rand(0.35, 0.8)
+    life: rand(.35, .8)
   });
 }
 
@@ -829,17 +859,9 @@ function draw() {
     drawField();
   }
 
-  for (const portal of state.portals) {
-    drawPortal(portal);
-  }
-
-  for (const npc of state.npcs) {
-    drawNpc(npc);
-  }
-
-  for (const monster of state.monsters) {
-    drawMonster(monster);
-  }
+  state.portals.forEach(drawPortal);
+  state.npcs.forEach(drawNpc);
+  state.monsters.forEach(drawMonster);
 
   drawPlayer(
     ctx,
@@ -870,7 +892,7 @@ function drawAuthBackground() {
   ctx.fillRect(0, 0, W, H);
 
   for (let i = 0; i < 7; i++) {
-    drawCloud((i * 230 + performance.now() / 80) % 1500 - 100, 80 + (i % 3) * 38, 1.2);
+    drawCloud((i * 230 + performance.now() / 80) % 1500 - 100, 80 + i % 3 * 38, 1.2);
   }
 
   ctx.fillStyle = '#6b4f2a';
@@ -887,14 +909,14 @@ function drawAuthBackground() {
 function drawTown() {
   const gradient = ctx.createLinearGradient(0, 0, 0, H);
   gradient.addColorStop(0, '#1193ff');
-  gradient.addColorStop(0.75, '#b7e8ff');
+  gradient.addColorStop(.75, '#b7e8ff');
   gradient.addColorStop(1, '#c3f085');
 
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, state.townWidth, H);
 
   for (let i = 0; i < 18; i++) {
-    drawCloud(i * 170 + 40, 55 + (i % 4) * 45, 1 + (i % 3) * 0.25);
+    drawCloud(i * 170 + 40, 55 + (i % 4) * 45, 1 + (i % 3) * .25);
   }
 
   ctx.fillStyle = '#92cf58';
@@ -909,11 +931,10 @@ function drawTown() {
   }
 
   drawHouse(130, 480, 1.25);
-  drawHouse(420, 500, 0.95);
+  drawHouse(420, 500, .95);
   drawHouse(820, 500, 1.05);
   drawHouse(1300, 493, 1.12);
   drawHouse(1760, 502, 1);
-
   drawBigTree(35, 535, 1.4);
   drawBigTree(720, 535, 1.1);
   drawBigTree(1650, 535, 1.25);
@@ -942,7 +963,7 @@ function drawField() {
   }
 
   for (let i = 0; i < 30; i++) {
-    drawTree(i * 130 + 30, 560, 0.8 + (i % 4) * 0.16);
+    drawTree(i * 130 + 30, 560, .8 + (i % 4) * .16);
   }
 
   ctx.fillStyle = '#6da544';
@@ -962,8 +983,8 @@ function drawField() {
 }
 
 function drawCloud(x, y, scale) {
-  ctx.fillStyle = '#ffffff';
-  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = '#fff';
+  ctx.globalAlpha = .9;
 
   for (let i = 0; i < 4; i++) {
     ctx.beginPath();
@@ -996,6 +1017,7 @@ function drawHouse(x, y, scale) {
   ctx.fill();
 
   ctx.fillStyle = '#b8872f';
+
   for (let i = 0; i < 7; i++) {
     ctx.fillRect(i * 22 - 2, 18, 15, 15);
   }
@@ -1062,7 +1084,7 @@ function drawPortal(portal) {
   ctx.stroke();
 
   ctx.fillStyle = '#d0ebff';
-  ctx.globalAlpha = 0.35;
+  ctx.globalAlpha = .35;
   ctx.beginPath();
   ctx.ellipse(0, 0, 24, 48, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -1070,7 +1092,7 @@ function drawPortal(portal) {
   ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
 
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = '#fff';
   ctx.font = 'bold 14px sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText('E', 0, -68);
@@ -1089,7 +1111,8 @@ function drawNpc(npc) {
         hair: npc.id === 'mage' ? '#845ef7' : '#868e96',
         outfit: npc.id === 'smith' ? '#6c584c' : '#20c997',
         accent: '#ffd43b'
-      }
+      },
+      levelUp: 0
     },
     npc.x,
     npc.y,
@@ -1099,7 +1122,7 @@ function drawNpc(npc) {
     performance.now() / 600
   );
 
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = '#fff';
   ctx.font = 'bold 15px sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText(npc.name, npc.x, npc.y - 105);
@@ -1118,9 +1141,7 @@ function drawMonster(monster) {
 
   const bob = Math.sin(monster.animTime * 7) * 3;
 
-  if (monster.hit) {
-    ctx.globalAlpha = 0.55;
-  }
+  if (monster.hit) ctx.globalAlpha = .55;
 
   if (monster.type === 'slime') {
     ctx.fillStyle = '#79e65c';
@@ -1160,12 +1181,12 @@ function drawPlayer(context, player, x, y, scale = 2, face = 1, anim = 'idle', t
 
   const run = Math.sin(time * 12);
   const walk = Math.sin(time * 10);
-  const punchMotion = anim === 'punch' ? Math.max(0, 1 - time / 0.25) : 0;
-  const skillMotion = anim === 'skill' ? Math.sin(Math.min(1, time / 0.4) * Math.PI) : 0;
+  const punch = anim === 'punch' ? Math.max(0, 1 - time / .25) : 0;
+  const skill = anim === 'skill' ? Math.sin(Math.min(1, time / .4) * Math.PI) : 0;
   const jumping = anim === 'jump';
 
-  const legA = anim === 'run' ? run * 0.55 : jumping ? 0.35 : walk * 0.08;
-  const armA = anim === 'run' ? -run * 0.45 : 0;
+  const legA = anim === 'run' ? run * .55 : jumping ? .35 : walk * .08;
+  const armA = anim === 'run' ? -run * .45 : 0;
 
   context.save();
   context.translate(x, y);
@@ -1200,7 +1221,7 @@ function drawPlayer(context, player, x, y, scale = 2, face = 1, anim = 'idle', t
   context.moveTo(-12, -72);
   context.lineTo(-22 + armA * 8, -50);
   context.moveTo(12, -72);
-  context.lineTo(22 + punchMotion * 26 + skillMotion * 18 - armA * 8, -50 - skillMotion * 15);
+  context.lineTo(22 + punch * 26 + skill * 18 - armA * 8, -50 - skill * 15);
   context.stroke();
 
   context.fillStyle = ch.skin;
@@ -1282,7 +1303,7 @@ function drawHud() {
   bar(34, 68, 230, 16, player.mp / player.maxMp, '#4dabf7', 'MP');
   bar(34, 94, 230, 12, player.exp / player.nextExp, '#ffd43b', 'EXP');
 
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = '#fff';
   ctx.font = 'bold 18px sans-serif';
   ctx.fillText(`Lv.${player.level} ${player.character.name}`, 34, 32);
   ctx.fillText(`${player.gold} 메소`, 280, 72);
@@ -1303,7 +1324,7 @@ function drawHud() {
     ctx.font = 'bold 17px sans-serif';
     ctx.fillText('퀘스트: 첫 수련', W - 292, 45);
 
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#fff';
     ctx.fillText(`슬라임 처치 ${quest.killed}/${quest.need}`, W - 292, 72);
   }
 }
@@ -1318,7 +1339,7 @@ function bar(x, y, w, h, ratio, color, label) {
   ctx.strokeStyle = '#fff8';
   ctx.strokeRect(x, y, w, h);
 
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = '#fff';
   ctx.font = 'bold 12px sans-serif';
   ctx.fillText(label, x + 6, y + h - 4);
 }
@@ -1339,7 +1360,7 @@ function drawDialogue() {
   ctx.font = 'bold 22px sans-serif';
   ctx.fillText(dialogue.name, 190, 554);
 
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = '#fff';
   ctx.font = '20px sans-serif';
 
   dialogue.lines.slice(0, 4).forEach((line, index) => {
@@ -1370,7 +1391,7 @@ function drawInventory() {
   ctx.fillStyle = '#8db7e8';
   ctx.fillRect(360, 165, 230, 360);
 
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = '#fff';
   ctx.fillRect(390, 195, 70, 70);
   ctx.fillRect(490, 195, 70, 70);
   ctx.fillRect(440, 290, 70, 90);
@@ -1401,7 +1422,7 @@ function drawInventory() {
 
     drawItemIcon(item, x + 27, y + 27);
 
-    ctx.fillStyle = '#111111';
+    ctx.fillStyle = '#111';
     ctx.font = 'bold 12px sans-serif';
     ctx.fillText(item.qty || 1, x + 38, y + 49);
   });
@@ -1422,19 +1443,15 @@ function drawItemIcon(item, x, y) {
     ctx.fillStyle = '#ffd8d8';
     ctx.fillRect(-5, -15, 10, 8);
   } else {
-    ctx.strokeStyle = '#8d5524';
-    ctx.lineWidth = 8;
+    ctx.strokeStyle = '#70481f';
+    ctx.lineWidth = 7;
     ctx.beginPath();
-    ctx.moveTo(-16, 16);
-    ctx.lineTo(16, -16);
+    ctx.moveTo(-13, 8);
+    ctx.lineTo(13, 8);
     ctx.stroke();
 
-    ctx.strokeStyle = '#ced4da';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(-2, 10);
-    ctx.lineTo(20, -12);
-    ctx.stroke();
+    ctx.fillStyle = '#ced4da';
+    ctx.fillRect(-9, -2, 18, 10);
   }
 
   ctx.restore();
@@ -1455,19 +1472,40 @@ function drawPreview() {
       },
       levelUp: 0
     },
-    90,
-    125,
-    2.2,
+    140,
+    260,
+    2.35,
     1,
     'run',
     performance.now() / 400
   );
 
   requestAnimationFrame(() => {
-    if (loginMode === 'register') {
+    if (!characterScreen.classList.contains('hidden')) {
       drawPreview();
     }
   });
+}
+
+function drawMenuPreview(character) {
+  mctx.clearRect(0, 0, menuPreview.width, menuPreview.height);
+
+  mctx.fillStyle = '#1d2636';
+  mctx.fillRect(0, 0, menuPreview.width, menuPreview.height);
+
+  drawPlayer(
+    mctx,
+    {
+      character,
+      levelUp: 0
+    },
+    120,
+    220,
+    2.3,
+    1,
+    'idle',
+    performance.now() / 500
+  );
 }
 
 function rects(x, y, w, h, x2, y2, w2, h2) {
@@ -1482,8 +1520,19 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function rgbToHex(value) {
+  if (!value.startsWith('rgb')) return value;
+
+  const nums = value.match(/\d+/g).map(Number);
+
+  return '#' + nums
+    .slice(0, 3)
+    .map(number => number.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 function loop(now) {
-  const dt = Math.min(0.033, (now - last) / 1000);
+  const dt = Math.min(.033, (now - last) / 1000);
   last = now;
 
   update(dt);
