@@ -2351,3 +2351,678 @@ function drawPortalSign(x, y, textValue) {
   ctx.font = 'bold 13px sans-serif';
   ctx.fillText(textValue, x - 16, y + 2);
 }
+/* =========================================================
+   EMERGENCY VISUAL FIX
+   캐릭터/배경이 안 보이는 문제를 강제로 복구하는 패치
+   이 코드는 기존 drawPlayer, drawPreview, drawMenuPreview,
+   drawTown, drawField 함수를 덮어씁니다.
+========================================================= */
+
+console.log('[Pixel RPG] emergency visual fix loaded');
+
+function drawPlayer(context, player, x, y, scale = 2.2, face = 1, anim = 'idle', time = 0, isNpc = false) {
+  const ch = {
+    skin: '#ffd6a6',
+    hair: '#2b160e',
+    hairStyle: 'basic',
+    faceStyle: 'normal',
+    ...(player && player.character ? player.character : {})
+  };
+
+  const run = anim === 'run';
+  const jump = anim === 'jump';
+  const punch = anim === 'punch';
+  const cast = anim === 'cast';
+
+  const walk = Math.sin(time * 12);
+  const bob = run ? Math.abs(walk) * -2 : Math.sin(time * 3) * 0.8;
+  const legMove = run ? walk * 7 : 0;
+  const armMove = run ? -walk * 5 : 0;
+  const punchPower = punch ? Math.sin(Math.min(1, time * 10) * Math.PI) : 0;
+  const castPower = cast ? Math.sin(Math.min(1, time * 7) * Math.PI) : 0;
+
+  context.save();
+  context.translate(x, y + bob);
+  context.scale(face * scale, scale);
+
+  // 그림자
+  context.fillStyle = 'rgba(0,0,0,0.28)';
+  context.beginPath();
+  context.ellipse(0, 2, 22, 6, 0, 0, Math.PI * 2);
+  context.fill();
+
+  // 다리 외곽선
+  context.strokeStyle = '#151515';
+  context.lineWidth = 7;
+  context.lineCap = 'round';
+
+  context.beginPath();
+  context.moveTo(-8, -37);
+  context.lineTo(-14 - legMove, -12);
+  context.stroke();
+
+  context.beginPath();
+  context.moveTo(8, -37);
+  context.lineTo(14 + legMove, -12);
+  context.stroke();
+
+  // 다리
+  context.strokeStyle = ch.skin;
+  context.lineWidth = 5;
+
+  context.beginPath();
+  context.moveTo(-8, -37);
+  context.lineTo(-14 - legMove, -12);
+  context.stroke();
+
+  context.beginPath();
+  context.moveTo(8, -37);
+  context.lineTo(14 + legMove, -12);
+  context.stroke();
+
+  // 신발
+  context.fillStyle = '#2b1d16';
+  context.fillRect(-27 - legMove, -12, 23, 8);
+  context.fillRect(4 + legMove, -12, 23, 8);
+
+  // 몸 외곽
+  context.fillStyle = '#151515';
+  context.beginPath();
+  context.roundRect(-22, -78, 44, 45, 10);
+  context.fill();
+
+  // 옷
+  context.fillStyle = '#4f9cff';
+  context.beginPath();
+  context.roundRect(-19, -75, 38, 40, 9);
+  context.fill();
+
+  // 흰 카라
+  context.fillStyle = '#f7f7ff';
+  context.fillRect(-15, -72, 30, 8);
+
+  // 하의
+  context.fillStyle = '#2f75c9';
+  context.beginPath();
+  context.roundRect(-15, -45, 30, 11, 4);
+  context.fill();
+
+  // 팔 위치
+  let leftX = -25 + armMove;
+  let leftY = -50;
+  let rightX = 25 - armMove;
+  let rightY = -50;
+
+  if (punch) {
+    rightX = 30 + punchPower * 25;
+    rightY = -55;
+  }
+
+  if (cast) {
+    leftX = -30 - castPower * 8;
+    rightX = 30 + castPower * 8;
+    leftY = -62;
+    rightY = -62;
+  }
+
+  // 팔 외곽
+  context.strokeStyle = '#151515';
+  context.lineWidth = 8;
+  context.beginPath();
+  context.moveTo(-17, -66);
+  context.lineTo(leftX, leftY);
+  context.stroke();
+
+  context.beginPath();
+  context.moveTo(17, -66);
+  context.lineTo(rightX, rightY);
+  context.stroke();
+
+  // 팔
+  context.strokeStyle = ch.skin;
+  context.lineWidth = 5;
+  context.beginPath();
+  context.moveTo(-17, -66);
+  context.lineTo(leftX, leftY);
+  context.stroke();
+
+  context.beginPath();
+  context.moveTo(17, -66);
+  context.lineTo(rightX, rightY);
+  context.stroke();
+
+  // 손
+  context.fillStyle = '#151515';
+  context.beginPath();
+  context.arc(leftX, leftY, 5, 0, Math.PI * 2);
+  context.fill();
+
+  context.beginPath();
+  context.arc(rightX, rightY, 5, 0, Math.PI * 2);
+  context.fill();
+
+  context.fillStyle = ch.skin;
+  context.beginPath();
+  context.arc(leftX, leftY, 3.5, 0, Math.PI * 2);
+  context.fill();
+
+  context.beginPath();
+  context.arc(rightX, rightY, 3.5, 0, Math.PI * 2);
+  context.fill();
+
+  // 목
+  context.fillStyle = '#151515';
+  context.fillRect(-8, -85, 16, 12);
+
+  context.fillStyle = ch.skin;
+  context.fillRect(-5, -84, 10, 11);
+
+  // 귀 외곽
+  context.fillStyle = '#151515';
+  context.beginPath();
+  context.arc(-25, -105, 7, 0, Math.PI * 2);
+  context.fill();
+
+  context.beginPath();
+  context.arc(25, -105, 7, 0, Math.PI * 2);
+  context.fill();
+
+  // 얼굴 외곽
+  context.fillStyle = '#151515';
+  context.beginPath();
+  context.ellipse(0, -106, 29, 30, 0, 0, Math.PI * 2);
+  context.fill();
+
+  // 귀
+  context.fillStyle = ch.skin;
+  context.beginPath();
+  context.arc(-24, -105, 5, 0, Math.PI * 2);
+  context.fill();
+
+  context.beginPath();
+  context.arc(24, -105, 5, 0, Math.PI * 2);
+  context.fill();
+
+  // 얼굴
+  context.fillStyle = ch.skin;
+  context.beginPath();
+  context.ellipse(0, -106, 25, 26, 0, 0, Math.PI * 2);
+  context.fill();
+
+  // 머리카락
+  drawEmergencyHair(context, ch.hairStyle, ch.hair);
+
+  // 눈/표정
+  drawEmergencyFace(context, ch.faceStyle);
+
+  // 공격 이펙트
+  if (punch) {
+    context.strokeStyle = '#ffe066';
+    context.lineWidth = 5;
+    context.beginPath();
+    context.arc(42, -56, 22 + punchPower * 18, -0.7, 0.8);
+    context.stroke();
+
+    context.strokeStyle = '#ff922b';
+    context.lineWidth = 3;
+    context.beginPath();
+    context.arc(43, -56, 16 + punchPower * 16, -0.7, 0.8);
+    context.stroke();
+  }
+
+  if (cast) {
+    context.strokeStyle = '#ff922b';
+    context.lineWidth = 5;
+    context.beginPath();
+    context.arc(0, -75, 42 + castPower * 8, 0, Math.PI * 2);
+    context.stroke();
+  }
+
+  // 레벨업 오라
+  if (player && player.levelUp > 0) {
+    context.strokeStyle = '#ffe066';
+    context.lineWidth = 3;
+    context.beginPath();
+    context.arc(0, -78, 48 + Math.sin(time * 12) * 5, 0, Math.PI * 2);
+    context.stroke();
+  }
+
+  context.restore();
+}
+
+function drawEmergencyHair(context, style, color) {
+  context.fillStyle = '#151515';
+
+  // 외곽
+  context.beginPath();
+  context.roundRect(-28, -134, 56, 33, 15);
+  context.fill();
+
+  if (style === 'pony') {
+    context.beginPath();
+    context.arc(-34, -111, 13, 0, Math.PI * 2);
+    context.fill();
+
+    context.beginPath();
+    context.arc(34, -111, 13, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  if (style === 'spiky') {
+    context.beginPath();
+    context.moveTo(-29, -112);
+    context.lineTo(-22, -137);
+    context.lineTo(-12, -117);
+    context.lineTo(0, -139);
+    context.lineTo(10, -117);
+    context.lineTo(22, -136);
+    context.lineTo(30, -112);
+    context.lineTo(24, -100);
+    context.lineTo(-24, -100);
+    context.closePath();
+    context.fill();
+  }
+
+  // 색상
+  context.fillStyle = color;
+
+  if (style === 'spiky') {
+    context.beginPath();
+    context.moveTo(-26, -112);
+    context.lineTo(-20, -132);
+    context.lineTo(-11, -115);
+    context.lineTo(0, -135);
+    context.lineTo(10, -115);
+    context.lineTo(20, -132);
+    context.lineTo(26, -112);
+    context.lineTo(21, -101);
+    context.lineTo(-21, -101);
+    context.closePath();
+    context.fill();
+  } else {
+    context.beginPath();
+    context.roundRect(-25, -132, 50, 29, 14);
+    context.fill();
+  }
+
+  if (style === 'short') {
+    for (let i = -20; i <= 14; i += 8) {
+      context.beginPath();
+      context.moveTo(i, -113);
+      context.lineTo(i + 5, -99);
+      context.lineTo(i + 12, -113);
+      context.fill();
+    }
+  }
+
+  if (style === 'pony') {
+    context.beginPath();
+    context.arc(-33, -111, 10, 0, Math.PI * 2);
+    context.fill();
+
+    context.beginPath();
+    context.arc(33, -111, 10, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  if (style === 'wave' || style === 'bob') {
+    context.beginPath();
+    context.arc(-20, -101, 8, 0, Math.PI * 2);
+    context.fill();
+
+    context.beginPath();
+    context.arc(20, -101, 8, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  // 앞머리
+  context.beginPath();
+  context.moveTo(-24, -114);
+  context.lineTo(-14, -130);
+  context.lineTo(-5, -112);
+  context.lineTo(3, -130);
+  context.lineTo(12, -112);
+  context.lineTo(23, -124);
+  context.lineTo(24, -101);
+  context.lineTo(-24, -101);
+  context.closePath();
+  context.fill();
+
+  // 하이라이트
+  context.fillStyle = 'rgba(255,255,255,0.2)';
+  context.fillRect(-12, -127, 12, 3);
+}
+
+function drawEmergencyFace(context, style) {
+  context.fillStyle = 'rgba(255,120,150,0.28)';
+  context.fillRect(-19, -101, 7, 4);
+  context.fillRect(12, -101, 7, 4);
+
+  context.fillStyle = '#151515';
+
+  if (style === 'sleepy') {
+    context.strokeStyle = '#151515';
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(-13, -107);
+    context.lineTo(-5, -107);
+    context.moveTo(5, -107);
+    context.lineTo(13, -107);
+    context.stroke();
+
+    context.fillRect(-3, -96, 6, 2);
+    return;
+  }
+
+  if (style === 'angry') {
+    context.strokeStyle = '#151515';
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(-15, -113);
+    context.lineTo(-5, -108);
+    context.moveTo(15, -113);
+    context.lineTo(5, -108);
+    context.stroke();
+  }
+
+  if (style === 'cool') {
+    context.strokeStyle = '#151515';
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(-15, -111);
+    context.lineTo(-5, -108);
+    context.moveTo(5, -108);
+    context.lineTo(15, -111);
+    context.stroke();
+  }
+
+  // 큰 눈
+  context.fillStyle = '#151515';
+  context.fillRect(-12, -109, 5, 8);
+  context.fillRect(7, -109, 5, 8);
+
+  context.fillStyle = '#ffffff';
+  context.fillRect(-11, -108, 2, 2);
+  context.fillRect(8, -108, 2, 2);
+
+  context.fillStyle = '#151515';
+
+  if (style === 'bright' || style === 'cute') {
+    context.strokeStyle = '#151515';
+    context.lineWidth = 2;
+    context.beginPath();
+    context.arc(0, -96, 5, 0, Math.PI);
+    context.stroke();
+  } else {
+    context.fillRect(-4, -96, 8, 2);
+  }
+}
+
+function drawPreview() {
+  if (!preview) return;
+
+  preview.width = 300;
+  preview.height = 300;
+
+  const context = preview.getContext('2d');
+  context.imageSmoothingEnabled = false;
+
+  context.clearRect(0, 0, preview.width, preview.height);
+
+  context.fillStyle = '#202938';
+  context.fillRect(0, 0, preview.width, preview.height);
+
+  context.fillStyle = '#2c3a52';
+  context.fillRect(42, 258, 216, 12);
+
+  drawPlayer(
+    context,
+    {
+      character: {
+        name: document.getElementById('charName') ? document.getElementById('charName').value : '초보자',
+        job: 'beginner',
+        skin: selected.skin,
+        hair: selected.hair,
+        hairStyle: selected.hairStyle,
+        faceStyle: selected.faceStyle
+      },
+      equipped: { weapon: null },
+      inventory: [],
+      levelUp: 0,
+      vx: 0,
+      vy: 0
+    },
+    150,
+    258,
+    1.75,
+    1,
+    'idle',
+    previewPulse,
+    false
+  );
+}
+
+function drawMenuPreview(character) {
+  if (!menuPreview) return;
+
+  menuPreview.width = 300;
+  menuPreview.height = 300;
+
+  const context = menuPreview.getContext('2d');
+  context.imageSmoothingEnabled = false;
+
+  context.clearRect(0, 0, menuPreview.width, menuPreview.height);
+
+  context.fillStyle = '#202938';
+  context.fillRect(0, 0, menuPreview.width, menuPreview.height);
+
+  context.fillStyle = '#2c3a52';
+  context.fillRect(42, 258, 216, 12);
+
+  drawPlayer(
+    context,
+    {
+      character: {
+        job: 'beginner',
+        skin: '#ffd6a6',
+        hair: '#2b160e',
+        hairStyle: 'basic',
+        faceStyle: 'normal',
+        ...(character || {})
+      },
+      equipped: { weapon: null },
+      inventory: [],
+      levelUp: 0,
+      vx: 0,
+      vy: 0
+    },
+    150,
+    258,
+    1.75,
+    1,
+    'idle',
+    previewPulse,
+    false
+  );
+}
+
+function drawTown() {
+  // 하늘
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#69c9ff');
+  sky.addColorStop(0.65, '#b8edff');
+  sky.addColorStop(1, '#e7ffd4');
+
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, state.sceneWidth, H);
+
+  // 구름
+  for (let i = 0; i < 14; i++) {
+    const x = 100 + i * 220 + Math.sin(previewPulse + i) * 20;
+    const y = 70 + (i % 4) * 42;
+    drawEmergencyCloud(x, y, 1 + (i % 3) * 0.2);
+  }
+
+  // 먼 산
+  ctx.fillStyle = '#8cc6e8';
+  ctx.beginPath();
+  ctx.moveTo(0, 370);
+  for (let x = 0; x < state.sceneWidth + 300; x += 220) {
+    ctx.lineTo(x + 100, 250 + Math.sin(x) * 20);
+    ctx.lineTo(x + 220, 370);
+  }
+  ctx.lineTo(state.sceneWidth, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fill();
+
+  // 언덕
+  ctx.fillStyle = '#80c978';
+  for (let x = -100; x < state.sceneWidth; x += 170) {
+    ctx.beginPath();
+    ctx.ellipse(x, 465, 150, 65, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 마을 발판
+  ctx.fillStyle = '#95d45a';
+  ctx.fillRect(0, 548, state.sceneWidth, 28);
+
+  ctx.fillStyle = '#8b623b';
+  ctx.fillRect(0, 576, state.sceneWidth, 180);
+
+  for (let x = 0; x < state.sceneWidth; x += 42) {
+    ctx.fillStyle = x % 84 === 0 ? '#745034' : '#9b7147';
+    ctx.fillRect(x, 584, 38, 150);
+  }
+
+  // 집들
+  drawEmergencyHouse(180, 470, 1.1);
+  drawEmergencyHouse(650, 438, 1.0);
+  drawEmergencyHouse(1230, 456, 1.05);
+  drawEmergencyHouse(1760, 438, 1.0);
+  drawEmergencyHouse(2440, 468, 1.05);
+
+  // 나무
+  drawEmergencyTree(70, 548, 1.25);
+  drawEmergencyTree(520, 548, 1.0);
+  drawEmergencyTree(1500, 548, 1.15);
+  drawEmergencyTree(2200, 548, 1.05);
+
+  // 포탈 위치 표시
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 26px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('초보자 마을', 34, 46);
+}
+
+function drawField() {
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#80d7ff');
+  sky.addColorStop(0.75, '#e9fbff');
+  sky.addColorStop(1, '#d8f7c4');
+
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, state.sceneWidth, H);
+
+  // 숲 배경
+  ctx.fillStyle = '#79b879';
+  for (let x = -100; x < state.sceneWidth; x += 180) {
+    ctx.beginPath();
+    ctx.ellipse(x, 470, 160, 70, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  for (let i = 0; i < 28; i++) {
+    drawEmergencyTree(80 + i * 160, 566, 0.9 + (i % 3) * 0.12);
+  }
+
+  ctx.fillStyle = '#7cc957';
+  ctx.fillRect(0, 566, state.sceneWidth, 26);
+
+  ctx.fillStyle = '#6f5034';
+  ctx.fillRect(0, 592, state.sceneWidth, 160);
+
+  for (let x = 0; x < state.sceneWidth; x += 48) {
+    ctx.fillStyle = x % 96 === 0 ? '#5c3e2a' : '#76533a';
+    ctx.fillRect(x, 600, 44, 140);
+  }
+
+  ctx.fillStyle = '#1d3c2a';
+  ctx.font = 'bold 26px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('수련의 숲', 34, 46);
+}
+
+function drawEmergencyCloud(x, y, scale) {
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.globalAlpha = 0.92;
+
+  ctx.beginPath();
+  ctx.arc(x, y, 18 * scale, 0, Math.PI * 2);
+  ctx.arc(x + 22 * scale, y - 10 * scale, 25 * scale, 0, Math.PI * 2);
+  ctx.arc(x + 52 * scale, y - 4 * scale, 21 * scale, 0, Math.PI * 2);
+  ctx.arc(x + 78 * scale, y, 16 * scale, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillRect(x - 8 * scale, y - 2 * scale, 92 * scale, 20 * scale);
+  ctx.restore();
+}
+
+function drawEmergencyHouse(x, y, scale) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  ctx.fillStyle = '#7d5835';
+  ctx.fillRect(0, 28, 150, 88);
+
+  ctx.fillStyle = '#d9c27e';
+  ctx.beginPath();
+  ctx.ellipse(75, 30, 82, 36, 0, Math.PI, 0);
+  ctx.fill();
+
+  ctx.fillStyle = '#f2e3a2';
+  ctx.fillRect(18, 52, 42, 30);
+  ctx.fillRect(92, 52, 36, 30);
+
+  ctx.fillStyle = '#4e321e';
+  ctx.fillRect(62, 66, 28, 50);
+
+  ctx.restore();
+}
+
+function drawEmergencyTree(x, y, scale) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  ctx.fillStyle = '#7a4e2d';
+  ctx.fillRect(-9, -70, 18, 70);
+
+  ctx.fillStyle = '#2f8f43';
+  ctx.beginPath();
+  ctx.arc(-24, -76, 25, 0, Math.PI * 2);
+  ctx.arc(0, -94, 30, 0, Math.PI * 2);
+  ctx.arc(26, -76, 25, 0, Math.PI * 2);
+  ctx.arc(0, -62, 28, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#52b65b';
+  ctx.beginPath();
+  ctx.arc(-8, -101, 12, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+/* 캔버스 크기 강제 보정 */
+if (typeof canvas !== 'undefined' && canvas) {
+  canvas.width = 1280;
+  canvas.height = 720;
+  canvas.style.width = '100vw';
+  canvas.style.height = '100vh';
+  canvas.style.display = 'block';
+  console.log('[Pixel RPG] canvas size forced:', canvas.width, canvas.height);
+}
