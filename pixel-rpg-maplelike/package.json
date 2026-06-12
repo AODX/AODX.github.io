@@ -1,7 +1,7 @@
 {
   "name": "pixel-rpg-maplelike",
-  "version": "3.0.0",
-  "description": "Side-scrolling pixel RPG with login, post-login character creation, unique nicknames, town, portals, quests, inventory, animations, and server save.",
+  "version": "4.1.0",
+  "description": "Side-scrolling pixel RPG with Supabase login save, character customization, jobs, stats, inventory, quests, and skills.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -10,5 +10,16 @@
   "engines": {
     "node": ">=18"
   },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4"
+  },
+  "keywords": [
+    "pixel",
+    "rpg",
+    "canvas",
+    "node",
+    "supabase",
+    "maplelike"
+  ],
   "license": "MIT"
 }
