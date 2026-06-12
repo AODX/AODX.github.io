@@ -1,16 +1,18 @@
-// Fixed Pixel RPG game.js
-// Use this file to replace public/src/game.js
-
 const canvas = document.getElementById('game');
 
 canvas.width = 1280;
 canvas.height = 720;
+canvas.style.width = '100vw';
+canvas.style.height = '100vh';
+canvas.style.display = 'block';
 
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
-const W = canvas.width;
-const H = canvas.height;
+const W = 1280;
+const H = 720;
+
+console.log('[Pixel RPG] canvas fixed:', canvas.width, canvas.height);
 
 const auth = document.getElementById('auth');
 const characterScreen = document.getElementById('characterScreen');
