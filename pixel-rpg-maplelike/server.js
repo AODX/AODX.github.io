@@ -7,6 +7,7 @@ const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+
 const sessions = new Map();
 
 const mime = {
@@ -22,12 +23,18 @@ const mime = {
 };
 
 function ensureData() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, '{}', 'utf8');
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+
+  if (!fs.existsSync(USERS_FILE)) {
+    fs.writeFileSync(USERS_FILE, '{}', 'utf8');
+  }
 }
 
 function readUsers() {
   ensureData();
+
   try {
     return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8') || '{}');
   } catch {
@@ -46,7 +53,10 @@ function readBody(req) {
 
     req.on('data', chunk => {
       data += chunk;
-      if (data.length > 2_000_000) req.destroy();
+
+      if (data.length > 2_000_000) {
+        req.destroy();
+      }
     });
 
     req.on('end', () => resolve(data));
@@ -59,6 +69,7 @@ function send(res, status, data, type = 'application/json; charset=utf-8') {
     'Content-Type': type,
     'Cache-Control': 'no-store'
   });
+
   res.end(data);
 }
 
@@ -67,13 +78,20 @@ function json(res, status, obj) {
 }
 
 function hashPassword(password, salt) {
-  return crypto.createHash('sha256').update(`${salt}:${password}`).digest('hex');
+  return crypto
+    .createHash('sha256')
+    .update(`${salt}:${password}`)
+    .digest('hex');
 }
 
 function getAuth(req) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-  return { token, username: sessions.get(token) };
+
+  return {
+    token,
+    username: sessions.get(token)
+  };
 }
 
 function nicknameTaken(users, nickname, exceptUsername) {
@@ -82,14 +100,17 @@ function nicknameTaken(users, nickname, exceptUsername) {
   return Object.values(users).some(user => {
     if (!user || user.username === exceptUsername) return false;
 
-    const name = user.save?.player?.character?.name;
-    return String(name || '').trim().toLowerCase() === target;
+    const currentName = user.save?.player?.character?.name;
+    return String(currentName || '').trim().toLowerCase() === target;
   });
 }
 
 function cleanCharacter(character) {
+  const allowedJobs = ['beginner', 'warrior', 'mage', 'thief'];
+
   return {
     name: String(character?.name || '').trim(),
+    job: allowedJobs.includes(character?.job) ? character.job : 'beginner',
     skin: character?.skin || '#ffd6a6',
     hair: character?.hair || '#5b2d16',
     outfit: character?.outfit || '#4f9cff',
@@ -98,25 +119,99 @@ function cleanCharacter(character) {
 }
 
 function defaultSave(character) {
+  const clean = cleanCharacter(character);
+
+  const stats = {
+    str: clean.job === 'warrior' ? 12 : 6,
+    dex: clean.job === 'thief' ? 12 : 6,
+    int: clean.job === 'mage' ? 12 : 6,
+    luk: clean.job === 'thief' ? 10 : 6
+  };
+
   return {
     player: {
-      character: cleanCharacter(character),
+      character: clean,
       scene: 'town',
       x: 260,
-      y: 520,
+      y: 548,
+
       level: 1,
       exp: 0,
       nextExp: 80,
+
       hp: 120,
       maxHp: 120,
       mp: 40,
       maxMp: 40,
+
       gold: 120,
+
+      statPoints: 5,
+      stats,
+
       unlockedSkills: [],
       quests: {},
+
+      quickSlots: ['red_potion', 'blue_potion', null, null],
+
+      equipped: {
+        weapon: null,
+        armor: null
+      },
+
       inventory: [
-        { id: 'red_potion', name: '빨간 포션', type: 'use', qty: 5 },
-        { id: 'beginner_glove', name: '초보자 장갑', type: 'weapon', qty: 1, atk: 1 }
+        {
+          id: 'red_potion',
+          name: '체력 물약',
+          type: 'consume',
+          qty: 15,
+          healHp: 60,
+          icon: 'hp'
+        },
+        {
+          id: 'blue_potion',
+          name: '마나 물약',
+          type: 'consume',
+          qty: 12,
+          healMp: 40,
+          icon: 'mp'
+        },
+        {
+          id: 'beginner_glove',
+          name: '초보자 장갑',
+          type: 'weapon',
+          qty: 1,
+          atk: 2,
+          job: 'beginner',
+          icon: 'glove'
+        },
+        {
+          id: 'training_sword',
+          name: '수련용 검',
+          type: 'weapon',
+          qty: 1,
+          atk: 6,
+          job: 'warrior',
+          icon: 'sword'
+        },
+        {
+          id: 'oak_wand',
+          name: '참나무 완드',
+          type: 'weapon',
+          qty: 1,
+          matk: 7,
+          job: 'mage',
+          icon: 'wand'
+        },
+        {
+          id: 'practice_dagger',
+          name: '연습용 단검',
+          type: 'weapon',
+          qty: 1,
+          atk: 5,
+          job: 'thief',
+          icon: 'dagger'
+        }
       ]
     }
   };
@@ -171,6 +266,7 @@ const server = http.createServer(async (req, res) => {
         salt,
         passHash: hashPassword(password, salt),
         createdAt: new Date().toISOString(),
+        savedAt: null,
         save: null
       };
 
@@ -241,7 +337,6 @@ const server = http.createServer(async (req, res) => {
 
       const body = JSON.parse((await readBody(req)) || '{}');
       const nickname = String(body.nickname || '').trim();
-      const users = readUsers();
 
       if (!/^[a-zA-Z0-9_가-힣]{2,10}$/.test(nickname)) {
         return json(res, 400, {
@@ -249,6 +344,8 @@ const server = http.createServer(async (req, res) => {
           error: '닉네임은 2~10자, 한글/영문/숫자/_ 만 가능합니다.'
         });
       }
+
+      const users = readUsers();
 
       if (nicknameTaken(users, nickname, username)) {
         return json(res, 409, {
