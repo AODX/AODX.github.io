@@ -753,20 +753,34 @@ function spawnMonsters() {
   ];
 }
 addEventListener('keydown', event => {
-  const key = event.key.toLowerCase();
+  const rawKey = event.key || event.code || '';
+  const key = String(rawKey).toLowerCase();
+
+  if (!key) return;
+
   keys.add(key);
 
-  if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
+  if (
+    key === ' ' ||
+    key === 'space' ||
+    key === 'spacebar' ||
+    key === 'arrowup' ||
+    key === 'arrowdown' ||
+    key === 'arrowleft' ||
+    key === 'arrowright'
+  ) {
     event.preventDefault();
   }
 
   if (!state.ready) return;
 
   if (key === 'm') state.inventoryOpen = !state.inventoryOpen;
+
   if (key === 'c') {
     state.inventoryOpen = true;
     state.inventoryTab = 'stat';
   }
+
   if (key === 'q') state.questOpen = !state.questOpen;
   if (key === 'e') interact();
   if (key === 's') saveGame();
@@ -781,10 +795,19 @@ addEventListener('keydown', event => {
 });
 
 addEventListener('keyup', event => {
+  const rawKey = event.key || event.code || '';
+  const key = String(rawKey).toLowerCase();
+
+  if (!key) return;
+
+  keys.delete(key);
+});
+
+addEventListener('keyup', event => {
   keys.delete(event.key.toLowerCase());
 });
 
-canvas.addEventListener('click', event => {
+canvas.addEventListener('click', event =>
   if (!state.ready) return;
 
   const rect = canvas.getBoundingClientRect();
