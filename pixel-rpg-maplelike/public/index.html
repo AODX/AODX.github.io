@@ -9,13 +9,13 @@
 <body>
   <canvas id="game" width="1280" height="720"></canvas>
 
-  <div id="auth" class="panel auth-panel">
+  <section id="auth" class="panel auth-panel">
     <h1>Pixel RPG</h1>
-    <p>로그인하면 캐릭터 정보, 퀘스트, 인벤토리가 서버에 저장됩니다.</p>
+    <p>계정으로 로그인한 뒤 캐릭터를 만들고 게임을 시작합니다.</p>
 
     <div class="tabs">
       <button id="tabLogin" class="active">로그인</button>
-      <button id="tabRegister">회원가입 + 캐릭터 생성</button>
+      <button id="tabRegister">회원가입</button>
     </div>
 
     <label>
@@ -28,48 +28,75 @@
       <input id="password" type="password" autocomplete="current-password" />
     </label>
 
-    <div id="creator" class="creator hidden">
-      <label>
-        캐릭터 이름
-        <input id="charName" maxlength="10" value="초보자" />
-      </label>
-
-      <div class="swatches" data-target="skin">
-        <span style="background:#ffd6a6"></span>
-        <span style="background:#f0b880"></span>
-        <span style="background:#d9955f"></span>
-        <span style="background:#ffe6c7"></span>
-      </div>
-
-      <div class="swatches" data-target="hair">
-        <span style="background:#2b160e"></span>
-        <span style="background:#5b2d16"></span>
-        <span style="background:#f2c14e"></span>
-        <span style="background:#2a2d34"></span>
-        <span style="background:#c14953"></span>
-      </div>
-
-      <div class="swatches" data-target="outfit">
-        <span style="background:#4f9cff"></span>
-        <span style="background:#ff6b6b"></span>
-        <span style="background:#51cf66"></span>
-        <span style="background:#845ef7"></span>
-        <span style="background:#f08c00"></span>
-      </div>
-
-      <div class="swatches" data-target="accent">
-        <span style="background:#ffd43b"></span>
-        <span style="background:#74c0fc"></span>
-        <span style="background:#ff8787"></span>
-        <span style="background:#b197fc"></span>
-      </div>
-
-      <canvas id="preview" width="180" height="150"></canvas>
-    </div>
-
     <button id="authBtn" class="primary">로그인</button>
     <p id="authMsg" class="msg"></p>
-  </div>
+  </section>
+
+  <section id="characterScreen" class="panel character-panel hidden">
+    <div class="panel-head">
+      <div>
+        <h1>캐릭터 생성</h1>
+        <p>게임 닉네임은 다른 유저와 중복될 수 없습니다.</p>
+      </div>
+      <button id="logoutBtn" class="ghost">로그아웃</button>
+    </div>
+
+    <div class="creator-layout">
+      <div class="creator-left">
+        <label>
+          게임 닉네임
+          <input id="charName" maxlength="10" value="초보자" />
+        </label>
+
+        <p id="nickMsg" class="nick-msg">2~10자, 한글/영문/숫자/_ 사용 가능</p>
+
+        <div class="swatches" data-target="skin">
+          <span style="background:#ffd6a6"></span>
+          <span style="background:#f0b880"></span>
+          <span style="background:#d9955f"></span>
+          <span style="background:#ffe6c7"></span>
+        </div>
+
+        <div class="swatches" data-target="hair">
+          <span style="background:#2b160e"></span>
+          <span style="background:#5b2d16"></span>
+          <span style="background:#f2c14e"></span>
+          <span style="background:#2a2d34"></span>
+          <span style="background:#c14953"></span>
+        </div>
+
+        <div class="swatches" data-target="outfit">
+          <span style="background:#4f9cff"></span>
+          <span style="background:#ff6b6b"></span>
+          <span style="background:#51cf66"></span>
+          <span style="background:#845ef7"></span>
+          <span style="background:#f08c00"></span>
+        </div>
+
+        <div class="swatches" data-target="accent">
+          <span style="background:#ffd43b"></span>
+          <span style="background:#74c0fc"></span>
+          <span style="background:#ff8787"></span>
+          <span style="background:#b197fc"></span>
+        </div>
+
+        <button id="startNewBtn" class="primary big">게임 시작하기</button>
+        <p id="createMsg" class="msg"></p>
+      </div>
+
+      <div class="preview-wrap">
+        <canvas id="preview" width="280" height="320"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section id="characterMenu" class="panel menu-panel hidden">
+    <h1>캐릭터 선택</h1>
+    <canvas id="menuPreview" width="240" height="260"></canvas>
+    <p id="menuName" class="menu-name"></p>
+    <button id="continueBtn" class="primary big">게임 시작하기</button>
+    <button id="logoutBtn2" class="ghost full">로그아웃</button>
+  </section>
 
   <div id="hudHelp" class="help hidden">
     A/D 이동 · Space 점프 · J 주먹 공격 · M 인벤토리 · E 대화/포탈 · S 저장
