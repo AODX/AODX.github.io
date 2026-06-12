@@ -1,10 +1,4 @@
-const canvas = document.getElementById('game');
-
-/*
-  중요:
-  canvas는 CSS로 커져 보여도 실제 그림판 크기는 기본 300x150일 수 있음.
-  그래서 게임 좌표계가 1280x720으로 고정되도록 먼저 설정해야 함.
-*/
+const canvas = document..getElementById('game');
 canvas.width = 1280;
 canvas.height = 720;
 
