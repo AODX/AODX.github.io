@@ -2,11 +2,28 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { createClient } = require('@supabase/supabase-js');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const DATA_DIR = path.join(__dirname, 'data');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn('WARNING: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing.');
+}
+
+const supabase = createClient(
+  SUPABASE_URL || '',
+  SUPABASE_SERVICE_ROLE_KEY || '',
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
+    }
+  }
+);
 
 const sessions = new Map();
 
@@ -21,31 +38,6 @@ const mime = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon'
 };
-
-function ensureData() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-
-  if (!fs.existsSync(USERS_FILE)) {
-    fs.writeFileSync(USERS_FILE, '{}', 'utf8');
-  }
-}
-
-function readUsers() {
-  ensureData();
-
-  try {
-    return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8') || '{}');
-  } catch {
-    return {};
-  }
-}
-
-function writeUsers(users) {
-  ensureData();
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
-}
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -92,17 +84,6 @@ function getAuth(req) {
     token,
     username: sessions.get(token)
   };
-}
-
-function nicknameTaken(users, nickname, exceptUsername) {
-  const target = String(nickname || '').trim().toLowerCase();
-
-  return Object.values(users).some(user => {
-    if (!user || user.username === exceptUsername) return false;
-
-    const currentName = user.save?.player?.character?.name;
-    return String(currentName || '').trim().toLowerCase() === target;
-  });
 }
 
 function cleanCharacter(character) {
@@ -217,14 +198,92 @@ function defaultSave(character) {
   };
 }
 
-function safeUser(user) {
+function safeUser(row) {
   return {
-    username: user.username,
-    createdAt: user.createdAt,
-    savedAt: user.savedAt || null,
-    hasCharacter: Boolean(user.save?.player?.character?.name),
-    save: user.save || null
+    username: row.username,
+    createdAt: row.created_at,
+    savedAt: row.saved_at || null,
+    hasCharacter: Boolean(row.save?.player?.character?.name),
+    save: row.save || null
   };
+}
+
+async function getUser(username) {
+  const { data, error } = await supabase
+    .from('game_users')
+    .select('*')
+    .eq('username', username)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+async function nicknameTaken(nickname, exceptUsername) {
+  const target = String(nickname || '').trim().toLowerCase();
+
+  const { data, error } = await supabase
+    .from('game_users')
+    .select('username, save');
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || []).some(row => {
+    if (!row || row.username === exceptUsername) return false;
+
+    const currentName = row.save?.player?.character?.name;
+    return String(currentName || '').trim().toLowerCase() === target;
+  });
+}
+
+async function createUser(username, password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const passHash = hashPassword(password, salt);
+
+  const row = {
+    username,
+    salt,
+    pass_hash: passHash,
+    save: null,
+    saved_at: null
+  };
+
+  const { data, error } = await supabase
+    .from('game_users')
+    .insert(row)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+async function updateUserSave(username, save) {
+  const savedAt = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('game_users')
+    .update({
+      save,
+      saved_at: savedAt
+    })
+    .eq('username', username)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -250,27 +309,16 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      const users = readUsers();
+      const existing = await getUser(username);
 
-      if (users[username]) {
+      if (existing) {
         return json(res, 409, {
           ok: false,
           error: '이미 존재하는 아이디입니다.'
         });
       }
 
-      const salt = crypto.randomBytes(16).toString('hex');
-
-      users[username] = {
-        username,
-        salt,
-        passHash: hashPassword(password, salt),
-        createdAt: new Date().toISOString(),
-        savedAt: null,
-        save: null
-      };
-
-      writeUsers(users);
+      const user = await createUser(username, password);
 
       const token = crypto.randomBytes(32).toString('hex');
       sessions.set(token, username);
@@ -278,7 +326,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, {
         ok: true,
         token,
-        user: safeUser(users[username])
+        user: safeUser(user)
       });
     }
 
@@ -287,10 +335,9 @@ const server = http.createServer(async (req, res) => {
       const username = String(body.username || '').trim();
       const password = String(body.password || '');
 
-      const users = readUsers();
-      const user = users[username];
+      const user = await getUser(username);
 
-      if (!user || user.passHash !== hashPassword(password, user.salt)) {
+      if (!user || user.pass_hash !== hashPassword(password, user.salt)) {
         return json(res, 401, {
           ok: false,
           error: '아이디 또는 비밀번호가 맞지 않습니다.'
@@ -317,11 +364,18 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      const users = readUsers();
+      const user = await getUser(username);
+
+      if (!user) {
+        return json(res, 404, {
+          ok: false,
+          error: '사용자를 찾을 수 없습니다.'
+        });
+      }
 
       return json(res, 200, {
         ok: true,
-        user: safeUser(users[username])
+        user: safeUser(user)
       });
     }
 
@@ -345,9 +399,9 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      const users = readUsers();
+      const taken = await nicknameTaken(nickname, username);
 
-      if (nicknameTaken(users, nickname, username)) {
+      if (taken) {
         return json(res, 409, {
           ok: false,
           error: '이미 사용 중인 닉네임입니다.'
@@ -380,30 +434,30 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      const users = readUsers();
+      const user = await getUser(username);
 
-      if (!users[username]) {
+      if (!user) {
         return json(res, 404, {
           ok: false,
           error: '사용자를 찾을 수 없습니다.'
         });
       }
 
-      if (nicknameTaken(users, character.name, username)) {
+      const taken = await nicknameTaken(character.name, username);
+
+      if (taken) {
         return json(res, 409, {
           ok: false,
           error: '이미 사용 중인 닉네임입니다.'
         });
       }
 
-      users[username].save = defaultSave(character);
-      users[username].savedAt = new Date().toISOString();
-
-      writeUsers(users);
+      const save = defaultSave(character);
+      const updated = await updateUserSave(username, save);
 
       return json(res, 200, {
         ok: true,
-        user: safeUser(users[username])
+        user: safeUser(updated)
       });
     }
 
@@ -418,23 +472,21 @@ const server = http.createServer(async (req, res) => {
       }
 
       const save = JSON.parse((await readBody(req)) || '{}');
-      const users = readUsers();
 
-      if (!users[username]) {
+      const user = await getUser(username);
+
+      if (!user) {
         return json(res, 404, {
           ok: false,
           error: '사용자를 찾을 수 없습니다.'
         });
       }
 
-      users[username].save = save;
-      users[username].savedAt = new Date().toISOString();
-
-      writeUsers(users);
+      const updated = await updateUserSave(username, save);
 
       return json(res, 200, {
         ok: true,
-        savedAt: users[username].savedAt
+        savedAt: updated.saved_at
       });
     }
 
@@ -471,9 +523,11 @@ const server = http.createServer(async (req, res) => {
 
     fs.createReadStream(filePath).pipe(res);
   } catch (err) {
+    console.error(err);
+
     json(res, 500, {
       ok: false,
-      error: err.message
+      error: err.message || '서버 오류가 발생했습니다.'
     });
   }
 });
