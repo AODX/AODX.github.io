@@ -1,3 +1,6 @@
+// Fixed Pixel RPG game.js
+// Use this file to replace public/src/game.js
+
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
@@ -22,7 +25,6 @@ pctx.imageSmoothingEnabled = false;
 mctx.imageSmoothingEnabled = false;
 
 const keys = new Set();
-
 let last = performance.now();
 let cameraX = 0;
 let token = localStorage.getItem('pixel-rpg-token') || '';
@@ -611,7 +613,6 @@ function useQuickSlot(slotIndex) {
     toast(`MP +${item.healMp}`, p.x, p.y - 110, '#74c0fc');
   }
 }
-
 function setupScene(scene) {
   state.scene = scene;
   state.particles = [];
@@ -752,10 +753,14 @@ function spawnMonsters() {
     }
   ];
 }
-addEventListener('keydown', event => {
-  const rawKey = event.key || event.code || '';
-  const key = String(rawKey).toLowerCase();
 
+function normalizeKey(event) {
+  const rawKey = event.key || event.code || '';
+  return String(rawKey).toLowerCase();
+}
+
+addEventListener('keydown', event => {
+  const key = normalizeKey(event);
   if (!key) return;
 
   keys.add(key);
@@ -775,12 +780,10 @@ addEventListener('keydown', event => {
   if (!state.ready) return;
 
   if (key === 'm') state.inventoryOpen = !state.inventoryOpen;
-
   if (key === 'c') {
     state.inventoryOpen = true;
     state.inventoryTab = 'stat';
   }
-
   if (key === 'q') state.questOpen = !state.questOpen;
   if (key === 'e') interact();
   if (key === 's') saveGame();
@@ -795,19 +798,12 @@ addEventListener('keydown', event => {
 });
 
 addEventListener('keyup', event => {
-  const rawKey = event.key || event.code || '';
-  const key = String(rawKey).toLowerCase();
-
+  const key = normalizeKey(event);
   if (!key) return;
-
   keys.delete(key);
 });
 
-addEventListener('keyup', event => {
-  keys.delete(event.key.toLowerCase());
-});
-
-canvas.addEventListener('click', event =>
+canvas.addEventListener('click', event => {
   if (!state.ready) return;
 
   const rect = canvas.getBoundingClientRect();
@@ -866,7 +862,6 @@ function interact() {
   }
 
   const npc = state.npcs.find(item => Math.abs(item.x - p.x) < 92);
-
   if (npc) openNpc(npc);
 }
 
@@ -897,22 +892,15 @@ function openNpc(npc) {
     } else if (quest.status === 'active') {
       lines.push(`진행도: ${quest.killed}/${quest.need}`);
     } else {
-      lines = [
-        '좋은 흐름이네.',
-        '더 강해지면 전직 퀘스트도 열릴 걸세.'
-      ];
+      lines = ['좋은 흐름이네.', '더 강해지면 전직 퀘스트도 열릴 걸세.'];
     }
   }
 
-  state.dialogue = {
-    name: npc.name,
-    lines
-  };
+  state.dialogue = { name: npc.name, lines };
 }
 
 function punch() {
   const p = state.player;
-
   if (p.attackCd > 0 || state.dialogue || state.inventoryOpen) return;
 
   if (p.comboWindow > 0) p.comboStep = (p.comboStep + 1) % 3;
@@ -940,10 +928,7 @@ function punch() {
     kind: crit ? 'crit' : 'punch'
   });
 
-  if (crit) {
-    text('CRITICAL!', p.x + dir * 36, p.y - 128, '#ffe066', 20);
-  }
-
+  if (crit) text('CRITICAL!', p.x + dir * 36, p.y - 128, '#ffe066', 20);
   arcEffect(p.x + dir * 42, p.y - 76, dir, 34 + p.comboStep * 8, '#fff3bf', '#ff922b', 0.18, -0.65, 0.75);
 }
 
@@ -1013,19 +998,14 @@ function castSkill2() {
 }
 
 function spawnPlayerHitbox(opts) {
-  state.hitboxes.push({
-    used: false,
-    ...opts
-  });
+  state.hitboxes.push({ used: false, ...opts });
 }
 
 function update(dt) {
   previewPulse += dt;
-
   if (!state.ready) return;
 
   const p = state.player;
-
   normalizePlayer(p);
   applyDerivedStats(p);
 
@@ -1041,8 +1021,8 @@ function update(dt) {
   const canMove = !state.dialogue && !state.inventoryOpen;
 
   if (canMove) {
-    const left = keys.has('a') || keys.has('arrowleft');
-    const right = keys.has('d') || keys.has('arrowright');
+    const left = keys.has('a') || keys.has('arrowleft') || keys.has('keya');
+    const right = keys.has('d') || keys.has('arrowright') || keys.has('keyd');
 
     if (left) {
       p.vx = -250;
@@ -1054,7 +1034,10 @@ function update(dt) {
       p.vx *= Math.pow(0.001, dt);
     }
 
-    if ((keys.has(' ') || keys.has('arrowup')) && p.grounded) {
+    if (
+      (keys.has(' ') || keys.has('space') || keys.has('spacebar') || keys.has('arrowup')) &&
+      p.grounded
+    ) {
       p.vy = -560;
       p.grounded = false;
       p.anim = 'jump';
@@ -1116,9 +1099,7 @@ function update(dt) {
 }
 
 function updateHitboxes(dt) {
-  for (const hb of state.hitboxes) {
-    hb.life -= dt;
-  }
+  for (const hb of state.hitboxes) hb.life -= dt;
 
   for (const hb of state.hitboxes) {
     if (hb.owner !== 'player' || hb.used) continue;
@@ -1158,7 +1139,6 @@ function updateHitboxes(dt) {
         }
 
         if (m.hp <= 0) killMonster(m);
-
         break;
       }
     }
@@ -1217,10 +1197,8 @@ function updateMonsters(dt) {
 
 function damagePlayer(amount) {
   const p = state.player;
-
   p.hp = Math.max(1, p.hp - amount);
   p.inv = 0.8;
-
   text(`-${amount}`, p.x, p.y - 112, '#ff8787', 18);
 }
 
@@ -1284,14 +1262,661 @@ function gainExp(value) {
     text(`AP +${(p.level - before) * 5}`, p.x, p.y - 170, '#b2f2bb', 22);
   }
 }
+function setupScene(scene) {
+  state.scene = scene;
+  state.particles = [];
+  state.texts = [];
+  state.hitboxes = [];
+  state.monsters = [];
+  state.dialogue = null;
+  state.platforms = [];
 
+  if (scene === 'town') {
+    state.sceneWidth = 3300;
+    state.groundY = 548;
+
+    state.platforms = [
+      { x: 220, y: 466, w: 380, h: 18 },
+      { x: 650, y: 430, w: 360, h: 18 },
+      { x: 1090, y: 486, w: 320, h: 18 },
+      { x: 1500, y: 438, w: 420, h: 18 },
+      { x: 2050, y: 470, w: 360, h: 18 }
+    ];
+
+    state.portals = [
+      { x: 2860, y: state.groundY - 105, w: 74, h: 110, to: 'field', label: '수련의 숲' }
+    ];
+
+    state.npcs = [
+      {
+        id: 'elder',
+        name: '장로 구름',
+        x: 620,
+        y: state.groundY,
+        palette: { skin: '#ffe0bd', hair: '#d5d8dc', hairStyle: 'bob', faceStyle: 'normal' },
+        text: ['어서 오게, 신입 모험가여.', '동쪽 포탈로 나가 슬라임 5마리를 처치해 보게.'],
+        quest: 'slime_intro'
+      },
+      {
+        id: 'trainer',
+        name: '직업 교관',
+        x: 1080,
+        y: state.groundY,
+        palette: { skin: '#f4c28a', hair: '#5b2d16', hairStyle: 'spiky', faceStyle: 'cool' },
+        text: ['지금은 모두 초보자로 시작한다.', '전직은 퀘스트를 완료한 뒤 진행하게 될 거다.']
+      },
+      {
+        id: 'smith',
+        name: '대장장이 단단',
+        x: 1450,
+        y: state.groundY,
+        palette: { skin: '#f4c28a', hair: '#6b4f2d', hairStyle: 'short', faceStyle: 'angry' },
+        text: ['M키로 장비와 아이템을 확인할 수 있다네.', '아이템을 클릭하고 퀵슬롯을 클릭하면 프리셋 등록이 된다네.']
+      },
+      {
+        id: 'mage',
+        name: '루나',
+        x: 1850,
+        y: state.groundY,
+        palette: { skin: '#ffe0c7', hair: '#845ef7', hairStyle: 'wave', faceStyle: 'bright' },
+        text: ['Q키로 퀘스트 창을 열 수 있어.', 'C키를 누르면 바로 스탯 창을 볼 수 있어.']
+      }
+    ];
+  } else {
+    state.sceneWidth = 4400;
+    state.groundY = 566;
+
+    state.platforms = [
+      { x: 480, y: 482, w: 320, h: 18 },
+      { x: 1050, y: 430, w: 280, h: 18 },
+      { x: 1580, y: 500, w: 320, h: 18 },
+      { x: 2450, y: 450, w: 360, h: 18 }
+    ];
+
+    state.portals = [
+      { x: 110, y: state.groundY - 105, w: 74, h: 110, to: 'town', label: '초보자 마을' }
+    ];
+
+    state.npcs = [];
+    spawnMonsters();
+  }
+
+  state.player.scene = scene;
+}
+
+function spawnMonsters() {
+  const ground = state.groundY;
+
+  state.monsters = [
+    ...Array.from({ length: 8 }, (_, i) => ({
+      type: 'slime',
+      x: 500 + i * 170,
+      y: ground,
+      face: Math.random() < 0.5 ? -1 : 1,
+      hp: 42,
+      maxHp: 42,
+      exp: 18,
+      dead: false,
+      animTime: Math.random() * 3,
+      hit: 0,
+      ai: 'hop',
+      speed: 40,
+      respawn: 0,
+      w: 40,
+      h: 28
+    })),
+    ...Array.from({ length: 5 }, (_, i) => ({
+      type: 'mushroom',
+      x: 1000 + i * 250,
+      y: ground,
+      face: Math.random() < 0.5 ? -1 : 1,
+      hp: 65,
+      maxHp: 65,
+      exp: 25,
+      dead: false,
+      animTime: Math.random() * 3,
+      hit: 0,
+      ai: 'walk',
+      speed: 28,
+      respawn: 0,
+      w: 46,
+      h: 48
+    })),
+    {
+      type: 'ogre',
+      x: 2950,
+      y: ground,
+      face: -1,
+      hp: 180,
+      maxHp: 180,
+      exp: 70,
+      dead: false,
+      animTime: 0,
+      hit: 0,
+      ai: 'heavy',
+      speed: 24,
+      respawn: 0,
+      w: 64,
+      h: 88,
+      attackWindup: 0
+    }
+  ];
+}
+
+function normalizeKey(event) {
+  const rawKey = event.key || event.code || '';
+  return String(rawKey).toLowerCase();
+}
+
+addEventListener('keydown', event => {
+  const key = normalizeKey(event);
+  if (!key) return;
+
+  keys.add(key);
+
+  if (
+    key === ' ' ||
+    key === 'space' ||
+    key === 'spacebar' ||
+    key === 'arrowup' ||
+    key === 'arrowdown' ||
+    key === 'arrowleft' ||
+    key === 'arrowright'
+  ) {
+    event.preventDefault();
+  }
+
+  if (!state.ready) return;
+
+  if (key === 'm') state.inventoryOpen = !state.inventoryOpen;
+  if (key === 'c') {
+    state.inventoryOpen = true;
+    state.inventoryTab = 'stat';
+  }
+  if (key === 'q') state.questOpen = !state.questOpen;
+  if (key === 'e') interact();
+  if (key === 's') saveGame();
+  if (key === 'j') punch();
+  if (key === 'k') castSkill1();
+  if (key === 'l') castSkill2();
+
+  if (key === '1') useQuickSlot(0);
+  if (key === '2') useQuickSlot(1);
+  if (key === '3') useQuickSlot(2);
+  if (key === '4') useQuickSlot(3);
+});
+
+addEventListener('keyup', event => {
+  const key = normalizeKey(event);
+  if (!key) return;
+  keys.delete(key);
+});
+
+canvas.addEventListener('click', event => {
+  if (!state.ready) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const mx = (event.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (event.clientY - rect.top) * (canvas.height / rect.height);
+
+  for (const box of state.uiBoxes) {
+    if (mx >= box.x && mx <= box.x + box.w && my >= box.y && my <= box.y + box.h) {
+      if (box.action === 'tab') {
+        state.inventoryTab = box.value;
+        return;
+      }
+
+      if (box.action === 'stat') {
+        investStat(box.value);
+        return;
+      }
+
+      if (box.action === 'item') {
+        state.selectedInventoryIndex = box.value;
+
+        if (box.doubleAction === 'equip') {
+          equipItem(box.value);
+        }
+
+        return;
+      }
+
+      if (box.action === 'quick') {
+        assignQuickSlot(box.value);
+        return;
+      }
+    }
+  }
+});
+
+function interact() {
+  if (state.dialogue) {
+    state.dialogue = null;
+    return;
+  }
+
+  const p = state.player;
+
+  for (const portal of state.portals) {
+    if (Math.abs(p.x - (portal.x + portal.w / 2)) < 82) {
+      setupScene(portal.to);
+      p.x = portal.to === 'town' ? 2760 : 190;
+      p.y = state.groundY;
+      p.vx = 0;
+      p.vy = 0;
+
+      toast(`${portal.label} 이동`, p.x, p.y - 100, '#c0eb75');
+      return;
+    }
+  }
+
+  const npc = state.npcs.find(item => Math.abs(item.x - p.x) < 92);
+  if (npc) openNpc(npc);
+}
+
+function openNpc(npc) {
+  const p = state.player;
+  let lines = npc.text.slice();
+
+  if (npc.quest === 'slime_intro') {
+    const quest = p.quests.slime_intro;
+
+    if (!quest) {
+      p.quests.slime_intro = { status: 'active', killed: 0, need: 5 };
+      lines.push('퀘스트 시작: 슬라임 5마리 처치');
+    } else if (quest.status === 'active' && quest.killed >= quest.need) {
+      quest.status = 'done';
+      gainExp(80);
+      p.gold += 150;
+
+      if (!p.unlockedSkills.includes('flare')) {
+        p.unlockedSkills.push('flare');
+      }
+
+      lines = [
+        '훌륭하군! 이제 불꽃을 다룰 자격이 생겼네.',
+        '보상: EXP 80, 150 메소, K 화염파 해금!',
+        '전직 시스템은 다음 단계에서 이어서 열릴 예정이네.'
+      ];
+    } else if (quest.status === 'active') {
+      lines.push(`진행도: ${quest.killed}/${quest.need}`);
+    } else {
+      lines = ['좋은 흐름이네.', '더 강해지면 전직 퀘스트도 열릴 걸세.'];
+    }
+  }
+
+  state.dialogue = { name: npc.name, lines };
+}
+
+function punch() {
+  const p = state.player;
+  if (p.attackCd > 0 || state.dialogue || state.inventoryOpen) return;
+
+  if (p.comboWindow > 0) p.comboStep = (p.comboStep + 1) % 3;
+  else p.comboStep = 0;
+
+  p.comboWindow = 0.42;
+  p.attackCd = 0.2;
+  p.anim = 'punch';
+  p.animTime = 0;
+
+  const dir = p.face;
+  const power = calcPower(p, 'physical');
+  const crit = Math.random() * 100 < calcCritRate(p);
+  const mult = crit ? 1.8 : 1;
+  const damage = Math.floor((12 + power * 0.38 + p.comboStep * 5) * mult);
+
+  spawnPlayerHitbox({
+    x: p.x + dir * 44,
+    y: p.y - 72,
+    w: 62,
+    h: 46,
+    life: 0.1,
+    damage,
+    owner: 'player',
+    kind: crit ? 'crit' : 'punch'
+  });
+
+  if (crit) text('CRITICAL!', p.x + dir * 36, p.y - 128, '#ffe066', 20);
+  arcEffect(p.x + dir * 42, p.y - 76, dir, 34 + p.comboStep * 8, '#fff3bf', '#ff922b', 0.18, -0.65, 0.75);
+}
+
+function castSkill1() {
+  const p = state.player;
+
+  if (!p.unlockedSkills.includes('flare') && p.level < 2) {
+    toast('레벨 2부터 화염파를 사용할 수 있습니다', p.x, p.y - 110, '#ffd43b');
+    return;
+  }
+
+  if (p.skillCd > 0 || p.mp < 12 || state.dialogue || state.inventoryOpen) return;
+
+  p.mp -= 12;
+  p.skillCd = 0.85;
+  p.anim = 'cast';
+  p.animTime = 0;
+
+  const dir = p.face;
+  const damage = Math.floor(30 + calcPower(p, 'physical') * 0.65);
+
+  spawnPlayerHitbox({
+    x: p.x + dir * 120,
+    y: p.y - 105,
+    w: 190,
+    h: 90,
+    life: 0.2,
+    damage,
+    owner: 'player',
+    kind: 'flare'
+  });
+
+  fireWave(p.x + dir * 30, p.y - 74, dir, '#ff6b00', '#ffd43b', 0.42);
+}
+
+function castSkill2() {
+  const p = state.player;
+
+  if (!p.unlockedSkills.includes('inferno') && p.level < 4) {
+    toast('레벨 4부터 화염기둥을 사용할 수 있습니다', p.x, p.y - 110, '#ffd43b');
+    return;
+  }
+
+  if (p.skill2Cd > 0 || p.mp < 24 || state.dialogue || state.inventoryOpen) return;
+
+  p.mp -= 24;
+  p.skill2Cd = 3.2;
+  p.anim = 'cast';
+  p.animTime = 0;
+
+  const dir = p.face;
+  const damage = Math.floor(55 + calcPower(p, 'physical') * 0.9);
+  const x = p.x + dir * 130;
+
+  spawnPlayerHitbox({
+    x,
+    y: p.y - 120,
+    w: 130,
+    h: 180,
+    life: 0.35,
+    damage,
+    owner: 'player',
+    kind: 'inferno'
+  });
+
+  infernoEffect(x, p.y - 150, '#ff6b00', '#ffe066', 0.55);
+}
+
+function spawnPlayerHitbox(opts) {
+  state.hitboxes.push({ used: false, ...opts });
+}
+
+function update(dt) {
+  previewPulse += dt;
+  if (!state.ready) return;
+
+  const p = state.player;
+  normalizePlayer(p);
+  applyDerivedStats(p);
+
+  p.animTime += dt;
+  p.attackCd = Math.max(0, p.attackCd - dt);
+  p.skillCd = Math.max(0, p.skillCd - dt);
+  p.skill2Cd = Math.max(0, p.skill2Cd - dt);
+  p.inv = Math.max(0, p.inv - dt);
+  p.levelUp = Math.max(0, p.levelUp - dt);
+  p.comboWindow = Math.max(0, p.comboWindow - dt);
+  state.saveFlash = Math.max(0, state.saveFlash - dt);
+
+  const canMove = !state.dialogue && !state.inventoryOpen;
+
+  if (canMove) {
+    const left = keys.has('a') || keys.has('arrowleft') || keys.has('keya');
+    const right = keys.has('d') || keys.has('arrowright') || keys.has('keyd');
+
+    if (left) {
+      p.vx = -250;
+      p.face = -1;
+    } else if (right) {
+      p.vx = 250;
+      p.face = 1;
+    } else {
+      p.vx *= Math.pow(0.001, dt);
+    }
+
+    if (
+      (keys.has(' ') || keys.has('space') || keys.has('spacebar') || keys.has('arrowup')) &&
+      p.grounded
+    ) {
+      p.vy = -560;
+      p.grounded = false;
+      p.anim = 'jump';
+      p.animTime = 0;
+    }
+
+    if (p.attackCd <= 0.1 && p.skillCd <= 0.2) {
+      p.x += p.vx * dt;
+    }
+  } else {
+    p.vx *= Math.pow(0.001, dt);
+  }
+
+  const prevY = p.y;
+
+  p.vy += 1550 * dt;
+  p.y += p.vy * dt;
+
+  p.grounded = false;
+
+  if (p.y >= state.groundY) {
+    p.y = state.groundY;
+    p.vy = 0;
+    p.grounded = true;
+  }
+
+  if (p.vy >= 0) {
+    for (const platform of state.platforms) {
+      const withinX = p.x > platform.x && p.x < platform.x + platform.w;
+      const crossed = prevY <= platform.y && p.y >= platform.y;
+
+      if (withinX && crossed) {
+        p.y = platform.y;
+        p.vy = 0;
+        p.grounded = true;
+        break;
+      }
+    }
+  }
+
+  p.x = clamp(p.x, 80, state.sceneWidth - 80);
+
+  if (p.anim !== 'punch' && p.anim !== 'cast') {
+    p.anim = !p.grounded ? 'jump' : Math.abs(p.vx) > 30 ? 'run' : 'idle';
+  }
+
+  if (p.anim === 'punch' && p.attackCd <= 0.02) p.anim = 'idle';
+  if (p.anim === 'cast' && p.skillCd <= 0.1 && p.skill2Cd <= 2.7) p.anim = 'idle';
+
+  p.mp = Math.min(p.maxMp, p.mp + dt * 4);
+
+  updateHitboxes(dt);
+  updateMonsters(dt);
+  updateParticles(dt);
+
+  cameraX += (
+    clamp(p.x - W * 0.42, 0, state.sceneWidth - W) - cameraX
+  ) * Math.min(1, dt * 7);
+}
+
+function updateHitboxes(dt) {
+  for (const hb of state.hitboxes) hb.life -= dt;
+
+  for (const hb of state.hitboxes) {
+    if (hb.owner !== 'player' || hb.used) continue;
+
+    for (const m of state.monsters) {
+      if (m.dead) continue;
+
+      if (
+        rects(
+          hb.x - hb.w / 2,
+          hb.y - hb.h / 2,
+          hb.w,
+          hb.h,
+          m.x - m.w / 2,
+          m.y - m.h,
+          m.w,
+          m.h
+        )
+      ) {
+        hb.used = true;
+        m.hp -= hb.damage;
+        m.hit = 0.22;
+        m.x += state.player.face * 18;
+
+        text(`-${hb.damage}`, m.x, m.y - m.h - 16, '#ff6b6b', 20);
+
+        for (let i = 0; i < 12; i++) {
+          spark(
+            m.x + rand(-15, 15),
+            m.y - rand(12, m.h),
+            hb.kind === 'inferno' || hb.kind === 'flare' ? '#ff922b' : '#ffffff',
+            rand(-120, 120),
+            rand(-160, 30),
+            rand(2, 5),
+            rand(0.2, 0.6)
+          );
+        }
+
+        if (m.hp <= 0) killMonster(m);
+        break;
+      }
+    }
+  }
+
+  state.hitboxes = state.hitboxes.filter(hb => hb.life > 0);
+}
+
+function updateMonsters(dt) {
+  if (state.scene !== 'field') return;
+
+  const p = state.player;
+
+  for (const m of state.monsters) {
+    m.animTime += dt;
+    m.hit = Math.max(0, m.hit - dt);
+
+    if (m.dead) {
+      m.respawn -= dt;
+
+      if (m.respawn <= 0) {
+        m.dead = false;
+        m.hp = m.maxHp;
+        m.x = rand(400, state.sceneWidth - 250);
+      }
+
+      continue;
+    }
+
+    if (m.ai === 'hop' || m.ai === 'walk') {
+      m.x += m.face * m.speed * dt;
+      if (Math.random() < dt * 0.6 || m.x < 300 || m.x > state.sceneWidth - 180) m.face *= -1;
+      if (Math.abs(m.x - p.x) < 38 && p.inv <= 0) damagePlayer(m.ai === 'hop' ? 8 : 10);
+    }
+
+    if (m.ai === 'heavy') {
+      const dist = p.x - m.x;
+
+      if (Math.abs(dist) < 110) {
+        m.face = dist > 0 ? 1 : -1;
+        m.attackWindup = (m.attackWindup || 0) + dt;
+
+        if (m.attackWindup > 0.7) {
+          m.attackWindup = 0;
+          enemySlashEffect(m.x + m.face * 20, m.y - 78, m.face, '#d8e2dc', '#adb5bd');
+
+          if (Math.abs(dist) < 86 && p.inv <= 0) damagePlayer(18);
+        }
+      } else {
+        m.attackWindup = 0;
+        m.x += Math.sign(dist) * m.speed * dt;
+      }
+    }
+  }
+}
+
+function damagePlayer(amount) {
+  const p = state.player;
+  p.hp = Math.max(1, p.hp - amount);
+  p.inv = 0.8;
+  text(`-${amount}`, p.x, p.y - 112, '#ff8787', 18);
+}
+
+function killMonster(m) {
+  m.dead = true;
+  m.respawn = 6;
+
+  gainExp(m.exp);
+  text(`EXP +${m.exp}`, m.x, m.y - m.h - 18, '#c0eb75', 18);
+
+  const quest = state.player.quests.slime_intro;
+
+  if (quest && quest.status === 'active' && m.type === 'slime') {
+    quest.killed = Math.min(quest.need, quest.killed + 1);
+  }
+}
+
+function gainExp(value) {
+  const p = state.player;
+  const before = p.level;
+
+  p.exp += value;
+
+  while (p.exp >= p.nextExp) {
+    p.exp -= p.nextExp;
+    p.level++;
+    p.nextExp = Math.floor(p.nextExp * 1.35 + 40);
+
+    p.statPoints += 5;
+
+    p.maxHp += 18;
+    p.maxMp += 10;
+    p.hp = p.maxHp;
+    p.mp = p.maxMp;
+    p.levelUp = 2.2;
+
+    if (p.level >= 2 && !p.unlockedSkills.includes('flare')) {
+      p.unlockedSkills.push('flare');
+    }
+
+    if (p.level >= 4 && !p.unlockedSkills.includes('inferno')) {
+      p.unlockedSkills.push('inferno');
+    }
+
+    for (let i = 0; i < 60; i++) {
+      spark(
+        p.x + rand(-40, 40),
+        p.y - rand(10, 120),
+        i % 2 ? '#ffe066' : '#74c0fc',
+        rand(-110, 110),
+        rand(-260, -60),
+        rand(2, 6),
+        rand(0.35, 0.9)
+      );
+    }
+
+    text('LEVEL UP!', p.x, p.y - 145, '#ffe066', 32);
+  }
+
+  if (p.level > before) {
+    text(`AP +${(p.level - before) * 5}`, p.x, p.y - 170, '#b2f2bb', 22);
+  }
+}
 function updateParticles(dt) {
   for (const p of state.particles) {
     p.life -= dt;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
     p.vy += (p.gravity ?? 260) * dt;
-
     if (p.scaleDecay) p.scale *= p.scaleDecay;
   }
 
@@ -1407,11 +2032,7 @@ function draw() {
 
   if (!state.ready) {
     drawMenuBackground();
-
-    if (!characterScreen.classList.contains('hidden')) {
-      drawPreview();
-    }
-
+    if (!characterScreen.classList.contains('hidden')) drawPreview();
     return;
   }
 
@@ -1426,18 +2047,7 @@ function draw() {
   state.npcs.forEach(drawNpc);
   state.monsters.forEach(drawMonster);
 
-  drawPlayer(
-    ctx,
-    state.player,
-    state.player.x,
-    state.player.y,
-    2.35,
-    state.player.face,
-    state.player.anim,
-    state.player.animTime,
-    false
-  );
-
+  drawPlayer(ctx, state.player, state.player.x, state.player.y, 2.35, state.player.face, state.player.anim, state.player.animTime, false);
   drawWorldEffects();
 
   ctx.restore();
@@ -1446,9 +2056,7 @@ function draw() {
   drawDialogue();
   drawInventory();
 
-  if (state.questOpen) {
-    drawQuestWindow();
-  }
+  if (state.questOpen) drawQuestWindow();
 }
 
 function drawMenuBackground() {
@@ -1594,4 +2202,146 @@ function drawBackMountains(color, baseY, amp) {
   ctx.lineTo(0, H);
   ctx.closePath();
   ctx.fill();
+}
+
+function drawBackHills(x, y, width, color) {
+  ctx.fillStyle = color;
+
+  for (let i = 0; i < width / 120 + 2; i++) {
+    ctx.beginPath();
+    ctx.ellipse(x + i * 140, y, 110, 55, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawTownPlateau(x, y, w, h) {
+  ctx.fillStyle = '#ab8351';
+  ctx.fillRect(x, y, w, h);
+
+  ctx.fillStyle = '#8d6942';
+  for (let i = 0; i < w; i += 22) {
+    ctx.fillRect(x + i, y + 18, 14, h - 18);
+  }
+
+  ctx.fillStyle = '#97d363';
+  ctx.fillRect(x, y - 8, w, 12);
+}
+
+function drawCloud(x, y, scale) {
+  ctx.save();
+  ctx.globalAlpha = 0.93;
+  ctx.fillStyle = '#fff';
+
+  circle(ctx, x, y, 18 * scale);
+  circle(ctx, x + 18 * scale, y - 10 * scale, 24 * scale);
+  circle(ctx, x + 44 * scale, y - 6 * scale, 20 * scale);
+  circle(ctx, x + 66 * scale, y, 17 * scale);
+  ctx.fillRect(x - 12 * scale, y - 2 * scale, 88 * scale, 18 * scale);
+
+  ctx.restore();
+}
+
+function drawTree(x, y, scale) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  ctx.fillStyle = '#805332';
+  ctx.fillRect(-8, -44, 16, 44);
+
+  ctx.fillStyle = '#2f8f43';
+  circle(ctx, -18, -58, 20);
+  circle(ctx, 0, -72, 22);
+  circle(ctx, 18, -56, 20);
+  circle(ctx, 0, -46, 22);
+
+  ctx.restore();
+}
+
+function drawForestTree(x, y, scale) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  ctx.fillStyle = '#734a2e';
+  ctx.fillRect(-10, -76, 20, 76);
+
+  ctx.fillStyle = '#2b6d36';
+  ctx.beginPath();
+  ctx.moveTo(0, -150);
+  ctx.lineTo(-42, -72);
+  ctx.lineTo(42, -72);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(0, -120);
+  ctx.lineTo(-36, -44);
+  ctx.lineTo(36, -44);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawBigTree(x, y, scale) {
+  drawTree(x, y, scale * 1.7);
+}
+
+function drawHouse(x, y, scale, temple = false) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  if (temple) {
+    ctx.fillStyle = '#6e563a';
+    ctx.fillRect(0, 22, 160, 85);
+
+    ctx.fillStyle = '#34495e';
+    ctx.beginPath();
+    ctx.moveTo(-18, 28);
+    ctx.lineTo(80, -30);
+    ctx.lineTo(178, 28);
+    ctx.closePath();
+    ctx.fill();
+  } else {
+    ctx.fillStyle = '#8a6237';
+    ctx.fillRect(0, 30, 140, 75);
+
+    ctx.fillStyle = '#e6d58f';
+    ctx.fillRect(15, 48, 44, 28);
+    ctx.fillRect(82, 48, 36, 28);
+
+    ctx.fillStyle = '#5b3a23';
+    ctx.fillRect(58, 57, 22, 48);
+
+    ctx.fillStyle = '#dccb87';
+    ctx.beginPath();
+    ctx.ellipse(70, 27, 80, 34, 0, Math.PI, 0);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function drawClockTower(x, y) {
+  ctx.fillStyle = '#876542';
+  ctx.fillRect(x, y, 58, 112);
+
+  ctx.fillStyle = '#eadfb0';
+  ctx.fillRect(x + 6, y - 54, 46, 54);
+
+  circle(ctx, x + 29, y - 26, 15);
+}
+
+function drawPortalSign(x, y, textValue) {
+  ctx.fillStyle = '#7a5a39';
+  ctx.fillRect(x, y, 8, 58);
+
+  ctx.fillStyle = '#a77b4a';
+  roundRect(ctx, x - 26, y - 16, 72, 24, 8, true);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.fillText(textValue, x - 16, y + 2);
 }
