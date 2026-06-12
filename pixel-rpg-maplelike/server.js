@@ -45,10 +45,7 @@ function readBody(req) {
 
     req.on('data', chunk => {
       data += chunk;
-
-      if (data.length > 2_000_000) {
-        req.destroy();
-      }
+      if (data.length > 2_000_000) req.destroy();
     });
 
     req.on('end', () => resolve(data));
@@ -61,7 +58,6 @@ function send(res, status, data, type = 'application/json; charset=utf-8') {
     'Content-Type': type,
     'Cache-Control': 'no-store'
   });
-
   res.end(data);
 }
 
@@ -87,31 +83,28 @@ function getAuth(req) {
 }
 
 function cleanCharacter(character) {
-  const allowedJobs = ['beginner', 'warrior', 'mage', 'thief'];
-
   return {
     name: String(character?.name || '').trim(),
-    job: allowedJobs.includes(character?.job) ? character.job : 'beginner',
+
+    // 처음 생성 시 모든 유저는 초보자입니다.
+    job: 'beginner',
+
     skin: character?.skin || '#ffd6a6',
-    hair: character?.hair || '#5b2d16',
-    outfit: character?.outfit || '#4f9cff',
-    accent: character?.accent || '#ffd43b'
+    hair: character?.hair || '#2b160e',
+
+    // 커스터마이징은 헤어 스타일 / 표정 / 피부색 / 헤어색만 사용합니다.
+    hairStyle: character?.hairStyle || 'basic',
+    faceStyle: character?.faceStyle || 'normal'
   };
 }
 
 function defaultSave(character) {
   const clean = cleanCharacter(character);
 
-  const stats = {
-    str: clean.job === 'warrior' ? 12 : 6,
-    dex: clean.job === 'thief' ? 12 : 6,
-    int: clean.job === 'mage' ? 12 : 6,
-    luk: clean.job === 'thief' ? 10 : 6
-  };
-
   return {
     player: {
       character: clean,
+
       scene: 'town',
       x: 260,
       y: 548,
@@ -128,7 +121,12 @@ function defaultSave(character) {
       gold: 120,
 
       statPoints: 5,
-      stats,
+      stats: {
+        str: 6,
+        dex: 6,
+        int: 6,
+        luk: 6
+      },
 
       unlockedSkills: [],
       quests: {},
@@ -165,33 +163,6 @@ function defaultSave(character) {
           atk: 2,
           job: 'beginner',
           icon: 'glove'
-        },
-        {
-          id: 'training_sword',
-          name: '수련용 검',
-          type: 'weapon',
-          qty: 1,
-          atk: 6,
-          job: 'warrior',
-          icon: 'sword'
-        },
-        {
-          id: 'oak_wand',
-          name: '참나무 완드',
-          type: 'weapon',
-          qty: 1,
-          matk: 7,
-          job: 'mage',
-          icon: 'wand'
-        },
-        {
-          id: 'practice_dagger',
-          name: '연습용 단검',
-          type: 'weapon',
-          qty: 1,
-          atk: 5,
-          job: 'thief',
-          icon: 'dagger'
         }
       ]
     }
@@ -215,10 +186,7 @@ async function getUser(username) {
     .eq('username', username)
     .maybeSingle();
 
-  if (error) {
-    throw error;
-  }
-
+  if (error) throw error;
   return data;
 }
 
@@ -229,9 +197,7 @@ async function nicknameTaken(nickname, exceptUsername) {
     .from('game_users')
     .select('username, save');
 
-  if (error) {
-    throw error;
-  }
+  if (error) throw error;
 
   return (data || []).some(row => {
     if (!row || row.username === exceptUsername) return false;
@@ -245,24 +211,19 @@ async function createUser(username, password) {
   const salt = crypto.randomBytes(16).toString('hex');
   const passHash = hashPassword(password, salt);
 
-  const row = {
-    username,
-    salt,
-    pass_hash: passHash,
-    save: null,
-    saved_at: null
-  };
-
   const { data, error } = await supabase
     .from('game_users')
-    .insert(row)
+    .insert({
+      username,
+      salt,
+      pass_hash: passHash,
+      save: null,
+      saved_at: null
+    })
     .select('*')
     .single();
 
-  if (error) {
-    throw error;
-  }
-
+  if (error) throw error;
   return data;
 }
 
@@ -279,10 +240,7 @@ async function updateUserSave(username, save) {
     .select('*')
     .single();
 
-  if (error) {
-    throw error;
-  }
-
+  if (error) throw error;
   return data;
 }
 
@@ -472,7 +430,6 @@ const server = http.createServer(async (req, res) => {
       }
 
       const save = JSON.parse((await readBody(req)) || '{}');
-
       const user = await getUser(username);
 
       if (!user) {
@@ -493,9 +450,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/logout' && req.method === 'POST') {
       const { token } = getAuth(req);
 
-      if (token) {
-        sessions.delete(token);
-      }
+      if (token) sessions.delete(token);
 
       return json(res, 200, {
         ok: true
