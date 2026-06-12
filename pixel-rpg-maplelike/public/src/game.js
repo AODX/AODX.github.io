@@ -1,4 +1,8 @@
-const canvas = document..getElementById('game');
+// Fixed Pixel RPG game.js
+// Use this file to replace public/src/game.js
+
+const canvas = document.getElementById('game');
+
 canvas.width = 1280;
 canvas.height = 720;
 
