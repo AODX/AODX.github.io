@@ -36,7 +36,7 @@
     <div class="panel-head">
       <div>
         <h1>캐릭터 생성</h1>
-        <p>직업을 고르고 게임 닉네임을 만든 뒤 시작하세요.</p>
+        <p>처음에는 모두 초보자로 시작합니다. 전직은 게임 진행 중 NPC 퀘스트로 열립니다.</p>
       </div>
       <button id="logoutBtn" class="ghost" type="button">로그아웃</button>
     </div>
@@ -50,6 +50,7 @@
 
         <p id="nickMsg" class="nick-msg">2~10자, 한글/영문/숫자/_ 사용 가능</p>
 
+        <p class="section-title">피부색</p>
         <div class="swatches" data-target="skin">
           <span style="background:#ffd6a6"></span>
           <span style="background:#f0b880"></span>
@@ -57,27 +58,36 @@
           <span style="background:#ffe6c7"></span>
         </div>
 
+        <p class="section-title">헤어색</p>
         <div class="swatches" data-target="hair">
           <span style="background:#2b160e"></span>
           <span style="background:#5b2d16"></span>
           <span style="background:#f2c14e"></span>
           <span style="background:#2a2d34"></span>
           <span style="background:#c14953"></span>
+          <span style="background:#d8dee9"></span>
+          <span style="background:#7c5cff"></span>
+          <span style="background:#69db7c"></span>
         </div>
 
-        <div class="swatches" data-target="outfit">
-          <span style="background:#4f9cff"></span>
-          <span style="background:#ff6b6b"></span>
-          <span style="background:#51cf66"></span>
-          <span style="background:#845ef7"></span>
-          <span style="background:#f08c00"></span>
+        <p class="section-title">헤어 스타일</p>
+        <div class="choice-grid" id="hairStyleChoices">
+          <button type="button" class="choice active" data-value="basic">기본</button>
+          <button type="button" class="choice" data-value="short">단정</button>
+          <button type="button" class="choice" data-value="pony">양갈래</button>
+          <button type="button" class="choice" data-value="wave">웨이브</button>
+          <button type="button" class="choice" data-value="spiky">삐침</button>
+          <button type="button" class="choice" data-value="bob">보브</button>
         </div>
 
-        <div class="swatches" data-target="accent">
-          <span style="background:#ffd43b"></span>
-          <span style="background:#74c0fc"></span>
-          <span style="background:#ff8787"></span>
-          <span style="background:#b197fc"></span>
+        <p class="section-title">표정</p>
+        <div class="choice-grid" id="faceStyleChoices">
+          <button type="button" class="choice active" data-value="normal">기본</button>
+          <button type="button" class="choice" data-value="bright">밝음</button>
+          <button type="button" class="choice" data-value="cool">시크</button>
+          <button type="button" class="choice" data-value="angry">당당</button>
+          <button type="button" class="choice" data-value="sleepy">졸림</button>
+          <button type="button" class="choice" data-value="cute">귀여움</button>
         </div>
 
         <button id="startNewBtn" class="primary big" type="button">게임 시작하기</button>
