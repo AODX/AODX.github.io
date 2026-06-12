@@ -1,7 +1,7 @@
 {
   "name": "pixel-rpg-maplelike",
-  "version": "2.0.0",
-  "description": "Side-scrolling pixel RPG prototype with login, character customization, town, portal, NPC quests, inventory, monsters, animations, and server save.",
+  "version": "3.0.0",
+  "description": "Side-scrolling pixel RPG with login, post-login character creation, unique nicknames, town, portals, quests, inventory, animations, and server save.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -10,13 +10,5 @@
   "engines": {
     "node": ">=18"
   },
-  "keywords": [
-    "pixel",
-    "rpg",
-    "canvas",
-    "node",
-    "game",
-    "maplelike"
-  ],
   "license": "MIT"
 }
