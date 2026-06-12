@@ -14,8 +14,8 @@
     <p>계정으로 로그인한 뒤 캐릭터를 만들고 게임을 시작합니다.</p>
 
     <div class="tabs">
-      <button id="tabLogin" class="active">로그인</button>
-      <button id="tabRegister">회원가입</button>
+      <button id="tabLogin" class="active" type="button">로그인</button>
+      <button id="tabRegister" type="button">회원가입</button>
     </div>
 
     <label>
@@ -28,7 +28,7 @@
       <input id="password" type="password" autocomplete="current-password" />
     </label>
 
-    <button id="authBtn" class="primary">로그인</button>
+    <button id="authBtn" class="primary" type="button">로그인</button>
     <p id="authMsg" class="msg"></p>
   </section>
 
@@ -36,9 +36,9 @@
     <div class="panel-head">
       <div>
         <h1>캐릭터 생성</h1>
-        <p>게임 닉네임은 다른 유저와 중복될 수 없습니다.</p>
+        <p>직업을 고르고 게임 닉네임을 만든 뒤 시작하세요.</p>
       </div>
-      <button id="logoutBtn" class="ghost">로그아웃</button>
+      <button id="logoutBtn" class="ghost" type="button">로그아웃</button>
     </div>
 
     <div class="creator-layout">
@@ -80,7 +80,7 @@
           <span style="background:#b197fc"></span>
         </div>
 
-        <button id="startNewBtn" class="primary big">게임 시작하기</button>
+        <button id="startNewBtn" class="primary big" type="button">게임 시작하기</button>
         <p id="createMsg" class="msg"></p>
       </div>
 
@@ -94,12 +94,12 @@
     <h1>캐릭터 선택</h1>
     <canvas id="menuPreview" width="240" height="260"></canvas>
     <p id="menuName" class="menu-name"></p>
-    <button id="continueBtn" class="primary big">게임 시작하기</button>
-    <button id="logoutBtn2" class="ghost full">로그아웃</button>
+    <button id="continueBtn" class="primary big" type="button">게임 시작하기</button>
+    <button id="logoutBtn2" class="ghost full" type="button">로그아웃</button>
   </section>
 
   <div id="hudHelp" class="help hidden">
-    A/D 이동 · Space 점프 · J 주먹 공격 · M 인벤토리 · E 대화/포탈 · S 저장
+    A/D 이동 · Space 점프 · J 기본공격 · K 화염파 · L 화염기둥 · M 인벤토리 · C 스탯 · Q 퀘스트 · 1~4 물약
   </div>
 
   <script src="/src/game.js"></script>
