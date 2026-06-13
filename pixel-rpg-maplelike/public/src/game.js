@@ -652,7 +652,7 @@ const skills = {
     semicolon: null
   },
 
-   function refreshUnlockedSkills() {
+ function refreshUnlockedSkills() {
   const p = game.player;
   const job = p.character.job || 'beginner';
 
@@ -681,34 +681,18 @@ const skills = {
     }
   }
 
-  if (!skills.hotkeys.k && skills.unlocked[0]) skills.hotkeys.k = skills.unlocked[0];
-  if (!skills.hotkeys.l && skills.unlocked[1]) skills.hotkeys.l = skills.unlocked[1];
-  if (!skills.hotkeys.semicolon && skills.unlocked[2]) skills.hotkeys.semicolon = skills.unlocked[2];
+  if (!skills.hotkeys.k && skills.unlocked[0]) {
+    skills.hotkeys.k = skills.unlocked[0];
+  }
+
+  if (!skills.hotkeys.l && skills.unlocked[1]) {
+    skills.hotkeys.l = skills.unlocked[1];
+  }
+
+  if (!skills.hotkeys.semicolon && skills.unlocked[2]) {
+    skills.hotkeys.semicolon = skills.unlocked[2];
+  }
 }
-  cooldowns: {}
-};
-
-const quests = {
-  open: false,
-  active: [],
-  completed: []
-};
-
-const equipment = {
-  weapon: null,
-  armor: null,
-  accessory: null
-};
-
-const wallet = {
-  gold: 120
-};
-
-const buffs = {
-  guard: 0,
-  manaShield: 0,
-  eagleEye: 0
-};
 
 function createDefaultPlayer() {
   return {
@@ -908,6 +892,10 @@ function startGame(save) {
   game.player.vx = 0;
   game.player.vy = 0;
   game.player.grounded = true;
+
+  recalcStats();
+  refreshUnlockedSkills();
+
   game.ready = true;
 }
 
@@ -1708,6 +1696,7 @@ function addExp(amount) {
     p.hp = p.maxHp;
     p.mp = p.maxMp;
     makeText('LEVEL UP!', p.x, p.y - 125, '#ffe066');
+     refreshUnlockedSkills();
   }
 }
 
