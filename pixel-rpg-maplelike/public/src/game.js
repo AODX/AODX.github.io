@@ -4042,3 +4042,658 @@ if (typeof canvas !== 'undefined' && canvas) {
   forceCanvasSize();
   requestAnimationFrame(visualPatchLoop);
 })();
+/* =========================================================
+   CHARACTER BODY + COLOR FIX PATCH v3
+   - 2번째 이미지처럼 기본 바디 비율 개선
+   - 피부색 / 머리색 변경 반영
+   - 걷기 / 점프 / 기본공격 모션 개선
+   - 캐릭터 선택 미리보기와 게임 화면 캐릭터를 다시 덮어그림
+========================================================= */
+
+(() => {
+  console.log('[Pixel RPG] CHARACTER BODY + COLOR FIX PATCH v3 loaded');
+
+  const PATCH_W = 1280;
+  const PATCH_H = 720;
+
+  function rr(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.lineTo(x + w - r, y);
+    c.quadraticCurveTo(x + w, y, x + w, y + r);
+    c.lineTo(x + w, y + h - r);
+    c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    c.lineTo(x + r, y + h);
+    c.quadraticCurveTo(x, y + h, x, y + h - r);
+    c.lineTo(x, y + r);
+    c.quadraticCurveTo(x, y, x + r, y);
+    c.closePath();
+    c.fill();
+  }
+
+  function circ(c, x, y, r) {
+    c.beginPath();
+    c.arc(x, y, r, 0, Math.PI * 2);
+    c.fill();
+  }
+
+  function clamp(v, a, b) {
+    return Math.max(a, Math.min(b, v));
+  }
+
+  function readCurrentCustomize() {
+    const fallback = {
+      skin: '#ffd6a6',
+      hair: '#2b160e',
+      hairStyle: 'basic',
+      faceStyle: 'normal'
+    };
+
+    try {
+      if (typeof selected !== 'undefined' && selected) {
+        return {
+          skin: selected.skin || fallback.skin,
+          hair: selected.hair || fallback.hair,
+          hairStyle: selected.hairStyle || fallback.hairStyle,
+          faceStyle: selected.faceStyle || fallback.faceStyle
+        };
+      }
+    } catch {}
+
+    return fallback;
+  }
+
+  function getCharFromPlayer(playerLike) {
+    const custom = readCurrentCustomize();
+
+    const base = {
+      name: '초보자',
+      job: 'beginner',
+      skin: custom.skin,
+      hair: custom.hair,
+      hairStyle: custom.hairStyle,
+      faceStyle: custom.faceStyle
+    };
+
+    if (playerLike && playerLike.character) {
+      return {
+        ...base,
+        ...playerLike.character
+      };
+    }
+
+    return base;
+  }
+
+  function getPlayerSafe() {
+    if (typeof state !== 'undefined' && state && state.player) return state.player;
+
+    return {
+      x: 260,
+      y: 548,
+      face: 1,
+      anim: 'idle',
+      animTime: performance.now() / 1000,
+      vx: 0,
+      vy: 0,
+      character: getCharFromPlayer(null),
+      hp: 100,
+      maxHp: 100,
+      mp: 40,
+      maxMp: 40,
+      level: 1,
+      exp: 0,
+      nextExp: 80
+    };
+  }
+
+  function getGround() {
+    if (typeof state !== 'undefined' && state && state.scene === 'field') return 566;
+    return 548;
+  }
+
+  function getCamX() {
+    const p = getPlayerSafe();
+    const sceneWidth = typeof state !== 'undefined' && state && state.sceneWidth ? state.sceneWidth : 3300;
+    return clamp((p.x || 260) - PATCH_W * 0.42, 0, Math.max(0, sceneWidth - PATCH_W));
+  }
+
+  function drawBetterCharacter(c, playerLike, x, y, scale = 2, face = 1, anim = 'idle', time = 0) {
+    const ch = getCharFromPlayer(playerLike);
+
+    const running = anim === 'run';
+    const jumping = anim === 'jump';
+    const punching = anim === 'punch';
+    const casting = anim === 'cast';
+
+    const walk = Math.sin(time * 13);
+    const walk2 = Math.cos(time * 13);
+
+    const bodyBob = running ? -Math.abs(walk) * 1.8 : Math.sin(time * 3) * 0.45;
+    const jumpTilt = jumping ? ((playerLike && playerLike.vy < 0) ? -0.08 : 0.08) : 0;
+
+    const legFront = running ? walk * 8 : 0;
+    const legBack = running ? -walk * 8 : 0;
+
+    const armFront = running ? -walk * 7 : 0;
+    const armBack = running ? walk * 7 : 0;
+
+    const punchT = punching ? Math.sin(Math.min(1, time * 11) * Math.PI) : 0;
+    const castT = casting ? Math.sin(Math.min(1, time * 7) * Math.PI) : 0;
+
+    c.save();
+    c.translate(x, y + bodyBob);
+    c.scale(face * scale, scale);
+    c.rotate(jumpTilt);
+
+    // shadow
+    c.fillStyle = 'rgba(0,0,0,0.26)';
+    c.beginPath();
+    c.ellipse(0, 2, 18, 4.5, 0, 0, Math.PI * 2);
+    c.fill();
+
+    /*
+      Body ratio reference:
+      - head smaller than old version
+      - torso short and rounded
+      - arms/legs have small joints
+      - feet flat like pixel sprite base
+    */
+
+    // back leg outline
+    c.strokeStyle = '#1a1a1a';
+    c.lineWidth = 5;
+    c.lineCap = 'round';
+
+    c.beginPath();
+    c.moveTo(7, -33);
+    c.lineTo(12 + legBack, -13);
+    c.stroke();
+
+    // front leg outline
+    c.beginPath();
+    c.moveTo(-7, -33);
+    c.lineTo(-12 + legFront, -13);
+    c.stroke();
+
+    // legs skin
+    c.strokeStyle = ch.skin;
+    c.lineWidth = 3.8;
+
+    c.beginPath();
+    c.moveTo(7, -33);
+    c.lineTo(12 + legBack, -13);
+    c.stroke();
+
+    c.beginPath();
+    c.moveTo(-7, -33);
+    c.lineTo(-12 + legFront, -13);
+    c.stroke();
+
+    // feet outline
+    c.fillStyle = '#1a1a1a';
+    rr(c, -24 + legFront, -13, 22, 7, 1.5);
+    rr(c, 2 + legBack, -13, 22, 7, 1.5);
+
+    // shoes
+    c.fillStyle = '#5a3821';
+    rr(c, -22 + legFront, -11.5, 18, 4.8, 1);
+    rr(c, 4 + legBack, -11.5, 18, 4.8, 1);
+
+    // torso outline
+    c.fillStyle = '#1a1a1a';
+    rr(c, -18, -70, 36, 38, 9);
+
+    // shirt
+    c.fillStyle = '#4f93f5';
+    rr(c, -15.5, -67.5, 31, 34, 8);
+
+    // collar
+    c.fillStyle = '#f7f8ff';
+    c.fillRect(-12, -65, 24, 6);
+
+    // pants
+    c.fillStyle = '#2f6fbd';
+    rr(c, -13, -42, 26, 9, 3);
+
+    // arms position
+    let lx = -20 + armFront;
+    let ly = -48 + Math.max(0, walk2) * 2;
+    let rx = 20 + armBack;
+    let ry = -48 + Math.max(0, -walk2) * 2;
+
+    if (punching) {
+      rx = 23 + punchT * 25;
+      ry = -52 - punchT * 2;
+      lx = -22 - punchT * 4;
+      ly = -49;
+    }
+
+    if (casting) {
+      lx = -24 - castT * 8;
+      rx = 24 + castT * 8;
+      ly = -57 - castT * 4;
+      ry = -57 - castT * 4;
+    }
+
+    // arms outline
+    c.strokeStyle = '#1a1a1a';
+    c.lineWidth = 6;
+    c.beginPath();
+    c.moveTo(-15, -61);
+    c.lineTo(lx, ly);
+    c.stroke();
+
+    c.beginPath();
+    c.moveTo(15, -61);
+    c.lineTo(rx, ry);
+    c.stroke();
+
+    // arms skin
+    c.strokeStyle = ch.skin;
+    c.lineWidth = 3.8;
+    c.beginPath();
+    c.moveTo(-15, -61);
+    c.lineTo(lx, ly);
+    c.stroke();
+
+    c.beginPath();
+    c.moveTo(15, -61);
+    c.lineTo(rx, ry);
+    c.stroke();
+
+    // hands outline
+    c.fillStyle = '#1a1a1a';
+    circ(c, lx, ly, 4.5);
+    circ(c, rx, ry, 4.5);
+
+    // hands
+    c.fillStyle = ch.skin;
+    circ(c, lx, ly, 3.1);
+    circ(c, rx, ry, 3.1);
+
+    // neck outline
+    c.fillStyle = '#1a1a1a';
+    c.fillRect(-6, -76, 12, 9);
+
+    // neck
+    c.fillStyle = ch.skin;
+    c.fillRect(-4, -75, 8, 8);
+
+    // ears outline
+    c.fillStyle = '#1a1a1a';
+    circ(c, -20.5, -96, 5.5);
+    circ(c, 20.5, -96, 5.5);
+
+    // head outline
+    c.beginPath();
+    c.ellipse(0, -99, 23.5, 25.5, 0, 0, Math.PI * 2);
+    c.fill();
+
+    // ears
+    c.fillStyle = ch.skin;
+    circ(c, -20, -96, 4);
+    circ(c, 20, -96, 4);
+
+    // head
+    c.beginPath();
+    c.ellipse(0, -99, 20.5, 22.5, 0, 0, Math.PI * 2);
+    c.fill();
+
+    drawBetterHair(c, ch.hairStyle, ch.hair);
+    drawBetterFace(c, ch.faceStyle);
+
+    if (punching) {
+      drawBetterPunchEffect(c, punchT);
+    }
+
+    if (casting) {
+      drawBetterCastEffect(c, castT);
+    }
+
+    c.restore();
+  }
+
+  function drawBetterHair(c, style, color) {
+    const hair = color || '#2b160e';
+
+    // outline
+    c.fillStyle = '#1a1a1a';
+
+    if (style === 'spiky') {
+      c.beginPath();
+      c.moveTo(-23, -100);
+      c.lineTo(-18, -124);
+      c.lineTo(-9, -108);
+      c.lineTo(-1, -127);
+      c.lineTo(8, -108);
+      c.lineTo(17, -123);
+      c.lineTo(23, -100);
+      c.lineTo(18, -86);
+      c.lineTo(-18, -86);
+      c.closePath();
+      c.fill();
+    } else {
+      rr(c, -23, -124, 46, 29, 14);
+      c.fillRect(-21, -108, 42, 17);
+    }
+
+    if (style === 'pony') {
+      circ(c, -27, -96, 9);
+      circ(c, 27, -96, 9);
+    }
+
+    // fill
+    c.fillStyle = hair;
+
+    if (style === 'spiky') {
+      c.beginPath();
+      c.moveTo(-20, -101);
+      c.lineTo(-16, -119);
+      c.lineTo(-8, -105);
+      c.lineTo(0, -123);
+      c.lineTo(8, -105);
+      c.lineTo(16, -119);
+      c.lineTo(20, -101);
+      c.lineTo(16, -88);
+      c.lineTo(-16, -88);
+      c.closePath();
+      c.fill();
+    } else {
+      rr(c, -20, -121.5, 40, 25, 12);
+      c.fillRect(-18, -107, 36, 15);
+    }
+
+    if (style === 'short') {
+      for (let i = -16; i <= 10; i += 6) {
+        c.beginPath();
+        c.moveTo(i, -105);
+        c.lineTo(i + 4, -91);
+        c.lineTo(i + 10, -105);
+        c.fill();
+      }
+    }
+
+    if (style === 'pony') {
+      circ(c, -26, -96, 7);
+      circ(c, 26, -96, 7);
+    }
+
+    if (style === 'wave' || style === 'bob') {
+      circ(c, -17, -90, 6);
+      circ(c, 17, -90, 6);
+      if (style === 'bob') {
+        c.fillRect(-18, -96, 36, 9);
+      }
+    }
+
+    // bangs
+    c.beginPath();
+    c.moveTo(-20, -106);
+    c.lineTo(-13, -119);
+    c.lineTo(-5, -104);
+    c.lineTo(2, -120);
+    c.lineTo(9, -104);
+    c.lineTo(18, -116);
+    c.lineTo(20, -96);
+    c.lineTo(-20, -96);
+    c.closePath();
+    c.fill();
+
+    // small shine
+    c.fillStyle = 'rgba(255,255,255,0.22)';
+    c.fillRect(-10, -117, 9, 2.5);
+  }
+
+  function drawBetterFace(c, style) {
+    // blush
+    c.fillStyle = 'rgba(255,120,150,0.24)';
+    c.fillRect(-15, -94, 5, 3);
+    c.fillRect(10, -94, 5, 3);
+
+    c.fillStyle = '#111';
+
+    if (style === 'sleepy') {
+      c.strokeStyle = '#111';
+      c.lineWidth = 1.7;
+      c.beginPath();
+      c.moveTo(-11, -101);
+      c.lineTo(-4, -101);
+      c.moveTo(4, -101);
+      c.lineTo(11, -101);
+      c.stroke();
+
+      c.fillRect(-3, -91, 6, 2);
+      return;
+    }
+
+    if (style === 'angry') {
+      c.strokeStyle = '#111';
+      c.lineWidth = 1.7;
+      c.beginPath();
+      c.moveTo(-12, -106);
+      c.lineTo(-4, -101);
+      c.moveTo(12, -106);
+      c.lineTo(4, -101);
+      c.stroke();
+    }
+
+    if (style === 'cool') {
+      c.strokeStyle = '#111';
+      c.lineWidth = 1.7;
+      c.beginPath();
+      c.moveTo(-12, -104);
+      c.lineTo(-4, -101);
+      c.moveTo(4, -101);
+      c.lineTo(12, -104);
+      c.stroke();
+    }
+
+    // eyes
+    c.fillStyle = '#111';
+    c.fillRect(-10, -102, 4, 7);
+    c.fillRect(6, -102, 4, 7);
+
+    c.fillStyle = '#fff';
+    c.fillRect(-9, -101, 1.5, 2);
+    c.fillRect(7, -101, 1.5, 2);
+
+    if (style === 'bright' || style === 'cute') {
+      c.strokeStyle = '#111';
+      c.lineWidth = 1.7;
+      c.beginPath();
+      c.arc(0, -91, 4, 0, Math.PI);
+      c.stroke();
+    } else {
+      c.fillStyle = '#111';
+      c.fillRect(-3, -91, 6, 2);
+    }
+  }
+
+  function drawBetterPunchEffect(c, t) {
+    c.save();
+
+    c.globalAlpha = 0.95;
+
+    c.strokeStyle = '#ffe066';
+    c.lineWidth = 4;
+    c.beginPath();
+    c.arc(37, -53, 16 + t * 16, -0.72, 0.8);
+    c.stroke();
+
+    c.strokeStyle = '#ff922b';
+    c.lineWidth = 2.5;
+    c.beginPath();
+    c.arc(39, -53, 11 + t * 14, -0.7, 0.76);
+    c.stroke();
+
+    c.restore();
+  }
+
+  function drawBetterCastEffect(c, t) {
+    c.save();
+
+    c.globalAlpha = 0.9;
+    c.strokeStyle = '#ff922b';
+    c.lineWidth = 3.5;
+    c.beginPath();
+    c.arc(0, -64, 31 + t * 7, 0, Math.PI * 2);
+    c.stroke();
+
+    c.strokeStyle = '#ffe066';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.arc(0, -64, 21 + t * 6, 0, Math.PI * 2);
+    c.stroke();
+
+    c.restore();
+  }
+
+  function drawBetterPreview() {
+    const isCreatorVisible =
+      typeof characterScreen !== 'undefined' &&
+      characterScreen &&
+      !characterScreen.classList.contains('hidden');
+
+    const isMenuVisible =
+      typeof characterMenu !== 'undefined' &&
+      characterMenu &&
+      !characterMenu.classList.contains('hidden');
+
+    if (!isCreatorVisible && !isMenuVisible) return;
+
+    const targetCanvas = isCreatorVisible ? preview : menuPreview;
+    if (!targetCanvas) return;
+
+    targetCanvas.width = 300;
+    targetCanvas.height = 300;
+
+    const c = targetCanvas.getContext('2d');
+    c.imageSmoothingEnabled = false;
+
+    c.clearRect(0, 0, 300, 300);
+
+    c.fillStyle = '#202938';
+    c.fillRect(0, 0, 300, 300);
+
+    c.fillStyle = '#25344c';
+    c.fillRect(50, 257, 200, 12);
+
+    let characterData = {
+      name: '초보자',
+      job: 'beginner',
+      ...readCurrentCustomize()
+    };
+
+    if (isMenuVisible && typeof currentUser !== 'undefined' && currentUser?.save?.player?.character) {
+      characterData = {
+        ...characterData,
+        ...currentUser.save.player.character
+      };
+    }
+
+    drawBetterCharacter(
+      c,
+      {
+        character: characterData,
+        vx: 0,
+        vy: 0
+      },
+      150,
+      258,
+      2.15,
+      1,
+      'idle',
+      performance.now() / 1000
+    );
+  }
+
+  function drawBetterGameCharacterOnly() {
+    if (typeof state === 'undefined' || !state || !state.ready) return;
+    if (typeof canvas === 'undefined' || !canvas || typeof ctx === 'undefined' || !ctx) return;
+
+    canvas.width = PATCH_W;
+    canvas.height = PATCH_H;
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+
+    const p = getPlayerSafe();
+    const ground = getGround();
+
+    if (!p.y || p.y < 100 || p.y > 900) p.y = ground;
+
+    const camX = getCamX();
+
+    ctx.save();
+    ctx.translate(-Math.floor(camX), 0);
+
+    // 기존 기괴한 캐릭터가 그려져 있을 수 있으니 플레이어 주변만 배경색으로 지우지 않고,
+    // 새 캐릭터를 더 선명하게 크게 덮어 그림.
+    drawBetterCharacter(
+      ctx,
+      p,
+      p.x || 260,
+      p.y || ground,
+      2.05,
+      p.face || 1,
+      p.anim || 'idle',
+      p.animTime || performance.now() / 1000
+    );
+
+    ctx.restore();
+  }
+
+  function patchColorButtons() {
+    try {
+      document.querySelectorAll('.swatches').forEach(group => {
+        const target = group.dataset.target;
+
+        group.querySelectorAll('span').forEach(span => {
+          span.addEventListener('click', () => {
+            const color = getComputedStyle(span).backgroundColor;
+            const hex = rgbToHexLocal(color);
+
+            if (typeof selected !== 'undefined' && selected && target) {
+              selected[target] = hex;
+            }
+
+            group.querySelectorAll('span').forEach(s => s.classList.remove('selected'));
+            span.classList.add('selected');
+
+            drawBetterPreview();
+          });
+        });
+      });
+    } catch (err) {
+      console.warn('[Pixel RPG] color patch warning:', err);
+    }
+  }
+
+  function rgbToHexLocal(value) {
+    if (!value) return '#ffffff';
+    if (value.startsWith('#')) return value;
+
+    const nums = value.match(/\d+/g);
+    if (!nums || nums.length < 3) return value;
+
+    return '#' + nums
+      .slice(0, 3)
+      .map(n => Number(n).toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  patchColorButtons();
+
+  function loopBetterCharacterPatch() {
+    try {
+      drawBetterPreview();
+      drawBetterGameCharacterOnly();
+    } catch (err) {
+      console.error('[Pixel RPG] character patch v3 error:', err);
+    }
+
+    requestAnimationFrame(loopBetterCharacterPatch);
+  }
+
+  requestAnimationFrame(loopBetterCharacterPatch);
+})();
