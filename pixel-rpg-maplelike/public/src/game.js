@@ -4697,3 +4697,1189 @@ if (typeof canvas !== 'undefined' && canvas) {
 
   requestAnimationFrame(loopBetterCharacterPatch);
 })();
+/* =========================================================
+   CLEAN PLAYABLE VISUAL OVERRIDE v4
+   - 이전 임시 패치들이 꼬여도 마지막에 전체 게임 화면을 다시 그림
+   - 배경/마을/NPC/몬스터/캐릭터/이동/점프/공격 복구
+   - 2번째 이미지의 기본 바디 시트 느낌을 참고한 포즈 기반 캐릭터
+========================================================= */
+
+(() => {
+  console.log('[Pixel RPG] CLEAN PLAYABLE VISUAL OVERRIDE v4 loaded');
+
+  const VW = 1280;
+  const VH = 720;
+
+  const vKeys = new Set();
+
+  const vWorld = {
+    scene: 'town',
+    camX: 0,
+    ground: 548,
+    width: 3300,
+    attackTimer: 0,
+    jumpTimer: 0,
+    monsters: [],
+    npcs: [],
+    portals: [],
+    particles: [],
+    started: false
+  };
+
+  function initVisualWorld() {
+    if (vWorld.started) return;
+    vWorld.started = true;
+
+    vWorld.scene = 'town';
+    vWorld.width = 3300;
+    vWorld.ground = 548;
+
+    vWorld.npcs = [
+      { name: '장로 구름', x: 630, y: 548, hair: '#d9dde8', skin: '#ffd6a6' },
+      { name: '교관', x: 1040, y: 548, hair: '#5a2f1c', skin: '#f1c28e' },
+      { name: '상인', x: 1450, y: 548, hair: '#6b4b32', skin: '#ffd6a6' }
+    ];
+
+    vWorld.portals = [
+      { x: 2860, y: 548, to: 'field', label: '사냥터' }
+    ];
+
+    vWorld.monsters = [];
+  }
+
+  function enterScene(scene) {
+    vWorld.scene = scene;
+
+    if (scene === 'town') {
+      vWorld.width = 3300;
+      vWorld.ground = 548;
+
+      vWorld.npcs = [
+        { name: '장로 구름', x: 630, y: 548, hair: '#d9dde8', skin: '#ffd6a6' },
+        { name: '교관', x: 1040, y: 548, hair: '#5a2f1c', skin: '#f1c28e' },
+        { name: '상인', x: 1450, y: 548, hair: '#6b4b32', skin: '#ffd6a6' }
+      ];
+
+      vWorld.portals = [
+        { x: 2860, y: 548, to: 'field', label: '사냥터' }
+      ];
+
+      vWorld.monsters = [];
+    } else {
+      vWorld.width = 4200;
+      vWorld.ground = 566;
+
+      vWorld.npcs = [];
+      vWorld.portals = [
+        { x: 120, y: 566, to: 'town', label: '마을' }
+      ];
+
+      vWorld.monsters = [];
+
+      for (let i = 0; i < 9; i++) {
+        vWorld.monsters.push({
+          type: 'slime',
+          x: 520 + i * 180,
+          y: 566,
+          hp: 40,
+          maxHp: 40,
+          face: i % 2 ? -1 : 1,
+          t: Math.random() * 10,
+          dead: false
+        });
+      }
+
+      for (let i = 0; i < 5; i++) {
+        vWorld.monsters.push({
+          type: 'mushroom',
+          x: 1300 + i * 260,
+          y: 566,
+          hp: 70,
+          maxHp: 70,
+          face: i % 2 ? -1 : 1,
+          t: Math.random() * 10,
+          dead: false
+        });
+      }
+    }
+
+    const p = getVPlayer();
+    p.x = scene === 'town' ? 2720 : 220;
+    p.y = vWorld.ground;
+    p.vx = 0;
+    p.vy = 0;
+  }
+
+  function getVPlayer() {
+    if (typeof state !== 'undefined' && state && state.player) {
+      const p = state.player;
+
+      if (typeof p.x !== 'number') p.x = 260;
+      if (typeof p.y !== 'number') p.y = 548;
+      if (typeof p.vx !== 'number') p.vx = 0;
+      if (typeof p.vy !== 'number') p.vy = 0;
+      if (typeof p.face !== 'number') p.face = 1;
+      if (!p.character) p.character = {};
+      if (!p.anim) p.anim = 'idle';
+      if (typeof p.animTime !== 'number') p.animTime = 0;
+
+      return p;
+    }
+
+    return {
+      x: 260,
+      y: 548,
+      vx: 0,
+      vy: 0,
+      face: 1,
+      anim: 'idle',
+      animTime: 0,
+      character: {}
+    };
+  }
+
+  function getCurrentCustomize() {
+    const base = {
+      skin: '#ffd6a6',
+      hair: '#2b160e',
+      hairStyle: 'basic',
+      faceStyle: 'normal'
+    };
+
+    try {
+      if (typeof selected !== 'undefined' && selected) {
+        return {
+          skin: selected.skin || base.skin,
+          hair: selected.hair || base.hair,
+          hairStyle: selected.hairStyle || base.hairStyle,
+          faceStyle: selected.faceStyle || base.faceStyle
+        };
+      }
+    } catch {}
+
+    return base;
+  }
+
+  function getChar(playerLike) {
+    const custom = getCurrentCustomize();
+
+    const base = {
+      name: '초보자',
+      job: 'beginner',
+      skin: custom.skin,
+      hair: custom.hair,
+      hairStyle: custom.hairStyle,
+      faceStyle: custom.faceStyle
+    };
+
+    if (playerLike && playerLike.character) {
+      return {
+        ...base,
+        ...playerLike.character
+      };
+    }
+
+    return base;
+  }
+
+  function forceCanvas() {
+    if (!canvas) return;
+
+    canvas.width = VW;
+    canvas.height = VH;
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+    canvas.style.display = 'block';
+
+    ctx.imageSmoothingEnabled = false;
+  }
+
+  function keyName(e) {
+    return String(e.key || e.code || '').toLowerCase();
+  }
+
+  window.addEventListener('keydown', e => {
+    const k = keyName(e);
+    if (!k) return;
+
+    vKeys.add(k);
+
+    if (
+      k === ' ' ||
+      k === 'space' ||
+      k === 'spacebar' ||
+      k === 'arrowup' ||
+      k === 'arrowleft' ||
+      k === 'arrowright'
+    ) {
+      e.preventDefault();
+    }
+
+    if (k === 'j') {
+      vWorld.attackTimer = 0.28;
+      const p = getVPlayer();
+      p.anim = 'attack';
+      p.animTime = 0;
+
+      hitMonsters();
+      spawnSlash(p.x + p.face * 48, p.y - 68, p.face);
+    }
+
+    if (k === 'e') {
+      tryPortal();
+    }
+  }, true);
+
+  window.addEventListener('keyup', e => {
+    const k = keyName(e);
+    if (!k) return;
+    vKeys.delete(k);
+  }, true);
+
+  function tryPortal() {
+    const p = getVPlayer();
+
+    for (const portal of vWorld.portals) {
+      if (Math.abs(p.x - portal.x) < 95) {
+        enterScene(portal.to);
+        return;
+      }
+    }
+  }
+
+  function hitMonsters() {
+    if (vWorld.scene !== 'field') return;
+
+    const p = getVPlayer();
+
+    for (const m of vWorld.monsters) {
+      if (m.dead) continue;
+
+      const dx = m.x - p.x;
+      const dy = Math.abs(m.y - p.y);
+
+      if (Math.sign(dx) === p.face && Math.abs(dx) < 95 && dy < 80) {
+        m.hp -= 25;
+        m.x += p.face * 25;
+        m.hit = 0.2;
+
+        spawnDamageText(m.x, m.y - 60, '-25');
+
+        if (m.hp <= 0) {
+          m.dead = true;
+          setTimeout(() => {
+            m.dead = false;
+            m.hp = m.maxHp;
+            m.x += 280;
+            if (m.x > vWorld.width - 200) m.x = 520;
+          }, 3000);
+        }
+      }
+    }
+  }
+
+  function updateV(dt) {
+    if (typeof state !== 'undefined' && state && !state.ready) {
+      drawVPreview();
+      return;
+    }
+
+    initVisualWorld();
+
+    const p = getVPlayer();
+    const left = vKeys.has('a') || vKeys.has('arrowleft') || vKeys.has('keya');
+    const right = vKeys.has('d') || vKeys.has('arrowright') || vKeys.has('keyd');
+    const jump = vKeys.has(' ') || vKeys.has('space') || vKeys.has('spacebar') || vKeys.has('arrowup');
+
+    const onGround = p.y >= vWorld.ground - 0.5;
+
+    if (left) {
+      p.vx = -245;
+      p.face = -1;
+    } else if (right) {
+      p.vx = 245;
+      p.face = 1;
+    } else {
+      p.vx *= Math.pow(0.001, dt);
+      if (Math.abs(p.vx) < 1) p.vx = 0;
+    }
+
+    if (jump && onGround) {
+      p.vy = -560;
+      vWorld.jumpTimer = 0.35;
+    }
+
+    p.vy += 1550 * dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+
+    if (p.y >= vWorld.ground) {
+      p.y = vWorld.ground;
+      p.vy = 0;
+    }
+
+    p.x = clamp(p.x, 60, vWorld.width - 80);
+
+    p.animTime += dt;
+
+    if (vWorld.attackTimer > 0) {
+      vWorld.attackTimer -= dt;
+      p.anim = 'attack';
+    } else if (p.y < vWorld.ground - 2) {
+      p.anim = 'jump';
+    } else if (Math.abs(p.vx) > 8) {
+      p.anim = 'walk';
+    } else {
+      p.anim = 'idle';
+    }
+
+    for (const m of vWorld.monsters) {
+      if (m.dead) continue;
+
+      m.t += dt;
+      m.hit = Math.max(0, (m.hit || 0) - dt);
+
+      if (m.type === 'slime') {
+        m.x += Math.sin(m.t * 1.8) * 12 * dt;
+      } else {
+        m.x += m.face * 24 * dt;
+        if (Math.random() < dt * 0.3) m.face *= -1;
+      }
+    }
+
+    for (const fx of vWorld.particles) {
+      fx.life -= dt;
+      fx.x += fx.vx * dt;
+      fx.y += fx.vy * dt;
+      fx.vy += 700 * dt;
+    }
+
+    vWorld.particles = vWorld.particles.filter(fx => fx.life > 0);
+
+    const targetCam = clamp(p.x - VW * 0.42, 0, Math.max(0, vWorld.width - VW));
+    vWorld.camX += (targetCam - vWorld.camX) * Math.min(1, dt * 8);
+  }
+
+  function drawV() {
+    if (typeof state !== 'undefined' && state && !state.ready) {
+      drawVPreview();
+      return;
+    }
+
+    forceCanvas();
+
+    ctx.clearRect(0, 0, VW, VH);
+
+    ctx.save();
+    ctx.translate(-Math.floor(vWorld.camX), 0);
+
+    drawVBackground();
+    drawVPortals();
+    drawVNpcs();
+    drawVMonsters();
+
+    const p = getVPlayer();
+    drawSpriteBody(ctx, p, p.x, p.y, 2.1, p.face, p.anim, p.animTime);
+
+    drawVParticles();
+
+    ctx.restore();
+
+    drawVHud();
+  }
+
+  function drawVBackground() {
+    const sky = ctx.createLinearGradient(0, 0, 0, VH);
+    sky.addColorStop(0, vWorld.scene === 'field' ? '#7fd7ff' : '#65caff');
+    sky.addColorStop(0.7, '#d9f8ff');
+    sky.addColorStop(1, '#eaffcf');
+
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, vWorld.width, VH);
+
+    for (let i = 0; i < 18; i++) {
+      drawCloud(ctx, 110 + i * 190 + Math.sin(performance.now() / 1000 + i) * 14, 70 + (i % 4) * 38, 1 + (i % 3) * 0.16);
+    }
+
+    ctx.fillStyle = vWorld.scene === 'field' ? '#8fbddd' : '#8ecaea';
+    ctx.beginPath();
+    ctx.moveTo(0, 370);
+    for (let x = -100; x < vWorld.width + 300; x += 220) {
+      ctx.lineTo(x + 110, 250 + Math.sin(x * 0.03) * 20);
+      ctx.lineTo(x + 230, 370);
+    }
+    ctx.lineTo(vWorld.width, VH);
+    ctx.lineTo(0, VH);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = vWorld.scene === 'field' ? '#72b36f' : '#7fc879';
+    for (let x = -120; x < vWorld.width + 180; x += 165) {
+      ctx.beginPath();
+      ctx.ellipse(x, vWorld.ground - 72, 150, 68, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (vWorld.scene === 'town') {
+      drawTownObjects();
+    } else {
+      drawForestObjects();
+    }
+
+    ctx.fillStyle = vWorld.scene === 'field' ? '#67bd55' : '#91d65e';
+    ctx.fillRect(0, vWorld.ground, vWorld.width, 28);
+
+    ctx.fillStyle = vWorld.scene === 'field' ? '#6d4f37' : '#8d6740';
+    ctx.fillRect(0, vWorld.ground + 28, vWorld.width, VH - vWorld.ground);
+
+    for (let x = 0; x < vWorld.width; x += 42) {
+      ctx.fillStyle = x % 84 === 0 ? '#6e4d34' : '#987048';
+      ctx.fillRect(x, vWorld.ground + 38, 38, VH - vWorld.ground - 38);
+    }
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 26px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(vWorld.scene === 'town' ? '초보자 마을' : '수련의 숲', 34, 46);
+  }
+
+  function drawTownObjects() {
+    drawHouse(160, 470, 1.08);
+    drawHouse(620, 438, 1.0);
+    drawHouse(1190, 456, 1.05);
+    drawHouse(1760, 438, 1.0);
+    drawHouse(2460, 468, 1.05);
+
+    drawTree(80, 548, 1.2);
+    drawTree(500, 548, 1.0);
+    drawTree(1510, 548, 1.15);
+    drawTree(2220, 548, 1.05);
+  }
+
+  function drawForestObjects() {
+    for (let i = 0; i < 28; i++) {
+      drawPine(90 + i * 160, vWorld.ground, 0.9 + (i % 3) * 0.12);
+    }
+  }
+
+  function drawVPortals() {
+    for (const p of vWorld.portals) {
+      const t = performance.now() / 350;
+      const cx = p.x;
+      const cy = p.y - 55;
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.shadowColor = '#74c0fc';
+      ctx.shadowBlur = 18;
+
+      ctx.strokeStyle = '#ffe066';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 28 + Math.sin(t) * 2, 50, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#b197fc';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 20 + Math.cos(t) * 2, 58, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 15px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('E', 0, -74);
+      ctx.fillText(p.label, 0, 80);
+
+      ctx.restore();
+    }
+  }
+
+  function drawVNpcs() {
+    for (const npc of vWorld.npcs) {
+      drawSpriteBody(ctx, {
+        character: {
+          skin: npc.skin,
+          hair: npc.hair,
+          hairStyle: 'basic',
+          faceStyle: 'normal'
+        },
+        vx: 0,
+        vy: 0
+      }, npc.x, npc.y, 1.8, 1, 'idle', performance.now() / 1000);
+
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 15px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(npc.name, npc.x, npc.y - 103);
+    }
+  }
+
+  function drawVMonsters() {
+    for (const m of vWorld.monsters) {
+      if (m.dead) continue;
+
+      ctx.save();
+      ctx.translate(m.x, m.y + Math.sin(m.t * 6) * 2);
+      ctx.scale(m.face, 1);
+
+      if (m.hit > 0) ctx.globalAlpha = 0.55;
+
+      if (m.type === 'slime') drawSlime();
+      else drawMushroom();
+
+      ctx.restore();
+
+      ctx.fillStyle = '#0008';
+      ctx.fillRect(m.x - 28, m.y - 60, 56, 6);
+
+      ctx.fillStyle = '#ff6b6b';
+      ctx.fillRect(m.x - 28, m.y - 60, 56 * clamp(m.hp / m.maxHp, 0, 1), 6);
+    }
+  }
+
+  /*
+    핵심 캐릭터 함수:
+    2번째 이미지의 바디 시트처럼
+    - 머리는 몸보다 크지만 과하지 않게
+    - 몸통은 작고 둥글게
+    - 팔/다리는 얇게
+    - 걷기, 점프, 공격에서 포즈 변화
+  */
+  function drawSpriteBody(c, playerLike, x, y, scale, face, anim, time) {
+    const ch = getChar(playerLike);
+
+    const walk = Math.sin(time * 13);
+    const run = anim === 'walk';
+    const jump = anim === 'jump';
+    const attack = anim === 'attack';
+
+    const bob = run ? -Math.abs(walk) * 1.6 : Math.sin(time * 3) * 0.4;
+    const leg = run ? walk * 8 : 0;
+    const arm = run ? -walk * 7 : 0;
+    const atk = attack ? Math.sin(Math.min(1, time * 12) * Math.PI) : 0;
+
+    c.save();
+    c.translate(x, y + bob);
+    c.scale(face * scale, scale);
+
+    if (jump) {
+      c.rotate(playerLike.vy < 0 ? -0.08 : 0.08);
+    }
+
+    c.fillStyle = 'rgba(0,0,0,0.24)';
+    c.beginPath();
+    c.ellipse(0, 2, 17, 4.2, 0, 0, Math.PI * 2);
+    c.fill();
+
+    // legs outline
+    c.lineCap = 'round';
+    c.strokeStyle = '#171717';
+    c.lineWidth = 5;
+
+    c.beginPath();
+    c.moveTo(-6, -31);
+    c.lineTo(-11 + leg, -11);
+    c.stroke();
+
+    c.beginPath();
+    c.moveTo(6, -31);
+    c.lineTo(11 - leg, -11);
+    c.stroke();
+
+    c.strokeStyle = ch.skin;
+    c.lineWidth = 3.5;
+
+    c.beginPath();
+    c.moveTo(-6, -31);
+    c.lineTo(-11 + leg, -11);
+    c.stroke();
+
+    c.beginPath();
+    c.moveTo(6, -31);
+    c.lineTo(11 - leg, -11);
+    c.stroke();
+
+    c.fillStyle = '#171717';
+    round(c, -21 + leg, -12, 20, 7, 1.5);
+    round(c, 1 - leg, -12, 20, 7, 1.5);
+
+    c.fillStyle = '#5a3821';
+    round(c, -19 + leg, -10.5, 16, 4.5, 1);
+    round(c, 3 - leg, -10.5, 16, 4.5, 1);
+
+    // body outline
+    c.fillStyle = '#171717';
+    round(c, -17, -66, 34, 35, 8);
+
+    // shirt
+    c.fillStyle = '#4f93f5';
+    round(c, -14.5, -63.5, 29, 31, 7);
+
+    c.fillStyle = '#f8f9ff';
+    c.fillRect(-11, -61, 22, 5.5);
+
+    c.fillStyle = '#2f6fbd';
+    round(c, -12, -40, 24, 8, 3);
+
+    // arms
+    let lx = -19 + arm;
+    let ly = -47;
+    let rx = 19 - arm;
+    let ry = -47;
+
+    if (attack) {
+      rx = 22 + atk * 25;
+      ry = -51;
+      lx = -20 - atk * 3;
+    }
+
+    if (jump) {
+      lx = -21;
+      rx = 21;
+      ly = -54;
+      ry = -54;
+    }
+
+    c.strokeStyle = '#171717';
+    c.lineWidth = 5.5;
+
+    c.beginPath();
+    c.moveTo(-14, -57);
+    c.lineTo(lx, ly);
+    c.stroke();
+
+    c.beginPath();
+    c.moveTo(14, -57);
+    c.lineTo(rx, ry);
+    c.stroke();
+
+    c.strokeStyle = ch.skin;
+    c.lineWidth = 3.4;
+
+    c.beginPath();
+    c.moveTo(-14, -57);
+    c.lineTo(lx, ly);
+    c.stroke();
+
+    c.beginPath();
+    c.moveTo(14, -57);
+    c.lineTo(rx, ry);
+    c.stroke();
+
+    c.fillStyle = '#171717';
+    circle(c, lx, ly, 4.1);
+    circle(c, rx, ry, 4.1);
+
+    c.fillStyle = ch.skin;
+    circle(c, lx, ly, 2.8);
+    circle(c, rx, ry, 2.8);
+
+    // neck
+    c.fillStyle = '#171717';
+    c.fillRect(-5.5, -72, 11, 9);
+
+    c.fillStyle = ch.skin;
+    c.fillRect(-3.7, -71, 7.4, 8);
+
+    // ears + face
+    c.fillStyle = '#171717';
+    circle(c, -19.5, -91, 5.2);
+    circle(c, 19.5, -91, 5.2);
+
+    c.beginPath();
+    c.ellipse(0, -94, 22, 24, 0, 0, Math.PI * 2);
+    c.fill();
+
+    c.fillStyle = ch.skin;
+    circle(c, -19, -91, 3.8);
+    circle(c, 19, -91, 3.8);
+
+    c.beginPath();
+    c.ellipse(0, -94, 19.2, 21.2, 0, 0, Math.PI * 2);
+    c.fill();
+
+    drawSpriteHair(c, ch.hairStyle, ch.hair);
+    drawSpriteFace(c, ch.faceStyle);
+
+    if (attack) drawAttackArc(c, atk);
+
+    c.restore();
+  }
+
+  function drawSpriteHair(c, style, hair) {
+    c.fillStyle = '#171717';
+
+    if (style === 'spiky') {
+      c.beginPath();
+      c.moveTo(-21, -96);
+      c.lineTo(-16, -119);
+      c.lineTo(-8, -104);
+      c.lineTo(0, -121);
+      c.lineTo(8, -104);
+      c.lineTo(16, -119);
+      c.lineTo(21, -96);
+      c.lineTo(17, -84);
+      c.lineTo(-17, -84);
+      c.closePath();
+      c.fill();
+    } else {
+      round(c, -22, -117, 44, 28, 13);
+      c.fillRect(-20, -103, 40, 14);
+    }
+
+    if (style === 'pony') {
+      circle(c, -25, -91, 8);
+      circle(c, 25, -91, 8);
+    }
+
+    c.fillStyle = hair || '#2b160e';
+
+    if (style === 'spiky') {
+      c.beginPath();
+      c.moveTo(-18, -97);
+      c.lineTo(-14, -114);
+      c.lineTo(-7, -101);
+      c.lineTo(0, -117);
+      c.lineTo(7, -101);
+      c.lineTo(14, -114);
+      c.lineTo(18, -97);
+      c.lineTo(15, -86);
+      c.lineTo(-15, -86);
+      c.closePath();
+      c.fill();
+    } else {
+      round(c, -19.5, -114.5, 39, 24, 11);
+      c.fillRect(-17, -101, 34, 13);
+    }
+
+    if (style === 'short') {
+      for (let i = -15; i <= 9; i += 6) {
+        c.beginPath();
+        c.moveTo(i, -100);
+        c.lineTo(i + 4, -88);
+        c.lineTo(i + 9, -100);
+        c.fill();
+      }
+    }
+
+    if (style === 'pony') {
+      circle(c, -24, -91, 6);
+      circle(c, 24, -91, 6);
+    }
+
+    if (style === 'wave' || style === 'bob') {
+      circle(c, -16, -86, 5.5);
+      circle(c, 16, -86, 5.5);
+    }
+
+    c.beginPath();
+    c.moveTo(-19, -101);
+    c.lineTo(-12, -113);
+    c.lineTo(-5, -99);
+    c.lineTo(2, -114);
+    c.lineTo(9, -99);
+    c.lineTo(18, -111);
+    c.lineTo(19, -90);
+    c.lineTo(-19, -90);
+    c.closePath();
+    c.fill();
+
+    c.fillStyle = 'rgba(255,255,255,0.2)';
+    c.fillRect(-9, -111, 8, 2);
+  }
+
+  function drawSpriteFace(c, faceStyle) {
+    c.fillStyle = 'rgba(255,120,150,0.22)';
+    c.fillRect(-14, -90, 5, 2.5);
+    c.fillRect(9, -90, 5, 2.5);
+
+    if (faceStyle === 'sleepy') {
+      c.strokeStyle = '#111';
+      c.lineWidth = 1.5;
+      c.beginPath();
+      c.moveTo(-10, -97);
+      c.lineTo(-4, -97);
+      c.moveTo(4, -97);
+      c.lineTo(10, -97);
+      c.stroke();
+    } else {
+      c.fillStyle = '#111';
+      c.fillRect(-9, -98, 3.8, 6);
+      c.fillRect(5.2, -98, 3.8, 6);
+
+      c.fillStyle = '#fff';
+      c.fillRect(-8.2, -97.2, 1.4, 1.8);
+      c.fillRect(6, -97.2, 1.4, 1.8);
+    }
+
+    c.fillStyle = '#111';
+
+    if (faceStyle === 'bright' || faceStyle === 'cute') {
+      c.strokeStyle = '#111';
+      c.lineWidth = 1.5;
+      c.beginPath();
+      c.arc(0, -88, 3.5, 0, Math.PI);
+      c.stroke();
+    } else {
+      c.fillRect(-3, -88, 6, 1.7);
+    }
+  }
+
+  function drawAttackArc(c, t) {
+    c.strokeStyle = '#ffe066';
+    c.lineWidth = 4;
+    c.beginPath();
+    c.arc(35, -50, 15 + t * 17, -0.7, 0.8);
+    c.stroke();
+
+    c.strokeStyle = '#ff922b';
+    c.lineWidth = 2.5;
+    c.beginPath();
+    c.arc(37, -50, 10 + t * 15, -0.7, 0.78);
+    c.stroke();
+  }
+
+  function drawVParticles() {
+    for (const fx of vWorld.particles) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, fx.life);
+      ctx.fillStyle = fx.color;
+      ctx.font = 'bold 20px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(fx.text, fx.x, fx.y);
+      ctx.restore();
+    }
+  }
+
+  function spawnSlash(x, y, face) {
+    vWorld.particles.push({
+      x,
+      y,
+      vx: face * 70,
+      vy: -20,
+      life: 0.25,
+      color: '#ffe066',
+      text: '✦'
+    });
+  }
+
+  function spawnDamageText(x, y, text) {
+    vWorld.particles.push({
+      x,
+      y,
+      vx: 0,
+      vy: -60,
+      life: 0.8,
+      color: '#ff6b6b',
+      text
+    });
+  }
+
+  function drawVHud() {
+    const p = getVPlayer();
+
+    ctx.fillStyle = 'rgba(17,24,39,0.88)';
+    round(ctx, 14, 12, 700, 72, 12);
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`LV. ${p.level || 1}`, 32, 38);
+    ctx.fillText(p.character?.name || '초보자', 96, 38);
+
+    ctx.fillStyle = '#4f9cff';
+    ctx.fillText('초보자', 96, 60);
+
+    drawBar(220, 22, 160, 15, (p.hp || 100) / (p.maxHp || 100), '#ff4d4f', 'HP');
+    drawBar(220, 46, 160, 15, (p.mp || 40) / (p.maxMp || 40), '#4dabf7', 'MP');
+    drawBar(400, 22, 170, 15, (p.exp || 0) / (p.nextExp || 80), '#ffd43b', 'EXP');
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillText('A/D 이동 · Space 점프 · J 공격 · E 포탈', 400, 61);
+  }
+
+  function drawBar(x, y, w, h, ratio, color, label) {
+    ctx.fillStyle = '#0008';
+    ctx.fillRect(x, y, w, h);
+
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w * clamp(ratio, 0, 1), h);
+
+    ctx.strokeStyle = '#ffffff99';
+    ctx.strokeRect(x, y, w, h);
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText(label, x + 5, y + h - 3);
+  }
+
+  function drawVPreview() {
+    const creatorVisible =
+      typeof characterScreen !== 'undefined' &&
+      characterScreen &&
+      !characterScreen.classList.contains('hidden');
+
+    const menuVisible =
+      typeof characterMenu !== 'undefined' &&
+      characterMenu &&
+      !characterMenu.classList.contains('hidden');
+
+    if (!creatorVisible && !menuVisible) return;
+
+    const target = creatorVisible ? preview : menuPreview;
+    if (!target) return;
+
+    target.width = 300;
+    target.height = 300;
+
+    const pc = target.getContext('2d');
+    pc.imageSmoothingEnabled = false;
+
+    pc.clearRect(0, 0, 300, 300);
+    pc.fillStyle = '#202938';
+    pc.fillRect(0, 0, 300, 300);
+
+    pc.fillStyle = '#25344c';
+    pc.fillRect(50, 257, 200, 12);
+
+    let ch = {
+      name: '초보자',
+      job: 'beginner',
+      ...getCurrentCustomize()
+    };
+
+    if (menuVisible && typeof currentUser !== 'undefined' && currentUser?.save?.player?.character) {
+      ch = {
+        ...ch,
+        ...currentUser.save.player.character
+      };
+    }
+
+    drawSpriteBody(pc, {
+      character: ch,
+      vx: 0,
+      vy: 0
+    }, 150, 258, 2.15, 1, 'idle', performance.now() / 1000);
+  }
+
+  function patchCustomizeButtons() {
+    try {
+      document.querySelectorAll('.swatches').forEach(group => {
+        const target = group.dataset.target;
+
+        group.querySelectorAll('span').forEach(span => {
+          span.addEventListener('click', () => {
+            const color = getComputedStyle(span).backgroundColor;
+            const hex = rgbToHex(color);
+
+            if (typeof selected !== 'undefined' && selected && target) {
+              selected[target] = hex;
+            }
+
+            group.querySelectorAll('span').forEach(s => s.classList.remove('selected'));
+            span.classList.add('selected');
+
+            drawVPreview();
+          }, true);
+        });
+      });
+    } catch (e) {
+      console.warn('[Pixel RPG] customize patch error', e);
+    }
+  }
+
+  function rgbToHex(value) {
+    if (!value) return '#ffffff';
+    if (value.startsWith('#')) return value;
+
+    const nums = value.match(/\d+/g);
+    if (!nums || nums.length < 3) return value;
+
+    return '#' + nums
+      .slice(0, 3)
+      .map(n => Number(n).toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  function drawCloud(c, x, y, s) {
+    c.save();
+    c.globalAlpha = 0.9;
+    c.fillStyle = '#fff';
+
+    circle(c, x, y, 17 * s);
+    circle(c, x + 22 * s, y - 9 * s, 24 * s);
+    circle(c, x + 50 * s, y - 4 * s, 20 * s);
+    circle(c, x + 75 * s, y, 15 * s);
+    c.fillRect(x - 8 * s, y, 88 * s, 17 * s);
+
+    c.restore();
+  }
+
+  function drawHouse(x, y, s) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(s, s);
+
+    ctx.fillStyle = '#6b472c';
+    ctx.fillRect(-3, 25, 156, 92);
+
+    ctx.fillStyle = '#8a6237';
+    ctx.fillRect(0, 28, 150, 88);
+
+    ctx.fillStyle = '#dcc879';
+    ctx.beginPath();
+    ctx.ellipse(75, 28, 84, 38, 0, Math.PI, 0);
+    ctx.fill();
+
+    ctx.fillStyle = '#f3e8aa';
+    ctx.fillRect(18, 52, 42, 30);
+    ctx.fillRect(92, 52, 36, 30);
+
+    ctx.fillStyle = '#4e321e';
+    ctx.fillRect(62, 66, 28, 50);
+
+    ctx.restore();
+  }
+
+  function drawTree(x, y, s) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(s, s);
+
+    ctx.fillStyle = '#764927';
+    ctx.fillRect(-10, -78, 20, 78);
+
+    ctx.fillStyle = '#2f7f3b';
+    circle(ctx, -28, -82, 28);
+    circle(ctx, 0, -105, 34);
+    circle(ctx, 31, -82, 28);
+    circle(ctx, 0, -64, 30);
+
+    ctx.fillStyle = '#56b85d';
+    circle(ctx, -9, -113, 13);
+
+    ctx.restore();
+  }
+
+  function drawPine(x, y, s) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(s, s);
+
+    ctx.fillStyle = '#70472e';
+    ctx.fillRect(-8, -82, 16, 82);
+
+    ctx.fillStyle = '#2b6f35';
+
+    ctx.beginPath();
+    ctx.moveTo(0, -170);
+    ctx.lineTo(-48, -82);
+    ctx.lineTo(48, -82);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(0, -135);
+    ctx.lineTo(-42, -52);
+    ctx.lineTo(42, -52);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(0, -102);
+    ctx.lineTo(-34, -25);
+    ctx.lineTo(34, -25);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawSlime() {
+    ctx.fillStyle = '#171717';
+    ctx.beginPath();
+    ctx.ellipse(0, -18, 25, 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#6ee76b';
+    ctx.beginPath();
+    ctx.ellipse(0, -18, 22, 17, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#3ccf51';
+    ctx.beginPath();
+    ctx.ellipse(0, -29, 12, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#183a20';
+    ctx.fillRect(-8, -22, 4, 4);
+    ctx.fillRect(4, -22, 4, 4);
+  }
+
+  function drawMushroom() {
+    ctx.fillStyle = '#171717';
+    ctx.beginPath();
+    ctx.ellipse(0, -35, 27, 20, 0, Math.PI, 0);
+    ctx.fill();
+
+    ctx.fillStyle = '#d98233';
+    ctx.beginPath();
+    ctx.ellipse(0, -34, 24, 18, 0, Math.PI, 0);
+    ctx.fill();
+
+    ctx.fillStyle = '#fff0c9';
+    ctx.fillRect(-18, -34, 36, 20);
+
+    ctx.fillStyle = '#7a4d27';
+    ctx.fillRect(-7, -14, 14, 16);
+
+    ctx.fillStyle = '#2c1a10';
+    ctx.fillRect(-10, -27, 4, 4);
+    ctx.fillRect(6, -27, 4, 4);
+  }
+
+  function round(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.lineTo(x + w - r, y);
+    c.quadraticCurveTo(x + w, y, x + w, y + r);
+    c.lineTo(x + w, y + h - r);
+    c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    c.lineTo(x + r, y + h);
+    c.quadraticCurveTo(x, y + h, x, y + h - r);
+    c.lineTo(x, y + r);
+    c.quadraticCurveTo(x, y, x + r, y);
+    c.closePath();
+    c.fill();
+  }
+
+  function circle(c, x, y, r) {
+    c.beginPath();
+    c.arc(x, y, r, 0, Math.PI * 2);
+    c.fill();
+  }
+
+  patchCustomizeButtons();
+
+  let lastTime = performance.now();
+
+  function visualMainLoop(now) {
+    const dt = Math.min(0.033, (now - lastTime) / 1000);
+    lastTime = now;
+
+    try {
+      updateV(dt);
+      drawV();
+    } catch (err) {
+      console.error('[Pixel RPG] v4 visual loop error:', err);
+    }
+
+    requestAnimationFrame(visualMainLoop);
+  }
+
+  forceCanvas();
+  requestAnimationFrame(visualMainLoop);
+})();
