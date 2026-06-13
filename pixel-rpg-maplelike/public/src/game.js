@@ -3026,3 +3026,1019 @@ if (typeof canvas !== 'undefined' && canvas) {
   canvas.style.display = 'block';
   console.log('[Pixel RPG] canvas size forced:', canvas.width, canvas.height);
 }
+/* =========================================================
+   FINAL VISUAL RENDER PATCH v2
+   - 캐릭터 선택 미리보기 강제 표시
+   - 게임 시작 후 마을/땅/캐릭터/NPC/몬스터 강제 표시
+   - 업로드한 공격 모션/도트 캐릭터 이미지를 참고한 벡터 도트풍 캐릭터
+========================================================= */
+
+(() => {
+  console.log('[Pixel RPG] FINAL VISUAL RENDER PATCH v2 loaded');
+
+  const FIX_W = 1280;
+  const FIX_H = 720;
+
+  function forceCanvasSize() {
+    if (!canvas) return;
+
+    if (canvas.width !== FIX_W) canvas.width = FIX_W;
+    if (canvas.height !== FIX_H) canvas.height = FIX_H;
+
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+    canvas.style.display = 'block';
+
+    if (ctx) ctx.imageSmoothingEnabled = false;
+  }
+
+  function visualClamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function visualRoundRect(c, x, y, w, h, r, fill = true, stroke = false) {
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.lineTo(x + w - r, y);
+    c.quadraticCurveTo(x + w, y, x + w, y + r);
+    c.lineTo(x + w, y + h - r);
+    c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    c.lineTo(x + r, y + h);
+    c.quadraticCurveTo(x, y + h, x, y + h - r);
+    c.lineTo(x, y + r);
+    c.quadraticCurveTo(x, y, x + r, y);
+    c.closePath();
+
+    if (fill) c.fill();
+    if (stroke) c.stroke();
+  }
+
+  function visualCircle(c, x, y, r) {
+    c.beginPath();
+    c.arc(x, y, r, 0, Math.PI * 2);
+    c.fill();
+  }
+
+  function getVisualCharacter(playerLike) {
+    const base = {
+      name: '초보자',
+      job: 'beginner',
+      skin: '#ffd6a6',
+      hair: '#2b160e',
+      hairStyle: 'basic',
+      faceStyle: 'normal'
+    };
+
+    if (!playerLike || !playerLike.character) return base;
+
+    return {
+      ...base,
+      ...playerLike.character
+    };
+  }
+
+  function getVisualPlayer() {
+    if (!state || !state.player) {
+      return {
+        x: 260,
+        y: 548,
+        face: 1,
+        anim: 'idle',
+        animTime: performance.now() / 1000,
+        hp: 120,
+        maxHp: 120,
+        mp: 40,
+        maxMp: 40,
+        level: 1,
+        exp: 0,
+        nextExp: 80,
+        character: {
+          name: '초보자',
+          job: 'beginner',
+          skin: '#ffd6a6',
+          hair: '#2b160e',
+          hairStyle: 'basic',
+          faceStyle: 'normal'
+        }
+      };
+    }
+
+    return state.player;
+  }
+
+  function visualSceneGround() {
+    if (state && state.scene === 'field') return 566;
+    return 548;
+  }
+
+  function visualCameraX() {
+    const p = getVisualPlayer();
+    const sceneWidth = state && state.sceneWidth ? state.sceneWidth : 3300;
+    return visualClamp(p.x - FIX_W * 0.42, 0, Math.max(0, sceneWidth - FIX_W));
+  }
+
+  function drawVisualBackground(c, scene) {
+    const sceneWidth = state && state.sceneWidth ? state.sceneWidth : 3300;
+    const groundY = visualSceneGround();
+
+    const sky = c.createLinearGradient(0, 0, 0, FIX_H);
+
+    if (scene === 'field') {
+      sky.addColorStop(0, '#7fd7ff');
+      sky.addColorStop(0.62, '#d9f7ff');
+      sky.addColorStop(1, '#e4ffd0');
+    } else {
+      sky.addColorStop(0, '#62c9ff');
+      sky.addColorStop(0.65, '#b8efff');
+      sky.addColorStop(1, '#ecffd4');
+    }
+
+    c.fillStyle = sky;
+    c.fillRect(0, 0, sceneWidth, FIX_H);
+
+    drawVisualClouds(c, sceneWidth);
+
+    c.fillStyle = scene === 'field' ? '#8fc1dd' : '#8fc9ea';
+    c.beginPath();
+    c.moveTo(0, 370);
+
+    for (let x = -100; x < sceneWidth + 300; x += 220) {
+      const peakY = scene === 'field' ? 245 : 265;
+      c.lineTo(x + 110, peakY + Math.sin(x * 0.03) * 22);
+      c.lineTo(x + 240, 370);
+    }
+
+    c.lineTo(sceneWidth, FIX_H);
+    c.lineTo(0, FIX_H);
+    c.closePath();
+    c.fill();
+
+    c.fillStyle = scene === 'field' ? '#6faf70' : '#7fc879';
+    for (let x = -120; x < sceneWidth + 180; x += 160) {
+      c.beginPath();
+      c.ellipse(x, groundY - 75, 155, 70, 0, 0, Math.PI * 2);
+      c.fill();
+    }
+
+    if (scene === 'town') {
+      drawVisualTownObjects(c);
+    } else {
+      drawVisualForestObjects(c);
+    }
+
+    c.fillStyle = scene === 'field' ? '#6fc157' : '#94d65d';
+    c.fillRect(0, groundY, sceneWidth, 28);
+
+    c.fillStyle = scene === 'field' ? '#6d4f37' : '#8d6740';
+    c.fillRect(0, groundY + 28, sceneWidth, FIX_H - groundY);
+
+    for (let x = 0; x < sceneWidth; x += 42) {
+      c.fillStyle = x % 84 === 0 ? '#6f4e33' : '#9a7148';
+      c.fillRect(x, groundY + 38, 38, FIX_H - groundY - 38);
+    }
+
+    c.fillStyle = scene === 'field' ? '#1f3f28' : '#ffffff';
+    c.font = 'bold 26px sans-serif';
+    c.textAlign = 'left';
+    c.fillText(scene === 'field' ? '수련의 숲' : '초보자 마을', 34, 46);
+  }
+
+  function drawVisualClouds(c, sceneWidth) {
+    for (let i = 0; i < 16; i++) {
+      const x = 90 + i * 190 + Math.sin(previewPulse * 0.6 + i) * 18;
+      const y = 65 + (i % 4) * 38;
+      const s = 0.9 + (i % 3) * 0.18;
+
+      c.save();
+      c.globalAlpha = 0.9;
+      c.fillStyle = '#ffffff';
+
+      visualCircle(c, x, y, 18 * s);
+      visualCircle(c, x + 24 * s, y - 10 * s, 25 * s);
+      visualCircle(c, x + 52 * s, y - 4 * s, 21 * s);
+      visualCircle(c, x + 78 * s, y, 16 * s);
+      c.fillRect(x - 8 * s, y - 1 * s, 92 * s, 20 * s);
+
+      c.restore();
+    }
+  }
+
+  function drawVisualTownObjects(c) {
+    drawVisualHouse(c, 150, 470, 1.1);
+    drawVisualHouse(c, 610, 438, 1.0);
+    drawVisualHouse(c, 1180, 458, 1.05);
+    drawVisualHouse(c, 1720, 438, 1.0);
+    drawVisualHouse(c, 2450, 468, 1.05);
+
+    drawVisualTree(c, 80, 548, 1.25);
+    drawVisualTree(c, 500, 548, 1.0);
+    drawVisualTree(c, 1510, 548, 1.15);
+    drawVisualTree(c, 2220, 548, 1.05);
+
+    drawVisualClockTower(c, 2100, 432);
+  }
+
+  function drawVisualForestObjects(c) {
+    const groundY = visualSceneGround();
+
+    for (let i = 0; i < 28; i++) {
+      drawVisualPine(c, 90 + i * 160, groundY, 0.9 + (i % 3) * 0.12);
+    }
+  }
+
+  function drawVisualHouse(c, x, y, s) {
+    c.save();
+    c.translate(x, y);
+    c.scale(s, s);
+
+    c.fillStyle = '#6b472c';
+    c.fillRect(-3, 25, 156, 92);
+
+    c.fillStyle = '#8a6237';
+    c.fillRect(0, 28, 150, 88);
+
+    c.fillStyle = '#dcc879';
+    c.beginPath();
+    c.ellipse(75, 28, 84, 38, 0, Math.PI, 0);
+    c.fill();
+
+    c.fillStyle = '#f3e8aa';
+    c.fillRect(18, 52, 42, 30);
+    c.fillRect(92, 52, 36, 30);
+
+    c.fillStyle = '#4e321e';
+    c.fillRect(62, 66, 28, 50);
+
+    c.fillStyle = '#2d2017';
+    c.fillRect(67, 84, 4, 4);
+
+    c.restore();
+  }
+
+  function drawVisualTree(c, x, y, s) {
+    c.save();
+    c.translate(x, y);
+    c.scale(s, s);
+
+    c.fillStyle = '#764927';
+    c.fillRect(-10, -78, 20, 78);
+
+    c.fillStyle = '#2f7f3b';
+    visualCircle(c, -28, -82, 28);
+    visualCircle(c, 0, -105, 34);
+    visualCircle(c, 31, -82, 28);
+    visualCircle(c, 0, -64, 30);
+
+    c.fillStyle = '#56b85d';
+    visualCircle(c, -9, -113, 13);
+
+    c.restore();
+  }
+
+  function drawVisualPine(c, x, y, s) {
+    c.save();
+    c.translate(x, y);
+    c.scale(s, s);
+
+    c.fillStyle = '#70472e';
+    c.fillRect(-8, -82, 16, 82);
+
+    c.fillStyle = '#2b6f35';
+
+    c.beginPath();
+    c.moveTo(0, -170);
+    c.lineTo(-48, -82);
+    c.lineTo(48, -82);
+    c.closePath();
+    c.fill();
+
+    c.beginPath();
+    c.moveTo(0, -135);
+    c.lineTo(-42, -52);
+    c.lineTo(42, -52);
+    c.closePath();
+    c.fill();
+
+    c.beginPath();
+    c.moveTo(0, -102);
+    c.lineTo(-34, -25);
+    c.lineTo(34, -25);
+    c.closePath();
+    c.fill();
+
+    c.restore();
+  }
+
+  function drawVisualClockTower(c, x, y) {
+    c.fillStyle = '#6f4d34';
+    c.fillRect(x, y, 58, 116);
+
+    c.fillStyle = '#dfcf95';
+    c.fillRect(x + 6, y - 54, 46, 56);
+
+    c.fillStyle = '#ffffff';
+    visualCircle(c, x + 29, y - 27, 16);
+
+    c.strokeStyle = '#3b2a1d';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(x + 29, y - 27);
+    c.lineTo(x + 29, y - 38);
+    c.moveTo(x + 29, y - 27);
+    c.lineTo(x + 38, y - 27);
+    c.stroke();
+  }
+
+  function drawVisualPortal(c, portal) {
+    const t = performance.now() / 350;
+    const cx = portal.x + portal.w / 2;
+    const cy = portal.y + 58;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    ctx.shadowColor = '#74c0fc';
+    ctx.shadowBlur = 18;
+
+    ctx.strokeStyle = '#ffe066';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 28 + Math.sin(t) * 2, 48, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#b197fc';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 21 + Math.cos(t) * 2, 58, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('E', 0, -74);
+    ctx.fillText(portal.label || '포탈', 0, 80);
+
+    ctx.restore();
+  }
+
+  function drawVisualNPC(c, npc) {
+    drawVisualCharacter(c, {
+      character: {
+        name: npc.name,
+        job: 'beginner',
+        skin: npc.palette?.skin || '#ffd6a6',
+        hair: npc.palette?.hair || '#4b2e1d',
+        hairStyle: npc.palette?.hairStyle || 'basic',
+        faceStyle: npc.palette?.faceStyle || 'normal'
+      },
+      anim: 'idle',
+      animTime: previewPulse
+    }, npc.x, npc.y, 1.78, 1, 'idle', previewPulse, true);
+
+    c.fillStyle = '#ffffff';
+    c.font = 'bold 15px sans-serif';
+    c.textAlign = 'center';
+    c.fillText(npc.name || 'NPC', npc.x, npc.y - 118);
+
+    const p = getVisualPlayer();
+
+    if (Math.abs(p.x - npc.x) < 95) {
+      c.fillStyle = '#ffe066';
+      c.fillText('E 대화', npc.x, npc.y - 138);
+    }
+  }
+
+  function drawVisualMonster(c, m) {
+    if (!m || m.dead) return;
+
+    c.save();
+    c.translate(m.x, m.y + Math.sin((m.animTime || previewPulse) * 6) * 2);
+    c.scale(m.face || 1, 1);
+
+    if (m.hit > 0) c.globalAlpha = 0.55;
+
+    if (m.type === 'slime') drawVisualSlime(c);
+    else if (m.type === 'mushroom') drawVisualMushroom(c);
+    else drawVisualOgre(c, m.attackWindup > 0.2);
+
+    c.globalAlpha = 1;
+    c.restore();
+
+    const hpRatio = m.maxHp ? m.hp / m.maxHp : 1;
+    c.fillStyle = '#0008';
+    c.fillRect(m.x - 28, m.y - (m.h || 40) - 22, 56, 7);
+    c.fillStyle = '#ff6b6b';
+    c.fillRect(m.x - 28, m.y - (m.h || 40) - 22, 56 * visualClamp(hpRatio, 0, 1), 7);
+  }
+
+  function drawVisualSlime(c) {
+    c.fillStyle = '#1b1b1b';
+    c.beginPath();
+    c.ellipse(0, -18, 25, 20, 0, 0, Math.PI * 2);
+    c.fill();
+
+    c.fillStyle = '#6ee76b';
+    c.beginPath();
+    c.ellipse(0, -18, 22, 17, 0, 0, Math.PI * 2);
+    c.fill();
+
+    c.fillStyle = '#3ccf51';
+    c.beginPath();
+    c.ellipse(0, -29, 12, 8, 0, 0, Math.PI * 2);
+    c.fill();
+
+    c.fillStyle = '#183a20';
+    c.fillRect(-8, -22, 4, 4);
+    c.fillRect(4, -22, 4, 4);
+  }
+
+  function drawVisualMushroom(c) {
+    c.fillStyle = '#1b1b1b';
+    c.beginPath();
+    c.ellipse(0, -35, 27, 20, 0, Math.PI, 0);
+    c.fill();
+
+    c.fillStyle = '#d98233';
+    c.beginPath();
+    c.ellipse(0, -34, 24, 18, 0, Math.PI, 0);
+    c.fill();
+
+    c.fillStyle = '#fff0c9';
+    c.fillRect(-18, -34, 36, 20);
+
+    c.fillStyle = '#7a4d27';
+    c.fillRect(-7, -14, 14, 16);
+
+    c.fillStyle = '#2c1a10';
+    c.fillRect(-10, -27, 4, 4);
+    c.fillRect(6, -27, 4, 4);
+  }
+
+  function drawVisualOgre(c, attacking) {
+    c.fillStyle = '#1b1b1b';
+    visualRoundRect(c, -25, -88, 50, 68, 14);
+
+    c.fillStyle = '#85a26d';
+    visualRoundRect(c, -22, -84, 44, 62, 12);
+
+    c.fillStyle = '#b8d49a';
+    visualRoundRect(c, -19, -105, 38, 30, 10);
+
+    c.fillStyle = '#24331a';
+    c.fillRect(-9, -95, 5, 5);
+    c.fillRect(5, -95, 5, 5);
+
+    c.fillStyle = '#526b3b';
+    visualRoundRect(c, -37, -50, 17, 46, 10);
+    visualRoundRect(c, 20, -50, 17, 46, 10);
+
+    c.fillStyle = '#6c7f5b';
+    c.fillRect(27, attacking ? -122 : -98, 10, 44);
+
+    c.fillStyle = '#a9bbc8';
+    c.fillRect(15, attacking ? -130 : -106, 35, 19);
+  }
+
+  function drawVisualCharacter(c, playerLike, x, y, scale = 2, face = 1, anim = 'idle', time = 0, isNpc = false) {
+    const ch = getVisualCharacter(playerLike);
+
+    const running = anim === 'run';
+    const jumping = anim === 'jump';
+    const punching = anim === 'punch';
+    const casting = anim === 'cast';
+
+    const walk = Math.sin(time * 12);
+    const bob = running ? -Math.abs(walk) * 2.5 : Math.sin(time * 3) * 0.8;
+    const legA = running ? walk * 8 : 0;
+    const armA = running ? -walk * 7 : 0;
+    const punchPower = punching ? Math.sin(Math.min(1, time * 10) * Math.PI) : 0;
+    const castPower = casting ? Math.sin(Math.min(1, time * 7) * Math.PI) : 0;
+
+    c.save();
+    c.translate(x, y + bob);
+    c.scale(face * scale, scale);
+
+    c.fillStyle = 'rgba(0,0,0,0.28)';
+    c.beginPath();
+    c.ellipse(0, 3, 24, 6, 0, 0, Math.PI * 2);
+    c.fill();
+
+    if (jumping) {
+      c.rotate((playerLike.vy || 0) < 0 ? -0.07 : 0.1);
+    }
+
+    // 다리: 업로드한 2번 이미지처럼 걷기/점프에서 팔다리 각도 변화
+    c.lineCap = 'round';
+
+    c.strokeStyle = '#151515';
+    c.lineWidth = 8;
+    c.beginPath();
+    c.moveTo(-8, -38);
+    c.lineTo(-15 - legA, -13);
+    c.stroke();
+
+    c.beginPath();
+    c.moveTo(8, -38);
+    c.lineTo(15 + legA, -13);
+    c.stroke();
+
+    c.strokeStyle = ch.skin;
+    c.lineWidth = 5;
+    c.beginPath();
+    c.moveTo(-8, -38);
+    c.lineTo(-15 - legA, -13);
+    c.stroke();
+
+    c.beginPath();
+    c.moveTo(8, -38);
+    c.lineTo(15 + legA, -13);
+    c.stroke();
+
+    c.fillStyle = '#151515';
+    c.fillRect(-29 - legA, -14, 25, 9);
+    c.fillRect(4 + legA, -14, 25, 9);
+
+    c.fillStyle = '#5b3921';
+    c.fillRect(-27 - legA, -12, 21, 6);
+    c.fillRect(6 + legA, -12, 21, 6);
+
+    // 몸
+    c.fillStyle = '#151515';
+    visualRoundRect(c, -23, -80, 46, 47, 10);
+
+    c.fillStyle = '#4f9cff';
+    visualRoundRect(c, -20, -77, 40, 42, 9);
+
+    c.fillStyle = '#f6f8ff';
+    c.fillRect(-16, -74, 32, 8);
+
+    c.fillStyle = '#2f75c9';
+    visualRoundRect(c, -16, -46, 32, 12, 4);
+
+    // 팔
+    let lx = -27 + armA;
+    let ly = -52;
+    let rx = 27 - armA;
+    let ry = -52;
+
+    if (punching) {
+      rx = 30 + punchPower * 28;
+      ry = -58 - punchPower * 2;
+      lx = -26 - punchPower * 5;
+    }
+
+    if (casting) {
+      lx = -32 - castPower * 8;
+      rx = 32 + castPower * 8;
+      ly = -63;
+      ry = -63;
+    }
+
+    c.strokeStyle = '#151515';
+    c.lineWidth = 8;
+    c.beginPath();
+    c.moveTo(-18, -68);
+    c.lineTo(lx, ly);
+    c.stroke();
+
+    c.beginPath();
+    c.moveTo(18, -68);
+    c.lineTo(rx, ry);
+    c.stroke();
+
+    c.strokeStyle = ch.skin;
+    c.lineWidth = 5;
+    c.beginPath();
+    c.moveTo(-18, -68);
+    c.lineTo(lx, ly);
+    c.stroke();
+
+    c.beginPath();
+    c.moveTo(18, -68);
+    c.lineTo(rx, ry);
+    c.stroke();
+
+    c.fillStyle = '#151515';
+    visualCircle(c, lx, ly, 5);
+    visualCircle(c, rx, ry, 5);
+
+    c.fillStyle = ch.skin;
+    visualCircle(c, lx, ly, 3.5);
+    visualCircle(c, rx, ry, 3.5);
+
+    // 목
+    c.fillStyle = '#151515';
+    c.fillRect(-8, -86, 16, 12);
+
+    c.fillStyle = ch.skin;
+    c.fillRect(-5, -85, 10, 11);
+
+    // 귀/얼굴
+    c.fillStyle = '#151515';
+    visualCircle(c, -26, -106, 7);
+    visualCircle(c, 26, -106, 7);
+
+    c.beginPath();
+    c.ellipse(0, -108, 30, 31, 0, 0, Math.PI * 2);
+    c.fill();
+
+    c.fillStyle = ch.skin;
+    visualCircle(c, -25, -106, 5);
+    visualCircle(c, 25, -106, 5);
+
+    c.beginPath();
+    c.ellipse(0, -108, 26, 27, 0, 0, Math.PI * 2);
+    c.fill();
+
+    drawVisualHair(c, ch.hairStyle, ch.hair);
+    drawVisualFace(c, ch.faceStyle);
+
+    if (punching) {
+      drawVisualAttackSlash(c, punchPower);
+    }
+
+    if (casting) {
+      drawVisualCastAura(c, castPower);
+    }
+
+    if (playerLike && playerLike.levelUp > 0) {
+      c.strokeStyle = '#ffe066';
+      c.lineWidth = 3;
+      c.beginPath();
+      c.arc(0, -78, 52 + Math.sin(time * 14) * 5, 0, Math.PI * 2);
+      c.stroke();
+    }
+
+    c.restore();
+  }
+
+  function drawVisualHair(c, style, color) {
+    // 검은 외곽
+    c.fillStyle = '#151515';
+
+    if (style === 'spiky') {
+      c.beginPath();
+      c.moveTo(-30, -113);
+      c.lineTo(-22, -138);
+      c.lineTo(-12, -118);
+      c.lineTo(0, -140);
+      c.lineTo(11, -118);
+      c.lineTo(23, -137);
+      c.lineTo(31, -113);
+      c.lineTo(24, -100);
+      c.lineTo(-24, -100);
+      c.closePath();
+      c.fill();
+    } else {
+      visualRoundRect(c, -29, -136, 58, 36, 16);
+    }
+
+    if (style === 'pony') {
+      visualCircle(c, -36, -112, 14);
+      visualCircle(c, 36, -112, 14);
+    }
+
+    // 실제 머리색
+    c.fillStyle = color || '#2b160e';
+
+    if (style === 'spiky') {
+      c.beginPath();
+      c.moveTo(-27, -113);
+      c.lineTo(-20, -133);
+      c.lineTo(-11, -116);
+      c.lineTo(0, -136);
+      c.lineTo(10, -116);
+      c.lineTo(21, -133);
+      c.lineTo(27, -113);
+      c.lineTo(22, -101);
+      c.lineTo(-22, -101);
+      c.closePath();
+      c.fill();
+    } else {
+      visualRoundRect(c, -26, -133, 52, 31, 15);
+    }
+
+    if (style === 'short') {
+      for (let i = -21; i <= 14; i += 8) {
+        c.beginPath();
+        c.moveTo(i, -115);
+        c.lineTo(i + 5, -100);
+        c.lineTo(i + 13, -115);
+        c.fill();
+      }
+    }
+
+    if (style === 'pony') {
+      visualCircle(c, -35, -112, 11);
+      visualCircle(c, 35, -112, 11);
+    }
+
+    if (style === 'wave' || style === 'bob') {
+      visualCircle(c, -22, -101, 8);
+      visualCircle(c, 22, -101, 8);
+    }
+
+    // 앞머리
+    c.beginPath();
+    c.moveTo(-25, -116);
+    c.lineTo(-15, -132);
+    c.lineTo(-6, -113);
+    c.lineTo(3, -132);
+    c.lineTo(12, -113);
+    c.lineTo(24, -125);
+    c.lineTo(25, -102);
+    c.lineTo(-25, -102);
+    c.closePath();
+    c.fill();
+
+    c.fillStyle = 'rgba(255,255,255,0.22)';
+    c.fillRect(-13, -129, 12, 3);
+  }
+
+  function drawVisualFace(c, style) {
+    c.fillStyle = 'rgba(255,120,150,0.26)';
+    c.fillRect(-20, -102, 8, 4);
+    c.fillRect(12, -102, 8, 4);
+
+    c.fillStyle = '#151515';
+
+    if (style === 'sleepy') {
+      c.strokeStyle = '#151515';
+      c.lineWidth = 2;
+      c.beginPath();
+      c.moveTo(-14, -108);
+      c.lineTo(-5, -108);
+      c.moveTo(5, -108);
+      c.lineTo(14, -108);
+      c.stroke();
+
+      c.fillRect(-3, -97, 6, 2);
+      return;
+    }
+
+    if (style === 'angry') {
+      c.strokeStyle = '#151515';
+      c.lineWidth = 2;
+      c.beginPath();
+      c.moveTo(-16, -114);
+      c.lineTo(-5, -109);
+      c.moveTo(16, -114);
+      c.lineTo(5, -109);
+      c.stroke();
+    }
+
+    if (style === 'cool') {
+      c.strokeStyle = '#151515';
+      c.lineWidth = 2;
+      c.beginPath();
+      c.moveTo(-15, -112);
+      c.lineTo(-5, -109);
+      c.moveTo(5, -109);
+      c.lineTo(15, -112);
+      c.stroke();
+    }
+
+    // 큰 눈
+    c.fillStyle = '#151515';
+    c.fillRect(-13, -110, 6, 9);
+    c.fillRect(7, -110, 6, 9);
+
+    c.fillStyle = '#ffffff';
+    c.fillRect(-12, -109, 2, 2);
+    c.fillRect(8, -109, 2, 2);
+
+    c.fillStyle = '#151515';
+
+    if (style === 'bright' || style === 'cute') {
+      c.strokeStyle = '#151515';
+      c.lineWidth = 2;
+      c.beginPath();
+      c.arc(0, -97, 5, 0, Math.PI);
+      c.stroke();
+    } else {
+      c.fillRect(-4, -97, 8, 2);
+    }
+  }
+
+  function drawVisualAttackSlash(c, power) {
+    // 사용자가 준 1번 이미지의 주황색 궤적 느낌
+    c.save();
+
+    c.globalAlpha = 0.95;
+    c.strokeStyle = '#ffe066';
+    c.lineWidth = 7;
+    c.beginPath();
+    c.arc(48, -58, 24 + power * 22, -0.75, 0.85);
+    c.stroke();
+
+    c.strokeStyle = '#ff922b';
+    c.lineWidth = 4;
+    c.beginPath();
+    c.arc(50, -58, 17 + power * 20, -0.7, 0.8);
+    c.stroke();
+
+    c.strokeStyle = '#ffffff';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.arc(52, -60, 12 + power * 18, -0.6, 0.65);
+    c.stroke();
+
+    c.restore();
+  }
+
+  function drawVisualCastAura(c, power) {
+    c.save();
+
+    c.globalAlpha = 0.9;
+    c.strokeStyle = '#ff922b';
+    c.lineWidth = 5;
+    c.beginPath();
+    c.arc(0, -76, 43 + power * 9, 0, Math.PI * 2);
+    c.stroke();
+
+    c.strokeStyle = '#ffe066';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.arc(0, -76, 31 + power * 7, 0, Math.PI * 2);
+    c.stroke();
+
+    c.restore();
+  }
+
+  function drawVisualHUD(c) {
+    const p = getVisualPlayer();
+    const hpRatio = p.maxHp ? p.hp / p.maxHp : 1;
+    const mpRatio = p.maxMp ? p.mp / p.maxMp : 1;
+    const expRatio = p.nextExp ? p.exp / p.nextExp : 0;
+
+    c.fillStyle = 'rgba(17,24,39,0.88)';
+    visualRoundRect(c, 14, 12, 700, 72, 12);
+
+    c.fillStyle = '#ffffff';
+    c.font = 'bold 16px sans-serif';
+    c.textAlign = 'left';
+    c.fillText(`LV. ${p.level || 1}`, 32, 38);
+    c.fillText(p.character?.name || '초보자', 96, 38);
+
+    c.fillStyle = '#4f9cff';
+    c.fillText('초보자', 96, 60);
+
+    drawVisualBar(c, 220, 22, 160, 15, hpRatio, '#ff4d4f', 'HP');
+    drawVisualBar(c, 220, 46, 160, 15, mpRatio, '#4dabf7', 'MP');
+    drawVisualBar(c, 400, 22, 170, 15, expRatio, '#ffd43b', 'EXP');
+
+    c.fillStyle = '#ffffff';
+    c.font = 'bold 13px sans-serif';
+    c.fillText('J 기본공격 · K 화염파 · L 화염기둥', 400, 61);
+  }
+
+  function drawVisualBar(c, x, y, w, h, ratio, color, label) {
+    c.fillStyle = '#0008';
+    c.fillRect(x, y, w, h);
+
+    c.fillStyle = color;
+    c.fillRect(x, y, w * visualClamp(ratio, 0, 1), h);
+
+    c.strokeStyle = '#ffffff99';
+    c.strokeRect(x, y, w, h);
+
+    c.fillStyle = '#ffffff';
+    c.font = 'bold 11px sans-serif';
+    c.fillText(label, x + 5, y + h - 3);
+  }
+
+  function drawVisualGameFrame() {
+    if (!state || !state.ready) return;
+
+    forceCanvasSize();
+
+    const p = getVisualPlayer();
+    const scene = state.scene || 'town';
+    const groundY = visualSceneGround();
+
+    if (!p.y || p.y < 100 || p.y > 900) {
+      p.y = groundY;
+    }
+
+    const camX = visualCameraX();
+
+    ctx.clearRect(0, 0, FIX_W, FIX_H);
+
+    ctx.save();
+    ctx.translate(-Math.floor(camX), 0);
+
+    drawVisualBackground(ctx, scene);
+
+    if (state.platforms && state.platforms.length) {
+      for (const pf of state.platforms) {
+        ctx.fillStyle = '#6d4f37';
+        ctx.fillRect(pf.x, pf.y, pf.w, pf.h);
+
+        ctx.fillStyle = '#87d45a';
+        ctx.fillRect(pf.x, pf.y - 8, pf.w, 10);
+      }
+    }
+
+    if (state.portals && state.portals.length) {
+      for (const portal of state.portals) drawVisualPortal(ctx, portal);
+    }
+
+    if (state.npcs && state.npcs.length) {
+      for (const npc of state.npcs) drawVisualNPC(ctx, npc);
+    }
+
+    if (state.monsters && state.monsters.length) {
+      for (const m of state.monsters) drawVisualMonster(ctx, m);
+    }
+
+    drawVisualCharacter(
+      ctx,
+      p,
+      p.x || 260,
+      p.y || groundY,
+      1.95,
+      p.face || 1,
+      p.anim || 'idle',
+      p.animTime || previewPulse,
+      false
+    );
+
+    ctx.restore();
+
+    drawVisualHUD(ctx);
+  }
+
+  function drawVisualPreviewFrame() {
+    if (typeof preview === 'undefined' || !preview) return;
+
+    const hidden = characterScreen && characterScreen.classList.contains('hidden');
+    const menuHidden = characterMenu && characterMenu.classList.contains('hidden');
+
+    if (hidden && menuHidden) return;
+
+    const targetCanvas = !hidden ? preview : menuPreview;
+    if (!targetCanvas) return;
+
+    targetCanvas.width = 300;
+    targetCanvas.height = 300;
+
+    const pc = targetCanvas.getContext('2d');
+    pc.imageSmoothingEnabled = false;
+
+    pc.clearRect(0, 0, 300, 300);
+
+    pc.fillStyle = '#202938';
+    pc.fillRect(0, 0, 300, 300);
+
+    pc.fillStyle = '#2c3a52';
+    pc.fillRect(42, 258, 216, 12);
+
+    let characterData = {
+      name: '초보자',
+      job: 'beginner',
+      skin: selected?.skin || '#ffd6a6',
+      hair: selected?.hair || '#2b160e',
+      hairStyle: selected?.hairStyle || 'basic',
+      faceStyle: selected?.faceStyle || 'normal'
+    };
+
+    if (hidden && currentUser?.save?.player?.character) {
+      characterData = {
+        ...characterData,
+        ...currentUser.save.player.character
+      };
+    }
+
+    drawVisualCharacter(
+      pc,
+      {
+        character: characterData,
+        anim: 'idle',
+        animTime: previewPulse
+      },
+      150,
+      258,
+      1.8,
+      1,
+      'idle',
+      previewPulse,
+      false
+    );
+  }
+
+  function visualPatchLoop() {
+    try {
+      drawVisualPreviewFrame();
+      drawVisualGameFrame();
+    } catch (err) {
+      console.error('[Pixel RPG] visual patch error:', err);
+    }
+
+    requestAnimationFrame(visualPatchLoop);
+  }
+
+  forceCanvasSize();
+  requestAnimationFrame(visualPatchLoop);
+})();
