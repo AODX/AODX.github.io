@@ -590,6 +590,14 @@ SHOP_ITEMS.push(
   })
 );
 
+const BASIC_EQUIPMENT_SHOP_ITEMS = [
+  'wooden_sword', 'cloth_armor', 'hp_potion', 'mp_potion',
+  'staff_01', 'bow_01', 'sword_01', 'dagger_01',
+  'helmet_01', 'knee_01', 'armor_01', 'accessory_01',
+  'staff_02', 'bow_02', 'sword_02', 'dagger_02',
+  'helmet_02', 'knee_02', 'armor_02', 'accessory_02'
+];
+
 function itemRefId(ref) {
   return typeof ref === 'string' ? ref : ref && ref.id;
 }
@@ -975,7 +983,10 @@ const game = {
   dialog: null,
   taxiOpen: false,
   shopOpen: false,
+  shopScroll: 0,
   blacksmithOpen: false,
+  autoSaveTimer: 0,
+  saving: false,
 
   player: createPlayer()
 };
@@ -1269,8 +1280,8 @@ function hydrateSave(save) {
   }
 }
 
-async function saveGame() {
-  if (!game.ready || !token) return;
+async function saveGame(silent) {
+  if (!game.ready || !token || game.saving) return;
 
   const save = {
     player: {
@@ -1310,11 +1321,29 @@ async function saveGame() {
     }
   };
 
+  game.saving = true;
+
   try {
     await api('/api/save', save);
-    makeText('저장 완료', game.player.x, game.player.y - 90, '#9bf6ff');
+    if (!silent) makeText('저장 완료', game.player.x, game.player.y - 90, '#9bf6ff');
   } catch (err) {
-    makeText('저장 실패', game.player.x, game.player.y - 90, '#ff8787');
+    if (!silent) makeText('저장 실패', game.player.x, game.player.y - 90, '#ff8787');
+  } finally {
+    game.saving = false;
+  }
+}
+
+function markAutoSaveSoon() {
+  if (!game.ready) return;
+  game.autoSaveTimer = Math.max(game.autoSaveTimer, 4);
+}
+
+function updateAutoSave(dt) {
+  if (!game.ready || !token) return;
+  game.autoSaveTimer += dt;
+  if (game.autoSaveTimer >= 30) {
+    game.autoSaveTimer = 0;
+    saveGame(true);
   }
 }
 
@@ -1672,6 +1701,12 @@ window.addEventListener('keydown', function (e) {
 
   if (!game.ready) return;
 
+  if (key === 's' || (key === 's' && e.ctrlKey)) {
+    e.preventDefault();
+    saveGame(false);
+    return;
+  }
+
   if (game.dialog || game.taxiOpen || game.shopOpen || game.blacksmithOpen) {
     if (key === 'escape') closeWindows();
     return;
@@ -1683,7 +1718,6 @@ window.addEventListener('keydown', function (e) {
   if (key === ';') useHotSkill('semicolon');
   if (key === 'e') interact();
   if (key === 'z') pickNearbyDrops();
-  if (key === 's') saveGame();
 
   if (key === 'm') {
     inventory.open = !inventory.open;
@@ -1785,6 +1819,20 @@ canvas.addEventListener('mouseup', function (e) {
   finishInventoryDrag(pos.x, pos.y);
 });
 
+canvas.addEventListener('wheel', function (e) {
+  if (!game.ready) return;
+  if (!game.shopOpen && !game.blacksmithOpen) return;
+
+  const pos = getMouse(e);
+
+  if (game.shopOpen && hit(pos.x, pos.y, 80, 80, 1080, 590)) {
+    e.preventDefault();
+    const list = game.shopOpen === 'merchant' ? ['hp_potion', 'mp_potion'] : getShopItemsForCurrentTown();
+    const maxScroll = Math.max(0, Math.ceil(list.length / 2) * 64 - 380);
+    game.shopScroll = clamp(game.shopScroll + e.deltaY, 0, maxScroll);
+  }
+}, { passive: false });
+
 function getMouse(e) {
   const rect = canvas.getBoundingClientRect();
 
@@ -1817,6 +1865,7 @@ function interact() {
 
   for (const npc of game.npcs) {
     if (Math.abs(p.x - npc.x) < 90 && Math.abs(p.y - npc.y) < 130) {
+      stopPlayerMovement();
       game.dialog = {
         npc
       };
@@ -1829,7 +1878,21 @@ function closeWindows() {
   game.dialog = null;
   game.taxiOpen = false;
   game.shopOpen = false;
+  game.shopScroll = 0;
   game.blacksmithOpen = false;
+  stopPlayerMovement();
+}
+
+function stopPlayerMovement() {
+  if (!game || !game.player) return;
+  game.player.vx = 0;
+  if (game.player.grounded) game.player.vy = 0;
+  game.player.anim = 'idle';
+  game.player.animTime = 0;
+  keys.delete('a');
+  keys.delete('d');
+  keys.delete('arrowleft');
+  keys.delete('arrowright');
 }
 
 function handleDialogClick(x, y) {
@@ -1852,6 +1915,7 @@ function handleDialogClick(x, y) {
     if (npc.type === 'merchant' || npc.type === 'weapon') {
       game.dialog = null;
       game.shopOpen = npc.type;
+      game.shopScroll = 0;
       return;
     }
 
@@ -1978,21 +2042,15 @@ function handleTaxiClick(x, y) {
 
 
 function getShopItemsForCurrentTown() {
-  const hunt = getHunt(getTown(game.townId).hunt);
-  const minLv = Math.max(1, hunt.baseLevel - 4);
-  const maxLv = hunt.baseLevel + 12;
-  const base = SHOP_ITEMS.filter(function (id) {
-    const item = ITEMS[id];
-    if (!item || !getEquipSlotForItem(item)) return ['hp_potion', 'mp_potion'].includes(id);
-    const lv = item.reqLevel || 1;
-    return lv >= minLv && lv <= maxLv;
+  return BASIC_EQUIPMENT_SHOP_ITEMS.filter(function (id) {
+    return ITEMS[id];
   });
-  return base.slice(0, 20);
 }
 
 function handleShopClick(x, y) {
   if (hit(x, y, 1010, 610, 120, 40)) {
     game.shopOpen = false;
+    game.shopScroll = 0;
     return;
   }
 
@@ -2005,11 +2063,17 @@ function handleShopClick(x, y) {
     ? ['hp_potion', 'mp_potion']
     : getShopItemsForCurrentTown();
 
-  for (let i = 0; i < list.length; i++) {
-    const sx = 110 + (i % 2) * 380;
-    const sy = 185 + Math.floor(i / 2) * 58;
+  const startY = 175;
+  const rowH = 64;
+  const scroll = game.shopScroll || 0;
 
-    if (hit(x, y, sx, sy, 330, 46)) {
+  for (let i = 0; i < list.length; i++) {
+    const sx = 110 + (i % 2) * 500;
+    const sy = startY + Math.floor(i / 2) * rowH - scroll;
+
+    if (sy < 160 || sy > 580) continue;
+
+    if (hit(x, y, sx, sy, 455, 52)) {
       buyItem(list[i]);
       return;
     }
@@ -2229,7 +2293,24 @@ function killMonster(m) {
     });
   }
 
+  if (Math.random() < getRareDropRate(type)) {
+    const rareId = getMonsterRareEquipmentDrop(type);
+    if (rareId) {
+      game.drops.push({
+        kind: 'item',
+        itemId: rareId,
+        count: 1,
+        x: m.x + rand(-22, 22),
+        y: m.y - 18,
+        vy: -150,
+        picked: false
+      });
+      makeText('희귀 장비!', m.x, m.y - 155, '#facc15');
+    }
+  }
+
   updateKillQuests(type.family);
+  markAutoSaveSoon();
 
   setTimeout(function () {
     m.dead = false;
@@ -2238,6 +2319,44 @@ function killMonster(m) {
     m.y = m.spawnY;
     m.hit = 0;
   }, type.respawn);
+}
+
+
+function getMonsterRareEquipmentDrop(type) {
+  const level = type.level || 1;
+  const list = Object.keys(ITEMS).filter(function (id) {
+    const item = ITEMS[id];
+    if (!item || !getEquipSlotForItem(item)) return false;
+    if (BASIC_EQUIPMENT_SHOP_ITEMS.includes(id)) return false;
+    const req = item.reqLevel || 1;
+    return req >= Math.max(1, level - 5) && req <= level + 5;
+  });
+
+  if (!list.length) return null;
+
+  const familyBias = {
+    mana: ['staff_', 'accessory_'],
+    ice: ['staff_', 'armor_'],
+    bug: ['bow_', 'knee_'],
+    boar: ['sword_', 'armor_'],
+    shadow: ['dagger_', 'accessory_'],
+    ruin: ['sword_', 'helmet_', 'armor_'],
+    ore: ['helmet_', 'armor_'],
+    desert: ['bow_', 'dagger_'],
+    slime: ['accessory_', 'helmet_'],
+    mushroom: ['staff_', 'knee_']
+  }[type.family] || [];
+
+  const biased = list.filter(function (id) {
+    return familyBias.some(function (prefix) { return id.indexOf(prefix) === 0; });
+  });
+
+  const pickList = biased.length ? biased : list;
+  return pickList[Math.floor(Math.random() * pickList.length)];
+}
+
+function getRareDropRate(type) {
+  return clamp(0.035 + (type.level || 1) * 0.0015, 0.035, 0.085);
 }
 
 function updateKillQuests(family) {
@@ -2275,6 +2394,7 @@ function addExp(amount) {
     p.level += 1;
     p.nextExp = Math.floor(p.nextExp * 1.35 + 35);
     stats.ap += 5;
+    markAutoSaveSoon();
     p.hp = p.maxHp;
     p.mp = p.maxMp;
 
@@ -2399,6 +2519,7 @@ function equipItem(id) {
   removeItem(id, 1);
   equipment[slot] = makeEquippedRef(id);
   recalcStats();
+  markAutoSaveSoon();
 
   makeText(`${item.name} 장착`, game.player.x, game.player.y - 90, '#ffe066');
 }
@@ -2456,6 +2577,7 @@ function addStat(key) {
   stats[key] += 1;
   stats.ap -= 1;
   recalcStats();
+  markAutoSaveSoon();
 }
 
 function buyItem(id) {
@@ -2470,6 +2592,7 @@ function buyItem(id) {
 
   wallet.gold -= item.price;
   addItem(id, 1);
+  markAutoSaveSoon();
 
   makeText(`${item.name} 구매`, game.player.x, game.player.y - 90, '#c0eb75');
 }
@@ -2490,6 +2613,7 @@ function sellAllEtc() {
   });
 
   wallet.gold += gold;
+  markAutoSaveSoon();
   makeText(`판매 +${gold}G`, game.player.x, game.player.y - 90, '#ffd43b');
 }
 
@@ -2722,6 +2846,7 @@ function update(dt) {
   updateParticles(dt);
   updateTexts(dt);
   updateCamera(dt);
+  updateAutoSave(dt);
 }
 
 function updateCooldowns(dt) {
@@ -3247,16 +3372,16 @@ function drawNPCs() {
 
 function drawNPCBody(npc) {
   const t = performance.now() / 1000;
-  const bob = Math.sin(t * 3) * 1.5;
+  const bob = Math.sin(t * 3) * 1.2;
 
   const look = {
-    taxi: { skin: '#8d5524', hair: '#111827', hat: '#1f2937', body: '#facc15', sub: '#111827', prop: 'taxi' },
-    merchant: { skin: '#f1c27d', hair: '#7c2d12', hat: '#b45309', body: '#22c55e', sub: '#fef3c7', prop: 'bag' },
-    weapon: { skin: '#c68642', hair: '#3f2a1d', hat: '#374151', body: '#64748b', sub: '#f97316', prop: 'hammer' },
-    blacksmith: { skin: '#c68642', hair: '#1f2937', hat: '#4b5563', body: '#7c2d12', sub: '#f59e0b', prop: 'hammer' },
-    quest: { skin: '#f1c27d', hair: '#e5e7eb', hat: '#6d28d9', body: '#7c3aed', sub: '#fef08a', prop: 'scroll' },
-    job: { skin: '#f1c27d', hair: '#e5e7eb', hat: '#0f172a', body: '#2563eb', sub: '#bfdbfe', prop: 'star' }
-  }[npc.type] || { skin: '#ffd6a6', hair: '#6b3f22', hat: '#334155', body: '#60a5fa', sub: '#f8fafc', prop: 'none' };
+    taxi: { skin: '#8d5524', hair: '#111827', hat: '#1f2937', body: '#facc15', sub: '#111827', pants: '#374151', prop: 'taxi' },
+    merchant: { skin: '#f1c27d', hair: '#7c2d12', hat: '#b45309', body: '#22c55e', sub: '#fef3c7', pants: '#14532d', prop: 'bag' },
+    weapon: { skin: '#c68642', hair: '#3f2a1d', hat: '#374151', body: '#64748b', sub: '#f97316', pants: '#1f2937', prop: 'hammer' },
+    blacksmith: { skin: '#c68642', hair: '#1f2937', hat: '#4b5563', body: '#7c2d12', sub: '#f59e0b', pants: '#292524', prop: 'hammer' },
+    quest: { skin: '#f1c27d', hair: '#e5e7eb', hat: '#6d28d9', body: '#7c3aed', sub: '#fef08a', pants: '#312e81', prop: 'scroll' },
+    job: { skin: '#f1c27d', hair: '#e5e7eb', hat: '#0f172a', body: '#2563eb', sub: '#bfdbfe', pants: '#1e3a8a', prop: 'star' }
+  }[npc.type] || { skin: '#ffd6a6', hair: '#6b3f22', hat: '#334155', body: '#60a5fa', sub: '#f8fafc', pants: '#374151', prop: 'none' };
 
   ctx.save();
   ctx.translate(npc.x, npc.y + bob);
@@ -3264,59 +3389,50 @@ function drawNPCBody(npc) {
 
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
   ctx.beginPath();
-  ctx.ellipse(0, 3, 22, 5, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 3, 24, 5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.strokeStyle = '#171717';
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.moveTo(-7, -30); ctx.lineTo(-13, -8);
-  ctx.moveTo(7, -30); ctx.lineTo(13, -8);
-  ctx.stroke();
-
-  ctx.strokeStyle = look.skin;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(-7, -30); ctx.lineTo(-13, -8);
-  ctx.moveTo(7, -30); ctx.lineTo(13, -8);
-  ctx.stroke();
+  ctx.fillStyle = '#171717';
+  roundRect(ctx, -16, -33, 13, 25, 6);
+  roundRect(ctx, 3, -33, 13, 25, 6);
+  ctx.fillStyle = look.pants;
+  roundRect(ctx, -13, -31, 9, 22, 5);
+  roundRect(ctx, 4, -31, 9, 22, 5);
+  ctx.fillStyle = '#171717';
+  roundRect(ctx, -22, -12, 21, 7, 2);
+  roundRect(ctx, 1, -12, 21, 7, 2);
 
   ctx.fillStyle = '#171717';
-  roundRect(ctx, -21, -12, 18, 7, 1.5);
-  roundRect(ctx, 3, -12, 18, 7, 1.5);
-
-  ctx.fillStyle = '#171717';
-  roundRect(ctx, -19, -66, 38, 38, 8);
+  roundRect(ctx, -21, -66, 42, 40, 10);
   ctx.fillStyle = look.body;
-  roundRect(ctx, -16, -63, 32, 34, 7);
+  roundRect(ctx, -18, -63, 36, 36, 9);
   ctx.fillStyle = look.sub;
-  ctx.fillRect(-10, -58, 20, 6);
-  ctx.fillRect(-13, -39, 26, 7);
+  ctx.fillRect(-11, -58, 22, 6);
+  ctx.fillRect(-15, -37, 30, 8);
 
   ctx.strokeStyle = '#171717';
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 9;
   ctx.beginPath();
-  ctx.moveTo(-14, -55); ctx.lineTo(-25, -44);
-  ctx.moveTo(14, -55); ctx.lineTo(25, -44);
+  ctx.moveTo(-16, -57); ctx.lineTo(-28, -45);
+  ctx.moveTo(16, -57); ctx.lineTo(28, -45);
   ctx.stroke();
-
-  ctx.strokeStyle = look.skin;
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = look.body;
+  ctx.lineWidth = 6;
   ctx.beginPath();
-  ctx.moveTo(-14, -55); ctx.lineTo(-25, -44);
-  ctx.moveTo(14, -55); ctx.lineTo(25, -44);
+  ctx.moveTo(-16, -57); ctx.lineTo(-28, -45);
+  ctx.moveTo(16, -57); ctx.lineTo(28, -45);
   ctx.stroke();
 
   ctx.fillStyle = '#171717';
-  circle(ctx, -25, -44, 4);
-  circle(ctx, 25, -44, 4);
+  circle(ctx, -28, -45, 5);
+  circle(ctx, 28, -45, 5);
   ctx.fillStyle = look.skin;
-  circle(ctx, -25, -44, 2.7);
-  circle(ctx, 25, -44, 2.7);
+  circle(ctx, -28, -45, 3.4);
+  circle(ctx, 28, -45, 3.4);
 
   if (look.prop === 'hammer') {
     ctx.save();
-    ctx.translate(28, -48);
+    ctx.translate(30, -48);
     ctx.rotate(-0.6);
     ctx.fillStyle = '#4b5563';
     ctx.fillRect(-12, -31, 24, 10);
@@ -3336,33 +3452,32 @@ function drawNPCBody(npc) {
     ctx.fillRect(25, -36, 8, 2);
   } else if (look.prop === 'taxi') {
     ctx.fillStyle = '#facc15';
-    roundRect(ctx, -34, -24, 20, 13, 3);
+    roundRect(ctx, -38, -26, 23, 14, 4);
     ctx.fillStyle = '#111827';
-    circle(ctx, -29, -10, 3);
-    circle(ctx, -19, -10, 3);
+    circle(ctx, -32, -11, 3);
+    circle(ctx, -21, -11, 3);
   }
 
   ctx.fillStyle = '#171717';
-  circle(ctx, -19, -89, 5);
-  circle(ctx, 19, -89, 5);
+  circle(ctx, -20, -90, 5);
+  circle(ctx, 20, -90, 5);
   ctx.beginPath();
-  ctx.ellipse(0, -92, 21, 23, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, -92, 22, 23, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = look.skin;
-  circle(ctx, -18.5, -89, 3.7);
-  circle(ctx, 18.5, -89, 3.7);
+  circle(ctx, -19, -90, 3.7);
+  circle(ctx, 19, -90, 3.7);
   ctx.beginPath();
-  ctx.ellipse(0, -92, 18, 20, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, -92, 18.5, 20.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = look.hair;
-  roundRect(ctx, -16, -113, 32, 13, 8);
-  ctx.fillRect(-13, -101, 26, 4);
+  roundRect(ctx, -16, -113, 32, 12, 8);
 
   ctx.fillStyle = look.hat;
   if (npc.type === 'taxi') {
-    roundRect(ctx, -18, -119, 36, 9, 4);
-    ctx.fillRect(-13, -126, 26, 9);
+    roundRect(ctx, -18, -120, 36, 9, 4);
+    ctx.fillRect(-13, -127, 26, 9);
   } else if (npc.type === 'merchant') {
     ctx.beginPath();
     ctx.ellipse(0, -113, 25, 7, 0, 0, Math.PI * 2);
@@ -3381,7 +3496,6 @@ function drawNPCBody(npc) {
   ctx.fillRect(-8, -99, 3.5, 5);
   ctx.fillRect(4.5, -99, 3.5, 5);
   ctx.fillRect(-3, -88, 6, 1.5);
-
   ctx.restore();
 }
 function drawMonsters() {
@@ -3646,8 +3760,8 @@ function drawPlayerBody(c, player) {
   const ch = player.character || game.player.character;
   const walk = Math.sin(player.animTime * 13);
   const moving = player.anim === 'walk';
-  const leg = moving ? walk * 8 : 0;
-  const arm = moving ? -walk * 7 : 0;
+  const leg = moving ? walk * 5 : 0;
+  const arm = moving ? -walk * 4 : 0;
 
   const armorId = itemRefId(equipment.armor);
   const helmetId = itemRefId(equipment.helmet);
@@ -3656,6 +3770,7 @@ function drawPlayerBody(c, player) {
 
   let bodyColor = '#4f93f5';
   let bodyDark = '#2f6fbd';
+  let pantsColor = '#374151';
 
   if (armorId === 'iron_armor') {
     bodyColor = '#8fa3b8';
@@ -3665,160 +3780,138 @@ function drawPlayerBody(c, player) {
   if (armorId === 'magic_robe') {
     bodyColor = '#8b5cf6';
     bodyDark = '#5b36b8';
+    pantsColor = '#4c1d95';
   }
 
+  if (kneeId) pantsColor = '#475569';
+
   c.lineCap = 'round';
+  c.lineJoin = 'round';
 
   c.fillStyle = 'rgba(0,0,0,0.24)';
   c.beginPath();
-  c.ellipse(0, 3, 18, 4, 0, 0, Math.PI * 2);
+  c.ellipse(0, 3, 22, 5, 0, 0, Math.PI * 2);
   c.fill();
 
-  c.strokeStyle = '#171717';
-  c.lineWidth = 4.5;
+  // neck
+  c.fillStyle = '#171717';
+  c.fillRect(-6, -72, 12, 10);
+  c.fillStyle = ch.skin || '#ffd6a6';
+  c.fillRect(-4, -71, 8, 9);
 
-  c.beginPath();
-  c.moveTo(-6, -30);
-  c.lineTo(-11 + leg, -9);
-  c.stroke();
-
-  c.beginPath();
-  c.moveTo(6, -30);
-  c.lineTo(11 - leg, -9);
-  c.stroke();
-
-  c.strokeStyle = ch.skin || '#ffd6a6';
-  c.lineWidth = 3;
-
-  c.beginPath();
-  c.moveTo(-6, -30);
-  c.lineTo(-11 + leg, -9);
-  c.stroke();
-
-  c.beginPath();
-  c.moveTo(6, -30);
-  c.lineTo(11 - leg, -9);
-  c.stroke();
+  // connected legs and shoes
+  c.fillStyle = '#171717';
+  roundRect(c, -16 + leg, -33, 13, 25, 6);
+  roundRect(c, 3 - leg, -33, 13, 25, 6);
+  c.fillStyle = pantsColor;
+  roundRect(c, -13 + leg, -31, 9, 22, 5);
+  roundRect(c, 4 - leg, -31, 9, 22, 5);
 
   c.fillStyle = '#171717';
-  roundRect(c, -20 + leg, -12, 18, 7, 1.5);
-  roundRect(c, 2 - leg, -12, 18, 7, 1.5);
-
+  roundRect(c, -22 + leg, -12, 21, 7, 2);
+  roundRect(c, 1 - leg, -12, 21, 7, 2);
   c.fillStyle = '#5a3821';
-  roundRect(c, -18 + leg, -10.5, 14, 4.5, 1);
-  roundRect(c, 4 - leg, -10.5, 14, 4.5, 1);
+  roundRect(c, -19 + leg, -10.5, 16, 4.5, 1);
+  roundRect(c, 4 - leg, -10.5, 16, 4.5, 1);
 
+  // torso, waist, shoulders
   c.fillStyle = '#171717';
-  roundRect(c, -17, -64, 34, 35, 8);
-
+  roundRect(c, -20, -66, 40, 40, 10);
   c.fillStyle = bodyColor;
-  roundRect(c, -14, -61, 28, 31, 7);
-
-  c.fillStyle = '#f8f9ff';
-  c.fillRect(-10, -58, 20, 5);
-
+  roundRect(c, -17, -63, 34, 36, 9);
   c.fillStyle = bodyDark;
-  roundRect(c, -11, -39, 22, 8, 3);
+  roundRect(c, -15, -36, 30, 9, 4);
+  c.fillStyle = '#f8f9ff';
+  c.fillRect(-11, -58, 22, 5);
 
-  let lx = -19 + arm;
-  let ly = -47;
-  let rx = 19 - arm;
-  let ry = -47;
+  let lx = -21 + arm;
+  let ly = -46;
+  let rx = 21 - arm;
+  let ry = -46;
 
   if (player.anim === 'attack') {
     const kind = player.attackKind || (weaponId ? ((ITEMS[weaponId] || {}).weaponType || 'sword') : 'fist');
     const atk = Math.sin(Math.min(1, player.animTime * 14) * Math.PI);
 
     if (kind === 'sword') {
-      rx = 22 + atk * 31;
-      ry = -55 + atk * 10;
-      lx = -18 - atk * 5;
-      ly = -49;
-    } else if (kind === 'dagger') {
-      const jab = Math.sin(Math.min(1, player.animTime * 26) * Math.PI);
-      rx = 24 + jab * 28;
-      ry = -46;
-      lx = -18;
+      rx = 23 + atk * 33;
+      ry = -58 + atk * 13;
+      lx = -19 - atk * 4;
       ly = -48;
+    } else if (kind === 'dagger') {
+      const jab = Math.sin(Math.min(1, player.animTime * 28) * Math.PI);
+      rx = 24 + jab * 30;
+      ry = -45;
+      lx = -20;
+      ly = -47;
     } else if (kind === 'bow') {
       rx = 30;
       ry = -51;
-      lx = -26 - atk * 9;
+      lx = -29 - atk * 9;
       ly = -52;
     } else if (kind === 'staff') {
-      rx = 34;
-      ry = -65 + atk * 8;
-      lx = -18;
+      rx = 35;
+      ry = -66 + atk * 8;
+      lx = -19;
       ly = -47;
     } else {
-      rx = 22 + atk * 23;
-      ry = -49;
+      rx = 24 + atk * 24;
+      ry = -48;
     }
   }
 
   if (player.anim === 'jump') {
-    lx = -21;
-    rx = 21;
+    lx = -22;
+    rx = 22;
     ly = -53;
     ry = -53;
   }
 
+  // connected arms: dark sleeve plus hands
   c.strokeStyle = '#171717';
-  c.lineWidth = 5;
-
+  c.lineWidth = 9;
   c.beginPath();
-  c.moveTo(-13, -55);
+  c.moveTo(-15, -57);
   c.lineTo(lx, ly);
   c.stroke();
-
   c.beginPath();
-  c.moveTo(13, -55);
+  c.moveTo(15, -57);
   c.lineTo(rx, ry);
   c.stroke();
 
-  c.strokeStyle = ch.skin || '#ffd6a6';
-  c.lineWidth = 3;
-
+  c.strokeStyle = bodyDark;
+  c.lineWidth = 6;
   c.beginPath();
-  c.moveTo(-13, -55);
+  c.moveTo(-15, -57);
   c.lineTo(lx, ly);
   c.stroke();
-
   c.beginPath();
-  c.moveTo(13, -55);
+  c.moveTo(15, -57);
   c.lineTo(rx, ry);
   c.stroke();
 
   c.fillStyle = '#171717';
-  circle(c, lx, ly, 4);
-  circle(c, rx, ry, 4);
-
+  circle(c, lx, ly, 5);
+  circle(c, rx, ry, 5);
   c.fillStyle = ch.skin || '#ffd6a6';
-  circle(c, lx, ly, 2.7);
-  circle(c, rx, ry, 2.7);
+  circle(c, lx, ly, 3.4);
+  circle(c, rx, ry, 3.4);
 
   drawWeapon(c, weaponId, rx, ry, player.anim === 'attack', player.attackKind, player.animTime);
 
+  // ears, face, hair
   c.fillStyle = '#171717';
-  c.fillRect(-5, -70, 10, 8);
-
-  c.fillStyle = ch.skin || '#ffd6a6';
-  c.fillRect(-3.5, -69, 7, 7);
-
-  c.fillStyle = '#171717';
-  circle(c, -19, -89, 5);
-  circle(c, 19, -89, 5);
-
+  circle(c, -20, -90, 5);
+  circle(c, 20, -90, 5);
   c.beginPath();
-  c.ellipse(0, -92, 21, 23, 0, 0, Math.PI * 2);
+  c.ellipse(0, -92, 22, 23, 0, 0, Math.PI * 2);
   c.fill();
 
   c.fillStyle = ch.skin || '#ffd6a6';
-  circle(c, -18.5, -89, 3.7);
-  circle(c, 18.5, -89, 3.7);
-
+  circle(c, -19, -90, 3.7);
+  circle(c, 19, -90, 3.7);
   c.beginPath();
-  c.ellipse(0, -92, 18, 20, 0, 0, Math.PI * 2);
+  c.ellipse(0, -92, 18.5, 20.5, 0, 0, Math.PI * 2);
   c.fill();
 
   drawHair(c, ch, -92);
@@ -4756,11 +4849,21 @@ function drawShopPanel() {
     ? ['hp_potion', 'mp_potion']
     : getShopItemsForCurrentTown();
 
+  const panelX = 80;
+  const panelY = 80;
+  const panelW = 1080;
+  const panelH = 590;
+  const startY = 175;
+  const rowH = 64;
+  const rowCount = Math.ceil(list.length / 2);
+  const maxScroll = Math.max(0, rowCount * rowH - 380);
+  game.shopScroll = clamp(game.shopScroll || 0, 0, maxScroll);
+
   ctx.fillStyle = 'rgba(15,23,42,0.97)';
-  roundRect(ctx, 80, 80, 1080, 590, 18);
+  roundRect(ctx, panelX, panelY, panelW, panelH, 18);
 
   ctx.strokeStyle = '#93c5fd';
-  ctx.strokeRect(80, 80, 1080, 590);
+  ctx.strokeRect(panelX, panelY, panelW, panelH);
 
   ctx.fillStyle = '#ffe066';
   ctx.font = 'bold 28px sans-serif';
@@ -4770,26 +4873,53 @@ function drawShopPanel() {
   ctx.fillStyle = '#cbd5e1';
   ctx.font = '15px sans-serif';
   ctx.fillText(`보유 골드: ${wallet.gold}`, 110, 150);
+  if (game.shopOpen === 'weapon') {
+    ctx.fillText('기본 장비만 판매합니다. 강한 장비는 몬스터에게서 낮은 확률로 획득하세요.', 250, 150);
+  }
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(90, 165, 1025, 410);
+  ctx.clip();
 
   list.forEach(function (id, i) {
     const item = ITEMS[id];
-    const x = 110 + (i % 2) * 380;
-    const y = 185 + Math.floor(i / 2) * 58;
+    if (!item) return;
+
+    const x = 110 + (i % 2) * 500;
+    const y = startY + Math.floor(i / 2) * rowH - game.shopScroll;
+    if (y < 140 || y > 585) return;
 
     ctx.fillStyle = '#1e293b';
-    roundRect(ctx, x, y, 330, 46, 8);
+    roundRect(ctx, x, y, 455, 52, 8);
 
-    drawItemIcon(item, x + 25, y + 23, 28);
+    drawItemIcon(item, x + 28, y + 26, 30);
 
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 14px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(item.name, x + 50, y + 19);
+    ctx.fillText(item.name, x + 58, y + 20);
 
+    const req = item.reqLevel ? `Lv.${item.reqLevel} / ` : '';
+    const line = `${req}${item.desc || ''} / ${item.price || 0}G`;
     ctx.fillStyle = '#cbd5e1';
     ctx.font = '12px sans-serif';
-    ctx.fillText(`${item.desc || ''} / ${item.price || 0}G`, x + 50, y + 36);
+    ctx.fillText(line.length > 48 ? line.slice(0, 48) + '...' : line, x + 58, y + 39);
   });
+
+  ctx.restore();
+
+  if (maxScroll > 0) {
+    const trackX = 1125;
+    const trackY = 170;
+    const trackH = 395;
+    const thumbH = Math.max(42, trackH * (380 / (rowCount * rowH)));
+    const thumbY = trackY + (trackH - thumbH) * (game.shopScroll / maxScroll);
+    ctx.fillStyle = '#334155';
+    roundRect(ctx, trackX, trackY, 12, trackH, 6);
+    ctx.fillStyle = '#94a3b8';
+    roundRect(ctx, trackX, thumbY, 12, thumbH, 6);
+  }
 
   if (game.shopOpen === 'merchant') {
     ctx.fillStyle = '#4dabf7';
@@ -4812,10 +4942,10 @@ function drawShopPanel() {
 
 
 function drawBlacksmithPanel() {
-  const x = 925;
-  const y = 140;
-  const w = 300;
-  const h = 395;
+  const x = 790;
+  const y = 105;
+  const w = 430;
+  const h = 500;
 
   ctx.fillStyle = 'rgba(15,23,42,0.97)';
   roundRect(ctx, x, y, w, h, 16);
@@ -4823,7 +4953,7 @@ function drawBlacksmithPanel() {
   ctx.strokeRect(x, y, w, h);
 
   ctx.fillStyle = '#ffe066';
-  ctx.font = 'bold 23px sans-serif';
+  ctx.font = 'bold 24px sans-serif';
   ctx.textAlign = 'left';
   ctx.fillText('대장장이 강화', x + 22, y + 38);
 
@@ -4835,43 +4965,62 @@ function drawBlacksmithPanel() {
   EQUIP_SLOT_KEYS.forEach(function (slot, i) {
     const ref = equipment[slot];
     const item = getItemData(ref);
-    const rowY = y + 112 + i * 48;
+    const rowY = y + 112 + i * 64;
     ctx.fillStyle = '#1e293b';
-    roundRect(ctx, x + 18, rowY, w - 36, 38, 8);
+    roundRect(ctx, x + 18, rowY, w - 36, 54, 8);
 
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 13px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(`${EQUIP_SLOT_NAMES[slot]}: ${item ? getItemDisplayName(ref).slice(0, 14) : '-'}`, x + 30, rowY + 24);
+    const name = item ? getItemDisplayName(ref) : '-';
+    ctx.fillText(`${EQUIP_SLOT_NAMES[slot]}: ${name.length > 20 ? name.slice(0, 20) + '...' : name}`, x + 30, rowY + 20);
 
     if (item) {
       const plus = itemEnhance(ref);
-      ctx.fillStyle = '#ffd43b';
-      ctx.textAlign = 'right';
-      ctx.fillText(`${Math.round(getEnhanceRate(plus) * 100)}%`, x + w - 34, rowY + 24);
+      const cost = getEnhanceCost(ref);
+      const rate = Math.round(getEnhanceRate(plus) * 100);
+      const destroy = Math.round(getDestroyRate(plus) * 100);
+      const atkUp = getEnhanceBonus({ id: item.id, enhance: plus + 1 }, 'atk') - getEnhanceBonus(ref, 'atk');
+      const matkUp = getEnhanceBonus({ id: item.id, enhance: plus + 1 }, 'matk') - getEnhanceBonus(ref, 'matk');
+      let effect = '';
+      if ((item.atk || 0) || atkUp) effect += ` ATK +${atkUp || 3}`;
+      if ((item.matk || 0) || matkUp) effect += ` MATK +${matkUp || 3}`;
+      if (!effect) effect = ' 능력치 상승';
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '12px sans-serif';
+      ctx.fillText(`비용 ${cost}G · 성공 ${rate}% · 다음:${effect}`, x + 30, rowY + 39);
+      if (destroy > 0) {
+        ctx.fillStyle = '#fca5a5';
+        ctx.textAlign = 'right';
+        ctx.fillText(`파괴 ${destroy}%`, x + w - 32, rowY + 20);
+      }
+    } else {
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '12px sans-serif';
+      ctx.fillText('장착한 장비가 없습니다.', x + 30, rowY + 39);
     }
   });
 
   ctx.fillStyle = '#334155';
-  roundRect(ctx, x + 180, y + h - 48, 92, 34, 8);
+  roundRect(ctx, x + w - 120, y + h - 48, 92, 34, 8);
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 14px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('닫기', x + 226, y + h - 26);
+  ctx.fillText('닫기', x + w - 74, y + h - 26);
 }
 
 function handleBlacksmithClick(x, y) {
-  if (hit(x, y, 1105, 487, 92, 34)) {
+  if (hit(x, y, 1100, 557, 92, 34)) {
     game.blacksmithOpen = false;
     return;
   }
 
-  const panelX = 925;
-  const panelY = 140;
+  const panelX = 790;
+  const panelY = 105;
 
   EQUIP_SLOT_KEYS.forEach(function (slot, i) {
-    const rowY = panelY + 112 + i * 48;
-    if (hit(x, y, panelX + 18, rowY, 264, 38)) enhanceEquippedItem(slot);
+    const rowY = panelY + 112 + i * 64;
+    if (hit(x, y, panelX + 18, rowY, 394, 54)) enhanceEquippedItem(slot);
   });
 }
 
@@ -4897,6 +5046,7 @@ function enhanceEquippedItem(slot) {
   if (Math.random() < getEnhanceRate(plus)) {
     equipment[slot] = { id: item.id, enhance: plus + 1 };
     recalcStats();
+    markAutoSaveSoon();
     makeText(`강화 성공 +${plus + 1}!`, game.player.x, game.player.y - 90, '#c0eb75');
     circleEffect(game.player.x, game.player.y - 55, '#ffd43b');
     return;
@@ -4905,11 +5055,28 @@ function enhanceEquippedItem(slot) {
   if (plus >= 5 && Math.random() < getDestroyRate(plus)) {
     equipment[slot] = null;
     recalcStats();
+    markAutoSaveSoon();
     makeText('강화 실패: 장비 파괴', game.player.x, game.player.y - 90, '#ff6b6b');
     return;
   }
 
+  markAutoSaveSoon();
   makeText('강화 실패', game.player.x, game.player.y - 90, '#cbd5e1');
+}
+
+function wrapTooltipLine(text, maxChars) {
+  const out = [];
+  let line = '';
+  String(text).split(' ').forEach(function (word) {
+    if ((line + ' ' + word).trim().length > maxChars) {
+      if (line) out.push(line);
+      line = word;
+    } else {
+      line = (line + ' ' + word).trim();
+    }
+  });
+  if (line) out.push(line);
+  return out;
 }
 
 function drawItemTooltip() {
@@ -4920,38 +5087,51 @@ function drawItemTooltip() {
 
   const statsText = [];
   ['str', 'dex', 'int', 'luk', 'atk', 'matk', 'def', 'hp', 'mp', 'crit', 'speed'].forEach(function (key) {
-    const v = (item[key] || 0) + getEnhanceBonus(ref, key);
-    if (v) statsText.push(`${key.toUpperCase()} +${v}`);
+    const base = item[key] || 0;
+    const extra = getEnhanceBonus(ref, key);
+    const v = base + extra;
+    if (v) statsText.push(`${key.toUpperCase()} +${v}${extra ? ' (강화 +' + extra + ')' : ''}`);
   });
 
-  const lines = [];
-  lines.push(getItemDisplayName(ref) || item.name);
-  if (item.reqLevel) lines.push(`장착 가능 레벨: Lv.${item.reqLevel}`);
-  if (getEquipSlotForItem(item)) lines.push(`부위: ${EQUIP_SLOT_NAMES[getEquipSlotForItem(item)]}`);
-  if (item.type === 'etc') lines.push(`${item.name}은(는) ${item.name.replace(/ 조각| 포자| 젤리| 결정| 파편| 가죽| 깃털| 비늘| 핵/g, '')} 몬스터의 부산물이다.`);
-  if (statsText.length) lines.push(statsText.join(' / '));
-  if (item.desc) lines.push(item.desc);
+  const rawLines = [];
+  rawLines.push(getItemDisplayName(ref) || item.name);
+  if (item.reqLevel) rawLines.push(`장착 가능 레벨: Lv.${item.reqLevel}`);
+  if (getEquipSlotForItem(item)) rawLines.push(`부위: ${EQUIP_SLOT_NAMES[getEquipSlotForItem(item)]}`);
+  if (item.type === 'etc') rawLines.push(`${item.name}은(는) 몬스터에게서 얻은 부산물입니다.`);
+  if (statsText.length) rawLines.push(statsText.join(' / '));
+  if (item.desc) rawLines.push(item.desc);
   if (getEquipSlotForItem(item)) {
     const plus = itemEnhance(ref);
-    lines.push(`강화: +${plus}/10 · 다음 성공률 ${Math.round(getEnhanceRate(plus) * 100)}%`);
-    if (plus >= 5) lines.push(`파괴 확률 ${Math.round(getDestroyRate(plus) * 100)}%`);
+    const nextRate = Math.round(getEnhanceRate(plus) * 100);
+    const atkEnhance = getEnhanceBonus(ref, 'atk');
+    const matkEnhance = getEnhanceBonus(ref, 'matk');
+    rawLines.push(`강화: +${plus}/10 · 다음 성공률 ${nextRate}%`);
+    if (atkEnhance || matkEnhance) rawLines.push(`강화 추가 공격력: ATK +${atkEnhance} / MATK +${matkEnhance}`);
+    if (plus >= 5) rawLines.push(`실패 시 파괴 확률 ${Math.round(getDestroyRate(plus) * 100)}%`);
   }
 
-  const w = 290;
-  const h = 34 + lines.length * 20;
+  const lines = [];
+  rawLines.forEach(function (line, i) {
+    wrapTooltipLine(line, i === 0 ? 34 : 44).forEach(function (v) {
+      lines.push({ text: v, title: i === 0 });
+    });
+  });
+
+  const w = 410;
+  const h = 30 + lines.length * 19;
   const x = Math.min(game.mouse.x + 18, W - w - 12);
   const y = Math.min(game.mouse.y + 18, H - h - 12);
 
-  ctx.fillStyle = 'rgba(15,15,15,0.95)';
+  ctx.fillStyle = 'rgba(15,15,15,0.96)';
   roundRect(ctx, x, y, w, h, 8);
   ctx.strokeStyle = '#facc15';
   ctx.strokeRect(x, y, w, h);
 
   lines.forEach(function (line, i) {
-    ctx.fillStyle = i === 0 ? '#ffff00' : '#e5e7eb';
-    ctx.font = i === 0 ? 'bold 16px sans-serif' : '13px sans-serif';
+    ctx.fillStyle = line.title ? '#ffff00' : '#e5e7eb';
+    ctx.font = line.title ? 'bold 16px sans-serif' : '13px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(line, x + 14, y + 24 + i * 20);
+    ctx.fillText(line.text, x + 14, y + 23 + i * 19);
   });
 }
 
