@@ -1054,11 +1054,18 @@ const wallet = {
   gold: 120
 };
 
-function stack(id, count) {
-  return {
-    id,
-    count
-  };
+function stack(id, count, enhance) {
+  const out = { id, count };
+  if (enhance) out.enhance = enhance;
+  return out;
+}
+
+function sameItemRef(a, b) {
+  return itemRefId(a) === itemRefId(b) && itemEnhance(a) === itemEnhance(b);
+}
+
+function cloneItemRef(ref, count) {
+  return stack(itemRefId(ref), count, itemEnhance(ref));
 }
 
 /* =========================================================
@@ -2428,21 +2435,33 @@ function refreshUnlockedSkills() {
    Inventory / Equipment / Stats
 ========================================================= */
 
-function addItem(id, count) {
+function addItem(ref, count) {
+  const id = itemRefId(ref);
+  const enhance = itemEnhance(ref);
+  const data = ITEMS[id];
+  if (!id || !data) return;
+
+  // 장비는 강화 수치가 다르면 서로 다른 칸으로 보관한다.
+  // 예: +7 나무 검과 일반 나무 검이 섞여서 강화 기록이 사라지는 문제 방지.
+  const shouldStack = data.type === 'consumable' || data.type === 'etc';
   const found = inventory.items.find(function (item) {
-    return item.id === id;
+    return item.id === id && (shouldStack || itemEnhance(item) === enhance);
   });
 
-  if (found) {
+  if (found && shouldStack) {
+    found.count += count;
+  } else if (found && itemEnhance(found) === enhance) {
     found.count += count;
   } else {
-    inventory.items.push(stack(id, count));
+    inventory.items.push(stack(id, count, enhance));
   }
 }
 
-function removeItem(id, count) {
+function removeItem(ref, count) {
+  const id = itemRefId(ref);
+  const enhance = itemEnhance(ref);
   const found = inventory.items.find(function (item) {
-    return item.id === id;
+    return item.id === id && itemEnhance(item) === enhance;
   });
 
   if (!found || found.count < count) return false;
@@ -2464,6 +2483,12 @@ function getItemCount(id) {
   }, 0);
 }
 
+function findInventoryItemRef(id) {
+  return inventory.items.find(function (item) {
+    return item.id === id;
+  }) || null;
+}
+
 function useQuickSlot(index) {
   const itemId = inventory.quickSlots[index];
 
@@ -2472,7 +2497,8 @@ function useQuickSlot(index) {
   useItem(itemId);
 }
 
-function useItem(id) {
+function useItem(ref) {
+  const id = itemRefId(ref);
   const item = ITEMS[id];
 
   if (!item) return;
@@ -2490,19 +2516,22 @@ function useItem(id) {
       makeText('+50 MP', game.player.x, game.player.y - 90, '#74c0fc');
     }
 
+    markAutoSaveSoon();
     return;
   }
 
   if (getEquipSlotForItem(item)) {
-    equipItem(id);
+    equipItem(ref);
   }
 }
 
-function equipItem(id) {
+function equipItem(ref) {
+  const id = itemRefId(ref);
   const item = ITEMS[id];
 
   if (!item) return;
-  if (!getItemCount(id)) return;
+  const invRef = typeof ref === 'string' ? findInventoryItemRef(id) : ref;
+  if (!invRef || !removeItem(invRef, 0)) return;
 
   const slot = getEquipSlotForItem(item);
   if (!slot) return;
@@ -2513,15 +2542,16 @@ function equipItem(id) {
   }
 
   if (equipment[slot]) {
-    addItem(itemRefId(equipment[slot]), 1);
+    addItem(equipment[slot], 1);
   }
 
-  removeItem(id, 1);
+  removeItem(invRef, 1);
   equipment[slot] = makeEquippedRef(id);
+  equipment[slot].enhance = itemEnhance(invRef);
   recalcStats();
   markAutoSaveSoon();
 
-  makeText(`${item.name} 장착`, game.player.x, game.player.y - 90, '#ffe066');
+  makeText(`${getItemDisplayName(equipment[slot])} 장착`, game.player.x, game.player.y - 90, '#ffe066');
 }
 
 function getEquipmentBonus() {
@@ -2630,8 +2660,9 @@ function pickNearbyDrops() {
         wallet.gold += d.amount;
         makeText(`+${d.amount}G`, p.x, p.y - 90, '#ffd43b');
       } else {
-        addItem(d.itemId, d.count);
-        makeText(`${ITEMS[d.itemId].name} +${d.count}`, p.x, p.y - 90, '#c0eb75');
+        const pickedRef = d.itemRef || d.itemId;
+        addItem(pickedRef, d.count);
+        makeText(`${getItemDisplayName(pickedRef) || ITEMS[d.itemId].name} +${d.count}`, p.x, p.y - 90, '#c0eb75');
       }
     }
   });
@@ -2730,14 +2761,15 @@ function finishInventoryDrag(x, y) {
     } else {
       if (dragState.kind === 'inventory') removeItem(id, 1);
       if (dragState.kind === 'equipment') equipment[dragState.slot] = null;
-      if (equipment[targetSlot]) addItem(itemRefId(equipment[targetSlot]), 1);
+      if (equipment[targetSlot]) addItem(equipment[targetSlot], 1);
       equipment[targetSlot] = makeEquippedRef(id);
+      equipment[targetSlot].enhance = itemEnhance(dragged);
       recalcStats();
       makeText(`${item.name} 장착`, game.player.x, game.player.y - 90, '#ffe066');
     }
   } else if (targetInv >= 0) {
     if (dragState.kind === 'equipment') {
-      addItem(id, 1);
+      addItem(equipment[dragState.slot], 1);
       equipment[dragState.slot] = null;
       recalcStats();
     } else if (targetInv !== dragState.index) {
@@ -2751,7 +2783,7 @@ function finishInventoryDrag(x, y) {
       equipment[dragState.slot] = null;
       recalcStats();
     }
-    game.drops.push({ kind: 'item', itemId: id, count: 1, x: game.player.x + game.player.face * 36, y: game.player.y - 30, vy: -130, picked: false });
+    game.drops.push({ kind: 'item', itemId: id, itemRef: cloneItemRef(dragged, 1), count: 1, x: game.player.x + game.player.face * 36, y: game.player.y - 30, vy: -130, picked: false });
     makeText(`${item.name} 버림`, game.player.x, game.player.y - 90, '#cbd5e1');
   }
 
@@ -2765,7 +2797,7 @@ function finishInventoryDrag(x, y) {
 function getHoveredItemRef() {
   if (!inventory.open || !game.mouse) return null;
   const invIndex = getInventorySlotAt(game.mouse.x, game.mouse.y);
-  if (invIndex >= 0 && inventory.items[invIndex]) return inventory.items[invIndex].id;
+  if (invIndex >= 0 && inventory.items[invIndex]) return inventory.items[invIndex];
   const slot = getEquipmentSlotAt(game.mouse.x, game.mouse.y);
   if (slot && equipment[slot]) return equipment[slot];
   return null;
@@ -2774,7 +2806,7 @@ function getHoveredItemRef() {
 function handleInventoryClick(x, y) {
   if (dragState.active) return;
   const i = getInventorySlotAt(x, y);
-  if (i >= 0 && inventory.items[i]) useItem(inventory.items[i].id);
+  if (i >= 0 && inventory.items[i]) useItem(inventory.items[i]);
 }
 
 function handleStatClick(x, y) {
