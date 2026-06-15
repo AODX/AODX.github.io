@@ -2020,27 +2020,87 @@ function handleShopClick(x, y) {
    Combat
 ========================================================= */
 
+function getEquippedWeaponKind() {
+  const weaponId = itemRefId(equipment.weapon);
+  const item = ITEMS[weaponId] || {};
+  if (!weaponId) return 'fist';
+  return item.weaponType || (weaponId.includes('staff') ? 'staff' : weaponId.includes('bow') ? 'bow' : weaponId.includes('dagger') ? 'dagger' : 'sword');
+}
+
+function getBasicAttackProfile() {
+  const kind = getEquippedWeaponKind();
+
+  if (kind === 'staff') {
+    return { kind, cooldown: 0.52, range: 330, power: 1.05, magic: true, projectile: 'magic', color: '#74c0fc' };
+  }
+
+  if (kind === 'bow') {
+    return { kind, cooldown: 0.43, range: 360, power: 0.95, magic: false, projectile: 'arrow', color: '#ffd43b' };
+  }
+
+  if (kind === 'dagger') {
+    return { kind, cooldown: 0.18, range: 58, power: 0.72, hits: 2, magic: false, color: '#d8b4fe' };
+  }
+
+  if (kind === 'sword') {
+    return { kind, cooldown: 0.34, range: 86, power: 1.15, hits: 1, magic: false, color: '#ffb020' };
+  }
+
+  return { kind, cooldown: 0.28, range: 65, power: 1.0, hits: 1, magic: false, color: '#ffb020' };
+}
+
 function basicAttack() {
   const p = game.player;
 
   if (p.attackTime > 0) return;
 
-  p.attackTime = 0.28;
+  const profile = getBasicAttackProfile();
+
+  p.attackTime = profile.cooldown;
+  p.attackKind = profile.kind;
   p.anim = 'attack';
   p.animTime = 0;
 
-  const weaponBonus = equipment.weapon ? 1.15 : 1.0;
+  if (profile.projectile) {
+    spawnBasicWeaponProjectile(profile);
+    return;
+  }
 
   hitMonsters({
-    range: 65,
-    power: 1.0 * weaponBonus,
-    hits: 1,
-    magic: false
+    range: profile.range,
+    power: profile.power,
+    hits: profile.hits || 1,
+    magic: profile.magic
   });
 
-  slashEffect(p.x + p.face * 36, p.y - 44, p.face, '#ffb020');
+  if (profile.kind === 'dagger') {
+    slashEffect(p.x + p.face * 30, p.y - 42, p.face, profile.color);
+    slashEffect(p.x + p.face * 45, p.y - 52, p.face, '#ffffff');
+  } else {
+    slashEffect(p.x + p.face * 46, p.y - 48, p.face, profile.color);
+  }
 }
 
+function spawnBasicWeaponProjectile(profile) {
+  const p = game.player;
+  const speed = profile.projectile === 'arrow' ? 620 : 430;
+
+  game.projectiles.push({
+    x: p.x + p.face * 42,
+    y: p.y - 52,
+    vx: p.face * speed,
+    life: profile.projectile === 'arrow' ? 0.7 : 0.95,
+    face: p.face,
+    kind: profile.projectile,
+    skill: {
+      power: profile.power,
+      range: profile.range,
+      magic: profile.magic
+    },
+    hitSet: new Set(),
+    color: profile.color
+  });
+}
 function useHotSkill(slot) {
   const id = skills.hotkeys[slot];
 
@@ -3171,24 +3231,7 @@ function drawPortals() {
 
 function drawNPCs() {
   game.npcs.forEach(function (npc) {
-    const fake = {
-      ...game.player,
-      character: {
-        name: npc.name,
-        job: 'beginner',
-        skin: '#ffd6a6',
-        hair: npc.type === 'job' ? '#e2e8f0' : npc.type === 'taxi' ? '#343a40' : '#6b3f22',
-        hairStyle: npc.type === 'job' ? 'spiky' : 'basic',
-        faceStyle: 'normal'
-      },
-      x: npc.x,
-      y: npc.y,
-      anim: 'idle',
-      animTime: performance.now() / 1000,
-      face: 1
-    };
-
-    drawPlayer(fake, npc.x, npc.y, 0.68);
+    drawNPCBody(npc);
 
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 15px sans-serif';
@@ -3202,6 +3245,145 @@ function drawNPCs() {
   });
 }
 
+function drawNPCBody(npc) {
+  const t = performance.now() / 1000;
+  const bob = Math.sin(t * 3) * 1.5;
+
+  const look = {
+    taxi: { skin: '#8d5524', hair: '#111827', hat: '#1f2937', body: '#facc15', sub: '#111827', prop: 'taxi' },
+    merchant: { skin: '#f1c27d', hair: '#7c2d12', hat: '#b45309', body: '#22c55e', sub: '#fef3c7', prop: 'bag' },
+    weapon: { skin: '#c68642', hair: '#3f2a1d', hat: '#374151', body: '#64748b', sub: '#f97316', prop: 'hammer' },
+    blacksmith: { skin: '#c68642', hair: '#1f2937', hat: '#4b5563', body: '#7c2d12', sub: '#f59e0b', prop: 'hammer' },
+    quest: { skin: '#f1c27d', hair: '#e5e7eb', hat: '#6d28d9', body: '#7c3aed', sub: '#fef08a', prop: 'scroll' },
+    job: { skin: '#f1c27d', hair: '#e5e7eb', hat: '#0f172a', body: '#2563eb', sub: '#bfdbfe', prop: 'star' }
+  }[npc.type] || { skin: '#ffd6a6', hair: '#6b3f22', hat: '#334155', body: '#60a5fa', sub: '#f8fafc', prop: 'none' };
+
+  ctx.save();
+  ctx.translate(npc.x, npc.y + bob);
+  ctx.scale(0.72, 0.72);
+
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath();
+  ctx.ellipse(0, 3, 22, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = '#171717';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(-7, -30); ctx.lineTo(-13, -8);
+  ctx.moveTo(7, -30); ctx.lineTo(13, -8);
+  ctx.stroke();
+
+  ctx.strokeStyle = look.skin;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-7, -30); ctx.lineTo(-13, -8);
+  ctx.moveTo(7, -30); ctx.lineTo(13, -8);
+  ctx.stroke();
+
+  ctx.fillStyle = '#171717';
+  roundRect(ctx, -21, -12, 18, 7, 1.5);
+  roundRect(ctx, 3, -12, 18, 7, 1.5);
+
+  ctx.fillStyle = '#171717';
+  roundRect(ctx, -19, -66, 38, 38, 8);
+  ctx.fillStyle = look.body;
+  roundRect(ctx, -16, -63, 32, 34, 7);
+  ctx.fillStyle = look.sub;
+  ctx.fillRect(-10, -58, 20, 6);
+  ctx.fillRect(-13, -39, 26, 7);
+
+  ctx.strokeStyle = '#171717';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(-14, -55); ctx.lineTo(-25, -44);
+  ctx.moveTo(14, -55); ctx.lineTo(25, -44);
+  ctx.stroke();
+
+  ctx.strokeStyle = look.skin;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-14, -55); ctx.lineTo(-25, -44);
+  ctx.moveTo(14, -55); ctx.lineTo(25, -44);
+  ctx.stroke();
+
+  ctx.fillStyle = '#171717';
+  circle(ctx, -25, -44, 4);
+  circle(ctx, 25, -44, 4);
+  ctx.fillStyle = look.skin;
+  circle(ctx, -25, -44, 2.7);
+  circle(ctx, 25, -44, 2.7);
+
+  if (look.prop === 'hammer') {
+    ctx.save();
+    ctx.translate(28, -48);
+    ctx.rotate(-0.6);
+    ctx.fillStyle = '#4b5563';
+    ctx.fillRect(-12, -31, 24, 10);
+    ctx.fillStyle = '#7c2d12';
+    ctx.fillRect(-3, -22, 6, 34);
+    ctx.restore();
+  } else if (look.prop === 'bag') {
+    ctx.fillStyle = '#92400e';
+    roundRect(ctx, 22, -39, 18, 20, 5);
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillRect(27, -35, 8, 3);
+  } else if (look.prop === 'scroll') {
+    ctx.fillStyle = '#fef3c7';
+    roundRect(ctx, 22, -49, 16, 24, 4);
+    ctx.fillStyle = '#92400e';
+    ctx.fillRect(25, -42, 10, 2);
+    ctx.fillRect(25, -36, 8, 2);
+  } else if (look.prop === 'taxi') {
+    ctx.fillStyle = '#facc15';
+    roundRect(ctx, -34, -24, 20, 13, 3);
+    ctx.fillStyle = '#111827';
+    circle(ctx, -29, -10, 3);
+    circle(ctx, -19, -10, 3);
+  }
+
+  ctx.fillStyle = '#171717';
+  circle(ctx, -19, -89, 5);
+  circle(ctx, 19, -89, 5);
+  ctx.beginPath();
+  ctx.ellipse(0, -92, 21, 23, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = look.skin;
+  circle(ctx, -18.5, -89, 3.7);
+  circle(ctx, 18.5, -89, 3.7);
+  ctx.beginPath();
+  ctx.ellipse(0, -92, 18, 20, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = look.hair;
+  roundRect(ctx, -16, -113, 32, 13, 8);
+  ctx.fillRect(-13, -101, 26, 4);
+
+  ctx.fillStyle = look.hat;
+  if (npc.type === 'taxi') {
+    roundRect(ctx, -18, -119, 36, 9, 4);
+    ctx.fillRect(-13, -126, 26, 9);
+  } else if (npc.type === 'merchant') {
+    ctx.beginPath();
+    ctx.ellipse(0, -113, 25, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    roundRect(ctx, -12, -126, 24, 14, 5);
+  } else if (npc.type === 'job' || npc.type === 'quest') {
+    ctx.beginPath();
+    ctx.moveTo(-22, -112); ctx.lineTo(0, -138); ctx.lineTo(22, -112);
+    ctx.closePath();
+    ctx.fill();
+  } else {
+    roundRect(ctx, -18, -119, 36, 12, 5);
+  }
+
+  ctx.fillStyle = '#111827';
+  ctx.fillRect(-8, -99, 3.5, 5);
+  ctx.fillRect(4.5, -99, 3.5, 5);
+  ctx.fillRect(-3, -88, 6, 1.5);
+
+  ctx.restore();
+}
 function drawMonsters() {
   game.monsters.forEach(function (m) {
     if (m.dead) return;
@@ -3397,15 +3579,52 @@ function drawProjectiles() {
     ctx.shadowColor = p.color;
     ctx.shadowBlur = 14;
 
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 16, 7, 0, 0, Math.PI * 2);
-    ctx.fill();
+    if (p.kind === 'arrow') {
+      ctx.strokeStyle = '#78350f';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-20, 0);
+      ctx.lineTo(18, 0);
+      ctx.stroke();
 
-    ctx.fillStyle = '#fff8';
-    ctx.beginPath();
-    ctx.ellipse(5, -1, 5, 2.5, 0, 0, Math.PI * 2);
-    ctx.fill();
+      ctx.fillStyle = '#e5e7eb';
+      ctx.beginPath();
+      ctx.moveTo(22, 0);
+      ctx.lineTo(12, -5);
+      ctx.lineTo(12, 5);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#fef3c7';
+      ctx.fillRect(-24, -5, 7, 3);
+      ctx.fillRect(-24, 2, 7, 3);
+    } else if (p.kind === 'magic') {
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 18, 13, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#ffffffaa';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 24, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = '#fff8';
+      ctx.beginPath();
+      ctx.ellipse(6, -4, 5, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 16, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#fff8';
+      ctx.beginPath();
+      ctx.ellipse(5, -1, 5, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     ctx.restore();
   });
@@ -3507,9 +3726,34 @@ function drawPlayerBody(c, player) {
   let ry = -47;
 
   if (player.anim === 'attack') {
-    const atk = Math.sin(Math.min(1, player.animTime * 13) * Math.PI);
-    rx = 22 + atk * 23;
-    ry = -49;
+    const kind = player.attackKind || (weaponId ? ((ITEMS[weaponId] || {}).weaponType || 'sword') : 'fist');
+    const atk = Math.sin(Math.min(1, player.animTime * 14) * Math.PI);
+
+    if (kind === 'sword') {
+      rx = 22 + atk * 31;
+      ry = -55 + atk * 10;
+      lx = -18 - atk * 5;
+      ly = -49;
+    } else if (kind === 'dagger') {
+      const jab = Math.sin(Math.min(1, player.animTime * 26) * Math.PI);
+      rx = 24 + jab * 28;
+      ry = -46;
+      lx = -18;
+      ly = -48;
+    } else if (kind === 'bow') {
+      rx = 30;
+      ry = -51;
+      lx = -26 - atk * 9;
+      ly = -52;
+    } else if (kind === 'staff') {
+      rx = 34;
+      ry = -65 + atk * 8;
+      lx = -18;
+      ly = -47;
+    } else {
+      rx = 22 + atk * 23;
+      ry = -49;
+    }
   }
 
   if (player.anim === 'jump') {
@@ -3553,7 +3797,7 @@ function drawPlayerBody(c, player) {
   circle(c, lx, ly, 2.7);
   circle(c, rx, ry, 2.7);
 
-  drawWeapon(c, weaponId, rx, ry, player.anim === 'attack');
+  drawWeapon(c, weaponId, rx, ry, player.anim === 'attack', player.attackKind, player.animTime);
 
   c.fillStyle = '#171717';
   c.fillRect(-5, -70, 10, 8);
@@ -3577,17 +3821,47 @@ function drawPlayerBody(c, player) {
   c.ellipse(0, -92, 18, 20, 0, 0, Math.PI * 2);
   c.fill();
 
-  drawFace(c, ch, -92);
   drawHair(c, ch, -92);
+  drawFace(c, ch, -92);
   drawEquippedHelmet(c, helmetId, -92);
 
   if (player.anim === 'attack') {
-    const t = Math.sin(Math.min(1, player.animTime * 12) * Math.PI);
-    c.strokeStyle = '#ffe066';
-    c.lineWidth = 4;
-    c.beginPath();
-    c.arc(30, -44, 12 + t * 18, -0.7, 0.85);
-    c.stroke();
+    const kind = player.attackKind || (weaponId ? ((ITEMS[weaponId] || {}).weaponType || 'sword') : 'fist');
+    const t = Math.sin(Math.min(1, player.animTime * 14) * Math.PI);
+
+    if (kind === 'sword') {
+      c.strokeStyle = '#ffe066';
+      c.lineWidth = 5;
+      c.beginPath();
+      c.arc(35, -51, 20 + t * 22, -1.15, 0.85);
+      c.stroke();
+    } else if (kind === 'dagger') {
+      c.strokeStyle = '#d8b4fe';
+      c.lineWidth = 3;
+      c.beginPath();
+      c.moveTo(26, -47);
+      c.lineTo(58 + t * 12, -47);
+      c.stroke();
+    } else if (kind === 'staff') {
+      c.strokeStyle = '#74c0fc';
+      c.lineWidth = 3;
+      c.beginPath();
+      c.arc(38, -72, 8 + t * 7, 0, Math.PI * 2);
+      c.stroke();
+    } else if (kind === 'bow') {
+      c.strokeStyle = '#ffd43b';
+      c.lineWidth = 3;
+      c.beginPath();
+      c.moveTo(34, -52);
+      c.lineTo(60 + t * 18, -52);
+      c.stroke();
+    } else {
+      c.strokeStyle = '#ffe066';
+      c.lineWidth = 4;
+      c.beginPath();
+      c.arc(30, -44, 12 + t * 18, -0.7, 0.85);
+      c.stroke();
+    }
   }
 }
 
@@ -3639,47 +3913,47 @@ function drawHair(c, ch, headY) {
 
   if (style === 'spiky') {
     c.beginPath();
-    c.moveTo(-19, headY - 7);
+    c.moveTo(-19, headY - 9);
     c.lineTo(-13, headY - 23);
-    c.lineTo(-7, headY - 12);
+    c.lineTo(-7, headY - 14);
     c.lineTo(0, headY - 26);
-    c.lineTo(7, headY - 12);
+    c.lineTo(7, headY - 14);
     c.lineTo(14, headY - 22);
-    c.lineTo(19, headY - 7);
-    c.lineTo(17, headY + 1);
-    c.lineTo(-17, headY + 1);
+    c.lineTo(19, headY - 9);
+    c.lineTo(16, headY - 5);
+    c.lineTo(-16, headY - 5);
     c.closePath();
     c.fill();
   } else {
-    roundRect(c, -20, headY - 24, 40, 22, 12);
-    c.fillRect(-17, headY - 11, 34, 8);
+    roundRect(c, -20, headY - 24, 40, 19, 12);
+    c.fillRect(-15, headY - 9, 30, 4);
   }
 
   c.fillStyle = hair;
 
   if (style === 'spiky') {
     c.beginPath();
-    c.moveTo(-16, headY - 7);
+    c.moveTo(-16, headY - 9);
     c.lineTo(-12, headY - 20);
-    c.lineTo(-6, headY - 10);
+    c.lineTo(-6, headY - 12);
     c.lineTo(0, headY - 23);
-    c.lineTo(6, headY - 10);
+    c.lineTo(6, headY - 12);
     c.lineTo(12, headY - 20);
-    c.lineTo(16, headY - 7);
-    c.lineTo(14, headY + 0);
-    c.lineTo(-14, headY + 0);
+    c.lineTo(16, headY - 9);
+    c.lineTo(13, headY - 6);
+    c.lineTo(-13, headY - 6);
     c.closePath();
     c.fill();
   } else {
-    roundRect(c, -17.5, headY - 21.5, 35, 19, 10);
-    c.fillRect(-14, headY - 9, 28, 7);
+    roundRect(c, -17.5, headY - 21.5, 35, 16, 10);
+    c.fillRect(-12, headY - 8, 24, 3.5);
   }
 
   if (style === 'short') {
     for (let i = -13; i <= 7; i += 6) {
       c.beginPath();
       c.moveTo(i, headY - 8);
-      c.lineTo(i + 4, headY + 1);
+      c.lineTo(i + 4, headY - 3);
       c.lineTo(i + 8, headY - 8);
       c.fill();
     }
@@ -3687,23 +3961,22 @@ function drawHair(c, ch, headY) {
 
   if (style === 'pony') {
     c.beginPath();
-    c.ellipse(20, headY - 2, 7, 12, -0.25, 0, Math.PI * 2);
+    c.ellipse(20, headY - 5, 7, 12, -0.25, 0, Math.PI * 2);
     c.fill();
   }
 
   if (style === 'wave' || style === 'bob') {
-    circle(c, -15, headY + 2, 5);
-    circle(c, 15, headY + 2, 5);
+    circle(c, -15, headY - 1, 5);
+    circle(c, 15, headY - 1, 5);
 
     if (style === 'bob') {
-      c.fillRect(-14, headY - 1, 28, 5);
+      c.fillRect(-14, headY - 4, 28, 4);
     }
   }
 
   c.fillStyle = 'rgba(255,255,255,0.22)';
   c.fillRect(-8, headY - 18, 7, 2);
 }
-
 
 function drawEquippedHelmet(c, helmetId, headY) {
   if (!helmetId) return;
@@ -3717,69 +3990,107 @@ function drawEquippedHelmet(c, helmetId, headY) {
   c.fillRect(-10, headY - 28, 20, 4);
 }
 
-function drawWeapon(c, weaponId, handX, handY, attacking) {
+function drawWeapon(c, weaponId, handX, handY, attacking, attackKind, animTime) {
   if (!weaponId) return;
+
+  const weaponData = ITEMS[weaponId] || {};
+  const weaponKind = attackKind || weaponData.weaponType || (weaponId.includes('staff') ? 'staff' : weaponId.includes('bow') ? 'bow' : weaponId.includes('dagger') ? 'dagger' : 'sword');
+  const px = weaponData.pixel || { a: '#e5e7eb', b: '#f97316', variant: 1 };
+  const t = attacking ? Math.sin(Math.min(1, (animTime || 0) * 14) * Math.PI) : 0;
 
   c.save();
   c.translate(handX, handY);
-  c.rotate(attacking ? -0.9 : -0.35);
 
-  const weaponData = ITEMS[weaponId] || {};
-  const weaponKind = weaponData.weaponType || (weaponId.includes('staff') ? 'staff' : weaponId.includes('bow') ? 'bow' : weaponId.includes('dagger') ? 'dagger' : 'sword');
-  const px = weaponData.pixel || { a: '#e5e7eb', b: '#f97316', variant: 1 };
+  if (weaponKind === 'sword') c.rotate(attacking ? -1.35 + t * 1.75 : -0.35);
+  else if (weaponKind === 'dagger') c.rotate(attacking ? -0.25 : -0.35);
+  else if (weaponKind === 'bow') c.rotate(attacking ? -0.05 : -0.25);
+  else if (weaponKind === 'staff') c.rotate(attacking ? -0.75 + t * 0.25 : -0.35);
+  else c.rotate(attacking ? -0.9 : -0.35);
 
   if (weaponKind === 'staff') {
     c.strokeStyle = '#111827';
     c.lineWidth = 5;
     c.beginPath();
-    c.moveTo(0, 8);
-    c.lineTo(0, -32);
+    c.moveTo(0, 10);
+    c.lineTo(0, -42);
     c.stroke();
 
     c.strokeStyle = px.a;
     c.lineWidth = 3;
     c.beginPath();
-    c.moveTo(0, 8);
-    c.lineTo(0, -32);
+    c.moveTo(0, 10);
+    c.lineTo(0, -42);
     c.stroke();
 
     c.fillStyle = px.b;
-    circle(c, 0, -35, 5 + (px.variant % 3));
+    circle(c, 0, -46, 6 + (px.variant % 3));
+
+    if (attacking) {
+      c.strokeStyle = '#bfdbfe';
+      c.lineWidth = 2;
+      c.beginPath();
+      c.arc(0, -46, 11 + t * 8, 0, Math.PI * 2);
+      c.stroke();
+    }
   } else if (weaponKind === 'bow') {
     c.strokeStyle = '#111827';
     c.lineWidth = 5;
     c.beginPath();
-    c.arc(0, -9, 17, -Math.PI / 2, Math.PI / 2);
+    c.arc(0, -9, 21, -Math.PI / 2, Math.PI / 2);
     c.stroke();
 
     c.strokeStyle = px.a;
     c.lineWidth = 3;
     c.beginPath();
-    c.arc(0, -9, 17, -Math.PI / 2, Math.PI / 2);
+    c.arc(0, -9, 21, -Math.PI / 2, Math.PI / 2);
     c.stroke();
+
+    c.strokeStyle = '#e5e7eb';
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.moveTo(0, -30);
+    c.lineTo(attacking ? -12 - t * 8 : 0, -9);
+    c.lineTo(0, 12);
+    c.stroke();
+
+    if (attacking) {
+      c.strokeStyle = '#fef3c7';
+      c.lineWidth = 2;
+      c.beginPath();
+      c.moveTo(-16 - t * 8, -9);
+      c.lineTo(22, -9);
+      c.stroke();
+    }
   } else if (weaponKind === 'dagger') {
-    c.fillStyle = '#e5e7eb';
+    c.fillStyle = px.a;
     c.beginPath();
-    c.moveTo(0, -38);
-    c.lineTo(6, -22);
-    c.lineTo(-6, -22);
+    c.moveTo(0, -34);
+    c.lineTo(7, -19);
+    c.lineTo(-7, -19);
     c.closePath();
     c.fill();
 
+    c.fillStyle = px.b;
+    c.fillRect(-7, -21, 14, 4);
     c.fillStyle = '#111827';
-    c.fillRect(-3, -22, 6, 22);
+    c.fillRect(-3, -17, 6, 21);
   } else {
-    c.fillStyle = '#e5e7eb';
+    c.fillStyle = px.a;
     c.beginPath();
-    c.moveTo(0, -46);
-    c.lineTo(9, -28);
-    c.lineTo(0, -18);
-    c.lineTo(-9, -28);
+    c.moveTo(0, -56);
+    c.lineTo(10, -35);
+    c.lineTo(3, -18);
+    c.lineTo(-3, -18);
+    c.lineTo(-10, -35);
     c.closePath();
     c.fill();
 
-    c.fillStyle = '#f97316';
-    c.fillRect(-3, -28, 6, 35);
+    c.fillStyle = '#ffffff88';
+    c.fillRect(-2, -49, 3, 27);
+    c.fillStyle = px.b;
+    c.fillRect(-13, -21, 26, 5);
+    c.fillStyle = '#7c2d12';
+    c.fillRect(-4, -18, 8, 26);
   }
 
   c.restore();
