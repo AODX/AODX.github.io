@@ -499,6 +499,155 @@ const SHOP_ITEMS = [
   'swift_charm'
 ];
 
+/* =========================================================
+   Expanded Equipment Catalog / Tooltips / Enhancement
+========================================================= */
+
+const TOWN_LEVELS = {
+  lumina: 'Lv.1~5',
+  greenwood: 'Lv.4~9',
+  ellenium: 'Lv.8~15',
+  valor: 'Lv.8~15',
+  shadowport: 'Lv.9~17',
+  sylvania: 'Lv.9~17',
+  irondeep: 'Lv.14~22',
+  frosthall: 'Lv.18~28',
+  solas: 'Lv.22~35',
+  nocturn: 'Lv.28~45'
+};
+
+TOWNS.forEach(function (town) {
+  town.recommendLevel = TOWN_LEVELS[town.id] || 'Lv.1~10';
+});
+
+function buildEquipmentCatalog() {
+  const catalog = {};
+  const groups = [
+    { prefix: 'staff', type: 'weapon', weaponType: 'staff', equipSlot: 'weapon', icon: 'staff', korean: '스태프', main: 'int', atkKey: 'matk', base: 10, colorA: '#b197fc', colorB: '#74c0fc', count: 20 },
+    { prefix: 'bow', type: 'weapon', weaponType: 'bow', equipSlot: 'weapon', icon: 'bow', korean: '활', main: 'dex', atkKey: 'atk', base: 8, colorA: '#ffd43b', colorB: '#8ce99a', count: 20 },
+    { prefix: 'sword', type: 'weapon', weaponType: 'sword', equipSlot: 'weapon', icon: 'sword', korean: '검', main: 'str', atkKey: 'atk', base: 9, colorA: '#f97316', colorB: '#e5e7eb', count: 20 },
+    { prefix: 'dagger', type: 'weapon', weaponType: 'dagger', equipSlot: 'weapon', icon: 'dagger', korean: '단검', main: 'luk', atkKey: 'atk', base: 7, colorA: '#e5e7eb', colorB: '#b197fc', count: 20 },
+    { prefix: 'helmet', type: 'helmet', equipSlot: 'helmet', icon: 'helmet', korean: '헬멧', main: 'str', atkKey: 'def', base: 4, colorA: '#adb5bd', colorB: '#74c0fc', count: 20 },
+    { prefix: 'knee', type: 'knee', equipSlot: 'knee', icon: 'knee', korean: '무릎 방어구', main: 'dex', atkKey: 'def', base: 3, colorA: '#94a3b8', colorB: '#ffd43b', count: 20 },
+    { prefix: 'armor', type: 'armor', equipSlot: 'armor', icon: 'armor', korean: '갑옷', main: 'str', atkKey: 'def', base: 6, colorA: '#60a5fa', colorB: '#c084fc', count: 20 },
+    { prefix: 'accessory', type: 'accessory', equipSlot: 'accessory', icon: 'ring', korean: '악세사리', main: 'luk', atkKey: 'crit', base: 2, colorA: '#ffd43b', colorB: '#f472b6', count: 30 }
+  ];
+
+  const grades = ['낡은', '수습', '견고한', '빛나는', '강화', '기사', '정령', '영웅', '신비', '전설'];
+
+  groups.forEach(function (g) {
+    for (let i = 1; i <= g.count; i++) {
+      const req = Math.max(1, Math.floor((i - 1) * 3 + (g.type === 'accessory' ? 1 : 0)));
+      const id = `${g.prefix}_${String(i).padStart(2, '0')}`;
+      const grade = grades[Math.min(grades.length - 1, Math.floor((i - 1) / 2))];
+      const item = {
+        id,
+        name: `${grade} ${g.korean} ${i}`,
+        type: g.type,
+        weaponType: g.weaponType,
+        equipSlot: g.equipSlot,
+        icon: g.icon,
+        reqLevel: req,
+        price: 80 + i * 55,
+        sell: 20 + i * 14,
+        pixel: {
+          a: i % 2 ? g.colorA : g.colorB,
+          b: i % 3 ? g.colorB : g.colorA,
+          variant: i
+        },
+        desc: `장착 가능 레벨 ${req}`
+      };
+
+      item[g.atkKey] = g.base + i * (g.type === 'weapon' ? 3 : 2);
+      item[g.main] = Math.floor(i / 3) + 1;
+      if (g.type === 'armor') item.hp = 20 + i * 12;
+      if (g.type === 'helmet') item.hp = 10 + i * 6;
+      if (g.type === 'knee') item.speed = Math.floor(i / 2);
+      if (g.type === 'accessory') item.crit = 1 + Math.floor(i / 4);
+      catalog[id] = item;
+    }
+  });
+
+  return catalog;
+}
+
+Object.assign(ITEMS, buildEquipmentCatalog());
+
+Object.assign(ITEMS.wooden_sword, { equipSlot: 'weapon', weaponType: 'sword', reqLevel: 1, pixel: { a: '#a16207', b: '#f59e0b', variant: 1 } });
+Object.assign(ITEMS.iron_sword, { equipSlot: 'weapon', weaponType: 'sword', reqLevel: 6, pixel: { a: '#e5e7eb', b: '#f97316', variant: 2 } });
+Object.assign(ITEMS.mage_staff, { equipSlot: 'weapon', weaponType: 'staff', reqLevel: 8, pixel: { a: '#b197fc', b: '#74c0fc', variant: 3 } });
+Object.assign(ITEMS.hunter_bow, { equipSlot: 'weapon', weaponType: 'bow', reqLevel: 8, pixel: { a: '#ffd43b', b: '#8ce99a', variant: 4 } });
+Object.assign(ITEMS.rogue_dagger, { equipSlot: 'weapon', weaponType: 'dagger', reqLevel: 8, pixel: { a: '#e5e7eb', b: '#b197fc', variant: 5 } });
+Object.assign(ITEMS.cloth_armor, { equipSlot: 'armor', reqLevel: 1, pixel: { a: '#60a5fa', b: '#f8f9ff', variant: 1 } });
+Object.assign(ITEMS.iron_armor, { equipSlot: 'armor', reqLevel: 8, pixel: { a: '#8fa3b8', b: '#52677d', variant: 2 } });
+Object.assign(ITEMS.magic_robe, { equipSlot: 'armor', reqLevel: 8, pixel: { a: '#8b5cf6', b: '#5b36b8', variant: 3 } });
+Object.assign(ITEMS.lucky_ring, { equipSlot: 'accessory', reqLevel: 5, pixel: { a: '#ffd43b', b: '#f472b6', variant: 1 } });
+Object.assign(ITEMS.swift_charm, { equipSlot: 'accessory', reqLevel: 5, pixel: { a: '#8ce99a', b: '#74c0fc', variant: 2 } });
+
+SHOP_ITEMS.push(
+  ...Object.keys(ITEMS).filter(function (id) {
+    return /^(staff|bow|sword|dagger|helmet|knee|armor|accessory)_/.test(id) && Number(id.slice(-2)) <= 10;
+  })
+);
+
+function itemRefId(ref) {
+  return typeof ref === 'string' ? ref : ref && ref.id;
+}
+
+function itemEnhance(ref) {
+  return typeof ref === 'object' && ref ? (ref.enhance || 0) : 0;
+}
+
+function makeEquippedRef(id) {
+  return { id, enhance: 0 };
+}
+
+function getItemData(ref) {
+  return ITEMS[itemRefId(ref)] || null;
+}
+
+function getItemDisplayName(ref) {
+  const item = getItemData(ref);
+  const plus = itemEnhance(ref);
+  return item ? `${plus ? '+' + plus + ' ' : ''}${item.name}` : '';
+}
+
+function getEquipSlotForItem(item) {
+  if (!item) return null;
+  if (item.equipSlot) return item.equipSlot;
+  if (item.type === 'weapon') return 'weapon';
+  if (item.type === 'armor') return 'armor';
+  if (item.type === 'accessory') return 'accessory';
+  return null;
+}
+
+function getEnhanceBonus(ref, statKey) {
+  const plus = itemEnhance(ref);
+  if (!plus) return 0;
+  if (statKey === 'atk' || statKey === 'matk') return plus * 3;
+  if (statKey === 'def') return plus * 2;
+  if (statKey === 'hp') return plus * 12;
+  if (statKey === 'mp') return plus * 10;
+  if (statKey === 'crit') return Math.floor(plus / 2);
+  return Math.floor(plus / 3);
+}
+
+function getEnhanceRate(plus) {
+  return [1, 0.92, 0.84, 0.72, 0.60, 0.48, 0.36, 0.26, 0.18, 0.12][plus] || 0;
+}
+
+function getDestroyRate(plus) {
+  if (plus < 5) return 0;
+  return [0, 0, 0, 0, 0, 0.08, 0.12, 0.18, 0.25, 0.35][plus] || 0.45;
+}
+
+function getEnhanceCost(ref) {
+  const item = getItemData(ref);
+  const plus = itemEnhance(ref);
+  return Math.floor(((item && item.price) || 100) * (0.35 + plus * 0.22));
+}
+
+
 const QUESTS = {
   tutorial: {
     id: 'tutorial',
@@ -826,6 +975,7 @@ const game = {
   dialog: null,
   taxiOpen: false,
   shopOpen: false,
+  blacksmithOpen: false,
 
   player: createPlayer()
 };
@@ -850,10 +1000,26 @@ const inventory = {
   quickSlots: ['hp_potion', 'mp_potion', null, null]
 };
 
+const EQUIP_SLOT_KEYS = ['weapon', 'helmet', 'armor', 'knee', 'accessory'];
+const EQUIP_SLOT_NAMES = { weapon: '무기', helmet: '헬멧', armor: '갑옷', knee: '무릎 방어구', accessory: '악세사리' };
+
 const equipment = {
   weapon: null,
+  helmet: null,
   armor: null,
+  knee: null,
   accessory: null
+};
+
+const dragState = {
+  active: false,
+  kind: null,
+  index: -1,
+  slot: null,
+  item: null,
+  x: 0,
+  y: 0,
+  startedAt: 0
 };
 
 const skills = {
@@ -1083,9 +1249,9 @@ function hydrateSave(save) {
   }
 
   if (save.equipment) {
-    equipment.weapon = save.equipment.weapon || null;
-    equipment.armor = save.equipment.armor || null;
-    equipment.accessory = save.equipment.accessory || null;
+    EQUIP_SLOT_KEYS.forEach(function (slot) {
+      equipment[slot] = save.equipment[slot] || null;
+    });
   }
 
   if (save.skills) {
@@ -1323,6 +1489,13 @@ function loadTown(townId) {
       text: '무기, 방어구, 장신구를 판매합니다.'
     },
     {
+      type: 'blacksmith',
+      name: '대장장이 브론',
+      x: 1280,
+      y: game.ground,
+      text: '장착 중인 장비를 최대 +10까지 강화할 수 있습니다.'
+    },
+    {
       type: 'quest',
       name: '장로 구름',
       x: 1460,
@@ -1499,7 +1672,7 @@ window.addEventListener('keydown', function (e) {
 
   if (!game.ready) return;
 
-  if (game.dialog || game.taxiOpen || game.shopOpen) {
+  if (game.dialog || game.taxiOpen || game.shopOpen || game.blacksmithOpen) {
     if (key === 'escape') closeWindows();
     return;
   }
@@ -1571,6 +1744,11 @@ canvas.addEventListener('click', function (e) {
     return;
   }
 
+  if (game.blacksmithOpen) {
+    handleBlacksmithClick(pos.x, pos.y);
+    return;
+  }
+
   if (inventory.open) {
     handleInventoryClick(pos.x, pos.y);
     return;
@@ -1584,6 +1762,27 @@ canvas.addEventListener('click', function (e) {
   if (skills.open) {
     handleSkillClick(pos.x, pos.y);
   }
+});
+
+
+
+canvas.addEventListener('mousemove', function (e) {
+  const pos = getMouse(e);
+  game.mouse = pos;
+  dragState.x = pos.x;
+  dragState.y = pos.y;
+});
+
+canvas.addEventListener('mousedown', function (e) {
+  if (!game.ready || !inventory.open || e.button !== 0) return;
+  const pos = getMouse(e);
+  beginInventoryDrag(pos.x, pos.y);
+});
+
+canvas.addEventListener('mouseup', function (e) {
+  if (!game.ready || !dragState.active) return;
+  const pos = getMouse(e);
+  finishInventoryDrag(pos.x, pos.y);
 });
 
 function getMouse(e) {
@@ -1630,6 +1829,7 @@ function closeWindows() {
   game.dialog = null;
   game.taxiOpen = false;
   game.shopOpen = false;
+  game.blacksmithOpen = false;
 }
 
 function handleDialogClick(x, y) {
@@ -1652,6 +1852,13 @@ function handleDialogClick(x, y) {
     if (npc.type === 'merchant' || npc.type === 'weapon') {
       game.dialog = null;
       game.shopOpen = npc.type;
+      return;
+    }
+
+    if (npc.type === 'blacksmith') {
+      game.dialog = null;
+      game.blacksmithOpen = true;
+      inventory.open = true;
       return;
     }
 
@@ -1769,6 +1976,20 @@ function handleTaxiClick(x, y) {
   }
 }
 
+
+function getShopItemsForCurrentTown() {
+  const hunt = getHunt(getTown(game.townId).hunt);
+  const minLv = Math.max(1, hunt.baseLevel - 4);
+  const maxLv = hunt.baseLevel + 12;
+  const base = SHOP_ITEMS.filter(function (id) {
+    const item = ITEMS[id];
+    if (!item || !getEquipSlotForItem(item)) return ['hp_potion', 'mp_potion'].includes(id);
+    const lv = item.reqLevel || 1;
+    return lv >= minLv && lv <= maxLv;
+  });
+  return base.slice(0, 20);
+}
+
 function handleShopClick(x, y) {
   if (hit(x, y, 1010, 610, 120, 40)) {
     game.shopOpen = false;
@@ -1782,7 +2003,7 @@ function handleShopClick(x, y) {
 
   const list = game.shopOpen === 'merchant'
     ? ['hp_potion', 'mp_potion']
-    : SHOP_ITEMS;
+    : getShopItemsForCurrentTown();
 
   for (let i = 0; i < list.length; i++) {
     const sx = 110 + (i % 2) * 380;
@@ -2092,7 +2313,7 @@ function useItem(id) {
     return;
   }
 
-  if (item.type === 'weapon' || item.type === 'armor' || item.type === 'accessory') {
+  if (getEquipSlotForItem(item)) {
     equipItem(id);
   }
 }
@@ -2103,14 +2324,20 @@ function equipItem(id) {
   if (!item) return;
   if (!getItemCount(id)) return;
 
-  const slot = item.type;
+  const slot = getEquipSlotForItem(item);
+  if (!slot) return;
+
+  if ((item.reqLevel || 1) > game.player.level) {
+    makeText(`Lv.${item.reqLevel}부터 장착 가능`, game.player.x, game.player.y - 90, '#ff8787');
+    return;
+  }
 
   if (equipment[slot]) {
-    addItem(equipment[slot], 1);
+    addItem(itemRefId(equipment[slot]), 1);
   }
 
   removeItem(id, 1);
-  equipment[slot] = id;
+  equipment[slot] = makeEquippedRef(id);
   recalcStats();
 
   makeText(`${item.name} 장착`, game.player.x, game.player.y - 90, '#ffe066');
@@ -2131,14 +2358,14 @@ function getEquipmentBonus() {
     speed: 0
   };
 
-  ['weapon', 'armor', 'accessory'].forEach(function (slot) {
-    const id = equipment[slot];
-    const item = ITEMS[id];
+  EQUIP_SLOT_KEYS.forEach(function (slot) {
+    const ref = equipment[slot];
+    const item = getItemData(ref);
 
     if (!item) return;
 
     Object.keys(bonus).forEach(function (key) {
-      bonus[key] += item[key] || 0;
+      bonus[key] += (item[key] || 0) + getEnhanceBonus(ref, key);
     });
   });
 
@@ -2234,7 +2461,12 @@ function pickNearbyDrops() {
    UI Click Handlers
 ========================================================= */
 
-function handleInventoryClick(x, y) {
+
+function getInventoryPanelRect() {
+  return { x: 50, y: 96, w: 850, h: 560 };
+}
+
+function getInventorySlotAt(x, y) {
   const gridX = 50 + 395 + 18;
   const gridY = 96 + 62 + 88;
   const cell = 56;
@@ -2242,15 +2474,123 @@ function handleInventoryClick(x, y) {
   for (let i = 0; i < 36; i++) {
     const cx = gridX + (i % 6) * cell;
     const cy = gridY + Math.floor(i / 6) * cell;
-
-    if (hit(x, y, cx, cy, 48, 48)) {
-      const item = inventory.items[i];
-
-      if (item) useItem(item.id);
-
-      return;
-    }
+    if (hit(x, y, cx, cy, 48, 48)) return i;
   }
+
+  return -1;
+}
+
+function getEquipmentSlotAt(x, y) {
+  const ox = 50 + 20;
+  const oy = 96 + 62;
+  const slots = [
+    { key: 'helmet', x: 134, y: 48, w: 72, h: 72 },
+    { key: 'weapon', x: 28, y: 158, w: 72, h: 72 },
+    { key: 'armor', x: 134, y: 158, w: 72, h: 72 },
+    { key: 'knee', x: 240, y: 158, w: 72, h: 72 },
+    { key: 'accessory', x: 134, y: 275, w: 72, h: 72 }
+  ];
+
+  for (const slot of slots) {
+    if (hit(x, y, ox + slot.x, oy + slot.y, slot.w, slot.h)) return slot.key;
+  }
+
+  return null;
+}
+
+function beginInventoryDrag(x, y) {
+  const invIndex = getInventorySlotAt(x, y);
+  if (invIndex >= 0 && inventory.items[invIndex]) {
+    dragState.active = true;
+    dragState.kind = 'inventory';
+    dragState.index = invIndex;
+    dragState.slot = null;
+    dragState.item = inventory.items[invIndex];
+    dragState.x = x;
+    dragState.y = y;
+    dragState.startedAt = performance.now();
+    return;
+  }
+
+  const slot = getEquipmentSlotAt(x, y);
+  if (slot && equipment[slot]) {
+    const ref = equipment[slot];
+    dragState.active = true;
+    dragState.kind = 'equipment';
+    dragState.index = -1;
+    dragState.slot = slot;
+    dragState.item = { id: itemRefId(ref), count: 1, enhance: itemEnhance(ref) };
+    dragState.x = x;
+    dragState.y = y;
+    dragState.startedAt = performance.now();
+  }
+}
+
+function finishInventoryDrag(x, y) {
+  const dragged = dragState.item;
+  const id = itemRefId(dragged);
+  const item = ITEMS[id];
+  if (!dragged || !item) {
+    dragState.active = false;
+    return;
+  }
+
+  const panel = getInventoryPanelRect();
+  const targetSlot = getEquipmentSlotAt(x, y);
+  const targetInv = getInventorySlotAt(x, y);
+  const isOutsidePanel = !hit(x, y, panel.x, panel.y, panel.w, panel.h);
+
+  if (targetSlot && getEquipSlotForItem(item) === targetSlot) {
+    if ((item.reqLevel || 1) > game.player.level) {
+      makeText(`Lv.${item.reqLevel}부터 장착 가능`, game.player.x, game.player.y - 90, '#ff8787');
+    } else {
+      if (dragState.kind === 'inventory') removeItem(id, 1);
+      if (dragState.kind === 'equipment') equipment[dragState.slot] = null;
+      if (equipment[targetSlot]) addItem(itemRefId(equipment[targetSlot]), 1);
+      equipment[targetSlot] = makeEquippedRef(id);
+      recalcStats();
+      makeText(`${item.name} 장착`, game.player.x, game.player.y - 90, '#ffe066');
+    }
+  } else if (targetInv >= 0) {
+    if (dragState.kind === 'equipment') {
+      addItem(id, 1);
+      equipment[dragState.slot] = null;
+      recalcStats();
+    } else if (targetInv !== dragState.index) {
+      const tmp = inventory.items[targetInv];
+      inventory.items[targetInv] = inventory.items[dragState.index];
+      inventory.items[dragState.index] = tmp;
+    }
+  } else if (isOutsidePanel) {
+    if (dragState.kind === 'inventory') removeItem(id, 1);
+    if (dragState.kind === 'equipment') {
+      equipment[dragState.slot] = null;
+      recalcStats();
+    }
+    game.drops.push({ kind: 'item', itemId: id, count: 1, x: game.player.x + game.player.face * 36, y: game.player.y - 30, vy: -130, picked: false });
+    makeText(`${item.name} 버림`, game.player.x, game.player.y - 90, '#cbd5e1');
+  }
+
+  dragState.active = false;
+  dragState.kind = null;
+  dragState.index = -1;
+  dragState.slot = null;
+  dragState.item = null;
+}
+
+function getHoveredItemRef() {
+  if (!inventory.open || !game.mouse) return null;
+  const invIndex = getInventorySlotAt(game.mouse.x, game.mouse.y);
+  if (invIndex >= 0 && inventory.items[invIndex]) return inventory.items[invIndex].id;
+  const slot = getEquipmentSlotAt(game.mouse.x, game.mouse.y);
+  if (slot && equipment[slot]) return equipment[slot];
+  return null;
+}
+
+function handleInventoryClick(x, y) {
+  if (dragState.active) return;
+  const i = getInventorySlotAt(x, y);
+  if (i >= 0 && inventory.items[i]) useItem(inventory.items[i].id);
 }
 
 function handleStatClick(x, y) {
@@ -2549,6 +2889,9 @@ function draw() {
   if (game.dialog) drawDialog();
   if (game.taxiOpen) drawTaxiPanel();
   if (game.shopOpen) drawShopPanel();
+  if (game.blacksmithOpen) drawBlacksmithPanel();
+  if (inventory.open) drawItemTooltip();
+  drawDraggedItem();
 }
 
 function drawMenuBackground() {
@@ -2639,7 +2982,7 @@ function drawWorld() {
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 26px sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(game.mode === 'town' ? `${town.title} ${town.name}` : getHunt(game.huntId).name, 34, 46);
+  ctx.fillText(game.mode === 'town' ? `${town.title} ${town.name} (${town.recommendLevel})` : `${getHunt(game.huntId).name} · 권장 ${town.recommendLevel}`, 34, 46);
 }
 
 function drawBackgroundLayers(town) {
@@ -3038,7 +3381,7 @@ function drawDrops() {
       ctx.strokeStyle = '#9c6b00';
       ctx.strokeRect(-5, -4, 10, 8);
     } else {
-      drawItemIcon(ITEMS[d.itemId] ? ITEMS[d.itemId].icon : 'drop', 0, 0, 18);
+      drawItemIcon(ITEMS[d.itemId] || 'drop', 0, 0, 18);
     }
 
     ctx.restore();
@@ -3087,8 +3430,10 @@ function drawPlayerBody(c, player) {
   const leg = moving ? walk * 8 : 0;
   const arm = moving ? -walk * 7 : 0;
 
-  const armorId = equipment.armor;
-  const weaponId = equipment.weapon;
+  const armorId = itemRefId(equipment.armor);
+  const helmetId = itemRefId(equipment.helmet);
+  const kneeId = itemRefId(equipment.knee);
+  const weaponId = itemRefId(equipment.weapon);
 
   let bodyColor = '#4f93f5';
   let bodyDark = '#2f6fbd';
@@ -3234,6 +3579,7 @@ function drawPlayerBody(c, player) {
 
   drawFace(c, ch, -92);
   drawHair(c, ch, -92);
+  drawEquippedHelmet(c, helmetId, -92);
 
   if (player.anim === 'attack') {
     const t = Math.sin(Math.min(1, player.animTime * 12) * Math.PI);
@@ -3358,6 +3704,19 @@ function drawHair(c, ch, headY) {
   c.fillRect(-8, headY - 18, 7, 2);
 }
 
+
+function drawEquippedHelmet(c, helmetId, headY) {
+  if (!helmetId) return;
+  const item = ITEMS[helmetId];
+  const px = item && item.pixel ? item.pixel : { a: '#adb5bd', b: '#74c0fc', variant: 1 };
+  c.fillStyle = '#111827';
+  roundRect(c, -21, headY - 27, 42, 17, 8);
+  c.fillStyle = px.a;
+  roundRect(c, -18, headY - 25, 36, 13, 7);
+  c.fillStyle = px.b;
+  c.fillRect(-10, headY - 28, 20, 4);
+}
+
 function drawWeapon(c, weaponId, handX, handY, attacking) {
   if (!weaponId) return;
 
@@ -3365,7 +3724,11 @@ function drawWeapon(c, weaponId, handX, handY, attacking) {
   c.translate(handX, handY);
   c.rotate(attacking ? -0.9 : -0.35);
 
-  if (weaponId.includes('staff')) {
+  const weaponData = ITEMS[weaponId] || {};
+  const weaponKind = weaponData.weaponType || (weaponId.includes('staff') ? 'staff' : weaponId.includes('bow') ? 'bow' : weaponId.includes('dagger') ? 'dagger' : 'sword');
+  const px = weaponData.pixel || { a: '#e5e7eb', b: '#f97316', variant: 1 };
+
+  if (weaponKind === 'staff') {
     c.strokeStyle = '#111827';
     c.lineWidth = 5;
     c.beginPath();
@@ -3373,28 +3736,28 @@ function drawWeapon(c, weaponId, handX, handY, attacking) {
     c.lineTo(0, -32);
     c.stroke();
 
-    c.strokeStyle = '#b197fc';
+    c.strokeStyle = px.a;
     c.lineWidth = 3;
     c.beginPath();
     c.moveTo(0, 8);
     c.lineTo(0, -32);
     c.stroke();
 
-    c.fillStyle = '#74c0fc';
-    circle(c, 0, -35, 5);
-  } else if (weaponId.includes('bow')) {
+    c.fillStyle = px.b;
+    circle(c, 0, -35, 5 + (px.variant % 3));
+  } else if (weaponKind === 'bow') {
     c.strokeStyle = '#111827';
     c.lineWidth = 5;
     c.beginPath();
     c.arc(0, -9, 17, -Math.PI / 2, Math.PI / 2);
     c.stroke();
 
-    c.strokeStyle = '#ffd43b';
+    c.strokeStyle = px.a;
     c.lineWidth = 3;
     c.beginPath();
     c.arc(0, -9, 17, -Math.PI / 2, Math.PI / 2);
     c.stroke();
-  } else if (weaponId.includes('dagger')) {
+  } else if (weaponKind === 'dagger') {
     c.fillStyle = '#e5e7eb';
     c.beginPath();
     c.moveTo(0, -38);
@@ -3673,12 +4036,15 @@ function drawEquipmentBox(x, y) {
 
   ctx.fillStyle = '#2f5f91';
   ctx.font = 'bold 17px sans-serif';
+  ctx.textAlign = 'left';
   ctx.fillText('EQUIPMENT INVENTORY', x + 14, y + 28);
 
   const slots = [
-    { name: '무기', key: 'weapon', x: 115, y: 75 },
-    { name: '방어구', key: 'armor', x: 115, y: 160 },
-    { name: '장신구', key: 'accessory', x: 115, y: 245 }
+    { name: '헬멧', key: 'helmet', x: 134, y: 48 },
+    { name: '무기', key: 'weapon', x: 28, y: 158 },
+    { name: '갑옷', key: 'armor', x: 134, y: 158 },
+    { name: '무릎', key: 'knee', x: 240, y: 158 },
+    { name: '악세', key: 'accessory', x: 134, y: 275 }
   ];
 
   ctx.strokeStyle = '#bfd7ea';
@@ -3703,14 +4069,15 @@ function drawEquipmentBox(x, y) {
     ctx.textAlign = 'center';
     ctx.fillText(slot.name, sx + 36, sy - 8);
 
-    const id = equipment[slot.key];
+    const ref = equipment[slot.key];
+    const data = getItemData(ref);
 
-    if (id && ITEMS[id]) {
-      drawItemIcon(ITEMS[id].icon, sx + 36, sy + 36, 42);
+    if (data) {
+      drawItemIcon(data, sx + 36, sy + 36, 42);
 
       ctx.fillStyle = '#233';
       ctx.font = '11px sans-serif';
-      ctx.fillText(ITEMS[id].name, sx + 36, sy + 88);
+      ctx.fillText(getItemDisplayName(ref).slice(0, 10), sx + 36, sy + 88);
     }
   });
 
@@ -3722,8 +4089,8 @@ function drawEquipmentBox(x, y) {
   };
 
   ctx.save();
-  ctx.translate(x + 170, y + 388);
-  ctx.scale(1.15, 1.15);
+  ctx.translate(x + 170, y + 410);
+  ctx.scale(1.05, 1.05);
   drawPlayerBody(ctx, fake);
   ctx.restore();
 }
@@ -3780,7 +4147,7 @@ function drawItemBox(x, y) {
     if (item) {
       const data = ITEMS[item.id];
 
-      drawItemIcon(data ? data.icon : 'drop', cx + 24, cy + 24, 34);
+      drawItemIcon(data || 'drop', cx + 24, cy + 24, 34);
 
       ctx.fillStyle = '#1f2937';
       ctx.font = 'bold 11px sans-serif';
@@ -3998,6 +4365,7 @@ function drawDialog() {
   if (npc.type === 'taxi') action = '이동하기';
   if (npc.type === 'merchant') action = '상점 열기';
   if (npc.type === 'weapon') action = '장비 보기';
+  if (npc.type === 'blacksmith') action = '강화하기';
 
   if (npc.type === 'quest' || npc.type === 'job') {
     const q = quests.active.find(function (item) {
@@ -4059,7 +4427,7 @@ function drawTaxiPanel() {
 
     ctx.fillStyle = '#ffd43b';
     ctx.font = '14px sans-serif';
-    ctx.fillText(town.id === game.townId ? '현재 위치' : `${town.taxiCost} Gold`, x + 18, y + 48);
+    ctx.fillText(`${town.recommendLevel} · ${town.id === game.townId ? '현재 위치' : town.taxiCost + ' Gold'}`, x + 18, y + 48);
   });
 
   ctx.fillStyle = '#334155';
@@ -4075,7 +4443,7 @@ function drawShopPanel() {
   const title = game.shopOpen === 'weapon' ? '장비 상점' : '상점';
   const list = game.shopOpen === 'merchant'
     ? ['hp_potion', 'mp_potion']
-    : SHOP_ITEMS;
+    : getShopItemsForCurrentTown();
 
   ctx.fillStyle = 'rgba(15,23,42,0.97)';
   roundRect(ctx, 80, 80, 1080, 590, 18);
@@ -4100,7 +4468,7 @@ function drawShopPanel() {
     ctx.fillStyle = '#1e293b';
     roundRect(ctx, x, y, 330, 46, 8);
 
-    drawItemIcon(item.icon, x + 25, y + 23, 28);
+    drawItemIcon(item, x + 25, y + 23, 28);
 
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 14px sans-serif';
@@ -4130,6 +4498,162 @@ function drawShopPanel() {
   ctx.textAlign = 'center';
   ctx.fillText('닫기', 1070, 636);
 }
+
+
+function drawBlacksmithPanel() {
+  const x = 925;
+  const y = 140;
+  const w = 300;
+  const h = 395;
+
+  ctx.fillStyle = 'rgba(15,23,42,0.97)';
+  roundRect(ctx, x, y, w, h, 16);
+  ctx.strokeStyle = '#f59e0b';
+  ctx.strokeRect(x, y, w, h);
+
+  ctx.fillStyle = '#ffe066';
+  ctx.font = 'bold 23px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('대장장이 강화', x + 22, y + 38);
+
+  ctx.fillStyle = '#cbd5e1';
+  ctx.font = '13px sans-serif';
+  ctx.fillText('장착 중인 장비를 선택해서 강화합니다.', x + 22, y + 64);
+  ctx.fillText('5강 이후 실패 시 파괴 확률이 생깁니다.', x + 22, y + 83);
+
+  EQUIP_SLOT_KEYS.forEach(function (slot, i) {
+    const ref = equipment[slot];
+    const item = getItemData(ref);
+    const rowY = y + 112 + i * 48;
+    ctx.fillStyle = '#1e293b';
+    roundRect(ctx, x + 18, rowY, w - 36, 38, 8);
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${EQUIP_SLOT_NAMES[slot]}: ${item ? getItemDisplayName(ref).slice(0, 14) : '-'}`, x + 30, rowY + 24);
+
+    if (item) {
+      const plus = itemEnhance(ref);
+      ctx.fillStyle = '#ffd43b';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${Math.round(getEnhanceRate(plus) * 100)}%`, x + w - 34, rowY + 24);
+    }
+  });
+
+  ctx.fillStyle = '#334155';
+  roundRect(ctx, x + 180, y + h - 48, 92, 34, 8);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 14px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('닫기', x + 226, y + h - 26);
+}
+
+function handleBlacksmithClick(x, y) {
+  if (hit(x, y, 1105, 487, 92, 34)) {
+    game.blacksmithOpen = false;
+    return;
+  }
+
+  const panelX = 925;
+  const panelY = 140;
+
+  EQUIP_SLOT_KEYS.forEach(function (slot, i) {
+    const rowY = panelY + 112 + i * 48;
+    if (hit(x, y, panelX + 18, rowY, 264, 38)) enhanceEquippedItem(slot);
+  });
+}
+
+function enhanceEquippedItem(slot) {
+  const ref = equipment[slot];
+  const item = getItemData(ref);
+  if (!item) return;
+
+  const plus = itemEnhance(ref);
+  if (plus >= 10) {
+    makeText('이미 최대 강화입니다.', game.player.x, game.player.y - 90, '#ffe066');
+    return;
+  }
+
+  const cost = getEnhanceCost(ref);
+  if (wallet.gold < cost) {
+    makeText(`강화 비용 ${cost}G 필요`, game.player.x, game.player.y - 90, '#ff8787');
+    return;
+  }
+
+  wallet.gold -= cost;
+
+  if (Math.random() < getEnhanceRate(plus)) {
+    equipment[slot] = { id: item.id, enhance: plus + 1 };
+    recalcStats();
+    makeText(`강화 성공 +${plus + 1}!`, game.player.x, game.player.y - 90, '#c0eb75');
+    circleEffect(game.player.x, game.player.y - 55, '#ffd43b');
+    return;
+  }
+
+  if (plus >= 5 && Math.random() < getDestroyRate(plus)) {
+    equipment[slot] = null;
+    recalcStats();
+    makeText('강화 실패: 장비 파괴', game.player.x, game.player.y - 90, '#ff6b6b');
+    return;
+  }
+
+  makeText('강화 실패', game.player.x, game.player.y - 90, '#cbd5e1');
+}
+
+function drawItemTooltip() {
+  if (dragState.active) return;
+  const ref = getHoveredItemRef();
+  const item = getItemData(ref);
+  if (!item || !game.mouse) return;
+
+  const statsText = [];
+  ['str', 'dex', 'int', 'luk', 'atk', 'matk', 'def', 'hp', 'mp', 'crit', 'speed'].forEach(function (key) {
+    const v = (item[key] || 0) + getEnhanceBonus(ref, key);
+    if (v) statsText.push(`${key.toUpperCase()} +${v}`);
+  });
+
+  const lines = [];
+  lines.push(getItemDisplayName(ref) || item.name);
+  if (item.reqLevel) lines.push(`장착 가능 레벨: Lv.${item.reqLevel}`);
+  if (getEquipSlotForItem(item)) lines.push(`부위: ${EQUIP_SLOT_NAMES[getEquipSlotForItem(item)]}`);
+  if (item.type === 'etc') lines.push(`${item.name}은(는) ${item.name.replace(/ 조각| 포자| 젤리| 결정| 파편| 가죽| 깃털| 비늘| 핵/g, '')} 몬스터의 부산물이다.`);
+  if (statsText.length) lines.push(statsText.join(' / '));
+  if (item.desc) lines.push(item.desc);
+  if (getEquipSlotForItem(item)) {
+    const plus = itemEnhance(ref);
+    lines.push(`강화: +${plus}/10 · 다음 성공률 ${Math.round(getEnhanceRate(plus) * 100)}%`);
+    if (plus >= 5) lines.push(`파괴 확률 ${Math.round(getDestroyRate(plus) * 100)}%`);
+  }
+
+  const w = 290;
+  const h = 34 + lines.length * 20;
+  const x = Math.min(game.mouse.x + 18, W - w - 12);
+  const y = Math.min(game.mouse.y + 18, H - h - 12);
+
+  ctx.fillStyle = 'rgba(15,15,15,0.95)';
+  roundRect(ctx, x, y, w, h, 8);
+  ctx.strokeStyle = '#facc15';
+  ctx.strokeRect(x, y, w, h);
+
+  lines.forEach(function (line, i) {
+    ctx.fillStyle = i === 0 ? '#ffff00' : '#e5e7eb';
+    ctx.font = i === 0 ? 'bold 16px sans-serif' : '13px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(line, x + 14, y + 24 + i * 20);
+  });
+}
+
+function drawDraggedItem() {
+  if (!dragState.active || !dragState.item) return;
+  const item = ITEMS[itemRefId(dragState.item)];
+  if (!item) return;
+  ctx.save();
+  ctx.globalAlpha = 0.78;
+  drawItemIcon(item, dragState.x, dragState.y, 42);
+  ctx.restore();
+}
+
 
 /* =========================================================
    Effects / Icons / Props
@@ -4218,63 +4742,100 @@ function drawTexts() {
 }
 
 function drawItemIcon(icon, x, y, size) {
-  ctx.save();
+  const item = typeof icon === 'object' ? icon : null;
+  const iconType = item ? item.icon : icon;
+  const px = item && item.pixel ? item.pixel : { a: '#e5e7eb', b: '#74c0fc', variant: 1 };
+  const v = px.variant || 1;
 
-  if (icon === 'hp') {
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+
+  ctx.fillStyle = '#111827';
+  roundRect(ctx, x - size * 0.42, y - size * 0.42, size * 0.84, size * 0.84, 4);
+
+  if (iconType === 'hp') {
     ctx.fillStyle = '#ff4d4f';
     circle(ctx, x - 5, y - 3, size * 0.22);
     circle(ctx, x + 5, y - 3, size * 0.22);
-
     ctx.beginPath();
     ctx.moveTo(x - size * 0.34, y);
     ctx.lineTo(x, y + size * 0.36);
     ctx.lineTo(x + size * 0.34, y);
     ctx.closePath();
     ctx.fill();
-  } else if (icon === 'mp') {
+  } else if (iconType === 'mp') {
     ctx.fillStyle = '#4dabf7';
     ctx.beginPath();
     ctx.moveTo(x, y - size * 0.38);
     ctx.quadraticCurveTo(x + size * 0.35, y, x, y + size * 0.38);
     ctx.quadraticCurveTo(x - size * 0.35, y, x, y - size * 0.38);
     ctx.fill();
-  } else if (icon === 'sword' || icon === 'dagger') {
-    ctx.strokeStyle = icon === 'dagger' ? '#e5e7eb' : '#f97316';
-    ctx.lineWidth = 4;
+  } else if (iconType === 'sword') {
+    ctx.strokeStyle = px.a;
+    ctx.lineWidth = Math.max(3, size * 0.12);
     ctx.beginPath();
     ctx.moveTo(x - size * 0.28, y + size * 0.28);
-    ctx.lineTo(x + size * 0.28, y - size * 0.28);
+    ctx.lineTo(x + size * 0.30, y - size * 0.30);
     ctx.stroke();
-  } else if (icon === 'staff') {
-    ctx.strokeStyle = '#b197fc';
+    ctx.fillStyle = px.b;
+    ctx.fillRect(x - size * 0.09, y + size * 0.10, size * 0.28, size * 0.08);
+  } else if (iconType === 'dagger') {
+    ctx.fillStyle = px.a;
+    ctx.beginPath();
+    ctx.moveTo(x + size * 0.25, y - size * 0.34);
+    ctx.lineTo(x + size * 0.06, y + size * 0.04);
+    ctx.lineTo(x - size * 0.08, y - size * 0.10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = px.b;
+    ctx.fillRect(x - size * 0.20, y + size * 0.06, size * 0.24, size * 0.08);
+  } else if (iconType === 'staff') {
+    ctx.strokeStyle = px.a;
     ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.moveTo(x - 8, y + 10);
-    ctx.lineTo(x + 8, y - 12);
+    ctx.moveTo(x - size * 0.25, y + size * 0.32);
+    ctx.lineTo(x + size * 0.20, y - size * 0.25);
     ctx.stroke();
-
-    ctx.fillStyle = '#74c0fc';
-    circle(ctx, x + 9, y - 13, 5);
-  } else if (icon === 'bow') {
-    ctx.strokeStyle = '#ffd43b';
+    ctx.fillStyle = px.b;
+    circle(ctx, x + size * 0.23, y - size * 0.28, size * (0.13 + (v % 3) * 0.02));
+  } else if (iconType === 'bow') {
+    ctx.strokeStyle = px.a;
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(x, y, size * 0.36, -Math.PI / 2, Math.PI / 2);
+    ctx.arc(x, y, size * 0.32, -Math.PI / 2, Math.PI / 2);
     ctx.stroke();
-  } else if (icon === 'armor') {
-    ctx.fillStyle = '#adb5bd';
+    ctx.strokeStyle = px.b;
+    ctx.beginPath();
+    ctx.moveTo(x, y - size * 0.32);
+    ctx.lineTo(x, y + size * 0.32);
+    ctx.stroke();
+  } else if (iconType === 'helmet') {
+    ctx.fillStyle = px.a;
+    ctx.beginPath();
+    ctx.ellipse(x, y, size * 0.32, size * 0.25, 0, Math.PI, 0);
+    ctx.fill();
+    ctx.fillStyle = px.b;
+    ctx.fillRect(x - size * 0.22, y - size * 0.02, size * 0.44, size * 0.08);
+  } else if (iconType === 'knee') {
+    ctx.fillStyle = px.a;
+    roundRect(ctx, x - size * 0.25, y - size * 0.28, size * 0.5, size * 0.58, 5);
+    ctx.fillStyle = px.b;
+    ctx.fillRect(x - size * 0.20, y - size * 0.02, size * 0.40, size * 0.08);
+  } else if (iconType === 'armor') {
+    ctx.fillStyle = px.a;
     roundRect(ctx, x - size * 0.3, y - size * 0.3, size * 0.6, size * 0.6, 5);
-    ctx.fillStyle = '#748ffc';
+    ctx.fillStyle = px.b;
     ctx.fillRect(x - size * 0.18, y - size * 0.15, size * 0.36, size * 0.25);
-  } else if (icon === 'ring') {
-    ctx.strokeStyle = '#ffd43b';
+  } else if (iconType === 'ring') {
+    ctx.strokeStyle = px.a;
     ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.arc(x, y, size * 0.26, 0, Math.PI * 2);
+    ctx.arc(x, y, size * 0.25, 0, Math.PI * 2);
     ctx.stroke();
-  } else if (icon === 'crystal' || icon === 'ice' || icon === 'ore' || icon === 'core') {
-    ctx.fillStyle = icon === 'ice' ? '#8cecff' : icon === 'ore' ? '#adb5bd' : icon === 'core' ? '#b197fc' : '#74c0fc';
-
+    ctx.fillStyle = px.b;
+    circle(ctx, x, y - size * 0.28, size * 0.10);
+  } else if (iconType === 'crystal' || iconType === 'ice' || iconType === 'ore' || iconType === 'core') {
+    ctx.fillStyle = iconType === 'ice' ? '#8cecff' : iconType === 'ore' ? '#adb5bd' : iconType === 'core' ? '#b197fc' : '#74c0fc';
     ctx.beginPath();
     ctx.moveTo(x, y - size * 0.36);
     ctx.lineTo(x + size * 0.28, y);
