@@ -9855,3 +9855,450 @@ function useSkill(id) {
     slashEffect(game.player.x + game.player.face * 44, game.player.y - 46, game.player.face, skill.magic ? '#74c0fc' : '#ffb020', skill.power && skill.power > 1.5 ? 1.8 : 1.2);
   }
 }
+
+
+/* =========================================================
+   PORTAL / QUEST ELDER / QUEST CANCEL FINAL SAFE PATCH
+   - portals ignore quest state and move freely
+   - prevents draw/update exceptions from freezing the game loop
+   - distinguishes each town elder NPC
+   - blocks out-of-order main quests with clear previous NPC guide
+   - adds quest cancel button in quest panel
+========================================================= */
+
+window.addEventListener('error', function (e) {
+  console.error('[runtime error caught]', e.error || e.message);
+  if (game) game.ready = true;
+  try {
+    if (typeof makeText === 'function' && game && game.player) {
+      makeText('오류가 발생했지만 게임을 계속 실행합니다. 콘솔을 확인해주세요.', game.player.x, game.player.y - 120, '#ff8787');
+    }
+  } catch (_) {}
+});
+
+window.addEventListener('unhandledrejection', function (e) {
+  console.error('[promise error caught]', e.reason);
+  if (game) game.ready = true;
+});
+
+var __finalSafePreviousLoop = loop;
+loop = function (now) {
+  const dt = Math.min(0.033, ((now || performance.now()) - game.last) / 1000 || 0.016);
+  game.last = now || performance.now();
+  try {
+    update(dt);
+  } catch (err) {
+    console.error('[safe update failed]', err);
+    game.ready = true;
+  }
+  try {
+    draw();
+  } catch (err) {
+    console.error('[safe draw failed]', err);
+    try {
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 22px sans-serif';
+      ctx.fillText('화면 그리기 오류가 발생했습니다. 콘솔 오류를 확인해주세요.', 80, 120);
+      ctx.font = '16px sans-serif';
+      ctx.fillText(String(err && (err.message || err)).slice(0, 130), 80, 155);
+    } catch (_) {}
+  }
+  requestAnimationFrame(loop);
+};
+
+const TOWN_ELDER_INFO = {
+  lumina: { name: '루미나 장로 구름', quest: 'tutorial', text: '루미나의 첫 훈련부터 차근차근 시작해보세요.' },
+  greenwood: { name: '그린우드 장로 라온', quest: 'main_greenwood', text: '숲의 도시에서 다음 여정을 준비합시다.' },
+  ellenium: { name: '일레니움 현자 이렌', quest: 'main_ellenium', text: '마법 도시의 흐름을 살펴보세요.' },
+  valor: { name: '발로란 장로 로한', quest: 'main_valor', text: '요새의 전사들이 도움을 기다립니다.' },
+  shadowport: { name: '섀도포트 장로 란', quest: 'main_shadowport', text: '항구의 그림자를 조사해주세요.' },
+  sylvania: { name: '실바니아 장로 세리아', quest: 'main_sylvania', text: '숲길 너머의 흔적을 따라가봅시다.' },
+  irondeep: { name: '아이언딥 장로 브론', quest: 'main_irondeep', text: '광산 깊은 곳의 이상 현상을 조사해주세요.' },
+  frosthall: { name: '프로스트홀 장로 노엘', quest: 'main_frosthall', text: '얼음 마을의 봉인을 확인해야 합니다.' },
+  solas: { name: '솔라스 장로 아샤', quest: 'main_solas', text: '사막의 오래된 길을 다시 열어야 합니다.' },
+  nocturn: { name: '노크턴 장로 베인', quest: 'main_nocturn', text: '폐허 도시의 마지막 흔적을 확인해주세요.' }
+};
+
+const MAIN_QUEST_CHAIN = [
+  'tutorial',
+  'main_greenwood',
+  'main_ellenium',
+  'main_valor',
+  'main_shadowport',
+  'main_sylvania',
+  'main_irondeep',
+  'main_frosthall',
+  'main_solas',
+  'main_nocturn'
+];
+
+function __ensureTownMainQuestDefinitions() {
+  if (!QUESTS) return;
+  const defs = {
+    main_greenwood: { title: '숲의 도시로', town: 'greenwood', npc: '그린우드 장로 라온', desc: '그린우드 숲에서 버섯 6마리를 처치하세요.', family: 'mushroom', need: 6, rewardGold: 120, rewardExp: 130 },
+    main_ellenium: { title: '마법 도시의 빛', town: 'ellenium', npc: '일레니움 현자 이렌', desc: '마나 정령 6마리를 처치하세요.', family: 'mana', need: 6, rewardGold: 150, rewardExp: 160 },
+    main_valor: { title: '요새의 시험', town: 'valor', npc: '발로란 장로 로한', desc: '멧돼지 7마리를 처치하세요.', family: 'boar', need: 7, rewardGold: 170, rewardExp: 180 },
+    main_shadowport: { title: '항구의 그림자', town: 'shadowport', npc: '섀도포트 장로 란', desc: '그림자 괴물 7마리를 처치하세요.', family: 'shadow', need: 7, rewardGold: 190, rewardExp: 200 },
+    main_sylvania: { title: '숲길 정찰', town: 'sylvania', npc: '실바니아 장로 세리아', desc: '숲 벌레 8마리를 처치하세요.', family: 'bug', need: 8, rewardGold: 210, rewardExp: 220 },
+    main_irondeep: { title: '광산의 울림', town: 'irondeep', npc: '아이언딥 장로 브론', desc: '광석 골렘 8마리를 처치하세요.', family: 'ore', need: 8, rewardGold: 240, rewardExp: 260 },
+    main_frosthall: { title: '얼음 봉인 조사', town: 'frosthall', npc: '프로스트홀 장로 노엘', desc: '얼음 정령 9마리를 처치하세요.', family: 'ice', need: 9, rewardGold: 280, rewardExp: 310 },
+    main_solas: { title: '사막길의 흔적', town: 'solas', npc: '솔라스 장로 아샤', desc: '모래 도마뱀 9마리를 처치하세요.', family: 'desert', need: 9, rewardGold: 320, rewardExp: 360 },
+    main_nocturn: { title: '폐허의 마지막 빛', town: 'nocturn', npc: '노크턴 장로 베인', desc: '폐허 수호자 10마리를 처치하세요.', family: 'ruin', need: 10, rewardGold: 400, rewardExp: 460 }
+  };
+  Object.keys(defs).forEach(function (id) {
+    if (!QUESTS[id]) {
+      const d = defs[id];
+      QUESTS[id] = {
+        id,
+        title: d.title,
+        town: d.town,
+        npc: d.npc,
+        desc: d.desc,
+        goals: [{ type: 'kill', family: d.family, need: d.need, count: 0 }],
+        rewardGold: d.rewardGold,
+        rewardExp: d.rewardExp
+      };
+    }
+  });
+}
+
+function __mainQuestPreviousInfo(id) {
+  const idx = MAIN_QUEST_CHAIN.indexOf(id);
+  if (idx <= 0) return null;
+  for (let i = 0; i < idx; i++) {
+    const prevId = MAIN_QUEST_CHAIN[i];
+    if (!quests.completed.includes(prevId)) {
+      const q = QUESTS[prevId];
+      return q ? { id: prevId, title: q.title, npc: q.npc || '이전 NPC' } : { id: prevId, title: prevId, npc: '이전 NPC' };
+    }
+  }
+  return null;
+}
+
+function __adjustTownElders() {
+  __ensureTownMainQuestDefinitions();
+  const info = TOWN_ELDER_INFO[game.townId] || TOWN_ELDER_INFO.lumina;
+  (game.npcs || []).forEach(function (npc) {
+    if (!npc) return;
+    if (npc.type === 'quest' || npc.name === '장로 구름' || npc.quest === 'tutorial') {
+      npc.type = 'quest';
+      npc.name = info.name;
+      npc.quest = info.quest;
+      npc.text = info.text;
+      npc.townId = game.townId;
+    }
+  });
+}
+
+var __finalPrevLoadTown = loadTown;
+loadTown = function (townId) {
+  __finalPrevLoadTown(townId);
+  __adjustTownElders();
+};
+try { if (game && game.mode === 'town') __adjustTownElders(); } catch (_) {}
+
+function __safeToast(msg, color) {
+  try {
+    if (typeof makeText === 'function' && game && game.player) makeText(msg, game.player.x, game.player.y - 95, color || '#ffdd99');
+  } catch (_) {}
+}
+
+function __makeMonsterRows(hunt) {
+  const families = hunt && hunt.families && hunt.families.length ? hunt.families : ['slime', 'mushroom'];
+  game.monsters = [];
+  const rows = [
+    { y: game.ground, count: 12, start: 520, gap: 310, tier: 0 },
+    { y: 520, count: 8, start: 470, gap: 470, tier: 1 },
+    { y: 455, count: 7, start: 1160, gap: 480, tier: 2 },
+    { y: 390, count: 6, start: 1840, gap: 520, tier: 3 },
+    { y: 325, count: 5, start: 2540, gap: 580, tier: 4 }
+  ];
+  rows.forEach(function (row) {
+    for (let i = 0; i < row.count; i++) {
+      const family = families[(i + row.tier) % families.length];
+      const type = typeof makeMonsterType === 'function'
+        ? makeMonsterType(family, (hunt.baseLevel || 1) + row.tier * 2 + (i % 2))
+        : { family, name: family, level: 1, hp: 40, atk: 5, def: 0, exp: 10, gold: 5, drop: 'slime_jelly', dropRate: 0.5, color: '#62df75', shape: 'slime', speed: 22, respawn: 15000 };
+      type.respawn = Math.max(12000, type.respawn || 0);
+      game.monsters.push({
+        uid: Math.random().toString(36).slice(2),
+        type,
+        x: row.start + i * row.gap,
+        baseX: row.start + i * row.gap,
+        y: row.y,
+        spawnY: row.y,
+        hp: type.hp,
+        maxHp: type.hp,
+        face: i % 2 ? -1 : 1,
+        time: Math.random() * 10,
+        hit: 0,
+        dead: false,
+        attackCooldown: 0,
+        poison: 0
+      });
+    }
+  });
+}
+
+function __freeEnterHuntNoQuestCheck() {
+  const town = typeof getTown === 'function' ? getTown(game.townId || 'lumina') : (TOWNS[0]);
+  const huntId = (town && town.hunt) || game.huntId || 'lumina_field';
+  const hunt = typeof getHunt === 'function' ? getHunt(huntId) : (HUNTS[huntId] || HUNTS.lumina_field);
+
+  game.ready = true;
+  game.mode = 'hunt';
+  game.townId = (hunt && hunt.town) || (town && town.id) || game.townId || 'lumina';
+  game.huntId = huntId;
+  game.width = 5400;
+  game.ground = 610;
+  game.dialog = null;
+  game.taxiOpen = false;
+  game.shopOpen = false;
+  game.shopScroll = 0;
+  game.blacksmithOpen = false;
+  game.npcs = [];
+  game.drops = [];
+  game.projectiles = [];
+  game.particles = [];
+  game.platforms = [
+    { x: 360, y: 520, w: 560, h: 24 },
+    { x: 1080, y: 455, w: 540, h: 24 },
+    { x: 1760, y: 390, w: 560, h: 24 },
+    { x: 2460, y: 325, w: 560, h: 24 },
+    { x: 3160, y: 260, w: 560, h: 24 }
+  ];
+  game.portals = [{ x: 110, y: game.ground, type: 'town', label: '마을' }];
+  __makeMonsterRows(hunt);
+  game.player.x = 220;
+  game.player.y = game.ground;
+  game.player.vx = 0;
+  game.player.vy = 0;
+  game.player.grounded = true;
+  game.cameraX = 0;
+  __safeToast('사냥터 입장', '#c0eb75');
+}
+
+function __freeReturnTownNoQuestCheck() {
+  const id = game.townId || ((typeof getHunt === 'function' && getHunt(game.huntId || '').town) || 'lumina');
+  try {
+    loadTown(id);
+  } catch (err) {
+    console.error('[return town failed]', err);
+    const town = typeof getTown === 'function' ? getTown(id) : TOWNS[0];
+    game.mode = 'town';
+    game.townId = town.id || 'lumina';
+    game.huntId = town.hunt || 'lumina_field';
+    game.width = 4300;
+    game.ground = 560;
+    game.platforms = [];
+    game.monsters = [];
+    game.drops = [];
+    game.projectiles = [];
+    game.particles = [];
+    game.portals = [{ x: 3970, y: game.ground, type: 'hunt', label: '사냥터' }];
+    game.npcs = [];
+  }
+  game.dialog = null;
+  game.player.x = Math.min(3880, Math.max(260, game.width - 420));
+  game.player.y = game.ground;
+  game.player.vx = 0;
+  game.player.vy = 0;
+  game.player.grounded = true;
+  game.cameraX = typeof clamp === 'function' ? clamp(game.player.x - W * 0.42, 0, Math.max(0, game.width - W)) : 0;
+  __safeToast('마을 귀환', '#c0eb75');
+}
+
+interact = function () {
+  if (!game || !game.ready || !game.player) return;
+  const now = performance.now();
+  if (game.__finalInteractLock && now < game.__finalInteractLock) return;
+  const p = game.player;
+
+  for (const portal of game.portals || []) {
+    if (!portal) continue;
+    if (Math.abs(p.x - portal.x) < 115 && Math.abs(p.y - portal.y) < 180) {
+      game.__finalInteractLock = now + 1000;
+      try {
+        if (typeof stopPlayerMovement === 'function') stopPlayerMovement();
+        game.dialog = null;
+        game.taxiOpen = false;
+        game.shopOpen = false;
+        game.blacksmithOpen = false;
+        // 포탈은 퀘스트 상태와 완전히 분리해서 자유롭게 이동 가능하게 처리
+        if (portal.type === 'hunt') __freeEnterHuntNoQuestCheck();
+        else if (portal.type === 'town') __freeReturnTownNoQuestCheck();
+        else __safeToast('알 수 없는 포탈입니다.', '#ffdd99');
+      } catch (err) {
+        console.error('[final portal interact failed]', err);
+        game.ready = true;
+        __safeToast('포탈 오류가 발생했습니다. 콘솔 오류를 확인해주세요.', '#ff8787');
+      }
+      return;
+    }
+  }
+
+  for (const npc of game.npcs || []) {
+    if (!npc) continue;
+    if (Math.abs(p.x - npc.x) < 90 && Math.abs(p.y - npc.y) < 130) {
+      if (typeof stopPlayerMovement === 'function') stopPlayerMovement();
+      game.dialog = { npc };
+      return;
+    }
+  }
+};
+
+var __finalPreviousAcceptOrCompleteQuest = acceptOrCompleteQuest;
+acceptOrCompleteQuest = function (id) {
+  __ensureTownMainQuestDefinitions();
+  const qBase = QUESTS[id];
+  if (!qBase) {
+    __safeToast('퀘스트 정보를 찾을 수 없습니다.', '#ff8787');
+    return;
+  }
+
+  const prev = __mainQuestPreviousInfo(id);
+  if (prev) {
+    __safeToast('먼저 ' + prev.npc + '에게 가서 ' + prev.title + ' 퀘스트를 완료하고 오세요.', '#ffdd99');
+    if (game.dialog && game.dialog.npc) {
+      game.dialog.npc.text = '먼저 ' + prev.npc + '에게 가서 [' + prev.title + '] 퀘스트를 완료하고 오세요.';
+    }
+    return;
+  }
+
+  try {
+    return __finalPreviousAcceptOrCompleteQuest(id);
+  } catch (err) {
+    console.error('[quest accept failed - fallback]', err);
+    if (quests.completed.includes(id)) {
+      __safeToast('이미 완료했습니다.', '#cbd5e1');
+      return;
+    }
+    let q = quests.active.find(function (item) { return item.id === id; });
+    if (!q) {
+      q = JSON.parse(JSON.stringify(qBase));
+      quests.active.push(q);
+      __safeToast('퀘스트 수락!', '#ffe066');
+      if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+      return;
+    }
+    if (typeof syncQuestItems === 'function') syncQuestItems(q);
+    if (typeof questComplete === 'function' && questComplete(q)) {
+      if (typeof completeQuest === 'function') completeQuest(q);
+    } else {
+      __safeToast('아직 완료 조건이 부족합니다.', '#ffdd99');
+    }
+  }
+};
+
+function cancelQuest(id) {
+  const q = quests.active.find(function (item) { return item && item.id === id; });
+  if (!q) return;
+  quests.active = quests.active.filter(function (item) { return item && item.id !== id; });
+  __safeToast('[' + (q.title || id) + '] 퀘스트를 취소했습니다.', '#cbd5e1');
+  if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+}
+
+function __getQuestCancelButtonAt(x, y) {
+  const panelX = 70;
+  const panelY = 105;
+  const panelW = 650;
+  const panelH = 500;
+  if (typeof hit === 'function' && !hit(x, y, panelX, panelY, panelW, panelH)) return null;
+  let cy = panelY + 110;
+  for (let i = 0; i < quests.active.length; i++) {
+    const q = quests.active[i];
+    const goals = q && q.goals ? q.goals.length : 0;
+    const buttonY = cy - 21;
+    if (typeof hit === 'function' && hit(x, y, panelX + panelW - 112, buttonY, 78, 28)) return q.id;
+    cy += 24 + 24 + goals * 19 + 26;
+  }
+  return null;
+}
+
+var __finalPreviousDrawQuestsPanel = drawQuestsPanel;
+drawQuestsPanel = function () {
+  const x = 70;
+  const y = 105;
+  const w = 650;
+  const h = 500;
+
+  ctx.fillStyle = 'rgba(15,23,42,0.96)';
+  roundRect(ctx, x, y, w, h, 14);
+  ctx.strokeStyle = '#93c5fd';
+  ctx.strokeRect(x, y, w, h);
+
+  ctx.fillStyle = '#ffe066';
+  ctx.font = 'bold 25px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('퀘스트', x + 25, y + 44);
+
+  ctx.fillStyle = '#cbd5e1';
+  ctx.font = '14px sans-serif';
+  ctx.fillText('진행 중인 퀘스트는 오른쪽 취소 버튼으로 포기할 수 있습니다.', x + 25, y + 70);
+
+  let cy = y + 110;
+  if (!quests.active.length) {
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('진행 중인 퀘스트가 없습니다.', x + 25, cy);
+    return;
+  }
+
+  quests.active.forEach(function (q) {
+    if (typeof syncQuestItems === 'function') syncQuestItems(q);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText(q.title || q.id, x + 25, cy);
+
+    ctx.fillStyle = '#ef4444';
+    roundRect(ctx, x + w - 112, cy - 21, 78, 28, 7);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('취소', x + w - 73, cy - 2);
+    ctx.textAlign = 'left';
+
+    cy += 24;
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '13px sans-serif';
+    ctx.fillText(q.desc || '', x + 35, cy);
+    cy += 24;
+    (q.goals || []).forEach(function (goal) {
+      const done = goal.count >= goal.need;
+      ctx.fillStyle = done ? '#c0eb75' : '#e2e8f0';
+      let label = '';
+      if (goal.type === 'kill') label = goal.family + ' 처치';
+      else label = ITEMS[goal.itemId] ? ITEMS[goal.itemId].name : goal.itemId;
+      ctx.fillText(label + ': ' + goal.count + '/' + goal.need, x + 45, cy);
+      cy += 19;
+    });
+    cy += 26;
+  });
+};
+
+canvas.addEventListener('click', function (e) {
+  if (!game.ready || !quests.open) return;
+  const pos = getMouse(e);
+  const id = __getQuestCancelButtonAt(pos.x, pos.y);
+  if (id) {
+    e.preventDefault();
+    e.stopPropagation();
+    cancelQuest(id);
+  }
+}, true);
+
+// 현재 저장 데이터가 꼬여서 여러 도시의 기본 tutorial 퀘스트가 이미 들어간 경우를 완화
+(function __normalizeExistingTownQuests() {
+  __ensureTownMainQuestDefinitions();
+  try {
+    const seen = new Set();
+    quests.active = (quests.active || []).filter(function (q) {
+      if (!q || !q.id) return false;
+      if (seen.has(q.id)) return false;
+      seen.add(q.id);
+      return true;
+    });
+  } catch (_) {}
+})();
