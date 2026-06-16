@@ -13754,3 +13754,998 @@ canvas.addEventListener('click', function (e) {
     };
   }
 })();
+
+
+/* =========================================================
+   MOBILE / TABLET TOUCH PLAY + TOP 3 RANKING PATCH
+   - iPhone / Android / iPad touch controls
+   - Uses the same online Render + Socket.IO server
+   - Adds Top 3 highest level leaderboard panel
+========================================================= */
+(function () {
+  'use strict';
+
+  const MOBILE_PATCH_VERSION = 'touch-online-leaderboard-01';
+  const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0 || window.matchMedia('(pointer: coarse)').matches;
+
+  function prevent(e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+
+  function setKey(key, down) {
+    if (!key) return;
+    if (down) keys.add(key);
+    else keys.delete(key);
+  }
+
+  function pulseKey(key, ms) {
+    setKey(key, true);
+    window.setTimeout(function () { setKey(key, false); }, ms || 120);
+  }
+
+  function safeCall(fn) {
+    try { if (typeof fn === 'function') fn(); }
+    catch (err) { console.warn('[Mobile controls action failed]', err); }
+  }
+
+  function button(label, className, holdKey, action, extra) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'prg-touch-btn ' + (className || '');
+    b.textContent = label;
+    if (extra) Object.keys(extra).forEach(function (k) { b.setAttribute(k, extra[k]); });
+
+    function down(e) {
+      prevent(e);
+      if (holdKey) setKey(holdKey, true);
+    }
+    function up(e) {
+      prevent(e);
+      if (holdKey) setKey(holdKey, false);
+    }
+    function tap(e) {
+      prevent(e);
+      if (action) action();
+      else if (holdKey) pulseKey(holdKey, 120);
+    }
+
+    b.addEventListener('touchstart', down, { passive: false });
+    b.addEventListener('touchend', up, { passive: false });
+    b.addEventListener('touchcancel', up, { passive: false });
+    b.addEventListener('mousedown', down);
+    b.addEventListener('mouseup', up);
+    b.addEventListener('mouseleave', up);
+    b.addEventListener('click', tap);
+    return b;
+  }
+
+  function ensureTouchCss() {
+    if (document.getElementById('pixel-rpg-touch-style')) return;
+    const style = document.createElement('style');
+    style.id = 'pixel-rpg-touch-style';
+    style.textContent = `
+      html, body {
+        touch-action: none;
+        overscroll-behavior: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      #pixel-rpg-touch-controls {
+        position: fixed;
+        inset: 0;
+        z-index: 10020;
+        pointer-events: none;
+        display: none;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      body.pixel-rpg-touch-mode #pixel-rpg-touch-controls { display: block; }
+      #pixel-rpg-touch-controls .left-pad,
+      #pixel-rpg-touch-controls .right-pad,
+      #pixel-rpg-touch-controls .top-pad {
+        position: absolute;
+        pointer-events: auto;
+      }
+      #pixel-rpg-touch-controls .left-pad {
+        left: max(12px, env(safe-area-inset-left));
+        bottom: max(18px, env(safe-area-inset-bottom));
+        width: 210px;
+        height: 156px;
+      }
+      #pixel-rpg-touch-controls .right-pad {
+        right: max(12px, env(safe-area-inset-right));
+        bottom: max(18px, env(safe-area-inset-bottom));
+        width: 312px;
+        height: 182px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: repeat(2, 1fr);
+        gap: 9px;
+      }
+      #pixel-rpg-touch-controls .top-pad {
+        right: max(12px, env(safe-area-inset-right));
+        top: max(10px, env(safe-area-inset-top));
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .prg-touch-btn {
+        border: 1px solid rgba(255,255,255,0.30);
+        color: #fff;
+        background: rgba(15, 23, 42, 0.58);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.26), inset 0 1px rgba(255,255,255,0.18);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border-radius: 18px;
+        font-weight: 900;
+        font-size: 15px;
+        line-height: 1;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+        touch-action: none;
+      }
+      .prg-touch-btn:active { transform: translateY(2px) scale(0.98); background: rgba(37, 99, 235, 0.68); }
+      .prg-touch-dir {
+        position: absolute;
+        width: 70px;
+        height: 62px;
+      }
+      .prg-touch-left { left: 0; bottom: 34px; }
+      .prg-touch-right { left: 140px; bottom: 34px; }
+      .prg-touch-up { left: 70px; bottom: 88px; }
+      .prg-touch-down { left: 70px; bottom: 0; }
+      .prg-touch-main { background: rgba(30, 64, 175, 0.66); }
+      .prg-touch-skill { background: rgba(88, 28, 135, 0.62); }
+      .prg-touch-menu { padding: 9px 12px; border-radius: 14px; font-size: 12px; min-width: 58px; }
+      #pixel-rpg-rank-panel {
+        position: fixed;
+        right: max(12px, env(safe-area-inset-right));
+        top: calc(max(10px, env(safe-area-inset-top)) + 50px);
+        z-index: 10025;
+        display: none;
+        width: min(340px, calc(100vw - 24px));
+        padding: 13px;
+        border-radius: 16px;
+        color: #fff;
+        background: rgba(15, 23, 42, 0.90);
+        border: 1px solid rgba(147,197,253,0.52);
+        box-shadow: 0 14px 34px rgba(0,0,0,0.35);
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      #pixel-rpg-rank-panel.open { display: block; }
+      #pixel-rpg-rank-panel .rank-title { font-size: 15px; font-weight: 900; color: #fde68a; margin-bottom: 8px; }
+      #pixel-rpg-rank-panel .rank-row {
+        display: grid;
+        grid-template-columns: 38px 1fr auto;
+        gap: 8px;
+        padding: 8px 6px;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.055);
+        margin-bottom: 6px;
+        align-items: center;
+      }
+      #pixel-rpg-rank-panel .rank-place { font-weight: 900; color: #93c5fd; }
+      #pixel-rpg-rank-panel .rank-name { font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #pixel-rpg-rank-panel .rank-job { color: #cbd5e1; font-size: 12px; }
+      #pixel-rpg-rank-panel .rank-level { color: #86efac; font-weight: 900; }
+      #pixel-rpg-rank-panel .rank-note { color: #cbd5e1; font-size: 12px; margin-top: 8px; }
+      @media (pointer: fine) and (min-width: 900px) {
+        body:not(.pixel-rpg-force-touch) #pixel-rpg-touch-controls { display: none !important; }
+      }
+      @media (max-width: 720px) {
+        #pixel-rpg-touch-controls .left-pad { width: 178px; height: 136px; }
+        .prg-touch-dir { width: 58px; height: 54px; font-size: 13px; }
+        .prg-touch-right { left: 116px; bottom: 30px; }
+        .prg-touch-up { left: 58px; bottom: 76px; }
+        .prg-touch-down { left: 58px; bottom: 0; }
+        #pixel-rpg-touch-controls .right-pad { width: 248px; height: 148px; gap: 7px; }
+        .prg-touch-btn { font-size: 12px; border-radius: 14px; }
+        .prg-touch-menu { min-width: 45px; padding: 8px 9px; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureLeaderboardPanel() {
+    let panel = document.getElementById('pixel-rpg-rank-panel');
+    if (panel) return panel;
+    panel = document.createElement('div');
+    panel.id = 'pixel-rpg-rank-panel';
+    panel.innerHTML = '<div class="rank-title">🏆 최고 레벨 TOP 3</div><div class="rank-note">불러오는 중...</div>';
+    document.body.appendChild(panel);
+    return panel;
+  }
+
+  function jobLabel(job) {
+    if (typeof JOBS !== 'undefined' && JOBS && JOBS[job] && JOBS[job].name) return JOBS[job].name;
+    const map = {
+      beginner: '초보자', warrior: '전사', mage: '마법사', rogue: '도적', archer: '궁수',
+      paladin: '성기사', berserker: '광전사', cleric: '성직자', summoner: '소환사', gunslinger: '건슬링어',
+      lancer: '창기사', mechanic: '기계공', bard: '음유시인', shadow_reaper: '그림자 사신', dragon_knight: '용기사', star_sage: '별의 현자'
+    };
+    return map[job] || String(job || '초보자');
+  }
+
+  async function fetchLeaderboard() {
+    const panel = ensureLeaderboardPanel();
+    panel.innerHTML = '<div class="rank-title">🏆 최고 레벨 TOP 3</div><div class="rank-note">랭킹을 불러오는 중...</div>';
+    try {
+      const res = await fetch('/api/leaderboard?limit=3', {
+        headers: token ? { Authorization: 'Bearer ' + token } : {}
+      });
+      const data = await res.json().catch(function () { return {}; });
+      if (!res.ok || data.ok === false) throw new Error(data.error || '랭킹 조회 실패');
+      const rows = Array.isArray(data.players) ? data.players.slice(0, 3) : [];
+      if (!rows.length) {
+        panel.innerHTML = '<div class="rank-title">🏆 최고 레벨 TOP 3</div><div class="rank-note">아직 랭킹에 표시할 캐릭터가 없습니다.</div>';
+        return;
+      }
+      panel.innerHTML = '<div class="rank-title">🏆 최고 레벨 TOP 3</div>' + rows.map(function (p, i) {
+        const name = String(p.name || p.username || '모험가').replace(/[&<>'"]/g, function (ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'})[ch]; });
+        const job = String(p.jobName || jobLabel(p.job)).replace(/[&<>'"]/g, function (ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'})[ch]; });
+        return '<div class="rank-row"><div class="rank-place">#' + (i + 1) + '</div><div><div class="rank-name">' + name + '</div><div class="rank-job">' + job + '</div></div><div class="rank-level">Lv.' + (p.level || 1) + '</div></div>';
+      }).join('') + '<div class="rank-note">서버 저장 데이터 기준입니다.</div>';
+    } catch (err) {
+      panel.innerHTML = '<div class="rank-title">🏆 최고 레벨 TOP 3</div><div class="rank-note">랭킹을 불러오지 못했습니다: ' + String(err.message || err) + '</div>';
+    }
+  }
+
+  function toggleLeaderboard() {
+    const panel = ensureLeaderboardPanel();
+    const open = panel.classList.toggle('open');
+    if (open) fetchLeaderboard();
+  }
+
+  function ensureTouchControls() {
+    if (document.getElementById('pixel-rpg-touch-controls')) return;
+    ensureTouchCss();
+    if (isTouchDevice) document.body.classList.add('pixel-rpg-touch-mode');
+
+    const wrap = document.createElement('div');
+    wrap.id = 'pixel-rpg-touch-controls';
+
+    const leftPad = document.createElement('div');
+    leftPad.className = 'left-pad';
+    leftPad.appendChild(button('←', 'prg-touch-dir prg-touch-left', 'arrowleft'));
+    leftPad.appendChild(button('→', 'prg-touch-dir prg-touch-right', 'arrowright'));
+    leftPad.appendChild(button('↑', 'prg-touch-dir prg-touch-up', 'arrowup'));
+    leftPad.appendChild(button('↓', 'prg-touch-dir prg-touch-down', 's'));
+
+    const rightPad = document.createElement('div');
+    rightPad.className = 'right-pad';
+    rightPad.appendChild(button('공격', 'prg-touch-main', null, function () { safeCall(basicAttack); }));
+    rightPad.appendChild(button('스킬K', 'prg-touch-skill', null, function () { safeCall(function () { useHotSkill('k'); }); }));
+    rightPad.appendChild(button('스킬L', 'prg-touch-skill', null, function () { safeCall(function () { useHotSkill('l'); }); }));
+    rightPad.appendChild(button('스킬;', 'prg-touch-skill', null, function () { safeCall(function () { useHotSkill('semicolon'); }); }));
+    rightPad.appendChild(button('대화/E', '', null, function () { safeCall(interact); }));
+    rightPad.appendChild(button('줍기/Z', '', null, function () { safeCall(pickNearbyDrops); }));
+    rightPad.appendChild(button('채팅', '', null, function () { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); }));
+    rightPad.appendChild(button('물약1', '', null, function () { safeCall(function () { useQuickSlot(0); }); }));
+
+    const topPad = document.createElement('div');
+    topPad.className = 'top-pad';
+    topPad.appendChild(button('가방', 'prg-touch-menu', null, function () { inventory.open = !inventory.open; stats.open = skills.open = quests.open = false; }));
+    topPad.appendChild(button('스탯', 'prg-touch-menu', null, function () { stats.open = !stats.open; inventory.open = skills.open = quests.open = false; }));
+    topPad.appendChild(button('스킬', 'prg-touch-menu', null, function () { skills.open = !skills.open; inventory.open = stats.open = quests.open = false; }));
+    topPad.appendChild(button('퀘스트', 'prg-touch-menu', null, function () { quests.open = !quests.open; inventory.open = stats.open = skills.open = false; }));
+    topPad.appendChild(button('랭킹', 'prg-touch-menu', null, toggleLeaderboard));
+
+    wrap.appendChild(leftPad);
+    wrap.appendChild(rightPad);
+    wrap.appendChild(topPad);
+    document.body.appendChild(wrap);
+    ensureLeaderboardPanel();
+
+    // Triple tap the top-left area to force controls on desktop testing too.
+    let taps = [];
+    document.addEventListener('pointerdown', function (e) {
+      if (e.clientX > 80 || e.clientY > 80) return;
+      const now = Date.now();
+      taps = taps.filter(function (t) { return now - t < 900; });
+      taps.push(now);
+      if (taps.length >= 3) {
+        document.body.classList.toggle('pixel-rpg-force-touch');
+        document.body.classList.toggle('pixel-rpg-touch-mode');
+        taps = [];
+      }
+    });
+  }
+
+  ensureTouchControls();
+
+  // Keep game canvas responsive on mobile orientation changes.
+  function resizeCanvasCss() {
+    if (!canvas) return;
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+  }
+  window.addEventListener('resize', resizeCanvasCss);
+  window.addEventListener('orientationchange', function () { setTimeout(resizeCanvasCss, 250); });
+  resizeCanvasCss();
+
+  console.log('[PixelRPG]', MOBILE_PATCH_VERSION, 'loaded. Touch:', isTouchDevice);
+})();
+
+
+/* =========================================================
+   MOBILE / PLATFORM / SELL / SKILL EFFECT REFINEMENT PATCH 01
+   - Restores taller ladder-hunt floors with lower jump power
+   - Makes players, other players, monsters and drops obey solid floors
+   - Adds S/Down platform drop-through and changes manual save key to R
+   - Allows merchant to sell a clicked inventory weapon/equipment/etc item
+   - Gives every job at least 3 skills and adds rare-job visual effects
+========================================================= */
+(function () {
+  'use strict';
+  if (window.__PIXEL_RPG_MOBILE_PLATFORM_SKILL_PATCH_01__) return;
+  window.__PIXEL_RPG_MOBILE_PLATFORM_SKILL_PATCH_01__ = true;
+
+  const HUNT_FLOOR_LAYOUT_ID = 'ladder-tall-solid-v4';
+
+  function safeArr(v) { return Array.isArray(v) ? v : []; }
+  function nowMs() { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
+
+  function moneyLabel(amount) { return String(Math.floor(amount || 0)) + '원'; }
+
+  function finalHuntPlatforms() {
+    const w = Math.max(5600, game.width || 5600);
+    const floors = [
+      { y: game.ground, ranges: [[0, w]] },
+      { y: 500, ranges: [[300, 1820], [2180, 3720], [4050, 5420]] },
+      { y: 365, ranges: [[520, 2040], [2460, 3940], [4260, 5360]] },
+      { y: 230, ranges: [[780, 2220], [2700, 4120], [4460, 5320]] },
+      { y: 105, ranges: [[1120, 2440], [3060, 4300]] }
+    ];
+    const out = [];
+    floors.forEach(function (row, fi) {
+      row.ranges.forEach(function (r, ri) {
+        out.push({ x: r[0], y: row.y, w: r[1] - r[0], h: 24, floor: fi, solidFloor: true, huntFloor: true, seg: ri });
+      });
+    });
+    return out;
+  }
+
+  function finalHuntLadders() {
+    return [
+      { x: 420, y1: 500, y2: game.ground, label: '1층' },
+      { x: 1120, y1: 365, y2: 500, label: '2층' },
+      { x: 1720, y1: 230, y2: 365, label: '3층' },
+      { x: 1260, y1: 105, y2: 230, label: '4층' },
+      { x: 2320, y1: 500, y2: game.ground, label: '1층' },
+      { x: 2920, y1: 365, y2: 500, label: '2층' },
+      { x: 3540, y1: 230, y2: 365, label: '3층' },
+      { x: 3300, y1: 105, y2: 230, label: '4층' },
+      { x: 4160, y1: 500, y2: game.ground, label: '1층' },
+      { x: 4680, y1: 365, y2: 500, label: '2층' },
+      { x: 4980, y1: 230, y2: 365, label: '3층' }
+    ];
+  }
+
+  function finalTownPlatforms() {
+    const width = Math.max(4600, game.width || 4600);
+    return [
+      { x: 0, y: game.ground, w: width, h: 24, floor: 0, townFloor: true, solidFloor: true },
+      { x: 0, y: 505, w: 780, h: 24, floor: 1, townFloor: true, solidFloor: true },
+      { x: 940, y: 505, w: 850, h: 24, floor: 1, townFloor: true, solidFloor: true },
+      { x: 2000, y: 505, w: 900, h: 24, floor: 1, townFloor: true, solidFloor: true },
+      { x: 3160, y: 505, w: 900, h: 24, floor: 1, townFloor: true, solidFloor: true },
+      { x: 520, y: 370, w: 860, h: 24, floor: 2, townFloor: true, solidFloor: true },
+      { x: 1640, y: 370, w: 980, h: 24, floor: 2, townFloor: true, solidFloor: true },
+      { x: 3000, y: 370, w: 900, h: 24, floor: 2, townFloor: true, solidFloor: true },
+      { x: 1040, y: 235, w: 900, h: 24, floor: 3, townFloor: true, solidFloor: true },
+      { x: 2540, y: 235, w: 920, h: 24, floor: 3, townFloor: true, solidFloor: true }
+    ];
+  }
+
+  function finalTownLadders() {
+    return [
+      { x: 350, y1: 505, y2: game.ground, town: true },
+      { x: 1080, y1: 370, y2: 505, town: true },
+      { x: 1690, y1: 235, y2: 370, town: true },
+      { x: 2140, y1: 505, y2: game.ground, town: true },
+      { x: 2380, y1: 370, y2: 505, town: true },
+      { x: 2920, y1: 235, y2: 370, town: true },
+      { x: 3300, y1: 505, y2: game.ground, town: true }
+    ];
+  }
+
+  const CITY_MONSTER_FAMILIES = {
+    lumina: ['lumina_slime', 'leaf_sprite', 'green_mushroom'],
+    greenwood: ['thorn_bug', 'moss_boar', 'forest_spore'],
+    ellenium: ['arcane_wisp', 'rune_mushroom', 'mana_orb'],
+    valor: ['iron_tusk', 'shield_golem', 'training_dummy'],
+    shadowport: ['dock_rat', 'night_bat', 'alley_shadow'],
+    sylvania: ['feather_bee', 'bark_lizard', 'wild_spore'],
+    irondeep: ['ore_golem', 'gear_rat', 'steam_eye'],
+    frosthall: ['frost_wolf', 'snow_prankster', 'ice_orb'],
+    solas: ['sand_scorpion', 'sun_lizard', 'dune_spirit'],
+    nocturn: ['broken_armor', 'cursed_orb', 'ruin_eye']
+  };
+
+  const EXTRA_FAMILY_DATA = {
+    lumina_slime: ['루미나 젤리', 'slime_jelly', '#68e27c', 'slime'], leaf_sprite: ['잎사귀 요정', 'hard_feather', '#8bd166', 'spirit'], green_mushroom: ['초록 버섯돌이', 'mushroom_spore', '#b77937', 'mushroom'],
+    thorn_bug: ['가시 벌레', 'hard_feather', '#6fbf5e', 'bug'], moss_boar: ['이끼 멧돼지', 'rusted_blade', '#7d6a42', 'boar'], forest_spore: ['숲 포자', 'mushroom_spore', '#a86f3a', 'mushroom'],
+    arcane_wisp: ['비전 위습', 'blue_crystal', '#9b8cff', 'spirit'], rune_mushroom: ['룬 버섯', 'blue_crystal', '#7dd3fc', 'mushroom'], mana_orb: ['마나 구체', 'blue_crystal', '#60a5fa', 'spirit'],
+    iron_tusk: ['강철 엄니', 'rusted_blade', '#8b6f55', 'boar'], shield_golem: ['방패 골렘', 'ore_piece', '#7f8a99', 'golem'], training_dummy: ['훈련 허수아비', 'rusted_blade', '#b98549', 'golem'],
+    dock_rat: ['항구 쥐도적', 'black_hide', '#6b5b7b', 'bug'], night_bat: ['밤그림자 박쥐', 'black_hide', '#4b3b63', 'spirit'], alley_shadow: ['골목 그림자', 'black_hide', '#3f355f', 'ogre'],
+    feather_bee: ['깃털 벌', 'hard_feather', '#d7c65a', 'bug'], bark_lizard: ['나무껍질 도마뱀', 'desert_scale', '#7e9a55', 'lizard'], wild_spore: ['들꽃 포자', 'mushroom_spore', '#e083b5', 'mushroom'],
+    ore_golem: ['광맥 골렘', 'ore_piece', '#7b8794', 'golem'], gear_rat: ['톱니 쥐', 'ore_piece', '#8a8073', 'bug'], steam_eye: ['증기 눈알', 'blue_crystal', '#94a3b8', 'spirit'],
+    frost_wolf: ['서리 늑대', 'ice_shard', '#a7dfff', 'lizard'], snow_prankster: ['눈 장난꾼', 'ice_shard', '#dbeafe', 'slime'], ice_orb: ['냉기 구체', 'ice_shard', '#93e4ff', 'spirit'],
+    sand_scorpion: ['모래 전갈', 'desert_scale', '#c9964e', 'bug'], sun_lizard: ['태양 도마뱀', 'desert_scale', '#e1a447', 'lizard'], dune_spirit: ['사막 혼령', 'blue_crystal', '#f5c16b', 'spirit'],
+    broken_armor: ['부서진 갑주', 'rusted_blade', '#636b78', 'golem'], cursed_orb: ['저주받은 구체', 'ruin_core', '#7c3aed', 'spirit'], ruin_eye: ['폐허의 눈', 'ruin_core', '#9f1239', 'ogre']
+  };
+
+  Object.keys(EXTRA_FAMILY_DATA).forEach(function (id) {
+    const d = EXTRA_FAMILY_DATA[id];
+    FAMILY_DATA[id] = { name: d[0], drop: d[1], color: d[2], shape: d[3] };
+  });
+
+  function applyHuntFamilies() {
+    Object.keys(HUNTS || {}).forEach(function (hid) {
+      const h = HUNTS[hid];
+      if (!h || !h.town) return;
+      if (CITY_MONSTER_FAMILIES[h.town]) h.families = CITY_MONSTER_FAMILIES[h.town].slice();
+    });
+  }
+  applyHuntFamilies();
+
+  function platformAtXNearY(x, y) {
+    let best = null;
+    let bestDist = Infinity;
+    safeArr(game.platforms).forEach(function (pf) {
+      if (!pf) return;
+      if (x < pf.x - 8 || x > pf.x + pf.w + 8) return;
+      const dy = (pf.y || 0) - (y || 0);
+      if (dy >= -12 && dy < bestDist) { best = pf; bestDist = dy; }
+    });
+    return best || { x: 0, y: game.ground, w: game.width || 5000, h: 24, floor: 0 };
+  }
+
+  function floorYAt(x, y) {
+    return platformAtXNearY(x, y).y;
+  }
+
+  function nearestPlatformForEntity(x, y) {
+    let best = null;
+    let score = Infinity;
+    safeArr(game.platforms).forEach(function (pf) {
+      const cx = Math.max(pf.x + 16, Math.min(pf.x + pf.w - 16, x));
+      const vertical = Math.max(0, pf.y - y);
+      const s = Math.abs(cx - x) * 0.18 + vertical + Math.abs((pf.y || game.ground) - (y || game.ground)) * 0.08;
+      if (s < score) { score = s; best = pf; }
+    });
+    return best || { x: 0, y: game.ground, w: game.width || 5000, h: 24, floor: 0 };
+  }
+
+  function clampEntityToPlatform(ent, pf) {
+    if (!ent || !pf) return;
+    ent.x = clamp(ent.x || 0, pf.x + 28, pf.x + pf.w - 28);
+    ent.y = pf.y;
+    ent.floorY = pf.y;
+    ent.spawnY = pf.y;
+    ent.platformX1 = pf.x + 28;
+    ent.platformX2 = pf.x + pf.w - 28;
+    if (!ent.baseX || ent.baseX < ent.platformX1 || ent.baseX > ent.platformX2) ent.baseX = ent.x;
+  }
+
+  function findLadderAt(x, y) {
+    for (const l of safeArr(game.ladders)) {
+      const top = Math.min(l.y1, l.y2);
+      const bottom = Math.max(l.y1, l.y2);
+      if (Math.abs(x - l.x) <= 30 && y >= top - 18 && y <= bottom + 24) return l;
+    }
+    return null;
+  }
+
+  function applyCurrentMapLayout() {
+    if (!game) return;
+    if (game.mode === 'hunt') {
+      game.width = Math.max(game.width || 0, 5600);
+      game.ground = 610;
+      game.platforms = finalHuntPlatforms();
+      game.ladders = finalHuntLadders();
+    } else if (game.mode === 'town') {
+      game.width = Math.max(game.width || 0, 4600);
+      game.platforms = finalTownPlatforms();
+      game.ladders = finalTownLadders();
+    }
+  }
+
+  function makeReducedMonsters(hunt) {
+    const platforms = finalHuntPlatforms().filter(function (pf) { return pf.huntFloor && pf.y < game.ground; });
+    const families = (CITY_MONSTER_FAMILIES[hunt.town] || hunt.families || ['slime']).slice();
+    const target = 14;
+    const monsters = [];
+    for (let i = 0; i < target; i++) {
+      const pf = platforms[i % platforms.length];
+      const perPlatformIndex = Math.floor(i / platforms.length);
+      const spacing = pf.w / 4.2;
+      const x = Math.round(pf.x + 120 + ((perPlatformIndex * spacing + (i % 3) * 170) % Math.max(220, pf.w - 240)));
+      const family = families[i % families.length];
+      const type = makeMonsterType(family, hunt.baseLevel + Math.floor(i / 3));
+      const m = {
+        uid: Math.random().toString(36).slice(2),
+        type: type,
+        x: clamp(x, pf.x + 42, pf.x + pf.w - 42),
+        baseX: clamp(x, pf.x + 42, pf.x + pf.w - 42),
+        y: pf.y,
+        spawnY: pf.y,
+        floorY: pf.y,
+        platformX1: pf.x + 32,
+        platformX2: pf.x + pf.w - 32,
+        hp: type.hp,
+        maxHp: type.hp,
+        face: i % 2 ? -1 : 1,
+        time: Math.random() * 9,
+        hit: 0,
+        dead: false,
+        attackCooldown: 0,
+        poison: 0,
+        patrolDir: i % 2 ? -1 : 1,
+        aiCooldown: 0.6 + Math.random(),
+        aggro: false,
+        localMotion: true
+      };
+      if (typeof setupMonsterAI === 'function') setupMonsterAI(m, i);
+      monsters.push(m);
+    }
+    return monsters;
+  }
+
+  const oldLoadHunt = typeof loadHunt === 'function' ? loadHunt : null;
+  if (oldLoadHunt) {
+    loadHunt = function (huntId) {
+      const ret = oldLoadHunt.apply(this, arguments);
+      try {
+        const hunt = getHunt(huntId || game.huntId);
+        if (!hunt) return ret;
+        game.mode = 'hunt';
+        game.huntId = huntId || game.huntId;
+        game.townId = hunt.town || game.townId;
+        applyCurrentMapLayout();
+        game.monsters = makeReducedMonsters(hunt);
+        game.player.x = Math.max(220, Math.min(game.player.x || 220, game.width - 120));
+        game.player.y = game.ground;
+        game.player.vy = 0;
+        game.player.grounded = true;
+        game.player.dropTimer = 0;
+        if (typeof mpSyncLocalMonsterIds === 'function') mpSyncLocalMonsterIds();
+        if (window.PixelRpgMultiplayer && window.PixelRpgMultiplayer.socket && window.PixelRpgMultiplayer.connected) {
+          setTimeout(function () {
+            try {
+              const MP = window.PixelRpgMultiplayer;
+              const room = 'hunt:' + (game.huntId || hunt.id || 'hunt');
+              MP.socket.emit('monster:seed', { room: room, huntId: game.huntId, layout: HUNT_FLOOR_LAYOUT_ID, monsters: safeArr(game.monsters).map(function (m, i) {
+                return { id: m.sharedId || ((game.huntId || 'hunt') + ':' + i), index: i, family: m.type && m.type.family, name: m.type && m.type.name, level: m.type && m.type.level, x: Math.round(m.x), y: Math.round(m.y), baseX: Math.round(m.baseX), spawnY: Math.round(m.spawnY), hp: Math.max(0, Math.round(m.hp || 0)), maxHp: Math.max(1, Math.round(m.maxHp || 1)), dead: !!m.dead, respawn: (m.type && m.type.respawn) || 12000 };
+              }) });
+            } catch (err) {}
+          }, 180);
+        }
+      } catch (err) { console.error('final hunt layout failed', err); }
+      return ret;
+    };
+  }
+
+  const oldLoadTown = typeof loadTown === 'function' ? loadTown : null;
+  if (oldLoadTown) {
+    loadTown = function (townId) {
+      const ret = oldLoadTown.apply(this, arguments);
+      try { applyCurrentMapLayout(); } catch (err) {}
+      return ret;
+    };
+  }
+
+  // Capture S / Down before the older save-on-S listener. R is now manual save.
+  window.addEventListener('keydown', function (e) {
+    const key = String(e.key || '').toLowerCase();
+    if (!game || !game.ready) return;
+    if (key === 'r') {
+      e.preventDefault();
+      try { saveGame(false); } catch (err) {}
+      return;
+    }
+    if ((key === 's' || key === 'arrowdown') && !(e.ctrlKey || e.metaKey || e.altKey)) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      keys.add(key === 'arrowdown' ? 'arrowdown' : 's');
+      if (game.player) game.player.wantDropDown = true;
+    }
+  }, true);
+
+  function solidPlayerUpdate(dt) {
+    const p = game.player;
+    if (!p) return;
+    applyCurrentMapLayout();
+
+    if (p.hp <= 0) {
+      p.hp = p.maxHp; p.mp = p.maxMp; loadTown(game.townId); p.x = 260; p.y = game.ground; makeText('마을에서 부활', p.x, p.y - 90, '#ff8787'); return;
+    }
+
+    const left = keys.has('a') || keys.has('arrowleft');
+    const right = keys.has('d') || keys.has('arrowright');
+    const jump = keys.has(' ') || keys.has('arrowup');
+    const up = keys.has('w') || keys.has('arrowup');
+    const down = keys.has('s') || keys.has('arrowdown');
+    const locked = !!(game.dialog || game.taxiOpen || game.shopOpen || game.blacksmithOpen);
+    const ladder = findLadderAt(p.x, p.y - 22) || findLadderAt(p.x, p.y - 70);
+    const wantsClimb = ladder && (up || down || p.climbing);
+
+    p.dropTimer = Math.max(0, (p.dropTimer || 0) - dt);
+    if (!locked && down && p.grounded && !p.climbing && !ladder) {
+      const onUpper = safeArr(game.platforms).some(function (pf) { return pf.y < game.ground && Math.abs(p.y - pf.y) < 6 && p.x > pf.x + 8 && p.x < pf.x + pf.w - 8; });
+      if (onUpper) { p.dropTimer = 0.24; p.grounded = false; p.y += 18; p.vy = Math.max(90, p.vy || 0); }
+    }
+
+    if (!locked) {
+      if (left) { p.vx = -p.speed; p.face = -1; }
+      else if (right) { p.vx = p.speed; p.face = 1; }
+      else { p.vx *= Math.pow(0.001, dt); if (Math.abs(p.vx) < 2) p.vx = 0; }
+    }
+
+    if (wantsClimb && !locked) {
+      const top = Math.min(ladder.y1, ladder.y2);
+      const bottom = Math.max(ladder.y1, ladder.y2);
+      p.climbing = true; p.x += (ladder.x - p.x) * Math.min(1, dt * 12); p.vy = 0; p.grounded = false;
+      if (up) p.y -= p.speed * 0.72 * dt;
+      else if (down) p.y += p.speed * 0.72 * dt;
+      p.y = clamp(p.y, top, bottom);
+      if (p.y <= top + 2 && up) { p.y = top; p.climbing = false; p.grounded = true; }
+      if (p.y >= bottom - 2 && down) { p.y = bottom; p.climbing = false; p.grounded = true; }
+    } else {
+      p.climbing = false;
+      if (!locked && jump && p.grounded && !down) { p.vy = -430; p.grounded = false; }
+      p.vy += 1500 * dt;
+      p.y += p.vy * dt;
+    }
+
+    p.x += p.vx * dt;
+    if (!p.climbing) p.grounded = false;
+
+    if (p.y >= game.ground) { p.y = game.ground; p.vy = 0; p.grounded = true; }
+
+    if (!p.climbing && (p.dropTimer || 0) <= 0) {
+      safeArr(game.platforms).forEach(function (pf) {
+        const falling = p.vy >= 0;
+        const insideX = p.x > pf.x - 24 && p.x < pf.x + pf.w + 24;
+        const nearTop = p.y >= pf.y - 16 && p.y <= pf.y + 26;
+        if (falling && insideX && nearTop && pf.y < game.ground + 1) { p.y = pf.y; p.vy = 0; p.grounded = true; }
+      });
+    }
+
+    if (!p.grounded && !p.climbing && p.y > game.ground) { p.y = game.ground; p.vy = 0; p.grounded = true; }
+
+    p.x = clamp(p.x, 70, game.width - 80);
+    p.attackTime = Math.max(0, p.attackTime - dt);
+    p.invincible = Math.max(0, p.invincible - dt);
+    p.hurtTime = Math.max(0, p.hurtTime - dt);
+    p.animTime += dt;
+
+    if (p.attackTime > 0) p.anim = 'attack';
+    else if (p.climbing) p.anim = 'walk';
+    else if (!p.grounded) p.anim = 'jump';
+    else if (Math.abs(p.vx) > 10) p.anim = 'walk';
+    else p.anim = 'idle';
+  }
+
+  updatePlayer = solidPlayerUpdate;
+
+  function solidMonsterUpdate(dt) {
+    if (game.mode !== 'hunt') return;
+    applyCurrentMapLayout();
+    safeArr(game.monsters).forEach(function (m, idx) {
+      if (!m || m.dead) return;
+      if (!m.platformX1 || !m.platformX2 || !m.floorY) clampEntityToPlatform(m, nearestPlatformForEntity(m.x || m.baseX || 0, m.y || game.ground));
+      m.time = (m.time || 0) + dt;
+      m.hit = Math.max(0, (m.hit || 0) - dt);
+      m.attackCooldown = Math.max(0, (m.attackCooldown || 0) - dt);
+      m.y = m.floorY;
+      m.spawnY = m.floorY;
+
+      const dx = game.player.x - m.x;
+      const sameFloor = Math.abs(game.player.y - m.y) < 70;
+      const hostile = !!m.aggro || !!m.hasBeenHit;
+      let speed = (m.type && m.type.speed) || 28;
+      if (hostile && sameFloor && Math.abs(dx) < 430) {
+        m.face = dx > 0 ? 1 : -1;
+        m.x += m.face * speed * 0.78 * dt;
+      } else {
+        if (!m.patrolDir) m.patrolDir = idx % 2 ? -1 : 1;
+        m.x += m.patrolDir * speed * 0.32 * dt;
+        if (m.x <= m.platformX1 + 20) { m.x = m.platformX1 + 20; m.patrolDir = 1; m.face = 1; }
+        if (m.x >= m.platformX2 - 20) { m.x = m.platformX2 - 20; m.patrolDir = -1; m.face = -1; }
+      }
+      m.x = clamp(m.x, m.platformX1, m.platformX2);
+
+      const touchX = Math.abs(game.player.x - m.x) < 48;
+      const touchY = Math.abs(game.player.y - m.y) < 80;
+      if (hostile && touchX && touchY && game.player.invincible <= 0) {
+        const damage = Math.max(1, Math.floor(((m.type && m.type.atk) || 5) - game.player.defense * 0.45));
+        game.player.hp = Math.max(0, game.player.hp - damage);
+        game.player.invincible = 0.9; game.player.hurtTime = 0.2; game.player.vx = -m.face * 120;
+        makeText('-' + damage, game.player.x, game.player.y - 90, '#ff8787');
+      }
+    });
+  }
+
+  updateMonsters = solidMonsterUpdate;
+
+  const oldDamageMonster = typeof damageMonster === 'function' ? damageMonster : null;
+  if (oldDamageMonster) {
+    damageMonster = function (m, skill) {
+      if (m) { m.aggro = true; m.hasBeenHit = true; if (!m.floorY) clampEntityToPlatform(m, nearestPlatformForEntity(m.x || 0, m.y || game.ground)); }
+      return oldDamageMonster.apply(this, arguments);
+    };
+  }
+
+  const oldKillMonster = typeof killMonster === 'function' ? killMonster : null;
+  if (oldKillMonster) {
+    killMonster = function (m) {
+      if (m) { m.y = m.floorY || floorYAt(m.x || 0, m.y || game.ground); }
+      return oldKillMonster.apply(this, arguments);
+    };
+  }
+
+  const oldUpdateDrops = typeof updateDrops === 'function' ? updateDrops : null;
+  updateDrops = function (dt) {
+    if (oldUpdateDrops) oldUpdateDrops.apply(this, arguments);
+    safeArr(game.drops).forEach(function (d) {
+      if (!d || d.picked) return;
+      d.vy = (d.vy || 0) + 1200 * dt;
+      d.y += d.vy * dt;
+      const fy = floorYAt(d.x || 0, d.y || game.ground);
+      if (d.y >= fy) { d.y = fy; d.vy = 0; }
+    });
+  };
+
+  // Other online players are display-only, but should never appear walking in the air.
+  const oldDrawOtherPlayers = typeof drawOtherPlayers === 'function' ? drawOtherPlayers : null;
+  if (oldDrawOtherPlayers) {
+    drawOtherPlayers = function () {
+      try {
+        const MP = window.PixelRpgMultiplayer;
+        if (MP && MP.players) {
+          Object.keys(MP.players).forEach(function (id) {
+            const op = MP.players[id];
+            if (!op) return;
+            const target = floorYAt(op.x || 0, op.y || game.ground);
+            if (!Number.isFinite(op.y) || op.y > target || Math.abs(op.y - target) > 120) op.y = target;
+          });
+        }
+      } catch (err) {}
+      return oldDrawOtherPlayers.apply(this, arguments);
+    };
+  }
+
+  const oldDrawGold = typeof drawGold === 'function' ? drawGold : null;
+  drawGold = function () {
+    ctx.fillStyle = 'rgba(17,24,39,0.9)';
+    roundRect(ctx, W - 190, 98, 170, 34, 8);
+    ctx.fillStyle = '#ffd43b'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('원 ' + wallet.gold, W - 172, 121);
+  };
+
+  // Merchant sell: click an item in your inventory while merchant shop is open.
+  function inventorySlotAtPoint(x, y) {
+    if (!inventory.open && !game.shopOpen) return -1;
+    const panelX = 730;
+    const panelY = 150;
+    const cols = 5;
+    const size = 52;
+    const gap = 10;
+    // Most patched inventory panels use the right side area. Support broad hit zones.
+    for (let i = 0; i < inventory.items.length; i++) {
+      const sx = panelX + 24 + (i % cols) * (size + gap);
+      const sy = panelY + 72 + Math.floor(i / cols) * (size + gap);
+      if (hit(x, y, sx, sy, size, size)) return i;
+    }
+    // Fallback for older panel grids.
+    const px = 650, py = 185;
+    for (let i = 0; i < inventory.items.length; i++) {
+      const sx = px + 20 + (i % 6) * 58;
+      const sy = py + 50 + Math.floor(i / 6) * 58;
+      if (hit(x, y, sx, sy, 52, 52)) return i;
+    }
+    return -1;
+  }
+
+  function sellInventoryIndex(index) {
+    const st = inventory.items[index];
+    if (!st) return false;
+    const item = ITEMS[st.id];
+    if (!item) return false;
+    const slot = getEquipSlotForItem(item);
+    if (!slot && item.type !== 'etc') { makeText('판매할 수 없는 아이템입니다', game.player.x, game.player.y - 90, '#ff8787'); return true; }
+    const unit = Math.max(1, Math.floor((item.sell || Math.floor((item.price || 20) * 0.35) || 1) * (1 + itemEnhance(st) * 0.12)));
+    const count = slot ? 1 : Math.max(1, st.count || 1);
+    const gain = unit * count;
+    wallet.gold += gain;
+    if (slot) {
+      st.count -= 1;
+      if (st.count <= 0) inventory.items.splice(index, 1);
+    } else {
+      inventory.items.splice(index, 1);
+    }
+    markAutoSaveSoon();
+    makeText((item.name || st.id) + ' 판매 +' + moneyLabel(gain), game.player.x, game.player.y - 90, '#ffd43b');
+    return true;
+  }
+
+  const oldHandleShopClick = typeof handleShopClick === 'function' ? handleShopClick : null;
+  handleShopClick = function (x, y) {
+    if (game.shopOpen === 'merchant') {
+      const idx = inventorySlotAtPoint(x, y);
+      if (idx >= 0) { sellInventoryIndex(idx); return; }
+    }
+    if (oldHandleShopClick) return oldHandleShopClick.apply(this, arguments);
+  };
+
+  const oldSellAllEtc = typeof sellAllEtc === 'function' ? sellAllEtc : null;
+  sellAllEtc = function () {
+    let gained = 0;
+    inventory.items.slice().forEach(function (stackItem) {
+      const item = ITEMS[stackItem.id];
+      if (!item || item.type !== 'etc') return;
+      gained += (item.sell || 1) * (stackItem.count || 1);
+      inventory.items = inventory.items.filter(function (v) { return v !== stackItem; });
+    });
+    wallet.gold += gained; markAutoSaveSoon(); makeText('판매 +' + moneyLabel(gained), game.player.x, game.player.y - 90, '#ffd43b');
+  };
+
+  // Job skills: make every job have at least 3 skills, rare jobs get flashier 4-6 skill sets.
+  const JOB_SKILL_PACK = {
+    beginner: [['quick_slash','빠른 베기','slash',1.15,65,0.9], ['stone_throw','돌던지기','stone',1.25,330,2.5], ['first_aid','숨고르기','heal',0,0,3.0]],
+    warrior: [['power_swing','파워 스윙','slash',1.8,95,1.6], ['guard_break','가드 브레이크','impact',2.0,90,2.2], ['iron_will','강철 의지','buff',0,0,5.0]],
+    mage: [['fire_spark','화염탄','fire',1.7,360,1.8], ['ice_bloom','얼음꽃','ice',1.9,330,2.4], ['mana_burst','마나 폭발','arcane',2.1,150,3.0]],
+    rogue: [['double_stab','이중 찌르기','shadow',1.15,76,0.9], ['poison_pin','독침','poison',1.5,300,1.9], ['shadow_step','그림자 걸음','shadow',2.1,100,2.8]],
+    archer: [['rapid_arrow','연속 화살','arrow',1.2,390,1.3], ['piercing_arrow','관통 화살','lightning',1.9,420,2.5], ['wind_trap','바람 덫','wind',1.7,250,2.8]],
+    dragon_knight: [['dragon_claw','용조격','dragon_fire',2.2,140,1.8], ['dragon_roar','용의 포효','dragon_ring',3.2,210,3.8], ['flame_wing','화염 날개','dragon_wave',2.8,360,3.0], ['ancient_scale','고룡의 비늘','buff',0,0,5.5], ['wyrm_crash','비룡 추락','meteor',3.7,260,5.0]],
+    shadow_reaper: [['reaper_cut','사신절단','shadow',2.7,130,2.3], ['black_moon','검은 달','dark_orb',3.1,360,3.4], ['soul_chain','영혼 사슬','chain',2.6,280,3.0], ['death_blossom','죽음의 꽃','dark_burst',3.8,190,5.0]],
+    star_sage: [['starfall','별똥별','star',2.6,420,3.1], ['nova_ring','노바 링','star_ring',3.0,220,3.6], ['comet_ray','혜성 광선','comet',3.4,460,4.4], ['galaxy_gate','은하문','galaxy',4.0,250,5.5]],
+    paladin: [['holy_cross','성광 십자','holy',2.2,150,2.5], ['shield_smite','방패 응징','impact',2.3,110,2.8], ['blessing_guard','축복 수호','buff',0,0,5.0]],
+    berserker: [['rage_burst','분노 폭발','fire',2.3,120,2.6], ['blood_spin','피의 회전','red_spin',2.6,150,3.4], ['wild_howl','야성 포효','impact',2.1,190,3.2]],
+    cleric: [['heal_breeze','회복의 바람','heal',0,0,4.0], ['holy_spark','성광탄','holy',1.9,330,2.2], ['purify_wave','정화 파동','holy_ring',2.3,180,3.5]],
+    summoner: [['summon_wisp','정령탄','arcane',1.8,360,1.8], ['beast_echo','야수 메아리','wind',2.2,260,2.8], ['spirit_gate','정령문','galaxy',2.6,210,4.0]],
+    gunslinger: [['bullet_rain','탄환 난사','bullet',1.1,420,1.4], ['blast_shot','폭발탄','fire',2.2,380,2.8], ['silver_reload','실버 리로드','buff',0,0,4.2]],
+    lancer: [['pierce_lance','관통창','lightning',2.1,175,2.2], ['spear_wall','창벽','impact',2.4,150,3.0], ['sky_thrust','천공 찌르기','wind',2.7,190,3.5]],
+    engineer: [['drone_zap','드론 전격','lightning',1.8,360,1.9], ['gear_bomb','기어 폭탄','fire',2.5,300,3.2], ['repair_kit','수리 키트','heal',0,0,4.5]],
+    bard: [['echo_note','메아리 음표','star',1.7,330,1.8], ['crescendo','크레센도','holy_ring',2.4,200,3.2], ['healing_song','치유의 노래','heal',0,0,4.8]]
+  };
+
+  function addSkillDef(id, name, visual, power, range, cooldown, job) {
+    if (SKILLS[id]) {
+      SKILLS[id].job = SKILLS[id].job || job;
+      SKILLS[id].visual = SKILLS[id].visual || visual;
+      SKILLS[id].cooldown = cooldown || SKILLS[id].cooldown || 2;
+      return;
+    }
+    SKILLS[id] = { id, name, job, unlockLevel: 1, mp: visual === 'heal' || visual === 'buff' ? 12 : 10, power: power || 1.5, range: range || 120, cooldown: cooldown || 2.2, visual, projectile: range >= 260, magic: /fire|ice|holy|arcane|star|dragon|galaxy|dark|lightning|wind|comet/.test(visual), desc: name + ' 스킬' };
+  }
+
+  Object.keys(JOBS || {}).forEach(function (jobId) {
+    const pack = JOB_SKILL_PACK[jobId] || JOB_SKILL_PACK.beginner;
+    pack.forEach(function (s) { addSkillDef(s[0], s[1], s[2], s[3], s[4], s[5], jobId); });
+    const existing = Object.keys(SKILLS).filter(function (sid) { return SKILLS[sid].job === jobId; });
+    let n = 0;
+    while (existing.length + n < 3) {
+      const id = jobId + '_tech_' + (n + 1);
+      addSkillDef(id, (JOBS[jobId] && JOBS[jobId].name || jobId) + ' 기술 ' + (n + 1), n % 2 ? 'impact' : 'slash', 1.4 + n * 0.25, 110 + n * 30, 2.1 + n * 0.4, jobId);
+      n++;
+    }
+  });
+
+  function skillColor(visual) {
+    return {
+      fire: '#fb923c', ice: '#7dd3fc', holy: '#fde68a', holy_ring: '#fef3c7', arcane: '#a78bfa', star: '#fef08a', star_ring: '#fde047', galaxy: '#818cf8',
+      dragon_fire: '#f97316', dragon_ring: '#fb7185', dragon_wave: '#fdba74', meteor: '#facc15', shadow: '#c084fc', dark_orb: '#7e22ce', dark_burst: '#d946ef', chain: '#94a3b8',
+      lightning: '#fef08a', wind: '#86efac', poison: '#a3e635', bullet: '#e5e7eb', stone: '#9ca3af', impact: '#fca5a5', slash: '#ffd166', red_spin: '#ef4444', heal: '#86efac', buff: '#93c5fd', comet: '#60a5fa'
+    }[visual] || '#ffd43b';
+  }
+
+  function pushParticle(x, y, color, vx, vy, life, size) {
+    game.particles.push({ x, y, vx, vy, life, color, size: size || 2 });
+  }
+
+  function emitSkillEffect(skill) {
+    const p = game.player;
+    if (!p || !skill) return;
+    const visual = skill.visual || (skill.magic ? 'arcane' : 'slash');
+    const color = skillColor(visual);
+    const dir = p.face || 1;
+    const ox = p.x + dir * 55;
+    const oy = p.y - 55;
+    const rare = ['dragon_knight','shadow_reaper','star_sage'].includes(p.character && p.character.job) ? 1.7 : 1;
+    const count = Math.floor((visual.includes('dragon') || visual.includes('galaxy') || visual.includes('dark') || visual.includes('star')) ? 42 * rare : 22 * rare);
+
+    if (visual === 'heal' || visual === 'buff') {
+      for (let i = 0; i < 34; i++) {
+        const a = Math.PI * 2 * i / 34;
+        pushParticle(p.x + Math.cos(a) * 28, p.y - 62 + Math.sin(a) * 14, color, Math.cos(a) * 30, -60 + Math.sin(a) * 20, 0.8, 3);
+      }
+      return;
+    }
+
+    if (/dragon/.test(visual)) {
+      for (let i = 0; i < count; i++) {
+        const t = i / count;
+        pushParticle(ox + dir * t * 190, oy + Math.sin(t * Math.PI * 3) * 35, i % 3 ? color : '#fff7ed', dir * (160 + i * 2), -80 + Math.sin(i) * 80, 0.55 + t * 0.35, 3 + (i % 4));
+      }
+      makeText('용의 기운!', p.x + dir * 85, p.y - 130, '#fb923c');
+    } else if (/star|galaxy|comet/.test(visual)) {
+      for (let i = 0; i < count; i++) {
+        const a = i * 2.399;
+        const r = 10 + i * 2.2;
+        pushParticle(ox + Math.cos(a) * r, oy + Math.sin(a) * r * 0.55, i % 2 ? color : '#ffffff', Math.cos(a) * 90 + dir * 40, Math.sin(a) * 80, 0.75, 2.6);
+      }
+    } else if (/dark|shadow|chain/.test(visual)) {
+      for (let i = 0; i < count; i++) {
+        pushParticle(ox + dir * rand(0, 170), oy + rand(-45, 35), i % 2 ? color : '#111827', dir * rand(80, 240), rand(-100, 80), 0.65, 3);
+      }
+    } else if (/fire|meteor/.test(visual)) {
+      for (let i = 0; i < count; i++) pushParticle(ox + dir * rand(0, 170), oy + rand(-30, 35), i % 2 ? color : '#fde047', dir * rand(80, 260), rand(-120, 50), 0.65, 3);
+    } else if (/ice/.test(visual)) {
+      for (let i = 0; i < count; i++) pushParticle(ox + dir * rand(0, 150), oy + rand(-35, 25), i % 2 ? color : '#e0f2fe', dir * rand(70, 210), rand(-100, 40), 0.72, 2.8);
+    } else {
+      for (let i = 0; i < count; i++) pushParticle(ox + dir * rand(0, 140), oy + rand(-30, 30), color, dir * rand(70, 220), rand(-80, 80), 0.55, 2.5);
+    }
+  }
+
+  const oldUseSkill = typeof useSkill === 'function' ? useSkill : null;
+  if (oldUseSkill) {
+    useSkill = function (id) {
+      const skill = SKILLS[id];
+      const beforeMp = game.player.mp;
+      const ret = oldUseSkill.apply(this, arguments);
+      if (skill && game.player.mp < beforeMp + 0.001) emitSkillEffect(skill);
+      return ret;
+    };
+  }
+
+  const oldSpawnProjectile = typeof spawnProjectile === 'function' ? spawnProjectile : null;
+  spawnProjectile = function (skill) {
+    const visual = skill && skill.visual || (skill && skill.magic ? 'arcane' : 'stone');
+    const p = game.player;
+    if (!p) return oldSpawnProjectile ? oldSpawnProjectile.apply(this, arguments) : null;
+    const kind = visual === 'stone' ? 'stone' : (/arrow|bullet/.test(visual) ? 'arrow' : 'magic');
+    game.projectiles.push({ x: p.x + p.face * 35, y: p.y - 52, vx: p.face * (visual === 'stone' ? 420 : 520), life: 0.9, face: p.face, skill, hitSet: new Set(), color: skillColor(visual), kind, visual, effectPower: Math.max(1, (skill && skill.power) || 1) });
+  };
+
+  const oldDrawProjectiles = typeof drawProjectiles === 'function' ? drawProjectiles : null;
+  drawProjectiles = function () {
+    safeArr(game.projectiles).forEach(function (p) {
+      if (p.kind !== 'stone') return;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.face || 1, 1);
+      ctx.shadowColor = '#6b7280'; ctx.shadowBlur = 8;
+      ctx.fillStyle = '#4b5563'; ctx.beginPath(); ctx.ellipse(0, 0, 14, 10, -0.25, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#9ca3af'; ctx.beginPath(); ctx.ellipse(-4, -3, 5, 3, -0.2, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    });
+    if (oldDrawProjectiles) {
+      const old = game.projectiles;
+      game.projectiles = old.filter(function (p) { return p.kind !== 'stone'; });
+      oldDrawProjectiles();
+      game.projectiles = old;
+    }
+  };
+
+  // Update HUD hint to the new save/drop keys.
+  const oldDrawHUD = typeof drawHUD === 'function' ? drawHUD : null;
+  drawHUD = function () {
+    if (oldDrawHUD) oldDrawHUD.apply(this, arguments);
+    ctx.fillStyle = 'rgba(15,23,42,0.72)'; roundRect(ctx, 18, 132, 570, 24, 8);
+    ctx.fillStyle = '#dbeafe'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('R 저장 · S/↓ 윗층에서 아래층 내려가기 · 사다리에서는 W/S 또는 ↑/↓', 30, 149);
+  };
+
+  // Keep current map corrected after older sync/load patches run.
+  setInterval(function () {
+    try {
+      applyCurrentMapLayout();
+      if (game.mode === 'hunt') {
+        safeArr(game.monsters).forEach(function (m) { if (!m.dead) clampEntityToPlatform(m, nearestPlatformForEntity(m.x || 0, m.y || game.ground)); });
+      }
+    } catch (err) {}
+  }, 850);
+
+  try { applyCurrentMapLayout(); } catch (err) {}
+})();
