@@ -12914,3 +12914,843 @@ canvas.addEventListener('click', function (e) {
     });
   };
 })();
+
+
+/* =========================================================
+   TOWN LADDER / REPEAT QUEST / WON CURRENCY / AGGRO PATCH 01
+   - Town upper platforms can be reached by ladder or stronger jump
+   - Adds upper-town repeatable quests with level-scaled rewards
+   - Replaces Gold/G/메소 labels with 원
+   - Monsters attack only after the player hits them first
+========================================================= */
+(function () {
+  'use strict';
+  if (window.__PIXEL_RPG_TOWN_REPEAT_WON_AGGRO_PATCH_01__) return;
+  window.__PIXEL_RPG_TOWN_REPEAT_WON_AGGRO_PATCH_01__ = true;
+
+  const TOWN_ORDER_FOR_REWARD = ['lumina','greenwood','ellenium','valor','shadowport','sylvania','irondeep','frosthall','solas','nocturn'];
+  const TOWN_REPEAT_NPCS = {
+    lumina: [
+      { type: 'repeat_quest', name: '언덕 위 농부 포포', x: 980, y: 392, quest: 'repeat_lumina_slime', text: '매일 들판을 어지럽히는 슬라임을 좀 줄여주세요.', lookJob: 'beginner' },
+      { type: 'repeat_quest', name: '지붕 청소부 미오', x: 1640, y: 277, quest: 'repeat_lumina_mushroom', text: '위쪽 지붕 근처에 버섯 포자가 너무 많아요.', lookJob: 'bard' }
+    ],
+    greenwood: [
+      { type: 'repeat_quest', name: '나무꾼 라임', x: 980, y: 392, quest: 'repeat_greenwood_bug', text: '숲 벌레가 목재 창고를 갉아먹고 있어요.', lookJob: 'archer' },
+      { type: 'repeat_quest', name: '숲 약초상 세나', x: 1640, y: 277, quest: 'repeat_greenwood_mushroom', text: '약초를 지키려면 버섯들을 정리해야 해요.', lookJob: 'cleric' }
+    ],
+    ellenium: [
+      { type: 'repeat_quest', name: '마력 연구원 비비', x: 980, y: 392, quest: 'repeat_ellenium_mana', text: '마나 정령의 흐름을 조사하고 있어요.', lookJob: 'mage' },
+      { type: 'repeat_quest', name: '별빛 기록관 노아', x: 1640, y: 277, quest: 'repeat_ellenium_crystal', text: '푸른 결정을 더 모아주세요.', lookJob: 'star_sage' }
+    ],
+    valor: [
+      { type: 'repeat_quest', name: '성벽 경비병 하론', x: 980, y: 392, quest: 'repeat_valor_boar', text: '성벽 아래의 멧돼지가 계속 돌진합니다.', lookJob: 'warrior' },
+      { type: 'repeat_quest', name: '무기 수습병 케인', x: 1640, y: 277, quest: 'repeat_valor_blade', text: '훈련용 검 파편이 부족합니다.', lookJob: 'lancer' }
+    ],
+    shadowport: [
+      { type: 'repeat_quest', name: '항구 감시자 렌', x: 980, y: 392, quest: 'repeat_shadowport_shadow', text: '어둠 골목의 그림자를 감시해야 합니다.', lookJob: 'rogue' },
+      { type: 'repeat_quest', name: '정보상 카일', x: 1640, y: 277, quest: 'repeat_shadowport_hide', text: '검은 가죽은 늘 수요가 있죠.', lookJob: 'shadow_reaper' }
+    ],
+    sylvania: [
+      { type: 'repeat_quest', name: '깃털 수집가 루루', x: 980, y: 392, quest: 'repeat_sylvania_feather', text: '좋은 화살깃을 만들 재료가 필요해요.', lookJob: 'archer' },
+      { type: 'repeat_quest', name: '숲길 안내원 피아', x: 1640, y: 277, quest: 'repeat_sylvania_bug', text: '위층 숲길의 벌레를 치워주세요.', lookJob: 'bard' }
+    ],
+    irondeep: [
+      { type: 'repeat_quest', name: '광부 토르', x: 980, y: 392, quest: 'repeat_irondeep_ore', text: '광석 조각을 가져오면 수당을 드리죠.', lookJob: 'engineer' },
+      { type: 'repeat_quest', name: '용광로 관리인 다나', x: 1640, y: 277, quest: 'repeat_irondeep_golem', text: '광산 골렘이 용광로를 막고 있어요.', lookJob: 'blacksmith' }
+    ],
+    frosthall: [
+      { type: 'repeat_quest', name: '얼음 채집꾼 유리', x: 980, y: 392, quest: 'repeat_frosthall_ice', text: '맑은 얼음 조각이 필요합니다.', lookJob: 'mage' },
+      { type: 'repeat_quest', name: '북풍 감시자 노엘라', x: 1640, y: 277, quest: 'repeat_frosthall_spirit', text: '위쪽 냉기층의 정령을 진정시켜 주세요.', lookJob: 'cleric' }
+    ],
+    solas: [
+      { type: 'repeat_quest', name: '사막 상인 아딘', x: 980, y: 392, quest: 'repeat_solas_scale', text: '사막 비늘은 비싸게 팔립니다.', lookJob: 'gunslinger' },
+      { type: 'repeat_quest', name: '오아시스 수비병 라샤', x: 1640, y: 277, quest: 'repeat_solas_lizard', text: '모래 도마뱀이 물길을 망가뜨립니다.', lookJob: 'lancer' }
+    ],
+    nocturn: [
+      { type: 'repeat_quest', name: '폐허 조사관 벨', x: 980, y: 392, quest: 'repeat_nocturn_core', text: '폐허의 핵을 회수해야 합니다.', lookJob: 'star_sage' },
+      { type: 'repeat_quest', name: '밤의 파수꾼 케르', x: 1640, y: 277, quest: 'repeat_nocturn_guardian', text: '폐허 수호자를 잠시 잠재워 주세요.', lookJob: 'dragon_knight' }
+    ]
+  };
+
+  const REPEAT_QUEST_DEFS = {
+    repeat_lumina_slime: ['루미나 반복 의뢰: 젤리 정리', 'lumina', '언덕 위 농부 포포', 'slime', 8, null, 0],
+    repeat_lumina_mushroom: ['루미나 반복 의뢰: 지붕 포자', 'lumina', '지붕 청소부 미오', 'mushroom', 6, null, 0],
+    repeat_greenwood_bug: ['그린우드 반복 의뢰: 목재 창고 방어', 'greenwood', '나무꾼 라임', 'bug', 9, null, 1],
+    repeat_greenwood_mushroom: ['그린우드 반복 의뢰: 약초밭 보호', 'greenwood', '숲 약초상 세나', 'mushroom', 10, null, 1],
+    repeat_ellenium_mana: ['일레니움 반복 의뢰: 마나 흐름 조사', 'ellenium', '마력 연구원 비비', 'mana', 10, null, 2],
+    repeat_ellenium_crystal: ['일레니움 반복 의뢰: 푸른 결정 수집', 'ellenium', '별빛 기록관 노아', null, 0, 'blue_crystal', 2],
+    repeat_valor_boar: ['발로란 반복 의뢰: 성벽 아래 돌진', 'valor', '성벽 경비병 하론', 'boar', 11, null, 3],
+    repeat_valor_blade: ['발로란 반복 의뢰: 검 파편 회수', 'valor', '무기 수습병 케인', null, 0, 'rusted_blade', 3],
+    repeat_shadowport_shadow: ['섀도포트 반복 의뢰: 골목 정찰', 'shadowport', '항구 감시자 렌', 'shadow', 11, null, 4],
+    repeat_shadowport_hide: ['섀도포트 반복 의뢰: 검은 가죽 거래', 'shadowport', '정보상 카일', null, 0, 'black_hide', 4],
+    repeat_sylvania_feather: ['실바니아 반복 의뢰: 깃털 수집', 'sylvania', '깃털 수집가 루루', null, 0, 'hard_feather', 5],
+    repeat_sylvania_bug: ['실바니아 반복 의뢰: 숲길 방역', 'sylvania', '숲길 안내원 피아', 'bug', 12, null, 5],
+    repeat_irondeep_ore: ['아이언딥 반복 의뢰: 광석 조각 납품', 'irondeep', '광부 토르', null, 0, 'ore_piece', 6],
+    repeat_irondeep_golem: ['아이언딥 반복 의뢰: 골렘 제어', 'irondeep', '용광로 관리인 다나', 'ore', 12, null, 6],
+    repeat_frosthall_ice: ['프로스트홀 반복 의뢰: 얼음 조각 채집', 'frosthall', '얼음 채집꾼 유리', null, 0, 'ice_shard', 7],
+    repeat_frosthall_spirit: ['프로스트홀 반복 의뢰: 냉기 진정', 'frosthall', '북풍 감시자 노엘라', 'ice', 13, null, 7],
+    repeat_solas_scale: ['솔라스 반복 의뢰: 사막 비늘 납품', 'solas', '사막 상인 아딘', null, 0, 'desert_scale', 8],
+    repeat_solas_lizard: ['솔라스 반복 의뢰: 오아시스 방어', 'solas', '오아시스 수비병 라샤', 'desert', 14, null, 8],
+    repeat_nocturn_core: ['노크턴 반복 의뢰: 폐허의 핵 회수', 'nocturn', '폐허 조사관 벨', null, 0, 'ruin_core', 9],
+    repeat_nocturn_guardian: ['노크턴 반복 의뢰: 수호자 잠재우기', 'nocturn', '밤의 파수꾼 케르', 'ruin', 15, null, 9]
+  };
+
+  function townRank(id) {
+    const i = TOWN_ORDER_FOR_REWARD.indexOf(id || game.townId || 'lumina');
+    return Math.max(0, i);
+  }
+
+  function scaledReward(townId, kind) {
+    const rank = townRank(townId);
+    const lv = Math.max(1, (game.player && game.player.level) || 1);
+    if (kind === 'gold') return Math.floor(120 + rank * 85 + lv * (10 + rank * 2));
+    return Math.floor(140 + rank * 115 + lv * (15 + rank * 3));
+  }
+
+  function ensureRepeatQuestDefinitions() {
+    if (typeof QUESTS !== 'object') return;
+    Object.keys(REPEAT_QUEST_DEFS).forEach(function (id) {
+      const d = REPEAT_QUEST_DEFS[id];
+      const goals = [];
+      if (d[3]) goals.push({ type: 'kill', family: d[3], need: d[4], count: 0 });
+      if (d[5]) goals.push({ type: 'item', itemId: d[5], need: 8 + d[6], count: 0 });
+      QUESTS[id] = {
+        id,
+        title: d[0],
+        town: d[1],
+        npc: d[2],
+        repeatable: true,
+        desc: '반복 의뢰입니다. 완료 후 다시 받을 수 있습니다.',
+        goals,
+        rewardGold: scaledReward(d[1], 'gold'),
+        rewardExp: scaledReward(d[1], 'exp')
+      };
+    });
+  }
+
+  function townLayerPlatforms() {
+    const width = Math.max(4300, game.width || 4300);
+    return [
+      { x: 0, y: game.ground, w: width, h: 24, floor: 0, townFloor: true },
+      { x: 0, y: 505, w: 820, h: 24, floor: 1, townFloor: true },
+      { x: 960, y: 505, w: 760, h: 24, floor: 1, townFloor: true },
+      { x: 1880, y: 505, w: 880, h: 24, floor: 1, townFloor: true },
+      { x: 3040, y: 505, w: 840, h: 24, floor: 1, townFloor: true },
+      { x: 520, y: 390, w: 820, h: 24, floor: 2, townFloor: true },
+      { x: 1600, y: 390, w: 960, h: 24, floor: 2, townFloor: true },
+      { x: 2860, y: 390, w: 860, h: 24, floor: 2, townFloor: true },
+      { x: 1120, y: 275, w: 780, h: 24, floor: 3, townFloor: true },
+      { x: 2440, y: 275, w: 780, h: 24, floor: 3, townFloor: true }
+    ];
+  }
+
+  function townLadders() {
+    return [
+      { x: 350, y1: 505, y2: game.ground, town: true },
+      { x: 1120, y1: 390, y2: 505, town: true },
+      { x: 1680, y1: 275, y2: 390, town: true },
+      { x: 2140, y1: 505, y2: game.ground, town: true },
+      { x: 2380, y1: 390, y2: 505, town: true },
+      { x: 2880, y1: 275, y2: 390, town: true },
+      { x: 3300, y1: 505, y2: game.ground, town: true }
+    ];
+  }
+
+  function addTownRepeatNpcs() {
+    const list = TOWN_REPEAT_NPCS[game.townId] || [];
+    const existing = new Set((game.npcs || []).map(function (n) { return n.name + ':' + (n.quest || ''); }));
+    list.forEach(function (npc) {
+      const key = npc.name + ':' + npc.quest;
+      if (existing.has(key)) return;
+      game.npcs.push(Object.assign({ y: game.ground }, npc));
+    });
+  }
+
+  const oldLoadTown = typeof loadTown === 'function' ? loadTown : null;
+  if (oldLoadTown) {
+    loadTown = function (townId) {
+      const ret = oldLoadTown.apply(this, arguments);
+      try {
+        ensureRepeatQuestDefinitions();
+        game.platforms = townLayerPlatforms();
+        game.ladders = townLadders();
+        addTownRepeatNpcs();
+      } catch (err) {
+        console.error('town ladder/repeat npc patch failed', err);
+      }
+      return ret;
+    };
+  }
+
+  function getLadderAt(x, y) {
+    if (!Array.isArray(game.ladders)) return null;
+    for (const l of game.ladders) {
+      const top = Math.min(l.y1, l.y2);
+      const bottom = Math.max(l.y1, l.y2);
+      if (Math.abs(x - l.x) <= 30 && y >= top - 18 && y <= bottom + 22) return l;
+    }
+    return null;
+  }
+
+  function platformTopAt(x, y, vy) {
+    let bestY = game.ground;
+    const wasFalling = vy >= 0;
+    (game.platforms || []).forEach(function (pf) {
+      if (!pf) return;
+      const insideX = x > pf.x - 24 && x < pf.x + pf.w + 24;
+      const nearTop = y >= pf.y - 18 && y <= pf.y + 30;
+      if (wasFalling && insideX && nearTop && pf.y < bestY) bestY = pf.y;
+    });
+    return bestY;
+  }
+
+  updatePlayer = function (dt) {
+    const p = game.player;
+    if (!p) return;
+
+    if (p.hp <= 0) {
+      p.hp = p.maxHp;
+      p.mp = p.maxMp;
+      loadTown(game.townId);
+      p.x = 260;
+      p.y = game.ground;
+      makeText('마을에서 부활', p.x, p.y - 90, '#ff8787');
+      return;
+    }
+
+    const left = keys.has('a') || keys.has('arrowleft');
+    const right = keys.has('d') || keys.has('arrowright');
+    const jump = keys.has(' ') || keys.has('arrowup');
+    const up = keys.has('w') || keys.has('arrowup');
+    const down = keys.has('s') || keys.has('arrowdown');
+    const locked = !!(game.dialog || game.taxiOpen || game.shopOpen || game.blacksmithOpen);
+    const ladder = getLadderAt(p.x, p.y - 18) || getLadderAt(p.x, p.y - 72);
+    const wantsClimb = ladder && (up || down || p.climbing);
+
+    if (!locked) {
+      if (wantsClimb) {
+        const top = Math.min(ladder.y1, ladder.y2);
+        const bottom = Math.max(ladder.y1, ladder.y2);
+        p.climbing = true;
+        p.grounded = false;
+        p.vx = 0;
+        p.vy = 0;
+        p.x += (ladder.x - p.x) * Math.min(1, dt * 10);
+        if (up) p.y -= 215 * dt;
+        else if (down) p.y += 215 * dt;
+        if (p.y < top) { p.y = top; p.climbing = false; p.grounded = true; }
+        if (p.y > bottom) { p.y = bottom; p.climbing = false; p.grounded = true; }
+      } else {
+        p.climbing = false;
+        if (left) { p.vx = -p.speed; p.face = -1; }
+        else if (right) { p.vx = p.speed; p.face = 1; }
+        else {
+          p.vx *= Math.pow(0.001, dt);
+          if (Math.abs(p.vx) < 2) p.vx = 0;
+        }
+        if (jump && p.grounded) {
+          p.vy = -720; // upper town floors can be reached even without using a ladder perfectly
+          p.grounded = false;
+        }
+      }
+    }
+
+    if (!p.climbing) {
+      p.vy += 1550 * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.grounded = false;
+
+      const topY = platformTopAt(p.x, p.y, p.vy);
+      if (p.y >= topY) {
+        p.y = topY;
+        p.vy = 0;
+        p.grounded = true;
+      }
+    }
+
+    p.x = clamp(p.x, 70, game.width - 80);
+    p.attackTime = Math.max(0, (p.attackTime || 0) - dt);
+    p.invincible = Math.max(0, (p.invincible || 0) - dt);
+    p.hurtTime = Math.max(0, (p.hurtTime || 0) - dt);
+    p.animTime += dt;
+
+    if (p.climbing) p.anim = 'walk';
+    else if (p.attackTime > 0) p.anim = 'attack';
+    else if (!p.grounded) p.anim = 'jump';
+    else if (Math.abs(p.vx) > 10) p.anim = 'walk';
+    else p.anim = 'idle';
+  };
+
+  const oldDrawTownObjects = typeof drawTownObjects === 'function' ? drawTownObjects : null;
+  if (oldDrawTownObjects) {
+    drawTownObjects = function (town) {
+      oldDrawTownObjects.apply(this, arguments);
+      if (!game || game.mode !== 'town') return;
+      const theme = (town && town.theme) || 'grass';
+      ctx.save();
+      (game.platforms || []).filter(function (pf) { return pf.townFloor && pf.y < game.ground; }).forEach(function (pf, i) {
+        ctx.fillStyle = theme === 'desert' ? '#d1a861' : theme === 'ice' ? '#bfefff' : '#d6b36b';
+        roundRect(ctx, pf.x, pf.y, pf.w, pf.h, 9);
+        ctx.fillStyle = 'rgba(90,54,20,0.25)';
+        for (let x = pf.x + 18; x < pf.x + pf.w - 30; x += 120) ctx.fillRect(x, pf.y + 9, 70, 5);
+        if (i % 2 === 0) {
+          ctx.fillStyle = theme === 'desert' ? '#c8954e' : '#b98146';
+          roundRect(ctx, pf.x + 86, pf.y - 104, 145, 104, 14);
+          ctx.fillStyle = '#3b2416'; ctx.fillRect(pf.x + 142, pf.y - 62, 32, 62);
+          ctx.fillStyle = '#fff7bd'; ctx.fillRect(pf.x + 105, pf.y - 78, 36, 28); ctx.fillRect(pf.x + 176, pf.y - 78, 36, 28);
+        }
+      });
+      (game.ladders || []).forEach(function (l) {
+        if (!l.town && game.mode === 'town') return;
+        const top = Math.min(l.y1, l.y2), bottom = Math.max(l.y1, l.y2);
+        ctx.strokeStyle = '#7c4a22'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(l.x - 11, top); ctx.lineTo(l.x - 11, bottom); ctx.moveTo(l.x + 11, top); ctx.lineTo(l.x + 11, bottom); ctx.stroke();
+        ctx.lineWidth = 4;
+        for (let y = top + 14; y < bottom; y += 28) { ctx.beginPath(); ctx.moveTo(l.x - 13, y); ctx.lineTo(l.x + 13, y); ctx.stroke(); }
+      });
+      ctx.restore();
+    };
+  }
+
+  const oldAcceptOrCompleteQuest = typeof acceptOrCompleteQuest === 'function' ? acceptOrCompleteQuest : null;
+  acceptOrCompleteQuest = function (id) {
+    ensureRepeatQuestDefinitions();
+    const qBase = QUESTS[id];
+    if (!qBase || !qBase.repeatable) {
+      return oldAcceptOrCompleteQuest ? oldAcceptOrCompleteQuest.apply(this, arguments) : undefined;
+    }
+
+    let q = (quests.active || []).find(function (item) { return item && item.id === id; });
+    if (!q) {
+      q = JSON.parse(JSON.stringify(qBase));
+      q.rewardGold = scaledReward(q.town, 'gold');
+      q.rewardExp = scaledReward(q.town, 'exp');
+      quests.active.push(q);
+      makeText('반복 퀘스트 수락!', game.player.x, game.player.y - 90, '#ffe066');
+      if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+      return;
+    }
+
+    if (typeof syncQuestItems === 'function') syncQuestItems(q);
+    const complete = (q.goals || []).every(function (goal) { return (goal.count || 0) >= (goal.need || 0); });
+    if (!complete) {
+      makeText('아직 완료 조건이 부족합니다.', game.player.x, game.player.y - 90, '#ffdd99');
+      return;
+    }
+
+    const gold = scaledReward(q.town, 'gold');
+    const exp = scaledReward(q.town, 'exp');
+    wallet.gold += gold;
+    if (typeof addExp === 'function') addExp(exp);
+    quests.active = quests.active.filter(function (item) { return item && item.id !== q.id; });
+    makeText('반복 퀘스트 완료!', game.player.x, game.player.y - 95, '#c0eb75');
+    makeText('+' + gold + '원', game.player.x, game.player.y - 120, '#ffd43b');
+    if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+  };
+
+  const oldCompleteQuest = typeof completeQuest === 'function' ? completeQuest : null;
+  if (oldCompleteQuest) {
+    completeQuest = function (q) {
+      if (q && q.rewardGold) q.rewardGold = Math.max(q.rewardGold, scaledReward(q.town || game.townId, 'gold'));
+      if (q && q.rewardExp) q.rewardExp = Math.max(q.rewardExp, scaledReward(q.town || game.townId, 'exp'));
+      return oldCompleteQuest.apply(this, arguments);
+    };
+  }
+
+  const oldMakeText = typeof makeText === 'function' ? makeText : null;
+  if (oldMakeText) {
+    makeText = function (text) {
+      if (typeof text === 'string') {
+        text = text.replace(/Gold/g, '원').replace(/골드/g, '원').replace(/메소/g, '원').replace(/(\d+)G\b/g, '$1원');
+      }
+      const args = Array.prototype.slice.call(arguments);
+      args[0] = text;
+      return oldMakeText.apply(this, args);
+    };
+  }
+
+  const oldDraw = typeof draw === 'function' ? draw : null;
+  if (oldDraw && ctx && ctx.fillText) {
+    draw = function () {
+      const originalFillText = ctx.fillText;
+      ctx.fillText = function (text) {
+        if (typeof text === 'string') {
+          text = text.replace(/Gold/g, '원').replace(/골드/g, '원').replace(/메소/g, '원').replace(/(\d+)G\b/g, '$1원');
+        }
+        const args = Array.prototype.slice.call(arguments);
+        args[0] = text;
+        return originalFillText.apply(this, args);
+      };
+      try { return oldDraw.apply(this, arguments); }
+      finally { ctx.fillText = originalFillText; }
+    };
+  }
+
+  const oldDrawDrops = typeof drawDrops === 'function' ? drawDrops : null;
+  if (oldDrawDrops) {
+    drawDrops = function () {
+      oldDrawDrops.apply(this, arguments);
+      // no extra drawing; kept as a stable hook after the currency text wrapper
+    };
+  }
+
+  const oldDamageMonster = typeof damageMonster === 'function' ? damageMonster : null;
+  if (oldDamageMonster) {
+    damageMonster = function (m, skill) {
+      if (m) {
+        m.aggroUntil = performance.now() + 10000;
+        m.aggroByPlayer = true;
+      }
+      return oldDamageMonster.apply(this, arguments);
+    };
+  }
+
+  function monsterIsAggro(m) {
+    return !!(m && m.aggroByPlayer && (!m.aggroUntil || m.aggroUntil > performance.now()));
+  }
+
+  function fixMonsterFloor(m) {
+    if (!m) return;
+    if (!Number.isFinite(m.floorY)) m.floorY = m.spawnY || m.y || game.ground;
+    m.y = m.floorY;
+    m.spawnY = m.floorY;
+  }
+
+  function hurtPlayerOnce(amount, sourceX) {
+    const p = game.player;
+    if (!p || p.invincible > 0) return;
+    const damage = Math.max(1, Math.floor(amount - p.defense * 0.45));
+    p.hp = Math.max(0, p.hp - damage);
+    p.invincible = 0.9;
+    p.hurtTime = 0.22;
+    p.vx = (p.x < sourceX ? -1 : 1) * 150;
+    makeText('-' + damage, p.x, p.y - 90, '#ff8787');
+  }
+
+  function patrolMonster(m, dt) {
+    if (!m.patrolDir) m.patrolDir = Math.random() < 0.5 ? -1 : 1;
+    if (m.x < m.baseX - 180) m.patrolDir = 1;
+    if (m.x > m.baseX + 180) m.patrolDir = -1;
+    m.x += m.patrolDir * (12 + Math.sin((m.time || 0) * 1.2) * 3) * dt;
+    m.face = m.patrolDir;
+    m.x = clamp(m.x, m.baseX - 190, m.baseX + 190);
+  }
+
+  function chaseMonster(m, dt, dx, dist, dy) {
+    if (dist < 430 && dy < 130) {
+      m.face = dx > 0 ? 1 : -1;
+      m.x += m.face * ((m.type && m.type.speed) || 32) * dt;
+      m.x = clamp(m.x, m.baseX - 260, m.baseX + 260);
+    } else patrolMonster(m, dt);
+  }
+
+  updateMonsters = function (dt) {
+    if (!game || game.mode !== 'hunt') return;
+    if (!Array.isArray(game.monsters)) game.monsters = [];
+    game.monsters.forEach(function (m) {
+      if (!m) return;
+      fixMonsterFloor(m);
+      if (m.dead) return;
+      if ((m.hp || 0) <= 0) { if (typeof killMonster === 'function') killMonster(m); return; }
+      m.time = (m.time || 0) + dt;
+      m.hit = Math.max(0, (m.hit || 0) - dt);
+      m.attackCooldown = Math.max(0, (m.attackCooldown || 0) - dt);
+      m.aiCooldown = Math.max(0, (m.aiCooldown || 0) - dt);
+      const dx = game.player.x - m.x;
+      const dist = Math.abs(dx);
+      const dy = Math.abs(game.player.y - m.y);
+
+      if (!monsterIsAggro(m)) {
+        patrolMonster(m, dt);
+        return;
+      }
+
+      const kind = m.aiKind || (m.type && m.type.gimmick) || 'normal';
+      if (kind === 'charge' && dist < 470 && dy < 90 && m.aiCooldown <= 0) {
+        m.face = dx > 0 ? 1 : -1;
+        m.x += m.face * (((m.type && m.type.chargeSpeed) || 420) * dt);
+        m.aiCooldown = 0.18;
+        if (Math.abs(game.player.x - m.x) < 58 && Math.abs(game.player.y - m.y) < 90) hurtPlayerOnce(((m.type && m.type.atk) || 8) * 1.45, m.x);
+      } else if (kind === 'ranged' && dist < 560 && dy < 135 && m.aiCooldown <= 0 && typeof game.enemyProjectiles !== 'undefined') {
+        m.face = dx > 0 ? 1 : -1;
+        game.enemyProjectiles = game.enemyProjectiles || [];
+        game.enemyProjectiles.push({ x: m.x + m.face * 24, y: m.y - 44, vx: m.face * (((m.type && m.type.projectileSpeed) || 280)), vy: 0, life: 2.0, face: m.face, kind: 'manaBolt', color: '#74c0fc', damage: (m.type && m.type.atk) || 8, from: m.uid });
+        m.aiCooldown = ((m.type && m.type.projectileCooldown) || 2.2) + Math.random() * 0.5;
+      } else {
+        chaseMonster(m, dt, dx, dist, dy);
+      }
+
+      if (Math.abs(game.player.x - m.x) < 48 && Math.abs(game.player.y - m.y) < 85) {
+        hurtPlayerOnce((m.type && m.type.atk) || 5, m.x);
+      }
+    });
+  };
+
+  // Apply when this patch is loaded after the player is already in a town.
+  try {
+    ensureRepeatQuestDefinitions();
+    if (game && game.mode === 'town') {
+      game.platforms = townLayerPlatforms();
+      game.ladders = townLadders();
+      addTownRepeatNpcs();
+    }
+  } catch (_) {}
+})();
+
+
+/* =========================================================
+   AIRLESS MONSTER / HALF SPAWN / TOWN-UNIQUE MONSTER PATCH 01
+   - Monsters no longer walk in the air; every monster snaps to the nearest floor below it.
+   - Remote players are drawn on the nearest valid floor if their saved y is unsupported.
+   - Hunting fields spawn about half as many monsters, spread farther apart.
+   - Every town now uses a more distinct monster family set.
+   - Multiplayer monster sync shares HP/death only, not walking position, to remove jitter.
+========================================================= */
+(function () {
+  if (window.__PIXEL_RPG_AIRLESS_MONSTER_HALF_SPAWN_PATCH_01__) return;
+  window.__PIXEL_RPG_AIRLESS_MONSTER_HALF_SPAWN_PATCH_01__ = true;
+
+  const EXTRA_FAMILY_DATA = {
+    leaf_sprite: { name: '나뭇잎 요정', drop: 'hard_feather', color: '#65c86f', shape: 'spirit' },
+    moss_pig: { name: '이끼 멧돼지', drop: 'mushroom_spore', color: '#6a8f47', shape: 'boar' },
+    arcane_wisp: { name: '비전 위습', drop: 'blue_crystal', color: '#9d7cff', shape: 'spirit' },
+    rune_mush: { name: '룬 버섯', drop: 'blue_crystal', color: '#b46cff', shape: 'mushroom' },
+    iron_tusk: { name: '강철 엄니', drop: 'rusted_blade', color: '#8b7358', shape: 'boar' },
+    shield_golem: { name: '방패 골렘', drop: 'ore_piece', color: '#8b949e', shape: 'golem' },
+    dock_rat: { name: '항구 쥐도적', drop: 'black_hide', color: '#5b4a7b', shape: 'lizard' },
+    night_bat: { name: '밤그림자 박쥐', drop: 'black_hide', color: '#4b3b6f', shape: 'bug' },
+    thorn_bug: { name: '가시 벌레', drop: 'hard_feather', color: '#5faf6a', shape: 'bug' },
+    wind_hawk: { name: '바람 매', drop: 'hard_feather', color: '#7fc7a8', shape: 'bug' },
+    copper_golem: { name: '동광 골렘', drop: 'ore_piece', color: '#a97142', shape: 'golem' },
+    cave_mole: { name: '광산 두더지', drop: 'ore_piece', color: '#7a6252', shape: 'boar' },
+    frost_wolf: { name: '서리 늑대', drop: 'ice_shard', color: '#9adfff', shape: 'lizard' },
+    snow_imp: { name: '눈 장난꾼', drop: 'ice_shard', color: '#cfefff', shape: 'spirit' },
+    dune_scorpion: { name: '모래 전갈', drop: 'desert_scale', color: '#c28a4a', shape: 'bug' },
+    sun_lizard: { name: '태양 도마뱀', drop: 'desert_scale', color: '#e0a05b', shape: 'lizard' },
+    broken_armor: { name: '부서진 갑주', drop: 'ruin_core', color: '#6d7485', shape: 'golem' },
+    cursed_orb: { name: '저주받은 구체', drop: 'ruin_core', color: '#7c5fb3', shape: 'spirit' }
+  };
+
+  Object.keys(EXTRA_FAMILY_DATA).forEach(function (id) {
+    FAMILY_DATA[id] = Object.assign({ family: id }, EXTRA_FAMILY_DATA[id]);
+  });
+
+  const UNIQUE_HUNT_FAMILIES = {
+    lumina_field: ['slime', 'leaf_sprite'],
+    greenwood_forest: ['thorn_bug', 'moss_pig'],
+    ellenium_grove: ['arcane_wisp', 'rune_mush'],
+    valor_wall: ['iron_tusk', 'shield_golem'],
+    shadow_alley: ['dock_rat', 'night_bat'],
+    sylvania_range: ['wind_hawk', 'thorn_bug'],
+    irondeep_mine: ['copper_golem', 'cave_mole'],
+    frost_cave: ['frost_wolf', 'snow_imp'],
+    solas_dune: ['dune_scorpion', 'sun_lizard'],
+    nocturn_ruins: ['broken_armor', 'cursed_orb']
+  };
+
+  Object.keys(UNIQUE_HUNT_FAMILIES).forEach(function (huntId) {
+    if (HUNTS[huntId]) HUNTS[huntId].families = UNIQUE_HUNT_FAMILIES[huntId].slice();
+  });
+
+  function isFiniteNumber(v) { return Number.isFinite(Number(v)); }
+
+  function getFloorYAt(x, currentY) {
+    let best = game.ground || 560;
+    const fromY = isFiniteNumber(currentY) ? Number(currentY) : -9999;
+    const platforms = Array.isArray(game.platforms) ? game.platforms : [];
+
+    platforms.forEach(function (pf) {
+      if (!pf) return;
+      const left = (pf.x || 0) - 20;
+      const right = (pf.x || 0) + (pf.w || 0) + 20;
+      const y = Number(pf.y);
+      if (!Number.isFinite(y)) return;
+      if (x >= left && x <= right && y >= fromY - 4 && y <= best) best = y;
+    });
+
+    return best;
+  }
+
+  function getNearestFloorYAt(x, y) {
+    const floors = [{ y: game.ground || 560, dist: Math.abs((game.ground || 560) - y) }];
+    (game.platforms || []).forEach(function (pf) {
+      if (!pf) return;
+      const left = (pf.x || 0) - 26;
+      const right = (pf.x || 0) + (pf.w || 0) + 26;
+      if (x < left || x > right) return;
+      floors.push({ y: pf.y, dist: Math.abs(pf.y - y) });
+    });
+    floors.sort(function (a, b) { return a.dist - b.dist; });
+    return floors[0].y;
+  }
+
+  function lockMonsterToFloor(m) {
+    if (!m) return;
+    const x = Number.isFinite(m.x) ? m.x : (m.baseX || 100);
+    const floor = getNearestFloorYAt(x, Number.isFinite(m.y) ? m.y : (m.spawnY || game.ground || 560));
+    m.y = floor;
+    m.spawnY = floor;
+    m.vy = 0;
+  }
+
+  function getWalkSegmentForFloor(floorY) {
+    const segments = [];
+    (game.platforms || []).forEach(function (pf) {
+      if (!pf || Math.abs((pf.y || 0) - floorY) > 2) return;
+      segments.push({ x1: (pf.x || 0) + 35, x2: (pf.x || 0) + (pf.w || 0) - 35, y: pf.y });
+    });
+    segments.push({ x1: 90, x2: Math.max(120, (game.width || 5400) - 120), y: game.ground || 560 });
+    return segments.filter(function (s) { return s.x2 > s.x1; });
+  }
+
+  function floorSegmentAt(x, floorY) {
+    const segs = getWalkSegmentForFloor(floorY);
+    for (let i = 0; i < segs.length; i++) {
+      const s = segs[i];
+      if (x >= s.x1 && x <= s.x2 && Math.abs(s.y - floorY) < 4) return s;
+    }
+    return segs.find(function (s) { return Math.abs(s.y - floorY) < 4; }) || segs[segs.length - 1];
+  }
+
+  const oldMakeMonsterType = typeof makeMonsterType === 'function' ? makeMonsterType : null;
+  if (oldMakeMonsterType) {
+    makeMonsterType = function (family, level) {
+      const type = oldMakeMonsterType.apply(this, arguments);
+      const extra = FAMILY_DATA[family] || {};
+      type.family = family;
+      type.name = type.name && extra.name ? type.name.replace((FAMILY_DATA.slime && FAMILY_DATA.slime.name) || '슬라임', extra.name) : (type.name || extra.name || family);
+      if (extra.name) {
+        const prefix = MONSTER_PREFIX[level % MONSTER_PREFIX.length] || '';
+        type.name = (prefix ? prefix + ' ' : '') + extra.name;
+      }
+      type.color = extra.color || type.color;
+      type.shape = extra.shape || type.shape;
+      type.drop = extra.drop || type.drop;
+      type.speed = Math.max(12, Math.min(type.speed || 24, 34));
+      type.respawn = Math.max(type.respawn || 9000, 11000 + level * 260);
+      return type;
+    };
+  }
+
+  spawnMonsters = function (hunt) {
+    game.monsters = [];
+    hunt = hunt || getHunt(game.huntId);
+    const families = (UNIQUE_HUNT_FAMILIES[game.huntId] || hunt.families || ['slime']).slice();
+
+    // About half the old count: 24 instead of roughly 47, with wider spacing and balanced floors.
+    const floors = [];
+    floors.push(game.ground || 610);
+    (game.platforms || []).forEach(function (pf) {
+      if (pf && Number.isFinite(pf.y) && !floors.includes(pf.y)) floors.push(pf.y);
+    });
+    floors.sort(function (a, b) { return b - a; });
+
+    const total = 24;
+    for (let i = 0; i < total; i++) {
+      const floorY = floors[i % floors.length] || (game.ground || 610);
+      const segs = getWalkSegmentForFloor(floorY);
+      const seg = segs[Math.floor(i / floors.length) % segs.length] || { x1: 120, x2: game.width - 120 };
+      const slot = Math.floor(i / Math.max(1, floors.length));
+      const spread = Math.max(220, (seg.x2 - seg.x1) / 6);
+      const x = Math.max(seg.x1 + 30, Math.min(seg.x2 - 30, seg.x1 + 90 + slot * spread + (i % 2) * 110));
+      const family = families[i % families.length];
+      const type = makeMonsterType(family, (hunt.baseLevel || 1) + Math.floor(i / 4));
+
+      game.monsters.push({
+        uid: Math.random().toString(36).slice(2),
+        sharedId: (game.huntId || hunt.town || 'hunt') + ':' + i,
+        sharedIndex: i,
+        type,
+        x,
+        baseX: x,
+        y: floorY,
+        spawnY: floorY,
+        hp: type.hp,
+        maxHp: type.hp,
+        face: i % 2 ? -1 : 1,
+        time: Math.random() * 10,
+        hit: 0,
+        dead: false,
+        attackCooldown: 0,
+        poison: 0,
+        aggro: false,
+        targetX: x + (i % 2 ? -90 : 90)
+      });
+    }
+  };
+
+  function smoothMonsterWalk(m, dt) {
+    if (!m || m.dead) return;
+    lockMonsterToFloor(m);
+    const floorY = m.y;
+    const seg = floorSegmentAt(m.x, floorY);
+    if (!seg) return;
+
+    const playerNearSameFloor = game.player && Math.abs((game.player.y || 0) - floorY) < 55 && Math.abs((game.player.x || 0) - m.x) < 360;
+    let desired = m.face || 1;
+
+    if (m.aggro && playerNearSameFloor) {
+      desired = game.player.x > m.x ? 1 : -1;
+    } else {
+      if (!m.targetX || Math.abs(m.x - m.targetX) < 12 || m.x <= seg.x1 + 6 || m.x >= seg.x2 - 6) {
+        const span = Math.min(260, Math.max(100, (seg.x2 - seg.x1) * 0.38));
+        const center = Math.max(seg.x1 + span, Math.min(seg.x2 - span, m.baseX || m.x));
+        m.targetX = center + (Math.random() < 0.5 ? -1 : 1) * (80 + Math.random() * span);
+        m.targetX = Math.max(seg.x1 + 25, Math.min(seg.x2 - 25, m.targetX));
+      }
+      desired = m.targetX > m.x ? 1 : -1;
+    }
+
+    m.face = desired;
+    const speed = (m.aggro && playerNearSameFloor ? 1.25 : 0.55) * ((m.type && m.type.speed) || 22);
+    m.x += desired * speed * dt;
+
+    if (m.x < seg.x1) { m.x = seg.x1; m.face = 1; m.targetX = Math.min(seg.x2 - 30, m.x + 160); }
+    if (m.x > seg.x2) { m.x = seg.x2; m.face = -1; m.targetX = Math.max(seg.x1 + 30, m.x - 160); }
+    m.y = floorY;
+  }
+
+  updateMonsters = function (dt) {
+    if (game.mode !== 'hunt') return;
+
+    game.monsters.forEach(function (m) {
+      if (!m) return;
+      if (!m.dead && (m.hp || 0) <= 0) killMonster(m);
+      if (m.dead) return;
+
+      m.time = (m.time || 0) + dt;
+      m.hit = Math.max(0, (m.hit || 0) - dt);
+      m.attackCooldown = Math.max(0, (m.attackCooldown || 0) - dt);
+      smoothMonsterWalk(m, dt);
+
+      // Monsters only attack after being hit or when explicitly aggroed.
+      if (!m.aggro) return;
+
+      const touchX = Math.abs(game.player.x - m.x) < 48;
+      const touchY = Math.abs(game.player.y - m.y) < 85;
+      if (touchX && touchY && game.player.invincible <= 0) {
+        const damage = Math.max(1, Math.floor((m.type.atk || 1) - game.player.defense * 0.45));
+        game.player.hp = Math.max(0, game.player.hp - damage);
+        game.player.invincible = 0.9;
+        game.player.hurtTime = 0.2;
+        game.player.vx = -(m.face || 1) * 120;
+        makeText(`-${damage}`, game.player.x, game.player.y - 90, '#ff8787');
+      }
+    });
+  };
+
+  const oldDamageMonster = typeof damageMonster === 'function' ? damageMonster : null;
+  if (oldDamageMonster) {
+    damageMonster = function (m, skill) {
+      if (m) m.aggro = true;
+      const ret = oldDamageMonster.apply(this, arguments);
+      if (m) lockMonsterToFloor(m);
+      return ret;
+    };
+  }
+
+  const oldKillMonster = typeof killMonster === 'function' ? killMonster : null;
+  if (oldKillMonster) {
+    killMonster = function (m) {
+      if (m) lockMonsterToFloor(m);
+      return oldKillMonster.apply(this, arguments);
+    };
+  }
+
+  const oldUpdateDrops = typeof updateDrops === 'function' ? updateDrops : null;
+  if (oldUpdateDrops) {
+    updateDrops = function (dt) {
+      oldUpdateDrops.apply(this, arguments);
+      (game.drops || []).forEach(function (d) {
+        const floor = getFloorYAt(d.x || 0, d.y || 0);
+        if ((d.y || 0) > floor - 10) {
+          d.y = floor - 10;
+          d.vy = 0;
+        }
+      });
+    };
+  }
+
+  // Multiplayer fix: do not accept remote monster x/y walking positions.
+  if (typeof mpApplyMonsterSnapshot === 'function') {
+    const oldSnapshot = mpApplyMonsterSnapshot;
+    mpApplyMonsterSnapshot = function (payload) {
+      if (!payload || payload.room !== mpRoomId() || game.mode !== 'hunt') return;
+      mpSyncLocalMonsterIds();
+      (payload.monsters || []).forEach(function (s) {
+        const m = mpFindMonster(s.id, s.index);
+        if (!m) return;
+        m.sharedId = s.id;
+        if (Number.isFinite(s.hp)) m.hp = Math.max(0, Number(s.hp) || 0);
+        if (Number.isFinite(s.maxHp)) m.maxHp = Math.max(1, Number(s.maxHp) || m.maxHp || 1);
+        m.dead = !!s.dead;
+        lockMonsterToFloor(m);
+      });
+    };
+  }
+
+  if (typeof mpApplyMonsterUpdate === 'function') {
+    mpApplyMonsterUpdate = function (payload) {
+      if (!payload || payload.room !== mpRoomId() || game.mode !== 'hunt') return;
+      const m = mpFindMonster(payload.id, payload.index);
+      if (!m) return;
+      m.sharedId = payload.id || m.sharedId;
+      if (Number.isFinite(payload.hp)) m.hp = Math.max(0, payload.hp);
+      if (payload.dead) m.dead = true;
+      lockMonsterToFloor(m);
+    };
+  }
+
+  if (typeof mpApplyMonsterRespawn === 'function') {
+    mpApplyMonsterRespawn = function (payload) {
+      if (!payload || payload.room !== mpRoomId() || game.mode !== 'hunt') return;
+      const m = mpFindMonster(payload.id, payload.index);
+      if (!m) return;
+      m.dead = false;
+      m._deathHandled = false;
+      m.hp = m.maxHp || (m.type && m.type.hp) || 1;
+      const seg = floorSegmentAt(m.baseX || m.x || 120, m.spawnY || game.ground || 610);
+      if (seg) m.x = Math.max(seg.x1 + 30, Math.min(seg.x2 - 30, m.baseX || m.x || seg.x1 + 60));
+      lockMonsterToFloor(m);
+      m.hit = 0;
+      m.aggro = false;
+    };
+  }
+
+  // Remote players cannot visually stand in the air. If their y is unsupported, draw them on the nearest floor.
+  if (typeof mpDrawRemotePlayers === 'function') {
+    const oldDrawRemotePlayers = mpDrawRemotePlayers;
+    mpDrawRemotePlayers = function () {
+      if (!game || !game.ready) return;
+      const list = Object.values(MP.players || {}).filter(function (p) {
+        return p && p.room === mpRoomId() && p.state;
+      });
+      if (!list.length) return;
+      ctx.save();
+      ctx.translate(-Math.floor(game.cameraX || 0), 0);
+      list.forEach(function (entry) {
+        const s = entry.state || {};
+        const drawY = getNearestFloorYAt(s.x || 0, s.y || game.ground || 560);
+        const fake = {
+          x: s.x,
+          y: drawY,
+          face: s.face || 1,
+          anim: s.anim || 'idle',
+          animTime: s.animTime || 0,
+          hurtTime: 0,
+          attackKind: 'fist',
+          character: Object.assign({ name: entry.name || s.name || '유저', job: s.job || 'beginner', skin: '#ffd6a6', hair: '#2b160e', hairStyle: 'basic', faceStyle: 'normal' }, s.character || {})
+        };
+        ctx.globalAlpha = 0.92;
+        if (typeof drawPlayer === 'function') drawPlayer(fake, fake.x, fake.y, 0.74);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#dbeafe';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText((s.name || entry.name || '유저') + ' Lv.' + (s.level || 1), fake.x, fake.y - 142);
+      });
+      ctx.restore();
+    };
+  }
+})();
