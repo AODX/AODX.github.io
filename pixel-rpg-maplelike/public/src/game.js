@@ -1144,7 +1144,12 @@ function setMode(mode) {
   if (authMsg) authMsg.textContent = '';
 }
 
-async function submitAuth() {
+async function submitAuth(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
   const authMsg = el('authMsg');
 
   try {
@@ -5997,10 +6002,114 @@ function populateSdCharacterChoices() {
   }
 }
 
-const __sdFixedBindUI = bindUI;
+
 function bindUI() {
   populateSdCharacterChoices();
-  __sdFixedBindUI();
+
+  const tabLogin = el('tabLogin');
+  const tabRegister = el('tabRegister');
+  const authBtn = el('authBtn');
+  const startNewBtn = el('startNewBtn');
+  const continueBtn = el('continueBtn');
+  const logoutBtn = el('logoutBtn');
+  const logoutBtn2 = el('logoutBtn2');
+
+  [tabLogin, tabRegister, authBtn, startNewBtn, continueBtn, logoutBtn, logoutBtn2].forEach(function (node) {
+    if (node && node.tagName === 'BUTTON') node.type = 'button';
+    if (node) node.style.pointerEvents = 'auto';
+  });
+
+  if (tabLogin) {
+    tabLogin.onclick = function (e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      setMode('login');
+    };
+  }
+
+  if (tabRegister) {
+    tabRegister.onclick = function (e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      setMode('register');
+    };
+  }
+
+  if (authBtn) {
+    authBtn.onclick = function (e) {
+      submitAuth(e);
+    };
+  }
+
+  if (startNewBtn) {
+    startNewBtn.onclick = function (e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      createCharacterAndStart();
+    };
+  }
+
+  if (continueBtn) {
+    continueBtn.onclick = function (e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      startGame(currentUser ? currentUser.save : {});
+    };
+  }
+
+  if (logoutBtn) {
+    logoutBtn.onclick = function (e) {
+      if (e) e.preventDefault();
+      logout();
+    };
+  }
+
+  if (logoutBtn2) {
+    logoutBtn2.onclick = function (e) {
+      if (e) e.preventDefault();
+      logout();
+    };
+  }
+
+  document.querySelectorAll('.swatches').forEach(function (group) {
+    const target = group.dataset.target;
+
+    group.querySelectorAll('span').forEach(function (span) {
+      span.onclick = function () {
+        if (!target) return;
+
+        selected[target] = rgbToHex(getComputedStyle(span).backgroundColor);
+
+        group.querySelectorAll('span').forEach(function (s) {
+          s.classList.remove('selected');
+        });
+
+        span.classList.add('selected');
+      };
+    });
+  });
+
+  document.querySelectorAll('#hairStyleChoices .choice').forEach(function (btn) {
+    btn.onclick = function () {
+      selected.hairStyle = btn.dataset.value || 'soft_bang';
+      setChoiceActive('#hairStyleChoices', selected.hairStyle);
+    };
+  });
+
+  document.querySelectorAll('#faceStyleChoices .choice').forEach(function (btn) {
+    btn.onclick = function () {
+      selected.faceStyle = btn.dataset.value || 'bright';
+      setChoiceActive('#faceStyleChoices', selected.faceStyle);
+    };
+  });
 }
 
 function setChoiceActive(containerSelector, value) {
@@ -6425,86 +6534,5 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
-
-/* =========================================================
-   Login / Register Button Stable Fix
-   - 버튼이 form submit/reload에 먹히는 문제 방지
-   - 동적 UI 생성 후에도 로그인/회원가입/시작 버튼이 확실히 눌리도록 보강
-========================================================= */
-
-function bindAuthButtonsStable() {
-  const pairs = [
-    ['tabLogin', function (e) { if (e) e.preventDefault(); setMode('login'); }],
-    ['tabRegister', function (e) { if (e) e.preventDefault(); setMode('register'); }],
-    ['authBtn', function (e) { if (e) e.preventDefault(); submitAuth(); }],
-    ['startNewBtn', function (e) { if (e) e.preventDefault(); createCharacterAndStart(); }],
-    ['continueBtn', function (e) { if (e) e.preventDefault(); startGame(currentUser ? currentUser.save : {}); }],
-    ['logoutBtn', function (e) { if (e) e.preventDefault(); logout(); }],
-    ['logoutBtn2', function (e) { if (e) e.preventDefault(); logout(); }]
-  ];
-
-  pairs.forEach(function (pair) {
-    const node = document.getElementById(pair[0]);
-    if (!node) return;
-    if (node.tagName === 'BUTTON') node.type = 'button';
-    node.style.pointerEvents = 'auto';
-    node.onclick = pair[1];
-  });
-}
-
-const __loginFixedBindUI = bindUI;
-function bindUI() {
-  try {
-    __loginFixedBindUI();
-  } catch (err) {
-    console.error('bindUI error:', err);
-  }
-  bindAuthButtonsStable();
-}
-
-// 혹시 상위 패널/캔버스가 버튼 클릭을 가리는 경우 방지
-function fixAuthPanelPointerEvents() {
-  ['auth', 'characterScreen', 'characterMenu'].forEach(function (id) {
-    const panel = document.getElementById(id);
-    if (!panel) return;
-    panel.style.pointerEvents = 'auto';
-    panel.style.zIndex = '20';
-  });
-
-  const gameCanvas = document.getElementById('game');
-  if (gameCanvas) gameCanvas.style.zIndex = '1';
-}
-
-const __loginFixedShowAuth = showAuth;
-function showAuth() {
-  __loginFixedShowAuth();
-  fixAuthPanelPointerEvents();
-  bindAuthButtonsStable();
-}
-
-const __loginFixedShowCreator = showCreator;
-function showCreator() {
-  __loginFixedShowCreator();
-  fixAuthPanelPointerEvents();
-  bindAuthButtonsStable();
-}
-
-const __loginFixedShowCharacterMenu = showCharacterMenu;
-function showCharacterMenu(user) {
-  __loginFixedShowCharacterMenu(user);
-  fixAuthPanelPointerEvents();
-  bindAuthButtonsStable();
-}
-
-function safeBoot() {
-  fixAuthPanelPointerEvents();
-  bindAuthButtonsStable();
-  boot();
-  setTimeout(function () {
-    fixAuthPanelPointerEvents();
-    bindAuthButtonsStable();
-  }, 0);
-}
-
-safeBoot();
+boot();
 requestAnimationFrame(loop);
