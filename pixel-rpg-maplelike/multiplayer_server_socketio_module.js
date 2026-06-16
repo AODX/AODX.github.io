@@ -1,19 +1,29 @@
 'use strict';
 
 /* =========================================================
-   Pixel RPG Multiplayer Server Module 02 - Chat + Smooth Monster Sync
-   Usage in server.js:
-     const http = require('http');
-     const app = express();
-     const server = http.createServer(app);
-     require('./multiplayer_server_socketio_module')(server);
-     server.listen(PORT, ...);
+   Pixel RPG Multiplayer Server Module 03
+   - Socket.IO multiplayer / chat
+   - Shared monster HP, death, respawn state
+   - Persistent unique hidden-job ownership via Supabase
 
-   Install:
-     npm install socket.io
+   Required env for persistence:
+     SUPABASE_URL
+     SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY
+
+   Optional:
+     SUPABASE_HIDDEN_JOBS_TABLE=pixel_rpg_hidden_jobs
 ========================================================= */
 
+const fs = require('fs');
+const path = require('path');
 const { Server } = require('socket.io');
+
+let createClient = null;
+try {
+  ({ createClient } = require('@supabase/supabase-js'));
+} catch (err) {
+  createClient = null;
+}
 
 module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
   const io = new Server(server, {
@@ -25,8 +35,215 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
   const rooms = new Map();
   const socketRooms = new Map();
 
+  const hiddenJobLabels = {
+    shadow_reaper: '그림자 사신',
+    dragon_knight: '용기사',
+    star_sage: '별의 현자'
+  };
+  const hiddenJobIds = Object.keys(hiddenJobLabels);
+
+  const SUPABASE_URL = process.env.SUPABASE_URL || '';
+  const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+  const HIDDEN_TABLE = process.env.SUPABASE_HIDDEN_JOBS_TABLE || 'pixel_rpg_hidden_jobs';
+
+  let supabase = null;
+  if (createClient && SUPABASE_URL && SUPABASE_KEY) {
+    supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
+    console.log('[PixelRPG] Hidden-job persistence enabled. table =', HIDDEN_TABLE);
+  } else {
+    console.warn('[PixelRPG] Hidden-job persistence is using local JSON fallback. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for permanent Render persistence.');
+  }
+
+  const localDataDir = path.join(__dirname, '.data');
+  const localHiddenFile = path.join(localDataDir, 'hidden_jobs.json');
+
+  function ensureLocalHiddenStore() {
+    if (!fs.existsSync(localDataDir)) fs.mkdirSync(localDataDir, { recursive: true });
+    if (!fs.existsSync(localHiddenFile)) fs.writeFileSync(localHiddenFile, '{}');
+  }
+
+  function readLocalHiddenOwners() {
+    ensureLocalHiddenStore();
+    try {
+      const parsed = JSON.parse(fs.readFileSync(localHiddenFile, 'utf8'));
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function writeLocalHiddenOwners(data) {
+    ensureLocalHiddenStore();
+    fs.writeFileSync(localHiddenFile, JSON.stringify(data || {}, null, 2));
+  }
+
   function now() {
     return Date.now();
+  }
+
+  function isoNow() {
+    return new Date().toISOString();
+  }
+
+  async function loadHiddenOwners() {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from(HIDDEN_TABLE)
+        .select('*')
+        .is('released_at', null);
+
+      if (error) {
+        console.error('[Supabase] hidden jobs load error:', error.message);
+        throw new Error('히든 직업 소유자 조회 실패: ' + error.message);
+      }
+
+      const map = new Map();
+      (data || []).forEach((row) => {
+        if (!row || !row.job_id) return;
+        map.set(row.job_id, {
+          jobId: row.job_id,
+          jobName: row.job_name || hiddenJobLabels[row.job_id] || row.job_id,
+          userId: row.owner_user_id || null,
+          name: row.owner_name || '알 수 없음',
+          claimedAt: row.claimed_at || null
+        });
+      });
+      return map;
+    }
+
+    const raw = readLocalHiddenOwners();
+    const map = new Map();
+    Object.keys(raw).forEach((jobId) => {
+      const row = raw[jobId];
+      if (row && !row.releasedAt) map.set(jobId, row);
+    });
+    return map;
+  }
+
+  async function getHiddenOwner(jobId) {
+    if (!hiddenJobIds.includes(jobId)) return null;
+    if (supabase) {
+      const { data, error } = await supabase
+        .from(HIDDEN_TABLE)
+        .select('*')
+        .eq('job_id', jobId)
+        .is('released_at', null)
+        .maybeSingle();
+
+      if (error) {
+        console.error('[Supabase] hidden owner get error:', error.message);
+        throw new Error('히든 직업 소유자 조회 실패: ' + error.message);
+      }
+      if (!data) return null;
+      return {
+        jobId: data.job_id,
+        jobName: data.job_name || hiddenJobLabels[jobId] || jobId,
+        userId: data.owner_user_id || null,
+        name: data.owner_name || '알 수 없음',
+        claimedAt: data.claimed_at || null
+      };
+    }
+
+    const raw = readLocalHiddenOwners();
+    return raw[jobId] && !raw[jobId].releasedAt ? raw[jobId] : null;
+  }
+
+  async function claimHiddenJob(jobId, owner) {
+    const existing = await getHiddenOwner(jobId);
+    if (existing) return { ok: false, existing };
+
+    const row = {
+      job_id: jobId,
+      job_name: hiddenJobLabels[jobId] || jobId,
+      owner_user_id: owner.userId || null,
+      owner_name: owner.name || '모험가',
+      claimed_at: isoNow(),
+      released_at: null
+    };
+
+    if (supabase) {
+      const { data, error } = await supabase
+        .from(HIDDEN_TABLE)
+        .upsert(row, { onConflict: 'job_id' })
+        .select('*')
+        .single();
+
+      if (error) {
+        // Race condition safety: if two players claim at once, re-check and return ownership info.
+        console.error('[Supabase] hidden claim error:', error.message);
+        const after = await getHiddenOwner(jobId).catch(() => null);
+        if (after) return { ok: false, existing: after };
+        throw new Error('히든 직업 저장 실패: ' + error.message);
+      }
+
+      return {
+        ok: true,
+        owner: {
+          jobId,
+          jobName: data.job_name || hiddenJobLabels[jobId] || jobId,
+          userId: data.owner_user_id || null,
+          name: data.owner_name || '모험가',
+          claimedAt: data.claimed_at || row.claimed_at
+        }
+      };
+    }
+
+    const raw = readLocalHiddenOwners();
+    raw[jobId] = {
+      jobId,
+      jobName: hiddenJobLabels[jobId] || jobId,
+      userId: owner.userId || null,
+      name: owner.name || '모험가',
+      claimedAt: row.claimed_at,
+      releasedAt: null
+    };
+    writeLocalHiddenOwners(raw);
+    return { ok: true, owner: raw[jobId] };
+  }
+
+  async function releaseHiddenJob(jobId, requester) {
+    const existing = await getHiddenOwner(jobId);
+    if (!existing) return { ok: true, released: false };
+
+    const reqUserId = requester.userId ? String(requester.userId) : '';
+    const ownerUserId = existing.userId ? String(existing.userId) : '';
+    const reqName = String(requester.name || '').trim();
+    const ownerName = String(existing.name || '').trim();
+
+    const allowed = (reqUserId && ownerUserId && reqUserId === ownerUserId) || (!ownerUserId && reqName && ownerName && reqName === ownerName);
+    if (!allowed) {
+      return { ok: false, error: '이 히든 직업을 가진 캐릭터만 직업을 초기화할 수 있습니다.', owner: existing };
+    }
+
+    if (supabase) {
+      const { error } = await supabase
+        .from(HIDDEN_TABLE)
+        .update({ released_at: isoNow(), released_by_user_id: requester.userId || null, released_by_name: requester.name || null })
+        .eq('job_id', jobId)
+        .is('released_at', null);
+
+      if (error) {
+        console.error('[Supabase] hidden release error:', error.message);
+        throw new Error('히든 직업 해제 저장 실패: ' + error.message);
+      }
+      return { ok: true, released: true, owner: existing };
+    }
+
+    const raw = readLocalHiddenOwners();
+    if (raw[jobId]) raw[jobId].releasedAt = isoNow();
+    writeLocalHiddenOwners(raw);
+    return { ok: true, released: true, owner: existing };
+  }
+
+  async function hiddenStatusPayload() {
+    const ownersMap = await loadHiddenOwners();
+    const claimed = {};
+    const owners = {};
+    ownersMap.forEach((owner, jobId) => {
+      claimed[jobId] = true;
+      owners[jobId] = owner && owner.name ? owner.name : '알 수 없음';
+    });
+    return { claimed, owners };
   }
 
   function getRoom(roomId) {
@@ -85,9 +302,7 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
     if (oldRoom) {
       oldRoom.players.delete(socket.id);
       socket.to(oldRoomId).emit('player:left', socket.id);
-      if (oldRoom.players.size === 0 && !oldRoomId.startsWith('hunt:')) {
-        rooms.delete(oldRoomId);
-      }
+      if (oldRoom.players.size === 0 && !oldRoomId.startsWith('hunt:')) rooms.delete(oldRoomId);
     }
 
     socket.leave(oldRoomId);
@@ -145,8 +360,19 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
     room.timers.set(monster.id, timer);
   }
 
+  async function emitHiddenStatus(socket) {
+    try {
+      const status = await hiddenStatusPayload();
+      socket.emit('hidden:status', status);
+      return status;
+    } catch (err) {
+      socket.emit('hidden:error', { error: err.message || '히든 직업 상태 조회 실패' });
+      return { claimed: {}, owners: {} };
+    }
+  }
+
   io.on('connection', (socket) => {
-    socket.on('room:join', (payload = {}) => {
+    socket.on('room:join', async (payload = {}) => {
       const roomId = String(payload.room || 'town:lumina');
       const state = payload.state || {};
 
@@ -164,16 +390,11 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
       socket.to(roomId).emit('player:joined', player);
 
       if (roomId.startsWith('hunt:')) {
-        socket.emit('monster:snapshot', {
-          room: roomId,
-          monsters: Array.from(room.monsters.values())
-        });
+        socket.emit('monster:snapshot', { room: roomId, monsters: Array.from(room.monsters.values()) });
       }
 
-      socket.emit('chat:history', {
-        room: roomId,
-        messages: room.chat.slice(-40)
-      });
+      socket.emit('chat:history', { room: roomId, messages: room.chat.slice(-40) });
+      await emitHiddenStatus(socket);
     });
 
     socket.on('player:update', (payload = {}) => {
@@ -186,9 +407,7 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
       socket.to(roomId).emit('player:update', player);
     });
 
-    socket.on('player:leave', () => {
-      leaveCurrentRoom(socket);
-    });
+    socket.on('player:leave', () => leaveCurrentRoom(socket));
 
     socket.on('trade:request', (payload = {}) => {
       const target = String(payload.to || '');
@@ -218,9 +437,6 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
           return;
         }
 
-        // Layout refresh support:
-        // when the client changes hunting-map floor/ladder layout, keep shared HP/death state,
-        // but refresh spawn position/base position so monsters do not float on old platforms.
         existing.index = m.index;
         existing.family = m.family || existing.family;
         existing.name = m.name || existing.name;
@@ -236,10 +452,7 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
         }
       });
 
-      socket.emit('monster:snapshot', {
-        room: roomId,
-        monsters: Array.from(room.monsters.values())
-      });
+      socket.emit('monster:snapshot', { room: roomId, monsters: Array.from(room.monsters.values()) });
     });
 
     socket.on('monster:update', (payload = {}) => {
@@ -256,9 +469,6 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
         room.monsters.set(id, m);
       }
 
-      // Frequent hit packets should synchronize HP only.
-      // Do not broadcast x/y during normal combat, otherwise each client fights the
-      // server snapshot and monsters look like they rubber-band backward.
       if (Number.isFinite(payload.hp)) m.hp = Math.max(0, Number(payload.hp));
       if (Number.isFinite(payload.maxHp)) m.maxHp = Math.max(1, Number(payload.maxHp));
       if (payload.dead) {
@@ -361,9 +571,93 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
       io.to(roomId).emit('chat:message', msg);
     });
 
-    socket.on('disconnect', () => {
-      leaveCurrentRoom(socket);
+    socket.on('hidden:status', async (payload = {}, ack) => {
+      try {
+        const status = await hiddenStatusPayload();
+        socket.emit('hidden:status', status);
+        if (typeof ack === 'function') ack({ ok: true, ...status });
+      } catch (err) {
+        if (typeof ack === 'function') ack({ ok: false, error: err.message || '히든 직업 상태 조회 실패' });
+      }
     });
+
+    socket.on('hidden:claim', async (payload = {}, ack) => {
+      try {
+        const jobId = String(payload.jobId || '').trim();
+        if (!hiddenJobIds.includes(jobId)) {
+          if (typeof ack === 'function') ack({ ok: false, error: '알 수 없는 히든 직업입니다.' });
+          return;
+        }
+
+        const roomId = socketRooms.get(socket.id) || null;
+        const room = roomId ? rooms.get(roomId) : null;
+        const player = room ? room.players.get(socket.id) : null;
+        const owner = {
+          socketId: socket.id,
+          userId: payload.userId || socket.handshake.auth?.userId || player?.state?.userId || null,
+          name: String(payload.name || player?.name || socket.handshake.auth?.name || '모험가').slice(0, 24)
+        };
+
+        const result = await claimHiddenJob(jobId, owner);
+        if (!result.ok) {
+          if (typeof ack === 'function') {
+            ack({
+              ok: false,
+              error: '이미 전직한 자가 있는 직업입니다.',
+              jobId,
+              owner: result.existing?.name || '알 수 없음'
+            });
+          }
+          socket.emit('hidden:status', await hiddenStatusPayload());
+          return;
+        }
+
+        const status = await hiddenStatusPayload();
+        if (typeof ack === 'function') {
+          ack({ ok: true, jobId, owner: result.owner.name, jobName: result.owner.jobName, ...status });
+        }
+        io.emit('hidden:claimed', { jobId, name: result.owner.name, jobName: result.owner.jobName, claimedAt: result.owner.claimedAt });
+        io.emit('hidden:status', status);
+      } catch (err) {
+        console.error('[hidden:claim]', err);
+        if (typeof ack === 'function') ack({ ok: false, error: err.message || '히든 직업 획득 실패' });
+      }
+    });
+
+    socket.on('hidden:release', async (payload = {}, ack) => {
+      try {
+        const jobId = String(payload.jobId || '').trim();
+        if (!hiddenJobIds.includes(jobId)) {
+          if (typeof ack === 'function') ack({ ok: false, error: '알 수 없는 히든 직업입니다.' });
+          return;
+        }
+
+        const roomId = socketRooms.get(socket.id) || null;
+        const room = roomId ? rooms.get(roomId) : null;
+        const player = room ? room.players.get(socket.id) : null;
+        const requester = {
+          socketId: socket.id,
+          userId: payload.userId || socket.handshake.auth?.userId || player?.state?.userId || null,
+          name: String(payload.name || player?.name || socket.handshake.auth?.name || '모험가').slice(0, 24)
+        };
+
+        const result = await releaseHiddenJob(jobId, requester);
+        if (!result.ok) {
+          if (typeof ack === 'function') ack(result);
+          return;
+        }
+
+        const status = await hiddenStatusPayload();
+        if (typeof ack === 'function') ack({ ok: true, jobId, released: !!result.released, ...status });
+        io.emit('hidden:released', { jobId, name: requester.name, jobName: hiddenJobLabels[jobId] || jobId, releasedAt: isoNow() });
+        io.emit('hidden:status', status);
+      } catch (err) {
+        console.error('[hidden:release]', err);
+        if (typeof ack === 'function') ack({ ok: false, error: err.message || '히든 직업 초기화 실패' });
+      }
+    });
+
+    socket.on('disconnect', () => leaveCurrentRoom(socket));
   });
 
   return io;
