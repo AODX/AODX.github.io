@@ -15586,3 +15586,680 @@ canvas.addEventListener('click', function (e) {
     ctx.restore();
   };
 })();
+
+
+/* =========================================================
+   HUD JOB LABEL / JOB RARITY QUEST DIFFICULTY PATCH
+   - Moves job rarity text so it no longer covers MP bar
+   - Adds rarity-based job quest difficulty and guidance
+   - Moves rare/epic/hidden job NPCs to harder-to-find spots
+========================================================= */
+
+(function(){
+  const JOB_RARITY_PATCH = {
+    beginner: 'normal', warrior: 'normal', mage: 'normal', rogue: 'normal', archer: 'normal',
+    lancer: 'normal', gunslinger: 'rare', paladin: 'rare', berserker: 'rare', cleric: 'rare',
+    summoner: 'epic', engineer: 'epic', mechanic: 'epic', bard: 'epic',
+    dragon_knight: 'hidden', shadow_reaper: 'hidden', star_sage: 'hidden'
+  };
+  const RARITY_LABEL_PATCH = { normal:'일반', rare:'레어', epic:'에픽', hidden:'히든' };
+  const RARITY_COLOR_PATCH = { normal:'#9ca3af', rare:'#60a5fa', epic:'#c084fc', hidden:'#ffffff' };
+  const RARITY_REQ_PATCH = {
+    normal: { level: 10, kills: 10, text:'기본 전직 시험' },
+    rare: { level: 18, kills: 24, text:'숙련자 전직 시험' },
+    epic: { level: 28, kills: 45, text:'상급 전직 시험' },
+    hidden: { level: 38, kills: 80, text:'숨겨진 전설 시험' }
+  };
+
+  function safeJobId() {
+    return (game && game.player && game.player.character && game.player.character.job) || 'beginner';
+  }
+  function jobName(id) {
+    return (typeof JOBS !== 'undefined' && JOBS && JOBS[id] && JOBS[id].name) || id || '직업';
+  }
+  function jobRarity(id) {
+    if (typeof JOBS !== 'undefined' && JOBS && JOBS[id] && JOBS[id].rarity) return JOBS[id].rarity;
+    return JOB_RARITY_PATCH[id] || 'normal';
+  }
+  function jobRarityLabel(id) { return RARITY_LABEL_PATCH[jobRarity(id)] || '일반'; }
+  function jobRarityColor(id) { return RARITY_COLOR_PATCH[jobRarity(id)] || '#9ca3af'; }
+  window.__pixelJobRarity = jobRarity;
+  window.__pixelJobRarityLabel = jobRarityLabel;
+  window.__pixelJobRarityColor = jobRarityColor;
+
+  if (typeof JOBS !== 'undefined' && JOBS) {
+    Object.keys(JOBS).forEach(function(id){ if (!JOBS[id].rarity) JOBS[id].rarity = jobRarity(id); });
+  }
+
+  function drawJobBadge(x, y, jobId, compact) {
+    const rarity = jobRarity(jobId);
+    const color = jobRarityColor(jobId);
+    const label = '[' + jobRarityLabel(jobId) + '] ' + jobName(jobId);
+    ctx.save();
+    ctx.textAlign = 'left';
+    ctx.font = compact ? 'bold 11px sans-serif' : 'bold 13px sans-serif';
+    const w = Math.min(compact ? 138 : 170, Math.max(compact ? 84 : 104, ctx.measureText(label).width + 18));
+    ctx.fillStyle = 'rgba(15,23,42,0.72)';
+    if (typeof roundRect === 'function') roundRect(ctx, x, y - 15, w, compact ? 19 : 22, 8);
+    else ctx.fillRect(x, y - 15, w, compact ? 19 : 22);
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = rarity === 'hidden' ? 0.95 : 0.72;
+    ctx.strokeRect(x, y - 15, w, compact ? 19 : 22);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = color;
+    ctx.fillText(label.length > (compact ? 11 : 15) ? label.slice(0, compact ? 11 : 15) + '…' : label, x + 9, y);
+    ctx.restore();
+  }
+
+  // HUD override: job badge is placed below name and away from MP bar.
+  const oldDrawHUDRarity = typeof drawHUD === 'function' ? drawHUD : null;
+  drawHUD = function() {
+    const p = game.player;
+    const jobId = safeJobId();
+
+    ctx.fillStyle = 'rgba(17,24,39,0.92)';
+    if (typeof roundRect === 'function') roundRect(ctx, 12, 10, 620, 88, 12); else ctx.fillRect(12,10,620,88);
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('LV. ' + p.level, 28, 34);
+    ctx.fillText(p.character.name || '초보자', 92, 34);
+    drawJobBadge(92, 62, jobId, false);
+
+    drawBar(282, 20, 150, 14, p.hp / p.maxHp, '#ff4d4f', 'HP ' + Math.floor(p.hp) + '/' + p.maxHp);
+    drawBar(282, 45, 150, 14, p.mp / p.maxMp, '#4dabf7', 'MP ' + Math.floor(p.mp) + '/' + p.maxMp);
+    drawBar(446, 20, 170, 14, p.exp / p.nextExp, '#ffd43b', 'EXP ' + Math.floor(p.exp) + '/' + p.nextExp);
+
+    ctx.fillStyle = 'rgba(17,24,39,0.82)';
+    if (typeof roundRect === 'function') roundRect(ctx, 12, 104, 840, 36, 10); else ctx.fillRect(12,104,840,36);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillText('A/D 이동 · Space 점프 · J 공격 · K/L/; 스킬 · E 대화/포탈 · Z 줍기 · M 인벤 · C 스탯 · U 스킬 · Q 퀘스트', 28, 127);
+
+    ctx.fillStyle = 'rgba(17,24,39,0.78)';
+    if (typeof roundRect === 'function') roundRect(ctx, 12, 143, 660, 26, 8); else ctx.fillRect(12,143,660,26);
+    ctx.fillStyle = '#e5e7eb';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('R 저장 · S/↓ 윗층에서 아래층 내려가기 · 사다리에서는 W/S 또는 ↑/↓', 28, 161);
+
+    if (typeof drawMiniMap === 'function') drawMiniMap();
+    if (typeof drawGold === 'function') drawGold();
+    if (typeof drawQuickSlots === 'function') drawQuickSlots();
+    if (typeof drawSkillHotbar === 'function') drawSkillHotbar();
+    if (typeof drawQuestTracker === 'function') drawQuestTracker();
+  };
+
+  // Put rarity label in skill panel/job text too when possible.
+  const oldDrawSkillPanelRarity = typeof drawSkillPanel === 'function' ? drawSkillPanel : null;
+  if (oldDrawSkillPanelRarity) {
+    drawSkillPanel = function() {
+      oldDrawSkillPanelRarity.apply(this, arguments);
+      if (!skillPanel || !skillPanel.open) return;
+      const jobId = safeJobId();
+      drawJobBadge(500, 82, jobId, false);
+    };
+  }
+
+  function ensureJobQuestDifficulty() {
+    if (typeof QUESTS === 'undefined' || !QUESTS) return;
+    Object.keys(QUESTS).forEach(function(id){
+      const q = QUESTS[id];
+      if (!q || !q.jobReward) return;
+      const r = jobRarity(q.jobReward);
+      const req = RARITY_REQ_PATCH[r] || RARITY_REQ_PATCH.normal;
+      q.rarity = r;
+      q.requiredLevel = Math.max(q.requiredLevel || 0, req.level);
+      q.title = q.title && q.title.indexOf('[') === 0 ? q.title : '[' + jobRarityLabel(q.jobReward) + '] ' + (q.title || jobName(q.jobReward) + ' 전직');
+      q.desc = (q.desc || '') + '\n난이도: ' + jobRarityLabel(q.jobReward) + ' · 권장 레벨 ' + req.level + ' 이상';
+      if (!Array.isArray(q.goals)) q.goals = [];
+      const hasKill = q.goals.some(function(g){ return g.type === 'kill'; });
+      if (!hasKill) q.goals.push({ type:'kill', family:'any', count:0, need:req.kills });
+      else q.goals.forEach(function(g){ if (g.type === 'kill') g.need = Math.max(g.need || 0, req.kills); });
+      if (r === 'epic' || r === 'hidden') {
+        const itemNeed = r === 'hidden' ? 3 : 1;
+        const already = q.goals.some(function(g){ return g.type === 'item' && String(g.itemId||'').indexOf('job_token') >= 0; });
+        if (!already) q.goals.push({ type:'item', itemId:'job_token_' + q.jobReward, count:0, need:itemNeed });
+      }
+    });
+  }
+  ensureJobQuestDifficulty();
+
+  // Add virtual token items so harder quests can ask for proof without breaking inventory rendering.
+  if (typeof ITEMS !== 'undefined' && ITEMS) {
+    Object.keys(JOB_RARITY_PATCH).forEach(function(job){
+      const id = 'job_token_' + job;
+      if (!ITEMS[id]) ITEMS[id] = { id:id, name:jobName(job) + ' 전직 증표', type:'etc', rarity:jobRarity(job), price:1500, desc:'상급 전직 시험에 필요한 증표입니다.' };
+    });
+  }
+
+  const oldAcceptOrCompleteQuestRarity = typeof acceptOrCompleteQuest === 'function' ? acceptOrCompleteQuest : null;
+  acceptOrCompleteQuest = function(id) {
+    ensureJobQuestDifficulty();
+    const q = typeof QUESTS !== 'undefined' && QUESTS ? QUESTS[id] : null;
+    if (q && q.jobReward) {
+      const r = jobRarity(q.jobReward);
+      const req = RARITY_REQ_PATCH[r] || RARITY_REQ_PATCH.normal;
+      if (game.player.level < req.level) {
+        makeText(jobRarityLabel(q.jobReward) + ' 직업은 Lv.' + req.level + ' 이상부터 도전할 수 있습니다.', game.player.x, game.player.y - 95, '#ff8787');
+        return;
+      }
+      if (r === 'hidden' && typeof window.__hiddenJobOwnerCache !== 'undefined' && window.__hiddenJobOwnerCache && window.__hiddenJobOwnerCache[q.jobReward]) {
+        makeText('이미 전직한 자가 있는 직업입니다.', game.player.x, game.player.y - 95, '#ffffff');
+        return;
+      }
+    }
+    if (oldAcceptOrCompleteQuestRarity) return oldAcceptOrCompleteQuestRarity.apply(this, arguments);
+  };
+
+  function floorForNpcRarity(x, fallbackY) {
+    let best = null;
+    const ground = game.ground || fallbackY || 560;
+    (game.platforms || []).forEach(function(pf){
+      if (x >= pf.x - 30 && x <= pf.x + pf.w + 30) {
+        if (best === null || pf.y < best) best = pf.y;
+      }
+    });
+    return best !== null ? best : ground;
+  }
+
+  function rearrangeJobNpcDifficulty() {
+    if (!game || !Array.isArray(game.npcs) || !game.player) return;
+    const worldW = game.width || 4200;
+    const platforms = game.platforms || [];
+    game.npcs.forEach(function(npc, i){
+      if (!npc || !(npc.type === 'job' || npc.hiddenJob || npc.type === 'hidden_job' || npc.type === 'skill_teacher')) return;
+      let reward = npc.jobReward || npc.job || npc.lookJob || (typeof QUESTS !== 'undefined' && QUESTS[npc.quest] && QUESTS[npc.quest].jobReward) || 'beginner';
+      const r = jobRarity(reward);
+      if (npc.__rarityPlaced) return;
+      if (r === 'normal') {
+        npc.x = Math.max(260, Math.min(worldW - 260, npc.x || 650 + i * 120));
+      } else if (r === 'rare') {
+        npc.x = Math.max(900, Math.min(worldW - 420, (worldW * 0.48) + i * 95));
+      } else if (r === 'epic') {
+        npc.x = Math.max(1200, Math.min(worldW - 300, worldW * 0.70 + i * 70));
+      } else if (r === 'hidden') {
+        npc.x = Math.max(1700, Math.min(worldW - 180, worldW - 420 - i * 85));
+      }
+      npc.y = floorForNpcRarity(npc.x, npc.y);
+      npc.__rarityPlaced = true;
+      npc.difficultyLabel = jobRarityLabel(reward);
+    });
+  }
+
+  const oldLoadTownRarity = typeof loadTown === 'function' ? loadTown : null;
+  if (oldLoadTownRarity) {
+    loadTown = function() {
+      const result = oldLoadTownRarity.apply(this, arguments);
+      setTimeout(rearrangeJobNpcDifficulty, 0);
+      rearrangeJobNpcDifficulty();
+      return result;
+    };
+  }
+
+  const oldDrawNPCsRarity = typeof drawNPCs === 'function' ? drawNPCs : null;
+  drawNPCs = function() {
+    rearrangeJobNpcDifficulty();
+    if (oldDrawNPCsRarity) oldDrawNPCsRarity.apply(this, arguments);
+    if (!game || !Array.isArray(game.npcs)) return;
+    game.npcs.forEach(function(npc){
+      if (!npc || !npc.difficultyLabel) return;
+      const color = RARITY_COLOR_PATCH[String(npc.difficultyLabel).includes('히든') ? 'hidden' : String(npc.difficultyLabel).includes('에픽') ? 'epic' : String(npc.difficultyLabel).includes('레어') ? 'rare' : 'normal'];
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillStyle = color;
+      ctx.fillText('[' + npc.difficultyLabel + ']', npc.x, npc.y - 124);
+      ctx.restore();
+    });
+  };
+
+  // Better dialog text for job difficulty.
+  const oldDrawDialogRarity = typeof drawDialog === 'function' ? drawDialog : null;
+  if (oldDrawDialogRarity) {
+    drawDialog = function() {
+      oldDrawDialogRarity.apply(this, arguments);
+      if (!game.dialog || !game.dialog.npc) return;
+      const npc = game.dialog.npc;
+      const q = npc.quest && typeof QUESTS !== 'undefined' && QUESTS[npc.quest];
+      if (!q || !q.jobReward) return;
+      const r = jobRarity(q.jobReward);
+      const req = RARITY_REQ_PATCH[r] || RARITY_REQ_PATCH.normal;
+      ctx.save();
+      ctx.textAlign = 'left';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.fillStyle = jobRarityColor(q.jobReward);
+      ctx.fillText('직업 등급: ' + jobRarityLabel(q.jobReward) + ' · 필요 Lv.' + req.level + ' · ' + req.text, 215, 594);
+      ctx.restore();
+    };
+  }
+})();
+
+/* =========================================================
+   ITEM RARITY / MERCHANT SELL / NAMED MONSTER GIMMICK PATCH
+   - potion shop tiers
+   - inventory selling at merchant
+   - item rarity + better fantasy item icons
+   - monster gimmicks by family and named monsters with 5 min respawn
+========================================================= */
+
+(function () {
+  const RARITY_INFO = {
+    common: { label: '일반', color: '#cbd5e1', rate: 1 },
+    rare: { label: '희귀', color: '#60a5fa', rate: 0.35 },
+    ultra: { label: '초희귀', color: '#22d3ee', rate: 0.12 },
+    epic: { label: '에픽', color: '#c084fc', rate: 0.035 },
+    legendary: { label: '레전더리', color: '#facc15', rate: 0.009 }
+  };
+  window.ITEM_RARITY_INFO = RARITY_INFO;
+
+  function defineItem(id, data) {
+    if (!ITEMS[id]) ITEMS[id] = Object.assign({ id }, data);
+    else Object.assign(ITEMS[id], data);
+  }
+
+  defineItem('hp_potion_small', { name: '초급 회복 물약', type: 'consumable', heal: 80, price: 50, sell: 12, desc: 'HP를 조금 회복합니다.', icon: 'potion_hp_small', rarity: 'common' });
+  defineItem('hp_potion_mid', { name: '중급 회복 물약', type: 'consumable', heal: 260, price: 180, sell: 45, desc: 'HP를 적당히 회복합니다.', icon: 'potion_hp_mid', rarity: 'rare' });
+  defineItem('hp_potion_high', { name: '상급 회복 물약', type: 'consumable', heal: 720, price: 650, sell: 160, desc: 'HP를 크게 회복합니다.', icon: 'potion_hp_high', rarity: 'ultra' });
+  defineItem('mp_potion_small', { name: '초급 마나 물약', type: 'consumable', mana: 50, price: 60, sell: 15, desc: 'MP를 조금 회복합니다.', icon: 'potion_mp_small', rarity: 'common' });
+  defineItem('mp_potion_mid', { name: '중급 마나 물약', type: 'consumable', mana: 160, price: 220, sell: 55, desc: 'MP를 적당히 회복합니다.', icon: 'potion_mp_mid', rarity: 'rare' });
+  defineItem('mp_potion_high', { name: '상급 마나 물약', type: 'consumable', mana: 430, price: 760, sell: 190, desc: 'MP를 크게 회복합니다.', icon: 'potion_mp_high', rarity: 'ultra' });
+
+  if (ITEMS.hp_potion) Object.assign(ITEMS.hp_potion, { name: '초급 회복 물약', icon: 'potion_hp_small', rarity: 'common', heal: ITEMS.hp_potion.heal || 80, price: ITEMS.hp_potion.price || 50, sell: 12 });
+  if (ITEMS.mp_potion) Object.assign(ITEMS.mp_potion, { name: '초급 마나 물약', icon: 'potion_mp_small', rarity: 'common', mana: ITEMS.mp_potion.mana || 50, price: ITEMS.mp_potion.price || 60, sell: 15 });
+
+  const MERCHANT_POTION_IDS = ['hp_potion', 'hp_potion_mid', 'hp_potion_high', 'mp_potion', 'mp_potion_mid', 'mp_potion_high'];
+  window.MERCHANT_POTION_IDS = MERCHANT_POTION_IDS;
+
+  function inferItemRarity(id, item) {
+    if (!item) return 'common';
+    if (item.rarity) return item.rarity;
+    const req = item.reqLevel || 1;
+    const plusName = String(item.name || id || '').toLowerCase();
+    if (plusName.includes('legend') || plusName.includes('레전') || req >= 80) return 'legendary';
+    if (plusName.includes('dragon') || plusName.includes('용') || plusName.includes('별') || req >= 55) return 'epic';
+    if (plusName.includes('crystal') || plusName.includes('수정') || req >= 35) return 'ultra';
+    if (req >= 12 || getEquipSlotForItem(item)) return 'rare';
+    return 'common';
+  }
+
+  Object.keys(ITEMS).forEach(function (id) {
+    const item = ITEMS[id];
+    if (!item) return;
+    item.rarity = inferItemRarity(id, item);
+    if (item.type === 'etc' && !item.sell) item.sell = Math.max(3, Math.floor((item.price || 20) * 0.25));
+    if (getEquipSlotForItem(item)) {
+      const rarity = item.rarity;
+      const mul = { common: 1, rare: 1.22, ultra: 1.48, epic: 1.9, legendary: 2.7 }[rarity] || 1;
+      if (item.atk) item.atk = Math.max(item.atk, Math.round(item.atk * mul));
+      if (item.matk) item.matk = Math.max(item.matk, Math.round(item.matk * mul));
+      if (item.def) item.def = Math.max(item.def, Math.round(item.def * (1 + (mul - 1) * 0.45)));
+      item.sell = item.sell || Math.max(10, Math.floor((item.price || (item.reqLevel || 1) * 90) * 0.35));
+      item.price = item.price || Math.max(80, (item.reqLevel || 1) * 120);
+    }
+  });
+
+  window.getItemRarity = function getItemRarity(idOrItem) {
+    const item = typeof idOrItem === 'string' ? ITEMS[idOrItem] : idOrItem;
+    return inferItemRarity(item && item.id, item);
+  };
+  window.getItemRarityColor = function getItemRarityColor(idOrItem) {
+    return (RARITY_INFO[getItemRarity(idOrItem)] || RARITY_INFO.common).color;
+  };
+  window.getItemRarityLabel = function getItemRarityLabel(idOrItem) {
+    return (RARITY_INFO[getItemRarity(idOrItem)] || RARITY_INFO.common).label;
+  };
+
+  function itemSellPrice(stack) {
+    const item = ITEMS[itemRefId(stack) || stack.id];
+    if (!item) return 0;
+    const rarityMul = { common: 1, rare: 1.35, ultra: 1.75, epic: 2.5, legendary: 4 }[getItemRarity(item)] || 1;
+    const plusMul = 1 + (itemEnhance(stack) || 0) * 0.15;
+    return Math.max(1, Math.floor((item.sell || Math.floor((item.price || 10) * 0.35) || 1) * rarityMul * plusMul));
+  }
+
+  window.sellInventoryIndex = function sellInventoryIndex(index) {
+    const st = inventory.items[index];
+    if (!st) return false;
+    const item = ITEMS[st.id];
+    if (!item) return false;
+    const slot = getEquipSlotForItem(item);
+    if (!slot && item.type !== 'etc' && item.type !== 'material') {
+      makeText('상인에게 팔 수 없는 아이템입니다.', game.player.x, game.player.y - 95, '#ff8787');
+      return true;
+    }
+    const count = slot ? 1 : Math.max(1, st.count || 1);
+    const gain = itemSellPrice(st) * count;
+    wallet.gold += gain;
+    if (slot && st.count > 1) st.count -= 1;
+    else inventory.items.splice(index, 1);
+    makeText(`${item.name} 판매 +${gain}원`, game.player.x, game.player.y - 96, '#ffd43b');
+    markAutoSaveSoon();
+    return true;
+  };
+
+  window.sellAllEtc = function sellAllEtc() {
+    let gained = 0;
+    for (let i = inventory.items.length - 1; i >= 0; i--) {
+      const st = inventory.items[i];
+      const item = ITEMS[st.id];
+      if (!item || (item.type !== 'etc' && item.type !== 'material')) continue;
+      gained += itemSellPrice(st) * Math.max(1, st.count || 1);
+      inventory.items.splice(i, 1);
+    }
+    wallet.gold += gained;
+    makeText(`부산물 판매 +${gained}원`, game.player.x, game.player.y - 96, '#ffd43b');
+    markAutoSaveSoon();
+  };
+
+  function inventoryIndexAt(x, y) {
+    const grids = [
+      { x: 650, y: 185, cols: 6, size: 52, gap: 6 },
+      { x: 730, y: 222, cols: 5, size: 52, gap: 10 },
+      { x: 690, y: 205, cols: 6, size: 52, gap: 8 }
+    ];
+    for (const g of grids) {
+      for (let i = 0; i < inventory.items.length; i++) {
+        const sx = g.x + (i % g.cols) * (g.size + g.gap);
+        const sy = g.y + Math.floor(i / g.cols) * (g.size + g.gap);
+        if (hit(x, y, sx, sy, g.size, g.size)) return i;
+      }
+    }
+    return -1;
+  }
+
+  const oldHandleShopClick2 = typeof handleShopClick === 'function' ? handleShopClick : null;
+  window.handleShopClick = handleShopClick = function handleShopClickRarityShop(x, y) {
+    if (game.shopOpen === 'merchant') {
+      const idx = inventoryIndexAt(x, y);
+      if (idx >= 0) { sellInventoryIndex(idx); return; }
+      if (hit(x, y, 760, 610, 190, 40)) { sellAllEtc(); return; }
+    }
+    if (oldHandleShopClick2) return oldHandleShopClick2.apply(this, arguments);
+  };
+
+  const oldDrawItemIcon2 = typeof drawItemIcon === 'function' ? drawItemIcon : null;
+  window.drawItemIcon = drawItemIcon = function drawItemIconRarity(itemOrIcon, x, y, size) {
+    const item = typeof itemOrIcon === 'object' && itemOrIcon ? itemOrIcon : null;
+    const icon = item ? (item.icon || item.id || item.type) : itemOrIcon;
+    const rarity = item ? getItemRarity(item) : 'common';
+    const color = (RARITY_INFO[rarity] || RARITY_INFO.common).color;
+    const s = size || 24;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.lineWidth = Math.max(1, s / 18);
+    ctx.shadowColor = color;
+    ctx.shadowBlur = rarity === 'legendary' ? 14 : rarity === 'epic' ? 10 : rarity === 'ultra' ? 7 : 0;
+    ctx.strokeStyle = color;
+    ctx.fillStyle = 'rgba(15,23,42,0.75)';
+    roundRect(ctx, -s * 0.46, -s * 0.46, s * 0.92, s * 0.92, s * 0.16);
+    ctx.strokeRect(-s * 0.46, -s * 0.46, s * 0.92, s * 0.92);
+
+    function blade(a, b, glow) {
+      ctx.strokeStyle = '#1f2937'; ctx.lineWidth = s * 0.16;
+      ctx.beginPath(); ctx.moveTo(-s * 0.28, s * 0.26); ctx.lineTo(s * 0.28, -s * 0.28); ctx.stroke();
+      ctx.strokeStyle = glow || '#e5e7eb'; ctx.lineWidth = s * 0.10;
+      ctx.beginPath(); ctx.moveTo(-s * 0.25, s * 0.23); ctx.lineTo(s * 0.25, -s * 0.25); ctx.stroke();
+      ctx.fillStyle = a || '#f59e0b'; roundRect(ctx, -s * 0.34, s * 0.18, s * 0.22, s * 0.12, 2);
+      ctx.fillStyle = b || color; circle(ctx, -s * 0.38, s * 0.32, s * 0.07);
+    }
+    function axe() {
+      ctx.strokeStyle = '#7c3f1d'; ctx.lineWidth = s * 0.11; ctx.beginPath(); ctx.moveTo(-s*.2,s*.32); ctx.lineTo(s*.2,-s*.32); ctx.stroke();
+      ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(s*.08,-s*.22); ctx.quadraticCurveTo(s*.42,-s*.25,s*.33,s*.08); ctx.quadraticCurveTo(s*.12,s*.02,s*.03,-s*.09); ctx.closePath(); ctx.fill();
+    }
+    function staff() {
+      ctx.strokeStyle = '#7c3f1d'; ctx.lineWidth = s*.1; ctx.beginPath(); ctx.moveTo(-s*.28,s*.34); ctx.lineTo(s*.18,-s*.28); ctx.stroke();
+      ctx.fillStyle = color; circle(ctx, s*.22, -s*.32, s*.14); ctx.fillStyle = '#fff'; circle(ctx, s*.22, -s*.32, s*.06);
+    }
+    function bow() {
+      ctx.strokeStyle = color; ctx.lineWidth = s*.09; ctx.beginPath(); ctx.arc(-s*.03,0,s*.35,-1.1,1.1); ctx.stroke();
+      ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = s*.035; ctx.beginPath(); ctx.moveTo(s*.13,-s*.28); ctx.lineTo(s*.13,s*.28); ctx.stroke();
+    }
+    function potion(kind) {
+      ctx.fillStyle = kind === 'mp' ? '#60a5fa' : '#fb7185';
+      ctx.beginPath(); ctx.ellipse(0, s*.08, s*.19, s*.25, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#e5e7eb'; roundRect(ctx, -s*.09, -s*.28, s*.18, s*.16, 2);
+      ctx.fillStyle = '#fff'; circle(ctx, -s*.06, -s*.02, s*.04);
+    }
+    function armor() { ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(0,-s*.32); ctx.lineTo(s*.28,-s*.13); ctx.lineTo(s*.22,s*.32); ctx.lineTo(-s*.22,s*.32); ctx.lineTo(-s*.28,-s*.13); ctx.closePath(); ctx.fill(); ctx.fillStyle='rgba(255,255,255,.35)'; roundRect(ctx,-s*.12,-s*.1,s*.24,s*.08,2); }
+    function ring() { ctx.strokeStyle=color; ctx.lineWidth=s*.12; ctx.beginPath(); ctx.arc(0,0,s*.24,0,Math.PI*2); ctx.stroke(); ctx.fillStyle='#fff'; circle(ctx,s*.08,-s*.22,s*.06); }
+    function material() { ctx.fillStyle=color; ctx.beginPath(); ctx.moveTo(0,-s*.29); ctx.lineTo(s*.24,0); ctx.lineTo(0,s*.29); ctx.lineTo(-s*.24,0); ctx.closePath(); ctx.fill(); ctx.fillStyle='rgba(255,255,255,.35)'; circle(ctx,-s*.06,-s*.08,s*.06); }
+
+    const idText = String((item && item.id) || icon || '').toLowerCase();
+    if (idText.includes('potion_hp') || idText.includes('hp_potion')) potion('hp');
+    else if (idText.includes('potion_mp') || idText.includes('mp_potion')) potion('mp');
+    else if (item && item.weaponType === 'staff') staff();
+    else if (item && item.weaponType === 'bow') bow();
+    else if (item && item.weaponType === 'dagger') blade('#4c1d95', color, '#e9d5ff');
+    else if (item && item.weaponType === 'sword') blade('#7c2d12', color, '#f8fafc');
+    else if (idText.includes('axe')) axe();
+    else if (getEquipSlotForItem(item || {}) === 'armor' || idText.includes('armor') || idText.includes('robe')) armor();
+    else if (getEquipSlotForItem(item || {}) === 'accessory' || idText.includes('ring') || idText.includes('charm')) ring();
+    else if (item && (item.type === 'etc' || item.type === 'material')) material();
+    else if (oldDrawItemIcon2) oldDrawItemIcon2(itemOrIcon, 0, 0, s * .75);
+    else material();
+    ctx.restore();
+  };
+
+  const oldDrawShopPanel2 = typeof drawShopPanel === 'function' ? drawShopPanel : null;
+  window.drawShopPanel = drawShopPanel = function drawShopPanelTierPotions() {
+    if (game.shopOpen !== 'merchant') {
+      if (oldDrawShopPanel2) return oldDrawShopPanel2();
+      return;
+    }
+    const list = MERCHANT_POTION_IDS.filter(id => ITEMS[id]);
+    const panelX = 70, panelY = 80, panelW = 1110, panelH = 590;
+    ctx.fillStyle = 'rgba(15,23,42,0.97)'; roundRect(ctx, panelX, panelY, panelW, panelH, 18);
+    ctx.strokeStyle = '#93c5fd'; ctx.strokeRect(panelX, panelY, panelW, panelH);
+    ctx.fillStyle = '#ffe066'; ctx.font = 'bold 27px sans-serif'; ctx.textAlign = 'left'; ctx.fillText('상점', 105, 122);
+    ctx.fillStyle = '#cbd5e1'; ctx.font = '14px sans-serif'; ctx.fillText(`보유 원: ${wallet.gold}`, 105, 150);
+    ctx.fillText('물약 구매 / 오른쪽 인벤토리의 부산물·쓸모 없는 장비를 클릭하면 판매됩니다.', 255, 150);
+    list.forEach(function (id, i) {
+      const item = ITEMS[id]; const x = 105 + (i % 2) * 470; const y = 180 + Math.floor(i / 2) * 68;
+      ctx.fillStyle = '#1e293b'; roundRect(ctx, x, y, 430, 56, 9);
+      drawItemIcon(item, x + 30, y + 28, 34);
+      ctx.fillStyle = getItemRarityColor(item); ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText(`[${getItemRarityLabel(item)}] ${item.name}`, x + 58, y + 22);
+      ctx.fillStyle = '#cbd5e1'; ctx.font = '12px sans-serif'; ctx.fillText(`${item.desc || ''} / ${item.price || 0}원`, x + 58, y + 42);
+    });
+    ctx.fillStyle = '#22c55e'; roundRect(ctx, 760, 610, 190, 40, 8);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('부산물 모두 판매', 855, 636);
+    ctx.fillStyle = '#334155'; roundRect(ctx, 1010, 610, 120, 40, 8); ctx.fillStyle = '#fff'; ctx.fillText('닫기', 1070, 636);
+    ctx.fillStyle = 'rgba(15,23,42,0.78)'; roundRect(ctx, 650, 170, 470, 420, 12);
+    ctx.strokeStyle = '#475569'; ctx.strokeRect(650, 170, 470, 420);
+    ctx.fillStyle = '#e5e7eb'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'left'; ctx.fillText('내 인벤토리 판매', 675, 200);
+    const cols = 6, size = 52, gap = 8;
+    inventory.items.forEach(function (st, i) {
+      const item = ITEMS[st.id]; if (!item) return;
+      const x = 675 + (i % cols) * (size + gap); const y = 222 + Math.floor(i / cols) * (size + gap);
+      if (y > 555) return;
+      ctx.fillStyle = 'rgba(30,41,59,0.95)'; roundRect(ctx, x, y, size, size, 8);
+      drawItemIcon(item, x + size / 2, y + size / 2, 34);
+      if ((st.count || 1) > 1) { ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'right'; ctx.fillText(String(st.count), x + size - 4, y + size - 5); }
+      ctx.fillStyle = '#ffd43b'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(itemSellPrice(st) + '원', x + size / 2, y + size + 11);
+    });
+  };
+
+  const OLD_MAKE_MONSTER_TYPE = typeof makeMonsterType === 'function' ? makeMonsterType : null;
+  const FAMILY_GIMMICK = {
+    boar: 'charge', desert: 'charge', lizard: 'charge',
+    mana: 'ranged', ice: 'ice_dot', frost: 'ice_dot',
+    mushroom: 'poison_dot', bug: 'poison_dot', shadow: 'stun', ruin: 'stun', ore: 'guard', slime: 'split'
+  };
+  const NAMED_BY_TOWN = {
+    lumina: ['왕관 슬라임', '숲의 뿔멧돼지'], greenwood: ['가시등 벌레 여왕', '이끼엄니 돌격대장'], ellenium: ['대마나 위습 엘리온', '룬버섯 현자'], valor: ['강철엄니 브루트', '방패골렘 가르단'], shadowport: ['항구 쥐두목 네로', '밤그림자 박쥐왕'], sylvania: ['고목 사슴수호자', '꽃가루 요정장'], irondeep: ['광산 파쇄자', '붉은 광석 골렘'], frosthall: ['서리늑대 칼라크', '눈장난꾼 포포'], solas: ['사막전갈 사르칸', '태양도마뱀 라자'], nocturn: ['부서진 갑주 카론', '저주구체 모르스']
+  };
+
+  window.makeMonsterType = makeMonsterType = function makeMonsterTypeGimmick(family, level) {
+    const t = OLD_MAKE_MONSTER_TYPE ? OLD_MAKE_MONSTER_TYPE(family, level) : { family, name: family, level, hp: 30 + level * 10, atk: 5 + level, exp: 10 + level * 2, gold: 5 + level, speed: 25, dropRate: .12 };
+    t.gimmick = FAMILY_GIMMICK[family] || (level >= 25 ? 'ranged' : 'wander');
+    if (level >= 35 && t.gimmick === 'wander') t.gimmick = 'stun';
+    t.respawn = t.respawn || 14000;
+    return t;
+  };
+
+  function currentTownKeyForHunt(hunt) { return (hunt && hunt.town) || game.townId || 'lumina'; }
+  function monsterFloorYForX(x) {
+    let best = game.ground || 610;
+    if (Array.isArray(game.platforms)) {
+      game.platforms.forEach(function (pl) {
+        if (x >= pl.x - 12 && x <= pl.x + pl.w + 12 && pl.y <= best + 2) best = pl.y;
+      });
+    }
+    return best;
+  }
+
+  window.spawnMonsters = spawnMonsters = function spawnMonstersNamedGimmicks(hunt) {
+    game.monsters = [];
+    const familiesByTown = {
+      lumina: ['slime','boar'], greenwood: ['bug','boar'], ellenium: ['mana','mushroom'], valor: ['boar','ore'], shadowport: ['shadow','bug'], sylvania: ['mushroom','mana'], irondeep: ['ore','ruin'], frosthall: ['ice','boar'], solas: ['desert','lizard'], nocturn: ['ruin','shadow']
+    };
+    const townKey = currentTownKeyForHunt(hunt);
+    const families = familiesByTown[townKey] || hunt.families || ['slime','mushroom'];
+    const floors = [game.ground || 610].concat((game.platforms || []).map(p => p.y)).sort((a,b) => b-a);
+    let index = 0;
+    floors.forEach(function (fy, fi) {
+      const count = fi === 0 ? 4 : 2;
+      for (let i = 0; i < count; i++) {
+        const family = families[(i + fi) % families.length];
+        const x = 620 + fi * 420 + i * 760 + rand(-80, 80);
+        const type = makeMonsterType(family, (hunt.baseLevel || 1) + fi * 3 + i);
+        const id = `${townKey}:mob:${index}:${Math.round(x)}`;
+        game.monsters.push({ id, uid: id, type, x, baseX: x, y: fy, spawnY: fy, hp: type.hp, maxHp: type.hp, face: i % 2 ? -1 : 1, time: Math.random() * 10, hit: 0, dead: false, attackCooldown: rand(0.3, 1.7), poison: 0, aggro: false, gimmick: type.gimmick });
+        index++;
+      }
+    });
+    const namedNames = NAMED_BY_TOWN[townKey] || ['떠도는 네임드', '잊힌 네임드'];
+    namedNames.slice(0, 2).forEach(function (name, ni) {
+      const family = families[ni % families.length];
+      const fy = floors[Math.min(floors.length - 1, ni * 2 + 1)] || game.ground;
+      const x = 1250 + ni * 2100;
+      const type = makeMonsterType(family, (hunt.baseLevel || 1) + 8 + ni * 5);
+      type.name = name; type.hp = Math.floor(type.hp * 4.2); type.atk = Math.floor(type.atk * 1.8); type.exp = Math.floor(type.exp * 5.5); type.gold = Math.floor(type.gold * 6); type.dropRate = Math.min(0.95, (type.dropRate || .15) * 3); type.respawn = 300000; type.gimmick = ni % 2 ? 'stun' : (type.gimmick === 'wander' ? 'charge' : type.gimmick);
+      const id = `${townKey}:named:${ni}`;
+      game.monsters.push({ id, uid: id, type, isNamed: true, x, baseX: x, y: fy, spawnY: fy, hp: type.hp, maxHp: type.hp, face: -1, time: Math.random() * 10, hit: 0, dead: false, attackCooldown: 1.5, poison: 0, aggro: false, gimmick: type.gimmick });
+    });
+  };
+
+  const oldDamageMonster2 = typeof damageMonster === 'function' ? damageMonster : null;
+  window.damageMonster = damageMonster = function damageMonsterAggro(m, skill) {
+    if (m) { m.aggro = true; m.aggroTime = 12; }
+    return oldDamageMonster2 ? oldDamageMonster2.apply(this, arguments) : undefined;
+  };
+
+  const oldKillMonster2 = typeof killMonster === 'function' ? killMonster : null;
+  window.killMonster = killMonster = function killMonsterNamed(m) {
+    if (m && m.isNamed && m.type) {
+      m.type.respawn = 300000;
+      makeText('네임드 처치! 보상이 크게 증가합니다', m.x, m.y - 175, '#facc15');
+      const oldGold = m.type.gold; const oldExp = m.type.exp;
+      m.type.gold = Math.floor(oldGold * 1.4); m.type.exp = Math.floor(oldExp * 1.25);
+      const result = oldKillMonster2 ? oldKillMonster2.apply(this, arguments) : undefined;
+      m.type.gold = oldGold; m.type.exp = oldExp;
+      return result;
+    }
+    return oldKillMonster2 ? oldKillMonster2.apply(this, arguments) : undefined;
+  };
+
+  function enemyProjectile(m, kind) {
+    game.enemyProjectiles = game.enemyProjectiles || [];
+    const dx = game.player.x - m.x; const face = dx >= 0 ? 1 : -1;
+    game.enemyProjectiles.push({ x: m.x + face * 28, y: m.y - 48, vx: face * (kind === 'stun' ? 250 : 190), vy: kind === 'ice_dot' ? -20 : 0, life: 2.6, kind, damage: Math.max(2, Math.floor((m.type.atk || 5) * .8)), from: m.id || m.uid });
+  }
+  function applyStatus(kind, seconds) {
+    game.player.status = game.player.status || {};
+    game.player.status[kind] = Math.max(game.player.status[kind] || 0, seconds);
+  }
+  const oldUpdateEnemyProjectiles = typeof updateEnemyProjectiles === 'function' ? updateEnemyProjectiles : null;
+  window.updateEnemyProjectiles = updateEnemyProjectiles = function updateEnemyProjectilesGimmick(dt) {
+    if (oldUpdateEnemyProjectiles) oldUpdateEnemyProjectiles(dt);
+    game.enemyProjectiles = game.enemyProjectiles || [];
+    game.enemyProjectiles.forEach(function (p) {
+      p.life -= dt; p.x += p.vx * dt; p.y += (p.vy || 0) * dt;
+      if (Math.abs(p.x - game.player.x) < 30 && Math.abs(p.y - (game.player.y - 48)) < 48 && game.player.invincible <= 0) {
+        const dmg = Math.max(1, p.damage || 1);
+        game.player.hp = Math.max(0, game.player.hp - dmg); game.player.invincible = .6; makeText('-' + dmg, game.player.x, game.player.y - 90, '#ff8787');
+        if (p.kind === 'poison_dot' || p.kind === 'ice_dot') applyStatus(p.kind, 4);
+        if (p.kind === 'stun') applyStatus('stun', 1.2);
+        p.life = 0;
+      }
+    });
+    game.enemyProjectiles = game.enemyProjectiles.filter(p => p.life > 0);
+  };
+
+  const oldUpdateMonsters2 = typeof updateMonsters === 'function' ? updateMonsters : null;
+  window.updateMonsters = updateMonsters = function updateMonstersGimmicks(dt) {
+    if (game.mode !== 'hunt') return;
+    game.player.status = game.player.status || {};
+    Object.keys(game.player.status).forEach(function (k) { game.player.status[k] = Math.max(0, game.player.status[k] - dt); });
+    game.monsters.forEach(function (m) {
+      if (!m || m.dead) return;
+      m.time = (m.time || 0) + dt; m.hit = Math.max(0, (m.hit || 0) - dt); m.attackCooldown = Math.max(0, (m.attackCooldown || 0) - dt); m.aggroTime = Math.max(0, (m.aggroTime || 0) - dt);
+      if (m.aggroTime <= 0) m.aggro = false;
+      const floorY = monsterFloorYForX(m.x); if (m.y < floorY) m.y = Math.min(floorY, m.y + 720 * dt); else m.y = floorY;
+      const dx = game.player.x - m.x; const dist = Math.abs(dx); m.face = dx >= 0 ? 1 : -1;
+      const chase = m.aggro && dist < (m.isNamed ? 620 : 420);
+      const speed = (m.type.speed || 25) * (m.isNamed ? 1.15 : 1);
+      if (chase) {
+        if (m.gimmick === 'charge' && m.attackCooldown <= 0 && dist < 420) { m.chargeTime = .45; m.attackCooldown = m.isNamed ? 2.2 : 3.2; makeText('돌진!', m.x, m.y - 92, '#fb923c'); }
+        if ((m.gimmick === 'ranged' || m.gimmick === 'ice_dot' || m.gimmick === 'poison_dot' || m.gimmick === 'stun') && m.attackCooldown <= 0 && dist < 520) { enemyProjectile(m, m.gimmick); m.attackCooldown = m.isNamed ? 1.6 : 2.8; }
+        if (m.gimmick === 'guard') m.x += Math.sign(dx) * speed * .45 * dt;
+        else if (m.chargeTime > 0) { m.x += m.face * speed * 5.2 * dt; m.chargeTime -= dt; }
+        else if (dist > 55) m.x += Math.sign(dx) * speed * dt;
+      } else {
+        m.x += Math.sin(m.time * 1.2 + (m.baseX || 0) * .01) * 10 * dt;
+      }
+      m.x = clamp(m.x, (m.baseX || m.x) - (m.isNamed ? 340 : 230), (m.baseX || m.x) + (m.isNamed ? 340 : 230));
+      if (m.hp <= 0) killMonster(m);
+      if (m.aggro && Math.abs(game.player.x - m.x) < 46 && Math.abs(game.player.y - m.y) < 76 && game.player.invincible <= 0) {
+        const damage = Math.max(1, Math.floor((m.type.atk || 4) - game.player.defense * .35));
+        game.player.hp = Math.max(0, game.player.hp - damage); game.player.invincible = .85; game.player.hurtTime = .2; game.player.vx = -m.face * 130;
+        makeText('-' + damage, game.player.x, game.player.y - 90, '#ff8787');
+      }
+    });
+    updateEnemyProjectiles(dt);
+  };
+
+  const oldDrawMonsterShape2 = typeof drawMonsterShape === 'function' ? drawMonsterShape : null;
+  window.drawMonsterShape = drawMonsterShape = function drawMonsterShapeGimmick(type, m) {
+    const named = m && m.isNamed;
+    ctx.save();
+    if (named) { ctx.scale(1.25, 1.25); ctx.shadowColor = '#facc15'; ctx.shadowBlur = 14; }
+    const fam = (type && type.family) || 'slime';
+    if (fam === 'boar' || fam === 'desert' || fam === 'lizard') {
+      ctx.fillStyle = fam === 'desert' ? '#c08457' : '#795548'; roundRect(ctx, -36, -46, 72, 42, 18);
+      ctx.fillStyle = '#5b341e'; circle(ctx, 27, -31, 20); ctx.fillStyle = '#fff7ed'; ctx.beginPath(); ctx.moveTo(38,-28); ctx.lineTo(53,-23); ctx.lineTo(38,-19); ctx.fill(); ctx.fillStyle = '#111827'; circle(ctx, 31, -35, 3); ctx.fillStyle = '#3f2a1f'; for (let x of [-22,-5,12,28]) roundRect(ctx, x, -12, 8, 18, 4);
+    } else if (fam === 'mana' || fam === 'ice') {
+      ctx.fillStyle = fam === 'ice' ? '#93c5fd' : '#a78bfa'; circle(ctx, 0, -34, 28); ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0,-34,38,0,Math.PI*1.5); ctx.stroke(); ctx.fillStyle = '#1e1b4b'; circle(ctx,-9,-38,3); circle(ctx,9,-38,3);
+    } else if (fam === 'bug') {
+      ctx.fillStyle = '#65a30d'; roundRect(ctx,-30,-48,60,36,16); ctx.strokeStyle='#bef264'; ctx.beginPath(); for(let i=-2;i<=2;i++){ctx.moveTo(i*10,-14);ctx.lineTo(i*14,-2);} ctx.stroke(); ctx.fillStyle='#111827'; circle(ctx,-10,-36,3); circle(ctx,10,-36,3);
+    } else if (fam === 'ruin' || fam === 'ore') {
+      ctx.fillStyle = fam === 'ore' ? '#64748b' : '#57534e'; roundRect(ctx,-32,-70,64,64,10); ctx.fillStyle='rgba(255,255,255,.22)'; roundRect(ctx,-18,-56,18,8,3); roundRect(ctx,6,-44,18,8,3); ctx.fillStyle='#111827'; roundRect(ctx,-14,-30,8,6,2); roundRect(ctx,8,-30,8,6,2);
+    } else if (fam === 'shadow') {
+      ctx.fillStyle = '#312e81'; circle(ctx,0,-34,30); ctx.fillStyle='#020617'; ctx.beginPath(); ctx.arc(0,-34,28,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#c4b5fd'; circle(ctx,-9,-39,4); circle(ctx,9,-39,4);
+    } else if (oldDrawMonsterShape2) oldDrawMonsterShape2(type, m); else { ctx.fillStyle='#7dd3fc'; circle(ctx,0,-32,28); }
+    if (named) { ctx.fillStyle = '#facc15'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('NAMED', 0, -88); }
+    ctx.restore();
+  };
+
+  const oldGetRareDropRate2 = typeof getRareDropRate === 'function' ? getRareDropRate : null;
+  window.getRareDropRate = getRareDropRate = function getRareDropRateByRarity(type) {
+    const base = oldGetRareDropRate2 ? oldGetRareDropRate2(type) : .04;
+    return type && type.name && String(type.name).includes('네임드') ? base * 2.5 : base;
+  };
+
+  const oldGetMonsterRareEquipmentDrop2 = typeof getMonsterRareEquipmentDrop === 'function' ? getMonsterRareEquipmentDrop : null;
+  window.getMonsterRareEquipmentDrop = getMonsterRareEquipmentDrop = function getMonsterRareEquipmentDropWeighted(type) {
+    const level = type && type.level || 1;
+    const candidates = Object.keys(ITEMS).filter(function (id) {
+      const item = ITEMS[id]; if (!item || !getEquipSlotForItem(item)) return false;
+      const req = item.reqLevel || 1; return req <= level + 8 && req >= Math.max(1, level - 10);
+    });
+    if (!candidates.length) return oldGetMonsterRareEquipmentDrop2 ? oldGetMonsterRareEquipmentDrop2(type) : null;
+    const roll = Math.random();
+    const wanted = roll < .006 ? 'legendary' : roll < .035 ? 'epic' : roll < .11 ? 'ultra' : roll < .35 ? 'rare' : 'common';
+    const filtered = candidates.filter(id => getItemRarity(ITEMS[id]) === wanted);
+    const pool = filtered.length ? filtered : candidates;
+    return pool[Math.floor(Math.random() * pool.length)];
+  };
+})();
