@@ -36,6 +36,7 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
         players: new Map(),
         monsters: new Map(),
         timers: new Map(),
+        chat: [],
         createdAt: now()
       });
     }
@@ -168,6 +169,11 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
           monsters: Array.from(room.monsters.values())
         });
       }
+
+      socket.emit('chat:history', {
+        room: roomId,
+        messages: room.chat.slice(-40)
+      });
     });
 
     socket.on('player:update', (payload = {}) => {
@@ -303,6 +309,32 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
         respawnAt: m.respawnAt,
         by: payload.by || '다른 유저'
       });
+    });
+
+    socket.on('chat:send', (payload = {}) => {
+      const roomId = String(payload.room || socketRooms.get(socket.id) || 'town:lumina');
+      const room = rooms.get(roomId);
+      if (!room || socketRooms.get(socket.id) !== roomId) return;
+
+      const fromPlayer = room.players.get(socket.id);
+      const raw = String(payload.text || '').replace(/[\r\n\t]+/g, ' ').trim();
+      if (!raw) return;
+
+      const text = raw.slice(0, 120);
+      const msg = {
+        id: `${socket.id}:${now()}`,
+        from: socket.id,
+        name: fromPlayer?.name || socket.handshake.auth?.name || '모험가',
+        level: fromPlayer?.state?.level || 1,
+        jobName: fromPlayer?.state?.jobName || fromPlayer?.state?.job || '초보자',
+        room: roomId,
+        text,
+        createdAt: now()
+      };
+
+      room.chat.push(msg);
+      if (room.chat.length > 80) room.chat.splice(0, room.chat.length - 80);
+      io.to(roomId).emit('chat:message', msg);
     });
 
     socket.on('disconnect', () => {
