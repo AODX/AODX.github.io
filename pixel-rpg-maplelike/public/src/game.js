@@ -8741,3 +8741,69 @@ function drawPlayerBody(c, player) {
   // Helmet intentionally hidden until a better attached design is added.
   c.restore();
 }
+
+
+/* =========================================================
+   MINIMAL STAT CLICK FIX PATCH
+   - Based on the user-provided working 251KB file.
+   - Only fixes stat + button hit boxes and stat save trigger.
+   - Does not replace or shrink the rest of the game code.
+========================================================= */
+
+function handleStatClick(x, y) {
+  if (!stats.open) return;
+
+  // drawStatsPanel() draws the panel at x=560, y=120.
+  // drawStatRow(label, key, x + 25, rowY) draws the + button at rowX + 230.
+  // So the actual + button rect is:
+  //   x: 560 + 25 + 230 = 815
+  //   y: rowY - 28
+  // The older click handler used baseX=610/baseY=215, so it was shifted away
+  // from the visible buttons and clicks did not register.
+  const panelX = 560;
+  const panelY = 120;
+  const rowX = panelX + 25;
+  const plusX = rowX + 230;
+
+  const rows = [
+    { key: 'str', y: panelY + 130 },
+    { key: 'dex', y: panelY + 180 },
+    { key: 'int', y: panelY + 230 },
+    { key: 'luk', y: panelY + 280 }
+  ];
+
+  for (const row of rows) {
+    // Hit box is slightly bigger than the drawn button so it is easier to click.
+    if (hit(x, y, plusX - 8, row.y - 36, 58, 48)) {
+      const beforeAp = stats.ap;
+      const beforeValue = stats[row.key];
+
+      addStat(row.key);
+
+      if (stats.ap !== beforeAp || stats[row.key] !== beforeValue) {
+        recalcStats();
+        markAutoSaveSoon();
+        if (typeof makeText === 'function' && game && game.player) {
+          makeText(row.key.toUpperCase() + ' +1', game.player.x, game.player.y - 95, '#ffe066');
+        }
+      }
+      return;
+    }
+  }
+}
+
+function addStat(key) {
+  if (!['str', 'dex', 'int', 'luk'].includes(key)) return false;
+  if ((stats.ap || 0) <= 0) {
+    if (typeof makeText === 'function' && game && game.player) {
+      makeText('AP가 부족합니다.', game.player.x, game.player.y - 90, '#cbd5e1');
+    }
+    return false;
+  }
+
+  stats[key] += 1;
+  stats.ap -= 1;
+  recalcStats();
+  markAutoSaveSoon();
+  return true;
+}
