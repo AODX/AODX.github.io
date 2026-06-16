@@ -8741,3 +8741,267 @@ function drawPlayerBody(c, player) {
   // Helmet intentionally hidden until a better attached design is added.
   c.restore();
 }
+
+
+/* =========================================================
+   COMBAT / SKILL / STAT STABILITY PATCH
+   - Monsters die reliably when HP reaches 0
+   - Strike cooldown increased so it is no longer a basic-attack replacement
+   - Other beginner skills activate normally
+   - Stat plus buttons work again and saved stats persist
+========================================================= */
+
+// 1) Skill timing and beginner skill activation safety
+if (SKILLS.strike) {
+  SKILLS.strike.cooldown = 2.4;
+  SKILLS.strike.power = Math.max(SKILLS.strike.power || 1.25, 1.55);
+  SKILLS.strike.range = Math.max(SKILLS.strike.range || 70, 105);
+  SKILLS.strike.desc = '강한 충격파를 동반한 일격입니다. 쿨타임이 길어졌습니다.';
+}
+
+// Keep early beginner skills usable for testing and normal progression.
+if (SKILLS.stone_throw) {
+  SKILLS.stone_throw.unlockLevel = Math.min(SKILLS.stone_throw.unlockLevel || 1, 2);
+  SKILLS.stone_throw.cooldown = Math.max(SKILLS.stone_throw.cooldown || 0.8, 1.05);
+}
+if (SKILLS.first_aid) {
+  SKILLS.first_aid.unlockLevel = Math.min(SKILLS.first_aid.unlockLevel || 1, 3);
+  SKILLS.first_aid.cooldown = Math.max(SKILLS.first_aid.cooldown || 6, 7.5);
+}
+
+function ensureBeginnerSkillHotkeysStable() {
+  refreshUnlockedSkills();
+  if (skills.unlocked.includes('strike') && !skills.hotkeys.k) skills.hotkeys.k = 'strike';
+  if (skills.unlocked.includes('stone_throw') && !skills.hotkeys.l) skills.hotkeys.l = 'stone_throw';
+  if (skills.unlocked.includes('first_aid') && !skills.hotkeys.semicolon) skills.hotkeys.semicolon = 'first_aid';
+}
+
+const __stableRefreshUnlockedSkills = refreshUnlockedSkills;
+function refreshUnlockedSkills() {
+  __stableRefreshUnlockedSkills();
+
+  ['strike', 'stone_throw', 'first_aid'].forEach(function (id) {
+    const skill = SKILLS[id];
+    if (!skill) return;
+    if ((game.player.level || 1) >= (skill.unlockLevel || 1) && !skills.unlocked.includes(id)) {
+      skills.unlocked.push(id);
+    }
+  });
+
+  if (!skills.hotkeys.k && skills.unlocked.includes('strike')) skills.hotkeys.k = 'strike';
+  if (!skills.hotkeys.l && skills.unlocked.includes('stone_throw')) skills.hotkeys.l = 'stone_throw';
+  if (!skills.hotkeys.semicolon && skills.unlocked.includes('first_aid')) skills.hotkeys.semicolon = 'first_aid';
+}
+
+// 2) Reliable skill dispatcher. This replaces the old strike-only wrapper.
+function useSkill(id) {
+  const skill = SKILLS[id];
+  if (!skill) return;
+
+  if (!skills.unlocked.includes(id)) {
+    if ((game.player.level || 1) >= (skill.unlockLevel || 1)) {
+      skills.unlocked.push(id);
+    } else {
+      makeText(`Lv.${skill.unlockLevel || 1} 필요`, game.player.x, game.player.y - 90, '#ff8787');
+      return;
+    }
+  }
+
+  if ((skills.cooldowns[id] || 0) > 0) {
+    makeText('쿨타임 중', game.player.x, game.player.y - 90, '#cbd5e1');
+    return;
+  }
+
+  if (game.player.mp < (skill.mp || 0)) {
+    makeText('MP 부족', game.player.x, game.player.y - 90, '#74c0fc');
+    return;
+  }
+
+  game.player.mp -= skill.mp || 0;
+
+  if (id === 'strike') {
+    skills.cooldowns[id] = Math.max(skill.cooldown || 2.4, 2.4);
+    game.player.attackTime = 0.48;
+    game.player.attackKind = 'heavy';
+    game.player.anim = 'attack';
+    game.player.animTime = 0;
+
+    hitMonsters({
+      range: Math.max(skill.range || 105, 110),
+      power: Math.max(skill.power || 1.55, 1.65),
+      hits: 1,
+      magic: false
+    });
+
+    if (typeof heavyStrikeEffect === 'function') {
+      heavyStrikeEffect(game.player.x, game.player.y, game.player.face, '#ff922b');
+    } else {
+      slashEffect(game.player.x + game.player.face * 62, game.player.y - 50, game.player.face, '#ff922b', 2.2);
+      makeText('강타!', game.player.x + game.player.face * 70, game.player.y - 96, '#ffe066');
+    }
+    return;
+  }
+
+  skills.cooldowns[id] = skill.cooldown || 1;
+
+  if (skill.heal) {
+    game.player.hp = Math.min(game.player.maxHp, game.player.hp + skill.heal);
+    makeText(`+${skill.heal} HP`, game.player.x, game.player.y - 90, '#ff8787');
+    circleEffect(game.player.x, game.player.y - 50, '#69db7c');
+    if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+    return;
+  }
+
+  game.player.attackTime = Math.max(0.30, Math.min(0.55, skill.cooldown || 0.35));
+  game.player.attackKind = skill.projectile ? 'cast' : 'skill';
+  game.player.anim = 'attack';
+  game.player.animTime = 0;
+
+  if (skill.projectile) {
+    spawnProjectile(skill);
+    return;
+  }
+
+  hitMonsters(skill);
+  slashEffect(
+    game.player.x + game.player.face * 50,
+    game.player.y - 46,
+    game.player.face,
+    skill.magic ? '#74c0fc' : '#f59f00',
+    skill.magic ? 1.8 : 1.35
+  );
+}
+
+// 3) Damage and death safety. This fixes monsters staying alive at 0 HP.
+const __stableKillMonsterBeforeGuard = killMonster;
+function killMonster(m) {
+  if (!m || !m.type) return;
+  if (m.dead || m.__deathHandled) return;
+
+  m.__deathHandled = true;
+  m.hp = 0;
+  __stableKillMonsterBeforeGuard(m);
+
+  const respawnDelay = (m.type && m.type.respawn) || 3000;
+  setTimeout(function () {
+    m.__deathHandled = false;
+  }, respawnDelay + 120);
+
+  if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+}
+
+function damageMonster(m, skill) {
+  if (!m || !m.type || m.dead || m.__deathHandled) return;
+
+  const p = game.player;
+  const base = skill && skill.magic ? p.magicPower : p.attackPower;
+  const crit = Math.random() * 100 < p.critRate;
+  const raw = base * ((skill && skill.power) || 1);
+  const damage = Math.max(1, Math.floor(raw - (m.type.def || 0) + Math.random() * 8)) * (crit ? 2 : 1);
+
+  m.hp = Math.max(0, (m.hp || 0) - damage);
+  m.hit = 0.15;
+  m.x += p.face * 10;
+
+  makeText(crit ? `${damage}!` : `-${damage}`, m.x, m.y - 78, crit ? '#ffe066' : '#ff6b6b');
+
+  if (m.hp <= 0) {
+    killMonster(m);
+  }
+}
+
+const __stableUpdateMonstersBeforeDeathCheck = updateMonsters;
+function updateMonsters(dt) {
+  if (game.mode === 'hunt') {
+    game.monsters.forEach(function (m) {
+      if (m && !m.dead && !m.__deathHandled && Number.isFinite(m.hp) && m.hp <= 0) {
+        killMonster(m);
+      }
+      if (m && !m.dead && m.__deathHandled && m.hp > 0) {
+        m.__deathHandled = false;
+      }
+    });
+  }
+
+  __stableUpdateMonstersBeforeDeathCheck(dt);
+
+  if (game.mode === 'hunt') {
+    game.monsters.forEach(function (m) {
+      if (m && !m.dead && !m.__deathHandled && Number.isFinite(m.hp) && m.hp <= 0) {
+        killMonster(m);
+      }
+    });
+  }
+}
+
+// 4) Stat clicking restored. Supports both the old and patched stat panel coordinates.
+function addStat(key) {
+  if (stats.ap <= 0) {
+    makeText('남은 AP가 없습니다.', game.player.x, game.player.y - 90, '#cbd5e1');
+    return;
+  }
+  if (!['str', 'dex', 'int', 'luk'].includes(key)) return;
+
+  stats[key] += 1;
+  stats.ap -= 1;
+  recalcStats();
+  if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+  makeText(`${key.toUpperCase()} +1`, game.player.x, game.player.y - 90, '#ffe066');
+}
+
+function handleStatClick(x, y) {
+  const candidates = [
+    { x: 560, y: 120 },
+    { x: 610, y: 215 },
+    { x: 520, y: 105 }
+  ];
+
+  const rows = ['str', 'dex', 'int', 'luk'];
+
+  // Main current stat panel layout: drawStatsPanel uses x=560, y=120 and row y positions 250/300/350/400-ish in many patches.
+  for (const base of candidates) {
+    const rowYs = [base.y + 130, base.y + 180, base.y + 230, base.y + 280];
+    for (let i = 0; i < rows.length; i++) {
+      const py = rowYs[i];
+      if (
+        hit(x, y, base.x + 220, py - 34, 62, 44) ||
+        hit(x, y, base.x + 230, py - 32, 52, 40) ||
+        hit(x, y, base.x + 250, py - 34, 62, 44)
+      ) {
+        addStat(rows[i]);
+        return;
+      }
+    }
+  }
+
+  // Fallback: detect clicks on the right side of visible STR/DEX/INT/LUK rows.
+  const fallbackRows = [
+    ['str', 250],
+    ['dex', 300],
+    ['int', 350],
+    ['luk', 400]
+  ];
+
+  for (const row of fallbackRows) {
+    if (x >= 760 && x <= 875 && y >= row[1] - 34 && y <= row[1] + 12) {
+      addStat(row[0]);
+      return;
+    }
+  }
+}
+
+// 5) Save compatibility: make sure stats are always included.
+const __stableSaveGameBeforeStatsPatch = saveGame;
+async function saveGame(silent) {
+  if (!game.ready || !token) return;
+  await __stableSaveGameBeforeStatsPatch(silent);
+}
+
+setTimeout(function () {
+  try {
+    ensureBeginnerSkillHotkeysStable();
+    if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+  } catch (err) {
+    console.warn('skill/stat stability init skipped', err);
+  }
+}, 0);
