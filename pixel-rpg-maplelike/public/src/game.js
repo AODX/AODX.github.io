@@ -10840,7 +10840,14 @@ canvas.addEventListener('click', function (e) {
     lastSend: 0,
     portalLockUntil: 0,
     lastRoomSend: 0,
-    pendingTradeFrom: null
+    pendingTradeFrom: null,
+    chatOpen: false,
+    chatMessages: [],
+    chatUnread: 0,
+    chatInput: null,
+    chatBox: null,
+    chatLog: null,
+    chatHint: null
   };
 
   function mpSafe(fn, label) {
@@ -10921,11 +10928,13 @@ canvas.addEventListener('click', function (e) {
         MP.id = MP.socket.id;
         mpJoinRoom(true);
         mpToast('멀티 서버 연결됨', '#9bf6ff');
+        mpRenderChat();
       });
 
       MP.socket.on('disconnect', function () {
         MP.connected = false;
         MP.players = {};
+        mpRenderChat();
       });
 
       MP.socket.on('players:snapshot', function (list) {
@@ -10954,6 +10963,20 @@ canvas.addEventListener('click', function (e) {
         if (!payload) return;
         MP.pendingTradeFrom = payload;
         mpToast((payload.fromName || '다른 유저') + '님이 거래를 요청했습니다.', '#ffe066');
+      });
+
+      MP.socket.on('chat:history', function (payload) {
+        if (!payload || payload.room !== mpRoomId()) return;
+        MP.chatMessages = Array.isArray(payload.messages) ? payload.messages.slice(-40) : [];
+        mpRenderChat();
+      });
+
+      MP.socket.on('chat:message', function (msg) {
+        if (!msg || msg.room !== mpRoomId()) return;
+        MP.chatMessages.push(msg);
+        if (MP.chatMessages.length > 40) MP.chatMessages.shift();
+        if (!MP.chatOpen) MP.chatUnread += 1;
+        mpRenderChat();
       });
 
       MP.socket.on('monster:snapshot', function (payload) {
@@ -10987,6 +11010,7 @@ canvas.addEventListener('click', function (e) {
     const room = mpRoomId();
     const now = performance.now();
     if (!force && MP.room === room && now - MP.lastRoomSend < 700) return;
+    if (MP.room !== room) { MP.chatMessages = []; MP.chatUnread = 0; }
     MP.room = room;
     MP.lastRoomSend = now;
     MP.socket.emit('room:join', { room, state: mpPublicState() });
@@ -11153,6 +11177,162 @@ canvas.addEventListener('click', function (e) {
     });
   }
 
+
+  function mpEnsureChatUi() {
+    if (MP.chatBox && MP.chatInput && MP.chatLog) return;
+
+    const style = document.createElement('style');
+    style.id = 'pixel-rpg-chat-style';
+    style.textContent = `
+      #pixel-rpg-chat-box {
+        position: fixed;
+        left: 14px;
+        bottom: 14px;
+        width: 380px;
+        max-width: calc(100vw - 28px);
+        z-index: 9999;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: #fff;
+        pointer-events: none;
+      }
+      #pixel-rpg-chat-log {
+        height: 145px;
+        overflow: hidden;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.72);
+        border: 1px solid rgba(148, 163, 184, 0.45);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+        font-size: 13px;
+        line-height: 1.35;
+      }
+      #pixel-rpg-chat-log .chat-row { margin: 0 0 4px 0; word-break: break-word; }
+      #pixel-rpg-chat-log .chat-name { color: #93c5fd; font-weight: 800; }
+      #pixel-rpg-chat-log .chat-meta { color: #cbd5e1; font-size: 11px; margin-left: 3px; }
+      #pixel-rpg-chat-log .chat-self .chat-name { color: #facc15; }
+      #pixel-rpg-chat-input {
+        display: none;
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 8px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(147,197,253,0.9);
+        outline: none;
+        background: rgba(15, 23, 42, 0.96);
+        color: #fff;
+        font-size: 14px;
+        pointer-events: auto;
+      }
+      #pixel-rpg-chat-hint {
+        margin-top: 6px;
+        color: #dbeafe;
+        font-size: 12px;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.65);
+      }
+      #pixel-rpg-chat-box.open #pixel-rpg-chat-input { display: block; }
+      #pixel-rpg-chat-box.open { pointer-events: auto; }
+    `;
+    if (!document.getElementById(style.id)) document.head.appendChild(style);
+
+    const box = document.createElement('div');
+    box.id = 'pixel-rpg-chat-box';
+    box.innerHTML = `
+      <div id="pixel-rpg-chat-log"></div>
+      <input id="pixel-rpg-chat-input" maxlength="120" autocomplete="off" placeholder="채팅 입력 후 Enter / 닫기 Esc" />
+      <div id="pixel-rpg-chat-hint">Enter: 채팅 열기 · 같은 마을/사냥터 유저에게만 보임</div>
+    `;
+    document.body.appendChild(box);
+    MP.chatBox = box;
+    MP.chatLog = box.querySelector('#pixel-rpg-chat-log');
+    MP.chatInput = box.querySelector('#pixel-rpg-chat-input');
+    MP.chatHint = box.querySelector('#pixel-rpg-chat-hint');
+
+    MP.chatInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        mpSendChat(MP.chatInput.value);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        mpCloseChat();
+      }
+    });
+
+    mpRenderChat();
+  }
+
+  function mpEscapeHtml(text) {
+    return String(text || '').replace(/[&<>"']/g, function (ch) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+    });
+  }
+
+  function mpRenderChat() {
+    mpEnsureChatUi();
+    const rows = MP.chatMessages.slice(-8).map(function (msg) {
+      const mine = msg.from && msg.from === MP.id;
+      const name = mpEscapeHtml(msg.name || '모험가');
+      const text = mpEscapeHtml(msg.text || '');
+      const meta = 'Lv.' + (msg.level || 1) + ' ' + mpEscapeHtml(msg.jobName || '초보자');
+      return '<div class="chat-row ' + (mine ? 'chat-self' : '') + '"><span class="chat-name">' + name + '</span><span class="chat-meta">' + meta + '</span> : ' + text + '</div>';
+    }).join('');
+    MP.chatLog.innerHTML = rows || '<div class="chat-row"><span class="chat-meta">아직 채팅이 없습니다.</span></div>';
+    if (MP.chatHint) {
+      const status = MP.connected ? '온라인' : '오프라인';
+      const unread = MP.chatUnread > 0 ? ' · 새 메시지 ' + MP.chatUnread : '';
+      MP.chatHint.textContent = 'Enter: 채팅 열기 · ' + status + ' · 현재 채널 ' + mpRoomId() + unread;
+    }
+  }
+
+  function mpOpenChat() {
+    mpEnsureChatUi();
+    MP.chatOpen = true;
+    MP.chatUnread = 0;
+    MP.chatBox.classList.add('open');
+    MP.chatInput.focus();
+    mpRenderChat();
+  }
+
+  function mpCloseChat() {
+    if (!MP.chatBox || !MP.chatInput) return;
+    MP.chatOpen = false;
+    MP.chatBox.classList.remove('open');
+    MP.chatInput.value = '';
+    MP.chatInput.blur();
+    if (canvas && canvas.focus) canvas.focus();
+    mpRenderChat();
+  }
+
+  function mpSendChat(text) {
+    const msg = String(text || '').trim();
+    if (!msg) { mpCloseChat(); return; }
+    if (!MP.socket || !MP.connected) {
+      mpToast('멀티 서버 연결 후 채팅할 수 있습니다.', '#ffdd99');
+      return;
+    }
+    MP.socket.emit('chat:send', { room: mpRoomId(), text: msg });
+    MP.chatInput.value = '';
+  }
+
+  window.addEventListener('keydown', function (e) {
+    if (!game || !game.ready) return;
+    const target = e.target;
+    const typing = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+    if (MP.chatOpen) {
+      if (target === MP.chatInput) return;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (e.key === 'Enter' && !typing && !game.dialog && !game.taxiOpen && !game.shopOpen && !game.blacksmithOpen) {
+      e.preventDefault();
+      e.stopPropagation();
+      mpOpenChat();
+    }
+  }, true);
+
   function mpRequestTrade(id) {
     if (!id || !MP.socket || !MP.connected || !MP.players[id]) return;
     MP.socket.emit('trade:request', { to: id, fromName: mpPlayerName() });
@@ -11290,6 +11470,7 @@ canvas.addEventListener('click', function (e) {
   });
 
   setTimeout(function () {
+    mpEnsureChatUi();
     if (game && game.ready) mpConnect();
   }, 600);
 })();
