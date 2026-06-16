@@ -7525,3 +7525,489 @@ function drawSdNpc(npc, x, y) {
   drawNpcProp(ctx, st.prop);
   ctx.restore();
 }
+
+
+/* =========================================================
+   HAIR STYLE / FACE / FOOT REFINEMENT PATCH
+   - removes overly dark cheek ellipses
+   - makes each hair style visually more distinct
+   - turns feet outward for a more natural stance
+========================================================= */
+
+function __hairFillTop(c, color) {
+  c.fillStyle = '#13233e';
+  c.beginPath(); c.ellipse(0, -110, 29, 18, 0, Math.PI, 0); c.fill();
+  c.fillStyle = color;
+  c.beginPath(); c.ellipse(0, -110, 26, 16, 0, Math.PI, 0); c.fill();
+}
+
+function __hairFrontBand(c, x, y, w, h, r) {
+  roundRect(c, x, y, w, h, r || 4);
+}
+
+function __hairSpikeRow(c, startX, y, count, size, gap) {
+  const g = gap || size;
+  for (let i = 0; i < count; i++) {
+    const x = startX + i * g;
+    c.beginPath();
+    c.moveTo(x, y + size * 0.9);
+    c.lineTo(x + size * 0.5, y - size * 0.5 - (i % 2) * 2);
+    c.lineTo(x + size, y + size * 0.9);
+    c.closePath();
+    c.fill();
+  }
+}
+
+function __hairSideLock(c, x, y, rx, ry, rot) {
+  c.beginPath();
+  c.ellipse(x, y, rx, ry, rot || 0, 0, Math.PI * 2);
+  c.fill();
+}
+
+function __drawHairStyleByName(c, style, hair, skin, headY) {
+  c.fillStyle = hair;
+
+  switch (style) {
+    case 'basic':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -18, headY + 1, 36, 7, 3);
+      break;
+    case 'short':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -15, headY + 1, 30, 6, 3);
+      break;
+    case 'spiky':
+      __hairFillTop(c, hair);
+      __hairSpikeRow(c, -22, headY - 2, 6, 7, 7);
+      break;
+    case 'pony':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -18, headY + 1, 36, 6.5, 3);
+      __hairSideLock(c, 22, headY + 11, 6, 15, -0.35);
+      break;
+    case 'wave':
+      __hairFillTop(c, hair);
+      for (let i = -18; i <= 14; i += 9) __hairSideLock(c, i, headY + 8, 6, 8, 0);
+      break;
+    case 'bob':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -20, headY + 1, 40, 8, 4);
+      __hairSideLock(c, -20, headY + 12, 6, 13, 0.16);
+      __hairSideLock(c, 20, headY + 12, 6, 13, -0.16);
+      break;
+    case 'mushroom':
+      c.fillStyle = '#13233e';
+      c.beginPath(); c.ellipse(0, headY + 1, 30, 19, 0, Math.PI, 0); c.fill();
+      c.fillStyle = hair;
+      c.beginPath(); c.ellipse(0, headY + 2, 27, 17, 0, Math.PI, 0); c.fill();
+      __hairFrontBand(c, -22, headY + 4, 44, 10, 5);
+      break;
+    case 'soft_bang':
+      __hairFillTop(c, hair);
+      for (let i = -18; i <= 9; i += 9) {
+        c.beginPath(); c.moveTo(i, headY + 6); c.lineTo(i + 4, headY - 2); c.lineTo(i + 9, headY + 6); c.closePath(); c.fill();
+      }
+      break;
+    case 'side_part':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -19, headY + 1, 38, 7, 3);
+      c.beginPath(); c.moveTo(5, headY + 7); c.lineTo(17, headY - 8); c.lineTo(19, headY + 7); c.closePath(); c.fill();
+      break;
+    case 'curly':
+      __hairFillTop(c, hair);
+      for (let i = -18; i <= 18; i += 9) __hairSideLock(c, i, headY + 8, 5, 7, 0);
+      __hairSideLock(c, -20, headY + 12, 5, 10, 0.1);
+      __hairSideLock(c, 20, headY + 12, 5, 10, -0.1);
+      break;
+    case 'twin_tail':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -18, headY + 1, 36, 7, 3);
+      __hairSideLock(c, -24, headY + 14, 6, 16, 0.3);
+      __hairSideLock(c, 24, headY + 14, 6, 16, -0.3);
+      break;
+    case 'long_tail':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -18, headY + 1, 36, 7, 3);
+      c.beginPath(); c.moveTo(16, headY + 3); c.quadraticCurveTo(33, headY + 14, 22, headY + 28); c.lineTo(12, headY + 25); c.quadraticCurveTo(23, headY + 12, 10, headY + 4); c.closePath(); c.fill();
+      break;
+    case 'wild':
+      c.fillStyle = '#13233e';
+      c.beginPath(); c.ellipse(0, headY, 31, 19, 0, Math.PI, 0); c.fill();
+      c.fillStyle = hair;
+      __hairSpikeRow(c, -25, headY - 4, 7, 8, 7);
+      __hairSideLock(c, -23, headY + 10, 7, 11, 0.2);
+      __hairSideLock(c, 23, headY + 10, 7, 11, -0.2);
+      break;
+    case 'flat':
+      c.fillStyle = '#13233e';
+      __hairFrontBand(c, -25, headY - 3, 50, 10, 2);
+      c.fillStyle = hair;
+      __hairFrontBand(c, -23, headY - 1, 46, 8, 2);
+      break;
+    case 'helmet_cut':
+      c.fillStyle = '#13233e';
+      c.beginPath(); c.ellipse(0, headY + 3, 29, 17, 0, Math.PI, 0); c.fill();
+      c.fillStyle = hair;
+      c.beginPath(); c.ellipse(0, headY + 4, 26.5, 15, 0, Math.PI, 0); c.fill();
+      __hairFrontBand(c, -21, headY + 3, 42, 8, 2);
+      __hairSideLock(c, -20, headY + 13, 5, 10, 0);
+      __hairSideLock(c, 20, headY + 13, 5, 10, 0);
+      break;
+    case 'leaf_pin':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -18, headY + 1, 36, 7, 3);
+      c.fillStyle = '#6cc56f';
+      c.beginPath(); c.moveTo(15, headY - 3); c.quadraticCurveTo(24, headY - 8, 24, headY + 1); c.quadraticCurveTo(18, headY + 1, 15, headY - 3); c.fill();
+      break;
+    case 'mage_long':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -17, headY + 1, 34, 7, 3);
+      __hairSideLock(c, -22, headY + 16, 6, 18, 0.12);
+      __hairSideLock(c, 22, headY + 16, 6, 18, -0.12);
+      break;
+    case 'warrior_spike':
+      __hairFillTop(c, hair);
+      __hairSpikeRow(c, -20, headY - 6, 5, 9, 8);
+      __hairFrontBand(c, -18, headY + 1, 36, 6, 3);
+      break;
+    case 'archer_feather':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -18, headY + 1, 36, 7, 3);
+      c.fillStyle = '#38bdf8';
+      c.beginPath(); c.moveTo(-18, headY - 4); c.lineTo(-28, headY - 12); c.lineTo(-20, headY + 1); c.closePath(); c.fill();
+      c.fillStyle = hair;
+      break;
+    case 'rogue_shadow':
+      __hairFillTop(c, hair);
+      c.beginPath(); c.moveTo(-18, headY + 4); c.lineTo(-3, headY - 4); c.lineTo(7, headY + 5); c.closePath(); c.fill();
+      __hairFrontBand(c, -6, headY + 1, 24, 7, 3);
+      __hairSideLock(c, -22, headY + 10, 6, 12, 0.26);
+      break;
+    case 'prince':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -18, headY + 2, 36, 6, 3);
+      c.beginPath(); c.moveTo(0, headY + 4); c.lineTo(6, headY - 3); c.lineTo(10, headY + 4); c.closePath(); c.fill();
+      break;
+    case 'princess':
+      __hairFillTop(c, hair);
+      __hairSideLock(c, -22, headY + 15, 7, 18, 0.12);
+      __hairSideLock(c, 22, headY + 15, 7, 18, -0.12);
+      __hairFrontBand(c, -16, headY + 1, 32, 6.5, 3);
+      break;
+    case 'round_bob':
+      c.fillStyle = '#13233e';
+      c.beginPath(); c.ellipse(0, headY + 5, 28, 18, 0, Math.PI, 0); c.fill();
+      c.fillStyle = hair;
+      c.beginPath(); c.ellipse(0, headY + 6, 25, 16.5, 0, Math.PI, 0); c.fill();
+      __hairSideLock(c, -19, headY + 13, 7, 11, 0);
+      __hairSideLock(c, 19, headY + 13, 7, 11, 0);
+      break;
+    case 'messy':
+      __hairFillTop(c, hair);
+      __hairSpikeRow(c, -21, headY - 3, 6, 6.5, 6.5);
+      __hairSideLock(c, -18, headY + 11, 5, 11, 0.28);
+      __hairSideLock(c, 22, headY + 12, 6, 10, -0.3);
+      break;
+    case 'samurai':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -18, headY + 1, 36, 6, 3);
+      c.beginPath(); c.ellipse(0, headY - 10, 7, 6, 0, 0, Math.PI * 2); c.fill();
+      break;
+    case 'braid':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -18, headY + 1, 36, 6.5, 3);
+      c.beginPath(); c.moveTo(19, headY + 5); c.lineTo(25, headY + 10); c.lineTo(19, headY + 15); c.lineTo(25, headY + 20); c.lineTo(18, headY + 24); c.lineTo(10, headY + 20); c.lineTo(16, headY + 15); c.lineTo(10, headY + 10); c.closePath(); c.fill();
+      break;
+    case 'cat_ear':
+      __hairFillTop(c, hair);
+      c.beginPath(); c.moveTo(-15, headY - 2); c.lineTo(-23, headY - 12); c.lineTo(-7, headY - 6); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(15, headY - 2); c.lineTo(23, headY - 12); c.lineTo(7, headY - 6); c.closePath(); c.fill();
+      __hairFrontBand(c, -16, headY + 1, 32, 6.5, 3);
+      break;
+    case 'horn':
+      __hairFillTop(c, hair);
+      c.fillStyle = '#d9c1a0';
+      c.beginPath(); c.moveTo(-12, headY - 5); c.lineTo(-21, headY - 16); c.lineTo(-16, headY - 4); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(12, headY - 5); c.lineTo(21, headY - 16); c.lineTo(16, headY - 4); c.closePath(); c.fill();
+      c.fillStyle = hair;
+      __hairFrontBand(c, -16, headY + 1, 32, 6.5, 3);
+      break;
+    case 'cloud':
+      c.fillStyle = '#13233e';
+      c.beginPath(); c.ellipse(0, headY + 4, 29, 17, 0, Math.PI, 0); c.fill();
+      c.fillStyle = hair;
+      for (let i = -14; i <= 14; i += 10) circle(c, i, headY + 6, 8);
+      break;
+    case 'flame':
+      __hairFillTop(c, hair);
+      __hairSpikeRow(c, -20, headY - 7, 5, 10, 8);
+      break;
+    case 'ice':
+      c.fillStyle = '#13233e';
+      c.beginPath(); c.ellipse(0, headY + 2, 28, 16, 0, Math.PI, 0); c.fill();
+      c.fillStyle = '#c9efff';
+      __hairSpikeRow(c, -19, headY - 5, 5, 8, 8);
+      __hairFrontBand(c, -17, headY + 2, 34, 6, 3);
+      break;
+    case 'star':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -18, headY + 1, 36, 6.5, 3);
+      c.fillStyle = '#facc15';
+      c.beginPath(); c.moveTo(18, headY - 4); c.lineTo(20, headY + 0); c.lineTo(24, headY + 0); c.lineTo(21, headY + 3); c.lineTo(22, headY + 7); c.lineTo(18, headY + 5); c.lineTo(14, headY + 7); c.lineTo(15, headY + 3); c.lineTo(12, headY + 0); c.lineTo(16, headY + 0); c.closePath(); c.fill();
+      break;
+    case 'noble':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -18, headY + 2, 36, 6, 3);
+      c.fillStyle = '#f2f2f2'; roundRect(c, -12, headY - 4, 24, 3, 2);
+      c.fillStyle = hair;
+      break;
+    case 'bandana':
+      __hairFillTop(c, hair);
+      c.fillStyle = '#ef4444'; roundRect(c, -24, headY - 3, 48, 8, 3);
+      c.fillStyle = hair; __hairFrontBand(c, -16, headY + 3, 32, 5, 2);
+      break;
+    case 'cap':
+      c.fillStyle = '#13233e'; roundRect(c, -26, headY - 5, 52, 10, 5);
+      c.fillStyle = hair; roundRect(c, -18, headY + 2, 36, 6, 3);
+      c.fillStyle = '#d1d5db'; c.beginPath(); c.ellipse(0, headY - 1, 15, 3, 0, 0, Math.PI); c.fill();
+      break;
+    case 'hood':
+      c.fillStyle = '#2c4f8d';
+      c.beginPath(); c.ellipse(0, headY + 4, 30, 19, 0, Math.PI, 0); c.fill();
+      c.fillStyle = hair; __hairFrontBand(c, -14, headY + 2, 28, 6, 3);
+      break;
+    case 'half_up':
+      __hairFillTop(c, hair);
+      c.beginPath(); c.ellipse(0, headY - 8, 7, 5, 0, 0, Math.PI * 2); c.fill();
+      __hairSideLock(c, -21, headY + 14, 6, 14, 0.15);
+      __hairSideLock(c, 21, headY + 14, 6, 14, -0.15);
+      break;
+    case 'drill':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -18, headY + 1, 36, 6.5, 3);
+      for (const sx of [-23, 23]) {
+        c.beginPath(); c.moveTo(sx, headY + 7); c.lineTo(sx + (sx < 0 ? -4 : 4), headY + 11); c.lineTo(sx + (sx < 0 ? 0 : 0), headY + 15); c.lineTo(sx + (sx < 0 ? -4 : 4), headY + 19); c.lineTo(sx + (sx < 0 ? 2 : -2), headY + 24); c.lineTo(sx - (sx < 0 ? 2 : -2), headY + 19); c.lineTo(sx + (sx < 0 ? 2 : -2), headY + 15); c.lineTo(sx - (sx < 0 ? 2 : -2), headY + 11); c.closePath(); c.fill();
+      }
+      break;
+    case 'mini_tail':
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -18, headY + 1, 36, 6.5, 3);
+      c.beginPath(); c.ellipse(17, headY - 4, 5, 4, 0, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.moveTo(19, headY - 2); c.lineTo(25, headY + 7); c.lineTo(18, headY + 8); c.closePath(); c.fill();
+      break;
+    case 'wind':
+      __hairFillTop(c, hair);
+      c.beginPath(); c.moveTo(-18, headY + 5); c.quadraticCurveTo(3, headY - 9, 22, headY + 1); c.lineTo(18, headY + 9); c.quadraticCurveTo(-1, headY - 2, -18, headY + 7); c.closePath(); c.fill();
+      __hairSideLock(c, 24, headY + 10, 6, 11, -0.35);
+      break;
+    default:
+      __hairFillTop(c, hair);
+      __hairFrontBand(c, -18, headY + 1, 36, 7, 3);
+      break;
+  }
+}
+
+function drawHair(c, ch, headY) {
+  const hair = ch.hair || '#2b160e';
+  const skin = ch.skin || '#ffd8a8';
+  const style = ch.hairStyle || 'basic';
+  c.save();
+  __drawHairStyleByName(c, style, hair, skin, headY);
+  c.fillStyle = 'rgba(255,255,255,0.12)';
+  roundRect(c, -8, headY - 4, 9, 2.4, 1.2);
+  c.restore();
+}
+
+function drawFace(c, ch, headY) {
+  const style = ch.faceStyle || 'normal';
+  const idx = Math.max(0, SD_FACE_STYLES_40.indexOf(style));
+  const eyeMode = idx % 8;
+  const mouthMode = Math.floor(idx / 8) % 5;
+
+  c.save();
+  c.fillStyle = '#191919';
+  c.strokeStyle = '#191919';
+  c.lineWidth = 1.8;
+
+  const ey = headY - 1;
+  if (eyeMode === 0) {
+    c.beginPath(); c.ellipse(-8, ey, 2.3, 4.6, -0.1, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(8, ey, 2.3, 4.6, 0.1, 0, Math.PI * 2); c.fill();
+  } else if (eyeMode === 1) {
+    circle(c, -8, ey, 2.8); circle(c, 8, ey, 2.8);
+    c.fillStyle = '#fff'; circle(c, -8.8, ey - 1, 0.8); circle(c, 7.2, ey - 1, 0.8); c.fillStyle = '#191919';
+  } else if (eyeMode === 2) {
+    c.beginPath(); c.moveTo(-12, ey); c.quadraticCurveTo(-8, ey + 3, -4.5, ey); c.stroke();
+    c.beginPath(); c.moveTo(4.5, ey); c.quadraticCurveTo(8, ey + 3, 12, ey); c.stroke();
+  } else if (eyeMode === 3) {
+    c.beginPath(); c.moveTo(-11, ey); c.lineTo(-5, ey); c.moveTo(5, ey); c.lineTo(11, ey); c.stroke();
+  } else if (eyeMode === 4) {
+    c.fillRect(-11, ey - 1.5, 6, 2.4); c.fillRect(5, ey - 1.5, 6, 2.4);
+  } else if (eyeMode === 5) {
+    c.fillRect(-8.5, ey - 2, 2.4, 4.2); c.fillRect(6.1, ey - 2, 2.4, 4.2);
+  } else if (eyeMode === 6) {
+    c.beginPath(); c.ellipse(-9, ey, 3, 5.2, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(9, ey, 3, 5.2, 0, 0, Math.PI * 2); c.fill();
+  } else {
+    c.fillRect(-8.5, ey, 2, 2); c.fillRect(6.5, ey, 2, 2);
+  }
+
+  // very subtle blush only, removing the previous dark cheek ellipses look
+  c.fillStyle = 'rgba(255,185,190,0.18)';
+  c.beginPath(); c.ellipse(-13, headY + 7, 4.2, 2.6, 0, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(13, headY + 7, 4.2, 2.6, 0, 0, Math.PI * 2); c.fill();
+
+  // tiny nose
+  c.fillStyle = 'rgba(70,40,24,0.22)';
+  c.beginPath(); c.ellipse(0, headY + 2.5, 1.0, 0.8, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = '#191919';
+
+  const my = headY + 10.5;
+  if (mouthMode === 0) {
+    c.beginPath(); c.arc(0, my - 1.5, 4.3, 0, Math.PI); c.stroke();
+  } else if (mouthMode === 1) {
+    c.fillRect(-3.4, my, 6.8, 1.8);
+  } else if (mouthMode === 2) {
+    c.beginPath(); c.arc(0, my + 2.5, 4.2, Math.PI, Math.PI * 2); c.stroke();
+  } else if (mouthMode === 3) {
+    c.beginPath(); c.ellipse(0, my, 2.4, 3.1, 0, 0, Math.PI * 2); c.fill();
+  } else {
+    c.beginPath(); c.moveTo(-4.2, my - 1); c.quadraticCurveTo(0, my + 3.8, 4.6, my - 1); c.stroke();
+  }
+  c.restore();
+}
+
+function drawPlayerBody(c, player) {
+  const ch = (player && player.character) || (game.player && game.player.character) || selected;
+  ensureSdCharacterStyle(ch);
+
+  const drawEq = __getDrawEquipment(player);
+  const outfit = __getOutfitForDraw(ch, drawEq);
+  const animTime = player.animTime || 0;
+  const walk = Math.sin(animTime * 11);
+  const moving = player.anim === 'walk';
+  const attacking = player.anim === 'attack';
+  const jumping = player.anim === 'jump';
+  const hurt = player.hurtTime && player.hurtTime > 0;
+  const attackSwing = attacking ? Math.sin(Math.min(1, animTime * 11) * Math.PI) : 0;
+
+  const skin = ch.skin || '#ffd8a8';
+  const skinShadow = '#f0ba88';
+  const legMove = moving ? walk * 5 : 0;
+  const armMove = moving ? -walk * 4 : 0;
+
+  c.save();
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  if (hurt) c.globalAlpha = 0.74;
+
+  c.fillStyle = 'rgba(0,0,0,0.18)';
+  c.beginPath();
+  c.ellipse(0, 2, 20, 4.6, 0, 0, Math.PI * 2);
+  c.fill();
+
+  // outward-leaning legs for a more natural stance
+  c.strokeStyle = '#2a1d16';
+  c.lineWidth = 6.2;
+  c.beginPath();
+  c.moveTo(-5, -32);
+  c.quadraticCurveTo(-7 - legMove * 0.2, -20, -14 - legMove * 0.8, -8);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(5, -32);
+  c.quadraticCurveTo(7 + legMove * 0.2, -20, 14 + legMove * 0.8, -8);
+  c.stroke();
+
+  c.strokeStyle = skin;
+  c.lineWidth = 3.8;
+  c.beginPath();
+  c.moveTo(-5, -32);
+  c.quadraticCurveTo(-7 - legMove * 0.2, -20, -14 - legMove * 0.8, -8);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(5, -32);
+  c.quadraticCurveTo(7 + legMove * 0.2, -20, 14 + legMove * 0.8, -8);
+  c.stroke();
+
+  // shoes are now spread outward instead of turned inward
+  c.fillStyle = '#5b3b1e';
+  roundRect(c, -24 - legMove * 0.2, -9, 15, 6, 3);
+  roundRect(c, 9 + legMove * 0.2, -9, 15, 6, 3);
+
+  c.fillStyle = '#13233e';
+  roundRect(c, -19, -66, 38, 36, 13);
+  c.fillStyle = outfit.main || '#6aa8ff';
+  roundRect(c, -16, -63, 32, 31, 11);
+  c.fillStyle = 'rgba(255,255,255,0.92)';
+  roundRect(c, -9, -58, 18, 5.5, 3);
+  c.fillStyle = outfit.trim || '#3f72c9';
+  roundRect(c, -12, -40, 24, 6.5, 4);
+  c.fillStyle = 'rgba(255,255,255,0.14)';
+  roundRect(c, -12, -61, 8, 14, 5);
+
+  let leftHandX = -22 + armMove;
+  let leftHandY = -47;
+  let rightHandX = 22 - armMove + attackSwing * 21;
+  let rightHandY = -47 + attackSwing * 6;
+
+  if (jumping) {
+    leftHandX = -24; leftHandY = -56;
+    rightHandX = 24; rightHandY = -56;
+  }
+
+  c.strokeStyle = '#13233e';
+  c.lineWidth = 7.8;
+  c.beginPath();
+  c.moveTo(-15, -56);
+  c.quadraticCurveTo(-22, -53, leftHandX, leftHandY);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(15, -56);
+  c.quadraticCurveTo(22, -53, rightHandX, rightHandY);
+  c.stroke();
+
+  c.strokeStyle = skin;
+  c.lineWidth = 4.6;
+  c.beginPath();
+  c.moveTo(-15, -56);
+  c.quadraticCurveTo(-21, -53, leftHandX, leftHandY);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(15, -56);
+  c.quadraticCurveTo(21, -53, rightHandX, rightHandY);
+  c.stroke();
+
+  c.fillStyle = skin;
+  circle(c, leftHandX, leftHandY, 3.8);
+  circle(c, rightHandX, rightHandY, 3.8);
+
+  const weaponObj = drawEq.weapon;
+  const weaponId = weaponObj && (weaponObj.id || weaponObj);
+  drawWeapon(c, weaponId, rightHandX, rightHandY, attacking);
+
+  c.fillStyle = '#13233e';
+  roundRect(c, -5, -72, 10, 8, 4);
+  c.fillStyle = skinShadow;
+  roundRect(c, -3.5, -71, 7, 7, 3);
+  c.fillStyle = skin;
+  roundRect(c, -3.5, -73, 7, 5.5, 3);
+
+  c.fillStyle = '#13233e';
+  c.beginPath(); c.ellipse(0, -98, 29, 30.5, 0, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(-22.5, -98, 4, 5.5, -0.2, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(22.5, -98, 4, 5.5, 0.2, 0, Math.PI * 2); c.fill();
+
+  c.fillStyle = skin;
+  c.beginPath(); c.ellipse(0, -98, 26, 28.5, 0, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(-22, -98, 3.2, 4.5, -0.2, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(22, -98, 3.2, 4.5, 0.2, 0, Math.PI * 2); c.fill();
+
+  drawHair(c, ch, -114);
+  drawFace(c, ch, -100);
+
+  const helmetObj = drawEq.helmet;
+  const helmetId = helmetObj && (helmetObj.id || helmetObj);
+  if (helmetId && ITEMS[helmetId]) drawSdHelmet(c, ITEMS[helmetId]);
+
+  c.restore();
+}
