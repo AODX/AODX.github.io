@@ -15351,3 +15351,238 @@ canvas.addEventListener('click', function (e) {
     return ids.concat(Object.keys(SKILLS)).filter(function(id) { if(seen[id]) return false; seen[id]=true; const sk=SKILLS[id]; return sk && (sk.job==='beginner' || sk.job===job); }).map(function(id) { return SKILLS[id]; });
   };
 })();
+
+
+/* =========================================================
+   JOB RARITY COLOR + STRICT NAME-MATCHED UNIQUE SKILL FX PATCH
+   - Fixes legacy skills using the same default effect
+   - Adds visible job rarity colors: normal gray / rare blue / epic purple / hidden white
+   - Forces every skill to use a name/job-matched visual signature
+========================================================= */
+(function(){
+  if (window.__JOB_RARITY_AND_STRICT_SKILL_FX_01__) return;
+  window.__JOB_RARITY_AND_STRICT_SKILL_FX_01__ = true;
+
+  const JOB_RARITY = {
+    beginner: 'normal', warrior: 'normal', mage: 'normal', rogue: 'normal', archer: 'normal',
+    lancer: 'normal', cleric: 'normal', engineer: 'rare', mechanic: 'rare', gunslinger: 'rare', bard: 'rare', summoner: 'rare',
+    paladin: 'epic', berserker: 'epic',
+    dragon_knight: 'hidden', shadow_reaper: 'hidden', star_sage: 'hidden'
+  };
+  const RARITY_LABEL = { normal:'일반', rare:'레어', epic:'에픽', hidden:'히든' };
+  const RARITY_COLOR = { normal:'#cbd5e1', rare:'#60a5fa', epic:'#c084fc', hidden:'#ffffff' };
+  window.PIXEL_RPG_JOB_RARITY = JOB_RARITY;
+  window.PIXEL_RPG_JOB_RARITY_COLOR = RARITY_COLOR;
+
+  function arr(v){ return Array.isArray(v) ? v : []; }
+  function rnd(a,b){ return a + Math.random() * (b-a); }
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function p(){ return game && game.player; }
+  function nowJob(){ const pp=p(); return (pp && pp.character && pp.character.job) || 'beginner'; }
+  function jobName(id){ return (JOBS && JOBS[id] && JOBS[id].name) || id || '직업'; }
+  function rarityOf(job){ return JOB_RARITY[job] || 'normal'; }
+  function colorOfJob(job){ return RARITY_COLOR[rarityOf(job)] || '#cbd5e1'; }
+  function seedOf(s){ s=String(s||''); let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return h; }
+
+  // Force legacy/beginner skills to have non-identical, name-correct signatures.
+  function setSkill(id, data){ if(SKILLS && SKILLS[id]) Object.assign(SKILLS[id], data); }
+  setSkill('strike',      { fx:'palm_burst',     visual:'palm_burst',     element:'impact', desc:'주먹에 힘을 모아 가까운 적을 강하게 밀쳐냅니다.', cooldown:2.5, power:1.35, range:80, mp:0 });
+  setSkill('quick_slash', { fx:'quick_slash',    visual:'quick_slash',    element:'slash',  desc:'짧고 빠른 검흔으로 전방을 베어냅니다.', cooldown:1.0, power:1.18, range:90, mp:10 });
+  setSkill('first_aid',   { fx:'breathing_aura', visual:'breathing_aura', element:'heal',   desc:'숨을 고르며 초록빛 기운으로 HP를 회복합니다.', cooldown:3.0, heal:45, power:0, range:0, mp:6 });
+  setSkill('stone_throw', { fx:'gray_stone_arc', visual:'gray_stone_arc', element:'stone',  desc:'회색 돌을 포물선으로 던져 공격합니다.', cooldown:2.5, power:1.25, range:330, mp:3, projectile:true });
+
+  // Dragon Knight visible skills: all different and aligned with names.
+  setSkill('dragon_claw',   { fx:'dragon_claw_rake', visual:'dragon_claw_rake', element:'dragon', desc:'용의 발톱 형상으로 전방을 세 번 찢습니다.' });
+  setSkill('dragon_roar',   { fx:'dragon_roar_wave', visual:'dragon_roar_wave', element:'dragon', desc:'용의 포효 파동이 전방으로 퍼집니다.' });
+  setSkill('flame_wing',    { fx:'flame_wing_fan',   visual:'flame_wing_fan',   element:'fire',   desc:'불꽃 날개가 좌우로 펼쳐지며 적을 태웁니다.' });
+  setSkill('ancient_scale', { fx:'ancient_scale_barrier', visual:'ancient_scale_barrier', element:'buff', desc:'고룡의 비늘이 몸을 감싸 방어 기운을 두릅니다.' });
+  setSkill('wyrm_crash',    { fx:'wyrm_crash_dive',  visual:'wyrm_crash_dive',  element:'dragon', desc:'비룡 형상의 화염이 위에서 추락합니다.' });
+
+  const OLD_DRAW_HUD = typeof drawHUD === 'function' ? drawHUD : null;
+  drawHUD = function(){
+    const pp = p();
+    if(!pp || !pp.character || !OLD_DRAW_HUD) { if(OLD_DRAW_HUD) OLD_DRAW_HUD.apply(this, arguments); return; }
+    OLD_DRAW_HUD.apply(this, arguments);
+    const job = pp.character.job || 'beginner';
+    const rare = rarityOf(job);
+    const x = 92, y = 58;
+    // repaint job label area with rarity color, leaving original HUD intact
+    ctx.save();
+    ctx.fillStyle = 'rgba(17,24,39,0.92)';
+    ctx.fillRect(88, 40, 170, 28);
+    ctx.font = 'bold 15px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = colorOfJob(job);
+    ctx.fillText(jobName(job), x, y);
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillStyle = colorOfJob(job);
+    ctx.fillText('[' + RARITY_LABEL[rare] + ']', x + ctx.measureText(jobName(job)).width + 8, y);
+    ctx.restore();
+  };
+
+  function addFx(x,y,vx,vy,life,color,size,shape){
+    if(!game.particles) game.particles=[];
+    game.particles.push({x,y,vx: vx||0, vy: vy||0, life: life||0.45, color: color||'#fff', size: size||4, shape: shape||'spark', alpha:1});
+  }
+  function text(msg,x,y,color){ if(typeof makeText==='function') makeText(msg,x,y,color||'#fff'); }
+  function hitArea(skill,cx,cy,w,h,hits){
+    let count=0;
+    arr(game.monsters).forEach(function(m){
+      if(!m || m.dead) return;
+      if(Math.abs((m.x||0)-cx) <= w/2 && Math.abs(((m.y||0)-48)-cy) <= h/2){
+        m.aggro=true; m.hasBeenHit=true;
+        for(let i=0;i<(hits||1);i++) if(typeof damageMonster==='function') damageMonster(m, skill);
+        count++;
+      }
+    });
+    return count;
+  }
+  function hitLine(skill,x1,y1,x2,y2,thick,hits){
+    const steps = Math.max(8, Math.ceil(Math.abs(x2-x1)/30)); let count=0;
+    arr(game.monsters).forEach(function(m){
+      if(!m || m.dead) return;
+      let hit=false;
+      for(let i=0;i<=steps;i++){
+        const t=i/steps, x=x1+(x2-x1)*t, y=y1+(y2-y1)*t;
+        if(Math.abs((m.x||0)-x)<(thick||55) && Math.abs(((m.y||0)-48)-y)<(thick||55)){ hit=true; break; }
+      }
+      if(hit){ m.aggro=true; m.hasBeenHit=true; for(let k=0;k<(hits||1);k++) if(typeof damageMonster==='function') damageMonster(m, skill); count++; }
+    });
+    return count;
+  }
+  function burst(cx,cy,pal,n,rad,shape){
+    for(let i=0;i<n;i++){ const a=Math.PI*2*i/n + rnd(-.08,.08), r=rnd(rad*.25,rad); addFx(cx+Math.cos(a)*r*.25, cy+Math.sin(a)*r*.18, Math.cos(a)*rnd(80,240), Math.sin(a)*rnd(45,160), rnd(.35,.9), pal[i%pal.length], rnd(3,8), shape); }
+  }
+  function slashArc(cx,cy,dir,pal,n,span,rad,tilt){
+    for(let i=0;i<n;i++){ const t=i/(n-1||1); const a=(-span/2 + span*t) + (tilt||0); const x=cx + dir*Math.cos(a)*rad; const y=cy + Math.sin(a)*rad*.55; addFx(x,y,dir*rnd(60,180),rnd(-40,40),rnd(.22,.55),pal[i%pal.length],rnd(4,10),'slash'); }
+  }
+  function lineFx(x1,y1,x2,y2,pal,n,shape){
+    for(let i=0;i<n;i++){ const t=i/(n-1||1); addFx(x1+(x2-x1)*t+rnd(-5,5), y1+(y2-y1)*t+rnd(-5,5), rnd(-25,25), rnd(-35,35), rnd(.22,.55), pal[i%pal.length], rnd(3,8), shape); }
+  }
+  function rain(cx,cy,pal,n,shape,dir){
+    for(let i=0;i<n;i++){ const x=cx+rnd(-110,110), y=cy-rnd(150,280); addFx(x,y,dir*rnd(-80,40),rnd(300,520),rnd(.55,1.05),pal[i%pal.length],rnd(5,12),shape); }
+  }
+  function ring(cx,cy,pal,n,rad,shape){
+    for(let i=0;i<n;i++){ const a=Math.PI*2*i/n; addFx(cx+Math.cos(a)*rad,cy+Math.sin(a)*rad*.62,-Math.cos(a)*70,-Math.sin(a)*40,rnd(.4,.9),pal[i%pal.length],rnd(3,8),shape); }
+  }
+
+  function palette(skill){
+    const e = String(skill.element || skill.visual || skill.fx || '').toLowerCase();
+    if(e.includes('dragon')) return ['#ff3b1f','#ff8a00','#ffd166','#7c2d12'];
+    if(e.includes('fire')) return ['#ff6b35','#ffb703','#fff3b0','#dc2626'];
+    if(e.includes('shadow')||e.includes('dark')) return ['#111827','#7e22ce','#c084fc','#f0abfc'];
+    if(e.includes('star')||e.includes('comet')) return ['#fff7ad','#facc15','#93c5fd','#ffffff'];
+    if(e.includes('holy')) return ['#ffffff','#fde68a','#60a5fa','#fef3c7'];
+    if(e.includes('ice')) return ['#bae6fd','#38bdf8','#ffffff','#0ea5e9'];
+    if(e.includes('lightning')) return ['#fef08a','#ffffff','#a7f3d0','#fde047'];
+    if(e.includes('heal')) return ['#86efac','#bbf7d0','#ffffff','#22c55e'];
+    if(e.includes('stone')) return ['#9ca3af','#6b7280','#d1d5db','#4b5563'];
+    if(e.includes('slash')) return ['#ffe066','#ffffff','#f59e0b','#fef3c7'];
+    return ['#f97316','#ffffff','#facc15','#fed7aa'];
+  }
+
+  function exactPattern(skill){
+    const id = skill.id || '', name = skill.name || '', fx = skill.fx || skill.visual || '';
+    if(id==='strike' || name==='강타') return 'palm_burst';
+    if(id==='first_aid' || name==='숨고르기') return 'breathing_aura';
+    if(id==='quick_slash' || name==='빠른 베기') return 'quick_slash';
+    if(id==='stone_throw' || name==='돌던지기') return 'gray_stone_arc';
+    if(id==='dragon_claw' || name.includes('용조격')) return 'dragon_claw_rake';
+    if(id==='dragon_roar' || name.includes('용의 포효')) return 'dragon_roar_wave';
+    if(id==='flame_wing' || name.includes('화염 날개')) return 'flame_wing_fan';
+    if(id==='ancient_scale' || name.includes('고룡의 비늘')) return 'ancient_scale_barrier';
+    if(id==='wyrm_crash' || name.includes('비룡 추락')) return 'wyrm_crash_dive';
+    return fx || 'unique_' + (seedOf(id+name)%97);
+  }
+
+  function castStrictNameEffect(skill){
+    const pp=p(); if(!pp||!skill) return;
+    const dir=pp.face||1, ox=pp.x+dir*70, oy=pp.y-58, pal=palette(skill), pat=exactPattern(skill), seed=seedOf((skill.id||'')+(skill.name||''));
+    pp.attackTime=.42; pp.anim='attack'; pp.animTime=0;
+    switch(pat){
+      case 'palm_burst':
+        burst(ox,oy,pal,22,46,'spark');
+        ring(ox,oy,pal,18,38,'impact');
+        lineFx(pp.x+dir*22,oy,pp.x+dir*95,oy,pal,12,'impact');
+        hitArea(skill,ox,oy,95,75,1);
+        break;
+      case 'breathing_aura':
+        pp.hp = Math.min(pp.maxHp, pp.hp + (skill.heal || 45));
+        ring(pp.x,pp.y-58,pal,38,48,'leaf');
+        for(let i=0;i<22;i++) addFx(pp.x+rnd(-22,22),pp.y-32+rnd(-25,10),rnd(-12,12),rnd(-110,-40),rnd(.5,1.0),pal[i%pal.length],rnd(3,7),'leaf');
+        text('+'+(skill.heal||45)+' HP', pp.x, pp.y-95, '#86efac');
+        break;
+      case 'quick_slash':
+        slashArc(pp.x+dir*65,oy,dir,pal,22,1.0,64,-0.15);
+        slashArc(pp.x+dir*78,oy+12,dir,['#ffffff','#ffd166','#f97316'],13,.65,46,0.22);
+        hitLine(skill,pp.x+dir*20,oy,pp.x+dir*135,oy+6,42,1);
+        break;
+      case 'gray_stone_arc':
+        for(let i=0;i<18;i++){ const t=i/17, x=pp.x+dir*(35+t*250), y=oy-20-Math.sin(t*Math.PI)*78; addFx(x,y,dir*rnd(110,220),rnd(-50,90),rnd(.28,.7),pal[i%pal.length],rnd(4,9),'stone'); }
+        burst(pp.x+dir*300,oy-12,pal,22,42,'stone'); hitArea(skill,pp.x+dir*300,oy-12,80,70,1);
+        break;
+      case 'dragon_claw_rake':
+        for(let k=0;k<3;k++){ slashArc(pp.x+dir*(72+k*15),oy-22+k*22,dir,pal,18,.82,78, -0.45+k*.16); }
+        hitArea(skill,pp.x+dir*105,oy,150,105,2);
+        break;
+      case 'dragon_roar_wave':
+        for(let r=45;r<285;r+=34){ ring(pp.x+dir*r,oy,pal,18,r*.16,'flame'); lineFx(pp.x+dir*(r-18),oy-r*.05,pp.x+dir*(r+18),oy+r*.05,pal,8,'wave'); }
+        hitLine(skill,pp.x+dir*35,oy,pp.x+dir*300,oy,105,1);
+        break;
+      case 'flame_wing_fan':
+        for(let row=-3; row<=3; row++){ lineFx(pp.x+dir*42,oy,pp.x+dir*330,oy+row*28,pal,16,'flame'); }
+        for(let i=0;i<28;i++){ const a=-1.1 + i*(2.2/27); addFx(pp.x+dir*(55+Math.cos(a)*135), oy+Math.sin(a)*80, dir*rnd(80,180), rnd(-70,70), rnd(.35,.8), pal[i%pal.length], rnd(6,13), 'flame'); }
+        hitArea(skill,pp.x+dir*185,oy,270,150,1);
+        break;
+      case 'ancient_scale_barrier':
+        ring(pp.x,pp.y-60,pal,46,62,'scale'); ring(pp.x,pp.y-60,['#ffffff','#fdba74','#ffedd5'],24,36,'scale');
+        for(let i=0;i<18;i++){ addFx(pp.x+rnd(-35,35),pp.y-60+rnd(-45,35),rnd(-20,20),rnd(-60,10),rnd(.45,1),pal[i%pal.length],rnd(4,9),'scale'); }
+        text('고룡의 비늘!',pp.x,pp.y-110,'#fdba74');
+        break;
+      case 'wyrm_crash_dive':
+        rain(pp.x+dir*150,oy+70,pal,20,'flame',dir);
+        lineFx(pp.x+dir*65,oy-170,pp.x+dir*185,oy+30,pal,38,'dragon');
+        burst(pp.x+dir*170,oy+35,pal,58,115,'flame'); hitArea(skill,pp.x+dir*170,oy+35,220,160,2);
+        break;
+      default:
+        // Still unique: the same category uses different arc/ring/rain quantities and offsets by skill seed.
+        const mode = seed % 12;
+        if(/베기|절단|참|slash|cut/i.test((skill.name||'')+pat)) { slashArc(pp.x+dir*(62+seed%28),oy+(seed%17-8),dir,pal,16+(seed%10),.65+(seed%5)*.12,54+(seed%42),((seed%7)-3)*.09); hitLine(skill,pp.x+dir*20,oy,pp.x+dir*(120+seed%120),oy+(seed%45-22),45+(seed%25),1); }
+        else if(/비|추락|meteor|rain|별똥/i.test((skill.name||'')+pat)) { rain(pp.x+dir*(115+seed%80),oy+60,pal,10+(seed%13),'star',dir); hitArea(skill,pp.x+dir*(125+seed%80),oy+25,150+(seed%80),130,1); }
+        else if(/포효|파동|wave|sonic/i.test((skill.name||'')+pat)) { for(let r=40;r<220+(seed%90);r+=30) ring(pp.x+dir*r,oy,pal,12+(seed%7),r*.18,'wave'); hitLine(skill,pp.x,oy,pp.x+dir*(230+seed%110),oy,80,1); }
+        else if(/화염|불|fire|flame|용/i.test((skill.name||'')+pat)) { for(let i=0;i<4+(seed%5);i++){ const x=pp.x+dir*(70+i*45); burst(x,pp.y-38,pal,16,48,'flame'); hitArea(skill,x,pp.y-55,65,110,1); } }
+        else if(/별|star|nova|galaxy|성좌/i.test((skill.name||'')+pat)) { ring(ox+dir*(seed%100),oy,pal,34+(seed%20),64+(seed%40),'star'); hitArea(skill,ox+dir*(seed%100),oy,150,130,1); }
+        else if(/그림자|사신|dark|shadow|검은/i.test((skill.name||'')+pat)) { lineFx(pp.x-dir*25,oy,pp.x+dir*(175+seed%130),oy+(seed%55-25),pal,28,'shadow'); burst(pp.x+dir*(140+seed%80),oy,pal,24,55,'cloud'); hitLine(skill,pp.x,oy,pp.x+dir*(230+seed%130),oy,70,2); }
+        else if(/탄|총|bullet|shot|laser|레이저/i.test((skill.name||'')+pat)) { for(let i=0;i<3+(seed%7);i++) lineFx(pp.x+dir*35,oy-28+i*10,pp.x+dir*(320+seed%180),oy-28+i*10+rnd(-8,8),pal,8,'beam'); hitLine(skill,pp.x,oy,pp.x+dir*(380+seed%160),oy,50,1); }
+        else if(/회복|숨|heal|song/i.test((skill.name||'')+pat)) { pp.hp=Math.min(pp.maxHp,pp.hp+(skill.heal||35)); ring(pp.x,pp.y-60,pal,36,52+(seed%28),'leaf'); }
+        else { ring(ox,oy,pal,22+(seed%18),45+(seed%40), mode%2?'rune':'spark'); hitArea(skill,ox,oy,110+(seed%80),90+(seed%70),1); }
+    }
+    text(skill.name, pp.x, pp.y-108, pal[1] || pal[0]);
+  }
+
+  const OLD_USE = typeof useSkill === 'function' ? useSkill : null;
+  useSkill = function(id){
+    const skill = SKILLS && SKILLS[id]; const pp=p();
+    if(!skill || !pp) return;
+    if(!skills.unlocked.includes(id)){ text('아직 배운 스킬이 아닙니다.', pp.x, pp.y-90, '#ff8787'); return; }
+    if((skills.cooldowns[id]||0)>0){ text('쿨타임 중', pp.x, pp.y-90, '#cbd5e1'); return; }
+    if(pp.mp < (skill.mp||0)){ text('MP 부족', pp.x, pp.y-90, '#74c0fc'); return; }
+    pp.mp -= skill.mp || 0;
+    skills.cooldowns[id] = skill.cooldown || 1.2;
+    castStrictNameEffect(skill);
+    if(typeof markAutoSaveSoon==='function') markAutoSaveSoon();
+  };
+
+  // Repaint skill panel job name with rarity info while keeping existing scroll patch.
+  const OLD_DRAW_SKILLS = typeof drawSkillsPanel === 'function' ? drawSkillsPanel : null;
+  drawSkillsPanel = function(){
+    if(OLD_DRAW_SKILLS) OLD_DRAW_SKILLS.apply(this, arguments);
+    const job=nowJob(), rare=rarityOf(job);
+    ctx.save();
+    ctx.textAlign='left';
+    ctx.font='bold 15px sans-serif';
+    ctx.fillStyle=colorOfJob(job);
+    ctx.fillText('현재 직업: ['+RARITY_LABEL[rare]+'] '+jobName(job), 260, 150);
+    ctx.restore();
+  };
+})();
