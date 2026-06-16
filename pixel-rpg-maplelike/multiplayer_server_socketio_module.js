@@ -325,9 +325,12 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
       hp: Math.max(0, Number(raw.hp) || Number(raw.maxHp) || 1),
       maxHp: Math.max(1, Number(raw.maxHp) || Number(raw.hp) || 1),
       dead: !!raw.dead,
-      respawn: Math.max(6000, Number(raw.respawn) || 12000),
+      respawn: Math.max(raw.isNamed ? 300000 : 6000, Number(raw.respawn) || (raw.isNamed ? 300000 : 12000)),
+      isNamed: !!raw.isNamed,
+      namedKey: raw.namedKey || null,
+      gimmick: raw.gimmick || null,
       killedAt: raw.dead ? now() : 0,
-      respawnAt: raw.dead ? now() + Math.max(6000, Number(raw.respawn) || 12000) : 0
+      respawnAt: raw.dead ? now() + Math.max(raw.isNamed ? 300000 : 6000, Number(raw.respawn) || (raw.isNamed ? 300000 : 12000)) : 0
     };
   }
 
@@ -335,6 +338,7 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
     const room = getRoom(roomId);
     if (room.timers.has(monster.id)) clearTimeout(room.timers.get(monster.id));
 
+    if (monster.isNamed) monster.respawn = Math.max(300000, Number(monster.respawn) || 300000);
     const delay = Math.max(1000, (monster.respawnAt || now() + monster.respawn) - now());
     const timer = setTimeout(() => {
       const latest = room.monsters.get(monster.id);
@@ -442,7 +446,9 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
         existing.name = m.name || existing.name;
         existing.level = m.level || existing.level;
         existing.maxHp = Math.max(1, m.maxHp || existing.maxHp || 1);
-        existing.respawn = Math.max(6000, m.respawn || existing.respawn || 12000);
+        existing.respawn = Math.max(existing.isNamed || m.isNamed ? 300000 : 6000, m.respawn || existing.respawn || (existing.isNamed || m.isNamed ? 300000 : 12000));
+        existing.isNamed = !!(existing.isNamed || m.isNamed);
+        existing.gimmick = m.gimmick || existing.gimmick;
         existing.baseX = m.baseX;
         existing.spawnY = m.spawnY;
         if (!existing.dead) {
@@ -481,7 +487,9 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
           m.dead = true;
           m.hp = 0;
           m.killedAt = now();
-          m.respawnAt = now() + Math.max(6000, Number(payload.respawn) || m.respawn || 12000);
+          m.respawn = Math.max(m.isNamed || payload.isNamed ? 300000 : 6000, Number(payload.respawn) || m.respawn || (m.isNamed || payload.isNamed ? 300000 : 12000));
+          m.isNamed = !!(m.isNamed || payload.isNamed);
+          m.respawnAt = now() + m.respawn;
           scheduleRespawn(roomId, m);
           io.to(roomId).emit('monster:killed', {
             room: roomId,
@@ -526,7 +534,8 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
       m.dead = true;
       m.hp = 0;
       m.killedAt = now();
-      m.respawn = Math.max(6000, Number(payload.respawn) || m.respawn || 12000);
+      m.respawn = Math.max(m.isNamed || payload.isNamed ? 300000 : 6000, Number(payload.respawn) || m.respawn || (m.isNamed || payload.isNamed ? 300000 : 12000));
+      m.isNamed = !!(m.isNamed || payload.isNamed);
       m.respawnAt = now() + m.respawn;
       if (Number.isFinite(payload.x)) m.x = Number(payload.x);
       if (Number.isFinite(payload.y)) m.y = Number(payload.y);
