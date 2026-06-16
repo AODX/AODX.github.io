@@ -15066,3 +15066,288 @@ canvas.addEventListener('click', function (e) {
     arr(game.npcs).forEach(function(npc){ if(!npc) return; const gy=floorForNpc(npc.x,npc.y); if(!Number.isFinite(npc.y)||Math.abs(npc.y-gy)>22) npc.y=gy; drawSdNpc(npc,npc.x,npc.y); ctx.textAlign='center'; ctx.font='bold 14px sans-serif'; const name=String(npc.name||'NPC'); const tw=ctx.measureText(name).width+26; ctx.fillStyle='rgba(15,23,42,0.92)'; roundRect(ctx,npc.x-tw/2,npc.y-111,tw,24,8); ctx.fillStyle='#fff'; ctx.fillText(name,npc.x,npc.y-94); if(Math.abs(game.player.x-npc.x)<90&&Math.abs(game.player.y-npc.y)<100){ ctx.fillStyle='#ffe066'; ctx.font='bold 14px sans-serif'; ctx.fillText('E 대화',npc.x,npc.y-120); } });
   };
 })();
+
+
+/* =========================================================
+   80 UNIQUE JOB SKILLS / NAME-MATCHED EFFECT PATCH
+   - Every job has five named skills, 80 total definitions.
+   - Each skill uses its own visual pattern matched to the skill name.
+   - Adds job skill instructors in towns; talk to learn current job skills.
+========================================================= */
+(function () {
+  'use strict';
+  const SKILL80 = [["beginner", "swift_cut", "빠른 베기", "swiftCut", "slash", 1.15, 82, 0.75, 0, "짧은 거리의 빠른 칼자국을 냅니다."], ["beginner", "stone_throw", "돌던지기", "stoneArc", "stone", 1.25, 300, 2.5, 3, "회색 돌을 포물선으로 던집니다."], ["beginner", "breathing", "숨고르기", "greenBreath", "heal", 0, 0, 3.0, 6, "호흡을 가다듬어 HP를 회복합니다."], ["beginner", "sand_kick", "모래 차기", "sandKick", "sand", 1.05, 95, 1.1, 2, "앞쪽에 흙먼지를 차올립니다."], ["beginner", "lucky_pebble", "행운 조약돌", "pebbleBurst", "stone", 1.35, 180, 1.8, 4, "작은 조약돌이 튀며 공격합니다."], ["warrior", "power_slash", "파워 슬래시", "heavySlash", "slash", 1.9, 125, 1.2, 10, "묵직한 검기를 휘두릅니다."], ["warrior", "rising_blade", "올려베기", "upperCutWave", "slash", 1.75, 110, 1.5, 11, "위로 솟는 검풍을 만듭니다."], ["warrior", "shield_crash", "방패 충격", "shieldCrash", "impact", 2.0, 105, 2.1, 12, "방패 모양 충격파로 밀어냅니다."], ["warrior", "iron_cleave", "철벽 가르기", "ironCleave", "metal", 2.25, 145, 2.7, 14, "은빛 금속 검광으로 베어냅니다."], ["warrior", "earth_splitter", "대지 가르기", "groundSplit", "earth", 2.6, 180, 3.3, 16, "땅을 타고 균열 충격파가 나갑니다."], ["mage", "fireball", "파이어볼", "fireOrb", "fire", 2.1, 340, 1.7, 14, "불덩이를 발사합니다."], ["mage", "ice_bloom", "얼음꽃", "iceBloom", "ice", 2.0, 300, 2.2, 16, "얼음 결정 꽃이 피어납니다."], ["mage", "arcane_missile", "비전탄", "arcaneMissile", "arcane", 1.7, 380, 1.25, 12, "보라빛 마력탄을 날립니다."], ["mage", "thunder_spark", "번개 스파크", "thunderSpark", "lightning", 2.35, 320, 2.6, 18, "갈라지는 번개가 튑니다."], ["mage", "meteor_seed", "작은 메테오", "miniMeteor", "fire", 2.9, 260, 4.0, 24, "작은 유성이 떨어집니다."], ["rogue", "double_stab", "이중 찌르기", "doubleStab", "shadow", 1.35, 88, 0.7, 7, "두 번 빠르게 찌릅니다."], ["rogue", "shadow_step", "그림자 걸음", "shadowDash", "shadow", 1.8, 140, 1.8, 10, "그림자를 남기며 돌진합니다."], ["rogue", "poison_needle", "독침", "poisonNeedle", "poison", 1.65, 330, 1.9, 10, "가느다란 독침을 쏩니다."], ["rogue", "fan_of_knives", "칼날 부채", "knifeFan", "shadow", 2.0, 260, 2.4, 13, "부채처럼 단검을 흩뿌립니다."], ["rogue", "night_lotus", "밤연꽃", "darkLotus", "shadow", 2.6, 170, 3.6, 18, "검은 꽃잎 폭발을 만듭니다."], ["archer", "rapid_arrow", "연속 화살", "rapidArrow", "wind", 1.25, 410, 1.0, 8, "화살을 연속 발사합니다."], ["archer", "piercing_arrow", "관통 화살", "pierceArrow", "wind", 2.05, 460, 2.2, 12, "긴 관통 화살빛을 쏩니다."], ["archer", "arrow_rain", "화살비", "arrowRain", "wind", 2.25, 360, 3.0, 15, "위에서 화살비가 떨어집니다."], ["archer", "wind_trap", "바람 덫", "windTrap", "wind", 1.95, 240, 2.8, 14, "초록 바람 소용돌이를 설치합니다."], ["archer", "hawk_shot", "매의 사격", "hawkShot", "wind", 2.8, 480, 4.1, 20, "매 형상의 화살이 날아갑니다."], ["paladin", "holy_cross", "성광 십자", "holyCross", "holy", 2.3, 170, 2.4, 15, "빛나는 십자가가 폭발합니다."], ["paladin", "shield_smite", "방패 응징", "goldShield", "holy", 2.25, 120, 2.6, 13, "황금 방패 충격을 냅니다."], ["paladin", "judgement_ray", "심판의 광선", "judgementRay", "holy", 2.75, 420, 3.5, 22, "하늘에서 성스러운 광선이 내려옵니다."], ["paladin", "sanctuary_ring", "성역의 고리", "sanctuaryRing", "holy", 1.8, 190, 3.0, 18, "성스러운 고리가 퍼집니다."], ["paladin", "sun_lance", "태양 창", "sunLance", "holy", 3.1, 390, 4.4, 26, "태양빛 창을 던집니다."], ["berserker", "rage_burst", "분노 폭발", "rageBurst", "fire", 2.2, 135, 2.4, 14, "붉은 분노가 터집니다."], ["berserker", "blood_spin", "피의 회전", "bloodSpin", "fire", 2.45, 170, 3.0, 16, "붉은 회전 베기를 합니다."], ["berserker", "wild_howl", "야성 포효", "howlShock", "impact", 2.0, 210, 2.8, 15, "포효 충격파를 냅니다."], ["berserker", "skull_crusher", "해골 분쇄", "skullCrush", "impact", 2.9, 145, 3.7, 21, "해골 형상의 충격이 떨어집니다."], ["berserker", "lava_rush", "용암 돌진", "lavaRush", "fire", 3.35, 290, 4.8, 28, "용암 흔적을 남기며 돌진합니다."], ["cleric", "heal_breeze", "회복의 바람", "healBreeze", "heal", 0, 0, 3.5, 16, "초록 바람으로 회복합니다."], ["cleric", "holy_spark", "성광탄", "holySpark", "holy", 1.85, 340, 1.7, 12, "작은 성광탄을 발사합니다."], ["cleric", "purify_wave", "정화 파동", "purifyWave", "holy", 2.2, 220, 3.0, 17, "하얀 파동으로 정화합니다."], ["cleric", "angel_feather", "천사의 깃털", "angelFeather", "holy", 2.5, 360, 3.6, 21, "깃털 빛이 흩날립니다."], ["cleric", "divine_pillar", "신성 기둥", "divinePillar", "holy", 3.0, 230, 4.5, 26, "빛의 기둥이 솟습니다."], ["summoner", "summon_wisp", "정령탄", "wispHoming", "arcane", 1.75, 360, 1.6, 12, "유도 정령탄을 보냅니다."], ["summoner", "beast_echo", "야수 메아리", "beastEcho", "wind", 2.1, 260, 2.6, 15, "야수 발톱의 메아리가 나갑니다."], ["summoner", "spirit_gate", "정령문", "spiritGate", "arcane", 2.55, 230, 3.6, 22, "정령문에서 마력탄이 나옵니다."], ["summoner", "thorn_familiar", "가시 사역마", "thornFamiliar", "poison", 2.4, 330, 3.2, 19, "가시 사역마가 튀어나옵니다."], ["summoner", "phantom_pack", "환영 무리", "phantomPack", "arcane", 3.1, 360, 4.8, 30, "환영 무리가 돌진합니다."], ["gunslinger", "bullet_rain", "탄환 난사", "bulletRain", "bullet", 1.1, 430, 1.0, 9, "작은 탄환을 빠르게 쏩니다."], ["gunslinger", "blast_shot", "폭발탄", "blastShot", "fire", 2.25, 370, 2.5, 15, "폭발하는 탄환을 쏩니다."], ["gunslinger", "silver_reload", "실버 리로드", "silverReload", "buff", 0, 0, 3.8, 14, "은빛 탄환 기운을 두릅니다."], ["gunslinger", "ricochet", "도탄 사격", "ricochet", "bullet", 2.35, 420, 3.0, 17, "벽에 튕기는 듯한 탄환을 쏩니다."], ["gunslinger", "rail_buster", "레일 버스터", "railBuster", "lightning", 3.25, 520, 4.7, 28, "긴 전자포를 발사합니다."], ["lancer", "pierce_lance", "관통창", "pierceLance", "lightning", 2.1, 185, 2.0, 12, "길게 뻗는 창격을 냅니다."], ["lancer", "spear_wall", "창벽", "spearWall", "metal", 2.35, 165, 2.8, 16, "창벽을 세워 찌릅니다."], ["lancer", "sky_thrust", "천공 찌르기", "skyThrust", "wind", 2.65, 200, 3.4, 20, "하늘로 솟는 찌르기입니다."], ["lancer", "dragon_piercer", "용창 관통", "dragonPiercer", "fire", 3.15, 340, 4.3, 26, "용 문양 창기가 관통합니다."], ["lancer", "storm_javelin", "폭풍 투창", "stormJavelin", "wind", 3.0, 430, 4.0, 24, "폭풍을 두른 투창을 던집니다."], ["engineer", "drone_zap", "드론 전격", "droneZap", "lightning", 1.85, 360, 1.8, 12, "드론 전격탄을 쏩니다."], ["engineer", "gear_bomb", "기어 폭탄", "gearBomb", "metal", 2.5, 280, 3.0, 18, "기어 모양 폭탄을 던집니다."], ["engineer", "repair_kit", "수리 키트", "repairKit", "heal", 0, 0, 4.0, 15, "기계를 수리하듯 회복합니다."], ["engineer", "magnet_mine", "자석 지뢰", "magnetMine", "lightning", 2.7, 250, 3.5, 22, "자석 지뢰가 적을 끌어당깁니다."], ["engineer", "laser_grid", "레이저 격자", "laserGrid", "lightning", 3.15, 410, 4.7, 30, "격자 레이저를 펼칩니다."], ["bard", "echo_note", "메아리 음표", "echoNote", "star", 1.7, 340, 1.7, 12, "음표가 튕겨 나갑니다."], ["bard", "crescendo", "크레센도", "crescendo", "holy", 2.35, 230, 3.0, 17, "점점 커지는 음파를 냅니다."], ["bard", "healing_song", "치유의 노래", "healingSong", "heal", 0, 0, 4.2, 18, "노래로 회복합니다."], ["bard", "sonic_boom", "소닉 붐", "sonicBoom", "wind", 2.8, 360, 3.6, 23, "푸른 음파가 전방으로 나갑니다."], ["bard", "finale_star", "피날레 스타", "finaleStar", "star", 3.25, 360, 4.8, 30, "별빛 피날레가 터집니다."], ["dragon_knight", "dragon_claw", "용조격", "dragonClaw", "dragon", 2.45, 150, 1.8, 16, "용 발톱 자국으로 찢습니다."], ["dragon_knight", "dragon_roar", "용의 포효", "dragonRoar", "dragon", 3.2, 230, 3.5, 22, "용의 포효가 전방을 흔듭니다."], ["dragon_knight", "flame_wing", "화염 날개", "flameWing", "dragon", 2.85, 360, 3.0, 20, "화염 날개가 앞으로 펼쳐집니다."], ["dragon_knight", "ancient_scale", "고룡의 비늘", "ancientScale", "buff", 0, 0, 5.0, 22, "고룡의 비늘이 몸을 감쌉니다."], ["dragon_knight", "wyrm_crash", "비룡 추락", "wyrmCrash", "dragon", 3.9, 300, 5.0, 34, "비룡 형상의 화염이 추락합니다."], ["shadow_reaper", "reaper_cut", "사신절단", "reaperCut", "dark", 2.85, 145, 2.2, 16, "낫 모양 그림자가 베어냅니다."], ["shadow_reaper", "black_moon", "검은 달", "blackMoon", "dark", 3.05, 340, 3.2, 24, "검은 초승달이 날아갑니다."], ["shadow_reaper", "soul_chain", "영혼 사슬", "soulChain", "dark", 2.75, 290, 3.0, 22, "영혼 사슬이 적을 묶습니다."], ["shadow_reaper", "death_blossom", "죽음의 꽃", "deathBlossom", "dark", 3.55, 210, 4.5, 30, "검은 꽃잎이 폭발합니다."], ["shadow_reaper", "eclipse_gate", "일식문", "eclipseGate", "dark", 4.1, 280, 5.6, 38, "일식의 문이 열립니다."], ["star_sage", "starfall", "별똥별", "starfall", "star", 2.7, 420, 3.0, 22, "별똥별이 사선으로 떨어집니다."], ["star_sage", "nova_ring", "노바 링", "novaRing", "star", 3.05, 230, 3.4, 25, "노바 고리가 확장됩니다."], ["star_sage", "comet_ray", "혜성 광선", "cometRay", "star", 3.35, 480, 4.2, 30, "혜성 같은 광선을 발사합니다."], ["star_sage", "galaxy_gate", "은하문", "galaxyGate", "star", 3.8, 280, 5.0, 36, "은하의 문에서 별빛이 쏟아집니다."], ["star_sage", "constellation_end", "성좌 종언", "constellationEnd", "star", 4.4, 360, 6.2, 44, "성좌가 이어지며 폭발합니다."]];
+  const JOB_LABEL_PATCH = {
+    beginner:'초보자', warrior:'전사', mage:'마법사', rogue:'도적', archer:'궁수',
+    paladin:'성기사', berserker:'광전사', cleric:'성직자', summoner:'소환사', gunslinger:'건슬링어',
+    lancer:'창기사', engineer:'기계공', mechanic:'기계공', bard:'음유시인',
+    dragon_knight:'용기사', shadow_reaper:'그림자 사신', star_sage:'별의 현자'
+  };
+  const JOB_TRAINER_INFO = {
+    beginner: ['초보 교관 루루', '기본 전투 기술을 알려줄게요.'],
+    warrior: ['검술 교관 카론', '검을 휘두르는 법은 힘만으로 되는 게 아닙니다.'],
+    mage: ['원소술사 미렌', '마력은 모양을 이해해야 강해집니다.'],
+    rogue: ['그림자 교관 세라', '빠르게, 조용하게, 두 번 찌르세요.'],
+    archer: ['궁술 교관 리아', '바람의 길을 읽으면 화살이 빗나가지 않습니다.'],
+    paladin: ['성기사 교관 아벨', '방패와 빛의 맹세를 가르치겠습니다.'],
+    berserker: ['광전사 교관 브라크', '분노를 휘두르되, 분노에 먹히지 마라.'],
+    cleric: ['성직자 교관 엘린', '회복과 정화의 흐름을 익혀 보세요.'],
+    summoner: ['소환술사 노아', '정령은 부르는 이름에 반응합니다.'],
+    gunslinger: ['건술 교관 레온', '총알은 빠르지만 손은 더 빨라야 합니다.'],
+    lancer: ['창술 교관 바론', '창끝의 선을 잃지 마세요.'],
+    engineer: ['기계공 교관 톤', '장치는 전투의 또 다른 동료입니다.'],
+    mechanic: ['기계공 교관 톤', '장치는 전투의 또 다른 동료입니다.'],
+    bard: ['음유시인 세린', '음표도 무기가 될 수 있어요.'],
+    dragon_knight: ['용혈 스승 아르딘', '용의 기술은 용의 이름에 맞게 펼쳐야 합니다.'],
+    shadow_reaper: ['사신 교관 녹스', '그림자는 베는 순간에만 모습을 드러냅니다.'],
+    star_sage: ['성좌 스승 루미엘', '별은 순서를 알 때 가장 밝게 터집니다.']
+  };
+
+  function arr(v) { return Array.isArray(v) ? v : []; }
+  function rnd(a,b) { return a + Math.random() * (b-a); }
+  function clamp2(v,a,b) { return Math.max(a, Math.min(b, v)); }
+  function nowPlayer() { return game && game.player ? game.player : null; }
+  function jobNameOf(id) { return (JOBS && JOBS[id] && JOBS[id].name) || JOB_LABEL_PATCH[id] || id || '직업'; }
+  Object.keys(JOB_LABEL_PATCH).forEach(function (job) {
+    if (typeof JOBS !== 'undefined' && JOBS && !JOBS[job]) JOBS[job] = { name: JOB_LABEL_PATCH[job], main: 'str' };
+  });
+
+  function addOrReplaceSkill(row, idx) {
+    const job=row[0], id=row[1], name=row[2], fx=row[3], element=row[4], power=row[5], range=row[6], cooldown=row[7], mp=row[8], desc=row[9];
+    SKILLS[id] = Object.assign({}, SKILLS[id] || {}, {
+      id, name, job, fx, visual: fx, element,
+      unlockLevel: Math.max(1, Math.floor(idx % 5) * 4 + 1),
+      mp, power, range, cooldown, desc,
+      projectile: range >= 250,
+      magic: /mage|cleric|summoner|star_sage/.test(job) || /fire|ice|holy|arcane|star|dark|dragon|lightning|wind/.test(element)
+    });
+  }
+  SKILL80.forEach(addOrReplaceSkill);
+
+  function currentJobId() {
+    const p=nowPlayer(); return (p && p.character && p.character.job) || 'beginner';
+  }
+  function jobSkillIds(job) {
+    return SKILL80.filter(function (r) { return r[0] === job || (job === 'engineer' && r[0] === 'mechanic'); }).map(function (r) { return r[1]; });
+  }
+
+  function learnCurrentJobSkills(sourceName) {
+    const p=nowPlayer(); if(!p) return;
+    const job=currentJobId();
+    const ids = jobSkillIds(job).length ? jobSkillIds(job) : jobSkillIds('beginner');
+    let learned=0;
+    ids.forEach(function(id) { if(!skills.unlocked.includes(id)) { skills.unlocked.push(id); learned++; } });
+    if (!skills.hotkeys.k && ids[0]) skills.hotkeys.k = ids[0];
+    if (!skills.hotkeys.l && ids[1]) skills.hotkeys.l = ids[1];
+    if (!skills.hotkeys.semicolon && ids[2]) skills.hotkeys.semicolon = ids[2];
+    makeText((sourceName || jobNameOf(job)+' 교관') + ': ' + (learned ? learned + '개 스킬 전수!' : '이미 모든 스킬을 배웠습니다.'), p.x, p.y - 105, learned ? '#ffe066' : '#cbd5e1');
+    if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+  }
+
+  const oldRefreshUnlockedSkills80 = typeof refreshUnlockedSkills === 'function' ? refreshUnlockedSkills : null;
+  refreshUnlockedSkills = function () {
+    if (oldRefreshUnlockedSkills80) oldRefreshUnlockedSkills80.apply(this, arguments);
+    const job=currentJobId();
+    jobSkillIds('beginner').forEach(function(id) {
+      const sk=SKILLS[id]; const p=nowPlayer();
+      if(sk && p && p.level >= (sk.unlockLevel||1) && !skills.unlocked.includes(id)) skills.unlocked.push(id);
+    });
+    // If a character already had only legacy skills, give at least the first job skill so they are not locked out.
+    const p=nowPlayer();
+    if(p && p.level >= 10 && job !== 'beginner') {
+      const ids=jobSkillIds(job); if(ids[0] && !skills.unlocked.some(function(id) { return SKILLS[id] && SKILLS[id].job === job; })) skills.unlocked.push(ids[0]);
+    }
+  };
+
+  function groundYForNpc(x) {
+    let best = null, by = game.ground || 560;
+    arr(game.platforms).forEach(function(pf) { if(x >= pf.x - 20 && x <= pf.x + pf.w + 20) { if(best === null || pf.y > best) { best = pf.y; by = pf.y; } } });
+    return by;
+  }
+  function addSkillTrainerNpc() {
+    if(!game || !Array.isArray(game.npcs)) return;
+    const job=currentJobId();
+    const info=JOB_TRAINER_INFO[job] || JOB_TRAINER_INFO.beginner;
+    if(game.npcs.some(function(n) { return n && n.type === 'skill_teacher'; })) return;
+    const x = clamp2((game.player && game.player.x ? game.player.x + 260 : 1960), 360, Math.max(800, (game.width || 4300)-380));
+    game.npcs.push({ type:'skill_teacher', name:info[0], x:x, y:groundYForNpc(x), text:info[1], lookJob:job });
+  }
+  const oldLoadTown80 = typeof loadTown === 'function' ? loadTown : null;
+  if (oldLoadTown80) loadTown = function() { oldLoadTown80.apply(this, arguments); addSkillTrainerNpc(); };
+  const oldLoadHunt80 = typeof loadHunt === 'function' ? loadHunt : null;
+  if (oldLoadHunt80) loadHunt = function() { oldLoadHunt80.apply(this, arguments); };
+
+  const oldInteract80 = typeof interact === 'function' ? interact : null;
+  interact = function () {
+    const p=nowPlayer();
+    if(p && Array.isArray(game.npcs)) {
+      for (const npc of game.npcs) {
+        if(npc && npc.type === 'skill_teacher' && Math.abs(p.x-npc.x)<95 && Math.abs(p.y-npc.y)<145) {
+          if (typeof stopPlayerMovement === 'function') stopPlayerMovement();
+          learnCurrentJobSkills(npc.name);
+          return;
+        }
+      }
+    }
+    if(oldInteract80) return oldInteract80.apply(this, arguments);
+  };
+
+  const PALETTE = {
+    slash:['#fff7ad','#ffd166','#fb923c'], stone:['#d1d5db','#8b8f98','#4b5563'], heal:['#bbf7d0','#4ade80','#16a34a'], sand:['#fde68a','#d6a34d','#92400e'],
+    earth:['#ca8a04','#854d0e','#facc15'], fire:['#fff7ad','#fb923c','#dc2626'], ice:['#e0f2fe','#67e8f9','#2563eb'], arcane:['#ddd6fe','#a78bfa','#7c3aed'],
+    lightning:['#fef08a','#facc15','#60a5fa'], shadow:['#e9d5ff','#a855f7','#1e1b4b'], poison:['#d9f99d','#84cc16','#365314'], wind:['#dcfce7','#86efac','#22c55e'],
+    holy:['#fff7ed','#fde68a','#f59e0b'], metal:['#e5e7eb','#94a3b8','#475569'], impact:['#fecaca','#fb7185','#7f1d1d'], dark:['#f0abfc','#7e22ce','#020617'],
+    star:['#fef9c3','#fde047','#60a5fa'], dragon:['#fed7aa','#f97316','#7f1d1d'], bullet:['#f8fafc','#cbd5e1','#64748b']
+  };
+  function pal(skill) { return PALETTE[skill.element] || PALETTE[skill.magic ? 'arcane' : 'slash']; }
+  function pushFx(x,y,vx,vy,life,color,size,shape,rot) {
+    if(!game.particles) game.particles=[];
+    game.particles.push({ x,y,vx:vx||0,vy:vy||0,life:life||0.35,color:color||'#fff',size:size||4,shape:shape||'dot',rot:rot||0 });
+  }
+  function lineBurst(x1,y1,x2,y2,colors,n,shape) {
+    for(let i=0;i<n;i++) { const t=i/Math.max(1,n-1); pushFx(x1+(x2-x1)*t+rnd(-5,5), y1+(y2-y1)*t+rnd(-5,5), rnd(-20,20), rnd(-40,15), rnd(.25,.55), colors[i%colors.length], rnd(3,8), shape||'slash', Math.atan2(y2-y1,x2-x1)); }
+  }
+  function ringBurst(x,y,colors,n,r,shape) {
+    for(let i=0;i<n;i++) { const a=i*Math.PI*2/n; pushFx(x+Math.cos(a)*r*.35,y+Math.sin(a)*r*.35,Math.cos(a)*rnd(50,140),Math.sin(a)*rnd(50,140),rnd(.35,.75),colors[i%colors.length],rnd(3,9),shape||'spark',a); }
+  }
+  function rainFx(cx,top,colors,n,shape,slant) {
+    for(let i=0;i<n;i++) { const x=cx+rnd(-180,180); const y=top+rnd(-180,-30); lineBurst(x,y,x+(slant||1)*rnd(30,90),y+rnd(90,170),colors,4,shape||'beam'); }
+  }
+  function spiralFx(cx,cy,colors,n,r,shape) {
+    for(let i=0;i<n;i++) { const a=i*.55, rr=(i/n)*r; pushFx(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr,Math.cos(a)*rnd(20,100),Math.sin(a)*rnd(20,100),rnd(.4,.85),colors[i%colors.length],rnd(3,8),shape||'orb',a); }
+  }
+  function damageBox(skill,cx,cy,rx,ry,hits) {
+    if(game.mode !== 'hunt') return 0; let count=0;
+    arr(game.monsters).forEach(function(m) {
+      if(!m || m.dead) return;
+      if(Math.abs(m.x-cx)<=rx && Math.abs((m.y-50)-cy)<=ry) {
+        m.aggro=true; m.hasBeenHit=true;
+        for(let i=0;i<(hits||1);i++) damageMonster(m, skill);
+        count++;
+      }
+    });
+    return count;
+  }
+  function damageLine(skill,x1,y1,x2,y2,width,hits) {
+    if(game.mode !== 'hunt') return 0; let count=0;
+    const dx=x2-x1, dy=y2-y1, len2=dx*dx+dy*dy || 1;
+    arr(game.monsters).forEach(function(m) {
+      if(!m || m.dead) return;
+      const px=m.x, py=m.y-50; let t=((px-x1)*dx+(py-y1)*dy)/len2; t=clamp2(t,0,1); const qx=x1+dx*t, qy=y1+dy*t;
+      if(Math.hypot(px-qx,py-qy)<=width) { m.aggro=true; m.hasBeenHit=true; for(let i=0;i<(hits||1);i++) damageMonster(m, skill); count++; }
+    });
+    return count;
+  }
+
+  const SHAPES = ['slash','star','flame','orb','rune','beam','cloud','shard','spark','bubble','gear'];
+  function uniqueFallbackPattern(skill, colors, p, dir, ox, oy, idx) {
+    const mode = idx % 10;
+    if(mode===0) { lineBurst(p.x+dir*20,oy-25,p.x+dir*(150+idx%5*18),oy+20,colors,16,'slash'); damageLine(skill,p.x,oy,p.x+dir*skill.range,oy,55,skill.hits||1); }
+    else if(mode===1) { ringBurst(ox,oy,colors,24+idx%12,45+idx%30,'star'); damageBox(skill,ox,oy,90,75,skill.hits||1); }
+    else if(mode===2) { rainFx(ox,oy-80,colors,10+idx%8,'beam',dir); damageBox(skill,ox,oy,170,140,skill.hits||1); }
+    else if(mode===3) { spiralFx(ox,oy,colors,28+idx%12,85,SHAPES[idx%SHAPES.length]); damageBox(skill,ox,oy,100,90,skill.hits||1); }
+    else if(mode===4) { for(let i=0;i<5;i++) lineBurst(p.x+dir*25,oy-35+i*14,p.x+dir*(130+i*18),oy-25+i*10,colors,6,'beam'); damageLine(skill,p.x,oy,p.x+dir*skill.range,oy,65,skill.hits||1); }
+    else if(mode===5) { for(let i=0;i<3;i++) ringBurst(ox+dir*i*45,oy-rnd(0,25),colors,14,25+i*12,'orb'); damageBox(skill,ox+dir*45,oy,150,80,skill.hits||1); }
+    else if(mode===6) { lineBurst(p.x+dir*10,p.y-18,p.x+dir*(skill.range||160),p.y-18,colors,22,'shard'); damageLine(skill,p.x,p.y-22,p.x+dir*skill.range,p.y-22,48,skill.hits||1); }
+    else if(mode===7) { for(let i=0;i<4;i++) lineBurst(ox-dir*15,oy-50+i*22,ox+dir*(100+rnd(0,50)),oy-40+i*15,colors,8,'slash'); damageBox(skill,ox+dir*60,oy,150,100,skill.hits||1); }
+    else if(mode===8) { ringBurst(ox,oy,colors,34,70,'rune'); lineBurst(ox-dir*70,oy,ox+dir*90,oy,colors,16,'beam'); damageBox(skill,ox,oy,125,100,skill.hits||1); }
+    else { rainFx(ox+dir*80,oy,colors,8,'star',dir); spiralFx(ox,oy,colors,22,60,'spark'); damageBox(skill,ox+dir*65,oy,155,120,skill.hits||1); }
+  }
+
+  const FX_INDEX = {};
+  SKILL80.forEach(function(r,i) { FX_INDEX[r[3]] = i; });
+  const oldUseSkill80 = typeof useSkill === 'function' ? useSkill : null;
+  useSkill = function(id) {
+    const skill=SKILLS[id]; const p=nowPlayer(); if(!skill || !p) return;
+    if(!skills.unlocked.includes(id)) { makeText('아직 배운 스킬이 아닙니다.',p.x,p.y-90,'#ff8787'); return; }
+    if((skills.cooldowns[id]||0)>0) { makeText('쿨타임 중',p.x,p.y-90,'#cbd5e1'); return; }
+    if(p.mp < (skill.mp||0)) { makeText('MP 부족',p.x,p.y-90,'#74c0fc'); return; }
+    p.mp -= skill.mp||0; skills.cooldowns[id]=skill.cooldown||1.5; p.attackTime=.42; p.anim='attack'; p.animTime=0;
+    const colors=pal(skill), dir=p.face||1, ox=p.x+dir*70, oy=p.y-58;
+    if(skill.element==='heal' || skill.fx==='greenBreath' || skill.fx==='healBreeze' || skill.fx==='healingSong' || skill.fx==='repairKit') {
+      const heal=Math.max(35, Math.floor((p.maxHp||100)*0.18)); p.hp=Math.min(p.maxHp,p.hp+heal); ringBurst(p.x,p.y-55,colors,30,65,'bubble'); spiralFx(p.x,p.y-60,colors,24,45,'spark'); makeText('+'+heal+' HP',p.x,p.y-95,'#86efac'); return;
+    }
+    if(skill.element==='buff' || skill.fx==='silverReload' || skill.fx==='ancientScale') {
+      ringBurst(p.x,p.y-55,colors,36,75,'rune'); for(let i=0;i<18;i++) pushFx(p.x+rnd(-25,25),p.y-85+rnd(-25,35),rnd(-25,25),rnd(-80,-20),.65,colors[i%colors.length],rnd(4,8),'star'); makeText(skill.name+'!',p.x,p.y-100,colors[1]); return;
+    }
+    switch(skill.fx) {
+      case 'swiftCut': lineBurst(p.x+dir*18,oy-18,p.x+dir*105,oy+18,colors,12,'slash'); damageLine(skill,p.x,oy,p.x+dir*115,oy,46,1); break;
+      case 'stoneArc': lineBurst(p.x+dir*25,oy,p.x+dir*230,oy-35,colors,10,'shard'); ringBurst(p.x+dir*250,oy-28,colors,14,28,'shard'); damageBox(skill,p.x+dir*250,oy-25,52,48,1); break;
+      case 'heavySlash': lineBurst(p.x+dir*20,oy-38,p.x+dir*145,oy+34,colors,22,'slash'); ringBurst(ox,oy,colors,10,36,'spark'); damageLine(skill,p.x,oy,p.x+dir*155,oy,70,1); break;
+      case 'upperCutWave': lineBurst(p.x+dir*30,p.y-22,p.x+dir*105,p.y-118,colors,20,'slash'); damageBox(skill,p.x+dir*80,p.y-70,80,95,1); break;
+      case 'shieldCrash': ringBurst(ox,oy,colors,26,55,'gear'); lineBurst(p.x+dir*30,oy,p.x+dir*130,oy,colors,14,'beam'); damageBox(skill,ox,oy,95,70,1); break;
+      case 'groundSplit': lineBurst(p.x+dir*15,p.y-18,p.x+dir*220,p.y-18,colors,26,'shard'); for(let i=0;i<8;i++) pushFx(p.x+dir*(45+i*24),p.y-24,rnd(-15,15),rnd(-90,-35),.55,colors[i%3],rnd(5,11),'shard'); damageLine(skill,p.x,p.y-20,p.x+dir*230,p.y-20,60,1); break;
+      case 'fireOrb': spiralFx(ox,oy,colors,24,38,'flame'); lineBurst(p.x+dir*35,oy,p.x+dir*330,oy,colors,24,'flame'); damageLine(skill,p.x,oy,p.x+dir*340,oy,55,1); break;
+      case 'iceBloom': ringBurst(ox+dir*80,oy,colors,32,74,'shard'); for(let i=0;i<10;i++) lineBurst(ox+dir*80,oy,ox+dir*80+Math.cos(i*.63)*70,oy+Math.sin(i*.63)*70,colors,4,'beam'); damageBox(skill,ox+dir*80,oy,115,90,1); break;
+      case 'thunderSpark': for(let i=0;i<5;i++) lineBurst(p.x+dir*(40+i*48),oy+rnd(-30,25),p.x+dir*(85+i*48),oy+rnd(-35,35),colors,7,'beam'); damageLine(skill,p.x,oy,p.x+dir*330,oy,70,1); break;
+      case 'miniMeteor': rainFx(ox+dir*90,oy+60,colors,7,'flame',dir); ringBurst(ox+dir*95,oy+25,colors,26,62,'flame'); damageBox(skill,ox+dir*100,oy+25,120,120,1); break;
+      case 'doubleStab': lineBurst(p.x+dir*20,oy-12,p.x+dir*95,oy-12,colors,10,'beam'); lineBurst(p.x+dir*20,oy+12,p.x+dir*95,oy+12,colors,10,'beam'); damageLine(skill,p.x,oy,p.x+dir*105,oy,45,2); break;
+      case 'shadowDash': lineBurst(p.x-dir*25,oy,p.x+dir*155,oy,colors,24,'cloud'); ringBurst(p.x+dir*135,oy,colors,20,45,'slash'); damageLine(skill,p.x,oy,p.x+dir*160,oy,65,1); break;
+      case 'poisonNeedle': for(let i=0;i<6;i++) lineBurst(p.x+dir*25,oy-25+i*8,p.x+dir*320,oy-25+i*8+rnd(-10,10),colors,5,'beam'); damageLine(skill,p.x,oy,p.x+dir*330,oy,75,1); break;
+      case 'knifeFan': for(let i=-3;i<=3;i++) lineBurst(p.x+dir*28,oy,p.x+dir*250,oy+i*22,colors,7,'slash'); damageBox(skill,ox+dir*120,oy,190,95,1); break;
+      case 'darkLotus': ringBurst(ox,oy,colors,38,80,'star'); spiralFx(ox,oy,colors,30,90,'slash'); damageBox(skill,ox,oy,125,95,2); break;
+      case 'rapidArrow': for(let i=0;i<4;i++) lineBurst(p.x+dir*30,oy-18+i*12,p.x+dir*400,oy-18+i*12,colors,8,'beam'); damageLine(skill,p.x,oy,p.x+dir*410,oy,65,2); break;
+      case 'pierceArrow': lineBurst(p.x+dir*30,oy,p.x+dir*470,oy,colors,36,'beam'); ringBurst(p.x+dir*470,oy,colors,10,28,'spark'); damageLine(skill,p.x,oy,p.x+dir*470,oy,45,1); break;
+      case 'arrowRain': rainFx(ox+dir*120,oy+60,colors,14,'beam',dir); damageBox(skill,ox+dir*125,oy+35,210,135,1); break;
+      case 'windTrap': spiralFx(ox+dir*70,oy+25,colors,40,85,'cloud'); damageBox(skill,ox+dir*70,oy+25,105,105,1); break;
+      case 'hawkShot': lineBurst(p.x+dir*35,oy-10,p.x+dir*480,oy-55,colors,30,'star'); for(let i=0;i<8;i++) pushFx(p.x+dir*(120+i*35),oy-45+rnd(-8,8),0,rnd(-30,20),.55,colors[i%3],8,'slash'); damageLine(skill,p.x,oy,p.x+dir*490,oy-55,70,1); break;
+      case 'holyCross': lineBurst(ox,oy-70,ox,oy+70,colors,18,'beam'); lineBurst(ox-dir*70,oy,ox+dir*70,oy,colors,18,'beam'); ringBurst(ox,oy,colors,24,58,'star'); damageBox(skill,ox,oy,105,105,1); break;
+      case 'judgementRay': for(let i=0;i<5;i++) lineBurst(ox+dir*i*30,oy-180,ox+dir*i*30,oy+45,colors,12,'beam'); damageBox(skill,ox+dir*60,oy,155,150,1); break;
+      case 'sanctuaryRing': ringBurst(p.x,p.y-55,colors,46,115,'rune'); damageBox(skill,p.x,p.y-55,130,110,1); break;
+      case 'sunLance': lineBurst(p.x+dir*30,oy,p.x+dir*400,oy-35,colors,30,'beam'); ringBurst(p.x+dir*400,oy-35,colors,18,50,'star'); damageLine(skill,p.x,oy,p.x+dir*420,oy-35,65,1); break;
+      case 'rageBurst': ringBurst(ox,oy,colors,34,72,'flame'); damageBox(skill,ox,oy,105,85,1); break;
+      case 'bloodSpin': spiralFx(p.x,p.y-55,colors,44,105,'slash'); damageBox(skill,p.x,p.y-55,130,100,2); break;
+      case 'howlShock': for(let r=35;r<170;r+=28) ringBurst(p.x+dir*r,oy,colors,14,r*.25,'cloud'); damageLine(skill,p.x,oy,p.x+dir*220,oy,95,1); break;
+      case 'lavaRush': lineBurst(p.x, p.y-18, p.x+dir*300, p.y-18, colors, 42, 'flame'); damageLine(skill,p.x,p.y-20,p.x+dir*310,p.y-20,75,1); break;
+      case 'healBreeze': case 'healingSong': ringBurst(p.x,p.y-55,colors,32,80,'bubble'); spiralFx(p.x,p.y-65,colors,26,55,'star'); break;
+      case 'holySpark': lineBurst(p.x+dir*30,oy,p.x+dir*330,oy-15,colors,22,'star'); damageLine(skill,p.x,oy,p.x+dir*340,oy-15,55,1); break;
+      case 'purifyWave': for(let i=0;i<4;i++) ringBurst(p.x+dir*(55+i*45),oy,colors,16,38+i*6,'bubble'); damageLine(skill,p.x,oy,p.x+dir*230,oy,80,1); break;
+      case 'angelFeather': rainFx(ox+dir*100,oy+20,colors,16,'star',dir); damageBox(skill,ox+dir*100,oy,180,120,1); break;
+      case 'divinePillar': for(let i=0;i<4;i++) lineBurst(ox+dir*i*35,oy+55,ox+dir*i*35,oy-155,colors,14,'beam'); damageBox(skill,ox+dir*55,oy,140,150,1); break;
+      case 'wispHoming': for(let i=0;i<5;i++) { spiralFx(p.x+dir*(70+i*36),oy+rnd(-30,30),colors,10,25,'orb'); } damageLine(skill,p.x,oy,p.x+dir*370,oy,80,1); break;
+      case 'spiritGate': ringBurst(ox,oy,colors,34,75,'rune'); for(let i=0;i<6;i++) lineBurst(ox,oy,ox+dir*rnd(130,240),oy+rnd(-60,60),colors,5,'orb'); damageBox(skill,ox+dir*100,oy,170,110,1); break;
+      case 'phantomPack': for(let i=0;i<5;i++) lineBurst(p.x+dir*30,oy-40+i*20,p.x+dir*340,oy-20+i*12,colors,10,'cloud'); damageBox(skill,ox+dir*130,oy,240,110,2); break;
+      case 'bulletRain': for(let i=0;i<9;i++) lineBurst(p.x+dir*35,oy-30+i*7,p.x+dir*430,oy-30+i*7,colors,4,'beam'); damageLine(skill,p.x,oy,p.x+dir*430,oy,80,2); break;
+      case 'blastShot': lineBurst(p.x+dir*35,oy,p.x+dir*360,oy,colors,18,'beam'); ringBurst(p.x+dir*365,oy,colors,30,65,'flame'); damageBox(skill,p.x+dir*365,oy,95,80,1); break;
+      case 'ricochet': lineBurst(p.x+dir*35,oy,p.x+dir*210,oy-55,colors,12,'beam'); lineBurst(p.x+dir*210,oy-55,p.x+dir*400,oy+30,colors,12,'beam'); damageLine(skill,p.x,oy,p.x+dir*420,oy,80,1); break;
+      case 'railBuster': lineBurst(p.x+dir*35,oy,p.x+dir*540,oy,colors,50,'beam'); ringBurst(p.x+dir*530,oy,colors,22,55,'spark'); damageLine(skill,p.x,oy,p.x+dir*540,oy,75,1); break;
+      case 'pierceLance': lineBurst(p.x+dir*30,oy,p.x+dir*190,oy,colors,26,'beam'); damageLine(skill,p.x,oy,p.x+dir*200,oy,48,1); break;
+      case 'spearWall': for(let i=0;i<5;i++) lineBurst(p.x+dir*(55+i*25),oy+45,p.x+dir*(55+i*25),oy-65,colors,8,'beam'); damageBox(skill,ox,oy,120,100,1); break;
+      case 'skyThrust': lineBurst(ox,oy+50,ox,oy-125,colors,26,'beam'); ringBurst(ox,oy-100,colors,16,38,'star'); damageBox(skill,ox,oy-35,95,130,1); break;
+      case 'dragonPiercer': lineBurst(p.x+dir*30,oy,p.x+dir*350,oy-10,PALETTE.dragon,36,'flame'); damageLine(skill,p.x,oy,p.x+dir*360,oy-10,65,1); break;
+      case 'stormJavelin': lineBurst(p.x+dir*35,oy,p.x+dir*430,oy-45,colors,26,'beam'); spiralFx(p.x+dir*280,oy-30,colors,22,60,'cloud'); damageLine(skill,p.x,oy,p.x+dir*440,oy-45,70,1); break;
+      case 'droneZap': for(let i=0;i<4;i++) lineBurst(p.x+dir*(40+i*45),oy-50+i*25,p.x+dir*(115+i*55),oy-30+i*20,colors,8,'beam'); damageLine(skill,p.x,oy,p.x+dir*370,oy,80,1); break;
+      case 'gearBomb': lineBurst(p.x+dir*35,oy,p.x+dir*260,oy-30,colors,10,'gear'); ringBurst(p.x+dir*280,oy-30,colors,34,70,'gear'); damageBox(skill,p.x+dir*280,oy-30,110,95,1); break;
+      case 'magnetMine': ringBurst(ox+dir*80,oy+35,colors,38,88,'gear'); spiralFx(ox+dir*80,oy+35,colors,30,70,'rune'); damageBox(skill,ox+dir*80,oy+35,130,115,1); break;
+      case 'laserGrid': for(let i=-2;i<=2;i++) lineBurst(p.x+dir*60,oy+i*28,p.x+dir*430,oy-i*22,colors,16,'beam'); for(let i=0;i<5;i++) lineBurst(p.x+dir*(100+i*65),oy-80,p.x+dir*(100+i*65),oy+80,colors,8,'beam'); damageBox(skill,p.x+dir*250,oy,240,120,1); break;
+      case 'echoNote': for(let i=0;i<5;i++) ringBurst(p.x+dir*(70+i*48),oy+Math.sin(i)*20,colors,10,24+i*4,'orb'); damageLine(skill,p.x,oy,p.x+dir*340,oy,85,1); break;
+      case 'crescendo': for(let r=35;r<180;r+=30) ringBurst(p.x+dir*r,oy,colors,12,r*.25,'bubble'); damageLine(skill,p.x,oy,p.x+dir*240,oy,100,1); break;
+      case 'sonicBoom': lineBurst(p.x+dir*35,oy,p.x+dir*370,oy,colors,20,'cloud'); for(let i=0;i<5;i++) ringBurst(p.x+dir*(90+i*55),oy,colors,10,32,'bubble'); damageLine(skill,p.x,oy,p.x+dir*380,oy,90,1); break;
+      case 'finaleStar': rainFx(ox+dir*130,oy+70,colors,18,'star',dir); ringBurst(ox+dir*130,oy,colors,42,95,'star'); damageBox(skill,ox+dir*130,oy,190,145,2); break;
+      case 'dragonClaw': for(let i=0;i<3;i++) lineBurst(p.x+dir*30,oy-35+i*28,p.x+dir*155,oy-20+i*15,PALETTE.dragon,14,'slash'); damageBox(skill,ox,oy,120,95,2); break;
+      case 'dragonRoar': for(let r=45;r<260;r+=36) ringBurst(p.x+dir*r,oy,PALETTE.dragon,16,r*.18,'flame'); damageLine(skill,p.x,oy,p.x+dir*260,oy,115,1); break;
+      case 'flameWing': for(let i=-3;i<=3;i++) lineBurst(p.x+dir*35,oy,p.x+dir*330,oy+i*28,PALETTE.dragon,10,'flame'); damageBox(skill,ox+dir*120,oy,230,130,1); break;
+      case 'wyrmCrash': rainFx(ox+dir*130,oy+100,PALETTE.dragon,12,'flame',dir); ringBurst(ox+dir*130,oy+35,PALETTE.dragon,52,105,'flame'); damageBox(skill,ox+dir*130,oy+35,190,150,2); break;
+      case 'reaperCut': lineBurst(p.x+dir*25,oy-60,p.x+dir*165,oy+42,PALETTE.dark,30,'slash'); ringBurst(ox,oy,PALETTE.dark,20,50,'cloud'); damageLine(skill,p.x,oy,p.x+dir*175,oy,85,2); break;
+      case 'blackMoon': lineBurst(p.x+dir*35,oy,p.x+dir*360,oy-45,PALETTE.dark,34,'slash'); ringBurst(p.x+dir*350,oy-45,PALETTE.dark,24,60,'orb'); damageLine(skill,p.x,oy,p.x+dir*370,oy-45,85,1); break;
+      case 'soulChain': for(let i=0;i<8;i++) lineBurst(p.x+dir*(40+i*32),oy+Math.sin(i)*25,p.x+dir*(70+i*32),oy-Math.sin(i)*25,PALETTE.dark,6,'beam'); damageLine(skill,p.x,oy,p.x+dir*300,oy,75,2); break;
+      case 'deathBlossom': ringBurst(ox+dir*55,oy,PALETTE.dark,60,95,'star'); spiralFx(ox+dir*55,oy,PALETTE.dark,44,100,'slash'); damageBox(skill,ox+dir*55,oy,155,125,2); break;
+      case 'eclipseGate': ringBurst(ox+dir*120,oy,PALETTE.dark,70,125,'rune'); for(let i=0;i<10;i++) lineBurst(ox+dir*120,oy,ox+dir*rnd(20,170),oy+rnd(-90,90),PALETTE.dark,5,'beam'); damageBox(skill,ox+dir*120,oy,210,160,3); break;
+      case 'starfall': rainFx(ox+dir*130,oy+90,PALETTE.star,18,'star',dir); damageBox(skill,ox+dir*130,oy+15,220,160,1); break;
+      case 'novaRing': ringBurst(ox+dir*70,oy,PALETTE.star,64,120,'star'); damageBox(skill,ox+dir*70,oy,160,125,2); break;
+      case 'cometRay': lineBurst(p.x+dir*35,oy,p.x+dir*500,oy-30,PALETTE.star,50,'beam'); ringBurst(p.x+dir*500,oy-30,PALETTE.star,25,65,'star'); damageLine(skill,p.x,oy,p.x+dir*510,oy-30,85,1); break;
+      case 'galaxyGate': ringBurst(ox+dir*100,oy,PALETTE.star,72,135,'rune'); rainFx(ox+dir*100,oy+60,PALETTE.star,16,'orb',dir); damageBox(skill,ox+dir*100,oy,220,165,2); break;
+      case 'constellationEnd': for(let i=0;i<7;i++) ringBurst(ox+dir*(i*38),oy+Math.sin(i)*45,PALETTE.star,18,36,'star'); for(let i=0;i<6;i++) lineBurst(ox+dir*(i*45),oy+Math.sin(i)*45,ox+dir*((i+1)*45),oy+Math.sin(i+1)*45,PALETTE.star,8,'beam'); damageBox(skill,ox+dir*130,oy,260,160,3); break;
+      default: uniqueFallbackPattern(skill, colors, p, dir, ox, oy, FX_INDEX[skill.fx] || 0);
+    }
+    makeText(skill.name, p.x, p.y - 100, colors[1]);
+  };
+
+  // Make visible skill list stable and name-matched for current job.
+  getVisibleSkills = function () {
+    const job=currentJobId();
+    const ids=[...jobSkillIds('beginner'), ...jobSkillIds(job)];
+    const seen={};
+    return ids.concat(Object.keys(SKILLS)).filter(function(id) { if(seen[id]) return false; seen[id]=true; const sk=SKILLS[id]; return sk && (sk.job==='beginner' || sk.job===job); }).map(function(id) { return SKILLS[id]; });
+  };
+})();
