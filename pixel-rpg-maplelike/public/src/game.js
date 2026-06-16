@@ -6519,6 +6519,635 @@ function startGame(save) {
 }
 
 
+/* =========================================================
+   FINAL CHIBI CHARACTER PATCH
+   - reference-like SD body: large soft head, tiny connected body
+   - hair never covers eyes
+   - 40 hair / 40 face buttons forced visible in creator
+========================================================= */
+
+function populateSdCharacterChoicesFinal() {
+  const hairBox = document.getElementById('hairStyleChoices');
+  const faceBox = document.getElementById('faceStyleChoices');
+
+  function styleBox(box) {
+    if (!box) return;
+    box.style.display = 'grid';
+    box.style.gridTemplateColumns = 'repeat(5, minmax(58px, 1fr))';
+    box.style.gap = '6px';
+    box.style.maxHeight = '250px';
+    box.style.overflowY = 'auto';
+    box.style.padding = '6px';
+    box.style.borderRadius = '10px';
+    box.style.background = 'rgba(15,23,42,0.30)';
+  }
+
+  function makeChoiceButton(value, label, active) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'choice' + (active ? ' active' : '');
+    btn.dataset.value = value;
+    btn.textContent = label;
+    btn.style.minHeight = '30px';
+    btn.style.padding = '4px 5px';
+    btn.style.fontSize = '11px';
+    btn.style.fontWeight = '700';
+    btn.style.borderRadius = '8px';
+    btn.style.border = active ? '2px solid #ffe066' : '1px solid rgba(255,255,255,0.28)';
+    btn.style.background = active ? 'rgba(255,224,102,0.24)' : 'rgba(30,41,59,0.86)';
+    btn.style.color = '#fff';
+    btn.style.cursor = 'pointer';
+    return btn;
+  }
+
+  if (hairBox) {
+    styleBox(hairBox);
+    if (hairBox.children.length !== 40 || hairBox.dataset.finalChibiChoices !== '1') {
+      hairBox.innerHTML = '';
+      SD_HAIR_STYLES_40.forEach(function (id, i) {
+        hairBox.appendChild(makeChoiceButton(id, SD_HAIR_LABELS[i] || ('머리' + (i + 1)), selected.hairStyle === id));
+      });
+      hairBox.dataset.finalChibiChoices = '1';
+    }
+  }
+
+  if (faceBox) {
+    styleBox(faceBox);
+    if (faceBox.children.length !== 40 || faceBox.dataset.finalChibiChoices !== '1') {
+      faceBox.innerHTML = '';
+      SD_FACE_STYLES_40.forEach(function (id, i) {
+        faceBox.appendChild(makeChoiceButton(id, SD_FACE_LABELS[i] || ('표정' + (i + 1)), selected.faceStyle === id));
+      });
+      faceBox.dataset.finalChibiChoices = '1';
+    }
+  }
+}
+
+const __finalChibiShowCreator = showCreator;
+function showCreator() {
+  __finalChibiShowCreator();
+  populateSdCharacterChoicesFinal();
+  setChoiceActive('#hairStyleChoices', selected.hairStyle || 'basic');
+  setChoiceActive('#faceStyleChoices', selected.faceStyle || 'normal');
+}
+
+const __finalChibiBindUI = bindUI;
+function bindUI() {
+  __finalChibiBindUI();
+  populateSdCharacterChoicesFinal();
+
+  document.querySelectorAll('#hairStyleChoices .choice').forEach(function (btn) {
+    btn.onclick = function (e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      selected.hairStyle = btn.dataset.value || 'basic';
+      setChoiceActive('#hairStyleChoices', selected.hairStyle);
+    };
+  });
+
+  document.querySelectorAll('#faceStyleChoices .choice').forEach(function (btn) {
+    btn.onclick = function (e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      selected.faceStyle = btn.dataset.value || 'normal';
+      setChoiceActive('#faceStyleChoices', selected.faceStyle);
+    };
+  });
+}
+
+function drawPlayerBody(c, player) {
+  const ch = player.character || game.player.character || selected;
+  ensureSdCharacterStyle(ch);
+
+  const animTime = player.animTime || 0;
+  const walk = Math.sin(animTime * 12);
+  const moving = player.anim === 'walk';
+  const attacking = player.anim === 'attack';
+  const jumping = player.anim === 'jump';
+  const hurt = player.hurtTime && player.hurtTime > 0;
+  const attackSwing = attacking ? Math.sin(Math.min(1, animTime * 11) * Math.PI) : 0;
+
+  const skin = ch.skin || '#ffd8a8';
+  const skinShadow = '#f1b983';
+  const hair = ch.hair || '#2b160e';
+  const outfit = getSdOutfit(ch);
+  const legMove = moving ? walk * 6 : 0;
+  const armMove = moving ? -walk * 5 : 0;
+
+  c.save();
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  if (hurt) c.globalAlpha = 0.72;
+
+  // soft ground shadow
+  c.fillStyle = 'rgba(0,0,0,0.22)';
+  c.beginPath();
+  c.ellipse(0, 4, 21, 5, 0, 0, Math.PI * 2);
+  c.fill();
+
+  // tiny chibi legs, attached closely to the body
+  c.strokeStyle = '#241a13';
+  c.lineWidth = 7;
+  c.beginPath();
+  c.moveTo(-8, -34);
+  c.quadraticCurveTo(-10 - legMove, -21, -16 - legMove, -8);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(8, -34);
+  c.quadraticCurveTo(10 + legMove, -21, 16 + legMove, -8);
+  c.stroke();
+
+  c.strokeStyle = skin;
+  c.lineWidth = 4.5;
+  c.beginPath();
+  c.moveTo(-8, -34);
+  c.quadraticCurveTo(-10 - legMove, -21, -15 - legMove, -8);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(8, -34);
+  c.quadraticCurveTo(10 + legMove, -21, 15 + legMove, -8);
+  c.stroke();
+
+  c.fillStyle = '#3a2a1d';
+  roundRect(c, -25 - legMove, -9, 20, 7, 3);
+  roundRect(c, 5 + legMove, -9, 20, 7, 3);
+
+  // compact rounded body like the reference, not a long rectangle
+  c.fillStyle = '#101827';
+  roundRect(c, -21, -69, 42, 39, 14);
+  c.fillStyle = outfit.main || '#4f93f5';
+  roundRect(c, -18, -66, 36, 34, 12);
+  c.fillStyle = 'rgba(255,255,255,0.88)';
+  roundRect(c, -10, -61, 20, 6, 3);
+  c.fillStyle = outfit.trim || '#2f6fbd';
+  roundRect(c, -13, -41, 26, 7, 4);
+
+  // arms are curved and attached to the body; no detached puppet look
+  let leftHandX = -25 + armMove;
+  let leftHandY = -49;
+  let rightHandX = 25 - armMove + attackSwing * 24;
+  let rightHandY = -49 + attackSwing * 7;
+
+  if (jumping) {
+    leftHandX = -27;
+    leftHandY = -58;
+    rightHandX = 27;
+    rightHandY = -58;
+  }
+
+  c.strokeStyle = '#101827';
+  c.lineWidth = 9;
+  c.beginPath();
+  c.moveTo(-17, -59);
+  c.quadraticCurveTo(-25, -55, leftHandX, leftHandY);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(17, -59);
+  c.quadraticCurveTo(25, -55, rightHandX, rightHandY);
+  c.stroke();
+
+  c.strokeStyle = skin;
+  c.lineWidth = 5.2;
+  c.beginPath();
+  c.moveTo(-17, -59);
+  c.quadraticCurveTo(-24, -55, leftHandX, leftHandY);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(17, -59);
+  c.quadraticCurveTo(24, -55, rightHandX, rightHandY);
+  c.stroke();
+
+  c.fillStyle = skin;
+  circle(c, leftHandX, leftHandY, 4.2);
+  circle(c, rightHandX, rightHandY, 4.2);
+
+  const weaponObj = equipment.weapon;
+  const weaponId = weaponObj && (weaponObj.id || weaponObj);
+  drawWeapon(c, weaponId, rightHandX, rightHandY, attacking);
+
+  // short neck
+  c.fillStyle = '#101827';
+  roundRect(c, -6, -76, 12, 10, 4);
+  c.fillStyle = skinShadow;
+  roundRect(c, -4, -75, 8, 8, 4);
+  c.fillStyle = skin;
+  roundRect(c, -4, -77, 8, 7, 4);
+
+  // reference-like big soft head: slightly wider than body, not a strange circle
+  c.fillStyle = '#101827';
+  c.beginPath();
+  c.ellipse(0, -103, 33, 35, 0, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = skin;
+  c.beginPath();
+  c.ellipse(0, -103, 30, 32, 0, 0, Math.PI * 2);
+  c.fill();
+
+  // subtle cheek/face shading like the reference image
+  c.fillStyle = 'rgba(233,150,95,0.14)';
+  c.beginPath();
+  c.ellipse(0, -92, 21, 8, 0, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = 'rgba(255,145,110,0.22)';
+  c.beginPath(); c.ellipse(-15, -98, 6, 3.3, 0, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(15, -98, 6, 3.3, 0, 0, Math.PI * 2); c.fill();
+
+  // hair first, but only on top/sides; then face last so eyes are never hidden
+  drawHair(c, { ...ch, hair }, -119);
+  drawFace(c, ch, -101);
+
+  const helmetObj = equipment.helmet;
+  const helmetId = helmetObj && (helmetObj.id || helmetObj);
+  if (helmetId && ITEMS[helmetId]) drawSdHelmet(c, ITEMS[helmetId]);
+
+  c.restore();
+}
+
+function drawHair(c, ch, headY) {
+  const hair = ch.hair || '#2b160e';
+  const style = ch.hairStyle || 'basic';
+  const idx = Math.max(0, SD_HAIR_STYLES_40.indexOf(style));
+  const mode = idx % 10;
+  const deco = Math.floor(idx / 10);
+
+  c.save();
+
+  // black outline top cap
+  c.fillStyle = '#101827';
+  c.beginPath();
+  c.ellipse(0, headY + 3, 32, 18, 0, Math.PI, 0);
+  c.fill();
+
+  c.fillStyle = hair;
+  c.beginPath();
+  c.ellipse(0, headY + 3, 29, 15.5, 0, Math.PI, 0);
+  c.fill();
+
+  // Side hair only. Bangs stop well above the eyes.
+  if (mode === 0) {
+    c.fillRect(-22, headY - 1, 44, 7);
+  } else if (mode === 1) {
+    roundRect(c, -27, headY - 2, 54, 12, 7);
+  } else if (mode === 2) {
+    for (let i = -24; i <= 18; i += 7) {
+      c.beginPath();
+      c.moveTo(i, headY + 3);
+      c.lineTo(i + 5, headY - 12 - ((i + 24) % 3) * 2);
+      c.lineTo(i + 10, headY + 3);
+      c.closePath();
+      c.fill();
+    }
+  } else if (mode === 3) {
+    roundRect(c, -24, headY - 1, 45, 11, 6);
+    c.beginPath(); c.ellipse(27, headY + 10, 8, 16, -0.35, 0, Math.PI * 2); c.fill();
+  } else if (mode === 4) {
+    for (let i = -24; i <= 18; i += 12) {
+      c.beginPath(); c.ellipse(i, headY + 6, 8, 10, -0.15, 0, Math.PI * 2); c.fill();
+    }
+  } else if (mode === 5) {
+    roundRect(c, -28, headY - 1, 56, 15, 9);
+    c.fillStyle = ch.skin || '#ffd8a8';
+    c.fillRect(-23, headY + 9, 46, 7);
+    c.fillStyle = hair;
+  } else if (mode === 6) {
+    c.beginPath(); c.ellipse(-29, headY + 8, 8, 15, 0.28, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(29, headY + 8, 8, 15, -0.28, 0, Math.PI * 2); c.fill();
+  } else if (mode === 7) {
+    c.beginPath(); c.moveTo(-22, headY + 1); c.lineTo(-32, headY - 12); c.lineTo(-13, headY - 5); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(22, headY + 1); c.lineTo(32, headY - 12); c.lineTo(13, headY - 5); c.closePath(); c.fill();
+  } else if (mode === 8) {
+    roundRect(c, -30, headY - 2, 60, 10, 5);
+    c.fillStyle = '#ef4444';
+    roundRect(c, -29, headY + 1, 58, 4, 2);
+    c.fillStyle = hair;
+  } else {
+    c.beginPath(); c.ellipse(0, headY - 8, 17, 7, 0, 0, Math.PI * 2); c.fill();
+  }
+
+  // Four decoration groups create 40 visually distinct styles without covering eyes.
+  if (deco === 1) {
+    c.fillStyle = '#facc15'; circle(c, 21, headY + 0, 4.5);
+    c.fillStyle = '#fff7ad'; circle(c, 21, headY - 1, 2);
+  } else if (deco === 2) {
+    c.fillStyle = '#93c5fd';
+    c.beginPath(); c.moveTo(-23, headY + 1); c.lineTo(-33, headY - 7); c.lineTo(-20, headY - 11); c.closePath(); c.fill();
+  } else if (deco === 3) {
+    c.strokeStyle = '#f8fafc'; c.lineWidth = 2;
+    c.beginPath(); c.arc(0, headY + 1, 34, Math.PI * 0.10, Math.PI * 0.90); c.stroke();
+  }
+
+  c.fillStyle = 'rgba(255,255,255,0.20)';
+  c.fillRect(-10, headY - 6, 12, 3);
+  c.restore();
+}
+
+function drawFace(c, ch, headY) {
+  const style = ch.faceStyle || 'normal';
+  const idx = Math.max(0, SD_FACE_STYLES_40.indexOf(style));
+  const eyeMode = idx % 8;
+  const mouthMode = Math.floor(idx / 8) % 5;
+
+  c.save();
+  c.fillStyle = '#171717';
+  c.strokeStyle = '#171717';
+  c.lineWidth = 2;
+
+  const ey = headY - 2;
+  if (eyeMode === 0) {
+    c.beginPath(); c.ellipse(-9, ey, 2.7, 6.2, -0.12, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(9, ey, 2.7, 6.2, 0.12, 0, Math.PI * 2); c.fill();
+  } else if (eyeMode === 1) {
+    circle(c, -9, ey, 3.3); circle(c, 9, ey, 3.3);
+    c.fillStyle = '#fff'; circle(c, -10, ey - 1.3, 1); circle(c, 8, ey - 1.3, 1); c.fillStyle = '#171717';
+  } else if (eyeMode === 2) {
+    c.beginPath(); c.moveTo(-13, ey - 1); c.quadraticCurveTo(-9, ey + 3, -5, ey - 1); c.stroke();
+    c.beginPath(); c.moveTo(5, ey - 1); c.quadraticCurveTo(9, ey + 3, 13, ey - 1); c.stroke();
+  } else if (eyeMode === 3) {
+    c.beginPath(); c.moveTo(-13, ey); c.lineTo(-5, ey); c.moveTo(5, ey); c.lineTo(13, ey); c.stroke();
+  } else if (eyeMode === 4) {
+    c.fillRect(-13, ey - 2, 7, 3); c.fillRect(6, ey - 2, 7, 3);
+  } else if (eyeMode === 5) {
+    c.fillRect(-10, ey - 2, 3, 5); c.fillRect(7, ey - 2, 3, 5);
+  } else if (eyeMode === 6) {
+    c.beginPath(); c.ellipse(-11, ey, 3.5, 6, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(11, ey, 3.5, 6, 0, 0, Math.PI * 2); c.fill();
+  } else {
+    c.fillRect(-10, ey, 2.5, 2.5); c.fillRect(8, ey, 2.5, 2.5);
+  }
+
+  const my = headY + 10;
+  if (mouthMode === 0) {
+    c.beginPath(); c.arc(0, my - 2, 5, 0, Math.PI); c.stroke();
+  } else if (mouthMode === 1) {
+    c.fillRect(-4, my, 8, 2);
+  } else if (mouthMode === 2) {
+    c.beginPath(); c.arc(0, my + 4, 5, Math.PI, Math.PI * 2); c.stroke();
+  } else if (mouthMode === 3) {
+    c.beginPath(); c.ellipse(0, my, 3, 4, 0, 0, Math.PI * 2); c.fill();
+  } else {
+    c.beginPath(); c.moveTo(-5, my - 1); c.quadraticCurveTo(0, my + 5, 6, my - 2); c.stroke();
+  }
+
+  c.restore();
+}
+
+
+
+
+
+/* =========================================================
+   FINAL START BUTTON / GAME LAUNCH STABILITY PATCH
+   - Fixes character start button not launching the game
+   - Avoids recursive wrapper issues from previous patches
+   - Starts the game even if server returns a slightly different save shape
+========================================================= */
+
+function hideAllPanelsStable() {
+  [auth, characterScreen, characterMenu, help].forEach(function (node) {
+    if (!node) return;
+    node.classList.add('hidden');
+    node.style.pointerEvents = 'none';
+  });
+}
+
+function showAuth() {
+  game.ready = false;
+  hideAllPanelsStable();
+  if (auth) {
+    auth.classList.remove('hidden');
+    auth.style.pointerEvents = 'auto';
+  }
+}
+
+function showCreator() {
+  game.ready = false;
+  hideAllPanelsStable();
+  if (characterScreen) {
+    characterScreen.classList.remove('hidden');
+    characterScreen.style.pointerEvents = 'auto';
+  }
+  if (typeof populateSdCharacterChoicesFinal === 'function') populateSdCharacterChoicesFinal();
+  if (typeof setChoiceActive === 'function') {
+    setChoiceActive('#hairStyleChoices', selected.hairStyle || 'basic');
+    setChoiceActive('#faceStyleChoices', selected.faceStyle || 'normal');
+  }
+}
+
+function showCharacterMenu(user) {
+  game.ready = false;
+  hideAllPanelsStable();
+  if (characterMenu) {
+    characterMenu.classList.remove('hidden');
+    characterMenu.style.pointerEvents = 'auto';
+  }
+
+  const menuName = el('menuName');
+  const p = user && user.save && user.save.player ? user.save.player : null;
+  if (menuName && p && p.character) {
+    menuName.textContent = `${p.character.name} Lv.${p.level || 1}`;
+  }
+}
+
+function normalizeStartSave(save) {
+  if (!save || typeof save !== 'object') return {};
+  if (save.save && typeof save.save === 'object') return save.save;
+  return save;
+}
+
+function startGame(save) {
+  const safeSave = normalizeStartSave(save);
+
+  hideAllPanelsStable();
+  if (help) {
+    help.classList.remove('hidden');
+    help.style.pointerEvents = 'none';
+  }
+
+  hydrateSave(safeSave);
+
+  if (!game.townId) game.townId = 'lumina';
+  const town = getTown(game.townId || 'lumina');
+  loadTown(town.id);
+
+  game.player.x = Number.isFinite(game.player.x) ? game.player.x : 260;
+  game.player.y = game.ground;
+  game.player.vx = 0;
+  game.player.vy = 0;
+  game.player.grounded = true;
+  game.cameraX = clamp(game.player.x - W * 0.42, 0, Math.max(0, game.width - W));
+
+  if (game.player.character) ensureSdCharacterStyle(game.player.character);
+  recalcStats();
+  refreshUnlockedSkills();
+
+  game.ready = true;
+  game.last = performance.now();
+}
+
+async function createCharacterAndStart(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  const createMsg = el('createMsg');
+
+  try {
+    if (createMsg) createMsg.textContent = '';
+
+    const nameInput = el('charName');
+    const nickname = nameInput && nameInput.value.trim()
+      ? nameInput.value.trim()
+      : '초보자';
+
+    const character = {
+      name: nickname,
+      job: 'beginner',
+      skin: selected.skin || '#ffd6a6',
+      hair: selected.hair || '#2b160e',
+      hairStyle: selected.hairStyle || 'basic',
+      faceStyle: selected.faceStyle || 'normal'
+    };
+
+    ensureSdCharacterStyle(character);
+
+    let save = null;
+
+    try {
+      const data = await api('/api/create-character', { character });
+      currentUser = data.user || currentUser || { hasCharacter: true };
+      if (currentUser) currentUser.hasCharacter = true;
+      save = data.save || (data.user && data.user.save) || null;
+    } catch (apiErr) {
+      // If the server refuses because a character already exists, still try to continue with known profile data.
+      if (createMsg) createMsg.textContent = '서버 저장은 실패했지만 임시로 게임을 시작합니다. 게임 안에서 S키로 다시 저장해보세요.';
+      currentUser = currentUser || { hasCharacter: true, save: null };
+    }
+
+    if (!save) {
+      save = currentUser && currentUser.save ? currentUser.save : {
+        player: {
+          ...createPlayer(),
+          character
+        },
+        townId: 'lumina',
+        huntId: 'lumina_field'
+      };
+    }
+
+    if (!save.player) save.player = createPlayer();
+    save.player.character = {
+      ...createPlayer().character,
+      ...(save.player.character || {}),
+      ...character
+    };
+
+    if (currentUser) currentUser.save = save;
+    startGame(save);
+  } catch (err) {
+    if (createMsg) createMsg.textContent = err.message || '캐릭터 생성 중 오류가 발생했습니다.';
+    console.error(err);
+  }
+}
+
+function bindUI() {
+  if (typeof populateSdCharacterChoicesFinal === 'function') populateSdCharacterChoicesFinal();
+
+  const tabLogin = el('tabLogin');
+  const tabRegister = el('tabRegister');
+  const authBtn = el('authBtn');
+  const startNewBtn = el('startNewBtn');
+  const continueBtn = el('continueBtn');
+  const logoutBtn = el('logoutBtn');
+  const logoutBtn2 = el('logoutBtn2');
+
+  [tabLogin, tabRegister, authBtn, startNewBtn, continueBtn, logoutBtn, logoutBtn2].forEach(function (node) {
+    if (!node) return;
+    if (node.tagName === 'BUTTON') node.type = 'button';
+    node.style.pointerEvents = 'auto';
+  });
+
+  if (tabLogin) {
+    tabLogin.onclick = function (e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      setMode('login');
+    };
+  }
+
+  if (tabRegister) {
+    tabRegister.onclick = function (e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      setMode('register');
+    };
+  }
+
+  if (authBtn) {
+    authBtn.onclick = function (e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      submitAuth(e);
+    };
+  }
+
+  if (startNewBtn) {
+    startNewBtn.onclick = createCharacterAndStart;
+  }
+
+  if (continueBtn) {
+    continueBtn.onclick = function (e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      const save = currentUser && currentUser.save ? currentUser.save : {};
+      startGame(save);
+    };
+  }
+
+  if (logoutBtn) {
+    logoutBtn.onclick = function (e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      logout();
+    };
+  }
+
+  if (logoutBtn2) {
+    logoutBtn2.onclick = function (e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      logout();
+    };
+  }
+
+  document.querySelectorAll('.swatches').forEach(function (group) {
+    const target = group.dataset.target;
+    group.querySelectorAll('span').forEach(function (span) {
+      span.onclick = function (e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        if (!target) return;
+        selected[target] = rgbToHex(getComputedStyle(span).backgroundColor);
+        group.querySelectorAll('span').forEach(function (s) { s.classList.remove('selected'); });
+        span.classList.add('selected');
+      };
+    });
+  });
+
+  document.querySelectorAll('#hairStyleChoices .choice').forEach(function (btn) {
+    btn.onclick = function (e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      selected.hairStyle = btn.dataset.value || 'basic';
+      if (typeof setChoiceActive === 'function') setChoiceActive('#hairStyleChoices', selected.hairStyle);
+    };
+  });
+
+  document.querySelectorAll('#faceStyleChoices .choice').forEach(function (btn) {
+    btn.onclick = function (e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      selected.faceStyle = btn.dataset.value || 'normal';
+      if (typeof setChoiceActive === 'function') setChoiceActive('#faceStyleChoices', selected.faceStyle);
+    };
+  });
+}
+
 
 /* =========================================================
    Loop
