@@ -9587,3 +9587,271 @@ function useSkill(id) {
     );
   }
 }
+
+
+/* =========================================================
+   PORTAL HARD FIX V2 / SKILL COOLDOWN PATCH
+   - Portal transition is handled by a minimal, non-recursive safe path
+   - Prevents repeated E keydown from firing multiple transitions
+   - stone_throw cooldown = 2.5s
+   - first_aid cooldown = 3s
+========================================================= */
+
+if (typeof SKILLS !== 'undefined') {
+  if (SKILLS.strike) SKILLS.strike.cooldown = 2.5;
+  if (SKILLS.stone_throw) SKILLS.stone_throw.cooldown = 2.5;
+  if (SKILLS.first_aid) SKILLS.first_aid.cooldown = 3;
+}
+
+function __portalNow() {
+  return typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+}
+
+function __portalText(msg, color) {
+  if (typeof makeText === 'function' && game && game.player) {
+    makeText(msg, game.player.x, game.player.y - 90, color || '#ffdd99');
+  }
+}
+
+function __portalStopAllPanels() {
+  if (!game) return;
+  game.dialog = null;
+  game.taxiOpen = false;
+  game.shopOpen = false;
+  game.shopScroll = 0;
+  game.blacksmithOpen = false;
+}
+
+function __portalGetTown(id) {
+  if (typeof getTown === 'function') return getTown(id || 'lumina');
+  return (TOWNS && TOWNS[0]) || { id: 'lumina', name: '루미나', hunt: 'lumina_field', bgTop: '#7bd4ff', bgBottom: '#dff7ff', theme: 'grass' };
+}
+
+function __portalGetHunt(id) {
+  if (typeof getHunt === 'function') return getHunt(id || 'lumina_field');
+  return (HUNTS && (HUNTS[id] || HUNTS.lumina_field)) || { town: 'lumina', name: '루미나 들판', baseLevel: 1, families: ['slime', 'mushroom'] };
+}
+
+function __portalFallbackSpawnMonsters(hunt) {
+  game.monsters = [];
+  const families = hunt && hunt.families && hunt.families.length ? hunt.families : ['slime', 'mushroom'];
+  const rows = [
+    { y: game.ground, count: 10, start: 520, gap: 330, tier: 0 },
+    { y: 520, count: 6, start: 520, gap: 520, tier: 1 },
+    { y: 455, count: 5, start: 1160, gap: 560, tier: 2 },
+    { y: 390, count: 4, start: 1840, gap: 620, tier: 3 }
+  ];
+
+  rows.forEach(function (row) {
+    for (let i = 0; i < row.count; i++) {
+      const family = families[(i + row.tier) % families.length];
+      const type = typeof makeMonsterType === 'function'
+        ? makeMonsterType(family, (hunt.baseLevel || 1) + row.tier * 2 + (i % 2))
+        : { family, name: family, level: 1, hp: 50, atk: 5, def: 0, exp: 10, gold: 5, drop: 'slime_jelly', dropRate: 0.45, color: '#62df75', shape: 'slime', speed: 20, respawn: 12000 };
+      type.respawn = Math.max(type.respawn || 0, 9000);
+      game.monsters.push({
+        uid: Math.random().toString(36).slice(2),
+        type,
+        x: row.start + i * row.gap,
+        baseX: row.start + i * row.gap,
+        y: row.y,
+        spawnY: row.y,
+        hp: type.hp,
+        maxHp: type.hp,
+        face: i % 2 ? -1 : 1,
+        time: Math.random() * 10,
+        hit: 0,
+        dead: false,
+        attackCooldown: 0,
+        poison: 0
+      });
+    }
+  });
+}
+
+function __portalEnterHunt() {
+  const currentTown = __portalGetTown(game.townId || 'lumina');
+  const huntId = currentTown.hunt || game.huntId || 'lumina_field';
+  const hunt = __portalGetHunt(huntId);
+  const huntTown = __portalGetTown(hunt.town || currentTown.id || 'lumina');
+
+  game.mode = 'hunt';
+  game.huntId = huntId;
+  game.townId = huntTown.id || currentTown.id || 'lumina';
+  game.width = 5400;
+  game.ground = 610;
+  game.npcs = [];
+  game.drops = [];
+  game.projectiles = [];
+  game.particles = [];
+  game.dialog = null;
+  game.taxiOpen = false;
+  game.shopOpen = false;
+  game.blacksmithOpen = false;
+
+  game.platforms = [
+    { x: 360, y: 520, w: 560, h: 24 },
+    { x: 1080, y: 455, w: 540, h: 24 },
+    { x: 1760, y: 390, w: 560, h: 24 },
+    { x: 2460, y: 325, w: 560, h: 24 },
+    { x: 3160, y: 260, w: 560, h: 24 },
+    { x: 3860, y: 195, w: 560, h: 24 },
+    { x: 4560, y: 130, w: 560, h: 24 }
+  ];
+
+  game.portals = [{ x: 110, y: game.ground, type: 'town', label: huntTown.name || '마을' }];
+
+  try {
+    if (typeof spawnMonsters === 'function') {
+      game.monsters = [];
+      spawnMonsters(hunt);
+      game.monsters.forEach(function (m) {
+        if (m && m.type) m.type.respawn = Math.max(m.type.respawn || 0, 9000);
+      });
+    } else {
+      __portalFallbackSpawnMonsters(hunt);
+    }
+  } catch (err) {
+    console.error('[safe portal spawn failed]', err);
+    __portalFallbackSpawnMonsters(hunt);
+  }
+
+  game.player.x = 220;
+  game.player.y = game.ground;
+  game.player.vx = 0;
+  game.player.vy = 0;
+  game.player.grounded = true;
+  game.cameraX = 0;
+  game.ready = true;
+  if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+  __portalText('사냥터 입장', '#c0eb75');
+}
+
+function __portalReturnTown() {
+  const town = __portalGetTown(game.townId || 'lumina');
+  if (typeof loadTown === 'function') {
+    try {
+      loadTown(town.id || 'lumina');
+    } catch (err) {
+      console.error('[safe portal loadTown failed]', err);
+      game.mode = 'town';
+      game.townId = town.id || 'lumina';
+      game.huntId = town.hunt || game.huntId || 'lumina_field';
+      game.width = 4300;
+      game.ground = 560;
+      game.platforms = [];
+      game.monsters = [];
+      game.drops = [];
+      game.projectiles = [];
+      game.particles = [];
+      game.portals = [{ x: 3970, y: game.ground, type: 'hunt', label: '사냥터' }];
+      game.npcs = [];
+    }
+  }
+  game.player.x = Math.min(3880, Math.max(260, game.width - 420));
+  game.player.y = game.ground;
+  game.player.vx = 0;
+  game.player.vy = 0;
+  game.player.grounded = true;
+  game.cameraX = typeof clamp === 'function' ? clamp(game.player.x - W * 0.42, 0, Math.max(0, game.width - W)) : 0;
+  game.ready = true;
+  if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+  __portalText((town.name || '마을') + ' 귀환', '#c0eb75');
+}
+
+function interact() {
+  if (!game || !game.ready || !game.player) return;
+
+  const now = __portalNow();
+  if (game.__portalLockUntil && now < game.__portalLockUntil) return;
+
+  const p = game.player;
+
+  for (const portal of game.portals || []) {
+    if (!portal) continue;
+    if (Math.abs(p.x - portal.x) < 105 && Math.abs(p.y - portal.y) < 165) {
+      game.__portalLockUntil = now + 900;
+      __portalStopAllPanels();
+      if (typeof stopPlayerMovement === 'function') stopPlayerMovement();
+
+      try {
+        if (portal.type === 'hunt') __portalEnterHunt();
+        else if (portal.type === 'town') __portalReturnTown();
+        else __portalText('알 수 없는 포탈입니다.', '#ffdd99');
+      } catch (err) {
+        console.error('[portal hard fix failed]', err);
+        game.ready = true;
+        __portalText('포탈 이동 중 오류가 발생했습니다. 콘솔 오류를 확인해주세요.', '#ff8787');
+      }
+      return;
+    }
+  }
+
+  for (const npc of game.npcs || []) {
+    if (!npc) continue;
+    if (Math.abs(p.x - npc.x) < 90 && Math.abs(p.y - npc.y) < 130) {
+      if (typeof stopPlayerMovement === 'function') stopPlayerMovement();
+      game.dialog = { npc };
+      return;
+    }
+  }
+}
+
+const __portalHardUseSkill = useSkill;
+function useSkill(id) {
+  const skill = SKILLS[id];
+  if (!skill) {
+    __portalText('스킬 정보를 찾을 수 없습니다.', '#ff8787');
+    return;
+  }
+
+  if (!skills.unlocked.includes(id)) {
+    __portalText('아직 배운 스킬이 아닙니다.', '#ff8787');
+    return;
+  }
+
+  if ((skills.cooldowns[id] || 0) > 0) {
+    __portalText('쿨타임 중', '#cbd5e1');
+    return;
+  }
+
+  const mpCost = skill.mp || 0;
+  if (game.player.mp < mpCost) {
+    __portalText('MP 부족', '#74c0fc');
+    return;
+  }
+
+  game.player.mp -= mpCost;
+  skills.cooldowns[id] = id === 'strike' ? 2.5 : id === 'stone_throw' ? 2.5 : id === 'first_aid' ? 3 : (skill.cooldown || 0.8);
+
+  if (skill.heal) {
+    game.player.hp = Math.min(game.player.maxHp, game.player.hp + skill.heal);
+    __portalText('+' + skill.heal + ' HP', '#ff8787');
+    if (typeof circleEffect === 'function') circleEffect(game.player.x, game.player.y - 50, '#69db7c');
+    if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+    return;
+  }
+
+  game.player.attackTime = id === 'strike' ? 0.44 : 0.36;
+  game.player.attackKind = id === 'strike' ? 'heavy' : (skill.magic ? 'staff' : 'skill');
+  game.player.anim = 'attack';
+  game.player.animTime = 0;
+
+  if (skill.projectile) {
+    if (typeof spawnProjectile === 'function') spawnProjectile(skill);
+    else __portalText('발사체 함수를 찾을 수 없습니다.', '#ff8787');
+    return;
+  }
+
+  if (id === 'strike') {
+    if (typeof hitMonsters === 'function') hitMonsters({ range: 115, power: 1.65, hits: 1, magic: false });
+    if (typeof heavyStrikeEffect === 'function') heavyStrikeEffect(game.player.x, game.player.y, game.player.face, '#ff922b');
+    else if (typeof slashEffect === 'function') slashEffect(game.player.x + game.player.face * 54, game.player.y - 50, game.player.face, '#ff922b', 2.2);
+    return;
+  }
+
+  if (typeof hitMonsters === 'function') hitMonsters(skill);
+  if (typeof slashEffect === 'function') {
+    slashEffect(game.player.x + game.player.face * 44, game.player.y - 46, game.player.face, skill.magic ? '#74c0fc' : '#ffb020', skill.power && skill.power > 1.5 ? 1.8 : 1.2);
+  }
+}
