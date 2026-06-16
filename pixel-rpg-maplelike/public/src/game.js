@@ -14749,3 +14749,320 @@ canvas.addEventListener('click', function (e) {
 
   try { applyCurrentMapLayout(); } catch (err) {}
 })();
+
+
+/* =========================================================
+   SKILL PANEL SCROLL / NPC GROUNDING / 50 SKILL PATTERNS PATCH 01
+   - Skill list is scrollable and click coordinates follow scroll
+   - NPCs are snapped to solid town floors before drawing
+   - Adds many different skill attack forms instead of recolored Smash/Throw
+========================================================= */
+(function(){
+  'use strict';
+  if (window.__PIXEL_RPG_SKILL_SCROLL_NPC_EFFECT_PATCH_01__) return;
+  window.__PIXEL_RPG_SKILL_SCROLL_NPC_EFFECT_PATCH_01__ = true;
+
+  const skillPanelState = { scroll: 0, max: 0 };
+  function arr(v){ return Array.isArray(v) ? v : []; }
+  function nrand(a,b){ return a + Math.random()*(b-a); }
+  function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
+  function clampLocal(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function safePlayer(){ return game && game.player ? game.player : null; }
+  function effectQualityForSkill(skill){
+    const job = (skill && skill.job) || 'beginner';
+    const hidden = /dragon|star|shadow|void|rune|soul|abyss|용|별|그림자|공허|룬|사신/i.test(job + ' ' + (skill.id||'') + ' ' + (skill.name||''));
+    if (hidden) return 3.0;
+    if (/paladin|berserker|summoner|gunslinger|mechanic|bard|dragoon|priest|crusader|bishop|성기사|광전사|소환|기계|음유/i.test(job + ' ' + (skill.name||''))) return 2.35;
+    if (skill && (skill.unlockLevel || 1) >= 18) return 2.1;
+    if (skill && (skill.unlockLevel || 1) >= 10) return 1.65;
+    return 1.15;
+  }
+  function hashString(s){
+    s=String(s||''); let h=0;
+    for(let i=0;i<s.length;i++) h=((h<<5)-h+s.charCodeAt(i))|0;
+    return Math.abs(h);
+  }
+  const PATTERN_NAMES = [
+    'crescent_slash','triple_lance','dragon_breath','meteor_rain','star_burst','shadow_dash','ice_spikes','thunder_chain','fire_column','wind_tornado',
+    'holy_cross','dark_orb','rune_circle','boomerang_blade','homing_wisps','laser_beam','ground_wave','poison_cloud','summon_claw','gravity_well',
+    'spear_rush','arrow_rain','fan_knives','shield_bash','song_pulse','gear_mines','solar_flare','frost_nova','sand_vortex','moon_slicer',
+    'spirit_birds','crystal_shards','flame_wheel','water_burst','leaf_storm','iron_stomp','void_rift','dragon_tail','starfall_line','shadow_needles',
+    'healing_grove','mana_bloom','rapid_shots','double_dagger','earth_pillar','electric_spark','bubble_splash','sonic_slicer','orbital_blades','phoenix_dash'
+  ];
+  function skillPattern(skill){
+    if (!skill) return 'crescent_slash';
+    const s = ((skill.id||'')+' '+(skill.name||'')+' '+(skill.job||'')).toLowerCase();
+    if (/용|dragon/.test(s)) return /포효|roar|breath/.test(s) ? 'dragon_breath' : /돌격|rush|strike/.test(s) ? 'dragon_tail' : 'phoenix_dash';
+    if (/별|star/.test(s)) return /낙|fall/.test(s) ? 'starfall_line' : 'star_burst';
+    if (/그림자|shadow|assassin|도적|rogue/.test(s)) return /침|needle/.test(s) ? 'shadow_needles' : /빠|dash|베기/.test(s) ? 'shadow_dash' : 'double_dagger';
+    if (/궁|archer|bow|arrow/.test(s)) return /비|rain/.test(s) ? 'arrow_rain' : 'rapid_shots';
+    if (/마법|mage|wizard|mana|비전/.test(s)) return /룬|rune/.test(s) ? 'rune_circle' : 'homing_wisps';
+    if (/전사|warrior|sword|검|강타/.test(s)) return /방패|shield/.test(s) ? 'shield_bash' : 'crescent_slash';
+    if (/성직|priest|holy|성/.test(s)) return /회복|heal/.test(s) ? 'healing_grove' : 'holy_cross';
+    if (/기계|mechanic|gear/.test(s)) return 'gear_mines';
+    if (/음유|bard|song/.test(s)) return 'song_pulse';
+    if (/얼음|ice|frost/.test(s)) return 'frost_nova';
+    if (/불|fire|flame/.test(s)) return 'fire_column';
+    return PATTERN_NAMES[hashString(skill.id || skill.name || 'skill') % PATTERN_NAMES.length];
+  }
+  function paletteFor(skill, pattern){
+    const s = ((skill && (skill.id+' '+skill.name+' '+skill.job)) || '') + ' ' + pattern;
+    if (/dragon|용|fire|flame|phoenix|meteor|solar/i.test(s)) return ['#ff9f1c','#ff4d00','#ffd166','#fff1a8'];
+    if (/star|별|holy|성|priest/i.test(s)) return ['#ffe066','#ffffff','#facc15','#a7f3d0'];
+    if (/shadow|void|dark|그림자|공허|abyss/i.test(s)) return ['#a78bfa','#5b21b6','#f0abfc','#111827'];
+    if (/ice|frost|얼음|서리|water|bubble/i.test(s)) return ['#7dd3fc','#38bdf8','#ffffff','#93c5fd'];
+    if (/leaf|wind|green|poison|숲|독/i.test(s)) return ['#86efac','#22c55e','#bef264','#16a34a'];
+    if (/thunder|electric|번개/i.test(s)) return ['#fef08a','#60a5fa','#ffffff','#fde047'];
+    return ['#f97316','#fb923c','#ffffff','#facc15'];
+  }
+  function pushParticle(x,y,vx,vy,life,color,size,shape){
+    if (!game.particles) game.particles=[];
+    game.particles.push({x:x,y:y,vx:vx||0,vy:vy||0,life:life||0.5,color:color||'#fff',size:size||3,shape:shape||'dot',rot:nrand(0,Math.PI*2),spin:nrand(-7,7)});
+  }
+  function burst(x,y,colors,count,radius,life,kind){
+    colors = colors || ['#fff'];
+    for(let i=0;i<count;i++){
+      const a = Math.PI*2*i/count + nrand(-0.22,0.22);
+      const sp = nrand(radius*1.7, radius*4.5);
+      pushParticle(x+nrand(-8,8), y+nrand(-8,8), Math.cos(a)*sp, Math.sin(a)*sp, nrand(life*0.55, life*1.25), colors[i%colors.length], nrand(2,6), kind||'spark');
+    }
+  }
+  function lineParticles(x1,y1,x2,y2,colors,count,size,life,shape){
+    for(let i=0;i<count;i++){
+      const t=i/Math.max(1,count-1);
+      const x=x1+(x2-x1)*t+nrand(-5,5), y=y1+(y2-y1)*t+nrand(-5,5);
+      pushParticle(x,y,nrand(-30,30),nrand(-70,20),nrand(life*0.7,life*1.2),colors[i%colors.length],size||3,shape||'spark');
+    }
+  }
+  function addProjectileEx(skill, kind, x, y, vx, vy, life, color, extra){
+    if (!game.projectiles) game.projectiles=[];
+    const p={ x:x, y:y, vx:vx||0, vy:vy||0, life:life||0.8, face:(game.player&&game.player.face)||1, kind:kind, skill:skill, hitSet:new Set(), color:color||'#fff', effectPower:effectQualityForSkill(skill) };
+    if (extra) Object.assign(p, extra);
+    game.projectiles.push(p);
+  }
+  function damageArea(skill, cx, cy, w, h, hits){
+    if (game.mode !== 'hunt') return 0;
+    let count=0; hits=hits||1;
+    arr(game.monsters).forEach(function(m){
+      if(!m||m.dead) return;
+      if(Math.abs(m.x-cx)<=w && Math.abs((m.y-45)-cy)<=h){
+        m.aggro=true; m.hasBeenHit=true;
+        for(let i=0;i<hits;i++) damageMonster(m, skill);
+        count++;
+      }
+    });
+    return count;
+  }
+  function castPattern(skill, pattern){
+    const p=safePlayer(); if(!p) return;
+    const face=p.face||1, q=effectQualityForSkill(skill), colors=paletteFor(skill, pattern);
+    const ox=p.x+face*50, oy=p.y-52;
+    const powerSkill=Object.assign({}, skill, { range: Math.max(skill.range||130, 120+q*50), power:(skill.power||1)*Math.min(2.4,0.9+q*0.28), hits: skill.hits||1 });
+    p.attackTime=0.46; p.anim='attack'; p.animTime=0;
+    switch(pattern){
+      case 'crescent_slash': case 'moon_slicer': case 'sonic_slicer':
+        for(let i=0;i<3+Math.floor(q);i++) lineParticles(p.x+face*(18+i*20), oy-32+i*7, p.x+face*(92+i*18), oy+28-i*3, colors, 9, 4, .42, 'slash');
+        damageArea(powerSkill, p.x+face*(80+q*10), p.y-50, 110+q*30, 80, Math.ceil(q)); break;
+      case 'double_dagger': case 'fan_knives':
+        for(let k=0;k<2+Math.floor(q);k++) addProjectileEx(powerSkill,'knife',p.x+face*(28+k*6),oy-12+k*10,face*(640+q*90),nrand(-25,25),.45,colors[k%colors.length],{pierce:1});
+        lineParticles(p.x+face*20,oy,p.x+face*105,oy-40,colors,18,3,.25,'slash'); damageArea(powerSkill,p.x+face*85,p.y-50,105,70,2); break;
+      case 'triple_lance': case 'spear_rush':
+        for(let k=-1;k<=1;k++) addProjectileEx(powerSkill,'lance',p.x+face*42,oy+k*18,face*(720+q*80),0,.55,colors[(k+1)%colors.length],{pierce:2});
+        damageArea(powerSkill,p.x+face*120,p.y-52,160,80,1); break;
+      case 'dragon_breath':
+        for(let i=0;i<48*q;i++){ const a=nrand(-0.35,0.35); pushParticle(ox,oy+nrand(-18,22),face*nrand(260,620),Math.sin(a)*260+nrand(-60,60),nrand(.25,.75),colors[i%4],nrand(4,10),'flame'); }
+        damageArea(powerSkill,p.x+face*170,p.y-55,210,95,Math.ceil(q)); break;
+      case 'dragon_tail': case 'phoenix_dash':
+        burst(p.x+face*70,oy,colors,30+q*10,60,.45,'flame'); lineParticles(p.x-face*15,oy+20,p.x+face*180,oy-20,colors,36,5,.38,'slash'); damageArea(powerSkill,p.x+face*115,p.y-50,185,105,2); break;
+      case 'meteor_rain': case 'starfall_line': case 'arrow_rain':
+        for(let i=0;i<8+q*4;i++){ const tx=p.x+face*nrand(80,420); addProjectileEx(powerSkill, pattern==='arrow_rain'?'rain_arrow':'meteor', tx-face*nrand(30,120), p.y-360-nrand(0,100), face*nrand(40,120), nrand(560,760), 1.05, colors[i%4],{targetY:p.y-45, splash:70+q*18}); }
+        break;
+      case 'star_burst': case 'solar_flare':
+        burst(ox,oy,colors,55+q*14,90,.72,'star'); damageArea(powerSkill,ox,oy,155+q*25,130,Math.ceil(q)); break;
+      case 'shadow_dash':
+        for(let i=0;i<32;i++) pushParticle(p.x-face*nrand(10,75),p.y-nrand(25,90),face*nrand(-80,40),nrand(-70,50),nrand(.25,.55),colors[i%4],nrand(3,7),'smoke');
+        damageArea(powerSkill,p.x+face*120,p.y-54,200,85,2+Math.floor(q)); break;
+      case 'shadow_needles':
+        for(let i=0;i<10+q*5;i++) addProjectileEx(powerSkill,'needle',p.x+face*35,p.y-nrand(25,95),face*nrand(580,820),nrand(-80,80),.55,colors[i%4],{pierce:1}); break;
+      case 'ice_spikes': case 'earth_pillar':
+        for(let i=0;i<6+q*3;i++){ const x=p.x+face*(70+i*42); burst(x,p.y-10,colors,8,24,.45,'shard'); damageArea(powerSkill,x,p.y-48,38,95,1); }
+        break;
+      case 'frost_nova': case 'water_burst': case 'bubble_splash':
+        burst(p.x,p.y-55,colors,70+q*15,130,.7,'bubble'); damageArea(powerSkill,p.x,p.y-55,180+q*45,140,Math.ceil(q)); break;
+      case 'thunder_chain': case 'electric_spark':
+        for(let i=0;i<6+q*2;i++){ const x=p.x+face*(50+i*58); lineParticles(x,oy+nrand(-40,30),x+face*50,oy+nrand(-40,30),colors,6,3,.22,'spark'); damageArea(powerSkill,x+face*25,p.y-50,45,85,1); } break;
+      case 'fire_column': case 'flame_wheel':
+        for(let i=0;i<5+q*2;i++){ const x=p.x+face*(70+i*55); for(let k=0;k<18;k++) pushParticle(x+nrand(-12,12),p.y-8, nrand(-25,25), nrand(-350,-120), nrand(.25,.75), colors[k%4], nrand(4,9),'flame'); damageArea(powerSkill,x,p.y-62,48,120,1); } break;
+      case 'wind_tornado': case 'sand_vortex': case 'leaf_storm':
+        addProjectileEx(powerSkill,'tornado',ox,p.y-65,face*(220+q*60),0,1.35,colors[0],{radius:58+q*16,pierce:8}); break;
+      case 'holy_cross':
+        lineParticles(ox-55,oy,ox+55,oy,colors,28,4,.55,'star'); lineParticles(ox,oy-62,ox,oy+42,colors,28,4,.55,'star'); burst(ox,oy,colors,30,55,.5,'star'); damageArea(powerSkill,ox,oy,125,125,Math.ceil(q)); break;
+      case 'dark_orb': case 'void_rift': case 'gravity_well':
+        addProjectileEx(powerSkill,'gravity',ox,oy,face*(180+q*30),0,1.25,colors[0],{radius:80+q*25,pull:true,pierce:10}); break;
+      case 'rune_circle': case 'mana_bloom':
+        burst(p.x+face*115,p.y-55,colors,65+q*10,110,.9,'rune'); damageArea(powerSkill,p.x+face*115,p.y-55,150,120,Math.ceil(q)); break;
+      case 'boomerang_blade':
+        addProjectileEx(powerSkill,'boomerang',ox,oy,face*(560+q*50),0,1.1,colors[0],{originX:p.x,returnAt:.48,pierce:5}); break;
+      case 'homing_wisps': case 'spirit_birds':
+        for(let i=0;i<4+q*2;i++) addProjectileEx(powerSkill,'wisp',p.x+face*30,p.y-70+nrand(-20,20),face*nrand(260,380),nrand(-90,90),1.4,colors[i%4],{homing:true,pierce:1}); break;
+      case 'laser_beam':
+        lineParticles(p.x+face*30,oy,p.x+face*(430+q*80),oy,colors,70,3,.32,'beam'); damageArea(powerSkill,p.x+face*(230+q*40),oy,260+q*60,32,Math.ceil(q*2)); break;
+      case 'ground_wave':
+        for(let i=0;i<5+q*2;i++) addProjectileEx(powerSkill,'ground_wave',p.x+face*(35+i*20),p.y-18,face*(360+q*55),0,.85,colors[i%4],{radius:28+q*7,pierce:4}); break;
+      case 'poison_cloud':
+        for(let i=0;i<38+q*12;i++) pushParticle(p.x+face*nrand(65,230),p.y-nrand(35,110),nrand(-35,35),nrand(-25,5),nrand(.8,1.7),colors[i%4],nrand(8,18),'cloud'); damageArea(powerSkill,p.x+face*150,p.y-70,190,105,Math.ceil(q)); break;
+      case 'summon_claw':
+        for(let i=0;i<4+q;i++){ const x=p.x+face*(70+i*50); lineParticles(x-25,p.y-105,x+face*35,p.y-25,colors,12,4,.35,'slash'); damageArea(powerSkill,x,p.y-60,55,90,1); } break;
+      case 'shield_bash': case 'iron_stomp':
+        burst(p.x+face*55,p.y-40,colors,36,65,.42,'shard'); damageArea(powerSkill,p.x+face*65,p.y-45,100,100,Math.ceil(q)); break;
+      case 'song_pulse':
+        for(let r=40;r<190+q*30;r+=32) burst(p.x,p.y-60,colors,18,r/3,.35,'note'); damageArea(powerSkill,p.x,p.y-60,220+q*35,150,1); break;
+      case 'gear_mines':
+        for(let i=0;i<5+q*2;i++) addProjectileEx(powerSkill,'mine',p.x+face*(70+i*45),p.y-8,0,0,2.4,colors[i%4],{armed:.28,radius:55+q*8}); break;
+      case 'crystal_shards':
+        for(let i=0;i<9+q*4;i++) addProjectileEx(powerSkill,'shard',p.x+face*35,p.y-70,face*nrand(380,620),nrand(-190,150),.75,colors[i%4],{pierce:1}); break;
+      case 'healing_grove':
+        game.player.hp=Math.min(game.player.maxHp, game.player.hp + Math.floor(30+q*20)); burst(p.x,p.y-55,colors,50,110,.9,'leaf'); break;
+      case 'rapid_shots':
+        for(let i=0;i<6+q*3;i++) addProjectileEx(powerSkill,'arrow',p.x+face*38,p.y-50+nrand(-20,20),face*(700+q*80),nrand(-35,35),.55,colors[i%4],{pierce:1}); break;
+      case 'orbital_blades':
+        for(let i=0;i<8+q*2;i++){ const a=i*Math.PI*2/(8+q*2); addProjectileEx(powerSkill,'orbit',p.x+Math.cos(a)*55,p.y-60+Math.sin(a)*32,face*(220+q*45),0,1.0,colors[i%4],{angle:a,centerX:p.x,centerY:p.y-60,pierce:5}); } break;
+      default:
+        addProjectileEx(powerSkill,'magic',ox,oy,face*(470+q*80),0,.85,colors[0],{pierce:1}); burst(ox,oy,colors,24,50,.5,'spark');
+    }
+    makeText(skill.name, p.x, p.y-112, colors[0]);
+  }
+
+  const oldUseSkill = typeof useSkill === 'function' ? useSkill : null;
+  useSkill = function(id){
+    const skill = SKILLS && SKILLS[id];
+    if(!skill) return;
+    if(!skills.unlocked.includes(id)){ makeText('아직 배운 스킬이 아닙니다.', game.player.x, game.player.y-90, '#ff8787'); return; }
+    if((skills.cooldowns[id]||0)>0){ makeText('쿨타임 중', game.player.x, game.player.y-90, '#cbd5e1'); return; }
+    if(game.player.mp < (skill.mp||0)){ makeText('MP 부족', game.player.x, game.player.y-90, '#74c0fc'); return; }
+    game.player.mp -= skill.mp||0;
+    skills.cooldowns[id] = skill.cooldown || 1.2;
+    if(skill.heal && !/dragon|shadow|star|slash|strike|throw|bolt|blast/i.test(id+' '+skill.name)){
+      game.player.hp = Math.min(game.player.maxHp, game.player.hp + skill.heal);
+      makeText('+'+skill.heal+' HP', game.player.x, game.player.y-90, '#ff8787');
+      burst(game.player.x, game.player.y-55, ['#86efac','#ffffff','#22c55e'], 42, 90, .7, 'leaf');
+      return;
+    }
+    castPattern(skill, skillPattern(skill));
+  };
+
+  const oldUpdateProjectiles = typeof updateProjectiles === 'function' ? updateProjectiles : null;
+  updateProjectiles = function(dt){
+    arr(game.projectiles).forEach(function(p){
+      if(!p) return;
+      p.life -= dt;
+      p.age = (p.age || 0) + dt;
+      p.x += (p.vx||0)*dt; p.y += (p.vy||0)*dt;
+      const colors = paletteFor(p.skill||{}, p.kind||'');
+      if(p.kind==='meteor' || p.kind==='rain_arrow'){
+        pushParticle(p.x, p.y, nrand(-20,20), nrand(-20,20), .25, p.color, 4, p.kind==='meteor'?'flame':'spark');
+        if(p.y >= (p.targetY||game.ground-50)){ burst(p.x,p.y,colors,28,p.splash||70,.55,p.kind==='meteor'?'flame':'spark'); damageArea(p.skill,p.x,p.y,p.splash||75,p.splash||75,1); p.life=0; }
+      } else if(p.kind==='tornado'){
+        for(let i=0;i<8;i++){ const a=p.age*10+i; pushParticle(p.x+Math.cos(a)*(p.radius||70), p.y+Math.sin(a)*45, nrand(-25,25), nrand(-30,30), .3, colors[i%4], 4, 'swirl'); }
+        damageArea(p.skill,p.x,p.y,p.radius||70,85,1);
+      } else if(p.kind==='gravity'){
+        for(let i=0;i<10;i++){ const a=nrand(0,Math.PI*2); pushParticle(p.x+Math.cos(a)*(p.radius||75), p.y+Math.sin(a)*(p.radius||75)*.55, -Math.cos(a)*120, -Math.sin(a)*80, .35, colors[i%4], 5, 'orb'); }
+        damageArea(p.skill,p.x,p.y,p.radius||90,p.radius||90,1);
+      } else if(p.kind==='boomerang'){
+        if(p.age > (p.returnAt||.5)) p.vx = -Math.sign(p.vx||1)*Math.abs(p.vx||450);
+        pushParticle(p.x,p.y,nrand(-10,10),nrand(-10,10),.28,p.color,5,'slash');
+      } else if(p.kind==='wisp'){
+        let target=null, dist=99999; arr(game.monsters).forEach(function(m){ if(!m||m.dead) return; const d=Math.abs(m.x-p.x)+Math.abs((m.y-50)-p.y); if(d<dist){dist=d;target=m;} });
+        if(target){ const dx=target.x-p.x, dy=(target.y-50)-p.y, len=Math.max(1,Math.hypot(dx,dy)); p.vx += dx/len*520*dt; p.vy += dy/len*520*dt; }
+        pushParticle(p.x,p.y,0,0,.25,p.color,4,'orb');
+      } else if(p.kind==='mine'){
+        pushParticle(p.x,p.y,nrand(-8,8),nrand(-50,-10),.3,p.color,3,'gear');
+        if(p.age>(p.armed||.25)){ const hit=damageArea(p.skill,p.x,p.y,p.radius||60,p.radius||60,1); if(hit){ burst(p.x,p.y,colors,35,80,.55,'shard'); p.life=0; } }
+      } else if(p.kind==='orbit'){
+        p.angle=(p.angle||0)+dt*8; p.y += Math.sin(p.angle)*20*dt; pushParticle(p.x,p.y,0,0,.23,p.color,4,'slash');
+      } else if(p.kind==='ground_wave'){
+        p.y = (game.ground && p.y>game.ground-15) ? game.ground-18 : p.y;
+        pushParticle(p.x,p.y,nrand(-20,20),nrand(-70,-10),.28,p.color,5,'shard');
+      } else {
+        pushParticle(p.x,p.y,nrand(-10,10),nrand(-10,10),.18,p.color,3,'spark');
+      }
+      arr(game.monsters).forEach(function(m){
+        if(!m||m.dead) return;
+        if(!p.hitSet) p.hitSet=new Set();
+        if(p.hitSet.has(m.uid) && !p.pierce) return;
+        const rad = p.radius || 42;
+        if(Math.abs(p.x-m.x)<rad && Math.abs(p.y-(m.y-48))<Math.max(55,rad)){
+          p.hitSet.add(m.uid); m.aggro=true; m.hasBeenHit=true; damageMonster(m,p.skill||{power:1,range:90}); burst(p.x,p.y,colors,12,35,.35,'spark');
+          if(!p.pierce || p.hitSet.size>(p.pierce||0)) p.life=0;
+        }
+      });
+    });
+    game.projectiles = arr(game.projectiles).filter(function(p){ return p && p.life>0; });
+  };
+
+  function drawShapeParticle(pt){
+    const s=pt.size||3;
+    ctx.save(); ctx.translate(pt.x,pt.y); ctx.rotate(pt.rot||0); ctx.globalAlpha=Math.max(0, Math.min(1, (pt.life||0.2)*2));
+    ctx.fillStyle=pt.color||'#fff'; ctx.strokeStyle=pt.color||'#fff'; ctx.shadowColor=pt.color||'#fff'; ctx.shadowBlur=10;
+    const sh=pt.shape||'dot';
+    if(sh==='slash'){ ctx.lineWidth=s; ctx.beginPath(); ctx.moveTo(-s*4,s*1.5); ctx.quadraticCurveTo(0,-s*3,s*5,-s); ctx.stroke(); }
+    else if(sh==='star'){ ctx.beginPath(); for(let i=0;i<10;i++){ const r=i%2?s*1.4:s*3.2; const a=-Math.PI/2+i*Math.PI/5; ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r); } ctx.closePath(); ctx.fill(); }
+    else if(sh==='flame'){ ctx.beginPath(); ctx.moveTo(0,-s*4); ctx.quadraticCurveTo(s*4,-s,0,s*4); ctx.quadraticCurveTo(-s*3,0,0,-s*4); ctx.fill(); }
+    else if(sh==='bubble'||sh==='orb'){ ctx.globalAlpha*=.85; ctx.beginPath(); ctx.arc(0,0,s*2.2,0,Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(0,0,s*1.1,0,Math.PI*2); ctx.fill(); }
+    else if(sh==='rune'){ ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,0,s*3,0,Math.PI*2); ctx.stroke(); ctx.fillRect(-s*.7,-s*.7,s*1.4,s*1.4); }
+    else if(sh==='beam'){ ctx.fillRect(-s*4,-s*.5,s*8,s); }
+    else if(sh==='cloud'){ ctx.globalAlpha*=.45; ctx.beginPath(); ctx.ellipse(0,0,s*3,s*1.7,0,0,Math.PI*2); ctx.fill(); }
+    else { ctx.beginPath(); ctx.arc(0,0,s,0,Math.PI*2); ctx.fill(); }
+    ctx.restore();
+  }
+  const oldDrawParticles = typeof drawParticles === 'function' ? drawParticles : null;
+  drawParticles = function(){ arr(game.particles).forEach(drawShapeParticle); };
+
+  const oldDrawProjectiles = typeof drawProjectiles === 'function' ? drawProjectiles : null;
+  drawProjectiles = function(){
+    arr(game.projectiles).forEach(function(p){
+      const colors=paletteFor(p.skill||{},p.kind||''); ctx.save(); ctx.translate(p.x,p.y); ctx.scale(p.face||1,1); ctx.shadowColor=p.color||colors[0]; ctx.shadowBlur=14+(p.effectPower||1)*5; ctx.fillStyle=p.color||colors[0]; ctx.strokeStyle=p.color||colors[0]; ctx.lineWidth=3;
+      if(p.kind==='knife'||p.kind==='needle'){ ctx.beginPath(); ctx.moveTo(20,0); ctx.lineTo(-12,-5); ctx.lineTo(-6,0); ctx.lineTo(-12,5); ctx.closePath(); ctx.fill(); }
+      else if(p.kind==='lance'){ ctx.lineWidth=5; ctx.beginPath(); ctx.moveTo(-28,0); ctx.lineTo(24,0); ctx.stroke(); ctx.beginPath(); ctx.moveTo(31,0); ctx.lineTo(15,-9); ctx.lineTo(15,9); ctx.closePath(); ctx.fill(); }
+      else if(p.kind==='meteor'){ ctx.fillStyle=colors[1]; ctx.beginPath(); ctx.arc(0,0,14,0,Math.PI*2); ctx.fill(); ctx.fillStyle=colors[2]; ctx.beginPath(); ctx.moveTo(-28,-18); ctx.lineTo(-5,-3); ctx.lineTo(-25,10); ctx.fill(); }
+      else if(p.kind==='tornado'||p.kind==='gravity'){ ctx.strokeStyle=colors[0]; for(let r=14;r<(p.radius||60);r+=14){ ctx.beginPath(); ctx.ellipse(0,0,r,r*.55,0,0,Math.PI*2); ctx.stroke(); } }
+      else if(p.kind==='boomerang'){ ctx.beginPath(); ctx.arc(0,0,18,Math.PI*.2,Math.PI*1.65); ctx.stroke(); }
+      else if(p.kind==='wisp'||p.kind==='magic'){ ctx.beginPath(); ctx.ellipse(0,0,18,11,0,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='#fff'; ctx.beginPath(); ctx.arc(0,0,24,0,Math.PI*2); ctx.stroke(); }
+      else if(p.kind==='mine'){ ctx.beginPath(); ctx.arc(0,0,13,0,Math.PI*2); ctx.fill(); ctx.strokeStyle=colors[2]; ctx.strokeRect(-8,-8,16,16); }
+      else if(p.kind==='ground_wave'){ ctx.beginPath(); ctx.moveTo(-25,12); ctx.quadraticCurveTo(0,-14,28,8); ctx.lineTo(20,15); ctx.lineTo(-28,15); ctx.fill(); }
+      else { ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2); ctx.fill(); }
+      ctx.restore();
+    });
+  };
+
+  function visibleSkillList(){ return (typeof getVisibleSkills === 'function' ? getVisibleSkills() : []).slice(); }
+  drawSkillsPanel = function(){
+    const x=55,y=70,w=820,h=Math.min(570,H-100); const list=visibleSkillList(); const rowH=58; const viewTop=y+100, viewH=h-145;
+    skillPanelState.max=Math.max(0,list.length*rowH-viewH); skillPanelState.scroll=clampLocal(skillPanelState.scroll,0,skillPanelState.max);
+    ctx.fillStyle='rgba(15,23,42,0.97)'; roundRect(ctx,x,y,w,h,14); ctx.strokeStyle='#93c5fd'; ctx.strokeRect(x,y,w,h);
+    ctx.fillStyle='#ffe066'; ctx.font='bold 27px sans-serif'; ctx.textAlign='left'; ctx.fillText('스킬',x+25,y+42);
+    ctx.fillStyle='#cbd5e1'; ctx.font='14px sans-serif'; ctx.fillText('마우스 휠/터치패드로 내리고, 해금된 스킬을 클릭하면 K → L → ; 순서로 장착됩니다.',x+25,y+70);
+    ctx.save(); ctx.beginPath(); ctx.rect(x+20,viewTop,w-230,viewH); ctx.clip();
+    list.forEach(function(skill,i){
+      const rowY=viewTop+i*rowH-skillPanelState.scroll; if(rowY<viewTop-60||rowY>viewTop+viewH+10) return;
+      const unlocked=skills.unlocked.includes(skill.id); ctx.fillStyle=unlocked?'#1e293b':'#111827'; roundRect(ctx,x+30,rowY,w-270,48,8);
+      drawSkillIcon(skill,x+62,rowY+24,28); ctx.fillStyle=unlocked?'#fff':'#64748b'; ctx.font='bold 15px sans-serif'; ctx.fillText(skill.name,x+100,rowY+19);
+      ctx.fillStyle=unlocked?'#cbd5e1':'#64748b'; ctx.font='12px sans-serif'; let desc='Lv.'+(skill.unlockLevel||1)+' / MP '+(skill.mp||0)+' / '+(skill.desc||'스킬'); if(desc.length>64) desc=desc.slice(0,61)+'...'; ctx.fillText(desc,x+100,rowY+38);
+      if(!unlocked){ ctx.fillStyle='rgba(0,0,0,0.35)'; roundRect(ctx,x+30,rowY,w-270,48,8); }
+    }); ctx.restore();
+    ctx.fillStyle='#334155'; roundRect(ctx,x+w-230,viewTop,8,viewH,4); if(skillPanelState.max>0){ const bh=Math.max(36,viewH*(viewH/(viewH+skillPanelState.max))); const by=viewTop+(viewH-bh)*(skillPanelState.scroll/skillPanelState.max); ctx.fillStyle='#93c5fd'; roundRect(ctx,x+w-230,by,8,bh,4); }
+    ctx.fillStyle='#ffe066'; ctx.font='bold 16px sans-serif'; ctx.fillText('단축키',x+w-170,viewTop+10); drawSkillSlot('K',skills.hotkeys.k,x+w-170,viewTop+55); drawSkillSlot('L',skills.hotkeys.l,x+w-170,viewTop+107); drawSkillSlot(';',skills.hotkeys.semicolon,x+w-170,viewTop+159);
+  };
+  handleSkillClick = function(mx,my){
+    const x=55,y=70,w=820,h=Math.min(570,H-100); const viewTop=y+100, viewH=h-145; const list=visibleSkillList(); const rowH=58;
+    if(mx>=x+30&&mx<=x+w-240&&my>=viewTop&&my<=viewTop+viewH){ const idx=Math.floor((my-viewTop+skillPanelState.scroll)/rowH); const skill=list[idx]; if(skill&&skills.unlocked.includes(skill.id)){ const id=skill.id; if(!skills.hotkeys.k||skills.hotkeys.k===id) skills.hotkeys.k=id; else if(!skills.hotkeys.l||skills.hotkeys.l===id) skills.hotkeys.l=id; else skills.hotkeys.semicolon=id; makeText(skill.name+' 장착',game.player.x,game.player.y-90,'#ffe066'); markAutoSaveSoon(); } return; }
+    if(hit(mx,my,x+w-170,viewTop+30,140,38)) skills.hotkeys.k=null; if(hit(mx,my,x+w-170,viewTop+82,140,38)) skills.hotkeys.l=null; if(hit(mx,my,x+w-170,viewTop+134,140,38)) skills.hotkeys.semicolon=null;
+  };
+  if (typeof canvas !== 'undefined' && canvas && !canvas.__skillScrollWheel01) { canvas.__skillScrollWheel01=true; canvas.addEventListener('wheel',function(e){ if(skills&&skills.open){ skillPanelState.scroll=clampLocal(skillPanelState.scroll+e.deltaY,0,skillPanelState.max); e.preventDefault(); }},{passive:false}); }
+
+  function floorForNpc(x,y){ let best=null,score=Infinity; arr(game.platforms).forEach(function(pf){ if(!pf) return; if(x<pf.x-60||x>pf.x+pf.w+60) return; const dy=Math.abs((pf.y||game.ground)-(y||game.ground)); if(dy<score){score=dy;best=pf;} }); return best?best.y:game.ground; }
+  const oldDrawNPCs2 = typeof drawNPCs === 'function' ? drawNPCs : null;
+  drawNPCs = function(){
+    arr(game.npcs).forEach(function(npc){ if(!npc) return; const gy=floorForNpc(npc.x,npc.y); if(!Number.isFinite(npc.y)||Math.abs(npc.y-gy)>22) npc.y=gy; drawSdNpc(npc,npc.x,npc.y); ctx.textAlign='center'; ctx.font='bold 14px sans-serif'; const name=String(npc.name||'NPC'); const tw=ctx.measureText(name).width+26; ctx.fillStyle='rgba(15,23,42,0.92)'; roundRect(ctx,npc.x-tw/2,npc.y-111,tw,24,8); ctx.fillStyle='#fff'; ctx.fillText(name,npc.x,npc.y-94); if(Math.abs(game.player.x-npc.x)<90&&Math.abs(game.player.y-npc.y)<100){ ctx.fillStyle='#ffe066'; ctx.font='bold 14px sans-serif'; ctx.fillText('E 대화',npc.x,npc.y-120); } });
+  };
+})();
