@@ -11474,3 +11474,777 @@ canvas.addEventListener('click', function (e) {
     if (game && game.ready) mpConnect();
   }, 600);
 })();
+
+/* =========================================================
+   ONLINE MONSTER AI / GIMMICK PATCH 01
+   - Stops multiplayer position jitter by using local smooth AI movement
+   - Adds charge, ranged attack, and split monster gimmicks
+   - Adds enemy projectiles and safe cleanup
+========================================================= */
+(function () {
+  if (window.__PIXEL_RPG_MONSTER_GIMMICK_PATCH_01__) return;
+  window.__PIXEL_RPG_MONSTER_GIMMICK_PATCH_01__ = true;
+
+  function safeNum(v, fallback) {
+    return Number.isFinite(v) ? v : fallback;
+  }
+
+  function monsterGimmickFor(type) {
+    const fam = type && type.family;
+    const lv = (type && type.level) || 1;
+    if (fam === 'boar' || fam === 'desert') return 'charge';
+    if (fam === 'mana' || fam === 'ice' || fam === 'ruin') return 'ranged';
+    if (fam === 'slime' && lv >= 3) return 'split';
+    if (fam === 'shadow') return lv >= 12 ? 'ranged' : 'charge';
+    return 'normal';
+  }
+
+  function setupMonsterAI(m, i) {
+    if (!m || !m.type) return;
+    if (!m.uid) m.uid = Math.random().toString(36).slice(2);
+    if (!m.sharedId && typeof game !== 'undefined') m.sharedId = (game.huntId || 'hunt') + ':' + (Number.isFinite(i) ? i : 0);
+    if (!Number.isFinite(m.sharedIndex)) m.sharedIndex = Number.isFinite(i) ? i : 0;
+    m.type.gimmick = m.type.gimmick || monsterGimmickFor(m.type);
+    m.aiKind = m.aiKind || m.type.gimmick || 'normal';
+    m.baseX = safeNum(m.baseX, m.x || 0);
+    m.spawnY = safeNum(m.spawnY, m.y || 0);
+    m.patrolDir = m.patrolDir || (Math.random() < 0.5 ? -1 : 1);
+    m.aiCooldown = safeNum(m.aiCooldown, 0.8 + Math.random() * 1.8);
+    m.chargeState = m.chargeState || 'idle';
+    m.chargeTimer = safeNum(m.chargeTimer, 0);
+  }
+
+  const oldMakeMonsterType = typeof makeMonsterType === 'function' ? makeMonsterType : null;
+  if (oldMakeMonsterType) {
+    makeMonsterType = function (family, level) {
+      const type = oldMakeMonsterType.apply(this, arguments);
+      if (type) {
+        type.gimmick = monsterGimmickFor(type);
+        if (type.gimmick === 'charge') {
+          type.speed = Math.max(type.speed || 30, 42 + (type.level || 1) * 1.2);
+          type.chargeSpeed = 420 + Math.min(180, (type.level || 1) * 5);
+        }
+        if (type.gimmick === 'ranged') {
+          type.projectileSpeed = 260 + Math.min(140, (type.level || 1) * 3);
+          type.projectileCooldown = 2.0 + Math.random() * 0.8;
+        }
+        if (type.gimmick === 'split') {
+          type.splitCount = 2;
+        }
+      }
+      return type;
+    };
+  }
+
+  const oldSpawnMonsters = typeof spawnMonsters === 'function' ? spawnMonsters : null;
+  if (oldSpawnMonsters) {
+    spawnMonsters = function () {
+      const ret = oldSpawnMonsters.apply(this, arguments);
+      if (game && Array.isArray(game.monsters)) game.monsters.forEach(setupMonsterAI);
+      return ret;
+    };
+  }
+
+  function hurtPlayerFromMonster(amount, sourceX) {
+    const p = game.player;
+    if (!p || p.invincible > 0) return;
+    const damage = Math.max(1, Math.floor(amount - p.defense * 0.45));
+    p.hp = Math.max(0, p.hp - damage);
+    p.invincible = 0.9;
+    p.hurtTime = 0.22;
+    p.vx = (p.x < sourceX ? -1 : 1) * 150;
+    makeText('-' + damage, p.x, p.y - 90, '#ff8787');
+  }
+
+  function spawnEnemyProjectile(m) {
+    if (!game.enemyProjectiles) game.enemyProjectiles = [];
+    const face = m.face || (game.player.x > m.x ? 1 : -1);
+    const fam = m.type.family;
+    const color = fam === 'ice' ? '#a5f3fc' : fam === 'ruin' ? '#a78bfa' : '#74c0fc';
+    game.enemyProjectiles.push({
+      x: m.x + face * 24,
+      y: m.y - 44,
+      vx: face * ((m.type && m.type.projectileSpeed) || 280),
+      vy: fam === 'ruin' ? -30 : 0,
+      life: 2.0,
+      face,
+      kind: fam === 'ice' ? 'iceShard' : fam === 'ruin' ? 'ruinBolt' : 'manaBolt',
+      color,
+      damage: (m.type && m.type.atk) || 8,
+      from: m.uid
+    });
+    circleEffect(m.x + face * 18, m.y - 48, color);
+  }
+
+  function updateEnemyProjectiles(dt) {
+    if (!game.enemyProjectiles) game.enemyProjectiles = [];
+    const p = game.player;
+    game.enemyProjectiles.forEach(function (b) {
+      b.life -= dt;
+      b.vy = (b.vy || 0) + (b.kind === 'ruinBolt' ? 85 : 0) * dt;
+      b.x += b.vx * dt;
+      b.y += (b.vy || 0) * dt;
+      if (p && p.invincible <= 0 && Math.abs(b.x - p.x) < 28 && Math.abs(b.y - (p.y - 48)) < 42) {
+        hurtPlayerFromMonster(b.damage || 8, b.x);
+        circleEffect(b.x, b.y, b.color || '#74c0fc');
+        b.life = 0;
+      }
+    });
+    game.enemyProjectiles = game.enemyProjectiles.filter(function (b) {
+      return b.life > 0 && b.x > -200 && b.x < game.width + 200 && b.y < H + 80;
+    });
+  }
+
+  const oldUpdateProjectiles = typeof updateProjectiles === 'function' ? updateProjectiles : null;
+  if (oldUpdateProjectiles) {
+    updateProjectiles = function (dt) {
+      oldUpdateProjectiles.apply(this, arguments);
+      if (game && game.mode === 'hunt') updateEnemyProjectiles(dt);
+      else if (game) game.enemyProjectiles = [];
+    };
+  }
+
+  const oldDrawProjectiles = typeof drawProjectiles === 'function' ? drawProjectiles : null;
+  if (oldDrawProjectiles) {
+    drawProjectiles = function () {
+      oldDrawProjectiles.apply(this, arguments);
+      if (!game || !Array.isArray(game.enemyProjectiles)) return;
+      game.enemyProjectiles.forEach(function (b) {
+        ctx.save();
+        ctx.translate(b.x, b.y);
+        ctx.scale(b.face || 1, 1);
+        ctx.shadowColor = b.color || '#74c0fc';
+        ctx.shadowBlur = 10;
+        if (b.kind === 'iceShard') {
+          ctx.fillStyle = '#dffcff';
+          ctx.beginPath();
+          ctx.moveTo(16, 0); ctx.lineTo(-7, -8); ctx.lineTo(-2, 0); ctx.lineTo(-7, 8);
+          ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = '#67e8f9'; ctx.stroke();
+        } else if (b.kind === 'ruinBolt') {
+          ctx.fillStyle = '#a78bfa';
+          roundRect(ctx, -9, -9, 18, 18, 4);
+          ctx.fillStyle = '#fff8'; ctx.fillRect(-3, -3, 6, 6);
+        } else {
+          ctx.fillStyle = b.color || '#74c0fc';
+          ctx.beginPath(); ctx.ellipse(0, 0, 13, 8, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#fff8'; ctx.beginPath(); ctx.ellipse(4, -3, 4, 2, 0, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+      });
+    };
+  }
+
+  function moveMonsterNormally(m, dt, dx, dist, dy) {
+    const chase = dist < 430 && dy < 130;
+    if (chase) {
+      const targetFace = dx > 0 ? 1 : -1;
+      m.face = targetFace;
+      m.x += m.face * (m.type.speed || 32) * dt;
+    } else {
+      if (m.x < m.baseX - 220) m.patrolDir = 1;
+      if (m.x > m.baseX + 220) m.patrolDir = -1;
+      m.x += m.patrolDir * (18 + Math.sin(m.time * 1.3) * 5) * dt;
+      m.face = m.patrolDir;
+    }
+    m.x = clamp(m.x, m.baseX - 240, m.baseX + 240);
+  }
+
+  function updateChargeMonster(m, dt, dx, dist, dy) {
+    if (m.chargeState === 'windup') {
+      m.chargeTimer -= dt;
+      if (m.chargeTimer <= 0) {
+        m.chargeState = 'dash';
+        m.chargeTimer = 0.55;
+        m.vx = (m.face || 1) * ((m.type && m.type.chargeSpeed) || 460);
+        makeText('돌진!', m.x, m.y - 95, '#fbbf24');
+      }
+      return;
+    }
+
+    if (m.chargeState === 'dash') {
+      m.chargeTimer -= dt;
+      m.x += (m.vx || 0) * dt;
+      if (Math.abs(game.player.x - m.x) < 58 && Math.abs(game.player.y - m.y) < 90) {
+        hurtPlayerFromMonster((m.type.atk || 8) * 1.45, m.x);
+      }
+      if (m.chargeTimer <= 0 || m.x < m.baseX - 260 || m.x > m.baseX + 260) {
+        m.chargeState = 'idle';
+        m.aiCooldown = 2.2 + Math.random() * 1.0;
+        m.vx = 0;
+      }
+      m.x = clamp(m.x, m.baseX - 270, m.baseX + 270);
+      return;
+    }
+
+    if (m.aiCooldown <= 0 && dist < 470 && dy < 90) {
+      m.face = dx > 0 ? 1 : -1;
+      m.chargeState = 'windup';
+      m.chargeTimer = 0.38;
+      for (let i = 0; i < 7; i++) {
+        game.particles.push({ x: m.x - m.face * rand(6, 22), y: m.y - rand(5, 25), vx: -m.face * rand(35, 90), vy: rand(-40, 10), life: 0.35, color: '#d6a15d' });
+      }
+      return;
+    }
+
+    moveMonsterNormally(m, dt, dx, dist, dy);
+  }
+
+  function updateRangedMonster(m, dt, dx, dist, dy) {
+    if (dist < 560 && dy < 135) {
+      m.face = dx > 0 ? 1 : -1;
+      if (m.aiCooldown <= 0) {
+        spawnEnemyProjectile(m);
+        m.aiCooldown = (m.type.projectileCooldown || 2.2) + Math.random() * 0.5;
+      }
+      if (dist < 220) m.x -= m.face * (m.type.speed || 26) * 0.55 * dt;
+      else if (dist > 360) m.x += m.face * (m.type.speed || 26) * 0.45 * dt;
+      else m.x += Math.sin(m.time * 2) * 12 * dt;
+      m.x = clamp(m.x, m.baseX - 240, m.baseX + 240);
+      return;
+    }
+    moveMonsterNormally(m, dt, dx, dist, dy);
+  }
+
+  function updateContactDamage(m) {
+    const touchX = Math.abs(game.player.x - m.x) < 48;
+    const touchY = Math.abs(game.player.y - m.y) < 85;
+    if (touchX && touchY) hurtPlayerFromMonster(m.type.atk || 5, m.x);
+  }
+
+  updateMonsters = function (dt) {
+    if (!game || game.mode !== 'hunt') return;
+    if (!Array.isArray(game.monsters)) game.monsters = [];
+
+    game.monsters.forEach(function (m, i) {
+      if (!m) return;
+      setupMonsterAI(m, i);
+      if (m.dead) return;
+      if ((m.hp || 0) <= 0) { killMonster(m); return; }
+
+      m.time = (m.time || 0) + dt;
+      m.hit = Math.max(0, (m.hit || 0) - dt);
+      m.attackCooldown = Math.max(0, (m.attackCooldown || 0) - dt);
+      m.aiCooldown = Math.max(0, (m.aiCooldown || 0) - dt);
+
+      const dx = game.player.x - m.x;
+      const dist = Math.abs(dx);
+      const dy = Math.abs(game.player.y - m.y);
+
+      if (m.aiKind === 'charge') updateChargeMonster(m, dt, dx, dist, dy);
+      else if (m.aiKind === 'ranged') updateRangedMonster(m, dt, dx, dist, dy);
+      else moveMonsterNormally(m, dt, dx, dist, dy);
+
+      updateContactDamage(m);
+    });
+  };
+
+  const oldKillMonster = typeof killMonster === 'function' ? killMonster : null;
+  if (oldKillMonster) {
+    killMonster = function (m) {
+      if (m && !m.dead && m.aiKind === 'split' && !m.splitChild && !m._splitSpawned && game && Array.isArray(game.monsters)) {
+        m._splitSpawned = true;
+        for (let i = 0; i < 2; i++) {
+          const t = makeMonsterType('slime', Math.max(1, ((m.type && m.type.level) || 1) - 1));
+          t.name = '분열된 ' + ((FAMILY_DATA.slime && FAMILY_DATA.slime.name) || '슬라임');
+          t.hp = Math.max(16, Math.floor(((m.maxHp || t.hp || 30) * 0.38)));
+          t.atk = Math.max(2, Math.floor((m.type.atk || 5) * 0.65));
+          t.exp = Math.max(1, Math.floor((m.type.exp || 8) * 0.35));
+          t.gold = Math.max(1, Math.floor((m.type.gold || 4) * 0.25));
+          t.dropRate = 0.08;
+          t.gimmick = 'normal';
+          const child = {
+            uid: Math.random().toString(36).slice(2),
+            type: t,
+            x: m.x + (i === 0 ? -38 : 38),
+            baseX: m.x + (i === 0 ? -38 : 38),
+            y: m.y,
+            spawnY: m.y,
+            hp: t.hp,
+            maxHp: t.hp,
+            face: i === 0 ? -1 : 1,
+            time: Math.random() * 10,
+            hit: 0,
+            dead: false,
+            splitChild: true,
+            aiKind: 'normal',
+            aiCooldown: 1.0
+          };
+          setupMonsterAI(child, game.monsters.length + i);
+          game.monsters.push(child);
+        }
+        makeText('분열!', m.x, m.y - 128, '#bef264');
+      }
+      return oldKillMonster.apply(this, arguments);
+    };
+  }
+
+  // Existing multiplayer code may send HP updates with x/y, but local clients should not
+  // force monster x/y from frequent hit packets. This small marker is used by the server
+  // patch too; no action is needed here except keeping local AI authoritative for motion.
+  if (game && Array.isArray(game.monsters)) game.monsters.forEach(setupMonsterAI);
+})();
+
+
+/* =========================================================
+   HUNT LADDER FLOORS / GROUNDED MONSTERS / MONSTER VISUAL PATCH
+   - Replaces stair-like hunting maps with flat floors connected by ladders
+   - Keeps monsters attached to the correct floor instead of floating
+   - Improves monster sprites, especially boars
+========================================================= */
+(function () {
+  'use strict';
+
+  function __huntTheme() {
+    try { return getTown(game.townId).theme || 'grass'; } catch (err) { return 'grass'; }
+  }
+
+  function __huntFloorSegments() {
+    return [
+      { x: 360,  y: 505, w: 1420, h: 24, floor: 1 },
+      { x: 2050, y: 505, w: 1420, h: 24, floor: 1 },
+      { x: 3730, y: 505, w: 1220, h: 24, floor: 1 },
+
+      { x: 520,  y: 390, w: 1320, h: 24, floor: 2 },
+      { x: 2190, y: 390, w: 1320, h: 24, floor: 2 },
+      { x: 3840, y: 390, w: 1040, h: 24, floor: 2 },
+
+      { x: 700,  y: 275, w: 1260, h: 24, floor: 3 },
+      { x: 2390, y: 275, w: 1260, h: 24, floor: 3 },
+      { x: 4030, y: 275, w: 860,  h: 24, floor: 3 },
+
+      { x: 950,  y: 165, w: 1160, h: 24, floor: 4 },
+      { x: 2670, y: 165, w: 1160, h: 24, floor: 4 }
+    ];
+  }
+
+  function __huntLadders() {
+    return [
+      { x: 430,  y1: 505, y2: game.ground, label: '1층' },
+      { x: 1080, y1: 390, y2: 505, label: '2층' },
+      { x: 1640, y1: 275, y2: 390, label: '3층' },
+      { x: 1040, y1: 165, y2: 275, label: '4층' },
+
+      { x: 2260, y1: 505, y2: game.ground, label: '1층' },
+      { x: 2880, y1: 390, y2: 505, label: '2층' },
+      { x: 3480, y1: 275, y2: 390, label: '3층' },
+      { x: 3260, y1: 165, y2: 275, label: '4층' },
+
+      { x: 4050, y1: 505, y2: game.ground, label: '1층' },
+      { x: 4520, y1: 390, y2: 505, label: '2층' },
+      { x: 4720, y1: 275, y2: 390, label: '3층' }
+    ];
+  }
+
+  function __applyLadderHuntLayout() {
+    if (!game || game.mode !== 'hunt') return;
+    game.ground = 610;
+    game.width = Math.max(game.width || 0, 5400);
+    game.platforms = __huntFloorSegments();
+    game.ladders = __huntLadders();
+  }
+
+  function __makeHuntMonsters(hunt) {
+    const floors = [
+      { y: game.ground, count: 10, ranges: [[520, 1680], [2140, 3420], [3820, 5000]], tier: 0 },
+      { y: 505, count: 9, ranges: [[460, 1700], [2160, 3380], [3840, 4820]], tier: 1 },
+      { y: 390, count: 8, ranges: [[620, 1740], [2280, 3400], [3950, 4740]], tier: 2 },
+      { y: 275, count: 6, ranges: [[800, 1840], [2480, 3540], [4110, 4800]], tier: 3 },
+      { y: 165, count: 4, ranges: [[1050, 2000], [2800, 3720]], tier: 4 }
+    ];
+    const monsters = [];
+    floors.forEach(function (row) {
+      for (let i = 0; i < row.count; i++) {
+        const range = row.ranges[i % row.ranges.length];
+        const t = i / Math.max(1, row.count - 1);
+        const family = hunt.families[(i + row.tier) % hunt.families.length];
+        const type = makeMonsterType(family, hunt.baseLevel + row.tier * 2 + (i % 2));
+        const span = range[1] - range[0];
+        const x = Math.round(range[0] + (span * ((t * 1.37 + (i % 3) * 0.21) % 1)));
+        const m = {
+          uid: Math.random().toString(36).slice(2),
+          type,
+          x,
+          baseX: x,
+          y: row.y,
+          spawnY: row.y,
+          floorY: row.y,
+          hp: type.hp,
+          maxHp: type.hp,
+          face: i % 2 ? -1 : 1,
+          time: Math.random() * 10,
+          hit: 0,
+          dead: false,
+          attackCooldown: 0,
+          poison: 0,
+          patrolDir: i % 2 ? -1 : 1,
+          aiCooldown: 1 + Math.random()
+        };
+        if (typeof setupMonsterAI === 'function') setupMonsterAI(m, monsters.length);
+        monsters.push(m);
+      }
+    });
+    return monsters;
+  }
+
+  const __oldLoadHuntLadder = typeof loadHunt === 'function' ? loadHunt : null;
+  if (__oldLoadHuntLadder) {
+    loadHunt = function (huntId) {
+      const ret = __oldLoadHuntLadder.apply(this, arguments);
+      try {
+        const hunt = getHunt(huntId || game.huntId);
+        const town = getTown(hunt.town);
+        game.mode = 'hunt';
+        game.huntId = huntId || game.huntId;
+        game.townId = town.id;
+        game.ground = 610;
+        game.width = 5400;
+        __applyLadderHuntLayout();
+        game.monsters = __makeHuntMonsters(hunt);
+        if (typeof mpSyncLocalMonsterIds === 'function') mpSyncLocalMonsterIds();
+        game.player.x = 220;
+        game.player.y = game.ground;
+        game.player.vx = 0;
+        game.player.vy = 0;
+        game.player.grounded = true;
+        game.player.climbing = false;
+        game.cameraX = 0;
+        if (window.PixelRpgMultiplayer && window.PixelRpgMultiplayer.socket && window.PixelRpgMultiplayer.connected) {
+          setTimeout(function () {
+            try {
+              const MP = window.PixelRpgMultiplayer;
+              const room = 'hunt:' + (game.huntId || hunt.id || 'hunt');
+              MP.socket.emit('monster:seed', { room: room, huntId: game.huntId, layout: 'ladder-v2', monsters: (game.monsters || []).map(function (m, i) {
+                return {
+                  id: m.sharedId || ((game.huntId || 'hunt') + ':' + i),
+                  index: i,
+                  family: m.type && m.type.family,
+                  name: m.type && m.type.name,
+                  level: m.type && m.type.level,
+                  x: Math.round(m.x || 0),
+                  y: Math.round(m.y || 0),
+                  baseX: Math.round(m.baseX || m.x || 0),
+                  spawnY: Math.round(m.spawnY || m.y || 0),
+                  hp: Math.max(0, Math.round(m.hp || 0)),
+                  maxHp: Math.max(1, Math.round(m.maxHp || (m.type && m.type.hp) || 1)),
+                  dead: !!m.dead,
+                  respawn: (m.type && m.type.respawn) || 12000
+                };
+              }) });
+            } catch (err) {}
+          }, 120);
+        }
+      } catch (err) {
+        console.error('ladder hunt layout failed', err);
+      }
+      return ret;
+    };
+  }
+
+  function __nearestFloorY(x, y) {
+    let best = game.ground;
+    const list = (game.platforms || []).filter(function (pf) {
+      return x >= pf.x - 28 && x <= pf.x + pf.w + 28 && y <= pf.y + 35;
+    });
+    list.forEach(function (pf) {
+      if (pf.y < best && y <= pf.y + 35) best = pf.y;
+    });
+    return best;
+  }
+
+  function __getLadderAt(x, y) {
+    if (!Array.isArray(game.ladders)) return null;
+    for (const l of game.ladders) {
+      const top = Math.min(l.y1, l.y2);
+      const bottom = Math.max(l.y1, l.y2);
+      if (Math.abs(x - l.x) <= 28 && y >= top - 14 && y <= bottom + 18) return l;
+    }
+    return null;
+  }
+
+  updatePlayer = function (dt) {
+    const p = game.player;
+    if (!p) return;
+
+    if (p.hp <= 0) {
+      p.hp = p.maxHp;
+      p.mp = p.maxMp;
+      loadTown(game.townId);
+      p.x = 260;
+      p.y = game.ground;
+      makeText('마을에서 부활', p.x, p.y - 90, '#ff8787');
+      return;
+    }
+
+    const left = keys.has('a') || keys.has('arrowleft');
+    const right = keys.has('d') || keys.has('arrowright');
+    const jump = keys.has(' ') || keys.has('arrowup');
+    const up = keys.has('w') || keys.has('arrowup');
+    const down = keys.has('arrowdown');
+    const locked = !!(game.dialog || game.taxiOpen || game.shopOpen || game.blacksmithOpen);
+    const ladder = __getLadderAt(p.x, p.y - 20) || __getLadderAt(p.x, p.y - 70);
+    const wantsClimb = game.mode === 'hunt' && ladder && (up || down || p.climbing);
+
+    if (!locked) {
+      if (left) { p.vx = -p.speed; p.face = -1; }
+      else if (right) { p.vx = p.speed; p.face = 1; }
+      else {
+        p.vx *= Math.pow(0.001, dt);
+        if (Math.abs(p.vx) < 2) p.vx = 0;
+      }
+    }
+
+    if (wantsClimb && !locked) {
+      const top = Math.min(ladder.y1, ladder.y2);
+      const bottom = Math.max(ladder.y1, ladder.y2);
+      p.climbing = true;
+      p.x += (ladder.x - p.x) * Math.min(1, dt * 10);
+      p.vy = 0;
+      p.grounded = false;
+      if (up) p.y -= p.speed * 0.72 * dt;
+      else if (down) p.y += p.speed * 0.72 * dt;
+      p.y = clamp(p.y, top, bottom);
+      if (!up && !down) p.vy = 0;
+      if (p.y <= top + 2 && up) {
+        p.y = top;
+        p.climbing = false;
+        p.grounded = true;
+      }
+      if (p.y >= bottom - 2 && down) {
+        p.y = bottom;
+        p.climbing = false;
+        p.grounded = true;
+      }
+    } else {
+      p.climbing = false;
+      if (!locked && jump && p.grounded) {
+        p.vy = -560;
+        p.grounded = false;
+      }
+      p.vy += 1550 * dt;
+      p.y += p.vy * dt;
+    }
+
+    p.x += p.vx * dt;
+    if (!p.climbing) p.grounded = false;
+
+    if (p.y >= game.ground) {
+      p.y = game.ground;
+      p.vy = 0;
+      p.grounded = true;
+    }
+
+    (game.platforms || []).forEach(function (pf) {
+      const falling = p.vy >= 0;
+      const insideX = p.x > pf.x - 24 && p.x < pf.x + pf.w + 24;
+      const nearTop = p.y >= pf.y - 16 && p.y <= pf.y + 24;
+      if (!p.climbing && falling && insideX && nearTop) {
+        p.y = pf.y;
+        p.vy = 0;
+        p.grounded = true;
+      }
+    });
+
+    p.x = clamp(p.x, 70, game.width - 80);
+    p.attackTime = Math.max(0, p.attackTime - dt);
+    p.invincible = Math.max(0, p.invincible - dt);
+    p.hurtTime = Math.max(0, p.hurtTime - dt);
+    p.animTime += dt;
+
+    if (p.attackTime > 0) p.anim = 'attack';
+    else if (p.climbing) p.anim = 'walk';
+    else if (!p.grounded) p.anim = 'jump';
+    else if (Math.abs(p.vx) > 10) p.anim = 'walk';
+    else p.anim = 'idle';
+  };
+
+  function __fixMonsterFloor(m) {
+    if (!m || m.dead) return;
+    if (!m.floorY) m.floorY = m.spawnY || __nearestFloorY(m.baseX || m.x || 0, m.y || game.ground);
+    m.y = m.floorY;
+    m.spawnY = m.floorY;
+  }
+
+  const __oldUpdateMonstersLadder = typeof updateMonsters === 'function' ? updateMonsters : null;
+  if (__oldUpdateMonstersLadder) {
+    updateMonsters = function (dt) {
+      if (game && game.mode === 'hunt') __applyLadderHuntLayout();
+      __oldUpdateMonstersLadder.apply(this, arguments);
+      if (game && Array.isArray(game.monsters)) game.monsters.forEach(__fixMonsterFloor);
+    };
+  }
+
+  updateDrops = function (dt) {
+    game.drops.forEach(function (d) {
+      d.vy += 620 * dt;
+      d.y += d.vy * dt;
+      const floorY = __nearestFloorY(d.x, d.y);
+      if (d.y > floorY - 10) {
+        d.y = floorY - 10;
+        d.vy = 0;
+      }
+    });
+  };
+
+  function __drawLadder(l) {
+    const top = Math.min(l.y1, l.y2);
+    const bottom = Math.max(l.y1, l.y2);
+    ctx.save();
+    ctx.strokeStyle = '#7c4a22';
+    ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(l.x - 16, top); ctx.lineTo(l.x - 16, bottom); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(l.x + 16, top); ctx.lineTo(l.x + 16, bottom); ctx.stroke();
+    ctx.strokeStyle = '#b7793b';
+    ctx.lineWidth = 4;
+    for (let y = top + 14; y < bottom; y += 22) {
+      ctx.beginPath(); ctx.moveTo(l.x - 18, y); ctx.lineTo(l.x + 18, y); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  const __oldDrawWorldLadder = typeof drawWorld === 'function' ? drawWorld : null;
+  if (__oldDrawWorldLadder) {
+    drawWorld = function () {
+      __oldDrawWorldLadder.apply(this, arguments);
+      if (game && game.mode === 'hunt' && Array.isArray(game.ladders)) {
+        game.ladders.forEach(__drawLadder);
+      }
+    };
+  }
+
+  drawPlatform = function (x, y, w, h, theme) {
+    const top = getGroundColor(theme || __huntTheme());
+    const dirt = getDirtColor(theme || __huntTheme());
+    ctx.fillStyle = 'rgba(0,0,0,0.20)';
+    roundRect(ctx, x + 4, y + 8, w, h, 10);
+    ctx.fillStyle = top;
+    roundRect(ctx, x, y, w, h, 9);
+    ctx.fillStyle = dirt;
+    ctx.fillRect(x + 7, y + h - 7, w - 14, 11);
+    ctx.strokeStyle = 'rgba(255,255,255,0.23)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x + 12, y + 6);
+    ctx.lineTo(x + w - 12, y + 6);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+    for (let i = 22; i < w; i += 70) ctx.fillRect(x + i, y + h - 4, 32, 5);
+  };
+
+  drawMonsters = function () {
+    game.monsters.forEach(function (m) {
+      if (m.dead) return;
+      __fixMonsterFloor(m);
+      ctx.save();
+      ctx.translate(m.x, m.y + Math.sin((m.time || 0) * 6) * 1.2);
+      ctx.scale(m.face || 1, 1);
+      if (m.hit > 0) ctx.globalAlpha = 0.62;
+      drawMonsterShape(m.type);
+      ctx.restore();
+
+      const big = m.type.shape === 'golem' || m.type.shape === 'ogre' || m.type.shape === 'boar';
+      const barW = big ? 76 : 52;
+      const barY = m.y - (big ? 94 : 62);
+      ctx.fillStyle = '#0009'; ctx.fillRect(m.x - barW / 2, barY, barW, 7);
+      ctx.fillStyle = '#ff4d4f'; ctx.fillRect(m.x - barW / 2, barY, barW * clamp(m.hp / m.maxHp, 0, 1), 7);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('Lv.' + m.type.level, m.x, barY - 5);
+    });
+  };
+
+  drawMonsterShape = function (type) {
+    const color = type.color || '#62df75';
+    const fam = type.family || 'slime';
+
+    if (type.shape === 'slime') {
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath(); ctx.ellipse(0, -18, 31, 21, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.ellipse(0, -20, 28, 18, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = lighten(color, 28); ctx.beginPath(); ctx.ellipse(-9, -28, 10, 5, -0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#0f172a'; ctx.fillRect(-10, -23, 5, 6); ctx.fillRect(6, -23, 5, 6);
+      ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(1, -15, 6, 0.2, Math.PI - 0.2); ctx.stroke();
+      return;
+    }
+
+    if (type.shape === 'mushroom') {
+      ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.ellipse(0, -46, 34, 23, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(0, -47, 31, 21, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = '#fff7d6'; roundRect(ctx, -18, -43, 36, 31, 9);
+      ctx.fillStyle = '#ffffff'; circle(ctx, -15, -51, 5); circle(ctx, 7, -58, 4); circle(ctx, 18, -48, 4);
+      ctx.fillStyle = '#6b3f22'; roundRect(ctx, -8, -17, 16, 18, 6);
+      ctx.fillStyle = '#0f172a'; ctx.fillRect(-10, -33, 4, 5); ctx.fillRect(6, -33, 4, 5);
+      return;
+    }
+
+    if (type.shape === 'spirit') {
+      ctx.shadowColor = color; ctx.shadowBlur = 16;
+      ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.ellipse(0, -40, 28, 34, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(0, -42, 24, 31, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = lighten(color, 34); ctx.beginPath(); ctx.ellipse(-7, -51, 8, 11, -0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#0f172a'; ctx.fillRect(-9, -47, 5, 6); ctx.fillRect(5, -47, 5, 6);
+      ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -35, 7, 0.25, Math.PI - 0.25); ctx.stroke();
+      return;
+    }
+
+    if (type.shape === 'boar') {
+      const body = color;
+      const dark = darken(color, 22);
+      ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(0, -5, 38, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#0f172a'; roundRect(ctx, -45, -54, 86, 42, 20);
+      ctx.fillStyle = body; roundRect(ctx, -41, -58, 82, 40, 19);
+      ctx.fillStyle = dark; roundRect(ctx, -35, -30, 70, 16, 8);
+      ctx.fillStyle = body; ctx.beginPath(); ctx.ellipse(31, -43, 24, 19, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f2c9a5'; ctx.beginPath(); ctx.ellipse(48, -39, 14, 10, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#0f172a'; circle(ctx, 38, -49, 3.5); circle(ctx, 53, -41, 2); circle(ctx, 45, -41, 2);
+      ctx.fillStyle = '#fff7d6';
+      ctx.beginPath(); ctx.moveTo(48, -32); ctx.lineTo(61, -27); ctx.lineTo(52, -41); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(35, -32); ctx.lineTo(24, -27); ctx.lineTo(34, -41); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = dark;
+      ctx.beginPath(); ctx.moveTo(-25, -57); ctx.lineTo(-16, -76); ctx.lineTo(-5, -55); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(8, -58); ctx.lineTo(20, -76); ctx.lineTo(27, -54); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#2f1d12'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-25, -18); ctx.lineTo(-29, -1); ctx.moveTo(-4, -18); ctx.lineTo(-6, -1); ctx.moveTo(18, -18); ctx.lineTo(20, -1); ctx.moveTo(36, -18); ctx.lineTo(39, -1); ctx.stroke();
+      ctx.fillStyle = '#2f1d12'; roundRect(ctx, -36, -2, 15, 6, 2); roundRect(ctx, -13, -2, 15, 6, 2); roundRect(ctx, 14, -2, 15, 6, 2); roundRect(ctx, 32, -2, 15, 6, 2);
+      ctx.strokeStyle = dark; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(-40, -42); ctx.quadraticCurveTo(-58, -56, -48, -66); ctx.stroke();
+      return;
+    }
+
+    if (type.shape === 'bug') {
+      ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.ellipse(0, -31, 34, 18, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(0, -33, 30, 16, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = lighten(color, 24); ctx.beginPath(); ctx.ellipse(-8, -40, 9, 7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      for (let i = -20; i <= 20; i += 13) { ctx.beginPath(); ctx.moveTo(i, -23); ctx.lineTo(i - 11, -3); ctx.moveTo(i, -23); ctx.lineTo(i + 11, -3); ctx.stroke(); }
+      ctx.fillStyle = '#0f172a'; ctx.fillRect(-9, -38, 4, 5); ctx.fillRect(6, -38, 4, 5);
+      return;
+    }
+
+    if (type.shape === 'lizard') {
+      ctx.fillStyle = '#0f172a'; roundRect(ctx, -44, -48, 80, 34, 14);
+      ctx.fillStyle = color; roundRect(ctx, -40, -50, 76, 31, 13);
+      ctx.fillStyle = darken(color, 20); ctx.beginPath(); ctx.moveTo(-37, -35); ctx.lineTo(-66, -22); ctx.lineTo(-36, -20); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = lighten(color, 28); for (let i = -20; i <= 24; i += 15) circle(ctx, i, -47, 4);
+      ctx.fillStyle = '#0f172a'; circle(ctx, 18, -41, 3.2);
+      ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(-20, -18); ctx.lineTo(-28, -3); ctx.moveTo(15, -18); ctx.lineTo(25, -3); ctx.stroke();
+      return;
+    }
+
+    // golem / ogre / ruin guardian
+    ctx.fillStyle = '#0f172a'; roundRect(ctx, -39, -96, 78, 80, 17);
+    ctx.fillStyle = color; roundRect(ctx, -34, -92, 68, 72, 15);
+    ctx.fillStyle = lighten(color, 32); roundRect(ctx, -28, -121, 56, 39, 12);
+    ctx.fillStyle = darken(color, 24); roundRect(ctx, -54, -66, 20, 50, 8); roundRect(ctx, 34, -66, 20, 50, 8);
+    ctx.fillStyle = '#0f172a'; ctx.fillRect(-12, -107, 6, 7); ctx.fillRect(7, -107, 6, 7); ctx.fillRect(-9, -92, 18, 3);
+    ctx.fillStyle = 'rgba(255,255,255,0.20)'; roundRect(ctx, -22, -82, 18, 8, 4); roundRect(ctx, 4, -72, 18, 8, 4);
+  };
+
+  // Keep monsters on the new floor layout for a short time after server snapshots.
+  setInterval(function () {
+    if (game && game.mode === 'hunt' && Array.isArray(game.monsters)) {
+      __applyLadderHuntLayout();
+      game.monsters.forEach(__fixMonsterFloor);
+    }
+  }, 700);
+})();
