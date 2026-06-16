@@ -1,7 +1,7 @@
 'use strict';
 
 /* =========================================================
-   Pixel RPG Multiplayer Server Module 01
+   Pixel RPG Multiplayer Server Module 02 - Chat + Smooth Monster Sync
    Usage in server.js:
      const http = require('http');
      const app = express();
@@ -212,7 +212,28 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
       monsters.forEach((raw, index) => {
         const m = cleanMonsterInput(roomId, raw, index);
         if (!m) return;
-        if (!room.monsters.has(m.id)) room.monsters.set(m.id, m);
+        const existing = room.monsters.get(m.id);
+        if (!existing) {
+          room.monsters.set(m.id, m);
+          return;
+        }
+
+        // Layout refresh support:
+        // when the client changes hunting-map floor/ladder layout, keep shared HP/death state,
+        // but refresh spawn position/base position so monsters do not float on old platforms.
+        existing.index = m.index;
+        existing.family = m.family || existing.family;
+        existing.name = m.name || existing.name;
+        existing.level = m.level || existing.level;
+        existing.maxHp = Math.max(1, m.maxHp || existing.maxHp || 1);
+        existing.respawn = Math.max(6000, m.respawn || existing.respawn || 12000);
+        existing.baseX = m.baseX;
+        existing.spawnY = m.spawnY;
+        if (!existing.dead) {
+          existing.x = m.x;
+          existing.y = m.y;
+          existing.hp = Math.max(1, Math.min(existing.hp || existing.maxHp, existing.maxHp));
+        }
       });
 
       socket.emit('monster:snapshot', {
@@ -235,10 +256,15 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
         room.monsters.set(id, m);
       }
 
+      // Frequent hit packets should synchronize HP only.
+      // Do not broadcast x/y during normal combat, otherwise each client fights the
+      // server snapshot and monsters look like they rubber-band backward.
       if (Number.isFinite(payload.hp)) m.hp = Math.max(0, Number(payload.hp));
-      if (Number.isFinite(payload.x)) m.x = Number(payload.x);
-      if (Number.isFinite(payload.y)) m.y = Number(payload.y);
       if (Number.isFinite(payload.maxHp)) m.maxHp = Math.max(1, Number(payload.maxHp));
+      if (payload.dead) {
+        if (Number.isFinite(payload.x)) m.x = Number(payload.x);
+        if (Number.isFinite(payload.y)) m.y = Number(payload.y);
+      }
 
       if (m.hp <= 0 || payload.dead) {
         if (!m.dead) {
@@ -268,8 +294,6 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
         index: m.index,
         hp: m.hp,
         maxHp: m.maxHp,
-        x: m.x,
-        y: m.y,
         dead: m.dead
       });
     });
