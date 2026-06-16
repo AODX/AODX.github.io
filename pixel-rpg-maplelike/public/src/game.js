@@ -10815,3 +10815,481 @@ canvas.addEventListener('click', function (e) {
     }
   }, true);
 })();
+
+
+/* =========================================================
+   MULTIPLAYER CLIENT INTEGRATION PATCH 01
+   - Keeps existing single-player features intact
+   - Adds Socket.IO presence, profile hover, trade request UI
+   - Adds shared monster death/respawn sync when server module is installed
+   Required server side: socket.io + multiplayer_server_socketio_module.js
+========================================================= */
+(function () {
+  if (window.__PIXEL_RPG_MULTIPLAYER_PATCH_01__) return;
+  window.__PIXEL_RPG_MULTIPLAYER_PATCH_01__ = true;
+
+  const MP = window.PixelRpgMultiplayer = {
+    enabled: true,
+    connected: false,
+    socket: null,
+    id: null,
+    room: null,
+    players: {},
+    hoverId: null,
+    menuId: null,
+    lastSend: 0,
+    portalLockUntil: 0,
+    lastRoomSend: 0,
+    pendingTradeFrom: null
+  };
+
+  function mpSafe(fn, label) {
+    try { return fn(); }
+    catch (err) { console.error('[multiplayer ' + (label || 'error') + ']', err); return null; }
+  }
+
+  function mpPlayerName() {
+    const ch = game && game.player && game.player.character ? game.player.character : null;
+    return (ch && ch.name) || (currentUser && currentUser.username) || '모험가';
+  }
+
+  function mpJobName(job) {
+    return (JOBS && JOBS[job] && JOBS[job].name) || job || '초보자';
+  }
+
+  function mpRoomId() {
+    if (!game) return 'unknown';
+    if (game.mode === 'hunt') return 'hunt:' + (game.huntId || (getTown(game.townId || 'lumina').hunt));
+    return 'town:' + (game.townId || 'lumina');
+  }
+
+  function mpPublicState() {
+    const p = game.player;
+    const ch = p.character || {};
+    return {
+      name: mpPlayerName(),
+      level: p.level || 1,
+      job: ch.job || 'beginner',
+      jobName: mpJobName(ch.job || 'beginner'),
+      x: Math.round(p.x || 0),
+      y: Math.round(p.y || 0),
+      face: p.face || 1,
+      anim: p.anim || 'idle',
+      animTime: p.animTime || 0,
+      hp: Math.round(p.hp || 0),
+      maxHp: Math.round(p.maxHp || 1),
+      townId: game.townId || 'lumina',
+      huntId: game.huntId || null,
+      mode: game.mode || 'town',
+      character: {
+        name: ch.name || mpPlayerName(),
+        job: ch.job || 'beginner',
+        skin: ch.skin || '#ffd6a6',
+        hair: ch.hair || '#2b160e',
+        hairStyle: ch.hairStyle || 'basic',
+        faceStyle: ch.faceStyle || 'normal'
+      }
+    };
+  }
+
+  function mpLoadSocketScript(cb) {
+    if (window.io) { cb(); return; }
+    const old = document.getElementById('socketio-client-script');
+    if (old) { old.addEventListener('load', cb, { once: true }); return; }
+    const s = document.createElement('script');
+    s.id = 'socketio-client-script';
+    s.src = '/socket.io/socket.io.js';
+    s.async = true;
+    s.onload = cb;
+    s.onerror = function () {
+      console.warn('[multiplayer] /socket.io/socket.io.js 를 찾지 못했습니다. 서버 모듈 설치 전에는 싱글 플레이로 동작합니다.');
+    };
+    document.head.appendChild(s);
+  }
+
+  function mpConnect() {
+    if (!MP.enabled || MP.socket || !game || !game.ready) return;
+    mpLoadSocketScript(function () {
+      if (!window.io || MP.socket) return;
+      MP.socket = window.io({
+        transports: ['websocket', 'polling'],
+        auth: { token: token || '', name: mpPlayerName() }
+      });
+
+      MP.socket.on('connect', function () {
+        MP.connected = true;
+        MP.id = MP.socket.id;
+        mpJoinRoom(true);
+        mpToast('멀티 서버 연결됨', '#9bf6ff');
+      });
+
+      MP.socket.on('disconnect', function () {
+        MP.connected = false;
+        MP.players = {};
+      });
+
+      MP.socket.on('players:snapshot', function (list) {
+        MP.players = {};
+        (list || []).forEach(function (p) {
+          if (p && p.id && p.id !== MP.id) MP.players[p.id] = p;
+        });
+      });
+
+      MP.socket.on('player:joined', function (p) {
+        if (p && p.id && p.id !== MP.id) {
+          MP.players[p.id] = p;
+          mpToast((p.name || '다른 유저') + ' 입장', '#c0eb75');
+        }
+      });
+
+      MP.socket.on('player:left', function (id) {
+        if (id && MP.players[id]) delete MP.players[id];
+      });
+
+      MP.socket.on('player:update', function (p) {
+        if (p && p.id && p.id !== MP.id) MP.players[p.id] = Object.assign(MP.players[p.id] || {}, p);
+      });
+
+      MP.socket.on('trade:request', function (payload) {
+        if (!payload) return;
+        MP.pendingTradeFrom = payload;
+        mpToast((payload.fromName || '다른 유저') + '님이 거래를 요청했습니다.', '#ffe066');
+      });
+
+      MP.socket.on('monster:snapshot', function (payload) {
+        mpApplyMonsterSnapshot(payload);
+      });
+
+      MP.socket.on('monster:update', function (payload) {
+        mpApplyMonsterUpdate(payload);
+      });
+
+      MP.socket.on('monster:killed', function (payload) {
+        mpApplyMonsterKilled(payload);
+      });
+
+      MP.socket.on('monster:respawn', function (payload) {
+        mpApplyMonsterRespawn(payload);
+      });
+    });
+  }
+
+  function mpToast(text, color) {
+    if (typeof makeText === 'function' && game && game.player && game.ready) {
+      makeText(text, game.player.x, game.player.y - 120, color || '#fff');
+    } else {
+      console.log('[multiplayer]', text);
+    }
+  }
+
+  function mpJoinRoom(force) {
+    if (!MP.socket || !MP.connected || !game || !game.ready) return;
+    const room = mpRoomId();
+    const now = performance.now();
+    if (!force && MP.room === room && now - MP.lastRoomSend < 700) return;
+    MP.room = room;
+    MP.lastRoomSend = now;
+    MP.socket.emit('room:join', { room, state: mpPublicState() });
+    mpSyncLocalMonsterIds();
+    if (game.mode === 'hunt') {
+      MP.socket.emit('monster:seed', { room, huntId: game.huntId, monsters: mpMonsterSeed() });
+    }
+  }
+
+  function mpSendState(force) {
+    if (!MP.socket || !MP.connected || !game || !game.ready) return;
+    const now = performance.now();
+    if (!force && now - MP.lastSend < 100) return;
+    MP.lastSend = now;
+    MP.socket.emit('player:update', { room: mpRoomId(), state: mpPublicState() });
+  }
+
+  function mpSyncLocalMonsterIds() {
+    if (!game || !Array.isArray(game.monsters)) return;
+    game.monsters.forEach(function (m, i) {
+      if (!m) return;
+      if (!m.sharedId) m.sharedId = (game.huntId || 'hunt') + ':' + i;
+      m.sharedIndex = i;
+    });
+  }
+
+  function mpMonsterSeed() {
+    mpSyncLocalMonsterIds();
+    return (game.monsters || []).map(function (m, i) {
+      return {
+        id: m.sharedId || ((game.huntId || 'hunt') + ':' + i),
+        index: i,
+        family: m.type && m.type.family,
+        name: m.type && m.type.name,
+        level: m.type && m.type.level,
+        x: Math.round(m.x || 0),
+        y: Math.round(m.y || 0),
+        baseX: Math.round(m.baseX || m.x || 0),
+        spawnY: Math.round(m.spawnY || m.y || 0),
+        hp: Math.max(0, Math.round(m.hp || 0)),
+        maxHp: Math.max(1, Math.round(m.maxHp || (m.type && m.type.hp) || 1)),
+        dead: !!m.dead,
+        respawn: (m.type && m.type.respawn) || 12000
+      };
+    });
+  }
+
+  function mpFindMonster(id, index) {
+    if (!game || !Array.isArray(game.monsters)) return null;
+    return game.monsters.find(function (m) { return m && m.sharedId === id; }) || game.monsters[index] || null;
+  }
+
+  function mpApplyMonsterSnapshot(payload) {
+    if (!payload || payload.room !== mpRoomId() || game.mode !== 'hunt') return;
+    mpSyncLocalMonsterIds();
+    (payload.monsters || []).forEach(function (s) {
+      const m = mpFindMonster(s.id, s.index);
+      if (!m) return;
+      m.sharedId = s.id;
+      m.hp = Math.max(0, Number(s.hp) || 0);
+      m.maxHp = Math.max(1, Number(s.maxHp) || m.maxHp || 1);
+      m.dead = !!s.dead;
+      if (Number.isFinite(s.x)) m.x = s.x;
+      if (Number.isFinite(s.y)) m.y = s.y;
+    });
+  }
+
+  function mpApplyMonsterUpdate(payload) {
+    if (!payload || payload.room !== mpRoomId() || game.mode !== 'hunt') return;
+    const m = mpFindMonster(payload.id, payload.index);
+    if (!m) return;
+    m.sharedId = payload.id || m.sharedId;
+    if (Number.isFinite(payload.hp)) m.hp = Math.max(0, payload.hp);
+    if (Number.isFinite(payload.x)) m.x = payload.x;
+    if (Number.isFinite(payload.y)) m.y = payload.y;
+    if (payload.dead) m.dead = true;
+  }
+
+  function mpApplyMonsterKilled(payload) {
+    if (!payload || payload.room !== mpRoomId() || game.mode !== 'hunt') return;
+    const m = mpFindMonster(payload.id, payload.index);
+    if (!m) return;
+    if (!m.dead) {
+      m.dead = true;
+      m.hp = 0;
+      if (typeof makeText === 'function') makeText('다른 유저가 처치', m.x, m.y - 100, '#cbd5e1');
+    }
+  }
+
+  function mpApplyMonsterRespawn(payload) {
+    if (!payload || payload.room !== mpRoomId() || game.mode !== 'hunt') return;
+    const m = mpFindMonster(payload.id, payload.index);
+    if (!m) return;
+    m.dead = false;
+    m.hp = m.maxHp || (m.type && m.type.hp) || 1;
+    m.x = Number.isFinite(payload.x) ? payload.x : ((m.baseX || m.x) + (Math.random() * 80 - 40));
+    m.y = Number.isFinite(payload.y) ? payload.y : (m.spawnY || m.y);
+    m.hit = 0;
+  }
+
+  function mpDrawRemotePlayers() {
+    if (!game || !game.ready) return;
+    const list = Object.values(MP.players || {}).filter(function (p) {
+      return p && p.room === mpRoomId() && p.state;
+    });
+    if (!list.length) return;
+
+    ctx.save();
+    ctx.translate(-Math.floor(game.cameraX || 0), 0);
+    list.forEach(function (entry) {
+      const s = entry.state;
+      const fake = {
+        x: s.x,
+        y: s.y,
+        face: s.face || 1,
+        anim: s.anim || 'idle',
+        animTime: s.animTime || 0,
+        hurtTime: 0,
+        attackKind: 'fist',
+        character: Object.assign({ name: entry.name || s.name || '유저', job: s.job || 'beginner', skin: '#ffd6a6', hair: '#2b160e', hairStyle: 'basic', faceStyle: 'normal' }, s.character || {})
+      };
+      ctx.globalAlpha = 0.92;
+      if (typeof drawPlayer === 'function') drawPlayer(fake, fake.x, fake.y, 0.74);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#dbeafe';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText((s.name || entry.name || '유저') + ' Lv.' + (s.level || 1), fake.x, fake.y - 142);
+    });
+    ctx.restore();
+  }
+
+  function mpDrawHoverProfile() {
+    const id = MP.hoverId;
+    if (!id || !MP.players[id] || !game.mouse) return;
+    const entry = MP.players[id];
+    const s = entry.state || {};
+    const x = Math.min(W - 230, Math.max(10, game.mouse.x + 16));
+    const y = Math.min(H - 120, Math.max(10, game.mouse.y + 16));
+    ctx.save();
+    ctx.fillStyle = 'rgba(15,23,42,0.96)';
+    roundRect(ctx, x, y, 220, 104, 10);
+    ctx.strokeStyle = '#93c5fd'; ctx.strokeRect(x, y, 220, 104);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(s.name || entry.name || '유저', x + 14, y + 25);
+    ctx.fillStyle = '#cbd5e1'; ctx.font = '13px sans-serif';
+    ctx.fillText('레벨: ' + (s.level || 1), x + 14, y + 48);
+    ctx.fillText('직업: ' + (s.jobName || mpJobName(s.job || 'beginner')), x + 14, y + 68);
+    ctx.fillStyle = '#ffe066'; ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('클릭: 거래 요청', x + 14, y + 90);
+    ctx.restore();
+  }
+
+  function mpUpdateHover() {
+    MP.hoverId = null;
+    if (!game || !game.mouse) return;
+    const mx = game.mouse.x + (game.cameraX || 0);
+    const my = game.mouse.y;
+    Object.keys(MP.players).forEach(function (id) {
+      const s = MP.players[id] && MP.players[id].state;
+      if (!s) return;
+      if (s.room && s.room !== mpRoomId()) return;
+      if (Math.abs(mx - s.x) < 42 && Math.abs(my - s.y + 55) < 105) MP.hoverId = id;
+    });
+  }
+
+  function mpRequestTrade(id) {
+    if (!id || !MP.socket || !MP.connected || !MP.players[id]) return;
+    MP.socket.emit('trade:request', { to: id, fromName: mpPlayerName() });
+    mpToast((MP.players[id].name || '상대') + '에게 거래 요청을 보냈습니다.', '#ffe066');
+  }
+
+  const __mpOldStartGame = typeof startGame === 'function' ? startGame : null;
+  if (__mpOldStartGame) {
+    startGame = function (save) {
+      const ret = __mpOldStartGame.apply(this, arguments);
+      setTimeout(function () { mpConnect(); mpJoinRoom(true); mpSendState(true); }, 80);
+      return ret;
+    };
+  }
+
+  const __mpOldLoadTown = typeof loadTown === 'function' ? loadTown : null;
+  if (__mpOldLoadTown) {
+    loadTown = function (townId) {
+      const ret = __mpOldLoadTown.apply(this, arguments);
+      MP.players = {};
+      setTimeout(function () { mpJoinRoom(true); mpSendState(true); }, 60);
+      return ret;
+    };
+  }
+
+  const __mpOldLoadHunt = typeof loadHunt === 'function' ? loadHunt : null;
+  if (__mpOldLoadHunt) {
+    loadHunt = function (huntId) {
+      const ret = __mpOldLoadHunt.apply(this, arguments);
+      mpSyncLocalMonsterIds();
+      MP.players = {};
+      setTimeout(function () { mpJoinRoom(true); mpSendState(true); }, 60);
+      return ret;
+    };
+  }
+
+  const __mpOldDamageMonster = typeof damageMonster === 'function' ? damageMonster : null;
+  if (__mpOldDamageMonster) {
+    damageMonster = function (m, skill) {
+      const beforeDead = !!(m && m.dead);
+      const ret = __mpOldDamageMonster.apply(this, arguments);
+      if (MP.socket && MP.connected && game.mode === 'hunt' && m && m.sharedId) {
+        MP.socket.emit('monster:update', {
+          room: mpRoomId(),
+          id: m.sharedId,
+          index: m.sharedIndex,
+          hp: Math.max(0, Math.round(m.hp || 0)),
+          maxHp: Math.max(1, Math.round(m.maxHp || 1)),
+          x: Math.round(m.x || 0),
+          y: Math.round(m.y || 0),
+          dead: !!m.dead,
+          by: mpPlayerName()
+        });
+        if (!beforeDead && m.dead) {
+          MP.socket.emit('monster:killed', {
+            room: mpRoomId(),
+            id: m.sharedId,
+            index: m.sharedIndex,
+            hp: 0,
+            maxHp: Math.max(1, Math.round(m.maxHp || 1)),
+            x: Math.round(m.x || 0),
+            y: Math.round(m.y || 0),
+            respawn: (m.type && m.type.respawn) || 12000,
+            by: mpPlayerName()
+          });
+        }
+      }
+      return ret;
+    };
+  }
+
+  const __mpOldKillMonster = typeof killMonster === 'function' ? killMonster : null;
+  if (__mpOldKillMonster) {
+    killMonster = function (m) {
+      const already = !!(m && m.dead);
+      const ret = __mpOldKillMonster.apply(this, arguments);
+      if (!already && MP.socket && MP.connected && game.mode === 'hunt' && m && m.sharedId) {
+        MP.socket.emit('monster:killed', {
+          room: mpRoomId(),
+          id: m.sharedId,
+          index: m.sharedIndex,
+          hp: 0,
+          maxHp: Math.max(1, Math.round(m.maxHp || 1)),
+          x: Math.round(m.x || 0),
+          y: Math.round(m.y || 0),
+          respawn: (m.type && m.type.respawn) || 12000,
+          by: mpPlayerName()
+        });
+      }
+      return ret;
+    };
+  }
+
+  const __mpOldUpdate = typeof update === 'function' ? update : null;
+  if (__mpOldUpdate) {
+    update = function (dt) {
+      const ret = __mpOldUpdate.apply(this, arguments);
+      if (game && game.ready) {
+        mpJoinRoom(false);
+        mpSendState(false);
+      }
+      return ret;
+    };
+  }
+
+  const __mpOldDraw = typeof draw === 'function' ? draw : null;
+  if (__mpOldDraw) {
+    draw = function () {
+      const ret = __mpOldDraw.apply(this, arguments);
+      if (game && game.ready) {
+        mpUpdateHover();
+        mpDrawRemotePlayers();
+        mpDrawHoverProfile();
+      }
+      return ret;
+    };
+  }
+
+  canvas.addEventListener('click', function (e) {
+    if (!game || !game.ready || !MP.hoverId) return;
+    const pos = getMouse(e);
+    const entry = MP.players[MP.hoverId];
+    const s = entry && entry.state;
+    if (!s) return;
+    const worldX = pos.x + (game.cameraX || 0);
+    if (Math.abs(worldX - s.x) < 45 && Math.abs(pos.y - s.y + 55) < 110) {
+      e.preventDefault();
+      e.stopPropagation();
+      mpRequestTrade(MP.hoverId);
+    }
+  }, true);
+
+  window.addEventListener('beforeunload', function () {
+    if (MP.socket) MP.socket.emit('player:leave', { room: mpRoomId() });
+  });
+
+  setTimeout(function () {
+    if (game && game.ready) mpConnect();
+  }, 600);
+})();
