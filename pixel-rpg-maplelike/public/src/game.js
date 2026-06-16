@@ -7165,3 +7165,363 @@ function loop(now) {
 
 boot();
 requestAnimationFrame(loop);
+
+
+/* =========================================================
+   NPC LABEL / CHIBI VISUAL REFINEMENT PATCH
+   - Moves NPC names above faces
+   - Removes floating halo-like decoration
+   - Makes characters cuter and closer to the provided SD reference
+   - Prevents NPCs from inheriting the player's equipped helmet/weapon visuals
+========================================================= */
+
+function __getDrawEquipment(player) {
+  return (player && player.__drawEquipment) || equipment || {};
+}
+
+function __getOutfitForDraw(ch, drawEq) {
+  if (ch && ch.__outfit) {
+    return {
+      main: ch.__outfit.main || '#6aa8ff',
+      trim: ch.__outfit.trim || '#336bc4'
+    };
+  }
+
+  const armorObj = drawEq && drawEq.armor;
+  const armorId = armorObj && (armorObj.id || armorObj);
+  const armor = armorId && ITEMS[armorId] ? ITEMS[armorId] : null;
+  if (armor && armor.color) {
+    return { main: armor.color, trim: darken(armor.color, 40) };
+  }
+
+  const job = (JOBS && JOBS[ch.job]) ? JOBS[ch.job] : null;
+  const base = (job && job.color) || '#5b93ff';
+  return { main: base, trim: darken(base, 42) };
+}
+
+function drawPlayerBody(c, player) {
+  const ch = (player && player.character) || (game.player && game.player.character) || selected;
+  ensureSdCharacterStyle(ch);
+
+  const drawEq = __getDrawEquipment(player);
+  const outfit = __getOutfitForDraw(ch, drawEq);
+  const animTime = player.animTime || 0;
+  const walk = Math.sin(animTime * 11);
+  const moving = player.anim === 'walk';
+  const attacking = player.anim === 'attack';
+  const jumping = player.anim === 'jump';
+  const hurt = player.hurtTime && player.hurtTime > 0;
+  const attackSwing = attacking ? Math.sin(Math.min(1, animTime * 11) * Math.PI) : 0;
+
+  const skin = ch.skin || '#ffd8a8';
+  const skinShadow = '#f0ba88';
+  const hair = ch.hair || '#2b160e';
+  const legMove = moving ? walk * 5 : 0;
+  const armMove = moving ? -walk * 4 : 0;
+
+  c.save();
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  if (hurt) c.globalAlpha = 0.74;
+
+  // ground shadow
+  c.fillStyle = 'rgba(0,0,0,0.18)';
+  c.beginPath();
+  c.ellipse(0, 2, 20, 4.6, 0, 0, Math.PI * 2);
+  c.fill();
+
+  // legs - shorter and cleaner, closer to the reference
+  c.strokeStyle = '#2a1d16';
+  c.lineWidth = 6.2;
+  c.beginPath();
+  c.moveTo(-6, -32);
+  c.quadraticCurveTo(-8 - legMove * 0.4, -20, -12 - legMove, -8);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(6, -32);
+  c.quadraticCurveTo(8 + legMove * 0.4, -20, 12 + legMove, -8);
+  c.stroke();
+
+  c.strokeStyle = skin;
+  c.lineWidth = 3.8;
+  c.beginPath();
+  c.moveTo(-6, -32);
+  c.quadraticCurveTo(-8 - legMove * 0.3, -20, -12 - legMove * 0.8, -8);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(6, -32);
+  c.quadraticCurveTo(8 + legMove * 0.3, -20, 12 + legMove * 0.8, -8);
+  c.stroke();
+
+  c.fillStyle = '#5b3b1e';
+  roundRect(c, -17 - legMove * 0.5, -9, 15, 6, 3);
+  roundRect(c, 2 + legMove * 0.5, -9, 15, 6, 3);
+
+  // torso
+  c.fillStyle = '#13233e';
+  roundRect(c, -19, -66, 38, 36, 13);
+  c.fillStyle = outfit.main || '#6aa8ff';
+  roundRect(c, -16, -63, 32, 31, 11);
+  c.fillStyle = 'rgba(255,255,255,0.92)';
+  roundRect(c, -9, -58, 18, 5.5, 3);
+  c.fillStyle = outfit.trim || '#3f72c9';
+  roundRect(c, -12, -40, 24, 6.5, 4);
+  c.fillStyle = 'rgba(255,255,255,0.14)';
+  roundRect(c, -12, -61, 8, 14, 5);
+
+  // arms
+  let leftHandX = -22 + armMove;
+  let leftHandY = -47;
+  let rightHandX = 22 - armMove + attackSwing * 21;
+  let rightHandY = -47 + attackSwing * 6;
+
+  if (jumping) {
+    leftHandX = -24; leftHandY = -56;
+    rightHandX = 24; rightHandY = -56;
+  }
+
+  c.strokeStyle = '#13233e';
+  c.lineWidth = 7.8;
+  c.beginPath();
+  c.moveTo(-15, -56);
+  c.quadraticCurveTo(-22, -53, leftHandX, leftHandY);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(15, -56);
+  c.quadraticCurveTo(22, -53, rightHandX, rightHandY);
+  c.stroke();
+
+  c.strokeStyle = skin;
+  c.lineWidth = 4.6;
+  c.beginPath();
+  c.moveTo(-15, -56);
+  c.quadraticCurveTo(-21, -53, leftHandX, leftHandY);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(15, -56);
+  c.quadraticCurveTo(21, -53, rightHandX, rightHandY);
+  c.stroke();
+
+  c.fillStyle = skin;
+  circle(c, leftHandX, leftHandY, 3.8);
+  circle(c, rightHandX, rightHandY, 3.8);
+
+  const weaponObj = drawEq.weapon;
+  const weaponId = weaponObj && (weaponObj.id || weaponObj);
+  drawWeapon(c, weaponId, rightHandX, rightHandY, attacking);
+
+  // neck
+  c.fillStyle = '#13233e';
+  roundRect(c, -5, -72, 10, 8, 4);
+  c.fillStyle = skinShadow;
+  roundRect(c, -3.5, -71, 7, 7, 3);
+  c.fillStyle = skin;
+  roundRect(c, -3.5, -73, 7, 5.5, 3);
+
+  // head and ears
+  c.fillStyle = '#13233e';
+  c.beginPath(); c.ellipse(0, -98, 29, 30.5, 0, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(-22.5, -98, 4, 5.5, -0.2, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(22.5, -98, 4, 5.5, 0.2, 0, Math.PI * 2); c.fill();
+
+  c.fillStyle = skin;
+  c.beginPath(); c.ellipse(0, -98, 26, 28.5, 0, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(-22, -98, 3.2, 4.5, -0.2, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(22, -98, 3.2, 4.5, 0.2, 0, Math.PI * 2); c.fill();
+
+  // cheek tint
+  c.fillStyle = 'rgba(255,154,118,0.22)';
+  c.beginPath(); c.ellipse(-12.5, -93, 5.2, 3.0, 0, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(12.5, -93, 5.2, 3.0, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = 'rgba(120,64,32,0.10)';
+  c.beginPath(); c.ellipse(0, -86, 18, 6, 0, 0, Math.PI * 2); c.fill();
+
+  drawHair(c, { ...ch, hair }, -114);
+  drawFace(c, ch, -100);
+
+  const helmetObj = drawEq.helmet;
+  const helmetId = helmetObj && (helmetObj.id || helmetObj);
+  if (helmetId && ITEMS[helmetId]) drawSdHelmet(c, ITEMS[helmetId]);
+
+  c.restore();
+}
+
+function drawHair(c, ch, headY) {
+  const hair = ch.hair || '#2b160e';
+  const skin = ch.skin || '#ffd8a8';
+  const style = ch.hairStyle || 'basic';
+  const idx = Math.max(0, SD_HAIR_STYLES_40.indexOf(style));
+  const mode = idx % 10;
+  const deco = Math.floor(idx / 10);
+
+  c.save();
+  c.fillStyle = '#13233e';
+  c.beginPath(); c.ellipse(0, headY + 4, 28, 16.5, 0, Math.PI, 0); c.fill();
+  c.fillStyle = hair;
+  c.beginPath(); c.ellipse(0, headY + 4, 25.5, 14.5, 0, Math.PI, 0); c.fill();
+
+  // All bangs stay above the eyes.
+  if (mode === 0) {
+    roundRect(c, -20, headY + 1, 40, 6.5, 3);
+  } else if (mode === 1) {
+    roundRect(c, -23, headY - 1, 46, 10, 6);
+  } else if (mode === 2) {
+    for (let i = -19; i <= 15; i += 8) {
+      c.beginPath();
+      c.moveTo(i, headY + 5);
+      c.lineTo(i + 4, headY - 8 - ((i + 19) % 3));
+      c.lineTo(i + 8, headY + 5);
+      c.closePath();
+      c.fill();
+    }
+  } else if (mode === 3) {
+    roundRect(c, -19, headY + 1, 38, 7.5, 4);
+    c.beginPath(); c.ellipse(23, headY + 11, 7, 14, -0.3, 0, Math.PI * 2); c.fill();
+  } else if (mode === 4) {
+    for (let i = -16; i <= 16; i += 10) {
+      c.beginPath(); c.ellipse(i, headY + 7, 6, 8.5, -0.1, 0, Math.PI * 2); c.fill();
+    }
+  } else if (mode === 5) {
+    roundRect(c, -24, headY, 48, 12, 8);
+    c.fillStyle = skin; c.fillRect(-19, headY + 8, 38, 5);
+    c.fillStyle = hair;
+  } else if (mode === 6) {
+    c.beginPath(); c.ellipse(-25, headY + 10, 7, 13, 0.28, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(25, headY + 10, 7, 13, -0.28, 0, Math.PI * 2); c.fill();
+  } else if (mode === 7) {
+    c.beginPath(); c.moveTo(-18, headY + 2); c.lineTo(-28, headY - 8); c.lineTo(-12, headY - 3); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(18, headY + 2); c.lineTo(28, headY - 8); c.lineTo(12, headY - 3); c.closePath(); c.fill();
+  } else if (mode === 8) {
+    roundRect(c, -24, headY, 48, 8, 4);
+    c.fillStyle = '#d9465f'; roundRect(c, -23, headY + 2.5, 46, 3.2, 2); c.fillStyle = hair;
+  } else {
+    c.beginPath(); c.ellipse(0, headY - 7, 14, 6, 0, 0, Math.PI * 2); c.fill();
+  }
+
+  // 4 decoration groups -> 40 visible variations, but no floating ring.
+  if (deco === 1) {
+    c.fillStyle = '#facc15'; circle(c, 19, headY + 2, 4);
+    c.fillStyle = '#fff7c2'; circle(c, 19, headY + 1, 1.8);
+  } else if (deco === 2) {
+    c.fillStyle = '#93c5fd';
+    c.beginPath(); c.moveTo(-20, headY + 2); c.lineTo(-28, headY - 5); c.lineTo(-17, headY - 9); c.closePath(); c.fill();
+  } else if (deco === 3) {
+    // Replaced the old halo-like arc with a small headband/ribbon near the hair.
+    c.fillStyle = '#f8fafc'; roundRect(c, -14, headY - 2.5, 28, 3, 1.5);
+    c.fillStyle = '#fda4af'; circle(c, -4, headY - 1, 1.8); circle(c, 4, headY - 1, 1.8);
+  }
+
+  c.fillStyle = 'rgba(255,255,255,0.18)';
+  roundRect(c, -8, headY - 5, 10, 2.5, 1.2);
+  c.restore();
+}
+
+function drawFace(c, ch, headY) {
+  const style = ch.faceStyle || 'normal';
+  const idx = Math.max(0, SD_FACE_STYLES_40.indexOf(style));
+  const eyeMode = idx % 8;
+  const mouthMode = Math.floor(idx / 8) % 5;
+
+  c.save();
+  c.fillStyle = '#191919';
+  c.strokeStyle = '#191919';
+  c.lineWidth = 1.8;
+
+  const ey = headY - 1;
+  if (eyeMode === 0) {
+    c.beginPath(); c.ellipse(-8, ey, 2.3, 4.6, -0.1, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(8, ey, 2.3, 4.6, 0.1, 0, Math.PI * 2); c.fill();
+  } else if (eyeMode === 1) {
+    circle(c, -8, ey, 2.8); circle(c, 8, ey, 2.8);
+    c.fillStyle = '#fff'; circle(c, -8.8, ey - 1, 0.8); circle(c, 7.2, ey - 1, 0.8); c.fillStyle = '#191919';
+  } else if (eyeMode === 2) {
+    c.beginPath(); c.moveTo(-12, ey); c.quadraticCurveTo(-8, ey + 3, -4.5, ey); c.stroke();
+    c.beginPath(); c.moveTo(4.5, ey); c.quadraticCurveTo(8, ey + 3, 12, ey); c.stroke();
+  } else if (eyeMode === 3) {
+    c.beginPath(); c.moveTo(-11, ey); c.lineTo(-5, ey); c.moveTo(5, ey); c.lineTo(11, ey); c.stroke();
+  } else if (eyeMode === 4) {
+    c.fillRect(-11, ey - 1.5, 6, 2.4); c.fillRect(5, ey - 1.5, 6, 2.4);
+  } else if (eyeMode === 5) {
+    c.fillRect(-8.5, ey - 2, 2.4, 4.2); c.fillRect(6.1, ey - 2, 2.4, 4.2);
+  } else if (eyeMode === 6) {
+    c.beginPath(); c.ellipse(-9, ey, 3, 5.2, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(9, ey, 3, 5.2, 0, 0, Math.PI * 2); c.fill();
+  } else {
+    c.fillRect(-8.5, ey, 2, 2); c.fillRect(6.5, ey, 2, 2);
+  }
+
+  // tiny nose
+  c.fillStyle = 'rgba(70,40,24,0.35)';
+  c.beginPath(); c.ellipse(0, headY + 2.5, 1.2, 0.9, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = '#191919';
+
+  const my = headY + 10.5;
+  if (mouthMode === 0) {
+    c.beginPath(); c.arc(0, my - 1.5, 4.3, 0, Math.PI); c.stroke();
+  } else if (mouthMode === 1) {
+    c.fillRect(-3.4, my, 6.8, 1.8);
+  } else if (mouthMode === 2) {
+    c.beginPath(); c.arc(0, my + 2.5, 4.2, Math.PI, Math.PI * 2); c.stroke();
+  } else if (mouthMode === 3) {
+    c.beginPath(); c.ellipse(0, my, 2.4, 3.1, 0, 0, Math.PI * 2); c.fill();
+  } else {
+    c.beginPath(); c.moveTo(-4.2, my - 1); c.quadraticCurveTo(0, my + 3.8, 4.6, my - 1); c.stroke();
+  }
+
+  c.restore();
+}
+
+function drawNPCs() {
+  game.npcs.forEach(function (npc) {
+    drawSdNpc(npc, npc.x, npc.y);
+
+    const near = Math.abs(game.player.x - npc.x) < 90;
+    const labelY = npc.y - 125;
+    const name = npc.name || '';
+    const bubbleW = Math.max(68, Math.min(120, name.length * 12 + 18));
+
+    ctx.fillStyle = 'rgba(15,23,42,0.88)';
+    roundRect(ctx, npc.x - bubbleW / 2, labelY - 15, bubbleW, 22, 10);
+    ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(npc.x - bubbleW / 2 + 2, labelY - 13, bubbleW - 4, 18);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(name, npc.x, labelY);
+
+    if (near) {
+      ctx.fillStyle = '#ffe066';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.fillText('E 대화', npc.x, labelY - 22);
+    }
+  });
+}
+
+function drawSdNpc(npc, x, y) {
+  const st = getNpcRoleStyle(npc.type);
+  const fake = {
+    ...game.player,
+    character: {
+      name: npc.name,
+      job: 'beginner',
+      skin: '#ffd7a8',
+      hair: st.hair,
+      hairStyle: npc.type === 'job' ? 'mage_long' : npc.type === 'blacksmith' ? 'bandana' : (npc.type === 'quest' ? 'round_bob' : 'soft_bang'),
+      faceStyle: npc.type === 'blacksmith' ? 'serious' : (npc.type === 'merchant' ? 'bright' : 'smile'),
+      __outfit: { main: st.main, trim: st.trim }
+    },
+    __drawEquipment: { weapon: null, helmet: null, armor: null, knee: null, accessory: null },
+    anim: 'idle',
+    animTime: performance.now() / 1000,
+    face: 1
+  };
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(0.80, 0.80);
+  drawPlayerBody(ctx, fake);
+  drawNpcProp(ctx, st.prop);
+  ctx.restore();
+}
