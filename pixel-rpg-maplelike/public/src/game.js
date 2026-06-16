@@ -12248,3 +12248,669 @@ canvas.addEventListener('click', function (e) {
     }
   }, 700);
 })();
+
+
+/* =========================================================
+   JOB / WEAPON / HIDDEN CLASS / MONSTER VARIETY PATCH 01
+   - Adds 10 jobs including 3 global-unique hidden jobs
+   - Adds staged job advancement metadata
+   - Adds special NPC quests for hidden jobs
+   - Improves dagger speed / double hit
+   - Adds level-based weapon visuals and swing effects
+   - Adds enhancement success / destruction effects
+   - Gives job NPCs unique appearances
+   - Adds town layered building decoration
+   - Gives monster families and towns more distinct visuals
+========================================================= */
+(function () {
+  if (window.__PIXEL_RPG_JOB_WEAPON_HIDDEN_PATCH_01__) return;
+  window.__PIXEL_RPG_JOB_WEAPON_HIDDEN_PATCH_01__ = true;
+
+  const HIDDEN_JOB_IDS = ['shadow_reaper', 'dragon_knight', 'star_sage'];
+  const HIDDEN_JOB_LABELS = {
+    shadow_reaper: '그림자 사신',
+    dragon_knight: '용기사',
+    star_sage: '별의 현자'
+  };
+
+  const EXTRA_JOBS = {
+    paladin: { name: '성기사', main: 'str', tier: 2, baseJob: 'warrior', advanceFrom: 'warrior', nextJobs: ['crusader'] },
+    berserker: { name: '광전사', main: 'str', tier: 2, baseJob: 'warrior', advanceFrom: 'warrior', nextJobs: ['war_lord'] },
+    cleric: { name: '성직자', main: 'int', tier: 2, baseJob: 'mage', advanceFrom: 'mage', nextJobs: ['bishop'] },
+    summoner: { name: '소환사', main: 'int', tier: 2, baseJob: 'mage', advanceFrom: 'mage', nextJobs: ['spirit_lord'] },
+    gunslinger: { name: '건슬링어', main: 'dex', tier: 2, baseJob: 'archer', advanceFrom: 'archer', nextJobs: ['sniper_commander'] },
+    lancer: { name: '창기사', main: 'str', tier: 2, baseJob: 'warrior', advanceFrom: 'warrior' },
+    engineer: { name: '기계공', main: 'dex', tier: 2, baseJob: 'beginner', advanceFrom: 'beginner' },
+    bard: { name: '음유시인', main: 'int', tier: 2, baseJob: 'beginner', advanceFrom: 'beginner' },
+    shadow_reaper: { name: '그림자 사신', main: 'luk', tier: 'hidden', hidden: true, unique: true, baseJob: 'rogue' },
+    dragon_knight: { name: '용기사', main: 'str', tier: 'hidden', hidden: true, unique: true, baseJob: 'warrior' },
+    star_sage: { name: '별의 현자', main: 'int', tier: 'hidden', hidden: true, unique: true, baseJob: 'mage' },
+    crusader: { name: '크루세이더', main: 'str', tier: 3, baseJob: 'warrior', advanceFrom: 'paladin' },
+    bishop: { name: '비숍', main: 'int', tier: 3, baseJob: 'mage', advanceFrom: 'cleric' },
+    sniper_commander: { name: '저격대장', main: 'dex', tier: 3, baseJob: 'archer', advanceFrom: 'gunslinger' }
+  };
+
+  Object.assign(JOBS, EXTRA_JOBS);
+
+  const EXTRA_SKILLS = {
+    holy_cross: { id: 'holy_cross', name: '성광 십자', job: 'paladin', unlockLevel: 15, mp: 18, power: 2.4, range: 135, cooldown: 3.2, desc: '빛의 십자로 전방을 공격합니다.' },
+    rage_burst: { id: 'rage_burst', name: '분노 폭발', job: 'berserker', unlockLevel: 15, mp: 16, power: 2.7, hits: 2, range: 105, cooldown: 3.6, desc: '거칠게 두 번 베어냅니다.' },
+    heal_breeze: { id: 'heal_breeze', name: '회복의 바람', job: 'cleric', unlockLevel: 15, mp: 20, heal: 120, cooldown: 5, desc: '자신의 HP를 크게 회복합니다.' },
+    summon_wisp: { id: 'summon_wisp', name: '정령탄', job: 'summoner', unlockLevel: 15, mp: 16, power: 2.0, range: 360, cooldown: 2.2, projectile: true, magic: true, desc: '정령의 구체를 발사합니다.' },
+    bullet_rain: { id: 'bullet_rain', name: '탄환 난사', job: 'gunslinger', unlockLevel: 15, mp: 14, power: 1.05, hits: 4, range: 320, cooldown: 2.8, projectile: true, desc: '빠른 탄환을 연속으로 발사합니다.' },
+    pierce_lance: { id: 'pierce_lance', name: '관통창', job: 'lancer', unlockLevel: 15, mp: 13, power: 2.1, range: 150, cooldown: 2.4, desc: '긴 창으로 앞의 적을 찌릅니다.' },
+    drone_zap: { id: 'drone_zap', name: '드론 전격', job: 'engineer', unlockLevel: 15, mp: 15, power: 1.8, range: 330, cooldown: 2.5, projectile: true, magic: true, desc: '기계 드론의 전격을 발사합니다.' },
+    echo_note: { id: 'echo_note', name: '메아리 음표', job: 'bard', unlockLevel: 15, mp: 12, power: 1.7, range: 310, cooldown: 2.2, projectile: true, magic: true, desc: '음표를 날려 적을 공격합니다.' },
+    reaper_cut: { id: 'reaper_cut', name: '사신절단', job: 'shadow_reaper', unlockLevel: 1, mp: 16, power: 2.8, hits: 3, range: 125, cooldown: 2.6, desc: '그림자 낫으로 세 번 베어냅니다.' },
+    dragon_roar: { id: 'dragon_roar', name: '용의 포효', job: 'dragon_knight', unlockLevel: 1, mp: 22, power: 3.1, range: 160, cooldown: 3.8, desc: '용의 기운으로 전방을 강타합니다.' },
+    starfall: { id: 'starfall', name: '별똥별', job: 'star_sage', unlockLevel: 1, mp: 24, power: 3.0, range: 390, cooldown: 3.5, projectile: true, magic: true, desc: '별빛 탄환을 발사합니다.' }
+  };
+  Object.assign(SKILLS, EXTRA_SKILLS);
+
+  // Some existing beginner cooldown balancing retained.
+  if (SKILLS.strike) SKILLS.strike.cooldown = 2.5;
+  if (SKILLS.stone_throw) SKILLS.stone_throw.cooldown = 2.5;
+  if (SKILLS.first_aid) SKILLS.first_aid.cooldown = 3;
+
+  const HIDDEN_QUESTS = {
+    hidden_shadow_reaper: {
+      id: 'hidden_shadow_reaper', title: '검은 달의 계약', town: 'shadowport', npc: '검은 달의 사신', hiddenJob: 'shadow_reaper', jobReward: 'shadow_reaper',
+      desc: '그림자 괴물 18마리를 처치하고 검은 가죽 12개를 모아오세요.',
+      goals: [{ type: 'kill', family: 'shadow', need: 18, count: 0 }, { type: 'item', itemId: 'black_hide', need: 12, count: 0 }],
+      rewardGold: 900, rewardExp: 1000
+    },
+    hidden_dragon_knight: {
+      id: 'hidden_dragon_knight', title: '잠든 용의 피', town: 'valor', npc: '용혈 기사 아르딘', hiddenJob: 'dragon_knight', jobReward: 'dragon_knight',
+      desc: '멧돼지 18마리를 처치하고 녹슨 검 파편 12개를 모아오세요.',
+      goals: [{ type: 'kill', family: 'boar', need: 18, count: 0 }, { type: 'item', itemId: 'rusted_blade', need: 12, count: 0 }],
+      rewardGold: 900, rewardExp: 1000
+    },
+    hidden_star_sage: {
+      id: 'hidden_star_sage', title: '별의 문장', town: 'ellenium', npc: '별빛 예언자 루미엘', hiddenJob: 'star_sage', jobReward: 'star_sage',
+      desc: '마나 정령 18마리를 처치하고 푸른 결정 12개를 모아오세요.',
+      goals: [{ type: 'kill', family: 'mana', need: 18, count: 0 }, { type: 'item', itemId: 'blue_crystal', need: 12, count: 0 }],
+      rewardGold: 900, rewardExp: 1000
+    },
+    special_engineer: {
+      id: 'special_engineer', title: '고장난 드론 수리', town: 'irondeep', npc: '기계공 노바', jobReward: 'engineer',
+      desc: '광석 골렘 10마리를 처치하고 광석 조각 10개를 모아오세요.',
+      goals: [{ type: 'kill', family: 'ore', need: 10, count: 0 }, { type: 'item', itemId: 'ore_piece', need: 10, count: 0 }], rewardGold: 550, rewardExp: 650
+    },
+    special_bard: {
+      id: 'special_bard', title: '잃어버린 선율', town: 'greenwood', npc: '음유시인 리라', jobReward: 'bard',
+      desc: '숲 벌레 10마리를 처치하고 단단한 깃털 8개를 모아오세요.',
+      goals: [{ type: 'kill', family: 'bug', need: 10, count: 0 }, { type: 'item', itemId: 'hard_feather', need: 8, count: 0 }], rewardGold: 500, rewardExp: 620
+    }
+  };
+  Object.assign(QUESTS, HIDDEN_QUESTS);
+
+  const EXTRA_NPCS_BY_TOWN = {
+    shadowport: [{ type: 'hidden_job', hiddenJob: 'shadow_reaper', name: '검은 달의 사신', x: 2140, quest: 'hidden_shadow_reaper', text: '그림자와 계약할 자격이 있는가?', lookJob: 'shadow_reaper' }],
+    valor: [{ type: 'hidden_job', hiddenJob: 'dragon_knight', name: '용혈 기사 아르딘', x: 2140, quest: 'hidden_dragon_knight', text: '용의 피는 단 한 명에게만 깨어난다.', lookJob: 'dragon_knight' }],
+    ellenium: [{ type: 'hidden_job', hiddenJob: 'star_sage', name: '별빛 예언자 루미엘', x: 2140, quest: 'hidden_star_sage', text: '별의 문장은 한 시대에 한 사람만 품는다.', lookJob: 'star_sage' }],
+    irondeep: [{ type: 'job', name: '기계공 노바', x: 2020, quest: 'special_engineer', text: '기계와 함께 싸우는 법을 알려주지.', lookJob: 'engineer' }],
+    greenwood: [{ type: 'job', name: '음유시인 리라', x: 2020, quest: 'special_bard', text: '전투에도 선율이 필요한 법이야.', lookJob: 'bard' }]
+  };
+
+  const HIDDEN_STATUS = window.PixelRpgHiddenJobs = window.PixelRpgHiddenJobs || { claimed: {}, owners: {} };
+
+  function getMP() { return window.PixelRpgMultiplayer || null; }
+  function hiddenJobName(id) { return (JOBS[id] && JOBS[id].name) || HIDDEN_JOB_LABELS[id] || id; }
+  function hiddenClaimed(id) { return !!(HIDDEN_STATUS.claimed && HIDDEN_STATUS.claimed[id]); }
+
+  function requestHiddenClaim(jobId, cb) {
+    const MP = getMP();
+    if (!MP || !MP.socket || !MP.connected) {
+      cb({ ok: false, error: '히든 직업은 온라인 서버 연결 후에만 획득할 수 있습니다.' });
+      return;
+    }
+    MP.socket.emit('hidden:claim', { jobId, name: (game.player.character && game.player.character.name) || '모험가' }, function (res) {
+      cb(res || { ok: false, error: '서버 응답이 없습니다.' });
+    });
+  }
+
+  // Hook multiplayer connection once socket exists.
+  const __oldMpConnectWatch = setInterval(function () {
+    const MP = getMP();
+    if (!MP || !MP.socket || MP.__hiddenHooked) return;
+    MP.__hiddenHooked = true;
+    MP.socket.on('hidden:status', function (payload) {
+      HIDDEN_STATUS.claimed = (payload && payload.claimed) || {};
+      HIDDEN_STATUS.owners = (payload && payload.owners) || {};
+    });
+    MP.socket.on('hidden:claimed', function (payload) {
+      if (!payload || !payload.jobId) return;
+      HIDDEN_STATUS.claimed[payload.jobId] = true;
+      HIDDEN_STATUS.owners[payload.jobId] = payload.name || '알 수 없음';
+      if (typeof makeText === 'function' && game && game.player) {
+        makeText(hiddenJobName(payload.jobId) + '의 주인이 탄생했습니다.', game.player.x, game.player.y - 135, '#facc15');
+      }
+    });
+    MP.socket.emit('hidden:status');
+  }, 900);
+
+  const __oldLoadTownJobs = typeof loadTown === 'function' ? loadTown : null;
+  if (__oldLoadTownJobs) {
+    loadTown = function (townId) {
+      const ret = __oldLoadTownJobs.apply(this, arguments);
+      const list = EXTRA_NPCS_BY_TOWN[game.townId] || [];
+      list.forEach(function (template, idx) {
+        if (!game.npcs.some(function (n) { return n.name === template.name; })) {
+          game.npcs.push(Object.assign({ y: game.ground, uniqueNpc: true }, template, { x: template.x + idx * 120 }));
+        }
+      });
+      return ret;
+    };
+  }
+
+  const __oldGetBasicAttackProfileJobs = typeof getBasicAttackProfile === 'function' ? getBasicAttackProfile : null;
+  if (__oldGetBasicAttackProfileJobs) {
+    getBasicAttackProfile = function () {
+      const profile = __oldGetBasicAttackProfileJobs.apply(this, arguments) || {};
+      if (profile.kind === 'dagger') {
+        profile.cooldown = 0.14;
+        profile.range = Math.max(profile.range || 58, 72);
+        profile.power = Math.max(profile.power || 0.72, 0.82);
+        profile.hits = 2;
+        profile.color = '#c084fc';
+      }
+      return profile;
+    };
+  }
+
+  function weaponTier(weaponId) {
+    const item = ITEMS[weaponId] || {};
+    const req = item.reqLevel || 1;
+    const variant = item.pixel && item.pixel.variant || 1;
+    return Math.max(1, Math.min(6, Math.floor(req / 10) + Math.floor(variant / 7) + 1));
+  }
+
+  function weaponGlowColor(kind, tier) {
+    if (kind === 'staff') return tier >= 4 ? '#a78bfa' : '#74c0fc';
+    if (kind === 'bow') return tier >= 4 ? '#fde047' : '#8ce99a';
+    if (kind === 'dagger') return tier >= 4 ? '#f0abfc' : '#c084fc';
+    return tier >= 4 ? '#fb7185' : '#ff922b';
+  }
+
+  drawWeapon = function (c, weaponId, handX, handY, attacking, attackKind, animTime) {
+    if (!weaponId) return;
+    const item = ITEMS[weaponId] || {};
+    const kind = attackKind || item.weaponType || (weaponId.includes('staff') ? 'staff' : weaponId.includes('bow') ? 'bow' : weaponId.includes('dagger') ? 'dagger' : 'sword');
+    const px = item.pixel || { a: '#e5e7eb', b: '#f97316', variant: 1 };
+    const tier = weaponTier(weaponId);
+    const t = attacking ? Math.sin(Math.min(1, (animTime || 0) * 14) * Math.PI) : 0;
+    const glow = weaponGlowColor(kind, tier);
+
+    c.save();
+    c.translate(handX, handY);
+    c.shadowColor = attacking || tier >= 4 ? glow : 'transparent';
+    c.shadowBlur = (attacking ? 6 : 0) + Math.max(0, tier - 2) * 4;
+
+    if (kind === 'staff') c.rotate(attacking ? -0.75 + t * 0.35 : -0.35);
+    else if (kind === 'bow') c.rotate(attacking ? -0.06 : -0.25);
+    else if (kind === 'dagger') c.rotate(attacking ? 0.30 + t * 0.40 : -0.30);
+    else c.rotate(attacking ? -1.35 + t * 1.95 : -0.35);
+
+    if (kind === 'staff') {
+      c.strokeStyle = '#111827'; c.lineWidth = 5; c.beginPath(); c.moveTo(0, 12); c.lineTo(0, -42 - tier * 5); c.stroke();
+      c.strokeStyle = px.a || '#74c0fc'; c.lineWidth = 3; c.beginPath(); c.moveTo(0, 12); c.lineTo(0, -42 - tier * 5); c.stroke();
+      c.fillStyle = glow; circle(c, 0, -47 - tier * 5, 6 + tier);
+      if (tier >= 3) { c.strokeStyle = '#ffffffaa'; c.lineWidth = 2; c.beginPath(); c.arc(0, -47 - tier * 5, 12 + tier * 3, 0, Math.PI * 2); c.stroke(); }
+      if (tier >= 5) { c.strokeStyle = glow; c.beginPath(); c.arc(0, -47 - tier * 5, 23 + t * 10, 0, Math.PI * 2); c.stroke(); }
+    } else if (kind === 'bow') {
+      c.strokeStyle = '#111827'; c.lineWidth = 5; c.beginPath(); c.arc(0, -9, 21 + tier * 2, -Math.PI / 2, Math.PI / 2); c.stroke();
+      c.strokeStyle = px.a || '#ffd43b'; c.lineWidth = 3; c.beginPath(); c.arc(0, -9, 21 + tier * 2, -Math.PI / 2, Math.PI / 2); c.stroke();
+      c.strokeStyle = '#e5e7eb'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(0, -31 - tier); c.lineTo(attacking ? -13 - t * (9 + tier) : 0, -9); c.lineTo(0, 13 + tier); c.stroke();
+      if (tier >= 4) { c.strokeStyle = glow; c.lineWidth = 2; c.beginPath(); c.moveTo(-21 - t * 10, -9); c.lineTo(28 + tier * 2, -9); c.stroke(); }
+    } else if (kind === 'dagger') {
+      c.fillStyle = glow; c.beginPath(); c.moveTo(0, -34 - tier * 3); c.lineTo(7 + tier, -19); c.lineTo(-7 - tier, -19); c.closePath(); c.fill();
+      c.fillStyle = '#ffffffaa'; c.fillRect(-1.5, -31 - tier * 2, 3, 13 + tier * 2);
+      c.fillStyle = px.b || '#111827'; c.fillRect(-9, -21, 18, 4); c.fillStyle = '#111827'; c.fillRect(-3, -17, 6, 21);
+      if (tier >= 4) { c.strokeStyle = glow; c.lineWidth = 2; c.beginPath(); c.moveTo(-12, -25); c.lineTo(12, -42 - tier * 3); c.stroke(); }
+    } else {
+      c.fillStyle = glow; c.beginPath(); c.moveTo(0, -56 - tier * 6); c.lineTo(10 + tier, -35); c.lineTo(4, -18); c.lineTo(-4, -18); c.lineTo(-10 - tier, -35); c.closePath(); c.fill();
+      c.fillStyle = '#ffffffaa'; c.fillRect(-2, -50 - tier * 5, 4, 30 + tier * 4);
+      c.fillStyle = px.b || '#f97316'; c.fillRect(-14 - tier, -21, 28 + tier * 2, 5); c.fillStyle = '#7c2d12'; c.fillRect(-4, -18, 8, 26);
+      if (tier >= 4) { c.strokeStyle = glow; c.lineWidth = 2.5; c.beginPath(); c.moveTo(-10, -50); c.lineTo(10, -66 - tier * 6); c.stroke(); }
+    }
+    c.restore();
+  };
+
+  const __oldSlashEffectJobs = typeof slashEffect === 'function' ? slashEffect : null;
+  slashEffect = function (x, y, face, color, power) {
+    const pwr = power || getCurrentWeaponEffectPower && getCurrentWeaponEffectPower() || 1;
+    const kind = getEquippedWeaponKind ? getEquippedWeaponKind() : 'sword';
+    const col = color || getCurrentWeaponEffectColor && getCurrentWeaponEffectColor() || '#ffb020';
+    if (__oldSlashEffectJobs) __oldSlashEffectJobs(x, y, face, col, pwr);
+    const extra = Math.max(0, Math.floor(pwr));
+    for (let i = 0; i < 5 + extra * 3; i++) {
+      game.particles.push({
+        x: x + rand(-12, 12), y: y + rand(-18, 18),
+        vx: face * rand(40, 150 + extra * 40), vy: rand(-80, 40),
+        life: 0.22 + extra * 0.04,
+        color: kind === 'dagger' ? '#d8b4fe' : kind === 'staff' ? '#93c5fd' : kind === 'bow' ? '#fde68a' : col
+      });
+    }
+    if (kind === 'dagger') {
+      game.particles.push({ x: x + face * 20, y: y - 4, vx: face * 210, vy: -20, life: 0.18, color: '#f0abfc' });
+    }
+  };
+
+  const __oldEnhanceJobs = typeof enhanceEquippedItem === 'function' ? enhanceEquippedItem : null;
+  if (__oldEnhanceJobs) {
+    enhanceEquippedItem = function (slot) {
+      const before = equipment[slot] ? { id: itemRefId(equipment[slot]), enhance: itemEnhance(equipment[slot]) } : null;
+      const beforeGold = wallet.gold;
+      const ret = __oldEnhanceJobs.apply(this, arguments);
+      const after = equipment[slot] ? { id: itemRefId(equipment[slot]), enhance: itemEnhance(equipment[slot]) } : null;
+      const x = game.player.x, y = game.player.y - 58;
+      if (before && after && after.enhance > before.enhance) {
+        for (let i = 0; i < 34; i++) game.particles.push({ x: x + rand(-20, 20), y: y + rand(-20, 20), vx: rand(-170, 170), vy: rand(-210, -20), life: rand(0.45, 0.95), color: i % 2 ? '#facc15' : '#ffffff' });
+        makeText('강화 빛폭발!', x, y - 42, '#facc15');
+      } else if (before && !after && wallet.gold < beforeGold) {
+        for (let i = 0; i < 42; i++) game.particles.push({ x: x + rand(-24, 24), y: y + rand(-24, 18), vx: rand(-230, 230), vy: rand(-230, 70), life: rand(0.55, 1.2), color: i % 3 ? '#fb7185' : '#111827' });
+        makeText('장비 파괴!', x, y - 48, '#fb7185');
+      }
+      return ret;
+    };
+  }
+
+  const __oldAcceptQuestJobs = typeof acceptOrCompleteQuest === 'function' ? acceptOrCompleteQuest : null;
+  acceptOrCompleteQuest = function (id) {
+    const qBase = QUESTS[id];
+    if (!qBase) return;
+
+    if (qBase.hiddenJob && hiddenClaimed(qBase.hiddenJob)) {
+      const owner = HIDDEN_STATUS.owners[qBase.hiddenJob] || '다른 유저';
+      makeText('이미 전직한 자가 있는 직업입니다.', game.player.x, game.player.y - 110, '#ff8787');
+      if (game.dialog && game.dialog.npc) game.dialog.npc.text = hiddenJobName(qBase.hiddenJob) + '은(는) 이미 ' + owner + '님이 계승했습니다.';
+      return;
+    }
+
+    let active = quests.active.find(function (q) { return q.id === id; });
+    if (active && qBase.hiddenJob) {
+      syncQuestItems(active);
+      if (!questComplete(active)) {
+        makeText('아직 완료 조건이 부족합니다.', game.player.x, game.player.y - 90, '#ffdd99');
+        return;
+      }
+      requestHiddenClaim(qBase.hiddenJob, function (res) {
+        if (!res || !res.ok) {
+          makeText((res && res.error) || '이미 전직한 자가 있는 직업입니다.', game.player.x, game.player.y - 110, '#ff8787');
+          return;
+        }
+        HIDDEN_STATUS.claimed[qBase.hiddenJob] = true;
+        HIDDEN_STATUS.owners[qBase.hiddenJob] = game.player.character.name || '나';
+        completeQuest(active);
+        refreshUnlockedSkills();
+        markAutoSaveSoon();
+      });
+      return;
+    }
+
+    if (__oldAcceptQuestJobs) return __oldAcceptQuestJobs.apply(this, arguments);
+  };
+
+  const __oldDrawDialogJobs = typeof drawDialog === 'function' ? drawDialog : null;
+  if (__oldDrawDialogJobs) {
+    drawDialog = function () {
+      if (game.dialog && game.dialog.npc && game.dialog.npc.hiddenJob && hiddenClaimed(game.dialog.npc.hiddenJob)) {
+        game.dialog.npc.text = '이미 전직한 자가 있는 직업입니다.';
+      }
+      return __oldDrawDialogJobs.apply(this, arguments);
+    };
+  }
+
+  const __oldDrawNPCBodyJobs = typeof drawNPCBody === 'function' ? drawNPCBody : null;
+  drawNPCBody = function (npc) {
+    if (!npc || !(npc.lookJob || npc.type === 'job' || npc.type === 'hidden_job')) {
+      return __oldDrawNPCBodyJobs ? __oldDrawNPCBodyJobs.apply(this, arguments) : null;
+    }
+    const job = npc.lookJob || (npc.quest || '').replace('_job', '');
+    const palette = {
+      warrior: ['#9a3412', '#f97316', '#e5e7eb'], mage: ['#4c1d95', '#a78bfa', '#93c5fd'], rogue: ['#111827', '#64748b', '#c084fc'], archer: ['#166534', '#22c55e', '#fde68a'],
+      paladin: ['#78350f', '#facc15', '#ffffff'], berserker: ['#7f1d1d', '#ef4444', '#111827'], cleric: ['#f8fafc', '#60a5fa', '#fef3c7'], summoner: ['#14532d', '#34d399', '#a78bfa'],
+      gunslinger: ['#334155', '#94a3b8', '#fbbf24'], lancer: ['#1e3a8a', '#60a5fa', '#e5e7eb'], engineer: ['#78350f', '#f59e0b', '#94a3b8'], bard: ['#831843', '#f472b6', '#fde68a'],
+      shadow_reaper: ['#020617', '#7e22ce', '#f0abfc'], dragon_knight: ['#7f1d1d', '#dc2626', '#fbbf24'], star_sage: ['#172554', '#2563eb', '#fef08a']
+    }[job] || ['#1e293b', '#60a5fa', '#e2e8f0'];
+    ctx.save();
+    ctx.translate(npc.x, npc.y + Math.sin(performance.now() / 330) * 1.2);
+    ctx.scale(0.78, 0.78);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(0, 3, 25, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#171717'; roundRect(ctx, -18, -66, 36, 40, 10);
+    ctx.fillStyle = palette[0]; roundRect(ctx, -15, -63, 30, 36, 9);
+    ctx.fillStyle = palette[1]; roundRect(ctx, -12, -38, 24, 8, 4);
+    ctx.strokeStyle = '#171717'; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(-14, -56); ctx.lineTo(-28, -44); ctx.moveTo(14, -56); ctx.lineTo(28, -44); ctx.stroke();
+    ctx.strokeStyle = palette[1]; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(-14, -56); ctx.lineTo(-28, -44); ctx.moveTo(14, -56); ctx.lineTo(28, -44); ctx.stroke();
+    ctx.fillStyle = '#ffd6a6'; circle(ctx, -28, -44, 4); circle(ctx, 28, -44, 4);
+    ctx.fillStyle = '#171717'; roundRect(ctx, -14, -31, 10, 28, 5); roundRect(ctx, 4, -31, 10, 28, 5); roundRect(ctx, -20, -6, 16, 6, 2); roundRect(ctx, 4, -6, 16, 6, 2);
+    ctx.fillStyle = '#171717'; ctx.beginPath(); ctx.ellipse(0, -92, 23, 24, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffd6a6'; ctx.beginPath(); ctx.ellipse(0, -92, 19, 21, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = palette[2];
+    if (job === 'mage' || job === 'star_sage' || job === 'cleric' || job === 'summoner') { ctx.beginPath(); ctx.moveTo(-24, -110); ctx.lineTo(0, -140); ctx.lineTo(24, -110); ctx.closePath(); ctx.fill(); }
+    else if (job === 'dragon_knight') { ctx.beginPath(); ctx.moveTo(-22, -110); ctx.lineTo(-12, -132); ctx.lineTo(0, -112); ctx.lineTo(12, -132); ctx.lineTo(22, -110); ctx.closePath(); ctx.fill(); }
+    else if (job === 'shadow_reaper') { roundRect(ctx, -24, -121, 48, 15, 8); ctx.fillStyle = '#111827'; roundRect(ctx, -20, -113, 40, 11, 6); }
+    else { roundRect(ctx, -21, -118, 42, 13, 7); }
+    ctx.fillStyle = '#111827'; ctx.fillRect(-8, -99, 4, 5); ctx.fillRect(5, -99, 4, 5); ctx.fillRect(-4, -88, 8, 2);
+    // job prop
+    ctx.strokeStyle = palette[2]; ctx.lineWidth = 4;
+    if (job === 'archer' || job === 'gunslinger') { ctx.beginPath(); ctx.arc(35, -48, 16, -Math.PI / 2, Math.PI / 2); ctx.stroke(); }
+    else if (job === 'mage' || job === 'star_sage') { ctx.beginPath(); ctx.moveTo(32, -32); ctx.lineTo(32, -78); ctx.stroke(); ctx.fillStyle = palette[2]; circle(ctx, 32, -83, 6); }
+    else { ctx.beginPath(); ctx.moveTo(32, -28); ctx.lineTo(38, -78); ctx.stroke(); }
+    ctx.restore();
+  };
+
+  const __oldDrawTownObjectsJobs = typeof drawTownObjects === 'function' ? drawTownObjects : null;
+  drawTownObjects = function (town) {
+    if (__oldDrawTownObjectsJobs) __oldDrawTownObjectsJobs.apply(this, arguments);
+    // Layered city terraces and upper houses. Decoration only, so it will not block movement.
+    const theme = town && town.theme || 'grass';
+    const ys = [game.ground - 155, game.ground - 285];
+    for (let layer = 0; layer < ys.length; layer++) {
+      const y = ys[layer];
+      for (let x = 260 + layer * 130; x < game.width; x += 720) {
+        drawPlatform(x, y, 420, 22, theme);
+        if (theme === 'magic') drawMagicTower(x + 210, y);
+        else if (theme === 'ice') drawIceHouse(x + 210, y);
+        else if (theme === 'ruin') drawRuin(x + 210, y);
+        else if (theme === 'mine') drawMineEntrance(x + 210, y);
+        else drawHouse(x + 210, y, theme);
+      }
+    }
+  };
+
+  // Monster visual variety: same family looks different depending on town/level.
+  function monsterVariant(type) {
+    const level = type.level || 1;
+    const townSeed = (game.townId || '').split('').reduce(function (a, ch) { return a + ch.charCodeAt(0); }, 0);
+    return (level + townSeed) % 5;
+  }
+
+  const __oldDrawMonsterShapeJobs = typeof drawMonsterShape === 'function' ? drawMonsterShape : null;
+  drawMonsterShape = function (type) {
+    const v = monsterVariant(type || {});
+    const fam = type.family || 'slime';
+    ctx.save();
+    if (v === 1) ctx.scale(1.12, 0.95);
+    if (v === 2) ctx.scale(0.95, 1.12);
+    if (v === 3) ctx.rotate(0.03);
+    if (v === 4) ctx.rotate(-0.03);
+    if (__oldDrawMonsterShapeJobs) __oldDrawMonsterShapeJobs.apply(this, arguments);
+    ctx.restore();
+
+    // extra horns/spikes/marks per variant to avoid recycled look
+    ctx.save();
+    const color = type.color || '#62df75';
+    if (fam === 'boar') {
+      ctx.fillStyle = v % 2 ? '#fef3c7' : '#9f1239';
+      ctx.beginPath(); ctx.moveTo(-8, -60); ctx.lineTo(0, -85 - v * 3); ctx.lineTo(8, -60); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#2f1d12'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-28, -50); ctx.lineTo(22, -42); ctx.stroke();
+    } else if (fam === 'slime') {
+      ctx.fillStyle = v >= 2 ? '#ffffff88' : '#0f172a55';
+      circle(ctx, -18 + v * 4, -34, 4 + v);
+      if (v >= 3) { ctx.fillStyle = '#a7f3d0'; circle(ctx, 18, -31, 5); }
+    } else if (fam === 'mushroom') {
+      ctx.fillStyle = v % 2 ? '#fef08a' : '#ffffff';
+      circle(ctx, -22, -57, 4 + v); circle(ctx, 18, -52, 3 + v);
+    } else if (fam === 'mana' || fam === 'ice') {
+      ctx.strokeStyle = fam === 'ice' ? '#e0f2fe' : '#d8b4fe'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0, -42, 30 + v * 3, 0, Math.PI * 2); ctx.stroke();
+    } else if (fam === 'bug') {
+      ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-18, -47); ctx.lineTo(-28, -62 - v * 2); ctx.moveTo(18, -47); ctx.lineTo(28, -62 - v * 2); ctx.stroke();
+    } else if (fam === 'ruin' || fam === 'ore') {
+      ctx.fillStyle = '#ffffff33'; roundRect(ctx, -20, -115, 40, 7 + v, 4);
+    }
+    ctx.restore();
+  };
+
+  // Make current equipment catalog look more impressive by item level.
+  Object.keys(ITEMS).forEach(function (id) {
+    const item = ITEMS[id];
+    if (!item || !getEquipSlotForItem(item)) return;
+    const tier = Math.max(1, Math.min(6, Math.floor((item.reqLevel || 1) / 10) + 1));
+    item.visualTier = tier;
+    if (item.type === 'weapon' && tier >= 3 && !/★|◆|✦/.test(item.name)) {
+      const prefix = tier >= 5 ? '✦' : tier >= 4 ? '◆' : '★';
+      item.name = prefix + ' ' + item.name;
+      item.desc = (item.desc || '') + ' / 고급 외형';
+    }
+  });
+})();
+
+/* =========================================================
+   PERSISTENT HIDDEN JOB + JOB RESET NPC PATCH 01
+   - Sends stable user id when claiming/releasing hidden jobs
+   - Adds job reset NPC that releases a unique hidden job slot
+   - Hidden jobs remain owned after server restart until this reset is used
+========================================================= */
+(function () {
+  if (window.__PIXEL_RPG_PERSISTENT_HIDDEN_RESET_PATCH_01__) return;
+  window.__PIXEL_RPG_PERSISTENT_HIDDEN_RESET_PATCH_01__ = true;
+
+  const HIDDEN_IDS = ['shadow_reaper', 'dragon_knight', 'star_sage'];
+  const HIDDEN_LABELS = {
+    shadow_reaper: '그림자 사신',
+    dragon_knight: '용기사',
+    star_sage: '별의 현자'
+  };
+
+  function getMP() { return window.PixelRpgMultiplayer || null; }
+  function isHiddenJob(jobId) { return HIDDEN_IDS.includes(jobId); }
+  function jobLabel(jobId) { return (JOBS[jobId] && JOBS[jobId].name) || HIDDEN_LABELS[jobId] || jobId || '알 수 없음'; }
+  function myUserId() { return currentUser && currentUser.id ? String(currentUser.id) : ''; }
+  function myName() { return game && game.player && game.player.character ? (game.player.character.name || '모험가') : '모험가'; }
+
+  function hiddenStatus() {
+    return window.PixelRpgHiddenJobs || (window.PixelRpgHiddenJobs = { claimed: {}, owners: {} });
+  }
+
+  function sendHiddenStatusRequest() {
+    const MP = getMP();
+    if (MP && MP.socket && MP.connected) MP.socket.emit('hidden:status');
+  }
+
+  function claimHiddenPersistent(jobId, cb) {
+    const MP = getMP();
+    if (!MP || !MP.socket || !MP.connected) {
+      cb({ ok: false, error: '히든 직업은 온라인 서버 연결 후에만 획득할 수 있습니다.' });
+      return;
+    }
+    MP.socket.emit('hidden:claim', { jobId, userId: myUserId(), name: myName() }, function (res) {
+      cb(res || { ok: false, error: '서버 응답이 없습니다.' });
+    });
+  }
+
+  function releaseHiddenPersistent(jobId, cb) {
+    const MP = getMP();
+    if (!MP || !MP.socket || !MP.connected) {
+      cb({ ok: false, error: '직업 초기화는 온라인 서버 연결 후에만 가능합니다.' });
+      return;
+    }
+    MP.socket.emit('hidden:release', { jobId, userId: myUserId(), name: myName() }, function (res) {
+      cb(res || { ok: false, error: '서버 응답이 없습니다.' });
+    });
+  }
+
+  function installPersistentHiddenSocketHooks() {
+    const MP = getMP();
+    if (!MP || !MP.socket || MP.__persistentHiddenHooks) return;
+    MP.__persistentHiddenHooks = true;
+
+    MP.socket.on('hidden:status', function (payload) {
+      const status = hiddenStatus();
+      status.claimed = (payload && payload.claimed) || {};
+      status.owners = (payload && payload.owners) || {};
+    });
+
+    MP.socket.on('hidden:released', function (payload) {
+      if (!payload || !payload.jobId) return;
+      const status = hiddenStatus();
+      if (status.claimed) delete status.claimed[payload.jobId];
+      if (status.owners) delete status.owners[payload.jobId];
+      if (typeof makeText === 'function' && game && game.player) {
+        makeText(jobLabel(payload.jobId) + ' 직업 자리가 다시 비었습니다.', game.player.x, game.player.y - 135, '#9bf6ff');
+      }
+    });
+
+    MP.socket.on('connect', sendHiddenStatusRequest);
+    sendHiddenStatusRequest();
+  }
+  setInterval(installPersistentHiddenSocketHooks, 800);
+
+  const __oldLoadTownPersistentReset = typeof loadTown === 'function' ? loadTown : null;
+  if (__oldLoadTownPersistentReset) {
+    loadTown = function (townId) {
+      const ret = __oldLoadTownPersistentReset.apply(this, arguments);
+      if (game && Array.isArray(game.npcs) && !game.npcs.some(function (n) { return n.type === 'job_reset'; })) {
+        game.npcs.push({
+          type: 'job_reset',
+          name: '직업 초기화 관리자',
+          x: Math.min((game.width || 4300) - 520, 2460),
+          y: game.ground,
+          text: '현재 직업을 초보자로 되돌립니다. 히든 직업이라면 서버의 단독 소유권도 해제됩니다.',
+          lookJob: 'beginner'
+        });
+      }
+      return ret;
+    };
+  }
+
+  function removeHiddenQuestRecords(jobId) {
+    const related = {
+      shadow_reaper: 'hidden_shadow_reaper',
+      dragon_knight: 'hidden_dragon_knight',
+      star_sage: 'hidden_star_sage'
+    }[jobId];
+    if (!related) return;
+    quests.active = quests.active.filter(function (q) { return q.id !== related; });
+    quests.completed = quests.completed.filter(function (id) { return id !== related; });
+  }
+
+  function resetLocalJobAfterRelease(oldJob) {
+    if (!game || !game.player || !game.player.character) return;
+    const oldName = jobLabel(oldJob);
+    game.player.character.job = 'beginner';
+    if (skills) {
+      skills.unlocked = (skills.unlocked || []).filter(function (id) {
+        const s = SKILLS[id];
+        return s && s.job === 'beginner';
+      });
+      skills.hotkeys = { k: null, l: null, semicolon: null };
+    }
+    if (isHiddenJob(oldJob)) removeHiddenQuestRecords(oldJob);
+    if (typeof refreshUnlockedSkills === 'function') refreshUnlockedSkills();
+    if (typeof recalcStats === 'function') recalcStats();
+    if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+    if (typeof saveGame === 'function') saveGame(true);
+    makeText(oldName + ' 직업을 초기화했습니다.', game.player.x, game.player.y - 100, '#9bf6ff');
+  }
+
+  function resetMyJob() {
+    const oldJob = game && game.player && game.player.character ? (game.player.character.job || 'beginner') : 'beginner';
+    if (oldJob === 'beginner') {
+      makeText('이미 초보자입니다.', game.player.x, game.player.y - 95, '#cbd5e1');
+      return;
+    }
+
+    if (!isHiddenJob(oldJob)) {
+      resetLocalJobAfterRelease(oldJob);
+      return;
+    }
+
+    releaseHiddenPersistent(oldJob, function (res) {
+      if (!res || !res.ok) {
+        makeText((res && res.error) || '히든 직업 초기화 실패', game.player.x, game.player.y - 110, '#ff8787');
+        return;
+      }
+      const status = hiddenStatus();
+      if (status.claimed) delete status.claimed[oldJob];
+      if (status.owners) delete status.owners[oldJob];
+      resetLocalJobAfterRelease(oldJob);
+    });
+  }
+
+  const __oldHandleDialogClickPersistentReset = typeof handleDialogClick === 'function' ? handleDialogClick : null;
+  if (__oldHandleDialogClickPersistentReset) {
+    handleDialogClick = function (x, y) {
+      if (game.dialog && game.dialog.npc && game.dialog.npc.type === 'job_reset') {
+        if (hit(x, y, 970, 620, 120, 40)) {
+          game.dialog = null;
+          return;
+        }
+        if (hit(x, y, 210, 620, 190, 42)) {
+          resetMyJob();
+          game.dialog = null;
+          return;
+        }
+      }
+      return __oldHandleDialogClickPersistentReset.apply(this, arguments);
+    };
+  }
+
+  const __oldDrawDialogPersistentReset = typeof drawDialog === 'function' ? drawDialog : null;
+  if (__oldDrawDialogPersistentReset) {
+    drawDialog = function () {
+      if (game.dialog && game.dialog.npc && game.dialog.npc.type === 'job_reset') {
+        const oldText = game.dialog.npc.text;
+        const job = game.player && game.player.character ? game.player.character.job : 'beginner';
+        game.dialog.npc.text = job === 'beginner'
+          ? '이미 초보자입니다.'
+          : '현재 직업 [' + jobLabel(job) + ']을 초기화할까요? 히든 직업이면 다른 유저가 다시 획득할 수 있게 됩니다.';
+        const ret = __oldDrawDialogPersistentReset.apply(this, arguments);
+        game.dialog.npc.text = oldText;
+        return ret;
+      }
+      return __oldDrawDialogPersistentReset.apply(this, arguments);
+    };
+  }
+
+  const __oldAcceptPersistentHidden = typeof acceptOrCompleteQuest === 'function' ? acceptOrCompleteQuest : null;
+  acceptOrCompleteQuest = function (id) {
+    const qBase = QUESTS[id];
+    if (!qBase || !qBase.hiddenJob) {
+      return __oldAcceptPersistentHidden ? __oldAcceptPersistentHidden.apply(this, arguments) : undefined;
+    }
+
+    const status = hiddenStatus();
+    if (status.claimed && status.claimed[qBase.hiddenJob]) {
+      const owner = status.owners && status.owners[qBase.hiddenJob] ? status.owners[qBase.hiddenJob] : '다른 유저';
+      makeText('이미 전직한 자가 있는 직업입니다.', game.player.x, game.player.y - 110, '#ff8787');
+      if (game.dialog && game.dialog.npc) game.dialog.npc.text = jobLabel(qBase.hiddenJob) + '은(는) 이미 ' + owner + '님이 계승했습니다.';
+      return;
+    }
+
+    if (quests.completed.includes(id)) {
+      makeText('이미 완료했습니다.', game.player.x, game.player.y - 90, '#cbd5e1');
+      return;
+    }
+
+    let q = quests.active.find(function (item) { return item.id === id; });
+    if (!q) {
+      q = JSON.parse(JSON.stringify(qBase));
+      quests.active.push(q);
+      makeText('히든 직업 퀘스트 수락!', game.player.x, game.player.y - 90, '#ffe066');
+      if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+      return;
+    }
+
+    syncQuestItems(q);
+    if (!questComplete(q)) {
+      makeText('아직 완료 조건이 부족합니다.', game.player.x, game.player.y - 90, '#ffdd99');
+      return;
+    }
+
+    claimHiddenPersistent(qBase.hiddenJob, function (res) {
+      if (!res || !res.ok) {
+        makeText((res && res.error) || '이미 전직한 자가 있는 직업입니다.', game.player.x, game.player.y - 110, '#ff8787');
+        sendHiddenStatusRequest();
+        return;
+      }
+      const status = hiddenStatus();
+      status.claimed[qBase.hiddenJob] = true;
+      status.owners[qBase.hiddenJob] = myName();
+      completeQuest(q);
+      refreshUnlockedSkills();
+      markAutoSaveSoon();
+    });
+  };
+})();
