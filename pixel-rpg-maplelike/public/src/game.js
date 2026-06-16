@@ -6425,5 +6425,86 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
-boot();
+
+/* =========================================================
+   Login / Register Button Stable Fix
+   - 버튼이 form submit/reload에 먹히는 문제 방지
+   - 동적 UI 생성 후에도 로그인/회원가입/시작 버튼이 확실히 눌리도록 보강
+========================================================= */
+
+function bindAuthButtonsStable() {
+  const pairs = [
+    ['tabLogin', function (e) { if (e) e.preventDefault(); setMode('login'); }],
+    ['tabRegister', function (e) { if (e) e.preventDefault(); setMode('register'); }],
+    ['authBtn', function (e) { if (e) e.preventDefault(); submitAuth(); }],
+    ['startNewBtn', function (e) { if (e) e.preventDefault(); createCharacterAndStart(); }],
+    ['continueBtn', function (e) { if (e) e.preventDefault(); startGame(currentUser ? currentUser.save : {}); }],
+    ['logoutBtn', function (e) { if (e) e.preventDefault(); logout(); }],
+    ['logoutBtn2', function (e) { if (e) e.preventDefault(); logout(); }]
+  ];
+
+  pairs.forEach(function (pair) {
+    const node = document.getElementById(pair[0]);
+    if (!node) return;
+    if (node.tagName === 'BUTTON') node.type = 'button';
+    node.style.pointerEvents = 'auto';
+    node.onclick = pair[1];
+  });
+}
+
+const __loginFixedBindUI = bindUI;
+function bindUI() {
+  try {
+    __loginFixedBindUI();
+  } catch (err) {
+    console.error('bindUI error:', err);
+  }
+  bindAuthButtonsStable();
+}
+
+// 혹시 상위 패널/캔버스가 버튼 클릭을 가리는 경우 방지
+function fixAuthPanelPointerEvents() {
+  ['auth', 'characterScreen', 'characterMenu'].forEach(function (id) {
+    const panel = document.getElementById(id);
+    if (!panel) return;
+    panel.style.pointerEvents = 'auto';
+    panel.style.zIndex = '20';
+  });
+
+  const gameCanvas = document.getElementById('game');
+  if (gameCanvas) gameCanvas.style.zIndex = '1';
+}
+
+const __loginFixedShowAuth = showAuth;
+function showAuth() {
+  __loginFixedShowAuth();
+  fixAuthPanelPointerEvents();
+  bindAuthButtonsStable();
+}
+
+const __loginFixedShowCreator = showCreator;
+function showCreator() {
+  __loginFixedShowCreator();
+  fixAuthPanelPointerEvents();
+  bindAuthButtonsStable();
+}
+
+const __loginFixedShowCharacterMenu = showCharacterMenu;
+function showCharacterMenu(user) {
+  __loginFixedShowCharacterMenu(user);
+  fixAuthPanelPointerEvents();
+  bindAuthButtonsStable();
+}
+
+function safeBoot() {
+  fixAuthPanelPointerEvents();
+  bindAuthButtonsStable();
+  boot();
+  setTimeout(function () {
+    fixAuthPanelPointerEvents();
+    bindAuthButtonsStable();
+  }, 0);
+}
+
+safeBoot();
 requestAnimationFrame(loop);
