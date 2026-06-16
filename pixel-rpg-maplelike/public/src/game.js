@@ -9417,3 +9417,173 @@ function useSkill(id) {
     skill.power && skill.power > 1.5 ? 1.8 : 1.2
   );
 }
+
+/* =========================================================
+   PORTAL SAFE INTERACT / SKILL COOLDOWN HOTKEY PATCH
+   - Prevents E portal interaction from freezing the game
+   - Sets stone_throw cooldown to 2.5 seconds
+   - Sets first_aid cooldown to 3 seconds
+   - Keeps strike cooldown at 2.5 seconds
+   - Makes non-strike hotkey skills execute through a standalone safe path
+========================================================= */
+
+if (typeof SKILLS !== 'undefined') {
+  if (SKILLS.strike) SKILLS.strike.cooldown = 2.5;
+  if (SKILLS.stone_throw) SKILLS.stone_throw.cooldown = 2.5;
+  if (SKILLS.first_aid) SKILLS.first_aid.cooldown = 3;
+}
+
+function __safeMakeText(msg, x, y, color) {
+  if (typeof makeText === 'function') makeText(msg, x, y, color || '#ffdd99');
+}
+
+function __safeCloseActionWindowsForPortal() {
+  game.dialog = null;
+  game.taxiOpen = false;
+  game.shopOpen = false;
+  game.shopScroll = 0;
+  game.blacksmithOpen = false;
+}
+
+function interact() {
+  if (!game || !game.ready || !game.player) return;
+
+  const p = game.player;
+
+  for (const portal of game.portals || []) {
+    if (Math.abs(p.x - portal.x) < 90 && Math.abs(p.y - portal.y) < 140) {
+      __safeCloseActionWindowsForPortal();
+      stopPlayerMovement();
+
+      try {
+        if (portal.type === 'hunt') {
+          const town = getTown(game.townId || 'lumina');
+          const targetHunt = town.hunt || game.huntId || 'lumina_field';
+          loadHunt(targetHunt);
+          game.player.x = 220;
+          game.player.y = game.ground;
+          game.player.vx = 0;
+          game.player.vy = 0;
+          game.player.grounded = true;
+          __safeMakeText('사냥터 입장', game.player.x, game.player.y - 90, '#c0eb75');
+        } else if (portal.type === 'town') {
+          const targetTown = getTown(game.townId || 'lumina');
+          loadTown(targetTown.id);
+          game.player.x = Math.min(3880, Math.max(220, game.width - 420));
+          game.player.y = game.ground;
+          game.player.vx = 0;
+          game.player.vy = 0;
+          game.player.grounded = true;
+          __safeMakeText(`${targetTown.name} 귀환`, game.player.x, game.player.y - 90, '#c0eb75');
+        }
+        game.cameraX = clamp(game.player.x - W * 0.42, 0, Math.max(0, game.width - W));
+      } catch (err) {
+        console.error('[portal interact failed]', err);
+        game.mode = game.mode || 'town';
+        game.ready = true;
+        __safeMakeText('포탈 이동 오류가 발생했습니다.', p.x, p.y - 90, '#ff8787');
+      }
+
+      return;
+    }
+  }
+
+  for (const npc of game.npcs || []) {
+    if (Math.abs(p.x - npc.x) < 90 && Math.abs(p.y - npc.y) < 130) {
+      stopPlayerMovement();
+      game.dialog = { npc };
+      return;
+    }
+  }
+}
+
+function useHotSkill(slot) {
+  let id = skills.hotkeys[slot];
+
+  if (!id) {
+    const fallback = (skills.unlocked || []).find(function (skillId) {
+      return skillId && SKILLS[skillId];
+    });
+    if (fallback) {
+      id = fallback;
+      skills.hotkeys[slot] = fallback;
+    }
+  }
+
+  if (!id) {
+    __safeMakeText('스킬이 없습니다.', game.player.x, game.player.y - 90, '#cbd5e1');
+    return;
+  }
+
+  useSkill(id);
+}
+
+function useSkill(id) {
+  const skill = SKILLS[id];
+  if (!skill) {
+    __safeMakeText('스킬 정보를 찾을 수 없습니다.', game.player.x, game.player.y - 90, '#ff8787');
+    return;
+  }
+
+  if (!skills.unlocked.includes(id)) {
+    __safeMakeText('아직 배운 스킬이 아닙니다.', game.player.x, game.player.y - 90, '#ff8787');
+    return;
+  }
+
+  if ((skills.cooldowns[id] || 0) > 0) {
+    __safeMakeText('쿨타임 중', game.player.x, game.player.y - 90, '#cbd5e1');
+    return;
+  }
+
+  const mpCost = skill.mp || 0;
+  if (game.player.mp < mpCost) {
+    __safeMakeText('MP 부족', game.player.x, game.player.y - 90, '#74c0fc');
+    return;
+  }
+
+  game.player.mp -= mpCost;
+
+  if (id === 'strike') skills.cooldowns[id] = 2.5;
+  else if (id === 'stone_throw') skills.cooldowns[id] = 2.5;
+  else if (id === 'first_aid') skills.cooldowns[id] = 3;
+  else skills.cooldowns[id] = skill.cooldown || 0.8;
+
+  if (skill.heal) {
+    game.player.hp = Math.min(game.player.maxHp, game.player.hp + skill.heal);
+    __safeMakeText(`+${skill.heal} HP`, game.player.x, game.player.y - 90, '#ff8787');
+    if (typeof circleEffect === 'function') circleEffect(game.player.x, game.player.y - 50, '#69db7c');
+    markAutoSaveSoon();
+    return;
+  }
+
+  game.player.attackTime = id === 'strike' ? 0.44 : 0.36;
+  game.player.attackKind = id === 'strike' ? 'heavy' : (skill.magic ? 'staff' : 'skill');
+  game.player.anim = 'attack';
+  game.player.animTime = 0;
+
+  if (skill.projectile) {
+    spawnProjectile(skill);
+    return;
+  }
+
+  if (id === 'strike') {
+    hitMonsters({ range: 115, power: 1.65, hits: 1, magic: false });
+    if (typeof heavyStrikeEffect === 'function') {
+      heavyStrikeEffect(game.player.x, game.player.y, game.player.face, '#ff922b');
+    } else if (typeof slashEffect === 'function') {
+      slashEffect(game.player.x + game.player.face * 54, game.player.y - 50, game.player.face, '#ff922b', 2.2);
+    }
+    return;
+  }
+
+  hitMonsters(skill);
+  if (typeof slashEffect === 'function') {
+    slashEffect(
+      game.player.x + game.player.face * 44,
+      game.player.y - 46,
+      game.player.face,
+      skill.magic ? '#74c0fc' : '#ffb020',
+      skill.power && skill.power > 1.5 ? 1.8 : 1.2
+    );
+  }
+}
