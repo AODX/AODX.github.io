@@ -1826,19 +1826,27 @@ canvas.addEventListener('mouseup', function (e) {
   finishInventoryDrag(pos.x, pos.y);
 });
 
-canvas.addEventListener('wheel', function (e) {
+function handleShopWheel(e) {
   if (!game.ready) return;
-  if (!game.shopOpen && !game.blacksmithOpen) return;
+  if (!game.shopOpen) return;
 
   const pos = getMouse(e);
+  if (!hit(pos.x, pos.y, 80, 80, 1080, 590)) return;
 
-  if (game.shopOpen && hit(pos.x, pos.y, 80, 80, 1080, 590)) {
-    e.preventDefault();
-    const list = game.shopOpen === 'merchant' ? ['hp_potion', 'mp_potion'] : getShopItemsForCurrentTown();
-    const maxScroll = Math.max(0, Math.ceil(list.length / 2) * 64 - 380);
-    game.shopScroll = clamp(game.shopScroll + e.deltaY, 0, maxScroll);
-  }
-}, { passive: false });
+  e.preventDefault();
+
+  const list = game.shopOpen === 'merchant' ? ['hp_potion', 'mp_potion'] : getShopItemsForCurrentTown();
+  const rowH = 64;
+  const clipH = 410;
+  const rowCount = Math.ceil(list.length / 2);
+  const contentH = rowCount * rowH;
+  const maxScroll = Math.max(0, contentH - clipH);
+
+  game.shopScroll = clamp((game.shopScroll || 0) + e.deltaY * 1.15, 0, maxScroll);
+}
+
+canvas.addEventListener('wheel', handleShopWheel, { passive: false });
+window.addEventListener('wheel', handleShopWheel, { passive: false });
 
 function getMouse(e) {
   const rect = canvas.getBoundingClientRect();
@@ -2120,12 +2128,37 @@ function getBasicAttackProfile() {
   return { kind, cooldown: 0.28, range: 65, power: 1.0, hits: 1, magic: false, color: '#ffb020' };
 }
 
+
+function getCurrentWeaponEffectPower() {
+  const ref = equipment.weapon;
+  const item = getItemData(ref);
+  if (!item) return 1;
+
+  const reqLevel = item.reqLevel || 1;
+  const enhance = itemEnhance(ref);
+  const priceTier = Math.min(1.2, (item.price || 100) / 1200);
+
+  return clamp(1 + reqLevel / 16 + enhance * 0.16 + priceTier, 1, 4.8);
+}
+
+function getCurrentWeaponEffectColor() {
+  const item = getItemData(equipment.weapon);
+  if (!item) return '#ffb020';
+
+  if (item.weaponType === 'staff') return '#74c0fc';
+  if (item.weaponType === 'bow') return '#ffd43b';
+  if (item.weaponType === 'dagger') return '#c084fc';
+  return '#ff922b';
+}
+
 function basicAttack() {
   const p = game.player;
 
   if (p.attackTime > 0) return;
 
   const profile = getBasicAttackProfile();
+  const effectPower = getCurrentWeaponEffectPower();
+  const effectColor = getCurrentWeaponEffectColor();
 
   p.attackTime = profile.cooldown;
   p.attackKind = profile.kind;
@@ -2133,7 +2166,7 @@ function basicAttack() {
   p.animTime = 0;
 
   if (profile.projectile) {
-    spawnBasicWeaponProjectile(profile);
+    spawnBasicWeaponProjectile({ ...profile, effectPower, color: effectColor });
     return;
   }
 
@@ -2145,10 +2178,10 @@ function basicAttack() {
   });
 
   if (profile.kind === 'dagger') {
-    slashEffect(p.x + p.face * 30, p.y - 42, p.face, profile.color);
-    slashEffect(p.x + p.face * 45, p.y - 52, p.face, '#ffffff');
+    slashEffect(p.x + p.face * 30, p.y - 42, p.face, effectColor, effectPower * 0.9);
+    slashEffect(p.x + p.face * 45, p.y - 52, p.face, '#ffffff', Math.max(1, effectPower * 0.65));
   } else {
-    slashEffect(p.x + p.face * 46, p.y - 48, p.face, profile.color);
+    slashEffect(p.x + p.face * 46, p.y - 48, p.face, effectColor, effectPower);
   }
 }
 
@@ -2169,7 +2202,8 @@ function spawnBasicWeaponProjectile(profile) {
       magic: profile.magic
     },
     hitSet: new Set(),
-    color: profile.color
+    color: profile.color,
+    effectPower: profile.effectPower || 1
   });
 }
 function useHotSkill(slot) {
@@ -3722,24 +3756,34 @@ function drawProjectiles() {
     ctx.translate(p.x, p.y);
     ctx.scale(p.face, 1);
 
+    const power = p.effectPower || 1;
     ctx.shadowColor = p.color;
-    ctx.shadowBlur = 14;
+    ctx.shadowBlur = 10 + power * 5;
 
     if (p.kind === 'arrow') {
       ctx.strokeStyle = '#78350f';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 3 + Math.min(2, power * 0.3);
       ctx.beginPath();
-      ctx.moveTo(-20, 0);
-      ctx.lineTo(18, 0);
+      ctx.moveTo(-20 - power * 3, 0);
+      ctx.lineTo(18 + power * 2, 0);
       ctx.stroke();
 
       ctx.fillStyle = '#e5e7eb';
       ctx.beginPath();
-      ctx.moveTo(22, 0);
-      ctx.lineTo(12, -5);
-      ctx.lineTo(12, 5);
+      ctx.moveTo(22 + power * 2, 0);
+      ctx.lineTo(12, -5 - power);
+      ctx.lineTo(12, 5 + power);
       ctx.closePath();
       ctx.fill();
+
+      if (power >= 2) {
+        ctx.strokeStyle = p.color || '#ffd43b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-30 - power * 4, 0);
+        ctx.lineTo(-5, 0);
+        ctx.stroke();
+      }
 
       ctx.fillStyle = '#fef3c7';
       ctx.fillRect(-24, -5, 7, 3);
@@ -3747,14 +3791,23 @@ function drawProjectiles() {
     } else if (p.kind === 'magic') {
       ctx.fillStyle = p.color;
       ctx.beginPath();
-      ctx.ellipse(0, 0, 18, 13, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, 15 + power * 3, 10 + power * 2, 0, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.strokeStyle = '#ffffffaa';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(0, 0, 24, 0, Math.PI * 2);
+      ctx.arc(0, 0, 20 + power * 5, 0, Math.PI * 2);
       ctx.stroke();
+
+      if (power >= 2.4) {
+        ctx.strokeStyle = p.color || '#74c0fc';
+        ctx.globalAlpha = 0.6;
+        ctx.beginPath();
+        ctx.arc(0, 0, 29 + power * 6, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
 
       ctx.fillStyle = '#fff8';
       ctx.beginPath();
@@ -4888,7 +4941,7 @@ function drawShopPanel() {
   const startY = 175;
   const rowH = 64;
   const rowCount = Math.ceil(list.length / 2);
-  const maxScroll = Math.max(0, rowCount * rowH - 380);
+  const maxScroll = Math.max(0, rowCount * rowH - 410);
   game.shopScroll = clamp(game.shopScroll || 0, 0, maxScroll);
 
   ctx.fillStyle = 'rgba(15,23,42,0.97)';
@@ -4945,7 +4998,7 @@ function drawShopPanel() {
     const trackX = 1125;
     const trackY = 170;
     const trackH = 395;
-    const thumbH = Math.max(42, trackH * (380 / (rowCount * rowH)));
+    const thumbH = Math.max(42, trackH * (410 / (rowCount * rowH)));
     const thumbY = trackY + (trackH - thumbH) * (game.shopScroll / maxScroll);
     ctx.fillStyle = '#334155';
     roundRect(ctx, trackX, trackY, 12, trackH, 6);
@@ -5193,17 +5246,37 @@ function makeText(text, x, y, color) {
   });
 }
 
-function slashEffect(x, y, face, color) {
-  game.particles.push({
-    type: 'slash',
-    x,
-    y,
-    face,
-    color,
-    vx: face * 80,
-    vy: -20,
-    life: 0.25
-  });
+function slashEffect(x, y, face, color, power) {
+  const effectPower = clamp(power || 1, 1, 5);
+  const slashCount = Math.ceil(effectPower);
+
+  for (let i = 0; i < slashCount; i++) {
+    game.particles.push({
+      type: 'slash',
+      x: x + face * i * 7,
+      y: y - i * 5,
+      face,
+      color,
+      power: effectPower,
+      vx: face * (80 + i * 28),
+      vy: -20 - i * 8,
+      life: 0.23 + i * 0.045
+    });
+  }
+
+  if (effectPower >= 1.8) {
+    for (let i = 0; i < effectPower * 5; i++) {
+      game.particles.push({
+        type: 'spark',
+        x: x + rand(-16, 16),
+        y: y + rand(-20, 12),
+        vx: face * rand(45, 175),
+        vy: rand(-120, 70),
+        life: rand(0.24, 0.58),
+        color
+      });
+    }
+  }
 }
 
 function circleEffect(x, y, color) {
@@ -5230,17 +5303,28 @@ function drawParticles() {
       ctx.scale(p.face, 1);
       ctx.globalAlpha = clamp(p.life * 4, 0, 1);
 
+      const power = p.power || 1;
+
       ctx.strokeStyle = p.color || '#ffe066';
-      ctx.lineWidth = 6;
+      ctx.lineWidth = 4 + power;
       ctx.beginPath();
-      ctx.arc(0, 0, 25, -0.7, 0.85);
+      ctx.arc(0, 0, 22 + power * 8, -0.8, 0.9);
       ctx.stroke();
 
-      ctx.strokeStyle = '#fff6';
+      ctx.strokeStyle = '#fff8';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(2, 0, 17, -0.7, 0.85);
+      ctx.arc(4, -2, 14 + power * 6, -0.75, 0.82);
       ctx.stroke();
+
+      if (power >= 2.2) {
+        ctx.strokeStyle = p.color || '#fff';
+        ctx.globalAlpha = clamp(p.life * 2.8, 0, 0.55);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(8, -4, 34 + power * 9, -0.65, 0.7);
+        ctx.stroke();
+      }
 
       ctx.restore();
     }
@@ -5826,6 +5910,694 @@ function darken(hex, amount) {
 
   return `rgb(${clamp(c.r - amount, 0, 255)}, ${clamp(c.g - amount, 0, 255)}, ${clamp(c.b - amount, 0, 255)})`;
 }
+
+
+/* =========================================================
+   Big Character / Job / Monster Visual Expansion Patch 2026-06-16
+   - SD 캐릭터 렌더링 재작성
+   - 머리 40종 / 표정 40종 데이터
+   - 일반 직업 40종 + 히든 직업 10종
+   - 직업 사무소 / 직업 초기화
+   - 숲/폐허 배경 퀄리티 강화
+   - 스킬 이펙트 타입 확장
+   - 몬스터 외형/AI 패턴 강화
+========================================================= */
+
+const HAIR_STYLES_40 = [
+  'basic','short','spiky','pony','wave','bob','mushroom','soft_bang','side_part','curly',
+  'twin_tail','long_tail','wild','flat','helmet_cut','leaf_pin','mage_long','warrior_spike','archer_feather','rogue_shadow',
+  'prince','princess','round_bob','messy','samurai','braid','cat_ear','horn','cloud','flame',
+  'ice','star','noble','bandana','cap','hood','half_up','drill','mini_tail','wind'
+];
+
+const FACE_STYLES_40 = [
+  'normal','bright','cute','sleepy','serious','smile','angry','surprise','wink','sad',
+  'determined','shy','blank','sparkle','cat','dot','wide','calm','smirk','cry',
+  'battle','hero','mage','rogue','archer','tired','confused','laugh','closed','focus',
+  'glow','round','tiny','sharp','soft','nervous','proud','panic','evil','angel'
+];
+
+const EXTRA_JOBS_40 = [
+  ['knight','기사','str','#60a5fa','sword_wave'], ['berserker','버서커','str','#ef4444','blood_slash'],
+  ['paladin','팔라딘','str','#fde68a','holy_guard'], ['spearman','창병','str','#93c5fd','pierce_line'],
+  ['guardian','가디언','str','#94a3b8','shield_bash'], ['duelist','듀얼리스트','dex','#f59e0b','cross_cut'],
+  ['samurai','사무라이','dex','#fca5a5','moon_cut'], ['blade_dancer','블레이드댄서','dex','#c084fc','dance_blade'],
+  ['ranger','레인저','dex','#84cc16','multi_arrow'], ['sniper','스나이퍼','dex','#38bdf8','snipe'],
+  ['beast_tamer','비스트테이머','dex','#a3e635','beast_call'], ['wind_archer','윈드아처','dex','#67e8f9','wind_arrow'],
+  ['crossbowman','석궁수','dex','#fbbf24','bolt_rain'], ['trapper','트래퍼','dex','#92400e','trap_burst'],
+  ['assassin','어쌔신','luk','#a78bfa','shadow_star'], ['ninja','닌자','luk','#818cf8','shuriken'],
+  ['phantom','팬텀','luk','#e879f9','phantom_card'], ['alchemist','연금술사','int','#34d399','acid_burst'],
+  ['wizard','위자드','int','#60a5fa','arcane_bolt'], ['pyromancer','파이로맨서','int','#fb7185','fire_wave'],
+  ['cryomancer','크라이오맨서','int','#7dd3fc','ice_spear'], ['thundercaller','썬더콜러','int','#facc15','thunder_ring'],
+  ['priest','프리스트','int','#fef3c7','holy_orb'], ['druid','드루이드','int','#86efac','root_bind'],
+  ['summoner','서머너','int','#c4b5fd','summon_wisp'], ['necromancer','네크로맨서','int','#a3a3a3','bone_spike'],
+  ['gunslinger','건슬링어','dex','#f97316','bullet_stream'], ['engineer','엔지니어','dex','#9ca3af','turret_shot'],
+  ['monk','몽크','str','#fcd34d','spirit_fist'], ['bard','바드','luk','#f9a8d4','music_wave'],
+  ['chef','전투요리사','str','#fb923c','pan_smash'], ['pirate','해적','str','#38bdf8','cannon_burst'],
+  ['lancer','랜서','str','#bfdbfe','lance_charge'], ['rune_mage','룬메이지','int','#a78bfa','rune_circle'],
+  ['star_seeker','별추적자','int','#f0abfc','starfall'], ['shadow_fencer','섀도펜서','luk','#7c3aed','dark_lunge'],
+  ['spirit_archer','정령궁수','dex','#4ade80','spirit_arrow'], ['battle_mage','배틀메이지','int','#f87171','magic_swing'],
+  ['plague_doctor','역병의사','int','#bef264','poison_cloud'], ['time_keeper','시간관리자','luk','#93c5fd','time_slice']
+];
+
+const HIDDEN_JOBS_10 = [
+  ['dragon_soul','히든: 드래곤소울','str','#f97316','dragon_breath'], ['star_emperor','히든: 별의 황제','int','#f0abfc','galaxy_burst'],
+  ['void_walker','히든: 보이드워커','luk','#6d28d9','void_gate'], ['world_tree_heir','히든: 세계수의 후계자','int','#4ade80','world_root'],
+  ['storm_lord','히든: 폭풍 군주','dex','#67e8f9','storm_field'], ['sun_champion','히든: 태양 용사','str','#fde047','solar_slash'],
+  ['moon_reaper','히든: 달빛 사신','luk','#c4b5fd','moon_reap'], ['ancient_mechanic','히든: 고대 기계공','dex','#94a3b8','ancient_laser'],
+  ['spirit_king','히든: 정령왕','int','#93c5fd','spirit_judgement'], ['maple_origin','히든: 태초의 모험가','str','#fca5a5','origin_bloom']
+];
+
+EXTRA_JOBS_40.concat(HIDDEN_JOBS_10).forEach(function (row) {
+  const id = row[0];
+  if (!JOBS[id]) JOBS[id] = { name: row[1], main: row[2], color: row[3], signature: row[4], hidden: id.indexOf('dragon_soul') === 0 || row[1].indexOf('히든') === 0 };
+});
+
+EXTRA_JOBS_40.concat(HIDDEN_JOBS_10).forEach(function (row, i) {
+  const skillId = row[4];
+  if (!SKILLS[skillId]) {
+    SKILLS[skillId] = {
+      id: skillId,
+      name: row[1].replace('히든: ', '') + ' 스킬',
+      job: row[0],
+      unlockLevel: row[1].indexOf('히든') === 0 ? 30 : 12 + (i % 8) * 3,
+      mp: 10 + (i % 9) * 3,
+      power: 1.55 + (i % 7) * 0.18,
+      range: 140 + (i % 5) * 42,
+      cooldown: 0.75 + (i % 6) * 0.14,
+      projectile: ['int','dex','luk'].includes(row[2]),
+      magic: row[2] === 'int',
+      effect: ['orb','slash','laser','ring','fire','ice','thunder','star','poison','shadow'][i % 10],
+      desc: '직업 고유 이펙트를 사용하는 전투 스킬입니다.'
+    };
+  }
+});
+
+function ensureExpandedCharacterOptions() {
+  if (!game || !game.player || !game.player.character) return;
+  if (!HAIR_STYLES_40.includes(game.player.character.hairStyle)) game.player.character.hairStyle = 'soft_bang';
+  if (!FACE_STYLES_40.includes(game.player.character.faceStyle)) game.player.character.faceStyle = 'bright';
+}
+
+const __expandedBaseLoadTown = loadTown;
+function loadTown(townId) {
+  __expandedBaseLoadTown(townId);
+  const existing = game.npcs.some(function (n) { return n.type === 'job_office'; });
+  if (!existing) {
+    game.npcs.push({
+      type: 'job_office',
+      name: '직업 사무소장',
+      x: 2180,
+      y: game.ground,
+      text: '큰 수수료를 내면 현재 직업을 포기하고 초보자로 돌아갈 수 있습니다.'
+    });
+  }
+}
+
+const __expandedBaseHandleDialogClick = handleDialogClick;
+function handleDialogClick(x, y) {
+  if (game.dialog && game.dialog.npc && game.dialog.npc.type === 'job_office') {
+    if (hit(x, y, 970, 620, 120, 40)) {
+      game.dialog = null;
+      return;
+    }
+    if (hit(x, y, 210, 620, 190, 42)) {
+      const cost = getJobResetCost();
+      if (wallet.gold < cost) {
+        makeText('직업 초기화 비용 부족', game.player.x, game.player.y - 90, '#ff8787');
+        return;
+      }
+      wallet.gold -= cost;
+      game.player.character.job = 'beginner';
+      skills.unlocked = skills.unlocked.filter(function (id) { return SKILLS[id] && SKILLS[id].job === 'beginner'; });
+      skills.hotkeys.k = skills.unlocked[0] || null;
+      skills.hotkeys.l = skills.unlocked[1] || null;
+      skills.hotkeys.semicolon = skills.unlocked[2] || null;
+      refreshUnlockedSkills();
+      recalcStats();
+      game.dialog = null;
+      makeText('직업을 초기화했습니다.', game.player.x, game.player.y - 90, '#ffe066');
+      if (typeof scheduleAutoSave === 'function') scheduleAutoSave();
+      return;
+    }
+  }
+  __expandedBaseHandleDialogClick(x, y);
+}
+
+function getJobResetCost() {
+  return Math.max(1500, game.player.level * game.player.level * 80);
+}
+
+const __expandedBaseDrawDialog = drawDialog;
+function drawDialog() {
+  if (game.dialog && game.dialog.npc && game.dialog.npc.type === 'job_office') {
+    const npc = game.dialog.npc;
+    const cost = getJobResetCost();
+    ctx.fillStyle = 'rgba(15,23,42,0.96)';
+    roundRect(ctx, 150, 545, 980, 125, 16);
+    ctx.strokeStyle = '#93c5fd';
+    ctx.strokeRect(150, 545, 980, 125);
+    ctx.fillStyle = '#ffe066';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(npc.name, 180, 580);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '15px sans-serif';
+    ctx.fillText('현재 직업을 포기하고 초보자로 돌아갑니다. 스킬도 초기화됩니다.', 180, 608);
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillText('비용: ' + cost + ' Gold', 180, 632);
+    ctx.fillStyle = '#4dabf7';
+    roundRect(ctx, 210, 620, 190, 42, 8);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('직업 초기화', 305, 647);
+    ctx.fillStyle = '#334155';
+    roundRect(ctx, 970, 620, 120, 40, 8);
+    ctx.fillStyle = '#fff';
+    ctx.fillText('닫기', 1030, 646);
+    return;
+  }
+  __expandedBaseDrawDialog();
+}
+
+const __expandedBaseDrawWorld = drawWorld;
+function drawWorld() {
+  const town = getTown(game.townId);
+  if (game.mode === 'hunt' && (town.theme === 'forest' || town.theme === 'grass' || town.theme === 'ruin')) {
+    drawExpandedHuntWorld(town);
+    return;
+  }
+  __expandedBaseDrawWorld();
+}
+
+function drawExpandedHuntWorld(town) {
+  const ruin = town.theme === 'ruin';
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, ruin ? '#1e3a5f' : '#6fb6d6');
+  sky.addColorStop(0.45, ruin ? '#60a5fa' : '#dff7ff');
+  sky.addColorStop(1, ruin ? '#c7d2fe' : '#dfffe5');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, game.width, H);
+
+  for (let layer = 0; layer < 5; layer++) {
+    const par = 0.08 + layer * 0.06;
+    const baseY = 250 + layer * 55;
+    const alpha = 0.18 + layer * 0.12;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = ruin ? ['#172554','#1e3a8a','#334155','#475569','#64748b'][layer] : ['#164e63','#0f766e','#166534','#15803d','#14532d'][layer];
+    for (let x = -300; x < game.width + 500; x += ruin ? 260 : 120) {
+      const sx = x + Math.floor(game.cameraX * par) % 180;
+      if (ruin) drawRuinedSilhouette(sx, baseY + Math.sin(x * 0.02) * 25, layer);
+      else drawForestSilhouette(sx, baseY + Math.sin(x * 0.015) * 18, layer);
+    }
+    ctx.restore();
+  }
+
+  drawHuntObjects(town);
+  game.platforms.forEach(function (pf) { drawPlatform(pf.x, pf.y, pf.w, pf.h, town.theme); });
+  drawGround(town);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 26px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(getHunt(game.huntId).name, 34, 46);
+}
+
+function drawForestSilhouette(x, y, layer) {
+  const h = 160 + layer * 34;
+  ctx.fillRect(x - 8, y - h, 16 + layer * 4, h);
+  ctx.beginPath();
+  ctx.moveTo(x, y - h - 90);
+  ctx.lineTo(x - 45 - layer * 9, y - h + 20);
+  ctx.lineTo(x + 45 + layer * 9, y - h + 20);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(x, y - h - 45);
+  ctx.lineTo(x - 60 - layer * 10, y - h + 70);
+  ctx.lineTo(x + 60 + layer * 10, y - h + 70);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawRuinedSilhouette(x, y, layer) {
+  const h = 90 + layer * 42;
+  ctx.fillRect(x, y - h, 45 + layer * 12, h);
+  ctx.fillRect(x + 78, y - h * 0.85, 30, h * 0.85);
+  ctx.fillRect(x + 145, y - h * 1.15, 38, h * 1.15);
+  ctx.fillRect(x - 30, y - h * 0.65, 16, h * 0.65);
+  ctx.clearRect(x + 12, y - h + 18, 16, 32);
+}
+
+function getNpcRoleStyle(type) {
+  const map = {
+    taxi: { coat: '#facc15', trim: '#1f2937', hair: '#334155', prop: 'taxi' },
+    merchant: { coat: '#fb923c', trim: '#7c2d12', hair: '#78350f', prop: 'bag' },
+    weapon: { coat: '#94a3b8', trim: '#475569', hair: '#111827', prop: 'sword' },
+    blacksmith: { coat: '#78716c', trim: '#f97316', hair: '#292524', prop: 'hammer' },
+    quest: { coat: '#84cc16', trim: '#365314', hair: '#eab308', prop: 'scroll' },
+    job: { coat: '#a78bfa', trim: '#4c1d95', hair: '#f8fafc', prop: 'staff' },
+    job_office: { coat: '#38bdf8', trim: '#075985', hair: '#0f172a', prop: 'book' }
+  };
+  return map[type] || { coat: '#60a5fa', trim: '#1e3a8a', hair: '#334155', prop: 'none' };
+}
+
+function drawNPCs() {
+  game.npcs.forEach(function (npc) {
+    drawCuteNpc(npc, npc.x, npc.y);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(npc.name, npc.x, npc.y - 76);
+    if (Math.abs(game.player.x - npc.x) < 90) {
+      ctx.fillStyle = '#ffe066';
+      ctx.fillText('E 대화', npc.x, npc.y - 96);
+    }
+  });
+}
+
+function drawCuteNpc(npc, x, y) {
+  const st = getNpcRoleStyle(npc.type);
+  const fake = {
+    ...game.player,
+    character: { name: npc.name, job: 'beginner', skin: '#ffd7a8', hair: st.hair, hairStyle: npc.type === 'job' ? 'mage_long' : npc.type === 'blacksmith' ? 'bandana' : 'soft_bang', faceStyle: 'smile' },
+    anim: 'idle', animTime: performance.now() / 1000, face: 1,
+    npcStyle: st
+  };
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(0.82, 0.82);
+  drawSdBody(ctx, fake, st);
+  drawNpcProp(ctx, st.prop);
+  ctx.restore();
+}
+
+function drawNpcProp(c, prop) {
+  c.save();
+  c.lineWidth = 4;
+  c.lineCap = 'round';
+  if (prop === 'hammer') {
+    c.strokeStyle = '#5b3420'; c.beginPath(); c.moveTo(28, -42); c.lineTo(48, -62); c.stroke();
+    c.fillStyle = '#9ca3af'; roundRect(c, 38, -72, 26, 14, 3);
+  } else if (prop === 'bag') {
+    c.fillStyle = '#92400e'; roundRect(c, 27, -46, 22, 28, 6); c.fillStyle = '#fbbf24'; c.fillRect(34, -39, 8, 5);
+  } else if (prop === 'sword') {
+    c.strokeStyle = '#e5e7eb'; c.beginPath(); c.moveTo(28, -30); c.lineTo(53, -70); c.stroke();
+  } else if (prop === 'staff') {
+    c.strokeStyle = '#c4b5fd'; c.beginPath(); c.moveTo(32, -24); c.lineTo(50, -82); c.stroke(); c.fillStyle = '#93c5fd'; circle(c, 52, -86, 7);
+  } else if (prop === 'book') {
+    c.fillStyle = '#1d4ed8'; roundRect(c, 26, -60, 25, 18, 3); c.fillStyle = '#f8fafc'; c.fillRect(37, -58, 2, 14);
+  } else if (prop === 'taxi') {
+    c.fillStyle = '#fde047'; roundRect(c, -20, -126, 40, 14, 5); c.fillStyle = '#111827'; c.font = 'bold 9px sans-serif'; c.textAlign = 'center'; c.fillText('TAXI', 0, -116);
+  } else if (prop === 'scroll') {
+    c.fillStyle = '#fef3c7'; roundRect(c, 28, -58, 20, 28, 4);
+    c.strokeStyle = '#92400e'; c.lineWidth = 1; c.beginPath(); c.moveTo(32, -50); c.lineTo(44, -50); c.moveTo(32, -44); c.lineTo(43, -44); c.stroke();
+  }
+  c.restore();
+}
+
+function drawPlayerBody(c, player) {
+  ensureExpandedCharacterOptions();
+  drawSdBody(c, player, null);
+}
+
+function drawSdBody(c, player, forcedStyle) {
+  const ch = player.character || game.player.character;
+  const walk = Math.sin((player.animTime || 0) * 12);
+  const moving = player.anim === 'walk';
+  const atk = player.anim === 'attack' ? Math.sin(Math.min(1, (player.animTime || 0) * 10) * Math.PI) : 0;
+  const jump = player.anim === 'jump';
+  const st = forcedStyle || getCharacterOutfit(ch);
+
+  c.save();
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+
+  c.fillStyle = 'rgba(0,0,0,0.22)';
+  c.beginPath(); c.ellipse(0, 5, 25, 6, 0, 0, Math.PI * 2); c.fill();
+
+  const legSwing = moving ? walk * 8 : 0;
+  const armSwing = moving ? -walk * 10 : 0;
+
+  // legs, rounded and connected
+  c.strokeStyle = '#2b2118'; c.lineWidth = 9;
+  c.beginPath(); c.moveTo(-9, -35); c.quadraticCurveTo(-14 - legSwing, -18, -17 - legSwing, -5); c.stroke();
+  c.beginPath(); c.moveTo(9, -35); c.quadraticCurveTo(14 + legSwing, -18, 17 + legSwing, -5); c.stroke();
+  c.strokeStyle = ch.skin || '#ffd7a8'; c.lineWidth = 5;
+  c.beginPath(); c.moveTo(-9, -35); c.quadraticCurveTo(-14 - legSwing, -19, -17 - legSwing, -7); c.stroke();
+  c.beginPath(); c.moveTo(9, -35); c.quadraticCurveTo(14 + legSwing, -19, 17 + legSwing, -7); c.stroke();
+  c.fillStyle = '#3f2d20'; roundRect(c, -27 - legSwing, -8, 22, 8, 3); roundRect(c, 5 + legSwing, -8, 22, 8, 3);
+
+  // body as compact chibi torso
+  c.fillStyle = '#111827'; roundRect(c, -25, -77, 50, 47, 15);
+  c.fillStyle = st.coat || '#4f93f5'; roundRect(c, -21, -74, 42, 42, 13);
+  c.fillStyle = st.trim || '#2f6fbd'; roundRect(c, -16, -45, 32, 9, 4);
+  c.fillStyle = '#f8fafc'; c.fillRect(-11, -69, 22, 6);
+
+  // arms attached to torso
+  let lx = -28 + armSwing, ly = -57;
+  let rx = 28 - armSwing + atk * 27, ry = -57 + atk * 6;
+  if (jump) { lx = -30; rx = 30; ly = -66; ry = -66; }
+  c.strokeStyle = '#111827'; c.lineWidth = 11;
+  c.beginPath(); c.moveTo(-20, -63); c.quadraticCurveTo(-28, -58, lx, ly); c.stroke();
+  c.beginPath(); c.moveTo(20, -63); c.quadraticCurveTo(30, -58, rx, ry); c.stroke();
+  c.strokeStyle = ch.skin || '#ffd7a8'; c.lineWidth = 6;
+  c.beginPath(); c.moveTo(-20, -63); c.quadraticCurveTo(-28, -58, lx, ly); c.stroke();
+  c.beginPath(); c.moveTo(20, -63); c.quadraticCurveTo(30, -58, rx, ry); c.stroke();
+  c.fillStyle = ch.skin || '#ffd7a8'; circle(c, lx, ly, 4.5); circle(c, rx, ry, 4.5);
+
+  const weaponObj = equipment.weapon;
+  const weaponId = weaponObj && (weaponObj.id || weaponObj);
+  drawWeapon(c, weaponId, rx, ry, player.anim === 'attack');
+
+  // neck/head: big cute SD head
+  c.fillStyle = '#111827'; roundRect(c, -7, -86, 14, 11, 4);
+  c.fillStyle = ch.skin || '#ffd7a8'; roundRect(c, -5, -85, 10, 9, 4);
+
+  c.fillStyle = '#111827';
+  c.beginPath(); c.ellipse(0, -112, 35, 38, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = ch.skin || '#ffd7a8';
+  c.beginPath(); c.ellipse(0, -112, 32, 35, 0, 0, Math.PI * 2); c.fill();
+
+  c.fillStyle = 'rgba(255,160,130,0.25)';
+  c.beginPath(); c.ellipse(-18, -105, 8, 4, 0, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(18, -105, 8, 4, 0, 0, Math.PI * 2); c.fill();
+
+  drawHair(c, ch, -119);
+  drawFace(c, ch, -112);
+
+  const helmObj = equipment.helmet;
+  const helmId = helmObj && (helmObj.id || helmObj);
+  if (helmId && ITEMS[helmId]) drawTinyHelmet(c, ITEMS[helmId]);
+
+  c.restore();
+}
+
+function getCharacterOutfit(ch) {
+  const job = JOBS[(ch && ch.job) || 'beginner'] || JOBS.beginner;
+  const armorObj = equipment.armor;
+  const armorId = armorObj && (armorObj.id || armorObj);
+  const item = ITEMS[armorId];
+  if (item) {
+    if (item.icon === 'armor') return { coat: item.color || '#64748b', trim: darken(item.color || '#64748b', 35) };
+  }
+  return { coat: job.color || '#4f93f5', trim: darken(job.color || '#4f93f5', 45) };
+}
+
+function drawTinyHelmet(c, item) {
+  c.fillStyle = item.color || '#94a3b8';
+  c.beginPath(); c.ellipse(0, -135, 31, 15, 0, Math.PI, 0); c.fill();
+  c.fillStyle = 'rgba(255,255,255,0.32)'; c.fillRect(-12, -145, 14, 3);
+}
+
+function drawHair(c, ch, headY) {
+  const hair = ch.hair || '#2b160e';
+  const style = ch.hairStyle || 'soft_bang';
+  c.save();
+  c.fillStyle = '#111827';
+  c.beginPath(); c.ellipse(0, headY - 12, 34, 20, 0, Math.PI, 0); c.fill();
+  c.fillStyle = hair;
+  c.beginPath(); c.ellipse(0, headY - 13, 31, 18, 0, Math.PI, 0); c.fill();
+
+  const idx = Math.max(0, HAIR_STYLES_40.indexOf(style));
+  const mode = idx % 10;
+  if (mode === 0 || style === 'soft_bang') {
+    for (let i = -24; i <= 18; i += 10) { c.beginPath(); c.moveTo(i, headY - 9); c.quadraticCurveTo(i + 8, headY + 5, i + 3, headY + 12); c.quadraticCurveTo(i - 4, headY + 1, i, headY - 9); c.fill(); }
+  } else if (mode === 1) {
+    roundRect(c, -28, headY - 20, 56, 22, 12); c.fillRect(-24, headY - 5, 48, 9);
+  } else if (mode === 2) {
+    for (let i = -28; i <= 21; i += 7) { c.beginPath(); c.moveTo(i, headY - 4); c.lineTo(i + 5, headY - 26 - (i % 3) * 3); c.lineTo(i + 11, headY - 4); c.closePath(); c.fill(); }
+  } else if (mode === 3) {
+    roundRect(c, -28, headY - 20, 50, 24, 12); c.beginPath(); c.ellipse(31, headY + 3, 11, 22, -0.25, 0, Math.PI * 2); c.fill();
+  } else if (mode === 4) {
+    for (let i = -27; i <= 21; i += 12) { c.beginPath(); c.ellipse(i, headY + 1, 10, 15, -0.2, 0, Math.PI * 2); c.fill(); }
+  } else if (mode === 5) {
+    roundRect(c, -30, headY - 20, 60, 32, 15); c.fillStyle = ch.skin || '#ffd7a8'; c.fillRect(-24, headY + 4, 48, 12); c.fillStyle = hair;
+  } else if (mode === 6) {
+    c.beginPath(); c.ellipse(-32, headY + 2, 10, 22, 0.25, 0, Math.PI * 2); c.fill(); c.beginPath(); c.ellipse(32, headY + 2, 10, 22, -0.25, 0, Math.PI * 2); c.fill();
+  } else if (mode === 7) {
+    c.beginPath(); c.moveTo(-26, headY - 8); c.lineTo(-36, headY - 26); c.lineTo(-14, headY - 16); c.fill(); c.beginPath(); c.moveTo(26, headY - 8); c.lineTo(36, headY - 26); c.lineTo(14, headY - 16); c.fill();
+  } else if (mode === 8) {
+    c.fillStyle = '#ef4444'; roundRect(c, -31, headY - 18, 62, 7, 3); c.fillStyle = hair;
+  } else {
+    c.beginPath(); c.ellipse(0, headY - 24, 18, 8, 0, 0, Math.PI * 2); c.fill();
+  }
+  c.fillStyle = 'rgba(255,255,255,0.22)'; c.fillRect(-14, headY - 27, 14, 3);
+  c.restore();
+}
+
+function drawFace(c, ch, headY) {
+  const style = ch.faceStyle || 'bright';
+  const idx = Math.max(0, FACE_STYLES_40.indexOf(style));
+  c.save();
+  c.fillStyle = '#111827';
+  const eyeMode = idx % 8;
+  if (eyeMode === 0) { c.fillRect(-11, headY - 8, 4, 6); c.fillRect(7, headY - 8, 4, 6); }
+  else if (eyeMode === 1) { circle(c, -10, headY - 7, 3.5); circle(c, 10, headY - 7, 3.5); c.fillStyle = '#fff'; circle(c, -11, headY - 8, 1); circle(c, 9, headY - 8, 1); }
+  else if (eyeMode === 2) { c.strokeStyle = '#111827'; c.lineWidth = 2; c.beginPath(); c.moveTo(-13, headY - 7); c.lineTo(-6, headY - 4); c.moveTo(6, headY - 4); c.lineTo(13, headY - 7); c.stroke(); }
+  else if (eyeMode === 3) { c.strokeStyle = '#111827'; c.lineWidth = 2; c.beginPath(); c.moveTo(-13, headY - 7); c.lineTo(-6, headY - 7); c.moveTo(6, headY - 7); c.lineTo(13, headY - 7); c.stroke(); }
+  else if (eyeMode === 4) { c.fillRect(-13, headY - 9, 6, 3); c.fillRect(7, headY - 9, 6, 3); }
+  else if (eyeMode === 5) { c.fillRect(-11, headY - 8, 3, 4); c.fillRect(8, headY - 8, 3, 4); }
+  else if (eyeMode === 6) { c.fillRect(-15, headY - 8, 5, 7); c.fillRect(10, headY - 8, 5, 7); }
+  else { c.fillRect(-10, headY - 8, 2, 2); c.fillRect(8, headY - 8, 2, 2); }
+
+  c.strokeStyle = '#111827'; c.lineWidth = 2;
+  const mouth = Math.floor(idx / 8) % 5;
+  if (mouth === 0) { c.beginPath(); c.arc(0, headY + 4, 5, 0, Math.PI); c.stroke(); }
+  else if (mouth === 1) { c.fillStyle = '#111827'; c.fillRect(-4, headY + 5, 8, 2); }
+  else if (mouth === 2) { c.beginPath(); c.arc(0, headY + 8, 5, Math.PI, Math.PI * 2); c.stroke(); }
+  else if (mouth === 3) { c.fillStyle = '#111827'; c.beginPath(); c.ellipse(0, headY + 5, 3, 5, 0, 0, Math.PI * 2); c.fill(); }
+  else { c.beginPath(); c.moveTo(-4, headY + 4); c.quadraticCurveTo(0, headY + 8, 5, headY + 3); c.stroke(); }
+  c.restore();
+}
+
+const __expandedBaseSpawnMonsters = spawnMonsters;
+function spawnMonsters(hunt) {
+  __expandedBaseSpawnMonsters(hunt);
+  game.monsters.forEach(function (m, i) {
+    m.type.ai = ['walker','charger','ranged','jumper','guard','splitter','exploder','caster'][i % 8];
+    m.type.variant = Math.floor(m.type.level / 5) + (i % 3);
+    m.type.color2 = getMonsterAccent(m.type.family, m.type.level);
+    m.rangeCooldown = rand(0.5, 2.5);
+    m.chargeTime = 0;
+  });
+}
+
+function getMonsterAccent(family, level) {
+  const palette = {
+    slime: ['#86efac','#22c55e','#06b6d4','#a78bfa','#f472b6','#facc15'],
+    mushroom: ['#d97706','#ef4444','#7c2d12','#fbbf24','#a3e635'],
+    mana: ['#93c5fd','#38bdf8','#818cf8','#f0abfc'],
+    boar: ['#92400e','#78350f','#44403c','#991b1b'],
+    shadow: ['#6d28d9','#312e81','#111827','#be123c'],
+    bug: ['#84cc16','#22c55e','#14b8a6','#eab308'],
+    ore: ['#94a3b8','#64748b','#f59e0b','#22d3ee'],
+    ice: ['#bae6fd','#67e8f9','#60a5fa','#c4b5fd'],
+    desert: ['#fbbf24','#fb923c','#a16207','#fef3c7'],
+    ruin: ['#818cf8','#475569','#a78bfa','#f43f5e']
+  };
+  const arr = palette[family] || palette.slime;
+  return arr[Math.floor(level / 5) % arr.length];
+}
+
+function updateMonsters(dt) {
+  if (game.mode !== 'hunt') return;
+  game.monsters.forEach(function (m) {
+    if (m.dead) return;
+    m.time += dt;
+    m.hit = Math.max(0, m.hit - dt);
+    m.attackCooldown = Math.max(0, m.attackCooldown - dt);
+    m.rangeCooldown = Math.max(0, (m.rangeCooldown || 0) - dt);
+    const dx = game.player.x - m.x;
+    const dist = Math.abs(dx);
+    m.face = dx > 0 ? 1 : -1;
+    const ai = m.type.ai || 'walker';
+    if (ai === 'charger' && dist < 480) {
+      m.chargeTime = Math.max(0, (m.chargeTime || 0) - dt);
+      if (m.chargeTime <= 0) m.chargeTime = 1.6;
+      m.x += m.face * m.type.speed * (m.chargeTime > 1.1 ? 4.2 : 0.7) * dt;
+    } else if (ai === 'ranged' || ai === 'caster') {
+      if (dist > 260) m.x += m.face * m.type.speed * 0.75 * dt;
+      if (dist < 560 && m.rangeCooldown <= 0) {
+        spawnMonsterProjectile(m, ai === 'caster');
+        m.rangeCooldown = ai === 'caster' ? 2.4 : 1.6;
+      }
+    } else if (ai === 'jumper') {
+      m.x += m.face * m.type.speed * 1.2 * dt;
+      m.y = m.spawnY - Math.abs(Math.sin(m.time * 3.2)) * 38;
+    } else if (ai === 'guard') {
+      if (dist < 240) m.x -= m.face * m.type.speed * 0.5 * dt;
+      else m.x += Math.sin(m.time * 1.2) * 10 * dt;
+    } else if (ai === 'exploder') {
+      m.x += m.face * m.type.speed * 1.5 * dt;
+      if (dist < 55 && Math.abs(game.player.y - m.y) < 90) {
+        circleEffect(m.x, m.y - 35, '#fb7185');
+        game.player.hp = Math.max(0, game.player.hp - Math.max(5, m.type.atk * 2));
+        killMonster(m);
+      }
+    } else {
+      if (dist < 380) m.x += m.face * m.type.speed * dt;
+      else m.x += Math.sin(m.time * 1.5) * 13 * dt;
+    }
+    m.x = clamp(m.x, m.baseX - 260, m.baseX + 260);
+    const touchX = Math.abs(game.player.x - m.x) < 48;
+    const touchY = Math.abs(game.player.y - m.y) < 85;
+    if (touchX && touchY && game.player.invincible <= 0) {
+      const damage = Math.max(1, Math.floor(m.type.atk - game.player.defense * 0.45));
+      game.player.hp = Math.max(0, game.player.hp - damage);
+      game.player.invincible = 0.9;
+      game.player.hurtTime = 0.2;
+      game.player.vx = -m.face * 120;
+      makeText('-' + damage, game.player.x, game.player.y - 90, '#ff8787');
+    }
+  });
+}
+
+function spawnMonsterProjectile(m, magic) {
+  game.projectiles.push({
+    x: m.x + m.face * 32,
+    y: m.y - 42,
+    vx: m.face * (magic ? 260 : 320),
+    life: 2.2,
+    face: m.face,
+    hostile: true,
+    damage: m.type.atk,
+    color: magic ? m.type.color2 : '#fbbf24',
+    hitSet: new Set(),
+    skill: { power: 1, magic: magic }
+  });
+}
+
+const __expandedBaseUpdateProjectiles = updateProjectiles;
+function updateProjectiles(dt) {
+  game.projectiles.forEach(function (p) {
+    if (!p.hostile) return;
+    p.life -= dt;
+    p.x += p.vx * dt;
+    if (Math.abs(p.x - game.player.x) < 28 && Math.abs(p.y - (game.player.y - 45)) < 48 && game.player.invincible <= 0) {
+      const damage = Math.max(1, Math.floor((p.damage || 5) - game.player.defense * 0.35));
+      game.player.hp = Math.max(0, game.player.hp - damage);
+      game.player.invincible = 0.75;
+      makeText('-' + damage, game.player.x, game.player.y - 88, '#ff8787');
+      p.life = 0;
+    }
+  });
+  game.projectiles = game.projectiles.filter(function (p) { return !p.hostile || p.life > 0; });
+  __expandedBaseUpdateProjectiles(dt);
+}
+
+function drawMonsterShape(type) {
+  const color = type.color;
+  const accent = type.color2 || lighten(color, 30);
+  const level = type.level || 1;
+  const v = type.variant || 0;
+  const scale = 1 + Math.min(0.7, level / 60);
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#111827';
+
+  if (type.shape === 'slime') {
+    ctx.fillStyle = '#111827'; ctx.beginPath(); ctx.ellipse(0, -20, 31, 22, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = accent; ctx.beginPath(); ctx.ellipse(0, -23, 27, 18 + (v % 3), 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = lighten(accent, 35); ctx.beginPath(); ctx.ellipse(-10, -31, 8, 4, -0.3, 0, Math.PI * 2); ctx.fill();
+    if (level >= 8) { ctx.fillStyle = darken(accent, 35); for (let i=-18;i<=18;i+=12) circle(ctx, i, -38 - (i%2)*3, 4); }
+    if (level >= 15) { ctx.strokeStyle = '#d9f99d'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, -23, 38, -0.25, Math.PI + 0.25); ctx.stroke(); }
+    ctx.fillStyle = '#111827'; ctx.fillRect(-10, -26, 5, 5); ctx.fillRect(6, -26, 5, 5);
+    ctx.restore(); return;
+  }
+
+  if (type.shape === 'mushroom') {
+    ctx.fillStyle = '#111827'; ctx.beginPath(); ctx.ellipse(0, -50, 34, 24, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = accent; ctx.beginPath(); ctx.ellipse(0, -52, 30, 21, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#fff7ed'; roundRect(ctx, -19, -49, 38, 32, 9);
+    ctx.fillStyle = color; circle(ctx, -12, -57, 5); circle(ctx, 9, -62, 4); if (level > 10) circle(ctx, 20, -50, 5);
+    ctx.fillStyle = '#111827'; ctx.fillRect(-9, -38, 4, 5); ctx.fillRect(6, -38, 4, 5);
+    ctx.restore(); return;
+  }
+
+  if (type.shape === 'spirit') {
+    ctx.shadowColor = accent; ctx.shadowBlur = 15 + Math.min(20, level);
+    ctx.fillStyle = accent; ctx.beginPath(); ctx.ellipse(0, -43, 25, 33, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = lighten(accent, 45); ctx.beginPath(); ctx.ellipse(-8, -54, 8, 13, -0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0; ctx.fillStyle = '#111827'; ctx.fillRect(-8, -47, 5, 7); ctx.fillRect(5, -47, 5, 7);
+    if (level > 14) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -43, 35, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.restore(); return;
+  }
+
+  if (type.shape === 'boar' || type.shape === 'lizard' || type.shape === 'bug') {
+    ctx.fillStyle = '#111827'; roundRect(ctx, -42, -53, 84, 38, 17);
+    ctx.fillStyle = accent; roundRect(ctx, -38, -56, 76, 35, 16);
+    ctx.fillStyle = lighten(accent, 32); roundRect(ctx, 12, -65, 30, 24, 10);
+    ctx.fillStyle = '#111827'; ctx.fillRect(22, -57, 5, 5);
+    ctx.strokeStyle = '#111827'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(-22, -24); ctx.lineTo(-30, -3); ctx.moveTo(18, -24); ctx.lineTo(28, -3); ctx.stroke();
+    if (type.ai === 'charger') { ctx.fillStyle = '#fef3c7'; ctx.beginPath(); ctx.moveTo(39, -48); ctx.lineTo(56, -42); ctx.lineTo(39, -37); ctx.fill(); }
+    if (type.ai === 'ranged') { ctx.strokeStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(-5, -70, 16, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.restore(); return;
+  }
+
+  // ogre/golem/ruin high quality body
+  ctx.fillStyle = '#111827'; roundRect(ctx, -43, -101, 86, 86, 18);
+  ctx.fillStyle = accent; roundRect(ctx, -37, -96, 74, 78, 16);
+  ctx.fillStyle = lighten(accent, 30); roundRect(ctx, -26, -125, 52, 38, 12);
+  ctx.fillStyle = darken(accent, 35); roundRect(ctx, -62, -68, 23, 54, 9); roundRect(ctx, 39, -68, 23, 54, 9);
+  ctx.fillStyle = '#111827'; ctx.fillRect(-11, -112, 6, 7); ctx.fillRect(6, -112, 6, 7);
+  if (type.ai === 'caster') { ctx.strokeStyle = '#c4b5fd'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, -69, 48, 0, Math.PI * 2); ctx.stroke(); }
+  if (level > 20) { ctx.fillStyle = '#fbbf24'; circle(ctx, 0, -128, 5); circle(ctx, -24, -98, 4); circle(ctx, 24, -98, 4); }
+  ctx.restore();
+}
+
+const __expandedBaseDrawProjectiles = drawProjectiles;
+function drawProjectiles() {
+  game.projectiles.forEach(function (p) {
+    if (!p.hostile) return;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.face, 1);
+    ctx.shadowColor = p.color || '#fff'; ctx.shadowBlur = 15;
+    ctx.fillStyle = p.color || '#fff';
+    ctx.beginPath(); ctx.ellipse(0, 0, 14, 7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff8'; circle(ctx, 5, -1, 3); ctx.restore();
+  });
+  const hostile = game.projectiles.filter(function (p) { return p.hostile; });
+  game.projectiles = game.projectiles.filter(function (p) { return !p.hostile; });
+  __expandedBaseDrawProjectiles();
+  game.projectiles = game.projectiles.concat(hostile);
+}
+
+const __expandedBaseUseSkill = useSkill;
+function useSkill(id) {
+  const skill = SKILLS[id];
+  if (skill && skill.effect) {
+    const p = game.player;
+    const oldCount = game.particles.length;
+    __expandedBaseUseSkill(id);
+    if (game.particles.length >= oldCount) spawnSkillVisual(skill, p.x + p.face * 55, p.y - 50, p.face);
+    return;
+  }
+  __expandedBaseUseSkill(id);
+}
+
+function spawnSkillVisual(skill, x, y, face) {
+  const colorMap = { orb:'#93c5fd', slash:'#fb923c', laser:'#22d3ee', ring:'#c4b5fd', fire:'#fb7185', ice:'#7dd3fc', thunder:'#fde047', star:'#f0abfc', poison:'#bef264', shadow:'#7c3aed' };
+  const color = colorMap[skill.effect] || '#93c5fd';
+  const amount = skill.effect === 'laser' ? 26 : 14;
+  for (let i = 0; i < amount; i++) {
+    const a = (i / amount) * Math.PI * 2;
+    game.particles.push({
+      type: skill.effect === 'slash' ? 'slash' : 'spark',
+      x: x + (skill.effect === 'laser' ? face * i * 14 : Math.cos(a) * rand(4, 32)),
+      y: y + (skill.effect === 'laser' ? Math.sin(i * 0.6) * 8 : Math.sin(a) * rand(4, 32)),
+      face: face,
+      color: color,
+      power: 1.4 + (game.player.level || 1) / 25,
+      vx: face * rand(60, 240),
+      vy: rand(-130, 80),
+      life: rand(0.3, 0.8)
+    });
+  }
+}
+
 
 /* =========================================================
    Loop
