@@ -8460,3 +8460,284 @@ function useSkill(id) {
   });
   heavyStrikeEffect(game.player.x, game.player.y, game.player.face, '#ff922b');
 }
+
+/* =========================================================
+   FACE / HAIR RESTORE PATCH
+   - Restores missing hair and face even if an earlier hair helper failed
+   - Keeps the floating gray cap/helmet hidden
+   - Uses self-contained drawing code, so it does not depend on old helper functions
+========================================================= */
+
+function drawSdHelmet(c, item) {
+  // Temporarily hidden because the previous helmet/cap was appearing as a floating gray object.
+  return;
+}
+
+function __safeHairColor(ch) {
+  const h = ch && ch.hair ? ch.hair : '#2b160e';
+  if (h === (ch && ch.skin)) return '#2b160e';
+  return h;
+}
+
+function __hairButtonShape(c, x, y, w, h, r) {
+  if (typeof roundRect === 'function') roundRect(c, x, y, w, h, r || 4);
+  else c.fillRect(x, y, w, h);
+}
+
+function __drawHairBlob(c, x, y, rx, ry, rot) {
+  c.beginPath();
+  c.ellipse(x, y, rx, ry, rot || 0, 0, Math.PI * 2);
+  c.fill();
+}
+
+function __drawHairTop(c, hair, headY) {
+  c.fillStyle = '#13233e';
+  c.beginPath();
+  c.ellipse(0, headY + 4, 29, 17, 0, Math.PI, 0);
+  c.fill();
+  c.fillStyle = hair;
+  c.beginPath();
+  c.ellipse(0, headY + 4, 26, 15, 0, Math.PI, 0);
+  c.fill();
+}
+
+function __drawDistinctHair(c, style, hair, skin, headY) {
+  c.save();
+  c.fillStyle = hair;
+
+  function bang(x, y, w, h, r) { __hairButtonShape(c, x, y, w, h, r); }
+  function spike(startX, y, count, size, gap) {
+    for (let i = 0; i < count; i++) {
+      const x = startX + i * (gap || size);
+      c.beginPath();
+      c.moveTo(x, y + size);
+      c.lineTo(x + size * 0.5, y - size * 0.55 - (i % 2) * 2);
+      c.lineTo(x + size, y + size);
+      c.closePath();
+      c.fill();
+    }
+  }
+
+  switch (style) {
+    case 'short':
+      __drawHairTop(c, hair, headY); bang(-15, headY + 1, 30, 6, 3); break;
+    case 'spiky':
+    case 'warrior_spike':
+    case 'thunder_spike':
+      __drawHairTop(c, hair, headY); spike(-22, headY - 4, 6, 8, 7); break;
+    case 'pony':
+    case 'long_tail':
+    case 'crescent_tail':
+      __drawHairTop(c, hair, headY); bang(-18, headY + 1, 36, 7, 3);
+      c.beginPath(); c.moveTo(18, headY + 4); c.quadraticCurveTo(35, headY + 13, 23, headY + 30); c.lineTo(12, headY + 26); c.quadraticCurveTo(24, headY + 13, 10, headY + 5); c.closePath(); c.fill(); break;
+    case 'wave':
+    case 'curly':
+      __drawHairTop(c, hair, headY);
+      for (let i = -18; i <= 18; i += 9) __drawHairBlob(c, i, headY + 8, 6, 8, 0);
+      __drawHairBlob(c, -22, headY + 13, 6, 12, 0.15); __drawHairBlob(c, 22, headY + 13, 6, 12, -0.15); break;
+    case 'bob':
+    case 'round_bob':
+    case 'square_cut':
+      __drawHairTop(c, hair, headY); bang(-22, headY + 1, 44, 10, style === 'square_cut' ? 1 : 5);
+      __drawHairBlob(c, -21, headY + 13, 6, 12, 0); __drawHairBlob(c, 21, headY + 13, 6, 12, 0); break;
+    case 'mushroom':
+      c.fillStyle = '#13233e'; c.beginPath(); c.ellipse(0, headY + 2, 31, 19, 0, Math.PI, 0); c.fill();
+      c.fillStyle = hair; c.beginPath(); c.ellipse(0, headY + 3, 28, 17, 0, Math.PI, 0); c.fill(); bang(-23, headY + 4, 46, 9, 4); break;
+    case 'soft_bang':
+    case 'mask_bang':
+      __drawHairTop(c, hair, headY);
+      for (let i = -20; i <= 13; i += 8) { c.beginPath(); c.moveTo(i, headY + 6); c.lineTo(i + 4, headY - 3); c.lineTo(i + 9, headY + 6); c.closePath(); c.fill(); }
+      if (style === 'mask_bang') { bang(-24, headY + 4, 20, 8, 3); }
+      break;
+    case 'side_part':
+      __drawHairTop(c, hair, headY); bang(-20, headY + 1, 40, 7, 3); c.beginPath(); c.moveTo(2, headY + 7); c.lineTo(18, headY - 7); c.lineTo(20, headY + 7); c.closePath(); c.fill(); break;
+    case 'twin_tail':
+    case 'ribbon_twin':
+      __drawHairTop(c, hair, headY); bang(-18, headY + 1, 36, 7, 3);
+      __drawHairBlob(c, -26, headY + 15, 7, 18, 0.3); __drawHairBlob(c, 26, headY + 15, 7, 18, -0.3);
+      if (style === 'ribbon_twin') { c.fillStyle = '#f472b6'; __drawHairBlob(c, -23, headY + 3, 4, 3, 0); __drawHairBlob(c, 23, headY + 3, 4, 3, 0); c.fillStyle = hair; }
+      break;
+    case 'wild':
+    case 'messy':
+    case 'wolf_cut':
+      __drawHairTop(c, hair, headY); spike(-24, headY - 3, 7, 7, 7); __drawHairBlob(c, -24, headY + 14, 6, 16, 0.4); __drawHairBlob(c, 24, headY + 14, 6, 16, -0.4); break;
+    case 'flat':
+      c.fillStyle = '#13233e'; bang(-26, headY - 3, 52, 11, 2); c.fillStyle = hair; bang(-24, headY - 1, 48, 8, 2); break;
+    case 'helmet_cut':
+      __drawHairTop(c, hair, headY); bang(-22, headY + 3, 44, 8, 2); __drawHairBlob(c, -20, headY + 13, 5, 10, 0); __drawHairBlob(c, 20, headY + 13, 5, 10, 0); break;
+    case 'leaf_pin':
+      __drawHairTop(c, hair, headY); bang(-18, headY + 1, 36, 7, 3); c.fillStyle = '#66c37a'; c.beginPath(); c.moveTo(15, headY - 3); c.quadraticCurveTo(25, headY - 9, 23, headY + 2); c.quadraticCurveTo(18, headY + 1, 15, headY - 3); c.fill(); break;
+    case 'mage_long':
+    case 'princess':
+    case 'seaweed_long':
+      __drawHairTop(c, hair, headY); bang(-17, headY + 1, 34, 7, 3);
+      for (let i = -24; i <= 24; i += 12) { c.beginPath(); c.moveTo(i, headY + 7); c.quadraticCurveTo(i + (i < 0 ? -7 : 7), headY + 22, i, headY + 34); c.quadraticCurveTo(i + (i < 0 ? 5 : -5), headY + 20, i, headY + 9); c.closePath(); c.fill(); }
+      break;
+    case 'archer_feather':
+      __drawHairTop(c, hair, headY); bang(-18, headY + 1, 36, 7, 3); c.fillStyle = '#38bdf8'; c.beginPath(); c.moveTo(-18, headY - 4); c.lineTo(-29, headY - 13); c.lineTo(-20, headY + 1); c.closePath(); c.fill(); break;
+    case 'rogue_shadow':
+      __drawHairTop(c, hair, headY); c.beginPath(); c.moveTo(-20, headY + 5); c.lineTo(-3, headY - 5); c.lineTo(8, headY + 6); c.closePath(); c.fill(); bang(-6, headY + 1, 25, 7, 3); __drawHairBlob(c, -22, headY + 11, 6, 12, 0.25); break;
+    case 'prince':
+      __drawHairTop(c, hair, headY); bang(-18, headY + 2, 36, 6, 3); c.beginPath(); c.moveTo(0, headY + 4); c.lineTo(7, headY - 4); c.lineTo(11, headY + 4); c.closePath(); c.fill(); break;
+    case 'samurai':
+    case 'half_up':
+      __drawHairTop(c, hair, headY); bang(-18, headY + 1, 36, 6, 3); __drawHairBlob(c, 0, headY - 9, 7, 5, 0); break;
+    case 'braid':
+      __drawHairTop(c, hair, headY); bang(-18, headY + 1, 36, 6, 3); for (let j = 0; j < 4; j++) __drawHairBlob(c, 22, headY + 8 + j * 5, 5, 4, 0); break;
+    case 'cat_ear':
+      __drawHairTop(c, hair, headY); c.beginPath(); c.moveTo(-15, headY - 2); c.lineTo(-24, headY - 13); c.lineTo(-7, headY - 6); c.closePath(); c.fill(); c.beginPath(); c.moveTo(15, headY - 2); c.lineTo(24, headY - 13); c.lineTo(7, headY - 6); c.closePath(); c.fill(); bang(-16, headY + 1, 32, 6, 3); break;
+    case 'horn':
+    case 'dragon_mohawk':
+      __drawHairTop(c, hair, headY); spike(-18, headY - 8, 5, 9, 8); if (style === 'horn') { c.fillStyle = '#d9c1a0'; c.beginPath(); c.moveTo(-12, headY - 5); c.lineTo(-22, headY - 16); c.lineTo(-16, headY - 4); c.closePath(); c.fill(); c.beginPath(); c.moveTo(12, headY - 5); c.lineTo(22, headY - 16); c.lineTo(16, headY - 4); c.closePath(); c.fill(); } break;
+    case 'cloud':
+    case 'fluffy_afro':
+      c.fillStyle = '#13233e'; for (let i = -20; i <= 20; i += 10) __drawHairBlob(c, i, headY + 2, 9, 9, 0); c.fillStyle = hair; for (let i = -18; i <= 18; i += 9) __drawHairBlob(c, i, headY + 4, 8, 8, 0); break;
+    case 'flame':
+      __drawHairTop(c, hair, headY); spike(-20, headY - 8, 5, 10, 8); break;
+    case 'ice':
+      c.fillStyle = '#13233e'; c.beginPath(); c.ellipse(0, headY + 2, 28, 16, 0, Math.PI, 0); c.fill(); c.fillStyle = '#c9efff'; spike(-19, headY - 5, 5, 8, 8); bang(-17, headY + 2, 34, 6, 3); break;
+    case 'star':
+      __drawHairTop(c, hair, headY); bang(-18, headY + 1, 36, 6, 3); c.fillStyle = '#facc15'; c.beginPath(); c.moveTo(18, headY - 5); c.lineTo(20, headY); c.lineTo(25, headY); c.lineTo(21, headY + 3); c.lineTo(23, headY + 8); c.lineTo(18, headY + 5); c.lineTo(13, headY + 8); c.lineTo(15, headY + 3); c.lineTo(11, headY); c.lineTo(16, headY); c.closePath(); c.fill(); break;
+    case 'noble':
+      __drawHairTop(c, hair, headY); bang(-18, headY + 2, 36, 6, 3); c.fillStyle = '#f8fafc'; bang(-12, headY - 4, 24, 3, 2); break;
+    case 'bandana':
+      __drawHairTop(c, hair, headY); c.fillStyle = '#ef4444'; bang(-24, headY - 3, 48, 8, 3); c.fillStyle = hair; bang(-16, headY + 3, 32, 5, 2); break;
+    case 'cap':
+      c.fillStyle = '#1f2937'; bang(-26, headY - 5, 52, 10, 5); c.fillStyle = hair; bang(-18, headY + 2, 36, 6, 3); break;
+    case 'hood':
+      c.fillStyle = '#2c4f8d'; c.beginPath(); c.ellipse(0, headY + 4, 30, 19, 0, Math.PI, 0); c.fill(); c.fillStyle = hair; bang(-14, headY + 2, 28, 6, 3); break;
+    case 'drill':
+    case 'royal_roll':
+      __drawHairTop(c, hair); bang(-18, headY + 1, 36, 7, 3); __drawHairBlob(c, -25, headY + 14, 8, 13, 0.15); __drawHairBlob(c, 25, headY + 14, 8, 13, -0.15); break;
+    case 'mini_tail':
+      __drawHairTop(c, hair, headY); bang(-18, headY + 1, 36, 7, 3); __drawHairBlob(c, 18, headY - 4, 5, 4, 0); c.beginPath(); c.moveTo(20, headY - 2); c.lineTo(27, headY + 7); c.lineTo(19, headY + 8); c.closePath(); c.fill(); break;
+    case 'wind':
+      __drawHairTop(c, hair, headY); c.beginPath(); c.moveTo(-18, headY + 5); c.quadraticCurveTo(3, headY - 10, 23, headY + 1); c.lineTo(18, headY + 9); c.quadraticCurveTo(-1, headY - 2, -18, headY + 7); c.closePath(); c.fill(); __drawHairBlob(c, 24, headY + 10, 6, 11, -0.35); break;
+    default:
+      __drawHairTop(c, hair, headY); bang(-18, headY + 1, 36, 7, 3); break;
+  }
+  c.restore();
+}
+
+function drawHair(c, ch, headY) {
+  const hair = __safeHairColor(ch || {});
+  const skin = (ch && ch.skin) || '#ffd8a8';
+  const style = (ch && ch.hairStyle) || 'basic';
+  __drawDistinctHair(c, style, hair, skin, headY);
+  c.save();
+  c.fillStyle = 'rgba(255,255,255,0.12)';
+  __hairButtonShape(c, -8, headY - 4, 9, 2.4, 1.2);
+  c.restore();
+}
+
+function drawFace(c, ch, headY) {
+  const style = (ch && ch.faceStyle) || 'normal';
+  const idx = SD_FACE_STYLES_40.indexOf(style) >= 0 ? SD_FACE_STYLES_40.indexOf(style) : 0;
+  const eyeMode = idx % 8;
+  const mouthMode = Math.floor(idx / 8) % 5;
+
+  c.save();
+  c.fillStyle = '#191919';
+  c.strokeStyle = '#191919';
+  c.lineWidth = 1.8;
+  const ey = headY - 1;
+
+  if (eyeMode === 0) { c.beginPath(); c.ellipse(-8, ey, 2.3, 4.6, -0.1, 0, Math.PI * 2); c.fill(); c.beginPath(); c.ellipse(8, ey, 2.3, 4.6, 0.1, 0, Math.PI * 2); c.fill(); }
+  else if (eyeMode === 1) { circle(c, -8, ey, 2.8); circle(c, 8, ey, 2.8); c.fillStyle = '#fff'; circle(c, -8.8, ey - 1, 0.8); circle(c, 7.2, ey - 1, 0.8); c.fillStyle = '#191919'; }
+  else if (eyeMode === 2) { c.beginPath(); c.moveTo(-12, ey); c.quadraticCurveTo(-8, ey + 3, -4.5, ey); c.stroke(); c.beginPath(); c.moveTo(4.5, ey); c.quadraticCurveTo(8, ey + 3, 12, ey); c.stroke(); }
+  else if (eyeMode === 3) { c.beginPath(); c.moveTo(-11, ey); c.lineTo(-5, ey); c.moveTo(5, ey); c.lineTo(11, ey); c.stroke(); }
+  else if (eyeMode === 4) { c.fillRect(-11, ey - 1.5, 6, 2.4); c.fillRect(5, ey - 1.5, 6, 2.4); }
+  else if (eyeMode === 5) { c.fillRect(-8.5, ey - 2, 2.4, 4.2); c.fillRect(6.1, ey - 2, 2.4, 4.2); }
+  else if (eyeMode === 6) { c.beginPath(); c.ellipse(-9, ey, 3, 5.2, 0, 0, Math.PI * 2); c.fill(); c.beginPath(); c.ellipse(9, ey, 3, 5.2, 0, 0, Math.PI * 2); c.fill(); }
+  else { c.fillRect(-8.5, ey, 2, 2); c.fillRect(6.5, ey, 2, 2); }
+
+  c.fillStyle = 'rgba(255,185,190,0.14)';
+  c.beginPath(); c.ellipse(-13, headY + 7, 4.0, 2.4, 0, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(13, headY + 7, 4.0, 2.4, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = 'rgba(70,40,24,0.18)';
+  c.beginPath(); c.ellipse(0, headY + 2.5, 0.9, 0.7, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = '#191919';
+
+  const my = headY + 10.5;
+  if (mouthMode === 0) { c.beginPath(); c.arc(0, my - 1.5, 4.3, 0, Math.PI); c.stroke(); }
+  else if (mouthMode === 1) c.fillRect(-3.4, my, 6.8, 1.8);
+  else if (mouthMode === 2) { c.beginPath(); c.arc(0, my + 2.5, 4.2, Math.PI, Math.PI * 2); c.stroke(); }
+  else if (mouthMode === 3) { c.beginPath(); c.ellipse(0, my, 2.4, 3.1, 0, 0, Math.PI * 2); c.fill(); }
+  else { c.beginPath(); c.moveTo(-4.2, my - 1); c.quadraticCurveTo(0, my + 3.8, 4.6, my - 1); c.stroke(); }
+  c.restore();
+}
+
+function drawPlayerBody(c, player) {
+  const ch = (player && player.character) || (game.player && game.player.character) || selected;
+  ensureSdCharacterStyle(ch);
+  if (!ch.hair || ch.hair === ch.skin) ch.hair = '#2b160e';
+  if (!ch.faceStyle) ch.faceStyle = 'normal';
+  if (!ch.hairStyle) ch.hairStyle = 'basic';
+
+  const drawEq = (player && player.__drawEquipment) || equipment || {};
+  const outfit = (typeof __getOutfitForDraw === 'function') ? __getOutfitForDraw(ch, drawEq) : { main: '#6aa8ff', trim: '#3f72c9' };
+  const animTime = player.animTime || 0;
+  const walk = Math.sin(animTime * 11);
+  const moving = player.anim === 'walk';
+  const attacking = player.anim === 'attack';
+  const jumping = player.anim === 'jump';
+  const hurt = player.hurtTime && player.hurtTime > 0;
+  const attackSwing = attacking ? Math.sin(Math.min(1, animTime * 11) * Math.PI) : 0;
+  const skin = ch.skin || '#ffd8a8';
+  const skinShadow = '#f0ba88';
+  const legMove = moving ? walk * 5 : 0;
+  const armMove = moving ? -walk * 4 : 0;
+
+  c.save();
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  if (hurt) c.globalAlpha = 0.74;
+
+  c.fillStyle = 'rgba(0,0,0,0.18)';
+  c.beginPath(); c.ellipse(0, 2, 20, 4.6, 0, 0, Math.PI * 2); c.fill();
+
+  c.strokeStyle = '#2a1d16'; c.lineWidth = 6.2;
+  c.beginPath(); c.moveTo(-5, -32); c.quadraticCurveTo(-7 - legMove * 0.2, -20, -14 - legMove * 0.8, -8); c.stroke();
+  c.beginPath(); c.moveTo(5, -32); c.quadraticCurveTo(7 + legMove * 0.2, -20, 14 + legMove * 0.8, -8); c.stroke();
+  c.strokeStyle = skin; c.lineWidth = 3.8;
+  c.beginPath(); c.moveTo(-5, -32); c.quadraticCurveTo(-7 - legMove * 0.2, -20, -14 - legMove * 0.8, -8); c.stroke();
+  c.beginPath(); c.moveTo(5, -32); c.quadraticCurveTo(7 + legMove * 0.2, -20, 14 + legMove * 0.8, -8); c.stroke();
+  c.fillStyle = '#5b3b1e'; __hairButtonShape(c, -24 - legMove * 0.2, -9, 15, 6, 3); __hairButtonShape(c, 9 + legMove * 0.2, -9, 15, 6, 3);
+
+  c.fillStyle = '#13233e'; __hairButtonShape(c, -19, -66, 38, 36, 13);
+  c.fillStyle = outfit.main || '#6aa8ff'; __hairButtonShape(c, -16, -63, 32, 31, 11);
+  c.fillStyle = 'rgba(255,255,255,0.92)'; __hairButtonShape(c, -9, -58, 18, 5.5, 3);
+  c.fillStyle = outfit.trim || '#3f72c9'; __hairButtonShape(c, -12, -40, 24, 6.5, 4);
+  c.fillStyle = 'rgba(255,255,255,0.14)'; __hairButtonShape(c, -12, -61, 8, 14, 5);
+
+  let leftHandX = -22 + armMove, leftHandY = -47, rightHandX = 22 - armMove + attackSwing * 21, rightHandY = -47 + attackSwing * 6;
+  if (jumping) { leftHandX = -24; leftHandY = -56; rightHandX = 24; rightHandY = -56; }
+  c.strokeStyle = '#13233e'; c.lineWidth = 7.8;
+  c.beginPath(); c.moveTo(-15, -56); c.quadraticCurveTo(-22, -53, leftHandX, leftHandY); c.stroke();
+  c.beginPath(); c.moveTo(15, -56); c.quadraticCurveTo(22, -53, rightHandX, rightHandY); c.stroke();
+  c.strokeStyle = skin; c.lineWidth = 4.6;
+  c.beginPath(); c.moveTo(-15, -56); c.quadraticCurveTo(-21, -53, leftHandX, leftHandY); c.stroke();
+  c.beginPath(); c.moveTo(15, -56); c.quadraticCurveTo(21, -53, rightHandX, rightHandY); c.stroke();
+  c.fillStyle = skin; circle(c, leftHandX, leftHandY, 3.8); circle(c, rightHandX, rightHandY, 3.8);
+
+  const weaponObj = drawEq.weapon; const weaponId = weaponObj && (weaponObj.id || weaponObj);
+  drawWeapon(c, weaponId, rightHandX, rightHandY, attacking);
+
+  c.fillStyle = '#13233e'; __hairButtonShape(c, -5, -72, 10, 8, 4);
+  c.fillStyle = skinShadow; __hairButtonShape(c, -3.5, -71, 7, 7, 3);
+  c.fillStyle = skin; __hairButtonShape(c, -3.5, -73, 7, 5.5, 3);
+
+  c.fillStyle = '#13233e';
+  c.beginPath(); c.ellipse(0, -98, 29, 30.5, 0, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(-22.5, -98, 4, 5.5, -0.2, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(22.5, -98, 4, 5.5, 0.2, 0, Math.PI * 2); c.fill();
+  c.fillStyle = skin;
+  c.beginPath(); c.ellipse(0, -98, 26, 28.5, 0, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(-22, -98, 3.2, 4.5, -0.2, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(22, -98, 3.2, 4.5, 0.2, 0, Math.PI * 2); c.fill();
+
+  drawHair(c, ch, -114);
+  drawFace(c, ch, -100);
+  // Helmet intentionally hidden until a better attached design is added.
+  c.restore();
+}
