@@ -8807,3 +8807,613 @@ function addStat(key) {
   markAutoSaveSoon();
   return true;
 }
+
+/* =========================================================
+   MINIMAL MONSTER DEATH / RESPAWN / ELDER QUEST FREEZE FIX
+   - Based on the user's currently working stat-click-fixed file.
+   - Fixes monsters staying alive at 0 HP.
+   - Increases monster respawn delay.
+   - Replaces the elder quest dialog/accept flow with a safe non-recursive version.
+========================================================= */
+
+const SAFE_MONSTER_RESPAWN_MIN = 9000;
+const SAFE_MONSTER_RESPAWN_MAX = 22000;
+
+function getSafeMonsterRespawnTime(type) {
+  const base = type && Number.isFinite(type.respawn) ? type.respawn : 5000;
+  return clamp(Math.floor(base * 2.7), SAFE_MONSTER_RESPAWN_MIN, SAFE_MONSTER_RESPAWN_MAX);
+}
+
+function damageMonster(m, skill) {
+  if (!m || m.dead || m._deathHandled) return;
+
+  const p = game.player;
+  const base = skill && skill.magic ? p.magicPower : p.attackPower;
+  const crit = Math.random() * 100 < p.critRate;
+  const raw = base * ((skill && skill.power) || 1);
+  const defense = m.type && Number.isFinite(m.type.def) ? m.type.def : 0;
+  const damage = Math.max(1, Math.floor(raw - defense + Math.random() * 8)) * (crit ? 2 : 1);
+
+  m.hp = Math.max(0, (m.hp || 0) - damage);
+  m.hit = 0.15;
+  m.x += p.face * 10;
+
+  makeText(crit ? `${damage}!` : `-${damage}`, m.x, m.y - 78, crit ? '#ffe066' : '#ff6b6b');
+
+  if (m.hp <= 0) {
+    killMonster(m);
+  }
+}
+
+function killMonster(m) {
+  if (!m || m.dead || m._deathHandled) return;
+
+  const type = m.type || {};
+  m._deathHandled = true;
+  m.dead = true;
+  m.hp = 0;
+  m.hit = 0;
+
+  const levelGap = Math.max(0, (type.level || 1) - game.player.level);
+  const expBonus = 1 + Math.min(1.5, levelGap * 0.08);
+  const finalExp = Math.floor((type.exp || 0) * expBonus);
+  const gold = Math.max(0, type.gold || 0);
+
+  addExp(finalExp);
+  wallet.gold += gold;
+
+  makeText(`EXP +${finalExp}`, m.x, m.y - 108, '#c0eb75');
+  makeText(`+${gold}G`, m.x, m.y - 130, '#ffd43b');
+
+  game.drops.push({
+    kind: 'gold',
+    amount: Math.max(1, Math.floor(gold * 0.35)),
+    x: m.x + rand(-15, 15),
+    y: m.y - 12,
+    vy: -120,
+    picked: false
+  });
+
+  if (type.drop && Math.random() < (type.dropRate || 0.35)) {
+    game.drops.push({
+      kind: 'item',
+      itemId: type.drop,
+      count: 1,
+      x: m.x + rand(-15, 15),
+      y: m.y - 12,
+      vy: -130,
+      picked: false
+    });
+  }
+
+  if (typeof getRareDropRate === 'function' && typeof getMonsterRareEquipmentDrop === 'function') {
+    if (Math.random() < getRareDropRate(type)) {
+      const rareId = getMonsterRareEquipmentDrop(type);
+      if (rareId) {
+        game.drops.push({
+          kind: 'item',
+          itemId: rareId,
+          count: 1,
+          x: m.x + rand(-22, 22),
+          y: m.y - 18,
+          vy: -150,
+          picked: false
+        });
+        makeText('희귀 장비!', m.x, m.y - 155, '#facc15');
+      }
+    }
+  }
+
+  if (typeof HIDDEN_PARCHMENT_IDS !== 'undefined' && Array.isArray(HIDDEN_PARCHMENT_IDS)) {
+    if (Math.random() < 0.0035) {
+      const itemId = HIDDEN_PARCHMENT_IDS[Math.floor(Math.random() * HIDDEN_PARCHMENT_IDS.length)];
+      game.drops.push({
+        kind: 'item',
+        itemId,
+        count: 1,
+        x: m.x + rand(-20, 20),
+        y: m.y - 24,
+        vy: -155,
+        picked: false
+      });
+      makeText('수상한 양피지!', m.x, m.y - 168, '#e9d5ff');
+    }
+  }
+
+  updateKillQuests(type.family);
+  markAutoSaveSoon();
+
+  const respawnDelay = getSafeMonsterRespawnTime(type);
+  clearTimeout(m._respawnTimer);
+  m._respawnTimer = setTimeout(function () {
+    m.dead = false;
+    m._deathHandled = false;
+    m.hp = m.maxHp || type.hp || 1;
+    m.x = (m.baseX || m.x) + rand(-50, 50);
+    m.y = m.spawnY || m.y;
+    m.hit = 0;
+    m.attackCooldown = 0;
+  }, respawnDelay);
+}
+
+const __safeUpdateMonstersBase = updateMonsters;
+function updateMonsters(dt) {
+  if (game.mode !== 'hunt') return;
+
+  // Safety net: if any earlier combat path leaves a monster at 0 HP without killing it,
+  // process death before the normal monster AI update runs.
+  game.monsters.forEach(function (m) {
+    if (!m || m.dead || m._deathHandled) return;
+    if ((m.hp || 0) <= 0) killMonster(m);
+  });
+
+  __safeUpdateMonstersBase(dt);
+}
+
+function getCurrentMainQuestId() {
+  const order = (typeof MAIN_QUEST_ORDER !== 'undefined' && Array.isArray(MAIN_QUEST_ORDER))
+    ? MAIN_QUEST_ORDER
+    : ['tutorial', 'elder_material_request', 'travel_greenwood_order'];
+
+  for (const id of order) {
+    if (!quests.completed.includes(id)) return id;
+  }
+  return null;
+}
+
+function isMainQuestLocked(id) {
+  const order = (typeof MAIN_QUEST_ORDER !== 'undefined' && Array.isArray(MAIN_QUEST_ORDER))
+    ? MAIN_QUEST_ORDER
+    : ['tutorial', 'elder_material_request', 'travel_greenwood_order'];
+
+  const idx = order.indexOf(id);
+  if (idx < 0) return false;
+  for (let i = 0; i < idx; i++) {
+    if (!quests.completed.includes(order[i])) return true;
+  }
+  return false;
+}
+
+function acceptOrCompleteQuest(id) {
+  const qBase = QUESTS[id];
+  if (!qBase) {
+    makeText('퀘스트 정보를 찾을 수 없습니다.', game.player.x, game.player.y - 90, '#ff8787');
+    return;
+  }
+
+  if (qBase.main && isMainQuestLocked(id)) {
+    makeText('이전 메인 퀘스트를 먼저 완료해야 합니다.', game.player.x, game.player.y - 110, '#ffdd99');
+    return;
+  }
+
+  if (quests.completed.includes(id)) {
+    makeText('이미 완료했습니다.', game.player.x, game.player.y - 90, '#cbd5e1');
+    return;
+  }
+
+  let q = quests.active.find(function (item) {
+    return item.id === id;
+  });
+
+  if (!q) {
+    q = JSON.parse(JSON.stringify(qBase));
+    quests.active.push(q);
+    makeText('퀘스트 수락!', game.player.x, game.player.y - 90, '#ffe066');
+    markAutoSaveSoon();
+    return;
+  }
+
+  syncQuestItems(q);
+
+  if (!questComplete(q)) {
+    makeText('아직 완료 조건이 부족합니다.', game.player.x, game.player.y - 90, '#ffdd99');
+    return;
+  }
+
+  completeQuest(q);
+  markAutoSaveSoon();
+}
+
+function getDialogQuestId(npc) {
+  if (!npc) return null;
+  if (npc.name === '장로 구름' || npc.type === 'quest') {
+    return getCurrentMainQuestId() || npc.quest || null;
+  }
+  return npc.quest || null;
+}
+
+function handleDialogClick(x, y) {
+  if (!game.dialog) return;
+
+  const npc = game.dialog.npc;
+
+  if (hit(x, y, 970, 620, 120, 40)) {
+    game.dialog = null;
+    return;
+  }
+
+  if (!hit(x, y, 210, 620, 190, 42)) return;
+
+  if (npc.type === 'taxi') {
+    game.dialog = null;
+    game.taxiOpen = true;
+    return;
+  }
+
+  if (npc.type === 'merchant' || npc.type === 'weapon') {
+    game.dialog = null;
+    game.shopOpen = npc.type;
+    game.shopScroll = 0;
+    return;
+  }
+
+  if (npc.type === 'blacksmith') {
+    game.dialog = null;
+    game.blacksmithOpen = true;
+    inventory.open = true;
+    return;
+  }
+
+  if (npc.type === 'quest' || npc.type === 'job' || npc.name === '장로 구름') {
+    const questId = getDialogQuestId(npc);
+    if (questId) acceptOrCompleteQuest(questId);
+  }
+}
+
+function wrapDialogText(text, maxChars) {
+  const src = String(text || '무엇을 도와드릴까요?');
+  const out = [];
+  let line = '';
+  src.split(' ').forEach(function (word) {
+    if ((line + ' ' + word).trim().length > maxChars) {
+      if (line) out.push(line);
+      line = word;
+    } else {
+      line = (line + ' ' + word).trim();
+    }
+  });
+  if (line) out.push(line);
+  return out.slice(0, 2);
+}
+
+function drawDialog() {
+  if (!game.dialog || !game.dialog.npc) return;
+
+  const npc = game.dialog.npc;
+  const questId = getDialogQuestId(npc);
+  const qBase = questId ? QUESTS[questId] : null;
+
+  let text = npc.text || '무엇을 도와드릴까요?';
+  if ((npc.name === '장로 구름' || npc.type === 'quest') && qBase) {
+    text = `[메인] ${qBase.title}: ${qBase.desc || ''}`;
+  }
+
+  ctx.fillStyle = 'rgba(15,23,42,0.96)';
+  roundRect(ctx, 150, 545, 980, 125, 16);
+
+  ctx.strokeStyle = '#93c5fd';
+  ctx.strokeRect(150, 545, 980, 125);
+
+  ctx.fillStyle = '#ffe066';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(npc.name || 'NPC', 180, 580);
+
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = '15px sans-serif';
+  const lines = wrapDialogText(text, 58);
+  lines.forEach(function (line, i) {
+    ctx.fillText(line, 180, 608 + i * 20);
+  });
+
+  let action = '확인';
+  if (npc.type === 'taxi') action = '이동하기';
+  if (npc.type === 'merchant') action = '상점 열기';
+  if (npc.type === 'weapon') action = '장비 보기';
+  if (npc.type === 'blacksmith') action = '강화하기';
+
+  if (npc.type === 'quest' || npc.type === 'job' || npc.name === '장로 구름') {
+    const id = questId;
+    const q = id ? quests.active.find(function (item) { return item.id === id; }) : null;
+    if (id && quests.completed.includes(id)) action = '완료됨';
+    else if (q) {
+      syncQuestItems(q);
+      action = questComplete(q) ? '완료하기' : '진행 중';
+    } else action = npc.type === 'job' ? '전직 퀘스트' : '퀘스트 수락';
+  }
+
+  ctx.fillStyle = '#4dabf7';
+  roundRect(ctx, 210, 620, 190, 42, 8);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(action, 305, 647);
+
+  ctx.fillStyle = '#334155';
+  roundRect(ctx, 970, 620, 120, 40, 8);
+  ctx.fillStyle = '#fff';
+  ctx.fillText('닫기', 1030, 646);
+}
+
+
+/* =========================================================
+   QUEST ORDER MESSAGE / SKILL HOTKEY FIX PATCH
+   - Shows which previous NPC/quest must be completed first
+   - Prevents locked main quests from freezing dialog flow
+   - Rebuilds useSkill as a standalone safe function so non-strike skills work
+   - Sets Strike cooldown to 2.5 seconds only
+========================================================= */
+
+if (SKILLS && SKILLS.strike) {
+  SKILLS.strike.cooldown = 2.5;
+}
+
+function getMainQuestOrderSafe() {
+  if (typeof MAIN_QUEST_ORDER !== 'undefined' && Array.isArray(MAIN_QUEST_ORDER)) {
+    return MAIN_QUEST_ORDER;
+  }
+  return ['tutorial', 'elder_material_request', 'travel_greenwood_order'];
+}
+
+function getPreviousMainQuestInfo(id) {
+  const order = getMainQuestOrderSafe();
+  const idx = order.indexOf(id);
+  if (idx <= 0) return null;
+
+  for (let i = 0; i < idx; i++) {
+    const prevId = order[i];
+    if (!quests.completed.includes(prevId)) {
+      const q = QUESTS[prevId] || { id: prevId, title: '이전 메인 퀘스트', npc: '장로 구름' };
+      return {
+        id: prevId,
+        title: q.title || '이전 메인 퀘스트',
+        npc: q.npc || '장로 구름'
+      };
+    }
+  }
+
+  return null;
+}
+
+function getQuestLockMessage(id) {
+  const prev = getPreviousMainQuestInfo(id);
+  if (!prev) return '이전 메인 퀘스트를 먼저 완료해야 합니다.';
+  return `먼저 ${prev.npc}에게 가서 '${prev.title}' 퀘스트를 완료하고 오세요.`;
+}
+
+function isMainQuestLocked(id) {
+  return !!getPreviousMainQuestInfo(id);
+}
+
+function getCurrentMainQuestId() {
+  const order = getMainQuestOrderSafe();
+  for (const id of order) {
+    if (!quests.completed.includes(id)) return id;
+  }
+  return null;
+}
+
+function acceptOrCompleteQuest(id) {
+  const qBase = QUESTS[id];
+  if (!qBase) {
+    makeText('퀘스트 정보를 찾을 수 없습니다.', game.player.x, game.player.y - 90, '#ff8787');
+    return;
+  }
+
+  const order = getMainQuestOrderSafe();
+  const isMain = !!qBase.main || order.includes(id);
+
+  if (isMain && isMainQuestLocked(id)) {
+    makeText(getQuestLockMessage(id), game.player.x, game.player.y - 112, '#ffdd99');
+    return;
+  }
+
+  if (quests.completed.includes(id)) {
+    makeText('이미 완료했습니다.', game.player.x, game.player.y - 90, '#cbd5e1');
+    return;
+  }
+
+  let q = quests.active.find(function (item) {
+    return item.id === id;
+  });
+
+  if (!q) {
+    q = JSON.parse(JSON.stringify(qBase));
+    quests.active.push(q);
+    makeText('퀘스트 수락!', game.player.x, game.player.y - 90, '#ffe066');
+    markAutoSaveSoon();
+    return;
+  }
+
+  syncQuestItems(q);
+
+  if (!questComplete(q)) {
+    makeText('아직 완료 조건이 부족합니다.', game.player.x, game.player.y - 90, '#ffdd99');
+    return;
+  }
+
+  completeQuest(q);
+  markAutoSaveSoon();
+}
+
+function getDialogQuestId(npc) {
+  if (!npc) return null;
+
+  if (npc.name === '장로 구름' || npc.type === 'quest') {
+    return getCurrentMainQuestId() || npc.quest || null;
+  }
+
+  return npc.quest || null;
+}
+
+function handleDialogClick(x, y) {
+  if (!game.dialog) return;
+
+  const npc = game.dialog.npc;
+
+  if (hit(x, y, 970, 620, 120, 40)) {
+    game.dialog = null;
+    return;
+  }
+
+  if (!hit(x, y, 210, 620, 190, 42)) return;
+
+  if (npc.type === 'taxi') {
+    game.dialog = null;
+    game.taxiOpen = true;
+    return;
+  }
+
+  if (npc.type === 'merchant' || npc.type === 'weapon') {
+    game.dialog = null;
+    game.shopOpen = npc.type;
+    game.shopScroll = 0;
+    return;
+  }
+
+  if (npc.type === 'blacksmith') {
+    game.dialog = null;
+    game.blacksmithOpen = true;
+    inventory.open = true;
+    return;
+  }
+
+  if (npc.type === 'quest' || npc.type === 'job' || npc.name === '장로 구름') {
+    const questId = getDialogQuestId(npc);
+    if (!questId) {
+      makeText('진행할 퀘스트가 없습니다.', game.player.x, game.player.y - 90, '#cbd5e1');
+      return;
+    }
+    acceptOrCompleteQuest(questId);
+  }
+}
+
+function drawDialog() {
+  if (!game.dialog || !game.dialog.npc) return;
+
+  const npc = game.dialog.npc;
+  const questId = getDialogQuestId(npc);
+  const qBase = questId ? QUESTS[questId] : null;
+  const order = getMainQuestOrderSafe();
+  const isMain = qBase && (!!qBase.main || order.includes(questId));
+  const locked = qBase && isMain && isMainQuestLocked(questId);
+
+  let text = npc.text || '무엇을 도와드릴까요?';
+
+  if ((npc.name === '장로 구름' || npc.type === 'quest') && qBase) {
+    text = locked ? getQuestLockMessage(questId) : `[메인] ${qBase.title}: ${qBase.desc || ''}`;
+  } else if (qBase && locked) {
+    text = getQuestLockMessage(questId);
+  }
+
+  ctx.fillStyle = 'rgba(15,23,42,0.96)';
+  roundRect(ctx, 150, 545, 980, 125, 16);
+
+  ctx.strokeStyle = '#93c5fd';
+  ctx.strokeRect(150, 545, 980, 125);
+
+  ctx.fillStyle = '#ffe066';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(npc.name || 'NPC', 180, 580);
+
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = '15px sans-serif';
+  const lines = wrapDialogText(text, 58);
+  lines.forEach(function (line, i) {
+    ctx.fillText(line, 180, 608 + i * 20);
+  });
+
+  let action = '확인';
+  if (npc.type === 'taxi') action = '이동하기';
+  if (npc.type === 'merchant') action = '상점 열기';
+  if (npc.type === 'weapon') action = '장비 보기';
+  if (npc.type === 'blacksmith') action = '강화하기';
+
+  if (npc.type === 'quest' || npc.type === 'job' || npc.name === '장로 구름') {
+    const id = questId;
+    const q = id ? quests.active.find(function (item) { return item.id === id; }) : null;
+    if (locked) action = '이전 퀘스트 필요';
+    else if (id && quests.completed.includes(id)) action = '완료됨';
+    else if (q) {
+      syncQuestItems(q);
+      action = questComplete(q) ? '완료하기' : '진행 중';
+    } else action = npc.type === 'job' ? '전직 퀘스트' : '퀘스트 수락';
+  }
+
+  ctx.fillStyle = locked ? '#64748b' : '#4dabf7';
+  roundRect(ctx, 210, 620, 190, 42, 8);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(action, 305, 647);
+
+  ctx.fillStyle = '#334155';
+  roundRect(ctx, 970, 620, 120, 40, 8);
+  ctx.fillStyle = '#fff';
+  ctx.fillText('닫기', 1030, 646);
+}
+
+function useSkill(id) {
+  const skill = SKILLS[id];
+  if (!skill) {
+    makeText('스킬 정보를 찾을 수 없습니다.', game.player.x, game.player.y - 90, '#ff8787');
+    return;
+  }
+
+  if (!skills.unlocked.includes(id)) {
+    makeText('아직 배운 스킬이 아닙니다.', game.player.x, game.player.y - 90, '#ff8787');
+    return;
+  }
+
+  if ((skills.cooldowns[id] || 0) > 0) {
+    makeText('쿨타임 중', game.player.x, game.player.y - 90, '#cbd5e1');
+    return;
+  }
+
+  if (game.player.mp < (skill.mp || 0)) {
+    makeText('MP 부족', game.player.x, game.player.y - 90, '#74c0fc');
+    return;
+  }
+
+  game.player.mp -= skill.mp || 0;
+  skills.cooldowns[id] = id === 'strike' ? 2.5 : (skill.cooldown || 0.8);
+
+  if (skill.heal) {
+    game.player.hp = Math.min(game.player.maxHp, game.player.hp + skill.heal);
+    makeText(`+${skill.heal} HP`, game.player.x, game.player.y - 90, '#ff8787');
+    circleEffect(game.player.x, game.player.y - 50, '#69db7c');
+    markAutoSaveSoon();
+    return;
+  }
+
+  game.player.attackTime = id === 'strike' ? 0.44 : 0.36;
+  game.player.attackKind = id === 'strike' ? 'heavy' : (skill.magic ? 'staff' : 'skill');
+  game.player.anim = 'attack';
+  game.player.animTime = 0;
+
+  if (skill.projectile) {
+    spawnProjectile(skill);
+    return;
+  }
+
+  if (id === 'strike') {
+    hitMonsters({ range: 115, power: 1.65, hits: 1, magic: false });
+    if (typeof heavyStrikeEffect === 'function') {
+      heavyStrikeEffect(game.player.x, game.player.y, game.player.face, '#ff922b');
+    } else {
+      slashEffect(game.player.x + game.player.face * 54, game.player.y - 50, game.player.face, '#ff922b', 2.2);
+      makeText('강타!', game.player.x + game.player.face * 65, game.player.y - 96, '#ffe066');
+    }
+    return;
+  }
+
+  hitMonsters(skill);
+  slashEffect(
+    game.player.x + game.player.face * 44,
+    game.player.y - 46,
+    game.player.face,
+    skill.magic ? '#74c0fc' : '#ffb020',
+    skill.power && skill.power > 1.5 ? 1.8 : 1.2
+  );
+}
