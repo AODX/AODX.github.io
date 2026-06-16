@@ -8011,3 +8011,452 @@ function drawPlayerBody(c, player) {
 
   c.restore();
 }
+
+
+/* =========================================================
+   QUEST ORDER / HELMET REMOVE / EXTRA HAIR / SWORD + STRIKE PATCH
+========================================================= */
+
+// 1) 머리 위에 떠 보이던 회색 모자/고리 제거: 헬멧은 머리에 붙은 낮은 캡처럼만 표시
+function drawSdHelmet(c, item) {
+  if (!item) return;
+  c.save();
+  c.fillStyle = 'rgba(17,24,39,0.92)';
+  c.beginPath();
+  c.ellipse(0, -119, 26, 9, 0, Math.PI, 0);
+  c.fill();
+  c.fillStyle = item.color || '#64748b';
+  c.beginPath();
+  c.ellipse(0, -118, 23, 7, 0, Math.PI, 0);
+  c.fill();
+  c.fillStyle = 'rgba(255,255,255,0.22)';
+  roundRect(c, -8, -124, 12, 2.5, 1);
+  c.restore();
+}
+
+// 2) 기존 40종에 확실히 다른 실루엣의 머리 10종 추가
+(function addTenDistinctHairStyles() {
+  const extra = [
+    ['wolf_cut', '울프컷'],
+    ['seaweed_long', '해초장발'],
+    ['royal_roll', '로열롤'],
+    ['thunder_spike', '번개스파이크'],
+    ['ribbon_twin', '리본트윈'],
+    ['mask_bang', '가림앞머리'],
+    ['crescent_tail', '초승달꼬리'],
+    ['square_cut', '사각단발'],
+    ['fluffy_afro', '폭신아프로'],
+    ['dragon_mohawk', '용갈기']
+  ];
+
+  extra.forEach(function (pair) {
+    if (!SD_HAIR_STYLES_40.includes(pair[0])) {
+      SD_HAIR_STYLES_40.push(pair[0]);
+      SD_HAIR_LABELS.push(pair[1]);
+    }
+  });
+
+  const hairBox = document.getElementById('hairStyleChoices');
+  if (hairBox) {
+    delete hairBox.dataset.sdExpanded;
+    hairBox.innerHTML = '';
+  }
+  if (typeof populateSdCharacterChoicesFinal === 'function') populateSdCharacterChoicesFinal();
+})();
+
+const __previousDrawHairStyleByName = typeof __drawHairStyleByName === 'function' ? __drawHairStyleByName : null;
+function __drawHairStyleByName(c, style, hair, skin, headY) {
+  c.fillStyle = hair;
+
+  if (style === 'wolf_cut') {
+    __hairFillTop(c, hair);
+    __hairSpikeRow(c, -22, headY - 3, 6, 7, 7);
+    __hairSideLock(c, -24, headY + 14, 6, 17, 0.45);
+    __hairSideLock(c, 24, headY + 14, 6, 17, -0.45);
+    return;
+  }
+
+  if (style === 'seaweed_long') {
+    __hairFillTop(c, hair);
+    __hairFrontBand(c, -18, headY + 1, 36, 7, 3);
+    for (let i = -24; i <= 24; i += 12) {
+      c.beginPath();
+      c.moveTo(i, headY + 7);
+      c.quadraticCurveTo(i + (i < 0 ? -8 : 8), headY + 20, i, headY + 34);
+      c.quadraticCurveTo(i + (i < 0 ? 5 : -5), headY + 21, i - (i < 0 ? 3 : -3), headY + 9);
+      c.closePath();
+      c.fill();
+    }
+    return;
+  }
+
+  if (style === 'royal_roll') {
+    __hairFillTop(c, hair);
+    __hairFrontBand(c, -17, headY + 1, 34, 7, 3);
+    __hairSideLock(c, -25, headY + 14, 8, 13, 0.15);
+    __hairSideLock(c, 25, headY + 14, 8, 13, -0.15);
+    c.fillStyle = 'rgba(255,255,255,0.18)';
+    c.beginPath(); c.arc(-25, headY + 14, 5, 0, Math.PI * 1.6); c.stroke();
+    c.beginPath(); c.arc(25, headY + 14, 5, Math.PI * 1.4, Math.PI * 3); c.stroke();
+    return;
+  }
+
+  if (style === 'thunder_spike') {
+    __hairFillTop(c, hair);
+    c.beginPath(); c.moveTo(-20, headY + 6); c.lineTo(-8, headY - 13); c.lineTo(-2, headY + 3); c.lineTo(10, headY - 16); c.lineTo(22, headY + 6); c.closePath(); c.fill();
+    c.fillStyle = '#fde047';
+    c.beginPath(); c.moveTo(15, headY - 8); c.lineTo(22, headY - 1); c.lineTo(17, headY - 1); c.lineTo(23, headY + 8); c.lineTo(12, headY - 2); c.lineTo(18, headY - 2); c.closePath(); c.fill();
+    return;
+  }
+
+  if (style === 'ribbon_twin') {
+    __hairFillTop(c, hair);
+    __hairFrontBand(c, -18, headY + 1, 36, 7, 3);
+    __hairSideLock(c, -26, headY + 15, 7, 18, 0.3);
+    __hairSideLock(c, 26, headY + 15, 7, 18, -0.3);
+    c.fillStyle = '#f472b6';
+    c.beginPath(); c.moveTo(-24, headY + 2); c.lineTo(-35, headY - 4); c.lineTo(-30, headY + 8); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(24, headY + 2); c.lineTo(35, headY - 4); c.lineTo(30, headY + 8); c.closePath(); c.fill();
+    return;
+  }
+
+  if (style === 'mask_bang') {
+    __hairFillTop(c, hair);
+    c.beginPath(); c.moveTo(-22, headY + 4); c.lineTo(-4, headY - 7); c.lineTo(6, headY + 7); c.lineTo(22, headY + 3); c.lineTo(16, headY + 10); c.lineTo(-22, headY + 10); c.closePath(); c.fill();
+    // 앞머리는 크게 다르지만 눈 위치 바로 위까지만 내려오게 제한
+    c.fillStyle = skin;
+    c.fillRect(-19, headY + 12, 38, 4);
+    return;
+  }
+
+  if (style === 'crescent_tail') {
+    __hairFillTop(c, hair);
+    __hairFrontBand(c, -17, headY + 1, 34, 7, 3);
+    c.beginPath();
+    c.moveTo(18, headY + 3);
+    c.quadraticCurveTo(43, headY + 10, 28, headY + 29);
+    c.quadraticCurveTo(36, headY + 12, 15, headY + 10);
+    c.closePath();
+    c.fill();
+    return;
+  }
+
+  if (style === 'square_cut') {
+    c.fillStyle = '#13233e';
+    roundRect(c, -27, headY - 4, 54, 24, 6);
+    c.fillStyle = hair;
+    roundRect(c, -24, headY - 2, 48, 21, 5);
+    c.fillStyle = skin;
+    c.fillRect(-19, headY + 9, 38, 8);
+    c.fillStyle = hair;
+    __hairFrontBand(c, -22, headY + 3, 44, 7, 2);
+    return;
+  }
+
+  if (style === 'fluffy_afro') {
+    c.fillStyle = '#13233e';
+    for (let i = -20; i <= 20; i += 10) circle(c, i, headY + 1 + (i % 20 ? 0 : -5), 10);
+    c.fillStyle = hair;
+    for (let i = -19; i <= 19; i += 10) circle(c, i, headY + 2 + (i % 20 ? 0 : -5), 8.5);
+    return;
+  }
+
+  if (style === 'dragon_mohawk') {
+    __hairFillTop(c, hair);
+    c.beginPath(); c.moveTo(-8, headY + 4); c.lineTo(-2, headY - 18); c.lineTo(4, headY + 4); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(2, headY + 3); c.lineTo(11, headY - 12); c.lineTo(15, headY + 6); c.closePath(); c.fill();
+    __hairSideLock(c, -22, headY + 10, 5, 12, 0.2);
+    return;
+  }
+
+  if (__previousDrawHairStyleByName) {
+    __previousDrawHairStyleByName(c, style, hair, skin, headY);
+  } else {
+    __hairFillTop(c, hair);
+    __hairFrontBand(c, -18, headY + 1, 36, 7, 3);
+  }
+}
+
+// 3) 메인 퀘스트 순서 강제 + 장로/대장장이 연계 흐름
+QUESTS.elder_material_request = QUESTS.elder_material_request || {
+  id: 'elder_material_request',
+  title: '장로의 부탁: 대장장이에게',
+  town: 'lumina',
+  npc: '장로 구름',
+  main: true,
+  desc: '장로가 대장장이에게 전할 무기 재료를 모아오라고 부탁했습니다. 버섯 포자 3개와 슬라임 젤리 3개를 준비하세요.',
+  goals: [
+    { type: 'item', itemId: 'mushroom_spore', need: 3, count: 0 },
+    { type: 'item', itemId: 'slime_jelly', need: 3, count: 0 }
+  ],
+  rewardGold: 160,
+  rewardExp: 140,
+  rewardItems: [{ id: 'hp_potion', count: 2 }]
+};
+
+QUESTS.travel_greenwood_order = QUESTS.travel_greenwood_order || {
+  id: 'travel_greenwood_order',
+  title: '장로의 부탁: 숲의 도시로',
+  town: 'lumina',
+  npc: '장로 구름',
+  main: true,
+  desc: '그린우드로 이동하여 숲의 상황을 살피라는 장로의 부탁입니다. 그린우드 숲의 버섯 4마리를 처치하세요.',
+  goals: [{ type: 'kill', family: 'mushroom', need: 4, count: 0 }],
+  rewardGold: 220,
+  rewardExp: 210,
+  rewardItems: [{ id: 'mp_potion', count: 2 }]
+};
+
+if (QUESTS.tutorial) QUESTS.tutorial.main = true;
+const MAIN_QUEST_ORDER = ['tutorial', 'elder_material_request', 'travel_greenwood_order'];
+
+function getCurrentMainQuestId() {
+  for (const id of MAIN_QUEST_ORDER) {
+    if (!quests.completed.includes(id)) return id;
+  }
+  return null;
+}
+
+function isMainQuestLocked(id) {
+  const idx = MAIN_QUEST_ORDER.indexOf(id);
+  if (idx < 0) return false;
+  for (let i = 0; i < idx; i++) {
+    if (!quests.completed.includes(MAIN_QUEST_ORDER[i])) return true;
+  }
+  return false;
+}
+
+function getMainQuestLockMessage(id) {
+  const idx = MAIN_QUEST_ORDER.indexOf(id);
+  if (idx <= 0) return '먼저 이전 메인 퀘스트를 진행해야 합니다.';
+  const prev = QUESTS[MAIN_QUEST_ORDER[idx - 1]];
+  return `먼저 '${prev ? prev.title : '이전 메인 퀘스트'}'를 완료해야 합니다.`;
+}
+
+const __orderedAcceptOrCompleteQuest = acceptOrCompleteQuest;
+function acceptOrCompleteQuest(id) {
+  const qBase = QUESTS[id];
+  if (!qBase) return;
+
+  if (qBase.main && isMainQuestLocked(id)) {
+    makeText(getMainQuestLockMessage(id), game.player.x, game.player.y - 110, '#ffdd99');
+    return;
+  }
+
+  __orderedAcceptOrCompleteQuest(id);
+}
+
+const __mainQuestHandleDialogClick = handleDialogClick;
+function handleDialogClick(x, y) {
+  if (!game.dialog) return;
+  const npc = game.dialog.npc;
+
+  // 장로는 현재 순서의 메인 퀘스트만 줌
+  if ((npc.type === 'quest' || npc.name === '장로 구름') && hit(x, y, 210, 620, 190, 42)) {
+    const mainId = getCurrentMainQuestId();
+    if (mainId) {
+      acceptOrCompleteQuest(mainId);
+      return;
+    }
+  }
+
+  __mainQuestHandleDialogClick(x, y);
+}
+
+const __mainQuestDrawDialog = drawDialog;
+function drawDialog() {
+  if (game.dialog && (game.dialog.npc.type === 'quest' || game.dialog.npc.name === '장로 구름')) {
+    const mainId = getCurrentMainQuestId();
+    if (mainId && QUESTS[mainId]) {
+      const oldQuest = game.dialog.npc.quest;
+      const oldText = game.dialog.npc.text;
+      game.dialog.npc.quest = mainId;
+      game.dialog.npc.text = `[메인] ${QUESTS[mainId].title}: ${QUESTS[mainId].desc}`;
+      __mainQuestDrawDialog();
+      game.dialog.npc.quest = oldQuest;
+      game.dialog.npc.text = oldText;
+      return;
+    }
+  }
+  __mainQuestDrawDialog();
+}
+
+// 4) 히든 직업 힌트 양피지 추가 및 아주 낮은 확률 드랍
+const HIDDEN_PARCHMENT_IDS = [
+  'hidden_parchment_shadow_reaper',
+  'hidden_parchment_star_sage',
+  'hidden_parchment_dragon_knight',
+  'hidden_parchment_void_archer',
+  'hidden_parchment_rune_smith'
+];
+
+const HIDDEN_PARCHMENT_NAMES = [
+  ['hidden_parchment_shadow_reaper', '그림자 사신 직업의 양피지'],
+  ['hidden_parchment_star_sage', '별의 현자 직업의 양피지'],
+  ['hidden_parchment_dragon_knight', '용기사 직업의 양피지'],
+  ['hidden_parchment_void_archer', '공허 궁수 직업의 양피지'],
+  ['hidden_parchment_rune_smith', '룬 대장장이 직업의 양피지']
+];
+
+HIDDEN_PARCHMENT_NAMES.forEach(function (pair) {
+  if (!ITEMS[pair[0]]) {
+    ITEMS[pair[0]] = {
+      id: pair[0],
+      name: pair[1],
+      type: 'etc',
+      icon: 'scroll',
+      sell: 150,
+      desc: '히든 직업을 찾는 단서가 적힌 낡은 양피지입니다.'
+    };
+  }
+});
+
+const __hiddenParchmentKillMonster = killMonster;
+function killMonster(m) {
+  const type = m.type;
+  const dropX = m.x;
+  const dropY = m.y;
+  __hiddenParchmentKillMonster(m);
+
+  if (Math.random() < 0.0035) {
+    const itemId = HIDDEN_PARCHMENT_IDS[Math.floor(Math.random() * HIDDEN_PARCHMENT_IDS.length)];
+    game.drops.push({
+      kind: 'item',
+      itemId,
+      count: 1,
+      x: dropX + rand(-20, 20),
+      y: dropY - 24,
+      vy: -155,
+      picked: false
+    });
+    makeText('수상한 양피지!', dropX, dropY - 168, '#e9d5ff');
+  }
+}
+
+// 5) 검이 캐릭터 쪽이 아니라 앞쪽을 베도록 무기 렌더링 수정
+function drawWeapon(c, weaponId, handX, handY, attacking, attackKind, animTime) {
+  if (!weaponId) return;
+
+  const weaponData = ITEMS[weaponId] || {};
+  const weaponKind = attackKind || weaponData.weaponType || (weaponId.includes('staff') ? 'staff' : weaponId.includes('bow') ? 'bow' : weaponId.includes('dagger') ? 'dagger' : 'sword');
+  const px = weaponData.pixel || { a: '#e5e7eb', b: '#f97316', variant: 1 };
+  const t = attacking ? Math.sin(Math.min(1, (animTime || 0) * 14) * Math.PI) : 0;
+
+  c.save();
+  c.translate(handX, handY);
+
+  if (weaponKind === 'sword') {
+    if (attacking) {
+      // blade extends to local +X, which is the player's front after drawPlayer scaling
+      c.rotate(-0.55 + t * 0.85);
+      c.fillStyle = px.a;
+      c.beginPath();
+      c.moveTo(4, -5);
+      c.lineTo(60, -9);
+      c.lineTo(70, -1);
+      c.lineTo(60, 7);
+      c.lineTo(4, 5);
+      c.closePath();
+      c.fill();
+      c.fillStyle = '#ffffff99';
+      c.fillRect(14, -4, 40, 2);
+      c.fillStyle = px.b;
+      roundRect(c, -2, -8, 12, 16, 3);
+      c.fillStyle = '#7c2d12';
+      roundRect(c, -9, -4, 14, 8, 3);
+    } else {
+      c.rotate(-0.32);
+      c.fillStyle = px.a;
+      c.beginPath();
+      c.moveTo(0, -52);
+      c.lineTo(9, -34);
+      c.lineTo(3, -17);
+      c.lineTo(-3, -17);
+      c.lineTo(-9, -34);
+      c.closePath();
+      c.fill();
+      c.fillStyle = px.b;
+      c.fillRect(-12, -20, 24, 5);
+      c.fillStyle = '#7c2d12';
+      c.fillRect(-4, -17, 8, 24);
+    }
+    c.restore();
+    return;
+  }
+
+  if (weaponKind === 'staff') c.rotate(attacking ? -0.75 + t * 0.25 : -0.35);
+  else if (weaponKind === 'bow') c.rotate(attacking ? -0.05 : -0.25);
+  else if (weaponKind === 'dagger') c.rotate(attacking ? -0.25 : -0.35);
+  else c.rotate(attacking ? -0.9 : -0.35);
+
+  if (weaponKind === 'staff') {
+    c.strokeStyle = '#111827'; c.lineWidth = 5; c.beginPath(); c.moveTo(0, 10); c.lineTo(0, -42); c.stroke();
+    c.strokeStyle = px.a; c.lineWidth = 3; c.beginPath(); c.moveTo(0, 10); c.lineTo(0, -42); c.stroke();
+    c.fillStyle = px.b; circle(c, 0, -46, 6 + (px.variant % 3));
+  } else if (weaponKind === 'bow') {
+    c.strokeStyle = '#111827'; c.lineWidth = 5; c.beginPath(); c.arc(0, -9, 21, -Math.PI / 2, Math.PI / 2); c.stroke();
+    c.strokeStyle = px.a; c.lineWidth = 3; c.beginPath(); c.arc(0, -9, 21, -Math.PI / 2, Math.PI / 2); c.stroke();
+    c.strokeStyle = '#e5e7eb'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(0, -30); c.lineTo(attacking ? -12 - t * 8 : 0, -9); c.lineTo(0, 12); c.stroke();
+  } else if (weaponKind === 'dagger') {
+    c.fillStyle = px.a; c.beginPath(); c.moveTo(0, -34); c.lineTo(7, -19); c.lineTo(-7, -19); c.closePath(); c.fill();
+    c.fillStyle = px.b; c.fillRect(-7, -21, 14, 4); c.fillStyle = '#111827'; c.fillRect(-3, -17, 6, 21);
+  }
+
+  c.restore();
+}
+
+// 6) 강타는 기본 베기와 다르게: 큰 충격파 + 짧은 화면 전방 파동
+function heavyStrikeEffect(x, y, face, color) {
+  slashEffect(x + face * 52, y - 52, face, color || '#ff922b', 2.4);
+  slashEffect(x + face * 74, y - 44, face, '#fff7ad', 1.55);
+  for (let i = 0; i < 16; i++) {
+    game.particles.push({
+      type: 'spark',
+      x: x + face * rand(32, 84),
+      y: y - rand(30, 72),
+      vx: face * rand(100, 260),
+      vy: rand(-160, 70),
+      life: rand(0.22, 0.58),
+      color: i % 2 ? '#ffd43b' : '#fff3bf'
+    });
+  }
+  makeText('강타!', x + face * 70, y - 96, '#ffe066');
+}
+
+const __skillBeforeStrikePatch = useSkill;
+function useSkill(id) {
+  if (id !== 'strike') {
+    __skillBeforeStrikePatch(id);
+    return;
+  }
+
+  const skill = SKILLS[id];
+  if (!skill) return;
+  if (!skills.unlocked.includes(id)) {
+    makeText('아직 배운 스킬이 아닙니다.', game.player.x, game.player.y - 90, '#ff8787');
+    return;
+  }
+  if ((skills.cooldowns[id] || 0) > 0) {
+    makeText('쿨타임 중', game.player.x, game.player.y - 90, '#cbd5e1');
+    return;
+  }
+  if (game.player.mp < skill.mp) {
+    makeText('MP 부족', game.player.x, game.player.y - 90, '#74c0fc');
+    return;
+  }
+
+  game.player.mp -= skill.mp;
+  skills.cooldowns[id] = Math.max(skill.cooldown || 0.35, 0.55);
+  game.player.attackTime = 0.42;
+  game.player.attackKind = 'heavy';
+  game.player.anim = 'attack';
+  game.player.animTime = 0;
+
+  hitMonsters({
+    range: 115,
+    power: 1.65,
+    hits: 1,
+    magic: false
+  });
+  heavyStrikeEffect(game.player.x, game.player.y, game.player.face, '#ff922b');
+}
