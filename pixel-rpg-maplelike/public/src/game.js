@@ -9005,3 +9005,236 @@ setTimeout(function () {
     console.warn('skill/stat stability init skipped', err);
   }
 }, 0);
+
+
+/* =========================================================
+   FINAL GAME START / SCREEN VISIBILITY SAFETY PATCH
+   - Fixes cases where pressing game start hides the menu but the world does not render
+   - Forces game.ready, canvas visibility, town loading, and a protected render loop
+========================================================= */
+
+function forceShowGameCanvas() {
+  if (!canvas) return;
+  canvas.style.display = 'block';
+  canvas.style.visibility = 'visible';
+  canvas.style.opacity = '1';
+  canvas.style.pointerEvents = 'auto';
+  canvas.style.position = canvas.style.position || 'relative';
+  canvas.style.zIndex = '1';
+}
+
+function forceHideMenusForGame() {
+  [auth, characterScreen, characterMenu].forEach(function (node) {
+    if (!node) return;
+    node.classList.add('hidden');
+    node.style.pointerEvents = 'none';
+  });
+  if (help) {
+    help.classList.remove('hidden');
+    help.style.pointerEvents = 'none';
+  }
+}
+
+function makeLocalStartSave(character) {
+  const p = createPlayer();
+  p.character = {
+    ...p.character,
+    ...(character || {}),
+    name: (character && character.name) || (selected && selected.name) || '초보자',
+    skin: (character && character.skin) || selected.skin || '#ffd6a6',
+    hair: (character && character.hair) || selected.hair || '#2b160e',
+    hairStyle: (character && character.hairStyle) || selected.hairStyle || 'basic',
+    faceStyle: (character && character.faceStyle) || selected.faceStyle || 'normal'
+  };
+  if (typeof ensureSdCharacterStyle === 'function') ensureSdCharacterStyle(p.character);
+
+  return {
+    player: p,
+    gold: wallet.gold || 120,
+    townId: 'lumina',
+    huntId: 'lumina_field',
+    stats: {
+      str: stats.str || 4,
+      dex: stats.dex || 4,
+      int: stats.int || 4,
+      luk: stats.luk || 4,
+      ap: Number.isFinite(stats.ap) ? stats.ap : 5
+    },
+    inventory: {
+      items: inventory.items && inventory.items.length ? inventory.items : [stack('hp_potion', 10), stack('mp_potion', 10), stack('wooden_sword', 1), stack('cloth_armor', 1)],
+      quickSlots: inventory.quickSlots || ['hp_potion', 'mp_potion', null, null]
+    },
+    equipment,
+    skills,
+    quests
+  };
+}
+
+const __screenSafeStartGamePrev = startGame;
+function startGame(save) {
+  try {
+    forceShowGameCanvas();
+    forceHideMenusForGame();
+
+    const safeSave = save && typeof save === 'object' ? save : makeLocalStartSave();
+    if (!safeSave.player) safeSave.player = createPlayer();
+    if (!safeSave.player.character) safeSave.player.character = createPlayer().character;
+    if (typeof ensureSdCharacterStyle === 'function') ensureSdCharacterStyle(safeSave.player.character);
+
+    hydrateSave(safeSave);
+
+    const townId = safeSave.townId || game.townId || 'lumina';
+    const town = getTown(townId);
+    loadTown(town.id || 'lumina');
+
+    game.player.x = Number.isFinite(game.player.x) ? game.player.x : 260;
+    game.player.y = game.ground;
+    game.player.vx = 0;
+    game.player.vy = 0;
+    game.player.grounded = true;
+    game.dialog = null;
+    game.taxiOpen = false;
+    game.shopOpen = false;
+    game.ready = true;
+    game.last = performance.now();
+    game.cameraX = clamp(game.player.x - W * 0.42, 0, Math.max(0, game.width - W));
+
+    recalcStats();
+    refreshUnlockedSkills();
+    if (typeof ensureBeginnerSkillHotkeysStable === 'function') ensureBeginnerSkillHotkeysStable();
+  } catch (err) {
+    console.error('startGame safety fallback used:', err);
+
+    forceShowGameCanvas();
+    forceHideMenusForGame();
+    game.player = createPlayer();
+    loadTown('lumina');
+    game.player.x = 260;
+    game.player.y = game.ground;
+    game.player.vx = 0;
+    game.player.vy = 0;
+    game.player.grounded = true;
+    game.ready = true;
+    game.last = performance.now();
+  }
+}
+
+async function createCharacterAndStart(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  const createMsg = el('createMsg');
+  if (createMsg) createMsg.textContent = '';
+
+  const nameInput = el('charName');
+  const nickname = nameInput && nameInput.value.trim() ? nameInput.value.trim() : '초보자';
+  const character = {
+    name: nickname,
+    job: 'beginner',
+    skin: selected.skin || '#ffd6a6',
+    hair: selected.hair || '#2b160e',
+    hairStyle: selected.hairStyle || 'basic',
+    faceStyle: selected.faceStyle || 'normal'
+  };
+  if (typeof ensureSdCharacterStyle === 'function') ensureSdCharacterStyle(character);
+
+  let save = null;
+  try {
+    const data = await api('/api/create-character', { character });
+    currentUser = data.user || currentUser || { hasCharacter: true };
+    if (currentUser) currentUser.hasCharacter = true;
+    save = data.save || (data.user && data.user.save) || null;
+  } catch (err) {
+    // 이미 캐릭터가 있거나 서버 응답이 꼬여도 화면 진입은 막지 않는다.
+    console.warn('create character API skipped; starting locally:', err);
+    if (createMsg) createMsg.textContent = '서버 저장 응답이 없어 임시로 시작합니다. 게임 안에서 S키로 저장하세요.';
+  }
+
+  if (!save) save = makeLocalStartSave(character);
+  if (!save.player) save.player = createPlayer();
+  save.player.character = {
+    ...createPlayer().character,
+    ...(save.player.character || {}),
+    ...character
+  };
+  if (currentUser) currentUser.save = save;
+  startGame(save);
+}
+
+function drawEmergencyWorld(err) {
+  ctx.clearRect(0, 0, W, H);
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#9edfff');
+  g.addColorStop(1, '#dff7ff');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#7bc96f';
+  ctx.fillRect(0, game.ground || 560, W, H - (game.ground || 560));
+  ctx.fillStyle = '#8b6b43';
+  ctx.fillRect(0, (game.ground || 560) + 28, W, H - (game.ground || 560) - 28);
+
+  try {
+    drawPlayer(game.player, game.player.x || 260, game.player.y || (game.ground || 560), 0.74);
+  } catch (playerErr) {
+    ctx.fillStyle = '#4f93f5';
+    ctx.fillRect(245, (game.ground || 560) - 70, 30, 60);
+    ctx.fillStyle = '#ffd6a6';
+    ctx.beginPath();
+    ctx.arc(260, (game.ground || 560) - 92, 24, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = 'rgba(15,23,42,0.85)';
+  roundRect(ctx, 20, 20, 520, 60, 12);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('게임 화면 안전 모드로 표시 중입니다.', 40, 48);
+  ctx.font = '12px sans-serif';
+  ctx.fillText(err && err.message ? err.message : '렌더링 중 오류가 있었지만 게임 화면은 유지됩니다.', 40, 68);
+}
+
+if (!window.__pixelRpgSafeLoopStarted) {
+  window.__pixelRpgSafeLoopStarted = true;
+  requestAnimationFrame(function safeLoop(now) {
+    try {
+      const dt = Math.min(0.033, ((now || performance.now()) - (game.last || performance.now())) / 1000);
+      game.last = now || performance.now();
+      update(dt);
+      draw();
+    } catch (err) {
+      console.error('safe loop caught render/update error:', err);
+      if (game.ready) drawEmergencyWorld(err);
+    }
+    requestAnimationFrame(safeLoop);
+  });
+}
+
+setTimeout(function () {
+  try {
+    forceShowGameCanvas();
+    const startNewBtn = el('startNewBtn');
+    if (startNewBtn) {
+      startNewBtn.type = 'button';
+      startNewBtn.onclick = createCharacterAndStart;
+      startNewBtn.style.pointerEvents = 'auto';
+    }
+    const continueBtn = el('continueBtn');
+    if (continueBtn) {
+      continueBtn.type = 'button';
+      continueBtn.onclick = function (e) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        startGame((currentUser && currentUser.save) || makeLocalStartSave());
+      };
+      continueBtn.style.pointerEvents = 'auto';
+    }
+  } catch (err) {
+    console.warn('start button safety bind skipped:', err);
+  }
+}, 0);
