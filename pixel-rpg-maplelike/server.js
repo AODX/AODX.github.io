@@ -1,492 +1,373 @@
-const http = require('http');
-const fs = require('fs');
+'use strict';
+
+/* =========================================================
+   Pixel RPG Maplelike Online Server
+   - Express static server
+   - Supabase account/save API
+   - Socket.IO multiplayer/chat attach
+
+   Required package.json dependencies:
+   express, bcryptjs, jsonwebtoken, @supabase/supabase-js, socket.io
+
+   Required Render Environment variables:
+   SUPABASE_URL
+   SUPABASE_SERVICE_ROLE_KEY  (recommended)
+   JWT_SECRET                 (recommended)
+
+   Optional:
+   SUPABASE_USERS_TABLE=pixel_rpg_users
+========================================================= */
+
 const path = require('path');
-const crypto = require('crypto');
+const fs = require('fs');
+const http = require('http');
+const express = require('express');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const { createClient } = require('@supabase/supabase-js');
 
-const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = path.join(__dirname, 'public');
+const PORT = Number(process.env.PORT || 3000);
+const JWT_SECRET = process.env.JWT_SECRET || 'pixel-rpg-dev-secret-change-this-on-render';
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+const USERS_TABLE = process.env.SUPABASE_USERS_TABLE || 'pixel_rpg_users';
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const app = express();
+const server = http.createServer(app);
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.warn('WARNING: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing.');
-}
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-const supabase = createClient(
-  SUPABASE_URL || '',
-  SUPABASE_SERVICE_ROLE_KEY || '',
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false
-    }
-  }
-);
+const publicDir = path.join(__dirname, 'public');
+app.use(express.static(publicDir));
 
-const sessions = new Map();
-
-const mime = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon'
-};
-
-function readBody(req) {
-  return new Promise((resolve, reject) => {
-    let data = '';
-
-    req.on('data', chunk => {
-      data += chunk;
-      if (data.length > 2_000_000) req.destroy();
-    });
-
-    req.on('end', () => resolve(data));
-    req.on('error', reject);
+let supabase = null;
+if (SUPABASE_URL && SUPABASE_KEY) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: false }
   });
+  console.log('[PixelRPG] Supabase mode enabled. table =', USERS_TABLE);
+} else {
+  console.warn('[PixelRPG] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing. Using local JSON fallback. Render free disk may reset this data.');
 }
 
-function send(res, status, data, type = 'application/json; charset=utf-8') {
-  res.writeHead(status, {
-    'Content-Type': type,
-    'Cache-Control': 'no-store'
-  });
-  res.end(data);
+const localDataDir = path.join(__dirname, '.data');
+const localUsersFile = path.join(localDataDir, 'users.json');
+
+function ensureLocalStore() {
+  if (!fs.existsSync(localDataDir)) fs.mkdirSync(localDataDir, { recursive: true });
+  if (!fs.existsSync(localUsersFile)) fs.writeFileSync(localUsersFile, '[]');
 }
 
-function json(res, status, obj) {
-  send(res, status, JSON.stringify(obj));
-}
-
-function hashPassword(password, salt) {
-  return crypto
-    .createHash('sha256')
-    .update(`${salt}:${password}`)
-    .digest('hex');
-}
-
-function getAuth(req) {
-  const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-
-  return {
-    token,
-    username: sessions.get(token)
-  };
-}
-
-function cleanCharacter(character) {
-  return {
-    name: String(character?.name || '').trim(),
-
-    // 처음 생성 시 모든 유저는 초보자입니다.
-    job: 'beginner',
-
-    skin: character?.skin || '#ffd6a6',
-    hair: character?.hair || '#2b160e',
-
-    // 커스터마이징은 헤어 스타일 / 표정 / 피부색 / 헤어색만 사용합니다.
-    hairStyle: character?.hairStyle || 'basic',
-    faceStyle: character?.faceStyle || 'normal'
-  };
-}
-
-function defaultSave(character) {
-  const clean = cleanCharacter(character);
-
-  return {
-    player: {
-      character: clean,
-
-      scene: 'town',
-      x: 260,
-      y: 548,
-
-      level: 1,
-      exp: 0,
-      nextExp: 80,
-
-      hp: 120,
-      maxHp: 120,
-      mp: 40,
-      maxMp: 40,
-
-      gold: 120,
-
-      statPoints: 5,
-      stats: {
-        str: 6,
-        dex: 6,
-        int: 6,
-        luk: 6
-      },
-
-      unlockedSkills: [],
-      quests: {},
-
-      quickSlots: ['red_potion', 'blue_potion', null, null],
-
-      equipped: {
-        weapon: null,
-        armor: null
-      },
-
-      inventory: [
-        {
-          id: 'red_potion',
-          name: '체력 물약',
-          type: 'consume',
-          qty: 15,
-          healHp: 60,
-          icon: 'hp'
-        },
-        {
-          id: 'blue_potion',
-          name: '마나 물약',
-          type: 'consume',
-          qty: 12,
-          healMp: 40,
-          icon: 'mp'
-        },
-        {
-          id: 'beginner_glove',
-          name: '초보자 장갑',
-          type: 'weapon',
-          qty: 1,
-          atk: 2,
-          job: 'beginner',
-          icon: 'glove'
-        }
-      ]
-    }
-  };
-}
-
-function safeUser(row) {
-  return {
-    username: row.username,
-    createdAt: row.created_at,
-    savedAt: row.saved_at || null,
-    hasCharacter: Boolean(row.save?.player?.character?.name),
-    save: row.save || null
-  };
-}
-
-async function getUser(username) {
-  const { data, error } = await supabase
-    .from('game_users')
-    .select('*')
-    .eq('username', username)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data;
-}
-
-async function nicknameTaken(nickname, exceptUsername) {
-  const target = String(nickname || '').trim().toLowerCase();
-
-  const { data, error } = await supabase
-    .from('game_users')
-    .select('username, save');
-
-  if (error) throw error;
-
-  return (data || []).some(row => {
-    if (!row || row.username === exceptUsername) return false;
-
-    const currentName = row.save?.player?.character?.name;
-    return String(currentName || '').trim().toLowerCase() === target;
-  });
-}
-
-async function createUser(username, password) {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const passHash = hashPassword(password, salt);
-
-  const { data, error } = await supabase
-    .from('game_users')
-    .insert({
-      username,
-      salt,
-      pass_hash: passHash,
-      save: null,
-      saved_at: null
-    })
-    .select('*')
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-async function updateUserSave(username, save) {
-  const savedAt = new Date().toISOString();
-
-  const { data, error } = await supabase
-    .from('game_users')
-    .update({
-      save,
-      saved_at: savedAt
-    })
-    .eq('username', username)
-    .select('*')
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-const server = http.createServer(async (req, res) => {
+function readLocalUsers() {
+  ensureLocalStore();
   try {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-
-    if (url.pathname === '/api/register' && req.method === 'POST') {
-      const body = JSON.parse((await readBody(req)) || '{}');
-      const username = String(body.username || '').trim();
-      const password = String(body.password || '');
-
-      if (!/^[a-zA-Z0-9_가-힣]{2,16}$/.test(username)) {
-        return json(res, 400, {
-          ok: false,
-          error: '아이디는 2~16자, 한글/영문/숫자/_ 만 가능합니다.'
-        });
-      }
-
-      if (password.length < 4) {
-        return json(res, 400, {
-          ok: false,
-          error: '비밀번호는 4자 이상이어야 합니다.'
-        });
-      }
-
-      const existing = await getUser(username);
-
-      if (existing) {
-        return json(res, 409, {
-          ok: false,
-          error: '이미 존재하는 아이디입니다.'
-        });
-      }
-
-      const user = await createUser(username, password);
-
-      const token = crypto.randomBytes(32).toString('hex');
-      sessions.set(token, username);
-
-      return json(res, 200, {
-        ok: true,
-        token,
-        user: safeUser(user)
-      });
-    }
-
-    if (url.pathname === '/api/login' && req.method === 'POST') {
-      const body = JSON.parse((await readBody(req)) || '{}');
-      const username = String(body.username || '').trim();
-      const password = String(body.password || '');
-
-      const user = await getUser(username);
-
-      if (!user || user.pass_hash !== hashPassword(password, user.salt)) {
-        return json(res, 401, {
-          ok: false,
-          error: '아이디 또는 비밀번호가 맞지 않습니다.'
-        });
-      }
-
-      const token = crypto.randomBytes(32).toString('hex');
-      sessions.set(token, username);
-
-      return json(res, 200, {
-        ok: true,
-        token,
-        user: safeUser(user)
-      });
-    }
-
-    if (url.pathname === '/api/profile' && req.method === 'GET') {
-      const { username } = getAuth(req);
-
-      if (!username) {
-        return json(res, 401, {
-          ok: false,
-          error: '로그인이 필요합니다.'
-        });
-      }
-
-      const user = await getUser(username);
-
-      if (!user) {
-        return json(res, 404, {
-          ok: false,
-          error: '사용자를 찾을 수 없습니다.'
-        });
-      }
-
-      return json(res, 200, {
-        ok: true,
-        user: safeUser(user)
-      });
-    }
-
-    if (url.pathname === '/api/check-nickname' && req.method === 'POST') {
-      const { username } = getAuth(req);
-
-      if (!username) {
-        return json(res, 401, {
-          ok: false,
-          error: '로그인이 필요합니다.'
-        });
-      }
-
-      const body = JSON.parse((await readBody(req)) || '{}');
-      const nickname = String(body.nickname || '').trim();
-
-      if (!/^[a-zA-Z0-9_가-힣]{2,10}$/.test(nickname)) {
-        return json(res, 400, {
-          ok: false,
-          error: '닉네임은 2~10자, 한글/영문/숫자/_ 만 가능합니다.'
-        });
-      }
-
-      const taken = await nicknameTaken(nickname, username);
-
-      if (taken) {
-        return json(res, 409, {
-          ok: false,
-          error: '이미 사용 중인 닉네임입니다.'
-        });
-      }
-
-      return json(res, 200, {
-        ok: true,
-        available: true
-      });
-    }
-
-    if (url.pathname === '/api/create-character' && req.method === 'POST') {
-      const { username } = getAuth(req);
-
-      if (!username) {
-        return json(res, 401, {
-          ok: false,
-          error: '로그인이 필요합니다.'
-        });
-      }
-
-      const body = JSON.parse((await readBody(req)) || '{}');
-      const character = cleanCharacter(body.character);
-
-      if (!/^[a-zA-Z0-9_가-힣]{2,10}$/.test(character.name)) {
-        return json(res, 400, {
-          ok: false,
-          error: '게임 닉네임은 2~10자, 한글/영문/숫자/_ 만 가능합니다.'
-        });
-      }
-
-      const user = await getUser(username);
-
-      if (!user) {
-        return json(res, 404, {
-          ok: false,
-          error: '사용자를 찾을 수 없습니다.'
-        });
-      }
-
-      const taken = await nicknameTaken(character.name, username);
-
-      if (taken) {
-        return json(res, 409, {
-          ok: false,
-          error: '이미 사용 중인 닉네임입니다.'
-        });
-      }
-
-      const save = defaultSave(character);
-      const updated = await updateUserSave(username, save);
-
-      return json(res, 200, {
-        ok: true,
-        user: safeUser(updated)
-      });
-    }
-
-    if (url.pathname === '/api/save' && req.method === 'POST') {
-      const { username } = getAuth(req);
-
-      if (!username) {
-        return json(res, 401, {
-          ok: false,
-          error: '로그인이 필요합니다.'
-        });
-      }
-
-      const save = JSON.parse((await readBody(req)) || '{}');
-      const user = await getUser(username);
-
-      if (!user) {
-        return json(res, 404, {
-          ok: false,
-          error: '사용자를 찾을 수 없습니다.'
-        });
-      }
-
-      const updated = await updateUserSave(username, save);
-
-      return json(res, 200, {
-        ok: true,
-        savedAt: updated.saved_at
-      });
-    }
-
-    if (url.pathname === '/api/logout' && req.method === 'POST') {
-      const { token } = getAuth(req);
-
-      if (token) sessions.delete(token);
-
-      return json(res, 200, {
-        ok: true
-      });
-    }
-
-    let filePath = path.join(
-      PUBLIC_DIR,
-      url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname)
-    );
-
-    if (!filePath.startsWith(PUBLIC_DIR)) {
-      return send(res, 403, 'Forbidden', 'text/plain; charset=utf-8');
-    }
-
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(PUBLIC_DIR, 'index.html');
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-
-    res.writeHead(200, {
-      'Content-Type': mime[ext] || 'application/octet-stream'
-    });
-
-    fs.createReadStream(filePath).pipe(res);
+    const raw = fs.readFileSync(localUsersFile, 'utf8');
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (err) {
-    console.error(err);
+    return [];
+  }
+}
 
-    json(res, 500, {
-      ok: false,
-      error: err.message || '서버 오류가 발생했습니다.'
-    });
+function writeLocalUsers(users) {
+  ensureLocalStore();
+  fs.writeFileSync(localUsersFile, JSON.stringify(users, null, 2));
+}
+
+function normalizeUsername(username) {
+  return String(username || '').trim().toLowerCase();
+}
+
+function publicUser(row) {
+  const save = row && row.save && typeof row.save === 'object' ? row.save : null;
+  return {
+    id: row.id,
+    username: row.username,
+    hasCharacter: !!(save && save.player && save.player.character),
+    save
+  };
+}
+
+function signToken(user) {
+  return jwt.sign(
+    { id: user.id, username: user.username },
+    JWT_SECRET,
+    { expiresIn: '30d' }
+  );
+}
+
+function ok(res, payload) {
+  res.json({ ok: true, ...payload });
+}
+
+function fail(res, status, message) {
+  res.status(status).json({ ok: false, error: message });
+}
+
+async function findUserByUsername(username) {
+  const clean = normalizeUsername(username);
+
+  if (supabase) {
+    const { data, error } = await supabase
+      .from(USERS_TABLE)
+      .select('*')
+      .eq('username', clean)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[Supabase] findUserByUsername error:', error.message);
+      throw new Error('Supabase 사용자 테이블 조회 실패: ' + error.message);
+    }
+
+    return data || null;
+  }
+
+  return readLocalUsers().find((u) => u.username === clean) || null;
+}
+
+async function findUserById(id) {
+  if (!id) return null;
+
+  if (supabase) {
+    const { data, error } = await supabase
+      .from(USERS_TABLE)
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[Supabase] findUserById error:', error.message);
+      throw new Error('Supabase 사용자 조회 실패: ' + error.message);
+    }
+
+    return data || null;
+  }
+
+  return readLocalUsers().find((u) => String(u.id) === String(id)) || null;
+}
+
+async function createUser(username, passwordHash) {
+  const clean = normalizeUsername(username);
+  const row = {
+    username: clean,
+    password_hash: passwordHash,
+    save: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  if (supabase) {
+    const { data, error } = await supabase
+      .from(USERS_TABLE)
+      .insert(row)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('[Supabase] createUser error:', error.message);
+      throw new Error('Supabase 사용자 생성 실패: ' + error.message);
+    }
+
+    return data;
+  }
+
+  const users = readLocalUsers();
+  const localRow = { id: 'local_' + Date.now().toString(36) + Math.random().toString(36).slice(2), ...row };
+  users.push(localRow);
+  writeLocalUsers(users);
+  return localRow;
+}
+
+async function updateUserSave(userId, save) {
+  const cleanedSave = save && typeof save === 'object' ? save : {};
+
+  if (supabase) {
+    const { data, error } = await supabase
+      .from(USERS_TABLE)
+      .update({ save: cleanedSave, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('[Supabase] updateUserSave error:', error.message);
+      throw new Error('Supabase 저장 실패: ' + error.message);
+    }
+
+    return data;
+  }
+
+  const users = readLocalUsers();
+  const idx = users.findIndex((u) => String(u.id) === String(userId));
+  if (idx < 0) throw new Error('사용자를 찾을 수 없습니다.');
+  users[idx].save = cleanedSave;
+  users[idx].updated_at = new Date().toISOString();
+  writeLocalUsers(users);
+  return users[idx];
+}
+
+async function requireAuth(req, res, next) {
+  try {
+    const header = req.headers.authorization || '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+
+    if (!token) return fail(res, 401, '로그인이 필요합니다.');
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await findUserById(decoded.id);
+
+    if (!user) return fail(res, 401, '사용자를 찾을 수 없습니다.');
+
+    req.user = user;
+    next();
+  } catch (err) {
+    return fail(res, 401, '인증이 만료되었습니다. 다시 로그인해주세요.');
+  }
+}
+
+app.get('/api/health', function (req, res) {
+  ok(res, {
+    status: 'online',
+    supabase: !!supabase,
+    socketio: true,
+    time: new Date().toISOString()
+  });
+});
+
+app.post('/api/register', async function (req, res) {
+  try {
+    const username = normalizeUsername(req.body.username);
+    const password = String(req.body.password || '');
+
+    if (!username || username.length < 2) return fail(res, 400, '아이디는 2자 이상이어야 합니다.');
+    if (!password || password.length < 4) return fail(res, 400, '비밀번호는 4자 이상이어야 합니다.');
+
+    const existing = await findUserByUsername(username);
+    if (existing) return fail(res, 409, '이미 사용 중인 아이디입니다.');
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await createUser(username, passwordHash);
+    const token = signToken(user);
+
+    ok(res, { token, user: publicUser(user) });
+  } catch (err) {
+    console.error('[POST /api/register]', err);
+    fail(res, 500, err.message || '회원가입 실패');
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`Pixel RPG server running at http://localhost:${PORT}`);
+app.post('/api/login', async function (req, res) {
+  try {
+    const username = normalizeUsername(req.body.username);
+    const password = String(req.body.password || '');
+
+    if (!username || !password) return fail(res, 400, '아이디와 비밀번호를 입력해주세요.');
+
+    const user = await findUserByUsername(username);
+    if (!user) return fail(res, 401, '아이디 또는 비밀번호가 올바르지 않습니다.');
+
+    const hash = user.password_hash || user.passwordHash || user.password;
+    const valid = hash ? await bcrypt.compare(password, hash) : false;
+    if (!valid) return fail(res, 401, '아이디 또는 비밀번호가 올바르지 않습니다.');
+
+    const token = signToken(user);
+    ok(res, { token, user: publicUser(user) });
+  } catch (err) {
+    console.error('[POST /api/login]', err);
+    fail(res, 500, err.message || '로그인 실패');
+  }
+});
+
+app.get('/api/profile', requireAuth, async function (req, res) {
+  ok(res, { user: publicUser(req.user) });
+});
+
+app.post('/api/create-character', requireAuth, async function (req, res) {
+  try {
+    const character = req.body.character || {};
+    const name = String(character.name || '').trim();
+
+    if (!name || name.length < 2) return fail(res, 400, '닉네임은 2자 이상이어야 합니다.');
+
+    const save = {
+      player: {
+        x: 260,
+        y: 560,
+        level: 1,
+        exp: 0,
+        nextExp: 120,
+        hp: 150,
+        maxHp: 150,
+        mp: 60,
+        maxMp: 60,
+        character: {
+          name,
+          job: character.job || 'beginner',
+          skin: character.skin || '#ffd6a6',
+          hair: character.hair || '#2b160e',
+          hairStyle: character.hairStyle || 'basic',
+          faceStyle: character.faceStyle || 'normal'
+        }
+      },
+      gold: 120,
+      townId: 'lumina',
+      huntId: 'lumina_field',
+      stats: { str: 4, dex: 4, int: 4, luk: 4, ap: 5 },
+      inventory: {
+        items: [
+          { id: 'hp_potion', count: 10 },
+          { id: 'mp_potion', count: 10 },
+          { id: 'wooden_sword', count: 1 },
+          { id: 'cloth_armor', count: 1 }
+        ],
+        quickSlots: ['hp_potion', 'mp_potion', null, null]
+      },
+      equipment: { weapon: null, helmet: null, armor: null, knee: null, accessory: null },
+      skills: { unlocked: [], hotkeys: { k: null, l: null, semicolon: null } },
+      quests: { active: [], completed: [] }
+    };
+
+    const updated = await updateUserSave(req.user.id, save);
+    ok(res, { user: publicUser(updated) });
+  } catch (err) {
+    console.error('[POST /api/create-character]', err);
+    fail(res, 500, err.message || '캐릭터 생성 실패');
+  }
+});
+
+app.post('/api/save', requireAuth, async function (req, res) {
+  try {
+    const save = req.body && typeof req.body === 'object' ? req.body : {};
+    const updated = await updateUserSave(req.user.id, save);
+    ok(res, { user: publicUser(updated) });
+  } catch (err) {
+    console.error('[POST /api/save]', err);
+    fail(res, 500, err.message || '저장 실패');
+  }
+});
+
+// SPA/static fallback. Keep this after API routes.
+app.get('*', function (req, res) {
+  const indexPath = path.join(publicDir, 'index.html');
+  if (fs.existsSync(indexPath)) return res.sendFile(indexPath);
+  res.status(404).send('index.html not found');
+});
+
+try {
+  const attachPixelRpgMultiplayer = require('./multiplayer_server_socketio_module');
+  attachPixelRpgMultiplayer(server, {
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST']
+    }
+  });
+  console.log('[PixelRPG] Socket.IO multiplayer attached.');
+} catch (err) {
+  console.error('[PixelRPG] Socket.IO multiplayer module failed to load:', err.message);
+  console.error('[PixelRPG] Check file name: multiplayer_server_socketio_module.js');
+}
+
+server.listen(PORT, function () {
+  console.log('[PixelRPG] Server running on port ' + PORT);
 });
