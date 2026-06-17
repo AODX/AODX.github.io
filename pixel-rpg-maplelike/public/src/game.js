@@ -18315,3 +18315,380 @@ canvas.addEventListener('click', function (e) {
 
   if(typeof text==='function') text('엘리트/아이템 외형/장착 외형 보정 적용','#facc15');
 })();
+
+/* =========================================================
+   REQUEST PATCH 02 - City level gates / one boss per city /
+   monster attack types / full job NPC placement / merchant fix
+========================================================= */
+(function(){
+  'use strict';
+  if (window.__PIXEL_RPG_REQUEST_PATCH_02__) return;
+  window.__PIXEL_RPG_REQUEST_PATCH_02__ = true;
+
+  function arr(v){ return Array.isArray(v) ? v : []; }
+  function clamp2(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function text2(msg,color){ try{ makeText(String(msg), game.player.x, game.player.y - 95, color || '#fff'); }catch(_){} }
+  function itemId2(ref){ return typeof itemRefId === 'function' ? itemRefId(ref) : (typeof ref === 'string' ? ref : ref && ref.id); }
+  function hit2(x,y,rx,ry,rw,rh){ return x>=rx && x<=rx+rw && y>=ry && y<=ry+rh; }
+  function rr2(c,x,y,w,h,r){ if (typeof roundRect === 'function') return roundRect(c,x,y,w,h,r); c.beginPath(); c.rect(x,y,w,h); c.fill(); }
+  function circle2(c,x,y,r){ c.beginPath(); c.arc(x,y,r,0,Math.PI*2); c.fill(); }
+  function poly2(c,pts){ c.beginPath(); pts.forEach(function(p,i){ if(i)c.lineTo(p[0],p[1]); else c.moveTo(p[0],p[1]); }); c.closePath(); c.fill(); }
+  function townById2(id){ return arr(TOWNS).find(function(t){ return t.id === id; }) || arr(TOWNS)[0]; }
+  function currentTown2(){ return townById2(game && game.townId); }
+  function minLevelOfTown(t){ return Number(t && (t.minLevel || t.requiredLevel || t.reqLevel)) || 1; }
+  function shortMoney(n){ return String(Math.floor(Number(n)||0)) + 'G'; }
+
+  function upsertTown(t){
+    if (!window.TOWNS && typeof TOWNS === 'undefined') return;
+    const old = TOWNS.find(function(x){ return x.id === t.id; });
+    if (old) Object.assign(old,t); else TOWNS.push(t);
+  }
+  const gateData = {
+    lumina:1, greenwood:4, ellenium:8, valor:8, shadowport:10, sylvania:10, irondeep:15, frosthall:20, solas:25, nocturn:32,
+    aurora:38, emberfall:45, stormpeak:52, celestial:60, abyssgate:70
+  };
+  Object.keys(gateData).forEach(function(id){ const t = arr(TOWNS).find(function(x){ return x.id === id; }); if(t) t.minLevel = gateData[id]; });
+  upsertTown({ id:'aurora', name:'오로라', title:'극광 성채', theme:'ice', taxiCost:520, minLevel:38, hunt:'aurora_snowfield', bgTop:'#7dd3fc', bgBottom:'#eefcff', recommendLevel:'Lv.38~48' });
+  upsertTown({ id:'emberfall', name:'엠버폴', title:'화산 도시', theme:'desert', taxiCost:680, minLevel:45, hunt:'emberfall_volcano', bgTop:'#fb923c', bgBottom:'#fee2b8', recommendLevel:'Lv.45~58' });
+  upsertTown({ id:'stormpeak', name:'스톰피크', title:'폭풍 고원', theme:'fortress', taxiCost:850, minLevel:52, hunt:'stormpeak_highland', bgTop:'#64748b', bgBottom:'#dbeafe', recommendLevel:'Lv.52~65' });
+  upsertTown({ id:'celestial', name:'셀레스티아', title:'별빛 왕도', theme:'magic', taxiCost:1050, minLevel:60, hunt:'celestial_sanctum', bgTop:'#312e81', bgBottom:'#ddd6fe', recommendLevel:'Lv.60~75' });
+  upsertTown({ id:'abyssgate', name:'어비스게이트', title:'심연 관문', theme:'ruin', taxiCost:1350, minLevel:70, hunt:'abyssgate_depths', bgTop:'#0f172a', bgBottom:'#334155', recommendLevel:'Lv.70~90' });
+
+  function defineFamily2(id, data){ FAMILY_DATA[id] = Object.assign({ name:id, drop:'ruin_core', color:'#94a3b8', shape:'spirit', attack:'melee' }, FAMILY_DATA[id] || {}, data); }
+  defineFamily2('wolf',{ name:'서리 늑대', drop:'ice_shard', color:'#a5f3fc', shape:'boar', attack:'charge', status:'frost' });
+  defineFamily2('flame_imp',{ name:'화염 임프', drop:'desert_scale', color:'#fb923c', shape:'ogre', attack:'ranged', status:'burn' });
+  defineFamily2('storm_hawk',{ name:'폭풍 매', drop:'hard_feather', color:'#93c5fd', shape:'bug', attack:'ranged' });
+  defineFamily2('star_mage',{ name:'별빛 사도', drop:'blue_crystal', color:'#c084fc', shape:'spirit', attack:'ranged' });
+  defineFamily2('abyss_lurker',{ name:'심연 잠복자', drop:'ruin_core', color:'#7c3aed', shape:'ogre', attack:'poison', status:'poison' });
+  defineFamily2('scorpion',{ name:'독 전갈', drop:'desert_scale', color:'#eab308', shape:'lizard', attack:'poison', status:'poison' });
+  HUNTS.aurora_snowfield = { town:'aurora', name:'오로라 설원', baseLevel:38, families:['wolf','ice'] };
+  HUNTS.emberfall_volcano = { town:'emberfall', name:'엠버폴 화산', baseLevel:45, families:['flame_imp','desert'] };
+  HUNTS.stormpeak_highland = { town:'stormpeak', name:'스톰피크 고원', baseLevel:52, families:['storm_hawk','boar'] };
+  HUNTS.celestial_sanctum = { town:'celestial', name:'셀레스티아 성역', baseLevel:60, families:['star_mage','mana'] };
+  HUNTS.abyssgate_depths = { town:'abyssgate', name:'어비스 심층', baseLevel:70, families:['abyss_lurker','shadow'] };
+
+  const bossByTown = {
+    lumina:{ name:'왕관 슬라임', family:'slime', gimmick:'split_poison', color:'#7bed8d' },
+    greenwood:{ name:'가시 여왕 베르다', family:'bug', gimmick:'poison_ranged', color:'#86efac' },
+    ellenium:{ name:'마나 폭풍 위습', family:'mana', gimmick:'ranged_barrage', color:'#74c0fc' },
+    valor:{ name:'강철 돌격대장', family:'boar', gimmick:'charge_stun', color:'#cbd5e1' },
+    shadowport:{ name:'밤그림자 카론', family:'shadow', gimmick:'shadow_dash', color:'#a78bfa' },
+    sylvania:{ name:'숲의 포식자 아르곤', family:'bug', gimmick:'arrow_rain', color:'#4ade80' },
+    irondeep:{ name:'광맥 골렘 가론', family:'ore', gimmick:'guard_shockwave', color:'#94a3b8' },
+    frosthall:{ name:'서리혼 네비아', family:'ice', gimmick:'frost_ranged', color:'#67e8f9' },
+    solas:{ name:'태양 전갈 사르', family:'scorpion', gimmick:'burn_poison', color:'#facc15' },
+    nocturn:{ name:'부서진 기사 넬', family:'ruin', gimmick:'curse_projectile', color:'#818cf8' },
+    aurora:{ name:'극광 늑대 알카', family:'wolf', gimmick:'frost_charge', color:'#a5f3fc' },
+    emberfall:{ name:'용암군주 이그니스', family:'flame_imp', gimmick:'fire_barrage', color:'#fb923c' },
+    stormpeak:{ name:'천둥매 라키온', family:'storm_hawk', gimmick:'dash_ranged', color:'#93c5fd' },
+    celestial:{ name:'성좌 현자 아스트라', family:'star_mage', gimmick:'star_barrage', color:'#e879f9' },
+    abyssgate:{ name:'심연의 눈 모르가스', family:'abyss_lurker', gimmick:'poison_barrage', color:'#7c3aed' }
+  };
+  function townIdFromHunt2(){ const h = getHunt(game.huntId); return (h && h.town) || game.townId || 'lumina'; }
+  function makeBossType2(townId){
+    const data = bossByTown[townId] || bossByTown.lumina;
+    const hunt = getHunt(game.huntId || (townById2(townId)||{}).hunt);
+    const lv = Math.max((hunt && hunt.baseLevel || 1) + 4, (game.player && game.player.level || 1) + 2);
+    return { family:data.family, name:data.name, level:lv, hp:260 + lv * 90, atk:14 + lv * 4, def:Math.floor(lv*1.1), exp:220 + lv * 45, gold:300 + lv * 70, drop:(FAMILY_DATA[data.family]||{}).drop || 'ruin_core', dropRate:.9, color:data.color, shape:(FAMILY_DATA[data.family]||{}).shape || 'golem', speed:34, respawn:300000, isElite:true, isNamed:true, gimmick:data.gimmick };
+  }
+  function finalBossId2(townId){ return 'final_boss:' + townId; }
+  function ensureOneBoss2(sendSeed){
+    if (!game || game.mode !== 'hunt') return;
+    const townId = townIdFromHunt2();
+    game.monsters = arr(game.monsters).filter(function(m){ return !(m && (m.isElite || m.isNamed || (m.type && (m.type.isElite || m.type.isNamed))) && !String(m.uid||m.sharedId||'').startsWith('final_boss:')); });
+    const id = finalBossId2(townId);
+    const bt = makeBossType2(townId);
+    let boss = game.monsters.find(function(m){ return m && (m.uid === id || m.sharedId === id); });
+    if (!boss) {
+      const x = Math.min((game.width || 5400) - 650, 4300);
+      boss = { uid:id, sharedId:id, eliteId:id, isElite:true, isNamed:true, type:bt, name:bt.name, family:bt.family, x:x, baseX:x, y:game.ground, spawnY:game.ground, hp:bt.hp, maxHp:bt.hp, face:-1, time:0, hit:0, dead:false, attackCooldown:1.2, patternTime:0, patternIndex:0, respawn:300000, gimmick:bt.gimmick };
+      game.monsters.push(boss);
+    } else {
+      boss.type = Object.assign(boss.type || {}, bt);
+      boss.isElite = boss.isNamed = true; boss.name = bt.name; boss.family = bt.family; boss.gimmick = bt.gimmick; boss.maxHp = boss.maxHp || bt.hp; if(!boss.dead && boss.hp <= 0) boss.hp = boss.maxHp;
+    }
+    if (sendSeed && window.PixelRpgMultiplayer && PixelRpgMultiplayer.socket && PixelRpgMultiplayer.connected) {
+      try{
+        PixelRpgMultiplayer.socket.emit('monster:force-seed', { room:'hunt:' + (game.huntId || 'hunt'), huntId:game.huntId, layout:'one-city-boss-v1', monsters:game.monsters.map(function(m,i){ const t=m.type||{}; return { id:m.sharedId||m.uid||('m'+i), index:i, family:t.family||m.family, name:t.name||m.name, level:t.level||1, x:Math.round(m.x||0), y:Math.round(m.y||0), baseX:Math.round(m.baseX||m.x||0), spawnY:Math.round(m.spawnY||m.y||0), hp:Math.max(0,Math.round(m.hp||0)), maxHp:Math.max(1,Math.round(m.maxHp||t.hp||1)), dead:!!m.dead, respawn:(m.isElite||m.isNamed)?300000:Math.max(10000,t.respawn||m.respawn||10000), isElite:!!m.isElite, isNamed:!!m.isNamed, namedKey:m.eliteId||null, gimmick:m.gimmick||t.gimmick||'' }; }) });
+      }catch(e){}
+    }
+  }
+
+  const oldSpawn2 = typeof spawnMonsters === 'function' ? spawnMonsters : null;
+  spawnMonsters = window.spawnMonsters = function spawnMonstersRequestPatch(hunt){ const r = oldSpawn2 ? oldSpawn2.apply(this, arguments) : undefined; arr(game.monsters).forEach(assignMonsterAbility2); ensureOneBoss2(true); return r; };
+  const oldLoadHunt2 = typeof loadHunt === 'function' ? loadHunt : null;
+  loadHunt = window.loadHunt = function loadHuntRequestPatch(){ const r = oldLoadHunt2 ? oldLoadHunt2.apply(this, arguments) : undefined; arr(game.monsters).forEach(assignMonsterAbility2); ensureOneBoss2(true); return r; };
+
+  function assignMonsterAbility2(m){
+    if(!m || !m.type) return;
+    const fd = FAMILY_DATA[m.type.family] || {};
+    if (m.isElite || m.type.isElite) { m.attackType = 'boss'; m.status = (m.gimmick || m.type.gimmick || '').includes('poison') ? 'poison' : ((m.gimmick || '').includes('fire') || (m.gimmick || '').includes('burn') ? 'burn' : ((m.gimmick || '').includes('frost') ? 'frost' : null)); return; }
+    m.attackType = m.attackType || fd.attack || (m.type.level % 5 === 0 ? 'ranged' : m.type.level % 4 === 0 ? 'charge' : 'melee');
+    m.status = m.status || fd.status || (m.type.family === 'mushroom' ? 'poison' : m.type.family === 'desert' ? 'burn' : null);
+  }
+  function hurtPlayer2(amount, status, sourceX){
+    const p = game.player; if(!p || p.invincible > 0) return;
+    const dmg = Math.max(1, Math.floor(amount - p.defense * .35));
+    p.hp = Math.max(0, p.hp - dmg); p.invincible = .55; p.hurtTime = .18; p.vx = (p.x < sourceX ? -150 : 150);
+    if(status === 'poison') p.poisonTimer = Math.max(p.poisonTimer || 0, 5);
+    if(status === 'burn') p.burnTimer = Math.max(p.burnTimer || 0, 4);
+    if(status === 'frost') p.slowTimer = Math.max(p.slowTimer || 0, 2.2);
+    text2('-' + dmg + (status === 'poison' ? ' 독' : status === 'burn' ? ' 화상' : status === 'frost' ? ' 냉기' : ''), status === 'poison' ? '#86efac' : status === 'burn' ? '#fb923c' : '#ff8787');
+  }
+  function monsterShoot2(m, visual, speed, status){
+    const p = game.player; if(!p) return;
+    const dx = p.x - m.x; const dy = (p.y - 45) - (m.y - 48); const len = Math.max(1, Math.hypot(dx,dy));
+    const allIds = new Set(arr(game.monsters).map(function(mm){ return mm.uid; }));
+    game.projectiles.push({ enemy:true, x:m.x + (dx>0?35:-35), y:m.y - 48, vx:dx/len*speed, vy:dy/len*speed, life:2.2, visual:visual, kind:visual, color:(m.type&&m.type.color)||'#facc15', damage:(m.type&&m.type.atk)||10, status:status, sourceX:m.x, hitSet:allIds, skill:{ power:0, range:0 } });
+  }
+  const oldUpdateMonsters2 = typeof updateMonsters === 'function' ? updateMonsters : null;
+  updateMonsters = window.updateMonsters = function updateMonstersRequestPatch(dt){
+    const ret = oldUpdateMonsters2 ? oldUpdateMonsters2.apply(this, arguments) : undefined;
+    if(game.mode !== 'hunt') return ret;
+    ensureOneBoss2(false);
+    arr(game.monsters).forEach(function(m){
+      if(!m || m.dead) return; assignMonsterAbility2(m); m.specialCd = Math.max(0, (m.specialCd || 0) - dt); m.patternTime = (m.patternTime || 0) + dt;
+      const p = game.player; const dist = Math.abs((p&&p.x||0) - m.x); if(!p || dist > 620) return;
+      if ((m.isElite || (m.type && m.type.isElite)) && m.specialCd <= 0) {
+        const hpRate = Math.max(0, (m.hp || 1) / Math.max(1, m.maxHp || (m.type && m.type.hp) || 1));
+        const gim = String(m.gimmick || (m.type && m.type.gimmick) || '');
+        if (/charge|dash/.test(gim)) { m.vx = (p.x > m.x ? 1 : -1) * (hpRate < .45 ? 520 : 420); m.chargeTime = .42; text2('보스 돌진!', '#facc15'); }
+        if (/ranged|barrage|projectile|curse|star|fire|poison|frost|arrow/.test(gim)) {
+          const count = hpRate < .5 ? 5 : 3;
+          for(let i=0;i<count;i++) setTimeout(function(){ if(!m.dead) monsterShoot2(m, /fire|burn/.test(gim)?'fire':/poison/.test(gim)?'poison':/frost/.test(gim)?'ice':/shadow|curse/.test(gim)?'dark':'magic', 230 + i*22, /poison/.test(gim)?'poison':/fire|burn/.test(gim)?'burn':/frost/.test(gim)?'frost':null); }, i*130);
+        }
+        if (/shockwave|guard/.test(gim) && dist < 190) hurtPlayer2((m.type&&m.type.atk||20)*1.5, null, m.x);
+        m.specialCd = hpRate < .5 ? 2.1 : 3.2;
+      } else if (!(m.isElite || (m.type && m.type.isElite)) && m.specialCd <= 0) {
+        if (m.attackType === 'ranged' && dist < 480) { monsterShoot2(m, m.status === 'burn' ? 'fire' : m.status === 'poison' ? 'poison' : 'magic', 260, m.status); m.specialCd = 2.1; }
+        else if (m.attackType === 'charge' && dist < 330) { m.vx = (p.x > m.x ? 1 : -1) * 360; m.chargeTime = .28; m.specialCd = 2.8; }
+        else if (m.attackType === 'poison' && dist < 250) { monsterShoot2(m, 'poison', 220, 'poison'); m.specialCd = 2.7; }
+      }
+      if (m.chargeTime > 0) { m.chargeTime -= dt; m.x += (m.vx || 0) * dt; if(Math.abs(p.x-m.x)<60 && Math.abs(p.y-m.y)<90) hurtPlayer2((m.type&&m.type.atk||12)*1.35, m.status, m.x); }
+    });
+    return ret;
+  };
+  const oldUpdateProjectiles2 = typeof updateProjectiles === 'function' ? updateProjectiles : null;
+  updateProjectiles = window.updateProjectiles = function updateProjectilesRequestPatch(dt){
+    const ret = oldUpdateProjectiles2 ? oldUpdateProjectiles2.apply(this, arguments) : undefined;
+    arr(game.projectiles).forEach(function(pr){
+      if(!pr || !pr.enemy) return; pr.life -= dt; pr.x += (pr.vx||0)*dt; pr.y += (pr.vy||0)*dt;
+      if(game.player && Math.abs(pr.x - game.player.x) < 42 && Math.abs(pr.y - (game.player.y - 45)) < 58){ hurtPlayer2(pr.damage || 10, pr.status, pr.sourceX || pr.x); pr.life = 0; }
+    });
+    game.projectiles = arr(game.projectiles).filter(function(p){ return !p.enemy || p.life > 0; });
+    return ret;
+  };
+  const oldUpdatePlayer2 = typeof updatePlayer === 'function' ? updatePlayer : null;
+  updatePlayer = window.updatePlayer = function updatePlayerRequestPatch(dt){
+    const p = game.player; if(p){
+      p.poisonTick = (p.poisonTick || 0) + dt; p.burnTick = (p.burnTick || 0) + dt;
+      if(p.poisonTimer > 0){ p.poisonTimer -= dt; if(p.poisonTick >= 1){ p.poisonTick = 0; p.hp = Math.max(0, p.hp - Math.max(2, Math.floor(p.maxHp*.018))); text2('독 피해', '#86efac'); } }
+      if(p.burnTimer > 0){ p.burnTimer -= dt; if(p.burnTick >= .75){ p.burnTick = 0; p.hp = Math.max(0, p.hp - Math.max(3, Math.floor(p.maxHp*.022))); text2('화상 피해', '#fb923c'); } }
+      if(p.slowTimer > 0) p.slowTimer -= dt;
+    }
+    const oldSpeed = p && p.speed;
+    if(p && p.slowTimer > 0) p.speed = oldSpeed * .72;
+    const r = oldUpdatePlayer2 ? oldUpdatePlayer2.apply(this, arguments) : undefined;
+    if(p && p.slowTimer > 0) p.speed = oldSpeed;
+    return r;
+  };
+
+  function defineItem2(id, data){ ITEMS[id] = Object.assign({ id:id }, ITEMS[id] || {}, data); }
+  defineItem2('hp_potion_small',{ name:'초급 체력 회복 물약', type:'consumable', icon:'hp', price:30, sell:8, healHp:80, desc:'HP 80 회복' });
+  defineItem2('hp_potion_mid',{ name:'중급 체력 회복 물약', type:'consumable', icon:'hp', price:180, sell:45, healHp:260, desc:'HP 260 회복' });
+  defineItem2('hp_potion_high',{ name:'상급 체력 회복 물약', type:'consumable', icon:'hp', price:620, sell:155, healHp:720, desc:'HP 720 회복' });
+  defineItem2('hp_potion_ultimate',{ name:'최상급 체력 회복 물약', type:'consumable', icon:'hp', price:1600, sell:400, healHp:1800, desc:'HP 1800 회복' });
+  defineItem2('mp_potion_small',{ name:'초급 마나 회복 물약', type:'consumable', icon:'mp', price:35, sell:9, healMp:50, desc:'MP 50 회복' });
+  defineItem2('mp_potion_mid',{ name:'중급 마나 회복 물약', type:'consumable', icon:'mp', price:210, sell:52, healMp:170, desc:'MP 170 회복' });
+  defineItem2('mp_potion_high',{ name:'상급 마나 회복 물약', type:'consumable', icon:'mp', price:700, sell:175, healMp:460, desc:'MP 460 회복' });
+  defineItem2('mp_potion_ultimate',{ name:'최상급 마나 회복 물약', type:'consumable', icon:'mp', price:1800, sell:450, healMp:1200, desc:'MP 1200 회복' });
+  ITEMS.hp_potion = Object.assign(ITEMS.hp_potion || {}, { name:'초급 체력 회복 물약', healHp:80, price:30, desc:'HP 80 회복' });
+  ITEMS.mp_potion = Object.assign(ITEMS.mp_potion || {}, { name:'초급 마나 회복 물약', healMp:50, price:35, desc:'MP 50 회복' });
+  const MERCHANT_REQUEST_ITEMS = ['hp_potion','hp_potion_mid','hp_potion_high','hp_potion_ultimate','mp_potion','mp_potion_mid','mp_potion_high','mp_potion_ultimate'];
+  const oldUseItem2 = typeof useItem === 'function' ? useItem : null;
+  useItem = window.useItem = function useItemRequestPatch(ref){
+    const id = itemId2(ref); const item = ITEMS[id];
+    if(item && item.type === 'consumable' && (item.healHp || item.healMp)){
+      if(!removeItem(id,1)) return;
+      if(item.healHp){ game.player.hp = Math.min(game.player.maxHp, game.player.hp + item.healHp); text2('+' + item.healHp + ' HP', '#ff8787'); }
+      if(item.healMp){ game.player.mp = Math.min(game.player.maxMp, game.player.mp + item.healMp); text2('+' + item.healMp + ' MP', '#74c0fc'); }
+      markAutoSaveSoon(); return;
+    }
+    return oldUseItem2 ? oldUseItem2.apply(this, arguments) : undefined;
+  };
+  const oldBuyItem2 = typeof buyItem === 'function' ? buyItem : null;
+  buyItem = window.buyItem = function buyItemRequestPatch(id){
+    const item = ITEMS[itemId2(id)]; if(!item || !item.price) return;
+    if(wallet.gold < item.price){ text2('골드 부족', '#ff8787'); return; }
+    wallet.gold -= item.price; addItem(item.id || id, 1); markAutoSaveSoon(); text2(item.name + ' 구매 완료', '#c0eb75');
+  };
+  function sellOneInventoryIndex2(i){ const st = inventory.items[i]; if(!st) return; const it = ITEMS[st.id]; if(!it) return; const cnt = it.type === 'etc' ? (st.count || 1) : 1; const gain = (it.sell || Math.floor((it.price||10)*.25)) * cnt; wallet.gold += gain; if(it.type === 'etc') inventory.items.splice(i,1); else removeItem(st,1); markAutoSaveSoon(); text2('판매 +' + gain + 'G', '#ffd43b'); }
+  drawShopPanel = window.drawShopPanel = function drawShopPanelRequestPatch(){
+    const x=70,y=70,w=1120,h=610; ctx.fillStyle='rgba(15,23,42,.97)'; rr2(ctx,x,y,w,h,18); ctx.strokeStyle='#93c5fd'; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
+    ctx.fillStyle='#ffe066'; ctx.font='bold 28px sans-serif'; ctx.textAlign='left'; ctx.fillText(game.shopOpen==='weapon'?'장비 상점':'상인',x+28,y+42);
+    ctx.fillStyle='#ffd43b'; ctx.font='bold 16px sans-serif'; ctx.fillText('보유 골드: '+shortMoney(wallet.gold),x+28,y+70);
+    if(game.shopOpen === 'merchant'){
+      game.shopTab = game.shopTab || 'buy';
+      ctx.fillStyle=game.shopTab==='buy'?'#2563eb':'#334155'; rr2(ctx,x+300,y+24,120,38,9);
+      ctx.fillStyle=game.shopTab==='sell'?'#2563eb':'#334155'; rr2(ctx,x+430,y+24,160,38,9);
+      ctx.fillStyle='#fff'; ctx.font='bold 15px sans-serif'; ctx.textAlign='center'; ctx.fillText('물약 구매',x+360,y+49); ctx.fillText('내 물건 판매',x+510,y+49);
+      ctx.fillStyle='#94a3b8'; ctx.font='12px sans-serif'; ctx.textAlign='left'; ctx.fillText('구매와 판매를 탭으로 분리해서 판매 목록이 물약 목록을 가리지 않습니다.',x+610,y+49);
+    }
+    const list = game.shopOpen==='merchant' && game.shopTab==='sell' ? inventory.items : (game.shopOpen==='merchant' ? MERCHANT_REQUEST_ITEMS : (typeof getShopItemsForCurrentTown==='function'?getShopItemsForCurrentTown():[]));
+    const clipX=x+28, clipY=y+92, clipW=w-56, clipH=450, rowH=68, scroll=game.shopScroll||0;
+    ctx.save(); ctx.beginPath(); ctx.rect(clipX,clipY,clipW,clipH); ctx.clip();
+    arr(list).forEach(function(entry,i){
+      const id = typeof entry === 'string' ? entry : entry.id; const it = ITEMS[id]; if(!it) return;
+      const rx=clipX+16+(i%2)*520, ry=clipY+12+Math.floor(i/2)*rowH-scroll; if(ry<clipY-rowH||ry>clipY+clipH) return;
+      ctx.fillStyle='#1e293b'; rr2(ctx,rx,ry,490,56,10); ctx.strokeStyle='#475569'; ctx.strokeRect(rx,ry,490,56);
+      if(typeof drawItemIcon==='function') drawItemIcon(it,rx+30,ry+28,34);
+      ctx.fillStyle='#fff'; ctx.font='bold 15px sans-serif'; ctx.textAlign='left'; ctx.fillText(it.name,rx+58,ry+22);
+      ctx.fillStyle='#cbd5e1'; ctx.font='12px sans-serif'; const price = game.shopOpen==='merchant' && game.shopTab==='sell' ? ('판매 ' + shortMoney((it.sell||Math.floor((it.price||10)*.25)) * (it.type==='etc'?(entry.count||1):1))) : ('구매 ' + shortMoney(it.price||0));
+      ctx.fillText((it.desc||'') + ' / ' + price,rx+58,ry+42);
+      if(entry && entry.count>1){ ctx.fillStyle='#ffe066'; ctx.textAlign='right'; ctx.fillText('x'+entry.count,rx+475,ry+22); }
+    }); ctx.restore();
+    const rows=Math.ceil(Math.max(1,list.length)/2), maxScroll=Math.max(0, rows*rowH+28-clipH); game.shopScroll=clamp2(game.shopScroll||0,0,maxScroll);
+    ctx.fillStyle='#334155'; rr2(ctx,x+w-150,y+h-52,110,38,8); ctx.fillStyle='#fff'; ctx.font='bold 15px sans-serif'; ctx.textAlign='center'; ctx.fillText('닫기',x+w-95,y+h-28);
+  };
+  handleShopClick = window.handleShopClick = function handleShopClickRequestPatch(mx,my){
+    const x=70,y=70,w=1120,h=610; if(hit2(mx,my,x+w-150,y+h-52,110,38)){ game.shopOpen=false; game.shopTab='buy'; game.shopScroll=0; return; }
+    if(game.shopOpen==='merchant'){
+      if(hit2(mx,my,x+300,y+24,120,38)){ game.shopTab='buy'; game.shopScroll=0; return; }
+      if(hit2(mx,my,x+430,y+24,160,38)){ game.shopTab='sell'; game.shopScroll=0; return; }
+    }
+    const clipX=x+28, clipY=y+92, rowH=68, scroll=game.shopScroll||0;
+    const list = game.shopOpen==='merchant' && game.shopTab==='sell' ? inventory.items : (game.shopOpen==='merchant' ? MERCHANT_REQUEST_ITEMS : (typeof getShopItemsForCurrentTown==='function'?getShopItemsForCurrentTown():[]));
+    for(let i=0;i<list.length;i++){ const rx=clipX+16+(i%2)*520, ry=clipY+12+Math.floor(i/2)*rowH-scroll; if(hit2(mx,my,rx,ry,490,56)){ if(game.shopOpen==='merchant'&&game.shopTab==='sell') sellOneInventoryIndex2(i); else buyItem(typeof list[i]==='string'?list[i]:list[i].id); return; } }
+  };
+
+  const oldHandleTaxiClick2 = typeof handleTaxiClick === 'function' ? handleTaxiClick : null;
+  handleTaxiClick = window.handleTaxiClick = function handleTaxiClickRequestPatch(x,y){
+    if(hit2(x,y,1000,610,120,40)){ game.taxiOpen=false; return; }
+    for(let i=0;i<TOWNS.length;i++){
+      const town=TOWNS[i], tx=145+(i%2)*360, ty=145+Math.floor(i/2)*66;
+      if(hit2(x,y,tx,ty,320,54)){
+        if(town.id===game.townId){ text2('이미 현재 도시입니다.','#cbd5e1'); game.taxiOpen=false; return; }
+        const need=minLevelOfTown(town); if((game.player.level||1)<need){ text2(town.name+'은 Lv.'+need+'부터 이동할 수 있습니다.','#ff8787'); return; }
+        if(wallet.gold<town.taxiCost){ text2('택시비 '+town.taxiCost+'G 필요','#ff8787'); return; }
+        wallet.gold-=town.taxiCost; game.taxiOpen=false; loadTown(town.id); game.player.x=360; game.player.y=game.ground; game.player.vx=0; game.player.vy=0; game.player.grounded=true; text2(town.name+' 도착!','#ffe066'); return;
+      }
+    }
+    if(oldHandleTaxiClick2) return oldHandleTaxiClick2.apply(this,arguments);
+  };
+  drawTaxiPanel = window.drawTaxiPanel = function drawTaxiPanelRequestPatch(){
+    ctx.fillStyle='rgba(15,23,42,.96)'; rr2(ctx,90,86,1080,590,18); ctx.strokeStyle='#93c5fd'; ctx.lineWidth=2; ctx.strokeRect(90,86,1080,590);
+    ctx.fillStyle='#ffe066'; ctx.font='bold 27px sans-serif'; ctx.textAlign='left'; ctx.fillText('택시 이동 - 레벨 제한 적용',120,128);
+    ctx.fillStyle='#cbd5e1'; ctx.font='14px sans-serif'; ctx.fillText('도시가 요구하는 레벨에 도달해야 이동할 수 있습니다. 현재 Lv.'+(game.player.level||1),120,154);
+    for(let i=0;i<TOWNS.length;i++){ const town=TOWNS[i], tx=145+(i%2)*360, ty=145+Math.floor(i/2)*66, need=minLevelOfTown(town), ok=(game.player.level||1)>=need, here=town.id===game.townId;
+      ctx.fillStyle=here?'#164e63':ok?'#1e293b':'#3f1d2a'; rr2(ctx,tx,ty,320,54,10); ctx.strokeStyle=ok?'#38bdf8':'#fb7185'; ctx.strokeRect(tx,ty,320,54);
+      ctx.fillStyle='#fff'; ctx.font='bold 15px sans-serif'; ctx.textAlign='left'; ctx.fillText(town.name+' · Lv.'+need+'+',tx+15,ty+22);
+      ctx.fillStyle=ok?'#cbd5e1':'#fecdd3'; ctx.font='12px sans-serif'; ctx.fillText((town.title||'')+' / '+shortMoney(town.taxiCost||0)+(here?' / 현재 위치':''),tx+15,ty+42);
+    }
+    ctx.fillStyle='#334155'; rr2(ctx,1000,610,120,40,8); ctx.fillStyle='#fff'; ctx.font='bold 15px sans-serif'; ctx.textAlign='center'; ctx.fillText('닫기',1060,635);
+  };
+
+  function defineJob2(id, name, tier, main){ JOBS[id] = Object.assign({ name:name, main:main||'str', tier:tier }, JOBS[id] || {}); }
+  defineJob2('knight','기사', 'basic2','str'); defineJob2('paladin','성기사','basic3','str');
+  defineJob2('wizard','위저드','basic2','int'); defineJob2('archmage','아크메이지','basic3','int');
+  defineJob2('assassin','어쌔신','basic2','luk'); defineJob2('night_lord','나이트로드','basic3','luk');
+  defineJob2('ranger','레인저','basic2','dex'); defineJob2('sniper','스나이퍼','basic3','dex');
+  defineJob2('wind_swordsman','청풍 검사','rare','dex'); defineJob2('rune_alchemist','룬 연금술사','rare','int');
+  defineJob2('crimson_oath','붉은 서약자','epic','str'); defineJob2('stormcaller','폭풍 소환사','epic','int');
+  defineJob2('dragon_knight','용기사','hidden','str'); defineJob2('shadow_reaper','그림자 사신','hidden','luk'); defineJob2('star_sage','별의 현자','hidden','int'); defineJob2('abyss_walker','심연 방랑자','hidden','luk'); defineJob2('rune_keeper','룬 수호자','hidden','int');
+  function quest2(id, q){ QUESTS[id] = Object.assign({ id:id, rewardGold:350, rewardExp:300, goals:[{type:'kill', family:'slime', need:1, count:0}] }, QUESTS[id] || {}, q); }
+  quest2('warrior_2nd',{ title:'기사의 길', town:'valor', npc:'기사 교관 브렌', desc:'요새 외벽에서 전투 감각을 증명하세요.', jobReward:'knight', goals:[{type:'kill',family:'boar',need:10,count:0}], rewardGold:650, rewardExp:900 });
+  quest2('warrior_3rd',{ title:'성기사의 맹세', town:'valor', npc:'맹세의 제단', desc:'강철 돌격대장의 기세를 넘어 3차 전직을 완성하세요.', jobReward:'paladin', goals:[{type:'kill',family:'boar',need:20,count:0}], rewardGold:1200, rewardExp:1800 });
+  quest2('mage_2nd',{ title:'위저드의 연구', town:'ellenium', npc:'마력 서고', desc:'마나 숲에서 마력 흐름을 수집하세요.', jobReward:'wizard', goals:[{type:'kill',family:'mana',need:10,count:0}], rewardGold:650, rewardExp:900 });
+  quest2('mage_3rd',{ title:'아크메이지의 별문', town:'ellenium', npc:'별문 수정', desc:'높은 마력 제어를 완성하세요.', jobReward:'archmage', goals:[{type:'kill',family:'mana',need:20,count:0}], rewardGold:1200, rewardExp:1800 });
+  quest2('rogue_2nd',{ title:'어쌔신의 밤길', town:'shadowport', npc:'그림자 표식', desc:'그림자 속에서 기척을 지우는 법을 익히세요.', jobReward:'assassin', goals:[{type:'kill',family:'shadow',need:10,count:0}], rewardGold:650, rewardExp:900 });
+  quest2('rogue_3rd',{ title:'나이트로드의 암약', town:'shadowport', npc:'검은 달 단검', desc:'검은 달의 시험을 통과하세요.', jobReward:'night_lord', goals:[{type:'kill',family:'shadow',need:20,count:0}], rewardGold:1200, rewardExp:1800 });
+  quest2('archer_2nd',{ title:'레인저의 바람', town:'sylvania', npc:'바람 활터', desc:'움직이는 표적을 쓰러뜨리세요.', jobReward:'ranger', goals:[{type:'kill',family:'bug',need:10,count:0}], rewardGold:650, rewardExp:900 });
+  quest2('archer_3rd',{ title:'스나이퍼의 눈', town:'sylvania', npc:'고대 활', desc:'먼 거리에서 사냥감을 제압하세요.', jobReward:'sniper', goals:[{type:'kill',family:'bug',need:20,count:0}], rewardGold:1200, rewardExp:1800 });
+  quest2('rare_wind_swordsman',{ title:'희귀 직업: 청풍 검사', town:'irondeep', npc:'바람에 꽂힌 검', desc:'바닥에 꽂힌 검과 공명해 희귀 직업 시험을 시작합니다.', jobReward:'wind_swordsman', goals:[{type:'kill',family:'ore',need:16,count:0}], rewardGold:1600, rewardExp:2300 });
+  quest2('rare_rune_alchemist',{ title:'희귀 직업: 룬 연금술사', town:'frosthall', npc:'얼어붙은 룬 화로', desc:'룬 화로와 상호작용해 희귀 직업 시험을 시작합니다.', jobReward:'rune_alchemist', goals:[{type:'kill',family:'ice',need:16,count:0}], rewardGold:1600, rewardExp:2300 });
+  quest2('epic_crimson_oath',{ title:'에픽 직업: 붉은 서약자', town:'solas', npc:'붉은 서약비', desc:'사막의 붉은 비석이 에픽 직업 시험을 엽니다.', jobReward:'crimson_oath', goals:[{type:'kill',family:'desert',need:25,count:0}], rewardGold:2600, rewardExp:4200 });
+  quest2('epic_stormcaller',{ title:'에픽 직업: 폭풍 소환사', town:'stormpeak', npc:'폭풍 제단', desc:'번개 제단과 계약해 에픽 직업 시험을 시작합니다.', jobReward:'stormcaller', goals:[{type:'kill',family:'storm_hawk',need:25,count:0}], rewardGold:3000, rewardExp:5200 });
+  quest2('hidden_dragon_knight',{ title:'히든 직업: 용기사', town:'emberfall', npc:'용암에 꽂힌 용창', desc:'용창과 상호작용해 히든 전직 시험을 시작합니다.', jobReward:'dragon_knight', goals:[{type:'kill',family:'flame_imp',need:30,count:0}], rewardGold:5000, rewardExp:9000 });
+  quest2('hidden_shadow_reaper',{ title:'히든 직업: 그림자 사신', town:'abyssgate', npc:'사신의 검은 낫', desc:'심연의 낫이 선택한 자만 시험을 받습니다.', jobReward:'shadow_reaper', goals:[{type:'kill',family:'abyss_lurker',need:30,count:0}], rewardGold:5000, rewardExp:9000 });
+  quest2('hidden_star_sage',{ title:'히든 직업: 별의 현자', town:'celestial', npc:'별빛 오브', desc:'별빛 오브와 공명해 현자의 길을 엽니다.', jobReward:'star_sage', goals:[{type:'kill',family:'star_mage',need:30,count:0}], rewardGold:5000, rewardExp:9000 });
+  quest2('hidden_abyss_walker',{ title:'히든 직업: 심연 방랑자', town:'abyssgate', npc:'심연의 균열', desc:'균열을 조사해 심연 방랑자 시험을 시작합니다.', jobReward:'abyss_walker', goals:[{type:'kill',family:'abyss_lurker',need:35,count:0}], rewardGold:6000, rewardExp:11000 });
+  quest2('hidden_rune_keeper',{ title:'히든 직업: 룬 수호자', town:'celestial', npc:'천공 룬석', desc:'천공 룬석과 상호작용해 룬 수호자 시험을 시작합니다.', jobReward:'rune_keeper', goals:[{type:'kill',family:'star_mage',need:35,count:0}], rewardGold:6000, rewardExp:11000 });
+
+  const npcPlan2 = {
+    lumina:[{type:'job',name:'전사 교관 로한',quest:'warrior_job',x:1760,text:'기본 1차 전직: 전사'},{type:'job',name:'마법 입문자 이렌',quest:'mage_job',x:1970,text:'기본 1차 전직: 마법사'},{type:'job',name:'도적 조교 란',quest:'rogue_job',x:2180,text:'기본 1차 전직: 도적'},{type:'job',name:'궁수 조교 세리아',quest:'archer_job',x:2390,text:'기본 1차 전직: 궁수'}],
+    greenwood:[{type:'job',name:'기사 교관 브렌',quest:'warrior_2nd',x:1840,text:'기본 2차 전직: 기사'},{type:'job_object',name:'마력 서고',quest:'mage_2nd',x:2090,text:'책장과 상호작용하면 위저드 시험이 열립니다.'}],
+    ellenium:[{type:'job',name:'대마법사 이렌',quest:'mage_job',x:1820,text:'기본 1차 전직: 마법사'},{type:'job_object',name:'별문 수정',quest:'mage_3rd',x:2420,text:'수정과 상호작용하면 아크메이지 시험이 열립니다.'}],
+    valor:[{type:'job',name:'기사단장 로한',quest:'warrior_job',x:1820,text:'기본 1차 전직: 전사'},{type:'job_object',name:'맹세의 제단',quest:'warrior_3rd',x:2420,text:'제단과 상호작용하면 성기사 시험이 열립니다.'}],
+    shadowport:[{type:'job',name:'그림자 란',quest:'rogue_job',x:1800,text:'기본 1차 전직: 도적'},{type:'job_object',name:'그림자 표식',quest:'rogue_2nd',x:2080,text:'표식과 상호작용하면 어쌔신 시험이 열립니다.'},{type:'job_object',name:'검은 달 단검',quest:'rogue_3rd',x:2360,text:'단검과 상호작용하면 나이트로드 시험이 열립니다.'}],
+    sylvania:[{type:'job',name:'명궁 세리아',quest:'archer_job',x:1800,text:'기본 1차 전직: 궁수'},{type:'job_object',name:'바람 활터',quest:'archer_2nd',x:2080,text:'활터와 상호작용하면 레인저 시험이 열립니다.'},{type:'job_object',name:'고대 활',quest:'archer_3rd',x:2360,text:'고대 활과 상호작용하면 스나이퍼 시험이 열립니다.'}],
+    irondeep:[{type:'job_object',name:'바람에 꽂힌 검',quest:'rare_wind_swordsman',x:2220,text:'검을 뽑아 희귀 직업 시험을 시작합니다.'}],
+    frosthall:[{type:'job_object',name:'얼어붙은 룬 화로',quest:'rare_rune_alchemist',x:2220,text:'화로와 상호작용하면 희귀 직업 시험이 열립니다.'}],
+    solas:[{type:'job_object',name:'붉은 서약비',quest:'epic_crimson_oath',x:2500,text:'비석과 상호작용하면 에픽 직업 시험이 열립니다.'}],
+    stormpeak:[{type:'job_object',name:'폭풍 제단',quest:'epic_stormcaller',x:2500,text:'제단과 상호작용하면 에픽 직업 시험이 열립니다.'}],
+    emberfall:[{type:'job_object',name:'용암에 꽂힌 용창',quest:'hidden_dragon_knight',x:2900,text:'용기사 히든 전직 시험을 시작합니다.'}],
+    celestial:[{type:'job_object',name:'별빛 오브',quest:'hidden_star_sage',x:2820,text:'별의 현자 히든 전직 시험을 시작합니다.'},{type:'job_object',name:'천공 룬석',quest:'hidden_rune_keeper',x:3140,text:'룬 수호자 히든 전직 시험을 시작합니다.'}],
+    abyssgate:[{type:'job_object',name:'사신의 검은 낫',quest:'hidden_shadow_reaper',x:2820,text:'그림자 사신 히든 전직 시험을 시작합니다.'},{type:'job_object',name:'심연의 균열',quest:'hidden_abyss_walker',x:3140,text:'심연 방랑자 히든 전직 시험을 시작합니다.'}]
+  };
+  const oldLoadTown2 = typeof loadTown === 'function' ? loadTown : null;
+  loadTown = window.loadTown = function loadTownRequestPatch(townId){
+    const r = oldLoadTown2 ? oldLoadTown2.apply(this, arguments) : undefined;
+    const list = npcPlan2[game.townId] || [];
+    list.forEach(function(n,idx){ if(!arr(game.npcs).some(function(x){ return x.name === n.name; })) game.npcs.push(Object.assign({ y:game.ground }, n)); });
+    arr(game.npcs).forEach(function(n){ if(n && !Number.isFinite(n.y)) n.y = game.ground; });
+    return r;
+  };
+  const oldHandleDialog2 = typeof handleDialogClick === 'function' ? handleDialogClick : null;
+  handleDialogClick = window.handleDialogClick = function handleDialogClickRequestPatch(x,y){
+    if(game.dialog && game.dialog.npc && game.dialog.npc.type === 'job_object'){
+      const npc = game.dialog.npc;
+      if(hit2(x,y,970,620,120,40)){ game.dialog=null; return; }
+      if(hit2(x,y,210,620,190,42)){ acceptOrCompleteQuest(npc.quest); return; }
+    }
+    return oldHandleDialog2 ? oldHandleDialog2.apply(this, arguments) : undefined;
+  };
+  const oldDrawNPCBody2 = typeof drawNPCBody === 'function' ? drawNPCBody : null;
+  drawNPCBody = window.drawNPCBody = function drawNPCBodyRequestPatch(npc){
+    if(npc && npc.type === 'job_object'){
+      ctx.save(); ctx.translate(npc.x, npc.y); ctx.shadowColor='#facc15'; ctx.shadowBlur=12;
+      if(/검|단검|낫|용창|활/.test(npc.name)){ ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=6; ctx.beginPath(); ctx.moveTo(0,-12); ctx.lineTo(0,-84); ctx.stroke(); ctx.fillStyle='#facc15'; poly2(ctx,[[-14,-58],[14,-58],[7,-48],[-7,-48]]); ctx.fillStyle='#475569'; rr2(ctx,-22,-11,44,11,5); }
+      else if(/제단|비|룬석|오브|수정|균열|화로|서고|표식/.test(npc.name)){ ctx.fillStyle='#334155'; rr2(ctx,-32,-42,64,42,10); ctx.fillStyle='#a78bfa'; circle2(ctx,0,-48,16); ctx.fillStyle='#fff'; circle2(ctx,-4,-52,4); }
+      ctx.restore(); return;
+    }
+    return oldDrawNPCBody2 ? oldDrawNPCBody2.apply(this, arguments) : undefined;
+  };
+
+  const oldCompleteQuest2 = typeof completeQuest === 'function' ? completeQuest : null;
+  completeQuest = window.completeQuest = function completeQuestRequestPatch(q){
+    const beforeJob = game.player && game.player.character && game.player.character.job;
+    const r = oldCompleteQuest2 ? oldCompleteQuest2.apply(this, arguments) : undefined;
+    if(q && q.jobReward && game.player && game.player.character){
+      game.player.character.job = q.jobReward;
+      if(typeof refreshUnlockedSkills === 'function') refreshUnlockedSkills();
+      text2((JOBS[q.jobReward] ? JOBS[q.jobReward].name : q.jobReward) + ' 전직 완료!', '#ffe066');
+      markAutoSaveSoon();
+    }
+    return r;
+  };
+
+  // Weapon silhouettes: stronger differences between swords, bows, staves, daggers, axes, spears and guns.
+  const oldDrawWeapon2 = typeof drawWeapon === 'function' ? drawWeapon : null;
+  drawWeapon = window.drawWeapon = function drawWeaponRequestPatch(c, weaponId, handX, handY, attacking, attackKind, animTime){
+    const ref = weaponId || (equipment && equipment.weapon); const it = getItemData ? getItemData(ref) : ITEMS[itemId2(ref)]; if(!it) return;
+    const id = String(it.id || itemId2(ref) || '').toLowerCase();
+    let kind = it.weaponType || (id.includes('staff')?'staff':id.includes('bow')?'bow':id.includes('dagger')?'dagger':id.includes('axe')?'axe':id.includes('spear')?'spear':id.includes('gun')?'gun':'sword');
+    const color = (it.pixel && (it.pixel.a || it.pixel.b)) || (kind==='staff'?'#74c0fc':kind==='bow'?'#ffd43b':kind==='dagger'?'#c084fc':'#e5e7eb');
+    const face = (game.player && game.player.face) || 1; const t = attacking ? Math.sin(Math.min(1,(animTime||0)*12)*Math.PI) : 0; const len = 38 + Math.min(48,(it.reqLevel||1)*.75 + (itemEnhance(ref)||0)*2);
+    c.save(); c.translate(handX,handY); c.scale(face,1); c.rotate(attacking ? -1.0 + t*1.45 : -0.38); c.shadowColor=color; c.shadowBlur=(it.reqLevel||1)>35?16:8;
+    if(kind==='staff'){ c.strokeStyle='#6b3f22'; c.lineWidth=5; c.beginPath(); c.moveTo(0,18); c.lineTo(0,-len); c.stroke(); c.fillStyle=color; circle2(c,0,-len-10,12); c.strokeStyle='#fff'; c.lineWidth=2; c.beginPath(); c.arc(0,-len-10,20,0,Math.PI*2); c.stroke(); }
+    else if(kind==='bow'){ c.rotate(.38); c.strokeStyle=color; c.lineWidth=5; c.beginPath(); c.arc(0,-12,34,-1.35,1.35); c.stroke(); c.strokeStyle='#f8fafc'; c.lineWidth=1.5; c.beginPath(); c.moveTo(11,-45); c.lineTo(attacking?-7-t*16:11,-12); c.lineTo(11,22); c.stroke(); if(attacking){ c.strokeStyle='#fef08a'; c.beginPath(); c.moveTo(-5,-12); c.lineTo(58,-12); c.stroke(); } }
+    else if(kind==='dagger'){ c.rotate(.42); c.fillStyle=color; poly2(c,[[0,-len],[9,-9],[2,11],[-5,11],[-9,-9]]); c.fillStyle='#111827'; rr2(c,-12,8,24,7,2); if(attacking){ c.strokeStyle=color; c.lineWidth=3; c.beginPath(); c.arc(8,-18,30,-1.5,.5); c.stroke(); } }
+    else if(kind==='axe'){ c.strokeStyle='#7c4a1e'; c.lineWidth=5; c.beginPath(); c.moveTo(0,18); c.lineTo(0,-len); c.stroke(); c.fillStyle=color; poly2(c,[[0,-len+2],[30,-len+12],[18,-len+40],[0,-len+27],[-18,-len+40],[-30,-len+12]]); }
+    else if(kind==='spear'){ c.strokeStyle='#8b5a2b'; c.lineWidth=4; c.beginPath(); c.moveTo(0,22); c.lineTo(0,-len-20); c.stroke(); c.fillStyle=color; poly2(c,[[0,-len-42],[14,-len-15],[0,-len],[-14,-len-15]]); }
+    else { c.fillStyle=color; poly2(c,[[0,-len],[14,-16],[6,18],[-6,18],[-14,-16]]); c.fillStyle='#7c2d12'; rr2(c,-6,14,12,24,3); c.fillStyle='#fff8'; c.fillRect(-2,-len+10,4,len-34); }
+    c.restore();
+  };
+
+  // Apply once if game is already loaded.
+  try { arr(TOWNS).forEach(function(t){ t.recommendLevel = t.recommendLevel || ('Lv.' + minLevelOfTown(t) + '+'); }); if(game && game.mode === 'town') loadTown(game.townId); if(game && game.mode === 'hunt') ensureOneBoss2(true); } catch(_){}
+  text2('요청 패치 적용: 도시 레벨 제한 / 보스 / 몬스터 패턴 / 직업 NPC / 상점 물약', '#9bf6ff');
+})();
