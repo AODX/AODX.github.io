@@ -17854,3 +17854,464 @@ canvas.addEventListener('click', function (e) {
   const oldLoadHuntSeedRefresh = typeof loadHunt === 'function' ? loadHunt : null;
   if (oldLoadHuntSeedRefresh) window.loadHunt = loadHunt = function(){ const ret=oldLoadHuntSeedRefresh.apply(this, arguments); seedVisibleElitesSoon(); return ret; };
 })();
+
+/* =========================================================
+   INVENTORY ITEM VISUAL / RARITY BORDER / TOWN LAYER FIX
+   - Inventory grid now passes the real item object into icon drawing
+   - Equipment and inventory borders use item rarity colors
+   - Item icons use item id/name/kind/rarity so weapons/armor no longer look identical
+   - Town platforms are rebuilt as clean non-overlapping floors
+   - Town objects are drawn after platforms so buildings sit on floors instead of being covered
+========================================================= */
+(function(){
+  'use strict';
+  if (window.__PIXEL_RPG_ITEM_TOWN_FINAL_VISUAL_FIX__) return;
+  window.__PIXEL_RPG_ITEM_TOWN_FINAL_VISUAL_FIX__ = true;
+
+  function A(v){ return Array.isArray(v) ? v : []; }
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function hashStr(s){ s=String(s||''); let h=2166136261; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return Math.abs(h); }
+  function rr(c,x,y,w,h,r){ if (typeof roundRect === 'function') return roundRect(c,x,y,w,h,r); c.beginPath(); c.roundRect(x,y,w,h,r||4); c.fill(); }
+  function circ(c,x,y,r){ c.beginPath(); c.arc(x,y,r,0,Math.PI*2); c.fill(); }
+  function itemData(ref){
+    if (!ref) return null;
+    if (typeof ref === 'object') {
+      const base = (window.ITEMS && ref.id && ITEMS[ref.id]) ? ITEMS[ref.id] : {};
+      return Object.assign({}, base, ref);
+    }
+    return (window.ITEMS && ITEMS[ref]) ? ITEMS[ref] : { id:String(ref), name:String(ref) };
+  }
+  function itemRarity(item){
+    item=itemData(item)||{};
+    const s=String(item.rarity||item.grade||item.tier||'').toLowerCase();
+    const id=String(item.id||item.name||'').toLowerCase();
+    if (/legend|레전|myth|전설/.test(s+id)) return 'legendary';
+    if (/epic|에픽/.test(s+id)) return 'epic';
+    if (/unique|초희귀|ultra/.test(s+id)) return 'unique';
+    if (/rare|희귀/.test(s+id)) return 'rare';
+    return 'common';
+  }
+  function rarityColorOf(item){
+    return ({ common:'#9ca3af', rare:'#3b82f6', unique:'#22d3ee', epic:'#a855f7', legendary:'#facc15' })[itemRarity(item)] || '#9ca3af';
+  }
+  function itemKind(item){
+    item=itemData(item)||{};
+    const s=(String(item.weaponType||'')+' '+String(item.equipSlot||'')+' '+String(item.type||'')+' '+String(item.id||'')+' '+String(item.name||'')).toLowerCase();
+    if (/dagger|단검/.test(s)) return 'dagger';
+    if (/sword|검|blade/.test(s)) return 'sword';
+    if (/bow|활/.test(s)) return 'bow';
+    if (/staff|wand|스태프|지팡/.test(s)) return 'staff';
+    if (/helmet|투구|헬멧/.test(s)) return 'helmet';
+    if (/armor|갑옷|robe|mail|plate/.test(s)) return 'armor';
+    if (/knee|boot|무릎|부츠/.test(s)) return 'boots';
+    if (/accessory|ring|neck|방어구|반지|목걸/.test(s)) return 'accessory';
+    if (/potion|물약|hp|mp|mana/.test(s)) return 'potion';
+    return 'misc';
+  }
+  function displayName(ref){
+    try { if (typeof getItemDisplayName === 'function') return getItemDisplayName(ref); } catch(_){}
+    const d=itemData(ref); return d && (d.name || d.id) || '';
+  }
+
+  window.__pixelItemRarityColor = rarityColorOf;
+
+  window.drawItemIcon = drawItemIcon = function drawItemIconDistinctFinal(itemOrIcon,x,y,size){
+    const item=itemData(itemOrIcon) || { id:String(itemOrIcon||'item') };
+    const id=String(item.id||item.name||itemOrIcon||'item');
+    const h=hashStr(id);
+    const s=size||32;
+    const kind=itemKind(item);
+    const rarity=itemRarity(item);
+    const col=rarityColorOf(item);
+    const accent=['#f87171','#fb923c','#facc15','#34d399','#22d3ee','#60a5fa','#a78bfa','#f472b6'][h%8];
+    const dark=['#0f172a','#1e293b','#111827','#312e81','#422006'][h%5];
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.shadowColor=col;
+    ctx.shadowBlur=rarity==='legendary'?18:rarity==='epic'?13:rarity==='unique'?9:rarity==='rare'?5:0;
+    ctx.fillStyle='rgba(15,23,42,.94)';
+    rr(ctx,-s*.5,-s*.5,s,s,Math.max(4,s*.12));
+    ctx.strokeStyle=col;
+    ctx.lineWidth=Math.max(2,s*.09);
+    ctx.strokeRect(-s*.5+1,-s*.5+1,s-2,s-2);
+
+    if (kind==='sword') {
+      const bladeW=s*(.10+(h%5)*.012), bladeL=s*(.56+(h%5)*.04);
+      ctx.rotate((h%7-3)*0.035);
+      ctx.fillStyle=col;
+      ctx.beginPath(); ctx.moveTo(0,-bladeL*.58); ctx.lineTo(bladeW,-s*.06); ctx.lineTo(bladeW*.45,s*.24); ctx.lineTo(-bladeW*.45,s*.24); ctx.lineTo(-bladeW,-s*.06); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.65)'; ctx.fillRect(-1,-bladeL*.42,2,bladeL*.55);
+      ctx.fillStyle=accent; rr(ctx,-s*.24,s*.10,s*.48,s*.08,2); ctx.fillStyle='#7c2d12'; rr(ctx,-s*.06,s*.12,s*.12,s*.24,2);
+      if (rarity==='legendary'||rarity==='epic') { ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(0,-s*.05,s*.30,0,Math.PI*2); ctx.stroke(); }
+    } else if (kind==='dagger') {
+      ctx.rotate((h%9-4)*0.08);
+      ctx.fillStyle=col; ctx.beginPath(); ctx.moveTo(s*.22,-s*.40); ctx.lineTo(s*.32,-s*.02); ctx.lineTo(-s*.10,s*.34); ctx.lineTo(-s*.25,s*.19); ctx.lineTo(s*.04,-s*.08); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.65)'; ctx.beginPath(); ctx.moveTo(s*.17,-s*.28); ctx.lineTo(s*.23,-s*.04); ctx.lineTo(-s*.08,s*.22); ctx.lineTo(s*.05,-s*.06); ctx.closePath(); ctx.fill();
+      ctx.fillStyle=accent; rr(ctx,-s*.28,s*.18,s*.20,s*.09,2);
+      if (rarity==='legendary'||rarity==='epic') { ctx.strokeStyle=accent; ctx.beginPath(); ctx.moveTo(-s*.34,s*.30); ctx.quadraticCurveTo(0,-s*.20,s*.34,-s*.32); ctx.stroke(); }
+    } else if (kind==='bow') {
+      ctx.strokeStyle=col; ctx.lineWidth=s*.09; ctx.beginPath(); ctx.arc(-s*.05,0,s*.36,-1.25,1.25); ctx.stroke();
+      ctx.strokeStyle='#dbeafe'; ctx.lineWidth=s*.025; ctx.beginPath(); ctx.moveTo(s*.13,-s*.32); ctx.lineTo(s*.13,s*.32); ctx.stroke();
+      ctx.fillStyle=accent; ctx.beginPath(); ctx.moveTo(s*.34,0); ctx.lineTo(s*.07,-s*.06); ctx.lineTo(s*.07,s*.06); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle=accent; ctx.lineWidth=s*.035; ctx.beginPath(); ctx.moveTo(-s*.20,0); ctx.lineTo(s*.28,0); ctx.stroke();
+    } else if (kind==='staff') {
+      ctx.strokeStyle='#7c4a1e'; ctx.lineWidth=s*.08; ctx.beginPath(); ctx.moveTo(-s*.28,s*.38); ctx.lineTo(s*.18,-s*.28); ctx.stroke();
+      const orbR=s*(.105+(h%4)*.012); ctx.fillStyle=col; circ(ctx,s*.22,-s*.33,orbR); ctx.strokeStyle=accent; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(s*.22,-s*.33,s*.20,0,Math.PI*2); ctx.stroke();
+      if (rarity==='legendary'||rarity==='epic') { for(let i=0;i<5;i++){ ctx.fillStyle=i%2?accent:col; circ(ctx, Math.cos(i*1.26+h)*s*.26, -s*.25+Math.sin(i*1.26+h)*s*.18, s*.025); } }
+    } else if (kind==='helmet') {
+      ctx.fillStyle=col; ctx.beginPath(); ctx.ellipse(0,-s*.06,s*.30,s*.22,0,Math.PI,0); ctx.lineTo(s*.27,s*.18); ctx.lineTo(-s*.27,s*.18); ctx.closePath(); ctx.fill();
+      ctx.fillStyle=dark; rr(ctx,-s*.19,s*.02,s*.38,s*.10,3);
+      ctx.fillStyle='rgba(255,255,255,.45)'; rr(ctx,-s*.11,-s*.16,s*.22,s*.045,2);
+      if (h%3===0) { ctx.fillStyle=accent; ctx.beginPath(); ctx.moveTo(0,-s*.34); ctx.lineTo(s*.08,-s*.15); ctx.lineTo(-s*.08,-s*.15); ctx.closePath(); ctx.fill(); }
+    } else if (kind==='armor') {
+      ctx.fillStyle=col; ctx.beginPath(); ctx.moveTo(0,-s*.38); ctx.lineTo(s*.33,-s*.17); ctx.lineTo(s*.24,s*.38); ctx.lineTo(-s*.24,s*.38); ctx.lineTo(-s*.33,-s*.17); ctx.closePath(); ctx.fill();
+      ctx.fillStyle=dark; rr(ctx,-s*.17,-s*.10,s*.34,s*.30,4); ctx.fillStyle='rgba(255,255,255,.35)'; rr(ctx,-s*.12,-s*.22,s*.24,s*.07,2);
+      ctx.strokeStyle=accent; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-s*.22,s*.13); ctx.lineTo(s*.22,s*.13); ctx.stroke();
+    } else if (kind==='boots') {
+      ctx.fillStyle=col; rr(ctx,-s*.33,s*.02,s*.24,s*.26,4); rr(ctx,s*.09,s*.02,s*.24,s*.26,4); ctx.fillStyle=dark; rr(ctx,-s*.38,s*.22,s*.30,s*.10,3); rr(ctx,s*.08,s*.22,s*.30,s*.10,3);
+    } else if (kind==='accessory') {
+      ctx.strokeStyle=col; ctx.lineWidth=s*.08; ctx.beginPath(); ctx.arc(0,0,s*.25,0,Math.PI*2); ctx.stroke(); ctx.fillStyle=accent; circ(ctx,0,-s*.27,s*.09); ctx.fillStyle='rgba(255,255,255,.55)'; circ(ctx,-s*.03,-s*.30,s*.025);
+    } else if (kind==='potion') {
+      const mp=/mp|mana|마나/i.test(id+item.name); ctx.fillStyle=mp?'#60a5fa':'#fb7185'; ctx.beginPath(); ctx.ellipse(0,s*.08,s*.19,s*.28,0,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#e5e7eb'; rr(ctx,-s*.08,-s*.31,s*.16,s*.13,2); ctx.fillStyle='rgba(255,255,255,.65)'; rr(ctx,-s*.07,-s*.02,s*.08,s*.18,2);
+    } else {
+      const n=4+(h%5); ctx.fillStyle=col; ctx.beginPath(); for(let i=0;i<n;i++){ const a=-Math.PI/2+i*Math.PI*2/n; const rad=s*(i%2?.22:.35); const px=Math.cos(a)*rad, py=Math.sin(a)*rad; if(i)ctx.lineTo(px,py); else ctx.moveTo(px,py); } ctx.closePath(); ctx.fill(); ctx.fillStyle=accent; circ(ctx,0,0,s*.08); ctx.fillStyle='rgba(255,255,255,.60)'; circ(ctx,-s*.07,-s*.08,s*.035);
+    }
+    ctx.restore();
+  };
+
+  function drawRaritySlot(cx,cy,w,h,item){
+    ctx.fillStyle='#eef6ff'; ctx.fillRect(cx,cy,w,h);
+    ctx.strokeStyle=rarityColorOf(item); ctx.lineWidth=item?3:2; ctx.strokeRect(cx,cy,w,h);
+    if (item && itemRarity(item)==='legendary') { ctx.strokeStyle='rgba(250,204,21,.35)'; ctx.lineWidth=1; ctx.strokeRect(cx+4,cy+4,w-8,h-8); }
+  }
+
+  window.drawEquipmentBox = drawEquipmentBox = function drawEquipmentBoxRarityFinal(x,y){
+    const w=340,h=455;
+    ctx.fillStyle='#f8fbff'; ctx.fillRect(x,y,w,h); ctx.strokeStyle='#8eb2d5'; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
+    ctx.fillStyle='#2f5f91'; ctx.font='bold 17px sans-serif'; ctx.textAlign='left'; ctx.fillText('EQUIPMENT INVENTORY',x+14,y+28);
+    const slots=[{name:'헬멧',key:'helmet',x:134,y:48},{name:'무기',key:'weapon',x:28,y:158},{name:'갑옷',key:'armor',x:134,y:158},{name:'무릎',key:'knee',x:240,y:158},{name:'악세',key:'accessory',x:134,y:275}];
+    ctx.strokeStyle='#bfd7ea'; ctx.lineWidth=2; ctx.beginPath(); ctx.ellipse(x+170,y+235,78,155,0,0,Math.PI*2); ctx.stroke();
+    slots.forEach(function(slot){
+      const sx=x+slot.x, sy=y+slot.y; const ref=equipment[slot.key]; const data=itemData(ref);
+      drawRaritySlot(sx,sy,72,72,data);
+      ctx.fillStyle='#5b7ea6'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center'; ctx.fillText(slot.name,sx+36,sy-8);
+      if(data){ drawItemIcon(Object.assign({},data,typeof ref==='object'?ref:{}),sx+36,sy+36,44); ctx.fillStyle='#233'; ctx.font='11px sans-serif'; ctx.fillText(displayName(ref).slice(0,11),sx+36,sy+88); }
+    });
+    const fake=Object.assign({},game.player,{anim:'idle',animTime:performance.now()/1000,face:1}); ctx.save(); ctx.translate(x+170,y+410); ctx.scale(1.05,1.05); try{drawPlayerBody(ctx,fake);}catch(_){} ctx.restore();
+  };
+
+  window.drawItemBox = drawItemBox = function drawItemBoxRarityFinal(x,y){
+    const w=410,h=455;
+    ctx.fillStyle='#fff'; ctx.fillRect(x,y,w,h); ctx.strokeStyle='#8eb2d5'; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
+    ctx.fillStyle='#2f5f91'; ctx.font='bold 17px sans-serif'; ctx.textAlign='left'; ctx.fillText('ITEM INVENTORY '+inventory.items.length+'/100',x+14,y+28);
+    const tabs=['장비','소비','기타']; tabs.forEach(function(tab,i){ const tx=x+14+i*74; ctx.fillStyle=i===0?'#ff7aa2':'#d9e6f4'; ctx.fillRect(tx,y+42,68,32); ctx.strokeStyle='#8eb2d5'; ctx.strokeRect(tx,y+42,68,32); ctx.fillStyle='#1f2937'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center'; ctx.fillText(tab,tx+34,y+64); });
+    const gridX=x+18, gridY=y+88, cell=56;
+    for(let i=0;i<36;i++){
+      const cx=gridX+(i%6)*cell, cy=gridY+Math.floor(i/6)*cell; const item=inventory.items[i]; const data=itemData(item);
+      drawRaritySlot(cx,cy,48,48,data);
+      if(item){ drawItemIcon(Object.assign({},data||{},item),cx+24,cy+24,36); ctx.fillStyle='#1f2937'; ctx.font='bold 11px sans-serif'; ctx.textAlign='right'; ctx.fillText(String(item.count||1),cx+43,cy+43); }
+    }
+    ctx.fillStyle='#f8fafc'; ctx.fillRect(x+14,y+405,300,34); ctx.strokeStyle='#8eb2d5'; ctx.strokeRect(x+14,y+405,300,34); ctx.fillStyle='#111827'; ctx.font='bold 14px sans-serif'; ctx.textAlign='left'; ctx.fillText((game.gold||0)+' 원',x+26,y+427);
+  };
+
+  function cleanTownPlatformsFinal(){
+    const gw=Math.max(4700,game.width||4700), g=game.ground;
+    return [
+      {x:0,y:g,w:gw,h:24,floor:0,townFloor:true,solidFloor:true},
+      {x:560,y:430,w:820,h:24,floor:1,townFloor:true,solidFloor:true},
+      {x:2060,y:430,w:840,h:24,floor:1,townFloor:true,solidFloor:true},
+      {x:3520,y:430,w:760,h:24,floor:1,townFloor:true,solidFloor:true},
+      {x:1380,y:270,w:820,h:24,floor:2,townFloor:true,solidFloor:true},
+      {x:3060,y:270,w:800,h:24,floor:2,townFloor:true,solidFloor:true}
+    ];
+  }
+  function cleanTownLaddersFinal(){ const g=game.ground; return [
+    {x:650,y1:430,y2:g,town:true},{x:1220,y1:270,y2:430,town:true},
+    {x:2160,y1:430,y2:g,town:true},{x:3140,y1:270,y2:430,town:true},
+    {x:3650,y1:430,y2:g,town:true}
+  ]; }
+  function platformYForFloor(f,x){ const ps=cleanTownPlatformsFinal().filter(p=>p.floor===f && (x==null || (x>=p.x-60 && x<=p.x+p.w+60))); return (ps[0]||cleanTownPlatformsFinal()[0]).y; }
+  function drawSimpleHouseAt(x,y,theme,scale){
+    scale=scale||1; ctx.save(); ctx.translate(x,y); ctx.scale(scale,scale);
+    const wall=theme==='ice'?'#c7efff':theme==='desert'?'#c6924c':theme==='ruin'?'#888b92':theme==='magic'?'#9b8cff':'#c08a4b';
+    const roof=theme==='ice'?'#e0f7ff':theme==='desert'?'#d8b46e':theme==='ruin'?'#555b64':theme==='magic'?'#6750a4':'#7a4f31';
+    ctx.fillStyle=wall; rr(ctx,-70,-82,140,82,8); ctx.fillStyle=roof; ctx.beginPath(); ctx.ellipse(0,-82,78,28,0,Math.PI,0); ctx.fill();
+    ctx.fillStyle='#3b2415'; ctx.fillRect(-12,-40,24,40); ctx.fillStyle='#fff7bd'; ctx.fillRect(-52,-58,35,22); ctx.fillRect(17,-58,35,22); ctx.restore();
+  }
+  function drawCleanTownObjectsFinal(town){
+    const theme=(town&&town.theme)||'grass';
+    const ps=cleanTownPlatformsFinal();
+    const houses=[
+      {x:180,y:ps[0].y,sc:1.0},{x:1040,y:ps[1].y,sc:.75},{x:1780,y:ps[4].y,sc:.67},
+      {x:2500,y:ps[2].y,sc:.76},{x:3440,y:ps[5].y,sc:.67},{x:3940,y:ps[3].y,sc:.74}
+    ];
+    houses.forEach(h=>drawSimpleHouseAt(h.x,h.y,theme,h.sc));
+    [360,1620,2960,4380].forEach(function(tx){ try{ if(typeof drawTree==='function') drawTree(tx,game.ground,theme); }catch(_){} });
+  }
+  function drawCleanPlatform(p,town){
+    const theme=(town&&town.theme)||'grass';
+    const top=typeof getGroundColor==='function'?getGroundColor(theme):'#9bd36a';
+    const dirt=typeof getDirtColor==='function'?getDirtColor(theme):'#8b6b3d';
+    ctx.fillStyle=top; rr(ctx,p.x,p.y,p.w,p.h,8); ctx.fillStyle=dirt; ctx.fillRect(p.x+8,p.y+p.h-7,p.w-16,10); ctx.fillStyle='rgba(0,0,0,.16)'; for(let i=20;i<p.w-20;i+=120) ctx.fillRect(p.x+i,p.y+p.h-9,78,4);
+  }
+  const oldDrawWorldForHunt = typeof drawWorld === 'function' ? drawWorld : null;
+  window.drawWorld = drawWorld = function drawWorldCleanTownLayered(){
+    const town=typeof getTown==='function'?getTown(game.townId):{bgTop:'#a8ddff',bgBottom:'#dff4ff',theme:'grass',title:'',name:''};
+    if (game.mode !== 'town') return oldDrawWorldForHunt ? oldDrawWorldForHunt.apply(this,arguments) : undefined;
+    if (!game.__cleanTownFixed) { game.platforms=cleanTownPlatformsFinal(); game.ladders=cleanTownLaddersFinal(); game.__cleanTownFixed=true; }
+    const sky=ctx.createLinearGradient(0,0,0,H); sky.addColorStop(0,town.bgTop||'#a8ddff'); sky.addColorStop(.55,town.bgBottom||'#dff4ff'); sky.addColorStop(1,'#eaffce'); ctx.fillStyle=sky; ctx.fillRect(0,0,game.width,H);
+    try{ if(typeof drawBackgroundLayers==='function') drawBackgroundLayers(town); }catch(_){}
+    cleanTownPlatformsFinal().forEach(p=>drawCleanPlatform(p,town));
+    try{ if(typeof drawGround==='function') drawGround(town); }catch(_){ ctx.fillStyle='#9bd36a'; ctx.fillRect(0,game.ground,game.width,H-game.ground); }
+    drawCleanTownObjectsFinal(town);
+    ctx.fillStyle='#fff'; ctx.font='bold 26px sans-serif'; ctx.textAlign='left'; ctx.fillText((town.title||'')+' '+(town.name||''),34,46);
+  };
+  const oldLoadTownFix = typeof loadTown === 'function' ? loadTown : null;
+  if (oldLoadTownFix) window.loadTown = loadTown = function(id){ const ret=oldLoadTownFix.apply(this,arguments); try{ game.__cleanTownFixed=false; game.platforms=cleanTownPlatformsFinal(); game.ladders=cleanTownLaddersFinal(); if(typeof addVisibleJobNpcs==='function') addVisibleJobNpcs(); }catch(e){ console.warn('[town/item final fix]',e); } return ret; };
+  try{ if(game && game.mode==='town'){ game.__cleanTownFixed=false; game.platforms=cleanTownPlatformsFinal(); game.ladders=cleanTownLaddersFinal(); } }catch(_){}
+  if (typeof text === 'function') text('아이템 외형/등급 테두리/도시층 겹침 보정 적용','#facc15');
+})();
+
+
+/* =========================================================
+   ELITE ONLINE VISIBILITY + DISTINCT EQUIP VISUAL PATCH 02
+   - Forces 1~2 elite monsters to exist locally and re-seeds them to the online room
+   - Makes inventory/equipment icons, equipped weapon/armor, swing/projectile visuals distinct
+========================================================= */
+(function(){
+  'use strict';
+  if (window.__PIXEL_RPG_ELITE_ITEM_EQUIP_VISUAL_PATCH_02__) return;
+  window.__PIXEL_RPG_ELITE_ITEM_EQUIP_VISUAL_PATCH_02__ = true;
+
+  function arr(v){ return Array.isArray(v) ? v : []; }
+  function now(){ return Date.now ? Date.now() : +new Date(); }
+  function hsh(s){ s=String(s||''); let h=0; for(let i=0;i<s.length;i++) h=(Math.imul(h,31)+s.charCodeAt(i))|0; return Math.abs(h); }
+  function rr(c,x,y,w,h,r){ if (typeof roundRect==='function') return roundRect(c,x,y,w,h,r||4); c.beginPath(); c.roundRect(x,y,w,h,r||4); c.fill(); }
+  function circ(c,x,y,r){ c.beginPath(); c.arc(x,y,r,0,Math.PI*2); c.fill(); }
+  function poly(c, pts){ c.beginPath(); pts.forEach(function(p,i){ if(i)c.lineTo(p[0],p[1]); else c.moveTo(p[0],p[1]); }); c.closePath(); c.fill(); }
+  function item(ref){
+    if (!ref) return null;
+    if (typeof ref === 'object') return Object.assign({}, (window.ITEMS && ref.id && ITEMS[ref.id]) || {}, ref);
+    return (window.ITEMS && ITEMS[ref]) ? Object.assign({}, ITEMS[ref], {id:ITEMS[ref].id||ref}) : { id:String(ref), name:String(ref) };
+  }
+  function rarity(it){
+    it=item(it)||{};
+    const s=String([it.rarity,it.grade,it.tier,it.id,it.name].join(' ')).toLowerCase();
+    if (/legend|legendary|레전|전설|myth|신화/.test(s)) return 'legendary';
+    if (/epic|에픽|영웅/.test(s)) return 'epic';
+    if (/ultra|unique|초희귀|유니크/.test(s)) return 'ultra';
+    if (/rare|희귀|blue/.test(s)) return 'rare';
+    return 'common';
+  }
+  const RCOL={ common:'#9ca3af', rare:'#3b82f6', ultra:'#22d3ee', epic:'#a855f7', legendary:'#facc15' };
+  const RKO={ common:'일반', rare:'희귀', ultra:'초희귀', epic:'에픽', legendary:'레전더리' };
+  function rcol(it){ return RCOL[rarity(it)] || RCOL.common; }
+  function kind(it){
+    it=item(it)||{}; const s=String([it.weaponType,it.slot,it.equipSlot,it.type,it.id,it.name,it.icon].join(' ')).toLowerCase();
+    if (/dagger|단검|knife|암살/.test(s)) return 'dagger';
+    if (/bow|활|궁|arrow/.test(s)) return 'bow';
+    if (/staff|wand|rod|스태프|지팡|마법/.test(s)) return 'staff';
+    if (/sword|blade|검|소드|칼/.test(s)) return 'sword';
+    if (/axe|도끼/.test(s)) return 'axe';
+    if (/spear|창|lance/.test(s)) return 'spear';
+    if (/gun|총|pistol|rifle/.test(s)) return 'gun';
+    if (/helmet|helm|투구|헬멧/.test(s)) return 'helmet';
+    if (/armor|robe|mail|plate|갑옷|로브|흉갑/.test(s)) return 'armor';
+    if (/knee|boot|boots|부츠|무릎|신발/.test(s)) return 'boots';
+    if (/accessory|ring|neck|amulet|반지|목걸|장신구/.test(s)) return 'accessory';
+    if (/potion|물약|hp|mp|mana/.test(s)) return 'potion';
+    if (/seal|scroll|양피지|인장/.test(s)) return 'seal';
+    return 'misc';
+  }
+  function tierName(it){ return RKO[rarity(it)] || '일반'; }
+  window.__pixelItemKind = kind;
+  window.__pixelItemRarity = rarity;
+  window.__pixelItemRarityColor = rcol;
+
+  function drawSlot(c,x,y,w,h,it){
+    const col=it?rcol(it):'#64748b';
+    c.save(); c.fillStyle='rgba(15,23,42,.72)'; rr(c,x,y,w,h,8); c.strokeStyle=col; c.lineWidth=it?3:2; c.strokeRect(x+1,y+1,w-2,h-2);
+    if(it && rarity(it)==='legendary'){ c.strokeStyle='rgba(250,204,21,.45)'; c.lineWidth=1; c.strokeRect(x+6,y+6,w-12,h-12); }
+    c.restore();
+  }
+
+  function drawMiniSpark(c,s, col, count){
+    c.strokeStyle=col; c.lineWidth=Math.max(1,s*.035);
+    for(let i=0;i<count;i++){ const a=i*Math.PI*2/count; c.beginPath(); c.moveTo(Math.cos(a)*s*.28,Math.sin(a)*s*.28); c.lineTo(Math.cos(a)*s*.40,Math.sin(a)*s*.40); c.stroke(); }
+  }
+
+  window.drawItemIcon = drawItemIcon = function drawItemIconReallyDistinct(itemOrIcon,x,y,size){
+    const it=item(itemOrIcon)||{id:String(itemOrIcon||'item'),name:String(itemOrIcon||'item')};
+    const k=kind(it), r=rarity(it), col=rcol(it), seed=hsh((it.id||'')+(it.name||''));
+    const s=size||34;
+    const accent=['#ef4444','#f97316','#facc15','#22c55e','#06b6d4','#3b82f6','#8b5cf6','#ec4899'][seed%8];
+    const metal=['#e5e7eb','#cbd5e1','#94a3b8','#fef3c7','#bfdbfe'][seed%5];
+    ctx.save(); ctx.translate(x,y);
+    ctx.shadowColor=col; ctx.shadowBlur=r==='legendary'?18:r==='epic'?12:r==='ultra'?8:r==='rare'?5:0;
+    ctx.fillStyle='rgba(2,6,23,.88)'; rr(ctx,-s*.50,-s*.50,s,s,Math.max(5,s*.13));
+    ctx.strokeStyle=col; ctx.lineWidth=Math.max(2,s*.09); ctx.strokeRect(-s*.48,-s*.48,s*.96,s*.96);
+    if(r==='legendary') drawMiniSpark(ctx,s,col,8);
+
+    if(k==='sword'){
+      const wide=seed%3===0; ctx.rotate((seed%9-4)*.035);
+      ctx.fillStyle=metal; poly(ctx,[[0,-s*.45],[s*(wide?.16:.10),-s*.10],[s*.06,s*.31],[-s*.06,s*.31],[-s*(wide?.16:.10),-s*.10]]);
+      ctx.fillStyle=col; rr(ctx,-s*.32,s*.05,s*.64,s*.09,2); ctx.fillStyle='#7c2d12'; rr(ctx,-s*.07,s*.09,s*.14,s*.31,2);
+      ctx.strokeStyle=accent; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-s*.05,-s*.33); ctx.lineTo(s*.06,-s*.02); ctx.stroke();
+      if(seed%4===0){ ctx.fillStyle=accent; poly(ctx,[[0,-s*.52],[s*.08,-s*.42],[0,-s*.35],[-s*.08,-s*.42]]); }
+    }else if(k==='dagger'){
+      ctx.rotate(-.72+(seed%5)*.09); ctx.fillStyle=metal; poly(ctx,[[s*.14,-s*.42],[s*.29,-s*.08],[-s*.13,s*.36],[-s*.25,s*.23],[s*.02,-s*.10]]);
+      ctx.fillStyle=col; rr(ctx,-s*.30,s*.16,s*.28,s*.08,2); ctx.strokeStyle=accent; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-s*.35,s*.33); ctx.quadraticCurveTo(s*.02,-s*.18,s*.33,-s*.34); ctx.stroke();
+    }else if(k==='bow'){
+      ctx.strokeStyle=col; ctx.lineWidth=s*.08; ctx.beginPath(); ctx.arc(-s*.05,0,s*.37,-1.28,1.28); ctx.stroke();
+      ctx.strokeStyle='#f8fafc'; ctx.lineWidth=s*.025; ctx.beginPath(); ctx.moveTo(s*.13,-s*.34); ctx.lineTo(s*.13,s*.34); ctx.stroke();
+      ctx.fillStyle=accent; poly(ctx,[[s*.38,0],[s*.10,-s*.07],[s*.10,s*.07]]); ctx.strokeStyle=accent; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-s*.25,0); ctx.lineTo(s*.34,0); ctx.stroke();
+      if(seed%2){ctx.fillStyle=col; circ(ctx,-s*.20,-s*.14,s*.045); circ(ctx,-s*.20,s*.14,s*.045);}
+    }else if(k==='staff'){
+      ctx.strokeStyle='#8b5a2b'; ctx.lineWidth=s*.07; ctx.beginPath(); ctx.moveTo(-s*.30,s*.38); ctx.lineTo(s*.18,-s*.27); ctx.stroke();
+      ctx.fillStyle=col; circ(ctx,s*.23,-s*.33,s*.13); ctx.strokeStyle=accent; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(s*.23,-s*.33,s*.24,0,Math.PI*2); ctx.stroke();
+      if(seed%3===0){ctx.beginPath(); ctx.arc(s*.23,-s*.33,s*.34,0,Math.PI*2); ctx.stroke();}
+    }else if(k==='axe'){
+      ctx.strokeStyle='#8b5a2b'; ctx.lineWidth=s*.08; ctx.beginPath(); ctx.moveTo(-s*.20,s*.38); ctx.lineTo(s*.15,-s*.35); ctx.stroke(); ctx.fillStyle=metal; poly(ctx,[[s*.06,-s*.34],[s*.40,-s*.22],[s*.23,s*.05],[s*.02,-s*.04]]); ctx.fillStyle=col; poly(ctx,[[s*.00,-s*.30],[-s*.28,-s*.18],[-s*.12,s*.05],[s*.06,-s*.03]]);
+    }else if(k==='spear'){
+      ctx.strokeStyle='#8b5a2b'; ctx.lineWidth=s*.06; ctx.beginPath(); ctx.moveTo(-s*.25,s*.40); ctx.lineTo(s*.12,-s*.23); ctx.stroke(); ctx.fillStyle=col; poly(ctx,[[s*.18,-s*.45],[s*.31,-s*.18],[s*.07,-s*.25]]); ctx.fillStyle=metal; poly(ctx,[[s*.12,-s*.25],[s*.23,-s*.08],[-s*.02,-s*.08]]);
+    }else if(k==='gun'){
+      ctx.fillStyle=metal; rr(ctx,-s*.32,-s*.12,s*.55,s*.16,4); ctx.fillStyle=col; rr(ctx,s*.10,-s*.18,s*.26,s*.07,2); ctx.fillStyle='#4b5563'; rr(ctx,-s*.06,s*.02,s*.13,s*.28,2); ctx.fillStyle=accent; circ(ctx,s*.38,-s*.15,s*.05);
+    }else if(k==='helmet'){
+      ctx.fillStyle=col; ctx.beginPath(); ctx.ellipse(0,-s*.07,s*.33,s*.24,0,Math.PI,0); ctx.lineTo(s*.28,s*.18); ctx.lineTo(-s*.28,s*.18); ctx.closePath(); ctx.fill(); ctx.fillStyle='rgba(2,6,23,.8)'; rr(ctx,-s*.22,s*.01,s*.44,s*.11,4); ctx.fillStyle=accent; if(seed%2) poly(ctx,[[0,-s*.43],[s*.08,-s*.17],[-s*.08,-s*.17]]); else rr(ctx,-s*.17,-s*.27,s*.34,s*.06,2);
+    }else if(k==='armor'){
+      ctx.fillStyle=col; poly(ctx,[[0,-s*.42],[s*.36,-s*.20],[s*.28,s*.39],[-s*.28,s*.39],[-s*.36,-s*.20]]); ctx.fillStyle='rgba(2,6,23,.55)'; rr(ctx,-s*.18,-s*.10,s*.36,s*.32,5); ctx.strokeStyle=accent; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-s*.26,s*.08); ctx.lineTo(s*.26,s*.08); ctx.stroke(); if(seed%3===0){ctx.fillStyle=metal; circ(ctx,0,-s*.22,s*.07);}
+    }else if(k==='boots'){
+      ctx.fillStyle=col; rr(ctx,-s*.35,s*.00,s*.26,s*.27,5); rr(ctx,s*.09,s*.00,s*.26,s*.27,5); ctx.fillStyle='rgba(2,6,23,.6)'; rr(ctx,-s*.39,s*.22,s*.31,s*.10,4); rr(ctx,s*.08,s*.22,s*.31,s*.10,4);
+    }else if(k==='accessory'){
+      ctx.strokeStyle=col; ctx.lineWidth=s*.08; ctx.beginPath(); ctx.arc(0,0,s*.25,0,Math.PI*2); ctx.stroke(); ctx.fillStyle=accent; circ(ctx,0,-s*.28,s*.10); ctx.fillStyle='#fff'; circ(ctx,-s*.03,-s*.31,s*.025);
+    }else if(k==='potion'){
+      const mp=/mp|mana|마나/i.test((it.id||'')+(it.name||'')); ctx.fillStyle=mp?'#60a5fa':'#fb7185'; ctx.beginPath(); ctx.ellipse(0,s*.08,s*.20,s*.29,0,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#e5e7eb'; rr(ctx,-s*.09,-s*.33,s*.18,s*.14,3); ctx.fillStyle='rgba(255,255,255,.65)'; rr(ctx,-s*.07,-s*.02,s*.08,s*.18,2);
+    }else if(k==='seal'){
+      ctx.fillStyle=col; poly(ctx,[[0,-s*.37],[s*.33,-s*.12],[s*.20,s*.34],[-s*.20,s*.34],[-s*.33,-s*.12]]); ctx.fillStyle='rgba(255,255,255,.8)'; rr(ctx,-s*.16,-s*.05,s*.32,s*.10,2); ctx.strokeStyle=accent; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,0,s*.29,0,Math.PI*2); ctx.stroke();
+    }else{
+      const n=5+(seed%4); ctx.fillStyle=col; ctx.beginPath(); for(let i=0;i<n*2;i++){ const a=-Math.PI/2+i*Math.PI/n; const rad=i%2?s*.18:s*.34; const px=Math.cos(a)*rad, py=Math.sin(a)*rad; if(i)ctx.lineTo(px,py); else ctx.moveTo(px,py);} ctx.closePath(); ctx.fill(); ctx.fillStyle=accent; circ(ctx,0,0,s*.09);
+    }
+    ctx.restore();
+  };
+
+  // Repaint inventory/equipment with rarity borders. This override is intentionally last.
+  drawEquipmentBox = window.drawEquipmentBox = function drawEquipmentBoxDistinct(x,y){
+    ctx.fillStyle='#f8fbff'; ctx.fillRect(x,y,340,455); ctx.strokeStyle='#8eb2d5'; ctx.lineWidth=2; ctx.strokeRect(x,y,340,455);
+    ctx.fillStyle='#2f5f91'; ctx.font='bold 17px sans-serif'; ctx.textAlign='left'; ctx.fillText('EQUIPMENT INVENTORY',x+14,y+28);
+    const slots=[['헬멧','helmet',134,48],['무기','weapon',28,158],['갑옷','armor',134,158],['무릎','knee',240,158],['악세','accessory',134,275]];
+    ctx.strokeStyle='#bfd7ea'; ctx.lineWidth=2; ctx.beginPath(); ctx.ellipse(x+170,y+235,78,155,0,0,Math.PI*2); ctx.stroke();
+    slots.forEach(function(s){ const ref=equipment[s[1]], it=item(ref), sx=x+s[2], sy=y+s[3]; drawSlot(ctx,sx,sy,72,72,it); ctx.fillStyle='#5b7ea6'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center'; ctx.fillText(s[0],sx+36,sy-8); if(it){ drawItemIcon(Object.assign({},it,typeof ref==='object'?ref:{}),sx+36,sy+36,46); ctx.fillStyle=rcol(it); ctx.font='bold 10px sans-serif'; ctx.fillText(tierName(it),sx+36,sy+86); } });
+    const fake=Object.assign({},game.player,{anim:'idle',animTime:performance.now()/1000,face:1}); ctx.save(); ctx.translate(x+170,y+410); ctx.scale(1.05,1.05); try{ drawPlayerBody(ctx,fake); }catch(e){} ctx.restore();
+  };
+  drawItemBox = window.drawItemBox = function drawItemBoxDistinct(x,y){
+    ctx.fillStyle='#fff'; ctx.fillRect(x,y,410,455); ctx.strokeStyle='#8eb2d5'; ctx.lineWidth=2; ctx.strokeRect(x,y,410,455);
+    ctx.fillStyle='#2f5f91'; ctx.font='bold 17px sans-serif'; ctx.textAlign='left'; ctx.fillText('ITEM INVENTORY '+arr(inventory.items).length+'/100',x+14,y+28);
+    const tabs=['장비','소비','기타']; tabs.forEach(function(tab,i){ const tx=x+14+i*74; ctx.fillStyle=i===0?'#ff7aa2':'#d9e6f4'; ctx.fillRect(tx,y+42,68,32); ctx.strokeStyle='#8eb2d5'; ctx.strokeRect(tx,y+42,68,32); ctx.fillStyle='#1f2937'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center'; ctx.fillText(tab,tx+34,y+64); });
+    const gridX=x+18, gridY=y+88, cell=56;
+    for(let i=0;i<36;i++){ const cx=gridX+(i%6)*cell, cy=gridY+Math.floor(i/6)*cell, ref=inventory.items[i], it=item(ref); drawSlot(ctx,cx,cy,48,48,it); if(it){ drawItemIcon(Object.assign({},it,typeof ref==='object'?ref:{}),cx+24,cy+24,38); ctx.fillStyle='#fff'; ctx.strokeStyle='#000'; ctx.lineWidth=3; ctx.font='bold 11px sans-serif'; ctx.textAlign='right'; const cnt=String((ref&&ref.count)||1); ctx.strokeText(cnt,cx+44,cy+43); ctx.fillText(cnt,cx+44,cy+43); } }
+    ctx.fillStyle='#f8fafc'; ctx.fillRect(x+14,y+405,300,34); ctx.strokeStyle='#8eb2d5'; ctx.strokeRect(x+14,y+405,300,34); ctx.fillStyle='#111827'; ctx.font='bold 14px sans-serif'; ctx.textAlign='left'; ctx.fillText((game.gold||0)+' 원',x+26,y+427);
+  };
+
+  // Equipped weapon: same identity/rarity as the inventory icon, but drawn as a real held object.
+  drawWeapon = window.drawWeapon = function drawWeaponUnique(c, weaponId, handX, handY, attacking, attackKind, animTime){
+    const it=item(weaponId || (equipment && equipment.weapon));
+    if(!it) return;
+    const k=kind(it), r=rarity(it), col=rcol(it), seed=hsh((it.id||'')+(it.name||''));
+    const level=Number(it.reqLevel||it.level||it.lv||1);
+    const len=32+Math.min(42,level*.65)+(r==='legendary'?20:r==='epic'?13:r==='ultra'?8:0);
+    const t=Number(animTime||0), sw=attacking?Math.sin(Math.min(1,t*10)*Math.PI):0;
+    c.save(); c.translate(handX,handY); c.rotate((attacking?(-0.85+sw*1.45):-0.45)*(game.player&&game.player.face||1)); c.scale(game.player&&game.player.face||1,1);
+    c.shadowColor=col; c.shadowBlur=r==='legendary'?22:r==='epic'?14:r==='ultra'?9:0;
+    if(k==='dagger'){
+      c.rotate(.55); c.fillStyle=col; poly(c,[[0,-len*.72],[9,-6],[2,12],[-5,12],[-8,-6]]); c.fillStyle='#e5e7eb'; poly(c,[[0,-len*.62],[4,-5],[0,4],[-4,-5]]); c.fillStyle='#5b3415'; rr(c,-12,8,24,7,2); if(attacking){ c.strokeStyle=col; c.lineWidth=3; for(let i=0;i<2;i++){ c.beginPath(); c.arc(5+i*5,-18-i*10,28+i*10,-1.6,.45); c.stroke(); } }
+    }else if(k==='bow'){
+      c.strokeStyle=col; c.lineWidth=5; c.beginPath(); c.arc(0,-20,34,-1.35,1.35); c.stroke(); c.strokeStyle='#f8fafc'; c.lineWidth=1.5; c.beginPath(); c.moveTo(12,-52); c.lineTo(12,12); c.stroke(); c.strokeStyle=col; c.beginPath(); c.moveTo(-12,-20); c.lineTo(42,-20); c.stroke(); if(attacking){ c.strokeStyle='#facc15'; c.lineWidth=2; c.beginPath(); c.moveTo(8,-20); c.lineTo(80,-20); c.stroke(); }
+    }else if(k==='staff'){
+      c.strokeStyle='#7c4a1e'; c.lineWidth=5; c.beginPath(); c.moveTo(0,20); c.lineTo(0,-len); c.stroke(); c.fillStyle=col; circ(c,0,-len-8,r==='legendary'?13:9); c.strokeStyle=col; c.lineWidth=2; c.beginPath(); c.arc(0,-len-8,18,0,Math.PI*2); c.stroke(); if(attacking){ drawMiniSpark(c,Math.min(70,len),col,10); }
+    }else if(k==='axe'){
+      c.strokeStyle='#7c4a1e'; c.lineWidth=5; c.beginPath(); c.moveTo(0,18); c.lineTo(0,-len); c.stroke(); c.fillStyle=col; poly(c,[[0,-len+2],[26,-len+12],[18,-len+40],[0,-len+28]]); c.fillStyle='#cbd5e1'; poly(c,[[0,-len+2],[-24,-len+14],[-15,-len+38],[0,-len+28]]); if(attacking){ c.strokeStyle=col; c.lineWidth=4; c.beginPath(); c.arc(0,-len+20,45,-.8,1.8); c.stroke(); }
+    }else if(k==='spear'){
+      c.strokeStyle='#8b5a2b'; c.lineWidth=4; c.beginPath(); c.moveTo(0,22); c.lineTo(0,-len-18); c.stroke(); c.fillStyle=col; poly(c,[[0,-len-38],[13,-len-12],[0,-len],[-13,-len-12]]); if(attacking){ c.strokeStyle=col; c.lineWidth=3; c.beginPath(); c.moveTo(0,-len-25); c.lineTo(80,-len-25); c.stroke(); }
+    }else if(k==='gun'){
+      c.fillStyle='#cbd5e1'; rr(c,-6,-20,43,12,3); c.fillStyle=col; rr(c,24,-24,24,6,2); c.fillStyle='#374151'; rr(c,6,-8,9,22,2); if(attacking){ c.fillStyle='#facc15'; poly(c,[[53,-21],[76,-29],[70,-19],[78,-10]]); }
+    }else{
+      c.fillStyle='#cbd5e1'; poly(c,[[0,-len],[12,-12],[7,16],[-7,16],[-12,-12]]); c.fillStyle=col; rr(c,-19,7,38,8,2); c.fillStyle='#7c2d12'; rr(c,-6,13,12,22,2); if(attacking){ c.strokeStyle=col; c.lineWidth=4; c.beginPath(); c.arc(0,-len*.38,44,-.95,1.1); c.stroke(); if(r==='legendary'||r==='epic'){ c.strokeStyle='rgba(255,255,255,.8)'; c.beginPath(); c.arc(0,-len*.45,58,-.7,.9); c.stroke(); } }
+    }
+    c.restore();
+  };
+
+  // Armor/helmet overlay on the already drawn body so equipped armor is visibly different.
+  const oldBody=typeof drawPlayerBody==='function'?drawPlayerBody:null;
+  drawPlayerBody = window.drawPlayerBody = function drawPlayerBodyWithEquipOverlay(c, player){
+    if(oldBody) oldBody.apply(this,arguments);
+    const eq=(player&&player.__drawEquipment)||equipment||{};
+    const armor=item(eq.armor), helm=item(eq.helmet), boots=item(eq.knee||eq.boots);
+    c.save();
+    if(armor){ const col=rcol(armor), r=rarity(armor); c.shadowColor=col; c.shadowBlur=r==='legendary'?14:r==='epic'?9:0; c.fillStyle=col; poly(c,[[-15,-62],[15,-62],[21,-47],[14,-32],[-14,-32],[-21,-47]]); c.fillStyle='rgba(2,6,23,.35)'; rr(c,-9,-55,18,15,4); c.strokeStyle='rgba(255,255,255,.6)'; c.lineWidth=2; c.beginPath(); c.moveTo(-12,-45); c.lineTo(12,-45); c.stroke(); }
+    if(helm){ const col=rcol(helm); c.fillStyle=col; c.beginPath(); c.ellipse(0,-118,24,12,0,Math.PI,0); c.lineTo(21,-106); c.lineTo(-21,-106); c.closePath(); c.fill(); c.fillStyle='rgba(2,6,23,.55)'; rr(c,-16,-110,32,5,2); }
+    if(boots){ const col=rcol(boots); c.fillStyle=col; rr(c,-24,-9,15,6,3); rr(c,9,-9,15,6,3); }
+    c.restore();
+  };
+
+  // Projectiles: bow/staff/gun/stone/skill visuals are not all the same orb anymore.
+  const oldDrawProjectiles=typeof drawProjectiles==='function'?drawProjectiles:null;
+  drawProjectiles = window.drawProjectiles = function drawProjectilesDistinct(){
+    arr(game.projectiles).forEach(function(p){
+      if(!p) return; const v=String(p.visual||p.kind||''); const col=p.color||'#facc15'; ctx.save(); ctx.translate(p.x,p.y);
+      ctx.shadowColor=col; ctx.shadowBlur=12; ctx.globalAlpha=Math.max(.2,Math.min(1,p.life||1));
+      if(/arrow|bow/.test(v)){ ctx.strokeStyle='#f8fafc'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-22,0); ctx.lineTo(20,0); ctx.stroke(); ctx.fillStyle=col; poly(ctx,[[24,0],[10,-6],[10,6]]); }
+      else if(/bullet|gun/.test(v)){ ctx.fillStyle=col; ctx.beginPath(); ctx.ellipse(0,0,14,5,0,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='rgba(255,255,255,.8)'; ctx.beginPath(); ctx.moveTo(-24,0); ctx.lineTo(-6,0); ctx.stroke(); }
+      else if(/stone/.test(v)){ ctx.fillStyle='#9ca3af'; ctx.beginPath(); ctx.ellipse(0,0,9,7,.4,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#64748b'; circ(ctx,-3,-2,2); }
+      else if(/fire|dragon/.test(v)){ ctx.fillStyle='#fb923c'; poly(ctx,[[18,0],[-8,-10],[-18,0],[-8,10]]); ctx.fillStyle='#fef08a'; circ(ctx,0,0,5); }
+      else if(/ice|frost/.test(v)){ ctx.fillStyle='#93c5fd'; poly(ctx,[[20,0],[0,-9],[-20,0],[0,9]]); ctx.strokeStyle='#e0f2fe'; ctx.stroke(); }
+      else if(/dark|shadow/.test(v)){ ctx.fillStyle='#4c1d95'; circ(ctx,0,0,11); ctx.strokeStyle='#c084fc'; ctx.beginPath(); ctx.arc(0,0,18,0,Math.PI*1.4); ctx.stroke(); }
+      else { ctx.fillStyle=col; circ(ctx,0,0,9); ctx.strokeStyle='rgba(255,255,255,.8)'; ctx.beginPath(); ctx.arc(0,0,16,0,Math.PI*2); ctx.stroke(); }
+      ctx.restore();
+    });
+    if(oldDrawProjectiles){
+      // Prevent duplicate old orb draw by only letting enemy-projectile extensions run if they draw separate arrays.
+      try { /* intentionally not calling the old player projectile orb renderer */ } catch(_){}
+    }
+  };
+
+  // Elite monster guarantee, even on online rooms whose old server snapshot was seeded before elites existed.
+  const ELITES={
+    lumina:[['킹 슬라임','slime','split'],['고대 잎새정령','sprite','ranged']],
+    greenwood:[['이끼엄니 브루토','boar','charge'],['가시여왕 베르다','bug','poison']],
+    ellenium:[['마나 폭풍 위습','spirit','ranged'],['룬버섯 모르간','mushroom','stun']],
+    valoran:[['강철돌격대장','boar','charge'],['방패골렘 가론','golem','guard']],
+    shadowport:[['밤그림자 카론','bat','stun'],['항구쥐 두목 리코','rat','poison']],
+    frostholm:[['서리늑대 알카','wolf','frost'],['얼음혼령 네비아','spirit','ranged']],
+    solas:[['태양전갈 사르','scorpion','burn'],['모래도마뱀 라자','lizard','charge']],
+    nocturn:[['부서진 기사 넬','armor','stun'],['저주구체 오르브','orb','ranged']]
+  };
+  function townKey(){ const h=String(game&&game.huntId||game&&game.townId||'lumina'); return (h.split('_')[0]||h.split(':')[0]||'lumina').replace(/field|hunt/g,'') || 'lumina'; }
+  function floorY(x){ const ps=arr(game&&game.platforms); let best=game&&game.ground||520, bd=1e9; ps.forEach(function(p){ if(!p) return; const inside=x>=p.x-80 && x<=p.x+(p.w||0)+80; const d=inside?Math.abs((p.y||best)-best):1e9; if(inside && d<bd){ best=p.y; bd=d; } }); return best; }
+  function typeForElite(name,fam,gim,i){ const lv=Math.max(3, (game&&game.player&&game.player.level||1)+3+i*2); return { family:fam, name:name, level:lv, hp:120+lv*55, atk:5+lv*3, exp:60+lv*20, gold:90+lv*28, respawn:300000, dropRate:.85, gimmick:gim, isElite:true, isNamed:true }; }
+  function ensureElitesVisible(sendSeed){
+    if(!game || game.mode!=='hunt') return;
+    game.monsters=arr(game.monsters);
+    const key=townKey(); const defs=ELITES[key]||ELITES.lumina;
+    defs.forEach(function(d,i){
+      const id='elite:'+key+':'+i;
+      let m=game.monsters.find(function(mm){ return mm && (mm.uid===id || mm.sharedId===id || mm.eliteId===id || mm.name===d[0]); });
+      if(!m){ const x=760+i*1220; const y=floorY(x); const t=typeForElite(d[0],d[1],d[2],i); m={ uid:id, sharedId:id, eliteId:id, isElite:true, isNamed:true, name:d[0], family:d[1], type:t, x:x, baseX:x, y:y, spawnY:y, hp:t.hp, maxHp:t.hp, face:-1, time:0, hit:0, dead:false, respawn:300000, gimmick:d[2], aggro:false, canHitAt:0 }; game.monsters.push(m); }
+      else { m.uid=m.uid||id; m.sharedId=m.sharedId||id; m.eliteId=id; m.isElite=true; m.isNamed=true; m.name=d[0]; m.gimmick=m.gimmick||d[2]; if(m.type){ m.type.name=d[0]; m.type.isElite=true; m.type.isNamed=true; m.type.gimmick=m.gimmick; m.type.respawn=300000; } if(!m.dead && (!m.hp || m.hp<1)) m.hp=m.maxHp||(m.type&&m.type.hp)||100; }
+    });
+    if(sendSeed && window.PixelRpgMultiplayer && PixelRpgMultiplayer.socket && PixelRpgMultiplayer.connected){
+      try{ PixelRpgMultiplayer.socket.emit('monster:seed',{ room:'hunt:'+(game.huntId||'hunt'), huntId:game.huntId, layout:'force-elite-visible-v2', monsters:game.monsters.map(function(m,i){ const t=m.type||{}; return { id:m.sharedId||m.uid||((game.huntId||'hunt')+':'+i), index:i, family:t.family||m.family, name:m.name||t.name, level:t.level||m.level||1, x:Math.round(m.x||0), y:Math.round(m.y||0), baseX:Math.round(m.baseX||m.x||0), spawnY:Math.round(m.spawnY||m.y||0), hp:Math.max(0,Math.round(m.hp||0)), maxHp:Math.max(1,Math.round(m.maxHp||t.hp||1)), dead:!!m.dead, respawn:(m.isElite||m.isNamed)?300000:Math.max(10000,m.respawn||10000), isElite:!!m.isElite, isNamed:!!m.isNamed, namedKey:m.eliteId||m.namedKey||null, gimmick:m.gimmick||t.gimmick||'' }; }) }); }catch(e){ console.warn('[elite force seed failed]',e); }
+    }
+  }
+  window.__ensureElitesVisible = ensureElitesVisible;
+  const oldSpawn=typeof spawnMonsters==='function'?spawnMonsters:null;
+  if(oldSpawn) spawnMonsters = window.spawnMonsters = function(){ const r=oldSpawn.apply(this,arguments); ensureElitesVisible(true); return r; };
+  const oldLoadH=typeof loadHunt==='function'?loadHunt:null;
+  if(oldLoadH) loadHunt = window.loadHunt = function(){ const r=oldLoadH.apply(this,arguments); setTimeout(function(){ensureElitesVisible(true);},120); setTimeout(function(){ensureElitesVisible(true);},900); return r; };
+  const oldUpd=typeof updateMonsters==='function'?updateMonsters:null;
+  let lastEliteCheck=0;
+  if(oldUpd) updateMonsters = window.updateMonsters = function(dt){ const r=oldUpd.apply(this,arguments); const n=performance.now(); if(n-lastEliteCheck>2000){ lastEliteCheck=n; ensureElitesVisible(true); } return r; };
+  const oldDrawMons=typeof drawMonsters==='function'?drawMonsters:null;
+  if(oldDrawMons) drawMonsters = window.drawMonsters = function(){ ensureElitesVisible(false); oldDrawMons.apply(this,arguments); };
+
+  if(typeof text==='function') text('엘리트/아이템 외형/장착 외형 보정 적용','#facc15');
+})();
