@@ -16263,3 +16263,795 @@ canvas.addEventListener('click', function (e) {
     return pool[Math.floor(Math.random() * pool.length)];
   };
 })();
+
+/* =========================================================
+   BALANCE / ELITE / MOBILE / ENHANCE HARD PATCH
+   - enhancement success and destruction effects
+   - destroyed item is permanently removed from equipment/inventory
+   - stronger monster gimmicks and elite seal drops
+   - hidden job quests require elite seals
+   - town level gates
+   - level-scaled item drops by zone rarity
+   - player is slightly weaker / monsters more threatening
+   - compact full mobile control panel
+========================================================= */
+(function () {
+  function A(v) { return Array.isArray(v) ? v : []; }
+  function N(v, d) { v = Number(v); return Number.isFinite(v) ? v : d; }
+  function R(a, b) { return a + Math.random() * (b - a); }
+  function choice(arr) { arr = A(arr); return arr[Math.floor(Math.random() * arr.length)] || null; }
+  function text(msg, x, y, color) { if (typeof makeText === 'function') makeText(msg, x, y, color || '#fff'); }
+  function slotOf(item) { return typeof getEquipSlotForItem === 'function' ? getEquipSlotForItem(item) : (item && item.slot); }
+  function refId(ref) { return typeof itemRefId === 'function' ? itemRefId(ref) : (typeof ref === 'string' ? ref : ref && ref.id); }
+  function refPlus(ref) { return typeof itemEnhance === 'function' ? itemEnhance(ref) : (ref && ref.enhance) || 0; }
+
+  // -------------------------------
+  // 1) Better enhancement feedback and real destruction
+  // -------------------------------
+  function addFx(x, y, color, n, kind) {
+    if (!game.particles) game.particles = [];
+    for (let i = 0; i < n; i++) {
+      game.particles.push({
+        x: x + R(-20, 20),
+        y: y + R(-32, 8),
+        vx: R(-190, 190),
+        vy: R(-230, 45),
+        life: R(0.55, 1.25),
+        color: color || '#fff',
+        size: R(3, kind === 'break' ? 8 : 6),
+        shape: kind === 'success' ? (i % 3 ? 'star' : 'spark') : (i % 2 ? 'shard' : 'smoke'),
+        rot: R(0, Math.PI * 2),
+        spin: R(-7, 7)
+      });
+    }
+  }
+
+  function removeInventoryCopiesOfDestroyed(ref) {
+    const id = refId(ref);
+    const plus = refPlus(ref);
+    if (!id || !inventory || !Array.isArray(inventory.items)) return;
+    // Defensive cleanup: if an old drag/equip path duplicated the destroyed item back into inventory, remove exact enhanced copies.
+    for (let i = inventory.items.length - 1; i >= 0; i--) {
+      const st = inventory.items[i];
+      if (!st) continue;
+      const item = ITEMS && ITEMS[st.id];
+      if (!item || !slotOf(item)) continue;
+      if (st.id === id && refPlus(st) === plus) inventory.items.splice(i, 1);
+    }
+  }
+
+  window.enhanceEquippedItem = enhanceEquippedItem = function enhanceEquippedItemHard(slot) {
+    const ref = equipment && equipment[slot];
+    const item = typeof getItemData === 'function' ? getItemData(ref) : (ITEMS && ITEMS[refId(ref)]);
+    if (!item) return;
+    const plus = refPlus(ref);
+    if (plus >= 10) { text('이미 최대 강화입니다.', game.player.x, game.player.y - 90, '#ffe066'); return; }
+    const cost = typeof getEnhanceCost === 'function' ? getEnhanceCost(ref) : (120 + plus * 80);
+    const money = wallet && (wallet.gold || 0);
+    if (money < cost) { text('강화 비용 ' + cost + '원 필요', game.player.x, game.player.y - 90, '#ff8787'); return; }
+    wallet.gold -= cost;
+    const rate = typeof getEnhanceRate === 'function' ? getEnhanceRate(plus) : Math.max(0.25, 0.86 - plus * 0.07);
+    const destroyRate = typeof getDestroyRate === 'function' ? getDestroyRate(plus) : (plus >= 5 ? Math.min(0.55, 0.07 + (plus - 5) * 0.08) : 0);
+    const x = game.player.x, y = game.player.y - 48;
+    if (Math.random() < rate) {
+      equipment[slot] = { id: item.id, enhance: plus + 1 };
+      if (typeof recalcStats === 'function') recalcStats();
+      if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+      text('강화 성공 +' + (plus + 1) + '!', x, y - 70, '#fef08a');
+      addFx(x, y, '#facc15', 58, 'success');
+      addFx(x, y, '#ffffff', 22, 'success');
+      if (typeof circleEffect === 'function') circleEffect(x, y, '#facc15');
+      return;
+    }
+    if (plus >= 5 && Math.random() < destroyRate) {
+      const destroyedRef = { id: item.id, enhance: plus };
+      equipment[slot] = null;
+      removeInventoryCopiesOfDestroyed(destroyedRef);
+      if (typeof recalcStats === 'function') recalcStats();
+      if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+      text('장비 파괴!', x, y - 72, '#fb7185');
+      addFx(x, y, '#fb7185', 64, 'break');
+      addFx(x, y, '#111827', 34, 'break');
+      return;
+    }
+    if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+    text('강화 실패', x, y - 70, '#cbd5e1');
+    addFx(x, y, '#94a3b8', 22, 'break');
+  };
+
+  // -------------------------------
+  // 2) Item grade, zone-scaled drops, potions and merchant sale safety
+  // -------------------------------
+  const ITEM_RARITIES = {
+    common: { label: '일반', color: '#cbd5e1', chance: 0.72, pow: 1.00 },
+    rare: { label: '희귀', color: '#60a5fa', chance: 0.22, pow: 1.18 },
+    ultra: { label: '초희귀', color: '#22d3ee', chance: 0.06, pow: 1.42 },
+    epic: { label: '에픽', color: '#c084fc', chance: 0.016, pow: 1.82 },
+    legendary: { label: '레전더리', color: '#facc15', chance: 0.0035, pow: 2.55 }
+  };
+  window.ITEM_RARITY_INFO = Object.assign(window.ITEM_RARITY_INFO || {}, ITEM_RARITIES);
+  function ensureItem(id, data) { if (!ITEMS[id]) ITEMS[id] = Object.assign({ id: id }, data); else Object.assign(ITEMS[id], data); }
+  ['small','mid','high'].forEach(function (tier, i) {
+    const hpVals = [80, 260, 720], mpVals = [50, 160, 430], prices = [50,180,650];
+    ensureItem('hp_potion_' + tier, { name: ['초급','중급','상급'][i] + ' 회복 물약', type: 'consumable', heal: hpVals[i], price: prices[i], sell: Math.floor(prices[i] * .25), rarity: i === 0 ? 'common' : i === 1 ? 'rare' : 'ultra', icon: 'potion_hp_' + tier });
+    ensureItem('mp_potion_' + tier, { name: ['초급','중급','상급'][i] + ' 마나 물약', type: 'consumable', mana: mpVals[i], price: Math.floor(prices[i] * 1.12), sell: Math.floor(prices[i] * .28), rarity: i === 0 ? 'common' : i === 1 ? 'rare' : 'ultra', icon: 'potion_mp_' + tier });
+  });
+
+  const RARITY_KO = { common: '일반', rare: '희귀', ultra: '초희귀', epic: '에픽', legendary: '레전더리' };
+  const RARITY_COLOR = { common: '#cbd5e1', rare: '#60a5fa', ultra: '#22d3ee', epic: '#c084fc', legendary: '#facc15' };
+  window.getItemRarityLabel = function (itemOrId) { const item = typeof itemOrId === 'string' ? ITEMS[itemOrId] : itemOrId; return RARITY_KO[(item && item.rarity) || 'common'] || '일반'; };
+  window.getItemRarityColor = function (itemOrId) { const item = typeof itemOrId === 'string' ? ITEMS[itemOrId] : itemOrId; return RARITY_COLOR[(item && item.rarity) || 'common'] || '#cbd5e1'; };
+
+  const WEAPON_TYPES = ['sword','dagger','bow','staff'];
+  function makeZoneGear(level, rarity, weaponType) {
+    const rInfo = ITEM_RARITIES[rarity] || ITEM_RARITIES.common;
+    const zone = Math.max(1, Math.floor(level / 5) * 5);
+    const id = 'zone_' + weaponType + '_' + zone + '_' + rarity;
+    const names = { sword:'검', dagger:'단검', bow:'활', staff:'지팡이' };
+    const prefixes = { common:'낡은', rare:'빛나는', ultra:'수정', epic:'왕가의', legendary:'신화의' };
+    const atk = Math.max(3, Math.round((level * 1.1 + 5) * rInfo.pow));
+    ensureItem(id, { id, name: prefixes[rarity] + ' Lv.' + zone + ' ' + names[weaponType], type:'weapon', weaponType, atk: weaponType === 'staff' ? Math.floor(atk * .55) : atk, matk: weaponType === 'staff' ? atk + 3 : 0, reqLevel: Math.max(1, zone - 3), price: Math.floor((level * 95 + 150) * rInfo.pow), sell: Math.floor((level * 32 + 60) * rInfo.pow), rarity, icon: weaponType + '_' + rarity, desc: RARITY_KO[rarity] + ' 등급의 지역 장비입니다.' });
+    return id;
+  }
+  function randomRarityForDrop(monster) {
+    const bonus = monster && monster.isElite ? 2.0 : monster && monster.isNamed ? 1.55 : 1;
+    const r = Math.random();
+    if (r < ITEM_RARITIES.legendary.chance * bonus) return 'legendary';
+    if (r < ITEM_RARITIES.epic.chance * bonus) return 'epic';
+    if (r < ITEM_RARITIES.ultra.chance * bonus) return 'ultra';
+    if (r < ITEM_RARITIES.rare.chance * bonus) return 'rare';
+    return 'common';
+  }
+  window.getMonsterRareEquipmentDrop = getMonsterRareEquipmentDrop = function getZoneScaledEquipmentDrop(type, monster) {
+    const level = (type && type.level) || (monster && monster.type && monster.type.level) || 1;
+    const rarity = randomRarityForDrop(monster || type || {});
+    const family = (type && type.family) || '';
+    let preferred = 'sword';
+    if (/shadow|desert|lizard|rogue/i.test(family)) preferred = 'dagger';
+    if (/bug|wind|forest|ice/i.test(family)) preferred = 'bow';
+    if (/mana|spirit|ruin|mushroom/i.test(family)) preferred = 'staff';
+    if (Math.random() < .34) preferred = choice(WEAPON_TYPES) || preferred;
+    return makeZoneGear(level, rarity, preferred);
+  };
+
+  const oldShopItems = typeof getShopItems === 'function' ? getShopItems : null;
+  window.getShopItems = getShopItems = function getShopItemsPotionTiers(type) {
+    const base = oldShopItems ? oldShopItems(type) : [];
+    if (type === 'merchant') {
+      const add = ['hp_potion_small','hp_potion_mid','hp_potion_high','mp_potion_small','mp_potion_mid','mp_potion_high'];
+      return Array.from(new Set(add.concat(base || [])));
+    }
+    return base || [];
+  };
+
+  window.sellInventoryIndex = function sellInventoryIndexHard(index) {
+    const st = inventory && inventory.items && inventory.items[index];
+    if (!st) return false;
+    const item = ITEMS[st.id];
+    if (!item) return false;
+    const canSell = slotOf(item) || item.type === 'etc' || item.type === 'material' || item.type === 'weapon' || item.type === 'armor' || item.type === 'accessory';
+    if (!canSell) { text('상인에게 팔 수 없는 아이템입니다.', game.player.x, game.player.y - 90, '#ff8787'); return true; }
+    const count = slotOf(item) ? 1 : Math.max(1, st.count || 1);
+    const unit = Math.max(1, Math.floor((item.sell || Math.floor((item.price || 10) * .35)) * (1 + refPlus(st) * .15)));
+    const gain = unit * count;
+    wallet.gold += gain;
+    if (!slotOf(item) && st.count > count) st.count -= count; else inventory.items.splice(index, 1);
+    text(item.name + ' 판매 +' + gain + '원', game.player.x, game.player.y - 96, '#facc15');
+    if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon();
+    return true;
+  };
+
+  // -------------------------------
+  // 3) Elite monster, gimmicks, hidden-job seal requirement
+  // -------------------------------
+  const HIDDEN_SEALS = {
+    dragon_knight: { id:'seal_dragon_knight', name:'용기사의 인장', color:'#fb923c' },
+    shadow_reaper: { id:'seal_shadow_reaper', name:'그림자 사신의 인장', color:'#c084fc' },
+    star_sage: { id:'seal_star_sage', name:'별의 현자의 인장', color:'#fef08a' }
+  };
+  Object.keys(HIDDEN_SEALS).forEach(function (job) {
+    const s = HIDDEN_SEALS[job];
+    ensureItem(s.id, { id:s.id, name:s.name, type:'material', rarity:'epic', sell:5000, price:20000, color:s.color, icon:'seal', desc:'히든 직업 전직 퀘스트를 받기 위한 희귀 인장입니다.' });
+  });
+  function hasItem(id) { return A(inventory && inventory.items).some(function (it) { return it && it.id === id && (it.count || 1) > 0; }); }
+  function consumeItem(id, count) {
+    count = count || 1;
+    for (let i = A(inventory && inventory.items).length - 1; i >= 0 && count > 0; i--) {
+      const it = inventory.items[i]; if (!it || it.id !== id) continue;
+      const n = Math.min(count, it.count || 1); it.count = (it.count || 1) - n; count -= n;
+      if (it.count <= 0) inventory.items.splice(i, 1);
+    }
+  }
+
+  const oldAcceptQuest = typeof acceptOrCompleteQuest === 'function' ? acceptOrCompleteQuest : null;
+  window.acceptOrCompleteQuest = acceptOrCompleteQuest = function acceptQuestHiddenSeal(id) {
+    const q = QUESTS && QUESTS[id];
+    if (q && q.jobReward && HIDDEN_SEALS[q.jobReward]) {
+      const active = A(quests && quests.active).some(function (x) { return x && x.id === id; });
+      const done = A(quests && quests.completed).includes(id);
+      if (!active && !done) {
+        const seal = HIDDEN_SEALS[q.jobReward];
+        if (!hasItem(seal.id)) {
+          text(seal.name + '이 있어야 전직 퀘스트를 받을 수 있습니다.', game.player.x, game.player.y - 118, '#fef3c7');
+          text('각 도시 엘리트 몬스터에게서 낮은 확률로 획득합니다.', game.player.x, game.player.y - 94, '#facc15');
+          return;
+        }
+        consumeItem(seal.id, 1);
+        text(seal.name + '을 사용했습니다.', game.player.x, game.player.y - 118, seal.color);
+      }
+    }
+    return oldAcceptQuest ? oldAcceptQuest.apply(this, arguments) : null;
+  };
+
+  const CITY_LEVEL_REQ = { lumina:1, greenwood:3, ellenium:7, valor:10, shadowport:14, sylvania:14, irondeep:20, frosthall:26, solas:32, nocturn:40 };
+  TOWNS.forEach(function (t) { t.requiredLevel = CITY_LEVEL_REQ[t.id] || t.requiredLevel || 1; });
+  const oldTaxiClick = typeof handleTaxiClick === 'function' ? handleTaxiClick : null;
+  window.handleTaxiClick = handleTaxiClick = function handleTaxiLevelGate(x, y) {
+    for (let i = 0; i < TOWNS.length; i++) {
+      const town = TOWNS[i];
+      const tx = 145 + (i % 2) * 360;
+      const ty = 190 + Math.floor(i / 2) * 82;
+      if (hit(x, y, tx, ty, 320, 62) && town.id !== game.townId) {
+        const req = town.requiredLevel || 1;
+        if ((game.player.level || 1) < req) { text(town.name + ' 입장 필요 레벨 Lv.' + req, game.player.x, game.player.y - 95, '#ff8787'); return; }
+      }
+    }
+    return oldTaxiClick ? oldTaxiClick.apply(this, arguments) : null;
+  };
+  const oldLoadTown = typeof loadTown === 'function' ? loadTown : null;
+  window.loadTown = loadTown = function loadTownLevelGate(id) {
+    const town = TOWNS.find(function (t) { return t.id === id; });
+    if (town && town.id !== game.townId && (game.player.level || 1) < (town.requiredLevel || 1)) {
+      text(town.name + '은 Lv.' + town.requiredLevel + '부터 이동할 수 있습니다.', game.player.x, game.player.y - 100, '#ff8787');
+      return false;
+    }
+    return oldLoadTown ? oldLoadTown.apply(this, arguments) : null;
+  };
+
+  function currentTownKey() { return game.townId || (TOWNS.find(t => t.hunt === game.huntId) || {}).id || 'lumina'; }
+  const ELITE_BY_TOWN = {
+    lumina: [{ name:'킹 슬라임', family:'slime', gimmick:'split' }, { name:'고대 잎새정령', family:'forest', gimmick:'poison_dot' }],
+    greenwood: [{ name:'이끼 돌진왕', family:'boar', gimmick:'charge' }, { name:'가시 독충 여왕', family:'bug', gimmick:'poison_dot' }],
+    ellenium: [{ name:'마나 폭풍 위습', family:'mana', gimmick:'ranged' }, { name:'룬버섯 현자', family:'mushroom', gimmick:'stun' }],
+    valor: [{ name:'강철 엄니 장군', family:'boar', gimmick:'charge' }, { name:'방패 골렘 브론', family:'ore', gimmick:'guard' }],
+    shadowport: [{ name:'검은 항구의 그림자', family:'shadow', gimmick:'stun' }, { name:'밤날개 도적박쥐', family:'bug', gimmick:'ranged' }],
+    sylvania: [{ name:'바람매 칼리스', family:'forest', gimmick:'ranged' }, { name:'숲의 독가시', family:'bug', gimmick:'poison_dot' }],
+    irondeep: [{ name:'동광 파수꾼', family:'ore', gimmick:'guard' }, { name:'광산 분쇄두더지', family:'boar', gimmick:'charge' }],
+    frosthall: [{ name:'서리늑대 알카', family:'ice', gimmick:'ice_dot' }, { name:'빙결 장난꾼 노크', family:'ice', gimmick:'stun' }],
+    solas: [{ name:'태양전갈 라자', family:'desert', gimmick:'burn_dot' }, { name:'모래왕 도마뱀', family:'lizard', gimmick:'charge' }],
+    nocturn: [{ name:'저주갑주 모르간', family:'ruin', gimmick:'stun' }, { name:'공허구체 네르', family:'shadow', gimmick:'ranged' }]
+  };
+  function strengthenMonsterType(type, elite) {
+    if (!type) return type;
+    type.hp = Math.floor((type.hp || 30) * (elite ? 6.5 : 1.35));
+    type.atk = Math.max(2, Math.floor((type.atk || 3) * (elite ? 2.3 : 1.28)));
+    type.exp = Math.floor((type.exp || 8) * (elite ? 8.5 : 1.2));
+    type.gold = Math.floor((type.gold || 4) * (elite ? 9.0 : 1.25));
+    type.dropRate = Math.min(0.96, (type.dropRate || 0.28) * (elite ? 3.0 : 1.2));
+    type.respawn = elite ? 300000 : (type.respawn || 18000);
+    return type;
+  }
+  const oldMakeMonsters = window.__makeHuntMonsters || (typeof makeReducedMonsters === 'function' ? makeReducedMonsters : null);
+  if (oldMakeMonsters) {
+    window.__makeHuntMonsters = function makeEliteHuntMonsters(hunt) {
+      const list = oldMakeMonsters(hunt) || [];
+      list.forEach(function (m) { if (m && m.type) { strengthenMonsterType(m.type, false); m.gimmick = m.gimmick || (m.type && m.type.gimmick); } });
+      const town = currentTownKey();
+      const elites = ELITE_BY_TOWN[town] || ELITE_BY_TOWN.lumina;
+      const floorFn = typeof monsterFloorYForX === 'function' ? monsterFloorYForX : function () { return game.ground || 520; };
+      elites.slice(0, 2).forEach(function (e, i) {
+        const src = (list.find(function (m) { return m && m.type && (m.type.family === e.family || m.type.gimmick === e.gimmick); }) || list[i] || {}).type || { level: 1, hp: 40, atk: 4, exp: 10, gold: 5, color: '#a78bfa', shape:'slime', speed:22, drop:'slime_jelly' };
+        const type = JSON.parse(JSON.stringify(src));
+        type.name = e.name; type.family = e.family || type.family; type.gimmick = e.gimmick; type.level = Math.max(type.level || 1, (src.level || 1) + 2); type.color = i ? '#c084fc' : '#facc15'; type.shape = type.shape || (e.family === 'ore' ? 'golem' : 'slime');
+        strengthenMonsterType(type, true);
+        const x = 380 + i * 520 + Math.random() * 140;
+        const y = floorFn(x);
+        list.push({ id:'elite:' + town + ':' + i, uid:'elite:' + town + ':' + i, isElite:true, isNamed:true, type, x, baseX:x, y, spawnY:y, hp:type.hp, maxHp:type.hp, face:-1, time:0, hit:0, dead:false, attackCooldown:1.4, aggro:false, aggroTime:0, gimmick:e.gimmick });
+      });
+      return list;
+    };
+  }
+
+  function applyPlayerStatus(kind, sec) {
+    game.player.status = game.player.status || {};
+    game.player.status[kind] = Math.max(game.player.status[kind] || 0, sec || 2);
+    if (kind === 'stun') text('기절!', game.player.x, game.player.y - 115, '#c084fc');
+    if (kind === 'poison_dot') text('중독!', game.player.x, game.player.y - 115, '#a3e635');
+    if (kind === 'burn_dot') text('화상!', game.player.x, game.player.y - 115, '#fb923c');
+    if (kind === 'ice_dot') text('빙결!', game.player.x, game.player.y - 115, '#93c5fd');
+  }
+  window.applyStatus = applyPlayerStatus;
+
+  function monsterGimmickFor(m) {
+    const fam = (m && m.type && m.type.family) || (m && m.type && m.type.shape) || '';
+    const name = (m && m.type && m.type.name) || '';
+    if (m && (m.gimmick || (m.type && m.type.gimmick))) return m.gimmick || m.type.gimmick;
+    if (/boar|desert|lizard|멧돼지|도마뱀|전갈|엄니/i.test(fam + name)) return 'charge';
+    if (/mana|spirit|ice|위습|정령|마나|서리/i.test(fam + name)) return fam === 'ice' ? 'ice_dot' : 'ranged';
+    if (/mushroom|bug|벌레|버섯|독/i.test(fam + name)) return 'poison_dot';
+    if (/shadow|ruin|저주|그림자|폐허/i.test(fam + name)) return 'stun';
+    if (/solar|sun|fire|태양|화염/i.test(fam + name)) return 'burn_dot';
+    return 'wander';
+  }
+  function spawnEnemyShot(m, kind) {
+    game.enemyProjectiles = game.enemyProjectiles || [];
+    const face = game.player.x >= m.x ? 1 : -1;
+    const color = kind === 'poison_dot' ? '#a3e635' : kind === 'burn_dot' ? '#fb923c' : kind === 'ice_dot' ? '#93c5fd' : kind === 'stun' ? '#c084fc' : '#fef08a';
+    game.enemyProjectiles.push({ x:m.x + face*34, y:m.y - 48, vx:face*(m.isElite?280:220), vy:R(-30,10), life:2.4, kind, color, damage:Math.max(2, Math.floor((m.type.atk || 4) * (m.isElite ? .95 : .75))) });
+  }
+  function updateEnemyShots(dt) {
+    game.enemyProjectiles = game.enemyProjectiles || [];
+    game.enemyProjectiles.forEach(function (p) {
+      p.x += (p.vx || 0) * dt; p.y += (p.vy || 0) * dt; p.life -= dt;
+      if (Math.abs(p.x - game.player.x) < 28 && Math.abs(p.y - (game.player.y - 42)) < 52 && (game.player.invincible || 0) <= 0) {
+        game.player.hp = Math.max(0, game.player.hp - (p.damage || 1)); game.player.invincible = .75; p.life = 0;
+        text('-' + (p.damage || 1), game.player.x, game.player.y - 94, '#ff8787');
+        if (p.kind !== 'ranged') applyPlayerStatus(p.kind, p.kind === 'stun' ? 1.2 : 4);
+      }
+    });
+    game.enemyProjectiles = game.enemyProjectiles.filter(function (p) { return p.life > 0; });
+  }
+  window.updateMonsters = updateMonsters = function updateMonstersEliteGimmicks(dt) {
+    if (game.mode !== 'hunt') return;
+    game.player.status = game.player.status || {};
+    Object.keys(game.player.status).forEach(function (k) {
+      game.player.status[k] = Math.max(0, game.player.status[k] - dt);
+      if ((k === 'poison_dot' || k === 'burn_dot' || k === 'ice_dot') && game.player.status[k] > 0) {
+        game._dotTick = (game._dotTick || 0) - dt;
+        if (game._dotTick <= 0) { game._dotTick = .7; const d = k === 'burn_dot' ? 3 : 2; game.player.hp = Math.max(0, game.player.hp - d); text('-' + d, game.player.x, game.player.y - 112, k === 'burn_dot' ? '#fb923c' : '#a3e635'); }
+      }
+    });
+    const floorFn = typeof monsterFloorYForX === 'function' ? monsterFloorYForX : function () { return game.ground || 520; };
+    A(game.monsters).forEach(function (m) {
+      if (!m || m.dead) return;
+      m.type = strengthenMonsterType(m.type || {}, !!m.isElite);
+      m.gimmick = monsterGimmickFor(m);
+      m.time = (m.time || 0) + dt; m.attackCooldown = Math.max(0, (m.attackCooldown || 0) - dt); m.hit = Math.max(0, (m.hit || 0) - dt);
+      m.y = Math.min(floorFn(m.x), (m.y || floorFn(m.x)) + 900 * dt); if (m.y >= floorFn(m.x) - 1) m.y = floorFn(m.x);
+      const dx = game.player.x - m.x, dy = Math.abs(game.player.y - m.y), dist = Math.abs(dx); m.face = dx >= 0 ? 1 : -1;
+      const active = !!m.aggro || !!m.isElite;
+      const spd = (m.type.speed || 24) * (m.isElite ? 1.22 : 1);
+      if (!active) { m.x += Math.sin(m.time * 1.1 + (m.baseX || 0) * .01) * 9 * dt; return; }
+      if (m.gimmick === 'charge') {
+        if (!m.chargeTime && dist < 450 && m.attackCooldown <= 0 && dy < 100) { m.chargeTime = .55; m.attackCooldown = m.isElite ? 2.1 : 3.1; text('돌진!', m.x, m.y - 95, '#fb923c'); }
+        if (m.chargeTime > 0) { m.x += m.face * spd * 5.6 * dt; m.chargeTime -= dt; }
+        else if (dist > 60) m.x += Math.sign(dx) * spd * dt;
+      } else if (['ranged','poison_dot','burn_dot','ice_dot','stun'].includes(m.gimmick)) {
+        if (m.attackCooldown <= 0 && dist < 560 && dy < 170) { spawnEnemyShot(m, m.gimmick); m.attackCooldown = m.isElite ? 1.35 : 2.6; }
+        if (dist > 230) m.x += Math.sign(dx) * spd * .55 * dt; else if (dist < 150) m.x -= Math.sign(dx) * spd * .45 * dt;
+      } else if (m.gimmick === 'guard') {
+        if (dist > 70) m.x += Math.sign(dx) * spd * .42 * dt;
+      } else if (dist > 70) m.x += Math.sign(dx) * spd * .85 * dt;
+      m.x = clamp(m.x, (m.baseX || m.x) - (m.isElite ? 460 : 250), (m.baseX || m.x) + (m.isElite ? 460 : 250));
+      if (m.hp <= 0 && typeof killMonster === 'function') killMonster(m);
+      if (active && dist < 44 && dy < 75 && (game.player.invincible || 0) <= 0) {
+        const dmg = Math.max(1, Math.floor((m.type.atk || 4) - (game.player.defense || 0) * .25));
+        game.player.hp = Math.max(0, game.player.hp - dmg); game.player.invincible = .75; game.player.vx = -m.face * 130; text('-' + dmg, game.player.x, game.player.y - 90, '#ff8787');
+        if (m.gimmick === 'stun') applyPlayerStatus('stun', .8);
+      }
+    });
+    updateEnemyShots(dt);
+  };
+
+  const oldKill = typeof killMonster === 'function' ? killMonster : null;
+  window.killMonster = killMonster = function killMonsterEliteDrops(m) {
+    if (!m || m._deathHandled) return;
+    const wasElite = !!m.isElite;
+    const x = m.x, y = m.y;
+    const result = oldKill ? oldKill.apply(this, arguments) : null;
+    if (wasElite) {
+      const jobs = Object.keys(HIDDEN_SEALS);
+      if (Math.random() < 0.12) {
+        const s = HIDDEN_SEALS[choice(jobs)];
+        if (s && game.drops) game.drops.push({ kind:'item', itemId:s.id, count:1, x:x + R(-18,18), y:y - 38, vy:-160, picked:false });
+        if (s) text(s.name + '!', x, y - 145, s.color);
+      }
+      const eq = getMonsterRareEquipmentDrop(m.type, m);
+      if (eq && game.drops) game.drops.push({ kind:'item', itemId:eq, count:1, x:x + R(-25,25), y:y - 52, vy:-190, picked:false });
+      text('<' + ((m.type && m.type.name) || '엘리트') + '> 처치!', x, y - 172, '#facc15');
+    }
+    return result;
+  };
+
+  // Display elite names over monsters.
+  window.drawMonsters = drawMonsters = function drawMonstersNames() {
+    A(game.monsters).forEach(function (m) {
+      if (!m || m.dead) return;
+      ctx.save(); ctx.translate(m.x, m.y + Math.sin((m.time || 0) * 6) * 2); ctx.scale(m.face || 1, 1); if (m.hit > 0) ctx.globalAlpha = .55; drawMonsterShape(m.type, m); ctx.restore();
+      const big = m.isElite || m.isNamed || (m.type && (m.type.shape === 'golem' || m.type.shape === 'ogre'));
+      const barW = big ? 76 : 48; const barY = m.y - (big ? 104 : 58);
+      ctx.fillStyle = '#0008'; ctx.fillRect(m.x - barW/2, barY, barW, 7);
+      ctx.fillStyle = m.isElite ? '#facc15' : '#ff4d4f'; ctx.fillRect(m.x - barW/2, barY, barW * clamp((m.hp || 0)/(m.maxHp || 1), 0, 1), 7);
+      ctx.textAlign = 'center'; ctx.font = m.isElite ? 'bold 12px sans-serif' : 'bold 11px sans-serif';
+      ctx.fillStyle = m.isElite ? '#fef3c7' : '#fff';
+      ctx.fillText((m.isElite ? '<' + (m.type.name || '엘리트') + '> ' : '') + 'Lv.' + ((m.type && m.type.level) || 1), m.x, barY - 5);
+    });
+  };
+
+  // Player starts less overpowered: reduce computed final damage a bit and increase monster pressure.
+  const oldCalcDamage = typeof calcDamage === 'function' ? calcDamage : null;
+  if (oldCalcDamage) window.calcDamage = calcDamage = function calcDamageTighter() { return Math.max(1, Math.floor(oldCalcDamage.apply(this, arguments) * 0.82)); };
+
+  // -------------------------------
+  // 4) Compact mobile controls with full PC actions
+  // -------------------------------
+  function pressKey(k, ms) { keys[k] = true; setTimeout(function () { keys[k] = false; }, ms || 120); }
+  function callSafe(fn) { try { if (typeof fn === 'function') fn(); } catch (e) { console.warn(e); } }
+  function rebuildMobileControls() {
+    const old = document.getElementById('pixel-rpg-touch-controls'); if (old) old.remove();
+    let style = document.getElementById('pixel-rpg-touch-style-compact');
+    if (!style) {
+      style = document.createElement('style'); style.id = 'pixel-rpg-touch-style-compact';
+      style.textContent = `
+      body.pixel-rpg-touch-mode canvas{touch-action:none}#pixel-rpg-touch-controls{position:fixed;inset:0;z-index:9999;pointer-events:none;font-family:sans-serif}.prg-pad{position:absolute;pointer-events:auto;display:flex;gap:6px;align-items:center}.prg-touch-btn{border:1px solid rgba(255,255,255,.25);background:rgba(15,23,42,.62);color:white;border-radius:14px;min-width:44px;height:42px;padding:0 9px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,.25);backdrop-filter:blur(4px)}.prg-touch-btn:active{transform:scale(.96);background:rgba(37,99,235,.78)}#prg-left-pad{left:18px;bottom:22px;width:178px;height:132px;display:block}.prg-dir{position:absolute;width:56px;height:48px}.prg-left{left:0;bottom:38px}.prg-right{left:116px;bottom:38px}.prg-up{left:58px;bottom:78px}.prg-down{left:58px;bottom:0}#prg-action-pad{right:16px;bottom:18px;width:286px;justify-content:flex-end;flex-wrap:wrap}.prg-main{background:rgba(185,28,28,.72)}.prg-skill{background:rgba(88,28,135,.68)}.prg-sub{background:rgba(30,64,175,.65)}#prg-menu-pad{top:8px;right:8px;left:8px;justify-content:flex-end;flex-wrap:wrap}.prg-menu{height:34px;min-width:42px;font-size:12px;background:rgba(15,23,42,.54)}@media(pointer:fine) and (min-width:900px){body:not(.pixel-rpg-force-touch) #pixel-rpg-touch-controls{display:none!important}}`;
+      document.head.appendChild(style);
+    }
+    document.body.classList.add('pixel-rpg-touch-mode');
+    const wrap = document.createElement('div'); wrap.id = 'pixel-rpg-touch-controls';
+    const b = function (label, cls, fn) { const e = document.createElement('button'); e.type='button'; e.className='prg-touch-btn '+(cls||''); e.textContent=label; const h=function(ev){ev.preventDefault();ev.stopPropagation();callSafe(fn);}; e.addEventListener('touchstart',h,{passive:false}); e.addEventListener('mousedown',h); return e; };
+    const hold = function (label, cls, key) { const e = document.createElement('button'); e.type='button'; e.className='prg-touch-btn '+cls; e.textContent=label; const down=function(ev){ev.preventDefault();keys[key]=true;}; const up=function(ev){ev&&ev.preventDefault();keys[key]=false;}; e.addEventListener('touchstart',down,{passive:false}); e.addEventListener('touchend',up,{passive:false}); e.addEventListener('touchcancel',up,{passive:false}); e.addEventListener('mousedown',down); window.addEventListener('mouseup',up); return e; };
+    const left = document.createElement('div'); left.id='prg-left-pad'; left.className='prg-pad'; left.appendChild(hold('←','prg-dir prg-left','arrowleft')); left.appendChild(hold('→','prg-dir prg-right','arrowright')); left.appendChild(hold('↑','prg-dir prg-up','arrowup')); left.appendChild(hold('↓','prg-dir prg-down','s'));
+    const act = document.createElement('div'); act.id='prg-action-pad'; act.className='prg-pad';
+    act.appendChild(b('공격','prg-main',function(){ basicAttack(); })); act.appendChild(b('K','prg-skill',function(){ useHotSkill('k'); })); act.appendChild(b('L','prg-skill',function(){ useHotSkill('l'); })); act.appendChild(b(';','prg-skill',function(){ useHotSkill('semicolon'); }));
+    act.appendChild(b('대화','prg-sub',function(){ interact(); })); act.appendChild(b('줍기','prg-sub',function(){ pickDrops(); })); act.appendChild(b('HP','prg-sub',function(){ quickPotion('hp'); })); act.appendChild(b('MP','prg-sub',function(){ quickPotion('mp'); })); act.appendChild(b('하강','prg-sub',function(){ pressKey('s',260); }));
+    const menu = document.createElement('div'); menu.id='prg-menu-pad'; menu.className='prg-pad';
+    menu.appendChild(b('가방','prg-menu',function(){ inventory.open=!inventory.open; stats.open=skills.open=quests.open=false; })); menu.appendChild(b('스탯','prg-menu',function(){ stats.open=!stats.open; inventory.open=skills.open=quests.open=false; })); menu.appendChild(b('스킬','prg-menu',function(){ skills.open=!skills.open; inventory.open=stats.open=quests.open=false; })); menu.appendChild(b('퀘','prg-menu',function(){ quests.open=!quests.open; inventory.open=stats.open=skills.open=false; })); menu.appendChild(b('상점','prg-menu',function(){ interact(); })); menu.appendChild(b('저장','prg-menu',function(){ saveGame && saveGame(); text('저장 완료', game.player.x, game.player.y-100, '#93c5fd'); })); if (typeof toggleLeaderboard === 'function') menu.appendChild(b('랭킹','prg-menu',toggleLeaderboard)); if (typeof toggleChat === 'function') menu.appendChild(b('채팅','prg-menu',toggleChat));
+    wrap.appendChild(menu); wrap.appendChild(left); wrap.appendChild(act); document.body.appendChild(wrap);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', rebuildMobileControls); else setTimeout(rebuildMobileControls, 100);
+})();
+
+
+/* =========================================================
+   QUEST PROGRESS / DIALOG SIZE / DISTINCT JOB NPC PATCH
+   - fixes kill quest progress not increasing for renamed/elite/variant monsters
+   - makes NPC dialog wider/taller with wrapped text and quest detail lines
+   - diversifies rare/epic/hidden job NPC names, looks, quests, and positions
+========================================================= */
+(function () {
+  'use strict';
+  if (window.__PIXEL_RPG_QUEST_DIALOG_JOBNPC_PATCH_01__) return;
+  window.__PIXEL_RPG_QUEST_DIALOG_JOBNPC_PATCH_01__ = true;
+
+  function arr(v) { return Array.isArray(v) ? v : []; }
+  function safeText(msg, color) {
+    try {
+      if (typeof makeText === 'function' && game && game.player) makeText(msg, game.player.x, game.player.y - 105, color || '#ffe066');
+    } catch (_) {}
+  }
+  function itemCount(id) {
+    try {
+      if (typeof getItemCount === 'function') return getItemCount(id);
+      return arr(inventory && inventory.items).reduce(function (sum, it) {
+        return sum + (it && it.id === id ? (it.count || 1) : 0);
+      }, 0);
+    } catch (_) { return 0; }
+  }
+
+  const FAMILY_ALIASES_PATCH = {
+    slime: ['slime','leaf','forest','gel','jelly','초록','젤리','슬라임','잎새','나뭇잎','킹 슬라임'],
+    mushroom: ['mushroom','fungus','spore','버섯','포자','룬버섯'],
+    mana: ['mana','spirit','wisp','arcane','마나','정령','위습','비전'],
+    boar: ['boar','tusk','wolf','lizard','desert','멧돼지','엄니','늑대','도마뱀','전갈','돌진'],
+    bug: ['bug','insect','bat','bee','벌레','독충','박쥐','가시'],
+    shadow: ['shadow','night','dark','rogue','그림자','밤','검은','도적','사신'],
+    ore: ['ore','golem','stone','iron','광석','골렘','강철','갑주','파수꾼'],
+    ice: ['ice','frost','snow','서리','얼음','빙결','눈'],
+    desert: ['desert','sand','solar','sun','lizard','scorpion','사막','모래','태양','도마뱀','전갈'],
+    ruin: ['ruin','curse','void','guardian','폐허','저주','공허','수호자','갑주']
+  };
+
+  function monsterTokens(monsterOrType) {
+    const m = monsterOrType || {};
+    const t = m.type || m;
+    return [
+      t.family, t.baseFamily, t.shape, t.kind, t.id, t.name, t.drop, t.gimmick,
+      m.family, m.id, m.uid, m.name, m.gimmick, m.eliteId, m.namedId,
+      m.isElite ? 'elite' : '', m.isNamed ? 'named' : ''
+    ].filter(Boolean).map(function (x) { return String(x).toLowerCase(); }).join(' ');
+  }
+
+  function goalMatchesMonster(goal, monster) {
+    if (!goal || goal.type !== 'kill') return false;
+    const text = monsterTokens(monster);
+    const target = String(goal.family || goal.monster || goal.monsterId || goal.name || goal.target || '').toLowerCase();
+    if (!target || target === 'any' || target === 'all') return true;
+    if (text.indexOf(target) >= 0) return true;
+    const aliases = FAMILY_ALIASES_PATCH[target] || [];
+    for (let i = 0; i < aliases.length; i++) {
+      if (text.indexOf(String(aliases[i]).toLowerCase()) >= 0) return true;
+    }
+    return false;
+  }
+
+  window.updateKillQuests = updateKillQuests = function updateKillQuestsRobust(monsterOrFamily) {
+    const isString = typeof monsterOrFamily === 'string';
+    const fake = isString ? { family: monsterOrFamily, type: { family: monsterOrFamily, name: monsterOrFamily } } : monsterOrFamily;
+    let changed = false;
+    arr(quests && quests.active).forEach(function (q) {
+      arr(q && q.goals).forEach(function (goal) {
+        if (goal.type === 'item') goal.count = itemCount(goal.itemId);
+        if (goal.type === 'kill' && goalMatchesMonster(goal, fake)) {
+          goal.count = Math.min(goal.need || 1, (goal.count || 0) + 1);
+          changed = true;
+        }
+      });
+    });
+    if (changed) {
+      try { if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon(); } catch (_) {}
+    }
+  };
+
+  const __oldKillQuestProgressPatch = typeof killMonster === 'function' ? killMonster : null;
+  if (__oldKillQuestProgressPatch) {
+    window.killMonster = killMonster = function killMonsterQuestProgressFixed(m) {
+      if (!m || m.__questProgressAlreadyCounted) return __oldKillQuestProgressPatch.apply(this, arguments);
+      m.__questProgressAlreadyCounted = true;
+      // Count before old kill logic, because older kill functions sometimes pass only family strings.
+      try { updateKillQuests(m); } catch (err) { console.error('[quest kill progress failed]', err); }
+      return __oldKillQuestProgressPatch.apply(this, arguments);
+    };
+  }
+
+  const __oldSyncQuestItemsPatch = typeof syncQuestItems === 'function' ? syncQuestItems : null;
+  window.syncQuestItems = syncQuestItems = function syncQuestItemsFixed(q) {
+    if (__oldSyncQuestItemsPatch) {
+      try { __oldSyncQuestItemsPatch.apply(this, arguments); } catch (_) {}
+    }
+    arr(q && q.goals).forEach(function (goal) {
+      if (goal.type === 'item') goal.count = itemCount(goal.itemId);
+    });
+  };
+
+  function wrapLines(ctx, text, maxWidth) {
+    text = String(text || '').replace(/\r/g, '');
+    const raw = text.split('\n');
+    const lines = [];
+    raw.forEach(function (part) {
+      let line = '';
+      const words = part.split(/\s+/);
+      words.forEach(function (word) {
+        const test = line ? line + ' ' + word : word;
+        if (ctx.measureText(test).width > maxWidth && line) {
+          lines.push(line);
+          line = word;
+        } else line = test;
+      });
+      if (line) lines.push(line);
+      if (!part.trim()) lines.push('');
+    });
+    return lines;
+  }
+
+  function currentDialogAction(npc) {
+    let action = '확인';
+    if (!npc) return action;
+    if (npc.type === 'taxi') action = '이동하기';
+    if (npc.type === 'merchant') action = '상점 열기';
+    if (npc.type === 'weapon') action = '장비 보기';
+    if (npc.type === 'blacksmith') action = '강화하기';
+    if (npc.type === 'quest' || npc.type === 'job' || npc.type === 'hidden_job' || npc.type === 'repeat_quest' || npc.quest) {
+      const q = arr(quests && quests.active).find(function (item) { return item && item.id === npc.quest; });
+      if (arr(quests && quests.completed).includes(npc.quest) && !(QUESTS[npc.quest] && QUESTS[npc.quest].repeatable)) action = '완료됨';
+      else if (q) {
+        syncQuestItems(q);
+        action = (typeof questComplete === 'function' && questComplete(q)) ? '완료하기' : '진행 중';
+      } else action = npc.type === 'repeat_quest' ? '반복 의뢰' : (npc.type === 'job' || npc.type === 'hidden_job' ? '전직 퀘스트' : '퀘스트 수락');
+    }
+    return action;
+  }
+
+  function questDialogExtra(npc) {
+    const q = npc && npc.quest && QUESTS && QUESTS[npc.quest];
+    if (!q) return [];
+    const out = [];
+    if (q.title) out.push('[' + q.title + ']');
+    if (q.requiredLevel) out.push('필요 레벨: Lv.' + q.requiredLevel);
+    if (q.rarity) out.push('난이도/등급: ' + q.rarity);
+    if (q.desc) out.push(q.desc);
+    const active = arr(quests && quests.active).find(function (a) { return a && a.id === q.id; });
+    const show = active || q;
+    arr(show.goals).forEach(function (g) {
+      let label = '';
+      let count = g.count || 0;
+      if (g.type === 'item') {
+        count = itemCount(g.itemId);
+        label = (ITEMS[g.itemId] && ITEMS[g.itemId].name) || g.itemId;
+      } else if (g.type === 'kill') {
+        label = g.label || g.monster || g.name || g.family || '몬스터';
+      }
+      if (label) out.push('목표: ' + label + ' ' + count + '/' + (g.need || 1));
+    });
+    if (q.rewardExp || q.rewardGold) out.push('보상: EXP ' + (q.rewardExp || 0) + ' / ' + (q.rewardGold || 0) + '원');
+    return out;
+  }
+
+  window.drawDialog = drawDialog = function drawDialogLargeWrapped() {
+    if (!game.dialog || !game.dialog.npc) return;
+    const npc = game.dialog.npc;
+    const x = 120, y = 455, w = 1040, h = 210;
+    ctx.save();
+    ctx.fillStyle = 'rgba(15,23,42,0.97)';
+    roundRect(ctx, x, y, w, h, 16);
+    ctx.strokeStyle = '#93c5fd';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, w, h);
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffe066';
+    ctx.font = 'bold 22px sans-serif';
+    ctx.fillText(npc.name || 'NPC', x + 26, y + 36);
+
+    ctx.font = '15px sans-serif';
+    ctx.fillStyle = '#e2e8f0';
+    const textLines = wrapLines(ctx, npc.text || '무엇을 도와드릴까요?', w - 70);
+    let cy = y + 65;
+    textLines.slice(0, 3).forEach(function (line) {
+      ctx.fillText(line, x + 26, cy);
+      cy += 21;
+    });
+
+    const extra = questDialogExtra(npc);
+    ctx.font = '13px sans-serif';
+    extra.slice(0, 5).forEach(function (line, idx) {
+      ctx.fillStyle = idx === 0 ? '#bfdbfe' : '#cbd5e1';
+      const lines = wrapLines(ctx, line, w - 90);
+      lines.slice(0, 2).forEach(function (l) {
+        if (cy < y + 163) {
+          ctx.fillText(l, x + 34, cy);
+          cy += 18;
+        }
+      });
+    });
+
+    const action = currentDialogAction(npc);
+    ctx.fillStyle = '#4dabf7';
+    roundRect(ctx, 210, 620, 190, 42, 8);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(action, 305, 647);
+
+    ctx.fillStyle = '#334155';
+    roundRect(ctx, 970, 620, 120, 40, 8);
+    ctx.fillStyle = '#fff';
+    ctx.fillText('닫기', 1030, 646);
+    ctx.restore();
+  };
+
+  const JOB_NPC_VARIANTS = {
+    lumina: [
+      { type:'job', name:'수련 교관 도윤', quest:'beginner_mastery_job', jobReward:'beginner', lookJob:'beginner', x:760, yLevel:0, text:'초보자라도 기초를 끝까지 다지면 더 강해질 수 있습니다.' }
+    ],
+    greenwood: [
+      { type:'job', name:'음유시인 리라', quest:'special_bard', jobReward:'bard', lookJob:'bard', x:1460, yLevel:2, text:'잃어버린 선율을 찾아오면 전장의 노래를 가르쳐줄게요.' },
+      { type:'job', name:'숲의 성기사 오르웬', quest:'paladin_job', jobReward:'paladin', lookJob:'paladin', x:3020, yLevel:1, text:'성스러운 방패는 약자를 지키는 자에게만 반응합니다.' }
+    ],
+    ellenium: [
+      { type:'job', name:'대마법사 이렌', quest:'mage_job', jobReward:'mage', lookJob:'mage', x:1320, yLevel:1, text:'마법의 길은 지식보다 집중을 먼저 요구합니다.' },
+      { type:'job', name:'별빛 예언자 루미엘', quest:'hidden_star_sage', jobReward:'star_sage', hiddenJob:'star_sage', lookJob:'star_sage', x:3740, yLevel:3, text:'별의 인장을 지닌 자만 성좌의 문을 두드릴 수 있습니다.' }
+    ],
+    valor: [
+      { type:'job', name:'기사단장 로한', quest:'warrior_job', jobReward:'warrior', lookJob:'warrior', x:1180, yLevel:1, text:'전사는 힘보다 물러서지 않는 마음으로 증명됩니다.' },
+      { type:'job', name:'용혈 감시자 세르칸', quest:'hidden_dragon_knight', jobReward:'dragon_knight', hiddenJob:'dragon_knight', lookJob:'dragon_knight', x:3860, yLevel:3, text:'아르딘은 떠났습니다. 지금은 내가 용혈의 시험을 지킵니다.' },
+      { type:'job', name:'붉은 투사 마르크', quest:'berserker_job', jobReward:'berserker', lookJob:'berserker', x:2560, yLevel:2, text:'분노를 제어할 수 있다면 광전사의 길을 열어주마.' }
+    ],
+    shadowport: [
+      { type:'job', name:'그림자 란', quest:'rogue_job', jobReward:'rogue', lookJob:'rogue', x:960, yLevel:1, text:'그림자는 빠르게 움직이는 자에게만 길을 보여줍니다.' },
+      { type:'job', name:'검은 달의 사신 네라', quest:'hidden_shadow_reaper', jobReward:'shadow_reaper', hiddenJob:'shadow_reaper', lookJob:'shadow_reaper', x:3900, yLevel:3, text:'검은 달의 인장을 가져온 자에게만 사신의 계약을 허락합니다.' }
+    ],
+    sylvania: [
+      { type:'job', name:'명궁 세리아', quest:'archer_job', jobReward:'archer', lookJob:'archer', x:1020, yLevel:1, text:'숲의 사수는 한 발을 쏘기 전에 바람을 읽습니다.' },
+      { type:'job', name:'바람 추적자 피엔', quest:'ranger_job', jobReward:'ranger', lookJob:'archer', x:2960, yLevel:2, text:'멀리서 적을 제압하는 법을 배우고 싶나요?' }
+    ],
+    irondeep: [
+      { type:'job', name:'기계공 노바', quest:'special_engineer', jobReward:'engineer', lookJob:'engineer', x:1440, yLevel:2, text:'고장난 드론을 고치면 기계 전투술을 알려주죠.' },
+      { type:'job', name:'강철 창장 카르도', quest:'lancer_job', jobReward:'lancer', lookJob:'lancer', x:3280, yLevel:1, text:'긴 창은 거리를 지배하는 무기입니다.' }
+    ],
+    frosthall: [
+      { type:'job', name:'빙설 성직자 엘린', quest:'cleric_job', jobReward:'cleric', lookJob:'cleric', x:1420, yLevel:2, text:'상처를 치유하는 힘은 차가운 인내에서 나옵니다.' },
+      { type:'job', name:'서리 소환사 니브', quest:'summoner_job', jobReward:'summoner', lookJob:'summoner', x:3380, yLevel:3, text:'정령과 계약하려면 먼저 냉기의 시험을 견뎌야 합니다.' }
+    ],
+    solas: [
+      { type:'job', name:'황야의 총잡이 제드', quest:'gunslinger_job', jobReward:'gunslinger', lookJob:'gunslinger', x:1680, yLevel:2, text:'사막에서는 빠른 손과 더 빠른 판단이 생명입니다.' }
+    ],
+    nocturn: [
+      { type:'job', name:'폐허 조율사 베인', quest:'epic_ruin_job', jobReward:'engineer', lookJob:'engineer', x:3500, yLevel:3, text:'폐허의 장치를 이해하는 자만 상급 기술을 다룰 수 있습니다.' }
+    ]
+  };
+
+  function platformYForLevel(level, fallbackX) {
+    const ground = game.ground || 560;
+    if (!level) return ground;
+    const candidates = arr(game.platforms).filter(function (pf) { return pf && pf.townFloor && (pf.floor === level || Math.abs((pf.floor || 0) - level) <= 1); });
+    if (candidates.length) {
+      const sorted = candidates.slice().sort(function (a, b) {
+        const ax = Math.abs((a.x + a.w / 2) - fallbackX);
+        const bx = Math.abs((b.x + b.w / 2) - fallbackX);
+        return ax - bx;
+      });
+      return sorted[0].y;
+    }
+    return level === 3 ? 275 : level === 2 ? 390 : level === 1 ? 505 : ground;
+  }
+
+  function pruneGenericDuplicateJobNpcs() {
+    const keepNames = new Set();
+    arr(JOB_NPC_VARIANTS[game.townId]).forEach(function (n) { keepNames.add(n.name); });
+    const questToVariant = {};
+    arr(JOB_NPC_VARIANTS[game.townId]).forEach(function (n) { if (n.quest) questToVariant[n.quest] = n.name; });
+    game.npcs = arr(game.npcs).filter(function (npc) {
+      if (!npc) return false;
+      if (!(npc.type === 'job' || npc.type === 'hidden_job' || npc.hiddenJob)) return true;
+      // Keep if it is a custom variant in the current town.
+      if (keepNames.has(npc.name)) return true;
+      // Remove old generic Ardin/Lumiel/same-position NPC when a town-specific variant handles the same quest.
+      if (npc.quest && questToVariant[npc.quest]) return false;
+      // Remove repeated generic hidden NPC that appeared in every city.
+      if (/아르딘|루미엘|검은 달의 사신$/.test(String(npc.name || '')) && !keepNames.has(npc.name)) return false;
+      return true;
+    });
+  }
+
+  function ensureVariantQuest(npc) {
+    if (!npc || !npc.quest || !npc.jobReward || !QUESTS) return;
+    if (QUESTS[npc.quest]) {
+      QUESTS[npc.quest].npc = npc.name;
+      QUESTS[npc.quest].town = game.townId;
+      if (!QUESTS[npc.quest].desc || /스킬|전직|시험/.test(QUESTS[npc.quest].desc)) {
+        QUESTS[npc.quest].desc = npc.text + ' ' + npc.name + '의 전용 시험을 완료하세요.';
+      }
+      return;
+    }
+    const familyByTown = { lumina:'slime', greenwood:'bug', ellenium:'mana', valor:'boar', shadowport:'shadow', sylvania:'bug', irondeep:'ore', frosthall:'ice', solas:'desert', nocturn:'ruin' };
+    const rank = Math.max(0, ['lumina','greenwood','ellenium','valor','shadowport','sylvania','irondeep','frosthall','solas','nocturn'].indexOf(game.townId));
+    QUESTS[npc.quest] = {
+      id: npc.quest,
+      title: npc.name + '의 전직 시험',
+      town: game.townId,
+      npc: npc.name,
+      jobReward: npc.jobReward,
+      desc: npc.text + ' 이 도시의 몬스터를 처치하고 전직 자격을 증명하세요.',
+      goals: [{ type:'kill', family: familyByTown[game.townId] || 'any', need: 8 + rank * 2, count: 0 }],
+      rewardGold: 350 + rank * 120,
+      rewardExp: 400 + rank * 180
+    };
+  }
+
+  function addDistinctJobNpcs() {
+    if (!game || !Array.isArray(game.npcs)) return;
+    pruneGenericDuplicateJobNpcs();
+    const list = JOB_NPC_VARIANTS[game.townId] || [];
+    const existing = new Set(game.npcs.map(function (n) { return (n.name || '') + ':' + (n.quest || ''); }));
+    list.forEach(function (template, idx) {
+      ensureVariantQuest(template);
+      const key = template.name + ':' + template.quest;
+      if (existing.has(key)) return;
+      const npc = Object.assign({}, template);
+      npc.y = platformYForLevel(template.yLevel || 0, template.x);
+      npc.uniqueNpc = true;
+      npc.difficultyLabel = npc.hiddenJob ? '히든' : (QUESTS[npc.quest] && QUESTS[npc.quest].rarity) || npc.difficultyLabel;
+      game.npcs.push(npc);
+    });
+    // Ground every NPC to the nearest intended platform so the dialogue prompt is not visually messy.
+    game.npcs.forEach(function (npc) {
+      if (!npc) return;
+      if (npc.yLevel !== undefined) npc.y = platformYForLevel(npc.yLevel, npc.x || 0);
+      else if (typeof floorForNpc === 'function') {
+        try { npc.y = floorForNpc(npc.x || 0, npc.y || game.ground); } catch (_) {}
+      }
+    });
+  }
+
+  const __oldLoadTownJobNpcPatch = typeof loadTown === 'function' ? loadTown : null;
+  if (__oldLoadTownJobNpcPatch) {
+    window.loadTown = loadTown = function loadTownDistinctJobNpcs() {
+      const ret = __oldLoadTownJobNpcPatch.apply(this, arguments);
+      try { addDistinctJobNpcs(); setTimeout(addDistinctJobNpcs, 0); } catch (err) { console.error('[job npc variant patch failed]', err); }
+      return ret;
+    };
+  }
+
+  // If currently in a town after hot reload/redeploy, repair it once.
+  try { if (game && game.mode === 'town') addDistinctJobNpcs(); } catch (_) {}
+})();
