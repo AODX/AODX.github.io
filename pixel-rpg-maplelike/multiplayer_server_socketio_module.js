@@ -39,7 +39,9 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
   const hiddenJobLabels = {
     shadow_reaper: '그림자 사신',
     dragon_knight: '용기사',
-    star_sage: '별의 현자'
+    star_sage: '별의 현자',
+    abyss_walker: '심연 방랑자',
+    rune_keeper: '룬 수호자'
   };
   const hiddenJobIds = Object.keys(hiddenJobLabels);
 
