@@ -1,9 +1,10 @@
 'use strict';
 
 /* =========================================================
-   Pixel RPG Multiplayer Server Module 03
+   Pixel RPG Multiplayer Server Module 03.1
    - Socket.IO multiplayer / chat
    - Shared monster HP, death, respawn state
+   - Normal monster respawn minimum 10 seconds; named/elite 5 minutes
    - Persistent unique hidden-job ownership via Supabase
 
    Required env for persistence:
@@ -325,12 +326,12 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
       hp: Math.max(0, Number(raw.hp) || Number(raw.maxHp) || 1),
       maxHp: Math.max(1, Number(raw.maxHp) || Number(raw.hp) || 1),
       dead: !!raw.dead,
-      respawn: Math.max(raw.isNamed ? 300000 : 6000, Number(raw.respawn) || (raw.isNamed ? 300000 : 12000)),
+      respawn: Math.max(raw.isNamed ? 300000 : 10000, Number(raw.respawn) || (raw.isNamed ? 300000 : 10000)),
       isNamed: !!raw.isNamed,
       namedKey: raw.namedKey || null,
       gimmick: raw.gimmick || null,
       killedAt: raw.dead ? now() : 0,
-      respawnAt: raw.dead ? now() + Math.max(raw.isNamed ? 300000 : 6000, Number(raw.respawn) || (raw.isNamed ? 300000 : 12000)) : 0
+      respawnAt: raw.dead ? now() + Math.max(raw.isNamed ? 300000 : 10000, Number(raw.respawn) || (raw.isNamed ? 300000 : 10000)) : 0
     };
   }
 
@@ -349,6 +350,7 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
       latest.y = latest.spawnY;
       latest.killedAt = 0;
       latest.respawnAt = 0;
+      latest.canHitAt = now();
       io.to(roomId).emit('monster:respawn', {
         room: roomId,
         id: latest.id,
@@ -356,7 +358,8 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
         x: latest.x,
         y: latest.y,
         hp: latest.hp,
-        maxHp: latest.maxHp
+        maxHp: latest.maxHp,
+        canHitAt: latest.canHitAt || now()
       });
       room.timers.delete(monster.id);
     }, delay);
@@ -446,7 +449,7 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
         existing.name = m.name || existing.name;
         existing.level = m.level || existing.level;
         existing.maxHp = Math.max(1, m.maxHp || existing.maxHp || 1);
-        existing.respawn = Math.max(existing.isNamed || m.isNamed ? 300000 : 6000, m.respawn || existing.respawn || (existing.isNamed || m.isNamed ? 300000 : 12000));
+        existing.respawn = Math.max(existing.isNamed || m.isNamed ? 300000 : 10000, m.respawn || existing.respawn || (existing.isNamed || m.isNamed ? 300000 : 10000));
         existing.isNamed = !!(existing.isNamed || m.isNamed);
         existing.gimmick = m.gimmick || existing.gimmick;
         existing.baseX = m.baseX;
@@ -487,7 +490,7 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
           m.dead = true;
           m.hp = 0;
           m.killedAt = now();
-          m.respawn = Math.max(m.isNamed || payload.isNamed ? 300000 : 6000, Number(payload.respawn) || m.respawn || (m.isNamed || payload.isNamed ? 300000 : 12000));
+          m.respawn = Math.max(m.isNamed || payload.isNamed ? 300000 : 10000, Number(payload.respawn) || m.respawn || (m.isNamed || payload.isNamed ? 300000 : 10000));
           m.isNamed = !!(m.isNamed || payload.isNamed);
           m.respawnAt = now() + m.respawn;
           scheduleRespawn(roomId, m);
@@ -534,7 +537,7 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
       m.dead = true;
       m.hp = 0;
       m.killedAt = now();
-      m.respawn = Math.max(m.isNamed || payload.isNamed ? 300000 : 6000, Number(payload.respawn) || m.respawn || (m.isNamed || payload.isNamed ? 300000 : 12000));
+      m.respawn = Math.max(m.isNamed || payload.isNamed ? 300000 : 10000, Number(payload.respawn) || m.respawn || (m.isNamed || payload.isNamed ? 300000 : 10000));
       m.isNamed = !!(m.isNamed || payload.isNamed);
       m.respawnAt = now() + m.respawn;
       if (Number.isFinite(payload.x)) m.x = Number(payload.x);
