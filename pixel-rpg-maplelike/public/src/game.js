@@ -17055,3 +17055,543 @@ canvas.addEventListener('click', function (e) {
   // If currently in a town after hot reload/redeploy, repair it once.
   try { if (game && game.mode === 'town') addDistinctJobNpcs(); } catch (_) {}
 })();
+
+
+/* =========================================================
+   CAMERA / RESPAWN / NPC / SHOP / ITEM VISUAL FINAL PATCH
+   - vertical camera follows the player so top platforms do not hide behind HUD
+   - normal monster respawn minimum 10 sec and can be hit immediately after respawn
+   - hidden/rare/epic job NPCs are separated by town/level/position and require scrolls
+   - merchant purchase and sale are separated into tabs
+   - equipment names, rarity borders, weapon/armor visuals and attack effects improved
+========================================================= */
+(function () {
+  'use strict';
+
+  const RARITY_COLOR_FINAL = {
+    common: '#9ca3af', normal: '#9ca3af', rare: '#60a5fa', ultra: '#22d3ee', epic: '#c084fc', legendary: '#facc15', hidden: '#ffffff'
+  };
+  const RARITY_LABEL_FINAL = {
+    common: '일반', normal: '일반', rare: '희귀', ultra: '초희귀', epic: '에픽', legendary: '레전더리', hidden: '히든'
+  };
+
+  function finalSafeArr(v) { return Array.isArray(v) ? v : []; }
+  function finalNow() { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
+  function finalClamp(v, a, b) { return typeof clamp === 'function' ? clamp(v, a, b) : Math.max(a, Math.min(b, v)); }
+  function finalItemId(ref) { return typeof itemRefId === 'function' ? itemRefId(ref) : (typeof ref === 'string' ? ref : (ref && ref.id)); }
+  function finalItemEnhance(ref) { return typeof itemEnhance === 'function' ? itemEnhance(ref) : ((ref && ref.enhance) || 0); }
+  function finalItemData(ref) { return typeof getItemData === 'function' ? getItemData(ref) : (ITEMS && ITEMS[finalItemId(ref)]); }
+  function finalHit(x, y, rx, ry, rw, rh) { return typeof hit === 'function' ? hit(x, y, rx, ry, rw, rh) : (x >= rx && x <= rx + rw && y >= ry && y <= ry + rh); }
+  function finalRound(c, x, y, w, h, r) { if (typeof roundRect === 'function') roundRect(c, x, y, w, h, r); else c.fillRect(x, y, w, h); }
+  function finalCircle(c, x, y, r) { if (typeof circle === 'function') circle(c, x, y, r); else { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); } }
+  function finalMoney(v) { return (typeof moneyLabel === 'function') ? moneyLabel(v) : ((v || 0) + '원'); }
+  function finalText(msg, color) { if (typeof makeText === 'function' && game && game.player) makeText(msg, game.player.x, game.player.y - 110, color || '#fff'); }
+  function finalSaveSoon() { if (typeof markAutoSaveSoon === 'function') markAutoSaveSoon(); }
+
+  function finalRarity(itemOrRef) {
+    const item = finalItemData(itemOrRef) || itemOrRef || {};
+    const raw = String(item.rarity || item.grade || item.tierName || 'common').toLowerCase();
+    if (raw.includes('legend') || raw.includes('레전')) return 'legendary';
+    if (raw.includes('epic') || raw.includes('에픽')) return 'epic';
+    if (raw.includes('ultra') || raw.includes('초희귀')) return 'ultra';
+    if (raw.includes('rare') || raw.includes('희귀')) return 'rare';
+    return 'common';
+  }
+  function finalRarityColor(itemOrRef) { return RARITY_COLOR_FINAL[finalRarity(itemOrRef)] || RARITY_COLOR_FINAL.common; }
+
+  function finalPrettyWeaponName(id, item) {
+    item = item || (ITEMS && ITEMS[id]) || {};
+    const lv = Number(item.reqLevel || item.level || 1);
+    const kind = item.weaponType || (id && id.includes('dagger') ? 'dagger' : id && id.includes('bow') ? 'bow' : id && id.includes('staff') ? 'staff' : 'sword');
+    const rarity = finalRarity(item);
+    if (rarity === 'legendary') {
+      if (kind === 'sword') return lv >= 50 ? '아르티온' : lv >= 25 ? '태양왕의 검' : '여명의 성검';
+      if (kind === 'dagger') return lv >= 50 ? '그림자 심장' : lv >= 25 ? '달빛 단검' : '밤까마귀';
+      if (kind === 'bow') return lv >= 50 ? '별사냥꾼' : lv >= 25 ? '바람왕의 활' : '새벽 장궁';
+      if (kind === 'staff') return lv >= 50 ? '은하의 지팡이' : lv >= 25 ? '대현자의 홀' : '별빛 완드';
+    }
+    if (rarity === 'epic') {
+      if (kind === 'sword') return lv >= 35 ? '용사의 검' : '기사의 검';
+      if (kind === 'dagger') return lv >= 35 ? '암살자의 비수' : '그림자 단검';
+      if (kind === 'bow') return lv >= 35 ? '숲수호자의 활' : '사냥꾼의 장궁';
+      if (kind === 'staff') return lv >= 35 ? '룬술사의 지팡이' : '마도사의 완드';
+    }
+    if (rarity === 'rare' || rarity === 'ultra') {
+      if (kind === 'sword') return lv >= 15 ? '강철 장검' : '견습 검';
+      if (kind === 'dagger') return lv >= 15 ? '쌍날 단검' : '견습 단검';
+      if (kind === 'bow') return lv >= 15 ? '강화 장궁' : '견습 활';
+      if (kind === 'staff') return lv >= 15 ? '마력 지팡이' : '견습 지팡이';
+    }
+    if (kind === 'dagger') return '견습 단검';
+    if (kind === 'bow') return '견습 활';
+    if (kind === 'staff') return '나무 지팡이';
+    return '견습 검';
+  }
+
+  finalSafeArr(Object.keys(typeof ITEMS !== 'undefined' ? ITEMS : {})).forEach(function (id) {
+    const item = ITEMS[id];
+    if (!item) return;
+    if (item.type === 'weapon' || item.equipSlot === 'weapon') {
+      item.name = finalPrettyWeaponName(id, item);
+      if (!item.rarity) {
+        const lv = Number(item.reqLevel || 1);
+        item.rarity = lv >= 55 ? 'legendary' : lv >= 35 ? 'epic' : lv >= 22 ? 'ultra' : lv >= 10 ? 'rare' : 'common';
+      }
+    }
+    if (item.type === 'armor' || item.equipSlot === 'armor') {
+      const lv = Number(item.reqLevel || 1);
+      if (!item.rarity) item.rarity = lv >= 55 ? 'legendary' : lv >= 35 ? 'epic' : lv >= 20 ? 'rare' : 'common';
+      if (/armor_\d+/.test(id)) item.name = finalRarity(item) === 'legendary' ? '수호왕의 갑옷' : finalRarity(item) === 'epic' ? '용사의 흉갑' : finalRarity(item) === 'rare' ? '강철 갑옷' : '견습 갑옷';
+    }
+  });
+
+  const __oldGetItemDisplayNameFinal = typeof getItemDisplayName === 'function' ? getItemDisplayName : null;
+  getItemDisplayName = function getItemDisplayNameFinal(ref) {
+    const item = finalItemData(ref);
+    if (!item) return __oldGetItemDisplayNameFinal ? __oldGetItemDisplayNameFinal(ref) : String(finalItemId(ref) || '아이템');
+    const plus = finalItemEnhance(ref);
+    const r = finalRarity(item);
+    const label = RARITY_LABEL_FINAL[r] || '일반';
+    const name = item.name || finalPrettyWeaponName(finalItemId(ref), item);
+    return (plus ? '+' + plus + ' ' : '') + '[' + label + '] ' + name;
+  };
+
+  function finalGroundYAt(x, currentY) {
+    let best = game.ground || 610;
+    finalSafeArr(game.platforms).forEach(function (pf) {
+      if (!pf) return;
+      if (x >= pf.x - 36 && x <= pf.x + pf.w + 36) {
+        if ((currentY == null || pf.y >= currentY - 24) && pf.y < best) best = pf.y;
+      }
+    });
+    return best;
+  }
+
+  const __oldUpdateCameraFinal = typeof updateCamera === 'function' ? updateCamera : null;
+  updateCamera = function updateCameraFinal(dt) {
+    const targetX = finalClamp(game.player.x - W * 0.42, 0, Math.max(0, game.width - W));
+    game.cameraX += (targetX - (game.cameraX || 0)) * Math.min(1, dt * 8);
+    // Negative cameraY moves the world down on screen. This keeps upper floors below the fixed HUD.
+    const wanted = finalClamp((game.player.y || game.ground || 610) - H * 0.48, -260, 0);
+    game.cameraY = (game.cameraY || 0) + (wanted - (game.cameraY || 0)) * Math.min(1, dt * 7);
+  };
+
+  const __oldUpdatePlayerFinal = typeof updatePlayer === 'function' ? updatePlayer : null;
+  updatePlayer = function updatePlayerFinal(dt) {
+    const ret = __oldUpdatePlayerFinal ? __oldUpdatePlayerFinal.apply(this, arguments) : undefined;
+    if (game && game.player && game.player.y < -260) game.player.y = -260;
+    return ret;
+  };
+
+  const __oldDrawFinal = typeof draw === 'function' ? draw : null;
+  draw = function drawFinalCameraFollow() {
+    ctx.clearRect(0, 0, W, H);
+    if (!game.ready) {
+      if (typeof drawMenuBackground === 'function') drawMenuBackground();
+      if (typeof drawPreviews === 'function') drawPreviews();
+      return;
+    }
+    const town = typeof getTown === 'function' ? getTown(game.townId) : { bgTop: '#7bd4ff', bgBottom: '#dff7ff' };
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, town.bgTop || '#7bd4ff');
+    g.addColorStop(0.65, town.bgBottom || '#dff7ff');
+    g.addColorStop(1, '#eaffce');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.translate(-Math.floor(game.cameraX || 0), -Math.floor(game.cameraY || 0));
+    if (typeof drawWorld === 'function') drawWorld();
+    if (typeof drawPortals === 'function') drawPortals();
+    if (typeof drawNPCs === 'function') drawNPCs();
+    if (typeof drawDrops === 'function') drawDrops();
+    if (typeof drawMonsters === 'function') drawMonsters();
+    if (typeof drawProjectiles === 'function') drawProjectiles();
+    if (typeof drawPlayer === 'function') drawPlayer(game.player, game.player.x, game.player.y, 0.74);
+    // Remote players, redrawn with the same vertical camera so they no longer float over the HUD.
+    const MP = window.PixelRpgMultiplayer;
+    if (MP && MP.players) {
+      const room = game.mode === 'hunt' ? 'hunt:' + game.huntId : 'town:' + game.townId;
+      Object.keys(MP.players).forEach(function (id) {
+        const entry = MP.players[id];
+        if (!entry || entry.room !== room || !entry.state) return;
+        const s = entry.state;
+        const fake = {
+          x: s.x || 0,
+          y: finalGroundYAt(s.x || 0, s.y || 0),
+          face: s.face || 1,
+          anim: s.anim || 'idle',
+          animTime: s.animTime || 0,
+          hurtTime: 0,
+          character: Object.assign({ name: entry.name || s.name || '유저', job: s.job || 'beginner', skin: '#ffd6a6', hair: '#2b160e', hairStyle: 'basic', faceStyle: 'normal' }, s.character || {})
+        };
+        ctx.globalAlpha = 0.9;
+        drawPlayer(fake, fake.x, fake.y, 0.74);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#dbeafe';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText((s.name || entry.name || '유저') + ' Lv.' + (s.level || 1), fake.x, fake.y - 142);
+      });
+    }
+    if (typeof drawParticles === 'function') drawParticles();
+    if (typeof drawTexts === 'function') drawTexts();
+    ctx.restore();
+
+    if (typeof drawHUD === 'function') drawHUD();
+    if (inventory && inventory.open && typeof drawInventoryPanel === 'function') drawInventoryPanel();
+    if (stats && stats.open && typeof drawStatsPanel === 'function') drawStatsPanel();
+    if (skills && skills.open && typeof drawSkillsPanel === 'function') drawSkillsPanel();
+    if (quests && quests.open && typeof drawQuestsPanel === 'function') drawQuestsPanel();
+    if (game.dialog && typeof drawDialog === 'function') drawDialog();
+    if (game.taxiOpen && typeof drawTaxiPanel === 'function') drawTaxiPanel();
+    if (game.shopOpen && typeof drawShopPanel === 'function') drawShopPanel();
+    if (game.blacksmithOpen && typeof drawBlacksmithPanel === 'function') drawBlacksmithPanel();
+    if (inventory && inventory.open && typeof drawItemTooltip === 'function') drawItemTooltip();
+    if (typeof drawDraggedItem === 'function') drawDraggedItem();
+  };
+
+  function finalSetMonsterRespawn(m) {
+    if (!m) return;
+    const isElite = !!(m.isElite || m.isNamed || (m.type && (m.type.isElite || m.type.isNamed)));
+    const ms = isElite ? 300000 : 10000;
+    m.respawn = ms;
+    if (m.type) m.type.respawn = ms;
+  }
+
+  const __oldSpawnMonstersFinal = typeof spawnMonsters === 'function' ? spawnMonsters : null;
+  spawnMonsters = function spawnMonstersFinal(hunt) {
+    const ret = __oldSpawnMonstersFinal ? __oldSpawnMonstersFinal.apply(this, arguments) : undefined;
+    const seen = {};
+    game.monsters = finalSafeArr(game.monsters).filter(function (m) {
+      if (!m) return false;
+      const elite = !!(m.isElite || m.isNamed || (m.type && (m.type.isElite || m.type.isNamed)));
+      if (elite) {
+        const key = (m.namedKey || m.name || m.family || 'elite') + ':' + (game.huntId || 'hunt');
+        if (seen[key]) return false;
+        seen[key] = true;
+      }
+      finalSetMonsterRespawn(m);
+      m.y = finalGroundYAt(m.x || m.baseX || 0, m.y || game.ground);
+      m.spawnY = m.y;
+      m.canHitAt = 0;
+      return true;
+    });
+    return ret;
+  };
+
+  const __oldKillMonsterFinal = typeof killMonster === 'function' ? killMonster : null;
+  killMonster = function killMonsterFinal(m) {
+    if (!m || m.__finalKilled) return;
+    finalSetMonsterRespawn(m);
+    const ret = __oldKillMonsterFinal ? __oldKillMonsterFinal.apply(this, arguments) : undefined;
+    m.__finalKilled = true;
+    m.dead = true;
+    m.hp = 0;
+    m.killedAt = finalNow();
+    m.respawnAt = finalNow() + (m.respawn || ((m.isElite || m.isNamed) ? 300000 : 10000));
+    m.canHitAt = m.respawnAt + 50;
+    return ret;
+  };
+
+  const __oldUpdateMonstersFinal = typeof updateMonsters === 'function' ? updateMonsters : null;
+  updateMonsters = function updateMonstersFinal(dt) {
+    const ret = __oldUpdateMonstersFinal ? __oldUpdateMonstersFinal.apply(this, arguments) : undefined;
+    const nowMs = finalNow();
+    finalSafeArr(game.monsters).forEach(function (m) {
+      if (!m) return;
+      finalSetMonsterRespawn(m);
+      if (m.dead) {
+        if (!m.respawnAt) m.respawnAt = (m.killedAt || nowMs) + (m.respawn || 10000);
+        if (nowMs >= m.respawnAt) {
+          m.dead = false;
+          m.__finalKilled = false;
+          m.hp = m.maxHp || (m.type && m.type.hp) || 1;
+          m.x = (m.baseX || m.x || 0) + Math.round(Math.random() * 80 - 40);
+          m.y = finalGroundYAt(m.x, m.spawnY || m.y || game.ground);
+          m.spawnY = m.y;
+          m.canHitAt = nowMs + 60;
+          m.hit = 0;
+        }
+      } else {
+        m.y = finalGroundYAt(m.x || m.baseX || 0, m.y || game.ground);
+      }
+    });
+    return ret;
+  };
+
+  const __oldDamageMonsterFinal = typeof damageMonster === 'function' ? damageMonster : null;
+  damageMonster = function damageMonsterFinal(m, skill) {
+    if (!m || m.dead) return;
+    if (m.canHitAt && finalNow() < m.canHitAt) m.canHitAt = 0; // immediately hittable after visible respawn
+    return __oldDamageMonsterFinal ? __oldDamageMonsterFinal.apply(this, arguments) : undefined;
+  };
+
+  const __oldMpSeedFinal = typeof mpMonsterSeed === 'function' ? mpMonsterSeed : null;
+  if (__oldMpSeedFinal) {
+    mpMonsterSeed = function mpMonsterSeedFinal() {
+      return __oldMpSeedFinal.apply(this, arguments).map(function (m) {
+        if (!m) return m;
+        const named = !!m.isNamed || !!m.isElite;
+        m.respawn = named ? 300000 : 10000;
+        return m;
+      });
+    };
+  }
+
+  const MERCHANT_BUY_FINAL = ['hp_potion', 'hp_potion_small', 'hp_potion_mid', 'hp_potion_high', 'mp_potion', 'mp_potion_small', 'mp_potion_mid', 'mp_potion_high'].filter(function (id, i, arr) {
+    return ITEMS && ITEMS[id] && arr.indexOf(id) === i;
+  });
+  game.shopTab = game.shopTab || 'buy';
+
+  function finalSellPrice(ref) {
+    const item = finalItemData(ref);
+    if (!item) return 0;
+    const rarityMul = { common: 1, rare: 1.25, ultra: 1.6, epic: 2.2, legendary: 3.2 }[finalRarity(item)] || 1;
+    return Math.max(1, Math.floor((item.sell || Math.max(1, Math.floor((item.price || 20) * 0.35))) * rarityMul * (1 + finalItemEnhance(ref) * 0.12)));
+  }
+  function finalCanSell(ref) {
+    const item = finalItemData(ref);
+    if (!item) return false;
+    return item.type === 'etc' || item.type === 'weapon' || item.type === 'armor' || item.type === 'equipment' || item.equipSlot;
+  }
+  function finalSellIndex(idx) {
+    const ref = inventory.items[idx];
+    if (!ref) return;
+    if (!finalCanSell(ref)) { finalText('판매할 수 없는 아이템입니다', '#ff8787'); return; }
+    const item = finalItemData(ref);
+    const count = item.type === 'etc' ? Math.max(1, ref.count || 1) : 1;
+    const gain = finalSellPrice(ref) * count;
+    wallet.gold += gain;
+    if (item.type === 'etc') inventory.items.splice(idx, 1);
+    else {
+      ref.count = Math.max(0, (ref.count || 1) - 1);
+      if (ref.count <= 0) inventory.items.splice(idx, 1);
+    }
+    finalText((item.name || ref.id) + ' 판매 +' + finalMoney(gain), '#ffd43b');
+    finalSaveSoon();
+  }
+
+  const __oldBuyItemFinal = typeof buyItem === 'function' ? buyItem : null;
+  buyItem = function buyItemFinal(id) {
+    const item = ITEMS && ITEMS[id];
+    if (!item) return;
+    if ((wallet.gold || 0) < (item.price || 0)) { finalText('돈이 부족합니다', '#ff8787'); return; }
+    wallet.gold -= item.price || 0;
+    if (typeof addItem === 'function') addItem(id, 1);
+    finalText((item.name || id) + ' 구매', '#c0eb75');
+    finalSaveSoon();
+  };
+
+  drawShopPanel = function drawShopPanelFinal() {
+    const x = 70, y = 72, w = 1120, h = 610;
+    ctx.fillStyle = 'rgba(15,23,42,0.97)'; finalRound(ctx, x, y, w, h, 18);
+    ctx.strokeStyle = '#93c5fd'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+    ctx.fillStyle = '#ffe066'; ctx.font = 'bold 28px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(game.shopOpen === 'weapon' ? '장비 상점' : '상점', x + 28, y + 42);
+    ctx.fillStyle = '#ffd43b'; ctx.font = 'bold 16px sans-serif'; ctx.fillText('보유: ' + finalMoney(wallet.gold || 0), x + 28, y + 70);
+
+    if (game.shopOpen === 'merchant') {
+      ctx.fillStyle = game.shopTab === 'buy' ? '#4dabf7' : '#334155'; finalRound(ctx, x + 300, y + 26, 120, 36, 8);
+      ctx.fillStyle = game.shopTab === 'sell' ? '#4dabf7' : '#334155'; finalRound(ctx, x + 430, y + 26, 120, 36, 8);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('구매', x + 360, y + 49); ctx.fillText('판매', x + 490, y + 49);
+    }
+
+    const clipX = x + 28, clipY = y + 92, clipW = w - 56, clipH = 440;
+    ctx.save(); ctx.beginPath(); ctx.rect(clipX, clipY, clipW, clipH); ctx.clip();
+    const list = game.shopOpen === 'merchant' && game.shopTab === 'sell' ? inventory.items : (game.shopOpen === 'merchant' ? MERCHANT_BUY_FINAL : (typeof getShopItemsForCurrentTown === 'function' ? getShopItemsForCurrentTown() : []));
+    const rowH = 68; const scroll = game.shopScroll || 0;
+    list.forEach(function (entry, i) {
+      const id = typeof entry === 'string' ? entry : finalItemId(entry);
+      const item = finalItemData(entry) || (ITEMS && ITEMS[id]);
+      if (!item) return;
+      const col = i % 2; const row = Math.floor(i / 2);
+      const rx = clipX + 16 + col * 520; const ry = clipY + 12 + row * rowH - scroll;
+      if (ry < clipY - rowH || ry > clipY + clipH) return;
+      const color = finalRarityColor(item);
+      ctx.fillStyle = '#1e293b'; finalRound(ctx, rx, ry, 490, 56, 10);
+      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.strokeRect(rx, ry, 490, 56);
+      if (typeof drawItemIcon === 'function') drawItemIcon(item, rx + 30, ry + 28, 34);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'left'; ctx.fillText(finalGetShortName(entry, item), rx + 58, ry + 22);
+      ctx.fillStyle = '#cbd5e1'; ctx.font = '12px sans-serif';
+      const price = game.shopOpen === 'merchant' && game.shopTab === 'sell' ? ('판매가 ' + finalMoney(finalSellPrice(entry) * (item.type === 'etc' ? (entry.count || 1) : 1))) : ('가격 ' + finalMoney(item.price || 0));
+      ctx.fillText((item.desc || '') + ' / ' + price, rx + 58, ry + 42);
+      if (entry && entry.count > 1) { ctx.fillStyle = '#ffe066'; ctx.textAlign = 'right'; ctx.fillText('x' + entry.count, rx + 475, ry + 22); }
+    });
+    ctx.restore();
+    const contentRows = Math.ceil(Math.max(1, list.length) / 2);
+    const maxScroll = Math.max(0, contentRows * rowH + 30 - clipH);
+    game.shopScroll = finalClamp(game.shopScroll || 0, 0, maxScroll);
+    if (maxScroll > 0) {
+      ctx.fillStyle = '#334155'; finalRound(ctx, x + w - 26, clipY, 10, clipH, 5);
+      ctx.fillStyle = '#94a3b8'; finalRound(ctx, x + w - 26, clipY + (clipH - 60) * ((game.shopScroll || 0) / maxScroll), 10, 60, 5);
+    }
+    ctx.fillStyle = '#334155'; finalRound(ctx, x + w - 150, y + h - 52, 110, 38, 8);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('닫기', x + w - 95, y + h - 28);
+  };
+
+  function finalGetShortName(ref, item) {
+    const s = (typeof getItemDisplayName === 'function') ? getItemDisplayName(ref) : (item && item.name) || finalItemId(ref);
+    return s.length > 32 ? s.slice(0, 32) + '...' : s;
+  }
+
+  handleShopWheel = function handleShopWheelFinal(e) {
+    if (!game.ready || !game.shopOpen) return;
+    const pos = typeof getMouse === 'function' ? getMouse(e) : { x: 0, y: 0 };
+    if (!finalHit(pos.x, pos.y, 70, 72, 1120, 610)) return;
+    e.preventDefault();
+    game.shopScroll = finalClamp((game.shopScroll || 0) + e.deltaY * 1.1, 0, 9999);
+  };
+
+  handleShopClick = function handleShopClickFinal(mx, my) {
+    const x = 70, y = 72, w = 1120, h = 610;
+    if (finalHit(mx, my, x + w - 150, y + h - 52, 110, 38)) { game.shopOpen = false; game.shopTab = 'buy'; game.shopScroll = 0; return; }
+    if (game.shopOpen === 'merchant') {
+      if (finalHit(mx, my, x + 300, y + 26, 120, 36)) { game.shopTab = 'buy'; game.shopScroll = 0; return; }
+      if (finalHit(mx, my, x + 430, y + 26, 120, 36)) { game.shopTab = 'sell'; game.shopScroll = 0; return; }
+    }
+    const clipX = x + 28, clipY = y + 92, rowH = 68, scroll = game.shopScroll || 0;
+    const list = game.shopOpen === 'merchant' && game.shopTab === 'sell' ? inventory.items : (game.shopOpen === 'merchant' ? MERCHANT_BUY_FINAL : (typeof getShopItemsForCurrentTown === 'function' ? getShopItemsForCurrentTown() : []));
+    for (let i = 0; i < list.length; i++) {
+      const rx = clipX + 16 + (i % 2) * 520; const ry = clipY + 12 + Math.floor(i / 2) * rowH - scroll;
+      if (finalHit(mx, my, rx, ry, 490, 56)) {
+        if (game.shopOpen === 'merchant' && game.shopTab === 'sell') finalSellIndex(i);
+        else buyItem(list[i]);
+        return;
+      }
+    }
+  };
+
+  function finalApplyNpcFloor(npc, index) {
+    if (!npc) return;
+    const x = Number(npc.x || 300 + index * 140);
+    npc.y = finalGroundYAt(x, npc.y || game.ground);
+  }
+
+  const __oldLoadTownFinal = typeof loadTown === 'function' ? loadTown : null;
+  loadTown = function loadTownFinal(townId) {
+    const ret = __oldLoadTownFinal ? __oldLoadTownFinal.apply(this, arguments) : undefined;
+    const townIndex = Math.max(0, finalSafeArr(TOWNS).findIndex(function (t) { return t.id === game.townId; }));
+    const level = game.player && game.player.level || 1;
+    const extra = [];
+    // Common NPCs stay easy to find. Higher rarity NPCs appear later and farther away.
+    if (level >= 8 && townIndex >= 2) extra.push({ type: 'job', rarity: 'rare', name: '청풍 검사 렌', x: 2120 + townIndex * 30, y: game.ground, quest: 'rare_sword_trial', text: '희귀 직업은 도시를 넘나드는 실전 시험을 요구합니다.' });
+    if (level >= 18 && townIndex >= 5) extra.push({ type: 'job', rarity: 'epic', name: '붉은 서약자 카이론', x: 3020 + townIndex * 35, y: game.ground, quest: 'epic_oath_trial', text: '에픽 직업은 엘리트 몬스터의 증표와 높은 전투력을 요구합니다.' });
+    if (level >= 25 && townIndex >= 7) {
+      extra.push({ type: 'job', rarity: 'hidden', hiddenJob: 'dragon_knight', requiredScroll: 'dragon_knight_scroll', name: '용혈 감시자 세르칸', x: 3650, y: game.ground, quest: 'dragon_knight_hidden', text: '용기사의 양피지를 가진 자만 용의 시험을 시작할 수 있습니다.' });
+      extra.push({ type: 'job', rarity: 'hidden', hiddenJob: 'shadow_reaper', requiredScroll: 'shadow_reaper_scroll', name: '검은 달의 사신 모르트', x: 3920, y: game.ground, quest: 'shadow_reaper_hidden', text: '그림자 사신의 양피지를 가져오면 밤의 시험을 열어주지.' });
+      extra.push({ type: 'job', rarity: 'hidden', hiddenJob: 'star_sage', requiredScroll: 'star_sage_scroll', name: '별빛 예언자 루미엘', x: 4190, y: game.ground, quest: 'star_sage_hidden', text: '별의 현자의 양피지가 별문을 여는 열쇠입니다.' });
+    }
+    extra.forEach(function (npc) { if (!game.npcs.some(function (n) { return n.name === npc.name; })) game.npcs.push(npc); });
+    finalSafeArr(game.npcs).forEach(finalApplyNpcFloor);
+    return ret;
+  };
+
+  const __oldInteractFinal = typeof interact === 'function' ? interact : null;
+  interact = function interactFinal() {
+    const near = finalSafeArr(game.npcs).find(function (n) { return Math.abs((game.player.x || 0) - (n.x || 0)) < 90 && Math.abs((game.player.y || 0) - (n.y || game.ground)) < 130; });
+    if (near && near.requiredScroll && typeof countItem === 'function' && countItem(near.requiredScroll) <= 0) {
+      game.dialog = {
+        title: near.name,
+        text: '[' + (near.rarity === 'hidden' ? '히든' : '전직') + '] ' + near.text + '\n\n필요 아이템: ' + (ITEMS[near.requiredScroll] ? ITEMS[near.requiredScroll].name : near.requiredScroll) + '\n엘리트 몬스터에게서 낮은 확률로 얻을 수 있습니다.',
+        buttons: [{ label: '닫기', action: function () { game.dialog = null; } }]
+      };
+      return;
+    }
+    return __oldInteractFinal ? __oldInteractFinal.apply(this, arguments) : undefined;
+  };
+
+  const __oldDrawItemIconFinal = typeof drawItemIcon === 'function' ? drawItemIcon : null;
+  drawItemIcon = function drawItemIconFinal(itemOrIcon, x, y, size) {
+    const item = typeof itemOrIcon === 'object' && itemOrIcon ? itemOrIcon : (ITEMS && ITEMS[itemOrIcon]) || null;
+    const s = size || 24;
+    const rarity = finalRarity(item || {});
+    const color = finalRarityColor(item || {});
+    ctx.save(); ctx.translate(x, y);
+    ctx.shadowColor = color; ctx.shadowBlur = rarity === 'legendary' ? 14 : rarity === 'epic' ? 9 : 0;
+    ctx.fillStyle = 'rgba(15,23,42,0.80)'; finalRound(ctx, -s * .48, -s * .48, s * .96, s * .96, s * .14);
+    ctx.strokeStyle = color; ctx.lineWidth = Math.max(1.5, s * .07); ctx.strokeRect(-s * .48, -s * .48, s * .96, s * .96);
+    const id = String((item && item.id) || itemOrIcon || '').toLowerCase();
+    const kind = item && (item.weaponType || item.equipSlot || item.type) || id;
+    function star(cx, cy, r) { ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5; const rr = i % 2 ? r * .45 : r; const px = cx + Math.cos(a) * rr; const py = cy + Math.sin(a) * rr; if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); } ctx.closePath(); ctx.fill(); }
+    if (kind === 'sword' || id.includes('sword')) {
+      ctx.strokeStyle = '#111827'; ctx.lineWidth = s * .15; ctx.beginPath(); ctx.moveTo(-s*.28,s*.30); ctx.lineTo(s*.30,-s*.34); ctx.stroke();
+      ctx.strokeStyle = color; ctx.lineWidth = s * .09; ctx.beginPath(); ctx.moveTo(-s*.24,s*.25); ctx.lineTo(s*.27,-s*.30); ctx.stroke();
+      ctx.fillStyle = rarity === 'legendary' ? '#f59e0b' : '#8b5cf6'; star(s*.22,-s*.28,s*.08);
+    } else if (kind === 'dagger' || id.includes('dagger')) {
+      ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(s*.12,-s*.35); ctx.lineTo(s*.22,-s*.04); ctx.lineTo(-s*.08,s*.24); ctx.lineTo(-s*.18,s*.12); ctx.lineTo(s*.03,-s*.05); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#111827'; finalRound(ctx, -s*.22, s*.16, s*.18, s*.08, 2);
+    } else if (kind === 'bow' || id.includes('bow')) {
+      ctx.strokeStyle = color; ctx.lineWidth = s*.1; ctx.beginPath(); ctx.arc(-s*.05,0,s*.34,-1.1,1.1); ctx.stroke(); ctx.strokeStyle='#fff'; ctx.lineWidth=s*.035; ctx.beginPath(); ctx.moveTo(s*.1,-s*.29); ctx.lineTo(s*.1,s*.29); ctx.stroke();
+    } else if (kind === 'staff' || id.includes('staff')) {
+      ctx.strokeStyle = '#7c3f1d'; ctx.lineWidth = s*.09; ctx.beginPath(); ctx.moveTo(-s*.25,s*.32); ctx.lineTo(s*.18,-s*.27); ctx.stroke(); ctx.fillStyle=color; finalCircle(ctx,s*.23,-s*.31,s*.13); ctx.fillStyle='#fff'; finalCircle(ctx,s*.24,-s*.32,s*.05);
+    } else if (kind === 'armor' || kind === 'helmet' || id.includes('armor')) {
+      ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(0,-s*.34); ctx.lineTo(s*.30,-s*.12); ctx.lineTo(s*.23,s*.33); ctx.lineTo(-s*.23,s*.33); ctx.lineTo(-s*.30,-s*.12); ctx.closePath(); ctx.fill(); ctx.fillStyle='rgba(255,255,255,.35)'; finalRound(ctx,-s*.12,-s*.12,s*.24,s*.08,2);
+    } else if (id.includes('potion')) {
+      ctx.fillStyle = id.includes('mp') ? '#60a5fa' : '#fb7185'; ctx.beginPath(); ctx.ellipse(0,s*.08,s*.18,s*.25,0,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#e5e7eb'; finalRound(ctx,-s*.08,-s*.30,s*.16,s*.15,2);
+    } else {
+      ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(0,-s*.30); ctx.lineTo(s*.25,0); ctx.lineTo(0,s*.30); ctx.lineTo(-s*.25,0); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  };
+
+  const __oldDrawItemBoxFinal = typeof drawItemBox === 'function' ? drawItemBox : null;
+  drawItemBox = function drawItemBoxFinal(x, y) {
+    const beforeStroke = ctx.strokeStyle;
+    if (__oldDrawItemBoxFinal) return __oldDrawItemBoxFinal.apply(this, arguments);
+    ctx.fillStyle = '#111827'; finalRound(ctx, x, y, 52, 52, 7); ctx.strokeStyle = '#475569'; ctx.strokeRect(x, y, 52, 52); ctx.strokeStyle = beforeStroke;
+  };
+
+  const __oldDrawWeaponFinal = typeof drawWeapon === 'function' ? drawWeapon : null;
+  drawWeapon = function drawWeaponFinal(c, weaponId, handX, handY, attacking, attackKind, animTime) {
+    if (!weaponId) return;
+    const item = ITEMS && ITEMS[weaponId] || {};
+    const rarity = finalRarity(item);
+    const color = finalRarityColor(item);
+    const kind = attackKind || item.weaponType || (weaponId.includes('staff') ? 'staff' : weaponId.includes('bow') ? 'bow' : weaponId.includes('dagger') ? 'dagger' : 'sword');
+    const t = attacking ? Math.sin(Math.min(1, (animTime || 0) * 14) * Math.PI) : 0;
+    const lv = Number(item.reqLevel || 1);
+    const len = 34 + Math.min(32, lv * 0.7) + (rarity === 'legendary' ? 14 : rarity === 'epic' ? 8 : 0);
+    c.save(); c.translate(handX, handY);
+    if (kind === 'dagger') c.rotate(attacking ? 0.65 + t * 0.55 : -0.45);
+    else if (kind === 'bow') c.rotate(attacking ? -0.05 : -0.28);
+    else if (kind === 'staff') c.rotate(attacking ? -0.70 + t * 0.35 : -0.35);
+    else c.rotate(attacking ? -1.25 + t * 1.65 : -0.35);
+    c.shadowColor = color; c.shadowBlur = rarity === 'legendary' ? 16 : rarity === 'epic' ? 10 : 0;
+    if (kind === 'staff') {
+      c.strokeStyle = '#2b160e'; c.lineWidth = 6; c.beginPath(); c.moveTo(0, 12); c.lineTo(0, -len); c.stroke();
+      c.strokeStyle = color; c.lineWidth = 3; c.beginPath(); c.moveTo(0, 9); c.lineTo(0, -len + 4); c.stroke();
+      c.fillStyle = color; finalCircle(c, 0, -len - 8, rarity === 'legendary' ? 12 : 8); c.fillStyle = '#fff'; finalCircle(c, 0, -len - 9, 3);
+    } else if (kind === 'bow') {
+      c.strokeStyle = color; c.lineWidth = 5; c.beginPath(); c.arc(0, -8, len * .45, -Math.PI / 2, Math.PI / 2); c.stroke(); c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(0,-len*.48); c.lineTo(attacking ? -14 - t*10 : 0,-8); c.lineTo(0,len*.33); c.stroke();
+    } else if (kind === 'dagger') {
+      c.fillStyle = color; c.beginPath(); c.moveTo(0, -len); c.lineTo(8, -18); c.lineTo(-8, -18); c.closePath(); c.fill(); c.fillStyle = '#111827'; finalRound(c,-4,-18,8,24,2); c.fillStyle='#fff8'; c.fillRect(-1,-len+6,2,len-30);
+    } else {
+      c.fillStyle = color; c.beginPath(); c.moveTo(0, -len); c.lineTo(12, -len * .55); c.lineTo(5, -18); c.lineTo(-5, -18); c.lineTo(-12, -len * .55); c.closePath(); c.fill(); c.fillStyle = '#fff9'; c.fillRect(-2, -len + 8, 3, len - 30); c.fillStyle = '#7c2d12'; finalRound(c,-5,-17,10,26,3);
+    }
+    if (attacking && (rarity === 'epic' || rarity === 'legendary')) {
+      c.strokeStyle = color; c.lineWidth = 3; c.beginPath(); c.arc(0, -20, 30 + t * 20, -0.2, 1.8); c.stroke();
+    }
+    c.restore();
+  };
+
+  // Mobile: compact groups and PC-equivalent buttons.
+  function finalRebuildTouch() {
+    if (!('ontouchstart' in window) && window.innerWidth > 900) return;
+    let root = document.getElementById('prg-touch-ui-final');
+    if (root) return;
+    root = document.createElement('div'); root.id = 'prg-touch-ui-final';
+    root.innerHTML = '<div class="prg-left"><button data-k="a">◀</button><button data-k="d">▶</button><button data-k=" ">점프</button><button data-k="s">하강</button></div><div class="prg-right"><button data-t="attack">공격</button><button data-k="k">K</button><button data-k="l">L</button><button data-k=";">;</button><button data-k="e">대화</button><button data-k="z">줍기</button></div><div class="prg-menu"><button data-k="m">가방</button><button data-k="c">스탯</button><button data-k="u">스킬</button><button data-k="q">퀘스트</button><button data-k="r">저장</button><button data-t="chat">채팅</button></div>';
+    const style = document.createElement('style');
+    style.textContent = '#prg-touch-ui-final{position:fixed;left:0;right:0;bottom:0;z-index:50;pointer-events:none;font-family:sans-serif}#prg-touch-ui-final div{position:absolute;display:flex;gap:6px;pointer-events:auto}#prg-touch-ui-final button{border:1px solid #93c5fd;background:rgba(15,23,42,.72);color:#fff;border-radius:10px;font-weight:800;font-size:14px;min-width:46px;min-height:42px;backdrop-filter:blur(4px)}#prg-touch-ui-final .prg-left{left:12px;bottom:14px}#prg-touch-ui-final .prg-right{right:12px;bottom:14px}#prg-touch-ui-final .prg-menu{left:50%;transform:translateX(-50%);bottom:66px}@media(max-width:720px){#prg-touch-ui-final button{min-width:40px;min-height:38px;font-size:12px}#prg-touch-ui-final .prg-menu{bottom:112px;flex-wrap:wrap;width:260px;justify-content:center}}';
+    document.head.appendChild(style); document.body.appendChild(root);
+    root.querySelectorAll('button').forEach(function (b) {
+      const key = b.getAttribute('data-k'); const task = b.getAttribute('data-t');
+      const down = function (ev) { ev.preventDefault(); ev.stopPropagation(); if (key) { keys.add(key); setTimeout(function(){ keys.delete(key); }, key === 'a' || key === 'd' || key === ' ' || key === 's' ? 180 : 80); } if (task === 'attack' && typeof basicAttack === 'function') basicAttack(); if (task === 'chat' && typeof mpOpenChat === 'function') mpOpenChat(); };
+      b.addEventListener('touchstart', down, { passive: false }); b.addEventListener('mousedown', down);
+    });
+  }
+  setTimeout(finalRebuildTouch, 500);
+
+  finalText('카메라/상점/리스폰/장비 보정 적용', '#9bf6ff');
+})();
