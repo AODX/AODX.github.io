@@ -326,12 +326,13 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
       hp: Math.max(0, Number(raw.hp) || Number(raw.maxHp) || 1),
       maxHp: Math.max(1, Number(raw.maxHp) || Number(raw.hp) || 1),
       dead: !!raw.dead,
-      respawn: Math.max(raw.isNamed ? 300000 : 10000, Number(raw.respawn) || (raw.isNamed ? 300000 : 10000)),
-      isNamed: !!raw.isNamed,
+      respawn: Math.max((raw.isNamed || raw.isElite) ? 300000 : 10000, Number(raw.respawn) || ((raw.isNamed || raw.isElite) ? 300000 : 10000)),
+      isNamed: !!(raw.isNamed || raw.isElite),
+      isElite: !!raw.isElite,
       namedKey: raw.namedKey || null,
       gimmick: raw.gimmick || null,
       killedAt: raw.dead ? now() : 0,
-      respawnAt: raw.dead ? now() + Math.max(raw.isNamed ? 300000 : 10000, Number(raw.respawn) || (raw.isNamed ? 300000 : 10000)) : 0
+      respawnAt: raw.dead ? now() + Math.max((raw.isNamed || raw.isElite) ? 300000 : 10000, Number(raw.respawn) || ((raw.isNamed || raw.isElite) ? 300000 : 10000)) : 0
     };
   }
 
@@ -339,7 +340,7 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
     const room = getRoom(roomId);
     if (room.timers.has(monster.id)) clearTimeout(room.timers.get(monster.id));
 
-    if (monster.isNamed) monster.respawn = Math.max(300000, Number(monster.respawn) || 300000);
+    if (monster.isNamed || monster.isElite) monster.respawn = Math.max(300000, Number(monster.respawn) || 300000);
     const delay = Math.max(1000, (monster.respawnAt || now() + monster.respawn) - now());
     const timer = setTimeout(() => {
       const latest = room.monsters.get(monster.id);
@@ -450,7 +451,8 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
         existing.level = m.level || existing.level;
         existing.maxHp = Math.max(1, m.maxHp || existing.maxHp || 1);
         existing.respawn = Math.max(existing.isNamed || m.isNamed ? 300000 : 10000, m.respawn || existing.respawn || (existing.isNamed || m.isNamed ? 300000 : 10000));
-        existing.isNamed = !!(existing.isNamed || m.isNamed);
+        existing.isNamed = !!(existing.isNamed || m.isNamed || m.isElite);
+        existing.isElite = !!(existing.isElite || m.isElite);
         existing.gimmick = m.gimmick || existing.gimmick;
         existing.baseX = m.baseX;
         existing.spawnY = m.spawnY;
@@ -462,6 +464,21 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
       });
 
       socket.emit('monster:snapshot', { room: roomId, monsters: Array.from(room.monsters.values()) });
+    });
+
+
+
+    socket.on('monster:force-seed', (payload = {}) => {
+      const roomId = String(payload.room || socketRooms.get(socket.id) || '');
+      if (!roomId || !roomId.startsWith('hunt:')) return;
+      const room = getRoom(roomId);
+      const monsters = Array.isArray(payload.monsters) ? payload.monsters : [];
+      monsters.forEach((raw, index) => {
+        const m = cleanMonsterInput(roomId, raw, index);
+        if (!m) return;
+        room.monsters.set(m.id, m);
+      });
+      io.to(roomId).emit('monster:snapshot', { room: roomId, monsters: Array.from(room.monsters.values()) });
     });
 
     socket.on('monster:update', (payload = {}) => {
@@ -490,7 +507,7 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
           m.dead = true;
           m.hp = 0;
           m.killedAt = now();
-          m.respawn = Math.max(m.isNamed || payload.isNamed ? 300000 : 10000, Number(payload.respawn) || m.respawn || (m.isNamed || payload.isNamed ? 300000 : 10000));
+          m.respawn = Math.max(m.isNamed || m.isElite || payload.isNamed || payload.isElite ? 300000 : 10000, Number(payload.respawn) || m.respawn || (m.isNamed || m.isElite || payload.isNamed || payload.isElite ? 300000 : 10000));
           m.isNamed = !!(m.isNamed || payload.isNamed);
           m.respawnAt = now() + m.respawn;
           scheduleRespawn(roomId, m);
@@ -537,7 +554,7 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
       m.dead = true;
       m.hp = 0;
       m.killedAt = now();
-      m.respawn = Math.max(m.isNamed || payload.isNamed ? 300000 : 10000, Number(payload.respawn) || m.respawn || (m.isNamed || payload.isNamed ? 300000 : 10000));
+      m.respawn = Math.max(m.isNamed || m.isElite || payload.isNamed || payload.isElite ? 300000 : 10000, Number(payload.respawn) || m.respawn || (m.isNamed || m.isElite || payload.isNamed || payload.isElite ? 300000 : 10000));
       m.isNamed = !!(m.isNamed || payload.isNamed);
       m.respawnAt = now() + m.respawn;
       if (Number.isFinite(payload.x)) m.x = Number(payload.x);
