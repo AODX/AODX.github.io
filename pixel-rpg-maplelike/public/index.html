@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pixel RPG Maplelike</title>
-  <link rel="stylesheet" href="/src/style.css?v=v14-visual-hotfix-20260618" />
+  <link rel="stylesheet" href="/src/style.css?v=v15-runtime-fix-20260618" />
 </head>
 <body>
   <canvas id="game" width="1280" height="720"></canvas>
@@ -70,9 +70,9 @@
   </div>
 
   <script>
-    window.PIXEL_RPG_INDEX_VERSION = 'INDEX_V14_VISUAL_HOTFIX_20260618';
+    window.PIXEL_RPG_INDEX_VERSION = 'INDEX_V15_RUNTIME_FIX_20260618';
     var indexBadge = document.createElement('div');
-    indexBadge.textContent = 'INDEX V14 로드됨';
+    indexBadge.textContent = 'INDEX V15 로드됨';
     indexBadge.style.position = 'fixed';
     indexBadge.style.right = '14px';
     indexBadge.style.bottom = '14px';
@@ -403,7 +403,7 @@
     }
 
     var script = document.createElement('script');
-    script.src = '/src/game.js?v=v14-visual-hotfix-' + Date.now();
+    script.src = '/src/game.js?v=v15-runtime-fix-' + Date.now();
     script.onload = function () {
       console.log('[PixelRPG] external game.js loaded:', script.src);
       runV13ForcePatch();
