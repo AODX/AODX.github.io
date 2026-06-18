@@ -70,10 +70,10 @@
   </div>
 
   <script>
-  window.PIXEL_RPG_INDEX_VERSION = 'INDEX_V17_CLEAN_20260618';
+  window.PIXEL_RPG_INDEX_VERSION = 'INDEX_V18_CLEAN_20260618';
 
   var indexBadge = document.createElement('div');
-  indexBadge.textContent = 'INDEX V17 로드됨';
+  indexBadge.textContent = 'INDEX V18 로드됨';
   indexBadge.style.position = 'fixed';
   indexBadge.style.right = '14px';
   indexBadge.style.bottom = '14px';
@@ -87,7 +87,7 @@
   document.body.appendChild(indexBadge);
 
   var script = document.createElement('script');
-  script.src = '/src/game.js?v=v17-clean-' + Date.now();
+  script.src = '/src/game.js?v=v18-stability-' + Date.now();
   script.onload = function () {
     console.log('[PixelRPG] external game.js loaded:', script.src);
   };
