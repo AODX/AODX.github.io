@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pixel RPG Maplelike</title>
-  <link rel="stylesheet" href="/src/style.css?v=v9-final-visible-20260618" />
+  <link rel="stylesheet" href="/src/style.css?v=v10-final-stable-20260618" />
 </head>
 <body>
   <canvas id="game" width="1280" height="720"></canvas>
@@ -12,12 +12,22 @@
   <section id="auth" class="panel auth-panel">
     <h1>Pixel RPG</h1>
     <p>계정으로 로그인한 뒤 캐릭터를 만들고 게임을 시작합니다.</p>
+
     <div class="tabs">
       <button id="tabLogin" class="active" type="button">로그인</button>
       <button id="tabRegister" type="button">회원가입</button>
     </div>
-    <label>아이디 <input id="username" maxlength="16" autocomplete="username" /></label>
-    <label>비밀번호 <input id="password" type="password" autocomplete="current-password" /></label>
+
+    <label>
+      아이디
+      <input id="username" maxlength="16" autocomplete="username" />
+    </label>
+
+    <label>
+      비밀번호
+      <input id="password" type="password" autocomplete="current-password" />
+    </label>
+
     <button id="authBtn" class="primary" type="button">로그인</button>
     <p id="authMsg" class="msg"></p>
   </section>
@@ -26,26 +36,67 @@
     <div class="panel-head">
       <div>
         <h1>캐릭터 생성</h1>
-        <p>처음에는 모두 초보자로 시작합니다. 전직은 게임 진행 중 NPC/오브젝트 퀘스트로 열립니다.</p>
+        <p>처음에는 모두 초보자로 시작합니다. 전직은 게임 진행 중 NPC 퀘스트로 열립니다.</p>
       </div>
       <button id="logoutBtn" class="ghost" type="button">로그아웃</button>
     </div>
+
     <div class="creator-layout">
       <div class="creator-left">
-        <label>게임 닉네임 <input id="charName" maxlength="10" value="초보자" /></label>
+        <label>
+          게임 닉네임
+          <input id="charName" maxlength="10" value="초보자" />
+        </label>
+
         <p id="nickMsg" class="nick-msg">2~10자, 한글/영문/숫자/_ 사용 가능</p>
+
         <p class="section-title">피부색</p>
-        <div class="swatches" data-target="skin"><span style="background:#ffd6a6"></span><span style="background:#f0b880"></span><span style="background:#d9955f"></span><span style="background:#ffe6c7"></span></div>
+        <div class="swatches" data-target="skin">
+          <span style="background:#ffd6a6"></span>
+          <span style="background:#f0b880"></span>
+          <span style="background:#d9955f"></span>
+          <span style="background:#ffe6c7"></span>
+        </div>
+
         <p class="section-title">헤어색</p>
-        <div class="swatches" data-target="hair"><span style="background:#2b160e"></span><span style="background:#5b2d16"></span><span style="background:#f2c14e"></span><span style="background:#2a2d34"></span><span style="background:#c14953"></span><span style="background:#d8dee9"></span><span style="background:#7c5cff"></span><span style="background:#69db7c"></span></div>
+        <div class="swatches" data-target="hair">
+          <span style="background:#2b160e"></span>
+          <span style="background:#5b2d16"></span>
+          <span style="background:#f2c14e"></span>
+          <span style="background:#2a2d34"></span>
+          <span style="background:#c14953"></span>
+          <span style="background:#d8dee9"></span>
+          <span style="background:#7c5cff"></span>
+          <span style="background:#69db7c"></span>
+        </div>
+
         <p class="section-title">헤어 스타일</p>
-        <div class="choice-grid" id="hairStyleChoices"><button type="button" class="choice active" data-value="basic">기본</button><button type="button" class="choice" data-value="short">단정</button><button type="button" class="choice" data-value="pony">양갈래</button><button type="button" class="choice" data-value="wave">웨이브</button><button type="button" class="choice" data-value="spiky">삐침</button><button type="button" class="choice" data-value="bob">보브</button></div>
+        <div class="choice-grid" id="hairStyleChoices">
+          <button type="button" class="choice active" data-value="basic">기본</button>
+          <button type="button" class="choice" data-value="short">단정</button>
+          <button type="button" class="choice" data-value="pony">양갈래</button>
+          <button type="button" class="choice" data-value="wave">웨이브</button>
+          <button type="button" class="choice" data-value="spiky">삐침</button>
+          <button type="button" class="choice" data-value="bob">보브</button>
+        </div>
+
         <p class="section-title">표정</p>
-        <div class="choice-grid" id="faceStyleChoices"><button type="button" class="choice active" data-value="normal">기본</button><button type="button" class="choice" data-value="bright">밝음</button><button type="button" class="choice" data-value="cool">시크</button><button type="button" class="choice" data-value="angry">당당</button><button type="button" class="choice" data-value="sleepy">졸림</button><button type="button" class="choice" data-value="cute">귀여움</button></div>
+        <div class="choice-grid" id="faceStyleChoices">
+          <button type="button" class="choice active" data-value="normal">기본</button>
+          <button type="button" class="choice" data-value="bright">밝음</button>
+          <button type="button" class="choice" data-value="cool">시크</button>
+          <button type="button" class="choice" data-value="angry">당당</button>
+          <button type="button" class="choice" data-value="sleepy">졸림</button>
+          <button type="button" class="choice" data-value="cute">귀여움</button>
+        </div>
+
         <button id="startNewBtn" class="primary big" type="button">게임 시작하기</button>
         <p id="createMsg" class="msg"></p>
       </div>
-      <div class="preview-wrap"><canvas id="preview" width="280" height="320"></canvas></div>
+
+      <div class="preview-wrap">
+        <canvas id="preview" width="280" height="320"></canvas>
+      </div>
     </div>
   </section>
 
@@ -57,28 +108,36 @@
     <button id="logoutBtn2" class="ghost full" type="button">로그아웃</button>
   </section>
 
-  <div id="hudHelp" class="hud-help">A/D 이동 · Space 점프 · J 기본공격 · K/L/; 스킬 · E 대화/포탈 · Z 줍기 · M 인벤토리 · C 스탯 · U 스킬 · Q 퀘스트</div>
+  <div id="hudHelp" class="hud-help">
+    A/D 이동 · Space 점프 · J 기본공격 · K/L/; 스킬 · E 대화/포탈 · Z 줍기 · M 인벤토리 · C 스탯 · U 스킬 · Q 퀘스트
+  </div>
 
   <script>
-    window.PIXEL_RPG_INDEX_VERSION = 'INDEX_V9_FINAL_VISIBLE_20260618';
-    const badge = document.createElement('div');
-    badge.textContent = 'INDEX V9 로드됨';
-    badge.style.position = 'fixed';
-    badge.style.right = '14px';
-    badge.style.bottom = '14px';
-    badge.style.zIndex = '999999';
-    badge.style.padding = '8px 12px';
-    badge.style.border = '2px solid #facc15';
-    badge.style.borderRadius = '10px';
-    badge.style.background = 'rgba(15,23,42,0.9)';
-    badge.style.color = '#facc15';
-    badge.style.font = 'bold 14px sans-serif';
-    document.body.appendChild(badge);
-    const s = document.createElement('script');
-    s.src = '/src/game.js?v=v9-final-visible-' + Date.now();
-    s.onload = () => console.log('[PixelRPG] V9 game.js loaded', s.src);
-    s.onerror = () => alert('game.js 로드 실패: /src/game.js 경로를 확인해주세요.');
-    document.body.appendChild(s);
+    window.PIXEL_RPG_INDEX_VERSION = 'INDEX_V10_FINAL_STABLE_20260618';
+
+    const indexBadge = document.createElement('div');
+    indexBadge.textContent = 'INDEX V10 로드됨';
+    indexBadge.style.position = 'fixed';
+    indexBadge.style.right = '14px';
+    indexBadge.style.bottom = '14px';
+    indexBadge.style.zIndex = '999999';
+    indexBadge.style.padding = '8px 12px';
+    indexBadge.style.border = '2px solid #86efac';
+    indexBadge.style.borderRadius = '10px';
+    indexBadge.style.background = 'rgba(15,23,42,0.92)';
+    indexBadge.style.color = '#86efac';
+    indexBadge.style.font = 'bold 14px sans-serif';
+    document.body.appendChild(indexBadge);
+
+    const script = document.createElement('script');
+    script.src = '/src/game.js?v=v10-final-stable-' + Date.now();
+    script.onload = function () {
+      console.log('[PixelRPG] game.js loaded:', script.src);
+    };
+    script.onerror = function () {
+      alert('game.js 로드 실패: /src/game.js 경로 또는 GitHub 배포 파일을 확인해야 합니다.');
+    };
+    document.body.appendChild(script);
   </script>
 </body>
 </html>
