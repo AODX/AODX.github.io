@@ -331,6 +331,7 @@ module.exports = function attachPixelRpgMultiplayer(server, options = {}) {
       respawn: Math.max((raw.isNamed || raw.isElite) ? 300000 : 10000, Number(raw.respawn) || ((raw.isNamed || raw.isElite) ? 300000 : 10000)),
       isNamed: !!(raw.isNamed || raw.isElite),
       isElite: !!raw.isElite,
+      bossPattern: raw.bossPattern || raw.gimmick || null,
       namedKey: raw.namedKey || null,
       gimmick: raw.gimmick || null,
       killedAt: raw.dead ? now() : 0,
