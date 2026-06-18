@@ -19038,3 +19038,612 @@ canvas.addEventListener('click', function (e) {
 
   console.log('[PixelRPG] V17 consolidated fix installed');
 })();
+
+
+/* =========================================================
+   V18 TOWN / NPC / DIALOG / EQUIPMENT STABILITY POLISH
+   - Town NPCs stay on the ground and are spaced cleanly.
+   - Town invisible/floating platforms are removed to stop "walking on air".
+   - NPCs no longer float/bob or stand on upper phantom floors.
+   - NPCs hold role props cleanly, not random weapons.
+   - Dialog windows hide the multiplayer chat UI while open.
+   - Equipment and item icons use more distinct pixel-art shapes.
+========================================================= */
+(function(){
+  'use strict';
+  if (window.__PIXEL_RPG_V18_STABILITY_POLISH__) return;
+  window.__PIXEL_RPG_V18_STABILITY_POLISH__ = true;
+  window.PIXEL_RPG_PATCH_VERSION = 'V18_STABILITY_POLISH';
+
+  function A(v){ return Array.isArray(v) ? v : []; }
+  function n(v,d){ v = Number(v); return Number.isFinite(v) ? v : d; }
+  function clamp2(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function rr(c,x,y,w,h,r){ if (typeof roundRect === 'function') { roundRect(c,x,y,w,h,r||6); return; } c.beginPath(); c.roundRect(x,y,w,h,r||6); c.fill(); }
+  function strokeRR(c,x,y,w,h,r){ if (typeof roundRect === 'function') { c.beginPath(); c.roundRect ? c.roundRect(x,y,w,h,r||6) : c.rect(x,y,w,h); c.stroke(); return; } c.strokeRect(x,y,w,h); }
+  function fillRR(c,x,y,w,h,r,col){ c.fillStyle = col; rr(c,x,y,w,h,r); }
+  function circle(c,x,y,r,col){ c.fillStyle = col; c.beginPath(); c.arc(x,y,r,0,Math.PI*2); c.fill(); }
+  function line(c,x1,y1,x2,y2,col,lw){ c.strokeStyle=col; c.lineWidth=lw||2; c.lineCap='round'; c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2); c.stroke(); }
+  function poly(c, pts, col){ c.fillStyle=col; c.beginPath(); pts.forEach(function(p,i){ if(i)c.lineTo(p[0],p[1]); else c.moveTo(p[0],p[1]); }); c.closePath(); c.fill(); }
+  function hash(s){ s=String(s||''); var h=0; for(var i=0;i<s.length;i++) h=((h<<5)-h+s.charCodeAt(i))|0; return Math.abs(h); }
+  function idOf(ref){ try { return typeof itemRefId === 'function' ? itemRefId(ref) : (typeof ref === 'string' ? ref : ref && ref.id); } catch(_) { return typeof ref === 'string' ? ref : ref && ref.id; } }
+  function itemOf(ref){ if(!ref) return null; if(typeof ref === 'object' && (ref.id || ref.name || ref.icon)) return Object.assign({}, (typeof ITEMS !== 'undefined' && ITEMS && ref.id && ITEMS[ref.id]) || {}, ref); var id=idOf(ref); return (typeof ITEMS !== 'undefined' && ITEMS && ITEMS[id]) ? Object.assign({id:id}, ITEMS[id]) : (id ? {id:id,name:id,icon:id} : null); }
+  function slotOf(it){ try { return typeof getEquipSlotForItem === 'function' ? getEquipSlotForItem(it||{}) : ((it&&it.equipSlot)||(it&&it.type)); } catch(_) { return (it&&it.equipSlot)||(it&&it.type); } }
+
+  function hideChatWhenModal(){
+    try {
+      var box = document.getElementById('pixel-rpg-chat-box');
+      if (!box || typeof game === 'undefined' || !game) return;
+      var modal = !!(game.dialog || game.taxiOpen || game.shopOpen || game.blacksmithOpen || inventory.open || stats.open || skills.open || quests.open);
+      box.style.zIndex = modal ? '1' : '9999';
+      box.style.opacity = modal ? '0' : '1';
+      box.style.pointerEvents = modal ? 'none' : '';
+      box.style.visibility = modal ? 'hidden' : 'visible';
+    } catch (_) {}
+  }
+
+  function sanitizeTownLayout(){
+    if (typeof game === 'undefined' || !game || game.mode !== 'town') return;
+    game.ground = n(game.ground, 560);
+    /* Remove old upper town platforms/ladders. They caused invisible/floating walkable air in towns.
+       Hunting maps keep their platforms. */
+    game.platforms = [];
+    game.ladders = [];
+
+    var p = game.player;
+    if (p && p.y < game.ground - 10 && !p.climbing) {
+      p.y = game.ground;
+      p.vy = 0;
+      p.grounded = true;
+    }
+  }
+
+  function npcRole(npc){
+    var s = String((npc && npc.name) || '') + ' ' + String((npc && npc.type) || '') + ' ' + String((npc && npc.role) || '');
+    if (/택시/.test(s)) return 'taxi';
+    if (/장비/.test(s)) return 'weapon';
+    if (/대장장이|브론|blacksmith/.test(s)) return 'blacksmith';
+    if (/상인|merchant/.test(s)) return 'merchant';
+    if (/성검|십자가|룬석|오브|균열|유물|비석/.test(s) || (npc && npc.type === 'job_object')) return 'object';
+    if (/용혈|용기사|드래곤|아르딘/.test(s)) return 'dragon';
+    if (/마법|현자|이렌|벨라|아스텔|mage|sage/.test(s)) return 'mage';
+    if (/궁수|명궁|세리아|리아|archer|ranger/.test(s)) return 'archer';
+    if (/도적|그림자|암살|사신|카론|란|모르가|rogue|assassin/.test(s)) return 'rogue';
+    if (/기사|전사|로한|카일|warrior|knight/.test(s)) return 'warrior';
+    if (/장로|퀘스트/.test(s) || (npc && npc.type === 'quest')) return 'quest';
+    return 'villager';
+  }
+
+  function normalizeTownNpcs(){
+    if (typeof game === 'undefined' || !game || game.mode !== 'town') return;
+    sanitizeTownLayout();
+    game.npcs = A(game.npcs).filter(Boolean);
+
+    var seen = {};
+    game.npcs = game.npcs.filter(function(npc){
+      var key = String(npc.id || '') + '|' + String(npc.name || '') + '|' + String(npc.quest || '') + '|' + String(npc.role || '');
+      if (seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
+
+    var baseByRole = { taxi:420, merchant:760, weapon:1100, blacksmith:1280, quest:1460 };
+    var jobStart = 1680;
+    var jobIndex = 0;
+
+    game.npcs.forEach(function(npc){
+      var role = npcRole(npc);
+      npc.__v18Role = role;
+
+      if (role === 'taxi') npc.x = baseByRole.taxi;
+      else if (role === 'merchant') npc.x = baseByRole.merchant;
+      else if (role === 'weapon') npc.x = baseByRole.weapon;
+      else if (role === 'blacksmith') npc.x = baseByRole.blacksmith;
+      else if (role === 'quest') npc.x = baseByRole.quest;
+      else {
+        npc.x = jobStart + jobIndex * 210;
+        jobIndex += 1;
+      }
+
+      npc.x = clamp2(n(npc.x, 260), 80, Math.max(800, (game.width || 4300) - 120));
+      npc.y = game.ground;
+      npc.vx = 0;
+      npc.vy = 0;
+      npc.grounded = true;
+      npc.__v18GroundLocked = true;
+    });
+  }
+
+  function drawRoleProp(c, role){
+    c.save();
+    c.translate(32, -48);
+    if (role === 'taxi') {
+      fillRR(c,-18,-12,36,20,5,'#fde047'); fillRR(c,-10,-19,20,8,3,'#f59e0b');
+      circle(c,-10,10,4,'#111827'); circle(c,10,10,4,'#111827');
+    } else if (role === 'merchant') {
+      fillRR(c,-12,-11,24,26,6,'#92400e'); line(c,-5,-12,5,-12,'#fbbf24',3); fillRR(c,-5,-1,10,5,2,'#facc15');
+    } else if (role === 'weapon') {
+      /* shield emblem, not a held sword */
+      poly(c, [[0,-22],[18,-12],[13,16],[0,27],[-13,16],[-18,-12]], '#cbd5e1');
+      poly(c, [[0,-15],[11,-9],[8,10],[0,17],[-8,10],[-11,-9]], '#64748b');
+      line(c,0,-10,0,13,'#e5e7eb',2);
+    } else if (role === 'blacksmith') {
+      /* tiny anvil/forge icon rather than a huge hammer */
+      poly(c, [[-18,0],[-8,-12],[13,-12],[19,-4],[6,0],[-2,9]], '#cbd5e1');
+      fillRR(c,-4,8,8,8,2,'#64748b');
+      circle(c,17,-17,5,'#fb923c');
+    } else if (role === 'quest') {
+      fillRR(c,-14,-20,28,32,5,'#fef3c7');
+      line(c,-8,-10,8,-10,'#92400e',2); line(c,-8,-2,8,-2,'#92400e',2); line(c,-8,6,3,6,'#92400e',2);
+    } else if (role === 'warrior') {
+      poly(c, [[0,-22],[16,-12],[12,15],[0,24],[-12,15],[-16,-12]], '#94a3b8');
+      circle(c,0,0,7,'#facc15');
+    } else if (role === 'mage') {
+      circle(c,0,-2,13,'#93c5fd');
+      c.strokeStyle='#c4b5fd'; c.lineWidth=3; c.beginPath(); c.arc(0,-2,20,0,Math.PI*2); c.stroke();
+      circle(c,-5,-7,3,'#fff');
+    } else if (role === 'rogue') {
+      poly(c, [[0,-20],[7,-4],[21,-4],[9,6],[13,22],[0,12],[-13,22],[-9,6],[-21,-4],[-7,-4]], '#a78bfa');
+      circle(c,0,0,3,'#111827');
+    } else if (role === 'archer') {
+      poly(c, [[-9,18],[-2,-23],[10,-19],[4,-4],[16,9],[1,8]], '#bef264');
+      line(c,-3,14,8,-12,'#365314',2);
+    } else if (role === 'dragon') {
+      poly(c, [[-18,5],[-9,-22],[5,-16],[22,-3],[10,16],[-5,22]], '#5eead4');
+      line(c,-12,2,-22,-8,'#134e4a',3);
+      line(c,-4,-16,3,-27,'#134e4a',3);
+      circle(c,8,-4,2,'#111827');
+    } else {
+      circle(c,0,0,12,'#60a5fa');
+    }
+    c.restore();
+  }
+
+  function drawJobObjectClean(npc){
+    var role = String((npc && (npc.role || npc.name)) || '').toLowerCase();
+    ctx.save();
+    ctx.translate(npc.x, npc.y);
+    ctx.imageSmoothingEnabled = false;
+
+    ctx.fillStyle = 'rgba(0,0,0,.25)';
+    ctx.beginPath(); ctx.ellipse(0,4,32,8,0,0,Math.PI*2); ctx.fill();
+
+    if (/cross|십자가/.test(role)) {
+      fillRR(ctx,-7,-72,14,66,3,'#fef3c7');
+      fillRR(ctx,-28,-51,56,13,3,'#fef3c7');
+      ctx.strokeStyle='#fde68a'; ctx.lineWidth=2; ctx.strokeRect(-7,-72,14,66);
+    } else if (/rune|룬/.test(role)) {
+      fillRR(ctx,-25,-62,50,56,10,'#64748b');
+      ctx.strokeStyle='#a78bfa'; ctx.lineWidth=4; ctx.strokeRect(-14,-51,28,34);
+      line(ctx,-8,-42,8,-35,'#d8b4fe',2); line(ctx,8,-35,-5,-22,'#d8b4fe',2); line(ctx,-5,-22,10,-14,'#d8b4fe',2);
+    } else if (/orb|오브|star/.test(role)) {
+      ctx.shadowColor='#f0abfc'; ctx.shadowBlur=18;
+      circle(ctx,0,-42,25,'#c084fc'); circle(ctx,0,-42,11,'#fef3c7');
+      ctx.shadowBlur=0;
+    } else if (/crack|균열|abyss/.test(role)) {
+      ctx.strokeStyle='#312e81'; ctx.lineWidth=9; ctx.beginPath(); ctx.arc(0,-38,30,0,Math.PI*2); ctx.stroke();
+      line(ctx,-8,-64,5,-47,'#818cf8',4); line(ctx,5,-47,-4,-25,'#818cf8',4);
+    } else {
+      /* sacred sword object: planted in the ground, not held by NPC */
+      line(ctx,0,-74,0,-9,'#f8fafc',9);
+      line(ctx,-24,-33,24,-33,'#facc15',8);
+      fillRR(ctx,-6,-27,12,22,3,'#1d4ed8');
+      circle(ctx,0,-84,10,'#60a5fa');
+    }
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    if (npc.name) ctx.fillText(npc.name, 0, -94);
+    if (game.player && Math.abs(game.player.x - npc.x) < 90) {
+      ctx.fillStyle = '#ffe066';
+      ctx.fillText('E 조사', 0, -114);
+    }
+    ctx.restore();
+  }
+
+  drawNPCBody = window.drawNPCBody = function drawNPCBodyV18(npc){
+    if (!npc) return;
+    var role = npc.__v18Role || npcRole(npc);
+    if (role === 'object') { drawJobObjectClean(npc); return; }
+
+    /* No bobbing. Feet always touch npc.y. */
+    var look = {
+      taxi:['#facc15','#111827','#111827','#8d5524'],
+      merchant:['#f97316','#fed7aa','#78350f','#f1c27d'],
+      weapon:['#64748b','#cbd5e1','#111827','#f1c27d'],
+      blacksmith:['#7c2d12','#f59e0b','#292524','#c68642'],
+      quest:['#7c3aed','#fef08a','#e5e7eb','#f1c27d'],
+      warrior:['#475569','#facc15','#78350f','#f1c27d'],
+      mage:['#4f46e5','#93c5fd','#e5e7eb','#f1c27d'],
+      rogue:['#111827','#c084fc','#0f172a','#f1c27d'],
+      archer:['#15803d','#bbf7d0','#713f12','#f1c27d'],
+      dragon:['#0f766e','#5eead4','#7c2d12','#f1c27d'],
+      villager:['#60a5fa','#dbeafe','#6b3f22','#ffd6a6']
+    }[role] || ['#60a5fa','#dbeafe','#6b3f22','#ffd6a6'];
+
+    var main=look[0], trim=look[1], hair=look[2], skin=look[3];
+
+    ctx.save();
+    ctx.translate(npc.x, npc.y);
+    ctx.scale(.76,.76);
+
+    ctx.fillStyle='rgba(0,0,0,.28)';
+    ctx.beginPath(); ctx.ellipse(0,4,30,7,0,0,Math.PI*2); ctx.fill();
+
+    /* legs/feet */
+    fillRR(ctx,-16,-31,12,25,5,'#171717');
+    fillRR(ctx,4,-31,12,25,5,'#171717');
+    fillRR(ctx,-13,-30,8,21,4,'#374151');
+    fillRR(ctx,5,-30,8,21,4,'#374151');
+    fillRR(ctx,-24,-9,22,7,2,'#171717');
+    fillRR(ctx,2,-9,22,7,2,'#171717');
+
+    /* body */
+    fillRR(ctx,-22,-66,44,42,11,'#171717');
+    fillRR(ctx,-18,-63,36,36,9,main);
+    ctx.fillStyle=trim; ctx.fillRect(-11,-58,22,6); fillRR(ctx,-15,-36,30,8,4,trim);
+
+    /* arms, small hands. No large held weapon. */
+    line(ctx,-15,-56,-29,-42,'#171717',9);
+    line(ctx,15,-56,29,-42,'#171717',9);
+    line(ctx,-15,-56,-29,-42,main,6);
+    line(ctx,15,-56,29,-42,main,6);
+    circle(ctx,-29,-42,5,'#171717'); circle(ctx,29,-42,5,'#171717');
+    circle(ctx,-29,-42,3.4,skin); circle(ctx,29,-42,3.4,skin);
+
+    drawRoleProp(ctx, role);
+
+    /* head */
+    circle(ctx,-20,-90,5,'#171717'); circle(ctx,20,-90,5,'#171717');
+    ctx.fillStyle='#171717'; ctx.beginPath(); ctx.ellipse(0,-92,22,23,0,0,Math.PI*2); ctx.fill();
+    circle(ctx,-19,-90,3.7,skin); circle(ctx,19,-90,3.7,skin);
+    ctx.fillStyle=skin; ctx.beginPath(); ctx.ellipse(0,-92,18.5,20.5,0,0,Math.PI*2); ctx.fill();
+
+    /* hair / hat */
+    fillRR(ctx,-16,-114,32,13,8,hair);
+    if (role === 'taxi') { fillRR(ctx,-18,-122,36,9,4,'#1f2937'); ctx.fillRect(-13,-129,26,9); }
+    else if (role === 'merchant') { ctx.fillStyle='#b45309'; ctx.beginPath(); ctx.ellipse(0,-113,25,7,0,0,Math.PI*2); ctx.fill(); fillRR(ctx,-12,-126,24,14,5,'#b45309'); }
+    else if (role === 'mage') { poly(ctx,[[-22,-112],[0,-140],[22,-112]],'#312e81'); fillRR(ctx,-14,-117,28,6,3,'#93c5fd'); }
+    else if (role === 'dragon') { poly(ctx,[[-18,-118],[-4,-132],[0,-118],[9,-132],[18,-118]],'#134e4a'); }
+    else if (role === 'blacksmith') { fillRR(ctx,-18,-120,36,12,5,'#4b5563'); fillRR(ctx,-10,-126,20,7,3,'#ef4444'); }
+    else { fillRR(ctx,-18,-119,36,10,5,'#334155'); }
+
+    /* face */
+    ctx.fillStyle='#111827';
+    ctx.fillRect(-8,-99,3.5,5);
+    ctx.fillRect(4.5,-99,3.5,5);
+    if (role === 'rogue') {
+      line(ctx,-5,-88,5,-88,'#111827',2);
+    } else {
+      ctx.fillRect(-3,-88,6,1.5);
+    }
+
+    ctx.restore();
+  };
+
+  drawNPCs = window.drawNPCs = function drawNPCsV18(){
+    normalizeTownNpcs();
+    A(game.npcs).forEach(function(npc){
+      if(!npc) return;
+      drawNPCBody(npc);
+      var name = String(npc.name || 'NPC');
+      ctx.textAlign='center';
+      ctx.font='bold 14px sans-serif';
+      var tw = Math.min(190, Math.max(68, ctx.measureText(name).width + 26));
+      ctx.fillStyle='rgba(15,23,42,.92)';
+      rr(ctx,npc.x-tw/2,npc.y-118,tw,24,8);
+      ctx.fillStyle='#fff';
+      ctx.fillText(name,npc.x,npc.y-101);
+      if(game.player && Math.abs(game.player.x-npc.x)<90 && Math.abs(game.player.y-npc.y)<110){
+        ctx.fillStyle='#ffe066';
+        ctx.font='bold 14px sans-serif';
+        ctx.fillText(npc.__v18Role === 'object' ? 'E 조사' : 'E 대화', npc.x, npc.y-128);
+      }
+    });
+  };
+
+  var oldLoadTownV18 = typeof loadTown === 'function' ? loadTown : null;
+  if (oldLoadTownV18 && !oldLoadTownV18.__v18Wrapped) {
+    var wrappedLoadTown = function loadTownV18(id){
+      var r = oldLoadTownV18.apply(this, arguments);
+      try { sanitizeTownLayout(); normalizeTownNpcs(); setTimeout(function(){ sanitizeTownLayout(); normalizeTownNpcs(); },80); } catch(e){ console.warn('[V18 town cleanup]', e); }
+      return r;
+    };
+    wrappedLoadTown.__v18Wrapped = true;
+    loadTown = window.loadTown = wrappedLoadTown;
+  }
+
+  /* drawWorld final guard: if town mode, remove walkable air every frame before physics/draw confusion spreads. */
+  var oldDrawWorldV18 = typeof drawWorld === 'function' ? drawWorld : null;
+  if (oldDrawWorldV18 && !oldDrawWorldV18.__v18Wrapped) {
+    var wrappedDrawWorld = function drawWorldV18(){
+      if (game && game.mode === 'town') sanitizeTownLayout();
+      oldDrawWorldV18.apply(this, arguments);
+    };
+    wrappedDrawWorld.__v18Wrapped = true;
+    drawWorld = window.drawWorld = wrappedDrawWorld;
+  }
+
+  /* Dialog: higher, larger, and chat-hidden. Button coordinates are also updated. */
+  var DLG = { x:110, y:390, w:1060, h:210, action:{x:180,y:525,w:240,h:48}, close:{x:980,y:525,w:140,h:48} };
+
+  drawDialog = window.drawDialog = function drawDialogV18(){
+    if (!game.dialog) return;
+    hideChatWhenModal();
+    var npc = game.dialog.npc || {};
+    ctx.save();
+    ctx.fillStyle='rgba(15,23,42,.985)';
+    rr(ctx,DLG.x,DLG.y,DLG.w,DLG.h,18);
+    ctx.strokeStyle='#93c5fd';
+    ctx.lineWidth=3;
+    ctx.strokeRect(DLG.x,DLG.y,DLG.w,DLG.h);
+
+    ctx.fillStyle='#ffe066';
+    ctx.font='bold 24px sans-serif';
+    ctx.textAlign='left';
+    ctx.fillText(npc.name || 'NPC', DLG.x+34, DLG.y+44);
+
+    ctx.fillStyle='#e2e8f0';
+    ctx.font='16px sans-serif';
+    var msg = String(npc.text || '무엇을 도와드릴까요?');
+    var max = 68;
+    var lines = [];
+    while (msg.length > max) { lines.push(msg.slice(0,max)); msg = msg.slice(max); }
+    lines.push(msg);
+    lines.slice(0,3).forEach(function(lineText,i){ ctx.fillText(lineText, DLG.x+34, DLG.y+78+i*24); });
+
+    var action='확인';
+    if(npc.type==='taxi') action='이동하기';
+    if(npc.type==='merchant') action='상점 열기';
+    if(npc.type==='weapon') action='장비 보기';
+    if(npc.type==='blacksmith') action='강화하기';
+    if(npc.type==='job_object') action='조사하기';
+    if(npc.type==='quest' || npc.type==='job') {
+      var q = quests && quests.active ? quests.active.find(function(item){ return item.id === npc.quest; }) : null;
+      if(quests && quests.completed && quests.completed.includes(npc.quest)) action='완료됨';
+      else if(q) { try { syncQuestItems(q); } catch(_){} action = (typeof questComplete === 'function' && questComplete(q)) ? '완료하기' : '진행 중'; }
+      else action = npc.type === 'job' ? '전직 퀘스트' : '퀘스트 수락';
+    }
+
+    ctx.fillStyle='#4dabf7';
+    rr(ctx,DLG.action.x,DLG.action.y,DLG.action.w,DLG.action.h,10);
+    ctx.fillStyle='#fff';
+    ctx.font='bold 18px sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText(action,DLG.action.x+DLG.action.w/2,DLG.action.y+31);
+
+    ctx.fillStyle='#334155';
+    rr(ctx,DLG.close.x,DLG.close.y,DLG.close.w,DLG.close.h,10);
+    ctx.fillStyle='#fff';
+    ctx.fillText('닫기',DLG.close.x+DLG.close.w/2,DLG.close.y+31);
+    ctx.restore();
+  };
+
+  handleDialogClick = window.handleDialogClick = function handleDialogClickV18(x,y){
+    if(!game.dialog) return;
+    var npc = game.dialog.npc || {};
+    if (x>=DLG.close.x && x<=DLG.close.x+DLG.close.w && y>=DLG.close.y && y<=DLG.close.y+DLG.close.h) {
+      game.dialog=null; hideChatWhenModal(); return;
+    }
+    if (x>=DLG.action.x && x<=DLG.action.x+DLG.action.w && y>=DLG.action.y && y<=DLG.action.y+DLG.action.h) {
+      if(npc.type==='taxi') { game.dialog=null; game.taxiOpen=true; hideChatWhenModal(); return; }
+      if(npc.type==='merchant' || npc.type==='weapon') { game.dialog=null; game.shopOpen=npc.type; game.shopScroll=0; hideChatWhenModal(); return; }
+      if(npc.type==='blacksmith') { game.dialog=null; game.blacksmithOpen=true; inventory.open=true; hideChatWhenModal(); return; }
+      if(npc.type==='quest' || npc.type==='job' || npc.type==='job_object') { if(npc.quest && typeof acceptOrCompleteQuest === 'function') acceptOrCompleteQuest(npc.quest); return; }
+      game.dialog=null; hideChatWhenModal(); return;
+    }
+  };
+
+  /* Distinct equipment icon system. */
+  function kind(it){
+    it=itemOf(it)||{};
+    var s=String([it.weaponType,it.equipSlot,it.slot,it.type,it.id,it.name,it.icon].join(' ')).toLowerCase();
+    if (/dagger|단검|knife|비수/.test(s)) return 'dagger';
+    if (/bow|활|궁|arrow/.test(s)) return 'bow';
+    if (/staff|wand|rod|스태프|지팡/.test(s)) return 'staff';
+    if (/axe|도끼/.test(s)) return 'axe';
+    if (/spear|lance|창/.test(s)) return 'spear';
+    if (/hammer|mace|club|망치|철퇴/.test(s)) return 'hammer';
+    if (/gun|총|rifle|pistol/.test(s)) return 'gun';
+    if (/helmet|helm|투구|헬멧/.test(s)) return 'helmet';
+    if (/armor|robe|갑옷|로브|흉갑/.test(s)) return 'armor';
+    if (/knee|boot|boots|부츠|무릎|신발/.test(s)) return 'boots';
+    if (/accessory|ring|charm|amulet|necklace|반지|부적|목걸이|악세/.test(s)) return 'accessory';
+    if (/hp_potion|체력/.test(s)) return 'hp';
+    if (/mp_potion|마나/.test(s)) return 'mp';
+    if (/ore|crystal|core|jelly|spore|shard|scale|feather|hide|drop|광석|결정|조각|젤리/.test(s)) return 'material';
+    if (/sword|blade|검|소드|칼/.test(s)) return 'sword';
+    return 'material';
+  }
+  function rarityColor(it){
+    var s=String([it&&it.rarity,it&&it.grade,it&&it.tier,it&&it.name,it&&it.id].join(' ')).toLowerCase();
+    if(/legend|전설|레전|myth|신화/.test(s)) return '#facc15';
+    if(/epic|에픽|영웅/.test(s)) return '#a855f7';
+    if(/ultra|unique|유니크|초희귀/.test(s)) return '#22d3ee';
+    if(/rare|희귀/.test(s)) return '#3b82f6';
+    return '#9ca3af';
+  }
+  function itemPalette(it){
+    var h=hash((it&&it.id)||it&&it.name||'item');
+    var packs=[
+      ['#e5e7eb','#ffffff','#1d4ed8','#f59e0b'],
+      ['#84cc16','#d9f99d','#7c3aed','#92400e'],
+      ['#cbd5e1','#ffffff','#111827','#fb923c'],
+      ['#60a5fa','#dbeafe','#1e3a8a','#f59e0b'],
+      ['#f97316','#fde68a','#7c2d12','#111827'],
+      ['#ec4899','#fbcfe8','#064e3b','#22c55e'],
+      ['#a78bfa','#f5f3ff','#581c87','#facc15'],
+      ['#14b8a6','#ccfbf1','#164e63','#eab308']
+    ];
+    return packs[h % packs.length];
+  }
+
+  function drawIconFrame(s,it){
+    var rc=rarityColor(it);
+    fillRR(ctx,-s*.47,-s*.47,s*.94,s*.94,6,'#171321');
+    ctx.strokeStyle=rc; ctx.lineWidth=Math.max(1.2,s*.045); ctx.strokeRect(-s*.47,-s*.47,s*.94,s*.94);
+    ctx.strokeStyle='rgba(251,146,60,.52)'; ctx.lineWidth=1; ctx.strokeRect(-s*.38,-s*.38,s*.76,s*.76);
+  }
+
+  drawItemIcon = window.drawItemIcon = function drawItemIconV18(itemOrIcon,x,y,size){
+    var it = itemOf(itemOrIcon) || (typeof itemOrIcon === 'object' ? itemOrIcon : {id:String(itemOrIcon||''),icon:String(itemOrIcon||'')});
+    var k = kind(it), s = size || 32, p = itemPalette(it), v = hash(it.id||it.name||k)%12;
+    ctx.save(); ctx.translate(x,y); ctx.imageSmoothingEnabled=false;
+    drawIconFrame(s,it);
+
+    if(k==='hp'){
+      /* original-style heart potion */
+      circle(ctx,-s*.12,-s*.09,s*.15,'#ff4d4f'); circle(ctx,s*.12,-s*.09,s*.15,'#ff4d4f');
+      poly(ctx,[[-s*.28,-s*.02],[0,s*.30],[s*.28,-s*.02]],'#ff4d4f'); circle(ctx,-s*.08,-s*.12,s*.04,'rgba(255,255,255,.9)');
+    } else if(k==='mp'){
+      ctx.fillStyle='#4dabf7'; ctx.beginPath(); ctx.moveTo(0,-s*.34); ctx.quadraticCurveTo(s*.30,0,0,s*.34); ctx.quadraticCurveTo(-s*.30,0,0,-s*.34); ctx.fill(); circle(ctx,-s*.07,-s*.08,s*.045,'rgba(255,255,255,.85)');
+    } else if(k==='sword'){
+      ctx.rotate(-.75 + (v%3-1)*.08);
+      poly(ctx,[[0,-s*.40],[s*.10,-s*.05],[s*.07,s*.28],[-s*.07,s*.28],[-s*.10,-s*.05]],p[0]);
+      line(ctx,-s*.02,-s*.34,s*.02,s*.18,p[1],Math.max(1,s*.035));
+      fillRR(ctx,-s*.20,s*.16,s*.40,s*.08,2,p[3]); fillRR(ctx,-s*.06,s*.23,s*.12,s*.18,2,p[2]);
+      if(v%5===0) poly(ctx,[[0,-s*.47],[s*.12,-s*.27],[s*.04,-s*.1],[s*.16,.02],[-s*.06,.04]],'#fde68a');
+    } else if(k==='dagger'){
+      ctx.rotate(-.66 + (v%4)*.05);
+      poly(ctx,[[0,-s*.31],[s*.11,-s*.07],[s*.04,s*.18],[-s*.05,s*.18],[-s*.11,-s*.07]],p[0]);
+      fillRR(ctx,-s*.15,s*.08,s*.30,s*.06,2,p[3]); fillRR(ctx,-s*.05,s*.14,s*.10,s*.19,2,p[2]);
+    } else if(k==='bow'){
+      ctx.strokeStyle=p[3]; ctx.lineWidth=s*.085; ctx.beginPath(); ctx.arc(0,0,s*.29,-1.23,1.23); ctx.stroke();
+      line(ctx,s*.07,-s*.27,s*.07,s*.27,p[1],s*.035); fillRR(ctx,-s*.04,-s*.07,s*.08,s*.14,1,p[2]);
+      if(v%2) line(ctx,-s*.22,0,s*.28,0,'#e5e7eb',s*.035);
+    } else if(k==='staff'){
+      ctx.rotate(-.55);
+      line(ctx,0,s*.30,0,-s*.27,p[3],s*.085);
+      circle(ctx,0,-s*.36,s*(v%2?.11:.14),p[0]);
+      ctx.strokeStyle=p[1]; ctx.lineWidth=s*.045; ctx.beginPath(); ctx.arc(0,-s*.36,s*.19,0,Math.PI*2); ctx.stroke();
+    } else if(k==='axe'){
+      ctx.rotate(-.48);
+      line(ctx,0,s*.31,0,-s*.27,p[3],s*.09);
+      poly(ctx,[[0,-s*.28],[s*.24,-s*.20],[s*.15,-s*.01],[0,-s*.05]],p[0]);
+      if(v%3!==0) poly(ctx,[[0,-s*.27],[-s*.20,-s*.17],[-s*.11,-s*.02],[0,-s*.06]],p[1]);
+    } else if(k==='hammer'){
+      ctx.rotate(-.48);
+      line(ctx,0,s*.30,0,-s*.13,p[3],s*.09);
+      if(v%2) poly(ctx,[[0,-s*.35],[s*.20,-s*.24],[s*.08,-s*.08],[-s*.08,-s*.08],[-s*.20,-s*.24]],p[0]);
+      else fillRR(ctx,-s*.20,-s*.29,s*.40,s*.17,2,p[0]);
+      if(v%3===0){ circle(ctx,-s*.12,-s*.23,s*.04,p[1]); circle(ctx,s*.12,-s*.23,s*.04,p[1]); }
+    } else if(k==='spear'){
+      ctx.rotate(-.60);
+      line(ctx,0,s*.34,0,-s*.28,p[3],s*.07);
+      poly(ctx,[[0,-s*.44],[s*.13,-s*.22],[0,-s*.16],[-s*.13,-s*.22]],p[0]);
+      fillRR(ctx,-s*.11,-s*.18,s*.22,s*.05,2,p[2]);
+    } else if(k==='gun'){
+      fillRR(ctx,-s*.25,-s*.12,s*.45,s*.17,2,p[0]); fillRR(ctx,s*.15,-s*.08,s*.22,s*.07,1,p[1]); fillRR(ctx,-s*.05,s*.04,s*.11,s*.20,2,p[3]); circle(ctx,s*.38,-s*.05,s*.035,'#fde68a');
+    } else if(k==='helmet'){
+      poly(ctx,[[-s*.26,-s*.02],[-s*.12,-s*.24],[s*.12,-s*.24],[s*.26,-s*.02],[s*.19,s*.16],[-s*.19,s*.16]],p[0]);
+      fillRR(ctx,-s*.14,-s*.03,s*.28,s*.08,2,p[2]);
+      if(v%2) line(ctx,0,-s*.24,0,-s*.36,p[3],s*.045);
+    } else if(k==='armor'){
+      poly(ctx,[[0,-s*.32],[s*.28,-s*.14],[s*.23,s*.31],[-s*.23,s*.31],[-s*.28,-s*.14]],p[0]);
+      fillRR(ctx,-s*.14,-s*.10,s*.28,s*.10,2,p[1]); fillRR(ctx,-s*.18,s*.08,s*.36,s*.08,2,p[2]);
+    } else if(k==='boots'){
+      fillRR(ctx,-s*.25,-s*.05,s*.21,s*.19,3,p[0]); fillRR(ctx,s*.05,-s*.05,s*.21,s*.19,3,p[2]);
+      fillRR(ctx,-s*.28,s*.09,s*.25,s*.08,2,p[3]); fillRR(ctx,s*.03,s*.09,s*.25,s*.08,2,p[3]);
+    } else if(k==='accessory'){
+      if(v%3===0){ ctx.strokeStyle=p[3]; ctx.lineWidth=s*.10; ctx.beginPath(); ctx.arc(0,s*.04,s*.18,0,Math.PI*2); ctx.stroke(); circle(ctx,0,-s*.16,s*.08,p[0]); }
+      else if(v%3===1){ ctx.strokeStyle=p[3]; ctx.lineWidth=s*.045; ctx.beginPath(); ctx.arc(0,-s*.04,s*.22,Math.PI*.15,Math.PI*.85,true); ctx.stroke(); circle(ctx,0,s*.13,s*.11,p[0]); fillRR(ctx,-s*.05,s*.03,s*.10,s*.22,2,p[1]); }
+      else { poly(ctx,[[0,-s*.25],[s*.16,0],[0,s*.25],[-s*.16,0]],p[0]); ctx.strokeStyle=p[1]; ctx.lineWidth=s*.04; ctx.stroke(); }
+    } else {
+      /* materials: distinct by item id */
+      var vv=v%5;
+      if(vv===0) { poly(ctx,[[0,-s*.30],[s*.24,0],[0,s*.30],[-s*.24,0]],p[0]); circle(ctx,-s*.06,-s*.08,s*.05,p[1]); }
+      else if(vv===1) { circle(ctx,0,0,s*.23,p[0]); circle(ctx,s*.08,-s*.09,s*.06,p[1]); }
+      else if(vv===2) { poly(ctx,[[-s*.25,s*.18],[-s*.12,-s*.23],[s*.25,-s*.06],[s*.10,s*.25]],p[0]); }
+      else if(vv===3) { fillRR(ctx,-s*.20,-s*.18,s*.40,s*.36,5,p[0]); line(ctx,-s*.12,0,s*.12,0,p[1],2); }
+      else { poly(ctx,[[0,-s*.32],[s*.29,-s*.07],[s*.18,s*.28],[-s*.18,s*.28],[-s*.29,-s*.07]],p[0]); }
+    }
+    ctx.restore();
+  };
+
+  drawWeapon = window.drawWeapon = function drawWeaponV18(c, weaponRef, handX, handY, attacking, attackKind, animTime){
+    var it=itemOf(weaponRef || (typeof equipment !== 'undefined' && equipment && equipment.weapon));
+    if(!it) return;
+    var k=kind(it), p=itemPalette(it), v=hash(it.id||it.name||k)%12;
+    var face=(game&&game.player&&game.player.face)||1;
+    var swing=attacking ? Math.sin(Math.min(1, n(animTime,0)*10)*Math.PI) : 0;
+
+    c.save();
+    c.translate(handX,handY);
+    c.scale(face,1);
+    c.rotate(attacking ? (-.78+swing*1.25) : -.42);
+    c.imageSmoothingEnabled=false;
+    c.shadowColor=rarityColor(it);
+    c.shadowBlur=/전설|legend/i.test(String(it.name||it.id||'')) ? 14 : 0;
+
+    if(k==='bow'){
+      c.strokeStyle=p[3]; c.lineWidth=5; c.beginPath(); c.arc(10,-14,34,-1.35,1.35); c.stroke();
+      line(c,18,-48,18,20,p[1],1.5); fillRR(c,6,-18,7,12,2,p[2]);
+      if(attacking){ line(c,14,-14,82,-14,'#f8fafc',2); poly(c,[[88,-14],[72,-21],[72,-7]],'#facc15'); }
+    } else if(k==='staff'){
+      line(c,0,22,0,-60,p[3],5); circle(c,0,-69,v%2?10:13,p[0]);
+      c.strokeStyle=p[1]; c.lineWidth=2; c.beginPath(); c.arc(0,-69,19,0,Math.PI*2); c.stroke();
+      if(attacking){ c.globalAlpha=.65; c.beginPath(); c.arc(0,-69,30+swing*18,0,Math.PI*2); c.stroke(); c.globalAlpha=1; }
+    } else if(k==='dagger'){
+      c.rotate(.45); poly(c,[[0,-39],[9,-6],[3,13],[-5,13],[-9,-6]],p[0]); fillRR(c,-12,9,24,7,2,p[3]); fillRR(c,-4,15,8,19,2,p[2]);
+    } else if(k==='axe'){
+      line(c,0,22,0,-58,p[3],5); poly(c,[[0,-57],[26,-46],[18,-18],[0,-28]],p[0]); if(v%3) poly(c,[[0,-55],[-24,-45],[-14,-20],[0,-29]],p[1]);
+    } else if(k==='hammer'){
+      line(c,0,20,0,-40,p[3],5); if(v%2) poly(c,[[0,-62],[20,-50],[10,-30],[-10,-30],[-20,-50]],p[0]); else fillRR(c,-22,-58,44,18,3,p[0]);
+    } else if(k==='spear'){
+      line(c,0,22,0,-76,p[3],4); poly(c,[[0,-96],[15,-72],[0,-63],[-15,-72]],p[0]);
+    } else if(k==='gun'){
+      fillRR(c,-5,-28,52,16,3,p[0]); fillRR(c,35,-24,24,7,2,p[1]); fillRR(c,5,-12,11,24,2,p[3]);
+    } else {
+      var len = 58 + (v%3)*6;
+      poly(c,[[0,-len],[12,-20],[7,18],[-7,18],[-12,-20]],p[0]);
+      line(c,-2,-len+8,2,10,p[1],1.5);
+      fillRR(c,-18,8,36,8,2,p[3]); fillRR(c,-5,14,10,22,2,p[2]);
+      if(v%5===0){ c.globalAlpha=.9; poly(c,[[0,-len-9],[12,-len+9],[4,-len+28],[16,-len+44],[-2,-len+40],[4,-len+18]],'#fde68a'); c.globalAlpha=1; }
+    }
+    c.restore();
+  };
+
+  var oldDrawHUDV18 = typeof drawHUD === 'function' ? drawHUD : null;
+  if (oldDrawHUDV18 && !oldDrawHUDV18.__v18Wrapped) {
+    var wrappedHUD = function drawHUDV18(){
+      hideChatWhenModal();
+      if (game && game.mode === 'town') { try { sanitizeTownLayout(); normalizeTownNpcs(); } catch(_){} }
+      oldDrawHUDV18.apply(this, arguments);
+      try {
+        ctx.save();
+        ctx.textAlign='right';
+        ctx.font='bold 16px sans-serif';
+        ctx.fillStyle='#86efac';
+        ctx.strokeStyle='rgba(15,23,42,.95)';
+        ctx.lineWidth=5;
+        ctx.strokeText('V18 안정화 적용됨', W-22, 372);
+        ctx.fillText('V18 안정화 적용됨', W-22, 372);
+        ctx.fillStyle='#fcd34d';
+        ctx.strokeText('NPC 지면고정 · 대화창 우선 · 장비외형 개선', W-22, 394);
+        ctx.fillText('NPC 지면고정 · 대화창 우선 · 장비외형 개선', W-22, 394);
+        ctx.restore();
+      } catch(_){}
+    };
+    wrappedHUD.__v18Wrapped = true;
+    drawHUD = window.drawHUD = wrappedHUD;
+  }
+
+  setInterval(function(){
+    try {
+      hideChatWhenModal();
+      if (typeof game !== 'undefined' && game && game.mode === 'town') {
+        sanitizeTownLayout();
+        normalizeTownNpcs();
+      }
+    } catch(_) {}
+  }, 600);
+
+  try {
+    if (typeof game !== 'undefined' && game && game.mode === 'town') {
+      sanitizeTownLayout();
+      normalizeTownNpcs();
+    }
+  } catch(_) {}
+
+  console.log('[PixelRPG] V18 stability polish installed');
+})();
