@@ -1,9 +1,7 @@
 'use strict';
 
-/* V16 early global binding fix
-   In strict mode, older patches assign to updateEnemyProjectiles directly.
-   Without this declaration the script stops before later hotfixes can run. */
-var updateEnemyProjectiles;
+/* V17 strict-mode global binding declarations for legacy patch assignments */
+var acceptOrCompleteQuest, calcDamage, damageMonster, drawDialog, drawEquipmentBox, drawItemBox, drawItemIcon, drawMonster, drawMonsterShape, drawMonsters, drawShopPanel, drawTownObjects, drawWorld, enhanceEquippedItem, getMonsterRareEquipmentDrop, getRareDropRate, getShopItems, handleShopClick, handleTaxiClick, killMonster, loadHunt, loadTown, makeMonsterType, spawnMonsters, syncQuestItems, updateEnemyProjectiles, updateKillQuests, updateMonsters;
 
 
 /* =========================================================
@@ -18854,27 +18852,44 @@ canvas.addEventListener('click', function (e) {
 })();
 
 /* =========================================================
-   V16 EARLY BINDING + ENEMY PROJECTILE FIX
-   - Real fix for: ReferenceError: updateEnemyProjectiles is not defined
-   - The important part is also inserted near the top:
-     var updateEnemyProjectiles;
-   - This bottom block provides a fallback implementation and HUD marker.
+   V17 CONSOLIDATED SAFETY PATCH
+   - Fixes strict-mode ReferenceError for legacy patch assignments.
+   - Provides fallback getShopItems and updateEnemyProjectiles.
+   - Removes dependency on index.html embedded force patch.
+   - Keeps original-style HP/MP potion icons.
 ========================================================= */
 (function(){
   'use strict';
-  if (window.__PIXEL_RPG_V16_ENEMY_PROJECTILE_FIX__) return;
-  window.__PIXEL_RPG_V16_ENEMY_PROJECTILE_FIX__ = true;
-  window.PIXEL_RPG_PATCH_VERSION = 'V16_ENEMY_PROJECTILE_FIX';
+  if (window.__PIXEL_RPG_V17_CONSOLIDATED_FIX__) return;
+  window.__PIXEL_RPG_V17_CONSOLIDATED_FIX__ = true;
+  window.PIXEL_RPG_PATCH_VERSION = 'V17_CONSOLIDATED_FIX';
 
   function safeArr(v){ return Array.isArray(v) ? v : []; }
-  function circleSafe(c, x, y, r){
-    c.beginPath();
-    c.arc(x, y, r, 0, Math.PI * 2);
-    c.fill();
+  function circleSafe(c, x, y, r){ c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); }
+
+  // Fallback shop provider, used by older patches that reference getShopItems().
+  if (typeof getShopItems !== 'function') {
+    getShopItems = window.getShopItems = function getShopItemsV17(type){
+      if (type === 'merchant') {
+        return [
+          'hp_potion', 'mp_potion',
+          'hp_potion_small', 'hp_potion_mid', 'hp_potion_high', 'hp_potion_ultimate',
+          'mp_potion_small', 'mp_potion_mid', 'mp_potion_high', 'mp_potion_ultimate'
+        ].filter(function(id){ return typeof ITEMS !== 'undefined' && ITEMS && ITEMS[id]; });
+      }
+      if (typeof getShopItemsForCurrentTown === 'function') return getShopItemsForCurrentTown();
+      if (typeof BASIC_EQUIPMENT_SHOP_ITEMS !== 'undefined') {
+        return BASIC_EQUIPMENT_SHOP_ITEMS.filter(function(id){ return typeof ITEMS !== 'undefined' && ITEMS && ITEMS[id]; });
+      }
+      return [];
+    };
+  } else {
+    window.getShopItems = getShopItems;
   }
 
+  // Fallback enemy projectile updater.
   if (typeof updateEnemyProjectiles !== 'function') {
-    updateEnemyProjectiles = window.updateEnemyProjectiles = function updateEnemyProjectilesV16(dt){
+    updateEnemyProjectiles = window.updateEnemyProjectiles = function updateEnemyProjectilesV17(dt){
       if (typeof game === 'undefined' || !game) return;
       if (!game.enemyProjectiles) game.enemyProjectiles = [];
 
@@ -18884,29 +18899,21 @@ canvas.addEventListener('click', function (e) {
         b.life = Number.isFinite(b.life) ? b.life - (dt || 0) : 0;
         b.x += (b.vx || 0) * (dt || 0);
         b.y += (b.vy || 0) * (dt || 0);
-
-        if (b.gravity) {
-          b.vy = (b.vy || 0) + b.gravity * (dt || 0);
-        }
+        if (b.gravity) b.vy = (b.vy || 0) + b.gravity * (dt || 0);
 
         var hitX = Math.abs((b.x || 0) - (player.x || 0)) < (b.hitW || 36);
         var hitY = Math.abs((b.y || 0) - ((player.y || 0) - 50)) < (b.hitH || 58);
-
         if (hitX && hitY && (player.invincible || 0) <= 0) {
           var damage = Math.max(1, Math.floor((b.damage || b.dmg || 8) - ((player.defense || 0) * 0.3)));
           player.hp = Math.max(0, (player.hp || 0) - damage);
           player.invincible = 0.85;
           player.hurtTime = 0.2;
-
-          if (typeof makeText === 'function') {
-            makeText('-' + damage, player.x, player.y - 90, b.color || '#ff8787');
-          }
+          if (typeof makeText === 'function') makeText('-' + damage, player.x, player.y - 90, b.color || '#ff8787');
 
           if (b.status) {
             player.v13Status = player.v13Status || {};
             player.v13Status[b.status] = Math.max(player.v13Status[b.status] || 0, b.statusTime || 3);
           }
-
           b.life = 0;
         }
       });
@@ -18919,28 +18926,28 @@ canvas.addEventListener('click', function (e) {
     window.updateEnemyProjectiles = updateEnemyProjectiles;
   }
 
-  var oldUpdateProjectilesV16 = typeof updateProjectiles === 'function' ? updateProjectiles : null;
-  if (oldUpdateProjectilesV16 && !oldUpdateProjectilesV16.__v16Wrapped) {
-    var wrapped = function updateProjectilesV16(dt){
-      oldUpdateProjectilesV16.apply(this, arguments);
+  var oldUpdateProjectilesV17 = typeof updateProjectiles === 'function' ? updateProjectiles : null;
+  if (oldUpdateProjectilesV17 && !oldUpdateProjectilesV17.__v17Wrapped) {
+    var wrappedUpdateProjectiles = function updateProjectilesV17(dt){
+      oldUpdateProjectilesV17.apply(this, arguments);
       if (typeof game !== 'undefined' && game && game.mode === 'hunt') {
         try {
           if (typeof updateEnemyProjectiles === 'function') updateEnemyProjectiles(dt || 0);
         } catch (err) {
-          console.warn('[PixelRPG V16] enemy projectile update skipped:', err);
+          console.warn('[PixelRPG V17] enemy projectile update skipped:', err);
         }
       } else if (typeof game !== 'undefined' && game) {
         game.enemyProjectiles = [];
       }
     };
-    wrapped.__v16Wrapped = true;
-    updateProjectiles = window.updateProjectiles = wrapped;
+    wrappedUpdateProjectiles.__v17Wrapped = true;
+    updateProjectiles = window.updateProjectiles = wrappedUpdateProjectiles;
   }
 
-  var oldDrawProjectilesV16 = typeof drawProjectiles === 'function' ? drawProjectiles : null;
-  if (oldDrawProjectilesV16 && !oldDrawProjectilesV16.__v16Wrapped) {
-    var drawWrapped = function drawProjectilesV16(){
-      oldDrawProjectilesV16.apply(this, arguments);
+  var oldDrawProjectilesV17 = typeof drawProjectiles === 'function' ? drawProjectiles : null;
+  if (oldDrawProjectilesV17 && !oldDrawProjectilesV17.__v17Wrapped) {
+    var wrappedDrawProjectiles = function drawProjectilesV17(){
+      oldDrawProjectilesV17.apply(this, arguments);
       if (typeof game === 'undefined' || !game || !Array.isArray(game.enemyProjectiles)) return;
 
       game.enemyProjectiles.forEach(function(b){
@@ -18953,101 +18960,63 @@ canvas.addEventListener('click', function (e) {
         var k = String(b.kind || b.visual || '');
         if (/fire|burn/.test(k)) {
           ctx.fillStyle = '#fb923c';
-          ctx.beginPath();
-          ctx.moveTo(16, 0);
-          ctx.lineTo(-8, -10);
-          ctx.lineTo(-18, 0);
-          ctx.lineTo(-8, 10);
-          ctx.closePath();
-          ctx.fill();
-          ctx.fillStyle = '#fef08a';
-          circleSafe(ctx, 0, 0, 5);
+          ctx.beginPath(); ctx.moveTo(16,0); ctx.lineTo(-8,-10); ctx.lineTo(-18,0); ctx.lineTo(-8,10); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#fef08a'; circleSafe(ctx, 0, 0, 5);
         } else if (/ice|frost/.test(k)) {
           ctx.fillStyle = '#93c5fd';
-          ctx.beginPath();
-          ctx.moveTo(18, 0);
-          ctx.lineTo(0, -9);
-          ctx.lineTo(-18, 0);
-          ctx.lineTo(0, 9);
-          ctx.closePath();
-          ctx.fill();
+          ctx.beginPath(); ctx.moveTo(18,0); ctx.lineTo(0,-9); ctx.lineTo(-18,0); ctx.lineTo(0,9); ctx.closePath(); ctx.fill();
         } else if (/poison/.test(k)) {
-          ctx.fillStyle = '#86efac';
-          circleSafe(ctx, 0, 0, 10);
-          ctx.fillStyle = '#14532d';
-          circleSafe(ctx, -3, -2, 2);
-          circleSafe(ctx, 4, 3, 2);
+          ctx.fillStyle = '#86efac'; circleSafe(ctx, 0, 0, 10);
+          ctx.fillStyle = '#14532d'; circleSafe(ctx, -3, -2, 2); circleSafe(ctx, 4, 3, 2);
         } else {
-          ctx.fillStyle = b.color || '#c084fc';
-          circleSafe(ctx, 0, 0, 10);
-          ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(0, 0, 16, 0, Math.PI * 2);
-          ctx.stroke();
+          ctx.fillStyle = b.color || '#c084fc'; circleSafe(ctx, 0, 0, 10);
+          ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0,0,16,0,Math.PI*2); ctx.stroke();
         }
 
         ctx.restore();
       });
     };
-    drawWrapped.__v16Wrapped = true;
-    drawProjectiles = window.drawProjectiles = drawWrapped;
+    wrappedDrawProjectiles.__v17Wrapped = true;
+    drawProjectiles = window.drawProjectiles = wrappedDrawProjectiles;
   }
 
-  /* Keep user's requested potion look: original-style red heart / blue droplet. */
-  var oldDrawItemIconV16 = typeof drawItemIcon === 'function' ? drawItemIcon : null;
-  if (oldDrawItemIconV16 && !oldDrawItemIconV16.__v16PotionWrapped) {
-    var potionWrapped = function drawItemIconPotionV16(iconOrItem, x, y, size){
+  // Keep potion icons close to the original game style.
+  var oldDrawItemIconV17 = typeof drawItemIcon === 'function' ? drawItemIcon : null;
+  if (oldDrawItemIconV17 && !oldDrawItemIconV17.__v17PotionWrapped) {
+    var wrappedDrawItemIcon = function drawItemIconV17(iconOrItem, x, y, size){
       var item = typeof iconOrItem === 'object' ? iconOrItem : null;
       var icon = item ? item.icon : iconOrItem;
       var id = String((item && item.id) || icon || '');
       var s = size || 36;
 
       if (id === 'hp_potion' || icon === 'hp' || /hp_potion|체력 물약/.test(id)) {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.imageSmoothingEnabled = false;
+        ctx.save(); ctx.translate(x, y); ctx.imageSmoothingEnabled = false;
         ctx.fillStyle = '#ff4d4f';
         circleSafe(ctx, -s * 0.14, -s * 0.09, s * 0.20);
         circleSafe(ctx,  s * 0.14, -s * 0.09, s * 0.20);
-        ctx.beginPath();
-        ctx.moveTo(-s * 0.34, 0);
-        ctx.lineTo(0, s * 0.36);
-        ctx.lineTo(s * 0.34, 0);
-        ctx.closePath();
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        circleSafe(ctx, -s * 0.09, -s * 0.12, s * 0.055);
-        ctx.restore();
-        return;
+        ctx.beginPath(); ctx.moveTo(-s * 0.34, 0); ctx.lineTo(0, s * 0.36); ctx.lineTo(s * 0.34, 0); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.85)'; circleSafe(ctx, -s * 0.09, -s * 0.12, s * 0.055);
+        ctx.restore(); return;
       }
 
       if (id === 'mp_potion' || icon === 'mp' || /mp_potion|마나 물약/.test(id)) {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.imageSmoothingEnabled = false;
+        ctx.save(); ctx.translate(x, y); ctx.imageSmoothingEnabled = false;
         ctx.fillStyle = '#4dabf7';
-        ctx.beginPath();
-        ctx.moveTo(0, -s * 0.38);
-        ctx.quadraticCurveTo(s * 0.35, 0, 0, s * 0.38);
-        ctx.quadraticCurveTo(-s * 0.35, 0, 0, -s * 0.38);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.75)';
-        circleSafe(ctx, -s * 0.08, -s * 0.08, s * 0.06);
-        ctx.restore();
-        return;
+        ctx.beginPath(); ctx.moveTo(0, -s * 0.38); ctx.quadraticCurveTo(s * 0.35, 0, 0, s * 0.38); ctx.quadraticCurveTo(-s * 0.35, 0, 0, -s * 0.38); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.75)'; circleSafe(ctx, -s * 0.08, -s * 0.08, s * 0.06);
+        ctx.restore(); return;
       }
 
-      oldDrawItemIconV16.apply(this, arguments);
+      oldDrawItemIconV17.apply(this, arguments);
     };
-    potionWrapped.__v16PotionWrapped = true;
-    drawItemIcon = window.drawItemIcon = potionWrapped;
+    wrappedDrawItemIcon.__v17PotionWrapped = true;
+    drawItemIcon = window.drawItemIcon = wrappedDrawItemIcon;
   }
 
-  var oldDrawHUDV16 = typeof drawHUD === 'function' ? drawHUD : null;
-  if (oldDrawHUDV16 && !oldDrawHUDV16.__v16Wrapped) {
-    var hudWrapped = function drawHUDV16(){
-      oldDrawHUDV16.apply(this, arguments);
+  var oldDrawHUDV17 = typeof drawHUD === 'function' ? drawHUD : null;
+  if (oldDrawHUDV17 && !oldDrawHUDV17.__v17Wrapped) {
+    var wrappedDrawHUD = function drawHUDV17(){
+      oldDrawHUDV17.apply(this, arguments);
       try {
         ctx.save();
         ctx.textAlign = 'right';
@@ -19055,17 +19024,17 @@ canvas.addEventListener('click', function (e) {
         ctx.fillStyle = '#86efac';
         ctx.strokeStyle = 'rgba(15,23,42,0.95)';
         ctx.lineWidth = 5;
-        ctx.strokeText('V16 오류수정 적용됨', W - 22, 326);
-        ctx.fillText('V16 오류수정 적용됨', W - 22, 326);
+        ctx.strokeText('V17 통합 오류수정 적용됨', W - 22, 326);
+        ctx.fillText('V17 통합 오류수정 적용됨', W - 22, 326);
         ctx.fillStyle = '#fcd34d';
-        ctx.strokeText('updateEnemyProjectiles 전역 바인딩 수정', W - 22, 348);
-        ctx.fillText('updateEnemyProjectiles 전역 바인딩 수정', W - 22, 348);
+        ctx.strokeText('strict 전역선언 · 상점함수 · 투사체함수 보정', W - 22, 348);
+        ctx.fillText('strict 전역선언 · 상점함수 · 투사체함수 보정', W - 22, 348);
         ctx.restore();
       } catch (_) {}
     };
-    hudWrapped.__v16Wrapped = true;
-    drawHUD = window.drawHUD = hudWrapped;
+    wrappedDrawHUD.__v17Wrapped = true;
+    drawHUD = window.drawHUD = wrappedDrawHUD;
   }
 
-  console.log('[PixelRPG] V16 enemy projectile binding fix installed');
+  console.log('[PixelRPG] V17 consolidated fix installed');
 })();
