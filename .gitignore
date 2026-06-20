@@ -1,0 +1,14 @@
+node_modules/
+.next/
+.env.local
+.env.local.backup
+*.pem
+.DS_Store
+dist/
+build/
+.vercel/
+.env
+.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
