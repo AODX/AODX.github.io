@@ -26749,3 +26749,155 @@ canvas.addEventListener('click', function (e) {
 
   console.log('[PixelRPG] V32 preview / weapon / stability patch installed');
 })();
+/* =========================================================
+   V33 HARD OVERRIDE FIX
+   기존 누적 패치가 프리뷰/무기/지직거림 수정을 덮어쓰는 문제를 막기 위해
+   마지막 단계에서 draw(), drawPreviews(), drawPreviewCanvas(), drawNPCs(),
+   drawMonsters(), drawWeapon()을 강제 교체합니다.
+========================================================= */
+(function(){
+  'use strict';
+  if (window.__PIXEL_RPG_V33_HARD_OVERRIDE_FIX__) return;
+  window.__PIXEL_RPG_V33_HARD_OVERRIDE_FIX__ = true;
+  window.PIXEL_RPG_PATCH_VERSION = 'V33_HARD_OVERRIDE_FIX';
+
+  function n(v,d){ v = Number(v); return Number.isFinite(v) ? v : d; }
+  function arr(v){ return Array.isArray(v) ? v : []; }
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function hash(s){ s=String(s||''); let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
+  function shade(hex, amt){
+    hex=String(hex||'#888888').replace('#','');
+    if(hex.length===3) hex=hex.split('').map(function(c){return c+c;}).join('');
+    var x=parseInt(hex,16); if(!Number.isFinite(x)) x=0x888888;
+    var r=clamp(((x>>16)&255)+amt,0,255), g=clamp(((x>>8)&255)+amt,0,255), b=clamp((x&255)+amt,0,255);
+    return '#'+[r,g,b].map(function(v){return Math.round(v).toString(16).padStart(2,'0');}).join('');
+  }
+  function rr(c,x,y,w,h,r,fill,stroke,lw){
+    c.beginPath();
+    if(c.roundRect) c.roundRect(x,y,w,h,r||0);
+    else { var q=Math.min(r||0,w/2,h/2); c.moveTo(x+q,y); c.lineTo(x+w-q,y); c.quadraticCurveTo(x+w,y,x+w,y+q); c.lineTo(x+w,y+h-q); c.quadraticCurveTo(x+w,y+h,x+w-q,y+h); c.lineTo(x+q,y+h); c.quadraticCurveTo(x,y+h,x,y+h-q); c.lineTo(x,y+q); c.quadraticCurveTo(x,y,x+q,y); }
+    if(fill){ c.fillStyle=fill; c.fill(); }
+    if(stroke){ c.strokeStyle=stroke; c.lineWidth=lw||1; c.stroke(); }
+  }
+  function line(c,x1,y1,x2,y2,col,lw){ c.strokeStyle=col; c.lineWidth=lw||1; c.lineCap='round'; c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2); c.stroke(); }
+  function circle(c,x,y,r,fill,stroke,lw){ c.beginPath(); c.arc(x,y,r,0,Math.PI*2); if(fill){c.fillStyle=fill;c.fill();} if(stroke){c.strokeStyle=stroke;c.lineWidth=lw||1;c.stroke();} }
+  function ellipse(c,x,y,rx,ry,fill,stroke,lw){ c.beginPath(); c.ellipse(x,y,rx,ry,0,0,Math.PI*2); if(fill){c.fillStyle=fill;c.fill();} if(stroke){c.strokeStyle=stroke;c.lineWidth=lw||1;c.stroke();} }
+  function poly(c,pts,fill,stroke,lw){ if(!pts||!pts.length)return; c.beginPath(); c.moveTo(pts[0][0],pts[0][1]); for(var i=1;i<pts.length;i++)c.lineTo(pts[i][0],pts[i][1]); c.closePath(); if(fill){c.fillStyle=fill;c.fill();} if(stroke){c.strokeStyle=stroke;c.lineWidth=lw||1;c.stroke();} }
+
+  function idOf(ref){ try { if(typeof itemRefId==='function') return itemRefId(ref); } catch(_){} return typeof ref==='string'?ref:(ref&&(ref.id||ref.itemId||ref.icon))||''; }
+  function itemOf(ref){ var id=idOf(ref); return (typeof ITEMS!=='undefined'&&ITEMS&&id&&ITEMS[id])?ITEMS[id]:(typeof ref==='object'&&ref?ref:null); }
+  function enhOf(ref){ try { if(typeof itemEnhance==='function') return n(itemEnhance(ref),0); } catch(_){} return n(ref&&ref.enhance,0); }
+  function palOf(ref){ var item=itemOf(ref)||{}, id=idOf(ref)||item.id||item.name||'item', px=item.pixel||{}, h=hash(id); var cs=['#60a5fa','#f97316','#22c55e','#eab308','#a855f7','#06b6d4','#f43f5e','#94a3b8','#84cc16','#f59e0b']; var a=px.a||cs[h%cs.length], b=px.b||cs[Math.floor(h/7)%cs.length]; return {a:a,b:b,c:shade(a,-42),h:h}; }
+  function kindOf(ref){ var item=itemOf(ref)||{}, id=idOf(ref); var s=String([id,item.name,item.icon,item.type,item.weaponType,item.equipSlot].join(' ')).toLowerCase(); if(/staff|지팡|스태프|wand/.test(s))return'staff'; if(/bow|활/.test(s))return'bow'; if(/dagger|단검|knife/.test(s))return'dagger'; if(/axe|도끼/.test(s))return'axe'; if(/hammer|망치/.test(s))return'hammer'; if(/spear|창|lance/.test(s))return'spear'; return'sword'; }
+  function tierOf(ref){ var item=itemOf(ref)||{}, plus=enhOf(ref), req=n(item.reqLevel,1); if(plus>=10||req>=45)return 4; if(plus>=7||req>=32)return 3; if(plus>=4||req>=20)return 2; if(plus>=1||req>=10)return 1; return 0; }
+
+  function label(c,txt,x,y){
+    c.save(); c.textAlign='center'; c.font='bold 13px sans-serif'; var w=Math.max(82,Math.min(220,c.measureText(txt).width+22)); rr(c,x-w/2,y-18,w,25,9,'rgba(15,23,42,.92)'); c.fillStyle='#fff'; c.fillText(txt,x,y); c.restore();
+  }
+
+  function drawFixedFace(c, style){
+    c.save(); c.strokeStyle='#3f2c1e'; c.fillStyle='#3f2c1e'; c.lineWidth=1.6; c.lineCap='round';
+    var ey=-76;
+    if(style==='cool'){ line(c,-10,ey,-3,ey+1,'#3f2c1e',1.8); line(c,3,ey+1,10,ey,'#3f2c1e',1.8); line(c,-3,-67,3,-67,'#3f2c1e',1.5); }
+    else { circle(c,-7,ey,1.9,'#3f2c1e'); circle(c,7,ey,1.9,'#3f2c1e'); c.beginPath(); c.arc(0,-67,3.8,0.12*Math.PI,0.88*Math.PI); c.stroke(); }
+    c.restore();
+  }
+  function drawFixedHair(c, color){
+    color=color||'#5a321c'; var st=shade(color,-32), hi=shade(color,40);
+    c.save(); c.fillStyle=color; c.strokeStyle=st; c.lineWidth=1.2;
+    c.beginPath();
+    c.moveTo(-19,-95); c.quadraticCurveTo(-13,-105,0,-105); c.quadraticCurveTo(13,-105,19,-95);
+    c.lineTo(18,-86); c.quadraticCurveTo(12,-82,5,-82); c.lineTo(-5,-82); c.quadraticCurveTo(-12,-82,-18,-86); c.closePath();
+    c.fill(); c.stroke();
+    rr(c,-18,-90,5,14,3,color,st,1); rr(c,13,-90,5,14,3,color,st,1);
+    c.globalAlpha=.22; line(c,-7,-101,-2,-86,hi,1.2); line(c,6,-101,10,-86,hi,1.2); c.restore();
+  }
+  function drawPreviewAvatar(c,ch){
+    ch=ch||{}; var skin=ch.skin||'#ffd6a6', hair=ch.hair||'#5a321c';
+    ellipse(c,0,6,22,6,'rgba(0,0,0,.24)');
+    line(c,-8,-23,-9,-3,'#6f563e',7); line(c,8,-23,9,-3,'#6f563e',7); line(c,-8,-23,-9,-3,'#51627a',4.8); line(c,8,-23,9,-3,'#51627a',4.8);
+    rr(c,-7,-5,12,5,2,'#2f3948'); rr(c,1,-5,12,5,2,'#2f3948');
+    rr(c,-16,-54,32,33,12,'#6f563e'); rr(c,-13,-52,26,30,10,'#f0a45e'); rr(c,-9,-45,18,8,4,'#ffe0a5'); rr(c,-10,-29,20,8,4,'#51627a');
+    line(c,-12,-48,-22,-39,'#6f563e',7); line(c,12,-48,22,-39,'#6f563e',7); line(c,-12,-48,-22,-39,'#f0a45e',4.8); line(c,12,-48,22,-39,'#f0a45e',4.8); circle(c,-22,-39,2.5,skin); circle(c,22,-39,2.5,skin);
+    rr(c,-6,-61,12,12,5,skin); circle(c,-23,-73,5,'#6f563e'); circle(c,23,-73,5,'#6f563e'); circle(c,-23,-73,3.7,skin); circle(c,23,-73,3.7,skin); ellipse(c,0,-76,22,25,skin,'rgba(110,86,62,.55)',1.1);
+    drawFixedHair(c,hair); drawFixedFace(c,'normal');
+  }
+
+  drawPreviewCanvas = window.drawPreviewCanvas = function drawPreviewCanvasV33(target,ch){
+    if(!target)return; target.width=300; target.height=300; var c=target.getContext('2d'); c.imageSmoothingEnabled=false; c.clearRect(0,0,300,300);
+    var g=c.createLinearGradient(0,0,300,300); g.addColorStop(0,'#1e293b'); g.addColorStop(1,'#0f172a'); c.fillStyle=g; c.fillRect(0,0,300,300);
+    rr(c,58,240,184,14,7,'#25344c');
+    var base={skin:'#ffd6a6',hair:'#5a321c',hairStyle:'basic',faceStyle:'normal'}; try{ if(typeof createPlayer==='function') base=Object.assign(base,createPlayer().character||{}); }catch(_){}
+    var data=Object.assign(base,ch||{});
+    c.save(); c.translate(150,246); c.scale(1.62,1.62); drawPreviewAvatar(c,data); c.restore();
+    c.fillStyle='#bbf7d0'; c.font='bold 13px sans-serif'; c.textAlign='center'; c.fillText('V33 정상 프리뷰',150,276);
+  };
+
+  drawPreviews = window.drawPreviews = function drawPreviewsV33(){
+    var cs=document.getElementById('characterScreen'), cm=document.getElementById('characterMenu');
+    var p=document.getElementById('preview'), mp=document.getElementById('menuPreview');
+    try{ if(cs && !cs.classList.contains('hidden') && p) drawPreviewCanvas(p, typeof selected!=='undefined'?selected:{}); }catch(_){}
+    try{ if(cm && !cm.classList.contains('hidden') && mp){ var ch=(typeof currentUser!=='undefined'&&currentUser&&currentUser.save&&currentUser.save.player)?currentUser.save.player.character:(typeof selected!=='undefined'?selected:{}); drawPreviewCanvas(mp,ch); } }catch(_){}
+  };
+
+  function oneChoice(selector,value){
+    document.querySelectorAll(selector).forEach(function(box){
+      Array.from(box.querySelectorAll('.choice,button')).forEach(function(btn,i){ btn.style.display=i===0?'':'none'; btn.disabled=i!==0; if(i===0){ btn.classList.add('active'); btn.style.pointerEvents='none'; btn.style.background='#ff7aa2'; btn.style.borderColor='#ffd1df'; }});
+    });
+    try{ if(selector.indexOf('hair')>=0&&typeof selected!=='undefined') selected.hairStyle=value||'basic'; if(selector.indexOf('face')>=0&&typeof selected!=='undefined') selected.faceStyle=value||'normal'; }catch(_){}
+  }
+  function forceOneChoices(){ oneChoice('#hairStyleChoices','basic'); oneChoice('#faceStyleChoices','normal'); oneChoice('#v25HairStyleChoices','basic'); oneChoice('#v25FaceStyleChoices','normal'); }
+  setInterval(forceOneChoices,400); setTimeout(forceOneChoices,0);
+
+  function drawFx(c,kind,pal,tier,phase,len){
+    if(phase<=0)return; c.save(); c.globalAlpha=.35+tier*.08;
+    if(kind==='sword'){ c.strokeStyle=pal.a; c.lineWidth=9+tier*1.3; c.beginPath(); c.arc(6,-10,36+tier*7,-1.65,-.04); c.stroke(); c.strokeStyle='#fff'; c.lineWidth=2; c.beginPath(); c.arc(6,-10,27+tier*5,-1.55,-.16); c.stroke(); }
+    else if(kind==='dagger'){ for(var i=0;i<3+tier;i++)line(c,10+i*7,-8-i*6,34+i*10,-18-i*6,pal.a,2.5+tier*.4); }
+    else if(kind==='bow'){ line(c,20,-6,72+tier*18,-6,pal.a,4+tier); poly(c,[[72+tier*18,-6],[58+tier*18,-13],[58+tier*18,1]],pal.b); }
+    else if(kind==='staff'){ circle(c,len+10,-len-10,14+tier*3,'rgba(255,255,255,.08)',pal.a,3); circle(c,len+10,-len-10,6+tier,pal.a); circle(c,len+25,-len-16,3+tier*.5,pal.b); }
+    c.restore();
+  }
+  drawWeapon = window.drawWeapon = function drawWeaponV33(c,ref,handX,handY,attacking,attackKind,animTime){
+    if(!ref)return; var kind=(typeof attackKind==='string'&&attackKind)?attackKind:kindOf(ref), pal=palOf(ref), tier=tierOf(ref), seed=hash(idOf(ref)||'weapon')%7; var phase=attacking?Math.sin(Math.min(1,n(animTime,0)*12)*Math.PI):0; var len=kind==='dagger'?28+seed:kind==='bow'?40+seed*2:kind==='staff'?46+seed*2:58+seed*2+tier*5; var rot=-.74; if(kind==='dagger')rot=attacking?-.95+phase*1.05:-.78; else if(kind==='bow')rot=-.18; else if(kind==='staff')rot=attacking?-.50+phase*.12:-.50; else rot=attacking?-1.02+phase*1.18:-.74;
+    c.save(); c.translate(handX,handY); c.rotate(rot); c.imageSmoothingEnabled=false; c.shadowColor=pal.a; c.shadowBlur=9+tier*3; drawFx(c,kind,pal,tier,phase,len);
+    if(kind==='staff'){ line(c,0,10,len,-len,'#8b5a2b',4.8); circle(c,len+4,-len-4,8+tier*1.4,pal.a,pal.b,1.5); circle(c,len+4,-len-4,3.5+tier*.7,'#fff'); rr(c,len-6,-len+2,12,4,2,pal.c); }
+    else if(kind==='bow'){ c.strokeStyle=pal.a; c.lineWidth=4.5; c.beginPath(); c.arc(14,-6,24+tier*1.6,-1.2,1.2); c.stroke(); line(c,8,-28,20,16,'#f8fafc',1.3); line(c,16,-6,44+tier*6,-6,pal.b,2.8); poly(c,[[46+tier*6,-6],[34+tier*6,-12],[34+tier*6,0]],'#e5e7eb',pal.c,1); }
+    else if(kind==='dagger'){ rr(c,-5,1,14,5,2,pal.c); rr(c,-2,3,6,14,2,'#7c4a21'); poly(c,[[0,0],[10,-16-tier],[24+tier*2,-28-tier],[16+tier*2,-8],[4,0]],'#e5e7eb',pal.a,1.2); line(c,6,-7,18+tier,-19-tier*.5,'rgba(255,255,255,.75)',1); }
+    else { rr(c,-6,0,14,5,2,pal.c); rr(c,-2,2,6,15,2,'#7c4a21'); poly(c,[[0,-2],[10,-18-tier*2],[len,-len],[len-8,-len+10],[4,-3]],'#e5e7eb',pal.a,1.4); line(c,4,-7,len-10,-len+9,'rgba(255,255,255,.78)',1.25); if(tier>=2)circle(c,0,4,2.4,pal.b); }
+    c.shadowBlur=0; c.restore();
+  };
+
+  function drawNpcFixed(npc){
+    var role=String((npc&&npc.type)||'villager'), name=String((npc&&npc.name)||'');
+    var look={skin:'#ffd6a6',hair:'#6b3f22',body:'#60a5fa',sub:'#eff6ff',pants:'#475569',face:'normal'};
+    if(role==='taxi'||/택시/.test(name))look={skin:'#c68642',hair:'#111827',body:'#facc15',sub:'#111827',pants:'#374151',face:'cool'};
+    else if(role==='merchant'||/상인/.test(name))look={skin:'#f1c27d',hair:'#7c4a21',body:'#22c55e',sub:'#fef3c7',pants:'#14532d',face:'smile'};
+    else if(role==='blacksmith'||/대장장이/.test(name))look={skin:'#c68642',hair:'#3b2f2a',body:'#7c2d12',sub:'#fed7aa',pants:'#44403c',face:'cool'};
+    else if(role==='weapon'||/장비|무기/.test(name))look={skin:'#c68642',hair:'#334155',body:'#64748b',sub:'#f1f5f9',pants:'#334155',face:'normal'};
+    else if(role==='quest'||/장로/.test(name))look={skin:'#f1c27d',hair:'#e5e7eb',body:'#7c3aed',sub:'#fef08a',pants:'#312e81',face:'smile'};
+    ctx.save(); ctx.translate(Math.round(npc.x),Math.round(npc.y)); ctx.scale(.96,.96);
+    ellipse(ctx,0,4,22,5,'rgba(0,0,0,.22)'); line(ctx,-7,-22,-9,-4,'#5b3822',7); line(ctx,7,-22,9,-4,'#5b3822',7); line(ctx,-7,-22,-9,-4,look.pants,4.8); line(ctx,7,-22,9,-4,look.pants,4.8);
+    rr(ctx,-16,-54,32,33,13,'#5b3822'); rr(ctx,-13,-52,26,30,11,look.body); rr(ctx,-9,-45,18,8,4,look.sub); rr(ctx,-12,-29,24,8,4,look.pants);
+    line(ctx,-12,-48,-21,-39,'#5b3822',7); line(ctx,12,-48,21,-39,'#5b3822',7); line(ctx,-12,-48,-21,-39,look.body,4.8); line(ctx,12,-48,21,-39,look.body,4.8); circle(ctx,-21,-39,2.5,look.skin); circle(ctx,21,-39,2.5,look.skin);
+    rr(ctx,-6,-61,12,12,5,look.skin); circle(ctx,-24,-74,5,'#5b3822'); circle(ctx,24,-74,5,'#5b3822'); circle(ctx,-24,-74,3.8,look.skin); circle(ctx,24,-74,3.8,look.skin); ellipse(ctx,0,-77,22,25,look.skin,'rgba(91,56,34,.55)',1.2);
+    drawFixedHair(ctx,look.hair); drawFixedFace(ctx,look.face); ctx.restore();
+  }
+  drawNPCs = window.drawNPCs = function drawNPCsV33(){
+    arr(game&&game.npcs).forEach(function(npc){ if(!npc)return; drawNpcFixed(npc); ctx.save(); ctx.textAlign='center'; ctx.font='bold 14px sans-serif'; var y=Math.round(npc.y-145); label(ctx,npc.name||'NPC',Math.round(npc.x),y); if(game.player&&Math.abs(game.player.x-npc.x)<95&&Math.abs(game.player.y-npc.y)<150){ ctx.fillStyle='#fde68a'; label(ctx,'E 대화',Math.round(npc.x),y-29); } ctx.restore(); });
+  };
+
+  updateCamera = window.updateCamera = function updateCameraV33(dt){ if(!game||!game.player)return; var maxX=Math.max(0,n(game.width,0)-n(W,0)); var target=clamp(Math.round(n(game.player.x,0)-n(W,0)*.42),0,maxX); game.cameraX += (target-n(game.cameraX,0))*Math.min(1,n(dt,0)*14); game.cameraX=Math.round(game.cameraX); };
+  drawMonsters = window.drawMonsters = function drawMonstersV33(){
+    arr(game&&game.monsters).forEach(function(m){ if(!m||m.dead)return; var x=Math.round(n(m.x,0)), y=Math.round(n(m.floorY,m.spawnY||m.y||game.ground)); m.y=y; ctx.save(); ctx.translate(x,y); ctx.scale(m.face||1,1); if(m.hit>0)ctx.globalAlpha=.62; if(typeof drawMonsterShape==='function')drawMonsterShape(m.type); ctx.restore(); var big=m.type&&(m.type.shape==='golem'||m.type.shape==='ogre'||m.type.shape==='boar'), bw=big?76:52, by=Math.round(y-(big?94:62)); ctx.fillStyle='#0009'; ctx.fillRect(x-bw/2,by,bw,7); ctx.fillStyle='#ff4d4f'; ctx.fillRect(x-bw/2,by,bw*clamp(n(m.hp,0)/Math.max(1,n(m.maxHp,1)),0,1),7); ctx.fillStyle='#fff'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.fillText('Lv.'+((m.type&&m.type.level)||1),x,by-5); });
+  };
+
+  draw = window.draw = function drawV33(){
+    ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,W,H);
+    if(!game.ready){ if(typeof drawMenuBackground==='function')drawMenuBackground(); drawPreviews(); try{ctx.save();ctx.textAlign='right';ctx.font='bold 15px sans-serif';ctx.fillStyle='#bbf7d0';ctx.fillText('V33 적용됨',W-22,H-22);ctx.restore();}catch(_){} return; }
+    ctx.save(); ctx.translate(-Math.round(n(game.cameraX,0)),0); if(typeof drawWorld==='function')drawWorld(); if(typeof drawPortals==='function')drawPortals(); drawNPCs(); if(typeof drawDrops==='function')drawDrops(); drawMonsters(); if(typeof drawProjectiles==='function')drawProjectiles(); if(typeof drawPlayer==='function')drawPlayer(game.player,game.player.x,game.player.y,.74); if(typeof drawParticles==='function')drawParticles(); if(typeof drawTexts==='function')drawTexts(); ctx.restore();
+    if(typeof drawHUD==='function')drawHUD(); if(typeof inventory!=='undefined'&&inventory.open&&typeof drawInventoryPanel==='function')drawInventoryPanel(); if(typeof stats!=='undefined'&&stats.open&&typeof drawStatsPanel==='function')drawStatsPanel(); if(typeof skills!=='undefined'&&skills.open&&typeof drawSkillsPanel==='function')drawSkillsPanel(); if(typeof quests!=='undefined'&&quests.open&&typeof drawQuestsPanel==='function')drawQuestsPanel(); if(game.dialog&&typeof drawDialog==='function')drawDialog(); if(game.taxiOpen&&typeof drawTaxiPanel==='function')drawTaxiPanel(); if(game.shopOpen&&typeof drawShopPanel==='function')drawShopPanel(); if(game.blacksmithOpen&&typeof drawBlacksmithPanel==='function')drawBlacksmithPanel(); if(typeof inventory!=='undefined'&&inventory.open&&typeof drawItemTooltip==='function')drawItemTooltip(); if(typeof drawDraggedItem==='function')drawDraggedItem();
+    try{ctx.save();ctx.textAlign='right';ctx.font='bold 15px sans-serif';ctx.fillStyle='#bbf7d0';ctx.strokeStyle='rgba(15,23,42,.95)';ctx.lineWidth=4;ctx.strokeText('V33 HARD OVERRIDE 적용됨',W-22,H-22);ctx.fillText('V33 HARD OVERRIDE 적용됨',W-22,H-22);ctx.restore();}catch(_){}
+  };
+
+  console.log('[PixelRPG] V33 hard override fix installed');
+})();
