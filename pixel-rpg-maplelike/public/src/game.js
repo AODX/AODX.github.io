@@ -1,6 +1,6 @@
 
 /* =========================================================
-   RAID DUNGEON V12.5 - CLICK AND SAVE HOTFIX FULL REPLACE public/src/game.js
+   RAID DUNGEON V12.7 - VERIFIED BUILD NAVIGATION CLICK FIX FULL REPLACE public/src/game.js
    보스 레이드 + 가챠 + 보스별 랭킹 + 패턴 파훼 액션 게임
 
    적용 위치: public/src/game.js 전체 교체
@@ -14,7 +14,7 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Dungeon V12.5 - Click/Save Hotfix';
+  const VERSION = 'Raid Dungeon V12.7 - Verified Build Click Fix';
   try { document.title = 'Raid Dungeon'; } catch(e) {}
   const W = 1280;
   const H = 720;
@@ -401,7 +401,7 @@
     const root = document.createElement('div'); root.id = 'raidV4Root';
     root.innerHTML = `
       <style>
-        #raidV4Root{position:fixed;inset:0;pointer-events:none;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e5e7eb;z-index:60;user-select:none;-webkit-user-select:none}.v4-panel{pointer-events:auto;position:absolute;background:rgba(5,8,22,.90);border:1px solid rgba(148,163,184,.32);box-shadow:0 20px 70px rgba(0,0,0,.45);border-radius:20px;backdrop-filter:blur(14px)}.v4-menu{left:50%;top:50%;transform:translate(-50%,-50%);width:1120px;max-height:90vh;overflow:auto;padding:22px;scroll-behavior:auto}.v4-left{left:18px;top:18px;width:330px;max-height:calc(100vh - 36px);overflow:auto;padding:16px}.v4-right{right:18px;top:18px;width:360px;max-height:calc(100vh - 36px);overflow:auto;padding:16px}.hidden{display:none!important}.title{margin:0 0 8px;color:#fff;font-size:28px;font-weight:950;letter-spacing:-.05em}.sub{margin:0 0 14px;color:#94a3b8;font-size:13px;line-height:1.5}.btn{position:relative;z-index:5;appearance:none;border:0;border-radius:13px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-weight:900;padding:13px 16px;cursor:pointer;touch-action:manipulation;min-height:42px}.btn.secondary{background:#111827;border:1px solid rgba(148,163,184,.28);color:#e5e7eb}.btn.danger{background:linear-gradient(135deg,#ef4444,#f97316)}.btn:disabled{opacity:.45;cursor:not-allowed}.nav{display:flex;gap:8px;margin:10px 0 16px}.tab{position:relative;z-index:5;padding:12px 16px;border-radius:999px;border:1px solid rgba(148,163,184,.25);background:#0f172a;color:#cbd5e1;font-weight:900;cursor:pointer;touch-action:manipulation}.tab.active{background:#2563eb;color:white;border-color:#60a5fa}.boss-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.boss-card{position:relative;z-index:4;min-height:230px;position:relative;overflow:hidden;border-radius:18px;padding:14px;background:linear-gradient(180deg,rgba(15,23,42,.92),rgba(3,7,18,.92));border:1px solid rgba(148,163,184,.24);cursor:pointer;transition:border-color .12s,box-shadow .12s;touch-action:manipulation}.boss-card:hover{border-color:#93c5fd}.boss-card.active{border-color:#facc15;box-shadow:0 0 0 2px rgba(250,204,21,.15)}.boss-art{height:88px;margin:6px 0 9px;border-radius:16px;background:radial-gradient(circle at 50% 45%,rgba(255,255,255,.17),rgba(255,255,255,.02) 52%,rgba(0,0,0,.25));display:flex;align-items:center;justify-content:center}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{position:relative;z-index:4;border:1px solid rgba(148,163,184,.25);border-radius:15px;background:rgba(15,23,42,.72);padding:13px;cursor:pointer;transition:border-color .12s,background .12s;touch-action:manipulation}.card:hover{border-color:#93c5fd}.card.active{border-color:#60a5fa;background:linear-gradient(135deg,rgba(37,99,235,.32),rgba(124,58,237,.24))}.card.locked{opacity:.43}.card h3{margin:0 0 5px;font-size:15px;color:#fff}.card p{margin:0;color:#94a3b8;font-size:12px;line-height:1.45}.stepbar{display:flex;gap:8px;margin:12px 0 16px}.step{flex:1;text-align:center;padding:9px 7px;border-radius:999px;background:#111827;border:1px solid rgba(148,163,184,.22);font-size:12px;font-weight:900;color:#94a3b8}.step.active{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff}.chip{display:inline-block;padding:4px 8px;border-radius:999px;background:#1e293b;color:#bfdbfe;font-size:11px;margin:2px}.row{display:flex;gap:10px;align-items:center}.row>*{flex:1}.input{width:100%;box-sizing:border-box;background:#0f172a;color:#e5e7eb;border:1px solid rgba(148,163,184,.32);border-radius:12px;padding:11px;font-weight:800}.record{display:grid;grid-template-columns:36px 1fr 82px;gap:8px;align-items:center;background:#0f172a;border:1px solid rgba(148,163,184,.2);border-radius:12px;padding:8px;margin-bottom:7px}.rank{font-weight:950;color:#facc15;text-align:center}.time{font-weight:950;color:#a7f3d0;text-align:right}.gacha-result{border-radius:18px;border:1px solid rgba(255,255,255,.25);background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.12),rgba(15,23,42,.9));padding:18px;text-align:center;margin-top:14px}.muted{color:#94a3b8;font-size:12px}@media(max-width:920px){.v4-menu{width:calc(100vw - 28px);padding:14px}.boss-grid{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.v4-left,.v4-right{left:14px;right:14px;width:auto}.v4-right{top:auto;bottom:14px;max-height:38vh}}
+        #raidV4Root{position:fixed;inset:0;pointer-events:none;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e5e7eb;z-index:999999;user-select:none;-webkit-user-select:none}.v4-panel{pointer-events:auto;position:absolute;background:rgba(5,8,22,.90);border:1px solid rgba(148,163,184,.32);box-shadow:0 20px 70px rgba(0,0,0,.45);border-radius:20px;backdrop-filter:blur(14px)}.v4-menu{left:50%;top:50%;transform:translate(-50%,-50%);width:1120px;max-height:90vh;overflow:auto;padding:22px;scroll-behavior:auto}.v4-left{left:18px;top:18px;width:330px;max-height:calc(100vh - 36px);overflow:auto;padding:16px}.v4-right{right:18px;top:18px;width:360px;max-height:calc(100vh - 36px);overflow:auto;padding:16px}.hidden{display:none!important}.title{margin:0 0 8px;color:#fff;font-size:28px;font-weight:950;letter-spacing:-.05em}.sub{margin:0 0 14px;color:#94a3b8;font-size:13px;line-height:1.5}.btn{position:relative;z-index:5;appearance:none;border:0;border-radius:13px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-weight:900;padding:13px 16px;cursor:pointer;touch-action:manipulation;min-height:42px}.btn.secondary{background:#111827;border:1px solid rgba(148,163,184,.28);color:#e5e7eb}.btn.danger{background:linear-gradient(135deg,#ef4444,#f97316)}.btn:disabled{opacity:.45;cursor:not-allowed}.nav{display:flex;gap:8px;margin:10px 0 16px}.tab{position:relative;z-index:5;padding:12px 16px;border-radius:999px;border:1px solid rgba(148,163,184,.25);background:#0f172a;color:#cbd5e1;font-weight:900;cursor:pointer;touch-action:manipulation}.tab.active{background:#2563eb;color:white;border-color:#60a5fa}.boss-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.boss-card{position:relative;z-index:4;min-height:230px;position:relative;overflow:hidden;border-radius:18px;padding:14px;background:linear-gradient(180deg,rgba(15,23,42,.92),rgba(3,7,18,.92));border:1px solid rgba(148,163,184,.24);cursor:pointer;transition:border-color .12s,box-shadow .12s;touch-action:manipulation}.boss-card:hover{border-color:#93c5fd}.boss-card.active{border-color:#facc15;box-shadow:0 0 0 2px rgba(250,204,21,.15)}.boss-art{height:88px;margin:6px 0 9px;border-radius:16px;background:radial-gradient(circle at 50% 45%,rgba(255,255,255,.17),rgba(255,255,255,.02) 52%,rgba(0,0,0,.25));display:flex;align-items:center;justify-content:center}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{position:relative;z-index:4;border:1px solid rgba(148,163,184,.25);border-radius:15px;background:rgba(15,23,42,.72);padding:13px;cursor:pointer;transition:border-color .12s,background .12s;touch-action:manipulation}.card:hover{border-color:#93c5fd}.card.active{border-color:#60a5fa;background:linear-gradient(135deg,rgba(37,99,235,.32),rgba(124,58,237,.24))}.card.locked{opacity:.43}.card h3{margin:0 0 5px;font-size:15px;color:#fff}.card p{margin:0;color:#94a3b8;font-size:12px;line-height:1.45}.stepbar{display:flex;gap:8px;margin:12px 0 16px}.step{flex:1;text-align:center;padding:9px 7px;border-radius:999px;background:#111827;border:1px solid rgba(148,163,184,.22);font-size:12px;font-weight:900;color:#94a3b8;cursor:pointer;appearance:none;touch-action:manipulation}.step.active{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff}.chip{display:inline-block;padding:4px 8px;border-radius:999px;background:#1e293b;color:#bfdbfe;font-size:11px;margin:2px}.row{display:flex;gap:10px;align-items:center}.row>*{flex:1}.input{width:100%;box-sizing:border-box;background:#0f172a;color:#e5e7eb;border:1px solid rgba(148,163,184,.32);border-radius:12px;padding:11px;font-weight:800}.record{display:grid;grid-template-columns:36px 1fr 82px;gap:8px;align-items:center;background:#0f172a;border:1px solid rgba(148,163,184,.2);border-radius:12px;padding:8px;margin-bottom:7px}.rank{font-weight:950;color:#facc15;text-align:center}.time{font-weight:950;color:#a7f3d0;text-align:right}.gacha-result{border-radius:18px;border:1px solid rgba(255,255,255,.25);background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.12),rgba(15,23,42,.9));padding:18px;text-align:center;margin-top:14px}.muted{color:#94a3b8;font-size:12px}@media(max-width:920px){.v4-menu{width:calc(100vw - 28px);padding:14px}.boss-grid{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.v4-left,.v4-right{left:14px;right:14px;width:auto}.v4-right{top:auto;bottom:14px;max-height:38vh}}
       </style><div id="v4Menu" class="v4-panel v4-menu"></div><div id="v4Left" class="v4-panel v4-left hidden"></div><div id="v4Right" class="v4-panel v4-right hidden"></div>`;
     document.body.appendChild(root);
     return { root, menu:root.querySelector('#v4Menu'), left:root.querySelector('#v4Left'), right:root.querySelector('#v4Right') };
@@ -427,30 +427,30 @@
   let lastUiActionKey = '';
 
   function bindResponsiveUiClicks() {
-    const bind = panel => {
+    // V12.7 핵심 수정: 출격 준비 화면의 방어구/다음/출격 버튼은
+    // 매번 새로 그려지는 HTML이라 개별 바인딩이 누락될 수 있었다.
+    // 그래서 메뉴 패널에 단 하나의 위임 클릭 리스너를 고정으로 연결한다.
+    // 버튼/카드가 다시 렌더링되어도 항상 여기서 처리된다.
+    if (ui.menu && !ui.menu.__raidDelegatedClickBound) {
+      ui.menu.__raidDelegatedClickBound = true;
+      ui.menu.addEventListener('click', handleUiAction, true);
+      ui.menu.addEventListener('pointerup', handleUiAction, true);
+    }
+    const stopCanvasOnly = panel => {
       if(!panel || panel.__raidPointerBound) return;
       panel.__raidPointerBound = true;
-      // UI 패널에서 누른 입력은 아래 canvas 공격 입력으로 내려가지 않게 막는다.
+      // 메뉴 클릭이 뒤쪽 canvas 공격 입력으로 내려가지 않게만 막고,
+      // 버튼 처리는 아래 bindMenuButtons의 일반 onclick에 맡긴다.
+      // 이전 버전의 pointerup/click 강제 가로채기가 출격 준비 단계 버튼을 씹히게 만들었다.
       panel.addEventListener('pointerdown', e=>{
-        const hitTarget = e.target && e.target.closest && e.target.closest('button,.card,.boss-card,.tab,.step,[data-prev-step],[data-next-step]');
-        if(hitTarget){ e.stopPropagation(); }
+        if(e.target && e.target.closest && e.target.closest('button,.card,.boss-card,.tab,.step,input,select,textarea')) {
+          e.stopPropagation();
+        }
       }, true);
-      // 일부 브라우저/모바일에서는 click이 씹히고, 일부 환경에서는 pointerup이 씹혀서 둘 다 받는다.
-      panel.addEventListener('pointerup', handleUiAction, true);
-      panel.addEventListener('click', handleUiAction, true);
     };
-    bind(ui.menu); bind(ui.left); bind(ui.right);
-    if(!document.__raidDungeonGlobalClickBound) {
-      document.__raidDungeonGlobalClickBound = true;
-      document.addEventListener('click', function(e){
-        const root = document.getElementById('raidV4Root');
-        if(root && root.contains(e.target)) handleUiAction(e);
-      }, true);
-      document.addEventListener('pointerup', function(e){
-        const root = document.getElementById('raidV4Root');
-        if(root && root.contains(e.target)) handleUiAction(e);
-      }, true);
-    }
+    stopCanvasOnly(ui.menu);
+    stopCanvasOnly(ui.left);
+    stopCanvasOnly(ui.right);
   }
 
   function handleUiAction(e) {
@@ -766,33 +766,33 @@
     if(state.buildStep==='skill3') content = skillSlotGrid(2);
     if(state.buildStep==='passive') content = passiveGrid();
     if(state.buildStep==='ready') content = readyPanel();
-    return `<div class="row"><div><h2 class="title" style="font-size:22px">출격 준비 · ${getBoss(state.selectedBossId).name}</h2><p class="sub">현재 보스 난이도 ${stars(getBoss(state.selectedBossId).tier)} · 방어구 1개 장착 가능 · 패시브는 1개만 선택 가능 · 스킬은 종류 제한 없이 아무거나 3개 장착 가능</p></div><button id="backDungeon" class="btn secondary">보스 다시 선택</button></div><div class="stepbar">${steps.map(s=>`<div class="step ${state.buildStep===s[0]?'active':''}" data-step="${s[0]}">${s[1]}</div>`).join('')}</div>${content}`;
+    return `<div class="row"><div><h2 class="title" style="font-size:22px">출격 준비 · ${getBoss(state.selectedBossId).name}</h2><p class="sub">현재 보스 난이도 ${stars(getBoss(state.selectedBossId).tier)} · 방어구 1개 장착 가능 · 패시브는 1개만 선택 가능 · 스킬은 종류 제한 없이 아무거나 3개 장착 가능</p></div><button id="backDungeon" class="btn secondary">보스 다시 선택</button></div><div class="stepbar">${steps.map(s=>`<button type="button" class="step ${state.buildStep===s[0]?'active':''}" data-step="${s[0]}">${s[1]}</button>`).join('')}</div>${content}`;
   }
 
   function skillSlotGrid(slot) {
     const items = ownedSkills();
     const selected = state.selectedSkillIds[slot] || null;
     const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id=""><h3>스킬 ${slot+1} 비우기</h3><p>스킬을 끼지 않아도 레이드는 시작할 수 있습니다.</p></div>`;
-    if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 스킬이 없습니다.</h3><p>스킬 뽑기에서 공격, 버프, 회복, 디버프, 상태이상 해제 스킬을 모두 획득할 수 있습니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
-    return `<p class="sub">스킬 ${slot+1}번 칸입니다. 공격/버프/회복/디버프/상태이상 해제 구분 없이 원하는 스킬을 장착할 수 있습니다. 같은 스킬은 한 번만 장착됩니다.</p><div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>분류: ${skillCategoryName(it.category)} · 속성: ${it.element}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
+    if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 스킬이 없습니다.</h3><p>스킬 뽑기에서 공격, 버프, 회복, 디버프, 상태이상 해제 스킬을 모두 획득할 수 있습니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+    return `<p class="sub">스킬 ${slot+1}번 칸입니다. 공격/버프/회복/디버프/상태이상 해제 구분 없이 원하는 스킬을 장착할 수 있습니다. 같은 스킬은 한 번만 장착됩니다.</p><div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>분류: ${skillCategoryName(it.category)} · 속성: ${it.element}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
   }
   function selectionGrid(items, selected, type) {
     const noneTitle = type === 'weapon' ? '무기 없이 출격' : type === 'armor' ? '방어구 없이 출격' : '이 스킬칸 비우기';
     const noneDesc = type === 'weapon' ? '스킬만 가지고 레이드에 들어갈 수 있습니다. 일반공격은 사용할 수 없습니다.' : type === 'armor' ? '방어구는 생존을 돕지만 필수는 아닙니다.' : '스킬을 끼지 않아도 레이드는 시작할 수 있습니다.';
     const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="${type}" data-select-id=""><h3>${noneTitle}</h3><p>${noneDesc}</p></div>`;
-    if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 항목이 없습니다.</h3><p>뽑기 상점에서 먼저 획득할 수 있습니다. 그래도 다른 장비/스킬이 있으면 출격은 가능합니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
-    return `<div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="${type}" data-select-id="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>${it.category?('분류: '+skillCategoryName(it.category)):(type==='armor'?('효과: 체력 +'+it.hp+' / 방어 +'+it.def):('종류: '+weaponKindName(it.kind)))}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
+    if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 항목이 없습니다.</h3><p>뽑기 상점에서 먼저 획득할 수 있습니다. 그래도 다른 장비/스킬이 있으면 출격은 가능합니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+    return `<div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="${type}" data-select-id="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>${it.category?('분류: '+skillCategoryName(it.category)):(type==='armor'?('효과: 체력 +'+it.hp+' / 방어 +'+it.def):('종류: '+weaponKindName(it.kind)))}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
   }
   function passiveGrid() {
     const items = ownedPassives(); const limit = passiveLimit();
     if(!items.length) return `<div class="card"><h3>보유한 패시브가 없습니다.</h3><p>패시브 뽑기로 획득해야 합니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div>`;
-    return `<p class="sub">${limit}개까지 선택 가능. 현재 ${state.selectedPassiveIds.length}/${limit}</p><div class="grid">${items.map(it=>`<div class="card ${state.selectedPassiveIds.includes(it.id)?'active':''}" data-passive="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
+    return `<p class="sub">${limit}개까지 선택 가능. 현재 ${state.selectedPassiveIds.length}/${limit}</p><div class="grid">${items.map(it=>`<div class="card ${state.selectedPassiveIds.includes(it.id)?'active':''}" data-passive="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
   }
   function readyPanel() {
     const ok = canStart();
     const b = getBoss(state.selectedBossId);
     const skillNames = (state.selectedSkillIds || []).map((id,i)=>`스킬 ${i+1}: ${getSkill(id)?.name || '없음'}`).join('<br>');
-    return `<div class="grid"><div class="card active"><h3>${b.name}</h3><p>${stars(b.tier)}<br>${b.desc}</p><div>${b.patterns.map(p=>`<span class="chip">${p}</span>`).join('')}</div></div><div class="card"><h3>선택한 조합</h3><p>무기: ${getWeapon(state.selectedWeaponId)?.name || '없음'}<br>방어구: ${getArmor(state.selectedArmorId)?.name || '없음'}<br>${skillNames}<br>패시브: ${state.selectedPassiveIds.length}/${passiveLimit()} · 필수 아님</p><p class="sub">무기만 있어도, 스킬만 있어도 출격할 수 있습니다. 단, 무기와 스킬을 모두 비우면 공격 수단이 없어 시작할 수 없습니다.</p></div></div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button id="startRaid" class="btn danger" ${ok?'':'disabled'}>레이드 시작</button></div>${ok?'':'<p class="sub">무기 또는 스킬 중 최소 하나는 장착해야 합니다. 패시브는 선택 사항입니다.</p>'}`;
+    return `<div class="grid"><div class="card active"><h3>${b.name}</h3><p>${stars(b.tier)}<br>${b.desc}</p><div>${b.patterns.map(p=>`<span class="chip">${p}</span>`).join('')}</div></div><div class="card"><h3>선택한 조합</h3><p>무기: ${getWeapon(state.selectedWeaponId)?.name || '없음'}<br>방어구: ${getArmor(state.selectedArmorId)?.name || '없음'}<br>${skillNames}<br>패시브: ${state.selectedPassiveIds.length}/${passiveLimit()} · 필수 아님</p><p class="sub">무기만 있어도, 스킬만 있어도 출격할 수 있습니다. 단, 무기와 스킬을 모두 비우면 공격 수단이 없어 시작할 수 없습니다.</p></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" id="startRaid" class="btn danger" ${ok?'':'disabled'}>레이드 시작</button></div>${ok?'':'<p class="sub">무기 또는 스킬 중 최소 하나는 장착해야 합니다. 패시브는 선택 사항입니다.</p>'}`;
   }
   function renderRankingTab() {
     const rows = state.rankings.length ? state.rankings.map((r,i)=>{
@@ -807,20 +807,13 @@
 
 
   function bindMenuButtons() {
-    ui.menu.querySelectorAll('[data-boss]').forEach(el=>el.onclick=()=>{state.selectedBossId=el.dataset.boss; trimSelectedPassives(); renderMenu(); refreshRankings(state.selectedBossId);});
-    const goBuild = ui.menu.querySelector('#goBuild'); if(goBuild) goBuild.onclick=()=>{state.menuTab='build'; state.buildStep='weapon'; renderMenu();};
-    const goGacha = ui.menu.querySelector('#goGacha'); if(goGacha) goGacha.onclick=()=>{state.menuTab='gacha'; renderMenu();};
-    ui.menu.querySelectorAll('[data-gacha]').forEach(b=>b.onclick=()=>rollGacha(b.dataset.gacha));
-    ui.menu.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{state.buildStep=b.dataset.step; renderMenu();});
-    ui.menu.querySelectorAll('[data-tabgo]').forEach(b=>b.onclick=()=>{state.menuTab=b.dataset.tabgo; renderMenu();});
-    const backDungeon=ui.menu.querySelector('#backDungeon'); if(backDungeon) backDungeon.onclick=()=>{state.menuTab='dungeon'; renderMenu();};
-    ui.menu.querySelectorAll('[data-select-type]').forEach(el=>el.onclick=()=>selectBuild(el.dataset.selectType, el.dataset.selectId, Number(el.dataset.slot || 0)));
-    ui.menu.querySelectorAll('[data-passive]').forEach(el=>el.onclick=()=>togglePassive(el.dataset.passive));
-    ui.menu.querySelectorAll('[data-prev-step]').forEach(prev=>prev.onclick=()=>stepMove(-1));
-    ui.menu.querySelectorAll('[data-next-step]').forEach(next=>next.onclick=()=>stepMove(1));
-    const start=ui.menu.querySelector('#startRaid'); if(start) start.onclick=startRaid;
-    const manualSaveBtn=ui.menu.querySelector('#manualSaveBtn'); if(manualSaveBtn) manualSaveBtn.onclick=()=>manualSaveProfile();
-    const rb=ui.menu.querySelector('#rankBoss'); if(rb) rb.onchange=()=>{state.rankingBossId=rb.value; refreshRankings(rb.value); renderMenu();};
+    // V12.7: 클릭 처리는 bindResponsiveUiClicks의 메뉴 위임 리스너가 전담한다.
+    // 여기서는 select 변경처럼 click 이벤트가 아닌 UI만 보조로 연결한다.
+    const rb = ui.menu.querySelector('#rankBoss');
+    if (rb && !rb.__raidBound) {
+      rb.__raidBound = true;
+      rb.onchange = () => { state.rankingBossId = rb.value; refreshRankings(rb.value); renderMenu(); };
+    }
   }
   function selectBuild(type,id,slot){
     id = id || null;
