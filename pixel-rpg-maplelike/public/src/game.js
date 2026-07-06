@@ -1,6 +1,6 @@
 
 /* =========================================================
-   RAID BUILD GAME V11 - UNIQUE PUBLIC RANKING + 18 BOSSES + ONE PASSIVE BALANCE FULL REPLACE public/src/game.js
+   RAID BUILD GAME V12 - ARMOR GACHA + SAFE TELEGRAPH + ROTATING LASER FIX FULL REPLACE public/src/game.js
    보스 레이드 + 가챠 + 보스별 랭킹 + 패턴 파훼 액션 게임
 
    적용 위치: public/src/game.js 전체 교체
@@ -14,13 +14,13 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Build Game V11.0 - Public Ranking Build Details + 18 Bosses + One Passive Balance';
+  const VERSION = 'Raid Build Game V12.0 - Armor Gacha + Telegraph Boss Fix';
   const W = 1280;
   const H = 720;
-  const SAVE_KEY = 'raid-build-v11-local-save';
-  const LOCAL_RECORD_KEY = 'raid-build-v11-local-records';
-  const INITIAL_TICKETS = { weapon: 1, skill: 3, passive: 1 }; // 처음 지급: 무기 1회, 스킬 3회, 패시브 1회
-  const TICKET_LABEL = { weapon: '무기 뽑기 티켓', skill: '스킬 뽑기 티켓', passive: '패시브 뽑기 티켓' };
+  const SAVE_KEY = 'raid-build-v12-local-save';
+  const LOCAL_RECORD_KEY = 'raid-build-v12-local-records';
+  const INITIAL_TICKETS = { weapon: 1, armor: 1, skill: 3, passive: 1 }; // 처음 지급: 무기 1회, 방어구 1회, 스킬 3회, 패시브 1회
+  const TICKET_LABEL = { weapon: '무기 뽑기 티켓', armor: '방어구 뽑기 티켓', skill: '스킬 뽑기 티켓', passive: '패시브 뽑기 티켓' };
   const PROFILE_TABLE = 'raid_profiles';
 
   let canvas = document.getElementById('game');
@@ -135,6 +135,27 @@
     weapon('singularity_scythe', '특이점 낫', 'ultimate', 'scythe', '공간을 접어 왕복하는 검은 낫.', '#c084fc', 1.76, 560, .46, 36)
   ];
 
+
+  const ARMORS = [
+    armor('cotton_vest','낡은 천 조끼','normal','최대 체력 +12, 방어 +1. 기본 생존용 방어구입니다.','#cbd5e1',12,1,{}),
+    armor('leather_mail','가죽 갑옷','normal','최대 체력 +16, 방어 +1. 움직임이 가벼운 방어구입니다.','#a16207',16,1,{}),
+    armor('bronze_guard','청동 흉갑','normal','최대 체력 +20, 방어 +2. 초반용 흉갑입니다.','#d97706',20,2,{}),
+    armor('ranger_coat','사냥꾼 코트','rare','최대 체력 +25, 방어 +2, 슬로우 저항. 이동 방해를 조금 줄입니다.','#38bdf8',25,2,{slow:.20}),
+    armor('ember_cloak','잿불 망토','rare','최대 체력 +28, 방어 +2, 화상 저항. 화염 보스에 유리합니다.','#fb7185',28,2,{burn:.25}),
+    armor('venom_mask','독막 마스크','rare','최대 체력 +24, 방어 +2, 독 저항. 독 피해를 줄입니다.','#84cc16',24,2,{poison:.25}),
+    armor('frost_plate','빙결 판금','super','최대 체력 +34, 방어 +3, 빙결 저항. 얼음 패턴에 강합니다.','#7dd3fc',34,3,{freeze:.35}),
+    armor('thunder_coat','뇌전 코트','super','최대 체력 +32, 방어 +3, 마비 저항. 번개 패턴에 강합니다.','#fde047',32,3,{paralysis:.35}),
+    armor('thorn_mail','가시 갑옷','super','최대 체력 +36, 방어 +3, 독 저항. 자연/독 보스에 좋습니다.','#f472b6',36,3,{poison:.35}),
+    armor('mirror_robe','거울 로브','epic','최대 체력 +44, 방어 +4, 슬로우/마비 저항. 기믹 대응력이 좋습니다.','#e879f9',44,4,{slow:.40,paralysis:.28}),
+    armor('abyss_guard','심연 수호갑','epic','최대 체력 +48, 방어 +4, 독/화상 저항. 지속 피해에 강합니다.','#8b5cf6',48,4,{poison:.42,burn:.32}),
+    armor('solar_aegis','태양 방벽갑','epic','최대 체력 +52, 방어 +4, 화상 저항. 큰 화염 공격을 버티기 쉽습니다.','#f97316',52,4,{burn:.48}),
+    armor('storm_aegis','폭풍 방벽갑','legendary','최대 체력 +65, 방어 +5, 마비 면역 55%, 슬로우 저항. 폭풍 거신 대응용입니다.','#facc15',65,5,{paralysis:.55,slow:.35}),
+    armor('chrono_mantle','시간 망토','legendary','최대 체력 +60, 방어 +5, 슬로우 면역 60%, 빙결 저항. 시간/빙결 기믹에 강합니다.','#f472b6',60,5,{slow:.60,freeze:.38}),
+    armor('plague_saint','역병 성자의 예복','legendary','최대 체력 +62, 방어 +5, 독 면역 65%, 화상 저항. 역병 보스에 강합니다.','#bef264',62,5,{poison:.65,burn:.28}),
+    armor('genesis_armor','창세 방어구','ultimate','최대 체력 +85, 방어 +7, 모든 상태이상 저항 45%. 궁극 등급 방어구입니다.','#ffffff',85,7,{burn:.45,poison:.45,freeze:.45,paralysis:.45,slow:.45}),
+    armor('apocalypse_shell','종말의 외피','ultimate','최대 체력 +95, 방어 +6, 독/화상/마비 면역 60%. 후반 즉사 외 일반 패턴을 버티기 좋습니다.','#fb7185',95,6,{burn:.60,poison:.60,paralysis:.60}),
+    armor('void_king_plate','공허왕의 판금','ultimate','최대 체력 +90, 방어 +8, 슬로우/빙결 면역 60%. 공허, 중력, 시간 패턴에 강합니다.','#a78bfa',90,8,{slow:.60,freeze:.60})
+  ];
   const SKILLS = buildSkills();
   const PASSIVES = buildPassives();
 
@@ -153,6 +174,7 @@
     buildStep: 'weapon',
     selectedBossId: BOSSES[0].id,
     selectedWeaponId: null,
+    selectedArmorId: null,
     selectedSkillIds: [null, null, null],
     selectedAttackSkillId: null,
     selectedEvasionSkillId: null,
@@ -264,7 +286,7 @@
       ['power_core','힘의 핵','normal','모든 피해 +8%', p=>p.damageMul*=1.08], ['iron_skin','강철 피부','normal','최대 체력 +15%', p=>p.maxHp*=1.15], ['swift_step','날렵한 발걸음','normal','이동속도 +12%', p=>p.speed*=1.12], ['focus_eye','집중의 눈','rare','치명타 확률 +10%', p=>p.crit+=10], ['boss_slayer','보스 슬레이어','rare','보스 피해 +14%', p=>p.damageMul*=1.14], ['cool_mind','냉정한 정신','rare','쿨타임 -10%', p=>p.cooldownMul*=.90], ['life_drain','흡혈 본능','super','흡혈 +2.5%', p=>p.lifesteal+=.025], ['giant_area','확장 마법진','super','스킬 범위 +18%', p=>p.areaMul*=1.18], ['quick_cast','빠른 시전','super','스킬 피해 +10%, 쿨타임 -6%', p=>{p.skillDamageMul*=1.10;p.cooldownMul*=.94;}], ['berserk','광전사의 심장','epic','체력이 낮을수록 피해 증가', p=>p.berserk=true], ['perfect_roll','완벽한 구르기','epic','구르기 쿨타임 -0.5초', p=>p.rollCdBonus=.5], ['dragon_blood','용혈','legendary','체력 +25%, 피해 +15%', p=>{p.maxHp*=1.25;p.damageMul*=1.15;}], ['time_engine','시간 엔진','legendary','모든 쿨타임 -18%', p=>p.cooldownMul*=.82], ['origin_star','근원의 별','ultimate','모든 능력 대폭 상승', p=>{p.damageMul*=1.28;p.skillDamageMul*=1.25;p.maxHp*=1.20;p.crit+=15;}]
     ];
     const arr = defs.map(d => ({ id:'passive_'+d[0], name:d[1], rarity:d[2], desc:d[3], apply:d[4], type:'passive' }));
-    const names = ['용맹','정밀','집중','가속','재생','수호','관통','폭발','냉기','화염','독성','감전','영혼','사냥꾼','흐름','파동','섬광','근성','반격','분노','연마','질풍','철벽','명상','잔상','도약','응축','혈기','마력','예열','약점','끈기','격노','흡수','순환','기민','압도','학살','절제','균형','별빛','공허','태양','월광','중력','시간'];
+    const names = ['용맹','마력','생명','질풍','예리함','치명상','스킬증폭','기본공격','재사용','재생','공격본능','비전력','강인함','가속','집중타','약점타','마법증폭','무기숙련','냉정함','회복순환','전투심','마나흐름','철벽심장','발걸음','정밀안','파괴상','주문강화','평타강화','시간단축','회복본능','압도','성운마력','근성','섬광보','사냥눈','분쇄력','스킬숙련','검술연마','쿨감각','자연치유','용맹한 핵','공허마력','태양생명','월광속도','별빛치명','혼돈치명상'];
     names.forEach((name,i)=>{
       const rarity = pickFixedRarity(i, names.length);
       const v = 5 + Math.floor(i/8)*2 + (i%4);
@@ -308,7 +330,7 @@
   }
 
   function createDefaultSave() {
-    return { first: true, tickets: {...INITIAL_TICKETS}, coins: 0, weapons: [], skills: [], passives: [], playerName: 'Player', seenHelp: false, build:{weapon:null, skills:[null,null,null], passives:[]} };
+    return { first: true, tickets: {...INITIAL_TICKETS}, coins: 0, weapons: [], armors: [], skills: [], passives: [], playerName: 'Player', seenHelp: false, build:{weapon:null, armor:null, skills:[null,null,null], passives:[]} };
   }
   function loadSave() {
     try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || localStorage.getItem('raid-build-v7-local-save') || 'null'); if (s) return s; } catch(e) {}
@@ -321,29 +343,31 @@
   function normalizeSaveData(data) {
     const s = Object.assign(createDefaultSave(), data || {});
     if (!Array.isArray(s.weapons)) s.weapons = [];
+    if (!Array.isArray(s.armors)) s.armors = [];
     if (!Array.isArray(s.skills)) s.skills = [];
     if (!Array.isArray(s.passives)) s.passives = [];
     if (!s.tickets || typeof s.tickets !== 'object') s.tickets = {...INITIAL_TICKETS};
-    ['weapon','skill','passive'].forEach(k=>{ if(!Number.isFinite(s.tickets[k])) s.tickets[k] = INITIAL_TICKETS[k]; });
+    ['weapon','armor','skill','passive'].forEach(k=>{ if(!Number.isFinite(s.tickets[k])) s.tickets[k] = INITIAL_TICKETS[k] || 0; });
     if (!Number.isFinite(s.coins)) s.coins = 0;
     if (!s.playerName) s.playerName = localStorage.getItem('raid-build-player-name-v1') || 'Player';
     if(!s.build||typeof s.build!=='object') s.build={weapon:null,skills:[null,null,null],passives:[]};
     if(!Array.isArray(s.build.skills)) s.build.skills=[null,null,null];
     if(!Array.isArray(s.build.passives)) s.build.passives=[];
     s.weapons = Array.from(new Set(s.weapons.filter(id=>getWeapon(id))));
+    s.armors = Array.from(new Set(s.armors.filter(id=>getArmor(id))));
     s.skills = Array.from(new Set(s.skills.filter(id=>getSkill(id))));
     s.passives = Array.from(new Set(s.passives.filter(id=>getPassive(id))));
     return s;
   }
   function saveGame() {
-    if(state && state.save){ state.save.build={weapon:state.selectedWeaponId||null, skills:(state.selectedSkillIds||[null,null,null]).slice(0,3), passives:(state.selectedPassiveIds||[]).slice()}; }
+    if(state && state.save){ state.save.build={weapon:state.selectedWeaponId||null, armor:state.selectedArmorId||null, skills:(state.selectedSkillIds||[null,null,null]).slice(0,3), passives:(state.selectedPassiveIds||[]).slice()}; }
     state.save = normalizeSaveData(state.save);
     localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
     queueCloudSave();
   }
 
   function makePlayer() {
-    return { x: W/2, y: H-120, r:16, hp:100, maxHp:100, shield:0, speed:265, atk:100, magic:100, def:0, crit:8, critDmg:1.7, damageMul:1, skillDamageMul:1, basicDamageMul:1, cooldownMul:1, areaMul:1, projectileSpeedMul:1, lifesteal:0, regen:.18, regen5:0, regen5Tick:0, invuln:0, slow:0, roll:0, rollCd:0, rollCdBonus:0, rollVx:0, rollVy:0, basicCd:0, skillCd:[0,0,0], damageTaken:0, aim:0, face:1, anim:0, attackAnim:0, attackAngle:0, tempBuffs:[], statuses:{burn:0,poison:0,freeze:0,paralysis:0,slow:0}, statusTick:0 };
+    return { x: W/2, y: H-120, r:16, hp:100, maxHp:100, shield:0, speed:265, atk:100, magic:100, def:0, crit:8, critDmg:1.7, damageMul:1, skillDamageMul:1, basicDamageMul:1, cooldownMul:1, areaMul:1, projectileSpeedMul:1, lifesteal:0, regen:.18, regen5:0, regen5Tick:0, statusResist:{burn:0,poison:0,freeze:0,paralysis:0,slow:0}, equippedArmor:null, invuln:0, slow:0, roll:0, rollCd:0, rollCdBonus:0, rollVx:0, rollVy:0, basicCd:0, skillCd:[0,0,0], damageTaken:0, aim:0, face:1, anim:0, attackAnim:0, attackAngle:0, tempBuffs:[], statuses:{burn:0,poison:0,freeze:0,paralysis:0,slow:0}, statusTick:0 };
   }
   function makeBoss(b) {
     return { id:b.id, name:b.name, tier:b.tier, theme:b.theme, x:W/2, y:150, r:44+b.tier*6, hp:b.hp, maxHp:b.hp, atk:b.atk, speed:b.speed, color:b.color, sub:b.sub, ai:0, patternCd:1.2, phase:1, vulnerable:0, guard:0, dead:false, hit:0, mechanicText:'패턴을 파훼하면 약화됩니다.', clones:[], realIndex:0, charge:0, vx:0, vy:0, statuses:{burn:0,poison:0,freeze:0,paralysis:0,slow:0,weaken:0,vulnerable:0}, statusTick:0 };
@@ -487,11 +511,13 @@
   function trimSelectionsToOwned(){
     if(state.save && state.save.build){
       if(!state.selectedWeaponId && state.save.build.weapon) state.selectedWeaponId = state.save.build.weapon;
+      if(!state.selectedArmorId && state.save.build.armor) state.selectedArmorId = state.save.build.armor;
       if((!state.selectedSkillIds || !state.selectedSkillIds.some(Boolean)) && Array.isArray(state.save.build.skills)) state.selectedSkillIds = state.save.build.skills.slice(0,3);
       if((!state.selectedPassiveIds || !state.selectedPassiveIds.length) && Array.isArray(state.save.build.passives)) state.selectedPassiveIds = state.save.build.passives.slice();
     }
-    const sw = new Set(state.save.weapons), ss = new Set(state.save.skills), sp = new Set(state.save.passives);
+    const sw = new Set(state.save.weapons), sa = new Set(state.save.armors || []), ss = new Set(state.save.skills), sp = new Set(state.save.passives);
     if(state.selectedWeaponId && !sw.has(state.selectedWeaponId)) state.selectedWeaponId = null;
+    if(state.selectedArmorId && !sa.has(state.selectedArmorId)) state.selectedArmorId = null;
     state.selectedSkillIds = (state.selectedSkillIds || [state.selectedAttackSkillId,state.selectedEvasionSkillId,state.selectedBuffSkillId]).map(id => id && ss.has(id) ? id : null).slice(0,3);
     while(state.selectedSkillIds.length < 3) state.selectedSkillIds.push(null);
     state.selectedAttackSkillId = state.selectedSkillIds[0];
@@ -504,7 +530,7 @@
     const loading = !state.authChecked ? '<p class="sub">Supabase 로그인 상태 확인 중...</p>' : '';
     const modeText = state.authMode === 'login' ? '로그인' : '회원가입';
     const nick = state.authMode === 'signup' ? '<input id="raidNickname" class="input" placeholder="닉네임" autocomplete="nickname" style="margin-bottom:8px">' : '';
-    ui.menu.innerHTML = `<h1 class="title">보스 레이드 로그인</h1><p class="sub">계정에 로그인하면 뽑아둔 무기, 스킬, 패시브, 뽑기 티켓이 Supabase에 저장됩니다.<br>다른 컴퓨터에서 접속해도 같은 계정이면 그대로 이어서 플레이할 수 있습니다.</p>${loading}<div class="nav"><button class="tab ${state.authMode==='login'?'active':''}" data-authmode="login">로그인</button><button class="tab ${state.authMode==='signup'?'active':''}" data-authmode="signup">회원가입</button></div><div class="grid"><div class="card" style="cursor:default"><h3>${modeText}</h3><input id="raidEmail" class="input" placeholder="이메일" autocomplete="email" style="margin-bottom:8px"><input id="raidPassword" class="input" type="password" placeholder="비밀번호 6자 이상" autocomplete="current-password" style="margin-bottom:8px">${nick}<button id="authSubmit" class="btn" style="width:100%" ${state.authBusy?'disabled':''}>${modeText}</button><p class="sub" style="margin-top:10px;color:${state.authMessage && state.authMessage.includes('실패') ? '#fb7185' : '#fef08a'}">${escapeHtml(state.authMessage || state.cloudStatus || '')}</p></div><div class="card" style="cursor:default"><h3>처음 지급</h3><p>처음 로그인한 계정은 무기 뽑기 티켓 1장, 스킬 뽑기 티켓 3장, 패시브 뽑기 티켓 1장을 받습니다.</p><p class="sub">Supabase에서 이메일 확인을 켜두었다면 회원가입 후 이메일 인증을 해야 로그인됩니다. 학교/개인 프로젝트라면 Auth 설정에서 이메일 확인을 꺼두면 바로 가입됩니다.</p></div></div>`;
+    ui.menu.innerHTML = `<h1 class="title">보스 레이드 로그인</h1><p class="sub">계정에 로그인하면 뽑아둔 무기, 스킬, 패시브, 뽑기 티켓이 Supabase에 저장됩니다.<br>다른 컴퓨터에서 접속해도 같은 계정이면 그대로 이어서 플레이할 수 있습니다.</p>${loading}<div class="nav"><button class="tab ${state.authMode==='login'?'active':''}" data-authmode="login">로그인</button><button class="tab ${state.authMode==='signup'?'active':''}" data-authmode="signup">회원가입</button></div><div class="grid"><div class="card" style="cursor:default"><h3>${modeText}</h3><input id="raidEmail" class="input" placeholder="이메일" autocomplete="email" style="margin-bottom:8px"><input id="raidPassword" class="input" type="password" placeholder="비밀번호 6자 이상" autocomplete="current-password" style="margin-bottom:8px">${nick}<button id="authSubmit" class="btn" style="width:100%" ${state.authBusy?'disabled':''}>${modeText}</button><p class="sub" style="margin-top:10px;color:${state.authMessage && state.authMessage.includes('실패') ? '#fb7185' : '#fef08a'}">${escapeHtml(state.authMessage || state.cloudStatus || '')}</p></div><div class="card" style="cursor:default"><h3>처음 지급</h3><p>처음 로그인한 계정은 무기 뽑기 티켓 1장, 방어구 뽑기 티켓 1장, 스킬 뽑기 티켓 3장, 패시브 뽑기 티켓 1장을 받습니다.</p><p class="sub">Supabase에서 이메일 확인을 켜두었다면 회원가입 후 이메일 인증을 해야 로그인됩니다. 학교/개인 프로젝트라면 Auth 설정에서 이메일 확인을 꺼두면 바로 가입됩니다.</p></div></div>`;
     ui.menu.querySelectorAll('[data-authmode]').forEach(b=>b.onclick=()=>{state.authMode=b.dataset.authmode; state.authMessage=''; renderMenu();});
     const submit = ui.menu.querySelector('#authSubmit'); if(submit) submit.onclick=()=>handleAuth(state.authMode === 'signup' ? 'signup' : 'login');
   }
@@ -518,29 +544,30 @@
     if(state.menuTab==='gacha') body = renderGachaTab();
     if(state.menuTab==='build') body = renderBuildTab();
     if(state.menuTab==='ranking') body = renderRankingTab();
-    ui.menu.innerHTML = `<div class="row"><div><h1 class="title">보스 레이드 빌드 게임 V11</h1><p class="sub">보스를 선택하고, 티켓으로 무기/스킬/패시브를 뽑아 조합한 뒤 패턴을 파훼해서 클리어하세요.</p></div><div style="text-align:right"><div class="chip">${VERSION}</div><div class="chip">${escapeHtml(state.save.playerName || 'Player')}</div><div class="chip">무기티켓 ${state.save.tickets.weapon}</div><div class="chip">스킬티켓 ${state.save.tickets.skill}</div><div class="chip">패시브티켓 ${state.save.tickets.passive}</div><div class="chip">${escapeHtml(state.cloudStatus || '계정 저장')}</div><button id="manualSaveBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">수동 저장</button> <button id="logoutBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">로그아웃</button></div></div>${nav}${body}`;
+    ui.menu.innerHTML = `<div class="row"><div><h1 class="title">보스 레이드 빌드 게임 V12</h1><p class="sub">보스를 선택하고, 티켓으로 무기/방어구/스킬/패시브를 뽑아 조합한 뒤 패턴을 파훼해서 클리어하세요.</p></div><div style="text-align:right"><div class="chip">${VERSION}</div><div class="chip">${escapeHtml(state.save.playerName || 'Player')}</div><div class="chip">무기티켓 ${state.save.tickets.weapon}</div><div class="chip">방어구티켓 ${state.save.tickets.armor||0}</div><div class="chip">스킬티켓 ${state.save.tickets.skill}</div><div class="chip">패시브티켓 ${state.save.tickets.passive}</div><div class="chip">${escapeHtml(state.cloudStatus || '계정 저장')}</div><button id="manualSaveBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">수동 저장</button> <button id="logoutBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">로그아웃</button></div></div>${nav}${body}`;
     ui.menu.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{state.menuTab=b.dataset.tab; renderMenu();});
     bindMenuButtons();
   }
 
   function renderDungeonTab() {
-    return `<p class="sub">아래로 갈수록 난이도가 올라갑니다. 각 보스는 외형과 패턴이 모두 다르며, 별 개수만큼 패시브를 선택할 수 있습니다.</p><div class="boss-grid">${BOSSES.map(b=>`<div class="boss-card ${state.selectedBossId===b.id?'active':''}" data-boss="${b.id}"><div class="muted">${stars(b.tier)}</div><div class="boss-art">${bossMiniSvg(b)}</div><h3 style="margin:0 0 6px;color:white;font-size:15px">${b.name}</h3><p class="muted" style="line-height:1.4">${b.desc}</p><div style="margin-top:8px">${b.patterns.map(p=>`<span class="chip">${p}</span>`).join('')}</div></div>`).join('')}</div><div class="row" style="margin-top:14px"><button id="goBuild" class="btn">선택한 보스로 출격 준비</button><button id="goGacha" class="btn secondary">뽑기 상점으로</button></div>`;
+    return `<p class="sub">아래로 갈수록 난이도가 올라갑니다. 각 보스는 외형과 패턴이 모두 다르며, 후반 보스는 반투명 예고 후 큰 공격과 회전 레이저, 즉사 패턴을 사용합니다.</p><div class="boss-grid">${BOSSES.map(b=>`<div class="boss-card ${state.selectedBossId===b.id?'active':''}" data-boss="${b.id}"><div class="muted">${stars(b.tier)}</div><div class="boss-art">${bossMiniSvg(b)}</div><h3 style="margin:0 0 6px;color:white;font-size:15px">${b.name}</h3><p class="muted" style="line-height:1.4">${b.desc}</p><div style="margin-top:8px">${b.patterns.map(p=>`<span class="chip">${p}</span>`).join('')}</div></div>`).join('')}</div><div class="row" style="margin-top:14px"><button id="goBuild" class="btn">선택한 보스로 출격 준비</button><button id="goGacha" class="btn secondary">뽑기 상점으로</button></div>`;
   }
   function renderGachaTab() {
     const rates = RARITIES.map(r=>`<span class="chip" style="color:${r.color}">${r.name}</span>`).join('');
     const result = state.gachaResult ? `<div class="gacha-result"><div style="font-size:14px;color:${getRarity(state.gachaResult.rarity).color};font-weight:950">${getRarity(state.gachaResult.rarity).name}</div><div style="font-size:25px;font-weight:950;color:#fff;margin:4px 0">${state.gachaResult.name}</div><p class="sub">${state.gachaResult.desc||'새로운 항목을 획득했습니다.'}</p></div>` : '';
-    return `<h2 class="title" style="font-size:22px">뽑기 상점</h2><p class="sub">코인이 아니라 보스 클리어로 얻는 티켓으로 뽑습니다. 스킬 뽑기에는 공격, 버프, 회복, 디버프, 상태이상 해제가 모두 들어 있습니다.<br>${rates}</p><div class="grid"><div class="card"><h3>무기 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.weapon}장<br>검, 활, 채찍, 스태프, 단검, 대검, 마도총 등 무기를 획득합니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="weapon">무기 뽑기</button></div><div class="card"><h3>스킬 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.skill}장<br>공격, 버프, 회복, 디버프, 상태이상 해제 스킬 중 하나를 획득합니다. 총 100종류입니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="skill">스킬 뽑기</button></div><div class="card"><h3>패시브 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.passive}장<br>이제 패시브는 밸런스를 위해 보스와 관계없이 1개만 장착할 수 있습니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="passive">패시브 뽑기</button></div><div class="card"><h3>보유 현황</h3><p>무기 ${state.save.weapons.length}/${WEAPONS.length}<br>스킬 ${state.save.skills.length}/${SKILLS.length}<br>패시브 ${state.save.passives.length}/${PASSIVES.length}</p></div></div>${result}`;
+    return `<h2 class="title" style="font-size:22px">뽑기 상점</h2><p class="sub">코인이 아니라 보스 클리어로 얻는 티켓으로 뽑습니다. 스킬 뽑기에는 공격, 버프, 회복, 디버프, 상태이상 해제가 모두 들어 있습니다.<br>${rates}</p><div class="grid"><div class="card"><h3>무기 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.weapon}장<br>검, 활, 채찍, 스태프, 단검, 대검, 마도총 등 무기를 획득합니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="weapon">무기 뽑기</button></div><div class="card"><h3>방어구 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.armor||0}장<br>체력 증가, 방어력, 고등급 상태이상 저항/면역 효과가 있는 방어구를 획득합니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="armor">방어구 뽑기</button></div><div class="card"><h3>스킬 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.skill}장<br>공격, 버프, 회복, 디버프, 상태이상 해제 스킬 중 하나를 획득합니다. 총 100종류입니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="skill">스킬 뽑기</button></div><div class="card"><h3>패시브 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.passive}장<br>이제 패시브는 밸런스를 위해 보스와 관계없이 1개만 장착할 수 있습니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="passive">패시브 뽑기</button></div><div class="card"><h3>보유 현황</h3><p>무기 ${state.save.weapons.length}/${WEAPONS.length}<br>방어구 ${state.save.armors.length}/${ARMORS.length}<br>스킬 ${state.save.skills.length}/${SKILLS.length}<br>패시브 ${state.save.passives.length}/${PASSIVES.length}</p></div></div>${result}`;
   }
   function renderBuildTab() {
-    const steps = [['weapon','무기'],['skill1','스킬 1'],['skill2','스킬 2'],['skill3','스킬 3'],['passive','패시브'],['ready','출격']];
+    const steps = [['weapon','무기'],['armor','방어구'],['skill1','스킬 1'],['skill2','스킬 2'],['skill3','스킬 3'],['passive','패시브'],['ready','출격']];
     let content='';
     if(state.buildStep==='weapon') content = selectionGrid(ownedWeapons(), state.selectedWeaponId, 'weapon');
+    if(state.buildStep==='armor') content = selectionGrid(ownedArmors(), state.selectedArmorId, 'armor');
     if(state.buildStep==='skill1') content = skillSlotGrid(0);
     if(state.buildStep==='skill2') content = skillSlotGrid(1);
     if(state.buildStep==='skill3') content = skillSlotGrid(2);
     if(state.buildStep==='passive') content = passiveGrid();
     if(state.buildStep==='ready') content = readyPanel();
-    return `<div class="row"><div><h2 class="title" style="font-size:22px">출격 준비 · ${getBoss(state.selectedBossId).name}</h2><p class="sub">현재 보스 난이도 ${stars(getBoss(state.selectedBossId).tier)} · 패시브는 1개만 선택 가능 · 스킬은 종류 제한 없이 아무거나 3개 장착 가능</p></div><button id="backDungeon" class="btn secondary">보스 다시 선택</button></div><div class="stepbar">${steps.map(s=>`<div class="step ${state.buildStep===s[0]?'active':''}" data-step="${s[0]}">${s[1]}</div>`).join('')}</div>${content}`;
+    return `<div class="row"><div><h2 class="title" style="font-size:22px">출격 준비 · ${getBoss(state.selectedBossId).name}</h2><p class="sub">현재 보스 난이도 ${stars(getBoss(state.selectedBossId).tier)} · 방어구 1개 장착 가능 · 패시브는 1개만 선택 가능 · 스킬은 종류 제한 없이 아무거나 3개 장착 가능</p></div><button id="backDungeon" class="btn secondary">보스 다시 선택</button></div><div class="stepbar">${steps.map(s=>`<div class="step ${state.buildStep===s[0]?'active':''}" data-step="${s[0]}">${s[1]}</div>`).join('')}</div>${content}`;
   }
 
   function skillSlotGrid(slot) {
@@ -551,11 +578,11 @@
     return `<p class="sub">스킬 ${slot+1}번 칸입니다. 공격/버프/회복/디버프/상태이상 해제 구분 없이 원하는 스킬을 장착할 수 있습니다. 같은 스킬은 한 번만 장착됩니다.</p><div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>분류: ${skillCategoryName(it.category)} · 속성: ${it.element}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
   }
   function selectionGrid(items, selected, type) {
-    const noneTitle = type === 'weapon' ? '무기 없이 출격' : '이 스킬칸 비우기';
-    const noneDesc = type === 'weapon' ? '스킬만 가지고 레이드에 들어갈 수 있습니다. 일반공격은 사용할 수 없습니다.' : '스킬을 끼지 않아도 레이드는 시작할 수 있습니다.';
+    const noneTitle = type === 'weapon' ? '무기 없이 출격' : type === 'armor' ? '방어구 없이 출격' : '이 스킬칸 비우기';
+    const noneDesc = type === 'weapon' ? '스킬만 가지고 레이드에 들어갈 수 있습니다. 일반공격은 사용할 수 없습니다.' : type === 'armor' ? '방어구는 생존을 돕지만 필수는 아닙니다.' : '스킬을 끼지 않아도 레이드는 시작할 수 있습니다.';
     const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="${type}" data-select-id=""><h3>${noneTitle}</h3><p>${noneDesc}</p></div>`;
     if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 항목이 없습니다.</h3><p>뽑기 상점에서 먼저 획득할 수 있습니다. 그래도 다른 장비/스킬이 있으면 출격은 가능합니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
-    return `<div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="${type}" data-select-id="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>${it.category?('분류: '+skillCategoryName(it.category)):('종류: '+weaponKindName(it.kind))}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
+    return `<div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="${type}" data-select-id="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>${it.category?('분류: '+skillCategoryName(it.category)):(type==='armor'?('효과: 체력 +'+it.hp+' / 방어 +'+it.def):('종류: '+weaponKindName(it.kind)))}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
   }
   function passiveGrid() {
     const items = ownedPassives(); const limit = passiveLimit();
@@ -566,13 +593,13 @@
     const ok = canStart();
     const b = getBoss(state.selectedBossId);
     const skillNames = (state.selectedSkillIds || []).map((id,i)=>`스킬 ${i+1}: ${getSkill(id)?.name || '없음'}`).join('<br>');
-    return `<div class="grid"><div class="card active"><h3>${b.name}</h3><p>${stars(b.tier)}<br>${b.desc}</p><div>${b.patterns.map(p=>`<span class="chip">${p}</span>`).join('')}</div></div><div class="card"><h3>선택한 조합</h3><p>무기: ${getWeapon(state.selectedWeaponId)?.name || '없음'}<br>${skillNames}<br>패시브: ${state.selectedPassiveIds.length}/${passiveLimit()} · 필수 아님</p><p class="sub">무기만 있어도, 스킬만 있어도 출격할 수 있습니다. 단, 무기와 스킬을 모두 비우면 공격 수단이 없어 시작할 수 없습니다.</p></div></div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button id="startRaid" class="btn danger" ${ok?'':'disabled'}>레이드 시작</button></div>${ok?'':'<p class="sub">무기 또는 스킬 중 최소 하나는 장착해야 합니다. 패시브는 선택 사항입니다.</p>'}`;
+    return `<div class="grid"><div class="card active"><h3>${b.name}</h3><p>${stars(b.tier)}<br>${b.desc}</p><div>${b.patterns.map(p=>`<span class="chip">${p}</span>`).join('')}</div></div><div class="card"><h3>선택한 조합</h3><p>무기: ${getWeapon(state.selectedWeaponId)?.name || '없음'}<br>방어구: ${getArmor(state.selectedArmorId)?.name || '없음'}<br>${skillNames}<br>패시브: ${state.selectedPassiveIds.length}/${passiveLimit()} · 필수 아님</p><p class="sub">무기만 있어도, 스킬만 있어도 출격할 수 있습니다. 단, 무기와 스킬을 모두 비우면 공격 수단이 없어 시작할 수 없습니다.</p></div></div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button id="startRaid" class="btn danger" ${ok?'':'disabled'}>레이드 시작</button></div>${ok?'':'<p class="sub">무기 또는 스킬 중 최소 하나는 장착해야 합니다. 패시브는 선택 사항입니다.</p>'}`;
   }
   function renderRankingTab() {
     const rows = state.rankings.length ? state.rankings.map((r,i)=>{
       const skills = Array.isArray(r.skills) ? r.skills : safeJsonArray(r.skills);
       const passives = Array.isArray(r.passives) ? r.passives : safeJsonArray(r.passives);
-      const combo = `<div class="muted">무기: ${escapeHtml(r.weapon_name||'무기 없음')}</div><div class="muted">스킬: ${skills.length?skills.map(escapeHtml).join(' / '):'없음'}</div><div class="muted">패시브: ${passives.length?passives.map(escapeHtml).join(' / '):'없음'}</div><div class="muted">받은 피해: ${Number(r.damage_taken||0)}</div>`;
+      const combo = `<div class="muted">무기: ${escapeHtml(r.weapon_name||'무기 없음')}</div><div class="muted">스킬: ${skills.length?skills.map(escapeHtml).join(' / '):'없음'}</div><div class="muted">방어구/패시브: ${passives.length?passives.map(escapeHtml).join(' / '):'없음'}</div><div class="muted">받은 피해: ${Number(r.damage_taken||0)}</div>`;
       return `<div class="record" style="align-items:flex-start"><div class="rank">#${i+1}</div><div style="flex:1"><b>${escapeHtml(r.player_name||'Player')}</b>${combo}</div><div class="time">${formatMs(r.clear_ms)}</div></div>`;
     }).join('') : '<p class="sub">아직 기록이 없습니다.</p>';
     return `<div class="row"><div><h2 class="title" style="font-size:22px">보스별 랭킹</h2><p class="sub">Supabase 온라인 랭킹을 전체 조회하므로 다른 유저의 기록도 함께 보입니다. 같은 닉네임은 최신 클리어 기록 1개만 표시됩니다.</p></div><select id="rankBoss" class="input">${BOSSES.map(b=>`<option value="${b.id}" ${state.rankingBossId===b.id?'selected':''}>${b.name}</option>`).join('')}</select></div><div style="margin-top:12px">${rows}</div>`;
@@ -599,6 +626,7 @@
   function selectBuild(type,id,slot){
     id = id || null;
     if(type==='weapon') state.selectedWeaponId = state.selectedWeaponId===id ? null : id;
+    if(type==='armor') state.selectedArmorId = state.selectedArmorId===id ? null : id;
     if(type==='skill') {
       state.selectedSkillIds = state.selectedSkillIds || [null,null,null];
       if(id && state.selectedSkillIds.some((v,i)=>v===id && i!==slot)) {
@@ -613,7 +641,7 @@
     saveGame();
     renderMenu();
   }
-  function stepMove(dir){ const arr=['weapon','skill1','skill2','skill3','passive','ready']; let i=arr.indexOf(state.buildStep); i=clamp(i+dir,0,arr.length-1); state.buildStep=arr[i]; renderMenu(); }
+  function stepMove(dir){ const arr=['weapon','armor','skill1','skill2','skill3','passive','ready']; let i=arr.indexOf(state.buildStep); i=clamp(i+dir,0,arr.length-1); state.buildStep=arr[i]; renderMenu(); }
   function togglePassive(id){ const limit=passiveLimit(); const i=state.selectedPassiveIds.indexOf(id); if(i>=0) state.selectedPassiveIds.splice(i,1); else if(state.selectedPassiveIds.length<limit) state.selectedPassiveIds.push(id); else toast('이 보스는 패시브 '+limit+'개까지만 선택할 수 있습니다.'); saveGame(); renderMenu(); }
   function trimSelectedPassives(){ const owned = new Set(state.save.passives); state.selectedPassiveIds = state.selectedPassiveIds.filter(id=>owned.has(id)).slice(0, passiveLimit()); }
   function canStart(){ const hasWeapon=!!state.selectedWeaponId; const hasSkill=(state.selectedSkillIds||[]).some(Boolean); return (hasWeapon || hasSkill) && state.selectedPassiveIds.length <= passiveLimit(); }
@@ -623,10 +651,10 @@
     if((state.save.tickets[kind] || 0) <= 0){ toast(TICKET_LABEL[kind] + '이 부족합니다. 보스를 클리어하면 난이도에 따라 티켓을 얻습니다.'); return; }
     state.save.tickets[kind] -= 1;
     const rarity=pickRarity();
-    const pool = kind==='weapon' ? WEAPONS.filter(x=>x.rarity===rarity) : kind==='skill' ? SKILLS.filter(x=>x.rarity===rarity) : PASSIVES.filter(x=>x.rarity===rarity);
-    const list=pool.length?pool:(kind==='weapon'?WEAPONS:kind==='skill'?SKILLS:PASSIVES);
+    const pool = kind==='weapon' ? WEAPONS.filter(x=>x.rarity===rarity) : kind==='armor' ? ARMORS.filter(x=>x.rarity===rarity) : kind==='skill' ? SKILLS.filter(x=>x.rarity===rarity) : PASSIVES.filter(x=>x.rarity===rarity);
+    const list=pool.length?pool:(kind==='weapon'?WEAPONS:kind==='armor'?ARMORS:kind==='skill'?SKILLS:PASSIVES);
     const item=list[Math.floor(Math.random()*list.length)];
-    const arr = kind==='weapon'?state.save.weapons:kind==='skill'?state.save.skills:state.save.passives;
+    const arr = kind==='weapon'?state.save.weapons:kind==='armor'?state.save.armors:kind==='skill'?state.save.skills:state.save.passives;
     if(!arr.includes(item.id)) arr.push(item.id);
     state.gachaResult=item;
     gachaCelebration(item);
@@ -662,15 +690,16 @@
     Object.assign(player, makePlayer()); player.name=state.save.playerName||'Player'; applyBuild(); player.hp=player.maxHp;
     boss = makeBoss(getBoss(state.selectedBossId));
     state.projectiles=[]; state.hazards=[]; state.zones=[]; state.mechanics=[]; state.particles=[]; state.texts=[]; state.shake=0; state.flash=0;
-    state.raid={ start:performance.now(), elapsed:0, clear:false, failed:false, weapon:getWeapon(state.selectedWeaponId), skills:(state.selectedSkillIds||[]).slice(0,3).map(getSkill), passives:state.selectedPassiveIds.map(getPassive).filter(Boolean) };
+    state.raid={ start:performance.now(), elapsed:0, clear:false, failed:false, weapon:getWeapon(state.selectedWeaponId), armor:getArmor(state.selectedArmorId), skills:(state.selectedSkillIds||[]).slice(0,3).map(getSkill), passives:state.selectedPassiveIds.map(getPassive).filter(Boolean) };
     renderRaidPanel(); toast(boss.name+' 레이드 시작!');
   }
-  function applyBuild(){ const w=getWeapon(state.selectedWeaponId); if(w){player.atk*=w.atk; player.crit+=w.crit||0;} state.selectedPassiveIds.map(getPassive).filter(Boolean).forEach(p=>p.apply(player)); player.maxHp=Math.floor(player.maxHp); player.speed=Math.floor(player.speed); }
+  function applyBuild(){ const w=getWeapon(state.selectedWeaponId); const a=getArmor(state.selectedArmorId); if(w){player.atk*=w.atk; player.crit+=w.crit||0;} if(a){ player.equippedArmor=a; player.maxHp+=a.hp; player.hp=player.maxHp; player.def+=a.def; Object.keys(a.resist||{}).forEach(k=>player.statusResist[k]=Math.max(player.statusResist[k]||0,a.resist[k]||0)); } state.selectedPassiveIds.map(getPassive).filter(Boolean).forEach(p=>p.apply(player)); player.maxHp=Math.floor(player.maxHp); player.speed=Math.floor(player.speed); }
   function renderRaidPanel(){
     const weaponName = state.raid.weapon ? state.raid.weapon.name : '없음';
+    const armorName = state.raid.armor ? state.raid.armor.name : '없음';
     const skillChips = state.raid.skills.map((s,i)=>`<span class="chip">${i+1}. ${s ? s.name : '비어 있음'}</span>`).join('');
     const passiveChips = state.raid.passives.length ? state.raid.passives.map(p=>`<span class="chip">${p.name}</span>`).join('') : '<span class="chip">패시브 없음</span>';
-    ui.left.innerHTML=`<h1 class="title" style="font-size:21px">현재 빌드</h1><p class="sub">보스: <b>${boss.name}</b><br>무기: <b>${weaponName}</b></p>${skillChips}<div style="height:8px"></div>${passiveChips}<p class="sub" style="margin-top:12px">J/좌클릭 일반공격 · 1/2/3 스킬 · Space 구르기(2.5초) · P 일시정지<br>무기가 없으면 일반공격은 비활성화되고, 비어 있는 스킬칸은 사용할 수 없습니다.<br>공격과 스킬은 마우스/바라보는 방향으로 나갑니다.</p><button id="giveup" class="btn secondary" style="width:100%">포기하고 메뉴로</button>`;
+    ui.left.innerHTML=`<h1 class="title" style="font-size:21px">현재 빌드</h1><p class="sub">보스: <b>${boss.name}</b><br>무기: <b>${weaponName}</b><br>방어구: <b>${armorName}</b></p>${skillChips}<div style="height:8px"></div>${passiveChips}<p class="sub" style="margin-top:12px">J/좌클릭 일반공격 · 1/2/3 스킬 · Space 구르기(2.5초) · P 일시정지<br>무기가 없으면 일반공격은 비활성화되고, 비어 있는 스킬칸은 사용할 수 없습니다.<br>공격과 스킬은 마우스/바라보는 방향으로 나갑니다.</p><button id="giveup" class="btn secondary" style="width:100%">포기하고 메뉴로</button>`;
     ui.left.querySelector('#giveup').onclick=renderMenu;
   }
   function togglePause(){ if(state.screen==='raid'){state.screen='paused'; ui.right.classList.remove('hidden'); ui.right.innerHTML='<h1 class="title">일시정지</h1><p class="sub">P 또는 ESC로 계속합니다.</p><button id="pauseMenu" class="btn secondary">메뉴로</button>'; ui.right.querySelector('#pauseMenu').onclick=renderMenu;} else if(state.screen==='paused'){state.screen='raid'; ui.right.classList.add('hidden'); state.last=performance.now();} }
@@ -906,6 +935,7 @@
     if(t==='fire'||t==='solar') firePattern(); else if(t==='ice') icePattern(); else if(t==='lightning') lightningPattern(); else if(t==='void') voidPattern(); else if(t==='nature') naturePattern(); else if(t==='sand') sandPattern(); else if(t==='metal') metalPattern(); else if(t==='blood') bloodPattern(); else if(t==='poison') poisonPattern(); else if(t==='mirror') mirrorPattern(); else if(t==='gravity') gravityPattern(); else if(t==='chrono') chronoPattern(); else if(t==='chaos') chaosPattern(); else slimePattern();
     if(boss.tier>=6 && Math.random()<.55) setTimeout(()=>secondaryPattern(), 520);
     if(boss.tier>=8 && boss.phase>=2 && Math.random()<.50) setTimeout(()=>secondaryPattern(true), 950);
+    if(boss.tier>=7 && boss.phase>=2 && Math.random()<.38) setTimeout(()=>rotatingLaserSweep(boss.tier>=9), 680);
     if(boss.tier>=9 && boss.phase>=3 && Math.random()<.42) setTimeout(()=>instantKillPattern(), 1280);
   }
   function intensity(){ return Math.max(1, boss.tier + (boss.phase-1)*2); }
@@ -942,7 +972,7 @@
     for(let i=0;i<5+n;i++) warningCircle(rand(80,W-80),rand(105,H-70),26+n*2,.34+i*.025,'#fde047',boss.atk*.75,'',null,'lightning');
     if(Math.random()<.70) spawnRune('#facc15','break');
     if(boss.phase>=2) setTimeout(()=>crossLaserPattern(true),300);
-    if(boss.phase>=3) rotatingCurtainPattern(true);
+    if(boss.phase>=3) { rotatingCurtainPattern(true); rotatingLaserSweep(true); }
   }
   function voidPattern(){
     const n=intensity();
@@ -1079,6 +1109,16 @@
       }
     },k*180);
   }
+
+  function rotatingLaserSweep(hard){
+    if(!state.raid || boss.dead) return;
+    boss.mechanicText += ' · 회전 레이저: 맵을 도는 광선을 따라 피하세요';
+    state.hazards.push({kind:'rotatingBeam',x:boss.x,y:boss.y,angle:Math.random()*Math.PI*2,spin:(hard?1.75:1.15)*(Math.random()<.5?-1:1),len:W*1.45,w:hard?22:16,warn:1.1,life:hard?2.45:1.85,damage:boss.atk*(hard?1.05:.78),color:boss.color,tag:boss.theme,tick:0});
+    if(hard){
+      state.hazards.push({kind:'rotatingBeam',x:boss.x,y:boss.y,angle:Math.random()*Math.PI*2+Math.PI/2,spin:-1.35,len:W*1.45,w:16,warn:1.35,life:2.1,damage:boss.atk*.82,color:boss.sub||boss.color,tag:boss.theme,tick:0});
+    }
+  }
+
   function safeRuneBombPattern(hard){
     boss.mechanicText += ' · 안전 룬: 폭발 전 룬 주변으로 이동';
     const sx=rand(140,W-140), sy=rand(150,H-100), safeR=hard?55:70;
@@ -1119,14 +1159,45 @@
   function updateProjectiles(dt){ state.projectiles.forEach(p=>{ if(p.delay){p.delay-=dt; return;} if(p.homing&&p.owner==='player'){const a=Math.atan2(boss.y-p.y,boss.x-p.x); p.vx+=(Math.cos(a)*520-p.vx)*dt*2.5; p.vy+=(Math.sin(a)*520-p.vy)*dt*2.5;} if(p.homingPlayer){const a=Math.atan2(player.y-p.y,player.x-p.x); p.vx+=(Math.cos(a)*260-p.vx)*dt*1.5; p.vy+=(Math.sin(a)*260-p.vy)*dt*1.5;} if(p.returning){const age=1.3-p.life; if(age>.55){const a=Math.atan2(player.y-p.y,player.x-p.x); p.vx=Math.cos(a)*600; p.vy=Math.sin(a)*600;}} p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt; if(p.owner==='player'&&!boss.dead&&dist(p.x,p.y,boss.x,boss.y)<p.r+boss.r){damageBoss(p.damage,p.color,false); if(p.splash) state.zones.push({x:p.x,y:p.y,r:p.splash,damage:p.damage*.65,life:.12,color:p.color,once:true}); if(!p.pierce) p.life=0; else p.pierce--; } if(p.owner==='boss'&&dist(p.x,p.y,player.x,player.y)<p.r+player.r){ hurtPlayer(p.damage,p.color); p.life=0; applyBossHitStatus(p.tag || boss.theme); } }); state.projectiles=state.projectiles.filter(p=>p.life>0&&p.x>-80&&p.x<W+80&&p.y>-80&&p.y<H+80); }
   function applyBossHitStatus(tag){
     const st = player.statuses || (player.statuses={burn:0,poison:0,freeze:0,paralysis:0,slow:0});
-    if(tag==='slow'||tag==='sand'||tag==='chrono'||tag==='gravity') { st.slow=Math.max(st.slow,1.8); player.slow=Math.max(player.slow,1.8); }
-    if(tag==='fire'||tag==='solar') st.burn=Math.max(st.burn,2.6);
-    if(tag==='poison') st.poison=Math.max(st.poison,3.6);
-    if(tag==='ice') st.freeze=Math.max(st.freeze,.75);
-    if(tag==='lightning') st.paralysis=Math.max(st.paralysis,.55);
+    const resist = player.statusResist || {};
+    function blocked(k){ return Math.random() < clamp(resist[k] || 0, 0, .85); }
+    if((tag==='slow'||tag==='sand'||tag==='chrono'||tag==='gravity') && !blocked('slow')) { st.slow=Math.max(st.slow,1.8); player.slow=Math.max(player.slow,1.8); }
+    if((tag==='fire'||tag==='solar') && !blocked('burn')) st.burn=Math.max(st.burn,2.6);
+    if(tag==='poison' && !blocked('poison')) st.poison=Math.max(st.poison,3.6);
+    if(tag==='ice' && !blocked('freeze')) st.freeze=Math.max(st.freeze,.75);
+    if(tag==='lightning' && !blocked('paralysis')) st.paralysis=Math.max(st.paralysis,.55);
   }
 
-  function updateHazards(dt){ state.hazards.forEach(h=>{ if(h.warn>0){h.warn-=dt; return;} h.life-=dt; if(h.kind==='circle'){ if(dist(h.x,h.y,player.x,player.y)<h.r+player.r){ hurtPlayer(h.damage,h.color); if(h.tag) applyBossHitStatus(h.tag); } if(h.zone) state.zones.push({x:h.x,y:h.y,r:h.r,damage:h.damage*.08,life:2.4,tick:0,color:h.color,enemy:true,dot:true}); if(h.callback) h.callback(); h.life=0; } else if(h.kind==='donut'){ const d=dist(h.x,h.y,player.x,player.y); if(d>h.inner && d<h.outer){ hurtPlayer(h.damage,h.color); if(h.tag) applyBossHitStatus(h.tag); } h.life=0; } else if(h.kind==='beam'){ const px=player.x-h.x, py=player.y-h.y; const along=px*Math.cos(h.angle)+py*Math.sin(h.angle); const side=Math.abs(-px*Math.sin(h.angle)+py*Math.cos(h.angle)); if(Math.abs(along)<h.len/2 && side<h.w+player.r){ hurtPlayer(h.damage,h.color); if(h.tag) applyBossHitStatus(h.tag); } if(h.callback) h.callback(); h.life=0; } else if(h.kind==='playerStrike'){ if(dist(h.x,h.y,boss.x,boss.y)<h.r+boss.r){damageBoss(h.damage,h.color,false); h.life=0;} } else if(h.kind==='wall'){ if(Math.abs(player.x-h.x)<h.w+player.r && Math.abs(player.y-h.y)<h.h/2+player.r){ hurtPlayer(h.damage,h.color); if(h.tag) applyBossHitStatus(h.tag); } } }); state.hazards=state.hazards.filter(h=>h.life>0||h.warn>0); }
+  function updateHazards(dt){
+    state.hazards.forEach(h=>{
+      if(!h || !Number.isFinite(h.life)) h.life = 0;
+      if(h.warn>0){ h.warn-=dt; if(h.kind==='rotatingBeam') h.angle += (h.spin||0)*dt*.25; return; }
+      h.life-=dt;
+      if(h.kind==='circle'){
+        if(dist(h.x,h.y,player.x,player.y)<h.r+player.r){ hurtPlayer(h.damage,h.color); if(h.tag) applyBossHitStatus(h.tag); }
+        if(h.zone) state.zones.push({x:h.x,y:h.y,r:h.r,damage:h.damage*.08,life:2.4,tick:0,color:h.color,enemy:true,dot:true});
+        if(h.callback) h.callback(); h.life=0;
+      } else if(h.kind==='donut'){
+        const d=dist(h.x,h.y,player.x,player.y);
+        if(d>h.inner && d<h.outer){ hurtPlayer(h.damage,h.color); if(h.tag) applyBossHitStatus(h.tag); }
+        h.life=0;
+      } else if(h.kind==='beam' || h.kind==='rotatingBeam'){
+        if(h.kind==='rotatingBeam') { h.angle += (h.spin||0)*dt; h.tick=(h.tick||0)-dt; }
+        const px=player.x-h.x, py=player.y-h.y;
+        const along=px*Math.cos(h.angle)+py*Math.sin(h.angle);
+        const side=Math.abs(-px*Math.sin(h.angle)+py*Math.cos(h.angle));
+        if(Math.abs(along)<h.len/2 && side<h.w+player.r && (h.kind!=='rotatingBeam' || (h.tick||0)<=0)){
+          hurtPlayer(h.damage,h.color); if(h.tag) applyBossHitStatus(h.tag); if(h.kind==='rotatingBeam') h.tick=.32;
+        }
+        if(h.kind==='beam'){ if(h.callback) h.callback(); h.life=0; }
+      } else if(h.kind==='playerStrike'){
+        if(boss && !boss.dead && dist(h.x,h.y,boss.x,boss.y)<h.r+boss.r){damageBoss(h.damage,h.color,false); h.life=0;}
+      } else if(h.kind==='wall'){
+        if(Math.abs(player.x-h.x)<h.w+player.r && Math.abs(player.y-h.y)<h.h/2+player.r){ hurtPlayer(h.damage,h.color); if(h.tag) applyBossHitStatus(h.tag); }
+      }
+    });
+    state.hazards=state.hazards.filter(h=>h && (h.life>0||h.warn>0));
+  }
   function updateZones(dt){ state.zones.forEach(z=>{z.life-=dt; z.tick=(z.tick||0)-dt; if(z.once){ if(z.enemy){ if(dist(z.x,z.y,player.x,player.y)<z.r+player.r) hurtPlayer(z.damage,z.color); } else if(z.heal&&dist(z.x,z.y,player.x,player.y)<z.r+player.r){ player.hp=Math.min(player.maxHp,player.hp+Math.abs(z.damage)); healText('+'+Math.floor(Math.abs(z.damage)),player.x,player.y-28); } else if(dist(z.x,z.y,boss.x,boss.y)<z.r+boss.r) damageBoss(z.damage,z.color,false); z.life=0; return;} if(z.tick<=0){z.tick=.25; if(z.enemy){ if(dist(z.x,z.y,player.x,player.y)<z.r+player.r) hurtPlayer(z.damage,z.color); } else if(z.heal&&dist(z.x,z.y,player.x,player.y)<z.r+player.r){ player.hp=Math.min(player.maxHp,player.hp+Math.abs(z.damage)); healText('+'+Math.floor(Math.abs(z.damage)),player.x,player.y-28); } else if(dist(z.x,z.y,boss.x,boss.y)<z.r+boss.r) damageBoss(z.damage,z.color,false); }}); state.zones=state.zones.filter(z=>z.life>0); }
   function clearPlayerStatuses(){ const st=player.statuses||(player.statuses={}); ['burn','poison','freeze','paralysis','slow'].forEach(k=>st[k]=0); player.slow=0; }
   function updateMechanics(dt){ state.mechanics.forEach(m=>{m.life-=dt; if(m.kind==='rune'&&dist(m.x,m.y,player.x,player.y)<m.r+player.r){ if(m.action==='break') breakBoss(2.6); if(m.action==='cleanse'){clearPlayerStatuses(); player.slow=0; player.hp=Math.min(player.maxHp,player.hp+120); healText('해독',player.x,player.y-35);} m.life=0; } if(m.kind==='gravity'){const a=Math.atan2(m.y-player.y,m.x-player.x); const d=Math.max(60,dist(m.x,m.y,player.x,player.y)); player.x+=Math.cos(a)*m.power/d*80*dt; player.y+=Math.sin(a)*m.power/d*80*dt;} }); state.mechanics=state.mechanics.filter(m=>m.life>0); if(boss.clones&&boss.clones.length){boss.clones.forEach(c=>c.life-=dt); boss.clones=boss.clones.filter(c=>c.life>0);} }
@@ -1136,9 +1207,9 @@
   function damageBossRange(range,dmg,color){ if(dist(player.x,player.y,boss.x,boss.y)<range+boss.r) damageBoss(dmg,color,false); }
   function damageBossLine(range,width,angle,dmg,color){ const px=boss.x-player.x, py=boss.y-player.y; const along=px*Math.cos(angle)+py*Math.sin(angle); const side=Math.abs(-px*Math.sin(angle)+py*Math.cos(angle)); if(along>0&&along<range+boss.r&&side<width+boss.r) damageBoss(dmg,color,false); }
   function damageBossCone(range,arc,angle,dmg,color){ const a=Math.atan2(boss.y-player.y,boss.x-player.x); let diff=Math.abs(normAngle(a-angle)); if(dist(player.x,player.y,boss.x,boss.y)<range+boss.r && diff<arc/2) damageBoss(dmg,color,false); }
-  function hurtPlayer(amount,color,statusDamage){ if(!statusDamage && (player.invuln>0||state.screen!=='raid')) return; let realAmount=amount; if(boss&&boss.statuses&&boss.statuses.weaken>0) realAmount*=.72; let dmg=Math.max(1,Math.floor(realAmount-player.def)); if(player.shield>0){const used=Math.min(player.shield,dmg); player.shield-=used; dmg-=used;} if(dmg>0){player.hp-=dmg; player.damageTaken+=dmg; floatText('-'+dmg,player.x,player.y-24,color||'#fb7185'); state.shake=Math.max(state.shake,4); player.invuln=.18;} }
+  function hurtPlayer(amount,color,statusDamage){ if(!Number.isFinite(amount)) amount = 1; if(!statusDamage && (player.invuln>0||state.screen!=='raid')) return; let realAmount=amount; if(boss&&boss.statuses&&boss.statuses.weaken>0) realAmount*=.72; let dmg=Math.max(1,Math.floor(realAmount-player.def)); if(player.shield>0){const used=Math.min(player.shield,dmg); player.shield-=used; dmg-=used;} if(dmg>0){player.hp-=dmg; player.damageTaken+=dmg; floatText('-'+dmg,player.x,player.y-24,color||'#fb7185'); state.shake=Math.max(state.shake,4); player.invuln=.18;} }
   function checkEnd(){ if(!state.raid) return; if(player.hp<=0&&!state.raid.failed){state.raid.failed=true; endRaid(false);} if(boss.dead&&!state.raid.clear){state.raid.clear=true; endRaid(true);} }
-  function endRaid(clear){ state.screen='result'; const elapsed=Math.floor(state.raid.elapsed*1000); let rewardText=''; if(clear){ const b=getBoss(boss.id); const rw=Math.max(0,Math.floor((b.tier+1)/3)); const rs=1+Math.floor(b.tier/2); const rp=b.tier>=3?1:0; state.save.tickets.weapon += rw; state.save.tickets.skill += rs; state.save.tickets.passive += rp; rewardText=`획득 티켓: 무기 ${rw}장 / 스킬 ${rs}장 / 패시브 ${rp}장`; saveGame(); submitRecord(elapsed); } ui.right.classList.remove('hidden'); ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`; ui.right.querySelector('#resultMenu').onclick=()=>{state.menuTab=clear?'ranking':'build'; renderMenu(); refreshRankings(boss.id);}; }
+  function endRaid(clear){ state.screen='result'; const elapsed=Math.floor(state.raid.elapsed*1000); let rewardText=''; if(clear){ const b=getBoss(boss.id); const rw=Math.max(0,Math.floor((b.tier+1)/3)); const rs=1+Math.floor(b.tier/2); const ra=b.tier>=2?Math.floor((b.tier+1)/4):0; const rp=b.tier>=3?1:0; state.save.tickets.weapon += rw; state.save.tickets.armor += ra; state.save.tickets.skill += rs; state.save.tickets.passive += rp; rewardText=`획득 티켓: 무기 ${rw}장 / 방어구 ${ra}장 / 스킬 ${rs}장 / 패시브 ${rp}장`; saveGame(); submitRecord(elapsed); } ui.right.classList.remove('hidden'); ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`; ui.right.querySelector('#resultMenu').onclick=()=>{state.menuTab=clear?'ranking':'build'; renderMenu(); refreshRankings(boss.id);}; }
 
   function normalizedPlayerName(name){ return String(name || 'Player').trim() || 'Player'; }
   function dedupeLatestByPlayer(records){
@@ -1155,7 +1226,7 @@
 
   async function submitRecord(ms){
     const playerName = normalizedPlayerName(state.save.playerName);
-    const record={player_name:playerName,boss_id:boss.id,boss_name:boss.name,clear_ms:ms,weapon_id:state.raid.weapon?state.raid.weapon.id:'none',weapon_name:state.raid.weapon?state.raid.weapon.name:'무기 없음',skills:state.raid.skills.filter(Boolean).map(s=>s.name),passives:state.raid.passives.filter(Boolean).map(p=>p.name),damage_taken:player.damageTaken,created_at:new Date().toISOString()};
+    const record={player_name:playerName,boss_id:boss.id,boss_name:boss.name,clear_ms:ms,weapon_id:state.raid.weapon?state.raid.weapon.id:'none',weapon_name:state.raid.weapon?state.raid.weapon.name:'무기 없음',skills:state.raid.skills.filter(Boolean).map(s=>s.name),passives:[state.raid.armor?('방어구: '+state.raid.armor.name):'방어구 없음'].concat(state.raid.passives.filter(Boolean).map(p=>p.name)),damage_taken:player.damageTaken,created_at:new Date().toISOString()};
     let local=getLocalRecords().filter(r=>!(r.boss_id===boss.id && normalizedPlayerName(r.player_name).toLowerCase()===playerName.toLowerCase()));
     local.push(record);
     local=dedupeLatestByPlayer(local).slice(0,250);
@@ -1173,7 +1244,7 @@
     }
     refreshRankings(boss.id);
   }
-  function getLocalRecords(){try{return JSON.parse(localStorage.getItem(LOCAL_RECORD_KEY)||localStorage.getItem('raid-build-v10-local-records')||localStorage.getItem('raid-build-v9-local-records')||localStorage.getItem('raid-build-v7-local-records')||'[]');}catch(e){return[];}}
+  function getLocalRecords(){try{return JSON.parse(localStorage.getItem(LOCAL_RECORD_KEY)||localStorage.getItem('raid-build-v11-local-records')||localStorage.getItem('raid-build-v10-local-records')||localStorage.getItem('raid-build-v9-local-records')||localStorage.getItem('raid-build-v7-local-records')||'[]');}catch(e){return[];}}
   async function refreshRankings(bossId){
     state.rankingBossId=bossId;
     let records=getLocalRecords().filter(r=>r.boss_id===bossId);
@@ -1276,7 +1347,7 @@
     ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0,6,22,8,0,0,Math.PI*2); ctx.fill();
     const bob = Math.sin(player.anim*11) * (keys.has('w')||keys.has('a')||keys.has('s')||keys.has('d') ? 2 : .5);
     ctx.translate(0,bob);
-    ctx.fillStyle=player.roll>0?'#93c5fd':player.invuln>0?'#bfdbfe':'#e5e7eb'; circle(ctx,0,0,player.r);
+    const equippedArmorColor = state.raid && state.raid.armor ? state.raid.armor.color : '#e5e7eb'; ctx.fillStyle=player.roll>0?'#93c5fd':player.invuln>0?'#bfdbfe':equippedArmorColor; circle(ctx,0,0,player.r); if(state.raid&&state.raid.armor){ctx.strokeStyle='#ffffffaa';ctx.lineWidth=3;circleStroke(ctx,0,0,player.r+3);ctx.fillStyle='rgba(255,255,255,.18)';roundRect(ctx,-11,1,22,13,5);}
     ctx.fillStyle='#111827'; circle(ctx,5*player.face,-4,3); circle(ctx,5*player.face+3,-5,1.2);
     ctx.strokeStyle='#111827'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(2*player.face,4,5,0,Math.PI); ctx.stroke();
     if(player.attackAnim>0){
@@ -1329,7 +1400,33 @@
   function drawHud(){ const hpw=260; ctx.fillStyle='rgba(0,0,0,.45)'; roundRect(ctx,18,H-88,360,72,14); ctx.fillStyle='#ef4444'; roundRect(ctx,38,H-72,hpw*clamp(player.hp/player.maxHp,0,1),12,6); ctx.fillStyle='#334155'; roundRect(ctx,38,H-52,hpw,8,4); ctx.fillStyle='#60a5fa'; roundRect(ctx,38,H-52,hpw*clamp(player.shield/500,0,1),8,4); ctx.fillStyle='#fff'; ctx.font='800 12px system-ui'; ctx.fillText(`HP ${Math.ceil(player.hp)}/${Math.ceil(player.maxHp)}  Shield ${Math.floor(player.shield)}`,38,H-77); const cds=[player.basicCd,player.skillCd[0],player.skillCd[1],player.skillCd[2],player.rollCd]; const labels=['J','1','2','3','Space']; for(let i=0;i<5;i++){const x=430+i*78,y=H-70; ctx.fillStyle='rgba(15,23,42,.78)'; roundRect(ctx,x,y,60,48,10); ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillText(labels[i],x+30,y+19); ctx.fillStyle=cds[i]>0?'#fb7185':'#86efac'; ctx.fillText(cds[i]>0?cds[i].toFixed(1):'OK',x+30,y+38);} ctx.textAlign='left'; }
   function drawControlHint(){ ctx.save(); ctx.globalAlpha=.55; ctx.fillStyle='#e5e7eb'; ctx.font='900 15px system-ui'; ctx.textAlign='center'; ctx.fillText('WASD 이동   ·   마우스 조준   ·   J/좌클릭 일반공격   ·   1/2/3 장착 스킬   ·   Space 누른 방향으로 구르기', W/2, H-10); ctx.restore(); }
   function drawProjectiles(){ state.projectiles.forEach(p=>{ if(p.delay&&p.delay>0){ctx.strokeStyle=p.color; ctx.globalAlpha=.25; circleStroke(ctx,p.x,p.y,18); ctx.globalAlpha=1; return;} ctx.save(); ctx.shadowColor=p.color; ctx.shadowBlur=14; ctx.fillStyle=p.color; circle(ctx,p.x,p.y,p.r); ctx.globalAlpha=.35; ctx.strokeStyle=p.color; ctx.lineWidth=Math.max(2,p.r*.35); ctx.beginPath(); ctx.moveTo(p.x-p.vx*.025,p.y-p.vy*.025); ctx.lineTo(p.x-p.vx*.075,p.y-p.vy*.075); ctx.stroke(); ctx.globalAlpha=1; ctx.restore(); }); }
-  function drawHazards(){ state.hazards.forEach(h=>{ctx.save(); ctx.globalAlpha=h.warn>0?.30:.78; ctx.strokeStyle=h.color; ctx.fillStyle=h.kind==='wall'?h.color:'transparent'; ctx.lineWidth=3; if(h.kind==='circle'||h.kind==='playerStrike'){circleStroke(ctx,h.x,h.y,h.r); if(h.warn<=0){ctx.globalAlpha=.35; ctx.fillStyle=h.color; circle(ctx,h.x,h.y,h.r);}} else if(h.kind==='donut'){ circleStroke(ctx,h.x,h.y,h.outer); circleStroke(ctx,h.x,h.y,h.inner); if(h.warn<=0){ctx.globalAlpha=.22; ctx.lineWidth=10; circleStroke(ctx,h.x,h.y,(h.inner+h.outer)/2);} } else if(h.kind==='beam'){ctx.save();ctx.translate(h.x,h.y);ctx.rotate(h.angle||0);ctx.globalAlpha=h.warn>0?.28:.50;ctx.fillStyle=h.color;roundRect(ctx,-h.len/2,-h.w,h.len,h.w*2,8);ctx.restore();} else if(h.kind==='wall'){ctx.fillRect(h.x-h.w/2,h.y-h.h/2,h.w,h.h);} ctx.restore();});}
+  function drawHazards(){
+    state.hazards.forEach(h=>{
+      ctx.save();
+      const warning = h.warn > 0;
+      ctx.globalAlpha = warning ? .34 : .82;
+      ctx.strokeStyle = h.color || '#fff';
+      ctx.fillStyle = h.color || '#fff';
+      ctx.lineWidth = warning ? 4 : 3;
+      if(h.kind==='circle'||h.kind==='playerStrike'){
+        if(warning){ ctx.globalAlpha=.22; circle(ctx,h.x,h.y,h.r); ctx.globalAlpha=.72; circleStroke(ctx,h.x,h.y,h.r); ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillText('!',h.x,h.y+4); }
+        else { ctx.globalAlpha=.38; circle(ctx,h.x,h.y,h.r); ctx.globalAlpha=.9; circleStroke(ctx,h.x,h.y,h.r); }
+      } else if(h.kind==='donut'){
+        circleStroke(ctx,h.x,h.y,h.outer); circleStroke(ctx,h.x,h.y,h.inner);
+        if(warning){ ctx.globalAlpha=.18; ctx.lineWidth=18; circleStroke(ctx,h.x,h.y,(h.inner+h.outer)/2); }
+        else { ctx.globalAlpha=.30; ctx.lineWidth=14; circleStroke(ctx,h.x,h.y,(h.inner+h.outer)/2); }
+      } else if(h.kind==='beam'||h.kind==='rotatingBeam'){
+        ctx.save(); ctx.translate(h.x,h.y); ctx.rotate(h.angle||0);
+        ctx.globalAlpha = warning ? .26 : (h.kind==='rotatingBeam' ? .55 : .62);
+        roundRect(ctx,-h.len/2,-h.w,h.len,h.w*2,8);
+        ctx.globalAlpha = warning ? .82 : .92; ctx.strokeStyle = '#ffffffaa'; ctx.lineWidth = warning ? 2 : 1.5; ctx.strokeRect(-h.len/2,-h.w,h.len,h.w*2);
+        ctx.restore();
+      } else if(h.kind==='wall'){
+        ctx.globalAlpha = warning ? .25 : .72; ctx.fillRect(h.x-h.w/2,h.y-h.h/2,h.w,h.h);
+      }
+      ctx.restore();
+    });
+  }
   function drawZones(){ state.zones.forEach(z=>{ctx.save(); ctx.globalAlpha=.22+.1*Math.sin(state.time*8); ctx.fillStyle=z.color; circle(ctx,z.x,z.y,z.r); ctx.globalAlpha=.65; ctx.strokeStyle=z.color; ctx.lineWidth=3; circleStroke(ctx,z.x,z.y,z.r); ctx.restore();});}
   function drawMechanics(){ state.mechanics.forEach(m=>{ctx.save(); ctx.strokeStyle=m.color; ctx.fillStyle=m.color; if(m.kind==='rune'){ctx.globalAlpha=.8; circleStroke(ctx,m.x,m.y,m.r+Math.sin(state.time*8)*4); ctx.font='900 20px system-ui'; ctx.textAlign='center'; ctx.fillText('룬',m.x,m.y+7);} if(m.kind==='safe'){ctx.globalAlpha=.30+.12*Math.sin(state.time*10); ctx.fillStyle=m.color; circle(ctx,m.x,m.y,m.r); ctx.globalAlpha=.9; ctx.strokeStyle='#ffffff'; circleStroke(ctx,m.x,m.y,m.r+Math.sin(state.time*8)*5); ctx.font='900 16px system-ui'; ctx.textAlign='center'; ctx.fillStyle='#ffffff'; ctx.fillText('SAFE',m.x,m.y+5);} if(m.kind==='gravity'){ctx.globalAlpha=.35; circleStroke(ctx,m.x,m.y,m.r); for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(m.x,m.y,m.r*(i+1)/5,state.time+i,state.time+i+1.2);ctx.stroke();}} ctx.restore();});}
   function drawParticles(){ state.particles.forEach(p=>{ const a=clamp(p.life,0,1); ctx.save(); ctx.globalAlpha=a; ctx.shadowColor=p.color; ctx.shadowBlur=p.kind==='ring'?8:14; if(p.kind==='ring'){ ctx.strokeStyle=p.color; ctx.lineWidth=p.line||3; circleStroke(ctx,p.x,p.y,Math.max(2,p.r*(1.25-a*.35))); } else if(p.kind==='line'){ ctx.strokeStyle=p.color; ctx.lineWidth=Math.max(1,p.r*.35); ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x+Math.cos(p.angle||0)*(p.len||24),p.y+Math.sin(p.angle||0)*(p.len||24)); ctx.stroke(); } else if(p.kind==='star'){ drawStar(ctx,p.x,p.y,p.r,p.color); } else { ctx.fillStyle=p.color; circle(ctx,p.x,p.y,p.r); } ctx.restore(); });}
@@ -1370,7 +1467,7 @@
     return ({whip:'채찍',pole:'봉',dagger:'단검',greatsword:'대검',gunstaff:'마도총',scythe:'낫',chakram:'차크람',grimoire:'마도서'})[kind] || kind;
   }
 
-  function loop(now){ const dt=Math.min(.033,(now-state.last)/1000||.016); state.last=now; update(dt); draw(); requestAnimationFrame(loop); }
+  function loop(now){ const dt=Math.min(.033,(now-state.last)/1000||.016); state.last=now; try{ update(dt); draw(); }catch(e){ console.error('Raid loop recovered:', e); toast('전투 오류를 복구했습니다. 콘솔 오류를 확인하세요.'); state.hazards=[]; state.projectiles=state.projectiles.filter(p=>p.owner==='player'); draw(); } requestAnimationFrame(loop); }
   function toast(msg){state.message=msg; state.messageTime=2.0; floatText(msg,W/2,92,'#fef08a',20);}
   function formatMs(ms){const s=ms/1000; return s<60?s.toFixed(2)+'초':Math.floor(s/60)+'분 '+(s%60).toFixed(1)+'초';}
   function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
