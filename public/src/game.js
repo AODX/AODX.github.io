@@ -1,6 +1,6 @@
 
 /* =========================================================
-   RAID DUNGEON V13 - REAL CLICK AND SAVE FIX FULL REPLACE public/src/game.js
+   RAID DUNGEON V14 - HARD CLICK AND STORAGE FIX FULL REPLACE public/src/game.js
    보스 레이드 + 가챠 + 보스별 랭킹 + 패턴 파훼 액션 게임
 
    적용 위치: public/src/game.js 전체 교체
@@ -14,11 +14,12 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Dungeon V13 - Click Save Real Fix';
+  const VERSION = 'Raid Dungeon V14 - Hard Click Storage Fix';
   try { document.title = 'Raid Dungeon'; } catch(e) {}
   const W = 1280;
   const H = 720;
-  const SAVE_KEY = 'raid-build-v12-local-save';
+  const SAVE_KEY = 'raid-build-v14-local-save';
+  const LEGACY_SAVE_KEYS = ['raid-build-v14-local-save','raid-build-v12-local-save','raid-build-v11-local-save','raid-build-v10-local-save','raid-build-v9-local-save','raid-build-v7-local-save','raid-build-v6-local-save'];
   const LOCAL_RECORD_KEY = 'raid-build-v12-local-records';
   const INITIAL_TICKETS = { weapon: 1, armor: 1, skill: 3, passive: 1 }; // 처음 지급: 무기 1회, 방어구 1회, 스킬 3회, 패시브 1회
   const TICKET_LABEL = { weapon: '무기 뽑기 티켓', armor: '방어구 뽑기 티켓', skill: '스킬 뽑기 티켓', passive: '패시브 뽑기 티켓' };
@@ -356,12 +357,40 @@
     return { first: true, tickets: {...INITIAL_TICKETS}, coins: 0, weapons: [], armors: [], skills: [], passives: [], playerName: 'Player', seenHelp: false, build:{weapon:null, armor:null, skills:[null,null,null], passives:[]} };
   }
   function loadSave() {
-    try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || localStorage.getItem(SAVE_KEY + '-backup') || localStorage.getItem('raid-build-v7-local-save') || 'null'); if (s) return s; } catch(e) {}
-    return createDefaultSave();
+    // V14: 여러 과거 키와 백업 키를 모두 훑어서 가장 아이템이 많이 남아 있는 저장을 선택한다.
+    // 예전 기본 저장이 먼저 잡혀서 뽑기 결과가 사라지는 문제를 막는다.
+    let best = null;
+    let bestScore = -1;
+    const keys = [];
+    LEGACY_SAVE_KEYS.forEach(k => { keys.push(k, k + '-backup'); });
+    try {
+      for (const k of keys) {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        const parsed = normalizeSaveData(JSON.parse(raw));
+        const score = saveValueScore(parsed);
+        if (score > bestScore) { best = parsed; bestScore = score; }
+      }
+    } catch(e) { console.warn('[RaidGame] loadSave scan failed:', e); }
+    return best || createDefaultSave();
+  }
+
+  function saveValueScore(s) {
+    if (!s) return -1;
+    return (s.weapons?.length || 0) * 1000 + (s.armors?.length || 0) * 1000 + (s.skills?.length || 0) * 1000 + (s.passives?.length || 0) * 1000
+      + (s.tickets?.weapon || 0) + (s.tickets?.armor || 0) + (s.tickets?.skill || 0) + (s.tickets?.passive || 0);
+  }
+
+  function writeAllLocalSaves() {
+    state.save = normalizeSaveData(state.save);
+    const raw = JSON.stringify(state.save);
+    const keys = [SAVE_KEY, SAVE_KEY + '-backup', 'raid-build-v12-local-save', 'raid-build-v12-local-save-backup'];
+    keys.forEach(k => { try { localStorage.setItem(k, raw); } catch(e) {} });
+    return true;
   }
   function normalizeSave() {
     state.save = normalizeSaveData(state.save);
-    localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
+    writeAllLocalSaves();
   }
   function normalizeSaveData(data) {
     const s = Object.assign(createDefaultSave(), data || {});
@@ -386,11 +415,7 @@
     if(state && state.save){
       state.save.build={weapon:state.selectedWeaponId||null, armor:state.selectedArmorId||null, skills:(state.selectedSkillIds||[null,null,null]).slice(0,3), passives:(state.selectedPassiveIds||[]).slice()};
     }
-    state.save = normalizeSaveData(state.save);
-    try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
-      localStorage.setItem(SAVE_KEY + '-backup', JSON.stringify(state.save));
-    } catch(e) { console.warn('[RaidGame] local save failed:', e); }
+    try { writeAllLocalSaves(); } catch(e) { console.warn('[RaidGame] local save failed:', e); }
     queueCloudSave();
   }
 
@@ -432,24 +457,22 @@
   let lastUiActionKey = '';
 
   function bindResponsiveUiClicks() {
-    // V13 REAL FIX:
-    // UI 입력은 document capture click 한 곳에서만 처리한다.
-    // pointerup + click 혼용은 일부 브라우저에서 버튼이 씹히는 원인이어서 제거했다.
-    if (!document.__raidDungeonClickBound) {
-      document.__raidDungeonClickBound = true;
-      document.addEventListener('click', handleUiAction, true);
+    // V14 HARD FIX:
+    // document capture 방식은 일부 배포/브라우저에서 버튼을 가로막았다.
+    // 이제 오버레이 루트에서 일반 click만 받는다. 메뉴가 다시 그려져도 위임 처리로 살아 있다.
+    const root = document.getElementById('raidV4Root');
+    if (root && !root.__raidDungeonRootClickBound) {
+      root.__raidDungeonRootClickBound = true;
+      root.addEventListener('click', handleUiAction, false);
     }
   }
 
   function handleUiAction(e) {
     const target = e.target;
     if(!target || !target.closest) return;
-    if(target.closest('input,textarea,select')) return;
-
     const active = findRaidActionNode(target);
     if(!active) return;
     if(ui.root && !ui.root.contains(active)) return;
-
     e.preventDefault();
     e.stopPropagation();
     runUiAction(active);
@@ -727,17 +750,17 @@
     if(state.menuTab==='gacha') body = renderGachaTab();
     if(state.menuTab==='build') body = renderBuildTab();
     if(state.menuTab==='ranking') body = renderRankingTab();
-    ui.menu.innerHTML = `<div class="row"><div><h1 class="title">Raid Dungeon</h1><p class="sub">보스를 선택하고, 티켓으로 무기/방어구/스킬/패시브를 뽑아 조합한 뒤 패턴을 파훼해서 클리어하세요.</p></div><div style="text-align:right"><div class="chip">${VERSION}</div><div class="chip">${escapeHtml(state.save.playerName || 'Player')}</div><div class="chip">무기티켓 ${state.save.tickets.weapon}</div><div class="chip">방어구티켓 ${state.save.tickets.armor||0}</div><div class="chip">스킬티켓 ${state.save.tickets.skill}</div><div class="chip">패시브티켓 ${state.save.tickets.passive}</div><div class="chip">${escapeHtml(state.cloudStatus || '계정 저장')}</div><button id="manualSaveBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">수동 저장</button> <button id="logoutBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">로그아웃</button></div></div>${nav}${body}`;
+    ui.menu.innerHTML = `<div class="row"><div><h1 class="title">Raid Dungeon</h1><p class="sub">보스를 선택하고, 티켓으로 무기/방어구/스킬/패시브를 뽑아 조합한 뒤 패턴을 파훼해서 클리어하세요.</p></div><div style="text-align:right"><div class="chip">${VERSION}</div><div class="chip">${escapeHtml(state.save.playerName || 'Player')}</div><div class="chip">무기티켓 ${state.save.tickets.weapon}</div><div class="chip">방어구티켓 ${state.save.tickets.armor||0}</div><div class="chip">스킬티켓 ${state.save.tickets.skill}</div><div class="chip">패시브티켓 ${state.save.tickets.passive}</div><div class="chip">${escapeHtml(state.cloudStatus || '계정 저장')}</div><button id="manualSaveBtn" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.save()" class="btn secondary" style="margin-top:8px;padding:8px 12px">수동 저장</button> <button id="logoutBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">로그아웃</button></div></div>${nav}${body}`;
     bindMenuButtons();
   }
 
   function renderDungeonTab() {
-    return `<p class="sub">아래로 갈수록 난이도가 올라갑니다. 각 보스는 외형과 패턴이 모두 다르며, 후반 보스는 반투명 예고 후 큰 공격과 회전 레이저, 즉사 패턴을 사용합니다.</p><div class="boss-grid">${BOSSES.map(b=>`<div class="boss-card ${state.selectedBossId===b.id?'active':''}" data-boss="${b.id}"><div class="muted">${stars(b.tier)}</div><div class="boss-art">${bossMiniSvg(b)}</div><h3 style="margin:0 0 6px;color:white;font-size:15px">${b.name}</h3><p class="muted" style="line-height:1.4">${b.desc}</p><div style="margin-top:8px">${b.patterns.map(p=>`<span class="chip">${p}</span>`).join('')}</div></div>`).join('')}</div><div class="row" style="margin-top:14px"><button id="goBuild" class="btn">선택한 보스로 출격 준비</button><button id="goGacha" class="btn secondary">뽑기 상점으로</button></div>`;
+    return `<p class="sub">아래로 갈수록 난이도가 올라갑니다. 각 보스는 외형과 패턴이 모두 다르며, 후반 보스는 반투명 예고 후 큰 공격과 회전 레이저, 즉사 패턴을 사용합니다.</p><div class="boss-grid">${BOSSES.map(b=>`<div class="boss-card ${state.selectedBossId===b.id?'active':''}" data-boss="${b.id}"><div class="muted">${stars(b.tier)}</div><div class="boss-art">${bossMiniSvg(b)}</div><h3 style="margin:0 0 6px;color:white;font-size:15px">${b.name}</h3><p class="muted" style="line-height:1.4">${b.desc}</p><div style="margin-top:8px">${b.patterns.map(p=>`<span class="chip">${p}</span>`).join('')}</div></div>`).join('')}</div><div class="row" style="margin-top:14px"><button id="goBuild" class="btn" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.step('weapon')">선택한 보스로 출격 준비</button><button id="goGacha" class="btn secondary" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.gachaTab&&window.RaidDungeonUI.gachaTab()">뽑기 상점으로</button></div>`;
   }
   function renderGachaTab() {
     const rates = RARITIES.map(r=>`<span class="chip" style="color:${r.color}">${r.name}</span>`).join('');
     const result = state.gachaResult ? `<div class="gacha-result"><div style="font-size:14px;color:${getRarity(state.gachaResult.rarity).color};font-weight:950">${getRarity(state.gachaResult.rarity).name}</div><div style="font-size:25px;font-weight:950;color:#fff;margin:4px 0">${state.gachaResult.name}</div><p class="sub">${state.gachaResult.desc||'새로운 항목을 획득했습니다.'}</p></div>` : '';
-    return `<h2 class="title" style="font-size:22px">뽑기 상점</h2><p class="sub">코인이 아니라 보스 클리어로 얻는 티켓으로 뽑습니다. 스킬 뽑기에는 공격, 버프, 회복, 디버프, 상태이상 해제가 모두 들어 있습니다.<br>${rates}</p><div class="grid"><div class="card"><h3>무기 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.weapon}장<br>검, 활, 채찍, 스태프, 단검, 대검, 마도총 등 무기를 획득합니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="weapon">무기 뽑기</button></div><div class="card"><h3>방어구 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.armor||0}장<br>체력 증가, 방어력, 고등급 상태이상 저항/면역 효과가 있는 방어구를 획득합니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="armor">방어구 뽑기</button></div><div class="card"><h3>스킬 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.skill}장<br>공격, 버프, 회복, 디버프, 상태이상 해제 스킬 중 하나를 획득합니다. 총 100종류입니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="skill">스킬 뽑기</button></div><div class="card"><h3>패시브 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.passive}장<br>이제 패시브는 밸런스를 위해 보스와 관계없이 1개만 장착할 수 있습니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="passive">패시브 뽑기</button></div><div class="card"><h3>보유 현황</h3><p>무기 ${state.save.weapons.length}/${WEAPONS.length}<br>방어구 ${state.save.armors.length}/${ARMORS.length}<br>스킬 ${state.save.skills.length}/${SKILLS.length}<br>패시브 ${state.save.passives.length}/${PASSIVES.length}</p></div></div>${result}`;
+    return `<h2 class="title" style="font-size:22px">뽑기 상점</h2><p class="sub">코인이 아니라 보스 클리어로 얻는 티켓으로 뽑습니다. 스킬 뽑기에는 공격, 버프, 회복, 디버프, 상태이상 해제가 모두 들어 있습니다.<br>${rates}</p><div class="grid"><div class="card"><h3>무기 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.weapon}장<br>검, 활, 채찍, 스태프, 단검, 대검, 마도총 등 무기를 획득합니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="weapon" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.gacha('weapon')">무기 뽑기</button></div><div class="card"><h3>방어구 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.armor||0}장<br>체력 증가, 방어력, 고등급 상태이상 저항/면역 효과가 있는 방어구를 획득합니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="armor" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.gacha('armor')">방어구 뽑기</button></div><div class="card"><h3>스킬 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.skill}장<br>공격, 버프, 회복, 디버프, 상태이상 해제 스킬 중 하나를 획득합니다. 총 100종류입니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="skill" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.gacha('skill')">스킬 뽑기</button></div><div class="card"><h3>패시브 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.passive}장<br>이제 패시브는 밸런스를 위해 보스와 관계없이 1개만 장착할 수 있습니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="passive" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.gacha('passive')">패시브 뽑기</button></div><div class="card"><h3>보유 현황</h3><p>무기 ${state.save.weapons.length}/${WEAPONS.length}<br>방어구 ${state.save.armors.length}/${ARMORS.length}<br>스킬 ${state.save.skills.length}/${SKILLS.length}<br>패시브 ${state.save.passives.length}/${PASSIVES.length}</p></div></div>${result}`;
   }
   function renderBuildTab() {
     const steps = [['weapon','무기'],['armor','방어구'],['skill1','스킬 1'],['skill2','스킬 2'],['skill3','스킬 3'],['passive','패시브'],['ready','출격']];
@@ -749,33 +772,33 @@
     if(state.buildStep==='skill3') content = skillSlotGrid(2);
     if(state.buildStep==='passive') content = passiveGrid();
     if(state.buildStep==='ready') content = readyPanel();
-    return `<div class="row"><div><h2 class="title" style="font-size:22px">출격 준비 · ${getBoss(state.selectedBossId).name}</h2><p class="sub">현재 보스 난이도 ${stars(getBoss(state.selectedBossId).tier)} · 방어구 1개 장착 가능 · 패시브는 1개만 선택 가능 · 스킬은 종류 제한 없이 아무거나 3개 장착 가능</p></div><button id="backDungeon" class="btn secondary">보스 다시 선택</button></div><div class="stepbar">${steps.map(s=>`<button type="button" class="step ${state.buildStep===s[0]?'active':''}" data-step="${s[0]}">${s[1]}</button>`).join('')}</div>${content}`;
+    return `<div class="row"><div><h2 class="title" style="font-size:22px">출격 준비 · ${getBoss(state.selectedBossId).name}</h2><p class="sub">현재 보스 난이도 ${stars(getBoss(state.selectedBossId).tier)} · 방어구 1개 장착 가능 · 패시브는 1개만 선택 가능 · 스킬은 종류 제한 없이 아무거나 3개 장착 가능</p></div><button id="backDungeon" class="btn secondary">보스 다시 선택</button></div><div class="stepbar">${steps.map(s=>`<button type="button" class="step ${state.buildStep===s[0]?'active':''}" data-step="${s[0]}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.step('${s[0]}')">${s[1]}</button>`).join('')}</div>${content}`;
   }
 
   function skillSlotGrid(slot) {
     const items = ownedSkills();
     const selected = state.selectedSkillIds[slot] || null;
-    const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id=""><h3>스킬 ${slot+1} 비우기</h3><p>스킬을 끼지 않아도 레이드는 시작할 수 있습니다.</p></div>`;
-    if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 스킬이 없습니다.</h3><p>스킬 뽑기에서 공격, 버프, 회복, 디버프, 상태이상 해제 스킬을 모두 획득할 수 있습니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
-    return `<p class="sub">스킬 ${slot+1}번 칸입니다. 공격/버프/회복/디버프/상태이상 해제 구분 없이 원하는 스킬을 장착할 수 있습니다. 같은 스킬은 한 번만 장착됩니다.</p><div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>분류: ${skillCategoryName(it.category)} · 속성: ${it.element}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+    const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','',${slot})"><h3>스킬 ${slot+1} 비우기</h3><p>스킬을 끼지 않아도 레이드는 시작할 수 있습니다.</p></div>`;
+    if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 스킬이 없습니다.</h3><p>스킬 뽑기에서 공격, 버프, 회복, 디버프, 상태이상 해제 스킬을 모두 획득할 수 있습니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.prev()">이전</button><button type="button" class="btn" data-next-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.next()">다음</button></div>`;
+    return `<p class="sub">스킬 ${slot+1}번 칸입니다. 공격/버프/회복/디버프/상태이상 해제 구분 없이 원하는 스킬을 장착할 수 있습니다. 같은 스킬은 한 번만 장착됩니다.</p><div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="${it.id}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','${it.id}',${slot})"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>분류: ${skillCategoryName(it.category)} · 속성: ${it.element}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.prev()">이전</button><button type="button" class="btn" data-next-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.next()">다음</button></div>`;
   }
   function selectionGrid(items, selected, type) {
     const noneTitle = type === 'weapon' ? '무기 없이 출격' : type === 'armor' ? '방어구 없이 출격' : '이 스킬칸 비우기';
     const noneDesc = type === 'weapon' ? '스킬만 가지고 레이드에 들어갈 수 있습니다. 일반공격은 사용할 수 없습니다.' : type === 'armor' ? '방어구는 생존을 돕지만 필수는 아닙니다.' : '스킬을 끼지 않아도 레이드는 시작할 수 있습니다.';
-    const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="${type}" data-select-id=""><h3>${noneTitle}</h3><p>${noneDesc}</p></div>`;
-    if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 항목이 없습니다.</h3><p>뽑기 상점에서 먼저 획득할 수 있습니다. 그래도 다른 장비/스킬이 있으면 출격은 가능합니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
-    return `<div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="${type}" data-select-id="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>${it.category?('분류: '+skillCategoryName(it.category)):(type==='armor'?('효과: 체력 +'+it.hp+' / 방어 +'+it.def):('종류: '+weaponKindName(it.kind)))}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+    const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="${type}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('${type}','',0)"><h3>${noneTitle}</h3><p>${noneDesc}</p></div>`;
+    if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 항목이 없습니다.</h3><p>뽑기 상점에서 먼저 획득할 수 있습니다. 그래도 다른 장비/스킬이 있으면 출격은 가능합니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.prev()">이전</button><button type="button" class="btn" data-next-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.next()">다음</button></div>`;
+    return `<div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="${type}" data-select-id="${it.id}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('${type}','${it.id}',0)"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>${it.category?('분류: '+skillCategoryName(it.category)):(type==='armor'?('효과: 체력 +'+it.hp+' / 방어 +'+it.def):('종류: '+weaponKindName(it.kind)))}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.prev()">이전</button><button type="button" class="btn" data-next-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.next()">다음</button></div>`;
   }
   function passiveGrid() {
     const items = ownedPassives(); const limit = passiveLimit();
     if(!items.length) return `<div class="card"><h3>보유한 패시브가 없습니다.</h3><p>패시브 뽑기로 획득해야 합니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div>`;
-    return `<p class="sub">${limit}개까지 선택 가능. 현재 ${state.selectedPassiveIds.length}/${limit}</p><div class="grid">${items.map(it=>`<div class="card ${state.selectedPassiveIds.includes(it.id)?'active':''}" data-passive="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+    return `<p class="sub">${limit}개까지 선택 가능. 현재 ${state.selectedPassiveIds.length}/${limit}</p><div class="grid">${items.map(it=>`<div class="card ${state.selectedPassiveIds.includes(it.id)?'active':''}" data-passive="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.prev()">이전</button><button type="button" class="btn" data-next-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.next()">다음</button></div>`;
   }
   function readyPanel() {
     const ok = canStart();
     const b = getBoss(state.selectedBossId);
     const skillNames = (state.selectedSkillIds || []).map((id,i)=>`스킬 ${i+1}: ${getSkill(id)?.name || '없음'}`).join('<br>');
-    return `<div class="grid"><div class="card active"><h3>${b.name}</h3><p>${stars(b.tier)}<br>${b.desc}</p><div>${b.patterns.map(p=>`<span class="chip">${p}</span>`).join('')}</div></div><div class="card"><h3>선택한 조합</h3><p>무기: ${getWeapon(state.selectedWeaponId)?.name || '없음'}<br>방어구: ${getArmor(state.selectedArmorId)?.name || '없음'}<br>${skillNames}<br>패시브: ${state.selectedPassiveIds.length}/${passiveLimit()} · 필수 아님</p><p class="sub">무기만 있어도, 스킬만 있어도 출격할 수 있습니다. 단, 무기와 스킬을 모두 비우면 공격 수단이 없어 시작할 수 없습니다.</p></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" id="startRaid" class="btn danger" ${ok?'':'disabled'}>레이드 시작</button></div>${ok?'':'<p class="sub">무기 또는 스킬 중 최소 하나는 장착해야 합니다. 패시브는 선택 사항입니다.</p>'}`;
+    return `<div class="grid"><div class="card active"><h3>${b.name}</h3><p>${stars(b.tier)}<br>${b.desc}</p><div>${b.patterns.map(p=>`<span class="chip">${p}</span>`).join('')}</div></div><div class="card"><h3>선택한 조합</h3><p>무기: ${getWeapon(state.selectedWeaponId)?.name || '없음'}<br>방어구: ${getArmor(state.selectedArmorId)?.name || '없음'}<br>${skillNames}<br>패시브: ${state.selectedPassiveIds.length}/${passiveLimit()} · 필수 아님</p><p class="sub">무기만 있어도, 스킬만 있어도 출격할 수 있습니다. 단, 무기와 스킬을 모두 비우면 공격 수단이 없어 시작할 수 없습니다.</p></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" id="startRaid" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.start()" class="btn danger" ${ok?'':'disabled'}>레이드 시작</button></div>${ok?'':'<p class="sub">무기 또는 스킬 중 최소 하나는 장착해야 합니다. 패시브는 선택 사항입니다.</p>'}`;
   }
   function renderRankingTab() {
     const rows = state.rankings.length ? state.rankings.map((r,i)=>{
@@ -1678,7 +1701,21 @@
   }
 
 
-  // V13 diagnostic helper: 브라우저 콘솔에서 window.RaidDungeonDebug.state()로 현재 저장 상태 확인 가능.
+  // V14 global helpers: 인라인/콘솔/비상 버튼 처리용.
+  try {
+    window.RaidDungeonUI = {
+      step: (name) => { state.menuTab='build'; state.buildStep=String(name || 'weapon'); saveGame(); renderMenu(); },
+      next: () => stepMove(1),
+      prev: () => stepMove(-1),
+      start: () => startRaid(),
+      gacha: (kind) => rollGacha(kind),
+      select: (type,id,slot) => selectBuild(type, id || '', Number(slot || 0)),
+      save: () => manualSaveProfile(),
+      gachaTab: () => { state.menuTab='gacha'; renderMenu(); }
+    };
+  } catch(e) {}
+
+  // V14 diagnostic helper: 브라우저 콘솔에서 window.RaidDungeonDebug.state()로 현재 저장 상태 확인 가능.
   try {
     window.RaidDungeonDebug = {
       state: () => JSON.parse(JSON.stringify({
@@ -1695,6 +1732,12 @@
       goArmor: () => { state.menuTab='build'; state.buildStep='armor'; renderMenu(); },
       goReady: () => { state.menuTab='build'; state.buildStep='ready'; renderMenu(); }
     };
+  } catch(e) {}
+
+
+  try {
+    window.addEventListener('beforeunload', () => { try { saveGame(); writeAllLocalSaves(); } catch(e) {} });
+    window.addEventListener('pagehide', () => { try { saveGame(); writeAllLocalSaves(); } catch(e) {} });
   } catch(e) {}
 
   function loop(now){ const dt=Math.min(.033,(now-state.last)/1000||.016); state.last=now; try{ update(dt); draw(); }catch(e){ console.error('Raid loop recovered:', e); toast('전투 오류를 복구했습니다. 콘솔 오류를 확인하세요.'); state.hazards=[]; state.projectiles=state.projectiles.filter(p=>p.owner==='player'); draw(); } requestAnimationFrame(loop); }
