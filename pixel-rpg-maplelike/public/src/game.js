@@ -1,6 +1,6 @@
 
 /* =========================================================
-   RAID BUILD GAME V4 - FULL REPLACE public/src/game.js
+   RAID BUILD GAME V6 - LOGIN + CLOUD SAVE FULL REPLACE public/src/game.js
    보스 레이드 + 가챠 + 보스별 랭킹 + 패턴 파훼 액션 게임
 
    적용 위치: public/src/game.js 전체 교체
@@ -14,13 +14,14 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Build Game V4.0 - Gacha Dungeon Raid';
+  const VERSION = 'Raid Build Game V6.0 - Login + Cloud Inventory Save';
   const W = 1280;
   const H = 720;
-  const SAVE_KEY = 'raid-build-v4-save';
-  const LOCAL_RECORD_KEY = 'raid-build-v4-local-records';
+  const SAVE_KEY = 'raid-build-v6-local-save';
+  const LOCAL_RECORD_KEY = 'raid-build-v6-local-records';
   const INITIAL_COINS = 1060; // 무기 1회 + 스킬 3회 + 패시브 1회 뽑기 비용
   const COST = { weapon: 300, skill: 180, passive: 220 };
+  const PROFILE_TABLE = 'raid_profiles';
 
   let canvas = document.getElementById('game');
   if (!canvas) {
@@ -70,20 +71,65 @@
   ];
 
   const WEAPONS = [
-    weapon('rust_sword', '낡은 검', 'normal', 'sword', '짧고 빠른 기본 베기.', '#d97706', 1.00, 92, .34, 0),
-    weapon('oak_staff', '떡갈나무 스태프', 'normal', 'staff', '느린 마법탄을 발사합니다.', '#60a5fa', .86, 430, .50, 0),
+    // 일반 등급
+    weapon('rust_sword', '낡은 검', 'normal', 'sword', '가볍고 빠른 기본 베기. 초반 안정성이 좋습니다.', '#d97706', 1.00, 92, .34, 0),
+    weapon('oak_staff', '떡갈나무 스태프', 'normal', 'staff', '마력탄을 발사하는 기본 스태프.', '#60a5fa', .86, 430, .50, 0),
     weapon('hunter_bow', '사냥꾼 활', 'normal', 'bow', '빠른 화살을 발사합니다.', '#facc15', .92, 560, .30, 5),
-    weapon('training_pole', '수련용 봉', 'normal', 'pole', '긴 찌르기 공격.', '#34d399', .96, 160, .38, 2),
-    weapon('serpent_whip', '뱀가죽 채찍', 'rare', 'whip', '넓은 부채꼴 타격.', '#c084fc', .88, 190, .40, 6),
-    weapon('shadow_dagger', '그림자 단검', 'rare', 'dagger', '초고속 연속 찌르기.', '#e879f9', .66, 76, .16, 18),
-    weapon('flame_blade', '화염검', 'super', 'sword_fire', '불꽃 참격을 남기는 검.', '#fb7185', 1.16, 112, .36, 8),
-    weapon('storm_bow', '폭풍궁', 'super', 'bow_storm', '관통 번개 화살.', '#fde047', 1.02, 600, .33, 12),
-    weapon('glacier_staff', '빙하 스태프', 'epic', 'staff_ice', '폭발하는 얼음 구체.', '#7dd3fc', 1.05, 500, .48, 6),
-    weapon('dragon_greatsword', '용살 대검', 'epic', 'greatsword', '느리지만 거대한 참격.', '#f97316', 1.70, 140, .75, 10),
-    weapon('void_scythe', '공허 낫', 'legendary', 'scythe', '왕복하는 공허 낫.', '#a78bfa', 1.32, 430, .56, 14),
-    weapon('arcane_gunstaff', '마도총 엑셀리온', 'legendary', 'gunstaff', '폭발 마도탄을 발사합니다.', '#22d3ee', 1.28, 540, .58, 16),
-    weapon('celestial_chakram', '천공 차크람', 'ultimate', 'chakram', '원형 궤도로 되돌아오는 궁극 무기.', '#fef08a', 1.55, 620, .42, 25),
-    weapon('origin_grimoire', '근원 마도서', 'ultimate', 'grimoire', '자동 추적 마법탄이 연속 발사됩니다.', '#fb7185', 1.46, 650, .46, 22)
+    weapon('training_pole', '수련용 봉', 'normal', 'pole', '앞으로 길게 찌르는 안정적인 무기.', '#34d399', .96, 160, .38, 2),
+    weapon('leather_whip', '가죽 채찍', 'normal', 'whip', '넓게 휘둘러 가까운 적을 견제합니다.', '#c084fc', .82, 170, .42, 3),
+    weapon('kitchen_dagger', '녹슨 단검', 'normal', 'dagger', '짧지만 매우 빠른 연타 무기.', '#e5e7eb', .62, 72, .17, 14),
+    weapon('stone_greatsword', '돌 대검', 'normal', 'greatsword', '느리지만 묵직한 초반 대검.', '#94a3b8', 1.36, 124, .82, 2),
+    weapon('spark_gunstaff', '소형 마도총', 'normal', 'gunstaff', '작은 폭발 마도탄을 발사합니다.', '#22d3ee', .90, 470, .62, 4),
+
+    // 희귀 등급
+    weapon('silver_saber', '은빛 세이버', 'rare', 'sword', '부드러운 곡선으로 빠르게 베어냅니다.', '#cbd5e1', 1.08, 104, .31, 8),
+    weapon('serpent_whip', '뱀가죽 채찍', 'rare', 'whip', '뱀처럼 휘어지는 부채꼴 타격.', '#a78bfa', .94, 200, .38, 8),
+    weapon('shadow_dagger', '그림자 단검', 'rare', 'dagger', '짧은 거리를 순식간에 찌릅니다.', '#e879f9', .70, 78, .145, 22),
+    weapon('ash_staff', '잿불 스태프', 'rare', 'staff', '붉은 잿불탄을 발사합니다.', '#fb7185', .98, 460, .48, 5),
+    weapon('falcon_bow', '매의 장궁', 'rare', 'bow', '화살 속도가 빠르고 치명타가 높습니다.', '#fde047', .98, 610, .29, 12),
+    weapon('jade_pole', '비취 봉', 'rare', 'pole', '긴 사거리와 균형 잡힌 공격속도.', '#34d399', 1.05, 180, .35, 6),
+    weapon('chain_blade', '사슬검', 'rare', 'whip', '검과 채찍을 합친 듯한 넓은 공격.', '#38bdf8', 1.00, 205, .41, 9),
+    weapon('burst_pistol_staff', '폭발 마도권총', 'rare', 'gunstaff', '작은 폭발을 일으키는 마도탄.', '#67e8f9', .98, 500, .58, 8),
+
+    // 초희귀 등급
+    weapon('flame_blade', '화염검', 'super', 'sword_fire', '불꽃 잔상을 남기는 검.', '#fb7185', 1.16, 115, .34, 10),
+    weapon('storm_bow', '폭풍궁', 'super', 'bow_storm', '관통 번개 화살을 쏩니다.', '#fde047', 1.04, 640, .31, 14),
+    weapon('moon_dagger', '월영 단검', 'super', 'dagger', '달빛 잔상을 남기는 고속 단검.', '#c4b5fd', .82, 86, .13, 28),
+    weapon('thunder_pole', '뇌전 봉', 'super', 'pole', '찌르기 끝에 전류가 터집니다.', '#facc15', 1.13, 198, .33, 11),
+    weapon('rose_whip', '가시 장미 채찍', 'super', 'whip', '넓은 범위에 가시 타격을 가합니다.', '#f472b6', 1.02, 222, .37, 13),
+    weapon('rune_staff', '룬 스태프', 'super', 'staff', '룬 마법탄을 안정적으로 발사합니다.', '#818cf8', 1.10, 500, .44, 10),
+    weapon('crystal_greatsword', '수정 대검', 'super', 'greatsword', '투명한 수정 참격을 날립니다.', '#7dd3fc', 1.62, 145, .72, 9),
+    weapon('arcane_revolver', '비전 리볼버', 'super', 'gunstaff', '폭발 범위가 넓은 마도탄.', '#22d3ee', 1.12, 535, .54, 12),
+
+    // 에픽 등급
+    weapon('glacier_staff', '빙하 스태프', 'epic', 'staff_ice', '폭발하는 얼음 구체를 발사합니다.', '#7dd3fc', 1.18, 540, .43, 10),
+    weapon('dragon_greatsword', '용살 대검', 'epic', 'greatsword', '느리지만 거대한 화염 참격.', '#f97316', 1.86, 158, .70, 13),
+    weapon('phantom_dagger', '환영 단검', 'epic', 'dagger', '세 번 찌르는 듯한 잔상 연타.', '#d946ef', .92, 94, .115, 34),
+    weapon('leviathan_whip', '레비아탄 채찍', 'epic', 'whip', '파도처럼 넓게 휘몰아치는 채찍.', '#38bdf8', 1.15, 245, .35, 16),
+    weapon('sunpiercer_bow', '태양 관통궁', 'epic', 'bow_storm', '빛의 화살이 빠르게 관통합니다.', '#fef08a', 1.14, 690, .30, 18),
+    weapon('meteor_sword', '유성검', 'epic', 'sword_fire', '베기 끝에 유성 파편이 튑니다.', '#fb923c', 1.32, 128, .32, 17),
+    weapon('obsidian_pole', '흑요석 봉', 'epic', 'pole', '무거운 찌르기로 보스의 빈틈을 찌릅니다.', '#a78bfa', 1.30, 215, .34, 15),
+    weapon('nova_gunstaff', '노바 마도총', 'epic', 'gunstaff', '폭발 마도탄의 위력이 강합니다.', '#67e8f9', 1.24, 570, .52, 18),
+
+    // 레전더리 등급
+    weapon('void_scythe', '공허 낫', 'legendary', 'scythe', '왕복하는 공허 낫을 날립니다.', '#a78bfa', 1.42, 460, .52, 20),
+    weapon('arcane_gunstaff', '마도총 엑셀리온', 'legendary', 'gunstaff', '강력한 폭발 마도탄을 발사합니다.', '#22d3ee', 1.38, 590, .50, 22),
+    weapon('storm_lord_bow', '폭풍군주의 활', 'legendary', 'bow_storm', '번개 화살이 보스를 꿰뚫습니다.', '#fde047', 1.30, 740, .27, 26),
+    weapon('blood_moon_blades', '혈월 쌍단검', 'legendary', 'dagger', '흡혈의 붉은 잔상을 남기는 단검.', '#fb7185', 1.05, 102, .10, 42),
+    weapon('solar_lance', '태양 장봉', 'legendary', 'pole', '태양빛이 응축된 긴 찌르기.', '#facc15', 1.48, 238, .31, 22),
+    weapon('abyssal_whip', '심연 채찍', 'legendary', 'whip', '검은 균열을 그리며 휘둘러집니다.', '#8b5cf6', 1.28, 275, .33, 25),
+    weapon('chronos_blade', '시간검 크로노엣지', 'legendary', 'sword', '공격 궤적이 늦게 한 번 더 베어냅니다.', '#f472b6', 1.50, 142, .30, 24),
+    weapon('starfall_greatsword', '성운 대검', 'legendary', 'greatsword', '별빛 참격으로 넓게 베어냅니다.', '#fef08a', 2.05, 175, .66, 20),
+
+    // 궁극 등급
+    weapon('celestial_chakram', '천공 차크람', 'ultimate', 'chakram', '던진 뒤 되돌아오는 궁극 원형 무기.', '#fef08a', 1.62, 650, .39, 32),
+    weapon('origin_grimoire', '근원 마도서', 'ultimate', 'grimoire', '자동 추적 마법탄이 연속 발사됩니다.', '#fb7185', 1.54, 700, .42, 30),
+    weapon('genesis_sword', '창세검', 'ultimate', 'sword_fire', '검격마다 창세의 빛이 터집니다.', '#ffffff', 1.88, 162, .27, 35),
+    weapon('apocalypse_bow', '종말궁', 'ultimate', 'bow_storm', '화살이 번개 폭풍처럼 관통합니다.', '#facc15', 1.58, 800, .25, 40),
+    weapon('infinite_dagger', '무한 단검', 'ultimate', 'dagger', '거의 끊기지 않는 초고속 찌르기.', '#e879f9', 1.22, 116, .085, 52),
+    weapon('world_tree_staff', '세계수 스태프', 'ultimate', 'staff', '생명과 별빛이 섞인 추적 마법탄.', '#86efac', 1.70, 760, .40, 34),
+    weapon('ouroboros_whip', '우로보로스 채찍', 'ultimate', 'whip', '원형으로 휘감기는 궁극 채찍.', '#a78bfa', 1.48, 315, .30, 38),
+    weapon('singularity_scythe', '특이점 낫', 'ultimate', 'scythe', '공간을 접어 왕복하는 검은 낫.', '#c084fc', 1.76, 560, .46, 36)
   ];
 
   const SKILLS = buildSkills();
@@ -96,6 +142,7 @@
   let boss = makeBoss(BOSSES[0]);
   let supabase = null;
   let supabaseReady = false;
+  let cloudSaveTimer = null;
 
   const state = {
     screen: 'menu',
@@ -124,6 +171,12 @@
     rankingBossId: BOSSES[0].id,
     rankings: [],
     gachaResult: null,
+    authMode: 'login',
+    authMessage: '',
+    authBusy: false,
+    authChecked: false,
+    currentUser: null,
+    cloudStatus: '로컬 저장',
     save: loadSave()
   };
 
@@ -229,20 +282,34 @@
     return kor + ' 기운으로 일정 시간 능력치를 강화합니다. 3번 키로 사용합니다.';
   }
 
-  function loadSave() {
-    try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (s) return s; } catch(e) {}
+  function createDefaultSave() {
     return { first: true, coins: INITIAL_COINS, weapons: [], skills: [], passives: [], playerName: 'Player', seenHelp: false };
   }
+  function loadSave() {
+    try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (s) return s; } catch(e) {}
+    return createDefaultSave();
+  }
   function normalizeSave() {
-    const s = state.save;
+    state.save = normalizeSaveData(state.save);
+    saveGame();
+  }
+  function normalizeSaveData(data) {
+    const s = Object.assign(createDefaultSave(), data || {});
     if (!Array.isArray(s.weapons)) s.weapons = [];
     if (!Array.isArray(s.skills)) s.skills = [];
     if (!Array.isArray(s.passives)) s.passives = [];
     if (!Number.isFinite(s.coins)) s.coins = INITIAL_COINS;
     if (!s.playerName) s.playerName = localStorage.getItem('raid-build-player-name-v1') || 'Player';
-    saveGame();
+    s.weapons = Array.from(new Set(s.weapons.filter(id=>getWeapon(id))));
+    s.skills = Array.from(new Set(s.skills.filter(id=>getSkill(id))));
+    s.passives = Array.from(new Set(s.passives.filter(id=>getPassive(id))));
+    return s;
   }
-  function saveGame() { localStorage.setItem(SAVE_KEY, JSON.stringify(state.save)); }
+  function saveGame() {
+    state.save = normalizeSaveData(state.save);
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
+    queueCloudSave();
+  }
 
   function makePlayer() {
     return { x: W/2, y: H-120, r:16, hp:1000, maxHp:1000, shield:0, speed:265, atk:100, magic:100, def:0, crit:8, critDmg:1.7, damageMul:1, skillDamageMul:1, basicDamageMul:1, cooldownMul:1, areaMul:1, projectileSpeedMul:1, lifesteal:0, regen:2, invuln:0, slow:0, roll:0, rollCd:0, rollCdBonus:0, basicCd:0, skillCd:[0,0,0], damageTaken:0, aim:0, face:1, anim:0, tempBuffs:[] };
@@ -275,18 +342,136 @@
   }
   function updateMouse(e) { const r=canvas.getBoundingClientRect(); mouse.x=(e.clientX-r.left)*(W/r.width); mouse.y=(e.clientY-r.top)*(H/r.height); }
 
-  function initSupabase() { loadScript(SUPABASE_CDN).then(()=>{ if(!window.supabase) throw new Error('no sdk'); supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY); supabaseReady=true; refreshRankings(state.rankingBossId); }).catch(()=>{ supabaseReady=false; refreshRankings(state.rankingBossId); }); }
+  async function initSupabase() {
+    try {
+      await loadScript(SUPABASE_CDN);
+      if(!window.supabase) throw new Error('no sdk');
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      supabaseReady = true;
+      const { data } = await supabase.auth.getSession();
+      state.currentUser = data && data.session ? data.session.user : null;
+      state.authChecked = true;
+      if(state.currentUser) await loadCloudProfile();
+      supabase.auth.onAuthStateChange(async (_event, session)=>{
+        state.currentUser = session ? session.user : null;
+        if(state.currentUser) await loadCloudProfile();
+        else { state.cloudStatus = '로그인이 필요합니다'; renderMenu(); }
+      });
+      refreshRankings(state.rankingBossId);
+      renderMenu();
+    } catch(e) {
+      supabaseReady = false;
+      state.authChecked = true;
+      state.authMessage = 'Supabase 연결 실패: 로컬 저장으로만 실행됩니다.';
+      refreshRankings(state.rankingBossId);
+      renderMenu();
+    }
+  }
   function loadScript(src){return new Promise((res,rej)=>{if(document.querySelector('script[src="'+src+'"]')) return res(); const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.head.appendChild(s);});}
+
+  async function handleAuth(action) {
+    if(!supabaseReady || !supabase) { state.authMessage = 'Supabase 연결이 아직 준비되지 않았습니다.'; renderMenu(); return; }
+    const email = (document.getElementById('raidEmail')?.value || '').trim();
+    const password = document.getElementById('raidPassword')?.value || '';
+    const nickname = (document.getElementById('raidNickname')?.value || '').trim();
+    if(!email || !password) { state.authMessage = '이메일과 비밀번호를 입력해주세요.'; renderMenu(); return; }
+    if(password.length < 6) { state.authMessage = '비밀번호는 6자 이상이어야 합니다.'; renderMenu(); return; }
+    state.authBusy = true; state.authMessage = '처리 중...'; renderMenu();
+    try {
+      let result;
+      if(action === 'signup') {
+        result = await supabase.auth.signUp({ email, password, options:{ data:{ player_name:nickname || email.split('@')[0] } } });
+        if(result.error) throw result.error;
+        if(result.data && result.data.user) state.currentUser = result.data.user;
+        state.save.playerName = nickname || email.split('@')[0];
+        state.authMessage = result.data && result.data.session ? '회원가입 완료!' : '회원가입 완료. Supabase 설정에 따라 이메일 확인 후 로그인해야 할 수 있습니다.';
+      } else {
+        result = await supabase.auth.signInWithPassword({ email, password });
+        if(result.error) throw result.error;
+        state.currentUser = result.data.user;
+        state.authMessage = '로그인 완료!';
+      }
+      if(state.currentUser) await loadCloudProfile(true);
+    } catch(e) {
+      state.authMessage = e && e.message ? e.message : '로그인 처리 실패';
+    } finally {
+      state.authBusy = false;
+      renderMenu();
+    }
+  }
+  async function logout() {
+    if(supabase) await supabase.auth.signOut();
+    state.currentUser = null;
+    state.save = createDefaultSave();
+    localStorage.removeItem(SAVE_KEY);
+    state.selectedWeaponId = null; state.selectedAttackSkillId = null; state.selectedEvasionSkillId = null; state.selectedBuffSkillId = null; state.selectedPassiveIds = [];
+    state.cloudStatus = '로그아웃됨';
+    renderMenu();
+  }
+  async function loadCloudProfile(mergeLocal) {
+    if(!supabaseReady || !supabase || !state.currentUser) return;
+    try {
+      const { data, error } = await supabase.from(PROFILE_TABLE).select('save_data, player_name').eq('user_id', state.currentUser.id).maybeSingle();
+      if(error) throw error;
+      if(data && data.save_data) {
+        state.save = normalizeSaveData(data.save_data);
+        if(data.player_name && !state.save.playerName) state.save.playerName = data.player_name;
+        state.cloudStatus = '계정 저장 불러옴';
+      } else {
+        state.save = normalizeSaveData(mergeLocal ? state.save : createDefaultSave());
+        await saveCloudProfileNow();
+        state.cloudStatus = '새 계정 저장 생성';
+      }
+      trimSelectionsToOwned();
+      localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
+    } catch(e) {
+      state.cloudStatus = '계정 저장 불러오기 실패';
+    }
+  }
+  function queueCloudSave() {
+    if(!state.currentUser || !supabaseReady || !supabase) return;
+    clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = setTimeout(saveCloudProfileNow, 650);
+  }
+  async function saveCloudProfileNow() {
+    if(!state.currentUser || !supabaseReady || !supabase) return;
+    try {
+      const payload = { user_id: state.currentUser.id, player_name: state.save.playerName || 'Player', save_data: state.save, updated_at: new Date().toISOString() };
+      const { error } = await supabase.from(PROFILE_TABLE).upsert(payload, { onConflict:'user_id' });
+      if(error) throw error;
+      state.cloudStatus = '계정 저장 완료';
+    } catch(e) {
+      state.cloudStatus = '계정 저장 실패';
+    }
+  }
+  function trimSelectionsToOwned(){
+    const sw = new Set(state.save.weapons), ss = new Set(state.save.skills), sp = new Set(state.save.passives);
+    if(state.selectedWeaponId && !sw.has(state.selectedWeaponId)) state.selectedWeaponId = null;
+    if(state.selectedAttackSkillId && !ss.has(state.selectedAttackSkillId)) state.selectedAttackSkillId = null;
+    if(state.selectedEvasionSkillId && !ss.has(state.selectedEvasionSkillId)) state.selectedEvasionSkillId = null;
+    if(state.selectedBuffSkillId && !ss.has(state.selectedBuffSkillId)) state.selectedBuffSkillId = null;
+    state.selectedPassiveIds = state.selectedPassiveIds.filter(id=>sp.has(id));
+  }
+
+  function renderAuthMenu() {
+    const loading = !state.authChecked ? '<p class="sub">Supabase 로그인 상태 확인 중...</p>' : '';
+    const modeText = state.authMode === 'login' ? '로그인' : '회원가입';
+    const nick = state.authMode === 'signup' ? '<input id="raidNickname" class="input" placeholder="닉네임" autocomplete="nickname" style="margin-bottom:8px">' : '';
+    ui.menu.innerHTML = `<h1 class="title">보스 레이드 로그인</h1><p class="sub">계정에 로그인하면 뽑아둔 무기, 스킬, 패시브, 코인이 Supabase에 저장됩니다.<br>다른 컴퓨터에서 접속해도 같은 계정이면 그대로 이어서 플레이할 수 있습니다.</p>${loading}<div class="nav"><button class="tab ${state.authMode==='login'?'active':''}" data-authmode="login">로그인</button><button class="tab ${state.authMode==='signup'?'active':''}" data-authmode="signup">회원가입</button></div><div class="grid"><div class="card" style="cursor:default"><h3>${modeText}</h3><input id="raidEmail" class="input" placeholder="이메일" autocomplete="email" style="margin-bottom:8px"><input id="raidPassword" class="input" type="password" placeholder="비밀번호 6자 이상" autocomplete="current-password" style="margin-bottom:8px">${nick}<button id="authSubmit" class="btn" style="width:100%" ${state.authBusy?'disabled':''}>${modeText}</button><p class="sub" style="margin-top:10px;color:${state.authMessage && state.authMessage.includes('실패') ? '#fb7185' : '#fef08a'}">${escapeHtml(state.authMessage || state.cloudStatus || '')}</p></div><div class="card" style="cursor:default"><h3>처음 지급</h3><p>처음 로그인한 계정은 무기 뽑기 1회, 스킬 뽑기 3회, 패시브 뽑기 1회에 해당하는 ${INITIAL_COINS}C를 받습니다.</p><p class="sub">Supabase에서 이메일 확인을 켜두었다면 회원가입 후 이메일 인증을 해야 로그인됩니다. 학교/개인 프로젝트라면 Auth 설정에서 이메일 확인을 꺼두면 바로 가입됩니다.</p></div></div>`;
+    ui.menu.querySelectorAll('[data-authmode]').forEach(b=>b.onclick=()=>{state.authMode=b.dataset.authmode; state.authMessage=''; renderMenu();});
+    const submit = ui.menu.querySelector('#authSubmit'); if(submit) submit.onclick=()=>handleAuth(state.authMode === 'signup' ? 'signup' : 'login');
+  }
 
   function renderMenu() {
     state.screen='menu'; ui.menu.classList.remove('hidden'); ui.left.classList.add('hidden'); ui.right.classList.add('hidden');
+    if(!state.currentUser) { renderAuthMenu(); return; }
     const nav = `<div class="nav">${['dungeon','gacha','build','ranking'].map(t=>`<button class="tab ${state.menuTab===t?'active':''}" data-tab="${t}">${({dungeon:'던전 선택',gacha:'뽑기 상점',build:'출격 준비',ranking:'레이드 랭킹'})[t]}</button>`).join('')}</div>`;
     let body = '';
     if(state.menuTab==='dungeon') body = renderDungeonTab();
     if(state.menuTab==='gacha') body = renderGachaTab();
     if(state.menuTab==='build') body = renderBuildTab();
     if(state.menuTab==='ranking') body = renderRankingTab();
-    ui.menu.innerHTML = `<div class="row"><div><h1 class="title">보스 레이드 빌드 게임 V4</h1><p class="sub">보스를 선택하고, 코인으로 무기/스킬/패시브를 뽑아 조합한 뒤 패턴을 파훼해서 클리어하세요.</p></div><div style="text-align:right"><div class="chip">${VERSION}</div><div class="chip">보유 코인 ${state.save.coins}C</div></div></div>${nav}${body}`;
+    ui.menu.innerHTML = `<div class="row"><div><h1 class="title">보스 레이드 빌드 게임 V6</h1><p class="sub">보스를 선택하고, 코인으로 무기/스킬/패시브를 뽑아 조합한 뒤 패턴을 파훼해서 클리어하세요.</p></div><div style="text-align:right"><div class="chip">${VERSION}</div><div class="chip">${escapeHtml(state.save.playerName || 'Player')}</div><div class="chip">보유 코인 ${state.save.coins}C</div><div class="chip">${escapeHtml(state.cloudStatus || '계정 저장')}</div><button id="logoutBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">로그아웃</button></div></div>${nav}${body}`;
     ui.menu.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{state.menuTab=b.dataset.tab; renderMenu();});
     bindMenuButtons();
   }
@@ -311,8 +496,11 @@
     return `<div class="row"><div><h2 class="title" style="font-size:22px">출격 준비 · ${getBoss(state.selectedBossId).name}</h2><p class="sub">현재 보스 난이도 ${stars(getBoss(state.selectedBossId).tier)} · 패시브 ${passiveLimit()}개 선택 가능</p></div><button id="backDungeon" class="btn secondary">보스 다시 선택</button></div><div class="stepbar">${steps.map(s=>`<div class="step ${state.buildStep===s[0]?'active':''}" data-step="${s[0]}">${s[1]}</div>`).join('')}</div>${content}`;
   }
   function selectionGrid(items, selected, type) {
-    if(!items.length) return `<div class="card"><h3>보유한 항목이 없습니다.</h3><p>뽑기 상점에서 먼저 획득해야 합니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div>`;
-    return `<div class="grid">${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="${type}" data-select-id="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>${it.category?('분류: '+({attack:'공격',evasion:'회피',buff:'버프'})[it.category]):('종류: '+it.kind)}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
+    const noneTitle = type === 'weapon' ? '무기 없이 출격' : '이 스킬칸 비우기';
+    const noneDesc = type === 'weapon' ? '스킬만 가지고 레이드에 들어갈 수 있습니다. 일반공격은 사용할 수 없습니다.' : '스킬을 끼지 않아도 레이드는 시작할 수 있습니다.';
+    const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="${type}" data-select-id=""><h3>${noneTitle}</h3><p>${noneDesc}</p></div>`;
+    if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 항목이 없습니다.</h3><p>뽑기 상점에서 먼저 획득할 수 있습니다. 그래도 다른 장비/스킬이 있으면 출격은 가능합니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
+    return `<div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="${type}" data-select-id="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>${it.category?('분류: '+({attack:'공격',evasion:'회피',buff:'버프'})[it.category]):('종류: '+weaponKindName(it.kind))}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
   }
   function passiveGrid() {
     const items = ownedPassives(); const limit = passiveLimit();
@@ -322,7 +510,7 @@
   function readyPanel() {
     const ok = canStart();
     const b = getBoss(state.selectedBossId);
-    return `<div class="grid"><div class="card active"><h3>${b.name}</h3><p>${stars(b.tier)}<br>${b.desc}</p><div>${b.patterns.map(p=>`<span class="chip">${p}</span>`).join('')}</div></div><div class="card"><h3>선택한 조합</h3><p>무기: ${getWeapon(state.selectedWeaponId)?.name || '없음'}<br>공격: ${getSkill(state.selectedAttackSkillId)?.name || '없음'}<br>회피: ${getSkill(state.selectedEvasionSkillId)?.name || '없음'}<br>버프: ${getSkill(state.selectedBuffSkillId)?.name || '없음'}<br>패시브: ${state.selectedPassiveIds.length}/${passiveLimit()}</p></div></div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button id="startRaid" class="btn danger" ${ok?'':'disabled'}>레이드 시작</button></div>${ok?'':'<p class="sub">필수 조합이 부족합니다. 무기, 공격/회피/버프 스킬 1개씩, 패시브를 난이도만큼 선택해야 합니다.</p>'}`;
+    return `<div class="grid"><div class="card active"><h3>${b.name}</h3><p>${stars(b.tier)}<br>${b.desc}</p><div>${b.patterns.map(p=>`<span class="chip">${p}</span>`).join('')}</div></div><div class="card"><h3>선택한 조합</h3><p>무기: ${getWeapon(state.selectedWeaponId)?.name || '없음'}<br>공격: ${getSkill(state.selectedAttackSkillId)?.name || '없음'}<br>회피: ${getSkill(state.selectedEvasionSkillId)?.name || '없음'}<br>버프: ${getSkill(state.selectedBuffSkillId)?.name || '없음'}<br>패시브: ${state.selectedPassiveIds.length}/${passiveLimit()} · 필수 아님</p><p class="sub">무기만 있어도, 스킬만 있어도 출격할 수 있습니다. 단, 무기와 스킬을 모두 비우면 공격 수단이 없어 시작할 수 없습니다.</p></div></div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button id="startRaid" class="btn danger" ${ok?'':'disabled'}>레이드 시작</button></div>${ok?'':'<p class="sub">무기 또는 스킬 중 최소 하나는 장착해야 합니다. 패시브는 선택 사항입니다.</p>'}`;
   }
   function renderRankingTab() {
     return `<div class="row"><div><h2 class="title" style="font-size:22px">보스별 랭킹</h2><p class="sub">클리어 시간이 빠를수록 높은 순위입니다.</p></div><select id="rankBoss" class="input">${BOSSES.map(b=>`<option value="${b.id}" ${state.rankingBossId===b.id?'selected':''}>${b.name}</option>`).join('')}</select></div><div style="margin-top:12px">${state.rankings.length?state.rankings.map((r,i)=>`<div class="record"><div class="rank">#${i+1}</div><div><b>${escapeHtml(r.player_name||'Player')}</b><div class="muted">${r.weapon_name||''}</div></div><div class="time">${formatMs(r.clear_ms)}</div></div>`).join(''):'<p class="sub">아직 기록이 없습니다.</p>'}</div>`;
@@ -343,11 +531,11 @@
     const start=ui.menu.querySelector('#startRaid'); if(start) start.onclick=startRaid;
     const rb=ui.menu.querySelector('#rankBoss'); if(rb) rb.onchange=()=>{state.rankingBossId=rb.value; refreshRankings(rb.value); renderMenu();};
   }
-  function selectBuild(type,id){ if(type==='weapon') state.selectedWeaponId=id; if(type==='attack') state.selectedAttackSkillId=id; if(type==='evasion') state.selectedEvasionSkillId=id; if(type==='buff') state.selectedBuffSkillId=id; renderMenu(); }
+  function selectBuild(type,id){ id = id || null; if(type==='weapon') state.selectedWeaponId = state.selectedWeaponId===id ? null : id; if(type==='attack') state.selectedAttackSkillId = state.selectedAttackSkillId===id ? null : id; if(type==='evasion') state.selectedEvasionSkillId = state.selectedEvasionSkillId===id ? null : id; if(type==='buff') state.selectedBuffSkillId = state.selectedBuffSkillId===id ? null : id; renderMenu(); }
   function stepMove(dir){ const arr=['weapon','attack','evasion','buff','passive','ready']; let i=arr.indexOf(state.buildStep); i=clamp(i+dir,0,arr.length-1); state.buildStep=arr[i]; renderMenu(); }
   function togglePassive(id){ const limit=passiveLimit(); const i=state.selectedPassiveIds.indexOf(id); if(i>=0) state.selectedPassiveIds.splice(i,1); else if(state.selectedPassiveIds.length<limit) state.selectedPassiveIds.push(id); else toast('이 보스는 패시브 '+limit+'개까지만 선택할 수 있습니다.'); renderMenu(); }
   function trimSelectedPassives(){ const owned = new Set(state.save.passives); state.selectedPassiveIds = state.selectedPassiveIds.filter(id=>owned.has(id)).slice(0, passiveLimit()); }
-  function canStart(){ return !!state.selectedWeaponId && !!state.selectedAttackSkillId && !!state.selectedEvasionSkillId && !!state.selectedBuffSkillId && state.selectedPassiveIds.length===passiveLimit(); }
+  function canStart(){ const hasWeapon=!!state.selectedWeaponId; const hasSkill=!!state.selectedAttackSkillId || !!state.selectedEvasionSkillId || !!state.selectedBuffSkillId; return (hasWeapon || hasSkill) && state.selectedPassiveIds.length <= passiveLimit(); }
 
   function rollGacha(kind) {
     const price = COST[kind]; if(state.save.coins < price){ toast('코인이 부족합니다. 보스를 클리어해서 코인을 모아야 합니다.'); return; }
@@ -371,18 +559,50 @@
     Object.assign(player, makePlayer()); player.name=state.save.playerName||'Player'; applyBuild(); player.hp=player.maxHp;
     boss = makeBoss(getBoss(state.selectedBossId));
     state.projectiles=[]; state.hazards=[]; state.zones=[]; state.mechanics=[]; state.particles=[]; state.texts=[]; state.shake=0; state.flash=0;
-    state.raid={ start:performance.now(), elapsed:0, clear:false, failed:false, weapon:getWeapon(state.selectedWeaponId), skills:[getSkill(state.selectedAttackSkillId),getSkill(state.selectedEvasionSkillId),getSkill(state.selectedBuffSkillId)], passives:state.selectedPassiveIds.map(getPassive) };
+    state.raid={ start:performance.now(), elapsed:0, clear:false, failed:false, weapon:getWeapon(state.selectedWeaponId), skills:[getSkill(state.selectedAttackSkillId),getSkill(state.selectedEvasionSkillId),getSkill(state.selectedBuffSkillId)], passives:state.selectedPassiveIds.map(getPassive).filter(Boolean) };
     renderRaidPanel(); toast(boss.name+' 레이드 시작!');
   }
   function applyBuild(){ const w=getWeapon(state.selectedWeaponId); if(w){player.atk*=w.atk; player.crit+=w.crit||0;} state.selectedPassiveIds.map(getPassive).filter(Boolean).forEach(p=>p.apply(player)); player.maxHp=Math.floor(player.maxHp); player.speed=Math.floor(player.speed); }
-  function renderRaidPanel(){ ui.left.innerHTML=`<h1 class="title" style="font-size:21px">현재 빌드</h1><p class="sub">보스: <b>${boss.name}</b><br>무기: <b>${state.raid.weapon.name}</b></p>${state.raid.skills.map((s,i)=>`<span class="chip">${i+1}. ${s.name}</span>`).join('')}<div style="height:8px"></div>${state.raid.passives.map(p=>`<span class="chip">${p.name}</span>`).join('')}<p class="sub" style="margin-top:12px">J/좌클릭 일반공격 · 1 공격스킬 · 2 회피스킬 · 3 버프스킬 · Space 구르기(2.5초) · P 일시정지<br>공격과 스킬은 마우스/바라보는 방향으로 나갑니다.</p><button id="giveup" class="btn secondary" style="width:100%">포기하고 메뉴로</button>`; ui.left.querySelector('#giveup').onclick=renderMenu; }
+  function renderRaidPanel(){
+    const weaponName = state.raid.weapon ? state.raid.weapon.name : '없음';
+    const skillChips = state.raid.skills.map((s,i)=>`<span class="chip">${i+1}. ${s ? s.name : '비어 있음'}</span>`).join('');
+    const passiveChips = state.raid.passives.length ? state.raid.passives.map(p=>`<span class="chip">${p.name}</span>`).join('') : '<span class="chip">패시브 없음</span>';
+    ui.left.innerHTML=`<h1 class="title" style="font-size:21px">현재 빌드</h1><p class="sub">보스: <b>${boss.name}</b><br>무기: <b>${weaponName}</b></p>${skillChips}<div style="height:8px"></div>${passiveChips}<p class="sub" style="margin-top:12px">J/좌클릭 일반공격 · 1/2/3 스킬 · Space 구르기(2.5초) · P 일시정지<br>무기가 없으면 일반공격은 비활성화되고, 비어 있는 스킬칸은 사용할 수 없습니다.<br>공격과 스킬은 마우스/바라보는 방향으로 나갑니다.</p><button id="giveup" class="btn secondary" style="width:100%">포기하고 메뉴로</button>`;
+    ui.left.querySelector('#giveup').onclick=renderMenu;
+  }
   function togglePause(){ if(state.screen==='raid'){state.screen='paused'; ui.right.classList.remove('hidden'); ui.right.innerHTML='<h1 class="title">일시정지</h1><p class="sub">P 또는 ESC로 계속합니다.</p><button id="pauseMenu" class="btn secondary">메뉴로</button>'; ui.right.querySelector('#pauseMenu').onclick=renderMenu;} else if(state.screen==='paused'){state.screen='raid'; ui.right.classList.add('hidden'); state.last=performance.now();} }
 
   function update(dt){ state.time+=dt; state.shake=Math.max(0,state.shake-dt*18); state.flash=Math.max(0,state.flash-dt*4); state.messageTime=Math.max(0,state.messageTime-dt); updateParticles(dt); updateTexts(dt); if(state.screen!=='raid'||!state.raid) return; state.raid.elapsed+=dt; updatePlayer(dt); updateBuffs(dt); updateBoss(dt); updateProjectiles(dt); updateHazards(dt); updateZones(dt); updateMechanics(dt); checkEnd(); }
   function updatePlayer(dt){ let dx=0,dy=0; if(keys.has('w')||keys.has('arrowup'))dy--; if(keys.has('s')||keys.has('arrowdown'))dy++; if(keys.has('a')||keys.has('arrowleft'))dx--; if(keys.has('d')||keys.has('arrowright'))dx++; const len=Math.hypot(dx,dy)||1; if(dx||dy){player.face=dx<0?-1:dx>0?1:player.face; player.aim=Math.atan2(dy,dx);} else {player.aim=Math.atan2(mouse.y-player.y, mouse.x-player.x); player.face=Math.cos(player.aim)>=0?1:-1;} let spd=player.speed*(player.slow>0?.55:1)*(player.roll>0?3.0:1); player.x+=dx/len*spd*dt; player.y+=dy/len*spd*dt; player.x=clamp(player.x,42,W-42); player.y=clamp(player.y,90,H-42); player.invuln=Math.max(0,player.invuln-dt); player.slow=Math.max(0,player.slow-dt); player.roll=Math.max(0,player.roll-dt); player.rollCd=Math.max(0,player.rollCd-dt); player.basicCd=Math.max(0,player.basicCd-dt); player.skillCd=player.skillCd.map(v=>Math.max(0,v-dt)); player.anim+=dt; player.hp=Math.min(player.maxHp,player.hp+player.regen*dt); if(keys.has(' ')&&player.rollCd<=0){player.roll=.20; player.rollCd=Math.max(.8,2.5-(player.rollCdBonus||0)); player.invuln=Math.max(player.invuln,.24); burst(player.x,player.y,'#93c5fd',22,240); floatText('ROLL',player.x,player.y-26,'#93c5fd');} }
   function updateBuffs(dt){ if(!player.tempBuffs) return; for(let i=player.tempBuffs.length-1;i>=0;i--){const b=player.tempBuffs[i]; b.life-=dt; if(b.life<=0){ if(b.damageMul) player.damageMul/=b.damageMul; if(b.skillDamageMul) player.skillDamageMul/=b.skillDamageMul; if(b.speedMul) player.speed/=b.speedMul; if(b.cooldownMul) player.cooldownMul/=b.cooldownMul; if(b.critAdd) player.crit-=b.critAdd; if(b.critDmgAdd) player.critDmg-=b.critDmgAdd; if(b.lifestealAdd) player.lifesteal-=b.lifestealAdd; player.tempBuffs.splice(i,1); } } }
 
-  function basicAttack(){ if(!state.raid||player.basicCd>0) return; const w=state.raid.weapon; player.basicCd=w.speed; const angle=aimAngle(); const dmg=player.atk*player.basicDamageMul*w.atk; if(['staff','staff_ice','bow','bow_storm','gunstaff','scythe','chakram','grimoire'].includes(w.kind)){ const count=w.kind==='grimoire'?3:1; for(let i=0;i<count;i++){const a=angle+(i-(count-1)/2)*.12; spawnProjectile({owner:'player',x:player.x+Math.cos(a)*22,y:player.y+Math.sin(a)*22,vx:Math.cos(a)*(w.kind==='bow'||w.kind==='bow_storm'?900:650),vy:Math.sin(a)*(w.kind==='bow'||w.kind==='bow_storm'?900:650),r:w.kind==='gunstaff'?8:5,life:w.kind==='chakram'?1.3:.9,pierce:w.kind.includes('bow')?2:w.kind==='scythe'?4:0,color:w.color,damage:dmg,splash:w.kind==='gunstaff'?66:0,returning:w.kind==='chakram',homing:w.kind==='grimoire'}); } } else if(w.kind==='whip'){ damageBossCone(w.range,Math.PI*.62,angle,dmg,w.color); arcEffect(player.x,player.y,angle,w.range,w.color,Math.PI*.62); } else if(w.kind==='dagger'){ for(let i=0;i<3;i++) setTimeout(()=>{damageBossRange(w.range,dmg*.48,w.color); stabEffect(player.x,player.y,angle,w.range,w.color);},i*45); } else if(w.kind==='greatsword'){ damageBossCone(w.range,Math.PI*.42,angle,dmg*1.25,w.color); slashEffect(player.x,player.y,angle,w.range,w.color,16); } else if(w.kind==='pole'){ damageBossLine(w.range,26,angle,dmg,w.color); thrustEffect(player.x,player.y,angle,w.range,w.color); } else { damageBossCone(w.range,Math.PI*.38,angle,dmg,w.color); slashEffect(player.x,player.y,angle,w.range,w.color,8); } }
+  function basicAttack(){
+    if(!state.raid||player.basicCd>0) return;
+    const w=state.raid.weapon;
+    if(!w){ toast('장착한 무기가 없어 일반공격을 사용할 수 없습니다.'); player.basicCd=.6; return; }
+    player.basicCd=w.speed;
+    const angle=aimAngle();
+    const dmg=player.atk*player.basicDamageMul*w.atk;
+    const ranged = w.kind.includes('staff') || w.kind.includes('bow') || ['gunstaff','scythe','chakram','grimoire'].includes(w.kind);
+    if(ranged){
+      const count=w.kind==='grimoire'?3:1;
+      for(let i=0;i<count;i++){
+        const a=angle+(i-(count-1)/2)*.12;
+        const isBow = w.kind.includes('bow');
+        spawnProjectile({owner:'player',x:player.x+Math.cos(a)*22,y:player.y+Math.sin(a)*22,vx:Math.cos(a)*(isBow?930:670),vy:Math.sin(a)*(isBow?930:670),r:w.kind==='gunstaff'?8:5,life:w.kind==='chakram'?1.3:.9,pierce:isBow?2:w.kind==='scythe'?4:0,color:w.color,damage:dmg,splash:w.kind==='gunstaff'?66:0,returning:w.kind==='chakram',homing:w.kind==='grimoire'});
+      }
+    } else if(w.kind==='whip'){
+      damageBossCone(w.range,Math.PI*.62,angle,dmg,w.color); arcEffect(player.x,player.y,angle,w.range,w.color,Math.PI*.62);
+    } else if(w.kind==='dagger'){
+      for(let i=0;i<3;i++) setTimeout(()=>{damageBossRange(w.range,dmg*.48,w.color); stabEffect(player.x,player.y,angle,w.range,w.color);},i*45);
+    } else if(w.kind==='greatsword'){
+      damageBossCone(w.range,Math.PI*.42,angle,dmg*1.25,w.color); slashEffect(player.x,player.y,angle,w.range,w.color,16);
+    } else if(w.kind==='pole'){
+      damageBossLine(w.range,26,angle,dmg,w.color); thrustEffect(player.x,player.y,angle,w.range,w.color);
+    } else {
+      damageBossCone(w.range,Math.PI*.38,angle,dmg,w.color); slashEffect(player.x,player.y,angle,w.range,w.color,8);
+    }
+  }
   function aimAngle(){ const mx=mouse.x,my=mouse.y; if(Math.hypot(mx-player.x,my-player.y)>8) return Math.atan2(my-player.y,mx-player.x); return player.aim||0; }
 
   function useSkill(i){ if(!state.raid) return; const s=state.raid.skills[i]; if(!s||player.skillCd[i]>0) return; player.skillCd[i]=s.cooldown*player.cooldownMul; const power=(player.atk+player.magic)*.5*s.power*player.skillDamageMul; const angle=aimAngle(); const r=s.radius*player.areaMul; if(s.category==='attack'){ castAttackSkill(s,power,angle,r); } else if(s.category==='evasion'){ castEvasionSkill(s,power,angle,r); } else { castBuffSkill(s,power); } }
@@ -436,7 +656,7 @@
   function checkEnd(){ if(!state.raid) return; if(player.hp<=0&&!state.raid.failed){state.raid.failed=true; endRaid(false);} if(boss.dead&&!state.raid.clear){state.raid.clear=true; endRaid(true);} }
   function endRaid(clear){ state.screen='result'; const elapsed=Math.floor(state.raid.elapsed*1000); let reward=0; if(clear){ const b=getBoss(boss.id); reward=b.tier*230+Math.floor(b.hp/1000)*6+Math.max(0,Math.floor(60000/Math.max(1000,elapsed))*20); state.save.coins+=reward; saveGame(); submitRecord(elapsed); } ui.right.classList.remove('hidden'); ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?'획득 코인: '+reward+'C':'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`; ui.right.querySelector('#resultMenu').onclick=()=>{state.menuTab=clear?'ranking':'build'; renderMenu(); refreshRankings(boss.id);}; }
 
-  async function submitRecord(ms){ const record={player_name:state.save.playerName||'Player',boss_id:boss.id,boss_name:boss.name,clear_ms:ms,weapon_id:state.raid.weapon.id,weapon_name:state.raid.weapon.name,skills:state.raid.skills.map(s=>s.name),passives:state.raid.passives.map(p=>p.name),damage_taken:player.damageTaken}; const local=getLocalRecords(); local.push(record); local.sort((a,b)=>a.clear_ms-b.clear_ms); localStorage.setItem(LOCAL_RECORD_KEY,JSON.stringify(local.slice(0,200))); if(supabaseReady&&supabase){ try{await supabase.from('raid_records').insert(record);}catch(e){} } refreshRankings(boss.id); }
+  async function submitRecord(ms){ const record={player_name:state.save.playerName||'Player',boss_id:boss.id,boss_name:boss.name,clear_ms:ms,weapon_id:state.raid.weapon?state.raid.weapon.id:'none',weapon_name:state.raid.weapon?state.raid.weapon.name:'무기 없음',skills:state.raid.skills.filter(Boolean).map(s=>s.name),passives:state.raid.passives.filter(Boolean).map(p=>p.name),damage_taken:player.damageTaken}; const local=getLocalRecords(); local.push(record); local.sort((a,b)=>a.clear_ms-b.clear_ms); localStorage.setItem(LOCAL_RECORD_KEY,JSON.stringify(local.slice(0,200))); if(supabaseReady&&supabase){ try{await supabase.from('raid_records').insert(record);}catch(e){} } refreshRankings(boss.id); }
   function getLocalRecords(){try{return JSON.parse(localStorage.getItem(LOCAL_RECORD_KEY)||'[]');}catch(e){return[];}}
   async function refreshRankings(bossId){ state.rankingBossId=bossId; let records=getLocalRecords().filter(r=>r.boss_id===bossId); if(supabaseReady&&supabase){ try{const {data}=await supabase.from('raid_records').select('*').eq('boss_id',bossId).order('clear_ms',{ascending:true}).limit(10); if(data) records=data;}catch(e){} } records.sort((a,b)=>a.clear_ms-b.clear_ms); state.rankings=records.slice(0,10); if(state.menuTab==='ranking'&&state.screen==='menu') renderMenu(); }
 
@@ -444,7 +664,72 @@
   function drawMenuBackground(){ const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#081126'); g.addColorStop(1,'#030712'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); for(let i=0;i<80;i++){ctx.fillStyle='rgba(147,197,253,.08)'; circle(ctx,(i*97+state.time*12)%W,40+(i*53)%H,1+(i%3));} }
   function drawArena(){ const b=getBoss(boss.id); const g=ctx.createLinearGradient(0,0,0,H); const theme={fire:['#210707','#45110c'],solar:['#281409','#5b2705'],ice:['#071b2c','#123247'],lightning:['#111827','#312e05'],void:['#080516','#1e103a'],nature:['#061a10','#0d3320'],sand:['#2b1907','#5a3610'],metal:['#111827','#334155'],blood:['#220611','#4c0519'],poison:['#0d1b05','#1f3f0b'],mirror:['#101828','#392056'],gravity:['#09091a','#1e1b4b'],chrono:['#19051c','#442054'],chaos:['#150616','#3b0f2f'],slime:['#061a10','#12331e']}[b.theme]||['#081126','#030712']; g.addColorStop(0,theme[0]); g.addColorStop(1,theme[1]); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); ctx.save(); ctx.globalAlpha=.18; for(let i=0;i<16;i++){ctx.strokeStyle=b.color;ctx.beginPath();ctx.arc(W/2,H/2,80+i*45+Math.sin(state.time+i)*8,0,Math.PI*2);ctx.stroke();} ctx.restore(); }
   function drawBoss(){ if(!boss||boss.dead) return; ctx.save(); if(state.shake>0) ctx.translate(rand(-state.shake,state.shake),rand(-state.shake,state.shake)); ctx.globalAlpha=boss.hit>0?.72:1; drawBossShape(ctx,boss,boss.x,boss.y,boss.r); ctx.restore(); const bw=680,bh=18,x=(W-bw)/2,y=28; ctx.fillStyle='#000a'; roundRect(ctx,x,y,bw,bh,9); ctx.fillStyle=boss.vulnerable>0?'#fef08a':boss.color; roundRect(ctx,x,y,bw*clamp(boss.hp/boss.maxHp,0,1),bh,9); ctx.fillStyle='#fff'; ctx.font='900 16px system-ui'; ctx.textAlign='center'; ctx.fillText(`${boss.name}  ${stars(boss.tier)}  ${boss.vulnerable>0?'BREAK':'GUARD'}`,W/2,22); ctx.font='800 13px system-ui'; ctx.fillStyle='#cbd5e1'; ctx.fillText(boss.mechanicText||'패턴을 보고 움직이세요.',W/2,62); if(boss.clones) boss.clones.forEach(c=>drawBossShape(ctx,{...boss,color:c.real?'#fef08a':boss.color,sub:boss.sub,theme:boss.theme},c.x,c.y,boss.r*.65)); }
-  function drawBossShape(c,b,x,y,r){ c.save(); c.translate(x,y); c.shadowColor=b.color; c.shadowBlur=18; if(b.theme==='slime'){c.fillStyle=b.color; c.beginPath(); c.ellipse(0,10,r*1.2,r*.8,0,0,Math.PI*2); c.fill(); c.fillStyle='#052e16'; circle(c,-r*.32,0,5); circle(c,r*.32,0,5);} else if(b.theme==='fire'||b.theme==='solar'){c.fillStyle=b.color; c.beginPath(); for(let i=0;i<16;i++){const a=i/16*Math.PI*2; const rr=r*(i%2?1.15:.72); c.lineTo(Math.cos(a)*rr,Math.sin(a)*rr);} c.closePath(); c.fill(); c.fillStyle=b.sub; circle(c,0,0,r*.55);} else if(b.theme==='ice'){c.fillStyle=b.color; polygon(c,0,0,r,8); c.fill(); c.fillStyle=b.sub; polygon(c,0,0,r*.55,6); c.fill();} else if(b.theme==='lightning'){c.fillStyle=b.color; c.beginPath(); c.moveTo(-r*.2,-r); c.lineTo(r*.45,-r*.12); c.lineTo(r*.05,-r*.12); c.lineTo(r*.35,r); c.lineTo(-r*.55,-.02); c.lineTo(-r*.1,-.02); c.closePath(); c.fill();} else if(b.theme==='mirror'){c.fillStyle=b.color; polygon(c,0,0,r,6); c.fill(); c.strokeStyle=b.sub; c.lineWidth=5; c.stroke();} else if(b.theme==='gravity'||b.theme==='void'||b.theme==='chaos'){c.strokeStyle=b.color; c.lineWidth=8; for(let i=0;i<3;i++){c.beginPath(); c.ellipse(0,0,r*(1-i*.18),r*.55*(1-i*.12),state.time+i,0,Math.PI*2); c.stroke();} c.fillStyle=b.sub; circle(c,0,0,r*.42);} else {c.fillStyle=b.color; roundRect(c,-r,-r*.75,r*2,r*1.5,18); c.fill(); c.fillStyle=b.sub; circle(c,0,-r*.1,r*.48);} c.shadowBlur=0; c.fillStyle='#020617'; circle(c,-r*.25,-r*.08,5); circle(c,r*.25,-r*.08,5); c.restore(); }
+  function drawBossShape(c,b,x,y,r){
+    c.save();
+    c.translate(x,y);
+    c.shadowColor=b.color;
+    c.shadowBlur=20;
+    const t = state.time;
+    const id = b.id;
+
+    function eye(ex,ey,size){ c.fillStyle='#020617'; circle(c,ex,ey,size); c.fillStyle='#fff8'; circle(c,ex-size*.25,ey-size*.25,size*.28); }
+    function horn(x1,y1,x2,y2,x3,y3,color){ c.fillStyle=color||b.sub; c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2); c.lineTo(x3,y3); c.closePath(); c.fill(); }
+
+    if(id==='slime_king'){
+      c.fillStyle=b.color; c.beginPath(); c.ellipse(0,18,r*1.42,r*.86,0,0,Math.PI*2); c.fill();
+      c.fillStyle='rgba(255,255,255,.35)'; c.beginPath(); c.ellipse(-r*.35,-r*.05,r*.36,r*.22,-.4,0,Math.PI*2); c.fill();
+      c.fillStyle=b.sub; c.beginPath(); c.moveTo(-r*.38,-r*.55); c.lineTo(-r*.2,-r*.92); c.lineTo(0,-r*.62); c.lineTo(r*.2,-r*.92); c.lineTo(r*.38,-r*.55); c.closePath(); c.fill();
+      eye(-r*.35,6,6); eye(r*.35,6,6); c.strokeStyle='#14532d'; c.lineWidth=4; c.beginPath(); c.arc(0,18,r*.32,0,Math.PI); c.stroke();
+    } else if(id==='ember_tyrant'){
+      c.fillStyle=b.color; c.beginPath(); for(let i=0;i<18;i++){const a=i/18*Math.PI*2; const rr=r*(i%2?1.22:.72)+Math.sin(t*5+i)*4; c.lineTo(Math.cos(a)*rr,Math.sin(a)*rr);} c.closePath(); c.fill();
+      c.fillStyle=b.sub; circle(c,0,0,r*.55); horn(-r*.35,-r*.25,-r*.9,-r*.9,-r*.65,-r*.05,'#7f1d1d'); horn(r*.35,-r*.25,r*.9,-r*.9,r*.65,-r*.05,'#7f1d1d'); eye(-r*.22,-r*.05,6); eye(r*.22,-r*.05,6);
+    } else if(id==='thorn_queen'){
+      c.fillStyle=b.color; for(let i=0;i<12;i++){const a=i/12*Math.PI*2; c.save(); c.rotate(a); horn(0,-r*.55,-r*.12,-r*1.25,r*.12,-r*1.25,b.sub); c.restore();}
+      c.fillStyle='#f472b6'; c.beginPath(); for(let i=0;i<8;i++){const a=i/8*Math.PI*2; const rr=i%2?r*.85:r*1.15; c.lineTo(Math.cos(a)*rr,Math.sin(a)*rr);} c.closePath(); c.fill();
+      c.fillStyle='#166534'; circle(c,0,0,r*.45); eye(-r*.18,-r*.05,5); eye(r*.18,-r*.05,5);
+    } else if(id==='frost_oracle'){
+      c.fillStyle=b.color; polygon(c,0,0,r*1.15,8); c.fill(); c.strokeStyle='#e0f2fe'; c.lineWidth=5; c.stroke();
+      c.fillStyle=b.sub; polygon(c,0,0,r*.62,6); c.fill(); for(let i=0;i<6;i++){c.save(); c.rotate(i*Math.PI/3); c.fillStyle='#e0f2fe'; c.fillRect(-3,-r*1.45,6,r*.5); c.restore();} eye(-r*.2,-r*.08,5); eye(r*.2,-r*.08,5);
+    } else if(id==='sand_reaper'){
+      c.fillStyle='#78350f'; c.beginPath(); c.ellipse(0,8,r*.82,r*1.08,0,0,Math.PI*2); c.fill();
+      c.fillStyle=b.color; c.beginPath(); c.arc(0,-r*.18,r*.72,Math.PI,0); c.lineTo(r*.55,r*.55); c.lineTo(-r*.55,r*.55); c.closePath(); c.fill();
+      c.strokeStyle=b.sub; c.lineWidth=7; c.beginPath(); c.arc(r*.35,-r*.05,r*.8,-1.4,1.6); c.stroke(); eye(-r*.18,-r*.18,5); eye(r*.18,-r*.18,5);
+    } else if(id==='void_serpent'){
+      c.strokeStyle=b.color; c.lineWidth=20; c.lineCap='round'; c.beginPath(); for(let i=0;i<9;i++){const px=-r+i*r*.25; const py=Math.sin(i*.9+t*3)*r*.18; if(i)c.lineTo(px,py); else c.moveTo(px,py);} c.stroke();
+      c.fillStyle=b.sub; circle(c,r*.95,0,r*.45); c.fillStyle=b.color; horn(r*1.18,-r*.1,r*1.55,-r*.32,r*1.22,r*.1,b.color); eye(r*.85,-r*.1,5); eye(r*1.05,-r*.1,5);
+    } else if(id==='iron_minotaur'){
+      c.fillStyle='#475569'; roundRect(c,-r*.8,-r*.6,r*1.6,r*1.35,18); c.fillStyle=b.color; roundRect(c,-r*.58,-r*.92,r*1.16,r*.82,14);
+      horn(-r*.35,-r*.7,-r*1.05,-r*1.0,-r*.62,-r*.35,'#e5e7eb'); horn(r*.35,-r*.7,r*1.05,-r*1.0,r*.62,-r*.35,'#e5e7eb');
+      c.strokeStyle=b.sub; c.lineWidth=9; c.beginPath(); c.moveTo(r*.7,-r*.05); c.lineTo(r*1.25,-r*.55); c.stroke(); eye(-r*.22,-r*.45,5); eye(r*.22,-r*.45,5);
+    } else if(id==='blood_moon'){
+      c.fillStyle=b.color; circle(c,0,0,r*.88); c.strokeStyle=b.sub; c.lineWidth=8; c.beginPath(); c.arc(0,0,r*1.05,-1.9,1.9); c.stroke();
+      c.fillStyle='#020617'; c.beginPath(); c.arc(r*.16,-r*.1,r*.78,-1.65,1.65); c.fill(); c.fillStyle=b.sub; circle(c,0,0,r*.35); eye(-r*.12,-r*.05,5); eye(r*.12,-r*.05,5);
+    } else if(id==='storm_colossus'){
+      c.fillStyle='#334155'; roundRect(c,-r*.85,-r*.8,r*1.7,r*1.6,16); c.fillStyle=b.color; c.beginPath(); c.moveTo(-r*.2,-r*1.12); c.lineTo(r*.35,-r*.15); c.lineTo(r*.02,-r*.15); c.lineTo(r*.28,r*.72); c.lineTo(-r*.42,-r*.05); c.lineTo(-r*.08,-r*.05); c.closePath(); c.fill(); eye(-r*.3,-r*.25,6); eye(r*.3,-r*.25,6);
+    } else if(id==='plague_doctor'){
+      c.fillStyle='#111827'; c.beginPath(); c.ellipse(0,0,r*.75,r*1.05,0,0,Math.PI*2); c.fill(); c.fillStyle=b.color; c.beginPath(); c.moveTo(-r*.15,-r*.12); c.lineTo(r*1.05,0); c.lineTo(-r*.15,r*.2); c.closePath(); c.fill();
+      c.fillStyle='#e5e7eb'; c.beginPath(); c.ellipse(-r*.2,-r*.15,r*.38,r*.55,-.25,0,Math.PI*2); c.fill(); eye(-r*.26,-r*.25,5); eye(-r*.04,-r*.21,5);
+    } else if(id==='mirror_duelist'){
+      c.fillStyle='rgba(255,255,255,.22)'; polygon(c,0,0,r*1.08,6); c.fill(); c.strokeStyle=b.color; c.lineWidth=6; polygon(c,0,0,r*1.08,6); c.stroke();
+      c.fillStyle=b.sub; c.fillRect(-r*.12,-r*1.12,r*.24,r*2.24); c.strokeStyle='#fff'; c.lineWidth=3; c.beginPath(); c.moveTo(-r*.45,r*.65); c.lineTo(r*.72,-r*.65); c.stroke(); eye(-r*.2,-r*.05,5); eye(r*.2,-r*.05,5);
+    } else if(id==='gravity_core'){
+      c.strokeStyle=b.color; c.lineWidth=8; for(let i=0;i<4;i++){c.beginPath(); c.ellipse(0,0,r*(1-i*.13),r*.48*(1-i*.05),t*1.4+i*.9,0,Math.PI*2); c.stroke();}
+      c.fillStyle=b.sub; circle(c,0,0,r*.42); c.fillStyle='#fff'; circle(c,0,0,r*.16);
+    } else if(id==='solar_dragon'){
+      c.fillStyle=b.color; c.beginPath(); c.ellipse(0,0,r*1.05,r*.72,0,0,Math.PI*2); c.fill(); horn(-r*.35,-r*.3,-r*.72,-r*1.0,-r*.12,-r*.58,b.sub); horn(r*.35,-r*.3,r*.72,-r*1.0,r*.12,-r*.58,b.sub);
+      c.fillStyle=b.sub; for(let i=0;i<10;i++){c.save(); c.rotate(i*Math.PI/5+t*.3); c.fillRect(r*.58,-3,r*.55,6); c.restore();} eye(-r*.22,-r*.08,6); eye(r*.22,-r*.08,6);
+    } else if(id==='chrono_dragon'){
+      c.strokeStyle=b.color; c.lineWidth=7; circleStroke(c,0,0,r*1.05); c.strokeStyle=b.sub; c.beginPath(); c.arc(0,0,r*.75,-Math.PI/2,t%(Math.PI*2)); c.stroke();
+      c.fillStyle='#312e81'; circle(c,0,0,r*.55); c.strokeStyle='#fef08a'; c.lineWidth=5; c.beginPath(); c.moveTo(0,0); c.lineTo(Math.cos(t)*r*.45,Math.sin(t)*r*.45); c.moveTo(0,0); c.lineTo(Math.cos(t*1.7)*r*.32,Math.sin(t*1.7)*r*.32); c.stroke(); eye(-r*.18,-r*.12,5); eye(r*.18,-r*.12,5);
+    } else if(id==='chaos_archon'){
+      for(let i=0;i<7;i++){c.save(); c.rotate(t*.8+i*Math.PI*2/7); c.fillStyle=i%2?b.color:b.sub; polygon(c,0,-r*.48,r*.35,3); c.fill(); c.restore();}
+      c.fillStyle='#020617'; circle(c,0,0,r*.72); c.strokeStyle=b.color; c.lineWidth=5; circleStroke(c,0,0,r*.72); c.fillStyle=b.sub; circle(c,0,0,r*.22); eye(-r*.22,-r*.1,5); eye(r*.22,-r*.1,5);
+    } else {
+      c.fillStyle=b.color; roundRect(c,-r,-r*.75,r*2,r*1.5,18); c.fill(); c.fillStyle=b.sub; circle(c,0,-r*.1,r*.48); eye(-r*.25,-r*.08,5); eye(r*.25,-r*.08,5);
+    }
+    c.shadowBlur=0;
+    c.restore();
+  }
   function drawPlayer(){ ctx.save(); ctx.translate(player.x,player.y); ctx.rotate(player.aim||0); ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0,6,22,8,0,0,Math.PI*2); ctx.fill(); ctx.rotate(-(player.aim||0)); ctx.fillStyle=player.invuln>0?'#bfdbfe':'#e5e7eb'; circle(ctx,0,0,player.r); ctx.fillStyle='#111827'; circle(ctx,5*player.face,-4,3); drawWeaponHeld(ctx,state.raid?state.raid.weapon:null); ctx.restore(); }
   function drawWeaponHeld(c,w){ if(!w) return; c.save(); c.rotate(player.aim||0); c.translate(18,0); drawWeaponShape(c,w,1.0); c.restore(); }
   function drawWeaponShape(c,w,scale){ c.save(); c.scale(scale,scale); c.strokeStyle=w.color; c.fillStyle=w.color; c.lineWidth=5; c.lineCap='round'; const k=w.kind; if(k.includes('bow')){c.beginPath(); c.arc(0,0,18,-1.2,1.2); c.stroke(); c.beginPath(); c.moveTo(10,-16); c.lineTo(10,16); c.strokeStyle='#f8fafc'; c.lineWidth=1.5; c.stroke();} else if(k.includes('staff')||k==='grimoire'){ if(k==='grimoire'){roundRect(c,-5,-14,24,28,4); c.fill();} else {c.beginPath(); c.moveTo(-5,18); c.lineTo(16,-22); c.stroke(); circle(c,18,-24,7);} } else if(k==='whip'){c.beginPath(); c.moveTo(0,0); for(let i=1;i<6;i++) c.lineTo(i*10,Math.sin(i+state.time*8)*10); c.stroke();} else if(k==='dagger'){c.beginPath(); c.moveTo(0,0); c.lineTo(28,-6); c.lineTo(20,4); c.closePath(); c.fill();} else if(k==='greatsword'){c.fillRect(0,-6,44,12); c.fillStyle='#f8fafc'; c.fillRect(34,-10,10,20);} else if(k==='scythe'){c.beginPath(); c.moveTo(0,18); c.lineTo(34,-18); c.stroke(); c.beginPath(); c.arc(35,-20,16,0.1,2.5); c.stroke();} else if(k==='gunstaff'){c.fillRect(0,-5,36,10); circle(c,38,0,7);} else if(k==='chakram'){c.lineWidth=4; c.beginPath(); c.arc(18,0,15,0,Math.PI*2); c.stroke();} else if(k==='pole'){c.beginPath(); c.moveTo(-8,0); c.lineTo(48,0); c.stroke(); c.fillRect(43,-5,12,10);} else {c.beginPath(); c.moveTo(0,0); c.lineTo(38,-10); c.lineTo(30,8); c.closePath(); c.fill();} c.restore(); }
@@ -468,7 +753,28 @@
   function updateParticles(dt){ state.particles.forEach(p=>{p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=Math.pow(.03,dt);p.vy*=Math.pow(.03,dt);}); state.particles=state.particles.filter(p=>p.life>0); }
   function updateTexts(dt){ state.texts.forEach(t=>{t.life-=dt;t.y+=(t.vy||-30)*dt;}); state.texts=state.texts.filter(t=>t.life>0); }
 
-  function bossMiniSvg(b){ return `<svg width="120" height="86" viewBox="0 0 120 86"><defs><filter id="g${b.id}"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g filter="url(#g${b.id})"><circle cx="60" cy="44" r="${22+b.tier*4}" fill="${b.color}" opacity=".95"/><circle cx="48" cy="38" r="4" fill="#020617"/><circle cx="72" cy="38" r="4" fill="#020617"/><path d="M40 58 Q60 72 80 58" stroke="${b.sub}" stroke-width="5" fill="none" stroke-linecap="round"/></g></svg>`; }
+  function bossMiniSvg(b){
+    const shape = b.theme === 'slime'
+      ? `<ellipse cx="60" cy="50" rx="35" ry="22" fill="${b.color}"/><circle cx="48" cy="45" r="4" fill="#020617"/><circle cx="72" cy="45" r="4" fill="#020617"/><path d="M45 30 L52 16 L60 29 L68 16 L75 30" fill="${b.sub}"/>`
+      : b.theme === 'fire' || b.theme === 'solar'
+        ? `<path d="M60 12 L73 33 L96 32 L78 50 L86 74 L60 60 L34 74 L42 50 L24 32 L47 33 Z" fill="${b.color}"/><circle cx="60" cy="46" r="18" fill="${b.sub}"/>`
+      : b.theme === 'ice'
+        ? `<polygon points="60,10 88,32 78,68 42,68 32,32" fill="${b.color}"/><polygon points="60,25 75,38 70,58 50,58 45,38" fill="${b.sub}"/>`
+      : b.theme === 'lightning'
+        ? `<path d="M58 8 L82 42 L65 42 L78 78 L38 35 L56 35 Z" fill="${b.color}"/>`
+      : b.theme === 'void' || b.theme === 'gravity' || b.theme === 'chaos'
+        ? `<ellipse cx="60" cy="44" rx="42" ry="20" fill="none" stroke="${b.color}" stroke-width="6"/><circle cx="60" cy="44" r="18" fill="${b.sub}"/>`
+      : `<circle cx="60" cy="44" r="${22+b.tier*4}" fill="${b.color}" opacity=".95"/><circle cx="48" cy="38" r="4" fill="#020617"/><circle cx="72" cy="38" r="4" fill="#020617"/><path d="M40 58 Q60 72 80 58" stroke="${b.sub}" stroke-width="5" fill="none" stroke-linecap="round"/>`;
+    return `<svg width="120" height="86" viewBox="0 0 120 86"><defs><filter id="g${b.id}"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g filter="url(#g${b.id})">${shape}</g></svg>`;
+  }
+
+  function weaponKindName(kind){
+    if(!kind) return '없음';
+    if(kind.includes('bow')) return '활';
+    if(kind.includes('staff')) return '스태프';
+    if(kind.includes('sword')) return '검';
+    return ({whip:'채찍',pole:'봉',dagger:'단검',greatsword:'대검',gunstaff:'마도총',scythe:'낫',chakram:'차크람',grimoire:'마도서'})[kind] || kind;
+  }
 
   function loop(now){ const dt=Math.min(.033,(now-state.last)/1000||.016); state.last=now; update(dt); draw(); requestAnimationFrame(loop); }
   function toast(msg){state.message=msg; state.messageTime=2.0; floatText(msg,W/2,92,'#fef08a',20);}
