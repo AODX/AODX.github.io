@@ -259,10 +259,12 @@
   function stars(n) { const v=clamp(Math.round(n),1,10); return '★'.repeat(v) + '☆'.repeat(10 - v); }
   function getBoss(id) { return BOSSES.find(b => b.id === id) || BOSSES[0]; }
   function getWeapon(id) { return WEAPONS.find(w => w.id === id) || null; }
+  function getArmor(id) { return ARMORS.find(a => a.id === id) || null; }
   function getSkill(id) { return SKILLS.find(s => s.id === id) || null; }
   function getPassive(id) { return PASSIVES.find(p => p.id === id) || null; }
   function passiveLimit() { return 1; }
   function ownedWeapons() { return WEAPONS.filter(w => state.save.weapons.includes(w.id)); }
+  function ownedArmors() { return ARMORS.filter(a => (state.save.armors || []).includes(a.id)); }
   function ownedSkills(cat) { return SKILLS.filter(s => state.save.skills.includes(s.id) && (!cat || s.category === cat)); }
   function ownedPassives() { return PASSIVES.filter(p => state.save.passives.includes(p.id)); }
   function skillCategoryName(cat) { return ({attack:'공격', buff:'버프', heal:'회복', debuff:'디버프', cleanse:'상태이상 해제', evasion:'회피'})[cat] || cat; }
