@@ -1,6 +1,6 @@
 
 /* =========================================================
-   RAID BUILD GAME V7 - TICKET GACHA + FREE 3 SKILL SLOTS FULL REPLACE public/src/game.js
+   RAID BUILD GAME V8 - FLASHY SKILL FX + UNIQUE PLAYER RANKINGS FULL REPLACE public/src/game.js
    보스 레이드 + 가챠 + 보스별 랭킹 + 패턴 파훼 액션 게임
 
    적용 위치: public/src/game.js 전체 교체
@@ -14,7 +14,7 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Build Game V7.0 - Ticket Gacha + Free Skill Slots';
+  const VERSION = 'Raid Build Game V8.0 - Flashy Skill FX + Unique Rankings';
   const W = 1280;
   const H = 720;
   const SAVE_KEY = 'raid-build-v7-local-save';
@@ -528,7 +528,7 @@
     return `<div class="grid"><div class="card active"><h3>${b.name}</h3><p>${stars(b.tier)}<br>${b.desc}</p><div>${b.patterns.map(p=>`<span class="chip">${p}</span>`).join('')}</div></div><div class="card"><h3>선택한 조합</h3><p>무기: ${getWeapon(state.selectedWeaponId)?.name || '없음'}<br>${skillNames}<br>패시브: ${state.selectedPassiveIds.length}/${passiveLimit()} · 필수 아님</p><p class="sub">무기만 있어도, 스킬만 있어도 출격할 수 있습니다. 단, 무기와 스킬을 모두 비우면 공격 수단이 없어 시작할 수 없습니다.</p></div></div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button id="startRaid" class="btn danger" ${ok?'':'disabled'}>레이드 시작</button></div>${ok?'':'<p class="sub">무기 또는 스킬 중 최소 하나는 장착해야 합니다. 패시브는 선택 사항입니다.</p>'}`;
   }
   function renderRankingTab() {
-    return `<div class="row"><div><h2 class="title" style="font-size:22px">보스별 랭킹</h2><p class="sub">클리어 시간이 빠를수록 높은 순위입니다.</p></div><select id="rankBoss" class="input">${BOSSES.map(b=>`<option value="${b.id}" ${state.rankingBossId===b.id?'selected':''}>${b.name}</option>`).join('')}</select></div><div style="margin-top:12px">${state.rankings.length?state.rankings.map((r,i)=>`<div class="record"><div class="rank">#${i+1}</div><div><b>${escapeHtml(r.player_name||'Player')}</b><div class="muted">${r.weapon_name||''}</div></div><div class="time">${formatMs(r.clear_ms)}</div></div>`).join(''):'<p class="sub">아직 기록이 없습니다.</p>'}</div>`;
+    return `<div class="row"><div><h2 class="title" style="font-size:22px">보스별 랭킹</h2><p class="sub">클리어 시간이 빠를수록 높은 순위입니다. 같은 닉네임은 최신 클리어 기록 1개만 표시됩니다.</p></div><select id="rankBoss" class="input">${BOSSES.map(b=>`<option value="${b.id}" ${state.rankingBossId===b.id?'selected':''}>${b.name}</option>`).join('')}</select></div><div style="margin-top:12px">${state.rankings.length?state.rankings.map((r,i)=>`<div class="record"><div class="rank">#${i+1}</div><div><b>${escapeHtml(r.player_name||'Player')}</b><div class="muted">${r.weapon_name||''}</div></div><div class="time">${formatMs(r.clear_ms)}</div></div>`).join(''):'<p class="sub">아직 기록이 없습니다.</p>'}</div>`;
   }
 
   function bindMenuButtons() {
@@ -711,17 +711,61 @@
     if(s.rarity==='legendary'||s.rarity==='ultimate') state.flash=Math.max(state.flash, s.rarity==='ultimate'?.8:.42);
   }
 
+  function rarityFxMul(rarity){ return {normal:1, rare:1.35, super:1.75, epic:2.35, legendary:3.15, ultimate:4.15}[rarity] || 1; }
+
   function fancySkillEffect(s, angle, r, mul){
     const c=s.color;
-    const lines = Math.floor(6*mul);
+    const power = Math.max(mul, rarityFxMul(s.rarity));
+    const frontX = player.x + Math.cos(angle) * 42;
+    const frontY = player.y + Math.sin(angle) * 42;
+    const targetX = boss ? boss.x : frontX + Math.cos(angle) * 240;
+    const targetY = boss ? boss.y : frontY + Math.sin(angle) * 240;
+
+    // 시전자의 손끝에서 뻗어나가는 큰 에너지 궤적
+    const lines = Math.floor(12 * power);
     for(let i=0;i<lines;i++){
-      const a=angle+(i-(lines-1)/2)*.16;
-      state.particles.push({x:player.x+Math.cos(a)*28,y:player.y+Math.sin(a)*28,vx:Math.cos(a)*rand(220,460)*mul,vy:Math.sin(a)*rand(220,460)*mul,r:rand(3,7)*mul*.55,life:rand(.18,.45),color:c});
+      const a=angle+(i-(lines-1)/2)*(0.08+0.015*power);
+      const sp=rand(260,620)*power;
+      state.particles.push({kind:'line',x:frontX,y:frontY,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:rand(8,18)*power*.35,life:rand(.22,.55),color:c,angle:a,len:rand(18,44)*power});
+      state.particles.push({kind:'star',x:frontX+Math.cos(a)*rand(20,80),y:frontY+Math.sin(a)*rand(20,80),vx:Math.cos(a)*sp*.35,vy:Math.sin(a)*sp*.35,r:rand(3,7)*power*.45,life:rand(.25,.65),color:c});
     }
-    if(s.element==='lightning'||s.element==='storm') for(let i=0;i<8*mul;i++) state.particles.push({x:boss.x+rand(-r,r),y:boss.y+rand(-r,r),vx:rand(-60,60),vy:rand(-60,60),r:2+mul,life:.22,color:'#fde047'});
-    if(s.element==='fire'||s.element==='solar') burst(boss.x,boss.y,c,Math.floor(16*mul),190*mul);
-    if(s.element==='ice') for(let i=0;i<Math.floor(10*mul);i++) state.hazards.push({kind:'playerStrike',x:boss.x+rand(-r,r),y:boss.y+rand(-r,r),r:16+mul*3,warn:.08+i*.025,life:.12,damage:0,color:c});
-    if(s.element==='void'||s.element==='gravity'||s.element==='chaos') state.mechanics.push({kind:'gravity',x:boss.x,y:boss.y,r:r*1.2,power:0,life:.45,color:c});
+
+    // 등급이 높을수록 화면 전체에서 바로 눈에 보이는 링/폭발 효과
+    state.particles.push({kind:'ring',x:frontX,y:frontY,vx:0,vy:0,r:34*power,life:.38+power*.05,color:c,line:2+power});
+    state.particles.push({kind:'ring',x:targetX,y:targetY,vx:0,vy:0,r:48*power,life:.48+power*.06,color:c,line:3+power});
+    burst(targetX,targetY,c,Math.floor(28*power),270*power);
+    if(power>=2){
+      state.particles.push({kind:'ring',x:targetX,y:targetY,vx:0,vy:0,r:88*power,life:.55,color:'#ffffff',line:1.5+power*.45});
+      state.shake=Math.max(state.shake,3+power*1.8);
+    }
+    if(power>=3){
+      state.flash=Math.max(state.flash,.22+Math.min(.75,power*.12));
+      for(let i=0;i<Math.floor(14*power);i++){
+        const a=Math.random()*Math.PI*2;
+        const rr=rand(45,160)*power*.35;
+        state.particles.push({kind:'star',x:targetX+Math.cos(a)*rr,y:targetY+Math.sin(a)*rr,vx:Math.cos(a)*rand(120,360),vy:Math.sin(a)*rand(120,360),r:rand(4,10)*power*.33,life:rand(.35,.9),color:i%3===0?'#ffffff':c});
+      }
+    }
+
+    // 속성별로 이름에 맞는 추가 연출
+    if(s.element==='lightning'||s.element==='storm'){
+      for(let i=0;i<Math.floor(12*power);i++){
+        const x=targetX+rand(-r,r), y=targetY+rand(-r,r);
+        state.particles.push({kind:'line',x,y:y-rand(80,180),vx:0,vy:rand(280,520),r:2+power,life:.24,color:'#fde047',angle:Math.PI/2,len:rand(55,120)});
+        state.particles.push({kind:'ring',x,y,vx:0,vy:0,r:18+power*12,life:.28,color:'#fef08a',line:2});
+      }
+    }
+    if(s.element==='fire'||s.element==='solar'){
+      for(let i=0;i<Math.floor(18*power);i++) state.particles.push({kind:'star',x:targetX+rand(-r*.5,r*.5),y:targetY+rand(-r*.5,r*.5),vx:rand(-160,160),vy:rand(-260,60),r:rand(4,11)*power*.28,life:rand(.35,.85),color:i%2?'#fb923c':c});
+    }
+    if(s.element==='ice'){
+      for(let i=0;i<Math.floor(12*power);i++) state.hazards.push({kind:'playerStrike',x:targetX+rand(-r,r),y:targetY+rand(-r,r),r:18+power*5,warn:.05+i*.018,life:.12,damage:0,color:c});
+      for(let i=0;i<Math.floor(10*power);i++) state.particles.push({kind:'star',x:targetX+rand(-r,r),y:targetY+rand(-r,r),vx:rand(-70,70),vy:rand(-70,70),r:5+power,life:.65,color:'#e0f2fe'});
+    }
+    if(s.element==='void'||s.element==='gravity'||s.element==='chaos'){
+      state.mechanics.push({kind:'gravity',x:targetX,y:targetY,r:r*1.35,power:0,life:.55,color:c});
+      for(let i=0;i<Math.floor(4*power);i++) state.particles.push({kind:'ring',x:targetX,y:targetY,vx:0,vy:0,r:(30+i*24)*power*.45,life:.45+i*.04,color:i%2?'#ffffff':c,line:1.5+power*.25});
+    }
   }
 
   function castEvasionSkill(s,power,angle,r){ if(s.type==='dash'){ player.invuln=.48; player.x=clamp(player.x+Math.cos(angle)*185,42,W-42); player.y=clamp(player.y+Math.sin(angle)*185,90,H-42); damageBossRange(130,power*1.1,s.color); burst(player.x,player.y,s.color,36,260); } else if(s.type==='heal'){ const heal=Math.floor(160+player.maxHp*.13+power*.28); player.hp=Math.min(player.maxHp,player.hp+heal); player.invuln=.28; healText('+'+heal,player.x,player.y-30); burst(player.x,player.y,s.color,30,220); } else { player.shield += Math.floor(160+power*.42); player.invuln=Math.max(player.invuln,.25); state.zones.push({x:player.x,y:player.y,r:r*.72,damage:power*.55,life:.25,color:s.color,once:true}); burst(player.x,player.y,s.color,32,230); } }
@@ -773,9 +817,50 @@
   function checkEnd(){ if(!state.raid) return; if(player.hp<=0&&!state.raid.failed){state.raid.failed=true; endRaid(false);} if(boss.dead&&!state.raid.clear){state.raid.clear=true; endRaid(true);} }
   function endRaid(clear){ state.screen='result'; const elapsed=Math.floor(state.raid.elapsed*1000); let rewardText=''; if(clear){ const b=getBoss(boss.id); const rw=Math.max(0,Math.floor((b.tier+1)/3)); const rs=1+Math.floor(b.tier/2); const rp=b.tier>=3?1:0; state.save.tickets.weapon += rw; state.save.tickets.skill += rs; state.save.tickets.passive += rp; rewardText=`획득 티켓: 무기 ${rw}장 / 스킬 ${rs}장 / 패시브 ${rp}장`; saveGame(); submitRecord(elapsed); } ui.right.classList.remove('hidden'); ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`; ui.right.querySelector('#resultMenu').onclick=()=>{state.menuTab=clear?'ranking':'build'; renderMenu(); refreshRankings(boss.id);}; }
 
-  async function submitRecord(ms){ const record={player_name:state.save.playerName||'Player',boss_id:boss.id,boss_name:boss.name,clear_ms:ms,weapon_id:state.raid.weapon?state.raid.weapon.id:'none',weapon_name:state.raid.weapon?state.raid.weapon.name:'무기 없음',skills:state.raid.skills.filter(Boolean).map(s=>s.name),passives:state.raid.passives.filter(Boolean).map(p=>p.name),damage_taken:player.damageTaken}; const local=getLocalRecords(); local.push(record); local.sort((a,b)=>a.clear_ms-b.clear_ms); localStorage.setItem(LOCAL_RECORD_KEY,JSON.stringify(local.slice(0,200))); if(supabaseReady&&supabase){ try{await supabase.from('raid_records').insert(record);}catch(e){} } refreshRankings(boss.id); }
+  function normalizedPlayerName(name){ return String(name || 'Player').trim() || 'Player'; }
+  function dedupeLatestByPlayer(records){
+    const map = new Map();
+    records.forEach(r=>{
+      const key = normalizedPlayerName(r.player_name).toLowerCase();
+      const old = map.get(key);
+      const rt = Date.parse(r.created_at || r.updated_at || 0) || 0;
+      const ot = old ? (Date.parse(old.created_at || old.updated_at || 0) || 0) : -1;
+      if(!old || rt >= ot) map.set(key, r);
+    });
+    return Array.from(map.values()).sort((a,b)=>(a.clear_ms||999999999)-(b.clear_ms||999999999));
+  }
+
+  async function submitRecord(ms){
+    const playerName = normalizedPlayerName(state.save.playerName);
+    const record={player_name:playerName,boss_id:boss.id,boss_name:boss.name,clear_ms:ms,weapon_id:state.raid.weapon?state.raid.weapon.id:'none',weapon_name:state.raid.weapon?state.raid.weapon.name:'무기 없음',skills:state.raid.skills.filter(Boolean).map(s=>s.name),passives:state.raid.passives.filter(Boolean).map(p=>p.name),damage_taken:player.damageTaken,created_at:new Date().toISOString()};
+    let local=getLocalRecords().filter(r=>!(r.boss_id===boss.id && normalizedPlayerName(r.player_name).toLowerCase()===playerName.toLowerCase()));
+    local.push(record);
+    local=dedupeLatestByPlayer(local).slice(0,250);
+    localStorage.setItem(LOCAL_RECORD_KEY,JSON.stringify(local));
+    if(supabaseReady&&supabase){
+      try{
+        // 같은 보스에서 같은 닉네임의 기존 기록을 지우고 새 기록 1개만 남긴다.
+        // DELETE 정책이 없으면 아래 삭제는 실패할 수 있지만, 랭킹 표시 단계에서 최신 기록만 보이도록 한 번 더 정리한다.
+        await supabase.from('raid_records').delete().eq('boss_id',boss.id).eq('player_name',playerName);
+        await supabase.from('raid_records').insert(record);
+      }catch(e){}
+    }
+    refreshRankings(boss.id);
+  }
   function getLocalRecords(){try{return JSON.parse(localStorage.getItem(LOCAL_RECORD_KEY)||'[]');}catch(e){return[];}}
-  async function refreshRankings(bossId){ state.rankingBossId=bossId; let records=getLocalRecords().filter(r=>r.boss_id===bossId); if(supabaseReady&&supabase){ try{const {data}=await supabase.from('raid_records').select('*').eq('boss_id',bossId).order('clear_ms',{ascending:true}).limit(10); if(data) records=data;}catch(e){} } records.sort((a,b)=>a.clear_ms-b.clear_ms); state.rankings=records.slice(0,10); if(state.menuTab==='ranking'&&state.screen==='menu') renderMenu(); }
+  async function refreshRankings(bossId){
+    state.rankingBossId=bossId;
+    let records=getLocalRecords().filter(r=>r.boss_id===bossId);
+    if(supabaseReady&&supabase){
+      try{
+        const {data}=await supabase.from('raid_records').select('*').eq('boss_id',bossId).order('created_at',{ascending:false}).limit(200);
+        if(data) records=data;
+      }catch(e){}
+    }
+    records=dedupeLatestByPlayer(records).slice(0,10);
+    state.rankings=records;
+    if(state.menuTab==='ranking'&&state.screen==='menu') renderMenu();
+  }
 
   function draw(){ ctx.clearRect(0,0,W,H); if(state.screen==='raid'||state.screen==='paused'||state.screen==='result'){ drawArena(); drawZones(); drawMechanics(); drawHazards(); drawProjectiles(); drawBoss(); drawPlayer(); drawParticles(); drawTexts(); drawHud(); drawControlHint(); } else { drawMenuBackground(); } if(state.flash>0){ctx.fillStyle=`rgba(255,255,255,${state.flash*.18})`;ctx.fillRect(0,0,W,H);} }
   function drawMenuBackground(){ const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#081126'); g.addColorStop(1,'#030712'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); for(let i=0;i<80;i++){ctx.fillStyle='rgba(147,197,253,.08)'; circle(ctx,(i*97+state.time*12)%W,40+(i*53)%H,1+(i%3));} }
@@ -867,13 +952,14 @@
   function drawWeaponShape(c,w,scale){ c.save(); c.scale(scale,scale); c.strokeStyle=w.color; c.fillStyle=w.color; c.lineWidth=5; c.lineCap='round'; const k=w.kind; if(k.includes('bow')){c.beginPath(); c.arc(0,0,18,-1.2,1.2); c.stroke(); c.beginPath(); c.moveTo(10,-16); c.lineTo(10,16); c.strokeStyle='#f8fafc'; c.lineWidth=1.5; c.stroke();} else if(k.includes('staff')||k==='grimoire'){ if(k==='grimoire'){roundRect(c,-5,-14,24,28,4); c.fill();} else {c.beginPath(); c.moveTo(-5,18); c.lineTo(16,-22); c.stroke(); circle(c,18,-24,7);} } else if(k==='whip'){c.beginPath(); c.moveTo(0,0); for(let i=1;i<6;i++) c.lineTo(i*10,Math.sin(i+state.time*8)*10); c.stroke();} else if(k==='dagger'){c.beginPath(); c.moveTo(0,0); c.lineTo(28,-6); c.lineTo(20,4); c.closePath(); c.fill();} else if(k==='greatsword'){c.fillRect(0,-6,44,12); c.fillStyle='#f8fafc'; c.fillRect(34,-10,10,20);} else if(k==='scythe'){c.beginPath(); c.moveTo(0,18); c.lineTo(34,-18); c.stroke(); c.beginPath(); c.arc(35,-20,16,0.1,2.5); c.stroke();} else if(k==='gunstaff'){c.fillRect(0,-5,36,10); circle(c,38,0,7);} else if(k==='chakram'){c.lineWidth=4; c.beginPath(); c.arc(18,0,15,0,Math.PI*2); c.stroke();} else if(k==='pole'){c.beginPath(); c.moveTo(-8,0); c.lineTo(48,0); c.stroke(); c.fillRect(43,-5,12,10);} else {c.beginPath(); c.moveTo(0,0); c.lineTo(38,-10); c.lineTo(30,8); c.closePath(); c.fill();} c.restore(); }
   function drawHud(){ const hpw=260; ctx.fillStyle='rgba(0,0,0,.45)'; roundRect(ctx,18,H-88,360,72,14); ctx.fillStyle='#ef4444'; roundRect(ctx,38,H-72,hpw*clamp(player.hp/player.maxHp,0,1),12,6); ctx.fillStyle='#334155'; roundRect(ctx,38,H-52,hpw,8,4); ctx.fillStyle='#60a5fa'; roundRect(ctx,38,H-52,hpw*clamp(player.shield/500,0,1),8,4); ctx.fillStyle='#fff'; ctx.font='800 12px system-ui'; ctx.fillText(`HP ${Math.ceil(player.hp)}/${Math.ceil(player.maxHp)}  Shield ${Math.floor(player.shield)}`,38,H-77); const cds=[player.basicCd,player.skillCd[0],player.skillCd[1],player.skillCd[2],player.rollCd]; const labels=['J','1','2','3','Space']; for(let i=0;i<5;i++){const x=430+i*78,y=H-70; ctx.fillStyle='rgba(15,23,42,.78)'; roundRect(ctx,x,y,60,48,10); ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillText(labels[i],x+30,y+19); ctx.fillStyle=cds[i]>0?'#fb7185':'#86efac'; ctx.fillText(cds[i]>0?cds[i].toFixed(1):'OK',x+30,y+38);} ctx.textAlign='left'; }
   function drawControlHint(){ ctx.save(); ctx.globalAlpha=.55; ctx.fillStyle='#e5e7eb'; ctx.font='900 15px system-ui'; ctx.textAlign='center'; ctx.fillText('WASD 이동   ·   마우스 조준   ·   J/좌클릭 일반공격   ·   1/2/3 장착 스킬   ·   Space 누른 방향으로 구르기', W/2, H-10); ctx.restore(); }
-  function drawProjectiles(){ state.projectiles.forEach(p=>{ if(p.delay&&p.delay>0){ctx.strokeStyle=p.color; ctx.globalAlpha=.25; circleStroke(ctx,p.x,p.y,18); ctx.globalAlpha=1; return;} ctx.save(); ctx.shadowColor=p.color; ctx.shadowBlur=12; ctx.fillStyle=p.color; circle(ctx,p.x,p.y,p.r); ctx.restore(); }); }
+  function drawProjectiles(){ state.projectiles.forEach(p=>{ if(p.delay&&p.delay>0){ctx.strokeStyle=p.color; ctx.globalAlpha=.25; circleStroke(ctx,p.x,p.y,18); ctx.globalAlpha=1; return;} ctx.save(); ctx.shadowColor=p.color; ctx.shadowBlur=14; ctx.fillStyle=p.color; circle(ctx,p.x,p.y,p.r); ctx.globalAlpha=.35; ctx.strokeStyle=p.color; ctx.lineWidth=Math.max(2,p.r*.35); ctx.beginPath(); ctx.moveTo(p.x-p.vx*.025,p.y-p.vy*.025); ctx.lineTo(p.x-p.vx*.075,p.y-p.vy*.075); ctx.stroke(); ctx.globalAlpha=1; ctx.restore(); }); }
   function drawHazards(){ state.hazards.forEach(h=>{ctx.save(); ctx.globalAlpha=h.warn>0?.35:.75; ctx.strokeStyle=h.color; ctx.fillStyle=h.kind==='wall'?h.color:'transparent'; ctx.lineWidth=3; if(h.kind==='circle'||h.kind==='playerStrike'){circleStroke(ctx,h.x,h.y,h.r); if(h.warn<=0){ctx.globalAlpha=.35; ctx.fillStyle=h.color; circle(ctx,h.x,h.y,h.r);}} else if(h.kind==='wall'){ctx.fillRect(h.x-h.w/2,h.y-h.h/2,h.w,h.h);} ctx.restore();});}
   function drawZones(){ state.zones.forEach(z=>{ctx.save(); ctx.globalAlpha=.22+.1*Math.sin(state.time*8); ctx.fillStyle=z.color; circle(ctx,z.x,z.y,z.r); ctx.globalAlpha=.65; ctx.strokeStyle=z.color; ctx.lineWidth=3; circleStroke(ctx,z.x,z.y,z.r); ctx.restore();});}
   function drawMechanics(){ state.mechanics.forEach(m=>{ctx.save(); ctx.strokeStyle=m.color; ctx.fillStyle=m.color; if(m.kind==='rune'){ctx.globalAlpha=.8; circleStroke(ctx,m.x,m.y,m.r+Math.sin(state.time*8)*4); ctx.font='900 20px system-ui'; ctx.textAlign='center'; ctx.fillText('룬',m.x,m.y+7);} if(m.kind==='gravity'){ctx.globalAlpha=.35; circleStroke(ctx,m.x,m.y,m.r); for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(m.x,m.y,m.r*(i+1)/5,state.time+i,state.time+i+1.2);ctx.stroke();}} ctx.restore();});}
-  function drawParticles(){ state.particles.forEach(p=>{ctx.globalAlpha=clamp(p.life,0,1); ctx.fillStyle=p.color; circle(ctx,p.x,p.y,p.r); ctx.globalAlpha=1;});}
+  function drawParticles(){ state.particles.forEach(p=>{ const a=clamp(p.life,0,1); ctx.save(); ctx.globalAlpha=a; ctx.shadowColor=p.color; ctx.shadowBlur=p.kind==='ring'?8:14; if(p.kind==='ring'){ ctx.strokeStyle=p.color; ctx.lineWidth=p.line||3; circleStroke(ctx,p.x,p.y,Math.max(2,p.r*(1.25-a*.35))); } else if(p.kind==='line'){ ctx.strokeStyle=p.color; ctx.lineWidth=Math.max(1,p.r*.35); ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x+Math.cos(p.angle||0)*(p.len||24),p.y+Math.sin(p.angle||0)*(p.len||24)); ctx.stroke(); } else if(p.kind==='star'){ drawStar(ctx,p.x,p.y,p.r,p.color); } else { ctx.fillStyle=p.color; circle(ctx,p.x,p.y,p.r); } ctx.restore(); });}
   function drawTexts(){ state.texts.forEach(t=>{ctx.globalAlpha=clamp(t.life,0,1); ctx.fillStyle=t.color; ctx.font=`900 ${t.size||16}px system-ui`; ctx.textAlign='center'; ctx.fillText(t.text,t.x,t.y); ctx.globalAlpha=1;});}
 
+  function drawStar(c,x,y,r,color){ c.fillStyle=color; c.beginPath(); for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5; const rr=i%2===0?r:r*.45; const px=x+Math.cos(a)*rr, py=y+Math.sin(a)*rr; if(i===0)c.moveTo(px,py); else c.lineTo(px,py);} c.closePath(); c.fill(); }
   function burst(x,y,color,count,speed){ for(let i=0;i<count;i++){const a=Math.random()*Math.PI*2, v=rand(speed*.25,speed); state.particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,r:rand(2,5),life:rand(.25,.75),color});} }
   function slashEffect(x,y,a,range,color,width){ state.particles.push({x:x+Math.cos(a)*range*.45,y:y+Math.sin(a)*range*.45,vx:0,vy:0,r:width||10,life:.12,color}); }
   function arcEffect(x,y,a,range,color){ for(let i=-4;i<=4;i++){const aa=a+i*.13; state.particles.push({x:x+Math.cos(aa)*range*.55,y:y+Math.sin(aa)*range*.55,vx:0,vy:0,r:5,life:.18,color});} }
