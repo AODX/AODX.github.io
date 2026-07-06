@@ -1,0 +1,16 @@
+{
+  "name": "raid-dungeon",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Raid Dungeon browser game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}
