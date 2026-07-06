@@ -1,6 +1,6 @@
 /* =========================================================
-   RAID BUILD GAME V2 - FULL REPLACE src/game.js
-   보스 패턴 파훼형 레이드 빌드 게임
+   RAID BUILD GAME V3 - FULL REPLACE public/src/game.js
+   던전 선택형 보스 패턴 파훼 레이드 빌드 게임
    - 검/봉/활/채찍/스태프/단검/대검/권총형 마도구 무기
    - 보스 난이도에 따라 패시브 1~5개 선택
    - 스킬 100종 중 3개 조합
@@ -48,7 +48,7 @@
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
 
-  const VERSION = 'Raid Build Game V2.0 - Pattern Break Raid';
+  const VERSION = 'Raid Build Game V3.0 - Dungeon Select Clean Raid';
   const BASE_W = 1280;
   const BASE_H = 720;
   const ARENA_W = 1280;
@@ -95,8 +95,10 @@
     messageTime: 0,
     selectedBossId: 'ember_tyrant',
     selectedWeaponId: 'sword',
-    selectedSkillIds: ['flame_burst_01', 'guard_break_21', 'heal_pulse_81'],
+    selectedSkillIds: ['inferno_bloom', 'phantom_roll', 'war_cry'],
     selectedPassiveIds: ['passive_power_core'],
+    menuStep: 'boss',
+    skillFilter: 'attack',
     rankings: [],
     rankingLoading: false,
     rankingBossId: 'ember_tyrant',
@@ -185,11 +187,18 @@
         .rb-btn:disabled{opacity:.45;cursor:not-allowed}
         .rb-input{width:100%;box-sizing:border-box;background:#0f172a;color:#e5e7eb;border:1px solid rgba(148,163,184,.32);border-radius:12px;padding:12px;font-weight:700}
         .rb-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+        .rb-dungeon-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+        .rb-dungeon{min-height:245px;position:relative;overflow:hidden;border-radius:18px;padding:14px;background:linear-gradient(180deg,rgba(15,23,42,.88),rgba(3,7,18,.88));border:1px solid rgba(148,163,184,.24);cursor:pointer;transition:.15s}
+        .rb-dungeon:hover{transform:translateY(-3px);border-color:#93c5fd;box-shadow:0 16px 45px rgba(0,0,0,.34)}
+        .rb-dungeon.active{border-color:#facc15;box-shadow:0 0 0 2px rgba(250,204,21,.18),0 18px 60px rgba(0,0,0,.45)}
+        .rb-boss-art{height:105px;margin:8px 0 10px;border-radius:16px;background:radial-gradient(circle at 50% 45%,rgba(255,255,255,.18),rgba(255,255,255,.03) 45%,rgba(0,0,0,.22));display:flex;align-items:center;justify-content:center}
+        .rb-stepbar{display:flex;gap:8px;margin:10px 0 16px}.rb-step{flex:1;text-align:center;padding:9px 8px;border-radius:999px;background:#111827;border:1px solid rgba(148,163,184,.22);font-size:12px;font-weight:900;color:#94a3b8}.rb-step.active{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;border-color:transparent}
+        .rb-tabs{display:flex;gap:8px;margin:8px 0 12px}.rb-tab{padding:9px 12px;border-radius:999px;border:1px solid rgba(148,163,184,.26);background:#0f172a;color:#cbd5e1;font-weight:900;cursor:pointer}.rb-tab.active{background:#2563eb;color:white;border-color:#60a5fa}
         .rb-card{border:1px solid rgba(148,163,184,.26);border-radius:14px;background:rgba(15,23,42,.72);padding:12px;cursor:pointer;transition:.15s}
         .rb-card:hover{transform:translateY(-1px);border-color:#93c5fd;background:rgba(30,41,59,.88)}
         .rb-card.active{border-color:#60a5fa;background:linear-gradient(135deg,rgba(37,99,235,.32),rgba(124,58,237,.22))}
         .rb-card h3{margin:0 0 5px;font-size:15px;color:#fff}.rb-card p{margin:0;color:#94a3b8;font-size:12px;line-height:1.4}
-        .rb-menu{left:50%;top:50%;transform:translate(-50%,-50%);width:980px;max-height:88vh;padding:22px;overflow:auto}
+        .rb-menu{left:50%;top:50%;transform:translate(-50%,-50%);width:1080px;max-height:88vh;padding:22px;overflow:auto}
         .rb-side{right:20px;top:20px;width:360px;max-height:calc(100vh - 40px);padding:16px;overflow:auto}
         .rb-left{left:20px;top:20px;width:330px;max-height:calc(100vh - 40px);padding:16px;overflow:auto}
         .rb-row{display:flex;gap:10px;align-items:center}.rb-row>*{flex:1}.rb-small{font-size:12px;color:#94a3b8}.rb-chip{display:inline-block;padding:4px 8px;border-radius:999px;background:#1e293b;color:#bfdbfe;font-size:11px;margin:2px}.rb-hidden{display:none!important}
@@ -218,6 +227,7 @@
         if (k === '1') useSkill(0);
         if (k === '2') useSkill(1);
         if (k === '3') useSkill(2);
+        if (k === 'j' && player.basicCd <= 0) basicAttack();
         if (k === 'p' || k === 'escape') togglePause();
       } else if (state.screen === 'paused' && (k === 'p' || k === 'escape')) {
         togglePause();
@@ -293,6 +303,10 @@
   function getSkill(id) { return SKILLS.find(s => s.id === id); }
   function getPassiveLimit() { return clamp(getBoss(state.selectedBossId).tier, 1, 5); }
   function stars(n) { return '★'.repeat(n) + '☆'.repeat(5 - n); }
+  function setMenuStep(step) { state.menuStep = step; rebuildMenus(); }
+  function bossThemeName(b) { return b.arena === 'volcano' ? '화염 던전' : b.arena === 'ice' ? '빙결 성역' : b.arena === 'void' ? '공허 늪' : b.arena === 'storm' ? '폭풍 신전' : '시간 균열'; }
+  function skillCategoryName(c) { return c === 'attack' ? '공격' : c === 'evasion' ? '회피' : '버프'; }
+  function canStartBuild() { return state.selectedSkillIds.length === 3 && state.selectedPassiveIds.length === getPassiveLimit(); }
   function trimPassiveSelection() {
     const limit = getPassiveLimit();
     if (state.selectedPassiveIds.length > limit) state.selectedPassiveIds = state.selectedPassiveIds.slice(0, limit);
@@ -338,127 +352,262 @@
   }
 
   function buildSkills() {
-    const groups = [
-      { base: 'flame_burst', element: 'fire', color: '#fb7185', name: '화염 폭발', type: 'burst' },
-      { base: 'ice_lance', element: 'ice', color: '#7dd3fc', name: '빙결 창', type: 'line' },
-      { base: 'storm_chain', element: 'storm', color: '#fde047', name: '번개 사슬', type: 'chain' },
-      { base: 'shadow_dash', element: 'dark', color: '#a78bfa', name: '그림자 돌진', type: 'dash' },
-      { base: 'earth_guard', element: 'earth', color: '#86efac', name: '대지 방벽', type: 'shield' },
-      { base: 'arcane_orb', element: 'arcane', color: '#22d3ee', name: '비전 구체', type: 'orb' },
-      { base: 'blade_rain', element: 'metal', color: '#e5e7eb', name: '검우', type: 'rain' },
-      { base: 'poison_field', element: 'poison', color: '#bef264', name: '독성 지대', type: 'zone' },
-      { base: 'heal_pulse', element: 'holy', color: '#f9a8d4', name: '회복 파동', type: 'heal' },
-      { base: 'guard_break', element: 'force', color: '#fb923c', name: '파쇄 일격', type: 'strike' }
+    const attack = [
+      ['inferno_bloom','지옥화 개화','마우스 위치에 거대한 화염 꽃을 폭발시킵니다.','burst','fire','#fb7185',1.32,6.8,120,3.0],
+      ['solar_spear','태양창 투척','조준 방향으로 긴 빛의 창을 관통시킵니다.','line','holy','#fbbf24',1.18,5.7,92,1.8],
+      ['thunder_judgement','천둥 심판','보스 머리 위에 연쇄 낙뢰를 떨어뜨립니다.','chain','storm','#fde047',1.10,6.2,80,1.6],
+      ['glacier_impale','빙하 관통','날카로운 얼음 기둥을 직선으로 발사합니다.','line','ice','#7dd3fc',1.24,6.0,88,1.8],
+      ['void_collapse','공허 붕괴','작은 블랙홀을 만들어 폭발 피해를 줍니다.','burst','void','#a78bfa',1.45,8.2,135,2.4],
+      ['blade_rain','검우 낙하','마우스 주변에 검을 여러 개 떨어뜨립니다.','rain','metal','#e5e7eb',1.03,5.8,120,1.9],
+      ['venom_swamp','맹독 늪','지속 피해를 주는 독성 지대를 만듭니다.','zone','poison','#bef264',0.88,7.0,135,4.0],
+      ['dragon_tooth','용아 찌르기','보스에게 강한 단일 타격을 넣습니다.','strike','force','#fb923c',1.82,7.2,90,1.0],
+      ['moon_slash','월광 참격','초승달 검기를 발사합니다.','line','arcane','#c4b5fd',1.14,4.9,84,1.8],
+      ['meteor_call','운석 호출','짧은 경고 후 운석이 떨어집니다.','rain','fire','#f97316',1.34,8.0,145,2.2],
+      ['tidal_crush','해일 압살','넓은 물결 폭발을 일으킵니다.','burst','water','#38bdf8',1.15,6.4,150,2.0],
+      ['starfall','성운 낙하','작은 별빛 탄막을 보스 주변에 떨어뜨립니다.','rain','arcane','#93c5fd',1.08,5.5,130,2.0],
+      ['soul_lance','영혼 창','빠른 영혼창을 관통 발사합니다.','line','spirit','#f0abfc',1.26,5.9,90,1.7],
+      ['quake_fist','대지권','보스 근처 지면을 터뜨리는 강타입니다.','strike','earth','#86efac',1.72,6.6,110,1.0],
+      ['ember_saw','화염 원반','회전하는 화염 원반을 날립니다.','line','fire','#f87171',1.20,5.3,90,1.7],
+      ['frost_ring','서리 고리','원형 냉기 폭발로 보스를 타격합니다.','burst','ice','#bae6fd',1.18,5.8,125,2.0],
+      ['plasma_ray','플라즈마 광선','긴 광선형 관통 공격입니다.','line','storm','#22d3ee',1.30,7.4,86,1.5],
+      ['scarlet_mark','붉은 표식','보스에게 강한 표식 타격을 넣습니다.','strike','fire','#ef4444',1.95,8.4,80,1.0],
+      ['thorn_prison','가시 감옥','가시 지대를 생성해 지속 피해를 줍니다.','zone','nature','#4ade80',0.90,7.1,120,4.2],
+      ['comet_blade','혜성검','혜성처럼 빠른 검기를 발사합니다.','line','metal','#f8fafc',1.22,5.0,90,1.7],
+      ['dark_matter','암흑 물질','무거운 어둠 구체가 폭발합니다.','burst','dark','#7c3aed',1.44,8.0,125,2.0],
+      ['sand_cutter','사막 절단','모래 칼날을 관통 발사합니다.','line','earth','#f59e0b',1.12,4.7,90,1.6],
+      ['holy_cross','성십자 폭발','십자형 성광 폭발을 일으킵니다.','burst','holy','#fde68a',1.26,6.3,135,1.8],
+      ['gravity_hammer','중력 망치','보스 위치에 무거운 충격을 줍니다.','strike','void','#818cf8',2.05,9.0,90,1.0],
+      ['spirit_wolves','영혼 늑대','자동 추적 영혼탄을 부릅니다.','orb','spirit','#d8b4fe',0.82,8.5,100,5.0],
+      ['lava_garden','용암 정원','용암 지대를 펼쳐 지속 피해를 줍니다.','zone','fire','#fb7185',0.95,7.6,135,4.0],
+      ['needle_storm','침폭풍','작은 바늘 탄환을 연속 발사합니다.','rain','metal','#cbd5e1',1.02,5.2,115,1.8],
+      ['mirror_arrow','거울 화살','분열되는 마법 화살입니다.','line','arcane','#67e8f9',1.16,5.4,88,1.8],
+      ['twin_dragon','쌍룡포','두 번 터지는 폭발 공격입니다.','burst','fire','#fdba74',1.38,7.8,120,2.0],
+      ['night_reaper','밤의 수확','강력한 암흑 베기입니다.','strike','dark','#c084fc',1.88,7.9,95,1.0],
+      ['crystal_barrage','수정 포화','수정 비를 보스 주변에 쏟아냅니다.','rain','ice','#a5f3fc',1.08,5.9,125,1.9],
+      ['golden_axe','황금 도끼','짧지만 강한 처형 타격입니다.','strike','metal','#facc15',2.10,9.2,80,1.0],
+      ['phoenix_wing','불사조 날개','부채꼴 화염 폭발을 일으킵니다.','burst','fire','#fb923c',1.35,7.0,150,1.8],
+      ['abyss_needle','심연침','빠르고 강한 암흑 관통탄입니다.','line','dark','#a78bfa',1.28,5.6,80,1.5]
     ];
-    const list = [];
-    groups.forEach(function (g, gi) {
-      for (let i = 1; i <= 10; i++) {
-        const power = 0.8 + gi * 0.05 + i * 0.08;
-        const cd = Math.max(2.2, 8.5 - i * 0.35 + gi * 0.12);
-        list.push({
-          id: g.base + '_' + String(gi * 10 + i).padStart(2, '0'),
-          name: g.name + ' ' + roman(i),
-          desc: makeSkillDesc(g.type, power, cd),
-          type: g.type,
-          element: g.element,
-          color: g.color,
-          power: Number(power.toFixed(2)),
-          cooldown: Number(cd.toFixed(2)),
-          radius: 70 + i * 7,
-          count: 1 + Math.floor(i / 3),
-          duration: 1.2 + i * 0.12
-        });
-      }
-    });
-    return list;
+    const evasion = [
+      ['phantom_roll','환영 구르기','짧게 굴러 이동하고 0.45초 무적을 얻습니다.','dash','dark','#a78bfa',0.78,5.2,90,0.6],
+      ['wind_step','질풍 보법','전방 이동 후 이동속도가 잠시 증가합니다.','dash','wind','#86efac',0.70,4.6,90,0.7],
+      ['ice_slide','빙판 미끄러짐','길게 미끄러지고 짧은 냉기 흔적을 남깁니다.','dash','ice','#7dd3fc',0.76,5.0,95,0.8],
+      ['smoke_shift','연막 전이','무적 이동 후 연막 보호막을 얻습니다.','shield','dark','#94a3b8',0.40,7.2,95,1.0],
+      ['blink_cut','점멸 베기','순간 이동하며 주변을 베어냅니다.','dash','arcane','#c084fc',0.95,6.0,110,0.7],
+      ['guard_roll','방어 구르기','구르기 후 보호막을 얻습니다.','shield','earth','#86efac',0.35,6.4,95,1.0],
+      ['thunder_skip','번개 도약','짧은 번개 이동과 감전 타격을 줍니다.','dash','storm','#fde047',0.85,5.5,105,0.7],
+      ['moon_evade','달그림자 회피','옆으로 빠르게 이동하고 체력을 조금 회복합니다.','heal','holy','#f9a8d4',0.42,8.0,90,1.0],
+      ['barrier_cast','순간 결계','즉시 보호막을 얻고 주변 탄막을 버팁니다.','shield','arcane','#60a5fa',0.55,7.5,100,1.0],
+      ['backstep_shot','백스텝 사격','뒤로 물러나며 탄환을 발사합니다.','dash','metal','#e5e7eb',0.88,5.4,100,0.6],
+      ['serpent_sway','뱀의 흔들림','회피 후 독성 흔적을 남깁니다.','dash','poison','#bef264',0.72,5.8,100,0.8],
+      ['ember_roll','불꽃 구르기','구른 자리에 작은 화염 폭발을 남깁니다.','dash','fire','#fb7185',0.82,5.6,105,0.7],
+      ['aqua_drift','물결 이동','부드럽게 이동하며 체력을 회복합니다.','heal','water','#38bdf8',0.38,7.6,90,1.0],
+      ['mirror_escape','거울 탈출','짧은 무적과 자동 구체를 생성합니다.','orb','arcane','#67e8f9',0.52,8.3,90,3.0],
+      ['iron_guard','철벽 자세','보호막을 크게 얻습니다.','shield','metal','#cbd5e1',0.32,8.2,100,1.0],
+      ['spirit_leap','영혼 도약','대각선으로 도약하며 충돌 피해를 피합니다.','dash','spirit','#d8b4fe',0.75,5.0,95,0.7],
+      ['shadow_swap','그림자 교대','짧은 점멸 후 약한 폭발을 남깁니다.','dash','dark','#7c3aed',0.90,6.2,110,0.7],
+      ['cloud_walk','구름걸음','이동 후 잠시 속도가 증가합니다.','dash','wind','#bfdbfe',0.68,4.8,90,0.7],
+      ['holy_shelter','성역 보호','체력을 회복하고 무적을 얻습니다.','heal','holy','#fde68a',0.45,9.0,90,1.0],
+      ['thorn_guard','가시 방어','보호막과 반격 지대를 생성합니다.','shield','nature','#4ade80',0.50,7.4,105,1.0],
+      ['void_step','공허 보행','긴 점멸 이동을 합니다.','dash','void','#818cf8',0.82,6.1,95,0.7],
+      ['snow_mirage','눈보라 잔상','구르기 후 잔상 구체를 소환합니다.','orb','ice','#a5f3fc',0.55,8.0,90,3.0],
+      ['storm_parry','폭풍 패링','보호막을 얻고 주변에 번개를 떨굽니다.','shield','storm','#fde047',0.68,8.5,110,1.0],
+      ['crimson_dash','붉은 질주','직선 돌진으로 보스를 스칩니다.','dash','fire','#ef4444',0.92,5.9,100,0.7],
+      ['feather_step','깃털 회피','쿨이 짧은 가벼운 회피 이동입니다.','dash','wind','#d9f99d',0.58,3.8,80,0.5],
+      ['stone_skin','석화 방어','잠시 큰 보호막을 얻습니다.','shield','earth','#a3e635',0.25,8.8,100,1.0],
+      ['blood_recover','혈기 회복','즉시 체력을 회복합니다.','heal','blood','#fda4af',0.40,8.5,90,1.0],
+      ['needle_backflip','바늘 백플립','뒤로 빠지며 바늘비를 뿌립니다.','rain','metal','#e2e8f0',0.74,6.0,100,1.8],
+      ['gravity_flip','중력 전환','짧은 점멸과 충격파를 생성합니다.','dash','void','#c4b5fd',0.88,6.5,110,0.8],
+      ['mist_form','안개화','아주 짧은 무적과 회복을 얻습니다.','heal','water','#bae6fd',0.36,7.2,90,1.0],
+      ['wolf_pounce','늑대 도약','빠르게 파고들며 타격합니다.','dash','spirit','#f0abfc',0.90,5.7,105,0.7],
+      ['sun_guard','태양 방패','보호막과 주변 성광 피해를 줍니다.','shield','holy','#facc15',0.58,7.9,110,1.0],
+      ['blackout','암전 회피','짧은 암전 이동 후 보스를 타격합니다.','dash','dark','#111827',0.98,6.8,105,0.7]
+    ];
+    const buff = [
+      ['war_cry','전장의 함성','피해량을 높이는 전투 함성을 사용합니다.','buff_damage','force','#fb923c',0.0,10.0,100,5.0],
+      ['arcane_overload','비전 과부하','스킬 피해를 크게 높입니다.','buff_skill','arcane','#22d3ee',0.0,12.0,100,5.0],
+      ['hunter_focus','사냥꾼 집중','치명타 확률과 피해가 증가합니다.','buff_crit','metal','#facc15',0.0,11.0,100,5.0],
+      ['swift_hymn','신속의 찬가','이동속도와 기본 공격 속도가 증가합니다.','buff_speed','wind','#86efac',0.0,10.5,100,5.0],
+      ['blood_contract','혈계 계약','흡혈을 얻고 체력이 서서히 회복됩니다.','buff_life','blood','#fda4af',0.0,13.0,100,6.0],
+      ['iron_oath','철의 맹세','방어와 보호막을 얻습니다.','shield','metal','#cbd5e1',0.45,9.5,110,1.0],
+      ['mana_spring','마력 샘','쿨타임을 줄이고 마력이 증가합니다.','buff_cool','arcane','#93c5fd',0.0,12.5,100,5.5],
+      ['flame_aura','화염 오라','주변에 지속 화염 피해를 냅니다.','zone','fire','#fb7185',0.70,9.0,125,5.0],
+      ['frost_aura','빙결 오라','주변에 냉기 피해 지대를 만듭니다.','zone','ice','#7dd3fc',0.62,9.0,125,5.0],
+      ['poison_aura','독성 오라','주변에 독성 피해 지대를 만듭니다.','zone','poison','#bef264',0.62,9.0,125,5.0],
+      ['blessing_light','빛의 축복','체력을 회복하고 피해량을 높입니다.','heal','holy','#fde68a',0.42,10.0,100,1.0],
+      ['shadow_veil','그림자 장막','무적을 얻고 치명타가 증가합니다.','buff_crit','dark','#a78bfa',0.0,12.0,100,5.0],
+      ['storm_engine','폭풍 기관','기본 공격 속도와 투사체 속도를 높입니다.','buff_speed','storm','#fde047',0.0,11.5,100,5.0],
+      ['giant_circle','거대 마법진','스킬 범위를 크게 넓힙니다.','buff_area','arcane','#67e8f9',0.0,12.0,100,6.0],
+      ['berserker_sign','광전사 문장','체력이 낮을수록 피해가 증가합니다.','buff_damage','blood','#ef4444',0.0,12.0,100,6.0],
+      ['spirit_chorus','영혼 합창','자동 공격 구체를 여러 개 소환합니다.','orb','spirit','#d8b4fe',0.68,10.0,100,5.0],
+      ['earth_resonance','대지 공명','방어와 체력을 회복합니다.','heal','earth','#86efac',0.38,9.5,100,1.0],
+      ['golden_hour','황금 시간','짧은 시간 모든 피해가 증가합니다.','buff_damage','holy','#facc15',0.0,14.0,100,4.5],
+      ['mirror_field','거울 장막','자동 구체와 보호막을 얻습니다.','orb','arcane','#c4b5fd',0.52,10.5,100,4.5],
+      ['wind_barrier','바람 장벽','이동속도와 보호막을 얻습니다.','shield','wind','#bfdbfe',0.40,9.2,110,1.0],
+      ['lava_blood','용암 혈류','기본 공격 피해와 흡혈이 증가합니다.','buff_life','fire','#fb923c',0.0,13.0,100,6.0],
+      ['cold_mind','냉정한 정신','쿨타임과 받는 피해가 줄어듭니다.','buff_cool','ice','#bae6fd',0.0,12.5,100,5.0],
+      ['assassin_mark','암살 표식','치명타가 크게 증가합니다.','buff_crit','dark','#c084fc',0.0,11.5,100,5.0],
+      ['sage_memory','현자의 기억','스킬 피해와 범위가 증가합니다.','buff_skill','arcane','#60a5fa',0.0,12.5,100,5.0],
+      ['dancer_rhythm','무희의 리듬','공격 속도와 이동속도가 증가합니다.','buff_speed','wind','#4ade80',0.0,10.0,100,5.0],
+      ['guardian_law','수호자의 법칙','큰 보호막을 즉시 얻습니다.','shield','holy','#fde68a',0.35,10.5,120,1.0],
+      ['chaos_overdrive','혼돈 과부하','피해량과 치명타가 함께 증가합니다.','buff_damage','void','#818cf8',0.0,15.0,100,5.0],
+      ['blue_flame','청염 강화','마력과 스킬 피해가 증가합니다.','buff_skill','fire','#38bdf8',0.0,12.0,100,5.0],
+      ['steel_tempo','강철 박자','기본 공격 속도가 크게 증가합니다.','buff_speed','metal','#e5e7eb',0.0,10.8,100,5.0],
+      ['recovery_prayer','회복 기도','즉시 큰 회복을 합니다.','heal','holy','#f9a8d4',0.38,11.0,100,1.0],
+      ['vampire_song','흡혈의 노래','흡혈과 피해량이 증가합니다.','buff_life','blood','#fb7185',0.0,13.5,100,6.0],
+      ['runic_focus','룬 집중','스킬 쿨타임이 감소합니다.','buff_cool','arcane','#a5b4fc',0.0,12.2,100,5.0],
+      ['final_resolve','최후의 결의','피해량, 방어, 회복이 조금씩 증가합니다.','buff_damage','force','#f97316',0.0,14.5,100,6.0]
+    ];
+    const rows = attack.map(x => makeSkillRow(x, 'attack')).concat(evasion.map(x => makeSkillRow(x, 'evasion'))).concat(buff.map(x => makeSkillRow(x, 'buff')));
+    return rows.slice(0, 100);
   }
 
-  function roman(n) {
-    return ['I','II','III','IV','V','VI','VII','VIII','IX','X'][n - 1] || String(n);
+  function makeSkillRow(row, category) {
+    const [id, name, desc, type, element, color, power, cooldown, radius, duration] = row;
+    return { id, name, desc: '[' + skillCategoryName(category) + '] ' + desc + ' 쿨타임 ' + cooldown.toFixed(1) + '초', category, type, element, color, power, cooldown, radius, count: 3, duration };
   }
 
   function makeSkillDesc(type, power, cd) {
     const dmg = Math.round(power * 100);
     const map = {
-      burst: '마우스 위치에 폭발을 일으킵니다.', line: '조준 방향으로 관통 투사체를 발사합니다.', chain: '보스와 주변 지점에 연쇄 번개를 떨어뜨립니다.', dash: '무적 돌진 후 큰 피해를 줍니다.', shield: '보호막을 얻고 주변을 밀쳐냅니다.', orb: '자동 공격 구체를 소환합니다.', rain: '마우스 위치에 검을 떨어뜨립니다.', zone: '지속 피해 지대를 생성합니다.', heal: '체력을 회복하고 잠시 피해를 줄입니다.', strike: '보스에게 강력한 단일 타격을 가합니다.'
+      burst: '마우스 위치에 폭발을 일으킵니다.', line: '조준 방향으로 관통 투사체를 발사합니다.', chain: '보스와 주변 지점에 연쇄 번개를 떨어뜨립니다.', dash: '무적 이동 후 피해를 줍니다.', shield: '보호막을 얻고 주변을 밀쳐냅니다.', orb: '자동 공격 구체를 소환합니다.', rain: '마우스 위치에 투사체를 떨어뜨립니다.', zone: '지속 피해 지대를 생성합니다.', heal: '체력을 회복합니다.', strike: '보스에게 강력한 단일 타격을 가합니다.'
     };
     return (map[type] || '특수 스킬입니다.') + ' 피해 ' + dmg + '%, 쿨타임 ' + cd.toFixed(1) + '초';
   }
 
   function rebuildMenus() {
+    trimPassiveSelection();
+    const step = state.menuStep || 'boss';
+    const b = getBoss(state.selectedBossId);
+    const w = getWeapon(state.selectedWeaponId);
+    const steps = ['boss','weapon','skills','passives','ready'];
+    const stepNames = { boss: '1. 보스 선택', weapon: '2. 무기 선택', skills: '3. 스킬 선택', passives: '4. 패시브 선택', ready: '5. 출격 준비' };
     ui.menu.innerHTML = `
-      <h1 class="rb-title">보스 레이드 빌드 게임</h1>
-      <p class="rb-sub">보스 목록은 아래로 갈수록 어려워집니다. 먼저 보스를 고르고, 그 보스 난이도만큼 패시브를 선택한 뒤, 스킬 3개와 무기를 조합해서 시작 버튼을 누르세요. 보스는 그냥 때리는 것보다 패턴을 파훼해 약화 시간을 만든 뒤 딜을 넣는 방식입니다. 조작: WASD 이동, 마우스 조준, 좌클릭 기본공격, 1/2/3 스킬, Space 대시, P 일시정지</p>
-      <div class="rb-row" style="margin-bottom:12px">
-        <input id="playerNameInput" class="rb-input" maxlength="14" placeholder="랭킹 이름" value="${escapeHtml(player.name)}">
-        <button id="saveNameBtn" class="rb-btn secondary">이름 저장</button>
-        <button id="startRaidBtn" class="rb-btn danger">레이드 시작</button>
-      </div>
-      <div class="rb-row" style="align-items:flex-start">
-        <div>
-          <h2 class="rb-title" style="font-size:18px">보스 선택</h2>
-          <div id="bossGrid" class="rb-grid"></div>
-          <h2 class="rb-title" style="font-size:18px;margin-top:16px">무기 선택</h2>
-          <div id="weaponGrid" class="rb-grid"></div>
-        </div>
-        <div>
-          <h2 class="rb-title" style="font-size:18px">스킬 3개 선택 <span class="rb-small" id="skillCount"></span></h2>
-          <div id="skillGrid" class="rb-list" style="max-height:260px;overflow:auto"></div>
-          <h2 class="rb-title" style="font-size:18px;margin-top:16px">패시브 선택 <span class="rb-small" id="passiveCount"></span></h2>
-          <div id="passiveGrid" class="rb-list" style="max-height:260px;overflow:auto"></div>
-        </div>
-      </div>
-      <div class="rb-row" style="margin-top:14px">
-        <button id="rankingBtn" class="rb-btn secondary">선택 보스 랭킹 보기</button>
-        <button id="randomBuildBtn" class="rb-btn secondary">랜덤 빌드</button>
-      </div>
-      <p class="rb-sub" style="margin-top:12px">Supabase 상태: <b>${supabaseReady ? '연결됨' : '로컬 기록 모드'}</b>${supabaseError ? ' · ' + escapeHtml(supabaseError) : ''}</p>
+      <h1 class="rb-title">보스 레이드 선택</h1>
+      <p class="rb-sub">던전 선택 창처럼 한 단계씩 고르는 구조로 정리했습니다. 보스는 아래로 갈수록 어렵고, 난이도 별 개수만큼 패시브를 선택합니다. 레이드는 조합을 완성한 뒤 <b>출격 준비</b> 화면의 시작 버튼을 눌러야 시작됩니다.</p>
+      <div class="rb-stepbar">${steps.map(s => `<div class="rb-step ${step === s ? 'active' : ''}" data-step="${s}">${stepNames[s]}</div>`).join('')}</div>
+      <div id="stepContent"></div>
     `;
+    ui.menu.querySelectorAll('.rb-step').forEach(function (node) { node.onclick = function () { setMenuStep(node.dataset.step); }; });
+    const box = ui.menu.querySelector('#stepContent');
+    if (step === 'boss') renderBossStep(box);
+    else if (step === 'weapon') renderWeaponStep(box);
+    else if (step === 'skills') renderSkillStep(box);
+    else if (step === 'passives') renderPassiveStep(box);
+    else renderReadyStep(box);
+  }
 
-    const bossGrid = ui.menu.querySelector('#bossGrid');
-    BOSSES.forEach(function (b) {
+  function renderBossStep(box) {
+    box.innerHTML = `
+      <div class="rb-row" style="align-items:flex-start">
+        <div style="flex:2.4"><h2 class="rb-title" style="font-size:20px">던전 선택</h2><div id="bossGrid" class="rb-dungeon-grid"></div></div>
+        <div style="flex:1" id="bossDetail"></div>
+      </div>
+      <div class="rb-row" style="margin-top:14px"><button id="nextWeaponBtn" class="rb-btn danger">무기 선택으로</button><button id="rankingBtn" class="rb-btn secondary">선택 보스 랭킹</button></div>`;
+    const grid = box.querySelector('#bossGrid');
+    BOSSES.forEach(function (bossData) {
       const card = document.createElement('div');
-      card.className = 'rb-card' + (b.id === state.selectedBossId ? ' active' : '');
-      card.innerHTML = `<h3>${b.name}</h3><p><b style="color:#facc15">${stars(b.tier)}</b> · 난이도 ${b.tier} · 패시브 ${b.tier}개<br>HP ${num(b.hp)} · ${b.desc}</p>`;
-      card.onclick = function () { state.selectedBossId = b.id; state.rankingBossId = b.id; trimPassiveSelection(); rebuildMenus(); refreshRankings(b.id); };
-      bossGrid.appendChild(card);
+      card.className = 'rb-dungeon' + (bossData.id === state.selectedBossId ? ' active' : '');
+      card.innerHTML = `<div class="rb-small">${bossThemeName(bossData)}</div><div class="rb-boss-art">${bossSvg(bossData)}</div><h3 style="margin:0 0 5px;color:#fff;font-size:15px">${bossData.name}</h3><p style="margin:0;color:#facc15;font-weight:900">${stars(bossData.tier)}</p><p class="rb-small">패시브 ${bossData.tier}개 · HP ${num(bossData.hp)}</p>`;
+      card.onclick = function () { state.selectedBossId = bossData.id; state.rankingBossId = bossData.id; trimPassiveSelection(); rebuildMenus(); refreshRankings(bossData.id); };
+      grid.appendChild(card);
     });
+    const b = getBoss(state.selectedBossId);
+    box.querySelector('#bossDetail').innerHTML = `<div class="rb-card active" style="cursor:default"><h3>${b.name}</h3><p><b style="color:#facc15">${stars(b.tier)}</b><br>${b.desc}</p><p class="rb-sub">주요 패턴: ${patternNames(b).join(' · ')}<br>입장 가능 패시브: ${b.tier}개</p></div>`;
+    box.querySelector('#nextWeaponBtn').onclick = function () { setMenuStep('weapon'); };
+    box.querySelector('#rankingBtn').onclick = function () { showRankings(state.selectedBossId); };
+  }
 
-    const weaponGrid = ui.menu.querySelector('#weaponGrid');
-    WEAPONS.forEach(function (w) {
+  function renderWeaponStep(box) {
+    const w = getWeapon(state.selectedWeaponId);
+    box.innerHTML = `<h2 class="rb-title" style="font-size:20px">무기 선택</h2><p class="rb-sub">일반 공격은 무기마다 방식이 다릅니다. J 또는 좌클릭으로 일반 공격합니다.</p><div id="weaponGrid" class="rb-grid"></div><div class="rb-row" style="margin-top:14px"><button id="backBossBtn" class="rb-btn secondary">보스 선택으로</button><button id="nextSkillBtn" class="rb-btn danger">스킬 선택으로</button></div>`;
+    const grid = box.querySelector('#weaponGrid');
+    WEAPONS.forEach(function (weapon) {
       const card = document.createElement('div');
-      card.className = 'rb-card' + (w.id === state.selectedWeaponId ? ' active' : '');
-      card.innerHTML = `<h3>${w.name}</h3><p>${w.desc}<br>피해 x${w.atk} · 사거리 ${w.range}</p>`;
-      card.onclick = function () { state.selectedWeaponId = w.id; rebuildMenus(); };
-      weaponGrid.appendChild(card);
+      card.className = 'rb-card' + (weapon.id === state.selectedWeaponId ? ' active' : '');
+      card.innerHTML = `<div style="height:52px">${weaponSvg(weapon)}</div><h3>${weapon.name}</h3><p>${weapon.desc}<br><b>일반공격:</b> ${weaponBasicText(weapon)}<br>피해 x${weapon.atk} · 쿨 ${weapon.speed.toFixed(2)}초 · 사거리 ${weapon.range}</p>`;
+      card.onclick = function () { state.selectedWeaponId = weapon.id; rebuildMenus(); };
+      grid.appendChild(card);
     });
+    box.querySelector('#backBossBtn').onclick = function () { setMenuStep('boss'); };
+    box.querySelector('#nextSkillBtn').onclick = function () { setMenuStep('skills'); };
+  }
 
-    const skillGrid = ui.menu.querySelector('#skillGrid');
-    SKILLS.forEach(function (s) {
-      const active = state.selectedSkillIds.includes(s.id);
+  function renderSkillStep(box) {
+    const filter = state.skillFilter || 'attack';
+    box.innerHTML = `<h2 class="rb-title" style="font-size:20px">스킬 3개 선택 <span class="rb-small">(${state.selectedSkillIds.length}/3)</span></h2><p class="rb-sub">스킬을 공격/회피/버프 3분류로 나눴습니다. 같은 분류만 고를 필요는 없고 총 3개만 맞추면 됩니다.</p><div class="rb-tabs"><button class="rb-tab ${filter==='attack'?'active':''}" data-filter="attack">공격 스킬</button><button class="rb-tab ${filter==='evasion'?'active':''}" data-filter="evasion">회피 스킬</button><button class="rb-tab ${filter==='buff'?'active':''}" data-filter="buff">버프 스킬</button></div><div id="skillGrid" class="rb-grid" style="max-height:430px;overflow:auto"></div><div class="rb-row" style="margin-top:14px"><button id="backWeaponBtn" class="rb-btn secondary">무기 선택으로</button><button id="nextPassiveBtn" class="rb-btn danger">패시브 선택으로</button></div>`;
+    box.querySelectorAll('.rb-tab').forEach(function (btn) { btn.onclick = function () { state.skillFilter = btn.dataset.filter; rebuildMenus(); }; });
+    const grid = box.querySelector('#skillGrid');
+    SKILLS.filter(s => s.category === filter).forEach(function (skill) {
+      const active = state.selectedSkillIds.includes(skill.id);
       const card = document.createElement('div');
       card.className = 'rb-card' + (active ? ' active' : '');
-      card.innerHTML = `<h3>${s.name}</h3><p>${s.desc}</p>`;
-      card.onclick = function () { toggleSkill(s.id); rebuildMenus(); };
-      skillGrid.appendChild(card);
+      card.innerHTML = `<h3>${skill.name}</h3><p><span class="rb-chip">${skillCategoryName(skill.category)}</span><br>${skill.desc}</p>`;
+      card.onclick = function () { toggleSkill(skill.id); rebuildMenus(); };
+      grid.appendChild(card);
     });
+    box.querySelector('#backWeaponBtn').onclick = function () { setMenuStep('weapon'); };
+    box.querySelector('#nextPassiveBtn').onclick = function () { if (state.selectedSkillIds.length !== 3) return toast('스킬은 정확히 3개 선택해야 합니다.'); setMenuStep('passives'); };
+  }
 
-    const passiveGrid = ui.menu.querySelector('#passiveGrid');
-    PASSIVES.forEach(function (p) {
-      const active = state.selectedPassiveIds.includes(p.id);
+  function renderPassiveStep(box) {
+    const limit = getPassiveLimit();
+    box.innerHTML = `<h2 class="rb-title" style="font-size:20px">패시브 선택 <span class="rb-small">(${state.selectedPassiveIds.length}/${limit})</span></h2><p class="rb-sub">현재 선택 보스 난이도는 ${stars(getBoss(state.selectedBossId).tier)} 이므로 패시브를 ${limit}개 선택할 수 있습니다.</p><div id="passiveGrid" class="rb-grid" style="max-height:460px;overflow:auto"></div><div class="rb-row" style="margin-top:14px"><button id="backSkillBtn" class="rb-btn secondary">스킬 선택으로</button><button id="nextReadyBtn" class="rb-btn danger">출격 준비로</button></div>`;
+    const grid = box.querySelector('#passiveGrid');
+    PASSIVES.forEach(function (passive) {
+      const active = state.selectedPassiveIds.includes(passive.id);
       const card = document.createElement('div');
       card.className = 'rb-card' + (active ? ' active' : '');
-      card.innerHTML = `<h3>${p.name}</h3><p>${p.desc}</p>`;
-      card.onclick = function () { togglePassive(p.id); rebuildMenus(); };
-      passiveGrid.appendChild(card);
+      card.innerHTML = `<h3>${passive.name}</h3><p>${passive.desc}</p>`;
+      card.onclick = function () { togglePassive(passive.id); rebuildMenus(); };
+      grid.appendChild(card);
     });
+    box.querySelector('#backSkillBtn').onclick = function () { setMenuStep('skills'); };
+    box.querySelector('#nextReadyBtn').onclick = function () { if (state.selectedPassiveIds.length !== limit) return toast('패시브를 ' + limit + '개 선택해야 합니다.'); setMenuStep('ready'); };
+  }
 
-    ui.menu.querySelector('#skillCount').textContent = '(' + state.selectedSkillIds.length + '/3)';
-    ui.menu.querySelector('#passiveCount').textContent = '(' + state.selectedPassiveIds.length + '/' + getPassiveLimit() + ' · 보스 난이도별 제한)';
-    ui.menu.querySelector('#saveNameBtn').onclick = saveNameFromInput;
-    ui.menu.querySelector('#startRaidBtn').onclick = startRaid;
-    ui.menu.querySelector('#rankingBtn').onclick = function () { showRankings(state.selectedBossId); };
-    ui.menu.querySelector('#randomBuildBtn').onclick = randomBuild;
+  function renderReadyStep(box) {
+    const b = getBoss(state.selectedBossId), w = getWeapon(state.selectedWeaponId);
+    const skills = state.selectedSkillIds.map(getSkill).filter(Boolean);
+    const passives = state.selectedPassiveIds.map(getPassive).filter(Boolean);
+    box.innerHTML = `<h2 class="rb-title" style="font-size:20px">출격 준비</h2><div class="rb-row" style="align-items:flex-start"><div class="rb-card active" style="cursor:default"><h3>${b.name}</h3><p><b style="color:#facc15">${stars(b.tier)}</b><br>${bossThemeName(b)} · ${b.desc}<br>패턴: ${patternNames(b).join(' · ')}</p></div><div class="rb-card active" style="cursor:default"><h3>${w.name}</h3><p>${w.desc}<br>일반공격: ${weaponBasicText(w)}</p></div></div><h3 style="color:#fff">선택 스킬</h3><div>${skills.map(s => `<span class="rb-chip">${s.name}</span>`).join('')}</div><h3 style="color:#fff">선택 패시브</h3><div>${passives.map(p => `<span class="rb-chip">${p.name}</span>`).join('')}</div><div class="rb-row" style="margin-top:16px"><input id="playerNameInput" class="rb-input" maxlength="14" placeholder="랭킹 이름" value="${escapeHtml(player.name)}"><button id="saveNameBtn" class="rb-btn secondary">이름 저장</button><button id="startRaidBtn" class="rb-btn danger" ${canStartBuild() ? '' : 'disabled'}>레이드 시작</button></div><div class="rb-row" style="margin-top:12px"><button id="backPassiveBtn" class="rb-btn secondary">패시브 선택으로</button><button id="randomBuildBtn" class="rb-btn secondary">랜덤 빌드</button><button id="rankingBtn" class="rb-btn secondary">랭킹 보기</button></div><p class="rb-sub" style="margin-top:12px">조작: WASD 이동 · 마우스 조준 · <b>J 또는 좌클릭 일반공격</b> · 1/2/3 스킬 · <b>Space 구르기(쿨타임 2.5초)</b> · P 일시정지<br>Supabase 상태: <b>${supabaseReady ? '연결됨' : '로컬 기록 모드'}</b>${supabaseError ? ' · ' + escapeHtml(supabaseError) : ''}</p>`;
+    box.querySelector('#saveNameBtn').onclick = saveNameFromInput;
+    box.querySelector('#startRaidBtn').onclick = startRaid;
+    box.querySelector('#backPassiveBtn').onclick = function () { setMenuStep('passives'); };
+    box.querySelector('#randomBuildBtn').onclick = randomBuild;
+    box.querySelector('#rankingBtn').onclick = function () { showRankings(state.selectedBossId); };
+  }
+
+  function patternNames(b) {
+    if (b.arena === 'volcano') return ['화염 안전지대', '용암 십자', '불꽃 돌진 카운터'];
+    if (b.arena === 'ice') return ['빙결 룬', '얼음창 추적', '동상 장판'];
+    if (b.arena === 'void') return ['공허 룬', '독 늪', '순간이동 카운터'];
+    if (b.arena === 'storm') return ['낙뢰 안전지대', '전류 룬', '거신 충격파'];
+    return ['시간 룬', '시간 감속', '분신 카운터'];
+  }
+
+  function weaponBasicText(w) {
+    if (w.id === 'sword') return '빠른 전방 베기';
+    if (w.id === 'staff') return '마법탄 원거리 공격';
+    if (w.id === 'bow') return '빠른 관통 화살';
+    if (w.id === 'whip') return '넓은 부채꼴 채찍질';
+    if (w.id === 'pole') return '긴 사거리 찌르기';
+    if (w.id === 'dagger') return '초고속 단검 연타';
+    if (w.id === 'greatsword') return '느리지만 강한 대검 참격';
+    return '폭발 마도탄';
+  }
+
+  function bossSvg(b) {
+    const c = b.color, s = b.sub;
+    if (b.arena === 'volcano') return `<svg width="120" height="100" viewBox="0 0 120 100"><path d="M60 5 L75 35 L108 42 L82 63 L90 95 L60 78 L30 95 L38 63 L12 42 L45 35Z" fill="${c}" stroke="#111827" stroke-width="5"/><circle cx="45" cy="48" r="6" fill="#fff"/><circle cx="75" cy="48" r="6" fill="#fff"/><path d="M34 20 C45 0 55 25 64 8 C70 28 86 12 82 36" fill="${s}"/></svg>`;
+    if (b.arena === 'ice') return `<svg width="120" height="100" viewBox="0 0 120 100"><polygon points="60,5 94,30 82,86 38,86 26,30" fill="${c}" stroke="#111827" stroke-width="5"/><path d="M60 10 L60 88 M30 34 L90 34 M38 72 L82 72" stroke="${s}" stroke-width="6"/><circle cx="45" cy="48" r="5" fill="#fff"/><circle cx="75" cy="48" r="5" fill="#fff"/></svg>`;
+    if (b.arena === 'void') return `<svg width="120" height="100" viewBox="0 0 120 100"><ellipse cx="60" cy="52" rx="46" ry="34" fill="${c}" stroke="#111827" stroke-width="5"/><path d="M22 60 C5 45 18 20 42 36 M98 60 C115 45 102 20 78 36" fill="none" stroke="${s}" stroke-width="8"/><circle cx="46" cy="46" r="5" fill="#fff"/><circle cx="74" cy="46" r="5" fill="#fff"/></svg>`;
+    if (b.arena === 'storm') return `<svg width="120" height="100" viewBox="0 0 120 100"><rect x="28" y="18" width="64" height="68" rx="18" fill="${c}" stroke="#111827" stroke-width="5"/><path d="M58 6 L45 48 H61 L52 94 L78 42 H62 Z" fill="${s}" stroke="#111827" stroke-width="3"/><circle cx="45" cy="44" r="5" fill="#111827"/><circle cx="75" cy="44" r="5" fill="#111827"/></svg>`;
+    return `<svg width="120" height="100" viewBox="0 0 120 100"><path d="M60 6 C100 16 108 52 82 82 C58 108 20 86 19 52 C18 22 38 10 60 6Z" fill="${c}" stroke="#111827" stroke-width="5"/><circle cx="60" cy="52" r="24" fill="none" stroke="${s}" stroke-width="6"/><path d="M60 28 V52 L78 62" stroke="#fff" stroke-width="5" stroke-linecap="round"/><circle cx="45" cy="48" r="5" fill="#fff"/><circle cx="75" cy="48" r="5" fill="#fff"/></svg>`;
+  }
+
+  function weaponSvg(w) {
+    return `<svg width="90" height="52" viewBox="0 0 90 52"><g transform="translate(45 26) rotate(-22)"><rect x="-28" y="-4" width="56" height="8" rx="4" fill="${w.color}"/><circle cx="30" cy="0" r="7" fill="#111827"/><rect x="-36" y="-7" width="12" height="14" rx="3" fill="#e5e7eb"/></g></svg>`;
   }
 
   function toggleSkill(id) {
@@ -610,7 +759,7 @@
       <h1 class="rb-title" style="font-size:20px">현재 빌드</h1>
       <p class="rb-sub">무기: <b>${state.raid.weapon.name}</b><br>보스: <b>${getBoss(state.raid.bossId).name}</b></p>
       <div>${skillRows}</div><div style="height:8px"></div><div>${passiveRows}</div>
-      <p class="rb-sub" style="margin-top:12px">보스는 기본 보호막 상태라 피해가 줄어듭니다. 안전지대, 룬, 카운터 패턴을 파훼하면 잠시 약화되어 큰 피해가 들어갑니다.<br>WASD 이동 · 마우스 조준 · 좌클릭 기본공격 · 1/2/3 스킬 · Space 대시 · P 일시정지</p>
+      <p class="rb-sub" style="margin-top:12px">보스는 기본 보호막 상태라 피해가 줄어듭니다. 안전지대, 룬, 카운터 패턴을 파훼하면 잠시 약화되어 큰 피해가 들어갑니다.<br>WASD 이동 · 마우스 조준 · J/좌클릭 일반공격 · 1/2/3 스킬 · Space 구르기(2.5초) · P 일시정지</p>
       <button id="giveUpBtn" class="rb-btn secondary" style="width:100%">포기하고 메뉴로</button>
     `;
     ui.left.querySelector('#giveUpBtn').onclick = showMenu;
@@ -638,6 +787,7 @@
     if (state.screen !== 'raid' || !state.raid) return;
     state.raid.elapsed += dt;
     updatePlayer(dt);
+    updateTempBuffs(dt);
     updateBoss(dt);
     updateProjectiles(dt);
     updateHazards(dt);
@@ -673,11 +823,12 @@
     player.hp = Math.min(player.maxHp, player.hp + player.regen * dt);
     if (keys.has(' ') && player.dashCd <= 0) {
       player.dash = 0.18;
-      player.dashCd = 1.4;
+      player.dashCd = 2.5;
       player.invuln = Math.max(player.invuln, 0.18);
-      burst(player.x, player.y, '#93c5fd', 16, 180);
+      burst(player.x, player.y, '#93c5fd', 20, 210);
+      floatText('ROLL', player.x, player.y - 28, '#93c5fd');
     }
-    if (mouse.down && player.basicCd <= 0) basicAttack();
+    if ((mouse.down || keys.has('j')) && player.basicCd <= 0) basicAttack();
     mouse.justDown = false;
   }
 
@@ -746,11 +897,47 @@
       player.invuln = Math.max(player.invuln, 0.28);
       healText('+' + heal, player.x, player.y - 32);
       burst(player.x, player.y, s.color, 30, 190);
+    } else if (String(s.type).indexOf('buff_') === 0) {
+      applyTempBuff(s);
+      burst(player.x, player.y, s.color, 34, 210);
+      floatText(s.name, player.x, player.y - 44, s.color);
     } else if (s.type === 'strike') {
       damageBoss(power * 2.1, s.color, true);
       state.shake = 8;
       burst(boss.x, boss.y, s.color, 44, 330);
     }
+  }
+
+  function applyTempBuff(s) {
+    const d = s.duration || 5;
+    if (!player.tempBuffs) player.tempBuffs = [];
+    const buff = { life: d, color: s.color, name: s.name };
+    if (s.type === 'buff_damage') { buff.damageMul = 1.22; player.damageMul *= buff.damageMul; }
+    if (s.type === 'buff_skill') { buff.skillDamageMul = 1.28; player.skillDamageMul *= buff.skillDamageMul; }
+    if (s.type === 'buff_crit') { buff.critAdd = 18; buff.critDmgAdd = 0.25; player.crit += buff.critAdd; player.critDmg += buff.critDmgAdd; }
+    if (s.type === 'buff_speed') { buff.speedMul = 1.20; buff.cooldownMul = 0.88; player.speed *= buff.speedMul; player.cooldownMul *= buff.cooldownMul; }
+    if (s.type === 'buff_life') { buff.lifestealAdd = 0.035; buff.damageMul = 1.10; player.lifesteal += buff.lifestealAdd; player.damageMul *= buff.damageMul; }
+    if (s.type === 'buff_cool') { buff.cooldownMul = 0.80; buff.magicMul = 1.12; player.cooldownMul *= buff.cooldownMul; player.magic *= buff.magicMul; }
+    if (s.type === 'buff_area') { buff.areaMul = 1.35; player.areaMul *= buff.areaMul; }
+    player.tempBuffs.push(buff);
+  }
+
+  function updateTempBuffs(dt) {
+    if (!player.tempBuffs) return;
+    player.tempBuffs.forEach(function (buff) { buff.life -= dt; });
+    const expired = player.tempBuffs.filter(b => b.life <= 0);
+    expired.forEach(function (buff) {
+      if (buff.damageMul) player.damageMul /= buff.damageMul;
+      if (buff.skillDamageMul) player.skillDamageMul /= buff.skillDamageMul;
+      if (buff.critAdd) player.crit -= buff.critAdd;
+      if (buff.critDmgAdd) player.critDmg -= buff.critDmgAdd;
+      if (buff.speedMul) player.speed /= buff.speedMul;
+      if (buff.cooldownMul) player.cooldownMul /= buff.cooldownMul;
+      if (buff.lifestealAdd) player.lifesteal -= buff.lifestealAdd;
+      if (buff.magicMul) player.magic /= buff.magicMul;
+      if (buff.areaMul) player.areaMul /= buff.areaMul;
+    });
+    player.tempBuffs = player.tempBuffs.filter(b => b.life > 0);
   }
 
   function updateBoss(dt) {
@@ -780,30 +967,66 @@
     const tier = data.tier;
     const angle = Math.atan2(player.y - boss.y, player.x - boss.x);
 
-    if (boss.pattern === 0) {
-      beginSafeZoneMechanic(data);
-      const n = 12 + tier * 2 + boss.phase * 2;
-      for (let i = 0; i < n; i++) {
-        const a = Math.PI * 2 * i / n;
-        spawnProjectile({ owner: 'boss', x: boss.x, y: boss.y, vx: Math.cos(a) * (145 + tier * 18), vy: Math.sin(a) * (145 + tier * 18), r: 8, life: 4.3, color: data.sub, damage: boss.atk * 0.85 });
+    if (data.arena === 'volcano') {
+      if (boss.pattern === 0) {
+        beginSafeZoneMechanic(data);
+        for (let i = 0; i < 10 + tier * 3; i++) {
+          const a = Math.PI * 2 * i / (10 + tier * 3);
+          spawnProjectile({ owner: 'boss', x: boss.x, y: boss.y, vx: Math.cos(a) * 210, vy: Math.sin(a) * 210, r: 10, life: 3.3, color: '#fb7185', damage: boss.atk });
+        }
+      } else if (boss.pattern === 1) {
+        for (let i = -2; i <= 2; i++) state.hazards.push({ kind: 'bossStrike', x: player.x + i * 95, y: player.y, r: 48, warn: 0.72, life: 0.25, damage: boss.atk * 2.1, color: '#f97316' });
+      } else if (boss.pattern === 2) {
+        state.damageZones.push({ x: player.x, y: player.y, r: 95, damage: boss.atk * 0.34, life: 4.0, tick: 0, color: '#ef4444', dot: true, bossZone: true });
+        beginRuneMechanic(data);
+      } else if (boss.pattern === 3) {
+        beginCounterMechanic(data);
+        boss.x = clamp(player.x + rand(-240, 240), 80, ARENA_W - 80);
+        boss.y = clamp(player.y + rand(-170, 170), 110, ARENA_H - 80);
+        burst(boss.x, boss.y, '#fb7185', 38, 250);
+      } else {
+        for (let i = 0; i < 7 + tier; i++) state.hazards.push({ kind: 'bossStrike', x: rand(100, ARENA_W - 100), y: rand(130, ARENA_H - 80), r: 52, warn: 0.8 + i * 0.05, life: 0.25, damage: boss.atk * 2.0, color: '#fb923c' });
       }
-    } else if (boss.pattern === 1) {
-      for (let i = 0; i < 4 + tier + boss.phase; i++) {
-        state.hazards.push({ kind: 'bossStrike', x: player.x + rand(-260, 260), y: player.y + rand(-180, 180), r: 42 + boss.phase * 5, warn: 0.78, life: 0.25, damage: boss.atk * 2.1, color: data.color, slow: data.arena === 'ice' });
+    } else if (data.arena === 'ice') {
+      if (boss.pattern === 0) beginRuneMechanic(data);
+      else if (boss.pattern === 1) {
+        for (let i = 0; i < 5 + tier; i++) {
+          const a = angle + (i - 2) * 0.18;
+          spawnProjectile({ owner: 'boss', x: boss.x, y: boss.y, vx: Math.cos(a) * 280, vy: Math.sin(a) * 280, r: 11, life: 3.7, color: '#a5f3fc', damage: boss.atk * 1.05 });
+        }
+      } else if (boss.pattern === 2) {
+        state.damageZones.push({ x: player.x, y: player.y, r: 120, damage: boss.atk * 0.28, life: 4.5, tick: 0, color: '#38bdf8', dot: true, bossZone: true, slow: true });
+      } else if (boss.pattern === 3) beginSafeZoneMechanic(data);
+      else {
+        for (let i = 0; i < 8 + tier; i++) state.hazards.push({ kind: 'bossStrike', x: player.x + rand(-320, 320), y: player.y + rand(-220, 220), r: 36, warn: 0.65 + i * 0.04, life: 0.2, damage: boss.atk * 2.0, color: '#7dd3fc', slow: true });
       }
-    } else if (boss.pattern === 2) {
-      beginRuneMechanic(data);
-      state.damageZones.push({ x: player.x, y: player.y, r: 85 + boss.phase * 20, damage: boss.atk * 0.33, life: 3.8, tick: 0, color: data.sub, dot: true, bossZone: true, slow: data.arena === 'ice' });
-    } else if (boss.pattern === 3) {
-      beginCounterMechanic(data);
-      boss.x = clamp(player.x + rand(-260, 260), 80, ARENA_W - 80);
-      boss.y = clamp(player.y + rand(-180, 180), 110, ARENA_H - 80);
-      burst(boss.x, boss.y, data.color, 34, 240);
+    } else if (data.arena === 'void') {
+      if (boss.pattern === 0) {
+        boss.x = clamp(rand(100, ARENA_W - 100), 80, ARENA_W - 80); boss.y = clamp(rand(120, ARENA_H - 90), 110, ARENA_H - 80); burst(boss.x, boss.y, '#8b5cf6', 42, 260); beginCounterMechanic(data);
+      } else if (boss.pattern === 1) {
+        state.damageZones.push({ x: player.x, y: player.y, r: 105, damage: boss.atk * 0.38, life: 4.0, tick: 0, color: '#a3e635', dot: true, bossZone: true });
+      } else if (boss.pattern === 2) beginRuneMechanic(data);
+      else if (boss.pattern === 3) {
+        for (let i = 0; i < 14 + tier * 2; i++) { const a = rand(0, Math.PI * 2); spawnProjectile({ owner: 'boss', x: boss.x, y: boss.y, vx: Math.cos(a) * rand(130, 250), vy: Math.sin(a) * rand(130, 250), r: 9, life: 4.1, color: '#c084fc', damage: boss.atk }); }
+      } else beginSafeZoneMechanic(data);
+    } else if (data.arena === 'storm') {
+      if (boss.pattern === 0) {
+        for (let i = 0; i < 6 + tier; i++) state.hazards.push({ kind: 'bossStrike', x: player.x + rand(-360, 360), y: player.y + rand(-230, 230), r: 42, warn: 0.55 + i * 0.08, life: 0.18, damage: boss.atk * 2.4, color: '#fde047' });
+        beginSafeZoneMechanic(data);
+      } else if (boss.pattern === 1) beginRuneMechanic(data);
+      else if (boss.pattern === 2) {
+        const n = 10 + tier * 2; for (let i = 0; i < n; i++) { const a = Math.PI * 2 * i / n + state.time; spawnProjectile({ owner: 'boss', x: boss.x, y: boss.y, vx: Math.cos(a) * 300, vy: Math.sin(a) * 300, r: 8, life: 2.9, color: '#60a5fa', damage: boss.atk * 0.95 }); }
+      } else if (boss.pattern === 3) beginCounterMechanic(data);
+      else state.hazards.push({ kind: 'bossStrike', x: boss.x, y: boss.y, r: 220, warn: 1.0, life: 0.25, damage: boss.atk * 2.6, color: '#facc15' });
     } else {
-      const n = 10 + tier * 3 + boss.phase * 3;
-      for (let i = 0; i < n; i++) {
-        const a = angle + (i - n / 2) * 0.12;
-        spawnProjectile({ owner: 'boss', x: boss.x, y: boss.y, vx: Math.cos(a) * (230 + tier * 18), vy: Math.sin(a) * (230 + tier * 18), r: 9, life: 3.6, color: data.color, damage: boss.atk * 0.95 });
+      if (boss.pattern === 0) beginRuneMechanic(data);
+      else if (boss.pattern === 1) {
+        player.slow = Math.max(player.slow, 1.8);
+        for (let i = 0; i < 12 + tier * 3; i++) { const a = Math.PI * 2 * i / (12 + tier * 3); spawnProjectile({ owner: 'boss', x: boss.x, y: boss.y, vx: Math.cos(a) * (150 + i % 3 * 35), vy: Math.sin(a) * (150 + i % 3 * 35), r: 8, life: 4.5, color: i % 2 ? '#f472b6' : '#fef08a', damage: boss.atk }); }
+      } else if (boss.pattern === 2) beginCounterMechanic(data);
+      else if (boss.pattern === 3) beginSafeZoneMechanic(data);
+      else {
+        for (let i = 0; i < 5; i++) state.hazards.push({ kind: 'bossStrike', x: player.x + rand(-180, 180), y: player.y + rand(-140, 140), r: 60 + i * 10, warn: 0.6 + i * 0.12, life: 0.22, damage: boss.atk * 2.2, color: '#f472b6' });
       }
     }
   }
@@ -834,8 +1057,8 @@
   function beginCounterMechanic(data) {
     const time = Math.max(1.2, 1.85 - data.tier * 0.08);
     state.mechanics.push({ type: 'counter', time, maxTime: time, color: '#fb7185', text: '대시로 카운터!' });
-    boss.mechanicText = '보스가 힘을 모읍니다. Space 대시로 보스 몸을 통과하면 카운터 성공입니다.';
-    toast('패턴: Space 대시로 카운터!');
+    boss.mechanicText = '보스가 힘을 모읍니다. Space 구르기로 보스 몸을 통과하면 카운터 성공입니다.';
+    toast('패턴: Space 구르기로 카운터!');
   }
 
   function exposeBoss(sec, text, color) {
@@ -1178,28 +1401,65 @@
 
   function drawBoss() {
     if (boss.dead && state.screen !== 'result') return;
+    const data = getBoss(boss.id);
     ctx.save();
     ctx.translate(boss.x, boss.y);
     if (boss.hit > 0) ctx.globalAlpha = 0.6;
     ctx.fillStyle = 'rgba(0,0,0,.42)';
-    ctx.beginPath(); ctx.ellipse(0, boss.r * 0.8, boss.r * 0.9, 12, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#111827'; circle(ctx, 0, 0, boss.r + 5);
-    const grad = ctx.createRadialGradient(-12, -18, 5, 0, 0, boss.r);
-    grad.addColorStop(0, boss.sub); grad.addColorStop(1, boss.color);
-    ctx.fillStyle = grad; circle(ctx, 0, 0, boss.r);
-    ctx.fillStyle = '#fff'; circle(ctx, -boss.r * 0.32, -boss.r * 0.1, 7); circle(ctx, boss.r * 0.32, -boss.r * 0.1, 7);
-    ctx.fillStyle = '#111827'; circle(ctx, -boss.r * 0.32, -boss.r * 0.1, 3); circle(ctx, boss.r * 0.32, -boss.r * 0.1, 3);
-    ctx.strokeStyle = '#111827'; ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.arc(0, boss.r * 0.12, 18, 0.1, Math.PI - 0.1); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0, boss.r * 0.8, boss.r * 0.95, 13, 0, 0, Math.PI * 2); ctx.fill();
+    if (data.arena === 'volcano') drawFireBossShape();
+    else if (data.arena === 'ice') drawIceBossShape();
+    else if (data.arena === 'void') drawVoidBossShape();
+    else if (data.arena === 'storm') drawStormBossShape();
+    else drawChronoBossShape();
     if (boss.vulnerable <= 0) {
       ctx.strokeStyle = 'rgba(96,165,250,.85)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(0, 0, boss.r + 14 + Math.sin(state.time * 8) * 3, 0, Math.PI * 2); ctx.stroke();
     }
-    for (let i = 0; i < 8; i++) {
-      const a = Math.PI * 2 * i / 8 + state.time;
-      ctx.fillStyle = boss.sub;
-      ctx.beginPath(); ctx.arc(Math.cos(a) * (boss.r + 18), Math.sin(a) * (boss.r + 18), 5, 0, Math.PI * 2); ctx.fill();
-    }
     ctx.restore();
+  }
+
+  function drawFireBossShape() {
+    const r = boss.r;
+    ctx.fillStyle = '#111827';
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI * 2 / 10; const rr = i % 2 ? r + 10 : r + 25; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+    ctx.closePath(); ctx.fill();
+    const g = ctx.createRadialGradient(-12, -18, 5, 0, 0, r); g.addColorStop(0, '#fed7aa'); g.addColorStop(0.45, boss.sub); g.addColorStop(1, boss.color); ctx.fillStyle = g; circle(ctx, 0, 0, r);
+    ctx.fillStyle = '#fff'; circle(ctx, -r * .32, -r * .12, 7); circle(ctx, r * .32, -r * .12, 7);
+    ctx.fillStyle = '#111827'; circle(ctx, -r * .32, -r * .12, 3); circle(ctx, r * .32, -r * .12, 3);
+  }
+
+  function drawIceBossShape() {
+    const r = boss.r;
+    ctx.fillStyle = '#111827';
+    ctx.beginPath(); ctx.moveTo(0, -r - 28); ctx.lineTo(r + 18, -10); ctx.lineTo(r * .65, r + 24); ctx.lineTo(-r * .65, r + 24); ctx.lineTo(-r - 18, -10); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = boss.color; ctx.beginPath(); ctx.moveTo(0, -r - 18); ctx.lineTo(r + 7, -7); ctx.lineTo(r * .55, r + 12); ctx.lineTo(-r * .55, r + 12); ctx.lineTo(-r - 7, -7); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = boss.sub; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(0, -r - 10); ctx.lineTo(0, r + 6); ctx.moveTo(-r * .7, -8); ctx.lineTo(r * .7, -8); ctx.stroke();
+    ctx.fillStyle = '#fff'; circle(ctx, -r * .3, -r * .05, 6); circle(ctx, r * .3, -r * .05, 6);
+  }
+
+  function drawVoidBossShape() {
+    const r = boss.r;
+    ctx.fillStyle = '#111827'; ctx.beginPath(); ctx.ellipse(0, 0, r + 14, r * .78 + 12, 0, 0, Math.PI * 2); ctx.fill();
+    const g = ctx.createRadialGradient(0, 0, 5, 0, 0, r); g.addColorStop(0, boss.sub); g.addColorStop(.7, boss.color); g.addColorStop(1, '#111827'); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, r + 3, r * .72, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = boss.sub; ctx.lineWidth = 9; ctx.beginPath(); ctx.arc(-r * .7, -4, 28, -1.1, 1.3); ctx.arc(r * .7, -4, 28, Math.PI - 1.3, Math.PI + 1.1); ctx.stroke();
+    ctx.fillStyle = '#fff'; circle(ctx, -r * .25, -r * .1, 6); circle(ctx, r * .25, -r * .1, 6);
+  }
+
+  function drawStormBossShape() {
+    const r = boss.r;
+    ctx.fillStyle = '#111827'; roundRect(ctx, -r * .75, -r, r * 1.5, r * 1.9, 18, true, false);
+    ctx.fillStyle = boss.color; roundRect(ctx, -r * .65, -r * .9, r * 1.3, r * 1.65, 16, true, false);
+    ctx.fillStyle = boss.sub; ctx.beginPath(); ctx.moveTo(-4, -r - 18); ctx.lineTo(-22, 6); ctx.lineTo(2, 6); ctx.lineTo(-10, r + 22); ctx.lineTo(28, -9); ctx.lineTo(6, -9); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#111827'; circle(ctx, -r * .32, -r * .2, 5); circle(ctx, r * .32, -r * .2, 5);
+  }
+
+  function drawChronoBossShape() {
+    const r = boss.r;
+    ctx.fillStyle = '#111827'; ctx.beginPath(); ctx.ellipse(0, 0, r + 12, r + 4, 0, 0, Math.PI * 2); ctx.fill();
+    const g = ctx.createRadialGradient(-10, -15, 3, 0, 0, r); g.addColorStop(0, boss.sub); g.addColorStop(1, boss.color); ctx.fillStyle = g; circle(ctx, 0, 0, r);
+    ctx.strokeStyle = boss.sub; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(0, 0, r * .58, 0, Math.PI * 2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, -r * .52); ctx.lineTo(0, 0); ctx.lineTo(r * .42, r * .18); ctx.stroke();
+    ctx.fillStyle = '#fff'; circle(ctx, -r * .28, -r * .1, 5); circle(ctx, r * .28, -r * .1, 5);
   }
 
   function drawHud() {
@@ -1213,6 +1473,8 @@
     if (player.shield > 0) bar(36, BASE_H - 25, 320, 8, clamp(player.shield / 500, 0, 1), '#60a5fa', '#111827');
     ctx.fillStyle = '#fff'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'left';
     ctx.fillText('HP ' + Math.ceil(player.hp) + ' / ' + Math.ceil(player.maxHp), 44, BASE_H - 53);
+    ctx.fillStyle = '#cbd5e1'; ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('J/좌클릭 일반공격: ' + (player.basicCd > 0 ? player.basicCd.toFixed(1) + '초' : 'READY') + ' · Space 구르기: ' + (player.dashCd > 0 ? player.dashCd.toFixed(1) + '초' : 'READY'), 44, BASE_H - 28);
     ctx.textAlign = 'center'; ctx.font = 'bold 28px monospace'; ctx.fillText(formatTime(elapsedMs), BASE_W / 2, 42);
     ctx.textAlign = 'center'; ctx.font = 'bold 15px sans-serif'; ctx.fillStyle = boss.vulnerable > 0 ? '#facc15' : '#cbd5e1'; ctx.fillText(boss.mechanicText || '', BASE_W / 2, 72);
     state.raid.skills.forEach(function (s, i) {
