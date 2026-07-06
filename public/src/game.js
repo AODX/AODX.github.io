@@ -1,6 +1,6 @@
 
 /* =========================================================
-   RAID DUNGEON V14 - HARD CLICK AND STORAGE FIX FULL REPLACE public/src/game.js
+   RAID DUNGEON V16 - WEAPON ART, TICKET DROP, NICKNAME FIX FULL REPLACE public/src/game.js
    보스 레이드 + 가챠 + 보스별 랭킹 + 패턴 파훼 액션 게임
 
    적용 위치: public/src/game.js 전체 교체
@@ -14,7 +14,7 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Dungeon V14 - Hard Click Storage Fix';
+  const VERSION = 'Raid Dungeon V16 - Weapon Art & Ticket Drop';
   try { document.title = 'Raid Dungeon'; } catch(e) {}
   const W = 1280;
   const H = 720;
@@ -482,7 +482,7 @@
 
   function findRaidActionNode(target) {
     if(!target || !target.closest) return null;
-    return target.closest('[data-authmode],[data-tab],[data-boss],[data-gacha],[data-step],[data-tabgo],[data-select-type],[data-passive],[data-prev-step],[data-next-step],#authSubmit,#goBuild,#goGacha,#backDungeon,#startRaid,#manualSaveBtn,#logoutBtn,#giveup,#pauseMenu,#resultMenu');
+    return target.closest('[data-authmode],[data-tab],[data-boss],[data-gacha],[data-step],[data-tabgo],[data-select-type],[data-passive],[data-prev-step],[data-next-step],#authSubmit,#goBuild,#goGacha,#backDungeon,#startRaid,#manualSaveBtn,#changeNickBtn,#logoutBtn,#giveup,#pauseMenu,#resultMenu');
   }
 
   function runUiAction(active) {
@@ -505,6 +505,7 @@
       if(active.matches('[data-next-step]')){ stepMove(1); return; }
       if(active.matches('#startRaid')){ startRaid(); return; }
       if(active.matches('#manualSaveBtn')){ manualSaveProfile(); return; }
+      if(active.matches('#changeNickBtn')){ changeNickname(); return; }
       if(active.matches('#logoutBtn')){ logout(); return; }
       if(active.matches('#giveup')){ renderMenu(); return; }
       if(active.matches('#pauseMenu')){ renderMenu(); return; }
@@ -555,6 +556,30 @@
     }
   }
   function loadScript(src){return new Promise((res,rej)=>{if(document.querySelector('script[src="'+src+'"]')) return res(); const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.head.appendChild(s);});}
+
+
+  function changeNickname() {
+    const input = document.getElementById('nicknameEditInput');
+    const next = (input && input.value ? input.value : '').trim();
+    if (!next || next.length < 2) {
+      toast('닉네임은 2자 이상으로 입력해주세요.');
+      state.cloudStatus = '닉네임 변경 실패: 2자 이상 필요';
+      renderMenu();
+      return;
+    }
+    if (next.length > 12) {
+      toast('닉네임은 12자 이하로 입력해주세요.');
+      state.cloudStatus = '닉네임 변경 실패: 12자 이하 필요';
+      renderMenu();
+      return;
+    }
+    state.save.playerName = next;
+    try { localStorage.setItem('raid-build-player-name-v1', next); } catch(e) {}
+    saveGame();
+    state.cloudStatus = '닉네임 변경 완료 · 저장 시도 중';
+    manualSaveProfile();
+    renderMenu();
+  }
 
   async function handleAuth(action) {
     if(!supabaseReady || !supabase) { state.authMessage = 'Supabase 연결이 아직 준비되지 않았습니다.'; renderMenu(); return; }
@@ -752,7 +777,7 @@
     if(state.menuTab==='gacha') body = renderGachaTab();
     if(state.menuTab==='build') body = renderBuildTab();
     if(state.menuTab==='ranking') body = renderRankingTab();
-    ui.menu.innerHTML = `<div class="row"><div><h1 class="title">Raid Dungeon</h1><p class="sub">보스를 선택하고, 티켓으로 무기/방어구/스킬/패시브를 뽑아 조합한 뒤 패턴을 파훼해서 클리어하세요.</p></div><div style="text-align:right"><div class="chip">${VERSION}</div><div class="chip">${escapeHtml(state.save.playerName || 'Player')}</div><div class="chip">무기티켓 ${state.save.tickets.weapon}</div><div class="chip">방어구티켓 ${state.save.tickets.armor||0}</div><div class="chip">스킬티켓 ${state.save.tickets.skill}</div><div class="chip">패시브티켓 ${state.save.tickets.passive}</div><div class="chip">${escapeHtml(state.cloudStatus || '계정 저장')}</div><button id="manualSaveBtn" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.save()" class="btn secondary" style="margin-top:8px;padding:8px 12px">수동 저장</button> <button id="logoutBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">로그아웃</button></div></div>${nav}${body}`;
+    ui.menu.innerHTML = `<div class="row"><div><h1 class="title">Raid Dungeon</h1><p class="sub">보스를 선택하고, 티켓으로 무기/방어구/스킬/패시브를 뽑아 조합한 뒤 패턴을 파훼해서 클리어하세요.</p></div><div style="text-align:right"><div class="chip">${VERSION}</div><div class="chip">닉네임 ${escapeHtml(state.save.playerName || 'Player')}</div><div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;margin-top:6px"><input id="nicknameEditInput" class="input" value="${escapeHtml(state.save.playerName || 'Player')}" maxlength="12" style="width:120px;padding:7px;font-size:12px"><button id="changeNickBtn" class="btn secondary" style="padding:7px 9px;min-height:30px;font-size:12px">닉네임 변경</button></div><div class="chip">무기티켓 ${state.save.tickets.weapon}</div><div class="chip">방어구티켓 ${state.save.tickets.armor||0}</div><div class="chip">스킬티켓 ${state.save.tickets.skill}</div><div class="chip">패시브티켓 ${state.save.tickets.passive}</div><div class="chip">${escapeHtml(state.cloudStatus || '계정 저장')}</div><button id="manualSaveBtn" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.save()" class="btn secondary" style="margin-top:8px;padding:8px 12px">수동 저장</button> <button id="logoutBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">로그아웃</button></div></div>${nav}${body}`;
     bindMenuButtons();
   }
 
@@ -1444,7 +1469,62 @@
   function damageBossCone(range,arc,angle,dmg,color){ const a=Math.atan2(boss.y-player.y,boss.x-player.x); let diff=Math.abs(normAngle(a-angle)); if(dist(player.x,player.y,boss.x,boss.y)<range+boss.r && diff<arc/2) damageBoss(dmg,color,false); }
   function hurtPlayer(amount,color,statusDamage){ if(!Number.isFinite(amount)) amount = 1; if(!statusDamage && (player.invuln>0||state.screen!=='raid')) return; let realAmount=amount; if(boss&&boss.statuses&&boss.statuses.weaken>0) realAmount*=.72; let dmg=Math.max(1,Math.floor(realAmount-player.def)); if(player.shield>0){const used=Math.min(player.shield,dmg); player.shield-=used; dmg-=used;} if(dmg>0){player.hp-=dmg; player.damageTaken+=dmg; floatText('-'+dmg,player.x,player.y-24,color||'#fb7185'); state.shake=Math.max(state.shake,4); player.invuln=.18;} }
   function checkEnd(){ if(!state.raid) return; if(player.hp<=0&&!state.raid.failed){state.raid.failed=true; endRaid(false);} if(boss.dead&&!state.raid.clear){state.raid.clear=true; endRaid(true);} }
-  function endRaid(clear){ state.screen='result'; const elapsed=Math.floor(state.raid.elapsed*1000); let rewardText=''; if(clear){ const b=getBoss(boss.id); const rw=Math.max(0,Math.floor((b.tier+1)/3)); const rs=1+Math.floor(b.tier/2); const ra=b.tier>=2?Math.floor((b.tier+1)/4):0; const rp=b.tier>=3?1:0; state.save.tickets.weapon += rw; state.save.tickets.armor += ra; state.save.tickets.skill += rs; state.save.tickets.passive += rp; rewardText=`획득 티켓: 무기 ${rw}장 / 방어구 ${ra}장 / 스킬 ${rs}장 / 패시브 ${rp}장`; saveGame(); submitRecord(elapsed); } ui.right.classList.remove('hidden'); ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`; ui.right.querySelector('#resultMenu').onclick=()=>{state.menuTab=clear?'ranking':'build'; renderMenu(); refreshRankings(boss.id);}; }
+
+  function rollBossTicketRewards(b) {
+    // V16: 스킬 티켓이 가장 자주 나오지만, 무기/방어구/패시브도 골고루 드랍되게 조정.
+    // 낮은 보스는 무득표가 가능하고, 높은 보스는 여러 장이 나올 수 있음.
+    const tier = clamp(Number(b && b.tier || 1), 1, 10);
+    const rewards = { weapon: 0, armor: 0, skill: 0, passive: 0 };
+    const noDropChance = Math.max(0.06, 0.30 - tier * 0.022);
+    if (Math.random() < noDropChance) return rewards;
+    const rolls = 1 + (tier >= 4 ? 1 : 0) + (tier >= 7 ? 1 : 0) + (tier >= 9 ? 1 : 0) + (Math.random() < tier * 0.045 ? 1 : 0);
+    for (let i = 0; i < rolls; i++) {
+      const r = Math.random();
+      // 기본: 스킬 50%, 무기 18%, 방어구 18%, 패시브 14%
+      // 고난도일수록 무기/방어구/패시브 쪽 비중이 소폭 상승.
+      const skillCut = Math.max(0.38, 0.58 - tier * 0.018);
+      const weaponCut = skillCut + 0.16 + tier * 0.006;
+      const armorCut = weaponCut + 0.16 + tier * 0.006;
+      if (r < skillCut) rewards.skill += 1;
+      else if (r < weaponCut) rewards.weapon += 1;
+      else if (r < armorCut) rewards.armor += 1;
+      else rewards.passive += 1;
+    }
+    // 최상위권 보스는 완전 빈 보상 체감이 너무 크지 않도록 낮은 확률 보너스
+    if (tier >= 8 && Math.random() < 0.35) rewards.weapon += 1;
+    if (tier >= 8 && Math.random() < 0.35) rewards.armor += 1;
+    if (tier >= 9 && Math.random() < 0.28) rewards.passive += 1;
+    return rewards;
+  }
+  function rewardTextFromTickets(rw) {
+    const parts = [];
+    if (rw.weapon) parts.push(`무기 ${rw.weapon}장`);
+    if (rw.armor) parts.push(`방어구 ${rw.armor}장`);
+    if (rw.skill) parts.push(`스킬 ${rw.skill}장`);
+    if (rw.passive) parts.push(`패시브 ${rw.passive}장`);
+    return parts.length ? '획득 티켓: ' + parts.join(' / ') : '이번 클리어에서는 뽑기권이 나오지 않았습니다.';
+  }
+
+  function endRaid(clear){
+    state.screen='result';
+    const elapsed=Math.floor(state.raid.elapsed*1000);
+    let rewardText='';
+    if(clear){
+      const b=getBoss(boss.id);
+      const rw = rollBossTicketRewards(b);
+      state.save.tickets.weapon = (state.save.tickets.weapon || 0) + rw.weapon;
+      state.save.tickets.armor = (state.save.tickets.armor || 0) + rw.armor;
+      state.save.tickets.skill = (state.save.tickets.skill || 0) + rw.skill;
+      state.save.tickets.passive = (state.save.tickets.passive || 0) + rw.passive;
+      rewardText = rewardTextFromTickets(rw);
+      saveGame();
+      submitRecord(elapsed);
+    }
+    ui.right.classList.remove('hidden');
+    ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`;
+    ui.right.querySelector('#resultMenu').onclick=()=>{state.menuTab=clear?'ranking':'build'; renderMenu(); refreshRankings(boss.id);};
+  }
+
 
   function normalizedPlayerName(name){ return String(name || 'Player').trim() || 'Player'; }
   function dedupeLatestByPlayer(records){
@@ -1594,44 +1674,102 @@
   }
   function drawWeaponHeld(c,w){ if(!w) return; c.save(); const a=(player.attackAnim>0?player.attackAngle:player.aim)||0; const swing=player.attackAnim>0?Math.sin((player.attackAnim/.34)*Math.PI):0; c.rotate(a + swing * weaponSwingAmount(w)); c.translate(18 + swing*10,0); drawWeaponShape(c,w,1.0 + swing*.18); c.restore(); }
   function weaponSwingAmount(w){ const k=w&&w.kind||''; if(k.includes('bow')) return .08; if(k.includes('staff')||k==='grimoire'||k==='gunstaff') return .10; if(k==='dagger') return .55; if(k==='greatsword'||k==='scythe') return .95; if(k==='whip'||k==='chakram') return .70; if(k==='pole') return .25; return .65; }
-  function weaponSwingAmount(w){ const k=w&&w.kind||''; if(k.includes('bow')) return .08; if(k.includes('staff')||k==='grimoire'||k==='gunstaff') return .10; if(k==='dagger') return .55; if(k==='greatsword'||k==='scythe') return .95; if(k==='whip'||k==='chakram') return .70; if(k==='pole') return .25; return .65; }
   function drawWeaponShape(c,w,scale){
-    c.save(); c.scale(scale,scale); c.lineCap='round'; c.lineJoin='round'; c.shadowColor=w.color; c.shadowBlur=10+rarityFxMul(w.rarity)*2;
-    const k=w.kind, rare=rarityFxMul(w.rarity);
-    c.strokeStyle='#111827'; c.lineWidth=7;
-    if(k.includes('bow')){
-      c.beginPath(); c.arc(10,0,24,-1.25,1.25); c.stroke();
-      c.strokeStyle=w.color; c.lineWidth=4; c.beginPath(); c.arc(10,0,23,-1.25,1.25); c.stroke();
-      c.strokeStyle='#f8fafc'; c.lineWidth=1.5; c.beginPath(); c.moveTo(20,-22); c.lineTo(20,22); c.stroke();
-      c.fillStyle=w.color; polygon(c,30,0,5+rare,3); c.fill();
+    c.save();
+    c.scale(scale, scale);
+    c.lineCap='round';
+    c.lineJoin='round';
+    const k = w.kind || 'sword';
+    const rare = rarityFxMul(w.rarity);
+    const glow = 10 + rare * 5;
+    c.shadowColor = w.color;
+    c.shadowBlur = glow;
+
+    function outlineStroke(width){ c.strokeStyle='#020617'; c.lineWidth=width; }
+    function metalStroke(width){ c.strokeStyle=w.color; c.lineWidth=width; }
+    function brightStroke(width){ c.strokeStyle='rgba(255,255,255,.88)'; c.lineWidth=width; }
+
+    if(k === 'gunstaff'){
+      // V16: 마도권총은 더 이상 스태프처럼 보이지 않게, 권총 실루엣으로 그림.
+      c.fillStyle='#020617';
+      roundRect(c,-7,-8,42,16,5); c.fill();
+      roundRect(c,28,-6,26,12,5); c.fill();
+      c.fillStyle=w.color;
+      roundRect(c,-4,-5,37,10,4); c.fill();
+      c.fillStyle='rgba(255,255,255,.82)';
+      roundRect(c,7,-3,13,3,2); c.fill();
+      c.fillStyle='#111827';
+      c.save(); c.translate(8,8); c.rotate(.38); roundRect(c,-3,-2,18,7,3); c.fill(); c.restore();
+      c.strokeStyle=w.color; c.lineWidth=2; circleStroke(c,54,0,7+rare*1.2);
+      c.fillStyle=w.color; circle(c,55,0,3+rare*.45);
+      if(rare>=2){ c.globalAlpha=.75; c.strokeStyle=w.color; c.lineWidth=1.5; circleStroke(c,55,0,14+rare*2); c.globalAlpha=1; }
+    } else if(k.includes('bow')){
+      outlineStroke(7); c.beginPath(); c.arc(17,0,29,-1.30,1.30); c.stroke();
+      metalStroke(4); c.beginPath(); c.arc(17,0,28,-1.30,1.30); c.stroke();
+      brightStroke(1.5); c.beginPath(); c.moveTo(31,-27); c.lineTo(31,27); c.stroke();
+      c.fillStyle='#e5e7eb'; c.beginPath(); c.moveTo(7,0); c.lineTo(49,-3); c.lineTo(49,3); c.closePath(); c.fill();
+      c.fillStyle=w.color; polygon(c,54,0,7+rare,3); c.fill();
+      if(k.includes('storm')){ c.strokeStyle='#fde047'; c.lineWidth=2; c.beginPath(); c.moveTo(20,-16); c.lineTo(28,-4); c.lineTo(21,2); c.lineTo(34,18); c.stroke(); }
     } else if(k.includes('staff')){
-      c.strokeStyle='#1f2937'; c.lineWidth=7; c.beginPath(); c.moveTo(-6,20); c.lineTo(20,-25); c.stroke();
-      c.strokeStyle=w.color; c.lineWidth=4; c.stroke();
-      c.fillStyle=w.color; circle(c,23,-28,7+rare*1.5); c.fillStyle='#ffffff'; circle(c,23,-28,2+rare*.7);
-      c.strokeStyle=w.color; c.lineWidth=2; circleStroke(c,23,-28,12+rare*2);
+      outlineStroke(8); c.beginPath(); c.moveTo(-9,24); c.lineTo(23,-29); c.stroke();
+      metalStroke(4); c.stroke();
+      c.fillStyle='#020617'; circle(c,27,-34,12+rare*1.2);
+      c.fillStyle=w.color; circle(c,27,-34,8+rare*1.5);
+      brightStroke(2); circleStroke(c,27,-34,16+rare*2.2);
+      c.strokeStyle=w.color; c.lineWidth=1.5; c.beginPath(); c.arc(27,-34,24+rare*2,0,Math.PI*2); c.stroke();
+      if(k.includes('ice')){ c.fillStyle='#e0f2fe'; polygon(c,27,-34,15,6); c.fill(); }
     } else if(k==='grimoire'){
-      c.fillStyle='#111827'; roundRect(c,-6,-18,32,36,5); c.fill(); c.fillStyle=w.color; roundRect(c,-3,-15,27,30,4); c.fill(); c.strokeStyle='#fff'; c.lineWidth=1.5; c.beginPath(); c.moveTo(10,-12); c.lineTo(10,12); c.stroke(); circle(c,18,0,3+rare*.5);
+      c.fillStyle='#020617'; roundRect(c,-9,-22,40,44,6); c.fill();
+      c.fillStyle=w.color; roundRect(c,-5,-18,34,36,5); c.fill();
+      c.fillStyle='rgba(255,255,255,.16)'; c.fillRect(12,-17,2,34);
+      brightStroke(1.5); c.beginPath(); c.arc(20,0,7+rare,0,Math.PI*2); c.stroke();
+      c.fillStyle='#fff'; circle(c,20,0,2.5+rare*.35);
     } else if(k==='whip'){
-      c.strokeStyle=w.color; c.lineWidth=4; c.beginPath(); c.moveTo(0,0); for(let i=1;i<9;i++) c.lineTo(i*11,Math.sin(i*1.2+state.time*10)*12); c.stroke();
-      for(let i=2;i<8;i+=2){c.fillStyle=i%4?w.color:'#fff'; circle(c,i*11,Math.sin(i*1.2+state.time*10)*12,2+rare*.3);}
+      c.strokeStyle='#020617'; c.lineWidth=7; c.beginPath(); c.moveTo(-4,0); for(let i=1;i<10;i++) c.lineTo(i*12,Math.sin(i*1.15+state.time*10)*12); c.stroke();
+      c.strokeStyle=w.color; c.lineWidth=4; c.beginPath(); c.moveTo(-4,0); for(let i=1;i<10;i++) c.lineTo(i*12,Math.sin(i*1.15+state.time*10)*12); c.stroke();
+      c.fillStyle='#111827'; roundRect(c,-11,-5,16,10,4); c.fill();
+      for(let i=3;i<9;i+=2){ c.fillStyle=i%4?w.color:'#fff'; circle(c,i*12,Math.sin(i*1.15+state.time*10)*12,2+rare*.4); }
     } else if(k==='dagger'){
-      c.fillStyle=w.color; c.beginPath(); c.moveTo(0,0); c.lineTo(34,-8); c.lineTo(21,5); c.closePath(); c.fill(); c.fillStyle='#fff'; c.fillRect(3,-2,12,2); c.fillStyle='#111827'; c.fillRect(-5,-7,8,14);
+      c.fillStyle='#020617'; c.beginPath(); c.moveTo(-5,0); c.lineTo(42,-13); c.lineTo(30,9); c.closePath(); c.fill();
+      c.fillStyle=w.color; c.beginPath(); c.moveTo(1,0); c.lineTo(39,-9); c.lineTo(28,5); c.closePath(); c.fill();
+      c.fillStyle='#fff'; c.beginPath(); c.moveTo(7,-1); c.lineTo(30,-6); c.lineTo(24,1); c.closePath(); c.fill();
+      c.fillStyle='#111827'; roundRect(c,-10,-8,10,16,3); c.fill();
+      if(rare>=2.4){ c.globalAlpha=.55; c.fillStyle=w.color; c.beginPath(); c.moveTo(8,10); c.lineTo(34,4); c.lineTo(24,17); c.closePath(); c.fill(); c.globalAlpha=1; }
     } else if(k==='greatsword'){
-      c.fillStyle=w.color; c.fillRect(0,-8,52,16); c.fillStyle='#f8fafc'; c.fillRect(38,-13,12,26); c.fillStyle='#111827'; c.fillRect(-6,-11,8,22); c.strokeStyle='#fff'; c.lineWidth=2; c.beginPath(); c.moveTo(6,-4); c.lineTo(42,-4); c.stroke();
+      c.fillStyle='#020617'; c.beginPath(); c.moveTo(-3,-14); c.lineTo(67,-10); c.lineTo(75,0); c.lineTo(67,10); c.lineTo(-3,14); c.closePath(); c.fill();
+      c.fillStyle=w.color; c.beginPath(); c.moveTo(3,-9); c.lineTo(62,-7); c.lineTo(68,0); c.lineTo(62,7); c.lineTo(3,9); c.closePath(); c.fill();
+      c.fillStyle='rgba(255,255,255,.76)'; c.beginPath(); c.moveTo(14,-4); c.lineTo(58,-3); c.lineTo(52,2); c.lineTo(14,3); c.closePath(); c.fill();
+      c.fillStyle='#111827'; roundRect(c,-12,-17,12,34,4); c.fill();
+      if(rare>=2){ c.strokeStyle=w.color; c.lineWidth=2; c.beginPath(); c.moveTo(4,-18); c.lineTo(72,-16); c.stroke(); }
     } else if(k==='scythe'){
-      c.strokeStyle=w.color; c.lineWidth=5; c.beginPath(); c.moveTo(0,20); c.lineTo(40,-22); c.stroke(); c.beginPath(); c.arc(43,-23,22,.15,2.8); c.stroke(); c.strokeStyle='#fff'; c.lineWidth=1.5; c.beginPath(); c.arc(43,-23,15,.2,2.3); c.stroke();
-    } else if(k==='gunstaff'){
-      c.fillStyle='#111827'; roundRect(c,-2,-8,45,16,4); c.fill(); c.fillStyle=w.color; roundRect(c,0,-5,40,10,3); c.fill(); circle(c,43,0,7+rare); c.fillStyle='#fff'; circle(c,45,0,2+rare*.4);
+      outlineStroke(7); c.beginPath(); c.moveTo(-2,24); c.lineTo(42,-26); c.stroke();
+      metalStroke(4); c.stroke();
+      outlineStroke(6); c.beginPath(); c.arc(47,-28,26,.05,2.85); c.stroke();
+      metalStroke(4); c.beginPath(); c.arc(47,-28,25,.05,2.85); c.stroke();
+      brightStroke(1.5); c.beginPath(); c.arc(47,-28,16,.15,2.25); c.stroke();
     } else if(k==='chakram'){
-      c.strokeStyle=w.color; c.lineWidth=5; c.beginPath(); c.arc(22,0,19,0,Math.PI*2); c.stroke(); c.strokeStyle='#ffffff'; c.lineWidth=2; c.beginPath(); c.arc(22,0,10,0,Math.PI*2); c.stroke(); for(let i=0;i<4;i++){c.save(); c.translate(22,0); c.rotate(i*Math.PI/2); c.fillStyle=w.color; c.fillRect(8,-2,15,4); c.restore();}
+      outlineStroke(8); c.beginPath(); c.arc(25,0,24,0,Math.PI*2); c.stroke();
+      metalStroke(5); c.beginPath(); c.arc(25,0,23,0,Math.PI*2); c.stroke();
+      brightStroke(2); c.beginPath(); c.arc(25,0,12,0,Math.PI*2); c.stroke();
+      for(let i=0;i<6;i++){ c.save(); c.translate(25,0); c.rotate(i*Math.PI/3); c.fillStyle=i%2?w.color:'#fff'; c.fillRect(10,-2,18,4); c.restore(); }
     } else if(k==='pole'){
-      c.strokeStyle=w.color; c.lineWidth=5; c.beginPath(); c.moveTo(-10,0); c.lineTo(58,0); c.stroke(); c.fillStyle='#fff'; c.beginPath(); c.moveTo(58,0); c.lineTo(45,-8); c.lineTo(45,8); c.closePath(); c.fill(); c.fillStyle=w.color; c.fillRect(36,-5,12,10);
+      outlineStroke(8); c.beginPath(); c.moveTo(-13,0); c.lineTo(70,0); c.stroke();
+      metalStroke(4); c.stroke();
+      c.fillStyle='#e5e7eb'; c.beginPath(); c.moveTo(75,0); c.lineTo(58,-11); c.lineTo(62,0); c.lineTo(58,11); c.closePath(); c.fill();
+      c.fillStyle=w.color; roundRect(c,40,-6,18,12,4); c.fill();
+      if(rare>=2.2){ c.strokeStyle=w.color; c.lineWidth=2; circleStroke(c,53,0,16+rare); }
     } else {
-      c.fillStyle=w.color; c.beginPath(); c.moveTo(0,0); c.lineTo(43,-12); c.lineTo(33,10); c.closePath(); c.fill(); c.fillStyle='#ffffff'; c.beginPath(); c.moveTo(9,-1); c.lineTo(35,-8); c.lineTo(30,2); c.closePath(); c.fill(); c.fillStyle='#111827'; c.fillRect(-5,-9,8,18);
+      // sword and elemental sword variants
+      c.fillStyle='#020617'; c.beginPath(); c.moveTo(-5,0); c.lineTo(58,-15); c.lineTo(49,12); c.closePath(); c.fill();
+      c.fillStyle=w.color; c.beginPath(); c.moveTo(1,0); c.lineTo(54,-10); c.lineTo(45,8); c.closePath(); c.fill();
+      c.fillStyle='rgba(255,255,255,.78)'; c.beginPath(); c.moveTo(12,-1); c.lineTo(45,-7); c.lineTo(40,1); c.lineTo(14,3); c.closePath(); c.fill();
+      c.fillStyle='#111827'; roundRect(c,-11,-11,12,22,3); c.fill();
+      if(k.includes('fire')){ c.fillStyle='rgba(251,113,133,.55)'; circle(c,52,-8,6+rare); }
     }
-    if(rare>=2.3){ c.strokeStyle=w.color; c.lineWidth=1.5; circleStroke(c,18,0,28+rare*2); }
+    if(rare>=2.3){ c.globalAlpha=.55; c.strokeStyle=w.color; c.lineWidth=1.5; circleStroke(c,22,0,31+rare*3); c.globalAlpha=1; }
     c.restore();
   }
+
   function drawHud(){ const hpw=260; ctx.fillStyle='rgba(0,0,0,.45)'; roundRect(ctx,18,H-88,360,72,14); ctx.fillStyle='#ef4444'; roundRect(ctx,38,H-72,hpw*clamp(player.hp/player.maxHp,0,1),12,6); ctx.fillStyle='#334155'; roundRect(ctx,38,H-52,hpw,8,4); ctx.fillStyle='#60a5fa'; roundRect(ctx,38,H-52,hpw*clamp(player.shield/500,0,1),8,4); ctx.fillStyle='#fff'; ctx.font='800 12px system-ui'; ctx.fillText(`HP ${Math.ceil(player.hp)}/${Math.ceil(player.maxHp)}  Shield ${Math.floor(player.shield)}`,38,H-77); const cds=[player.basicCd,player.skillCd[0],player.skillCd[1],player.skillCd[2],player.rollCd]; const labels=['J','1','2','3','Space']; for(let i=0;i<5;i++){const x=430+i*78,y=H-70; ctx.fillStyle='rgba(15,23,42,.78)'; roundRect(ctx,x,y,60,48,10); ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillText(labels[i],x+30,y+19); ctx.fillStyle=cds[i]>0?'#fb7185':'#86efac'; ctx.fillText(cds[i]>0?cds[i].toFixed(1):'OK',x+30,y+38);} ctx.textAlign='left'; }
   function drawControlHint(){ ctx.save(); ctx.globalAlpha=.55; ctx.fillStyle='#e5e7eb'; ctx.font='900 15px system-ui'; ctx.textAlign='center'; ctx.fillText('WASD 이동   ·   마우스 조준   ·   J/좌클릭 일반공격   ·   1/2/3 장착 스킬   ·   Space 누른 방향으로 구르기', W/2, H-10); ctx.restore(); }
   function drawProjectiles(){ state.projectiles.forEach(p=>{ if(p.delay&&p.delay>0){ctx.strokeStyle=p.color; ctx.globalAlpha=.25; circleStroke(ctx,p.x,p.y,18); ctx.globalAlpha=1; return;} ctx.save(); ctx.shadowColor=p.color; ctx.shadowBlur=14; ctx.fillStyle=p.color; circle(ctx,p.x,p.y,p.r); ctx.globalAlpha=.35; ctx.strokeStyle=p.color; ctx.lineWidth=Math.max(2,p.r*.35); ctx.beginPath(); ctx.moveTo(p.x-p.vx*.025,p.y-p.vy*.025); ctx.lineTo(p.x-p.vx*.075,p.y-p.vy*.075); ctx.stroke(); ctx.globalAlpha=1; ctx.restore(); }); }
@@ -1713,6 +1851,7 @@
       gacha: (kind) => rollGacha(kind),
       select: (type,id,slot) => selectBuild(type, id || '', Number(slot || 0)),
       save: () => manualSaveProfile(),
+      nickname: () => changeNickname(),
       gachaTab: () => { state.menuTab='gacha'; renderMenu(); }
     };
   } catch(e) {}
