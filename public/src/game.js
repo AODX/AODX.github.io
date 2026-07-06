@@ -14,7 +14,7 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Dungeon V12.7 - Verified Build Click Fix';
+  const VERSION = 'Raid Dungeon V12.8 - Build Click Final Fix';
   try { document.title = 'Raid Dungeon'; } catch(e) {}
   const W = 1280;
   const H = 720;
@@ -427,22 +427,22 @@
   let lastUiActionKey = '';
 
   function bindResponsiveUiClicks() {
-    // V12.7 핵심 수정: 출격 준비 화면의 방어구/다음/출격 버튼은
-    // 매번 새로 그려지는 HTML이라 개별 바인딩이 누락될 수 있었다.
-    // 그래서 메뉴 패널에 단 하나의 위임 클릭 리스너를 고정으로 연결한다.
-    // 버튼/카드가 다시 렌더링되어도 항상 여기서 처리된다.
+    // V12.8 FINAL: 클릭 씹힘 원인이던 pointerup/capture 처리 제거.
+    // 메뉴는 click 한 종류만 bubble 단계에서 처리한다.
+    // 이렇게 해야 방어구 탭, 다음 버튼, 출격 버튼이 렌더링 후에도 정상 작동한다.
     if (ui.menu && !ui.menu.__raidDelegatedClickBound) {
       ui.menu.__raidDelegatedClickBound = true;
-      ui.menu.addEventListener('click', handleUiAction, true);
-      ui.menu.addEventListener('pointerup', handleUiAction, true);
+      ui.menu.addEventListener('click', handleUiAction, false);
     }
     const stopCanvasOnly = panel => {
       if(!panel || panel.__raidPointerBound) return;
       panel.__raidPointerBound = true;
-      // 메뉴 클릭이 뒤쪽 canvas 공격 입력으로 내려가지 않게만 막고,
-      // 버튼 처리는 아래 bindMenuButtons의 일반 onclick에 맡긴다.
-      // 이전 버전의 pointerup/click 강제 가로채기가 출격 준비 단계 버튼을 씹히게 만들었다.
       panel.addEventListener('pointerdown', e=>{
+        if(e.target && e.target.closest && e.target.closest('button,.card,.boss-card,.tab,.step,input,select,textarea')) {
+          e.stopPropagation();
+        }
+      }, true);
+      panel.addEventListener('mousedown', e=>{
         if(e.target && e.target.closest && e.target.closest('button,.card,.boss-card,.tab,.step,input,select,textarea')) {
           e.stopPropagation();
         }
@@ -807,13 +807,34 @@
 
 
   function bindMenuButtons() {
-    // V12.7: 클릭 처리는 bindResponsiveUiClicks의 메뉴 위임 리스너가 전담한다.
-    // 여기서는 select 변경처럼 click 이벤트가 아닌 UI만 보조로 연결한다.
+    // V12.8 FINAL FALLBACK: 위임 클릭과 별개로 출격 준비 핵심 버튼에는 직접 onclick도 붙인다.
+    // 화면을 다시 그려도 renderMenu()가 매번 이 함수를 호출하므로 이벤트가 사라지지 않는다.
     const rb = ui.menu.querySelector('#rankBoss');
     if (rb && !rb.__raidBound) {
       rb.__raidBound = true;
       rb.onchange = () => { state.rankingBossId = rb.value; refreshRankings(rb.value); renderMenu(); };
     }
+
+    ui.menu.querySelectorAll('[data-step]').forEach(btn => {
+      btn.onclick = e => { e.preventDefault(); e.stopPropagation(); state.buildStep = btn.dataset.step; renderMenu(); };
+    });
+    ui.menu.querySelectorAll('[data-prev-step]').forEach(btn => {
+      btn.onclick = e => { e.preventDefault(); e.stopPropagation(); stepMove(-1); };
+    });
+    ui.menu.querySelectorAll('[data-next-step]').forEach(btn => {
+      btn.onclick = e => { e.preventDefault(); e.stopPropagation(); stepMove(1); };
+    });
+    const startBtn = ui.menu.querySelector('#startRaid');
+    if(startBtn) startBtn.onclick = e => { e.preventDefault(); e.stopPropagation(); if(!startBtn.disabled) startRaid(); };
+
+    ui.menu.querySelectorAll('[data-select-type]').forEach(card => {
+      card.onclick = e => { e.preventDefault(); e.stopPropagation(); selectBuild(card.dataset.selectType, card.dataset.selectId || '', Number(card.dataset.slot || 0)); };
+    });
+    ui.menu.querySelectorAll('[data-passive]').forEach(card => {
+      card.onclick = e => { e.preventDefault(); e.stopPropagation(); togglePassive(card.dataset.passive); };
+    });
+    const backDungeon = ui.menu.querySelector('#backDungeon');
+    if(backDungeon) backDungeon.onclick = e => { e.preventDefault(); e.stopPropagation(); state.menuTab='dungeon'; renderMenu(); };
   }
   function selectBuild(type,id,slot){
     id = id || null;
