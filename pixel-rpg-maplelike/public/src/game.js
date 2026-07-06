@@ -1,6 +1,6 @@
 
 /* =========================================================
-   RAID BUILD GAME V12 - ARMOR GACHA + SAFE TELEGRAPH + ROTATING LASER FIX FULL REPLACE public/src/game.js
+   RAID BUILD GAME V12.3 - CLOUD PROFILE LOAD HOTFIX FULL REPLACE public/src/game.js
    보스 레이드 + 가챠 + 보스별 랭킹 + 패턴 파훼 액션 게임
 
    적용 위치: public/src/game.js 전체 교체
@@ -14,7 +14,7 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Build Game V12.0 - Armor Gacha + Telegraph Boss Fix';
+  const VERSION = 'Raid Build Game V12.3 - Cloud Profile Load Hotfix';
   const W = 1280;
   const H = 720;
   const SAVE_KEY = 'raid-build-v12-local-save';
@@ -22,6 +22,12 @@
   const INITIAL_TICKETS = { weapon: 1, armor: 1, skill: 3, passive: 1 }; // 처음 지급: 무기 1회, 방어구 1회, 스킬 3회, 패시브 1회
   const TICKET_LABEL = { weapon: '무기 뽑기 티켓', armor: '방어구 뽑기 티켓', skill: '스킬 뽑기 티켓', passive: '패시브 뽑기 티켓' };
   const PROFILE_TABLE = 'raid_profiles';
+  const MAX_PARTICLES = 360;
+  const MAX_TEXTS = 80;
+  const MAX_PROJECTILES = 240;
+  const MAX_HAZARDS = 180;
+  const MAX_ZONES = 90;
+  const MAX_MECHANICS = 80;
 
   let canvas = document.getElementById('game');
   if (!canvas) {
@@ -394,7 +400,7 @@
     const root = document.createElement('div'); root.id = 'raidV4Root';
     root.innerHTML = `
       <style>
-        #raidV4Root{position:fixed;inset:0;pointer-events:none;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e5e7eb;z-index:60}.v4-panel{pointer-events:auto;position:absolute;background:rgba(5,8,22,.90);border:1px solid rgba(148,163,184,.32);box-shadow:0 20px 70px rgba(0,0,0,.45);border-radius:20px;backdrop-filter:blur(14px)}.v4-menu{left:50%;top:50%;transform:translate(-50%,-50%);width:1120px;max-height:90vh;overflow:auto;padding:22px}.v4-left{left:18px;top:18px;width:330px;max-height:calc(100vh - 36px);overflow:auto;padding:16px}.v4-right{right:18px;top:18px;width:360px;max-height:calc(100vh - 36px);overflow:auto;padding:16px}.hidden{display:none!important}.title{margin:0 0 8px;color:#fff;font-size:28px;font-weight:950;letter-spacing:-.05em}.sub{margin:0 0 14px;color:#94a3b8;font-size:13px;line-height:1.5}.btn{appearance:none;border:0;border-radius:13px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-weight:900;padding:12px 15px;cursor:pointer}.btn.secondary{background:#111827;border:1px solid rgba(148,163,184,.28);color:#e5e7eb}.btn.danger{background:linear-gradient(135deg,#ef4444,#f97316)}.btn:disabled{opacity:.45;cursor:not-allowed}.nav{display:flex;gap:8px;margin:10px 0 16px}.tab{padding:10px 14px;border-radius:999px;border:1px solid rgba(148,163,184,.25);background:#0f172a;color:#cbd5e1;font-weight:900;cursor:pointer}.tab.active{background:#2563eb;color:white;border-color:#60a5fa}.boss-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.boss-card{min-height:230px;position:relative;overflow:hidden;border-radius:18px;padding:13px;background:linear-gradient(180deg,rgba(15,23,42,.92),rgba(3,7,18,.92));border:1px solid rgba(148,163,184,.24);cursor:pointer;transition:.15s}.boss-card:hover{transform:translateY(-3px);border-color:#93c5fd}.boss-card.active{border-color:#facc15;box-shadow:0 0 0 2px rgba(250,204,21,.15)}.boss-art{height:88px;margin:6px 0 9px;border-radius:16px;background:radial-gradient(circle at 50% 45%,rgba(255,255,255,.17),rgba(255,255,255,.02) 52%,rgba(0,0,0,.25));display:flex;align-items:center;justify-content:center}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{border:1px solid rgba(148,163,184,.25);border-radius:15px;background:rgba(15,23,42,.72);padding:12px;cursor:pointer;transition:.15s}.card:hover{transform:translateY(-1px);border-color:#93c5fd}.card.active{border-color:#60a5fa;background:linear-gradient(135deg,rgba(37,99,235,.32),rgba(124,58,237,.24))}.card.locked{opacity:.43}.card h3{margin:0 0 5px;font-size:15px;color:#fff}.card p{margin:0;color:#94a3b8;font-size:12px;line-height:1.45}.stepbar{display:flex;gap:8px;margin:12px 0 16px}.step{flex:1;text-align:center;padding:9px 7px;border-radius:999px;background:#111827;border:1px solid rgba(148,163,184,.22);font-size:12px;font-weight:900;color:#94a3b8}.step.active{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff}.chip{display:inline-block;padding:4px 8px;border-radius:999px;background:#1e293b;color:#bfdbfe;font-size:11px;margin:2px}.row{display:flex;gap:10px;align-items:center}.row>*{flex:1}.input{width:100%;box-sizing:border-box;background:#0f172a;color:#e5e7eb;border:1px solid rgba(148,163,184,.32);border-radius:12px;padding:11px;font-weight:800}.record{display:grid;grid-template-columns:36px 1fr 82px;gap:8px;align-items:center;background:#0f172a;border:1px solid rgba(148,163,184,.2);border-radius:12px;padding:8px;margin-bottom:7px}.rank{font-weight:950;color:#facc15;text-align:center}.time{font-weight:950;color:#a7f3d0;text-align:right}.gacha-result{border-radius:18px;border:1px solid rgba(255,255,255,.25);background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.12),rgba(15,23,42,.9));padding:18px;text-align:center;margin-top:14px}.muted{color:#94a3b8;font-size:12px}@media(max-width:920px){.v4-menu{width:calc(100vw - 28px);padding:14px}.boss-grid{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.v4-left,.v4-right{left:14px;right:14px;width:auto}.v4-right{top:auto;bottom:14px;max-height:38vh}}
+        #raidV4Root{position:fixed;inset:0;pointer-events:none;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e5e7eb;z-index:60;user-select:none;-webkit-user-select:none}.v4-panel{pointer-events:auto;position:absolute;background:rgba(5,8,22,.90);border:1px solid rgba(148,163,184,.32);box-shadow:0 20px 70px rgba(0,0,0,.45);border-radius:20px;backdrop-filter:blur(14px)}.v4-menu{left:50%;top:50%;transform:translate(-50%,-50%);width:1120px;max-height:90vh;overflow:auto;padding:22px;scroll-behavior:auto}.v4-left{left:18px;top:18px;width:330px;max-height:calc(100vh - 36px);overflow:auto;padding:16px}.v4-right{right:18px;top:18px;width:360px;max-height:calc(100vh - 36px);overflow:auto;padding:16px}.hidden{display:none!important}.title{margin:0 0 8px;color:#fff;font-size:28px;font-weight:950;letter-spacing:-.05em}.sub{margin:0 0 14px;color:#94a3b8;font-size:13px;line-height:1.5}.btn{appearance:none;border:0;border-radius:13px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-weight:900;padding:13px 16px;cursor:pointer;touch-action:manipulation;min-height:42px}.btn.secondary{background:#111827;border:1px solid rgba(148,163,184,.28);color:#e5e7eb}.btn.danger{background:linear-gradient(135deg,#ef4444,#f97316)}.btn:disabled{opacity:.45;cursor:not-allowed}.nav{display:flex;gap:8px;margin:10px 0 16px}.tab{padding:12px 16px;border-radius:999px;border:1px solid rgba(148,163,184,.25);background:#0f172a;color:#cbd5e1;font-weight:900;cursor:pointer;touch-action:manipulation}.tab.active{background:#2563eb;color:white;border-color:#60a5fa}.boss-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.boss-card{min-height:230px;position:relative;overflow:hidden;border-radius:18px;padding:14px;background:linear-gradient(180deg,rgba(15,23,42,.92),rgba(3,7,18,.92));border:1px solid rgba(148,163,184,.24);cursor:pointer;transition:border-color .12s,box-shadow .12s;touch-action:manipulation}.boss-card:hover{border-color:#93c5fd}.boss-card.active{border-color:#facc15;box-shadow:0 0 0 2px rgba(250,204,21,.15)}.boss-art{height:88px;margin:6px 0 9px;border-radius:16px;background:radial-gradient(circle at 50% 45%,rgba(255,255,255,.17),rgba(255,255,255,.02) 52%,rgba(0,0,0,.25));display:flex;align-items:center;justify-content:center}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{border:1px solid rgba(148,163,184,.25);border-radius:15px;background:rgba(15,23,42,.72);padding:13px;cursor:pointer;transition:border-color .12s,background .12s;touch-action:manipulation}.card:hover{border-color:#93c5fd}.card.active{border-color:#60a5fa;background:linear-gradient(135deg,rgba(37,99,235,.32),rgba(124,58,237,.24))}.card.locked{opacity:.43}.card h3{margin:0 0 5px;font-size:15px;color:#fff}.card p{margin:0;color:#94a3b8;font-size:12px;line-height:1.45}.stepbar{display:flex;gap:8px;margin:12px 0 16px}.step{flex:1;text-align:center;padding:9px 7px;border-radius:999px;background:#111827;border:1px solid rgba(148,163,184,.22);font-size:12px;font-weight:900;color:#94a3b8}.step.active{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff}.chip{display:inline-block;padding:4px 8px;border-radius:999px;background:#1e293b;color:#bfdbfe;font-size:11px;margin:2px}.row{display:flex;gap:10px;align-items:center}.row>*{flex:1}.input{width:100%;box-sizing:border-box;background:#0f172a;color:#e5e7eb;border:1px solid rgba(148,163,184,.32);border-radius:12px;padding:11px;font-weight:800}.record{display:grid;grid-template-columns:36px 1fr 82px;gap:8px;align-items:center;background:#0f172a;border:1px solid rgba(148,163,184,.2);border-radius:12px;padding:8px;margin-bottom:7px}.rank{font-weight:950;color:#facc15;text-align:center}.time{font-weight:950;color:#a7f3d0;text-align:right}.gacha-result{border-radius:18px;border:1px solid rgba(255,255,255,.25);background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.12),rgba(15,23,42,.9));padding:18px;text-align:center;margin-top:14px}.muted{color:#94a3b8;font-size:12px}@media(max-width:920px){.v4-menu{width:calc(100vw - 28px);padding:14px}.boss-grid{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.v4-left,.v4-right{left:14px;right:14px;width:auto}.v4-right{top:auto;bottom:14px;max-height:38vh}}
       </style><div id="v4Menu" class="v4-panel v4-menu"></div><div id="v4Left" class="v4-panel v4-left hidden"></div><div id="v4Right" class="v4-panel v4-right hidden"></div>`;
     document.body.appendChild(root);
     return { root, menu:root.querySelector('#v4Menu'), left:root.querySelector('#v4Left'), right:root.querySelector('#v4Right') };
@@ -409,7 +415,61 @@
       } else if(state.screen==='paused' && (k==='p'||k==='escape')) togglePause();
     });
     window.addEventListener('keyup', e=>keys.delete(e.key.toLowerCase()));
-    canvas.addEventListener('mousemove', updateMouse); canvas.addEventListener('mousedown', e=>{updateMouse(e); mouse.down=true; if(state.screen==='raid') basicAttack();}); canvas.addEventListener('mouseup', ()=>mouse.down=false); canvas.addEventListener('contextmenu', e=>e.preventDefault());
+    canvas.addEventListener('mousemove', updateMouse, {passive:true});
+    canvas.addEventListener('mousedown', e=>{updateMouse(e); mouse.down=true; if(state.screen==='raid') basicAttack();});
+    canvas.addEventListener('mouseup', ()=>mouse.down=false);
+    canvas.addEventListener('contextmenu', e=>e.preventDefault());
+    bindResponsiveUiClicks();
+  }
+
+  function bindResponsiveUiClicks() {
+    const bind = panel => {
+      if(!panel || panel.__raidPointerBound) return;
+      panel.__raidPointerBound = true;
+      panel.addEventListener('pointerup', handleUiPointer, true);
+      panel.addEventListener('click', e=>{ if(e.target && e.target.closest && e.target.closest('button,.card,.boss-card,.tab')){ e.preventDefault(); e.stopPropagation(); } }, true);
+    };
+    bind(ui.menu); bind(ui.left); bind(ui.right);
+  }
+
+  function handleUiPointer(e) {
+    const target = e.target;
+    if(!target || !target.closest) return;
+    if(target.closest('input,textarea,select')) return;
+    const active = target.closest('button,.card,.boss-card,.tab');
+    if(!active) return;
+    if(active.disabled || active.classList.contains('locked')) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const authMode = target.closest('[data-authmode]');
+    if(authMode){ state.authMode = authMode.dataset.authmode; state.authMessage=''; renderMenu(); return; }
+    if(target.closest('#authSubmit')){ handleAuth(state.authMode === 'signup' ? 'signup' : 'login'); return; }
+    const tab = target.closest('[data-tab]');
+    if(tab){ state.menuTab = tab.dataset.tab; renderMenu(); return; }
+    const bossEl = target.closest('[data-boss]');
+    if(bossEl){ state.selectedBossId=bossEl.dataset.boss; trimSelectedPassives(); renderMenu(); refreshRankings(state.selectedBossId); return; }
+    if(target.closest('#goBuild')){ state.menuTab='build'; state.buildStep='weapon'; renderMenu(); return; }
+    if(target.closest('#goGacha')){ state.menuTab='gacha'; renderMenu(); return; }
+    const gacha = target.closest('[data-gacha]');
+    if(gacha){ rollGacha(gacha.dataset.gacha); return; }
+    const step = target.closest('[data-step]');
+    if(step){ state.buildStep=step.dataset.step; renderMenu(); return; }
+    const tabgo = target.closest('[data-tabgo]');
+    if(tabgo){ state.menuTab=tabgo.dataset.tabgo; renderMenu(); return; }
+    if(target.closest('#backDungeon')){ state.menuTab='dungeon'; renderMenu(); return; }
+    const select = target.closest('[data-select-type]');
+    if(select){ selectBuild(select.dataset.selectType, select.dataset.selectId, Number(select.dataset.slot || 0)); return; }
+    const passive = target.closest('[data-passive]');
+    if(passive){ togglePassive(passive.dataset.passive); return; }
+    if(target.closest('[data-prev-step]')){ stepMove(-1); return; }
+    if(target.closest('[data-next-step]')){ stepMove(1); return; }
+    if(target.closest('#startRaid')){ startRaid(); return; }
+    if(target.closest('#manualSaveBtn')){ manualSaveProfile(); return; }
+    if(target.closest('#logoutBtn')){ logout(); return; }
+    if(target.closest('#giveup')){ renderMenu(); return; }
+    if(target.closest('#pauseMenu')){ renderMenu(); return; }
+    if(target.closest('#resultMenu')){ const id = boss && boss.id; state.menuTab = 'ranking'; renderMenu(); if(id) refreshRankings(id); return; }
   }
   function updateMouse(e) { const r=canvas.getBoundingClientRect(); mouse.x=(e.clientX-r.left)*(W/r.width); mouse.y=(e.clientY-r.top)*(H/r.height); }
 
@@ -482,45 +542,107 @@
   async function loadCloudProfile(mergeLocal) {
     if(!supabaseReady || !supabase || !state.currentUser) return;
     try {
-      const { data, error } = await supabase.from(PROFILE_TABLE).select('save_data, player_name').eq('user_id', state.currentUser.id).maybeSingle();
+      state.cloudStatus = '계정 저장 불러오는 중...';
+      const { data, error } = await supabase
+        .from(PROFILE_TABLE)
+        .select('save_data, player_name, updated_at')
+        .eq('user_id', state.currentUser.id)
+        .maybeSingle();
+
       if(error) throw error;
+
       if(data && data.save_data) {
-        state.save = normalizeSaveData(data.save_data);
+        const cloudSave = normalizeSaveData(data.save_data);
+        const localSave = normalizeSaveData(mergeLocal ? state.save : createDefaultSave());
+        // 클라우드 저장이 비어 있거나 과거 버전에서 일부 항목이 누락된 경우 로컬값으로 보정한다.
+        state.save = mergeSaveData(localSave, cloudSave);
         if(data.player_name && !state.save.playerName) state.save.playerName = data.player_name;
         state.cloudStatus = '계정 저장 불러옴';
       } else {
         state.save = normalizeSaveData(mergeLocal ? state.save : createDefaultSave());
-        await saveCloudProfileNow();
-        state.cloudStatus = '새 계정 저장 생성';
+        const created = await saveCloudProfileNow(true);
+        state.cloudStatus = created ? '새 계정 저장 생성' : '새 계정 로컬 저장만 사용';
       }
       trimSelectionsToOwned();
       localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
     } catch(e) {
-      state.cloudStatus = '계정 저장 불러오기 실패';
+      console.error('[RaidGame] cloud profile load failed:', e);
+      const localBackup = safeLoadLocalSave();
+      state.save = normalizeSaveData(mergeLocal ? state.save : localBackup);
+      trimSelectionsToOwned();
+      localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
+      state.cloudStatus = '계정 저장 불러오기 실패: ' + getSupabaseErrorText(e);
     }
+  }
+
+  function mergeSaveData(localSave, cloudSave) {
+    const out = normalizeSaveData(cloudSave || {});
+    const local = normalizeSaveData(localSave || {});
+    // 클라우드에 아직 없는 새 데이터 구조는 로컬/기본값으로 보존한다.
+    out.tickets = { ...local.tickets, ...(out.tickets || {}) };
+    out.ownedWeapons = unique([...(out.ownedWeapons || []), ...(local.ownedWeapons || [])]);
+    out.ownedArmors = unique([...(out.ownedArmors || []), ...(local.ownedArmors || [])]);
+    out.ownedSkills = unique([...(out.ownedSkills || []), ...(local.ownedSkills || [])]);
+    out.ownedPassives = unique([...(out.ownedPassives || []), ...(local.ownedPassives || [])]);
+    out.records = Array.isArray(out.records) ? out.records : (local.records || []);
+    out.build = { ...(local.build || {}), ...(out.build || {}) };
+    if(!out.playerName) out.playerName = local.playerName || 'Player';
+    return normalizeSaveData(out);
+  }
+
+  function safeLoadLocalSave(){
+    try { return JSON.parse(localStorage.getItem(SAVE_KEY) || 'null') || createDefaultSave(); }
+    catch(e) { return createDefaultSave(); }
+  }
+
+  function unique(arr){
+    return Array.from(new Set((arr || []).filter(Boolean)));
+  }
+
+  function getSupabaseErrorText(e){
+    const msg = (e && (e.message || e.details || e.hint || e.code)) ? String(e.message || e.details || e.hint || e.code) : '원인 알 수 없음';
+    if(/does not exist|schema cache|PGRST205|42P01/i.test(msg)) return 'raid_profiles 테이블 없음';
+    if(/row-level security|RLS|permission|policy|42501/i.test(msg)) return 'RLS 정책 오류';
+    if(/JWT|session|auth|Invalid Refresh Token/i.test(msg)) return '로그인 세션 오류';
+    return msg.slice(0, 80);
   }
   function queueCloudSave() {
     if(!state.currentUser || !supabaseReady || !supabase) return;
     clearTimeout(cloudSaveTimer);
     cloudSaveTimer = setTimeout(saveCloudProfileNow, 650);
   }
-  async function saveCloudProfileNow() {
-    if(!state.currentUser || !supabaseReady || !supabase) return;
+  async function saveCloudProfileNow(silent) {
+    if(!state.currentUser || !supabaseReady || !supabase) {
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(state.save)); } catch(e) {}
+      if(!silent) state.cloudStatus = '로컬 저장 완료';
+      return false;
+    }
     try {
-      const payload = { user_id: state.currentUser.id, player_name: state.save.playerName || 'Player', save_data: state.save, updated_at: new Date().toISOString() };
+      state.save = normalizeSaveData(state.save);
+      localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
+      const payload = {
+        user_id: state.currentUser.id,
+        player_name: state.save.playerName || 'Player',
+        save_data: state.save,
+        updated_at: new Date().toISOString()
+      };
       const { error } = await supabase.from(PROFILE_TABLE).upsert(payload, { onConflict:'user_id' });
       if(error) throw error;
-      state.cloudStatus = '계정 저장 완료';
+      if(!silent) state.cloudStatus = '계정 저장 완료';
+      return true;
     } catch(e) {
-      state.cloudStatus = '계정 저장 실패';
+      console.error('[RaidGame] cloud profile save failed:', e);
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(state.save)); } catch(err) {}
+      if(!silent) state.cloudStatus = '계정 저장 실패: ' + getSupabaseErrorText(e);
+      return false;
     }
   }
   async function manualSaveProfile() {
     saveGame();
     state.cloudStatus = '수동 저장 중...';
     renderMenu();
-    await saveCloudProfileNow();
-    state.cloudStatus = state.currentUser ? '수동 저장 완료' : '로컬 수동 저장 완료';
+    const ok = await saveCloudProfileNow(true);
+    state.cloudStatus = state.currentUser ? (ok ? '수동 저장 완료' : '수동 저장 실패: 로컬 저장 유지') : '로컬 수동 저장 완료';
     renderMenu();
   }
 
@@ -560,7 +682,7 @@
     if(state.menuTab==='gacha') body = renderGachaTab();
     if(state.menuTab==='build') body = renderBuildTab();
     if(state.menuTab==='ranking') body = renderRankingTab();
-    ui.menu.innerHTML = `<div class="row"><div><h1 class="title">보스 레이드 빌드 게임 V12</h1><p class="sub">보스를 선택하고, 티켓으로 무기/방어구/스킬/패시브를 뽑아 조합한 뒤 패턴을 파훼해서 클리어하세요.</p></div><div style="text-align:right"><div class="chip">${VERSION}</div><div class="chip">${escapeHtml(state.save.playerName || 'Player')}</div><div class="chip">무기티켓 ${state.save.tickets.weapon}</div><div class="chip">방어구티켓 ${state.save.tickets.armor||0}</div><div class="chip">스킬티켓 ${state.save.tickets.skill}</div><div class="chip">패시브티켓 ${state.save.tickets.passive}</div><div class="chip">${escapeHtml(state.cloudStatus || '계정 저장')}</div><button id="manualSaveBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">수동 저장</button> <button id="logoutBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">로그아웃</button></div></div>${nav}${body}`;
+    ui.menu.innerHTML = `<div class="row"><div><h1 class="title">보스 레이드 빌드 게임 V12.3</h1><p class="sub">보스를 선택하고, 티켓으로 무기/방어구/스킬/패시브를 뽑아 조합한 뒤 패턴을 파훼해서 클리어하세요.</p></div><div style="text-align:right"><div class="chip">${VERSION}</div><div class="chip">${escapeHtml(state.save.playerName || 'Player')}</div><div class="chip">무기티켓 ${state.save.tickets.weapon}</div><div class="chip">방어구티켓 ${state.save.tickets.armor||0}</div><div class="chip">스킬티켓 ${state.save.tickets.skill}</div><div class="chip">패시브티켓 ${state.save.tickets.passive}</div><div class="chip">${escapeHtml(state.cloudStatus || '계정 저장')}</div><button id="manualSaveBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">수동 저장</button> <button id="logoutBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">로그아웃</button></div></div>${nav}${body}`;
     ui.menu.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{state.menuTab=b.dataset.tab; renderMenu();});
     bindMenuButtons();
   }
@@ -720,7 +842,37 @@
   }
   function togglePause(){ if(state.screen==='raid'){state.screen='paused'; ui.right.classList.remove('hidden'); ui.right.innerHTML='<h1 class="title">일시정지</h1><p class="sub">P 또는 ESC로 계속합니다.</p><button id="pauseMenu" class="btn secondary">메뉴로</button>'; ui.right.querySelector('#pauseMenu').onclick=renderMenu;} else if(state.screen==='paused'){state.screen='raid'; ui.right.classList.add('hidden'); state.last=performance.now();} }
 
-  function update(dt){ state.time+=dt; state.shake=Math.max(0,state.shake-dt*18); state.flash=Math.max(0,state.flash-dt*4); state.messageTime=Math.max(0,state.messageTime-dt); updateParticles(dt); updateTexts(dt); if(state.screen!=='raid'||!state.raid) return; state.raid.elapsed+=dt; updatePlayer(dt); updateBuffs(dt); updateStatusEffects(dt); updateBoss(dt); updateProjectiles(dt); updateHazards(dt); updateZones(dt); updateMechanics(dt); checkEnd(); }
+  function update(dt){
+    dt = Math.min(dt || .016, .026);
+    state.time+=dt;
+    state.shake=Math.max(0,state.shake-dt*18);
+    state.flash=Math.max(0,state.flash-dt*4);
+    state.messageTime=Math.max(0,state.messageTime-dt);
+    updateParticles(dt);
+    updateTexts(dt);
+    capCollections();
+    if(state.screen!=='raid'||!state.raid) return;
+    state.raid.elapsed+=dt;
+    updatePlayer(dt);
+    updateBuffs(dt);
+    updateStatusEffects(dt);
+    updateBoss(dt);
+    updateProjectiles(dt);
+    updateHazards(dt);
+    updateZones(dt);
+    updateMechanics(dt);
+    capCollections();
+    checkEnd();
+  }
+
+  function capCollections(){
+    if(state.particles.length > MAX_PARTICLES) state.particles.splice(0, state.particles.length - MAX_PARTICLES);
+    if(state.texts.length > MAX_TEXTS) state.texts.splice(0, state.texts.length - MAX_TEXTS);
+    if(state.projectiles.length > MAX_PROJECTILES) state.projectiles.splice(0, state.projectiles.length - MAX_PROJECTILES);
+    if(state.hazards.length > MAX_HAZARDS) state.hazards.splice(0, state.hazards.length - MAX_HAZARDS);
+    if(state.zones.length > MAX_ZONES) state.zones.splice(0, state.zones.length - MAX_ZONES);
+    if(state.mechanics.length > MAX_MECHANICS) state.mechanics.splice(0, state.mechanics.length - MAX_MECHANICS);
+  }
   function updateStatusEffects(dt){
     const pst = player.statuses || (player.statuses={burn:0,poison:0,freeze:0,paralysis:0,slow:0});
     Object.keys(pst).forEach(k=>pst[k]=Math.max(0,(pst[k]||0)-dt));
@@ -1449,7 +1601,7 @@
   function drawTexts(){ state.texts.forEach(t=>{ctx.globalAlpha=clamp(t.life,0,1); ctx.fillStyle=t.color; ctx.font=`900 ${t.size||16}px system-ui`; ctx.textAlign='center'; ctx.fillText(t.text,t.x,t.y); ctx.globalAlpha=1;});}
 
   function drawStar(c,x,y,r,color){ c.fillStyle=color; c.beginPath(); for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5; const rr=i%2===0?r:r*.45; const px=x+Math.cos(a)*rr, py=y+Math.sin(a)*rr; if(i===0)c.moveTo(px,py); else c.lineTo(px,py);} c.closePath(); c.fill(); }
-  function burst(x,y,color,count,speed){ for(let i=0;i<count;i++){const a=Math.random()*Math.PI*2, v=rand(speed*.25,speed); state.particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,r:rand(2,5),life:rand(.25,.75),color});} }
+  function burst(x,y,color,count,speed){ count=Math.min(count,48); for(let i=0;i<count;i++){const a=Math.random()*Math.PI*2, v=rand(speed*.25,speed); state.particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,r:rand(2,5),life:rand(.25,.75),color});} }
   function slashEffect(x,y,a,range,color,width){ const fx=1.3; for(let i=-5;i<=5;i++){const aa=a+i*.045; state.particles.push({kind:'line',x:x+Math.cos(aa)*range*.35,y:y+Math.sin(aa)*range*.35,vx:Math.cos(aa)*40,vy:Math.sin(aa)*40,r:(width||10)*.6,life:.18,color,angle:aa,len:range*.36});} state.particles.push({kind:'ring',x:x+Math.cos(a)*range*.55,y:y+Math.sin(a)*range*.55,vx:0,vy:0,r:(width||10)*fx,life:.18,color,line:3}); }
   function arcEffect(x,y,a,range,color){ for(let i=-8;i<=8;i++){const aa=a+i*.09; state.particles.push({kind:'line',x:x+Math.cos(aa)*range*.32,y:y+Math.sin(aa)*range*.32,vx:Math.cos(aa)*80,vy:Math.sin(aa)*80,r:5,life:.22,color,angle:aa,len:range*.22});} }
   function stabEffect(x,y,a,range,color){ for(let i=0;i<10;i++) state.particles.push({kind:'line',x:x+Math.cos(a)*range*i/10,y:y+Math.sin(a)*range*i/10,vx:Math.cos(a)*60,vy:Math.sin(a)*60,r:4,life:.16,color,angle:a,len:22+i*2}); }
