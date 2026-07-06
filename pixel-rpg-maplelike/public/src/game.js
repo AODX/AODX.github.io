@@ -230,6 +230,22 @@
     const adjustedRange = ranged ? range : Math.max(70, range * 0.96);
     return { id, name, rarity, kind, desc, color, atk: atk * r.power * atkMul, range: adjustedRange, speed: adjustedSpeed, crit, type: 'weapon' };
   }
+
+  function armor(id, name, rarity, desc, color, hp, def, resist) {
+    const r = getRarity(rarity);
+    return {
+      id,
+      name,
+      rarity,
+      desc,
+      color,
+      hp: Math.max(0, Math.floor((hp || 0) * (0.85 + r.power * 0.15))),
+      def: Math.max(0, Math.floor((def || 0) * (0.9 + r.power * 0.12))),
+      resist: resist || {},
+      type: 'armor'
+    };
+  }
+
   function getRarity(id) { return RARITIES.find(r => r.id === id) || RARITIES[0]; }
   function rarityLabel(id) { const r = getRarity(id); return `<span style="color:${r.color};font-weight:900">${r.name}</span>`; }
   function stars(n) { const v=clamp(Math.round(n),1,10); return '★'.repeat(v) + '☆'.repeat(10 - v); }
