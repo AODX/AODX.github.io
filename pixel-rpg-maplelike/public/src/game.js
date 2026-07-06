@@ -1,6 +1,6 @@
 
 /* =========================================================
-   RAID BUILD GAME V12.3 - CLOUD PROFILE LOAD HOTFIX FULL REPLACE public/src/game.js
+   RAID DUNGEON V12.5 - CLICK AND SAVE HOTFIX FULL REPLACE public/src/game.js
    보스 레이드 + 가챠 + 보스별 랭킹 + 패턴 파훼 액션 게임
 
    적용 위치: public/src/game.js 전체 교체
@@ -14,7 +14,8 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Build Game V12.3 - Cloud Profile Load Hotfix';
+  const VERSION = 'Raid Dungeon V12.5 - Click/Save Hotfix';
+  try { document.title = 'Raid Dungeon'; } catch(e) {}
   const W = 1280;
   const H = 720;
   const SAVE_KEY = 'raid-build-v12-local-save';
@@ -439,6 +440,17 @@
       panel.addEventListener('click', handleUiAction, true);
     };
     bind(ui.menu); bind(ui.left); bind(ui.right);
+    if(!document.__raidDungeonGlobalClickBound) {
+      document.__raidDungeonGlobalClickBound = true;
+      document.addEventListener('click', function(e){
+        const root = document.getElementById('raidV4Root');
+        if(root && root.contains(e.target)) handleUiAction(e);
+      }, true);
+      document.addEventListener('pointerup', function(e){
+        const root = document.getElementById('raidV4Root');
+        if(root && root.contains(e.target)) handleUiAction(e);
+      }, true);
+    }
   }
 
   function handleUiAction(e) {
@@ -446,13 +458,13 @@
     if(!target || !target.closest) return;
     if(target.closest('input,textarea,select')) return;
 
-    const active = target.closest('button,.card,.boss-card,.tab,.step,[data-prev-step],[data-next-step]');
+    const active = target.closest('button,.card,.boss-card,.tab,.step,[data-prev-step],[data-next-step],[data-select-type],[data-passive],[data-step]');
     if(!active) return;
     if(active.disabled || active.getAttribute('aria-disabled') === 'true' || active.classList.contains('locked')) return;
 
     const actionKey = getUiActionKey(target);
     const now = performance.now();
-    if(actionKey && actionKey === lastUiActionKey && now - lastUiActionTime < 180) {
+    if(actionKey && actionKey === lastUiActionKey && now - lastUiActionTime < 60) {
       e.preventDefault();
       e.stopPropagation();
       return;
@@ -524,10 +536,10 @@
       const { data } = await supabase.auth.getSession();
       state.currentUser = data && data.session ? data.session.user : null;
       state.authChecked = true;
-      if(state.currentUser) await loadCloudProfile();
+      if(state.currentUser) await loadCloudProfile(true);
       supabase.auth.onAuthStateChange(async (_event, session)=>{
         state.currentUser = session ? session.user : null;
-        if(state.currentUser) await loadCloudProfile();
+        if(state.currentUser) await loadCloudProfile(true);
         else { state.cloudStatus = '로그인이 필요합니다'; renderMenu(); }
       });
       refreshRankings(state.rankingBossId);
@@ -622,10 +634,10 @@
     const local = normalizeSaveData(localSave || {});
     // 클라우드에 아직 없는 새 데이터 구조는 로컬/기본값으로 보존한다.
     out.tickets = { ...local.tickets, ...(out.tickets || {}) };
-    out.ownedWeapons = unique([...(out.ownedWeapons || []), ...(local.ownedWeapons || [])]);
-    out.ownedArmors = unique([...(out.ownedArmors || []), ...(local.ownedArmors || [])]);
-    out.ownedSkills = unique([...(out.ownedSkills || []), ...(local.ownedSkills || [])]);
-    out.ownedPassives = unique([...(out.ownedPassives || []), ...(local.ownedPassives || [])]);
+    out.weapons = unique([...(out.weapons || []), ...(local.weapons || [])]);
+    out.armors = unique([...(out.armors || []), ...(local.armors || [])]);
+    out.skills = unique([...(out.skills || []), ...(local.skills || [])]);
+    out.passives = unique([...(out.passives || []), ...(local.passives || [])]);
     out.records = Array.isArray(out.records) ? out.records : (local.records || []);
     out.build = { ...(local.build || {}), ...(out.build || {}) };
     if(!out.playerName) out.playerName = local.playerName || 'Player';
@@ -681,10 +693,17 @@
   }
   async function manualSaveProfile() {
     saveGame();
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(normalizeSaveData(state.save))); } catch(e) {}
     state.cloudStatus = '수동 저장 중...';
     renderMenu();
     const ok = await saveCloudProfileNow(true);
-    state.cloudStatus = state.currentUser ? (ok ? '수동 저장 완료' : '수동 저장 실패: 로컬 저장 유지') : '로컬 수동 저장 완료';
+    if(ok) {
+      state.cloudStatus = '수동 저장 완료';
+    } else if(state.currentUser) {
+      state.cloudStatus = '클라우드 저장 실패 · 로컬 저장 완료';
+    } else {
+      state.cloudStatus = '로컬 수동 저장 완료';
+    }
     renderMenu();
   }
 
@@ -724,7 +743,7 @@
     if(state.menuTab==='gacha') body = renderGachaTab();
     if(state.menuTab==='build') body = renderBuildTab();
     if(state.menuTab==='ranking') body = renderRankingTab();
-    ui.menu.innerHTML = `<div class="row"><div><h1 class="title">보스 레이드 빌드 게임 V12.3</h1><p class="sub">보스를 선택하고, 티켓으로 무기/방어구/스킬/패시브를 뽑아 조합한 뒤 패턴을 파훼해서 클리어하세요.</p></div><div style="text-align:right"><div class="chip">${VERSION}</div><div class="chip">${escapeHtml(state.save.playerName || 'Player')}</div><div class="chip">무기티켓 ${state.save.tickets.weapon}</div><div class="chip">방어구티켓 ${state.save.tickets.armor||0}</div><div class="chip">스킬티켓 ${state.save.tickets.skill}</div><div class="chip">패시브티켓 ${state.save.tickets.passive}</div><div class="chip">${escapeHtml(state.cloudStatus || '계정 저장')}</div><button id="manualSaveBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">수동 저장</button> <button id="logoutBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">로그아웃</button></div></div>${nav}${body}`;
+    ui.menu.innerHTML = `<div class="row"><div><h1 class="title">Raid Dungeon</h1><p class="sub">보스를 선택하고, 티켓으로 무기/방어구/스킬/패시브를 뽑아 조합한 뒤 패턴을 파훼해서 클리어하세요.</p></div><div style="text-align:right"><div class="chip">${VERSION}</div><div class="chip">${escapeHtml(state.save.playerName || 'Player')}</div><div class="chip">무기티켓 ${state.save.tickets.weapon}</div><div class="chip">방어구티켓 ${state.save.tickets.armor||0}</div><div class="chip">스킬티켓 ${state.save.tickets.skill}</div><div class="chip">패시브티켓 ${state.save.tickets.passive}</div><div class="chip">${escapeHtml(state.cloudStatus || '계정 저장')}</div><button id="manualSaveBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">수동 저장</button> <button id="logoutBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">로그아웃</button></div></div>${nav}${body}`;
     ui.menu.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{state.menuTab=b.dataset.tab; renderMenu();});
     bindMenuButtons();
   }
@@ -797,8 +816,8 @@
     const backDungeon=ui.menu.querySelector('#backDungeon'); if(backDungeon) backDungeon.onclick=()=>{state.menuTab='dungeon'; renderMenu();};
     ui.menu.querySelectorAll('[data-select-type]').forEach(el=>el.onclick=()=>selectBuild(el.dataset.selectType, el.dataset.selectId, Number(el.dataset.slot || 0)));
     ui.menu.querySelectorAll('[data-passive]').forEach(el=>el.onclick=()=>togglePassive(el.dataset.passive));
-    const prev=ui.menu.querySelector('[data-prev-step]'); if(prev) prev.onclick=()=>stepMove(-1);
-    const next=ui.menu.querySelector('[data-next-step]'); if(next) next.onclick=()=>stepMove(1);
+    ui.menu.querySelectorAll('[data-prev-step]').forEach(prev=>prev.onclick=()=>stepMove(-1));
+    ui.menu.querySelectorAll('[data-next-step]').forEach(next=>next.onclick=()=>stepMove(1));
     const start=ui.menu.querySelector('#startRaid'); if(start) start.onclick=startRaid;
     const manualSaveBtn=ui.menu.querySelector('#manualSaveBtn'); if(manualSaveBtn) manualSaveBtn.onclick=()=>manualSaveProfile();
     const rb=ui.menu.querySelector('#rankBoss'); if(rb) rb.onchange=()=>{state.rankingBossId=rb.value; refreshRankings(rb.value); renderMenu();};
