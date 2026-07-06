@@ -427,30 +427,14 @@
   let lastUiActionKey = '';
 
   function bindResponsiveUiClicks() {
-    // V12.8 FINAL: 클릭 씹힘 원인이던 pointerup/capture 처리 제거.
-    // 메뉴는 click 한 종류만 bubble 단계에서 처리한다.
-    // 이렇게 해야 방어구 탭, 다음 버튼, 출격 버튼이 렌더링 후에도 정상 작동한다.
-    if (ui.menu && !ui.menu.__raidDelegatedClickBound) {
-      ui.menu.__raidDelegatedClickBound = true;
-      ui.menu.addEventListener('click', handleUiAction, false);
+    // V12.9 VERIFIED: UI 클릭은 root capture 단계에서 pointerup/click을 모두 받는다.
+    // 단, 같은 동작이 두 번 실행되지 않도록 actionKey + 시간으로 중복 방지한다.
+    // stopCanvasOnly / 개별 onclick 방식은 일부 브라우저에서 버튼 클릭을 씹게 만들어 제거했다.
+    if (ui.root && !ui.root.__raidUnifiedClickBound) {
+      ui.root.__raidUnifiedClickBound = true;
+      ui.root.addEventListener('pointerup', handleUiAction, true);
+      ui.root.addEventListener('click', handleUiAction, true);
     }
-    const stopCanvasOnly = panel => {
-      if(!panel || panel.__raidPointerBound) return;
-      panel.__raidPointerBound = true;
-      panel.addEventListener('pointerdown', e=>{
-        if(e.target && e.target.closest && e.target.closest('button,.card,.boss-card,.tab,.step,input,select,textarea')) {
-          e.stopPropagation();
-        }
-      }, true);
-      panel.addEventListener('mousedown', e=>{
-        if(e.target && e.target.closest && e.target.closest('button,.card,.boss-card,.tab,.step,input,select,textarea')) {
-          e.stopPropagation();
-        }
-      }, true);
-    };
-    stopCanvasOnly(ui.menu);
-    stopCanvasOnly(ui.left);
-    stopCanvasOnly(ui.right);
   }
 
   function handleUiAction(e) {
@@ -458,13 +442,14 @@
     if(!target || !target.closest) return;
     if(target.closest('input,textarea,select')) return;
 
-    const active = target.closest('button,.card,.boss-card,.tab,.step,[data-prev-step],[data-next-step],[data-select-type],[data-passive],[data-step]');
+    const active = target.closest('button,.card,.boss-card,.tab,.step,[data-authmode],[data-tab],[data-boss],[data-gacha],[data-step],[data-tabgo],[data-select-type],[data-select-id],[data-passive],[data-prev-step],[data-next-step],#authSubmit,#goBuild,#goGacha,#backDungeon,#startRaid,#manualSaveBtn,#logoutBtn,#giveup,#pauseMenu,#resultMenu');
     if(!active) return;
     if(active.disabled || active.getAttribute('aria-disabled') === 'true' || active.classList.contains('locked')) return;
 
-    const actionKey = getUiActionKey(target);
+    const actionKey = getUiActionKey(active);
     const now = performance.now();
-    if(actionKey && actionKey === lastUiActionKey && now - lastUiActionTime < 60) {
+    // pointerup 후 click이 연속 발생하는 것을 막는다. 같은 버튼/카드만 차단하고, 다른 버튼은 즉시 허용한다.
+    if(actionKey && actionKey === lastUiActionKey && now - lastUiActionTime < 220) {
       e.preventDefault();
       e.stopPropagation();
       return;
@@ -476,54 +461,43 @@
     e.stopPropagation();
 
     try {
-      const authMode = target.closest('[data-authmode]');
-      if(authMode){ state.authMode = authMode.dataset.authmode; state.authMessage=''; renderMenu(); return; }
-      if(target.closest('#authSubmit')){ handleAuth(state.authMode === 'signup' ? 'signup' : 'login'); return; }
-      const tab = target.closest('[data-tab]');
-      if(tab){ state.menuTab = tab.dataset.tab; renderMenu(); return; }
-      const bossEl = target.closest('[data-boss]');
-      if(bossEl){ state.selectedBossId=bossEl.dataset.boss; trimSelectedPassives(); renderMenu(); refreshRankings(state.selectedBossId); return; }
-      if(target.closest('#goBuild')){ state.menuTab='build'; state.buildStep='weapon'; renderMenu(); return; }
-      if(target.closest('#goGacha')){ state.menuTab='gacha'; renderMenu(); return; }
-      const gacha = target.closest('[data-gacha]');
-      if(gacha){ rollGacha(gacha.dataset.gacha); return; }
-      const step = target.closest('[data-step]');
-      if(step){ state.buildStep=step.dataset.step; renderMenu(); return; }
-      const tabgo = target.closest('[data-tabgo]');
-      if(tabgo){ state.menuTab=tabgo.dataset.tabgo; renderMenu(); return; }
-      if(target.closest('#backDungeon')){ state.menuTab='dungeon'; renderMenu(); return; }
-      const select = target.closest('[data-select-type]');
-      if(select){ selectBuild(select.dataset.selectType, select.dataset.selectId, Number(select.dataset.slot || 0)); return; }
-      const passive = target.closest('[data-passive]');
-      if(passive){ togglePassive(passive.dataset.passive); return; }
-      if(target.closest('[data-prev-step]')){ stepMove(-1); return; }
-      if(target.closest('[data-next-step]')){ stepMove(1); return; }
-      if(target.closest('#startRaid')){ startRaid(); return; }
-      if(target.closest('#manualSaveBtn')){ manualSaveProfile(); return; }
-      if(target.closest('#logoutBtn')){ logout(); return; }
-      if(target.closest('#giveup')){ renderMenu(); return; }
-      if(target.closest('#pauseMenu')){ renderMenu(); return; }
-      if(target.closest('#resultMenu')){ const id = boss && boss.id; state.menuTab = 'ranking'; renderMenu(); if(id) refreshRankings(id); return; }
+      if(active.matches('[data-authmode]')){ state.authMode = active.dataset.authmode; state.authMessage=''; renderMenu(); return; }
+      if(active.matches('#authSubmit')){ handleAuth(state.authMode === 'signup' ? 'signup' : 'login'); return; }
+      if(active.matches('[data-tab]')){ state.menuTab = active.dataset.tab; renderMenu(); return; }
+      if(active.matches('[data-boss]')){ state.selectedBossId=active.dataset.boss; trimSelectedPassives(); renderMenu(); refreshRankings(state.selectedBossId); return; }
+      if(active.matches('#goBuild')){ state.menuTab='build'; state.buildStep='weapon'; renderMenu(); return; }
+      if(active.matches('#goGacha')){ state.menuTab='gacha'; renderMenu(); return; }
+      if(active.matches('[data-gacha]')){ rollGacha(active.dataset.gacha); return; }
+      if(active.matches('[data-step]')){ state.buildStep=active.dataset.step; renderMenu(); return; }
+      if(active.matches('[data-tabgo]')){ state.menuTab=active.dataset.tabgo; renderMenu(); return; }
+      if(active.matches('#backDungeon')){ state.menuTab='dungeon'; renderMenu(); return; }
+      if(active.matches('[data-select-type]')){ selectBuild(active.dataset.selectType, active.dataset.selectId || '', Number(active.dataset.slot || 0)); return; }
+      if(active.matches('[data-passive]')){ togglePassive(active.dataset.passive); return; }
+      if(active.matches('[data-prev-step]')){ stepMove(-1); return; }
+      if(active.matches('[data-next-step]')){ stepMove(1); return; }
+      if(active.matches('#startRaid')){ startRaid(); return; }
+      if(active.matches('#manualSaveBtn')){ manualSaveProfile(); return; }
+      if(active.matches('#logoutBtn')){ logout(); return; }
+      if(active.matches('#giveup')){ renderMenu(); return; }
+      if(active.matches('#pauseMenu')){ renderMenu(); return; }
+      if(active.matches('#resultMenu')){ const id = boss && boss.id; state.menuTab = 'ranking'; renderMenu(); if(id) refreshRankings(id); return; }
     } catch(err) {
       console.error('[Raid UI click error]', err);
-      state.cloudStatus = '버튼 처리 오류: 새로고침 없이 복구 시도';
+      state.cloudStatus = '버튼 처리 오류: ' + (err && err.message ? err.message : '알 수 없음');
       renderMenu();
     }
   }
 
-  function getUiActionKey(target) {
+  function getUiActionKey(node) {
+    if(!node) return '';
     const candidates = ['id','data-authmode','data-tab','data-boss','data-gacha','data-step','data-tabgo','data-select-type','data-select-id','data-passive','data-prev-step','data-next-step'];
-    let node = target;
-    while(node && node !== document.body) {
-      if(node.id) return 'id:' + node.id;
-      for(const key of candidates) {
-        if(key !== 'id' && node.getAttribute && node.getAttribute(key) !== null) {
-          return key + ':' + node.getAttribute(key) + ':' + (node.getAttribute('data-slot') || '');
-        }
+    if(node.id) return 'id:' + node.id;
+    for(const key of candidates) {
+      if(key !== 'id' && node.getAttribute && node.getAttribute(key) !== null) {
+        return key + ':' + node.getAttribute(key) + ':' + (node.getAttribute('data-slot') || '');
       }
-      node = node.parentElement;
     }
-    return String(Math.random());
+    return node.tagName + ':' + (node.textContent || '').slice(0,40);
   }
   function updateMouse(e) { const r=canvas.getBoundingClientRect(); mouse.x=(e.clientX-r.left)*(W/r.width); mouse.y=(e.clientY-r.top)*(H/r.height); }
 
@@ -730,8 +704,6 @@
     const modeText = state.authMode === 'login' ? '로그인' : '회원가입';
     const nick = state.authMode === 'signup' ? '<input id="raidNickname" class="input" placeholder="닉네임" autocomplete="nickname" style="margin-bottom:8px">' : '';
     ui.menu.innerHTML = `<h1 class="title">보스 레이드 로그인</h1><p class="sub">계정에 로그인하면 뽑아둔 무기, 스킬, 패시브, 뽑기 티켓이 Supabase에 저장됩니다.<br>다른 컴퓨터에서 접속해도 같은 계정이면 그대로 이어서 플레이할 수 있습니다.</p>${loading}<div class="nav"><button class="tab ${state.authMode==='login'?'active':''}" data-authmode="login">로그인</button><button class="tab ${state.authMode==='signup'?'active':''}" data-authmode="signup">회원가입</button></div><div class="grid"><div class="card" style="cursor:default"><h3>${modeText}</h3><input id="raidEmail" class="input" placeholder="이메일" autocomplete="email" style="margin-bottom:8px"><input id="raidPassword" class="input" type="password" placeholder="비밀번호 6자 이상" autocomplete="current-password" style="margin-bottom:8px">${nick}<button id="authSubmit" class="btn" style="width:100%" ${state.authBusy?'disabled':''}>${modeText}</button><p class="sub" style="margin-top:10px;color:${state.authMessage && state.authMessage.includes('실패') ? '#fb7185' : '#fef08a'}">${escapeHtml(state.authMessage || state.cloudStatus || '')}</p></div><div class="card" style="cursor:default"><h3>처음 지급</h3><p>처음 로그인한 계정은 무기 뽑기 티켓 1장, 방어구 뽑기 티켓 1장, 스킬 뽑기 티켓 3장, 패시브 뽑기 티켓 1장을 받습니다.</p><p class="sub">Supabase에서 이메일 확인을 켜두었다면 회원가입 후 이메일 인증을 해야 로그인됩니다. 학교/개인 프로젝트라면 Auth 설정에서 이메일 확인을 꺼두면 바로 가입됩니다.</p></div></div>`;
-    ui.menu.querySelectorAll('[data-authmode]').forEach(b=>b.onclick=()=>{state.authMode=b.dataset.authmode; state.authMessage=''; renderMenu();});
-    const submit = ui.menu.querySelector('#authSubmit'); if(submit) submit.onclick=()=>handleAuth(state.authMode === 'signup' ? 'signup' : 'login');
   }
 
   function renderMenu() {
@@ -744,7 +716,6 @@
     if(state.menuTab==='build') body = renderBuildTab();
     if(state.menuTab==='ranking') body = renderRankingTab();
     ui.menu.innerHTML = `<div class="row"><div><h1 class="title">Raid Dungeon</h1><p class="sub">보스를 선택하고, 티켓으로 무기/방어구/스킬/패시브를 뽑아 조합한 뒤 패턴을 파훼해서 클리어하세요.</p></div><div style="text-align:right"><div class="chip">${VERSION}</div><div class="chip">${escapeHtml(state.save.playerName || 'Player')}</div><div class="chip">무기티켓 ${state.save.tickets.weapon}</div><div class="chip">방어구티켓 ${state.save.tickets.armor||0}</div><div class="chip">스킬티켓 ${state.save.tickets.skill}</div><div class="chip">패시브티켓 ${state.save.tickets.passive}</div><div class="chip">${escapeHtml(state.cloudStatus || '계정 저장')}</div><button id="manualSaveBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">수동 저장</button> <button id="logoutBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">로그아웃</button></div></div>${nav}${body}`;
-    ui.menu.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{state.menuTab=b.dataset.tab; renderMenu();});
     bindMenuButtons();
   }
 
@@ -807,34 +778,13 @@
 
 
   function bindMenuButtons() {
-    // V12.8 FINAL FALLBACK: 위임 클릭과 별개로 출격 준비 핵심 버튼에는 직접 onclick도 붙인다.
-    // 화면을 다시 그려도 renderMenu()가 매번 이 함수를 호출하므로 이벤트가 사라지지 않는다.
+    // V12.9: 메뉴는 root capture 이벤트 위임으로 처리한다.
+    // 여기서는 select 요소처럼 change 이벤트가 필요한 항목만 별도로 연결한다.
     const rb = ui.menu.querySelector('#rankBoss');
     if (rb && !rb.__raidBound) {
       rb.__raidBound = true;
       rb.onchange = () => { state.rankingBossId = rb.value; refreshRankings(rb.value); renderMenu(); };
     }
-
-    ui.menu.querySelectorAll('[data-step]').forEach(btn => {
-      btn.onclick = e => { e.preventDefault(); e.stopPropagation(); state.buildStep = btn.dataset.step; renderMenu(); };
-    });
-    ui.menu.querySelectorAll('[data-prev-step]').forEach(btn => {
-      btn.onclick = e => { e.preventDefault(); e.stopPropagation(); stepMove(-1); };
-    });
-    ui.menu.querySelectorAll('[data-next-step]').forEach(btn => {
-      btn.onclick = e => { e.preventDefault(); e.stopPropagation(); stepMove(1); };
-    });
-    const startBtn = ui.menu.querySelector('#startRaid');
-    if(startBtn) startBtn.onclick = e => { e.preventDefault(); e.stopPropagation(); if(!startBtn.disabled) startRaid(); };
-
-    ui.menu.querySelectorAll('[data-select-type]').forEach(card => {
-      card.onclick = e => { e.preventDefault(); e.stopPropagation(); selectBuild(card.dataset.selectType, card.dataset.selectId || '', Number(card.dataset.slot || 0)); };
-    });
-    ui.menu.querySelectorAll('[data-passive]').forEach(card => {
-      card.onclick = e => { e.preventDefault(); e.stopPropagation(); togglePassive(card.dataset.passive); };
-    });
-    const backDungeon = ui.menu.querySelector('#backDungeon');
-    if(backDungeon) backDungeon.onclick = e => { e.preventDefault(); e.stopPropagation(); state.menuTab='dungeon'; renderMenu(); };
   }
   function selectBuild(type,id,slot){
     id = id || null;
