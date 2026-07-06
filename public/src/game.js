@@ -1,6 +1,6 @@
 
 /* =========================================================
-   RAID DUNGEON V12.7 - VERIFIED BUILD NAVIGATION CLICK FIX FULL REPLACE public/src/game.js
+   RAID DUNGEON V13 - REAL CLICK AND SAVE FIX FULL REPLACE public/src/game.js
    보스 레이드 + 가챠 + 보스별 랭킹 + 패턴 파훼 액션 게임
 
    적용 위치: public/src/game.js 전체 교체
@@ -14,7 +14,7 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Dungeon V12.8 - Build Click Final Fix';
+  const VERSION = 'Raid Dungeon V13 - Click Save Real Fix';
   try { document.title = 'Raid Dungeon'; } catch(e) {}
   const W = 1280;
   const H = 720;
@@ -356,7 +356,7 @@
     return { first: true, tickets: {...INITIAL_TICKETS}, coins: 0, weapons: [], armors: [], skills: [], passives: [], playerName: 'Player', seenHelp: false, build:{weapon:null, armor:null, skills:[null,null,null], passives:[]} };
   }
   function loadSave() {
-    try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || localStorage.getItem('raid-build-v7-local-save') || 'null'); if (s) return s; } catch(e) {}
+    try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || localStorage.getItem(SAVE_KEY + '-backup') || localStorage.getItem('raid-build-v7-local-save') || 'null'); if (s) return s; } catch(e) {}
     return createDefaultSave();
   }
   function normalizeSave() {
@@ -383,9 +383,14 @@
     return s;
   }
   function saveGame() {
-    if(state && state.save){ state.save.build={weapon:state.selectedWeaponId||null, armor:state.selectedArmorId||null, skills:(state.selectedSkillIds||[null,null,null]).slice(0,3), passives:(state.selectedPassiveIds||[]).slice()}; }
+    if(state && state.save){
+      state.save.build={weapon:state.selectedWeaponId||null, armor:state.selectedArmorId||null, skills:(state.selectedSkillIds||[null,null,null]).slice(0,3), passives:(state.selectedPassiveIds||[]).slice()};
+    }
     state.save = normalizeSaveData(state.save);
-    localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
+      localStorage.setItem(SAVE_KEY + '-backup', JSON.stringify(state.save));
+    } catch(e) { console.warn('[RaidGame] local save failed:', e); }
     queueCloudSave();
   }
 
@@ -427,13 +432,12 @@
   let lastUiActionKey = '';
 
   function bindResponsiveUiClicks() {
-    // V12.9 VERIFIED: UI 클릭은 root capture 단계에서 pointerup/click을 모두 받는다.
-    // 단, 같은 동작이 두 번 실행되지 않도록 actionKey + 시간으로 중복 방지한다.
-    // stopCanvasOnly / 개별 onclick 방식은 일부 브라우저에서 버튼 클릭을 씹게 만들어 제거했다.
-    if (ui.root && !ui.root.__raidUnifiedClickBound) {
-      ui.root.__raidUnifiedClickBound = true;
-      ui.root.addEventListener('pointerup', handleUiAction, true);
-      ui.root.addEventListener('click', handleUiAction, true);
+    // V13 REAL FIX:
+    // UI 입력은 document capture click 한 곳에서만 처리한다.
+    // pointerup + click 혼용은 일부 브라우저에서 버튼이 씹히는 원인이어서 제거했다.
+    if (!document.__raidDungeonClickBound) {
+      document.__raidDungeonClickBound = true;
+      document.addEventListener('click', handleUiAction, true);
     }
   }
 
@@ -442,33 +446,32 @@
     if(!target || !target.closest) return;
     if(target.closest('input,textarea,select')) return;
 
-    const active = target.closest('button,.card,.boss-card,.tab,.step,[data-authmode],[data-tab],[data-boss],[data-gacha],[data-step],[data-tabgo],[data-select-type],[data-select-id],[data-passive],[data-prev-step],[data-next-step],#authSubmit,#goBuild,#goGacha,#backDungeon,#startRaid,#manualSaveBtn,#logoutBtn,#giveup,#pauseMenu,#resultMenu');
+    const active = findRaidActionNode(target);
     if(!active) return;
-    if(active.disabled || active.getAttribute('aria-disabled') === 'true' || active.classList.contains('locked')) return;
-
-    const actionKey = getUiActionKey(active);
-    const now = performance.now();
-    // pointerup 후 click이 연속 발생하는 것을 막는다. 같은 버튼/카드만 차단하고, 다른 버튼은 즉시 허용한다.
-    if(actionKey && actionKey === lastUiActionKey && now - lastUiActionTime < 220) {
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
-    lastUiActionKey = actionKey;
-    lastUiActionTime = now;
+    if(ui.root && !ui.root.contains(active)) return;
 
     e.preventDefault();
     e.stopPropagation();
+    runUiAction(active);
+  }
 
+  function findRaidActionNode(target) {
+    if(!target || !target.closest) return null;
+    return target.closest('[data-authmode],[data-tab],[data-boss],[data-gacha],[data-step],[data-tabgo],[data-select-type],[data-passive],[data-prev-step],[data-next-step],#authSubmit,#goBuild,#goGacha,#backDungeon,#startRaid,#manualSaveBtn,#logoutBtn,#giveup,#pauseMenu,#resultMenu');
+  }
+
+  function runUiAction(active) {
+    if(!active) return;
+    if(active.disabled || active.getAttribute('aria-disabled') === 'true' || active.classList.contains('locked')) return;
     try {
       if(active.matches('[data-authmode]')){ state.authMode = active.dataset.authmode; state.authMessage=''; renderMenu(); return; }
       if(active.matches('#authSubmit')){ handleAuth(state.authMode === 'signup' ? 'signup' : 'login'); return; }
       if(active.matches('[data-tab]')){ state.menuTab = active.dataset.tab; renderMenu(); return; }
-      if(active.matches('[data-boss]')){ state.selectedBossId=active.dataset.boss; trimSelectedPassives(); renderMenu(); refreshRankings(state.selectedBossId); return; }
+      if(active.matches('[data-boss]')){ state.selectedBossId=active.dataset.boss; trimSelectedPassives(); saveGame(); renderMenu(); refreshRankings(state.selectedBossId); return; }
       if(active.matches('#goBuild')){ state.menuTab='build'; state.buildStep='weapon'; renderMenu(); return; }
       if(active.matches('#goGacha')){ state.menuTab='gacha'; renderMenu(); return; }
       if(active.matches('[data-gacha]')){ rollGacha(active.dataset.gacha); return; }
-      if(active.matches('[data-step]')){ state.buildStep=active.dataset.step; renderMenu(); return; }
+      if(active.matches('[data-step]')){ state.buildStep=active.dataset.step; saveGame(); renderMenu(); return; }
       if(active.matches('[data-tabgo]')){ state.menuTab=active.dataset.tabgo; renderMenu(); return; }
       if(active.matches('#backDungeon')){ state.menuTab='dungeon'; renderMenu(); return; }
       if(active.matches('[data-select-type]')){ selectBuild(active.dataset.selectType, active.dataset.selectId || '', Number(active.dataset.slot || 0)); return; }
@@ -559,12 +562,12 @@
     }
   }
   async function logout() {
+    // V13: 로그아웃한다고 로컬 저장을 지우지 않는다.
+    // 이전 버전은 여기서 SAVE_KEY를 삭제해서, 클라우드 저장 실패 시 뽑은 스킬/장비가 사라졌다.
+    try { saveGame(); await saveCloudProfileNow(true); } catch(e) { console.warn('[RaidGame] logout save skipped:', e); }
     if(supabase) await supabase.auth.signOut();
     state.currentUser = null;
-    state.save = createDefaultSave();
-    localStorage.removeItem(SAVE_KEY);
-    state.selectedWeaponId = null; state.selectedSkillIds = [null, null, null]; state.selectedAttackSkillId = null; state.selectedEvasionSkillId = null; state.selectedBuffSkillId = null; state.selectedPassiveIds = [];
-    state.cloudStatus = '로그아웃됨';
+    state.cloudStatus = '로그아웃됨 · 로컬 저장 유지';
     renderMenu();
   }
   async function loadCloudProfile(mergeLocal) {
@@ -607,7 +610,12 @@
     const out = normalizeSaveData(cloudSave || {});
     const local = normalizeSaveData(localSave || {});
     // 클라우드에 아직 없는 새 데이터 구조는 로컬/기본값으로 보존한다.
-    out.tickets = { ...local.tickets, ...(out.tickets || {}) };
+    out.tickets = {
+      weapon: Math.max(Number(local.tickets?.weapon || 0), Number(out.tickets?.weapon || 0)),
+      armor: Math.max(Number(local.tickets?.armor || 0), Number(out.tickets?.armor || 0)),
+      skill: Math.max(Number(local.tickets?.skill || 0), Number(out.tickets?.skill || 0)),
+      passive: Math.max(Number(local.tickets?.passive || 0), Number(out.tickets?.passive || 0))
+    };
     out.weapons = unique([...(out.weapons || []), ...(local.weapons || [])]);
     out.armors = unique([...(out.armors || []), ...(local.armors || [])]);
     out.skills = unique([...(out.skills || []), ...(local.skills || [])]);
@@ -619,8 +627,11 @@
   }
 
   function safeLoadLocalSave(){
-    try { return JSON.parse(localStorage.getItem(SAVE_KEY) || 'null') || createDefaultSave(); }
-    catch(e) { return createDefaultSave(); }
+    try { return JSON.parse(localStorage.getItem(SAVE_KEY) || localStorage.getItem(SAVE_KEY + '-backup') || 'null') || createDefaultSave(); }
+    catch(e) {
+      try { return JSON.parse(localStorage.getItem(SAVE_KEY + '-backup') || 'null') || createDefaultSave(); }
+      catch(err) { return createDefaultSave(); }
+    }
   }
 
   function unique(arr){
@@ -648,6 +659,7 @@
     try {
       state.save = normalizeSaveData(state.save);
       localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
+      localStorage.setItem(SAVE_KEY + '-backup', JSON.stringify(state.save));
       const payload = {
         user_id: state.currentUser.id,
         player_name: state.save.playerName || 'Player',
@@ -660,7 +672,7 @@
       return true;
     } catch(e) {
       console.error('[RaidGame] cloud profile save failed:', e);
-      try { localStorage.setItem(SAVE_KEY, JSON.stringify(state.save)); } catch(err) {}
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(state.save)); localStorage.setItem(SAVE_KEY + '-backup', JSON.stringify(state.save)); } catch(err) {}
       if(!silent) state.cloudStatus = '계정 저장 실패: ' + getSupabaseErrorText(e);
       return false;
     }
@@ -778,13 +790,18 @@
 
 
   function bindMenuButtons() {
-    // V12.9: 메뉴는 root capture 이벤트 위임으로 처리한다.
-    // 여기서는 select 요소처럼 change 이벤트가 필요한 항목만 별도로 연결한다.
+    // V13: 메뉴가 매번 innerHTML로 다시 그려져도 클릭이 살아있도록,
+    // document 위임 + 현재 렌더된 요소 직접 onclick을 둘 다 연결한다.
+    const selectors = '[data-authmode],[data-tab],[data-boss],[data-gacha],[data-step],[data-tabgo],[data-select-type],[data-passive],[data-prev-step],[data-next-step],#authSubmit,#goBuild,#goGacha,#backDungeon,#startRaid,#manualSaveBtn,#logoutBtn,#resultMenu';
+    ui.menu.querySelectorAll(selectors).forEach(el => {
+      el.onclick = ev => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        runUiAction(el);
+      };
+    });
     const rb = ui.menu.querySelector('#rankBoss');
-    if (rb && !rb.__raidBound) {
-      rb.__raidBound = true;
-      rb.onchange = () => { state.rankingBossId = rb.value; refreshRankings(rb.value); renderMenu(); };
-    }
+    if (rb) rb.onchange = () => { state.rankingBossId = rb.value; refreshRankings(rb.value); renderMenu(); };
   }
   function selectBuild(type,id,slot){
     id = id || null;
@@ -1659,6 +1676,26 @@
     if(kind.includes('sword')) return '검';
     return ({whip:'채찍',pole:'봉',dagger:'단검',greatsword:'대검',gunstaff:'마도총',scythe:'낫',chakram:'차크람',grimoire:'마도서'})[kind] || kind;
   }
+
+
+  // V13 diagnostic helper: 브라우저 콘솔에서 window.RaidDungeonDebug.state()로 현재 저장 상태 확인 가능.
+  try {
+    window.RaidDungeonDebug = {
+      state: () => JSON.parse(JSON.stringify({
+        menuTab: state.menuTab,
+        buildStep: state.buildStep,
+        selectedWeaponId: state.selectedWeaponId,
+        selectedArmorId: state.selectedArmorId,
+        selectedSkillIds: state.selectedSkillIds,
+        selectedPassiveIds: state.selectedPassiveIds,
+        save: state.save,
+        cloudStatus: state.cloudStatus
+      })),
+      saveNow: () => manualSaveProfile(),
+      goArmor: () => { state.menuTab='build'; state.buildStep='armor'; renderMenu(); },
+      goReady: () => { state.menuTab='build'; state.buildStep='ready'; renderMenu(); }
+    };
+  } catch(e) {}
 
   function loop(now){ const dt=Math.min(.033,(now-state.last)/1000||.016); state.last=now; try{ update(dt); draw(); }catch(e){ console.error('Raid loop recovered:', e); toast('전투 오류를 복구했습니다. 콘솔 오류를 확인하세요.'); state.hazards=[]; state.projectiles=state.projectiles.filter(p=>p.owner==='player'); draw(); } requestAnimationFrame(loop); }
   function toast(msg){state.message=msg; state.messageTime=2.0; floatText(msg,W/2,92,'#fef08a',20);}
