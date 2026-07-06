@@ -1,6 +1,6 @@
 
 /* =========================================================
-   RAID DUNGEON V16 - WEAPON ART, TICKET DROP, NICKNAME FIX FULL REPLACE public/src/game.js
+   RAID DUNGEON V17 - NICKNAME RECORD SYNC, RAID PANEL REMOVED, FAIR BOSS PATTERNS public/src/game.js
    보스 레이드 + 가챠 + 보스별 랭킹 + 패턴 파훼 액션 게임
 
    적용 위치: public/src/game.js 전체 교체
@@ -558,7 +558,34 @@
   function loadScript(src){return new Promise((res,rej)=>{if(document.querySelector('script[src="'+src+'"]')) return res(); const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.head.appendChild(s);});}
 
 
-  function changeNickname() {
+  async function syncNicknameRecords(oldName, nextName) {
+    const oldKey = normalizedPlayerName(oldName || '').toLowerCase();
+    const next = (nextName || '').trim();
+    if (!oldKey || !next || oldKey === normalizedPlayerName(next).toLowerCase()) return;
+
+    // 로컬 랭킹 기록의 예전 닉네임도 새 닉네임으로 변경
+    try {
+      const local = getLocalRecords().map(r => {
+        if (normalizedPlayerName(r.player_name).toLowerCase() === oldKey) return { ...r, player_name: next };
+        return r;
+      });
+      localStorage.setItem(LOCAL_RECORD_KEY, JSON.stringify(dedupeRecords(local)));
+    } catch (e) {
+      console.warn('[RaidDungeon] local nickname record sync failed:', e);
+    }
+
+    // Supabase 랭킹 기록도 변경. 정책상 실패할 수 있으므로 실패해도 게임 저장은 유지.
+    if (supabaseReady && supabase) {
+      try {
+        const upd = await supabase.from('raid_records').update({ player_name: next }).eq('player_name', oldName);
+        if (upd && upd.error) console.warn('[RaidDungeon] cloud nickname record sync skipped:', upd.error.message);
+      } catch (e) {
+        console.warn('[RaidDungeon] cloud nickname record sync failed:', e);
+      }
+    }
+  }
+
+  async function changeNickname() {
     const input = document.getElementById('nicknameEditInput');
     const next = (input && input.value ? input.value : '').trim();
     if (!next || next.length < 2) {
@@ -573,11 +600,15 @@
       renderMenu();
       return;
     }
+    const oldName = state.save.playerName || 'Player';
     state.save.playerName = next;
     try { localStorage.setItem('raid-build-player-name-v1', next); } catch(e) {}
+    state.cloudStatus = '닉네임 변경 중 · 기존 랭킹 기록 갱신 시도';
     saveGame();
-    state.cloudStatus = '닉네임 변경 완료 · 저장 시도 중';
-    manualSaveProfile();
+    await syncNicknameRecords(oldName, next);
+    await manualSaveProfile();
+    await refreshRankings(state.rankingBossId);
+    state.cloudStatus = '닉네임 변경 완료 · 기존 기록 갱신 완료';
     renderMenu();
   }
 
@@ -916,23 +947,20 @@
 
   function startRaid() {
     if(!canStart()) return;
-    ui.menu.classList.add('hidden'); ui.left.classList.remove('hidden'); ui.right.classList.add('hidden'); state.screen='raid';
+    // 전투 중 왼쪽 위 현재 빌드 패널이 시야를 가려서 숨김. 포기는 P 일시정지 메뉴에서 가능.
+    ui.menu.classList.add('hidden'); ui.left.classList.add('hidden'); ui.right.classList.add('hidden'); state.screen='raid';
     Object.assign(player, makePlayer()); player.name=state.save.playerName||'Player'; applyBuild(); player.hp=player.maxHp;
     boss = makeBoss(getBoss(state.selectedBossId));
     state.projectiles=[]; state.hazards=[]; state.zones=[]; state.mechanics=[]; state.particles=[]; state.texts=[]; state.shake=0; state.flash=0;
     state.raid={ start:performance.now(), elapsed:0, clear:false, failed:false, weapon:getWeapon(state.selectedWeaponId), armor:getArmor(state.selectedArmorId), skills:(state.selectedSkillIds||[]).slice(0,3).map(getSkill), passives:state.selectedPassiveIds.map(getPassive).filter(Boolean) };
-    renderRaidPanel(); toast(boss.name+' 레이드 시작!');
+    toast(boss.name+' 레이드 시작!');
   }
   function applyBuild(){ const w=getWeapon(state.selectedWeaponId); const a=getArmor(state.selectedArmorId); if(w){player.atk*=w.atk; player.crit+=w.crit||0;} if(a){ player.equippedArmor=a; player.maxHp+=a.hp; player.hp=player.maxHp; player.def+=a.def; Object.keys(a.resist||{}).forEach(k=>player.statusResist[k]=Math.max(player.statusResist[k]||0,a.resist[k]||0)); } state.selectedPassiveIds.map(getPassive).filter(Boolean).forEach(p=>p.apply(player)); player.maxHp=Math.floor(player.maxHp); player.speed=Math.floor(player.speed); }
   function renderRaidPanel(){
-    const weaponName = state.raid.weapon ? state.raid.weapon.name : '없음';
-    const armorName = state.raid.armor ? state.raid.armor.name : '없음';
-    const skillChips = state.raid.skills.map((s,i)=>`<span class="chip">${i+1}. ${s ? s.name : '비어 있음'}</span>`).join('');
-    const passiveChips = state.raid.passives.length ? state.raid.passives.map(p=>`<span class="chip">${p.name}</span>`).join('') : '<span class="chip">패시브 없음</span>';
-    ui.left.innerHTML=`<h1 class="title" style="font-size:21px">현재 빌드</h1><p class="sub">보스: <b>${boss.name}</b><br>무기: <b>${weaponName}</b><br>방어구: <b>${armorName}</b></p>${skillChips}<div style="height:8px"></div>${passiveChips}<p class="sub" style="margin-top:12px">J/좌클릭 일반공격 · 1/2/3 스킬 · Space 구르기(2.5초) · P 일시정지<br>무기가 없으면 일반공격은 비활성화되고, 비어 있는 스킬칸은 사용할 수 없습니다.<br>공격과 스킬은 마우스/바라보는 방향으로 나갑니다.</p><button id="giveup" class="btn secondary" style="width:100%">포기하고 메뉴로</button>`;
-    ui.left.querySelector('#giveup').onclick=renderMenu;
+    // V17: 전투 화면 좌측 안내 패널 제거. 화면을 가리지 않도록 유지하지 않음.
+    if (ui.left) ui.left.classList.add('hidden');
   }
-  function togglePause(){ if(state.screen==='raid'){state.screen='paused'; ui.right.classList.remove('hidden'); ui.right.innerHTML='<h1 class="title">일시정지</h1><p class="sub">P 또는 ESC로 계속합니다.</p><button id="pauseMenu" class="btn secondary">메뉴로</button>'; ui.right.querySelector('#pauseMenu').onclick=renderMenu;} else if(state.screen==='paused'){state.screen='raid'; ui.right.classList.add('hidden'); state.last=performance.now();} }
+  function togglePause(){ if(state.screen==='raid'){state.screen='paused'; ui.right.classList.remove('hidden'); ui.right.innerHTML='<h1 class="title">일시정지</h1><p class="sub">P 또는 ESC로 계속합니다. 전투를 포기하려면 아래 버튼을 누르세요.</p><button id="pauseMenu" class="btn secondary">포기하고 메뉴로</button>'; ui.right.querySelector('#pauseMenu').onclick=renderMenu;} else if(state.screen==='paused'){state.screen='raid'; ui.right.classList.add('hidden'); state.last=performance.now();} }
 
   function update(dt){
     dt = Math.min(dt || .016, .026);
@@ -1193,9 +1221,9 @@
   function bossPattern(){
     const t=boss.theme; boss.mechanicText='';
     if(t==='fire'||t==='solar') firePattern(); else if(t==='ice') icePattern(); else if(t==='lightning') lightningPattern(); else if(t==='void') voidPattern(); else if(t==='nature') naturePattern(); else if(t==='sand') sandPattern(); else if(t==='metal') metalPattern(); else if(t==='blood') bloodPattern(); else if(t==='poison') poisonPattern(); else if(t==='mirror') mirrorPattern(); else if(t==='gravity') gravityPattern(); else if(t==='chrono') chronoPattern(); else if(t==='chaos') chaosPattern(); else slimePattern();
-    if(boss.tier>=6 && Math.random()<.55) setTimeout(()=>secondaryPattern(), 520);
-    if(boss.tier>=8 && boss.phase>=2 && Math.random()<.50) setTimeout(()=>secondaryPattern(true), 950);
-    if(boss.tier>=7 && boss.phase>=2 && Math.random()<.38) setTimeout(()=>rotatingLaserSweep(boss.tier>=9), 680);
+    if(boss.tier>=6 && Math.random()<.38) setTimeout(()=>secondaryPattern(), 650);
+    if(boss.tier>=8 && boss.phase>=2 && Math.random()<.34) setTimeout(()=>secondaryPattern(true), 1050);
+    if(boss.tier>=7 && boss.phase>=2 && Math.random()<.24) setTimeout(()=>rotatingLaserSweep(boss.tier>=9 && Math.random()<.65), 780);
     if(boss.tier>=9 && boss.phase>=3 && Math.random()<.42) setTimeout(()=>instantKillPattern(), 1280);
   }
   function intensity(){ return Math.max(1, boss.tier + (boss.phase-1)*2); }
@@ -1348,18 +1376,18 @@
     state.hazards.push({kind:'donut',x:boss.x,y:boss.y,inner:r*.75,outer:r*(hard?1.65:1.45),warn:.55,life:.24,damage:boss.atk*(hard?1.15:.85),color:boss.color,tag:boss.theme});
   }
   function crossLaserPattern(hard){
-    const count=hard?4:2;
+    const count=hard?3:2;
     boss.mechanicText += ' · 레이저 격자';
     for(let i=0;i<count;i++){
       const horizontal=i%2===0;
-      state.hazards.push({kind:'beam',x:horizontal?W/2:rand(160,W-160),y:horizontal?rand(130,H-90):H/2,angle:horizontal?0:Math.PI/2,len:W*1.25,w:hard?34:26,warn:.58+i*.08,life:.28,damage:boss.atk*(hard?1.15:.8),color:boss.color,tag:boss.theme});
+      state.hazards.push({kind:'beam',x:horizontal?W/2:rand(160,W-160),y:horizontal?rand(130,H-90):H/2,angle:horizontal?0:Math.PI/2,len:W*1.25,w:hard?34:26,warn:.78+i*.10,life:.25,damage:boss.atk*(hard?.95:.72),color:boss.color,tag:boss.theme});
     }
   }
   function chaseMarkerPattern(hard){
-    for(let i=0;i<(hard?4:2);i++) setTimeout(()=>warningCircle(player.x,player.y,44+boss.tier*2,.34,boss.color,boss.atk*(hard?.95:.72),'',()=>{ if(dist(player.x,player.y,boss.x,boss.y)>240) breakBoss(.75); },boss.theme),i*240);
+    for(let i=0;i<(hard?3:2);i++) setTimeout(()=>warningCircle(player.x,player.y,44+boss.tier*2,.55,boss.color,boss.atk*(hard?.82:.62),'',()=>{ if(dist(player.x,player.y,boss.x,boss.y)>240) breakBoss(.75); },boss.theme),i*240);
   }
   function rotatingCurtainPattern(hard){
-    const waves=hard?5:3;
+    const waves=hard?4:3;
     for(let k=0;k<waves;k++) setTimeout(()=>{
       const count=10+boss.phase*3+Math.floor(boss.tier*.8);
       const offset=state.time*1.4+k*.45;
@@ -1373,9 +1401,9 @@
   function rotatingLaserSweep(hard){
     if(!state.raid || boss.dead) return;
     boss.mechanicText += ' · 회전 레이저: 맵을 도는 광선을 따라 피하세요';
-    state.hazards.push({kind:'rotatingBeam',x:boss.x,y:boss.y,angle:Math.random()*Math.PI*2,spin:(hard?1.75:1.15)*(Math.random()<.5?-1:1),len:W*1.45,w:hard?22:16,warn:1.1,life:hard?2.45:1.85,damage:boss.atk*(hard?1.05:.78),color:boss.color,tag:boss.theme,tick:0});
+    state.hazards.push({kind:'rotatingBeam',x:boss.x,y:boss.y,angle:Math.random()*Math.PI*2,spin:(hard?1.75:1.15)*(Math.random()<.5?-1:1),len:W*1.45,w:hard?22:16,warn:1.25,life:hard?2.05:1.65,damage:boss.atk*(hard?.88:.68),color:boss.color,tag:boss.theme,tick:0});
     if(hard){
-      state.hazards.push({kind:'rotatingBeam',x:boss.x,y:boss.y,angle:Math.random()*Math.PI*2+Math.PI/2,spin:-1.35,len:W*1.45,w:16,warn:1.35,life:2.1,damage:boss.atk*.82,color:boss.sub||boss.color,tag:boss.theme,tick:0});
+      if(Math.random()<.55) state.hazards.push({kind:'rotatingBeam',x:boss.x,y:boss.y,angle:Math.random()*Math.PI*2+Math.PI/2,spin:-1.15,len:W*1.45,w:15,warn:1.45,life:1.75,damage:boss.atk*.68,color:boss.sub||boss.color,tag:boss.theme,tick:0});
     }
   }
 
