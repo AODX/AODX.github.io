@@ -27507,3 +27507,594 @@ canvas.addEventListener('click', function (e) {
 
   console.log('[PixelRPG] V35 clean real fix installed');
 })();
+
+/* =========================================================
+   V37 FINAL STABLE PATCH - NATURAL HAIR + SUPABASE REALTIME APPLIED
+   붙여넣기 방식: 이 파일 전체로 src/game.js를 완전히 교체하세요.
+
+   핵심 수정
+   1) 캐릭터 머리카락이 얼굴 전체를 덮는 문제 해결
+      - 머리카락을 얼굴 위에 큰 덩어리로 그리지 않고,
+        뒤머리 -> 얼굴 -> 앞머리/옆머리 -> 눈/입 순서로 자연스럽게 렌더링합니다.
+      - 앞머리 높이를 제한해서 눈과 입을 가리지 않습니다.
+
+   2) Supabase Realtime 온라인 플레이 보강
+      - Socket.io 서버가 없어도 Supabase Realtime Presence/Broadcast로
+        같은 마을/사냥터에 있는 다른 유저의 캐릭터를 표시합니다.
+      - 사용자가 제공한 Supabase URL / publishable key를 코드에 직접 적용했습니다.
+      - 프로젝트 URL에는 /rest/v1/을 제외한 기본 URL만 사용합니다.
+
+   3) 자잘한 안정화
+      - 멀티 상태 전송 실패 시 게임이 멈추지 않게 처리
+      - 원격 유저 렌더링이 draw 패치에 덮여 사라지는 문제 방지
+      - 화면에 패치 적용 문구가 계속 떠서 게임 화면을 가리는 문제 차단
+========================================================= */
+(function () {
+  'use strict';
+  if (window.__PIXEL_RPG_V36_FINAL_STABLE_PATCH__) return;
+  window.__PIXEL_RPG_V36_FINAL_STABLE_PATCH__ = true;
+
+  /* V37 Supabase config applied by 구름 */
+  window.PIXEL_RPG_SUPABASE = {
+    url: 'https://pofxjyjpkwhuugaesbyb.supabase.co',
+    anonKey: 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI'
+  };
+
+  function n(v, d) { v = Number(v); return Number.isFinite(v) ? v : d; }
+  function arr(v) { return Array.isArray(v) ? v : []; }
+  function idOf(ref) {
+    try { return typeof itemRefId === 'function' ? itemRefId(ref) : (typeof ref === 'string' ? ref : ref && ref.id); }
+    catch (_) { return typeof ref === 'string' ? ref : ref && ref.id; }
+  }
+  function itemOf(ref) { const id = idOf(ref); return (id && typeof ITEMS !== 'undefined' && ITEMS[id]) ? ITEMS[id] : null; }
+  function safeRoundRect(c, x, y, w, h, r) {
+    if (typeof roundRect === 'function') return roundRect(c, x, y, w, h, r);
+    r = Math.max(0, Math.min(r || 0, Math.abs(w) / 2, Math.abs(h) / 2));
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.lineTo(x + w - r, y);
+    c.quadraticCurveTo(x + w, y, x + w, y + r);
+    c.lineTo(x + w, y + h - r);
+    c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    c.lineTo(x + r, y + h);
+    c.quadraticCurveTo(x, y + h, x, y + h - r);
+    c.lineTo(x, y + r);
+    c.quadraticCurveTo(x, y, x + r, y);
+    c.closePath();
+    c.fill();
+  }
+  function safeCircle(c, x, y, r) {
+    c.beginPath();
+    c.arc(x, y, r, 0, Math.PI * 2);
+    c.fill();
+  }
+  function shade(hex, amount) {
+    try {
+      let h = String(hex || '#000000').replace('#', '').trim();
+      if (h.length === 3) h = h.split('').map(function (v) { return v + v; }).join('');
+      const num = parseInt(h.slice(0, 6), 16);
+      if (!Number.isFinite(num)) return hex || '#000000';
+      let r = (num >> 16) + amount;
+      let g = ((num >> 8) & 255) + amount;
+      let b = (num & 255) + amount;
+      r = Math.max(0, Math.min(255, r));
+      g = Math.max(0, Math.min(255, g));
+      b = Math.max(0, Math.min(255, b));
+      return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    } catch (_) { return hex || '#000000'; }
+  }
+
+  function drawNaturalHairBack(c, hair, style, headY) {
+    const dark = shade(hair, -35);
+    c.save();
+    c.fillStyle = dark;
+    if (style === 'long' || style === 'twin' || style === 'pony' || style === 'wave') {
+      safeRoundRect(c, -23, headY - 16, 46, 45, 13);
+    } else if (style === 'bob' || style === 'square_cut') {
+      safeRoundRect(c, -22, headY - 16, 44, 34, 12);
+    } else {
+      safeRoundRect(c, -21, headY - 18, 42, 25, 13);
+    }
+    c.restore();
+  }
+
+  function drawNaturalHairFront(c, hair, style, headY) {
+    const dark = shade(hair, -38);
+    const light = shade(hair, 24);
+    c.save();
+    c.fillStyle = hair;
+    c.strokeStyle = dark;
+    c.lineWidth = 1.2;
+
+    // 머리 윗부분: 얼굴을 덮지 않도록 headY - 17 ~ headY - 2 사이에 제한
+    c.beginPath();
+    c.ellipse(0, headY - 16, 21, 13, 0, Math.PI, Math.PI * 2);
+    c.lineTo(20, headY - 6);
+    c.quadraticCurveTo(7, headY - 1, -20, headY - 6);
+    c.closePath();
+    c.fill();
+    c.stroke();
+
+    function bang(x, w, drop, tilt) {
+      c.beginPath();
+      c.moveTo(x, headY - 8);
+      c.quadraticCurveTo(x + w * 0.45, headY - 3 + tilt, x + w, headY - 8);
+      c.lineTo(x + w * 0.63, headY + drop);
+      c.quadraticCurveTo(x + w * 0.35, headY + Math.max(0, drop - 4), x, headY - 8);
+      c.closePath();
+      c.fill();
+      c.stroke();
+    }
+    function sideLock(x, side, len) {
+      c.beginPath();
+      c.moveTo(x, headY - 8);
+      c.quadraticCurveTo(x + side * 8, headY + 8, x + side * 5, headY + len);
+      c.quadraticCurveTo(x - side * 3, headY + 10, x - side * 3, headY - 5);
+      c.closePath();
+      c.fill();
+      c.stroke();
+    }
+
+    if (style === 'spiky' || style === 'wild') {
+      for (let i = -15; i <= 15; i += 10) {
+        c.beginPath();
+        c.moveTo(i - 6, headY - 9);
+        c.lineTo(i, headY - 25 - Math.abs(i) * 0.2);
+        c.lineTo(i + 7, headY - 8);
+        c.closePath();
+        c.fill();
+        c.stroke();
+      }
+      bang(-17, 16, 1, 0);
+      bang(1, 16, 1, 0);
+    } else if (style === 'side' || style === 'side_part') {
+      bang(-20, 25, 2, -1);
+      bang(0, 18, 0, 0);
+      sideLock(-20, -1, 13);
+      sideLock(20, 1, 10);
+    } else if (style === 'long' || style === 'wave') {
+      bang(-18, 18, 2, 0);
+      bang(0, 18, 1, 0);
+      sideLock(-21, -1, 24);
+      sideLock(21, 1, 24);
+      if (style === 'wave') {
+        c.globalAlpha = 0.8;
+        safeCircle(c, -25, headY + 24, 5);
+        safeCircle(c, 25, headY + 24, 5);
+        c.globalAlpha = 1;
+      }
+    } else if (style === 'twin' || style === 'ribbon_twin') {
+      bang(-18, 18, 2, 0);
+      bang(0, 18, 1, 0);
+      safeCircle(c, -27, headY + 8, 8);
+      safeCircle(c, 27, headY + 8, 8);
+      if (style === 'ribbon_twin') {
+        c.fillStyle = '#f472b6';
+        safeCircle(c, -24, headY - 1, 3.5);
+        safeCircle(c, 24, headY - 1, 3.5);
+        c.fillStyle = hair;
+      }
+    } else if (style === 'pony') {
+      bang(-16, 17, 1, 0);
+      bang(1, 17, 1, 0);
+      c.beginPath();
+      c.ellipse(27, headY + 2, 8, 21, -0.35, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+    } else if (style === 'bob' || style === 'square_cut') {
+      bang(-19, 17, 1, 0);
+      bang(-2, 17, 1, 0);
+      sideLock(-20, -1, 17);
+      sideLock(20, 1, 17);
+    } else {
+      bang(-17, 17, 1, 0);
+      bang(0, 17, 1, 0);
+      sideLock(-20, -1, 9);
+      sideLock(20, 1, 9);
+    }
+
+    // 작고 자연스러운 하이라이트
+    c.strokeStyle = light;
+    c.globalAlpha = 0.35;
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(-10, headY - 16);
+    c.quadraticCurveTo(-2, headY - 20, 8, headY - 15);
+    c.stroke();
+    c.restore();
+  }
+
+  function drawNaturalFace(c, skin, faceStyle, headY) {
+    c.save();
+    c.fillStyle = 'rgba(255,115,145,0.23)';
+    c.fillRect(-13, headY + 2, 5, 2);
+    c.fillRect(8, headY + 2, 5, 2);
+    c.fillStyle = '#1f2937';
+    c.strokeStyle = '#1f2937';
+    c.lineWidth = 1.5;
+    c.lineCap = 'round';
+    if (faceStyle === 'sleepy') {
+      c.beginPath(); c.moveTo(-9, headY - 5); c.lineTo(-4, headY - 5); c.moveTo(4, headY - 5); c.lineTo(9, headY - 5); c.stroke();
+    } else if (faceStyle === 'angry' || faceStyle === 'serious') {
+      c.beginPath(); c.moveTo(-10, headY - 7); c.lineTo(-4, headY - 4); c.moveTo(4, headY - 4); c.lineTo(10, headY - 7); c.stroke();
+      safeCircle(c, -7, headY - 2, 2); safeCircle(c, 7, headY - 2, 2);
+    } else {
+      c.fillRect(-8, headY - 5, 3, 5);
+      c.fillRect(5, headY - 5, 3, 5);
+      c.fillStyle = '#ffffff';
+      c.fillRect(-7.4, headY - 4.5, 1, 1.4);
+      c.fillRect(5.6, headY - 4.5, 1, 1.4);
+      c.fillStyle = '#1f2937';
+    }
+    if (faceStyle === 'bright' || faceStyle === 'cute' || faceStyle === 'smile') {
+      c.beginPath(); c.arc(0, headY + 5, 4, 0.08 * Math.PI, 0.92 * Math.PI); c.stroke();
+    } else {
+      c.fillRect(-3, headY + 5, 6, 1.5);
+    }
+    c.restore();
+  }
+
+  function drawNaturalChibiBody(c, player) {
+    player = player || (typeof game !== 'undefined' && game.player) || {};
+    const ch = player.character || (typeof game !== 'undefined' && game.player && game.player.character) || {};
+    const skin = ch.skin || '#ffd6a6';
+    const hair = ch.hair || '#2b160e';
+    const hairStyle = ch.hairStyle || 'basic';
+    const faceStyle = ch.faceStyle || ch.face || 'normal';
+    const armor = itemOf(typeof equipment !== 'undefined' && equipment.armor) || {};
+    const knee = itemOf(typeof equipment !== 'undefined' && equipment.knee) || {};
+    const weaponId = idOf(typeof equipment !== 'undefined' && equipment.weapon);
+    const helmetId = idOf(typeof equipment !== 'undefined' && equipment.helmet);
+    const walk = Math.sin(n(player.animTime, 0) * 13);
+    const moving = player.anim === 'walk';
+    const jumping = player.anim === 'jump';
+    const attacking = player.anim === 'attack' || n(player.attackTime, 0) > 0;
+    const leg = moving ? walk * 4 : 0;
+    const body = armor.pixel ? armor.pixel.a : (armor.id === 'magic_robe' ? '#8b5cf6' : '#4f93f5');
+    const sub = armor.pixel ? armor.pixel.b : (armor.id === 'magic_robe' ? '#ddd6fe' : '#eff6ff');
+    const darkBody = shade(body, -32);
+    const pants = knee.id ? '#475569' : '#374151';
+    const headY = -91;
+
+    c.save();
+    c.lineCap = 'round';
+    c.lineJoin = 'round';
+
+    c.fillStyle = 'rgba(0,0,0,0.24)';
+    c.beginPath();
+    c.ellipse(0, 4, 23, 6, 0, 0, Math.PI * 2);
+    c.fill();
+
+    // 다리와 신발
+    c.strokeStyle = '#171717';
+    c.lineWidth = 9;
+    c.beginPath();
+    c.moveTo(-9, -30); c.lineTo(-11 - leg, -8);
+    c.moveTo(9, -30); c.lineTo(11 + leg, -8);
+    c.stroke();
+    c.strokeStyle = pants;
+    c.lineWidth = 6;
+    c.beginPath();
+    c.moveTo(-9, -30); c.lineTo(-11 - leg, -8);
+    c.moveTo(9, -30); c.lineTo(11 + leg, -8);
+    c.stroke();
+    c.fillStyle = '#171717';
+    safeRoundRect(c, -21 - leg, -11, 19, 7, 2);
+    safeRoundRect(c, 2 + leg, -11, 19, 7, 2);
+
+    // 몸통
+    c.fillStyle = '#171717';
+    safeRoundRect(c, -21, -66, 42, 41, 11);
+    c.fillStyle = body;
+    safeRoundRect(c, -17, -63, 34, 36, 10);
+    c.fillStyle = sub;
+    safeRoundRect(c, -10, -57, 20, 6, 3);
+    c.fillStyle = darkBody;
+    safeRoundRect(c, -15, -36, 30, 9, 4);
+
+    // 목
+    c.fillStyle = '#171717';
+    c.fillRect(-7, -75, 14, 10);
+    c.fillStyle = skin;
+    c.fillRect(-5, -74, 10, 9);
+
+    // 팔
+    let lx = -23 + (moving ? -walk * 3 : 0);
+    let ly = -48;
+    let rx = 23 + (moving ? walk * 3 : 0);
+    let ry = -48;
+    if (jumping) { lx = -23; ly = -54; rx = 23; ry = -54; }
+    if (attacking) { rx = 32; ry = -55; lx = -20; ly = -47; }
+    c.strokeStyle = '#171717';
+    c.lineWidth = 8;
+    c.beginPath(); c.moveTo(-15, -57); c.lineTo(lx, ly); c.moveTo(15, -57); c.lineTo(rx, ry); c.stroke();
+    c.strokeStyle = darkBody;
+    c.lineWidth = 5;
+    c.beginPath(); c.moveTo(-15, -57); c.lineTo(lx, ly); c.moveTo(15, -57); c.lineTo(rx, ry); c.stroke();
+    c.fillStyle = '#171717'; safeCircle(c, lx, ly, 5); safeCircle(c, rx, ry, 5);
+    c.fillStyle = skin; safeCircle(c, lx, ly, 3.4); safeCircle(c, rx, ry, 3.4);
+
+    if (typeof drawWeapon === 'function') {
+      try { drawWeapon(c, weaponId, rx, ry, attacking, player.attackKind || ((itemOf(weaponId) || {}).weaponType) || 'sword', player.animTime || 0); } catch (_) {}
+    }
+
+    // 머리: 뒤머리 -> 귀/얼굴 -> 앞머리 -> 얼굴 표정 순서
+    drawNaturalHairBack(c, hair, hairStyle, headY);
+    c.fillStyle = '#171717';
+    safeCircle(c, -21, headY + 2, 5);
+    safeCircle(c, 21, headY + 2, 5);
+    c.fillStyle = skin;
+    safeCircle(c, -20, headY + 2, 3.8);
+    safeCircle(c, 20, headY + 2, 3.8);
+    c.fillStyle = skin;
+    c.strokeStyle = 'rgba(80,45,25,0.55)';
+    c.lineWidth = 1.2;
+    c.beginPath();
+    c.ellipse(0, headY, 19, 22, 0, 0, Math.PI * 2);
+    c.fill();
+    c.stroke();
+    drawNaturalHairFront(c, hair, hairStyle, headY);
+    drawNaturalFace(c, skin, faceStyle, headY);
+
+    if (helmetId && typeof drawEquippedHelmet === 'function') {
+      try { drawEquippedHelmet(c, helmetId, headY); } catch (_) {}
+    }
+
+    c.restore();
+  }
+
+  window.drawHair = drawHair = function drawHairV36Natural(c, ch, headY) {
+    ch = ch || {};
+    drawNaturalHairBack(c, ch.hair || '#2b160e', ch.hairStyle || 'basic', headY || -91);
+    drawNaturalHairFront(c, ch.hair || '#2b160e', ch.hairStyle || 'basic', headY || -91);
+  };
+
+  window.drawPlayerBody = drawPlayerBody = function drawPlayerBodyV36Natural(c, player) {
+    drawNaturalChibiBody(c, player);
+  };
+
+  /* ---------------------------------------------------------
+     Supabase Realtime Multiplayer
+  --------------------------------------------------------- */
+  const MP = window.PixelRpgSupabaseMultiplayer = window.PixelRpgSupabaseMultiplayer || {
+    enabled: false,
+    connected: false,
+    players: {},
+    channel: null,
+    lastRoom: '',
+    lastSend: 0,
+    client: null,
+    warningShown: false
+  };
+
+  function getSupabaseConfig() {
+    const cfg = window.PIXEL_RPG_SUPABASE || {};
+    const metaUrl = document.querySelector('meta[name="pixel-rpg-supabase-url"]');
+    const metaKey = document.querySelector('meta[name="pixel-rpg-supabase-anon-key"]');
+    return {
+      url: cfg.url || localStorage.getItem('pixel-rpg-supabase-url') || (metaUrl && metaUrl.content) || '',
+      anonKey: cfg.anonKey || cfg.key || localStorage.getItem('pixel-rpg-supabase-key') || (metaKey && metaKey.content) || ''
+    };
+  }
+
+  function showOnlineTextOnce(msg, color) {
+    if (MP.warningShown) return;
+    MP.warningShown = true;
+    try {
+      if (typeof makeText === 'function' && game && game.player) makeText(msg, game.player.x, game.player.y - 125, color || '#fcd34d');
+    } catch (_) {}
+    try { console.warn('[PixelRPG Supabase]', msg); } catch (_) {}
+  }
+
+  function loadSupabaseSdk() {
+    return new Promise(function (resolve) {
+      if (window.supabase && window.supabase.createClient) return resolve(true);
+      const old = document.getElementById('pixel-rpg-supabase-sdk');
+      if (old) {
+        old.addEventListener('load', function () { resolve(!!(window.supabase && window.supabase.createClient)); }, { once: true });
+        old.addEventListener('error', function () { resolve(false); }, { once: true });
+        return;
+      }
+      const s = document.createElement('script');
+      s.id = 'pixel-rpg-supabase-sdk';
+      s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+      s.async = true;
+      s.onload = function () { resolve(!!(window.supabase && window.supabase.createClient)); };
+      s.onerror = function () { resolve(false); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function localPlayerId() {
+    let id = localStorage.getItem('pixel-rpg-client-id');
+    if (!id) {
+      id = 'u_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem('pixel-rpg-client-id', id);
+    }
+    return id;
+  }
+
+  function currentRoom() {
+    if (!game) return 'lobby';
+    return game.mode === 'hunt' ? 'hunt:' + (game.huntId || 'hunt') : 'town:' + (game.townId || 'lumina');
+  }
+
+  function publicState() {
+    const p = game && game.player ? game.player : {};
+    const ch = Object.assign({}, p.character || {});
+    return {
+      id: localPlayerId(),
+      name: ch.name || '유저',
+      level: p.level || 1,
+      x: Math.round(n(p.x, 0)),
+      y: Math.round(n(p.y, 0)),
+      face: n(p.face, 1) || 1,
+      anim: p.anim || 'idle',
+      animTime: n(p.animTime, 0),
+      hp: Math.round(n(p.hp, 1)),
+      maxHp: Math.round(n(p.maxHp, 1)),
+      job: ch.job || 'beginner',
+      character: ch,
+      room: currentRoom(),
+      at: Date.now()
+    };
+  }
+
+  async function joinSupabaseRoom(force) {
+    if (!game || !game.ready) return;
+    const cfg = getSupabaseConfig();
+    if (!cfg.url || !cfg.anonKey) {
+      showOnlineTextOnce('Supabase URL/anonKey 설정 필요', '#fcd34d');
+      return;
+    }
+    const ok = await loadSupabaseSdk();
+    if (!ok) {
+      showOnlineTextOnce('Supabase SDK 로드 실패', '#ff8787');
+      return;
+    }
+    if (!MP.client) {
+      try { MP.client = window.supabase.createClient(cfg.url, cfg.anonKey, { realtime: { params: { eventsPerSecond: 8 } } }); }
+      catch (e) { showOnlineTextOnce('Supabase 클라이언트 생성 실패', '#ff8787'); return; }
+    }
+    const room = currentRoom();
+    if (!force && MP.channel && MP.lastRoom === room) return;
+    try {
+      if (MP.channel) {
+        await MP.channel.untrack().catch(function () {});
+        await MP.client.removeChannel(MP.channel).catch(function () {});
+      }
+    } catch (_) {}
+    MP.players = {};
+    MP.lastRoom = room;
+    MP.channel = MP.client.channel('pixel-rpg-' + room.replace(/[^a-zA-Z0-9_-]/g, '-'), {
+      config: { presence: { key: localPlayerId() }, broadcast: { self: false } }
+    });
+    MP.channel
+      .on('presence', { event: 'sync' }, function () {
+        try {
+          const state = MP.channel.presenceState() || {};
+          const next = {};
+          Object.keys(state).forEach(function (key) {
+            const last = arr(state[key]).slice(-1)[0];
+            if (!last || key === localPlayerId()) return;
+            next[key] = last;
+          });
+          MP.players = Object.assign(MP.players, next);
+        } catch (_) {}
+      })
+      .on('presence', { event: 'leave' }, function (payload) {
+        try { if (payload && payload.key) delete MP.players[payload.key]; } catch (_) {}
+      })
+      .on('broadcast', { event: 'player-update' }, function (payload) {
+        try {
+          const s = payload && payload.payload;
+          if (!s || !s.id || s.id === localPlayerId()) return;
+          if (s.room && s.room !== currentRoom()) return;
+          MP.players[s.id] = s;
+        } catch (_) {}
+      })
+      .subscribe(async function (status) {
+        MP.connected = status === 'SUBSCRIBED';
+        MP.enabled = MP.connected;
+        if (MP.connected) {
+          try { await MP.channel.track(publicState()); } catch (_) {}
+          try { if (typeof makeText === 'function') makeText('온라인 서버 연결됨', game.player.x, game.player.y - 125, '#86efac'); } catch (_) {}
+        }
+      });
+  }
+
+  function sendSupabaseState() {
+    if (!game || !game.ready) return;
+    const now = Date.now();
+    if (now - MP.lastSend < 120) return;
+    MP.lastSend = now;
+    joinSupabaseRoom(false);
+    if (!MP.channel || !MP.connected) return;
+    const s = publicState();
+    try { MP.channel.track(s); } catch (_) {}
+    try { MP.channel.send({ type: 'broadcast', event: 'player-update', payload: s }); } catch (_) {}
+    Object.keys(MP.players).forEach(function (id) {
+      const p = MP.players[id];
+      if (!p || (p.at && now - p.at > 15000)) delete MP.players[id];
+    });
+  }
+
+  function drawSupabaseRemotePlayers() {
+    if (!game || !game.ready || !MP.players) return;
+    Object.keys(MP.players).forEach(function (id) {
+      const s = MP.players[id];
+      if (!s || s.room !== currentRoom()) return;
+      const fake = {
+        x: n(s.x, 0),
+        y: n(s.y, game.ground),
+        face: n(s.face, 1) || 1,
+        anim: s.anim || 'idle',
+        animTime: n(s.animTime, 0),
+        attackTime: 0,
+        hurtTime: 0,
+        character: Object.assign({ name: s.name || '유저', skin: '#ffd6a6', hair: '#2b160e', hairStyle: 'basic', faceStyle: 'normal' }, s.character || {})
+      };
+      try {
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        if (typeof drawPlayer === 'function') drawPlayer(fake, Math.round(fake.x), Math.round(fake.y), 0.74);
+        ctx.globalAlpha = 1;
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 13px sans-serif';
+        const label = (s.name || (fake.character && fake.character.name) || '유저') + ' Lv.' + (s.level || 1);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'rgba(15,23,42,.95)';
+        ctx.fillStyle = '#bfdbfe';
+        ctx.strokeText(label, Math.round(fake.x), Math.round(fake.y - 142));
+        ctx.fillText(label, Math.round(fake.x), Math.round(fake.y - 142));
+        ctx.restore();
+      } catch (_) {}
+    });
+  }
+
+  const prevUpdate = typeof update === 'function' ? update : null;
+  if (prevUpdate) {
+    update = window.update = function updateV36Final(dt) {
+      const out = prevUpdate.apply(this, arguments);
+      try { sendSupabaseState(); } catch (_) {}
+      return out;
+    };
+  }
+
+  const prevDraw = typeof draw === 'function' ? draw : null;
+  if (prevDraw) {
+    draw = window.draw = function drawV36Final() {
+      try {
+        // 기존 draw 안에서 원격 유저가 한 번 그려져도 문제 없고,
+        // V36 캐릭터 외형과 Supabase 유저는 항상 마지막에 안정적으로 보강합니다.
+        prevDraw.apply(this, arguments);
+        if (!game || !game.ready) return;
+        ctx.save();
+        ctx.translate(-Math.round(n(game.cameraX, 0)), 0);
+        drawSupabaseRemotePlayers();
+        ctx.restore();
+      } catch (e) {
+        console.error('[PixelRPG V36 draw fallback]', e);
+      }
+    };
+  }
+
+  const prevStartGame = typeof startGame === 'function' ? startGame : null;
+  if (prevStartGame) {
+    startGame = window.startGame = function startGameV36(save) {
+      const ret = prevStartGame.apply(this, arguments);
+      setTimeout(function () { try { joinSupabaseRoom(true); } catch (_) {} }, 300);
+      return ret;
+    };
+  }
+
+  window.PixelRpgSupabaseConfigHelp = function PixelRpgSupabaseConfigHelp(url, anonKey) {
+    if (url) localStorage.setItem('pixel-rpg-supabase-url', url);
+    if (anonKey) localStorage.setItem('pixel-rpg-supabase-key', anonKey);
+    MP.warningShown = false;
+    try { joinSupabaseRoom(true); } catch (_) {}
+    return 'Supabase 설정 저장 완료';
+  };
+
+  try { console.log('[PixelRPG] V36 final stable patch installed: natural hair + Supabase Realtime'); } catch (_) {}
+})();
