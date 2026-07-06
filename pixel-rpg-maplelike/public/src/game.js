@@ -1,6 +1,6 @@
 
 /* =========================================================
-   RAID BUILD GAME V8 - FLASHY SKILL FX + UNIQUE PLAYER RANKINGS FULL REPLACE public/src/game.js
+   RAID BUILD GAME V9 - STATUS SKILLS + MANUAL CLOUD SAVE FULL REPLACE public/src/game.js
    보스 레이드 + 가챠 + 보스별 랭킹 + 패턴 파훼 액션 게임
 
    적용 위치: public/src/game.js 전체 교체
@@ -14,7 +14,7 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Build Game V8.0 - Flashy Skill FX + Unique Rankings';
+  const VERSION = 'Raid Build Game V9.0 - Status Skills + Manual Cloud Save';
   const W = 1280;
   const H = 720;
   const SAVE_KEY = 'raid-build-v7-local-save';
@@ -206,36 +206,43 @@
   function ownedWeapons() { return WEAPONS.filter(w => state.save.weapons.includes(w.id)); }
   function ownedSkills(cat) { return SKILLS.filter(s => state.save.skills.includes(s.id) && (!cat || s.category === cat)); }
   function ownedPassives() { return PASSIVES.filter(p => state.save.passives.includes(p.id)); }
+  function skillCategoryName(cat) { return ({attack:'공격', buff:'버프', heal:'회복', debuff:'디버프', cleanse:'상태이상 해제', evasion:'회피'})[cat] || cat; }
 
   function buildSkills() {
+    // V9: 스킬 분류를 공격/버프/회복/디버프/상태이상 해제로 재구성했습니다.
     const attackNames = [
-      ['inferno_bloom','지옥화 개화','fire','burst'],['solar_spear','태양창 투척','solar','line'],['thunder_judgement','천둥 심판','lightning','chain'],['glacier_impale','빙하 관통','ice','line'],['void_collapse','공허 붕괴','void','burst'],['blade_rain','검우 낙하','metal','rain'],['venom_swamp','맹독 늪','poison','zone'],['dragon_tooth','용아 찌르기','fire','strike'],['moon_slash','월광 참격','arcane','line'],['meteor_call','운석 호출','fire','rain'],['tidal_crush','해일 압살','water','burst'],['starfall','성운 낙하','arcane','rain'],['soul_lance','영혼 창','spirit','line'],['quake_fist','대지권','earth','strike'],['ember_saw','화염 원반','fire','line'],['frost_ring','서리 고리','ice','burst'],['plasma_ray','플라즈마 광선','lightning','line'],['scarlet_mark','붉은 표식','blood','strike'],['thorn_prison','가시 감옥','nature','zone'],['comet_blade','혜성검','metal','line'],['dark_matter','암흑 물질','void','burst'],['sand_cutter','사막 절단','sand','line'],['holy_cross','성십자 폭발','solar','burst'],['gravity_hammer','중력 망치','gravity','strike'],['spirit_wolves','영혼 늑대','spirit','orb'],['lava_garden','용암 정원','fire','zone'],['ice_mirror','얼음 거울창','ice','rain'],['chaos_needle','혼돈 바늘','chaos','chain'],['blood_scythe','혈월 낫','blood','line'],['storm_falcon','폭풍 매','lightning','orb'],['crystal_barrage','수정 난사','arcane','rain'],['abyss_javelin','심연 투창','void','line'],['sunflare','태양섬광','solar','burst'],['toxic_drill','맹독 송곳','poison','line'],['iron_maw','강철 아가리','metal','strike'],['rose_burst','장미 폭발','nature','burst'],['time_spike','시간 가시','chrono','chain'],['star_cannon','별빛 포격','arcane','line'],['dragon_meteor','용성 낙하','fire','rain'],['ocean_blade','해류검','water','line']
-    ];
-    const evasionNames = [
-      ['phantom_roll','환영 구르기','void','dash'],['mist_step','안개 걸음','water','dash'],['lightning_blink','번개 점멸','lightning','dash'],['ice_slide','빙판 미끄러짐','ice','dash'],['wind_vault','질풍 도약','nature','dash'],['shadow_swap','그림자 교대','void','dash'],['mirror_escape','거울 탈출','mirror','dash'],['sand_burrow','모래 잠행','sand','dash'],['blood_reversal','혈류 역전','blood','heal'],['holy_guard','성역 방패','solar','shield'],['gravity_flip','중력 반전','gravity','dash'],['time_skip','시간 건너뛰기','chrono','dash'],['toxic_smoke','독안개 회피','poison','shield'],['iron_barrier','철벽 방패','metal','shield'],['petal_dance','꽃잎 춤','nature','dash'],['void_shell','공허 껍질','void','shield'],['storm_parry','폭풍 패리','lightning','shield'],['flame_rebirth','불꽃 소생','fire','heal'],['aqua_veil','물의 장막','water','shield'],['star_refuge','별빛 피난처','arcane','heal'],['phase_walk','위상 보행','chaos','dash'],['moon_guard','달빛 수호','arcane','shield'],['frost_skin','서리 피부','ice','shield'],['swift_mirage','쾌속 잔상','mirror','dash'],['last_breath','마지막 숨결','spirit','heal'],['comet_roll','혜성 구르기','solar','dash'],['needle_avoid','바늘 회피','metal','dash'],['thorn_guard','가시 수호','nature','shield'],['rift_jump','균열 점프','void','dash'],['guardian_pulse','수호 파동','solar','shield']
+      ['inferno_bloom','지옥화 개화','fire','burst'],['solar_spear','태양창 투척','solar','line'],['thunder_judgement','천둥 심판','lightning','chain'],['glacier_impale','빙하 관통','ice','line'],['void_collapse','공허 붕괴','void','burst'],['blade_rain','검우 낙하','metal','rain'],['dragon_tooth','용아 찌르기','fire','strike'],['moon_slash','월광 참격','arcane','line'],['meteor_call','운석 호출','fire','rain'],['tidal_crush','해일 압살','water','burst'],['starfall','성운 낙하','arcane','rain'],['soul_lance','영혼 창','spirit','line'],['quake_fist','대지권','earth','strike'],['ember_saw','화염 원반','fire','line'],['frost_ring','서리 고리','ice','burst'],['plasma_ray','플라즈마 광선','lightning','line'],['scarlet_mark','붉은 표식','blood','strike'],['thorn_prison','가시 감옥','nature','zone'],['comet_blade','혜성검','metal','line'],['dark_matter','암흑 물질','void','burst'],['sand_cutter','사막 절단','sand','line'],['holy_cross','성십자 폭발','solar','burst'],['gravity_hammer','중력 망치','gravity','strike'],['spirit_wolves','영혼 늑대','spirit','orb'],['lava_garden','용암 정원','fire','zone'],['ice_mirror','얼음 거울창','ice','rain'],['chaos_needle','혼돈 바늘','chaos','chain'],['blood_scythe','혈월 낫','blood','line'],['storm_falcon','폭풍 매','lightning','orb'],['crystal_barrage','수정 난사','arcane','rain'],['abyss_javelin','심연 투창','void','line'],['sunflare','태양섬광','solar','burst'],['iron_maw','강철 아가리','metal','strike'],['rose_burst','장미 폭발','nature','burst'],['time_spike','시간 가시','chrono','chain'],['star_cannon','별빛 포격','arcane','line'],['dragon_meteor','용성 낙하','fire','rain'],['ocean_blade','해류검','water','line'],['singularity_laser','특이점 광선','gravity','line']
     ];
     const buffNames = [
-      ['war_cry','전장의 함성','fire','buff_damage'],['arcane_overload','비전 과부하','arcane','buff_skill'],['eagle_eye','매의 눈','lightning','buff_crit'],['haste_field','가속장','wind','buff_speed'],['blood_pact','피의 계약','blood','buff_life'],['cooling_core','냉각 핵','ice','buff_cool'],['sun_banner','태양 깃발','solar','buff_damage'],['void_contract','공허 계약','void','buff_skill'],['iron_focus','강철 집중','metal','buff_crit'],['poison_drive','독성 구동','poison','buff_damage'],['nature_blessing','숲의 축복','nature','buff_life'],['sand_clock','모래시계','chrono','buff_cool'],['storm_engine','폭풍 엔진','lightning','buff_speed'],['mirror_mind','거울 정신','mirror','buff_crit'],['gravity_anchor','중력 닻','gravity','buff_damage'],['dragon_heart','용의 심장','fire','buff_damage'],['ocean_rhythm','해류 리듬','water','buff_cool'],['star_prayer','별의 기도','arcane','buff_life'],['chaos_ignite','혼돈 점화','chaos','buff_skill'],['spirit_chant','영혼 성가','spirit','buff_life'],['lunar_focus','달빛 집중','arcane','buff_crit'],['berserk_signal','광폭 신호','blood','buff_damage'],['frost_engine','서리 엔진','ice','buff_speed'],['toxic_adrenaline','맹독 아드레날린','poison','buff_speed'],['holy_oath','성스러운 맹세','solar','buff_life'],['void_accel','공허 가속','void','buff_cool'],['metal_overdrive','강철 오버드라이브','metal','buff_skill'],['wind_choir','바람 합창','wind','buff_speed'],['time_focus','시간 집중','chrono','buff_cool'],['origin_flame','근원의 불꽃','fire','buff_skill']
+      ['war_cry','전장의 함성','fire','buff_damage'],['arcane_overload','비전 과부하','arcane','buff_skill'],['eagle_eye','매의 눈','lightning','buff_crit'],['haste_field','가속장','wind','buff_speed'],['blood_pact','피의 계약','blood','buff_life'],['cooling_core','냉각 핵','ice','buff_cool'],['sun_banner','태양 깃발','solar','buff_damage'],['void_contract','공허 계약','void','buff_skill'],['iron_focus','강철 집중','metal','buff_crit'],['nature_blessing','숲의 축복','nature','buff_life'],['storm_engine','폭풍 엔진','lightning','buff_speed'],['mirror_mind','거울 정신','mirror','buff_crit'],['gravity_anchor','중력 닻','gravity','buff_damage'],['dragon_heart','용의 심장','fire','buff_damage'],['ocean_rhythm','해류 리듬','water','buff_cool'],['star_prayer','별의 기도','arcane','buff_life'],['chaos_ignite','혼돈 점화','chaos','buff_skill'],['spirit_chant','영혼 성가','spirit','buff_life'],['lunar_focus','달빛 집중','arcane','buff_crit'],['berserk_signal','광폭 신호','blood','buff_damage'],['frost_engine','서리 엔진','ice','buff_speed'],['holy_oath','성스러운 맹세','solar','buff_life'],['void_accel','공허 가속','void','buff_cool'],['metal_overdrive','강철 오버드라이브','metal','buff_skill'],['time_focus','시간 집중','chrono','buff_cool']
+    ];
+    const healNames = [
+      ['first_aid_light','응급 빛치유','solar','heal_small'],['water_mend','물결 봉합','water','heal_small'],['leaf_recover','새잎 회복','nature','heal_small'],['spirit_bandage','영혼 붕대','spirit','heal_small'],['moon_rest','달빛 휴식','arcane','heal_regen'],['holy_spring','성수 샘','solar','heal_zone'],['blood_return','혈류 회복','blood','heal_big'],['star_heal','별빛 치유','arcane','heal_big'],['aqua_sanctuary','물의 성역','water','heal_zone'],['phoenix_pulse','불사조 맥동','fire','heal_big'],['world_tree_grace','세계수 은총','nature','heal_big'],['origin_restore','근원 복원','spirit','heal_full']
+    ];
+    const debuffNames = [
+      ['venom_brand','맹독 낙인','poison','debuff_poison'],['ember_curse','화염 저주','fire','debuff_burn'],['frost_lock','빙결 족쇄','ice','debuff_freeze'],['thunder_bind','뇌전 속박','lightning','debuff_paralyze'],['slow_hourglass','감속 모래시계','chrono','debuff_slow'],['armor_melt','장갑 용해','fire','debuff_vulnerable'],['void_exhaust','공허 탈진','void','debuff_weaken'],['rose_thorn_mark','가시장미 표식','nature','debuff_poison'],['plague_seal','역병 봉인','poison','debuff_poison'],['gravity_shackle','중력 족쇄','gravity','debuff_slow'],['ice_coffin','얼음 관','ice','debuff_freeze'],['storm_stun','폭풍 기절','lightning','debuff_paralyze'],['blood_decay','혈월 부식','blood','debuff_vulnerable'],['mirror_crack','거울 균열','mirror','debuff_weaken'],['chaos_brand','혼돈 표식','chaos','debuff_vulnerable'],['abyss_sleep','심연 무력화','void','debuff_weaken'],['toxic_sun','독성 태양','poison','debuff_poison'],['time_rust','시간 부식','chrono','debuff_slow']
+    ];
+    const cleanseNames = [
+      ['cleanse_water','정화의 물결','water','cleanse_all'],['holy_purification','성스러운 정화','solar','cleanse_all'],['ice_dispel','빙결 해제','ice','cleanse_freeze'],['storm_grounding','전류 접지','lightning','cleanse_paralysis'],['antidote_bloom','해독의 꽃','nature','cleanse_poison'],['flame_seal','화상 봉인','fire','cleanse_burn'],['time_reset','시간 재정렬','chrono','cleanse_all'],['origin_purify','근원 정화','spirit','cleanse_all']
     ];
     const all = [];
-    function add(list, category) {
+    function add(list, category, rarityOffset) {
       list.forEach((a, i) => {
-        const rarity = pickFixedRarity(i, list.length);
+        const rarity = pickFixedRarity(i + (rarityOffset || 0), list.length + (rarityOffset || 0));
         const r = getRarity(rarity);
+        const basePower = category === 'attack' ? 0.96 + i * 0.018 : category === 'heal' ? 0.80 + i * 0.020 : category === 'debuff' ? 0.62 + i * 0.015 : category === 'cleanse' ? 0.92 + i * 0.015 : 1.0;
+        const baseCooldown = category === 'attack' ? 5.0 + (i % 8) * .38 : category === 'buff' ? 10.2 + (i % 7) * .55 : category === 'heal' ? 9.2 + (i % 6) * .62 : category === 'debuff' ? 8.4 + (i % 7) * .48 : 12.5 + (i % 5) * .70;
         all.push({
           id: a[0], name: a[1], element: a[2], type: a[3], category, rarity,
-          color: elementColor(a[2]),
-          power: (category === 'attack' ? 0.95 + i * 0.018 : category === 'evasion' ? 0.65 + i * 0.012 : 1.0) * r.power,
-          cooldown: (category === 'attack' ? 5.2 + (i % 8) * .45 : category === 'evasion' ? 8.0 + (i % 6) * .55 : 10.5 + (i % 7) * .55) / Math.min(1.28, r.power),
-          radius: 82 + (i % 7) * 12,
-          duration: category === 'buff' ? 5 + (i % 5) : (a[3] === 'zone' ? 3.6 : 1.0),
+          color: elementColor(a[2]), power: basePower * r.power,
+          cooldown: baseCooldown / Math.min(1.30, r.power),
+          radius: 86 + (i % 7) * 13,
+          duration: category === 'buff' ? 5 + (i % 5) : category === 'debuff' ? 4.8 + (i % 5) * .65 : (a[3] === 'zone' ? 3.8 : 1.0),
           desc: skillDesc(a[1], category, a[2], a[3])
         });
       });
     }
-    add(attackNames, 'attack');
-    add(evasionNames, 'evasion');
-    add(buffNames, 'buff');
+    add(attackNames, 'attack', 0); add(buffNames, 'buff', 4); add(healNames, 'heal', 10); add(debuffNames, 'debuff', 8); add(cleanseNames, 'cleanse', 20);
     return all.slice(0, 100);
   }
 
@@ -279,13 +286,16 @@
   }
   function skillDesc(name, cat, elem, type) {
     const kor = ({fire:'화염', solar:'태양', lightning:'번개', ice:'냉기', void:'공허', metal:'강철', poison:'독', arcane:'비전', water:'물', spirit:'영혼', earth:'대지', blood:'혈월', nature:'자연', sand:'모래', gravity:'중력', chrono:'시간', chaos:'혼돈', mirror:'거울', wind:'바람'})[elem] || '마력';
-    if (cat === 'attack') return kor + ' 속성 공격. 이름처럼 고유 이펙트와 타격 방식이 다릅니다.';
-    if (cat === 'evasion') return kor + ' 힘으로 회피하거나 방어합니다. 2번 키로 사용합니다.';
-    return kor + ' 기운으로 일정 시간 능력치를 강화합니다. 3번 키로 사용합니다.';
+    if (cat === 'attack') return kor + ' 속성 공격 스킬. 이름에 맞는 큰 투사체, 폭발, 광선, 낙하 이펙트가 발생합니다.';
+    if (cat === 'buff') return kor + ' 기운으로 일정 시간 피해, 치명타, 속도, 흡혈, 쿨타임을 강화합니다.';
+    if (cat === 'heal') return kor + ' 회복 스킬. 즉시 회복, 지속 회복, 회복 장판 중 하나로 체력을 회복합니다.';
+    if (cat === 'debuff') return kor + ' 디버프 스킬. 보스에게 화염, 독, 얼리기, 마비, 감속, 약화 효과를 부여합니다.';
+    if (cat === 'cleanse') return kor + ' 정화 스킬. 보스가 건 마비, 독, 화염, 얼리기, 슬로우를 해제하는 높은 등급 유틸 스킬입니다.';
+    return kor + ' 스킬입니다.';
   }
 
   function createDefaultSave() {
-    return { first: true, tickets: {...INITIAL_TICKETS}, coins: 0, weapons: [], skills: [], passives: [], playerName: 'Player', seenHelp: false };
+    return { first: true, tickets: {...INITIAL_TICKETS}, coins: 0, weapons: [], skills: [], passives: [], playerName: 'Player', seenHelp: false, build:{weapon:null, skills:[null,null,null], passives:[]} };
   }
   function loadSave() {
     try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (s) return s; } catch(e) {}
@@ -293,7 +303,7 @@
   }
   function normalizeSave() {
     state.save = normalizeSaveData(state.save);
-    saveGame();
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
   }
   function normalizeSaveData(data) {
     const s = Object.assign(createDefaultSave(), data || {});
@@ -304,22 +314,26 @@
     ['weapon','skill','passive'].forEach(k=>{ if(!Number.isFinite(s.tickets[k])) s.tickets[k] = INITIAL_TICKETS[k]; });
     if (!Number.isFinite(s.coins)) s.coins = 0;
     if (!s.playerName) s.playerName = localStorage.getItem('raid-build-player-name-v1') || 'Player';
+    if(!s.build||typeof s.build!=='object') s.build={weapon:null,skills:[null,null,null],passives:[]};
+    if(!Array.isArray(s.build.skills)) s.build.skills=[null,null,null];
+    if(!Array.isArray(s.build.passives)) s.build.passives=[];
     s.weapons = Array.from(new Set(s.weapons.filter(id=>getWeapon(id))));
     s.skills = Array.from(new Set(s.skills.filter(id=>getSkill(id))));
     s.passives = Array.from(new Set(s.passives.filter(id=>getPassive(id))));
     return s;
   }
   function saveGame() {
+    if(state && state.save){ state.save.build={weapon:state.selectedWeaponId||null, skills:(state.selectedSkillIds||[null,null,null]).slice(0,3), passives:(state.selectedPassiveIds||[]).slice()}; }
     state.save = normalizeSaveData(state.save);
     localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
     queueCloudSave();
   }
 
   function makePlayer() {
-    return { x: W/2, y: H-120, r:16, hp:100, maxHp:100, shield:0, speed:265, atk:100, magic:100, def:0, crit:8, critDmg:1.7, damageMul:1, skillDamageMul:1, basicDamageMul:1, cooldownMul:1, areaMul:1, projectileSpeedMul:1, lifesteal:0, regen:.7, invuln:0, slow:0, roll:0, rollCd:0, rollCdBonus:0, rollVx:0, rollVy:0, basicCd:0, skillCd:[0,0,0], damageTaken:0, aim:0, face:1, anim:0, attackAnim:0, attackAngle:0, tempBuffs:[] };
+    return { x: W/2, y: H-120, r:16, hp:100, maxHp:100, shield:0, speed:265, atk:100, magic:100, def:0, crit:8, critDmg:1.7, damageMul:1, skillDamageMul:1, basicDamageMul:1, cooldownMul:1, areaMul:1, projectileSpeedMul:1, lifesteal:0, regen:.7, invuln:0, slow:0, roll:0, rollCd:0, rollCdBonus:0, rollVx:0, rollVy:0, basicCd:0, skillCd:[0,0,0], damageTaken:0, aim:0, face:1, anim:0, attackAnim:0, attackAngle:0, tempBuffs:[], statuses:{burn:0,poison:0,freeze:0,paralysis:0,slow:0}, statusTick:0 };
   }
   function makeBoss(b) {
-    return { id:b.id, name:b.name, tier:b.tier, theme:b.theme, x:W/2, y:150, r:44+b.tier*6, hp:b.hp, maxHp:b.hp, atk:b.atk, speed:b.speed, color:b.color, sub:b.sub, ai:0, patternCd:1.2, phase:1, vulnerable:0, guard:0, dead:false, hit:0, mechanicText:'패턴을 파훼하면 약화됩니다.', clones:[], realIndex:0, charge:0, vx:0, vy:0 };
+    return { id:b.id, name:b.name, tier:b.tier, theme:b.theme, x:W/2, y:150, r:44+b.tier*6, hp:b.hp, maxHp:b.hp, atk:b.atk, speed:b.speed, color:b.color, sub:b.sub, ai:0, patternCd:1.2, phase:1, vulnerable:0, guard:0, dead:false, hit:0, mechanicText:'패턴을 파훼하면 약화됩니다.', clones:[], realIndex:0, charge:0, vx:0, vy:0, statuses:{burn:0,poison:0,freeze:0,paralysis:0,slow:0,weaken:0,vulnerable:0}, statusTick:0 };
   }
 
   function hideLegacyDom() { ['auth','characterScreen','characterMenu','hudHelp'].forEach(id=>{const n=document.getElementById(id); if(n) n.style.display='none';}); }
@@ -448,7 +462,21 @@
       state.cloudStatus = '계정 저장 실패';
     }
   }
+  async function manualSaveProfile() {
+    saveGame();
+    state.cloudStatus = '수동 저장 중...';
+    renderMenu();
+    await saveCloudProfileNow();
+    state.cloudStatus = state.currentUser ? '수동 저장 완료' : '로컬 수동 저장 완료';
+    renderMenu();
+  }
+
   function trimSelectionsToOwned(){
+    if(state.save && state.save.build){
+      if(!state.selectedWeaponId && state.save.build.weapon) state.selectedWeaponId = state.save.build.weapon;
+      if((!state.selectedSkillIds || !state.selectedSkillIds.some(Boolean)) && Array.isArray(state.save.build.skills)) state.selectedSkillIds = state.save.build.skills.slice(0,3);
+      if((!state.selectedPassiveIds || !state.selectedPassiveIds.length) && Array.isArray(state.save.build.passives)) state.selectedPassiveIds = state.save.build.passives.slice();
+    }
     const sw = new Set(state.save.weapons), ss = new Set(state.save.skills), sp = new Set(state.save.passives);
     if(state.selectedWeaponId && !sw.has(state.selectedWeaponId)) state.selectedWeaponId = null;
     state.selectedSkillIds = (state.selectedSkillIds || [state.selectedAttackSkillId,state.selectedEvasionSkillId,state.selectedBuffSkillId]).map(id => id && ss.has(id) ? id : null).slice(0,3);
@@ -477,7 +505,7 @@
     if(state.menuTab==='gacha') body = renderGachaTab();
     if(state.menuTab==='build') body = renderBuildTab();
     if(state.menuTab==='ranking') body = renderRankingTab();
-    ui.menu.innerHTML = `<div class="row"><div><h1 class="title">보스 레이드 빌드 게임 V7</h1><p class="sub">보스를 선택하고, 티켓으로 무기/스킬/패시브를 뽑아 조합한 뒤 패턴을 파훼해서 클리어하세요.</p></div><div style="text-align:right"><div class="chip">${VERSION}</div><div class="chip">${escapeHtml(state.save.playerName || 'Player')}</div><div class="chip">무기티켓 ${state.save.tickets.weapon}</div><div class="chip">스킬티켓 ${state.save.tickets.skill}</div><div class="chip">패시브티켓 ${state.save.tickets.passive}</div><div class="chip">${escapeHtml(state.cloudStatus || '계정 저장')}</div><button id="logoutBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">로그아웃</button></div></div>${nav}${body}`;
+    ui.menu.innerHTML = `<div class="row"><div><h1 class="title">보스 레이드 빌드 게임 V9</h1><p class="sub">보스를 선택하고, 티켓으로 무기/스킬/패시브를 뽑아 조합한 뒤 패턴을 파훼해서 클리어하세요.</p></div><div style="text-align:right"><div class="chip">${VERSION}</div><div class="chip">${escapeHtml(state.save.playerName || 'Player')}</div><div class="chip">무기티켓 ${state.save.tickets.weapon}</div><div class="chip">스킬티켓 ${state.save.tickets.skill}</div><div class="chip">패시브티켓 ${state.save.tickets.passive}</div><div class="chip">${escapeHtml(state.cloudStatus || '계정 저장')}</div><button id="manualSaveBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">수동 저장</button> <button id="logoutBtn" class="btn secondary" style="margin-top:8px;padding:8px 12px">로그아웃</button></div></div>${nav}${body}`;
     ui.menu.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{state.menuTab=b.dataset.tab; renderMenu();});
     bindMenuButtons();
   }
@@ -488,7 +516,7 @@
   function renderGachaTab() {
     const rates = RARITIES.map(r=>`<span class="chip" style="color:${r.color}">${r.name}</span>`).join('');
     const result = state.gachaResult ? `<div class="gacha-result"><div style="font-size:14px;color:${getRarity(state.gachaResult.rarity).color};font-weight:950">${getRarity(state.gachaResult.rarity).name}</div><div style="font-size:25px;font-weight:950;color:#fff;margin:4px 0">${state.gachaResult.name}</div><p class="sub">${state.gachaResult.desc||'새로운 항목을 획득했습니다.'}</p></div>` : '';
-    return `<h2 class="title" style="font-size:22px">뽑기 상점</h2><p class="sub">코인이 아니라 보스 클리어로 얻는 티켓으로 뽑습니다. 스킬 뽑기에는 공격형, 회피형, 버프형이 모두 들어 있습니다.<br>${rates}</p><div class="grid"><div class="card"><h3>무기 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.weapon}장<br>검, 활, 채찍, 스태프, 단검, 대검, 마도총 등 무기를 획득합니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="weapon">무기 뽑기</button></div><div class="card"><h3>스킬 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.skill}장<br>공격, 회피, 버프 스킬 중 하나를 획득합니다. 총 100종류입니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="skill">스킬 뽑기</button></div><div class="card"><h3>패시브 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.passive}장<br>보스 난이도에 따라 1~5개 장착 가능한 패시브를 획득합니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="passive">패시브 뽑기</button></div><div class="card"><h3>보유 현황</h3><p>무기 ${state.save.weapons.length}/${WEAPONS.length}<br>스킬 ${state.save.skills.length}/${SKILLS.length}<br>패시브 ${state.save.passives.length}/${PASSIVES.length}</p></div></div>${result}`;
+    return `<h2 class="title" style="font-size:22px">뽑기 상점</h2><p class="sub">코인이 아니라 보스 클리어로 얻는 티켓으로 뽑습니다. 스킬 뽑기에는 공격, 버프, 회복, 디버프, 상태이상 해제가 모두 들어 있습니다.<br>${rates}</p><div class="grid"><div class="card"><h3>무기 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.weapon}장<br>검, 활, 채찍, 스태프, 단검, 대검, 마도총 등 무기를 획득합니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="weapon">무기 뽑기</button></div><div class="card"><h3>스킬 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.skill}장<br>공격, 버프, 회복, 디버프, 상태이상 해제 스킬 중 하나를 획득합니다. 총 100종류입니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="skill">스킬 뽑기</button></div><div class="card"><h3>패시브 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.passive}장<br>보스 난이도에 따라 1~5개 장착 가능한 패시브를 획득합니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="passive">패시브 뽑기</button></div><div class="card"><h3>보유 현황</h3><p>무기 ${state.save.weapons.length}/${WEAPONS.length}<br>스킬 ${state.save.skills.length}/${SKILLS.length}<br>패시브 ${state.save.passives.length}/${PASSIVES.length}</p></div></div>${result}`;
   }
   function renderBuildTab() {
     const steps = [['weapon','무기'],['skill1','스킬 1'],['skill2','스킬 2'],['skill3','스킬 3'],['passive','패시브'],['ready','출격']];
@@ -506,15 +534,15 @@
     const items = ownedSkills();
     const selected = state.selectedSkillIds[slot] || null;
     const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id=""><h3>스킬 ${slot+1} 비우기</h3><p>스킬을 끼지 않아도 레이드는 시작할 수 있습니다.</p></div>`;
-    if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 스킬이 없습니다.</h3><p>스킬 뽑기에서 공격형, 회피형, 버프형 스킬을 모두 획득할 수 있습니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
-    return `<p class="sub">스킬 ${slot+1}번 칸입니다. 공격형/회피형/버프형 구분 없이 원하는 스킬을 장착할 수 있습니다. 같은 스킬은 한 번만 장착됩니다.</p><div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>분류: ${({attack:'공격',evasion:'회피',buff:'버프'})[it.category]} · 속성: ${it.element}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
+    if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 스킬이 없습니다.</h3><p>스킬 뽑기에서 공격, 버프, 회복, 디버프, 상태이상 해제 스킬을 모두 획득할 수 있습니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
+    return `<p class="sub">스킬 ${slot+1}번 칸입니다. 공격/버프/회복/디버프/상태이상 해제 구분 없이 원하는 스킬을 장착할 수 있습니다. 같은 스킬은 한 번만 장착됩니다.</p><div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>분류: ${skillCategoryName(it.category)} · 속성: ${it.element}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
   }
   function selectionGrid(items, selected, type) {
     const noneTitle = type === 'weapon' ? '무기 없이 출격' : '이 스킬칸 비우기';
     const noneDesc = type === 'weapon' ? '스킬만 가지고 레이드에 들어갈 수 있습니다. 일반공격은 사용할 수 없습니다.' : '스킬을 끼지 않아도 레이드는 시작할 수 있습니다.';
     const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="${type}" data-select-id=""><h3>${noneTitle}</h3><p>${noneDesc}</p></div>`;
     if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 항목이 없습니다.</h3><p>뽑기 상점에서 먼저 획득할 수 있습니다. 그래도 다른 장비/스킬이 있으면 출격은 가능합니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
-    return `<div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="${type}" data-select-id="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>${it.category?('분류: '+({attack:'공격',evasion:'회피',buff:'버프'})[it.category]):('종류: '+weaponKindName(it.kind))}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
+    return `<div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="${type}" data-select-id="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>${it.category?('분류: '+skillCategoryName(it.category)):('종류: '+weaponKindName(it.kind))}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button class="btn secondary" data-prev-step>이전</button><button class="btn" data-next-step>다음</button></div>`;
   }
   function passiveGrid() {
     const items = ownedPassives(); const limit = passiveLimit();
@@ -544,6 +572,7 @@
     const prev=ui.menu.querySelector('[data-prev-step]'); if(prev) prev.onclick=()=>stepMove(-1);
     const next=ui.menu.querySelector('[data-next-step]'); if(next) next.onclick=()=>stepMove(1);
     const start=ui.menu.querySelector('#startRaid'); if(start) start.onclick=startRaid;
+    const manualSaveBtn=ui.menu.querySelector('#manualSaveBtn'); if(manualSaveBtn) manualSaveBtn.onclick=()=>manualSaveProfile();
     const rb=ui.menu.querySelector('#rankBoss'); if(rb) rb.onchange=()=>{state.rankingBossId=rb.value; refreshRankings(rb.value); renderMenu();};
   }
   function selectBuild(type,id,slot){
@@ -560,10 +589,11 @@
       state.selectedEvasionSkillId = state.selectedSkillIds[1];
       state.selectedBuffSkillId = state.selectedSkillIds[2];
     }
+    saveGame();
     renderMenu();
   }
   function stepMove(dir){ const arr=['weapon','skill1','skill2','skill3','passive','ready']; let i=arr.indexOf(state.buildStep); i=clamp(i+dir,0,arr.length-1); state.buildStep=arr[i]; renderMenu(); }
-  function togglePassive(id){ const limit=passiveLimit(); const i=state.selectedPassiveIds.indexOf(id); if(i>=0) state.selectedPassiveIds.splice(i,1); else if(state.selectedPassiveIds.length<limit) state.selectedPassiveIds.push(id); else toast('이 보스는 패시브 '+limit+'개까지만 선택할 수 있습니다.'); renderMenu(); }
+  function togglePassive(id){ const limit=passiveLimit(); const i=state.selectedPassiveIds.indexOf(id); if(i>=0) state.selectedPassiveIds.splice(i,1); else if(state.selectedPassiveIds.length<limit) state.selectedPassiveIds.push(id); else toast('이 보스는 패시브 '+limit+'개까지만 선택할 수 있습니다.'); saveGame(); renderMenu(); }
   function trimSelectedPassives(){ const owned = new Set(state.save.passives); state.selectedPassiveIds = state.selectedPassiveIds.filter(id=>owned.has(id)).slice(0, passiveLimit()); }
   function canStart(){ const hasWeapon=!!state.selectedWeaponId; const hasSkill=(state.selectedSkillIds||[]).some(Boolean); return (hasWeapon || hasSkill) && state.selectedPassiveIds.length <= passiveLimit(); }
 
@@ -624,7 +654,18 @@
   }
   function togglePause(){ if(state.screen==='raid'){state.screen='paused'; ui.right.classList.remove('hidden'); ui.right.innerHTML='<h1 class="title">일시정지</h1><p class="sub">P 또는 ESC로 계속합니다.</p><button id="pauseMenu" class="btn secondary">메뉴로</button>'; ui.right.querySelector('#pauseMenu').onclick=renderMenu;} else if(state.screen==='paused'){state.screen='raid'; ui.right.classList.add('hidden'); state.last=performance.now();} }
 
-  function update(dt){ state.time+=dt; state.shake=Math.max(0,state.shake-dt*18); state.flash=Math.max(0,state.flash-dt*4); state.messageTime=Math.max(0,state.messageTime-dt); updateParticles(dt); updateTexts(dt); if(state.screen!=='raid'||!state.raid) return; state.raid.elapsed+=dt; updatePlayer(dt); updateBuffs(dt); updateBoss(dt); updateProjectiles(dt); updateHazards(dt); updateZones(dt); updateMechanics(dt); checkEnd(); }
+  function update(dt){ state.time+=dt; state.shake=Math.max(0,state.shake-dt*18); state.flash=Math.max(0,state.flash-dt*4); state.messageTime=Math.max(0,state.messageTime-dt); updateParticles(dt); updateTexts(dt); if(state.screen!=='raid'||!state.raid) return; state.raid.elapsed+=dt; updatePlayer(dt); updateBuffs(dt); updateStatusEffects(dt); updateBoss(dt); updateProjectiles(dt); updateHazards(dt); updateZones(dt); updateMechanics(dt); checkEnd(); }
+  function updateStatusEffects(dt){
+    const pst = player.statuses || (player.statuses={burn:0,poison:0,freeze:0,paralysis:0,slow:0});
+    Object.keys(pst).forEach(k=>pst[k]=Math.max(0,(pst[k]||0)-dt));
+    player.statusTick=(player.statusTick||0)-dt;
+    if(player.statusTick<=0){ player.statusTick=.5; if(pst.burn>0) hurtPlayer(3,'#fb7185',true); if(pst.poison>0) hurtPlayer(2,'#bef264',true); }
+    if(pst.slow>0) player.slow=Math.max(player.slow,.2);
+    if(pst.freeze>0 || pst.paralysis>0) player.slow=Math.max(player.slow,.2);
+    const bst = boss && (boss.statuses || (boss.statuses={burn:0,poison:0,freeze:0,paralysis:0,slow:0,weaken:0,vulnerable:0}));
+    if(bst){ Object.keys(bst).forEach(k=>bst[k]=Math.max(0,(bst[k]||0)-dt)); boss.statusTick=(boss.statusTick||0)-dt; if(boss.statusTick<=0){ boss.statusTick=.5; if(bst.burn>0) damageBoss(85,'#fb7185',false); if(bst.poison>0) damageBoss(65,'#bef264',false); } }
+  }
+
   function updatePlayer(dt){
     let dx=0,dy=0;
     if(keys.has('w')||keys.has('arrowup'))dy--;
@@ -634,7 +675,10 @@
     const len=Math.hypot(dx,dy)||1;
     if(dx||dy){ player.aim=Math.atan2(dy,dx); if(dx<0) player.face=-1; if(dx>0) player.face=1; }
     else if(mouse.down){ player.aim=Math.atan2(mouse.y-player.y, mouse.x-player.x); player.face=Math.cos(player.aim)>=0?1:-1; }
-    const moveSpeed=player.speed*(player.slow>0?.55:1);
+    const disabled=(player.statuses&&((player.statuses.freeze||0)>0||(player.statuses.paralysis||0)>0));
+    if(disabled){ dx=0; dy=0; len=1; }
+    const statusSlow = player.statuses && (player.statuses.slow||0)>0;
+    const moveSpeed=player.speed*((player.slow>0||statusSlow)?.55:1);
     player.x+=dx/len*moveSpeed*dt;
     player.y+=dy/len*moveSpeed*dt;
     if(player.roll>0){ player.x += player.rollVx*dt; player.y += player.rollVy*dt; }
@@ -649,7 +693,7 @@
       burst(player.x,player.y,'#93c5fd',28,290); floatText('ROLL',player.x,player.y-26,'#93c5fd');
     }
   }
-  function updateBuffs(dt){ if(!player.tempBuffs) return; for(let i=player.tempBuffs.length-1;i>=0;i--){const b=player.tempBuffs[i]; b.life-=dt; if(b.life<=0){ if(b.damageMul) player.damageMul/=b.damageMul; if(b.skillDamageMul) player.skillDamageMul/=b.skillDamageMul; if(b.speedMul) player.speed/=b.speedMul; if(b.cooldownMul) player.cooldownMul/=b.cooldownMul; if(b.critAdd) player.crit-=b.critAdd; if(b.critDmgAdd) player.critDmg-=b.critDmgAdd; if(b.lifestealAdd) player.lifesteal-=b.lifestealAdd; player.tempBuffs.splice(i,1); } } }
+  function updateBuffs(dt){ if(!player.tempBuffs) return; for(let i=player.tempBuffs.length-1;i>=0;i--){const b=player.tempBuffs[i]; b.life-=dt; if(b.life<=0){ if(b.damageMul) player.damageMul/=b.damageMul; if(b.skillDamageMul) player.skillDamageMul/=b.skillDamageMul; if(b.speedMul) player.speed/=b.speedMul; if(b.cooldownMul) player.cooldownMul/=b.cooldownMul; if(b.critAdd) player.crit-=b.critAdd; if(b.critDmgAdd) player.critDmg-=b.critDmgAdd; if(b.lifestealAdd) player.lifesteal-=b.lifestealAdd; if(b.regenAdd) player.regen-=b.regenAdd; player.tempBuffs.splice(i,1); } } }
 
   function basicAttack(){
     if(!state.raid||player.basicCd>0) return;
@@ -681,7 +725,7 @@
   }
   function aimAngle(){ if(mouse.down && Math.hypot(mouse.x-player.x,mouse.y-player.y)>8) return Math.atan2(mouse.y-player.y,mouse.x-player.x); return player.aim || (player.face>=0 ? 0 : Math.PI); }
 
-  function useSkill(i){ if(!state.raid) return; const s=state.raid.skills[i]; if(!s||player.skillCd[i]>0) return; player.skillCd[i]=s.cooldown*player.cooldownMul; const power=(player.atk+player.magic)*.5*s.power*player.skillDamageMul; const angle=aimAngle(); const r=s.radius*player.areaMul; player.attackAnim=.22; player.attackAngle=angle; if(Math.cos(angle)<0)player.face=-1; if(Math.cos(angle)>0)player.face=1; if(s.category==='attack'){ castAttackSkill(s,power,angle,r); } else if(s.category==='evasion'){ castEvasionSkill(s,power,angle,r); } else { castBuffSkill(s,power); } }
+  function useSkill(i){ if(!state.raid) return; const s=state.raid.skills[i]; if(!s||player.skillCd[i]>0) return; player.skillCd[i]=s.cooldown*player.cooldownMul; const power=(player.atk+player.magic)*.5*s.power*player.skillDamageMul; const angle=aimAngle(); const r=s.radius*player.areaMul; player.attackAnim=.22; player.attackAngle=angle; if(Math.cos(angle)<0)player.face=-1; if(Math.cos(angle)>0)player.face=1; if(s.category==='attack'){ castAttackSkill(s,power,angle,r); } else if(s.category==='buff'){ castBuffSkill(s,power); } else if(s.category==='heal'){ castHealSkill(s,power,r); } else if(s.category==='debuff'){ castDebuffSkill(s,power,angle,r); } else if(s.category==='cleanse'){ castCleanseSkill(s,power,r); } else { castBuffSkill(s,power); } }
   function castAttackSkill(s,power,angle,r){
     const rare = getRarity(s.rarity);
     const flashMul = {normal:1, rare:1.2, super:1.45, epic:1.9, legendary:2.45, ultimate:3.2}[s.rarity] || 1;
@@ -770,8 +814,36 @@
 
   function castEvasionSkill(s,power,angle,r){ if(s.type==='dash'){ player.invuln=.48; player.x=clamp(player.x+Math.cos(angle)*185,42,W-42); player.y=clamp(player.y+Math.sin(angle)*185,90,H-42); damageBossRange(130,power*1.1,s.color); burst(player.x,player.y,s.color,36,260); } else if(s.type==='heal'){ const heal=Math.floor(160+player.maxHp*.13+power*.28); player.hp=Math.min(player.maxHp,player.hp+heal); player.invuln=.28; healText('+'+heal,player.x,player.y-30); burst(player.x,player.y,s.color,30,220); } else { player.shield += Math.floor(160+power*.42); player.invuln=Math.max(player.invuln,.25); state.zones.push({x:player.x,y:player.y,r:r*.72,damage:power*.55,life:.25,color:s.color,once:true}); burst(player.x,player.y,s.color,32,230); } }
   function castBuffSkill(s,power){ const d=s.duration||6; const b={life:d,name:s.name,color:s.color}; if(s.type==='buff_damage'){b.damageMul=1.24; player.damageMul*=b.damageMul;} if(s.type==='buff_skill'){b.skillDamageMul=1.30; player.skillDamageMul*=b.skillDamageMul;} if(s.type==='buff_crit'){b.critAdd=18;b.critDmgAdd=.28;player.crit+=b.critAdd;player.critDmg+=b.critDmgAdd;} if(s.type==='buff_speed'){b.speedMul=1.22;b.cooldownMul=.88;player.speed*=b.speedMul;player.cooldownMul*=b.cooldownMul;} if(s.type==='buff_life'){b.lifestealAdd=.035;b.damageMul=1.10;player.lifesteal+=b.lifestealAdd;player.damageMul*=b.damageMul;} if(s.type==='buff_cool'){b.cooldownMul=.80;player.cooldownMul*=b.cooldownMul;} player.tempBuffs.push(b); burst(player.x,player.y,s.color,34,240); floatText(s.name,player.x,player.y-42,s.color); }
+  function castHealSkill(s,power,r){
+    const fx = rarityFxMul(s.rarity);
+    fancySupportEffect(s, player.x, player.y, r, fx);
+    let heal = Math.floor(16 + power * .13 + player.maxHp * (.10 + fx * .025));
+    if(s.type==='heal_big') heal = Math.floor(heal * 1.65);
+    if(s.type==='heal_full') heal = Math.floor(player.maxHp * .72);
+    if(s.type==='heal_regen') { const b={life:6+fx,name:s.name,color:s.color,regenAdd:3+fx*1.8}; player.regen += b.regenAdd; player.tempBuffs.push(b); heal = Math.floor(heal * .72); }
+    if(s.type==='heal_zone') { state.zones.push({x:player.x,y:player.y,r:95+fx*28,damage:-Math.max(5,Math.floor(heal*.28)),life:4.2+fx*.35,tick:0,color:s.color,heal:true}); heal = Math.floor(heal * .55); }
+    player.hp = Math.min(player.maxHp, player.hp + heal); player.invuln = Math.max(player.invuln, .18 + fx*.035); healText('+'+heal, player.x, player.y-34); floatText(s.name,player.x,player.y-58,s.color);
+  }
+  function castDebuffSkill(s,power,angle,r){
+    const fx=rarityFxMul(s.rarity); fancyDebuffEffect(s, boss.x, boss.y, r, fx); const d=s.duration || 5; if(!boss.statuses) boss.statuses={burn:0,poison:0,freeze:0,paralysis:0,slow:0,weaken:0,vulnerable:0};
+    if(s.type==='debuff_burn'){ boss.statuses.burn=Math.max(boss.statuses.burn,d+fx*.45); damageBoss(power*.9,s.color,true); }
+    else if(s.type==='debuff_poison'){ boss.statuses.poison=Math.max(boss.statuses.poison,d+fx*.55); damageBoss(power*.55,s.color,false); }
+    else if(s.type==='debuff_freeze'){ boss.statuses.freeze=Math.max(boss.statuses.freeze,Math.min(3.2,d*.42+fx*.22)); boss.vulnerable=Math.max(boss.vulnerable,.8+fx*.18); }
+    else if(s.type==='debuff_paralyze'){ boss.statuses.paralysis=Math.max(boss.statuses.paralysis,Math.min(2.8,d*.38+fx*.20)); boss.patternCd+=.6+fx*.12; }
+    else if(s.type==='debuff_slow'){ boss.statuses.slow=Math.max(boss.statuses.slow,d+fx*.65); }
+    else if(s.type==='debuff_weaken'){ boss.statuses.weaken=Math.max(boss.statuses.weaken,d+fx*.45); }
+    else if(s.type==='debuff_vulnerable'){ boss.statuses.vulnerable=Math.max(boss.statuses.vulnerable,d+fx*.35); boss.vulnerable=Math.max(boss.vulnerable,1.0+fx*.22); }
+    floatText(s.name,boss.x,boss.y-boss.r-44,s.color,18); burst(boss.x,boss.y,s.color,Math.floor(36*fx),260*fx);
+  }
+  function castCleanseSkill(s,power,r){
+    const fx=rarityFxMul(s.rarity); let removed=0; const st=player.statuses || {}; const clearAll=s.type==='cleanse_all'; const map={cleanse_freeze:['freeze','slow'],cleanse_paralysis:['paralysis','slow'],cleanse_poison:['poison'],cleanse_burn:['burn']}; const list=clearAll?['burn','poison','freeze','paralysis','slow']:(map[s.type]||['burn','poison','freeze','paralysis','slow']);
+    list.forEach(k=>{ if((st[k]||0)>0) removed++; st[k]=0; }); player.slow=0; const shield=Math.floor(10+power*.11+fx*10); player.shield += shield; player.hp=Math.min(player.maxHp, player.hp + Math.floor(6+fx*4)); player.invuln=Math.max(player.invuln,.28+fx*.045); fancySupportEffect(s, player.x, player.y, r, fx); healText(removed?('정화 '+removed):'정화 보호막', player.x, player.y-36); floatText(s.name,player.x,player.y-60,s.color,18);
+  }
+  function fancySupportEffect(s,x,y,r,fx){ const c=s.color; state.particles.push({kind:'ring',x,y,vx:0,vy:0,r:45*fx,life:.55,color:c,line:3+fx}); state.particles.push({kind:'ring',x,y,vx:0,vy:0,r:72*fx,life:.72,color:'#ffffff',line:1.4+fx*.25}); for(let i=0;i<Math.floor(20*fx);i++){ const a=Math.random()*Math.PI*2, rr=rand(15,75)*fx*.55; state.particles.push({kind:'star',x:x+Math.cos(a)*rr,y:y+Math.sin(a)*rr,vx:Math.cos(a)*rand(20,160),vy:Math.sin(a)*rand(20,160)-40,r:rand(3,8)*fx*.35,life:rand(.4,1.0),color:i%4===0?'#ffffff':c}); } burst(x,y,c,Math.floor(24*fx),190*fx); if(fx>=3) state.flash=Math.max(state.flash,.22); }
+  function fancyDebuffEffect(s,x,y,r,fx){ const c=s.color; state.particles.push({kind:'ring',x,y,vx:0,vy:0,r:55*fx,life:.58,color:c,line:3+fx}); for(let i=0;i<Math.floor(18*fx);i++){ const a=Math.random()*Math.PI*2; state.particles.push({kind:'line',x:x+Math.cos(a)*rand(18,90),y:y+Math.sin(a)*rand(18,90),vx:-Math.cos(a)*rand(60,250),vy:-Math.sin(a)*rand(60,250),r:rand(5,12)*fx*.28,life:rand(.25,.75),color:c,angle:a+Math.PI,len:rand(24,70)*fx*.42}); } if(s.type.includes('poison')) state.zones.push({x,y,r:70+fx*24,damage:0,life:.55,color:c,dot:true}); if(s.type.includes('freeze')) for(let i=0;i<12*fx;i++) state.particles.push({kind:'star',x:x+rand(-r,r),y:y+rand(-r,r),vx:rand(-50,50),vy:rand(-80,50),r:rand(4,9),life:rand(.4,.9),color:'#bae6fd'}); if(s.type.includes('paralyze')) for(let i=0;i<8*fx;i++) state.particles.push({kind:'line',x:x+rand(-r,r),y:y-rand(50,140),vx:0,vy:rand(220,520),r:3+fx,life:.22,color:'#fde047',angle:Math.PI/2,len:rand(50,120)}); }
 
-  function updateBoss(dt){ if(boss.dead) return; boss.ai+=dt; boss.hit=Math.max(0,boss.hit-dt); boss.vulnerable=Math.max(0,boss.vulnerable-dt); boss.patternCd-=dt; const dx=player.x-boss.x,dy=player.y-boss.y,dist=Math.hypot(dx,dy)||1; const chase=(boss.vulnerable>0?.35:1); boss.x+=dx/dist*boss.speed*chase*dt*.35; boss.y+=dy/dist*boss.speed*chase*dt*.20; boss.x=clamp(boss.x,90,W-90); boss.y=clamp(boss.y,100,H-120); if(dist<boss.r+player.r+4) hurtPlayer(boss.atk*dt*3.5,boss.color); if(boss.patternCd<=0){ bossPattern(); boss.patternCd=Math.max(.75,2.8-boss.tier*.22+Math.random()*.8); } }
+
+  function updateBoss(dt){ if(boss.dead) return; if(boss.statuses&&((boss.statuses.freeze||0)>0||(boss.statuses.paralysis||0)>0)){ boss.hit=Math.max(0,boss.hit-dt); boss.vulnerable=Math.max(0,boss.vulnerable-dt); return; } boss.ai+=dt; boss.hit=Math.max(0,boss.hit-dt); boss.vulnerable=Math.max(0,boss.vulnerable-dt); boss.patternCd-=dt; const dx=player.x-boss.x,dy=player.y-boss.y,dist=Math.hypot(dx,dy)||1; const chase=(boss.vulnerable>0?.35:1); boss.x+=dx/dist*boss.speed*chase*dt*.35; boss.y+=dy/dist*boss.speed*chase*dt*.20; boss.x=clamp(boss.x,90,W-90); boss.y=clamp(boss.y,100,H-120); if(dist<boss.r+player.r+4) hurtPlayer(boss.atk*dt*3.5,boss.color); if(boss.patternCd<=0){ bossPattern(); boss.patternCd=Math.max(.75,2.8-boss.tier*.22+Math.random()*.8); } }
   function bossPattern(){ const t=boss.theme; boss.mechanicText=''; if(t==='fire'||t==='solar') firePattern(); else if(t==='ice') icePattern(); else if(t==='lightning') lightningPattern(); else if(t==='void') voidPattern(); else if(t==='nature') naturePattern(); else if(t==='sand') sandPattern(); else if(t==='metal') metalPattern(); else if(t==='blood') bloodPattern(); else if(t==='poison') poisonPattern(); else if(t==='mirror') mirrorPattern(); else if(t==='gravity') gravityPattern(); else if(t==='chrono') chronoPattern(); else if(t==='chaos') chaosPattern(); else slimePattern(); }
   function slimePattern(){ boss.mechanicText='젤리 점프: 착지 원 밖으로 피하세요.'; warningCircle(player.x,player.y,70,.55,'#7ddf64',boss.atk*1.0); radialBullets(boss.x,boss.y,8,180,'#dbffb6',boss.atk*.7); }
   function firePattern(){ boss.mechanicText='화염 패턴: 용암 장판을 피하고 안전지대를 찾으세요.'; for(let i=0;i<4+boss.tier;i++) warningCircle(rand(100,W-100),rand(130,H-80),45+boss.tier*5,.55,boss.color,boss.atk*1.1,true); radialBullets(boss.x,boss.y,10+boss.tier*2,230,boss.color,boss.atk*.7); }
@@ -803,17 +875,27 @@
     }, data));
   }
 
-  function updateProjectiles(dt){ state.projectiles.forEach(p=>{ if(p.delay){p.delay-=dt; return;} if(p.homing&&p.owner==='player'){const a=Math.atan2(boss.y-p.y,boss.x-p.x); p.vx+=(Math.cos(a)*520-p.vx)*dt*2.5; p.vy+=(Math.sin(a)*520-p.vy)*dt*2.5;} if(p.homingPlayer){const a=Math.atan2(player.y-p.y,player.x-p.x); p.vx+=(Math.cos(a)*260-p.vx)*dt*1.5; p.vy+=(Math.sin(a)*260-p.vy)*dt*1.5;} if(p.returning){const age=1.3-p.life; if(age>.55){const a=Math.atan2(player.y-p.y,player.x-p.x); p.vx=Math.cos(a)*600; p.vy=Math.sin(a)*600;}} p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt; if(p.owner==='player'&&!boss.dead&&dist(p.x,p.y,boss.x,boss.y)<p.r+boss.r){damageBoss(p.damage,p.color,false); if(p.splash) state.zones.push({x:p.x,y:p.y,r:p.splash,damage:p.damage*.65,life:.12,color:p.color,once:true}); if(!p.pierce) p.life=0; else p.pierce--; } if(p.owner==='boss'&&dist(p.x,p.y,player.x,player.y)<p.r+player.r){ hurtPlayer(p.damage,p.color); p.life=0; if(p.tag==='slow') player.slow=Math.max(player.slow,1.5); } }); state.projectiles=state.projectiles.filter(p=>p.life>0&&p.x>-80&&p.x<W+80&&p.y>-80&&p.y<H+80); }
+  function updateProjectiles(dt){ state.projectiles.forEach(p=>{ if(p.delay){p.delay-=dt; return;} if(p.homing&&p.owner==='player'){const a=Math.atan2(boss.y-p.y,boss.x-p.x); p.vx+=(Math.cos(a)*520-p.vx)*dt*2.5; p.vy+=(Math.sin(a)*520-p.vy)*dt*2.5;} if(p.homingPlayer){const a=Math.atan2(player.y-p.y,player.x-p.x); p.vx+=(Math.cos(a)*260-p.vx)*dt*1.5; p.vy+=(Math.sin(a)*260-p.vy)*dt*1.5;} if(p.returning){const age=1.3-p.life; if(age>.55){const a=Math.atan2(player.y-p.y,player.x-p.x); p.vx=Math.cos(a)*600; p.vy=Math.sin(a)*600;}} p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt; if(p.owner==='player'&&!boss.dead&&dist(p.x,p.y,boss.x,boss.y)<p.r+boss.r){damageBoss(p.damage,p.color,false); if(p.splash) state.zones.push({x:p.x,y:p.y,r:p.splash,damage:p.damage*.65,life:.12,color:p.color,once:true}); if(!p.pierce) p.life=0; else p.pierce--; } if(p.owner==='boss'&&dist(p.x,p.y,player.x,player.y)<p.r+player.r){ hurtPlayer(p.damage,p.color); p.life=0; applyBossHitStatus(p.tag || boss.theme); } }); state.projectiles=state.projectiles.filter(p=>p.life>0&&p.x>-80&&p.x<W+80&&p.y>-80&&p.y<H+80); }
+  function applyBossHitStatus(tag){
+    const st = player.statuses || (player.statuses={burn:0,poison:0,freeze:0,paralysis:0,slow:0});
+    if(tag==='slow'||tag==='sand'||tag==='chrono'||tag==='gravity') { st.slow=Math.max(st.slow,1.8); player.slow=Math.max(player.slow,1.8); }
+    if(tag==='fire'||tag==='solar') st.burn=Math.max(st.burn,2.6);
+    if(tag==='poison') st.poison=Math.max(st.poison,3.6);
+    if(tag==='ice') st.freeze=Math.max(st.freeze,.75);
+    if(tag==='lightning') st.paralysis=Math.max(st.paralysis,.55);
+  }
+
   function updateHazards(dt){ state.hazards.forEach(h=>{ if(h.warn>0){h.warn-=dt; return;} h.life-=dt; if(h.kind==='circle'){ if(dist(h.x,h.y,player.x,player.y)<h.r+player.r) hurtPlayer(h.damage,h.color); if(h.zone) state.zones.push({x:h.x,y:h.y,r:h.r,damage:h.damage*.08,life:2.4,tick:0,color:h.color,enemy:true,dot:true}); if(h.callback) h.callback(); h.life=0; } else if(h.kind==='playerStrike'){ if(dist(h.x,h.y,boss.x,boss.y)<h.r+boss.r){damageBoss(h.damage,h.color,false); h.life=0;} } else if(h.kind==='wall'){ if(Math.abs(player.x-h.x)<h.w+player.r && Math.abs(player.y-h.y)<h.h/2+player.r) hurtPlayer(h.damage,h.color); } }); state.hazards=state.hazards.filter(h=>h.life>0||h.warn>0); }
-  function updateZones(dt){ state.zones.forEach(z=>{z.life-=dt; z.tick=(z.tick||0)-dt; if(z.once){ if(z.enemy){ if(dist(z.x,z.y,player.x,player.y)<z.r+player.r) hurtPlayer(z.damage,z.color); } else if(dist(z.x,z.y,boss.x,boss.y)<z.r+boss.r) damageBoss(z.damage,z.color,false); z.life=0; return;} if(z.tick<=0){z.tick=.25; if(z.enemy){ if(dist(z.x,z.y,player.x,player.y)<z.r+player.r) hurtPlayer(z.damage,z.color); } else if(dist(z.x,z.y,boss.x,boss.y)<z.r+boss.r) damageBoss(z.damage,z.color,false); }}); state.zones=state.zones.filter(z=>z.life>0); }
-  function updateMechanics(dt){ state.mechanics.forEach(m=>{m.life-=dt; if(m.kind==='rune'&&dist(m.x,m.y,player.x,player.y)<m.r+player.r){ if(m.action==='break') breakBoss(2.6); if(m.action==='cleanse'){player.slow=0; player.hp=Math.min(player.maxHp,player.hp+120); healText('해독',player.x,player.y-35);} m.life=0; } if(m.kind==='gravity'){const a=Math.atan2(m.y-player.y,m.x-player.x); const d=Math.max(60,dist(m.x,m.y,player.x,player.y)); player.x+=Math.cos(a)*m.power/d*80*dt; player.y+=Math.sin(a)*m.power/d*80*dt;} }); state.mechanics=state.mechanics.filter(m=>m.life>0); if(boss.clones&&boss.clones.length){boss.clones.forEach(c=>c.life-=dt); boss.clones=boss.clones.filter(c=>c.life>0);} }
+  function updateZones(dt){ state.zones.forEach(z=>{z.life-=dt; z.tick=(z.tick||0)-dt; if(z.once){ if(z.enemy){ if(dist(z.x,z.y,player.x,player.y)<z.r+player.r) hurtPlayer(z.damage,z.color); } else if(z.heal&&dist(z.x,z.y,player.x,player.y)<z.r+player.r){ player.hp=Math.min(player.maxHp,player.hp+Math.abs(z.damage)); healText('+'+Math.floor(Math.abs(z.damage)),player.x,player.y-28); } else if(dist(z.x,z.y,boss.x,boss.y)<z.r+boss.r) damageBoss(z.damage,z.color,false); z.life=0; return;} if(z.tick<=0){z.tick=.25; if(z.enemy){ if(dist(z.x,z.y,player.x,player.y)<z.r+player.r) hurtPlayer(z.damage,z.color); } else if(z.heal&&dist(z.x,z.y,player.x,player.y)<z.r+player.r){ player.hp=Math.min(player.maxHp,player.hp+Math.abs(z.damage)); healText('+'+Math.floor(Math.abs(z.damage)),player.x,player.y-28); } else if(dist(z.x,z.y,boss.x,boss.y)<z.r+boss.r) damageBoss(z.damage,z.color,false); }}); state.zones=state.zones.filter(z=>z.life>0); }
+  function clearPlayerStatuses(){ const st=player.statuses||(player.statuses={}); ['burn','poison','freeze','paralysis','slow'].forEach(k=>st[k]=0); player.slow=0; }
+  function updateMechanics(dt){ state.mechanics.forEach(m=>{m.life-=dt; if(m.kind==='rune'&&dist(m.x,m.y,player.x,player.y)<m.r+player.r){ if(m.action==='break') breakBoss(2.6); if(m.action==='cleanse'){clearPlayerStatuses(); player.slow=0; player.hp=Math.min(player.maxHp,player.hp+120); healText('해독',player.x,player.y-35);} m.life=0; } if(m.kind==='gravity'){const a=Math.atan2(m.y-player.y,m.x-player.x); const d=Math.max(60,dist(m.x,m.y,player.x,player.y)); player.x+=Math.cos(a)*m.power/d*80*dt; player.y+=Math.sin(a)*m.power/d*80*dt;} }); state.mechanics=state.mechanics.filter(m=>m.life>0); if(boss.clones&&boss.clones.length){boss.clones.forEach(c=>c.life-=dt); boss.clones=boss.clones.filter(c=>c.life>0);} }
 
   function breakBoss(sec){ boss.vulnerable=Math.max(boss.vulnerable,sec); boss.guard=0; burst(boss.x,boss.y,'#fef08a',46,330); floatText('BREAK!',boss.x,boss.y-boss.r-20,'#fef08a'); }
-  function damageBoss(amount,color,big){ if(boss.dead) return; let mul=player.damageMul; if(player.berserk){mul*=1+(1-player.hp/player.maxHp)*.45;} if(boss.vulnerable<=0) mul*=.48; const crit=Math.random()*100<player.crit; let dmg=Math.max(1,Math.floor(amount*mul*(crit?player.critDmg:1))); boss.hp-=dmg; boss.hit=.12; floatText((crit?dmg+'!':'-'+dmg),boss.x+rand(-20,20),boss.y-boss.r-12,crit?'#fef08a':(color||'#fff'),big?22:16); if(player.lifesteal>0){player.hp=Math.min(player.maxHp,player.hp+dmg*player.lifesteal);} if(boss.hp<=0){boss.hp=0;boss.dead=true;} }
+  function damageBoss(amount,color,big){ if(boss.dead) return; let mul=player.damageMul; if(player.berserk){mul*=1+(1-player.hp/player.maxHp)*.45;} if(boss.vulnerable<=0) mul*=.48; if(boss.statuses&&boss.statuses.vulnerable>0) mul*=1.35; if(boss.statuses&&boss.statuses.weaken>0) mul*=1.18; const crit=Math.random()*100<player.crit; let dmg=Math.max(1,Math.floor(amount*mul*(crit?player.critDmg:1))); boss.hp-=dmg; boss.hit=.12; floatText((crit?dmg+'!':'-'+dmg),boss.x+rand(-20,20),boss.y-boss.r-12,crit?'#fef08a':(color||'#fff'),big?22:16); if(player.lifesteal>0){player.hp=Math.min(player.maxHp,player.hp+dmg*player.lifesteal);} if(boss.hp<=0){boss.hp=0;boss.dead=true;} }
   function damageBossRange(range,dmg,color){ if(dist(player.x,player.y,boss.x,boss.y)<range+boss.r) damageBoss(dmg,color,false); }
   function damageBossLine(range,width,angle,dmg,color){ const px=boss.x-player.x, py=boss.y-player.y; const along=px*Math.cos(angle)+py*Math.sin(angle); const side=Math.abs(-px*Math.sin(angle)+py*Math.cos(angle)); if(along>0&&along<range+boss.r&&side<width+boss.r) damageBoss(dmg,color,false); }
   function damageBossCone(range,arc,angle,dmg,color){ const a=Math.atan2(boss.y-player.y,boss.x-player.x); let diff=Math.abs(normAngle(a-angle)); if(dist(player.x,player.y,boss.x,boss.y)<range+boss.r && diff<arc/2) damageBoss(dmg,color,false); }
-  function hurtPlayer(amount,color){ if(player.invuln>0||state.screen!=='raid') return; let dmg=Math.max(1,Math.floor(amount-player.def)); if(player.shield>0){const used=Math.min(player.shield,dmg); player.shield-=used; dmg-=used;} if(dmg>0){player.hp-=dmg; player.damageTaken+=dmg; floatText('-'+dmg,player.x,player.y-24,color||'#fb7185'); state.shake=Math.max(state.shake,4); player.invuln=.18;} }
+  function hurtPlayer(amount,color,statusDamage){ if(!statusDamage && (player.invuln>0||state.screen!=='raid')) return; let realAmount=amount; if(boss&&boss.statuses&&boss.statuses.weaken>0) realAmount*=.72; let dmg=Math.max(1,Math.floor(realAmount-player.def)); if(player.shield>0){const used=Math.min(player.shield,dmg); player.shield-=used; dmg-=used;} if(dmg>0){player.hp-=dmg; player.damageTaken+=dmg; floatText('-'+dmg,player.x,player.y-24,color||'#fb7185'); state.shake=Math.max(state.shake,4); player.invuln=.18;} }
   function checkEnd(){ if(!state.raid) return; if(player.hp<=0&&!state.raid.failed){state.raid.failed=true; endRaid(false);} if(boss.dead&&!state.raid.clear){state.raid.clear=true; endRaid(true);} }
   function endRaid(clear){ state.screen='result'; const elapsed=Math.floor(state.raid.elapsed*1000); let rewardText=''; if(clear){ const b=getBoss(boss.id); const rw=Math.max(0,Math.floor((b.tier+1)/3)); const rs=1+Math.floor(b.tier/2); const rp=b.tier>=3?1:0; state.save.tickets.weapon += rw; state.save.tickets.skill += rs; state.save.tickets.passive += rp; rewardText=`획득 티켓: 무기 ${rw}장 / 스킬 ${rs}장 / 패시브 ${rp}장`; saveGame(); submitRecord(elapsed); } ui.right.classList.remove('hidden'); ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`; ui.right.querySelector('#resultMenu').onclick=()=>{state.menuTab=clear?'ranking':'build'; renderMenu(); refreshRankings(boss.id);}; }
 
