@@ -400,7 +400,7 @@
     const root = document.createElement('div'); root.id = 'raidV4Root';
     root.innerHTML = `
       <style>
-        #raidV4Root{position:fixed;inset:0;pointer-events:none;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e5e7eb;z-index:60;user-select:none;-webkit-user-select:none}.v4-panel{pointer-events:auto;position:absolute;background:rgba(5,8,22,.90);border:1px solid rgba(148,163,184,.32);box-shadow:0 20px 70px rgba(0,0,0,.45);border-radius:20px;backdrop-filter:blur(14px)}.v4-menu{left:50%;top:50%;transform:translate(-50%,-50%);width:1120px;max-height:90vh;overflow:auto;padding:22px;scroll-behavior:auto}.v4-left{left:18px;top:18px;width:330px;max-height:calc(100vh - 36px);overflow:auto;padding:16px}.v4-right{right:18px;top:18px;width:360px;max-height:calc(100vh - 36px);overflow:auto;padding:16px}.hidden{display:none!important}.title{margin:0 0 8px;color:#fff;font-size:28px;font-weight:950;letter-spacing:-.05em}.sub{margin:0 0 14px;color:#94a3b8;font-size:13px;line-height:1.5}.btn{appearance:none;border:0;border-radius:13px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-weight:900;padding:13px 16px;cursor:pointer;touch-action:manipulation;min-height:42px}.btn.secondary{background:#111827;border:1px solid rgba(148,163,184,.28);color:#e5e7eb}.btn.danger{background:linear-gradient(135deg,#ef4444,#f97316)}.btn:disabled{opacity:.45;cursor:not-allowed}.nav{display:flex;gap:8px;margin:10px 0 16px}.tab{padding:12px 16px;border-radius:999px;border:1px solid rgba(148,163,184,.25);background:#0f172a;color:#cbd5e1;font-weight:900;cursor:pointer;touch-action:manipulation}.tab.active{background:#2563eb;color:white;border-color:#60a5fa}.boss-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.boss-card{min-height:230px;position:relative;overflow:hidden;border-radius:18px;padding:14px;background:linear-gradient(180deg,rgba(15,23,42,.92),rgba(3,7,18,.92));border:1px solid rgba(148,163,184,.24);cursor:pointer;transition:border-color .12s,box-shadow .12s;touch-action:manipulation}.boss-card:hover{border-color:#93c5fd}.boss-card.active{border-color:#facc15;box-shadow:0 0 0 2px rgba(250,204,21,.15)}.boss-art{height:88px;margin:6px 0 9px;border-radius:16px;background:radial-gradient(circle at 50% 45%,rgba(255,255,255,.17),rgba(255,255,255,.02) 52%,rgba(0,0,0,.25));display:flex;align-items:center;justify-content:center}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{border:1px solid rgba(148,163,184,.25);border-radius:15px;background:rgba(15,23,42,.72);padding:13px;cursor:pointer;transition:border-color .12s,background .12s;touch-action:manipulation}.card:hover{border-color:#93c5fd}.card.active{border-color:#60a5fa;background:linear-gradient(135deg,rgba(37,99,235,.32),rgba(124,58,237,.24))}.card.locked{opacity:.43}.card h3{margin:0 0 5px;font-size:15px;color:#fff}.card p{margin:0;color:#94a3b8;font-size:12px;line-height:1.45}.stepbar{display:flex;gap:8px;margin:12px 0 16px}.step{flex:1;text-align:center;padding:9px 7px;border-radius:999px;background:#111827;border:1px solid rgba(148,163,184,.22);font-size:12px;font-weight:900;color:#94a3b8}.step.active{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff}.chip{display:inline-block;padding:4px 8px;border-radius:999px;background:#1e293b;color:#bfdbfe;font-size:11px;margin:2px}.row{display:flex;gap:10px;align-items:center}.row>*{flex:1}.input{width:100%;box-sizing:border-box;background:#0f172a;color:#e5e7eb;border:1px solid rgba(148,163,184,.32);border-radius:12px;padding:11px;font-weight:800}.record{display:grid;grid-template-columns:36px 1fr 82px;gap:8px;align-items:center;background:#0f172a;border:1px solid rgba(148,163,184,.2);border-radius:12px;padding:8px;margin-bottom:7px}.rank{font-weight:950;color:#facc15;text-align:center}.time{font-weight:950;color:#a7f3d0;text-align:right}.gacha-result{border-radius:18px;border:1px solid rgba(255,255,255,.25);background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.12),rgba(15,23,42,.9));padding:18px;text-align:center;margin-top:14px}.muted{color:#94a3b8;font-size:12px}@media(max-width:920px){.v4-menu{width:calc(100vw - 28px);padding:14px}.boss-grid{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.v4-left,.v4-right{left:14px;right:14px;width:auto}.v4-right{top:auto;bottom:14px;max-height:38vh}}
+        #raidV4Root{position:fixed;inset:0;pointer-events:none;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e5e7eb;z-index:60;user-select:none;-webkit-user-select:none}.v4-panel{pointer-events:auto;position:absolute;background:rgba(5,8,22,.90);border:1px solid rgba(148,163,184,.32);box-shadow:0 20px 70px rgba(0,0,0,.45);border-radius:20px;backdrop-filter:blur(14px)}.v4-menu{left:50%;top:50%;transform:translate(-50%,-50%);width:1120px;max-height:90vh;overflow:auto;padding:22px;scroll-behavior:auto}.v4-left{left:18px;top:18px;width:330px;max-height:calc(100vh - 36px);overflow:auto;padding:16px}.v4-right{right:18px;top:18px;width:360px;max-height:calc(100vh - 36px);overflow:auto;padding:16px}.hidden{display:none!important}.title{margin:0 0 8px;color:#fff;font-size:28px;font-weight:950;letter-spacing:-.05em}.sub{margin:0 0 14px;color:#94a3b8;font-size:13px;line-height:1.5}.btn{position:relative;z-index:5;appearance:none;border:0;border-radius:13px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-weight:900;padding:13px 16px;cursor:pointer;touch-action:manipulation;min-height:42px}.btn.secondary{background:#111827;border:1px solid rgba(148,163,184,.28);color:#e5e7eb}.btn.danger{background:linear-gradient(135deg,#ef4444,#f97316)}.btn:disabled{opacity:.45;cursor:not-allowed}.nav{display:flex;gap:8px;margin:10px 0 16px}.tab{position:relative;z-index:5;padding:12px 16px;border-radius:999px;border:1px solid rgba(148,163,184,.25);background:#0f172a;color:#cbd5e1;font-weight:900;cursor:pointer;touch-action:manipulation}.tab.active{background:#2563eb;color:white;border-color:#60a5fa}.boss-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.boss-card{position:relative;z-index:4;min-height:230px;position:relative;overflow:hidden;border-radius:18px;padding:14px;background:linear-gradient(180deg,rgba(15,23,42,.92),rgba(3,7,18,.92));border:1px solid rgba(148,163,184,.24);cursor:pointer;transition:border-color .12s,box-shadow .12s;touch-action:manipulation}.boss-card:hover{border-color:#93c5fd}.boss-card.active{border-color:#facc15;box-shadow:0 0 0 2px rgba(250,204,21,.15)}.boss-art{height:88px;margin:6px 0 9px;border-radius:16px;background:radial-gradient(circle at 50% 45%,rgba(255,255,255,.17),rgba(255,255,255,.02) 52%,rgba(0,0,0,.25));display:flex;align-items:center;justify-content:center}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{position:relative;z-index:4;border:1px solid rgba(148,163,184,.25);border-radius:15px;background:rgba(15,23,42,.72);padding:13px;cursor:pointer;transition:border-color .12s,background .12s;touch-action:manipulation}.card:hover{border-color:#93c5fd}.card.active{border-color:#60a5fa;background:linear-gradient(135deg,rgba(37,99,235,.32),rgba(124,58,237,.24))}.card.locked{opacity:.43}.card h3{margin:0 0 5px;font-size:15px;color:#fff}.card p{margin:0;color:#94a3b8;font-size:12px;line-height:1.45}.stepbar{display:flex;gap:8px;margin:12px 0 16px}.step{flex:1;text-align:center;padding:9px 7px;border-radius:999px;background:#111827;border:1px solid rgba(148,163,184,.22);font-size:12px;font-weight:900;color:#94a3b8}.step.active{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff}.chip{display:inline-block;padding:4px 8px;border-radius:999px;background:#1e293b;color:#bfdbfe;font-size:11px;margin:2px}.row{display:flex;gap:10px;align-items:center}.row>*{flex:1}.input{width:100%;box-sizing:border-box;background:#0f172a;color:#e5e7eb;border:1px solid rgba(148,163,184,.32);border-radius:12px;padding:11px;font-weight:800}.record{display:grid;grid-template-columns:36px 1fr 82px;gap:8px;align-items:center;background:#0f172a;border:1px solid rgba(148,163,184,.2);border-radius:12px;padding:8px;margin-bottom:7px}.rank{font-weight:950;color:#facc15;text-align:center}.time{font-weight:950;color:#a7f3d0;text-align:right}.gacha-result{border-radius:18px;border:1px solid rgba(255,255,255,.25);background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.12),rgba(15,23,42,.9));padding:18px;text-align:center;margin-top:14px}.muted{color:#94a3b8;font-size:12px}@media(max-width:920px){.v4-menu{width:calc(100vw - 28px);padding:14px}.boss-grid{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.v4-left,.v4-right{left:14px;right:14px;width:auto}.v4-right{top:auto;bottom:14px;max-height:38vh}}
       </style><div id="v4Menu" class="v4-panel v4-menu"></div><div id="v4Left" class="v4-panel v4-left hidden"></div><div id="v4Right" class="v4-panel v4-right hidden"></div>`;
     document.body.appendChild(root);
     return { root, menu:root.querySelector('#v4Menu'), left:root.querySelector('#v4Left'), right:root.querySelector('#v4Right') };
@@ -422,54 +422,96 @@
     bindResponsiveUiClicks();
   }
 
+  let lastUiActionTime = 0;
+  let lastUiActionKey = '';
+
   function bindResponsiveUiClicks() {
     const bind = panel => {
       if(!panel || panel.__raidPointerBound) return;
       panel.__raidPointerBound = true;
-      panel.addEventListener('pointerup', handleUiPointer, true);
-      panel.addEventListener('click', e=>{ if(e.target && e.target.closest && e.target.closest('button,.card,.boss-card,.tab')){ e.preventDefault(); e.stopPropagation(); } }, true);
+      // UI 패널에서 누른 입력은 아래 canvas 공격 입력으로 내려가지 않게 막는다.
+      panel.addEventListener('pointerdown', e=>{
+        const hitTarget = e.target && e.target.closest && e.target.closest('button,.card,.boss-card,.tab,.step,[data-prev-step],[data-next-step]');
+        if(hitTarget){ e.stopPropagation(); }
+      }, true);
+      // 일부 브라우저/모바일에서는 click이 씹히고, 일부 환경에서는 pointerup이 씹혀서 둘 다 받는다.
+      panel.addEventListener('pointerup', handleUiAction, true);
+      panel.addEventListener('click', handleUiAction, true);
     };
     bind(ui.menu); bind(ui.left); bind(ui.right);
   }
 
-  function handleUiPointer(e) {
+  function handleUiAction(e) {
     const target = e.target;
     if(!target || !target.closest) return;
     if(target.closest('input,textarea,select')) return;
-    const active = target.closest('button,.card,.boss-card,.tab');
+
+    const active = target.closest('button,.card,.boss-card,.tab,.step,[data-prev-step],[data-next-step]');
     if(!active) return;
-    if(active.disabled || active.classList.contains('locked')) return;
+    if(active.disabled || active.getAttribute('aria-disabled') === 'true' || active.classList.contains('locked')) return;
+
+    const actionKey = getUiActionKey(target);
+    const now = performance.now();
+    if(actionKey && actionKey === lastUiActionKey && now - lastUiActionTime < 180) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    lastUiActionKey = actionKey;
+    lastUiActionTime = now;
+
     e.preventDefault();
     e.stopPropagation();
 
-    const authMode = target.closest('[data-authmode]');
-    if(authMode){ state.authMode = authMode.dataset.authmode; state.authMessage=''; renderMenu(); return; }
-    if(target.closest('#authSubmit')){ handleAuth(state.authMode === 'signup' ? 'signup' : 'login'); return; }
-    const tab = target.closest('[data-tab]');
-    if(tab){ state.menuTab = tab.dataset.tab; renderMenu(); return; }
-    const bossEl = target.closest('[data-boss]');
-    if(bossEl){ state.selectedBossId=bossEl.dataset.boss; trimSelectedPassives(); renderMenu(); refreshRankings(state.selectedBossId); return; }
-    if(target.closest('#goBuild')){ state.menuTab='build'; state.buildStep='weapon'; renderMenu(); return; }
-    if(target.closest('#goGacha')){ state.menuTab='gacha'; renderMenu(); return; }
-    const gacha = target.closest('[data-gacha]');
-    if(gacha){ rollGacha(gacha.dataset.gacha); return; }
-    const step = target.closest('[data-step]');
-    if(step){ state.buildStep=step.dataset.step; renderMenu(); return; }
-    const tabgo = target.closest('[data-tabgo]');
-    if(tabgo){ state.menuTab=tabgo.dataset.tabgo; renderMenu(); return; }
-    if(target.closest('#backDungeon')){ state.menuTab='dungeon'; renderMenu(); return; }
-    const select = target.closest('[data-select-type]');
-    if(select){ selectBuild(select.dataset.selectType, select.dataset.selectId, Number(select.dataset.slot || 0)); return; }
-    const passive = target.closest('[data-passive]');
-    if(passive){ togglePassive(passive.dataset.passive); return; }
-    if(target.closest('[data-prev-step]')){ stepMove(-1); return; }
-    if(target.closest('[data-next-step]')){ stepMove(1); return; }
-    if(target.closest('#startRaid')){ startRaid(); return; }
-    if(target.closest('#manualSaveBtn')){ manualSaveProfile(); return; }
-    if(target.closest('#logoutBtn')){ logout(); return; }
-    if(target.closest('#giveup')){ renderMenu(); return; }
-    if(target.closest('#pauseMenu')){ renderMenu(); return; }
-    if(target.closest('#resultMenu')){ const id = boss && boss.id; state.menuTab = 'ranking'; renderMenu(); if(id) refreshRankings(id); return; }
+    try {
+      const authMode = target.closest('[data-authmode]');
+      if(authMode){ state.authMode = authMode.dataset.authmode; state.authMessage=''; renderMenu(); return; }
+      if(target.closest('#authSubmit')){ handleAuth(state.authMode === 'signup' ? 'signup' : 'login'); return; }
+      const tab = target.closest('[data-tab]');
+      if(tab){ state.menuTab = tab.dataset.tab; renderMenu(); return; }
+      const bossEl = target.closest('[data-boss]');
+      if(bossEl){ state.selectedBossId=bossEl.dataset.boss; trimSelectedPassives(); renderMenu(); refreshRankings(state.selectedBossId); return; }
+      if(target.closest('#goBuild')){ state.menuTab='build'; state.buildStep='weapon'; renderMenu(); return; }
+      if(target.closest('#goGacha')){ state.menuTab='gacha'; renderMenu(); return; }
+      const gacha = target.closest('[data-gacha]');
+      if(gacha){ rollGacha(gacha.dataset.gacha); return; }
+      const step = target.closest('[data-step]');
+      if(step){ state.buildStep=step.dataset.step; renderMenu(); return; }
+      const tabgo = target.closest('[data-tabgo]');
+      if(tabgo){ state.menuTab=tabgo.dataset.tabgo; renderMenu(); return; }
+      if(target.closest('#backDungeon')){ state.menuTab='dungeon'; renderMenu(); return; }
+      const select = target.closest('[data-select-type]');
+      if(select){ selectBuild(select.dataset.selectType, select.dataset.selectId, Number(select.dataset.slot || 0)); return; }
+      const passive = target.closest('[data-passive]');
+      if(passive){ togglePassive(passive.dataset.passive); return; }
+      if(target.closest('[data-prev-step]')){ stepMove(-1); return; }
+      if(target.closest('[data-next-step]')){ stepMove(1); return; }
+      if(target.closest('#startRaid')){ startRaid(); return; }
+      if(target.closest('#manualSaveBtn')){ manualSaveProfile(); return; }
+      if(target.closest('#logoutBtn')){ logout(); return; }
+      if(target.closest('#giveup')){ renderMenu(); return; }
+      if(target.closest('#pauseMenu')){ renderMenu(); return; }
+      if(target.closest('#resultMenu')){ const id = boss && boss.id; state.menuTab = 'ranking'; renderMenu(); if(id) refreshRankings(id); return; }
+    } catch(err) {
+      console.error('[Raid UI click error]', err);
+      state.cloudStatus = '버튼 처리 오류: 새로고침 없이 복구 시도';
+      renderMenu();
+    }
+  }
+
+  function getUiActionKey(target) {
+    const candidates = ['id','data-authmode','data-tab','data-boss','data-gacha','data-step','data-tabgo','data-select-type','data-select-id','data-passive','data-prev-step','data-next-step'];
+    let node = target;
+    while(node && node !== document.body) {
+      if(node.id) return 'id:' + node.id;
+      for(const key of candidates) {
+        if(key !== 'id' && node.getAttribute && node.getAttribute(key) !== null) {
+          return key + ':' + node.getAttribute(key) + ':' + (node.getAttribute('data-slot') || '');
+        }
+      }
+      node = node.parentElement;
+    }
+    return String(Math.random());
   }
   function updateMouse(e) { const r=canvas.getBoundingClientRect(); mouse.x=(e.clientX-r.left)*(W/r.width); mouse.y=(e.clientY-r.top)*(H/r.height); }
 
