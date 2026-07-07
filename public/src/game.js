@@ -2446,4 +2446,200 @@
     if(boss.tier>=9 && boss.phase>=3 && Math.random()<.18) setTimeout(()=>instantKillPattern(),1550);
   }
 
+
+
+  /* =========================================================
+     V20 - ATTACK VISIBILITY + 3-PATTERN BOSS ROTATION
+     - 반투명 예고와 실제 공격을 확실히 분리
+     - 실제 공격은 네온 잔상/충격파가 0.5초 이상 보이도록 유지
+     - 보스 공격 모션 추가
+     - 보스마다 최소 3개 패턴을 순환 사용
+  ========================================================= */
+
+  const V20_PATTERN_LABELS = {
+    slime_king:['착지 충격파','젤리 방울 유도','분열 장판'],
+    ember_tyrant:['불씨 십자 폭발','화염 부채꼴','용암 안전지대'],
+    thorn_queen:['가시 미로','독꽃 성장','덩굴 포박선'],
+    frost_oracle:['빙벽 숨기','얼음창 선긋기','해동 룬'],
+    sand_reaper:['모래 매몰','낫 도넛베기','감속 모래폭풍'],
+    void_serpent:['포탈 절단선','추적 공허구','균열 도넛'],
+    iron_minotaur:['돌진 카운터','철갑 충격파','투기장 격자'],
+    blood_moon:['혈월 표식','흡혈 칼날','붉은 달 장판'],
+    storm_colossus:['낙뢰 빈칸 찾기','회전 번개 레이저','전류 룬'],
+    plague_doctor:['독안개 해독룬','감염 소환수','역병 지대'],
+    mirror_duelist:['진짜 분신 찾기','거울 레이저 순서','반사 탄막'],
+    gravity_core:['중력 흡입','압축 도넛','역중력 낙하'],
+    solar_dragon:['태양 낙하','일식 안전지대','광선 격자'],
+    chrono_dragon:['시간 감속','지연 탄막','기억 룬'],
+    abyss_leviathan:['해일 벽','소용돌이 미로','심해 소환수'],
+    puppet_emperor:['실 조종선','가짜 안전지대','단두대 줄'],
+    black_sun:['검은 일식','무너지는 바닥','태양 심판'],
+    chaos_archon:['색상 양극','복합 기억룬','혼돈 판정']
+  };
+  try { BOSSES.forEach(b=>{ if(V20_PATTERN_LABELS[b.id]) b.patterns = V20_PATTERN_LABELS[b.id]; }); } catch(e) {}
+
+  function v20BossCast(text, kind, color, angle){
+    boss.mechanicText = text;
+    boss.cast = {life:.85, max:.85, kind:kind||'blast', color:color||boss.color, angle:Number.isFinite(angle)?angle:Math.atan2(player.y-boss.y, player.x-boss.x)};
+  }
+  function v20PushHazard(h){
+    h.warn = Math.max(h.warn || 1.05, .75);
+    h.life = Math.max(h.life || .55, .55);
+    h.v20 = true;
+    h.hitTick = 0;
+    state.hazards.push(h);
+  }
+  function v20Circle(x,y,r,warn,color,damage,tag){ v20PushHazard({kind:'circle',x,y,r,warn,life:.62,damage,color,tag}); }
+  function v20Beam(x,y,angle,len,w,warn,color,damage,tag){ v20PushHazard({kind:'beam',x,y,angle,len,w,warn,life:.62,damage,color,tag}); }
+  function v20Donut(x,y,inner,outer,warn,color,damage,tag){ v20PushHazard({kind:'donut',x,y,inner,outer,warn,life:.64,damage,color,tag}); }
+  function v20Wall(x,y,w,h,warn,color,damage,tag){ v20PushHazard({kind:'wall',x,y,w,h,warn,life:.72,damage,color,tag}); }
+  function v20Floor(x,y,w,h,warn,color,damage,tag){ v20PushHazard({kind:'floor',x,y,w,h,warn,life:.72,damage,color,tag}); }
+  function v20RotBeam(x,y,angle,spin,len,w,warn,color,damage,tag){ v20PushHazard({kind:'rotatingBeam',x,y,angle,spin,len,w,warn,life:2.25,damage,color,tag,tick:0}); }
+
+  // 기존 warningCircle이 실제 타격 순간 바로 사라져 보이지 않던 문제를 보정.
+  warningCircle = function(x,y,r,warn,color,damage,zone,callback,tag){
+    v20PushHazard({kind:'circle',x,y,r,warn:Math.max(warn||1,.85),life:.64,damage,color,zone,callback,tag});
+  };
+
+  function v20ActivateHazard(h){
+    if(h._v20active) return;
+    h._v20active = true;
+    h.life = Math.max(h.life || .55, h.kind==='rotatingBeam' ? h.life : .55);
+    if(h.kind==='beam' || h.kind==='rotatingBeam') boss.cast = {life:.45, max:.45, kind:'beam', color:h.color||boss.color, angle:h.angle||0};
+    else if(h.kind==='circle' || h.kind==='donut') boss.cast = {life:.45, max:.45, kind:'slam', color:h.color||boss.color, angle:Math.atan2(h.y-boss.y,h.x-boss.x)};
+    else boss.cast = {life:.45, max:.45, kind:'cast', color:h.color||boss.color, angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+    burst(h.x||boss.x, h.y||boss.y, h.color||boss.color, h.kind==='beam'?18:26, 180);
+  }
+
+  updateHazards = function(dt){
+    if(boss && boss.cast) boss.cast.life -= dt;
+    state.hazards.forEach(h=>{
+      if(!h || !Number.isFinite(h.life)) h.life = 0;
+      if(h.warn>0){ h.warn-=dt; if(h.kind==='rotatingBeam') h.angle += (h.spin||0)*dt*.25; if(h.warn<=0) v20ActivateHazard(h); return; }
+      v20ActivateHazard(h);
+      h.life-=dt;
+      h.hitTick=(h.hitTick||0)-dt;
+      const canHit = h.hitTick<=0;
+      if(h.kind==='circle'){
+        if(canHit && dist(h.x,h.y,player.x,player.y)<h.r+player.r){ hurtPlayer(h.damage,h.color); h.hitTick=.28; if(h.tag) applyBossHitStatus(h.tag); }
+        if(!h._zoneMade && h.zone){ h._zoneMade=true; state.zones.push({x:h.x,y:h.y,r:h.r,damage:h.damage*.08,life:2.4,tick:0,color:h.color,enemy:true,dot:true}); }
+        if(h.callback && !h._cb){ h._cb=true; h.callback(); }
+      } else if(h.kind==='donut'){
+        const d=dist(h.x,h.y,player.x,player.y);
+        if(canHit && d>h.inner && d<h.outer){ hurtPlayer(h.damage,h.color); h.hitTick=.28; if(h.tag) applyBossHitStatus(h.tag); }
+      } else if(h.kind==='beam' || h.kind==='rotatingBeam'){
+        if(h.kind==='rotatingBeam') { h.angle += (h.spin||0)*dt; }
+        const px=player.x-h.x, py=player.y-h.y;
+        const along=px*Math.cos(h.angle)+py*Math.sin(h.angle);
+        const side=Math.abs(-px*Math.sin(h.angle)+py*Math.cos(h.angle));
+        if(canHit && Math.abs(along)<h.len/2 && side<h.w+player.r){
+          hurtPlayer(h.damage,h.color); h.hitTick=h.kind==='rotatingBeam'?.32:.26; if(h.tag) applyBossHitStatus(h.tag);
+        }
+        if(h.callback && !h._cb){ h._cb=true; h.callback(); }
+      } else if(h.kind==='playerStrike'){
+        if(boss && !boss.dead && dist(h.x,h.y,boss.x,boss.y)<h.r+boss.r){damageBoss(h.damage,h.color,false); h.life=0;}
+      } else if(h.kind==='wall'){
+        if(canHit && Math.abs(player.x-h.x)<h.w+player.r && Math.abs(player.y-h.y)<h.h/2+player.r){ hurtPlayer(h.damage,h.color); h.hitTick=.32; if(h.tag) applyBossHitStatus(h.tag); }
+      } else if(h.kind==='floor'){
+        if(canHit && Math.abs(player.x-h.x)<h.w/2+player.r && Math.abs(player.y-h.y)<h.h/2+player.r){ hurtPlayer(h.damage,h.color); h.hitTick=.32; if(h.tag) applyBossHitStatus(h.tag); }
+      }
+    });
+    state.hazards=state.hazards.filter(h=>h && (h.life>0||h.warn>0));
+  };
+
+  drawHazards = function(){
+    state.hazards.forEach(h=>{
+      const warning=h.warn>0;
+      const c=h.color||'#fff';
+      ctx.save();
+      ctx.fillStyle=c; ctx.strokeStyle=c; ctx.lineCap='round'; ctx.lineJoin='round';
+      if(warning){
+        ctx.globalAlpha=.16+.07*Math.sin(state.time*18);
+        ctx.shadowBlur=0;
+        ctx.lineWidth=2;
+      } else {
+        const pulse=.65+.35*Math.sin(state.time*42);
+        ctx.globalAlpha=.84;
+        ctx.shadowColor=c;
+        ctx.shadowBlur=30+12*pulse;
+        ctx.lineWidth=5;
+      }
+      if(h.kind==='circle'||h.kind==='playerStrike'){
+        if(warning){ circle(ctx,h.x,h.y,h.r); ctx.globalAlpha=.74; circleStroke(ctx,h.x,h.y,h.r); ctx.globalAlpha=.95; ctx.fillStyle='#fff'; ctx.font='900 12px system-ui'; ctx.textAlign='center'; ctx.fillText('예고',h.x,h.y+4); }
+        else { ctx.globalAlpha=.24; circle(ctx,h.x,h.y,h.r); ctx.globalAlpha=1; ctx.lineWidth=5; circleStroke(ctx,h.x,h.y,h.r); ctx.globalAlpha=.72; ctx.lineWidth=15; circleStroke(ctx,h.x,h.y,Math.max(6,h.r-7)); ctx.globalAlpha=.92; ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillText('HIT',h.x,h.y+5); }
+      } else if(h.kind==='donut'){
+        const mid=(h.inner+h.outer)/2;
+        if(warning){ ctx.globalAlpha=.18; ctx.lineWidth=Math.max(10,(h.outer-h.inner)); circleStroke(ctx,h.x,h.y,mid); ctx.globalAlpha=.72; ctx.lineWidth=3; circleStroke(ctx,h.x,h.y,h.outer); circleStroke(ctx,h.x,h.y,h.inner); }
+        else { ctx.globalAlpha=.92; ctx.lineWidth=Math.max(18,(h.outer-h.inner)*.75); circleStroke(ctx,h.x,h.y,mid); ctx.globalAlpha=1; ctx.lineWidth=5; ctx.strokeStyle='#fff'; circleStroke(ctx,h.x,h.y,h.outer); circleStroke(ctx,h.x,h.y,h.inner); }
+      } else if(h.kind==='beam'||h.kind==='rotatingBeam'){
+        ctx.save(); ctx.translate(h.x,h.y); ctx.rotate(h.angle||0);
+        if(warning){ ctx.globalAlpha=.18; roundRect(ctx,-h.len/2,-h.w,h.len,h.w*2,8); ctx.globalAlpha=.72; ctx.strokeStyle=c; ctx.lineWidth=2; ctx.strokeRect(-h.len/2,-h.w,h.len,h.w*2); }
+        else { ctx.globalAlpha=.90; roundRect(ctx,-h.len/2,-h.w,h.len,h.w*2,10); ctx.globalAlpha=1; ctx.strokeStyle='#fff'; ctx.lineWidth=2.5; ctx.strokeRect(-h.len/2,-h.w,h.len,h.w*2); ctx.globalAlpha=.72; ctx.strokeStyle=c; ctx.lineWidth=14; ctx.beginPath(); ctx.moveTo(-h.len/2,0); ctx.lineTo(h.len/2,0); ctx.stroke(); }
+        ctx.restore();
+      } else if(h.kind==='wall'||h.kind==='floor'){
+        ctx.globalAlpha=warning?.18:.82; ctx.fillRect(h.x-h.w/2,h.y-h.h/2,h.w,h.h);
+        ctx.globalAlpha=warning?.62:1; ctx.strokeStyle=warning?c:'#fff'; ctx.lineWidth=warning?2:4; ctx.strokeRect(h.x-h.w/2,h.y-h.h/2,h.w,h.h);
+      }
+      ctx.restore();
+    });
+  };
+
+  const __v20_originalBossShape = drawBossShape;
+  drawBossShape = function(c,b,x,y,r){
+    __v20_originalBossShape(c,b,x,y,r);
+    if(b!==boss || !boss.cast || boss.cast.life<=0) return;
+    const t=clamp(boss.cast.life/(boss.cast.max||.85),0,1);
+    c.save(); c.translate(x,y); c.rotate(boss.cast.angle||0); c.globalAlpha=.35+.55*t; c.shadowColor=boss.cast.color||boss.color; c.shadowBlur=24; c.strokeStyle=boss.cast.color||boss.color; c.fillStyle=boss.cast.color||boss.color; c.lineCap='round';
+    if(boss.cast.kind==='beam'){
+      c.lineWidth=8+18*t; c.beginPath(); c.moveTo(r*.2,0); c.lineTo(r*1.75,0); c.stroke(); c.globalAlpha=.9*t; c.fillStyle='#fff'; circle(c,r*1.85,0,7+8*t);
+    } else if(boss.cast.kind==='slam'){
+      c.lineWidth=6+10*t; c.beginPath(); c.arc(0,0,r*(1.2+.7*(1-t)),0,Math.PI*2); c.stroke(); c.fillStyle=boss.cast.color||boss.color; c.fillRect(r*.4,-6,r*.85,12);
+    } else {
+      c.lineWidth=5+8*t; c.beginPath(); c.arc(0,0,r*(1.0+.5*(1-t)),0,Math.PI*2); c.stroke();
+      for(let i=0;i<6;i++){ c.save(); c.rotate(i*Math.PI/3+state.time*2); c.fillRect(r*.8,-3,r*.45,6); c.restore(); }
+    }
+    c.restore();
+  };
+
+  function v20Cycle(){ boss._v20PatternIndex = (boss._v20PatternIndex||0) + 1; return (boss._v20PatternIndex-1)%3; }
+  function v20MaybeCognitive(){
+    if(boss.tier>=6 && boss.phase>=2 && Math.random()<.38) setTimeout(()=>cognitivePattern(), 1050);
+    if(boss.tier>=9 && boss.phase>=3 && Math.random()<.22) setTimeout(()=>cognitivePattern(), 2100);
+  }
+  function v20P1LineFan(color, tag){ const a=Math.atan2(player.y-boss.y,player.x-boss.x); for(let i=-1;i<=1;i++) v20Beam(boss.x,boss.y,a+i*.33,900,18+boss.phase*4,1.0+i*.08,color,boss.atk*.68,tag); }
+  function v20P2SafeCircle(color, tag){ const x=rand(120,W-120), y=rand(135,H-90), r=65; state.mechanics.push({kind:'safe',x,y,r,life:2.15,color}); setTimeout(()=>{ if(state.raid&&!boss.dead){ if(dist(player.x,player.y,x,y)>r+player.r) hurtPlayer(boss.atk*1.35,color,true); else { breakBoss(.9); healText('회피 성공',player.x,player.y-34); } burst(x,y,color,35,260); } }, 2150); }
+  function v20P3Tiles(color, tag){ const cols=4, rows=3, tw=185, th=88, sx=W/2-(cols-1)*tw/2, sy=215, safe=Math.floor(Math.random()*cols*rows); for(let i=0;i<cols*rows;i++){ if(i===safe) continue; v20Floor(sx+(i%cols)*tw, sy+Math.floor(i/cols)*th, 126, 60, 1.25+Math.random()*.35, color, boss.atk*.74, tag); } }
+  function v20AddBullets(color, tag, n){ for(let i=0;i<n;i++) setTimeout(()=>aimBullet(boss.x,boss.y,player.x+rand(-120,120),player.y+rand(-90,90),225+boss.tier*12,color,boss.atk*.28,tag),i*110); }
+
+  const V20_PATTERNS = {
+    slime_king:[()=>{v20BossCast('젤리 왕: 착지 충격파가 실제 HIT 원으로 남습니다. 원 밖으로 빠지세요.','slam','#7ddf64'); v20Circle(player.x,player.y,72,1.05,'#7ddf64',boss.atk*.70,'slime');},()=>{v20BossCast('젤리 왕: 방울이 튕깁니다. 탄막 사이 빈틈을 찾으세요.','cast','#a7f3d0'); radialBullets(boss.x,boss.y,10+boss.phase*2,150,'#a7f3d0',boss.atk*.25);},()=>{v20BossCast('젤리 왕: 젤리 장판이 순서대로 깔립니다. 오래 밟지 마세요.','cast','#86efac'); for(let i=0;i<4;i++) setTimeout(()=>state.zones.push({x:rand(90,W-90),y:rand(125,H-70),r:50,damage:boss.atk*.045,life:2.2,tick:0,color:'#86efac',enemy:true,dot:true}),i*220);} ],
+    ember_tyrant:[()=>{v20BossCast('이그니스: 불씨 십자가 폭발. 대각선으로 피하세요.','beam','#f97316'); const x=player.x,y=player.y; v20Beam(x,y,0,W*1.3,30,1.15,'#f97316',boss.atk*.82,'fire'); v20Beam(x,y,Math.PI/2,H*1.6,30,1.15,'#f97316',boss.atk*.82,'fire');},()=>{v20BossCast('이그니스: 정면 화염 부채꼴. 보스 측면으로 빠지세요.','beam','#fb7185'); v20P1LineFan('#fb7185','fire');},()=>{v20BossCast('이그니스: 용암 낙하 후 안전지대를 찾으세요.','slam','#fb923c'); for(let i=0;i<5+boss.phase;i++) v20Circle(rand(90,W-90),rand(120,H-80),34+boss.phase*4,.95+i*.07,'#fb923c',boss.atk*.55,'fire'); if(boss.phase>=2)v20P2SafeCircle('#fef3c7','fire');}],
+    thorn_queen:[()=>{v20BossCast('로제리아: 가시 미로. 비어 있는 세로 길을 찾아 이동하세요.','beam','#4ade80'); const gap=Math.floor(Math.random()*5); for(let i=0;i<5;i++) if(i!==gap) v20Wall(135+i*(W-270)/4,H/2,20,H*.72,1.05,'#4ade80',boss.atk*.62,'poison');},()=>{v20BossCast('로제리아: 독꽃이 자랍니다. 꽃 근처를 오래 밟지 마세요.','cast','#84cc16'); for(let i=0;i<3+boss.phase;i++) state.zones.push({x:rand(100,W-100),y:rand(130,H-80),r:54,damage:boss.atk*.055,life:2.8,tick:0,color:'#84cc16',enemy:true,dot:true});},()=>{v20BossCast('로제리아: 덩굴 포박선. 선이 켜진 뒤 실제 가시가 올라옵니다.','beam','#22c55e'); for(let i=0;i<4;i++) v20Beam(rand(120,W-120),H/2,Math.PI/2,H*1.15,16,1.0+i*.12,'#22c55e',boss.atk*.54,'poison');}],
+    frost_oracle:[()=>frostOracleV18(),()=>{v20BossCast('네이아: 얼음창 3연속. 선의 순서를 보고 한 칸씩 이동하세요.','beam','#bae6fd'); v20P1LineFan('#bae6fd','ice');},()=>{v20BossCast('네이아: 얼어붙은 바닥. 금 간 칸은 터집니다.','slam','#7dd3fc'); v20P3Tiles('#7dd3fc','ice');}],
+    sand_reaper:[()=>{v20BossCast('샤하르: 낫 도넛베기. 안쪽 또는 바깥쪽을 판단하세요.','slam','#f59e0b'); v20Donut(boss.x,boss.y,70,185,1.05,'#f59e0b',boss.atk*.85,'sand');},()=>{v20BossCast('샤하르: 매몰 폭발. 느려진 상태에서 예고 원을 빠져나오세요.','slam','#fbbf24'); player.slow=Math.max(player.slow,1.6); for(let i=0;i<4+boss.phase;i++) v20Circle(rand(80,W-80),rand(110,H-80),42,1.05+i*.1,'#fbbf24',boss.atk*.55,'sand');},()=>{v20BossCast('샤하르: 모래폭풍 미로. 막힌 벽 사이 빈틈을 찾으세요.','beam','#fde68a'); v20P1LineFan('#fde68a','sand'); if(boss.phase>=2) spawnMazeEscape();}],
+    void_serpent:[()=>voidSerpentV18(),()=>{v20BossCast('노크스: 포탈 절단선. 두 포탈을 잇는 네온 선을 피하세요.','beam','#a78bfa'); for(let i=0;i<3;i++) v20Beam(rand(180,W-180),rand(140,H-90),rand(0,Math.PI),W*.9,18,1.2+i*.12,'#a78bfa',boss.atk*.68,'void');},()=>{v20BossCast('노크스: 균열 도넛. 공허 중심과 외곽을 번갈아 보세요.','slam','#8b5cf6'); v20Donut(W/2,H/2,95,250,1.2,'#8b5cf6',boss.atk*.82,'void'); for(let i=0;i<2+boss.phase;i++) homingEnemy('#a78bfa');}],
+    iron_minotaur:[()=>ironMinotaurV18(),()=>{v20BossCast('미노타우로스: 철갑 충격파. 보스 주변 원 밖으로 피하세요.','slam','#94a3b8'); v20Circle(boss.x,boss.y,150,1.15,'#94a3b8',boss.atk*.75,'metal');},()=>{v20BossCast('미노타우로스: 투기장 격자. 네온 격자의 빈칸으로 이동하세요.','beam','#cbd5e1'); for(let i=0;i<4;i++) v20Beam(160+i*260,H/2,Math.PI/2,H*1.1,16,1.0+i*.08,'#cbd5e1',boss.atk*.55,'metal'); for(let j=0;j<2;j++) v20Beam(W/2,210+j*160,0,W*.9,16,1.15+j*.08,'#cbd5e1',boss.atk*.55,'metal');}],
+    blood_moon:[()=>bloodMoonV18(),()=>{v20BossCast('루나: 흡혈 칼날. 부채꼴 선 사이 빈틈으로 빠지세요.','beam','#fb7185'); v20P1LineFan('#fb7185','blood');},()=>{v20BossCast('루나: 붉은 달 장판. 표식이 터진 뒤 지속 피해가 남습니다.','slam','#ef4444'); v20Circle(player.x,player.y,76,1.15,'#ef4444',boss.atk*.8,'blood'); setTimeout(()=>state.zones.push({x:player.x,y:player.y,r:72,damage:boss.atk*.05,life:2.4,tick:0,color:'#ef4444',enemy:true,dot:true}),1150);}],
+    storm_colossus:[()=>stormColossusV18(),()=>{v20BossCast('아스트라: 회전 번개 레이저. 회전 방향을 보고 따라 움직이세요.','beam','#fde047'); v20RotBeam(W/2,H/2,rand(0,Math.PI),Math.random()<.5?1.1:-1.1,W*1.35,18,1.35,'#fde047',boss.atk*.55,'lightning');},()=>{v20BossCast('아스트라: 전류 룬. 룬을 밟으면 잠깐 BREAK 됩니다.','cast','#facc15'); spawnRune('#fde047','break'); for(let i=0;i<5;i++) v20Circle(rand(90,W-90),rand(115,H-75),30,1.0+i*.12,'#facc15',boss.atk*.45,'lightning');}],
+    plague_doctor:[()=>plagueDoctorV18(),()=>{v20BossCast('모르비드: 감염 소환수. 빨리 처리하지 않으면 압박이 커집니다.','cast','#bef264'); spawnAddsPhase();},()=>{v20BossCast('모르비드: 해독 룬과 독안개. 룬을 먼저 밟으세요.','cast','#84cc16'); spawnRune('#bef264','cleanse'); state.zones.push({x:W/2,y:H/2,r:210,damage:boss.atk*.065,life:3.0,tick:0,color:'#84cc16',enemy:true,dot:true});}],
+    mirror_duelist:[()=>mirrorDuelistV18(),()=>{v20BossCast('세렌: 거울 레이저 순서. 빛나는 순서대로 피하세요.','beam','#f0abfc'); for(let i=0;i<5;i++) v20Beam(180+i*220,H/2,Math.PI/2,H*1.1,18,1.0+i*.18,'#f0abfc',boss.atk*.55,'mirror');},()=>{v20BossCast('세렌: 진짜 분신 찾기. 밝은 분신이 보스 약점입니다.','cast','#e879f9'); boss.clones=[]; boss.realIndex=Math.floor(Math.random()*5); for(let i=0;i<5;i++) boss.clones.push({x:170+i*(W-340)/4,y:150+rand(-10,70),real:i===boss.realIndex,life:3.2}); radialBullets(boss.x,boss.y,16,210,'#e879f9',boss.atk*.26);}],
+    gravity_core:[()=>gravityCoreV18(),()=>{v20BossCast('중력핵: 압축 도넛. 흡입 후 안전한 거리로 빠지세요.','slam','#818cf8'); state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:290,life:2.5,power:220,color:'#818cf8'}); v20Donut(W/2,H/2,85,245,1.55,'#818cf8',boss.atk*.85,'gravity');},()=>{v20BossCast('중력핵: 역중력 낙하. 그림자를 보고 떨어지는 위치를 피하세요.','slam','#a5b4fc'); for(let i=0;i<6;i++) v20Circle(rand(90,W-90),rand(110,H-80),38,1.0+i*.12,'#a5b4fc',boss.atk*.58,'gravity');}],
+    solar_dragon:[()=>solarDragonV18(),()=>{v20BossCast('아우렐리온: 일식 안전지대. 어두운 원 밖은 불탑니다.','slam','#f97316'); v20P2SafeCircle('#fde68a','solar');},()=>{v20BossCast('아우렐리온: 태양 광선 격자. 가로/세로 순서를 읽으세요.','beam','#facc15'); for(let i=0;i<3;i++) v20Beam(W/2,170+i*130,0,W*.95,18,1.0+i*.18,'#facc15',boss.atk*.55,'solar'); for(let i=0;i<3;i++) v20Beam(230+i*320,H/2,Math.PI/2,H*.95,18,1.5+i*.18,'#f97316',boss.atk*.55,'solar');}],
+    chrono_dragon:[()=>chronoDragonV18(),()=>{v20BossCast('크로노스: 기억 룬. 순서를 외워 밟으면 BREAK 됩니다.','cast','#fef08a'); spawnMemoryMiniGame();},()=>{v20BossCast('크로노스: 지연 탄막. 늦게 움직이는 탄을 예측하세요.','cast','#fde047'); for(let i=0;i<14;i++) setTimeout(()=>aimBullet(boss.x,boss.y,player.x+rand(-170,170),player.y+rand(-120,120),190,'#fde047',boss.atk*.25,'chrono'),i*120);}],
+    abyss_leviathan:[()=>abyssLeviathanV18(),()=>{v20BossCast('아비스: 소용돌이 미로. 탈출 지점까지 벽 사이를 통과하세요.','cast','#38bdf8'); spawnMazeEscape();},()=>{v20BossCast('아비스: 심해 소환수. 소환수를 처리하며 해일을 피하세요.','cast','#7dd3fc'); spawnAddsPhase(); for(let i=0;i<3;i++) v20Wall(W/2,160+i*120,W*.8,22,1.1+i*.25,'#38bdf8',boss.atk*.58,'ice');}],
+    puppet_emperor:[()=>puppetEmperorV18(),()=>{v20BossCast('마리오네트: 가짜 SAFE. 진짜 안전지대만 찾으세요.','cast','#facc15'); spawnColorPolarity();},()=>{v20BossCast('마리오네트: 단두대 줄. 선이 내려오기 전에 좌우로 빠지세요.','beam','#fde68a'); for(let i=0;i<5;i++) v20Beam(150+i*(W-300)/4,H/2,Math.PI/2,H*1.1,20,1.0+i*.08,'#fde68a',boss.atk*.65,'puppet');}],
+    black_sun:[()=>blackSunV18(),()=>{v20BossCast('아포칼립스: 무너지는 바닥. 안전 칸 하나를 찾아야 합니다.','slam','#f97316'); v20P3Tiles('#f97316','solar');},()=>{v20BossCast('아포칼립스: 검은 일식. SAFE 안에 들어가지 못하면 큰 피해를 받습니다.','slam','#facc15'); v20P2SafeCircle('#facc15','solar');}],
+    chaos_archon:[()=>chaosArchonV18(),()=>{v20BossCast('혼돈: 색상 양극. 지정 색 원을 빠르게 판단하세요.','cast','#c084fc'); spawnColorPolarity();},()=>{v20BossCast('혼돈: 복합 기억룬. 순서를 틀리면 큰 피해를 받습니다.','cast','#f472b6'); spawnMemoryMiniGame(); if(boss.phase>=3) setTimeout(()=>v20P3Tiles('#c084fc','chaos'),900); }]
+  };
+
+  bossPattern = function(){
+    if(!boss || boss.dead) return;
+    const arr=V20_PATTERNS[boss.id] || V20_PATTERNS.slime_king;
+    const i=v20Cycle();
+    try { arr[i%arr.length](); } catch(e) { console.warn('[V20 boss pattern fallback]', e); slimeKingV18(); }
+    v20MaybeCognitive();
+    if(boss.tier>=8 && boss.phase>=3 && Math.random()<.16) setTimeout(()=>instantKillPattern(),1800);
+  };
+
+
 })();
