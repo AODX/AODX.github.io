@@ -6607,3 +6607,385 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
     };
   } catch(e){}
 })();
+
+
+/* ===== V38: all text patterns visualized + weapon x2 + guaranteed boss tickets ===== */
+(()=>{
+  const V38_VERSION = 'V38_all_visuals_weaponx2_guaranteed_tickets';
+
+  function v38Clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function v38Text(h){ return String((h && (h.label || h.tag || h.theme || '')) || ''); }
+  function v38TextLower(h){ return v38Text(h).toLowerCase(); }
+  function v38Has(h, words){
+    const s = v38TextLower(h);
+    return words.some(w => s.includes(String(w).toLowerCase()));
+  }
+  function v38Glow(c,b){ ctx.shadowColor = c || '#fff'; ctx.shadowBlur = b || 18; }
+  function v38StrokeText(txt,x,y,c,size){
+    ctx.save();
+    ctx.font = `900 ${size||12}px system-ui`;
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(0,0,0,.72)';
+    ctx.strokeText(txt,x,y);
+    ctx.fillStyle = c || '#fff';
+    ctx.fillText(txt,x,y);
+    ctx.restore();
+  }
+  function v38CircleStroke(x,y,r,c,w){ ctx.save(); ctx.strokeStyle=c; ctx.lineWidth=w||4; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
+  function v38Line(x1,y1,x2,y2,c,w){ ctx.strokeStyle=c; ctx.lineWidth=w||4; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); }
+  function v38Phase(h){
+    if(!h) return 0;
+    if(typeof h._v38MaxLife !== 'number') h._v38MaxLife = Math.max(.05, h.life || .9);
+    if((h.warn || 0) > 0) return 0;
+    return Math.max(0, Math.min(1, 1 - (h.life || 0) / h._v38MaxLife));
+  }
+
+  function v38BoostWeapons(list){
+    if(!Array.isArray(list)) return;
+    list.forEach(w => {
+      if(!w || typeof w !== 'object') return;
+      if(w._v38Doubled) return;
+      const atk = Number(w.atk || 0);
+      if(Number.isFinite(atk) && atk > 0) w.atk = +(atk * 2).toFixed(4);
+      w._v38Doubled = true;
+    });
+  }
+  function v38ApplyWeaponBuff(){
+    try{ if(typeof WEAPONS !== 'undefined') v38BoostWeapons(WEAPONS); }catch(e){}
+    try{ if(state && state.save) v38BoostWeapons(state.save.weapons); }catch(e){}
+    try{ if(state && state.raid && state.raid.weapon) v38BoostWeapons([state.raid.weapon]); }catch(e){}
+  }
+  v38ApplyWeaponBuff();
+
+  try{
+    const oldNormalizeV38 = normalizeSaveData;
+    normalizeSaveData = function(s){
+      const out = oldNormalizeV38(s);
+      try{ v38BoostWeapons(out && out.weapons); }catch(e){}
+      return out;
+    };
+  } catch(e){ console.warn('[V38 normalize patch failed]', e); }
+
+  try{
+    getBossRewards = function(tier){
+      tier = Math.max(1, Math.min(10, Number(tier || 1)));
+      const rewards = { weapon:0, armor:0, skill:0, passive:0 };
+      let count = 1;
+      if(tier <= 2){ count = 1; if(Math.random() < 0.35) count += 1; }
+      else if(tier <= 4){ count = 2; if(Math.random() < 0.45) count += 1; }
+      else if(tier <= 6){ count = 3; if(Math.random() < 0.55) count += 1; }
+      else if(tier <= 8){ count = 4; count += Math.floor(Math.random() * 2); }
+      else { count = 5; count += Math.floor(Math.random() * 3); }
+
+      const weights = [
+        ['skill', 34],
+        ['weapon', 27],
+        ['armor', 21],
+        ['passive', 18],
+      ];
+      function pick(){
+        const roll = Math.random() * 100;
+        let sum = 0;
+        for(const [k,w] of weights){ sum += w; if(roll <= sum) return k; }
+        return 'skill';
+      }
+      for(let i=0;i<count;i++) rewards[pick()] += 1;
+
+      if(tier >= 8 && Math.random() < 0.20){ rewards.weapon += 1; rewards.armor += 1; rewards.skill += 1; rewards.passive += 1; }
+      if(tier >= 9 && Math.random() < 0.28) rewards.skill += 1;
+      if(tier >= 9 && Math.random() < 0.20) rewards.weapon += 1;
+      if(tier >= 10 && Math.random() < 0.24) rewards.armor += 1;
+      if(tier >= 10 && Math.random() < 0.18) rewards.passive += 1;
+
+      if((rewards.weapon + rewards.armor + rewards.skill + rewards.passive) <= 0) rewards.skill = 1;
+      return rewards;
+    };
+  } catch(e){ console.warn('[V38 reward patch failed]', e); }
+
+  function v38DrawGuillotine(h){
+    if(!v38Has(h,['단두대','참수','처형'])) return false;
+    const x=h.x||W/2, y=h.y||H/2; const w=Math.max(52,h.w||68), hh=Math.max(160,h.h||260); const prog=v38Phase(h);
+    ctx.save(); v38Glow('#f3f4f6',22); ctx.globalAlpha = h.warn>0 ? .56 : .95;
+    ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 5;
+    roundRect(ctx,x-w/2,y-hh/2,w,hh,10); ctx.stroke();
+    ctx.strokeStyle = 'rgba(148,163,184,.9)'; ctx.lineWidth = 7;
+    v38Line(x-w*.23,y-hh/2+12,x-w*.23,y+hh/2-12,ctx.strokeStyle,7);
+    v38Line(x+w*.23,y-hh/2+12,x+w*.23,y+hh/2-12,ctx.strokeStyle,7);
+    v38Line(x-w*.34,y-hh/2+18,x+w*.34,y-hh/2+18,ctx.strokeStyle,8);
+    const bladeY = y-hh/2 + 32 + prog*(hh-78);
+    ctx.fillStyle = '#d1d5db';
+    ctx.beginPath();
+    ctx.moveTo(x-w*.34, bladeY-8); ctx.lineTo(x+w*.34, bladeY-8); ctx.lineTo(x+w*.18, bladeY+24); ctx.lineTo(x-w*.18, bladeY+24); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke();
+    for(let i=0;i<4;i++) v38Line(x-w*.28+i*w*.18, y-hh/2+22, x-w*.18+i*w*.12, bladeY-6, 'rgba(255,255,255,.8)', 2);
+    v38StrokeText('단두대', x, y-hh/2-10, '#fff');
+    ctx.restore();
+    return true;
+  }
+
+  function v38DrawCollapse(h){
+    if(!v38Has(h,['붕괴','함락','파괴','붕락'])) return false;
+    const x=h.x||W/2, y=h.y||H/2, w=Math.max(70,h.w||120), hh=Math.max(70,h.h||120);
+    ctx.save(); v38Glow('#fb7185',20); ctx.globalAlpha = h.warn>0 ? .42 : .9;
+    ctx.fillStyle='rgba(127,29,29,.18)'; roundRect(ctx,x-w/2,y-hh/2,w,hh,12); ctx.fill();
+    ctx.strokeStyle='#fecaca'; ctx.lineWidth=4; roundRect(ctx,x-w/2,y-hh/2,w,hh,12); ctx.stroke();
+    ctx.strokeStyle='#fb7185'; ctx.lineWidth=5;
+    v38Line(x-w*.35,y-hh*.35,x+w*.2,y+hh*.2,ctx.strokeStyle,5);
+    v38Line(x-w*.1,y-hh*.4,x+w*.35,y+hh*.05,ctx.strokeStyle,4);
+    v38Line(x-w*.3,y+hh*.15,x+w*.1,y-hh*.2,ctx.strokeStyle,4);
+    for(let i=0;i<7;i++){
+      const px=x-w*.35+Math.random()*w*.7, py=y-hh*.35+Math.random()*hh*.7;
+      ctx.fillStyle=i%2?'#f59e0b':'#fca5a5';
+      ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px+8,py+4); ctx.lineTo(px-4,py+12); ctx.closePath(); ctx.fill();
+    }
+    v38StrokeText('붕괴',x,y+4,'#fff');
+    ctx.restore();
+    return true;
+  }
+
+  function v38DrawFire(h){
+    if(!v38Has(h,['화염','불꽃','불길','용암','화구','폭염','열파','숨결'])) return false;
+    const x=h.x||W/2, y=h.y||H/2;
+    ctx.save(); v38Glow('#fb923c',24); ctx.globalAlpha = h.warn>0 ? .42 : .88;
+    if(h.kind === 'beam' || h.kind === 'wall'){
+      ctx.translate(x,y); ctx.rotate(h.angle||0);
+      const len = h.len || h.w || 620; const width = Math.max(36, h.h || h.w || 64);
+      for(let i=0;i<18;i++){
+        const px=-len/2+i*(len/17); const size=width*(.22+.32*((i%4)+1)/4);
+        ctx.fillStyle = i%2 ? 'rgba(251,146,60,.70)' : 'rgba(239,68,68,.54)';
+        ctx.beginPath();
+        ctx.moveTo(px,0);
+        ctx.quadraticCurveTo(px-size*.6,-size,px+size*.15,-size*.2);
+        ctx.quadraticCurveTo(px+size,0,px+size*.15,size*.2);
+        ctx.quadraticCurveTo(px-size*.6,size,px,0);
+        ctx.fill();
+      }
+      ctx.restore(); return true;
+    }
+    const r=Math.max(34,h.r||48);
+    for(let i=0;i<7;i++){
+      const a=i*Math.PI*2/7 + state.time*1.6;
+      const px=x+Math.cos(a)*r*.25, py=y+Math.sin(a)*r*.25;
+      ctx.fillStyle=i%2?'rgba(253,186,116,.8)':'rgba(251,146,60,.62)';
+      ctx.beginPath(); ctx.moveTo(px,py-r*.2); ctx.quadraticCurveTo(px-r*.28,py+r*.08,px,py+r*.44); ctx.quadraticCurveTo(px+r*.34,py+r*.06,px,py-r*.2); ctx.fill();
+    }
+    v38StrokeText('화염',x,y+4,'#fff');
+    ctx.restore();
+    return true;
+  }
+
+  function v38DrawLightning(h){
+    if(!v38Has(h,['번개','낙뢰','전기','뇌격','자기'])) return false;
+    const x=h.x||W/2, y=h.y||H/2;
+    ctx.save(); v38Glow('#fde047',22); ctx.globalAlpha = h.warn>0 ? .45 : .94;
+    if(h.kind === 'beam' || h.kind === 'wall'){
+      ctx.translate(x,y); ctx.rotate(h.angle||0);
+      const len = h.len || h.w || 680;
+      ctx.strokeStyle = '#fef08a'; ctx.lineWidth = 6;
+      for(let k=0;k<3;k++){
+        ctx.beginPath();
+        let px=-len/2, py=(k-1)*10;
+        ctx.moveTo(px,py);
+        for(let i=0;i<11;i++){
+          px = -len/2 + (i+1)*(len/11);
+          py = (k-1)*12 + ((i%2)?-1:1)*(16+Math.sin(state.time*7+i+k)*6);
+          ctx.lineTo(px,py);
+        }
+        ctx.stroke();
+      }
+      ctx.restore(); return true;
+    }
+    const r=Math.max(28,h.r||42);
+    for(let i=0;i<8;i++){
+      const a=i*Math.PI/4;
+      const p1x=x+Math.cos(a)*r*.35, p1y=y+Math.sin(a)*r*.35;
+      const p2x=x+Math.cos(a)*r*.9, p2y=y+Math.sin(a)*r*.9;
+      ctx.strokeStyle=i%2?'#fef08a':'#ffffff'; ctx.lineWidth=5;
+      ctx.beginPath(); ctx.moveTo(p1x,p1y); ctx.lineTo((p1x+p2x)/2+6,(p1y+p2y)/2-10); ctx.lineTo(p2x,p2y); ctx.stroke();
+    }
+    v38StrokeText('전격',x,y+4,'#fff');
+    ctx.restore();
+    return true;
+  }
+
+  function v38DrawWave(h){
+    if(!v38Has(h,['해일','쓰나미','파도','물기둥','해류'])) return false;
+    const x=h.x||W/2, y=h.y||H/2;
+    ctx.save(); v38Glow('#38bdf8',20); ctx.globalAlpha = h.warn>0 ? .44 : .88;
+    if(h.kind === 'beam' || h.kind === 'wall' || h.kind === 'floor'){
+      const ww = h.len || h.w || W*.8; const hh = Math.max(54, h.h || 66);
+      ctx.fillStyle='rgba(56,189,248,.20)'; roundRect(ctx,x-ww/2,y-hh/2,ww,hh,12); ctx.fill();
+      ctx.strokeStyle='#e0f2fe'; ctx.lineWidth=4;
+      for(let j=0;j<4;j++){
+        ctx.beginPath();
+        for(let i=0;i<=36;i++){
+          const px=x-ww/2+i*ww/36; const py=y-hh*.18+j*hh*.12+Math.sin(i*.65+state.time*4+j)*10;
+          i?ctx.lineTo(px,py):ctx.moveTo(px,py);
+        }
+        ctx.stroke();
+      }
+      ctx.restore(); return true;
+    }
+    const r=Math.max(36,h.r||58);
+    for(let k=0;k<3;k++) v38CircleStroke(x,y,r*.55+k*14,'rgba(224,242,254,.9)',3);
+    v38StrokeText('해일',x,y+4,'#fff');
+    ctx.restore();
+    return true;
+  }
+
+  function v38DrawPoison(h){
+    if(!v38Has(h,['독','포자','맹독','정원','오염','슬라임 웅덩이'])) return false;
+    const x=h.x||W/2, y=h.y||H/2, r=Math.max(34,h.r||42);
+    ctx.save(); v38Glow('#84cc16',20); ctx.globalAlpha = h.warn>0 ? .42 : .9;
+    ctx.fillStyle='rgba(132,204,22,.18)';
+    if(h.kind==='floor' || h.kind==='wall'){
+      const w=Math.max(70,h.w||110), hh=Math.max(70,h.h||90);
+      roundRect(ctx,x-w/2,y-hh/2,w,hh,12); ctx.fill();
+      for(let i=0;i<7;i++){
+        const px=x-w/2+16+i*(w-32)/6, py=y+Math.sin(i+state.time*2)*6;
+        ctx.fillStyle=i%2?'rgba(163,230,53,.75)':'rgba(74,222,128,.55)';
+        ctx.beginPath(); ctx.arc(px,py,10+(i%3)*4,0,Math.PI*2); ctx.fill();
+      }
+      ctx.strokeStyle='#d9f99d'; ctx.lineWidth=4; roundRect(ctx,x-w/2,y-hh/2,w,hh,12); ctx.stroke();
+      v38StrokeText('독 장판',x,y+4,'#fff');
+      ctx.restore(); return true;
+    }
+    for(let i=0;i<6;i++){
+      const a=i*Math.PI*2/6; const px=x+Math.cos(a)*r*.65, py=y+Math.sin(a)*r*.65;
+      ctx.fillStyle=i%2?'rgba(163,230,53,.8)':'rgba(74,222,128,.68)';
+      ctx.beginPath(); ctx.arc(px,py,10+(i%2)*4,0,Math.PI*2); ctx.fill();
+    }
+    ctx.fillStyle='#bef264'; ctx.beginPath(); ctx.arc(x,y,12,0,Math.PI*2); ctx.fill();
+    v38StrokeText('포자',x,y-r-10,'#fff');
+    ctx.restore(); return true;
+  }
+
+  function v38DrawIce(h){
+    if(!v38Has(h,['빙','얼음','서리','결정','빙결'])) return false;
+    const x=h.x||W/2, y=h.y||H/2;
+    ctx.save(); v38Glow('#93c5fd',22); ctx.globalAlpha = h.warn>0 ? .44 : .92;
+    if(h.kind==='beam' || h.kind==='wall'){
+      const len = h.len || h.w || 680; const hh = Math.max(42, h.h || 54);
+      ctx.translate(x,y); ctx.rotate(h.angle||0);
+      ctx.fillStyle='rgba(147,197,253,.22)'; roundRect(ctx,-len/2,-hh/2,len,hh,12); ctx.fill();
+      ctx.strokeStyle='#eff6ff'; ctx.lineWidth=4; roundRect(ctx,-len/2,-hh/2,len,hh,12); ctx.stroke();
+      for(let i=0;i<8;i++){
+        const px=-len/2+30+i*(len-60)/7;
+        ctx.strokeStyle='#dbeafe'; ctx.lineWidth=3;
+        ctx.beginPath(); ctx.moveTo(px,0); ctx.lineTo(px-12,-18); ctx.moveTo(px,0); ctx.lineTo(px+12,-18); ctx.moveTo(px,0); ctx.lineTo(px,18); ctx.stroke();
+      }
+      ctx.restore(); return true;
+    }
+    const r=Math.max(28,h.r||42);
+    for(let i=0;i<6;i++){
+      const a=i*Math.PI/3;
+      ctx.strokeStyle='#eff6ff'; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*r); ctx.stroke();
+    }
+    v38CircleStroke(x,y,r*.45,'#dbeafe',3);
+    v38StrokeText('빙결',x,y+4,'#fff');
+    ctx.restore(); return true;
+  }
+
+  function v38DrawHook(h){
+    if(!v38Has(h,['갈고리','사슬','구속','속박'])) return false;
+    const x=h.x||W/2,y=h.y||H/2,a=h.angle||0,len=h.len||Math.max(h.w||480,h.h||480,520);
+    ctx.save(); v38Glow('#e5e7eb',18); ctx.globalAlpha=h.warn>0?.5:.95;
+    ctx.translate(x,y); ctx.rotate(a);
+    ctx.strokeStyle='#f8fafc'; ctx.lineWidth=4;
+    for(let i=0;i<8;i++){
+      const px=-len/2+i*(len/8);
+      ctx.beginPath(); ctx.arc(px,0,10,0,Math.PI*2); ctx.stroke();
+    }
+    ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=6; ctx.beginPath(); ctx.moveTo(-len/2,0); ctx.lineTo(len/2-44,0); ctx.stroke();
+    const hx=len/2-26;
+    ctx.strokeStyle='#f8fafc'; ctx.lineWidth=7; ctx.beginPath(); ctx.arc(hx,0,28,Math.PI*.1,Math.PI*1.55); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(hx+18,-18); ctx.lineTo(hx+38,-32); ctx.moveTo(hx+12,18); ctx.lineTo(hx+28,30); ctx.stroke();
+    ctx.restore(); return true;
+  }
+
+  function v38DrawMaze(h){
+    if(!v38Has(h,['미로','혼동','환영','집행','큐브','왜곡'])) return false;
+    const x=h.x||W/2,y=h.y||H/2,w=Math.max(84,h.w||100),hh=Math.max(84,h.h||100);
+    ctx.save(); v38Glow('#c084fc',20); ctx.globalAlpha=h.warn>0?.42:.92;
+    ctx.strokeStyle='#f5d0fe'; ctx.lineWidth=4; roundRect(ctx,x-w/2,y-hh/2,w,hh,12); ctx.stroke();
+    ctx.strokeStyle='#c084fc'; ctx.lineWidth=5;
+    ctx.beginPath();
+    ctx.moveTo(x-w*.26,y-hh*.18); ctx.lineTo(x-w*.26,y+hh*.26); ctx.lineTo(x+w*.14,y+hh*.26); ctx.lineTo(x+w*.14,y-hh*.04); ctx.lineTo(x-w*.04,y-hh*.04);
+    ctx.moveTo(x+w*.26,y-hh*.28); ctx.lineTo(x+w*.26,y+hh*.12); ctx.lineTo(x-w*.06,y+hh*.12);
+    ctx.stroke();
+    v38StrokeText('미로/혼동',x,y-hh/2-10,'#fff');
+    ctx.restore(); return true;
+  }
+
+  function v38DrawFallback(h){
+    const txt = String((h && h.label) || '').trim();
+    if(!txt) return false;
+    if(v38Has(h,['safe']) || txt === 'SAFE') return false;
+    const x=h.x||W/2, y=h.y||H/2;
+    ctx.save(); v38Glow(h.color||'#fff',16); ctx.globalAlpha = h.warn>0 ? .34 : .74;
+    if(h.kind==='circle' || h.kind==='donut'){
+      const r = Math.max(24, h.r || h.outer || 36);
+      v38CircleStroke(x,y,r*.7,h.color||'#fff',3);
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4+state.time*.8;
+        v38Line(x+Math.cos(a)*r*.3,y+Math.sin(a)*r*.3,x+Math.cos(a)*r,y+Math.sin(a)*r,h.color||'#fff',2);
+      }
+    } else {
+      const w = Math.min(Math.max(80, h.w || h.len || 120), 260);
+      const hh = Math.min(Math.max(40, h.h || 56), 140);
+      ctx.strokeStyle = h.color || '#fff'; ctx.lineWidth = 3; roundRect(ctx,x-w/2,y-hh/2,w,hh,10); ctx.stroke();
+      for(let i=0;i<5;i++){
+        const px=x-w/2+16+i*(w-32)/4;
+        const py=y+Math.sin(state.time*3+i)*8;
+        ctx.beginPath(); ctx.arc(px,py,4+(i%2),0,Math.PI*2); ctx.fillStyle = h.color || '#fff'; ctx.fill();
+      }
+    }
+    v38StrokeText(txt,x,y+4,'#fff',12);
+    ctx.restore(); return true;
+  }
+
+  function v38DrawVisual(h){
+    if(!h || !h.label) return false;
+    if(v38DrawGuillotine(h)) return true;
+    if(v38DrawCollapse(h)) return true;
+    if(v38DrawFire(h)) return true;
+    if(v38DrawLightning(h)) return true;
+    if(v38DrawWave(h)) return true;
+    if(v38DrawPoison(h)) return true;
+    if(v38DrawIce(h)) return true;
+    if(v38DrawHook(h)) return true;
+    if(v38DrawMaze(h)) return true;
+    return v38DrawFallback(h);
+  }
+
+  try{
+    const oldDrawHazardsV38 = drawHazards;
+    drawHazards = function(){
+      oldDrawHazardsV38();
+      try{
+        state.hazards.forEach(h => { v38DrawVisual(h); });
+      }catch(e){ console.warn('[V38 visual overlay failed]', e); }
+    };
+  } catch(e){ console.warn('[V38 drawHazards patch failed]', e); }
+
+  try{
+    const oldDrawV38 = draw;
+    draw = function(){
+      v38ApplyWeaponBuff();
+      oldDrawV38();
+    };
+  } catch(e){ console.warn('[V38 draw patch failed]', e); }
+
+  try{
+    window.RaidDungeonV38 = {
+      version: V38_VERSION,
+      changes: [
+        'All labeled/text-only boss hazards now receive visual overlays instead of looking like plain laser text.',
+        'Weapon attack values are doubled for all existing/newly owned weapons.',
+        'Boss clears always drop at least 1 ticket and high-tier bosses can drop multiple weapon/armor/skill/passive tickets.'
+      ]
+    };
+  } catch(e){}
+})();
