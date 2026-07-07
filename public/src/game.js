@@ -6057,6 +6057,381 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
     visualForms: ['guillotine blade drop','train rail charge','hook/vine chain','scythe/blade slash','rotating cube block','lightning/totem pillar','tsunami wave overlay'],
     replacedPatterns: ['puppet_emperor guillotine','crimson_train actual train lanes','oracle_cube rotating block field','abyss_leviathan wave lanes']
   };
+
+/* =========================================================
+   RAID DUNGEON V40 - EFFECTIVE CORE FIX INSIDE MAIN CLOSURE
+   - exact tier ticket count actually used by endRaid
+   - reliable FIRST CLEAR DOM + result message
+   - build list duplicate display removed by id/name
+   - green bosses separated: plague / thorn / void gardener
+   - apocalypse and solar dragon more interactive
+========================================================= */
+(function raidDungeonV40EffectiveCoreFix(){
+  const V40_VERSION = 'Raid Dungeon V40 - Effective First Clear, Tier Tickets, Boss Pattern Rework';
+  const V40_FIRST_KEY = 'raid-dungeon-v40-first-clear-seen';
+
+  function v40Num(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+  function v40Tier(b){ return clamp(Math.round(v40Num(b && b.tier, 1)),1,10); }
+  function v40Dmg(m){ return Math.max(12, ((boss && boss.atk) || 30) * (m || .7)); }
+  function v40Color(c){ return c || (boss && boss.color) || '#fff'; }
+  function v40Cast(msg,color){ try{ v20BossCast(msg,'cast',color || (boss && boss.color) || '#fff'); }catch(e){ state.toast=msg; state.toastT=1.8; } }
+  function v40Haz(h){
+    if(!h) return;
+    h.warn = Math.max(.9, h.warn || 1.15);
+    h.life = Math.max(.45, h.life || .8);
+    h.damage = v40Num(h.damage, v40Dmg(.65));
+    state.hazards.push(h);
+  }
+  function v40Circle(x,y,r,warn,color,damage,tag,label,life){ v40Haz({kind:'circle',x,y,r,warn,life,damage,color,tag,label}); }
+  function v40Donut(x,y,inner,outer,warn,color,damage,tag,label,life){ v40Haz({kind:'donut',x,y,inner,outer,warn,life,damage,color,tag,label}); }
+  function v40Beam(x,y,angle,len,w,warn,color,damage,tag,label,life){ v40Haz({kind:'beam',x,y,angle,len,w,warn,life,damage,color,tag,label}); }
+  function v40Wall(x,y,w,h,warn,color,damage,tag,label,life){ v40Haz({kind:'wall',x,y,w,h,warn,life,damage,color,tag,label}); }
+  function v40Floor(x,y,w,h,warn,color,damage,tag,label,life){ v40Haz({kind:'floor',x,y,w,h,warn,life,damage,color,tag,label}); }
+  function v40Rot(x,y,angle,spin,len,w,warn,color,damage,tag,label,life){ v40Haz({kind:'rotatingBeam',x,y,angle,spin,len,w,warn,life:life||2.0,damage,color,tag,label}); }
+  function v40Rune(x,y,action,label,color,life){ try{ state.mechanics.push({kind:'rune',x,y,r:34,life:life||5.0,action:action||'break',color:color||'#fef08a',label:label||'BREAK'}); }catch(e){} }
+  function v40Safe(x,y,r,life,label,color){ try{ state.mechanics.push({kind:'safe',x,y,r:r||58,life:life||2.8,color:color||'#86efac',label:label||'SAFE'}); }catch(e){} }
+
+  function v40UniqueByName(items){
+    const seen = new Set();
+    return (items || []).filter(it => {
+      if(!it) return false;
+      const key = String((it.name || it.id || '')).trim().toLowerCase();
+      if(!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  const oldOwnedWeaponsV40 = ownedWeapons;
+  const oldOwnedArmorsV40 = ownedArmors;
+  const oldOwnedSkillsV40 = ownedSkills;
+  const oldOwnedPassivesV40 = ownedPassives;
+  ownedWeapons = function(){ return v40UniqueByName(oldOwnedWeaponsV40()); };
+  ownedArmors = function(){ return v40UniqueByName(oldOwnedArmorsV40()); };
+  ownedSkills = function(cat){ return v40UniqueByName(oldOwnedSkillsV40(cat)); };
+  ownedPassives = function(){ return v40UniqueByName(oldOwnedPassivesV40()); };
+
+  rollBossTicketRewards = function(b){
+    const tier = v40Tier(b);
+    const rewards = {weapon:0, armor:0, skill:0, passive:0};
+    const kinds = ['weapon','armor','skill','passive'];
+    const weights = tier >= 8 ? {weapon:28, armor:24, skill:28, passive:20}
+      : tier >= 5 ? {weapon:24, armor:22, skill:36, passive:18}
+      : {weapon:20, armor:20, skill:44, passive:16};
+    for(let i=0;i<tier;i++){
+      let total = weights.weapon + weights.armor + weights.skill + weights.passive;
+      let r = Math.random() * total;
+      let picked = 'skill';
+      for(const k of kinds){ r -= weights[k]; if(r <= 0){ picked = k; break; } }
+      rewards[picked] += 1;
+    }
+    const sum = rewards.weapon + rewards.armor + rewards.skill + rewards.passive;
+    if(sum < tier) rewards.skill += tier - sum;
+    if(sum > tier){
+      let over = sum - tier;
+      for(const k of ['skill','weapon','armor','passive']){
+        const cut = Math.min(over, rewards[k]); rewards[k] -= cut; over -= cut; if(over<=0) break;
+      }
+    }
+    if((rewards.weapon + rewards.armor + rewards.skill + rewards.passive) !== tier) rewards.skill = Math.max(0, tier - rewards.weapon - rewards.armor - rewards.passive);
+    return rewards;
+  };
+  rewardTextFromTickets = function(rw){
+    const parts = [];
+    if(rw.weapon) parts.push(`무기 ${rw.weapon}장`);
+    if(rw.armor) parts.push(`방어구 ${rw.armor}장`);
+    if(rw.skill) parts.push(`스킬 ${rw.skill}장`);
+    if(rw.passive) parts.push(`패시브 ${rw.passive}장`);
+    return parts.length ? '획득 티켓: ' + parts.join(' / ') : '획득 티켓 오류 방지: 스킬 1장';
+  };
+
+  function v40LoadSeen(){ try{return JSON.parse(localStorage.getItem(V40_FIRST_KEY)||'{}')||{};}catch(e){return{};} }
+  function v40SaveSeen(o){ try{ localStorage.setItem(V40_FIRST_KEY, JSON.stringify(o||{})); }catch(e){} }
+  function v40ShowFirstClearDom(name){
+    try{
+      const old = document.getElementById('raid-v40-first-clear-banner');
+      if(old) old.remove();
+      const box = document.createElement('div');
+      box.id = 'raid-v40-first-clear-banner';
+      box.innerHTML = `<div style="font-size:54px;font-weight:950;color:#facc15;letter-spacing:.06em;text-shadow:0 0 24px #facc15">FIRST CLEAR!</div><div style="margin-top:10px;font-size:21px;font-weight:900;color:white">${escapeHtml(name||'보스')} 최초 클리어 기록 달성</div><div style="margin-top:6px;font-size:14px;color:#fde68a;font-weight:800">새로운 기록이 랭킹에 등록되었습니다</div>`;
+      box.style.cssText = 'position:fixed;left:50%;top:28%;transform:translate(-50%,-50%);z-index:99999;min-width:620px;max-width:88vw;text-align:center;padding:28px 38px;border:4px solid #facc15;border-radius:28px;background:rgba(2,6,23,.86);box-shadow:0 0 44px rgba(250,204,21,.55);pointer-events:none;animation:raidV40FirstClear 4.8s ease-out forwards;';
+      if(!document.getElementById('raid-v40-first-clear-style')){
+        const st = document.createElement('style');
+        st.id = 'raid-v40-first-clear-style';
+        st.textContent = '@keyframes raidV40FirstClear{0%{opacity:0;transform:translate(-50%,-56%) scale(.72)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.03)}72%{opacity:1}100%{opacity:0;transform:translate(-50%,-48%) scale(1)}}';
+        document.head.appendChild(st);
+      }
+      document.body.appendChild(box);
+      setTimeout(()=>{ try{ box.remove(); }catch(e){} }, 5000);
+    }catch(e){}
+  }
+  function v40ShowFirstClearCanvas(name){
+    state.v40FirstClearT = 5.2;
+    state.v40FirstClearName = name || '보스';
+    state.flash = Math.max(state.flash||0, 1.0);
+    v40ShowFirstClearDom(name);
+    try{ burst(W/2,H/2,'#facc15',110,560); }catch(e){}
+  }
+
+  endRaid = function(clear){
+    state.screen = 'result';
+    const elapsed = Math.floor(state.raid.elapsed * 1000);
+    let rewardText = '';
+    let firstClear = false;
+    if(clear){
+      const b = getBoss(boss.id);
+      const seen = v40LoadSeen();
+      firstClear = !seen[boss.id];
+      const rw = rollBossTicketRewards(b);
+      state.save.tickets.weapon = (state.save.tickets.weapon || 0) + rw.weapon;
+      state.save.tickets.armor = (state.save.tickets.armor || 0) + rw.armor;
+      state.save.tickets.skill = (state.save.tickets.skill || 0) + rw.skill;
+      state.save.tickets.passive = (state.save.tickets.passive || 0) + rw.passive;
+      rewardText = rewardTextFromTickets(rw);
+      if(firstClear){
+        seen[boss.id] = true;
+        v40SaveSeen(seen);
+        v40ShowFirstClearCanvas(boss.name);
+        rewardText = '<b style="color:#facc15;font-size:16px">FIRST CLEAR! 최초 클리어 기록 달성</b><br>' + rewardText;
+      }
+      saveGame();
+      submitRecord(elapsed);
+    }
+    ui.right.classList.remove('hidden');
+    ui.right.innerHTML = `<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`;
+    const btn = ui.right.querySelector('#resultMenu');
+    if(btn) btn.onclick = () => { state.menuTab = clear ? 'ranking' : 'build'; renderMenu(); refreshRankings(boss.id); };
+  };
+
+  const oldDrawV40 = draw;
+  draw = function(){
+    oldDrawV40();
+    try{
+      if(state.v40FirstClearT > 0){
+        state.v40FirstClearT -= 1/60;
+        const alpha = Math.max(0, Math.min(1, state.v40FirstClearT/5.2));
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, .28 + alpha);
+        ctx.fillStyle='rgba(0,0,0,.48)';
+        roundRect(ctx,W/2-390,H/2-92,780,184,30); ctx.fill();
+        ctx.strokeStyle='#facc15'; ctx.lineWidth=5; roundRect(ctx,W/2-390,H/2-92,780,184,30); ctx.stroke();
+        ctx.shadowColor='#facc15'; ctx.shadowBlur=34;
+        ctx.fillStyle='#facc15'; ctx.font='950 54px system-ui'; ctx.textAlign='center'; ctx.fillText('FIRST CLEAR!',W/2,H/2-18);
+        ctx.shadowBlur=12; ctx.fillStyle='#fff'; ctx.font='900 20px system-ui'; ctx.fillText((state.v40FirstClearName||'보스')+' 최초 클리어 기록 달성',W/2,H/2+34);
+        ctx.restore();
+      }
+    }catch(e){}
+  };
+
+  function v40PatternPlague(){
+    const c='#84cc16'; const r=Math.random();
+    if(r<.22){
+      v40Cast('역병 의사: 검역 병동. 독안개 병동 사이 통로로 이동하세요.',c);
+      const gap=Math.floor(Math.random()*4);
+      for(let i=0;i<4;i++) if(i!==gap) v40Wall(W/2,140+i*(H-225)/3,W*.92,52,1.55+i*.06,c,v40Dmg(.66),'poison','검역 병동',1.0);
+      v40Rune(W*.78,H*.70,'cleanse','해독 혈청','#86efac',5.2);
+      return;
+    }
+    if(r<.44){
+      v40Cast('역병 의사: 수술 절개선. 십자 절개 뒤 해독 룬을 밟으면 반격 기회입니다.', '#d9f99d');
+      for(let i=0;i<4;i++){ v40Beam(170+i*(W-340)/3,H/2,Math.PI/2,H*.82,18,1.15+i*.1,'#d9f99d',v40Dmg(.55),'poison','역병 수술선',.75); }
+      for(let j=0;j<3;j++){ v40Beam(W/2,160+j*(H-280)/2,0,W*.78,16,1.35+j*.1,'#a3e635',v40Dmg(.42),'poison','소독 절개선',.68); }
+      v40Rune(W*.5,H*.5,'cleanse','소독 완료','#86efac',4.2);
+      return;
+    }
+    if(r<.67){
+      v40Cast('역병 의사: 감염 배양. 감염체를 피해 중앙 주사기를 피하세요.', c);
+      for(let i=0;i<10;i++) v40Circle(110+Math.random()*(W-220),120+Math.random()*(H-220),28+Math.random()*18,1.0+i*.06,'#bef264',v40Dmg(.38),'poison','감염 포자',.8);
+      for(let i=0;i<6;i++) v40Beam(W/2,H/2,i*Math.PI/3,W*.68,12,1.55+i*.04,'#ecfccb',v40Dmg(.5),'poison','독침 주사',.75);
+      return;
+    }
+    v40Cast('역병 의사: 치료제는 하나뿐입니다. 진짜 혈청으로 이동하세요.', c);
+    const real=Math.floor(Math.random()*4);
+    for(let i=0;i<4;i++){ const x=220+i*(W-440)/3; if(i===real) v40Safe(x,H*.55,54,2.8,'진짜 혈청','#86efac'); else v40Circle(x,H*.55,58,1.45+i*.07,'#4ade80',v40Dmg(.75),'poison','가짜 혈청',.95); }
+  }
+
+  function v40PatternThorn(){
+    const c='#22c55e'; const r=Math.random();
+    if(r<.24){
+      v40Cast('가시 여왕: 덩굴 갈고리. 잡히기 전에 사선 덩굴 사이로 빠지세요.',c);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-2;i<=2;i++) v40Beam(boss.x,boss.y,base+i*.24,850,18,1.15+Math.abs(i)*.08,c,v40Dmg(.52),'nature','덩굴 갈고리',.82);
+      return;
+    }
+    if(r<.48){
+      v40Cast('가시 여왕: 장미 미로. 꽃이 피는 칸은 위험하고 줄기 틈은 안전합니다.',c);
+      const safeCol=Math.floor(Math.random()*5);
+      for(let i=0;i<5;i++){ const x=130+i*(W-260)/4; if(i!==safeCol) v40Wall(x,H/2,44,H*.78,1.55+i*.04,'#16a34a',v40Dmg(.64),'nature','가시 울타리',1.0); }
+      for(let i=0;i<7;i++) v40Circle(140+Math.random()*(W-280),130+Math.random()*(H-230),34,1.25+i*.05,'#f472b6',v40Dmg(.48),'nature','독꽃 개화',.8);
+      return;
+    }
+    if(r<.72){
+      v40Cast('가시 여왕: 씨앗 폭발. 꽃눈을 밟아 터뜨리면 탄막이 줄어듭니다.',c);
+      for(let i=0;i<10;i++) v40Circle(110+Math.random()*(W-220),120+Math.random()*(H-230),30,1.1+i*.04,'#f9a8d4',v40Dmg(.46),'nature','가시 씨앗',.78);
+      v40Rune(W*.5,H*.46,'break','꽃눈 파괴','#fef08a',4.4);
+      return;
+    }
+    v40Cast('가시 여왕: 꽃잎 폭풍. 안쪽에서 구르고 바깥으로 빠져나가세요.',c);
+    v40Donut(W/2,H/2,110,310,1.35,'#22c55e',v40Dmg(.62),'nature','꽃잎 폭풍',.95);
+    for(let i=0;i<6;i++) v40Beam(W/2,H/2,i*Math.PI/3,W*.78,14,1.75+i*.05,'#f472b6',v40Dmg(.42),'nature','장미 칼날',.7);
+  }
+
+  function v40PatternGardener(){
+    const c='#8b5cf6'; const r=Math.random();
+    if(r<.23){
+      v40Cast('공허 정원사: 포탈 꽃문. 열린 꽃문 방향을 보고 이동하세요.',c);
+      const safe=Math.floor(Math.random()*4);
+      for(let i=0;i<4;i++){ const x=210+i*(W-420)/3; if(i===safe) v40Safe(x,H*.55,55,2.7,'열린 꽃문','#a7f3d0'); else v40Circle(x,H*.55,70,1.35+i*.07,'#8b5cf6',v40Dmg(.72),'void-nature','닫힌 꽃문',.9); }
+      return;
+    }
+    if(r<.47){
+      v40Cast('공허 정원사: 뿌리 수확. 공허 뿌리가 교차한 뒤 중심 꽃핵이 열립니다.',c);
+      for(let i=0;i<5;i++){ v40Beam(W/2,H/2,Math.PI*.15+i*Math.PI/5,W*.9,16,1.1+i*.08,'#22c55e',v40Dmg(.45),'void-nature','공허 뿌리',.8); }
+      v40Rune(W/2,H/2,'break','꽃핵 파괴','#fef08a',4.2);
+      return;
+    }
+    if(r<.71){
+      v40Cast('공허 정원사: 잡초 소환. 독성 정원을 피하면서 잡초핵을 처리하세요.',c);
+      for(let i=0;i<8;i++) v40Circle(120+Math.random()*(W-240),120+Math.random()*(H-230),38,1.0+i*.05,'#4ade80',v40Dmg(.42),'void-nature','독성 잡초',.9);
+      for(let i=0;i<3;i++) v40Rune(260+i*(W-520)/2,H*.42+Math.random()*120,'break','잡초핵','#fef08a',4.8);
+      return;
+    }
+    v40Cast('공허 정원사: 검은 꽃가루. 꽃가루 고리 안쪽과 바깥쪽을 번갈아 피하세요.',c);
+    v40Donut(W/2,H/2,85,220,1.25,'#8b5cf6',v40Dmg(.58),'void-nature','검은 꽃가루',.9);
+    v40Donut(W/2,H/2,260,390,1.75,'#22c55e',v40Dmg(.56),'void-nature','독성 정원',.9);
+  }
+
+  function v40PatternSolar(){
+    const c='#fb923c'; const r=Math.random();
+    if(r<.25){
+      v40Cast('태양룡: 발톱 돌진. 돌진을 구르기로 넘기고 꼬리 빈틈을 공격하세요.',c);
+      const a=Math.atan2(player.y-boss.y,player.x-boss.x);
+      v40Beam(boss.x,boss.y,a,930,38,1.05,c,v40Dmg(.8),'solar','태양 발톱 돌진',.75);
+      v40Circle(boss.x-Math.cos(a)*95,boss.y-Math.sin(a)*95,58,1.45,'#fde047',v40Dmg(.5),'solar','꼬리 폭발',.8);
+      v40Rune(boss.x,boss.y,'break','역광 약점','#fef08a',3.8);
+      return;
+    }
+    if(r<.50){
+      v40Cast('태양룡: 광익 절단. 날개빛 사이의 빈각으로 파고드세요.',c);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) if(i!==0) v40Beam(boss.x,boss.y,base+i*.22,900,18,1.15+Math.abs(i)*.07,'#fde047',v40Dmg(.48),'solar','광익 절단',.72);
+      return;
+    }
+    if(r<.75){
+      v40Cast('태양룡: 플레어 코어. 코어가 폭발하기 전 BREAK 룬으로 반격하세요.',c);
+      v40Circle(W/2,H/2,88,1.25,'#facc15',v40Dmg(.42),'solar','플레어 코어',1.2);
+      for(let i=0;i<9;i++) v40Circle(130+Math.random()*(W-260),125+Math.random()*(H-230),34,1.35+i*.05,'#fb923c',v40Dmg(.46),'solar','태양 낙하',.72);
+      v40Rune(W/2,H/2,'break','코어 파괴','#fff7ed',4.0);
+      return;
+    }
+    v40Cast('태양룡: 일식 호흡. 안쪽-바깥쪽을 번갈아 피하며 공격 타이밍을 잡으세요.',c);
+    v40Donut(W/2,H/2,75,230,1.15,'#f97316',v40Dmg(.62),'solar','일식 호흡',.88);
+    v40Donut(W/2,H/2,250,390,1.75,'#fde047',v40Dmg(.58),'solar','태양 외곽',.88);
+  }
+
+  function v40PatternEclipse(){
+    const c='#f97316'; const r=Math.random();
+    if(r<.22){
+      v40Cast('아포칼립스: 흑점 낙하. 낙하 후 생기는 흑점 코어를 파괴하세요.',c);
+      for(let i=0;i<11;i++) v40Circle(120+Math.random()*(W-240),115+Math.random()*(H-220),36,1.0+i*.06,'#fb7185',v40Dmg(.55),'eclipse','흑점 낙하',.78);
+      v40Rune(W*.5,H*.5,'break','흑점 코어','#fef08a',4.5);
+      return;
+    }
+    if(r<.45){
+      v40Cast('아포칼립스: 검은 태양 사슬. 사슬을 구르고 중앙 약점을 치세요.',c);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-2;i<=2;i++) v40Beam(boss.x,boss.y,base+i*.25,950,24,1.15+Math.abs(i)*.06,'#020617',v40Dmg(.68),'eclipse','검은 태양 사슬',.82);
+      v40Rune(boss.x,boss.y,'break','일식 핵','#fef08a',4.0);
+      return;
+    }
+    if(r<.68){
+      v40Cast('아포칼립스: 붕괴 바닥. 무너지는 칸 사이에서 반격 루트를 찾으세요.',c);
+      const cols=6, rows=4, safeA=Math.floor(Math.random()*cols*rows), safeB=Math.floor(Math.random()*cols*rows);
+      const cw=(W-180)/cols, ch=(H-180)/rows;
+      for(let idx=0;idx<cols*rows;idx++){
+        const col=idx%cols, row=Math.floor(idx/cols), x=90+cw/2+col*cw, y=120+ch/2+row*ch;
+        if(idx!==safeA && idx!==safeB) v40Floor(x,y,cw*.82,ch*.72,1.55+(idx%4)*.04,'#7f1d1d',v40Dmg(.62),'eclipse','붕괴 바닥',.95);
+        else v40Safe(x,y,46,2.6,'SAFE','#86efac');
+      }
+      return;
+    }
+    if(r<.86){
+      v40Cast('아포칼립스: 일식 고리. 구르기로 고리를 넘어 약점 룬을 밟으세요.',c);
+      v40Donut(W/2,H/2,95,250,1.1,'#020617',v40Dmg(.7),'eclipse','검은 일식 고리',.95);
+      v40Rot(W/2,H/2,Math.random()*Math.PI,1.25,W*.9,18,1.5,'#fb7185',v40Dmg(.44),'eclipse','일식 칼날',2.0);
+      v40Rune(W*.5,H*.5,'break','일식 파괴','#fef08a',4.3);
+      return;
+    }
+    v40Cast('아포칼립스: 종말 광선. 여러 줄의 광선을 넘기고 안쪽으로 파고드세요.',c);
+    for(let i=0;i<5;i++) v40Beam(W/2,135+i*(H-230)/4,0,W*.92,22,1.05+i*.12,'#fb7185',v40Dmg(.56),'eclipse','종말 광선',.72);
+    for(let i=0;i<4;i++) v40Circle(200+i*(W-400)/3,H*.50,44,1.7+i*.08,'#f97316',v40Dmg(.48),'eclipse','태양 파편',.74);
+  }
+
+  function v40PatternChaos(){
+    const c='#c084fc'; const r=Math.random();
+    if(r<.25){
+      v40Cast('혼돈의 집정관: 판결 순환. 원-선-도넛이 순서대로 겹칩니다.',c);
+      for(let i=0;i<6;i++) v40Circle(140+Math.random()*(W-280),120+Math.random()*(H-230),38,1.0+i*.06,'#a78bfa',v40Dmg(.42),'chaos','혼돈 원',.7);
+      for(let i=0;i<3;i++) v40Beam(W/2,H/2,Math.random()*Math.PI,W*.86,15,1.35+i*.1,'#f0abfc',v40Dmg(.46),'chaos','혼돈 선',.72);
+      v40Donut(W/2,H/2,85,240,1.85,'#7c3aed',v40Dmg(.55),'chaos','혼돈 도넛',.9);
+      return;
+    }
+    if(r<.5){
+      v40Cast('혼돈의 집정관: 가짜 법정. 진짜 SAFE만 믿으세요.',c);
+      const real=Math.floor(Math.random()*4);
+      for(let i=0;i<4;i++){ const x=220+i*(W-440)/3; if(i===real) v40Safe(x,H*.55,58,2.8,'진짜','#86efac'); else v40Circle(x,H*.55,62,1.35+i*.08,'#f472b6',v40Dmg(.78),'chaos','가짜 SAFE',.9); }
+      return;
+    }
+    if(r<.75){
+      v40Cast('혼돈의 집정관: 회전 재판. 회전선을 구르고 BREAK를 밟으세요.',c);
+      for(let i=0;i<4;i++) v40Rot(W/2,H/2,i*Math.PI/4,(i%2?-.95:.95),W*.96,16,1.15+i*.08,'#c084fc',v40Dmg(.44),'chaos','혼돈 회전',2.1);
+      v40Rune(W/2,H/2,'break','질서 파괴','#fef08a',4.0);
+      return;
+    }
+    v40Cast('혼돈의 집정관: 무작위 판결. 짧은 패턴을 연속으로 넘기세요.',c);
+    for(let i=0;i<12;i++){
+      if(i%3===0) v40Beam(120+Math.random()*(W-240),H/2,Math.PI/2,H*.82,14,1.0+i*.06,'#e879f9',v40Dmg(.42),'chaos','무작위 판결',.62);
+      else v40Circle(100+Math.random()*(W-200),120+Math.random()*(H-220),32,1.0+i*.06,'#a78bfa',v40Dmg(.42),'chaos','혼돈 파편',.62);
+    }
+  }
+
+  const oldBossPatternV40 = bossPattern;
+  bossPattern = function(){
+    try{
+      const id = boss && boss.id;
+      if(id === 'plague_doctor') { v40PatternPlague(); return; }
+      if(id === 'thorn_queen') { v40PatternThorn(); return; }
+      if(id === 'hollow_gardener' || id === 'void_gardener') { v40PatternGardener(); return; }
+      if(id === 'solar_dragon') { v40PatternSolar(); return; }
+      if(id === 'black_sun') { v40PatternEclipse(); return; }
+      if(id === 'chaos_archon') { v40PatternChaos(); return; }
+    }catch(e){ console.warn('[V40 custom boss pattern failed]', e); }
+    return oldBossPatternV40();
+  };
+
+  function v40PatternLabelUpdate(){
+    const labels = {
+      plague_doctor:['검역 병동','역병 수술선','감염 포자','독침 주사','진짜 혈청','해독 혈청'],
+      thorn_queen:['덩굴 갈고리','가시 울타리','독꽃 개화','가시 씨앗','꽃잎 폭풍','꽃눈 파괴'],
+      hollow_gardener:['열린 꽃문','공허 뿌리','잡초핵','검은 꽃가루','독성 정원','꽃핵 파괴'],
+      void_gardener:['열린 꽃문','공허 뿌리','잡초핵','검은 꽃가루','독성 정원','꽃핵 파괴'],
+      solar_dragon:['태양 발톱 돌진','광익 절단','플레어 코어','태양 낙하','일식 호흡','역광 약점'],
+      black_sun:['흑점 낙하','검은 태양 사슬','붕괴 바닥','검은 일식 고리','종말 광선','일식 핵'],
+      chaos_archon:['판결 순환','가짜 법정','혼돈 회전','무작위 판결','혼돈 파편','질서 파괴']
+    };
+    BOSSES.forEach(b=>{ if(labels[b.id]) b.patterns = labels[b.id]; });
+  }
+  v40PatternLabelUpdate();
+
+  window.RaidDungeonV40 = {
+    version: V40_VERSION,
+    actualPatchLocation: 'inside main closure before final closures',
+    ticketRule: 'total ticket count exactly equals boss tier',
+    firstClear: 'DOM banner + canvas banner + result text, once per boss in V40 key',
+    dedupeBuildLists: true,
+    customBosses: ['plague_doctor','thorn_queen','hollow_gardener','solar_dragon','black_sun','chaos_archon']
+  };
+})();
+
 })();
 
 })();
