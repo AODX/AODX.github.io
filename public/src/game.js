@@ -6989,3 +6989,473 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
     };
   } catch(e){}
 })();
+
+
+/* ===== V39: first clear fixed + exact tier tickets + distinct plague/plant/gardener/solar/eclipse patterns ===== */
+(()=>{
+  const V39_VERSION = 'V39_first_clear_tier_rewards_boss_quality';
+  const V39_FIRST_CLEAR_KEY = 'raid-dungeon-v39-first-clear-seen';
+
+  function v39Num(v, d){ v = Number(v); return Number.isFinite(v) ? v : d; }
+  function v39Clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function v39Tier(b){ return v39Clamp(Math.round(v39Num(b && b.tier, 1)), 1, 10); }
+  function v39Pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+  function v39BossName(){ return boss && boss.name ? boss.name : '보스'; }
+  function v39Color(c){ return c || (boss && boss.color) || '#ffffff'; }
+  function v39Dmg(m){ return Math.max(12, ((boss && boss.atk) || 25) * (m || .7)); }
+  function v39Warn(w){ return Math.max(.9, w || 1.2); }
+  function v39Haz(h){
+    if(!h) return;
+    h.warn = v39Warn(h.warn);
+    h.life = Math.max(.45, h.life || .85);
+    h.damage = v39Num(h.damage, v39Dmg(.7));
+    state.hazards.push(h);
+  }
+  function v39Circle(x,y,r,warn,color,damage,tag,label,life){ v39Haz({kind:'circle',x,y,r,warn,life,damage,color,tag,label}); }
+  function v39Donut(x,y,inner,outer,warn,color,damage,tag,label,life){ v39Haz({kind:'donut',x,y,inner,outer,warn,life:life||.92,damage,color,tag,label}); }
+  function v39Beam(x,y,angle,len,w,warn,color,damage,tag,label,life){ v39Haz({kind:'beam',x,y,angle,len,w,warn,life,damage,color,tag,label}); }
+  function v39Wall(x,y,w,h,warn,color,damage,tag,label,life){ v39Haz({kind:'wall',x,y,w,h,warn,life,damage,color,tag,label}); }
+  function v39Floor(x,y,w,h,warn,color,damage,tag,label,life){ v39Haz({kind:'floor',x,y,w,h,warn,life,damage,color,tag,label}); }
+  function v39Rot(x,y,angle,spin,len,w,warn,color,damage,tag,label,life){ v39Haz({kind:'rotatingBeam',x,y,angle,spin,len,w,warn,life:life||2.1,damage,color,tag,label}); }
+  function v39Cast(msg, color){
+    try { v20BossCast(msg, 'cast', color || (boss && boss.color) || '#fff'); }
+    catch(e){ state.toast = msg; state.toastT = 1.6; }
+  }
+  function v39BreakRune(x,y,label,color){
+    try { state.mechanics.push({kind:'rune',x:x||W/2,y:y||H/2,r:34,life:5.0,action:'break',color:color||'#fef08a',label:label||'BREAK'}); } catch(e){}
+  }
+  function v39CleanseRune(x,y,label,color){
+    try { state.mechanics.push({kind:'rune',x:x||W/2,y:y||H/2,r:32,life:4.8,action:'cleanse',color:color||'#86efac',label:label||'정화'}); } catch(e){}
+  }
+
+  try{
+    rollBossTicketRewards = function(b){
+      const tier = v39Tier(b);
+      const rewards = {weapon:0, armor:0, skill:0, passive:0};
+      const kinds = ['weapon','armor','skill','passive'];
+      const weights = tier >= 8
+        ? {weapon:27, armor:24, skill:29, passive:20}
+        : tier >= 5
+          ? {weapon:24, armor:22, skill:36, passive:18}
+          : {weapon:21, armor:20, skill:43, passive:16};
+      for(let i=0;i<tier;i++){
+        const total = weights.weapon + weights.armor + weights.skill + weights.passive;
+        let r = Math.random() * total;
+        for(const k of kinds){
+          r -= weights[k];
+          if(r <= 0){ rewards[k] += 1; break; }
+        }
+      }
+      if((rewards.weapon + rewards.armor + rewards.skill + rewards.passive) !== tier){
+        const sum = rewards.weapon + rewards.armor + rewards.skill + rewards.passive;
+        if(sum < tier) rewards.skill += tier - sum;
+        if(sum > tier) rewards.skill = Math.max(0, rewards.skill - (sum - tier));
+      }
+      return rewards;
+    };
+    rewardTextFromTickets = function(rw){
+      const parts = [];
+      if(rw.weapon) parts.push(`무기 ${rw.weapon}장`);
+      if(rw.armor) parts.push(`방어구 ${rw.armor}장`);
+      if(rw.skill) parts.push(`스킬 ${rw.skill}장`);
+      if(rw.passive) parts.push(`패시브 ${rw.passive}장`);
+      return parts.length ? '획득 티켓: ' + parts.join(' / ') : '획득 티켓: 스킬 1장';
+    };
+  } catch(e){ console.warn('[V39 tier rewards patch failed]', e); }
+
+  function v39LoadFirstSeen(){
+    try { return JSON.parse(localStorage.getItem(V39_FIRST_CLEAR_KEY) || '{}') || {}; }
+    catch(e){ return {}; }
+  }
+  function v39SaveFirstSeen(obj){ try { localStorage.setItem(V39_FIRST_CLEAR_KEY, JSON.stringify(obj || {})); } catch(e){} }
+  function v39IsFirstClearNow(id){
+    const seen = v39LoadFirstSeen();
+    return !!id && !seen[id];
+  }
+  function v39MarkFirstClear(id){
+    const seen = v39LoadFirstSeen();
+    if(id) seen[id] = true;
+    v39SaveFirstSeen(seen);
+  }
+  function v39ShowFirstClear(name){
+    state.v39FirstClearT = 6.2;
+    state.v39FirstClearName = name || v39BossName();
+    state.flash = Math.max(state.flash || 0, 1.2);
+    try { burst(W/2, H/2, '#facc15', 90, 520); } catch(e){}
+  }
+
+  try{
+    endRaid = function(clear){
+      state.screen = 'result';
+      const elapsed = Math.floor(state.raid.elapsed * 1000);
+      let rewardText = '';
+      let firstClear = false;
+      if(clear){
+        const b = getBoss(boss.id);
+        firstClear = v39IsFirstClearNow(boss.id);
+        const rw = rollBossTicketRewards(b);
+        state.save.tickets.weapon = (state.save.tickets.weapon || 0) + rw.weapon;
+        state.save.tickets.armor = (state.save.tickets.armor || 0) + rw.armor;
+        state.save.tickets.skill = (state.save.tickets.skill || 0) + rw.skill;
+        state.save.tickets.passive = (state.save.tickets.passive || 0) + rw.passive;
+        rewardText = rewardTextFromTickets(rw);
+        if(firstClear){
+          v39MarkFirstClear(boss.id);
+          v39ShowFirstClear(boss.name);
+          rewardText = '<b style="color:#facc15">FIRST CLEAR! 최초 클리어 기록 달성</b><br>' + rewardText;
+        }
+        saveGame();
+        submitRecord(elapsed);
+      }
+      ui.right.classList.remove('hidden');
+      ui.right.innerHTML = `<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`;
+      ui.right.querySelector('#resultMenu').onclick = () => { state.menuTab = clear ? 'ranking' : 'build'; renderMenu(); refreshRankings(boss.id); };
+    };
+  } catch(e){ console.warn('[V39 endRaid first clear patch failed]', e); }
+
+  function v39PatternPlague(){
+    const c = '#84cc16';
+    const r = Math.random();
+    if(r < .25){
+      v39Cast('역병 의사: 병동 격리. 독안개 통로를 읽고 정화 룬을 밟으세요.', c);
+      const safeRow = Math.floor(Math.random()*4);
+      for(let i=0;i<4;i++) if(i!==safeRow) v39Wall(W/2, 145+i*(H-235)/3, W*.92, 52, 1.45+i*.08, c, v39Dmg(.62), 'poison', '역병 격리 병동', 1.05);
+      for(let k=0;k<5;k++) v39Circle(160+k*(W-320)/4, 140+Math.random()*(H-240), 42, 1.25+k*.05, '#bef264', v39Dmg(.45), 'poison', '감염 포자', .9);
+      v39CleanseRune(W*.80, H*.72, '해독 혈청', '#86efac');
+      return;
+    }
+    if(r < .50){
+      v39Cast('역병 의사: 수술선. 십자 절개가 지나간 뒤 짧은 공격 기회가 생깁니다.', '#d9f99d');
+      for(let i=0;i<4;i++){
+        const x = 180+i*(W-360)/3;
+        v39Beam(x, H/2, Math.PI/2, H*.88, 18, 1.10+i*.13, '#d9f99d', v39Dmg(.58), 'poison', '역병 수술선', .86);
+        v39Beam(W/2, 140+i*(H-240)/3, 0, W*.82, 18, 1.24+i*.10, '#a3e635', v39Dmg(.44), 'poison', '소독 절개선', .72);
+      }
+      v39BreakRune(W*.50, H*.50, '마스크 파괴', '#fef08a');
+      return;
+    }
+    if(r < .75){
+      v39Cast('역병 의사: 감염체 소환. 중앙에 몰리면 위험합니다.', c);
+      for(let i=0;i<9;i++){
+        const a = i*Math.PI*2/9;
+        v39Circle(W/2+Math.cos(a)*260, H/2+Math.sin(a)*150, 36+Math.random()*16, 1.0+i*.04, '#84cc16', v39Dmg(.48), 'poison', '감염체 배양', .85);
+      }
+      v39Donut(W/2,H/2,80,230,1.6,'#65a30d',v39Dmg(.66),'poison','검역 독환',.95);
+      return;
+    }
+    v39Cast('역병 의사: 흑사병 왕진. 추적 독구름을 구르기로 넘기세요.', c);
+    for(let i=0;i<7;i++) v39Circle(player.x+Math.random()*360-180, player.y+Math.random()*260-130, 44, 1.0+i*.14, '#4ade80', v39Dmg(.55), 'poison', '추적 독구름', .8);
+  }
+
+  function v39PatternThorn(){
+    const c = '#22c55e';
+    const r = Math.random();
+    if(r < .28){
+      v39Cast('가시 여왕: 살아있는 덩굴벽. 벽이 닫히기 전에 꽃눈을 찾아 파괴하세요.', c);
+      for(let i=0;i<5;i++) v39Wall(120+i*(W-240)/4, H/2, 26, H*.76, 1.25+i*.10, c, v39Dmg(.54), 'plant', '가시 덩굴벽', 1.0);
+      v39BreakRune(120+Math.random()*(W-240), 120+Math.random()*(H-220), '꽃눈 파괴', '#fef08a');
+      return;
+    }
+    if(r < .55){
+      v39Cast('가시 여왕: 독꽃 개화. 꽃이 완전히 피기 전에 빈 자리로 빠지세요.', '#a3e635');
+      for(let i=0;i<11;i++){
+        const x = 100+Math.random()*(W-200), y = 125+Math.random()*(H-220);
+        v39Circle(x,y,32+Math.random()*18,1.0+i*.055,'#a3e635',v39Dmg(.48),'plant','독꽃 개화',.82);
+      }
+      return;
+    }
+    if(r < .78){
+      v39Cast('가시 여왕: 덩굴 갈고리. 잡히면 꽃밭 중앙으로 끌려갑니다.', '#86efac');
+      const base = Math.atan2(player.y-boss.y, player.x-boss.x);
+      for(let i=-2;i<=2;i++) v39Beam(boss.x,boss.y,base+i*.28,760,16,1.15+Math.abs(i)*.08,'#86efac',v39Dmg(.50),'plant','덩굴 갈고리',1.0);
+      v39Donut(boss.x,boss.y,65,210,1.45,'#22c55e',v39Dmg(.55),'plant','가시 꽃밭',.9);
+      return;
+    }
+    v39Cast('가시 여왕: 씨앗 폭격. 작은 씨앗들이 늦게 터집니다.', c);
+    for(let i=0;i<14;i++) v39Circle(90+Math.random()*(W-180),120+Math.random()*(H-220),24+Math.random()*14,1.15+i*.03,c,v39Dmg(.36),'plant','가시 씨앗',.72);
+  }
+
+  function v39PatternGardener(){
+    const c = '#a78bfa';
+    const r = Math.random();
+    if(r < .25){
+      v39Cast('공허 정원사: 공허 뿌리. 뿌리가 공간을 접으며 뻗어옵니다.', c);
+      for(let i=0;i<6;i++){
+        const a = i*Math.PI/6 + (Math.random()<.5?0:Math.PI/2);
+        v39Beam(W/2,H/2,a,W*.92,20,1.20+i*.08,c,v39Dmg(.54),'void garden','공허 뿌리',.92);
+      }
+      v39BreakRune(W*.22+Math.random()*W*.56, H*.28+Math.random()*H*.45, '검은 꽃 파괴', '#fef08a');
+      return;
+    }
+    if(r < .50){
+      v39Cast('공허 정원사: 꽃문 포탈. 열린 문 사이로만 이동하세요.', '#c084fc');
+      const safe = Math.floor(Math.random()*4);
+      for(let i=0;i<4;i++) if(i!==safe) v39Wall(W/2,150+i*(H-250)/3,W*.88,48,1.55+i*.08,'#c084fc',v39Dmg(.64),'void garden','공허 꽃문',1.0);
+      for(let i=0;i<4;i++) v39Donut(170+i*(W-340)/3,H/2,36,88,1.2+i*.10,'#6d28d9',v39Dmg(.42),'void garden','꽃문 포탈',.8);
+      return;
+    }
+    if(r < .75){
+      v39Cast('공허 정원사: 정원 미궁. 회전하는 뿌리 사이에서 공격 타이밍을 잡으세요.', c);
+      for(let i=0;i<3;i++) v39Rot(W/2,H/2,i*Math.PI/3,(i%2?-.85:.85),W*.92,14,1.15+i*.12,c,v39Dmg(.38),'void garden','정원 미궁',2.0);
+      v39Circle(boss.x,boss.y,90,1.2,'#ddd6fe',v39Dmg(.44),'void garden','공허꽃',.8);
+      return;
+    }
+    v39Cast('공허 정원사: 검은 꽃가루. 꽃가루가 터진 뒤 빈틈이 생깁니다.', c);
+    for(let i=0;i<10;i++) v39Circle(100+Math.random()*(W-200),120+Math.random()*(H-220),38,1.05+i*.06,'#8b5cf6',v39Dmg(.46),'void garden','검은 꽃가루',.78);
+  }
+
+  function v39PatternSolar(){
+    const c = '#facc15';
+    const r = Math.random();
+    if(r < .25){
+      v39Cast('태양룡: 태양 숨결. 머리 방향을 보고 옆으로 구르세요.', c);
+      const a = Math.atan2(player.y-boss.y, player.x-boss.x);
+      for(let i=-2;i<=2;i++) v39Beam(boss.x,boss.y,a+i*.16,930,22,1.25+Math.abs(i)*.06,'#f97316',v39Dmg(.55),'solar','태양 숨결',.85);
+      v39BreakRune(boss.x - Math.cos(a)*165, boss.y - Math.sin(a)*115, '역광 약점', '#fef08a');
+      return;
+    }
+    if(r < .50){
+      v39Cast('태양룡: 태양 발톱. 세 번 내려찍은 뒤 반격하세요.', '#fbbf24');
+      for(let i=0;i<3;i++){
+        v39Circle(player.x + (i-1)*75, player.y + (i%2?70:-55), 62, 1.0+i*.32, '#fbbf24', v39Dmg(.72), 'solar', '태양 발톱', .72);
+      }
+      return;
+    }
+    if(r < .75){
+      v39Cast('태양룡: 플레어 코어. 코어를 밟아 BREAK를 만들 수 있습니다.', c);
+      v39Donut(W/2,H/2,95,310,1.65,'#fde047',v39Dmg(.68),'solar','태양 플레어',.95);
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI*2/8;
+        v39Beam(W/2+Math.cos(a)*70,H/2+Math.sin(a)*42,a,W*.65,14,1.25+i*.04,'#f97316',v39Dmg(.36),'solar','광익 절단',.8);
+      }
+      v39BreakRune(W/2,H/2,'플레어 코어', '#fef08a');
+      return;
+    }
+    v39Cast('태양룡: 일식 안전지대. 빛 기둥 사이 빈틈에서 공격하세요.', c);
+    const safe = Math.floor(Math.random()*5);
+    for(let i=0;i<5;i++) if(i!==safe) v39Wall(120+i*(W-240)/4,H/2,38,H*.78,1.75+i*.06,'#facc15',v39Dmg(.70),'solar','태양 기둥',1.05);
+  }
+
+  function v39PatternEclipse(){
+    const c = '#fb7185';
+    const r = Math.random();
+    if(r < .25){
+      v39Cast('검은 태양: 일식 고리. 안쪽과 바깥쪽을 번갈아 이동하세요.', c);
+      v39Donut(W/2,H/2,70,250,1.45,'#7f1d1d',v39Dmg(.62),'eclipse','검은 일식 고리',.9);
+      v39Donut(W/2,H/2,285,430,1.95,'#111827',v39Dmg(.72),'eclipse','종말 외곽',1.0);
+      v39BreakRune(W*.75,H*.35,'흑점 코어', '#fef08a');
+      return;
+    }
+    if(r < .50){
+      v39Cast('검은 태양: 흑점 낙하. 낙하지점 사이를 굴러 통과하세요.', c);
+      for(let i=0;i<12;i++) v39Circle(90+Math.random()*(W-180),120+Math.random()*(H-220),36+Math.random()*18,1.0+i*.055,'#991b1b',v39Dmg(.55),'eclipse','흑점 낙하',.8);
+      return;
+    }
+    if(r < .75){
+      v39Cast('검은 태양: 광선 포식. 선을 넘은 뒤 바로 반격하세요.', c);
+      const base = Math.random()*Math.PI;
+      for(let i=0;i<6;i++) v39Beam(W/2,H/2,base+i*Math.PI/6,W*1.05,16,1.15+i*.09,'#e11d48',v39Dmg(.58),'eclipse','검은 광선',.88);
+      v39Circle(boss.x,boss.y,95,1.55,'#f43f5e',v39Dmg(.48),'eclipse','일식 핵',.9);
+      return;
+    }
+    v39Cast('검은 태양: 붕괴 바닥. 어두워진 바닥은 곧 사라집니다.', c);
+    for(let i=0;i<10;i++) v39Floor(100+Math.random()*(W-200),125+Math.random()*(H-220),90,70,1.45+i*.04,'#7f1d1d',v39Dmg(.64),'eclipse','붕괴 바닥',.95);
+  }
+
+  function v39PatternChaos(){
+    const c = '#c084fc';
+    const r = Math.random();
+    if(r < .25){
+      v39Cast('혼돈의 집정관: 규칙 붕괴. 원, 선, 도넛이 서로 다른 시간에 터집니다.', c);
+      for(let i=0;i<5;i++) v39Circle(120+Math.random()*(W-240),125+Math.random()*(H-230),42,1.0+i*.13,'#a78bfa',v39Dmg(.48),'chaos','혼돈 원',.74);
+      for(let i=0;i<3;i++) v39Beam(W/2,H/2,Math.random()*Math.PI,W*.9,16,1.35+i*.17,'#f0abfc',v39Dmg(.52),'chaos','혼돈 선',.8);
+      v39Donut(W/2,H/2,90,245,1.8,'#7c3aed',v39Dmg(.62),'chaos','혼돈 도넛',.9);
+      return;
+    }
+    if(r < .50){
+      v39Cast('혼돈의 집정관: 가짜 법정. SAFE처럼 보이는 일부 칸은 함정입니다.', c);
+      const safe = Math.floor(Math.random()*4);
+      for(let i=0;i<4;i++){
+        const x=180+i*(W-360)/3;
+        if(i===safe) state.mechanics.push({kind:'safe',x,y:H*.52,r:58,life:2.8,color:'#86efac',label:'진짜'});
+        else v39Circle(x,H*.52,62,1.45+i*.06,'#f472b6',v39Dmg(.72),'chaos','가짜 SAFE',.9);
+      }
+      return;
+    }
+    if(r < .75){
+      v39Cast('혼돈의 집정관: 회전 재판. 회전선이 지나간 뒤 BREAK 룬이 열립니다.', c);
+      for(let i=0;i<4;i++) v39Rot(W/2,H/2,i*Math.PI/4,(i%2?-.9:.9),W*.95,14,1.15+i*.08,'#c084fc',v39Dmg(.40),'chaos','혼돈 회전',2.0);
+      v39BreakRune(W*.5,H*.5,'질서 파괴', '#fef08a');
+      return;
+    }
+    v39Cast('혼돈의 집정관: 무작위 판결. 짧은 패턴을 연속으로 넘기세요.', c);
+    for(let i=0;i<9;i++){
+      if(i%3===0) v39Beam(120+Math.random()*(W-240),H/2,Math.PI/2,H*.8,14,1.0+i*.07,'#e879f9',v39Dmg(.40),'chaos','무작위 판결',.62);
+      else v39Circle(100+Math.random()*(W-200),120+Math.random()*(H-220),34,1.0+i*.07,'#a78bfa',v39Dmg(.42),'chaos','혼돈 파편',.62);
+    }
+  }
+
+  try{
+    const oldBossPatternV39 = bossPattern;
+    bossPattern = function(){
+      try{
+        const id = boss && boss.id;
+        if(id === 'plague_doctor') { v39PatternPlague(); return; }
+        if(id === 'thorn_queen') { v39PatternThorn(); return; }
+        if(id === 'hollow_gardener' || id === 'void_gardener') { v39PatternGardener(); return; }
+        if(id === 'solar_dragon') { v39PatternSolar(); return; }
+        if(id === 'black_sun') { v39PatternEclipse(); return; }
+        if(id === 'chaos_archon') { v39PatternChaos(); return; }
+      } catch(e){ console.warn('[V39 custom boss pattern failed]', e); }
+      return oldBossPatternV39();
+    };
+  } catch(e){ console.warn('[V39 bossPattern patch failed]', e); }
+
+  function v39TextOf(h){ return String((h && (h.label || h.tag || h.theme || '')) || '').toLowerCase(); }
+  function v39HasHaz(h, words){ const s = v39TextOf(h); return words.some(w => s.includes(String(w).toLowerCase())); }
+  function v39Glow(c,b){ ctx.shadowColor = c || '#fff'; ctx.shadowBlur = b || 18; }
+  function v39Label(txt,x,y,c){
+    ctx.save(); ctx.font='900 12px system-ui'; ctx.textAlign='center'; ctx.lineWidth=4; ctx.strokeStyle='rgba(0,0,0,.72)'; ctx.strokeText(txt,x,y); ctx.fillStyle=c||'#fff'; ctx.fillText(txt,x,y); ctx.restore();
+  }
+  function v39VisualGeneric(h){
+    if(!h) return false;
+    const label = String(h.label || '').trim();
+    const tag = String(h.tag || h.theme || '').trim();
+    const s = (label + ' ' + tag).toLowerCase();
+    if(!s || label === 'SAFE') return false;
+    const x = h.x || W/2, y = h.y || H/2;
+    let c = h.color || '#ffffff';
+    ctx.save();
+    ctx.globalAlpha = (h.warn || 0) > 0 ? .38 : .82;
+    v39Glow(c, 18);
+
+    if(v39HasHaz(h,['역병','감염','독','포자','검역','소독'])){
+      c = '#84cc16';
+      ctx.fillStyle='rgba(132,204,22,.20)';
+      const r = Math.max(28, h.r || Math.min(h.w||80,h.h||80)/2 || 42);
+      if(h.kind==='beam' || h.kind==='wall'){
+        ctx.translate(x,y); ctx.rotate(h.angle||0);
+        const len=h.len||h.w||W*.7, ww=Math.max(34,h.w||h.h||45);
+        roundRect(ctx,-len/2,-ww/2,len,ww,12); ctx.fill();
+        ctx.strokeStyle='#d9f99d'; ctx.lineWidth=4; roundRect(ctx,-len/2,-ww/2,len,ww,12); ctx.stroke();
+        for(let i=0;i<12;i++){ ctx.fillStyle=i%2?'#a3e635':'#4ade80'; ctx.beginPath(); ctx.arc(-len/2+30+i*(len-60)/11, Math.sin(i+state.time*4)*ww*.18, 6+(i%3),0,Math.PI*2); ctx.fill(); }
+      } else {
+        ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+        for(let i=0;i<7;i++){ ctx.fillStyle=i%2?'#bef264':'#4ade80'; ctx.beginPath(); ctx.arc(x+Math.cos(i)*r*.55,y+Math.sin(i*1.7)*r*.55,7+(i%3),0,Math.PI*2); ctx.fill(); }
+        v39Label(label||'역병',x,y+4,'#fff');
+      }
+      ctx.restore(); return true;
+    }
+
+    if(v39HasHaz(h,['덩굴','가시','꽃','씨앗','뿌리','정원'])){
+      c = h.color || '#22c55e';
+      ctx.strokeStyle = c; ctx.lineWidth = 6; ctx.lineCap = 'round';
+      if(h.kind==='beam' || h.kind==='wall'){
+        ctx.translate(x,y); ctx.rotate(h.angle||0);
+        const len=h.len||Math.max(h.w||500,h.h||500);
+        ctx.beginPath();
+        for(let i=0;i<12;i++){ const px=-len/2+i*len/11, py=Math.sin(i*.9+state.time*5)*12; i?ctx.lineTo(px,py):ctx.moveTo(px,py); }
+        ctx.stroke();
+        ctx.strokeStyle='#dcfce7'; ctx.lineWidth=2;
+        for(let i=0;i<7;i++){ const px=-len/2+i*len/6; ctx.beginPath(); ctx.moveTo(px,0); ctx.lineTo(px+18,-22); ctx.moveTo(px,0); ctx.lineTo(px-18,20); ctx.stroke(); }
+      } else {
+        const r=Math.max(30,h.r||45);
+        for(let i=0;i<8;i++){ const a=i*Math.PI*2/8; ctx.fillStyle=i%2?'#a3e635':'#22c55e'; ctx.beginPath(); ctx.ellipse(x+Math.cos(a)*r*.25,y+Math.sin(a)*r*.25,r*.38,r*.16,a,0,Math.PI*2); ctx.fill(); }
+        ctx.fillStyle='#fef08a'; ctx.beginPath(); ctx.arc(x,y,10,0,Math.PI*2); ctx.fill();
+        v39Label(label||'식물',x,y-r-8,'#fff');
+      }
+      ctx.restore(); return true;
+    }
+
+    if(v39HasHaz(h,['태양','일식','흑점','검은','광익','플레어','코어'])){
+      c = v39HasHaz(h,['검은','흑점']) ? '#fb7185' : '#facc15';
+      ctx.strokeStyle=c; ctx.lineWidth=5;
+      const r=Math.max(34,h.r||50);
+      if(h.kind==='beam' || h.kind==='wall'){
+        ctx.translate(x,y); ctx.rotate(h.angle||0);
+        const len=h.len||h.w||760, ww=Math.max(26,h.w||h.h||40);
+        ctx.fillStyle=v39HasHaz(h,['검은'])?'rgba(127,29,29,.32)':'rgba(250,204,21,.20)';
+        roundRect(ctx,-len/2,-ww/2,len,ww,10); ctx.fill();
+        for(let i=0;i<10;i++){ const px=-len/2+i*len/9; ctx.beginPath(); ctx.moveTo(px,-ww*.6); ctx.lineTo(px+18,0); ctx.lineTo(px,ww*.6); ctx.stroke(); }
+      } else {
+        ctx.fillStyle = v39HasHaz(h,['검은']) ? 'rgba(127,29,29,.38)' : 'rgba(250,204,21,.24)';
+        ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+        for(let i=0;i<14;i++){ const a=i*Math.PI*2/14+state.time*.7; ctx.beginPath(); ctx.moveTo(x+Math.cos(a)*r*.55,y+Math.sin(a)*r*.55); ctx.lineTo(x+Math.cos(a)*r*1.35,y+Math.sin(a)*r*1.35); ctx.stroke(); }
+        v39Label(label||'태양',x,y+4,'#fff');
+      }
+      ctx.restore(); return true;
+    }
+
+    if(v39HasHaz(h,['혼돈','판결','재판','무작위'])){
+      c = '#c084fc';
+      const r=Math.max(28,h.r||46);
+      ctx.strokeStyle='#f0abfc'; ctx.lineWidth=4;
+      if(h.kind==='beam' || h.kind==='wall'){
+        ctx.translate(x,y); ctx.rotate(h.angle||0);
+        const len=h.len||h.w||700, ww=Math.max(26,h.w||h.h||42);
+        for(let i=0;i<4;i++){ ctx.beginPath(); ctx.moveTo(-len/2, -ww/2+i*ww/3); ctx.bezierCurveTo(-len/4,ww*.8,len/4,-ww*.8,len/2,-ww/2+i*ww/3); ctx.stroke(); }
+      } else {
+        for(let i=0;i<6;i++){ ctx.strokeStyle=i%2?'#f0abfc':'#a78bfa'; ctx.beginPath(); ctx.arc(x,y,r+i*7, state.time+i, state.time+i+Math.PI*1.2); ctx.stroke(); }
+        v39Label(label||'혼돈',x,y+4,'#fff');
+      }
+      ctx.restore(); return true;
+    }
+
+    if(label){
+      const r=Math.max(28,h.r||Math.min(h.w||70,h.h||70)/2||38);
+      ctx.strokeStyle=c; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.stroke();
+      for(let i=0;i<6;i++){ const a=i*Math.PI/3+state.time; ctx.beginPath(); ctx.moveTo(x+Math.cos(a)*r*.45,y+Math.sin(a)*r*.45); ctx.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*r); ctx.stroke(); }
+      v39Label(label,x,y+4,'#fff');
+    }
+    ctx.restore(); return !!label;
+  }
+
+  try{
+    const oldDrawHazardsV39 = drawHazards;
+    drawHazards = function(){
+      oldDrawHazardsV39();
+      try { state.hazards.forEach(h => v39VisualGeneric(h)); } catch(e){ console.warn('[V39 extra visual failed]', e); }
+    };
+  } catch(e){ console.warn('[V39 drawHazards patch failed]', e); }
+
+  try{
+    const oldDrawV39 = draw;
+    draw = function(){
+      oldDrawV39();
+      try{
+        if(state.v39FirstClearT > 0){
+          state.v39FirstClearT -= 1/60;
+          const a = Math.max(0, Math.min(1, state.v39FirstClearT / 6.2));
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, .35 + a);
+          ctx.fillStyle = 'rgba(0,0,0,.55)';
+          roundRect(ctx, W/2-390, H/2-95, 780, 190, 28); ctx.fill();
+          ctx.strokeStyle = '#facc15'; ctx.lineWidth = 5; roundRect(ctx, W/2-390, H/2-95, 780, 190, 28); ctx.stroke();
+          ctx.shadowColor = '#facc15'; ctx.shadowBlur = 34;
+          ctx.fillStyle = '#facc15'; ctx.font = '950 54px system-ui'; ctx.textAlign = 'center';
+          ctx.fillText('FIRST CLEAR!', W/2, H/2-18);
+          ctx.shadowBlur = 14; ctx.fillStyle = '#fff'; ctx.font = '900 20px system-ui';
+          ctx.fillText((state.v39FirstClearName || '보스') + ' 최초 클리어 기록 달성', W/2, H/2+32);
+          ctx.fillStyle = '#fde68a'; ctx.font = '800 15px system-ui';
+          ctx.fillText('새로운 보스 기록이 랭킹에 등록되었습니다.', W/2, H/2+65);
+          ctx.restore();
+        }
+      } catch(e){}
+    };
+  } catch(e){ console.warn('[V39 draw first clear patch failed]', e); }
+
+  try{
+    const V39_LABELS = {
+      plague_doctor:['병동 격리','역병 수술선','감염체 배양','검역 독환','추적 독구름','해독 혈청'],
+      thorn_queen:['가시 덩굴벽','독꽃 개화','덩굴 갈고리','가시 꽃밭','가시 씨앗','꽃눈 파괴'],
+      hollow_gardener:['공허 뿌리','공허 꽃문','꽃문 포탈','정원 미궁','공허꽃','검은 꽃가루','검은 꽃 파괴'],
+      void_gardener:['공허 뿌리','공허 꽃문','꽃문 포탈','정원 미궁','공허꽃','검은 꽃가루','검은 꽃 파괴'],
+      solar_dragon:['태양 숨결','태양 발톱','태양 플레어','광익 절단','플레어 코어','태양 기둥','역광 약점'],
+      black_sun:['검은 일식 고리','종말 외곽','흑점 낙하','검은 광선','일식 핵','붕괴 바닥','흑점 코어'],
+      chaos_archon:['혼돈 원','혼돈 선','혼돈 도넛','가짜 법정','혼돈 회전','무작위 판결','혼돈 파편']
+    };
+    BOSSES.forEach(b => { if(V39_LABELS[b.id]) b.patterns = V39_LABELS[b.id]; });
+    window.RaidDungeonV39 = {version:V39_VERSION, tierRewards:'exactly tier count tickets per clear', firstClear:'local once per boss banner + result text', customBosses:Object.keys(V39_LABELS)};
+  } catch(e){}
+})();
