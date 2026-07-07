@@ -14,7 +14,7 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Dungeon V16 - Weapon Art & Ticket Drop';
+  const VERSION = 'Raid Dungeon V23 - Fair Insta + Mapwide Telegraphs';
   try { document.title = 'Raid Dungeon'; } catch(e) {}
   const W = 1280;
   const H = 720;
@@ -1224,7 +1224,7 @@
     if(boss.tier>=6 && Math.random()<.38) setTimeout(()=>secondaryPattern(), 650);
     if(boss.tier>=8 && boss.phase>=2 && Math.random()<.34) setTimeout(()=>secondaryPattern(true), 1050);
     if(boss.tier>=7 && boss.phase>=2 && Math.random()<.24) setTimeout(()=>rotatingLaserSweep(boss.tier>=9 && Math.random()<.65), 780);
-    if(boss.tier>=9 && boss.phase>=3 && Math.random()<.42) setTimeout(()=>instantKillPattern(), 1280);
+    if(boss.tier>=9 && boss.phase>=3 && Math.random()<.10) setTimeout(()=>instantKillPattern(), 1800);
   }
   function intensity(){ return Math.max(1, boss.tier + (boss.phase-1)*2); }
   function secondaryPattern(hard){
@@ -1349,26 +1349,47 @@
   }
   function instantKillPattern(){
     if(!state.raid || boss.dead) return;
-    const safeR = boss.tier >= 10 ? 58 : 72;
-    const sx = rand(130, W - 130), sy = rand(145, H - 95);
-    boss.mechanicText += ' · 즉사 패턴: 초록 SAFE 안으로 들어가세요!';
-    state.mechanics.push({kind:'safe',x:sx,y:sy,r:safeR,life:1.65,color:'#22c55e'});
-    state.flash = Math.max(state.flash, .26);
-    state.shake = Math.max(state.shake, 5);
-    floatText('즉사기 예고!', W/2, 105, '#fb7185', 26);
-    for(let i=0;i<8+boss.tier;i++) warningCircle(rand(80,W-80), rand(110,H-70), 26+boss.phase*5, .9+rand(0,.35), boss.color, boss.atk*.75, '', null, boss.theme);
+    // V23: 즉사 패턴은 너무 자주 나오지 않게 내부 쿨타임을 둔다.
+    if(boss._lastInstaAt && state.time - boss._lastInstaAt < 16) return;
+    boss._lastInstaAt = state.time;
+
+    const safeR = boss.tier >= 10 ? 78 : 92;
+    const sx = rand(145, W - 145), sy = rand(150, H - 105);
+    boss.mechanicText = (boss.mechanicText ? boss.mechanicText + ' · ' : '') + '즉사 패턴: 맵 전체 심판. 초록 SAFE 안으로 들어가세요!';
+    floatText('즉사 패턴! SAFE로 이동!', W/2, 86, '#fb7185', 28);
+    state.flash = Math.max(state.flash, .36);
+    state.shake = Math.max(state.shake, 7);
+
+    // 안전 구역은 길게 보여준다.
+    state.mechanics.push({kind:'safe',x:sx,y:sy,r:safeR,life:2.45,color:'#22c55e'});
+
+    // 맵 전체가 공격받는 느낌: SAFE 주변을 제외한 전장 전체를 큰 예고 사각형/줄로 덮는다.
+    const cols = 6, rows = 4;
+    const cellW = W / cols, cellH = (H - 90) / rows;
+    for(let ix=0; ix<cols; ix++){
+      for(let iy=0; iy<rows; iy++){
+        const cx = cellW*(ix+.5), cy = 90 + cellH*(iy+.5);
+        if(dist(cx,cy,sx,sy) < safeR + Math.max(cellW,cellH)*.72) continue;
+        state.hazards.push({kind:'floor',x:cx,y:cy,w:cellW*.92,h:cellH*.86,warn:2.05 + Math.random()*.18,life:.72,damage:9999,color:'#fb7185',tag:boss.theme, lethal:true, label:'즉사'});
+      }
+    }
+    // 외곽 레이저 십자도 예고해서 화면 전체 심판 느낌을 준다.
+    state.hazards.push({kind:'beam',x:W/2,y:H/2,angle:0,len:W*1.25,w:18,warn:2.05,life:.72,damage:9999,color:'#fb7185',tag:boss.theme,lethal:true,label:'즉사'});
+    state.hazards.push({kind:'beam',x:W/2,y:H/2,angle:Math.PI/2,len:H*1.45,w:18,warn:2.05,life:.72,damage:9999,color:'#fb7185',tag:boss.theme,lethal:true,label:'즉사'});
+
     setTimeout(()=>{
       if(!state.raid || boss.dead || state.screen !== 'raid') return;
       if(dist(player.x, player.y, sx, sy) > safeR + player.r){
         hurtPlayer(9999, '#fb7185', true);
         floatText('즉사!', player.x, player.y - 52, '#fb7185', 28);
       } else {
-        breakBoss(1.5);
+        breakBoss(1.7);
         healText('즉사 회피!', player.x, player.y - 42);
       }
-      burst(sx, sy, '#22c55e', 70, 360);
-    }, 1650);
+      burst(sx, sy, '#22c55e', 72, 360);
+    }, 2150);
   }
+
   function donutPattern(hard){
     const r=hard?150:120;
     boss.mechanicText += ' · 도넛 폭발: 안쪽 원 밖, 바깥 원 안으로 이동';
@@ -1408,16 +1429,25 @@
   }
 
   function safeRuneBombPattern(hard){
-    boss.mechanicText += ' · 안전 룬: 폭발 전 룬 주변으로 이동';
-    const sx=rand(140,W-140), sy=rand(150,H-100), safeR=hard?55:70;
-    state.mechanics.push({kind:'safe',x:sx,y:sy,r:safeR,life:1.25,color:'#86efac'});
+    boss.mechanicText += ' · SAFE 패턴: 맵 전체 폭발 전 안전 구역으로 이동';
+    const sx=rand(145,W-145), sy=rand(150,H-100), safeR=hard?74:88;
+    floatText('SAFE 안으로!', W/2, 92, '#86efac', 22);
+    state.mechanics.push({kind:'safe',x:sx,y:sy,r:safeR,life:1.95,color:'#86efac'});
+    // 전장 전체를 덮는 예고를 보여주되 SAFE 근처는 비워서 파훼가 눈에 보이게 한다.
+    const cols=5, rows=4, cellW=W/cols, cellH=(H-100)/rows;
+    for(let ix=0;ix<cols;ix++) for(let iy=0;iy<rows;iy++){
+      const cx=cellW*(ix+.5), cy=100+cellH*(iy+.5);
+      if(dist(cx,cy,sx,sy)<safeR+Math.max(cellW,cellH)*.62) continue;
+      state.hazards.push({kind:'floor',x:cx,y:cy,w:cellW*.90,h:cellH*.82,warn:1.55,life:.55,damage:boss.atk*(hard?2.05:1.35),color:'#fef08a',tag:boss.theme,label:'SAFE'});
+    }
     setTimeout(()=>{
       if(!state.raid||boss.dead) return;
-      if(dist(player.x,player.y,sx,sy)>safeR+player.r) hurtPlayer(boss.atk*(hard?2.2:1.55),'#fef08a');
+      if(dist(player.x,player.y,sx,sy)>safeR+player.r) hurtPlayer(boss.atk*(hard?2.25:1.55),'#fef08a');
       else { breakBoss(hard?1.2:.85); healText('SAFE',player.x,player.y-30); }
-      burst(sx,sy,'#86efac',40,280);
-    },1250);
+      burst(sx,sy,'#86efac',48,280);
+    },1650);
   }
+
   function staggeredLineStrikes(color,tag){
     const baseA=Math.atan2(player.y-boss.y,player.x-boss.x);
     for(let i=-2;i<=2;i++) state.hazards.push({kind:'beam',x:boss.x,y:boss.y,angle:baseA+i*.22,len:950,w:22,warn:.34+(i+2)*.09,life:.20,damage:boss.atk*.65,color,tag});
@@ -2003,7 +2033,7 @@
     (map[boss.id] || slimeKingV18)();
     // 보조 패턴은 너무 많이 겹치지 않게 제한. 최상위도 피할 틈은 유지.
     if(boss.tier>=6 && Math.random()<.20) setTimeout(()=>secondaryPattern(false),760);
-    if(boss.tier>=9 && boss.phase>=3 && Math.random()<.24) setTimeout(()=>instantKillPattern(),1450);
+    if(boss.tier>=9 && boss.phase>=3 && Math.random()<.08) setTimeout(()=>instantKillPattern(),1900);
   }
 
   function slimeKingV18(){
@@ -2182,7 +2212,7 @@
     const funcs=[stormColossusV18, gravityCoreV18, mirrorDuelistV18, chronoDragonV18, solarDragonV18, abyssLeviathanV18, puppetEmperorV18];
     funcs[Math.floor(Math.random()*funcs.length)]();
     if(boss.phase>=2) setTimeout(()=>secondaryPattern(false),1050);
-    if(boss.phase>=3 && Math.random()<.35) setTimeout(()=>instantKillPattern(),1650);
+    if(boss.phase>=3 && Math.random()<.10) setTimeout(()=>instantKillPattern(),2100);
   }
 
 
@@ -2261,20 +2291,20 @@
         ctx.lineWidth = 5;
       }
       if(h.kind==='circle'||h.kind==='playerStrike'){
-        if(warning){ circle(ctx,h.x,h.y,h.r); ctx.globalAlpha=.72; circleStroke(ctx,h.x,h.y,h.r); ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillStyle='#fff'; ctx.fillText('예고',h.x,h.y+4); }
-        else { ctx.globalAlpha=.30; circle(ctx,h.x,h.y,h.r); ctx.globalAlpha=.98; circleStroke(ctx,h.x,h.y,h.r); ctx.globalAlpha=.55; ctx.lineWidth=12; circleStroke(ctx,h.x,h.y,Math.max(4,h.r-5)); }
+        if(warning){ circle(ctx,h.x,h.y,h.r); ctx.globalAlpha=.72; circleStroke(ctx,h.x,h.y,h.r); ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillStyle='#fff'; ctx.fillText(h.label||'예고',h.x,h.y+4); }
+        else { ctx.globalAlpha=.32; circle(ctx,h.x,h.y,h.r); ctx.globalAlpha=.98; circleStroke(ctx,h.x,h.y,h.r); ctx.globalAlpha=.70; ctx.lineWidth=12; circleStroke(ctx,h.x,h.y,Math.max(4,h.r-5)); ctx.globalAlpha=1; ctx.fillStyle='#fff'; ctx.font='900 14px system-ui'; ctx.textAlign='center'; ctx.fillText(h.label?'HIT '+h.label:'HIT',h.x,h.y+5); }
       } else if(h.kind==='donut'){
         if(warning){ ctx.globalAlpha=.18; ctx.lineWidth=18; circleStroke(ctx,h.x,h.y,(h.inner+h.outer)/2); ctx.globalAlpha=.72; ctx.lineWidth=3; circleStroke(ctx,h.x,h.y,h.outer); circleStroke(ctx,h.x,h.y,h.inner); }
         else { ctx.globalAlpha=.98; ctx.lineWidth=7; circleStroke(ctx,h.x,h.y,h.outer); circleStroke(ctx,h.x,h.y,h.inner); ctx.globalAlpha=.45; ctx.lineWidth=24; circleStroke(ctx,h.x,h.y,(h.inner+h.outer)/2); }
       } else if(h.kind==='beam'||h.kind==='rotatingBeam'){
         ctx.save(); ctx.translate(h.x,h.y); ctx.rotate(h.angle||0);
         if(warning){ ctx.globalAlpha=.20; roundRect(ctx,-h.len/2,-h.w,h.len,h.w*2,8); ctx.globalAlpha=.70; ctx.strokeStyle=c; ctx.lineWidth=2; ctx.strokeRect(-h.len/2,-h.w,h.len,h.w*2); }
-        else { ctx.globalAlpha=.92; roundRect(ctx,-h.len/2,-h.w,h.len,h.w*2,10); ctx.globalAlpha=1; ctx.strokeStyle='#ffffff'; ctx.lineWidth=2; ctx.strokeRect(-h.len/2,-h.w,h.len,h.w*2); ctx.globalAlpha=.55; ctx.strokeStyle=c; ctx.lineWidth=12; ctx.strokeRect(-h.len/2,-h.w*.6,h.len,h.w*1.2); }
+        else { ctx.globalAlpha=.92; roundRect(ctx,-h.len/2,-h.w,h.len,h.w*2,10); ctx.globalAlpha=1; ctx.strokeStyle='#ffffff'; ctx.lineWidth=2; ctx.strokeRect(-h.len/2,-h.w,h.len,h.w*2); ctx.globalAlpha=.62; ctx.strokeStyle=c; ctx.lineWidth=12; ctx.strokeRect(-h.len/2,-h.w*.6,h.len,h.w*1.2); ctx.globalAlpha=1; ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillText(h.label?'HIT '+h.label:'HIT',0,4); }
         ctx.restore();
       } else if(h.kind==='wall'){
         ctx.globalAlpha = warning ? .18 : .78;
         ctx.fillRect(h.x-h.w/2,h.y-h.h/2,h.w,h.h);
-        if(!warning){ ctx.globalAlpha=.95; ctx.strokeStyle='#fff'; ctx.strokeRect(h.x-h.w/2,h.y-h.h/2,h.w,h.h); }
+        if(!warning){ ctx.globalAlpha=.95; ctx.strokeStyle='#fff'; ctx.strokeRect(h.x-h.w/2,h.y-h.h/2,h.w,h.h); ctx.fillStyle='#fff'; ctx.font='900 12px system-ui'; ctx.textAlign='center'; ctx.fillText(h.label?'HIT '+h.label:'HIT',h.x,h.y+4); }
       } else if(h.kind==='floor'){
         ctx.globalAlpha = warning ? .14 : .62;
         ctx.fillRect(h.x-h.w/2,h.y-h.h/2,h.w,h.h);
@@ -2342,10 +2372,17 @@
       if(m.kind==='gravity'){const a=Math.atan2(m.y-player.y,m.x-player.x); const d=Math.max(60,dist(m.x,m.y,player.x,player.y)); player.x+=Math.cos(a)*m.power/d*80*dt; player.y+=Math.sin(a)*m.power/d*80*dt;}
       if(m.kind==='memory'){
         if(m.life>0){
+          m.wrongGrace=Math.max(0,(m.wrongGrace||0)-dt);
           const cur=m.nodes[m.index];
-          if(cur && dist(player.x,player.y,cur.x,cur.y)<cur.r+player.r){ m.index++; burst(cur.x,cur.y,cur.color,22,190); healText('정답',cur.x,cur.y-28); }
-          m.nodes.forEach((n,i)=>{ if(i!==m.index && i>=m.index && dist(player.x,player.y,n.x,n.y)<n.r+player.r){ hurtPlayer(boss.atk*.75,n.color,true); m.life=0; floatText('순서 실패',player.x,player.y-42,'#fb7185',18); } });
-          if(m.index>=m.nodes.length){ breakBoss(2.4); m.life=0; floatText('기믹 성공!',W/2,100,'#86efac',22); }
+          if(cur && !cur.done && dist(player.x,player.y,cur.x,cur.y)<cur.r+player.r){
+            cur.done=true; m.index++; m.wrongGrace=.22;
+            burst(cur.x,cur.y,cur.color,26,210); healText('정답 '+m.index,cur.x,cur.y-28);
+          }
+          // 아직 밟을 차례가 아닌 룬을 밟으면 실패하지만, 정답 처리 직후에는 한 프레임 겹침을 무시한다.
+          if(m.wrongGrace<=0){
+            m.nodes.forEach((n,i)=>{ if(!n.done && i!==m.index && dist(player.x,player.y,n.x,n.y)<n.r+player.r){ hurtPlayer(boss.atk*.42,n.color,true); m.wrongGrace=.45; floatText('순서 확인!',player.x,player.y-42,'#fb7185',18); } });
+          }
+          if(m.index>=m.nodes.length){ breakBoss(2.6); m.life=0; floatText('기믹 성공!',W/2,100,'#86efac',22); }
         }
       }
       if(m.kind==='mazeExit' && dist(player.x,player.y,m.x,m.y)<m.r+player.r){ breakBoss(1.8); m.life=0; floatText('미로 탈출!',player.x,player.y-42,'#86efac',20); }
@@ -2376,12 +2413,15 @@
   }
 
   function spawnMemoryMiniGame(){
-    boss.mechanicText='기억 룬: 화면의 숫자 룬을 1→2→3 순서로 밟으면 BREAK 됩니다.';
+    boss.mechanicText='기억 룬: 숫자 룬을 1 → 2 → 3 순서로 밟으면 BREAK 됩니다. 잘못 밟아도 룬이 즉시 사라지지 않습니다.';
     const colors=['#60a5fa','#f472b6','#facc15'];
-    const nodes=[];
-    for(let i=0;i<3;i++) nodes.push({x:rand(120,W-120),y:rand(135,H-85),r:33,color:colors[i]});
-    state.mechanics.push({kind:'memory',nodes,index:0,life:5.2,color:'#fff'});
+    const spots=[{x:W*.23,y:H*.34},{x:W*.78,y:H*.35},{x:W*.50,y:H*.72}];
+    // 위치를 살짝 섞되 너무 붙지 않게 고정 기반으로 만든다.
+    const nodes=spots.map((p,i)=>({x:clamp(p.x+rand(-55,55),105,W-105),y:clamp(p.y+rand(-40,40),125,H-85),r:42,color:colors[i],done:false}));
+    state.mechanics.push({kind:'memory',nodes,index:0,life:9.5,color:'#fff',wrongGrace:0});
+    floatText('기억 룬 1→2→3', W/2, 92, '#ffffff', 22);
   }
+
   function spawnMazeEscape(){
     boss.mechanicText='미로 탈출: 벽이 닫히기 전에 탈출 지점으로 이동하세요.';
     const exit={x:rand(W*.62,W-120),y:rand(140,H-90),r:38,color:'#22c55e'};
@@ -2397,15 +2437,16 @@
     for(let i=0;i<count;i++) state.mechanics.push({kind:'add',x:rand(90,W-90),y:rand(120,H-80),r:16+boss.phase*2,hp:90+boss.tier*20,life:7.5,speed:58+boss.tier*3,color:boss.sub||boss.color});
   }
   function spawnCrumblingFloor(){
-    boss.mechanicText='부서지는 바닥: 금이 간 타일은 잠시 후 네온 폭발합니다. 안전한 칸을 찾아 이동하세요.';
-    const cols=5, rows=3, tw=150, th=82, sx=W/2-(cols-1)*tw/2, sy=210;
+    boss.mechanicText='부서지는 바닥: 전장 전체가 갈라집니다. 안전 칸을 찾아 이동하세요.';
+    const cols=6, rows=4, cellW=W/cols, cellH=(H-110)/rows;
     const safe=Math.floor(Math.random()*cols*rows);
     for(let i=0;i<cols*rows;i++){
-      if(i===safe) continue;
-      const x=sx+(i%cols)*tw, y=sy+Math.floor(i/cols)*th;
-      state.hazards.push({kind:'floor',x,y,w:112,h:56,warn:1.45+Math.random()*.35,life:.45,damage:boss.atk*.92,color:boss.color,tag:boss.theme});
+      const x=cellW*(i%cols+.5), y=105+cellH*(Math.floor(i/cols)+.5);
+      if(i===safe){ state.mechanics.push({kind:'safe',x,y,r:Math.min(cellW,cellH)*.30,life:2.0,color:'#86efac'}); continue; }
+      state.hazards.push({kind:'floor',x,y,w:cellW*.78,h:cellH*.65,warn:1.50+Math.random()*.30,life:.50,damage:boss.atk*.92,color:boss.color,tag:boss.theme});
     }
   }
+
   function spawnColorPolarity(){
     boss.mechanicText='양극 색상: 자기 색과 같은 원 안에 있으면 생존합니다.';
     const colors=['#60a5fa','#fb7185'];
@@ -2443,7 +2484,7 @@
     if(boss.tier>=6 && boss.phase>=2 && Math.random()<.34) setTimeout(()=>cognitivePattern(), 900);
     if(boss.tier>=8 && boss.phase>=3 && Math.random()<.22) setTimeout(()=>cognitivePattern(), 1850);
     if(boss.tier>=6 && Math.random()<.16) setTimeout(()=>secondaryPattern(false),760);
-    if(boss.tier>=9 && boss.phase>=3 && Math.random()<.18) setTimeout(()=>instantKillPattern(),1550);
+    if(boss.tier>=9 && boss.phase>=3 && Math.random()<.07) setTimeout(()=>instantKillPattern(),2100);
   }
 
 
@@ -2565,7 +2606,7 @@
         ctx.lineWidth=5;
       }
       if(h.kind==='circle'||h.kind==='playerStrike'){
-        if(warning){ circle(ctx,h.x,h.y,h.r); ctx.globalAlpha=.74; circleStroke(ctx,h.x,h.y,h.r); ctx.globalAlpha=.95; ctx.fillStyle='#fff'; ctx.font='900 12px system-ui'; ctx.textAlign='center'; ctx.fillText('예고',h.x,h.y+4); }
+        if(warning){ circle(ctx,h.x,h.y,h.r); ctx.globalAlpha=.74; circleStroke(ctx,h.x,h.y,h.r); ctx.globalAlpha=.95; ctx.fillStyle='#fff'; ctx.font='900 12px system-ui'; ctx.textAlign='center'; ctx.fillText(h.label||'예고',h.x,h.y+4); }
         else { ctx.globalAlpha=.24; circle(ctx,h.x,h.y,h.r); ctx.globalAlpha=1; ctx.lineWidth=5; circleStroke(ctx,h.x,h.y,h.r); ctx.globalAlpha=.72; ctx.lineWidth=15; circleStroke(ctx,h.x,h.y,Math.max(6,h.r-7)); ctx.globalAlpha=.92; ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillText('HIT',h.x,h.y+5); }
       } else if(h.kind==='donut'){
         const mid=(h.inner+h.outer)/2;
@@ -2608,7 +2649,7 @@
   }
   function v20P1LineFan(color, tag){ const a=Math.atan2(player.y-boss.y,player.x-boss.x); for(let i=-1;i<=1;i++) v20Beam(boss.x,boss.y,a+i*.33,900,18+boss.phase*4,1.0+i*.08,color,boss.atk*.68,tag); }
   function v20P2SafeCircle(color, tag){ const x=rand(120,W-120), y=rand(135,H-90), r=65; state.mechanics.push({kind:'safe',x,y,r,life:2.15,color}); setTimeout(()=>{ if(state.raid&&!boss.dead){ if(dist(player.x,player.y,x,y)>r+player.r) hurtPlayer(boss.atk*1.35,color,true); else { breakBoss(.9); healText('회피 성공',player.x,player.y-34); } burst(x,y,color,35,260); } }, 2150); }
-  function v20P3Tiles(color, tag){ const cols=4, rows=3, tw=185, th=88, sx=W/2-(cols-1)*tw/2, sy=215, safe=Math.floor(Math.random()*cols*rows); for(let i=0;i<cols*rows;i++){ if(i===safe) continue; v20Floor(sx+(i%cols)*tw, sy+Math.floor(i/cols)*th, 126, 60, 1.25+Math.random()*.35, color, boss.atk*.74, tag); } }
+  function v20P3Tiles(color, tag){ const cols=6, rows=4, cellW=W/cols, cellH=(H-105)/rows; const safe=Math.floor(Math.random()*cols*rows); boss.mechanicText += ' · 전장 붕괴: 맵 전체 칸 중 빈칸을 찾으세요'; for(let i=0;i<cols*rows;i++){ if(i===safe) continue; const x=cellW*(i%cols+.5), y=105+cellH*(Math.floor(i/cols)+.5); v20Floor(x, y, cellW*.76, cellH*.62, 1.30+Math.random()*.35, color, boss.atk*.72, tag); } const sx=cellW*(safe%cols+.5), sy=105+cellH*(Math.floor(safe/cols)+.5); state.mechanics.push({kind:'safe',x:sx,y:sy,r:Math.min(cellW,cellH)*.28,life:1.75,color:'#86efac'}); }
   function v20AddBullets(color, tag, n){ for(let i=0;i<n;i++) setTimeout(()=>aimBullet(boss.x,boss.y,player.x+rand(-120,120),player.y+rand(-90,90),225+boss.tier*12,color,boss.atk*.28,tag),i*110); }
 
   const V20_PATTERNS = {
@@ -2638,7 +2679,7 @@
     const i=v20Cycle();
     try { arr[i%arr.length](); } catch(e) { console.warn('[V20 boss pattern fallback]', e); slimeKingV18(); }
     v20MaybeCognitive();
-    if(boss.tier>=8 && boss.phase>=3 && Math.random()<.16) setTimeout(()=>instantKillPattern(),1800);
+    if(boss.tier>=8 && boss.phase>=3 && Math.random()<.06) setTimeout(()=>instantKillPattern(),2400);
   };
 
 
@@ -3104,12 +3145,13 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
   function v22Announce(text, kind, color){ v20BossCast(text, kind || 'cast', color || (boss&&boss.color)||'#fff'); }
   function v22LaneRail(color, tag){
     color=color||boss.color; tag=tag||boss.theme;
-    v22Announce('전장 레일: 밝아지는 레일 순서를 보고 빈 레일로 이동하세요.', 'beam', color);
-    const ys=[150,245,340,435,530];
+    v22Announce('전장 레일: 맵 전체 레일 중 밝아지지 않는 빈 레일로 이동하세요.', 'beam', color);
+    const ys=[120,205,290,375,460,545,630].filter(y=>y<H-45);
     const safe=Math.floor(Math.random()*ys.length);
-    ys.forEach((y,i)=>{ if(i!==safe) v20Wall(W/2,y,W*.92,24,1.05+i*.13,color,boss.atk*(.48+.04*boss.phase),tag); });
-    state.mechanics.push({kind:'safe',x:W-115,y:ys[safe],r:56,life:1.85,color:'#d1fae5'});
+    ys.forEach((y,i)=>{ if(i!==safe) v20Wall(W/2,y,W*.98,36,1.10+i*.08,color,boss.atk*(.50+.04*boss.phase),tag); });
+    state.mechanics.push({kind:'safe',x:W-118,y:ys[safe],r:62,life:2.05,color:'#d1fae5'});
   }
+
   function v22ClockPuzzle(color, tag){
     color=color||boss.color; tag=tag||boss.theme;
     v22Announce('시계 기믹: 시곗바늘 3개가 지나갑니다. 같은 방향으로 따라 움직이세요.', 'beam', color);
