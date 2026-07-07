@@ -6359,3 +6359,251 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
     };
   } catch(e){}
 })();
+
+
+/* ===== V37: slime / eclipse / chaos visual forms + first clear banner ===== */
+(()=>{
+  const V37_VERSION = 'V37_eclipse_chaos_slime_first_clear';
+  function v37TextOf(h){ return String((h && (h.label || h.tag || h.theme || '')) || '').toLowerCase(); }
+  function v37Has(h, words){ const s = (String((h&&h.label)||'') + ' ' + String((h&&(h.tag||h.theme))||'')).toLowerCase(); return words.some(w => s.includes(String(w).toLowerCase())); }
+  function v37LifePhase(h){
+    if(!h) return 0;
+    if(typeof h._v37MaxLife !== 'number') h._v37MaxLife = Math.max(.05, h.life || .9);
+    if((h.warn || 0) > 0) return 0;
+    return Math.max(0, Math.min(1, 1 - (h.life || 0) / h._v37MaxLife));
+  }
+  function v37Glow(c,b){ ctx.shadowColor = c || '#fff'; ctx.shadowBlur = b || 18; }
+  function v37Label(txt,x,y,c){
+    ctx.save();
+    ctx.font = '900 12px system-ui';
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(0,0,0,.72)';
+    ctx.strokeText(txt,x,y);
+    ctx.fillStyle = c || '#fff';
+    ctx.fillText(txt,x,y);
+    ctx.restore();
+  }
+  function v37Blob(ctx,x,y,r,color,alpha){
+    ctx.save();
+    ctx.globalAlpha *= alpha == null ? 1 : alpha;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for(let i=0;i<18;i++){
+      const a=i*Math.PI*2/18;
+      const rr = r * (0.86 + 0.13*Math.sin(i*1.7 + state.time*3));
+      const px = x + Math.cos(a)*rr;
+      const py = y + Math.sin(a)*rr;
+      i ? ctx.lineTo(px,py) : ctx.moveTo(px,py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function v37DrawSlime(h){
+    if(!v37Has(h,['젤리','슬라임','왕관착지','왕관 착지','말랑','웅덩이','탄성벽','방울'])) return false;
+    const color = h.color || '#86efac';
+    ctx.save(); v37Glow(color,18); ctx.globalAlpha = h.warn>0 ? .48 : .9;
+    if(v37Has(h,['탄성벽'])){
+      const x=h.x||W/2,y=h.y||H/2,w=Math.max(42,h.w||52),hh=Math.max(110,h.h||220);
+      ctx.fillStyle='rgba(134,239,172,.24)'; roundRect(ctx,x-w/2,y-hh/2,w,hh,18); ctx.fill();
+      ctx.strokeStyle='#dcfce7'; ctx.lineWidth=4; roundRect(ctx,x-w/2,y-hh/2,w,hh,18); ctx.stroke();
+      ctx.strokeStyle=color; ctx.lineWidth=5;
+      for(let i=0;i<5;i++){ const yy=y-hh/2+22+i*(hh-44)/4; ctx.beginPath(); ctx.moveTo(x-w*.32,yy); ctx.quadraticCurveTo(x,yy+Math.sin(state.time*6+i)*16,x+w*.32,yy); ctx.stroke(); }
+      v37Label('탄성 젤리벽',x,y+4,'#fff'); ctx.restore(); return true;
+    }
+    if(h.kind === 'circle'){
+      const x=h.x||W/2,y=h.y||H/2,r=Math.max(28,h.r||46);
+      if(v37Has(h,['왕관','착지','점프'])){
+        ctx.strokeStyle='#dcfce7'; ctx.lineWidth=4; circleStroke(ctx,x,y,r*1.05);
+        ctx.fillStyle='rgba(134,239,172,.28)'; circle(ctx,x,y,r);
+        ctx.fillStyle='#fde047';
+        ctx.beginPath(); ctx.moveTo(x-r*.42,y-r*.9); ctx.lineTo(x-r*.18,y-r*1.28); ctx.lineTo(x,y-r*.92); ctx.lineTo(x+r*.18,y-r*1.28); ctx.lineTo(x+r*.42,y-r*.9); ctx.closePath(); ctx.fill();
+        v37Label('왕관 착지',x,y+5,'#fff'); ctx.restore(); return true;
+      }
+      v37Blob(ctx,x,y,r,color,.75);
+      ctx.strokeStyle='#dcfce7'; ctx.lineWidth=4; circleStroke(ctx,x,y,r*.9);
+      ctx.fillStyle='#102a1a'; circle(ctx,x-r*.2,y-r*.08,3.6); circle(ctx,x+r*.2,y-r*.08,3.6);
+      v37Label(v37Has(h,['웅덩이','말랑'])?'말랑 웅덩이':'젤리 방울',x,y+5,'#fff'); ctx.restore(); return true;
+    }
+    if(h.kind === 'floor' || h.kind === 'wall'){
+      const x=h.x||W/2,y=h.y||H/2,w=h.w||90,hh=h.h||90;
+      ctx.fillStyle='rgba(134,239,172,.24)'; roundRect(ctx,x-w/2,y-hh/2,w,hh,20); ctx.fill();
+      ctx.strokeStyle='#dcfce7'; ctx.lineWidth=3; roundRect(ctx,x-w/2,y-hh/2,w,hh,20); ctx.stroke();
+      for(let i=0;i<8;i++){ v37Blob(ctx,x-w*.38+Math.random()*w,y-hh*.35+Math.random()*hh,8+Math.random()*10,color,.38); }
+      v37Label('젤리 지대',x,y+4,'#fff'); ctx.restore(); return true;
+    }
+    ctx.restore(); return false;
+  }
+
+  function v37DrawEclipse(h){
+    if(!v37Has(h,['검은일식','종말일식','일식심판','흑점','검은광선','검은고리','태양코어','태양 심판','검은 태양','붕괴 바닥'])) return false;
+    const color = h.color || '#f97316';
+    ctx.save(); v37Glow(color,24); ctx.globalAlpha = h.warn>0 ? .48 : .92;
+    const x=h.x||W/2,y=h.y||H/2;
+    if(h.kind === 'floor' || v37Has(h,['일식','심판','붕괴 바닥'])){
+      const w=h.w||W*.96, hh=h.h||H*.8;
+      ctx.fillStyle='rgba(2,6,23,.42)'; roundRect(ctx,x-w/2,y-hh/2,w,hh,22); ctx.fill();
+      ctx.fillStyle='rgba(249,115,22,.20)'; roundRect(ctx,x-w/2+12,y-hh/2+12,w-24,hh-24,22); ctx.fill();
+      for(let i=0;i<14;i++){
+        const a=i*Math.PI*2/14 + state.time*.4;
+        const rr=Math.min(w,hh)*(.25+.018*(i%3));
+        ctx.strokeStyle=i%2?'rgba(251,191,36,.72)':'rgba(15,23,42,.9)'; ctx.lineWidth=i%2?5:9;
+        ctx.beginPath(); ctx.arc(x,y,rr+i*12,a,a+Math.PI*.45); ctx.stroke();
+      }
+      ctx.fillStyle='rgba(2,6,23,.82)'; circle(ctx,x,y,70+Math.sin(state.time*4)*7);
+      ctx.strokeStyle=color; ctx.lineWidth=6; circleStroke(ctx,x,y,96+Math.sin(state.time*3)*8);
+      v37Label(v37Has(h,['종말'])?'종말 일식':'검은 일식',x,y+5,'#fff'); ctx.restore(); return true;
+    }
+    if(h.kind === 'circle' || v37Has(h,['흑점','태양코어'])){
+      const r=Math.max(32,h.r||58);
+      ctx.fillStyle='rgba(2,6,23,.88)'; circle(ctx,x,y,r);
+      ctx.strokeStyle=color; ctx.lineWidth=5; circleStroke(ctx,x,y,r*1.12);
+      for(let i=0;i<10;i++){ const a=i*Math.PI*2/10+state.time; ctx.strokeStyle=i%2?'#fdba74':'#020617'; ctx.lineWidth=5; ctx.beginPath(); ctx.moveTo(x+Math.cos(a)*r*.9,y+Math.sin(a)*r*.9); ctx.lineTo(x+Math.cos(a)*r*1.55,y+Math.sin(a)*r*1.55); ctx.stroke(); }
+      v37Label(v37Has(h,['흑점'])?'흑점':'태양 코어',x,y+5,'#fff'); ctx.restore(); return true;
+    }
+    if(h.kind === 'beam' || v37Has(h,['검은광선'])){
+      const len=h.len||W, ww=Math.max(18,h.w||20), a=h.angle||0;
+      ctx.translate(x,y); ctx.rotate(a);
+      ctx.fillStyle='rgba(2,6,23,.86)'; roundRect(ctx,-len/2,-ww*1.2,len,ww*2.4,12); ctx.fill();
+      ctx.strokeStyle=color; ctx.lineWidth=5; ctx.beginPath(); ctx.moveTo(-len/2,0); ctx.lineTo(len/2,0); ctx.stroke();
+      ctx.strokeStyle='#fde68a'; ctx.lineWidth=2; for(let i=-1;i<=1;i+=2){ ctx.beginPath(); ctx.moveTo(-len/2,i*ww); ctx.lineTo(len/2,i*ww); ctx.stroke(); }
+      ctx.restore(); return true;
+    }
+    if(h.kind === 'donut' || v37Has(h,['검은고리'])){
+      const inner=h.inner||120, outer=h.outer||280;
+      ctx.strokeStyle='rgba(2,6,23,.88)'; ctx.lineWidth=outer-inner; circleStroke(ctx,x,y,(inner+outer)/2);
+      ctx.strokeStyle=color; ctx.lineWidth=6; circleStroke(ctx,x,y,outer); circleStroke(ctx,x,y,inner);
+      v37Label('검은 고리',x,y+5,'#fff'); ctx.restore(); return true;
+    }
+    ctx.restore(); return false;
+  }
+
+  function v37DrawChaos(h){
+    if(!v37Has(h,['혼돈','카오스','무작위','괴랄','복합'])) return false;
+    const x=h.x||W/2,y=h.y||H/2; const color=h.color||'#fb7185';
+    ctx.save(); v37Glow(color,24); ctx.globalAlpha=h.warn>0?.50:.93;
+    const t=state.time||0;
+    if(h.kind==='circle' || v37Has(h,['혼돈원','혼돈폭풍'])){
+      const r=Math.max(34,h.r||58);
+      for(let i=0;i<3;i++){ ctx.strokeStyle=['#fb7185','#a78bfa','#fde047'][i]; ctx.lineWidth=5; ctx.beginPath(); ctx.arc(x,y,r*(.75+i*.22),t*(i%2?-.9:.9)+i,t*(i%2?-.9:.9)+i+Math.PI*1.35); ctx.stroke(); }
+      ctx.fillStyle='rgba(251,113,133,.22)'; circle(ctx,x,y,r*.86); v37Label('혼돈 원',x,y+5,'#fff'); ctx.restore(); return true;
+    }
+    if(h.kind==='donut' || v37Has(h,['혼돈도넛'])){
+      const inner=h.inner||45, outer=h.outer||130;
+      for(let i=0;i<10;i++){ const a=t*1.7+i*Math.PI/5; ctx.strokeStyle=i%2?'#a78bfa':'#fb7185'; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(x,y,inner+(outer-inner)*(i/10),a,a+Math.PI*.85); ctx.stroke(); }
+      ctx.strokeStyle='#fff'; ctx.lineWidth=3; circleStroke(ctx,x,y,inner); circleStroke(ctx,x,y,outer); v37Label('혼돈 도넛',x,y+5,'#fff'); ctx.restore(); return true;
+    }
+    if(h.kind==='beam' || h.kind==='rotatingBeam' || v37Has(h,['혼돈선','혼돈회전'])){
+      const len=h.len||W, ww=Math.max(14,h.w||16), a=h.angle||0;
+      ctx.translate(x,y); ctx.rotate(a);
+      const grad=ctx.createLinearGradient(-len/2,0,len/2,0); grad.addColorStop(0,'#fb7185'); grad.addColorStop(.5,'#fde047'); grad.addColorStop(1,'#a78bfa');
+      ctx.strokeStyle=grad; ctx.lineWidth=ww*1.7; ctx.beginPath();
+      for(let i=0;i<=36;i++){ const xx=-len/2+i*len/36; const yy=Math.sin(i*.9+t*8)*ww*.85; i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); }
+      ctx.stroke(); ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke(); ctx.restore(); return true;
+    }
+    if(h.kind==='floor' || v37Has(h,['즉사혼돈','혼돈재판'])){
+      const w=h.w||W*.95, hh=h.h||H*.8;
+      ctx.fillStyle='rgba(124,58,237,.25)'; roundRect(ctx,x-w/2,y-hh/2,w,hh,18); ctx.fill();
+      for(let i=0;i<18;i++){ const a=i*Math.PI*2/18+t*.8; const rr=80+(i%5)*38; ctx.fillStyle=['rgba(251,113,133,.35)','rgba(167,139,250,.32)','rgba(253,224,71,.28)'][i%3]; circle(ctx,x+Math.cos(a)*rr,y+Math.sin(a)*rr,18+(i%3)*8); }
+      v37Label(v37Has(h,['즉사'])?'즉사 혼돈':'혼돈 재판',x,y+5,'#fff'); ctx.restore(); return true;
+    }
+    ctx.restore(); return false;
+  }
+
+  function v37DrawCrumble(h){
+    if(!v37Has(h,['붕괴','무너지는','매몰'])) return false;
+    const x=h.x||W/2,y=h.y||H/2,w=h.w||90,hh=h.h||90,c=h.color||'#a16207';
+    ctx.save(); v37Glow(c,16); ctx.globalAlpha=h.warn>0?.45:.9;
+    ctx.fillStyle='rgba(87,83,78,.34)'; roundRect(ctx,x-w/2,y-hh/2,w,hh,8); ctx.fill();
+    ctx.strokeStyle='#fef3c7'; ctx.lineWidth=3; roundRect(ctx,x-w/2,y-hh/2,w,hh,8); ctx.stroke();
+    ctx.strokeStyle=c; ctx.lineWidth=3;
+    for(let i=0;i<7;i++){ const xx=x-w/2+Math.random()*w, yy=y-hh/2+Math.random()*hh; ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx+Math.random()*30-15,yy+Math.random()*30-15); ctx.stroke(); }
+    v37Label('붕괴 바닥',x,y+4,'#fff'); ctx.restore(); return true;
+  }
+
+  const oldDrawHazardsV37 = drawHazards;
+  drawHazards = function(){
+    oldDrawHazardsV37();
+    try{
+      state.hazards.forEach(h=>{
+        if(!h) return;
+        if(v37DrawSlime(h)) return;
+        if(v37DrawEclipse(h)) return;
+        if(v37DrawChaos(h)) return;
+        if(v37DrawCrumble(h)) return;
+      });
+    } catch(e){ console.warn('[V37 hazard visual overlay failed]', e); }
+  };
+
+  function v37IsFirstLocalClear(){
+    try{
+      const list = getLocalRecords ? getLocalRecords() : [];
+      const id = boss && boss.id;
+      return !!id && !list.some(r => r && r.boss_id === id);
+    } catch(e){ return false; }
+  }
+  function v37ShowFirstClear(){
+    try{
+      const name = boss && boss.name ? boss.name : '보스';
+      state.v37FirstClearT = 5.0;
+      state.v37FirstClearBoss = name;
+      state.v37FirstClearText = `FIRST CLEAR! ${name} 최초 클리어 기록 달성!`;
+      if(ui && ui.right && !ui.right.classList.contains('hidden')){
+        const box = document.createElement('div');
+        box.className = 'gacha-result';
+        box.style.borderColor = 'rgba(250,204,21,.9)';
+        box.style.background = 'radial-gradient(circle at 50% 0%, rgba(250,204,21,.34), rgba(15,23,42,.94))';
+        box.innerHTML = `<div style="font-size:24px;font-weight:950;color:#facc15;letter-spacing:.04em">FIRST CLEAR</div><div style="margin-top:5px;font-weight:900;color:#fff">${name} 최초 클리어 기록!</div><div class="muted">이 보스의 첫 기록이 랭킹에 등록되었습니다.</div>`;
+        ui.right.insertBefore(box, ui.right.firstChild.nextSibling || ui.right.firstChild);
+      }
+    } catch(e){ console.warn('[V37 first clear banner failed]', e); }
+  }
+  try{
+    const oldSubmitRecordV37 = submitRecord;
+    submitRecord = async function(ms){
+      const localFirst = v37IsFirstLocalClear();
+      let cloudFirst = true;
+      try{
+        if(supabaseReady && supabase && boss && boss.id){
+          const res = await supabase.from('raid_records').select('id').eq('boss_id', boss.id).limit(1);
+          if(res && Array.isArray(res.data) && res.data.length > 0) cloudFirst = false;
+        }
+      } catch(e){ cloudFirst = true; }
+      const ret = await oldSubmitRecordV37(ms);
+      if(localFirst && cloudFirst) v37ShowFirstClear();
+      return ret;
+    };
+  } catch(e){ console.warn('[V37 submitRecord patch failed]', e); }
+
+  try{
+    const oldDrawV37 = draw;
+    draw = function(){
+      oldDrawV37();
+      try{
+        if(state.v37FirstClearT > 0){
+          state.v37FirstClearT -= Math.min(.05, 1/60);
+          const a = Math.max(0, Math.min(1, state.v37FirstClearT/5));
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, .25 + a);
+          ctx.fillStyle = 'rgba(0,0,0,.35)';
+          roundRect(ctx, W/2-310, 82, 620, 86, 24); ctx.fill();
+          ctx.strokeStyle = '#facc15'; ctx.lineWidth = 4; roundRect(ctx, W/2-310, 82, 620, 86, 24); ctx.stroke();
+          ctx.shadowColor = '#facc15'; ctx.shadowBlur = 24;
+          ctx.fillStyle = '#facc15'; ctx.font = '950 34px system-ui'; ctx.textAlign = 'center'; ctx.fillText('FIRST CLEAR!', W/2, 120);
+          ctx.shadowBlur = 10; ctx.fillStyle = '#fff'; ctx.font = '900 16px system-ui'; ctx.fillText(state.v37FirstClearBoss + ' 최초 클리어 기록 달성', W/2, 149);
+          ctx.restore();
+        }
+      } catch(e){}
+    };
+  } catch(e){ console.warn('[V37 draw first clear patch failed]', e); }
+
+  try{
+    window.RaidDungeonV37 = {
+      version: V37_VERSION,
+      newlyVisualized: ['slime bounce/puddle/walls','black sun eclipse/sunspots/black rays','chaos circles/donuts/waves/flood','crumbling floor'],
+      firstClear: 'Shows FIRST CLEAR when the boss has no existing local/cloud record before the new clear is saved.'
+    };
+  } catch(e){}
+})();
