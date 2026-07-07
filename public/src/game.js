@@ -4386,7 +4386,665 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
     });
   } catch(e) {}
 
+
+
+  /* =========================================================
+     V29 DISTINCT BOSS FX / DAMAGE / ROLL IMMUNITY PATCH
+     - 보스별 이펙트와 패턴 실루엣을 다시 분리
+     - 캐릭터 중심 장판만 반복되던 문제 완화: 맵 전체 다중 원/선 공격 추가
+     - 보스 데미지 소폭 상향
+     - 구르기 중 모든 피해 완전 면역
+  ========================================================= */
+  const V29_VERSION = 'V29_DISTINCT_BOSS_FX_DAMAGE_ROLL_IMMUNITY';
+
+  try {
+    BOSSES.forEach(b=>{
+      if(!b._v29AtkBoosted){ b.atk = Math.round((b.atk || 10) * 1.18 * 10) / 10; b._v29AtkBoosted = true; }
+    });
+  } catch(e) { console.warn('[V29 atk boost failed]', e); }
+
+  const v29OldHurtPlayer = hurtPlayer;
+  hurtPlayer = function(amount, color, statusDamage){
+    // 구르기 중에는 장판, 레이저, 독틱, 즉사형 타격까지 전부 무시한다.
+    if(player && player.roll > 0) {
+      if(Math.random() < .18) floatText('회피', player.x, player.y-28, '#93c5fd', 14);
+      return;
+    }
+    return v29OldHurtPlayer(amount, color, statusDamage);
+  };
+
+  function v29WarnTime(extra){
+    return Math.max(1.05, 1.18 + (extra||0) + (boss && boss.tier>=8 ? .08 : 0));
+  }
+  function v29Dmg(x){ return (boss.atk || 10) * x * (boss.phase>=3 ? 1.10 : boss.phase>=2 ? 1.05 : 1); }
+  function v29Cast(kind, text, color, angle, time){
+    v28Cast(text, kind, color || boss.color, angle, time || 1.05);
+    const c=color||boss.color;
+    for(let i=0;i<18+boss.tier*2;i++){
+      const a=Math.random()*Math.PI*2;
+      state.particles.push({kind:'line',x:boss.x+Math.cos(a)*boss.r*.55,y:boss.y+Math.sin(a)*boss.r*.55,vx:Math.cos(a)*rand(30,160),vy:Math.sin(a)*rand(30,160),r:rand(2,6),life:rand(.3,.75),color:c,angle:a,len:rand(18,72)});
+    }
+  }
+  function v29MapCircles(count, color, tag, label, opts={}){
+    const minR = opts.r || 42, maxR = opts.r2 || (minR + 18), warn = opts.warn || v29WarnTime();
+    const safeCenter = opts.avoidPlayer ? {x:player.x,y:player.y,r:70} : null;
+    for(let i=0;i<count;i++){
+      let x,y,tries=0;
+      do { x=rand(70,W-70); y=rand(112,H-64); tries++; }
+      while(safeCenter && dist(x,y,safeCenter.x,safeCenter.y)<safeCenter.r && tries<20);
+      v28Circle(x,y,rand(minR,maxR),warn+i*.035,color,v29Dmg(opts.mul||.42),tag,label);
+    }
+  }
+  function v29FanBeams(cx,cy,base,count,spread,color,tag,label,w=15,len=980,mul=.36){
+    for(let i=0;i<count;i++){
+      const t=count===1?0:(i/(count-1)-.5);
+      v28Beam(cx,cy,base+t*spread,len,w,v29WarnTime(i*.02),color,v29Dmg(mul),tag,label);
+    }
+  }
+  function v29ArenaSweep(color, tag, label){
+    const vertical = Math.random()<.5;
+    const lanes = boss.tier>=8 ? 5 : 4;
+    for(let i=0;i<lanes;i++){
+      if(vertical) v28Wall(100+i*(W-200)/(lanes-1), H/2, 26, H*.94, v29WarnTime(i*.05), color, v29Dmg(.38), tag, label);
+      else v28Wall(W/2, 125+i*(H-210)/(lanes-1), W*.95, 26, v29WarnTime(i*.05), color, v29Dmg(.38), tag, label);
+    }
+  }
+  function v29CornerSafeBlast(color, tag, label){
+    const safes=[{x:120,y:130},{x:W-120,y:130},{x:120,y:H-100},{x:W-120,y:H-100}];
+    const safe=safes[Math.floor(Math.random()*safes.length)];
+    state.mechanics.push({kind:'safe',x:safe.x,y:safe.y,r:80,life:2.2,color});
+    v29Cast('ultimate', `${boss.name}: 전장 전체 공격! SAFE로 이동하세요!`, color, 0, 1.4);
+    // SAFE 주변을 제외한 전장을 큰 원 여러 개로 덮어 실제로 맵 전체가 공격받는 느낌을 만든다.
+    const pts=[[W*.25,H*.25],[W*.5,H*.25],[W*.75,H*.25],[W*.25,H*.55],[W*.5,H*.55],[W*.75,H*.55],[W*.25,H*.82],[W*.5,H*.82],[W*.75,H*.82]];
+    pts.forEach((p,i)=>{ if(dist(p[0],p[1],safe.x,safe.y)>145) v28Circle(p[0],p[1],105,v29WarnTime(i*.015),color,v29Dmg(.52),tag,label); });
+  }
+
+  function v29Slime(){
+    const c='#9bf6b4'; v29Cast('jump', `${boss.name}: 젤리 탄성 점프! 착지 파동을 보고 빠지세요.`, c, 0, 1.0);
+    v28Circle(boss.x,boss.y,120,v29WarnTime(),c,v29Dmg(.34),'slime','젤리착지');
+    v29MapCircles(4+boss.phase,c,'slime','젤리방울',{r:34,r2:48,mul:.24});
+  }
+  function v29Fire(){
+    const c='#fb923c'; const a=Math.atan2(player.y-boss.y,player.x-boss.x);
+    v29Cast('breath', `${boss.name}: 화염 숨결! 부채꼴 불길과 화산탄을 피하세요.`, c, a, 1.15);
+    v29FanBeams(boss.x,boss.y,a,7,.92,c,'fire','화염숨결',18,980,.36);
+    setTimeout(()=>{ if(state.raid&&!boss.dead) v29MapCircles(6+boss.phase,c,'fire','화산탄',{r:38,r2:62,mul:.34}); }, 360);
+  }
+  function v29Thorn(){
+    const c='#22c55e'; v29Cast('snare', `${boss.name}: 덩굴 사슬! 맵 전체 가시선과 독꽃을 읽으세요.`, c, 0, 1.05);
+    for(let i=0;i<4;i++) v28Beam(W/2,H/2,Math.PI*(i/4)+.18,Math.hypot(W,H),13,v29WarnTime(i*.04),c,v29Dmg(.34),'poison','가시선');
+    v29MapCircles(5+boss.phase,'#84cc16','poison','독꽃',{r:36,r2:54,mul:.30});
+    if(typeof v27HookPull==='function' && boss.phase>=2) v27HookPull('#bef264','poison');
+  }
+  function v29Ice(){
+    const c='#bae6fd'; v29Cast('ice', `${boss.name}: 빙결 성채! 낙하 얼음창과 벽 사이 빈칸을 찾으세요.`, c, 0, 1.12);
+    v29ArenaSweep(c,'ice','빙벽');
+    v29MapCircles(7+boss.phase,c,'ice','얼음창',{r:28,r2:42,mul:.34});
+  }
+  function v29Sand(){
+    const c='#fbbf24'; v29Cast('dash', `${boss.name}: 모래 낫 돌진! 끌림과 절단선을 동시에 봐야 합니다.`, c, 0, 1.05);
+    state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:280,life:2.3,power:120,color:c});
+    for(let i=0;i<5;i++){ const a=i/5*Math.PI*2+state.time*.4; v28Beam(W/2,H/2,a,Math.hypot(W,H),15,v29WarnTime(i*.06),c,v29Dmg(.36),'sand','모래절단'); }
+    v28Donut(W/2,H/2,90,285,v29WarnTime(.1),c,v29Dmg(.42),'sand','모래늪');
+  }
+  function v29Void(){
+    const c='#a78bfa'; v29Cast('portal', `${boss.name}: 공허 포탈! 포탈이 열리는 순서를 보고 빈 공간으로 이동하세요.`, c, 0, 1.15);
+    for(let i=0;i<6;i++) v28Beam(rand(120,W-120),rand(135,H-85),rand(0,Math.PI*2),rand(520,900),14,v29WarnTime(i*.045),i%2?'#8b5cf6':c,v29Dmg(.33),'void','공허문');
+    if(boss.phase>=2) v29MapCircles(5,c,'void','균열',{r:44,r2:66,mul:.34});
+  }
+  function v29Iron(){
+    const c='#cbd5e1'; const a=Math.atan2(player.y-boss.y,player.x-boss.x);
+    v29Cast('charge', `${boss.name}: 철갑 돌진! 직선 돌진 후 충격파가 이어집니다.`, c, a, 1.0);
+    v28Beam((boss.x+player.x)/2,(boss.y+player.y)/2,a,980,34,v29WarnTime(),c,v29Dmg(.56),'metal','돌진');
+    setTimeout(()=>{ if(state.raid&&!boss.dead){ v28Circle(player.x,player.y,95,v29WarnTime(.05),c,v29Dmg(.38),'metal','충격파'); v28Donut(boss.x,boss.y,120,250,v29WarnTime(.12),c,v29Dmg(.36),'metal','여진'); } }, 420);
+  }
+  function v29Blood(){
+    const c='#fb7185'; v29Cast('blood', `${boss.name}: 혈월 의식! 달의 고리와 피의 칼날을 분리해서 피하세요.`, c, 0, 1.2);
+    v28Donut(W/2,H/2,120,315,v29WarnTime(.08),c,v29Dmg(.50),'blood','혈월고리');
+    for(let i=0;i<8;i++) v28Beam(W/2,H/2,i/8*Math.PI*2+state.time*.2,Math.hypot(W,H),11,v29WarnTime(i*.025),'#be123c',v29Dmg(.30),'blood','피칼날');
+  }
+  function v29Storm(){
+    const c='#fde047'; v29Cast('storm', `${boss.name}: 폭풍 회로! 맵 전체 낙뢰와 회전 전류를 읽으세요.`, c, 0, 1.05);
+    v29MapCircles(9+boss.phase*2,c,'lightning','낙뢰',{r:26,r2:40,mul:.30});
+    v28RotBeam(W/2,H/2,rand(0,Math.PI),boss.phase>=3?1.05:.75,Math.hypot(W,H),13,v29WarnTime(.08),c,v29Dmg(.32),'lightning','회전전류');
+    if(boss.phase>=2) v29ArenaSweep('#60a5fa','lightning','전류격자');
+  }
+  function v29Plague(){
+    const c='#84cc16'; v29Cast('plague', `${boss.name}: 역병 확산! 해독 룬과 독꽃 위치를 같이 확인하세요.`, c, 0, 1.1);
+    spawnRune('#bef264','cleanse'); v29MapCircles(8,c,'poison','독포자',{r:32,r2:50,mul:.26});
+    state.zones.push({x:W/2,y:H/2,r:250,damage:v29Dmg(.025),life:2.6,tick:0,color:c,enemy:true,dot:true});
+  }
+  function v29Mirror(){
+    const c='#f0abfc'; v29Cast('mirror', `${boss.name}: 거울 만화경! 대칭 절단선과 가짜 빛을 구분하세요.`, c, 0, 1.1);
+    for(let i=0;i<6;i++){ const x=110+i*(W-220)/5; v28Beam(x,H/2,Math.PI/2,H*.9,10,v29WarnTime(i*.04),c,v29Dmg(.30),'mirror','거울선'); }
+    v29MapCircles(4+boss.phase,'#f9a8d4','mirror','가짜반사',{r:44,r2:62,mul:.28});
+  }
+  function v29Gravity(){
+    const c='#818cf8'; v29Cast('gravity', `${boss.name}: 중력핵 압축! 끌림을 계산하며 궤도 레이저를 피하세요.`, c, 0, 1.15);
+    state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:330,life:2.5,power:180,color:c});
+    v28RotBeam(W/2,H/2,0,1.15,Math.hypot(W,H),16,v29WarnTime(),c,v29Dmg(.35),'gravity','궤도');
+    v28Donut(W/2,H/2,75,275,v29WarnTime(.12),c,v29Dmg(.48),'gravity','압축');
+  }
+  function v29Chrono(){
+    const c='#fde047'; v29Cast('time', `${boss.name}: 시간 재단! 시계바늘과 시간폭탄을 동시에 봅니다.`, c, 0, 1.12);
+    for(let i=0;i<12;i+=2) v28Beam(W/2,H/2,i/12*Math.PI*2+state.time*.15,Math.hypot(W,H),8,v29WarnTime(i*.015),c,v29Dmg(.26),'chrono','시계바늘');
+    v29MapCircles(4+boss.phase,'#f472b6','chrono','시간폭탄',{r:54,r2:76,mul:.36});
+  }
+  function v29Chaos(){
+    const c='#fb7185'; v29Cast('chaos', `${boss.name}: 혼돈 재판! 서로 다른 공격이 섞여 옵니다.`, c, 0, 1.2);
+    const arr=[v29Fire,v29Storm,v29Gravity,v29Mirror,v29Void];
+    arr[Math.floor(Math.random()*arr.length)]();
+    setTimeout(()=>{ if(state.raid&&!boss.dead) v29MapCircles(5,'#f472b6','chaos','혼돈점',{r:32,r2:52,mul:.30}); }, 650);
+  }
+
+  const V29_BY_ID = {
+    slime_king:[v29Slime,()=>v29MapCircles(6,'#86efac','slime','젤리비',{r:30,r2:44,mul:.22}),()=>v28Donut(W/2,H/2,80,250,v29WarnTime(),'#86efac',v29Dmg(.28),'slime','젤리파동')],
+    ember_tyrant:[v29Fire,()=>v29CornerSafeBlast('#fb923c','fire','화염심판'),()=>{v29MapCircles(10,'#f97316','fire','불씨폭우',{r:30,r2:46,mul:.30});}],
+    thorn_queen:[v29Thorn,v29Plague,()=>v29ArenaSweep('#22c55e','poison','가시울타리')],
+    frost_oracle:[v29Ice,()=>v29CornerSafeBlast('#bae6fd','ice','빙결심판'),()=>{if(typeof v28MazePhase==='function') v28MazePhase(); else v29Ice();}],
+    sand_reaper:[v29Sand,v29Iron,()=>v29MapCircles(8,'#fbbf24','sand','모래폭탄',{r:34,r2:52,mul:.31})],
+    void_serpent:[v29Void,v29Gravity,()=>v29CornerSafeBlast('#a78bfa','void','공허심판')],
+    iron_minotaur:[v29Iron,()=>v29ArenaSweep('#cbd5e1','metal','강철격자'),()=>v28Donut(boss.x,boss.y,85,270,v29WarnTime(),'#94a3b8',v29Dmg(.45),'metal','철퇴여진')],
+    blood_moon:[v29Blood,()=>v29CornerSafeBlast('#be123c','blood','혈월심판'),()=>v29FanBeams(boss.x,boss.y,Math.atan2(player.y-boss.y,player.x-boss.x),9,1.2,'#fb7185','blood','흡혈칼날',12,980,.28)],
+    storm_colossus:[v29Storm,()=>v29CornerSafeBlast('#fde047','lightning','천둥심판'),()=>v29ArenaSweep('#60a5fa','lightning','전류벽')],
+    plague_doctor:[v29Plague,v29Thorn,()=>{ if(typeof spawnAddsPhase==='function') spawnAddsPhase(); v29MapCircles(6,'#84cc16','poison','역병폭발',{r:36,r2:56,mul:.30});}],
+    mirror_duelist:[v29Mirror,()=>{ if(typeof v28JesterGame==='function') v28JesterGame(); else v29Mirror(); },()=>v29FanBeams(W/2,H/2,0,8,Math.PI*2,'#f0abfc','mirror','만화경',10,920,.26)],
+    gravity_core:[v29Gravity,()=>v29CornerSafeBlast('#818cf8','gravity','중력붕괴'),()=>v29MapCircles(7,'#a5b4fc','gravity','중력점',{r:42,r2:62,mul:.33})],
+    solar_dragon:[v29Fire,()=>v29FanBeams(boss.x,boss.y,Math.atan2(player.y-boss.y,player.x-boss.x),11,1.3,'#facc15','solar','태양숨결',15,1050,.32),()=>v29CornerSafeBlast('#f97316','solar','태양심판')],
+    chrono_dragon:[v29Chrono,()=>{ if(typeof v28ClockJudgement==='function') v28ClockJudgement(); else v29Chrono(); },()=>v29CornerSafeBlast('#fde047','chrono','시간정지')],
+    abyss_leviathan:[v29Ice,()=>v29ArenaSweep('#38bdf8','ice','해일벽'),()=>v29FanBeams(W/2,H/2,Math.PI/2,7,.8,'#7dd3fc','ice','심해창',14,900,.32)],
+    puppet_emperor:[v29Mirror,()=>{ if(typeof v28JesterGame==='function') v28JesterGame(); else v29Mirror(); },()=>{ if(typeof v27HookPull==='function') v27HookPull('#f0abfc','mirror'); v29MapCircles(5,'#f0abfc','mirror','인형못',{r:34,r2:50,mul:.30});}],
+    black_sun:[()=>v29CornerSafeBlast('#facc15','solar','즉사 패턴'),v29Fire,v29Blood],
+    chaos_archon:[v29Chaos,v29Gravity,v29Storm],
+    crimson_train:[()=>v29ArenaSweep('#fb7185','train','급행열차'),v29Iron,()=>v29MapCircles(8,'#f97316','train','차륜폭발',{r:34,r2:54,mul:.32})],
+    prophecy_cube:[v29Chrono,v29Gravity,v29Mirror],
+    void_gardener:[v29Thorn,v29Void,v29Plague],
+    magnet_judge:[v29Gravity,v29Storm,()=>v29ArenaSweep('#60a5fa','gravity','극성재판')],
+    nightmare_jester:[()=>{ if(typeof v28JesterGame==='function') v28JesterGame(); else v29Mirror(); },v29Chaos,v29Mirror]
+  };
+  const V29_BY_THEME = { fire:[v29Fire,v29CornerSafeBlast.bind(null,'#fb923c','fire','화염심판'),v29ArenaSweep.bind(null,'#fb923c','fire','화염벽')], solar:[v29Fire,v29Blood], ice:[v29Ice,v29CornerSafeBlast.bind(null,'#bae6fd','ice','빙결심판')], lightning:[v29Storm,v29ArenaSweep.bind(null,'#60a5fa','lightning','전류벽')], nature:[v29Thorn,v29Plague], poison:[v29Plague,v29Thorn], metal:[v29Iron,v29ArenaSweep.bind(null,'#cbd5e1','metal','강철격자')], gravity:[v29Gravity,v29CornerSafeBlast.bind(null,'#818cf8','gravity','중력붕괴')], mirror:[v29Mirror], chrono:[v29Chrono], chaos:[v29Chaos] };
+
+  const v29OldBossPattern = bossPattern;
+  bossPattern = function(){
+    if(!boss || boss.dead || state.miniGame) return;
+    const pool = V29_BY_ID[boss.id] || V29_BY_THEME[boss.theme];
+    if(pool && pool.length){
+      boss._v29PatternIndex=(boss._v29PatternIndex||0)+1;
+      let idx = (boss._v29PatternIndex - 1 + Math.max(0,(boss.phase||1)-1)) % pool.length;
+      try { pool[idx](); }
+      catch(e){ console.warn('[V29 pattern fallback]', e); v29OldBossPattern(); }
+      if(boss.tier>=8 && boss.phase>=3 && Math.random()<.14){
+        setTimeout(()=>{ if(state.raid && boss && !boss.dead && !state.miniGame){ try{ v29MapCircles(4+boss.phase,boss.sub||boss.color,boss.theme,'보조타격',{r:28,r2:44,mul:.24}); }catch(e){} } }, 1200);
+      }
+      return;
+    }
+    v29OldBossPattern();
+  };
+
+  // 화면 카드에 보이는 설명도 단순 색 변경이 아니라 보스별 핵심을 알 수 있게 보정한다.
+  try{
+    const labels={
+      slime_king:['젤리착지','젤리비','파동'], ember_tyrant:['부채꼴 숨결','전장 화염','화산탄'], thorn_queen:['덩굴 사슬','독꽃','가시선'], frost_oracle:['빙결 성채','얼음창','빙결심판'],
+      sand_reaper:['모래 끌림','낫 절단','모래폭탄'], void_serpent:['공허 포탈','중력 끌림','공허심판'], iron_minotaur:['돌진','충격파','강철격자'], blood_moon:['혈월고리','피칼날','흡혈장판'],
+      storm_colossus:['맵 낙뢰','회전 전류','전류격자'], plague_doctor:['역병구름','해독 룬','독포자'], mirror_duelist:['거울절단','만화경','가짜 빛'], gravity_core:['중력끌림','궤도레이저','압축폭발'],
+      solar_dragon:['태양숨결','화염장막','태양심판'], chrono_dragon:['시계바늘','시간폭탄','시간정지'], abyss_leviathan:['해일벽','심해창','빙결장판'], puppet_emperor:['실 조종','야바위','인형못'],
+      black_sun:['즉사 패턴','검은태양','혈월칼날'], chaos_archon:['혼돈재판','중력붕괴','폭풍회로']
+    };
+    BOSSES.forEach(b=>{ if(labels[b.id]) b.patterns=labels[b.id]; else if(b.tier>=8) b.patterns=['고유 기믹','전장 공격','페이즈 강화']; });
+  }catch(e){}
+
+  window.RaidDungeonV29 = { version: V29_VERSION };
+
+
   window.RaidDungeonV28 = { version: V28_VERSION };
+})();
+
+
+/* =========================================================
+   RAID DUNGEON V30 - REAL DISTINCT BOSS IDENTITY PATCH
+   - 보스마다 색만 다른 레이저가 아니라, 이름/성격에 맞는 고유 패턴 세트로 재구성
+   - 각 보스별 최소 4개 이상 고유 패턴 순환
+   - 같은 이펙트 반복을 줄이고, 테마별 시전 모션/실제 타격 모양을 다르게 표시
+   - 기존 저장/클릭/방어구/미니게임/구르기 무적 패치 유지
+========================================================= */
+(function raidDungeonV30DistinctBossIdentityPatch(){
+  const V30_VERSION = 'V30_DISTINCT_BOSS_IDENTITY';
+  try { console.log('[RaidDungeon] ' + V30_VERSION + ' loaded'); } catch(e) {}
+
+  function alive(){ return state && state.raid && boss && !boss.dead && !state.miniGame; }
+  function col(){ return (boss && (boss.color || boss.sub)) || '#93c5fd'; }
+  function sub(){ return (boss && (boss.sub || boss.color)) || '#ffffff'; }
+  function tag(){ return (boss && (boss.theme || boss.id)) || 'boss'; }
+  function tier(){ return boss ? (boss.tier || 1) : 1; }
+  function phase(){ return boss ? (boss.phase || 1) : 1; }
+  function dmg(m){ return boss ? boss.atk * (m || 1) : 1; }
+  function warn(extra){ return Math.max(.95, 1.05 + tier()*.035 + (extra || 0)); }
+  function setText(t,c){ if(boss) boss.mechanicText=t; try{ floatText(t, W/2, 84, c || col(), 17); }catch(e){} }
+  function cast(t,kind,c,angle,time){
+    if(!boss) return;
+    const cc=c||col();
+    setText(t,cc);
+    boss.cast = {life:time||1.05,max:time||1.05,kind:kind||'cast',color:cc,angle:Number.isFinite(angle)?angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+    state.shake = Math.max(state.shake || 0, Math.min(5, 1 + tier()*.25));
+  }
+  function push(h){
+    if(!alive()) return;
+    h.warn = Math.max(.72, h.warn || warn());
+    h.life = Math.max(.62, h.life || .74);
+    h.label = h.label || 'HIT';
+    h.v30 = true;
+    if(typeof v20PushHazard === 'function') v20PushHazard(h); else state.hazards.push(h);
+  }
+  function circle(x,y,r,w,c,d,tg,label,life){ push({kind:'circle',x,y,r,warn:w,life:life||.82,damage:d,color:c,tag:tg,label}); }
+  function donut(x,y,inner,outer,w,c,d,tg,label){ push({kind:'donut',x,y,inner,outer,warn:w,life:.92,damage:d,color:c,tag:tg,label}); }
+  function beam(x,y,a,len,width,w,c,d,tg,label,life){ push({kind:'beam',x,y,angle:a,len,w:width,warn:w,life:life||.82,damage:d,color:c,tag:tg,label}); }
+  function wall(x,y,ww,hh,w,c,d,tg,label){ push({kind:'wall',x,y,w:ww,h:hh,warn:w,life:.94,damage:d,color:c,tag:tg,label}); }
+  function floor(x,y,ww,hh,w,c,d,tg,label){ push({kind:'floor',x,y,w:ww,h:hh,warn:w,life:.90,damage:d,color:c,tag:tg,label}); }
+  function rot(x,y,a,spin,len,width,w,c,d,tg,label){ push({kind:'rotatingBeam',x,y,angle:a,spin,len,w:width,warn:w,life:2.15,damage:d,color:c,tag:tg,label,tick:0}); }
+  function safe(x,y,r,life,c,label){ state.mechanics.push({kind:'safe',x,y,r,life:life||2.4,color:c||'#86efac',label:label||'SAFE'}); }
+  function sparkle(x,y,c,n,pow){
+    n = n || 20; pow = pow || 1;
+    try { burst(x,y,c,n,230*pow); } catch(e) {}
+    for(let i=0;i<n;i++){
+      const a=Math.random()*Math.PI*2;
+      state.particles.push({kind:i%3?'star':'line',x,y,vx:Math.cos(a)*rand(70,350)*pow,vy:Math.sin(a)*rand(70,350)*pow,r:rand(3,9)*pow,life:rand(.22,.74),color:c,angle:a,len:rand(18,60)*pow});
+    }
+  }
+  function mapCircles(n,c,tg,label,opt){
+    opt=opt||{}; const used=[];
+    for(let i=0;i<n;i++){
+      let x,y,ok=false;
+      for(let tries=0;tries<25&&!ok;tries++){
+        x=rand(85,W-85); y=rand(122,H-72); ok=true;
+        for(const p of used) if(dist(x,y,p.x,p.y)<(opt.minDist||105)) ok=false;
+      }
+      used.push({x,y});
+      circle(x,y,rand(opt.r||28,opt.r2||58),warn(i*.025),c,dmg(opt.mul||.32),tg,label);
+    }
+  }
+  function fanFromBoss(count,arc,c,tg,label,width,len,mul){
+    const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+    for(let i=0;i<count;i++){
+      const t=count<=1?0:(i/(count-1)-.5);
+      beam(boss.x+Math.cos(base+t*arc)*120,boss.y+Math.sin(base+t*arc)*120,base+t*arc,len||760,width||18,warn(Math.abs(t)*.18),c,dmg(mul||.34),tg,label);
+    }
+  }
+  function checker(cols,rows,safeCount,c,tg,label,mul){
+    const total=cols*rows, safeSet=new Set();
+    while(safeSet.size<safeCount) safeSet.add(Math.floor(Math.random()*total));
+    const cw=W/cols, ch=(H-108)/rows;
+    for(let i=0;i<total;i++){
+      const x=cw*(i%cols+.5), y=108+ch*(Math.floor(i/cols)+.5);
+      if(safeSet.has(i)) safe(x,y,Math.min(cw,ch)*.25,2.1,'#bbf7d0','SAFE');
+      else floor(x,y,cw*.82,ch*.72,warn((i%3)*.03),c,dmg(mul||.34),tg,label);
+    }
+  }
+  function lineGrid(verticals,horizontals,c,tg,label,mul){
+    for(let i=0;i<verticals;i++) wall(100+i*(W-200)/Math.max(1,verticals-1),H/2,24,H*.78,warn(i*.04),c,dmg(mul||.34),tg,label);
+    for(let j=0;j<horizontals;j++) wall(W/2,140+j*(H-230)/Math.max(1,horizontals-1),W*.86,22,warn(j*.04+.1),c,dmg((mul||.34)*.9),tg,label);
+  }
+  function addMinions(n,c,name){
+    for(let i=0;i<n;i++){
+      state.summons = state.summons || [];
+      state.summons.push({x:rand(100,W-100),y:rand(140,H-90),r:18+Math.random()*8,hp:18+tier()*5,maxHp:18+tier()*5,color:c,name:name||'소환수',speed:80+Math.random()*40,life:18,damage:dmg(.18)});
+    }
+  }
+
+  // Common visual-only attack language helpers. Each boss uses a different composition.
+  function slimeBounce(){ const c='#86efac'; cast(`${boss.name}: 몸을 부풀린 뒤 튀어오릅니다. 착지 파동을 피하세요!`,'slam',c,0,1.0); circle(player.x,player.y,88,warn(),c,dmg(.36),'slime','젤리착지'); setTimeout(()=>{ if(alive()) donut(player.x,player.y,70,190,.55,c,dmg(.26),'slime','탄성파동'); }, 780); mapCircles(4+phase(), '#bbf7d0','slime','젤리방울',{r:26,r2:42,mul:.20}); }
+  function slimeSplit(){ const c='#a7f3d0'; cast(`${boss.name}: 작은 젤리로 분열합니다. 방울 사이 빈틈을 찾으세요!`,'split',c,0,1.0); for(let i=0;i<16;i++){ const a=i/16*Math.PI*2; aimBullet(boss.x,boss.y,boss.x+Math.cos(a)*300,boss.y+Math.sin(a)*220,150,c,dmg(.12),'slime'); } addMinions(phase(),c,'미니젤리'); }
+  function slimePuddle(){ const c='#4ade80'; cast(`${boss.name}: 바닥을 말랑하게 녹입니다. 중앙 파동과 외곽 웅덩이를 구분하세요!`,'puddle',c,0,1.0); donut(W/2,H/2,120,260,warn(),c,dmg(.28),'slime','말랑파동'); mapCircles(6,'#86efac','slime','젤리웅덩이',{r:38,r2:62,mul:.18,minDist:135}); }
+
+  function fireBreath(){ const c='#f97316'; const a=Math.atan2(player.y-boss.y,player.x-boss.x); cast(`${boss.name}: 화염 숨결! 보스 뒤쪽으로 파고드세요.`, 'breath', c, a, 1.0); fanFromBoss(9,1.25,c,'fire','화염숨결',24,680,.38); setTimeout(()=>mapCircles(7,'#fb923c','fire','잔불폭발',{r:28,r2:45,mul:.24}),650); }
+  function fireVolcano(){ const c='#fb923c'; cast(`${boss.name}: 화산 균열을 엽니다. 균열선과 운석을 동시에 확인하세요.`, 'volcano', c, -Math.PI/2, 1.1); for(let i=0;i<5;i++) beam(W/2,H/2,(i/5)*Math.PI*2+state.time*.2,Math.hypot(W,H),14,warn(i*.04),c,dmg(.30),'fire','화산균열'); mapCircles(8+phase(),'#facc15','fire','화산탄',{r:32,r2:50,mul:.29}); }
+  function fireChess(){ const c='#f97316'; cast(`${boss.name}: 불타는 체스판! 밝지 않은 칸으로 이동하세요.`, 'meteor', c, 0, 1.2); checker(6,4,Math.max(3,7-phase()),c,'fire','화염칸',.35); }
+
+  function thornHook(){ const c='#22c55e'; const a=Math.atan2(player.y-boss.y,player.x-boss.x); cast(`${boss.name}: 덩굴 갈고리! 선을 끊고 독꽃을 피하세요.`, 'hook', c, a, 1.0); beam((boss.x+player.x)/2,(boss.y+player.y)/2,a,880,18,warn(),c,dmg(.28),'poison','덩굴갈고리'); setTimeout(()=>{ if(!alive())return; const px=player.x-boss.x, py=player.y-boss.y; const along=px*Math.cos(a)+py*Math.sin(a), side=Math.abs(-px*Math.sin(a)+py*Math.cos(a)); if(along>0&&along<900&&side<45){ player.x=clamp(player.x-Math.cos(a)*160,45,W-45); player.y=clamp(player.y-Math.sin(a)*160,95,H-45); hurtPlayer(dmg(.25),c); floatText('속박',player.x,player.y-35,c,18); } },1050); mapCircles(5,'#84cc16','poison','독꽃',{r:34,r2:55,mul:.20,minDist:130}); }
+  function thornGarden(){ const c='#4ade80'; cast(`${boss.name}: 가시 정원을 펼칩니다. 길이 닫히기 전에 빠져나가세요.`, 'garden', c, 0, 1.15); lineGrid(4,2,c,'poison','가시벽',.34); mapCircles(6,'#bef264','poison','꽃가루',{r:26,r2:42,mul:.18,minDist:110}); }
+  function thornBloom(){ const c='#84cc16'; cast(`${boss.name}: 독꽃이 연쇄 개화합니다. 작은 꽃보다 큰 꽃을 먼저 피하세요.`, 'bloom', c, 0, 1.0); for(let i=0;i<7;i++){ const x=rand(100,W-100), y=rand(135,H-90); circle(x,y,30,warn(i*.07),c,dmg(.18),'poison','씨앗'); setTimeout(()=>{ if(alive()) circle(x,y,78,.55,c,dmg(.32),'poison','독꽃개화'); },700+i*85); } }
+
+  function icePrison(){ const c='#bae6fd'; cast(`${boss.name}: 빙결 감옥! 열린 통로를 따라 이동하세요.`, 'ice', c, Math.PI/2, 1.1); const gapV=Math.floor(Math.random()*4); for(let i=0;i<4;i++) if(i!==gapV) wall(190+i*(W-380)/3,H/2,28,H*.82,warn(i*.03),c,dmg(.38),'ice','빙벽'); const gapH=Math.floor(Math.random()*3); for(let j=0;j<3;j++) if(j!==gapH) wall(W/2,170+j*(H-280)/2,W*.78,24,warn(.12+j*.05),c,dmg(.34),'ice','서리벽'); }
+  function iceLances(){ const c='#e0f2fe'; cast(`${boss.name}: 하늘에서 빙창이 떨어집니다. 그림자 위치를 보고 움직이세요.`, 'icefall', c, -Math.PI/2, 1.0); mapCircles(10+phase()*2,c,'ice','빙창낙하',{r:24,r2:38,mul:.25,minDist:88}); }
+  function iceMirror(){ const c='#7dd3fc'; cast(`${boss.name}: 얼음 거울을 세웁니다. 반사선을 보고 빈칸으로 이동하세요.`, 'reflect', c, 0, 1.05); for(let i=0;i<5;i++) beam(110+i*(W-220)/4,H/2,(i%2?Math.PI/2:0),i%2?H*.9:W*.85,12,warn(i*.05),c,dmg(.26),'ice','반사빙선'); donut(W/2,H/2,110,280,warn(.16),c,dmg(.32),'ice','서리환'); }
+
+  function sandPull(){ const c='#fbbf24'; cast(`${boss.name}: 모래 늪이 발목을 끌어당깁니다. 바깥 고리로 빠져나가세요.`, 'sand', c, 0, 1.15); state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:320,life:2.7,power:165,color:c}); donut(W/2,H/2,80,280,warn(.1),c,dmg(.45),'sand','모래늪'); }
+  function sandScythe(){ const c='#f59e0b'; const a=Math.atan2(player.y-boss.y,player.x-boss.x); cast(`${boss.name}: 사신의 낫질! 돌진선 뒤의 모래 폭발까지 확인하세요.`, 'dash', c, a, 1.0); beam((boss.x+player.x)/2,(boss.y+player.y)/2,a,920,30,warn(),c,dmg(.46),'sand','낫돌진'); setTimeout(()=>{ if(alive()) fanFromBoss(5,.85,c,'sand','모래칼날',18,560,.25); },800); }
+  function sandBurial(){ const c='#fcd34d'; cast(`${boss.name}: 매몰 지대를 만듭니다. 작은 발판 사이로 이동하세요.`, 'bury', c, 0, 1.1); checker(5,4,4,c,'sand','매몰지대',.32); state.mechanics.push({kind:'gravity',x:boss.x,y:boss.y,r:220,life:2.0,power:105,color:c}); }
+
+  function voidPortals(){ const c='#a78bfa'; cast(`${boss.name}: 공허 문이 열립니다. 서로 다른 각도의 절단선을 읽으세요.`, 'portal', c, 0, 1.1); for(let i=0;i<7;i++) beam(rand(110,W-110),rand(130,H-85),rand(0,Math.PI*2),rand(520,980),14,warn(i*.04),i%2?c:'#8b5cf6',dmg(.27),'void','공허문'); }
+  function voidCollapse(){ const c='#8b5cf6'; cast(`${boss.name}: 공간을 접습니다. 중심으로 끌리기 전에 빈 고리를 찾으세요.`, 'collapse', c, 0, 1.2); state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:360,life:2.6,power:200,color:c}); donut(W/2,H/2,90,300,warn(.12),c,dmg(.44),'void','공간접힘'); mapCircles(5,c,'void','균열',{r:36,r2:58,mul:.24,minDist:130}); }
+  function voidSnake(){ const c='#c4b5fd'; cast(`${boss.name}: 공허 뱀이 몸을 비틀어 지나갑니다. S자 경로를 피하세요.`, 'serpent', c, 0, 1.1); for(let i=0;i<8;i++){ const x=120+i*(W-240)/7, y=H/2+Math.sin(i*.9+state.time)*160; circle(x,y,60,warn(i*.035),c,dmg(.26),'void','뱀자국'); } }
+
+  function ironCharge(){ const c='#e5e7eb'; const a=Math.atan2(player.y-boss.y,player.x-boss.x); cast(`${boss.name}: 철갑 돌진! 굴러서 옆으로 빠지면 딜 타이밍입니다.`, 'charge', c, a, 1.0); beam((boss.x+player.x)/2,(boss.y+player.y)/2,a,980,42,warn(),c,dmg(.56),'metal','철갑돌진'); setTimeout(()=>{ if(alive()){ boss.x=clamp(boss.x+Math.cos(a)*330,80,W-80); boss.y=clamp(boss.y+Math.sin(a)*330,110,H-80); circle(boss.x,boss.y,125,.45,c,dmg(.38),'metal','착지충격'); sparkle(boss.x,boss.y,c,22,1.1); } },1100); }
+  function ironAnvil(){ const c='#cbd5e1'; cast(`${boss.name}: 모루 강타! 중앙 충격 후 외곽 여진이 옵니다.`, 'slam', c, 0, 1.1); circle(W/2,H/2,150,warn(),c,dmg(.46),'metal','모루강타'); donut(W/2,H/2,160,310,warn(.22),'#94a3b8',dmg(.34),'metal','여진'); }
+  function ironCage(){ const c='#94a3b8'; cast(`${boss.name}: 강철 감옥! 닫히는 벽 사이 빈틈을 찾으세요.`, 'cage', c, 0, 1.15); lineGrid(5,3,c,'metal','강철벽',.32); }
+
+  function stormRods(){ const c='#fde047'; cast(`${boss.name}: 피뢰침을 꽂습니다. 번개 연결선을 피하세요.`, 'storm', c, 0, 1.05); const rods=[]; for(let i=0;i<5+phase();i++){ const p={x:rand(110,W-110),y:rand(135,H-90)}; rods.push(p); circle(p.x,p.y,28,warn(i*.02),c,dmg(.20),'lightning','피뢰침'); }
+    setTimeout(()=>{ if(!alive()) return; for(let i=0;i<rods.length-1;i++){ const a=Math.atan2(rods[i+1].y-rods[i].y,rods[i+1].x-rods[i].x); const len=dist(rods[i].x,rods[i].y,rods[i+1].x,rods[i+1].y); beam((rods[i].x+rods[i+1].x)/2,(rods[i].y+rods[i+1].y)/2,a,len,14,.55,c,dmg(.26),'lightning','전류연결'); } },750); }
+  function stormGrid(){ const c='#60a5fa'; cast(`${boss.name}: 폭풍 회로가 켜집니다. 가로/세로 전류 사이를 읽으세요.`, 'circuit', c, 0, 1.1); lineGrid(4+phase(),2,c,'lightning','전류격자',.30); rot(W/2,H/2,rand(0,Math.PI),phase()>=3?1.0:.65,Math.hypot(W,H),14,warn(.15),'#fde047',dmg(.27),'lightning','회전전류'); }
+  function stormChase(){ const c='#fde047'; cast(`${boss.name}: 추적 낙뢰! 멈추지 말고 계속 이동하세요.`, 'storm', c, 0, 1.05); for(let i=0;i<8+phase();i++) setTimeout(()=>{ if(alive()) circle(player.x+rand(-80,80),player.y+rand(-80,80),38,.62,c,dmg(.24),'lightning','추적낙뢰'); },i*180); }
+
+  function plagueCloud(){ const c='#84cc16'; cast(`${boss.name}: 역병 구름을 뿌립니다. 해독 룬을 보고 이동하세요.`, 'plague', c, 0, 1.1); spawnRune('#bef264','cleanse'); state.zones.push({x:W/2,y:H/2,r:250,damage:dmg(.025),life:3.2,tick:0,color:c,enemy:true,dot:true}); mapCircles(7,c,'poison','독포자',{r:30,r2:48,mul:.20,minDist:105}); }
+  function plagueAdds(){ const c='#a3e635'; cast(`${boss.name}: 감염체를 부릅니다. 소환수를 처리하지 않으면 독 장판이 늘어납니다.`, 'plague', c, 0, 1.0); addMinions(3+Math.floor(phase()/2),c,'감염체'); mapCircles(4,c,'poison','감염폭발',{r:36,r2:54,mul:.22}); }
+  function plagueSurgery(){ const c='#bef264'; cast(`${boss.name}: 역병 수술! 좁은 절개선을 보고 비켜서세요.`, 'surgery', c, 0, 1.0); for(let i=0;i<6;i++) beam(rand(100,W-100),rand(130,H-90),rand(0,Math.PI*2),rand(420,780),10,warn(i*.04),c,dmg(.28),'poison','절개선'); }
+
+  function mirrorClones(){ const c='#f0abfc'; cast(`${boss.name}: 진짜 분신을 숨깁니다. 밝은 분신 주변만 안전합니다.`, 'mirror', c, 0, 1.1); const real=Math.floor(Math.random()*4); for(let i=0;i<4;i++){ const x=160+i*(W-320)/3,y=H*.45; if(i===real){ safe(x,y,64,2.4,'#bbf7d0','진짜'); sparkle(x,y,'#fff',14,1); } else circle(x,y,70,warn(i*.05),c,dmg(.40),'mirror','가짜분신'); } }
+  function mirrorKaleidoscope(){ const c='#f0abfc'; cast(`${boss.name}: 만화경 절단! 대칭으로 생기는 선을 확인하세요.`, 'mirror', c, 0, 1.1); for(let i=0;i<10;i++) beam(W/2,H/2,i/10*Math.PI*2+state.time*.1,Math.hypot(W,H),9,warn(i*.02),i%2?c:'#ffffff',dmg(.23),'mirror','만화경'); }
+  function mirrorReflect(){ const c='#f9a8d4'; cast(`${boss.name}: 거울 반사탄! 탄막이 한 번 꺾여 돌아옵니다.`, 'mirror', c, 0, 1.0); for(let i=0;i<12;i++){ const a=i/12*Math.PI*2; state.projectiles.push({owner:'boss',x:boss.x,y:boss.y,vx:Math.cos(a)*210,vy:Math.sin(a)*210,r:7,life:3.0,damage:dmg(.15),color:c,returning:true,tag:'mirror'}); } }
+
+  function gravityPull(){ const c='#818cf8'; cast(`${boss.name}: 중력핵이 끌어당깁니다. 이동 방향을 역산하세요.`, 'gravity', c, 0, 1.15); state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:360,life:3.1,power:230,color:c}); rot(W/2,H/2,0,.9,Math.hypot(W,H),16,warn(.1),c,dmg(.27),'gravity','궤도레이저'); }
+  function gravityCrush(){ const c='#a5b4fc'; cast(`${boss.name}: 중력 압축! 안쪽과 바깥쪽이 번갈아 터집니다.`, 'gravity', c, 0, 1.2); circle(W/2,H/2,125,warn(),c,dmg(.42),'gravity','중력압축'); donut(W/2,H/2,155,315,warn(.24),c,dmg(.35),'gravity','반발파동'); }
+  function gravityTiles(){ const c='#818cf8'; cast(`${boss.name}: 바닥 중력이 뒤틀립니다. 안전 칸을 찾아 이동하세요.`, 'gravity', c, 0, 1.2); checker(6,4,Math.max(2,5-phase()),c,'gravity','중력칸',.30); }
+
+  function chronoHands(){ const c='#fef08a'; cast(`${boss.name}: 시계바늘 심판! 회전 방향을 읽으세요.`, 'chrono', c, 0, 1.1); for(let i=0;i<4;i++) rot(W/2,H/2,i*Math.PI/2,(i%2?-.75:.75),Math.hypot(W,H),10,warn(i*.04),c,dmg(.24),'chrono','시계바늘'); }
+  function chronoBombs(){ const c='#f472b6'; cast(`${boss.name}: 시간폭탄이 지연 폭발합니다. 미리 빠져나가세요.`, 'chrono', c, 0, 1.0); mapCircles(5+phase(),c,'chrono','시간폭탄',{r:48,r2:72,mul:.30,minDist:130}); }
+  function chronoEcho(){ const c='#fde047'; cast(`${boss.name}: 지나간 위치가 되감깁니다. 이동 경로를 바꾸세요.`, 'chrono', c, 0, 1.05); const spots=[]; for(let i=0;i<5;i++) spots.push({x:player.x+rand(-110,110),y:player.y+rand(-90,90)}); spots.forEach((p,i)=>circle(clamp(p.x,70,W-70),clamp(p.y,110,H-70),54,warn(i*.12),c,dmg(.26),'chrono','잔상폭발'));
+  }
+
+  function bloodMark(){ const c='#fb7185'; cast(`${boss.name}: 피의 표식을 찍습니다. 표식은 바깥으로 빼세요.`, 'blood', c, 0, 1.05); const x=player.x,y=player.y; circle(x,y,95,warn(.16),c,dmg(.46),'blood','피표식'); donut(W/2,H/2,125,285,warn(.35),'#be123c',dmg(.34),'blood','혈월고리'); }
+  function bloodBlades(){ const c='#fb7185'; cast(`${boss.name}: 흡혈 칼날이 펼쳐집니다. 칼날 사이 각도를 찾으세요.`, 'blood', c, 0, 1.1); fanFromBoss(9,1.4,c,'blood','흡혈칼날',13,820,.26); }
+  function bloodMoon(){ const c='#be123c'; cast(`${boss.name}: 붉은 달이 내려옵니다. 고리 안팎을 판단하세요.`, 'blood', c, 0, 1.2); circle(W/2,H/2,210,warn(.1),c,dmg(.48),'blood','붉은달'); donut(W/2,H/2,215,340,warn(.28),'#fb7185',dmg(.32),'blood','월광파동'); }
+
+  function solarBreath(){ const c='#facc15'; const a=Math.atan2(player.y-boss.y,player.x-boss.x); cast(`${boss.name}: 태양 숨결! 긴 부채꼴을 보고 뒤쪽으로 파고드세요.`, 'solar', c, a, 1.1); fanFromBoss(11,1.35,c,'solar','태양숨결',22,850,.34); }
+  function solarEclipse(){ const c='#f97316'; cast(`${boss.name}: 일식 심판! SAFE가 아닌 전장이 불탑니다.`, 'solar', c, 0, 1.4); checker(6,4,Math.max(2,5-phase()),c,'solar','일식불꽃',.42); }
+  function solarFlare(){ const c='#fef08a'; cast(`${boss.name}: 태양 플레어! 광선과 운석이 동시에 옵니다.`, 'solar', c, 0, 1.15); for(let i=0;i<6;i++) beam(W/2,H/2,i/6*Math.PI*2,Math.hypot(W,H),12,warn(i*.03),c,dmg(.25),'solar','태양광선'); mapCircles(6,'#f97316','solar','태양탄',{r:36,r2:58,mul:.26,minDist:120}); }
+
+  function trainRails(){ const c='#fb7185'; cast(`${boss.name}: 급행열차가 지나갑니다. 레일 사이 빈 공간으로 이동하세요.`, 'train', c, 0, 1.1); const lanes=4; const safeLane=Math.floor(Math.random()*lanes); for(let i=0;i<lanes;i++){ const y=145+i*(H-230)/(lanes-1); if(i!==safeLane) wall(W/2,y,W*.94,36,warn(i*.08),c,dmg(.36),'train','급행열차'); else safe(W-140,y,52,2.0,'#bbf7d0','승강장'); } }
+  function trainSwitch(){ const c='#f97316'; cast(`${boss.name}: 선로 전환! 좌우에서 번갈아 열차가 진입합니다.`, 'train', c, 0, 1.05); for(let i=0;i<6;i++){ const y=125+i*(H-205)/5; const dir=i%2?Math.PI:0; beam(i%2?W-80:80,y,dir,W*.9,22,warn(i*.09),c,dmg(.27),'train','측면열차'); } }
+  function trainWheel(){ const c='#fbbf24'; cast(`${boss.name}: 차륜 폭발! 원형 충격과 레일을 같이 피하세요.`, 'train', c, 0, 1.0); mapCircles(8,c,'train','차륜폭발',{r:34,r2:55,mul:.28,minDist:115}); wall(W/2,H/2,W*.9,24,warn(.2),'#fb7185',dmg(.24),'train','중앙레일'); }
+
+  function cubeRotate(){ const c='#93c5fd'; cast(`${boss.name}: 큐브 회전! 안전한 색 블록을 찾으세요.`, 'cube', c, 0, 1.15); checker(5,5,5,c,'cube','예언블록',.28); }
+  function cubeLaser(){ const c='#a78bfa'; cast(`${boss.name}: 정육면체 광선! 수직/수평 절단이 번갈아 옵니다.`, 'cube', c, 0, 1.1); lineGrid(3,3,c,'cube','큐브절단',.30); }
+  function cubeQuiz(){ const c='#fef08a'; cast(`${boss.name}: 짧은 예언 퀴즈! 정답 원을 밟으세요.`, 'cube', c, 0, 1.0); if(typeof v27QueueMini==='function') v27QueueMini('quiz', `${boss.name}가 예언 퀴즈를 냅니다! 정답을 찾으세요.`, c); else cubeRotate(); }
+
+  function jesterShell(){ const c='#f472b6'; cast(`${boss.name}: 야바위 쇼! 진짜 컵을 기억하세요.`, 'jester', c, 0, 1.0); if(typeof v27QueueMini==='function') v27QueueMini('shell', `${boss.name}가 야바위 환상을 시작합니다! 처음 빛난 컵을 찾으세요.`, c); else mirrorClones(); }
+  function jesterFireworks(){ const c='#f0abfc'; cast(`${boss.name}: 악몽 폭죽! 작고 많은 폭발을 보고 틈을 찾으세요.`, 'jester', c, 0, 1.0); mapCircles(12+phase()*2,c,'chaos','악몽폭죽',{r:22,r2:40,mul:.18,minDist:80}); }
+  function jesterFakeSafe(){ const c='#f472b6'; cast(`${boss.name}: 가짜 SAFE를 섞습니다. 너무 밝은 원은 함정입니다.`, 'jester', c, 0, 1.2); const real=Math.floor(Math.random()*4); for(let i=0;i<4;i++){ const x=160+i*(W-320)/3,y=H*.56; if(i===real) safe(x,y,60,2.1,'#bbf7d0','진짜'); else circle(x,y,66,warn(.1+i*.05),c,dmg(.34),'chaos','가짜SAFE'); } }
+
+  const V30_PATTERNS = {
+    slime_king:[slimeBounce,slimeSplit,slimePuddle],
+    ember_tyrant:[fireBreath,fireVolcano,fireChess],
+    thorn_queen:[thornHook,thornGarden,thornBloom],
+    frost_oracle:[icePrison,iceLances,iceMirror],
+    sand_reaper:[sandPull,sandScythe,sandBurial],
+    void_serpent:[voidPortals,voidCollapse,voidSnake],
+    iron_minotaur:[ironCharge,ironAnvil,ironCage],
+    blood_moon:[bloodMark,bloodBlades,bloodMoon],
+    storm_colossus:[stormRods,stormGrid,stormChase],
+    plague_doctor:[plagueCloud,plagueAdds,plagueSurgery],
+    mirror_duelist:[mirrorClones,mirrorKaleidoscope,mirrorReflect],
+    gravity_core:[gravityPull,gravityCrush,gravityTiles],
+    solar_dragon:[solarBreath,solarEclipse,solarFlare],
+    chrono_dragon:[chronoHands,chronoBombs,chronoEcho],
+    abyss_leviathan:[icePrison,()=>{cast(`${boss.name}: 해일 벽! 줄 사이 통로를 찾으세요.`,'water','#38bdf8',0,1.1); for(let i=0;i<5;i++) wall(W/2,145+i*(H-230)/4,W*.90,26,warn(i*.08),'#38bdf8',dmg(.34),'ice','해일벽');},voidCollapse],
+    puppet_emperor:[mirrorClones,thornHook,()=>{cast(`${boss.name}: 인형 못이 내려옵니다. 실에 묶인 위치를 벗어나세요.`,'puppet','#f0abfc',0,1.0); mapCircles(7,'#f0abfc','mirror','인형못',{r:30,r2:48,mul:.24,minDist:100});}],
+    black_sun:[solarEclipse,solarFlare,bloodMoon],
+    chaos_archon:[()=>{cast(`${boss.name}: 혼돈 재판! 서로 다른 기믹이 섞입니다.`,'chaos','#fb7185',0,1.1); const arr=[fireVolcano,stormGrid,gravityCrush,mirrorKaleidoscope,voidPortals]; arr[Math.floor(Math.random()*arr.length)]();},jesterFakeSafe,gravityPull],
+    crimson_train:[trainRails,trainSwitch,trainWheel],
+    prophecy_cube:[cubeRotate,cubeLaser,cubeQuiz],
+    void_gardener:[thornGarden,voidPortals,plagueAdds],
+    magnet_judge:[gravityPull,stormRods,()=>{cast(`${boss.name}: 극성 반전! 보스 기준 좌우가 바뀌며 폭발합니다.`,'magnet','#60a5fa',0,1.05); player.x=clamp(W-player.x,45,W-45); mapCircles(6,'#60a5fa','gravity','극성폭발',{r:36,r2:58,mul:.27,minDist:120});}],
+    nightmare_jester:[jesterShell,jesterFireworks,jesterFakeSafe]
+  };
+  const V30_THEME = {
+    fire:[fireBreath,fireVolcano,fireChess], solar:[solarBreath,solarEclipse,solarFlare], ice:[icePrison,iceLances,iceMirror], lightning:[stormRods,stormGrid,stormChase], nature:[thornHook,thornGarden,thornBloom], poison:[plagueCloud,plagueAdds,plagueSurgery], metal:[ironCharge,ironAnvil,ironCage], gravity:[gravityPull,gravityCrush,gravityTiles], mirror:[mirrorClones,mirrorKaleidoscope,mirrorReflect], chrono:[chronoHands,chronoBombs,chronoEcho], chaos:[jesterFakeSafe,gravityPull,fireVolcano]
+  };
+
+  const v30OldBossPattern = bossPattern;
+  bossPattern = function(){
+    if(!alive()) return;
+    const pool = V30_PATTERNS[boss.id] || V30_THEME[boss.theme];
+    if(!pool || !pool.length){ return v30OldBossPattern(); }
+    boss._v30PatternIndex = (boss._v30PatternIndex || 0) + 1;
+    const idx = (boss._v30PatternIndex - 1 + Math.max(0, phase()-1)) % pool.length;
+    try { pool[idx](); }
+    catch(e){ console.warn('[V30 distinct pattern fallback]', e); v30OldBossPattern(); }
+    // 3페이즈 후반 보스는 작은 보조 패턴만 추가해서 개성은 유지하되 난사처럼 보이지 않게 제한.
+    if(tier() >= 8 && phase() >= 3 && Math.random() < .18){
+      setTimeout(()=>{ if(alive()) mapCircles(3 + Math.min(3,phase()), sub(), tag(), '보조타격', {r:24,r2:38,mul:.18,minDist:120}); }, 1250);
+    }
+  };
+
+  try {
+    const labels = {
+      slime_king:['젤리 착지','분열 방울','말랑 웅덩이'], ember_tyrant:['화염 숨결','화산 균열','불타는 체스판'], thorn_queen:['덩굴 갈고리','가시 정원','독꽃 개화'], frost_oracle:['빙결 감옥','빙창 낙하','얼음 거울'], sand_reaper:['모래 늪','낫 돌진','매몰 지대'], void_serpent:['공허 포탈','공간 접힘','공허 뱀'], iron_minotaur:['철갑 돌진','모루 강타','강철 감옥'], blood_moon:['피의 표식','흡혈 칼날','붉은 달'], storm_colossus:['피뢰침 연결','폭풍 회로','추적 낙뢰'], plague_doctor:['역병 구름','감염체 소환','역병 수술'], mirror_duelist:['진짜 분신','만화경 절단','반사탄'], gravity_core:['중력 끌림','압축 파동','중력 바닥'], solar_dragon:['태양 숨결','일식 심판','태양 플레어'], chrono_dragon:['시계바늘','시간폭탄','되감기 잔상'], abyss_leviathan:['빙결 통로','해일 벽','심해 붕괴'], puppet_emperor:['진짜 인형','실 갈고리','인형 못'], black_sun:['일식 심판','태양 플레어','붉은 달'], chaos_archon:['혼돈 재판','가짜 SAFE','중력 재판'], crimson_train:['급행 레일','선로 전환','차륜 폭발'], prophecy_cube:['예언 블록','큐브 절단','예언 퀴즈'], void_gardener:['가시 정원','공허 문','감염 정원'], magnet_judge:['중력 끌림','피뢰침 극성','극성 반전'], nightmare_jester:['야바위 쇼','악몽 폭죽','가짜 SAFE']
+    };
+    BOSSES.forEach(b=>{ if(labels[b.id]) b.patterns = labels[b.id]; });
+  } catch(e) {}
+
+  window.RaidDungeonV30 = { version: V30_VERSION };
+})();
+
+/* =========================================================
+   RAID DUNGEON V31 - BOSS MAP & VISUAL IDENTITY UPGRADE
+   - 보스별 전용 맵 배경/장식
+   - 보스 외형 고급화 및 페이즈 오라 강화
+   - 보스 선택 카드 미니아트 차별화
+========================================================= */
+(function(){
+  const V31_VERSION = 'Raid Dungeon V31 - Boss Map and Visual Identity';
+
+  const oldDrawArenaV31 = drawArena;
+  const oldDrawBossShapeV31 = drawBossShape;
+  const oldBossMiniSvgV31 = bossMiniSvg;
+
+  const ARENA_STYLE = {
+    slime_king:{bg:['#062414','#123b1f'],accent:'#9dfc73',sub:'#d9ff99',motif:'slime'},
+    ember_tyrant:{bg:['#270707','#56170c'],accent:'#ff6b35',sub:'#ffd166',motif:'volcano'},
+    thorn_queen:{bg:['#071f12','#1f3d18'],accent:'#4ade80',sub:'#f472b6',motif:'garden'},
+    frost_oracle:{bg:['#071827','#113a57'],accent:'#7dd3fc',sub:'#e0f2fe',motif:'ice'},
+    sand_reaper:{bg:['#2b1705','#5a3510'],accent:'#f59e0b',sub:'#fde68a',motif:'desert'},
+    void_serpent:{bg:['#07051c','#1b0d3e'],accent:'#a78bfa',sub:'#4c1d95',motif:'void'},
+    iron_minotaur:{bg:['#111827','#293548'],accent:'#cbd5e1',sub:'#f97316',motif:'forge'},
+    blood_moon:{bg:['#24030d','#4c0519'],accent:'#fb7185',sub:'#fda4af',motif:'blood'},
+    storm_colossus:{bg:['#07111f','#1d2350'],accent:'#fde047',sub:'#60a5fa',motif:'storm'},
+    plague_doctor:{bg:['#071807','#1d3309'],accent:'#a3e635',sub:'#4d7c0f',motif:'plague'},
+    mirror_duelist:{bg:['#111827','#321142'],accent:'#f0abfc',sub:'#bae6fd',motif:'mirror'},
+    gravity_core:{bg:['#070716','#1e1b4b'],accent:'#818cf8',sub:'#c4b5fd',motif:'gravity'},
+    solar_dragon:{bg:['#261207','#5b2705'],accent:'#facc15',sub:'#fb923c',motif:'solar'},
+    chrono_dragon:{bg:['#19051c','#3b1457'],accent:'#f472b6',sub:'#fef08a',motif:'chrono'},
+    abyss_leviathan:{bg:['#031525','#0f3550'],accent:'#38bdf8',sub:'#0ea5e9',motif:'abyss'},
+    puppet_emperor:{bg:['#1f1025','#463016'],accent:'#f0abfc',sub:'#fde68a',motif:'puppet'},
+    black_sun:{bg:['#050505','#271006'],accent:'#f97316',sub:'#020617',motif:'eclipse'},
+    chaos_archon:{bg:['#170316','#3b0f2f'],accent:'#fb7185',sub:'#7c3aed',motif:'chaos'},
+    crimson_train:{bg:['#1b0810','#3d1014'],accent:'#fb7185',sub:'#fbbf24',motif:'train'},
+    oracle_cube:{bg:['#07172a','#172554'],accent:'#93c5fd',sub:'#a78bfa',motif:'cube'},
+    prophecy_cube:{bg:['#07172a','#172554'],accent:'#93c5fd',sub:'#a78bfa',motif:'cube'},
+    hollow_gardener:{bg:['#041a0d','#102b1b'],accent:'#4ade80',sub:'#a78bfa',motif:'voidgarden'},
+    void_gardener:{bg:['#041a0d','#102b1b'],accent:'#4ade80',sub:'#a78bfa',motif:'voidgarden'},
+    magnet_judge:{bg:['#071827','#13233b'],accent:'#60a5fa',sub:'#fb7185',motif:'magnet'},
+    dream_jester:{bg:['#20051f','#41105a'],accent:'#f472b6',sub:'#fde047',motif:'circus'},
+    nightmare_jester:{bg:['#20051f','#41105a'],accent:'#f472b6',sub:'#fde047',motif:'circus'}
+  };
+
+  function styleForBoss(b){
+    return ARENA_STYLE[b.id] || ARENA_STYLE[b.theme] || {bg:['#081126','#030712'],accent:b.color||'#60a5fa',sub:b.sub||'#fff',motif:'default'};
+  }
+  function strokeLine(c,x1,y1,x2,y2,col,w,alpha){ c.save(); c.globalAlpha=alpha==null?1:alpha; c.strokeStyle=col; c.lineWidth=w||2; c.lineCap='round'; c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2); c.stroke(); c.restore(); }
+  function polyPath(c,pts,fill,stroke,w){ c.beginPath(); pts.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1])); c.closePath(); if(fill){c.fillStyle=fill;c.fill();} if(stroke){c.strokeStyle=stroke;c.lineWidth=w||2;c.stroke();} }
+  function ring(c,x,y,r,col,w,alpha){ c.save(); c.globalAlpha=alpha==null?1:alpha; c.strokeStyle=col; c.lineWidth=w||2; c.beginPath(); c.arc(x,y,r,0,Math.PI*2); c.stroke(); c.restore(); }
+  function fillCircle(c,x,y,r,col,alpha){ c.save(); c.globalAlpha=alpha==null?1:alpha; c.fillStyle=col; c.beginPath(); c.arc(x,y,r,0,Math.PI*2); c.fill(); c.restore(); }
+  function star(c,x,y,r,n,col,alpha){ c.save(); c.globalAlpha=alpha==null?1:alpha; c.fillStyle=col; c.beginPath(); for(let i=0;i<n*2;i++){ const rr=i%2?r:r*.45; const a=-Math.PI/2+i*Math.PI/n; c.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr); } c.closePath(); c.fill(); c.restore(); }
+  function snow(c,x,y,r,col){ for(let i=0;i<6;i++){ const a=i*Math.PI/3; strokeLine(c,x+Math.cos(a)*r*.15,y+Math.sin(a)*r*.15,x+Math.cos(a)*r,y+Math.sin(a)*r,col,2,.45); } }
+
+  drawArena = function(){
+    try {
+      const b = getBoss(boss && boss.id ? boss.id : state.selectedBossId);
+      const s = styleForBoss(b);
+      const t = state.time || 0;
+      const g = ctx.createLinearGradient(0,0,W,H);
+      g.addColorStop(0,s.bg[0]); g.addColorStop(1,s.bg[1]);
+      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+      // 공통 전장 바닥: 보스별 색으로 된 원형 거리선
+      ctx.save(); ctx.globalAlpha=.13; ctx.strokeStyle=s.accent; ctx.lineWidth=2;
+      for(let i=0;i<17;i++){ ctx.beginPath(); ctx.arc(W/2,H/2,70+i*42+Math.sin(t+i)*3,0,Math.PI*2); ctx.stroke(); }
+      ctx.restore();
+
+      // 테마별 맵 장식. 실제 판정은 없고, 보스의 정체성을 보여주는 배경 연출.
+      ctx.save();
+      if(s.motif==='slime'){
+        for(let i=0;i<12;i++) fillCircle(ctx,80+i*105,120+(i%3)*165,38+(i%2)*18,s.accent,.09);
+        for(let i=0;i<7;i++) ring(ctx,140+i*160,600-((i%2)*90),45,s.sub,5,.16);
+      } else if(s.motif==='volcano'){
+        for(let i=0;i<10;i++){ const x=70+i*140; strokeLine(ctx,x,80,x+120,H-45,s.accent,3,.15); strokeLine(ctx,x+38,H-80,x+150,110,s.sub,2,.10); }
+        for(let i=0;i<8;i++) fillCircle(ctx,120+i*145,610-(i%3)*100,32,s.accent,.14);
+      } else if(s.motif==='garden' || s.motif==='voidgarden'){
+        for(let i=0;i<9;i++){ const x=80+i*150; strokeLine(ctx,x,H,x+70,120,s.accent,6,.13); fillCircle(ctx,x+70,120,25,s.sub,.20); }
+        if(s.motif==='voidgarden') for(let i=0;i<5;i++) ring(ctx,190+i*220,170+(i%2)*260,52,'#a78bfa',4,.22);
+      } else if(s.motif==='ice'){
+        for(let y=120;y<H;y+=95) for(let x=70;x<W;x+=130) snow(ctx,x,y,30,s.sub);
+        for(let i=0;i<5;i++) strokeLine(ctx,120+i*250,90,30+i*260,H-40,s.accent,3,.15);
+      } else if(s.motif==='desert'){
+        for(let i=0;i<9;i++){ ctx.save(); ctx.globalAlpha=.18; ctx.strokeStyle=s.accent; ctx.lineWidth=4; ctx.beginPath(); ctx.ellipse(120+i*145,170+(i%3)*140,110,34,Math.sin(i)*.4,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
+      } else if(s.motif==='void'){
+        for(let i=0;i<8;i++){ ring(ctx,120+i*150,150+(i%4)*115,48,s.accent,5,.2); strokeLine(ctx,120+i*150,150+(i%4)*115,W/2,H/2,s.sub,2,.08); }
+      } else if(s.motif==='forge'){
+        for(let x=80;x<W;x+=160) strokeLine(ctx,x,80,x,H-60,s.accent,5,.12);
+        for(let y=140;y<H;y+=120) strokeLine(ctx,40,y,W-40,y,s.sub,4,.10);
+        for(let i=0;i<8;i++) star(ctx,150+i*135,610-(i%2)*70,18,4,s.sub,.14);
+      } else if(s.motif==='blood'){
+        fillCircle(ctx,W-170,150,90,s.accent,.16); ring(ctx,W-170,150,110,s.sub,6,.18);
+        for(let i=0;i<12;i++) fillCircle(ctx,80+i*115,rand(110,H-80),14,s.accent,.12);
+      } else if(s.motif==='storm'){
+        for(let i=0;i<12;i++){ const x=70+i*110; strokeLine(ctx,x,80,x+rand(-40,40),H-60,i%2?s.sub:s.accent,3,.16); }
+        for(let y=145;y<H;y+=135) strokeLine(ctx,50,y,W-50,y,s.sub,3,.10);
+      } else if(s.motif==='plague'){
+        for(let i=0;i<15;i++) fillCircle(ctx,rand(60,W-60),rand(110,H-60),rand(16,46),s.accent,.07);
+        for(let i=0;i<6;i++) ring(ctx,170+i*180,180+(i%2)*260,50,s.sub,4,.15);
+      } else if(s.motif==='mirror'){
+        for(let i=0;i<9;i++){ const x=70+i*145; polyPath(ctx,[[x,120],[x+80,150],[x+55,250],[x-25,220]],'rgba(255,255,255,.04)',s.accent,2); }
+        for(let i=0;i<7;i++) strokeLine(ctx,0,120+i*80,W,80+i*90,s.sub,2,.12);
+      } else if(s.motif==='gravity'){
+        for(let i=0;i<6;i++){ ctx.save(); ctx.translate(W/2,H/2); ctx.rotate(t*.12+i*Math.PI/6); ctx.strokeStyle=i%2?s.sub:s.accent; ctx.globalAlpha=.16; ctx.lineWidth=4; ctx.beginPath(); ctx.ellipse(0,0,160+i*55,60+i*25,0,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
+      } else if(s.motif==='solar' || s.motif==='eclipse'){
+        fillCircle(ctx,W/2,H/2,150,s.motif==='eclipse'?'#020617':s.accent,.14); ring(ctx,W/2,H/2,178,s.accent,6,.28);
+        for(let i=0;i<18;i++){ const a=i*Math.PI*2/18+t*.03; strokeLine(ctx,W/2+Math.cos(a)*190,H/2+Math.sin(a)*190,W/2+Math.cos(a)*520,H/2+Math.sin(a)*520,s.sub,3,.10); }
+      } else if(s.motif==='chrono'){
+        ring(ctx,W/2,H/2,235,s.accent,4,.18); ring(ctx,W/2,H/2,300,s.sub,2,.13);
+        for(let i=0;i<12;i++){ const a=i*Math.PI*2/12; strokeLine(ctx,W/2+Math.cos(a)*210,H/2+Math.sin(a)*210,W/2+Math.cos(a)*245,H/2+Math.sin(a)*245,s.sub,3,.18); }
+        strokeLine(ctx,W/2,H/2,W/2+Math.cos(t*.6)*250,H/2+Math.sin(t*.6)*250,s.accent,3,.16);
+      } else if(s.motif==='abyss'){
+        for(let y=130;y<H;y+=85){ ctx.save(); ctx.globalAlpha=.16; ctx.strokeStyle=s.accent; ctx.lineWidth=4; ctx.beginPath(); for(let x=0;x<=W;x+=40){ const yy=y+Math.sin(x*.025+t*2+y*.01)*18; if(x===0)ctx.moveTo(x,yy); else ctx.lineTo(x,yy); } ctx.stroke(); ctx.restore(); }
+      } else if(s.motif==='puppet'){
+        for(let x=120;x<W;x+=120) strokeLine(ctx,x,0,x,H,s.sub,2,.13);
+        for(let i=0;i<6;i++){ fillCircle(ctx,150+i*190,160+(i%2)*320,34,s.accent,.08); strokeLine(ctx,150+i*190,20,150+i*190,160+(i%2)*320,s.sub,2,.20); }
+      } else if(s.motif==='chaos'){
+        for(let i=0;i<18;i++){ star(ctx,rand(50,W-50),rand(95,H-55),rand(18,40),3+i%4,i%2?s.accent:s.sub,.08); }
+        for(let i=0;i<8;i++) ring(ctx,rand(80,W-80),rand(120,H-80),rand(35,90),i%2?s.accent:s.sub,3,.14);
+      } else if(s.motif==='train'){
+        for(let y=135;y<H;y+=135){ strokeLine(ctx,60,y,W-60,y,s.accent,8,.20); for(let x=70;x<W;x+=80) strokeLine(ctx,x,y-30,x+30,y+30,s.sub,3,.18); }
+      } else if(s.motif==='cube'){
+        for(let x=75;x<W;x+=120) for(let y=115;y<H;y+=95){ ctx.save(); ctx.globalAlpha=.08; ctx.strokeStyle=s.accent; ctx.lineWidth=2; ctx.strokeRect(x,y,82,58); ctx.restore(); }
+        for(let i=0;i<7;i++) ring(ctx,160+i*160,180+(i%2)*230,42,s.sub,3,.14);
+      } else if(s.motif==='magnet'){
+        for(let i=0;i<7;i++){ const x=120+i*170; fillCircle(ctx,x,150,28,s.accent,.13); fillCircle(ctx,x,H-120,28,s.sub,.13); strokeLine(ctx,x,150,x,H-120,i%2?s.accent:s.sub,3,.11); }
+        strokeLine(ctx,W/2,95,W/2,H-55,s.accent,4,.15);
+      } else if(s.motif==='circus'){
+        for(let i=0;i<10;i++){ const x=i*W/9; strokeLine(ctx,W/2,70,x,H,s.accent,3,.12); }
+        for(let i=0;i<6;i++) fillCircle(ctx,160+i*180,160+(i%2)*320,50,i%2?s.accent:s.sub,.08);
+      }
+      ctx.restore();
+    } catch(e) {
+      try { oldDrawArenaV31(); } catch(_) {}
+    }
+  };
+
+  drawBossShape = function(c,b,x,y,r){
+    try {
+      c.save(); c.translate(x,y);
+      const t = state.time || 0;
+      const id = b.id || '';
+      const ph = boss && boss.id===id ? (boss.hp < boss.maxHp*.33 ? 3 : boss.hp < boss.maxHp*.66 ? 2 : 1) : 1;
+      c.shadowColor = b.color; c.shadowBlur = 18 + ph*5;
+      if(ph>=2){ ring(c,0,0,r*(1.25+.05*Math.sin(t*4)),b.color,4,.45); }
+      if(ph>=3){ for(let i=0;i<8;i++){ const a=t*1.1+i*Math.PI/4; star(c,Math.cos(a)*r*1.25,Math.sin(a)*r*1.25,7,3,i%2?b.color:b.sub,.65); } }
+      function eye(ex,ey,s){ fillCircle(c,ex,ey,s,'#020617',1); fillCircle(c,ex-s*.25,ey-s*.3,s*.28,'#fff',.75); }
+      function mouth(y,w){ c.strokeStyle='#020617'; c.lineWidth=Math.max(2,r*.06); c.lineCap='round'; c.beginPath(); c.arc(0,y,w,0,Math.PI); c.stroke(); }
+      function blade(a,len,col){ c.save(); c.rotate(a); polyPath(c,[[0,-5],[len,-r*.16],[len+r*.25,0],[len,r*.16],[0,5]],col,'#fff8',2); c.restore(); }
+      function bodyRound(col){ c.fillStyle=col; c.beginPath(); c.ellipse(0,0,r*.9,r*.75,0,0,Math.PI*2); c.fill(); }
+
+      if(id==='slime_king'){
+        c.fillStyle=b.color; c.beginPath(); c.ellipse(0,18,r*1.38,r*.85,0,0,Math.PI*2); c.fill();
+        fillCircle(c,-r*.42,0,r*.22,'#ffffff',.28); c.fillStyle=b.sub; polyPath(c,[[-r*.48,-r*.54],[-r*.28,-r*.95],[0,-r*.62],[r*.28,-r*.95],[r*.48,-r*.54]],b.sub,'#fff8',2); eye(-r*.35,6,6); eye(r*.35,6,6); mouth(16,r*.25);
+      } else if(id==='ember_tyrant'){
+        for(let i=0;i<18;i++){ const a=i*Math.PI*2/18+t*.03; blade(a,r*(.8+(i%2)*.5),i%2?b.color:b.sub); }
+        fillCircle(c,0,0,r*.66,b.color,1); fillCircle(c,0,0,r*.42,b.sub,.9); eye(-r*.22,-r*.03,6); eye(r*.22,-r*.03,6); c.fillStyle='#7f1d1d'; polyPath(c,[[-r*.4,-r*.33],[-r*.95,-r*.95],[-r*.62,-r*.05]],'#7f1d1d'); polyPath(c,[[r*.4,-r*.33],[r*.95,-r*.95],[r*.62,-r*.05]],'#7f1d1d');
+      } else if(id==='thorn_queen'){
+        for(let i=0;i<14;i++) blade(i*Math.PI*2/14,r*1.25,i%2?b.sub:'#166534');
+        c.fillStyle='#f472b6'; c.beginPath(); for(let i=0;i<14;i++){ const a=i*Math.PI*2/14; const rr=i%2?r*.75:r*1.05; c.lineTo(Math.cos(a)*rr,Math.sin(a)*rr); } c.closePath(); c.fill(); fillCircle(c,0,0,r*.42,'#14532d',1); eye(-r*.15,-r*.02,5); eye(r*.15,-r*.02,5);
+      } else if(id==='frost_oracle'){
+        c.fillStyle=b.color; c.beginPath(); for(let i=0;i<8;i++){ const a=i*Math.PI*2/8+Math.PI/8; c.lineTo(Math.cos(a)*r*1.05,Math.sin(a)*r*1.05); } c.closePath(); c.fill(); c.strokeStyle='#e0f2fe'; c.lineWidth=5; c.stroke();
+        for(let i=0;i<8;i++) blade(i*Math.PI/4,r*1.35,'#dbeafe'); fillCircle(c,0,0,r*.5,b.sub,.9); eye(-r*.18,-r*.05,5); eye(r*.18,-r*.05,5);
+      } else if(id==='sand_reaper'){
+        c.fillStyle='#78350f'; c.beginPath(); c.ellipse(0,12,r*.72,r*1.05,0,0,Math.PI*2); c.fill();
+        c.fillStyle=b.color; c.beginPath(); c.arc(0,-r*.15,r*.76,Math.PI,0); c.lineTo(r*.56,r*.58); c.lineTo(-r*.56,r*.58); c.closePath(); c.fill(); c.strokeStyle=b.sub; c.lineWidth=8; c.beginPath(); c.arc(r*.45,-r*.1,r*.85,-1.5,1.4); c.stroke(); eye(-r*.16,-r*.18,5); eye(r*.16,-r*.18,5);
+      } else if(id==='void_serpent' || id==='abyss_leviathan'){
+        c.strokeStyle=b.color; c.lineWidth=id==='abyss_leviathan'?22:19; c.lineCap='round'; c.beginPath(); for(let i=0;i<12;i++){ const px=-r*1.25+i*r*.24; const py=Math.sin(i*.8+t*2.4)*r*(id==='abyss_leviathan'?.28:.2); if(i)c.lineTo(px,py); else c.moveTo(px,py); } c.stroke();
+        fillCircle(c,r*1.25,0,r*.48,b.sub,1); if(id==='abyss_leviathan') ring(c,r*1.25,0,r*.68,'#7dd3fc',5,.55); else { blade(.1,r*.75,b.color); blade(-.1,r*.75,b.color); } eye(r*1.08,-r*.1,5); eye(r*1.3,-r*.1,5);
+      } else if(id==='iron_minotaur'){
+        c.fillStyle='#475569'; roundRect(c,-r*.86,-r*.66,r*1.72,r*1.38,18); c.fillStyle=b.color; roundRect(c,-r*.58,-r*.98,r*1.16,r*.85,14);
+        polyPath(c,[[-r*.36,-r*.72],[-r*1.15,-r*1.05],[-r*.66,-r*.34]],'#e5e7eb'); polyPath(c,[[r*.36,-r*.72],[r*1.15,-r*1.05],[r*.66,-r*.34]],'#e5e7eb'); c.strokeStyle=b.sub; c.lineWidth=10; c.beginPath(); c.moveTo(r*.62,-r*.1); c.lineTo(r*1.28,-r*.62); c.stroke(); eye(-r*.22,-r*.45,5); eye(r*.22,-r*.45,5);
+      } else if(id==='blood_moon'){
+        fillCircle(c,0,0,r*.9,b.color,1); c.globalCompositeOperation='destination-out'; fillCircle(c,r*.22,-r*.08,r*.75,'#000',1); c.globalCompositeOperation='source-over'; ring(c,0,0,r*1.05,b.sub,8,.65); fillCircle(c,-r*.1,0,r*.22,b.sub,.9); eye(-r*.22,-r*.05,5); eye(.03,-r*.05,5);
+      } else if(id==='storm_colossus'){
+        c.fillStyle='#334155'; roundRect(c,-r*.82,-r*.86,r*1.64,r*1.72,16); c.fillStyle=b.color; polyPath(c,[[-r*.1,-r*1.14],[r*.36,-r*.15],[r*.05,-r*.15],[r*.34,r*.78],[-r*.44,-r*.05],[-r*.1,-r*.05]],b.color); ring(c,0,0,r*1.18,b.sub,5,.35); eye(-r*.3,-r*.26,6); eye(r*.3,-r*.26,6);
+      } else if(id==='plague_doctor'){
+        c.fillStyle='#111827'; c.beginPath(); c.ellipse(0,0,r*.76,r*1.05,0,0,Math.PI*2); c.fill(); c.fillStyle=b.color; polyPath(c,[[-r*.15,-r*.12],[r*1.15,0],[-r*.15,r*.24]],b.color,'#bef264',2); c.fillStyle='#e5e7eb'; c.beginPath(); c.ellipse(-r*.2,-r*.17,r*.39,r*.55,-.25,0,Math.PI*2); c.fill(); for(let i=0;i<4;i++) fillCircle(c,-r*.55+i*r*.25,r*.55,8,b.color,.4); eye(-r*.26,-r*.25,5); eye(-r*.03,-r*.21,5);
+      } else if(id==='mirror_duelist'){
+        polyPath(c,[[0,-r*1.15],[r*.85,-r*.25],[r*.55,r*.95],[-r*.55,r*.95],[-r*.85,-r*.25]],'rgba(255,255,255,.22)',b.color,6); strokeLine(c,-r*.58,r*.65,r*.75,-r*.7,'#fff',4,.85); fillCircle(c,0,0,r*.18,b.sub,.8); eye(-r*.2,-r*.05,5); eye(r*.2,-r*.05,5);
+      } else if(id==='gravity_core'){
+        for(let i=0;i<5;i++){ c.save(); c.rotate(t*.9+i*.7); c.strokeStyle=i%2?b.sub:b.color; c.globalAlpha=.8; c.lineWidth=5; c.beginPath(); c.ellipse(0,0,r*(1.2-i*.12),r*(.42+i*.04),0,0,Math.PI*2); c.stroke(); c.restore(); } fillCircle(c,0,0,r*.42,b.sub,1); fillCircle(c,0,0,r*.14,'#fff',.9);
+      } else if(id==='solar_dragon' || id==='black_sun'){
+        const dark=id==='black_sun'; fillCircle(c,0,0,r*.88,dark?'#020617':b.color,1); ring(c,0,0,r*1.05,dark?b.color:b.sub,7,.8); for(let i=0;i<14;i++){ c.save(); c.rotate(i*Math.PI/7+t*.28); c.fillStyle=i%2?(dark?b.color:b.sub):(dark?'#fef08a':b.color); c.fillRect(r*.72,-4,r*.55,8); c.restore(); } if(id==='solar_dragon'){ polyPath(c,[[-r*.35,-r*.33],[-r*.72,-r*1.0],[-r*.12,-r*.55]],b.sub); polyPath(c,[[r*.35,-r*.33],[r*.72,-r*1.0],[r*.12,-r*.55]],b.sub); } eye(-r*.22,-r*.06,5); eye(r*.22,-r*.06,5);
+      } else if(id==='chrono_dragon'){
+        ring(c,0,0,r*1.1,b.color,7,.8); ring(c,0,0,r*.72,b.sub,4,.7); fillCircle(c,0,0,r*.48,'#312e81',1); strokeLine(c,0,0,Math.cos(t)*r*.48,Math.sin(t)*r*.48,b.sub,5,.95); strokeLine(c,0,0,Math.cos(t*1.7)*r*.34,Math.sin(t*1.7)*r*.34,b.color,4,.95); eye(-r*.18,-r*.12,5); eye(r*.18,-r*.12,5);
+      } else if(id==='puppet_emperor'){
+        for(let i=-2;i<=2;i++) strokeLine(c,i*r*.22,-r*1.55,i*r*.16,-r*.5,b.sub,2,.75); c.fillStyle=b.color; roundRect(c,-r*.66,-r*.58,r*1.32,r*1.22,12); c.fillStyle=b.sub; polyPath(c,[[-r*.45,-r*.72],[0,-r*1.1],[r*.45,-r*.72]],b.sub); c.fillStyle='#020617'; roundRect(c,-r*.42,-r*.22,r*.84,r*.42,6); eye(-r*.18,-r*.1,5); eye(r*.18,-r*.1,5);
+      } else if(id==='chaos_archon'){
+        for(let i=0;i<9;i++){ c.save(); c.rotate(t*.8+i*Math.PI*2/9); star(c,0,-r*.72,r*.3,3,i%2?b.color:b.sub,.9); c.restore(); } fillCircle(c,0,0,r*.68,'#020617',1); ring(c,0,0,r*.75,b.color,5,.9); fillCircle(c,0,0,r*.22,b.sub,1); eye(-r*.22,-r*.1,5); eye(r*.22,-r*.1,5);
+      } else if(id==='crimson_train'){
+        c.fillStyle=b.color; roundRect(c,-r*1.1,-r*.45,r*2.2,r*.9,14); c.fillStyle=b.sub; roundRect(c,-r*.72,-r*.75,r*.7,r*.45,8); roundRect(c,r*.15,-r*.75,r*.55,r*.45,8); fillCircle(c,-r*.55,r*.55,r*.18,'#111827'); fillCircle(c,r*.55,r*.55,r*.18,'#111827'); eye(r*.55,-r*.08,5);
+      } else if(id==='oracle_cube' || id==='prophecy_cube'){
+        c.save(); c.rotate(Math.PI/4+t*.15); c.fillStyle=b.color; c.fillRect(-r*.65,-r*.65,r*1.3,r*1.3); c.strokeStyle=b.sub; c.lineWidth=5; c.strokeRect(-r*.65,-r*.65,r*1.3,r*1.3); c.restore(); ring(c,0,0,r*1.2,b.sub,4,.45); eye(-r*.18,-r*.06,5); eye(r*.18,-r*.06,5);
+      } else if(id==='hollow_gardener' || id==='void_gardener'){
+        fillCircle(c,0,0,r*.7,'#14532d',1); for(let i=0;i<10;i++) blade(i*Math.PI*2/10,r*1.18,i%2?b.color:b.sub); ring(c,0,0,r*.9,'#a78bfa',5,.45); eye(-r*.18,-r*.05,5); eye(r*.18,-r*.05,5);
+      } else if(id==='magnet_judge'){
+        c.fillStyle='#1e293b'; roundRect(c,-r*.75,-r*.9,r*1.5,r*1.8,18); c.fillStyle=b.color; roundRect(c,-r*.55,-r*.7,r*.45,r*1.4,10); c.fillStyle=b.sub; roundRect(c,r*.1,-r*.7,r*.45,r*1.4,10); ring(c,0,0,r*1.2,'#fff',4,.35); eye(-r*.22,-r*.05,5); eye(r*.22,-r*.05,5);
+      } else if(id==='dream_jester' || id==='nightmare_jester'){
+        c.fillStyle=b.color; c.beginPath(); c.ellipse(0,0,r*.76,r*.82,0,0,Math.PI*2); c.fill(); for(let i=-1;i<=1;i++){ fillCircle(c,i*r*.42,-r*.82,r*.22,i===0?b.sub:b.color,.95); } c.fillStyle='#fff'; c.beginPath(); c.arc(0,0,r*.42,0,Math.PI); c.fill(); eye(-r*.2,-r*.1,5); eye(r*.2,-r*.1,5); c.fillStyle='#020617'; c.beginPath(); c.arc(0,r*.12,r*.22,0,Math.PI); c.fill();
+      } else {
+        oldDrawBossShapeV31(c,b,x,y,r);
+      }
+      c.restore();
+    } catch(e) {
+      try { c.restore(); } catch(_) {}
+      try { oldDrawBossShapeV31(c,b,x,y,r); } catch(_) {}
+    }
+  };
+
+  bossMiniSvg = function(b){
+    try {
+      const s = styleForBoss(b);
+      const id = b.id || '';
+      let shape = '';
+      if(id==='crimson_train') shape = `<rect x="18" y="38" width="84" height="25" rx="8" fill="${s.accent}"/><rect x="35" y="22" width="24" height="20" rx="5" fill="${s.sub}"/><circle cx="38" cy="67" r="6" fill="#111827"/><circle cx="82" cy="67" r="6" fill="#111827"/>`;
+      else if(id==='oracle_cube'||id==='prophecy_cube') shape = `<rect x="38" y="23" width="44" height="44" transform="rotate(45 60 45)" fill="${s.accent}" stroke="${s.sub}" stroke-width="4"/><circle cx="52" cy="45" r="3" fill="#020617"/><circle cx="68" cy="45" r="3" fill="#020617"/>`;
+      else if(id==='dream_jester'||id==='nightmare_jester') shape = `<circle cx="60" cy="48" r="28" fill="${s.accent}"/><circle cx="45" cy="24" r="9" fill="${s.sub}"/><circle cx="60" cy="18" r="9" fill="${s.accent}"/><circle cx="75" cy="24" r="9" fill="${s.sub}"/><path d="M44 55 Q60 70 76 55" stroke="#fff" stroke-width="6" fill="none"/>`;
+      else if(s.motif==='ice') shape = `<polygon points="60,8 89,30 78,70 42,70 31,30" fill="${s.accent}" stroke="${s.sub}" stroke-width="4"/><line x1="60" y1="10" x2="60" y2="76" stroke="#e0f2fe" stroke-width="3"/>`;
+      else if(s.motif==='storm') shape = `<path d="M58 8 L83 42 L65 42 L78 78 L38 35 L56 35 Z" fill="${s.accent}"/><circle cx="60" cy="48" r="24" fill="#334155" opacity=".75"/>`;
+      else if(s.motif==='void'||s.motif==='gravity') shape = `<ellipse cx="60" cy="45" rx="42" ry="18" fill="none" stroke="${s.accent}" stroke-width="6"/><ellipse cx="60" cy="45" rx="20" ry="34" fill="none" stroke="${s.sub}" stroke-width="4"/><circle cx="60" cy="45" r="14" fill="${s.sub}"/>`;
+      else if(s.motif==='solar'||s.motif==='eclipse') shape = `<circle cx="60" cy="45" r="24" fill="${s.motif==='eclipse'?'#020617':s.accent}" stroke="${s.sub}" stroke-width="6"/>${Array.from({length:10}).map((_,i)=>{const a=i*Math.PI*2/10;const x1=60+Math.cos(a)*30,y1=45+Math.sin(a)*30,x2=60+Math.cos(a)*43,y2=45+Math.sin(a)*43;return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${s.accent}" stroke-width="4"/>`;}).join('')}`;
+      else shape = oldBossMiniSvgV31(b).match(/<g[^>]*>([\s\S]*?)<\/g>/)?.[1] || `<circle cx="60" cy="44" r="28" fill="${s.accent}"/><circle cx="50" cy="40" r="4" fill="#020617"/><circle cx="70" cy="40" r="4" fill="#020617"/>`;
+      return `<svg width="120" height="86" viewBox="0 0 120 86"><defs><filter id="v31_${String(id).replace(/[^a-z0-9_]/g,'')}"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><rect x="3" y="3" width="114" height="80" rx="16" fill="${s.bg[0]}" opacity=".5"/><g filter="url(#v31_${String(id).replace(/[^a-z0-9_]/g,'')})">${shape}</g></svg>`;
+    } catch(e) { return oldBossMiniSvgV31(b); }
+  };
+
+  try {
+    const allChanged = {};
+    BOSSES.forEach(b => { allChanged[b.id] = true; });
+    window.RaidDungeonV31 = { version: V31_VERSION, bossMapAndVisualsAppliedTo: Object.keys(allChanged) };
+  } catch(e) { window.RaidDungeonV31 = { version: V31_VERSION }; }
 })();
 
 })();
