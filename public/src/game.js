@@ -14,7 +14,7 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Dungeon V23 - Fair Insta + Mapwide Telegraphs';
+  const VERSION = 'Raid Dungeon V26 - Mini Game Intro Dialogue';
   try { document.title = 'Raid Dungeon'; } catch(e) {}
   const W = 1280;
   const H = 720;
@@ -3243,6 +3243,487 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
   });
 })();
 
+})();
+
+/* =========================================================
+   V24 PATCH - more fair safe zones, movement speed, mini-game gimmicks
+========================================================= */
+(function raidDungeonV24Patch(){
+  // 1) 기본 이동속도 상향. 이후 레이드 시작 때도 적용되도록 makePlayer를 감싼다.
+  const v24OldMakePlayer = makePlayer;
+  makePlayer = function(){
+    const p = v24OldMakePlayer();
+    p.speed = Math.max(p.speed || 0, 305);
+    return p;
+  };
+  player.speed = Math.max(player.speed || 0, 305);
+
+  // 2) 이동속도 옵션이 붙은 방어구/패시브 추가.
+  function addArmorIfMissing(item){
+    if(!ARMORS.some(a=>a.id===item.id)) ARMORS.push(item);
+  }
+  const runnerCape = armor('v24_runner_cape','질주자의 경량 망토','rare','최대 체력 +22, 방어 +1, 이동속도 +8%. 기믹 회피에 좋은 경량 방어구입니다.','#38bdf8',22,1,{slow:.15});
+  runnerCape.speedMul = 1.08;
+  const galeBoots = armor('v24_gale_boots','질풍 전투 장화','super','최대 체력 +30, 방어 +2, 이동속도 +12%, 슬로우 저항. 이동 기믹에 강합니다.','#86efac',30,2,{slow:.28});
+  galeBoots.speedMul = 1.12;
+  const phantomSuit = armor('v24_phantom_suit','환영 기동복','epic','최대 체력 +42, 방어 +3, 이동속도 +15%, 마비 저항. 후반 기믹 대응용입니다.','#c084fc',42,3,{paralysis:.32,slow:.28});
+  phantomSuit.speedMul = 1.15;
+  const cometArmor = armor('v24_comet_armor','혜성 돌파갑','legendary','최대 체력 +66, 방어 +5, 이동속도 +18%, 빙결/슬로우 저항. 안전지대 이동에 특화됩니다.','#fef08a',66,5,{freeze:.35,slow:.45});
+  cometArmor.speedMul = 1.18;
+  const horizonAegis = armor('v24_horizon_aegis','지평선 기동 방벽','ultimate','최대 체력 +92, 방어 +7, 이동속도 +22%, 모든 상태이상 저항. 궁극 기동 방어구입니다.','#ffffff',92,7,{burn:.35,poison:.35,freeze:.35,paralysis:.35,slow:.55});
+  horizonAegis.speedMul = 1.22;
+  [runnerCape,galeBoots,phantomSuit,cometArmor,horizonAegis].forEach(addArmorIfMissing);
+
+  function addPassiveIfMissing(item){
+    if(!PASSIVES.some(p=>p.id===item.id)) PASSIVES.push(item);
+  }
+  addPassiveIfMissing({id:'v24_pathfinder',name:'길잡이의 발걸음',rarity:'rare',desc:'이동속도 +10%. 미로와 안전지대 기믹 대응력이 좋아집니다.',type:'passive',apply:p=>{p.speed*=1.10;}});
+  addPassiveIfMissing({id:'v24_gimmick_runner',name:'기믹 러너',rarity:'epic',desc:'이동속도 +14%, 구르기 쿨타임 추가 감소. 후반 보스 파훼에 유리합니다.',type:'passive',apply:p=>{p.speed*=1.14;p.rollCdBonus=(p.rollCdBonus||0)+.18;}});
+  addPassiveIfMissing({id:'v24_labyrinth_sense',name:'미궁 감각',rarity:'legendary',desc:'이동속도 +16%, 슬로우 저항 +20%. 미니게임형 기믹에 강합니다.',type:'passive',apply:p=>{p.speed*=1.16;p.statusResist.slow=(p.statusResist.slow||0)+.20;}});
+
+  const v24OldApplyBuild = applyBuild;
+  applyBuild = function(){
+    v24OldApplyBuild();
+    const a = getArmor(state.selectedArmorId);
+    if(a && a.speedMul) player.speed = Math.floor(player.speed * a.speedMul);
+  };
+
+  // 3) 맵 전체 기준의 안전 칸 패턴. 쉬운 보스일수록 안전 칸이 많고, 어려워도 최소 2개는 남긴다.
+  function v24SafeCount(hard){
+    const t = boss ? boss.tier : 5;
+    let n = t <= 3 ? 6 : t <= 5 ? 5 : t <= 7 ? 4 : t <= 9 ? 3 : 2;
+    if(hard) n = Math.max(2, n - 1);
+    return n;
+  }
+  function v24MapwideSafeGrid(opts){
+    opts = opts || {};
+    const cols = opts.cols || 6;
+    const rows = opts.rows || 4;
+    const top = 102;
+    const bottom = H - 52;
+    const cellW = W / cols;
+    const cellH = (bottom - top) / rows;
+    const total = cols * rows;
+    const safeCount = Math.max(2, Math.min(total - 2, opts.safeCount || v24SafeCount(!!opts.hard)));
+    const safe = new Set();
+    let guard = 0;
+    while(safe.size < safeCount && guard++ < 300){
+      const idx = Math.floor(Math.random() * total);
+      // 안전 칸이 전부 붙지 않도록 약간 흩뿌린다.
+      if([...safe].some(v => Math.abs((v%cols)-(idx%cols)) + Math.abs(Math.floor(v/cols)-Math.floor(idx/cols)) <= 0)) continue;
+      safe.add(idx);
+    }
+    const spots = [];
+    for(let i=0;i<total;i++){
+      const x = cellW * (i % cols + .5);
+      const y = top + cellH * (Math.floor(i / cols) + .5);
+      if(safe.has(i)){
+        const r = Math.min(cellW, cellH) * .28;
+        spots.push({x,y,r});
+        state.mechanics.push({kind:'safe',x,y,r,life:(opts.warn||1.65)+.72,color:opts.safeColor||'#86efac'});
+      } else {
+        state.hazards.push({kind:'floor',x,y,w:cellW*.88,h:cellH*.76,warn:opts.warn||1.65,life:opts.life||.72,damage:opts.damage||boss.atk*.82,color:opts.color||boss.color,tag:opts.tag||boss.theme,label:opts.label||'MAP'});
+      }
+    }
+    return spots;
+  }
+  function v24InAnySafe(spots){
+    return spots && spots.some(s => dist(player.x, player.y, s.x, s.y) < s.r + player.r);
+  }
+  function v24MapwideSafeResolve(spots, delay, damage, color, successText, failText){
+    setTimeout(()=>{
+      if(!state.raid || !boss || boss.dead) return;
+      if(v24InAnySafe(spots)){
+        breakBoss(.95);
+        healText(successText || '안전지대', player.x, player.y - 34);
+      } else {
+        hurtPlayer(damage || boss.atk*1.35, color || boss.color, true);
+        floatText(failText || '전장 공격 피격!', player.x, player.y - 44, '#fb7185', 20);
+      }
+    }, Math.floor((delay || 1.75) * 1000));
+  }
+
+  // 기존 전장/SAFE 계열을 교체한다.
+  safeRuneBombPattern = function(hard){
+    boss.mechanicText = '전장 폭발: 맵 전체 칸 중 빛나지 않는 SAFE 칸 2개 이상을 찾아 이동하세요.';
+    floatText('전장 공격! SAFE 칸으로 이동!', W/2, 86, '#86efac', 24);
+    const warn = hard ? 1.75 : 1.95;
+    const spots = v24MapwideSafeGrid({hard, warn, color: hard ? '#facc15' : '#93c5fd', safeColor:'#86efac', damage:boss.atk*(hard?1.45:1.05), label:'SAFE'});
+    v24MapwideSafeResolve(spots, warn+.08, boss.atk*(hard?1.65:1.18), hard?'#facc15':'#93c5fd', 'SAFE 성공', 'SAFE 실패');
+  };
+  instantKillPattern = function(){
+    if(!boss) return;
+    boss.lastInstantAt = state.time;
+    boss.mechanicText = '즉사 패턴! 맵 전체 심판입니다. SAFE 칸 2개 이상 중 하나로 들어가세요.';
+    floatText('즉사 패턴! SAFE 칸으로!', W/2, 84, '#fb7185', 30);
+    const spots = v24MapwideSafeGrid({hard:true,warn:2.20,color:'#ef4444',safeColor:'#22c55e',damage:boss.atk*2.4,label:'INSTANT'});
+    setTimeout(()=>{
+      if(!state.raid || !boss || boss.dead) return;
+      if(v24InAnySafe(spots)){
+        breakBoss(1.35);
+        healText('즉사 회피', player.x, player.y - 36);
+      } else {
+        hurtPlayer(Math.max(player.maxHp*0.82,boss.atk*2.8),'#ef4444',true);
+        floatText('즉사급 피해!', player.x, player.y - 48, '#ef4444', 24);
+      }
+      state.flash = Math.max(state.flash,.28);
+    }, 2280);
+  };
+  spawnCrumblingFloor = function(){
+    boss.mechanicText = '부서지는 바닥: 맵 전체가 갈라집니다. 안전 칸은 여러 개 남습니다.';
+    const spots = v24MapwideSafeGrid({hard:boss.tier>=8,warn:1.55,color:boss.color,safeColor:'#86efac',damage:boss.atk*.86,label:'FLOOR'});
+    floatText('안전 칸을 찾으세요', W/2, 92, '#86efac', 22);
+    return spots;
+  };
+  v20P3Tiles = function(color, tag){
+    boss.mechanicText += ' · 전장 붕괴: 맵 전체 칸 중 SAFE 칸을 찾으세요.';
+    v24MapwideSafeGrid({hard:boss.tier>=8,warn:1.45,color:color||boss.color,safeColor:'#86efac',damage:boss.atk*.78,tag:tag||boss.theme,label:'TILE'});
+  };
+  if(typeof v22BreakFloorPlus !== 'undefined'){
+    v22BreakFloorPlus = function(color, tag){
+      v22Announce('전장 붕괴: 전체 바닥이 순차적으로 무너집니다. 여러 SAFE 칸 중 하나로 이동하세요.', 'slam', color || boss.color);
+      v24MapwideSafeGrid({hard:boss.tier>=8,warn:1.55,color:color||boss.color,safeColor:'#86efac',damage:boss.atk*.82,tag:tag||boss.theme,label:'BREAK'});
+    };
+  }
+
+  // 4) 순서 룬: 룬이 너무 빨리 사라지지 않도록 시간과 판정 안정화.
+  spawnMemoryMiniGame = function(){
+    boss.mechanicText = '기억 룬: 1 → 2 → 3 순서로 밟으세요. 정답 룬은 완료 표시로 남습니다.';
+    const colors=['#60a5fa','#f472b6','#facc15'];
+    const spots=[{x:W*.25,y:H*.34},{x:W*.72,y:H*.36},{x:W*.50,y:H*.72}];
+    const nodes=spots.map((p,i)=>({x:clamp(p.x+rand(-55,55),110,W-110),y:clamp(p.y+rand(-42,42),128,H-92),r:48,color:colors[i],done:false}));
+    state.mechanics.push({kind:'memory',nodes,index:0,life:13.5,color:'#fff',wrongGrace:.75});
+    floatText('기억 룬 1 → 2 → 3', W/2, 92, '#ffffff', 22);
+  };
+
+  // 5) 별도 미니게임형 기믹. 보스와 싸우지 않고 제한 시간 안에 작은 과제를 수행한다.
+  state.miniGame = null;
+  state.pendingMiniGame = null;
+
+  function v24MiniGameBossLine(type){
+    const name = boss && boss.name ? boss.name : '보스';
+    if(type === 'maze') return `${name}가 환영 미궁을 시작합니다! 제한 시간 안에 탈출하세요!`;
+    if(type === 'quiz') return `${name}가 심판의 질문을 시작합니다! 정답 원을 밟으세요!`;
+    if(type === 'shell') return `${name}가 야바위 환상을 시작합니다! 처음 빛난 컵을 찾으세요!`;
+    return `${name}가 특수 기믹을 시작합니다!`;
+  }
+
+  function v24QueueMiniGame(type){
+    if(state.miniGame || state.pendingMiniGame || !state.raid || !boss || boss.dead) return;
+    clearEnemyBullets(true);
+    state.hazards.length = 0;
+    state.zones.length = 0;
+    state.pendingMiniGame = {
+      type,
+      life: 1.75,
+      maxLife: 1.75,
+      line: v24MiniGameBossLine(type),
+      color: boss.color || '#ffffff'
+    };
+    boss.mechanicText = state.pendingMiniGame.line;
+    boss.patternCd = Math.max(boss.patternCd || 0, 3.0);
+    boss.basicCd = Math.max(boss.basicCd || 0, 2.4);
+    floatText(state.pendingMiniGame.line, W/2, 92, '#ffffff', 24);
+  }
+
+  function v24StartMiniGame(type){
+    if(state.miniGame || !state.raid || !boss || boss.dead) return;
+    clearEnemyBullets(true);
+    state.hazards.length = 0;
+    state.zones.length = 0;
+    const base = {type, life: type==='maze'?9.5:type==='quiz'?7.0:7.5, maxLife: type==='maze'?9.5:type==='quiz'?7.0:7.5, solved:false, failed:false};
+    if(type==='maze'){
+      base.title = '미니게임: 제한 시간 안에 미로를 탈출하세요';
+      base.exit = {x:W-130,y:140,r:42};
+      base.walls = [
+        {x:W*.25,y:H*.48,w:22,h:H*.56}, {x:W*.48,y:H*.38,w:W*.36,h:22}, {x:W*.62,y:H*.63,w:22,h:H*.42},
+        {x:W*.33,y:H*.72,w:W*.42,h:22}, {x:W*.76,y:H*.36,w:W*.30,h:22}
+      ];
+    } else if(type==='quiz'){
+      const questions = [
+        {q:'빛난 순서의 마지막 번호는?', answers:['1','2','3'], correct:2},
+        {q:'SAFE 칸은 몇 개 이상 남는다고 했나요?', answers:['1개','2개 이상','없음'], correct:1},
+        {q:'즉사 패턴 문구가 보이면?', answers:['보스에게 붙기','SAFE로 이동','가만히 있기'], correct:1}
+      ];
+      base.quiz = questions[Math.floor(Math.random()*questions.length)];
+      base.title = '미니게임: 정답 원을 밟으세요';
+      base.choices = [
+        {x:W*.26,y:H*.58,r:55,i:0,color:'#60a5fa'},
+        {x:W*.50,y:H*.58,r:55,i:1,color:'#f472b6'},
+        {x:W*.74,y:H*.58,r:55,i:2,color:'#facc15'}
+      ];
+    } else {
+      base.title = '미니게임: 처음 빛난 컵을 찾아 밟으세요';
+      base.correct = Math.floor(Math.random()*3);
+      base.reveal = 1.15;
+      base.cups = [
+        {x:W*.30,y:H*.56,r:54,i:0},
+        {x:W*.50,y:H*.56,r:54,i:1},
+        {x:W*.70,y:H*.56,r:54,i:2}
+      ];
+    }
+    state.miniGame = base;
+    boss.mechanicText = base.title;
+    floatText(base.title, W/2, 88, '#ffffff', 24);
+    boss.patternCd = Math.max(boss.patternCd, 3.0);
+  }
+  function v24SolveMiniGame(){
+    const g = state.miniGame; if(!g || g.solved || g.failed) return;
+    g.solved = true;
+    breakBoss(2.0);
+    burst(player.x, player.y, '#86efac', 48, 280);
+    floatText('미니게임 성공!', W/2, 96, '#86efac', 26);
+    setTimeout(()=>{ if(state.miniGame===g) state.miniGame=null; }, 450);
+  }
+  function v24FailMiniGame(reason){
+    const g = state.miniGame; if(!g || g.solved || g.failed) return;
+    g.failed = true;
+    hurtPlayer(Math.max(22, player.maxHp*.28 + boss.atk*.55), '#fb7185', true);
+    burst(player.x, player.y, '#fb7185', 38, 240);
+    floatText(reason || '미니게임 실패', player.x, player.y - 48, '#fb7185', 24);
+    setTimeout(()=>{ if(state.miniGame===g) state.miniGame=null; }, 550);
+  }
+  function v24UpdateMiniGame(dt){
+    const g = state.miniGame; if(!g) return;
+    g.life -= dt;
+    if(g.type==='maze'){
+      if(dist(player.x,player.y,g.exit.x,g.exit.y) < g.exit.r + player.r) v24SolveMiniGame();
+      // 벽을 밟으면 즉사 대신 작은 피해와 넉백. 완전히 불공정하지 않게 처리한다.
+      if(!g.wallTick) g.wallTick=0; g.wallTick-=dt;
+      if(g.wallTick<=0){
+        for(const w of g.walls){
+          if(Math.abs(player.x-w.x)<w.w/2+player.r && Math.abs(player.y-w.y)<w.h/2+player.r){
+            g.wallTick=.55; hurtPlayer(Math.max(5,boss.atk*.18),'#a78bfa');
+            const a=Math.atan2(player.y-w.y,player.x-w.x); player.x+=Math.cos(a)*28; player.y+=Math.sin(a)*28;
+            break;
+          }
+        }
+      }
+    } else if(g.type==='quiz'){
+      for(const c of g.choices){
+        if(dist(player.x,player.y,c.x,c.y)<c.r+player.r){
+          if(c.i===g.quiz.correct) v24SolveMiniGame(); else v24FailMiniGame('오답!');
+          break;
+        }
+      }
+    } else if(g.type==='shell'){
+      g.reveal -= dt;
+      if(g.reveal<=0){
+        for(const c of g.cups){
+          if(dist(player.x,player.y,c.x,c.y)<c.r+player.r){
+            if(c.i===g.correct) v24SolveMiniGame(); else v24FailMiniGame('야바위 실패!');
+            break;
+          }
+        }
+      }
+    }
+    if(g.life<=0 && !g.solved && !g.failed) v24FailMiniGame('시간 초과!');
+  }
+  function v24DrawPendingMiniGame(){
+    const p = state.pendingMiniGame; if(!p) return;
+    const t = clamp(p.life / p.maxLife, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = .94;
+    ctx.fillStyle = 'rgba(2,6,23,.78)';
+    roundRect(ctx, W/2 - 430, 80, 860, 88, 24);
+    ctx.strokeStyle = p.color || '#ffffff';
+    ctx.lineWidth = 3;
+    roundRect(ctx, W/2 - 430, 80, 860, 88, 24, true);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 26px system-ui';
+    ctx.fillText('기믹 시작', W/2, 118);
+    ctx.font = '800 18px system-ui';
+    ctx.fillStyle = '#e0f2fe';
+    ctx.fillText(p.line, W/2, 148);
+    ctx.fillStyle = p.color || '#93c5fd';
+    roundRect(ctx, W/2 - 260, 158, 520 * t, 7, 6);
+    ctx.restore();
+  }
+
+  function v24DrawMiniGame(){
+    const g = state.miniGame; if(!g) return;
+    ctx.save();
+    ctx.fillStyle='rgba(2,6,23,.34)'; ctx.fillRect(0,88,W,H-88);
+    ctx.textAlign='center'; ctx.font='900 24px system-ui'; ctx.fillStyle='#fff'; ctx.fillText(g.title, W/2, 118);
+    ctx.font='900 18px system-ui'; ctx.fillStyle = g.life<3 ? '#fb7185' : '#fef08a'; ctx.fillText('남은 시간 '+Math.max(0,g.life).toFixed(1)+'초', W/2, 145);
+    if(g.type==='maze'){
+      ctx.strokeStyle='#ffffff'; ctx.lineWidth=5; ctx.shadowColor='#a78bfa'; ctx.shadowBlur=18;
+      g.walls.forEach(w=>{ctx.fillStyle='rgba(167,139,250,.45)'; ctx.fillRect(w.x-w.w/2,w.y-w.h/2,w.w,w.h); ctx.strokeRect(w.x-w.w/2,w.y-w.h/2,w.w,w.h);});
+      ctx.fillStyle='rgba(34,197,94,.45)'; circle(ctx,g.exit.x,g.exit.y,g.exit.r); ctx.strokeStyle='#fff'; circleStroke(ctx,g.exit.x,g.exit.y,g.exit.r); ctx.fillStyle='#fff'; ctx.font='900 16px system-ui'; ctx.fillText('탈출',g.exit.x,g.exit.y+5);
+    } else if(g.type==='quiz'){
+      ctx.font='900 22px system-ui'; ctx.fillStyle='#ffffff'; ctx.fillText(g.quiz.q, W/2, 178);
+      g.choices.forEach(c=>{ctx.fillStyle=c.color+'88'; ctx.shadowColor=c.color; ctx.shadowBlur=15; circle(ctx,c.x,c.y,c.r); ctx.strokeStyle='#fff'; ctx.lineWidth=3; circleStroke(ctx,c.x,c.y,c.r); ctx.fillStyle='#fff'; ctx.font='900 20px system-ui'; ctx.fillText(g.quiz.answers[c.i],c.x,c.y+7);});
+    } else if(g.type==='shell'){
+      const reveal = g.reveal > 0;
+      ctx.font='900 20px system-ui'; ctx.fillStyle='#ffffff'; ctx.fillText(reveal?'빛나는 컵을 기억하세요':'처음 빛난 컵을 밟으세요', W/2, 178);
+      g.cups.forEach(c=>{ const good = reveal && c.i===g.correct; ctx.fillStyle=good?'rgba(250,204,21,.72)':'rgba(148,163,184,.45)'; ctx.shadowColor=good?'#facc15':'#93c5fd'; ctx.shadowBlur=good?25:12; roundRect(ctx,c.x-c.r,c.y-c.r,c.r*2,c.r*1.45,18); ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.strokeRect(c.x-c.r,c.y-c.r,c.r*2,c.r*1.45); ctx.fillStyle='#fff'; ctx.font='900 18px system-ui'; ctx.fillText(String(c.i+1),c.x,c.y+8); });
+    }
+    ctx.restore();
+  }
+  function v24PickMiniGameType(){
+    if(!boss) return 'maze';
+    if(boss.id && (boss.id.includes('jester') || boss.id.includes('puppet'))) return 'shell';
+    if(boss.id && (boss.id.includes('cube') || boss.id.includes('chrono') || boss.id.includes('oracle'))) return 'quiz';
+    if(boss.theme==='nature' || boss.theme==='void' || boss.theme==='chaos') return Math.random()<.5?'maze':'shell';
+    return Math.random()<.5?'maze':'quiz';
+  }
+
+  const v24OldUpdateBoss = updateBoss;
+  updateBoss = function(dt){
+    if(state.pendingMiniGame){
+      clearEnemyBullets(true);
+      state.hazards.length = 0;
+      state.zones.length = 0;
+      boss.hit=Math.max(0,boss.hit-dt);
+      boss.vulnerable=Math.max(0,boss.vulnerable-dt);
+      boss.patternCd=Math.max(boss.patternCd || 0, 2.0);
+      boss.basicCd=Math.max(boss.basicCd || 0, 1.8);
+      state.pendingMiniGame.life -= Math.min(dt || .016, .04);
+      if(state.pendingMiniGame.life <= 0){
+        const nextType = state.pendingMiniGame.type;
+        state.pendingMiniGame = null;
+        v24StartMiniGame(nextType);
+      }
+      return;
+    }
+    if(state.miniGame){
+      boss.hit=Math.max(0,boss.hit-dt);
+      boss.vulnerable=Math.max(0,boss.vulnerable-dt);
+      boss.patternCd=Math.max(boss.patternCd,1.2);
+      return;
+    }
+    v24OldUpdateBoss(dt);
+    if(!state.raid || !boss || boss.dead) return;
+    if(boss.tier < 7) return;
+    if(!boss.v24MiniDone) boss.v24MiniDone = {};
+    const hpRate = boss.hp / boss.maxHp;
+    const gates = boss.tier>=10 ? [{k:'g75',r:.75},{k:'g50',r:.50},{k:'g25',r:.25}] : boss.tier>=8 ? [{k:'g60',r:.60},{k:'g32',r:.32}] : [{k:'g45',r:.45}];
+    for(const g of gates){
+      if(hpRate < g.r && !boss.v24MiniDone[g.k]){
+        boss.v24MiniDone[g.k] = true;
+        setTimeout(()=>{ if(state.raid && boss && !boss.dead && !state.miniGame && !state.pendingMiniGame) v24QueueMiniGame(v24PickMiniGameType()); }, 300);
+        break;
+      }
+    }
+  };
+  const v24OldUpdate = update;
+  update = function(dt){
+    v24OldUpdate(dt);
+    if(state.screen==='raid' && state.raid) v24UpdateMiniGame(Math.min(dt||.016,.026));
+  };
+  const v24OldDraw = draw;
+  draw = function(){
+    v24OldDraw();
+    v24DrawPendingMiniGame();
+    v24DrawMiniGame();
+  };
+})();
+
+
+/* =========================================================
+   V25 PATCH - mini-game focus mode
+   - 미니게임 중 보스 공격/장판/탄막/존을 정지 또는 제거
+   - 보스는 관전 위치로 이동해 구경하는 느낌만 남김
+   - 미니게임 종료 후 보스 위치/크기 복구
+========================================================= */
+(function raidDungeonV25MiniGameFocusPatch(){
+  function v25ClearBossOffense(){
+    if(!state) return;
+
+    // 미니게임 중에는 보스가 만든 공격 판정이 남아서 플레이어를 방해하지 않도록 제거한다.
+    if(Array.isArray(state.projectiles)) {
+      state.projectiles = state.projectiles.filter(p => p && p.owner === 'player');
+    }
+    if(Array.isArray(state.hazards)) {
+      // playerStrike는 플레이어 이펙트라 남겨도 피해가 없고, 그 외 보스 장판/레이저는 제거한다.
+      state.hazards = state.hazards.filter(h => h && h.kind === 'playerStrike');
+    }
+    if(Array.isArray(state.zones)) {
+      // 보스 독장판/도트존 제거. 플레이어 회복 장판만 남긴다.
+      state.zones = state.zones.filter(z => z && z.heal && !z.enemy);
+    }
+    if(Array.isArray(state.mechanics)) {
+      // 미니게임 전용 요소는 state.miniGame 안에서 따로 그려지므로 기존 보스 룬/안전지대는 제거한다.
+      state.mechanics = state.mechanics.filter(m => m && m.kind === 'gravity' && m.fromPlayer);
+    }
+  }
+
+  function v25EnterMiniGameFocus(){
+    if(!boss || !state.miniGame) return;
+    if(!boss.v25MiniFocus){
+      boss.v25MiniFocus = {
+        x: boss.x,
+        y: boss.y,
+        r: boss.r,
+        patternCd: boss.patternCd,
+        basicCd: boss.basicCd,
+        mechanicText: boss.mechanicText
+      };
+      floatText('미니게임 시작! 보스는 공격하지 않습니다.', W/2, 76, '#ffffff', 22);
+    }
+
+    // 보스는 전투 공간 가장자리에서 관전하는 느낌으로 작게 이동한다.
+    boss.x = W - 135;
+    boss.y = 150;
+    boss.r = Math.max(26, Math.min((boss.v25MiniFocus.r || boss.r) * 0.62, 46));
+    boss.patternCd = Math.max(boss.patternCd || 0, 99);
+    boss.basicCd = Math.max(boss.basicCd || 0, 99);
+    boss.hit = 0;
+    boss.vulnerable = Math.max(0, boss.vulnerable || 0);
+    boss.mechanicText = '미니게임 진행 중: 보스는 공격하지 않고 지켜봅니다.';
+    v25ClearBossOffense();
+  }
+
+  function v25ExitMiniGameFocus(){
+    if(!boss || !boss.v25MiniFocus) return;
+    const old = boss.v25MiniFocus;
+    boss.x = old.x;
+    boss.y = old.y;
+    boss.r = old.r;
+    boss.patternCd = Math.max(1.6, Math.min(old.patternCd || 2.0, 3.0));
+    boss.basicCd = Math.max(1.0, Math.min(old.basicCd || 1.8, 2.6));
+    boss.mechanicText = old.mechanicText || '패턴을 보고 움직이세요.';
+    boss.v25MiniFocus = null;
+  }
+
+  const v25OldUpdate = update;
+  update = function(dt){
+    if(state.miniGame) v25EnterMiniGameFocus();
+    if(state.pendingMiniGame) v25ClearBossOffense();
+    v25OldUpdate(dt);
+    if(state.miniGame) {
+      v25EnterMiniGameFocus();
+      // 미니게임 도중 새로 생긴 보스 공격도 즉시 제거한다.
+      v25ClearBossOffense();
+    } else if(state.pendingMiniGame) {
+      v25ClearBossOffense();
+    } else {
+      v25ExitMiniGameFocus();
+    }
+  };
+
+  const v25OldDraw = draw;
+  draw = function(){
+    v25OldDraw();
+    if((state.miniGame || state.pendingMiniGame) && boss && !boss.dead){
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      ctx.fillStyle = 'rgba(2,6,23,.70)';
+      roundRect(ctx, W - 270, 96, 230, 72, 18);
+      ctx.strokeStyle = boss.color || '#93c5fd';
+      ctx.lineWidth = 2;
+      roundRect(ctx, W - 270, 96, 230, 72, 18, true);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#fff';
+      ctx.font = '900 16px system-ui';
+      ctx.fillText('보스 관전 중', W - 155, 124);
+      ctx.font = '800 12px system-ui';
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillText(state.pendingMiniGame ? '기믹 시작 준비 중' : '미니게임 동안 공격하지 않음', W - 155, 148);
+      ctx.restore();
+    }
+  };
 })();
 
 })();
