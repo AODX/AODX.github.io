@@ -1026,7 +1026,7 @@
       let rx=dx, ry=dy;
       if(!rx&&!ry){ rx=Math.cos(player.aim||0); ry=Math.sin(player.aim||0); }
       const rl=Math.hypot(rx,ry)||1; rx/=rl; ry/=rl;
-      player.roll=.22; player.rollCd=Math.max(.8,2.5-(player.rollCdBonus||0)); player.invuln=Math.max(player.invuln,.30); player.rollVx=rx*900; player.rollVy=ry*900; player.aim=Math.atan2(ry,rx); if(rx<0)player.face=-1; if(rx>0)player.face=1;
+      player.roll=.22; player.rollCd=Math.max(.45,1.25-(player.rollCdBonus||0)); player.invuln=Math.max(player.invuln,.30); player.rollVx=rx*900; player.rollVy=ry*900; player.aim=Math.atan2(ry,rx); if(rx<0)player.face=-1; if(rx>0)player.face=1;
       for(let i=0;i<10;i++) state.particles.push({x:player.x-rx*i*7,y:player.y-ry*i*7,vx:-rx*rand(60,180)+rand(-30,30),vy:-ry*rand(60,180)+rand(-30,30),r:4+i*.25,life:.18+i*.025,color:'#93c5fd'});
       burst(player.x,player.y,'#93c5fd',28,290); floatText('ROLL',player.x,player.y-26,'#93c5fd');
     }
@@ -2225,7 +2225,7 @@
       let rx=dx, ry=dy;
       if(!rx&&!ry){ rx=Math.cos(player.aim||0); ry=Math.sin(player.aim||0); }
       const rl=Math.hypot(rx,ry)||1; rx/=rl; ry/=rl;
-      player.roll=.22; player.rollCd=Math.max(.8,2.5-(player.rollCdBonus||0)); player.invuln=Math.max(player.invuln,.30); player.rollVx=rx*900; player.rollVy=ry*900; player.aim=Math.atan2(ry,rx); if(rx<0)player.face=-1; if(rx>0)player.face=1;
+      player.roll=.22; player.rollCd=Math.max(.45,1.25-(player.rollCdBonus||0)); player.invuln=Math.max(player.invuln,.30); player.rollVx=rx*900; player.rollVy=ry*900; player.aim=Math.atan2(ry,rx); if(rx<0)player.face=-1; if(rx>0)player.face=1;
       for(let i=0;i<10;i++) state.particles.push({x:player.x-rx*i*7,y:player.y-ry*i*7,vx:-rx*rand(60,180)+rand(-30,30),vy:-ry*rand(60,180)+rand(-30,30),r:4+i*.25,life:.18+i*.025,color:'#93c5fd'});
       burst(player.x,player.y,'#93c5fd',28,290); floatText('ROLL',player.x,player.y-26,'#93c5fd');
     }
@@ -2641,5 +2641,566 @@
     if(boss.tier>=8 && boss.phase>=3 && Math.random()<.16) setTimeout(()=>instantKillPattern(),1800);
   };
 
+
+
+/* =========================================================
+   RAID DUNGEON V21 - ARENA-WIDE ATTACKS + BOSS BASIC ATTACKS
+   - 보스 중심 패턴만 반복되던 문제 완화
+   - 모든 보스: 일반 공격 + 패턴 공격 구조
+   - 후반 보스: 맵 전체를 활용하는 추가 패턴 삽입
+   - 실제 공격 표시 유지 시간을 조금 더 늘림
+========================================================= */
+(function(){
+  if (typeof state === 'undefined' || typeof bossPattern === 'undefined') return;
+
+  // 실제 공격이 너무 빨리 사라져 맞은 이유를 알기 어려웠던 문제 보정.
+  // 기존 V20의 예고/실공격 분리 구조를 유지하되 HIT 구간을 더 오래 보이게 한다.
+  const __v21_oldPushHazard = v20PushHazard;
+  v20PushHazard = function(h){
+    h.warn = Math.max(h.warn || 1.05, boss && boss.tier >= 6 ? 1.05 : .88);
+    if (h.kind === 'rotatingBeam') h.life = Math.max(h.life || 2.25, 2.45);
+    else if (h.kind === 'beam') h.life = Math.max(h.life || .62, .82);
+    else if (h.kind === 'wall' || h.kind === 'floor') h.life = Math.max(h.life || .72, .92);
+    else h.life = Math.max(h.life || .62, .82);
+    __v21_oldPushHazard(h);
+  };
+
+  function v21Color(){ return (boss && (boss.color || boss.sub)) || '#93c5fd'; }
+  function v21Tag(){ return (boss && (boss.theme || boss.id)) || 'boss'; }
+  function v21Announce(text, kind, color, angle){
+    if (!boss || boss.dead) return;
+    v20BossCast(text, kind || 'cast', color || v21Color(), Number.isFinite(angle) ? angle : undefined);
+  }
+
+  // ===== 보스 일반 공격: 패턴 사이에 짧게 섞이는 압박기 =====
+  // 큰 기믹이 아니라, 플레이어가 계속 위치를 신경 쓰게 만드는 역할.
+  function v21BossBasicAttack(){
+    if (!state.raid || !boss || boss.dead) return;
+    const c = v21Color(), tag = v21Tag();
+    const a = Math.atan2(player.y - boss.y, player.x - boss.x);
+    const tier = boss.tier || 1;
+    const dmg = boss.atk * (.26 + Math.min(.18, tier * .015));
+    const r = Math.random();
+
+    // 테마별로 일반 공격 느낌을 다르게 준다.
+    if (boss.theme === 'metal' || boss.id === 'iron_minotaur') {
+      v21Announce('철갑 기본기: 짧은 돌진 예고선을 보고 옆으로 피하세요.', 'beam', c, a);
+      v20Beam(boss.x, boss.y, a, Math.min(520, 320 + tier * 24), 13 + tier * .8, .52, c, dmg * 1.15, tag);
+      return;
+    }
+    if (boss.theme === 'lightning' || boss.id === 'storm_colossus') {
+      v21Announce('낙뢰 기본기: 플레이어 근처에 짧은 번개가 떨어집니다.', 'slam', c);
+      v20Circle(player.x + rand(-55,55), player.y + rand(-42,42), 30 + tier * 1.4, .58, c, dmg, 'lightning');
+      return;
+    }
+    if (boss.theme === 'ice' || boss.id === 'frost_oracle') {
+      v21Announce('빙결 기본기: 위에서 떨어지는 얼음창을 보고 피하세요.', 'beam', c, Math.PI/2);
+      v20Beam(player.x + rand(-75,75), H/2, Math.PI/2, H * .96, 12 + tier * .55, .62, c, dmg, 'ice');
+      return;
+    }
+    if (boss.theme === 'fire' || boss.theme === 'solar') {
+      v21Announce('화염 기본기: 작은 불씨가 부채꼴로 날아옵니다.', 'beam', c, a);
+      for (let i=-1;i<=1;i++) aimBullet(boss.x, boss.y, player.x + Math.cos(a+i*.18)*120, player.y + Math.sin(a+i*.18)*120, 220 + tier*9, c, dmg * .55, 'fire');
+      return;
+    }
+    if (boss.theme === 'poison' || boss.theme === 'nature') {
+      v21Announce('독성 기본기: 발밑에 작은 독꽃이 피어납니다.', 'slam', c);
+      v20Circle(player.x + rand(-40,40), player.y + rand(-35,35), 28 + tier, .56, c, dmg * .75, 'poison');
+      setTimeout(()=>{ if(state.raid && !boss.dead) state.zones.push({x:player.x,y:player.y,r:35,damage:boss.atk*.018,life:1.4,tick:0,color:c,enemy:true,dot:true}); }, 620);
+      return;
+    }
+    if (boss.theme === 'mirror' || boss.theme === 'chrono') {
+      v21Announce('굴절 기본기: 한 박자 늦게 오는 직선 공격입니다.', 'beam', c, a);
+      v20Beam((boss.x+player.x)/2, (boss.y+player.y)/2, a, 460 + tier*12, 12 + tier*.55, .72, c, dmg, tag);
+      return;
+    }
+    if (boss.theme === 'gravity' || boss.theme === 'void' || boss.theme === 'chaos') {
+      v21Announce('공간 기본기: 작은 균열탄이 유도됩니다.', 'cast', c);
+      homingEnemy(c);
+      if (r < .45 && tier >= 6) homingEnemy(boss.sub || c);
+      return;
+    }
+
+    // 기본형: 단일 조준탄 + 짧은 경고선
+    v21Announce('기본 공격: 보스가 플레이어 방향으로 견제 공격을 합니다.', 'beam', c, a);
+    if (r < .5) aimBullet(boss.x, boss.y, player.x, player.y, 235 + tier*8, c, dmg, tag);
+    else v20Beam((boss.x+player.x)/2, (boss.y+player.y)/2, a, 430, 11 + tier*.6, .54, c, dmg, tag);
+  }
+
+  // updateBoss에 일반 공격 타이머를 추가한다.
+  const __v21_oldUpdateBoss = updateBoss;
+  updateBoss = function(dt){
+    __v21_oldUpdateBoss(dt);
+    if (!state.raid || !boss || boss.dead || !player || player.hp <= 0) return;
+    boss._v21BasicCd = (boss._v21BasicCd || (1.25 + Math.random()*.55)) - dt;
+    if (boss._v21BasicCd <= 0) {
+      v21BossBasicAttack();
+      const phaseMul = boss.phase === 3 ? .72 : boss.phase === 2 ? .86 : 1;
+      const tierMul = Math.max(.58, 1 - (boss.tier||1)*.035);
+      boss._v21BasicCd = (1.45 + Math.random()*.55) * phaseMul * tierMul;
+    }
+  };
+
+  // ===== 맵 전체를 활용하는 패턴들 =====
+  function v21ArenaDiagonalCross(color, tag){
+    color = color || v21Color(); tag = tag || v21Tag();
+    v21Announce('전장 절단: 중앙이 아니라 맵 전체 대각선이 순서대로 베입니다.', 'beam', color, Math.PI/4);
+    const cx = W/2, cy = H/2;
+    v20Beam(cx, cy, Math.PI/4, W*1.35, 17 + boss.phase*4, 1.15, color, boss.atk*.58, tag);
+    v20Beam(cx, cy, -Math.PI/4, W*1.35, 17 + boss.phase*4, 1.45, boss.sub || color, boss.atk*.58, tag);
+    if (boss.phase >= 3) v20Beam(cx, cy, 0, W*.96, 15 + boss.phase*3, 1.75, color, boss.atk*.52, tag);
+  }
+
+  function v21SideSweep(color, tag){
+    color = color || v21Color(); tag = tag || v21Tag();
+    const vertical = Math.random() < .5;
+    v21Announce(vertical ? '전장 세로 쓸기: 왼쪽/오른쪽 줄을 보고 빈칸으로 이동하세요.' : '전장 가로 쓸기: 위/아래 줄을 보고 빈칸으로 이동하세요.', 'beam', color, vertical ? Math.PI/2 : 0);
+    const lanes = vertical ? 6 : 4;
+    const safe = Math.floor(Math.random()*lanes);
+    for (let i=0;i<lanes;i++) {
+      if (i === safe) continue;
+      if (vertical) {
+        const x = 120 + i*(W-240)/(lanes-1);
+        v20Beam(x, H/2, Math.PI/2, H*.96, 15 + boss.phase*4, 1.05 + i*.08, color, boss.atk*.50, tag);
+      } else {
+        const y = 135 + i*(H-220)/(lanes-1);
+        v20Beam(W/2, y, 0, W*.94, 15 + boss.phase*4, 1.05 + i*.10, color, boss.atk*.50, tag);
+      }
+    }
+  }
+
+  function v21QuadrantBomb(color, tag){
+    color = color || v21Color(); tag = tag || v21Tag();
+    v21Announce('사분면 폭격: 안전 사분면을 빠르게 찾아야 합니다.', 'slam', color);
+    const qs = [
+      {x:W*.28,y:H*.32},{x:W*.72,y:H*.32},{x:W*.28,y:H*.70},{x:W*.72,y:H*.70}
+    ];
+    const safe = Math.floor(Math.random()*4);
+    qs.forEach((q,i)=>{ if(i!==safe) v20Circle(q.x,q.y,105 + boss.phase*10,1.25 + i*.08,color,boss.atk*.62,tag); });
+    state.mechanics.push({kind:'safe',x:qs[safe].x,y:qs[safe].y,r:72,life:2.0,color:'#93c5fd'});
+  }
+
+  function v21CornerToCornerLaser(color, tag){
+    color = color || v21Color(); tag = tag || v21Tag();
+    v21Announce('코너 레이저: 맵 모서리에서 선이 교차합니다. 중앙만 보지 마세요.', 'beam', color);
+    const a1 = Math.atan2(H-150, W-160);
+    const a2 = Math.atan2(-(H-150), W-160);
+    v20Beam(W/2, H/2, a1, W*1.18, 18 + boss.phase*4, 1.1, color, boss.atk*.58, tag);
+    v20Beam(W/2, H/2, a2, W*1.18, 18 + boss.phase*4, 1.42, boss.sub || color, boss.atk*.58, tag);
+  }
+
+  function v21MovingSafeZone(color, tag){
+    color = color || v21Color(); tag = tag || v21Tag();
+    const sx = rand(130,W-130), sy = rand(135,H-85);
+    v21Announce('이동 안전지대: 안전 원 안에서 다음 공격을 버티세요.', 'cast', color);
+    state.mechanics.push({kind:'safe',x:sx,y:sy,r:68,life:2.25,color:'#d1fae5'});
+    setTimeout(()=>{
+      if(!state.raid || !boss || boss.dead) return;
+      if(dist(player.x,player.y,sx,sy) > 68 + player.r) hurtPlayer(boss.atk*1.15, color, true);
+      else { breakBoss(.9); healText('안전',player.x,player.y-32); }
+      burst(sx,sy,color,35,250);
+    }, 2250);
+    // 안전지대 밖을 전부 때리는 느낌을 주기 위한 맵 가장자리 레이저.
+    v20Beam(W/2, 110, 0, W*.96, 16, 1.15, color, boss.atk*.40, tag);
+    v20Beam(W/2, H-62, 0, W*.96, 16, 1.35, color, boss.atk*.40, tag);
+  }
+
+  function v21ArenaPattern(color, tag){
+    const list = [v21ArenaDiagonalCross, v21SideSweep, v21QuadrantBomb, v21CornerToCornerLaser, v21MovingSafeZone];
+    list[Math.floor(Math.random()*list.length)](color || v21Color(), tag || v21Tag());
+  }
+
+  // 후반 보스의 패턴 배열에 맵 활용 패턴을 추가해 보스 중심 레이저만 반복되는 문제 완화.
+  try {
+    Object.keys(V20_PATTERNS).forEach(id=>{
+      const def = (BOSSES||[]).find(b=>b.id===id) || {};
+      const c = def.color || '#93c5fd';
+      const tag = def.theme || id;
+      if (!Array.isArray(V20_PATTERNS[id])) return;
+      // 각 보스 최소 3개는 이미 보장되어 있으나, 중후반 보스는 4~5번째 패턴으로 맵 전체 기믹을 추가한다.
+      if (def.tier >= 4) V20_PATTERNS[id].push(()=>v21ArenaPattern(c, tag));
+      if (def.tier >= 7) V20_PATTERNS[id].push(()=>{
+        const r = Math.random();
+        if (r < .34) v21SideSweep(c, tag);
+        else if (r < .67) v21QuadrantBomb(c, tag);
+        else v21CornerToCornerLaser(c, tag);
+      });
+    });
+  } catch(e) { console.warn('[V21 pattern inject failed]', e); }
+
+  // 기존 순환은 배열 길이를 사용하므로 추가 패턴도 자연스럽게 돌아간다.
+  const __v21_oldBossPattern = bossPattern;
+  bossPattern = function(){
+    if(!boss || boss.dead) return;
+    try {
+      __v21_oldBossPattern();
+      // 높은 등급 후반 페이즈에서는 보스 중심 패턴 이후, 낮은 확률로 맵 기반 패턴을 한 번 더 예고한다.
+      // 단, 난사 방지를 위해 페이즈 2 이상에서만 낮은 확률로 실행한다.
+      if (boss.tier >= 8 && boss.phase >= 2 && Math.random() < .18) {
+        setTimeout(()=>{ if(state.raid && boss && !boss.dead) v21ArenaPattern(boss.sub || boss.color, boss.theme); }, 1250);
+      }
+    } catch(e) {
+      console.warn('[V21 boss pattern recovered]', e);
+      v21ArenaPattern(v21Color(), v21Tag());
+    }
+  };
+
+  // 안내 문구 보강: 보스에게 일반 공격이 있다는 것을 플레이어가 알 수 있게 한다.
+  try {
+    BOSSES.forEach(b=>{
+      if(Array.isArray(b.patterns) && !b.patterns.includes('일반 공격')) b.patterns.unshift('일반 공격');
+      if(Array.isArray(b.patterns) && b.tier >= 4 && !b.patterns.includes('전장 패턴')) b.patterns.push('전장 패턴');
+    });
+  } catch(e) {}
+
+
+/* =========================================================
+   RAID DUNGEON V22 - MASSIVE CONTENT + BETTER BOSS QUALITY
+   - 스킬 +50, 무기 +50, 방어구 +50, 패시브 +10
+   - 보스 +5
+   - 구르기 쿨타임 2.5초 -> 1.25초
+   - 후반 보스 기믹 패턴 강화
+========================================================= */
+try { document.title = 'Raid Dungeon'; } catch(e) {}
+try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content patch loaded'); } catch(e) {}
+
+(function applyV22ContentPatch(){
+  const v22Rarities = ['normal','rare','super','epic','legendary','ultimate'];
+  function rr(i, total){ return pickFixedRarity(i, total || 50); }
+
+  // 1) 무기 50종 추가: 각 계열의 외형/공격 성격이 다르게 보이도록 kind와 설명을 다양화.
+  const v22WeaponDefs = [
+    ['brass_knuckle_blade','황동 건블레이드','normal','sword','총검처럼 짧게 베고 탄환 파편을 흩뿌리는 근접 무기.','#d6a15d',1.08,106,.30,8],
+    ['blue_mage_pistol','청색 마도권총','normal','gunstaff','스태프가 아닌 권총 실루엣의 마도총. 작은 푸른 탄을 쏩니다.','#38bdf8',1.02,520,.55,8],
+    ['hooked_spear','갈고리 장창','normal','pole','갈고리 달린 창으로 길게 찌르고 끌어당기는 느낌의 공격.','#94a3b8',1.10,188,.34,6],
+    ['bone_knife','뼈 단검','normal','dagger','가벼운 찌르기와 빠른 후딜 회복이 특징.','#e5e7eb',.80,82,.12,20],
+    ['nomad_crossbow','유목민 석궁','normal','bow','활보다 느리지만 일직선 압박이 강한 석궁.','#fbbf24',1.04,620,.44,12],
+    ['apprentice_grimoire','견습 마도서','normal','grimoire','책장이 펼쳐지며 작은 추적 마법탄을 날립니다.','#a78bfa',.95,600,.50,10],
+    ['ember_hatchet','잿불 손도끼','normal','sword_fire','짧은 도끼 베기에 작은 불씨가 튑니다.','#fb7185',1.14,104,.33,6],
+    ['iron_chain_whip','철사슬 채찍','normal','whip','묵직하게 휘어지는 철사슬 공격.','#94a3b8',1.02,220,.40,8],
+    ['crescent_ring','초승달 투륜','normal','chakram','작은 차크람을 던져 되돌아오게 합니다.','#cbd5e1',.96,560,.45,12],
+    ['granite_maul','화강암 전투망치','normal','greatsword','검은 아니지만 대검 계열처럼 묵직하게 내려칩니다.','#64748b',1.58,135,.76,4],
+
+    ['azure_dualpistol','쌍청 마도권총','rare','gunstaff','양손 권총처럼 번갈아 쏘는 마도탄.','#67e8f9',1.12,560,.50,14],
+    ['wolf_fang_saber','늑대송곳니 세이버','rare','sword','곡선 검날로 빠르게 두 번 베는 세이버.','#cbd5e1',1.18,118,.28,12],
+    ['ivy_lash','덩굴 채찍','rare','whip','덩굴이 휘어지며 넓은 부채꼴을 긁습니다.','#4ade80',1.05,240,.36,10],
+    ['cryo_bow','서리 활','rare','bow_storm','서리 화살이 길게 뻗으며 냉기 잔상을 남깁니다.','#7dd3fc',1.09,660,.36,14],
+    ['scarlet_dirk','선홍 단도','rare','dagger','짧은 거리에서 치명타 확률이 높은 단도.','#fb7185',.86,90,.11,28],
+    ['sage_staff','현자의 수정봉','rare','staff','수정구가 달린 스태프에서 둥근 탄이 발사됩니다.','#a5b4fc',1.10,560,.46,12],
+    ['blackthorn_pole','검은가시 장봉','rare','pole','찔린 자리에 가시 이펙트가 생기는 장봉.','#e879f9',1.18,205,.32,10],
+    ['storm_chakram','폭풍 투륜','rare','chakram','던졌다 돌아올 때 작은 번개가 튑니다.','#fde047',1.05,620,.42,16],
+    ['molten_cleaver','용암 절단검','rare','greatsword','두꺼운 칼날로 넓게 베어 불꽃 흔적을 남깁니다.','#f97316',1.74,150,.70,8],
+    ['bone_scythe','백골 낫','rare','scythe','낫날이 원호를 그리며 되돌아옵니다.','#e5e7eb',1.16,500,.48,14],
+
+    ['aurora_pistol','오로라 마도권총','super','gunstaff','총구 주변에 원형 마법진이 생기는 화려한 권총.','#93c5fd',1.24,595,.47,18],
+    ['ruby_rapier','루비 레이피어','super','sword','가늘고 긴 찌르기 검. 전방 집중 타격이 강합니다.','#fb7185',1.30,126,.25,18],
+    ['tempest_bow','폭풍 석궁','super','bow_storm','장전 후 더 굵은 번개 화살을 발사합니다.','#facc15',1.22,710,.41,20],
+    ['phantom_grimoire','환영 마도서','super','grimoire','책장이 여러 장 펼쳐져 환영탄을 발사합니다.','#c084fc',1.18,650,.45,20],
+    ['blue_dragon_pole','청룡 언월봉','super','pole','언월도처럼 넓은 창날을 휘두릅니다.','#38bdf8',1.35,230,.31,14],
+    ['spider_whip','거미줄 채찍','super','whip','얇은 채찍 여러 줄이 한 번에 휘어집니다.','#e879f9',1.18,260,.34,18],
+    ['eclipse_dagger','일식 단검','super','dagger','검은 잔상이 두 번 따라붙는 단검.','#a78bfa',.95,100,.10,36],
+    ['meteor_hammerblade','유성 망치검','super','greatsword','검과 망치 사이의 무기. 내려칠 때 파편이 튑니다.','#fb923c',1.95,160,.68,12],
+    ['frost_scythe','빙결 낫','super','scythe','얼음 원호가 왕복하며 베어냅니다.','#7dd3fc',1.30,540,.45,18],
+    ['sun_chakram','태양 차크람','super','chakram','둥근 태양 고리가 날아갔다 돌아옵니다.','#fde047',1.22,650,.38,20],
+
+    ['railgun_pistol','레일 마도권총','epic','gunstaff','권총 형태지만 탄이 길고 날카로운 레일빔처럼 나갑니다.','#67e8f9',1.40,650,.44,24],
+    ['rose_dualblade','장미 쌍검','epic','sword','양손검처럼 좌우 베기 잔상이 생깁니다.','#f472b6',1.45,138,.25,22],
+    ['wyrm_bow','비룡궁','epic','bow_storm','화살이 비룡처럼 휘며 관통합니다.','#fef08a',1.34,760,.35,24],
+    ['forbidden_codex','금서 아르카눔','epic','grimoire','금서가 펼쳐져 여러 개의 룬탄을 만듭니다.','#a78bfa',1.33,700,.42,24],
+    ['titan_halberd','거신 할버드','epic','pole','찌르기와 베기가 합쳐진 거대 장창.','#cbd5e1',1.55,250,.32,18],
+    ['void_lash','공허 균열채찍','epic','whip','채찍이 지나간 자리에 검은 균열이 남습니다.','#8b5cf6',1.35,290,.32,22],
+    ['needle_storm','바늘폭풍 단검','epic','dagger','짧은 찌르기가 폭풍처럼 몰아칩니다.','#e5e7eb',1.04,108,.095,44],
+    ['oathbreaker','맹세파괴 대검','epic','greatsword','대검이 크게 돌아가며 붉은 참격을 만듭니다.','#ef4444',2.15,185,.64,18],
+    ['time_scythe','시간 수확낫','epic','scythe','낫이 지나간 뒤 늦은 잔상이 한 번 더 베어냅니다.','#f472b6',1.48,590,.42,24],
+    ['moon_chakram','월광 차크람','epic','chakram','달빛 원반이 넓게 회전합니다.','#c4b5fd',1.40,700,.36,28],
+
+    ['nova_magnum','노바 매그넘','legendary','gunstaff','마도권총의 최종형. 총구에서 별빛 폭발탄이 발사됩니다.','#22d3ee',1.62,700,.42,32],
+    ['heaven_saber','천검 세라핌','legendary','sword','빛의 날개 모양 참격이 생깁니다.','#fef08a',1.72,155,.23,30],
+    ['apex_ballista','정점 발리스타','legendary','bow_storm','느리지만 아주 강한 관통 볼트를 쏩니다.','#fde047',1.60,830,.48,30],
+    ['necro_grimoire','사령 마도서','legendary','grimoire','어두운 영혼탄이 보스를 추적합니다.','#a78bfa',1.55,760,.39,30],
+    ['sundering_halberd','하늘가름 할버드','legendary','pole','긴 궤적의 창날이 화면을 가릅니다.','#60a5fa',1.76,280,.29,26],
+    ['dragon_spine_whip','용척추 채찍','legendary','whip','용의 척추처럼 마디진 채찍을 휘두릅니다.','#fb923c',1.55,330,.30,28],
+    ['assassin_star','암살성 단검','legendary','dagger','별빛이 찍히듯 빠른 찌르기를 반복합니다.','#f0abfc',1.18,120,.082,56],
+    ['planet_splitter','행성분쇄 대검','legendary','greatsword','느리지만 화면을 찢는 거대한 참격.','#facc15',2.45,210,.62,24],
+    ['abyss_reaper','심연 사신낫','legendary','scythe','검은 원호가 왕복하며 보스를 압박합니다.','#8b5cf6',1.68,640,.39,30],
+    ['halo_chakram','성환 차크람','legendary','chakram','성스러운 고리가 되돌아오며 두 번 타격합니다.','#fde047',1.60,760,.34,34],
+
+    ['omega_pistol','오메가 마도권총','ultimate','gunstaff','완전한 권총 실루엣. 총구 마법진에서 오메가 탄을 쏩니다.','#ffffff',1.92,770,.37,42],
+    ['world_end_blade','세계종말검','ultimate','sword_fire','검격마다 붉은 균열과 빛의 파편이 터집니다.','#fb7185',2.10,180,.21,40],
+    ['skyfall_bow','천추궁','ultimate','bow_storm','하늘에서 내려찍는 듯한 궁극 화살.','#fef08a',1.88,900,.40,42],
+    ['akasha_grimoire','아카샤 마도서','ultimate','grimoire','책장 전체가 별자리처럼 펼쳐져 자동탄을 만듭니다.','#f0abfc',1.86,820,.36,40],
+    ['axis_lance','세계축 장창','ultimate','pole','축을 찌르듯 길고 강한 광창을 냅니다.','#93c5fd',2.05,320,.27,34],
+    ['ouroboros_chain','우로보로스 사슬채찍','ultimate','whip','원형 사슬이 뱀처럼 감기며 넓은 범위를 공격합니다.','#a78bfa',1.82,370,.27,38],
+    ['zero_dagger','제로 단검','ultimate','dagger','거의 보이지 않는 고속 베기. 치명타가 매우 높습니다.','#e879f9',1.36,132,.070,64],
+    ['cosmos_cleaver','우주절단 대검','ultimate','greatsword','느리지만 가장 강한 궁극 대검 참격.','#fef08a',2.80,230,.58,34],
+    ['event_horizon_scythe','사건지평선 낫','ultimate','scythe','낫 궤적이 블랙홀처럼 휘어져 돌아옵니다.','#c084fc',1.98,710,.36,42],
+    ['infinite_chakram','무한 차크람','ultimate','chakram','여러 개의 원반 잔상이 겹쳐 돌아옵니다.','#ffffff',1.92,840,.31,48]
+  ];
+  v22WeaponDefs.forEach(w=>WEAPONS.push(weapon(...w)));
+
+  // 2) 방어구 50종 추가: 체력/방어/상태저항 중심, 고등급일수록 면역에 가까운 옵션.
+  const v22ArmorDefs = [
+    ['patched_cloak','기운 누더기 망토','normal','최대 체력 +10, 방어 +1. 임시 방어구입니다.','#94a3b8',10,1,{}],
+    ['field_jacket','야전 재킷','normal','최대 체력 +15, 방어 +1. 움직임이 편합니다.','#64748b',15,1,{}],
+    ['tin_mail','양철 흉갑','normal','최대 체력 +18, 방어 +2. 약하지만 튼튼합니다.','#cbd5e1',18,2,{}],
+    ['herbal_band','약초 완장','normal','최대 체력 +14, 독 저항 10%.','#4ade80',14,1,{poison:.10}],
+    ['ash_scarf','잿빛 목도리','normal','최대 체력 +14, 화상 저항 10%.','#fb7185',14,1,{burn:.10}],
+    ['wool_coat','두꺼운 털코트','normal','최대 체력 +16, 빙결 저항 10%.','#bae6fd',16,1,{freeze:.10}],
+    ['rubber_boots','고무 장화','normal','최대 체력 +12, 마비 저항 10%.','#fde047',12,1,{paralysis:.10}],
+    ['runner_vest','주자의 조끼','normal','최대 체력 +12, 슬로우 저항 10%.','#93c5fd',12,1,{slow:.10}],
+    ['guard_mail','수문장 갑옷','normal','최대 체력 +20, 방어 +2.','#94a3b8',20,2,{}],
+    ['oak_bark_armor','참나무 껍질갑','normal','최대 체력 +22, 독 저항 12%.','#86efac',22,1,{poison:.12}],
+
+    ['ember_guard','불씨 수호갑','rare','최대 체력 +28, 방어 +2, 화상 저항 25%.','#fb7185',28,2,{burn:.25}],
+    ['glacier_robe','빙하 로브','rare','최대 체력 +26, 방어 +2, 빙결 저항 25%.','#7dd3fc',26,2,{freeze:.25}],
+    ['storm_padding','폭풍 패딩','rare','최대 체력 +25, 방어 +2, 마비 저항 25%.','#facc15',25,2,{paralysis:.25}],
+    ['venom_filter','맹독 필터갑','rare','최대 체력 +24, 방어 +2, 독 저항 28%.','#84cc16',24,2,{poison:.28}],
+    ['swift_cape','질풍 망토','rare','최대 체력 +24, 슬로우 저항 28%.','#93c5fd',24,1,{slow:.28}],
+    ['bronze_aegis','청동 방벽갑','rare','최대 체력 +32, 방어 +3.','#d97706',32,3,{}],
+    ['rune_guard','룬 가드갑','rare','최대 체력 +30, 모든 저항 조금.','#a78bfa',30,2,{burn:.12,poison:.12,freeze:.12,paralysis:.12,slow:.12}],
+    ['mirror_shawl','거울 숄','rare','최대 체력 +28, 마비/슬로우 저항.','#e879f9',28,2,{paralysis:.18,slow:.18}],
+    ['sand_cuirass','사막 흉갑','rare','최대 체력 +31, 화상/슬로우 저항.','#f59e0b',31,2,{burn:.16,slow:.16}],
+    ['blood_padding','혈월 패딩','rare','최대 체력 +30, 독/화상 저항.','#ef4444',30,2,{poison:.16,burn:.16}],
+
+    ['crystal_plate','수정 판금갑','super','최대 체력 +40, 방어 +4, 빙결 저항 40%.','#7dd3fc',40,4,{freeze:.40}],
+    ['thunder_frame','뇌전 프레임갑','super','최대 체력 +38, 방어 +4, 마비 저항 40%.','#fde047',38,4,{paralysis:.40}],
+    ['plague_doctor_coat','역병 의사 코트','super','최대 체력 +36, 독 저항 45%.','#bef264',36,3,{poison:.45}],
+    ['flameproof_plate','내화 판금갑','super','최대 체력 +42, 화상 저항 45%.','#fb923c',42,3,{burn:.45}],
+    ['phase_boots','위상 장화','super','최대 체력 +35, 슬로우 저항 45%.','#c084fc',35,3,{slow:.45}],
+    ['guardian_armor','수호자 갑옷','super','최대 체력 +48, 방어 +5.','#cbd5e1',48,5,{}],
+    ['forest_heart','숲심장 흉갑','super','최대 체력 +44, 독/슬로우 저항.','#4ade80',44,3,{poison:.32,slow:.25}],
+    ['moon_mail','월광 갑주','super','최대 체력 +42, 마비/빙결 저항.','#c4b5fd',42,3,{paralysis:.30,freeze:.30}],
+    ['void_padding','공허 패딩','super','최대 체력 +41, 모든 저항 소폭.','#8b5cf6',41,3,{burn:.18,poison:.18,freeze:.18,paralysis:.18,slow:.18}],
+    ['iron_tower','철탑 갑주','super','최대 체력 +55, 방어 +6. 느리지만 튼튼합니다.','#94a3b8',55,6,{}],
+
+    ['phoenix_robe','불사조 로브','epic','최대 체력 +56, 방어 +4, 화상 저항 60%.','#fb7185',56,4,{burn:.60}],
+    ['absolute_zero_mail','절대영도 갑주','epic','최대 체력 +54, 방어 +5, 빙결 저항 60%.','#bae6fd',54,5,{freeze:.60}],
+    ['tesla_guard','테슬라 가드갑','epic','최대 체력 +52, 방어 +5, 마비 저항 60%.','#fde047',52,5,{paralysis:.60}],
+    ['antidote_heart','해독 심장갑','epic','최대 체력 +50, 독 저항 65%.','#84cc16',50,4,{poison:.65}],
+    ['timewalker_coat','시간보행자 코트','epic','최대 체력 +48, 슬로우 저항 65%.','#f472b6',48,4,{slow:.65}],
+    ['paladin_plate','성기사 판금갑','epic','최대 체력 +68, 방어 +7.','#fef08a',68,7,{}],
+    ['nightmare_shroud','악몽 장막','epic','최대 체력 +58, 독/화상/슬로우 저항.','#a78bfa',58,5,{poison:.38,burn:.38,slow:.38}],
+    ['mirror_aegis','거울 방패갑','epic','최대 체력 +60, 마비/빙결 저항.','#e879f9',60,5,{paralysis:.42,freeze:.42}],
+    ['gravity_suit','중력 슈트','epic','최대 체력 +62, 슬로우/마비 저항.','#818cf8',62,5,{slow:.45,paralysis:.32}],
+    ['solar_plate','태양 판금갑','epic','최대 체력 +64, 화상/빙결 저항.','#f97316',64,5,{burn:.50,freeze:.22}],
+
+    ['seraphim_armor','세라핌 갑주','legendary','최대 체력 +82, 방어 +8, 모든 저항 35%.','#fef08a',82,8,{burn:.35,poison:.35,freeze:.35,paralysis:.35,slow:.35}],
+    ['abyss_barrier','심연 방벽갑','legendary','최대 체력 +78, 방어 +8, 독/슬로우 강저항.','#8b5cf6',78,8,{poison:.75,slow:.60}],
+    ['storm_lord_plate','폭풍군주 갑주','legendary','최대 체력 +76, 방어 +8, 마비 거의 면역.','#fde047',76,8,{paralysis:.82}],
+    ['frost_king_mail','빙왕 갑주','legendary','최대 체력 +76, 방어 +8, 빙결 거의 면역.','#7dd3fc',76,8,{freeze:.82}],
+    ['red_dragon_scale','적룡 비늘갑','legendary','최대 체력 +80, 방어 +8, 화상 거의 면역.','#fb7185',80,8,{burn:.82}],
+    ['world_tree_aegis','세계수 방벽','legendary','최대 체력 +84, 독 거의 면역, 슬로우 저항.','#86efac',84,8,{poison:.82,slow:.45}],
+    ['chrono_mantle','크로노 망토','legendary','최대 체력 +74, 슬로우 거의 면역, 마비 저항.','#f472b6',74,7,{slow:.82,paralysis:.45}],
+    ['moon_eclipse_guard','월식 수호갑','legendary','최대 체력 +78, 빙결/화상 강저항.','#c4b5fd',78,8,{freeze:.58,burn:.58}],
+    ['iron_colossus_shell','거신 외골격','legendary','최대 체력 +96, 방어 +10.','#94a3b8',96,10,{}],
+    ['chaos_resonance','혼돈 공명갑','legendary','최대 체력 +78, 모든 저항 42%.','#fb7185',78,8,{burn:.42,poison:.42,freeze:.42,paralysis:.42,slow:.42}],
+
+    ['origin_aegis','근원 방벽갑','ultimate','최대 체력 +110, 방어 +12, 모든 저항 55%.','#ffffff',110,12,{burn:.55,poison:.55,freeze:.55,paralysis:.55,slow:.55}],
+    ['immortal_ward','불멸 수호갑','ultimate','최대 체력 +125, 방어 +10, 독/화상/빙결 강저항.','#fef08a',125,10,{burn:.70,poison:.70,freeze:.70}],
+    ['void_zero_suit','제로 공허복','ultimate','최대 체력 +108, 방어 +10, 슬로우/마비 거의 면역.','#c084fc',108,10,{slow:.88,paralysis:.88}],
+    ['phoenix_core_plate','불사조 핵갑','ultimate','최대 체력 +115, 방어 +11, 화상 면역에 가까움.','#fb7185',115,11,{burn:.95}],
+    ['absolute_crown_mail','절대왕관 갑주','ultimate','최대 체력 +120, 방어 +11, 빙결/마비 강저항.','#bae6fd',120,11,{freeze:.82,paralysis:.82}],
+    ['plague_nullifier','역병무효 장갑','ultimate','최대 체력 +112, 방어 +10, 독 면역에 가까움.','#84cc16',112,10,{poison:.95}],
+    ['singularity_shell','특이점 외피','ultimate','최대 체력 +118, 방어 +12, 모든 저항 50%.','#818cf8',118,12,{burn:.50,poison:.50,freeze:.50,paralysis:.50,slow:.50}],
+    ['sun_moon_aegis','해와 달의 방벽','ultimate','최대 체력 +116, 방어 +11, 화상/빙결 거의 면역.','#fef08a',116,11,{burn:.85,freeze:.85}],
+    ['endless_warplate','영겁 전쟁갑','ultimate','최대 체력 +132, 방어 +13. 순수 탱킹 최강.','#e5e7eb',132,13,{}],
+    ['akasha_sanctum','아카샤 성역복','ultimate','최대 체력 +108, 방어 +10, 모든 저항 62%.','#f0abfc',108,10,{burn:.62,poison:.62,freeze:.62,paralysis:.62,slow:.62}]
+  ];
+  v22ArmorDefs.forEach(a=>ARMORS.push(armor(...a)));
+
+  // 3) 스킬 50종 추가: 공격/버프/회복/디버프/정화가 섞여 스킬 뽑기 풀 확장.
+  const v22SkillDefs = [
+    ['flame_serpent','화염뱀 소환','fire','serpent','attack','불뱀 궤적이 보스를 향해 휘어집니다.'],
+    ['blizzard_nail','빙설 못비','ice','rain','attack','얼음 못들이 일정 범위에 떨어집니다.'],
+    ['thunder_judgement','천둥 심판','lightning','bolt','attack','보스 머리 위로 굵은 낙뢰가 떨어집니다.'],
+    ['void_gate_cannon','공허문 포격','void','beam','attack','공허의 문에서 굵은 광선이 발사됩니다.'],
+    ['iron_drill','강철 드릴','metal','pierce','attack','전방을 꿰뚫는 드릴 이펙트.'],
+    ['toxic_swamp','맹독 늪','poison','zone','debuff','독 장판으로 보스를 중독시킵니다.'],
+    ['solar_orbital','태양 궤도포','solar','orbital','attack','작은 태양이 궤도에서 떨어집니다.'],
+    ['gravity_cage','중력 감옥','gravity','bind','debuff','보스의 이동과 패턴 템포를 늦춥니다.'],
+    ['chrono_cut','시간 절단','chrono','slash','attack','시간이 늦게 베이는 추가 참격.'],
+    ['rose_verdict','장미 판결','nature','thorn','debuff','가시가 보스에게 취약 표식을 겁니다.'],
+    ['aqua_lance','수압 창','water','lance','attack','물기둥 창이 직선으로 치솟습니다.'],
+    ['spirit_guard','영혼 수호','spirit','shield','buff','짧은 시간 받는 피해를 줄입니다.'],
+    ['blood_surge','혈류 폭주','blood','buff','buff','피해와 흡혈을 잠시 올립니다.'],
+    ['mirror_burst','거울 파열','mirror','burst','attack','거울 조각이 보스 주변에서 터집니다.'],
+    ['sandglass_bind','모래시계 속박','sand','slow','debuff','보스에게 강한 슬로우를 겁니다.'],
+    ['wind_afterimage','바람 잔상','wind','haste','buff','이동속도와 구르기 감각을 강화합니다.'],
+    ['holy_recover','성광 회복','solar','heal','heal','즉시 체력을 회복합니다.'],
+    ['worldtree_regen','세계수 재생','nature','regen','heal','짧은 시간 지속 회복을 부여합니다.'],
+    ['pure_antidote','순백 해독','nature','cleanse_poison','cleanse','독을 해제하고 저항을 조금 줍니다.'],
+    ['flame_purify','화상 정화','fire','cleanse_burn','cleanse','화상 상태를 해제합니다.'],
+    ['frost_release','해빙 의식','ice','cleanse_freeze','cleanse','빙결 상태를 해제합니다.'],
+    ['lightning_ground','전류 접지진','lightning','cleanse_paralysis','cleanse','마비 상태를 해제합니다.'],
+    ['slow_breaker','슬로우 브레이커','chrono','cleanse_slow','cleanse','슬로우 상태를 해제합니다.'],
+    ['origin_cleanse','근원 대정화','spirit','cleanse_all','cleanse','모든 상태이상을 해제합니다.'],
+    ['starfall_chain','성운 사슬낙하','arcane','chain','attack','별빛 사슬이 순차적으로 낙하합니다.'],
+    ['dragon_breath','용의 숨결','fire','cone','attack','전방 부채꼴 화염 숨결.'],
+    ['ice_labyrinth','얼음 미궁','ice','zone','debuff','보스를 둔화시키는 얼음장판.'],
+    ['storm_crown','폭풍 왕관','lightning','buff','buff','치명타와 스킬 피해를 올립니다.'],
+    ['abyssal_mark','심연 낙인','void','mark','debuff','보스 받는 피해를 증가시킵니다.'],
+    ['meteor_cluster','유성 군집','fire','rain','attack','여러 개 유성이 떨어집니다.'],
+    ['tidal_prison','해류 감옥','water','bind','debuff','보스의 움직임을 약하게 묶습니다.'],
+    ['iron_fortitude','강철 의지','metal','buff','buff','방어와 최대 체력을 잠시 올립니다.'],
+    ['blood_heal','피의 역류 회복','blood','heal_big','heal','큰 회복을 얻지만 잠시 후퇴가 필요합니다.'],
+    ['moon_barrier','달빛 장막','arcane','shield','buff','보호막을 얻습니다.'],
+    ['chaos_grenade','혼돈 수류탄','chaos','burst','attack','무작위 속성 폭발이 일어납니다.'],
+    ['plague_clean_room','무균 구역','poison','cleanse_all','cleanse','장판형 정화 구역을 만듭니다.'],
+    ['gravity_pulse','중력 맥동','gravity','burst','attack','보스 주변 중력이 터집니다.'],
+    ['time_overclock','시간 오버클럭','chrono','buff','buff','쿨타임 회복 속도를 잠시 높입니다.'],
+    ['sun_spear_rain','태양창 비','solar','rain','attack','태양창이 순서대로 떨어집니다.'],
+    ['mirror_decoy','거울 미끼','mirror','buff','buff','짧은 시간 피격 위험을 낮춥니다.'],
+    ['venom_bite','독사의 이빨','poison','strike','debuff','보스에게 독과 취약을 함께 겁니다.'],
+    ['arcane_missile_storm','비전 유도탄 폭풍','arcane','orb','attack','유도탄이 연속으로 발사됩니다.'],
+    ['earth_shatter','대지 파쇄','earth','slam','attack','바닥을 깨며 원형 충격파를 냅니다.'],
+    ['spirit_resurrection','영혼 소생','spirit','heal_big','heal','큰 회복과 잠깐의 보호막.'],
+    ['freeze_null','냉기 무효화','ice','cleanse_freeze','cleanse','빙결 해제 후 냉기 저항을 줍니다.'],
+    ['paralysis_null','마비 무효화','lightning','cleanse_paralysis','cleanse','마비 해제 후 전류 저항을 줍니다.'],
+    ['burn_null','화염 무효화','fire','cleanse_burn','cleanse','화상 해제 후 화염 저항을 줍니다.'],
+    ['poison_null','독성 무효화','poison','cleanse_poison','cleanse','독 해제 후 독 저항을 줍니다.'],
+    ['void_singularity','공허 특이점','void','burst','attack','검은 구체가 터지며 큰 피해를 줍니다.'],
+    ['ultimate_harmony','궁극 조화','spirit','cleanse_all','cleanse','모든 상태이상 해제와 회복을 동시에 노립니다.']
+  ];
+  v22SkillDefs.forEach((s,i)=>{
+    const rarity = rr(i+7, v22SkillDefs.length+8);
+    const r = getRarity(rarity);
+    const cat = s[4];
+    const cdBase = cat==='attack' ? 4.8+(i%6)*.45 : cat==='buff' ? 10.5+(i%5)*.7 : cat==='heal' ? 9.5+(i%5)*.8 : cat==='debuff' ? 8.5+(i%5)*.6 : 12.0+(i%4)*.8;
+    SKILLS.push({
+      id:'v22_'+s[0], name:s[1], element:s[2], type:s[3], category:cat, rarity,
+      color:elementColor(s[2]), power:(cat==='attack'?1.15:cat==='heal'?1.00:cat==='debuff'?.80:1.0)*r.power,
+      cooldown:cdBase/Math.min(1.32,r.power), radius:95+(i%8)*13,
+      duration:cat==='buff'?6+(i%4):cat==='debuff'?5+(i%4)*.7:cat==='heal'?2.5:1,
+      desc:s[5]
+    });
+  });
+
+  // 4) 패시브 10종 추가. 회복은 여전히 5초당으로 밸런스 유지.
+  const v22Passives = [
+    ['passive_v22_weapon_master','무기 장인','epic','기본 공격 피해 +18%, 치명타 확률 +4%',p=>{p.basicDamageMul*=1.18;p.crit+=4;}],
+    ['passive_v22_boss_reader','패턴 분석가','super','보스 피해 +10%, 이동속도 +6%',p=>{p.damageMul*=1.10;p.speed*=1.06;}],
+    ['passive_v22_last_stand','최후의 집중','legendary','체력 35% 이하일 때 피해가 크게 증가',p=>{p.berserk=true;p.damageMul*=1.08;}],
+    ['passive_v22_clean_breath','정화 호흡','rare','5초마다 체력 회복 +8, 독/화상 저항 소폭',p=>{p.regen5+=8;p.statusResist.poison+=.12;p.statusResist.burn+=.12;}],
+    ['passive_v22_gale_roll','질풍 구르기','epic','구르기 쿨타임 추가 감소, 이동속도 +8%',p=>{p.rollCdBonus=(p.rollCdBonus||0)+.25;p.speed*=1.08;}],
+    ['passive_v22_arcane_kernel','비전 핵','rare','스킬 피해 +12%',p=>{p.skillDamageMul*=1.12;}],
+    ['passive_v22_steel_nerves','강철 신경','super','마비/슬로우 저항 +25%',p=>{p.statusResist.paralysis+=.25;p.statusResist.slow+=.25;}],
+    ['passive_v22_frozen_blood','서리 피','super','빙결 저항 +35%, 최대 체력 +8%',p=>{p.statusResist.freeze+=.35;p.maxHp*=1.08;}],
+    ['passive_v22_star_critical','성흔 치명','legendary','치명타 확률 +18%, 치명타 피해 +18%',p=>{p.crit+=18;p.critDmg+=.18;}],
+    ['passive_v22_origin_optimizer','근원 최적화','ultimate','피해/스킬/체력/쿨타임을 모두 강화',p=>{p.damageMul*=1.16;p.skillDamageMul*=1.16;p.maxHp*=1.16;p.cooldownMul*=.90;}]
+  ];
+  v22Passives.forEach(d=>PASSIVES.push({id:d[0],name:d[1],rarity:d[2],desc:d[3],apply:d[4],type:'passive'}));
+
+  // 5) 보스 5마리 추가: 각각 3개 이상의 고유 기믹 패턴 포함.
+  const v22Bosses = [
+    bossDef('crimson_train', '진홍 열차 오르페온', 7, 'metal', '#ef4444', '#facc15', 150000, '맵 전체를 가로지르는 열차 레일과 정차 신호를 읽어야 하는 보스입니다.', ['돌진 열차', '정차 신호', '레일 전환']),
+    bossDef('oracle_cube', '예언 큐브 라플라스', 8, 'arcane', '#a78bfa', '#38bdf8', 168000, '큐브의 색과 순서를 기억해 안전 칸을 찾아야 합니다.', ['색상 기억', '큐브 회전', '안전 순서']),
+    bossDef('hollow_gardener', '공허 정원사 엘드', 8, 'nature', '#22c55e', '#8b5cf6', 176000, '잡초 소환수와 독성 정원을 관리하며 싸우는 기믹형 보스입니다.', ['잡초 처리', '독성 정원', '꽃봉오리 파훼']),
+    bossDef('magnet_judge', '자석 재판관 폴라리스', 9, 'gravity', '#60a5fa', '#fb7185', 194000, '양극/음극 표식을 보고 밀림과 끌림을 활용해야 합니다.', ['N/S 극성', '자력 벽', '극성 심판']),
+    bossDef('dream_jester', '악몽 광대 니브', 10, 'chaos', '#f472b6', '#fde047', 214000, '가짜 예고와 진짜 예고를 구분해야 하는 최상위 속임수 보스입니다.', ['가짜 예고', '카드 선택', '악몽 미니게임'])
+  ];
+  v22Bosses.forEach(b=>BOSSES.push(b));
+
+  // 6) 보스 패턴 퀄리티 강화: 전장 기반, 기억/선택/처리/도주 기믹을 더 섞는다.
+  function v22Announce(text, kind, color){ v20BossCast(text, kind || 'cast', color || (boss&&boss.color)||'#fff'); }
+  function v22LaneRail(color, tag){
+    color=color||boss.color; tag=tag||boss.theme;
+    v22Announce('전장 레일: 밝아지는 레일 순서를 보고 빈 레일로 이동하세요.', 'beam', color);
+    const ys=[150,245,340,435,530];
+    const safe=Math.floor(Math.random()*ys.length);
+    ys.forEach((y,i)=>{ if(i!==safe) v20Wall(W/2,y,W*.92,24,1.05+i*.13,color,boss.atk*(.48+.04*boss.phase),tag); });
+    state.mechanics.push({kind:'safe',x:W-115,y:ys[safe],r:56,life:1.85,color:'#d1fae5'});
+  }
+  function v22ClockPuzzle(color, tag){
+    color=color||boss.color; tag=tag||boss.theme;
+    v22Announce('시계 기믹: 시곗바늘 3개가 지나갑니다. 같은 방향으로 따라 움직이세요.', 'beam', color);
+    const dir=Math.random()<.5?1:-1;
+    for(let i=0;i<3;i++) v20RotBeam(W/2,H/2,i*Math.PI/3,dir*(.55+i*.18),W*1.45,14+i*3,1.05+i*.35,color,boss.atk*.42,tag);
+  }
+  function v22OrbHunt(color, tag){
+    color=color||boss.color; tag=tag||boss.theme;
+    v22Announce('핵 처리: 소환된 핵을 빠르게 처리하지 못하면 맵 전체 폭발이 옵니다.', 'cast', color);
+    const count=2+(boss.phase>=3?1:0);
+    for(let i=0;i<count;i++) homingEnemy(color);
+    setTimeout(()=>{ if(state.raid && boss && !boss.dead && state.adds && state.adds.length>0) v20Circle(W/2,H/2,260,0.2,color,boss.atk*1.25,tag); }, 2600);
+  }
+  function v22SafeMemory(color, tag){
+    color=color||boss.color; tag=tag||boss.theme;
+    v22Announce('순서 기억: 룬 순서를 외워 밟으면 보스가 약화됩니다.', 'cast', color);
+    spawnMemoryMiniGame();
+    if(boss.phase>=3) setTimeout(()=>v22LaneRail(color,tag),900);
+  }
+  function v22BreakFloorPlus(color, tag){
+    color=color||boss.color; tag=tag||boss.theme;
+    v22Announce('붕괴 바닥: 금 간 칸을 피해 다음 안전 칸으로 이동하세요.', 'slam', color);
+    v20P3Tiles(color,tag);
+    if(boss.phase>=2) setTimeout(()=>v20P3Tiles(color,tag),850);
+  }
+  function v22ChoiceTrap(color, tag){
+    color=color||boss.color; tag=tag||boss.theme;
+    v22Announce('선택 함정: 진짜 안전지대와 가짜 안전지대를 구분하세요.', 'cast', color);
+    spawnColorPolarity();
+    if(boss.tier>=9) setTimeout(()=>v22ClockPuzzle(color,tag),1100);
+  }
+  function v22MazeAndChase(color, tag){
+    color=color||boss.color; tag=tag||boss.theme;
+    v22Announce('미로 추격: 벽이 닫히기 전에 탈출하고 추적탄을 피하세요.', 'cast', color);
+    spawnMazeEscape();
+    v20AddBullets(color,tag,6+boss.phase*2);
+  }
+  function v22ArenaCombo(color, tag){
+    const choices=[v22LaneRail,v22ClockPuzzle,v22OrbHunt,v22SafeMemory,v22BreakFloorPlus,v22ChoiceTrap,v22MazeAndChase];
+    choices[Math.floor(Math.random()*choices.length)](color||boss.color, tag||boss.theme);
+  }
+
+  // 기존 보스에도 패턴을 더 추가한다. 각 보스는 최소 3개 이상이며, 중후반은 5~7개까지 순환.
+  Object.keys(V20_PATTERNS).forEach(id=>{
+    const b=BOSSES.find(x=>x.id===id);
+    if(!b || !Array.isArray(V20_PATTERNS[id])) return;
+    const c=b.color, tag=b.theme;
+    V20_PATTERNS[id].push(()=>v22ArenaCombo(c,tag));
+    if(b.tier>=5) V20_PATTERNS[id].push(()=>v22OrbHunt(c,tag));
+    if(b.tier>=7) V20_PATTERNS[id].push(()=>v22SafeMemory(c,tag));
+    if(b.tier>=9) V20_PATTERNS[id].push(()=>v22ChoiceTrap(c,tag));
+  });
+
+  V20_PATTERNS.crimson_train = [
+    ()=>v22LaneRail('#ef4444','metal'),
+    ()=>{ v22Announce('진홍 열차: 정차 신호가 켜진 선은 잠시 후 돌진 열차가 지나갑니다.', 'beam', '#ef4444'); for(let i=0;i<4;i++) v20Wall(W/2,160+i*115,W*.95,30,1.0+i*.22,'#ef4444',boss.atk*.70,'metal'); },
+    ()=>{ v22Announce('레일 전환: 가로 레일 뒤 세로 레일이 이어집니다.', 'beam', '#facc15'); v22LaneRail('#ef4444','metal'); setTimeout(()=>{ if(state.raid&&boss&&!boss.dead) for(let i=0;i<4;i++) v20Wall(210+i*285,H/2,26,H*.80,1.0+i*.11,'#facc15',boss.atk*.58,'metal'); },900); },
+    ()=>v22OrbHunt('#ef4444','metal')
+  ];
+  V20_PATTERNS.oracle_cube = [
+    ()=>v22SafeMemory('#a78bfa','arcane'),
+    ()=>{ v22Announce('라플라스 큐브: 색상 판별 후 맞는 색 원에 들어가세요.', 'cast', '#38bdf8'); spawnColorPolarity(); },
+    ()=>v22BreakFloorPlus('#a78bfa','arcane'),
+    ()=>v22ClockPuzzle('#38bdf8','arcane')
+  ];
+  V20_PATTERNS.hollow_gardener = [
+    ()=>{ v22Announce('엘드: 잡초 소환수를 처리하지 않으면 독 정원이 번집니다.', 'cast', '#22c55e'); spawnAddsPhase(); setTimeout(()=>state.zones.push({x:W/2,y:H/2,r:210,damage:boss.atk*.06,life:3.1,tick:0,color:'#22c55e',enemy:true,dot:true}),700); },
+    ()=>{ v22Announce('꽃봉오리: 봉오리 주변은 곧 폭발합니다. 원 밖으로 이동하세요.', 'slam', '#8b5cf6'); for(let i=0;i<6;i++) v20Circle(rand(80,W-80),rand(120,H-80),44,1.0+i*.12,'#8b5cf6',boss.atk*.52,'poison'); },
+    ()=>v22MazeAndChase('#22c55e','poison'),
+    ()=>v22OrbHunt('#8b5cf6','poison')
+  ];
+  V20_PATTERNS.magnet_judge = [
+    ()=>{ v22Announce('폴라리스: N/S 극성. 지정 색 안전지대에 들어가세요.', 'cast', '#60a5fa'); spawnColorPolarity(); },
+    ()=>{ v22Announce('자력 벽: 밀려나는 방향을 예상하고 빈칸으로 이동하세요.', 'beam', '#fb7185'); v22LaneRail('#60a5fa','gravity'); state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:320,life:2.0,power:Math.random()<.5?260:-220,color:'#60a5fa'}); },
+    ()=>v22ClockPuzzle('#60a5fa','gravity'),
+    ()=>v22BreakFloorPlus('#fb7185','gravity')
+  ];
+  V20_PATTERNS.dream_jester = [
+    ()=>{ v22Announce('니브: 가짜 예고가 섞입니다. 실제 HIT 네온만 믿고 이동하세요.', 'cast', '#f472b6'); for(let i=0;i<7;i++) v20Circle(rand(80,W-80),rand(120,H-80),38,1.0+i*.08, i%2?'#fde047':'#f472b6',boss.atk*(i%2?.22:.62),'chaos'); },
+    ()=>v22ChoiceTrap('#fde047','chaos'),
+    ()=>v22SafeMemory('#f472b6','chaos'),
+    ()=>{ v22Announce('악몽 피날레: 미로, 탄막, 회전 레이저가 순서대로 옵니다.', 'beam', '#f472b6'); v22MazeAndChase('#f472b6','chaos'); setTimeout(()=>v22ClockPuzzle('#fde047','chaos'),1300); }
+  ];
+
+  // 안내 문구에도 추가된 기믹을 반영한다.
+  BOSSES.forEach(b=>{
+    if(b.tier>=5 && Array.isArray(b.patterns) && !b.patterns.includes('기믹 파훼')) b.patterns.push('기믹 파훼');
+    if(b.tier>=8 && Array.isArray(b.patterns) && !b.patterns.includes('페이즈 강화')) b.patterns.push('페이즈 강화');
+  });
+})();
+
+})();
 
 })();
