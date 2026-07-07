@@ -5514,4 +5514,262 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
   };
 })();
 
+
+/* =========================================================
+   RAID DUNGEON V34 - SAFE ZONE, THEME FLOOR FX, DAMAGE BALANCE
+   - 맵 전체 장판 SAFE 시각/판정 보호
+   - 전체 장판 경고 시간 증가
+   - 테마별 장판 이펙트 강화: 화염, 전기, 해일/물, 독, 공허 등
+   - 일반 접촉 공격 약화, 패턴/장판/탄막 피해 강화
+   - 보스별 느낌을 더 살리기 위한 추가 대표 패턴 덮어쓰기
+========================================================= */
+(function raidDungeonV34SafeFxPatternDamageBalancePatch(){
+  const V34_VERSION = 'Raid Dungeon V34 - Safe Zone FX and Pattern Damage Balance';
+  try { console.log('[RaidDungeon]', V34_VERSION); } catch(e) {}
+
+  try {
+    BOSSES.forEach(b=>{
+      if(!b._v34NormalAtkReduced){
+        b.atk = Math.round((b.atk || 12) * 0.72 * 10) / 10;
+        b._v34NormalAtkReduced = true;
+      }
+    });
+  } catch(e) { console.warn('[V34 atk rebalance failed]', e); }
+
+  function alive(){ return state && state.raid && boss && !boss.dead && !state.miniGame && !state.pendingMiniGame; }
+  function ph(){ return boss && boss.phase ? boss.phase : 1; }
+  function th(){ return (boss && (boss.theme || boss.id)) || 'boss'; }
+  function cc(){ return (boss && boss.color) || '#93c5fd'; }
+  function ss(){ return (boss && boss.sub) || cc(); }
+  function dmul(){ return ph()>=3 ? 1.20 : ph()>=2 ? 1.10 : 1; }
+  function dmg(m){ return ((boss && boss.atk) || 12) * m * dmul(); }
+  function isFullMap(h){ return h && (h.kind==='floor' || h.kind==='wall') && ((h.w || 0) >= W*.86 || (h.h || 0) >= H*.68); }
+  function currentSafes(){ return (state.mechanics || []).filter(m=>m && m.kind==='safe' && !m.fake && m.life>0); }
+  function inSafe(px,py){ return currentSafes().some(s=>dist(px,py,s.x,s.y) <= (s.r || 0) + player.r + 3); }
+  function normalizeMapwide(h){
+    if(!h || h._v34Norm) return;
+    h._v34Norm = true;
+    if(isFullMap(h)){
+      h.respectSafe = true;
+      h.warn = Math.max(h.warn || 0, 2.35);
+      h.life = Math.max(h.life || 0, .82);
+      h.label = h.label || '심판';
+      (state.mechanics || []).forEach(m=>{ if(m && m.kind==='safe' && !m.fake) m.life = Math.max(m.life || 0, h.warn + h.life + .25); });
+    } else {
+      h.warn = Math.max(h.warn || 0, .62);
+    }
+    if(h.owner !== 'player' && h.kind !== 'playerStrike' && Number.isFinite(h.damage) && !h._v34DamageBoosted){
+      h.damage = Math.max(1, h.damage * 1.95);
+      h._v34DamageBoosted = true;
+    }
+  }
+
+  const oldSpawnProjectileV34 = spawnProjectile;
+  spawnProjectile = function(p){
+    try {
+      if(p && p.owner === 'boss' && Number.isFinite(p.damage) && !p._v34DamageBoosted){
+        p.damage = Math.max(1, p.damage * 1.65);
+        p._v34DamageBoosted = true;
+      }
+    } catch(e) {}
+    return oldSpawnProjectileV34(p);
+  };
+
+  updateHazards = function(dt){
+    state.hazards.forEach(h=>{
+      if(!h || !Number.isFinite(h.life)) h.life = 0;
+      normalizeMapwide(h);
+      if(h.warn>0){ h.warn-=dt; if(h.kind==='rotatingBeam') h.angle += (h.spin||0)*dt*.25; return; }
+      h.life-=dt;
+      if(h.respectSafe && inSafe(player.x, player.y)){
+        if(h.kind==='circle' || h.kind==='donut' || h.kind==='beam' || h.kind==='floor'){
+          if(h.kind==='beam') h.life=0;
+          return;
+        }
+      }
+      if(h.kind==='circle'){
+        if(dist(h.x,h.y,player.x,player.y)<h.r+player.r){ hurtPlayer(h.damage,h.color); if(h.tag) applyBossHitStatus(h.tag); }
+        if(h.zone) state.zones.push({x:h.x,y:h.y,r:h.r,damage:h.damage*.08,life:2.4,tick:0,color:h.color,enemy:true,dot:true});
+        if(h.callback) h.callback(); h.life=0;
+      } else if(h.kind==='donut'){
+        const dd=dist(h.x,h.y,player.x,player.y);
+        if(dd>h.inner && dd<h.outer){ hurtPlayer(h.damage,h.color); if(h.tag) applyBossHitStatus(h.tag); }
+        h.life=0;
+      } else if(h.kind==='beam' || h.kind==='rotatingBeam'){
+        if(h.kind==='rotatingBeam') { h.angle += (h.spin||0)*dt; h.tick=(h.tick||0)-dt; }
+        const px=player.x-h.x, py=player.y-h.y;
+        const along=px*Math.cos(h.angle)+py*Math.sin(h.angle);
+        const side=Math.abs(-px*Math.sin(h.angle)+py*Math.cos(h.angle));
+        if(Math.abs(along)<h.len/2 && side<h.w+player.r && (h.kind!=='rotatingBeam' || (h.tick||0)<=0)){
+          hurtPlayer(h.damage,h.color); if(h.tag) applyBossHitStatus(h.tag); if(h.kind==='rotatingBeam') h.tick=.32;
+        }
+        if(h.kind==='beam'){ if(h.callback) h.callback(); h.life=0; }
+      } else if(h.kind==='playerStrike'){
+        if(boss && !boss.dead && dist(h.x,h.y,boss.x,boss.y)<h.r+boss.r){damageBoss(h.damage,h.color,false); h.life=0;}
+      } else if(h.kind==='wall'){
+        if(h.respectSafe && inSafe(player.x, player.y)) return;
+        if(Math.abs(player.x-h.x)<h.w+player.r && Math.abs(player.y-h.y)<h.h/2+player.r){ hurtPlayer(h.damage,h.color); if(h.tag) applyBossHitStatus(h.tag); }
+      } else if(h.kind==='floor'){
+        if(h.respectSafe && inSafe(player.x, player.y)) return;
+        if(Math.abs(player.x-h.x)<h.w/2+player.r && Math.abs(player.y-h.y)<h.h/2+player.r){ hurtPlayer(h.damage,h.color); if(h.tag) applyBossHitStatus(h.tag); h.life=0; }
+      }
+    });
+    state.hazards=state.hazards.filter(h=>h && (h.life>0||h.warn>0));
+  };
+
+  function tagStyle(h){
+    const key = String((h && (h.tag || h.label || '')) || '').toLowerCase();
+    const label = String((h && h.label) || '');
+    if(key.includes('fire') || key.includes('solar') || label.includes('화') || label.includes('태양') || label.includes('용암') || label.includes('일식')) return {type:'fire', c1:'#fb923c', c2:'#ef4444', c3:'#fef3c7'};
+    if(key.includes('lightning') || label.includes('전') || label.includes('번개') || label.includes('자기') || label.includes('극성')) return {type:'lightning', c1:'#fde047', c2:'#60a5fa', c3:'#ffffff'};
+    if(key.includes('ice') || label.includes('해일') || label.includes('물') || label.includes('소용돌이') || label.includes('심해') || label.includes('쓰나미')) return {type:'water', c1:'#38bdf8', c2:'#0ea5e9', c3:'#e0f2fe'};
+    if(key.includes('poison') || label.includes('독') || label.includes('역병') || label.includes('포자') || label.includes('정원')) return {type:'poison', c1:'#84cc16', c2:'#4ade80', c3:'#d9f99d'};
+    if(key.includes('void') || key.includes('gravity') || label.includes('공허') || label.includes('중력')) return {type:'void', c1:'#a78bfa', c2:'#4c1d95', c3:'#ddd6fe'};
+    if(key.includes('mirror') || label.includes('거울') || label.includes('큐브')) return {type:'mirror', c1:'#f0abfc', c2:'#93c5fd', c3:'#ffffff'};
+    if(key.includes('metal') || label.includes('철') || label.includes('열차') || label.includes('강철')) return {type:'metal', c1:'#cbd5e1', c2:'#64748b', c3:'#ffffff'};
+    if(key.includes('blood') || label.includes('피') || label.includes('혈')) return {type:'blood', c1:'#fb7185', c2:'#be123c', c3:'#ffe4e6'};
+    return {type:'normal', c1:h.color || cc(), c2:h.color || cc(), c3:'#ffffff'};
+  }
+
+  function withSafeCutout(h, drawFn){
+    const safes = h && h.respectSafe ? currentSafes() : [];
+    if(!safes.length){ drawFn(); return; }
+    ctx.save();
+    ctx.beginPath();
+    if(h.kind === 'floor') ctx.rect(h.x-h.w/2,h.y-h.h/2,h.w,h.h);
+    else if(h.kind === 'wall') ctx.rect(h.x-h.w/2,h.y-h.h/2,h.w,h.h);
+    else { drawFn(); ctx.restore(); return; }
+    safes.forEach(s=>{ ctx.moveTo(s.x+s.r+16,s.y); ctx.arc(s.x,s.y,s.r+18,0,Math.PI*2,true); });
+    ctx.clip('evenodd');
+    drawFn();
+    ctx.restore();
+  }
+
+  function drawThemedRect(h, warning, st){
+    const x=h.x-h.w/2, y=h.y-h.h/2, w=h.w, hh=h.h;
+    const time=state.time;
+    withSafeCutout(h, ()=>{
+      ctx.save();
+      const alpha = warning ? .30 : .70;
+      ctx.globalAlpha = alpha;
+      if(st.type==='fire'){
+        const g=ctx.createLinearGradient(x,y,x,y+hh); g.addColorStop(0,'rgba(251,146,60,.15)'); g.addColorStop(.45,'rgba(239,68,68,.78)'); g.addColorStop(1,'rgba(127,29,29,.65)'); ctx.fillStyle=g; ctx.fillRect(x,y,w,hh);
+        ctx.globalAlpha = warning ? .42 : .95; ctx.strokeStyle=st.c3; ctx.lineWidth=2; for(let i=0;i<Math.max(7,Math.floor(w/70));i++){ const fx=x+((i*79+time*95)%Math.max(80,w)); ctx.beginPath(); ctx.moveTo(fx,y+hh); ctx.quadraticCurveTo(fx+18*Math.sin(time*5+i), y+hh*.52, fx+4*Math.cos(time*4+i), y+hh*.22); ctx.stroke(); }
+      } else if(st.type==='lightning'){
+        ctx.fillStyle='rgba(250,204,21,.42)'; ctx.fillRect(x,y,w,hh); ctx.globalAlpha=warning?.55:1; ctx.strokeStyle=st.c3; ctx.lineWidth=3; for(let i=0;i<Math.max(5,Math.floor(w/110));i++){ let sx=x+((i*137+time*240)%Math.max(120,w)), sy=y+10; ctx.beginPath(); ctx.moveTo(sx,sy); for(let k=0;k<5;k++){ sx += rand(-28,28); sy += hh/5; ctx.lineTo(sx,sy); } ctx.stroke(); }
+      } else if(st.type==='water'){
+        const g=ctx.createLinearGradient(x,y,x+w,y); g.addColorStop(0,'rgba(14,165,233,.25)'); g.addColorStop(.5,'rgba(56,189,248,.75)'); g.addColorStop(1,'rgba(224,242,254,.42)'); ctx.fillStyle=g; ctx.fillRect(x,y,w,hh); ctx.globalAlpha=warning?.50:.92; ctx.strokeStyle=st.c3; ctx.lineWidth=4; for(let i=0;i<4;i++){ ctx.beginPath(); for(let px=x; px<=x+w; px+=34){ const py=y+hh*(.25+i*.18)+Math.sin(px*.022+time*5+i)*10; if(px===x) ctx.moveTo(px,py); else ctx.lineTo(px,py); } ctx.stroke(); }
+      } else if(st.type==='poison'){
+        ctx.fillStyle='rgba(77,124,15,.62)'; ctx.fillRect(x,y,w,hh); ctx.globalAlpha=warning?.35:.75; ctx.fillStyle=st.c3; for(let i=0;i<Math.max(8,Math.floor(w*hh/18000));i++) circle(ctx,x+rand(0,w),y+rand(0,hh),rand(4,10));
+      } else if(st.type==='void'){
+        ctx.fillStyle='rgba(76,29,149,.60)'; ctx.fillRect(x,y,w,hh); ctx.globalAlpha=warning?.45:.85; ctx.strokeStyle=st.c1; ctx.lineWidth=2; for(let i=0;i<5;i++){ ctx.beginPath(); ctx.ellipse(x+w/2,y+hh/2,w*(.15+i*.08),hh*(.10+i*.05),time*.4+i,0,Math.PI*2); ctx.stroke(); }
+      } else {
+        ctx.fillStyle=h.color||st.c1; ctx.fillRect(x,y,w,hh);
+      }
+      ctx.globalAlpha = warning ? .75 : 1; ctx.strokeStyle=warning ? st.c3 : '#ffffff'; ctx.lineWidth=warning ? 2 : 3; ctx.strokeRect(x,y,w,hh);
+      if(h.label){ ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillText(h.label,h.x,h.y+5); }
+      ctx.restore();
+    });
+  }
+
+  drawHazards = function(){
+    state.hazards.forEach(h=>{
+      if(!h) return;
+      normalizeMapwide(h);
+      const warning=h.warn>0;
+      const st=tagStyle(h);
+      ctx.save();
+      const c=h.color||st.c1;
+      if(h.kind==='circle'){
+        ctx.globalAlpha = warning ? .24 : .70; ctx.fillStyle=c; circle(ctx,h.x,h.y,h.r);
+        ctx.globalAlpha = warning ? .85 : 1; ctx.strokeStyle = warning ? '#fff' : c; ctx.lineWidth = warning ? 2 : 4; circleStroke(ctx,h.x,h.y,h.r+Math.sin(state.time*12)*3);
+        if(st.type==='fire' && !warning){ ctx.globalAlpha=.8; ctx.strokeStyle='#fef3c7'; for(let i=0;i<6;i++){ ctx.beginPath(); ctx.arc(h.x,h.y,h.r*(.35+i*.12),state.time+i,state.time+i+.7); ctx.stroke(); } }
+        if(st.type==='lightning' && !warning){ ctx.globalAlpha=.9; ctx.strokeStyle='#fff'; ctx.beginPath(); ctx.moveTo(h.x-h.r*.45,h.y-h.r*.15); ctx.lineTo(h.x,h.y+h.r*.1); ctx.lineTo(h.x-h.r*.12,h.y+h.r*.1); ctx.lineTo(h.x+h.r*.35,h.y+h.r*.45); ctx.stroke(); }
+        if(st.type==='water' && !warning){ ctx.globalAlpha=.8; ctx.strokeStyle='#e0f2fe'; ctx.beginPath(); ctx.arc(h.x,h.y,h.r*.74,Math.sin(state.time)*.8,Math.PI*1.45); ctx.stroke(); }
+        if(h.label){ ctx.fillStyle='#fff'; ctx.font='900 12px system-ui'; ctx.textAlign='center'; ctx.fillText(h.label,h.x,h.y+4); }
+      } else if(h.kind==='donut'){
+        ctx.globalAlpha=warning?.26:.67; ctx.strokeStyle=c; ctx.lineWidth=Math.max(10,h.outer-h.inner); circleStroke(ctx,h.x,h.y,(h.inner+h.outer)/2); ctx.globalAlpha=1; ctx.strokeStyle='#fff'; ctx.lineWidth=2; circleStroke(ctx,h.x,h.y,h.inner); circleStroke(ctx,h.x,h.y,h.outer);
+      } else if(h.kind==='beam' || h.kind==='rotatingBeam'){
+        const ang=h.angle||0; ctx.translate(h.x,h.y); ctx.rotate(ang); ctx.globalAlpha=warning?.30:.78; const grad=ctx.createLinearGradient(-h.len/2,0,h.len/2,0); grad.addColorStop(0,'rgba(255,255,255,.05)'); grad.addColorStop(.5,c); grad.addColorStop(1,'rgba(255,255,255,.05)'); ctx.fillStyle=grad; ctx.fillRect(-h.len/2,-h.w,h.len,h.w*2); ctx.globalAlpha=warning?.80:1; ctx.strokeStyle=warning?'#fff':st.c3; ctx.lineWidth=2; ctx.strokeRect(-h.len/2,-h.w,h.len,h.w*2);
+        if(st.type==='lightning' && !warning){ ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.beginPath(); for(let x=-h.len/2;x<h.len/2;x+=32){ const yy=Math.sin(x*.07+state.time*18)*h.w*.55; if(x===-h.len/2) ctx.moveTo(x,yy); else ctx.lineTo(x,yy); } ctx.stroke(); }
+      } else if(h.kind==='wall' || h.kind==='floor'){
+        drawThemedRect(h, warning, st);
+      } else if(h.kind==='playerStrike'){
+        ctx.globalAlpha=.55; ctx.fillStyle=c; circle(ctx,h.x,h.y,h.r); ctx.globalAlpha=1; ctx.strokeStyle='#fff'; circleStroke(ctx,h.x,h.y,h.r);
+      }
+      ctx.restore();
+    });
+  };
+
+  function cast(text, kind, color, angle){
+    if(typeof v28Cast === 'function') v28Cast(text, kind || 'cast', color || cc(), angle == null ? Math.atan2(player.y-boss.y, player.x-boss.x) : angle, 1.1);
+    else if(typeof v20BossCast === 'function') v20BossCast(text, kind || 'cast', color || cc(), angle == null ? Math.atan2(player.y-boss.y, player.x-boss.x) : angle);
+    else { boss.mechanicText = text; floatText(text,W/2,88,color||cc(),18); }
+  }
+  function push(h){ h.warn=Math.max(h.warn||1.0,.85); h.life=Math.max(h.life||.8,.7); state.hazards.push(h); }
+  function floor(x,y,w,h,warn,color,damage,tag,label,life){ push({kind:'floor',x,y,w,h,warn,life:life||.95,damage,color,tag,label}); }
+  function wall(x,y,w,h,warn,color,damage,tag,label,life){ push({kind:'wall',x,y,w,h,warn,life:life||.92,damage,color,tag,label}); }
+  function circleHaz(x,y,r,warn,color,damage,tag,label,life){ push({kind:'circle',x,y,r,warn,life:life||.82,damage,color,tag,label}); }
+  function beam(x,y,a,len,w,warn,color,damage,tag,label,life){ push({kind:'beam',x,y,angle:a,len,w,warn,life:life||.86,damage,color,tag,label}); }
+  function donut(x,y,inner,outer,warn,color,damage,tag,label,life){ push({kind:'donut',x,y,inner,outer,warn,life:life||.86,damage,color,tag,label}); }
+  function safe(x,y,r,life,color){ state.mechanics.push({kind:'safe',x,y,r,life:Math.max(life||2.5,2.6),color:color||'#86efac'}); }
+  function randomSpots(n, marginX, marginY){ const a=[]; for(let i=0;i<n;i++) a.push({x:rand(marginX||80,W-(marginX||80)), y:rand(marginY||115,H-(marginY||75))}); return a; }
+  function arenaSafeFlood(tag,label,color,damage,warning,style){
+    const safes = style === 'spread' ? [{x:W*.25,y:H*.68},{x:W*.50,y:H*.70},{x:W*.75,y:H*.68}] : [{x:W*.32,y:H*.68},{x:W*.68,y:H*.68}];
+    safes.forEach(s=>safe(s.x,s.y,style==='spread'?54:60,3.0,'#86efac'));
+    floor(W/2,H/2,W*.98,H*.82,Math.max(warning||2.45,2.45),color,damage,tag,label,1.05);
+  }
+
+  const oldBossPatternV34 = bossPattern;
+  bossPattern = function(){
+    if(!alive()) return;
+    const id = boss.id || '';
+    const p = ph();
+    try {
+      if(id==='ember_tyrant'){
+        const a=Math.atan2(player.y-boss.y,player.x-boss.x);
+        if(p>=3 && Math.random()<.38){ cast('화염 폭군: 용암이 전장을 덮습니다. SAFE로 대피하세요!', 'slam', '#fb923c'); arenaSafeFlood('fire','용암대폭발','#ef4444',dmg(1.15),2.55); }
+        else { cast('화염 폭군: 불길을 부채처럼 내뿜습니다. 옆 빈틈으로 파고드세요!', 'beam', '#fb923c', a); for(let i=-6;i<=6;i++) beam(boss.x+Math.cos(a+i*.07)*340,boss.y+Math.sin(a+i*.07)*340,a+i*.07,760,18,1.10+(i+6)*.025,'#fb923c',dmg(.58),'fire','화염숨결'); randomSpots(7,120,135).forEach((q,i)=>circleHaz(q.x,q.y,44,1.05+i*.08,'#ef4444',dmg(.45),'fire','화산탄')); }
+        return;
+      }
+      if(id==='storm_colossus' || id==='magnet_judge'){
+        if(p>=2 && Math.random()<.42){ cast(`${boss.name}: 전류 장판이 켜집니다. 찌릿거리는 칸을 피하세요!`, 'floor', '#fde047'); const cw=W/7,ch=(H-120)/4; const off=Math.floor(state.time)%2; for(let gx=0;gx<7;gx++) for(let gy=0;gy<4;gy++) if((gx+gy+off)%2===0) floor(cw*gx+cw/2,110+ch*gy+ch/2,cw*.78,ch*.68,1.22,'#fde047',dmg(.52),'lightning','전기장판'); }
+        else { cast(`${boss.name}: 낙뢰 피뢰침이 연결됩니다. 전류선 사이 빈틈을 찾으세요!`, 'beam', '#facc15'); const rods=randomSpots(6,110,130); rods.forEach(q=>circleHaz(q.x,q.y,26,.85,'#fde047',dmg(.20),'lightning','피뢰침')); for(let i=0;i<rods.length;i++){ const a=Math.atan2(rods[(i+1)%rods.length].y-rods[i].y,rods[(i+1)%rods.length].x-rods[i].x); beam((rods[i].x+rods[(i+1)%rods.length].x)/2,(rods[i].y+rods[(i+1)%rods.length].y)/2,a,dist(rods[i].x,rods[i].y,rods[(i+1)%rods.length].x,rods[(i+1)%rods.length].y),15,1.2+i*.06,'#facc15',dmg(.48),'lightning','전류선'); } }
+        return;
+      }
+      if(id==='abyss_leviathan'){
+        if(p>=2 && Math.random()<.48){ cast('심해의 레비아탄: 쓰나미가 전장을 덮칩니다. SAFE 해류로 들어가세요!', 'slam', '#38bdf8'); arenaSafeFlood('ice','쓰나미','#0ea5e9',dmg(1.08),2.65,'spread'); }
+        else { cast('심해의 레비아탄: 해일 벽이 줄지어 밀려옵니다. 열린 수로를 찾으세요!', 'wall', '#38bdf8'); const safeRow=Math.floor(Math.random()*4); for(let i=0;i<4;i++) if(i!==safeRow) wall(W/2,145+i*(H-225)/3,W*.95,44,1.25+i*.10,'#38bdf8',dmg(.62),'ice','해일벽'); donut(W/2,H/2,80,290,1.55,'#0ea5e9',dmg(.58),'ice','소용돌이'); }
+        return;
+      }
+      if(id==='solar_dragon' || id==='black_sun'){
+        if(Math.random()<.52){ cast(`${boss.name}: 일식 심판입니다. 안전지대가 먼저 보인 뒤 전장이 불탑니다!`, 'slam', '#facc15'); arenaSafeFlood('solar','일식심판','#fb923c',dmg(1.16),2.65); }
+        else { cast(`${boss.name}: 태양 기둥이 순서대로 내려옵니다. 다음 기둥 위치를 읽으세요!`, 'wall', '#f97316'); for(let i=0;i<8;i++) wall(90+i*(W-180)/7,H/2,30,H*.82,1.05+i*.12,'#f97316',dmg(.54),'solar','태양기둥'); }
+        return;
+      }
+      if(id==='plague_doctor' || id==='hollow_gardener' || id==='thorn_queen'){
+        if(p>=2 && Math.random()<.45){ cast(`${boss.name}: 독성 정원이 번집니다. 초록 장판에 오래 머물지 마세요!`, 'floor', '#84cc16'); randomSpots(12,80,120).forEach((q,i)=>circleHaz(q.x,q.y,42+i%2*12,0.95+i*.055,i%2?'#4ade80':'#84cc16',dmg(.40),'poison','독꽃')); }
+        else { cast(`${boss.name}: 덩굴 벽이 자라납니다. 열린 화단으로 빠져나가세요!`, 'wall', '#22c55e'); const gap=Math.floor(Math.random()*5); for(let i=0;i<5;i++) if(i!==gap) wall(150+i*(W-300)/4,H/2,34,H*.78,1.18,'#22c55e',dmg(.52),'poison','덩굴벽'); }
+        return;
+      }
+      if(id==='gravity_core' || id==='void_serpent'){
+        if(p>=3 && Math.random()<.45){ cast(`${boss.name}: 공간이 접힙니다. SAFE 밖은 공허에 삼켜집니다!`, 'slam', '#a78bfa'); arenaSafeFlood('void','공간붕괴','#4c1d95',dmg(1.04),2.6); }
+        else { cast(`${boss.name}: 중력 고리가 중심으로 끌어당깁니다. 고리 사이를 번갈아 보세요!`, 'cast', '#a78bfa'); state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:295,life:2.8,power:240,color:'#a78bfa'}); donut(W/2,H/2,70,205,1.35,'#a78bfa',dmg(.68),'void','중력고리'); donut(W/2,H/2,245,345,1.75,'#4c1d95',dmg(.74),'void','공허외곽'); }
+        return;
+      }
+    } catch(e) { console.warn('[V34 themed boss override fallback]', e); }
+    return oldBossPatternV34();
+  };
+
+  window.RaidDungeonV34 = {
+    version: V34_VERSION,
+    normalAttackMultiplierApplied: 0.72,
+    hazardDamageMultiplierApplied: 1.95,
+    bossProjectileDamageMultiplierApplied: 1.65,
+    mapwideSafeWarningMinimumSeconds: 2.35,
+    safeCutout: true,
+    themedFloorFx: ['fire','lightning','water/tsunami','poison','void','mirror','metal','blood']
+  };
+})();
+
 })();
