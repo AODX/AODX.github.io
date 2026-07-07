@@ -1921,4 +1921,268 @@
   function circleStroke(c,x,y,r){c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.stroke();}
   function roundRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);c.closePath();c.fill();}
   function polygon(c,x,y,r,n){c.beginPath(); for(let i=0;i<n;i++){const a=-Math.PI/2+i/n*Math.PI*2; const px=x+Math.cos(a)*r, py=y+Math.sin(a)*r; if(i)c.lineTo(px,py); else c.moveTo(px,py);} c.closePath();}
+  /* =========================================================
+     V18 PATCH: weapon balance boost + boss-specific mechanics
+     - Uploaded pattern notes reflected as readable/parryable mechanics
+     - Each boss now has a stronger identity and different gimmick
+  ========================================================= */
+
+  try { applyV18Tuning(); } catch(e) { console.warn('[RaidDungeon V18 tuning failed]', e); }
+
+  function applyV18Tuning(){
+    // V18: 평타가 너무 약하다는 피드백 반영. 스킬을 넘지 않게 하되 보조 딜이 체감되도록 상향.
+    WEAPONS.forEach(w=>{
+      if(w._v18Tuned) return;
+      const k=String(w.kind||'');
+      const ranged = k.includes('staff') || k.includes('bow') || ['gunstaff','scythe','chakram','grimoire'].includes(k);
+      const meleeFast = k==='dagger';
+      const heavy = k==='greatsword' || k==='scythe';
+      const mid = k==='sword' || k==='sword_fire' || k==='pole' || k==='whip';
+      const mul = ranged ? 1.72 : meleeFast ? 2.05 : heavy ? 1.68 : mid ? 2.12 : 1.95;
+      w.atk = Number((w.atk * mul).toFixed(4));
+      // 원거리 무기는 쿨이 너무 짧아지지 않게 유지, 근거리만 살짝 더 쾌적하게.
+      if(!ranged && !heavy) w.speed = Math.max(0.075, w.speed * 0.92);
+      if(ranged) w.speed = Math.max(w.speed, k.includes('bow') ? 0.28 : 0.42);
+      w._v18Tuned = true;
+    });
+
+    // 던전 선택 화면에서도 보스의 정체성이 보이도록 설명/칩 갱신.
+    const notes = {
+      slime_king:['점프 착지', '젤리 장판', '방울 유도'],
+      ember_tyrant:['불씨 설치', '용암 십자', '그을음 안전지대'],
+      thorn_queen:['가시 미로', '독꽃 관리', '꽃봉오리 폭발'],
+      frost_oracle:['빙벽 숨기', '얼음창 줄 피하기', '해동 룬'],
+      sand_reaper:['모래 감속', '낫 원형 베기', '매몰 폭발'],
+      void_serpent:['공허 포탈', '추적 구체', '도넛 균열'],
+      iron_minotaur:['돌진 유도', '구르기 카운터', '갑옷 파괴'],
+      blood_moon:['혈월 표식', '흡혈 칼날', '저체력 광폭'],
+      storm_colossus:['낙뢰 기둥', '전류 격자', '회전 번개 레이저'],
+      plague_doctor:['독안개', '해독 룬', '감염 지대'],
+      mirror_duelist:['진짜 분신 찾기', '반사 레이저', '거울 베기'],
+      gravity_core:['중력 흡입', '도넛 압축', '역중력 탄막'],
+      solar_dragon:['일식 그림자', '태양 광선', '낙하 유성'],
+      chrono_dragon:['시간 감속', '지연 탄막', '되감기 룬'],
+      abyss_leviathan:['파도 장벽', '소용돌이 흡입', '심해 해일'],
+      puppet_emperor:['실 조종', '거짓 안전지대', '단두대 선'],
+      black_sun:['검은 일식', '태양 낙하', '즉사 안전지대'],
+      chaos_archon:['복합 기믹', '무작위 속성', '혼돈 심판']
+    };
+    BOSSES.forEach(b=>{ if(notes[b.id]) b.patterns=notes[b.id]; });
+    if(state && state.screen!=='raid' && typeof renderMenu==='function') setTimeout(()=>{try{renderMenu();}catch(e){}},0);
+  }
+
+  function getBossPatternCooldown(){
+    // V18: 보스가 마구 난사하지 않도록 쿨타임을 조금 늘리고, 후반 보스는 '묵직한 기믹' 위주로 설계.
+    const phaseMul = boss.phase===3 ? .66 : boss.phase===2 ? .82 : 1;
+    const tierBase = Math.max(.72, 3.25 - boss.tier*.17);
+    return tierBase * phaseMul + Math.random()*(.55 - Math.min(.30,boss.tier*.022));
+  }
+
+  function bossPattern(){
+    boss.mechanicText='';
+    const map={
+      slime_king:slimeKingV18,
+      ember_tyrant:emberTyrantV18,
+      thorn_queen:thornQueenV18,
+      frost_oracle:frostOracleV18,
+      sand_reaper:sandReaperV18,
+      void_serpent:voidSerpentV18,
+      iron_minotaur:ironMinotaurV18,
+      blood_moon:bloodMoonV18,
+      storm_colossus:stormColossusV18,
+      plague_doctor:plagueDoctorV18,
+      mirror_duelist:mirrorDuelistV18,
+      gravity_core:gravityCoreV18,
+      solar_dragon:solarDragonV18,
+      chrono_dragon:chronoDragonV18,
+      abyss_leviathan:abyssLeviathanV18,
+      puppet_emperor:puppetEmperorV18,
+      black_sun:blackSunV18,
+      chaos_archon:chaosArchonV18
+    };
+    (map[boss.id] || slimeKingV18)();
+    // 보조 패턴은 너무 많이 겹치지 않게 제한. 최상위도 피할 틈은 유지.
+    if(boss.tier>=6 && Math.random()<.20) setTimeout(()=>secondaryPattern(false),760);
+    if(boss.tier>=9 && boss.phase>=3 && Math.random()<.24) setTimeout(()=>instantKillPattern(),1450);
+  }
+
+  function slimeKingV18(){
+    boss.mechanicText='젤리 왕: 착지 원을 보고 빠진 뒤, 남는 젤리 장판을 밟지 마세요.';
+    warningCircle(player.x,player.y,58+boss.phase*8,.78,'#7ddf64',boss.atk*.75,'',null,'slime');
+    for(let i=0;i<3+boss.phase;i++) setTimeout(()=>{
+      if(!state.raid||boss.dead) return;
+      state.zones.push({x:rand(95,W-95),y:rand(130,H-75),r:42+boss.phase*4,damage:boss.atk*.045,life:2.2,tick:0,color:'#a7f3d0',enemy:true,dot:true});
+    }, i*180);
+    radialBullets(boss.x,boss.y,7+boss.phase*2,120+boss.phase*35,'#dbffb6',boss.atk*.28);
+  }
+
+  function emberTyrantV18(){
+    boss.mechanicText='이그니스: 불씨가 깔린 뒤 십자 화염이 터집니다. 빈 대각선으로 빠지세요.';
+    for(let i=0;i<4+boss.phase;i++) warningCircle(rand(100,W-100),rand(120,H-90),38+boss.phase*5,.90+i*.06,'#fb7185',boss.atk*.72,'',null,'fire');
+    setTimeout(()=>{
+      if(!state.raid||boss.dead) return;
+      const px=player.x, py=player.y;
+      state.hazards.push({kind:'beam',x:px,y:py,angle:0,len:W*1.4,w:26+boss.phase*4,warn:.55,life:.24,damage:boss.atk*.85,color:'#f97316',tag:'fire'});
+      state.hazards.push({kind:'beam',x:px,y:py,angle:Math.PI/2,len:H*1.8,w:26+boss.phase*4,warn:.55,life:.24,damage:boss.atk*.85,color:'#f97316',tag:'fire'});
+    },520);
+    if(boss.phase>=2) state.zones.push({x:boss.x,y:boss.y+85,r:76,damage:boss.atk*.055,life:2.6,tick:0,color:'#ef4444',enemy:true,dot:true});
+  }
+
+  function thornQueenV18(){
+    boss.mechanicText='로제리아: 가시 미로의 빈틈을 찾고 독꽃이 피기 전에 위치를 바꾸세요.';
+    const gapX=rand(210,W-210);
+    for(let i=0;i<7;i++){
+      const x=95+i*(W-190)/6;
+      if(Math.abs(x-gapX)>90) state.hazards.push({kind:'wall',x,y:H/2,w:18,h:H-160,r:0,warn:.75,life:1.05,damage:boss.atk*.65,color:'#22c55e',tag:'poison'});
+    }
+    for(let i=0;i<3+boss.phase;i++) setTimeout(()=>{
+      if(!state.raid||boss.dead) return;
+      const x=rand(100,W-100), y=rand(130,H-80);
+      state.zones.push({x,y,r:48+boss.phase*5,damage:boss.atk*.06,life:2.8,tick:0,color:'#84cc16',enemy:true,dot:true});
+      radialBullets(x,y,8,130,'#f472b6',boss.atk*.22);
+    },i*280);
+  }
+
+  function frostOracleV18(){
+    boss.mechanicText='네이아: 푸른 빙벽 뒤로 숨어 눈보라를 피하고, 얼음창 줄을 읽으세요.';
+    const safeX=rand(135,W-135), safeY=rand(150,H-95), safeR=66;
+    state.mechanics.push({kind:'safe',x:safeX,y:safeY,r:safeR,life:1.65,color:'#93c5fd'});
+    setTimeout(()=>{
+      if(!state.raid||boss.dead) return;
+      if(dist(player.x,player.y,safeX,safeY)>safeR+player.r) hurtPlayer(boss.atk*1.55,'#7dd3fc'); else { breakBoss(.9); healText('빙벽 회피',player.x,player.y-34); }
+      burst(safeX,safeY,'#93c5fd',34,250);
+    },1650);
+    for(let i=-2;i<=2;i++) state.hazards.push({kind:'beam',x:boss.x,y:boss.y,angle:Math.atan2(player.y-boss.y,player.x-boss.x)+i*.20,len:900,w:18,warn:.82+(i+2)*.06,life:.22,damage:boss.atk*.58,color:'#bae6fd',tag:'ice'});
+    if(boss.phase>=2) spawnRune('#a5f3fc','break');
+  }
+
+  function sandReaperV18(){
+    boss.mechanicText='샤하르: 모래폭풍으로 느려진 상태에서 낫 원형 베기와 매몰 원을 피하세요.';
+    player.slow=Math.max(player.slow,1.25+boss.phase*.25);
+    donutPattern(boss.phase>=2);
+    for(let i=0;i<4+boss.phase;i++) warningCircle(rand(90,W-90),rand(120,H-70),34+boss.phase*5,.75+i*.08,'#f59e0b',boss.atk*.62,'',null,'sand');
+    setTimeout(()=>coneBullets(Math.atan2(player.y-boss.y,player.x-boss.x),1.45,9+boss.phase*2,260+boss.phase*20,'#fde68a',boss.atk*.36),550);
+  }
+
+  function voidSerpentV18(){
+    boss.mechanicText='노크스: 포탈 사이의 공허 선을 피하고, 추적 구체를 오래 끌지 마세요.';
+    const p1={x:rand(120,W/2-80),y:rand(140,H-90)}, p2={x:rand(W/2+80,W-120),y:rand(140,H-90)};
+    burst(boss.x,boss.y,'#8b5cf6',26,220); boss.x=rand(130,W-130); boss.y=rand(105,H-210); burst(boss.x,boss.y,'#8b5cf6',36,260);
+    const a=Math.atan2(p2.y-p1.y,p2.x-p1.x), len=dist(p1.x,p1.y,p2.x,p2.y);
+    state.hazards.push({kind:'beam',x:(p1.x+p2.x)/2,y:(p1.y+p2.y)/2,angle:a,len,w:24,warn:1.05,life:.35,damage:boss.atk*1.0,color:'#a78bfa',tag:'void'});
+    state.zones.push({x:player.x,y:player.y,r:56,damage:boss.atk*.055,life:2.1,tick:0,color:'#7c3aed',enemy:true,dot:true});
+    for(let i=0;i<2+boss.phase;i++) homingEnemy('#a78bfa');
+  }
+
+  function ironMinotaurV18(){
+    boss.mechanicText='미노타우로스: 돌진선을 보고 구르기로 통과하면 갑옷이 깨져 BREAK 됩니다.';
+    const a=Math.atan2(player.y-boss.y,player.x-boss.x);
+    state.hazards.push({kind:'beam',x:boss.x,y:boss.y,angle:a,len:980,w:42,warn:1.05,life:.30,damage:boss.atk*1.25,color:'#e5e7eb',tag:'metal',callback:()=>{ if(player.roll>0) breakBoss(1.8); }});
+    setTimeout(()=>{ if(state.raid&&!boss.dead) radialBullets(boss.x,boss.y,12,185,'#94a3b8',boss.atk*.30); },1180);
+    if(boss.phase>=3) crossLaserPattern(false);
+  }
+
+  function bloodMoonV18(){
+    boss.mechanicText='루나: 혈월 표식은 떨어져서 터뜨리고, 저체력 광폭 칼날은 정면을 피하세요.';
+    chaseMarkerPattern(boss.phase>=2);
+    const a=Math.atan2(player.y-boss.y,player.x-boss.x);
+    for(let i=-2;i<=2;i++) state.hazards.push({kind:'beam',x:boss.x,y:boss.y,angle:a+i*.18,len:760,w:18,warn:.68+(i+2)*.07,life:.22,damage:boss.atk*.62,color:'#fb7185',tag:'blood'});
+    if(boss.hp/boss.maxHp<.35) rotatingCurtainPattern(false);
+  }
+
+  function stormColossusV18(){
+    boss.mechanicText='아스트라: 낙뢰 기둥 사이 빈칸을 찾고, 회전 레이저는 방향을 보고 따라 피하세요.';
+    const lanes=5;
+    const safeLane=Math.floor(Math.random()*lanes);
+    for(let i=0;i<lanes;i++){
+      if(i===safeLane) continue;
+      const x=120+i*(W-240)/(lanes-1);
+      state.hazards.push({kind:'beam',x,y:H/2,angle:Math.PI/2,len:H*1.25,w:30,warn:1.0,life:.25,damage:boss.atk*.86,color:'#fde047',tag:'lightning'});
+    }
+    for(let i=0;i<3+boss.phase;i++) warningCircle(rand(90,W-90),rand(120,H-80),27+boss.phase*3,.65+i*.08,'#facc15',boss.atk*.55,'',null,'lightning');
+    if(boss.phase>=2) rotatingLaserSweep(false);
+    if(boss.phase>=3) spawnRune('#fde047','break');
+  }
+
+  function plagueDoctorV18(){
+    boss.mechanicText='모르비드: 독안개 안에서는 버티기 어렵습니다. 해독 룬을 밟아 상태를 풀어야 합니다.';
+    state.zones.push({x:W/2,y:H/2,r:190+boss.phase*20,damage:boss.atk*.065,life:3.2,tick:0,color:'#84cc16',enemy:true,dot:true});
+    spawnRune('#bef264','cleanse');
+    for(let i=0;i<10+boss.phase*2;i++) setTimeout(()=>aimBullet(boss.x,boss.y,player.x+rand(-160,160),player.y+rand(-120,120),235+boss.phase*18,'#bef264',boss.atk*.32,'poison'),i*75);
+    if(boss.phase>=3) safeRuneBombPattern(false);
+  }
+
+  function mirrorDuelistV18(){
+    boss.mechanicText='세렌: 밝게 빛나는 진짜 분신을 찾고, 거울 레이저의 순서를 외워 피하세요.';
+    boss.clones=[]; boss.realIndex=Math.floor(Math.random()*5);
+    for(let i=0;i<5;i++) boss.clones.push({x:170+i*(W-340)/4,y:140+rand(-10,70),real:i===boss.realIndex,life:2.8});
+    staggeredLineStrikes('#f0abfc','mirror');
+    setTimeout(()=>radialBullets(boss.x,boss.y,14+boss.phase*4,190+boss.phase*18,'#e879f9',boss.atk*.32),580);
+    if(boss.phase>=2) crossLaserPattern(false);
+  }
+
+  function gravityCoreV18(){
+    boss.mechanicText='아틀라스: 중심으로 빨려 들어갑니다. 도넛 압축은 안/밖 위치를 번갈아 판단하세요.';
+    state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:300,life:2.8+boss.phase*.25,power:230+boss.phase*25,color:'#818cf8'});
+    donutPattern(true);
+    setTimeout(()=>warningCircle(W/2,H/2,92,1.0,'#818cf8',boss.atk*1.35,'',null,'gravity'),550);
+    if(boss.phase>=2) for(let i=0;i<3;i++) homingEnemy('#c4b5fd');
+  }
+
+  function solarDragonV18(){
+    boss.mechanicText='솔라리온: 일식 그림자 안에서 태양 심판을 피하고, 이후 낙하 유성을 피하세요.';
+    const sx=rand(135,W-135), sy=rand(145,H-95), safeR=62;
+    state.mechanics.push({kind:'safe',x:sx,y:sy,r:safeR,life:1.55,color:'#0f172a'});
+    setTimeout(()=>{ if(!state.raid||boss.dead)return; if(dist(player.x,player.y,sx,sy)>safeR+player.r) hurtPlayer(boss.atk*1.8,'#f97316'); else breakBoss(.9); burst(sx,sy,'#f97316',55,330); },1550);
+    for(let i=0;i<5+boss.phase;i++) warningCircle(rand(90,W-90),rand(110,H-75),34+boss.phase*5,.95+i*.08,'#fb923c',boss.atk*.65,'',null,'fire');
+    if(boss.phase>=3) rotatingLaserSweep(false);
+  }
+
+  function chronoDragonV18(){
+    boss.mechanicText='크로노스: 느려진 상태에서 지연 탄막이 뒤늦게 옵니다. 미리 움직여 공간을 만드세요.';
+    player.slow=Math.max(player.slow,1.6+boss.phase*.25);
+    spawnRune('#f472b6','break');
+    for(let wave=0;wave<4;wave++) setTimeout(()=>radialBullets(boss.x,boss.y,7+boss.phase*2,150+wave*28,'#fef08a',boss.atk*.24,wave*.08),wave*350);
+    setTimeout(()=>crossLaserPattern(false),850);
+    if(boss.phase>=3) safeRuneBombPattern(false);
+  }
+
+  function abyssLeviathanV18(){
+    boss.mechanicText='아비스: 파도 장벽은 빈 틈으로 지나가고, 소용돌이 흡입에 휘말리지 마세요.';
+    const gap=rand(145,H-110);
+    for(let i=0;i<6;i++){
+      const y=110+i*82;
+      if(Math.abs(y-gap)>55) state.hazards.push({kind:'wall',x:W/2,y,w:W*.92,h:22,r:0,warn:.95,life:.36,damage:boss.atk*.78,color:'#38bdf8',tag:'ice'});
+    }
+    state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:230,life:2.2,power:150+boss.phase*20,color:'#38bdf8'});
+    for(let i=0;i<3+boss.phase;i++) homingEnemy('#7dd3fc');
+    if(boss.phase>=3) safeRuneBombPattern(true);
+  }
+
+  function puppetEmperorV18(){
+    boss.mechanicText='마리오네트: 조종 실이 맵을 자릅니다. 거짓 안전지대에 속지 말고 진짜 빈칸을 찾으세요.';
+    for(let i=0;i<4+boss.phase;i++){
+      const vertical=Math.random()<.5;
+      state.hazards.push({kind:'beam',x:vertical?rand(120,W-120):W/2,y:vertical?H/2:rand(125,H-80),angle:vertical?Math.PI/2:0,len:vertical?H*1.4:W*1.3,w:18,warn:.9+i*.08,life:.30,damage:boss.atk*.72,color:'#f0abfc',tag:'mirror'});
+    }
+    // 가짜 안전지대: 보이긴 하지만 실제 판정은 없음. 진짜는 하나만 생성.
+    for(let i=0;i<2;i++) state.mechanics.push({kind:'safe',x:rand(110,W-110),y:rand(135,H-90),r:42,life:.85,color:'#ef4444'});
+    safeRuneBombPattern(true);
+  }
+
+  function blackSunV18(){
+    boss.mechanicText='아포칼립스: 검은 일식은 SAFE 안에서만 생존합니다. 이후 태양 낙하가 이어집니다.';
+    instantKillPattern();
+    setTimeout(()=>{ if(!state.raid||boss.dead)return; for(let i=0;i<7;i++) warningCircle(rand(85,W-85),rand(110,H-70),40+boss.phase*5,.65+i*.07,'#f97316',boss.atk*.78,'',null,'fire'); },700);
+    if(boss.phase>=2) setTimeout(()=>rotatingLaserSweep(false),1150);
+  }
+
+  function chaosArchonV18(){
+    boss.mechanicText='카이로스: 여러 보스의 핵심 기믹이 섞입니다. 먼저 화면의 안내 문구를 읽으세요.';
+    const funcs=[stormColossusV18, gravityCoreV18, mirrorDuelistV18, chronoDragonV18, solarDragonV18, abyssLeviathanV18, puppetEmperorV18];
+    funcs[Math.floor(Math.random()*funcs.length)]();
+    if(boss.phase>=2) setTimeout(()=>secondaryPattern(false),1050);
+    if(boss.phase>=3 && Math.random()<.35) setTimeout(()=>instantKillPattern(),1650);
+  }
+
 })();
