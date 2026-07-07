@@ -5047,4 +5047,471 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
   } catch(e) { window.RaidDungeonV31 = { version: V31_VERSION }; }
 })();
 
+/* =========================================================
+   RAID DUNGEON V32 - TRUE BOSS IDENTITY PATTERN REBUILD
+   - 색만 다른 레이저/원형 패턴을 줄이고 보스별 규칙 자체를 분리
+   - 각 보스마다 테마에 맞는 고유 패턴 3종 이상
+   - 보스 데미지 추가 상향
+========================================================= */
+(function raidDungeonV32TrueBossIdentityPatch(){
+  const V32_VERSION = 'Raid Dungeon V32 - True Boss Identity Pattern Rebuild';
+  try { console.log('[RaidDungeon]', V32_VERSION); } catch(e) {}
+
+  try {
+    BOSSES.forEach(b=>{
+      if(!b._v32AtkBoosted){
+        b.atk = Math.round((b.atk || 12) * 1.23 * 10) / 10;
+        b._v32AtkBoosted = true;
+      }
+    });
+  } catch(e) { console.warn('[V32 atk boost failed]', e); }
+
+  function alive(){ return state && state.raid && boss && !boss.dead && !state.miniGame && !state.pendingMiniGame; }
+  function C(){ return (boss && (boss.color || boss.sub)) || '#93c5fd'; }
+  function S(){ return (boss && (boss.sub || boss.color)) || '#ffffff'; }
+  function T(){ return (boss && (boss.theme || boss.id)) || 'boss'; }
+  function P(){ return boss && boss.phase ? boss.phase : 1; }
+  function D(m){ return (boss && boss.atk ? boss.atk : 12) * m * (P()>=3 ? 1.18 : P()>=2 ? 1.10 : 1); }
+  function say(text, color){ if(boss) boss.mechanicText = text; floatText(text, W/2, 88, color || C(), 18); }
+  function cast(text, kind, color, angle){
+    if(typeof v28Cast === 'function') v28Cast(text, kind || 'cast', color || C(), angle == null ? Math.atan2(player.y-boss.y, player.x-boss.x) : angle, 1.05);
+    else if(typeof v20BossCast === 'function') v20BossCast(text, kind || 'cast', color || C(), angle == null ? Math.atan2(player.y-boss.y, player.x-boss.x) : angle);
+    else say(text, color);
+  }
+  function push(h){ h.warn = Math.max(h.warn || 1.05, .75); h.life = Math.max(h.life || .7, .6); h.v32 = true; state.hazards.push(h); }
+  function circle(x,y,r,warn,color,dmg,tag,label){ push({kind:'circle',x,y,r,warn,life:.82,damage:dmg,color,tag,label}); }
+  function donut(x,y,inner,outer,warn,color,dmg,tag,label){ push({kind:'donut',x,y,inner,outer,warn,life:.86,damage:dmg,color,tag,label}); }
+  function beam(x,y,a,len,w,warn,color,dmg,tag,label){ push({kind:'beam',x,y,angle:a,len,w,warn,life:.86,damage:dmg,color,tag,label}); }
+  function wall(x,y,w,h,warn,color,dmg,tag,label){ push({kind:'wall',x,y,w,h,warn,life:.92,damage:dmg,color,tag,label}); }
+  function floor(x,y,w,h,warn,color,dmg,tag,label){ push({kind:'floor',x,y,w,h,warn,life:.90,damage:dmg,color,tag,label}); }
+  function rot(x,y,a,spin,len,w,warn,color,dmg,tag,label,life){ push({kind:'rotatingBeam',x,y,angle:a,spin,len,w,warn,life:life||2.2,damage:dmg,color,tag,label}); }
+  function bulletTo(x,y,speed,color,dmg,tag,r){ const a=Math.atan2(y-boss.y,x-boss.x); spawnProjectile({owner:'boss',x:boss.x+Math.cos(a)*boss.r*.7,y:boss.y+Math.sin(a)*boss.r*.7,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r:r||8,life:3.2,color,damage:dmg,tag}); }
+  function ringBullets(n,speed,color,dmg,tag,offset){ for(let i=0;i<n;i++){ const a=(i/n)*Math.PI*2+(offset||0); spawnProjectile({owner:'boss',x:boss.x+Math.cos(a)*boss.r*.7,y:boss.y+Math.sin(a)*boss.r*.7,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r:7,life:3,color,damage:dmg,tag}); } }
+  function safe(x,y,r,life,color){ state.mechanics.push({kind:'safe',x,y,r,life:life||2.1,color:color||'#86efac'}); }
+  function add(x,y,color,hp){ state.mechanics.push({kind:'add',x,y,r:25,life:8,hp:hp||120,color:color||C()}); }
+  function gravity(x,y,power,life,color){ state.mechanics.push({kind:'gravity',x,y,r:285,life:life||2.5,power:power||180,color:color||C()}); }
+  function clearBossOffense(){ try { clearEnemyBullets(true); } catch(e) {} state.hazards = []; state.zones = state.zones.filter(z=>z && z.heal && !z.enemy); }
+  function mini(type,line,color){ if(typeof v24QueueMiniGame === 'function'){ boss.mechanicText = line; floatText(line,W/2,88,color||C(),20); v24QueueMiniGame(type); } }
+
+  const Pattern = {
+    slime_king:[
+      function(){ cast('젤리 왕이 통통 튀며 착지합니다. 그림자를 보고 벗어나세요!', 'slam', '#9dfc73'); const pts=[[player.x,player.y],[rand(120,W-120),rand(140,H-90)],[boss.x+rand(-180,180),boss.y+rand(80,220)]]; pts.forEach((p,i)=>circle(p[0],p[1],78-i*8,1.0+i*.28,'#9dfc73',D(.48),'slime','젤리착지')); },
+      function(){ cast('젤리 왕이 분열 방울을 뿌립니다. 방울 사이 빈틈을 찾으세요!', 'burst', '#b6ff8a'); for(let k=0;k<3;k++) setTimeout(()=>ringBullets(10+k*2,145+k*35,'#b6ff8a',D(.14),'slime',k*.18),k*360); },
+      function(){ cast('말랑 웅덩이가 퍼집니다. 오래 밟으면 위험합니다!', 'slam', '#7ee787'); for(let i=0;i<7;i++){ const x=rand(100,W-100), y=rand(130,H-70); circle(x,y,42, .85+i*.05,'#7ee787',D(.25),'slime','웅덩이'); setTimeout(()=>{ if(alive()) state.zones.push({x,y,r:46,damage:D(.018),life:2.4,tick:0,color:'#7ee787',enemy:true,dot:true}); },950+i*50); } }
+    ],
+    ember_tyrant:[
+      function(){ const a=Math.atan2(player.y-boss.y,player.x-boss.x); cast('화염 폭군이 전방으로 불을 내뿜습니다. 보스 옆이나 뒤로 이동하세요!', 'beam', '#ff6b35', a); for(let i=-4;i<=4;i++) beam(boss.x+Math.cos(a+i*.10)*260,boss.y+Math.sin(a+i*.10)*260,a+i*.10,560,24,1.0+(i+4)*.035,'#ff6b35',D(.44),'fire','화염숨결'); },
+      function(){ cast('화산 균열이 맵을 가릅니다. 균열 선에서 벗어나세요!', 'slam', '#ff9f1c'); for(let i=0;i<5;i++){ const a=(i/5)*Math.PI + rand(-.15,.15); beam(W/2,H/2,a,W*1.35,20,1.05+i*.08,'#ff9f1c',D(.48),'fire','화산균열'); } },
+      function(){ cast('불타는 체스판! 빛나는 칸을 피하세요.', 'slam', '#fb923c'); const cw=W/6,ch=(H-110)/4; for(let gx=0;gx<6;gx++) for(let gy=0;gy<4;gy++) if((gx+gy+Math.floor(state.time))%2===0) floor(cw*gx+cw/2,105+ch*gy+ch/2,cw*.82,ch*.76,1.15,'#fb923c',D(.36),'fire','체스판'); }
+    ],
+    thorn_queen:[
+      function(){ cast('가시 여왕이 덩굴 갈고리를 던집니다. 선을 끊듯이 옆으로 피하세요!', 'beam', '#22c55e'); const a=Math.atan2(player.y-boss.y,player.x-boss.x); beam((boss.x+player.x)/2,(boss.y+player.y)/2,a,dist(boss.x,boss.y,player.x,player.y)+240,18,1.05,'#22c55e',D(.35),'poison','덩굴갈고리'); setTimeout(()=>{ if(alive()){ const px=player.x-boss.x,py=player.y-boss.y,side=Math.abs(-px*Math.sin(a)+py*Math.cos(a)),along=px*Math.cos(a)+py*Math.sin(a); if(along>0&&side<50){ player.x=clamp(player.x-Math.cos(a)*150,50,W-50); player.y=clamp(player.y-Math.sin(a)*150,95,H-55); hurtPlayer(D(.22),'#22c55e'); } } },1080); },
+      function(){ cast('독꽃 정원! 꽃이 피는 곳은 독 지대가 됩니다.', 'cast', '#84cc16'); for(let i=0;i<8;i++){ const x=rand(90,W-90),y=rand(125,H-75); circle(x,y,38,1.0+i*.07,'#84cc16',D(.22),'poison','독꽃'); setTimeout(()=>{ if(alive()) state.zones.push({x,y,r:48,damage:D(.018),life:3.0,tick:0,color:'#84cc16',enemy:true,dot:true}); },1100+i*70); } },
+      function(){ cast('가시 울타리가 자라납니다. 열린 통로를 찾으세요.', 'wall', '#4ade80'); const gap=Math.floor(Math.random()*5); for(let i=0;i<5;i++) if(i!==gap) wall(150+i*(W-300)/4,H/2,28,H*.76,1.12,'#4ade80',D(.44),'poison','가시벽'); }
+    ],
+    frost_oracle:[
+      function(){ cast('빙결 예언자가 얼음 감옥을 세웁니다. 막히지 않은 길을 찾으세요!', 'wall', '#7dd3fc'); const gap=Math.floor(Math.random()*6); for(let i=0;i<6;i++) if(i!==gap) wall(100+i*(W-200)/5,H/2,24,H*.78,1.08,'#7dd3fc',D(.42),'ice','얼음감옥'); },
+      function(){ cast('빙창이 위에서 꽂힙니다. 그림자를 보고 이동하세요.', 'slam', '#bae6fd'); for(let i=0;i<10;i++) circle(rand(70,W-70),rand(118,H-80),28+i%2*8,.85+i*.06,'#bae6fd',D(.32),'ice','빙창'); },
+      function(){ cast('얼음 거울이 반사선을 만듭니다. 교차 지점에서 벗어나세요.', 'beam', '#dbeafe'); for(let i=0;i<4;i++){ beam(160+i*(W-320)/3,H/2,Math.PI/2,H*.88,16,1.1+i*.11,'#dbeafe',D(.36),'ice','얼음거울'); beam(W/2,130+i*(H-210)/3,0,W*.90,13,1.24+i*.11,'#93c5fd',D(.28),'ice','반사선'); } }
+    ],
+    sand_reaper:[
+      function(){ cast('모래 늪이 중심으로 끌어당깁니다. 바깥으로 달려 나가세요!', 'cast', '#f59e0b'); gravity(W/2,H/2,190,2.8,'#f59e0b'); donut(W/2,H/2,70,265,1.35,'#f59e0b',D(.58),'sand','모래늪'); },
+      function(){ cast('모래 사신이 낫 돌진을 준비합니다. 옆으로 구르세요!', 'dash', '#fde68a'); const a=Math.atan2(player.y-boss.y,player.x-boss.x); beam((boss.x+player.x)/2,(boss.y+player.y)/2,a,880,30,1.05,'#fde68a',D(.68),'sand','낫돌진'); setTimeout(()=>{ if(alive()){ boss.x=clamp(boss.x+Math.cos(a)*260,80,W-80); boss.y=clamp(boss.y+Math.sin(a)*260,120,H-80); burst(boss.x,boss.y,'#fde68a',28,240); } },1100); },
+      function(){ cast('매몰 지대! 안전한 모래 언덕을 찾아 이동하세요.', 'slam', '#fbbf24'); const safeIdx=Math.floor(Math.random()*4); for(let i=0;i<4;i++){ const x=160+i*(W-320)/3; if(i!==safeIdx) floor(x,H/2,W*.18,H*.78,1.2,'#fbbf24',D(.50),'sand','매몰'); else safe(x,H*.70,52,2.1,'#fde68a'); } }
+    ],
+    void_serpent:[
+      function(){ cast('공허의 뱀이 포탈 절단선을 엽니다. 선 사이 틈을 보세요!', 'beam', '#a78bfa'); const pts=[[80,120,W-90,H-80],[W-90,120,80,H-80],[W/2,90,W/2,H-55]]; pts.forEach((p,i)=>beam((p[0]+p[2])/2,(p[1]+p[3])/2,Math.atan2(p[3]-p[1],p[2]-p[0]),dist(p[0],p[1],p[2],p[3]),18,1.1+i*.18,'#a78bfa',D(.44),'void','공허포탈')); },
+      function(){ cast('공간이 접힙니다. 접힘 원 밖으로 빠져나오세요!', 'slam', '#8b5cf6'); for(let i=0;i<5;i++) donut(rand(130,W-130),rand(145,H-85),32,88,1.05+i*.08,'#8b5cf6',D(.42),'void','공간접힘'); },
+      function(){ cast('공허 뱀이 S자 이동 경로를 남깁니다. 경로를 밟지 마세요!', 'beam', '#c4b5fd'); for(let i=0;i<9;i++){ const x=100+i*(W-200)/8, y=H/2+Math.sin(i*.9)*160; circle(x,y,38,0.95+i*.05,'#c4b5fd',D(.30),'void','뱀이동'); } }
+    ],
+    iron_minotaur:[
+      function(){ cast('철갑 미노타우로스가 돌진합니다. 옆으로 피하면 딜 타이밍입니다!', 'dash', '#cbd5e1'); const a=Math.atan2(player.y-boss.y,player.x-boss.x); beam((boss.x+player.x)/2,(boss.y+player.y)/2,a,900,34,1.08,'#cbd5e1',D(.78),'metal','철갑돌진'); },
+      function(){ cast('모루 강타! 보스 주변 충격파와 바닥 균열을 피하세요.', 'slam', '#f97316'); circle(boss.x,boss.y,170,1.05,'#f97316',D(.62),'metal','모루강타'); for(let i=0;i<8;i++) beam(boss.x,boss.y,i*Math.PI/4,420,14,1.16,'#94a3b8',D(.30),'metal','균열'); },
+      function(){ cast('강철 감옥! 닫히는 벽 사이 빈칸으로 이동하세요.', 'wall', '#94a3b8'); const gap=Math.floor(Math.random()*4); for(let i=0;i<4;i++) if(i!==gap) wall(W/2,150+i*(H-230)/3,W*.90,32,1.18,'#94a3b8',D(.55),'metal','강철벽'); }
+    ],
+    blood_moon:[
+      function(){ cast('피의 표식이 당신 위치에 새겨집니다. 표식을 밖으로 빼세요!', 'cast', '#fb7185'); const x=player.x,y=player.y; circle(x,y,82,1.45,'#fb7185',D(.72),'blood','피의표식'); setTimeout(()=>{ if(alive()) state.zones.push({x,y,r:74,damage:D(.035),life:2.2,tick:0,color:'#fb7185',enemy:true,dot:true}); },1500); },
+      function(){ cast('흡혈 칼날이 부채꼴로 날아옵니다. 틈을 찾으세요!', 'beam', '#ef4444'); const base=Math.atan2(player.y-boss.y,player.x-boss.x); for(let i=-3;i<=3;i++) beam(boss.x+Math.cos(base+i*.19)*320,boss.y+Math.sin(base+i*.19)*320,base+i*.19,620,13,1.0+(i+3)*.06,'#ef4444',D(.36),'blood','흡혈칼날'); },
+      function(){ cast('붉은 달이 차오릅니다. 달 밖의 안전 구역을 찾으세요!', 'slam', '#be123c'); donut(W/2,H/2,150,310,1.55,'#be123c',D(.70),'blood','붉은달'); safe(W*.18,H*.70,48,2.2,'#fecdd3'); safe(W*.82,H*.70,48,2.2,'#fecdd3'); }
+    ],
+    storm_colossus:[
+      function(){ cast('피뢰침이 연결됩니다. 전류 선을 건너지 마세요!', 'beam', '#fde047'); const rods=[]; for(let i=0;i<5;i++) rods.push({x:130+i*(W-260)/4,y:rand(150,H-90)}); rods.forEach(r=>circle(r.x,r.y,24,.8,'#fde047',D(.22),'lightning','피뢰침')); for(let i=0;i<rods.length-1;i++) beam((rods[i].x+rods[i+1].x)/2,(rods[i].y+rods[i+1].y)/2,Math.atan2(rods[i+1].y-rods[i].y,rods[i+1].x-rods[i].x),dist(rods[i].x,rods[i].y,rods[i+1].x,rods[i+1].y),16,1.25,'#fde047',D(.44),'lightning','전류연결'); },
+      function(){ cast('폭풍 회로가 회전합니다. 구르기로 통과할 타이밍을 보세요!', 'beam', '#facc15'); for(let i=0;i<3;i++) rot(W/2,H/2,i*Math.PI/3,i%2?-.95:.95,W*1.25,16,1.15,'#facc15',D(.36),'lightning','폭풍회로',2.5); },
+      function(){ cast('추적 낙뢰! 잠시 후 현재 위치에 번개가 떨어집니다.', 'slam', '#fde047'); for(let i=0;i<7;i++){ setTimeout(()=>{ if(alive()) circle(player.x+rand(-45,45),player.y+rand(-45,45),34,.72,'#fde047',D(.36),'lightning','추적낙뢰'); },i*280); } }
+    ],
+    plague_doctor:[
+      function(){ cast('역병 구름이 퍼집니다. 해독 룬을 활용하세요!', 'cast', '#a3e635'); for(let i=0;i<8;i++){ const x=rand(95,W-95), y=rand(130,H-80); circle(x,y,42,.85+i*.08,'#a3e635',D(.22),'poison','역병구름'); setTimeout(()=>{ if(alive()) state.zones.push({x,y,r:55,damage:D(.018),life:3.4,tick:0,color:'#a3e635',enemy:true,dot:true}); },950+i*80); } state.mechanics.push({kind:'rune',x:rand(120,W-120),y:rand(140,H-90),r:38,life:4.0,action:'cleanse',color:'#bef264'}); },
+      function(){ cast('감염체가 소환됩니다. 빠르게 제거하면 보스가 약화됩니다.', 'cast', '#84cc16'); for(let i=0;i<3+P();i++) add(rand(120,W-120),rand(140,H-90),'#84cc16',90+boss.tier*15); },
+      function(){ cast('역병 수술선! 교차하는 절개선을 피하세요.', 'beam', '#bef264'); for(let i=0;i<6;i++) beam(W/2,H/2,(i*Math.PI/6)+.35,W*1.15,12,1.05+i*.06,'#bef264',D(.34),'poison','수술선'); }
+    ],
+    mirror_duelist:[
+      function(){ cast('거울 분신! 밝은 분신 주변만 안전합니다.', 'cast', '#f0abfc'); const real=Math.floor(Math.random()*4); for(let i=0;i<4;i++){ const x=170+i*(W-340)/3,y=H*.45; if(i===real) safe(x,y,55,2.1,'#d9f99d'); else circle(x,y,60,1.25,'#f0abfc',D(.46),'mirror','가짜분신'); } },
+      function(){ cast('만화경 절단! 대각선 절단선이 순서대로 빛납니다.', 'beam', '#e879f9'); for(let i=0;i<6;i++) beam(W/2,H/2,Math.PI/6+i*Math.PI/6,W*1.25,14,1.0+i*.12,'#e879f9',D(.38),'mirror','만화경'); },
+      function(){ cast('반사탄이 벽을 향해 퍼집니다. 좁은 틈을 찾으세요!', 'burst', '#f0abfc'); ringBullets(18,210,'#f0abfc',D(.16),'mirror',Math.random()); }
+    ],
+    gravity_core:[
+      function(){ cast('중력핵이 끌어당깁니다. 바깥쪽으로 버티세요!', 'cast', '#818cf8'); gravity(W/2,H/2,250,3.0,'#818cf8'); for(let i=0;i<3;i++) donut(W/2,H/2,80+i*72,128+i*72,1.2+i*.25,'#818cf8',D(.40),'gravity','중력파'); },
+      function(){ cast('압축 폭발! 중심부에서 멀어지세요.', 'slam', '#a5b4fc'); circle(W/2,H/2,185,1.55,'#a5b4fc',D(.82),'gravity','압축폭발'); },
+      function(){ cast('궤도 레이저가 공전합니다. 구르기 타이밍을 잡으세요.', 'beam', '#c4b5fd'); for(let i=0;i<4;i++) rot(W/2,H/2,i*Math.PI/4,i%2?.75:-.75,W*1.2,14,1.15,'#c4b5fd',D(.34),'gravity','궤도',2.5); }
+    ],
+    solar_dragon:[
+      function(){ cast('태양룡이 태양 숨결을 내뿜습니다. 넓은 부채꼴을 피하세요!', 'beam', '#facc15'); const a=Math.atan2(player.y-boss.y,player.x-boss.x); for(let i=-5;i<=5;i++) beam(boss.x+Math.cos(a+i*.08)*320,boss.y+Math.sin(a+i*.08)*320,a+i*.08,680,18,1.0+(i+5)*.025,'#facc15',D(.40),'solar','태양숨결'); },
+      function(){ cast('일식 심판! SAFE 외의 모든 곳이 타오릅니다.', 'slam', '#fb923c'); const sx=rand(160,W-160), sy=rand(180,H-110); safe(sx,sy,68,2.3,'#fde68a'); floor(W/2,H/2,W*.96,H*.78,1.6,'#fb923c',D(.92),'solar','일식심판'); },
+      function(){ cast('태양 플레어가 맵을 가릅니다. 광선 사이로 피하세요.', 'beam', '#fdba74'); for(let i=0;i<8;i++) beam(W/2,H/2,i*Math.PI/4,W*1.2,13,1.05+i*.05,'#fdba74',D(.32),'solar','플레어'); }
+    ],
+    chrono_dragon:[
+      function(){ cast('시계바늘이 회전합니다. 바늘 방향을 보고 이동하세요!', 'beam', '#f472b6'); for(let i=0;i<3;i++) rot(W/2,H/2,i*Math.PI*2/3,.85,W*1.1,13,1.1,'#f472b6',D(.32),'chrono','시계바늘',2.35); },
+      function(){ cast('시간폭탄이 과거 위치에 생성됩니다. 방금 지나온 자리를 피하세요.', 'slam', '#fef08a'); const spots = state._v32Trail || [{x:player.x,y:player.y}]; spots.slice(-6).forEach((p,i)=>circle(p.x,p.y,42,1.0+i*.10,'#fef08a',D(.36),'chrono','시간폭탄')); },
+      function(){ cast('예언 퀴즈가 시작됩니다. 정답 원을 밟으세요!', 'cast', '#fef08a'); mini('quiz', `${boss.name}가 시간의 질문을 던집니다! 정답 원을 밟으세요.`, '#fef08a'); }
+    ],
+    abyss_leviathan:[
+      function(){ cast('심해 해일이 줄지어 밀려옵니다. 빈 수로로 이동하세요!', 'wall', '#38bdf8'); const safeRow=Math.floor(Math.random()*4); for(let i=0;i<4;i++) if(i!==safeRow) wall(W/2,145+i*(H-220)/3,W*.92,36,1.08+i*.08,'#38bdf8',D(.48),'ice','해일벽'); },
+      function(){ cast('소용돌이가 끌어당깁니다. 바깥으로 빠져나가세요!', 'cast', '#0ea5e9'); gravity(W/2,H/2,210,2.8,'#0ea5e9'); donut(W/2,H/2,90,280,1.3,'#0ea5e9',D(.55),'ice','소용돌이'); },
+      function(){ cast('심해 촉수가 끌어당깁니다. 촉수선을 피하세요!', 'beam', '#7dd3fc'); for(let i=0;i<4;i++){ const x=120+i*(W-240)/3; beam((x+player.x)/2,(H+player.y)/2,Math.atan2(player.y-H,x-player.x),dist(x,H,player.x,player.y)+120,16,1.0+i*.12,'#7dd3fc',D(.36),'ice','촉수'); } }
+    ],
+    puppet_emperor:[
+      function(){ cast('실 조종선! 얇은 실에 닿으면 묶입니다.', 'beam', '#f0abfc'); for(let i=0;i<7;i++) beam(100+i*(W-200)/6,H/2,Math.PI/2,H*.9,10,1.0+i*.07,'#f0abfc',D(.30),'mirror','실'); },
+      function(){ cast('인형 갈고리! 선에서 벗어나지 못하면 끌려갑니다.', 'beam', '#fde68a'); const a=Math.atan2(player.y-boss.y,player.x-boss.x); beam((boss.x+player.x)/2,(boss.y+player.y)/2,a,dist(boss.x,boss.y,player.x,player.y)+260,16,1.1,'#fde68a',D(.32),'mirror','갈고리'); },
+      function(){ cast('단두대 줄이 내려옵니다. 줄 사이 빈칸으로 이동하세요!', 'wall', '#fca5a5'); const safe=Math.floor(Math.random()*5); for(let i=0;i<5;i++) if(i!==safe) wall(130+i*(W-260)/4,H/2,30,H*.82,1.18,'#fca5a5',D(.52),'mirror','단두대'); }
+    ],
+    black_sun:[
+      function(){ cast('검은 일식! SAFE가 아닌 곳은 전부 타오릅니다.', 'slam', '#f97316'); const safeCount=2; for(let i=0;i<safeCount;i++) safe(220+i*(W-440)/(safeCount-1),H*.70,62,2.4,'#fde68a'); floor(W/2,H/2,W*.96,H*.80,1.7,'#f97316',D(.95),'solar','검은일식'); },
+      function(){ cast('무너지는 바닥! 금 간 칸을 보고 이동하세요.', 'slam', '#fb923c'); const cw=W/7,ch=(H-110)/4; for(let i=0;i<14;i++){ const gx=Math.floor(Math.random()*7), gy=Math.floor(Math.random()*4); floor(cw*gx+cw/2,110+ch*gy+ch/2,cw*.82,ch*.72,1.05+i*.035,'#fb923c',D(.38),'solar','붕괴'); } },
+      function(){ cast('태양 심판! 큰 태양탄이 순서대로 떨어집니다.', 'slam', '#facc15'); for(let i=0;i<5;i++) circle(rand(120,W-120),rand(135,H-85),70,1.05+i*.25,'#facc15',D(.56),'solar','태양심판'); }
+    ],
+    chaos_archon:[
+      function(){ cast('혼돈 재판! 색과 모양이 다른 공격이 섞입니다.', 'cast', '#fb7185'); circle(rand(120,W-120),rand(130,H-80),82,1.1,'#fb7185',D(.48),'chaos','혼돈원'); donut(rand(160,W-160),rand(150,H-110),45,130,1.25,'#a78bfa',D(.50),'chaos','혼돈도넛'); beam(W/2,H/2,rand(0,Math.PI),W*1.1,18,1.35,'#facc15',D(.46),'chaos','혼돈선'); },
+      function(){ cast('가짜 SAFE! 진짜 빛나는 SAFE만 밟으세요.', 'cast', '#c084fc'); const real=Math.floor(Math.random()*3); for(let i=0;i<3;i++){ const x=260+i*(W-520)/2,y=H*.68; if(i===real) safe(x,y,58,2.1,'#86efac'); else state.mechanics.push({kind:'safe',x,y,r:58,life:2.1,color:'#fb7185',fake:true}); } floor(W/2,H/2,W*.96,H*.78,1.55,'#7c3aed',D(.78),'chaos','가짜SAFE'); },
+      function(){ cast('무작위 보스 기믹을 섞습니다. 빠르게 규칙을 읽으세요!', 'cast', '#fb7185'); const f=[Pattern.storm_colossus[0],Pattern.thorn_queen[1],Pattern.gravity_core[0],Pattern.mirror_duelist[0],Pattern.ember_tyrant[1]]; f[Math.floor(Math.random()*f.length)](); }
+    ],
+    crimson_train:[
+      function(){ cast('진홍 열차가 레일을 점화합니다. 빈 레일로 이동하세요!', 'wall', '#fb7185'); const safeRow=Math.floor(Math.random()*4); for(let i=0;i<4;i++) if(i!==safeRow) wall(W/2,145+i*(H-225)/3,W*.94,42,1.1+i*.08,'#fb7185',D(.54),'metal','급행레일'); },
+      function(){ cast('선로 전환! 곧 방향이 바뀌는 교차 레일이 지나갑니다.', 'beam', '#fbbf24'); for(let i=0;i<5;i++) beam(W/2,H/2,(i%2?Math.PI/5:-Math.PI/5)+i*.15,W*1.2,20,1.1+i*.12,'#fbbf24',D(.40),'metal','선로전환'); },
+      function(){ cast('차륜 폭발! 레일 끝에서 폭발이 이어집니다.', 'slam', '#ef4444'); for(let i=0;i<8;i++) circle(90+i*(W-180)/7,rand(130,H-80),38,0.9+i*.10,'#ef4444',D(.34),'metal','차륜'); }
+    ],
+    oracle_cube:[
+      function(){ cast('예언 큐브가 블록을 예고합니다. 막히는 칸을 피하세요.', 'floor', '#93c5fd'); const cw=W/6,ch=(H-120)/4; for(let gx=0;gx<6;gx++) for(let gy=0;gy<4;gy++) if(Math.random()<.45) floor(cw*gx+cw/2,110+ch*gy+ch/2,cw*.72,ch*.65,1.15,'#93c5fd',D(.34),'mirror','예언블록'); },
+      function(){ cast('큐브 절단! 수직/수평 절단이 교차합니다.', 'beam', '#a78bfa'); for(let i=0;i<4;i++){ wall(160+i*(W-320)/3,H/2,22,H*.86,1.0+i*.11,'#a78bfa',D(.38),'mirror','큐브절단'); wall(W/2,150+i*(H-230)/3,W*.88,20,1.16+i*.11,'#93c5fd',D(.34),'mirror','큐브절단'); } },
+      function(){ cast('예언 퀴즈! 정답 원을 밟아 큐브를 멈추세요.', 'cast', '#93c5fd'); mini('quiz', `${boss.name}가 예언 문제를 냅니다! 정답 원을 밟으세요.`, '#93c5fd'); }
+    ],
+    hollow_gardener:[
+      function(){ cast('공허 정원사가 뿌리를 뻗습니다. 자라나는 선을 피하세요!', 'beam', '#4ade80'); for(let i=0;i<7;i++){ const a=-Math.PI/2+i*Math.PI/6; beam(boss.x,boss.y,a,520,18,1.0+i*.06,'#4ade80',D(.34),'poison','공허뿌리'); } },
+      function(){ cast('공허꽃이 피어납니다. 보라색 꽃은 폭발합니다.', 'slam', '#a78bfa'); for(let i=0;i<8;i++) circle(rand(90,W-90),rand(125,H-80),42,1.0+i*.08,i%2?'#a78bfa':'#4ade80',D(.36),'poison','공허꽃'); },
+      function(){ cast('정원 미궁! 벽 사이 길을 찾아 탈출하세요.', 'cast', '#a78bfa'); mini('maze', `${boss.name}가 공허 정원 미궁을 엽니다!`, '#a78bfa'); }
+    ],
+    magnet_judge:[
+      function(){ cast('극성 반전! N/S 전류선 사이에서 위치를 조절하세요.', 'beam', '#60a5fa'); for(let i=0;i<6;i++){ const x=100+i*(W-200)/5; beam(x,H/2,Math.PI/2,H*.86,14,1.0+i*.07,i%2?'#fb7185':'#60a5fa',D(.36),'lightning','극성선'); } },
+      function(){ cast('자석 재판관이 끌어당깁니다. 반대 방향으로 도망치세요!', 'cast', '#60a5fa'); gravity(W/2,H/2,260,2.5,'#60a5fa'); circle(W/2,H/2,125,1.45,'#fb7185',D(.62),'lightning','자기압축'); },
+      function(){ cast('금속 파편이 극성에 따라 날아옵니다.', 'burst', '#93c5fd'); for(let i=0;i<16;i++) setTimeout(()=>bulletTo(rand(60,W-60),rand(100,H-60),300,'#93c5fd',D(.14),'lightning',6),i*65); }
+    ],
+    dream_jester:[
+      function(){ cast('악몽 광대가 야바위를 시작합니다. 처음 빛난 컵을 찾으세요!', 'cast', '#f472b6'); mini('shell', `${boss.name}가 야바위 환상을 시작합니다! 처음 빛난 컵을 찾으세요.`, '#f472b6'); },
+      function(){ cast('악몽 폭죽! 폭죽 궤적과 착탄 지점을 모두 피하세요.', 'burst', '#fde047'); for(let i=0;i<12;i++){ const x=rand(100,W-100),y=rand(130,H-80); bulletTo(x,y,250,'#fde047',D(.12),'chaos',6); circle(x,y,34,1.0+i*.04,'#f472b6',D(.30),'chaos','폭죽'); } },
+      function(){ cast('가짜 SAFE가 섞였습니다. 진짜 SAFE만 밟으세요!', 'cast', '#f472b6'); const real=Math.floor(Math.random()*4); for(let i=0;i<4;i++){ const x=180+i*(W-360)/3,y=H*.67; if(i===real) safe(x,y,54,2.1,'#86efac'); else state.mechanics.push({kind:'safe',x,y,r:54,life:2.1,color:'#fb7185',fake:true}); } floor(W/2,H/2,W*.92,H*.78,1.5,'#f472b6',D(.70),'chaos','가짜무대'); }
+    ]
+  };
+  Pattern.prophecy_cube = Pattern.oracle_cube;
+  Pattern.void_gardener = Pattern.hollow_gardener;
+  Pattern.nightmare_jester = Pattern.dream_jester;
+
+  const V32_LABELS = {
+    slime_king:['젤리 착지','분열 방울','말랑 웅덩이'], ember_tyrant:['화염 숨결','화산 균열','불타는 체스판'], thorn_queen:['덩굴 갈고리','독꽃 정원','가시 울타리'], frost_oracle:['얼음 감옥','빙창 낙하','얼음 거울'], sand_reaper:['모래 늪','낫 돌진','매몰 지대'], void_serpent:['포탈 절단','공간 접힘','공허 뱀길'], iron_minotaur:['철갑 돌진','모루 강타','강철 감옥'], blood_moon:['피의 표식','흡혈 칼날','붉은 달'], storm_colossus:['피뢰침 연결','폭풍 회로','추적 낙뢰'], plague_doctor:['역병 구름','감염체 소환','역병 수술선'], mirror_duelist:['진짜 분신','만화경 절단','반사탄'], gravity_core:['중력 흡입','압축 폭발','궤도 레이저'], solar_dragon:['태양 숨결','일식 심판','태양 플레어'], chrono_dragon:['시계바늘','시간폭탄','예언 퀴즈'], abyss_leviathan:['해일 벽','소용돌이','심해 촉수'], puppet_emperor:['실 조종선','인형 갈고리','단두대 줄'], black_sun:['검은 일식','붕괴 바닥','태양 심판'], chaos_archon:['혼돈 재판','가짜 SAFE','무작위 기믹'], crimson_train:['급행 레일','선로 전환','차륜 폭발'], oracle_cube:['예언 블록','큐브 절단','예언 퀴즈'], prophecy_cube:['예언 블록','큐브 절단','예언 퀴즈'], hollow_gardener:['공허 뿌리','공허꽃','정원 미궁'], void_gardener:['공허 뿌리','공허꽃','정원 미궁'], magnet_judge:['극성선','자기압축','금속 파편'], dream_jester:['야바위 쇼','악몽 폭죽','가짜 SAFE'], nightmare_jester:['야바위 쇼','악몽 폭죽','가짜 SAFE']
+  };
+  try { BOSSES.forEach(b=>{ if(V32_LABELS[b.id]) b.patterns = V32_LABELS[b.id]; }); } catch(e) {}
+
+  const oldBossPatternV32 = bossPattern;
+  bossPattern = function(){
+    if(!alive()) return;
+    const list = Pattern[boss.id];
+    if(!list || !list.length) return oldBossPatternV32();
+    boss._v32Index = ((boss._v32Index || 0) + 1);
+    const idx = (boss._v32Index - 1 + Math.max(0,P()-1)) % list.length;
+    try { list[idx](); }
+    catch(e){ console.warn('[V32 distinct boss pattern fallback]', e); oldBossPatternV32(); }
+    // 3페이즈 고등급 보스는 동일 패턴을 겹치는 대신, 테마 보조 공격을 아주 약하게 추가한다.
+    if(boss.tier >= 8 && P() >= 3 && Math.random() < .12){
+      setTimeout(()=>{ if(alive()) circle(rand(90,W-90),rand(125,H-80),34, .75, S(), D(.24), T(), '분노잔상'); }, 900);
+    }
+  };
+
+  // 시간폭탄용 플레이어 잔상 기록
+  const oldUpdateV32 = update;
+  update = function(dt){
+    if(state && state.raid && player){
+      state._v32Trail = state._v32Trail || [];
+      state._v32Trail.push({x:player.x,y:player.y});
+      if(state._v32Trail.length > 24) state._v32Trail.shift();
+    }
+    oldUpdateV32(dt);
+  };
+
+  window.RaidDungeonV32 = { version: V32_VERSION, bosses: Object.keys(Pattern).length };
+})();
+
+/* =========================================================
+   RAID DUNGEON V33 - HIGH TIER PATTERN EXPANSION / TRUE DISTINCT RAID RULES
+   - higher tier bosses have more unique pattern entries
+   - boss damage increased again
+   - V32 similar-feeling rotations are overridden
+========================================================= */
+(function raidDungeonV33HighTierPatternExpansion(){
+  const V33_VERSION = 'Raid Dungeon V33 - High Tier Pattern Expansion / Checked';
+  try { console.log('[RaidDungeon]', V33_VERSION); } catch(e) {}
+
+  function alive(){ return state && state.raid && boss && !boss.dead && !state.miniGame && !state.pendingMiniGame; }
+  function ph(){ return boss && boss.phase ? boss.phase : 1; }
+  function cc(){ return (boss && boss.color) || '#93c5fd'; }
+  function ss(){ return (boss && boss.sub) || cc(); }
+  function th(){ return (boss && boss.theme) || 'boss'; }
+  function dmg(m){ return ((boss && boss.atk) || 16) * m * (ph() >= 3 ? 1.28 : ph() >= 2 ? 1.16 : 1); }
+  function cast(text, kind, color, angle){
+    if(typeof v28Cast === 'function') v28Cast(text, kind || 'cast', color || cc(), angle == null ? Math.atan2(player.y-boss.y, player.x-boss.x) : angle, 1.18);
+    else if(typeof v20BossCast === 'function') v20BossCast(text, kind || 'cast', color || cc(), angle == null ? Math.atan2(player.y-boss.y, player.x-boss.x) : angle);
+    else { boss.mechanicText = text; floatText(text, W/2, 84, color || cc(), 18); }
+  }
+  function push(h){ h.warn = Math.max(h.warn || 1.0, .70); h.life = Math.max(h.life || .68, .55); h.v33 = true; state.hazards.push(h); }
+  function circle(x,y,r,warn,color,damage,tag,label,life){ push({kind:'circle',x,y,r,warn,life:life||.86,damage,color,tag,label}); }
+  function donut(x,y,inner,outer,warn,color,damage,tag,label,life){ push({kind:'donut',x,y,inner,outer,warn,life:life||.92,damage,color,tag,label}); }
+  function beam(x,y,a,len,w,warn,color,damage,tag,label,life){ push({kind:'beam',x,y,angle:a,len,w,warn,life:life||.86,damage,color,tag,label}); }
+  function wall(x,y,w,h,warn,color,damage,tag,label,life){ push({kind:'wall',x,y,w,h,warn,life:life||.94,damage,color,tag,label}); }
+  function floor(x,y,w,h,warn,color,damage,tag,label,life){ push({kind:'floor',x,y,w,h,warn,life:life||.90,damage,color,tag,label}); }
+  function rot(x,y,a,spin,len,w,warn,color,damage,tag,label,life){ push({kind:'rotatingBeam',x,y,angle:a,spin,len,w,warn,life:life||2.25,damage,color,tag,label}); }
+  function proj(x,y,vx,vy,r,color,damage,tag,life){ spawnProjectile({owner:'boss',x,y,vx,vy,r:r||7,life:life||3,color,damage,tag}); }
+  function radial(n,speed,color,damage,tag,offset,r){ for(let i=0;i<n;i++){ const a=(i/n)*Math.PI*2+(offset||0); proj(boss.x+Math.cos(a)*boss.r*.8,boss.y+Math.sin(a)*boss.r*.8,Math.cos(a)*speed,Math.sin(a)*speed,r||7,color,damage,tag,3.2); } }
+  function aimed(speed,color,damage,tag,r,fromX,fromY){ const x=fromX==null?boss.x:fromX, y=fromY==null?boss.y:fromY; const a=Math.atan2(player.y-y,player.x-x); proj(x,y,Math.cos(a)*speed,Math.sin(a)*speed,r||8,color,damage,tag,3.1); }
+  function zone(x,y,r,damage,color,life){ state.zones.push({x,y,r,damage,life:life||2.8,tick:0,color,enemy:true,dot:true}); }
+  function safe(x,y,r,life,color){ state.mechanics.push({kind:'safe',x,y,r,life:life||2.2,color:color||'#86efac'}); }
+  function add(x,y,color,hp){ state.mechanics.push({kind:'add',x,y,r:24,life:8.5,hp:hp||130,color:color||cc()}); }
+  function gravity(x,y,power,life,color){ state.mechanics.push({kind:'gravity',x,y,r:295,life:life||2.6,power:power||190,color:color||cc()}); }
+  function mini(type,line,color){ if(typeof v24QueueMiniGame === 'function'){ boss.mechanicText = line; floatText(line,W/2,88,color||cc(),20); v24QueueMiniGame(type); } }
+  function ppos(){ return {x: player.x, y: player.y}; }
+  function randomSpots(n, marginX, marginY){ const a=[]; for(let i=0;i<n;i++) a.push({x:rand(marginX||90,W-(marginX||90)), y:rand(marginY||120,H-(marginY||70))}); return a; }
+
+  try { BOSSES.forEach(b=>{ if(!b._v33AtkBoosted){ b.atk = Math.round((b.atk || 14) * 1.32 * 10) / 10; b._v33AtkBoosted = true; } }); } catch(e) {}
+
+  const V33_PATTERNS = {
+    slime_king:[
+      {n:'왕관 점프 착지',p:1,f(){ cast('젤리 왕이 왕관 그림자로 착지합니다. 그림자 밖으로 피하세요!', 'slam', '#9dfc73'); [[player.x,player.y],...randomSpots(2,140,150)].forEach((q,i)=>circle(q.x,q.y,86-i*10,1+i*.24,'#9dfc73',dmg(.45),'slime','왕관착지')); }},
+      {n:'분열 젤리 방울',p:1,f(){ cast('분열 젤리 방울이 두 번 터집니다. 방울 사이를 통과하세요!', 'burst', '#b6ff8a'); for(let k=0;k<2;k++) setTimeout(()=>radial(10+k*5,135+k*40,'#b6ff8a',dmg(.16),'slime',k*.22,7),k*420); }},
+      {n:'말랑 늪 확산',p:1,f(){ cast('말랑 늪이 퍼집니다. 오래 밟으면 녹아내립니다!', 'slam', '#7ee787'); randomSpots(7,95,130).forEach((q,i)=>{ circle(q.x,q.y,38,0.85+i*.06,'#7ee787',dmg(.22),'slime','말랑늪'); setTimeout(()=>{ if(alive()) zone(q.x,q.y,45,dmg(.018),'#7ee787',2.4); },920+i*50); }); }},
+      {n:'젤리 탄성 벽',p:1,f(){ cast('탄성 젤리 벽이 튕겨 나옵니다. 벽 사이 틈을 찾으세요!', 'wall', '#bbf7d0'); const gap=Math.floor(Math.random()*5); for(let i=0;i<5;i++) if(i!==gap) wall(150+i*(W-300)/4,H/2,34,H*.68,1.05,'#bbf7d0',dmg(.36),'slime','탄성벽'); }}
+    ],
+    ember_tyrant:[
+      {n:'전방 화염 숨결',p:1,f(){ const a=Math.atan2(player.y-boss.y,player.x-boss.x); cast('화염 폭군이 전방 화염 숨결을 뿜습니다. 옆으로 파고드세요!', 'beam', '#ff6b35', a); for(let i=-5;i<=5;i++) beam(boss.x+Math.cos(a+i*.09)*285,boss.y+Math.sin(a+i*.09)*285,a+i*.09,600,24,0.95+(i+5)*.03,'#ff6b35',dmg(.48),'fire','화염숨결'); }},
+      {n:'용암 균열 별모양',p:1,f(){ cast('용암 균열이 별모양으로 갈라집니다. 선을 밟지 마세요!', 'slam', '#ff9f1c'); for(let i=0;i<7;i++) beam(W/2,H/2,i*Math.PI/7+rand(-.08,.08),W*1.35,20,1.05+i*.05,'#ff9f1c',dmg(.48),'fire','용암균열'); }},
+      {n:'화산탄 낙하',p:1,f(){ cast('화산탄이 넓게 떨어집니다. 착탄 그림자를 보고 움직이세요!', 'slam', '#fb923c'); randomSpots(11,80,125).forEach((q,i)=>circle(q.x,q.y,42+i%3*7,.82+i*.05,'#fb923c',dmg(.34),'fire','화산탄')); }},
+      {n:'불타는 체스판',p:1,f(){ cast('불타는 체스판! 다음 색 칸이 타오릅니다.', 'floor', '#fdba74'); const cw=W/7,ch=(H-115)/4, flip=Math.floor(state.time)%2; for(let gx=0;gx<7;gx++) for(let gy=0;gy<4;gy++) if((gx+gy+flip)%2===0) floor(cw*gx+cw/2,110+ch*gy+ch/2,cw*.82,ch*.72,1.12,'#fdba74',dmg(.34),'fire','체스판'); }}
+    ],
+    thorn_queen:[
+      {n:'덩굴 갈고리 끌기',p:1,f(){ const a=Math.atan2(player.y-boss.y,player.x-boss.x); cast('가시 여왕이 덩굴 갈고리를 던집니다. 선 밖으로 벗어나세요!', 'beam', '#22c55e',a); beam((boss.x+player.x)/2,(boss.y+player.y)/2,a,dist(boss.x,boss.y,player.x,player.y)+260,18,1.0,'#22c55e',dmg(.38),'poison','덩굴갈고리'); setTimeout(()=>{ if(alive()){ const px=player.x-boss.x,py=player.y-boss.y,side=Math.abs(-px*Math.sin(a)+py*Math.cos(a)),along=px*Math.cos(a)+py*Math.sin(a); if(along>0&&side<54){ player.x=clamp(player.x-Math.cos(a)*170,50,W-50); player.y=clamp(player.y-Math.sin(a)*170,95,H-55); hurtPlayer(dmg(.26),'#22c55e'); } } },1050); }},
+      {n:'독꽃 정원 개화',p:1,f(){ cast('독꽃 정원이 피어납니다. 피어난 꽃은 독지대로 남습니다!', 'cast', '#84cc16'); randomSpots(9,90,125).forEach((q,i)=>{ circle(q.x,q.y,38,0.9+i*.06,'#84cc16',dmg(.22),'poison','독꽃'); setTimeout(()=>{ if(alive()) zone(q.x,q.y,47,dmg(.02),'#84cc16',3.0); },950+i*55); }); }},
+      {n:'가시 울타리 통로',p:1,f(){ cast('가시 울타리가 자라납니다. 열린 통로로 이동하세요.', 'wall', '#4ade80'); const gap=Math.floor(Math.random()*5); for(let i=0;i<5;i++) if(i!==gap) wall(150+i*(W-300)/4,H/2,28,H*.78,1.08,'#4ade80',dmg(.44),'poison','가시울타리'); }},
+      {n:'장미 꽃잎 회오리',p:2,f(){ cast('장미 꽃잎 회오리! 꽃잎이 원형으로 퍼집니다.', 'burst', '#f472b6'); for(let k=0;k<3;k++) setTimeout(()=>radial(14,120+k*45,'#f472b6',dmg(.15),'poison',k*.35,6),k*320); }},
+      {n:'뿌리 감옥 십자',p:2,f(){ cast('뿌리 감옥이 십자로 닫힙니다. 사각 모서리로 빠지세요!', 'wall', '#15803d'); wall(W/2,H/2,W*.82,26,1.15,'#15803d',dmg(.42),'poison','뿌리감옥'); wall(W/2,H/2,26,H*.72,1.15,'#15803d',dmg(.42),'poison','뿌리감옥'); }}
+    ],
+    frost_oracle:[
+      {n:'얼음 감옥 통로',p:1,f(){ cast('얼음 감옥이 세워집니다. 막히지 않은 길을 찾으세요!', 'wall', '#7dd3fc'); const gap=Math.floor(Math.random()*6); for(let i=0;i<6;i++) if(i!==gap) wall(100+i*(W-200)/5,H/2,24,H*.78,1.05,'#7dd3fc',dmg(.42),'ice','얼음감옥'); }},
+      {n:'빙창 낙하',p:1,f(){ cast('빙창이 위에서 꽂힙니다. 작은 그림자가 먼저 보입니다.', 'slam', '#bae6fd'); randomSpots(12,70,120).forEach((q,i)=>circle(q.x,q.y,28+i%3*6,.82+i*.05,'#bae6fd',dmg(.32),'ice','빙창')); }},
+      {n:'얼음 거울 반사',p:1,f(){ cast('얼음 거울이 반사선을 만듭니다. 교차 지점을 피하세요.', 'beam', '#dbeafe'); for(let i=0;i<4;i++){ beam(160+i*(W-320)/3,H/2,Math.PI/2,H*.88,16,1.1+i*.11,'#dbeafe',dmg(.36),'ice','얼음거울'); beam(W/2,130+i*(H-210)/3,0,W*.90,13,1.24+i*.11,'#93c5fd',dmg(.30),'ice','반사선'); } }},
+      {n:'눈보라 차선',p:2,f(){ cast('눈보라 차선! 바람이 비어 있는 차선으로 이동하세요.', 'wall', '#a5f3fc'); const safeLane=Math.floor(Math.random()*4); for(let i=0;i<4;i++) if(i!==safeLane) wall(W/2,145+i*(H-225)/3,W*.92,42,1.05+i*.06,'#a5f3fc',dmg(.45),'ice','눈보라'); }},
+      {n:'서리 미궁 예고',p:2,f(){ cast('서리 미궁! 제한 시간 안에 미로를 탈출하세요.', 'cast', '#bfdbfe'); mini('maze', `${boss.name}가 서리 미궁을 시작합니다!`, '#bfdbfe'); }}
+    ],
+    sand_reaper:[
+      {n:'모래 늪 흡입',p:1,f(){ cast('모래 늪이 중심으로 끌어당깁니다. 바깥으로 달려 나가세요!', 'cast', '#f59e0b'); gravity(W/2,H/2,205,2.8,'#f59e0b'); donut(W/2,H/2,75,280,1.28,'#f59e0b',dmg(.58),'sand','모래늪'); }},
+      {n:'낫 돌진 절단',p:1,f(){ const a=Math.atan2(player.y-boss.y,player.x-boss.x); cast('모래 사신이 낫 돌진을 준비합니다. 옆으로 구르세요!', 'dash', '#fde68a',a); beam((boss.x+player.x)/2,(boss.y+player.y)/2,a,900,32,1.02,'#fde68a',dmg(.72),'sand','낫돌진'); setTimeout(()=>{ if(alive()){ boss.x=clamp(boss.x+Math.cos(a)*280,80,W-80); boss.y=clamp(boss.y+Math.sin(a)*280,120,H-80); } },1060); }},
+      {n:'매몰 지대 언덕',p:1,f(){ cast('매몰 지대! 안전한 모래 언덕을 찾아 이동하세요.', 'floor', '#fbbf24'); const safeIdx=Math.floor(Math.random()*4); for(let i=0;i<4;i++){ const x=160+i*(W-320)/3; if(i!==safeIdx) floor(x,H/2,W*.18,H*.78,1.12,'#fbbf24',dmg(.50),'sand','매몰'); else safe(x,H*.70,54,2.1,'#fde68a'); } }},
+      {n:'모래폭풍 시계방향',p:2,f(){ cast('모래폭풍이 회전합니다. 회전선을 따라가지 마세요!', 'beam', '#fcd34d'); for(let i=0;i<3;i++) rot(W/2,H/2,i*Math.PI*2/3,0.95,W*1.05,14,1.05,'#fcd34d',dmg(.34),'sand','모래폭풍',2.4); }},
+      {n:'사막 파도',p:2,f(){ cast('사막 파도가 줄지어 밀려옵니다. 빈 파도를 찾으세요.', 'wall', '#d97706'); const gap=Math.floor(Math.random()*5); for(let i=0;i<5;i++) if(i!==gap) wall(W/2,120+i*(H-190)/4,W*.86,28,0.95+i*.09,'#d97706',dmg(.43),'sand','사막파도'); }}
+    ],
+    void_serpent:[
+      {n:'포탈 절단 대각선',p:1,f(){ cast('공허 포탈이 대각 절단선을 엽니다. 선 사이 틈을 보세요!', 'beam', '#a78bfa'); [[80,120,W-90,H-80],[W-90,120,80,H-80],[W/2,90,W/2,H-55]].forEach((p,i)=>beam((p[0]+p[2])/2,(p[1]+p[3])/2,Math.atan2(p[3]-p[1],p[2]-p[0]),dist(p[0],p[1],p[2],p[3]),18,1.05+i*.16,'#a78bfa',dmg(.48),'void','포탈절단')); }},
+      {n:'공간 접힘 도넛',p:1,f(){ cast('공간이 접힙니다. 도넛 안팎을 빠르게 판단하세요!', 'slam', '#8b5cf6'); randomSpots(6,130,145).forEach((q,i)=>donut(q.x,q.y,30,90,0.95+i*.07,'#8b5cf6',dmg(.44),'void','공간접힘')); }},
+      {n:'공허 뱀길 S자',p:1,f(){ cast('공허 뱀이 S자 경로를 남깁니다. 경로를 밟지 마세요!', 'beam', '#c4b5fd'); for(let i=0;i<10;i++){ const x=90+i*(W-180)/9,y=H/2+Math.sin(i*.85)*165; circle(x,y,38,0.9+i*.045,'#c4b5fd',dmg(.32),'void','뱀길'); } }},
+      {n:'블랙홀 삼각지대',p:2,f(){ cast('작은 블랙홀이 세 곳에 열립니다. 끌림을 계산하세요!', 'cast', '#6d28d9'); [[W*.28,H*.30],[W*.72,H*.38],[W*.50,H*.68]].forEach((q,i)=>{ gravity(q[0],q[1],145,2.2,'#6d28d9'); donut(q[0],q[1],42,118,1.18+i*.08,'#7c3aed',dmg(.38),'void','블랙홀'); }); }},
+      {n:'차원 꼬리 휩쓸기',p:2,f(){ cast('차원 꼬리가 맵을 휩쓸고 갑니다. 꼬리 끝을 피하세요!', 'beam', '#ddd6fe'); for(let i=0;i<5;i++) beam(W/2,H/2,(i-2)*.34,W*1.15,18,1.0+i*.08,'#ddd6fe',dmg(.42),'void','차원꼬리'); }}
+    ],
+    iron_minotaur:[
+      {n:'철갑 돌진',p:1,f(){ const a=Math.atan2(player.y-boss.y,player.x-boss.x); cast('철갑 미노타우로스가 돌진합니다. 직선 경로에서 벗어나세요!', 'dash', '#cbd5e1',a); beam((boss.x+player.x)/2,(boss.y+player.y)/2,a,960,38,1.0,'#cbd5e1',dmg(.78),'metal','철갑돌진'); setTimeout(()=>{ if(alive()){ boss.x=clamp(boss.x+Math.cos(a)*320,80,W-80); boss.y=clamp(boss.y+Math.sin(a)*320,120,H-80); } },1030); }},
+      {n:'모루 강타 삼중파',p:1,f(){ cast('모루 강타! 충격파가 세 겹으로 퍼집니다.', 'slam', '#94a3b8'); [75,145,215].forEach((r,i)=>donut(boss.x,boss.y,r-24,r,0.95+i*.28,'#94a3b8',dmg(.34),'metal','모루강타')); }},
+      {n:'강철 감옥',p:1,f(){ cast('강철 감옥이 닫힙니다. 열린 칸으로 빠져나오세요!', 'wall', '#64748b'); const gap=Math.floor(Math.random()*4); for(let i=0;i<4;i++) if(i!==gap) wall(190+i*(W-380)/3,H/2,34,H*.72,1.1,'#64748b',dmg(.44),'metal','강철감옥'); }},
+      {n:'쇳조각 지뢰밭',p:2,f(){ cast('쇳조각 지뢰밭! 작은 금속 지뢰가 연속 폭발합니다.', 'slam', '#e5e7eb'); randomSpots(13,75,120).forEach((q,i)=>circle(q.x,q.y,30,0.75+i*.055,'#e5e7eb',dmg(.30),'metal','쇳조각')); }},
+      {n:'방패 밀어내기',p:2,f(){ cast('방패 밀어내기! 넓은 강철벽이 밀려옵니다.', 'wall', '#cbd5e1'); const side=Math.random()<.5?0:1; wall(side?W-120:120,H/2,70,H*.82,1.0,'#cbd5e1',dmg(.55),'metal','방패벽'); }}
+    ],
+    blood_moon:[
+      {n:'피의 표식 추적',p:1,f(){ cast('피의 표식이 현재 위치를 추적합니다. 계속 움직이세요!', 'slam', '#be123c'); const base=ppos(); for(let i=0;i<6;i++) setTimeout(()=>{ if(alive()) circle(base.x+rand(-90,90),base.y+rand(-90,90),44,0.65,'#be123c',dmg(.36),'blood','피표식'); },i*230); }},
+      {n:'흡혈 칼날 부메랑',p:1,f(){ cast('흡혈 칼날이 부메랑처럼 회전합니다. 원형 궤도를 피하세요!', 'burst', '#fb7185'); for(let k=0;k<3;k++) setTimeout(()=>radial(8,180+k*30,'#fb7185',dmg(.18),'blood',k*.45,8),k*380); }},
+      {n:'붉은 달 초승달',p:1,f(){ cast('붉은 초승달 참격이 교차합니다. 휘어진 길을 피하세요!', 'beam', '#fda4af'); for(let i=0;i<6;i++) beam(W/2,H/2,(i/6)*Math.PI+0.25,W*1.0,17,1.0+i*.08,'#fda4af',dmg(.42),'blood','초승달'); }},
+      {n:'혈월 흡수장',p:2,f(){ cast('혈월 흡수장이 피를 빨아들입니다. 붉은 원 밖으로 나가세요!', 'cast', '#e11d48'); gravity(W/2,H*.45,150,2.4,'#e11d48'); circle(W/2,H*.45,155,1.25,'#e11d48',dmg(.58),'blood','흡수장'); }},
+      {n:'사냥꾼 도약',p:2,f(){ cast('혈월 사냥꾼이 도약해 찍습니다. 착지 위치를 보세요!', 'slam', '#f43f5e'); const q=ppos(); circle(q.x,q.y,88,1.05,'#f43f5e',dmg(.72),'blood','사냥도약'); }},
+      {n:'혈월 사냥망',p:3,f(){ cast('혈월 사냥망! 붉은 그물이 차례대로 닫힙니다.', 'wall', '#be123c'); for(let i=0;i<4;i++){ wall(W/2,135+i*(H-210)/3,W*.86,20,0.95+i*.10,'#be123c',dmg(.42),'blood','사냥망'); wall(160+i*(W-320)/3,H/2,20,H*.76,1.12+i*.10,'#fb7185',dmg(.42),'blood','사냥망'); } }}
+    ],
+    storm_colossus:[
+      {n:'피뢰침 연결',p:1,f(){ cast('피뢰침이 연결됩니다. 전류선 사이 틈을 찾으세요!', 'beam', '#facc15'); const rods=randomSpots(5,120,130); rods.forEach(q=>circle(q.x,q.y,24,.75,'#fde047',dmg(.15),'lightning','피뢰침')); for(let i=0;i<rods.length-1;i++){ const a=Math.atan2(rods[i+1].y-rods[i].y,rods[i+1].x-rods[i].x); beam((rods[i].x+rods[i+1].x)/2,(rods[i].y+rods[i+1].y)/2,a,dist(rods[i].x,rods[i].y,rods[i+1].x,rods[i+1].y),16,1.1+i*.05,'#facc15',dmg(.42),'lightning','전류선'); } }},
+      {n:'폭풍 회로 격자',p:1,f(){ cast('폭풍 회로가 켜집니다. 비어 있는 회로칸으로 이동하세요!', 'floor', '#60a5fa'); const cw=W/6,ch=(H-115)/4; for(let gx=0;gx<6;gx++) for(let gy=0;gy<4;gy++) if((gx*2+gy+Math.floor(state.time))%3===0) floor(cw*gx+cw/2,110+ch*gy+ch/2,cw*.78,ch*.68,1.05,'#60a5fa',dmg(.38),'lightning','폭풍회로'); }},
+      {n:'추적 낙뢰',p:1,f(){ cast('추적 낙뢰가 현재 위치를 따라옵니다. 멈추면 맞습니다!', 'slam', '#fde047'); for(let i=0;i<7;i++) setTimeout(()=>{ if(alive()) circle(player.x,player.y,42,0.65,'#fde047',dmg(.40),'lightning','추적낙뢰'); },i*240); }},
+      {n:'거신 충격파',p:2,f(){ cast('거신 충격파! 원형 파동을 굴러 넘기세요.', 'slam', '#bfdbfe'); [95,175,255,335].forEach((r,i)=>donut(boss.x,boss.y,r-22,r,0.9+i*.23,'#bfdbfe',dmg(.36),'lightning','거신파동')); }},
+      {n:'번개 사슬',p:2,f(){ cast('번개 사슬이 플레이어를 가둡니다. 사슬 사이로 빠져나오세요!', 'beam', '#fef08a'); for(let i=-2;i<=2;i++) beam(player.x+i*75,H/2,Math.PI/2,H*.82,14,1.05+(i+2)*.08,'#fef08a',dmg(.35),'lightning','번개사슬'); }},
+      {n:'하늘 심판',p:3,f(){ cast('하늘 심판! 맵 여러 곳에 낙뢰가 동시에 떨어집니다.', 'slam', '#facc15'); randomSpots(15,60,110).forEach((q,i)=>circle(q.x,q.y,34,0.8+i*.035,'#facc15',dmg(.36),'lightning','하늘심판')); }}
+    ],
+    plague_doctor:[
+      {n:'역병 안개 확산',p:1,f(){ cast('역병 안개가 번집니다. 초록 안개에 오래 머물지 마세요!', 'cast', '#84cc16'); randomSpots(8,90,130).forEach((q,i)=>{ circle(q.x,q.y,42,.86+i*.06,'#84cc16',dmg(.22),'poison','역병안개'); setTimeout(()=>{ if(alive()) zone(q.x,q.y,60,dmg(.022),'#84cc16',3.2); },900+i*50); }); }},
+      {n:'해독 구역 선택',p:1,f(){ cast('해독 구역이 열립니다. 역병 폭발 전에 안전 구역으로 이동하세요!', 'cast', '#bef264'); for(let i=0;i<3;i++) safe(260+i*(W-520)/2,H*.68,54,2.1,'#bef264'); floor(W/2,H/2,W*.94,H*.76,1.45,'#365314',dmg(.74),'poison','역병폭발'); }},
+      {n:'독침 수술선',p:1,f(){ cast('역병 의사가 독침 수술선을 긋습니다. 얇은 선을 피하세요!', 'beam', '#a3e635'); for(let i=0;i<6;i++){ const a=-.5+i*.2; beam(W/2,H/2,a,W*1.05,12,0.92+i*.06,'#a3e635',dmg(.35),'poison','수술선'); } }},
+      {n:'감염체 소환',p:2,f(){ cast('감염체가 소환됩니다. 보스를 치기 전에 감염체를 처리하세요!', 'cast', '#bef264'); randomSpots(4,150,150).forEach(q=>add(q.x,q.y,'#84cc16',170)); }},
+      {n:'오염 격리벽',p:2,f(){ cast('오염 격리벽이 닫힙니다. 열린 병동으로 이동하세요!', 'wall', '#4d7c0f'); const gap=Math.floor(Math.random()*5); for(let i=0;i<5;i++) if(i!==gap) wall(150+i*(W-300)/4,H/2,30,H*.76,1.05,'#4d7c0f',dmg(.42),'poison','격리벽'); }},
+      {n:'검은 처방전',p:3,f(){ cast('검은 처방전! 안전 구역이 순식간에 바뀝니다.', 'cast', '#d9f99d'); safe(rand(180,W-180),rand(160,H-120),62,2.0,'#d9f99d'); floor(W/2,H/2,W*.94,H*.76,1.45,'#166534',dmg(.82),'poison','검은처방'); }}
+    ],
+    mirror_duelist:[
+      {n:'진짜 분신 결투',p:1,f(){ cast('거울 분신이 나타납니다. 분신의 검로를 보고 피하세요!', 'beam', '#e879f9'); for(let i=0;i<4;i++){ const x=180+i*(W-360)/3; const a=Math.atan2(player.y-H*.2,player.x-x); beam((x+player.x)/2,(H*.2+player.y)/2,a,dist(x,H*.2,player.x,player.y)+180,14,1+i*.08,'#e879f9',dmg(.38),'mirror','분신검'); } }},
+      {n:'만화경 절단',p:1,f(){ cast('만화경 절단! 회전하는 거울선을 피하세요.', 'beam', '#bae6fd'); for(let i=0;i<4;i++) rot(W/2,H/2,i*Math.PI/4, i%2?-.85:.85, W*1.05, 12, 1.1, i%2?'#e879f9':'#bae6fd', dmg(.34),'mirror','만화경',2.35); }},
+      {n:'반사탄 되돌림',p:1,f(){ cast('반사탄이 벽을 튕긴 듯 사방에서 들어옵니다!', 'burst', '#f0abfc'); for(let i=0;i<7;i++){ aimed(230,'#f0abfc',dmg(.18),'mirror',7, i%2?0:W, rand(120,H-80)); } }},
+      {n:'거울문 선택',p:2,f(){ cast('거울문이 열립니다. 밝은 거울문만 안전합니다!', 'cast', '#bae6fd'); const real=Math.floor(Math.random()*4); for(let i=0;i<4;i++){ const x=190+i*(W-380)/3,y=H*.68; if(i===real) safe(x,y,55,2.1,'#86efac'); else state.mechanics.push({kind:'safe',x,y,r:55,life:2.1,color:'#fb7185',fake:true}); } floor(W/2,H/2,W*.92,H*.75,1.45,'#e879f9',dmg(.70),'mirror','거울문'); }},
+      {n:'결투장 십자베기',p:2,f(){ cast('결투장 십자베기! 수평과 수직 검격이 교차합니다.', 'beam', '#f0abfc'); beam(W/2,H/2,0,W*.95,18,1.0,'#f0abfc',dmg(.44),'mirror','십자베기'); beam(W/2,H/2,Math.PI/2,H*.82,18,1.1,'#bae6fd',dmg(.44),'mirror','십자베기'); }},
+      {n:'거울 미궁',p:3,f(){ cast('거울 미궁! 방향감각을 잃기 전에 탈출하세요.', 'cast', '#f0abfc'); mini('maze', `${boss.name}이 거울 미궁을 펼칩니다!`, '#f0abfc'); }}
+    ],
+    gravity_core:[
+      {n:'중력 흡입 핵',p:1,f(){ cast('중력핵이 모든 것을 끌어당깁니다. 바깥으로 빠져나가세요!', 'cast', '#818cf8'); gravity(W/2,H/2,240,2.8,'#818cf8'); donut(W/2,H/2,70,270,1.2,'#818cf8',dmg(.62),'gravity','중력핵'); }},
+      {n:'압축 폭발',p:1,f(){ cast('압축 폭발! 작은 원이 큰 폭발로 변합니다.', 'slam', '#a5b4fc'); const q=ppos(); circle(q.x,q.y,52,0.9,'#a5b4fc',dmg(.30),'gravity','압축예고'); circle(q.x,q.y,128,1.35,'#818cf8',dmg(.72),'gravity','압축폭발'); }},
+      {n:'궤도 레이저 위성',p:1,f(){ cast('위성 레이저가 궤도를 돕니다. 회전 방향을 보고 이동하세요!', 'beam', '#c4b5fd'); for(let i=0;i<3;i++) rot(W/2,H/2,i*Math.PI*2/3,0.72,W*1.08,15,1.05,'#c4b5fd',dmg(.38),'gravity','궤도위성',2.6); }},
+      {n:'역중력 가장자리',p:2,f(){ cast('역중력! 중앙은 밀려나고 가장자리는 터집니다.', 'floor', '#3730a3'); wall(W/2,105,W*.94,28,1.1,'#3730a3',dmg(.45),'gravity','역중력'); wall(W/2,H-45,W*.94,28,1.1,'#3730a3',dmg(.45),'gravity','역중력'); wall(45,H/2,28,H*.76,1.1,'#3730a3',dmg(.45),'gravity','역중력'); wall(W-45,H/2,28,H*.76,1.1,'#3730a3',dmg(.45),'gravity','역중력'); }},
+      {n:'질량 파편 궤도',p:2,f(){ cast('질량 파편이 궤도를 따라 발사됩니다. 파편 사이를 보세요!', 'burst', '#ddd6fe'); for(let k=0;k<4;k++) setTimeout(()=>radial(9,130+k*42,'#ddd6fe',dmg(.16),'gravity',k*.4,7),k*260); }},
+      {n:'사건의 지평선',p:3,f(){ cast('사건의 지평선! SAFE 밖의 공간이 접힙니다.', 'slam', '#1e1b4b'); safe(W*.32,H*.68,58,2.2,'#86efac'); safe(W*.68,H*.68,58,2.2,'#86efac'); floor(W/2,H/2,W*.95,H*.78,1.55,'#1e1b4b',dmg(.92),'gravity','사건지평선'); }},
+      {n:'중력 미궁',p:3,f(){ cast('중력 미궁! 제한 시간 안에 탈출해야 합니다.', 'cast', '#c4b5fd'); mini('maze', `${boss.name}이 중력 미궁을 시작합니다!`, '#c4b5fd'); }}
+    ],
+    solar_dragon:[
+      {n:'태양 숨결 부채',p:1,f(){ const a=Math.atan2(player.y-boss.y,player.x-boss.x); cast('태양룡이 뜨거운 숨결을 뿜습니다. 옆으로 파고드세요!', 'beam', '#fb923c',a); for(let i=-5;i<=5;i++) beam(boss.x+Math.cos(a+i*.08)*320,boss.y+Math.sin(a+i*.08)*320,a+i*.08,700,18,0.95+(i+5)*.025,'#fb923c',dmg(.44),'solar','태양숨결'); }},
+      {n:'일식 SAFE 심판',p:1,f(){ cast('일식 심판! SAFE 외의 모든 곳이 타오릅니다.', 'slam', '#facc15'); safe(W*.30,H*.68,60,2.4,'#fde68a'); safe(W*.70,H*.68,60,2.4,'#fde68a'); floor(W/2,H/2,W*.96,H*.78,1.55,'#fb923c',dmg(.96),'solar','일식심판'); }},
+      {n:'태양 플레어 회전',p:1,f(){ cast('태양 플레어가 맵을 가릅니다. 광선 사이로 피하세요.', 'beam', '#fdba74'); for(let i=0;i<8;i++) beam(W/2,H/2,i*Math.PI/4,W*1.2,13,1.0+i*.045,'#fdba74',dmg(.34),'solar','플레어'); }},
+      {n:'흑점 낙하',p:2,f(){ cast('흑점이 낙하합니다. 검은 원은 크게 폭발합니다!', 'slam', '#f97316'); randomSpots(12,80,120).forEach((q,i)=>circle(q.x,q.y,36+i%2*14,.85+i*.055,i%2?'#020617':'#f97316',dmg(.38),'solar','흑점')); }},
+      {n:'코로나 도넛',p:2,f(){ cast('코로나 도넛! 안쪽과 바깥쪽을 헷갈리지 마세요.', 'slam', '#fde047'); randomSpots(5,150,150).forEach((q,i)=>donut(q.x,q.y,50,132,1.0+i*.1,'#fde047',dmg(.46),'solar','코로나')); }},
+      {n:'태양 기둥',p:3,f(){ cast('태양 기둥이 순서대로 내려옵니다. 다음 기둥 위치를 읽으세요!', 'wall', '#f97316'); for(let i=0;i<7;i++) wall(110+i*(W-220)/6,H/2,32,H*.82,0.9+i*.12,'#f97316',dmg(.48),'solar','태양기둥'); }},
+      {n:'백야 폭발',p:3,f(){ cast('백야 폭발! 중앙 폭발 후 바깥 고리가 터집니다.', 'slam', '#fef3c7'); circle(W/2,H/2,92,1.0,'#fef3c7',dmg(.55),'solar','백야'); donut(W/2,H/2,160,300,1.42,'#fde047',dmg(.65),'solar','백야고리'); }}
+    ],
+    chrono_dragon:[
+      {n:'시계바늘 회전',p:1,f(){ cast('시계바늘이 회전합니다. 바늘 방향을 보고 이동하세요!', 'beam', '#f472b6'); for(let i=0;i<3;i++) rot(W/2,H/2,i*Math.PI*2/3,.92,W*1.12,13,1.05,'#f472b6',dmg(.34),'chrono','시계바늘',2.55); }},
+      {n:'시간폭탄 잔상',p:1,f(){ cast('시간폭탄이 방금 지나온 자리에 생성됩니다. 과거 위치를 피하세요!', 'slam', '#fef08a'); const spots=(state._v32Trail || [{x:player.x,y:player.y}]).slice(-7); spots.forEach((q,i)=>circle(q.x,q.y,42,0.88+i*.08,'#fef08a',dmg(.38),'chrono','시간폭탄')); }},
+      {n:'지연 탄막',p:1,f(){ cast('지연 탄막! 지금 보이는 탄은 잠시 후 움직입니다.', 'burst', '#f9a8d4'); for(let k=0;k<3;k++) setTimeout(()=>radial(12,120+k*35,'#f9a8d4',dmg(.17),'chrono',k*.18,7),k*420); }},
+      {n:'시간 정지선',p:2,f(){ cast('시간 정지선이 격자로 멈춥니다. 멈춘 선 사이로 이동하세요!', 'wall', '#fde68a'); for(let i=0;i<5;i++){ if(i%2===0) wall(130+i*(W-260)/4,H/2,22,H*.78,1.1+i*.08,'#fde68a',dmg(.42),'chrono','정지선'); else wall(W/2,125+i*(H-200)/4,W*.86,20,1.1+i*.08,'#f9a8d4',dmg(.42),'chrono','정지선'); } }},
+      {n:'예언 퀴즈',p:2,f(){ cast('시간의 질문! 정답 원을 밟아 흐름을 고정하세요.', 'cast', '#fef08a'); mini('quiz', `${boss.name}가 시간의 질문을 던집니다!`, '#fef08a'); }},
+      {n:'되감기 낙인',p:2,f(){ cast('되감기 낙인이 과거 위치로 폭발합니다. 지나온 길을 버리세요!', 'slam', '#f472b6'); (state._v32Trail||[]).slice(-12).filter((_,i)=>i%2===0).forEach((q,i)=>circle(q.x,q.y,34,0.82+i*.06,'#f472b6',dmg(.34),'chrono','되감기')); }},
+      {n:'분침 단두대',p:3,f(){ cast('분침 단두대! 세로 시간이 한 번에 잘립니다.', 'wall', '#fef08a'); const gap=Math.floor(Math.random()*6); for(let i=0;i<6;i++) if(i!==gap) wall(90+i*(W-180)/5,H/2,24,H*.84,1.05+i*.05,'#fef08a',dmg(.50),'chrono','분침'); }},
+      {n:'시간 붕괴 SAFE',p:3,f(){ cast('시간 붕괴! SAFE 두 곳 중 하나에 들어가세요.', 'slam', '#f472b6'); safe(W*.32,H*.70,58,2.2,'#86efac'); safe(W*.68,H*.70,58,2.2,'#86efac'); floor(W/2,H/2,W*.96,H*.78,1.55,'#f472b6',dmg(.95),'chrono','시간붕괴'); }}
+    ],
+    abyss_leviathan:[
+      {n:'해일 벽 행진',p:1,f(){ cast('해일이 줄지어 밀려옵니다. 빈 수로로 이동하세요!', 'wall', '#38bdf8'); const safeRow=Math.floor(Math.random()*4); for(let i=0;i<4;i++) if(i!==safeRow) wall(W/2,145+i*(H-225)/3,W*.93,40,1.0+i*.08,'#38bdf8',dmg(.50),'ice','해일벽'); }},
+      {n:'심해 소용돌이',p:1,f(){ cast('심해 소용돌이가 끌어당깁니다. 바깥으로 빠져나가세요!', 'cast', '#0ea5e9'); gravity(W/2,H/2,230,2.8,'#0ea5e9'); donut(W/2,H/2,90,292,1.25,'#0ea5e9',dmg(.60),'ice','소용돌이'); }},
+      {n:'촉수 끌어치기',p:1,f(){ cast('심해 촉수가 가장자리에서 끌어칩니다. 선을 피하세요!', 'beam', '#7dd3fc'); for(let i=0;i<5;i++){ const x=90+i*(W-180)/4; const a=Math.atan2(player.y-H,x-player.x); beam((x+player.x)/2,(H+player.y)/2,a,dist(x,H,player.x,player.y)+150,16,0.95+i*.08,'#7dd3fc',dmg(.38),'ice','촉수'); } }},
+      {n:'거품 감옥',p:2,f(){ cast('거품 감옥이 떠오릅니다. 감옥 사이 빈틈으로 이동하세요!', 'circle', '#bae6fd'); randomSpots(8,100,125).forEach((q,i)=>donut(q.x,q.y,30,78,1.0+i*.06,'#bae6fd',dmg(.35),'ice','거품감옥')); }},
+      {n:'심해 물살',p:2,f(){ cast('심해 물살이 차선으로 흐릅니다. 역류 차선을 피하세요!', 'wall', '#0ea5e9'); const gap=Math.floor(Math.random()*5); for(let i=0;i<5;i++) if(i!==gap) wall(140+i*(W-280)/4,H/2,36,H*.78,1.05,'#0ea5e9',dmg(.43),'ice','물살'); }},
+      {n:'레비아탄 꼬리',p:2,f(){ cast('레비아탄 꼬리가 넓게 휩씁니다. 휩쓸림 반대편으로 이동하세요!', 'beam', '#67e8f9'); for(let i=0;i<5;i++) beam(W/2,H/2,(i-2)*.22,W*1.15,24,1.05+i*.07,'#67e8f9',dmg(.46),'ice','꼬리휩쓸기'); }},
+      {n:'즉사 해일 SAFE',p:3,f(){ cast('즉사 해일! SAFE 두 곳 중 하나로 들어가세요!', 'slam', '#38bdf8'); safe(W*.30,H*.68,62,2.3,'#86efac'); safe(W*.70,H*.68,62,2.3,'#86efac'); floor(W/2,H/2,W*.96,H*.80,1.55,'#0369a1',dmg(1.05),'ice','즉사해일'); }}
+    ],
+    puppet_emperor:[
+      {n:'실 조종선',p:1,f(){ cast('실 조종선! 얇은 실에 닿으면 베입니다.', 'beam', '#f0abfc'); for(let i=0;i<7;i++) beam(100+i*(W-200)/6,H/2,Math.PI/2,H*.86,10,0.95+i*.06,'#f0abfc',dmg(.36),'mirror','실'); }},
+      {n:'인형 갈고리',p:1,f(){ const a=Math.atan2(player.y-boss.y,player.x-boss.x); cast('인형 갈고리! 선에 붙잡히지 마세요.', 'beam', '#fde68a',a); beam((boss.x+player.x)/2,(boss.y+player.y)/2,a,dist(boss.x,boss.y,player.x,player.y)+280,16,1.05,'#fde68a',dmg(.40),'mirror','갈고리'); }},
+      {n:'단두대 줄',p:1,f(){ cast('단두대 줄이 내려옵니다. 줄 사이 빈칸으로 이동하세요!', 'wall', '#fca5a5'); const safeCol=Math.floor(Math.random()*5); for(let i=0;i<5;i++) if(i!==safeCol) wall(130+i*(W-260)/4,H/2,30,H*.82,1.08,'#fca5a5',dmg(.52),'mirror','단두대'); }},
+      {n:'꼭두각시 원무',p:2,f(){ cast('꼭두각시가 원무를 춥니다. 회전 실을 피하세요!', 'beam', '#f5d0fe'); for(let i=0;i<4;i++) rot(W/2,H/2,i*Math.PI/4,i%2?.75:-.75,W*1.05,13,1.0,'#f5d0fe',dmg(.34),'mirror','원무',2.5); }},
+      {n:'인형극 무대벽',p:2,f(){ cast('인형극 무대벽이 닫힙니다. 무대 중앙을 읽으세요!', 'wall', '#fde68a'); wall(W/2,125,W*.86,24,1.05,'#fde68a',dmg(.42),'mirror','무대벽'); wall(W/2,H-60,W*.86,24,1.15,'#fde68a',dmg(.42),'mirror','무대벽'); wall(105,H/2,24,H*.72,1.25,'#fde68a',dmg(.42),'mirror','무대벽'); wall(W-105,H/2,24,H*.72,1.35,'#fde68a',dmg(.42),'mirror','무대벽'); }},
+      {n:'가짜 안전지대',p:3,f(){ cast('가짜 안전지대! 밝게 맥박치는 원만 진짜입니다.', 'cast', '#f0abfc'); const real=Math.floor(Math.random()*4); for(let i=0;i<4;i++){ const x=190+i*(W-380)/3,y=H*.68; if(i===real) safe(x,y,55,2.2,'#86efac'); else state.mechanics.push({kind:'safe',x,y,r:55,life:2.2,color:'#fb7185',fake:true}); } floor(W/2,H/2,W*.94,H*.78,1.5,'#d946ef',dmg(.88),'mirror','가짜안전'); }},
+      {n:'마리오네트 미로',p:3,f(){ cast('마리오네트 미로! 줄에 끌려가기 전에 탈출하세요.', 'cast', '#f0abfc'); mini('maze', `${boss.name}가 마리오네트 미로를 시작합니다!`, '#f0abfc'); }}
+    ],
+    black_sun:[
+      {n:'검은 일식 SAFE',p:1,f(){ cast('검은 일식! SAFE가 아닌 곳은 전부 타오릅니다.', 'slam', '#f97316'); safe(W*.28,H*.70,62,2.4,'#fde68a'); safe(W*.72,H*.70,62,2.4,'#fde68a'); floor(W/2,H/2,W*.96,H*.80,1.55,'#f97316',dmg(1.02),'solar','검은일식'); }},
+      {n:'붕괴 바닥',p:1,f(){ cast('무너지는 바닥! 금 간 칸을 보고 이동하세요.', 'floor', '#fb923c'); const cw=W/7,ch=(H-110)/4; for(let i=0;i<15;i++){ const gx=Math.floor(Math.random()*7),gy=Math.floor(Math.random()*4); floor(cw*gx+cw/2,110+ch*gy+ch/2,cw*.82,ch*.72,0.85+i*.035,'#fb923c',dmg(.40),'solar','붕괴'); } }},
+      {n:'태양 심판 낙하',p:1,f(){ cast('태양 심판! 큰 태양탄이 순서대로 떨어집니다.', 'slam', '#facc15'); randomSpots(8,100,130).forEach((q,i)=>circle(q.x,q.y,64,0.9+i*.14,'#facc15',dmg(.58),'solar','태양심판')); }},
+      {n:'암흑 코로나',p:2,f(){ cast('암흑 코로나가 퍼집니다. 도넛 고리를 읽으세요!', 'slam', '#020617'); [100,195,290].forEach((r,i)=>donut(W/2,H/2,r-35,r,0.95+i*.28,'#020617',dmg(.48),'solar','암흑코로나')); }},
+      {n:'검은 광선 십자가',p:2,f(){ cast('검은 광선 십자가! 대각선이 뒤늦게 따라옵니다.', 'beam', '#fdba74'); [0,Math.PI/2,Math.PI/4,-Math.PI/4].forEach((a,i)=>beam(W/2,H/2,a,W*1.18,18,0.95+i*.16,'#fdba74',dmg(.52),'solar','검은광선')); }},
+      {n:'별 낙하 격자',p:2,f(){ cast('별 낙하 격자! 맵 전체의 작은 별이 터집니다.', 'floor', '#fef08a'); const cw=W/8,ch=(H-110)/5; for(let gx=0;gx<8;gx++) for(let gy=0;gy<5;gy++) if(Math.random()<.36) floor(cw*gx+cw/2,110+ch*gy+ch/2,cw*.62,ch*.55,1.0,'#fef08a',dmg(.34),'solar','별낙하'); }},
+      {n:'종말 일식',p:3,f(){ cast('종말 일식! 마지막 SAFE 두 곳을 찾으세요.', 'slam', '#fb7185'); safe(W*.38,H*.68,56,2.1,'#86efac'); safe(W*.62,H*.68,56,2.1,'#86efac'); floor(W/2,H/2,W*.98,H*.82,1.48,'#7f1d1d',dmg(1.18),'solar','종말일식'); }},
+      {n:'검은 태양 코어',p:3,f(){ cast('검은 태양 코어가 압축됩니다. 중앙과 고리를 모두 피하세요!', 'slam', '#f97316'); circle(W/2,H/2,95,1.0,'#f97316',dmg(.62),'solar','태양코어'); donut(W/2,H/2,150,310,1.45,'#020617',dmg(.74),'solar','검은고리'); }}
+    ],
+    chaos_archon:[
+      {n:'혼돈 재판 삼중규칙',p:1,f(){ cast('혼돈 재판! 원, 도넛, 선 규칙이 동시에 나옵니다.', 'cast', '#fb7185'); circle(rand(120,W-120),rand(130,H-80),82,1.0,'#fb7185',dmg(.50),'chaos','혼돈원'); donut(rand(160,W-160),rand(150,H-110),45,130,1.16,'#a78bfa',dmg(.52),'chaos','혼돈도넛'); beam(W/2,H/2,rand(0,Math.PI),W*1.12,18,1.3,'#facc15',dmg(.50),'chaos','혼돈선'); }},
+      {n:'가짜 SAFE 판별',p:1,f(){ cast('가짜 SAFE! 진짜 빛나는 SAFE만 밟으세요.', 'cast', '#c084fc'); const real=Math.floor(Math.random()*4); for(let i=0;i<4;i++){ const x=180+i*(W-360)/3,y=H*.68; if(i===real) safe(x,y,55,2.15,'#86efac'); else state.mechanics.push({kind:'safe',x,y,r:55,life:2.15,color:'#fb7185',fake:true}); } floor(W/2,H/2,W*.96,H*.78,1.5,'#7c3aed',dmg(.92),'chaos','가짜SAFE'); }},
+      {n:'속성 룰렛',p:1,f(){ cast('속성 룰렛! 서로 다른 속성이 번갈아 폭발합니다.', 'burst', '#fb7185'); const colors=['#fb923c','#60a5fa','#84cc16','#a78bfa','#facc15']; randomSpots(10,80,120).forEach((q,i)=>circle(q.x,q.y,38,0.8+i*.06,colors[i%colors.length],dmg(.36),'chaos','속성룰렛')); }},
+      {n:'혼돈 미궁',p:2,f(){ cast('혼돈 미궁! 제한 시간 안에 탈출하세요.', 'cast', '#fb7185'); mini('maze', `${boss.name}이 혼돈 미궁을 엽니다!`, '#fb7185'); }},
+      {n:'역방향 탄막',p:2,f(){ cast('역방향 탄막! 가장자리에서 안쪽으로 탄이 모입니다.', 'burst', '#c084fc'); for(let i=0;i<12;i++){ const x=i%2?0:W,y=rand(110,H-70); aimed(230,'#c084fc',dmg(.18),'chaos',7,x,y); } }},
+      {n:'광대 야바위 강제',p:2,f(){ cast('혼돈 야바위! 처음 빛난 컵을 찾으세요.', 'cast', '#fde047'); mini('shell', `${boss.name}이 혼돈 야바위를 시작합니다!`, '#fde047'); }},
+      {n:'최종 혼돈 폭풍',p:3,f(){ cast('최종 혼돈 폭풍! 모든 형태의 공격이 겹칩니다.', 'cast', '#fb7185'); randomSpots(8,90,120).forEach((q,i)=>circle(q.x,q.y,40,0.8+i*.04,'#fb7185',dmg(.34),'chaos','혼돈폭풍')); for(let i=0;i<4;i++) rot(W/2,H/2,i*Math.PI/4,.7,W*1.1,12,1.1,'#a78bfa',dmg(.32),'chaos','혼돈회전',2.0); }},
+      {n:'즉사 혼돈 SAFE',p:3,f(){ cast('즉사 혼돈! SAFE 두 곳으로 들어가세요!', 'slam', '#7c3aed'); safe(W*.33,H*.70,58,2.2,'#86efac'); safe(W*.67,H*.70,58,2.2,'#86efac'); floor(W/2,H/2,W*.98,H*.82,1.55,'#7c3aed',dmg(1.15),'chaos','즉사혼돈'); }}
+    ],
+    crimson_train:[
+      {n:'급행 레일 차선',p:1,f(){ cast('진홍 열차가 레일을 점화합니다. 빈 레일로 이동하세요!', 'wall', '#fb7185'); const safeRow=Math.floor(Math.random()*4); for(let i=0;i<4;i++) if(i!==safeRow) wall(W/2,145+i*(H-225)/3,W*.94,42,1.0+i*.08,'#fb7185',dmg(.56),'metal','급행레일'); }},
+      {n:'선로 전환 X자',p:1,f(){ cast('선로 전환! 교차 레일이 지나갑니다.', 'beam', '#fbbf24'); for(let i=0;i<5;i++) beam(W/2,H/2,(i%2?Math.PI/5:-Math.PI/5)+i*.15,W*1.2,20,1.0+i*.1,'#fbbf24',dmg(.44),'metal','선로전환'); }},
+      {n:'차륜 폭발 연쇄',p:1,f(){ cast('차륜 폭발! 레일 끝에서 폭발이 이어집니다.', 'slam', '#ef4444'); for(let i=0;i<9;i++) circle(80+i*(W-160)/8,rand(130,H-80),38,0.82+i*.08,'#ef4444',dmg(.36),'metal','차륜'); }},
+      {n:'기관차 돌진',p:2,f(){ const y=[H*.33,H*.50,H*.67][Math.floor(Math.random()*3)]; cast('기관차 돌진! 선택된 선로에서 벗어나세요.', 'dash', '#f87171'); wall(W/2,y,W*.92,54,1.05,'#f87171',dmg(.72),'metal','기관차돌진'); }},
+      {n:'증기 장막',p:2,f(){ cast('증기 장막이 시야를 덮습니다. 증기 원 밖으로 이동하세요.', 'slam', '#fca5a5'); randomSpots(10,90,120).forEach((q,i)=>donut(q.x,q.y,24,72,0.9+i*.05,'#fca5a5',dmg(.30),'metal','증기장막')); }},
+      {n:'철도 건널목',p:2,f(){ cast('철도 건널목! 가로 세로 차단기가 닫힙니다.', 'wall', '#fbbf24'); wall(W/2,H*.35,W*.88,26,1.0,'#fbbf24',dmg(.44),'metal','건널목'); wall(W/2,H*.65,W*.88,26,1.18,'#fbbf24',dmg(.44),'metal','건널목'); wall(W*.35,H/2,26,H*.70,1.36,'#fbbf24',dmg(.44),'metal','건널목'); wall(W*.65,H/2,26,H*.70,1.54,'#fbbf24',dmg(.44),'metal','건널목'); }},
+      {n:'폭주 급행 SAFE',p:3,f(){ cast('폭주 급행! SAFE 선로로 들어가세요.', 'slam', '#fb7185'); safe(W*.30,H*.70,56,2.1,'#86efac'); safe(W*.70,H*.70,56,2.1,'#86efac'); floor(W/2,H/2,W*.96,H*.78,1.5,'#7f1d1d',dmg(.96),'metal','폭주급행'); }}
+    ],
+    oracle_cube:[
+      {n:'예언 블록 낙하',p:1,f(){ cast('예언 큐브가 블록을 예고합니다. 막히는 칸을 피하세요.', 'floor', '#93c5fd'); const cw=W/6,ch=(H-120)/4; for(let gx=0;gx<6;gx++) for(let gy=0;gy<4;gy++) if(Math.random()<.48) floor(cw*gx+cw/2,110+ch*gy+ch/2,cw*.72,ch*.65,1.05,'#93c5fd',dmg(.36),'mirror','예언블록'); }},
+      {n:'큐브 절단 격자',p:1,f(){ cast('큐브 절단! 수직/수평 절단이 교차합니다.', 'beam', '#a78bfa'); for(let i=0;i<4;i++){ wall(160+i*(W-320)/3,H/2,22,H*.86,1.0+i*.1,'#a78bfa',dmg(.40),'mirror','큐브절단'); wall(W/2,150+i*(H-230)/3,W*.88,20,1.15+i*.1,'#93c5fd',dmg(.36),'mirror','큐브절단'); } }},
+      {n:'예언 퀴즈',p:1,f(){ cast('예언 퀴즈! 정답 원을 밟아 큐브를 멈추세요.', 'cast', '#93c5fd'); mini('quiz', `${boss.name}가 예언 문제를 냅니다!`, '#93c5fd'); }},
+      {n:'회전 큐브 링',p:2,f(){ cast('회전 큐브 링! 네모난 궤적이 돌아갑니다.', 'beam', '#bfdbfe'); for(let i=0;i<4;i++) rot(W/2,H/2,i*Math.PI/4,i%2?.65:-.65,W*1.0,14,1.08,'#bfdbfe',dmg(.34),'mirror','큐브링',2.4); }},
+      {n:'테트리스 봉쇄',p:2,f(){ cast('테트리스 봉쇄! 블록 모양을 보고 빠져나오세요.', 'floor', '#60a5fa'); const shapes=[[0,0],[1,0],[2,0],[2,1],[4,1],[4,2],[5,2],[3,3],[4,3]]; const cw=W/6,ch=(H-120)/4; shapes.forEach((s,i)=>floor(cw*s[0]+cw/2,110+ch*s[1]+ch/2,cw*.8,ch*.7,1.0+i*.03,'#60a5fa',dmg(.38),'mirror','테트리스')); }},
+      {n:'큐브 감옥',p:2,f(){ cast('큐브 감옥이 닫힙니다. 열린 면을 찾으세요!', 'wall', '#a78bfa'); wall(W/2,130,W*.70,24,1.1,'#a78bfa',dmg(.42),'mirror','큐브감옥'); wall(W/2,H-70,W*.70,24,1.1,'#a78bfa',dmg(.42),'mirror','큐브감옥'); wall(170,H/2,24,H*.62,1.1,'#a78bfa',dmg(.42),'mirror','큐브감옥'); }},
+      {n:'예언 붕괴',p:3,f(){ cast('예언 붕괴! SAFE 외 블록이 모두 무너집니다.', 'slam', '#93c5fd'); safe(W*.35,H*.70,58,2.2,'#86efac'); safe(W*.65,H*.70,58,2.2,'#86efac'); floor(W/2,H/2,W*.96,H*.78,1.52,'#93c5fd',dmg(.95),'mirror','예언붕괴'); }}
+    ],
+    hollow_gardener:[
+      {n:'공허 뿌리 부채',p:1,f(){ cast('공허 정원사가 뿌리를 뻗습니다. 자라나는 선을 피하세요!', 'beam', '#4ade80'); for(let i=0;i<7;i++){ const a=-Math.PI/2+i*Math.PI/6; beam(boss.x,boss.y,a,540,18,0.95+i*.05,'#4ade80',dmg(.36),'poison','공허뿌리'); } }},
+      {n:'공허꽃 폭발',p:1,f(){ cast('공허꽃이 피어납니다. 보라색 꽃은 크게 폭발합니다.', 'slam', '#a78bfa'); randomSpots(9,85,125).forEach((q,i)=>circle(q.x,q.y,42+i%2*12,0.9+i*.06,i%2?'#a78bfa':'#4ade80',dmg(.36),'poison','공허꽃')); }},
+      {n:'정원 미궁',p:1,f(){ cast('정원 미궁! 벽 사이 길을 찾아 탈출하세요.', 'cast', '#a78bfa'); mini('maze', `${boss.name}가 공허 정원 미궁을 엽니다!`, '#a78bfa'); }},
+      {n:'포자 구름',p:2,f(){ cast('포자 구름이 퍼집니다. 구름에 오래 머물지 마세요!', 'cast', '#86efac'); randomSpots(8,95,130).forEach((q,i)=>{ circle(q.x,q.y,36,0.8+i*.05,'#86efac',dmg(.22),'poison','포자'); setTimeout(()=>{ if(alive()) zone(q.x,q.y,55,dmg(.02),'#86efac',2.9); },900+i*50); }); }},
+      {n:'가지치기 낫선',p:2,f(){ cast('가지치기 낫선! 정원사가 대각으로 가지를 자릅니다.', 'beam', '#bbf7d0'); for(let i=0;i<5;i++) beam(W/2,H/2,-.55+i*.28,W*1.12,18,1.0+i*.08,'#bbf7d0',dmg(.40),'poison','가지치기'); }},
+      {n:'잡초 봉쇄',p:2,f(){ cast('잡초가 길을 막습니다. 열린 화단으로 이동하세요!', 'wall', '#15803d'); const gap=Math.floor(Math.random()*5); for(let i=0;i<5;i++) if(i!==gap) wall(150+i*(W-300)/4,H/2,30,H*.76,1.05,'#15803d',dmg(.42),'poison','잡초봉쇄'); }},
+      {n:'공허 수확 SAFE',p:3,f(){ cast('공허 수확! SAFE 화단으로 이동하세요.', 'slam', '#4ade80'); safe(W*.33,H*.70,58,2.2,'#86efac'); safe(W*.67,H*.70,58,2.2,'#86efac'); floor(W/2,H/2,W*.94,H*.78,1.52,'#14532d',dmg(.92),'poison','공허수확'); }}
+    ],
+    magnet_judge:[
+      {n:'N/S 극성선',p:1,f(){ cast('극성 반전! N/S 전류선 사이에서 위치를 조절하세요.', 'beam', '#60a5fa'); for(let i=0;i<6;i++){ const x=100+i*(W-200)/5; beam(x,H/2,Math.PI/2,H*.86,14,0.95+i*.06,i%2?'#fb7185':'#60a5fa',dmg(.38),'lightning','극성선'); } }},
+      {n:'자기압축 흡입',p:1,f(){ cast('자석 재판관이 끌어당깁니다. 반대 방향으로 도망치세요!', 'cast', '#60a5fa'); gravity(W/2,H/2,270,2.6,'#60a5fa'); circle(W/2,H/2,130,1.28,'#fb7185',dmg(.66),'lightning','자기압축'); }},
+      {n:'금속 파편 탄막',p:1,f(){ cast('금속 파편이 극성에 따라 날아옵니다.', 'burst', '#93c5fd'); for(let i=0;i<18;i++) setTimeout(()=>aimed(300,'#93c5fd',dmg(.15),'lightning',6,rand(60,W-60),rand(100,H-60)),i*60); }},
+      {n:'척력 밀어내기',p:2,f(){ cast('척력이 폭발합니다. 중앙에서 밀려나기 전에 고리를 넘으세요!', 'slam', '#fb7185'); donut(W/2,H/2,70,180,1.0,'#fb7185',dmg(.52),'lightning','척력'); donut(W/2,H/2,230,330,1.34,'#60a5fa',dmg(.48),'lightning','척력외곽'); }},
+      {n:'극성 SAFE 선택',p:2,f(){ cast('극성 SAFE! 같은 색 전류를 피해 안전 극성으로 이동하세요.', 'cast', '#60a5fa'); safe(W*.30,H*.68,56,2.1,'#60a5fa'); safe(W*.70,H*.68,56,2.1,'#fb7185'); floor(W/2,H/2,W*.95,H*.76,1.45,'#334155',dmg(.80),'lightning','극성심판'); }},
+      {n:'자기장 십자',p:2,f(){ cast('자기장 십자가 닫힙니다. 대각선 빈틈으로 이동하세요.', 'beam', '#93c5fd'); beam(W/2,H/2,0,W*.95,20,1.0,'#93c5fd',dmg(.45),'lightning','자기장십자'); beam(W/2,H/2,Math.PI/2,H*.82,20,1.0,'#fb7185',dmg(.45),'lightning','자기장십자'); }},
+      {n:'판결의 철우박',p:3,f(){ cast('판결의 철우박! 맵 전체에 금속 우박이 떨어집니다.', 'slam', '#cbd5e1'); randomSpots(16,65,110).forEach((q,i)=>circle(q.x,q.y,32,0.75+i*.035,'#cbd5e1',dmg(.34),'lightning','철우박')); }}
+    ],
+    dream_jester:[
+      {n:'야바위 쇼',p:1,f(){ cast('악몽 광대가 야바위를 시작합니다. 처음 빛난 컵을 찾으세요!', 'cast', '#f472b6'); mini('shell', `${boss.name}가 야바위 환상을 시작합니다!`, '#f472b6'); }},
+      {n:'악몽 폭죽',p:1,f(){ cast('악몽 폭죽! 폭죽 궤적과 착탄 지점을 모두 피하세요.', 'burst', '#fde047'); randomSpots(12,100,130).forEach((q,i)=>{ aimed(250,'#fde047',dmg(.13),'chaos',6,q.x,q.y); circle(q.x,q.y,34,0.8+i*.04,'#f472b6',dmg(.32),'chaos','폭죽'); }); }},
+      {n:'가짜 SAFE 무대',p:1,f(){ cast('가짜 SAFE가 섞였습니다. 진짜 SAFE만 밟으세요!', 'cast', '#f472b6'); const real=Math.floor(Math.random()*4); for(let i=0;i<4;i++){ const x=180+i*(W-360)/3,y=H*.67; if(i===real) safe(x,y,54,2.1,'#86efac'); else state.mechanics.push({kind:'safe',x,y,r:54,life:2.1,color:'#fb7185',fake:true}); } floor(W/2,H/2,W*.92,H*.78,1.48,'#f472b6',dmg(.78),'chaos','가짜무대'); }},
+      {n:'서커스 대포',p:2,f(){ cast('서커스 대포! 양쪽 무대에서 포탄이 날아옵니다.', 'burst', '#fef08a'); for(let i=0;i<12;i++){ const x=i%2?0:W,y=120+i*(H-200)/11; aimed(245,'#fef08a',dmg(.16),'chaos',8,x,y); } }},
+      {n:'카드 병정 행진',p:2,f(){ cast('카드 병정이 행진합니다. 카드 줄 사이로 빠져나가세요.', 'wall', '#f9a8d4'); const gap=Math.floor(Math.random()*5); for(let i=0;i<5;i++) if(i!==gap) wall(150+i*(W-300)/4,H/2,30,H*.78,1.0+i*.08,'#f9a8d4',dmg(.40),'chaos','카드병정'); }},
+      {n:'스포트라이트 처형',p:2,f(){ cast('스포트라이트가 켜진 곳이 터집니다. 빛 밖으로 이동하세요!', 'slam', '#fef3c7'); randomSpots(7,120,130).forEach((q,i)=>circle(q.x,q.y,58,0.95+i*.08,'#fef3c7',dmg(.48),'chaos','스포트라이트')); }},
+      {n:'광대 미궁',p:3,f(){ cast('광대 미궁! 웃음소리 속에서 출구를 찾으세요.', 'cast', '#f472b6'); mini('maze', `${boss.name}가 광대 미궁을 시작합니다!`, '#f472b6'); }}
+    ]
+  };
+
+  V33_PATTERNS.prophecy_cube = V33_PATTERNS.oracle_cube;
+  V33_PATTERNS.void_gardener = V33_PATTERNS.hollow_gardener;
+  V33_PATTERNS.nightmare_jester = V33_PATTERNS.dream_jester;
+
+  const oldBossPatternV33 = bossPattern;
+  bossPattern = function(){
+    if(!alive()) return;
+    const list = V33_PATTERNS[boss.id];
+    if(!list || !list.length) return oldBossPatternV33();
+    boss._v33Index = ((boss._v33Index || 0) + 1);
+    let pool = list.filter(p => !p.p || p.p <= ph());
+    if(!pool.length) pool = list;
+    const idx = (boss._v33Index - 1 + Math.max(0, ph()-1)) % pool.length;
+    try { pool[idx].f(); }
+    catch(e){ console.warn('[V33 boss pattern fallback]', e); oldBossPatternV33(); }
+    if(boss.tier >= 8 && ph() >= 3 && Math.random() < .18){
+      setTimeout(()=>{ if(alive()) circle(rand(80,W-80),rand(120,H-80),38,.7,ss(),dmg(.25),th(),'페이즈잔상'); },650);
+    }
+  };
+
+  const V33_LABELS = {};
+  Object.keys(V33_PATTERNS).forEach(id => { V33_LABELS[id] = V33_PATTERNS[id].map(p => p.n); });
+  try { BOSSES.forEach(b => { if(V33_LABELS[b.id]) b.patterns = V33_LABELS[b.id]; }); } catch(e) {}
+
+  window.RaidDungeonV33 = {
+    version: V33_VERSION,
+    bosses: Object.keys(V33_PATTERNS).length,
+    highTierPatternRule: 'tier 8+ bosses expose 7 or more pattern labels where implemented',
+    damageBoost: 'V32 atk x 1.32 once'
+  };
+})();
+
 })();
