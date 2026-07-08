@@ -8032,7 +8032,7 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
   };
 
   selectionGrid = function(items, selected, type){
-    items=uniqueItems(items);
+    items=v53UniqueItems(items);
     const noneTitle = type==='weapon'?'무기 없이 출격':type==='armor'?'방어구 없이 출격':'이 칸 비우기';
     const noneDesc = type==='weapon'?'스킬만으로도 출격할 수 있습니다.':type==='armor'?'방어구 없이도 출격할 수 있습니다.':'비워둡니다.';
     const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="${type}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('${type}','',0)"><h3>${noneTitle}</h3><p>${noneDesc}</p></div>`;
@@ -9520,6 +9520,17 @@ function v49InjectStyles(){
   function v50RarityName(it, suffix=''){
     return v49NameHtml(it.name, it.rarity, suffix);
   }
+/* ===== V53 hotfix: sortie tab uniqueItems scope fix ===== */
+function v53UniqueItems(items){
+  const seen=new Set();
+  return (items||[]).filter(it=>{
+    if(!it) return false;
+    const key=String(it.id||it.name||JSON.stringify(it)).toLowerCase();
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
   function v50SortieWeaponCard(it,selected,type){
     const w=getWeapon(it.id)||it;
     const selectedClass=selected===it.id?'active':'';
@@ -9542,7 +9553,7 @@ function v49InjectStyles(){
     return `<div class="card ${selectedClass}" title="${esc(desc+'\n'+eff)}" data-select-type="skill" data-slot="${slot}" data-select-id="${esc(it.id)}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','${esc(it.id)}',${slot})"><h3>${v50RarityName(s,'Lv.'+lv)}</h3><p>${esc(desc)}<br>${esc(eff)} · 포인트 ${cp}</p></div>`;
   }
   selectionGrid = function(items, selected, type){
-    items=uniqueItems(items);
+    items=v53UniqueItems(items);
     const noneTitle = type==='weapon'?'무기 없이 출격':type==='armor'?'방어구 없이 출격':'이 칸 비우기';
     const noneDesc = type==='weapon'?'스킬만으로도 출격할 수 있습니다.':type==='armor'?'방어구 없이도 출격할 수 있습니다.':'비워둡니다.';
     const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="${type}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('${type}','',0)"><h3>${noneTitle}</h3><p>${noneDesc}</p></div>`;
@@ -10001,3 +10012,13 @@ try {
 })();
 
 })();
+
+
+/* ===== V53 verification: sortie click hotfix ===== */
+try {
+  window.RaidDungeonV53 = {
+    version: 'Raid Dungeon V53 - Sortie Click uniqueItems Hotfix',
+    fixed: ['출격 준비 클릭 오류 수정','uniqueItems is not defined 해결','기존 V52 장터/이펙트 기능 유지']
+  };
+} catch(e) {}
+
