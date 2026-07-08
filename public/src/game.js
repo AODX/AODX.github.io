@@ -9981,7 +9981,195 @@ function v53UniqueItems(items){
     const oldRenderV52 = renderMenu;
     renderMenu=function(){ oldRenderV52(); v52BindTabsAndButtons(); };
   }catch(e){ console.warn('[V52 bind/render hook failed]',e); }
+
+
+  /* ===== V54: lag-free mass pattern rendering, keep same attack patterns ===== */
+  const V54_VERSION = 'Raid Dungeon V54 - Lag Free Mass Patterns';
+  function v54MassMode(){
+    try{
+      return state.screen==='raid' && (
+        (state.hazards&&state.hazards.length>38) ||
+        (state.projectiles&&state.projectiles.length>70) ||
+        (state.particles&&state.particles.length>135) ||
+        (state.texts&&state.texts.length>32)
+      );
+    }catch(e){ return false; }
+  }
+  function v54Color(c){ return c || '#ffffff'; }
+  function v54FastLabel(h,i,seen){
+    const label=String((h&&h.label)||'').trim();
+    if(!label || label==='!' || seen.count>14) return;
+    const key=label.slice(0,10);
+    seen[key]=(seen[key]||0)+1;
+    if(seen[key]>2) return;
+    seen.count++;
+    ctx.save();
+    ctx.globalAlpha=.68;
+    ctx.fillStyle='#f8fafc';
+    ctx.font='900 12px system-ui';
+    ctx.textAlign='center';
+    ctx.lineWidth=3;
+    ctx.strokeStyle='rgba(0,0,0,.55)';
+    const x=h.x||W/2, y=h.y||H/2;
+    ctx.strokeText(label,x,y+4);
+    ctx.fillText(label,x,y+4);
+    ctx.restore();
+  }
+  function v54DrawHazardsFast(){
+    const list=state.hazards||[];
+    const seen={count:0};
+    ctx.save();
+    ctx.shadowBlur=0;
+    ctx.lineCap='round';
+    ctx.lineJoin='round';
+    for(let i=0;i<list.length;i++){
+      const h=list[i]; if(!h) continue;
+      const warning=(h.warn||0)>0;
+      const col=v54Color(h.color);
+      ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=warning?3:2;
+      if(h.kind==='circle'||h.kind==='playerStrike'){
+        ctx.globalAlpha=warning?.18:.34;
+        ctx.beginPath(); ctx.arc(h.x,h.y,h.r||20,0,Math.PI*2); ctx.fill();
+        ctx.globalAlpha=warning?.62:.78;
+        ctx.beginPath(); ctx.arc(h.x,h.y,h.r||20,0,Math.PI*2); ctx.stroke();
+        if(i%3===0) v54FastLabel(h,i,seen);
+      } else if(h.kind==='donut'){
+        const inner=h.inner||40, outer=h.outer||90;
+        ctx.globalAlpha=warning?.56:.72;
+        ctx.beginPath(); ctx.arc(h.x,h.y,outer,0,Math.PI*2); ctx.stroke();
+        ctx.globalAlpha=warning?.36:.54;
+        ctx.beginPath(); ctx.arc(h.x,h.y,inner,0,Math.PI*2); ctx.stroke();
+        if(i%3===0) v54FastLabel(h,i,seen);
+      } else if(h.kind==='beam'||h.kind==='rotatingBeam'){
+        ctx.save();
+        ctx.translate(h.x||W/2,h.y||H/2); ctx.rotate(h.angle||0);
+        const len=h.len||1000, ww=(h.w||18)*2;
+        ctx.globalAlpha=warning?.18:.36;
+        ctx.fillRect(-len/2,-ww/2,len,ww);
+        ctx.globalAlpha=warning?.72:.82;
+        ctx.strokeStyle='rgba(255,255,255,.78)'; ctx.lineWidth=warning?1.8:1.2;
+        ctx.strokeRect(-len/2,-ww/2,len,ww);
+        ctx.restore();
+        if(i%5===0) v54FastLabel(h,i,seen);
+      } else if(h.kind==='wall'){
+        ctx.globalAlpha=warning?.16:.42;
+        ctx.fillRect((h.x||0)-(h.w||40)/2,(h.y||0)-(h.h||40)/2,h.w||40,h.h||40);
+        ctx.globalAlpha=warning?.48:.68; ctx.strokeStyle='rgba(255,255,255,.50)'; ctx.lineWidth=1.4;
+        ctx.strokeRect((h.x||0)-(h.w||40)/2,(h.y||0)-(h.h||40)/2,h.w||40,h.h||40);
+        if(i%4===0) v54FastLabel(h,i,seen);
+      } else if(h.kind==='floor'){
+        const x=(h.x||W/2)-(h.w||W)/2, y=(h.y||H/2)-(h.h||H)/2;
+        ctx.globalAlpha=warning?.10:.24;
+        ctx.fillRect(x,y,h.w||W,h.h||H);
+        ctx.globalAlpha=warning?.38:.52; ctx.strokeStyle='rgba(255,255,255,.38)'; ctx.lineWidth=1.5;
+        ctx.strokeRect(x,y,h.w||W,h.h||H);
+        v54FastLabel(h,i,seen);
+      }
+    }
+    ctx.globalAlpha=1;
+    ctx.restore();
+  }
+  try{
+    const oldDrawHazardsV54=drawHazards;
+    drawHazards=function(){
+      if(v54MassMode()) return v54DrawHazardsFast();
+      return oldDrawHazardsV54();
+    };
+  }catch(e){ console.warn('[V54 drawHazards fast patch failed]',e); }
+
+  function v54DrawProjectilesFast(){
+    const arr=state.projectiles||[];
+    const max=180;
+    const start=Math.max(0,arr.length-max);
+    const groups={};
+    const delayed=[];
+    for(let i=start;i<arr.length;i++){
+      const p=arr[i]; if(!p) continue;
+      if(p.delay&&p.delay>0){ if(delayed.length<26) delayed.push(p); continue; }
+      const c=v54Color(p.color);
+      (groups[c]||(groups[c]=[])).push(p);
+    }
+    ctx.save(); ctx.shadowBlur=0;
+    for(const c in groups){
+      const g=groups[c]; ctx.fillStyle=c; ctx.globalAlpha=.88; ctx.beginPath();
+      for(let i=0;i<g.length;i++){ const p=g[i]; ctx.moveTo(p.x+(p.r||4),p.y); ctx.arc(p.x,p.y,p.r||4,0,Math.PI*2); }
+      ctx.fill();
+    }
+    ctx.globalAlpha=.35; ctx.strokeStyle='#fff'; ctx.lineWidth=1.5;
+    delayed.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x,p.y,16,0,Math.PI*2); ctx.stroke(); });
+    ctx.globalAlpha=1; ctx.restore();
+  }
+  try{
+    const oldDrawProjectilesV54=drawProjectiles;
+    drawProjectiles=function(){
+      if(v54MassMode()) return v54DrawProjectilesFast();
+      return oldDrawProjectilesV54();
+    };
+  }catch(e){ console.warn('[V54 drawProjectiles fast patch failed]',e); }
+
+  function v54DrawParticlesFast(){
+    const arr=state.particles||[];
+    const max=90; const start=Math.max(0,arr.length-max);
+    ctx.save(); ctx.shadowBlur=0;
+    for(let i=start;i<arr.length;i+= arr.length>150?2:1){
+      const p=arr[i]; if(!p) continue;
+      const a=Math.max(0,Math.min(1,p.life||0));
+      ctx.globalAlpha=Math.min(.72,a);
+      ctx.strokeStyle=p.color||'#fff'; ctx.fillStyle=p.color||'#fff';
+      if(p.kind==='line'){
+        ctx.lineWidth=Math.max(1,(p.r||3)*.22);
+        ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x+Math.cos(p.angle||0)*(p.len||22),p.y+Math.sin(p.angle||0)*(p.len||22)); ctx.stroke();
+      }else if(p.kind==='ring'){
+        ctx.lineWidth=Math.max(1,(p.line||2)*.45);
+        ctx.beginPath(); ctx.arc(p.x,p.y,Math.max(2,(p.r||8)),0,Math.PI*2); ctx.stroke();
+      }else{
+        ctx.beginPath(); ctx.arc(p.x,p.y,Math.max(1.5,Math.min(5,p.r||3)),0,Math.PI*2); ctx.fill();
+      }
+    }
+    ctx.globalAlpha=1; ctx.restore();
+  }
+  try{
+    const oldDrawParticlesV54=drawParticles;
+    drawParticles=function(){
+      if(v54MassMode()) return v54DrawParticlesFast();
+      return oldDrawParticlesV54();
+    };
+  }catch(e){ console.warn('[V54 drawParticles fast patch failed]',e); }
+
+  try{
+    const oldDrawTextsV54=drawTexts;
+    drawTexts=function(){
+      if(!v54MassMode()) return oldDrawTextsV54();
+      const arr=state.texts||[];
+      const start=Math.max(0,arr.length-26);
+      const seen={};
+      ctx.save(); ctx.textAlign='center'; ctx.shadowBlur=0;
+      for(let i=start;i<arr.length;i++){
+        const t=arr[i]; if(!t) continue;
+        const key=String(t.text||'').slice(0,8); seen[key]=(seen[key]||0)+1;
+        if(seen[key]>2) continue;
+        ctx.globalAlpha=Math.max(.25,Math.min(.9,t.life||1));
+        ctx.fillStyle=t.color||'#fff'; ctx.font=`900 ${Math.min(18,t.size||14)}px system-ui`;
+        ctx.fillText(t.text,t.x,t.y);
+      }
+      ctx.globalAlpha=1; ctx.restore();
+    };
+  }catch(e){ console.warn('[V54 drawTexts fast patch failed]',e); }
+
+  try{
+    const oldUpdateV54=update;
+    update=function(dt){
+      oldUpdateV54(dt);
+      try{
+        if(state.texts&&state.texts.length>44) state.texts.splice(0,state.texts.length-44);
+        if(state.particles&&state.particles.length>160) state.particles.splice(0,state.particles.length-160);
+        if(state.projectiles&&state.projectiles.length>210) state.projectiles.splice(0,state.projectiles.length-210);
+      }catch(e){}
+    };
+  }catch(e){ console.warn('[V54 update cap patch failed]',e); }
+
   try{ window.RaidDungeonV52={version:V52_VERSION, sortieClickFix:true, strongerFx:true, marketSections:['material','weapon','armor','skill']}; }catch(e){}
+  try{ window.RaidDungeonV54={version:V54_VERSION, fastMassPatternRendering:true, keepsPatterns:true, optimized:['hazard drawing','projectile drawing','particle drawing','damage text drawing']}; }catch(e){}
   try{ window.RaidDungeonUI.growthTab=()=>{state.menuTab='growth'; renderMenu();}; window.RaidDungeonUI.marketTab=()=>{state.menuTab='market'; renderMenu();}; window.RaidDungeonUI.chatTab=()=>{state.menuTab='chat'; renderMenu();}; }catch(e){}
   try{ window.RaidDungeonV45={version:V45_VERSION, v45, enhanceWeapon, enchantWeapon, sellWeapon, disassembleWeapon, upgradeSkill, registerMaterial, marketBuy, chatSend}; v45(); renderMenu(); }catch(e){console.warn('[V45 init failed]',e);}
 })();
