@@ -9839,6 +9839,138 @@ function v49InjectStyles(){
 
   try{ window.RaidDungeonV51={version:V51_VERSION, performanceCaps:true, fullMapSafeFix:true, newRecordInsteadOfFirstClear:true, trueMaze:true, lateBossUpgrade:true}; }catch(e){}
 
+
+
+  /* ===== V52: sortie tab click fix, market item sections, stronger FX ===== */
+  const V52_VERSION = 'Raid Dungeon V52 - Sortie Click Market FX Fix';
+
+  function v52EnsureStyle(){
+    if(document.getElementById('v52-style')) return;
+    const st=document.createElement('style'); st.id='v52-style';
+    st.textContent=`
+      @keyframes v52Pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.45) rotate(-8deg)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.1) rotate(2deg)}70%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-58%) scale(.86)}}
+      @keyframes v52Ring{0%{transform:translate(-50%,-50%) scale(.2);opacity:.9}100%{transform:translate(-50%,-50%) scale(2.6);opacity:0}}
+      @keyframes v52Star{0%{transform:translate(-50%,-50%) scale(.5);opacity:1}100%{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1.4) rotate(560deg);opacity:0}}
+      .v52-fx{position:fixed;left:50%;top:50%;z-index:2147483647;pointer-events:none;text-align:center;min-width:360px;max-width:90vw;padding:30px 34px;border-radius:32px;border:3px solid rgba(255,255,255,.78);background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.24),rgba(15,23,42,.90) 58%,rgba(2,6,23,.96));box-shadow:0 0 80px rgba(96,165,250,.72),inset 0 0 28px rgba(255,255,255,.12);animation:v52Pop 2.6s ease-out forwards}
+      .v52-fx-title{font-size:42px;font-weight:950;letter-spacing:-1px;color:#fff;text-shadow:0 0 20px #60a5fa,0 0 42px #a78bfa}
+      .v52-fx-sub{margin-top:8px;color:#dbeafe;font-size:16px;font-weight:900}
+      .v52-ring{position:fixed;left:50%;top:50%;width:220px;height:220px;border-radius:999px;border:4px solid rgba(255,255,255,.7);z-index:2147483646;pointer-events:none;animation:v52Ring 1.2s ease-out forwards}
+      .v52-star{position:fixed;left:50%;top:50%;z-index:2147483647;color:#fef08a;font-size:22px;font-weight:950;pointer-events:none;animation:v52Star 1.35s ease-out forwards;text-shadow:0 0 18px #facc15}
+      .v52-market-tabs{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 14px}
+      .v52-market-grid{display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr);gap:14px}
+      .v52-panel{padding:16px;border-radius:18px;border:1px solid rgba(148,163,184,.16);background:rgba(2,6,23,.72)}
+      .v52-list{display:flex;flex-direction:column;gap:10px}
+      .v52-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border:1px solid rgba(148,163,184,.14);border-radius:16px;background:rgba(15,23,42,.52)}
+      @media(max-width:900px){.v52-market-grid{grid-template-columns:1fr}.v52-row{flex-direction:column;align-items:stretch}}
+    `;
+    document.head.appendChild(st);
+  }
+  function v52Effect(title, sub, kind){
+    try{
+      v52EnsureStyle();
+      document.querySelectorAll('.v52-fx,.v52-ring,.v52-star').forEach(e=>e.remove());
+      const box=document.createElement('div'); box.className='v52-fx';
+      const color=kind==='enchant'?'#c084fc':kind==='gacha'?'#facc15':kind==='drop'?'#38bdf8':'#22c55e';
+      box.style.boxShadow=`0 0 90px ${color}aa, inset 0 0 30px rgba(255,255,255,.12)`;
+      box.innerHTML=`<div class="v52-fx-title">${esc(title)}</div><div class="v52-fx-sub">${esc(sub||'')}</div>`;
+      document.body.appendChild(box);
+      for(let r=0;r<3;r++){ const ring=document.createElement('div'); ring.className='v52-ring'; ring.style.borderColor=color; ring.style.animationDelay=(r*.12)+'s'; document.body.appendChild(ring); setTimeout(()=>ring.remove(),1600); }
+      for(let i=0;i<28;i++){ const s=document.createElement('div'); s.className='v52-star'; s.textContent=i%3===0?'✦':i%3===1?'◆':'★'; const a=Math.random()*Math.PI*2; const d=90+Math.random()*260; s.style.setProperty('--dx',Math.cos(a)*d+'px'); s.style.setProperty('--dy',Math.sin(a)*d+'px'); s.style.color=i%2?color:'#fef08a'; s.style.animationDelay=(Math.random()*.22)+'s'; document.body.appendChild(s); setTimeout(()=>s.remove(),1700); }
+      setTimeout(()=>box.remove(),2800);
+      state.flash=Math.max(state.flash||0,.78);
+    }catch(e){ console.warn('[V52 FX failed]',e); }
+  }
+  try{
+    v48Effect = function(title, sub, kind){ v52Effect(title, sub, kind==='good'?'enhance':kind); };
+  }catch(e){}
+  try{
+    const oldGachaV52 = gachaCelebration;
+    gachaCelebration = function(item){ try{ oldGachaV52(item); }catch(e){} setTimeout(()=>v52Effect('뽑기 성공!', (item&&item.name)||'아이템 획득', 'gacha'), 50); };
+  }catch(e){}
+  try{
+    const oldEnhanceV52 = enhanceWeapon;
+    enhanceWeapon = function(id){ const before=(weaponMeta(id)||{}).enh||0; oldEnhanceV52(id); const after=(weaponMeta(id)||{}).enh||0; if(after>before) v52Effect('강화 성공!', `${(getWeapon(id)||{}).name||'무기'} +${after}`, 'enhance'); };
+    const oldEnchantV52 = enchantWeapon;
+    enchantWeapon = function(id){ oldEnchantV52(id); v52Effect('인챈트 완료!', `${(getWeapon(id)||{}).name||'무기'}에 새로운 힘이 깃들었습니다`, 'enchant'); };
+  }catch(e){ console.warn('[V52 enhance/enchant FX hook failed]',e); }
+
+  function v52MarketTab(){ return state.v52MarketTab || 'material'; }
+  function v52MarketTabs(){
+    const tabs=[['material','부산물 장터'],['weapon','무기 장터'],['armor','방어구 장터'],['skill','스킬 장터']];
+    return `<div class="v52-market-tabs">${tabs.map(([k,l])=>`<button type="button" class="tab ${v52MarketTab()===k?'active':''}" data-v52-market-tab="${k}">${l}</button>`).join('')}</div>`;
+  }
+  function v52RarityItemName(name, rarity){
+    try{ if(rarity) return v49NameHtml(name, rarity); }catch(e){}
+    return `<span style="font-weight:900">${esc(name)}</span>`;
+  }
+  function v52ItemOptions(kind){
+    let arr=[];
+    if(kind==='weapon') arr=[...new Set(state.save.weapons||[])].map(id=>getWeapon(id)).filter(Boolean);
+    if(kind==='armor') arr=[...new Set(state.save.armors||[])].map(id=>getArmor(id)).filter(Boolean);
+    if(kind==='skill') arr=[...new Set(state.save.skills||[])].map(id=>getSkill(id)).filter(Boolean);
+    return arr.map(x=>`<option value="${esc(x.id)}">${esc(x.name)} · ${getRarity(x.rarity).name}</option>`).join('');
+  }
+  function v52RegisterItem(kind){
+    const sel=document.getElementById('v52ItemSelect');
+    const price=Math.max(1, Math.floor(Number(document.getElementById('v52ItemPrice')?.value||0)));
+    const id=sel&&sel.value;
+    if(!id || !price){ toast('아이템과 가격을 입력하세요.'); return; }
+    const obj=kind==='weapon'?getWeapon(id):kind==='armor'?getArmor(id):getSkill(id);
+    if(!obj){ toast('아이템을 찾을 수 없습니다.'); return; }
+    const a=marketLoad();
+    a.push({id:kind[0]+Date.now()+Math.random(),kind,name:obj.name,itemId:id,rarity:obj.rarity,price,seller:state.save.playerName||'Player'});
+    if(kind==='weapon') state.save.weapons=(state.save.weapons||[]).filter(x=>x!==id);
+    if(kind==='armor') state.save.armors=(state.save.armors||[]).filter(x=>x!==id);
+    if(kind==='skill') state.save.skills=(state.save.skills||[]).filter(x=>x!==id);
+    marketSave(a); saveGame(); renderMenu(); toast(`${obj.name} 판매소 등록`);
+  }
+  try{
+    const oldMarketBuyV52 = marketBuy;
+    marketBuy = function(id){
+      const a=marketLoad(); const it=a.find(x=>x.id===id);
+      oldMarketBuyV52(id);
+      if(it && it.kind==='armor' && !(state.save.armors||[]).includes(it.itemId)){ state.save.armors.push(it.itemId); saveGame(); renderMenu(); }
+    };
+  }catch(e){}
+  renderMarket = function(){
+    v52EnsureStyle(); v48Ensure();
+    const tab=v52MarketTab(); const list=marketLoad().slice().reverse().filter(x=>tab==='material'?x.kind==='material':x.kind===tab);
+    let form='';
+    if(tab==='material'){
+      const mats=Object.entries(v45().materials||{}).filter(x=>x[1]>0);
+      const opts=mats.map(([m,q])=>`<option value="${esc(m)}">${esc(m)} x${q}</option>`).join('');
+      form=`<h3>부산물 등록</h3><p class="sub">최대 10개가 1묶음으로 등록됩니다.</p><select id="v45MatSelect" class="input">${opts}</select><input id="v45MatPrice" class="input" type="number" min="1" placeholder="가격 입력" style="margin-top:8px"><button id="v45MatRegister" class="btn" style="margin-top:10px;width:100%">10개 묶음 등록</button>`;
+    } else {
+      const label=tab==='weapon'?'무기':tab==='armor'?'방어구':'스킬';
+      const opts=v52ItemOptions(tab);
+      form=`<h3>${label} 등록</h3><p class="sub">보유한 ${label}을 선택해 원하는 가격으로 등록합니다.</p><select id="v52ItemSelect" class="input">${opts||`<option value="">등록할 ${label} 없음</option>`}</select><input id="v52ItemPrice" class="input" type="number" min="1" placeholder="가격 입력" style="margin-top:8px"><button id="v52ItemRegister" class="btn" style="margin-top:10px;width:100%">${label} 등록</button>`;
+    }
+    const listing=list.map(x=>`<div class="v52-row"><div><b>${v52RarityItemName(x.name,x.rarity)}</b><div class="muted">${esc(x.kind)} · 판매자 ${esc(x.seller)} ${x.kind==='material'?'· 수량 '+x.qty:''}</div></div><button class="btn secondary" data-v45-buy="${esc(x.id)}">${x.price} 구매</button></div>`).join('')||'<p class="muted">등록된 물품이 없습니다.</p>';
+    return `<h2 class="title" style="font-size:22px">유저 판매소</h2><p class="sub">부산물, 무기, 방어구, 스킬을 나누어 등록하고 구매합니다.</p>${v48Summary()}${v52MarketTabs()}<div class="v52-market-grid"><div class="v52-panel">${form}</div><div class="v52-panel"><h3>판매 목록</h3><div class="v52-list">${listing}</div></div></div>`;
+  };
+
+  function v52BindTabsAndButtons(){
+    try{
+      const root=ui&&ui.menu; if(!root) return;
+      root.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{ state.menuTab=b.dataset.tab; renderMenu(); });
+      root.querySelectorAll('[data-v45-tab]').forEach(b=>b.onclick=()=>{ state.menuTab=b.dataset.v45Tab; renderMenu(); });
+      root.querySelectorAll('[data-v52-market-tab]').forEach(b=>b.onclick=()=>{ state.v52MarketTab=b.dataset.v52MarketTab; state.menuTab='market'; renderMenu(); });
+      const reg=root.querySelector('#v52ItemRegister'); if(reg) reg.onclick=()=>v52RegisterItem(v52MarketTab());
+      root.querySelectorAll('[data-v45-buy]').forEach(el=>el.onclick=()=>marketBuy(el.dataset.v45Buy));
+      const mr=root.querySelector('#v45MatRegister'); if(mr) mr.onclick=registerMaterial;
+      root.querySelectorAll('[data-select-type]').forEach(card=>{ card.onclick=()=>{ const type=card.dataset.selectType; const id=card.dataset.selectId||''; const slot=Number(card.dataset.slot||0); window.RaidDungeonUI&&window.RaidDungeonUI.select(type,id,slot); }; });
+      root.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{ window.RaidDungeonUI&&window.RaidDungeonUI.step(b.dataset.step); });
+      root.querySelectorAll('[data-prev-step]').forEach(b=>b.onclick=()=>window.RaidDungeonUI&&window.RaidDungeonUI.prev&&window.RaidDungeonUI.prev());
+      root.querySelectorAll('[data-next-step]').forEach(b=>b.onclick=()=>window.RaidDungeonUI&&window.RaidDungeonUI.next&&window.RaidDungeonUI.next());
+    }catch(e){ console.warn('[V52 bind failed]', e); }
+  }
+  try{
+    const oldBindV52 = bindV45;
+    bindV45=function(){ try{oldBindV52();}catch(e){} v52BindTabsAndButtons(); };
+    const oldRenderV52 = renderMenu;
+    renderMenu=function(){ oldRenderV52(); v52BindTabsAndButtons(); };
+  }catch(e){ console.warn('[V52 bind/render hook failed]',e); }
+  try{ window.RaidDungeonV52={version:V52_VERSION, sortieClickFix:true, strongerFx:true, marketSections:['material','weapon','armor','skill']}; }catch(e){}
   try{ window.RaidDungeonUI.growthTab=()=>{state.menuTab='growth'; renderMenu();}; window.RaidDungeonUI.marketTab=()=>{state.menuTab='market'; renderMenu();}; window.RaidDungeonUI.chatTab=()=>{state.menuTab='chat'; renderMenu();}; }catch(e){}
   try{ window.RaidDungeonV45={version:V45_VERSION, v45, enhanceWeapon, enchantWeapon, sellWeapon, disassembleWeapon, upgradeSkill, registerMaterial, marketBuy, chatSend}; v45(); renderMenu(); }catch(e){console.warn('[V45 init failed]',e);}
 })();
