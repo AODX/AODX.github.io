@@ -8161,4 +8161,413 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
       checks:['file size should be larger than V40','V41 systems appended','syntax checked as .js']
     };
   }catch(e){}
+/* =========================================================
+   RAID DUNGEON V43 - ACTUAL PROGRESSION SYSTEM FIX
+   - boss exclusive weapon/armor/pattern skill drops from tier 3+
+   - skill level manual upgrade with duplicate points, max Lv.7
+   - weapon enhancement +10, enchant, materials, coins
+   - sell/disassemble weapon, local market, 30-minute chat
+   - first clear only when no previous record exists, center banner only
+========================================================= */
+(function raidDungeonV43ActualProgressionFix(){
+  const V43_VERSION = 'Raid Dungeon V43 - actual progression / first clear fix';
+  const CHAT_KEY = 'raid-dungeon-v43-chat';
+  const MARKET_KEY = 'raid-dungeon-v43-market';
+
+  function esc(s){ return escapeHtml(String(s == null ? '' : s)); }
+  function num(v,d){ v = Number(v); return Number.isFinite(v) ? v : d; }
+  function tierOf(b){ return clamp(Math.round(num(b && b.tier, 1)), 1, 10); }
+  function rarityByTier(t){ return t>=10 ? 'ultimate' : t>=8 ? 'legendary' : t>=6 ? 'epic' : t>=4 ? 'super' : 'rare'; }
+  function rarityPow(r){ try { return getRarity(r).power || 1; } catch(e){ return 1; } }
+  function bossMatName(b){ return `${(b && b.name) || '보스'} 부산물`; }
+  function weaponMatName(w){ return (w && w.v43Material) || `${weaponKindName((w && w.kind) || 'blade')} 파편`; }
+  function pct(v){ return `${Math.round(Number(v || 0) * 10) / 10}%`; }
+  function formatEnchant(en){
+    en = en || {};
+    const p=[];
+    if(en.speed) p.push(`공속 Lv${en.speed}`);
+    if(en.attack) p.push(`공격 Lv${en.attack}`);
+    if(en.luck) p.push(`행운 Lv${en.luck}(희귀 드롭 +${pct(en.luck * 3.5)})`);
+    if(en.plunder) p.push(`약탈 Lv${en.plunder}(부산물 추가 +${pct(en.plunder * 8)})`);
+    if(en.critDamage) p.push(`치명타 피해 Lv${en.critDamage}`);
+    if(en.critChance) p.push(`치명타 확률 Lv${en.critChance}`);
+    return p.length ? p.join(' / ') : '없음';
+  }
+  function initV43(){
+    if(!state.save) state.save = defaultSave();
+    if(!state.save.v43) state.save.v43 = {};
+    const v = state.save.v43;
+    v.skillLevels = v.skillLevels || {};
+    v.skillCopies = v.skillCopies || {};
+    v.materials = v.materials || {};
+    v.weaponEnhance = v.weaponEnhance || {};
+    v.weaponEnchant = v.weaponEnchant || {};
+    v.dropLog = v.dropLog || [];
+    if(!Number.isFinite(Number(state.save.coins))) state.save.coins = Number(state.save.coins || 0) || 0;
+    return v;
+  }
+  function addMat(name, qty){ const v=initV43(); qty=Math.max(0, Math.floor(qty||0)); if(!name || qty<=0) return; v.materials[name]=(v.materials[name]||0)+qty; }
+  function takeMat(name, qty){ const v=initV43(); qty=Math.max(0, Math.floor(qty||0)); if(!name || qty<=0) return false; if((v.materials[name]||0)<qty) return false; v.materials[name]-=qty; return true; }
+  function matCount(name){ return (initV43().materials[name]||0); }
+  function uniqueById(items){ const seen=new Set(); return (items||[]).filter(it=>{ if(!it) return false; const k=String(it.id||it.name); if(seen.has(k)) return false; seen.add(k); return true; }); }
+
+  function ensureV43BossDrops(){
+    try{
+      BOSSES.forEach(b=>{
+        const t = tierOf(b); if(t < 3) return;
+        const rarity = rarityByTier(t);
+        const mat = bossMatName(b);
+        const wid = `v43_boss_weapon_${b.id}`;
+        const aid = `v43_boss_armor_${b.id}`;
+        const sid = `v43_boss_skill_${b.id}`;
+        if(!WEAPONS.some(w=>w.id===wid)){
+          WEAPONS.push({ id:wid, name:`${b.name}의 전용 무기`, rarity, kind:t>=9?'grimoire':t>=7?'greatsword':t>=5?'scythe':'blade', desc:`${b.name}에게서 아주 낮은 확률로 드롭되는 전용 무기입니다. 별 등급이 높을수록 기본 성능이 높습니다. 강화 재료는 ${mat}입니다.`, color:b.color, atk:+(1.35+t*.115).toFixed(3), range:118+t*7, speed:Math.max(.34, +(0.86-t*.027).toFixed(3)), crit:5+t*.7, type:'weapon', v43Boss:b.id, v43Material:mat });
+        }
+        if(!ARMORS.some(a=>a.id===aid)){
+          ARMORS.push({ id:aid, name:`${b.name}의 전용 방어구`, rarity, desc:`${b.name}에게서 낮은 확률로 드롭되는 전용 방어구입니다. 보스 별 개수가 높을수록 체력과 방어가 높습니다.`, color:b.sub||b.color, hp:180+t*84, def:12+t*8, resist:{}, type:'armor', v43Boss:b.id, v43Material:mat });
+        }
+        if(!SKILLS.some(s=>s.id===sid)){
+          const type = t>=8 ? 'chain' : t>=6 ? 'burst' : t>=4 ? 'line' : 'zone';
+          SKILLS.push({ id:sid, name:`${b.name} 패턴 스킬`, element:b.theme||'arcane', type, category:'attack', rarity, color:b.color, power:+(1.08+t*.145).toFixed(3), cooldown:Math.max(4.7, +(10.8-t*.38).toFixed(2)), radius:110+t*9, duration:1.0, desc:`${b.name}의 대표 패턴을 플레이어용 스킬로 재현합니다. 각 보스당 1종류만 존재하는 전용 패턴 스킬입니다.`, v43Boss:b.id });
+        }
+      });
+    }catch(e){ console.warn('[V43 boss drop item ensure failed]', e); }
+  }
+  ensureV43BossDrops();
+
+  const oldNormalizeV43 = normalizeSaveData;
+  normalizeSaveData = function(s){
+    const out = oldNormalizeV43(s);
+    try{
+      if(!out.v43) out.v43 = {};
+      out.v43.skillLevels = out.v43.skillLevels || {};
+      out.v43.skillCopies = out.v43.skillCopies || {};
+      out.v43.materials = out.v43.materials || {};
+      out.v43.weaponEnhance = out.v43.weaponEnhance || {};
+      out.v43.weaponEnchant = out.v43.weaponEnchant || {};
+    }catch(e){}
+    return out;
+  };
+
+  const oldGetWeaponV43 = getWeapon;
+  getWeapon = function(id){
+    const base = oldGetWeaponV43(id); if(!base) return null;
+    const v = initV43(); const enh = clamp(v.weaponEnhance[id] || 0, 0, 10); const en = v.weaponEnchant[id] || {};
+    const w = {...base};
+    const atkMul = 1 + enh*.11 + (en.attack||0)*.08;
+    const speedMul = 1 - (en.speed||0)*.055;
+    w.v43BaseAtk = base.atk;
+    w.v43Enhance = enh;
+    w.v43Enchant = en;
+    w.v43Luck = (en.luck||0) * 3.5;
+    w.v43Plunder = (en.plunder||0) * 8;
+    w.v43CritDmg = (en.critDamage||0) * .18;
+    w.atk = +(base.atk * atkMul).toFixed(4);
+    w.speed = Math.max(.26, +(base.speed * speedMul).toFixed(4));
+    w.crit = (base.crit || 0) + (en.critChance||0)*3;
+    w.desc = `${base.desc} / +${enh}강 적용: 공격 배율 x${w.atk}, 공속 ${w.speed.toFixed(2)}, 치명 ${pct(w.crit||0)} / 인챈트: ${formatEnchant(en)}`;
+    return w;
+  };
+
+  const oldGetSkillV43 = getSkill;
+  getSkill = function(id){
+    const base = oldGetSkillV43(id); if(!base) return null;
+    const v = initV43(); const lv = clamp(v.skillLevels[id] || 1, 1, 7);
+    const s = {...base};
+    s.v43Level = lv;
+    s.v43BasePower = base.power;
+    s.power = +(base.power * (1 + (lv-1)*.15)).toFixed(4);
+    s.cooldown = Math.max(2.1, +(base.cooldown * (1 - (lv-1)*.025)).toFixed(3));
+    s.desc = `${base.desc} / Lv.${lv} 적용: 위력 x${s.power}, 쿨타임 ${s.cooldown.toFixed(1)}초`;
+    return s;
+  };
+
+  const oldApplyBuildV43 = applyBuild;
+  applyBuild = function(){
+    oldApplyBuildV43();
+    try{
+      const w = getWeapon(state.selectedWeaponId);
+      if(w){
+        player.critDmg += w.v43CritDmg || 0;
+        player.dropLuck = (player.dropLuck || 0) + (w.v43Luck || 0);
+        player.plunder = (player.plunder || 0) + (w.v43Plunder || 0);
+      }
+    }catch(e){}
+  };
+
+  function detailText(it,type){
+    if(!it) return '';
+    if(type === 'weapon'){
+      const w = getWeapon(it.id) || it; const en = w.v43Enchant || {};
+      return `무기 상세\n이름: ${w.name}\n희귀도: ${getRarity(w.rarity).name}\n종류: ${weaponKindName(w.kind)}\n강화: +${w.v43Enhance||0}/10\n공격 배율: x${w.atk}\n공격속도: ${Number(w.speed||0).toFixed(2)}\n치명 확률: ${pct(w.crit||0)}\n인챈트: ${formatEnchant(en)}\n강화 재료: ${weaponMatName(w)}\n설명: ${w.desc}`;
+    }
+    if(type === 'skill'){
+      const s = getSkill(it.id) || it; const v=initV43();
+      return `스킬 상세\n이름: ${s.name}\nLv.${v.skillLevels[it.id]||1}/7\n중복 강화 포인트: ${v.skillCopies[it.id]||0}\n분류: ${skillCategoryName(s.category)}\n속성: ${s.element}\n위력: x${s.power}\n쿨타임: ${Number(s.cooldown||0).toFixed(1)}초\n범위: ${s.radius}\n설명: ${s.desc}`;
+    }
+    if(type === 'armor') return `방어구 상세\n이름: ${it.name}\n희귀도: ${getRarity(it.rarity).name}\n체력 +${it.hp}\n방어 +${it.def}\n설명: ${it.desc}`;
+    return `${it.name}\n${it.desc||''}`;
+  }
+
+  ownedWeapons = function(){ return uniqueById(WEAPONS.filter(w => (state.save.weapons||[]).includes(w.id))); };
+  ownedArmors = function(){ return uniqueById(ARMORS.filter(a => (state.save.armors||[]).includes(a.id))); };
+  ownedSkills = function(cat){ return uniqueById(SKILLS.filter(s => (state.save.skills||[]).includes(s.id) && (!cat || s.category===cat))); };
+  ownedPassives = function(){ return uniqueById(PASSIVES.filter(p => (state.save.passives||[]).includes(p.id))); };
+
+  function enhanceCost(id){ const w=getWeapon(id); const v=initV43(); const enh=clamp(v.weaponEnhance[id]||0,0,10); return { mat: weaponMatName(w), qty:(enh+1)*(enh+2), coins:Math.floor(170*(enh+1)*(1+enh*.45)) }; }
+  function enhanceWeapon(id){
+    const w=getWeapon(id); if(!w) return;
+    const v=initV43(); const enh=clamp(v.weaponEnhance[id]||0,0,10);
+    if(enh>=10){ toast('이미 +10강입니다.'); return; }
+    const c=enhanceCost(id);
+    if((state.save.coins||0)<c.coins){ toast(`코인이 부족합니다. 필요 코인 ${c.coins}`); return; }
+    if(!takeMat(c.mat,c.qty)){ toast(`${c.mat} ${c.qty}개가 필요합니다.`); return; }
+    state.save.coins -= c.coins; v.weaponEnhance[id] = enh+1;
+    toast(`${w.name} +${enh+1} 강화 성공`); saveGame(); renderMenu();
+  }
+  function randomEnchant(){
+    const types=['speed','attack','luck','plunder','critDamage','critChance'];
+    const count = 1 + (Math.random()<.30?1:0) + (Math.random()<.10?1:0) + (Math.random()<.03?1:0);
+    const en={};
+    while(Object.keys(en).length<count){ const t=types[Math.floor(Math.random()*types.length)]; en[t]=1+Math.floor(Math.random()*3); }
+    return en;
+  }
+  function enchantWeapon(id){
+    const w=getWeapon(id); if(!w) return;
+    const v=initV43(); const enh=clamp(v.weaponEnhance[id]||0,0,10);
+    const mat=weaponMatName(w), qty=7+enh*2, coins=850+enh*230;
+    if((state.save.coins||0)<coins){ toast(`인챈트 코인이 부족합니다. 필요 코인 ${coins}`); return; }
+    if(!takeMat(mat,qty)){ toast(`${mat} ${qty}개가 필요합니다.`); return; }
+    state.save.coins -= coins; v.weaponEnchant[id] = randomEnchant();
+    toast(`${w.name} 인챈트 완료: ${formatEnchant(v.weaponEnchant[id])}`); saveGame(); renderMenu();
+  }
+  function sellWeapon(id){
+    const w=getWeapon(id); if(!w) return;
+    const price=Math.floor(520*rarityPow(w.rarity)*(1+(w.v43Enhance||0)*.22));
+    state.save.weapons=(state.save.weapons||[]).filter(x=>x!==id); if(state.selectedWeaponId===id) state.selectedWeaponId=null;
+    state.save.coins=(state.save.coins||0)+price; toast(`${w.name} 판매: ${price} 코인`); saveGame(); renderMenu();
+  }
+  function disassembleWeapon(id){
+    const w=getWeapon(id); if(!w) return;
+    const qty=3+Math.ceil(rarityPow(w.rarity)*2)+(w.v43Enhance||0)*2;
+    const mat=weaponMatName(w);
+    state.save.weapons=(state.save.weapons||[]).filter(x=>x!==id); if(state.selectedWeaponId===id) state.selectedWeaponId=null;
+    addMat(mat, qty); toast(`${w.name} 분해: ${mat} ${qty}개 획득`); saveGame(); renderMenu();
+  }
+  function upgradeSkill(id){
+    const s=getSkill(id); if(!s) return;
+    const v=initV43(); const lv=clamp(v.skillLevels[id]||1,1,7); const cp=v.skillCopies[id]||0;
+    if(lv>=7){ toast('이미 Lv.7입니다.'); return; }
+    if(cp<=0){ toast('같은 스킬 중복 포인트가 필요합니다.'); return; }
+    v.skillCopies[id]=cp-1; v.skillLevels[id]=lv+1;
+    toast(`${s.name} Lv.${lv+1} 달성`); saveGame(); renderMenu();
+  }
+
+  const oldRollGachaV43 = rollGacha;
+  rollGacha = function(kind){
+    initV43();
+    if(!state.save.tickets || typeof state.save.tickets !== 'object') state.save.tickets = {...INITIAL_TICKETS};
+    if((state.save.tickets[kind]||0)<=0){ toast(TICKET_LABEL[kind] + '이 부족합니다.'); return; }
+    if(kind !== 'skill') return oldRollGachaV43(kind);
+    state.save.tickets.skill -= 1;
+    const rarity=pickRarity();
+    const pool=SKILLS.filter(x=>x.rarity===rarity); const list=pool.length?pool:SKILLS;
+    const item=list[Math.floor(Math.random()*list.length)];
+    const arr=state.save.skills || (state.save.skills=[]); const v=initV43();
+    if(arr.includes(item.id)){ v.skillCopies[item.id]=(v.skillCopies[item.id]||0)+1; }
+    else { arr.push(item.id); v.skillLevels[item.id]=1; }
+    state.gachaResult=item; gachaCelebration(item); saveGame(); renderMenu();
+  };
+
+  selectionGrid = function(items, selected, type){
+    items = uniqueById(items);
+    const noneTitle = type === 'weapon' ? '무기 없이 출격' : type === 'armor' ? '방어구 없이 출격' : '이 칸 비우기';
+    const noneDesc = type === 'weapon' ? '스킬만 가지고 레이드에 들어갈 수 있습니다.' : type === 'armor' ? '방어구는 필수는 아닙니다.' : '비워도 됩니다.';
+    const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="${type}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('${type}','',0)"><h3>${noneTitle}</h3><p>${noneDesc}</p></div>`;
+    if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 항목이 없습니다.</h3><p>뽑기 상점이나 보스 드롭으로 획득할 수 있습니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+    return `<div class="grid">${noneCard}${items.map(it=>{
+      if(type==='weapon'){
+        const w=getWeapon(it.id)||it; const c=enhanceCost(it.id);
+        return `<div class="card ${selected===it.id?'active':''}" title="${esc(detailText(it,'weapon'))}" data-select-type="weapon" data-select-id="${it.id}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('weapon','${it.id}',0)"><h3>${esc(w.name)} +${w.v43Enhance||0} ${rarityLabel(w.rarity)}</h3><p>${esc(w.desc)}<br>공격 x${w.atk} · 공속 ${Number(w.speed||0).toFixed(2)} · 재료 ${esc(c.mat)} ${matCount(c.mat)}/${c.qty} · 강화비 ${c.coins}코인</p><div class="row" style="margin-top:8px"><button type="button" class="btn secondary" onclick="event.stopPropagation();window.RaidDungeonV43.enhanceWeapon('${it.id}')">강화</button><button type="button" class="btn secondary" onclick="event.stopPropagation();window.RaidDungeonV43.enchantWeapon('${it.id}')">인챈트</button></div><div class="row" style="margin-top:6px"><button type="button" class="btn secondary" onclick="event.stopPropagation();window.RaidDungeonV43.sellWeapon('${it.id}')">평균가 판매</button><button type="button" class="btn secondary" onclick="event.stopPropagation();window.RaidDungeonV43.disassembleWeapon('${it.id}')">분해</button></div><button type="button" class="btn secondary" style="margin-top:6px;width:100%" onclick="event.stopPropagation();window.RaidDungeonV43.marketRegisterWeapon('${it.id}')">유저 판매소 등록</button></div>`;
+      }
+      const a=getArmor(it.id)||it;
+      return `<div class="card ${selected===it.id?'active':''}" title="${esc(detailText(a,'armor'))}" data-select-type="armor" data-select-id="${it.id}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('armor','${it.id}',0)"><h3>${esc(a.name)} ${rarityLabel(a.rarity)}</h3><p>${esc(a.desc)}<br>체력 +${a.hp} / 방어 +${a.def}</p></div>`;
+    }).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+  };
+
+  skillSlotGrid = function(slot){
+    const items = uniqueById(ownedSkills());
+    const selected = state.selectedSkillIds[slot] || null;
+    const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','',${slot})"><h3>스킬 ${slot+1} 비우기</h3><p>스킬을 끼지 않아도 됩니다.</p></div>`;
+    if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 스킬이 없습니다.</h3><p>스킬 뽑기나 보스 패턴 스킬 드롭으로 획득할 수 있습니다.</p></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+    return `<p class="sub">중복 스킬은 목록에 1개만 보이고, 중복 획득분은 강화 포인트로 저장됩니다. 버튼으로 직접 Lv.7까지 올릴 수 있습니다.</p><div class="grid">${noneCard}${items.map(it=>{ const s=getSkill(it.id)||it; const v=initV43(); const lv=v.skillLevels[it.id]||1; const cp=v.skillCopies[it.id]||0; return `<div class="card ${selected===it.id?'active':''}" title="${esc(detailText(it,'skill'))}" data-select-type="skill" data-slot="${slot}" data-select-id="${it.id}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','${it.id}',${slot})"><h3>${esc(s.name)} Lv.${lv} ${rarityLabel(s.rarity)}</h3><p>${esc(s.desc)}<br>위력 x${s.power} · 쿨 ${Number(s.cooldown||0).toFixed(1)}초 · 강화포인트 ${cp}</p><button type="button" class="btn secondary" style="margin-top:8px" onclick="event.stopPropagation();window.RaidDungeonV43.upgradeSkill('${it.id}')">스킬 레벨업</button><button type="button" class="btn secondary" style="margin-top:6px;width:100%" onclick="event.stopPropagation();window.RaidDungeonV43.marketRegisterSkill('${it.id}')">유저 판매소 등록</button></div>`; }).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+  };
+
+  function chooseTicketReward(t){
+    const r=Math.random();
+    if(t>=8){ if(r<.32) return 'skill'; if(r<.58) return 'weapon'; if(r<.82) return 'armor'; return 'passive'; }
+    if(t>=5){ if(r<.40) return 'skill'; if(r<.62) return 'weapon'; if(r<.84) return 'armor'; return 'passive'; }
+    if(r<.48) return 'skill'; if(r<.68) return 'weapon'; if(r<.88) return 'armor'; return 'passive';
+  }
+  rollBossTicketRewards = function(b){
+    const t=tierOf(b); const rw={weapon:0,armor:0,skill:0,passive:0};
+    for(let i=0;i<t;i++) rw[chooseTicketReward(t)]++;
+    return rw;
+  };
+  rewardTextFromTickets = function(rw){
+    const parts=[]; if(rw.weapon) parts.push(`무기 ${rw.weapon}장`); if(rw.armor) parts.push(`방어구 ${rw.armor}장`); if(rw.skill) parts.push(`스킬 ${rw.skill}장`); if(rw.passive) parts.push(`패시브 ${rw.passive}장`);
+    return parts.length ? '획득 티켓: '+parts.join(' / ') : '획득 티켓 없음';
+  };
+
+  function addOwned(kind,id){
+    if(!id) return false;
+    if(kind==='weapon'){ const a=state.save.weapons||(state.save.weapons=[]); if(!a.includes(id)){a.push(id); return true;} return false; }
+    if(kind==='armor'){ const a=state.save.armors||(state.save.armors=[]); if(!a.includes(id)){a.push(id); return true;} return false; }
+    if(kind==='skill'){
+      const a=state.save.skills||(state.save.skills=[]); const v=initV43();
+      if(a.includes(id)){ v.skillCopies[id]=(v.skillCopies[id]||0)+1; return false; }
+      a.push(id); v.skillLevels[id]=1; return true;
+    }
+    return false;
+  }
+  function rollBossSpecialDrops(b){
+    const t=tierOf(b), drops=[]; if(t<3) return drops;
+    const w=getWeapon(`v43_boss_weapon_${b.id}`), a=getArmor(`v43_boss_armor_${b.id}`), s=getSkill(`v43_boss_skill_${b.id}`);
+    const luck=(player&&player.dropLuck)||0;
+    const baseW=.018 + t*.004 + luck/100;
+    const baseA=.022 + t*.004 + luck/100;
+    const baseS=.012 + t*.0035 + luck/100;
+    if(w && Math.random()<baseW){ addOwned('weapon',w.id); drops.push(`전용 무기 ${w.name}`); }
+    if(a && Math.random()<baseA){ addOwned('armor',a.id); drops.push(`전용 방어구 ${a.name}`); }
+    if(s && Math.random()<baseS){ const fresh=addOwned('skill',s.id); drops.push(fresh ? `패턴 스킬 ${s.name}` : `패턴 스킬 중복포인트 ${s.name}`); }
+    return drops;
+  }
+  function rewardCoinsAndMaterials(b){
+    const t=tierOf(b); const coins=Math.floor(180*t + t*t*45 + Math.random()*t*70);
+    state.save.coins=(state.save.coins||0)+coins;
+    const mat=bossMatName(b); const plunder=(player&&player.plunder)||0;
+    let qty=1+Math.floor(t/2);
+    if(Math.random() < plunder/100) qty += 1+Math.floor(t/3);
+    if(Math.random() < Math.min(.45, t*.035)) qty += 1;
+    addMat(mat, qty);
+    return {coins, mat, qty};
+  }
+
+  function hasExistingRecordForBoss(bossId){
+    try{ if(getLocalRecords().some(r=>r && r.boss_id===bossId)) return true; }catch(e){}
+    try{ if(state.rankingBossId===bossId && Array.isArray(state.rankings) && state.rankings.length>0) return true; }catch(e){}
+    return false;
+  }
+  function removeOldFirstClearVisuals(){
+    try{ document.getElementById('raid-v40-first-clear-banner')?.remove(); }catch(e){}
+    try{ document.querySelectorAll('[id*="first-clear"], [id*="FirstClear"]').forEach(el=>{ if(el.id!=='raid-v43-first-clear-banner') el.remove(); }); }catch(e){}
+    try{ state.v37FirstClearT=0; state.v37FirstClearBoss=''; state.v39FirstClearT=0; state.v40FirstClearT=0; }catch(e){}
+  }
+  function showFirstClearOnlyCenter(name){
+    removeOldFirstClearVisuals();
+    const old=document.getElementById('raid-v43-first-clear-banner'); if(old) old.remove();
+    const st=document.getElementById('raid-v43-first-clear-style') || document.createElement('style');
+    st.id='raid-v43-first-clear-style';
+    st.textContent='@keyframes raidV43First{0%{opacity:0;transform:translate(-50%,-50%) scale(.65)}13%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}';
+    document.head.appendChild(st);
+    const box=document.createElement('div');
+    box.id='raid-v43-first-clear-banner';
+    box.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;min-width:620px;max-width:88vw;text-align:center;padding:34px 44px;border:4px solid #facc15;border-radius:30px;background:rgba(2,6,23,.90);box-shadow:0 0 60px rgba(250,204,21,.70);pointer-events:none;animation:raidV43First 4.8s ease-out forwards;';
+    box.innerHTML=`<div style="font-size:58px;font-weight:950;color:#facc15;letter-spacing:.06em;text-shadow:0 0 28px #facc15">FIRST CLEAR!</div><div style="margin-top:10px;font-size:22px;font-weight:900;color:white">${esc(name)} 최초 클리어 기록 달성</div>`;
+    document.body.appendChild(box);
+    setTimeout(()=>box.remove(),5200);
+    try{ state.flash=Math.max(state.flash||0,1.25); burst(W/2,H/2,'#facc15',150,600); }catch(e){}
+  }
+
+  async function submitRecordV43(ms, bossSnapshot, record, shouldCheckFirst){
+    let trulyFirst = !!shouldCheckFirst;
+    if(shouldCheckFirst && supabaseReady && supabase){
+      try{
+        const res = await supabase.from('raid_records').select('id').eq('boss_id', bossSnapshot.id).limit(1);
+        if(res && Array.isArray(res.data) && res.data.length>0) trulyFirst=false;
+      }catch(e){ /* offline이면 local 기준 유지 */ }
+    }
+    try{
+      let local=getLocalRecords().filter(r=>!(r.boss_id===bossSnapshot.id && normalizedPlayerName(r.player_name).toLowerCase()===normalizedPlayerName(record.player_name).toLowerCase()));
+      local.push(record);
+      local=dedupeLatestByPlayer(local).slice(0,250);
+      localStorage.setItem(LOCAL_RECORD_KEY,JSON.stringify(local));
+    }catch(e){}
+    if(supabaseReady && supabase){
+      try{
+        await supabase.from('raid_records').delete().eq('boss_id', bossSnapshot.id).eq('player_name', record.player_name);
+        await supabase.from('raid_records').insert(record);
+      }catch(e){ console.warn('Supabase ranking save failed:', e && e.message ? e.message : e); }
+    }
+    if(trulyFirst) showFirstClearOnlyCenter(bossSnapshot.name);
+    refreshRankings(bossSnapshot.id);
+  }
+
+  endRaid = function(clear){
+    removeOldFirstClearVisuals();
+    state.screen='result';
+    const elapsed=Math.floor(state.raid.elapsed*1000);
+    let rewardText='';
+    let firstCandidate=false;
+    if(clear){
+      const b=getBoss(boss.id);
+      firstCandidate = !hasExistingRecordForBoss(boss.id);
+      const rw=rollBossTicketRewards(b);
+      state.save.tickets.weapon=(state.save.tickets.weapon||0)+rw.weapon;
+      state.save.tickets.armor=(state.save.tickets.armor||0)+rw.armor;
+      state.save.tickets.skill=(state.save.tickets.skill||0)+rw.skill;
+      state.save.tickets.passive=(state.save.tickets.passive||0)+rw.passive;
+      const cm=rewardCoinsAndMaterials(b);
+      const special=rollBossSpecialDrops(b);
+      rewardText = rewardTextFromTickets(rw) + `<br>코인 ${cm.coins} 획득 / ${esc(cm.mat)} ${cm.qty}개 획득`;
+      if(special.length) rewardText += `<br><b style="color:#facc15">희귀 드롭: ${special.map(esc).join(' / ')}</b>`;
+      saveGame();
+      const playerName=normalizedPlayerName(state.save.playerName);
+      const record={player_name:playerName,boss_id:b.id,boss_name:b.name,clear_ms:elapsed,weapon_id:state.raid.weapon?state.raid.weapon.id:'none',weapon_name:state.raid.weapon?state.raid.weapon.name:'무기 없음',skills:state.raid.skills.filter(Boolean).map(s=>s.name),passives:[state.raid.armor?('방어구: '+state.raid.armor.name):'방어구 없음'].concat(state.raid.passives.filter(Boolean).map(p=>p.name)),damage_taken:player.damageTaken,created_at:new Date().toISOString()};
+      submitRecordV43(elapsed, {id:b.id,name:b.name}, record, firstCandidate);
+    }
+    ui.right.classList.remove('hidden');
+    ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${esc(boss.name)}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`;
+    const btn=ui.right.querySelector('#resultMenu');
+    if(btn) btn.onclick=()=>{ state.menuTab=clear?'ranking':'build'; renderMenu(); refreshRankings(boss.id); };
+  };
+
+  const oldDrawV43 = draw;
+  draw = function(){
+    try{ state.v37FirstClearT=0; state.v39FirstClearT=0; state.v40FirstClearT=0; }catch(e){}
+    oldDrawV43();
+  };
+
+  function marketLoad(){ try{return JSON.parse(localStorage.getItem(MARKET_KEY)||'[]').filter(x=>x&&x.price>0);}catch(e){return[];} }
+  function marketSave(a){ try{localStorage.setItem(MARKET_KEY,JSON.stringify((a||[]).slice(-120)));}catch(e){} }
+  function chatLoad(){ const now=Date.now(); let a=[]; try{a=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]')||[];}catch(e){} a=a.filter(m=>now-(m.t||0)<30*60*1000); try{localStorage.setItem(CHAT_KEY,JSON.stringify(a));}catch(e){} return a; }
+  function chatSend(){ const inp=document.getElementById('v43ChatInput'); if(!inp||!inp.value.trim()) return; const a=chatLoad(); a.push({name:state.save.playerName||'Player', text:inp.value.trim().slice(0,100), t:Date.now()}); localStorage.setItem(CHAT_KEY,JSON.stringify(a)); inp.value=''; renderMenu(); }
+  function marketRegisterMaterial(){ const mat=document.getElementById('v43MarketMat')?.value||''; const price=Math.max(1,Math.floor(Number(document.getElementById('v43MarketPrice')?.value||0))); const qty=Math.min(10, matCount(mat)); if(!mat||qty<=0){ toast('등록할 부산물이 없습니다.'); return; } takeMat(mat,qty); const a=marketLoad(); a.push({id:'m'+Date.now()+Math.random(),seller:state.save.playerName||'Player',kind:'material',name:mat,qty,price,t:Date.now()}); marketSave(a); saveGame(); renderMenu(); }
+  function marketRegisterWeapon(id){ const w=getWeapon(id); if(!w) return; const suggested=Math.floor(900*rarityPow(w.rarity)*(1+(w.v43Enhance||0)*.25)); const raw=prompt('판매소에 등록할 가격을 입력하세요', suggested); const price=Math.max(1,Math.floor(Number(raw||0))); if(!price) return; state.save.weapons=(state.save.weapons||[]).filter(x=>x!==id); const a=marketLoad(); a.push({id:'w'+Date.now()+Math.random(),seller:state.save.playerName||'Player',kind:'weapon',itemId:id,name:w.name,qty:1,price,t:Date.now()}); marketSave(a); saveGame(); renderMenu(); }
+  function marketRegisterSkill(id){ const s=getSkill(id); if(!s) return; const suggested=Math.floor(700*rarityPow(s.rarity)); const raw=prompt('판매소에 등록할 가격을 입력하세요', suggested); const price=Math.max(1,Math.floor(Number(raw||0))); if(!price) return; state.save.skills=(state.save.skills||[]).filter(x=>x!==id); const a=marketLoad(); a.push({id:'s'+Date.now()+Math.random(),seller:state.save.playerName||'Player',kind:'skill',itemId:id,name:s.name,qty:1,price,t:Date.now()}); marketSave(a); saveGame(); renderMenu(); }
+  function marketBuy(id){ const a=marketLoad(); const i=a.findIndex(x=>x.id===id); if(i<0) return; const it=a[i]; if((state.save.coins||0)<it.price){ toast('코인이 부족합니다.'); return; } state.save.coins-=it.price; if(it.kind==='material') addMat(it.name,it.qty); if(it.kind==='weapon') addOwned('weapon',it.itemId); if(it.kind==='skill') addOwned('skill',it.itemId); a.splice(i,1); marketSave(a); saveGame(); renderMenu(); }
+
+  const oldRenderMenuV43 = renderMenu;
+  renderMenu = function(){ oldRenderMenuV43(); try{ renderV43Panel(); }catch(e){ console.warn('[V43 panel render failed]',e); } };
+  function renderV43Panel(){
+    if(!ui || !ui.menu) return; initV43();
+    const mats=Object.entries(initV43().materials).filter(([,q])=>q>0).sort((a,b)=>b[1]-a[1]);
+    const matOpts=mats.length?mats.map(([m,q])=>`<option value="${esc(m)}">${esc(m)} (${q})</option>`).join(''):'<option value="">부산물 없음</option>';
+    const market=marketLoad(); const chats=chatLoad();
+    const box=document.createElement('div'); box.className='card'; box.style.marginTop='14px';
+    box.innerHTML=`<h3>성장 / 판매소 / 채팅 · 코인 ${Math.floor(state.save.coins||0)}</h3><p class="sub">3성 이상 보스는 낮은 확률로 전용 무기·방어구·보스 패턴 스킬을 드롭합니다. 채팅은 30분 뒤 자동 삭제됩니다.</p><div class="row"><div><b>보유 부산물</b><p class="muted">${mats.slice(0,10).map(([m,q])=>`${esc(m)} ${q}`).join('<br>')||'없음'}</p></div><div><b>부산물 판매 등록</b><select id="v43MarketMat" class="input">${matOpts}</select><input id="v43MarketPrice" class="input" type="number" min="1" placeholder="판매 가격" style="margin-top:6px"><button type="button" id="v43MarketRegister" class="btn secondary" style="margin-top:6px;width:100%">부산물 최대 10개 묶음 등록</button></div></div><div style="margin-top:10px"><b>유저 판매소</b>${market.slice(-8).reverse().map(x=>`<div class="record"><div class="rank">${x.kind==='material'?x.qty:'1'}</div><div>${esc(x.name)}<div class="muted">${x.kind} · 판매자 ${esc(x.seller)}</div></div><button type="button" class="btn secondary" style="padding:6px;min-height:28px" data-v43buy="${x.id}">${x.price} 구매</button></div>`).join('')||'<p class="muted">등록된 물품이 없습니다.</p>'}</div><div style="margin-top:10px"><b>채팅</b><div style="max-height:130px;overflow:auto;background:#020617;border:1px solid rgba(148,163,184,.22);border-radius:12px;padding:8px;margin:6px 0">${chats.map(m=>`<div class="muted"><b style="color:#e5e7eb">${esc(m.name)}:</b> ${esc(m.text)}</div>`).join('')||'<span class="muted">아직 채팅이 없습니다.</span>'}</div><div class="row"><input id="v43ChatInput" class="input" placeholder="채팅 입력"><button type="button" id="v43ChatSend" class="btn secondary">전송</button></div></div>`;
+    ui.menu.appendChild(box);
+    box.querySelector('#v43MarketRegister')?.addEventListener('click', marketRegisterMaterial);
+    box.querySelector('#v43ChatSend')?.addEventListener('click', chatSend);
+    box.querySelector('#v43ChatInput')?.addEventListener('keydown', e=>{ if(e.key==='Enter') chatSend(); });
+    box.querySelectorAll('[data-v43buy]').forEach(b=>b.addEventListener('click',()=>marketBuy(b.dataset.v43buy)));
+  }
+
+  try{
+    window.RaidDungeonV43 = { version:V43_VERSION, enhanceWeapon, enchantWeapon, sellWeapon, disassembleWeapon, upgradeSkill, marketRegisterWeapon, marketRegisterSkill, marketBuy, marketRegisterMaterial, chatSend, initV43 };
+    initV43(); ensureV43BossDrops();
+    renderMenu();
+  }catch(e){ console.warn('[V43 init failed]', e); }
+})();
+
 })();
