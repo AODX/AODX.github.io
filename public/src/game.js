@@ -9231,7 +9231,7 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
 
 
   /* ===== V48: cleaner progression UI, tiered materials, effects ===== */
-const V48_VERSION = 'Raid Dungeon V49 - Game UI Clean Rarity Color';
+const V48_VERSION = 'Raid Dungeon V50 - Clean Sortie UI Chat Overlay';
 function v49RarityStyle(rarity){
   const r=getRarity(rarity||'normal');
   if((rarity||'')==='ultimate') return 'font-weight:900;background:linear-gradient(90deg,#ff4d6d 0%,#f59e0b 16%,#fde047 32%,#4ade80 48%,#38bdf8 64%,#818cf8 80%,#e879f9 100%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 14px rgba(255,255,255,.10)';
@@ -9469,6 +9469,375 @@ function v49InjectStyles(){
   };
   const oldRenderMenuV48 = renderMenu;
   renderMenu = function(){ oldRenderMenuV48(); v48CleanHeader(); try{bindV45();}catch(e){} };
+
+
+
+  /* ===== V50: clean sortie cards + floating chat overlay + simpler game UI ===== */
+  const V50_VERSION = 'Raid Dungeon V51 - Performance Late Boss New Record Maze';
+  function v50BaseDesc(desc){
+    return String(desc||'')
+      .split(' / 강화 ')[0]
+      .split(' / Lv.')[0]
+      .split(' [V45]')[0]
+      .split(' / +')[0]
+      .replace(/현재 공격 배율[^/]+/g,'')
+      .trim();
+  }
+  function v50Pct(n){
+    const v=Number(n||0);
+    const sign=v>0?'+':'';
+    return sign + (Math.round(v*10)/10) + '%';
+  }
+  function v50SkillLevel(id){
+    try{ return (v45().skillLevels&&v45().skillLevels[id]) || 1; }catch(e){ return 1; }
+  }
+  function v50SkillCopies(id){
+    try{ return (v45().skillCopies&&v45().skillCopies[id]) || 0; }catch(e){ return 0; }
+  }
+  function v50WeaponMeta(id){
+    try{ return weaponMeta(id) || {}; }catch(e){ return {}; }
+  }
+  function v50WeaponEffects(w){
+    const meta=v50WeaponMeta(w.id);
+    const enh=Number(meta.enh||w.v45Enhance||w.v44Enhance||w.v43Enhance||w.v41Enhance||0);
+    const ench=meta.ench||w.v45Enchant||w.v44Enchant||w.v43Enchant||w.v41Enchant||[];
+    const arr=Array.isArray(ench)?ench:Object.entries(ench||{}).map(([type,lv])=>({type,lv}));
+    let attack=enh*10.5, speed=0, crit=0, luck=0, plunder=0;
+    arr.forEach(e=>{
+      const lv=Number(e.lv||e[1]||0); const type=e.type||e[0];
+      if(type==='attack') attack += lv*8;
+      if(type==='speed') speed += lv*5.5;
+      if(type==='critChance') crit += lv*3;
+      if(type==='luck') luck += lv*3.5;
+      if(type==='plunder') plunder += lv*7;
+    });
+    return `적용 효과: 공격 ${v50Pct(attack)}, 공속 ${v50Pct(speed)}, 치명 ${v50Pct(crit)}, 행운 ${v50Pct(luck)}, 약탈 ${v50Pct(plunder)}`;
+  }
+  function v50SkillEffects(s){
+    const lv=v50SkillLevel(s.id);
+    return `적용 효과: 위력 ${v50Pct((lv-1)*14)}, 쿨타임 ${v50Pct(-(lv-1)*2.5)}`;
+  }
+  function v50RarityName(it, suffix=''){
+    return v49NameHtml(it.name, it.rarity, suffix);
+  }
+  function v50SortieWeaponCard(it,selected,type){
+    const w=getWeapon(it.id)||it;
+    const selectedClass=selected===it.id?'active':'';
+    const eff=v50WeaponEffects(w);
+    const desc=v50BaseDesc(w.desc);
+    return `<div class="card ${selectedClass}" title="${esc(desc+'\n'+eff)}" data-select-type="weapon" data-select-id="${esc(it.id)}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('weapon','${esc(it.id)}',0)"><h3>${v50RarityName(w)}</h3><p>${esc(desc)}<br>${esc(eff)}</p></div>`;
+  }
+  function v50SortieArmorCard(it,selected,type){
+    const selectedClass=selected===it.id?'active':'';
+    const desc=v50BaseDesc(it.desc);
+    return `<div class="card ${selectedClass}" title="${esc(desc)}" data-select-type="armor" data-select-id="${esc(it.id)}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('armor','${esc(it.id)}',0)"><h3>${v50RarityName(it)}</h3><p>${esc(desc)}<br>적용 효과: 체력 +${it.hp||0}, 방어 +${it.def||0}</p></div>`;
+  }
+  function v50SortieSkillCard(it,slot,selected){
+    const s=getSkill(it.id)||it;
+    const lv=v50SkillLevel(it.id);
+    const cp=v50SkillCopies(it.id);
+    const selectedClass=selected===it.id?'active':'';
+    const desc=v50BaseDesc(s.desc);
+    const eff=v50SkillEffects(s);
+    return `<div class="card ${selectedClass}" title="${esc(desc+'\n'+eff)}" data-select-type="skill" data-slot="${slot}" data-select-id="${esc(it.id)}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','${esc(it.id)}',${slot})"><h3>${v50RarityName(s,'Lv.'+lv)}</h3><p>${esc(desc)}<br>${esc(eff)} · 포인트 ${cp}</p></div>`;
+  }
+  selectionGrid = function(items, selected, type){
+    items=uniqueItems(items);
+    const noneTitle = type==='weapon'?'무기 없이 출격':type==='armor'?'방어구 없이 출격':'이 칸 비우기';
+    const noneDesc = type==='weapon'?'스킬만으로도 출격할 수 있습니다.':type==='armor'?'방어구 없이도 출격할 수 있습니다.':'비워둡니다.';
+    const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="${type}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('${type}','',0)"><h3>${noneTitle}</h3><p>${noneDesc}</p></div>`;
+    if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 항목이 없습니다.</h3><p>뽑기 상점이나 보스 드롭으로 획득할 수 있습니다.</p></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+    return `<div class="grid">${noneCard}${items.map(it=> type==='weapon'?v50SortieWeaponCard(it,selected,type):type==='armor'?v50SortieArmorCard(it,selected,type):'').join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+  };
+  skillSlotGrid = function(slot){
+    const items=ownedSkills(); const selected=state.selectedSkillIds[slot]||null;
+    const noneCard=`<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','',${slot})"><h3>스킬 ${slot+1} 비우기</h3><p>스킬을 끼지 않아도 레이드는 시작할 수 있습니다.</p></div>`;
+    if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 스킬이 없습니다.</h3><p>뽑기 또는 보스 패턴 스킬 드롭으로 획득할 수 있습니다.</p></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+    return `<p class="sub">출격 준비에서는 장착만 합니다. 강화와 판매는 성장 센터에서 진행합니다.</p><div class="grid">${noneCard}${items.map(it=>v50SortieSkillCard(it,slot,selected)).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+  };
+
+  function v50InjectStyles(){
+    if(document.getElementById('v50-ui-style')) return;
+    const st=document.createElement('style'); st.id='v50-ui-style';
+    st.textContent=`
+      #v50-chat-toggle{position:fixed;left:18px;bottom:18px;z-index:9998;border-radius:999px;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.72);backdrop-filter:blur(10px);color:#e5e7eb;font-weight:900;padding:10px 14px;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.28)}
+      #v50-chat-panel{position:fixed;left:18px;bottom:66px;z-index:9998;width:min(360px,calc(100vw - 36px));border:1px solid rgba(148,163,184,.28);border-radius:18px;background:rgba(2,6,23,.70);backdrop-filter:blur(12px);box-shadow:0 18px 44px rgba(0,0,0,.38);padding:12px;color:#e5e7eb}
+      #v50-chat-panel.hidden{display:none!important}
+      #v50-chat-log{height:180px;overflow:auto;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(2,6,23,.45);padding:10px;font-size:13px;line-height:1.45;margin-bottom:8px}
+      #v50-chat-panel .v50-chat-row{display:flex;gap:6px}
+      #v50-chat-input{flex:1;border-radius:12px;border:1px solid rgba(148,163,184,.28);background:rgba(15,23,42,.75);color:#fff;padding:10px;font-weight:800}
+      #v50-chat-send{border-radius:12px;border:1px solid rgba(148,163,184,.28);background:#2563eb;color:#fff;font-weight:900;padding:9px 12px;cursor:pointer}
+    `;
+    document.head.appendChild(st);
+  }
+  function v50ChatOpen(){ return localStorage.getItem('raid_v50_chat_open')==='1'; }
+  function v50SetChatOpen(v){ localStorage.setItem('raid_v50_chat_open',v?'1':'0'); }
+  function v50DrawFloatingChat(){
+    try{
+      v50InjectStyles();
+      let toggle=document.getElementById('v50-chat-toggle');
+      if(!toggle){ toggle=document.createElement('button'); toggle.id='v50-chat-toggle'; toggle.type='button'; document.body.appendChild(toggle); }
+      toggle.textContent=v50ChatOpen()?'채팅 닫기':'채팅';
+      toggle.onclick=()=>{v50SetChatOpen(!v50ChatOpen()); v50DrawFloatingChat();};
+      let panel=document.getElementById('v50-chat-panel');
+      if(!panel){ panel=document.createElement('div'); panel.id='v50-chat-panel'; document.body.appendChild(panel); }
+      const chats=chatLoad();
+      panel.className=v50ChatOpen()?'':'hidden';
+      panel.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>실시간 채팅</b><span style="font-size:12px;color:#94a3b8">30분 보관</span></div><div id="v50-chat-log">${chats.map(m=>`<div style="margin-bottom:6px"><b style="color:#fff">${esc(m.name)}:</b> <span style="color:#cbd5e1">${esc(m.text)}</span></div>`).join('')||'<span style="color:#94a3b8">아직 채팅이 없습니다.</span>'}</div><div class="v50-chat-row"><input id="v50-chat-input" placeholder="채팅 입력"><button id="v50-chat-send" type="button">전송</button></div>`;
+      const send=panel.querySelector('#v50-chat-send'); const input=panel.querySelector('#v50-chat-input');
+      const sendNow=()=>{ const text=(input&&input.value||'').trim().slice(0,140); if(!text) return; const a=chatLoad(); a.push({name:state.save.playerName||'Player',text,t:Date.now()}); localStorage.setItem(CHAT_KEY,JSON.stringify(a)); v50DrawFloatingChat(); };
+      if(send) send.onclick=sendNow; if(input) input.onkeydown=e=>{ if(e.key==='Enter') sendNow(); };
+    }catch(e){ console.warn('[V50 chat overlay failed]',e); }
+  }
+  function v50CleanupMenu(){
+    try{
+      [...ui.menu.querySelectorAll('.card')].forEach(card=>{ if((card.textContent||'').includes('V41 성장 시스템')) card.remove(); });
+      [...ui.menu.querySelectorAll('.nav button,.tab')].forEach(btn=>{ if((btn.textContent||'').trim()==='채팅') btn.remove(); });
+      const seen=new Set(); [...ui.menu.querySelectorAll('.nav button,.tab')].forEach(btn=>{ const t=(btn.textContent||'').trim(); if(seen.has(t)) btn.remove(); else seen.add(t); });
+      [...ui.menu.querySelectorAll('.chip')].forEach(ch=>{ const t=(ch.textContent||'').trim(); if(t.includes('Raid Dungeon V')||t.startsWith('닉네임 ')) ch.remove(); });
+    }catch(e){}
+  }
+  const oldRenderMenuV50=renderMenu;
+  renderMenu=function(){ oldRenderMenuV50(); v50CleanupMenu(); v50DrawFloatingChat(); };
+  const oldBindV50=bindV45;
+  bindV45=function(){ oldBindV50(); v50DrawFloatingChat(); };
+  try{ window.RaidDungeonV50={version:V50_VERSION, cleanSortie:true, floatingChat:true}; }catch(e){}
+
+
+
+  /* ===== V51: performance, late boss patterns, true maze, New Record ===== */
+  const V51_VERSION = 'Raid Dungeon V51 - Performance Late Boss New Record Maze';
+  function v51Clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function v51Tier(){ return Math.max(1, Math.min(10, Number((boss&&boss.tier)||1))); }
+  function v51Dmg(m=1){ return Math.max(10, ((boss&&boss.atk)||18) * m); }
+  function v51AngleToPlayer(){ return Math.atan2(player.y-boss.y, player.x-boss.x); }
+  function v51Circle(x,y,r,warn,life,color,damage,label,tag){ state.hazards.push({kind:'circle',x,y,r,warn,life,damage:damage||v51Dmg(.7),color:color||boss.color,tag:tag||boss.theme,label}); }
+  function v51Donut(x,y,inner,outer,warn,life,color,damage,label,tag){ state.hazards.push({kind:'donut',x,y,inner,outer,warn,life,damage:damage||v51Dmg(.65),color:color||boss.color,tag:tag||boss.theme,label}); }
+  function v51Beam(x,y,a,len,warn,life,color,damage,label,tag){ state.hazards.push({kind:'beam',x,y,angle:a,len:len||980,w:24,warn,life,damage:damage||v51Dmg(.62),color:color||boss.color,tag:tag||boss.theme,label}); }
+  function v51Wall(x,y,w,h,warn,life,color,damage,label,tag){ state.hazards.push({kind:'wall',x,y,w,h,warn,life,damage:damage||v51Dmg(.55),color:color||boss.color,tag:tag||boss.theme,label}); }
+  function v51FullMap(warn,life,color,damage,label){ state.hazards.push({kind:'floor',x:W/2,y:H/2,w:W*1.04,h:H*1.04,warn,life,damage:damage||v51Dmg(.72),color:color||boss.color,tag:boss.theme,label:label||'전체 맵 공격',respectSafe:true,v51FullMap:true,tick:0}); }
+  function v51Safe(x,y,r,life,color,fake){ state.mechanics.push({kind:'safe',x,y,r,life:life||2.4,color:color||'#86efac',fake:!!fake}); }
+  function v51BurstLight(x,y,color,count,speed){ try{ burst(x,y,color,Math.min(count||24,36),speed||280); }catch(e){} }
+  function v51SoftCapArrays(){
+    if(state.particles && state.particles.length>280) state.particles.splice(0,state.particles.length-280);
+    if(state.hazards && state.hazards.length>230){
+      const keep=[]; const step=Math.ceil(state.hazards.length/230);
+      for(let i=0;i<state.hazards.length;i++) if(i%step===0 || state.hazards[i].v51FullMap || state.hazards[i].respectSafe) keep.push(state.hazards[i]);
+      state.hazards=keep.slice(-230);
+    }
+    if(state.projectiles && state.projectiles.length>190) state.projectiles.splice(0,state.projectiles.length-190);
+  }
+  try{
+    const oldUpdateV51 = update;
+    update=function(dt){ v51SoftCapArrays(); oldUpdateV51(dt); v51SoftCapArrays(); };
+  }catch(e){ console.warn('[V51 update performance patch failed]',e); }
+
+  try{
+    const oldBurstV51 = burst;
+    burst=function(x,y,color,count,speed){ oldBurstV51(x,y,color,Math.min(count||0,30),Math.min(speed||360,520)); };
+  }catch(e){}
+
+  function v51IsInSafe(){ try{ return typeof inSafe==='function' && inSafe(player.x,player.y); }catch(e){ return false; } }
+  try{
+    const oldUpdateHazardsV51=updateHazards;
+    updateHazards=function(dt){
+      oldUpdateHazardsV51(dt);
+      if(state.screen!=='raid') return;
+      state.hazards.forEach(h=>{
+        if(!h || h.kind!=='floor' || (h.warn||0)>0 || (h.life||0)<=0) return;
+        const mapWide = h.v51FullMap || h.respectSafe || (h.w||0)>W*.78 || (h.h||0)>H*.55 || String(h.label||'').match(/전체|맵|일식|심판|종말|공간|해일벽|붕괴/);
+        if(!mapWide) return;
+        h.v51Tick=(h.v51Tick||0)-dt;
+        if(h.v51Tick<=0){
+          h.v51Tick=.42;
+          if(!v51IsInSafe()) hurtPlayer((h.damage||v51Dmg(.6))*0.82,h.color||boss.color,true);
+          else healText('SAFE',player.x,player.y-34,'#86efac');
+        }
+      });
+    };
+  }catch(e){ console.warn('[V51 full map floor patch failed]',e); }
+
+  function v51MazeWallHit(m){
+    const hw=m.w/2, hh=m.h/2;
+    return Math.abs(player.x-m.x)<hw+player.r && Math.abs(player.y-m.y)<hh+player.r;
+  }
+  function v51ResolveMazeWall(m){
+    if(!v51MazeWallHit(m)) return;
+    const dx=player.x-m.x, dy=player.y-m.y;
+    const ox=(m.w/2+player.r)-Math.abs(dx), oy=(m.h/2+player.r)-Math.abs(dy);
+    if(ox<oy) player.x += (dx<0?-ox:ox); else player.y += (dy<0?-oy:oy);
+    player.x=v51Clamp(player.x,player.r,W-player.r); player.y=v51Clamp(player.y,player.r,H-player.r);
+  }
+  try{
+    const oldDrawMechanicsV51=drawMechanics;
+    drawMechanics=function(){
+      oldDrawMechanicsV51();
+      state.mechanics.forEach(m=>{
+        if(m.kind!=='v51MazeWall') return;
+        ctx.save();
+        ctx.globalAlpha=.72; ctx.fillStyle=m.color||'#a78bfa'; ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=2;
+        roundRect(ctx,m.x-m.w/2,m.y-m.h/2,m.w,m.h,8); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      });
+    };
+    const oldUpdateMechanicsV51=updateMechanics;
+    updateMechanics=function(dt){ oldUpdateMechanicsV51(dt); state.mechanics.forEach(m=>{ if(m.kind==='v51MazeWall') {m.life-=dt; v51ResolveMazeWall(m);} }); state.mechanics=state.mechanics.filter(m=>m.life>0); };
+  }catch(e){ console.warn('[V51 maze mechanic patch failed]',e); }
+
+  function v51SpawnTrueMaze(){
+    boss.mechanicText='진짜 미로: 보라 벽은 통과할 수 없습니다. 통로를 돌아 탈출구로 이동하세요.';
+    const life=7.2, c='#a78bfa';
+    state.mechanics = state.mechanics.filter(m=>m.kind!=='v51MazeWall' && m.kind!=='mazeExit');
+    const walls=[
+      [W*.50,105,W*.86,18],[W*.50,H-72,W*.86,18],[90,H*.50,18,H*.72],[W-90,H*.50,18,H*.72],
+      [W*.28,H*.32,18,H*.42],[W*.43,H*.64,18,H*.44],[W*.58,H*.36,18,H*.42],[W*.73,H*.63,18,H*.40],
+      [W*.33,H*.48,W*.24,18],[W*.61,H*.51,W*.24,18],[W*.50,H*.25,W*.18,18],[W*.75,H*.78,W*.18,18]
+    ];
+    walls.forEach(([x,y,w,h])=>state.mechanics.push({kind:'v51MazeWall',x,y,w,h,life,color:c}));
+    state.mechanics.push({kind:'mazeExit',x:W-150,y:H-128,r:42,life,color:'#22c55e'});
+    floatText('진짜 미로!',W/2,90,'#fff',24);
+  }
+
+  function v51PatternDreamJester(){
+    const c='#e879f9', r=Math.random(); boss.mechanicText='악몽 광대: 진짜 안전지대와 가짜 안전지대를 섞고, 이동 경로를 강제합니다.';
+    if(r<.24){
+      const sx=rand(150,W-150), sy=rand(150,H-120); v51Safe(sx,sy,58,2.2,'#86efac',false);
+      for(let i=0;i<4;i++) v51Safe(rand(130,W-130),rand(145,H-105),50,2.2,c,true);
+      v51FullMap(1.55,.65,c,v51Dmg(.95),'악몽 무대 전체 공격');
+      for(let i=0;i<8;i++) v51Beam(W/2,H/2,i*Math.PI/8+state.time*.08,920,1.1,.55,c,v51Dmg(.45),'웃음 회전칼','chaos');
+      return;
+    }
+    if(r<.50){
+      v51SpawnTrueMaze();
+      for(let i=0;i<10;i++) setTimeout(()=>{ if(state.screen==='raid'&&!boss.dead) v51Circle(rand(130,W-130),rand(140,H-100),36, .65, .45, i%2?c:'#facc15', v51Dmg(.48), '광대 폭죽'); }, i*115);
+      return;
+    }
+    if(r<.76){
+      for(let i=0;i<13;i++){ const a=i*Math.PI*2/13+rand(-.04,.04); v51Beam(boss.x,boss.y,a,900,.75+i*.035,.55,i%2?c:'#facc15',v51Dmg(.48),'카드 난사'); }
+      for(let i=0;i<6;i++) v51Circle(rand(120,W-120),rand(135,H-95),42,.95+i*.08,.45,'#fb7185',v51Dmg(.52),'폭소 폭탄');
+      return;
+    }
+    const safeX=player.x, safeY=player.y; v51Safe(safeX,safeY,54,1.9,'#86efac',false); v51FullMap(1.25,.55,'#fb7185',v51Dmg(1.05),'관객석 붕괴');
+    for(let i=0;i<5;i++) v51Donut(W/2,H/2,80+i*52,116+i*52,.6+i*.12,.62,c,v51Dmg(.44),'악몽 고리');
+  }
+
+  function v51PatternSolar(final=false){
+    const c=final?'#fb7185':'#f97316'; boss.mechanicText= final?'아포칼립스: 검은 일식, 낙하, 회전 광선을 모두 사용합니다.':'태양룡: 태양 낙하와 광선이 겹칩니다.';
+    const r=Math.random();
+    if(r<.33){
+      const sx=rand(140,W-140), sy=rand(140,H-110); v51Safe(sx,sy,62,2.1,'#86efac'); v51FullMap(1.45,.65,c,v51Dmg(final?1.08:.86),final?'종말 일식':'태양 일식');
+      for(let i=0;i<9+(final?4:0);i++) v51Beam(W/2,H/2,i*Math.PI/(9+(final?4:0))+(final?.1:0),980,.75+i*.035,.56,i%2?'#fde047':c,v51Dmg(.48),'회전 태양광');
+      return;
+    }
+    if(r<.66){
+      for(let i=0;i<12+(final?7:0);i++) v51Circle(rand(100,W-100),rand(120,H-85),32+Math.random()*18,.55+i*.055,.38,i%2?'#facc15':c,v51Dmg(.50),'흑점 낙하');
+      for(let i=0;i<4+(final?2:0);i++) v51Donut(W/2,H/2,70+i*70,110+i*70,.9+i*.1,.56,'#f97316',v51Dmg(.46),'플레어 고리');
+      return;
+    }
+    v51SpawnTrueMaze();
+    for(let i=0;i<8+(final?6:0);i++) v51Beam(boss.x,boss.y,Math.atan2(player.y-boss.y,player.x-boss.x)+(i-(final?7:4))*0.12,960,.65+i*.04,.54,c,v51Dmg(.42),'일식 절단선');
+    setTimeout(()=>{ if(state.screen==='raid'&&!boss.dead) { const sx=rand(130,W-130), sy=rand(130,H-100); v51Safe(sx,sy,58,1.65,'#86efac'); v51FullMap(.95,.52,'#020617',v51Dmg(final?1.15:.82),'검은 핵 폭발'); } },650);
+  }
+
+  function v51PatternChaos(){
+    const c='#fb7185'; boss.mechanicText='혼돈의 집정관: 서로 다른 보스 패턴을 빠르게 섞어 사용합니다.';
+    const r=Math.random();
+    if(r<.25){ v51PatternDreamJester(); return; }
+    if(r<.50){ v51PatternSolar(true); return; }
+    if(r<.75){
+      v51SpawnTrueMaze();
+      for(let i=0;i<10;i++) v51Donut(W/2,H/2,50+i*36,75+i*36,.75+i*.05,.50,i%2?c:'#8b5cf6',v51Dmg(.46),'혼돈 도넛');
+      for(let i=0;i<8;i++) v51Beam(rand(160,W-160),rand(130,H-110),i*Math.PI/4,800,1.05,.50,'#facc15',v51Dmg(.42),'혼돈 판결선');
+      return;
+    }
+    const sx=rand(140,W-140), sy=rand(140,H-110); v51Safe(sx,sy,55,2.0,'#86efac'); v51FullMap(1.35,.60,c,v51Dmg(1.12),'혼돈 즉결 심판');
+    for(let i=0;i<18;i++) v51Circle(rand(100,W-100),rand(120,H-80),28,.7+i*.035,.35,i%3?'#8b5cf6':'#facc15',v51Dmg(.38),'혼돈 파편');
+  }
+
+  function v51PatternPuppetFinal(){
+    boss.mechanicText='인형 황제: 단두대, 실, 감옥이 연속으로 연결됩니다.';
+    const c='#f0abfc';
+    const gap=Math.floor(Math.random()*6);
+    for(let i=0;i<6;i++){ if(i===gap) continue; v51Wall(110+i*(W-220)/5,H/2,36,H*.86,1.15+i*.04,.70,c,v51Dmg(.72),'단두대'); }
+    for(let i=0;i<8;i++) v51Beam(boss.x,boss.y,i*Math.PI/8,940,.72+i*.05,.52,'#fde68a',v51Dmg(.42),'인형실 절단');
+    setTimeout(()=>{ if(state.screen==='raid'&&!boss.dead) v51SpawnTrueMaze(); },520);
+  }
+
+  try{
+    const oldBossPatternV51=bossPattern;
+    bossPattern=function(){
+      try{
+        const id=boss&&boss.id;
+        if(id==='dream_jester'||id==='nightmare_jester') return v51PatternDreamJester();
+        if(id==='solar_dragon') return v51PatternSolar(false);
+        if(id==='black_sun'||id==='apocalypse'||id==='apocalypse_hamster') return v51PatternSolar(true);
+        if(id==='chaos_archon') return v51PatternChaos();
+        if(id==='puppet_emperor' && Math.random()<.62) return v51PatternPuppetFinal();
+      }catch(e){ console.warn('[V51 boss pattern failed]',e); }
+      return oldBossPatternV51();
+    };
+  }catch(e){ console.warn('[V51 bossPattern patch failed]',e); }
+
+  try{
+    const oldStartRaidV51=startRaid;
+    startRaid=function(){
+      oldStartRaidV51();
+      try{
+        if(state.screen==='raid' && boss){
+          const t=v51Tier();
+          const mul=1.26 + Math.max(0,t-5)*0.075;
+          boss.maxHp=Math.floor(boss.maxHp*mul);
+          boss.hp=Math.floor(boss.hp*mul);
+          boss.v51Durability=true;
+        }
+      }catch(e){}
+    };
+  }catch(e){ console.warn('[V51 durability patch failed]',e); }
+
+  function v51BestLocalBefore(bid){
+    try{
+      const list=getLocalRecords().filter(r=>r&&r.boss_id===bid&&Number.isFinite(Number(r.clear_ms)));
+      if(!list.length) return Infinity;
+      return Math.min(...list.map(r=>Number(r.clear_ms)));
+    }catch(e){ return Infinity; }
+  }
+  function v51ShowNewRecord(name,ms,best){
+    try{
+      document.getElementById('raid-v51-new-record')?.remove();
+      document.querySelectorAll('[id*="first" i]').forEach(el=>{ if(el.style&&el.style.position==='fixed') el.remove(); });
+      let st=document.getElementById('raid-v51-new-record-style'); if(!st){st=document.createElement('style'); st.id='raid-v51-new-record-style'; document.head.appendChild(st);} st.textContent='@keyframes v51record{0%{opacity:0;transform:translate(-50%,-50%) scale(.62)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-58%) scale(.96)}}';
+      const box=document.createElement('div'); box.id='raid-v51-new-record'; box.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;text-align:center;min-width:610px;max-width:92vw;padding:38px 46px;border:5px solid #60a5fa;border-radius:34px;background:rgba(2,6,23,.94);box-shadow:0 0 80px rgba(96,165,250,.8);pointer-events:none;animation:v51record 5.0s ease-out forwards';
+      const bestText=Number.isFinite(best)?`기존 1등 ${formatMs(best)} → 새 기록 ${formatMs(ms)}`:`첫 랭킹 기록 ${formatMs(ms)}`;
+      box.innerHTML=`<div style="font-size:64px;font-weight:950;color:#60a5fa;text-shadow:0 0 30px #60a5fa">NEW RECORD!</div><div style="font-size:23px;font-weight:900;color:#fff;margin-top:8px">${esc(name)} 1등 기록 갱신</div><div style="font-size:16px;color:#bfdbfe;margin-top:8px;font-weight:800">${esc(bestText)}</div>`;
+      document.body.appendChild(box); setTimeout(()=>box.remove(),5400); v51BurstLight(W/2,H/2,'#60a5fa',80,520); state.flash=Math.max(state.flash||0,1.0);
+    }catch(e){ console.warn('[V51 New Record banner failed]',e); }
+  }
+  try{
+    endRaid=function(clear){
+      state.screen='result'; const elapsed=Math.floor(state.raid.elapsed*1000); let reward=''; const b=getBoss(boss.id)||boss; const bestBefore=v51BestLocalBefore(b.id); const isNewRecord=clear && elapsed<bestBefore;
+      if(clear){
+        const rw=tierTickets(b);
+        state.save.tickets.weapon=(state.save.tickets.weapon||0)+rw.weapon;
+        state.save.tickets.armor=(state.save.tickets.armor||0)+rw.armor;
+        state.save.tickets.skill=(state.save.tickets.skill||0)+rw.skill;
+        state.save.tickets.passive=(state.save.tickets.passive||0)+rw.passive;
+        const special=[]; addBossExclusiveDrops(b,special);
+        const coins=50+tierOf(b)*tierOf(b)*35+Math.floor(Math.random()*tierOf(b)*18); state.save.coins=(state.save.coins||0)+coins;
+        const mat=bossMaterialName(b); const matQty=1+Math.floor(tierOf(b)/3)+(Math.random()<currentPlunder()?1+Math.floor(Math.random()*3):0); addMat(mat,matQty);
+        reward=`획득 티켓: ${rewardText(rw)}<br>코인 +${coins}<br>부산물: ${mat} x${matQty}${special.length?'<br>'+special.map(esc).join('<br>'):''}`;
+        saveGame();
+        const playerName=normalizedPlayerName(state.save.playerName);
+        const record={player_name:playerName,boss_id:b.id,boss_name:b.name,clear_ms:elapsed,weapon_id:state.raid.weapon?state.raid.weapon.id:'none',weapon_name:state.raid.weapon?state.raid.weapon.name:'무기 없음',skills:state.raid.skills.filter(Boolean).map(s=>s.name),passives:[state.raid.armor?('방어구: '+state.raid.armor.name):'방어구 없음'].concat(state.raid.passives.filter(Boolean).map(p=>p.name)),damage_taken:player.damageTaken,created_at:new Date().toISOString()};
+        try{let local=getLocalRecords().filter(r=>!(r.boss_id===b.id && normalizedPlayerName(r.player_name).toLowerCase()===playerName.toLowerCase())); local.push(record); local=dedupeLatestByPlayer(local).slice(0,250); localStorage.setItem(LOCAL_RECORD_KEY,JSON.stringify(local));}catch(e){}
+        try{subabase&&supabase.from&&supabase.from('raid_records').insert(record);}catch(e){}
+        if(isNewRecord) { v51ShowNewRecord(b.name,elapsed,bestBefore); reward='<b style="color:#60a5fa;font-size:16px">NEW RECORD! 1등 기록 갱신</b><br>'+reward; }
+      }
+      ui.right.classList.remove('hidden'); ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${esc(boss.name)}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?reward:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`;
+      const btn=ui.right.querySelector('#resultMenu'); if(btn) btn.onclick=()=>{state.menuTab=clear?'ranking':'build'; renderMenu(); refreshRankings(boss.id);};
+    };
+  }catch(e){ console.warn('[V51 endRaid New Record patch failed]',e); }
+
+  try{ window.RaidDungeonV51={version:V51_VERSION, performanceCaps:true, fullMapSafeFix:true, newRecordInsteadOfFirstClear:true, trueMaze:true, lateBossUpgrade:true}; }catch(e){}
 
   try{ window.RaidDungeonUI.growthTab=()=>{state.menuTab='growth'; renderMenu();}; window.RaidDungeonUI.marketTab=()=>{state.menuTab='market'; renderMenu();}; window.RaidDungeonUI.chatTab=()=>{state.menuTab='chat'; renderMenu();}; }catch(e){}
   try{ window.RaidDungeonV45={version:V45_VERSION, v45, enhanceWeapon, enchantWeapon, sellWeapon, disassembleWeapon, upgradeSkill, registerMaterial, marketBuy, chatSend}; v45(); renderMenu(); }catch(e){console.warn('[V45 init failed]',e);}
