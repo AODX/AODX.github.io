@@ -484,7 +484,7 @@
 
   function findRaidActionNode(target) {
     if(!target || !target.closest) return null;
-    return target.closest('[data-authmode],[data-tab],[data-boss],[data-gacha],[data-step],[data-tabgo],[data-select-type],[data-passive],[data-prev-step],[data-next-step],#authSubmit,#goBuild,#goGacha,#backDungeon,#startRaid,#manualSaveBtn,#changeNickBtn,#logoutBtn,#giveup,#pauseMenu,#resultMenu');
+    return target.closest('[data-authmode],[data-tab],[data-boss],[data-gacha],[data-step],[data-tabgo],[data-select-type],[data-passive],[data-prev-step],[data-next-step],#authSubmit,#localStart,#goBuild,#goGacha,#backDungeon,#startRaid,#manualSaveBtn,#changeNickBtn,#logoutBtn,#giveup,#pauseMenu,#resultMenu');
   }
 
   function runUiAction(active) {
@@ -493,6 +493,7 @@
     try {
       if(active.matches('[data-authmode]')){ state.authMode = active.dataset.authmode; state.authMessage=''; renderMenu(); return; }
       if(active.matches('#authSubmit')){ handleAuth(state.authMode === 'signup' ? 'signup' : 'login'); return; }
+      if(active.matches('#localStart')){ startLocalMode(); return; }
       if(active.matches('[data-tab]')){ state.menuTab = active.dataset.tab; renderMenu(); return; }
       if(active.matches('[data-boss]')){ state.selectedBossId=active.dataset.boss; trimSelectedPassives(); saveGame(); renderMenu(); refreshRankings(state.selectedBossId); return; }
       if(active.matches('#goBuild')){ state.menuTab='build'; state.buildStep='weapon'; renderMenu(); return; }
@@ -615,35 +616,71 @@
   }
 
   async function handleAuth(action) {
-    if(!supabaseReady || !supabase) { state.authMessage = 'Supabase 연결이 아직 준비되지 않았습니다.'; renderMenu(); return; }
+    if(!supabaseReady || !supabase) {
+      state.authMessage = 'Supabase 연결 실패. 로컬 모드로 시작할 수 있습니다.';
+      renderMenu();
+      return;
+    }
     const email = (document.getElementById('raidEmail')?.value || '').trim();
     const password = document.getElementById('raidPassword')?.value || '';
-    const nickname = (document.getElementById('raidNickname')?.value || '').trim();
+    const nickname = (document.getElementById('raidNickname')?.value || '').trim() || (email ? email.split('@')[0] : 'Player');
     if(!email || !password) { state.authMessage = '이메일과 비밀번호를 입력해주세요.'; renderMenu(); return; }
     if(password.length < 6) { state.authMessage = '비밀번호는 6자 이상이어야 합니다.'; renderMenu(); return; }
-    state.authBusy = true; state.authMessage = '처리 중...'; renderMenu();
+
+    state.authBusy = true;
+    state.authMessage = '처리 중...';
+    renderMenu();
+
     try {
       let result;
       if(action === 'signup') {
-        result = await supabase.auth.signUp({ email, password, options:{ data:{ player_name:nickname || email.split('@')[0] } } });
+        result = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { player_name: nickname } }
+        });
         if(result.error) throw result.error;
-        if(result.data && result.data.user) state.currentUser = result.data.user;
-        state.save.playerName = nickname || email.split('@')[0];
-        state.authMessage = result.data && result.data.session ? '회원가입 완료!' : '회원가입 완료. Supabase 설정에 따라 이메일 확인 후 로그인해야 할 수 있습니다.';
+        state.currentUser = result.data && result.data.session ? result.data.session.user : (result.data ? result.data.user : null);
+        state.save.playerName = nickname;
+        state.authMessage = state.currentUser ? '회원가입 완료!' : '회원가입 완료. 이메일 인증이 켜져 있으면 인증 후 로그인하세요.';
       } else {
         result = await supabase.auth.signInWithPassword({ email, password });
         if(result.error) throw result.error;
         state.currentUser = result.data.user;
         state.authMessage = '로그인 완료!';
       }
-      if(state.currentUser) await loadCloudProfile(true);
+
+      if(state.currentUser) {
+        await loadCloudProfile(true);
+      }
     } catch(e) {
-      state.authMessage = getSupabaseErrorText(e || {}) || (e && e.message ? e.message : '로그인 처리 실패');
+      const raw = String((e && (e.message || e.error_description || e.details || e.code)) || '');
+      if(action === 'login' && /invalid login credentials|invalid credentials|not found|user not found/i.test(raw)) {
+        state.authMode = 'signup';
+        state.authMessage = '로그인할 계정이 없습니다. 회원가입을 먼저 해주세요.';
+      } else if(/already registered|already exists|user already/i.test(raw)) {
+        state.authMode = 'login';
+        state.authMessage = '이미 가입된 이메일입니다. 로그인 탭에서 비밀번호를 확인하세요.';
+      } else if(/email not confirmed|confirm/i.test(raw)) {
+        state.authMessage = '이메일 인증이 필요합니다. 메일 인증 후 로그인하세요.';
+      } else {
+        state.authMessage = getSupabaseErrorText(e || {}) || raw || '로그인 처리 실패';
+      }
     } finally {
       state.authBusy = false;
       renderMenu();
     }
   }
+
+  function startLocalMode() {
+    state.currentUser = { id: 'local-offline-user', email: 'local@raid.dungeon' };
+    state.offlineMode = true;
+    state.authMessage = '';
+    state.cloudStatus = '로컬 모드 · 브라우저 저장';
+    try { writeAllLocalSaves(); } catch(e) {}
+    renderMenu();
+  }
+
   async function logout() {
     // V13: 로그아웃한다고 로컬 저장을 지우지 않는다.
     // 이전 버전은 여기서 SAVE_KEY를 삭제해서, 클라우드 저장 실패 시 뽑은 스킬/장비가 사라졌다.
@@ -730,12 +767,12 @@
     return msg.slice(0, 80);
   }
   function queueCloudSave() {
-    if(!state.currentUser || !supabaseReady || !supabase) return;
+    if(state.offlineMode || !state.currentUser || !supabaseReady || !supabase) return;
     clearTimeout(cloudSaveTimer);
     cloudSaveTimer = setTimeout(saveCloudProfileNow, 650);
   }
   async function saveCloudProfileNow(silent) {
-    if(!state.currentUser || !supabaseReady || !supabase) {
+    if(state.offlineMode || !state.currentUser || !supabaseReady || !supabase) {
       try { localStorage.setItem(SAVE_KEY, JSON.stringify(state.save)); } catch(e) {}
       if(!silent) state.cloudStatus = '로컬 저장 완료';
       return false;
@@ -799,7 +836,7 @@
     const loading = !state.authChecked ? '<p class="sub">Supabase 로그인 상태 확인 중...</p>' : '';
     const modeText = state.authMode === 'login' ? '로그인' : '회원가입';
     const nick = state.authMode === 'signup' ? '<input id="raidNickname" class="input" placeholder="닉네임" autocomplete="nickname" style="margin-bottom:8px">' : '';
-    ui.menu.innerHTML = `<h1 class="title">보스 레이드 로그인</h1><p class="sub">계정에 로그인하면 뽑아둔 무기, 스킬, 패시브, 뽑기 티켓이 Supabase에 저장됩니다.<br>다른 컴퓨터에서 접속해도 같은 계정이면 그대로 이어서 플레이할 수 있습니다.</p>${loading}<div class="nav"><button class="tab ${state.authMode==='login'?'active':''}" data-authmode="login">로그인</button><button class="tab ${state.authMode==='signup'?'active':''}" data-authmode="signup">회원가입</button></div><div class="grid"><div class="card" style="cursor:default"><h3>${modeText}</h3><input id="raidEmail" class="input" placeholder="이메일" autocomplete="email" style="margin-bottom:8px"><input id="raidPassword" class="input" type="password" placeholder="비밀번호 6자 이상" autocomplete="current-password" style="margin-bottom:8px">${nick}<button id="authSubmit" class="btn" style="width:100%" ${state.authBusy?'disabled':''}>${modeText}</button><p class="sub" style="margin-top:10px;color:${state.authMessage && state.authMessage.includes('실패') ? '#fb7185' : '#fef08a'}">${escapeHtml(state.authMessage || state.cloudStatus || '')}</p></div><div class="card" style="cursor:default"><h3>처음 지급</h3><p>처음 로그인한 계정은 무기 뽑기 티켓 1장, 방어구 뽑기 티켓 1장, 스킬 뽑기 티켓 3장, 패시브 뽑기 티켓 1장을 받습니다.</p><p class="sub">Supabase에서 이메일 확인을 켜두었다면 회원가입 후 이메일 인증을 해야 로그인됩니다. 학교/개인 프로젝트라면 Auth 설정에서 이메일 확인을 꺼두면 바로 가입됩니다.</p></div></div>`;
+    ui.menu.innerHTML = `<h1 class="title">보스 레이드 로그인</h1><p class="sub">계정에 로그인하면 뽑아둔 무기, 스킬, 패시브, 뽑기 티켓이 Supabase에 저장됩니다.<br>다른 컴퓨터에서 접속해도 같은 계정이면 그대로 이어서 플레이할 수 있습니다.</p>${loading}<div class="nav"><button class="tab ${state.authMode==='login'?'active':''}" data-authmode="login">로그인</button><button class="tab ${state.authMode==='signup'?'active':''}" data-authmode="signup">회원가입</button></div><div class="grid"><div class="card" style="cursor:default"><h3>${modeText}</h3><input id="raidEmail" class="input" placeholder="이메일" autocomplete="email" style="margin-bottom:8px"><input id="raidPassword" class="input" type="password" placeholder="비밀번호 6자 이상" autocomplete="current-password" style="margin-bottom:8px">${nick}<button id="authSubmit" class="btn" style="width:100%" ${state.authBusy?'disabled':''}>${modeText}</button><button id="localStart" class="btn secondary" style="width:100%;margin-top:8px">로컬로 바로 시작</button><p class="sub" style="margin-top:10px;color:${state.authMessage && (state.authMessage.includes('실패') || state.authMessage.includes('없습니다') || state.authMessage.includes('필요')) ? '#fb7185' : '#fef08a'}">${escapeHtml(state.authMessage || state.cloudStatus || '')}</p></div><div class="card" style="cursor:default"><h3>처음 지급</h3><p>처음 로그인한 계정은 무기 뽑기 티켓 1장, 방어구 뽑기 티켓 1장, 스킬 뽑기 티켓 3장, 패시브 뽑기 티켓 1장을 받습니다.</p><p class="sub">Supabase에서 이메일 확인을 켜두었다면 회원가입 후 이메일 인증을 해야 로그인됩니다. 학교/개인 프로젝트라면 Auth 설정에서 이메일 확인을 꺼두면 바로 가입됩니다.</p></div></div>`;
   }
 
   function renderMenu() {
@@ -876,7 +913,7 @@
   function bindMenuButtons() {
     // V13: 메뉴가 매번 innerHTML로 다시 그려져도 클릭이 살아있도록,
     // document 위임 + 현재 렌더된 요소 직접 onclick을 둘 다 연결한다.
-    const selectors = '[data-authmode],[data-tab],[data-boss],[data-gacha],[data-step],[data-tabgo],[data-select-type],[data-passive],[data-prev-step],[data-next-step],#authSubmit,#goBuild,#goGacha,#backDungeon,#startRaid,#manualSaveBtn,#logoutBtn,#resultMenu';
+    const selectors = '[data-authmode],[data-tab],[data-boss],[data-gacha],[data-step],[data-tabgo],[data-select-type],[data-passive],[data-prev-step],[data-next-step],#authSubmit,#localStart,#goBuild,#goGacha,#backDungeon,#startRaid,#manualSaveBtn,#logoutBtn,#resultMenu';
     ui.menu.querySelectorAll(selectors).forEach(el => {
       el.onclick = ev => {
         ev.preventDefault();
@@ -15648,6 +15685,15 @@ try {
     };
   }catch(e){ console.warn('[V92 performance smoother failed]', e); }
 
+
+
+/* ===== V94 login/signup/offline auth hotfix ===== */
+try {
+  window.RaidDungeonV94 = {
+    version: 'Raid Dungeon V94 - Login Signup Offline Hotfix',
+    fixed: ['존재하지 않는 계정이면 회원가입 안내', '로컬로 바로 시작 버튼 추가', '오프라인 모드에서 Supabase 저장 시도 차단']
+  };
+} catch(e) {}
 
 })();
 
