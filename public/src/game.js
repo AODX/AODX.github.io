@@ -638,7 +638,7 @@
       }
       if(state.currentUser) await loadCloudProfile(true);
     } catch(e) {
-      state.authMessage = e && e.message ? e.message : '로그인 처리 실패';
+      state.authMessage = getSupabaseErrorText(e || {}) || (e && e.message ? e.message : '로그인 처리 실패');
     } finally {
       state.authBusy = false;
       renderMenu();
@@ -725,6 +725,7 @@
     const msg = (e && (e.message || e.details || e.hint || e.code)) ? String(e.message || e.details || e.hint || e.code) : '원인 알 수 없음';
     if(/does not exist|schema cache|PGRST205|42P01/i.test(msg)) return 'raid_profiles 테이블 없음';
     if(/row-level security|RLS|permission|policy|42501/i.test(msg)) return 'RLS 정책 오류';
+    if(/invalid login credentials/i.test(msg)) return '로그인 실패: 이메일/비밀번호가 다르거나 아직 회원가입되지 않은 계정입니다';
     if(/JWT|session|auth|Invalid Refresh Token/i.test(msg)) return '로그인 세션 오류';
     return msg.slice(0, 80);
   }
@@ -7040,7 +7041,7 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
   } catch(e){ console.warn('[V38 normalize patch failed]', e); }
 
   try{
-    getBossRewards = function(tier){
+    window.getBossRewards = function(tier){
       tier = Math.max(1, Math.min(10, Number(tier || 1)));
       const rewards = { weapon:0, armor:0, skill:0, passive:0 };
       let count = 1;
@@ -12111,8 +12112,8 @@ function v53UniqueItems(items){
   }catch(e){ console.warn('[V63] sortie damage display failed', e); }
 
   try{
-    const oldRenderGachaV63=renderGacha;
-    renderGacha=function(){
+    const oldRenderGachaV63=renderGachaTab;
+    renderGachaTab=function(){
       let html=oldRenderGachaV63();
       const normalWeapons=v63GachaWeaponPool().length;
       const bossOnly=WEAPONS.filter(v63IsBossOnlyWeapon).length;
