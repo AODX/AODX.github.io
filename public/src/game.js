@@ -11263,6 +11263,324 @@ function v53UniqueItems(items){
       return Math.max(.95, base*(ph===3?.82:ph===2?.92:1)+Math.random()*.22);
     };
   }catch(e){ console.warn('[V59 cooldown failed]',e); }
+
+
+  /* ===== V60: real visual pattern identities + readable warnings + MP + HP numbers + extra performance ===== */
+  const V60_VERSION = 'Raid Dungeon V60 - Visual Patterns MP HP Performance';
+
+  function v60SafeNum(v,d){ return Number.isFinite(v) ? v : d; }
+  function v60CostForSkill(s){
+    if(!s) return 0;
+    const rareMul={normal:1,rare:1.12,super:1.26,epic:1.45,legendary:1.72,ultimate:2.05}[s.rarity]||1;
+    const typeMul={attack:1.0,buff:.82,heal:.9,debuff:.94,cleanse:.78,evasion:.72}[s.category]||1;
+    const base=18 + (s.cooldown||3)*3.2 + (s.radius||80)*.035;
+    return Math.max(12, Math.round(base*rareMul*typeMul));
+  }
+  function v60EnsureMP(){
+    if(!player) return;
+    if(!Number.isFinite(player.maxMp)) player.maxMp = 120;
+    if(!Number.isFinite(player.mp)) player.mp = player.maxMp;
+    player.maxMp = Math.max(60, player.maxMp||120);
+    player.mp = clamp(player.mp, 0, player.maxMp);
+  }
+  try{
+    const oldMakePlayerV60=makePlayer;
+    makePlayer=function(){
+      const p=oldMakePlayerV60();
+      p.maxMp = 120;
+      p.mp = 120;
+      p.mpRegen = 3;
+      return p;
+    };
+  }catch(e){ console.warn('[V60 makePlayer MP failed]',e); }
+  try{
+    const oldMakeBossV60=makeBoss;
+    makeBoss=function(b){
+      const x=oldMakeBossV60(b);
+      const tier=clamp(Number(x.tier||1),1,12);
+      const mul=1.28 + tier*.10 + (tier>=8?.22:0) + (tier>=10?.34:0);
+      x.maxHp=Math.floor(x.maxHp*mul);
+      x.hp=x.maxHp;
+      return x;
+    };
+  }catch(e){ console.warn('[V60 boss hp scale failed]',e); }
+  try{
+    const oldStartRaidV60=startRaid;
+    startRaid=function(){
+      oldStartRaidV60();
+      if(state.screen==='raid'){
+        v60EnsureMP();
+        player.mp=player.maxMp;
+        if(boss){ boss.hp=boss.maxHp; }
+      }
+    };
+  }catch(e){ console.warn('[V60 start raid MP failed]',e); }
+  try{
+    const oldUseSkillV60=useSkill;
+    useSkill=function(i){
+      if(!state.raid) return;
+      const s=state.raid.skills[i];
+      if(!s) return;
+      v60EnsureMP();
+      if((player.skillCd&&player.skillCd[i]||0)>0) return;
+      const cost=v60CostForSkill(s);
+      if(player.mp < cost){
+        floatText('MP 부족',player.x,player.y-46,'#60a5fa',18);
+        player.skillCd[i]=Math.max(player.skillCd[i]||0,.22);
+        return;
+      }
+      player.mp-=cost;
+      oldUseSkillV60(i);
+    };
+  }catch(e){ console.warn('[V60 skill MP failed]',e); }
+
+  function v60PerfCap(){
+    if(!state || state.screen!=='raid') return;
+    const maxHaz = v59Critical()?38:v59Mass()?50:68;
+    const maxProj = v59Critical()?34:v59Mass()?48:72;
+    const maxPart = v59Critical()?55:v59Mass()?82:130;
+    const maxText = v59Critical()?10:v59Mass()?14:22;
+    if(state.hazards.length>maxHaz) state.hazards.splice(0,state.hazards.length-maxHaz);
+    if(state.projectiles.length>maxProj) state.projectiles.splice(0,state.projectiles.length-maxProj);
+    if(state.particles.length>maxPart) state.particles.splice(0,state.particles.length-maxPart);
+    if(state.texts.length>maxText) state.texts.splice(0,state.texts.length-maxText);
+    if(state.zones.length>16) state.zones.splice(0,state.zones.length-16);
+  }
+  try{
+    const oldUpdateV60=update;
+    update=function(dt){
+      oldUpdateV60(dt);
+      if(state.screen==='raid'){
+        v60EnsureMP();
+        player.mp=Math.min(player.maxMp, player.mp + 3*(dt||0));
+        v60PerfCap();
+      }
+    };
+  }catch(e){ console.warn('[V60 update wrapper failed]',e); }
+
+  function v60Warn(w){ return Math.max(v59Mass()?0.95:1.15, w||0); }
+  function v60Life(l){ return Math.max(.42, l||.35); }
+  try{
+    const oldCastV60=v59Cast;
+    v59Cast=function(label,c){
+      try{ boss.mechanicText='예고: '+label+' - 표시된 구역에서 벗어나세요'; }catch(e){}
+      try{ oldCastV60(label,c); }catch(e){}
+      try{ if(!v59Mass()) floatText(label,W/2,92,c||v59Color(),19); }catch(e){}
+    };
+    const oldCircleV60=v59Circle;
+    v59Circle=function(x,y,r,warn,life,c,d,label){ oldCircleV60(x,y,r,v60Warn(warn),v60Life(life),c,d,label); };
+    const oldBeamV60=v59Beam;
+    v59Beam=function(x,y,a,len,warn,life,c,d,label,w){ oldBeamV60(x,y,a,len,v60Warn(warn),v60Life(life),c,d,label,w); };
+    const oldWallV60=v59Wall;
+    v59Wall=function(x,y,w,h,warn,life,c,d,label){ oldWallV60(x,y,w,h,v60Warn(warn),v60Life(life),c,d,label); };
+    const oldDonutV60=v59Donut;
+    v59Donut=function(x,y,inner,outer,warn,life,c,d,label){ oldDonutV60(x,y,inner,outer,v60Warn(warn),v60Life(life),c,d,label); };
+    const oldFullV60=v59Full;
+    v59Full=function(warn,life,c,d,label){ oldFullV60(Math.max(1.55,warn||0),v60Life(life),c,d,label); };
+  }catch(e){ console.warn('[V60 warning wrapper failed]',e); }
+
+  function v60N(low,high){ return v59Mass()?low:high; }
+  function v60Spiral(label,c){
+    v59Cast(label,c);
+    const ph=v59Phase(), n=v60N(5,8+ph);
+    for(let i=0;i<n;i++){
+      const a=i*Math.PI*2/n + state.time*.08;
+      const rr=80+i*20;
+      v59Circle(W/2+Math.cos(a)*rr,H/2+Math.sin(a)*rr,28+ph*3,1.05+i*.055,.42,i%2?c:v59Sub(),v59Dmg(.25+ph*.04),label+' 소용돌이');
+    }
+  }
+  function v60Fan(label,c){
+    v59Cast(label,c);
+    const ph=v59Phase(), n=v60N(4,6+ph), a0=v59Aim();
+    for(let i=0;i<n;i++){
+      const a=a0+(i-(n-1)/2)*(0.22+ph*.025);
+      v59Beam(boss.x,boss.y,a,980,1.0+i*.04,.44,i%2?c:v59Sub(),v59Dmg(.30+ph*.04),label+' 부채',14+ph*2);
+    }
+  }
+  function v60Lanes(label,c,vertical=false){
+    v59Cast(label,c);
+    const ph=v59Phase(), n=v60N(3,4+ph);
+    for(let i=0;i<n;i++){
+      if(vertical){
+        const x=120+i*(W-240)/Math.max(1,n-1);
+        v59Wall(x,H/2,30+ph*4,H*.80,1.08+i*.07,.44,i%2?c:v59Sub(),v59Dmg(.31),label+' 세로차선');
+      }else{
+        const y=125+i*(H-225)/Math.max(1,n-1);
+        v59Wall(W/2,y,W*.92,30+ph*4,1.08+i*.07,.44,i%2?c:v59Sub(),v59Dmg(.31),label+' 가로차선');
+      }
+    }
+  }
+  function v60Prison(label,c){
+    v59Cast(label,c);
+    const ph=v59Phase(), x=player.x, y=player.y;
+    v59Wall(x-95,y,20,190,1.12,.46,c,v59Dmg(.28),label+' 감옥벽');
+    v59Wall(x+95,y,20,190,1.12,.46,c,v59Dmg(.28),label+' 감옥벽');
+    v59Wall(x,y-95,190,20,1.12,.46,c,v59Dmg(.28),label+' 감옥벽');
+    v59Wall(x,y+95,190,20,1.12,.46,c,v59Dmg(.28),label+' 감옥벽');
+    if(ph>=2) v59Circle(x,y,42+ph*6,1.35,.44,v59Sub(),v59Dmg(.36),label+' 핵심');
+  }
+  function v60SafeGame(label,c){
+    v59Cast(label,c);
+    const ph=v59Phase();
+    const real=Math.floor(Math.random()*3);
+    for(let i=0;i<3;i++){
+      const x=220+i*(W-440)/2, y=H*.63;
+      if(i===real) v59Safe(x,y,52,2.35,'#86efac',false);
+      else v59Circle(x,y,54,1.2+i*.12,.45,'#f472b6',v59Dmg(.34+ph*.04),label+' 가짜안전');
+    }
+  }
+  function v60ChaseMarks(label,c){
+    v59Cast(label,c);
+    const ph=v59Phase(), n=v60N(3,5+ph);
+    for(let i=0;i<n;i++){
+      const x=clamp(player.x+rand(-160,160),90,W-90), y=clamp(player.y+rand(-120,120),110,H-75);
+      v59Circle(x,y,34+ph*4,1.03+i*.09,.43,i%2?c:v59Sub(),v59Dmg(.31+ph*.04),label+' 추적표식');
+    }
+  }
+  function v60Grid(label,c){
+    v59Cast(label,c);
+    const ph=v59Phase(), cols=v60N(3,4+ph), rows=v60N(2,3+Math.floor(ph/2));
+    for(let i=0;i<cols;i++) v59Wall(120+i*(W-240)/Math.max(1,cols-1),H/2,20,H*.82,1.08+i*.045,.42,i%2?c:'#fde047',v59Dmg(.28),label+' 격자');
+    for(let j=0;j<rows;j++) v59Wall(W/2,145+j*(H-245)/Math.max(1,rows-1),W*.9,18,1.18+j*.06,.42,j%2?c:'#fde047',v59Dmg(.28),label+' 격자');
+  }
+  function v60Train(label,c){
+    v59Cast(label,c);
+    const ph=v59Phase(), lanes=v60N(2,3+Math.floor(ph/2));
+    for(let i=0;i<lanes;i++){
+      const y=145+i*(H-250)/Math.max(1,lanes-1);
+      v59Wall(W/2,y,W*.96,36+ph*4,1.15+i*.18,.50,i%2?c:'#94a3b8',v59Dmg(.36),label+' 돌진열차');
+      if(!v59Mass()) v59Circle(i%2?W-95:95,y,30,1.0+i*.18,.35,'#facc15',v59Dmg(.22),label+' 신호등');
+    }
+  }
+  function v60Orbit(label,c){
+    v59Cast(label,c);
+    const ph=v59Phase();
+    v59Donut(W/2,H/2,70,180+ph*20,1.10,.48,c,v59Dmg(.34),label+' 궤도');
+    const n=v60N(3,5+ph);
+    for(let i=0;i<n;i++){
+      const a=i*Math.PI*2/n+state.time*.1;
+      v59Circle(W/2+Math.cos(a)*(185+ph*12),H/2+Math.sin(a)*(120+ph*10),30+ph*3,1.2+i*.055,.42,v59Sub(),v59Dmg(.29),label+' 위성');
+    }
+  }
+  function v60Flowers(label,c){
+    v59Cast(label,c);
+    const ph=v59Phase(), n=v60N(4,6+ph);
+    for(let i=0;i<n;i++){
+      const x=v59RandX(), y=v59RandY();
+      v59Circle(x,y,26+ph*3,1.0+i*.05,.44,i%2?c:'#22c55e',v59Dmg(.28),label+' 꽃심');
+      if(!v59Mass() && i<4){
+        for(let k=0;k<4;k++) v59Beam(x,y,k*Math.PI/2,105,1.18+i*.05,.35,'#86efac',v59Dmg(.18),label+' 꽃잎',10);
+      }
+    }
+  }
+  function v60Cross(label,c){
+    v59Cast(label,c);
+    const ph=v59Phase(), x=player.x, y=player.y;
+    v59Beam(x,y,0,W*.85,1.05,.45,c,v59Dmg(.32+ph*.04),label+' 십자',18+ph*2);
+    v59Beam(x,y,Math.PI/2,H*.75,1.05,.45,v59Sub(),v59Dmg(.32+ph*.04),label+' 십자',18+ph*2);
+    if(ph>=3){ v59Beam(x,y,Math.PI/4,W*.75,1.28,.42,c,v59Dmg(.26),label+' 대각십자',14); v59Beam(x,y,-Math.PI/4,W*.75,1.28,.42,v59Sub(),v59Dmg(.26),label+' 대각십자',14); }
+  }
+  function v60Crown(label,c){
+    v59Cast(label,c);
+    const ph=v59Phase(), n=v60N(5,7+ph);
+    for(let i=0;i<n;i++){
+      const a=-Math.PI/2 + (i-(n-1)/2)*.20;
+      v59Beam(W/2,105,a+Math.PI/2,860,1.1+i*.05,.45,i%2?c:'#facc15',v59Dmg(.34+ph*.04),label+' 왕관광선',16+ph*2);
+    }
+    if(ph>=2) v59Donut(W/2,H/2,95,245,1.48,.48,'#020617',v59Dmg(.34),label+' 왕관고리');
+  }
+  function v60PatternByLabel(idx){
+    const type=v59Type(), label=v59Label(idx), c=v59Color();
+    const s=String(label||'');
+    if(v59HasMazeLabel(s)) return v59MazeMechanic(label,c);
+    if(/체스|격자|회로|좌표|큐브|법칙|병동|검역/.test(s)) return v60Grid(label,c);
+    if(/감옥|감금|봉쇄|울타리|벽|장벽|실/.test(s)) return v60Prison(label,c);
+    if(/SAFE|룰렛|가짜|풍선|서커스|카드/.test(s)) return /SAFE|가짜|룰렛/.test(s)?v60SafeGame(label,c):v60Fan(label,c);
+    if(/열차|선로|종착|차륜|돌진/.test(s)) return v60Train(label,c);
+    if(/꽃|덩굴|장미|포자|정원|독/.test(s)) return v60Flowers(label,c);
+    if(/중력|궤도|특이점|블랙홀|공허|심연|해일/.test(s)) return v60Orbit(label,c);
+    if(/십자|거울|반사|일식|태양|왕관|종말/.test(s)) return v60Crown(label,c);
+    if(/빙|얼음|눈보라|예언|초침|시간/.test(s)) return idx%2?v60Lanes(label,c,idx%3===0):v60Cross(label,c);
+    if(/화염|불|용암|화산|분화|숨결|탄/.test(s)) return idx%2?v60Fan(label,c):v60ChaseMarks(label,c);
+    if(/낙뢰|번개|천둥|폭풍|자력|극성/.test(s)) return idx%2?v60Grid(label,c):v60ChaseMarks(label,c);
+    if(/분열|점액|젤리|탄성|푸딩|해일/.test(s)) return idx%2?v60Spiral(label,c):v60Lanes(label,c,false);
+    if(/피|혈|달|사냥|표식/.test(s)) return idx%2?v60ChaseMarks(label,c):v60Crown(label,c);
+    if(/모래|무덤|파라오|매장/.test(s)) return idx%2?v60Lanes(label,c,false):v60Spiral(label,c);
+    if(type==='train'||type==='metal') return v60Train(label,c);
+    if(type==='nature'||type==='poison'||type==='garden') return v60Flowers(label,c);
+    if(type==='gravity'||type==='void'||type==='abyss') return v60Orbit(label,c);
+    if(type==='jester'||type==='mirror'||type==='chaos'||type==='puppet') return idx%2?v60SafeGame(label,c):v60Fan(label,c);
+    return [v60Spiral,v60Fan,v60Lanes,v60ChaseMarks,v60Cross][idx%5](label,c,idx%2===0);
+  }
+  try{
+    v59TypePattern=function(idx){
+      try{
+        v60PatternByLabel(idx);
+        if(v59Tier()>=8 && v59Phase()>=3 && !v59Mass()){
+          if(Math.random()<.35) setTimeout(()=>{ if(state.screen==='raid'&&boss&&!boss.dead) v60PatternByLabel(Math.max(0,idx-1)); },760);
+        }
+        v60PerfCap();
+      }catch(e){ console.warn('[V60 visual pattern failed]',e); try{ v59Fire(v59Label(idx),v59Color()); }catch(_){} }
+    };
+  }catch(e){ console.warn('[V60 v59TypePattern override failed]',e); }
+  try{
+    getBossPatternCooldown=function(){
+      const t=v59Tier(), ph=v59Phase();
+      const base=t>=9?1.95:t>=6?2.15:t>=3?2.35:2.60;
+      return Math.max(1.25, base*(ph===3?.90:ph===2?.96:1)+Math.random()*.25);
+    };
+  }catch(e){ console.warn('[V60 cooldown failed]',e); }
+
+  try{
+    const oldDrawBossV60=drawBoss;
+    drawBoss=function(){
+      if(!boss||boss.dead) return;
+      ctx.save(); if(state.shake>0) ctx.translate(rand(-state.shake,state.shake),rand(-state.shake,state.shake)); ctx.globalAlpha=boss.hit>0?.72:1; drawBossShape(ctx,boss,boss.x,boss.y,boss.r); ctx.restore();
+      const bw=720,bh=22,x=(W-bw)/2,y=28,rate=clamp(boss.hp/boss.maxHp,0,1);
+      ctx.fillStyle='rgba(0,0,0,.72)'; roundRect(ctx,x-8,y-24,bw+16,68,14);
+      ctx.fillStyle='#111827'; roundRect(ctx,x,y,bw,bh,11);
+      ctx.fillStyle=boss.vulnerable>0?'#fef08a':boss.color; roundRect(ctx,x,y,bw*rate,bh,11);
+      ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.lineWidth=2; roundRect(ctx,x,y,bw,bh,11);
+      ctx.fillStyle='#fff'; ctx.font='900 16px system-ui'; ctx.textAlign='center'; ctx.fillText(`${boss.name}  ${stars(boss.tier)}  ${boss.vulnerable>0?'BREAK':'GUARD'}`,W/2,22);
+      ctx.font='900 13px system-ui'; ctx.fillStyle='#e5e7eb'; ctx.fillText(`HP ${Math.ceil(boss.hp).toLocaleString()} / ${Math.ceil(boss.maxHp).toLocaleString()}  (${Math.ceil(rate*100)}%)`,W/2,y+16);
+      ctx.font='800 13px system-ui'; ctx.fillStyle='#cbd5e1'; ctx.fillText(boss.mechanicText||'패턴 예고를 보고 움직이세요.',W/2,74);
+      if(boss.clones) boss.clones.forEach(c=>drawBossShape(ctx,{...boss,color:c.real?'#fef08a':boss.color,sub:boss.sub,theme:boss.theme},c.x,c.y,boss.r*.65));
+    };
+  }catch(e){ console.warn('[V60 draw boss failed]',e); }
+  try{
+    drawHud=function(){
+      v60EnsureMP();
+      const x=18,y=H-112,w=390;
+      ctx.fillStyle='rgba(0,0,0,.58)'; roundRect(ctx,x,y,w,96,16);
+      ctx.fillStyle='#111827'; roundRect(ctx,x+18,y+20,300,16,8);
+      ctx.fillStyle='#ef4444'; roundRect(ctx,x+18,y+20,300*clamp(player.hp/player.maxHp,0,1),16,8);
+      ctx.fillStyle='#111827'; roundRect(ctx,x+18,y+48,300,14,7);
+      ctx.fillStyle='#60a5fa'; roundRect(ctx,x+18,y+48,300*clamp(player.mp/player.maxMp,0,1),14,7);
+      ctx.fillStyle='#334155'; roundRect(ctx,x+18,y+70,300,8,4);
+      ctx.fillStyle='#93c5fd'; roundRect(ctx,x+18,y+70,300*clamp(player.shield/500,0,1),8,4);
+      ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='left';
+      ctx.fillText(`HP ${Math.ceil(player.hp)}/${Math.ceil(player.maxHp)}`,x+24,y+15);
+      ctx.fillStyle='#bfdbfe'; ctx.fillText(`MP ${Math.floor(player.mp)}/${Math.floor(player.maxMp)}  (+3/s)`,x+24,y+45);
+      ctx.fillStyle='#cbd5e1'; ctx.font='800 11px system-ui'; ctx.fillText(`Shield ${Math.floor(player.shield)}`,x+24,y+91);
+      const labels=['J','1','2','3','Space'];
+      const cds=[player.basicCd,player.skillCd[0],player.skillCd[1],player.skillCd[2],player.rollCd];
+      for(let i=0;i<5;i++){
+        const bx=430+i*86, by=H-82;
+        ctx.fillStyle='rgba(15,23,42,.82)'; roundRect(ctx,bx,by,70,58,12);
+        ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillText(labels[i],bx+35,by+18);
+        let status=cds[i]>0?cds[i].toFixed(1):'OK', col=cds[i]>0?'#fb7185':'#86efac';
+        if(i>=1&&i<=3){
+          const s=state.raid&&state.raid.skills&&state.raid.skills[i-1];
+          if(s){ const cost=v60CostForSkill(s); ctx.fillStyle=player.mp>=cost?'#93c5fd':'#fca5a5'; ctx.font='800 11px system-ui'; ctx.fillText(`MP ${cost}`,bx+35,by+36); if(cds[i]<=0 && player.mp<cost){ status='MP 부족'; col='#fca5a5'; } }
+        }
+        ctx.fillStyle=col; ctx.font='900 11px system-ui'; ctx.fillText(status,bx+35,by+51);
+      }
+      ctx.textAlign='left';
+    };
+  }catch(e){ console.warn('[V60 draw HUD failed]',e); }
+
+  try{ window.RaidDungeonV60={version:V60_VERSION, visualPatterns:'same-name reskins replaced with label-based layouts', warning:'longer telegraphs before damage', mp:'skills consume MP and MP regenerates 3 per second', hp:'boss/player numeric HP and MP HUD', performance:'hard caps and lighter mass rendering'}; }catch(e){}
+
   try{ window.RaidDungeonV59={version:V59_VERSION, maze:'maze is mechanic only, not repeated attack pattern', uniquePatterns:'type-specific boss attacks, less full-map spam', antiLag:'lower caps and lighter follow-up effects'}; }catch(e){}
 
   try{ window.RaidDungeonV52={version:V52_VERSION, sortieClickFix:true, strongerFx:true, marketSections:['material','weapon','armor','skill']}; }catch(e){}
