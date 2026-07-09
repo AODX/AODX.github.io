@@ -3310,7 +3310,285 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
     if(b.tier>=5 && Array.isArray(b.patterns) && !b.patterns.includes('기믹 파훼')) b.patterns.push('기믹 파훼');
     if(b.tier>=8 && Array.isArray(b.patterns) && !b.patterns.includes('페이즈 강화')) b.patterns.push('페이즈 강화');
   });
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
+
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
 
 })();
 
@@ -3687,6 +3965,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
     v24DrawPendingMiniGame();
     v24DrawMiniGame();
   };
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 
@@ -3793,6 +4210,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
       ctx.restore();
     }
   };
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 /* =========================================================
@@ -4097,6 +4653,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
       if(Array.isArray(b.patterns)) b.patterns = b.patterns.filter(p=>!String(p).includes('룬') && !String(p).includes('순서'));
     });
   } catch(e) {}
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 
@@ -4666,6 +5361,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
 
 
   window.RaidDungeonV28 = { version: V28_VERSION };
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 
@@ -4882,6 +5716,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
   } catch(e) {}
 
   window.RaidDungeonV30 = { version: V30_VERSION };
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 /* =========================================================
@@ -5114,6 +6087,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
     BOSSES.forEach(b => { allChanged[b.id] = true; });
     window.RaidDungeonV31 = { version: V31_VERSION, bossMapAndVisualsAppliedTo: Object.keys(allChanged) };
   } catch(e) { window.RaidDungeonV31 = { version: V31_VERSION }; }
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 /* =========================================================
@@ -5315,6 +6427,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
   };
 
   window.RaidDungeonV32 = { version: V32_VERSION, bosses: Object.keys(Pattern).length };
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 /* =========================================================
@@ -5581,6 +6832,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
     highTierPatternRule: 'tier 8+ bosses expose 7 or more pattern labels where implemented',
     damageBoost: 'V32 atk x 1.32 once'
   };
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 
@@ -5839,6 +7229,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
     safeCutout: true,
     themedFloorFx: ['fire','lightning','water/tsunami','poison','void','mirror','metal','blood']
   };
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 
@@ -6499,6 +8028,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
     dedupeBuildLists: true,
     customBosses: ['plague_doctor','thorn_queen','hollow_gardener','solar_dragon','black_sun','chaos_archon']
   };
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 /* ===== V36: visualize text-only boss pattern labels broadly ===== */
@@ -6797,6 +8465,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
       ]
     };
   } catch(e){}
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 
@@ -7045,6 +8852,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
       firstClear: 'Shows FIRST CLEAR when the boss has no existing local/cloud record before the new clear is saved.'
     };
   } catch(e){}
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 
@@ -7427,6 +9373,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
       ]
     };
   } catch(e){}
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 
@@ -7897,6 +9982,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
     BOSSES.forEach(b => { if(V39_LABELS[b.id]) b.patterns = V39_LABELS[b.id]; });
     window.RaidDungeonV39 = {version:V39_VERSION, tierRewards:'exactly tier count tickets per clear', firstClear:'local once per boss banner + result text', customBosses:Object.keys(V39_LABELS)};
   } catch(e){}
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 
@@ -8214,6 +10438,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
 
   window.RaidDungeonV41={version:V41_VERSION,enhanceWeapon,enchantWeapon,sellWeapon,disassembleWeapon,upgradeSkill,marketBuy,marketRegisterMaterial,chatSend,initV41};
   try{ renderMenu(); }catch(e){}
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 /* ===== V42 verification wrapper: V40 base preserved + V41 patch appended ===== */
@@ -8632,6 +10995,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
     initV43(); ensureV43BossDrops();
     renderMenu();
   }catch(e){ console.warn('[V43 init failed]', e); }
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 
@@ -9084,6 +11586,145 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
     window.RaidDungeonV44 = {version:V44_VERSION, v44, enhanceWeapon, enchantWeapon, sellWeapon, disassembleWeapon, upgradeSkill, marketRegisterWeapon, marketRegisterSkill, marketRegisterMaterial, marketBuy, chatSend, ensureBossExclusiveDrops, rollBossSpecialDrops};
     v44(); ensureBossExclusiveDrops(); renderMenu();
   }catch(e){ console.warn('[V44 init failed]', e); }
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
 
 
@@ -14081,7 +16722,285 @@ function v53UniqueItems(items){
   }catch(e){}
 
   try{ window.RaidDungeonV45={version:V45_VERSION, v45, enhanceWeapon, enchantWeapon, sellWeapon, disassembleWeapon, upgradeSkill, registerMaterial, marketBuy, chatSend}; v45(); renderMenu(); }catch(e){console.warn('[V45 init failed]',e);}
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
 })();
+
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
 
 })();
 
@@ -14105,6 +17024,145 @@ try {
     includes: ['코인','부산물','스킬 레벨업','무기 강화','인챈트','판매/분해','FIRST CLEAR']
   };
 } catch(e) {}
+
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
 
 })();
 
@@ -15723,6 +18781,324 @@ try {
     fixed: ['존재하지 않는 계정이면 회원가입 안내', '로컬로 바로 시작 버튼 추가', '오프라인 모드에서 Supabase 저장 시도 차단']
   };
 } catch(e) {}
+
+
+  /* ===== V96: 악몽 광대 니브 패턴 미발동 핫픽스 =====
+     원인: 실제 최종 보스 ID는 dream_jester인데 일부 후기 패턴 풀은 nightmare_jester만 보고 있었다.
+     결과적으로 니브가 고등급 전용 패턴 대신 기본/일반 공격처럼 보일 수 있었다.
+     수정: dream_jester / nightmare_jester 둘 다 광대 전용 패턴 디렉터로 직접 연결한다.
+  */
+  try{
+    const V96_VERSION = 'Raid Dungeon V96 - Nive Jester Pattern Hotfix';
+    function v96IsNive(){
+      const id = String((boss && boss.id) || '').toLowerCase();
+      return id === 'dream_jester' || id === 'nightmare_jester' || id.includes('jester') || String((boss&&boss.name)||'').includes('니브');
+    }
+    function v96Alive(){ return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0; }
+    function v96C(){ return (boss && boss.color) || '#f472b6'; }
+    function v96S(){ return (boss && boss.sub) || '#fde047'; }
+    function v96Tier(){ return Math.max(1, Math.min(10, Number((boss && boss.tier) || 10))); }
+    function v96Phase(){ return Math.max(1, Math.min(3, Number((boss && boss.phase) || 1))); }
+    function v96Dmg(m){
+      const hp = Math.max(1, Number(player && player.maxHp || 100));
+      const raw = Math.max(1, Number(boss && boss.atk || 12) * (m || .42));
+      return Math.min(raw, hp * (v96Phase() >= 3 ? .20 : .16));
+    }
+    function v96Warn(extra){ return Math.max(.82, 1.03 + (extra || 0) - Math.min(.14, (v96Phase()-1)*.05)); }
+    function v96Circle(x,y,r,warn,color,mul,label){
+      state.hazards.push({kind:'circle',x:x,y:y,r:r,warn:v96Warn(warn||0),life:.24,damage:v96Dmg(mul||.45),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Beam(x,y,angle,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'beam',x:x,y:y,angle:angle,len:len,w:w,warn:v96Warn(warn||0),life:.26,damage:v96Dmg(mul||.42),color:color||v96C(),tag:'chaos',label:label||'광대'});
+    }
+    function v96Rot(x,y,angle,spin,len,w,warn,color,mul,label){
+      state.hazards.push({kind:'rotatingBeam',x:x,y:y,angle:angle,spin:spin,len:len,w:w,warn:v96Warn(warn||0),life:1.15,damage:v96Dmg(mul||.32),color:color||v96C(),tag:'chaos',label:label||'룰렛'});
+    }
+    function v96Bullet(x,y,tx,ty,speed,color,mul){
+      try{ aimBullet(x,y,tx,ty,speed||250,color||v96C(),v96Dmg(mul||.25),'chaos'); }catch(e){}
+    }
+    function v96Burst(x,y,color,n,s){ try{ burst(x,y,color||v96C(),Math.min(n||30,80),s||260); }catch(e){} }
+    function v96FxRing(x,y,color,r){
+      try{
+        for(let i=0;i<18;i++){
+          const a=i*Math.PI*2/18;
+          state.particles.push({x:x+Math.cos(a)*(r||80),y:y+Math.sin(a)*(r||80),vx:Math.cos(a)*rand(40,150),vy:Math.sin(a)*rand(40,150),r:4,life:.45,color:color||v96C()});
+        }
+      }catch(e){}
+    }
+    function v96CardFan(){
+      const c=v96C(), s=v96S(), cx=W/2, cy=H/2;
+      boss.cast={life:.95,max:.95,kind:'jester',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      v96Burst(boss.x,boss.y,c,36,280);
+      const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+      for(let i=-3;i<=3;i++) v96Beam(boss.x,boss.y,base+i*.22,Math.hypot(W,H),9,Math.abs(i)*.045,i%2?c:s,.34,'카드 칼날');
+      for(let i=0;i<5+v96Phase();i++){
+        const a=base+(i-(4+v96Phase())/2)*.33;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(boss.x,boss.y,boss.x+Math.cos(a)*700,boss.y+Math.sin(a)*700,280+v96Tier()*12,i%2?s:c,.22); }, i*95);
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<4;i++) v96Circle(rand(115,W-115),rand(135,H-85),34,.06+i*.07,i%2?c:s,.34,'카드 폭발'); },520);
+    }
+    function v96SpotlightShow(){
+      const c='#f472b6', s='#fde047', cx=W/2, cy=H/2;
+      boss.cast={life:1.05,max:1.05,kind:'stage',color:c,angle:0};
+      v96FxRing(cx,cy,c,235);
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3 + (v96Phase()>=2?Math.PI/6:0);
+        v96Beam(cx,cy,a,Math.hypot(W,H),13,.08+i*.035,i%2?c:s,.38,'서커스 조명');
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<5;i++) v96Circle(130+i*(W-260)/4, rand(150,H-95), 38, i*.035, i%2?s:c, .38, '무대 폭죽'); },760);
+    }
+    function v96RouletteWheel(){
+      const c='#f0abfc', s='#facc15', cx=W/2, cy=H/2;
+      boss.cast={life:1.0,max:1.0,kind:'roulette',color:c,angle:0};
+      v96FxRing(cx,cy,c,150); v96FxRing(cx,cy,s,245);
+      v96Rot(cx,cy,state.time*.4,.95,Math.hypot(W,H),10,.06,c,.28,'룰렛 바늘');
+      v96Rot(cx,cy,state.time*.4+Math.PI/2,-.65,Math.hypot(W,H),8,.18,s,.25,'반대 바늘');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4;
+        setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(cx+Math.cos(a)*120,cy+Math.sin(a)*120,player.x,player.y,230+v96Phase()*28,i%2?c:s,.22); }, 360+i*85);
+      }
+    }
+    function v96JackInTheBox(){
+      const c='#fb7185', s='#fde047';
+      boss.cast={life:1.0,max:1.0,kind:'box',color:c,angle:Math.atan2(player.y-boss.y,player.x-boss.x)};
+      const boxes=[
+        {x:W*.20,y:H*.35},{x:W*.50,y:H*.30},{x:W*.80,y:H*.35},
+        {x:W*.32,y:H*.68},{x:W*.68,y:H*.68}
+      ];
+      const real=(Math.floor((state.time||0)*10)+v96Phase())%boxes.length;
+      boxes.forEach((b,i)=>{
+        v96Circle(b.x,b.y,i===real?66:36,i*.05,i===real?c:s,i===real?.58:.24,i===real?'잭인더박스':'가짜상자');
+        if(i!==real) setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Bullet(b.x,b.y,player.x,player.y,210,s,.18); },520+i*55);
+      });
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) v96Burst(boxes[real].x,boxes[real].y,c,44,320); },880);
+    }
+    function v96CurtainCall(){
+      const c='#e879f9', s='#fde047';
+      boss.cast={life:1.1,max:1.1,kind:'curtain',color:c,angle:0};
+      const lanes=7, gap=(Math.floor((state.time||0)*2)+v96Phase())%lanes;
+      for(let i=0;i<lanes;i++){
+        if(i===gap) continue;
+        const x=80+i*(W-160)/(lanes-1);
+        state.hazards.push({kind:'wall',x:x,y:H/2,w:34,h:H*.78,warn:1.05+i*.025,life:.38,damage:v96Dmg(.44),color:i%2?c:s,tag:'chaos',label:'커튼콜'});
+      }
+      setTimeout(()=>{ if(!v96Alive()||!v96IsNive())return; for(let i=0;i<9;i++) v96Circle(rand(105,W-105),rand(135,H-85),30,.05+i*.04,i%2?c:s,.32,'피날레'); },760);
+      setTimeout(()=>{ if(v96Alive()&&v96IsNive()) breakBoss(1.05); },1450);
+    }
+    const v96NivePool=[v96CardFan,v96SpotlightShow,v96RouletteWheel,v96JackInTheBox,v96CurtainCall];
+    const V96_BASE_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v96Alive() && v96IsNive()){
+          boss._v96NiveIndex = (boss._v96NiveIndex || 0) + 1;
+          const ph = v96Phase();
+          const start = boss._v96NiveIndex + (ph>=2?1:0) + (ph>=3?1:0);
+          const fn = v96NivePool[start % v96NivePool.length];
+          fn();
+          if(ph>=3 && Math.random()<.22){
+            setTimeout(()=>{ if(v96Alive()&&v96IsNive()){ try{ v96NivePool[(start+2)%v96NivePool.length](); }catch(e){} } },1180);
+          }
+          boss.patternCd = Math.max(boss.patternCd||0, ph>=3?2.05:ph>=2?2.25:2.45);
+          return;
+        }
+      }catch(e){ console.warn('[V96 Nive pattern failed]', e); }
+      return V96_BASE_BOSSPATTERN();
+    };
+    try{
+      BOSSES.forEach(b=>{
+        if(b && (b.id==='dream_jester' || b.id==='nightmare_jester' || String(b.name||'').includes('니브'))){
+          b.patterns=['카드 칼날','서커스 조명','악몽 룰렛','잭인더박스','최종 커튼콜'];
+          b.theme='chaos'; b.tier=10;
+        }
+      });
+    }catch(e){}
+    try{
+      if(typeof V77_POOLS !== 'undefined'){
+        V77_POOLS.dream_jester = V77_POOLS.nightmare_jester || V77_POOLS.chaos_archon || [];
+      }
+    }catch(e){}
+    window.RaidDungeonV96={version:V96_VERSION,fixed:['dream_jester ID가 후기 광대 패턴 풀에 연결되지 않던 문제 수정','악몽 광대 니브 전용 5종 패턴 직접 연결','일반 공격만 하는 것처럼 보이던 문제 수정']};
+    console.log('[RaidDungeon]', V96_VERSION, 'loaded');
+  }catch(e){ console.warn('[V96 Nive hotfix failed]', e); }
+
+
+  /* =========================================================
+     V97 - PROGRESSIVE BOSS CINEMATICS + TRUE HP BAR FIX
+     - 초반 보스 이펙트 과잉 억제
+     - 후반 보스일수록 연출 레이어가 점진적으로 증가
+     - 보스 HP 수치와 실제 바 길이가 항상 같이 줄어들도록 최종 drawBoss 재정의
+  ========================================================= */
+  try{
+    const V97_VERSION = 'Raid Dungeon V97 - Progressive Patterns True HP Bar';
+
+    function v97Tier(){
+      try{ return clamp(Number(boss && boss.tier || 1),1,10); }catch(e){ return 1; }
+    }
+    function v97InRaid(){
+      return state && state.screen === 'raid' && state.raid && boss && !boss.dead && player && player.hp > 0;
+    }
+    function v97ThemeColor(){
+      return (boss && (boss.color || boss.sub)) || '#93c5fd';
+    }
+    function v97SubColor(){
+      return (boss && (boss.sub || boss.color)) || '#ffffff';
+    }
+    function v97EffectBudget(){
+      const t=v97Tier();
+      if(t<=1) return {particles:105,texts:38,hazards:95,zones:45,mechanics:38};
+      if(t<=3) return {particles:145,texts:45,hazards:120,zones:55,mechanics:44};
+      if(t<=5) return {particles:210,texts:55,hazards:150,zones:70,mechanics:58};
+      if(t<=7) return {particles:285,texts:68,hazards:180,zones:82,mechanics:72};
+      if(t<=9) return {particles:360,texts:80,hazards:215,zones:96,mechanics:86};
+      return {particles:430,texts:90,hazards:245,zones:110,mechanics:98};
+    }
+    function v97TrimCollections(){
+      if(!v97InRaid()) return;
+      const b=v97EffectBudget();
+      if(state.particles && state.particles.length>b.particles) state.particles.splice(0,state.particles.length-b.particles);
+      if(state.texts && state.texts.length>b.texts) state.texts.splice(0,state.texts.length-b.texts);
+      if(state.hazards && state.hazards.length>b.hazards) state.hazards.splice(0,state.hazards.length-b.hazards);
+      if(state.zones && state.zones.length>b.zones) state.zones.splice(0,state.zones.length-b.zones);
+      if(state.mechanics && state.mechanics.length>b.mechanics) state.mechanics.splice(0,state.mechanics.length-b.mechanics);
+    }
+
+    const V97_PREV_BURST = burst;
+    burst = function(x,y,color,count,speed){
+      try{
+        if(v97InRaid()){
+          const t=v97Tier();
+          let mul = 1;
+          if(t<=1) mul=.30;
+          else if(t<=3) mul=.48;
+          else if(t<=5) mul=.70;
+          else if(t<=7) mul=.92;
+          else if(t<=9) mul=1.08;
+          else mul=1.22;
+          count=Math.max(4,Math.floor((count||0)*mul));
+          speed=(speed||240)*(t<=3?.85:t>=8?1.08:1);
+        }
+      }catch(e){}
+      return V97_PREV_BURST(x,y,color,count,speed);
+    };
+
+    const V97_PREV_UPDATE = update;
+    update = function(dt){
+      const r=V97_PREV_UPDATE(dt);
+      try{ v97TrimCollections(); }catch(e){}
+      return r;
+    };
+
+    function v97ArenaAccent(){
+      if(!v97InRaid()) return;
+      const t=v97Tier();
+      if(t<=3) return;
+      const c=v97ThemeColor(), s=v97SubColor();
+      const level = t>=10?4:t>=8?3:t>=6?2:1;
+      const cx=boss.x, cy=boss.y;
+      for(let i=0;i<level;i++){
+        state.particles.push({kind:'ring',x:cx,y:cy,vx:0,vy:0,r:boss.r*(1.6+i*.55),life:.46+i*.04,color:i%2?s:c,line:1.6+i*.35});
+      }
+      if(t>=6){
+        const spokes=t>=10?14:t>=8?10:6;
+        for(let i=0;i<spokes;i++){
+          const a=(Math.PI*2/spokes)*i+(state.time||0)*.35;
+          state.particles.push({kind:'line',x:cx+Math.cos(a)*boss.r*.45,y:cy+Math.sin(a)*boss.r*.45,vx:Math.cos(a)*70,vy:Math.sin(a)*70,r:t>=9?5:4,life:.34,color:i%2?c:s,angle:a,len:70+t*8});
+        }
+      }
+      if(t>=8){
+        const drops=t>=10?10:6;
+        for(let i=0;i<drops;i++){
+          const x=rand(90,W-90), y=rand(105,H-90);
+          state.particles.push({kind:'star',x,y,vx:rand(-40,40),vy:rand(-40,40),r:rand(4,8),life:.55,color:i%2?c:s});
+        }
+      }
+      if(t>=10 && boss && (boss.id==='dream_jester'||boss.id==='nightmare_jester'||String(boss.name||'').includes('니브'))){
+        const lights=5;
+        for(let i=0;i<lights;i++){
+          const x=130+i*(W-260)/(lights-1);
+          state.particles.push({kind:'line',x,y:0,vx:0,vy:110,r:7,life:.55,color:i%2?'#facc15':'#fb7185',angle:Math.PI/2,len:H*.55});
+        }
+      }
+    }
+
+    const V97_PREV_BOSSPATTERN = bossPattern;
+    bossPattern = function(){
+      const beforeP = state.particles ? state.particles.length : 0;
+      const beforeT = v97Tier();
+      const r = V97_PREV_BOSSPATTERN();
+      try{
+        if(v97InRaid()){
+          v97ArenaAccent();
+          if(beforeT<=3 && state.particles && state.particles.length-beforeP>70){
+            state.particles.splice(beforeP, Math.max(0,(state.particles.length-beforeP)-70));
+          }
+          v97TrimCollections();
+        }
+      }catch(e){}
+      return r;
+    };
+
+    // HP bar final override: do not rely on older helper clipping. Draw missing/fill sections explicitly.
+    drawBoss = function(){
+      if(!boss || boss.dead) return;
+      ctx.save();
+      if(state.shake>0) ctx.translate(rand(-state.shake,state.shake),rand(-state.shake,state.shake));
+      ctx.globalAlpha=boss.hit>0?.72:1;
+      drawBossShape(ctx,boss,boss.x,boss.y,boss.r);
+      ctx.restore();
+
+      const bw=720,bh=22,x=(W-bw)/2,y=28;
+      const rate=clamp(Number(boss.hp||0)/Math.max(1,Number(boss.maxHp||1)),0,1);
+      const fillW=Math.max(0,Math.floor(bw*rate));
+      const fillColor=boss.vulnerable>0?'#fef08a':(boss.color||'#ef4444');
+
+      ctx.save();
+      ctx.fillStyle='rgba(0,0,0,.74)';
+      roundRect(ctx,x-8,y-24,bw+16,58,14);
+      ctx.fillStyle='rgba(15,23,42,.96)';
+      roundRect(ctx,x,y,bw,bh,11);
+      if(fillW>0){
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x,y,fillW,bh);
+        ctx.clip();
+        ctx.fillStyle=fillColor;
+        roundRect(ctx,x,y,bw,bh,11);
+        ctx.globalAlpha=.28;
+        ctx.fillStyle='#ffffff';
+        roundRect(ctx,x,y+2,bw,Math.max(3,bh*.32),9);
+        ctx.restore();
+      }
+      if(fillW<bw){
+        ctx.fillStyle='rgba(2,6,23,.62)';
+        roundRect(ctx,x+fillW,y,Math.max(0,bw-fillW),bh,11);
+      }
+      ctx.strokeStyle='rgba(255,255,255,.30)';
+      ctx.lineWidth=2;
+      roundRect(ctx,x,y,bw,bh,11);
+      ctx.strokeStyle='rgba(255,255,255,.18)';
+      ctx.lineWidth=1;
+      for(let i=1;i<10;i++){
+        const tx=x+bw*i/10;
+        ctx.beginPath(); ctx.moveTo(tx,y+3); ctx.lineTo(tx,y+bh-3); ctx.stroke();
+      }
+      ctx.fillStyle='#fff';
+      ctx.font='900 16px system-ui';
+      ctx.textAlign='center';
+      ctx.fillText(`${boss.name}  ${stars(boss.tier)}  ${boss.vulnerable>0?'BREAK':'GUARD'}`,W/2,22);
+      ctx.font='900 13px system-ui';
+      ctx.fillStyle='#e5e7eb';
+      ctx.fillText(`HP ${Math.ceil(boss.hp).toLocaleString()} / ${Math.ceil(boss.maxHp).toLocaleString()}  (${Math.ceil(rate*100)}%)`,W/2,y+16);
+      ctx.restore();
+
+      if(boss.clones && !(typeof v59Mass==='function' && v59Mass())){
+        boss.clones.forEach(c=>drawBossShape(ctx,{...boss,color:c.real?'#fef08a':boss.color,sub:boss.sub,theme:boss.theme},c.x,c.y,boss.r*.65));
+      }
+    };
+
+    window.RaidDungeonV97={version:V97_VERSION,changed:['초반 보스 이펙트 과잉 억제','후반 보스 등급별 연출 단계 증가','보스 HP 숫자와 실제 체력바 동기화','V96 니브 패턴 유지']};
+    console.log('[RaidDungeon]', V97_VERSION, 'loaded');
+  }catch(e){ console.warn('[V97 progressive/hpbar fix failed]', e); }
 
 })();
 
