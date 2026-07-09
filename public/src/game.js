@@ -11266,7 +11266,7 @@ function v53UniqueItems(items){
 
 
   /* ===== V60: real visual pattern identities + readable warnings + MP + HP numbers + extra performance ===== */
-  const V60_VERSION = 'Raid Dungeon V60 - Visual Patterns MP HP Performance';
+  const V60_VERSION = 'Raid Dungeon V62 - Perf Weapons Stats Boss Bar';
 
   function v60SafeNum(v,d){ return Number.isFinite(v) ? v : d; }
   function v60CostForSkill(s){
@@ -11581,6 +11581,401 @@ function v53UniqueItems(items){
 
   try{ window.RaidDungeonV60={version:V60_VERSION, visualPatterns:'same-name reskins replaced with label-based layouts', warning:'longer telegraphs before damage', mp:'skills consume MP and MP regenerates 3 per second', hp:'boss/player numeric HP and MP HUD', performance:'hard caps and lighter mass rendering'}; }catch(e){}
 
+
+
+  /* ===== V61: fresh leaderboard reset + global rank New Record + input-first performance ===== */
+  const V61_VERSION = 'Raid Dungeon V61 - Fresh Records Global Rank Anti Lag';
+
+  function v61SafeNum(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+  function v61BossTier(){ try{return clamp(Number(boss&&boss.tier||1),1,12);}catch(e){return 1;} }
+
+  function v61ResetAllOldRecordsOnce(){
+    try{
+      const flag='raid-v61-record-reset-done';
+      if(localStorage.getItem(flag)==='1') return;
+      [
+        LOCAL_RECORD_KEY,
+        'raid-build-v12-local-records',
+        'raid-build-v11-local-records',
+        'raid-build-v10-local-records',
+        'raid-build-v9-local-records',
+        'raid-build-v7-local-records'
+      ].forEach(k=>{ try{ localStorage.removeItem(k); }catch(_){} });
+      try{ state.rankings=[]; }catch(_){}
+      localStorage.setItem(flag,'1');
+      setTimeout(async()=>{
+        try{
+          if(supabaseReady && supabase && supabase.from){
+            const res = await supabase.from('raid_records').delete().neq('boss_id','__raid_v61_keep_none__');
+            if(res && res.error) console.warn('[V61] cloud record reset skipped:', res.error.message);
+          }
+        }catch(e){ console.warn('[V61] cloud record reset failed/skipped:', e && e.message ? e.message : e); }
+      },600);
+    }catch(e){ console.warn('[V61] record reset failed:', e); }
+  }
+  v61ResetAllOldRecordsOnce();
+
+  async function v61LoadRankOneMs(bossId){
+    let best = Infinity;
+    try{
+      const local = getLocalRecords().filter(r=>r && r.boss_id===bossId && Number.isFinite(Number(r.clear_ms)));
+      local.forEach(r=>{ best=Math.min(best, Number(r.clear_ms)); });
+    }catch(e){}
+    try{
+      if(supabaseReady && supabase && supabase.from){
+        const res = await supabase.from('raid_records').select('clear_ms').eq('boss_id',bossId).order('clear_ms',{ascending:true}).limit(1);
+        if(res && Array.isArray(res.data) && res.data.length && Number.isFinite(Number(res.data[0].clear_ms))) best=Math.min(best, Number(res.data[0].clear_ms));
+      }
+    }catch(e){ console.warn('[V61] rank one load failed/skipped:', e && e.message ? e.message : e); }
+    return best;
+  }
+
+  function v61ShowNewRecord(ms, oldMs){
+    try{
+      state.v61NewRecordT=3.2;
+      state.v61NewRecordText = Number.isFinite(oldMs) ? `NEW RECORD! 1등 기록 갱신  ${formatMs(oldMs)} → ${formatMs(ms)}` : `NEW RECORD! 첫 1등 기록  ${formatMs(ms)}`;
+      floatText('NEW RECORD!', W/2, H/2-74, '#facc15', 30);
+    }catch(e){}
+    try{
+      let el=document.getElementById('v61-new-record-banner');
+      if(!el){
+        el=document.createElement('div'); el.id='v61-new-record-banner';
+        el.style.cssText='position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:1000000;pointer-events:none;padding:18px 28px;border-radius:22px;background:linear-gradient(135deg,rgba(250,204,21,.95),rgba(249,115,22,.93));color:#111827;font:950 26px system-ui;box-shadow:0 20px 80px rgba(0,0,0,.45);text-align:center;letter-spacing:-.02em';
+        document.body.appendChild(el);
+      }
+      el.textContent=state.v61NewRecordText||'NEW RECORD!';
+      el.style.display='block';
+      clearTimeout(window.__v61NewRecordTimeout);
+      window.__v61NewRecordTimeout=setTimeout(()=>{ try{el.style.display='none';}catch(_){} },3200);
+    }catch(e){}
+  }
+
+  try{
+    const oldSubmitRecordV61 = submitRecord;
+    submitRecord = async function(ms){
+      let previousRankOne = Infinity;
+      try{ previousRankOne = await v61LoadRankOneMs(boss.id); }catch(e){}
+      try{ await oldSubmitRecordV61(ms); }catch(e){ console.warn('[V61] original submitRecord failed:', e); }
+      try{
+        if(ms < previousRankOne){
+          v61ShowNewRecord(ms, previousRankOne);
+        }
+      }catch(e){}
+    };
+  }catch(e){ console.warn('[V61] submitRecord wrapper failed:',e); }
+
+  function v61HardPerfCap(){
+    try{
+      const t=v61BossTier();
+      const hMax=t>=9?48:t>=6?56:64;
+      const pMax=t>=9?20:t>=6?26:34;
+      const txMax=t>=6?6:10;
+      const prMax=t>=9?34:t>=6?42:54;
+      if(state.hazards && state.hazards.length>hMax){
+        const arr=state.hazards, keep=[];
+        for(let i=arr.length-1;i>=0&&keep.length<hMax;i--){
+          const h=arr[i];
+          if(!h) continue;
+          if(h.respectSafe || h.v51FullMap || h.v55Core || h.warn>0 || i%2===0) keep.push(h);
+        }
+        state.hazards=keep.reverse();
+      }
+      if(state.projectiles && state.projectiles.length>prMax) state.projectiles.splice(0,state.projectiles.length-prMax);
+      if(state.particles && state.particles.length>pMax) state.particles.splice(0,state.particles.length-pMax);
+      if(state.texts && state.texts.length>txMax) state.texts.splice(0,state.texts.length-txMax);
+    }catch(e){}
+  }
+  function v61Busy(){
+    try{return (state.hazards||[]).length + (state.projectiles||[]).length + (state.particles||[]).length + (state.texts||[]).length > 72;}catch(e){return false;}
+  }
+
+  try{
+    const oldUpdateV61=update;
+    update=function(dt){
+      // 이동감 저하를 줄이기 위해 무거운 오브젝트를 업데이트 전에 먼저 잘라냅니다.
+      v61HardPerfCap();
+      oldUpdateV61(Math.min(dt||0, 1/30));
+      v61HardPerfCap();
+      try{ if(state.v61NewRecordT>0) state.v61NewRecordT-=Math.min(dt||0,1/30); }catch(e){}
+    };
+  }catch(e){ console.warn('[V61] update anti-lag wrapper failed:',e); }
+
+  try{
+    const oldBurstV61=burst;
+    burst=function(x,y,color,n,speed){
+      if(v61Busy()) n=Math.min(Number(n)||0, 6);
+      else n=Math.min(Number(n)||0, 18);
+      return oldBurstV61(x,y,color,n,speed);
+    };
+  }catch(e){ console.warn('[V61] burst cap failed:',e); }
+
+  try{
+    drawParticles=function(){
+      const arr=state.particles||[];
+      if(!arr.length) return;
+      const step=v61Busy()?4:2;
+      ctx.save();
+      for(let i=arr.length-1;i>=0;i-=step){
+        const p=arr[i]; if(!p) continue;
+        ctx.globalAlpha=clamp((p.life||0)*1.8,0,.65);
+        ctx.fillStyle=p.color||'#fff';
+        ctx.beginPath(); ctx.arc(p.x,p.y,Math.max(2,Math.min(5,p.r||3)),0,Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    };
+  }catch(e){ console.warn('[V61] particle draw override failed:',e); }
+
+  try{
+    drawTexts=function(){
+      const arr=state.texts||[];
+      if(!arr.length) return;
+      const max=v61Busy()?4:8;
+      ctx.save(); ctx.textAlign='center';
+      for(let i=Math.max(0,arr.length-max);i<arr.length;i++){
+        const t=arr[i]; if(!t) continue;
+        ctx.globalAlpha=clamp((t.life||0)*1.5,0,.9);
+        ctx.fillStyle=t.color||'#fff'; ctx.font=`900 ${Math.min(20,t.size||16)}px system-ui`;
+        ctx.fillText(t.text,t.x,t.y);
+      }
+      ctx.restore(); ctx.globalAlpha=1;
+    };
+  }catch(e){ console.warn('[V61] text draw override failed:',e); }
+
+  try{
+    const oldDrawV61=draw;
+    draw=function(){
+      oldDrawV61();
+      try{
+        if(state.v61NewRecordT>0){
+          ctx.save();
+          ctx.textAlign='center';
+          ctx.fillStyle='rgba(0,0,0,.55)'; roundRect(ctx,W/2-270,96,540,54,18);
+          ctx.fillStyle='#facc15'; ctx.font='950 24px system-ui';
+          ctx.fillText(state.v61NewRecordText||'NEW RECORD!',W/2,130);
+          ctx.restore();
+        }
+      }catch(e){}
+    };
+  }catch(e){ console.warn('[V61] draw banner wrapper failed:',e); }
+
+  try{
+    const oldMakeBossV61=makeBoss;
+    makeBoss=function(b){
+      const x=oldMakeBossV61(b);
+      const t=clamp(Number(x.tier||1),1,12);
+      const more=1.20 + t*.055 + (t>=9?.22:0) + (t>=11?.35:0);
+      x.maxHp=Math.floor(x.maxHp*more);
+      x.hp=x.maxHp;
+      return x;
+    };
+  }catch(e){ console.warn('[V61] boss hp extra failed:',e); }
+
+
+
+  /* ===== V62: true play-feel anti-lag + boss bar fix + weapon rarity specials + stat upgrades ===== */
+  const V62_VERSION = 'Raid Dungeon V62 - Perf Weapons Stats Boss Bar';
+
+  function v62Training(){
+    if(!state.save.playerTraining || typeof state.save.playerTraining!=='object') state.save.playerTraining={hp:0,mp:0,regen:0};
+    ['hp','mp','regen'].forEach(k=>{ state.save.playerTraining[k]=Math.max(0,Math.min(100,Number(state.save.playerTraining[k]||0))); });
+    return state.save.playerTraining;
+  }
+  function v62UpgradeCost(lv){ return Math.floor(500*Math.pow(1.8,Math.max(0,lv))); }
+  function v62ApplyTraining(p){
+    try{
+      const t=v62Training();
+      const hpBonus=t.hp*18;
+      const mpBonus=t.mp*7;
+      const regenBonus=t.regen*0.045;
+      p.maxHp=(p.v62BaseMaxHp||p.maxHp||100)+hpBonus;
+      if(!Number.isFinite(p.maxMp)) p.maxMp=120;
+      p.maxMp=(p.v62BaseMaxMp||p.maxMp||120)+mpBonus;
+      p.mpRegen=3+regenBonus;
+      p.regen=(p.v62BaseRegen||p.regen||0.18)+regenBonus;
+      p.hp=Math.min(p.maxHp, Number.isFinite(p.hp)?p.hp:p.maxHp);
+      p.mp=Math.min(p.maxMp, Number.isFinite(p.mp)?p.mp:p.maxMp);
+    }catch(e){}
+  }
+  try{
+    const oldMakePlayerV62=makePlayer;
+    makePlayer=function(){
+      const p=oldMakePlayerV62();
+      p.v62BaseMaxHp=p.maxHp||100; p.v62BaseMaxMp=p.maxMp||120; p.v62BaseRegen=p.regen||0.18;
+      v62ApplyTraining(p); p.hp=p.maxHp; p.mp=p.maxMp;
+      return p;
+    };
+  }catch(e){ console.warn('[V62] makePlayer training failed',e); }
+  try{
+    const oldStartRaidV62=startRaid;
+    startRaid=function(){ oldStartRaidV62(); if(state.screen==='raid'&&player){ v62ApplyTraining(player); player.hp=Math.min(player.hp,player.maxHp); player.mp=Math.min(player.mp,player.maxMp); }};
+  }catch(e){ console.warn('[V62] startRaid training failed',e); }
+  try{
+    window.RaidDungeonUI=window.RaidDungeonUI||{};
+    window.RaidDungeonUI.upgradePlayerStat=function(kind){
+      const t=v62Training();
+      if(!['hp','mp','regen'].includes(kind)) return;
+      if(t[kind]>=100){ toast('이미 최대 레벨입니다.'); return; }
+      const cost=v62UpgradeCost(t[kind]);
+      if((state.save.coins||0)<cost){ toast('코인이 부족합니다. 필요 코인: '+cost.toLocaleString()); return; }
+      state.save.coins-=cost; t[kind]++;
+      if(player) v62ApplyTraining(player);
+      saveGame(); renderMenu();
+      toast('능력 성장 완료 Lv.'+t[kind]);
+    };
+  }catch(e){ console.warn('[V62] UI upgrade hook failed',e); }
+  function v62StatPanel(){
+    const t=v62Training();
+    const rows=[['hp','최대 체력','Lv.'+t.hp,'최대 HP +'+(t.hp*18),'체력'],['mp','최대 마나','Lv.'+t.mp,'최대 MP +'+(t.mp*7),'마나'],['regen','회복력','Lv.'+t.regen,'HP/MP 회복 +'+(t.regen*0.045).toFixed(2)+'/초','회복']];
+    return `<div class="v49-panel" style="margin-top:14px"><h3 style="margin-bottom:8px">플레이어 능력 성장</h3><p class="sub">코인으로 체력/마나/회복력을 성장시킵니다. 최대 100Lv, 첫 비용 500코인, 이후 1.8배입니다.</p><div class="v49-rows">${rows.map(([k,n,lv,desc,short])=>{const cost=v62UpgradeCost(t[k]); const disabled=t[k]>=100?'disabled':''; return `<div class="v49-row"><div class="v49-row-left"><div class="v49-row-title">${n} <span class="chip">${lv}</span></div><div class="v49-row-desc">${desc}<br>다음 비용 ${t[k]>=100?'MAX':cost.toLocaleString()+' 코인'}</div></div><div class="v49-actions"><button class="btn" ${disabled} onclick="window.RaidDungeonUI&&window.RaidDungeonUI.upgradePlayerStat('${k}')">${short} 성장</button></div></div>`;}).join('')}</div></div>`;
+  }
+  try{
+    const oldRenderGrowthV62=renderGrowth;
+    renderGrowth=function(){ return oldRenderGrowthV62()+v62StatPanel(); };
+  }catch(e){ console.warn('[V62] renderGrowth panel failed',e); }
+
+  function v62RarityRank(r){ return ({normal:0,rare:1,super:2,epic:3,legendary:4,ultimate:5})[r]||0; }
+  function v62WeaponMul(w){ const rr=v62RarityRank(w&&w.rarity); return 1+rr*.16+(rr>=3?.18:0)+(rr>=4?.24:0)+(rr>=5?.38:0); }
+  function v62WeaponColor(w){ return (w&&w.color)||({normal:'#cbd5e1',rare:'#60a5fa',super:'#4ade80',epic:'#a78bfa',legendary:'#facc15',ultimate:'#f0abfc'}[w&&w.rarity]||'#fff'); }
+  function v62Spark(x,y,c,n){
+    if(v59Mass&&v59Mass()) n=Math.min(n,4);
+    for(let i=0;i<n;i++) state.particles.push({x,y,vx:rand(-180,180),vy:rand(-180,120),r:rand(2,5),life:rand(.18,.42),color:c});
+  }
+  function v62Wave(x,y,a,dmg,c,range,rank){
+    state.projectiles.push({owner:'player',x:x+Math.cos(a)*30,y:y+Math.sin(a)*30,vx:Math.cos(a)*(620+rank*80),vy:Math.sin(a)*(620+rank*80),r:12+rank*2,life:.55+rank*.08,damage:dmg*(.58+rank*.08),color:c,pierce:rank>=4?3:rank>=3?1:0,splash:rank>=4?38:0,tag:'v62wave'});
+  }
+  try{
+    const oldBasicAttackV62=basicAttack;
+    basicAttack=function(){
+      if(!state.raid||player.basicCd>0) return;
+      const w=getWeapon(state.selectedWeaponId);
+      if(!w) return oldBasicAttackV62();
+      const rank=v62RarityRank(w.rarity), c=v62WeaponColor(w), a=aimAngle();
+      const oldMul=player.basicDamageMul||1;
+      player.basicDamageMul=oldMul*v62WeaponMul(w);
+      oldBasicAttackV62();
+      player.basicDamageMul=oldMul;
+      if(rank>=3){
+        const base=player.atk*oldMul*w.atk*v62WeaponMul(w);
+        const ranged=['bow','staff','gunstaff','grimoire','chakram'].some(k=>String(w.kind||'').includes(k));
+        if(ranged){
+          const shots=rank>=5?5:rank>=4?4:3;
+          for(let i=0;i<shots;i++){
+            const spread=(i-(shots-1)/2)*(rank>=5?.11:.08);
+            state.projectiles.push({owner:'player',x:player.x+Math.cos(a+spread)*30,y:player.y+Math.sin(a+spread)*30,vx:Math.cos(a+spread)*(690+rank*65),vy:Math.sin(a+spread)*(690+rank*65),r:7+rank,life:.85,damage:base*(rank>=5?.34:.25),color:c,pierce:rank>=4?1:0,splash:rank>=4?30:0,tag:'v62burst'});
+          }
+        }else{
+          v62Wave(player.x,player.y,a,base,c,w.range,rank);
+          if(rank>=4) setTimeout(()=>{try{ if(state.screen==='raid') v62Wave(player.x,player.y,a,base*.70,c,w.range,rank-1); }catch(e){}},110);
+        }
+        v62Spark(player.x+Math.cos(a)*42,player.y+Math.sin(a)*42,c,rank>=5?12:8);
+      }
+      if(rank>=4){
+        player.attackAnim=Math.max(player.attackAnim||0,.34);
+        state.shake=Math.max(state.shake||0,rank>=5?2.2:1.2);
+      }
+      v62PerfCapHard();
+    };
+  }catch(e){ console.warn('[V62] weapon special basicAttack failed',e); }
+
+  function v62PerfCapHard(){
+    try{
+      if(!state||state.screen!=='raid') return;
+      const critical=(state.hazards.length+state.projectiles.length+state.particles.length+state.texts.length+state.zones.length)>150;
+      const maxHaz=critical?28:42, maxProj=critical?26:42, maxPart=critical?34:70, maxText=critical?6:12, maxZone=critical?8:12;
+      if(state.hazards.length>maxHaz) state.hazards.splice(0,state.hazards.length-maxHaz);
+      if(state.projectiles.length>maxProj) state.projectiles.splice(0,state.projectiles.length-maxProj);
+      if(state.particles.length>maxPart) state.particles.splice(0,state.particles.length-maxPart);
+      if(state.texts.length>maxText) state.texts.splice(0,state.texts.length-maxText);
+      if(state.zones.length>maxZone) state.zones.splice(0,state.zones.length-maxZone);
+    }catch(e){}
+  }
+  try{
+    const oldUpdateV62=update;
+    update=function(dt){
+      const safeDt=Math.min(dt||0,1/30);
+      v62PerfCapHard();
+      oldUpdateV62(safeDt);
+      if(state.screen==='raid'&&player){
+        v62ApplyTraining(player);
+        player.mp=Math.min(player.maxMp, player.mp + (player.mpRegen||3)*Math.max(0,dt||0));
+        v62PerfCapHard();
+      }
+    };
+  }catch(e){ console.warn('[V62] update anti-lag failed',e); }
+
+  function v62DrawHPBar(x,y,w,h,rate,color){
+    rate=clamp(rate,0,1);
+    ctx.fillStyle='#111827'; roundRect(ctx,x,y,w,h,h/2);
+    ctx.save(); ctx.beginPath(); ctx.rect(x,y,Math.max(0,w*rate),h); ctx.clip(); ctx.fillStyle=color; roundRect(ctx,x,y,w,h,h/2); ctx.restore();
+    ctx.strokeStyle='rgba(255,255,255,.26)'; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
+  }
+  try{
+    drawBoss=function(){
+      if(!boss||boss.dead) return;
+      ctx.save(); if(state.shake>0) ctx.translate(rand(-state.shake,state.shake),rand(-state.shake,state.shake)); ctx.globalAlpha=boss.hit>0?.72:1; drawBossShape(ctx,boss,boss.x,boss.y,boss.r); ctx.restore();
+      const bw=720,bh=22,x=(W-bw)/2,y=28,rate=clamp(boss.hp/Math.max(1,boss.maxHp),0,1);
+      ctx.fillStyle='rgba(0,0,0,.72)'; roundRect(ctx,x-8,y-24,bw+16,72,14);
+      v62DrawHPBar(x,y,bw,bh,rate,boss.vulnerable>0?'#fef08a':boss.color);
+      ctx.fillStyle='#fff'; ctx.font='900 16px system-ui'; ctx.textAlign='center'; ctx.fillText(`${boss.name}  ${stars(boss.tier)}  ${boss.vulnerable>0?'BREAK':'GUARD'}`,W/2,22);
+      ctx.font='900 13px system-ui'; ctx.fillStyle='#e5e7eb'; ctx.fillText(`HP ${Math.ceil(boss.hp).toLocaleString()} / ${Math.ceil(boss.maxHp).toLocaleString()}  (${Math.ceil(rate*100)}%)`,W/2,y+16);
+      ctx.font='800 13px system-ui'; ctx.fillStyle='#cbd5e1'; ctx.fillText(boss.mechanicText||'패턴 예고를 보고 움직이세요.',W/2,76);
+      if(boss.clones&&!v59Mass()) boss.clones.forEach(c=>drawBossShape(ctx,{...boss,color:c.real?'#fef08a':boss.color,sub:boss.sub,theme:boss.theme},c.x,c.y,boss.r*.65));
+    };
+  }catch(e){ console.warn('[V62] boss bar fix failed',e); }
+  try{
+    drawHud=function(){
+      v60EnsureMP(); v62ApplyTraining(player);
+      const x=18,y=H-122,w=410;
+      ctx.fillStyle='rgba(0,0,0,.62)'; roundRect(ctx,x,y,w,106,16);
+      v62DrawHPBar(x+18,y+22,318,18,player.hp/Math.max(1,player.maxHp),'#ef4444');
+      v62DrawHPBar(x+18,y+55,318,16,player.mp/Math.max(1,player.maxMp),'#60a5fa');
+      ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='left'; ctx.fillText(`HP ${Math.ceil(player.hp)}/${Math.ceil(player.maxHp)}`,x+24,y+17);
+      ctx.fillStyle='#bfdbfe'; ctx.fillText(`MP ${Math.floor(player.mp)}/${Math.floor(player.maxMp)}  (+${(player.mpRegen||3).toFixed(1)}/s)`,x+24,y+51);
+      ctx.fillStyle='#cbd5e1'; ctx.font='800 11px system-ui'; ctx.fillText(`Shield ${Math.floor(player.shield||0)}  · 성장: HP Lv.${v62Training().hp} / MP Lv.${v62Training().mp} / 회복 Lv.${v62Training().regen}`,x+24,y+91);
+      const labels=['J','1','2','3','Space']; const cds=[player.basicCd,player.skillCd[0],player.skillCd[1],player.skillCd[2],player.rollCd];
+      for(let i=0;i<5;i++){
+        const bx=455+i*84, by=H-86; ctx.fillStyle='rgba(15,23,42,.82)'; roundRect(ctx,bx,by,68,62,12);
+        ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillText(labels[i],bx+34,by+18);
+        let status=cds[i]>0?cds[i].toFixed(1):'OK', col=cds[i]>0?'#fb7185':'#86efac';
+        if(i>=1&&i<=3){const s=state.raid&&state.raid.skills&&state.raid.skills[i-1]; if(s){const cost=v60CostForSkill(s); ctx.fillStyle=player.mp>=cost?'#93c5fd':'#fca5a5'; ctx.font='800 11px system-ui'; ctx.fillText(`MP ${cost}`,bx+34,by+38); if(cds[i]<=0&&player.mp<cost){status='MP 부족'; col='#fca5a5';}}}
+        ctx.fillStyle=col; ctx.font='900 11px system-ui'; ctx.fillText(status,bx+34,by+55);
+      }
+      ctx.textAlign='left';
+    };
+  }catch(e){ console.warn('[V62] HUD failed',e); }
+
+  function v62BoostBossQuality(){
+    try{
+      if(!boss) return;
+      const t=clamp(Number(boss.tier||1),1,12);
+      const extra=1.18 + t*.055 + (t>=8?.25:0) + (t>=10?.38:0);
+      if(!boss.v62HpBoosted){ boss.maxHp=Math.floor(boss.maxHp*extra); boss.hp=boss.maxHp; boss.v62HpBoosted=true; }
+    }catch(e){}
+  }
+  try{
+    const oldMakeBossV62=makeBoss;
+    makeBoss=function(b){ const x=oldMakeBossV62(b); const t=clamp(Number(x.tier||1),1,12); const extra=1.18+t*.055+(t>=8?.25:0)+(t>=10?.38:0); x.maxHp=Math.floor(x.maxHp*extra); x.hp=x.maxHp; x.v62HpBoosted=true; return x; };
+  }catch(e){ console.warn('[V62] boss hp quality boost failed',e); }
+
+  function v62ShowcasePattern(idx){
+    const t=v59Tier(), ph=v59Phase();
+    v60PatternByLabel(idx);
+    if(t>=6 && ph>=2 && !v59Mass()){
+      setTimeout(()=>{try{ if(state.screen==='raid'&&boss&&!boss.dead) v60PatternByLabel((idx+1)%Math.max(1,v57PatternCount&&v57PatternCount())); }catch(e){}},680);
+    }
+    if(t>=9 && ph>=3 && !v59Mass()){
+      setTimeout(()=>{try{ if(state.screen==='raid'&&boss&&!boss.dead) v60PatternByLabel((idx+2)%Math.max(1,v57PatternCount&&v57PatternCount())); }catch(e){}},1280);
+    }
+    v62PerfCapHard();
+  }
+  try{
+    v59TypePattern=function(idx){ try{ v62ShowcasePattern(idx); }catch(e){ try{ v60PatternByLabel(idx); }catch(_){} } };
+    getBossPatternCooldown=function(){ const t=v59Tier(), ph=v59Phase(); return Math.max(1.55, (t>=9?2.15:t>=6?2.35:t>=3?2.55:2.85) * (ph===3?.92:ph===2?.98:1) + Math.random()*.22); };
+  }catch(e){ console.warn('[V62] pattern quality override failed',e); }
+
+  try{ window.RaidDungeonV62={version:V62_VERSION, bossBar:'clip-based HP bar now shrinks with numeric HP/%', weapons:'rarity damage scaling and epic+ special projectiles/waves', training:'HP/MP/regen coin upgrades max 100, cost x1.8', performance:'harder object caps and dt clamp to protect movement feel', bossQuality:'higher-tier chained visual patterns and more boss HP'}; }catch(e){}
+
+  try{ window.RaidDungeonV61={version:V61_VERSION, resetRecords:'local records cleared once and cloud delete attempted once', newRecord:'shows only when clear time beats current rank #1, not personal best', antiLag:'input-first hard caps before update and ultra-light particles/texts', bossHp:'extra scaling after V60'}; }catch(e){}
   try{ window.RaidDungeonV59={version:V59_VERSION, maze:'maze is mechanic only, not repeated attack pattern', uniquePatterns:'type-specific boss attacks, less full-map spam', antiLag:'lower caps and lighter follow-up effects'}; }catch(e){}
 
   try{ window.RaidDungeonV52={version:V52_VERSION, sortieClickFix:true, strongerFx:true, marketSections:['material','weapon','armor','skill']}; }catch(e){}
