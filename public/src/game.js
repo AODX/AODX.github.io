@@ -14,7 +14,7 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Dungeon V72 - Unique Boss Patterns True Safe Feedback';
+  const VERSION = 'Raid Dungeon V74 - Restored Spectacle Variety True Safe Skill Keys';
   try { document.title = 'Raid Dungeon'; } catch(e) {}
   const W = 1280;
   const H = 720;
@@ -14448,6 +14448,268 @@ function v53UniqueItems(items){
       mobileStyle.textContent='@media (hover:hover) and (pointer:fine){#raidV71TouchControls{display:none!important}}';
       document.head.appendChild(mobileStyle);
     }catch(e){}
+
+
+
+    /* ===== V74: restore all previous spectacle patterns + readable true SAFE + skill keys K/L/; ===== */
+    const V74_VERSION = 'Raid Dungeon V74 - Restored Spectacle Variety True Safe Skill Keys';
+
+    function v74Alive(){ return state && state.screen === 'raid' && boss && !boss.dead; }
+    function v74Tier(){ return Math.max(1, Math.min(10, Number(boss && boss.tier || 1))); }
+    function v74Phase(){ return Math.max(1, Math.min(3, Number(boss && boss.phase || 1))); }
+    function v74Color(){ return (boss && boss.color) || '#facc15'; }
+    function v74Tag(){ return (boss && boss.theme) || 'chaos'; }
+    function v74Dmg(m){ try{ return Math.max(5, v72Dmg ? v72Dmg(m || 1) : boss.atk*(m || 1)); }catch(e){ return Math.max(5,(boss&&boss.atk||10)*(m||1)); } }
+    function v74Later(ms,fn){ setTimeout(function(){ try{ if(v74Alive()) fn(); }catch(e){ console.warn('[V74 delayed pattern failed]',e); } }, ms); }
+    function v74Say(text,color,kind){ try{ v72Say(text,color||v74Color(),kind||'cast'); }catch(e){ try{ toast(text); }catch(_){} } }
+    function v74Cap(){
+      try{
+        const t=v74Tier();
+        const hz=t>=9?210:180, mc=t>=9?125:100, pt=t>=9?420:340, pr=t>=9?210:170;
+        if(state.hazards.length>hz) state.hazards.splice(0,state.hazards.length-hz);
+        if(state.mechanics.length>mc) state.mechanics.splice(0,state.mechanics.length-mc);
+        if(state.particles.length>pt) state.particles.splice(0,state.particles.length-pt);
+        if(state.projectiles.length>pr) state.projectiles.splice(0,state.projectiles.length-pr);
+      }catch(e){}
+    }
+    function v74TrueSafe(x,y,r,life,label,color){
+      try{
+        v72Safe(x,y,r,life,label||'SAFE',color||'#86efac');
+        v72Fx('arrow',player.x,player.y,{x2:x,y2:y,life:Math.min(life||3.0,3.4),color:'#86efac',label:'SAFE'});
+      }catch(e){ try{ state.mechanics.push({kind:'safe',x,y,r:r||70,life:life||3,color:color||'#86efac',label:label||'SAFE'}); }catch(_){} }
+    }
+    function v74CheckSafe(x,y,r,ms,label,damageMul,color){
+      v74Later(ms||3200,function(){
+        const safe = v74SafeActive();
+        if(safe || dist(player.x,player.y,x,y) <= (r||70)+player.r+8){
+          state._v74InSafe=true;
+          state._v74SafeLabel=label||'SAFE';
+          try{ breakBoss(.85); }catch(e){}
+        }else{
+          hurtPlayer(v74Dmg(damageMul||1.15),color||v74Color(),true,label||'기믹 실패');
+        }
+      });
+    }
+    function v74V73(n){ const arr=(V73_PATTERNS && V73_PATTERNS[boss.id]) || (V73_PATTERNS && V73_PATTERNS.slime_king) || []; if(arr.length) arr[Math.abs(n||0)%arr.length](); }
+    function v74V72(){ if(typeof v59TypePattern==='function') v59TypePattern(Math.floor(Math.random()*6)); }
+    function v74V66(i){ if(typeof v66Pattern==='function') v66Pattern(Number.isFinite(i)?i:Math.floor(Math.random()*6)); }
+
+    function v74SpiralDance(label,color,tag){
+      color=color||v74Color(); tag=tag||v74Tag();
+      v74Say(`${boss.name}: ${label}. 회전하는 결을 읽고 초록 핵으로 들어가세요.`,color,'beam');
+      const cx=W/2, cy=H/2, safeA=Math.random()*Math.PI*2;
+      try{ v72Fx('mandala',cx,cy,{r:245,life:3.35,color,label:label||'SPIRAL'}); }catch(e){}
+      for(let i=0;i<10;i++){
+        const a=safeA+i*Math.PI*2/10;
+        if(i===0){ v74TrueSafe(cx+Math.cos(a)*185,cy+Math.sin(a)*118,62,3.35,'SPIRAL SAFE','#86efac'); continue; }
+        v72Beam(cx,cy,a,W*.86,14,1.35+i*.06,v74Dmg(.36),color,tag);
+      }
+      v74CheckSafe(cx+Math.cos(safeA)*185,cy+Math.sin(safeA)*118,72,3450,label,1.18,color);
+    }
+    function v74Curtain(label,color,tag,vertical){
+      color=color||v74Color(); tag=tag||v74Tag();
+      v74Say(`${boss.name}: ${label}. 닫히지 않는 통로를 끝까지 지키세요.`,color,'beam');
+      const n=vertical?7:5, safe=Math.floor(Math.random()*n);
+      for(let i=0;i<n;i++){
+        if(vertical){ const x=115+i*(W-230)/(n-1); if(i===safe) v74TrueSafe(x,H*.70,62,3.3,label,'#86efac'); else v72Beam(x,H/2,Math.PI/2,H*.88,22,1.30+i*.05,v74Dmg(.44),color,tag); }
+        else { const y=135+i*(H-230)/(n-1); if(i===safe) v74TrueSafe(W*.82,y,62,3.3,label,'#86efac'); else v72Beam(W/2,y,0,W*.94,22,1.30+i*.05,v74Dmg(.44),color,tag); }
+      }
+      if(vertical){ const x=115+safe*(W-230)/(n-1); v74CheckSafe(x,H*.70,72,3400,label,1.18,color); }
+      else { const y=135+safe*(H-230)/(n-1); v74CheckSafe(W*.82,y,72,3400,label,1.18,color); }
+    }
+    function v74FalseChoices(label,color,tag,count){
+      color=color||v74Color(); tag=tag||v74Tag(); count=count||4;
+      v74Say(`${boss.name}: ${label}. 진짜 표식 하나만 끝까지 빛납니다.`,color,'cast');
+      const pts=[ [W*.22,H*.32],[W*.50,H*.30],[W*.78,H*.32],[W*.30,H*.70],[W*.70,H*.70] ].slice(0,count);
+      const real=Math.floor(Math.random()*pts.length);
+      pts.forEach((p,i)=>{
+        if(i===real) v74TrueSafe(p[0],p[1],66,3.45,'REAL SAFE','#86efac');
+        else { try{ v72Fake(p[0],p[1],58,3.0,'FAKE',color); }catch(e){} v72Circle(p[0],p[1],58,1.55+i*.08,v74Dmg(.48),color,tag); }
+      });
+      v74CheckSafe(pts[real][0],pts[real][1],76,3500,label,1.22,color);
+    }
+    function v74MapTiles(label,color,tag,cols,rows){
+      color=color||v74Color(); tag=tag||v74Tag(); cols=cols||5; rows=rows||4;
+      v74Say(`${boss.name}: ${label}. 무너지지 않는 칸을 찾아야 합니다.`,color,'slam');
+      const safe=Math.floor(Math.random()*cols*rows), cw=W/cols, ch=(H-120)/rows;
+      for(let i=0;i<cols*rows;i++){
+        const x=cw*(i%cols+.5), y=112+ch*(Math.floor(i/cols)+.5);
+        if(i===safe){ v74TrueSafe(x,y,Math.min(cw,ch)*.31,3.45,'SAFE TILE','#86efac'); }
+        else { try{ v72Fx('laneRect',x,y,{w:cw*.78,h:ch*.68,life:2.35,color,label:'DANGER',alpha:.18}); }catch(e){} v72Circle(x,y,Math.min(cw,ch)*.25,1.55+(i%4)*.06,v74Dmg(.38),color,tag); }
+      }
+      const sx=cw*(safe%cols+.5), sy=112+ch*(Math.floor(safe/cols)+.5);
+      v74CheckSafe(sx,sy,Math.min(cw,ch)*.40,3520,label,1.22,color);
+    }
+    function v74BossSpecificExtra(){
+      const id=boss&&boss.id, c=v74Color(), tag=v74Tag();
+      const extras={
+        slime_king:()=>{ v74Say('젤리 왕: 왕관 점프 3연타. 마지막 초록 웅덩이에 서세요.',c,'slam'); for(let i=0;i<3;i++){ const x=clamp(player.x+rand(-160,160),120,W-120), y=clamp(player.y+rand(-100,100),140,H-100); v72Circle(x,y,60+i*10,1.1+i*.42,v74Dmg(.34+i*.08),c,tag); if(i===2){ v74TrueSafe(x,y,76,3.4,'PUDDING','#86efac'); v74CheckSafe(x,y,86,3500,'푸딩 웅덩이',1.05,c); } } },
+        ember_tyrant:()=>{ v74Say('이그니스: 용암 십자와 냉각 렌즈. 렌즈 안에서 버티세요.',c,'beam'); v72Beam(W/2,H/2,0,W*.96,24,1.3,v74Dmg(.42),c,tag); v72Beam(W/2,H/2,Math.PI/2,H*.92,24,1.55,v74Dmg(.42),c,tag); v74TrueSafe(W*.25,H*.72,72,3.4,'COOLING','#86efac'); v74CheckSafe(W*.25,H*.72,82,3450,'냉각 렌즈',1.12,c); },
+        thorn_queen:()=>{ v74FalseChoices('장미 여왕의 꽃문 판별',c,tag,5); },
+        frost_oracle:()=>{ v74MapTiles('서리 예언 별자리',c,tag,4,4); },
+        sand_reaper:()=>{ v74Curtain('사막 낫 커튼',c,tag,true); },
+        void_serpent:()=>{ v74SpiralDance('공허 뱀의 꼬리 나선',c,tag); },
+        iron_minotaur:()=>{ v74Say('미노타우로스: 돌진 유도. 철벽 SAFE 뒤로 숨어야 합니다.',c,'beam'); const x=rand(190,W-190), y=H*.68; v74TrueSafe(x,y,78,3.35,'IRON WALL','#86efac'); v72Beam(boss.x,boss.y,Math.atan2(y-boss.y,x-boss.x),W*.95,32,1.7,v74Dmg(.58),c,tag); v74CheckSafe(x,y,88,3450,'철벽 뒤',1.10,c); },
+        blood_moon:()=>{ v74FalseChoices('혈월의 진짜 그림자',c,tag,4); },
+        storm_colossus:()=>{ v74Curtain('전류 접지 회로',c,tag,false); },
+        plague_doctor:()=>{ v74FalseChoices('진짜 혈청 선택',c,tag,4); },
+        mirror_duelist:()=>{ v74FalseChoices('거울 결투사의 진짜 분신',c,tag,5); },
+        gravity_core:()=>{ v74SpiralDance('중력 궤도 발레',c,tag); },
+        solar_dragon:()=>{ v74SpiralDance('태양 날개 만다라',c,tag); },
+        chrono_dragon:()=>{ v74Say('크로노스: 시계 악보. 숫자 12 방향 SAFE로 이동 후 초침을 피하세요.',c,'cast'); v72Fx('clock',W/2,H/2,{r:245,life:3.45,color:c,label:'CLOCK'}); v72Beam(W/2,H/2,state.time+Math.PI/3,W*.92,18,1.55,v74Dmg(.50),c,tag); v74TrueSafe(W/2,H*.24,70,3.4,'12','#86efac'); v74CheckSafe(W/2,H*.24,80,3500,'시계 악보',1.22,c); },
+        abyss_leviathan:()=>{ v74Curtain('심해 산소 회랑',c,tag,false); },
+        puppet_emperor:()=>{ v74Say('마리오네트: 단두대 오페라. 칼날 없는 무대만 안전합니다.',c,'beam'); v74Curtain('NO BLADE',c,tag,true); v74Later(900,()=>v74FalseChoices('가짜 무대 판별',c,tag,4)); },
+        black_sun:()=>{ v74Say('아포칼립스: 검은 태양 만다라. 안쪽/외곽 표식을 판별하세요.',c,'slam'); v74SpiralDance('BLACK SUN',c,tag); v74Later(950,()=>{ v72Beam(W/2,H/2,0,W*.96,22,.85,v74Dmg(.44),c,tag); v72Beam(W/2,H/2,Math.PI/2,H*.92,22,.85,v74Dmg(.44),c,tag); }); },
+        chaos_archon:()=>{ v74FalseChoices('혼돈의 REAL 색상 재판',c,tag,5); v74Later(950,()=>v74SpiralDance('CHAOS SCORE',c,tag)); }
+      };
+      const fn=extras[id] || (()=>v74SpiralDance('고유 패턴',c,tag));
+      fn();
+    }
+
+    function v74BossPattern(){
+      try{
+        if(!boss) return;
+        boss.mechanicText='';
+        boss._v74PatternIndex=((boss._v74PatternIndex||0)+1);
+        const id=boss.id, t=v74Tier(), ph=v74Phase();
+        const rotation=[];
+        rotation.push(()=>v74BossSpecificExtra());
+        rotation.push(()=>v74V73(boss._v74PatternIndex));
+        rotation.push(()=>v74V72());
+        if(t>=6) rotation.push(()=>v74V66((boss._v74PatternIndex+ph)%6));
+        if(t>=8) rotation.push(()=>v74SpiralDance('시그니처 연계',v74Color(),v74Tag()));
+        if(t>=9) rotation.push(()=>v74MapTiles('최종권 격자 붕괴',v74Color(),v74Tag(),5,4));
+        const fn=rotation[boss._v74PatternIndex % rotation.length];
+        fn();
+        if(t>=10 && ph>=3 && Math.random()<.45){ v74Later(1150,()=>v74V66((boss._v74PatternIndex+3)%6)); }
+        v74Cap();
+      }catch(e){ console.warn('[V74 boss pattern failed]',e); try{ v74V73(0); }catch(_){} }
+    }
+    bossPattern = v74BossPattern;
+    getBossPatternCooldown = function(){
+      const t=v74Tier(), ph=v74Phase();
+      const base=t>=10?3.65:t>=9?3.50:t>=8?3.35:t>=7?3.20:t>=5?3.05:2.85;
+      return base + (ph===1?.35:ph===2?.18:.05) + Math.random()*.22;
+    };
+
+    function v74SafeActive(){
+      try{
+        if(!state || state.screen!=='raid' || !player || !Array.isArray(state.mechanics)) return null;
+        for(const m of state.mechanics){
+          if(!m || m.fake) continue;
+          const k=String(m.kind||'');
+          if(k!=='safe' && k!=='v72safeAura' && k!=='v73safe') continue;
+          const r=Number(m.r||0);
+          if(r>0 && dist(player.x,player.y,Number(m.x||0),Number(m.y||0)) <= r + player.r + 10) return m;
+        }
+      }catch(e){}
+      return null;
+    }
+    const oldHurtPlayerV74 = hurtPlayer;
+    hurtPlayer = function(amount,color,statusDamage,source){
+      try{
+        const safe=v74SafeActive();
+        if(safe){
+          state._v74InSafe=true;
+          state._v74SafeLabel=safe.label || 'SAFE';
+          state._v74SafePulse=.35;
+          return; // SAFE 안에서는 체력이 절대 닳지 않는다. 텍스트를 새로 생성하지 않아 무한 출력도 막는다.
+        }
+      }catch(e){}
+      return oldHurtPlayerV74(amount,color,statusDamage,source || '패턴 피해');
+    };
+
+    const oldUpdateV74 = update;
+    update = function(dt){
+      const was=!!state._v74InSafe;
+      const result=oldUpdateV74(dt);
+      try{
+        const safe=v74SafeActive();
+        state._v74InSafe=!!safe;
+        state._v74SafeLabel=safe?(safe.label||'SAFE'):'';
+        state._v74SafePulse=Math.max(0,Number(state._v74SafePulse||0)-Math.min(dt||0,.04));
+        if(!safe && was && player && !(player.roll>0)) player.invuln=Math.min(player.invuln||0,.03);
+        const el=document.getElementById('raidV71TouchControls');
+        if(el){ el.classList.toggle('show', state.screen==='raid' && v74RealMobile()); }
+      }catch(e){}
+      return result;
+    };
+    function v74RealMobile(){
+      try{
+        const ua=String(navigator.userAgent||'').toLowerCase();
+        const phone=/android|iphone|ipad|ipod|mobile|tablet/.test(ua);
+        const coarse=window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        return !!((navigator.maxTouchPoints||0)>0 && coarse && (phone || window.innerWidth<=1024));
+      }catch(e){ return false; }
+    }
+    const oldDrawControlHintV74 = drawControlHint;
+    drawControlHint = function(){
+      if(v74RealMobile()) return;
+      try{ oldDrawControlHintV74(); }catch(e){}
+      try{ ctx.save(); ctx.fillStyle='rgba(226,232,240,.88)'; ctx.font='900 13px system-ui'; ctx.textAlign='right'; ctx.fillText('스킬: K / L / ;', W-24, H-20); ctx.restore(); }catch(e){}
+    };
+    const oldDrawPlayerV74 = drawPlayer;
+    drawPlayer = function(){
+      oldDrawPlayerV74();
+      try{
+        if(state._v74InSafe && player){
+          ctx.save();
+          const pulse=.5+.18*Math.sin(state.time*10);
+          ctx.globalAlpha=.62+pulse*.25;
+          ctx.strokeStyle='#86efac'; ctx.lineWidth=6;
+          ctx.beginPath(); ctx.arc(player.x,player.y,player.r+20+pulse*4,0,Math.PI*2); ctx.stroke();
+          ctx.globalAlpha=.28; ctx.fillStyle='#86efac'; ctx.beginPath(); ctx.arc(player.x,player.y,player.r+12,0,Math.PI*2); ctx.fill();
+          ctx.globalAlpha=1; ctx.fillStyle='#d1fae5'; ctx.font='900 14px system-ui'; ctx.textAlign='center';
+          ctx.fillText('SAFE',player.x,player.y-58);
+          ctx.restore();
+        }
+      }catch(e){}
+    };
+    const oldDrawMechanicsV74 = drawMechanics;
+    drawMechanics = function(){
+      try{ oldDrawMechanicsV74(); }catch(e){}
+      try{
+        for(const m of state.mechanics||[]){
+          if(!m || m.fake) continue;
+          const k=String(m.kind||'');
+          if(k!=='safe' && k!=='v72safeAura' && k!=='v73safe') continue;
+          const inside=player && dist(player.x,player.y,m.x,m.y) <= (m.r||0)+player.r+10;
+          ctx.save();
+          ctx.globalAlpha=inside?.95:.70;
+          ctx.strokeStyle=inside?'#ffffff':'#86efac'; ctx.lineWidth=inside?7:4;
+          ctx.beginPath(); ctx.arc(m.x,m.y,(m.r||60)+8+Math.sin(state.time*8)*3,0,Math.PI*2); ctx.stroke();
+          ctx.fillStyle=inside?'#ffffff':'#d1fae5'; ctx.font=inside?'900 21px system-ui':'900 16px system-ui'; ctx.textAlign='center';
+          ctx.fillText(inside?'✓ SAFE':(m.label||'SAFE'),m.x,m.y-((m.r||60)+14));
+          ctx.restore();
+        }
+      }catch(e){}
+    };
+
+    try{
+      window.addEventListener('keydown',function(e){
+        const tag=(e.target && e.target.tagName || '').toLowerCase();
+        if(tag==='input'||tag==='textarea'||tag==='select') return;
+        if(state.screen!=='raid') return;
+        const k=e.key;
+        if(k==='1'||k==='2'||k==='3') { e.preventDefault(); e.stopImmediatePropagation(); return; }
+        if(k==='k'||k==='K') { e.preventDefault(); useSkill(0); }
+        if(k==='l'||k==='L') { e.preventDefault(); useSkill(1); }
+        if(k===';'||k===':') { e.preventDefault(); useSkill(2); }
+      },true);
+      const style=document.createElement('style');
+      style.id='v74MobileStrictStyle';
+      style.textContent='@media (hover:hover) and (pointer:fine){#raidV71TouchControls{display:none!important}}';
+      document.head.appendChild(style);
+    }catch(e){}
+
+    try{ if(typeof VERSION !== 'undefined') console.log('[RaidDungeon] '+V74_VERSION+' loaded'); }catch(e){}
+    window.RaidDungeonV74={
+      version:V74_VERSION,
+      patterns:'V72/V73 readable patterns plus V66 cinematic patterns are rotated together, so older spectacle patterns are not removed.',
+      safe:'SAFE is true invincible only while the player is inside, with a persistent ring/label and no repeated floating spam.',
+      keys:'Skill keys changed to K, L, and semicolon. Number keys 1/2/3 are blocked during raid.',
+      mobile:'Touch controls are shown only on real coarse-pointer mobile/tablet raid play.'
+    };
 
     try{ console.log('[RaidDungeon] '+V73_VERSION+' loaded'); }catch(e){}
 
