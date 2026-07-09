@@ -14,7 +14,7 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Dungeon V65 - Premium Boss Patterns No Lag';
+  const VERSION = 'Raid Dungeon V66 - Cinematic Boss Patterns Ultra No Lag';
   try { document.title = 'Raid Dungeon'; } catch(e) {}
   const W = 1280;
   const H = 720;
@@ -12591,6 +12591,373 @@ function v53UniqueItems(items){
       v65Cap();
     };
   }catch(e){ console.warn('[V65 update override failed]',e); }
+
+
+
+  /* ===== V66: cinematic high-quality boss patterns without object spam ===== */
+  const V66_VERSION = 'Raid Dungeon V66 - Cinematic Boss Patterns Ultra No Lag';
+
+  function v66Alive(){ return state && state.screen === 'raid' && boss && !boss.dead; }
+  function v66Tier(){ return Math.max(1, Math.min(10, Number(boss && boss.tier || 1))); }
+  function v66Phase(){ return v64Phase ? v64Phase() : (boss && boss.phase || 1); }
+  function v66Color(){ return (boss && boss.color) || '#facc15'; }
+  function v66Sub(){ return (boss && boss.sub) || '#ffffff'; }
+  function v66Tag(){ return (boss && boss.theme) || 'chaos'; }
+  function v66Later(ms, fn){ setTimeout(function(){ try{ if(v66Alive()){ fn(); v66Cap(); } }catch(e){ console.warn('[V66 delayed pattern failed]', e); } }, ms); }
+  function v66Say(text, color, kind){ try{ v64Cast(text, color || v66Color(), kind || 'cast'); }catch(e){ toast(text); } }
+
+  function v66Cap(){
+    try{
+      if(!state || state.screen !== 'raid') return;
+      const t = v66Tier(), ph = v66Phase();
+      const visualBudget = state.particles.length + state.hazards.length * 3 + state.projectiles.length * 2 + state.zones.length * 4 + state.mechanics.length * 2;
+      const panic = visualBudget > 245;
+      const maxHaz = panic ? 24 : (t >= 10 ? 34 : 38);
+      const maxProj = panic ? 18 : (t >= 10 ? 28 : 34);
+      const maxZone = panic ? 6 : 9;
+      const maxMech = panic ? 22 : 34;
+      const maxPart = panic ? 26 : (ph >= 3 ? 44 : 52);
+      const maxText = panic ? 5 : 9;
+      if(state.hazards.length > maxHaz) state.hazards.splice(0, state.hazards.length - maxHaz);
+      if(state.projectiles.length > maxProj) state.projectiles.splice(0, state.projectiles.length - maxProj);
+      if(state.zones.length > maxZone) state.zones.splice(0, state.zones.length - maxZone);
+      if(state.mechanics.length > maxMech) state.mechanics.splice(0, state.mechanics.length - maxMech);
+      if(state.particles.length > maxPart) state.particles.splice(0, state.particles.length - maxPart);
+      if(state.texts.length > maxText) state.texts.splice(0, state.texts.length - maxText);
+    }catch(e){}
+  }
+
+  function v66Fx(kind, x, y, opts){
+    opts = opts || {};
+    try{
+      state.mechanics.push({
+        kind:'v66Fx', fx:kind, x:x, y:y,
+        r:opts.r || 90, w:opts.w || 160, h:opts.h || 90,
+        life:opts.life || 2.2, maxLife:opts.life || 2.2,
+        color:opts.color || v66Color(), sub:opts.sub || v66Sub(),
+        label:opts.label || '', angle:opts.angle || 0,
+        spin:opts.spin || 0, sides:opts.sides || 8, fake:!!opts.fake
+      });
+    }catch(e){}
+  }
+  function v66Safe(x,y,r,life,label){
+    try{ state.mechanics.push({kind:'safe',x,y,r:r||56,life:life||2.35,color:'#86efac',label:label||'TRUE'}); }catch(e){}
+    v66Fx('sigil',x,y,{r:(r||56)+18,life:life||2.35,color:'#86efac',sub:'#ffffff',label:label||'TRUE',spin:1.4,sides:7});
+  }
+  function v66Fake(x,y,r,life,label,color){
+    try{ state.mechanics.push({kind:'safe',x,y,r:r||56,life:life||2.35,color:color||'#fb7185',fake:true,label:label||'FAKE'}); }catch(e){}
+    v66Fx('sigil',x,y,{r:(r||56)+14,life:life||2.35,color:color||'#fb7185',sub:'#111827',label:label||'FAKE',spin:-1.1,sides:5,fake:true});
+  }
+  function v66BreakSafe(x,y,r,delay,success,failDamage,color){
+    v66Later(delay || 2100, function(){
+      if(dist(player.x, player.y, x, y) < (r || 60) + player.r){
+        try{ breakBoss(success || 1.25); }catch(e){}
+        healText('기믹 성공 · BREAK', player.x, player.y - 42);
+      }else{
+        hurtPlayer(failDamage || boss.atk * 1.08, color || v66Color(), true);
+        floatText('판독 실패', player.x, player.y - 44, '#fb7185', 19);
+      }
+    });
+  }
+  function v66LowSpark(x,y,color,count){
+    count = Math.min(count || 10, 18);
+    for(let i=0;i<count;i++){
+      const a = Math.PI * 2 * i / count + rand(-.12,.12);
+      state.particles.push({kind:'line',x,y,vx:Math.cos(a)*rand(80,220),vy:Math.sin(a)*rand(80,220),r:rand(3,6),life:rand(.22,.48),color:color||v66Color(),angle:a,len:rand(18,42)});
+    }
+  }
+
+  function v66RadialJudgement(color, tag){
+    color = color || v66Color(); tag = tag || v66Tag();
+    const cx = W/2, cy = H/2 + 10;
+    const safeA = Math.floor(Math.random()*8);
+    v66Say(`${boss.name}: 만다라 심판입니다. 밝은 문양의 부채꼴 방향만 안전합니다.`, color, 'beam');
+    v66Fx('mandala', cx, cy, {r:230, life:2.25, color, sub:v66Sub(), label:'MANDALA', spin:.55, sides:12});
+    for(let i=0;i<8;i++){
+      const a = i * Math.PI/4;
+      if(i === safeA){
+        const sx = cx + Math.cos(a)*180, sy = cy + Math.sin(a)*180;
+        v66Safe(sx,sy,50,2.25,'SAFE');
+      }else{
+        v64Beam(cx + Math.cos(a)*185, cy + Math.sin(a)*185, a, 360, 13, 1.20 + i*.035, boss.atk*.44, color, tag);
+      }
+    }
+    const sx = cx + Math.cos(safeA*Math.PI/4)*180, sy = cy + Math.sin(safeA*Math.PI/4)*180;
+    v66BreakSafe(sx, sy, 58, 2200, .85, boss.atk*1.05, color);
+  }
+
+  function v66OperaGuillotine(color, tag){
+    color = color || '#f0abfc'; tag = tag || 'mirror';
+    const lanes = [W*.18, W*.34, W*.50, W*.66, W*.82];
+    const safe = Math.floor(Math.random()*lanes.length);
+    v66Say(`${boss.name}: 황제의 단두대 오페라. 칼날이 없는 무대 중앙을 찾으세요.`, color, 'beam');
+    v66Fx('curtain', W/2, H/2, {w:W, h:H, life:2.35, color, sub:'#7c2d12', label:'EXECUTION'});
+    lanes.forEach((x,i)=>{
+      if(i === safe){ v66Safe(x,H*.64,48,2.25,'NO BLADE'); return; }
+      v66Fx('blade', x, H*.30, {w:66, h:190, life:2.15, color:'#e5e7eb', sub:color, label:'DROP'});
+      v64Beam(x,H/2,Math.PI/2,H*1.15,18,1.18+i*.05,boss.atk*.62,color,tag);
+      if(i%2===0) v64Beam(x,H*.54,0,W*.34,10,1.46,boss.atk*.35,v66Sub(),tag);
+    });
+    v66BreakSafe(lanes[safe], H*.64, 58, 2260, 1.1, boss.atk*1.25, color);
+  }
+
+  function v66MarionetteStrings(color, tag){
+    color = color || '#f0abfc'; tag = tag || 'mirror';
+    const cols = 4, rows = 3;
+    const safe = Math.floor(Math.random()*cols*rows);
+    v66Say(`${boss.name}: 꼭두각시 법정. 실이 끊긴 타일만 진짜 안전지대입니다.`, color, 'cast');
+    v66Fx('web', W/2, H*.48, {r:255, life:2.4, color, sub:v66Sub(), label:'THREAD COURT', spin:.35});
+    for(let i=0;i<cols*rows;i++){
+      const x = 230 + (i%cols)*(W-460)/(cols-1);
+      const y = 170 + Math.floor(i/cols)*(H-285)/(rows-1);
+      if(i === safe) v66Safe(x,y,45,2.35,'CUT');
+      else { v66Fake(x,y,39,2.20,'TIED',color); v64Circle(x,y,43,1.28+Math.random()*.12,boss.atk*.44,color,tag); }
+    }
+    const sx = 230 + (safe%cols)*(W-460)/(cols-1);
+    const sy = 170 + Math.floor(safe/cols)*(H-285)/(rows-1);
+    v66BreakSafe(sx,sy,55,2320,.95,boss.atk*1.12,color);
+  }
+
+  function v66BlackEclipse(color, tag){
+    color = color || '#f97316'; tag = tag || 'solar';
+    const inner = Math.random() < .5;
+    v66Say(`${boss.name}: 검은 일식. ${inner ? '태양핵 안쪽' : '외곽 광륜'}으로 이동하세요.`, color, 'slam');
+    v66Fx('eclipse', W/2, H/2, {r:inner?150:245, life:2.35, color:'#fb923c', sub:'#020617', label:inner?'CORE':'RING', spin:.75, sides:18});
+    if(inner){
+      v64Donut(W/2,H/2,150,430,1.18,boss.atk*.62,color,tag);
+      v66Safe(W/2,H/2,82,2.25,'CORE');
+      v66BreakSafe(W/2,H/2,92,2250,.85,boss.atk*1.08,color);
+    }else{
+      v64Circle(W/2,H/2,190,1.16,boss.atk*.64,color,tag);
+      [[150,135],[W-150,135],[150,H-95],[W-150,H-95]].forEach((p,i)=>{ v66Safe(p[0],p[1],44,2.15,'ORBIT'); if(i<2) v64Beam(p[0],H/2,Math.PI/2,H*.74,10,1.38,boss.atk*.35,color,tag); });
+    }
+    v66Later(900,()=>v66RadialJudgement(color,tag));
+  }
+
+  function v66ChronoClock(color, tag){
+    color = color || '#f472b6'; tag = tag || 'chrono';
+    const cx = W/2, cy = H/2;
+    const nums = [0,1,2,3,4,5].map(i=>({a:-Math.PI/2 + i*Math.PI/3, n:i+1}));
+    const safe = Math.floor(Math.random()*nums.length);
+    v66Say(`${boss.name}: 시간 시계. 빛난 숫자 ${safe+1} 방향으로 이동하세요.`, color, 'cast');
+    v66Fx('clock', cx, cy, {r:245, life:2.45, color, sub:'#fef08a', label:'TIME', spin:.25, sides:12});
+    nums.forEach((o,i)=>{
+      const x = cx + Math.cos(o.a)*205, y = cy + Math.sin(o.a)*205;
+      if(i===safe) v66Safe(x,y,46,2.35,String(o.n));
+      else { v66Fx('sigil',x,y,{r:42,life:2.1,color:color,sub:'#111827',label:String(o.n),spin:-.5,sides:6}); v64Circle(x,y,42,1.34+i*.04,boss.atk*.44,color,tag); }
+    });
+    v64RotBeam(cx,cy,state.time,.68,W*1.05,13,2.05,boss.atk*.38,color,tag);
+    const s=nums[safe], sx=cx+Math.cos(s.a)*205, sy=cy+Math.sin(s.a)*205;
+    v66BreakSafe(sx,sy,56,2380,1.05,boss.atk*1.1,color);
+  }
+
+  function v66GravityBallet(color, tag){
+    color = color || '#818cf8'; tag = tag || 'gravity';
+    const side = Math.random()<.5 ? -1 : 1;
+    const safeX = side<0 ? W*.27 : W*.73;
+    v66Say(`${boss.name}: 궤도 발레. 회전하는 고리의 ${side<0?'왼쪽':'오른쪽'} 빈 궤도로 이동하세요.`, color, 'cast');
+    v66Fx('orbit', W/2, H/2, {r:260, life:2.55, color, sub:v66Sub(), label:'ORBIT', spin:side*.9, sides:14});
+    try{ state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:310,life:2.15,power:150,color}); }catch(e){}
+    v64RotBeam(W/2,H/2,state.time,side*.95,W*1.18,13,1.8,boss.atk*.36,color,tag);
+    v64RotBeam(W/2,H/2,state.time+Math.PI/2,side*.72,W*.92,10,1.8,boss.atk*.31,v66Sub(),tag);
+    v66Safe(safeX,H*.54,62,2.35,'ORBIT');
+    v66BreakSafe(safeX,H*.54,72,2320,.9,boss.atk*1.05,color);
+  }
+
+  function v66AbyssCathedral(color, tag){
+    color = color || '#38bdf8'; tag = tag || 'void';
+    const rows = 5, safe = Math.floor(Math.random()*rows);
+    v66Say(`${boss.name}: 심해 성당. 파도 스테인드글라스의 빈 줄로 이동하세요.`, color, 'beam');
+    v66Fx('wave', W/2, H*.52, {w:W*.92,h:H*.70,life:2.35,color,sub:'#0f172a',label:'TIDE'});
+    for(let i=0;i<rows;i++){
+      const y = 132 + i*(H-226)/(rows-1);
+      if(i===safe){ v66Safe(W*.20,y,42,2.25,'BREATH'); v66Safe(W*.80,y,42,2.25,'BREATH'); }
+      else v64Wall(W/2,y,W*.86,24,1.18+i*.055,boss.atk*.52,color,tag);
+    }
+    v66Later(970,function(){
+      const a = Math.atan2(player.y-boss.y, player.x-boss.x);
+      v64Beam(boss.x,boss.y,a,W*.85,16,.70,boss.atk*.44,v66Sub(),tag);
+    });
+  }
+
+  function v66ChaosTrial(color, tag){
+    color = color || '#fb7185'; tag = tag || 'chaos';
+    const choices = [
+      {x:W*.25,y:H*.36,c:'#86efac',name:'초록'},
+      {x:W*.50,y:H*.64,c:color,name:'붉은 혼돈'},
+      {x:W*.75,y:H*.36,c:v66Sub(),name:'보라 별'}
+    ];
+    const safe = Math.floor(Math.random()*choices.length);
+    v66Say(`${boss.name}: 색상 재판. 판결 색은 ${choices[safe].name}입니다.`, color, 'cast');
+    v66Fx('trial', W/2, H/2, {r:270,life:2.45,color,sub:v66Sub(),label:'TRIAL',spin:.45,sides:9});
+    choices.forEach((p,i)=>{
+      if(i===safe) v66Safe(p.x,p.y,56,2.35,p.name);
+      else { v66Fake(p.x,p.y,52,2.25,'GUILTY',p.c); v64Circle(p.x,p.y,58,1.22+i*.08,boss.atk*.60,p.c,tag); }
+    });
+    v66BreakSafe(choices[safe].x, choices[safe].y, 64, 2320, 1.05, boss.atk*1.2, color);
+    v66Later(1000,()=>v66RadialJudgement(color,tag));
+  }
+
+  function v66SealCores(color, tag){
+    color = color || v66Color(); tag = tag || v66Tag();
+    v66Say(`${boss.name}: 봉인 핵. 적게 생성되지만 반드시 제거해야 합니다.`, color, 'cast');
+    v66Fx('seal', W/2, H/2, {r:225,life:3.3,color,sub:v66Sub(),label:'SEAL CORES',spin:.38,sides:10});
+    const count = v66Phase() >= 3 ? 3 : 2;
+    for(let i=0;i<count;i++){
+      const a = -Math.PI/2 + i*Math.PI*2/count + rand(-.18,.18);
+      const x = W/2 + Math.cos(a)*rand(160,245), y = H/2 + Math.sin(a)*rand(115,190);
+      state.mechanics.push({kind:'add',x,y,r:19,hp:105+boss.tier*18,life:4.8,speed:44+boss.tier*1.5,color});
+      v66Fx('sigil',x,y,{r:48,life:4.8,color,sub:'#ffffff',label:'CORE',spin:.8,sides:6});
+    }
+    v66Later(3000,function(){
+      const alive = state.mechanics.some(m=>m.kind==='add' && m.life>0);
+      if(alive){ v64Donut(W/2,H/2,76,330,.24,boss.atk*1.05,color,tag); floatText('봉인 실패',W/2,105,'#fb7185',22); }
+      else { breakBoss(1.35); floatText('봉인 해제 · BREAK',W/2,105,'#86efac',22); }
+    });
+  }
+
+  function v66FinalOpera(color, tag){ v66OperaGuillotine(color,tag); v66Later(1060,()=>v66MarionetteStrings(color,tag)); }
+  function v66FinalSun(color, tag){ v66BlackEclipse(color,tag); v66Later(1260,()=>v66SealCores(color,tag)); }
+  function v66FinalChaos(color, tag){ v66ChaosTrial(color,tag); v66Later(1220,()=>v66GravityBallet(color,tag)); }
+  function v66FinalChrono(color, tag){ v66ChronoClock(color,tag); v66Later(1200,()=>v66RadialJudgement(color,tag)); }
+  function v66FinalAbyss(color, tag){ v66AbyssCathedral(color,tag); v66Later(1120,()=>v66SealCores(color,tag)); }
+  function v66FinalGravity(color, tag){ v66GravityBallet(color,tag); v66Later(1120,()=>v66RadialJudgement(color,tag)); }
+
+  function v66Pattern(idx){
+    const id = boss && boss.id || '';
+    const color = v66Color(), tag = v66Tag();
+    const i = Math.abs(idx || 0) % 6;
+    const generic = [v66RadialJudgement,v66ChronoClock,v66GravityBallet,v66AbyssCathedral,v66SealCores,v66ChaosTrial];
+    const map = {
+      puppet_emperor:[v66OperaGuillotine,v66MarionetteStrings,v66RadialJudgement,v66SealCores,v66OperaGuillotine,v66FinalOpera],
+      black_sun:[v66BlackEclipse,v66RadialJudgement,v66SealCores,v66GravityBallet,v66BlackEclipse,v66FinalSun],
+      chaos_archon:[v66ChaosTrial,v66ChronoClock,v66GravityBallet,v66RadialJudgement,v66SealCores,v66FinalChaos],
+      chrono_dragon:[v66ChronoClock,v66RadialJudgement,v66GravityBallet,v66SealCores,v66ChronoClock,v66FinalChrono],
+      abyss_leviathan:[v66AbyssCathedral,v66SealCores,v66RadialJudgement,v66BlackEclipse,v66AbyssCathedral,v66FinalAbyss],
+      gravity_core:[v66GravityBallet,v66RadialJudgement,v66SealCores,v66ChronoClock,v66GravityBallet,v66FinalGravity],
+      solar_dragon:[v66BlackEclipse,v66RadialJudgement,v66AbyssCathedral,v66SealCores,v66BlackEclipse,v66FinalSun],
+      mirror_duelist:[v66MarionetteStrings,v66RadialJudgement,v66ChaosTrial,v66ChronoClock,v66SealCores,v66FinalOpera]
+    };
+    const fn = (map[id] || generic)[i] || generic[i];
+    fn(color, tag);
+    v66LowSpark(boss.x,boss.y,color,10);
+    v66Cap();
+  }
+
+  try{
+    const oldDrawMechanicsV66 = drawMechanics;
+    drawMechanics = function(){
+      oldDrawMechanicsV66();
+      try{
+        (state.mechanics || []).forEach(function(m){
+          if(!m || m.kind !== 'v66Fx') return;
+          const p = 1 - Math.max(0, Math.min(1, (m.life || 0) / (m.maxLife || 1)));
+          const pulse = .5 + .5 * Math.sin(state.time * 7 + (m.x || 0) * .01);
+          ctx.save();
+          ctx.translate(m.x, m.y);
+          ctx.rotate((m.angle || 0) + state.time * (m.spin || 0));
+          ctx.globalAlpha = Math.max(.10, .72 - p * .35);
+          ctx.strokeStyle = m.color; ctx.fillStyle = m.color; ctx.lineWidth = 2;
+          ctx.shadowColor = m.color; ctx.shadowBlur = 18;
+          if(m.fx === 'sigil'){
+            for(let r=0;r<3;r++){ ctx.beginPath(); ctx.arc(0,0,m.r*(.42+r*.25)+pulse*6,0,Math.PI*2); ctx.stroke(); }
+            ctx.beginPath();
+            const sides = Math.max(3, m.sides || 6);
+            for(let i=0;i<sides;i++){ const a=i*Math.PI*2/sides; const rr=m.r*(i%2?.72:1.0); const x=Math.cos(a)*rr, y=Math.sin(a)*rr; if(i)ctx.lineTo(x,y); else ctx.moveTo(x,y); }
+            ctx.closePath(); ctx.stroke();
+            ctx.globalAlpha=.95; ctx.shadowBlur=0; ctx.fillStyle='#ffffff'; ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillText(m.label || '',0,5);
+          } else if(m.fx === 'mandala' || m.fx === 'trial' || m.fx === 'seal'){
+            const spokes = m.sides || 12;
+            for(let r=0;r<4;r++){ ctx.beginPath(); ctx.arc(0,0,m.r*(.25+r*.18)+pulse*5,0,Math.PI*2); ctx.stroke(); }
+            for(let i=0;i<spokes;i++){ const a=i*Math.PI*2/spokes; ctx.beginPath(); ctx.moveTo(Math.cos(a)*m.r*.18,Math.sin(a)*m.r*.18); ctx.lineTo(Math.cos(a)*m.r,Math.sin(a)*m.r); ctx.stroke(); }
+            ctx.strokeStyle=m.sub; ctx.globalAlpha=.42; ctx.beginPath(); ctx.arc(0,0,m.r*.78,-state.time,state.time+Math.PI*.9); ctx.stroke();
+            ctx.globalAlpha=.96; ctx.fillStyle='#ffffff'; ctx.font='900 16px system-ui'; ctx.textAlign='center'; ctx.fillText(m.label || '',0,6);
+          } else if(m.fx === 'eclipse'){
+            ctx.fillStyle='#020617'; ctx.globalAlpha=.72; ctx.beginPath(); ctx.arc(0,0,m.r*.62,0,Math.PI*2); ctx.fill();
+            ctx.globalAlpha=.84; ctx.strokeStyle=m.color; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(0,0,m.r+Math.sin(state.time*8)*9,0,Math.PI*2); ctx.stroke();
+            ctx.strokeStyle=m.sub; ctx.lineWidth=2; for(let i=0;i<18;i++){ const a=i*Math.PI*2/18; ctx.beginPath(); ctx.moveTo(Math.cos(a)*m.r*.78,Math.sin(a)*m.r*.78); ctx.lineTo(Math.cos(a)*m.r*1.1,Math.sin(a)*m.r*1.1); ctx.stroke(); }
+            ctx.fillStyle='#ffffff'; ctx.font='900 17px system-ui'; ctx.textAlign='center'; ctx.fillText(m.label || 'ECLIPSE',0,6);
+          } else if(m.fx === 'clock'){
+            ctx.strokeStyle=m.color; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(0,0,m.r,0,Math.PI*2); ctx.stroke();
+            for(let i=0;i<12;i++){ const a=i*Math.PI*2/12; ctx.beginPath(); ctx.moveTo(Math.cos(a)*m.r*.86,Math.sin(a)*m.r*.86); ctx.lineTo(Math.cos(a)*m.r,Math.sin(a)*m.r); ctx.stroke(); }
+            ctx.strokeStyle=m.sub; ctx.lineWidth=5; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(state.time*.95)*m.r*.68,Math.sin(state.time*.95)*m.r*.68); ctx.stroke();
+            ctx.strokeStyle=m.color; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(-state.time*.58)*m.r*.46,Math.sin(-state.time*.58)*m.r*.46); ctx.stroke();
+            ctx.fillStyle='#ffffff'; ctx.font='900 18px system-ui'; ctx.textAlign='center'; ctx.fillText(m.label || 'TIME',0,7);
+          } else if(m.fx === 'orbit'){
+            for(let r=0;r<4;r++){ ctx.strokeStyle = r%2?m.sub:m.color; ctx.beginPath(); ctx.ellipse(0,0,m.r*(.34+r*.17),m.r*(.18+r*.08),0,0,Math.PI*2); ctx.stroke(); }
+            for(let i=0;i<6;i++){ const a=state.time*(m.spin||1)+i*Math.PI*2/6; ctx.fillStyle=i%2?m.sub:m.color; ctx.beginPath(); ctx.arc(Math.cos(a)*m.r*.78,Math.sin(a)*m.r*.42,5+pulse*3,0,Math.PI*2); ctx.fill(); }
+            ctx.fillStyle='#ffffff'; ctx.font='900 16px system-ui'; ctx.textAlign='center'; ctx.fillText(m.label || 'ORBIT',0,5);
+          } else if(m.fx === 'wave'){
+            ctx.globalAlpha=.55; ctx.strokeStyle=m.color; ctx.lineWidth=4;
+            for(let j=-2;j<=2;j++){ ctx.beginPath(); for(let i=-m.w/2;i<=m.w/2;i+=28){ const y=j*42+Math.sin(i*.025+state.time*4)*18; if(i===-m.w/2)ctx.moveTo(i,y); else ctx.lineTo(i,y); } ctx.stroke(); }
+            ctx.globalAlpha=.94; ctx.fillStyle='#ffffff'; ctx.font='900 16px system-ui'; ctx.textAlign='center'; ctx.fillText(m.label || 'TIDE',0,6);
+          } else if(m.fx === 'web'){
+            ctx.strokeStyle=m.color; ctx.lineWidth=2;
+            for(let i=0;i<16;i++){ const a=i*Math.PI*2/16; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(a)*m.r,Math.sin(a)*m.r*.7); ctx.stroke(); }
+            for(let r=1;r<=4;r++){ ctx.beginPath(); ctx.ellipse(0,0,m.r*r/4,m.r*.7*r/4,0,0,Math.PI*2); ctx.stroke(); }
+            ctx.fillStyle='#ffffff'; ctx.font='900 15px system-ui'; ctx.textAlign='center'; ctx.fillText(m.label || 'THREAD',0,5);
+          } else if(m.fx === 'curtain'){
+            ctx.rotate(-(m.angle || 0) - state.time * (m.spin || 0));
+            ctx.globalAlpha=.18; ctx.fillStyle=m.sub; ctx.fillRect(-m.w/2,-m.h/2,m.w,m.h);
+            ctx.globalAlpha=.62; ctx.strokeStyle=m.color; ctx.lineWidth=5; for(let i=-5;i<=5;i++){ ctx.beginPath(); ctx.moveTo(i*m.w/10,-m.h/2); ctx.bezierCurveTo(i*m.w/10+30,-m.h*.2,i*m.w/10-30,m.h*.2,i*m.w/10,m.h/2); ctx.stroke(); }
+            ctx.globalAlpha=.95; ctx.fillStyle='#ffffff'; ctx.font='900 20px system-ui'; ctx.textAlign='center'; ctx.fillText(m.label || 'STAGE',0,-m.h*.30);
+          } else if(m.fx === 'blade'){
+            ctx.rotate(-(m.angle || 0) - state.time * (m.spin || 0));
+            const drop = Math.min(1, p*1.55);
+            ctx.translate(0,drop*160);
+            ctx.globalAlpha=.95; ctx.fillStyle='#e5e7eb'; ctx.strokeStyle=m.sub; ctx.lineWidth=3;
+            ctx.beginPath(); ctx.moveTo(-m.w/2,-m.h/2); ctx.lineTo(m.w/2,-m.h/2); ctx.lineTo(m.w*.28,m.h/2); ctx.lineTo(-m.w*.28,m.h/2); ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.fillStyle=m.sub; ctx.fillRect(-m.w*.55,-m.h*.55,m.w*1.1,8);
+            ctx.fillStyle='#111827'; ctx.font='900 12px system-ui'; ctx.textAlign='center'; ctx.fillText(m.label || 'DROP',0,-m.h*.18);
+          }
+          ctx.restore();
+        });
+      }catch(e){ console.warn('[V66 draw failed]',e); }
+    };
+  }catch(e){ console.warn('[V66 draw override failed]',e); }
+
+  try{
+    const oldUpdateV66 = update;
+    update = function(dt){
+      const safeDt = Math.min(dt || 0, 1/45);
+      v66Cap();
+      oldUpdateV66(safeDt);
+      v66Cap();
+    };
+  }catch(e){ console.warn('[V66 update override failed]',e); }
+
+  try{
+    const oldTypeV66 = v59TypePattern;
+    v59TypePattern = function(idx){
+      try{
+        const t = v66Tier(), ph = v66Phase();
+        if(t >= 7){
+          const allowed = t >= 10 ? 6 : t >= 9 ? 5 : t >= 8 ? 4 : 3;
+          v66Pattern((idx || 0) % allowed);
+          if(t >= 10 && ph >= 3 && Math.random() < .10){
+            v66Later(1420, function(){ v66Pattern(((idx || 0) + 3) % 6); });
+          }
+          v66Cap();
+          return;
+        }
+      }catch(e){ console.warn('[V66 pattern failed]', e); }
+      try{ oldTypeV66(idx); }catch(err){ try{ v65BossPattern(idx); }catch(_){} }
+    };
+    getBossPatternCooldown = function(){
+      const t = v66Tier(), ph = v66Phase();
+      const base = t >= 10 ? 2.95 : t >= 9 ? 3.05 : t >= 8 ? 3.12 : t >= 7 ? 3.25 : 3.05;
+      return Math.max(2.38, base * (ph === 3 ? .94 : ph === 2 ? .98 : 1) + Math.random() * .25);
+    };
+  }catch(e){ console.warn('[V66 pattern override failed]', e); }
+
+  try{
+    window.RaidDungeonV66 = {
+      version: V66_VERSION,
+      goal: '화려함은 전용 캔버스 드로잉으로 올리고, 렉을 만드는 탄막/파티클 수는 줄인 패치',
+      premiumPatterns: ['단두대 오페라','꼭두각시 법정','검은 일식','만다라 심판','시간 시계','중력 궤도 발레','심해 성당','색상 재판','봉인 핵'],
+      antiLag: ['custom canvas mechanics instead of many particles','strict object caps','dt clamp 1/45s','lower chained pattern chance']
+    };
+  }catch(e){}
 
   try{
     window.RaidDungeonV65={
