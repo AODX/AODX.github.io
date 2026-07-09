@@ -15430,7 +15430,7 @@ try {
      skill labels, SAFE markings, typing UI, and actual gameplay mechanics intact.
   ========================================================= */
   try{
-    const V85_VERSION = 'Raid Dungeon V85 - Quiet Boss UI';
+    const V85_VERSION = 'Raid Dungeon V86 - Polished Quiet Combat UI';
     const V85_NOISY_FLOAT_TEXT = /(반격|타이밍|패턴|전조|대처|판정|빈틈|읽으세요|보고 대응|큰 패턴|기믹 진행|다음 전조|피하세요|피해|이동하세요|들어가세요|찾으세요|읽고|회피|대사 성공|치명상! 다음에는|약화됩니다|SAFE로 이동|SAFE 칸으로|안전지대)/;
     const V85_BASE_FLOAT_TEXT = floatText;
     floatText = function(text,x,y,color,size){
@@ -15444,6 +15444,471 @@ try {
     };
   }catch(e){ console.warn('[V85 quiet boss UI failed]', e); }
 
+
+  /* =========================================================
+     V86 - POLISHED QUIET COMBAT UI
+     Small cleanup pass after V85:
+     - removes remaining mechanic sentence under the boss HP bar
+     - suppresses noisy combat toasts/text while keeping damage, skill labels, SAFE and typing UI
+     - keeps boss patterns, controls, ranking persistence, and cinematic effects unchanged
+  ========================================================= */
+  try{
+    const V86_VERSION = 'Raid Dungeon V86 - Polished Quiet Combat UI';
+    const V86_NOISY_TEXT = /(반격|타이밍|패턴|전조|대처|판정|빈틈|읽으세요|보고 대응|큰 패턴|기믹 진행|다음 전조|피하세요|피해 원인|최근 피해|이동하세요|들어가세요|찾으세요|읽고|회피하세요|대사 성공|치명상! 다음에는|약화됩니다|SAFE로 이동|SAFE 칸으로|안전지대|공격하세요|딜 타이밍|규칙을 읽|문구를 읽|대응하세요|분석하세요|피격 유예|보호 시간|반격 기회|흐름|가이드)/;
+    const V86_ALLOW_TEXT = /^(SAFE|ROLL|BREAK|GUARD|MISS|CRIT|Lv\.|HP|MP|\+|\-|K\s*·|L\s*·|;\s*·|[0-9]+|[A-Z0-9 ;:_-]{3,18})/;
+
+    const V86_PREV_FLOAT = floatText;
+    floatText = function(text,x,y,color,size){
+      const t = String(text == null ? '' : text).trim();
+      if(t && V86_NOISY_TEXT.test(t) && !V86_ALLOW_TEXT.test(t)) return;
+      return V86_PREV_FLOAT(text,x,y,color,size);
+    };
+
+    const V86_PREV_TOAST = toast;
+    toast = function(msg){
+      const t = String(msg == null ? '' : msg).trim();
+      if((state.screen==='raid'||state.screen==='paused') && V86_NOISY_TEXT.test(t) && !V86_ALLOW_TEXT.test(t)) return;
+      return V86_PREV_TOAST(msg);
+    };
+
+    // Quiet boss HP bar: keep only boss name, stars, state and HP. No sentence-style mechanic text.
+    drawBoss = function(){
+      if(!boss||boss.dead) return;
+      ctx.save();
+      if(state.shake>0) ctx.translate(rand(-state.shake,state.shake),rand(-state.shake,state.shake));
+      ctx.globalAlpha=boss.hit>0?.72:1;
+      drawBossShape(ctx,boss,boss.x,boss.y,boss.r);
+      ctx.restore();
+
+      const bw=720,bh=22,x=(W-bw)/2,y=28,rate=clamp(boss.hp/Math.max(1,boss.maxHp),0,1);
+      ctx.fillStyle='rgba(0,0,0,.72)'; roundRect(ctx,x-8,y-24,bw+16,54,14);
+      if(typeof v62DrawHPBar==='function') v62DrawHPBar(x,y,bw,bh,rate,boss.vulnerable>0?'#fef08a':boss.color);
+      else {
+        ctx.fillStyle='#111827'; roundRect(ctx,x,y,bw,bh,11);
+        ctx.fillStyle=boss.vulnerable>0?'#fef08a':boss.color; roundRect(ctx,x,y,bw*rate,bh,11);
+        ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.lineWidth=2; roundRect(ctx,x,y,bw,bh,11);
+      }
+      ctx.fillStyle='#fff'; ctx.font='900 16px system-ui'; ctx.textAlign='center';
+      ctx.fillText(`${boss.name}  ${stars(boss.tier)}  ${boss.vulnerable>0?'BREAK':'GUARD'}`,W/2,22);
+      ctx.font='900 13px system-ui'; ctx.fillStyle='#e5e7eb';
+      ctx.fillText(`HP ${Math.ceil(boss.hp).toLocaleString()} / ${Math.ceil(boss.maxHp).toLocaleString()}  (${Math.ceil(rate*100)}%)`,W/2,y+16);
+      if(boss.clones && !(typeof v59Mass==='function' && v59Mass())) boss.clones.forEach(c=>drawBossShape(ctx,{...boss,color:c.real?'#fef08a':boss.color,sub:boss.sub,theme:boss.theme},c.x,c.y,boss.r*.65));
+    };
+
+    // Hide sentence-like mechanic labels from later patches without deleting their actual pattern logic.
+    const V86_PREV_UPDATE = update;
+    update = function(dt){
+      const r = V86_PREV_UPDATE(dt);
+      try{
+        if(boss && boss.mechanicText && V86_NOISY_TEXT.test(String(boss.mechanicText))) boss.mechanicText='';
+      }catch(e){}
+      return r;
+    };
+
+    window.RaidDungeonV86 = {
+      version: V86_VERSION,
+      changed: ['남은 보스 HP바 설명 문장 제거','전투 중 장황한 안내 토스트 억제','데미지/스킬키/SAFE/단두대 입력 UI 유지','패턴과 랭킹 기능 유지']
+    };
+  }catch(e){ console.warn('[V86 polish failed]', e); }
+
+
+  /* ===== V87: varied pattern mixer + visible final boss =====
+     목적:
+     - 고등급 보스가 같은 패턴만 반복하는 느낌을 줄인다.
+     - 최종 보스 chaos_archon 패턴이 화면에서 확실히 보이도록 별도 시각 레이어를 추가한다.
+     - V86의 조용한 UI는 유지한다. 장황한 안내 문구는 다시 넣지 않는다.
+  */
+  try{
+    const V87_VERSION = 'Raid Dungeon V87 - Varied Visible Final Boss';
+    const v87 = { history:{}, fx:[], prevBossId:null };
+
+    function v87Raid(){ return state && state.screen==='raid' && state.raid && boss && !boss.dead; }
+    function v87Alive(id){ return v87Raid() && boss.id===id; }
+    function v87Tier(){ return boss && Number.isFinite(boss.tier) ? boss.tier : 1; }
+    function v87Color(){ return (boss && boss.color) || '#ffffff'; }
+    function v87Sub(){ return (boss && boss.sub) || v87Color(); }
+    function v87Dmg(mul){ return Math.max(4, (boss && boss.atk ? boss.atk : 10) * mul); }
+    function v87Lock(sec){ if(boss) boss._v87Lock = Math.max(boss._v87Lock||0, sec||1.2); }
+    function v87Open(sec){ setTimeout(()=>{ if(v87Raid()) boss.vulnerable=Math.max(boss.vulnerable||0,sec||.75); }, Math.max(260, (sec||.75)*650)); }
+    function v87Fx(kind,data){ v87.fx.push(Object.assign({kind,life:1,maxLife:1,x:W/2,y:H/2,r:120,color:v87Color(),sub:v87Sub(),a:0},data||{})); }
+    function v87Burst(x,y,c,n,s){ try{ burst(x,y,c||v87Color(),n||36,s||280); }catch(e){} }
+
+    function v87Pick(id,list){
+      const h = v87.history[id] || (v87.history[id]=[]);
+      let candidates = list.filter((_,i)=>!h.includes(i));
+      if(!candidates.length) candidates = list.slice();
+      // 페이즈가 오를수록 뒤쪽의 강한 패턴도 더 자주 섞인다.
+      const phaseBias = boss && boss.phase>=3 && candidates.length>2 && Math.random()<.35;
+      const fn = phaseBias ? candidates[candidates.length-1] : candidates[Math.floor(Math.random()*candidates.length)];
+      const idx = list.indexOf(fn);
+      h.push(idx);
+      while(h.length>2) h.shift();
+      return fn;
+    }
+
+    function v87RadialBeams(count, warn, width, dmg, color){
+      const base = Math.random()*Math.PI*2;
+      for(let i=0;i<count;i++){
+        state.hazards.push({kind:'beam',x:boss.x,y:boss.y,angle:base+i*Math.PI/count,len:W*1.45,w:width||22,warn:(warn||.85)+i*.035,life:.24,damage:dmg||v87Dmg(.72),color:color||v87Color(),tag:boss.theme});
+      }
+    }
+    function v87FloorSweep(cols, rows, color, skipFn, warn, dmg){
+      const cellW=W/cols, cellH=(H-96)/rows;
+      for(let ix=0;ix<cols;ix++) for(let iy=0;iy<rows;iy++){
+        const cx=cellW*(ix+.5), cy=96+cellH*(iy+.5);
+        if(skipFn && skipFn(ix,iy,cx,cy)) continue;
+        state.hazards.push({kind:'floor',x:cx,y:cy,w:cellW*.88,h:cellH*.76,warn:warn||1.0,life:.30,damage:dmg||v87Dmg(.82),color:color||v87Color(),tag:boss.theme});
+      }
+    }
+
+    // ===== high-tier shared custom patterns =====
+    function v87StormBeat(){
+      const id=boss.id; v87Lock(3.0); v87Fx('stormScore',{life:3,maxLife:3,color:'#facc15',sub:'#60a5fa',r:260});
+      for(let beat=0;beat<6;beat++) setTimeout(()=>{
+        if(!v87Alive(id)) return;
+        const x = 170 + beat*(W-340)/5;
+        warningCircle(x, rand(135,H-95), 42+boss.phase*6, .42, '#facc15', v87Dmg(.58), '', null, boss.theme);
+        if(beat%2===1) state.hazards.push({kind:'beam',x:x,y:H/2,angle:Math.PI/2,len:H,w:18,warn:.46,life:.20,damage:v87Dmg(.52),color:'#60a5fa',tag:boss.theme});
+      },beat*310);
+      v87Open(1.0);
+    }
+    function v87StormCircuit(){
+      const id=boss.id; v87Lock(3.4); v87Fx('tesla',{life:3.4,maxLife:3.4,color:'#fde047',sub:'#38bdf8',r:300});
+      const nodes=[[180,150],[W-180,150],[W-180,H-110],[180,H-110]];
+      nodes.forEach((p,i)=>setTimeout(()=>{ if(v87Alive(id)) warningCircle(p[0],p[1],58,.65,'#fde047',v87Dmg(.7),'',null,boss.theme); },i*240));
+      setTimeout(()=>{ if(v87Alive(id)){ state.hazards.push({kind:'beam',x:W/2,y:150,angle:0,len:W-260,w:24,warn:.70,life:.28,damage:v87Dmg(.85),color:'#fde047',tag:boss.theme}); state.hazards.push({kind:'beam',x:W/2,y:H-110,angle:0,len:W-260,w:24,warn:.82,life:.28,damage:v87Dmg(.85),color:'#38bdf8',tag:boss.theme}); } },850);
+      v87Open(1.0);
+    }
+
+    function v87ChronoClock(){
+      const id=boss.id; v87Lock(3.6); v87Fx('clock',{life:3.6,maxLife:3.6,color:'#f472b6',sub:'#fef08a',r:285});
+      for(let i=0;i<8;i++) setTimeout(()=>{ if(!v87Alive(id)) return; const a=-Math.PI/2+i*Math.PI/4; state.hazards.push({kind:'beam',x:W/2,y:H/2,angle:a,len:W*1.12,w:18,warn:.42,life:.22,damage:v87Dmg(.62),color:i%2?'#fef08a':'#f472b6',tag:boss.theme}); },i*210);
+      setTimeout(()=>{ if(v87Alive(id)) donutPattern(false); },1750);
+      v87Open(1.1);
+    }
+    function v87ChronoRewind(){
+      const id=boss.id; v87Lock(3.1); v87Fx('rewind',{life:3.1,maxLife:3.1,color:'#f472b6',sub:'#fef08a',r:230,x:player.x,y:player.y});
+      const marks=[]; for(let i=0;i<5;i++) marks.push({x:clamp(player.x+rand(-220,220),90,W-90),y:clamp(player.y+rand(-180,180),115,H-80)});
+      marks.forEach((m,i)=>setTimeout(()=>{ if(v87Alive(id)) warningCircle(m.x,m.y,46+i*3,.52,'#fef08a',v87Dmg(.55),'',null,boss.theme); },i*260));
+      setTimeout(()=>{ if(v87Alive(id)) rotatingLaserSweep(false); },1200);
+      v87Open(.9);
+    }
+
+    function v87LeviathanWave(){
+      const id=boss.id; v87Lock(3.2); v87Fx('wave',{life:3.2,maxLife:3.2,color:'#38bdf8',sub:'#0f172a',r:260});
+      for(let row=0;row<4;row++) setTimeout(()=>{ if(!v87Alive(id)) return; const y=145+row*120; state.hazards.push({kind:'beam',x:W/2,y,angle:0,len:W*1.35,w:34,warn:.62,life:.30,damage:v87Dmg(.70),color:'#38bdf8',tag:boss.theme}); },row*320);
+      setTimeout(()=>{ if(v87Alive(id)) radialBullets(boss.x,boss.y,18,210,'#7dd3fc',v87Dmg(.32)); },900);
+      v87Open(1.0);
+    }
+    function v87LeviathanTentacles(){
+      const id=boss.id; v87Lock(3.5); v87Fx('tentacle',{life:3.5,maxLife:3.5,color:'#38bdf8',sub:'#0f172a',r:285});
+      for(let i=0;i<9;i++) setTimeout(()=>{ if(v87Alive(id)) warningCircle(rand(90,W-90), rand(135,H-80), 38+boss.phase*5, .48, i%2?'#38bdf8':'#0ea5e9', v87Dmg(.55),'',null,boss.theme); },i*180);
+      setTimeout(()=>{ if(v87Alive(id)) chaseMarkerPattern(false); },1200);
+      v87Open(1.0);
+    }
+
+    function v87PuppetStrings(){
+      const id=boss.id; v87Lock(3.0); v87Fx('strings',{life:3,maxLife:3,color:'#f0abfc',sub:'#fde68a',r:260});
+      const lanes=[player.x-180,player.x,player.x+180].map(x=>clamp(x,110,W-110));
+      lanes.forEach((x,i)=>setTimeout(()=>{ if(v87Alive(id)) state.hazards.push({kind:'beam',x,y:H/2,angle:Math.PI/2,len:H*1.1,w:20,warn:.65,life:.24,damage:v87Dmg(.70),color:i===1?'#fde68a':'#f0abfc',tag:boss.theme}); },i*250));
+      setTimeout(()=>{ if(v87Alive(id)){ player.statuses.slow=Math.max(player.statuses.slow||0,1.2); warningCircle(player.x,player.y,64,.55,'#f0abfc',v87Dmg(.45),'',null,boss.theme); } },850);
+      v87Open(.95);
+    }
+    function v87PuppetStage(){
+      const id=boss.id; v87Lock(3.8); v87Fx('curtain',{life:3.8,maxLife:3.8,color:'#ef4444',sub:'#f0abfc',r:300});
+      for(let i=0;i<5;i++) setTimeout(()=>{ if(!v87Alive(id)) return; const x=180+i*(W-360)/4; warningCircle(x, 155+Math.sin(i)*55, 42, .62, '#f0abfc', v87Dmg(.58),'',null,boss.theme); state.hazards.push({kind:'beam',x,y:H/2,angle:Math.PI/2,len:H,w:16,warn:.80,life:.25,damage:v87Dmg(.55),color:'#fde68a',tag:boss.theme}); },i*300);
+      setTimeout(()=>{ if(v87Alive(id)) donutPattern(false); },1500);
+      v87Open(1.15);
+    }
+
+    function v87BlackSunCorona(){
+      const id=boss.id; v87Lock(3.5); v87Fx('eclipse',{life:3.5,maxLife:3.5,color:'#f97316',sub:'#020617',r:310});
+      for(let i=0;i<10;i++) setTimeout(()=>{ if(v87Alive(id)) state.hazards.push({kind:'beam',x:W/2,y:H/2,angle:i*Math.PI/10+state.time*.1,len:W*1.25,w:16,warn:.55,life:.20,damage:v87Dmg(.58),color:i%2?'#f97316':'#fef08a',tag:boss.theme}); },i*120);
+      setTimeout(()=>{ if(v87Alive(id)) donutPattern(true); },1450);
+      v87Open(1.05);
+    }
+    function v87BlackSunMeteors(){
+      const id=boss.id; v87Lock(3.2); v87Fx('meteorField',{life:3.2,maxLife:3.2,color:'#f97316',sub:'#020617',r:260});
+      for(let i=0;i<12;i++) setTimeout(()=>{ if(v87Alive(id)) warningCircle(rand(90,W-90), rand(125,H-80), rand(34,58), .55, i%3?'#f97316':'#111827', v87Dmg(.62),'',null,boss.theme); },i*130);
+      v87Open(1.0);
+    }
+
+    // ===== final boss: always visible, no more invisible-feeling pattern =====
+    function v87ChaosDice(){
+      const id=boss.id; v87Lock(3.4); const roll=1+Math.floor(Math.random()*6); v87Fx('chaosDice',{life:3.4,maxLife:3.4,color:'#fb7185',sub:'#7c3aed',r:260,roll});
+      const cols=6;
+      for(let i=0;i<cols;i++) setTimeout(()=>{ if(!v87Alive(id)) return; const x=(i+.5)*W/cols; if((i+roll)%2===0) state.hazards.push({kind:'beam',x,y:H/2,angle:Math.PI/2,len:H*1.1,w:24,warn:.58,life:.24,damage:v87Dmg(.65),color:i%2?'#fb7185':'#7c3aed',tag:boss.theme}); else warningCircle(x, rand(130,H-90), 44, .50, '#facc15', v87Dmg(.55),'',null,boss.theme); },i*190);
+      setTimeout(()=>{ if(v87Alive(id)) radialBullets(boss.x,boss.y,18+boss.phase*4,220,'#fb7185',v87Dmg(.25)); },1150);
+      v87Open(1.0);
+    }
+    function v87ChaosCourt(){
+      const id=boss.id; v87Lock(3.7); v87Fx('chaosCourt',{life:3.7,maxLife:3.7,color:'#fb7185',sub:'#7c3aed',r:300});
+      v87FloorSweep(4,3,'#7c3aed',(ix,iy)=> (ix+iy+boss.phase)%3===0,1.05,v87Dmg(.75));
+      setTimeout(()=>{ if(v87Alive(id)){ v87RadialBeams(5,.7,20,v87Dmg(.62),'#fb7185'); } },850);
+      setTimeout(()=>{ if(v87Alive(id)) rotatingLaserSweep(false); },1450);
+      v87Open(1.1);
+    }
+    function v87ChaosTear(){
+      const id=boss.id; v87Lock(3.5); v87Fx('chaosTear',{life:3.5,maxLife:3.5,color:'#c084fc',sub:'#fb7185',r:290});
+      const pts=[[110,130],[W-110,130],[W-110,H-90],[110,H-90],[W/2,115],[W/2,H-85]];
+      pts.forEach((p,i)=>setTimeout(()=>{ if(!v87Alive(id)) return; state.hazards.push({kind:'beam',x:p[0],y:p[1],angle:Math.atan2(player.y-p[1],player.x-p[0]),len:W*.95,w:18,warn:.56,life:.22,damage:v87Dmg(.58),color:i%2?'#c084fc':'#fb7185',tag:boss.theme}); },i*210));
+      setTimeout(()=>{ if(v87Alive(id)) chaseMarkerPattern(false); },1350);
+      v87Open(1.0);
+    }
+    function v87ChaosRuleBreak(){
+      const id=boss.id; v87Lock(3.9); v87Fx('ruleBreak',{life:3.9,maxLife:3.9,color:'#fb7185',sub:'#facc15',r:310});
+      setTimeout(()=>{ if(v87Alive(id)) donutPattern(false); },100);
+      setTimeout(()=>{ if(v87Alive(id)) crossLaserPattern(false); },850);
+      setTimeout(()=>{ if(v87Alive(id)) v87RadialBeams(6,.62,16,v87Dmg(.55),'#facc15'); },1450);
+      setTimeout(()=>{ if(v87Alive(id)) radialBullets(boss.x,boss.y,24,185,'#fb7185',v87Dmg(.22)); },1900);
+      v87Open(1.2);
+    }
+    function v87ChaosFinalCommand(){
+      const id=boss.id; v87Lock(4.2); v87Fx('finalCommand',{life:4.2,maxLife:4.2,color:'#fb7185',sub:'#7c3aed',r:330});
+      for(let ring=0;ring<3;ring++) setTimeout(()=>{ if(!v87Alive(id)) return; const c=ring===0?'#7c3aed':ring===1?'#fb7185':'#facc15'; for(let i=0;i<8;i++){ const a=i*Math.PI/4+ring*.24; const x=W/2+Math.cos(a)*(120+ring*80); const y=H/2+Math.sin(a)*(75+ring*50); warningCircle(x,y,34+ring*8,.55,c,v87Dmg(.50+ring*.10),'',null,boss.theme); } },ring*650);
+      setTimeout(()=>{ if(v87Alive(id)) rotatingLaserSweep(true); },1750);
+      v87Open(1.25);
+    }
+
+    const V87_PATTERNS = {
+      storm_colossus:[v87StormBeat,v87StormCircuit,()=>{v87Lock(2.8); lightningPattern(); setTimeout(()=>v87Alive('storm_colossus')&&rotatingLaserSweep(false),700); v87Open(.9);},()=>{v87Lock(3); crossLaserPattern(true); setTimeout(()=>v87Alive('storm_colossus')&&v87StormBeat(),900);} ],
+      chrono_dragon:[v87ChronoClock,v87ChronoRewind,()=>{v87Lock(3.2); chronoPattern(); setTimeout(()=>v87Alive('chrono_dragon')&&rotatingLaserSweep(false),900); v87Open(1);},()=>{v87Lock(3.1); safeRuneBombPattern(false); setTimeout(()=>v87Alive('chrono_dragon')&&v87ChronoClock(),900);} ],
+      abyss_leviathan:[v87LeviathanWave,v87LeviathanTentacles,()=>{v87Lock(3.2); voidPattern(); setTimeout(()=>v87Alive('abyss_leviathan')&&v87LeviathanWave(),900); v87Open(1);},()=>{v87Lock(3.3); donutPattern(true); setTimeout(()=>v87Alive('abyss_leviathan')&&v87LeviathanTentacles(),900);} ],
+      puppet_emperor:[v87PuppetStrings,v87PuppetStage,()=>{v87Lock(3.2); mirrorPattern(); setTimeout(()=>v87Alive('puppet_emperor')&&v87PuppetStrings(),900); v87Open(1);},()=>{v87Lock(3.6); v87Fx('film',{life:3.6,maxLife:3.6,color:'#f0abfc',sub:'#111827',r:280}); v87FloorSweep(5,2,'#f0abfc',(ix,iy)=>ix===2,1.0,v87Dmg(.72)); setTimeout(()=>v87Alive('puppet_emperor')&&chaseMarkerPattern(false),950); v87Open(1.05);} ],
+      black_sun:[v87BlackSunCorona,v87BlackSunMeteors,()=>{v87Lock(3.2); firePattern(); setTimeout(()=>v87Alive('black_sun')&&v87BlackSunCorona(),850); v87Open(1);},()=>{v87Lock(3.4); rotatingLaserSweep(true); setTimeout(()=>v87Alive('black_sun')&&v87BlackSunMeteors(),900); v87Open(1.05);} ],
+      gravity_core:[()=>{v87Lock(3.2); v87Fx('gravityLens',{life:3.2,maxLife:3.2,color:'#818cf8',sub:'#1e1b4b',r:290}); gravityPattern(); setTimeout(()=>v87Alive('gravity_core')&&donutPattern(false),800); v87Open(1);},()=>{v87Lock(3.5); v87Fx('gravityOrbit',{life:3.5,maxLife:3.5,color:'#818cf8',sub:'#c4b5fd',r:310}); rotatingLaserSweep(true); setTimeout(()=>v87Alive('gravity_core')&&radialBullets(boss.x,boss.y,22,190,'#818cf8',v87Dmg(.25)),900); v87Open(1.1);},()=>{v87Lock(3); crossLaserPattern(true); setTimeout(()=>v87Alive('gravity_core')&&chaseMarkerPattern(false),850); v87Open(.95);} ],
+      solar_dragon:[()=>{v87Lock(3); v87Fx('solarWing',{life:3,maxLife:3,color:'#fb923c',sub:'#fde047',r:290}); firePattern(); v87Open(1);},()=>{v87Lock(3.4); v87BlackSunMeteors();},()=>{v87Lock(3.2); v87RadialBeams(8,.72,18,v87Dmg(.58),'#fde047'); setTimeout(()=>v87Alive('solar_dragon')&&donutPattern(false),900); v87Open(1);} ],
+      chaos_archon:[v87ChaosDice,v87ChaosCourt,v87ChaosTear,v87ChaosRuleBreak,v87ChaosFinalCommand]
+    };
+
+    const V87_OLD_BOSS_PATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(!v87Raid()) return V87_OLD_BOSS_PATTERN();
+        if((boss._v87Lock||0)>0) return;
+        const list = V87_PATTERNS[boss.id];
+        if(list && boss.tier>=7){
+          const fn = v87Pick(boss.id,list);
+          fn();
+          // 최종 보스가 화면에서 '아무것도 안 하는 것처럼' 보이지 않게, 최소 시각 효과를 보장한다.
+          if(boss.id==='chaos_archon' && v87.fx.filter(f=>f.kind&&String(f.kind).includes('chaos')).length===0){
+            v87Fx('chaosPulse',{life:1.6,maxLife:1.6,color:'#fb7185',sub:'#7c3aed',r:260});
+          }
+          return;
+        }
+      }catch(e){ console.warn('[V87 pattern mixer failed]', e); }
+      return V87_OLD_BOSS_PATTERN();
+    };
+
+    const V87_OLD_UPDATE = update;
+    update = function(dt){
+      const r = V87_OLD_UPDATE(dt);
+      try{
+        if(boss && boss.id!==v87.prevBossId){ v87.prevBossId=boss.id; v87.fx.length=0; }
+        if(boss && boss._v87Lock) boss._v87Lock=Math.max(0,boss._v87Lock-dt);
+        for(let i=v87.fx.length-1;i>=0;i--){ v87.fx[i].life-=dt; if(v87.fx[i].life<=0) v87.fx.splice(i,1); }
+      }catch(e){ console.warn('[V87 update failed]',e); }
+      return r;
+    };
+
+    const V87_OLD_DRAW = draw;
+    draw = function(){
+      V87_OLD_DRAW();
+      try{ if(state.screen==='raid'||state.screen==='paused'||state.screen==='result') v87DrawFx(); }catch(e){ console.warn('[V87 draw failed]',e); }
+    };
+
+    function v87Alpha(f){ return clamp((f.life||0)/(f.maxLife||1),0,1); }
+    function v87DrawFx(){
+      ctx.save();
+      v87.fx.forEach(f=>{
+        const p=1-v87Alpha(f), a=v87Alpha(f), x=f.x||W/2, y=f.y||H/2, r=f.r||240;
+        ctx.globalAlpha=Math.min(.82,.18+a*.58);
+        if(f.kind==='chaosDice'){
+          ctx.save(); ctx.translate(W/2,H/2); ctx.rotate(state.time*.8); ctx.strokeStyle=f.color; ctx.lineWidth=8; roundRect(ctx,-70,-70,140,140,18); ctx.stroke(); ctx.fillStyle=f.sub; const dots=[[0,0],[-34,-34],[34,34],[-34,34],[34,-34],[0,-38],[0,38]]; for(let i=0;i<Math.min(dots.length,(f.roll||6)+1);i++) circle(ctx,dots[i][0],dots[i][1],8); ctx.restore();
+        }else if(f.kind==='chaosCourt'||f.kind==='ruleBreak'||f.kind==='finalCommand'){
+          ctx.strokeStyle=f.color; ctx.lineWidth=4; for(let i=0;i<5;i++){ ctx.globalAlpha=.12+a*.18; ctx.beginPath(); ctx.arc(W/2,H/2,r*(.35+i*.16)+p*40,0,Math.PI*2); ctx.stroke(); }
+          ctx.globalAlpha=.20+a*.25; ctx.strokeStyle=f.sub; for(let i=0;i<8;i++){ const ang=i*Math.PI/4+state.time*.35; ctx.beginPath(); ctx.moveTo(W/2,H/2); ctx.lineTo(W/2+Math.cos(ang)*r,H/2+Math.sin(ang)*r*.68); ctx.stroke(); }
+        }else if(f.kind==='chaosTear'||f.kind==='chaosPulse'){
+          ctx.strokeStyle=f.color; ctx.lineWidth=6; for(let i=0;i<6;i++){ ctx.globalAlpha=.10+a*.22; ctx.beginPath(); ctx.ellipse(W/2,H/2,r*(.35+i*.12)+p*45,r*(.10+i*.05)+p*12,state.time+i*.7,0,Math.PI*2); ctx.stroke(); }
+        }else if(f.kind==='clock'||f.kind==='rewind'){
+          ctx.strokeStyle=f.color; ctx.lineWidth=5; ctx.beginPath(); ctx.arc(x,y,r*.55+p*28,0,Math.PI*2); ctx.stroke(); for(let i=0;i<12;i++){ const ang=i*Math.PI/6; ctx.beginPath(); ctx.moveTo(x+Math.cos(ang)*r*.42,y+Math.sin(ang)*r*.42); ctx.lineTo(x+Math.cos(ang)*r*.52,y+Math.sin(ang)*r*.52); ctx.stroke(); } ctx.strokeStyle=f.sub; ctx.lineWidth=7; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+Math.cos(state.time*2)*r*.45,y+Math.sin(state.time*2)*r*.45); ctx.stroke();
+        }else if(f.kind==='stormScore'||f.kind==='tesla'){
+          ctx.strokeStyle=f.color; ctx.lineWidth=4; for(let i=0;i<7;i++){ const xx=120+i*(W-240)/6; ctx.beginPath(); ctx.moveTo(xx,90); ctx.lineTo(xx+Math.sin(state.time*6+i)*35,H-70); ctx.stroke(); }
+        }else if(f.kind==='wave'||f.kind==='tentacle'){
+          ctx.strokeStyle=f.color; ctx.lineWidth=6; for(let i=0;i<5;i++){ ctx.beginPath(); for(let px=0;px<=W;px+=28){ const py=150+i*82+Math.sin(px*.018+state.time*5+i)*18; if(px===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); } ctx.stroke(); }
+        }else if(f.kind==='strings'||f.kind==='curtain'||f.kind==='film'){
+          ctx.strokeStyle=f.sub; ctx.lineWidth=3; for(let i=0;i<9;i++){ const xx=120+i*(W-240)/8; ctx.beginPath(); ctx.moveTo(xx,70); ctx.lineTo(xx+Math.sin(state.time*3+i)*22,H-72); ctx.stroke(); } if(f.kind==='curtain'){ ctx.globalAlpha=.16+a*.26; ctx.fillStyle='#7f1d1d'; ctx.fillRect(0,0,W*(.5-p*.18),H); ctx.fillRect(W*(.5+p*.18),0,W,H); }
+        }else if(f.kind==='eclipse'||f.kind==='meteorField'||f.kind==='solarWing'){
+          ctx.strokeStyle=f.color; ctx.lineWidth=5; ctx.beginPath(); ctx.arc(W/2,H/2,r*.42+p*30,0,Math.PI*2); ctx.stroke(); for(let i=0;i<14;i++){ const ang=i*Math.PI*2/14+state.time*.35; ctx.beginPath(); ctx.moveTo(W/2+Math.cos(ang)*r*.45,H/2+Math.sin(ang)*r*.32); ctx.lineTo(W/2+Math.cos(ang)*r*.76,H/2+Math.sin(ang)*r*.56); ctx.stroke(); }
+        }else if(f.kind==='gravityLens'||f.kind==='gravityOrbit'){
+          ctx.strokeStyle=f.color; ctx.lineWidth=5; for(let i=0;i<5;i++){ ctx.beginPath(); ctx.ellipse(W/2,H/2,r*(.20+i*.10)+p*35,r*(.08+i*.04)+p*10,state.time*.7+i*.5,0,Math.PI*2); ctx.stroke(); }
+        }
+      });
+      ctx.restore();
+    }
+
+    try{
+      const labels={
+        storm_colossus:['폭풍 악보','테슬라 회로','추적 낙뢰','회전 전류'],
+        chrono_dragon:['시간 메트로놈','되감기 잔상','시계 절단','시간 폭탄'],
+        abyss_leviathan:['심해 파도','촉수 지휘','소용돌이','해류 절단'],
+        puppet_emperor:['실 조종','무대 커튼','필름 컷','인형극'],
+        black_sun:['검은 코로나','흑점 유성','일식 고리','태양 심판'],
+        gravity_core:['중력 렌즈','궤도 절단','압축 파동','중력 우물'],
+        solar_dragon:['태양 날개','코로나 폭발','태양 유성','일식 호흡'],
+        chaos_archon:['혼돈 주사위','차원 법정','공간 균열','규칙 붕괴','최종 명령']
+      };
+      BOSSES.forEach(b=>{ if(labels[b.id]) b.patterns=labels[b.id]; });
+    }catch(e){}
+
+    window.RaidDungeonV87={
+      version:V87_VERSION,
+      changed:['고등급 보스 패턴 반복 감소','최근 2개 패턴 재사용 억제','최종 보스 chaos_archon 전용 가시 패턴 추가','V86 조용한 UI 유지']
+    };
+  }catch(e){ console.warn('[V87 varied visible boss patch failed]', e); }
+
+
+
+  /* ===== V88: final boss is dream_jester, not chaos_archon =====
+     목적:
+     - 순서상 마지막 보스인 악몽 광대 니브를 최종 보스로 취급한다.
+     - chaos_archon은 고등급 혼돈 보스로 유지하되, 최종 보스 전용 가시성 보장은 광대에게 적용한다.
+     - V86의 조용한 UI는 유지한다.
+  */
+  try{
+    const V88_VERSION = 'Raid Dungeon V88 - Final Jester Visible Patterns';
+    const v88 = { history:[], fx:[] };
+
+    function v88Raid(){ return state && state.screen==='raid' && state.raid && boss && !boss.dead; }
+    function v88Jester(){ return v88Raid() && boss.id==='dream_jester'; }
+    function v88Dmg(m){ return Math.max(4, (boss && boss.atk ? boss.atk : 10) * (m||.5)); }
+    function v88Lock(sec){ if(boss) boss._v88Lock = Math.max(boss._v88Lock||0, sec||1); }
+    function v88Open(sec){ setTimeout(()=>{ if(v88Jester()) boss.vulnerable=Math.max(boss.vulnerable||0, sec||.8); }, Math.max(300,(sec||.8)*700)); }
+    function v88Fx(kind,data){ v88.fx.push(Object.assign({kind,life:2,maxLife:2,x:W/2,y:H/2,r:260,color:'#f472b6',sub:'#fde047'}, data||{})); }
+    function v88Pick(list){
+      const h=v88.history;
+      let c=list.filter((_,i)=>!h.includes(i));
+      if(!c.length) c=list.slice();
+      const fn=c[Math.floor(Math.random()*c.length)], idx=list.indexOf(fn);
+      h.push(idx); while(h.length>2) h.shift();
+      return fn;
+    }
+    function v88WarnCircle(x,y,r,warn,life,color,dmg){
+      try{ warningCircle(x,y,r,warn,color,dmg,'',null,'circus'); }
+      catch(e){ state.hazards.push({kind:'circle',x,y,r,warn:warn||.75,life:life||.25,damage:dmg||v88Dmg(.5),color:color||'#f472b6',tag:'circus'}); }
+    }
+    function v88Beam(x,y,ang,w,warn,color,dmg){
+      state.hazards.push({kind:'beam',x,y,angle:ang,len:W*1.35,w:w||18,warn:warn||.7,life:.25,damage:dmg||v88Dmg(.55),color:color||'#f472b6',tag:'circus'});
+    }
+
+    // 1) 카드 마술: 카드가 순서대로 열리고, 마지막 카드만 늦게 폭발한다.
+    function v88CardTrick(){
+      v88Lock(3.2); v88Fx('cards',{life:3.2,maxLife:3.2,r:280});
+      const xs=[W*.18,W*.34,W*.50,W*.66,W*.82];
+      const safe=Math.floor(Math.random()*xs.length);
+      xs.forEach((x,i)=>setTimeout(()=>{ if(!v88Jester()) return; if(i!==safe) v88WarnCircle(x,H*.50,56,.62,.25,i%2?'#f472b6':'#fde047',v88Dmg(.55)); },i*180));
+      setTimeout(()=>{ if(v88Jester()){ v88Beam(W/2,H*.50,0,18,.58,'#fde047',v88Dmg(.50)); } },950);
+      v88Open(.9);
+    }
+
+    // 2) 서커스 조명: 스포트라이트가 플레이어를 추적하다가 마지막 위치를 찍는다.
+    function v88Spotlight(){
+      v88Lock(3.4); v88Fx('spotlight',{life:3.4,maxLife:3.4,r:300});
+      const id=boss.id;
+      for(let i=0;i<7;i++) setTimeout(()=>{ if(!v88Jester()||boss.id!==id) return; v88WarnCircle(clamp(player.x+Math.sin(i)*110,90,W-90),clamp(player.y+Math.cos(i*.7)*80,115,H-80),42+i*2,.46,.22,i%2?'#fde047':'#f472b6',v88Dmg(.42)); },i*210);
+      setTimeout(()=>{ if(v88Jester()) v88Beam(player.x,player.y,Math.PI/2,30,.62,'#facc15',v88Dmg(.72)); },1500);
+      v88Open(1.0);
+    }
+
+    // 3) 회전 서커스 바퀴: 도넛/회전 레이저를 섞되 한 번에 겹치지 않게 한다.
+    function v88CircusWheel(){
+      v88Lock(3.6); v88Fx('wheel',{life:3.6,maxLife:3.6,r:320});
+      const base=Math.random()*Math.PI*2;
+      for(let i=0;i<8;i++) setTimeout(()=>{ if(!v88Jester()) return; v88Beam(W/2,H/2,base+i*Math.PI/4,16,.56,'#f472b6',v88Dmg(.48)); },i*110);
+      setTimeout(()=>{ if(v88Jester()) try{ donutPattern(false); }catch(e){} },1150);
+      v88Open(1.0);
+    }
+
+    // 4) 폭죽 퍼레이드: 폭죽 낙하 후 빈 통로가 생긴다.
+    function v88FireworkParade(){
+      v88Lock(3.1); v88Fx('firework',{life:3.1,maxLife:3.1,r:270});
+      const safeLane=Math.floor(Math.random()*4);
+      for(let lane=0;lane<4;lane++) for(let k=0;k<3;k++){
+        if(lane===safeLane) continue;
+        setTimeout(()=>{ if(!v88Jester()) return; const x=(lane+.5)*W/4+Math.sin(k)*28; const y=150+k*155; v88WarnCircle(x,y,40,.55,.24,k%2?'#f472b6':'#fde047',v88Dmg(.50)); },(lane*80+k*160));
+      }
+      setTimeout(()=>{ if(v88Jester()) try{ radialBullets(boss.x,boss.y,18+boss.phase*3,190,'#f472b6',v88Dmg(.18)); }catch(e){} },1200);
+      v88Open(.9);
+    }
+
+    // 5) 최종 커튼콜: 3페이즈에서만 가끔 나오는 강한 패턴. 그래도 빈틈을 남긴다.
+    function v88CurtainCall(){
+      v88Lock(4.0); v88Fx('curtainCall',{life:4,maxLife:4,r:340});
+      for(let i=0;i<3;i++) setTimeout(()=>{ if(!v88Jester()) return; v88Beam(W/2,130+i*190,0,24,.70,i%2?'#fde047':'#f472b6',v88Dmg(.62)); },i*420);
+      setTimeout(()=>{ if(v88Jester()){ for(let i=0;i<6;i++){ const a=i*Math.PI/3+Math.PI/6; v88Beam(W/2,H/2,a,18,.60,'#facc15',v88Dmg(.52)); } } },1550);
+      v88Open(1.25);
+    }
+
+    const V88_PATTERNS=[v88CardTrick,v88Spotlight,v88CircusWheel,v88FireworkParade,()=>{ if(boss.phase>=3) v88CurtainCall(); else v88CardTrick(); }];
+    const V88_OLD_BOSS_PATTERN = bossPattern;
+    bossPattern = function(){
+      try{
+        if(v88Jester()){
+          if((boss._v88Lock||0)>0) return;
+          v88Pick(V88_PATTERNS)();
+          return;
+        }
+      }catch(e){ console.warn('[V88 jester pattern failed]',e); }
+      return V88_OLD_BOSS_PATTERN();
+    };
+
+    const V88_OLD_UPDATE = update;
+    update = function(dt){
+      const r=V88_OLD_UPDATE(dt);
+      try{
+        if(boss && boss._v88Lock) boss._v88Lock=Math.max(0,boss._v88Lock-dt);
+        for(let i=v88.fx.length-1;i>=0;i--){ v88.fx[i].life-=dt; if(v88.fx[i].life<=0) v88.fx.splice(i,1); }
+      }catch(e){}
+      return r;
+    };
+
+    const V88_OLD_DRAW = draw;
+    draw = function(){
+      V88_OLD_DRAW();
+      try{ if(state.screen==='raid'||state.screen==='paused'||state.screen==='result') v88DrawFx(); }catch(e){}
+    };
+
+    function v88A(f){ return clamp((f.life||0)/(f.maxLife||1),0,1); }
+    function v88DrawFx(){
+      ctx.save();
+      v88.fx.forEach(f=>{
+        const a=v88A(f), p=1-a, r=f.r||260;
+        ctx.globalAlpha=Math.min(.75,.16+a*.50);
+        if(f.kind==='cards'){
+          for(let i=0;i<5;i++){ const x=W*.18+i*W*.16, y=H*.34+Math.sin(state.time*4+i)*10; ctx.strokeStyle=i%2?f.color:f.sub; ctx.lineWidth=4; roundRect(ctx,x-30,y-42,60,84,8); ctx.stroke(); }
+        }else if(f.kind==='spotlight'){
+          ctx.fillStyle='rgba(250,204,21,.16)'; ctx.beginPath(); ctx.moveTo(W/2,55); ctx.lineTo(player.x-95,H-60); ctx.lineTo(player.x+95,H-60); ctx.closePath(); ctx.fill();
+        }else if(f.kind==='wheel'){
+          ctx.strokeStyle=f.color; ctx.lineWidth=5; ctx.beginPath(); ctx.arc(W/2,H/2,r*.45+p*35,0,Math.PI*2); ctx.stroke(); for(let i=0;i<12;i++){ const ang=i*Math.PI/6+state.time*.7; ctx.beginPath(); ctx.moveTo(W/2,H/2); ctx.lineTo(W/2+Math.cos(ang)*r*.58,H/2+Math.sin(ang)*r*.38); ctx.stroke(); }
+        }else if(f.kind==='firework'){
+          for(let i=0;i<14;i++){ const ang=i*Math.PI*2/14+state.time; ctx.strokeStyle=i%2?f.color:f.sub; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(W/2,H/2); ctx.lineTo(W/2+Math.cos(ang)*(r*.25+p*90),H/2+Math.sin(ang)*(r*.18+p*70)); ctx.stroke(); }
+        }else if(f.kind==='curtainCall'){
+          ctx.globalAlpha=.18+a*.25; ctx.fillStyle='#7f1d1d'; ctx.fillRect(0,0,W*(.18+.18*p),H); ctx.fillRect(W*(.82-.18*p),0,W,H); ctx.strokeStyle=f.sub; ctx.lineWidth=4; for(let i=0;i<6;i++){ const x=120+i*(W-240)/5; ctx.beginPath(); ctx.moveTo(x,60); ctx.lineTo(x+Math.sin(state.time*4+i)*40,H-70); ctx.stroke(); }
+        }
+      });
+      ctx.restore();
+    }
+
+    try{
+      const j=BOSSES.find(b=>b.id==='dream_jester');
+      if(j) j.patterns=['카드 마술','서커스 조명','회전 바퀴','폭죽 퍼레이드','최종 커튼콜'];
+    }catch(e){}
+
+    window.RaidDungeonV88={
+      version:V88_VERSION,
+      changed:['최종 보스 기준을 chaos_archon에서 dream_jester로 수정','악몽 광대 전용 가시 패턴 추가','V87 패턴 반복 방지 유지','조용한 UI 유지']
+    };
+  }catch(e){ console.warn('[V88 final jester patch failed]', e); }
 
 })();
 
@@ -15459,3 +15924,15 @@ try {
 
 
 /* V76 NOTE: Built from the pre-SAFE-rework premium pattern branch. Skill hotkeys and HUD labels are K / L / ;. */
+
+/* V89 CHECKED BUILD
+   - Based on V88 final boss jester patch.
+   - Syntax checked with node --check.
+   - Smoke loaded with mocked canvas/document to catch top-level runtime errors.
+*/
+try {
+  window.RaidDungeonV89 = {
+    version: 'Raid Dungeon V89 - Checked Final Jester Patterns',
+    checked: ['node --check OK','mock canvas runtime load OK','final boss id dream_jester checked','quiet UI preserved']
+  };
+} catch(e) {}
