@@ -12001,6 +12001,39 @@ function v53UniqueItems(items){
     const pool=all.filter(x=>x&&x.rarity===rarity);
     return pool.length?pool:all;
   }
+  function v69SafeAddOwned(kind,id){
+    if(!id || !state || !state.save) return false;
+    if(kind==='weapon'){
+      const a=state.save.weapons || (state.save.weapons=[]);
+      if(!a.includes(id)){ a.push(id); return true; }
+      return false;
+    }
+    if(kind==='armor'){
+      const a=state.save.armors || (state.save.armors=[]);
+      if(!a.includes(id)){ a.push(id); return true; }
+      return false;
+    }
+    if(kind==='skill'){
+      const a=state.save.skills || (state.save.skills=[]);
+      let v=null;
+      try{ if(typeof v44==='function') v=v44(); }catch(e){}
+      try{ if(!v && typeof initV43==='function') v=initV43(); }catch(e){}
+      if(a.includes(id)){
+        if(v && v.skillCopies) v.skillCopies[id]=(v.skillCopies[id]||0)+1;
+        return false;
+      }
+      a.push(id);
+      if(v && v.skillLevels) v.skillLevels[id]=Math.max(1, v.skillLevels[id]||1);
+      return true;
+    }
+    if(kind==='passive'){
+      const a=state.save.passives || (state.save.passives=[]);
+      if(!a.includes(id)){ a.push(id); return true; }
+      return false;
+    }
+    return false;
+  }
+
   try{
     const oldRollGachaV63=rollGacha;
     rollGacha=function(kind){
@@ -12011,15 +12044,13 @@ function v53UniqueItems(items){
       const list=v63RollList(kind,rarity);
       if(!list.length){ toast('뽑기 가능한 항목이 없습니다.'); state.save.tickets[kind]=(state.save.tickets[kind]||0)+1; return; }
       const item=list[Math.floor(Math.random()*list.length)];
-      if(kind==='weapon') addOwned('weapon',item.id);
-      else if(kind==='armor') addOwned('armor',item.id);
-      else if(kind==='skill') addOwned('skill',item.id);
-      else if(kind==='passive') addOwned('passive',item.id);
+      const fresh=v69SafeAddOwned(kind,item.id);
       state.gachaResult=item;
       gachaCelebration(item);
+      if(!fresh && kind==='skill') toast('중복 스킬을 획득해서 강화 포인트로 저장되었습니다.');
       saveGame(); renderMenu();
     };
-  }catch(e){ console.warn('[V63] boss-only gacha lock failed', e); }
+  }catch(e){ console.warn('[V69] gacha hotfix failed', e); }
 
   function v63RankName(r){ return ({normal:'일반',rare:'희귀',super:'초희귀',epic:'에픽',legendary:'레전더리',ultimate:'궁극'})[r]||r||'일반'; }
   function v63RarityRank(r){ return ({normal:0,rare:1,super:2,epic:3,legendary:4,ultimate:5})[r]||0; }
@@ -13243,7 +13274,7 @@ function v53UniqueItems(items){
   }catch(e){ console.warn('[V67 pattern override failed]',e); }
 
   /* ===== V68: readable cinematic telegraphs + harder pattern language without extra lag ===== */
-  const V68_VERSION = 'Raid Dungeon V68 - Clear Cinematic Telegraphs Hard No Lag';
+  const V68_VERSION = 'Raid Dungeon V69 - Gacha Hotfix Clear Telegraphs Hard No Lag';
 
   function v68Color(){ try{return v67Color();}catch(e){return boss && boss.color || '#fb7185';} }
   function v68Sub(){ try{return v67Sub();}catch(e){return boss && boss.sub || '#ffffff';} }
@@ -13507,6 +13538,7 @@ function v53UniqueItems(items){
   try{
     window.RaidDungeonV68={
       version:V68_VERSION,
+      gachaHotfix:'rollGacha no longer depends on addOwned, so gacha buttons work even when older patch scopes hide addOwned',
       visualRule:'danger is striped red, true safe is green-white, route arrows point to the intended answer, boss-specific arena tint names the mechanic',
       antiLag:'cinematic telegraphs are canvas-only mechanics with almost no collision checks; actual damage objects remain low count',
       patterns:['puppet opera lanes','clock trial numbers','black sun inside outside','gravity orbit stage','abyss air corridor','chaos real color glyphs','core break stage']
