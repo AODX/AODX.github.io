@@ -14,7 +14,7 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Dungeon V48 - Clean Growth UI Effects';
+  const VERSION = 'Raid Dungeon V65 - Premium Boss Patterns No Lag';
   try { document.title = 'Raid Dungeon'; } catch(e) {}
   const W = 1280;
   const H = 720;
@@ -11266,7 +11266,7 @@ function v53UniqueItems(items){
 
 
   /* ===== V60: real visual pattern identities + readable warnings + MP + HP numbers + extra performance ===== */
-  const V60_VERSION = 'Raid Dungeon V62 - Perf Weapons Stats Boss Bar';
+  const V60_VERSION = 'Raid Dungeon V63 - Damage Display Boss Only Weapons';
 
   function v60SafeNum(v,d){ return Number.isFinite(v) ? v : d; }
   function v60CostForSkill(s){
@@ -11972,6 +11972,652 @@ function v53UniqueItems(items){
     v59TypePattern=function(idx){ try{ v62ShowcasePattern(idx); }catch(e){ try{ v60PatternByLabel(idx); }catch(_){} } };
     getBossPatternCooldown=function(){ const t=v59Tier(), ph=v59Phase(); return Math.max(1.55, (t>=9?2.15:t>=6?2.35:t>=3?2.55:2.85) * (ph===3?.92:ph===2?.98:1) + Math.random()*.22); };
   }catch(e){ console.warn('[V62] pattern quality override failed',e); }
+
+
+
+  /* ===== V63: weapon damage display + boss-exclusive weapon gacha lock ===== */
+  const V63_VERSION = 'Raid Dungeon V63 - Damage Display Boss Only Weapons';
+
+  function v63IsBossOnlyWeapon(w){
+    try{
+      if(!w) return false;
+      const id=String(w.id||'');
+      const desc=String(w.desc||'');
+      const name=String(w.name||'');
+      return !!(w.v44Boss || w.v62BossOnly || id.startsWith('v44_boss_weapon_') || id.startsWith('boss_weapon_') || desc.includes('보스 전용 무기') || desc.includes('보스 별이 높을수록') || name.includes('의 전용 무기'));
+    }catch(e){ return false; }
+  }
+  function v63GachaWeaponPool(){
+    try{ return WEAPONS.filter(w=>!v63IsBossOnlyWeapon(w)); }catch(e){ return WEAPONS||[]; }
+  }
+  function v63ItemPool(kind){
+    if(kind==='weapon') return v63GachaWeaponPool();
+    if(kind==='armor') return ARMORS;
+    if(kind==='skill') return SKILLS;
+    return PASSIVES;
+  }
+  function v63RollList(kind, rarity){
+    const all=v63ItemPool(kind)||[];
+    const pool=all.filter(x=>x&&x.rarity===rarity);
+    return pool.length?pool:all;
+  }
+  try{
+    const oldRollGachaV63=rollGacha;
+    rollGacha=function(kind){
+      if(!state.save.tickets || typeof state.save.tickets!=='object') state.save.tickets={...INITIAL_TICKETS};
+      if((state.save.tickets[kind]||0)<=0){ toast(TICKET_LABEL[kind]+'이 부족합니다. 보스를 클리어하면 난이도에 따라 티켓을 얻습니다.'); return; }
+      state.save.tickets[kind]-=1;
+      const rarity=pickRarity();
+      const list=v63RollList(kind,rarity);
+      if(!list.length){ toast('뽑기 가능한 항목이 없습니다.'); state.save.tickets[kind]=(state.save.tickets[kind]||0)+1; return; }
+      const item=list[Math.floor(Math.random()*list.length)];
+      if(kind==='weapon') addOwned('weapon',item.id);
+      else if(kind==='armor') addOwned('armor',item.id);
+      else if(kind==='skill') addOwned('skill',item.id);
+      else if(kind==='passive') addOwned('passive',item.id);
+      state.gachaResult=item;
+      gachaCelebration(item);
+      saveGame(); renderMenu();
+    };
+  }catch(e){ console.warn('[V63] boss-only gacha lock failed', e); }
+
+  function v63RankName(r){ return ({normal:'일반',rare:'희귀',super:'초희귀',epic:'에픽',legendary:'레전더리',ultimate:'궁극'})[r]||r||'일반'; }
+  function v63RarityRank(r){ return ({normal:0,rare:1,super:2,epic:3,legendary:4,ultimate:5})[r]||0; }
+  function v63WeaponEnhanceInfo(w){
+    let enh=0, atkBonus=0, critBonus=0, speedBonus=0;
+    try{
+      const meta=(typeof weaponMeta==='function' && weaponMeta(w.id)) || {};
+      enh=Number(meta.enh||w.v45Enhance||w.v44Enhance||w.v43Enhance||w.v41Enhance||0);
+      const ench=meta.ench||w.v45Enchant||w.v44Enchant||w.v43Enchant||w.v41Enchant||[];
+      const arr=Array.isArray(ench)?ench:Object.entries(ench||{}).map(([type,lv])=>({type,lv}));
+      arr.forEach(e=>{ const lv=Number(e.lv||e[1]||0); const type=e.type||e[0]; if(type==='attack') atkBonus+=lv*8; if(type==='critChance') critBonus+=lv*3; if(type==='speed') speedBonus+=lv*5.5; });
+    }catch(e){}
+    return {enh, atkBonus: enh*10.5 + atkBonus, critBonus, speedBonus};
+  }
+  function v63WeaponDamage(w){
+    try{
+      const rank=v63RarityRank(w.rarity);
+      const enh=v63WeaponEnhanceInfo(w);
+      const baseAtk=100;
+      const rarityMul=(typeof v62WeaponMul==='function')?v62WeaponMul(w):(1+rank*.16+(rank>=3?.18:0)+(rank>=4?.24:0)+(rank>=5?.38:0));
+      const enhanceMul=1+enh.atkBonus/100;
+      const avg=Math.max(1, Math.round(baseAtk*Number(w.atk||1)*rarityMul*enhanceMul));
+      const crit=Math.max(0, Math.round(Number(w.crit||0)+enh.critBonus));
+      const cd=Number(w.speed||.5);
+      const dps=Math.max(1, Math.round(avg/Math.max(.08,cd)));
+      return {avg, dps, crit, cd:+cd.toFixed(2), rank, enh};
+    }catch(e){ return {avg:0,dps:0,crit:0,cd:0,rank:0,enh:{}}; }
+  }
+  function v63WeaponSpecialText(w){
+    const d=v63WeaponDamage(w), k=String(w.kind||''), ranged=['bow','staff','gunstaff','grimoire','chakram'].some(x=>k.includes(x));
+    if(d.rank<3) return '특수 효과: 없음';
+    if(ranged){
+      const shots=d.rank>=5?5:d.rank>=4?4:3;
+      return `특수 효과: ${v63RankName(w.rarity)} 다중 탄환 ${shots}발 + ${d.rank>=4?'폭발/관통 보정':'추가 탄환'}`;
+    }
+    return `특수 효과: ${v63RankName(w.rarity)} 검기/충격파 발산${d.rank>=4?' + 잔상 추가타':''}`;
+  }
+  function v63WeaponDamageLine(w){
+    const d=v63WeaponDamage(w);
+    return `데미지: 약 ${d.avg.toLocaleString()} / 초당 ${d.dps.toLocaleString()} · 치명 ${d.crit}% · 공격간격 ${d.cd}s`;
+  }
+  try{
+    v50WeaponEffects=function(w){
+      const oldLine=(()=>{try{ const meta=v50WeaponMeta(w.id); const enh=Number(meta.enh||w.v45Enhance||w.v44Enhance||w.v43Enhance||w.v41Enhance||0); const ench=meta.ench||w.v45Enchant||w.v44Enchant||w.v43Enchant||[]; const arr=Array.isArray(ench)?ench:Object.entries(ench||{}).map(([type,lv])=>({type,lv})); let attack=enh*10.5, speed=0, crit=0, luck=0, plunder=0; arr.forEach(e=>{ const lv=Number(e.lv||e[1]||0); const type=e.type||e[0]; if(type==='attack') attack+=lv*8; if(type==='speed') speed+=lv*5.5; if(type==='critChance') crit+=lv*3; if(type==='luck') luck+=lv*3.5; if(type==='plunder') plunder+=lv*7; }); return `적용 효과: 공격 ${v50Pct(attack)}, 공속 ${v50Pct(speed)}, 치명 ${v50Pct(crit)}, 행운 ${v50Pct(luck)}, 약탈 ${v50Pct(plunder)}`;}catch(e){return '적용 효과: 계산 불가';}})();
+      return `${v63WeaponDamageLine(w)}\n${oldLine}\n${v63WeaponSpecialText(w)}${v63IsBossOnlyWeapon(w)?'\n획득처: 뽑기 불가 · 해당 보스 처치 시 아주 낮은 확률 드롭':''}`;
+    };
+    v50SortieWeaponCard=function(it,selected,type){
+      const w=getWeapon(it.id)||it;
+      const selectedClass=selected===it.id?'active':'';
+      const eff=v50WeaponEffects(w);
+      const desc=v50BaseDesc(w.desc);
+      const display=eff.split('\n').map(esc).join('<br>');
+      return `<div class="card ${selectedClass}" title="${esc(desc+'\n'+eff)}" data-select-type="weapon" data-select-id="${esc(it.id)}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('weapon','${esc(it.id)}',0)"><h3>${v50RarityName(w)}</h3><p>${esc(desc)}<br>${display}</p></div>`;
+    };
+  }catch(e){ console.warn('[V63] sortie damage display failed', e); }
+
+  try{
+    const oldRenderGachaV63=renderGacha;
+    renderGacha=function(){
+      let html=oldRenderGachaV63();
+      const normalWeapons=v63GachaWeaponPool().length;
+      const bossOnly=WEAPONS.filter(v63IsBossOnlyWeapon).length;
+      html=html.replace(/무기 \$\{state\.save\.weapons\.length\}\/\$\{WEAPONS\.length\}/g,'무기 ${state.save.weapons.length}/${WEAPONS.length}');
+      html += `<div class="card" style="margin-top:12px;cursor:default"><h3>전용 무기 획득 안내</h3><p>보스 전용 무기는 무기 뽑기에서 나오지 않습니다.<br>현재 뽑기 가능 무기 ${normalWeapons}종 / 보스 전용 무기 ${bossOnly}종<br>전용 무기는 해당 보스를 처치했을 때 아주 낮은 확률로만 드롭됩니다.</p></div>`;
+      return html;
+    };
+  }catch(e){ console.warn('[V63] gacha notice failed', e); }
+
+  try{
+    const oldV48WeaponCardV63=v48WeaponCard;
+    v48WeaponCard=function(w,mode){
+      let html=oldV48WeaponCardV63(w,mode);
+      const line=esc(v63WeaponDamageLine(w));
+      const special=esc(v63WeaponSpecialText(w));
+      html=html.replace('<div class="v49-row-desc">',`<div class="v49-row-desc">${line}<br>${special}<br>`);
+      return html;
+    };
+  }catch(e){ console.warn('[V63] growth weapon damage display failed', e); }
+
+  /* ===== V64: late boss analysis patterns + stable anti-lag ===== */
+  const V64_VERSION = 'Raid Dungeon V64 - Late Boss Analysis Patterns Anti Lag';
+
+  const V64_LATE_LABELS = {
+    mirror_duelist:['진짜 분신 판별','거울 순서 레이저','반사 회랑','가짜 SAFE 심판','만화경 칼날','거울 핵 처리'],
+    gravity_core:['중력 시계바늘','압축 도넛 판정','궤도 핵 처리','블랙홀 밀당','붕괴 안전칸','역중력 십자'],
+    solar_dragon:['태양핵 낙하','일식 색상 판별','왕관 광선 회전','불타는 안전칸','태양 파도벽','창세 폭발'],
+    chrono_dragon:['시간 순서 기억','지연 탄막 해석','초침 회전 회피','되감기 SAFE','시간축 붕괴칸','크로노 분신'],
+    abyss_leviathan:['심해 파도벽','소용돌이 탈출','해일 안전지대','심연 핵 처리','물결 미로','레비아탄 포효'],
+    puppet_emperor:['실 조종 격자','가짜 안전지대','단두대 처형선','꼭두각시 순서','인형극 감옥','최종 단두대'],
+    black_sun:['검은 일식 판별','흑점 낙하','왕관 십자광','암흑 안전칸','종말 도넛','검은태양 심판'],
+    chaos_archon:['색상 양극 심판','혼돈 기억 룬','차원 격자','가짜 예고 판별','복합 처형식','혼돈 최종 법정']
+  };
+
+  try{
+    BOSSES.forEach(b=>{
+      if(V64_LATE_LABELS[b.id]) b.patterns = V64_LATE_LABELS[b.id].slice();
+      else if(Number(b.tier||1)>=7 && Array.isArray(b.patterns) && !b.patterns.includes('분석형 기믹')) b.patterns.push('분석형 기믹');
+    });
+  }catch(e){}
+
+  function v64Tier(){ try{return clamp(Number(boss&&boss.tier||1),1,12);}catch(e){return 1;} }
+  function v64Phase(){ try{return boss&&boss.phase?boss.phase:(boss.hp/boss.maxHp<.28?3:boss.hp/boss.maxHp<.62?2:1);}catch(e){return 1;} }
+  function v64Color(){ return (boss&&boss.color)||'#fb7185'; }
+  function v64Sub(){ return (boss&&boss.sub)||'#ffffff'; }
+  function v64Tag(){ return (boss&&boss.theme)||'chaos'; }
+  function v64Label(idx){ const arr=V64_LATE_LABELS[(boss&&boss.id)||'']; return (arr&&arr[idx%arr.length]) || (typeof v59Label==='function'?v59Label(idx):'후반 분석 패턴'); }
+  function v64Cast(text, color, kind){
+    color=color||v64Color();
+    boss.mechanicText = text;
+    boss.cast = {life:.75,max:.75,kind:kind||'cast',color,angle:Math.atan2(player.y-boss.y, player.x-boss.x)};
+    if(typeof floatText==='function') floatText(text.replace(/^.*?:\s*/,''), W/2, 92, color, 20);
+  }
+  function v64Cap(){
+    try{
+      if(!state || state.screen!=='raid') return;
+      const load=(state.hazards.length*3)+(state.projectiles.length*2)+state.particles.length+state.zones.length*4+state.mechanics.length*3;
+      const panic=load>260;
+      const maxHaz=panic?34:52, maxProj=panic?34:54, maxPart=panic?48:86, maxZone=panic?10:16, maxMech=panic?18:28, maxText=panic?8:16;
+      if(state.hazards.length>maxHaz) state.hazards.splice(0,state.hazards.length-maxHaz);
+      if(state.projectiles.length>maxProj) state.projectiles.splice(0,state.projectiles.length-maxProj);
+      if(state.particles.length>maxPart) state.particles.splice(0,state.particles.length-maxPart);
+      if(state.zones.length>maxZone) state.zones.splice(0,state.zones.length-maxZone);
+      if(state.mechanics.length>maxMech) state.mechanics.splice(0,state.mechanics.length-maxMech);
+      if(state.texts.length>maxText) state.texts.splice(0,state.texts.length-maxText);
+    }catch(e){}
+  }
+  function v64Circle(x,y,r,warn,damage,color,tag){
+    color=color||v64Color(); tag=tag||v64Tag();
+    if(typeof v20Circle==='function') v20Circle(x,y,r,warn,color,damage,tag);
+    else state.hazards.push({kind:'circle',x,y,r,warn,life:.60,damage,color,tag});
+  }
+  function v64Beam(x,y,angle,len,w,warn,damage,color,tag){
+    color=color||v64Color(); tag=tag||v64Tag();
+    if(typeof v20Beam==='function') v20Beam(x,y,angle,len,w,warn,color,damage,tag);
+    else state.hazards.push({kind:'beam',x,y,angle,len,w,warn,life:.60,damage,color,tag});
+  }
+  function v64Wall(x,y,w,h,warn,damage,color,tag){
+    color=color||v64Color(); tag=tag||v64Tag();
+    if(typeof v20Wall==='function') v20Wall(x,y,w,h,warn,color,damage,tag);
+    else state.hazards.push({kind:'wall',x,y,w,h,warn,life:.70,damage,color,tag});
+  }
+  function v64Donut(x,y,inner,outer,warn,damage,color,tag){
+    color=color||v64Color(); tag=tag||v64Tag();
+    if(typeof v20Donut==='function') v20Donut(x,y,inner,outer,warn,color,damage,tag);
+    else state.hazards.push({kind:'donut',x,y,inner,outer,warn,life:.62,damage,color,tag});
+  }
+  function v64RotBeam(x,y,angle,spin,len,w,warn,damage,color,tag){
+    color=color||v64Color(); tag=tag||v64Tag();
+    if(typeof v20RotBeam==='function') v20RotBeam(x,y,angle,spin,len,w,warn,color,damage,tag);
+    else state.hazards.push({kind:'rotatingBeam',x,y,angle,spin,len,w,warn,life:2.0,damage,color,tag,tick:0});
+  }
+  function v64Safe(x,y,r,life,color,fake){ state.mechanics.push({kind:'safe',x,y,r,life,color:color||'#86efac',fake:!!fake}); }
+
+  function v64LanePuzzle(color, tag){
+    const ph=v64Phase(), vertical=Math.random()<.5, lanes=5+(ph>=3?1:0), safe=Math.floor(Math.random()*lanes);
+    v64Cast(`${boss.name}: ${vertical?'세로':'가로'} 격자 중 비어 있는 길을 찾아 이동하세요.`, color, 'beam');
+    for(let i=0;i<lanes;i++){
+      if(i===safe) continue;
+      if(vertical) v64Wall(110+i*(W-220)/(lanes-1),H/2,24,H*.82,1.08+i*.045,boss.atk*.42,color,tag);
+      else v64Wall(W/2,130+i*(H-230)/(lanes-1),W*.92,24,1.08+i*.045,boss.atk*.42,color,tag);
+    }
+    if(ph>=2){
+      setTimeout(()=>{ if(state.screen==='raid'&&boss&&!boss.dead){
+        const a=Math.atan2(player.y-boss.y,player.x-boss.x);
+        v64Beam(boss.x,boss.y,a,W*.95,14,0.72,boss.atk*.34,color,tag);
+      }},720);
+    }
+  }
+
+  function v64ClockPuzzle(color, tag){
+    const ph=v64Phase(), dir=Math.random()<.5?1:-1, base=state.time;
+    v64Cast(`${boss.name}: 시계바늘 회전 방향을 보고 안쪽 빈 공간을 따라 이동하세요.`, color, 'beam');
+    for(let i=0;i<3+(ph>=3?1:0);i++){
+      v64RotBeam(W/2,H/2,base+i*Math.PI/(3+(ph>=3?1:0)),dir*(.42+i*.10),W*1.35,12+i*2,1.05+i*.22,boss.atk*.32,color,tag);
+    }
+    if(ph>=2) v64Donut(W/2,H/2,82,225,1.22,boss.atk*.36,color,tag);
+  }
+
+  function v64FakeSafe(color, tag){
+    const ph=v64Phase();
+    const real=Math.floor(Math.random()*3);
+    v64Cast(`${boss.name}: 진짜 SAFE는 하나뿐입니다. 가짜 안전지대 색을 속지 마세요.`, color, 'cast');
+    for(let i=0;i<3;i++){
+      const x=250+i*(W-500)/2, y=H*.58;
+      v64Safe(x,y,58,2.15,i===real?'#86efac':color,i!==real);
+      if(i!==real) v64Circle(x,y,62,1.35+i*.08,boss.atk*.72,color,tag);
+    }
+    setTimeout(()=>{ if(!state.raid||!boss||boss.dead)return; const x=250+real*(W-500)/2,y=H*.58; if(dist(player.x,player.y,x,y)<58+player.r) breakBoss(.9); else hurtPlayer(boss.atk*1.2,color,true); },2150);
+    if(ph>=3) setTimeout(()=>v64ClockPuzzle(color,tag),980);
+  }
+
+  function v64SafeGrid(color, tag){
+    const cols=6, rows=4, top=108, bottom=H-58, cellW=W/cols, cellH=(bottom-top)/rows;
+    const total=cols*rows, safeCount=v64Tier()>=10?2:3, safes=new Set();
+    while(safes.size<safeCount) safes.add(Math.floor(Math.random()*total));
+    v64Cast(`${boss.name}: 금이 가지 않은 안전칸 ${safeCount}개를 찾아 이동하세요.`, color, 'slam');
+    for(let i=0;i<total;i++){
+      const x=cellW*(i%cols+.5), y=top+cellH*(Math.floor(i/cols)+.5);
+      if(safes.has(i)) v64Safe(x,y,Math.min(cellW,cellH)*.28,2.05,'#86efac',false);
+      else {
+        if(typeof v20Floor==='function') v20Floor(x,y,cellW*.82,cellH*.70,1.35+Math.random()*.22,color,boss.atk*.62,tag);
+        else state.hazards.push({kind:'floor',x,y,w:cellW*.82,h:cellH*.70,warn:1.35+Math.random()*.22,life:.70,damage:boss.atk*.62,color,tag});
+      }
+    }
+  }
+
+  function v64Guillotine(color, tag){
+    const ph=v64Phase();
+    v64Cast(`${boss.name}: 단두대 칼날이 순서대로 내려옵니다. 선 순서를 기억하고 옆으로 빠지세요.`, color, 'beam');
+    const xs=[W*.22,W*.39,W*.56,W*.73];
+    const order=xs.sort(()=>Math.random()-.5).slice(0,3+(ph>=3?1:0));
+    order.forEach((x,i)=>{
+      v64Beam(x,H/2,Math.PI/2,H*1.16,22+ph*2,1.02+i*.28,boss.atk*.64,color,tag);
+      state.particles.push({kind:'line',x,y:105,vx:0,vy:0,r:16,life:1.1+i*.18,color:'#ffffff',angle:Math.PI/2,len:H*.74});
+    });
+    if(ph>=2) setTimeout(()=>v64FakeSafe(color,tag),950);
+  }
+
+  function v64WaveWall(color, tag){
+    const ph=v64Phase(), rows=4+(ph>=3?1:0), gap=Math.floor(Math.random()*rows);
+    v64Cast(`${boss.name}: 해일 벽이 밀려옵니다. 비어 있는 줄을 찾아 파도 사이로 이동하세요.`, color, 'beam');
+    for(let i=0;i<rows;i++){
+      if(i===gap) continue;
+      const y=130+i*(H-230)/(rows-1);
+      v64Wall(W/2,y,W*.95,34,1.05+i*.13,boss.atk*.50,color,tag);
+    }
+    for(let i=0;i<2+ph;i++) v64Circle(rand(100,W-100),rand(125,H-80),38,1.35+i*.10,boss.atk*.42,v64Sub(),tag);
+  }
+
+  function v64OrbControl(color, tag){
+    const ph=v64Phase();
+    v64Cast(`${boss.name}: 핵을 방치하면 전체 폭발이 옵니다. 추적 핵을 피하면서 처리하세요.`, color, 'cast');
+    const n=2+(ph>=3?1:0);
+    for(let i=0;i<n;i++){
+      const x=rand(120,W-120), y=rand(135,H-90);
+      state.mechanics.push({kind:'add',x,y,r:18,hp:110+boss.tier*24,life:5.0,speed:54+boss.tier*2,color});
+    }
+    setTimeout(()=>{ if(!state.raid||!boss||boss.dead)return; const alive=state.mechanics.some(m=>m.kind==='add'&&m.life>0); if(alive) v64Circle(W/2,H/2,285,.18,boss.atk*1.15,color,tag); else breakBoss(1.1); },3100);
+    if(ph>=2) v64LanePuzzle(color,tag);
+  }
+
+  function v64Memory(color, tag){
+    v64Cast(`${boss.name}: 룬 순서를 기억해 밟으면 BREAK, 실패하면 보스가 연계 공격합니다.`, color, 'cast');
+    try{ spawnMemoryMiniGame(); }catch(e){ v64SafeGrid(color,tag); }
+    setTimeout(()=>{ if(state.screen==='raid'&&boss&&!boss.dead) v64LanePuzzle(color,tag); },1050);
+  }
+
+  function v64Polarity(color, tag){
+    v64Cast(`${boss.name}: 색상 양극 판정입니다. 표시된 색 원만 진짜 안전지대입니다.`, color, 'cast');
+    try{ spawnColorPolarity(); }catch(e){ v64FakeSafe(color,tag); }
+    if(v64Phase()>=3) setTimeout(()=>v64ClockPuzzle(color,tag),1050);
+  }
+
+  function v64BossSpecific(idx){
+    const id=(boss&&boss.id)||'', color=v64Color(), tag=v64Tag(), i=Math.abs(idx||0)%6;
+    if(id==='puppet_emperor') return [v64LanePuzzle,v64FakeSafe,v64Guillotine,v64Memory,v64OrbControl,v64Guillotine][i](color,tag);
+    if(id==='black_sun') return [v64Polarity,v64SafeGrid,v64ClockPuzzle,v64FakeSafe,v64DonutFinal,v64Judgement][i](color,tag);
+    if(id==='chaos_archon') return [v64Polarity,v64Memory,v64LanePuzzle,v64FakeSafe,v64OrbControl,v64Judgement][i](color,tag);
+    if(id==='chrono_dragon') return [v64Memory,v64ClockPuzzle,v64LanePuzzle,v64FakeSafe,v64SafeGrid,v64OrbControl][i](color,tag);
+    if(id==='abyss_leviathan') return [v64WaveWall,v64OrbControl,v64FakeSafe,v64LanePuzzle,v64SafeGrid,v64Judgement][i](color,tag);
+    if(id==='gravity_core') return [v64ClockPuzzle,v64DonutFinal,v64OrbControl,v64LanePuzzle,v64SafeGrid,v64Polarity][i](color,tag);
+    if(id==='solar_dragon') return [v64SafeGrid,v64Polarity,v64ClockPuzzle,v64WaveWall,v64FakeSafe,v64Judgement][i](color,tag);
+    if(id==='mirror_duelist') return [v64FakeSafe,v64LanePuzzle,v64ClockPuzzle,v64Memory,v64OrbControl,v64Judgement][i](color,tag);
+    return [v64LanePuzzle,v64ClockPuzzle,v64SafeGrid,v64FakeSafe,v64OrbControl,v64Judgement][i](color,tag);
+  }
+  function v64DonutFinal(color, tag){
+    v64Cast(`${boss.name}: 안쪽/바깥쪽 판정을 번갈아 읽으세요. 도넛 후 십자 광선이 이어집니다.`, color, 'slam');
+    v64Donut(W/2,H/2,90,235,1.12,boss.atk*.54,color,tag);
+    setTimeout(()=>{ if(state.screen==='raid'&&boss&&!boss.dead){ v64Beam(W/2,H/2,0,W*1.2,18,.72,boss.atk*.46,color,tag); v64Beam(W/2,H/2,Math.PI/2,H*1.4,18,.72,boss.atk*.46,color,tag); }},880);
+  }
+  function v64Judgement(color, tag){
+    const ph=v64Phase();
+    v64Cast(`${boss.name}: 최종 심판입니다. 안전칸, 회전 광선, 추적 표식을 순서대로 분석하세요.`, color, 'beam');
+    v64SafeGrid(color,tag);
+    setTimeout(()=>{ if(state.screen==='raid'&&boss&&!boss.dead) v64ClockPuzzle(color,tag); },980);
+    if(ph>=3) setTimeout(()=>{ if(state.screen==='raid'&&boss&&!boss.dead) v64Circle(player.x,player.y,54,0.92,boss.atk*.60,v64Sub(),tag); },1720);
+  }
+
+  try{
+    const oldV64TypePattern = v59TypePattern;
+    v59TypePattern = function(idx){
+      try{
+        const t=v64Tier();
+        if(t>=7){
+          const allowed=(t>=10?6:t>=9?5:t>=8?4:3);
+          v64BossSpecific((idx||0)%allowed);
+          if(t>=9 && v64Phase()>=3 && Math.random()<.26 && !v59Mass()) setTimeout(()=>{ if(state.screen==='raid'&&boss&&!boss.dead) v64BossSpecific(((idx||0)+1)%6); v64Cap(); },1120);
+          v64Cap();
+          return;
+        }
+      }catch(e){ console.warn('[V64 late pattern failed]', e); }
+      try{ oldV64TypePattern(idx); }catch(err){ try{ v60PatternByLabel(idx); }catch(_){} }
+    };
+    getBossPatternCooldown=function(){
+      const t=v64Tier(), ph=v64Phase();
+      const base=t>=10?2.20:t>=9?2.30:t>=7?2.45:t>=5?2.55:2.75;
+      return Math.max(1.75, base*(ph===3?.88:ph===2?.95:1)+Math.random()*.25);
+    };
+  }catch(e){ console.warn('[V64 pattern override failed]', e); }
+
+  try{
+    const oldUpdateV64=update;
+    update=function(dt){
+      const safeDt=Math.min(dt||0,1/36);
+      v64Cap();
+      oldUpdateV64(safeDt);
+      v64Cap();
+    };
+  }catch(e){ console.warn('[V64 anti lag update failed]', e); }
+
+
+  /* ===== V65: premium late boss patterns + stricter no-lag orchestration ===== */
+  const V65_VERSION = 'Raid Dungeon V65 - Premium Boss Patterns No Lag';
+  const V65_LABELS = {
+    mirror_duelist:['거울 재판','진짜 분신 추적','반사 복도','거울 파편 기억','역상 안전지대','만화경 결투'],
+    gravity_core:['궤도 붕괴','중력 저울','블랙홀 눈금','압축/해방 판정','역중력 회랑','특이점 심판'],
+    solar_dragon:['일식 왕관','태양 문장 판별','홍염 해일','태양핵 봉인','내부/외부 광륜','초신성 심판'],
+    chrono_dragon:['시간 악보','되감기 좌표','초침 감옥','지연 폭발 판독','과거/미래 안전칸','종말 시계'],
+    abyss_leviathan:['심해 호흡','해일 문양','소용돌이 눈','심연 구슬 봉인','파도 회랑','레비아탄 침식'],
+    puppet_emperor:['실 인형극','단두대 리허설','꼭두각시 법정','가짜 무대','실타래 감옥','황제 처형식'],
+    black_sun:['검은 왕관','일식 내외부 판정','흑점 안전칸','암흑 태양핵','왕관 심판광','종말의 검은 태양'],
+    chaos_archon:['혼돈 법정','색상 양극 재판','차원 악보','가짜 예고 해석','복합 심판식','최종 혼돈 명령']
+  };
+
+  try{
+    BOSSES.forEach(b=>{
+      if(V65_LABELS[b.id]) b.patterns = V65_LABELS[b.id].slice();
+      else if(Number(b.tier||1)>=7) b.patterns = ['분석형 패턴','연계 회피','안전지대 판별'];
+    });
+  }catch(e){}
+
+  function v65Alive(){ return state && state.screen==='raid' && boss && !boss.dead; }
+  function v65T(){ return Math.max(1, Math.min(10, Number(boss&&boss.tier||1))); }
+  function v65P(){ return v64Phase(); }
+  function v65C(){ return v64Color(); }
+  function v65S(){ return v64Sub(); }
+  function v65Tag(){ return v64Tag(); }
+  function v65Msg(text,color,kind){ v64Cast(text,color||v65C(),kind||'cast'); }
+  function v65After(ms,fn){ setTimeout(()=>{ try{ if(v65Alive()){ fn(); v65Cap(); } }catch(e){ console.warn('[V65 delayed pattern]',e); } }, ms); }
+  function v65Cap(){
+    try{
+      if(!state || state.screen!=='raid') return;
+      const t=v65T(), ph=v65P();
+      const pressure=(state.hazards.length*3)+(state.projectiles.length*2)+(state.mechanics.length*3)+(state.zones.length*4)+state.particles.length;
+      const panic=pressure>220;
+      const maxHaz=panic?26:(t>=10?36:40);
+      const maxProj=panic?24:(t>=10?36:42);
+      const maxMech=panic?12:20;
+      const maxZone=panic?7:11;
+      const maxPart=panic?34:(ph>=3?58:66);
+      const maxText=panic?6:10;
+      if(state.hazards.length>maxHaz) state.hazards.splice(0,state.hazards.length-maxHaz);
+      if(state.projectiles.length>maxProj) state.projectiles.splice(0,state.projectiles.length-maxProj);
+      if(state.mechanics.length>maxMech) state.mechanics.splice(0,state.mechanics.length-maxMech);
+      if(state.zones.length>maxZone) state.zones.splice(0,state.zones.length-maxZone);
+      if(state.particles.length>maxPart) state.particles.splice(0,state.particles.length-maxPart);
+      if(state.texts.length>maxText) state.texts.splice(0,state.texts.length-maxText);
+    }catch(e){}
+  }
+  function v65Mark(x,y,label,color){
+    color=color||v65C();
+    try{ floatText(label,x,y,color,18); }catch(e){}
+    try{ state.particles.push({kind:'ring',x,y,vx:0,vy:0,r:38,life:.75,color,line:3}); }catch(e){}
+  }
+  function v65SafeCheck(x,y,r,okBreak,failDamage,color){
+    v65After(1880,()=>{ if(dist(player.x,player.y,x,y)<r+player.r){ if(okBreak) breakBoss(okBreak); } else hurtPlayer(failDamage||boss.atk*1.15,color||v65C(),true); });
+  }
+
+  function v65SequenceStage(title, color, points, safeIndex, follow){
+    color=color||v65C();
+    v65Msg(`${boss.name}: ${title} - 표시 순서를 보고 진짜 위치로 이동하세요.`, color, 'cast');
+    points.forEach((pt,i)=>{
+      v65Mark(pt.x,pt.y,String(i+1),i===safeIndex?'#86efac':color);
+      v64Safe(pt.x,pt.y,46,1.9,i===safeIndex?'#86efac':color,i!==safeIndex);
+      if(i!==safeIndex) v64Circle(pt.x,pt.y,52,1.16+i*.12,boss.atk*.56,color,v65Tag());
+    });
+    const s=points[safeIndex];
+    v65SafeCheck(s.x,s.y,52,.75,boss.atk*1.15,color);
+    if(follow) v65After(910,follow);
+  }
+
+  function v65CrownJudgement(color, tag){
+    color=color||v65C(); tag=tag||v65Tag();
+    const ph=v65P();
+    v65Msg(`${boss.name}: 왕관 심판광입니다. 십자 예고 후 대각선 빈틈으로 이동하세요.`, color, 'beam');
+    v64Beam(W/2,H/2,0,W*1.22,18,1.02,boss.atk*.48,color,tag);
+    v64Beam(W/2,H/2,Math.PI/2,H*1.36,18,1.08,boss.atk*.48,color,tag);
+    v65After(760,()=>{
+      v64Beam(W/2,H/2,Math.PI/4,W*1.30,14,.72,boss.atk*.40,v65S(),tag);
+      v64Beam(W/2,H/2,-Math.PI/4,W*1.30,14,.72,boss.atk*.40,v65S(),tag);
+      if(ph>=3) v64Donut(W/2,H/2,92,260,.92,boss.atk*.40,color,tag);
+    });
+  }
+
+  function v65InsideOutside(color, tag){
+    color=color||v65C(); tag=tag||v65Tag();
+    const inside=Math.random()<.5;
+    v65Msg(`${boss.name}: ${inside?'안쪽':'바깥쪽'} 판정입니다. 문구를 읽고 위치를 바꾸세요.`, color, 'slam');
+    if(inside){
+      v64Donut(W/2,H/2,132,420,1.12,boss.atk*.56,color,tag);
+      v64Safe(W/2,H/2,96,1.75,'#86efac',false);
+      v65SafeCheck(W/2,H/2,102,.6,boss.atk*.95,color);
+    }else{
+      v64Circle(W/2,H/2,195,1.12,boss.atk*.58,color,tag);
+      [[160,145],[W-160,145],[160,H-95],[W-160,H-95]].forEach(p=>v64Safe(p[0],p[1],44,1.75,'#86efac',false));
+    }
+    v65After(920,()=>v65CrownJudgement(color,tag));
+  }
+
+  function v65MusicMemory(color, tag){
+    color=color||v65C(); tag=tag||v65Tag();
+    const pts=[{x:240,y:175},{x:W-240,y:175},{x:W-250,y:H-125},{x:250,y:H-125}];
+    const safe=Math.floor(Math.random()*pts.length);
+    v65SequenceStage('시간 악보',color,pts,safe,()=>{
+      const p=pts[safe];
+      v64Beam(p.x,p.y,Math.atan2(player.y-p.y,player.x-p.x),W*.9,13,.72,boss.atk*.38,color,tag);
+      if(v65P()>=3) v64Wall(W/2,H*.52,W*.80,24,.92,boss.atk*.42,v65S(),tag);
+    });
+  }
+
+  function v65PuppetTheater(color, tag){
+    color=color||v65C(); tag=tag||v65Tag();
+    const xs=[W*.18,W*.34,W*.50,W*.66,W*.82];
+    const gap=Math.floor(Math.random()*xs.length);
+    v65Msg(`${boss.name}: 실이 연결된 칸은 잠깁니다. 빈 무대로 빠져나오세요.`, color, 'beam');
+    xs.forEach((x,i)=>{
+      if(i===gap){ v64Safe(x,H*.55,42,1.8,'#86efac',false); return; }
+      v64Beam(x,H/2,Math.PI/2,H*1.18,15,1.04+i*.08,boss.atk*.48,color,tag);
+      v64Wall(x,H*.55,28,H*.56,1.28+i*.04,boss.atk*.40,color,tag);
+    });
+    v65After(880,()=>v64Beam(xs[gap],H/2,0,W*.52,15,.72,boss.atk*.42,v65S(),tag));
+  }
+
+  function v65GuillotineTheater(color, tag){
+    color=color||v65C(); tag=tag||v65Tag();
+    const lanes=[W*.23,W*.39,W*.55,W*.71];
+    const safe=lanes[Math.floor(Math.random()*lanes.length)];
+    v65Msg(`${boss.name}: 단두대 리허설입니다. 내려오지 않는 선을 찾아 서세요.`, color, 'beam');
+    lanes.forEach((x,i)=>{
+      if(x===safe){ v64Safe(x,H*.56,45,1.95,'#86efac',false); v65Mark(x,118,'SAFE','#86efac'); return; }
+      v64Beam(x,H/2,Math.PI/2,H*1.22,25,1.06+i*.16,boss.atk*.66,color,tag);
+    });
+    v65SafeCheck(safe,H*.56,52,.9,boss.atk*1.25,color);
+    if(v65P()>=2) v65After(1120,()=>v65PuppetTheater(color,tag));
+  }
+
+  function v65GravityScale(color, tag){
+    color=color||v65C(); tag=tag||v65Tag();
+    const left=Math.random()<.5;
+    v65Msg(`${boss.name}: 중력 저울이 기울어집니다. ${left?'왼쪽':'오른쪽'}의 안전 궤도로 이동하세요.`, color, 'cast');
+    const safeX=left?W*.28:W*.72, badX=left?W*.72:W*.28;
+    v64Safe(safeX,H*.52,70,1.9,'#86efac',false);
+    v64Circle(badX,H*.52,96,1.10,boss.atk*.72,color,tag);
+    v64RotBeam(W/2,H/2,state.time,left?.55:-.55,W*1.24,14,1.12,boss.atk*.38,color,tag);
+    v65SafeCheck(safeX,H*.52,76,.7,boss.atk*1.05,color);
+    if(v65P()>=3) v65After(980,()=>v65InsideOutside(color,tag));
+  }
+
+  function v65AbyssBreath(color, tag){
+    color=color||v65C(); tag=tag||v65Tag();
+    const rows=5, safe=Math.floor(Math.random()*rows);
+    v65Msg(`${boss.name}: 심해 호흡입니다. 비어 있는 물결 줄을 따라 이동하세요.`, color, 'beam');
+    for(let i=0;i<rows;i++){
+      const y=132+i*(H-225)/(rows-1);
+      if(i===safe){ v64Safe(W*.18,y,38,1.75,'#86efac',false); v64Safe(W*.82,y,38,1.75,'#86efac',false); continue; }
+      v64Wall(W/2,y,W*.92,28,1.04+i*.12,boss.atk*.50,color,tag);
+    }
+    v65After(900,()=>{
+      const a=Math.atan2(player.y-boss.y,player.x-boss.x);
+      v64Beam(boss.x,boss.y,a,W*.92,16,.70,boss.atk*.43,v65S(),tag);
+    });
+  }
+
+  function v65ChaosCourt(color, tag){
+    color=color||v65C(); tag=tag||v65Tag();
+    const choices=[
+      {x:W*.28,y:H*.38,c:'#86efac',name:'초록'},
+      {x:W*.50,y:H*.62,c:color,name:'보스색'},
+      {x:W*.72,y:H*.38,c:v65S(),name:'보조색'}
+    ];
+    const safe=Math.floor(Math.random()*choices.length);
+    v65Msg(`${boss.name}: 혼돈 법정입니다. 이번 재판의 진짜 색은 ${choices[safe].name}입니다.`, color, 'cast');
+    choices.forEach((p,i)=>{ v64Safe(p.x,p.y,50,1.85,p.c,i!==safe); if(i!==safe) v64Circle(p.x,p.y,58,1.16+i*.08,boss.atk*.60,p.c,tag); });
+    v65SafeCheck(choices[safe].x,choices[safe].y,56,.85,boss.atk*1.15,color);
+    v65After(940,()=>v65CrownJudgement(color,tag));
+  }
+
+  function v65OrbSeal(color, tag){
+    color=color||v65C(); tag=tag||v65Tag();
+    v65Msg(`${boss.name}: 봉인 핵을 처리하세요. 실패하면 광역 심판이 옵니다.`, color, 'cast');
+    const count=v65P()>=3?3:2;
+    for(let i=0;i<count;i++) state.mechanics.push({kind:'add',x:rand(150,W-150),y:rand(150,H-100),r:18,hp:125+boss.tier*26,life:4.8,speed:48+boss.tier*2,color});
+    v65After(2700,()=>{
+      const alive=state.mechanics.some(m=>m.kind==='add'&&m.life>0);
+      if(alive) v64Donut(W/2,H/2,70,315,.20,boss.atk*1.05,color,tag);
+      else breakBoss(1.15);
+    });
+  }
+
+  function v65BossPattern(idx){
+    const id=(boss&&boss.id)||'', color=v65C(), tag=v65Tag();
+    const i=Math.abs(idx||0)%6;
+    const common=[v65InsideOutside,v65CrownJudgement,v65MusicMemory,v65GravityScale,v65AbyssBreath,v65OrbSeal];
+    const map={
+      puppet_emperor:[v65PuppetTheater,v65GuillotineTheater,v65SequenceStageWrapper,v65PuppetTheater,v65OrbSeal,v65GuillotineTheater],
+      black_sun:[v65InsideOutside,v65CrownJudgement,v65SunTiles,v65OrbSeal,v65InsideOutside,v65BlackSunFinal],
+      chaos_archon:[v65ChaosCourt,v65MusicMemory,v65GravityScale,v65SequenceStageWrapper,v65OrbSeal,v65ChaosFinal],
+      chrono_dragon:[v65MusicMemory,v65SequenceStageWrapper,v65InsideOutside,v65CrownJudgement,v65GravityScale,v65ChronoFinal],
+      abyss_leviathan:[v65AbyssBreath,v65OrbSeal,v65InsideOutside,v65AbyssBreath,v65MusicMemory,v65AbyssFinal],
+      gravity_core:[v65GravityScale,v65InsideOutside,v65OrbSeal,v65CrownJudgement,v65MusicMemory,v65GravityFinal],
+      solar_dragon:[v65CrownJudgement,v65InsideOutside,v65SunTiles,v65AbyssBreath,v65OrbSeal,v65SolarFinal],
+      mirror_duelist:[v65SequenceStageWrapper,v65ChaosCourt,v65CrownJudgement,v65InsideOutside,v65OrbSeal,v65MirrorFinal]
+    };
+    const fn=(map[id]||common)[i]||common[i];
+    fn(color,tag);
+    v65Cap();
+  }
+
+  function v65SequenceStageWrapper(color, tag){
+    const pts=[{x:W*.22,y:H*.30},{x:W*.44,y:H*.52},{x:W*.66,y:H*.30},{x:W*.78,y:H*.66}];
+    v65SequenceStage('문장 순서 판별',color,pts,Math.floor(Math.random()*pts.length),()=>v65CrownJudgement(color,tag));
+  }
+  function v65SunTiles(color, tag){
+    color=color||v65C(); tag=tag||v65Tag();
+    v65Msg(`${boss.name}: 흑점이 없는 칸만 안전합니다.`, color, 'slam');
+    const cols=5, rows=3, safe=Math.floor(Math.random()*cols*rows);
+    for(let i=0;i<cols*rows;i++){
+      const x=190+(i%cols)*(W-380)/(cols-1), y=165+Math.floor(i/cols)*(H-270)/(rows-1);
+      if(i===safe) v64Safe(x,y,48,1.9,'#86efac',false);
+      else v64Circle(x,y,46,1.05+Math.random()*.28,boss.atk*.52,color,tag);
+    }
+  }
+  function v65BlackSunFinal(color, tag){ v65InsideOutside(color,tag); v65After(820,()=>v65CrownJudgement(color,tag)); v65After(1580,()=>v65SunTiles(color,tag)); }
+  function v65ChaosFinal(color, tag){ v65ChaosCourt(color,tag); v65After(920,()=>v65GravityScale(color,tag)); }
+  function v65ChronoFinal(color, tag){ v65MusicMemory(color,tag); v65After(980,()=>v65InsideOutside(color,tag)); }
+  function v65AbyssFinal(color, tag){ v65AbyssBreath(color,tag); v65After(940,()=>v65OrbSeal(color,tag)); }
+  function v65GravityFinal(color, tag){ v65GravityScale(color,tag); v65After(1020,()=>v65CrownJudgement(color,tag)); }
+  function v65SolarFinal(color, tag){ v65CrownJudgement(color,tag); v65After(920,()=>v65SunTiles(color,tag)); }
+  function v65MirrorFinal(color, tag){ v65SequenceStageWrapper(color,tag); v65After(880,()=>v65ChaosCourt(color,tag)); }
+
+  try{
+    const oldV65TypePattern = v59TypePattern;
+    v59TypePattern = function(idx){
+      try{
+        const t=v65T(), ph=v65P();
+        if(t>=7){
+          const allowed=t>=10?6:t>=9?5:t>=8?4:3;
+          v65BossPattern((idx||0)%allowed);
+          if(t>=10 && ph>=3 && Math.random()<.18) v65After(1180,()=>v65BossPattern(((idx||0)+2)%6));
+          v65Cap();
+          return;
+        }
+      }catch(e){ console.warn('[V65 premium pattern failed]',e); }
+      try{ oldV65TypePattern(idx); }catch(err){ try{ v64BossSpecific(idx); }catch(_){} }
+    };
+    getBossPatternCooldown=function(){
+      const t=v65T(), ph=v65P();
+      const base=t>=10?2.55:t>=9?2.62:t>=8?2.70:t>=7?2.82:t>=5?2.90:3.05;
+      return Math.max(2.02, base*(ph===3?.92:ph===2?.97:1)+Math.random()*.22);
+    };
+  }catch(e){ console.warn('[V65 pattern override failed]',e); }
+
+  try{
+    const oldUpdateV65 = update;
+    update=function(dt){
+      const safeDt=Math.min(dt||0,1/40);
+      v65Cap();
+      oldUpdateV65(safeDt);
+      v65Cap();
+    };
+  }catch(e){ console.warn('[V65 update override failed]',e); }
+
+  try{
+    window.RaidDungeonV65={
+      version:V65_VERSION,
+      quality:'boss-specific puzzle patterns with readable telegraphs and break rewards',
+      antiLag:'strict object budgets, dt clamp 1/40s, delayed chained patterns kept short',
+      patterns:['inside/outside judgement','crown cross lasers','memory score','puppet guillotine theater','gravity scale','abyss breath lanes','chaos color court','orb seal']
+    };
+  }catch(e){}
+
+  try{
+    window.RaidDungeonV64={
+      version:V64_VERSION,
+      lateBosses:Object.keys(V64_LATE_LABELS),
+      patterns:['fake safe zones','clock-hand lasers','guillotine execution lines','memory runes','safe tile grids','orb control'],
+      antiLag:'tier-aware object caps before and after update, dt clamped to 1/36s'
+    };
+  }catch(e){}
+
+  try{
+    window.RaidDungeonV63={
+      version:V63_VERSION,
+      damageDisplay:'weapon cards show approximate damage, dps, crit, attack interval, and special effects',
+      bossOnlyWeapons:'boss exclusive weapons are removed from weapon gacha and drop only from their boss at very low chance',
+      gachaPool:'weapon gacha excludes v44/boss-only weapon ids and boss-exclusive descriptions'
+    };
+  }catch(e){}
 
   try{ window.RaidDungeonV62={version:V62_VERSION, bossBar:'clip-based HP bar now shrinks with numeric HP/%', weapons:'rarity damage scaling and epic+ special projectiles/waves', training:'HP/MP/regen coin upgrades max 100, cost x1.8', performance:'harder object caps and dt clamp to protect movement feel', bossQuality:'higher-tier chained visual patterns and more boss HP'}; }catch(e){}
 
