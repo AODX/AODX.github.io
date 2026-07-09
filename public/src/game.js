@@ -14278,414 +14278,377 @@ try {
   }catch(e){}
 
 
-  /* ===== V80: true high-tier boss gimmicks + marionette theater overhaul ===== */
-  const V80_VERSION = 'Raid Dungeon V80 - True High Tier Boss Gimmicks Marionette Theater';
+  /* ===== V81: paced boss director - one readable gimmick at a time =====
+     목적: V80처럼 한 번에 패턴을 때려박지 않고, 연출 -> 대처 -> 판정 흐름으로 재구성.
+     기준: V79 대형 패턴/연출 버전을 유지하되, 고등급 보스는 보스별 전용 기믹을 '순서대로' 사용한다.
+  ===== */
+  const V81_VERSION = 'Raid Dungeon V81 - Paced Cinematic Boss Director';
   try{
-    const v80 = state.v80 || (state.v80 = {
-      effects: [],
-      puppetTyping: null,
-      puppetBind: null,
-      puppetDolls: [],
-      puppetCurtain: null,
-      puppetPhaseSeen: 1,
-      puppetLastGuillotine: 0
+    const v81 = state.v81 || (state.v81 = {
+      active:null,
+      cooldown:0,
+      effects:[],
+      dolls:[],
+      bind:null,
+      typing:null,
+      phaseSeen:1,
+      lastGuillotine:-999,
+      lastKind:'',
+      cinematicLock:0
     });
 
-    function v80Alive(){ return state && state.screen==='raid' && state.raid && boss && !boss.dead; }
-    function v80Tier(){ return Number(boss && boss.tier || 1); }
-    function v80Color(){ return (boss && boss.color) || '#f0abfc'; }
-    function v80Sub(){ return (boss && boss.sub) || '#ffffff'; }
-    function v80Phase(){ return Number(boss && boss.phase || 1); }
-    function v80AddFx(kind, data){
-      v80.effects.push(Object.assign({kind, life:2.0, maxLife:2.0, x:W/2, y:H/2, color:v80Color(), sub:v80Sub()}, data||{}));
-      if(v80.effects.length>70) v80.effects.splice(0,v80.effects.length-70);
+    function v81Alive(){ return state && state.screen==='raid' && state.raid && boss && !boss.dead && player && player.hp>0; }
+    function v81Tier(){ return Number(boss && boss.tier || 1); }
+    function v81Phase(){ return Number(boss && boss.phase || 1); }
+    function v81C(){ return (boss && boss.color) || '#f0abfc'; }
+    function v81S(){ return (boss && boss.sub) || '#ffffff'; }
+    function v81Now(){ return Number(state && state.time || 0); }
+    function v81Text(msg,x,y,c,size){ try{ floatText(msg,x||W/2,y||120,c||'#fff',size||18); }catch(e){} }
+    function v81Burst(x,y,c,n,s){ try{ burst(x,y,c||v81C(),Math.min(n||28,70),s||320); }catch(e){} }
+    function v81AddFx(kind,data){
+      v81.effects.push(Object.assign({kind,life:1.2,maxLife:1.2,x:W/2,y:H/2,color:v81C(),sub:v81S(),label:''},data||{}));
+      if(v81.effects.length>55) v81.effects.splice(0,v81.effects.length-55);
     }
-    function v80Text(msg,x,y,color,size){ try{ floatText(msg,x||W/2,y||110,color||'#fff',size||18); }catch(e){} }
-    function v80Burst(x,y,c,n,s){ try{ burst(x,y,c||v80Color(),Math.min(n||40,90),s||420); }catch(e){} }
-    function v80Circle(x,y,r,warn,life,damage,color,label,tag){
-      state.hazards.push({kind:'circle',x,y,r,warn:warn||.6,life:life||.22,damage:damage||boss.atk*.9,color:color||v80Color(),tag:tag||boss.theme,label});
-      v80AddFx('sigil',{x,y,r:r*1.25,life:(warn||.6)+(life||.22)+.25,maxLife:(warn||.6)+(life||.22)+.25,color:color||v80Color(),label});
+    function v81Lock(sec){ v81.cinematicLock=Math.max(v81.cinematicLock||0,sec||0); boss.patternCd=Math.max(boss.patternCd||0,sec||0); }
+    function v81HazCircle(x,y,r,warn,life,damage,color,label,tag){
+      state.hazards.push({kind:'circle',x,y,r,warn:warn||.85,life:life||.24,damage:damage||boss.atk*.75,color:color||v81C(),tag:tag||boss.theme,label:label||''});
+      v81AddFx('markCircle',{x,y,r:r*1.18,life:(warn||.85)+(life||.24)+.15,maxLife:(warn||.85)+(life||.24)+.15,color:color||v81C(),label});
     }
-    function v80Beam(x,y,a,len,w,warn,life,damage,color,label,tag){
-      state.hazards.push({kind:'beam',x,y,angle:a,len:len||Math.hypot(W,H),w:w||14,warn:warn||.62,life:life||.24,damage:damage||boss.atk*.85,color:color||v80Color(),tag:tag||boss.theme,label});
-      v80AddFx('beamTrace',{x,y,a,len:len||Math.hypot(W,H),w:(w||14)*1.3,life:(warn||.62)+(life||.24)+.2,maxLife:(warn||.62)+(life||.24)+.2,color:color||v80Color(),label});
+    function v81HazBeam(x,y,a,len,w,warn,life,damage,color,label,tag){
+      state.hazards.push({kind:'beam',x,y,angle:a,len:len||Math.hypot(W,H),w:w||12,warn:warn||.85,life:life||.24,damage:damage||boss.atk*.70,color:color||v81C(),tag:tag||boss.theme,label:label||''});
+      v81AddFx('markBeam',{x,y,a,len:len||Math.hypot(W,H),w:(w||12)*1.35,life:(warn||.85)+(life||.24)+.1,maxLife:(warn||.85)+(life||.24)+.1,color:color||v81C(),label});
     }
-    function v80Rot(x,y,a,spin,len,w,warn,life,damage,color,label,tag){
-      state.hazards.push({kind:'rotatingBeam',x,y,angle:a,spin:spin||.9,len:len||Math.hypot(W,H),w:w||12,warn:warn||.6,life:life||1.4,damage:damage||boss.atk*.62,color:color||v80Color(),tag:tag||boss.theme,label,tick:0});
-      v80AddFx('rotator',{x,y,a,spin:spin||.9,len:len||Math.hypot(W,H),w:(w||12)*1.2,life:(warn||.6)+(life||1.4),maxLife:(warn||.6)+(life||1.4),color:color||v80Color(),label});
+    function v81HazDonut(x,y,inner,outer,warn,life,damage,color,label,tag){
+      state.hazards.push({kind:'donut',x,y,inner,outer,warn:warn||.95,life:life||.26,damage:damage||boss.atk*.82,color:color||v81C(),tag:tag||boss.theme,label:label||''});
+      v81AddFx('markDonut',{x,y,inner,outer,life:(warn||.95)+(life||.26)+.1,maxLife:(warn||.95)+(life||.26)+.1,color:color||v81C(),label});
     }
-    function v80Donut(x,y,inner,outer,warn,life,damage,color,label,tag){
-      state.hazards.push({kind:'donut',x,y,inner,outer,warn:warn||.7,life:life||.22,damage:damage||boss.atk*.9,color:color||v80Color(),tag:tag||boss.theme,label});
-      v80AddFx('donut',{x,y,inner,outer,life:(warn||.7)+(life||.22)+.22,maxLife:(warn||.7)+(life||.22)+.22,color:color||v80Color(),label});
+    function v81HazWall(x,y,w,h,warn,life,damage,color,label,tag){
+      state.hazards.push({kind:'wall',x,y,w,h,warn:warn||.75,life:life||.42,damage:damage||boss.atk*.52,color:color||v81C(),tag:tag||boss.theme,label:label||''});
+      v81AddFx('markWall',{x,y,w,h,life:(warn||.75)+(life||.42)+.1,maxLife:(warn||.75)+(life||.42)+.1,color:color||v81C(),label});
     }
-    function v80Wall(x,y,w,h,warn,life,damage,color,label,tag){
-      state.hazards.push({kind:'wall',x,y,w,h,warn:warn||.55,life:life||1.0,damage:damage||boss.atk*.32,color:color||v80Color(),tag:tag||boss.theme,label});
-      v80AddFx('wall',{x,y,w,h,life:(warn||.55)+(life||1),maxLife:(warn||.55)+(life||1),color:color||v80Color(),label});
-    }
-
-    const V80_PUPPET_LINES = [
-      'DANCE PUPPET', 'CUT THE WIRE', 'DOLL KINGDOM', 'RED CURTAIN', 'PAPER CROWN',
-      'WOODEN HEART', 'FALSE EMPEROR', 'FINAL ACT NOW', 'PULL STRINGS', 'SHATTER DOLL'
-    ];
-    function v80PuppetLine(){ return V80_PUPPET_LINES[Math.floor(Math.random()*V80_PUPPET_LINES.length)]; }
-
-    function v80StartTypingGuillotine(){
-      if(!v80Alive() || boss.id!=='puppet_emperor') return;
-      if(state.time - (v80.puppetLastGuillotine||0) < 13) return;
-      v80.puppetLastGuillotine = state.time;
-      const phrase = v80PuppetLine();
-      v80.puppetTyping = {phrase, typed:'', time:3.6, max:3.6, bladeY:-90, result:null, resultLife:0};
-      boss.patternCd = Math.max(boss.patternCd,4.2);
-      boss.mechanicText = '<대사를 읽으세요> 단두대가 내려오기 전 대사를 입력하세요!';
-      v80AddFx('curtain',{life:.9,maxLife:.9,color:'#7f1d1d',sub:'#ef4444',label:'READ THE LINE'});
-      v80AddFx('guillotine',{x:W/2,y:120,life:3.8,maxLife:3.8,color:'#e5e7eb',sub:'#ef4444',label:'GUILLOTINE'});
-      state.flash=Math.max(state.flash,.25); state.shake=Math.max(state.shake,5);
-      v80Text('대사를 읽으세요',W/2,105,'#fef2f2',26);
+    function v81HazRot(x,y,a,spin,len,w,warn,life,damage,color,label,tag){
+      state.hazards.push({kind:'rotatingBeam',x,y,angle:a,spin:spin||.55,len:len||Math.hypot(W,H),w:w||9,warn:warn||.9,life:life||1.15,damage:damage||boss.atk*.45,color:color||v81C(),tag:tag||boss.theme,label:label||'',tick:0});
+      v81AddFx('markRot',{x,y,a,spin:spin||.55,len:len||Math.hypot(W,H),w:(w||9)*1.25,life:(warn||.9)+(life||1.15),maxLife:(warn||.9)+(life||1.15),color:color||v81C(),label});
     }
 
-    function v80StartPuppetBind(){
-      if(!v80Alive()) return;
-      v80.puppetBind = {time:4.1, max:4.1, mash:0, need:18 + v80Phase()*4};
-      boss.mechanicText = '실 구속: WASD를 빠르게 흔들어 실을 끊으세요!';
-      player.slow = Math.max(player.slow,3.5);
-      v80AddFx('strings',{x:player.x,y:player.y,life:4.1,maxLife:4.1,color:'#f0abfc',sub:'#fde68a',label:'STRING BIND'});
-      for(let i=0;i<10;i++){
-        const a=-Math.PI/2 + (i-4.5)*.10;
-        v80Beam(player.x,player.y,a,520,5,.2+i*.025,.55,boss.atk*.08,'#f0abfc','인형실','mirror');
-      }
-      v80Text('WASD 연타로 실 끊기!',player.x,player.y-62,'#f0abfc',18);
+    const V81_PUPPET_LINES=['CUT THE WIRE','RED CURTAIN','DOLL PARADE','FINAL ACT','WOODEN KING','NO STRINGS','STAGE LIGHT','FALSE CROWN','PUPPET DANCE','LAST SCENE'];
+    function v81Line(){ return V81_PUPPET_LINES[Math.floor(Math.random()*V81_PUPPET_LINES.length)]; }
+    function v81Start(kind,duration,data){
+      if(!v81Alive()) return false;
+      if(v81.active) return false;
+      v81.active={kind,t:0,duration:duration||3,data:data||{},step:-1,spawn:0};
+      v81.cooldown=(boss && boss.id==='puppet_emperor')?3.8:4.6;
+      v81Lock(duration||3);
+      return true;
     }
+    function v81End(){ v81.active=null; v81.bind=null; v81.typing=null; v81.cinematicLock=0; }
 
-    function v80PuppetCurtain(phase){
-      if(!v80Alive() || boss.id!=='puppet_emperor') return;
-      v80.puppetCurtain = {life:2.8, max:2.8, phase:phase||boss.phase};
-      boss.patternCd = Math.max(boss.patternCd,2.6);
-      boss.mechanicText = `붉은 커튼: 페이즈 ${phase||boss.phase} 개막!`;
-      v80AddFx('curtain',{life:2.8,maxLife:2.8,color:'#7f1d1d',sub:'#ef4444',label:'RED CURTAIN'});
+    function v81StartCurtain(){
+      if(!v81Start('puppet_curtain',2.4,{phase:v81Phase()})) return;
       clearEnemyBullets(true);
-      state.flash=Math.max(state.flash,.42); state.shake=Math.max(state.shake,8);
-      v80Text(`PHASE ${phase||boss.phase}`,W/2,H/2,'#fecaca',38);
+      boss.mechanicText='붉은 커튼: 다음 막이 열립니다. 잠깐 쉬고 다음 페이즈를 준비하세요.';
+      v81AddFx('curtain',{life:2.4,maxLife:2.4,color:'#7f1d1d',sub:'#ef4444',label:'PHASE '+v81Phase()});
+      v81Text('붉은 커튼 · PHASE '+v81Phase(),W/2,H/2,'#fecaca',32);
+      state.flash=Math.max(state.flash,.28); state.shake=Math.max(state.shake,4);
+    }
+    function v81StartBind(){
+      if(!v81Start('puppet_bind',4.2,{need:16+v81Phase()*3,mash:0})) return;
+      v81.bind=v81.active.data;
+      boss.mechanicText='실 구속: WASD를 빠르게 흔들어 실을 끊으세요. 이 패턴 동안 다른 큰 패턴은 나오지 않습니다.';
+      player.slow=Math.max(player.slow,3.7);
+      v81AddFx('strings',{x:player.x,y:player.y,life:4.2,maxLife:4.2,color:'#f0abfc',sub:'#fde68a',label:'STRING BIND'});
+      v81Text('WASD 연타로 실 끊기!',player.x,player.y-62,'#f0abfc',20);
+    }
+    function v81StartTyping(){
+      if(v81Now()-(v81.lastGuillotine||0)<18) return false;
+      if(!v81Start('puppet_typing',5.2,{phrase:v81Line(),typed:'',result:null,bladeY:-80})) return false;
+      v81.lastGuillotine=v81Now(); v81.typing=v81.active.data;
+      boss.mechanicText='<대사를 읽으세요> 단두대가 내려오기 전 짧은 대사를 입력하세요. 성공하면 보스가 약화됩니다.';
+      clearEnemyBullets(true);
+      v81AddFx('guillotine',{life:5.2,maxLife:5.2,color:'#e5e7eb',sub:'#ef4444',label:'GUILLOTINE'});
+      v81Text('대사를 읽으세요',W/2,110,'#fecaca',26);
+      state.flash=Math.max(state.flash,.22);
+      return true;
+    }
+    function v81StartDolls(){
+      if(v81.dolls && v81.dolls.some(d=>d.hp>0)) return false;
+      if(!v81Start('puppet_dolls',12.0,{intro:.8})) return false;
+      const count=boss.phase>=3?4:3;
+      v81.dolls=[];
+      for(let i=0;i<count;i++){
+        const x=W/2+(i-(count-1)/2)*180;
+        v81.dolls.push({x,y:260+Math.sin(i)*36,r:27,hp:520+boss.tier*70+boss.phase*90,maxHp:520+boss.tier*70+boss.phase*90,cd:1.1+i*.25,life:12});
+      }
+      clearEnemyBullets(true);
+      boss.mechanicText='목각 인형극: 보스가 뒤로 물러납니다. 인형을 모두 부수면 다시 보스에게 피해를 줄 수 있습니다.';
+      v81AddFx('stage',{life:2.5,maxLife:2.5,color:'#f0abfc',sub:'#fde68a',label:'WOODEN DOLL ACT'});
+      v81Text('목각 인형을 먼저 파괴하세요!',W/2,118,'#fde68a',23);
+      return true;
+    }
+    function v81StartFilm(){
+      if(!v81Start('puppet_film',4.6,{next:0,waves:0})) return;
+      boss.mechanicText='비디오 필름: 필름 프레임이 한 장씩 지나갑니다. 막히지 않은 컷을 보고 이동하세요.';
+      v81AddFx('film',{life:4.6,maxLife:4.6,color:'#e5e7eb',sub:'#111827',label:'FILM REEL'});
+      v81Text('비어 있는 필름 컷을 찾으세요',W/2,110,'#e5e7eb',22);
+    }
+    function v81ChoosePuppet(){
+      const p=v81Phase();
+      const opts=[];
+      opts.push(v81StartBind);
+      opts.push(v81StartFilm);
+      if(p>=2) opts.push(v81StartDolls);
+      if(p>=2 && v81Now()-(v81.lastGuillotine||0)>18) opts.push(v81StartTyping);
+      let fn=opts[Math.floor(Math.random()*opts.length)];
+      if(fn.name===v81.lastKind && opts.length>1) fn=opts[(opts.indexOf(fn)+1)%opts.length];
+      v81.lastKind=fn.name;
+      return fn();
     }
 
-    function v80StartDollPhase(){
-      if(!v80Alive() || boss.id!=='puppet_emperor') return;
-      if(v80.puppetDolls && v80.puppetDolls.some(d=>d.life>0 && d.hp>0)) return;
-      const count = boss.phase>=3 ? 5 : 3;
-      v80.puppetDolls = [];
-      for(let i=0;i<count;i++){
-        const a=-Math.PI/2 + (i-(count-1)/2)*.52;
-        v80.puppetDolls.push({
-          x:W/2+Math.cos(a)*260,
-          y:260+Math.sin(a)*95,
-          r:28,
-          hp:Math.floor(420 + boss.tier*85 + boss.phase*120),
-          maxHp:Math.floor(420 + boss.tier*85 + boss.phase*120),
-          life:12,
-          cd:.55+i*.18,
-          a
-        });
-      }
-      boss.patternCd = Math.max(boss.patternCd,3.4);
-      boss.mechanicText = '목각 인형극: 실에 연결된 인형을 모두 부수면 황제가 다시 드러납니다!';
-      v80AddFx('theater',{life:3.4,maxLife:3.4,color:'#f0abfc',sub:'#fde68a',label:'WOODEN DOLL BALLET'});
-      v80Text('목각 인형을 모두 파괴하세요!',W/2,118,'#fde68a',23);
+    function v81StartHighTier(){
+      if(!v81Alive()||v81.active||v81Tier()<7) return false;
+      const id=boss.id;
+      if(id==='puppet_emperor') return v81ChoosePuppet();
+      if(id==='chrono_dragon') return v81Start('chrono_conductor',4.3,{next:0,wave:0}) && (boss.mechanicText='시간룡: 시계바늘이 순서대로 움직입니다. 한 번에 겹치지 않으니 박자를 읽으세요.',v81AddFx('clock',{x:W/2,y:H/2,r:300,life:4.3,maxLife:4.3,color:'#f472b6',sub:'#fef08a',label:'CLOCK CONDUCTOR'}),true);
+      if(id==='abyss_leviathan') return v81Start('leviathan_pressure',4.5,{next:0,wave:0}) && (boss.mechanicText='레비아탄: 파도, 촉수, 흡입이 차례대로 옵니다. 순서를 보고 이동하세요.',v81AddFx('sea',{life:4.5,maxLife:4.5,color:'#38bdf8',sub:'#0f172a',label:'ABYSS PRESSURE'}),true);
+      if(id==='black_sun'||id==='solar_dragon') return v81Start('black_sun_ritual',4.5,{next:0,wave:0}) && (boss.mechanicText='검은 태양: 안쪽/바깥쪽 판정 후 광익이 펼쳐집니다. 코로나의 빈틈을 보세요.',v81AddFx('blackSun',{x:W/2,y:H/2,r:310,life:4.5,maxLife:4.5,color:'#f97316',sub:'#020617',label:'BLACK SUN RITUAL'}),true);
+      if(id==='chaos_archon') return v81Start('chaos_rule',4.4,{next:0,wave:0,roll:1+Math.floor(Math.random()*6)}) && (boss.mechanicText='혼돈의 집정관: 이번 규칙 하나만 읽으세요. 여러 규칙을 동시에 던지지 않습니다.',v81AddFx('dice',{x:W/2,y:H/2,r:250,life:4.4,maxLife:4.4,color:'#fb7185',sub:'#7c3aed',label:'CHAOS RULE'}),true);
+      if(id==='gravity_core') return v81Start('gravity_lens',4.3,{next:0,wave:0}) && (boss.mechanicText='중력핵: 흡입 후 궤도 절단이 이어집니다. 중심에 빨려들기 전에 각도를 읽으세요.',v81AddFx('gravityLens',{x:W/2,y:H/2,r:280,life:4.3,maxLife:4.3,color:'#818cf8',sub:'#1e1b4b',label:'GRAVITY LENS'}),true);
+      if(id==='storm_colossus') return v81Start('storm_rhythm',4.1,{next:0,wave:0}) && (boss.mechanicText='폭풍 거신: 낙뢰 박자가 순서대로 떨어집니다. 번개 리듬을 읽으세요.',v81AddFx('tesla',{life:4.1,maxLife:4.1,color:'#facc15',sub:'#60a5fa',label:'TESLA RHYTHM'}),true);
+      if(id==='iron_minotaur') return v81Start('minotaur_arena',4.0,{next:0,wave:0}) && (boss.mechanicText='철갑 미노타우로스: 투우 돌진 후 모루가 떨어집니다. 돌진 방향을 유도하세요.',v81AddFx('arena',{life:4.0,maxLife:4.0,color:'#94a3b8',sub:'#f97316',label:'IRON ARENA'}),true);
+      return false;
     }
-    function v80DamageDoll(dmg,color){
-      const dolls=v80.puppetDolls||[];
+
+    function v81DamageDolls(dmg,color,x,y,range){
+      if(!v81.dolls || !v81.dolls.length) return false;
       let hit=false;
-      dolls.forEach(d=>{
-        if(d.hp>0 && dist(player.x,player.y,d.x,d.y)<170+d.r){
-          d.hp-=Math.max(1,Math.floor(dmg*.55)); hit=true; v80Burst(d.x,d.y,color||'#fde68a',14,180); floatText('-'+Math.floor(dmg*.55),d.x,d.y-36,color||'#fde68a',14);
+      v81.dolls.forEach(d=>{
+        if(d.hp>0 && dist(x||player.x,y||player.y,d.x,d.y)<(range||170)+d.r){
+          d.hp-=Math.max(1,Math.floor(dmg*.65)); hit=true;
+          v81Burst(d.x,d.y,color||'#fde68a',16,220); floatText('-'+Math.floor(dmg*.65),d.x,d.y-34,color||'#fde68a',15);
         }
       });
-      if(hit) v80.puppetDolls=dolls.filter(d=>d.life>0&&d.hp>0);
-      if(hit && !v80.puppetDolls.length){ breakBoss(2.8); v80Text('인형극 붕괴!',boss.x,boss.y-boss.r-50,'#fde68a',24); }
+      v81.dolls=v81.dolls.filter(d=>d.hp>0&&d.life>0);
+      if(hit && !v81.dolls.length){ breakBoss(2.6); v81Text('인형극 붕괴!',boss.x,boss.y-boss.r-45,'#fde68a',24); v81End(); }
       return hit;
     }
 
-    function v80PuppetGuillotineOpera(){
-      boss.mechanicText='단두대 오페라: 처형선 사이를 읽고 마지막 대사는 직접 입력해야 합니다.';
-      v80AddFx('stageLight',{life:2.6,maxLife:2.6,color:'#f0abfc',sub:'#ef4444',label:'EXECUTION OPERA'});
-      for(let i=0;i<5;i++) v80Beam(150+i*245,H/2,Math.PI/2,H*.86,12,.7+i*.05,.24,boss.atk*.62,i%2?'#f0abfc':'#ef4444','단두대 칼날','mirror');
-      for(let i=0;i<4;i++) v80Circle(270+i*245,rand(210,H-90),38,.9+i*.06,.22,boss.atk*.72,'#fde68a','인형 낙하','mirror');
-      if(Math.random()<.45 || boss.phase>=3) setTimeout(v80StartTypingGuillotine, 1200);
-    }
-
-    function v80PuppetFilmReel(){
-      boss.mechanicText='비디오 필름: 필름 프레임이 지나간 뒤 비어 있는 컷으로 이동하세요.';
-      v80AddFx('film',{life:3.2,maxLife:3.2,color:'#e5e7eb',sub:'#111827',label:'FILM REEL'});
-      for(let i=0;i<6;i++){
-        const x=150+i*195;
-        if(i%3!==1) v80Wall(x,H/2,88,H*.72,.75+i*.08,.55,boss.atk*.56,'#e5e7eb','필름 프레임','mirror');
+    function v81UpdateActive(dt){
+      if(!v81.active) return;
+      const a=v81.active; a.t+=dt; a.spawn-=dt;
+      if(a.kind==='puppet_curtain'){
+        boss.patternCd=Math.max(boss.patternCd,.35);
+        if(a.t>=a.duration) v81End();
       }
-      setTimeout(()=>{ if(v80Alive()) for(let i=0;i<8;i++) aimBullet(boss.x,boss.y,player.x+rand(-130,130),player.y+rand(-80,80),260+boss.tier*12,'#f0abfc',boss.atk*.42,'mirror'); },860);
-    }
-
-    function v80PuppetGrandPattern(){
-      const p=boss.phase;
-      const pool = p>=3 ? [v80PuppetGuillotineOpera,v80StartPuppetBind,v80StartDollPhase,v80PuppetFilmReel] : [v80StartPuppetBind,v80PuppetGuillotineOpera,v80PuppetFilmReel,v80StartDollPhase];
-      pool[Math.floor(Math.random()*pool.length)]();
-      if(p>=3 && Math.random()<.35) setTimeout(()=>{ if(v80Alive() && boss.id==='puppet_emperor') v80PuppetFilmReel(); },960);
-    }
-
-    function v80ChronoGrand(){
-      boss.mechanicText='시간룡: 시계바늘, 되감기 잔상, 시간 메트로놈이 서로 다른 박자로 겹칩니다.';
-      const cx=W/2,cy=H/2,c='#f472b6';
-      v80AddFx('clock',{x:cx,y:cy,r:310,life:3.2,maxLife:3.2,color:c,sub:'#fef08a',label:'CLOCKTOWER COLLAPSE'});
-      for(let i=0;i<12;i++) v80Rot(cx,cy,i*Math.PI/6,(i%2?-.55:.75),Math.hypot(W,H),i%3===0?9:6,.62+i*.025,1.0,boss.atk*.38,i%2?c:'#fef08a','초침 절단','chrono');
-      for(let i=0;i<5;i++) setTimeout(()=>{ if(v80Alive()) v80Circle(player.x+rand(-160,160),player.y+rand(-100,100),34+i*5,.5,.22,boss.atk*.58,c,'되감기 잔상','chrono'); },i*260);
-    }
-    function v80LeviathanGrand(){
-      boss.mechanicText='레비아탄: 심해 압력과 촉수, 소용돌이 흡입을 동시에 읽으세요.';
-      const c='#38bdf8'; v80AddFx('sea',{life:3.3,maxLife:3.3,color:c,sub:'#0f172a',label:'ABYSSAL OPERA'});
-      for(let i=0;i<7;i++) v80Beam(W/2,130+i*78,0,W,13,.55+i*.045,.32,boss.atk*.48,c,'심해 파도','void');
-      for(let i=0;i<6;i++) v80Circle(rand(120,W-120),rand(140,H-70),rand(36,70),.8+i*.04,.24,boss.atk*.66,'#67e8f9','심해 촉수','void');
-      state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:240,power:72,life:2.6,color:'#38bdf8'});
-    }
-    function v80BlackSunGrand(){
-      boss.mechanicText='검은 태양: 코로나 광익과 흑점 유성우가 안쪽/바깥쪽 판정을 흔듭니다.';
-      const c='#f97316', cx=W/2, cy=H/2; v80AddFx('blackSun',{x:cx,y:cy,r:330,life:3.4,maxLife:3.4,color:c,sub:'#020617',label:'BLACK SUN APOCALYPSE'});
-      v80Donut(cx,cy,115,335,.78,.26,boss.atk*.98,c,'검은 코로나','solar');
-      for(let i=0;i<14;i++) v80Beam(cx,cy,i*Math.PI*2/14,Math.hypot(W,H),9,.68+i*.018,.28,boss.atk*.52,i%2?c:'#020617','태양 광익','solar');
-      for(let i=0;i<10;i++) v80Circle(rand(100,W-100),rand(120,H-80),rand(34,58),1.05+i*.06,.22,boss.atk*.72,'#fb923c','흑점 낙하','solar');
-    }
-    function v80ChaosGrand(){
-      boss.mechanicText='혼돈의 집정관: 주사위 명령마다 다른 공격 규칙이 겹칩니다.';
-      const c='#fb7185', sub='#7c3aed', cx=W/2, cy=H/2; v80AddFx('dice',{x:cx,y:cy,r:280,life:3.0,maxLife:3.0,color:c,sub, label:'CHAOS DICE COURT'});
-      const roll=1+Math.floor(Math.random()*6); v80Text('CHAOS DICE '+roll,cx,100,'#fef2f2',26);
-      if(roll%2){ for(let i=0;i<roll+4;i++) v80Rot(cx,cy,i*Math.PI/(roll+3),(i%2?-.8:.9),Math.hypot(W,H),8,.55+i*.04,1.1,boss.atk*.45,i%2?c:sub,'차원 판결','chaos'); }
-      else { for(let i=0;i<roll+6;i++) v80Circle(rand(105,W-105),rand(120,H-70),rand(32,66),.55+i*.055,.22,boss.atk*.68,i%2?c:sub,'혼돈 명령','chaos'); }
-      if(boss.phase>=3) setTimeout(()=>{ if(v80Alive()) v80Donut(cx,cy,80,300,.55,.25,boss.atk*.85,'#fef08a','최종 혼돈 고리','chaos'); },780);
-    }
-    function v80GravityGrand(){
-      boss.mechanicText='중력핵: 중력 렌즈가 탄막 궤도와 플레이어 위치를 함께 비틀어 버립니다.';
-      const c='#818cf8', cx=W/2, cy=H/2; v80AddFx('gravityLens',{x:cx,y:cy,r:300,life:3.2,maxLife:3.2,color:c,sub:'#1e1b4b',label:'GRAVITY LENS'});
-      state.mechanics.push({kind:'gravity',x:cx,y:cy,r:310,power:88,life:2.8,color:c});
-      for(let i=0;i<8;i++) v80Donut(cx+Math.cos(i)*130,cy+Math.sin(i)*90,28,95,.62+i*.04,.22,boss.atk*.50,c,'중력 렌즈','gravity');
-      for(let i=0;i<6;i++) v80Rot(cx,cy,i*Math.PI/6,(i%2?-.7:.7),Math.hypot(W,H),7,.78,1.1,boss.atk*.42,'#c4b5fd','궤도 절단','gravity');
-    }
-    function v80StormGrand(){
-      boss.mechanicText='폭풍 거신: 테슬라 코일과 천둥 박자가 차례로 내려칩니다.';
-      const c='#facc15'; v80AddFx('tesla',{life:2.9,maxLife:2.9,color:c,sub:'#60a5fa',label:'TESLA RHYTHM'});
-      for(let i=0;i<9;i++) v80Circle(120+i*(W-240)/8,rand(130,H-80),32,.34+i*.08,.22,boss.atk*.74,c,'낙뢰 박자','lightning');
-      for(let i=0;i<5;i++) v80Beam(W/2,H/2,i*Math.PI/5,Math.hypot(W,H),10,.86+i*.04,.28,boss.atk*.48,'#fef08a','전류 회로','lightning');
-    }
-    function v80SignaturePattern(){
-      if(!v80Alive()) return;
-      const id=boss.id, t=v80Tier();
-      if(id==='puppet_emperor') return v80PuppetGrandPattern();
-      if(t<7) return;
-      if(id==='chrono_dragon') return v80ChronoGrand();
-      if(id==='abyss_leviathan') return v80LeviathanGrand();
-      if(id==='black_sun') return v80BlackSunGrand();
-      if(id==='chaos_archon') return v80ChaosGrand();
-      if(id==='gravity_core') return v80GravityGrand();
-      if(id==='storm_colossus') return v80StormGrand();
-      if(id==='solar_dragon') return v80BlackSunGrand();
-      if(id==='mirror_duelist') return v80PuppetFilmReel();
-      if(id==='iron_minotaur'){
-        boss.mechanicText='철갑 미노타우로스: 투우장 돌진과 모루 낙하를 유도해 빈틈을 만드세요.';
-        v80AddFx('arena',{life:2.6,maxLife:2.6,color:'#94a3b8',sub:'#f97316',label:'IRON BULL ARENA'});
-        for(let i=0;i<4;i++) v80Beam(boss.x,boss.y,i*Math.PI/2+Math.PI/4,Math.hypot(W,H),18,.66,.26,boss.atk*.60,'#f97316','거대 도끼','metal');
-        for(let i=0;i<5;i++) v80Circle(rand(120,W-120),rand(130,H-90),52,.85+i*.06,.25,boss.atk*.70,'#94a3b8','모루 낙하','metal');
+      else if(a.kind==='puppet_bind'){
+        boss.patternCd=Math.max(boss.patternCd,.35); player.slow=Math.max(player.slow,.25);
+        if((a.data.mash||0)>=(a.data.need||20)){ v81Text('실 해제!',player.x,player.y-52,'#86efac',21); breakBoss(.9); v81End(); }
+        else if(a.t>=a.duration){ hurtPlayer(boss.atk*1.15,'#f0abfc'); player.statuses.slow=Math.max(player.statuses.slow||0,1.2); v81Text('구속 실패',player.x,player.y-48,'#fb7185',19); v81End(); }
+      }
+      else if(a.kind==='puppet_typing'){
+        boss.patternCd=Math.max(boss.patternCd,.35);
+        const g=a.data; g.bladeY=-70+clamp(a.t/a.duration,0,1)*(H*.62);
+        if(g.result==='success'){ if(a.t>=a.duration-.8) v81End(); }
+        else if(a.t>=a.duration){ player.hp=0; state.flash=Math.max(state.flash,1.1); state.shake=Math.max(state.shake,16); v81AddFx('execution',{life:1.2,maxLife:1.2,color:'#ef4444',sub:'#020617',label:'EXECUTION'}); v81Text('처형',player.x,player.y-58,'#ef4444',34); v81End(); }
+      }
+      else if(a.kind==='puppet_dolls'){
+        boss.patternCd=Math.max(boss.patternCd,.45);
+        v81.dolls.forEach((d,i)=>{
+          d.life-=dt; d.cd-=dt;
+          d.x+=Math.sin(state.time*1.8+i)*24*dt; d.y+=Math.cos(state.time*1.2+i)*14*dt;
+          if(d.cd<=0){ d.cd=1.05+Math.random()*.35; aimBullet(d.x,d.y,player.x,player.y,245+boss.tier*8,'#f0abfc',boss.atk*.32,'mirror'); if(Math.random()<.28) v81HazBeam(d.x,d.y,Math.atan2(player.y-d.y,player.x-d.x),500,6,.48,.18,boss.atk*.24,'#fde68a','인형 칼날','mirror'); }
+        });
+        v81.dolls=v81.dolls.filter(d=>d.hp>0&&d.life>0);
+        if(!v81.dolls.length||a.t>=a.duration){ if(!v81.dolls.length) breakBoss(2.0); v81End(); }
+      }
+      else if(a.kind==='puppet_film'){
+        boss.patternCd=Math.max(boss.patternCd,.35);
+        if(a.spawn<=0 && a.data.waves<4){
+          const wave=a.data.waves++;
+          a.spawn=.78;
+          const gap=(wave+1)%5;
+          for(let i=0;i<5;i++){ if(i!==gap) v81HazWall(150+i*245,H/2,92,H*.68,.8,.38,boss.atk*.48,'#e5e7eb','필름 프레임','mirror'); }
+          if(wave===3) for(let j=0;j<6;j++) aimBullet(boss.x,boss.y,player.x+rand(-120,120),player.y+rand(-70,70),260,'#f0abfc',boss.atk*.35,'mirror');
+        }
+        if(a.t>=a.duration) v81End();
+      }
+      else if(a.kind==='chrono_conductor'){
+        if(a.spawn<=0 && a.data.wave<4){ const w=a.data.wave++; a.spawn=.82; const cx=W/2,cy=H/2; v81HazRot(cx,cy,w*Math.PI/4,w%2?-.42:.48,Math.hypot(W,H),7,.82,1.05,boss.atk*.42,w%2?'#f472b6':'#fef08a','초침 '+(w+1),'chrono'); if(w===2) for(let i=0;i<3;i++) v81HazCircle(player.x+rand(-140,140),player.y+rand(-90,90),36,.85,.22,boss.atk*.52,'#f472b6','되감기 잔상','chrono'); }
+        if(a.t>=a.duration) v81End();
+      }
+      else if(a.kind==='leviathan_pressure'){
+        if(a.spawn<=0 && a.data.wave<5){ const w=a.data.wave++; a.spawn=.72; if(w<3) v81HazBeam(W/2,170+w*120,0,W,13,.75,.30,boss.atk*.44,'#38bdf8','심해 파도','void'); else if(w===3) state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:230,power:58,life:1.9,color:'#38bdf8'}); else for(let i=0;i<4;i++) v81HazCircle(rand(120,W-120),rand(150,H-80),42,.8,.24,boss.atk*.58,'#67e8f9','심해 촉수','void'); }
+        if(a.t>=a.duration) v81End();
+      }
+      else if(a.kind==='black_sun_ritual'){
+        if(a.spawn<=0 && a.data.wave<4){ const w=a.data.wave++; a.spawn=.9; const cx=W/2,cy=H/2; if(w===0) v81HazDonut(cx,cy,110,320,1.0,.26,boss.atk*.82,'#f97316','검은 코로나','solar'); if(w===1) for(let i=0;i<8;i++) v81HazBeam(cx,cy,i*Math.PI*2/8,Math.hypot(W,H),8,.78,.26,boss.atk*.45,'#fb923c','태양 광익','solar'); if(w===2) for(let i=0;i<6;i++) v81HazCircle(rand(120,W-120),rand(130,H-90),42,.85,.24,boss.atk*.62,'#f97316','흑점 낙하','solar'); if(w===3) v81HazDonut(cx,cy,0,165,.9,.24,boss.atk*.72,'#020617','암흑 핵','solar'); }
+        if(a.t>=a.duration) v81End();
+      }
+      else if(a.kind==='chaos_rule'){
+        if(a.spawn<=0 && a.data.wave<3){ const w=a.data.wave++; a.spawn=.92; const roll=a.data.roll||1; v81Text('CHAOS RULE '+roll,W/2,108,'#fef2f2',24); if(roll%2) for(let i=0;i<4+w;i++) v81HazCircle(rand(110,W-110),rand(130,H-80),36+roll*3,.78,.24,boss.atk*.58,i%2?'#fb7185':'#7c3aed','혼돈 명령','chaos'); else for(let i=0;i<3+w;i++) v81HazBeam(W/2,H/2,(i+w)*Math.PI/(3+w),Math.hypot(W,H),8,.85,.25,boss.atk*.46,i%2?'#fb7185':'#7c3aed','차원 판결','chaos'); }
+        if(a.t>=a.duration) v81End();
+      }
+      else if(a.kind==='gravity_lens'){
+        if(a.spawn<=0 && a.data.wave<4){ const w=a.data.wave++; a.spawn=.85; const cx=W/2,cy=H/2; if(w===0) state.mechanics.push({kind:'gravity',x:cx,y:cy,r:285,power:70,life:2.2,color:'#818cf8'}); else if(w<3) v81HazRot(cx,cy,w*Math.PI/5,w%2?-.48:.48,Math.hypot(W,H),8,.82,1.05,boss.atk*.42,'#c4b5fd','궤도 절단','gravity'); else for(let i=0;i<5;i++) v81HazDonut(cx+Math.cos(i)*130,cy+Math.sin(i)*90,24,90,.82,.22,boss.atk*.48,'#818cf8','중력 렌즈','gravity'); }
+        if(a.t>=a.duration) v81End();
+      }
+      else if(a.kind==='storm_rhythm'){
+        if(a.spawn<=0 && a.data.wave<5){ const w=a.data.wave++; a.spawn=.58; for(let i=0;i<2;i++) v81HazCircle(160+(w*2+i)*(W-320)/10,rand(140,H-85),34,.54,.22,boss.atk*.66,'#facc15','낙뢰 박자','lightning'); if(w===4) for(let j=0;j<4;j++) v81HazBeam(W/2,H/2,j*Math.PI/4,Math.hypot(W,H),8,.8,.24,boss.atk*.43,'#fef08a','전류 회로','lightning'); }
+        if(a.t>=a.duration) v81End();
+      }
+      else if(a.kind==='minotaur_arena'){
+        if(a.spawn<=0 && a.data.wave<4){ const w=a.data.wave++; a.spawn=.86; if(w===0) v81HazBeam(boss.x,boss.y,Math.atan2(player.y-boss.y,player.x-boss.x),Math.hypot(W,H),22,1.0,.28,boss.atk*.72,'#f97316','투우 돌진','metal'); else if(w===1) for(let i=0;i<4;i++) v81HazCircle(rand(140,W-140),rand(140,H-90),52,.95,.24,boss.atk*.64,'#94a3b8','모루 낙하','metal'); else v81HazBeam(W/2,H/2,w*Math.PI/4,Math.hypot(W,H),12,.85,.28,boss.atk*.50,'#e5e7eb','도끼 궤적','metal'); }
+        if(a.t>=a.duration) v81End();
       }
     }
 
-    const V80_BASE_BOSS_PATTERN = bossPattern;
-    bossPattern = function(){
-      if(boss && boss.id==='puppet_emperor'){
-        if(Math.random() < (boss.phase>=3 ? .82 : .64)){ v80PuppetGrandPattern(); }
-        else V80_BASE_BOSS_PATTERN();
-        return;
+    const V81_BASE_BOSS_PATTERN=bossPattern;
+    bossPattern=function(){
+      if(!v81Alive()) return V81_BASE_BOSS_PATTERN();
+      if(v81.active || (v81.cinematicLock||0)>0){ boss.patternCd=Math.max(boss.patternCd,.55); return; }
+      if((v81.cooldown||0)>0) return V81_BASE_BOSS_PATTERN();
+      if(boss.id==='puppet_emperor'){
+        if(Math.random()<.58){ if(v81ChoosePuppet()) return; }
+        return V81_BASE_BOSS_PATTERN();
       }
-      V80_BASE_BOSS_PATTERN();
-      try{
-        const t=v80Tier();
-        if(t>=8 && Math.random() < (t>=10?.58:t>=9?.46:.32)) setTimeout(v80SignaturePattern,520);
-        else if(t>=7 && Math.random()<.22) setTimeout(v80SignaturePattern,680);
-      }catch(e){ console.warn('[V80 signature pattern failed]',e); }
+      const t=v81Tier();
+      if(t>=8 && Math.random() < (t>=10?.42:t>=9?.32:.22)){ if(v81StartHighTier()) return; }
+      if(t>=7 && Math.random()<.16){ if(v81StartHighTier()) return; }
+      return V81_BASE_BOSS_PATTERN();
     };
 
-    const V80_BASE_UPDATE = update;
-    update = function(dt){
-      V80_BASE_UPDATE(dt);
+    const V81_BASE_UPDATE=update;
+    update=function(dt){
+      V81_BASE_UPDATE(dt);
       try{
         if(!state.raid) return;
-        v80.effects.forEach(f=>{ f.life-=dt; });
-        v80.effects = v80.effects.filter(f=>f.life>0);
-        if(boss && boss.id==='puppet_emperor' && boss.phase !== v80.puppetPhaseSeen){
-          v80.puppetPhaseSeen = boss.phase; v80PuppetCurtain(boss.phase);
-        }
-        if(v80.puppetCurtain){ v80.puppetCurtain.life-=dt; if(v80.puppetCurtain.life<=0) v80.puppetCurtain=null; }
-        if(v80.puppetTyping){
-          const g=v80.puppetTyping; g.time-=dt; g.bladeY = -80 + (1 - clamp(g.time/g.max,0,1)) * (H*.66);
-          boss.patternCd=Math.max(boss.patternCd,.5);
-          if(g.time<=0 && !g.result){
-            g.result='fail'; g.resultLife=1.2; player.hp=0; state.flash=Math.max(state.flash,1.2); state.shake=Math.max(state.shake,18);
-            v80AddFx('execution',{life:1.4,maxLife:1.4,color:'#ef4444',sub:'#020617',label:'EXECUTED'});
-            v80Text('EXECUTION',player.x,player.y-60,'#ef4444',34);
-          }
-          if(g.result){ g.resultLife-=dt; if(g.resultLife<=0) v80.puppetTyping=null; }
-        }
-        if(v80.puppetBind){
-          const b=v80.puppetBind; b.time-=dt; player.slow=Math.max(player.slow,.25);
-          if(b.mash>=b.need){ v80Text('실 해제!',player.x,player.y-52,'#86efac',20); breakBoss(.9); v80.puppetBind=null; }
-          else if(b.time<=0){ hurtPlayer(boss.atk*1.55,'#f0abfc'); player.statuses.slow=Math.max(player.statuses.slow,1.6); v80Text('구속 실패!',player.x,player.y-48,'#fb7185',19); v80.puppetBind=null; }
-        }
-        if(v80.puppetDolls && v80.puppetDolls.length){
-          v80.puppetDolls.forEach(d=>{
-            d.life-=dt; d.cd-=dt;
-            d.x += Math.cos(state.time*1.5+d.a)*28*dt; d.y += Math.sin(state.time*1.2+d.a)*18*dt;
-            if(d.cd<=0){ d.cd=.85+Math.random()*.45; aimBullet(d.x,d.y,player.x,player.y,260+boss.tier*10,'#f0abfc',boss.atk*.35,'mirror'); if(Math.random()<.35) v80Beam(d.x,d.y,Math.atan2(player.y-d.y,player.x-d.x),520,6,.35,.18,boss.atk*.28,'#fde68a','인형 칼날','mirror'); }
-          });
-          v80.puppetDolls = v80.puppetDolls.filter(d=>d.life>0 && d.hp>0);
-          if(!v80.puppetDolls.length && boss && boss.id==='puppet_emperor') boss.patternCd=Math.min(boss.patternCd,.8);
-        }
-      }catch(e){ console.warn('[V80 update failed]',e); }
+        v81.cooldown=Math.max(0,(v81.cooldown||0)-dt);
+        v81.cinematicLock=Math.max(0,(v81.cinematicLock||0)-dt);
+        v81.effects.forEach(f=>f.life-=dt); v81.effects=v81.effects.filter(f=>f.life>0);
+        if(v81Alive() && boss.id==='puppet_emperor' && boss.phase!==v81.phaseSeen){ v81.phaseSeen=boss.phase; v81End(); v81StartCurtain(); }
+        v81UpdateActive(dt);
+      }catch(e){ console.warn('[V81 update failed]',e); }
     };
 
     window.addEventListener('keydown',function(e){
       try{
         if(!state || state.screen!=='raid') return;
         const k=e.key;
-        if(v80.puppetBind && /^[wasdWASD]$/.test(k)){ v80.puppetBind.mash++; e.preventDefault(); return; }
-        const g=v80.puppetTyping;
-        if(!g || g.result) return;
-        if(k==='Backspace'){ g.typed=g.typed.slice(0,-1); e.preventDefault(); return; }
-        if(k.length===1){
-          const next=(g.typed+k).toUpperCase();
-          if(g.phrase.startsWith(next)){ g.typed=next; }
-          else { state.shake=Math.max(state.shake,4); g.time=Math.max(0,g.time-.22); }
-          e.preventDefault();
-          if(g.typed===g.phrase){
-            g.result='success'; g.resultLife=.85; breakBoss(2.2); state.flash=Math.max(state.flash,.25); v80Text('대사 성공!',player.x,player.y-60,'#86efac',22);
+        if(v81.active && v81.active.kind==='puppet_bind' && /^[wasdWASD]$/.test(k)){ v81.active.data.mash=(v81.active.data.mash||0)+1; e.preventDefault(); return; }
+        if(v81.active && v81.active.kind==='puppet_typing'){
+          const g=v81.active.data; if(g.result) return;
+          if(k==='Backspace'){ g.typed=(g.typed||'').slice(0,-1); e.preventDefault(); return; }
+          if(k.length===1){
+            const next=((g.typed||'')+k).toUpperCase();
+            if(g.phrase.startsWith(next)) g.typed=next; else { state.shake=Math.max(state.shake,3); v81.active.t=Math.min(v81.active.duration-.5,v81.active.t+.18); }
+            e.preventDefault();
+            if(g.typed===g.phrase){ g.result='success'; v81.active.duration=Math.min(v81.active.duration,v81.active.t+.85); breakBoss(2.1); v81Text('대사 성공!',player.x,player.y-60,'#86efac',22); }
           }
         }
-      }catch(err){ console.warn('[V80 key failed]',err); }
+      }catch(err){ console.warn('[V81 key failed]',err); }
     },true);
 
-    const V80_BASE_DAMAGE_BOSS = damageBoss;
-    damageBoss = function(amount,color,big){
-      if(boss && boss.id==='puppet_emperor' && v80.puppetDolls && v80.puppetDolls.length){
-        v80Text('먼저 인형을 부수세요!',boss.x,boss.y-boss.r-44,'#fde68a',15);
-        return;
-      }
-      return V80_BASE_DAMAGE_BOSS(amount,color,big);
+    const V81_BASE_DAMAGE_BOSS=damageBoss;
+    damageBoss=function(amount,color,big){
+      if(boss && boss.id==='puppet_emperor' && v81.dolls && v81.dolls.length){ v81Text('먼저 인형을 부수세요',boss.x,boss.y-boss.r-44,'#fde68a',15); return; }
+      return V81_BASE_DAMAGE_BOSS(amount,color,big);
     };
-    const V80_BASE_RANGE = damageBossRange;
-    damageBossRange = function(range,dmg,color){ if(v80.puppetDolls&&v80.puppetDolls.length&&v80DamageDoll(dmg,color)) return; return V80_BASE_RANGE(range,dmg,color); };
-    const V80_BASE_LINE = damageBossLine;
-    damageBossLine = function(range,width,angle,dmg,color){ if(v80.puppetDolls&&v80.puppetDolls.length&&v80DamageDoll(dmg,color)) return; return V80_BASE_LINE(range,width,angle,dmg,color); };
-    const V80_BASE_CONE = damageBossCone;
-    damageBossCone = function(range,arc,angle,dmg,color){ if(v80.puppetDolls&&v80.puppetDolls.length&&v80DamageDoll(dmg,color)) return; return V80_BASE_CONE(range,arc,angle,dmg,color); };
-
-    const V80_BASE_UPDATE_PROJECTILES = updateProjectiles;
-    updateProjectiles = function(dt){
+    const V81_BASE_RANGE=damageBossRange;
+    damageBossRange=function(range,dmg,color){ if(v81.dolls&&v81.dolls.length&&v81DamageDolls(dmg,color,player.x,player.y,range)) return; return V81_BASE_RANGE(range,dmg,color); };
+    const V81_BASE_LINE=damageBossLine;
+    damageBossLine=function(range,width,angle,dmg,color){ if(v81.dolls&&v81.dolls.length&&v81DamageDolls(dmg,color,player.x+Math.cos(angle)*range*.5,player.y+Math.sin(angle)*range*.5,range*.55)) return; return V81_BASE_LINE(range,width,angle,dmg,color); };
+    const V81_BASE_CONE=damageBossCone;
+    damageBossCone=function(range,arc,angle,dmg,color){ if(v81.dolls&&v81.dolls.length&&v81DamageDolls(dmg,color,player.x+Math.cos(angle)*range*.35,player.y+Math.sin(angle)*range*.35,range*.55)) return; return V81_BASE_CONE(range,arc,angle,dmg,color); };
+    const V81_BASE_UPDATE_PROJECTILES=updateProjectiles;
+    updateProjectiles=function(dt){
       try{
-        if(v80.puppetDolls && v80.puppetDolls.length){
-          state.projectiles.forEach(p=>{
-            if(p.owner!=='player' || p.life<=0) return;
-            v80.puppetDolls.forEach(d=>{
-              if(d.hp>0 && dist(p.x,p.y,d.x,d.y)<p.r+d.r){ d.hp-=Math.max(1,Math.floor(p.damage)); p.life=0; v80Burst(d.x,d.y,p.color||'#fde68a',20,240); floatText('-'+Math.floor(p.damage),d.x,d.y-34,p.color||'#fde68a',15); }
-            });
-          });
-          v80.puppetDolls = v80.puppetDolls.filter(d=>d.life>0 && d.hp>0);
-          if(!v80.puppetDolls.length && boss && boss.id==='puppet_emperor') breakBoss(2.6);
+        if(v81.dolls&&v81.dolls.length){
+          state.projectiles.forEach(p=>{ if(p.owner!=='player'||p.life<=0) return; v81.dolls.forEach(d=>{ if(d.hp>0&&dist(p.x,p.y,d.x,d.y)<p.r+d.r){ d.hp-=Math.max(1,Math.floor(p.damage)); p.life=0; v81Burst(d.x,d.y,p.color||'#fde68a',16,210); floatText('-'+Math.floor(p.damage),d.x,d.y-34,p.color||'#fde68a',15); } }); });
+          v81.dolls=v81.dolls.filter(d=>d.hp>0&&d.life>0); if(!v81.dolls.length&&boss&&boss.id==='puppet_emperor') { breakBoss(2.3); if(v81.active&&v81.active.kind==='puppet_dolls') v81End(); }
         }
-      }catch(e){ console.warn('[V80 projectile doll hit failed]',e); }
-      return V80_BASE_UPDATE_PROJECTILES(dt);
+      }catch(e){ console.warn('[V81 projectile doll hit failed]',e); }
+      return V81_BASE_UPDATE_PROJECTILES(dt);
     };
 
-    const V80_BASE_DRAW = draw;
-    draw = function(){
-      V80_BASE_DRAW();
-      try{ v80DrawOverlays(); }catch(e){ console.warn('[V80 draw failed]',e); }
-    };
+    const V81_BASE_DRAW=draw;
+    draw=function(){ V81_BASE_DRAW(); try{ v81Draw(); }catch(e){ console.warn('[V81 draw failed]',e); } };
 
-    function v80DrawOverlays(){
+    function v81Draw(){
       if(!state || !(state.screen==='raid'||state.screen==='paused'||state.screen==='result')) return;
-      v80.effects.forEach(f=>{
+      v81.effects.forEach(f=>{
         const a=clamp(f.life/(f.maxLife||1),0,1), inv=1-a;
-        ctx.save(); ctx.globalAlpha=Math.min(.85,.18+a*.55); ctx.strokeStyle=f.color; ctx.fillStyle=f.color; ctx.lineWidth=3; ctx.shadowColor=f.color; ctx.shadowBlur=10;
+        ctx.save(); ctx.globalAlpha=Math.min(.88,.22+a*.56); ctx.strokeStyle=f.color; ctx.fillStyle=f.color; ctx.lineWidth=3; ctx.shadowColor=f.color; ctx.shadowBlur=9;
         if(f.kind==='curtain'){
-          ctx.fillStyle='rgba(127,29,29,'+(.34+.36*a)+')'; ctx.fillRect(0,0,W*(.52-inv*.52),H); ctx.fillRect(W-W*(.52-inv*.52),0,W*(.52-inv*.52),H);
-          ctx.fillStyle='#fecaca'; ctx.font='900 34px system-ui'; ctx.textAlign='center'; ctx.fillText(f.label||'CURTAIN',W/2,H/2);
-        }else if(f.kind==='guillotine'){
-          const y=-60+inv*(H*.64); ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=8; ctx.beginPath(); ctx.moveTo(W/2-170,80); ctx.lineTo(W/2-170,H-80); ctx.moveTo(W/2+170,80); ctx.lineTo(W/2+170,H-80); ctx.stroke(); ctx.fillStyle='#d1d5db'; ctx.beginPath(); ctx.moveTo(W/2-150,y); ctx.lineTo(W/2+150,y); ctx.lineTo(W/2,y+92); ctx.closePath(); ctx.fill();
-        }else if(f.kind==='execution'){
-          ctx.fillStyle='rgba(239,68,68,'+(.25+.45*a)+')'; ctx.fillRect(0,0,W,H); ctx.strokeStyle='#fee2e2'; ctx.lineWidth=10; ctx.beginPath(); ctx.moveTo(W/2-190,H*.35); ctx.lineTo(W/2+190,H*.58); ctx.stroke();
-        }else if(f.kind==='film'){
-          ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=16; for(let yy=105;yy<H;yy+=92){ ctx.beginPath(); ctx.moveTo(0,yy); ctx.lineTo(W,yy); ctx.stroke(); } ctx.fillStyle='rgba(15,23,42,.22)'; for(let x=35;x<W;x+=95) for(let y=80;y<H;y+=92) ctx.fillRect(x,y,44,30);
-        }else if(f.kind==='strings'){
-          ctx.strokeStyle=f.color; ctx.lineWidth=2; for(let i=-6;i<=6;i++){ ctx.beginPath(); ctx.moveTo(W/2+i*44,0); ctx.quadraticCurveTo(f.x+i*10,f.y-50,f.x+i*4,f.y+32); ctx.stroke(); }
-        }else if(f.kind==='theater'){
-          ctx.fillStyle='rgba(2,6,23,.32)'; ctx.fillRect(0,80,W,H-80); ctx.strokeStyle=f.color; ctx.lineWidth=6; ctx.strokeRect(60,92,W-120,H-150);
-        }else if(f.kind==='clock'){
-          ctx.strokeStyle=f.color; ctx.lineWidth=4; circleStroke(ctx,f.x,f.y,f.r||260); for(let i=0;i<12;i++){ const ang=i*Math.PI/6; ctx.beginPath(); ctx.moveTo(f.x+Math.cos(ang)*(f.r-25),f.y+Math.sin(ang)*(f.r-25)); ctx.lineTo(f.x+Math.cos(ang)*(f.r+10),f.y+Math.sin(ang)*(f.r+10)); ctx.stroke(); }
-        }else if(f.kind==='sea'){
-          ctx.strokeStyle=f.color; ctx.lineWidth=5; for(let y=120;y<H;y+=70){ ctx.beginPath(); for(let x=0;x<=W;x+=40){ const yy=y+Math.sin(x*.018+state.time*4)*18; if(x===0) ctx.moveTo(x,yy); else ctx.lineTo(x,yy); } ctx.stroke(); }
-        }else if(f.kind==='blackSun'){
-          ctx.fillStyle='#020617'; circle(ctx,f.x,f.y,(f.r||280)*(.75+.15*Math.sin(state.time*5))); ctx.strokeStyle=f.color; ctx.lineWidth=7; circleStroke(ctx,f.x,f.y,f.r||280);
-        }else if(f.kind==='dice'){
-          ctx.translate(f.x,f.y); ctx.rotate(state.time*.8); ctx.strokeStyle=f.color; ctx.strokeRect(-70,-70,140,140); ctx.strokeStyle=f.sub; ctx.strokeRect(-110,-110,220,220);
-        }else if(f.kind==='gravityLens'){
-          ctx.strokeStyle=f.color; for(let i=0;i<6;i++){ ctx.beginPath(); ctx.ellipse(f.x,f.y,(f.r||260)*(i+1)/6,(f.r||260)*.42*(i+1)/6,state.time*.4+i,0,Math.PI*2); ctx.stroke(); }
-        }else if(f.kind==='tesla'){
-          for(let i=0;i<7;i++){ const x=120+i*(W-240)/6; ctx.strokeStyle=i%2?f.color:f.sub; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(x,90); ctx.lineTo(x+Math.sin(state.time*8+i)*30,H-80); ctx.stroke(); }
-        }else if(f.kind==='sigil'){
-          circleStroke(ctx,f.x,f.y,(f.r||80)*(1+inv*.08)); ctx.font='900 15px system-ui'; ctx.textAlign='center'; ctx.fillText(f.label||'',f.x,f.y+5);
-        }else if(f.kind==='beamTrace'){
+          const w=W*(.54-inv*.54); ctx.fillStyle='rgba(127,29,29,'+(.30+.42*a)+')'; ctx.fillRect(0,0,w,H); ctx.fillRect(W-w,0,w,H); ctx.fillStyle='#fecaca'; ctx.font='900 36px system-ui'; ctx.textAlign='center'; ctx.fillText(f.label||'CURTAIN',W/2,H/2);
+        } else if(f.kind==='strings'){
+          ctx.strokeStyle=f.color; ctx.lineWidth=2; for(let i=-6;i<=6;i++){ ctx.beginPath(); ctx.moveTo(W/2+i*44,0); ctx.quadraticCurveTo(f.x+i*12,f.y-70,f.x+i*4,f.y+32); ctx.stroke(); }
+        } else if(f.kind==='guillotine'){
+          const g=v81.active&&v81.active.kind==='puppet_typing'?v81.active.data:null; const y=g?g.bladeY:-70+inv*(H*.62); ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=8; ctx.beginPath(); ctx.moveTo(W/2-170,80); ctx.lineTo(W/2-170,H-80); ctx.moveTo(W/2+170,80); ctx.lineTo(W/2+170,H-80); ctx.stroke(); ctx.fillStyle='#d1d5db'; ctx.beginPath(); ctx.moveTo(W/2-150,y); ctx.lineTo(W/2+150,y); ctx.lineTo(W/2,y+90); ctx.closePath(); ctx.fill();
+        } else if(f.kind==='execution'){
+          ctx.fillStyle='rgba(239,68,68,'+(.22+.45*a)+')'; ctx.fillRect(0,0,W,H); ctx.strokeStyle='#fee2e2'; ctx.lineWidth=10; ctx.beginPath(); ctx.moveTo(W/2-190,H*.35); ctx.lineTo(W/2+190,H*.58); ctx.stroke();
+        } else if(f.kind==='film'){
+          ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=14; for(let yy=105;yy<H;yy+=92){ ctx.beginPath(); ctx.moveTo(0,yy); ctx.lineTo(W,yy); ctx.stroke(); } ctx.fillStyle='rgba(15,23,42,.25)'; for(let x=35;x<W;x+=96) for(let y=82;y<H;y+=92) ctx.fillRect(x,y,44,30);
+        } else if(f.kind==='stage'){
+          ctx.fillStyle='rgba(2,6,23,.24)'; ctx.fillRect(0,80,W,H-80); ctx.strokeStyle=f.color; ctx.lineWidth=5; ctx.strokeRect(60,92,W-120,H-150);
+        } else if(f.kind==='clock'){
+          ctx.strokeStyle=f.color; ctx.lineWidth=4; circleStroke(ctx,f.x,f.y,f.r||280); for(let i=0;i<12;i++){ const ang=i*Math.PI/6; ctx.beginPath(); ctx.moveTo(f.x+Math.cos(ang)*((f.r||280)-25),f.y+Math.sin(ang)*((f.r||280)-25)); ctx.lineTo(f.x+Math.cos(ang)*((f.r||280)+8),f.y+Math.sin(ang)*((f.r||280)+8)); ctx.stroke(); }
+        } else if(f.kind==='sea'){
+          ctx.strokeStyle=f.color; ctx.lineWidth=5; for(let y=125;y<H;y+=78){ ctx.beginPath(); for(let x=0;x<=W;x+=42){ const yy=y+Math.sin(x*.018+state.time*3.5)*16; if(x===0) ctx.moveTo(x,yy); else ctx.lineTo(x,yy); } ctx.stroke(); }
+        } else if(f.kind==='blackSun'){
+          ctx.fillStyle='#020617'; circle(ctx,f.x,f.y,(f.r||280)*(.65+.10*Math.sin(state.time*5))); ctx.strokeStyle=f.color; ctx.lineWidth=7; circleStroke(ctx,f.x,f.y,f.r||280);
+        } else if(f.kind==='dice'){
+          ctx.translate(f.x,f.y); ctx.rotate(state.time*.7); ctx.strokeStyle=f.color; ctx.strokeRect(-65,-65,130,130); ctx.strokeStyle=f.sub; ctx.strokeRect(-105,-105,210,210);
+        } else if(f.kind==='gravityLens'){
+          ctx.strokeStyle=f.color; for(let i=0;i<6;i++){ ctx.beginPath(); ctx.ellipse(f.x,f.y,(f.r||260)*(i+1)/6,(f.r||260)*.42*(i+1)/6,state.time*.35+i,0,Math.PI*2); ctx.stroke(); }
+        } else if(f.kind==='tesla'){
+          for(let i=0;i<7;i++){ const x=120+i*(W-240)/6; ctx.strokeStyle=i%2?f.color:f.sub; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(x,90); ctx.lineTo(x+Math.sin(state.time*8+i)*28,H-80); ctx.stroke(); }
+        } else if(f.kind==='arena'){
+          ctx.strokeStyle=f.color; ctx.lineWidth=7; ctx.strokeRect(70,100,W-140,H-170); ctx.strokeStyle=f.sub; ctx.lineWidth=3; ctx.strokeRect(105,135,W-210,H-240);
+        } else if(f.kind==='markCircle'){
+          circleStroke(ctx,f.x,f.y,(f.r||70)*(1+inv*.05)); ctx.font='900 13px system-ui'; ctx.textAlign='center'; if(f.label) ctx.fillText(f.label,f.x,f.y+5);
+        } else if(f.kind==='markBeam'){
           ctx.translate(f.x,f.y); ctx.rotate(f.a||0); ctx.globalAlpha=.18+.25*a; roundRect(ctx,-(f.len||W)/2,-(f.w||12),(f.len||W),(f.w||12)*2,8);
-        }else if(f.kind==='rotator'){
-          ctx.translate(f.x,f.y); ctx.rotate((f.a||0)+state.time*(f.spin||1)); ctx.globalAlpha=.22+.25*a; roundRect(ctx,-(f.len||W)/2,-(f.w||12),(f.len||W),(f.w||12)*2,8);
-        }else if(f.kind==='donut'){
+        } else if(f.kind==='markRot'){
+          ctx.translate(f.x,f.y); ctx.rotate((f.a||0)+state.time*(f.spin||1)); ctx.globalAlpha=.18+.25*a; roundRect(ctx,-(f.len||W)/2,-(f.w||12),(f.len||W),(f.w||12)*2,8);
+        } else if(f.kind==='markDonut'){
           circleStroke(ctx,f.x,f.y,f.outer); circleStroke(ctx,f.x,f.y,f.inner);
-        }else if(f.kind==='wall'){
-          ctx.fillRect(f.x-f.w/2,f.y-f.h/2,f.w,f.h);
+        } else if(f.kind==='markWall'){
+          ctx.globalAlpha=.16+.28*a; ctx.fillRect(f.x-f.w/2,f.y-f.h/2,f.w,f.h);
         }
-        if(f.label && !['curtain','sigil'].includes(f.kind)){ ctx.globalAlpha=.85; ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillText(f.label,f.x||W/2,(f.y||H/2)-((f.r||70)+14)); }
         ctx.restore();
       });
 
-      if(v80.puppetDolls && v80.puppetDolls.length){
-        v80.puppetDolls.forEach(d=>{
-          ctx.save(); ctx.shadowColor='#f0abfc'; ctx.shadowBlur=14; ctx.strokeStyle='#f0abfc'; ctx.fillStyle='#d6a86c'; ctx.lineWidth=3;
-          ctx.beginPath(); ctx.moveTo(boss.x,boss.y-boss.r); ctx.lineTo(d.x,d.y-d.r); ctx.stroke();
-          ctx.fillStyle='#a16207'; circle(ctx,d.x,d.y,d.r); ctx.fillStyle='#fde68a'; circle(ctx,d.x-8,d.y-6,4); circle(ctx,d.x+8,d.y-6,4);
-          ctx.strokeStyle='#fef3c7'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(d.x-22,d.y+24); ctx.lineTo(d.x-50,d.y+54); ctx.moveTo(d.x+22,d.y+24); ctx.lineTo(d.x+50,d.y+54); ctx.stroke();
-          ctx.fillStyle='#111827'; roundRect(ctx,d.x-30,d.y-d.r-18,60,6,3); ctx.fillStyle='#facc15'; roundRect(ctx,d.x-30,d.y-d.r-18,60*clamp(d.hp/d.maxHp,0,1),6,3);
-          ctx.restore();
-        });
+      if(v81.dolls&&v81.dolls.length){
+        v81.dolls.forEach(d=>{ ctx.save(); ctx.shadowColor='#f0abfc'; ctx.shadowBlur=12; ctx.strokeStyle='#f0abfc'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(boss.x,boss.y-boss.r); ctx.lineTo(d.x,d.y-d.r); ctx.stroke(); ctx.fillStyle='#a16207'; circle(ctx,d.x,d.y,d.r); ctx.fillStyle='#fde68a'; circle(ctx,d.x-8,d.y-6,4); circle(ctx,d.x+8,d.y-6,4); ctx.strokeStyle='#fef3c7'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(d.x-22,d.y+23); ctx.lineTo(d.x-50,d.y+50); ctx.moveTo(d.x+22,d.y+23); ctx.lineTo(d.x+50,d.y+50); ctx.stroke(); ctx.fillStyle='#111827'; roundRect(ctx,d.x-31,d.y-d.r-18,62,6,3); ctx.fillStyle='#facc15'; roundRect(ctx,d.x-31,d.y-d.r-18,62*clamp(d.hp/d.maxHp,0,1),6,3); ctx.restore(); });
       }
-      if(v80.puppetBind){
-        const b=v80.puppetBind; ctx.save(); ctx.fillStyle='rgba(15,23,42,.72)'; roundRect(ctx,W/2-210,92,420,72,14); ctx.fillStyle='#f0abfc'; ctx.font='900 20px system-ui'; ctx.textAlign='center'; ctx.fillText('실 구속! WASD를 빠르게 흔드세요',W/2,122); ctx.fillStyle='#111827'; roundRect(ctx,W/2-150,138,300,12,6); ctx.fillStyle='#86efac'; roundRect(ctx,W/2-150,138,300*clamp(b.mash/b.need,0,1),12,6); ctx.restore();
+      if(v81.active&&v81.active.kind==='puppet_bind'){
+        const b=v81.active.data; ctx.save(); ctx.fillStyle='rgba(15,23,42,.78)'; roundRect(ctx,W/2-215,92,430,72,14); ctx.fillStyle='#f0abfc'; ctx.font='900 20px system-ui'; ctx.textAlign='center'; ctx.fillText('실 구속! WASD를 빠르게 흔드세요',W/2,122); ctx.fillStyle='#111827'; roundRect(ctx,W/2-150,138,300,12,6); ctx.fillStyle='#86efac'; roundRect(ctx,W/2-150,138,300*clamp((b.mash||0)/(b.need||20),0,1),12,6); ctx.restore();
       }
-      if(v80.puppetTyping){
-        const g=v80.puppetTyping; ctx.save(); ctx.fillStyle='rgba(2,6,23,.88)'; roundRect(ctx,W/2-300,82,600,126,18); ctx.strokeStyle='#ef4444'; ctx.lineWidth=3; ctx.strokeRect(W/2-292,90,584,110); ctx.textAlign='center'; ctx.font='900 18px system-ui'; ctx.fillStyle='#fecaca'; ctx.fillText('<대사를 읽으세요> 단두대 처형까지 '+Math.max(0,g.time).toFixed(1)+'초',W/2,115); ctx.font='900 30px monospace'; ctx.fillStyle='#ffffff'; ctx.fillText(g.phrase,W/2,154); ctx.fillStyle=g.result==='success'?'#86efac':'#fde68a'; ctx.fillText(g.typed || '_',W/2,190); ctx.restore();
+      if(v81.active&&v81.active.kind==='puppet_typing'){
+        const g=v81.active.data; const remain=Math.max(0,v81.active.duration-v81.active.t); ctx.save(); ctx.fillStyle='rgba(2,6,23,.88)'; roundRect(ctx,W/2-300,82,600,126,18); ctx.strokeStyle='#ef4444'; ctx.lineWidth=3; ctx.strokeRect(W/2-292,90,584,110); ctx.textAlign='center'; ctx.font='900 18px system-ui'; ctx.fillStyle='#fecaca'; ctx.fillText('<대사를 읽으세요> 단두대 처형까지 '+remain.toFixed(1)+'초',W/2,115); ctx.font='900 30px monospace'; ctx.fillStyle='#ffffff'; ctx.fillText(g.phrase,W/2,154); ctx.fillStyle=g.result==='success'?'#86efac':'#fde68a'; ctx.fillText(g.typed||'_',W/2,190); ctx.restore();
       }
     }
 
     try{
       const labels={
-        puppet_emperor:['실 구속','단두대 대사 입력','붉은 커튼 전환','목각 인형극','비디오 필름'],
-        chrono_dragon:['시계탑 붕괴','되감기 잔상','시간 메트로놈','초침 절단'],
-        abyss_leviathan:['심해 압력','촉수 오페라','소용돌이 흡입','해저 성가'],
-        black_sun:['검은 코로나','태양 광익','흑점 유성우','일식 심판'],
-        chaos_archon:['혼돈 주사위','차원 법정','규칙 붕괴','최종 명령'],
-        gravity_core:['중력 렌즈','궤도 절단','공간 압축','중력 우물'],
-        storm_colossus:['테슬라 코일','천둥 박자','전류 회로','낙뢰 행진'],
-        iron_minotaur:['투우 돌진','모루 낙하','거대 도끼','철갑 투기장']
+        puppet_emperor:['실 구속','대사 단두대','붉은 커튼','목각 인형극','비디오 필름'],
+        chrono_dragon:['시계 지휘','초침 절단','되감기 잔상','시간 박자'],
+        abyss_leviathan:['심해 파도','촉수 압박','소용돌이 흡입','심해 압력'],
+        black_sun:['검은 코로나','태양 광익','흑점 낙하','암흑 핵'],
+        chaos_archon:['혼돈 규칙','주사위 판결','차원 명령','규칙 붕괴'],
+        gravity_core:['중력 렌즈','궤도 절단','흡입 핵','공간 압축'],
+        storm_colossus:['낙뢰 박자','테슬라 회로','전류 선','폭풍 리듬'],
+        iron_minotaur:['투우 돌진','모루 낙하','도끼 궤적','철갑 투기장']
       };
       BOSSES.forEach(b=>{ if(labels[b.id]) b.patterns=labels[b.id].slice(); });
     }catch(e){}
 
-    window.RaidDungeonV80={
-      version:V80_VERSION,
-      marionette:['WASD mash string bind','typing guillotine 10 phrases','red curtain phase transition','wooden doll intermission','film reel theater attacks'],
-      highTier:['chrono clocktower','leviathan abyss pressure','black sun corona','chaos dice court','gravity lens','tesla rhythm'],
-      note:'Low-tier bosses remain lighter; tier 7+ and especially tier 9~10 receive stronger unique gimmicks.'
+    window.RaidDungeonV81={
+      version:V81_VERSION,
+      design:'One cinematic gimmick at a time. No simultaneous pattern dump. Telegraph, response window, judgment, recovery.',
+      marionette:['string bind with WASD mash','rare typing guillotine','red curtain phase transition','wooden doll intermission','film reel lanes'],
+      note:'Built on V79 large build; V80 overload is not used as the base.'
     };
-  }catch(e){ console.warn('[V80 high-tier gimmick patch failed]', e); }
+  }catch(e){ console.warn('[V81 paced boss director patch failed]', e); }
 
 })();
 
