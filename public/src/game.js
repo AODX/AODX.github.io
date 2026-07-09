@@ -441,13 +441,15 @@
 
   function bindEvents() {
     window.addEventListener('keydown', e=>{
-      const k = e.key.toLowerCase(); keys.add(k);
+      const k = String((e && e.key) || '').toLowerCase();
+      if(!k) return;
+      keys.add(k);
       if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
       if(state.screen==='raid'){
         if(k==='k') useSkill(0); if(k==='l') useSkill(1); if(k===';') useSkill(2); if(k==='j') basicAttack(); if(k==='p'||k==='escape') togglePause();
       } else if(state.screen==='paused' && (k==='p'||k==='escape')) togglePause();
     });
-    window.addEventListener('keyup', e=>keys.delete(e.key.toLowerCase()));
+    window.addEventListener('keyup', e=>{ const k = String((e && e.key) || '').toLowerCase(); if(k) keys.delete(k); });
     canvas.addEventListener('mousemove', updateMouse, {passive:true});
     canvas.addEventListener('mousedown', e=>{updateMouse(e); mouse.down=true; if(state.screen==='raid') basicAttack();});
     canvas.addEventListener('mouseup', ()=>mouse.down=false);
@@ -15510,6 +15512,140 @@ try {
       changed: ['남은 보스 HP바 설명 문장 제거','전투 중 장황한 안내 토스트 억제','데미지/스킬키/SAFE/단두대 입력 UI 유지','패턴과 랭킹 기능 유지']
     };
   }catch(e){ console.warn('[V90 polish failed]', e); }
+
+
+  /* =========================================================
+     V92 - PERFORMANCE SMOOTHER, SAME PATTERNS
+     목적: 패턴/연출은 유지하고, 렉의 원인이 되는 누적 이펙트와 과한 그림자 렌더링만 자동 완화.
+  ========================================================= */
+  try{
+    const V92_VERSION = 'Raid Dungeon V92 - Performance Smoother Same Patterns';
+    const v92 = state.v92 || (state.v92 = { avgDt: 1/60, lastClean: 0, fastDraw: false });
+
+    function v92Tier(){ return Math.max(1, Math.min(10, Number(boss && boss.tier || 1))); }
+    function v92Score(){
+      return (state.hazards.length * 4) + (state.projectiles.length * 3) + (state.zones.length * 4) + (state.mechanics.length * 3) + state.particles.length + (state.texts.length * 2);
+    }
+    function v92Stress(){
+      const s = v92Score();
+      return s > 950 || v92.avgDt > .026 || (state.particles && state.particles.length > 430);
+    }
+    function v92CleanExpired(){
+      if(!state || !state.raid) return;
+      const now = state.time || 0;
+      if(now - (v92.lastClean || 0) < .18) return;
+      v92.lastClean = now;
+      state.particles = state.particles.filter(p => !p || p.life == null || p.life > 0);
+      state.texts = state.texts.filter(t => !t || t.life == null || t.life > 0);
+      state.projectiles = state.projectiles.filter(p => !p || p.life == null || p.life > 0);
+      state.hazards = state.hazards.filter(h => !h || ((h.life == null || h.life > 0) && (h.warn == null || h.warn > -1.4)));
+      state.zones = state.zones.filter(z => !z || z.life == null || z.life > 0);
+      state.mechanics = state.mechanics.filter(m => !m || m.life == null || m.life > 0);
+    }
+    function v92Cap(arr, max){
+      if(arr && arr.length > max) arr.splice(0, arr.length - max);
+    }
+    function v92ApplyBudget(){
+      if(!state || !state.raid) return;
+      v92CleanExpired();
+      const t = v92Tier();
+      const stress = v92Stress();
+
+      // gameplay objects are kept generous; visual-only particles are trimmed first.
+      const particleMax = stress ? (t >= 9 ? 330 : t >= 7 ? 300 : 240) : (t >= 9 ? 470 : t >= 7 ? 410 : 330);
+      const hazardMax   = stress ? (t >= 9 ? 110 : t >= 7 ? 92  : 75)  : (t >= 9 ? 145 : t >= 7 ? 118 : 95);
+      const projMax     = stress ? (t >= 9 ? 165 : t >= 7 ? 135 : 105) : (t >= 9 ? 215 : t >= 7 ? 175 : 135);
+      const mechMax     = stress ? (t >= 9 ? 95  : t >= 7 ? 76  : 58)  : (t >= 9 ? 125 : t >= 7 ? 102 : 75);
+      const zoneMax     = stress ? (t >= 9 ? 65  : t >= 7 ? 54  : 42)  : (t >= 9 ? 84  : t >= 7 ? 70  : 55);
+
+      v92Cap(state.particles, particleMax);
+      v92Cap(state.texts, stress ? 48 : 70);
+      v92Cap(state.projectiles, projMax);
+      v92Cap(state.hazards, hazardMax);
+      v92Cap(state.mechanics, mechMax);
+      v92Cap(state.zones, zoneMax);
+      v92.fastDraw = stress;
+    }
+
+    const V92_BASE_UPDATE = update;
+    update = function(dt){
+      const safeDt = Math.min(Number(dt) || .016, .026);
+      v92.avgDt = v92.avgDt * .92 + safeDt * .08;
+      const r = V92_BASE_UPDATE(safeDt);
+      try{ v92ApplyBudget(); }catch(e){}
+      return r;
+    };
+
+    const V92_BASE_CAP = capCollections;
+    capCollections = function(){
+      try{ V92_BASE_CAP(); }catch(e){}
+      try{ v92ApplyBudget(); }catch(e){}
+    };
+
+    const V92_BASE_PARTICLES = drawParticles;
+    drawParticles = function(){
+      if(!v92.fastDraw) return V92_BASE_PARTICLES();
+      const arr = state.particles || [];
+      const stride = arr.length > 300 ? 2 : 1;
+      ctx.save();
+      ctx.shadowBlur = 0;
+      for(let i = 0; i < arr.length; i += stride){
+        const p = arr[i]; if(!p) continue;
+        const a = clamp(p.life == null ? 1 : p.life, 0, 1);
+        if(a <= 0) continue;
+        ctx.globalAlpha = Math.min(.85, a);
+        if(p.kind === 'ring'){
+          ctx.strokeStyle = p.color || '#fff';
+          ctx.lineWidth = Math.max(1, (p.line || 3) * .75);
+          circleStroke(ctx, p.x, p.y, Math.max(2, p.r * (1.15 - a * .25)));
+        }else if(p.kind === 'line'){
+          ctx.strokeStyle = p.color || '#fff';
+          ctx.lineWidth = Math.max(1, (p.r || 3) * .24);
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + Math.cos(p.angle || 0) * (p.len || 24), p.y + Math.sin(p.angle || 0) * (p.len || 24));
+          ctx.stroke();
+        }else{
+          ctx.fillStyle = p.color || '#fff';
+          circle(ctx, p.x, p.y, Math.max(1.5, (p.r || 3) * .85));
+        }
+      }
+      ctx.restore();
+    };
+
+    const V92_BASE_PROJECTILES = drawProjectiles;
+    drawProjectiles = function(){
+      if(!v92.fastDraw) return V92_BASE_PROJECTILES();
+      ctx.save();
+      ctx.shadowBlur = 0;
+      (state.projectiles || []).forEach(p=>{
+        if(!p) return;
+        if(p.delay && p.delay > 0){
+          ctx.globalAlpha = .18;
+          ctx.strokeStyle = p.color || '#fff';
+          circleStroke(ctx, p.x, p.y, 18);
+          ctx.globalAlpha = 1;
+          return;
+        }
+        ctx.fillStyle = p.color || '#fff';
+        circle(ctx, p.x, p.y, Math.max(2, p.r || 4));
+        ctx.globalAlpha = .26;
+        ctx.strokeStyle = p.color || '#fff';
+        ctx.lineWidth = Math.max(1, (p.r || 4) * .28);
+        ctx.beginPath();
+        ctx.moveTo(p.x - (p.vx || 0) * .018, p.y - (p.vy || 0) * .018);
+        ctx.lineTo(p.x - (p.vx || 0) * .055, p.y - (p.vy || 0) * .055);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      });
+      ctx.restore();
+    };
+
+    window.RaidDungeonV92 = {
+      version: V92_VERSION,
+      changed: ['패턴과 공격 로직 유지','누적된 이펙트 자동 정리','프레임이 밀릴 때만 가벼운 렌더링 사용','후반 보스 연출은 유지하되 입자/그림자 비용 완화']
+    };
+  }catch(e){ console.warn('[V92 performance smoother failed]', e); }
 
 
 })();
