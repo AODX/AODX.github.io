@@ -14,7 +14,7 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Dungeon V68 - Clear Cinematic Telegraphs Hard No Lag';
+  const VERSION = 'Raid Dungeon V70 - Readable Telegraphs Damage Reason No Lag';
   try { document.title = 'Raid Dungeon'; } catch(e) {}
   const W = 1280;
   const H = 720;
@@ -1489,7 +1489,13 @@
   function updateHazards(dt){
     state.hazards.forEach(h=>{
       if(!h || !Number.isFinite(h.life)) h.life = 0;
-      if(h.warn>0){ h.warn-=dt; if(h.kind==='rotatingBeam') h.angle += (h.spin||0)*dt*.25; return; }
+      if(h.warn>0){
+        // V70: 보스 공격 예고가 너무 빨리 사라지지 않도록 후반 보스 경고 시간을 늘린다.
+        const slowWarn = (boss && boss.tier >= 7 && h.kind !== 'playerStrike') ? 0.58 : 1;
+        h.warn-=dt*slowWarn;
+        if(h.kind==='rotatingBeam') h.angle += (h.spin||0)*dt*.18;
+        return;
+      }
       h.life-=dt;
       if(h.kind==='circle'){
         if(dist(h.x,h.y,player.x,player.y)<h.r+player.r){ hurtPlayer(h.damage,h.color); if(h.tag) applyBossHitStatus(h.tag); }
@@ -1525,7 +1531,34 @@
   function damageBossRange(range,dmg,color){ if(dist(player.x,player.y,boss.x,boss.y)<range+boss.r) damageBoss(dmg,color,false); }
   function damageBossLine(range,width,angle,dmg,color){ const px=boss.x-player.x, py=boss.y-player.y; const along=px*Math.cos(angle)+py*Math.sin(angle); const side=Math.abs(-px*Math.sin(angle)+py*Math.cos(angle)); if(along>0&&along<range+boss.r&&side<width+boss.r) damageBoss(dmg,color,false); }
   function damageBossCone(range,arc,angle,dmg,color){ const a=Math.atan2(boss.y-player.y,boss.x-player.x); let diff=Math.abs(normAngle(a-angle)); if(dist(player.x,player.y,boss.x,boss.y)<range+boss.r && diff<arc/2) damageBoss(dmg,color,false); }
-  function hurtPlayer(amount,color,statusDamage){ if(!Number.isFinite(amount)) amount = 1; if(!statusDamage && (player.invuln>0||state.screen!=='raid')) return; let realAmount=amount; if(boss&&boss.statuses&&boss.statuses.weaken>0) realAmount*=.72; let dmg=Math.max(1,Math.floor(realAmount-player.def)); if(player.shield>0){const used=Math.min(player.shield,dmg); player.shield-=used; dmg-=used;} if(dmg>0){player.hp-=dmg; player.damageTaken+=dmg; floatText('-'+dmg,player.x,player.y-24,color||'#fb7185'); state.shake=Math.max(state.shake,4); player.invuln=.18;} }
+  function inferDamageReason(color,statusDamage){
+    if(statusDamage) return '상태이상 / 기믹 실패';
+    const c=String(color||'').toLowerCase();
+    if(c.includes('fb7185')||c.includes('ef4444')||c.includes('f97316')) return '화염·처형 패턴';
+    if(c.includes('7dd3fc')||c.includes('38bdf8')||c.includes('bae6fd')) return '빙결·파도 패턴';
+    if(c.includes('facc15')||c.includes('fde047')) return '번개·태양 패턴';
+    if(c.includes('a78bfa')||c.includes('7c3aed')||c.includes('818cf8')) return '공허·중력 패턴';
+    if(c.includes('84cc16')||c.includes('22c55e')) return '독·가시 패턴';
+    return '보스 공격';
+  }
+  function hurtPlayer(amount,color,statusDamage,source){
+    if(!Number.isFinite(amount)) amount = 1;
+    if(!statusDamage && (player.invuln>0||state.screen!=='raid')) return;
+    let realAmount=amount;
+    if(boss&&boss.statuses&&boss.statuses.weaken>0) realAmount*=.72;
+    // V70: 갑자기 죽는 느낌을 줄이기 위해 후반 기믹 실패 피해를 약간 낮추고 원인을 표시한다.
+    if(boss && boss.tier>=7) realAmount*=.82;
+    let dmg=Math.max(1,Math.floor(realAmount-player.def));
+    if(player.shield>0){const used=Math.min(player.shield,dmg); player.shield-=used; dmg-=used;}
+    if(dmg>0){
+      player.hp-=dmg; player.damageTaken+=dmg;
+      const reason = source || inferDamageReason(color,statusDamage);
+      state.lastDamageInfo = {text: reason + ' -' + dmg, color: color || '#fb7185', life: 2.35};
+      floatText('-'+dmg+'  '+reason,player.x,player.y-24,color||'#fb7185',15);
+      state.shake=Math.max(state.shake,3.2);
+      player.invuln=statusDamage?.34:.24;
+    }
+  }
   function checkEnd(){ if(!state.raid) return; if(player.hp<=0&&!state.raid.failed){state.raid.failed=true; endRaid(false);} if(boss.dead&&!state.raid.clear){state.raid.clear=true; endRaid(true);} }
 
   function rollBossTicketRewards(b) {
@@ -11932,6 +11965,11 @@ function v53UniqueItems(items){
       ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='left'; ctx.fillText(`HP ${Math.ceil(player.hp)}/${Math.ceil(player.maxHp)}`,x+24,y+17);
       ctx.fillStyle='#bfdbfe'; ctx.fillText(`MP ${Math.floor(player.mp)}/${Math.floor(player.maxMp)}  (+${(player.mpRegen||3).toFixed(1)}/s)`,x+24,y+51);
       ctx.fillStyle='#cbd5e1'; ctx.font='800 11px system-ui'; ctx.fillText(`Shield ${Math.floor(player.shield||0)}  · 성장: HP Lv.${v62Training().hp} / MP Lv.${v62Training().mp} / 회복 Lv.${v62Training().regen}`,x+24,y+91);
+      if(state.lastDamageInfo && state.lastDamageInfo.life>0){
+        state.lastDamageInfo.life-=1/60;
+        ctx.fillStyle='rgba(15,23,42,.82)'; roundRect(ctx,x+18,y-34,318,24,9);
+        ctx.fillStyle=state.lastDamageInfo.color||'#fb7185'; ctx.font='900 12px system-ui'; ctx.fillText('최근 피해: '+state.lastDamageInfo.text,x+28,y-18);
+      }
       const labels=['J','1','2','3','Space']; const cds=[player.basicCd,player.skillCd[0],player.skillCd[1],player.skillCd[2],player.rollCd];
       for(let i=0;i<5;i++){
         const bx=455+i*84, by=H-86; ctx.fillStyle='rgba(15,23,42,.82)'; roundRect(ctx,bx,by,68,62,12);
@@ -13073,10 +13111,17 @@ function v53UniqueItems(items){
     try{ state.mechanics.push({kind:'safe',x,y,r,life,color:color||'#fb7185',fake:true,label:label||'FAKE'}); }catch(e){}
   }
   function v67Check(x,y,r,delay,breakTime,failDamage,color,label){
-    v67Later(delay || 1700, function(){
-      const ok = dist(player.x, player.y, x, y) <= (r || 42) + player.r;
-      if(ok){ try{ breakBoss(breakTime || .78); }catch(e){} healText(label || 'PERFECT BREAK', player.x, player.y - 42); }
-      else { hurtPlayer(failDamage || boss.atk * 1.55, color || v67Color(), true); floatText('기믹 실패', player.x, player.y - 44, '#fb7185', 20); }
+    // V70: 기믹 판정 시간을 늘리고, 판정 전까지 안전지대를 계속 보여준다.
+    const wait = Math.max(2300, Math.floor((delay || 1700) * 1.28 + 420));
+    const rr = Math.max(r || 42, 52);
+    try{
+      state.mechanics.push({kind:'safe',x,y,r:rr,life:wait/1000+.45,color:'#86efac',label:(label||'SAFE').replace(' · BREAK','')});
+      state.mechanics.push({kind:'cast',x:W/2,y:104,life:wait/1000+.2,text:'초록 안전지대로 이동하세요',color:'#86efac'});
+    }catch(e){}
+    v67Later(wait, function(){
+      const ok = dist(player.x, player.y, x, y) <= rr + player.r;
+      if(ok){ try{ breakBoss(breakTime || 1.05); }catch(e){} healText(label || '분석 성공 · BREAK', player.x, player.y - 42); }
+      else { hurtPlayer((failDamage || boss.atk * 1.35) * .72, color || v67Color(), true, '기믹 실패'); floatText('안전지대 밖 · 피해', player.x, player.y - 44, '#fb7185', 20); }
     });
   }
   function v67LiteSpark(x,y,color){
@@ -13286,7 +13331,13 @@ function v53UniqueItems(items){
   function v68Msg(text,color,type){ try{ v67Say(text,color,type||'cast'); }catch(e){ try{ toast(text); }catch(_){} } }
   function v68Safe(x,y,r,life,label){ try{ v67Safe(x,y,r,life,label); }catch(e){ v68Push({shape:'safeCircle',x,y,r,life,label}); } }
   function v68Fake(x,y,r,life,label,color){ try{ v67Fake(x,y,r,life,label,color); }catch(e){ v68Push({shape:'fakeCircle',x,y,r,life,label,color}); } }
-  function v68Check(x,y,r,ms,breakTime,failDamage,color,label){ try{ v67Check(x,y,r,ms,breakTime,failDamage,color,label); }catch(e){} }
+  function v68Check(x,y,r,ms,breakTime,failDamage,color,label){
+    // V70: V68의 빠른 판정을 학습 가능한 속도로 늦춘다.
+    const wait = Math.max(2550, Math.floor((ms || 1700) * 1.35 + 620));
+    const safeR = Math.max(r || 42, 54);
+    try{ v67Safe(x,y,safeR,wait/1000+.55,label||'SAFE'); }catch(e){}
+    try{ v67Check(x,y,safeR,wait,Math.max(breakTime||.8,1.05),(failDamage||boss.atk*1.45)*.72,color,label); }catch(e){}
+  }
   function v68Break(t){ try{ breakBoss(t); }catch(e){} }
 
   function v68DrawStripedRect(x,y,w,h,a,color,alpha,label){
@@ -13508,7 +13559,7 @@ function v53UniqueItems(items){
         if(t>=7){
           const allowed = t>=10 ? 7 : t>=9 ? 6 : t>=8 ? 5 : 4;
           v68Pattern((idx||0)%allowed);
-          if(t>=10 && ph>=3 && Math.random()<.14){ v67Later(1020,()=>v68Pattern(((idx||0)+3)%7)); }
+          if(t>=10 && ph>=3 && Math.random()<.07){ v67Later(1850,()=>v68Pattern(((idx||0)+3)%7)); }
           try{ v67Cap(); }catch(e){}
           return;
         }
@@ -13516,12 +13567,13 @@ function v53UniqueItems(items){
       try{ oldTypePatternV68(idx); }catch(err){ try{ v67Pattern(idx); }catch(_){} }
     };
     getBossPatternCooldown = function(){
+      // V70: 패턴을 분석할 시간을 주기 위해 후반 보스 연속 패턴 간격을 늘린다.
       const t=v68Tier(), ph=v68Phase();
-      if(t>=10) return ph>=3 ? 2.10 + Math.random()*.18 : 2.36 + Math.random()*.20;
-      if(t>=9) return ph>=3 ? 2.34 + Math.random()*.20 : 2.58 + Math.random()*.22;
-      if(t>=8) return ph>=3 ? 2.56 + Math.random()*.22 : 2.82 + Math.random()*.24;
-      if(t>=7) return ph>=3 ? 2.74 + Math.random()*.25 : 3.00 + Math.random()*.25;
-      return 3.1 + Math.random()*.35;
+      if(t>=10) return ph>=3 ? 3.55 + Math.random()*.35 : 3.90 + Math.random()*.40;
+      if(t>=9) return ph>=3 ? 3.80 + Math.random()*.38 : 4.15 + Math.random()*.42;
+      if(t>=8) return ph>=3 ? 4.05 + Math.random()*.40 : 4.38 + Math.random()*.45;
+      if(t>=7) return ph>=3 ? 4.25 + Math.random()*.42 : 4.65 + Math.random()*.48;
+      return 3.2 + Math.random()*.35;
     };
   }catch(e){ console.warn('[V68 pattern override failed]',e); }
 
@@ -13537,9 +13589,9 @@ function v53UniqueItems(items){
 
   try{
     window.RaidDungeonV68={
-      version:V68_VERSION,
+      version:'Raid Dungeon V70 - Readable Telegraphs Damage Reason No Lag',
       gachaHotfix:'rollGacha no longer depends on addOwned, so gacha buttons work even when older patch scopes hide addOwned',
-      visualRule:'danger is striped red, true safe is green-white, route arrows point to the intended answer, boss-specific arena tint names the mechanic',
+      visualRule:'V70: damage reason HUD, longer warnings, true safe zone remains visible until judgment, arrows point to answer',
       antiLag:'cinematic telegraphs are canvas-only mechanics with almost no collision checks; actual damage objects remain low count',
       patterns:['puppet opera lanes','clock trial numbers','black sun inside outside','gravity orbit stage','abyss air corridor','chaos real color glyphs','core break stage']
     };
