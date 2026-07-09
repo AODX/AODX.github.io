@@ -10168,6 +10168,505 @@ function v53UniqueItems(items){
     };
   }catch(e){ console.warn('[V54 update cap patch failed]',e); }
 
+
+
+  /* ===== V55: stronger lag reduction + 6 pattern phase system for every boss ===== */
+  const V55_VERSION = 'Raid Dungeon V55 - Six Phase Patterns Ultra Performance';
+  function v55HpRate(){ try{return boss.hp/Math.max(1,boss.maxHp);}catch(e){return 1;} }
+  function v55Phase(){ const r=v55HpRate(); return r<=.33?3:r<=.66?2:1; }
+  function v55Tier(){ return Math.max(1, Math.min(10, Number((boss&&boss.tier)||1))); }
+  function v55Dmg(m){ return Math.max(8, ((boss&&boss.atk)||18)*(m||1)); }
+  function v55Color(){ return (boss&&boss.color)||'#fff'; }
+  function v55Sub(){ return (boss&&boss.sub)||v55Color(); }
+  function v55A(){ return Math.atan2(player.y-boss.y, player.x-boss.x); }
+  function v55HazardCount(){ return (state.hazards||[]).length + (state.projectiles||[]).length + (state.particles||[]).length + (state.texts||[]).length; }
+  function v55Heavy(){ return state.screen==='raid' && v55HazardCount()>118; }
+  function v55Cap(){
+    if(state.hazards && state.hazards.length>96){
+      const keep=[];
+      const arr=state.hazards;
+      for(let i=0;i<arr.length;i++){
+        const h=arr[i];
+        if(!h) continue;
+        if(h.v51FullMap||h.respectSafe||h.v55Core||h.kind==='floor') keep.push(h);
+        else if(i%Math.ceil(arr.length/96)===0) keep.push(h);
+      }
+      state.hazards=keep.slice(-96);
+    }
+    if(state.projectiles && state.projectiles.length>118) state.projectiles.splice(0,state.projectiles.length-118);
+    if(state.particles && state.particles.length>82) state.particles.splice(0,state.particles.length-82);
+    if(state.texts && state.texts.length>22) state.texts.splice(0,state.texts.length-22);
+  }
+  function v55Cast(text, color){
+    boss.mechanicText=text;
+    if(!v55Heavy()) floatText(String(text).split(':').pop().slice(0,16), boss.x, boss.y-boss.r-22, color||v55Color(), 15);
+  }
+  function v55H(h){
+    h.v55Core=true;
+    if((h.warn||0)<.5) h.warn=.5;
+    if((h.life||0)<.35) h.life=.35;
+    state.hazards.push(h);
+  }
+  function v55Circle(x,y,r,warn,life,color,damage,label){ v55H({kind:'circle',x,y,r,warn,life,damage,color:color||v55Color(),tag:boss.theme,label}); }
+  function v55Beam(x,y,a,len,warn,life,color,damage,label,w){ v55H({kind:'beam',x,y,angle:a,len:len||980,w:w||24,warn,life,damage,color:color||v55Color(),tag:boss.theme,label}); }
+  function v55Wall(x,y,w,h,warn,life,color,damage,label){ v55H({kind:'wall',x,y,w,h,warn,life,damage,color:color||v55Color(),tag:boss.theme,label}); }
+  function v55Donut(x,y,inner,outer,warn,life,color,damage,label){ v55H({kind:'donut',x,y,inner,outer,warn,life,damage,color:color||v55Color(),tag:boss.theme,label}); }
+  function v55Full(warn,life,color,damage,label){
+    v55H({kind:'floor',x:W/2,y:H/2,w:W*1.08,h:H*1.08,warn,life,damage,color:color||v55Color(),tag:boss.theme,label:label||'전체 맵 공격',respectSafe:true,v51FullMap:true,v55Full:true,tick:0});
+  }
+  function v55Safe(x,y,r,life,color,fake){ state.mechanics.push({kind:'safe',x,y,r,life:life||2.2,color:color||'#86efac',fake:!!fake}); }
+  function v55Proj(a,speed,color,damage,r,life){ spawnProjectile({owner:'boss',x:boss.x+Math.cos(a)*boss.r*.65,y:boss.y+Math.sin(a)*boss.r*.65,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r:r||7,life:life||3,damage:damage||v55Dmg(.35),color:color||v55Color(),tag:boss.theme}); }
+  function v55RingBullets(count,speed,color,damage,offset){
+    count=Math.min(count, v55Heavy()?18:26);
+    for(let i=0;i<count;i++){ const a=i/count*Math.PI*2+(offset||0); v55Proj(a,speed,color,damage,6,3.2); }
+  }
+  function v55VisualBurst(x,y,color,n){
+    if(v55Heavy()) n=Math.min(n||12,8); else n=Math.min(n||18,24);
+    for(let i=0;i<n;i++) state.particles.push({kind:i%2?'star':'ring',x:x+rand(-16,16),y:y+rand(-16,16),vx:rand(-120,120),vy:rand(-150,80),r:rand(4,10),life:rand(.25,.55),color:color||v55Color(),line:2});
+  }
+
+  function v55Pattern0(){
+    const p=v55Phase(), t=v55Tier(), c=v55Color();
+    v55Cast(`${boss.name}: 추적 낙하를 보고 빈틈으로 빠지세요.`,c);
+    const n=Math.min(4+p+t/3|0, v55Heavy()?8:12);
+    for(let i=0;i<n;i++){
+      const tx=i<2?player.x+rand(-80,80):rand(100,W-100), ty=i<2?player.y+rand(-70,70):rand(120,H-80);
+      v55Circle(tx,ty,34+t*2+p*4,.66+i*.045,.42,c,v55Dmg(.44+p*.08),'추적 낙하');
+    }
+    if(p>=2) v55RingBullets(8+t,145+t*13,v55Sub(),v55Dmg(.23));
+  }
+  function v55Pattern1(){
+    const p=v55Phase(), t=v55Tier(), c=v55Color(), a=v55A();
+    v55Cast(`${boss.name}: 부채꼴 절단선이 좁혀집니다.`,c);
+    const rays=Math.min(5+p*2+Math.floor(t/3), v55Heavy()?10:15);
+    const spread=p===1?.78:p===2?1.05:1.35;
+    for(let i=0;i<rays;i++){
+      const aa=a-spread/2+spread*(rays===1?.5:i/(rays-1));
+      v55Beam(boss.x,boss.y,aa,980,.62+i*.025,.42,i%2?c:v55Sub(),v55Dmg(.38+p*.07),'부채 절단',18+p*3);
+    }
+    if(p>=3) setTimeout(()=>{ if(state.screen==='raid'&&!boss.dead) v55RingBullets(16+t,180+t*7,v55Sub(),v55Dmg(.24),state.time); },360);
+  }
+  function v55Pattern2(){
+    const p=v55Phase(), t=v55Tier(), c=v55Color();
+    v55Cast(`${boss.name}: 고리와 회전선이 겹칩니다.`,c);
+    const rings=p+2;
+    for(let i=0;i<rings;i++) v55Donut(boss.x,boss.y,54+i*58,82+i*58,.75+i*.08,.48,i%2?c:v55Sub(),v55Dmg(.38+p*.06),'회전 고리');
+    const beams=Math.min(2+p+(t>=8?1:0), v55Heavy()?4:6);
+    for(let i=0;i<beams;i++) v55Beam(W/2,H/2,Math.random()*Math.PI+i*Math.PI/beams,1100,.95+i*.08,.62,c,v55Dmg(.42+p*.06),'회전선',18+p*2);
+  }
+  function v55Pattern3(){
+    const p=v55Phase(), c=v55Color();
+    v55Cast(`${boss.name}: SAFE 안으로 이동하세요.`,c);
+    const sx=rand(130,W-130), sy=rand(135,H-105);
+    v55Safe(sx,sy,58+p*3,2.25,'#86efac',false);
+    if(p>=2 && !v55Heavy()) for(let i=0;i<Math.min(p,3);i++) v55Safe(rand(120,W-120),rand(130,H-100),48,2.1,c,true);
+    v55Full(1.35,.62,c,v55Dmg(.78+p*.12),'전장 심판');
+    if(p>=2) for(let i=0;i<4+p;i++) v55Circle(rand(100,W-100),rand(120,H-85),34,.82+i*.07,.40,v55Sub(),v55Dmg(.38),'심판 잔광');
+  }
+  function v55Pattern4(){
+    const p=v55Phase(), c=v55Color();
+    v55Cast(`${boss.name}: 미니 미로가 열립니다. 벽을 돌아서 피하세요.`,c);
+    if(typeof v51SpawnTrueMaze==='function') v51SpawnTrueMaze();
+    const lanes=Math.min(5+p*2, v55Heavy()?7:11);
+    for(let i=0;i<lanes;i++){
+      const vertical=i%2===0;
+      v55Wall(vertical?rand(150,W-150):W/2, vertical?H/2:rand(130,H-95), vertical?20:W*.72, vertical?H*.55:20, .95+i*.045, .62, i%2?c:v55Sub(), v55Dmg(.36+p*.05), '미로 봉쇄');
+    }
+  }
+  function v55Pattern5(){
+    const p=v55Phase(), t=v55Tier(), c=v55Color();
+    v55Cast(`${boss.name}: 최종 연계 패턴입니다. 구르기와 이동을 모두 써야 합니다.`,c);
+    const sx=rand(150,W-150), sy=rand(145,H-115);
+    v55Safe(sx,sy,54,2.1,'#86efac',false);
+    v55Full(1.15,.56,c,v55Dmg(.92+p*.10),'최종 전장 붕괴');
+    const rays=Math.min(8+p*3+Math.floor(t/2), v55Heavy()?12:20);
+    for(let i=0;i<rays;i++) v55Beam(W/2,H/2,i*Math.PI/rays+state.time*.06,1120,.68+i*.018,.46,i%2?c:v55Sub(),v55Dmg(.36+p*.05),'최종 광선',16+p*2);
+    setTimeout(()=>{ if(state.screen==='raid'&&!boss.dead){ for(let i=0;i<Math.min(8+t, v55Heavy()?10:16);i++) v55Circle(rand(100,W-100),rand(120,H-86),32+Math.random()*18,.48+i*.04,.38,v55Sub(),v55Dmg(.42),'낙하 핵'); } },420);
+  }
+
+  function v55ChoosePattern(){
+    const p=v55Phase(), t=v55Tier();
+    const pool=p===1?[0,0,1,1,2,3]:p===2?[0,1,2,3,4,4,5]:[0,1,2,3,4,5,5,5];
+    if(t>=8 && p>=2) pool.push(5,4);
+    if(t>=10) pool.push(5,5,4,2);
+    return pool[Math.floor(Math.random()*pool.length)];
+  }
+  BOSSES.forEach(b=>{
+    const base=(b.patterns||[]).slice(0,6);
+    const defaults=['추적 낙하','부채 절단','회전 고리','전장 심판','미로 봉쇄','최종 연계'];
+    while(base.length<6) base.push(defaults[base.length]);
+    b.patterns=base.slice(0,6);
+  });
+  try{
+    const oldGetBossPatternCooldownV55=getBossPatternCooldown;
+    getBossPatternCooldown=function(){
+      const t=v55Tier(), p=v55Phase();
+      return Math.max(.62, (2.55-t*.15) * (p===3?.68:p===2?.82:1) + Math.random()*.22);
+    };
+  }catch(e){}
+  try{
+    const oldBossPatternV55=bossPattern;
+    bossPattern=function(){
+      try{
+        v55Cap();
+        const idx=v55ChoosePattern();
+        if(idx===0) v55Pattern0();
+        else if(idx===1) v55Pattern1();
+        else if(idx===2) v55Pattern2();
+        else if(idx===3) v55Pattern3();
+        else if(idx===4) v55Pattern4();
+        else v55Pattern5();
+        const p=v55Phase(), t=v55Tier();
+        if(p>=2 && t>=6 && Math.random()<.36) setTimeout(()=>{ if(state.screen==='raid'&&!boss.dead){ const add=[v55Pattern0,v55Pattern1,v55Pattern2][Math.floor(Math.random()*3)]; add(); v55Cap(); } },560);
+        if(p>=3 && t>=8 && Math.random()<.34) setTimeout(()=>{ if(state.screen==='raid'&&!boss.dead){ v55Pattern5(); v55Cap(); } },960);
+        v55VisualBurst(boss.x,boss.y,v55Color(), v55Heavy()?6:14);
+        v55Cap();
+      }catch(e){ console.warn('[V55 boss pattern fallback]',e); try{oldBossPatternV55();}catch(_){} }
+    };
+  }catch(e){ console.warn('[V55 bossPattern patch failed]',e); }
+
+  function v55DrawHazardsUltra(){
+    const list=state.hazards||[]; const seen={};
+    ctx.save(); ctx.shadowBlur=0; ctx.lineJoin='round'; ctx.lineCap='round';
+    const step=list.length>90?2:1;
+    for(let i=0;i<list.length;i+=step){
+      const h=list[i]; if(!h) continue; const warn=(h.warn||0)>0, col=h.color||'#fff';
+      ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=warn?2.5:1.8; ctx.globalAlpha=warn?.16:.30;
+      if(h.kind==='floor'){ ctx.fillRect((h.x||W/2)-(h.w||W)/2,(h.y||H/2)-(h.h||H)/2,h.w||W,h.h||H); }
+      else if(h.kind==='beam'||h.kind==='rotatingBeam'){ ctx.save(); ctx.translate(h.x||W/2,h.y||H/2); ctx.rotate(h.angle||0); ctx.fillRect(-(h.len||1000)/2,-(h.w||20),h.len||1000,(h.w||20)*2); ctx.restore(); }
+      else if(h.kind==='wall'){ ctx.fillRect((h.x||0)-(h.w||40)/2,(h.y||0)-(h.h||40)/2,h.w||40,h.h||40); }
+      else { ctx.beginPath(); ctx.arc(h.x||W/2,h.y||H/2,h.r||h.outer||40,0,Math.PI*2); if(h.kind==='donut') ctx.stroke(); else ctx.fill(); }
+      const lab=String(h.label||'');
+      if(lab && !seen[lab] && Object.keys(seen).length<8){ seen[lab]=1; ctx.globalAlpha=.7; ctx.fillStyle='#fff'; ctx.font='900 11px system-ui'; ctx.textAlign='center'; ctx.fillText(lab,(h.x||W/2),(h.y||H/2)+4); }
+    }
+    ctx.globalAlpha=1; ctx.restore();
+  }
+  try{
+    const oldDrawHazardsV55=drawHazards;
+    drawHazards=function(){ if(v55Heavy()) return v55DrawHazardsUltra(); return oldDrawHazardsV55(); };
+  }catch(e){}
+  try{
+    const oldUpdateV55=update;
+    update=function(dt){
+      oldUpdateV55(dt);
+      if(v55Heavy()){
+        if(state.hazards&&state.hazards.length>86) state.hazards=state.hazards.filter((h,i)=>h&& (h.v55Core||h.v51FullMap||h.respectSafe||i%3===0)).slice(-86);
+        if(state.projectiles&&state.projectiles.length>105) state.projectiles.splice(0,state.projectiles.length-105);
+        if(state.particles&&state.particles.length>66) state.particles.splice(0,state.particles.length-66);
+        if(state.texts&&state.texts.length>16) state.texts.splice(0,state.texts.length-16);
+      } else v55Cap();
+    };
+  }catch(e){ console.warn('[V55 update ultra cap failed]',e); }
+  try{ window.RaidDungeonV55={version:V55_VERSION, sixPatternsPerBoss:true, phaseUnlock:'phase1 uses 3-4, phase2 adds 5th, phase3 adds 6th/final combos', ultraPerformance:true}; }catch(e){}
+
+
+
+  /* ===== V56: boss-specific 6 pattern phase system, not common labels ===== */
+  const V56_VERSION = 'Raid Dungeon V56 - Boss Unique Six Phase Patterns';
+  const V56_PROFILES = {
+    slime_king:{type:'slime',labels:['왕관 점프 착지','분열 젤리 방울','말랑 탄성 벽','푸딩 미끄럼판','젤리 왕국 압축','왕관 젤리 폭주']},
+    ember_tyrant:{type:'fire',labels:['전방 화염 숨결','용암 균열 별모양','화산탄 낙하','불타는 체스판','화염 폭주 회랑','화산 심장 폭발']},
+    thorn_queen:{type:'nature',labels:['덩굴 갈고리','가시 울타리','독꽃 개화','꽃잎 폭풍','장미 감옥','가시 왕관 처형식']},
+    frost_oracle:{type:'ice',labels:['빙창 낙하','얼음 감옥 통로','얼음 거울 반사','눈보라 차선','예언 빙결 타일','절대영도 장막']},
+    sand_reaper:{type:'sand',labels:['모래 낫 베기','모래 늪 매몰','사막 파도','모래시계 역류','황금 사신 회랑','사막 장례식']},
+    void_serpent:{type:'void',labels:['공허 포탈 물림','검은 늪 확산','추적 공허 구체','뱀 그림자 돌진','공허 고리 압축','심연 포식']},
+    iron_minotaur:{type:'metal',labels:['광폭 돌진 선로','철벽 충격파','도끼 파동','금속 파편 낙하','미노타우로스 투기장','강철 분쇄 연계']},
+    blood_moon:{type:'blood',labels:['혈월 표식','흡혈 칼날','붉은 달 탄막','핏빛 초승달','사냥꾼 처형선','혈월 만월 난무']},
+    storm_colossus:{type:'lightning',labels:['낙뢰 예고','전류 룬 연결','거신 충격파','피뢰침 사슬','폭풍 회로','천둥 심판']},
+    plague_doctor:{type:'poison',labels:['역병 안개 확산','해독 구역 역전','독침 난사','감염체 소환','오염 수술선','검은 역병 선고']},
+    mirror_duelist:{type:'mirror',labels:['거울 분신 검무','반사검 교차','진짜 찾기 환영','만화경 절단','거울 감옥','결투장 무한반사']},
+    gravity_core:{type:'gravity',labels:['중력 흡입','압축 폭발','역중력 파동','궤도 잔해','중력 미로','특이점 붕괴']},
+    solar_dragon:{type:'solar',labels:['태양 광선 호흡','태양 낙하','일식 안전지대','태양풍 회전','솔라 플레어','태양핵 초신성']},
+    chrono_dragon:{type:'chrono',labels:['시간 감속장','되감기 룬','분신 탄막','초침 절단','시계 미궁','시간정지 종말']},
+    abyss_leviathan:{type:'abyss',labels:['심해 파동','흡입 소용돌이','해류 SAFE','심해 촉수','쓰나미 해일벽','레비아탄 심연포식']},
+    puppet_emperor:{type:'puppet',labels:['실 조종선','인형실 갈고리','가짜 SAFE 인형극','단두대 예고','인형 감옥','황제의 처형식']},
+    black_sun:{type:'eclipse',labels:['흑점 낙하','검은 고리','일식 광선','붕괴 지대','태양 소멸 파동','종말 일식 연계']},
+    chaos_archon:{type:'chaos',labels:['혼돈 룬 변환','속성 뒤섞기','뒤틀린 탄막','무작위 처형선','혼돈 미로','차원 집행식']},
+    crimson_train:{type:'train',labels:['급행 열차 돌진','선로 전환','차륜 폭발','정차 신호 함정','철도 분기 미로','종착역 충돌']},
+    oracle_cube:{type:'cube',labels:['예언 큐브','회전 블록','큐브 절단','예언 퀴즈','색면 폭발','미래 좌표 붕괴']},
+    hollow_gardener:{type:'garden',labels:['공허 씨앗 파종','검은 덩굴길','정원사 낫질','꽃밭 부패','공허 온실','죽은 정원 개화']},
+    magnet_judge:{type:'magnet',labels:['극성 표식','자기장 밀어내기','금속 파편','N극 S극 심판','자력 감옥','자기 폭풍 판결']},
+    dream_jester:{type:'jester',labels:['가짜 SAFE 풍선','카드 폭탄','웃음 함정','풍선 감옥','악몽 룰렛','서커스 대혼란']},
+    apocalypse_capy:{type:'eclipse',labels:['길드 붕괴 예고','제필 길드 붕괴','동쉼 길드 붕괴','블마 길드 붕괴','불멸의 광휘','감히 죽일 수 없는 존재']},
+    dlc_final:{type:'eclipse',labels:['제필 길드 붕괴','동쉼 길드 붕괴','블마 길드 붕괴','절대권능 광휘','차원 왕관 폭발','감히 죽일 수 없는 존재']}
+  };
+  function v56Profile(){
+    const id=(boss&&boss.id)||'';
+    if(V56_PROFILES[id]) return V56_PROFILES[id];
+    const th=(boss&&boss.theme)||'';
+    const map={fire:'ember_tyrant',slime:'slime_king',nature:'thorn_queen',ice:'frost_oracle',sand:'sand_reaper',void:'void_serpent',metal:'iron_minotaur',blood:'blood_moon',lightning:'storm_colossus',poison:'plague_doctor',mirror:'mirror_duelist',gravity:'gravity_core',solar:'solar_dragon',chrono:'chrono_dragon',chaos:'chaos_archon'};
+    return V56_PROFILES[map[th]] || {type:th||'arcane',labels:['고유 예고','고유 돌진','고유 고리','고유 전장','고유 미로','고유 필살']};
+  }
+  function v56C(){ return v55Color(); }
+  function v56S(){ return v55Sub(); }
+  function v56Label(i){ const p=v56Profile(); return (p.labels&&p.labels[i]) || ('고유 패턴 '+(i+1)); }
+  function v56Cast(i){ v55Cast(`${boss.name}: ${v56Label(i)}`, v56C()); }
+  function v56Scatter(label, color, n, r, mul){
+    n=Math.min(n, v55Heavy()?8:14);
+    for(let i=0;i<n;i++){
+      const near=i<2;
+      v55Circle(near?player.x+rand(-85,85):rand(90,W-90), near?player.y+rand(-75,75):rand(118,H-85), r+rand(-4,8), .62+i*.04, .42, color, v55Dmg(mul||.34), label);
+    }
+  }
+  function v56Fan(label, color, rays, spread, mul){
+    const a=v55A(); rays=Math.min(rays, v55Heavy()?9:14);
+    for(let i=0;i<rays;i++){
+      const aa=a-spread/2+spread*(rays===1?.5:i/(rays-1));
+      v55Beam(boss.x,boss.y,aa,1040,.64+i*.025,.42, i%2?color:v56S(), v55Dmg(mul||.36), label, 18+v55Phase()*2);
+    }
+  }
+  function v56Rings(label, color, count, mul){
+    for(let i=0;i<count;i++) v55Donut(boss.x,boss.y,52+i*58,84+i*58,.72+i*.075,.48,i%2?color:v56S(),v55Dmg(mul||.36),label);
+  }
+  function v56SafeFull(label, color, mul){
+    const sx=rand(140,W-140), sy=rand(135,H-105);
+    v55Safe(sx,sy,58+v55Phase()*3,2.3,'#86efac',false);
+    if(v55Phase()>=2 && !v55Heavy()) v55Safe(rand(120,W-120),rand(130,H-100),48,2.1,color,true);
+    v55Full(1.25,.58,color,v55Dmg(mul||.74),label);
+  }
+  function v56LaneMaze(label, color, mul){
+    if(typeof v51SpawnTrueMaze==='function' && v55Phase()>=2) v51SpawnTrueMaze();
+    const lanes=Math.min(4+v55Phase()*2+Math.floor(v55Tier()/4), v55Heavy()?7:12);
+    for(let i=0;i<lanes;i++){
+      const vertical=i%2===0;
+      v55Wall(vertical?rand(135,W-135):W/2, vertical?H/2:rand(128,H-92), vertical?20:W*.74, vertical?H*.58:20, .88+i*.045, .58, i%2?color:v56S(), v55Dmg(mul||.34), label);
+    }
+  }
+  function v56StylePattern(idx){
+    const p=v56Profile(), type=p.type, ph=v55Phase(), tier=v55Tier(), c=v56C(), s=v56S(), label=v56Label(idx);
+    v56Cast(idx);
+    if(type==='slime'){
+      if(idx===0){ v56Scatter(label,c,4+ph,42,.28); v55Donut(player.x,player.y,50,145,.72,.45,c,v55Dmg(.22),label+' 파동'); }
+      else if(idx===1){ v55RingBullets(10+ph*3,130+tier*8,c,v55Dmg(.18),state.time); v56Scatter(label,s,5+ph,26,.20); }
+      else if(idx===2){ v56LaneMaze(label,c,.28); }
+      else if(idx===3){ v56SafeFull(label,c,.58); }
+      else if(idx===4){ v56Rings(label,c,3+ph,.30); v56Scatter(label,s,6+ph,34,.24); }
+      else { v56SafeFull(label,c,.74); v55RingBullets(16+ph*4,170+tier*8,s,v55Dmg(.22)); }
+    } else if(type==='fire' || type==='solar' || type==='eclipse'){
+      if(idx===0) v56Fan(label,c,5+ph*2, type==='eclipse'?1.55:1.05,.40);
+      else if(idx===1) v56Scatter(label,s,7+ph*2,34,.36);
+      else if(idx===2) v56SafeFull(label,c,type==='eclipse'?.82:.68);
+      else if(idx===3){ const step=type==='eclipse'?5:6; for(let i=0;i<step;i++) v55Beam(W/2,H/2,i*Math.PI/step+state.time*.04,1120,.82+i*.05,.55,i%2?c:s,v55Dmg(.38),label,20); }
+      else if(idx===4){ v56Rings(label,c,3+ph,.42); v56Fan(label,s,4+ph,Math.PI*1.35,.32); }
+      else { v56SafeFull(label,c,type==='eclipse'?.96:.82); v56Fan(label,s,8+ph*3,Math.PI*1.7,.38); setTimeout(()=>{ if(state.screen==='raid'&&!boss.dead) v56Scatter(label,s,7+ph,32,.38); },360); }
+    } else if(type==='nature' || type==='poison' || type==='garden'){
+      if(idx===0) v56Fan(label,c,4+ph,1.1,.30);
+      else if(idx===1) v56LaneMaze(label,c,.32);
+      else if(idx===2) v56Scatter(label,s,8+ph,30,.28);
+      else if(idx===3){ v56Rings(label,c,2+ph,.30); if(ph>=2) v55RingBullets(8+ph*3,140+tier*6,s,v55Dmg(.16)); }
+      else if(idx===4){ v56SafeFull(label,c,.68); v56Scatter(label,s,5,28,.22); }
+      else { v56LaneMaze(label,c,.42); v56SafeFull(label,s,.76); }
+    } else if(type==='ice' || type==='chrono'){
+      if(idx===0) v56Scatter(label,c,8+ph*2,25,.28);
+      else if(idx===1) v56LaneMaze(label,c,.30);
+      else if(idx===2) { v56Fan(label,c,5+ph,Math.PI*.95,.32); v55Beam(W/2,H/2,Math.PI/2,980,.95,.45,s,v55Dmg(.28),label+' 반사',18); }
+      else if(idx===3) v56SafeFull(label,c,.64);
+      else if(idx===4){ for(let i=0;i<6+ph;i++) v55Wall(rand(110,W-110),rand(120,H-90),76,76,.76+i*.06,.48,i%2?c:s,v55Dmg(.32),label); }
+      else { v56Rings(label,c,4,.42); v56Fan(label,s,8+ph,Math.PI*1.25,.36); }
+    } else if(type==='sand' || type==='blood' || type==='metal'){
+      if(idx===0) v56Fan(label,c,4+ph,1.2,.36);
+      else if(idx===1) v56Scatter(label,s,6+ph,42,.32);
+      else if(idx===2) v56Rings(label,c,2+ph,.34);
+      else if(idx===3) v56SafeFull(label,c,.66);
+      else if(idx===4){ for(let i=0;i<5+ph;i++) v55Beam(rand(80,W-80),rand(120,H-90),rand(0,Math.PI),520,.75+i*.04,.48,i%2?c:s,v55Dmg(.34),label,22); }
+      else { v56Fan(label,c,8+ph*3,Math.PI*1.55,.42); v56Scatter(label,s,5+ph,34,.30); }
+    } else if(type==='lightning' || type==='magnet'){
+      if(idx===0) v56Scatter(label,c,7+ph*2,32,.34);
+      else if(idx===1){ const rods=[]; for(let i=0;i<4+ph;i++){ const x=rand(110,W-110),y=rand(125,H-95); rods.push({x,y}); v55Circle(x,y,24,.65+i*.04,.38,c,v55Dmg(.20),label); } for(let i=1;i<rods.length;i++) v55Beam((rods[i-1].x+rods[i].x)/2,(rods[i-1].y+rods[i].y)/2,Math.atan2(rods[i].y-rods[i-1].y,rods[i].x-rods[i-1].x),Math.hypot(rods[i].x-rods[i-1].x,rods[i].y-rods[i-1].y),.92,.46,s,v55Dmg(.28),label+' 연결',14); }
+      else if(idx===2) v56Rings(label,c,3,.36);
+      else if(idx===3) v56SafeFull(label,c,.68);
+      else if(idx===4) v56LaneMaze(label,c,.36);
+      else { v56Scatter(label,c,8+ph*2,30,.35); v56Fan(label,s,7+ph,Math.PI*1.3,.38); }
+    } else if(type==='mirror' || type==='puppet' || type==='jester'){
+      if(idx===0) v56Fan(label,c,5+ph,1.25,.30);
+      else if(idx===1) v56Scatter(label,s,6+ph,34,.28);
+      else if(idx===2){ v55Safe(rand(140,W-140),rand(130,H-100),54,2.15,'#86efac',false); for(let i=0;i<2+ph;i++) v55Safe(rand(110,W-110),rand(125,H-95),48,2.15,c,true); v55Full(1.2,.52,c,v55Dmg(.62),label); }
+      else if(idx===3){ if(type==='puppet') v56LaneMaze(label,c,.38); else v56Rings(label,c,3,.34); }
+      else if(idx===4){ v56LaneMaze(label,c,.35); v55RingBullets(10+ph*3,150+tier*7,s,v55Dmg(.18)); }
+      else { v56SafeFull(label,c,.82); v56Fan(label,s,9+ph*2,Math.PI*1.45,.38); }
+    } else if(type==='void' || type==='gravity' || type==='abyss' || type==='chaos'){
+      if(idx===0) v56Rings(label,c,2+ph,.34);
+      else if(idx===1) v56Scatter(label,s,6+ph*2,38,.32);
+      else if(idx===2) v56Fan(label,c,5+ph*2,Math.PI*1.15,.34);
+      else if(idx===3) v56SafeFull(label,c,.72);
+      else if(idx===4) v56LaneMaze(label,c,.38);
+      else { v56SafeFull(label,c,.88); v56Rings(label,s,4,.42); v56Fan(label,c,7+ph*2,Math.PI*1.6,.36); }
+    } else if(type==='train' || type==='cube'){
+      if(idx===0) v56Fan(label,c,3+ph,Math.PI*.35,.40);
+      else if(idx===1) v56LaneMaze(label,c,.34);
+      else if(idx===2) v56Scatter(label,s,6+ph,40,.34);
+      else if(idx===3) v56SafeFull(label,c,.68);
+      else if(idx===4){ for(let i=0;i<6+ph;i++) v55Wall(rand(110,W-110),rand(120,H-90),62,62,.66+i*.04,.52,i%2?c:s,v55Dmg(.34),label); }
+      else { v56LaneMaze(label,c,.44); v56Fan(label,s,8+ph,Math.PI*1.45,.38); }
+    } else {
+      if(idx===0) v56Scatter(label,c,6+ph,34,.30); else if(idx===1) v56Fan(label,c,5+ph,1.1,.34); else if(idx===2) v56Rings(label,c,2+ph,.34); else if(idx===3) v56SafeFull(label,c,.66); else if(idx===4) v56LaneMaze(label,c,.36); else { v56SafeFull(label,c,.82); v56Fan(label,s,8+ph,Math.PI*1.4,.38); }
+    }
+    v55VisualBurst(boss.x,boss.y,c,v55Heavy()?4:10);
+  }
+  function v56Choose(){
+    const ph=v55Phase(), t=v55Tier();
+    let pool=ph===1?[0,0,1,1,2,3]:ph===2?[0,1,2,3,4,4]:[0,1,2,3,4,5,5];
+    if(t>=8&&ph>=2) pool=pool.concat([4,5]);
+    if(t>=10&&ph>=3) pool=pool.concat([5,5,4]);
+    return pool[Math.floor(Math.random()*pool.length)];
+  }
+  try{
+    BOSSES.forEach(b=>{
+      const prof=V56_PROFILES[b.id] || V56_PROFILES[{fire:'ember_tyrant',slime:'slime_king',nature:'thorn_queen',ice:'frost_oracle',sand:'sand_reaper',void:'void_serpent',metal:'iron_minotaur',blood:'blood_moon',lightning:'storm_colossus',poison:'plague_doctor',mirror:'mirror_duelist',gravity:'gravity_core',solar:'solar_dragon',chrono:'chrono_dragon',chaos:'chaos_archon'}[b.theme]];
+      if(prof&&prof.labels) b.patterns=prof.labels.slice(0,6);
+    });
+  }catch(e){ console.warn('[V56 pattern labels failed]', e); }
+  try{
+    const oldBossPatternV56=bossPattern;
+    bossPattern=function(){
+      try{
+        v55Cap();
+        v56StylePattern(v56Choose());
+        const ph=v55Phase(), t=v55Tier();
+        if(ph>=2&&t>=7&&Math.random()<.28) setTimeout(()=>{ if(state.screen==='raid'&&!boss.dead){ v56StylePattern(Math.floor(Math.random()*4)); v55Cap(); } },520);
+        if(ph>=3&&t>=9&&Math.random()<.24) setTimeout(()=>{ if(state.screen==='raid'&&!boss.dead){ v56StylePattern(5); v55Cap(); } },900);
+        v55Cap();
+      }catch(e){ console.warn('[V56 boss pattern fallback]',e); try{oldBossPatternV56();}catch(_){} }
+    };
+  }catch(e){ console.warn('[V56 bossPattern failed]', e); }
+  try{ window.RaidDungeonV56={version:V56_VERSION, bossSpecificSixPatterns:true, phaseUnlock:'each boss has own 6 labels and own themed implementation', notCommonPatterns:true}; }catch(e){}
+
+
+  /* ===== V57: tier based pattern count, not fixed six for every boss ===== */
+  const V57_VERSION = 'Raid Dungeon V57 - Tier Based Unique Pattern Count';
+  const V57_EXTRA_LABELS = {
+    slime:['왕실 젤리 분열','초탄성 푸딩 해일'],
+    fire:['불사조 화염폭우','화산왕 분화식'],
+    nature:['가시 정원 대봉쇄','장미여왕 만개식'],
+    poison:['대역병 격리구역','검은 수술실 개방'],
+    garden:['죽은 꽃의 장례식','공허 정원 대개화'],
+    ice:['수정 예언 십자','백야 빙하 낙인'],
+    chrono:['시간축 붕괴','영원 회귀 심판'],
+    sand:['사막 무덤 행렬','황금 모래폭풍'],
+    metal:['강철 투기장 붕괴','미노타우로스 광란'],
+    blood:['핏빛 사냥 의식','혈월 붉은 처형'],
+    void:['공허 균열 대확장','무저갱 포식식'],
+    gravity:['블랙홀 궤도 붕괴','특이점 대압축'],
+    abyss:['심해 왕의 포효','심연 해일 종말'],
+    lightning:['천둥왕 번개감옥','폭풍 회로 대폭주'],
+    magnet:['극성 반전 판결','자력 심판장'],
+    mirror:['무한 거울 결투장','만화경 처형무'],
+    puppet:['꼭두각시 왕좌극','황제의 최종 단두대'],
+    jester:['악몽 퍼레이드','서커스 종말 공연'],
+    chaos:['차원 혼돈 법정','혼돈 집행 대칙령'],
+    solar:['태양왕 강림','태양핵 창세 폭발'],
+    eclipse:['암흑 십자성','종말 흑일식 왕관'],
+    train:['폭주 종착역','무한 급행 충돌'],
+    cube:['예언 차원큐브','미래좌표 소거식'],
+    arcane:['비전 난류','마력 핵붕괴']
+  };
+  function v57TierRaw(b){
+    const t=(b&&b.tier);
+    if(String(t).toUpperCase()==='DLC') return 11;
+    const n=Number(t||1);
+    return Number.isFinite(n)?n:1;
+  }
+  function v57PatternCountForBoss(b){
+    const id=String((b&&b.id)||'');
+    const t=v57TierRaw(b);
+    if(t>=11 || id.includes('dlc') || id.includes('apocalypse')) return 8;
+    if(t>=9) return 7;
+    if(t>=6) return 6;
+    if(t>=3) return 5;
+    return 4;
+  }
+  function v57ProfileForBoss(b){
+    const id=(b&&b.id)||'';
+    if(V56_PROFILES[id]) return V56_PROFILES[id];
+    const th=(b&&b.theme)||'';
+    const map={fire:'ember_tyrant',slime:'slime_king',nature:'thorn_queen',ice:'frost_oracle',sand:'sand_reaper',void:'void_serpent',metal:'iron_minotaur',blood:'blood_moon',lightning:'storm_colossus',poison:'plague_doctor',mirror:'mirror_duelist',gravity:'gravity_core',solar:'solar_dragon',chrono:'chrono_dragon',chaos:'chaos_archon',garden:'hollow_gardener'};
+    return V56_PROFILES[map[th]] || {type:th||'arcane',labels:['고유 예고','고유 돌진','고유 고리','고유 전장','고급 기믹','최종 필살']};
+  }
+  function v57LabelsForBoss(b){
+    const prof=v57ProfileForBoss(b);
+    const type=(prof&&prof.type)||((b&&b.theme)||'arcane');
+    const labels=(prof&&prof.labels?prof.labels.slice():[]);
+    const extras=(V57_EXTRA_LABELS[type]||V57_EXTRA_LABELS.arcane).slice();
+    while(labels.length<8) labels.push(extras[(labels.length-6+extras.length)%extras.length] || ('고유 확장 패턴 '+(labels.length+1)));
+    return labels.slice(0,v57PatternCountForBoss(b));
+  }
+  function v57AllowedPatternCount(){
+    const max=v57PatternCountForBoss(boss);
+    const ph=v55Phase();
+    if(max<=4) return ph===1?3:4;
+    if(max===5) return ph===1?4:5;
+    if(max===6) return ph===1?4:(ph===2?5:6);
+    if(max===7) return ph===1?4:(ph===2?6:7);
+    return ph===1?4:(ph===2?6:8);
+  }
+  function v57PickIndex(){
+    const n=v57AllowedPatternCount();
+    const ph=v55Phase();
+    const pool=[];
+    for(let i=0;i<n;i++){
+      const early=i<4;
+      const mid=i===4 || i===5;
+      const fin=i>=6;
+      let weight=early?3:mid?2:1;
+      if(ph===1 && i>=4) weight=0;
+      if(ph===2 && fin) weight=0;
+      if(ph===3 && i===n-1) weight+=2;
+      for(let k=0;k<weight;k++) pool.push(i);
+    }
+    return pool[Math.floor(Math.random()*pool.length)]||0;
+  }
+  function v57ExtraPattern(idx){
+    const prof=v56Profile();
+    const type=(prof&&prof.type)||'arcane';
+    const c=v56C(), s=v56S();
+    const label=(v57LabelsForBoss(boss)[idx]) || v56Label(Math.min(idx,5));
+    v55Cast(`${boss.name}: ${label}`, c);
+    if(type==='slime'){
+      v56SafeFull(label,c,.72); v56Scatter(label,s,6+v55Phase()*2,34,.24); if(idx>=7) v56Rings(label,c,4,.34);
+    }else if(type==='fire'||type==='solar'||type==='eclipse'){
+      v56Fan(label,c,6+v55Phase()*2,Math.PI*1.45,.42); v56Scatter(label,s,6+v55Phase(),34,.34); if(idx>=7) v56SafeFull(label,c,.90);
+    }else if(type==='nature'||type==='poison'||type==='garden'){
+      v56LaneMaze(label,c,.38); v56Scatter(label,s,7+v55Phase(),30,.30); if(idx>=7) v56SafeFull(label,s,.78);
+    }else if(type==='ice'||type==='chrono'){
+      v56Scatter(label,c,8+v55Phase()*2,28,.32); v56Fan(label,s,6+v55Phase(),Math.PI*1.2,.34); if(idx>=7) v56Rings(label,c,4,.40);
+    }else if(type==='lightning'||type==='magnet'){
+      v56Scatter(label,c,9+v55Phase()*2,28,.34); v56Fan(label,s,7+v55Phase(),Math.PI*1.25,.36); if(idx>=7) v56LaneMaze(label,c,.36);
+    }else if(type==='mirror'||type==='puppet'||type==='jester'||type==='chaos'){
+      v56SafeFull(label,c,.82); v56Fan(label,s,8+v55Phase()*2,Math.PI*1.45,.38); if(idx>=7) v56Rings(label,c,4,.40);
+    }else if(type==='void'||type==='gravity'||type==='abyss'){
+      v56Rings(label,c,4,.42); v56Fan(label,s,7+v55Phase()*2,Math.PI*1.55,.38); if(idx>=7) v56SafeFull(label,c,.88);
+    }else if(type==='train'||type==='cube'){
+      v56LaneMaze(label,c,.42); v56Scatter(label,s,7+v55Phase(),38,.34); if(idx>=7) v56Fan(label,c,8+v55Phase(),Math.PI*1.35,.38);
+    }else{
+      v56SafeFull(label,c,.80); v56Fan(label,s,7+v55Phase(),Math.PI*1.4,.36);
+    }
+    v55VisualBurst(boss.x,boss.y,c,v55Heavy()?4:12);
+  }
+  function v57StylePattern(idx){
+    if(idx<=5) v56StylePattern(idx); else v57ExtraPattern(idx);
+  }
+  try{
+    BOSSES.forEach(b=>{ b.patterns=v57LabelsForBoss(b); });
+  }catch(e){ console.warn('[V57 pattern labels failed]', e); }
+  try{
+    const oldBossPatternV57=bossPattern;
+    bossPattern=function(){
+      try{
+        v55Cap();
+        const idx=v57PickIndex();
+        v57StylePattern(idx);
+        const ph=v55Phase(), tier=v55Tier(), max=v57AllowedPatternCount();
+        if(ph>=2 && tier>=6 && Math.random()<.24){
+          setTimeout(()=>{ if(state.screen==='raid'&&!boss.dead){ v57StylePattern(Math.floor(Math.random()*Math.min(4,max))); v55Cap(); } },520);
+        }
+        if(ph>=3 && tier>=9 && Math.random()<.24){
+          setTimeout(()=>{ if(state.screen==='raid'&&!boss.dead){ v57StylePattern(Math.max(0,max-1)); v55Cap(); } },900);
+        }
+        v55Cap();
+      }catch(e){ console.warn('[V57 boss pattern fallback]',e); try{oldBossPatternV57();}catch(_){} }
+    };
+  }catch(e){ console.warn('[V57 bossPattern failed]', e); }
+  try{ window.RaidDungeonV57={version:V57_VERSION, tierBasedPatternCount:true, rule:'tier1-2=4, tier3-5=5, tier6-8=6, tier9-10=7, DLC=8+', notFixedSix:true}; }catch(e){}
   try{ window.RaidDungeonV52={version:V52_VERSION, sortieClickFix:true, strongerFx:true, marketSections:['material','weapon','armor','skill']}; }catch(e){}
   try{ window.RaidDungeonV54={version:V54_VERSION, fastMassPatternRendering:true, keepsPatterns:true, optimized:['hazard drawing','projectile drawing','particle drawing','damage text drawing']}; }catch(e){}
   try{ window.RaidDungeonUI.growthTab=()=>{state.menuTab='growth'; renderMenu();}; window.RaidDungeonUI.marketTab=()=>{state.menuTab='market'; renderMenu();}; window.RaidDungeonUI.chatTab=()=>{state.menuTab='chat'; renderMenu();}; }catch(e){}
