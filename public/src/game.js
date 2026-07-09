@@ -4,7 +4,7 @@
    보스 레이드 + 가챠 + 보스별 랭킹 + 패턴 파훼 액션 게임
 
    적용 위치: public/src/game.js 전체 교체
-   조작: WASD 이동 / 마우스 조준 / J 또는 좌클릭 일반공격 / 1~3 자유 장착 스킬 / Space 방향 구르기 / P 일시정지
+   조작: WASD 이동 / 마우스 조준 / J 또는 좌클릭 일반공격 / K/L/; 자유 장착 스킬 / Space 방향 구르기 / P 일시정지
 
    Supabase 랭킹 테이블은 V1~V3의 raid_records 그대로 사용합니다.
 ========================================================= */
@@ -14,7 +14,7 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Dungeon V74 - Restored Spectacle Variety True Safe Skill Keys';
+  const VERSION = 'Raid Dungeon V68 - Clear Cinematic Telegraphs Hard No Lag';
   try { document.title = 'Raid Dungeon'; } catch(e) {}
   const W = 1280;
   const H = 720;
@@ -444,7 +444,7 @@
       const k = e.key.toLowerCase(); keys.add(k);
       if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
       if(state.screen==='raid'){
-        if(k==='1') useSkill(0); if(k==='2') useSkill(1); if(k==='3') useSkill(2); if(k==='j') basicAttack(); if(k==='p'||k==='escape') togglePause();
+        if(k==='k') useSkill(0); if(k==='l') useSkill(1); if(k===';') useSkill(2); if(k==='j') basicAttack(); if(k==='p'||k==='escape') togglePause();
       } else if(state.screen==='paused' && (k==='p'||k==='escape')) togglePause();
     });
     window.addEventListener('keyup', e=>keys.delete(e.key.toLowerCase()));
@@ -821,7 +821,7 @@
     return `<h2 class="title" style="font-size:22px">뽑기 상점</h2><p class="sub">코인이 아니라 보스 클리어로 얻는 티켓으로 뽑습니다. 스킬 뽑기에는 공격, 버프, 회복, 디버프, 상태이상 해제가 모두 들어 있습니다.<br>${rates}</p><div class="grid"><div class="card"><h3>무기 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.weapon}장<br>검, 활, 채찍, 스태프, 단검, 대검, 마도총 등 무기를 획득합니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="weapon" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.gacha('weapon')">무기 뽑기</button></div><div class="card"><h3>방어구 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.armor||0}장<br>체력 증가, 방어력, 고등급 상태이상 저항/면역 효과가 있는 방어구를 획득합니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="armor" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.gacha('armor')">방어구 뽑기</button></div><div class="card"><h3>스킬 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.skill}장<br>공격, 버프, 회복, 디버프, 상태이상 해제 스킬 중 하나를 획득합니다. 총 100종류입니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="skill" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.gacha('skill')">스킬 뽑기</button></div><div class="card"><h3>패시브 뽑기 · 티켓 1장</h3><p>보유: ${state.save.tickets.passive}장<br>이제 패시브는 밸런스를 위해 보스와 관계없이 1개만 장착할 수 있습니다.</p><button class="btn" style="margin-top:10px;width:100%" data-gacha="passive" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.gacha('passive')">패시브 뽑기</button></div><div class="card"><h3>보유 현황</h3><p>무기 ${state.save.weapons.length}/${WEAPONS.length}<br>방어구 ${state.save.armors.length}/${ARMORS.length}<br>스킬 ${state.save.skills.length}/${SKILLS.length}<br>패시브 ${state.save.passives.length}/${PASSIVES.length}</p></div></div>${result}`;
   }
   function renderBuildTab() {
-    const steps = [['weapon','무기'],['armor','방어구'],['skill1','스킬 1'],['skill2','스킬 2'],['skill3','스킬 3'],['passive','패시브'],['ready','출격']];
+    const steps = [['weapon','무기'],['armor','방어구'],['skill1','스킬 K'],['skill2','스킬 L'],['skill3','스킬 ;'],['passive','패시브'],['ready','출격']];
     let content='';
     if(state.buildStep==='weapon') content = selectionGrid(ownedWeapons(), state.selectedWeaponId, 'weapon');
     if(state.buildStep==='armor') content = selectionGrid(ownedArmors(), state.selectedArmorId, 'armor');
@@ -836,9 +836,9 @@
   function skillSlotGrid(slot) {
     const items = ownedSkills();
     const selected = state.selectedSkillIds[slot] || null;
-    const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','',${slot})"><h3>스킬 ${slot+1} 비우기</h3><p>스킬을 끼지 않아도 레이드는 시작할 수 있습니다.</p></div>`;
+    const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','',${slot})"><h3>스킬 ${['K','L',';'][slot] || (slot+1)} 비우기</h3><p>스킬을 끼지 않아도 레이드는 시작할 수 있습니다.</p></div>`;
     if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 스킬이 없습니다.</h3><p>스킬 뽑기에서 공격, 버프, 회복, 디버프, 상태이상 해제 스킬을 모두 획득할 수 있습니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.prev()">이전</button><button type="button" class="btn" data-next-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.next()">다음</button></div>`;
-    return `<p class="sub">스킬 ${slot+1}번 칸입니다. 공격/버프/회복/디버프/상태이상 해제 구분 없이 원하는 스킬을 장착할 수 있습니다. 같은 스킬은 한 번만 장착됩니다.</p><div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="${it.id}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','${it.id}',${slot})"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>분류: ${skillCategoryName(it.category)} · 속성: ${it.element}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.prev()">이전</button><button type="button" class="btn" data-next-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.next()">다음</button></div>`;
+    return `<p class="sub">스킬 ${['K','L',';'][slot] || (slot+1)}번 칸입니다. 공격/버프/회복/디버프/상태이상 해제 구분 없이 원하는 스킬을 장착할 수 있습니다. 같은 스킬은 한 번만 장착됩니다.</p><div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="${it.id}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','${it.id}',${slot})"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>분류: ${skillCategoryName(it.category)} · 속성: ${it.element}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.prev()">이전</button><button type="button" class="btn" data-next-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.next()">다음</button></div>`;
   }
   function selectionGrid(items, selected, type) {
     const noneTitle = type === 'weapon' ? '무기 없이 출격' : type === 'armor' ? '방어구 없이 출격' : '이 스킬칸 비우기';
@@ -855,7 +855,7 @@
   function readyPanel() {
     const ok = canStart();
     const b = getBoss(state.selectedBossId);
-    const skillNames = (state.selectedSkillIds || []).map((id,i)=>`스킬 ${i+1}: ${getSkill(id)?.name || '없음'}`).join('<br>');
+    const skillNames = (state.selectedSkillIds || []).map((id,i)=>`스킬 ${['K','L',';'][i] || (i+1)}: ${getSkill(id)?.name || '없음'}`).join('<br>');
     return `<div class="grid"><div class="card active"><h3>${b.name}</h3><p>${stars(b.tier)}<br>${b.desc}</p><div>${b.patterns.map(p=>`<span class="chip">${p}</span>`).join('')}</div></div><div class="card"><h3>선택한 조합</h3><p>무기: ${getWeapon(state.selectedWeaponId)?.name || '없음'}<br>방어구: ${getArmor(state.selectedArmorId)?.name || '없음'}<br>${skillNames}<br>패시브: ${state.selectedPassiveIds.length}/${passiveLimit()} · 필수 아님</p><p class="sub">무기만 있어도, 스킬만 있어도 출격할 수 있습니다. 단, 무기와 스킬을 모두 비우면 공격 수단이 없어 시작할 수 없습니다.</p></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" id="startRaid" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.start()" class="btn danger" ${ok?'':'disabled'}>레이드 시작</button></div>${ok?'':'<p class="sub">무기 또는 스킬 중 최소 하나는 장착해야 합니다. 패시브는 선택 사항입니다.</p>'}`;
   }
   function renderRankingTab() {
@@ -1489,13 +1489,7 @@
   function updateHazards(dt){
     state.hazards.forEach(h=>{
       if(!h || !Number.isFinite(h.life)) h.life = 0;
-      if(h.warn>0){
-        // V70: 보스 공격 예고가 너무 빨리 사라지지 않도록 후반 보스 경고 시간을 늘린다.
-        const slowWarn = (boss && boss.tier >= 7 && h.kind !== 'playerStrike') ? 0.58 : 1;
-        h.warn-=dt*slowWarn;
-        if(h.kind==='rotatingBeam') h.angle += (h.spin||0)*dt*.18;
-        return;
-      }
+      if(h.warn>0){ h.warn-=dt; if(h.kind==='rotatingBeam') h.angle += (h.spin||0)*dt*.25; return; }
       h.life-=dt;
       if(h.kind==='circle'){
         if(dist(h.x,h.y,player.x,player.y)<h.r+player.r){ hurtPlayer(h.damage,h.color); if(h.tag) applyBossHitStatus(h.tag); }
@@ -1531,34 +1525,7 @@
   function damageBossRange(range,dmg,color){ if(dist(player.x,player.y,boss.x,boss.y)<range+boss.r) damageBoss(dmg,color,false); }
   function damageBossLine(range,width,angle,dmg,color){ const px=boss.x-player.x, py=boss.y-player.y; const along=px*Math.cos(angle)+py*Math.sin(angle); const side=Math.abs(-px*Math.sin(angle)+py*Math.cos(angle)); if(along>0&&along<range+boss.r&&side<width+boss.r) damageBoss(dmg,color,false); }
   function damageBossCone(range,arc,angle,dmg,color){ const a=Math.atan2(boss.y-player.y,boss.x-player.x); let diff=Math.abs(normAngle(a-angle)); if(dist(player.x,player.y,boss.x,boss.y)<range+boss.r && diff<arc/2) damageBoss(dmg,color,false); }
-  function inferDamageReason(color,statusDamage){
-    if(statusDamage) return '상태이상 / 기믹 실패';
-    const c=String(color||'').toLowerCase();
-    if(c.includes('fb7185')||c.includes('ef4444')||c.includes('f97316')) return '화염·처형 패턴';
-    if(c.includes('7dd3fc')||c.includes('38bdf8')||c.includes('bae6fd')) return '빙결·파도 패턴';
-    if(c.includes('facc15')||c.includes('fde047')) return '번개·태양 패턴';
-    if(c.includes('a78bfa')||c.includes('7c3aed')||c.includes('818cf8')) return '공허·중력 패턴';
-    if(c.includes('84cc16')||c.includes('22c55e')) return '독·가시 패턴';
-    return '보스 공격';
-  }
-  function hurtPlayer(amount,color,statusDamage,source){
-    if(!Number.isFinite(amount)) amount = 1;
-    if(!statusDamage && (player.invuln>0||state.screen!=='raid')) return;
-    let realAmount=amount;
-    if(boss&&boss.statuses&&boss.statuses.weaken>0) realAmount*=.72;
-    // V70: 갑자기 죽는 느낌을 줄이기 위해 후반 기믹 실패 피해를 약간 낮추고 원인을 표시한다.
-    if(boss && boss.tier>=7) realAmount*=.82;
-    let dmg=Math.max(1,Math.floor(realAmount-player.def));
-    if(player.shield>0){const used=Math.min(player.shield,dmg); player.shield-=used; dmg-=used;}
-    if(dmg>0){
-      player.hp-=dmg; player.damageTaken+=dmg;
-      const reason = source || inferDamageReason(color,statusDamage);
-      state.lastDamageInfo = {text: reason + ' -' + dmg, color: color || '#fb7185', life: 2.35};
-      floatText('-'+dmg+'  '+reason,player.x,player.y-24,color||'#fb7185',15);
-      state.shake=Math.max(state.shake,3.2);
-      player.invuln=statusDamage?.34:.24;
-    }
-  }
+  function hurtPlayer(amount,color,statusDamage){ if(!Number.isFinite(amount)) amount = 1; if(!statusDamage && (player.invuln>0||state.screen!=='raid')) return; let realAmount=amount; if(boss&&boss.statuses&&boss.statuses.weaken>0) realAmount*=.72; let dmg=Math.max(1,Math.floor(realAmount-player.def)); if(player.shield>0){const used=Math.min(player.shield,dmg); player.shield-=used; dmg-=used;} if(dmg>0){player.hp-=dmg; player.damageTaken+=dmg; floatText('-'+dmg,player.x,player.y-24,color||'#fb7185'); state.shake=Math.max(state.shake,4); player.invuln=.18;} }
   function checkEnd(){ if(!state.raid) return; if(player.hp<=0&&!state.raid.failed){state.raid.failed=true; endRaid(false);} if(boss.dead&&!state.raid.clear){state.raid.clear=true; endRaid(true);} }
 
   function rollBossTicketRewards(b) {
@@ -1861,7 +1828,7 @@
     c.restore();
   }
 
-  function drawHud(){ const hpw=260; ctx.fillStyle='rgba(0,0,0,.45)'; roundRect(ctx,18,H-88,360,72,14); ctx.fillStyle='#ef4444'; roundRect(ctx,38,H-72,hpw*clamp(player.hp/player.maxHp,0,1),12,6); ctx.fillStyle='#334155'; roundRect(ctx,38,H-52,hpw,8,4); ctx.fillStyle='#60a5fa'; roundRect(ctx,38,H-52,hpw*clamp(player.shield/500,0,1),8,4); ctx.fillStyle='#fff'; ctx.font='800 12px system-ui'; ctx.fillText(`HP ${Math.ceil(player.hp)}/${Math.ceil(player.maxHp)}  Shield ${Math.floor(player.shield)}`,38,H-77); const cds=[player.basicCd,player.skillCd[0],player.skillCd[1],player.skillCd[2],player.rollCd]; const labels=['J','1','2','3','Space']; for(let i=0;i<5;i++){const x=430+i*78,y=H-70; ctx.fillStyle='rgba(15,23,42,.78)'; roundRect(ctx,x,y,60,48,10); ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillText(labels[i],x+30,y+19); ctx.fillStyle=cds[i]>0?'#fb7185':'#86efac'; ctx.fillText(cds[i]>0?cds[i].toFixed(1):'OK',x+30,y+38);} ctx.textAlign='left'; }
+  function drawHud(){ const hpw=260; ctx.fillStyle='rgba(0,0,0,.45)'; roundRect(ctx,18,H-88,360,72,14); ctx.fillStyle='#ef4444'; roundRect(ctx,38,H-72,hpw*clamp(player.hp/player.maxHp,0,1),12,6); ctx.fillStyle='#334155'; roundRect(ctx,38,H-52,hpw,8,4); ctx.fillStyle='#60a5fa'; roundRect(ctx,38,H-52,hpw*clamp(player.shield/500,0,1),8,4); ctx.fillStyle='#fff'; ctx.font='800 12px system-ui'; ctx.fillText(`HP ${Math.ceil(player.hp)}/${Math.ceil(player.maxHp)}  Shield ${Math.floor(player.shield)}`,38,H-77); const cds=[player.basicCd,player.skillCd[0],player.skillCd[1],player.skillCd[2],player.rollCd]; const labels=['J','K','L',';','Space']; for(let i=0;i<5;i++){const x=430+i*78,y=H-70; ctx.fillStyle='rgba(15,23,42,.78)'; roundRect(ctx,x,y,60,48,10); ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillText(labels[i],x+30,y+19); ctx.fillStyle=cds[i]>0?'#fb7185':'#86efac'; ctx.fillText(cds[i]>0?cds[i].toFixed(1):'OK',x+30,y+38);} ctx.textAlign='left'; }
   function drawControlHint(){ ctx.save(); ctx.globalAlpha=.55; ctx.fillStyle='#e5e7eb'; ctx.font='900 15px system-ui'; ctx.textAlign='center'; ctx.fillText('WASD 이동   ·   마우스 조준   ·   J/좌클릭 일반공격   ·   1/2/3 장착 스킬   ·   Space 누른 방향으로 구르기', W/2, H-10); ctx.restore(); }
   function drawProjectiles(){ state.projectiles.forEach(p=>{ if(p.delay&&p.delay>0){ctx.strokeStyle=p.color; ctx.globalAlpha=.25; circleStroke(ctx,p.x,p.y,18); ctx.globalAlpha=1; return;} ctx.save(); ctx.shadowColor=p.color; ctx.shadowBlur=14; ctx.fillStyle=p.color; circle(ctx,p.x,p.y,p.r); ctx.globalAlpha=.35; ctx.strokeStyle=p.color; ctx.lineWidth=Math.max(2,p.r*.35); ctx.beginPath(); ctx.moveTo(p.x-p.vx*.025,p.y-p.vy*.025); ctx.lineTo(p.x-p.vx*.075,p.y-p.vy*.075); ctx.stroke(); ctx.globalAlpha=1; ctx.restore(); }); }
   function drawHazards(){
@@ -8060,8 +8027,8 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
 
   skillSlotGrid = function(slot){
     const items=ownedSkills(); const selected=state.selectedSkillIds[slot]||null;
-    const noneCard=`<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','',${slot})"><h3>스킬 ${slot+1} 비우기</h3><p>스킬을 끼지 않아도 레이드는 시작할 수 있습니다.</p></div>`;
-    return `<p class="sub">스킬 ${slot+1}번 칸입니다. 중복해서 뽑은 스킬은 포인트로 저장되고, 버튼을 눌러 직접 Lv.7까지 올릴 수 있습니다.</p><div class="grid">${noneCard}${items.map(it=>{ const s=getSkill(it.id)||it; const v=initV41(); const lv=v.skillLevels[it.id]||1; const cp=v.skillCopies[it.id]||0; return `<div class="card ${selected===it.id?'active':''}" title="${html(itemDetail(it,'skill'))}" data-select-type="skill" data-slot="${slot}" data-select-id="${it.id}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','${it.id}',${slot})"><h3>${html(s.name)} Lv.${lv} ${rarityLabel(s.rarity)}</h3><p>${html(s.desc)}<br>위력 x${s.power} · 쿨 ${s.cooldown.toFixed(1)}초 · 중복포인트 ${cp}</p><button type="button" class="btn secondary" style="margin-top:8px;padding:7px 9px;min-height:30px" onclick="event.stopPropagation();window.RaidDungeonV41.upgradeSkill('${it.id}')">스킬 레벨업</button></div>`; }).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.prev()">이전</button><button type="button" class="btn" data-next-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.next()">다음</button></div>`;
+    const noneCard=`<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','',${slot})"><h3>스킬 ${['K','L',';'][slot] || (slot+1)} 비우기</h3><p>스킬을 끼지 않아도 레이드는 시작할 수 있습니다.</p></div>`;
+    return `<p class="sub">스킬 ${['K','L',';'][slot] || (slot+1)}번 칸입니다. 중복해서 뽑은 스킬은 포인트로 저장되고, 버튼을 눌러 직접 Lv.7까지 올릴 수 있습니다.</p><div class="grid">${noneCard}${items.map(it=>{ const s=getSkill(it.id)||it; const v=initV41(); const lv=v.skillLevels[it.id]||1; const cp=v.skillCopies[it.id]||0; return `<div class="card ${selected===it.id?'active':''}" title="${html(itemDetail(it,'skill'))}" data-select-type="skill" data-slot="${slot}" data-select-id="${it.id}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','${it.id}',${slot})"><h3>${html(s.name)} Lv.${lv} ${rarityLabel(s.rarity)}</h3><p>${html(s.desc)}<br>위력 x${s.power} · 쿨 ${s.cooldown.toFixed(1)}초 · 중복포인트 ${cp}</p><button type="button" class="btn secondary" style="margin-top:8px;padding:7px 9px;min-height:30px" onclick="event.stopPropagation();window.RaidDungeonV41.upgradeSkill('${it.id}')">스킬 레벨업</button></div>`; }).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.prev()">이전</button><button type="button" class="btn" data-next-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.next()">다음</button></div>`;
   };
 
   selectionGrid = function(items, selected, type){
@@ -8426,7 +8393,7 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
   skillSlotGrid = function(slot){
     const items = uniqueById(ownedSkills());
     const selected = state.selectedSkillIds[slot] || null;
-    const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','',${slot})"><h3>스킬 ${slot+1} 비우기</h3><p>스킬을 끼지 않아도 됩니다.</p></div>`;
+    const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','',${slot})"><h3>스킬 ${['K','L',';'][slot] || (slot+1)} 비우기</h3><p>스킬을 끼지 않아도 됩니다.</p></div>`;
     if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 스킬이 없습니다.</h3><p>스킬 뽑기나 보스 패턴 스킬 드롭으로 획득할 수 있습니다.</p></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
     return `<p class="sub">중복 스킬은 목록에 1개만 보이고, 중복 획득분은 강화 포인트로 저장됩니다. 버튼으로 직접 Lv.7까지 올릴 수 있습니다.</p><div class="grid">${noneCard}${items.map(it=>{ const s=getSkill(it.id)||it; const v=initV43(); const lv=v.skillLevels[it.id]||1; const cp=v.skillCopies[it.id]||0; return `<div class="card ${selected===it.id?'active':''}" title="${esc(detailText(it,'skill'))}" data-select-type="skill" data-slot="${slot}" data-select-id="${it.id}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','${it.id}',${slot})"><h3>${esc(s.name)} Lv.${lv} ${rarityLabel(s.rarity)}</h3><p>${esc(s.desc)}<br>위력 x${s.power} · 쿨 ${Number(s.cooldown||0).toFixed(1)}초 · 강화포인트 ${cp}</p><button type="button" class="btn secondary" style="margin-top:8px" onclick="event.stopPropagation();window.RaidDungeonV43.upgradeSkill('${it.id}')">스킬 레벨업</button><button type="button" class="btn secondary" style="margin-top:6px;width:100%" onclick="event.stopPropagation();window.RaidDungeonV43.marketRegisterSkill('${it.id}')">유저 판매소 등록</button></div>`; }).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
   };
@@ -8936,7 +8903,7 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
   selectionGrid = function(items, selected, type){ return renderEnhancedSelectionGrid(items, selected, type); };
   skillSlotGrid = function(slot){
     const items=ownedSkills(); const selected=state.selectedSkillIds[slot]||null;
-    const noneCard=`<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','',${slot})"><h3>스킬 ${slot+1} 비우기</h3><p>스킬을 끼지 않아도 됩니다.</p></div>`;
+    const noneCard=`<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','',${slot})"><h3>스킬 ${['K','L',';'][slot] || (slot+1)} 비우기</h3><p>스킬을 끼지 않아도 됩니다.</p></div>`;
     if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 스킬이 없습니다.</h3><p>뽑기 또는 보스 패턴 스킬 드롭으로 획득할 수 있습니다.</p></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
     return `<p class="sub">중복 스킬은 목록에 1개만 보이고 중복 획득분은 강화 포인트로 저장됩니다. 버튼으로 직접 Lv.7까지 올릴 수 있습니다.</p><div class="grid">${noneCard}${items.map(it=>{ const s=getSkill(it.id)||it; const v=v44(); const lv=v.skillLevels[it.id]||1, cp=v.skillCopies[it.id]||0; return `<div class="card ${selected===it.id?'active':''}" title="${esc(detailText(it,'skill'))}" data-select-type="skill" data-slot="${slot}" data-select-id="${it.id}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','${it.id}',${slot})"><h3>${esc(s.name)} Lv.${lv} ${rarityLabel(s.rarity)}</h3><p>${esc(s.desc)}<br>위력 x${s.power} · 쿨 ${Number(s.cooldown||0).toFixed(1)}초 · 강화포인트 ${cp}</p><button type="button" class="btn secondary" style="margin-top:8px" onclick="event.stopPropagation();window.RaidDungeonV44.upgradeSkill('${it.id}')">스킬 레벨업</button><button type="button" class="btn secondary" style="margin-top:6px;width:100%" onclick="event.stopPropagation();window.RaidDungeonV44.marketRegisterSkill('${it.id}')">유저 판매소 등록</button></div>`; }).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
   };
@@ -9595,7 +9562,7 @@ function v53UniqueItems(items){
   };
   skillSlotGrid = function(slot){
     const items=ownedSkills(); const selected=state.selectedSkillIds[slot]||null;
-    const noneCard=`<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','',${slot})"><h3>스킬 ${slot+1} 비우기</h3><p>스킬을 끼지 않아도 레이드는 시작할 수 있습니다.</p></div>`;
+    const noneCard=`<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','',${slot})"><h3>스킬 ${['K','L',';'][slot] || (slot+1)} 비우기</h3><p>스킬을 끼지 않아도 레이드는 시작할 수 있습니다.</p></div>`;
     if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 스킬이 없습니다.</h3><p>뽑기 또는 보스 패턴 스킬 드롭으로 획득할 수 있습니다.</p></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
     return `<p class="sub">출격 준비에서는 장착만 합니다. 강화와 판매는 성장 센터에서 진행합니다.</p><div class="grid">${noneCard}${items.map(it=>v50SortieSkillCard(it,slot,selected)).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
   };
@@ -11595,7 +11562,7 @@ function v53UniqueItems(items){
       ctx.fillText(`HP ${Math.ceil(player.hp)}/${Math.ceil(player.maxHp)}`,x+24,y+15);
       ctx.fillStyle='#bfdbfe'; ctx.fillText(`MP ${Math.floor(player.mp)}/${Math.floor(player.maxMp)}  (+3/s)`,x+24,y+45);
       ctx.fillStyle='#cbd5e1'; ctx.font='800 11px system-ui'; ctx.fillText(`Shield ${Math.floor(player.shield)}`,x+24,y+91);
-      const labels=['J','1','2','3','Space'];
+      const labels=['J','K','L',';','Space'];
       const cds=[player.basicCd,player.skillCd[0],player.skillCd[1],player.skillCd[2],player.rollCd];
       for(let i=0;i<5;i++){
         const bx=430+i*86, by=H-82;
@@ -11965,12 +11932,7 @@ function v53UniqueItems(items){
       ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='left'; ctx.fillText(`HP ${Math.ceil(player.hp)}/${Math.ceil(player.maxHp)}`,x+24,y+17);
       ctx.fillStyle='#bfdbfe'; ctx.fillText(`MP ${Math.floor(player.mp)}/${Math.floor(player.maxMp)}  (+${(player.mpRegen||3).toFixed(1)}/s)`,x+24,y+51);
       ctx.fillStyle='#cbd5e1'; ctx.font='800 11px system-ui'; ctx.fillText(`Shield ${Math.floor(player.shield||0)}  · 성장: HP Lv.${v62Training().hp} / MP Lv.${v62Training().mp} / 회복 Lv.${v62Training().regen}`,x+24,y+91);
-      if(state.lastDamageInfo && state.lastDamageInfo.life>0){
-        state.lastDamageInfo.life-=1/60;
-        ctx.fillStyle='rgba(15,23,42,.82)'; roundRect(ctx,x+18,y-34,318,24,9);
-        ctx.fillStyle=state.lastDamageInfo.color||'#fb7185'; ctx.font='900 12px system-ui'; ctx.fillText('최근 피해: '+state.lastDamageInfo.text,x+28,y-18);
-      }
-      const labels=['J','1','2','3','Space']; const cds=[player.basicCd,player.skillCd[0],player.skillCd[1],player.skillCd[2],player.rollCd];
+      const labels=['J','K','L',';','Space']; const cds=[player.basicCd,player.skillCd[0],player.skillCd[1],player.skillCd[2],player.rollCd];
       for(let i=0;i<5;i++){
         const bx=455+i*84, by=H-86; ctx.fillStyle='rgba(15,23,42,.82)'; roundRect(ctx,bx,by,68,62,12);
         ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillText(labels[i],bx+34,by+18);
@@ -13111,17 +13073,10 @@ function v53UniqueItems(items){
     try{ state.mechanics.push({kind:'safe',x,y,r,life,color:color||'#fb7185',fake:true,label:label||'FAKE'}); }catch(e){}
   }
   function v67Check(x,y,r,delay,breakTime,failDamage,color,label){
-    // V70: 기믹 판정 시간을 늘리고, 판정 전까지 안전지대를 계속 보여준다.
-    const wait = Math.max(2300, Math.floor((delay || 1700) * 1.28 + 420));
-    const rr = Math.max(r || 42, 52);
-    try{
-      state.mechanics.push({kind:'safe',x,y,r:rr,life:wait/1000+.45,color:'#86efac',label:(label||'SAFE').replace(' · BREAK','')});
-      state.mechanics.push({kind:'cast',x:W/2,y:104,life:wait/1000+.2,text:'초록 안전지대로 이동하세요',color:'#86efac'});
-    }catch(e){}
-    v67Later(wait, function(){
-      const ok = dist(player.x, player.y, x, y) <= rr + player.r;
-      if(ok){ try{ breakBoss(breakTime || 1.05); }catch(e){} healText(label || '분석 성공 · BREAK', player.x, player.y - 42); }
-      else { hurtPlayer((failDamage || boss.atk * 1.35) * .72, color || v67Color(), true, '기믹 실패'); floatText('안전지대 밖 · 피해', player.x, player.y - 44, '#fb7185', 20); }
+    v67Later(delay || 1700, function(){
+      const ok = dist(player.x, player.y, x, y) <= (r || 42) + player.r;
+      if(ok){ try{ breakBoss(breakTime || .78); }catch(e){} healText(label || 'PERFECT BREAK', player.x, player.y - 42); }
+      else { hurtPlayer(failDamage || boss.atk * 1.55, color || v67Color(), true); floatText('기믹 실패', player.x, player.y - 44, '#fb7185', 20); }
     });
   }
   function v67LiteSpark(x,y,color){
@@ -13331,13 +13286,7 @@ function v53UniqueItems(items){
   function v68Msg(text,color,type){ try{ v67Say(text,color,type||'cast'); }catch(e){ try{ toast(text); }catch(_){} } }
   function v68Safe(x,y,r,life,label){ try{ v67Safe(x,y,r,life,label); }catch(e){ v68Push({shape:'safeCircle',x,y,r,life,label}); } }
   function v68Fake(x,y,r,life,label,color){ try{ v67Fake(x,y,r,life,label,color); }catch(e){ v68Push({shape:'fakeCircle',x,y,r,life,label,color}); } }
-  function v68Check(x,y,r,ms,breakTime,failDamage,color,label){
-    // V70: V68의 빠른 판정을 학습 가능한 속도로 늦춘다.
-    const wait = Math.max(2550, Math.floor((ms || 1700) * 1.35 + 620));
-    const safeR = Math.max(r || 42, 54);
-    try{ v67Safe(x,y,safeR,wait/1000+.55,label||'SAFE'); }catch(e){}
-    try{ v67Check(x,y,safeR,wait,Math.max(breakTime||.8,1.05),(failDamage||boss.atk*1.45)*.72,color,label); }catch(e){}
-  }
+  function v68Check(x,y,r,ms,breakTime,failDamage,color,label){ try{ v67Check(x,y,r,ms,breakTime,failDamage,color,label); }catch(e){} }
   function v68Break(t){ try{ breakBoss(t); }catch(e){} }
 
   function v68DrawStripedRect(x,y,w,h,a,color,alpha,label){
@@ -13559,7 +13508,7 @@ function v53UniqueItems(items){
         if(t>=7){
           const allowed = t>=10 ? 7 : t>=9 ? 6 : t>=8 ? 5 : 4;
           v68Pattern((idx||0)%allowed);
-          if(t>=10 && ph>=3 && Math.random()<.07){ v67Later(1850,()=>v68Pattern(((idx||0)+3)%7)); }
+          if(t>=10 && ph>=3 && Math.random()<.14){ v67Later(1020,()=>v68Pattern(((idx||0)+3)%7)); }
           try{ v67Cap(); }catch(e){}
           return;
         }
@@ -13567,13 +13516,12 @@ function v53UniqueItems(items){
       try{ oldTypePatternV68(idx); }catch(err){ try{ v67Pattern(idx); }catch(_){} }
     };
     getBossPatternCooldown = function(){
-      // V70: 패턴을 분석할 시간을 주기 위해 후반 보스 연속 패턴 간격을 늘린다.
       const t=v68Tier(), ph=v68Phase();
-      if(t>=10) return ph>=3 ? 3.55 + Math.random()*.35 : 3.90 + Math.random()*.40;
-      if(t>=9) return ph>=3 ? 3.80 + Math.random()*.38 : 4.15 + Math.random()*.42;
-      if(t>=8) return ph>=3 ? 4.05 + Math.random()*.40 : 4.38 + Math.random()*.45;
-      if(t>=7) return ph>=3 ? 4.25 + Math.random()*.42 : 4.65 + Math.random()*.48;
-      return 3.2 + Math.random()*.35;
+      if(t>=10) return ph>=3 ? 2.10 + Math.random()*.18 : 2.36 + Math.random()*.20;
+      if(t>=9) return ph>=3 ? 2.34 + Math.random()*.20 : 2.58 + Math.random()*.22;
+      if(t>=8) return ph>=3 ? 2.56 + Math.random()*.22 : 2.82 + Math.random()*.24;
+      if(t>=7) return ph>=3 ? 2.74 + Math.random()*.25 : 3.00 + Math.random()*.25;
+      return 3.1 + Math.random()*.35;
     };
   }catch(e){ console.warn('[V68 pattern override failed]',e); }
 
@@ -13587,221 +13535,11 @@ function v53UniqueItems(items){
     };
   }catch(e){ console.warn('[V68 update override failed]',e); }
 
-
-
-  /* =========================================================
-     V71 - PLAYER SKILL GACHA ONLY + SKILL DAMAGE LABELS + MOBILE TOUCH CONTROLS
-     - 보스 패턴 스킬은 뽑기 풀에서 제외
-     - 스킬 카드/시전 시 데미지 또는 효과 수치 표시
-     - 패드/휴대폰용 가상 조이스틱 + 공격/스킬/구르기 버튼 추가
-  ========================================================= */
-  try{
-    const V71_VERSION = 'Raid Dungeon V71 - Player Skill Gacha Damage Labels Mobile Controls';
-
-    function v71IsBossPatternSkill(s){
-      if(!s) return false;
-      const id = String(s.id || '').toLowerCase();
-      const name = String(s.name || '');
-      const desc = String(s.desc || '');
-      return /^boss_skill_/.test(id)
-        || /^v4[1234]_boss_skill_/.test(id)
-        || id.includes('boss_skill_')
-        || !!s.v41Boss || !!s.v43Boss || !!s.v44Boss
-        || name.includes('패턴 스킬')
-        || desc.includes('대표 패턴을 플레이어')
-        || desc.includes('전용 패턴 스킬');
-    }
-
-    function v71PlayerSkillPool(){
-      return (SKILLS || []).filter(s => !v71IsBossPatternSkill(s));
-    }
-
-    function v71SkillLabel(s){
-      if(!s) return '';
-      const baseAtk = 100;
-      const rarityMul = ({normal:1, rare:1.12, super:1.25, epic:1.42, legendary:1.70, ultimate:2.05})[s.rarity] || 1;
-      const power = Number(s.power || 1) * rarityMul;
-      if(s.category === 'attack'){
-        const typeMul = ({burst:1.70,line:.86,chain:.62,rain:.46,zone:.25,orb:.38,strike:2.05,serpent:.70,bolt:1.45,meteor:1.55,thorn:1.10})[s.type] || 1.0;
-        const approx = Math.max(1, Math.round(baseAtk * power * typeMul));
-        return `예상 피해 ${approx}`;
-      }
-      if(s.category === 'heal'){
-        const approx = Math.max(8, Math.round(18 + baseAtk * power * .13));
-        return `예상 회복 ${approx}`;
-      }
-      if(s.category === 'debuff') return `디버프 ${Math.max(3, (s.duration || 5).toFixed ? Number(s.duration || 5).toFixed(1) : s.duration || 5)}초`;
-      if(s.category === 'buff') return `버프 ${Math.max(3, Math.round(s.duration || 6))}초`;
-      if(s.category === 'cleanse') return '상태이상 해제 + 보호막';
-      return '유틸 스킬';
-    }
-
-    function v71FullSkillInfo(s){
-      if(!s) return '';
-      return `${v71SkillLabel(s)} · 쿨타임 ${Number(s.cooldown || 0).toFixed(1)}초 · 분류 ${skillCategoryName(s.category)} · 속성 ${s.element || 'none'}`;
-    }
-
-    const oldNormalizeSaveDataV71 = normalizeSaveData;
-    normalizeSaveData = function(data){
-      const s = oldNormalizeSaveDataV71(data);
-      // 이미 보유 중인 보스 패턴 스킬은 저장 오류를 막기 위해 제거하지 않는다.
-      // 단, 앞으로 뽑기에서는 다시 나오지 않는다.
-      return s;
-    };
-
-    const oldOwnedSkillsV71 = ownedSkills;
-    ownedSkills = function(cat){
-      return oldOwnedSkillsV71(cat).filter(s => !!s && !v71IsBossPatternSkill(s));
-    };
-
-    rollGacha = function(kind) {
-      if(!state.save.tickets || typeof state.save.tickets !== 'object') state.save.tickets = {...INITIAL_TICKETS};
-      if((state.save.tickets[kind] || 0) <= 0){
-        toast(TICKET_LABEL[kind] + '이 부족합니다. 보스를 클리어하면 난이도에 따라 티켓을 얻습니다.');
-        return;
-      }
-      state.save.tickets[kind] -= 1;
-      const rarity = pickRarity();
-      let basePool;
-      if(kind === 'weapon') basePool = WEAPONS;
-      else if(kind === 'armor') basePool = ARMORS;
-      else if(kind === 'skill') basePool = v71PlayerSkillPool();
-      else basePool = PASSIVES;
-
-      let pool = basePool.filter(x => x && x.rarity === rarity);
-      if(!pool.length) pool = basePool.slice();
-      if(!pool.length){
-        state.save.tickets[kind] += 1;
-        toast('뽑기 가능한 항목이 없습니다.');
-        return;
-      }
-      const item = pool[Math.floor(Math.random() * pool.length)];
-      const arr = kind === 'weapon' ? state.save.weapons : kind === 'armor' ? state.save.armors : kind === 'skill' ? state.save.skills : state.save.passives;
-      if(!arr.includes(item.id)) arr.push(item.id);
-      state.gachaResult = item;
-      if(kind === 'skill') state.gachaResult.desc = `${item.desc || ''}<br>${v71FullSkillInfo(item)}<br><span style="color:#86efac;font-weight:900">보스 전용 패턴 스킬은 뽑기에서 제외되었습니다.</span>`;
-      gachaCelebration(item);
-      saveGame();
-      renderMenu();
-    };
-
-    skillSlotGrid = function(slot) {
-      const items = ownedSkills();
-      const selected = state.selectedSkillIds[slot] || null;
-      const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','',${slot})"><h3>스킬 ${slot+1} 비우기</h3><p>스킬을 끼지 않아도 레이드는 시작할 수 있습니다.</p></div>`;
-      if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 플레이어 스킬이 없습니다.</h3><p>스킬 뽑기에서 공격, 버프, 회복, 디버프, 상태이상 해제 스킬을 획득할 수 있습니다.<br>보스 전용 패턴 스킬은 이제 뽑기에서 나오지 않습니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.prev()">이전</button><button type="button" class="btn" data-next-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.next()">다음</button></div>`;
-      return `<p class="sub">스킬 ${slot+1}번 칸입니다. 보스 전용 패턴 스킬은 뽑기/장착 목록에서 제외했습니다. 각 카드에 예상 피해·회복·효과 시간이 표시됩니다.</p><div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="${it.id}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','${it.id}',${slot})"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br><span style="color:#fef08a;font-weight:900">${v71FullSkillInfo(it)}</span></p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.prev()">이전</button><button type="button" class="btn" data-next-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.next()">다음</button></div>`;
-    };
-
-    const oldUseSkillV71 = useSkill;
-    useSkill = function(i){
-      try{
-        const s = state.raid && state.raid.skills ? state.raid.skills[i] : null;
-        if(s && player.skillCd && player.skillCd[i] <= 0){
-          floatText(v71SkillLabel(s), player.x, player.y - 62, '#fef08a', 16);
-        }
-      }catch(e){}
-      return oldUseSkillV71(i);
-    };
-
-    function v71EnsureMobileControls(){
-      if(document.getElementById('raidV71TouchControls')) return;
-      const wrap = document.createElement('div');
-      wrap.id = 'raidV71TouchControls';
-      wrap.innerHTML = `
-        <style>
-          #raidV71TouchControls{position:fixed;inset:0;z-index:1000002;pointer-events:none;display:none;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
-          #raidV71TouchControls.show{display:block;}
-          .v71-stick{position:absolute;left:24px;bottom:28px;width:132px;height:132px;border-radius:999px;background:rgba(15,23,42,.42);border:2px solid rgba(148,163,184,.45);pointer-events:auto;touch-action:none;backdrop-filter:blur(8px);}
-          .v71-knob{position:absolute;left:44px;top:44px;width:44px;height:44px;border-radius:999px;background:rgba(134,239,172,.86);box-shadow:0 0 18px rgba(134,239,172,.45);}
-          .v71-btns{position:absolute;right:20px;bottom:24px;display:grid;grid-template-columns:repeat(3,58px);gap:10px;pointer-events:auto;touch-action:none;}
-          .v71-btn{border:1px solid rgba(255,255,255,.28);border-radius:18px;background:rgba(15,23,42,.72);color:#fff;font-weight:950;min-height:54px;font-size:13px;box-shadow:0 8px 22px rgba(0,0,0,.28);}
-          .v71-btn.attack{grid-column:2/span 2;min-height:62px;background:linear-gradient(135deg,rgba(239,68,68,.88),rgba(249,115,22,.78));}
-          .v71-btn.roll{background:linear-gradient(135deg,rgba(59,130,246,.82),rgba(124,58,237,.76));}
-          .v71-mobile-tip{position:absolute;left:18px;right:18px;top:12px;text-align:center;color:#e5e7eb;font-size:12px;text-shadow:0 2px 8px #000;pointer-events:none;}
-          @media (hover:hover) and (pointer:fine){#raidV71TouchControls.forceOnly{display:none!important;}}
-        </style>
-        <div class="v71-mobile-tip">왼쪽 패드 이동 · 오른쪽 버튼 공격/스킬/구르기</div>
-        <div class="v71-stick" id="v71Stick"><div class="v71-knob" id="v71Knob"></div></div>
-        <div class="v71-btns">
-          <button type="button" class="v71-btn" data-v71skill="0">스킬1</button>
-          <button type="button" class="v71-btn" data-v71skill="1">스킬2</button>
-          <button type="button" class="v71-btn" data-v71skill="2">스킬3</button>
-          <button type="button" class="v71-btn roll" id="v71Roll">구르기</button>
-          <button type="button" class="v71-btn attack" id="v71Attack">공격</button>
-        </div>`;
-      document.body.appendChild(wrap);
-      const stick = wrap.querySelector('#v71Stick');
-      const knob = wrap.querySelector('#v71Knob');
-      let active = false;
-      function clearMove(){ ['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].forEach(k=>keys.delete(k)); }
-      function setMove(dx,dy){
-        clearMove();
-        if(Math.abs(dx)<.18 && Math.abs(dy)<.18) return;
-        if(dy < -.22) keys.add('w');
-        if(dy > .22) keys.add('s');
-        if(dx < -.22) keys.add('a');
-        if(dx > .22) keys.add('d');
-        player.aim = Math.atan2(dy, dx || .001);
-        if(dx<-.15) player.face=-1;
-        if(dx>.15) player.face=1;
-        mouse.down = false;
-      }
-      function moveFromEvent(ev){
-        const p = ev.touches ? ev.touches[0] : ev;
-        const r = stick.getBoundingClientRect();
-        const cx = r.left + r.width/2, cy = r.top + r.height/2;
-        let dx = (p.clientX - cx) / (r.width*.38), dy = (p.clientY - cy) / (r.height*.38);
-        const len = Math.hypot(dx,dy);
-        if(len>1){ dx/=len; dy/=len; }
-        knob.style.left = (44 + dx*38) + 'px';
-        knob.style.top = (44 + dy*38) + 'px';
-        setMove(dx,dy);
-      }
-      function endMove(){ active=false; knob.style.left='44px'; knob.style.top='44px'; clearMove(); }
-      stick.addEventListener('touchstart',e=>{active=true; moveFromEvent(e); e.preventDefault();},{passive:false});
-      stick.addEventListener('touchmove',e=>{if(active) moveFromEvent(e); e.preventDefault();},{passive:false});
-      stick.addEventListener('touchend',e=>{endMove(); e.preventDefault();},{passive:false});
-      stick.addEventListener('pointerdown',e=>{active=true; stick.setPointerCapture && stick.setPointerCapture(e.pointerId); moveFromEvent(e);});
-      stick.addEventListener('pointermove',e=>{if(active) moveFromEvent(e);});
-      stick.addEventListener('pointerup',endMove);
-      wrap.querySelector('#v71Attack').addEventListener('click',()=>{ if(state.screen==='raid') basicAttack(); });
-      wrap.querySelectorAll('[data-v71skill]').forEach(btn=>btn.addEventListener('click',()=>{ if(state.screen==='raid') useSkill(Number(btn.dataset.v71skill)); }));
-      wrap.querySelector('#v71Roll').addEventListener('click',()=>{ if(state.screen==='raid'){ keys.add(' '); setTimeout(()=>keys.delete(' '),120); } });
-    }
-
-    v71EnsureMobileControls();
-    const oldUpdateV71 = update;
-    update = function(dt){
-      try{
-        const el = document.getElementById('raidV71TouchControls');
-        if(el){
-          const touchLike = (navigator.maxTouchPoints || 0) > 0 || window.innerWidth < 900;
-          el.classList.toggle('show', state.screen === 'raid' && touchLike);
-        }
-      }catch(e){}
-      return oldUpdateV71(dt);
-    };
-
-    const oldRenderGachaTabV71 = renderGachaTab;
-    renderGachaTab = function(){
-      const html = oldRenderGachaTabV71();
-      return html.replace('공격, 버프, 회복, 디버프, 상태이상 해제 스킬 중 하나를 획득합니다. 총 100종류입니다.', '공격, 버프, 회복, 디버프, 상태이상 해제 스킬 중 하나를 획득합니다. 보스 전용 패턴 스킬은 제외됩니다.');
-    };
-
-    window.RaidDungeonV71 = {
-      version: V71_VERSION,
-      gacha: 'boss pattern skills are excluded from skill gacha pools',
-      skillLabels: 'skill cards and casts show estimated damage/heal/effect values',
-      mobile: 'touch joystick plus attack, skill 1-3, roll buttons added without changing desktop controls'
-    };
-  }catch(e){ console.warn('[V71 patch failed]', e); }
-
   try{
     window.RaidDungeonV68={
-      version:'Raid Dungeon V70 - Readable Telegraphs Damage Reason No Lag',
+      version:V68_VERSION,
       gachaHotfix:'rollGacha no longer depends on addOwned, so gacha buttons work even when older patch scopes hide addOwned',
-      visualRule:'V70: damage reason HUD, longer warnings, true safe zone remains visible until judgment, arrows point to answer',
+      visualRule:'danger is striped red, true safe is green-white, route arrows point to the intended answer, boss-specific arena tint names the mechanic',
       antiLag:'cinematic telegraphs are canvas-only mechanics with almost no collision checks; actual damage objects remain low count',
       patterns:['puppet opera lanes','clock trial numbers','black sun inside outside','gravity orbit stage','abyss air corridor','chaos real color glyphs','core break stage']
     };
@@ -13815,912 +13553,6 @@ function v53UniqueItems(items){
       patterns:['brutal guillotine lanes','clock execution','compressed eclipse','abyss corridor','gravity vice','chaos verdict','core panic','phase 3 combo']
     };
   }catch(e){}
-
-
-
-  /* ===== V72: boss-specific readable patterns + true SAFE feedback/protection ===== */
-  try{
-    const V72_VERSION = 'Raid Dungeon V72 - Unique Boss Patterns True Safe Feedback';
-
-    function v72Alive(){ return state && state.screen === 'raid' && boss && !boss.dead && player && player.hp > 0; }
-    function v72Tier(){ return Math.max(1, Math.min(10, Number(boss && boss.tier || 1))); }
-    function v72Phase(){ return Math.max(1, Math.min(3, Number(boss && boss.phase || 1))); }
-    function v72Color(){ return boss && boss.color || '#fb7185'; }
-    function v72Sub(){ return boss && boss.sub || '#ffffff'; }
-    function v72Tag(){ return boss && boss.theme || 'boss'; }
-    function v72Now(){ return state && Number(state.time || 0) || 0; }
-    function v72Dmg(m){ return (boss && boss.atk || 10) * m * (v72Phase() >= 3 ? 1.08 : v72Phase() >= 2 ? 1.03 : 1); }
-    function v72Later(ms, fn){ setTimeout(function(){ try{ if(v72Alive()) fn(); }catch(e){ console.warn('[V72 delayed]', e); } }, ms); }
-    function v72Say(text, color, kind){ try{ v68Msg(text, color || v72Color(), kind || 'cast'); }catch(e){ try{ floatText(text, W/2, 92, color || v72Color(), 18); }catch(_){} } }
-    function v72Fx(shape, x, y, opt){
-      opt = opt || {};
-      try{
-        if(typeof v68Push === 'function') v68Push({
-          shape:shape, x:x, y:y, x2:opt.x2, y2:opt.y2, w:opt.w, h:opt.h,
-          r:opt.r, life:opt.life || 2.2, maxLife:opt.life || 2.2,
-          color:opt.color || v72Color(), sub:opt.sub || v72Sub(), label:opt.label || '',
-          angle:opt.angle || 0, safe:opt.safe, inner:opt.inner, safeAngle:opt.safeAngle,
-          picks:opt.picks, alpha:opt.alpha, fake:opt.fake, spin:opt.spin || 0, sides:opt.sides || 8
-        });
-      }catch(e){}
-    }
-    function v72Beam(x,y,a,len,w,warn,dmg,color,tag){
-      try{ v64Beam(x,y,a,len,w,warn,dmg,color || v72Color(),tag || v72Tag()); }
-      catch(e){ try{ v20Beam(x,y,a,len,w,warn,color || v72Color(),dmg,tag || v72Tag()); }catch(_){} }
-    }
-    function v72Circle(x,y,r,warn,dmg,color,tag){
-      try{ v64Circle(x,y,r,warn,dmg,color || v72Color(),tag || v72Tag()); }
-      catch(e){ try{ v20Circle(x,y,r,warn,color || v72Color(),dmg,tag || v72Tag()); }catch(_){} }
-    }
-    function v72Safe(x,y,r,life,label,color){
-      r = Math.max(48, r || 60); life = Math.max(2.2, life || 2.55);
-      try{ state.mechanics.push({kind:'safe',x,y,r,life,color:color || '#86efac',label:label || 'SAFE',v72:true}); }catch(e){}
-      try{ state.mechanics.push({kind:'v72safeAura',x,y,r:r+8,life,maxLife:life,color:color || '#86efac',label:label || 'SAFE'}); }catch(e){}
-      v72Fx('safeRect',x,y,{w:r*2.12,h:r*2.12,life,color:color||'#86efac',label:label||'SAFE'});
-    }
-    function v72Fake(x,y,r,life,label,color){
-      r = Math.max(44, r || 54); life = Math.max(2.0, life || 2.3);
-      try{ state.mechanics.push({kind:'safe',x,y,r,life,color:color || '#fb7185',fake:true,label:label || 'FAKE',v72:true}); }catch(e){}
-      v72Fx('laneRect',x,y,{w:r*2,h:r*2,life,color:color||'#fb7185',label:label||'FAKE',alpha:.18});
-    }
-    function v72IsInSafe(){
-      try{
-        if(!state || !Array.isArray(state.mechanics) || !player) return null;
-        let best = null;
-        for(const m of state.mechanics){
-          if(!m || m.fake) continue;
-          const k = String(m.kind || '');
-          if(k !== 'safe' && k !== 'v72safeAura') continue;
-          const r = Number(m.r || 0);
-          if(r > 0 && dist(player.x, player.y, Number(m.x || 0), Number(m.y || 0)) <= r + player.r + 8){ best = m; break; }
-        }
-        return best;
-      }catch(e){ return null; }
-    }
-    function v72Check(x,y,r,delay,breakTime,failDamage,color,label){
-      const wait = Math.max(2600, delay || 2750);
-      const rr = Math.max(58, r || 64);
-      v72Safe(x,y,rr,wait/1000+.65,label || 'SAFE', '#86efac');
-      v72Fx('arrow', player.x, player.y, {x2:x,y2:y,life:Math.min(2.4,wait/1000),color:'#86efac',label:'MOVE TO SAFE'});
-      v72Later(wait, function(){
-        const ok = dist(player.x, player.y, x, y) <= rr + player.r + 8;
-        if(ok){ try{ breakBoss(breakTime || .95); }catch(e){} healText('SAFE 성공 · BREAK', player.x, player.y - 42); try{ burst(player.x,player.y,'#86efac',18,160); }catch(e){} }
-        else { hurtPlayer((failDamage || v72Dmg(1.25)) * .72, color || v72Color(), true, '안전지대 실패'); floatText('SAFE 밖', player.x, player.y - 44, '#fb7185', 20); }
-      });
-    }
-    function v72Tiles(cols, rows, safeIndex, warn, color, tag){
-      const cellW = W / cols, cellH = (H - 115) / rows;
-      for(let i=0;i<cols*rows;i++){
-        const x = cellW * (i % cols + .5), y = 115 + cellH * (Math.floor(i / cols) + .5);
-        if(i === safeIndex){ v72Safe(x,y,Math.min(cellW,cellH)*.32,warn+.65,'SAFE TILE'); continue; }
-        v72Fx('laneRect',x,y,{w:cellW*.80,h:cellH*.70,life:warn+.2,color:color||v72Color(),label:'DANGER',alpha:.14});
-        v72Circle(x,y,Math.min(cellW,cellH)*.30,warn,v72Dmg(.46),color,tag);
-      }
-    }
-
-    // 18 bosses: each boss keeps a different identity pattern. No shared generic high-tier pattern table.
-    function v72SlimeKing(){
-      const c='#7ddf64', tag='slime';
-      v72Say('젤리 왕: 튕기는 점프. 마지막에 초록 웅덩이를 밟으면 반격 타이밍입니다.',c,'slam');
-      const sx=clamp(player.x+rand(-170,170),120,W-120), sy=clamp(player.y+rand(-120,100),155,H-90);
-      v72Circle(player.x,player.y,82,1.15,v72Dmg(.48),c,tag);
-      v72Later(700,()=>v72Circle(player.x+rand(-70,70),player.y+rand(-55,55),58,1.05,v72Dmg(.36),'#dbffb6',tag));
-      v72Check(sx,sy,70,2800,.65,v72Dmg(1.0),c,'젤리 빈틈');
-    }
-    function v72EmberTyrant(){
-      const c='#ef4444', tag='fire';
-      v72Say('이그니스: 용암 부채꼴. 불길 사이의 초록 냉각지대로 이동하세요.',c,'beam');
-      const a=Math.atan2(player.y-boss.y,player.x-boss.x);
-      for(let i=-2;i<=2;i++) if(i!==0) v72Beam(boss.x,boss.y,a+i*.34,720,24,1.45,v72Dmg(.42),c,tag);
-      const sx=boss.x+Math.cos(a)*260, sy=boss.y+Math.sin(a)*260;
-      v72Check(clamp(sx,100,W-100),clamp(sy,145,H-80),66,2850,.70,v72Dmg(1.10),c,'냉각지대');
-    }
-    function v72ThornQueen(){
-      const c='#22c55e', tag='nature';
-      v72Say('로제리아: 꽃잎 미로. 가시가 없는 꽃문만 통과하세요.',c,'cast');
-      const rows=[H*.30,H*.45,H*.60,H*.75], safe=Math.floor(Math.random()*rows.length);
-      rows.forEach((y,i)=>{ if(i===safe) v72Safe(W*.50,y,64,3.1,'꽃문'); else v72Beam(W/2,y,0,W*.90,22,1.5+i*.05,v72Dmg(.44),'#f472b6',tag); });
-      v72Check(W*.50,rows[safe],70,3000,.75,v72Dmg(1.0),c,'꽃문 통과');
-    }
-    function v72FrostOracle(){
-      const c='#38bdf8', tag='ice';
-      v72Say('네이아: 얼음 수정 예언. 빛나는 수정 순서를 보고 마지막 수정으로 이동하세요.',c,'cast');
-      const pts=[{x:W*.25,y:H*.32},{x:W*.50,y:H*.48},{x:W*.75,y:H*.32},{x:W*.35,y:H*.72},{x:W*.65,y:H*.72}];
-      const safe=Math.floor(Math.random()*pts.length);
-      pts.forEach((p,i)=>{ i===safe?v72Safe(p.x,p.y,58,3.1,'예언'):v72Circle(p.x,p.y,54,1.45+i*.08,v72Dmg(.42),c,tag); });
-      v72Check(pts[safe].x,pts[safe].y,65,3050,.75,v72Dmg(1.05),c,'예언 해석');
-    }
-    function v72SandReaper(){
-      const c='#f59e0b', tag='sand';
-      v72Say('샤하르: 모래시계 회랑. 좁아지는 모래 벽의 중앙 틈을 읽으세요.',c,'beam');
-      const safeY=[H*.28,H*.45,H*.62,H*.78][Math.floor(Math.random()*4)];
-      [H*.28,H*.45,H*.62,H*.78].forEach(y=>{ if(Math.abs(y-safeY)<5) v72Safe(W*.50,y,64,3.0,'회랑'); else v72Beam(W/2,y,0,W*.92,24,1.45,v72Dmg(.44),c,tag); });
-      v72Beam(W*.24,H/2,Math.PI/2,H*.85,16,1.95,v72Dmg(.34),'#fde68a',tag);
-      v72Beam(W*.76,H/2,Math.PI/2,H*.85,16,1.95,v72Dmg(.34),'#fde68a',tag);
-      v72Check(W*.50,safeY,70,3000,.78,v72Dmg(1.1),c,'모래 틈');
-    }
-    function v72VoidSerpent(){
-      const c='#8b5cf6', tag='void';
-      v72Say('노크스: 공허문. 진짜 문 하나만 보라색 균열을 닫습니다.',c,'cast');
-      const pts=[{x:W*.20,y:H*.35},{x:W*.40,y:H*.65},{x:W*.60,y:H*.35},{x:W*.80,y:H*.65}]; const safe=Math.floor(Math.random()*pts.length);
-      pts.forEach((p,i)=>{ i===safe?v72Safe(p.x,p.y,60,3.0,'진짜 문'):v72Fake(p.x,p.y,56,2.6,'가짜 문',c); v72Circle(p.x,p.y,44,1.5+i*.04,v72Dmg(i===safe?.18:.40),c,tag); });
-      v72Check(pts[safe].x,pts[safe].y,67,3000,.80,v72Dmg(1.15),c,'공허문 봉쇄');
-    }
-    function v72IronMinotaur(){
-      const c='#94a3b8', tag='metal';
-      v72Say('미노타우로스: 돌진 유도. 벽 표시 뒤로 숨어 보스를 부딪히게 하세요.',c,'slam');
-      const sx = player.x < W/2 ? W*.78 : W*.22, sy = clamp(player.y,170,H-95);
-      v72Fx('safeRect',sx,sy,{w:86,h:150,life:3.1,color:'#86efac',label:'WALL'}); v72Safe(sx,sy,70,3.1,'벽 뒤');
-      v72Beam((boss.x+player.x)/2,(boss.y+player.y)/2,Math.atan2(player.y-boss.y,player.x-boss.x),850,34,1.55,v72Dmg(.62),c,tag);
-      v72Check(sx,sy,78,3100,1.05,v72Dmg(1.20),c,'벽 충돌 유도');
-    }
-    function v72BloodMoon(){
-      const c='#be123c', tag='blood';
-      v72Say('루나: 혈월 사냥 표식. 달빛이 없는 그림자 원으로 숨어야 합니다.',c,'cast');
-      const sx=rand(140,W-140), sy=rand(165,H-90);
-      for(let i=0;i<5;i++) v72Circle(rand(110,W-110),rand(140,H-85),48+i*3,1.25+i*.18,v72Dmg(.38),c,tag);
-      v72Safe(sx,sy,64,3.05,'그림자');
-      v72Check(sx,sy,70,3000,.80,v72Dmg(1.22),c,'혈월 회피');
-    }
-    function v72StormColossus(){
-      const c='#facc15', tag='lightning';
-      v72Say('아스트라: 전류 회로. 번개가 닿지 않는 접지 원으로 이동하세요.',c,'beam');
-      const sx=rand(150,W-150), sy=rand(160,H-95);
-      for(let i=0;i<4;i++){ const x=150+i*(W-300)/3; v72Beam(x,H/2,Math.PI/2,H*.88,18,1.25+i*.22,v72Dmg(.42),c,tag); }
-      v72Safe(sx,sy,66,3.15,'접지');
-      v72Check(sx,sy,72,3050,.88,v72Dmg(1.18),c,'접지 성공');
-    }
-    function v72PlagueDoctor(){
-      const c='#84cc16', tag='poison';
-      v72Say('모르비드: 해독 처방. 초록 십자가가 있는 해독 구역만 안전합니다.',c,'cast');
-      const pts=[{x:W*.25,y:H*.36},{x:W*.50,y:H*.63},{x:W*.75,y:H*.36}], safe=Math.floor(Math.random()*pts.length);
-      pts.forEach((p,i)=>{ i===safe?v72Safe(p.x,p.y,66,3.2,'해독'):v72Fake(p.x,p.y,58,2.8,'독안개','#14532d'); v72Circle(p.x,p.y,50,1.35+i*.12,v72Dmg(.36),c,tag); });
-      v72Check(pts[safe].x,pts[safe].y,74,3120,.85,v72Dmg(1.12),c,'해독 완료');
-    }
-    function v72MirrorDuelist(){
-      const c='#e879f9', tag='mirror';
-      v72Say('세렌: 거울 결투. 반짝임이 한 번 늦게 오는 REAL 분신만 안전합니다.',c,'cast');
-      const pts=[{x:W*.22,y:H*.42},{x:W*.42,y:H*.70},{x:W*.60,y:H*.36},{x:W*.78,y:H*.68}], safe=Math.floor(Math.random()*pts.length);
-      pts.forEach((p,i)=>{ i===safe?v72Safe(p.x,p.y,58,3.0,'REAL'):v72Fake(p.x,p.y,54,2.6,'MIRROR',c); v72Beam(p.x,p.y,Math.atan2(player.y-p.y,player.x-p.x),330,12,1.4+i*.07,v72Dmg(.36),c,tag); });
-      v72Check(pts[safe].x,pts[safe].y,66,3000,.90,v72Dmg(1.2),c,'진짜 분신');
-    }
-    function v72GravityCore(){
-      const c='#818cf8', tag='gravity';
-      v72Say('아틀라스: 중력 궤도. 초록 궤도 조각 위에서 흡입을 버티세요.',c,'cast');
-      const a=Math.random()*Math.PI*2, cx=W/2, cy=H/2, r=210;
-      v72Fx('orbitGuide',cx,cy,{r:260,life:3.1,color:c,safeAngle:a,label:'ORBIT',safeAngle:a});
-      const sx=cx+Math.cos(a)*r*.58, sy=cy+Math.sin(a)*r*.58; v72Safe(sx,sy,62,3.2,'ORBIT');
-      try{ state.mechanics.push({kind:'gravity',x:cx,y:cy,r:260,power:0,life:2.6,color:c}); }catch(e){}
-      v72Check(sx,sy,70,3150,1.0,v72Dmg(1.25),c,'중력 궤도');
-    }
-    function v72SolarDragon(){
-      const c='#fb923c', tag='solar';
-      v72Say('솔라리온: 태양 날개. 빛의 날개 사이, 그늘 타일을 찾으세요.',c,'beam');
-      const safe=Math.floor(Math.random()*6);
-      for(let i=0;i<6;i++){ const a=-.75+i*.30; if(i!==safe) v72Beam(W/2,H*.18,a+Math.PI/2,H*.95,22,1.35+i*.06,v72Dmg(.44),c,tag); }
-      const sx=120+safe*(W-240)/5, sy=H*.70; v72Safe(sx,sy,67,3.0,'그늘');
-      v72Check(sx,sy,74,3000,.9,v72Dmg(1.22),c,'태양 그늘');
-    }
-    function v72ChronoDragon(){
-      const c='#f472b6', tag='chrono';
-      v72Say('크로노스: 시간 악보. 숫자 순서가 아닌 마지막으로 빛난 숫자가 정답입니다.',c,'cast');
-      const count=8, safe=Math.floor(Math.random()*count), cx=W/2, cy=H/2;
-      v72Fx('clock',cx,cy,{r:250,life:3.15,color:c,safe});
-      for(let i=0;i<count;i++){ const a=-Math.PI/2+i*Math.PI*2/count, x=cx+Math.cos(a)*215, y=cy+Math.sin(a)*215; i===safe?v72Safe(x,y,58,3.1,'LAST '+(i+1)):v72Circle(x,y,36,1.35+i*.08,v72Dmg(.36),c,tag); }
-      v72Beam(cx,cy,state.time,900,12,2.0,v72Dmg(.38),c,tag);
-      const a=-Math.PI/2+safe*Math.PI*2/count; v72Check(cx+Math.cos(a)*215,cy+Math.sin(a)*215,66,3150,1.0,v72Dmg(1.28),c,'시간 악보');
-    }
-    function v72AbyssLeviathan(){
-      const c='#38bdf8', tag='void';
-      v72Say('아비스: 심해 호흡. 물결이 비어 있는 산소 회랑을 따라가세요.',c,'beam');
-      const ys=[H*.26,H*.42,H*.58,H*.74], safe=Math.floor(Math.random()*ys.length);
-      ys.forEach((y,i)=>{ if(i===safe){ v72Fx('waveGuide',W/2,y,{w:W*.90,h:82,life:3.1,color:c,label:'AIR'}); v72Safe(W/2,y,72,3.1,'AIR'); } else v72Beam(W/2,y,0,W*.96,30,1.35+i*.12,v72Dmg(.45),c,tag); });
-      v72Check(W/2,ys[safe],78,3050,1.0,v72Dmg(1.25),c,'산소 회랑');
-    }
-    function v72PuppetEmperor(){
-      const c='#f0abfc', tag='mirror';
-      v72Say('마리오네트: 황제 단두대. 실이 없는 무대 칸만 진짜 SAFE입니다.',c,'beam');
-      const cols=5, safe=Math.floor(Math.random()*cols), y=H*.62;
-      for(let i=0;i<cols;i++){ const x=140+i*(W-280)/(cols-1); if(i===safe){ v72Safe(x,y,66,3.15,'NO STRING'); } else { v72Fx('blade',x,H*.22,{w:66,h:210,life:2.8,color:'#e5e7eb',sub:c,label:'DROP'}); v72Beam(x,H/2,Math.PI/2,H*1.05,24,1.45+i*.06,v72Dmg(.55),c,tag); } }
-      v72Check(140+safe*(W-280)/(cols-1),y,74,3150,1.05,v72Dmg(1.35),c,'실 없는 무대');
-    }
-    function v72BlackSun(){
-      const c='#f97316', tag='solar';
-      const inner=Math.random()<.5; v72Say(`아포칼립스: 검은 태양 심판. ${inner?'안쪽':'바깥쪽'}이 진짜 안전입니다.`,c,'slam');
-      v72Fx('eclipse',W/2,H/2,{r:240,life:3.15,color:c,inner,label:inner?'INSIDE':'OUTSIDE'});
-      if(inner){ v72Safe(W/2,H/2,78,3.1,'INSIDE'); v72Circle(W/2,H/2,180,1.4,v72Dmg(.50),c,tag); v72Check(W/2,H/2,86,3050,1.05,v72Dmg(1.38),c,'일식 안쪽'); }
-      else { const a=Math.random()*Math.PI*2, sx=W/2+Math.cos(a)*245, sy=H/2+Math.sin(a)*150; v72Safe(sx,sy,72,3.1,'OUTSIDE'); v72Circle(W/2,H/2,112,1.3,v72Dmg(.36),c,tag); v72Check(sx,sy,80,3050,1.05,v72Dmg(1.38),c,'일식 바깥쪽'); }
-      v72Later(920,()=>{ v72Beam(W/2,H/2,0,W*.96,14,1.25,v72Dmg(.38),c,tag); v72Beam(W/2,H/2,Math.PI/2,H*.96,14,1.25,v72Dmg(.38),c,tag); });
-    }
-    function v72ChaosArchon(){
-      const c='#fb7185', tag='chaos';
-      v72Say('카이로스: 혼돈 판결. 선언된 REAL 색상만 밟으세요.',c,'cast');
-      const colors=['#fb7185','#818cf8','#facc15','#34d399']; const safe=Math.floor(Math.random()*4);
-      const pts=[{x:W*.25,y:H*.34},{x:W*.75,y:H*.34},{x:W*.25,y:H*.72},{x:W*.75,y:H*.72}];
-      const picks=pts.map((p,i)=>({x:p.x,y:p.y,c:colors[i],n:i===safe?'REAL':'FAKE'})); v72Fx('glyphs',W/2,H/2,{picks,safe,life:3.1,color:c});
-      pts.forEach((p,i)=>{ i===safe?v72Safe(p.x,p.y,66,3.1,'REAL'):v72Fake(p.x,p.y,60,2.8,'FAKE',colors[i]); if(i!==safe) v72Circle(p.x,p.y,42,1.5+i*.07,v72Dmg(.42),colors[i],tag); });
-      v72Check(pts[safe].x,pts[safe].y,74,3100,1.1,v72Dmg(1.42),c,'혼돈 판결');
-    }
-
-    function v72Pattern(){
-      const map={
-        slime_king:v72SlimeKing, ember_tyrant:v72EmberTyrant, thorn_queen:v72ThornQueen, frost_oracle:v72FrostOracle,
-        sand_reaper:v72SandReaper, void_serpent:v72VoidSerpent, iron_minotaur:v72IronMinotaur, blood_moon:v72BloodMoon,
-        storm_colossus:v72StormColossus, plague_doctor:v72PlagueDoctor, mirror_duelist:v72MirrorDuelist, gravity_core:v72GravityCore,
-        solar_dragon:v72SolarDragon, chrono_dragon:v72ChronoDragon, abyss_leviathan:v72AbyssLeviathan,
-        puppet_emperor:v72PuppetEmperor, black_sun:v72BlackSun, chaos_archon:v72ChaosArchon
-      };
-      const fn = map[boss && boss.id] || v72SlimeKing;
-      fn();
-      try{ v67Cap(); }catch(e){}
-    }
-
-    const oldV72TypePattern = typeof v59TypePattern === 'function' ? v59TypePattern : null;
-    v59TypePattern = function(idx){
-      try{ v72Pattern(); return; }
-      catch(e){ console.warn('[V72 pattern failed]', e); if(oldV72TypePattern) oldV72TypePattern(idx); }
-    };
-    bossPattern = function(){
-      boss.mechanicText = '';
-      v72Pattern();
-      // 분석을 방해하던 무작위 보조 패턴은 제거. 페이즈 3도 한 번에 하나의 주요 패턴만 확실하게 보여준다.
-    };
-    getBossPatternCooldown = function(){
-      const t=v72Tier(), ph=v72Phase();
-      const base = t>=10 ? 4.55 : t>=9 ? 4.35 : t>=8 ? 4.15 : t>=7 ? 3.95 : t>=5 ? 3.65 : 3.35;
-      return base + (ph===3 ? .15 : ph===2 ? .35 : .55) + Math.random()*.45;
-    };
-
-    // 일반 공격은 보스전의 압박만 담당하게 하향. 주요 피해는 읽고 피하는 패턴에서만 발생.
-    try{
-      BOSSES.forEach(function(b){
-        if(!b._v72AtkBalanced){ b.atk = Math.max(3.2, Number(b.atk || 8) * .58); b._v72AtkBalanced = true; }
-      });
-      if(boss && !boss._v72AtkBalancedLive){ boss.atk = Math.max(3.2, Number(boss.atk || 8) * .58); boss._v72AtkBalancedLive = true; }
-    }catch(e){}
-
-    const oldHurtPlayerV72 = hurtPlayer;
-    hurtPlayer = function(amount, color, statusDamage, source){
-      try{
-        if(player && player.roll > 0){ if(Math.random()<.20) floatText('회피',player.x,player.y-28,'#93c5fd',14); return; }
-        const safe = v72IsInSafe();
-        if(safe){
-          const reduced = Number(amount || 0) * .08;
-          state._v72SafeFlash = .35;
-          state._v72SafeName = safe.label || 'SAFE';
-          if(Number(amount || 0) > 1 && Math.random() < .34) floatText('SAFE 보호', player.x, player.y - 38, '#86efac', 15);
-          if(reduced < 1.2) return;
-          return oldHurtPlayerV72(reduced, '#86efac', true, source || 'SAFE 보호 중 잔여 피해');
-        }
-      }catch(e){}
-      return oldHurtPlayerV72(amount, color, statusDamage, source);
-    };
-
-    const oldUpdateBossV72 = updateBoss;
-    updateBoss = function(dt){
-      if(boss && !boss._v72AtkBalancedLive){ boss.atk = Math.max(3.2, Number(boss.atk || 8) * .58); boss._v72AtkBalancedLive = true; }
-      const wasSafe = v72IsInSafe();
-      if(wasSafe && boss){ boss._v72NoContact = .18; }
-      return oldUpdateBossV72(dt);
-    };
-
-    const oldUpdateV72 = update;
-    update = function(dt){
-      try{
-        state._v72SafeFlash = Math.max(0, Number(state._v72SafeFlash || 0) - Math.min(dt || 0, .04));
-        const s = v72IsInSafe();
-        state._v72InSafe = !!s;
-        state._v72SafeName = s ? (s.label || 'SAFE') : '';
-        if(s && Math.random() < .025) state.particles.push({kind:'ring',x:player.x,y:player.y,vx:0,vy:0,r:30,life:.20,color:'#86efac',line:2});
-      }catch(e){}
-      return oldUpdateV72(dt);
-    };
-
-    const oldDrawMechanicsV72 = drawMechanics;
-    drawMechanics = function(){
-      try{ oldDrawMechanicsV72(); }catch(e){}
-      try{
-        // Stronger safe zone feedback: pillar, check mark, player halo, and status text.
-        for(const m of state.mechanics){
-          if(!m || (m.kind !== 'safe' && m.kind !== 'v72safeAura')) continue;
-          const r=Number(m.r||0), x=Number(m.x||0), y=Number(m.y||0); if(!r) continue;
-          const inside = !m.fake && player && dist(player.x,player.y,x,y) <= r + player.r + 8;
-          ctx.save();
-          ctx.globalAlpha = m.fake ? .22 : inside ? .62 : .38;
-          ctx.fillStyle = m.fake ? 'rgba(239,68,68,.30)' : 'rgba(34,197,94,.32)';
-          ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
-          ctx.globalAlpha = inside ? 1 : .82;
-          ctx.strokeStyle = inside ? '#ffffff' : (m.fake ? '#fecaca' : '#bbf7d0');
-          ctx.lineWidth = inside ? 6 : 3;
-          ctx.setLineDash(m.fake ? [12,8] : []);
-          ctx.beginPath(); ctx.arc(x,y,r + Math.sin(state.time*8)*5,0,Math.PI*2); ctx.stroke();
-          ctx.setLineDash([]);
-          ctx.fillStyle = '#ffffff'; ctx.font = inside ? '900 24px system-ui' : '900 17px system-ui'; ctx.textAlign='center';
-          ctx.fillText(m.fake ? 'FAKE' : (inside ? '✓ SAFE' : (m.label || 'SAFE')), x, y + 7);
-          ctx.restore();
-        }
-        if(state._v72InSafe && player){
-          ctx.save();
-          ctx.globalAlpha = .65 + .20*Math.sin(state.time*12);
-          ctx.strokeStyle = '#86efac'; ctx.lineWidth = 5;
-          ctx.beginPath(); ctx.arc(player.x, player.y, player.r + 18, 0, Math.PI*2); ctx.stroke();
-          ctx.fillStyle = '#86efac'; ctx.font = '900 16px system-ui'; ctx.textAlign = 'center';
-          ctx.fillText('안전!', player.x, player.y - 52);
-          ctx.restore();
-        }
-      }catch(e){}
-    };
-
-
-
-    /* ===== V73: restored visible boss patterns + true SAFE invincibility + mobile-only touch UI ===== */
-    const V73_VERSION = 'Raid Dungeon V73 - Restored Unique Patterns True Safe Invincible Mobile Only';
-
-    function v73MobileLike(){
-      try{
-        const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-        const touch = (navigator.maxTouchPoints || 0) > 0;
-        return !!(touch && coarse);
-      }catch(e){ return false; }
-    }
-    function v73SafeActive(){
-      try{
-        if(!state || state.screen !== 'raid' || !player || !Array.isArray(state.mechanics)) return null;
-        for(const m of state.mechanics){
-          if(!m || m.fake) continue;
-          const k=String(m.kind||'');
-          if(k !== 'safe' && k !== 'v72safeAura' && k !== 'v73safe') continue;
-          const r=Number(m.r||0);
-          if(r>0 && dist(player.x,player.y,Number(m.x||0),Number(m.y||0)) <= r + player.r + 10) return m;
-        }
-      }catch(e){}
-      return null;
-    }
-    function v73Name(){ return boss && boss.name || '보스'; }
-    function v73Pick(arr){
-      if(!boss) return arr[0];
-      boss._v73PatternIndex = ((boss._v73PatternIndex || 0) + 1) % arr.length;
-      return arr[boss._v73PatternIndex];
-    }
-    function v73ClearOverload(){
-      try{
-        if(state.hazards.length>110) state.hazards.splice(0,state.hazards.length-110);
-        if(state.mechanics.length>70) state.mechanics.splice(0,state.mechanics.length-70);
-        if(state.particles.length>260) state.particles.splice(0,state.particles.length-260);
-        if(state.projectiles.length>120) state.projectiles.splice(0,state.projectiles.length-120);
-      }catch(e){}
-    }
-    function v73Safe(x,y,r,life,label,color){ v72Safe(x,y,r,life,label,color||'#86efac'); v72Fx('arrow',player.x,player.y,{x2:x,y2:y,life:Math.min(2.6,life||2.6),color:'#86efac',label:'SAFE'}); }
-    function v73Check(x,y,r,ms,label,damageMul,color){ v72Check(x,y,r,ms||3300,1.15,v72Dmg(damageMul||1.15),color||v72Color(),label||'SAFE'); }
-    function v73BeamFan(cx,cy,base,count,gap,warn,color,tag,label){
-      for(let i=0;i<count;i++){
-        const off=i-(count-1)/2;
-        if(gap!=null && i===gap) continue;
-        v72Beam(cx,cy,base+off*.18,W*.88,16+v72Phase()*2,warn+(Math.abs(off)*.04),v72Dmg(.36),color,tag);
-      }
-      if(label) floatText(label,W/2,90,color,20);
-    }
-    function v73LaneY(lines,safe,color,tag,label){
-      const top=135, bottom=H-95;
-      for(let i=0;i<lines;i++){
-        const y=top+(bottom-top)*(i+.5)/lines;
-        if(i===safe){ v73Safe(W/2,y,62,3.2,label||'SAFE LANE', '#86efac'); }
-        else v72Beam(W/2,y,0,W*.94,22,1.55+i*.07,v72Dmg(.42),color,tag);
-      }
-      const sy=top+(bottom-top)*(safe+.5)/lines;
-      v73Check(W/2,sy,70,3250,label||'SAFE LANE',1.0,color);
-    }
-    function v73LaneX(lines,safe,color,tag,label){
-      const left=120, right=W-120;
-      for(let i=0;i<lines;i++){
-        const x=left+(right-left)*(i+.5)/lines;
-        if(i===safe){ v73Safe(x,H/2,62,3.2,label||'SAFE COLUMN', '#86efac'); }
-        else v72Beam(x,H/2,Math.PI/2,H*.90,22,1.55+i*.07,v72Dmg(.42),color,tag);
-      }
-      const sx=left+(right-left)*(safe+.5)/lines;
-      v73Check(sx,H/2,70,3250,label||'SAFE COLUMN',1.0,color);
-    }
-    function v73Tiles(cols,rows,safe,color,tag,label){
-      const cw=W/cols,ch=(H-120)/rows;
-      for(let i=0;i<cols*rows;i++){
-        const x=cw*(i%cols+.5), y=115+ch*(Math.floor(i/cols)+.5);
-        if(i===safe){ v73Safe(x,y,Math.min(cw,ch)*.32,3.4,label||'SAFE TILE','#86efac'); }
-        else { v72Fx('laneRect',x,y,{w:cw*.76,h:ch*.66,life:2.25,color,label:'DANGER',alpha:.16}); v72Circle(x,y,Math.min(cw,ch)*.27,1.72+(i%3)*.08,v72Dmg(.36),color,tag); }
-      }
-      const sx=cw*(safe%cols+.5), sy=115+ch*(Math.floor(safe/cols)+.5);
-      v73Check(sx,sy,Math.min(cw,ch)*.38,3400,label||'SAFE TILE',1.08,color);
-    }
-    function v73Core(x,y,color,label){
-      v72Fx('mandala',x,y,{r:80,life:3.1,color,label:label||'CORE'});
-      v72Circle(x,y,92,1.35,v72Dmg(.28),color,v72Tag());
-      floatText(label||'CORE',x,y-84,color,17);
-    }
-
-    const V73_LABELS={
-      slime_king:['젤리 왕관 낙하','통통 반동 회랑','푸딩 웅덩이 SAFE'],
-      ember_tyrant:['용암 호흡','냉각 원 SAFE','화염 왕관 부채꼴'],
-      thorn_queen:['장미 덩굴 미로','꽃문 판별','독꽃 개화 순서'],
-      frost_oracle:['얼음 예언 수정','빙벽 회랑','서리 별자리'],
-      sand_reaper:['모래시계 회랑','매몰 금지선','사막 낫 빈틈'],
-      void_serpent:['공허문 판별','뱀 독늪 고리','차원 꼬리 추격'],
-      iron_minotaur:['돌진 벽 유도','철벽 뒤 SAFE','도끼 십자 파동'],
-      blood_moon:['혈월 그림자','붉은 표식 도주','사냥꾼 은신 칼날'],
-      storm_colossus:['전류 접지 SAFE','낙뢰 기둥 순서','폭풍 회로'],
-      plague_doctor:['진짜 혈청','검역 병동','수술선 회피'],
-      mirror_duelist:['진짜 거울 분신','반사검 빈틈','거울 법정'],
-      gravity_core:['중력 궤도 SAFE','압축 원심 고리','무게추 저울'],
-      solar_dragon:['태양 날개 그늘','일식 호흡','플레어 코어'],
-      chrono_dragon:['시간 악보','초침 회전','되감기 위치'],
-      abyss_leviathan:['산소 회랑','심해 해일문','소용돌이 중심 회피'],
-      puppet_emperor:['실 없는 단두대','꼭두각시 법정','가짜 무대 SAFE'],
-      black_sun:['검은 일식 안밖','흑점 붕괴 칸','왕관 심판광'],
-      chaos_archon:['REAL 색상 판결','혼돈 야바위','차원 악보']
-    };
-    try{ BOSSES.forEach(function(b){ if(V73_LABELS[b.id]) b.patterns=V73_LABELS[b.id].slice(); }); }catch(e){}
-
-    const V73_PATTERNS={
-      slime_king:[
-        function(){ const c='#7ddf64'; v72Say('젤리 왕: 왕관이 떨어집니다. 튕긴 뒤 생기는 초록 웅덩이에 들어가세요.',c,'slam'); const x=clamp(player.x+rand(-160,160),120,W-120), y=clamp(player.y+rand(-90,100),150,H-95); v72Circle(x,y,76,1.55,v72Dmg(.44),c,'slime'); v73Safe(x+rand(-130,130),y+rand(-80,80),68,3.2,'PUDDING SAFE',c); v73Check(x,y,150,3350,'젤리 반동',.95,c); },
-        function(){ const c='#7ddf64'; v72Say('젤리 왕: 통통 회랑. 비어 있는 초록 줄로 이동하세요.',c,'beam'); v73LaneY(4,Math.floor(Math.random()*4),c,'slime','JELLY LANE'); },
-        function(){ const c='#7ddf64'; v72Say('젤리 왕: 방울이 터집니다. 큰 방울 사이 빈칸을 찾으세요.',c,'cast'); v73Tiles(4,3,Math.floor(Math.random()*12),c,'slime','BUBBLE GAP'); }
-      ],
-      ember_tyrant:[
-        function(){ const c='#ef4444'; v72Say('이그니스: 용암 호흡. 화염 부채꼴의 빈 각도로 파고드세요.',c,'beam'); const gap=Math.floor(Math.random()*7); v73BeamFan(boss.x,boss.y,Math.atan2(player.y-boss.y,player.x-boss.x),7,gap,1.55,c,'fire','LAVA FAN'); },
-        function(){ const c='#ef4444'; v72Say('이그니스: 냉각 원. 초록 원 안에서는 불꽃 피해가 완전히 막힙니다.',c,'slam'); const x=rand(150,W-150),y=rand(160,H-100); v73Safe(x,y,74,3.4,'COOLING SAFE','#86efac'); for(let i=0;i<7;i++) v72Circle(rand(120,W-120),rand(130,H-110),42,1.7+i*.05,v72Dmg(.36),c,'fire'); v73Check(x,y,82,3450,'냉각 원',1.05,c); },
-        function(){ const c='#ef4444'; v72Say('이그니스: 화염 왕관. 바깥 고리 뒤 안쪽 고리가 폭발합니다.',c,'slam'); v72Fx('eclipse',W/2,H/2,{r:230,life:3.1,color:c,label:'CROWN'}); v72Circle(W/2,H/2,230,1.45,v72Dmg(.42),c,'fire'); v72Circle(W/2,H/2,115,2.15,v72Dmg(.46),'#f97316','fire'); v73Safe(W*.78,H*.70,68,3.2,'ASH SAFE','#86efac'); }
-      ],
-      thorn_queen:[
-        function(){ const c='#22c55e'; v72Say('로제리아: 장미 덩굴 미로. 꽃이 없는 세로길만 안전합니다.',c,'cast'); v73LaneX(5,Math.floor(Math.random()*5),c,'nature','ROSE PATH'); },
-        function(){ const c='#22c55e'; v72Say('로제리아: 진짜 꽃문. 흰 테두리 꽃문으로 들어가세요.',c,'cast'); const real=Math.floor(Math.random()*4); for(let i=0;i<4;i++){ const x=220+i*(W-440)/3,y=H*.55; if(i===real) v73Safe(x,y,70,3.3,'REAL FLOWER','#86efac'); else {v72Fake(x,y,62,3.0,'POISON', '#f472b6'); v72Circle(x,y,58,1.7+i*.07,v72Dmg(.44),'#f472b6','nature');}} v73Check(220+real*(W-440)/3,H*.55,78,3400,'진짜 꽃문',1.08,c); },
-        function(){ const c='#22c55e'; v72Say('로제리아: 독꽃 개화 순서. 마지막까지 빛나는 초록 꽃밭에 서세요.',c,'slam'); v73Tiles(5,3,Math.floor(Math.random()*15),c,'nature','GREEN BLOOM'); }
-      ],
-      frost_oracle:[
-        function(){ const c='#38bdf8'; v72Say('네이아: 얼음 예언 수정. 수정이 가리키는 안전점으로 이동하세요.',c,'cast'); const x=rand(150,W-150),y=rand(160,H-100); v73Core(x,y,c,'ICE ORACLE'); v73Safe(x+rand(-120,120),y+rand(-90,90),70,3.35,'PROPHECY','#86efac'); },
-        function(){ const c='#38bdf8'; v72Say('네이아: 빙벽 회랑. 얼음벽 사이 푸른 회랑을 통과하세요.',c,'beam'); v73LaneY(5,Math.floor(Math.random()*5),c,'ice','ICE CORRIDOR'); },
-        function(){ const c='#38bdf8'; v72Say('네이아: 서리 별자리. 별이 없는 칸만 안전합니다.',c,'slam'); v73Tiles(4,4,Math.floor(Math.random()*16),c,'ice','FROST STAR'); }
-      ],
-      sand_reaper:[
-        function(){ const c='#f59e0b'; v72Say('샤하르: 모래시계 회랑. 위아래가 좁아지기 전 중앙 SAFE로 이동하세요.',c,'beam'); v73Safe(W/2,H*.56,66,3.3,'HOURGLASS','#86efac'); v72Beam(W*.25,H*.34,.45,W*.62,24,1.55,v72Dmg(.42),c,'sand'); v72Beam(W*.75,H*.34,Math.PI-.45,W*.62,24,1.55,v72Dmg(.42),c,'sand'); v72Beam(W*.25,H*.76,-.45,W*.62,24,1.9,v72Dmg(.42),c,'sand'); v72Beam(W*.75,H*.76,Math.PI+.45,W*.62,24,1.9,v72Dmg(.42),c,'sand'); v73Check(W/2,H*.56,74,3400,'모래시계',1.1,c); },
-        function(){ const c='#f59e0b'; v72Say('샤하르: 매몰 금지선. 모래가 없는 가로줄을 찾으세요.',c,'slam'); v73LaneY(4,Math.floor(Math.random()*4),c,'sand','SAND GAP'); },
-        function(){ const c='#f59e0b'; v72Say('샤하르: 사막 낫. 낫이 지나가지 않는 기둥 뒤가 안전합니다.',c,'beam'); v73LaneX(5,Math.floor(Math.random()*5),c,'sand','REAPER GAP'); }
-      ],
-      void_serpent:[
-        function(){ const c='#8b5cf6'; v72Say('노크스: 공허문 판별. 별빛이 남은 문만 진짜입니다.',c,'cast'); const real=Math.floor(Math.random()*4); for(let i=0;i<4;i++){ const x=210+i*(W-420)/3,y=H*.55; if(i===real) v73Safe(x,y,68,3.4,'REAL VOID','#86efac'); else {v72Fake(x,y,60,3.0,'FAKE VOID',c); v72Circle(x,y,58,1.65+i*.07,v72Dmg(.45),c,'void');}} v73Check(210+real*(W-420)/3,H*.55,76,3450,'공허문',1.12,c); },
-        function(){ const c='#8b5cf6'; v72Say('노크스: 뱀 독늪 고리. 고리 밖 초록 틈으로 빠져나가세요.',c,'slam'); v72Circle(W/2,H/2,155,1.45,v72Dmg(.42),c,'void'); v72Circle(W/2,H/2,260,2.05,v72Dmg(.42),c,'void'); v73Safe(W*.18,H*.75,66,3.25,'VOID GAP','#86efac'); },
-        function(){ const c='#8b5cf6'; v72Say('노크스: 차원 꼬리. 보라 꼬리를 피해 SAFE 칸으로 이동하세요.',c,'beam'); v73Tiles(5,3,Math.floor(Math.random()*15),c,'void','TAIL GAP'); }
-      ],
-      iron_minotaur:[
-        function(){ const c='#94a3b8'; v72Say('미노타우로스: 돌진 벽 유도. 철벽 뒤에 숨어 돌진을 흘리세요.',c,'beam'); const x=rand(180,W-180),y=H*.66; v73Safe(x,y,74,3.4,'BEHIND WALL','#86efac'); v72Beam(boss.x,boss.y,Math.atan2(player.y-boss.y,player.x-boss.x),W*.92,32,1.65,v72Dmg(.55),c,'metal'); v73Check(x,y,82,3450,'철벽 뒤',1.05,c); },
-        function(){ const c='#94a3b8'; v72Say('미노타우로스: 도끼 십자 파동. 십자 사이 대각 SAFE를 찾으세요.',c,'slam'); v72Beam(W/2,H/2,0,W*.95,28,1.55,v72Dmg(.48),c,'metal'); v72Beam(W/2,H/2,Math.PI/2,H*.90,28,1.55,v72Dmg(.48),c,'metal'); const pts=[[W*.25,H*.3],[W*.75,H*.3],[W*.25,H*.72],[W*.75,H*.72]], p=pts[Math.floor(Math.random()*4)]; v73Safe(p[0],p[1],68,3.2,'AXE GAP','#86efac'); },
-        function(){ const c='#94a3b8'; v72Say('미노타우로스: 철갑 압박. 무너지는 바닥 중 강화판 SAFE로 이동하세요.',c,'slam'); v73Tiles(4,3,Math.floor(Math.random()*12),c,'metal','IRON PLATE'); }
-      ],
-      blood_moon:[
-        function(){ const c='#be123c'; v72Say('루나: 혈월 그림자. 붉은 달빛이 없는 그림자 칸이 안전합니다.',c,'cast'); v73Tiles(5,3,Math.floor(Math.random()*15),c,'blood','SHADOW'); },
-        function(){ const c='#be123c'; v72Say('루나: 붉은 표식. 표식이 터지기 전 SAFE 링으로 도망치세요.',c,'slam'); const x=clamp(player.x+rand(-180,180),130,W-130), y=clamp(player.y+rand(-90,90),150,H-90); v72Circle(player.x,player.y,82,1.4,v72Dmg(.50),c,'blood'); v73Safe(x,y,70,3.2,'MOON SHADE','#86efac'); v73Check(x,y,78,3300,'혈월 그림자',1.12,c); },
-        function(){ const c='#be123c'; v72Say('루나: 은신 칼날. 칼날 부채꼴 사이 빈틈으로 파고드세요.',c,'beam'); v73BeamFan(boss.x,boss.y,Math.atan2(player.y-boss.y,player.x-boss.x),9,Math.floor(Math.random()*9),1.45,c,'blood','BLADE GAP'); }
-      ],
-      storm_colossus:[
-        function(){ const c='#facc15'; v72Say('아스트라: 전류 접지. 접지 SAFE에 서 있으면 낙뢰에 무적입니다.',c,'slam'); const x=rand(150,W-150),y=rand(160,H-100); v73Safe(x,y,76,3.4,'GROUND','#86efac'); for(let i=0;i<8;i++) v72Circle(rand(115,W-115),rand(125,H-105),38,1.45+i*.08,v72Dmg(.38),c,'lightning'); v73Check(x,y,84,3450,'접지',1.1,c); },
-        function(){ const c='#facc15'; v72Say('아스트라: 낙뢰 기둥 순서. 마지막 빈 기둥으로 이동하세요.',c,'beam'); v73LaneX(5,Math.floor(Math.random()*5),c,'lightning','LIGHTNING GAP'); },
-        function(){ const c='#facc15'; v72Say('아스트라: 폭풍 회로. 회로가 끊긴 칸만 안전합니다.',c,'cast'); v73Tiles(4,4,Math.floor(Math.random()*16),c,'lightning','BROKEN CIRCUIT'); }
-      ],
-      plague_doctor:[
-        function(){ const c='#84cc16'; v72Say('모르비드: 진짜 혈청. 초록 체크 혈청만 밟으세요.',c,'cast'); const real=Math.floor(Math.random()*4); for(let i=0;i<4;i++){const x=220+i*(W-440)/3,y=H*.56; if(i===real)v73Safe(x,y,68,3.3,'SERUM','#86efac'); else{v72Fake(x,y,60,3.0,'TOXIN',c);v72Circle(x,y,56,1.6+i*.08,v72Dmg(.43),c,'poison');}} v73Check(220+real*(W-440)/3,H*.56,76,3400,'진짜 혈청',1.12,c); },
-        function(){ const c='#84cc16'; v72Say('모르비드: 검역 병동. 격리선이 비어 있는 병동으로 이동하세요.',c,'beam'); v73LaneY(5,Math.floor(Math.random()*5),c,'poison','CLEAN WARD'); },
-        function(){ const c='#84cc16'; v72Say('모르비드: 수술선. 초록 수술선 사이 빈칸을 찾으세요.',c,'beam'); v73LaneX(5,Math.floor(Math.random()*5),c,'poison','SURGERY GAP'); }
-      ],
-      mirror_duelist:[
-        function(){ const c='#e879f9'; v72Say('세렌: 진짜 거울 분신. 밝은 반사광이 있는 분신만 진짜 SAFE입니다.',c,'cast'); const real=Math.floor(Math.random()*3); for(let i=0;i<3;i++){const x=260+i*(W-520)/2,y=H*.55; if(i===real)v73Safe(x,y,70,3.35,'REAL MIRROR','#86efac'); else{v72Fake(x,y,62,3.0,'REFLECT',c);v72Circle(x,y,58,1.7+i*.09,v72Dmg(.48),c,'mirror');}} v73Check(260+real*(W-520)/2,H*.55,78,3400,'진짜 분신',1.15,c); },
-        function(){ const c='#e879f9'; v72Say('세렌: 반사검 빈틈. 거울검이 겹치지 않는 대각으로 이동하세요.',c,'beam'); v72Beam(W/2,H/2,.72,W*.9,20,1.45,v72Dmg(.44),c,'mirror'); v72Beam(W/2,H/2,-.72,W*.9,20,1.45,v72Dmg(.44),c,'mirror'); const p=Math.random()<.5?[W*.22,H*.24]:[W*.78,H*.76]; v73Safe(p[0],p[1],68,3.2,'REFLECT GAP','#86efac'); },
-        function(){ const c='#e879f9'; v72Say('세렌: 거울 법정. SAFE가 아닌 거울 칸은 반사 폭발합니다.',c,'slam'); v73Tiles(4,3,Math.floor(Math.random()*12),c,'mirror','MIRROR COURT'); }
-      ],
-      gravity_core:[
-        function(){ const c='#818cf8'; v72Say('아틀라스: 중력 궤도. 초록 궤도 안에 들어가면 중력 피해가 무효화됩니다.',c,'cast'); const a=Math.random()*Math.PI*2,x=W/2+Math.cos(a)*210,y=H/2+Math.sin(a)*125; v72Fx('orbit',W/2,H/2,{r:230,life:3.3,color:c,label:'ORBIT'}); v73Safe(x,y,74,3.35,'ORBIT SAFE','#86efac'); v73Check(x,y,82,3450,'중력 궤도',1.18,c); },
-        function(){ const c='#818cf8'; v72Say('아틀라스: 압축 원심 고리. 안쪽 폭발 뒤 바깥 고리를 피하세요.',c,'slam'); v72Circle(W/2,H/2,120,1.35,v72Dmg(.42),c,'gravity'); v72Circle(W/2,H/2,265,2.05,v72Dmg(.46),c,'gravity'); v73Safe(W*.76,H*.30,68,3.2,'LOW GRAVITY','#86efac'); },
-        function(){ const c='#818cf8'; v72Say('아틀라스: 무게추 저울. 무게가 가벼운 SAFE 쪽으로 이동하세요.',c,'cast'); const side=Math.random()<.5?0:1; v72Beam(W/2,H/2,0,W*.9,22,1.6,v72Dmg(.4),c,'gravity'); v73Safe(side?W*.72:W*.28,H*.56,74,3.3,'LIGHT SIDE','#86efac'); }
-      ],
-      solar_dragon:[
-        function(){ const c='#fb923c'; v72Say('솔라리온: 태양 날개. 날개 사이 그늘 SAFE로 파고드세요.',c,'beam'); v73BeamFan(boss.x,boss.y,Math.atan2(player.y-boss.y,player.x-boss.x),8,Math.floor(Math.random()*8),1.48,c,'solar','WING SHADE'); },
-        function(){ const c='#fb923c'; v72Say('솔라리온: 일식 호흡. INSIDE/OUTSIDE 표식을 보고 이동하세요.',c,'slam'); const inside=Math.random()<.5; v72Fx('eclipse',W/2,H/2,{r:225,life:3.25,color:c,label:inside?'INSIDE':'OUTSIDE',inner:inside}); const sx=inside?W/2:(Math.random()<.5?W*.18:W*.82), sy=inside?H/2:H*.58; v73Safe(sx,sy,inside?76:70,3.35,inside?'INSIDE':'OUTSIDE','#86efac'); v73Check(sx,sy,inside?84:78,3450,inside?'일식 안쪽':'일식 바깥쪽',1.18,c); },
-        function(){ const c='#fb923c'; v72Say('솔라리온: 플레어 코어. 코어 주변 SAFE에서 폭발을 버티세요.',c,'slam'); v73Core(W/2,H/2,c,'FLARE CORE'); v73Safe(W/2,H*.76,72,3.3,'SUN SHADE','#86efac'); for(let i=0;i<6;i++) v72Circle(rand(120,W-120),rand(125,H-110),38,1.55+i*.09,v72Dmg(.38),c,'solar'); }
-      ],
-      chrono_dragon:[
-        function(){ const c='#f472b6'; v72Say('크로노스: 시간 악보. 빛나는 숫자 방향의 SAFE로 이동하세요.',c,'cast'); const pts=[[W*.25,H*.3],[W*.75,H*.3],[W*.25,H*.72],[W*.75,H*.72]], s=Math.floor(Math.random()*4); pts.forEach((p,i)=>i===s?v73Safe(p[0],p[1],68,3.4,'TIME '+(i+1),'#86efac'):v72Circle(p[0],p[1],56,1.75+i*.08,v72Dmg(.40),c,'chrono')); v73Check(pts[s][0],pts[s][1],76,3450,'시간 악보',1.18,c); },
-        function(){ const c='#f472b6'; v72Say('크로노스: 초침 회전. 초침이 지나간 뒤 SAFE에 머무르세요.',c,'beam'); v72Fx('clock',W/2,H/2,{r:230,life:3.4,color:c,label:'CLOCK'}); v72Beam(W/2,H/2,state.time,W*.92,18,1.65,v72Dmg(.50),c,'chrono'); v73Safe(W*.5,H*.25,68,3.3,'CLOCK SAFE','#86efac'); },
-        function(){ const c='#f472b6'; v72Say('크로노스: 되감기 위치. 표시된 이전 좌표로 돌아가세요.',c,'cast'); const x=clamp(player.x+rand(-210,210),130,W-130),y=clamp(player.y+rand(-140,110),150,H-95); v73Safe(x,y,72,3.35,'REWIND','#86efac'); for(let i=0;i<5;i++) v72Circle(rand(120,W-120),rand(120,H-100),34,1.5+i*.1,v72Dmg(.36),c,'chrono'); v73Check(x,y,80,3450,'되감기 위치',1.16,c); }
-      ],
-      abyss_leviathan:[
-        function(){ const c='#38bdf8'; v72Say('아비스: 산소 회랑. AIR 줄에 서 있으면 해일 피해가 무효화됩니다.',c,'beam'); v73LaneY(4,Math.floor(Math.random()*4),c,'void','AIR'); },
-        function(){ const c='#38bdf8'; v72Say('아비스: 심해 해일문. 열린 물문으로 들어가세요.',c,'cast'); const real=Math.floor(Math.random()*3); for(let i=0;i<3;i++){const x=270+i*(W-540)/2,y=H*.58;if(i===real)v73Safe(x,y,74,3.35,'OPEN GATE','#86efac');else{v72Fake(x,y,64,3.0,'CLOSED',c);v72Circle(x,y,60,1.7+i*.09,v72Dmg(.48),c,'void');}} v73Check(270+real*(W-540)/2,H*.58,82,3450,'해일문',1.20,c); },
-        function(){ const c='#38bdf8'; v72Say('아비스: 소용돌이. 중심을 피하고 바깥 산소 SAFE를 찾으세요.',c,'slam'); v72Circle(W/2,H/2,145,1.45,v72Dmg(.50),c,'void'); v72Circle(W/2,H/2,245,2.05,v72Dmg(.44),c,'void'); v73Safe(W*.80,H*.68,70,3.3,'OXYGEN','#86efac'); }
-      ],
-      puppet_emperor:[
-        function(){ const c='#f0abfc'; v72Say('마리오네트: 실 없는 단두대. 칼날이 없는 무대 칸만 SAFE입니다.',c,'beam'); v73LaneX(5,Math.floor(Math.random()*5),c,'mirror','NO STRING'); },
-        function(){ const c='#f0abfc'; v72Say('마리오네트: 꼭두각시 법정. 진짜 무대만 초록 체크가 남습니다.',c,'cast'); const real=Math.floor(Math.random()*4); const pts=[[W*.25,H*.35],[W*.75,H*.35],[W*.25,H*.70],[W*.75,H*.70]]; pts.forEach((p,i)=>i===real?v73Safe(p[0],p[1],68,3.4,'REAL STAGE','#86efac'):(v72Fake(p[0],p[1],60,3.0,'FAKE',c),v72Circle(p[0],p[1],56,1.65+i*.09,v72Dmg(.45),c,'mirror'))); v73Check(pts[real][0],pts[real][1],76,3450,'꼭두각시 법정',1.2,c); },
-        function(){ const c='#f0abfc'; v72Say('마리오네트: 황제 처형식. SAFE에 들어가면 처형 시간 동안 완전 무적입니다.',c,'slam'); v73Tiles(5,3,Math.floor(Math.random()*15),c,'mirror','NO BLADE'); }
-      ],
-      black_sun:[
-        function(){ const c='#f97316'; v72Say('아포칼립스: 검은 일식. 표식대로 안쪽 또는 바깥쪽으로 이동하세요.',c,'slam'); const inside=Math.random()<.5; v72Fx('eclipse',W/2,H/2,{r:250,life:3.35,color:c,label:inside?'INSIDE':'OUTSIDE',inner:inside}); const x=inside?W/2:(Math.random()<.5?W*.20:W*.80),y=inside?H/2:H*.66; v73Safe(x,y,inside?78:72,3.4,inside?'INSIDE':'OUTSIDE','#86efac'); v73Check(x,y,inside?86:80,3500,'검은 일식',1.25,c); },
-        function(){ const c='#f97316'; v72Say('아포칼립스: 흑점 붕괴. 무너지지 않는 칸 하나를 찾으세요.',c,'slam'); v73Tiles(5,4,Math.floor(Math.random()*20),c,'solar','BLACK SPOT'); },
-        function(){ const c='#f97316'; v72Say('아포칼립스: 왕관 심판광. 십자광 사이 외곽 SAFE로 이동하세요.',c,'beam'); v72Beam(W/2,H/2,0,W*.96,26,1.55,v72Dmg(.50),c,'solar'); v72Beam(W/2,H/2,Math.PI/2,H*.94,26,1.55,v72Dmg(.50),c,'solar'); const pts=[[W*.18,H*.26],[W*.82,H*.26],[W*.18,H*.76],[W*.82,H*.76]],p=pts[Math.floor(Math.random()*4)]; v73Safe(p[0],p[1],72,3.35,'CROWN GAP','#86efac'); }
-      ],
-      chaos_archon:[
-        function(){ const c='#fb7185'; v72Say('카이로스: REAL 색상 판결. REAL 글자가 있는 색상만 안전합니다.',c,'cast'); const colors=['#fb7185','#818cf8','#facc15','#34d399'], pts=[[W*.25,H*.33],[W*.75,H*.33],[W*.25,H*.72],[W*.75,H*.72]], s=Math.floor(Math.random()*4); pts.forEach((p,i)=>i===s?v73Safe(p[0],p[1],68,3.4,'REAL','#86efac'):(v72Fake(p[0],p[1],60,3.0,'FAKE',colors[i]),v72Circle(p[0],p[1],56,1.65+i*.08,v72Dmg(.45),colors[i],'chaos'))); v73Check(pts[s][0],pts[s][1],76,3450,'REAL 색상',1.22,c); },
-        function(){ const c='#fb7185'; v72Say('카이로스: 혼돈 야바위. 마지막에 남은 SAFE 칸을 기억하세요.',c,'cast'); v73Tiles(4,4,Math.floor(Math.random()*16),c,'chaos','CHAOS SAFE'); },
-        function(){ const c='#fb7185'; v72Say('카이로스: 차원 악보. 빔 순서를 보고 마지막 빈 공간에 서세요.',c,'beam'); const gap=Math.floor(Math.random()*9); v73BeamFan(W/2,H/2,Math.random()*Math.PI,9,gap,1.45,c,'chaos','CHAOS SCORE'); }
-      ]
-    };
-
-    function v73BossPattern(){
-      try{
-        if(!boss) return;
-        boss.mechanicText='';
-        const arr=V73_PATTERNS[boss.id] || V73_PATTERNS.slime_king;
-        const fn=v73Pick(arr);
-        fn();
-        v73ClearOverload();
-      }catch(e){ console.warn('[V73 boss pattern failed]',e); try{ slimePattern(); }catch(_){} }
-    }
-    bossPattern = v73BossPattern;
-    getBossPatternCooldown = function(){
-      const t=v72Tier(), ph=v72Phase();
-      const base = t>=10 ? 4.85 : t>=9 ? 4.65 : t>=8 ? 4.45 : t>=7 ? 4.20 : t>=5 ? 3.85 : 3.55;
-      return base + (ph===1?.45:ph===2?.25:.10) + Math.random()*.35;
-    };
-
-    const oldHurtPlayerV73 = hurtPlayer;
-    hurtPlayer = function(amount,color,statusDamage,source){
-      try{
-        const safe=v73SafeActive();
-        if(safe){
-          state._v73SafeFlash=.45;
-          state._v73InSafe=true;
-          state._v73SafeLabel=safe.label||'SAFE';
-          player.invuln=Math.max(player.invuln||0,.18);
-          if(Number(amount||0)>0 && Math.random()<.55) floatText('SAFE 무적',player.x,player.y-42,'#86efac',16);
-          return;
-        }
-      }catch(e){}
-      return oldHurtPlayerV73(amount,color,statusDamage,source);
-    };
-
-    const oldUpdateV73 = update;
-    update = function(dt){
-      try{
-        const safe=v73SafeActive();
-        state._v73InSafe=!!safe;
-        state._v73SafeLabel=safe?(safe.label||'SAFE'):'';
-        state._v73SafeFlash=Math.max(0,Number(state._v73SafeFlash||0)-Math.min(dt||0,.04));
-        if(safe && player){ player.invuln=Math.max(player.invuln||0,.12); }
-        const el=document.getElementById('raidV71TouchControls');
-        if(el){ el.classList.toggle('show', state.screen==='raid' && v73MobileLike()); }
-      }catch(e){}
-      return oldUpdateV73(dt);
-    };
-
-    const oldDrawControlHintV73 = drawControlHint;
-    drawControlHint = function(){ if(v73MobileLike()) return; return oldDrawControlHintV73(); };
-
-    const oldDrawPlayerV73 = drawPlayer;
-    drawPlayer = function(){
-      oldDrawPlayerV73();
-      try{
-        if(state._v73InSafe && player){
-          ctx.save();
-          ctx.globalAlpha=.58+.20*Math.sin(state.time*12);
-          ctx.strokeStyle='#86efac'; ctx.lineWidth=5;
-          ctx.beginPath(); ctx.arc(player.x,player.y,player.r+18,0,Math.PI*2); ctx.stroke();
-          ctx.globalAlpha=.30;
-          ctx.fillStyle='#86efac';
-          ctx.beginPath(); ctx.arc(player.x,player.y,player.r+9,0,Math.PI*2); ctx.fill();
-          ctx.globalAlpha=1;
-          ctx.fillStyle='#d1fae5'; ctx.font='900 14px system-ui'; ctx.textAlign='center';
-          ctx.fillText('무적 SAFE',player.x,player.y-58);
-          ctx.restore();
-        }
-      }catch(e){}
-    };
-
-    const oldDrawMechanicsV73 = drawMechanics;
-    drawMechanics = function(){
-      try{ oldDrawMechanicsV73(); }catch(e){}
-      try{
-        for(const m of state.mechanics||[]){
-          if(!m || m.fake) continue;
-          const k=String(m.kind||'');
-          if(k!=='safe' && k!=='v72safeAura' && k!=='v73safe') continue;
-          const inside=player && dist(player.x,player.y,m.x,m.y) <= (m.r||0)+player.r+10;
-          ctx.save();
-          ctx.globalAlpha=inside?.95:.62;
-          ctx.strokeStyle=inside?'#ffffff':'#86efac'; ctx.lineWidth=inside?7:4;
-          ctx.beginPath(); ctx.arc(m.x,m.y,(m.r||60)+8+Math.sin(state.time*9)*4,0,Math.PI*2); ctx.stroke();
-          ctx.fillStyle=inside?'#ffffff':'#d1fae5'; ctx.font=inside?'900 22px system-ui':'900 16px system-ui'; ctx.textAlign='center';
-          ctx.fillText(inside?'✓ 무적 SAFE':(m.label||'SAFE'),m.x,m.y-((m.r||60)+14));
-          ctx.restore();
-        }
-      }catch(e){}
-    };
-
-    // Remove the touch HUD on non-mobile/coarse devices even if the browser is narrow.
-    try{
-      const mobileStyle=document.createElement('style');
-      mobileStyle.id='v73MobileOnlyStyle';
-      mobileStyle.textContent='@media (hover:hover) and (pointer:fine){#raidV71TouchControls{display:none!important}}';
-      document.head.appendChild(mobileStyle);
-    }catch(e){}
-
-
-
-    /* ===== V74: restore all previous spectacle patterns + readable true SAFE + skill keys K/L/; ===== */
-    const V74_VERSION = 'Raid Dungeon V74 - Restored Spectacle Variety True Safe Skill Keys';
-
-    function v74Alive(){ return state && state.screen === 'raid' && boss && !boss.dead; }
-    function v74Tier(){ return Math.max(1, Math.min(10, Number(boss && boss.tier || 1))); }
-    function v74Phase(){ return Math.max(1, Math.min(3, Number(boss && boss.phase || 1))); }
-    function v74Color(){ return (boss && boss.color) || '#facc15'; }
-    function v74Tag(){ return (boss && boss.theme) || 'chaos'; }
-    function v74Dmg(m){ try{ return Math.max(5, v72Dmg ? v72Dmg(m || 1) : boss.atk*(m || 1)); }catch(e){ return Math.max(5,(boss&&boss.atk||10)*(m||1)); } }
-    function v74Later(ms,fn){ setTimeout(function(){ try{ if(v74Alive()) fn(); }catch(e){ console.warn('[V74 delayed pattern failed]',e); } }, ms); }
-    function v74Say(text,color,kind){ try{ v72Say(text,color||v74Color(),kind||'cast'); }catch(e){ try{ toast(text); }catch(_){} } }
-    function v74Cap(){
-      try{
-        const t=v74Tier();
-        const hz=t>=9?210:180, mc=t>=9?125:100, pt=t>=9?420:340, pr=t>=9?210:170;
-        if(state.hazards.length>hz) state.hazards.splice(0,state.hazards.length-hz);
-        if(state.mechanics.length>mc) state.mechanics.splice(0,state.mechanics.length-mc);
-        if(state.particles.length>pt) state.particles.splice(0,state.particles.length-pt);
-        if(state.projectiles.length>pr) state.projectiles.splice(0,state.projectiles.length-pr);
-      }catch(e){}
-    }
-    function v74TrueSafe(x,y,r,life,label,color){
-      try{
-        v72Safe(x,y,r,life,label||'SAFE',color||'#86efac');
-        v72Fx('arrow',player.x,player.y,{x2:x,y2:y,life:Math.min(life||3.0,3.4),color:'#86efac',label:'SAFE'});
-      }catch(e){ try{ state.mechanics.push({kind:'safe',x,y,r:r||70,life:life||3,color:color||'#86efac',label:label||'SAFE'}); }catch(_){} }
-    }
-    function v74CheckSafe(x,y,r,ms,label,damageMul,color){
-      v74Later(ms||3200,function(){
-        const safe = v74SafeActive();
-        if(safe || dist(player.x,player.y,x,y) <= (r||70)+player.r+8){
-          state._v74InSafe=true;
-          state._v74SafeLabel=label||'SAFE';
-          try{ breakBoss(.85); }catch(e){}
-        }else{
-          hurtPlayer(v74Dmg(damageMul||1.15),color||v74Color(),true,label||'기믹 실패');
-        }
-      });
-    }
-    function v74V73(n){ const arr=(V73_PATTERNS && V73_PATTERNS[boss.id]) || (V73_PATTERNS && V73_PATTERNS.slime_king) || []; if(arr.length) arr[Math.abs(n||0)%arr.length](); }
-    function v74V72(){ if(typeof v59TypePattern==='function') v59TypePattern(Math.floor(Math.random()*6)); }
-    function v74V66(i){ if(typeof v66Pattern==='function') v66Pattern(Number.isFinite(i)?i:Math.floor(Math.random()*6)); }
-
-    function v74SpiralDance(label,color,tag){
-      color=color||v74Color(); tag=tag||v74Tag();
-      v74Say(`${boss.name}: ${label}. 회전하는 결을 읽고 초록 핵으로 들어가세요.`,color,'beam');
-      const cx=W/2, cy=H/2, safeA=Math.random()*Math.PI*2;
-      try{ v72Fx('mandala',cx,cy,{r:245,life:3.35,color,label:label||'SPIRAL'}); }catch(e){}
-      for(let i=0;i<10;i++){
-        const a=safeA+i*Math.PI*2/10;
-        if(i===0){ v74TrueSafe(cx+Math.cos(a)*185,cy+Math.sin(a)*118,62,3.35,'SPIRAL SAFE','#86efac'); continue; }
-        v72Beam(cx,cy,a,W*.86,14,1.35+i*.06,v74Dmg(.36),color,tag);
-      }
-      v74CheckSafe(cx+Math.cos(safeA)*185,cy+Math.sin(safeA)*118,72,3450,label,1.18,color);
-    }
-    function v74Curtain(label,color,tag,vertical){
-      color=color||v74Color(); tag=tag||v74Tag();
-      v74Say(`${boss.name}: ${label}. 닫히지 않는 통로를 끝까지 지키세요.`,color,'beam');
-      const n=vertical?7:5, safe=Math.floor(Math.random()*n);
-      for(let i=0;i<n;i++){
-        if(vertical){ const x=115+i*(W-230)/(n-1); if(i===safe) v74TrueSafe(x,H*.70,62,3.3,label,'#86efac'); else v72Beam(x,H/2,Math.PI/2,H*.88,22,1.30+i*.05,v74Dmg(.44),color,tag); }
-        else { const y=135+i*(H-230)/(n-1); if(i===safe) v74TrueSafe(W*.82,y,62,3.3,label,'#86efac'); else v72Beam(W/2,y,0,W*.94,22,1.30+i*.05,v74Dmg(.44),color,tag); }
-      }
-      if(vertical){ const x=115+safe*(W-230)/(n-1); v74CheckSafe(x,H*.70,72,3400,label,1.18,color); }
-      else { const y=135+safe*(H-230)/(n-1); v74CheckSafe(W*.82,y,72,3400,label,1.18,color); }
-    }
-    function v74FalseChoices(label,color,tag,count){
-      color=color||v74Color(); tag=tag||v74Tag(); count=count||4;
-      v74Say(`${boss.name}: ${label}. 진짜 표식 하나만 끝까지 빛납니다.`,color,'cast');
-      const pts=[ [W*.22,H*.32],[W*.50,H*.30],[W*.78,H*.32],[W*.30,H*.70],[W*.70,H*.70] ].slice(0,count);
-      const real=Math.floor(Math.random()*pts.length);
-      pts.forEach((p,i)=>{
-        if(i===real) v74TrueSafe(p[0],p[1],66,3.45,'REAL SAFE','#86efac');
-        else { try{ v72Fake(p[0],p[1],58,3.0,'FAKE',color); }catch(e){} v72Circle(p[0],p[1],58,1.55+i*.08,v74Dmg(.48),color,tag); }
-      });
-      v74CheckSafe(pts[real][0],pts[real][1],76,3500,label,1.22,color);
-    }
-    function v74MapTiles(label,color,tag,cols,rows){
-      color=color||v74Color(); tag=tag||v74Tag(); cols=cols||5; rows=rows||4;
-      v74Say(`${boss.name}: ${label}. 무너지지 않는 칸을 찾아야 합니다.`,color,'slam');
-      const safe=Math.floor(Math.random()*cols*rows), cw=W/cols, ch=(H-120)/rows;
-      for(let i=0;i<cols*rows;i++){
-        const x=cw*(i%cols+.5), y=112+ch*(Math.floor(i/cols)+.5);
-        if(i===safe){ v74TrueSafe(x,y,Math.min(cw,ch)*.31,3.45,'SAFE TILE','#86efac'); }
-        else { try{ v72Fx('laneRect',x,y,{w:cw*.78,h:ch*.68,life:2.35,color,label:'DANGER',alpha:.18}); }catch(e){} v72Circle(x,y,Math.min(cw,ch)*.25,1.55+(i%4)*.06,v74Dmg(.38),color,tag); }
-      }
-      const sx=cw*(safe%cols+.5), sy=112+ch*(Math.floor(safe/cols)+.5);
-      v74CheckSafe(sx,sy,Math.min(cw,ch)*.40,3520,label,1.22,color);
-    }
-    function v74BossSpecificExtra(){
-      const id=boss&&boss.id, c=v74Color(), tag=v74Tag();
-      const extras={
-        slime_king:()=>{ v74Say('젤리 왕: 왕관 점프 3연타. 마지막 초록 웅덩이에 서세요.',c,'slam'); for(let i=0;i<3;i++){ const x=clamp(player.x+rand(-160,160),120,W-120), y=clamp(player.y+rand(-100,100),140,H-100); v72Circle(x,y,60+i*10,1.1+i*.42,v74Dmg(.34+i*.08),c,tag); if(i===2){ v74TrueSafe(x,y,76,3.4,'PUDDING','#86efac'); v74CheckSafe(x,y,86,3500,'푸딩 웅덩이',1.05,c); } } },
-        ember_tyrant:()=>{ v74Say('이그니스: 용암 십자와 냉각 렌즈. 렌즈 안에서 버티세요.',c,'beam'); v72Beam(W/2,H/2,0,W*.96,24,1.3,v74Dmg(.42),c,tag); v72Beam(W/2,H/2,Math.PI/2,H*.92,24,1.55,v74Dmg(.42),c,tag); v74TrueSafe(W*.25,H*.72,72,3.4,'COOLING','#86efac'); v74CheckSafe(W*.25,H*.72,82,3450,'냉각 렌즈',1.12,c); },
-        thorn_queen:()=>{ v74FalseChoices('장미 여왕의 꽃문 판별',c,tag,5); },
-        frost_oracle:()=>{ v74MapTiles('서리 예언 별자리',c,tag,4,4); },
-        sand_reaper:()=>{ v74Curtain('사막 낫 커튼',c,tag,true); },
-        void_serpent:()=>{ v74SpiralDance('공허 뱀의 꼬리 나선',c,tag); },
-        iron_minotaur:()=>{ v74Say('미노타우로스: 돌진 유도. 철벽 SAFE 뒤로 숨어야 합니다.',c,'beam'); const x=rand(190,W-190), y=H*.68; v74TrueSafe(x,y,78,3.35,'IRON WALL','#86efac'); v72Beam(boss.x,boss.y,Math.atan2(y-boss.y,x-boss.x),W*.95,32,1.7,v74Dmg(.58),c,tag); v74CheckSafe(x,y,88,3450,'철벽 뒤',1.10,c); },
-        blood_moon:()=>{ v74FalseChoices('혈월의 진짜 그림자',c,tag,4); },
-        storm_colossus:()=>{ v74Curtain('전류 접지 회로',c,tag,false); },
-        plague_doctor:()=>{ v74FalseChoices('진짜 혈청 선택',c,tag,4); },
-        mirror_duelist:()=>{ v74FalseChoices('거울 결투사의 진짜 분신',c,tag,5); },
-        gravity_core:()=>{ v74SpiralDance('중력 궤도 발레',c,tag); },
-        solar_dragon:()=>{ v74SpiralDance('태양 날개 만다라',c,tag); },
-        chrono_dragon:()=>{ v74Say('크로노스: 시계 악보. 숫자 12 방향 SAFE로 이동 후 초침을 피하세요.',c,'cast'); v72Fx('clock',W/2,H/2,{r:245,life:3.45,color:c,label:'CLOCK'}); v72Beam(W/2,H/2,state.time+Math.PI/3,W*.92,18,1.55,v74Dmg(.50),c,tag); v74TrueSafe(W/2,H*.24,70,3.4,'12','#86efac'); v74CheckSafe(W/2,H*.24,80,3500,'시계 악보',1.22,c); },
-        abyss_leviathan:()=>{ v74Curtain('심해 산소 회랑',c,tag,false); },
-        puppet_emperor:()=>{ v74Say('마리오네트: 단두대 오페라. 칼날 없는 무대만 안전합니다.',c,'beam'); v74Curtain('NO BLADE',c,tag,true); v74Later(900,()=>v74FalseChoices('가짜 무대 판별',c,tag,4)); },
-        black_sun:()=>{ v74Say('아포칼립스: 검은 태양 만다라. 안쪽/외곽 표식을 판별하세요.',c,'slam'); v74SpiralDance('BLACK SUN',c,tag); v74Later(950,()=>{ v72Beam(W/2,H/2,0,W*.96,22,.85,v74Dmg(.44),c,tag); v72Beam(W/2,H/2,Math.PI/2,H*.92,22,.85,v74Dmg(.44),c,tag); }); },
-        chaos_archon:()=>{ v74FalseChoices('혼돈의 REAL 색상 재판',c,tag,5); v74Later(950,()=>v74SpiralDance('CHAOS SCORE',c,tag)); }
-      };
-      const fn=extras[id] || (()=>v74SpiralDance('고유 패턴',c,tag));
-      fn();
-    }
-
-    function v74BossPattern(){
-      try{
-        if(!boss) return;
-        boss.mechanicText='';
-        boss._v74PatternIndex=((boss._v74PatternIndex||0)+1);
-        const id=boss.id, t=v74Tier(), ph=v74Phase();
-        const rotation=[];
-        rotation.push(()=>v74BossSpecificExtra());
-        rotation.push(()=>v74V73(boss._v74PatternIndex));
-        rotation.push(()=>v74V72());
-        if(t>=6) rotation.push(()=>v74V66((boss._v74PatternIndex+ph)%6));
-        if(t>=8) rotation.push(()=>v74SpiralDance('시그니처 연계',v74Color(),v74Tag()));
-        if(t>=9) rotation.push(()=>v74MapTiles('최종권 격자 붕괴',v74Color(),v74Tag(),5,4));
-        const fn=rotation[boss._v74PatternIndex % rotation.length];
-        fn();
-        if(t>=10 && ph>=3 && Math.random()<.45){ v74Later(1150,()=>v74V66((boss._v74PatternIndex+3)%6)); }
-        v74Cap();
-      }catch(e){ console.warn('[V74 boss pattern failed]',e); try{ v74V73(0); }catch(_){} }
-    }
-    bossPattern = v74BossPattern;
-    getBossPatternCooldown = function(){
-      const t=v74Tier(), ph=v74Phase();
-      const base=t>=10?3.65:t>=9?3.50:t>=8?3.35:t>=7?3.20:t>=5?3.05:2.85;
-      return base + (ph===1?.35:ph===2?.18:.05) + Math.random()*.22;
-    };
-
-    function v74SafeActive(){
-      try{
-        if(!state || state.screen!=='raid' || !player || !Array.isArray(state.mechanics)) return null;
-        for(const m of state.mechanics){
-          if(!m || m.fake) continue;
-          const k=String(m.kind||'');
-          if(k!=='safe' && k!=='v72safeAura' && k!=='v73safe') continue;
-          const r=Number(m.r||0);
-          if(r>0 && dist(player.x,player.y,Number(m.x||0),Number(m.y||0)) <= r + player.r + 10) return m;
-        }
-      }catch(e){}
-      return null;
-    }
-    const oldHurtPlayerV74 = hurtPlayer;
-    hurtPlayer = function(amount,color,statusDamage,source){
-      try{
-        const safe=v74SafeActive();
-        if(safe){
-          state._v74InSafe=true;
-          state._v74SafeLabel=safe.label || 'SAFE';
-          state._v74SafePulse=.35;
-          return; // SAFE 안에서는 체력이 절대 닳지 않는다. 텍스트를 새로 생성하지 않아 무한 출력도 막는다.
-        }
-      }catch(e){}
-      return oldHurtPlayerV74(amount,color,statusDamage,source || '패턴 피해');
-    };
-
-    const oldUpdateV74 = update;
-    update = function(dt){
-      const was=!!state._v74InSafe;
-      const result=oldUpdateV74(dt);
-      try{
-        const safe=v74SafeActive();
-        state._v74InSafe=!!safe;
-        state._v74SafeLabel=safe?(safe.label||'SAFE'):'';
-        state._v74SafePulse=Math.max(0,Number(state._v74SafePulse||0)-Math.min(dt||0,.04));
-        if(!safe && was && player && !(player.roll>0)) player.invuln=Math.min(player.invuln||0,.03);
-        const el=document.getElementById('raidV71TouchControls');
-        if(el){ el.classList.toggle('show', state.screen==='raid' && v74RealMobile()); }
-      }catch(e){}
-      return result;
-    };
-    function v74RealMobile(){
-      try{
-        const ua=String(navigator.userAgent||'').toLowerCase();
-        const phone=/android|iphone|ipad|ipod|mobile|tablet/.test(ua);
-        const coarse=window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-        return !!((navigator.maxTouchPoints||0)>0 && coarse && (phone || window.innerWidth<=1024));
-      }catch(e){ return false; }
-    }
-    const oldDrawControlHintV74 = drawControlHint;
-    drawControlHint = function(){
-      if(v74RealMobile()) return;
-      try{ oldDrawControlHintV74(); }catch(e){}
-      try{ ctx.save(); ctx.fillStyle='rgba(226,232,240,.88)'; ctx.font='900 13px system-ui'; ctx.textAlign='right'; ctx.fillText('스킬: K / L / ;', W-24, H-20); ctx.restore(); }catch(e){}
-    };
-    const oldDrawPlayerV74 = drawPlayer;
-    drawPlayer = function(){
-      oldDrawPlayerV74();
-      try{
-        if(state._v74InSafe && player){
-          ctx.save();
-          const pulse=.5+.18*Math.sin(state.time*10);
-          ctx.globalAlpha=.62+pulse*.25;
-          ctx.strokeStyle='#86efac'; ctx.lineWidth=6;
-          ctx.beginPath(); ctx.arc(player.x,player.y,player.r+20+pulse*4,0,Math.PI*2); ctx.stroke();
-          ctx.globalAlpha=.28; ctx.fillStyle='#86efac'; ctx.beginPath(); ctx.arc(player.x,player.y,player.r+12,0,Math.PI*2); ctx.fill();
-          ctx.globalAlpha=1; ctx.fillStyle='#d1fae5'; ctx.font='900 14px system-ui'; ctx.textAlign='center';
-          ctx.fillText('SAFE',player.x,player.y-58);
-          ctx.restore();
-        }
-      }catch(e){}
-    };
-    const oldDrawMechanicsV74 = drawMechanics;
-    drawMechanics = function(){
-      try{ oldDrawMechanicsV74(); }catch(e){}
-      try{
-        for(const m of state.mechanics||[]){
-          if(!m || m.fake) continue;
-          const k=String(m.kind||'');
-          if(k!=='safe' && k!=='v72safeAura' && k!=='v73safe') continue;
-          const inside=player && dist(player.x,player.y,m.x,m.y) <= (m.r||0)+player.r+10;
-          ctx.save();
-          ctx.globalAlpha=inside?.95:.70;
-          ctx.strokeStyle=inside?'#ffffff':'#86efac'; ctx.lineWidth=inside?7:4;
-          ctx.beginPath(); ctx.arc(m.x,m.y,(m.r||60)+8+Math.sin(state.time*8)*3,0,Math.PI*2); ctx.stroke();
-          ctx.fillStyle=inside?'#ffffff':'#d1fae5'; ctx.font=inside?'900 21px system-ui':'900 16px system-ui'; ctx.textAlign='center';
-          ctx.fillText(inside?'✓ SAFE':(m.label||'SAFE'),m.x,m.y-((m.r||60)+14));
-          ctx.restore();
-        }
-      }catch(e){}
-    };
-
-    try{
-      window.addEventListener('keydown',function(e){
-        const tag=(e.target && e.target.tagName || '').toLowerCase();
-        if(tag==='input'||tag==='textarea'||tag==='select') return;
-        if(state.screen!=='raid') return;
-        const k=e.key;
-        if(k==='1'||k==='2'||k==='3') { e.preventDefault(); e.stopImmediatePropagation(); return; }
-        if(k==='k'||k==='K') { e.preventDefault(); useSkill(0); }
-        if(k==='l'||k==='L') { e.preventDefault(); useSkill(1); }
-        if(k===';'||k===':') { e.preventDefault(); useSkill(2); }
-      },true);
-      const style=document.createElement('style');
-      style.id='v74MobileStrictStyle';
-      style.textContent='@media (hover:hover) and (pointer:fine){#raidV71TouchControls{display:none!important}}';
-      document.head.appendChild(style);
-    }catch(e){}
-
-    try{ if(typeof VERSION !== 'undefined') console.log('[RaidDungeon] '+V74_VERSION+' loaded'); }catch(e){}
-    window.RaidDungeonV74={
-      version:V74_VERSION,
-      patterns:'V72/V73 readable patterns plus V66 cinematic patterns are rotated together, so older spectacle patterns are not removed.',
-      safe:'SAFE is true invincible only while the player is inside, with a persistent ring/label and no repeated floating spam.',
-      keys:'Skill keys changed to K, L, and semicolon. Number keys 1/2/3 are blocked during raid.',
-      mobile:'Touch controls are shown only on real coarse-pointer mobile/tablet raid play.'
-    };
-
-    try{ console.log('[RaidDungeon] '+V73_VERSION+' loaded'); }catch(e){}
-
-    window.RaidDungeonV72 = {
-      version: V72_VERSION,
-      bossPatterns: 'all 18 bosses now route to their own identity pattern instead of sharing the same late-boss pattern table',
-      safety: 'SAFE zones show a check mark, player halo, safe text, and protect the player from normal/basic attacks while standing inside',
-      balance: 'boss basic attack damage reduced; main difficulty comes from readable boss mechanics, not unavoidable contact damage',
-      pacing: 'pattern cooldowns extended and random overlapping assist patterns removed for analysis-based play'
-    };
-  }catch(e){ console.warn('[V72 patch failed]', e); }
 
   try{ window.RaidDungeonV45={version:V45_VERSION, v45, enhanceWeapon, enchantWeapon, sellWeapon, disassembleWeapon, upgradeSkill, registerMaterial, marketBuy, chatSend}; v45(); renderMenu(); }catch(e){console.warn('[V45 init failed]',e);}
 })();
@@ -14761,3 +13593,6 @@ try {
   };
 } catch(e) {}
 
+
+
+/* V76 NOTE: Built from the pre-SAFE-rework premium pattern branch. Skill hotkeys and HUD labels are K / L / ;. */
