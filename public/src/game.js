@@ -14650,6 +14650,221 @@ try {
     };
   }catch(e){ console.warn('[V81 paced boss director patch failed]', e); }
 
+
+  /* ===== V82: fair-but-clear boss balance director =====
+     목적: 아무도 못 깨는 보스가 아니라, 어렵지만 읽고 깨는 보스.
+     핵심: 피해량 상한, 연속 피격 방지, 기믹 실패 즉사 제거, 큰 패턴 뒤 빈틈 보장.
+  ===== */
+  const V82_VERSION = 'Raid Dungeon V82 - Fair Clearable High Tier Bosses';
+  try{
+    const v82 = state.v82 || (state.v82 = {
+      lastHitAt:-999,
+      lastRescueAt:-999,
+      hitLog:[],
+      lastActiveKind:'',
+      postGimmickMercy:0,
+      clearHint:0
+    });
+
+    function v82Alive(){ return state && state.screen==='raid' && state.raid && boss && !boss.dead && player; }
+    function v82Tier(){ return Number(boss && boss.tier || 1); }
+    function v82High(){ return v82Tier() >= 7; }
+    function v82Now(){ return Number(state && state.time || 0); }
+    function v82Msg(msg,c){ try{ floatText(msg, player.x, player.y-58, c||'#86efac', 18); }catch(e){} }
+    function v82BossMsg(msg,c){ try{ floatText(msg, boss.x, boss.y-boss.r-52, c||'#fde68a', 18); }catch(e){} }
+    function v82BigPatternActive(){ return !!(state.v81 && state.v81.active); }
+    function v82ClampNumber(v,min,max){ return Math.max(min,Math.min(max,v)); }
+
+    function v82DamageLimit(amount,statusDamage){
+      const maxHp=Math.max(1,player.maxHp||100);
+      if(!v82High()) return amount;
+      // 연속 피해가 너무 빠르게 들어오면 후속 피해를 크게 낮춘다.
+      const since=v82Now()-(v82.lastHitAt||-999);
+      let cap;
+      if(statusDamage) cap=maxHp*.055;
+      else if(v82BigPatternActive()) cap=maxHp*.205;
+      else cap=maxHp*.125;
+      if(since<.32) cap=Math.min(cap,maxHp*.070);
+      if(since<.16) cap=Math.min(cap,maxHp*.035);
+      return Math.min(amount, Math.max(2, cap + (player.def||0)));
+    }
+
+    const V82_BASE_HURT=hurtPlayer;
+    hurtPlayer=function(amount,color,statusDamage){
+      if(!v82Alive()) return V82_BASE_HURT(amount,color,statusDamage);
+      const before=player.hp;
+      const raw=Number.isFinite(amount)?amount:1;
+      const tuned=v82DamageLimit(raw,!!statusDamage);
+      V82_BASE_HURT(tuned,color,statusDamage);
+      if(v82High() && player.hp<before){
+        v82.lastHitAt=v82Now();
+        player.invuln=Math.max(player.invuln||0, v82BigPatternActive()?0.50:0.34);
+        const dmg=Math.max(0,Math.floor(before-player.hp));
+        state.lastDamageReason = (v82BigPatternActive()? '보스 기믹 피해' : '보스 일반/탄막 피해') + ' -' + dmg;
+        v82.hitLog.push({t:v82Now(),d:dmg});
+        while(v82.hitLog.length>8) v82.hitLog.shift();
+      }
+    };
+
+    function v82PreventUnfairDeath(beforeHp){
+      if(!v82Alive() || !v82High()) return;
+      if(player.hp>0) return;
+      const now=v82Now();
+      const active=state.v81 && state.v81.active;
+      const kind=active ? active.kind : (state.v81 && state.v81.lastKind) || '';
+      // 기믹 실패를 즉사로 만들지 않는다. 대신 매우 큰 피해 + HP 1 생존 + 회복 시간.
+      if(kind || now-(v82.lastRescueAt||-999)>10){
+        player.hp=Math.max(1,Math.floor((player.maxHp||100)*0.16));
+        player.shield=Math.max(player.shield||0,Math.floor((player.maxHp||100)*0.08));
+        player.invuln=Math.max(player.invuln||0,1.15);
+        player.slow=0;
+        v82.lastRescueAt=now;
+        v82.postGimmickMercy=Math.max(v82.postGimmickMercy||0,1.4);
+        state.flash=Math.max(state.flash,.35);
+        state.shake=Math.min(state.shake||0,6);
+        v82Msg('치명상! HP 1 생존', '#fecaca');
+        try{ burst(player.x,player.y,'#fecaca',34,230); }catch(e){}
+        if(state.raid) state.raid.failed=false;
+      }
+    }
+
+    function v82TuneActiveGimmick(dt){
+      if(!v82Alive()) return;
+      const v81=state.v81;
+      if(!v81) return;
+      v81.cooldown=Math.max(v81.cooldown||0, v82High()?3.2:0);
+      v81.cinematicLock=Math.max(0,(v81.cinematicLock||0));
+      if(v82.postGimmickMercy>0){
+        v82.postGimmickMercy=Math.max(0,v82.postGimmickMercy-dt);
+        boss.patternCd=Math.max(boss.patternCd||0,.55);
+        player.invuln=Math.max(player.invuln||0,.18);
+      }
+      const a=v81.active;
+      if(!a) return;
+      // 읽을 수 있게: 큰 기믹 중에는 기본 패턴/탄막을 억제한다.
+      boss.patternCd=Math.max(boss.patternCd||0,.35);
+      if(a.kind==='puppet_bind'){
+        if(a.data){
+          a.data.need=Math.min(a.data.need||18, 14 + Math.max(0,(boss.phase||1)-1)*2);
+          player.slow=Math.max(player.slow||0,.35);
+        }
+      }
+      if(a.kind==='puppet_typing'){
+        a.duration=Math.max(a.duration||0,6.2);
+        if(a.data){
+          if(String(a.data.phrase||'').length>12) a.data.phrase='CUT THE WIRE';
+          if(a.data.bladeY!==undefined){
+            const prog=v82ClampNumber(a.t/Math.max(1,a.duration),0,1);
+            a.data.bladeY=-90 + prog*(H*.58);
+          }
+        }
+        // 단두대 중에는 갑자기 날아오는 적탄 제거
+        if(state.projectiles.length) state.projectiles=state.projectiles.filter(p=>p.owner==='player');
+      }
+      if(a.kind==='puppet_dolls'){
+        if(v81.dolls&&v81.dolls.length){
+          v81.dolls.forEach(d=>{
+            d.maxHp=Math.min(d.maxHp||9999, 620 + (boss.phase||1)*110);
+            d.hp=Math.min(d.hp||d.maxHp,d.maxHp);
+            d.cd=Math.max(d.cd||0,.75);
+          });
+        }
+      }
+    }
+
+    function v82LimitOverlaps(){
+      if(!v82Alive() || !v82High()) return;
+      const nearR=135;
+      let nearHazards=[];
+      state.hazards.forEach(h=>{
+        const x=Number.isFinite(h.x)?h.x:W/2, y=Number.isFinite(h.y)?h.y:H/2;
+        if(dist(x,y,player.x,player.y)<nearR+Math.max(h.r||h.w||40,40)) nearHazards.push(h);
+      });
+      // 플레이어 주변에 판정이 너무 많이 겹치면 오래된 것부터 피해를 낮춰 '읽고 피할 수 있는' 상태로 보정
+      if(nearHazards.length>=4){
+        nearHazards.slice(0,nearHazards.length-3).forEach(h=>{ h.damage=Math.min(h.damage||boss.atk*.4,(player.maxHp||100)*.05); h.life=Math.min(h.life||.2,.22); });
+      }
+      // 큰 기믹 중에는 적 투사체 수를 제한한다.
+      if(v82BigPatternActive()){
+        const enemy=state.projectiles.filter(p=>p.owner!=='player');
+        if(enemy.length>28){
+          let remove=enemy.length-28;
+          state.projectiles=state.projectiles.filter(p=>p.owner==='player'||remove--<=0);
+        }
+      }
+      // 후반 보스 일반공격은 압박용. 한 방 사망으로 이어지지 않게 피해 수치 자체도 낮춘다.
+      state.projectiles.forEach(p=>{ if(p.owner!=='player') p.damage=Math.min(p.damage||boss.atk*.45,(player.maxHp||100)*.105); });
+      state.hazards.forEach(h=>{ h.damage=Math.min(h.damage||boss.atk*.55,(player.maxHp||100)*(v82BigPatternActive()?.19:.13)); });
+    }
+
+    function v82GiveReadableOpening(){
+      if(!v82Alive() || !v82High()) return;
+      const v81=state.v81;
+      if(!v81) return;
+      if(v81.active){ v82.lastActiveKind=v81.active.kind; return; }
+      if(v82.lastActiveKind){
+        boss.patternCd=Math.max(boss.patternCd||0,1.25);
+        breakBoss(Math.max(.65, 1.0 - Math.max(0,(boss.tier||7)-7)*.05));
+        v82BossMsg('빈틈!', '#86efac');
+        v82.lastActiveKind='';
+        v82.postGimmickMercy=Math.max(v82.postGimmickMercy||0,.85);
+      }
+    }
+
+    const V82_BASE_UPDATE=update;
+    update=function(dt){
+      const before=player&&Number.isFinite(player.hp)?player.hp:0;
+      V82_BASE_UPDATE(dt);
+      try{
+        v82TuneActiveGimmick(dt||.016);
+        v82LimitOverlaps();
+        v82PreventUnfairDeath(before);
+        v82GiveReadableOpening();
+        if(v82Alive() && v82High() && state.raid && state.raid.failed && player.hp>0) state.raid.failed=false;
+      }catch(e){ console.warn('[V82 fair boss patch failed in update]',e); }
+    };
+
+    const V82_BASE_BOSS_PATTERN=bossPattern;
+    bossPattern=function(){
+      if(v82Alive() && v82High()){
+        // 큰 패턴 직후 쿨타임이 부족하면 기본 패턴만 천천히 실행한다.
+        if(state.v81 && (state.v81.active || (state.v81.cooldown||0)>0.8)){
+          boss.patternCd=Math.max(boss.patternCd||0,1.0);
+          return;
+        }
+      }
+      return V82_BASE_BOSS_PATTERN();
+    };
+
+    const V82_BASE_DRAW=draw;
+    draw=function(){
+      V82_BASE_DRAW();
+      try{
+        if(v82Alive() && v82High()){
+          ctx.save();
+          ctx.textAlign='center';
+          ctx.font='900 14px system-ui';
+          const msg=state.v81&&state.v81.active ? '기믹 진행 중: 보고 대응하세요' : '큰 패턴 뒤에는 반드시 빈틈이 생깁니다';
+          ctx.fillStyle='rgba(2,6,23,.58)'; roundRect(ctx,W/2-190,18,380,30,12);
+          ctx.fillStyle='#bfdbfe'; ctx.fillText(msg,W/2,39);
+          if(state.lastDamageReason){
+            ctx.textAlign='left'; ctx.fillStyle='rgba(2,6,23,.52)'; roundRect(ctx,22,H-126,300,26,10);
+            ctx.fillStyle='#fecaca'; ctx.font='900 12px system-ui'; ctx.fillText('최근 피해: '+state.lastDamageReason,34,H-108);
+          }
+          ctx.restore();
+        }
+      }catch(e){}
+    };
+
+    try{
+      window.RaidDungeonV82={
+        version:V82_VERSION,
+        design:'Hard but clearable: damage caps, no unavoidable instant death, reduced overlap, slower gimmick windows, recovery openings after major mechanics.',
+        fairness:['single hit cap','rapid-hit reduction','guillotine failure becomes critical wound instead of impossible instant kill','big gimmick cooldown and recovery window','puppet bind mash requirement reduced']
+      };
+    }catch(e){}
+  }catch(e){ console.warn('[V82 fair clearable boss patch failed]', e); }
+
 })();
 
 
