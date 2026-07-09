@@ -208,6 +208,7 @@
     authMode: 'login',
     authMessage: '',
     authBusy: false,
+    authDebug: '',
     authChecked: false,
     currentUser: null,
     cloudStatus: '로컬 저장',
@@ -616,19 +617,22 @@
   }
 
   async function handleAuth(action) {
+    if(state.authBusy) return;
     if(!supabaseReady || !supabase) {
       state.authMessage = 'Supabase 연결 실패. 로컬 모드로 시작할 수 있습니다.';
+      state.authDebug = 'Supabase SDK 또는 프로젝트 연결 실패';
       renderMenu();
       return;
     }
     const email = (document.getElementById('raidEmail')?.value || '').trim();
     const password = document.getElementById('raidPassword')?.value || '';
     const nickname = (document.getElementById('raidNickname')?.value || '').trim() || (email ? email.split('@')[0] : 'Player');
-    if(!email || !password) { state.authMessage = '이메일과 비밀번호를 입력해주세요.'; renderMenu(); return; }
-    if(password.length < 6) { state.authMessage = '비밀번호는 6자 이상이어야 합니다.'; renderMenu(); return; }
+    if(!email || !password) { state.authMessage = '이메일과 비밀번호를 입력해주세요.'; state.authDebug=''; renderMenu(); return; }
+    if(password.length < 6) { state.authMessage = '비밀번호는 6자 이상이어야 합니다.'; state.authDebug='Supabase Auth는 보통 6자 이상 비밀번호가 필요합니다.'; renderMenu(); return; }
 
     state.authBusy = true;
-    state.authMessage = '처리 중...';
+    state.authMessage = action === 'signup' ? '회원가입 요청 중...' : '로그인 요청 중...';
+    state.authDebug = '';
     renderMenu();
 
     try {
@@ -640,13 +644,23 @@
           options: { data: { player_name: nickname } }
         });
         if(result.error) throw result.error;
-        state.currentUser = result.data && result.data.session ? result.data.session.user : (result.data ? result.data.user : null);
+        const user = result.data && result.data.user ? result.data.user : null;
+        const session = result.data && result.data.session ? result.data.session : null;
+        state.currentUser = session ? session.user : user;
         state.save.playerName = nickname;
-        state.authMessage = state.currentUser ? '회원가입 완료!' : '회원가입 완료. 이메일 인증이 켜져 있으면 인증 후 로그인하세요.';
+        if(user && Array.isArray(user.identities) && user.identities.length === 0) {
+          state.authMode = 'login';
+          state.authMessage = '이미 가입된 이메일일 가능성이 큽니다. 로그인 탭에서 비밀번호를 확인하세요.';
+          state.authDebug = 'Supabase가 보안상 기존 가입 이메일을 명확히 알려주지 않을 수 있습니다.';
+          state.currentUser = null;
+        } else {
+          state.authMessage = session ? '회원가입 완료!' : '회원가입 완료. 이메일 인증이 켜져 있으면 인증 후 로그인하세요.';
+        }
       } else {
         result = await supabase.auth.signInWithPassword({ email, password });
         if(result.error) throw result.error;
-        state.currentUser = result.data.user;
+        state.currentUser = result.data && result.data.user ? result.data.user : null;
+        if(!state.currentUser) throw new Error('로그인 응답에 user 정보가 없습니다.');
         state.authMessage = '로그인 완료!';
       }
 
@@ -654,15 +668,19 @@
         await loadCloudProfile(true);
       }
     } catch(e) {
-      const raw = String((e && (e.message || e.error_description || e.details || e.code)) || '');
+      const raw = getSupabaseRawError(e);
+      state.authDebug = raw ? ('원문: ' + raw.slice(0, 180)) : '';
       if(action === 'login' && /invalid login credentials|invalid credentials|not found|user not found/i.test(raw)) {
-        state.authMode = 'signup';
-        state.authMessage = '로그인할 계정이 없습니다. 회원가입을 먼저 해주세요.';
-      } else if(/already registered|already exists|user already/i.test(raw)) {
+        state.authMessage = '로그인 실패: 이메일/비밀번호가 다르거나, 이 이메일로 회원가입이 아직 안 되어 있습니다.';
+      } else if(/already registered|already exists|user already|email address.*registered/i.test(raw)) {
         state.authMode = 'login';
         state.authMessage = '이미 가입된 이메일입니다. 로그인 탭에서 비밀번호를 확인하세요.';
-      } else if(/email not confirmed|confirm/i.test(raw)) {
+      } else if(/email not confirmed|confirm|confirmation/i.test(raw)) {
         state.authMessage = '이메일 인증이 필요합니다. 메일 인증 후 로그인하세요.';
+      } else if(/signup|signups.*disabled|not allowed|disable/i.test(raw)) {
+        state.authMessage = '회원가입이 Supabase 설정에서 막혀 있을 수 있습니다. Authentication 설정을 확인하세요.';
+      } else if(/rate limit|too many|over.*limit/i.test(raw)) {
+        state.authMessage = '요청이 너무 많아 잠시 막혔습니다. 잠시 후 다시 시도하세요.';
       } else {
         state.authMessage = getSupabaseErrorText(e || {}) || raw || '로그인 처리 실패';
       }
@@ -758,13 +776,24 @@
     return Array.from(new Set((arr || []).filter(Boolean)));
   }
 
+  function getSupabaseRawError(e){
+    if(!e) return '';
+    const parts = [e.message, e.error_description, e.details, e.hint, e.code, e.status, e.name]
+      .filter(v => v !== undefined && v !== null && String(v).trim() !== '')
+      .map(v => String(v));
+    return parts.join(' / ') || '원인 알 수 없음';
+  }
+
   function getSupabaseErrorText(e){
-    const msg = (e && (e.message || e.details || e.hint || e.code)) ? String(e.message || e.details || e.hint || e.code) : '원인 알 수 없음';
+    const msg = getSupabaseRawError(e);
     if(/does not exist|schema cache|PGRST205|42P01/i.test(msg)) return 'raid_profiles 테이블 없음';
     if(/row-level security|RLS|permission|policy|42501/i.test(msg)) return 'RLS 정책 오류';
     if(/invalid login credentials/i.test(msg)) return '로그인 실패: 이메일/비밀번호가 다르거나 아직 회원가입되지 않은 계정입니다';
+    if(/email not confirmed|confirm|confirmation/i.test(msg)) return '이메일 인증이 필요합니다';
+    if(/signup|signups.*disabled|not allowed|disable/i.test(msg)) return 'Supabase 회원가입 설정이 막혀 있을 수 있습니다';
+    if(/rate limit|too many|over.*limit/i.test(msg)) return '요청 제한에 걸렸습니다';
     if(/JWT|session|auth|Invalid Refresh Token/i.test(msg)) return '로그인 세션 오류';
-    return msg.slice(0, 80);
+    return msg.slice(0, 100);
   }
   function queueCloudSave() {
     if(state.offlineMode || !state.currentUser || !supabaseReady || !supabase) return;
@@ -836,7 +865,7 @@
     const loading = !state.authChecked ? '<p class="sub">Supabase 로그인 상태 확인 중...</p>' : '';
     const modeText = state.authMode === 'login' ? '로그인' : '회원가입';
     const nick = state.authMode === 'signup' ? '<input id="raidNickname" class="input" placeholder="닉네임" autocomplete="nickname" style="margin-bottom:8px">' : '';
-    ui.menu.innerHTML = `<h1 class="title">보스 레이드 로그인</h1><p class="sub">계정에 로그인하면 뽑아둔 무기, 스킬, 패시브, 뽑기 티켓이 Supabase에 저장됩니다.<br>다른 컴퓨터에서 접속해도 같은 계정이면 그대로 이어서 플레이할 수 있습니다.</p>${loading}<div class="nav"><button class="tab ${state.authMode==='login'?'active':''}" data-authmode="login">로그인</button><button class="tab ${state.authMode==='signup'?'active':''}" data-authmode="signup">회원가입</button></div><div class="grid"><div class="card" style="cursor:default"><h3>${modeText}</h3><input id="raidEmail" class="input" placeholder="이메일" autocomplete="email" style="margin-bottom:8px"><input id="raidPassword" class="input" type="password" placeholder="비밀번호 6자 이상" autocomplete="current-password" style="margin-bottom:8px">${nick}<button id="authSubmit" class="btn" style="width:100%" ${state.authBusy?'disabled':''}>${modeText}</button><button id="localStart" class="btn secondary" style="width:100%;margin-top:8px">로컬로 바로 시작</button><p class="sub" style="margin-top:10px;color:${state.authMessage && (state.authMessage.includes('실패') || state.authMessage.includes('없습니다') || state.authMessage.includes('필요')) ? '#fb7185' : '#fef08a'}">${escapeHtml(state.authMessage || state.cloudStatus || '')}</p></div><div class="card" style="cursor:default"><h3>처음 지급</h3><p>처음 로그인한 계정은 무기 뽑기 티켓 1장, 방어구 뽑기 티켓 1장, 스킬 뽑기 티켓 3장, 패시브 뽑기 티켓 1장을 받습니다.</p><p class="sub">Supabase에서 이메일 확인을 켜두었다면 회원가입 후 이메일 인증을 해야 로그인됩니다. 학교/개인 프로젝트라면 Auth 설정에서 이메일 확인을 꺼두면 바로 가입됩니다.</p></div></div>`;
+    ui.menu.innerHTML = `<h1 class="title">보스 레이드 로그인</h1><p class="sub">계정에 로그인하면 뽑아둔 무기, 스킬, 패시브, 뽑기 티켓이 Supabase에 저장됩니다.<br>다른 컴퓨터에서 접속해도 같은 계정이면 그대로 이어서 플레이할 수 있습니다.</p>${loading}<div class="nav"><button class="tab ${state.authMode==='login'?'active':''}" data-authmode="login">로그인</button><button class="tab ${state.authMode==='signup'?'active':''}" data-authmode="signup">회원가입</button></div><div class="grid"><div class="card" style="cursor:default"><h3>${modeText}</h3><input id="raidEmail" class="input" placeholder="이메일" autocomplete="email" style="margin-bottom:8px"><input id="raidPassword" class="input" type="password" placeholder="비밀번호 6자 이상" autocomplete="current-password" style="margin-bottom:8px">${nick}<button id="authSubmit" class="btn" style="width:100%" ${state.authBusy?'disabled':''}>${modeText}</button><button id="localStart" class="btn secondary" style="width:100%;margin-top:8px">로컬로 바로 시작</button><p class="sub" style="margin-top:10px;color:${state.authMessage && (state.authMessage.includes('실패') || state.authMessage.includes('없습니다') || state.authMessage.includes('필요')) ? '#fb7185' : '#fef08a'}">${escapeHtml(state.authMessage || state.cloudStatus || '')}</p>${state.authDebug?`<p class="sub" style="margin-top:4px;color:#94a3b8">${escapeHtml(state.authDebug)}</p>`:''}</div><div class="card" style="cursor:default"><h3>처음 지급</h3><p>처음 로그인한 계정은 무기 뽑기 티켓 1장, 방어구 뽑기 티켓 1장, 스킬 뽑기 티켓 3장, 패시브 뽑기 티켓 1장을 받습니다.</p><p class="sub">Supabase에서 이메일 확인을 켜두었다면 회원가입 후 이메일 인증을 해야 로그인됩니다. 학교/개인 프로젝트라면 Auth 설정에서 이메일 확인을 꺼두면 바로 가입됩니다.</p></div></div>`;
   }
 
   function renderMenu() {
