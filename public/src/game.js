@@ -14,7 +14,7 @@
   const SUPABASE_URL = 'https://pofxjyjpkwhuugaesbyb.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_6ssOyoAVhA5qIEsXfI0vag_JqsNntpI';
   const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-  const VERSION = 'Raid Dungeon V66 - Cinematic Boss Patterns Ultra No Lag';
+  const VERSION = 'Raid Dungeon V68 - Clear Cinematic Telegraphs Hard No Lag';
   try { document.title = 'Raid Dungeon'; } catch(e) {}
   const W = 1280;
   const H = 720;
@@ -12994,6 +12994,534 @@ function v53UniqueItems(items){
   try{ window.RaidDungeonV52={version:V52_VERSION, sortieClickFix:true, strongerFx:true, marketSections:['material','weapon','armor','skill']}; }catch(e){}
   try{ window.RaidDungeonV54={version:V54_VERSION, fastMassPatternRendering:true, keepsPatterns:true, optimized:['hazard drawing','projectile drawing','particle drawing','damage text drawing']}; }catch(e){}
   try{ window.RaidDungeonUI.growthTab=()=>{state.menuTab='growth'; renderMenu();}; window.RaidDungeonUI.marketTab=()=>{state.menuTab='market'; renderMenu();}; window.RaidDungeonUI.chatTab=()=>{state.menuTab='chat'; renderMenu();}; }catch(e){}
+
+  /* ===== V67: brutal readable boss patterns + real anti-lag budget ===== */
+  const V67_VERSION = 'Raid Dungeon V67 - Brutal Readable Patterns Real Anti Lag';
+
+  function v67Alive(){ return state && state.screen === 'raid' && boss && !boss.dead; }
+  function v67Tier(){ return Math.max(1, Math.min(10, Number(boss && boss.tier || 1))); }
+  function v67Phase(){ try{ return v66Phase ? v66Phase() : (boss && boss.phase || 1); }catch(e){ return boss && boss.phase || 1; } }
+  function v67Color(){ return (boss && boss.color) || '#fb7185'; }
+  function v67Sub(){ return (boss && boss.sub) || '#ffffff'; }
+  function v67Tag(){ return (boss && boss.theme) || 'chaos'; }
+  function v67Later(ms, fn){ setTimeout(function(){ try{ if(v67Alive()){ fn(); v67Cap(); } }catch(e){ console.warn('[V67 delayed pattern failed]', e); } }, ms); }
+  function v67Say(text, color, kind){ try{ v66Say(text, color || v67Color(), kind || 'cast'); }catch(e){ try{ toast(text); }catch(_){} } }
+
+  function v67Cap(){
+    try{
+      if(!state || state.screen !== 'raid') return;
+      const t = v67Tier(), ph = v67Phase();
+      const score = state.hazards.length * 4 + state.projectiles.length * 3 + state.zones.length * 5 + state.mechanics.length * 3 + state.particles.length;
+      const panic = score > 170;
+      const maxHaz = panic ? 14 : (t >= 10 ? 22 : 24);
+      const maxProj = panic ? 10 : (t >= 10 ? 16 : 18);
+      const maxZone = panic ? 4 : 6;
+      const maxMech = panic ? 12 : 18;
+      const maxPart = panic ? 8 : (ph >= 3 ? 18 : 22);
+      const maxText = panic ? 3 : 6;
+      if(state.hazards.length > maxHaz) state.hazards.splice(0, state.hazards.length - maxHaz);
+      if(state.projectiles.length > maxProj) state.projectiles.splice(0, state.projectiles.length - maxProj);
+      if(state.zones.length > maxZone) state.zones.splice(0, state.zones.length - maxZone);
+      if(state.mechanics.length > maxMech) state.mechanics.splice(0, state.mechanics.length - maxMech);
+      if(state.particles.length > maxPart) state.particles.splice(0, state.particles.length - maxPart);
+      if(state.texts.length > maxText) state.texts.splice(0, state.texts.length - maxText);
+    }catch(e){}
+  }
+
+  function v67Fx(kind,x,y,opt){
+    opt = opt || {};
+    try{ v66Fx(kind,x,y,{r:opt.r||110,w:opt.w||220,h:opt.h||120,life:opt.life||1.75,color:opt.color||v67Color(),sub:opt.sub||v67Sub(),label:opt.label||'',spin:opt.spin||0,sides:opt.sides||8,angle:opt.angle||0,fake:opt.fake}); }catch(e){}
+  }
+  function v67Safe(x,y,r,life,label){
+    r = r || 38; life = life || 1.72;
+    try{ state.mechanics.push({kind:'safe',x,y,r,life,color:'#86efac',label:label||'SAFE'}); }catch(e){}
+    v67Fx('sigil',x,y,{r:r+10,life,color:'#86efac',sub:'#ffffff',label:label||'SAFE',spin:1.1,sides:6});
+  }
+  function v67Fake(x,y,r,life,label,color){
+    r = r || 36; life = life || 1.55;
+    try{ state.mechanics.push({kind:'safe',x,y,r,life,color:color||'#fb7185',fake:true,label:label||'FAKE'}); }catch(e){}
+  }
+  function v67Check(x,y,r,delay,breakTime,failDamage,color,label){
+    v67Later(delay || 1700, function(){
+      const ok = dist(player.x, player.y, x, y) <= (r || 42) + player.r;
+      if(ok){ try{ breakBoss(breakTime || .78); }catch(e){} healText(label || 'PERFECT BREAK', player.x, player.y - 42); }
+      else { hurtPlayer(failDamage || boss.atk * 1.55, color || v67Color(), true); floatText('기믹 실패', player.x, player.y - 44, '#fb7185', 20); }
+    });
+  }
+  function v67LiteSpark(x,y,color){
+    for(let i=0;i<6;i++){ const a=i*Math.PI*2/6+rand(-.08,.08); state.particles.push({kind:'line',x,y,vx:Math.cos(a)*rand(90,190),vy:Math.sin(a)*rand(90,190),r:3,life:.24,color:color||v67Color(),angle:a,len:28}); }
+  }
+
+  function v67BladeOpera(color,tag){
+    color=color||'#f0abfc'; tag=tag||'mirror';
+    const lanes=[W*.14,W*.29,W*.44,W*.59,W*.74,W*.89];
+    const safe=Math.floor(Math.random()*lanes.length);
+    const sx=lanes[safe], sy=H*.66;
+    v67Say(`${boss.name}: 진짜 단두대. 칼날 없는 좁은 무대 하나만 안전합니다.`,color,'beam');
+    v67Fx('curtain',W/2,H/2,{w:W,h:H,life:1.75,color,sub:'#111827',label:'BRUTAL EXECUTION'});
+    lanes.forEach((x,i)=>{
+      if(i===safe){ v67Safe(x,sy,36,1.72,'NO BLADE'); return; }
+      v67Fx('blade',x,H*.27,{w:58,h:185,life:1.58,color:'#e5e7eb',sub:color,label:'DROP'});
+      v64Beam(x,H/2,Math.PI/2,H*1.18,22,0.92+i*.025,boss.atk*.82,color,tag);
+    });
+    v67Later(740,function(){
+      const a = safe < lanes.length/2 ? 0 : Math.PI;
+      v64Beam(W/2,H*.66,a,W*.95,11,.74,boss.atk*.48,v67Sub(),tag);
+    });
+    v67Check(sx,sy,43,1640,.75,boss.atk*1.75,color,'처형 회피 · BREAK');
+  }
+
+  function v67ClockExecution(color,tag){
+    color=color||'#f472b6'; tag=tag||'chrono';
+    const cx=W/2, cy=H/2;
+    const count=8;
+    const safe=Math.floor(Math.random()*count);
+    v67Say(`${boss.name}: 시간 처형식. 빛난 번호 방향으로 먼저 이동하고, 회전 초침을 한 번 더 피하세요.`,color,'cast');
+    v67Fx('clock',cx,cy,{r:240,life:1.95,color,sub:'#fef08a',label:'CLOCK DEATH',spin:.12,sides:12});
+    for(let i=0;i<count;i++){
+      const a=-Math.PI/2+i*Math.PI*2/count, x=cx+Math.cos(a)*208, y=cy+Math.sin(a)*208;
+      if(i===safe) v67Safe(x,y,35,1.82,String(i+1));
+      else { v67Fake(x,y,31,1.45,String(i+1),color); v64Circle(x,y,34,.82+i*.015,boss.atk*.49,color,tag); }
+    }
+    v64RotBeam(cx,cy,state.time+.4,1.65,W*1.08,12,1.70,boss.atk*.48,color,tag);
+    v67Later(860,function(){ v64RotBeam(cx,cy,state.time+Math.PI*.78,-1.95,W*.96,10,1.12,boss.atk*.44,v67Sub(),tag); });
+    const a=-Math.PI/2+safe*Math.PI*2/count;
+    v67Check(cx+Math.cos(a)*208,cy+Math.sin(a)*208,42,1780,.82,boss.atk*1.62,color,'시간 판독 · BREAK');
+  }
+
+  function v67EclipseKnife(color,tag){
+    color=color||'#fb923c'; tag=tag||'solar';
+    const inner=Math.random()<.5;
+    v67Say(`${boss.name}: 압축 일식. ${inner?'핵 안쪽':'바깥 광륜'} 판정 후 십자광이 이어집니다.`,color,'slam');
+    v67Fx('eclipse',W/2,H/2,{r:inner?128:238,life:1.86,color:'#fb923c',sub:'#020617',label:inner?'CORE':'OUTER'});
+    if(inner){
+      v64Donut(W/2,H/2,124,430,.86,boss.atk*.80,color,tag);
+      v67Safe(W/2,H/2,50,1.72,'CORE');
+      v67Check(W/2,H/2,58,1660,.72,boss.atk*1.75,color,'일식 핵 판독');
+    }else{
+      v64Circle(W/2,H/2,184,.86,boss.atk*.80,color,tag);
+      const spots=[[W*.15,H*.18],[W*.85,H*.18],[W*.15,H*.82],[W*.85,H*.82]];
+      const pick=spots[Math.floor(Math.random()*spots.length)];
+      spots.forEach(p=>p===pick?v67Safe(p[0],p[1],38,1.72,'OUTER'):v67Fake(p[0],p[1],34,1.45,'BURN',color));
+      v67Check(pick[0],pick[1],45,1660,.72,boss.atk*1.75,color,'광륜 판독');
+    }
+    v67Later(650,function(){ v64Beam(W/2,H/2,0,W*.98,13,.72,boss.atk*.52,color,tag); v64Beam(W/2,H/2,Math.PI/2,H*.98,13,.72,boss.atk*.52,color,tag); });
+  }
+
+  function v67AbyssCorridor(color,tag){
+    color=color||'#38bdf8'; tag=tag||'void';
+    const rows=6, safe=Math.floor(Math.random()*rows);
+    const ySafe=108+safe*(H-196)/(rows-1);
+    v67Say(`${boss.name}: 심해 압사. 빈 수로가 매우 좁습니다.`,color,'beam');
+    v67Fx('wave',W/2,H*.52,{w:W*.96,h:H*.70,life:1.82,color,sub:'#0f172a',label:'ABYSS CORRIDOR'});
+    for(let i=0;i<rows;i++){
+      const y=108+i*(H-196)/(rows-1);
+      if(i===safe){ v67Safe(W*.18,y,34,1.70,'AIR'); v67Safe(W*.82,y,34,1.70,'AIR'); }
+      else v64Wall(W/2,y,W*.92,28,.78+i*.018,boss.atk*.74,color,tag);
+    }
+    v67Later(780,function(){
+      const a=Math.atan2(player.y-boss.y,player.x-boss.x);
+      v64Beam(boss.x,boss.y,a,W*.95,15,.62,boss.atk*.55,v67Sub(),tag);
+    });
+    v67Later(1620,function(){
+      const ok=Math.abs(player.y-ySafe)<46;
+      if(ok){ breakBoss(.65); healText('호흡 성공 · BREAK',player.x,player.y-42); }
+      else hurtPlayer(boss.atk*1.58,color,true);
+    });
+  }
+
+  function v67GravityVice(color,tag){
+    color=color||'#818cf8'; tag=tag||'gravity';
+    const left=Math.random()<.5;
+    const sx=left?W*.24:W*.76, sy=H*.55;
+    v67Say(`${boss.name}: 중력 바이스. 흡입을 거슬러 좁은 궤도에 서야 합니다.`,color,'cast');
+    v67Fx('orbit',W/2,H/2,{r:265,life:1.95,color,sub:v67Sub(),label:'GRAVITY VICE',spin:left?-1.25:1.25,sides:14});
+    try{ state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:330,life:1.65,power:230,color}); }catch(e){}
+    v64RotBeam(W/2,H/2,state.time,left?-1.72:1.72,W*1.15,15,1.32,boss.atk*.54,color,tag);
+    v64RotBeam(W/2,H/2,state.time+Math.PI/2,left?1.25:-1.25,W*.90,10,1.32,boss.atk*.42,v67Sub(),tag);
+    v67Safe(sx,sy,41,1.76,'ORBIT');
+    v67Check(sx,sy,48,1740,.75,boss.atk*1.68,color,'중력 판독');
+  }
+
+  function v67ChaosVerdict(color,tag){
+    color=color||'#fb7185'; tag=tag||'chaos';
+    const picks=[{x:W*.24,y:H*.32,c:'#86efac',n:'GREEN'},{x:W*.50,y:H*.68,c:'#fb7185',n:'RED'},{x:W*.76,y:H*.32,c:'#a78bfa',n:'PURPLE'},{x:W*.50,y:H*.24,c:'#fde047',n:'GOLD'}];
+    const safe=Math.floor(Math.random()*picks.length);
+    v67Say(`${boss.name}: 혼돈 판결. 선언된 색 ${picks[safe].n}만 진짜입니다. 나머지는 폭발합니다.`,color,'cast');
+    v67Fx('trial',W/2,H/2,{r:262,life:1.88,color,sub:v67Sub(),label:'CHAOS VERDICT',spin:.85,sides:10});
+    picks.forEach((p,i)=>{
+      if(i===safe) v67Safe(p.x,p.y,38,1.72,p.n);
+      else { v67Fake(p.x,p.y,36,1.50,'LIE',p.c); v64Circle(p.x,p.y,47,.84+i*.03,boss.atk*.68,p.c,tag); }
+    });
+    v67Later(760,function(){ v67BladeOpera(color,tag); });
+    v67Check(picks[safe].x,picks[safe].y,46,1680,.68,boss.atk*1.8,color,'판결 통과');
+  }
+
+  function v67CorePanic(color,tag){
+    color=color||v67Color(); tag=tag||v67Tag();
+    v67Say(`${boss.name}: 광폭 봉인 핵. 수가 적지만 제한시간이 짧습니다.`,color,'cast');
+    v67Fx('seal',W/2,H/2,{r:215,life:2.45,color,sub:v67Sub(),label:'CORE PANIC',spin:.65,sides:10});
+    const count=v67Phase()>=3?3:2;
+    for(let i=0;i<count;i++){
+      const a=-Math.PI/2+i*Math.PI*2/count+rand(-.12,.12);
+      const x=W/2+Math.cos(a)*rand(145,230), y=H/2+Math.sin(a)*rand(105,178);
+      state.mechanics.push({kind:'add',x,y,r:17,hp:88+boss.tier*14,life:3.25,speed:58+boss.tier*2,color});
+      v67Fx('sigil',x,y,{r:42,life:3.25,color,sub:'#ffffff',label:'CORE',spin:1.1,sides:6});
+    }
+    v67Later(2300,function(){
+      const alive=state.mechanics.some(m=>m.kind==='add'&&m.life>0);
+      if(alive){ v64Donut(W/2,H/2,60,340,.22,boss.atk*1.45,color,tag); floatText('핵 처리 실패',W/2,105,'#fb7185',22); }
+      else { breakBoss(1.05); floatText('핵 처리 성공 · BREAK',W/2,105,'#86efac',22); }
+    });
+  }
+
+  function v67FinalCombo(color,tag){
+    const id=boss && boss.id || '';
+    if(id==='puppet_emperor'){ v67BladeOpera(color,tag); v67Later(720,()=>v67ClockExecution(color,tag)); return; }
+    if(id==='black_sun'||id==='solar_dragon'){ v67EclipseKnife(color,tag); v67Later(780,()=>v67CorePanic(color,tag)); return; }
+    if(id==='chaos_archon'){ v67ChaosVerdict(color,tag); v67Later(880,()=>v67GravityVice(color,tag)); return; }
+    if(id==='chrono_dragon'){ v67ClockExecution(color,tag); v67Later(850,()=>v67BladeOpera(color,tag)); return; }
+    if(id==='abyss_leviathan'){ v67AbyssCorridor(color,tag); v67Later(840,()=>v67EclipseKnife(color,tag)); return; }
+    if(id==='gravity_core'){ v67GravityVice(color,tag); v67Later(820,()=>v67CorePanic(color,tag)); return; }
+    v67ChaosVerdict(color,tag);
+  }
+
+  function v67Pattern(idx){
+    const id=boss && boss.id || '';
+    const color=v67Color(), tag=v67Tag();
+    const i=Math.abs(idx||0)%7;
+    const generic=[v67BladeOpera,v67ClockExecution,v67EclipseKnife,v67GravityVice,v67AbyssCorridor,v67CorePanic,v67FinalCombo];
+    const map={
+      puppet_emperor:[v67BladeOpera,v67ChaosVerdict,v67ClockExecution,v67CorePanic,v67BladeOpera,v67GravityVice,v67FinalCombo],
+      black_sun:[v67EclipseKnife,v67CorePanic,v67ClockExecution,v67GravityVice,v67EclipseKnife,v67ChaosVerdict,v67FinalCombo],
+      chaos_archon:[v67ChaosVerdict,v67ClockExecution,v67GravityVice,v67BladeOpera,v67CorePanic,v67EclipseKnife,v67FinalCombo],
+      chrono_dragon:[v67ClockExecution,v67BladeOpera,v67GravityVice,v67CorePanic,v67ClockExecution,v67ChaosVerdict,v67FinalCombo],
+      abyss_leviathan:[v67AbyssCorridor,v67CorePanic,v67EclipseKnife,v67GravityVice,v67AbyssCorridor,v67ClockExecution,v67FinalCombo],
+      gravity_core:[v67GravityVice,v67CorePanic,v67ClockExecution,v67AbyssCorridor,v67GravityVice,v67EclipseKnife,v67FinalCombo],
+      solar_dragon:[v67EclipseKnife,v67AbyssCorridor,v67ClockExecution,v67CorePanic,v67EclipseKnife,v67GravityVice,v67FinalCombo],
+      mirror_duelist:[v67BladeOpera,v67ChaosVerdict,v67ClockExecution,v67GravityVice,v67CorePanic,v67AbyssCorridor,v67FinalCombo]
+    };
+    const fn=(map[id]||generic)[i]||generic[i];
+    fn(color,tag);
+    v67LiteSpark(boss.x,boss.y,color);
+    v67Cap();
+  }
+
+  try{
+    const oldUpdateV67 = update;
+    update = function(dt){
+      const safeDt = Math.min(dt || 0, 1/55);
+      v67Cap();
+      oldUpdateV67(safeDt);
+      v67Cap();
+    };
+  }catch(e){ console.warn('[V67 update override failed]',e); }
+
+  try{
+    const oldPatternV67 = v59TypePattern;
+    v59TypePattern = function(idx){
+      try{
+        const t=v67Tier(), ph=v67Phase();
+        if(t>=7){
+          const allowed = t>=10 ? 7 : t>=9 ? 6 : t>=8 ? 5 : 4;
+          v67Pattern((idx||0)%allowed);
+          if(t>=10 && ph>=3 && Math.random()<.18){ v67Later(980,function(){ v67Pattern(((idx||0)+3)%7); }); }
+          v67Cap();
+          return;
+        }
+      }catch(e){ console.warn('[V67 pattern failed]',e); }
+      try{ oldPatternV67(idx); }catch(err){ try{ v66Pattern(idx); }catch(_){} }
+    };
+    getBossPatternCooldown = function(){
+      const t=v67Tier(), ph=v67Phase();
+      if(t>=10) return ph>=3 ? 2.05 + Math.random()*.18 : 2.28 + Math.random()*.18;
+      if(t>=9) return ph>=3 ? 2.24 + Math.random()*.20 : 2.48 + Math.random()*.20;
+      if(t>=8) return ph>=3 ? 2.45 + Math.random()*.22 : 2.72 + Math.random()*.22;
+      if(t>=7) return ph>=3 ? 2.62 + Math.random()*.25 : 2.90 + Math.random()*.25;
+      return 3.05 + Math.random()*.35;
+    };
+  }catch(e){ console.warn('[V67 pattern override failed]',e); }
+
+  /* ===== V68: readable cinematic telegraphs + harder pattern language without extra lag ===== */
+  const V68_VERSION = 'Raid Dungeon V68 - Clear Cinematic Telegraphs Hard No Lag';
+
+  function v68Color(){ try{return v67Color();}catch(e){return boss && boss.color || '#fb7185';} }
+  function v68Sub(){ try{return v67Sub();}catch(e){return boss && boss.sub || '#ffffff';} }
+  function v68Tag(){ try{return v67Tag();}catch(e){return boss && boss.theme || 'arcane';} }
+  function v68Phase(){ try{return v67Phase();}catch(e){return boss && boss.phase || 1;} }
+  function v68Tier(){ return boss && boss.tier || 1; }
+  function v68Push(m){ try{ state.mechanics.push(Object.assign({kind:'v68',life:1.4,t:0,color:v68Color(),sub:v68Sub()},m||{})); }catch(e){} }
+  function v68Call(fn,args){ try{ if(typeof fn==='function') return fn.apply(null,args||[]); }catch(e){} }
+  function v68Msg(text,color,type){ try{ v67Say(text,color,type||'cast'); }catch(e){ try{ toast(text); }catch(_){} } }
+  function v68Safe(x,y,r,life,label){ try{ v67Safe(x,y,r,life,label); }catch(e){ v68Push({shape:'safeCircle',x,y,r,life,label}); } }
+  function v68Fake(x,y,r,life,label,color){ try{ v67Fake(x,y,r,life,label,color); }catch(e){ v68Push({shape:'fakeCircle',x,y,r,life,label,color}); } }
+  function v68Check(x,y,r,ms,breakTime,failDamage,color,label){ try{ v67Check(x,y,r,ms,breakTime,failDamage,color,label); }catch(e){} }
+  function v68Break(t){ try{ breakBoss(t); }catch(e){} }
+
+  function v68DrawStripedRect(x,y,w,h,a,color,alpha,label){
+    v68Push({shape:'laneRect',x,y,w,h,angle:a||0,color:color||'#fb7185',life:1.55,alpha:alpha||.34,label:label||''});
+  }
+  function v68DrawSafeRect(x,y,w,h,a,label){
+    v68Push({shape:'safeRect',x,y,w,h,angle:a||0,color:'#86efac',sub:'#ffffff',life:1.7,label:label||'SAFE'});
+  }
+  function v68DrawBlade(x,y,w,h,label){
+    v68Push({shape:'blade',x,y,w:w||60,h:h||180,color:'#e5e7eb',sub:v68Color(),life:1.55,label:label||'DROP'});
+  }
+  function v68DrawArenaTint(label,color,life){
+    v68Push({shape:'arenaTint',x:W/2,y:H/2,w:W,h:H,color:color||v68Color(),life:life||1.45,label:label||''});
+  }
+  function v68DrawClock(cx,cy,r,safe,life,color){
+    v68Push({shape:'clock',x:cx,y:cy,r,life:life||1.8,color:color||v68Color(),sub:'#fef08a',safe:safe});
+  }
+  function v68DrawEclipse(cx,cy,inner,life,color){
+    v68Push({shape:'eclipse',x:cx,y:cy,r:inner?135:238,life:life||1.75,color:color||'#fb923c',sub:'#020617',inner});
+  }
+  function v68DrawOrbit(cx,cy,r,safeAngle,life,color){
+    v68Push({shape:'orbitGuide',x:cx,y:cy,r,life:life||1.85,color:color||'#818cf8',sub:v68Sub(),safeAngle:safeAngle||0});
+  }
+  function v68DrawWaveGuide(ySafe,life,color){
+    v68Push({shape:'waveGuide',x:W/2,y:ySafe,w:W*.9,h:74,life:life||1.65,color:color||'#38bdf8',sub:'#e0f2fe',label:'AIR CORRIDOR'});
+  }
+  function v68DrawGlyphs(picks,safe,life,color){
+    v68Push({shape:'glyphs',x:W/2,y:H/2,life:life||1.7,color:color||'#fb7185',picks,safe});
+  }
+  function v68DrawArrow(x1,y1,x2,y2,label,color){
+    v68Push({shape:'arrow',x:x1,y:y1,x2,y2,life:1.5,color:color||'#ffffff',label:label||''});
+  }
+
+  try{
+    const oldDrawMechanicsV68 = drawMechanics;
+    drawMechanics = function(){
+      try{ oldDrawMechanicsV68(); }catch(e){}
+      try{
+        for(const m of state.mechanics){
+          if(!m || !String(m.kind||'').startsWith('v68')) continue;
+          const life = Number(m.life || 0);
+          const maxLife = Number(m.maxLife || life || 1);
+          const p = clamp(life / Math.max(.001, maxLife),0,1);
+          const pulse = .5 + .5 * Math.sin(state.time * 9);
+          ctx.save();
+          if(m.shape==='arenaTint'){
+            ctx.globalAlpha=.10+.08*p;
+            const g=ctx.createRadialGradient(W/2,H/2,60,W/2,H/2,Math.max(W,H)*.72);
+            g.addColorStop(0,m.color||'#fb7185'); g.addColorStop(.62,'rgba(2,6,23,.16)'); g.addColorStop(1,'rgba(2,6,23,.82)');
+            ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+            ctx.globalAlpha=.88; ctx.fillStyle='#fff'; ctx.font='900 28px system-ui'; ctx.textAlign='center'; ctx.fillText(m.label||'',W/2,96);
+          }
+          else if(m.shape==='laneRect' || m.shape==='safeRect'){
+            ctx.translate(m.x,m.y); ctx.rotate(m.angle||0);
+            ctx.globalAlpha=m.shape==='safeRect'?(.30+.16*pulse):(.20+(m.alpha||.26));
+            ctx.fillStyle=m.shape==='safeRect'?'#22c55e':(m.color||'#fb7185');
+            ctx.fillRect(-(m.w||100)/2,-(m.h||100)/2,m.w||100,m.h||100);
+            ctx.globalAlpha=.95; ctx.strokeStyle=m.shape==='safeRect'?'#ffffff':'#fecaca'; ctx.lineWidth=m.shape==='safeRect'?4:2;
+            ctx.setLineDash(m.shape==='safeRect'?[]:[12,10]); ctx.strokeRect(-(m.w||100)/2,-(m.h||100)/2,m.w||100,m.h||100);
+            ctx.setLineDash([]);
+            if(m.shape==='laneRect'){
+              ctx.globalAlpha=.38; ctx.strokeStyle='#fff'; ctx.lineWidth=2;
+              for(let x=-(m.w||100)/2-60;x<(m.w||100)/2+60;x+=28){ ctx.beginPath(); ctx.moveTo(x,-(m.h||100)/2); ctx.lineTo(x+70,(m.h||100)/2); ctx.stroke(); }
+            }
+            ctx.globalAlpha=1; ctx.fillStyle='#fff'; ctx.font='900 18px system-ui'; ctx.textAlign='center'; ctx.fillText(m.label||'',0,6);
+          }
+          else if(m.shape==='blade'){
+            ctx.translate(m.x,m.y);
+            const drop=(1-p)*(m.h||180)*.28;
+            ctx.globalAlpha=.96;
+            ctx.fillStyle=m.color||'#e5e7eb';
+            ctx.beginPath(); ctx.moveTo(-(m.w||60)/2,-(m.h||180)/2+drop); ctx.lineTo((m.w||60)/2,-(m.h||180)/2+drop); ctx.lineTo(0,(m.h||180)/2+drop); ctx.closePath(); ctx.fill();
+            ctx.strokeStyle=m.sub||'#fb7185'; ctx.lineWidth=4; ctx.stroke();
+            ctx.fillStyle=m.sub||'#fb7185'; ctx.globalAlpha=.82; ctx.fillRect(-(m.w||60)*.65,-(m.h||180)/2-18, (m.w||60)*1.3, 18);
+            ctx.globalAlpha=1; ctx.fillStyle='#fff'; ctx.font='900 13px system-ui'; ctx.textAlign='center'; ctx.fillText(m.label||'DROP',0,-(m.h||180)/2-25);
+          }
+          else if(m.shape==='clock'){
+            const cx=m.x, cy=m.y, r=m.r||230;
+            ctx.translate(cx,cy); ctx.globalAlpha=.85; ctx.strokeStyle=m.color||'#f472b6'; ctx.lineWidth=5; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.stroke();
+            ctx.lineWidth=2; ctx.globalAlpha=.45; for(let i=0;i<12;i++){ const a=-Math.PI/2+i*Math.PI*2/12; ctx.beginPath(); ctx.moveTo(Math.cos(a)*(r-26),Math.sin(a)*(r-26)); ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r); ctx.stroke(); }
+            for(let i=0;i<8;i++){ const a=-Math.PI/2+i*Math.PI*2/8; ctx.globalAlpha=i===m.safe?1:.34; ctx.fillStyle=i===m.safe?'#86efac':'#fca5a5'; ctx.font='900 24px system-ui'; ctx.textAlign='center'; ctx.fillText(String(i+1),Math.cos(a)*(r-58),Math.sin(a)*(r-58)+8); }
+            ctx.rotate(state.time*1.35); ctx.globalAlpha=.95; ctx.strokeStyle='#fff'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(r*.88,0); ctx.stroke();
+          }
+          else if(m.shape==='eclipse'){
+            const cx=m.x,cy=m.y,r=m.r||220; ctx.translate(cx,cy);
+            const g=ctx.createRadialGradient(0,0,10,0,0,r*1.35); g.addColorStop(0,'#020617'); g.addColorStop(.42,'#020617'); g.addColorStop(.50,m.color||'#fb923c'); g.addColorStop(.70,'rgba(251,146,60,.18)'); g.addColorStop(1,'rgba(2,6,23,0)');
+            ctx.globalAlpha=.92; ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,r*1.3,0,Math.PI*2); ctx.fill();
+            ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.globalAlpha=.85; ctx.setLineDash([14,12]); ctx.beginPath(); ctx.arc(0,0,m.inner?90:245,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+            ctx.fillStyle='#fff'; ctx.font='900 20px system-ui'; ctx.textAlign='center'; ctx.fillText(m.inner?'INSIDE':'OUTSIDE',0,7);
+          }
+          else if(m.shape==='orbitGuide'){
+            const cx=m.x,cy=m.y,r=m.r||260; ctx.translate(cx,cy); ctx.rotate(state.time*.55);
+            ctx.globalAlpha=.42; ctx.strokeStyle=m.color||'#818cf8'; ctx.lineWidth=4; for(let i=0;i<4;i++){ ctx.beginPath(); ctx.ellipse(0,0,r,r*(.46+i*.06),i*Math.PI/4,0,Math.PI*2); ctx.stroke(); }
+            ctx.rotate(-(state.time*.55)); const a=m.safeAngle||0; ctx.globalAlpha=.98; ctx.strokeStyle='#86efac'; ctx.lineWidth=12; ctx.beginPath(); ctx.arc(0,0,r*.58,a-.22,a+.22); ctx.stroke();
+            ctx.fillStyle='#fff'; ctx.font='900 18px system-ui'; ctx.textAlign='center'; ctx.fillText('GREEN ORBIT = SAFE',0,-r*.72);
+          }
+          else if(m.shape==='waveGuide'){
+            ctx.translate(m.x,m.y); ctx.globalAlpha=.28+.12*pulse; ctx.fillStyle=m.color||'#38bdf8'; ctx.fillRect(-(m.w||900)/2,-(m.h||70)/2,m.w||900,m.h||70);
+            ctx.globalAlpha=.95; ctx.strokeStyle='#e0f2fe'; ctx.lineWidth=4; ctx.setLineDash([20,10]); ctx.strokeRect(-(m.w||900)/2,-(m.h||70)/2,m.w||900,m.h||70); ctx.setLineDash([]);
+            ctx.fillStyle='#fff'; ctx.font='900 18px system-ui'; ctx.textAlign='center'; ctx.fillText(m.label||'AIR CORRIDOR',0,6);
+          }
+          else if(m.shape==='glyphs'){
+            const picks=m.picks||[]; picks.forEach((g,i)=>{ ctx.save(); ctx.translate(g.x,g.y); ctx.globalAlpha=i===m.safe?(.92):(.55+.18*pulse); ctx.fillStyle=g.c||m.color; ctx.beginPath(); ctx.arc(0,0,i===m.safe?46:40,0,Math.PI*2); ctx.fill(); ctx.strokeStyle=i===m.safe?'#ffffff':'#fecaca'; ctx.lineWidth=i===m.safe?5:3; ctx.stroke(); ctx.fillStyle='#fff'; ctx.font='900 16px system-ui'; ctx.textAlign='center'; ctx.fillText(i===m.safe?'REAL':'FAKE',0,-4); ctx.font='800 12px system-ui'; ctx.fillText(g.n||'',0,16); ctx.restore(); });
+            ctx.fillStyle='#fff'; ctx.font='900 24px system-ui'; ctx.textAlign='center'; ctx.fillText('ONLY THE REAL COLOR IS SAFE',W/2,96);
+          }
+          else if(m.shape==='arrow'){
+            const x1=m.x,y1=m.y,x2=m.x2,y2=m.y2; const a=Math.atan2(y2-y1,x2-x1); ctx.globalAlpha=.92; ctx.strokeStyle=m.color||'#fff'; ctx.fillStyle=m.color||'#fff'; ctx.lineWidth=5; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); ctx.save(); ctx.translate(x2,y2); ctx.rotate(a); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-18,-10); ctx.lineTo(-18,10); ctx.closePath(); ctx.fill(); ctx.restore(); if(m.label){ ctx.font='900 14px system-ui'; ctx.textAlign='center'; ctx.fillText(m.label,(x1+x2)/2,(y1+y2)/2-8); }
+          }
+          ctx.restore();
+        }
+      }catch(e){}
+    };
+  }catch(e){ console.warn('[V68 draw override failed]',e); }
+
+  function v68PuppetOpera(color,tag){
+    color=color||'#f0abfc'; tag=tag||'mirror';
+    const lanes=[W*.12,W*.27,W*.42,W*.57,W*.72,W*.87]; const safe=Math.floor(Math.random()*lanes.length);
+    v68Msg(`${boss.name}: 무대 조명이 켜진 줄만 읽으세요. 초록 무대만 칼날이 없습니다.`,color,'beam');
+    v68DrawArenaTint('PUPPET OPERA',color,1.7);
+    lanes.forEach((x,i)=>{ if(i===safe){ v68DrawSafeRect(x,H*.55,70,H*.72,0,'CUTLESS'); v68Safe(x,H*.66,38,1.78,'SAFE'); } else { v68DrawStripedRect(x,H*.55,60,H*.74,0,color,.28,'BLADE'); v68DrawBlade(x,H*.23,62,190,'DROP'); v68Call(v64Beam,[x,H/2,Math.PI/2,H*1.16,20,.90+i*.02,boss.atk*.78,color,tag]); } });
+    v68DrawArrow(player.x,player.y,lanes[safe],H*.66,'MOVE', '#86efac');
+    v68Check(lanes[safe],H*.66,42,1660,.82,boss.atk*1.65,color,'무대 판독 · BREAK');
+    v67Later(780,()=>v68Call(v64Beam,[W/2,H*.66,safe<3?0:Math.PI,W*.96,12,.66,boss.atk*.54,v68Sub(),tag]));
+  }
+
+  function v68ClockTrial(color,tag){
+    color=color||'#f472b6'; tag=tag||'chrono'; const cx=W/2, cy=H/2, count=8, safe=Math.floor(Math.random()*count);
+    v68Msg(`${boss.name}: 빛나는 숫자 방향으로 이동하세요. 숫자 판독 뒤 초침 레이저가 옵니다.`,color,'cast');
+    v68DrawArenaTint('CLOCK TRIAL',color,1.55); v68DrawClock(cx,cy,250,safe,1.9,color);
+    for(let i=0;i<count;i++){ const a=-Math.PI/2+i*Math.PI*2/count, x=cx+Math.cos(a)*213, y=cy+Math.sin(a)*213; if(i===safe) v68Safe(x,y,39,1.8,String(i+1)); else v68Call(v64Circle,[x,y,32,.78+i*.018,boss.atk*.48,color,tag]); }
+    const a=-Math.PI/2+safe*Math.PI*2/count; v68DrawArrow(player.x,player.y,cx+Math.cos(a)*213,cy+Math.sin(a)*213,'NUMBER '+(safe+1),'#86efac');
+    v68Call(v64RotBeam,[cx,cy,state.time+.2,1.78,W*1.05,12,1.58,boss.atk*.46,color,tag]);
+    v68Check(cx+Math.cos(a)*213,cy+Math.sin(a)*213,45,1740,.82,boss.atk*1.58,color,'시간 판독 · BREAK');
+  }
+
+  function v68BlackSun(color,tag){
+    color=color||'#fb923c'; tag=tag||'solar'; const inner=Math.random()<.5;
+    v68Msg(`${boss.name}: 화면 중앙 문구를 보세요. ${inner?'INSIDE':'OUTSIDE'}가 정답입니다.`,color,'slam');
+    v68DrawArenaTint('BLACK SUN JUDGEMENT',color,1.6); v68DrawEclipse(W/2,H/2,inner,1.85,color);
+    if(inner){ v68Safe(W/2,H/2,54,1.72,'INSIDE'); v68Call(v64Donut,[W/2,H/2,130,430,.86,boss.atk*.78,color,tag]); v68Check(W/2,H/2,62,1660,.78,boss.atk*1.68,color,'일식 핵 판독'); }
+    else{ const spots=[[W*.13,H*.18],[W*.87,H*.18],[W*.13,H*.82],[W*.87,H*.82]]; const pick=spots[Math.floor(Math.random()*spots.length)]; v68Call(v64Circle,[W/2,H/2,190,.84,boss.atk*.76,color,tag]); spots.forEach(p=>{ if(p===pick){ v68Safe(p[0],p[1],42,1.72,'OUTSIDE'); v68DrawArrow(player.x,player.y,p[0],p[1],'OUTSIDE','#86efac'); } else v68Fake(p[0],p[1],34,1.45,'FAKE',color); }); v68Check(pick[0],pick[1],48,1660,.78,boss.atk*1.7,color,'외곽 판독'); }
+    v67Later(700,()=>{ v68Call(v64Beam,[W/2,H/2,0,W*.98,13,.68,boss.atk*.52,color,tag]); v68Call(v64Beam,[W/2,H/2,Math.PI/2,H*.98,13,.68,boss.atk*.52,color,tag]); });
+  }
+
+  function v68GravityStage(color,tag){
+    color=color||'#818cf8'; tag=tag||'gravity'; const left=Math.random()<.5; const sx=left?W*.25:W*.75, sy=H*.56; const safeAngle=left?Math.PI:0;
+    v68Msg(`${boss.name}: 초록 궤도 조각만 안전합니다. 흡입을 거슬러 들어가세요.`,color,'cast');
+    v68DrawArenaTint('GRAVITY STAGE',color,1.5); v68DrawOrbit(W/2,H/2,285,safeAngle,1.9,color);
+    try{ state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:330,life:1.65,power:210,color}); }catch(e){}
+    v68Safe(sx,sy,43,1.76,'ORBIT'); v68DrawArrow(player.x,player.y,sx,sy,'SAFE ORBIT','#86efac');
+    v68Call(v64RotBeam,[W/2,H/2,state.time,left?-1.70:1.70,W*1.12,14,1.28,boss.atk*.53,color,tag]);
+    v68Call(v64RotBeam,[W/2,H/2,state.time+Math.PI/2,left?1.20:-1.20,W*.92,10,1.28,boss.atk*.42,v68Sub(),tag]);
+    v68Check(sx,sy,49,1740,.78,boss.atk*1.62,color,'중력 판독 · BREAK');
+  }
+
+  function v68AbyssStage(color,tag){
+    color=color||'#38bdf8'; tag=tag||'void'; const rows=7, safe=Math.floor(Math.random()*rows); const ySafe=98+safe*(H-188)/(rows-1);
+    v68Msg(`${boss.name}: 물결 사이 비어 있는 수로를 찾으세요. 파란 통로만 숨을 쉴 수 있습니다.`,color,'beam');
+    v68DrawArenaTint('ABYSS CATHEDRAL',color,1.45); v68DrawWaveGuide(ySafe,1.7,color);
+    for(let i=0;i<rows;i++){ const y=98+i*(H-188)/(rows-1); if(i!==safe){ v68DrawStripedRect(W/2,y,W*.94,28,0,color,.20,'CRUSH'); v68Call(v64Wall,[W/2,y,W*.92,26,.76+i*.015,boss.atk*.70,color,tag]); } }
+    v68DrawArrow(player.x,player.y,W*.5,ySafe,'AIR','#86efac');
+    v67Later(790,()=>{ const a=Math.atan2(player.y-boss.y,player.x-boss.x); v68Call(v64Beam,[boss.x,boss.y,a,W*.94,14,.58,boss.atk*.52,v68Sub(),tag]); });
+    v67Later(1600,()=>{ if(Math.abs(player.y-ySafe)<47){ v68Break(.68); healText('호흡 성공 · BREAK',player.x,player.y-42); } else hurtPlayer(boss.atk*1.52,color,true); });
+  }
+
+  function v68ChaosTrial(color,tag){
+    color=color||'#fb7185'; tag=tag||'chaos';
+    const picks=[{x:W*.24,y:H*.32,c:'#86efac',n:'GREEN'},{x:W*.50,y:H*.69,c:'#fb7185',n:'RED'},{x:W*.76,y:H*.32,c:'#a78bfa',n:'PURPLE'},{x:W*.50,y:H*.24,c:'#fde047',n:'GOLD'}];
+    const safe=Math.floor(Math.random()*picks.length);
+    v68Msg(`${boss.name}: ${picks[safe].n} 문양만 진짜입니다. FAKE 표식은 믿으면 안 됩니다.`,color,'cast');
+    v68DrawArenaTint('CHAOS TRIAL',color,1.55); v68DrawGlyphs(picks,safe,1.85,color);
+    picks.forEach((p,i)=>{ if(i===safe){ v68Safe(p.x,p.y,42,1.75,p.n); v68DrawArrow(player.x,player.y,p.x,p.y,p.n,'#86efac'); } else { v68Fake(p.x,p.y,36,1.48,'FAKE',p.c); v68Call(v64Circle,[p.x,p.y,48,.82+i*.025,boss.atk*.65,p.c,tag]); } });
+    v68Check(picks[safe].x,picks[safe].y,50,1690,.72,boss.atk*1.72,color,'색 판결 통과');
+  }
+
+  function v68CoreStage(color,tag){
+    color=color||v68Color(); tag=tag||v68Tag();
+    v68Msg(`${boss.name}: 빛나는 핵을 먼저 부수세요. 실패하면 도넛 폭발이 옵니다.`,color,'cast');
+    v68DrawArenaTint('CORE BREAK',color,1.6);
+    const count=v68Phase()>=3?3:2;
+    for(let i=0;i<count;i++){ const a=-Math.PI/2+i*Math.PI*2/count+rand(-.10,.10); const x=W/2+Math.cos(a)*rand(145,230), y=H/2+Math.sin(a)*rand(105,176); state.mechanics.push({kind:'add',x,y,r:18,hp:95+boss.tier*15,life:3.15,speed:56+boss.tier*2,color}); v68Push({shape:'eclipse',x,y,r:46,life:3.0,color,sub:'#fff',inner:true}); v68DrawArrow(player.x,player.y,x,y,'BREAK CORE','#fef08a'); }
+    v67Later(2250,()=>{ const alive=state.mechanics.some(m=>m.kind==='add'&&m.life>0); if(alive){ v68Call(v64Donut,[W/2,H/2,62,340,.22,boss.atk*1.45,color,tag]); floatText('핵 처리 실패',W/2,105,'#fb7185',22); } else { v68Break(1.05); floatText('핵 처리 성공 · BREAK',W/2,105,'#86efac',22); } });
+  }
+
+  function v68FinalCombo(color,tag){
+    const id=boss && boss.id || '';
+    if(id==='puppet_emperor'){ v68PuppetOpera(color,tag); v67Later(760,()=>v68ClockTrial(color,tag)); return; }
+    if(id==='black_sun'||id==='solar_dragon'){ v68BlackSun(color,tag); v67Later(780,()=>v68CoreStage(color,tag)); return; }
+    if(id==='chaos_archon'){ v68ChaosTrial(color,tag); v67Later(820,()=>v68GravityStage(color,tag)); return; }
+    if(id==='chrono_dragon'){ v68ClockTrial(color,tag); v67Later(800,()=>v68PuppetOpera(color,tag)); return; }
+    if(id==='abyss_leviathan'){ v68AbyssStage(color,tag); v67Later(800,()=>v68BlackSun(color,tag)); return; }
+    if(id==='gravity_core'){ v68GravityStage(color,tag); v67Later(820,()=>v68CoreStage(color,tag)); return; }
+    v68ChaosTrial(color,tag);
+  }
+
+  function v68Pattern(idx){
+    const id=boss && boss.id || ''; const color=v68Color(), tag=v68Tag(); const i=Math.abs(idx||0)%7;
+    const generic=[v68PuppetOpera,v68ClockTrial,v68BlackSun,v68GravityStage,v68AbyssStage,v68CoreStage,v68FinalCombo];
+    const map={
+      puppet_emperor:[v68PuppetOpera,v68ChaosTrial,v68ClockTrial,v68CoreStage,v68PuppetOpera,v68GravityStage,v68FinalCombo],
+      black_sun:[v68BlackSun,v68CoreStage,v68ClockTrial,v68GravityStage,v68BlackSun,v68ChaosTrial,v68FinalCombo],
+      chaos_archon:[v68ChaosTrial,v68ClockTrial,v68GravityStage,v68PuppetOpera,v68CoreStage,v68BlackSun,v68FinalCombo],
+      chrono_dragon:[v68ClockTrial,v68PuppetOpera,v68GravityStage,v68CoreStage,v68ClockTrial,v68ChaosTrial,v68FinalCombo],
+      abyss_leviathan:[v68AbyssStage,v68CoreStage,v68BlackSun,v68GravityStage,v68AbyssStage,v68ClockTrial,v68FinalCombo],
+      gravity_core:[v68GravityStage,v68CoreStage,v68ClockTrial,v68AbyssStage,v68GravityStage,v68BlackSun,v68FinalCombo],
+      solar_dragon:[v68BlackSun,v68AbyssStage,v68ClockTrial,v68CoreStage,v68BlackSun,v68GravityStage,v68FinalCombo],
+      mirror_duelist:[v68PuppetOpera,v68ChaosTrial,v68ClockTrial,v68GravityStage,v68CoreStage,v68AbyssStage,v68FinalCombo]
+    };
+    const fn=(map[id]||generic)[i]||generic[i];
+    fn(color,tag);
+    try{ v67Cap(); }catch(e){}
+  }
+
+  try{
+    const oldTypePatternV68 = v59TypePattern;
+    v59TypePattern = function(idx){
+      try{
+        const t=v68Tier(), ph=v68Phase();
+        if(t>=7){
+          const allowed = t>=10 ? 7 : t>=9 ? 6 : t>=8 ? 5 : 4;
+          v68Pattern((idx||0)%allowed);
+          if(t>=10 && ph>=3 && Math.random()<.14){ v67Later(1020,()=>v68Pattern(((idx||0)+3)%7)); }
+          try{ v67Cap(); }catch(e){}
+          return;
+        }
+      }catch(e){ console.warn('[V68 pattern failed]',e); }
+      try{ oldTypePatternV68(idx); }catch(err){ try{ v67Pattern(idx); }catch(_){} }
+    };
+    getBossPatternCooldown = function(){
+      const t=v68Tier(), ph=v68Phase();
+      if(t>=10) return ph>=3 ? 2.10 + Math.random()*.18 : 2.36 + Math.random()*.20;
+      if(t>=9) return ph>=3 ? 2.34 + Math.random()*.20 : 2.58 + Math.random()*.22;
+      if(t>=8) return ph>=3 ? 2.56 + Math.random()*.22 : 2.82 + Math.random()*.24;
+      if(t>=7) return ph>=3 ? 2.74 + Math.random()*.25 : 3.00 + Math.random()*.25;
+      return 3.1 + Math.random()*.35;
+    };
+  }catch(e){ console.warn('[V68 pattern override failed]',e); }
+
+  try{
+    const oldUpdateV68 = update;
+    update = function(dt){
+      const safeDt = Math.min(dt || 0, 1/58);
+      try{ v67Cap(); }catch(e){}
+      oldUpdateV68(safeDt);
+      try{ v67Cap(); }catch(e){}
+    };
+  }catch(e){ console.warn('[V68 update override failed]',e); }
+
+  try{
+    window.RaidDungeonV68={
+      version:V68_VERSION,
+      visualRule:'danger is striped red, true safe is green-white, route arrows point to the intended answer, boss-specific arena tint names the mechanic',
+      antiLag:'cinematic telegraphs are canvas-only mechanics with almost no collision checks; actual damage objects remain low count',
+      patterns:['puppet opera lanes','clock trial numbers','black sun inside outside','gravity orbit stage','abyss air corridor','chaos real color glyphs','core break stage']
+    };
+  }catch(e){}
+
+  try{
+    window.RaidDungeonV67={
+      version:V67_VERSION,
+      difficulty:'safe zones are smaller, telegraphs are shorter, failure damage is higher, phase 3 chains real combo patterns',
+      antiLag:'lower object budgets, fewer particles, dt clamp 1/55, difficulty comes from timing and judgment rather than object spam',
+      patterns:['brutal guillotine lanes','clock execution','compressed eclipse','abyss corridor','gravity vice','chaos verdict','core panic','phase 3 combo']
+    };
+  }catch(e){}
+
   try{ window.RaidDungeonV45={version:V45_VERSION, v45, enhanceWeapon, enchantWeapon, sellWeapon, disassembleWeapon, upgradeSkill, registerMaterial, marketBuy, chatSend}; v45(); renderMenu(); }catch(e){console.warn('[V45 init failed]',e);}
 })();
 
