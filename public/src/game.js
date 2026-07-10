@@ -20149,6 +20149,899 @@ try{
   }catch(e){}
 }catch(e){ console.warn('[V105 damage boost failed]', e); }
 
+
+/* ===== V106: actual damage display sync ===== */
+try{
+  const V106_VERSION = 'Raid Dungeon V106 - Damage Display Matches 4x Actual Damage';
+  const V106_DAMAGE_MULTIPLIER = 4;
+
+  function v106Rank(r){ return ({normal:0,rare:1,super:2,epic:3,legendary:4,ultimate:5})[r]||0; }
+  function v106KindFactor(w){
+    const k = String(w && w.kind || '');
+    if(k === 'dagger') return 1.50;
+    if(k === 'greatsword') return 1.18;
+    if(k === 'pole') return 1.05;
+    if(k === 'scythe') return 1.12;
+    if(k === 'grimoire') return 3.00;
+    return 1.00;
+  }
+  function v106Ranged(w){
+    const k = String(w && w.kind || '');
+    return k.includes('bow') || k.includes('staff') || k === 'gunstaff' || k === 'grimoire' || k === 'chakram';
+  }
+  function v106EnhanceInfo(w){
+    try{
+      if(typeof v63WeaponEnhanceInfo === 'function') return v63WeaponEnhanceInfo(w);
+    }catch(e){}
+    try{
+      const meta = (typeof weaponMeta === 'function' && weaponMeta(w.id)) || {};
+      const enh = Number(meta.enh || w.v45Enhance || w.v44Enhance || w.v43Enhance || w.v41Enhance || 0) || 0;
+      const ench = meta.ench || w.v45Enchant || w.v44Enchant || w.v43Enchant || w.v41Enchant || [];
+      const arr = Array.isArray(ench) ? ench : Object.entries(ench || {}).map(([type,lv])=>({type,lv}));
+      let atkBonus=enh*10.5, critBonus=0, speedBonus=0;
+      arr.forEach(e=>{ const lv=Number(e.lv||e[1]||0); const type=e.type||e[0]; if(type==='attack') atkBonus+=lv*8; if(type==='critChance') critBonus+=lv*3; if(type==='speed') speedBonus+=lv*5.5; });
+      return {enh, atkBonus, critBonus, speedBonus};
+    }catch(e){ return {enh:0, atkBonus:0, critBonus:0, speedBonus:0}; }
+  }
+  function v106WeaponMul(w){
+    try{ if(typeof v62WeaponMul === 'function') return v62WeaponMul(w); }catch(e){}
+    const r = v106Rank(w && w.rarity);
+    return 1 + r*.16 + (r>=3?.18:0) + (r>=4?.24:0) + (r>=5?.38:0);
+  }
+  function v106SpecialExtraFactor(w){
+    const rank = v106Rank(w && w.rarity);
+    if(rank < 3) return 0;
+    if(v106Ranged(w)){
+      const shots = rank>=5 ? 5 : rank>=4 ? 4 : 3;
+      return shots * (rank>=5 ? .34 : .25);
+    }
+    const first = .58 + rank*.08;
+    const second = rank>=4 ? (.58 + (rank-1)*.08) * .70 : 0;
+    return first + second;
+  }
+  function v106WeaponDamage(w){
+    try{
+      w = getWeapon(w && w.id || w) || w;
+      const enh = v106EnhanceInfo(w);
+      const baseAtk = 100;
+      const weaponAtk = Number(w && w.atk || 1);
+      const rarityMul = v106WeaponMul(w);
+      const enhanceMul = 1 + Number(enh.atkBonus || 0) / 100;
+      const mainFactor = v106KindFactor(w);
+      const rawMain = baseAtk * weaponAtk * weaponAtk * rarityMul * enhanceMul * mainFactor * V106_DAMAGE_MULTIPLIER;
+      const main = Math.max(1, Math.round(rawMain));
+      const extra = Math.max(0, Math.round(baseAtk * weaponAtk * weaponAtk * rarityMul * enhanceMul * v106SpecialExtraFactor(w) * V106_DAMAGE_MULTIPLIER));
+      const full = Math.max(main, main + extra);
+      const cd = Math.max(.08, Number(w && w.speed || .5) * (v106Ranged(w) ? 1 : .82));
+      const crit = Math.max(0, Math.round(Number(w && w.crit || 0) + Number(enh.critBonus || 0)));
+      return {avg:main, full, extra, dps:Math.max(1,Math.round(full/cd)), crit, cd:+cd.toFixed(2), rank:v106Rank(w&&w.rarity), enh};
+    }catch(e){ return {avg:0,full:0,extra:0,dps:0,crit:0,cd:0,rank:0,enh:{enh:0}}; }
+  }
+  function v106WeaponDamageLine(w){
+    const d = v106WeaponDamage(w);
+    const hit = d.extra > 0 ? `기본 ${d.avg.toLocaleString()} / 풀히트 ${d.full.toLocaleString()}` : `약 ${d.avg.toLocaleString()}`;
+    return `데미지: ${hit} · 초당 ${d.dps.toLocaleString()} · 치명 ${d.crit}% · 공격간격 ${d.cd}s`;
+  }
+
+  try{ v63WeaponDamage = v106WeaponDamage; }catch(e){}
+  try{ v63WeaponDamageLine = v106WeaponDamageLine; }catch(e){}
+
+  try{
+    if(typeof v50WeaponEffects === 'function'){
+      const V106_OLD_V50_EFFECTS = v50WeaponEffects;
+      v50WeaponEffects = function(w){
+        let old = '';
+        try{ old = V106_OLD_V50_EFFECTS(w); }catch(e){}
+        const lines = String(old || '').split('\n').filter(Boolean).filter(line => !/^데미지:/.test(line));
+        return [v106WeaponDamageLine(w)].concat(lines).join('\n');
+      };
+    }
+  }catch(e){}
+
+  try{
+    if(typeof v99MarketTip === 'function'){
+      const V106_OLD_MARKET_TIP = v99MarketTip;
+      v99MarketTip = function(x){
+        try{
+          if(x && x.kind === 'weapon'){
+            const w = getWeapon(x.itemId) || {};
+            const d = v106WeaponDamage(w);
+            const meta = Object.assign({}, (typeof v99WeaponMarketMeta === 'function' ? v99WeaponMarketMeta(x.itemId, w) : {}), x.meta || {});
+            const enh = Number(meta.enh || (d.enh && d.enh.enh) || 0);
+            const ench = (typeof v99EnchantTextFromMeta === 'function') ? v99EnchantTextFromMeta(meta, w) : '없음';
+            const dmgText = d.extra > 0 ? `${d.avg.toLocaleString()} / 풀 ${d.full.toLocaleString()}` : d.avg.toLocaleString();
+            return `${x.name}\n데미지 ${dmgText} · 공속 ${d.cd}s\n강화 +${enh} · 인챈트 ${ench}`;
+          }
+        }catch(e){}
+        return V106_OLD_MARKET_TIP(x);
+      };
+    }
+  }catch(e){}
+
+  try{
+    if(typeof v48WeaponCard === 'function'){
+      const V106_OLD_V48_WEAPON_CARD = v48WeaponCard;
+      v48WeaponCard = function(w,mode){
+        let html = V106_OLD_V48_WEAPON_CARD(w,mode);
+        try{
+          html = html.replace(/데미지:\s*약\s*[0-9,]+\s*\/\s*초당\s*[0-9,]+\s*·\s*치명\s*[0-9]+%\s*·\s*공격간격\s*[0-9.]+s/g, esc(v106WeaponDamageLine(w)));
+        }catch(e){}
+        return html;
+      };
+    }
+  }catch(e){}
+
+  try{
+    if(typeof window !== 'undefined'){
+      window.RaidDungeonV106 = { version: V106_VERSION, damageMultiplier: V106_DAMAGE_MULTIPLIER, changed:['무기 표기 데미지를 실제 4배 적용 피해 기준으로 재계산','무기별 타수/풀히트/강화/인챈트 반영','판매소 마우스오버 데미지 표기 보정'] };
+    }
+    console.log('[RaidDungeon]', V106_VERSION, 'loaded');
+  }catch(e){}
+}catch(e){ console.warn('[V106 damage display sync failed]', e); }
+
+
+/* ===== V107: daily chip layout fix + harder late-boss pressure without changing pattern identity ===== */
+try{
+  const V107_VERSION = 'Raid Dungeon V107 - Daily Chip Clean Layout Harder Late Patterns';
+
+  function v107TodayKey(){
+    const d=new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function v107DailyClaimed(){
+    try{
+      const date=v107TodayKey();
+      if(state && state.save && state.save.dailyReward && state.save.dailyReward.lastDate===date) return true;
+      const raw=(state && state.currentUser && (state.currentUser.id||state.currentUser.email)) || (state && state.save && state.save.playerName) || 'local';
+      const user=String(raw).replace(/[^a-zA-Z0-9@._-]/g,'_').slice(0,80);
+      return localStorage.getItem('raid-dungeon-daily-reward-v104:'+user+':'+date)==='1';
+    }catch(e){ return false; }
+  }
+  function v107DailyChipHtml(){
+    const claimed=v107DailyClaimed();
+    return `<span class="chip v107-daily-chip-inner" style="display:inline-flex;align-items:center;gap:5px;background:${claimed?'rgba(34,197,94,.16)':'rgba(250,204,21,.16)'};color:${claimed?'#86efac':'#fde047'};white-space:nowrap">매일 보상 ${claimed?'완료':'대기'}</span>`;
+  }
+
+  // V104에서 absolute로 붙던 칩이 다른 문구와 겹치는 문제를 해결한다.
+  try{
+    const oldRenderMenuV107 = renderMenu;
+    renderMenu = function(){
+      const ret = oldRenderMenuV107.apply(this, arguments);
+      try{
+        if(ui && ui.menu && state && state.currentUser){
+          ui.menu.querySelectorAll('.v103-daily-chip,.v104-daily-chip,.v107-daily-row').forEach(n=>n.remove());
+          const row=document.createElement('div');
+          row.className='v107-daily-row';
+          row.style.cssText='display:flex;justify-content:flex-end;align-items:center;margin:6px 0 12px;pointer-events:none;clear:both;position:relative;z-index:1';
+          row.innerHTML=v107DailyChipHtml();
+          const nav=ui.menu.querySelector('.nav');
+          if(nav && nav.parentNode) nav.parentNode.insertBefore(row, nav.nextSibling);
+          else ui.menu.insertBefore(row, ui.menu.firstChild);
+        }
+      }catch(e){}
+      return ret;
+    };
+  }catch(e){ console.warn('[V107 daily chip layout patch failed]', e); }
+
+  function v107Tier(){ return Math.max(1, Math.min(10, Number(boss && boss.tier || 1))); }
+  function v107Alive(){ return state && state.screen==='raid' && boss && !boss.dead && player && player.hp>0; }
+  function v107Dmg(mult){
+    const tier=v107Tier();
+    const base=(boss && boss.atk) || 10;
+    // 후반 보스는 더 위협적이지만, 연속 피격으로 삭제되지 않도록 V82/V84의 피해 상한 구조와 같이 작동한다.
+    return base * mult * (tier>=9?1.13:tier>=8?1.08:1.0);
+  }
+  function v107Color(){ return (boss && boss.color) || '#fb7185'; }
+  function v107Sub(){ return (boss && boss.sub) || '#ffffff'; }
+  function v107Id(){ return String((boss && boss.id) || ''); }
+  function v107Name(){ return String((boss && boss.name) || ''); }
+  function v107Theme(){ return String((boss && boss.theme) || ''); }
+  function v107Rand(a,b){ try{return rand(a,b);}catch(e){return a+Math.random()*(b-a);} }
+  function v107AngleToPlayer(x,y){ return Math.atan2(player.y-y, player.x-x); }
+  function v107Hazard(o){ try{ state.hazards.push(o); }catch(e){} }
+  function v107Particle(o){ try{ state.particles.push(o); }catch(e){} }
+  function v107Projectile(x,y,a,speed,r,life,damage,color,tag){
+    try{ spawnProjectile({owner:'boss',x,y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r,life,pierce:0,color,damage,tag}); }catch(e){}
+  }
+  function v107Circle(x,y,r,warn,damage,color,tag){
+    try{ warningCircle(x,y,r,warn,color,damage,false,null,tag); }catch(e){ v107Hazard({kind:'circle',x,y,r,warn,life:.18,damage,color,tag}); }
+  }
+  function v107Beam(x,y,angle,len,w,warn,life,damage,color,tag){
+    v107Hazard({kind:'beam',x,y,angle,len,w,warn,life:life||.20,damage,color,tag});
+  }
+  function v107Spin(x,y,angle,spin,warn,damage,color,tag){
+    v107Hazard({kind:'rotatingBeam',x,y,angle,len:1050,w:9+v107Tier(),warn,life:1.05+v107Tier()*.04,spin,damage,color,tag,tick:0});
+  }
+  function v107Donut(x,y,inner,outer,warn,damage,color,tag){
+    v107Hazard({kind:'donut',x,y,inner,outer,warn,life:.16,damage,color,tag});
+  }
+  function v107Wall(x,y,w,h,warn,life,damage,color,tag){
+    v107Hazard({kind:'wall',x,y,w,h,warn,life,damage,color,tag});
+  }
+
+  const v107Recent = [];
+  function v107Pick(list){
+    const pool=list.filter(fn=>!v107Recent.includes(fn.name));
+    const pick=(pool.length?pool:list)[Math.floor(Math.random()*(pool.length?pool:list).length)];
+    if(pick){ v107Recent.unshift(pick.name); v107Recent.splice(4); }
+    return pick;
+  }
+
+  // 추가 난이도는 7성 이상에게만 적용. 기존 보스 정체성은 유지하고, 피해야 할 밀도를 조금 올린다.
+  function v107StormPressure(){
+    const c='#fde047';
+    for(let i=0;i<6;i++){
+      const x=140+i*(W-280)/5;
+      setTimeout(()=>{ if(v107Alive()) v107Circle(x, v107Rand(135,H-90), 26+v107Tier()*1.5, .24, v107Dmg(.38), c, 'lightning'); }, i*90);
+    }
+    setTimeout(()=>{ if(v107Alive()) v107Beam(W/2,H/2,Math.atan2(player.y-H/2,player.x-W/2),950,11,.34,.18,v107Dmg(.34),c,'lightning'); }, 560);
+  }
+  function v107TimePressure(){
+    const c='#f472b6'; const off=(state.time||0)*.7;
+    for(let i=0;i<5;i++) v107Beam(W/2,H/2,off+i*Math.PI*2/5,980,8,.38+i*.10,.17,v107Dmg(.34),i%2?c:'#fef08a','chrono');
+    setTimeout(()=>{ if(v107Alive()) v107Circle(player.x,player.y,54,.42,v107Dmg(.40),c,'chrono'); }, 520);
+  }
+  function v107WaterPressure(){
+    const c='#38bdf8';
+    for(let i=0;i<4;i++) v107Beam(W/2,165+i*115,0,W,14,.34+i*.12,.20,v107Dmg(.36),c,'void');
+    setTimeout(()=>{ if(v107Alive() && state.mechanics) state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:245,power:52,life:1.05,color:'#0ea5e9'}); }, 650);
+  }
+  function v107PuppetPressure(){
+    const c='#f0abfc';
+    for(let i=0;i<5;i++){
+      const x=160+i*(W-320)/4;
+      v107Particle({kind:'line',x,y:60,vx:0,vy:80,r:3,life:.7,color:'#fde68a',angle:Math.PI/2,len:120});
+      v107Beam(x,H/2,Math.PI/2,H,12,.42+i*.08,.18,v107Dmg(.34),c,'mirror');
+    }
+    setTimeout(()=>{ if(v107Alive()) v107Donut(player.x,player.y,60,148,.48,v107Dmg(.42),'#fde68a','mirror'); }, 520);
+  }
+  function v107SunPressure(){
+    const c='#fb923c';
+    for(let i=0;i<8;i++) v107Circle(v107Rand(100,W-100),v107Rand(120,H-90),30,.36+i*.07,v107Dmg(.34),i%2?c:'#facc15','solar');
+    if(v107Tier()>=9) setTimeout(()=>{ if(v107Alive()) v107Donut(W/2,H/2,135,295,.54,v107Dmg(.45),'#020617','solar'); },720);
+  }
+  function v107JesterPressure(){
+    const c='#fb7185'; const a=v107AngleToPlayer(boss.x,boss.y);
+    for(let i=-5;i<=5;i++) v107Projectile(boss.x,boss.y,a+i*.11,420+Math.abs(i)*24,6,2.0,v107Dmg(.24),i%2?c:'#ffffff','chaos');
+    setTimeout(()=>{ if(v107Alive()) v107Circle(v107Rand(130,W-130),v107Rand(135,H-100),46,.40,v107Dmg(.42),'#facc15','chaos'); }, 520);
+  }
+  function v107GenericPressure(){
+    const c=v107Color();
+    const a=v107AngleToPlayer(boss.x,boss.y);
+    v107Beam(boss.x,boss.y,a,960,10,.38,.18,v107Dmg(.34),c,v107Theme());
+    for(let i=0;i<4;i++) setTimeout(()=>{ if(v107Alive()) v107Circle(v107Rand(115,W-115),v107Rand(125,H-90),28,.26,v107Dmg(.32),v107Sub(),v107Theme()); }, i*100);
+  }
+  function v107PressureList(){
+    const id=v107Id(), name=v107Name(), theme=v107Theme();
+    if(id.includes('jester') || name.includes('니브') || name.includes('광대')) return [v107JesterPressure,v107SunPressure,v107GenericPressure];
+    if(id.includes('storm') || theme.includes('lightning')) return [v107StormPressure,v107GenericPressure];
+    if(id.includes('chrono') || theme.includes('chrono')) return [v107TimePressure,v107GenericPressure];
+    if(id.includes('leviathan') || theme.includes('water')) return [v107WaterPressure,v107GenericPressure];
+    if(id.includes('puppet') || name.includes('인형')) return [v107PuppetPressure,v107GenericPressure];
+    if(id.includes('black_sun') || id.includes('solar') || theme.includes('solar')) return [v107SunPressure,v107GenericPressure];
+    return [v107GenericPressure];
+  }
+
+  try{
+    const oldBossPatternV107 = bossPattern;
+    bossPattern = function(){
+      try{
+        const ret = oldBossPatternV107.apply(this, arguments);
+        const tier=v107Tier();
+        if(v107Alive() && tier>=7){
+          // 기존 패턴 직후 보조 압박을 추가해 후반 보스 회피 난이도를 올림.
+          // 7~8성은 가끔, 9~10성은 더 자주. 초반 보스에는 절대 적용하지 않음.
+          const chance = tier>=10 ? .58 : tier>=9 ? .46 : tier>=8 ? .34 : .24;
+          if(Math.random()<chance){
+            const fn=v107Pick(v107PressureList());
+            const delay=tier>=9?780:980;
+            setTimeout(()=>{ try{ if(v107Alive()) fn(); }catch(e){} }, delay);
+            boss.patternCd = Math.max(boss.patternCd||0, tier>=9?1.05:1.20);
+          }
+        }
+        return ret;
+      }catch(e){ console.warn('[V107 harder late pattern failed]', e); return oldBossPatternV107.apply(this, arguments); }
+    };
+  }catch(e){ console.warn('[V107 boss pattern wrapper failed]', e); }
+
+  try{
+    if(typeof window !== 'undefined'){
+      window.RaidDungeonV107={version:V107_VERSION,changed:['매일 보상 칩 겹침 수정','7성 이상 후반 보스 보조 압박 패턴 추가','초반 보스 연출/난이도 유지']};
+    }
+    console.log('[RaidDungeon]', V107_VERSION, 'loaded');
+  }catch(e){}
+}catch(e){ console.warn('[V107 patch failed]', e); }
+
+
+/* ===== V108: skill card damage display fix ===== */
+try{
+  const V108_VERSION = 'Raid Dungeon V108 - Skill Damage Display Fix';
+
+  function v108SkillLevel(id){
+    try{
+      if(typeof v45 === 'function'){
+        const v = v45();
+        return Number((v && v.skillLevels && v.skillLevels[id]) || 1) || 1;
+      }
+    }catch(e){}
+    try{ if(typeof v50SkillLevel === 'function') return Number(v50SkillLevel(id) || 1) || 1; }catch(e){}
+    return 1;
+  }
+
+  function v108SkillCopies(id){
+    try{
+      if(typeof v45 === 'function'){
+        const v = v45();
+        return Number((v && v.skillCopies && v.skillCopies[id]) || 0) || 0;
+      }
+    }catch(e){}
+    try{ if(typeof v50SkillCopies === 'function') return Number(v50SkillCopies(id) || 0) || 0; }catch(e){}
+    return 0;
+  }
+
+  function v108SkillPower(s){
+    s = getSkill((s && s.id) || s) || s;
+    const base = 100 * Number(s && s.power || 1);
+    const dmgBoost = 4; // V105 실제 데미지 4배 기준
+    return {base, actual: base * dmgBoost};
+  }
+
+  function v108Round(n){
+    return Math.max(1, Math.round(Number(n || 0))).toLocaleString();
+  }
+
+  function v108SkillDamageInfo(skill){
+    const s = getSkill((skill && skill.id) || skill) || skill;
+    if(!s) return {short:'데미지 -', detail:'데미지 정보 없음'};
+    const p = v108SkillPower(s).actual;
+    const cat = String(s.category || '');
+    const type = String(s.type || '');
+    const cd = Number(s.cooldown || 0);
+    const radius = Number(s.radius || 0);
+
+    if(cat === 'attack'){
+      let short = '';
+      let detail = '';
+      if(type === 'burst'){
+        short = `피해 ${v108Round(p * 1.7)}`;
+        detail = `폭발 피해 ${v108Round(p * 1.7)} · 범위 ${Math.round(radius)}`;
+      }else if(type === 'line'){
+        short = `피해 ${v108Round(p * .86)}`;
+        detail = `광선/관통 1틱 ${v108Round(p * .86)} · 풀히트는 위치에 따라 증가`;
+      }else if(type === 'chain'){
+        short = `피해 ${v108Round(p * .62)} x연속`;
+        detail = `낙뢰/연쇄 1타 ${v108Round(p * .62)} · 여러 번 적중 가능`;
+      }else if(type === 'rain'){
+        short = `피해 ${v108Round(p * .46)} x낙하`;
+        detail = `낙하 1타 ${v108Round(p * .46)} · 풀히트는 위치에 따라 증가`;
+      }else if(type === 'zone'){
+        short = `지속 ${v108Round(p * .25)}`;
+        detail = `장판 틱당 ${v108Round(p * .25)} · 지속 ${Number(s.duration || 0).toFixed(1)}초`;
+      }else if(type === 'orb'){
+        short = `피해 ${v108Round(p * .38)} x구체`;
+        detail = `구체 1개 ${v108Round(p * .38)} · 여러 구체 적중 가능`;
+      }else{
+        short = `피해 ${v108Round(p * 2.05)}`;
+        detail = `직격 피해 ${v108Round(p * 2.05)}`;
+      }
+      return {short, detail: `${detail} · 쿨 ${cd.toFixed(1)}초`};
+    }
+
+    if(cat === 'heal'){
+      const heal = Math.max(1, Math.round(16 + (100 * Number(s.power || 1)) * .13 + 100 * .18));
+      return {short:`회복 약 ${heal.toLocaleString()}`, detail:`예상 회복 ${heal.toLocaleString()} · 쿨 ${cd.toFixed(1)}초`};
+    }
+
+    if(cat === 'debuff'){
+      let d = Math.max(1, Math.round(p * .55));
+      if(type === 'debuff_burn') d = Math.round(p * .90);
+      return {short:`피해 ${d.toLocaleString()} + 약화`, detail:`직접 피해 약 ${d.toLocaleString()} · 디버프 ${Number(s.duration || 0).toFixed(1)}초 · 쿨 ${cd.toFixed(1)}초`};
+    }
+
+    if(cat === 'buff'){
+      return {short:`버프 ${Number(s.duration || 0).toFixed(1)}초`, detail:`버프 지속 ${Number(s.duration || 0).toFixed(1)}초 · 쿨 ${cd.toFixed(1)}초`};
+    }
+
+    if(cat === 'cleanse'){
+      return {short:'정화 + 보호막', detail:`상태이상 해제 + 보호막 · 쿨 ${cd.toFixed(1)}초`};
+    }
+
+    return {short:`위력 x${Number(s.power || 1).toFixed(2)}`, detail:`위력 x${Number(s.power || 1).toFixed(2)} · 쿨 ${cd.toFixed(1)}초`};
+  }
+
+  function v108SkillCardHtml(it, slot, selected){
+    const s = getSkill((it && it.id) || it) || it;
+    const id = s && s.id || it && it.id || '';
+    const lv = v108SkillLevel(id);
+    const cp = v108SkillCopies(id);
+    const selectedClass = selected === id ? 'active' : '';
+    let desc = String((s && s.desc) || '');
+    try{ if(typeof v50BaseDesc === 'function') desc = v50BaseDesc(desc); }catch(e){}
+    const info = v108SkillDamageInfo(s);
+    const nameHtml = (typeof v49NameHtml === 'function') ? v49NameHtml(s.name, s.rarity, 'Lv.' + lv) : `${esc(s.name)} Lv.${lv}`;
+    const rarity = (typeof v49RarityBadge === 'function') ? v49RarityBadge(s.rarity) : rarityLabel(s.rarity);
+    const title = `${desc}\n${info.detail}\n강화 포인트 ${cp}`;
+    return `<div class="card ${selectedClass}" title="${esc(title)}" data-select-type="skill" data-slot="${slot}" data-select-id="${esc(id)}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','${esc(id)}',${slot})"><h3>${nameHtml} ${rarity}</h3><p>${esc(desc)}<br><b style="color:#fef08a">${esc(info.short)}</b> · 쿨 ${Number(s.cooldown||0).toFixed(1)}초 · 포인트 ${cp}</p></div>`;
+  }
+
+  try{
+    v50SortieSkillCard = function(it, slot, selected){ return v108SkillCardHtml(it, slot, selected); };
+  }catch(e){}
+
+  try{
+    skillSlotGrid = function(slot){
+      const items = (typeof v53UniqueItems === 'function') ? v53UniqueItems(ownedSkills()) : ownedSkills();
+      const selected = (state.selectedSkillIds && state.selectedSkillIds[slot]) || null;
+      const label = ['K','L',';'][slot] || (slot + 1);
+      const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="skill" data-slot="${slot}" data-select-id="" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('skill','',${slot})"><h3>스킬 ${label} 비우기</h3><p>스킬을 끼지 않아도 레이드는 시작할 수 있습니다.</p></div>`;
+      if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 스킬이 없습니다.</h3><p>뽑기 또는 보스 드롭으로 획득할 수 있습니다.</p></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+      return `<p class="sub">스킬 카드에 실제 4배 데미지 기준 피해량을 표시합니다.</p><div class="grid">${noneCard}${items.map(it=>v108SkillCardHtml(it,slot,selected)).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+    };
+  }catch(e){ console.warn('[V108 skill slot override failed]', e); }
+
+  try{
+    if(typeof renderGrowth === 'function'){
+      const V108_PREV_RENDER_GROWTH = renderGrowth;
+      renderGrowth = function(){
+        let html = V108_PREV_RENDER_GROWTH();
+        try{
+          const skills = [...new Set(state.save.skills || [])].map(id=>getSkill(id)).filter(Boolean);
+          if(skills.length && /스킬 강화/.test(html)){
+            // 기존 성장 센터의 "위력 x"만 보이는 스킬 줄에도 피해량을 같이 보이게 보정
+            skills.forEach(s=>{
+              const info = v108SkillDamageInfo(s);
+              const oldText = `위력 x${s.power}`;
+              const newText = `${info.short} · 위력 x${s.power}`;
+              html = html.split(oldText).join(newText);
+            });
+          }
+        }catch(e){}
+        return html;
+      };
+    }
+  }catch(e){}
+
+  try{
+    if(typeof window !== 'undefined'){
+      window.RaidDungeonV108 = {version:V108_VERSION, changed:['스킬 장착 카드에 실제 피해량 표시','성장 센터 스킬 목록 피해량 보정','V105 4배 데미지 기준 반영']};
+    }
+    console.log('[RaidDungeon]', V108_VERSION, 'loaded');
+  }catch(e){}
+}catch(e){ console.warn('[V108 skill damage display fix failed]', e); }
+
+
+/* ===== V109: online ranking restore + actual weapon damage display + boss difficulty curve ===== */
+try{
+  const V109_VERSION = 'Raid Dungeon V109 - Online Rank Actual Damage Late Boss Balance';
+
+  function v109SafeName(x){ try{return normalizedPlayerName(x||'Player');}catch(e){return String(x||'Player').trim()||'Player';} }
+  function v109Now(){ try{return new Date().toISOString();}catch(e){return ''+Date.now();} }
+  function v109BossId(){ return String((boss&&boss.id) || state.selectedBossId || 'unknown'); }
+  function v109LocalRecords(){ try{ return Array.isArray(getLocalRecords()) ? getLocalRecords() : []; }catch(e){ return []; } }
+  function v109RecordKey(r){ return [String(r&&r.boss_id||''), v109SafeName(r&&r.player_name).toLowerCase()].join('|'); }
+  function v109BestByPlayer(records){
+    const map=new Map();
+    (records||[]).forEach(r=>{
+      if(!r || !r.boss_id || !Number.isFinite(Number(r.clear_ms))) return;
+      const key=v109RecordKey(r);
+      const old=map.get(key);
+      if(!old || Number(r.clear_ms)<Number(old.clear_ms)) map.set(key,r);
+    });
+    return Array.from(map.values()).sort((a,b)=>Number(a.clear_ms||999999999)-Number(b.clear_ms||999999999));
+  }
+  function v109WriteLocal(records){
+    try{
+      const merged=v109BestByPlayer(records).slice(0,800);
+      const raw=JSON.stringify(merged);
+      [LOCAL_RECORD_KEY,'raid-build-v12-local-records','raid-build-v12-local-records-backup','raid-v109-online-rank-backup'].forEach(k=>{try{localStorage.setItem(k,raw);}catch(e){}});
+    }catch(e){}
+  }
+  function v109BuildRecord(ms){
+    const b=boss||getBoss(state.selectedBossId)||{};
+    return {
+      player_name:v109SafeName(state&&state.save&&state.save.playerName),
+      boss_id:String(b.id||state.selectedBossId||'unknown'),
+      boss_name:String(b.name||''),
+      clear_ms:Number(ms)||0,
+      weapon_id:state.raid&&state.raid.weapon?state.raid.weapon.id:'none',
+      weapon_name:state.raid&&state.raid.weapon?state.raid.weapon.name:'무기 없음',
+      skills:state.raid&&state.raid.skills?state.raid.skills.filter(Boolean).map(s=>s.name):[],
+      passives:[state.raid&&state.raid.armor?('방어구: '+state.raid.armor.name):'방어구 없음'].concat(state.raid&&state.raid.passives?state.raid.passives.filter(Boolean).map(p=>p.name):[]),
+      damage_taken:Math.round(Number(player&&player.damageTaken||0)),
+      created_at:v109Now()
+    };
+  }
+
+  try{
+    const V109_PREV_SUBMIT_RECORD = submitRecord;
+    submitRecord = async function(ms){
+      const record=v109BuildRecord(ms);
+      try{
+        const local=v109LocalRecords();
+        local.push(record);
+        v109WriteLocal(local);
+      }catch(e){}
+      try{
+        if(supabaseReady && supabase && supabase.from){
+          // 온라인 랭킹은 먼저 insert를 시도한다. delete 권한/RLS가 막혀도 기록 저장 자체는 살린다.
+          let res = await supabase.from('raid_records').insert(record);
+          if(res && res.error){
+            // 중복 제약이 있는 테이블이면 기존 내 기록 삭제 후 재삽입을 한 번만 시도한다.
+            try{ await supabase.from('raid_records').delete().eq('boss_id',record.boss_id).eq('player_name',record.player_name); }catch(e){}
+            res = await supabase.from('raid_records').insert(record);
+          }
+          if(res && res.error) throw res.error;
+          state.cloudStatus='온라인 랭킹 저장 완료';
+        }
+      }catch(e){
+        console.warn('[V109] online ranking save failed; local ranking kept:', e && e.message ? e.message : e);
+        state.cloudStatus='온라인 랭킹 저장 실패 · 로컬 기록 유지';
+      }
+      try{ if(typeof V109_PREV_SUBMIT_RECORD==='function') await V109_PREV_SUBMIT_RECORD(ms); }catch(e){ console.warn('[V109] previous submitRecord skipped:', e&&e.message?e.message:e); }
+      try{ await refreshRankings(record.boss_id); }catch(e){}
+    };
+  }catch(e){ console.warn('[V109 submit override failed]', e); }
+
+  try{
+    refreshRankings = async function(bossId){
+      state.rankingBossId=bossId;
+      let records=[];
+      try{ records=records.concat(v109LocalRecords().filter(r=>r&&r.boss_id===bossId)); }catch(e){}
+      try{
+        if(supabaseReady && supabase && supabase.from){
+          const res=await supabase.from('raid_records').select('*').eq('boss_id',bossId).order('clear_ms',{ascending:true}).limit(300);
+          if(res && res.error) throw res.error;
+          if(Array.isArray(res.data)){
+            records=records.concat(res.data);
+            v109WriteLocal(v109LocalRecords().concat(res.data));
+            state.cloudStatus='온라인 랭킹 불러옴';
+          }
+        }
+      }catch(e){
+        console.warn('[V109] online ranking load failed; showing local:', e && e.message ? e.message : e);
+        state.cloudStatus='온라인 랭킹 불러오기 실패 · 로컬 표시';
+      }
+      state.rankings=v109BestByPlayer(records).slice(0,10);
+      if(state.menuTab==='ranking'&&state.screen==='menu') renderMenu();
+    };
+  }catch(e){ console.warn('[V109 refresh override failed]', e); }
+
+  function v109Rank(r){ return ({normal:0,rare:1,super:2,epic:3,legendary:4,ultimate:5})[r]||0; }
+  function v109KindFactor(w){
+    const k=String(w&&w.kind||'');
+    if(k==='dagger') return 1.50;      // 3타 합산
+    if(k==='greatsword') return 1.18;
+    if(k==='pole') return 1.05;
+    if(k==='whip') return 1.12;
+    if(k==='grimoire') return 3.00;    // 3발 기준
+    if(k==='scythe') return 1.12;
+    return 1.00;
+  }
+  function v109EnhanceMul(w){
+    try{
+      let info=null;
+      if(typeof v63WeaponEnhanceInfo==='function') info=v63WeaponEnhanceInfo(w);
+      else if(typeof v106EnhanceInfo==='function') info=v106EnhanceInfo(w);
+      return 1 + Number(info&&info.atkBonus||0)/100;
+    }catch(e){ return 1; }
+  }
+  function v109ActualWeaponDamage(w){
+    w=getWeapon((w&&w.id)||w)||w;
+    if(!w) return {hit:0,open:0,dps:0,cd:0,crit:0};
+    const weaponAtk=Number(w.atk||1);
+    const baseAmount=100*weaponAtk*weaponAtk*v109KindFactor(w)*v109EnhanceMul(w);
+    const boosted=baseAmount*4; // V105
+    const guarded=Math.max(1,Math.round(boosted*.48)); // 실제 일반 상태 보스에게 뜨는 기본값
+    const open=Math.max(1,Math.round(boosted));        // 약화/빈틈 때 기준
+    const cd=Math.max(.08,Number(w.speed||.5));
+    const crit=Math.round(Number(w.crit||0));
+    return {hit:guarded,open,dps:Math.max(1,Math.round(guarded/cd)),cd:+cd.toFixed(2),crit};
+  }
+  function v109WeaponDamageLine(w){
+    const d=v109ActualWeaponDamage(w);
+    return `보스 실전 데미지: ${d.hit.toLocaleString()} · 약화시 ${d.open.toLocaleString()} · 초당 ${d.dps.toLocaleString()} · 치명 ${d.crit}%`;
+  }
+  try{ v106WeaponDamageLine = v109WeaponDamageLine; }catch(e){}
+  try{ v63WeaponDamageLine = v109WeaponDamageLine; }catch(e){}
+  try{ v63WeaponDamage = v109ActualWeaponDamage; }catch(e){}
+
+  try{
+    if(typeof v50WeaponEffects==='function'){
+      const V109_OLD_WEAPON_EFFECTS=v50WeaponEffects;
+      v50WeaponEffects=function(w){
+        let old=''; try{old=V109_OLD_WEAPON_EFFECTS(w);}catch(e){}
+        const lines=String(old||'').split('\n').filter(Boolean).filter(line=>!/^데미지:/.test(line)&&!/^보스 실전 데미지:/.test(line));
+        return [v109WeaponDamageLine(w)].concat(lines).join('\n');
+      };
+    }
+  }catch(e){}
+  try{
+    if(typeof v99MarketTip==='function'){
+      const V109_OLD_MARKET_TIP=v99MarketTip;
+      v99MarketTip=function(x){
+        try{
+          if(x&&x.kind==='weapon'){
+            const w=getWeapon(x.itemId)||{};
+            const d=v109ActualWeaponDamage(w);
+            return `${x.name}\n실전 ${d.hit.toLocaleString()} · 약화 ${d.open.toLocaleString()} · 초당 ${d.dps.toLocaleString()}\n강화/인챈트는 등록 정보 기준`;
+          }
+        }catch(e){}
+        return V109_OLD_MARKET_TIP(x);
+      };
+    }
+  }catch(e){}
+
+  function v109Tier(){ return Math.max(1,Math.min(10,Number(boss&&boss.tier||1))); }
+  function v109Alive(){ return state&&state.screen==='raid'&&boss&&!boss.dead&&player&&player.hp>0; }
+  function v109TrimEarly(beforeH,beforeP,beforeZ){
+    const t=v109Tier();
+    if(t>3) return;
+    const keep=t===1?.46:t===2?.62:.76;
+    function soften(arr,before){
+      if(!arr||arr.length<=before) return;
+      const added=arr.splice(before);
+      const kept=[];
+      added.forEach(o=>{ if(Math.random()<keep){
+        if(o){ if(Number.isFinite(o.damage)) o.damage*=t===1?.55:t===2?.70:.84; if(Number.isFinite(o.warn)) o.warn+=t===1?.26:t===2?.18:.10; }
+        kept.push(o);
+      }});
+      arr.push(...kept);
+    }
+    soften(state.hazards,beforeH); soften(state.projectiles,beforeP); soften(state.zones,beforeZ);
+    boss.patternCd=Math.max(boss.patternCd||0,t===1?2.25:t===2?1.9:1.55);
+  }
+  function v109Rand(a,b){ try{return rand(a,b);}catch(e){return a+Math.random()*(b-a);} }
+  function v109Ang(x,y){ return Math.atan2(player.y-y,player.x-x); }
+  function v109Dmg(m){ return ((boss&&boss.atk)||12)*(m||.4)*(v109Tier()>=10?1.28:v109Tier()>=9?1.18:1.05); }
+  function v109Proj(a,c,tag,speed,rad){ try{spawnProjectile({owner:'boss',x:boss.x,y:boss.y,vx:Math.cos(a)*(speed||520),vy:Math.sin(a)*(speed||520),r:rad||7,life:2.2,damage:v109Dmg(.30),color:c,tag});}catch(e){} }
+  function v109Circle(x,y,r,warn,c,tag,m){ try{warningCircle(x,y,r,warn,c,v109Dmg(m||.42),false,null,tag);}catch(e){state.hazards.push({kind:'circle',x,y,r,warn,life:.22,damage:v109Dmg(m||.42),color:c,tag});} }
+  function v109Beam(x,y,a,warn,c,tag,m){ try{state.hazards.push({kind:'beam',x,y,angle:a,len:1050,w:12+v109Tier(),warn,life:.23,damage:v109Dmg(m||.40),color:c,tag});}catch(e){} }
+  function v109LateSignature(){
+    if(!v109Alive()||v109Tier()<7) return;
+    const id=String(boss.id||''), name=String(boss.name||''), th=String(boss.theme||'');
+    if(id.includes('jester')||name.includes('니브')||name.includes('광대')){
+      const c=['#ef4444','#facc15','#60a5fa','#f0abfc'][Math.floor(Math.random()*4)];
+      for(let i=0;i<10;i++) setTimeout(()=>{ if(v109Alive()) v109Proj(-Math.PI/2+i*Math.PI/9,c,'chaos',430+v109Tier()*18,7); },i*55);
+      setTimeout(()=>{ if(v109Alive()) v109Circle(v109Rand(130,W-130),v109Rand(140,H-90),58,.50,'#facc15','chaos',.50); },680);
+    }else if(id.includes('chrono')||th.includes('chrono')){
+      const base=(state.time||0); for(let i=0;i<6;i++) setTimeout(()=>{ if(v109Alive()) v109Beam(W/2,H/2,base+i*Math.PI/3,.45,'#f472b6','chrono',.43); },i*115);
+    }else if(id.includes('leviathan')||name.includes('레비아탄')){
+      for(let y=150;y<H-70;y+=105) setTimeout(()=>{ if(v109Alive()) v109Beam(W/2,y,0,.48,'#38bdf8','void',.42); },(y-150)*1.5);
+      setTimeout(()=>{ if(v109Alive()&&state.mechanics) state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:260,power:64,life:1.25,color:'#38bdf8'}); },620);
+    }else if(id.includes('puppet')||name.includes('인형')){
+      for(let x=160;x<W-100;x+=185) setTimeout(()=>{ if(v109Alive()) v109Beam(x,H/2,Math.PI/2,.46,'#f0abfc','mirror',.40); },x*.45);
+      setTimeout(()=>{ if(v109Alive()) v109Circle(player.x,player.y,70,.58,'#f43f5e','mirror',.52); },720);
+    }else if(id.includes('black')||name.includes('검은 태양')||th.includes('solar')){
+      for(let i=0;i<8;i++) v109Beam(W/2,H/2,i*Math.PI/4,.55,'#fb923c','solar',.43);
+      setTimeout(()=>{ if(v109Alive()) v109Circle(W/2,H/2,180,.62,'#020617','solar',.55); },760);
+    }else if(id.includes('storm')||th.includes('lightning')){
+      for(let i=0;i<8;i++) setTimeout(()=>{ if(v109Alive()) v109Circle(120+i*(W-240)/7,v109Rand(130,H-90),34,.34,'#fde047','lightning',.42); },i*95);
+    }else{
+      const c=(boss&&boss.color)||'#fb7185'; for(let i=0;i<5;i++) setTimeout(()=>{ if(v109Alive()) v109Circle(v109Rand(120,W-120),v109Rand(130,H-90),45,.42,c,boss.theme,.42); },i*130);
+    }
+  }
+  try{
+    const V109_PREV_BOSS_PATTERN=bossPattern;
+    bossPattern=function(){
+      const beforeH=state.hazards?state.hazards.length:0, beforeP=state.projectiles?state.projectiles.length:0, beforeZ=state.zones?state.zones.length:0;
+      const ret=V109_PREV_BOSS_PATTERN.apply(this,arguments);
+      v109TrimEarly(beforeH,beforeP,beforeZ);
+      if(v109Tier()>=8 && Math.random()<(v109Tier()>=10?.72:v109Tier()>=9?.55:.38)){
+        setTimeout(()=>{try{v109LateSignature();}catch(e){}}, v109Tier()>=10?620:820);
+        boss.patternCd=Math.max(boss.patternCd||0, v109Tier()>=10?.95:1.15);
+      }
+      return ret;
+    };
+  }catch(e){ console.warn('[V109 boss difficulty curve failed]', e); }
+
+  try{
+    window.RaidDungeonV109={version:V109_VERSION,changed:['온라인 랭킹 insert 우선 저장 복구','무기 표기를 실제 보스 피격 숫자 기준으로 변경','초반 보스 패턴 완화','후반 보스 보조 패턴 압박 강화']};
+    console.log('[RaidDungeon]', V109_VERSION, 'loaded');
+  }catch(e){}
+}catch(e){ console.warn('[V109 patch failed]', e); }
+
+
+/* ===== V110: boss message spacing + early boss simplicity pass ===== */
+try{
+  const V110_VERSION = 'Raid Dungeon V110 - Clean Boss Notice Early Simplicity';
+
+  const V110_PREV_DRAWBOSS = typeof drawBoss === 'function' ? drawBoss : function(){};
+  const V110_PREV_FLOATTEXT = typeof floatText === 'function' ? floatText : function(){};
+  const V110_PREV_TOAST = typeof toast === 'function' ? toast : function(){};
+  const V110_PREV_BOSSPATTERN = typeof bossPattern === 'function' ? bossPattern : function(){};
+
+  state.v110BossNotice = null;
+
+  function v110Clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function v110Round(c,x,y,w,h,r){
+    w=Math.max(0,w||0); h=Math.max(0,h||0); r=Math.max(0,Math.min(r||0,w/2,h/2));
+    c.beginPath(); c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r);
+    c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h); c.lineTo(x+r,y+h);
+    c.quadraticCurveTo(x,y+h,x,y+h-r); c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y); c.closePath();
+  }
+  function v110Fill(c,x,y,w,h,r,color){ c.fillStyle=color; v110Round(c,x,y,w,h,r); c.fill(); }
+  function v110Stroke(c,x,y,w,h,r,color,lw){ c.strokeStyle=color; c.lineWidth=lw||1; v110Round(c,x,y,w,h,r); c.stroke(); }
+  function v110Short(text,max){
+    const s=String(text||'').replace(/\s+/g,' ').trim();
+    if(!s) return '';
+    const n=max||38;
+    return s.length>n ? s.slice(0,n)+'…' : s;
+  }
+  function v110Notice(text,color,life){
+    const s=v110Short(text,42);
+    if(!s || !state) return;
+    state.v110BossNotice={text:s,color:color||'#e5e7eb',life:life||3.2};
+  }
+  function v110CentralText(text,x,y,size){
+    const s=String(text||'').trim();
+    if(!s) return false;
+    if(/^[-+]?\d+[!]?$/i.test(s)) return false;
+    if(/^(OK|ROLL|BREAK!?|SAFE|MISS|GUARD)$/i.test(s)) return false;
+    if(s.length<=3) return false;
+    return Math.abs((x||0)-W/2)<210 && (y||999)<165 && (Number(size||0)>=16 || s.length>=7);
+  }
+
+  floatText=function(text,x,y,color,size){
+    try{
+      if(v110CentralText(text,x,y,size)){ v110Notice(text,color,3.4); return; }
+    }catch(e){}
+    return V110_PREV_FLOATTEXT(text,x,y,color,size);
+  };
+
+  toast=function(msg){
+    try{
+      const s=v110Short(msg,44);
+      state.message=s; state.messageTime=Math.min(1.2, Math.max(state.messageTime||0,.75));
+      if(state.screen==='raid') v110Notice(s,'#fef08a',2.8);
+      else V110_PREV_FLOATTEXT(s,W/2,92,'#fef08a',18);
+    }catch(e){ try{V110_PREV_TOAST(msg);}catch(_){} }
+  };
+
+  const V110_PREV_UPDATE = typeof update === 'function' ? update : function(){};
+  update=function(dt){
+    V110_PREV_UPDATE(dt);
+    try{
+      if(state.v110BossNotice){
+        state.v110BossNotice.life -= Math.min(dt||.016,.05);
+        if(state.v110BossNotice.life<=0) state.v110BossNotice=null;
+      }
+      if(boss && boss.tier<=3 && state.screen==='raid'){
+        if(state.particles && state.particles.length>160) state.particles.splice(0,state.particles.length-160);
+        if(state.hazards && state.hazards.length>65) state.hazards.splice(0,state.hazards.length-65);
+        if(state.projectiles && state.projectiles.length>90) state.projectiles.splice(0,state.projectiles.length-90);
+      }
+    }catch(e){}
+  };
+
+  drawBoss=function(){
+    try{
+      if(!boss || boss.dead) return;
+      ctx.save();
+      if(state.shake>0) ctx.translate(rand(-state.shake,state.shake),rand(-state.shake,state.shake));
+      ctx.globalAlpha=boss.hit>0?.72:1;
+      drawBossShape(ctx,boss,boss.x,boss.y,boss.r);
+      ctx.restore();
+      if(boss.clones) boss.clones.forEach(c=>drawBossShape(ctx,{...boss,color:c.real?'#fef08a':boss.color,sub:boss.sub,theme:boss.theme},c.x,c.y,boss.r*.65));
+
+      const bw=720,bh=22,x=(W-bw)/2,y=24;
+      const rate=v110Clamp(Number(boss.hp||0)/Math.max(1,Number(boss.maxHp||1)),0,1);
+      const fillW=Math.max(0,Math.floor(bw*rate));
+      const barColor=boss.vulnerable>0?'#fef08a':(boss.color||'#ef4444');
+
+      ctx.save();
+      v110Fill(ctx,x-10,y-24,bw+20,76,14,'rgba(0,0,0,.70)');
+      v110Fill(ctx,x,y,bw,bh,11,'rgba(15,23,42,.98)');
+      ctx.save();
+      v110Round(ctx,x,y,bw,bh,11); ctx.clip();
+      ctx.fillStyle='rgba(30,41,59,.96)'; ctx.fillRect(x,y,bw,bh);
+      if(fillW>0){
+        const g=ctx.createLinearGradient(x,y,x+Math.max(1,fillW),y);
+        g.addColorStop(0,barColor);
+        g.addColorStop(1,boss.vulnerable>0?'#fff7ad':barColor);
+        ctx.fillStyle=g; ctx.fillRect(x,y,fillW,bh);
+      }
+      ctx.restore();
+      v110Stroke(ctx,x,y,bw,bh,11,'rgba(255,255,255,.30)',2);
+      for(let i=1;i<10;i++){
+        ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(x+bw*i/10,y+1); ctx.lineTo(x+bw*i/10,y+bh-1); ctx.stroke();
+      }
+      ctx.textAlign='center';
+      ctx.fillStyle='#fff'; ctx.font='900 16px system-ui';
+      ctx.fillText(`${boss.name}  ${stars(boss.tier)}  ${boss.vulnerable>0?'BREAK':'GUARD'}`,W/2,19);
+      ctx.font='900 13px system-ui'; ctx.fillStyle='#f8fafc';
+      ctx.fillText(`HP ${Math.ceil(Math.max(0,boss.hp)).toLocaleString()} / ${Math.ceil(boss.maxHp).toLocaleString()}  (${Math.ceil(rate*100)}%)`,W/2,y+16);
+      ctx.restore();
+
+      const notice = state.v110BossNotice && state.v110BossNotice.life>0 ? state.v110BossNotice.text : v110Short(boss.mechanicText||'',40);
+      if(notice){
+        const boxW=520, boxH=25, boxX=W/2-boxW/2, boxY=86;
+        ctx.save();
+        v110Fill(ctx,boxX,boxY,boxW,boxH,12,'rgba(15,23,42,.76)');
+        v110Stroke(ctx,boxX,boxY,boxW,boxH,12,'rgba(148,163,184,.18)',1);
+        ctx.textAlign='center'; ctx.font='800 12px system-ui';
+        ctx.fillStyle=state.v110BossNotice&&state.v110BossNotice.life>0?(state.v110BossNotice.color||'#e5e7eb'):'#cbd5e1';
+        ctx.fillText(notice,W/2,boxY+17);
+        ctx.restore();
+      }
+    }catch(e){ try{V110_PREV_DRAWBOSS();}catch(_){} }
+  };
+
+  function v110Alive(){ return state && state.screen==='raid' && state.raid && boss && !boss.dead && player && player.hp>0; }
+  function v110Tier(){ return Math.max(1,Number(boss && boss.tier || 1)); }
+  function v110Id(){ return String((boss && boss.id)||'').toLowerCase(); }
+  function v110Damage(m){ return Math.max(2,(boss && boss.atk || 6)*(m||.6)); }
+  function v110Circle(x,y,r,warn,dmg,color,tag){ state.hazards.push({kind:'circle',x,y,r,warn,life:.16,damage:dmg,color:color||(boss&&boss.color)||'#fff',tag:tag||(boss&&boss.theme)||'boss'}); }
+  function v110Beam(x,y,a,len,w,warn,dmg,color,tag){ state.hazards.push({kind:'beam',x,y,angle:a,len,w,warn,life:.16,damage:dmg,color:color||(boss&&boss.color)||'#fff',tag:tag||(boss&&boss.theme)||'boss'}); }
+  function v110Proj(a,spd,r,life,dmg,color,spread){
+    try{ spawnProjectile({owner:'boss',x:boss.x,y:boss.y,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,r,life,damage:dmg,color:color||(boss&&boss.color)||'#fff',tag:(boss&&boss.theme)||'boss'}); }catch(e){}
+  }
+  function v110EarlySlime(){
+    const c='#7ddf64'; boss.mechanicText='젤리 점프';
+    v110Circle(player.x,player.y,46,.95,v110Damage(.35),c,'slime');
+    const a=Math.atan2(player.y-boss.y,player.x-boss.x);
+    for(let i=-1;i<=1;i++) v110Proj(a+i*.20,260,8,1.9,v110Damage(.20),c);
+    boss.patternCd=Math.max(boss.patternCd||0,2.45);
+  }
+  function v110EarlyFire(){
+    const c='#f97316'; boss.mechanicText='작은 불씨';
+    const a=Math.atan2(player.y-boss.y,player.x-boss.x);
+    for(let i=-2;i<=2;i++) v110Proj(a+i*.16,310,7,1.8,v110Damage(.24),c);
+    if(Math.random()<.5) v110Circle(player.x,player.y,50,1.05,v110Damage(.34),'#fb7185','fire');
+    boss.patternCd=Math.max(boss.patternCd||0,2.35);
+  }
+  function v110EarlyThorn(){
+    const c='#22c55e'; boss.mechanicText='가시 꽃';
+    for(let i=0;i<4;i++) v110Circle(190+i*290,170+(i%2)*330,34,.95+i*.08,v110Damage(.28),i%2?c:'#f472b6','poison');
+    boss.patternCd=Math.max(boss.patternCd||0,2.55);
+  }
+  function v110EarlyFrost(){
+    const c='#7dd3fc'; boss.mechanicText='얼음창';
+    for(let i=0;i<5;i++) v110Circle(170+i*230,150+Math.random()*390,30,.90+i*.07,v110Damage(.27),c,'ice');
+    boss.patternCd=Math.max(boss.patternCd||0,2.55);
+  }
+  function v110EarlySand(){
+    const c='#f59e0b'; boss.mechanicText='모래 낫';
+    const a=Math.atan2(player.y-boss.y,player.x-boss.x);
+    v110Beam(boss.x,boss.y,a,850,12,1.0,v110Damage(.32),c,'sand');
+    boss.patternCd=Math.max(boss.patternCd||0,2.50);
+  }
+  function v110SimpleEarlyPattern(){
+    const id=v110Id();
+    if(id.includes('slime')) return v110EarlySlime();
+    if(id.includes('ember') || (boss.theme||'')==='fire') return v110EarlyFire();
+    if(id.includes('thorn') || (boss.theme||'')==='nature') return v110EarlyThorn();
+    if(id.includes('frost') || (boss.theme||'')==='ice') return v110EarlyFrost();
+    if(id.includes('sand') || (boss.theme||'')==='sand') return v110EarlySand();
+    return v110EarlyFire();
+  }
+
+  bossPattern=function(){
+    try{
+      if(v110Alive() && v110Tier()<=3){
+        v110SimpleEarlyPattern();
+        return;
+      }
+      return V110_PREV_BOSSPATTERN.apply(this,arguments);
+    }catch(e){ console.warn('[V110 pattern fallback]',e); try{return V110_PREV_BOSSPATTERN.apply(this,arguments);}catch(_){} }
+  };
+
+  try{
+    BOSSES.forEach(b=>{
+      if(b.tier<=3){
+        if(b.id==='slime_king') b.patterns=['젤리 점프','느린 방울','작은 장판'];
+        else if(b.id==='ember_tyrant') b.patterns=['작은 불씨','용암 장판','부채꼴 불꽃'];
+        else if(b.id==='thorn_queen') b.patterns=['가시 꽃','독꽃 장판','꽃잎 탄'];
+        else if(b.id==='frost_oracle') b.patterns=['얼음창','서리 장판','느린 빙결'];
+        else if(b.id==='sand_reaper') b.patterns=['모래 낫','모래 장판','느린 폭풍'];
+      }
+    });
+  }catch(e){}
+
+  window.RaidDungeonV110={version:V110_VERSION,changed:['보스 HP바와 안내문 박스 간격 분리','중앙 멘트 겹침 완화','1~3성 보스 패턴 단순화 및 과한 이펙트 제한','후반 보스 패턴은 기존 V109 유지']};
+  console.log('[RaidDungeon]',V110_VERSION,'loaded');
+}catch(e){ console.warn('[V110 patch failed]',e); }
+
 })();
 
 
@@ -20173,3 +21066,65 @@ try {
   };
   console.log('[RaidDungeon] V99 market hover item details loaded');
 } catch(e) {}
+
+/* ===== V111: show only one gacha result card ===== */
+try{
+  const V111_VERSION = 'Raid Dungeon V111 - Single Gacha Result Card';
+  const V111_PREV_RENDER_GACHA = renderGachaTab;
+
+  function v111RarityInfo(rarity){
+    try{
+      const r = getRarity(rarity);
+      return { name:r.name || rarity || '등급', color:r.color || '#cbd5e1' };
+    }catch(e){
+      const map={normal:['일반','#cbd5e1'],rare:['희귀','#38bdf8'],super:['초희귀','#34d399'],epic:['에픽','#a78bfa'],legendary:['레전더리','#facc15'],ultimate:['궁극','#fb7185']};
+      const v=map[rarity]||map.normal;
+      return {name:v[0], color:v[1]};
+    }
+  }
+  function v111KindName(item){
+    if(!item) return '아이템';
+    if(item.type === 'weapon') return '무기';
+    if(item.type === 'armor') return '방어구';
+    if(item.type === 'passive') return '패시브';
+    if(item.category) return '스킬';
+    return item.type || '아이템';
+  }
+  function v111Short(s,n){
+    s = String(s || '').replace(/\s+/g,' ').trim();
+    return s.length > n ? s.slice(0,n) + '…' : s;
+  }
+  function v111Escape(s){
+    try{ return escapeHtml(String(s || '')); }
+    catch(e){ return String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  }
+  function v111GachaCard(item){
+    const info = v111RarityInfo(item && item.rarity);
+    let brief = '';
+    try{
+      brief = item && item.type === 'weapon' && typeof v63WeaponDamageLine === 'function' ? v63WeaponDamageLine(item) : '';
+    }catch(e){ brief = ''; }
+    if(!brief) brief = v111Short((item && item.desc) || '획득 완료', 64);
+    return `<div class="v102-gacha-result v111-gacha-only" style="border-color:${info.color};box-shadow:0 0 24px ${info.color}55;margin-top:14px;background:linear-gradient(135deg,rgba(15,23,42,.94),rgba(5,8,22,.98));"><div style="font-size:13px;font-weight:1000;color:${info.color};letter-spacing:.08em">${v111Escape(info.name)}</div><div style="font-size:26px;font-weight:1000;color:#fff;margin-top:4px;text-shadow:0 0 16px ${info.color}">${v111Escape((item && item.name) || '아이템')}</div><div style="margin-top:8px;color:#cbd5e1;font-size:12px;line-height:1.45">${v111Escape(v111KindName(item))} · ${v111Escape(brief)}</div></div>`;
+  }
+
+  renderGachaTab = function(){
+    const item = state && state.gachaResult ? state.gachaResult : null;
+    if(!item) return V111_PREV_RENDER_GACHA();
+    let html = '';
+    try{
+      const keep = state.gachaResult;
+      state.gachaResult = null;
+      html = V111_PREV_RENDER_GACHA();
+      state.gachaResult = keep;
+    }catch(e){
+      try{ state.gachaResult = item; }catch(err){}
+      html = V111_PREV_RENDER_GACHA();
+      html = String(html || '').replace(/<div class="gacha-result"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>|<div class="v102-gacha-result"[\s\S]*?<\/div>\s*<\/div>/g, '');
+    }
+    return html + v111GachaCard(item);
+  };
+
+  window.RaidDungeonV111 = { version: V111_VERSION, changed:['뽑기 결과 기존 카드 숨김','등급 색상 카드 1개만 표시','V110 기능 유지'] };
+  console.log('[RaidDungeon]', V111_VERSION, 'loaded');
+}catch(e){ console.warn('[V111 single gacha result card failed]', e); }
