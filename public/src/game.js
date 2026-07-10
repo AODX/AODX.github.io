@@ -2043,6 +2043,7 @@
   function toast(msg){state.message=msg; state.messageTime=2.0; floatText(msg,W/2,92,'#fef08a',20);}
   function formatMs(ms){const s=ms/1000; return s<60?s.toFixed(2)+'초':Math.floor(s/60)+'분 '+(s%60).toFixed(1)+'초';}
   function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+  function esc(s){return escapeHtml(String(s == null ? '' : s));}
   function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
   function rand(a,b){return a+Math.random()*(b-a);}
   function dist(x1,y1,x2,y2){return Math.hypot(x1-x2,y1-y2);}
@@ -22665,3 +22666,259 @@ try{
 
   try{ window.RaidDungeonV120={version:V120_VERSION, changed:['스킬 카드/스킬 탭 클릭 캡처 보강','무기 표기 데미지와 실제 일반 공격 피해를 직접 일치','일반 등급이 고등급보다 강한 현상 방지','근거리 낮춤/원거리 상향 유지']}; console.log('[RaidDungeon]',V120_VERSION,'loaded'); }catch(e){}
 }catch(e){ console.warn('[V120 skill/exact damage patch failed]', e); }
+
+
+/* ===== V121: armor/passive HP MP stat application fix ===== */
+try{
+  const V121_VERSION = 'Raid Dungeon V122 - UI Click Online Reset Fix';
+
+  function v121Num(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+  function v121Clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function v121Training(){
+    if(!state.save) state.save={};
+    if(!state.save.playerTraining || typeof state.save.playerTraining !== 'object') state.save.playerTraining={hp:0,mp:0,regen:0};
+    ['hp','mp','regen'].forEach(k=>{ state.save.playerTraining[k]=v121Clamp(v121Num(state.save.playerTraining[k],0),0,100); });
+    return state.save.playerTraining;
+  }
+  function v121EquippedArmor(){
+    try{ return (state.raid && state.raid.armor) || getArmor(state.selectedArmorId) || null; }catch(e){ return null; }
+  }
+  function v121EquippedPassives(){
+    try{
+      if(state.raid && Array.isArray(state.raid.passives) && state.raid.passives.length) return state.raid.passives.filter(Boolean);
+      return (state.selectedPassiveIds||[]).map(getPassive).filter(Boolean);
+    }catch(e){ return []; }
+  }
+  function v121BaseStatsFromBuild(){
+    const p={
+      x:W/2,y:H-120,r:16,hp:100,maxHp:100,maxMp:120,mp:120,mpRegen:3,shield:0,speed:265,atk:100,magic:100,def:0,
+      crit:8,critDmg:1.7,damageMul:1,skillDamageMul:1,basicDamageMul:1,cooldownMul:1,areaMul:1,projectileSpeedMul:1,
+      lifesteal:0,regen:.18,regen5:0,regen5Tick:0,statusResist:{burn:0,poison:0,freeze:0,paralysis:0,slow:0},
+      equippedArmor:null,invuln:0,slow:0,roll:0,rollCd:0,rollCdBonus:0,rollVx:0,rollVy:0,basicCd:0,skillCd:[0,0,0],
+      damageTaken:0,aim:0,face:1,anim:0,attackAnim:0,attackAngle:0,tempBuffs:[],statuses:{burn:0,poison:0,freeze:0,paralysis:0,slow:0},statusTick:0
+    };
+    try{
+      const armor=v121EquippedArmor();
+      if(armor){
+        p.equippedArmor=armor;
+        p.maxHp += v121Num(armor.hp,0);
+        p.def += v121Num(armor.def,0);
+        // 이후 방어구에 마나 옵션이 생겨도 바로 적용되도록 대응
+        p.maxMp += v121Num(armor.mp,0) + v121Num(armor.maxMp,0) + v121Num(armor.mana,0);
+        Object.keys(armor.resist||{}).forEach(k=>p.statusResist[k]=Math.max(p.statusResist[k]||0, armor.resist[k]||0));
+      }
+      v121EquippedPassives().forEach(ps=>{
+        try{ if(ps && typeof ps.apply==='function') ps.apply(p); }catch(e){}
+        // 일부 패시브 설명형 효과가 실제 maxMp를 건드리지 않는 경우 보정
+        try{
+          const txt=String((ps&&ps.desc)||'');
+          const all=txt.match(/모든\s*능력\s*.*?(\d+)%/);
+          const mana=txt.match(/(?:마나|MP)\s*\+\s*(\d+)%/i);
+          if(all) p.maxMp *= 1 + (v121Num(all[1],0)/100);
+          if(mana) p.maxMp *= 1 + (v121Num(mana[1],0)/100);
+        }catch(e){}
+      });
+    }catch(e){}
+    return p;
+  }
+  function v121ApplyBuildVitals(target, fillFull){
+    try{
+      const p=target||player; if(!p) return;
+      const base=v121BaseStatsFromBuild();
+      const t=v121Training();
+      const oldHpMax=Math.max(1, v121Num(p.maxHp, base.maxHp||100));
+      const oldMpMax=Math.max(1, v121Num(p.maxMp, base.maxMp||120));
+      const hpRatio=fillFull ? 1 : v121Clamp(v121Num(p.hp,oldHpMax)/oldHpMax,0,1);
+      const mpRatio=fillFull ? 1 : v121Clamp(v121Num(p.mp,oldMpMax)/oldMpMax,0,1);
+      const hpBonus=v121Num(t.hp,0)*18;
+      const mpBonus=v121Num(t.mp,0)*7;
+      const regenBonus=v121Num(t.regen,0)*0.045;
+      p.maxHp=Math.max(1, Math.floor(v121Num(base.maxHp,100)+hpBonus));
+      p.maxMp=Math.max(1, Math.floor(v121Num(base.maxMp,120)+mpBonus));
+      p.regen=v121Num(base.regen,.18)+regenBonus;
+      p.mpRegen=v121Num(base.mpRegen,3)+regenBonus;
+      p.def=Math.max(v121Num(p.def,0), v121Num(base.def,0));
+      p.equippedArmor=base.equippedArmor || p.equippedArmor || null;
+      p.hp=fillFull ? p.maxHp : Math.max(1, Math.min(p.maxHp, Math.round(p.maxHp*hpRatio)));
+      p.mp=fillFull ? p.maxMp : Math.max(0, Math.min(p.maxMp, Math.round(p.maxMp*mpRatio)));
+      p.v121VitalsApplied=true;
+    }catch(e){ console.warn('[V121] vitals apply failed', e); }
+  }
+
+  // V62/V117의 오래된 훈련 적용 함수가 방어구/패시브 체력·마나를 덮어쓰지 않게 교체
+  try{ v62ApplyTraining=function(p){ v121ApplyBuildVitals(p||player,false); }; }catch(e){}
+  try{ v117ApplyTrainingToPlayer=function(fillFull){ v121ApplyBuildVitals(player, !!fillFull); }; }catch(e){}
+
+  try{
+    const oldStartRaidV121=startRaid;
+    startRaid=function(){
+      oldStartRaidV121.apply(this, arguments);
+      if(state.screen==='raid') v121ApplyBuildVitals(player,true);
+    };
+  }catch(e){}
+  try{
+    const oldUpdateV121=update;
+    let v121T=0;
+    update=function(dt){
+      oldUpdateV121.apply(this, arguments);
+      try{
+        if(state.screen==='raid'){
+          v121T += v121Num(dt,0);
+          if(v121T>.25){ v121T=0; v121ApplyBuildVitals(player,false); }
+        }
+      }catch(e){}
+    };
+  }catch(e){}
+
+  function v121ExpectedStatLine(){
+    try{
+      const b=v121BaseStatsFromBuild(), t=v121Training();
+      const hp=Math.floor(v121Num(b.maxHp,100)+v121Num(t.hp,0)*18);
+      const mp=Math.floor(v121Num(b.maxMp,120)+v121Num(t.mp,0)*7);
+      const regen=(v121Num(b.regen,.18)+v121Num(t.regen,0)*0.045).toFixed(2);
+      const mpRegen=(v121Num(b.mpRegen,3)+v121Num(t.regen,0)*0.045).toFixed(2);
+      return `예상 체력 ${hp} · 마나 ${mp} · HP회복 ${regen}/s · MP회복 ${mpRegen}/s`;
+    }catch(e){ return ''; }
+  }
+  try{
+    const oldReadyPanelV121=readyPanel;
+    readyPanel=function(){
+      const html=oldReadyPanelV121.apply(this, arguments);
+      const line=v121ExpectedStatLine();
+      return html + (line?`<p class="sub" style="margin-top:10px;color:#a7f3d0;font-weight:800">${line}</p>`:'');
+    };
+  }catch(e){}
+
+  try{
+    window.RaidDungeonV121={version:V121_VERSION, changed:['방어구 체력 보너스가 전투 HUD에서 사라지는 문제 수정','패시브 체력/마나 보정이 V62 훈련 함수에 덮이는 문제 수정','성장 HP/MP/회복이 방어구·패시브 이후 값에 적용','출격 준비 화면에 예상 체력/마나 표시']};
+    console.log('[RaidDungeon]',V121_VERSION,'loaded');
+  }catch(e){}
+}catch(e){ console.warn('[V121 armor/passive HP MP patch failed]', e); }
+
+
+/* ===== V122: UI click recovery + clean online season reset behavior ===== */
+try{
+  const V122_VERSION = 'Raid Dungeon V122 - UI Click Online Reset Fix';
+  const V122_RECORD_KEYS = [
+    'raid-build-v12-local-records','raid-build-v11-local-records','raid-build-v10-local-records',
+    'raid-build-v9-local-records','raid-build-v7-local-records','raid-v109-online-rank-backup',
+    LOCAL_RECORD_KEY
+  ];
+  const V122_MARKET_KEYS = ['raid-dungeon-v43-market','raid-dungeon-v43-market-backup'];
+
+  function v122ClearOldLocalSeasonOnce(){
+    try{
+      const key='raid-dungeon-v122-clean-season-local-cleared';
+      if(localStorage.getItem(key)==='1') return;
+      V122_RECORD_KEYS.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+      V122_MARKET_KEYS.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+      localStorage.setItem(key,'1');
+    }catch(e){}
+  }
+  v122ClearOldLocalSeasonOnce();
+
+  function v122Uid(){ try{ return state.currentUser && state.currentUser.id ? state.currentUser.id : null; }catch(e){ return null; } }
+  function v122Name(){ try{ return normalizedPlayerName(state.save.playerName || 'Player') || 'Player'; }catch(e){ return (state&&state.save&&state.save.playerName)||'Player'; } }
+  function v122Norm(s){ return String(s||'Player').trim().toLowerCase() || 'player'; }
+  function v122RecordKey(r){ return r && r.user_id ? 'u:'+r.user_id : 'n:'+v122Norm(r && r.player_name); }
+  function v122Best(records){
+    const by=new Map();
+    (records||[]).forEach(r=>{
+      if(!r || !r.boss_id) return;
+      const key=String(r.boss_id)+'|'+v122RecordKey(r);
+      const old=by.get(key);
+      const cm=Number(r.clear_ms||999999999);
+      const om=old?Number(old.clear_ms||999999999):999999999;
+      const rt=Date.parse(r.created_at||0)||0;
+      const ot=old?Date.parse(old.created_at||0)||0:0;
+      if(!old || cm<om || (cm===om && rt>ot)) by.set(key,r);
+    });
+    return Array.from(by.values()).sort((a,b)=>(Number(a.clear_ms||999999999)-Number(b.clear_ms||999999999)) || ((Date.parse(b.created_at||0)||0)-(Date.parse(a.created_at||0)||0)));
+  }
+
+  // 전투 종료 기록은 새 시즌 기준으로 Supabase에만 저장하고, 화면용 로컬 백업도 새 기록만 유지한다.
+  try{
+    submitRecord = async function(ms){
+      const uid=v122Uid();
+      const b=boss || getBoss(state.selectedBossId) || {};
+      const record={
+        player_name:v122Name(),
+        user_id:uid,
+        boss_id:String(b.id || state.selectedBossId || 'unknown'),
+        boss_name:String(b.name || ''),
+        clear_ms:Math.max(0,Math.round(Number(ms)||0)),
+        weapon_id:state.raid&&state.raid.weapon?state.raid.weapon.id:'none',
+        weapon_name:state.raid&&state.raid.weapon?state.raid.weapon.name:'무기 없음',
+        skills:state.raid&&state.raid.skills?state.raid.skills.filter(Boolean).map(s=>s.name):[],
+        passives:[state.raid&&state.raid.armor?('방어구: '+state.raid.armor.name):'방어구 없음'].concat(state.raid&&state.raid.passives?state.raid.passives.filter(Boolean).map(p=>p.name):[]),
+        damage_taken:Math.round(Number(player&&player.damageTaken||0)),
+        created_at:new Date().toISOString(),
+        run_meta:{season:'v122-clean'}
+      };
+      try{
+        const local=v122Best([record]);
+        const raw=JSON.stringify(local);
+        V122_RECORD_KEYS.forEach(k=>{ try{ localStorage.setItem(k,raw); }catch(e){} });
+      }catch(e){}
+      if(supabaseReady && supabase && supabase.from && uid){
+        try{
+          // 같은 유저/같은 보스는 최고 기록 하나만 남긴다.
+          try{ await supabase.from('raid_records').delete().eq('boss_id',record.boss_id).eq('user_id',uid); }catch(e){}
+          const res=await supabase.from('raid_records').insert(record);
+          if(res && res.error) throw res.error;
+          state.cloudStatus='온라인 랭킹 저장 완료';
+        }catch(e){
+          console.warn('[V122 online ranking save failed]', e&&e.message?e.message:e);
+          state.cloudStatus='온라인 랭킹 저장 실패 · SQL v122 실행 필요';
+        }
+      }else{
+        state.cloudStatus='오프라인 기록 · 로그인/Supabase 확인';
+      }
+      try{ await refreshRankings(record.boss_id); }catch(e){}
+    };
+  }catch(e){ console.warn('[V122 submit override failed]',e); }
+
+  // 랭킹 탭은 새 시즌 서버 기록만 표시한다. 서버 실패 시 방금 클리어한 로컬 백업만 보여준다.
+  try{
+    refreshRankings = async function(bossId){
+      state.rankingBossId=bossId;
+      let records=[];
+      if(supabaseReady && supabase && supabase.from){
+        try{
+          const res=await supabase.from('raid_records').select('*').eq('boss_id',bossId).order('clear_ms',{ascending:true}).limit(500);
+          if(res && res.error) throw res.error;
+          records=Array.isArray(res.data)?res.data:[];
+          state.cloudStatus='온라인 랭킹 불러옴';
+        }catch(e){
+          console.warn('[V122 online ranking load failed]', e&&e.message?e.message:e);
+          state.cloudStatus='온라인 랭킹 불러오기 실패 · SQL v122 확인';
+        }
+      }
+      if(!records.length){
+        try{ records=JSON.parse(localStorage.getItem(LOCAL_RECORD_KEY)||'[]').filter(r=>r&&r.boss_id===bossId); }catch(e){ records=[]; }
+      }
+      state.rankings=v122Best(records).slice(0,10);
+      if(state.menuTab==='ranking'&&state.screen==='menu') renderMenu();
+    };
+  }catch(e){ console.warn('[V122 refresh override failed]',e); }
+
+  // 빌드/스킬 화면 클릭이 오류 때문에 멈추지 않도록 안전망 추가
+  try{
+    const oldRunUiActionV122 = runUiAction;
+    runUiAction = function(active){
+      try{ return oldRunUiActionV122(active); }
+      catch(e){
+        console.warn('[V122 UI action recovered]', e&&e.message?e.message:e);
+        try{
+          if(active && active.matches && active.matches('[data-select-type]')){ selectBuild(active.dataset.selectType, active.dataset.selectId || '', Number(active.dataset.slot || 0)); return; }
+          if(active && active.matches && active.matches('#startRaid')){ startRaid(); return; }
+        }catch(err){ console.warn('[V122 UI fallback failed]',err); }
+      }
+    };
+  }catch(e){}
+
+  try{
+    if(typeof window!=='undefined') window.RaidDungeonV122={version:V122_VERSION,changed:['esc ReferenceError 수정','스킬/출격 클릭 복구','새 시즌 로컬 랭킹/장터 정리','온라인 랭킹을 user_id 기준으로 통합']};
+    console.log('[RaidDungeon]',V122_VERSION,'loaded');
+  }catch(e){}
+}catch(e){ console.warn('[V122 patch failed]', e); }
