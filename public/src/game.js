@@ -23216,7 +23216,7 @@ try{
 
 /* ===== V125: boss damage scaling by tier ===== */
 try{
-  const V125_VERSION = 'Raid Dungeon V125 - Tiered Boss Damage Scaling';
+  const V125_VERSION = 'Raid Dungeon V126 - Real Boss Damage Vitals Pattern Restore Boss Drop Lock';
 
   function v125Num(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
   function v125TierOf(b){ return Math.max(1, Math.min(10, Math.round(v125Num(b && b.tier, 1)))); }
@@ -23316,3 +23316,466 @@ try{
 
   try{ window.RaidDungeonV125={version:V125_VERSION, changed:['보스 일반 공격/패턴 피해를 등급별로 상승','방어력이 높아도 후반 보스 피해가 1로 들어가던 문제 수정','1~3성은 약하게, 7~10성은 확실히 강하게 보정']}; console.log('[RaidDungeon]',V125_VERSION,'loaded'); }catch(e){}
 }catch(e){ console.warn('[V125 boss damage scaling patch failed]', e); }
+
+
+/* ===== V126: boss damage real fix + vitals fix + restored readable patterns + boss-only gacha lock ===== */
+try{
+  const V126_VERSION = 'Raid Dungeon V126 - Real Boss Damage Vitals Pattern Restore Boss Drop Lock';
+
+  function v126N(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+  function v126Clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function v126Tier(){ return v126Clamp(Math.round(v126N(boss && boss.tier,1)),1,10); }
+  function v126Phase(){ return v126Clamp(Math.round(v126N(boss && boss.phase,1)),1,4); }
+  function v126Alive(){ return !!(state && state.screen==='raid' && state.raid && boss && !boss.dead && player && player.hp>0); }
+  function v126D(m){ const t=v126Tier(), p=v126Phase(); return Math.max(5, Math.round((12 + t*7.5 + Math.max(0,t-5)*8 + Math.max(0,t-8)*10) * (m||1) * (1+(p-1)*.18))); }
+  function v126BossColor(){ return (boss && (boss.color || boss.sub)) || '#fb7185'; }
+  function v126Tag(){ return (boss && (boss.theme || 'boss')) || 'boss'; }
+  function v126A(){ return Math.atan2(player.y-boss.y, player.x-boss.x); }
+  function v126Circle(x,y,r,warn,mul,color,tag){ state.hazards.push({kind:'circle',x,y,r,warn,life:.20,damage:v126D(mul),color:color||v126BossColor(),tag:tag||v126Tag(),enemy:true}); }
+  function v126Beam(x,y,a,len,w,warn,mul,color,tag){ state.hazards.push({kind:'beam',x,y,angle:a,len,w,warn,life:.18,damage:v126D(mul),color:color||v126BossColor(),tag:tag||v126Tag(),enemy:true}); }
+  function v126Donut(x,y,inner,outer,warn,mul,color,tag){ state.hazards.push({kind:'donut',x,y,inner,outer,warn,life:.18,damage:v126D(mul),color:color||v126BossColor(),tag:tag||v126Tag(),enemy:true}); }
+  function v126Bullet(a,spd,r,life,mul,color,tag,x,y){ spawnProjectile({owner:'boss',x:x||boss.x,y:y||boss.y,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,r,life,damage:v126D(mul),color:color||v126BossColor(),tag:tag||v126Tag()}); }
+  function v126Radial(count,spd,mul,color,off){ for(let i=0;i<count;i++){ v126Bullet((i/count)*Math.PI*2+(off||0),spd,7,3.2,mul,color); } }
+  function v126BurstFx(x,y,c,n,s){ try{ burst(x,y,c||v126BossColor(),n||24,s||240); }catch(e){} }
+  function v126Notice(s){ try{ boss.mechanicText=String(s||'').slice(0,42); }catch(e){} }
+
+  // 1) 보스 피해가 1로 들어가던 문제를 실제로 차단: 어떤 경로로 들어와도 등급별 최소 피해를 보장.
+  const V126_OLD_HURT = hurtPlayer;
+  hurtPlayer = function(amount,color,statusDamage){
+    try{
+      if(!Number.isFinite(amount)) amount = 1;
+      if(!statusDamage && (player.invuln>0 || state.screen!=='raid')) return 0;
+      const t=v126Tier(), p=v126Phase();
+      let raw=Math.max(1, Number(amount)||1);
+      if(boss && boss.statuses && boss.statuses.weaken>0) raw *= .78;
+      const contactLike = !statusDamage && raw <= 5;
+      const minHit = statusDamage ? Math.max(2, Math.round(1+t*.75+p*.6)) : Math.round(4 + t*2.6 + Math.max(0,t-5)*3.2 + Math.max(0,t-8)*4.5 + p*1.2);
+      const defCut = statusDamage ? .78 : v126Clamp(.58 - t*.025, .22, .58);
+      let dmg = Math.floor(raw - v126N(player.def,0)*defCut);
+      if(contactLike) dmg = Math.max(dmg, Math.round(minHit*.75));
+      else dmg = Math.max(dmg, minHit);
+      if(player.shield>0){ const used=Math.min(player.shield,dmg); player.shield-=used; dmg-=used; }
+      if(dmg>0){
+        player.hp -= dmg; player.damageTaken = (player.damageTaken||0)+dmg;
+        floatText('-'+dmg, player.x, player.y-24, color||'#fb7185');
+        state.shake = Math.max(state.shake||0, t>=8?7:4.5);
+        player.invuln = Math.max(player.invuln||0, t>=8?.23:.18);
+      }
+      return dmg;
+    }catch(e){ return V126_OLD_HURT.apply(this, arguments); }
+  };
+
+  // 새로 생성되는 배열에도 피해 보정이 유지되도록 update마다 보정한다.
+  function v126ScaleEnemyDamageObject(o){
+    try{
+      if(!o || !Number.isFinite(o.damage)) return;
+      const enemy = o.owner==='boss' || o.enemy || ['circle','donut','beam','rotatingBeam','wall'].includes(String(o.kind||''));
+      if(!enemy) return;
+      const t=v126Tier();
+      const floor = Math.max(4, Math.round(6+t*2.4+Math.max(0,t-6)*3.5));
+      if(o.damage < floor) o.damage = floor;
+    }catch(e){}
+  }
+
+  // 2) 방어구/패시브/성장 체력·마나·회복 실전 적용 고정.
+  function v126Training(){
+    if(!state.save) state.save={};
+    if(!state.save.playerTraining || typeof state.save.playerTraining!=='object') state.save.playerTraining={hp:0,mp:0,regen:0};
+    ['hp','mp','regen'].forEach(k=>{ state.save.playerTraining[k]=v126Clamp(v126N(state.save.playerTraining[k],0),0,100); });
+    return state.save.playerTraining;
+  }
+  function v126Armor(){ try{return (state.raid&&state.raid.armor)||getArmor(state.selectedArmorId)||null;}catch(e){return null;} }
+  function v126Passives(){ try{return (state.raid&&state.raid.passives&&state.raid.passives.length?state.raid.passives:(state.selectedPassiveIds||[]).map(getPassive)).filter(Boolean);}catch(e){return [];} }
+  function v126ComputeVitals(){
+    const temp={maxHp:100,maxMp:120,mp:120,regen:.18,mpRegen:3,def:0,speed:265,atk:100,magic:100,crit:8,critDmg:1.7,damageMul:1,skillDamageMul:1,basicDamageMul:1,cooldownMul:1,areaMul:1,lifesteal:0,regen5:0,statusResist:{burn:0,poison:0,freeze:0,paralysis:0,slow:0}};
+    const ar=v126Armor();
+    if(ar){
+      temp.maxHp += v126N(ar.hp,0);
+      temp.maxMp += v126N(ar.mp,0)+v126N(ar.maxMp,0)+v126N(ar.mana,0);
+      temp.def += v126N(ar.def,0);
+      Object.keys(ar.resist||{}).forEach(k=>temp.statusResist[k]=Math.max(temp.statusResist[k]||0,ar.resist[k]||0));
+    }
+    v126Passives().forEach(ps=>{
+      try{ if(ps && typeof ps.apply==='function') ps.apply(temp); }catch(e){}
+      try{
+        const d=String(ps&&ps.desc||'');
+        const mp=d.match(/(?:마나|MP)\s*\+\s*(\d+)%/i); if(mp) temp.maxMp *= 1+v126N(mp[1],0)/100;
+        const hp=d.match(/(?:체력|HP)\s*\+\s*(\d+)%/i); if(hp && !/최대 체력/.test(d)) temp.maxHp *= 1+v126N(hp[1],0)/100;
+      }catch(e){}
+    });
+    const tr=v126Training();
+    temp.maxHp = Math.floor(temp.maxHp + v126N(tr.hp,0)*18);
+    temp.maxMp = Math.floor(temp.maxMp + v126N(tr.mp,0)*8);
+    temp.regen = v126N(temp.regen,.18) + v126N(tr.regen,0)*.055;
+    temp.mpRegen = v126N(temp.mpRegen,3) + v126N(tr.regen,0)*.07;
+    return temp;
+  }
+  function v126ApplyVitals(fillFull){
+    try{
+      if(!player) return;
+      const v=v126ComputeVitals();
+      const oldHpMax=Math.max(1,v126N(player.maxHp,100)), oldMpMax=Math.max(1,v126N(player.maxMp,120));
+      const hpRatio=fillFull?1:v126Clamp(v126N(player.hp,oldHpMax)/oldHpMax,0,1);
+      const mpRatio=fillFull?1:v126Clamp(v126N(player.mp,oldMpMax)/oldMpMax,0,1);
+      player.maxHp=Math.max(1,Math.floor(v.maxHp));
+      player.maxMp=Math.max(1,Math.floor(v.maxMp));
+      player.regen=v.regen; player.mpRegen=v.mpRegen; player.def=Math.max(v126N(player.def,0),v126N(v.def,0));
+      player.statusResist=Object.assign(player.statusResist||{}, v.statusResist||{});
+      player.hp=fillFull?player.maxHp:Math.max(1,Math.min(player.maxHp,Math.round(player.maxHp*hpRatio)));
+      player.mp=fillFull?player.maxMp:Math.max(0,Math.min(player.maxMp,Math.round(player.maxMp*mpRatio)));
+      player.v126VitalsApplied=true;
+    }catch(e){ console.warn('[V126 vitals apply failed]',e); }
+  }
+
+  try{ v117ApplyTrainingToPlayer=function(fillFull){ v126ApplyVitals(!!fillFull); }; }catch(e){}
+  try{ v121ApplyBuildVitals=function(target,fillFull){ if(target===player || !target) v126ApplyVitals(!!fillFull); }; }catch(e){}
+  const V126_OLD_APPLY_BUILD = applyBuild;
+  applyBuild=function(){ const r=V126_OLD_APPLY_BUILD.apply(this, arguments); v126ApplyVitals(true); return r; };
+  const V126_OLD_START = startRaid;
+  startRaid=function(){ const r=V126_OLD_START.apply(this, arguments); if(state.screen==='raid') v126ApplyVitals(true); return r; };
+
+  // 3) 초반 보스는 약하지만 패턴임을 알 수 있게, 후반은 기존 패턴을 유지하면서 미발동 시 보장 패턴 추가.
+  const V126_OLD_BOSSPATTERN = bossPattern;
+  function v126PatternSimple(){
+    const id=String(boss.id||''), t=v126Tier(), c=v126BossColor();
+    if(id.includes('slime')){ v126Notice('젤리 점프'); v126Circle(player.x,player.y,58,.82,.42,'#7ddf64','slime'); v126Radial(7,190,.22,'#bbf7d0',state.time*.4); if(boss.phase>=2) setTimeout(()=>v126Radial(8,230,.24,'#86efac',state.time*.7),260); return; }
+    if(id.includes('ember')||boss.theme==='fire'){ v126Notice('불씨 부채꼴'); const a=v126A(); for(let i=-2;i<=2;i++) v126Bullet(a+i*.18,330,7,2.2,.28,'#fb7185','fire'); if(Math.random()<.75) v126Circle(player.x+rand(-60,60),player.y+rand(-50,50),54,.90,.38,'#f97316','fire'); return; }
+    if(id.includes('thorn')||boss.theme==='nature'){ v126Notice('가시 꽃밭'); for(let i=0;i<5;i++) v126Circle(rand(90,W-90),rand(130,H-70),36,.82+i*.06,.32,i%2?'#22c55e':'#f472b6','poison'); if(boss.phase>=2) v126Beam(W/2,H/2,Math.random()*Math.PI,760,13,1.0,.30,'#22c55e','poison'); return; }
+    if(id.includes('frost')||boss.theme==='ice'){ v126Notice('얼음창 예고'); for(let i=0;i<6;i++) v126Circle(rand(90,W-90),rand(130,H-70),32,.78+i*.05,.30,'#7dd3fc','ice'); if(boss.phase>=2){ const a=v126A(); v126Beam((boss.x+player.x)/2,(boss.y+player.y)/2,a,800,13,1.0,.36,'#bae6fd','ice'); } return; }
+    if(id.includes('sand')||boss.theme==='sand'){ v126Notice('모래 낫'); const a=v126A(); v126Beam((boss.x+player.x)/2,(boss.y+player.y)/2,a,880,18,.92,.42,'#f59e0b','sand'); for(let i=0;i<3;i++) v126Circle(rand(110,W-110),rand(140,H-85),42,.95+i*.10,.26,'#fde68a','sand'); return; }
+    v126Notice('기본 탄막'); v126Radial(6+t,190+t*8,.25,c,state.time*.5);
+  }
+  function v126FallbackPattern(){
+    const id=String(boss.id||''), theme=String(boss.theme||''), c=v126BossColor(), t=v126Tier();
+    const a=v126A();
+    if(theme==='lightning'||id.includes('storm')){ v126Notice('낙뢰 박자'); for(let i=0;i<7+Math.floor(t/2);i++) v126Circle(rand(80,W-80),rand(115,H-70),30+t*2,.45+i*.07,.50,'#fde047','lightning'); return; }
+    if(theme==='chrono'||id.includes('chrono')){ v126Notice('시계바늘'); for(let i=0;i<4;i++) v126Beam(W/2,H/2,i*Math.PI/4+state.time*.25,980,15,0.65+i*.18,.46,'#fde047','chrono'); return; }
+    if(id.includes('leviathan')||id.includes('abyss')){ v126Notice('심해 해일'); for(let i=0;i<4;i++) v126Beam(140+i*310,H/2,Math.PI/2,760,22,.70+i*.16,.48,'#38bdf8','ice'); setTimeout(()=>{ if(v126Alive()) v126Donut(W/2,H/2,120,520,.65,.45,'#0ea5e9','void'); },450); return; }
+    if(id.includes('puppet')||id.includes('marionette')){ v126Notice('인형 실'); for(let i=-2;i<=2;i++) v126Beam(boss.x,boss.y,a+i*.20,880,12,.78+Math.abs(i)*.08,.42,'#f0abfc','mirror'); for(let i=0;i<4;i++) v126Circle(rand(100,W-100),rand(125,H-80),42,.95+i*.08,.40,'#fde68a','mirror'); return; }
+    if(id.includes('black_sun')){ v126Notice('검은 일식'); v126Donut(W/2,H/2,120,500,.85,.56,'#f97316','solar'); for(let i=0;i<10;i++) v126Bullet(i/10*Math.PI*2,300,8,3.0,.34,'#fb923c','solar',W/2,H/2); return; }
+    if(id.includes('jester')||id.includes('nive')||id.includes('dream')){ v126Notice('광대 카드'); for(let i=0;i<9;i++) v126Bullet(a+(i-4)*.12,360+Math.abs(i-4)*25,7,2.6,.38,i%2?'#f472b6':'#fde047','chaos'); if(Math.random()<.8) v126Circle(player.x,player.y,66,.95,.52,'#fb7185','chaos'); return; }
+    if(theme==='gravity'){ v126Notice('중력 압축'); state.mechanics.push({kind:'gravity',x:boss.x,y:boss.y,r:260,power:1300,life:1.2,color:c}); v126Donut(boss.x,boss.y,90,420,.9,.52,c,'gravity'); return; }
+    if(theme==='mirror'){ v126Notice('거울 절단'); for(let i=-2;i<=2;i++) v126Beam(W/2,H/2,a+i*.22,920,14,.72+Math.abs(i)*.08,.40,c,'mirror'); return; }
+    v126Notice('전용 압박'); v126Radial(10+Math.floor(t/2),230+t*8,.34,c,state.time*.6); v126Circle(player.x,player.y,58,.75,.42,c,theme);
+  }
+  bossPattern=function(){
+    if(!v126Alive()) return;
+    try{
+      const t=v126Tier();
+      const before=(state.hazards.length||0)+(state.projectiles.length||0)+(state.zones.length||0)+(state.mechanics.length||0);
+      if(t<=3){ v126PatternSimple(); boss.patternCd=Math.max(boss.patternCd||0, 1.75 + (4-t)*.18); return; }
+      V126_OLD_BOSSPATTERN.apply(this, arguments);
+      const after=(state.hazards.length||0)+(state.projectiles.length||0)+(state.zones.length||0)+(state.mechanics.length||0);
+      if(after<=before){ v126FallbackPattern(); }
+      if(t>=7 && Math.random()<.34) setTimeout(()=>{ if(v126Alive()) v126FallbackPattern(); }, 720);
+      if(t>=9 && Math.random()<.28) setTimeout(()=>{ if(v126Alive()) v126FallbackPattern(); }, 1320);
+    }catch(e){ console.warn('[V126 bossPattern fallback]',e); v126FallbackPattern(); }
+  };
+
+  // 4) 보스 전용 아이템은 뽑기에서 제외. 보스 처치 드롭으로만 낮은 확률 획득.
+  function v126IsBossItem(it){
+    if(!it) return false;
+    const id=String(it.id||''), name=String(it.name||''), desc=String(it.desc||'');
+    return !!(it.v41Boss||it.v43Boss||it.v44Boss||it.v126Boss||/^boss_/.test(id)||/^v4[134]_boss_/.test(id)||/전용/.test(name+desc)||/패턴 스킬/.test(name+desc));
+  }
+  function v126EnsureBossPassives(){
+    try{
+      BOSSES.forEach(b=>{
+        const id='v126_boss_passive_'+b.id;
+        if(PASSIVES.some(p=>p.id===id)) return;
+        const r=b.tier>=9?'ultimate':b.tier>=7?'legendary':b.tier>=5?'epic':'super';
+        PASSIVES.push({id,name:`${b.name}의 전용 패시브`,rarity:r,desc:`${b.name}에게서 아주 낮은 확률로 드롭되는 전용 패시브입니다. 보스 피해 +${8+b.tier*2}%, 최대 체력 +${5+b.tier}%`,type:'passive',v126Boss:b.id,apply:function(p){p.damageMul*=1+(8+b.tier*2)/100;p.maxHp*=1+(5+b.tier)/100;}});
+      });
+    }catch(e){}
+  }
+  v126EnsureBossPassives();
+  const V126_OLD_ROLL_GACHA = rollGacha;
+  rollGacha=function(kind){
+    try{
+      if(!state.save.tickets || typeof state.save.tickets!=='object') state.save.tickets={...INITIAL_TICKETS};
+      if((state.save.tickets[kind]||0)<=0){ toast(TICKET_LABEL[kind]+'이 부족합니다.'); return; }
+      state.save.tickets[kind]-=1;
+      const rarity=pickRarity();
+      const source = kind==='weapon'?WEAPONS:kind==='armor'?ARMORS:kind==='skill'?SKILLS:PASSIVES;
+      let list=source.filter(x=>x && x.rarity===rarity && !v126IsBossItem(x));
+      if(!list.length) list=source.filter(x=>x && !v126IsBossItem(x));
+      if(!list.length){ state.save.tickets[kind]=(state.save.tickets[kind]||0)+1; toast('뽑기 가능한 일반 항목이 없습니다.'); return; }
+      const item=list[Math.floor(Math.random()*list.length)];
+      const arr=kind==='weapon'?state.save.weapons:kind==='armor'?state.save.armors:kind==='skill'?state.save.skills:state.save.passives;
+      if(!arr.includes(item.id)) arr.push(item.id);
+      state.gachaResult=item; try{ gachaCelebration(item); }catch(e){}
+      saveGame(); renderMenu();
+    }catch(e){ console.warn('[V126 gacha fallback]',e); return V126_OLD_ROLL_GACHA.apply(this, arguments); }
+  };
+  function v126AddOwned(kind,id){
+    try{
+      const arr=kind==='weapon'?state.save.weapons:kind==='armor'?state.save.armors:kind==='skill'?state.save.skills:state.save.passives;
+      if(id && arr && !arr.includes(id)){ arr.push(id); return true; }
+    }catch(e){}
+    return false;
+  }
+  function v126BossDrops(){
+    const out=[]; try{
+      if(!boss || !state.raid || !state.raid.clear) return out;
+      const t=v126Tier(), luck=v126N(player.dropLuck,0);
+      const ids=[['weapon',`v44_boss_weapon_${boss.id}`],['armor',`v44_boss_armor_${boss.id}`],['skill',`v44_boss_skill_${boss.id}`],['passive',`v126_boss_passive_${boss.id}`]];
+      const chance={weapon:.006+t*.0025+luck*.0005, armor:.008+t*.0028+luck*.0005, skill:.005+t*.0020+luck*.0004, passive:.004+t*.0018+luck*.00035};
+      ids.forEach(([k,id])=>{ const it=k==='weapon'?getWeapon(id):k==='armor'?getArmor(id):k==='skill'?getSkill(id):getPassive(id); if(it && Math.random()<v126Clamp(chance[k],.004,.055)){ v126AddOwned(k,id); out.push(it.name); } });
+      if(out.length){ toast('보스 전용 드롭: '+out.join(' / ')); saveGame(); }
+    }catch(e){}
+    return out;
+  }
+  const V126_OLD_END_RAID=endRaid;
+  endRaid=function(clear){ const r=V126_OLD_END_RAID.apply(this,arguments); try{ if(clear) v126BossDrops(); }catch(e){} return r; };
+
+  // 5) 안내문이 HP바를 가리지 않도록 더 아래로 고정.
+  const V126_OLD_DRAWBOSS=drawBoss;
+  drawBoss=function(){
+    try{
+      V126_OLD_DRAWBOSS.apply(this,arguments);
+      if(!boss || boss.dead) return;
+      const txt=String(boss.mechanicText||'').trim(); if(!txt) return;
+      const s=txt.length>42?txt.slice(0,42)+'...':txt;
+      const boxW=560, boxH=24, boxX=W/2-boxW/2, boxY=112;
+      ctx.save();
+      ctx.fillStyle='rgba(15,23,42,.86)'; roundRect(ctx,boxX,boxY,boxW,boxH,12);
+      ctx.strokeStyle='rgba(148,163,184,.22)'; ctx.lineWidth=1; roundRect(ctx,boxX,boxY,boxW,boxH,12,true);
+      ctx.textAlign='center'; ctx.font='800 12px system-ui'; ctx.fillStyle='#cbd5e1'; ctx.fillText(s,W/2,boxY+17);
+      ctx.restore();
+    }catch(e){ try{ V126_OLD_DRAWBOSS.apply(this,arguments); }catch(_){} }
+  };
+
+  const V126_OLD_UPDATE=update;
+  let v126T=0;
+  update=function(dt){
+    const r=V126_OLD_UPDATE.apply(this,arguments);
+    try{
+      if(state.screen==='raid'){
+        (state.projectiles||[]).forEach(v126ScaleEnemyDamageObject);
+        (state.hazards||[]).forEach(v126ScaleEnemyDamageObject);
+        (state.zones||[]).forEach(v126ScaleEnemyDamageObject);
+        v126T+=v126N(dt,0); if(v126T>.35){ v126T=0; v126ApplyVitals(false); }
+        if(player.mp!=null && player.maxMp!=null) player.mp=Math.min(player.maxMp, v126N(player.mp,0)+v126N(player.mpRegen,3)*v126N(dt,0));
+      }
+    }catch(e){}
+    return r;
+  };
+
+  try{ window.RaidDungeonV126={version:V126_VERSION,changed:['보스 피해 1 고정 문제 실제 보정','방어구/패시브/성장 HP·MP 실전 적용','초반 보스 약하지만 보이는 패턴 복구','패턴 미발동 보스 fallback 패턴 보장','보스 전용 무기/방어구/스킬/패시브는 뽑기 제외 후 보스 드롭 전용','안내문 HP바 겹침 완화']}; console.log('[RaidDungeon]',V126_VERSION,'loaded'); }catch(e){}
+}catch(e){ console.warn('[V126 final fix patch failed]', e); }
+
+
+/* ===== V127: exact displayed weapon damage + rarity order + one account one ranking ===== */
+try{
+  const V127_VERSION = 'Raid Dungeon V127 - Exact Damage Rarity Ranking Cleanup';
+  function v127Num(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+  function v127Fmt(n){ try{return Math.round(Number(n)||0).toLocaleString('ko-KR');}catch(e){return String(Math.round(Number(n)||0));} }
+  function v127Esc(s){ try{return esc(String(s??''));}catch(e){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));} }
+  function v127Rarity(r){ return String(r||'normal'); }
+  function v127Rank(r){ return ({normal:0,rare:1,super:2,epic:3,legendary:4,ultimate:5})[v127Rarity(r)] ?? 0; }
+  function v127RarityName(r){ return ({normal:'일반',rare:'희귀',super:'초희귀',epic:'에픽',legendary:'레전더리',ultimate:'궁극'})[v127Rarity(r)]||'일반'; }
+  function v127Base(r){ return ({normal:98, rare:142, super:205, epic:300, legendary:430, ultimate:620})[v127Rarity(r)] || 98; }
+  function v127Floor(r){ return ({normal:96, rare:126, super:178, epic:265, legendary:390, ultimate:575})[v127Rarity(r)] || 96; }
+  function v127Cap(r){ return ({normal:110, rare:170, super:245, epic:360, legendary:540, ultimate:780})[v127Rarity(r)] || 110; }
+  function v127Kind(w){ return String((w&&w.kind)||''); }
+  function v127TypeMul(w){
+    const k=v127Kind(w);
+    if(k==='dagger') return .92;
+    if(k==='greatsword') return 1.08;
+    if(k==='pole') return 1.00;
+    if(k==='whip') return .98;
+    if(k==='scythe') return 1.05;
+    if(k.includes('sword')) return 1.03;
+    if(k.includes('bow')) return 1.12;
+    if(k.includes('staff')) return 1.10;
+    if(k==='gunstaff') return 1.08;
+    if(k==='grimoire') return 1.10;
+    if(k==='chakram') return 1.06;
+    return 1.0;
+  }
+  function v127Layout(w){
+    const k=v127Kind(w);
+    if(k==='dagger') return {hits:3,note:'3타 합산',ranged:false,rangeCap:135};
+    if(k==='grimoire') return {hits:3,note:'3발 합산',ranged:true,rangeCap:760};
+    if(k.includes('bow')) return {hits:1,note:'화살 1발',ranged:true,rangeCap:820};
+    if(k.includes('staff')||k==='gunstaff'||k==='chakram') return {hits:1,note:'원거리 1발',ranged:true,rangeCap:780};
+    if(k==='greatsword') return {hits:1,note:'강한 1타',ranged:false,rangeCap:225};
+    if(k==='pole') return {hits:1,note:'찌르기 1타',ranged:false,rangeCap:260};
+    if(k==='whip') return {hits:1,note:'채찍 1타',ranged:false,rangeCap:305};
+    if(k==='scythe') return {hits:1,note:'낫 1타',ranged:false,rangeCap:285};
+    return {hits:1,note:'1타',ranged:false,rangeCap:210};
+  }
+  function v127Meta(id,w){
+    let meta={};
+    try{ if(typeof weaponMeta==='function') meta=weaponMeta(id)||{}; }catch(e){}
+    if(w){
+      if(meta.enh==null) meta.enh=w.v45Enhance??w.v44Enhance??w.v43Enhance??w.v41Enhance??0;
+      if(!meta.ench) meta.ench=w.v45Enchant||w.v44Enchant||w.v43Enchant||w.v41Enchant||[];
+    }
+    return meta||{};
+  }
+  function v127EnchantRates(meta){
+    const ench=Array.isArray(meta&&meta.ench)?meta.ench:Object.entries((meta&&meta.ench)||{}).map(([type,lv])=>({type,lv}));
+    let attack=0,speed=0,crit=0,luck=0,plunder=0;
+    ench.forEach(e=>{ const type=e.type||e[0]; const lv=Number(e.lv??e[1]??0)||0; if(type==='attack') attack+=lv*.05; if(type==='speed') speed+=lv*.04; if(type==='critChance') crit+=lv*3; if(type==='luck') luck+=lv*3.5; if(type==='plunder') plunder+=lv*7; });
+    return {attack,speed,crit,luck,plunder};
+  }
+  function v127Weapon(w,metaOverride){
+    try{
+      if(typeof w==='string') w=getWeapon(w)||null; else if(w&&w.itemId) w=getWeapon(w.itemId)||w; else if(w&&w.id) w=getWeapon(w.id)||w;
+      if(!w) return {total:0,one:0,open:0,dps:0,crit:0,cd:0,rarity:'normal',layout:{hits:1,note:'1타',ranged:false},meta:{},w:null};
+      const rarity=v127Rarity(w.rarity), layout=v127Layout(w), meta=Object.assign({},v127Meta(w.id,w),metaOverride||{}), rates=v127EnchantRates(meta);
+      const enh=Math.max(0,Number(meta.enh||0)||0);
+      let raw=v127Base(rarity)*v127TypeMul(w)*(1+enh*.075+rates.attack);
+      // 낮은 등급이 높은 등급을 절대 넘지 않게 등급별 바닥/천장을 같이 적용한다.
+      raw=Math.max(v127Floor(rarity), Math.min(v127Cap(rarity), raw));
+      const total=Math.max(1,Math.round(raw));
+      const one=Math.max(1,Math.round(total/Math.max(1,layout.hits)));
+      const open=Math.max(1,Math.round(total*1.45));
+      const cd=Math.max(.10,v127Num(w.speed,.5)/Math.max(.55,1+rates.speed));
+      const crit=Math.max(0,Math.round(v127Num(w.crit,0)+rates.crit));
+      return {total,one,open,dps:Math.max(1,Math.round(total/cd)),crit,cd:+cd.toFixed(2),rarity,layout,meta,w};
+    }catch(e){ return {total:0,one:0,open:0,dps:0,crit:0,cd:0,rarity:'normal',layout:{hits:1,note:'1타',ranged:false},meta:{},w:null}; }
+  }
+  function v127DamageLine(w){ const d=v127Weapon(w); const hit=d.layout.hits>1?`1타 ${v127Fmt(d.one)} / 총합 ${v127Fmt(d.total)}`:v127Fmt(d.total); return `데미지 ${hit} · 약화 ${v127Fmt(d.open)} · 초당 ${v127Fmt(d.dps)} · 치명 ${d.crit}% · ${d.layout.note}`; }
+  function v127MetaLine(w){ const d=v127Weapon(w), rates=v127EnchantRates(d.meta), enh=Number(d.meta&&d.meta.enh||0)||0; return `${v127RarityName(d.rarity)} · 강화 +${enh} · 공격 +${Math.round((enh*.075+rates.attack)*100)}% · 공속 +${Math.round(rates.speed*100)}%`; }
+  function v127ApplyWeaponDamage(amount,color,big){
+    try{
+      if(!boss || boss.dead) return 0;
+      // 핵심: damageBoss를 거치지 않는다. 따라서 기존 V105 4배 래퍼가 절대 적용되지 않는다.
+      let dmg=Math.max(1,Math.round(Number(amount)||0));
+      let c=color||'#fff';
+      if(boss.statuses && (boss.statuses.vulnerable||0)>0){ dmg=Math.max(1,Math.round(dmg*1.45)); c='#c084fc'; }
+      boss.hp=Math.max(0,Number(boss.hp||0)-dmg); boss.hit=.12;
+      floatText('-'+v127Fmt(dmg), boss.x+rand(-20,20), boss.y-boss.r-12, c, big?22:16);
+      if(player&&player.lifesteal>0) player.hp=Math.min(player.maxHp,player.hp+dmg*player.lifesteal);
+      if(boss.hp<=0){ boss.hp=0; boss.dead=true; }
+      return dmg;
+    }catch(e){ return 0; }
+  }
+  function v127InCone(range,arc,angle){ const a=Math.atan2(boss.y-player.y,boss.x-player.x), diff=Math.abs(normAngle(a-angle)); return dist(player.x,player.y,boss.x,boss.y)<range+boss.r && diff<arc/2; }
+  function v127InLine(range,width,angle){ const px=boss.x-player.x,py=boss.y-player.y,along=px*Math.cos(angle)+py*Math.sin(angle),side=Math.abs(-px*Math.sin(angle)+py*Math.cos(angle)); return along>0&&along<range+boss.r&&side<width+boss.r; }
+
+  // 모든 무기 평타는 표시 데미지 공식 하나만 사용한다.
+  basicAttack=function(){
+    if(!state.raid||player.basicCd>0) return;
+    let w=state.raid.weapon; if(w&&w.id){ try{w=getWeapon(w.id)||w; state.raid.weapon=w;}catch(e){} }
+    if(!w){ toast('장착한 무기가 없어 일반공격을 사용할 수 없습니다.'); player.basicCd=.6; return; }
+    const d=v127Weapon(w), angle=aimAngle(), k=v127Kind(w), plan=d.layout;
+    player.basicCd=d.cd; player.attackAnim=.20+Math.min(.20,d.cd*.28); player.attackAngle=angle;
+    if(Math.cos(angle)<0) player.face=-1; if(Math.cos(angle)>0) player.face=1;
+    if(plan.ranged){
+      for(let i=0;i<plan.hits;i++){
+        const a=angle+(i-(plan.hits-1)/2)*.12, isBow=k.includes('bow');
+        state.projectiles.push({owner:'player',x:player.x+Math.cos(a)*22,y:player.y+Math.sin(a)*22,vx:Math.cos(a)*(isBow?990:735),vy:Math.sin(a)*(isBow?990:735),r:k==='gunstaff'?8:5,life:k==='chakram'?1.18:.92,pierce:isBow?2:0,color:w.color,damage:0,v127ExactWeaponDamage:d.one,returning:k==='chakram',homing:k==='grimoire'});
+      }
+      return;
+    }
+    if(k==='whip'){ if(v127InCone(Math.min(w.range,plan.rangeCap),Math.PI*.70,angle)) v127ApplyWeaponDamage(d.total,w.color,false); arcEffect(player.x,player.y,angle,Math.min(w.range,plan.rangeCap),w.color,Math.PI*.70); }
+    else if(k==='dagger'){ for(let i=0;i<3;i++) setTimeout(()=>{ if(state.raid&&v127InLine(Math.min(w.range+12,plan.rangeCap),24,angle)){ v127ApplyWeaponDamage(d.one,w.color,false); stabEffect(player.x,player.y,angle,Math.min(w.range+12,plan.rangeCap),w.color); } },i*38); }
+    else if(k==='greatsword'){ if(v127InCone(Math.min(w.range+24,plan.rangeCap),Math.PI*.52,angle)) v127ApplyWeaponDamage(d.total,w.color,false); slashEffect(player.x,player.y,angle,Math.min(w.range+24,plan.rangeCap),w.color,20); }
+    else if(k==='pole'){ if(v127InLine(Math.min(w.range+18,plan.rangeCap),28,angle)) v127ApplyWeaponDamage(d.total,w.color,false); thrustEffect(player.x,player.y,angle,Math.min(w.range+18,plan.rangeCap),w.color); }
+    else if(k==='scythe'){ if(v127InCone(Math.min(w.range*.45,plan.rangeCap),Math.PI*.82,angle)) v127ApplyWeaponDamage(d.total,w.color,false); arcEffect(player.x,player.y,angle,Math.min(w.range*.45,plan.rangeCap),w.color,Math.PI*.82); slashEffect(player.x,player.y,angle,Math.min(w.range*.45,plan.rangeCap),w.color,16); }
+    else { if(v127InCone(Math.min(w.range+12,plan.rangeCap),Math.PI*.46,angle)) v127ApplyWeaponDamage(d.total,w.color,false); slashEffect(player.x,player.y,angle,Math.min(w.range+12,plan.rangeCap),w.color,10); }
+  };
+
+  const V127_PREV_UPDATE_PROJECTILES=updateProjectiles;
+  updateProjectiles=function(dt){
+    try{
+      const exact=[], rest=[]; (state.projectiles||[]).forEach(p=>{ if(p&&p.owner==='player'&&p.v127ExactWeaponDamage) exact.push(p); else rest.push(p); });
+      if(exact.length){
+        exact.forEach(p=>{ if(p.delay){p.delay-=dt; return;} if(p.homing&&boss){const a=Math.atan2(boss.y-p.y,boss.x-p.x); p.vx+=(Math.cos(a)*520-p.vx)*dt*2.5; p.vy+=(Math.sin(a)*520-p.vy)*dt*2.5;} if(p.returning){const age=1.18-p.life; if(age>.52){const a=Math.atan2(player.y-p.y,player.x-p.x); p.vx=Math.cos(a)*600; p.vy=Math.sin(a)*600;}} p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt; if(!boss.dead&&dist(p.x,p.y,boss.x,boss.y)<p.r+boss.r){v127ApplyWeaponDamage(p.v127ExactWeaponDamage,p.color,false); if(!p.pierce)p.life=0; else p.pierce--;} });
+        state.projectiles=rest; V127_PREV_UPDATE_PROJECTILES(dt); state.projectiles=(state.projectiles||[]).concat(exact.filter(p=>p.life>0&&p.x>-80&&p.x<W+80&&p.y>-80&&p.y<H+80)); return;
+      }
+    }catch(e){ console.warn('[V127 exact projectile failed]', e); }
+    return V127_PREV_UPDATE_PROJECTILES(dt);
+  };
+
+  // 무기 카드/장터 툴팁도 같은 공식만 사용한다.
+  try{ v50WeaponEffects=function(w){ w=getWeapon(w&&w.id)||w; return `${v127DamageLine(w)}\n${v127MetaLine(w)}`; }; }catch(e){}
+  try{ v63WeaponDamage=v127Weapon; v106WeaponDamage=v127Weapon; v109ActualWeaponDamage=v127Weapon; v114DisplayedDamage=v127Weapon; v115DisplayedWeapon=v127Weapon; v116DisplayedWeapon=v127Weapon; v120Weapon=v127Weapon; v123Weapon=v127Weapon; }catch(e){}
+  try{ v63WeaponDamageLine=v127DamageLine; v106WeaponDamageLine=v127DamageLine; v109WeaponDamageLine=v127DamageLine; v114DamageLine=v127DamageLine; v115DamageLine=v127DamageLine; v116DamageLine=v127DamageLine; v120DamageLine=v127DamageLine; v123DamageLine=v127DamageLine; }catch(e){}
+  try{
+    const V127_OLD_SELECTION_GRID = selectionGrid;
+    selectionGrid=function(items, selected, type){
+      if(type!=='weapon') return V127_OLD_SELECTION_GRID.apply(this,arguments);
+      const noneCard = `<div class="card ${!selected?'active':''}" data-select-type="weapon" data-select-id=""><h3>무기 없이 출격</h3><p>스킬만으로도 출격할 수 있습니다.</p></div>`;
+      if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 무기가 없습니다.</h3><p>뽑기 상점에서 먼저 획득할 수 있습니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+      return `<div class="grid">${noneCard}${items.map(w=>{const d=v127Weapon(w), eff=v127DamageLine(w), meta=v127MetaLine(w); return `<div class="card ${selected===w.id?'active':''}" data-select-type="weapon" data-select-id="${v127Esc(w.id)}" title="${v127Esc((w.desc||'')+'\n'+eff+'\n'+meta)}"><h3>${v127Esc(w.name)} ${rarityLabel(w.rarity)}</h3><p>${v127Esc(w.desc||'')}<br>${v127Esc(eff)}<br>${v127Esc(meta)}</p></div>`;}).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+    };
+  }catch(e){ console.warn('[V127 selectionGrid patch skipped]', e); }
+  try{
+    v99WeaponMarketMeta=function(id,obj){ const w=getWeapon(id)||obj||{}; const d=v127Weapon(w,Object.assign({},obj&&obj.meta||{})); return {enh:Number(d.meta&&d.meta.enh||0)||0,ench:d.meta&&d.meta.ench||[],damage:d.total,openDamage:d.open,oneDamage:d.one,dps:d.dps,crit:d.crit,realSpeed:d.cd,note:d.layout.note}; };
+    v99MarketTip=function(x){
+      try{
+        if(!x) return '';
+        if(x.kind==='weapon'){
+          const w=Object.assign({},getWeapon(x.itemId)||{}); const d=v127Weapon(w,Object.assign({},x.meta||{}));
+          const hit=d.layout.hits>1?`1타 ${v127Fmt(d.one)} / 총합 ${v127Fmt(d.total)}`:v127Fmt(d.total);
+          const ench=(typeof v99EnchantTextFromMeta==='function')?v99EnchantTextFromMeta(x.meta||{},w):'없음';
+          return `${x.name}\n데미지 ${hit}\n약화 ${v127Fmt(d.open)} · 초당 ${v127Fmt(d.dps)} · 공속 ${d.cd.toFixed(2)}\n${v127RarityName(w.rarity)} · 강화 +${Number((x.meta&&x.meta.enh)||0)||0} · 인챈트 ${ench}`;
+        }
+        if(x.kind==='skill'){ const sk=getSkill(x.itemId)||{}; return `${x.name}\n쿨 ${Number(sk.cooldown||0).toFixed(1)}초`; }
+        if(x.kind==='armor'){ const ar=getArmor(x.itemId)||{}; return `${x.name}\n체력 +${ar.hp||0} · 방어 +${ar.def||0}`; }
+        return `${x.name}\n수량 ${x.qty||1}`;
+      }catch(e){ return String(x&&x.name||'아이템'); }
+    };
+  }catch(e){}
+
+  // 랭킹: 같은 계정은 보스별 1개만. 과거 닉네임만 남은 레거시 기록은 SQL에서 정리하고, 화면에서도 중복을 한 번 더 걸러낸다.
+  function v127CurrentUid(){ try{return state.currentUser&&state.currentUser.id?String(state.currentUser.id):null;}catch(e){return null;} }
+  function v127PlayerName(){ return String((state.save&&state.save.playerName)||'Player').trim()||'Player'; }
+  function v127RecordKey(r){ return String(r&&r.user_id ? r.user_id : ('name:'+String(r&&r.player_name||'player').trim().toLowerCase())); }
+  function v127DedupeRows(rows){
+    const m=new Map();
+    (Array.isArray(rows)?rows:[]).forEach(r=>{
+      if(!r||!r.boss_id) return;
+      const k=String(r.boss_id)+'|'+v127RecordKey(r);
+      const prev=m.get(k);
+      const better=!prev || Number(r.clear_ms)<Number(prev.clear_ms||999999999) || (Number(r.clear_ms)===Number(prev.clear_ms||999999999) && Date.parse(r.created_at||0)>Date.parse(prev.created_at||0));
+      if(better) m.set(k,r);
+    });
+    return Array.from(m.values()).sort((a,b)=>Number(a.clear_ms||0)-Number(b.clear_ms||0)||Date.parse(b.created_at||0)-Date.parse(a.created_at||0));
+  }
+  submitRecord=async function(ms){
+    const uid=v127CurrentUid();
+    const b=boss||getBoss(state.selectedBossId);
+    const record={
+      player_name:v127PlayerName(), user_id:uid, boss_id:String(b.id||state.selectedBossId||'unknown'), boss_name:String(b.name||''), clear_ms:Math.max(0,Math.round(Number(ms)||0)),
+      weapon_id:state.raid&&state.raid.weapon?state.raid.weapon.id:'none', weapon_name:state.raid&&state.raid.weapon?state.raid.weapon.name:'무기 없음',
+      skills:state.raid&&state.raid.skills?state.raid.skills.filter(Boolean).map(s=>s.name):[], passives:[state.raid&&state.raid.armor?('방어구: '+state.raid.armor.name):'방어구 없음'].concat(state.raid&&state.raid.passives?state.raid.passives.filter(Boolean).map(p=>p.name):[]),
+      damage_taken:Math.round(Number(player&&player.damageTaken||0)), created_at:new Date().toISOString(), run_meta:{season:'v127-exact-damage'}
+    };
+    try{
+      const local=v127DedupeRows([record].concat(getLocalRecords().filter(r=>r&&r.boss_id!==record.boss_id || v127RecordKey(r)!==v127RecordKey(record))));
+      localStorage.setItem(LOCAL_RECORD_KEY,JSON.stringify(local.slice(0,600)));
+    }catch(e){}
+    if(supabaseReady&&supabase&&uid){
+      try{
+        const existing=await supabase.from('raid_records').select('*').eq('boss_id',record.boss_id).eq('user_id',uid).order('clear_ms',{ascending:true}).limit(1);
+        const old=existing&&Array.isArray(existing.data)&&existing.data[0]?existing.data[0]:null;
+        const isBetter=!old || Number(record.clear_ms)<Number(old.clear_ms||999999999) || (Number(record.clear_ms)===Number(old.clear_ms||999999999) && Date.parse(record.created_at)>Date.parse(old.created_at||0));
+        if(old){
+          if(isBetter) await supabase.from('raid_records').update(record).eq('id',old.id);
+        }else{
+          const ins=await supabase.from('raid_records').insert(record);
+          if(ins&&ins.error&&/duplicate|unique/i.test(String(ins.error.message||''))){ await supabase.from('raid_records').update(record).eq('boss_id',record.boss_id).eq('user_id',uid); }
+        }
+      }catch(e){ console.warn('[V127 ranking save skipped]', e&&e.message?e.message:e); }
+    }
+    try{ await refreshRankings(record.boss_id); }catch(e){}
+  };
+  refreshRankings=async function(bossId){
+    state.rankingBossId=bossId;
+    let rows=[];
+    if(supabaseReady&&supabase){
+      try{ const res=await supabase.from('raid_records').select('*').eq('boss_id',bossId).order('clear_ms',{ascending:true}).limit(800); if(res&&res.error) throw res.error; rows=Array.isArray(res.data)?res.data:[]; state.cloudStatus='온라인 랭킹 불러옴'; }
+      catch(e){ rows=[]; state.cloudStatus='온라인 랭킹 실패 · 로컬 표시'; }
+    }
+    if(!rows.length){ try{ rows=getLocalRecords().filter(r=>r.boss_id===bossId); }catch(e){ rows=[]; } }
+    state.rankings=v127DedupeRows(rows).slice(0,50);
+    try{ if(state.menuTab==='ranking') renderMenu(); }catch(e){}
+  };
+
+  try{ window.RaidDungeonV127={version:V127_VERSION,changed:['무기 표기 데미지와 실제 평타 피해 완전 일치','V105 4배 래퍼를 무기 평타에서 완전히 우회','일반 < 희귀 < 초희귀 < 에픽 < 레전더리 < 궁극 순서 보장','같은 계정 보스별 랭킹 1개 표시/저장']}; console.log('[RaidDungeon]',V127_VERSION,'loaded'); }catch(e){}
+}catch(e){ console.warn('[V127 exact damage and ranking patch failed]', e); }
