@@ -19885,6 +19885,270 @@ try {
   console.log('[RaidDungeon]', V101_VERSION, 'loaded');
 }catch(e){ console.warn('[V101 hpbar/message patch failed]', e); }
 
+
+/* ===== V102: gacha rarity color + animation clarity ===== */
+try {
+  const V102_VERSION = 'Raid Dungeon V102 - Clear Gacha Rarity FX';
+  const V102_PREV_GACHA = gachaCelebration;
+  const V102_PREV_RENDER_GACHA = renderGachaTab;
+
+  function v102RarityInfo(rarity){
+    const map = {
+      normal:{name:'일반', color:'#cbd5e1', glow:'#64748b', title:'일반 획득', pulse:.18, count:24, speed:220},
+      rare:{name:'희귀', color:'#38bdf8', glow:'#0ea5e9', title:'희귀 획득!', pulse:.26, count:42, speed:310},
+      super:{name:'초희귀', color:'#34d399', glow:'#10b981', title:'초희귀 획득!!', pulse:.36, count:64, speed:390},
+      epic:{name:'에픽', color:'#a78bfa', glow:'#7c3aed', title:'EPIC!', pulse:.52, count:90, speed:500},
+      legendary:{name:'레전더리', color:'#facc15', glow:'#f59e0b', title:'LEGENDARY!', pulse:.78, count:130, speed:650},
+      ultimate:{name:'궁극', color:'#fb7185', glow:'#ffffff', title:'ULTIMATE!!!', pulse:1.05, count:190, speed:820}
+    };
+    return map[rarity] || map.normal;
+  }
+  function v102KindName(item){
+    if(!item) return '아이템';
+    if(item.type === 'weapon') return '무기';
+    if(item.type === 'armor') return '방어구';
+    if(item.type === 'passive') return '패시브';
+    if(item.category) return '스킬';
+    return item.type || '아이템';
+  }
+  function v102Short(s,n){
+    s = String(s || '').replace(/\s+/g,' ').trim();
+    return s.length > n ? s.slice(0,n) + '…' : s;
+  }
+  function v102EnsureStyle(){
+    try{
+      if(document.getElementById('v102GachaStyle')) return;
+      const st=document.createElement('style');
+      st.id='v102GachaStyle';
+      st.textContent = `
+        @keyframes v102Pop{0%{transform:translate(-50%,-48%) scale(.78);opacity:0}14%{transform:translate(-50%,-50%) scale(1.06);opacity:1}74%{transform:translate(-50%,-50%) scale(1)}100%{transform:translate(-50%,-54%) scale(.96);opacity:0}}
+        @keyframes v102Shine{0%{left:-55%}100%{left:120%}}
+        .v102-gacha-card{position:fixed;left:50%;top:46%;z-index:1000002;pointer-events:none;min-width:300px;max-width:460px;padding:18px 22px;border-radius:22px;text-align:center;color:white;background:rgba(5,8,22,.92);border:1px solid rgba(255,255,255,.22);box-shadow:0 20px 80px rgba(0,0,0,.55);overflow:hidden;animation:v102Pop 2.65s ease both;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+        .v102-gacha-card:before{content:"";position:absolute;top:0;bottom:0;width:40%;transform:skewX(-18deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.34),transparent);animation:v102Shine 1.2s ease .18s both;}
+        .v102-gacha-title{font-size:24px;font-weight:1000;letter-spacing:.08em;text-shadow:0 0 18px currentColor;}
+        .v102-gacha-name{margin-top:6px;font-size:19px;font-weight:950;color:#fff;}
+        .v102-gacha-kind{margin-top:8px;font-size:12px;font-weight:900;opacity:.86;}
+        .v102-gacha-desc{margin-top:8px;font-size:12px;color:#cbd5e1;line-height:1.35;}
+        .v102-gacha-result{position:relative;overflow:hidden;border-radius:18px;border:1px solid rgba(255,255,255,.22);padding:16px;margin-top:14px;background:linear-gradient(135deg,rgba(15,23,42,.92),rgba(5,8,22,.96));}
+        .v102-gacha-result:after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent,rgba(255,255,255,.13),transparent);transform:translateX(-110%);animation:v102Shine 1.55s ease .12s both;}
+      `;
+      document.head.appendChild(st);
+    }catch(e){}
+  }
+  function v102ShowGachaOverlay(item){
+    try{
+      const info=v102RarityInfo(item && item.rarity);
+      v102EnsureStyle();
+      const el=document.createElement('div');
+      el.className='v102-gacha-card';
+      el.style.borderColor=info.color;
+      el.style.boxShadow=`0 0 28px ${info.color}88, 0 24px 90px rgba(0,0,0,.62)`;
+      el.innerHTML=`<div class="v102-gacha-title" style="color:${info.color}">${info.title}</div><div class="v102-gacha-name">${escapeHtml((item&&item.name)||'아이템')}</div><div class="v102-gacha-kind" style="color:${info.color}">${info.name} · ${escapeHtml(v102KindName(item))}</div><div class="v102-gacha-desc">${escapeHtml(v102Short((item&&item.desc)||'',58))}</div>`;
+      document.body.appendChild(el);
+      setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 2800);
+    }catch(e){}
+  }
+  function v102RarityBurst(item){
+    try{
+      const info=v102RarityInfo(item && item.rarity);
+      const cx=W/2, cy=H/2;
+      state.flash=Math.max(state.flash||0, info.pulse);
+      burst(cx,cy,info.color,info.count,info.speed);
+      if((item&&item.rarity)==='epic' || (item&&item.rarity)==='legendary' || (item&&item.rarity)==='ultimate'){
+        for(let i=0;i<10+(item.rarity==='ultimate'?10:0);i++){
+          const a=i/(10+(item.rarity==='ultimate'?10:0))*Math.PI*2;
+          state.particles.push({kind:'ring',x:cx+Math.cos(a)*120,y:cy+Math.sin(a)*70,vx:0,vy:0,r:18+i*2,life:.55+i*.018,color:i%2?info.color:'#ffffff',line:2});
+        }
+      }
+      if((item&&item.rarity)==='legendary' || (item&&item.rarity)==='ultimate'){
+        for(let i=0;i<14;i++){
+          const a=i/14*Math.PI*2;
+          state.hazards.push({kind:'playerStrike',x:cx+Math.cos(a)*165,y:cy+Math.sin(a)*95,r:24,warn:.02+i*.025,life:.12,damage:0,color:i%2?info.color:'#ffffff'});
+        }
+      }
+      floatText(`${info.name}  ${((item&&item.name)||'아이템')}`, cx, cy-105, info.color, 26);
+    }catch(e){}
+  }
+
+  gachaCelebration = function(item){
+    try{ V102_PREV_GACHA(item); }catch(e){}
+    v102RarityBurst(item);
+    setTimeout(()=>v102ShowGachaOverlay(item),60);
+  };
+
+  renderGachaTab = function(){
+    let html = V102_PREV_RENDER_GACHA();
+    try{
+      const item = state.gachaResult;
+      if(item){
+        const info = v102RarityInfo(item.rarity);
+        const brief = item.type === 'weapon' && typeof v63WeaponDamageLine === 'function' ? v63WeaponDamageLine(item) : v102Short(item.desc || '획득 완료', 72);
+        const card = `<style>${document.getElementById('v102GachaStyle')?'':'.v102-gacha-result{position:relative;overflow:hidden;border-radius:18px;border:1px solid rgba(255,255,255,.22);padding:16px;margin-top:14px;background:linear-gradient(135deg,rgba(15,23,42,.92),rgba(5,8,22,.96));}'}</style><div class="v102-gacha-result" style="border-color:${info.color};box-shadow:0 0 24px ${info.color}55"><div style="font-size:13px;font-weight:1000;color:${info.color};letter-spacing:.08em">${info.name}</div><div style="font-size:26px;font-weight:1000;color:#fff;margin-top:4px;text-shadow:0 0 16px ${info.color}">${escapeHtml(item.name||'아이템')}</div><div style="margin-top:8px;color:#cbd5e1;font-size:12px;line-height:1.45">${escapeHtml(v102KindName(item))} · ${escapeHtml(brief)}</div></div>`;
+        html += card;
+      }
+    }catch(e){}
+    return html;
+  };
+
+  window.RaidDungeonV102 = { version: V102_VERSION, changed:['뽑기 결과 등급별 글자 색상 적용','등급별 팝업/광채/파티클 차등 연출','결과 카드에 짧은 핵심 정보 표시'] };
+  console.log('[RaidDungeon]', V102_VERSION, 'loaded');
+}catch(e){ console.warn('[V102 gacha rarity fx failed]', e); }
+
+/* ===== V104: daily login reward persistent once-per-day guard ===== */
+try{
+  const V104_VERSION = 'Raid Dungeon V104 - Daily Reward Persistent Guard';
+  const V104_PREV_RENDER_MENU = renderMenu;
+  const V104_PREV_RENDER_GACHA = renderGachaTab;
+
+  function v104DateKey(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return y + '-' + m + '-' + day;
+  }
+
+  function v104UserKey(){
+    try{
+      const u = state && state.currentUser ? state.currentUser : null;
+      const raw = (u && (u.id || u.email)) || (state && state.save && state.save.playerName) || 'local';
+      return String(raw).replace(/[^a-zA-Z0-9@._-]/g,'_').slice(0,80);
+    }catch(e){ return 'local'; }
+  }
+
+  function v104StorageKey(date){
+    return 'raid-dungeon-daily-reward-v104:' + v104UserKey() + ':' + date;
+  }
+
+  function v104LocalClaimed(date){
+    try{ return localStorage.getItem(v104StorageKey(date)) === '1'; }
+    catch(e){ return false; }
+  }
+
+  function v104MarkLocal(date){
+    try{ localStorage.setItem(v104StorageKey(date), '1'); }catch(e){}
+  }
+
+  function v104EnsureDailySave(){
+    if(!state || !state.save) return false;
+    if(!state.save.tickets || typeof state.save.tickets !== 'object') state.save.tickets = {...INITIAL_TICKETS};
+    ['weapon','armor','skill','passive'].forEach(k=>{ if(!Number.isFinite(state.save.tickets[k])) state.save.tickets[k]=0; });
+    if(!state.save.dailyReward || typeof state.save.dailyReward !== 'object') state.save.dailyReward = {};
+    return true;
+  }
+
+  function v104AlreadyClaimed(date){
+    if(!v104EnsureDailySave()) return true;
+    return (state.save.dailyReward && state.save.dailyReward.lastDate === date) || v104LocalClaimed(date);
+  }
+
+  function v104SyncClaimedDateOnly(date){
+    try{
+      if(!v104EnsureDailySave()) return;
+      if(state.save.dailyReward.lastDate !== date){
+        state.save.dailyReward.lastDate = date;
+        state.save.dailyReward.lastAt = state.save.dailyReward.lastAt || new Date().toISOString();
+        state.save.dailyReward.lastText = '오늘 보상 이미 수령';
+        try{ saveGame(); }catch(e){}
+      }
+    }catch(e){}
+  }
+
+  function v104ClaimDailyReward(){
+    try{
+      if(!state || !state.currentUser) return false;
+      if(!v104EnsureDailySave()) return false;
+      const today = v104DateKey();
+
+      // 가장 중요한 중복 방지: 저장 데이터와 localStorage 둘 중 하나라도 오늘 수령이면 절대 다시 지급하지 않음.
+      if(v104AlreadyClaimed(today)){
+        v104MarkLocal(today);
+        v104SyncClaimedDateOnly(today);
+        return false;
+      }
+
+      state.save.tickets.weapon += 1;
+      state.save.tickets.armor += 1;
+      state.save.tickets.skill += 1;
+      state.save.tickets.passive += 1;
+      state.save.dailyReward.lastDate = today;
+      state.save.dailyReward.lastAt = new Date().toISOString();
+      state.save.dailyReward.lastText = '무기/방어구/스킬/패시브 티켓 각 1장';
+      state.dailyRewardJustClaimed = true;
+      v104MarkLocal(today);
+      try{ saveGame(); }catch(e){}
+      try{ toast('매일 접속 보상: 뽑기권 각 1장 지급'); }catch(e){}
+      return true;
+    }catch(e){ console.warn('[V104 daily reward failed]', e); return false; }
+  }
+
+  function v104DailyChipHtml(){
+    try{
+      v104EnsureDailySave();
+      const today = v104DateKey();
+      const claimed = v104AlreadyClaimed(today);
+      return `<div class="chip" style="background:${claimed?'rgba(34,197,94,.16)':'rgba(250,204,21,.16)'};color:${claimed?'#86efac':'#fde047'}">매일 보상 ${claimed?'수령 완료':'대기'}</div>`;
+    }catch(e){ return ''; }
+  }
+
+  renderMenu = function(){
+    try{ v104ClaimDailyReward(); }catch(e){}
+    const ret = V104_PREV_RENDER_MENU();
+    try{
+      if(ui && ui.menu && state && state.currentUser){
+        const old = ui.menu.querySelector('.v103-daily-chip,.v104-daily-chip');
+        if(old) old.remove();
+        const div = document.createElement('div');
+        div.className = 'v104-daily-chip';
+        div.style.cssText = 'position:absolute;right:22px;top:122px;pointer-events:none;z-index:2';
+        div.innerHTML = v104DailyChipHtml();
+        ui.menu.appendChild(div);
+      }
+    }catch(e){}
+    return ret;
+  };
+
+  renderGachaTab = function(){
+    let html = V104_PREV_RENDER_GACHA();
+    try{
+      const claimed = v104AlreadyClaimed(v104DateKey());
+      const box = `<div class="card" style="cursor:default;margin-bottom:12px;border-color:${claimed?'rgba(34,197,94,.38)':'rgba(250,204,21,.35)'}"><h3>매일 접속 보상</h3><p>${claimed?'오늘 보상 수령 완료':'오늘 첫 접속 시 자동 지급'} · 무기/방어구/스킬/패시브 뽑기권 각 1장</p></div>`;
+      html = box + html;
+    }catch(e){}
+    return html;
+  };
+
+  window.RaidDungeonV104 = { version: V104_VERSION, changed:['같은 날짜 재접속 보상 중복 지급 방지 강화','클라우드 저장 전 localStorage 즉시 잠금','뽑기 상점 수령 상태 유지'] };
+  console.log('[RaidDungeon]', V104_VERSION, 'loaded');
+}catch(e){ console.warn('[V104 daily login reward guard failed]', e); }
+
+
+/* ===== V105: player damage 4x balance boost ===== */
+try{
+  const V105_VERSION = 'Raid Dungeon V105 - Player Damage 4x Balance Boost';
+  const V105_PLAYER_DAMAGE_MULTIPLIER = 4;
+
+  if(typeof damageBoss === 'function' && !damageBoss.__v105Boosted){
+    const V105_PREV_DAMAGE_BOSS = damageBoss;
+    damageBoss = function(amount, color, big){
+      const boosted = Number(amount || 0) * V105_PLAYER_DAMAGE_MULTIPLIER;
+      return V105_PREV_DAMAGE_BOSS(boosted, color, big);
+    };
+    damageBoss.__v105Boosted = true;
+  }
+
+  try{
+    if(typeof window !== 'undefined'){
+      window.RaidDungeonV105 = {
+        version: V105_VERSION,
+        damageMultiplier: V105_PLAYER_DAMAGE_MULTIPLIER,
+        changed: ['일반 공격 데미지 4배','스킬 데미지 4배','기존 V104 보상/패턴/HP바/뽑기 연출 유지']
+      };
+    }
+    console.log('[RaidDungeon]', V105_VERSION, 'loaded');
+  }catch(e){}
+}catch(e){ console.warn('[V105 damage boost failed]', e); }
+
 })();
 
 
