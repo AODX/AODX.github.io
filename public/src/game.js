@@ -916,10 +916,40 @@
     if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 항목이 없습니다.</h3><p>뽑기 상점에서 먼저 획득할 수 있습니다. 그래도 다른 장비/스킬이 있으면 출격은 가능합니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.prev()">이전</button><button type="button" class="btn" data-next-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.next()">다음</button></div>`;
     return `<div class="grid">${noneCard}${items.map(it=>`<div class="card ${selected===it.id?'active':''}" data-select-type="${type}" data-select-id="${it.id}" onclick="window.RaidDungeonUI&&window.RaidDungeonUI.select('${type}','${it.id}',0)"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}<br>${it.category?('분류: '+skillCategoryName(it.category)):(type==='armor'?('효과: 체력 +'+it.hp+' / 방어 +'+it.def):('종류: '+weaponKindName(it.kind)))}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.prev()">이전</button><button type="button" class="btn" data-next-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.next()">다음</button></div>`;
   }
+  function v112PassiveDetail(it){
+    const d = String((it && it.desc) || '');
+    const id = String((it && it.id) || '');
+    const name = String((it && it.name) || '');
+    const m=[];
+    function add(x){ if(x && !m.includes(x)) m.push(x); }
+    const pct = d.match(/([0-9]+(?:\.[0-9]+)?)%/g);
+    if(pct){
+      if(/피해|공격|보스/.test(d)) add('피해/공격 ' + pct[0]);
+      if(/스킬/.test(d) && pct[0]) add('스킬 ' + pct[0]);
+      if(/체력/.test(d)) add('체력 ' + pct[pct.length-1]);
+      if(/이동속도|속도/.test(d)) add('이속 ' + pct[pct.length-1]);
+      if(/쿨타임|재사용/.test(d)) add('쿨감 ' + pct[pct.length-1]);
+      if(/치명타 확률/.test(d)) add('치확 ' + pct[0]);
+      if(/치명타 피해/.test(d)) add('치피 ' + pct[pct.length-1]);
+      if(/저항/.test(d)) add('저항 ' + pct[pct.length-1]);
+    }
+    const sec = d.match(/([0-9]+(?:\.[0-9]+)?)\s*초/g);
+    if(sec) add('지속 ' + sec[0]);
+    if(/5초마다/.test(d)){
+      const heal = d.match(/회복 \+?([0-9]+)/);
+      add('5초마다 회복 ' + (heal ? '+'+heal[1] : ''));
+    }
+    if(/구르기/.test(d)) add('구르기 쿨감');
+    if(/면역/.test(d)) add('상태이상 면역/저항');
+    if(id.includes('origin') || name.includes('근원')) add('피해 +16% · 스킬 +16% · 체력 +16% · 쿨감 10%');
+    if(name.includes('최후')) add('체력 35% 이하 피해 증가');
+    if(!m.length) add(d.replace(/\s+/g,' ').slice(0,54));
+    return m.join(' · ');
+  }
   function passiveGrid() {
     const items = ownedPassives(); const limit = passiveLimit();
     if(!items.length) return `<div class="card"><h3>보유한 패시브가 없습니다.</h3><p>패시브 뽑기로 획득해야 합니다.</p><button class="btn" data-tabgo="gacha" style="margin-top:10px">뽑기 상점으로</button></div>`;
-    return `<p class="sub">${limit}개까지 선택 가능. 현재 ${state.selectedPassiveIds.length}/${limit}</p><div class="grid">${items.map(it=>`<div class="card ${state.selectedPassiveIds.includes(it.id)?'active':''}" data-passive="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${it.desc}</p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.prev()">이전</button><button type="button" class="btn" data-next-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.next()">다음</button></div>`;
+    return `<p class="sub">${limit}개까지 선택 가능. 현재 ${state.selectedPassiveIds.length}/${limit}</p><div class="grid">${items.map(it=>`<div class="card ${state.selectedPassiveIds.includes(it.id)?'active':''}" data-passive="${it.id}"><h3>${it.name} ${rarityLabel(it.rarity)}</h3><p>${v112PassiveDetail(it)}<br><span class="muted">${escapeHtml(String(it.desc||'').replace(/\s+/g,' ').slice(0,70))}</span></p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.prev()">이전</button><button type="button" class="btn" data-next-step onclick="window.RaidDungeonUI&&window.RaidDungeonUI.next()">다음</button></div>`;
   }
   function readyPanel() {
     const ok = canStart();
@@ -11903,19 +11933,68 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
     };
   }catch(e){console.warn('[V45 endRaid patch failed]',e);}
 
-  function marketLoad(){try{return JSON.parse(localStorage.getItem(MARKET_KEY)||'[]')||[];}catch(e){return[];}}
-  function marketSave(a){localStorage.setItem(MARKET_KEY,JSON.stringify((a||[]).slice(-200)));}
+  function marketLoad(){try{const local=JSON.parse(localStorage.getItem(MARKET_KEY)||'[]')||[]; return v112MergeMarket(local,v112MarketOnlineCache);}catch(e){return v112MarketOnlineCache||[];}}
+  function marketSave(a){try{localStorage.setItem(MARKET_KEY,JSON.stringify((a||[]).slice(-200)));}catch(e){}}
   function chatLoad(){const now=Date.now(); let a=[]; try{a=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]')||[];}catch(e){} a=a.filter(m=>now-(m.t||0)<30*60*1000); localStorage.setItem(CHAT_KEY,JSON.stringify(a)); return a;}
+  const V112_MARKET_TABLE = 'raid_market';
+  let v112MarketOnlineCache = [];
+  let v112MarketBusy = false;
+  let v112MarketLastSync = 0;
+  function v112MarketKey(x){ return String((x&&x.id)||''); }
+  function v112MergeMarket(local, online){
+    const map=new Map();
+    (local||[]).concat(online||[]).forEach(x=>{ if(x&&x.id&&!map.has(v112MarketKey(x))) map.set(v112MarketKey(x),x); });
+    return Array.from(map.values()).filter(x=>x&&x.price>0).sort((a,b)=>Number(b.t||b.created_at||0)-Number(a.t||a.created_at||0)).slice(0,200);
+  }
+  function v112RowToMarket(r){
+    return {id:r.id, seller:r.seller||'Player', seller_user_id:r.seller_user_id||'', kind:r.kind, itemId:r.item_id||r.itemId||'', name:r.name, rarity:r.rarity||'', qty:Number(r.qty||1), price:Number(r.price||0), meta:r.meta||null, t:r.t||Date.parse(r.created_at||'')||Date.now(), online:true};
+  }
+  function v112MarketToRow(x){
+    return {id:x.id, seller:x.seller||state.save.playerName||'Player', seller_user_id:(state.currentUser&&state.currentUser.id)||null, kind:x.kind, item_id:x.itemId||'', name:x.name, rarity:x.rarity||'', qty:Number(x.qty||1), price:Number(x.price||0), meta:x.meta||null, t:Number(x.t||Date.now())};
+  }
+  async function v112RefreshOnlineMarket(force){
+    try{
+      if(!supabaseReady||!supabase||!supabase.from) return false;
+      const now=Date.now(); if(v112MarketBusy || (!force && now-v112MarketLastSync<2500)) return false;
+      v112MarketBusy=true; v112MarketLastSync=now;
+      const res=await supabase.from(V112_MARKET_TABLE).select('*').order('created_at',{ascending:false}).limit(200);
+      if(res&&res.error) throw res.error;
+      v112MarketOnlineCache=(res.data||[]).map(v112RowToMarket);
+      const local=[]; try{local=JSON.parse(localStorage.getItem(MARKET_KEY)||'[]')||[];}catch(e){}
+      marketSave(v112MergeMarket(local,v112MarketOnlineCache));
+      if(state&&state.menuTab==='market') { try{ renderMenu(); }catch(e){} }
+      return true;
+    }catch(e){ console.warn('[V112] online market load failed:', e&&e.message?e.message:e); return false; }
+    finally{ v112MarketBusy=false; }
+  }
+  async function v112InsertOnlineMarket(x){
+    try{
+      if(!supabaseReady||!supabase||!supabase.from) return false;
+      const res=await supabase.from(V112_MARKET_TABLE).insert(v112MarketToRow(x));
+      if(res&&res.error) throw res.error;
+      await v112RefreshOnlineMarket(true);
+      return true;
+    }catch(e){ console.warn('[V112] online market insert failed:', e&&e.message?e.message:e); state.cloudStatus='온라인 장터 저장 실패 · 로컬 장터 유지'; return false; }
+  }
+  async function v112DeleteOnlineMarket(id){
+    try{
+      if(!supabaseReady||!supabase||!supabase.from) return false;
+      const res=await supabase.from(V112_MARKET_TABLE).delete().eq('id',id);
+      if(res&&res.error) throw res.error;
+      v112MarketOnlineCache=v112MarketOnlineCache.filter(x=>x.id!==id);
+      return true;
+    }catch(e){ console.warn('[V112] online market delete failed:', e&&e.message?e.message:e); return false; }
+  }
   function chatSend(){const input=document.getElementById('v45ChatInput'); const text=(input&&input.value||'').trim().slice(0,140); if(!text)return; const a=chatLoad(); a.push({name:state.save.playerName||'Player',text,t:Date.now()}); localStorage.setItem(CHAT_KEY,JSON.stringify(a)); input.value=''; renderMenu();}
-  function marketBuy(id){const a=marketLoad(); const idx=a.findIndex(x=>x.id===id); if(idx<0)return; const it=a[idx]; if((state.save.coins||0)<it.price){toast('코인이 부족합니다.');return;} state.save.coins-=it.price; if(it.kind==='material') addMat(it.name,it.qty); if(it.kind==='weapon'&&!state.save.weapons.includes(it.itemId)) state.save.weapons.push(it.itemId); if(it.kind==='skill'){if(!state.save.skills.includes(it.itemId)) state.save.skills.push(it.itemId); else v45().skillCopies[it.itemId]=(v45().skillCopies[it.itemId]||0)+1;} a.splice(idx,1); marketSave(a); saveGame(); renderMenu();}
-  function registerMaterial(){const sel=document.getElementById('v45MatSelect'); const price=Math.max(1,Math.floor(Number(document.getElementById('v45MatPrice')?.value||0))); const name=sel&&sel.value; if(!name||!price){toast('부산물과 가격을 입력하세요.');return;} const qty=Math.min(10,matCount(name)); if(qty<=0){toast('등록할 부산물이 없습니다.');return;} takeMat(name,qty); const a=marketLoad(); a.push({id:'m'+Date.now()+Math.random(),kind:'material',name,qty,price,seller:state.save.playerName||'Player'}); marketSave(a); saveGame(); renderMenu();}
+  async function marketBuy(id){const a=marketLoad(); const idx=a.findIndex(x=>x.id===id); if(idx<0)return; const it=a[idx]; if((state.save.coins||0)<it.price){toast('코인이 부족합니다.');return;} state.save.coins-=it.price; if(it.kind==='material') addMat(it.name,it.qty); if(it.kind==='weapon'&&!state.save.weapons.includes(it.itemId)) state.save.weapons.push(it.itemId); if(it.kind==='armor'&&!state.save.armors.includes(it.itemId)) state.save.armors.push(it.itemId); if(it.kind==='skill'){if(!state.save.skills.includes(it.itemId)) state.save.skills.push(it.itemId); else v45().skillCopies[it.itemId]=(v45().skillCopies[it.itemId]||0)+1;} const rest=a.filter(x=>x.id!==id); marketSave(rest); await v112DeleteOnlineMarket(id); saveGame(); renderMenu();}
+  async function registerMaterial(){const sel=document.getElementById('v45MatSelect'); const price=Math.max(1,Math.floor(Number(document.getElementById('v45MatPrice')?.value||0))); const name=sel&&sel.value; if(!name||!price){toast('부산물과 가격을 입력하세요.');return;} const qty=Math.min(10,matCount(name)); if(qty<=0){toast('등록할 부산물이 없습니다.');return;} takeMat(name,qty); const item={id:'m'+Date.now()+Math.random(),kind:'material',name,qty,price,seller:state.save.playerName||'Player',t:Date.now()}; const a=marketLoad(); a.push(item); marketSave(a); await v112InsertOnlineMarket(item); saveGame(); renderMenu();}
   function enhanceWeapon(id){const c=enhanceCost(id); const m=weaponMeta(id); if(m.enh>=10){toast('이미 최대 강화입니다.');return;} if((state.save.coins||0)<c.coins){toast('코인이 부족합니다.');return;} if(!takeMat(c.mat,c.qty)){toast(`부산물이 부족합니다: ${c.mat} ${matCount(c.mat)}/${c.qty}`);return;} state.save.coins-=c.coins; v45().weaponEnhance[safeId(id)]=m.enh+1; toast(`무기 +${m.enh+1} 강화 성공`); saveGame(); renderMenu();}
   function enchantWeapon(id){const types=['speed','attack','luck','plunder','critDamage','critChance']; const labels={speed:'공속',attack:'공격',luck:'행운',plunder:'약탈',critDamage:'치명타 피해량',critChance:'치명타 확률'}; const cost=160; if((state.save.coins||0)<cost){toast('인챈트 코인이 부족합니다.');return;} state.save.coins-=cost; const count=1+(Math.random()<.28?1:0)+(Math.random()<.08?1:0); const ench=[]; for(let i=0;i<count;i++) ench.push({type:types[Math.floor(Math.random()*types.length)],lv:1+Math.floor(Math.random()*3)}); v45().weaponEnchant[safeId(id)]=ench; toast('인챈트: '+ench.map(e=>`${labels[e.type]} Lv.${e.lv}`).join(' / ')); saveGame(); renderMenu();}
   function sellWeapon(id){const w=getWeapon(id); if(!w)return; const price=Math.floor(80*getRarity(w.rarity).power*(1+(weaponMeta(id).enh||0)*.35)); state.save.coins=(state.save.coins||0)+price; state.save.weapons=state.save.weapons.filter(x=>x!==id); if(state.selectedWeaponId===id) state.selectedWeaponId=null; toast(`${w.name} 판매: ${price}코인`); saveGame(); renderMenu();}
   function disassembleWeapon(id){const w=getWeapon(id); if(!w)return; const mat=(String(w.kind||'검').includes('sword')||String(w.name).includes('검'))?'검의 파편':`${w.name} 조각`; const qty=1+(weaponMeta(id).enh||0)+Math.floor(getRarity(w.rarity).power); addMat(mat,qty); state.save.weapons=state.save.weapons.filter(x=>x!==id); if(state.selectedWeaponId===id) state.selectedWeaponId=null; toast(`${w.name} 분해: ${mat} x${qty}`); saveGame(); renderMenu();}
   function upgradeSkill(id){const v=v45(); const lv=v.skillLevels[id]||1, cp=v.skillCopies[id]||0; if(lv>=7){toast('최대 레벨입니다.');return;} if(cp<=0){toast('중복 스킬 포인트가 필요합니다.');return;} v.skillCopies[id]=cp-1; v.skillLevels[id]=lv+1; toast(`${(getSkill(id)||{}).name||id} Lv.${lv+1}`); saveGame(); renderMenu();}
-  function registerWeapon(id){const w=getWeapon(id); const price=Number(prompt('판매 가격을 입력하세요', '300')||0); if(!w||price<=0)return; const a=marketLoad(); a.push({id:'w'+Date.now()+Math.random(),kind:'weapon',name:w.name,itemId:id,rarity:w.rarity,price:Math.floor(price),seller:state.save.playerName||'Player'}); state.save.weapons=state.save.weapons.filter(x=>x!==id); marketSave(a); saveGame(); renderMenu();}
-  function registerSkill(id){const s=getSkill(id); const price=Number(prompt('판매 가격을 입력하세요', '300')||0); if(!s||price<=0)return; const a=marketLoad(); a.push({id:'s'+Date.now()+Math.random(),kind:'skill',name:s.name,itemId:id,rarity:s.rarity,price:Math.floor(price),seller:state.save.playerName||'Player'}); state.save.skills=state.save.skills.filter(x=>x!==id); marketSave(a); saveGame(); renderMenu();}
+  async function registerWeapon(id){const w=getWeapon(id); const price=Number(prompt('판매 가격을 입력하세요', '300')||0); if(!w||price<=0)return; const meta=typeof v99WeaponMarketMeta==='function'?v99WeaponMarketMeta(id,w):null; const item={id:'w'+Date.now()+Math.random(),kind:'weapon',name:w.name,itemId:id,rarity:w.rarity,price:Math.floor(price),seller:state.save.playerName||'Player',meta,t:Date.now()}; const a=marketLoad(); a.push(item); state.save.weapons=state.save.weapons.filter(x=>x!==id); marketSave(a); await v112InsertOnlineMarket(item); saveGame(); renderMenu();}
+  async function registerSkill(id){const s=getSkill(id); const price=Number(prompt('판매 가격을 입력하세요', '300')||0); if(!s||price<=0)return; const item={id:'s'+Date.now()+Math.random(),kind:'skill',name:s.name,itemId:id,rarity:s.rarity,price:Math.floor(price),seller:state.save.playerName||'Player',t:Date.now()}; const a=marketLoad(); a.push(item); state.save.skills=state.save.skills.filter(x=>x!==id); marketSave(a); await v112InsertOnlineMarket(item); saveGame(); renderMenu();}
 
   function renderGrowth(){v45(); const mats=Object.entries(v45().materials).filter(x=>x[1]>0); const weapons=[...new Set(state.save.weapons||[])].map(id=>getWeapon(id)).filter(Boolean); const skills=[...new Set(state.save.skills||[])].map(id=>getSkill(id)).filter(Boolean); return `<h2 class="title" style="font-size:22px">성장/강화</h2><p class="sub">무기 강화, 인챈트, 스킬 레벨업, 판매/분해가 여기에서 바로 보입니다.</p><div class="grid"><div class="card"><h3>코인/부산물</h3><p>코인 ${Math.floor(state.save.coins||0)}</p><p class="muted">${mats.slice(0,10).map(([m,q])=>`${esc(m)} x${q}`).join('<br>')||'부산물 없음'}</p></div><div class="card"><h3>스킬 레벨업</h3>${skills.map(s=>`<div class="record" title="${esc(s.desc)}"><div><b>${esc(s.name)} Lv.${s.v45Level||1}</b><div class="muted">위력 x${s.power} · 포인트 ${v45().skillCopies[s.id]||0}</div></div><button class="btn secondary" data-v45-skill-up="${esc(s.id)}">레벨업</button></div>`).join('')||'<p class="muted">스킬 없음</p>'}</div></div><h3>무기 관리</h3><div class="grid">${weapons.map(w=>{const c=enhanceCost(w.id), mt=matCount(c.mat); return `<div class="card" title="${esc(w.desc)}"><h3>${esc(w.name)} +${w.v45Enhance||0}</h3><p>공격 x${w.atk} · 공속 ${Number(w.speed||0).toFixed(2)}<br>인챈트: ${esc(enchantSummary(w.v45Enchant))}<br>강화 재료: ${esc(c.mat)} ${mt}/${c.qty} · ${c.coins}코인</p><div class="row"><button class="btn secondary" data-v45-enhance="${esc(w.id)}">강화</button><button class="btn secondary" data-v45-enchant="${esc(w.id)}">인챈트</button></div><div class="row" style="margin-top:6px"><button class="btn secondary" data-v45-sell="${esc(w.id)}">평균가 판매</button><button class="btn secondary" data-v45-disassemble="${esc(w.id)}">분해</button></div><button class="btn secondary" style="margin-top:6px;width:100%" data-v45-market-weapon="${esc(w.id)}">판매소 등록</button></div>`;}).join('')||'<p class="muted">무기 없음</p>'}</div>`;}
   function renderMarket(){v45(); const mats=Object.entries(v45().materials).filter(x=>x[1]>0); const opts=mats.map(([m,q])=>`<option value="${esc(m)}">${esc(m)} x${q}</option>`).join(''); const list=marketLoad().slice().reverse(); return `<h2 class="title" style="font-size:22px">유저 판매소</h2><p class="sub">부산물은 최대 10개가 1묶음으로 등록됩니다. 가격은 직접 입력합니다.</p><div class="grid"><div class="card"><h3>부산물 등록</h3><select id="v45MatSelect" class="input">${opts}</select><input id="v45MatPrice" class="input" type="number" min="1" placeholder="가격 입력" style="margin-top:8px"><button id="v45MatRegister" class="btn" style="margin-top:8px;width:100%">부산물 최대 10개 묶음 등록</button></div><div class="card"><h3>판매 목록</h3>${list.map(x=>`<div class="record"><div class="rank">${x.kind==='material'?x.qty:'1'}</div><div><b>${esc(x.name)}</b><div class="muted">${esc(x.kind)} · ${esc(x.seller)}</div></div><button class="btn secondary" data-v45-buy="${esc(x.id)}">${x.price} 구매</button></div>`).join('')||'<p class="muted">등록된 물품이 없습니다.</p>'}</div></div>`;}
@@ -12684,7 +12763,7 @@ function v53UniqueItems(items){
     if(kind==='skill') arr=[...new Set(state.save.skills||[])].map(id=>getSkill(id)).filter(Boolean);
     return arr.map(x=>`<option value="${esc(x.id)}">${esc(x.name)} · ${getRarity(x.rarity).name}</option>`).join('');
   }
-  function v52RegisterItem(kind){
+  async function v52RegisterItem(kind){
     const sel=document.getElementById('v52ItemSelect');
     const price=Math.max(1, Math.floor(Number(document.getElementById('v52ItemPrice')?.value||0)));
     const id=sel&&sel.value;
@@ -12693,11 +12772,12 @@ function v53UniqueItems(items){
     if(!obj){ toast('아이템을 찾을 수 없습니다.'); return; }
     const a=marketLoad();
     const meta = kind==='weapon' ? v99WeaponMarketMeta(id, obj) : null;
-    a.push({id:kind[0]+Date.now()+Math.random(),kind,name:obj.name,itemId:id,rarity:obj.rarity,price,seller:state.save.playerName||'Player',meta});
+    const item={id:kind[0]+Date.now()+Math.random(),kind,name:obj.name,itemId:id,rarity:obj.rarity,price,seller:state.save.playerName||'Player',meta,t:Date.now()};
+    a.push(item);
     if(kind==='weapon') state.save.weapons=(state.save.weapons||[]).filter(x=>x!==id);
     if(kind==='armor') state.save.armors=(state.save.armors||[]).filter(x=>x!==id);
     if(kind==='skill') state.save.skills=(state.save.skills||[]).filter(x=>x!==id);
-    marketSave(a); saveGame(); renderMenu(); toast(`${obj.name} 판매소 등록`);
+    marketSave(a); await v112InsertOnlineMarket(item); saveGame(); renderMenu(); toast(`${obj.name} 판매소 등록`);
   }
   try{
     const oldMarketBuyV52 = marketBuy;
@@ -12708,7 +12788,7 @@ function v53UniqueItems(items){
     };
   }catch(e){}
   renderMarket = function(){
-    v52EnsureStyle(); v48Ensure();
+    v52EnsureStyle(); v48Ensure(); try{ v112RefreshOnlineMarket(false); }catch(e){}
     const tab=v52MarketTab(); const list=marketLoad().slice().reverse().filter(x=>tab==='material'?x.kind==='material':x.kind===tab);
     let form='';
     if(tab==='material'){
@@ -12721,7 +12801,7 @@ function v53UniqueItems(items){
       form=`<h3>${label} 등록</h3><p class="sub">보유한 ${label}을 선택해 원하는 가격으로 등록합니다.</p><select id="v52ItemSelect" class="input">${opts||`<option value="">등록할 ${label} 없음</option>`}</select><input id="v52ItemPrice" class="input" type="number" min="1" placeholder="가격 입력" style="margin-top:8px"><button id="v52ItemRegister" class="btn" style="margin-top:10px;width:100%">${label} 등록</button>`;
     }
     const listing=list.map(x=>`<div class="v52-row" title="${esc(v99MarketTip(x))}"><div><b>${v52RarityItemName(x.name,x.rarity)}</b><div class="muted">${esc(x.kind)} · 판매자 ${esc(x.seller)} ${x.kind==='material'?'· 수량 '+x.qty:''}</div></div><button class="btn secondary" data-v45-buy="${esc(x.id)}">${x.price} 구매</button></div>`).join('')||'<p class="muted">등록된 물품이 없습니다.</p>';
-    return `<h2 class="title" style="font-size:22px">유저 판매소</h2><p class="sub">부산물, 무기, 방어구, 스킬을 나누어 등록하고 구매합니다.</p>${v48Summary()}${v52MarketTabs()}<div class="v52-market-grid"><div class="v52-panel">${form}</div><div class="v52-panel"><h3>판매 목록</h3><div class="v52-list">${listing}</div></div></div>`;
+    return `<h2 class="title" style="font-size:22px">유저 판매소</h2><p class="sub">온라인 장터와 로컬 백업을 함께 표시합니다. ${supabaseReady?'온라인 연결됨':'온라인 연결 대기/로컬 표시'}</p>${v48Summary()}${v52MarketTabs()}<div class="v52-market-grid"><div class="v52-panel">${form}</div><div class="v52-panel"><h3>판매 목록</h3><div class="v52-list">${listing}</div></div></div>`;
   };
 
   function v52BindTabsAndButtons(){
@@ -20677,7 +20757,7 @@ try{
         console.warn('[V109] online ranking save failed; local ranking kept:', e && e.message ? e.message : e);
         state.cloudStatus='온라인 랭킹 저장 실패 · 로컬 기록 유지';
       }
-      try{ if(typeof V109_PREV_SUBMIT_RECORD==='function') await V109_PREV_SUBMIT_RECORD(ms); }catch(e){ console.warn('[V109] previous submitRecord skipped:', e&&e.message?e.message:e); }
+      // V112: 이전 랭킹 저장 함수의 delete/insert 재호출은 온라인 기록을 꼬이게 할 수 있어 호출하지 않는다.
       try{ await refreshRankings(record.boss_id); }catch(e){}
     };
   }catch(e){ console.warn('[V109 submit override failed]', e); }
@@ -21069,7 +21149,7 @@ try {
 
 /* ===== V111: show only one gacha result card ===== */
 try{
-  const V111_VERSION = 'Raid Dungeon V111 - Single Gacha Result Card';
+  const V111_VERSION = 'Raid Dungeon V112 - Online Market Rank Passive Details';
   const V111_PREV_RENDER_GACHA = renderGachaTab;
 
   function v111RarityInfo(rarity){
@@ -21128,3 +21208,7 @@ try{
   window.RaidDungeonV111 = { version: V111_VERSION, changed:['뽑기 결과 기존 카드 숨김','등급 색상 카드 1개만 표시','V110 기능 유지'] };
   console.log('[RaidDungeon]', V111_VERSION, 'loaded');
 }catch(e){ console.warn('[V111 single gacha result card failed]', e); }
+
+
+/* ===== V112: online market/rank/passive detail patch metadata ===== */
+try{ window.RaidDungeonV112={version:'Raid Dungeon V112 - Online Market Rank Passive Details',changed:['장터 온라인 Supabase raid_market 연결 + 로컬 백업','랭킹 저장 중복/삭제 재호출 방지','패시브 효과 수치/지속시간 간단 표기']}; console.log('[RaidDungeon] V112 online market/rank/passive details loaded'); }catch(e){}
