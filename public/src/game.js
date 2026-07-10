@@ -19100,6 +19100,284 @@ try {
     console.log('[RaidDungeon]', V97_VERSION, 'loaded');
   }catch(e){ console.warn('[V97 progressive/hpbar fix failed]', e); }
 
+  /* ===== V98: 보스별 패턴 다양성 확장 + 점진형 후반 기믹 ===== */
+  try{
+    const V98_VERSION = 'Raid Dungeon V98 - Varied Boss Mechanics Pack';
+    const V98_PREV_BOSSPATTERN = bossPattern;
+    const V98_RECENT = {};
+
+    function v98Tier(){ return clamp(Number(boss && boss.tier || 1),1,10); }
+    function v98Phase(){ return clamp(Number(boss && boss.phase || 1),1,3); }
+    function v98Power(){ return 0.85 + v98Tier()*0.12 + (v98Phase()-1)*0.18; }
+    function v98Dmg(m){ return (boss && boss.atk || 8) * m; }
+    function v98Id(){ return String((boss && boss.id) || ''); }
+    function v98Theme(){ return String((boss && boss.theme) || 'slime'); }
+    function v98Color(){ return (boss && boss.color) || '#fb7185'; }
+    function v98Sub(){ return (boss && boss.sub) || '#ffffff'; }
+    function v98Alive(){ return state && state.screen==='raid' && boss && !boss.dead; }
+    function v98AddParticle(o){ if(state && state.particles) state.particles.push(o); }
+    function v98AddHazard(o){ if(state && state.hazards) state.hazards.push(o); }
+    function v98AddZone(o){ if(state && state.zones) state.zones.push(o); }
+    function v98AddMechanic(o){ if(state && state.mechanics) state.mechanics.push(o); }
+    function v98AngleToPlayer(){ return Math.atan2(player.y-boss.y, player.x-boss.x); }
+    function v98NoText(){ boss.mechanicText=''; }
+    function v98RecentPick(key, list){
+      const usable = list.filter(Boolean);
+      if(!usable.length) return null;
+      const recent = V98_RECENT[key] || [];
+      let pool = usable.filter(fn => !recent.includes(fn.name));
+      if(!pool.length) pool = usable.slice();
+      const fn = pool[Math.floor(Math.random()*pool.length)];
+      V98_RECENT[key] = [fn.name].concat(recent).slice(0, Math.min(3, usable.length-1));
+      return fn;
+    }
+    function v98Aftershock(level){
+      const tier=v98Tier();
+      if(tier<7) return;
+      const c=v98Color(), s=v98Sub();
+      for(let i=0;i<Math.min(12, 3+tier);i++){
+        const a=Math.PI*2*i/Math.min(12,3+tier)+(state.time||0)*.22;
+        v98AddParticle({kind:'line',x:boss.x+Math.cos(a)*boss.r*.45,y:boss.y+Math.sin(a)*boss.r*.45,vx:Math.cos(a)*rand(60,140),vy:Math.sin(a)*rand(60,140),r:3+level*.35,life:.32+level*.04,color:i%2?c:s,angle:a,len:45+tier*8});
+      }
+      if(tier>=9) state.shake=Math.max(state.shake,2.5+level);
+    }
+    function v98TargetCircle(delay, r, color, damage, x, y, tag){
+      warningCircle(x==null?player.x:x, y==null?player.y:y, r, delay, color, damage, false, null, tag);
+    }
+    function v98MeteorRain(count,color,tag,delayStep){
+      for(let i=0;i<count;i++){
+        const x=rand(95,W-95), y=rand(110,H-76);
+        setTimeout(()=>{ if(v98Alive()) v98TargetCircle(.34, 28+v98Tier()*2, color, v98Dmg(.58), x, y, tag); }, i*(delayStep||95));
+      }
+    }
+    function v98Radial(count, speed, color, damage, delay){
+      setTimeout(()=>{ if(v98Alive()) radialBullets(boss.x,boss.y,count,speed,color,damage); }, delay||0);
+    }
+    function v98BeamFromBoss(angle, width, delay, life, damage, color, tag){
+      v98AddHazard({kind:'beam',x:boss.x,y:boss.y,angle,len:1100,w:width,warn:delay,life:life||.22,damage:damage,color:color||v98Color(),tag});
+    }
+    function v98RotBeam(angle, spin, width, delay, life, damage, color, tag){
+      v98AddHazard({kind:'rotatingBeam',x:boss.x,y:boss.y,angle,len:1000,w:width,warn:delay,life:life,spin:spin,damage:damage,color:color||v98Color(),tag,tick:0});
+    }
+    function v98Donut(x,y,inner,outer,delay,damage,color,tag){
+      v98AddHazard({kind:'donut',x,y,inner,outer,warn:delay,life:.16,damage,color,tag});
+    }
+
+    // 1~3성: 보기에 또렷하지만 과하지 않게.
+    function v98SlimeBounce(){
+      v98NoText(); const c='#7ddf64';
+      v98TargetCircle(.48,68,c,v98Dmg(.52));
+      v98Radial(6+v98Phase()*2,150+v98Tier()*8,'#dbffb6',v98Dmg(.28),260);
+      if(v98Phase()>=2) v98TargetCircle(.62,42,'#a7f3d0',v98Dmg(.44),rand(100,W-100),rand(130,H-80),'slime');
+    }
+    function v98EmberLanes(){
+      v98NoText(); const c=v98Color();
+      for(let i=0;i<3;i++) v98BeamFromBoss(-.55+i*.55,18,.42+i*.08,.18,v98Dmg(.48),c,'fire');
+      if(v98Phase()>=2) v98MeteorRain(3,c,'fire',120);
+    }
+    function v98RoseBloom(){
+      v98NoText(); const c='#f472b6';
+      for(let i=0;i<3+v98Phase();i++) v98TargetCircle(.50+i*.06,34+v98Tier()*2,c,v98Dmg(.42),rand(115,W-115),rand(130,H-80),'poison');
+      if(v98Phase()>=2) coneBullets(v98AngleToPlayer(),.82,6,250,c,v98Dmg(.30));
+    }
+
+    // 중반: 테마별 특징이 보이도록.
+    function v98FrostMirror(){
+      v98NoText(); const c='#bae6fd';
+      for(let i=0;i<4+v98Phase();i++){
+        const x=110+i*(W-220)/(3+v98Phase());
+        v98AddParticle({kind:'ring',x,y:120,vx:0,vy:0,r:24,life:.55,color:c,line:2});
+        setTimeout(()=>{ if(v98Alive()) aimBullet(x,120,player.x,player.y,280+v98Tier()*10,c,v98Dmg(.38),'ice'); },260+i*90);
+      }
+      if(v98Phase()>=3) v98Donut(boss.x,boss.y,85,230,.62,v98Dmg(.70),c,'ice');
+    }
+    function v98Hourglass(){
+      v98NoText(); const c='#f59e0b';
+      player.slow=Math.max(player.slow,.65+v98Phase()*.15);
+      const gap=rand(230,W-230);
+      for(let i=0;i<5;i++){
+        const x=90+i*(W-180)/4;
+        if(Math.abs(x-gap)>100) v98AddHazard({kind:'wall',x,y:H/2,w:22,h:460,warn:.48,life:1.05,damage:v98Dmg(.48),color:c,tag:'sand'});
+      }
+      setTimeout(()=>{ if(v98Alive()) spiralBullets('#fde68a',9+v98Phase()*3); },360);
+    }
+    function v98VoidTeeth(){
+      v98NoText(); const c='#a78bfa';
+      const spots=[[80,130],[W-80,150],[120,H-90],[W-120,H-90]];
+      spots.forEach((p,i)=>{
+        v98AddParticle({kind:'ring',x:p[0],y:p[1],vx:0,vy:0,r:34,life:.75,color:c,line:2.3});
+        setTimeout(()=>{ if(v98Alive()) aimBullet(p[0],p[1],player.x,player.y,260+v98Tier()*11,c,v98Dmg(.42),'void'); },240+i*130);
+      });
+      if(v98Phase()>=2) v98AddZone({x:player.x,y:player.y,r:62,damage:v98Dmg(.045),life:2.0,tick:0,color:'#7c3aed',enemy:true,dot:true});
+    }
+    function v98BullArena(){
+      v98NoText(); const c='#e5e7eb', a=v98AngleToPlayer();
+      v98BeamFromBoss(a,34,.58,.20,v98Dmg(.72),c,'metal');
+      for(let i=0;i<3+v98Phase();i++) v98TargetCircle(.65+i*.10,32,c,v98Dmg(.42),rand(110,W-110),rand(125,H-90),'metal');
+    }
+    function v98BloodHunt(){
+      v98NoText(); const c='#ef4444';
+      for(let i=0;i<3+v98Phase();i++){
+        const a=v98AngleToPlayer()+(i-(1+v98Phase()/2))*.24;
+        v98BeamFromBoss(a,14,.36+i*.06,.16,v98Dmg(.40),c,'blood');
+      }
+      if(v98Phase()>=2) v98Donut(player.x,player.y,70,165,.55,v98Dmg(.62),c,'blood');
+    }
+    function v98PlagueSerum(){
+      v98NoText(); const c='#84cc16';
+      for(let i=0;i<4+v98Phase();i++) v98AddZone({x:rand(110,W-110),y:rand(130,H-85),r:45+v98Phase()*5,damage:v98Dmg(.035),life:2.4,tick:0,color:c,enemy:true,dot:true});
+      v98AddMechanic({kind:'rune',x:rand(160,W-160),y:rand(150,H-120),r:24,life:3.2,color:'#eaff9c',action:'cleanse'});
+    }
+
+    // 6성 이상: 순서형/리듬형/공간형 기믹.
+    function v98StormScore(){
+      v98NoText(); const c='#fde047';
+      const xs=[W*.18,W*.34,W*.50,W*.66,W*.82];
+      xs.forEach((x,i)=>setTimeout(()=>{ if(v98Alive()) v98TargetCircle(.28,32+v98Phase()*4,c,v98Dmg(.58),x,rand(135,H-90),'lightning'); },i*155));
+      if(v98Phase()>=2) setTimeout(()=>{ if(v98Alive()) crossLaserPattern(true); },900);
+      v98Aftershock(1);
+    }
+    function v98MirrorStage(){
+      v98NoText(); const c='#e879f9';
+      const sides=[[120,150],[W-120,160],[W/2,H-90]];
+      sides.forEach((p,i)=>{
+        v98AddParticle({kind:'ring',x:p[0],y:p[1],vx:0,vy:0,r:42,life:.7,color:i===1?'#bae6fd':c,line:2});
+        setTimeout(()=>{ if(v98Alive()) v98BeamFromBoss(Math.atan2(player.y-p[1],player.x-p[0]),15,.18,.18,v98Dmg(.42),i===1?'#bae6fd':c,'mirror'); },220+i*160);
+      });
+      if(v98Phase()>=3) rotatingLaserSweep(false);
+    }
+    function v98GravityOrbit(){
+      v98NoText(); const c='#818cf8';
+      v98AddMechanic({kind:'gravity',x:boss.x,y:boss.y,r:220,power:56+v98Tier()*5,life:2.2,color:c});
+      for(let i=0;i<3+v98Phase();i++) v98RotBeam(Math.PI*2*i/(3+v98Phase()),i%2?1.3:-1.1,12,.52,1.15,v98Dmg(.30),c,'gravity');
+      v98Aftershock(2);
+    }
+    function v98SolarWings(){
+      v98NoText(); const c='#fde047';
+      coneBullets(-.20,1.0,9,300,c,v98Dmg(.32));
+      coneBullets(Math.PI+.20,1.0,9,300,c,v98Dmg(.32));
+      setTimeout(()=>{ if(v98Alive()) v98Donut(boss.x,boss.y,105,265,.42,v98Dmg(.68),c,'solar'); },420);
+      if(v98Phase()>=3) v98MeteorRain(7,'#fb923c','solar',80);
+    }
+    function v98ChronoHands(){
+      v98NoText(); const c='#f472b6';
+      const base=(state.time||0)*.5;
+      for(let i=0;i<4;i++) v98BeamFromBoss(base+i*Math.PI/2,12,.45+i*.07,.18,v98Dmg(.42),c,'chrono');
+      setTimeout(()=>{ if(v98Alive()) chaseMarkerPattern(true); },760);
+      v98Aftershock(2);
+    }
+    function v98LeviathanTide(){
+      v98NoText(); const c='#38bdf8';
+      for(let i=0;i<4+v98Phase();i++){
+        const y=150+i*(H-250)/(3+v98Phase());
+        v98AddHazard({kind:'beam',x:W/2,y,angle:0,len:W,w:18,warn:.42+i*.09,life:.18,damage:v98Dmg(.43),color:c,tag:'water'});
+      }
+      setTimeout(()=>{ if(v98Alive()) v98AddMechanic({kind:'gravity',x:W/2,y:H/2,r:260,power:44,life:1.3,color:'#0ea5e9'}); },650);
+      v98Aftershock(2);
+    }
+    function v98PuppetTheater(){
+      v98NoText(); const c='#f0abfc';
+      for(let i=0;i<5;i++){
+        const x=160+i*(W-320)/4;
+        v98AddParticle({kind:'line',x,y:60,vx:0,vy:120,r:3,life:.85,color:'#fde68a',angle:Math.PI/2,len:140});
+        setTimeout(()=>{ if(v98Alive()) v98AddHazard({kind:'beam',x,y:H/2,angle:Math.PI/2,len:H,w:16,warn:.28,life:.18,damage:v98Dmg(.38),color:c,tag:'mirror'}); },260+i*110);
+      }
+      if(v98Phase()>=2) setTimeout(()=>{ if(v98Alive()) v98Donut(player.x,player.y,55,155,.50,v98Dmg(.68),'#fde68a','mirror'); },700);
+      v98Aftershock(2);
+    }
+    function v98BlackSunEclipse(){
+      v98NoText(); const c='#f97316';
+      v98AddParticle({kind:'ring',x:boss.x,y:boss.y,vx:0,vy:0,r:boss.r*3.2,life:.8,color:'#020617',line:9});
+      for(let i=0;i<8;i++) v98BeamFromBoss(i*Math.PI/4,13,.52+i*.03,.18,v98Dmg(.40),i%2?c:'#020617','solar');
+      setTimeout(()=>{ if(v98Alive()) v98MeteorRain(9,'#fb923c','solar',70); },760);
+      v98Aftershock(3);
+    }
+    function v98ChaosRule(){
+      v98NoText(); const c='#fb7185';
+      const choice=Math.floor(Math.random()*4);
+      if(choice===0){ for(let i=0;i<6;i++) v98TargetCircle(.35+i*.08,30,c,v98Dmg(.48),rand(90,W-90),rand(120,H-80),'chaos'); }
+      if(choice===1){ for(let i=0;i<5;i++) v98BeamFromBoss(i*Math.PI/5+(state.time||0),14,.42+i*.04,.18,v98Dmg(.40),i%2?'#7c3aed':c,'chaos'); }
+      if(choice===2){ v98Donut(boss.x,boss.y,95,260,.55,v98Dmg(.70),c,'chaos'); v98Radial(18,245,'#c084fc',v98Dmg(.24),620); }
+      if(choice===3){ v98VoidTeeth(); setTimeout(()=>{ if(v98Alive()) v98StormScore(); },620); }
+      v98Aftershock(3);
+    }
+    function v98JesterCircus(){
+      v98NoText(); const c='#fb7185', s='#facc15';
+      const roll=Math.floor(Math.random()*5);
+      if(roll===0){
+        for(let i=0;i<7;i++) setTimeout(()=>{ if(v98Alive()) aimBullet(80+i*(W-160)/6,80,player.x,player.y,285,s,v98Dmg(.34),'jester'); },i*85);
+      }else if(roll===1){
+        for(let i=0;i<5;i++){ const x=135+i*(W-270)/4; v98AddHazard({kind:'beam',x,y:H/2,angle:Math.PI/2,len:H,w:18,warn:.38+i*.10,life:.20,damage:v98Dmg(.44),color:i%2?s:c,tag:'jester'}); }
+      }else if(roll===2){
+        v98Donut(W/2,H/2,80,250,.48,v98Dmg(.65),c,'jester');
+        setTimeout(()=>{ if(v98Alive()) radialBullets(W/2,H/2,18,240,'#f0abfc',v98Dmg(.24)); },560);
+      }else if(roll===3){
+        for(let i=0;i<4;i++) v98TargetCircle(.42+i*.09,42,i%2?c:s,v98Dmg(.50),rand(110,W-110),rand(130,H-85),'jester');
+        setTimeout(()=>{ if(v98Alive()) rotatingLaserSweep(true); },700);
+      }else{
+        for(let i=0;i<3;i++){
+          const x=180+i*(W-360)/2, y=rand(160,H-120);
+          v98AddParticle({kind:'ring',x,y,vx:0,vy:0,r:36,life:.65,color:s,line:3});
+          setTimeout(()=>{ if(v98Alive()) radialBullets(x,y,8,220,c,v98Dmg(.26)); },380+i*120);
+        }
+      }
+      v98Aftershock(3);
+    }
+
+    const V98_POOLS_BY_ID = {
+      slime_king:[v98SlimeBounce],
+      ember_tyrant:[v98EmberLanes],
+      thorn_queen:[v98RoseBloom],
+      frost_oracle:[v98FrostMirror],
+      sand_reaper:[v98Hourglass],
+      void_serpent:[v98VoidTeeth],
+      iron_minotaur:[v98BullArena],
+      blood_moon:[v98BloodHunt],
+      storm_colossus:[v98StormScore,v98StormScore,v98GravityOrbit],
+      plague_doctor:[v98PlagueSerum,v98RoseBloom,v98VoidTeeth],
+      mirror_duelist:[v98MirrorStage,v98PuppetTheater,v98ChaosRule],
+      gravity_core:[v98GravityOrbit,v98ChronoHands,v98VoidTeeth],
+      solar_dragon:[v98SolarWings,v98BlackSunEclipse,v98EmberLanes],
+      chrono_dragon:[v98ChronoHands,v98MirrorStage,v98GravityOrbit],
+      abyss_leviathan:[v98LeviathanTide,v98GravityOrbit,v98VoidTeeth],
+      puppet_emperor:[v98PuppetTheater,v98MirrorStage,v98JesterCircus],
+      black_sun:[v98BlackSunEclipse,v98SolarWings,v98ChaosRule],
+      chaos_archon:[v98ChaosRule,v98BlackSunEclipse,v98ChronoHands,v98GravityOrbit],
+      dream_jester:[v98JesterCircus,v98ChaosRule,v98PuppetTheater,v98BlackSunEclipse],
+      nightmare_jester:[v98JesterCircus,v98ChaosRule,v98PuppetTheater,v98BlackSunEclipse]
+    };
+    const V98_POOLS_BY_THEME = {
+      slime:[v98SlimeBounce], fire:[v98EmberLanes], nature:[v98RoseBloom], ice:[v98FrostMirror], sand:[v98Hourglass], void:[v98VoidTeeth], metal:[v98BullArena], blood:[v98BloodHunt], lightning:[v98StormScore], poison:[v98PlagueSerum], mirror:[v98MirrorStage], gravity:[v98GravityOrbit], solar:[v98SolarWings], chrono:[v98ChronoHands], chaos:[v98ChaosRule]
+    };
+    function v98Pool(){
+      const id=v98Id();
+      if(id.includes('jester') || String(boss.name||'').includes('니브')) return V98_POOLS_BY_ID.dream_jester;
+      return V98_POOLS_BY_ID[id] || V98_POOLS_BY_THEME[v98Theme()] || [v98SlimeBounce];
+    }
+
+    bossPattern = function(){
+      try{
+        if(!v98Alive()) return V98_PREV_BOSSPATTERN();
+        const tier=v98Tier();
+        const id=v98Id() || v98Theme();
+        const pool=v98Pool();
+        // 초반은 원본 패턴 비중을 높여 과한 연출을 방지하고, 후반은 전용 패턴을 중심으로 섞어 쓴다.
+        const customChance = tier<=2 ? .35 : tier<=4 ? .58 : tier<=6 ? .74 : .92;
+        if(Math.random()>customChance) return V98_PREV_BOSSPATTERN();
+        const fn=v98RecentPick(id,pool);
+        if(fn) fn(); else V98_PREV_BOSSPATTERN();
+        if(tier>=8 && Math.random()<.35) setTimeout(()=>{ try{ if(v98Alive()) (v98RecentPick(id+'-sub',pool)||fn||v98ChaosRule)(); }catch(e){} }, 880);
+        if(tier>=10 && Math.random()<.25) setTimeout(()=>{ try{ if(v98Alive()) v98Aftershock(4); }catch(e){} }, 480);
+      }catch(e){
+        console.warn('[V98 varied boss pattern failed]', e);
+        return V98_PREV_BOSSPATTERN();
+      }
+    };
+
+    window.RaidDungeonV98={version:V98_VERSION,changed:['초반 보스 과잉 연출 억제 유지','중후반 보스별 패턴 풀 확대','최근 패턴 반복 방지','악몽 광대 니브 포함 10성 보스 전용 기믹 강화']};
+    console.log('[RaidDungeon]', V98_VERSION, 'loaded');
+  }catch(e){ console.warn('[V98 varied boss mechanics pack failed]', e); }
+
 })();
 
 
