@@ -21345,6 +21345,210 @@ try{
     console.log('[RaidDungeon]',V113_VERSION,'loaded');
   }catch(e){ console.warn('[V113 patch failed]', e); }
 
+
+/* ===== V119: nickname old-rank cleanup + same-user ranking dedupe ===== */
+try{
+  const V119_VERSION = 'Raid Dungeon V119 - Nickname Old Rank Cleanup';
+  const V119_NAME_HISTORY_KEY = 'raid-dungeon-nickname-history-v119';
+
+  function v119NormName(x){
+    try{ return (typeof normalizedPlayerName === 'function' ? normalizedPlayerName(x) : String(x||'').trim()) || 'Player'; }
+    catch(e){ return String(x||'').trim() || 'Player'; }
+  }
+  function v119UserId(){ try{ return state && state.currentUser && state.currentUser.id ? String(state.currentUser.id) : ''; }catch(e){ return ''; } }
+  function v119History(){
+    try{
+      const arr = JSON.parse(localStorage.getItem(V119_NAME_HISTORY_KEY)||'[]');
+      return Array.isArray(arr) ? arr.map(v119NormName).filter(Boolean) : [];
+    }catch(e){ return []; }
+  }
+  function v119SaveHistory(names){
+    try{
+      const uniq=[];
+      (names||[]).forEach(n=>{ n=v119NormName(n); if(n && !uniq.some(x=>x.toLowerCase()===n.toLowerCase())) uniq.push(n); });
+      localStorage.setItem(V119_NAME_HISTORY_KEY, JSON.stringify(uniq.slice(-30)));
+    }catch(e){}
+  }
+  function v119RememberNames(){
+    const names = v119History();
+    try{ names.push(state && state.save && state.save.playerName); }catch(e){}
+    try{ names.push(localStorage.getItem('raid-build-player-name-v1')); }catch(e){}
+    v119SaveHistory(names);
+    return v119History();
+  }
+  function v119SameCurrentUserRecord(r){
+    const uid = v119UserId();
+    if(uid && r && r.user_id && String(r.user_id) === uid) return true;
+    const cur = v119NormName(state && state.save && state.save.playerName).toLowerCase();
+    const names = v119History().concat([cur]).map(n=>v119NormName(n).toLowerCase());
+    const rn = v119NormName(r && r.player_name).toLowerCase();
+    return !!rn && names.includes(rn);
+  }
+  function v119RecordIdentity(r){
+    if(r && r.user_id) return 'uid:' + String(r.user_id);
+    if(v119SameCurrentUserRecord(r)) return 'me:' + (v119UserId() || v119NormName(state && state.save && state.save.playerName).toLowerCase());
+    return 'name:' + v119NormName(r && r.player_name).toLowerCase();
+  }
+  function v119DedupeBest(records){
+    const map = new Map();
+    (records||[]).forEach(r=>{
+      if(!r || !r.boss_id || !Number.isFinite(Number(r.clear_ms))) return;
+      const fixed = {...r};
+      if(v119SameCurrentUserRecord(fixed)){
+        fixed.player_name = v119NormName(state && state.save && state.save.playerName);
+        if(v119UserId()) fixed.user_id = v119UserId();
+      }
+      const key = String(fixed.boss_id) + '|' + v119RecordIdentity(fixed);
+      const old = map.get(key);
+      if(!old || Number(fixed.clear_ms) < Number(old.clear_ms)) map.set(key, fixed);
+    });
+    return Array.from(map.values()).sort((a,b)=>Number(a.clear_ms||999999999)-Number(b.clear_ms||999999999));
+  }
+  function v119PatchLocalNames(oldNames, nextName){
+    try{
+      const oldSet = new Set((oldNames||[]).map(n=>v119NormName(n).toLowerCase()).filter(Boolean));
+      const uid = v119UserId();
+      const next = v119NormName(nextName || (state && state.save && state.save.playerName));
+      const local = (typeof getLocalRecords === 'function' ? getLocalRecords() : []).map(r=>{
+        if(!r) return r;
+        const rn = v119NormName(r.player_name).toLowerCase();
+        if(oldSet.has(rn) || (uid && r.user_id && String(r.user_id)===uid)) return {...r, player_name: next, user_id: uid || r.user_id};
+        return r;
+      });
+      const fixed = v119DedupeBest(local).slice(0,800);
+      const raw = JSON.stringify(fixed);
+      [LOCAL_RECORD_KEY,'raid-build-v12-local-records','raid-build-v12-local-records-backup','raid-v109-online-rank-backup'].forEach(k=>{try{localStorage.setItem(k,raw);}catch(e){}});
+      return fixed;
+    }catch(e){ console.warn('[V119] local old-name cleanup failed', e); return []; }
+  }
+  async function v119RemoteCleanup(oldNames, nextName){
+    if(!supabaseReady || !supabase || !supabase.from) return false;
+    const uid = v119UserId();
+    const next = v119NormName(nextName || (state && state.save && state.save.playerName));
+    const old = (oldNames||[]).map(v119NormName).filter(n=>n && n.toLowerCase() !== next.toLowerCase());
+    if(!old.length && !uid) return true;
+    try{
+      if(supabase.rpc){
+        const res = await supabase.rpc('raid_cleanup_my_old_rank_names', { p_new_name: next, p_old_names: old });
+        if(res && !res.error) return true;
+        if(res && res.error) console.warn('[V119] rpc cleanup skipped:', res.error.message);
+      }
+    }catch(e){ console.warn('[V119] rpc cleanup failed:', e && e.message ? e.message : e); }
+    // Fallback. Works only if RLS allows update/delete. SQL v119 RPC is recommended.
+    try{ if(uid) await supabase.from('raid_records').update({player_name:next}).eq('user_id', uid); }catch(e){}
+    for(const name of old){
+      try{ await supabase.from('raid_records').delete().eq('player_name', name); }catch(e){}
+      try{ await supabase.from('raid_records').update({player_name:next}).eq('player_name', name); }catch(e){}
+    }
+    return true;
+  }
+
+  // Make all future records carry user_id, then keep only the best record per actual user per boss.
+  try{
+    const OLD_SUBMIT_V119 = submitRecord;
+    submitRecord = async function(ms){
+      const uid = v119UserId();
+      v119RememberNames();
+      const b = boss || getBoss(state.selectedBossId) || {};
+      const record = {
+        player_name: v119NormName(state && state.save && state.save.playerName),
+        user_id: uid || null,
+        boss_id: String(b.id || state.selectedBossId || 'unknown'),
+        boss_name: String(b.name || ''),
+        clear_ms: Number(ms)||0,
+        weapon_id: state.raid&&state.raid.weapon?state.raid.weapon.id:'none',
+        weapon_name: state.raid&&state.raid.weapon?state.raid.weapon.name:'무기 없음',
+        skills: state.raid&&state.raid.skills?state.raid.skills.filter(Boolean).map(s=>s.name):[],
+        passives: [state.raid&&state.raid.armor?('방어구: '+state.raid.armor.name):'방어구 없음'].concat(state.raid&&state.raid.passives?state.raid.passives.filter(Boolean).map(p=>p.name):[]),
+        damage_taken: Math.round(Number(player&&player.damageTaken||0)),
+        created_at: new Date().toISOString()
+      };
+      try{
+        const local=(typeof getLocalRecords==='function'?getLocalRecords():[]).concat([record]);
+        v119PatchLocalNames(v119History(), record.player_name);
+        const fixed=v119DedupeBest(local).slice(0,800);
+        const raw=JSON.stringify(fixed);
+        [LOCAL_RECORD_KEY,'raid-build-v12-local-records','raid-build-v12-local-records-backup','raid-v109-online-rank-backup'].forEach(k=>{try{localStorage.setItem(k,raw);}catch(e){}});
+      }catch(e){}
+      try{
+        if(supabaseReady && supabase && supabase.from){
+          await v119RemoteCleanup(v119History(), record.player_name);
+          let res = await supabase.from('raid_records').insert(record);
+          if(res && res.error){
+            try{ if(uid) await supabase.from('raid_records').delete().eq('boss_id',record.boss_id).eq('user_id',uid); }catch(e){}
+            res = await supabase.from('raid_records').insert(record);
+          }
+          if(res && res.error) throw res.error;
+          state.cloudStatus = '온라인 랭킹 저장 완료';
+        }
+      }catch(e){
+        console.warn('[V119] online ranking save failed:', e && e.message ? e.message : e);
+        state.cloudStatus = '온라인 랭킹 저장 실패 · SQL v119 확인';
+      }
+      try{ await refreshRankings(record.boss_id); }catch(e){}
+    };
+  }catch(e){ console.warn('[V119 submit override failed]', e); }
+
+  try{
+    const OLD_REFRESH_V119 = refreshRankings;
+    refreshRankings = async function(bossId){
+      v119RememberNames();
+      try{ await v119RemoteCleanup(v119History(), state && state.save && state.save.playerName); }catch(e){}
+      let records=[];
+      try{ records = records.concat((typeof getLocalRecords==='function'?getLocalRecords():[]).filter(r=>r&&r.boss_id===bossId)); }catch(e){}
+      try{
+        if(supabaseReady && supabase && supabase.from){
+          const res = await supabase.from('raid_records').select('*').eq('boss_id',bossId).order('clear_ms',{ascending:true}).limit(800);
+          if(res && res.error) throw res.error;
+          if(Array.isArray(res.data)) records = records.concat(res.data);
+          state.cloudStatus = '온라인 랭킹 불러옴';
+        }
+      }catch(e){
+        console.warn('[V119] ranking load failed:', e && e.message ? e.message : e);
+        state.cloudStatus = '온라인 랭킹 불러오기 실패 · 로컬 표시';
+      }
+      const fixed = v119DedupeBest(records).slice(0,10);
+      try{
+        const all = v119DedupeBest((typeof getLocalRecords==='function'?getLocalRecords():[]).concat(records)).slice(0,800);
+        const raw = JSON.stringify(all);
+        [LOCAL_RECORD_KEY,'raid-build-v12-local-records','raid-build-v12-local-records-backup','raid-v109-online-rank-backup'].forEach(k=>{try{localStorage.setItem(k,raw);}catch(e){}});
+      }catch(e){}
+      state.rankingBossId = bossId;
+      state.rankings = fixed;
+      if(state.menuTab==='ranking' && state.screen==='menu') renderMenu();
+      return fixed;
+    };
+  }catch(e){ console.warn('[V119 refresh override failed]', e); }
+
+  try{
+    const OLD_CHANGE_V119 = changeNickname;
+    changeNickname = async function(){
+      const input = document.getElementById('nicknameEditInput');
+      const next = String(input && input.value ? input.value : '').trim();
+      if(!next || next.length < 2){ toast('닉네임은 2자 이상으로 입력해주세요.'); state.cloudStatus='닉네임 변경 실패: 2자 이상 필요'; renderMenu(); return; }
+      if(next.length > 12){ toast('닉네임은 12자 이하로 입력해주세요.'); state.cloudStatus='닉네임 변경 실패: 12자 이하 필요'; renderMenu(); return; }
+      const oldName = v119NormName(state && state.save && state.save.playerName);
+      const names = v119History().concat([oldName, next]);
+      v119SaveHistory(names);
+      state.save.playerName = next;
+      try{ localStorage.setItem('raid-build-player-name-v1', next); }catch(e){}
+      state.cloudStatus = '닉네임 변경 중 · 이전 이름 기록 정리';
+      saveGame(); renderMenu();
+      try{ v119PatchLocalNames(names, next); }catch(e){}
+      try{ await v119RemoteCleanup(names, next); }catch(e){}
+      try{ await manualSaveProfile(); }catch(e){}
+      try{ await refreshRankings(state.rankingBossId || (boss&&boss.id) || state.selectedBossId); }catch(e){}
+      state.cloudStatus = '닉네임 변경 완료 · 이전 이름 기록 정리 완료';
+      renderMenu();
+    };
+  }catch(e){ console.warn('[V119 nickname override failed]', e); }
+
+  try{
+    window.RaidDungeonV119 = {version:V119_VERSION, changed:['닉네임 변경 전 이름 기록을 현재 닉네임으로 병합','같은 user_id 또는 닉네임 이력은 랭킹에서 하나로 표시','SQL v119 RPC로 Supabase의 이전 닉네임 기록 삭제/정리','앞으로 저장되는 랭킹 기록에 user_id 포함']};
+    console.log('[RaidDungeon]', V119_VERSION, 'loaded');
+  }catch(e){}
+}catch(e){ console.warn('[V119 nickname rank cleanup failed]', e); }
+
 })();
 
 
@@ -22262,3 +22466,202 @@ try {
   };
   console.log('[RaidDungeon] V118 SQL Package Retry Button loaded');
 } catch(e) {}
+
+
+/* ===== V120: skill card click hotfix + exact weapon damage + rarity order final fix ===== */
+try{
+  const V120_VERSION = 'Raid Dungeon V120 - Skill Click Exact Damage Rarity Fix';
+
+  function v120Num(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+  function v120Fmt(n){ try{return Math.round(Number(n)||0).toLocaleString('ko-KR');}catch(e){return String(Math.round(Number(n)||0));} }
+  function v120Esc(s){ try{return esc(String(s??''));}catch(e){return String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));} }
+  function v120Rarity(w){ return String((w&&w.rarity)||'normal'); }
+  function v120RarityName(r){ return ({normal:'일반',rare:'희귀',super:'초희귀',epic:'에픽',legendary:'레전더리',ultimate:'궁극'})[String(r||'normal')]||'일반'; }
+  function v120Base(r){ return ({normal:38,rare:70,super:125,epic:220,legendary:380,ultimate:660})[String(r||'normal')]||38; }
+  function v120Kind(w){ return String((w&&w.kind)||''); }
+  function v120IsRanged(w){ const k=v120Kind(w); return k.includes('bow')||k.includes('staff')||k==='gunstaff'||k==='grimoire'||k==='chakram'; }
+  function v120TypeMul(w){
+    const k=v120Kind(w);
+    if(k==='dagger') return .82;
+    if(k==='greatsword') return 1.02;
+    if(k==='pole') return .88;
+    if(k==='whip') return .90;
+    if(k==='scythe') return .96;
+    if(k.includes('sword')) return .88;
+    if(k.includes('bow')) return 1.20;
+    if(k.includes('staff')) return 1.16;
+    if(k==='gunstaff') return 1.22;
+    if(k==='grimoire') return 1.18;
+    if(k==='chakram') return 1.14;
+    return 1.0;
+  }
+  function v120Layout(w){
+    const k=v120Kind(w);
+    if(k==='dagger') return {hits:3,note:'3타 합산',ranged:false};
+    if(k==='grimoire') return {hits:3,note:'3발 합산',ranged:true};
+    if(k.includes('bow')) return {hits:1,note:'화살 1발',ranged:true};
+    if(k.includes('staff')||k==='gunstaff'||k==='chakram') return {hits:1,note:'원거리 1발',ranged:true};
+    if(k==='greatsword') return {hits:1,note:'강한 1타',ranged:false};
+    if(k==='pole') return {hits:1,note:'찌르기 1타',ranged:false};
+    if(k==='whip') return {hits:1,note:'채찍 1타',ranged:false};
+    if(k==='scythe') return {hits:1,note:'낫 1타',ranged:false};
+    return {hits:1,note:'1타',ranged:false};
+  }
+  function v120Meta(id,w){
+    let meta={};
+    try{ if(typeof weaponMeta==='function') meta=weaponMeta(id)||{}; }catch(e){}
+    if(w){ if(meta.enh==null&&w.v45Enhance!=null) meta.enh=w.v45Enhance; if(!meta.ench&&w.v45Enchant) meta.ench=w.v45Enchant; }
+    return meta||{};
+  }
+  function v120EnchantRates(meta){
+    const ench=Array.isArray(meta&&meta.ench)?meta.ench:[];
+    let attack=0,speed=0,crit=0,luck=0,plunder=0;
+    ench.forEach(e=>{ const type=e.type||e[0]; const lv=Number(e.lv??e[1]??0)||0; if(type==='attack') attack+=lv*.05; if(type==='speed') speed+=lv*.04; if(type==='critChance') crit+=lv*3; if(type==='luck') luck+=lv*3.5; if(type==='plunder') plunder+=lv*7; });
+    return {attack,speed,crit,luck,plunder};
+  }
+  function v120Weapon(w,metaOverride){
+    try{
+      if(typeof w==='string') w=getWeapon(w)||null; else if(w&&w.itemId) w=getWeapon(w.itemId)||w; else if(w&&w.id) w=getWeapon(w.id)||w;
+      if(!w) return {total:0,one:0,open:0,crit:0,critDamage:0,dps:0,cd:0,meta:{},layout:{hits:1,note:'1타',ranged:false},w:null};
+      const layout=v120Layout(w), r=v120Rarity(w);
+      const meta=Object.assign({},v120Meta(w.id,w),metaOverride||{});
+      const enh=Math.max(0,Number(meta.enh||0)||0);
+      const rates=v120EnchantRates(meta);
+      // 표기값은 실제 보스에게 뜨는 '기본 피해' 기준. 기존 V105 4배 래퍼는 사용하지 않도록 실제 타격은 직접 적용한다.
+      const total=Math.max(1,Math.round(v120Base(r)*v120TypeMul(w)*(1+enh*.07+rates.attack)));
+      const one=Math.max(1,Math.round(total/Math.max(1,layout.hits)));
+      const open=Math.max(1,Math.round(total*1.45));
+      const cd=Math.max(.10,v120Num(w.speed,.5)/Math.max(.55,1+rates.speed));
+      const crit=Math.max(0,Math.round(v120Num(w.crit,0)+rates.crit));
+      const critDamage=Math.max(1,Math.round(total*1.7));
+      return {total,one,open,crit,critDamage,dps:Math.max(1,Math.round(total/cd)),cd:+cd.toFixed(2),meta,layout,w,rarity:r};
+    }catch(e){ return {total:0,one:0,open:0,crit:0,critDamage:0,dps:0,cd:0,meta:{},layout:{hits:1,note:'1타',ranged:false},w:null}; }
+  }
+  function v120DamageLine(w){ const d=v120Weapon(w); const hit=d.layout.hits>1?`1타 ${v120Fmt(d.one)} / 총합 ${v120Fmt(d.total)}`:v120Fmt(d.total); return `데미지 ${hit} · 약화 ${v120Fmt(d.open)} · 치명 ${d.crit}% · ${d.layout.note}`; }
+  function v120MetaLine(w){ const d=v120Weapon(w), rates=v120EnchantRates(d.meta), enh=Number(d.meta&&d.meta.enh||0)||0; return `${v120RarityName(d.rarity)} · 강화 +${enh} · 공격 +${Math.round((enh*.07+rates.attack)*100)}% · 공속 +${Math.round(rates.speed*100)}%`; }
+
+  function v120ApplyExactDamage(amount,color,big){
+    try{
+      if(!boss || boss.dead) return 0;
+      let dmg=Math.max(1,Math.round(Number(amount)||0));
+      let c=color||'#fff';
+      if(boss.statuses && (boss.statuses.vulnerable||0)>0){ dmg=Math.max(1,Math.round(dmg*1.45)); c='#c084fc'; }
+      boss.hp=Math.max(0,Number(boss.hp||0)-dmg);
+      boss.hit=.12;
+      floatText('-'+v120Fmt(dmg),boss.x+rand(-20,20),boss.y-boss.r-12,c,big?22:16);
+      if(player && player.lifesteal>0) player.hp=Math.min(player.maxHp,player.hp+dmg*player.lifesteal);
+      if(boss.hp<=0){ boss.hp=0; boss.dead=true; }
+      return dmg;
+    }catch(e){ return 0; }
+  }
+  function v120InCone(range,arc,angle){ const a=Math.atan2(boss.y-player.y,boss.x-player.x); const diff=Math.abs(normAngle(a-angle)); return dist(player.x,player.y,boss.x,boss.y)<range+boss.r && diff<arc/2; }
+  function v120InLine(range,width,angle){ const px=boss.x-player.x, py=boss.y-player.y; const along=px*Math.cos(angle)+py*Math.sin(angle); const side=Math.abs(-px*Math.sin(angle)+py*Math.cos(angle)); return along>0&&along<range+boss.r&&side<width+boss.r; }
+  function v120InRange(range){ return dist(player.x,player.y,boss.x,boss.y)<range+boss.r; }
+
+  basicAttack=function(){
+    if(!state.raid || player.basicCd>0) return;
+    let w=state.raid.weapon;
+    if(w&&w.id){ try{ w=getWeapon(w.id)||w; state.raid.weapon=w; }catch(e){} }
+    if(!w){ toast('장착한 무기가 없어 일반공격을 사용할 수 없습니다.'); player.basicCd=.6; return; }
+    const d=v120Weapon(w), angle=aimAngle(), k=v120Kind(w), plan=d.layout;
+    player.basicCd=d.cd; player.attackAnim=.20+Math.min(.20,d.cd*.28); player.attackAngle=angle;
+    if(Math.cos(angle)<0) player.face=-1; if(Math.cos(angle)>0) player.face=1;
+    if(plan.ranged){
+      for(let i=0;i<plan.hits;i++){
+        const a=angle+(i-(plan.hits-1)/2)*.12, isBow=k.includes('bow');
+        state.projectiles.push({owner:'player',x:player.x+Math.cos(a)*22,y:player.y+Math.sin(a)*22,vx:Math.cos(a)*(isBow?990:735),vy:Math.sin(a)*(isBow?990:735),r:k==='gunstaff'?8:5,life:k==='chakram'?1.18:.92,pierce:isBow?2:0,color:w.color,damage:0,v120ExactDamage:d.one,returning:k==='chakram',homing:k==='grimoire'});
+      }
+      return;
+    }
+    if(k==='whip'){
+      if(v120InCone(Math.min(w.range,305),Math.PI*.70,angle)) v120ApplyExactDamage(d.total,w.color,false);
+      arcEffect(player.x,player.y,angle,Math.min(w.range,305),w.color,Math.PI*.70);
+    }else if(k==='dagger'){
+      for(let i=0;i<3;i++) setTimeout(()=>{ if(state.raid&&v120InLine(Math.min(w.range+12,135),24,angle)){ v120ApplyExactDamage(d.one,w.color,false); stabEffect(player.x,player.y,angle,Math.min(w.range+12,135),w.color); } },i*38);
+    }else if(k==='greatsword'){
+      if(v120InCone(Math.min(w.range+24,225),Math.PI*.52,angle)) v120ApplyExactDamage(d.total,w.color,false);
+      slashEffect(player.x,player.y,angle,Math.min(w.range+24,225),w.color,20);
+    }else if(k==='pole'){
+      if(v120InLine(Math.min(w.range+18,260),28,angle)) v120ApplyExactDamage(d.total,w.color,false);
+      thrustEffect(player.x,player.y,angle,Math.min(w.range+18,260),w.color);
+    }else if(k==='scythe'){
+      if(v120InCone(Math.min(w.range*.45,285),Math.PI*.82,angle)) v120ApplyExactDamage(d.total,w.color,false);
+      arcEffect(player.x,player.y,angle,Math.min(w.range*.45,285),w.color,Math.PI*.82); slashEffect(player.x,player.y,angle,Math.min(w.range*.45,285),w.color,16);
+    }else{
+      if(v120InCone(Math.min(w.range+12,210),Math.PI*.46,angle)) v120ApplyExactDamage(d.total,w.color,false);
+      slashEffect(player.x,player.y,angle,Math.min(w.range+12,210),w.color,10);
+    }
+  };
+
+  const V120_OLD_UPDATE_PROJECTILES=updateProjectiles;
+  updateProjectiles=function(dt){
+    try{
+      const exact=[], rest=[];
+      (state.projectiles||[]).forEach(p=>{ if(p&&p.owner==='player'&&p.v120ExactDamage) exact.push(p); else rest.push(p); });
+      if(exact.length){
+        exact.forEach(p=>{
+          if(p.delay){ p.delay-=dt; return; }
+          if(p.homing&&boss){ const a=Math.atan2(boss.y-p.y,boss.x-p.x); p.vx+=(Math.cos(a)*520-p.vx)*dt*2.5; p.vy+=(Math.sin(a)*520-p.vy)*dt*2.5; }
+          if(p.returning){ const age=1.3-p.life; if(age>.55){ const a=Math.atan2(player.y-p.y,player.x-p.x); p.vx=Math.cos(a)*600; p.vy=Math.sin(a)*600; } }
+          p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt;
+          if(!boss.dead && dist(p.x,p.y,boss.x,boss.y)<p.r+boss.r){ v120ApplyExactDamage(p.v120ExactDamage,p.color,false); if(!p.pierce) p.life=0; else p.pierce--; }
+        });
+        state.projectiles=rest;
+        V120_OLD_UPDATE_PROJECTILES(dt);
+        const kept=exact.filter(p=>p.life>0&&p.x>-80&&p.x<W+80&&p.y>-80&&p.y<H+80);
+        state.projectiles=(state.projectiles||[]).concat(kept);
+        return;
+      }
+    }catch(e){ console.warn('[V120 exact projectile failed]',e); }
+    return V120_OLD_UPDATE_PROJECTILES(dt);
+  };
+
+  // 표시 함수 전부 마지막 기준으로 다시 고정
+  try{ v50WeaponEffects=function(w){ w=getWeapon(w&&w.id)||w; return `${v120DamageLine(w)}\n${v120MetaLine(w)}`; }; }catch(e){}
+  try{ v63WeaponDamage=v120Weapon; v106WeaponDamage=v120Weapon; v109ActualWeaponDamage=v120Weapon; v114DisplayedDamage=v120Weapon; v115DisplayedWeapon=v120Weapon; v116DisplayedWeapon=v120Weapon; }catch(e){}
+  try{ v63WeaponDamageLine=v120DamageLine; v106WeaponDamageLine=v120DamageLine; v109WeaponDamageLine=v120DamageLine; v114DamageLine=v120DamageLine; v115DamageLine=v120DamageLine; v116DamageLine=v120DamageLine; }catch(e){}
+  try{
+    v99WeaponMarketMeta=function(id,obj){ const w=getWeapon(id)||obj||{}; const d=v120Weapon(w); let meta={}; try{ meta=typeof weaponMeta==='function'?weaponMeta(id):{}; }catch(e){} return {enh:Number(meta.enh||0)||0,ench:meta.ench||[],damage:d.total,openDamage:d.open,oneDamage:d.one,dps:d.dps,crit:d.crit,realSpeed:d.cd,note:d.layout.note}; };
+    v99MarketTip=function(x){
+      try{
+        if(!x) return '';
+        if(x.kind==='weapon'){
+          const w=Object.assign({},getWeapon(x.itemId)||{}); const meta=Object.assign({},x.meta||{}); const d=v120Weapon(w,meta); const hit=d.layout.hits>1?`1타 ${v120Fmt(d.one)} / 총합 ${v120Fmt(d.total)}`:v120Fmt(d.total); const ench=(typeof v99EnchantTextFromMeta==='function')?v99EnchantTextFromMeta(meta,w):'없음';
+          return `${x.name}\n데미지 ${hit}\n약화 ${v120Fmt(d.open)} · 치명 ${d.crit}% · 공속 ${d.cd.toFixed(2)}\n${v120RarityName(w.rarity)} · 강화 +${Number((meta&&meta.enh)||0)||0} · 인챈트 ${ench}`;
+        }
+        if(x.kind==='skill'){ const sk=getSkill(x.itemId)||{}; return `${x.name}\n피해/효과는 스킬 카드 기준 · 쿨 ${Number(sk.cooldown||0).toFixed(1)}초`; }
+        if(x.kind==='armor'){ const ar=getArmor(x.itemId)||{}; return `${x.name}\n체력 +${ar.hp||0} · 방어 +${ar.def||0}`; }
+        return `${x.name}\n수량 ${x.qty||1}`;
+      }catch(e){ return String(x&&x.name||'아이템'); }
+    };
+  }catch(e){}
+
+  // 스킬 탭/스킬 카드 클릭이 막히는 경우를 막기 위해 캡처 단계에서 직접 처리.
+  function v120SelectFromNode(node){
+    if(!node || !node.dataset) return false;
+    const type=node.dataset.selectType, id=node.dataset.selectId||'', slot=Number(node.dataset.slot||0);
+    if(type==='skill'){
+      state.selectedSkillIds=state.selectedSkillIds||[null,null,null];
+      if(id && state.selectedSkillIds.some((v,i)=>v===id&&i!==slot)){ toast('같은 스킬은 다른 칸에 중복 장착할 수 없습니다.'); return true; }
+      state.selectedSkillIds[slot]=state.selectedSkillIds[slot]===id?null:id;
+      state.selectedAttackSkillId=state.selectedSkillIds[0]; state.selectedEvasionSkillId=state.selectedSkillIds[1]; state.selectedBuffSkillId=state.selectedSkillIds[2];
+      try{ saveGame(); }catch(e){}; renderMenu(); return true;
+    }
+    return false;
+  }
+  function v120UiCapture(e){
+    try{
+      const t=e.target&&e.target.closest&&e.target.closest('[data-select-type="skill"],[data-step="skill1"],[data-step="skill2"],[data-step="skill3"]');
+      if(!t) return;
+      if(t.dataset&&t.dataset.step){ state.buildStep=t.dataset.step; try{ saveGame(); }catch(x){} renderMenu(); e.preventDefault(); e.stopPropagation(); return; }
+      if(v120SelectFromNode(t)){ e.preventDefault(); e.stopPropagation(); return; }
+    }catch(err){ console.warn('[V120 skill click capture failed]',err); }
+  }
+  try{ if(ui&&ui.root&&!ui.root.__v120SkillCapture){ ui.root.__v120SkillCapture=true; ui.root.addEventListener('click',v120UiCapture,true); ui.root.addEventListener('pointerup',v120UiCapture,true); ui.root.addEventListener('touchend',v120UiCapture,true); } }catch(e){}
+  try{
+    const V120_OLD_RENDER_MENU=renderMenu;
+    renderMenu=function(){ V120_OLD_RENDER_MENU.apply(this,arguments); try{ if(ui&&ui.menu){ ui.menu.querySelectorAll('[data-select-type="skill"]').forEach(el=>{ el.style.cursor='pointer'; }); } }catch(e){} };
+  }catch(e){}
+
+  try{ window.RaidDungeonV120={version:V120_VERSION, changed:['스킬 카드/스킬 탭 클릭 캡처 보강','무기 표기 데미지와 실제 일반 공격 피해를 직접 일치','일반 등급이 고등급보다 강한 현상 방지','근거리 낮춤/원거리 상향 유지']}; console.log('[RaidDungeon]',V120_VERSION,'loaded'); }catch(e){}
+}catch(e){ console.warn('[V120 skill/exact damage patch failed]', e); }
