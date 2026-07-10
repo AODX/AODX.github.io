@@ -21122,6 +21122,228 @@ try{
   console.log('[RaidDungeon]',V110_VERSION,'loaded');
 }catch(e){ console.warn('[V110 patch failed]',e); }
 
+
+  /* ===== V113: online sync SQL guide, exact market damage, early simple patterns ===== */
+  try{
+    const V113_VERSION = 'Raid Dungeon V113 - Online Sync Damage Tooltip Early Pattern Fix';
+    const V113_MARKET_TABLE = 'raid_market';
+    const V113_SQL_HINT = 'Supabase SQL 필요: raid_records / raid_market 테이블과 RLS 정책을 실행해야 온라인 공유가 됩니다.';
+
+    function v113Int(n){ n=Number(n||0); return Number.isFinite(n)?Math.round(n):0; }
+    function v113Num(n,d){ n=Number(n||0); return Number.isFinite(n)?n:d; }
+    function v113Fmt(n){ try{return v113Int(n).toLocaleString('ko-KR');}catch(e){return String(v113Int(n));} }
+    function v113SafeName(){ try{return normalizedPlayerName(state.save.playerName||'Player')||'Player';}catch(e){return (state&&state.save&&state.save.playerName)||'Player';} }
+    function v113KindFactor(w){
+      const k=String(w&&w.kind||'');
+      if(k==='dagger') return 1.50;
+      if(k==='greatsword') return 1.18;
+      if(k==='pole') return 1.05;
+      if(k==='whip') return 1.12;
+      if(k==='grimoire') return 3.00;
+      if(k==='scythe') return 1.12;
+      if(k==='chakram') return 1.18;
+      if(k==='gunstaff') return 1.08;
+      return 1.00;
+    }
+    function v113EnhanceInfoFromMeta(meta,id){
+      try{
+        meta = meta || {};
+        let enh = Number(meta.enh ?? meta.enhance ?? 0) || 0;
+        let ench = Array.isArray(meta.ench) ? meta.ench : [];
+        if(!enh && !ench.length && typeof weaponMeta === 'function'){
+          const wm=weaponMeta(id); enh=Number(wm&&wm.enh||0)||0; ench=wm&&wm.ench||[];
+        }
+        let atkBonus = enh*10.5, critBonus=0, speedBonus=0;
+        (ench||[]).forEach(e=>{ const lv=Number(e.lv||e[1]||0)||0; const type=e.type||e[0]; if(type==='attack') atkBonus+=lv*8; if(type==='critChance') critBonus+=lv*3; if(type==='speed') speedBonus+=lv*5.5; });
+        return {enh, ench, atkBonus, critBonus, speedBonus};
+      }catch(e){ return {enh:0, ench:[], atkBonus:0, critBonus:0, speedBonus:0}; }
+    }
+    function v113EnchantText(meta,w){
+      try{ if(meta && meta.enchantText) return String(meta.enchantText); }catch(e){}
+      try{ return v99EnchantTextFromMeta(meta||{}, w||{}); }catch(e){}
+      const arr=(meta&&meta.ench)||[]; return arr&&arr.length?arr.map(e=>`${e.type||e[0]||'인챈트'} Lv.${e.lv||e[1]||1}`).join(' / '):'없음';
+    }
+    function v113ActualWeaponDamageFromMarket(x){
+      const w=getWeapon((x&&x.itemId)||'') || getWeapon((x&&x.id)||'') || {};
+      const meta=Object.assign({}, x&&x.meta||{});
+      const info=v113EnhanceInfoFromMeta(meta, (x&&x.itemId)||w.id);
+      const weaponAtk=v113Num(w.atk, v113Num(meta.atk, 1));
+      const speedBase=v113Num(w.speed, v113Num(meta.speed, .5));
+      const speed=Math.max(.08, speedBase * Math.max(.35, 1 - info.speedBonus/100));
+      const kindMul=v113KindFactor(w);
+      const boosted = 100 * weaponAtk * weaponAtk * kindMul * (1 + info.atkBonus/100) * 4;
+      const normal = Math.max(1, Math.round(boosted * .48));
+      const open = Math.max(1, Math.round(boosted));
+      return {normal, open, dps:Math.max(1,Math.round(normal/speed)), speed:+speed.toFixed(2), crit:Math.round(v113Num(w.crit,0)+info.critBonus), enh:info.enh, ench:info.ench};
+    }
+
+    try{
+      const V113_OLD_WEAPON_META = typeof v99WeaponMarketMeta === 'function' ? v99WeaponMarketMeta : null;
+      v99WeaponMarketMeta = function(id,obj){
+        const base = V113_OLD_WEAPON_META ? V113_OLD_WEAPON_META(id,obj) : {};
+        const temp={itemId:id, meta:base};
+        const dmg=v113ActualWeaponDamageFromMarket(temp);
+        return Object.assign({}, base, {damage: dmg.normal, openDamage: dmg.open, dps: dmg.dps, realSpeed: dmg.speed, crit: dmg.crit});
+      };
+    }catch(e){}
+
+    try{
+      v99MarketTip = function(x){
+        try{
+          if(!x) return '';
+          if(x.kind==='weapon'){
+            const w=getWeapon(x.itemId)||{};
+            const d=v113ActualWeaponDamageFromMarket(x);
+            const ench=v113EnchantText(Object.assign({}, x.meta||{}, {ench:d.ench}), w);
+            return `${x.name}\n데미지 ${v113Fmt(d.normal)} · 약화 ${v113Fmt(d.open)} · 초당 ${v113Fmt(d.dps)}\n공속 ${d.speed.toFixed(2)} · 강화 +${d.enh} · 치명 ${d.crit}%\n인챈트 ${ench}`;
+          }
+          if(x.kind==='skill'){
+            const sk=getSkill(x.itemId)||{};
+            const dmg=Math.max(1,Math.round(100*Number(sk.power||1)*4));
+            return `${x.name}\n예상 피해 ${v113Fmt(dmg)} · 쿨 ${Number(sk.cooldown||0).toFixed(1)}초`;
+          }
+          if(x.kind==='armor'){
+            const ar=getArmor(x.itemId)||{};
+            return `${x.name}\n체력 +${ar.hp||0} · 방어 +${ar.def||0}`;
+          }
+          return `${x.name}\n수량 ${x.qty||1}`;
+        }catch(e){ return String(x&&x.name||'아이템'); }
+      };
+    }catch(e){}
+
+    async function v113CheckOnlineTables(){
+      try{
+        if(!supabaseReady||!supabase||!supabase.from) return false;
+        const r1=await supabase.from('raid_records').select('id').limit(1);
+        const r2=await supabase.from(V113_MARKET_TABLE).select('id').limit(1);
+        if((r1&&r1.error)||(r2&&r2.error)){
+          const msg=((r1&&r1.error&&r1.error.message)||(r2&&r2.error&&r2.error.message)||'SQL/RLS 오류');
+          state.cloudStatus='온라인 공유 SQL/RLS 확인 필요';
+          console.warn('[V113 online table check]',msg);
+          return false;
+        }
+        state.cloudStatus='온라인 서버 연결됨';
+        return true;
+      }catch(e){ state.cloudStatus='온라인 서버 확인 실패'; return false; }
+    }
+
+    let v113BackfillBusy=false;
+    async function v113BackfillLocalRankings(){
+      try{
+        if(v113BackfillBusy||!supabaseReady||!supabase||!supabase.from) return false;
+        v113BackfillBusy=true;
+        const local=(typeof v109LocalRecords==='function'?v109LocalRecords():getLocalRecords()).filter(Boolean).slice(-120);
+        if(!local.length) return true;
+        const markerKey='raid-dungeon-v113-rank-backfill-count';
+        const marker=localStorage.getItem(markerKey)||'';
+        const nowMark=String(local.length)+'/'+String(local[local.length-1]&&local[local.length-1].created_at||'');
+        if(marker===nowMark) return true;
+        const rows=local.map(r=>({
+          player_name:r.player_name||v113SafeName(), boss_id:r.boss_id, boss_name:r.boss_name||'', clear_ms:Number(r.clear_ms||9999999), weapon_id:r.weapon_id||'none', weapon_name:r.weapon_name||'무기 없음', skills:Array.isArray(r.skills)?r.skills:[], passives:Array.isArray(r.passives)?r.passives:[], damage_taken:Number(r.damage_taken||0), created_at:r.created_at||new Date().toISOString()
+        })).filter(r=>r.boss_id&&Number.isFinite(r.clear_ms));
+        if(rows.length){ const res=await supabase.from('raid_records').insert(rows); if(res&&res.error) throw res.error; }
+        localStorage.setItem(markerKey,nowMark);
+        return true;
+      }catch(e){ console.warn('[V113 rank backfill failed]', e&&e.message?e.message:e); return false; }
+      finally{ v113BackfillBusy=false; }
+    }
+
+    let v113MarketBackfillBusy=false;
+    async function v113BackfillLocalMarket(){
+      try{
+        if(v113MarketBackfillBusy||!supabaseReady||!supabase||!supabase.from) return false;
+        v113MarketBackfillBusy=true;
+        const local=JSON.parse(localStorage.getItem(MARKET_KEY)||'[]')||[];
+        const rows=local.filter(x=>x&&!x.online&&x.id&&x.price>0).slice(-80).map(v112MarketToRow);
+        if(!rows.length) return true;
+        const res=await supabase.from(V113_MARKET_TABLE).upsert(rows,{onConflict:'id'});
+        if(res&&res.error) throw res.error;
+        await v112RefreshOnlineMarket(true);
+        return true;
+      }catch(e){ console.warn('[V113 market backfill failed]', e&&e.message?e.message:e); state.cloudStatus='온라인 장터 SQL/RLS 확인 필요'; return false; }
+      finally{ v113MarketBackfillBusy=false; }
+    }
+
+    try{
+      const V113_OLD_REFRESH_RANKINGS = refreshRankings;
+      refreshRankings = async function(bossId){
+        try{ await v113CheckOnlineTables(); await v113BackfillLocalRankings(); }catch(e){}
+        try{ return await V113_OLD_REFRESH_RANKINGS(bossId); }
+        finally{
+          try{
+            if(supabaseReady&&supabase&&supabase.from){
+              const res=await supabase.from('raid_records').select('*').eq('boss_id',bossId).order('clear_ms',{ascending:true}).limit(500);
+              if(res&&!res.error&&Array.isArray(res.data)){
+                const local=(typeof v109LocalRecords==='function'?v109LocalRecords():getLocalRecords()).filter(r=>r&&r.boss_id===bossId);
+                const all=local.concat(res.data);
+                state.rankings=(typeof v109BestByPlayer==='function'?v109BestByPlayer(all):dedupeLatestByPlayer(all)).slice(0,10);
+                state.cloudStatus='온라인 랭킹 불러옴';
+                if(state.menuTab==='ranking'&&state.screen==='menu') renderMenu();
+              }
+            }
+          }catch(e){ console.warn('[V113 online rank merge failed]',e&&e.message?e.message:e); }
+        }
+      };
+    }catch(e){}
+
+    try{
+      const V113_OLD_MARKET_RENDER = renderMarket;
+      renderMarket = function(){
+        try{ v113CheckOnlineTables(); v113BackfillLocalMarket(); v112RefreshOnlineMarket(true); }catch(e){}
+        let html=V113_OLD_MARKET_RENDER();
+        const online = supabaseReady && supabase && state.currentUser;
+        const status = online ? '온라인 동기화 시도 중 / SQL 완료 시 모든 유저 공유' : '오프라인 또는 로그인 대기';
+        html=String(html).replace(/온라인 장터와 로컬 백업을 함께 표시합니다\.[^<]*/,'온라인 장터와 로컬 백업을 함께 표시합니다. '+status);
+        return html;
+      };
+    }catch(e){}
+
+    function v113EarlySimplePattern(){
+      if(!boss||!state||!state.raid) return false;
+      const id=String(boss.id||''), c=boss.color||'#93c5fd', t=boss.theme||'';
+      const dmg=boss.atk*.28;
+      if(id.includes('slime')||t==='slime'){
+        warningCircle(player.x,player.y,46,.75,c,dmg,'');
+        setTimeout(()=>{ if(state.raid&&boss&&!boss.dead) radialBullets(boss.x,boss.y,6,135,c,dmg*.65); },420);
+        return true;
+      }
+      if(id.includes('ember')||t==='fire'){
+        for(let i=-1;i<=1;i++) setTimeout(()=>aimBullet(boss.x,boss.y,player.x+i*38,player.y,175+i*12,c,dmg,'fire'),i*120+220);
+        return true;
+      }
+      if(id.includes('thorn')||t==='nature'){
+        for(let i=0;i<3;i++) warningCircle(player.x+rand(-70,70),player.y+rand(-55,55),28,.85,c,dmg,'poison');
+        return true;
+      }
+      if(id.includes('frost')||t==='ice'){
+        for(let i=0;i<3;i++) setTimeout(()=>warningLineVertical(rand(160,W-160),.78,c,dmg,'ice'),i*180);
+        return true;
+      }
+      if(id.includes('sand')||t==='sand'){
+        const a=Math.atan2(player.y-boss.y,player.x-boss.x)+rand(-.25,.25);
+        warningBeam(boss.x,boss.y,a,360,12,.82,c,dmg,'sand');
+        return true;
+      }
+      return false;
+    }
+    try{
+      const V113_OLD_BOSS_PATTERN = bossPattern;
+      bossPattern = function(){
+        if(boss && boss.tier<=3 && Math.random()<.58){ if(v113EarlySimplePattern()) return; }
+        return V113_OLD_BOSS_PATTERN();
+      };
+    }catch(e){}
+
+    try{
+      if(window.RaidDungeonUI){
+        window.RaidDungeonUI.syncOnline = async ()=>{ await v113CheckOnlineTables(); await v113BackfillLocalRankings(); await v113BackfillLocalMarket(); await v112RefreshOnlineMarket(true); if(state.rankingBossId) await refreshRankings(state.rankingBossId); renderMenu(); };
+      }
+    }catch(e){}
+
+    window.RaidDungeonV113={version:V113_VERSION, sqlRequired:true, hint:V113_SQL_HINT, changed:['초반 보스는 약하지만 패턴 유지','판매소 툴팁 데미지를 배수 대신 실제 피해량으로 표시','로컬 랭킹/장터를 온라인으로 백필 시도','SQL/RLS 없으면 온라인 공유 불가 상태 표시']};
+    console.log('[RaidDungeon]',V113_VERSION,'loaded');
+  }catch(e){ console.warn('[V113 patch failed]', e); }
+
 })();
 
 
