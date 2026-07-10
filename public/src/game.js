@@ -485,7 +485,7 @@
 
   function findRaidActionNode(target) {
     if(!target || !target.closest) return null;
-    return target.closest('[data-authmode],[data-tab],[data-boss],[data-gacha],[data-step],[data-tabgo],[data-select-type],[data-passive],[data-prev-step],[data-next-step],#authSubmit,#localStart,#goBuild,#goGacha,#backDungeon,#startRaid,#manualSaveBtn,#changeNickBtn,#logoutBtn,#giveup,#pauseMenu,#resultMenu');
+    return target.closest('[data-authmode],[data-tab],[data-boss],[data-gacha],[data-step],[data-tabgo],[data-select-type],[data-passive],[data-prev-step],[data-next-step],#authSubmit,#localStart,#goBuild,#goGacha,#backDungeon,#startRaid,#manualSaveBtn,#changeNickBtn,#logoutBtn,#giveup,#pauseMenu,#resultRetry,#resultMenu');
   }
 
   function runUiAction(active) {
@@ -513,6 +513,7 @@
       if(active.matches('#logoutBtn')){ logout(); return; }
       if(active.matches('#giveup')){ renderMenu(); return; }
       if(active.matches('#pauseMenu')){ renderMenu(); return; }
+      if(active.matches('#resultRetry')){ try{ ui.right.classList.add('hidden'); }catch(e){} startRaid(); return; }
       if(active.matches('#resultMenu')){ const id = boss && boss.id; state.menuTab = 'ranking'; renderMenu(); if(id) refreshRankings(id); return; }
     } catch(err) {
       console.error('[Raid UI click error]', err);
@@ -972,7 +973,7 @@
   function bindMenuButtons() {
     // V13: 메뉴가 매번 innerHTML로 다시 그려져도 클릭이 살아있도록,
     // document 위임 + 현재 렌더된 요소 직접 onclick을 둘 다 연결한다.
-    const selectors = '[data-authmode],[data-tab],[data-boss],[data-gacha],[data-step],[data-tabgo],[data-select-type],[data-passive],[data-prev-step],[data-next-step],#authSubmit,#localStart,#goBuild,#goGacha,#backDungeon,#startRaid,#manualSaveBtn,#logoutBtn,#resultMenu';
+    const selectors = '[data-authmode],[data-tab],[data-boss],[data-gacha],[data-step],[data-tabgo],[data-select-type],[data-passive],[data-prev-step],[data-next-step],#authSubmit,#localStart,#goBuild,#goGacha,#backDungeon,#startRaid,#manualSaveBtn,#logoutBtn,#resultRetry,#resultMenu';
     ui.menu.querySelectorAll(selectors).forEach(el => {
       el.onclick = ev => {
         ev.preventDefault();
@@ -1678,7 +1679,7 @@
       submitRecord(elapsed);
     }
     ui.right.classList.remove('hidden');
-    ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`;
+    ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><div class="row" style="margin-top:12px"><button id="resultRetry" class="btn danger">다시 하기</button><button id="resultMenu" class="btn secondary">메뉴로</button></div>`;
     ui.right.querySelector('#resultMenu').onclick=()=>{state.menuTab=clear?'ranking':'build'; renderMenu(); refreshRankings(boss.id);};
   }
 
@@ -7825,7 +7826,7 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
       submitRecord(elapsed);
     }
     ui.right.classList.remove('hidden');
-    ui.right.innerHTML = `<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`;
+    ui.right.innerHTML = `<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><div class="row" style="margin-top:12px"><button id="resultRetry" class="btn danger">다시 하기</button><button id="resultMenu" class="btn secondary">메뉴로</button></div>`;
     const btn = ui.right.querySelector('#resultMenu');
     if(btn) btn.onclick = () => { state.menuTab = clear ? 'ranking' : 'build'; renderMenu(); refreshRankings(boss.id); };
   };
@@ -9662,7 +9663,7 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
         submitRecord(elapsed);
       }
       ui.right.classList.remove('hidden');
-      ui.right.innerHTML = `<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`;
+      ui.right.innerHTML = `<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><div class="row" style="margin-top:12px"><button id="resultRetry" class="btn danger">다시 하기</button><button id="resultMenu" class="btn secondary">메뉴로</button></div>`;
       ui.right.querySelector('#resultMenu').onclick = () => { state.menuTab = clear ? 'ranking' : 'build'; renderMenu(); refreshRankings(boss.id); };
     };
   } catch(e){ console.warn('[V39 endRaid first clear patch failed]', e); }
@@ -10416,7 +10417,7 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
       saveGame(); submitRecord(elapsed);
     }
     ui.right.classList.remove('hidden');
-    ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`;
+    ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${boss.name}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><div class="row" style="margin-top:12px"><button id="resultRetry" class="btn danger">다시 하기</button><button id="resultMenu" class="btn secondary">메뉴로</button></div>`;
     ui.right.querySelector('#resultMenu').onclick=()=>{state.menuTab=clear?'ranking':'build';renderMenu();refreshRankings(boss.id);};
   };
 
@@ -10984,7 +10985,7 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
       submitRecordV43(elapsed, {id:b.id,name:b.name}, record, firstCandidate);
     }
     ui.right.classList.remove('hidden');
-    ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${esc(boss.name)}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`;
+    ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${esc(boss.name)}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><div class="row" style="margin-top:12px"><button id="resultRetry" class="btn danger">다시 하기</button><button id="resultMenu" class="btn secondary">메뉴로</button></div>`;
     const btn=ui.right.querySelector('#resultMenu');
     if(btn) btn.onclick=()=>{ state.menuTab=clear?'ranking':'build'; renderMenu(); refreshRankings(boss.id); };
   };
@@ -11600,7 +11601,7 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
       submitRecordV44(record,{id:b.id,name:b.name},firstCandidate);
     }
     ui.right.classList.remove('hidden');
-    ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${esc(boss.name)}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`;
+    ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${esc(boss.name)}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?rewardText:'보스를 다시 분석해보세요.'}</p><div class="row" style="margin-top:12px"><button id="resultRetry" class="btn danger">다시 하기</button><button id="resultMenu" class="btn secondary">메뉴로</button></div>`;
     const btn=ui.right.querySelector('#resultMenu'); if(btn) btn.onclick=()=>{state.menuTab=clear?'ranking':'build'; renderMenu(); refreshRankings(boss.id);};
   };
 
@@ -11928,7 +11929,7 @@ try { if (typeof VERSION !== 'undefined') console.log('[RaidDungeon] V22 content
         try{subabase&&supabase.from&&supabase.from('raid_records').insert(record);}catch(e){}
         if(previous===false) showFirstOnlyCenter(b.name);
       }
-      ui.right.classList.remove('hidden'); ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${esc(boss.name)}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?reward:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`;
+      ui.right.classList.remove('hidden'); ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${esc(boss.name)}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?reward:'보스를 다시 분석해보세요.'}</p><div class="row" style="margin-top:12px"><button id="resultRetry" class="btn danger">다시 하기</button><button id="resultMenu" class="btn secondary">메뉴로</button></div>`;
       const btn=ui.right.querySelector('#resultMenu'); if(btn) btn.onclick=()=>{state.menuTab=clear?'ranking':'build'; renderMenu(); refreshRankings(boss.id);};
     };
   }catch(e){console.warn('[V45 endRaid patch failed]',e);}
@@ -12632,7 +12633,7 @@ function v53UniqueItems(items){
         try{subabase&&supabase.from&&supabase.from('raid_records').insert(record);}catch(e){}
         if(isNewRecord) { v51ShowNewRecord(b.name,elapsed,bestBefore); reward='<b style="color:#60a5fa;font-size:16px">NEW RECORD! 1등 기록 갱신</b><br>'+reward; }
       }
-      ui.right.classList.remove('hidden'); ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${esc(boss.name)}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?reward:'보스를 다시 분석해보세요.'}</p><button id="resultMenu" class="btn">메뉴로</button>`;
+      ui.right.classList.remove('hidden'); ui.right.innerHTML=`<h1 class="title">${clear?'클리어!':'실패'}</h1><p class="sub">${esc(boss.name)}<br>시간: ${formatMs(elapsed)}<br>받은 피해: ${player.damageTaken}<br>${clear?reward:'보스를 다시 분석해보세요.'}</p><div class="row" style="margin-top:12px"><button id="resultRetry" class="btn danger">다시 하기</button><button id="resultMenu" class="btn secondary">메뉴로</button></div>`;
       const btn=ui.right.querySelector('#resultMenu'); if(btn) btn.onclick=()=>{state.menuTab=clear?'ranking':'build'; renderMenu(); refreshRankings(boss.id);};
     };
   }catch(e){ console.warn('[V51 endRaid New Record patch failed]',e); }
@@ -21434,3 +21435,830 @@ try{
 
 /* ===== V112: online market/rank/passive detail patch metadata ===== */
 try{ window.RaidDungeonV112={version:'Raid Dungeon V112 - Online Market Rank Passive Details',changed:['장터 온라인 Supabase raid_market 연결 + 로컬 백업','랭킹 저장 중복/삭제 재호출 방지','패시브 효과 수치/지속시간 간단 표기']}; console.log('[RaidDungeon] V112 online market/rank/passive details loaded'); }catch(e){}
+
+
+/* ===== V114: ranged/melee balance + true displayed damage sync ===== */
+try{
+  const V114_VERSION = 'Raid Dungeon V114 - Ranged Melee Balance True Damage Display';
+  const V114_DAMAGE_BOOST = 4;
+  const V114_GUARD_MUL = .48;
+
+  function v114Num(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+  function v114Fmt(n){ return Math.round(Number(n)||0).toLocaleString(); }
+  function v114Kind(w){ return String(w && w.kind || ''); }
+  function v114IsRanged(w){
+    const k=v114Kind(w);
+    return k.includes('bow') || k.includes('staff') || k==='gunstaff' || k==='grimoire' || k==='chakram';
+  }
+  function v114BalanceMul(w){
+    const k=v114Kind(w);
+    if(v114IsRanged(w)){
+      if(k==='grimoire') return 1.18;       // 3발이라 1발당은 과하지 않게
+      if(k.includes('bow')) return 1.58;
+      if(k.includes('staff')) return 1.46;
+      if(k==='gunstaff') return 1.48;
+      if(k==='chakram') return 1.42;
+      return 1.45;
+    }
+    // 근접은 위험을 감수하는 대신 너무 압도적이지 않게 낮춤
+    if(k==='dagger') return .78;
+    if(k==='greatsword') return .98;
+    if(k==='pole') return .86;
+    if(k==='whip') return .88;
+    if(k==='scythe') return .92;
+    if(k.includes('sword')) return .84;
+    return .86;
+  }
+  function v114HitPlan(w){
+    const k=v114Kind(w);
+    const main = v114Num((w && w.atk),1) * v114BalanceMul(w) * 100;
+    if(v114IsRanged(w)){
+      const count = k==='grimoire' ? 3 : 1;
+      return {kind:k, ranged:true, hitAmount:main, hits:count, totalAmount:main*count, note:count>1 ? `${count}발 합산` : '1발'};
+    }
+    if(k==='dagger') return {kind:k,ranged:false,hitAmount:main*.42,hits:3,totalAmount:main*.42*3,note:'3타 합산'};
+    if(k==='greatsword') return {kind:k,ranged:false,hitAmount:main*1.12,hits:1,totalAmount:main*1.12,note:'강한 1타'};
+    if(k==='pole') return {kind:k,ranged:false,hitAmount:main*.98,hits:1,totalAmount:main*.98,note:'찌르기 1타'};
+    if(k==='scythe') return {kind:k,ranged:false,hitAmount:main*1.05,hits:1,totalAmount:main*1.05,note:'넓은 1타'};
+    return {kind:k,ranged:false,hitAmount:main,hits:1,totalAmount:main,note:'1타'};
+  }
+  function v114DisplayedDamage(w){
+    try{
+      w = getWeapon((w && w.id) || w) || w;
+      const plan=v114HitPlan(w||{});
+      const oneGuard=Math.max(1,Math.round(plan.hitAmount*V114_DAMAGE_BOOST*V114_GUARD_MUL));
+      const totalGuard=Math.max(1,Math.round(plan.totalAmount*V114_DAMAGE_BOOST*V114_GUARD_MUL));
+      const totalOpen=Math.max(1,Math.round(plan.totalAmount*V114_DAMAGE_BOOST));
+      const cd=Math.max(.08, v114Num(w&&w.speed,.5) * (plan.ranged ? 1 : .82));
+      const crit=Math.max(0,Math.round(v114Num(w&&w.crit,0)));
+      return {oneGuard,totalGuard,totalOpen,dps:Math.max(1,Math.round(totalGuard/cd)),cd:+cd.toFixed(2),crit,plan};
+    }catch(e){ return {oneGuard:0,totalGuard:0,totalOpen:0,dps:0,cd:0,crit:0,plan:{hits:1,note:'1타'}}; }
+  }
+  function v114DamageLine(w){
+    const d=v114DisplayedDamage(w);
+    const hit = d.plan.hits>1 ? `1타 ${v114Fmt(d.oneGuard)} / 총합 ${v114Fmt(d.totalGuard)}` : `${v114Fmt(d.totalGuard)}`;
+    return `실제 데미지 ${hit} · 약화 ${v114Fmt(d.totalOpen)} · 초당 ${v114Fmt(d.dps)} · ${d.plan.note}`;
+  }
+
+  // 실제 공격도 표기와 같은 계산을 쓰도록 마지막에 다시 고정한다.
+  basicAttack = function(){
+    if(!state.raid || player.basicCd > 0) return;
+    let w = state.raid.weapon;
+    if(w && w.id){ try{ w = getWeapon(w.id) || w; state.raid.weapon = w; }catch(e){} }
+    if(!w){ toast('장착한 무기가 없어 일반공격을 사용할 수 없습니다.'); player.basicCd=.6; return; }
+    const angle=aimAngle();
+    const plan=v114HitPlan(w);
+    player.basicCd = plan.ranged ? Math.max(w.speed, .34) : Math.max(.08, w.speed * .82);
+    player.attackAnim=.20+Math.min(.20,player.basicCd*.28);
+    player.attackAngle=angle;
+    if(Math.cos(angle)<0) player.face=-1;
+    if(Math.cos(angle)>0) player.face=1;
+
+    if(plan.ranged){
+      const count=plan.hits;
+      for(let i=0;i<count;i++){
+        const a=angle+(i-(count-1)/2)*.12;
+        const isBow=String(w.kind||'').includes('bow');
+        spawnProjectile({owner:'player',x:player.x+Math.cos(a)*22,y:player.y+Math.sin(a)*22,vx:Math.cos(a)*(isBow?980:720),vy:Math.sin(a)*(isBow?980:720),r:w.kind==='gunstaff'?8:5,life:w.kind==='chakram'?1.18:.92,pierce:isBow?2:0,color:w.color,damage:plan.hitAmount,splash:w.kind==='gunstaff'?54:0,returning:w.kind==='chakram',homing:w.kind==='grimoire'});
+      }
+      return;
+    }
+    const k=String(w.kind||'');
+    if(k==='whip'){
+      damageBossCone(Math.min(w.range,305),Math.PI*.70,angle,plan.hitAmount,w.color);
+      arcEffect(player.x,player.y,angle,Math.min(w.range,305),w.color,Math.PI*.70);
+    }else if(k==='dagger'){
+      for(let i=0;i<3;i++) setTimeout(()=>{ if(state.raid){ damageBossLine(Math.min(w.range+12,135),24,angle,plan.hitAmount,w.color); stabEffect(player.x,player.y,angle,Math.min(w.range+12,135),w.color); } }, i*38);
+    }else if(k==='greatsword'){
+      damageBossCone(Math.min(w.range+24,225),Math.PI*.52,angle,plan.hitAmount,w.color);
+      slashEffect(player.x,player.y,angle,Math.min(w.range+24,225),w.color,20);
+    }else if(k==='pole'){
+      damageBossLine(Math.min(w.range+18,260),28,angle,plan.hitAmount,w.color);
+      thrustEffect(player.x,player.y,angle,Math.min(w.range+18,260),w.color);
+    }else if(k==='scythe'){
+      damageBossCone(Math.min(w.range*.45,285),Math.PI*.82,angle,plan.hitAmount,w.color);
+      arcEffect(player.x,player.y,angle,Math.min(w.range*.45,285),w.color,Math.PI*.82);
+      slashEffect(player.x,player.y,angle,Math.min(w.range*.45,285),w.color,16);
+    }else{
+      damageBossCone(Math.min(w.range+12,210),Math.PI*.46,angle,plan.hitAmount,w.color);
+      slashEffect(player.x,player.y,angle,Math.min(w.range+12,210),w.color,10);
+    }
+  };
+
+  try{ v63WeaponDamage = v114DisplayedDamage; }catch(e){}
+  try{ v106WeaponDamage = v114DisplayedDamage; }catch(e){}
+  try{ v109ActualWeaponDamage = v114DisplayedDamage; }catch(e){}
+  try{ v63WeaponDamageLine = v114DamageLine; }catch(e){}
+  try{ v106WeaponDamageLine = v114DamageLine; }catch(e){}
+  try{ v109WeaponDamageLine = v114DamageLine; }catch(e){}
+
+  try{
+    if(typeof v50WeaponEffects === 'function'){
+      const V114_OLD_V50_EFFECTS = v50WeaponEffects;
+      v50WeaponEffects = function(w){
+        let old=''; try{ old=V114_OLD_V50_EFFECTS(w); }catch(e){}
+        const lines=String(old||'').split('\n').filter(Boolean).filter(line=>!/^(데미지:|보스 실전 데미지:|실제 데미지)/.test(line));
+        return [v114DamageLine(w)].concat(lines).join('\n');
+      };
+    }
+  }catch(e){}
+
+  // 판매소 등록/마우스오버도 배수가 아니라 실제 보스 피격 숫자로 고정한다.
+  try{
+    v99WeaponMarketMeta = function(id,obj){
+      obj = obj || getWeapon(id) || {};
+      let meta={};
+      try{ meta = (typeof weaponMeta==='function') ? weaponMeta(id) : {}; }catch(e){}
+      const d=v114DisplayedDamage(obj);
+      return {atk:Number(obj.atk||0), speed:Number(obj.speed||0), enh:Number(meta.enh||obj.v45Enhance||0)||0, ench:meta.ench||obj.v45Enchant||[], damage:d.totalGuard, openDamage:d.totalOpen, oneDamage:d.oneGuard, dps:d.dps, crit:d.crit, realSpeed:d.cd, note:d.plan.note};
+    };
+  }catch(e){}
+  try{
+    v99MarketTip = function(x){
+      try{
+        if(!x) return '';
+        if(x.kind==='weapon'){
+          const w=getWeapon(x.itemId)||{};
+          const d=v114DisplayedDamage(w);
+          const meta=Object.assign({}, x.meta||{});
+          const enh=Number(meta.enh ?? w.v45Enhance ?? 0)||0;
+          const ench=(typeof v99EnchantTextFromMeta==='function') ? v99EnchantTextFromMeta(meta,w) : '없음';
+          const hit=d.plan.hits>1 ? `1타 ${v114Fmt(d.oneGuard)} / 총합 ${v114Fmt(d.totalGuard)}` : v114Fmt(d.totalGuard);
+          return `${x.name}\n실제 데미지 ${hit}\n약화 ${v114Fmt(d.totalOpen)} · 초당 ${v114Fmt(d.dps)} · 공속 ${d.cd.toFixed(2)}\n강화 +${enh} · 인챈트 ${ench}`;
+        }
+        if(x.kind==='skill'){
+          const sk=getSkill(x.itemId)||{};
+          const dmg=Math.max(1,Math.round(100*Number(sk.power||1)*4*.48));
+          return `${x.name}\n예상 피해 ${v114Fmt(dmg)} · 쿨 ${Number(sk.cooldown||0).toFixed(1)}초`;
+        }
+        if(x.kind==='armor'){
+          const ar=getArmor(x.itemId)||{};
+          return `${x.name}\n체력 +${ar.hp||0} · 방어 +${ar.def||0}`;
+        }
+        return `${x.name}\n수량 ${x.qty||1}`;
+      }catch(e){ return String(x&&x.name||'아이템'); }
+    };
+  }catch(e){}
+
+  // 장터에서 산 강화 무기의 메타를 가능한 한 보존한다.
+  try{
+    if(typeof marketBuy === 'function' && !marketBuy.__v114MetaPreserve){
+      const V114_OLD_MARKET_BUY = marketBuy;
+      marketBuy = function(id){
+        let item=null;
+        try{ item=(marketLoad()||[]).find(x=>String(x.id)===String(id)); }catch(e){}
+        const ret=V114_OLD_MARKET_BUY.apply(this,arguments);
+        try{
+          if(item && item.kind==='weapon' && item.itemId && item.meta && typeof v45==='function'){
+            const v=v45(); const key=String(item.itemId).replace(/[^a-zA-Z0-9_-]/g,'_');
+            if(Number.isFinite(Number(item.meta.enh))) v.weaponEnhance[key]=Math.max(Number(v.weaponEnhance[key]||0), Number(item.meta.enh||0));
+            if(Array.isArray(item.meta.ench) && item.meta.ench.length) v.weaponEnchant[key]=item.meta.ench;
+            saveGame();
+          }
+        }catch(e){}
+        return ret;
+      };
+      marketBuy.__v114MetaPreserve = true;
+    }
+  }catch(e){}
+
+  try{
+    window.RaidDungeonV114={version:V114_VERSION, changed:['근접 무기 피해 하향','원거리 무기 피해 상향','무기 표기/판매소 툴팁을 실제 보스에게 뜨는 피해량 기준으로 재계산','장터 구매 시 강화/인챈트 메타 보존 시도']};
+    console.log('[RaidDungeon]',V114_VERSION,'loaded');
+  }catch(e){}
+}catch(e){ console.warn('[V114 range/melee true damage patch failed]', e); }
+
+
+/* ===== V115: rarity-based weapon scaling + exact displayed weapon damage ===== */
+try{
+  const V115_VERSION = 'Raid Dungeon V115 - Rarity Weapon Balance True Damage';
+  const V115_DAMAGE_BOOST = 4;
+  const V115_GUARD_MUL = .48;
+
+  function v115Num(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+  function v115Fmt(n){ return Math.round(Number(n)||0).toLocaleString(); }
+  function v115Kind(w){ return String(w && w.kind || ''); }
+  function v115RarityId(w){ return String((w && w.rarity) || 'normal'); }
+  function v115RarityRank(r){ return ({normal:1,rare:2,super:3,epic:4,legendary:5,ultimate:6})[String(r||'normal')] || 1; }
+  function v115RarityName(r){ return ({normal:'일반',rare:'희귀',super:'초희귀',epic:'에픽',legendary:'레전더리',ultimate:'궁극'})[String(r||'normal')] || '일반'; }
+  function v115RarityMul(w){
+    // 낮은 등급 일반 무기가 상위 등급보다 강해지는 현상을 막기 위한 명확한 등급 계단.
+    return ({normal:.72, rare:.95, super:1.26, epic:1.72, legendary:2.35, ultimate:3.25})[v115RarityId(w)] || .72;
+  }
+  function v115RarityEffectPct(w){
+    return ({normal:0, rare:10, super:24, epic:45, legendary:78, ultimate:120})[v115RarityId(w)] || 0;
+  }
+  function v115IsRanged(w){
+    const k=v115Kind(w);
+    return k.includes('bow') || k.includes('staff') || k==='gunstaff' || k==='grimoire' || k==='chakram';
+  }
+  function v115BalanceMul(w){
+    const k=v115Kind(w);
+    if(v115IsRanged(w)){
+      if(k==='grimoire') return 1.28;
+      if(k.includes('bow')) return 1.72;
+      if(k.includes('staff')) return 1.60;
+      if(k==='gunstaff') return 1.64;
+      if(k==='chakram') return 1.55;
+      return 1.58;
+    }
+    // 근거리 기본 피해는 낮추고, 상위 등급 보정으로 성장하도록 변경.
+    if(k==='dagger') return .60;
+    if(k==='greatsword') return .76;
+    if(k==='pole') return .66;
+    if(k==='whip') return .68;
+    if(k==='scythe') return .72;
+    if(k.includes('sword')) return .64;
+    return .66;
+  }
+  function v115MetaRates(meta){
+    const ench = (meta && Array.isArray(meta.ench)) ? meta.ench : (meta && meta.ench ? Object.entries(meta.ench).map(([type,lv])=>({type,lv})) : []);
+    let attack=0, speed=0, crit=0, luck=0, plunder=0;
+    ench.forEach(e=>{
+      const type=e.type || e[0]; const lv=Number(e.lv ?? e[1] ?? 0)||0;
+      if(type==='attack') attack += lv*.08;
+      if(type==='speed') speed += lv*.055;
+      if(type==='critChance') crit += lv*3;
+      if(type==='luck') luck += lv*3.5;
+      if(type==='plunder') plunder += lv*7;
+    });
+    return {attack,speed,crit,luck,plunder};
+  }
+  function v115BaseWeapon(id){
+    try{ return (WEAPONS||[]).find(w=>String(w.id)===String(id)) || getWeapon(id); }catch(e){ return getWeapon(id); }
+  }
+  function v115WeaponFromListing(x){
+    const base = v115BaseWeapon(x && x.itemId) || getWeapon(x && x.itemId) || {};
+    const meta = Object.assign({}, (x && x.meta) || {});
+    if(!meta.ench && base.v45Enchant) meta.ench = base.v45Enchant;
+    if(meta.enh == null && base.v45Enhance != null) meta.enh = base.v45Enhance;
+    const enh = Math.max(0, Number(meta.enh || 0) || 0);
+    const rates = v115MetaRates(meta);
+    return Object.assign({}, base, {
+      atk: +(v115Num(base.atk,1) * (1 + enh*.105 + rates.attack)).toFixed(4),
+      speed: +(v115Num(base.speed,.5) / Math.max(.35, 1 + rates.speed)).toFixed(4),
+      crit: +(v115Num(base.crit,0) + rates.crit).toFixed(2),
+      v45Enhance: enh,
+      v45Enchant: meta.ench || []
+    });
+  }
+  function v115DisplayedWeapon(w){
+    try{
+      if(!w) return {oneGuard:0,totalGuard:0,totalOpen:0,dps:0,cd:0,crit:0,plan:{hits:1,note:'1타'},rarityPct:0};
+      if(typeof w === 'string') w = getWeapon(w) || v115BaseWeapon(w) || {};
+      else if(w.id) w = getWeapon(w.id) || w;
+      const k = v115Kind(w);
+      const main = v115Num(w.atk,1) * v115BalanceMul(w) * v115RarityMul(w) * 100;
+      let hitAmount = main, hits = 1, note = '1타';
+      if(v115IsRanged(w)){
+        hits = k==='grimoire' ? 3 : 1;
+        note = hits>1 ? `${hits}발 합산` : '1발';
+      }else if(k==='dagger'){
+        hitAmount = main*.40; hits = 3; note = '3타 합산';
+      }else if(k==='greatsword'){
+        hitAmount = main*1.08; note = '강한 1타';
+      }else if(k==='pole'){
+        hitAmount = main*.96; note = '찌르기 1타';
+      }else if(k==='scythe'){
+        hitAmount = main*1.02; note = '넓은 1타';
+      }
+      const totalAmount = hitAmount * hits;
+      const oneGuard = Math.max(1, Math.round(hitAmount * V115_DAMAGE_BOOST * V115_GUARD_MUL));
+      const totalGuard = Math.max(1, Math.round(totalAmount * V115_DAMAGE_BOOST * V115_GUARD_MUL));
+      const totalOpen = Math.max(1, Math.round(totalAmount * V115_DAMAGE_BOOST));
+      const cd = Math.max(.08, v115Num(w.speed,.5) * (v115IsRanged(w) ? 1 : .82));
+      const crit = Math.max(0, Math.round(v115Num(w.crit,0)));
+      return {oneGuard,totalGuard,totalOpen,dps:Math.max(1,Math.round(totalGuard/cd)),cd:+cd.toFixed(2),crit,rarityPct:v115RarityEffectPct(w),rank:v115RarityRank(v115RarityId(w)),plan:{kind:k,ranged:v115IsRanged(w),hitAmount,hits,totalAmount,note}};
+    }catch(e){ return {oneGuard:0,totalGuard:0,totalOpen:0,dps:0,cd:0,crit:0,rarityPct:0,rank:1,plan:{hits:1,note:'1타'}}; }
+  }
+  function v115DamageLine(w){
+    const d=v115DisplayedWeapon(w);
+    const hit = d.plan.hits>1 ? `1타 ${v115Fmt(d.oneGuard)} / 총합 ${v115Fmt(d.totalGuard)}` : `${v115Fmt(d.totalGuard)}`;
+    return `데미지 ${hit} · 약화 ${v115Fmt(d.totalOpen)} · 초당 ${v115Fmt(d.dps)} · ${d.plan.note}`;
+  }
+  function v115SpecialLine(w){
+    const d=v115DisplayedWeapon(w);
+    const r=v115RarityId(w);
+    const pct=d.rarityPct;
+    const tag = v115IsRanged(w) ? '원거리 보정' : '근거리 보정';
+    if(r==='normal') return `등급 효과: 없음 · ${tag}`;
+    const extra = d.rank>=5 ? ' + 고등급 추가 이펙트 강화' : d.rank>=4 ? ' + 특수 연출 강화' : '';
+    return `등급 효과: 피해 +${pct}%급 성장 보정 · ${tag}${extra}`;
+  }
+  function v115MetaEffectLine(w){
+    let meta={};
+    try{ meta = (typeof weaponMeta==='function' && w && w.id) ? weaponMeta(w.id) : {}; }catch(e){}
+    const enh=Number(meta.enh ?? w.v45Enhance ?? 0)||0;
+    const ench=meta.ench || w.v45Enchant || [];
+    const rates=v115MetaRates({ench});
+    const atkPct=Math.round((enh*.105 + rates.attack)*100);
+    const spdPct=Math.round(rates.speed*100);
+    const critPct=Math.round(rates.crit);
+    const luckPct=Math.round(rates.luck);
+    const plunderPct=Math.round(rates.plunder);
+    return `강화/인챈트: 공격 +${atkPct}%, 공속 +${spdPct}%, 치명 +${critPct}%, 행운 +${luckPct}%, 약탈 +${plunderPct}%`;
+  }
+
+  basicAttack = function(){
+    if(!state.raid || player.basicCd > 0) return;
+    let w = state.raid.weapon;
+    if(w && w.id){ try{ w = getWeapon(w.id) || w; state.raid.weapon = w; }catch(e){} }
+    if(!w){ toast('장착한 무기가 없어 일반공격을 사용할 수 없습니다.'); player.basicCd=.6; return; }
+    const angle=aimAngle();
+    const d=v115DisplayedWeapon(w);
+    const plan=d.plan;
+    player.basicCd = plan.ranged ? Math.max(d.cd, .28) : Math.max(.08, d.cd);
+    player.attackAnim=.20+Math.min(.20,player.basicCd*.28);
+    player.attackAngle=angle;
+    if(Math.cos(angle)<0) player.face=-1;
+    if(Math.cos(angle)>0) player.face=1;
+
+    if(plan.ranged){
+      const count=plan.hits;
+      for(let i=0;i<count;i++){
+        const a=angle+(i-(count-1)/2)*.12;
+        const isBow=String(w.kind||'').includes('bow');
+        spawnProjectile({owner:'player',x:player.x+Math.cos(a)*22,y:player.y+Math.sin(a)*22,vx:Math.cos(a)*(isBow?990:735),vy:Math.sin(a)*(isBow?990:735),r:w.kind==='gunstaff'?8:5,life:w.kind==='chakram'?1.18:.92,pierce:isBow?2:0,color:w.color,damage:plan.hitAmount,splash:w.kind==='gunstaff'?54:0,returning:w.kind==='chakram',homing:w.kind==='grimoire'});
+      }
+      return;
+    }
+    const k=String(w.kind||'');
+    if(k==='whip'){
+      damageBossCone(Math.min(w.range,305),Math.PI*.70,angle,plan.hitAmount,w.color); arcEffect(player.x,player.y,angle,Math.min(w.range,305),w.color,Math.PI*.70);
+    }else if(k==='dagger'){
+      for(let i=0;i<3;i++) setTimeout(()=>{ if(state.raid){ damageBossLine(Math.min(w.range+12,135),24,angle,plan.hitAmount,w.color); stabEffect(player.x,player.y,angle,Math.min(w.range+12,135),w.color); } }, i*38);
+    }else if(k==='greatsword'){
+      damageBossCone(Math.min(w.range+24,225),Math.PI*.52,angle,plan.hitAmount,w.color); slashEffect(player.x,player.y,angle,Math.min(w.range+24,225),w.color,20);
+    }else if(k==='pole'){
+      damageBossLine(Math.min(w.range+18,260),28,angle,plan.hitAmount,w.color); thrustEffect(player.x,player.y,angle,Math.min(w.range+18,260),w.color);
+    }else if(k==='scythe'){
+      damageBossCone(Math.min(w.range*.45,285),Math.PI*.82,angle,plan.hitAmount,w.color); arcEffect(player.x,player.y,angle,Math.min(w.range*.45,285),w.color,Math.PI*.82); slashEffect(player.x,player.y,angle,Math.min(w.range*.45,285),w.color,16);
+    }else{
+      damageBossCone(Math.min(w.range+12,210),Math.PI*.46,angle,plan.hitAmount,w.color); slashEffect(player.x,player.y,angle,Math.min(w.range+12,210),w.color,10);
+    }
+  };
+
+  try{ v63WeaponDamage = v115DisplayedWeapon; }catch(e){}
+  try{ v106WeaponDamage = v115DisplayedWeapon; }catch(e){}
+  try{ v109ActualWeaponDamage = v115DisplayedWeapon; }catch(e){}
+  try{ v114DisplayedDamage = v115DisplayedWeapon; }catch(e){}
+  try{ v63WeaponDamageLine = v115DamageLine; }catch(e){}
+  try{ v106WeaponDamageLine = v115DamageLine; }catch(e){}
+  try{ v109WeaponDamageLine = v115DamageLine; }catch(e){}
+  try{ v114DamageLine = v115DamageLine; }catch(e){}
+
+  try{
+    v50WeaponEffects=function(w){
+      w = getWeapon(w && w.id) || w;
+      return `${v115DamageLine(w)}\n${v115SpecialLine(w)}\n${v115MetaEffectLine(w)}`;
+    };
+  }catch(e){}
+
+  try{
+    v99WeaponMarketMeta = function(id,obj){
+      obj = obj || getWeapon(id) || v115BaseWeapon(id) || {};
+      let meta={}; try{ meta=(typeof weaponMeta==='function') ? weaponMeta(id) : {}; }catch(e){}
+      const d=v115DisplayedWeapon(obj);
+      return {atk:Number(obj.atk||0), speed:Number(obj.speed||0), enh:Number(meta.enh||obj.v45Enhance||0)||0, ench:meta.ench||obj.v45Enchant||[], damage:d.totalGuard, openDamage:d.totalOpen, oneDamage:d.oneGuard, dps:d.dps, crit:d.crit, realSpeed:d.cd, note:d.plan.note, rarityPct:d.rarityPct};
+    };
+  }catch(e){}
+  try{
+    v99MarketTip = function(x){
+      try{
+        if(!x) return '';
+        if(x.kind==='weapon'){
+          const w=v115WeaponFromListing(x);
+          const d=v115DisplayedWeapon(w);
+          const hit=d.plan.hits>1 ? `1타 ${v115Fmt(d.oneGuard)} / 총합 ${v115Fmt(d.totalGuard)}` : v115Fmt(d.totalGuard);
+          const enh=Number(w.v45Enhance||0)||0;
+          const ench=(typeof v99EnchantTextFromMeta==='function') ? v99EnchantTextFromMeta({enh,ench:w.v45Enchant||[]},w) : '없음';
+          return `${x.name}\n데미지 ${hit}\n약화 ${v115Fmt(d.totalOpen)} · 초당 ${v115Fmt(d.dps)} · 공속 ${d.cd.toFixed(2)}\n등급 효과 +${d.rarityPct}% · 강화 +${enh} · 인챈트 ${ench}`;
+        }
+        if(x.kind==='skill'){
+          const sk=getSkill(x.itemId)||{};
+          const dmg=Math.max(1,Math.round(100*Number(sk.power||1)*4*.48));
+          return `${x.name}\n예상 피해 ${v115Fmt(dmg)} · 쿨 ${Number(sk.cooldown||0).toFixed(1)}초`;
+        }
+        if(x.kind==='armor'){
+          const ar=getArmor(x.itemId)||{};
+          return `${x.name}\n체력 +${ar.hp||0} · 방어 +${ar.def||0}`;
+        }
+        return `${x.name}\n수량 ${x.qty||1}`;
+      }catch(e){ return String(x&&x.name||'아이템'); }
+    };
+  }catch(e){}
+
+  try{
+    window.RaidDungeonV115={version:V115_VERSION, changed:['등급이 높을수록 무기 피해가 명확히 상승','근거리 기본 피해 추가 하향','원거리 피해 추가 상향','표기 데미지와 실제 보스 피격 피해 계산 재동기화','판매소 툴팁도 실제 피해 기준으로 재계산']};
+    console.log('[RaidDungeon]',V115_VERSION,'loaded');
+  }catch(e){}
+}catch(e){ console.warn('[V115 rarity weapon balance patch failed]', e); }
+
+
+/* ===== V116: mark debuff, exact weapon damage, rarity order, online market sync hint ===== */
+try{
+  const V116_VERSION = 'Raid Dungeon V116 - Mark Damage Exact Weapon Balance Online Market Fix';
+  const V116_GUARD_MUL = 0.48;
+  const V116_DAMAGE_WRAPPER_MUL = 4; // V105 wrapper multiplies damageBoss input by 4.
+
+  function v116Num(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+  function v116Fmt(n){ try{return Math.round(Number(n)||0).toLocaleString('ko-KR');}catch(e){return String(Math.round(Number(n)||0));} }
+  function v116Kind(w){ return String(w && w.kind || ''); }
+  function v116Rarity(w){ return String((w && w.rarity) || 'normal'); }
+  function v116RarityRank(r){ return ({normal:1,rare:2,super:3,epic:4,legendary:5,ultimate:6})[String(r||'normal')] || 1; }
+  function v116RarityName(r){ return ({normal:'일반',rare:'희귀',super:'초희귀',epic:'에픽',legendary:'레전더리',ultimate:'궁극'})[String(r||'normal')] || '일반'; }
+  function v116Ranged(w){ const k=v116Kind(w); return k.includes('staff') || k.includes('bow') || ['gunstaff','chakram','grimoire'].includes(k); }
+  function v116BaseByRarity(r){ return ({normal:90, rare:128, super:184, epic:270, legendary:400, ultimate:620})[String(r||'normal')] || 90; }
+  function v116TypeMul(w){
+    const k=v116Kind(w);
+    // 근거리는 낮추고, 원거리는 높이되 등급 순서를 절대 깨지 않게 작은 보정만 적용.
+    if(k==='dagger') return .88;
+    if(k==='greatsword') return 1.04;
+    if(k==='pole') return .94;
+    if(k==='whip') return .96;
+    if(k==='scythe') return 1.02;
+    if(k.includes('sword')) return .96;
+    if(k.includes('bow')) return 1.18;
+    if(k.includes('staff')) return 1.14;
+    if(k==='gunstaff') return 1.20;
+    if(k==='grimoire') return 1.15;
+    if(k==='chakram') return 1.12;
+    return 1.0;
+  }
+  function v116MetaFor(id,w){
+    let meta={};
+    try{ if(typeof weaponMeta==='function') meta=weaponMeta(id)||{}; }catch(e){}
+    if(w){
+      if(meta.enh==null && w.v45Enhance!=null) meta.enh=w.v45Enhance;
+      if(!meta.ench && w.v45Enchant) meta.ench=w.v45Enchant;
+    }
+    return meta||{};
+  }
+  function v116EnchantRates(meta){
+    const ench = Array.isArray(meta&&meta.ench) ? meta.ench : [];
+    let attack=0, speed=0, crit=0, luck=0, plunder=0;
+    ench.forEach(e=>{
+      const type=e.type || e[0]; const lv=Number(e.lv ?? e[1] ?? 0)||0;
+      if(type==='attack') attack += lv*.06;
+      if(type==='speed') speed += lv*.045;
+      if(type==='critChance') crit += lv*3;
+      if(type==='luck') luck += lv*3.5;
+      if(type==='plunder') plunder += lv*7;
+    });
+    return {attack,speed,crit,luck,plunder};
+  }
+  function v116HitLayout(w){
+    const k=v116Kind(w);
+    if(k==='dagger') return {hits:3, note:'3타 합산'};
+    if(k==='grimoire') return {hits:3, note:'3발 합산'};
+    if(k.includes('bow')) return {hits:1, note:'화살 1발'};
+    if(k.includes('staff') || k==='gunstaff' || k==='chakram') return {hits:1, note:'원거리 1발'};
+    if(k==='greatsword') return {hits:1, note:'강한 1타'};
+    if(k==='pole') return {hits:1, note:'찌르기 1타'};
+    if(k==='whip') return {hits:1, note:'채찍 1타'};
+    if(k==='scythe') return {hits:1, note:'낫 1타'};
+    return {hits:1, note:'1타'};
+  }
+  function v116WeaponObj(x){
+    if(!x) return null;
+    if(typeof x==='string') return getWeapon(x) || null;
+    if(x.itemId) return getWeapon(x.itemId) || x;
+    if(x.id) return getWeapon(x.id) || x;
+    return x;
+  }
+  function v116DisplayedWeapon(w, metaOverride){
+    try{
+      w=v116WeaponObj(w);
+      if(!w) return {oneGuard:0,totalGuard:0,totalOpen:0,dps:0,cd:0,crit:0,rank:1,rarityPct:0,plan:{hits:1,note:'1타',hitAmount:0,totalAmount:0,ranged:false}};
+      const r=v116Rarity(w), rank=v116RarityRank(r), layout=v116HitLayout(w);
+      const meta=Object.assign({}, v116MetaFor(w.id,w), metaOverride||{});
+      const enh=Math.max(0,Number(meta.enh||0)||0);
+      const rates=v116EnchantRates(meta);
+      const totalGuard = Math.max(1, Math.round(v116BaseByRarity(r) * v116TypeMul(w) * (1 + enh*.08 + rates.attack)));
+      const oneGuard = Math.max(1, Math.round(totalGuard / Math.max(1,layout.hits)));
+      const oneInput = oneGuard / (V116_DAMAGE_WRAPPER_MUL * V116_GUARD_MUL);
+      const totalInput = oneInput * layout.hits;
+      const totalOpen = Math.max(1, Math.round(totalGuard / V116_GUARD_MUL));
+      const cd = Math.max(.10, v116Num(w.speed,.5) / Math.max(.45, 1 + rates.speed));
+      const crit = Math.max(0, Math.round(v116Num(w.crit,0)+rates.crit));
+      const dps = Math.max(1,Math.round(totalGuard/cd));
+      const rarityPct=({normal:0,rare:14,super:34,epic:70,legendary:125,ultimate:215})[r]||0;
+      return {oneGuard,totalGuard,totalOpen,dps,cd:+cd.toFixed(2),crit,rank,rarityPct,meta,plan:{kind:v116Kind(w),ranged:v116Ranged(w),hits:layout.hits,note:layout.note,hitAmount:oneInput,totalAmount:totalInput}};
+    }catch(e){ return {oneGuard:0,totalGuard:0,totalOpen:0,dps:0,cd:0,crit:0,rank:1,rarityPct:0,plan:{hits:1,note:'1타',hitAmount:0,totalAmount:0,ranged:false}}; }
+  }
+  function v116DamageLine(w){
+    const d=v116DisplayedWeapon(w);
+    const hit=d.plan.hits>1?`1타 ${v116Fmt(d.oneGuard)} / 총합 ${v116Fmt(d.totalGuard)}`:v116Fmt(d.totalGuard);
+    return `데미지 ${hit} · 약화 ${v116Fmt(d.totalOpen)} · 초당 ${v116Fmt(d.dps)} · ${d.plan.note}`;
+  }
+  function v116MetaLine(w){
+    const d=v116DisplayedWeapon(w), meta=d.meta||{}, rates=v116EnchantRates(meta), enh=Number(meta.enh||0)||0;
+    const atkPct=Math.round((enh*.08+rates.attack)*100), spdPct=Math.round(rates.speed*100);
+    const r=v116Rarity(w);
+    const rarityText = r==='normal' ? '등급 효과 없음' : `${v116RarityName(r)} 등급 보정 +${d.rarityPct}%급`;
+    return `${rarityText} · 강화 +${enh} · 공격 +${atkPct}% · 공속 +${spdPct}% · 치명 ${d.crit}%`;
+  }
+
+  // 실제 일반 공격도 위 표기 데미지와 같은 기준으로 다시 연결.
+  basicAttack=function(){
+    if(!state.raid || player.basicCd>0) return;
+    let w=state.raid.weapon;
+    if(w && w.id){ try{ w=getWeapon(w.id)||w; state.raid.weapon=w; }catch(e){} }
+    if(!w){ toast('장착한 무기가 없어 일반공격을 사용할 수 없습니다.'); player.basicCd=.6; return; }
+    const angle=aimAngle();
+    const d=v116DisplayedWeapon(w);
+    const plan=d.plan;
+    player.basicCd=Math.max(.08,d.cd);
+    player.attackAnim=.20+Math.min(.20,player.basicCd*.28);
+    player.attackAngle=angle;
+    if(Math.cos(angle)<0) player.face=-1;
+    if(Math.cos(angle)>0) player.face=1;
+    const k=String(w.kind||'');
+    if(plan.ranged){
+      const count=plan.hits;
+      for(let i=0;i<count;i++){
+        const a=angle+(i-(count-1)/2)*.12;
+        const isBow=k.includes('bow');
+        spawnProjectile({owner:'player',x:player.x+Math.cos(a)*22,y:player.y+Math.sin(a)*22,vx:Math.cos(a)*(isBow?990:735),vy:Math.sin(a)*(isBow?990:735),r:k==='gunstaff'?8:5,life:k==='chakram'?1.18:.92,pierce:isBow?2:0,color:w.color,damage:plan.hitAmount,splash:k==='gunstaff'?54:0,returning:k==='chakram',homing:k==='grimoire'});
+      }
+      return;
+    }
+    if(k==='whip'){
+      damageBossCone(Math.min(w.range,305),Math.PI*.70,angle,plan.hitAmount,w.color); arcEffect(player.x,player.y,angle,Math.min(w.range,305),w.color,Math.PI*.70);
+    }else if(k==='dagger'){
+      for(let i=0;i<3;i++) setTimeout(()=>{ if(state.raid){ damageBossLine(Math.min(w.range+12,135),24,angle,plan.hitAmount,w.color); stabEffect(player.x,player.y,angle,Math.min(w.range+12,135),w.color); } }, i*38);
+    }else if(k==='greatsword'){
+      damageBossCone(Math.min(w.range+24,225),Math.PI*.52,angle,plan.hitAmount,w.color); slashEffect(player.x,player.y,angle,Math.min(w.range+24,225),w.color,20);
+    }else if(k==='pole'){
+      damageBossLine(Math.min(w.range+18,260),28,angle,plan.hitAmount,w.color); thrustEffect(player.x,player.y,angle,Math.min(w.range+18,260),w.color);
+    }else if(k==='scythe'){
+      damageBossCone(Math.min(w.range*.45,285),Math.PI*.82,angle,plan.hitAmount,w.color); arcEffect(player.x,player.y,angle,Math.min(w.range*.45,285),w.color,Math.PI*.82); slashEffect(player.x,player.y,angle,Math.min(w.range*.45,285),w.color,16);
+    }else{
+      damageBossCone(Math.min(w.range+12,210),Math.PI*.46,angle,plan.hitAmount,w.color); slashEffect(player.x,player.y,angle,Math.min(w.range+12,210),w.color,10);
+    }
+  };
+
+  // 심연 낙인/취약 계열 디버프가 실제 피해 증가를 확실히 부여하도록 보정.
+  const V116_PREV_CAST_DEBUFF = castDebuffSkill;
+  castDebuffSkill=function(s,power,angle,r){
+    const ret=V116_PREV_CAST_DEBUFF.apply(this,arguments);
+    try{
+      const id=String(s&&s.id||''), type=String(s&&s.type||''), nm=String(s&&s.name||'');
+      if(id.includes('abyssal_mark') || type==='mark' || /낙인|취약/.test(nm)){
+        if(!boss.statuses) boss.statuses={burn:0,poison:0,freeze:0,paralysis:0,slow:0,weaken:0,vulnerable:0};
+        const dur=Math.max(6,Number(s.duration||0)+2);
+        boss.statuses.vulnerable=Math.max(boss.statuses.vulnerable||0,dur);
+        boss.v116Marked=Math.max(boss.v116Marked||0,dur);
+        floatText('낙인 +피해',boss.x,boss.y-boss.r-62,'#c084fc',18);
+      }
+    }catch(e){}
+    return ret;
+  };
+  const V116_PREV_DAMAGE_BOSS = damageBoss;
+  damageBoss=function(amount,color,big){
+    try{
+      if(boss && boss.statuses && boss.statuses.vulnerable>0){
+        return V116_PREV_DAMAGE_BOSS(amount,'#c084fc',true);
+      }
+    }catch(e){}
+    return V116_PREV_DAMAGE_BOSS.apply(this,arguments);
+  };
+
+  // 카드/툴팁/판매소 데미지 표시를 새 실제 기준으로 통일.
+  try{ v63WeaponDamage=v116DisplayedWeapon; }catch(e){}
+  try{ v106WeaponDamage=v116DisplayedWeapon; }catch(e){}
+  try{ v109ActualWeaponDamage=v116DisplayedWeapon; }catch(e){}
+  try{ v114DisplayedDamage=v116DisplayedWeapon; }catch(e){}
+  try{ v115DisplayedWeapon=v116DisplayedWeapon; }catch(e){}
+  try{ v63WeaponDamageLine=v116DamageLine; }catch(e){}
+  try{ v106WeaponDamageLine=v116DamageLine; }catch(e){}
+  try{ v109WeaponDamageLine=v116DamageLine; }catch(e){}
+  try{ v114DamageLine=v116DamageLine; }catch(e){}
+  try{ v115DamageLine=v116DamageLine; }catch(e){}
+  try{ v50WeaponEffects=function(w){ w=getWeapon(w&&w.id)||w; return `${v116DamageLine(w)}\n${v116MetaLine(w)}`; }; }catch(e){}
+  try{
+    v99WeaponMarketMeta=function(id,obj){
+      const w=getWeapon(id)||obj||{}; const d=v116DisplayedWeapon(w);
+      let meta={}; try{ meta=typeof weaponMeta==='function'?weaponMeta(id):{}; }catch(e){}
+      return {enh:Number(meta.enh||0)||0, ench:meta.ench||[], damage:d.totalGuard, openDamage:d.totalOpen, oneDamage:d.oneGuard, dps:d.dps, crit:d.crit, realSpeed:d.cd, note:d.plan.note, rarityPct:d.rarityPct};
+    };
+  }catch(e){}
+  try{
+    v99MarketTip=function(x){
+      try{
+        if(!x) return '';
+        if(x.kind==='weapon'){
+          const w=Object.assign({},getWeapon(x.itemId)||{},{});
+          const meta=Object.assign({},x.meta||{});
+          const d=v116DisplayedWeapon(w,meta);
+          const hit=d.plan.hits>1?`1타 ${v116Fmt(d.oneGuard)} / 총합 ${v116Fmt(d.totalGuard)}`:v116Fmt(d.totalGuard);
+          const ench=(typeof v99EnchantTextFromMeta==='function')?v99EnchantTextFromMeta(meta,w):'없음';
+          return `${x.name}\n데미지 ${hit}\n약화 ${v116Fmt(d.totalOpen)} · 초당 ${v116Fmt(d.dps)} · 공속 ${d.cd.toFixed(2)}\n${v116RarityName(w.rarity)} · 강화 +${Number((meta&&meta.enh)||0)||0} · 인챈트 ${ench}`;
+        }
+        if(x.kind==='skill'){
+          const sk=getSkill(x.itemId)||{}; const dmg=Math.max(1,Math.round(100*Number(sk.power||1)*4*.48));
+          return `${x.name}\n예상 피해 ${v116Fmt(dmg)} · 쿨 ${Number(sk.cooldown||0).toFixed(1)}초`;
+        }
+        if(x.kind==='armor'){
+          const ar=getArmor(x.itemId)||{}; return `${x.name}\n체력 +${ar.hp||0} · 방어 +${ar.def||0}`;
+        }
+        return `${x.name}\n수량 ${x.qty||1}`;
+      }catch(e){ return String(x&&x.name||'아이템'); }
+    };
+  }catch(e){}
+
+  // 온라인 장터 새로고침을 더 확실하게 시도하고 상태를 화면에 남김. SQL/RLS가 막혀 있으면 코드만으로는 공유가 불가하다.
+  try{
+    const V116_PREV_RENDER_MARKET = renderMarket;
+    renderMarket=function(){
+      try{
+        if(supabaseReady && supabase && typeof v112RefreshOnlineMarket==='function'){
+          setTimeout(()=>{ try{ v112RefreshOnlineMarket(true); }catch(e){} }, 50);
+        }
+      }catch(e){}
+      let html=V116_PREV_RENDER_MARKET.apply(this,arguments);
+      const serverText=(supabaseReady&&supabase&&state.currentUser)?'온라인 장터 동기화 중 · 안 보이면 SQL/RLS 실행 필요':'오프라인/로그인 대기';
+      html=String(html).replace(/<h2 class="title" style="font-size:22px">유저 판매소<\/h2>/,`<h2 class="title" style="font-size:22px">유저 판매소</h2><p class="sub">${serverText}</p>`);
+      return html;
+    };
+  }catch(e){}
+
+  try{
+    window.RaidDungeonV116={version:V116_VERSION, changed:['심연 낙인/취약 디버프 피해 증가 보정','낙인 중 피해 숫자 보라색 표시','무기 표기 데미지와 실제 일반 공격 피해 재동기화','등급 순서 일반<희귀<초희귀<에픽<레전더리<궁극 보장','유저 판매소 온라인 동기화 상태 표시 강화']};
+    console.log('[RaidDungeon]',V116_VERSION,'loaded');
+  }catch(e){}
+}catch(e){ console.warn('[V116 mark/damage/market patch failed]',e); }
+
+
+/* ===== V117: training stats actually apply in raid + nickname updates old ranking names ===== */
+try{
+  const V117_VERSION = 'Raid Dungeon V117 - Training Stats And Nickname Record Fix';
+
+  function v117Training(){
+    if(!state.save) state.save = createDefaultSave ? createDefaultSave() : (state.save||{});
+    if(!state.save.playerTraining || typeof state.save.playerTraining !== 'object') state.save.playerTraining = {hp:0, mp:0, regen:0};
+    ['hp','mp','regen'].forEach(k=>{ state.save.playerTraining[k] = Math.max(0, Math.min(100, Number(state.save.playerTraining[k]||0))); });
+    return state.save.playerTraining;
+  }
+
+  function v117BasePlayerForBuild(){
+    const p = {x:W/2,y:H-120,r:16,hp:100,maxHp:100,shield:0,speed:265,atk:100,magic:100,def:0,crit:8,critDmg:1.7,damageMul:1,skillDamageMul:1,basicDamageMul:1,cooldownMul:1,areaMul:1,projectileSpeedMul:1,lifesteal:0,regen:.18,regen5:0,regen5Tick:0,statusResist:{burn:0,poison:0,freeze:0,paralysis:0,slow:0},equippedArmor:null,invuln:0,slow:0,roll:0,rollCd:0,rollCdBonus:0,rollVx:0,rollVy:0,basicCd:0,skillCd:[0,0,0],damageTaken:0,aim:0,face:1,anim:0,attackAnim:0,attackAngle:0,tempBuffs:[],statuses:{burn:0,poison:0,freeze:0,paralysis:0,slow:0},statusTick:0,maxMp:120,mp:120,mpRegen:3};
+    try{
+      const armor = (state.raid && state.raid.armor) || getArmor(state.selectedArmorId);
+      if(armor){
+        p.equippedArmor=armor;
+        p.maxHp += Number(armor.hp||0);
+        p.def += Number(armor.def||0);
+        Object.keys(armor.resist||{}).forEach(k=>p.statusResist[k]=Math.max(p.statusResist[k]||0, armor.resist[k]||0));
+      }
+      const passives = (state.raid && Array.isArray(state.raid.passives) && state.raid.passives.length)
+        ? state.raid.passives.filter(Boolean)
+        : (state.selectedPassiveIds||[]).map(getPassive).filter(Boolean);
+      passives.forEach(ps=>{ try{ if(ps && typeof ps.apply==='function') ps.apply(p); }catch(e){} });
+    }catch(e){}
+    return p;
+  }
+
+  function v117ApplyTrainingToPlayer(fillFull){
+    try{
+      if(!player) return;
+      const t = v117Training();
+      const base = v117BasePlayerForBuild();
+      const oldHpMax = Math.max(1, Number(player.maxHp||base.maxHp||100));
+      const oldMpMax = Math.max(1, Number(player.maxMp||120));
+      const hpRatio = fillFull ? 1 : Math.max(0, Math.min(1, Number(player.hp||oldHpMax)/oldHpMax));
+      const mpRatio = fillFull ? 1 : Math.max(0, Math.min(1, Number(player.mp||oldMpMax)/oldMpMax));
+      const hpBonus = Number(t.hp||0) * 18;
+      const mpBonus = Number(t.mp||0) * 7;
+      const regenBonus = Number(t.regen||0) * 0.045;
+      player.maxHp = Math.floor(Number(base.maxHp||100) + hpBonus);
+      player.maxMp = Math.floor(120 + mpBonus);
+      player.regen = Number(base.regen||0.18) + regenBonus;
+      player.mpRegen = 3 + regenBonus;
+      player.hp = Math.max(1, Math.min(player.maxHp, fillFull ? player.maxHp : Math.round(player.maxHp * hpRatio)));
+      player.mp = Math.max(0, Math.min(player.maxMp, fillFull ? player.maxMp : Math.round(player.maxMp * mpRatio)));
+      player.v117TrainingApplied = true;
+    }catch(e){ console.warn('[V117] apply training failed', e); }
+  }
+
+  try{
+    const oldStartRaidV117 = startRaid;
+    startRaid = function(){
+      oldStartRaidV117.apply(this, arguments);
+      if(state.screen === 'raid') v117ApplyTrainingToPlayer(true);
+    };
+  }catch(e){}
+
+  try{
+    const oldUpdateV117 = update;
+    let v117SyncT = 0;
+    update = function(dt){
+      oldUpdateV117.apply(this, arguments);
+      try{
+        if(state.screen === 'raid'){
+          v117SyncT += Number(dt||0);
+          if(v117SyncT > 1){ v117SyncT = 0; v117ApplyTrainingToPlayer(false); }
+        }
+      }catch(e){}
+    };
+  }catch(e){}
+
+  try{
+    window.RaidDungeonUI = window.RaidDungeonUI || {};
+    const oldUpgradeV117 = window.RaidDungeonUI.upgradePlayerStat;
+    window.RaidDungeonUI.upgradePlayerStat = function(kind){
+      const before = JSON.stringify(v117Training());
+      if(typeof oldUpgradeV117 === 'function') oldUpgradeV117(kind);
+      const after = JSON.stringify(v117Training());
+      if(before !== after && state.screen === 'raid') v117ApplyTrainingToPlayer(false);
+      try{ saveGame(); }catch(e){}
+    };
+  }catch(e){}
+
+  function v117NormName(s){
+    try{ return normalizedPlayerName ? normalizedPlayerName(s) : String(s||'').trim(); }catch(e){ return String(s||'').trim(); }
+  }
+  async function v117SyncRecordNames(oldName, nextName){
+    const oldN = v117NormName(oldName).toLowerCase();
+    const next = String(nextName||'').trim();
+    if(!oldN || !next) return;
+    try{
+      const local = getLocalRecords().map(r=>{
+        const rn = v117NormName(r.player_name).toLowerCase();
+        if(rn === oldN) return {...r, player_name: next};
+        return r;
+      });
+      localStorage.setItem(LOCAL_RECORD_KEY, JSON.stringify(local));
+    }catch(e){}
+    if(supabaseReady && supabase){
+      try{ await supabase.from('raid_records').update({player_name:next}).eq('player_name', oldName); }catch(e){}
+      try{ await supabase.from('raid_records').update({player_name:next}).eq('player_name', v117NormName(oldName)); }catch(e){}
+      try{ if(state.currentUser && state.currentUser.id) await supabase.from('raid_records').update({player_name:next}).eq('user_id', state.currentUser.id); }catch(e){}
+    }
+  }
+
+  try{
+    changeNickname = async function(){
+      const input = document.getElementById('nicknameEditInput');
+      const next = String(input && input.value ? input.value : '').trim();
+      if(!next || next.length < 2){ toast('닉네임은 2자 이상으로 입력해주세요.'); state.cloudStatus='닉네임 변경 실패: 2자 이상 필요'; renderMenu(); return; }
+      if(next.length > 12){ toast('닉네임은 12자 이하로 입력해주세요.'); state.cloudStatus='닉네임 변경 실패: 12자 이하 필요'; renderMenu(); return; }
+      const oldName = state.save.playerName || 'Player';
+      state.save.playerName = next;
+      try{ localStorage.setItem('raid-build-player-name-v1', next); }catch(e){}
+      state.cloudStatus = '닉네임 변경 중 · 기존 랭킹 이름 갱신';
+      saveGame(); renderMenu();
+      await v117SyncRecordNames(oldName, next);
+      try{ await manualSaveProfile(); }catch(e){}
+      try{ await refreshRankings(state.rankingBossId || (boss&&boss.id)); }catch(e){}
+      state.cloudStatus = '닉네임 변경 완료 · 기존 랭킹 이름 갱신 완료';
+      renderMenu();
+    };
+  }catch(e){}
+
+  // 앞으로 저장되는 온라인 기록에는 user_id도 함께 붙여서 닉네임 변경 시 한 번에 바뀌게 한다.
+  try{
+    const oldEndRaidV117 = endRaid;
+    endRaid = function(clear){
+      let snap = null;
+      try{
+        if(clear && state.raid && boss){
+          snap = {
+            player_name: state.save.playerName || 'Player',
+            user_id: state.currentUser && state.currentUser.id || null,
+            boss_id: boss.id,
+            boss_name: boss.name,
+            clear_ms: Math.floor(performance.now() - state.raid.start),
+            weapon_id: state.raid.weapon ? state.raid.weapon.id : 'none',
+            weapon_name: state.raid.weapon ? state.raid.weapon.name : '무기 없음',
+            skills: state.raid.skills.filter(Boolean).map(s=>s.name),
+            passives: [state.raid.armor ? ('방어구: '+state.raid.armor.name) : '방어구 없음'].concat(state.raid.passives.filter(Boolean).map(p=>p.name)),
+            damage_taken: Math.floor(player.damageTaken||0),
+            created_at: new Date().toISOString()
+          };
+        }
+      }catch(e){}
+      oldEndRaidV117.apply(this, arguments);
+      try{
+        if(snap && supabaseReady && supabase && state.currentUser){
+          supabase.from('raid_records').insert(snap).then(res=>{ if(res && res.error) console.warn('[V117] user_id ranking insert skipped', res.error.message); });
+        }
+      }catch(e){}
+    };
+  }catch(e){}
+
+  try{
+    window.RaidDungeonV117 = {version:V117_VERSION, changed:['체력/마나/회복 성장치가 방어구·패시브 이후 실전 스탯에 적용됨','전투 HUD의 HP/MP/회복 수치가 성장 레벨과 일치','닉네임 변경 시 기존 로컬/온라인 랭킹 이름 갱신','새 온라인 기록에 user_id 저장 시도']};
+    console.log('[RaidDungeon]', V117_VERSION, 'loaded');
+  }catch(e){}
+}catch(e){ console.warn('[V117 training/nickname patch failed]', e); }
+
+
+/* ===== V118: SQL package + result retry button marker ===== */
+try {
+  window.RaidDungeonV118 = {
+    version: 'Raid Dungeon V118 - SQL Package Retry Button',
+    changed: ['Supabase SQL v118 제공', '클리어/실패 화면에 다시 하기 버튼 추가', '메뉴로 버튼은 기존처럼 랭킹/빌드 화면으로 이동']
+  };
+  console.log('[RaidDungeon] V118 SQL Package Retry Button loaded');
+} catch(e) {}
