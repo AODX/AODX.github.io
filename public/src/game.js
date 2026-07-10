@@ -19434,7 +19434,7 @@ try {
 
   /* ===== V100: distinct boss pattern polish + boss tip position fix ===== */
   try{
-    const V100_VERSION = 'Raid Dungeon V100 - Distinct Patterns Tip Below HP';
+    const V100_VERSION = 'Raid Dungeon V101 - Visible HP Bar Clean Boss Messages';
     const V100_PREV_BOSSPATTERN = typeof bossPattern === 'function' ? bossPattern : function(){};
     const V100_PREV_DRAWBOSS = typeof drawBoss === 'function' ? drawBoss : function(){};
     const v100Recent = {};
@@ -19728,6 +19728,163 @@ try {
   }catch(e){ console.warn('[V100 polish failed]', e); }
 
 
+/* ===== V101: visible HP bar fill + clean boss message queue ===== */
+try {
+  const V101_VERSION = 'Raid Dungeon V101 - Visible HP Bar Clean Boss Messages';
+  const V101_PREV_DRAWBOSS = drawBoss;
+  const V101_PREV_FLOATTEXT = floatText;
+  const V101_PREV_TOAST = toast;
+
+  state.v101BossNotice = state.v101BossNotice || null;
+
+  function v101RoundPath(c,x,y,w,h,r){
+    w = Math.max(0, w || 0); h = Math.max(0, h || 0); r = Math.max(0, Math.min(r || 0, w/2, h/2));
+    c.beginPath();
+    c.moveTo(x+r,y);
+    c.lineTo(x+w-r,y);
+    c.quadraticCurveTo(x+w,y,x+w,y+r);
+    c.lineTo(x+w,y+h-r);
+    c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    c.lineTo(x+r,y+h);
+    c.quadraticCurveTo(x,y+h,x,y+h-r);
+    c.lineTo(x,y+r);
+    c.quadraticCurveTo(x,y,x+r,y);
+    c.closePath();
+  }
+  function v101FillRound(c,x,y,w,h,r,fill){
+    c.fillStyle = fill;
+    v101RoundPath(c,x,y,w,h,r);
+    c.fill();
+  }
+  function v101StrokeRound(c,x,y,w,h,r,stroke,lw){
+    c.strokeStyle = stroke;
+    c.lineWidth = lw || 1;
+    v101RoundPath(c,x,y,w,h,r);
+    c.stroke();
+  }
+  function v101ShortText(text, max){
+    const s = String(text || '').replace(/\s+/g,' ').trim();
+    if(!s) return '';
+    const n = max || 46;
+    return s.length > n ? s.slice(0,n) + '…' : s;
+  }
+  function v101SetBossNotice(text,color,life){
+    const s = v101ShortText(text, 48);
+    if(!s) return;
+    state.v101BossNotice = { text:s, color:color || '#e5e7eb', life:life || 3.4 };
+    state.message = s;
+    state.messageTime = Math.max(state.messageTime || 0, .6);
+  }
+  function v101IsCentralGuide(text,x,y,size){
+    const s = String(text || '').trim();
+    if(!s) return false;
+    if(/^[-+]?\d+[!]?$/i.test(s)) return false;
+    if(/^(OK|ROLL|BREAK!?|SAFE|MISS)$/i.test(s)) return false;
+    if(s.length <= 3) return false;
+    return Math.abs((x || 0) - W/2) < 170 && (y || 999) < 145 && (Number(size || 0) >= 18 || s.length >= 7);
+  }
+
+  floatText = function(text,x,y,color,size){
+    try{
+      if(v101IsCentralGuide(text,x,y,size)){
+        v101SetBossNotice(text,color,3.5);
+        return;
+      }
+    }catch(e){}
+    return V101_PREV_FLOATTEXT(text,x,y,color,size);
+  };
+
+  toast = function(msg){
+    try{
+      const s = v101ShortText(msg, 52);
+      state.message = s;
+      state.messageTime = 1.2;
+      if(state.screen === 'raid') v101SetBossNotice(s, '#fef08a', 3.2);
+      else V101_PREV_FLOATTEXT(s, W/2, 92, '#fef08a', 20);
+    }catch(e){ try{ V101_PREV_TOAST(msg); }catch(_){} }
+  };
+
+  const V101_PREV_UPDATE = update;
+  update = function(dt){
+    V101_PREV_UPDATE(dt);
+    try{
+      if(state.v101BossNotice){
+        state.v101BossNotice.life -= Math.min(dt || .016, .05);
+        if(state.v101BossNotice.life <= 0) state.v101BossNotice = null;
+      }
+    }catch(e){}
+  };
+
+  drawBoss = function(){
+    try{
+      if(!boss || boss.dead) return;
+      ctx.save();
+      if(state.shake>0) ctx.translate(rand(-state.shake,state.shake),rand(-state.shake,state.shake));
+      ctx.globalAlpha = boss.hit>0 ? .72 : 1;
+      drawBossShape(ctx,boss,boss.x,boss.y,boss.r);
+      ctx.restore();
+      if(boss.clones) boss.clones.forEach(c=>drawBossShape(ctx,{...boss,color:c.real?'#fef08a':boss.color,sub:boss.sub,theme:boss.theme},c.x,c.y,boss.r*.65));
+
+      const bw=720, bh=22, x=(W-bw)/2, y=26;
+      const rawRate = Number(boss.maxHp) > 0 ? Number(boss.hp) / Number(boss.maxHp) : 0;
+      const rate = clamp(rawRate,0,1);
+      const fillW = Math.max(0, Math.floor(bw * rate));
+      const barColor = boss.vulnerable>0 ? '#fef08a' : (boss.color || '#ef4444');
+
+      ctx.save();
+      v101FillRound(ctx,x-8,y-24,bw+16,98,14,'rgba(0,0,0,.70)');
+      v101FillRound(ctx,x,y,bw,bh,11,'rgba(15,23,42,.96)');
+      ctx.save();
+      v101RoundPath(ctx,x,y,bw,bh,11);
+      ctx.clip();
+      ctx.fillStyle='rgba(30,41,59,.95)';
+      ctx.fillRect(x,y,bw,bh);
+      if(fillW > 0){
+        const grad = ctx.createLinearGradient(x,y,x+Math.max(1,fillW),y);
+        grad.addColorStop(0, barColor);
+        grad.addColorStop(1, boss.vulnerable>0 ? '#fff7ad' : '#f87171');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x,y,fillW,bh);
+      }
+      ctx.restore();
+      v101StrokeRound(ctx,x,y,bw,bh,11,'rgba(255,255,255,.26)',2);
+      for(let i=1;i<10;i++){
+        ctx.strokeStyle='rgba(255,255,255,.14)';
+        ctx.lineWidth=1;
+        ctx.beginPath();
+        ctx.moveTo(x+bw*i/10,y+1);
+        ctx.lineTo(x+bw*i/10,y+bh-1);
+        ctx.stroke();
+      }
+
+      ctx.textAlign='center';
+      ctx.fillStyle='#ffffff';
+      ctx.font='900 16px system-ui';
+      ctx.fillText(`${boss.name}  ${stars(boss.tier)}  ${boss.vulnerable>0?'BREAK':'GUARD'}`,W/2,20);
+      ctx.font='900 13px system-ui';
+      ctx.fillStyle='#f8fafc';
+      ctx.fillText(`HP ${Math.ceil(Math.max(0,boss.hp)).toLocaleString()} / ${Math.ceil(boss.maxHp).toLocaleString()}  (${Math.ceil(rate*100)}%)`,W/2,y+16);
+
+      const notice = state.v101BossNotice && state.v101BossNotice.life > 0 ? state.v101BossNotice.text : v101ShortText(boss.mechanicText || '', 48);
+      if(notice){
+        const boxW = 620, boxH = 28, boxX = W/2 - boxW/2, boxY = y + 42;
+        v101FillRound(ctx,boxX,boxY,boxW,boxH,13,'rgba(15,23,42,.86)');
+        v101StrokeRound(ctx,boxX,boxY,boxW,boxH,13,'rgba(148,163,184,.18)',1);
+        ctx.font='800 12px system-ui';
+        ctx.fillStyle = state.v101BossNotice && state.v101BossNotice.life > 0 ? (state.v101BossNotice.color || '#e5e7eb') : '#cbd5e1';
+        ctx.fillText(notice,W/2,boxY+18);
+      }
+      ctx.restore();
+    }catch(e){ try{ V101_PREV_DRAWBOSS(); }catch(_){} }
+  };
+
+  window.RaidDungeonV101 = {
+    version: V101_VERSION,
+    changed: ['보스 HP바 실제 비율만큼만 채워지도록 수정','중앙 안내 문구는 한 줄 보스 메시지 박스에 오래 표시','겹치는 플로팅 문구 정리']
+  };
+  console.log('[RaidDungeon]', V101_VERSION, 'loaded');
+}catch(e){ console.warn('[V101 hpbar/message patch failed]', e); }
+
 })();
 
 
@@ -19747,7 +19904,7 @@ try {
 /* ===== V99: marketplace hover detail tooltip ===== */
 try {
   window.RaidDungeonV99 = {
-    version: 'Raid Dungeon V100 - Distinct Patterns Tip Below HP',
+    version: 'Raid Dungeon V101 - Visible HP Bar Clean Boss Messages',
     changed: ['판매소 무기 마우스오버 상세 표시','데미지/공속/강화/인챈트 요약 저장','기존 V98 패턴과 HP바 수정 유지']
   };
   console.log('[RaidDungeon] V99 market hover item details loaded');
