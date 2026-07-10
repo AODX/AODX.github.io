@@ -22922,3 +22922,397 @@ try{
     console.log('[RaidDungeon]',V122_VERSION,'loaded');
   }catch(e){}
 }catch(e){ console.warn('[V122 patch failed]', e); }
+
+
+/* ===== V123: final rarity ordered weapon damage + exact real hit sync ===== */
+try{
+  const V123_VERSION = 'Raid Dungeon V123 - Rarity Ordered Exact Weapon Damage Final';
+  function v123Num(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+  function v123Fmt(n){ try{return Math.round(Number(n)||0).toLocaleString('ko-KR');}catch(e){return String(Math.round(Number(n)||0));} }
+  function v123Esc(s){ try{return esc(String(s??''));}catch(e){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));} }
+  function v123Rarity(r){ return String(r||'normal'); }
+  function v123RarityName(r){ return ({normal:'일반',rare:'희귀',super:'초희귀',epic:'에픽',legendary:'레전더리',ultimate:'궁극'})[v123Rarity(r)]||'일반'; }
+  function v123RarityBase(r){
+    // 실제 피해의 기준값. 타입 보정이 붙어도 낮은 등급이 높은 등급을 넘지 않도록 간격을 크게 둔다.
+    return ({normal:34, rare:78, super:145, epic:255, legendary:430, ultimate:720})[v123Rarity(r)] || 34;
+  }
+  function v123Kind(w){ return String((w&&w.kind)||''); }
+  function v123IsRanged(w){ const k=v123Kind(w); return k.includes('bow')||k.includes('staff')||k==='gunstaff'||k==='grimoire'||k==='chakram'; }
+  function v123TypeMul(w){
+    const k=v123Kind(w);
+    // 근거리는 낮추고, 원거리는 올리되 등급 차이를 절대 뒤집지 않는다.
+    if(k==='dagger') return 0.82;
+    if(k==='greatsword') return 0.96;
+    if(k==='pole') return 0.84;
+    if(k==='whip') return 0.86;
+    if(k==='scythe') return 0.92;
+    if(k.includes('sword')) return 0.88;
+    if(k.includes('bow')) return 1.18;
+    if(k.includes('staff')) return 1.16;
+    if(k==='gunstaff') return 1.22;
+    if(k==='grimoire') return 1.20;
+    if(k==='chakram') return 1.14;
+    return 1.0;
+  }
+  function v123Layout(w){
+    const k=v123Kind(w);
+    if(k==='dagger') return {hits:3,note:'3타 합산',ranged:false};
+    if(k==='grimoire') return {hits:3,note:'3발 합산',ranged:true};
+    if(k.includes('bow')) return {hits:1,note:'화살 1발',ranged:true};
+    if(k.includes('staff')||k==='gunstaff'||k==='chakram') return {hits:1,note:'원거리 1발',ranged:true};
+    if(k==='greatsword') return {hits:1,note:'강한 1타',ranged:false};
+    if(k==='pole') return {hits:1,note:'찌르기 1타',ranged:false};
+    if(k==='whip') return {hits:1,note:'채찍 1타',ranged:false};
+    if(k==='scythe') return {hits:1,note:'낫 1타',ranged:false};
+    return {hits:1,note:'1타',ranged:false};
+  }
+  function v123Meta(id,w){
+    let meta={};
+    try{ if(typeof weaponMeta==='function') meta=weaponMeta(id)||{}; }catch(e){}
+    if(w){
+      if(meta.enh==null) meta.enh=w.v45Enhance??w.v44Enhance??w.v43Enhance??w.v41Enhance??0;
+      if(!meta.ench) meta.ench=w.v45Enchant||w.v44Enchant||w.v43Enchant||w.v41Enchant||[];
+    }
+    return meta||{};
+  }
+  function v123EnchantRates(meta){
+    const ench=Array.isArray(meta&&meta.ench)?meta.ench:Object.entries((meta&&meta.ench)||{}).map(([type,lv])=>({type,lv}));
+    let attack=0,speed=0,crit=0,luck=0,plunder=0;
+    ench.forEach(e=>{ const type=e.type||e[0]; const lv=Number(e.lv??e[1]??0)||0; if(type==='attack') attack+=lv*.05; if(type==='speed') speed+=lv*.04; if(type==='critChance') crit+=lv*3; if(type==='luck') luck+=lv*3.5; if(type==='plunder') plunder+=lv*7; });
+    return {attack,speed,crit,luck,plunder};
+  }
+  function v123Weapon(w,metaOverride){
+    try{
+      if(typeof w==='string') w=getWeapon(w)||null; else if(w&&w.itemId) w=getWeapon(w.itemId)||w; else if(w&&w.id) w=getWeapon(w.id)||w;
+      if(!w) return {total:0,one:0,open:0,dps:0,crit:0,cd:0,rarity:'normal',layout:{hits:1,note:'1타',ranged:false},meta:{},w:null};
+      const layout=v123Layout(w), meta=Object.assign({},v123Meta(w.id,w),metaOverride||{}), rates=v123EnchantRates(meta);
+      const enh=Math.max(0,Number(meta.enh||0)||0);
+      const rarity=v123Rarity(w.rarity);
+      const raw=v123RarityBase(rarity)*v123TypeMul(w)*(1+enh*.075+rates.attack);
+      const total=Math.max(1,Math.round(raw));
+      const one=Math.max(1,Math.round(total/Math.max(1,layout.hits)));
+      const open=Math.max(1,Math.round(total*1.45));
+      const cd=Math.max(.10,v123Num(w.speed,.5)/Math.max(.55,1+rates.speed));
+      const crit=Math.max(0,Math.round(v123Num(w.crit,0)+rates.crit));
+      return {total,one,open,dps:Math.max(1,Math.round(total/cd)),crit,cd:+cd.toFixed(2),rarity,layout,meta,w};
+    }catch(e){ return {total:0,one:0,open:0,dps:0,crit:0,cd:0,rarity:'normal',layout:{hits:1,note:'1타',ranged:false},meta:{},w:null}; }
+  }
+  function v123DamageLine(w){ const d=v123Weapon(w); const hit=d.layout.hits>1?`1타 ${v123Fmt(d.one)} / 총합 ${v123Fmt(d.total)}`:v123Fmt(d.total); return `데미지 ${hit} · 약화 ${v123Fmt(d.open)} · 초당 ${v123Fmt(d.dps)} · 치명 ${d.crit}% · ${d.layout.note}`; }
+  function v123MetaLine(w){ const d=v123Weapon(w), rates=v123EnchantRates(d.meta), enh=Number(d.meta&&d.meta.enh||0)||0; return `${v123RarityName(d.rarity)} · 강화 +${enh} · 공격 +${Math.round((enh*.075+rates.attack)*100)}% · 공속 +${Math.round(rates.speed*100)}%`; }
+  function v123ApplyDamage(amount,color,big){
+    try{
+      if(!boss||boss.dead) return 0;
+      let dmg=Math.max(1,Math.round(Number(amount)||0));
+      let c=color||'#fff';
+      if(boss.statuses && (boss.statuses.vulnerable||0)>0){ dmg=Math.max(1,Math.round(dmg*1.45)); c='#c084fc'; }
+      boss.hp=Math.max(0,Number(boss.hp||0)-dmg); boss.hit=.12;
+      floatText('-'+v123Fmt(dmg), boss.x+rand(-20,20), boss.y-boss.r-12, c, big?22:16);
+      if(player&&player.lifesteal>0) player.hp=Math.min(player.maxHp,player.hp+dmg*player.lifesteal);
+      if(boss.hp<=0){ boss.hp=0; boss.dead=true; }
+      return dmg;
+    }catch(e){ return 0; }
+  }
+  function v123InCone(range,arc,angle){ const a=Math.atan2(boss.y-player.y,boss.x-player.x), diff=Math.abs(normAngle(a-angle)); return dist(player.x,player.y,boss.x,boss.y)<range+boss.r && diff<arc/2; }
+  function v123InLine(range,width,angle){ const px=boss.x-player.x,py=boss.y-player.y,along=px*Math.cos(angle)+py*Math.sin(angle),side=Math.abs(-px*Math.sin(angle)+py*Math.cos(angle)); return along>0&&along<range+boss.r&&side<width+boss.r; }
+  basicAttack=function(){
+    if(!state.raid||player.basicCd>0) return;
+    let w=state.raid.weapon; if(w&&w.id){ try{w=getWeapon(w.id)||w; state.raid.weapon=w;}catch(e){} }
+    if(!w){ toast('장착한 무기가 없어 일반공격을 사용할 수 없습니다.'); player.basicCd=.6; return; }
+    const d=v123Weapon(w), angle=aimAngle(), k=v123Kind(w), plan=d.layout;
+    player.basicCd=d.cd; player.attackAnim=.20+Math.min(.20,d.cd*.28); player.attackAngle=angle;
+    if(Math.cos(angle)<0) player.face=-1; if(Math.cos(angle)>0) player.face=1;
+    if(plan.ranged){
+      for(let i=0;i<plan.hits;i++){
+        const a=angle+(i-(plan.hits-1)/2)*.12, isBow=k.includes('bow');
+        state.projectiles.push({owner:'player',x:player.x+Math.cos(a)*22,y:player.y+Math.sin(a)*22,vx:Math.cos(a)*(isBow?990:735),vy:Math.sin(a)*(isBow?990:735),r:k==='gunstaff'?8:5,life:k==='chakram'?1.18:.92,pierce:isBow?2:0,color:w.color,damage:0,v123ExactDamage:d.one,returning:k==='chakram',homing:k==='grimoire'});
+      }
+      return;
+    }
+    if(k==='whip'){ if(v123InCone(Math.min(w.range,305),Math.PI*.70,angle)) v123ApplyDamage(d.total,w.color,false); arcEffect(player.x,player.y,angle,Math.min(w.range,305),w.color,Math.PI*.70); }
+    else if(k==='dagger'){ for(let i=0;i<3;i++) setTimeout(()=>{ if(state.raid&&v123InLine(Math.min(w.range+12,135),24,angle)){ v123ApplyDamage(d.one,w.color,false); stabEffect(player.x,player.y,angle,Math.min(w.range+12,135),w.color); } },i*38); }
+    else if(k==='greatsword'){ if(v123InCone(Math.min(w.range+24,225),Math.PI*.52,angle)) v123ApplyDamage(d.total,w.color,false); slashEffect(player.x,player.y,angle,Math.min(w.range+24,225),w.color,20); }
+    else if(k==='pole'){ if(v123InLine(Math.min(w.range+18,260),28,angle)) v123ApplyDamage(d.total,w.color,false); thrustEffect(player.x,player.y,angle,Math.min(w.range+18,260),w.color); }
+    else if(k==='scythe'){ if(v123InCone(Math.min(w.range*.45,285),Math.PI*.82,angle)) v123ApplyDamage(d.total,w.color,false); arcEffect(player.x,player.y,angle,Math.min(w.range*.45,285),w.color,Math.PI*.82); slashEffect(player.x,player.y,angle,Math.min(w.range*.45,285),w.color,16); }
+    else { if(v123InCone(Math.min(w.range+12,210),Math.PI*.46,angle)) v123ApplyDamage(d.total,w.color,false); slashEffect(player.x,player.y,angle,Math.min(w.range+12,210),w.color,10); }
+  };
+  const V123_OLD_UPDATE_PROJECTILES=updateProjectiles;
+  updateProjectiles=function(dt){
+    try{
+      const exact=[], rest=[]; (state.projectiles||[]).forEach(p=>{ if(p&&p.owner==='player'&&p.v123ExactDamage) exact.push(p); else rest.push(p); });
+      if(exact.length){
+        exact.forEach(p=>{ if(p.delay){p.delay-=dt; return;} if(p.homing&&boss){const a=Math.atan2(boss.y-p.y,boss.x-p.x); p.vx+=(Math.cos(a)*520-p.vx)*dt*2.5; p.vy+=(Math.sin(a)*520-p.vy)*dt*2.5;} if(p.returning){const age=1.3-p.life; if(age>.55){const a=Math.atan2(player.y-p.y,player.x-p.x); p.vx=Math.cos(a)*600; p.vy=Math.sin(a)*600;}} p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt; if(!boss.dead&&dist(p.x,p.y,boss.x,boss.y)<p.r+boss.r){v123ApplyDamage(p.v123ExactDamage,p.color,false); if(!p.pierce)p.life=0; else p.pierce--;}});
+        state.projectiles=rest; V123_OLD_UPDATE_PROJECTILES(dt); state.projectiles=(state.projectiles||[]).concat(exact.filter(p=>p.life>0&&p.x>-80&&p.x<W+80&&p.y>-80&&p.y<H+80)); return;
+      }
+    }catch(e){ console.warn('[V123 exact projectile failed]',e); }
+    return V123_OLD_UPDATE_PROJECTILES(dt);
+  };
+  // 모든 표시를 마지막 기준으로 고정한다.
+  try{ v50WeaponEffects=function(w){ w=getWeapon(w&&w.id)||w; return `${v123DamageLine(w)}\n${v123MetaLine(w)}`; }; }catch(e){}
+  try{ v63WeaponDamage=v123Weapon; v106WeaponDamage=v123Weapon; v109ActualWeaponDamage=v123Weapon; v114DisplayedDamage=v123Weapon; v115DisplayedWeapon=v123Weapon; v116DisplayedWeapon=v123Weapon; v120Weapon=v123Weapon; }catch(e){}
+  try{ v63WeaponDamageLine=v123DamageLine; v106WeaponDamageLine=v123DamageLine; v109WeaponDamageLine=v123DamageLine; v114DamageLine=v123DamageLine; v115DamageLine=v123DamageLine; v116DamageLine=v123DamageLine; v120DamageLine=v123DamageLine; }catch(e){}
+  try{
+    v50SortieWeaponCard=function(it,selected,type){
+      const w=getWeapon((it&&it.id)||it)||it; const selectedClass=selected===w.id?'active':''; const eff=v50WeaponEffects(w); const desc=(typeof v50BaseDesc==='function')?v50BaseDesc(w.desc):String(w.desc||'');
+      return `<div class="card ${selectedClass}" title="${v123Esc(desc+'\n'+eff)}" data-select-type="weapon" data-select-id="${v123Esc(w.id)}"><h3>${v123Esc(w.name)} ${rarityLabel(w.rarity)}</h3><p>${v123Esc(desc)}<br>${eff.split('\n').map(v123Esc).join('<br>')}</p></div>`;
+    };
+    selectionGrid=function(items,selected,type){
+      items=(typeof v53UniqueItems==='function'?v53UniqueItems(items):items)||[];
+      const noneTitle=type==='weapon'?'무기 없이 출격':type==='armor'?'방어구 없이 출격':'비우기';
+      const noneDesc=type==='weapon'?'스킬만으로도 출격할 수 있습니다.':type==='armor'?'방어구 없이도 출격할 수 있습니다.':'비워둡니다.';
+      const noneCard=`<div class="card ${!selected?'active':''}" data-select-type="${type}" data-select-id=""><h3>${noneTitle}</h3><p>${noneDesc}</p></div>`;
+      if(!items.length) return `<div class="grid">${noneCard}<div class="card"><h3>보유한 항목이 없습니다.</h3><p>뽑기 또는 보스 드롭으로 획득할 수 있습니다.</p></div></div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+      return `<div class="grid">${noneCard}${items.map(it=>{
+        if(type==='weapon') return v50SortieWeaponCard(it,selected,type);
+        if(type==='armor'){ const ar=getArmor((it&&it.id)||it)||it; return `<div class="card ${selected===ar.id?'active':''}" data-select-type="armor" data-select-id="${v123Esc(ar.id)}"><h3>${v123Esc(ar.name)} ${rarityLabel(ar.rarity)}</h3><p>${v123Esc(ar.desc||'')}<br>체력 +${ar.hp||0} / 방어 +${ar.def||0}</p></div>`; }
+        return '';
+      }).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+    };
+  }catch(e){ console.warn('[V123 card render fix failed]',e); }
+  try{
+    v99WeaponMarketMeta=function(id,obj){ const w=getWeapon(id)||obj||{}; const d=v123Weapon(w); let meta={}; try{ meta=typeof weaponMeta==='function'?weaponMeta(id):{}; }catch(e){} return {enh:Number(meta.enh||0)||0,ench:meta.ench||[],damage:d.total,openDamage:d.open,oneDamage:d.one,dps:d.dps,crit:d.crit,realSpeed:d.cd,note:d.layout.note}; };
+    v99MarketTip=function(x){
+      try{
+        if(!x) return '';
+        if(x.kind==='weapon'){ const w=Object.assign({},getWeapon(x.itemId)||{}); const meta=Object.assign({},x.meta||{}); const d=v123Weapon(w,meta); const hit=d.layout.hits>1?`1타 ${v123Fmt(d.one)} / 총합 ${v123Fmt(d.total)}`:v123Fmt(d.total); const ench=(typeof v99EnchantTextFromMeta==='function')?v99EnchantTextFromMeta(meta,w):'없음'; return `${x.name}\n데미지 ${hit}\n약화 ${v123Fmt(d.open)} · 초당 ${v123Fmt(d.dps)} · 공속 ${d.cd.toFixed(2)}\n${v123RarityName(w.rarity)} · 강화 +${Number((meta&&meta.enh)||0)||0} · 인챈트 ${ench}`; }
+        if(x.kind==='skill'){ const sk=getSkill(x.itemId)||{}; return `${x.name}\n피해/효과는 스킬 카드 기준 · 쿨 ${Number(sk.cooldown||0).toFixed(1)}초`; }
+        if(x.kind==='armor'){ const ar=getArmor(x.itemId)||{}; return `${x.name}\n체력 +${ar.hp||0} · 방어 +${ar.def||0}`; }
+        return `${x.name}\n수량 ${x.qty||1}`;
+      }catch(e){ return String(x&&x.name||'아이템'); }
+    };
+  }catch(e){}
+  try{ window.RaidDungeonV123={version:V123_VERSION, changed:['일반 등급이 희귀 이상보다 강한 표시/실전 문제 최종 보정','무기 카드 표시와 실제 평타 피해를 같은 v123 공식으로 통합','근거리 하향, 원거리 상향 유지','장터 툴팁도 같은 공식 적용']}; console.log('[RaidDungeon]',V123_VERSION,'loaded'); }catch(e){}
+}catch(e){ console.warn('[V123 rarity/exact weapon damage patch failed]',e); }
+
+
+/* ===== V124: every boss pattern guarantee + one online record per account ===== */
+try{
+  const V124_VERSION = 'Raid Dungeon V124 - All Boss Pattern Guarantee One Account Record';
+
+  function v124N(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+  function v124Alive(){ return state && state.raid && boss && !boss.dead && player; }
+  function v124Tier(){ return Math.max(1, v124N(boss && boss.tier, 1)); }
+  function v124Phase(){ return Math.max(1, v124N(boss && boss.phase, 1)); }
+  function v124Dmg(m){ return Math.max(1, (boss && boss.atk ? boss.atk : 8) * (m || 1)); }
+  function v124Pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+  function v124AngToPlayer(){ return Math.atan2(player.y-boss.y, player.x-boss.x); }
+  function v124Circle(x,y,r,warn,color,mul,tag){ try{ warningCircle(x,y,r,warn||.55,color||boss.color,v124Dmg(mul||.7),'',null,tag||boss.theme); }catch(e){ state.hazards.push({kind:'circle',x,y,r,warn:warn||.55,life:.18,damage:v124Dmg(mul||.7),color:color||boss.color,tag:tag||boss.theme}); } }
+  function v124Beam(x,y,angle,len,w,warn,color,mul,tag){ state.hazards.push({kind:'beam',x,y,angle,len:len||980,w:w||28,warn:warn||.55,life:.22,damage:v124Dmg(mul||.8),color:color||boss.color,tag:tag||boss.theme}); }
+  function v124Wall(x,y,w,h,warn,color,mul,tag){ state.hazards.push({kind:'wall',x,y,w,h,r:0,warn:warn||.55,life:.55,damage:v124Dmg(mul||.65),color:color||boss.color,tag:tag||boss.theme}); }
+  function v124Zone(x,y,r,life,color,mul,tag){ state.zones.push({x,y,r,damage:v124Dmg(mul||.045),life:life||2.2,tick:0,color:color||boss.color,enemy:true,dot:true,tag:tag||boss.theme}); }
+  function v124Bullet(tx,ty,spd,color,mul,tag){ try{ aimBullet(boss.x,boss.y,tx,ty,spd||260,color||boss.color,v124Dmg(mul||.34),tag||boss.theme); }catch(e){ const a=Math.atan2(ty-boss.y,tx-boss.x); state.projectiles.push({owner:'enemy',x:boss.x,y:boss.y,vx:Math.cos(a)*(spd||260),vy:Math.sin(a)*(spd||260),r:7,life:4,damage:v124Dmg(mul||.34),color:color||boss.color,tag:tag||boss.theme}); } }
+  function v124Radial(n,spd,color,mul,offset){ try{ radialBullets(boss.x,boss.y,n,spd||220,color||boss.color,v124Dmg(mul||.30),offset||0); }catch(e){ for(let i=0;i<n;i++){ const a=(i/n)*Math.PI*2+(offset||0); state.projectiles.push({owner:'enemy',x:boss.x,y:boss.y,vx:Math.cos(a)*(spd||220),vy:Math.sin(a)*(spd||220),r:6,life:4,damage:v124Dmg(mul||.30),color:color||boss.color}); } } }
+  function v124Burst(x,y,c,n,s){ try{ burst(x,y,c||boss.color,n||28,s||260); }catch(e){} }
+  function v124Open(){ boss.vulnerable=Math.max(boss.vulnerable||0,.55); }
+
+  function v124Slime(){ const t=v124Tier(); v124Circle(player.x,player.y,52+t*3,.62,'#7ddf64',.55,'slime'); v124Radial(7+v124Phase()*2,145+t*9,'#dbffb6',.22); boss.patternCd=Math.max(boss.patternCd||0,2.35); }
+  function v124Fire(){ const a=v124AngToPlayer(); for(let i=-1;i<=1;i++) v124Beam(boss.x,boss.y,a+i*.18,820,20,.46,'#fb923c',.46,'fire'); for(let i=0;i<2+v124Phase();i++) v124Circle(rand(110,W-110),rand(130,H-80),34+v124Tier()*2,.72,'#ef4444',.50,'fire'); boss.patternCd=Math.max(boss.patternCd||0,2.05); }
+  function v124Thorn(){ const gap=rand(165,H-110); for(let i=0;i<5;i++){ const y=120+i*98; if(Math.abs(y-gap)>62) v124Wall(170+i*220,y,22,105,.58,'#22c55e',.46,'nature'); } for(let i=0;i<2;i++) v124Zone(rand(160,W-160),rand(145,H-95),48,2.4,'#84cc16',.038,'poison'); boss.patternCd=Math.max(boss.patternCd||0,2.25); }
+  function v124Ice(){ const a=v124AngToPlayer(); for(let i=-2;i<=2;i++) v124Beam(boss.x,boss.y,a+i*.16,900,18,.55,'#bae6fd',.42,'ice'); setTimeout(()=>{ if(v124Alive()) v124Circle(player.x,player.y,76,.55,'#7dd3fc',.58,'ice'); },360); boss.patternCd=Math.max(boss.patternCd||0,2.18); }
+  function v124Sand(){ player.slow=Math.max(player.slow||0,.85); const a=v124AngToPlayer(); for(let i=-2;i<=2;i++) v124Beam(boss.x,boss.y,a+i*.28,740,16,.48,'#f59e0b',.38,'sand'); v124Circle(player.x,player.y,82,.76,'#fde68a',.55,'sand'); boss.patternCd=Math.max(boss.patternCd||0,2.15); }
+  function v124Void(){ const ox=boss.x, oy=boss.y; boss.x=rand(140,W-140); boss.y=rand(115,H-170); v124Burst(ox,oy,'#8b5cf6',22,180); v124Burst(boss.x,boss.y,'#a78bfa',32,250); v124Zone(player.x,player.y,60+v124Tier()*3,2.35,'#7c3aed',.040,'void'); for(let i=0;i<2+v124Phase();i++) setTimeout(()=>{ if(v124Alive()) v124Bullet(player.x+rand(-80,80),player.y+rand(-80,80),265,'#c4b5fd',.34,'void'); },i*160); boss.patternCd=Math.max(boss.patternCd||0,1.95); }
+  function v124Metal(){ const a=v124AngToPlayer(); v124Beam(boss.x,boss.y,a,980,34,.65,'#e5e7eb',.74,'metal'); setTimeout(()=>{ if(v124Alive()) v124Radial(10+v124Phase()*2,205,'#94a3b8',.28); },340); boss.patternCd=Math.max(boss.patternCd||0,2.1); }
+  function v124Blood(){ v124Circle(player.x,player.y,70,.82,'#be123c',.70,'blood'); for(let i=0;i<8+v124Phase()*2;i++) v124Bullet(player.x+rand(-155,155),player.y+rand(-100,100),275,'#fda4af',.30,'blood'); boss.patternCd=Math.max(boss.patternCd||0,1.9); }
+  function v124Storm(){ const lanes=[180,360,540,720,900,1080]; lanes.sort(()=>Math.random()-.5).slice(0,3+v124Phase()).forEach((x,i)=>setTimeout(()=>{ if(v124Alive()) v124Beam(x,80,Math.PI/2,760,24,.30,'#fde047',.62,'lightning'); },i*240)); boss.patternCd=Math.max(boss.patternCd||0,2.15); }
+  function v124Plague(){ v124Zone(W/2,H/2,190+v124Tier()*5,2.8,'#84cc16',.044,'poison'); for(let i=0;i<10;i++) v124Bullet(rand(90,W-90),rand(110,H-70),230,'#bef264',.26,'poison'); boss.patternCd=Math.max(boss.patternCd||0,2.2); }
+  function v124Mirror(){ const real=Math.floor(Math.random()*4); for(let i=0;i<4;i++){ const x=260+i*250; v124Circle(x,170,38,.55,i===real?'#ffffff':'#e879f9',i===real?.38:.52,'mirror'); setTimeout(()=>{ if(v124Alive()) v124Beam(x,170,Math.atan2(player.y-170,player.x-x),820,14,.30,i===real?'#ffffff':'#e879f9',i===real?.30:.48,'mirror'); },360); } boss.patternCd=Math.max(boss.patternCd||0,2.05); }
+  function v124Gravity(){ state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:260+v124Tier()*8,life:2.2,power:160+v124Tier()*10,color:'#818cf8'}); v124Circle(W/2,H/2,105,.98,'#818cf8',.92,'gravity'); if(v124Phase()>=2) v124Beam(W/2,H/2,state.time||0,900,18,.75,'#c4b5fd',.46,'gravity'); boss.patternCd=Math.max(boss.patternCd||0,2.3); }
+  function v124Solar(){ const cx=W/2, cy=H/2; for(let i=0;i<6;i++) v124Beam(cx,cy,i*Math.PI/3+(boss.phase||1)*.13,850,20,.72,'#fde047',.52,'solar'); for(let i=0;i<3+v124Phase();i++) v124Circle(rand(110,W-110),rand(120,H-80),42,.88,'#fb923c',.70,'solar'); boss.patternCd=Math.max(boss.patternCd||0,2.35); }
+  function v124Chrono(){ const cx=W/2, cy=H/2; for(let i=0;i<4+v124Phase();i++){ const a=-Math.PI/2+i*(Math.PI*2/(4+v124Phase()))+(state.time||0)*.25; setTimeout(()=>{ if(v124Alive()) v124Beam(cx,cy,a,780,16,.45,'#f472b6',.42,'chrono'); },i*180); } player.slow=Math.max(player.slow||0,.6); boss.patternCd=Math.max(boss.patternCd||0,2.25); }
+  function v124Leviathan(){ for(let i=0;i<3+v124Phase();i++) setTimeout(()=>{ if(v124Alive()) v124Wall(W/2,145+i*110,W*.9,26,.46,'#38bdf8',.48,'water'); },i*190); setTimeout(()=>{ if(v124Alive()) v124Zone(player.x,player.y,78,1.8,'#0ea5e9',.052,'water'); },650); boss.patternCd=Math.max(boss.patternCd||0,2.28); }
+  function v124Puppet(){ for(let i=0;i<5;i++){ const x=180+i*230; v124Beam(x,80,Math.PI/2,760,12,.52,'#f0abfc',.42,'puppet'); } if(v124Phase()>=2) setTimeout(()=>{ if(v124Alive()) v124Wall(player.x,190,72,250,.82,'#fde68a',.88,'guillotine'); },450); boss.patternCd=Math.max(boss.patternCd||0,2.45); }
+  function v124BlackSun(){ v124Circle(W/2,H/2,150,.95,'#020617',.95,'dark'); for(let i=0;i<8;i++) v124Beam(W/2,H/2,i*Math.PI/4+(state.time||0)*.1,880,18,.70,'#f97316',.50,'solar'); boss.patternCd=Math.max(boss.patternCd||0,2.35); }
+  function v124Chaos(){ const funcs=[v124Fire,v124Ice,v124Storm,v124Void,v124Gravity,v124Mirror]; v124Pick(funcs)(); setTimeout(()=>{ if(v124Alive()) v124Radial(14+v124Phase()*3,250,'#fb7185',.28,Math.random()); },430); boss.patternCd=Math.max(boss.patternCd||0,1.85); }
+  function v124Train(){ const ys=[170,300,430,560].sort(()=>Math.random()-.5).slice(0,2+Math.min(2,v124Phase())); ys.forEach((y,i)=>setTimeout(()=>{ if(v124Alive()) v124Wall(W/2,y,W*.96,34,.55,'#ef4444',.62,'train'); },i*260)); v124Beam(boss.x,boss.y,v124AngToPlayer(),900,22,.45,'#facc15',.38,'train'); boss.patternCd=Math.max(boss.patternCd||0,2.25); }
+  function v124Cube(){ const cells=[[300,220],[640,220],[980,220],[300,500],[640,500],[980,500]]; const safe=Math.floor(Math.random()*cells.length); cells.forEach((p,i)=>{ if(i!==safe) v124Circle(p[0],p[1],72,.82,i%2?'#a78bfa':'#38bdf8',.66,'arcane'); else { try{ state.particles.push({kind:'ring',x:p[0],y:p[1],vx:0,vy:0,r:82,life:1.0,color:'#ffffff',line:3}); }catch(e){} } }); boss.patternCd=Math.max(boss.patternCd||0,2.45); }
+  function v124Gardener(){ for(let i=0;i<3;i++) v124Zone(rand(150,W-150),rand(145,H-95),55,3.0,i%2?'#8b5cf6':'#22c55e',.042,'garden'); for(let i=0;i<6;i++) setTimeout(()=>{ if(v124Alive()) v124Bullet(player.x+rand(-120,120),player.y+rand(-100,100),245,'#86efac',.30,'nature'); },i*110); boss.patternCd=Math.max(boss.patternCd||0,2.15); }
+  function v124Magnet(){ const left=player.x<W/2; const push=left?110:-110; player.x=clamp(player.x+push,42,W-42); v124Beam(W/2,H/2,0,980,22,.60,'#60a5fa',.55,'gravity'); v124Beam(W/2,H/2,Math.PI/2,780,22,.60,'#fb7185',.55,'gravity'); if(v124Phase()>=2) v124Circle(player.x,player.y,88,.70,'#93c5fd',.70,'gravity'); boss.patternCd=Math.max(boss.patternCd||0,2.15); }
+  function v124Jester(){ const pick=Math.floor(Math.random()*4); if(pick===0){ for(let i=0;i<12;i++) v124Bullet(W/2+Math.cos(i)*80,H/2+Math.sin(i)*60,310,i%2?'#f472b6':'#fde047',.32,'card'); } else if(pick===1){ for(let i=0;i<5;i++) v124Circle(190+i*230,rand(160,H-90),54,.55,i%2?'#fde047':'#f472b6',.58,'spotlight'); } else if(pick===2){ for(let i=0;i<8;i++) v124Beam(W/2,H/2,i*Math.PI/4+(state.time||0)*.2,760,14,.62,i%2?'#fde047':'#f472b6',.44,'roulette'); } else { for(let i=0;i<4;i++) setTimeout(()=>{ if(v124Alive()) v124Circle(player.x+rand(-130,130),player.y+rand(-95,95),46,.38,'#fb7185',.54,'box'); },i*220); } boss.patternCd=Math.max(boss.patternCd||0,1.9); }
+
+  const V124_POOLS={
+    slime_king:[v124Slime], ember_tyrant:[v124Fire], thorn_queen:[v124Thorn], frost_oracle:[v124Ice], sand_reaper:[v124Sand], void_serpent:[v124Void], iron_minotaur:[v124Metal], blood_moon:[v124Blood], storm_colossus:[v124Storm], plague_doctor:[v124Plague], mirror_duelist:[v124Mirror], gravity_core:[v124Gravity], solar_dragon:[v124Solar], chrono_dragon:[v124Chrono], abyss_leviathan:[v124Leviathan], puppet_emperor:[v124Puppet], black_sun:[v124BlackSun], chaos_archon:[v124Chaos], crimson_train:[v124Train], oracle_cube:[v124Cube], hollow_gardener:[v124Gardener], magnet_judge:[v124Magnet], dream_jester:[v124Jester], nightmare_jester:[v124Jester]
+  };
+  function v124Pool(){ const id=String((boss&&boss.id)||''); if(V124_POOLS[id]) return V124_POOLS[id]; if(id.includes('jester')||String(boss&&boss.name||'').includes('광대')) return V124_POOLS.dream_jester; return null; }
+  const V124_OLD_BOSSPATTERN = typeof bossPattern==='function'?bossPattern:function(){};
+  bossPattern=function(){
+    try{
+      if(!v124Alive()) return V124_OLD_BOSSPATTERN.apply(this,arguments);
+      const pool=v124Pool();
+      if(pool && pool.length){
+        boss._v124Count=(boss._v124Count||0)+1;
+        let fn=pool[0];
+        if(pool.length>1){
+          const last=boss._v124Last||[];
+          const candidates=pool.filter(f=>!last.includes(f.name));
+          fn=v124Pick(candidates.length?candidates:pool);
+          boss._v124Last=[fn.name].concat(last).slice(0,2);
+        }
+        fn();
+        if(v124Tier()>=7 && Math.random()<.35){ setTimeout(()=>{ if(v124Alive()) v124Radial(8+v124Phase()*2,190+v124Tier()*8,boss.sub||boss.color,.20,Math.random()); },620); }
+        return;
+      }
+    }catch(e){ console.warn('[V124 boss pattern guarantee failed]',e); }
+    return V124_OLD_BOSSPATTERN.apply(this,arguments);
+  };
+  try{ BOSSES.forEach(b=>{ if(V124_POOLS[b.id]) b.patterns=(b.patterns&&b.patterns.length?b.patterns:['전용 패턴']).slice(0,3); }); }catch(e){}
+
+  function v124Uid(){ try{ return state.currentUser && state.currentUser.id ? state.currentUser.id : null; }catch(e){ return null; } }
+  function v124Name(){ try{ return normalizedPlayerName(state.save.playerName||'Player')||'Player'; }catch(e){ return (state&&state.save&&state.save.playerName)||'Player'; } }
+  function v124Norm(s){ return String(s||'Player').trim().toLowerCase() || 'player'; }
+  function v124RecordKey(r){ return r && r.user_id ? 'u:'+r.user_id : 'n:'+v124Norm(r&&r.player_name); }
+  function v124BestRecords(records){
+    const by=new Map();
+    (records||[]).forEach(r=>{
+      if(!r||!r.boss_id) return;
+      const k=String(r.boss_id)+'|'+v124RecordKey(r);
+      const old=by.get(k);
+      const cm=Number(r.clear_ms||999999999);
+      const om=old?Number(old.clear_ms||999999999):999999999;
+      const rt=Date.parse(r.created_at||0)||0;
+      const ot=old?Date.parse(old.created_at||0)||0:0;
+      if(!old || cm<om || (cm===om && rt>ot)) by.set(k,r);
+    });
+    return Array.from(by.values()).sort((a,b)=>(Number(a.clear_ms||999999999)-Number(b.clear_ms||999999999)) || ((Date.parse(b.created_at||0)||0)-(Date.parse(a.created_at||0)||0)));
+  }
+  async function v124SaveBestRecord(record){
+    const uid=record.user_id;
+    if(!(supabaseReady&&supabase&&supabase.from&&uid)) throw new Error('Supabase not ready or user_id missing');
+    let existing=null;
+    try{
+      const res=await supabase.from('raid_records').select('*').eq('boss_id',record.boss_id).eq('user_id',uid).order('clear_ms',{ascending:true}).limit(1);
+      if(res&&res.error) throw res.error;
+      existing=Array.isArray(res.data)&&res.data.length?res.data[0]:null;
+    }catch(e){ existing=null; }
+    const isBetter=!existing || Number(record.clear_ms)<Number(existing.clear_ms||999999999) || (Number(record.clear_ms)===Number(existing.clear_ms||999999999) && Date.parse(record.created_at)>Date.parse(existing.created_at||0));
+    if(!isBetter) return {kept:true};
+    if(existing && existing.id){
+      const upd=await supabase.from('raid_records').update(record).eq('id',existing.id);
+      if(upd&&upd.error) throw upd.error;
+      return upd;
+    }
+    const ins=await supabase.from('raid_records').insert(record);
+    if(ins&&ins.error) throw ins.error;
+    return ins;
+  }
+  submitRecord=async function(ms){
+    const uid=v124Uid(); const b=boss||getBoss(state.selectedBossId)||{};
+    const record={player_name:v124Name(),user_id:uid,boss_id:String(b.id||state.selectedBossId||'unknown'),boss_name:String(b.name||''),clear_ms:Math.max(0,Math.round(Number(ms)||0)),weapon_id:state.raid&&state.raid.weapon?state.raid.weapon.id:'none',weapon_name:state.raid&&state.raid.weapon?state.raid.weapon.name:'무기 없음',skills:state.raid&&state.raid.skills?state.raid.skills.filter(Boolean).map(s=>s.name):[],passives:[state.raid&&state.raid.armor?('방어구: '+state.raid.armor.name):'방어구 없음'].concat(state.raid&&state.raid.passives?state.raid.passives.filter(Boolean).map(p=>p.name):[]),damage_taken:Math.round(Number(player&&player.damageTaken||0)),created_at:new Date().toISOString(),run_meta:{season:'v124-one-record'}};
+    try{ localStorage.setItem(LOCAL_RECORD_KEY,JSON.stringify(v124BestRecords([record]))); }catch(e){}
+    try{ await v124SaveBestRecord(record); state.cloudStatus='온라인 랭킹 저장 완료'; }
+    catch(e){ console.warn('[V124 online ranking save failed]',e&&e.message?e.message:e); state.cloudStatus='온라인 랭킹 저장 실패 · SQL v124 확인'; }
+    try{ await refreshRankings(record.boss_id); }catch(e){}
+  };
+  refreshRankings=async function(bossId){
+    state.rankingBossId=bossId; let records=[];
+    if(supabaseReady&&supabase&&supabase.from){
+      try{ const res=await supabase.from('raid_records').select('*').eq('boss_id',bossId).order('clear_ms',{ascending:true}).limit(800); if(res&&res.error) throw res.error; records=Array.isArray(res.data)?res.data:[]; state.cloudStatus='온라인 랭킹 불러옴'; }
+      catch(e){ console.warn('[V124 online ranking load failed]',e&&e.message?e.message:e); state.cloudStatus='온라인 랭킹 불러오기 실패 · SQL v124 확인'; }
+    }
+    if(!records.length){ try{ records=JSON.parse(localStorage.getItem(LOCAL_RECORD_KEY)||'[]').filter(r=>r&&r.boss_id===bossId); }catch(e){ records=[]; } }
+    state.rankings=v124BestRecords(records).slice(0,10);
+    if(state.menuTab==='ranking'&&state.screen==='menu') renderMenu();
+  };
+  try{ window.RaidDungeonV124={version:V124_VERSION,changed:['모든 보스 ID에 최소 1개 이상 전용 패턴 보장','기록은 boss_id + user_id 기준으로 계정당 1개만 표시','최고 기록 우선, 동률은 최신 기록 유지']}; console.log('[RaidDungeon]',V124_VERSION,'loaded'); }catch(e){}
+}catch(e){ console.warn('[V124 patch failed]',e); }
+
+/* ===== V125: boss damage scaling by tier ===== */
+try{
+  const V125_VERSION = 'Raid Dungeon V125 - Tiered Boss Damage Scaling';
+
+  function v125Num(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+  function v125TierOf(b){ return Math.max(1, Math.min(10, Math.round(v125Num(b && b.tier, 1)))); }
+  function v125PhaseOf(b){ return Math.max(1, Math.min(5, Math.round(v125Num(b && b.phase, 1)))); }
+  function v125BossAtk(t){
+    // 1~3성은 과하게 세지 않게, 7~10성부터 확실하게 강해지는 보스 공격력 곡선.
+    return Math.round(7 + t * 4.8 + Math.max(0, t - 5) * 4.6 + Math.max(0, t - 8) * 5.2);
+  }
+  function v125MinHit(t, phase, statusDamage){
+    // 방어력이 높아도 패턴/일반공격이 1로 박히는 것을 방지.
+    // 상태이상 DOT는 너무 강해지지 않도록 낮게 유지.
+    if(statusDamage) return Math.max(1, Math.floor(1 + t * 0.65 + phase * 0.4));
+    return Math.max(2, Math.floor(2 + t * 1.55 + phase * 1.15 + Math.max(0, t - 7) * 1.25));
+  }
+  function v125DefenseCut(t){
+    // 후반 보스일수록 방어력 관통이 조금 생겨 체력만 많은 보스가 아니라 실제 위협이 되게 함.
+    return Math.max(0.22, Math.min(0.72, 0.72 - t * 0.035));
+  }
+
+  try{
+    const V125_OLD_MAKE_BOSS = makeBoss;
+    makeBoss = function(b){
+      const o = V125_OLD_MAKE_BOSS.apply(this, arguments);
+      try{
+        const t = v125TierOf(o || b);
+        o.atk = Math.max(v125BossAtk(t), v125Num(o.atk, 1));
+        o._v125Atk = o.atk;
+      }catch(e){}
+      return o;
+    };
+    if(boss && boss.tier){ const t=v125TierOf(boss); boss.atk=Math.max(v125BossAtk(t), v125Num(boss.atk,1)); boss._v125Atk=boss.atk; }
+  }catch(e){ console.warn('[V125 makeBoss patch skipped]', e); }
+
+  const V125_OLD_HURT_PLAYER = hurtPlayer;
+  hurtPlayer = function(amount, color, statusDamage){
+    try{
+      if(!Number.isFinite(amount)) amount = 1;
+      if(!statusDamage && (player.invuln>0 || state.screen!=='raid')) return;
+      const t = v125TierOf(boss);
+      const phase = v125PhaseOf(boss);
+      let realAmount = Number(amount) || 1;
+      if(boss && boss.statuses && boss.statuses.weaken > 0) realAmount *= .72;
+
+      const isTinyDot = statusDamage && realAmount <= 4;
+      const effectiveDef = isTinyDot ? player.def : player.def * v125DefenseCut(t);
+      let dmg = Math.floor(realAmount - effectiveDef);
+      if(!isTinyDot && realAmount > 4) dmg = Math.max(dmg, v125MinHit(t, phase, !!statusDamage));
+      else dmg = Math.max(1, dmg);
+
+      if(player.shield > 0){
+        const used = Math.min(player.shield, dmg);
+        player.shield -= used;
+        dmg -= used;
+      }
+      if(dmg > 0){
+        player.hp -= dmg;
+        player.damageTaken += dmg;
+        floatText('-' + dmg, player.x, player.y - 24, color || '#fb7185');
+        state.shake = Math.max(state.shake, t >= 8 ? 6 : 4);
+        player.invuln = Math.max(player.invuln || 0, t >= 8 ? .24 : .18);
+      }
+      return dmg;
+    }catch(e){
+      return V125_OLD_HURT_PLAYER.apply(this, arguments);
+    }
+  };
+
+  // 일부 고정값 패턴도 현재 보스 등급에 맞춰 너무 약하게 들어가지 않도록 보정.
+  function v125ScaleDamageObject(o){
+    try{
+      if(!o || !Number.isFinite(o.damage)) return o;
+      const t = v125TierOf(boss);
+      const min = v125MinHit(t, v125PhaseOf(boss), false) + Math.max(0, t - 5) * 2;
+      if(o.owner === 'boss' || o.enemy || o.kind === 'strike' || o.kind === 'ring' || o.kind === 'beam' || o.kind === 'line' || o.kind === 'rect'){
+        o.damage = Math.max(o.damage, min);
+      }
+    }catch(e){}
+    return o;
+  }
+  try{
+    const oldPushProjectiles = state.projectiles.push.bind(state.projectiles);
+    state.projectiles.push = function(){
+      for(let i=0;i<arguments.length;i++) v125ScaleDamageObject(arguments[i]);
+      return oldPushProjectiles.apply(state.projectiles, arguments);
+    };
+    const oldPushHazards = state.hazards.push.bind(state.hazards);
+    state.hazards.push = function(){
+      for(let i=0;i<arguments.length;i++) v125ScaleDamageObject(arguments[i]);
+      return oldPushHazards.apply(state.hazards, arguments);
+    };
+    const oldPushZones = state.zones.push.bind(state.zones);
+    state.zones.push = function(){
+      for(let i=0;i<arguments.length;i++) v125ScaleDamageObject(arguments[i]);
+      return oldPushZones.apply(state.zones, arguments);
+    };
+  }catch(e){ console.warn('[V125 damage object push patch skipped]', e); }
+
+  try{ window.RaidDungeonV125={version:V125_VERSION, changed:['보스 일반 공격/패턴 피해를 등급별로 상승','방어력이 높아도 후반 보스 피해가 1로 들어가던 문제 수정','1~3성은 약하게, 7~10성은 확실히 강하게 보정']}; console.log('[RaidDungeon]',V125_VERSION,'loaded'); }catch(e){}
+}catch(e){ console.warn('[V125 boss damage scaling patch failed]', e); }
