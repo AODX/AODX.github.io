@@ -21765,6 +21765,125 @@ try{
   }catch(e){}
 }catch(e){ console.warn('[V119 nickname rank cleanup failed]', e); }
 
+
+/* ===== V130: verified boss HP bar sync for all clients ===== */
+try{
+  const V130_VERSION = 'Raid Dungeon V130 - Boss HP Bar Sync Verified';
+  function v130Num(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+  function v130Clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function v130Fmt(v){ try{return Math.ceil(Math.max(0,Number(v)||0)).toLocaleString('ko-KR');}catch(e){return String(Math.ceil(Math.max(0,Number(v)||0)));} }
+  function v130BossHp(){
+    const hp=v130Num(boss && boss.hp,0);
+    const max=Math.max(1, v130Num(boss && boss.maxHp, hp || 1));
+    return {hp:v130Clamp(hp,0,max), max, rate:v130Clamp(hp/max,0,1)};
+  }
+
+  const V130_PREV_START_RAID = typeof startRaid === 'function' ? startRaid : null;
+  if(V130_PREV_START_RAID){
+    startRaid=function(){
+      const r=V130_PREV_START_RAID.apply(this, arguments);
+      try{
+        if(boss){
+          boss.maxHp=Math.max(1, v130Num(boss.maxHp, 1));
+          boss.hp=v130Clamp(v130Num(boss.hp, boss.maxHp),0,boss.maxHp);
+          boss.__v130LastHp=boss.hp;
+          boss.__v130LastMaxHp=boss.maxHp;
+        }
+      }catch(e){}
+      return r;
+    };
+  }
+
+  // damageBoss가 실행된 직후에 HP 값을 확실히 숫자로 정규화한다.
+  // 표시용 HP바는 이 값을 매 프레임 직접 읽으므로 다른 브라우저에서도 숫자/바가 따로 놀지 않는다.
+  const V130_PREV_DAMAGE_BOSS = typeof damageBoss === 'function' ? damageBoss : null;
+  if(V130_PREV_DAMAGE_BOSS){
+    damageBoss=function(amount,color,big){
+      const ret=V130_PREV_DAMAGE_BOSS.apply(this, arguments);
+      try{
+        if(boss){
+          boss.maxHp=Math.max(1, v130Num(boss.maxHp, 1));
+          boss.hp=v130Clamp(v130Num(boss.hp,0),0,boss.maxHp);
+          boss.__v130LastHp=boss.hp;
+          boss.__v130LastMaxHp=boss.maxHp;
+          boss.__v130HpChangedAt=performance.now();
+        }
+      }catch(e){}
+      return ret;
+    };
+  }
+
+  // 일부 PC/브라우저에서 둥근 사각형 경로가 누적되거나 바가 이전 프레임처럼 보이는 문제를 피하려고,
+  // 보스 체력바만 fillRect 기반으로 완전히 다시 그린다.
+  drawBoss=function(){
+    if(!boss || boss.dead) return;
+    const h=v130BossHp();
+    try{
+      ctx.save();
+      if(state.shake>0) ctx.translate(rand(-state.shake,state.shake), rand(-state.shake,state.shake));
+      ctx.globalAlpha=boss.hit>0?.72:1;
+      drawBossShape(ctx,boss,boss.x,boss.y,boss.r);
+      ctx.restore();
+    }catch(e){}
+
+    const bw=760, bh=24, x=(W-bw)/2, y=30;
+    ctx.save();
+    ctx.globalAlpha=1;
+    ctx.fillStyle='rgba(0,0,0,.78)';
+    ctx.fillRect(x-12,y-26,bw+24,86);
+    ctx.strokeStyle='rgba(255,255,255,.18)';
+    ctx.lineWidth=2;
+    ctx.strokeRect(x-12,y-26,bw+24,86);
+
+    ctx.fillStyle='#020617';
+    ctx.fillRect(x,y,bw,bh);
+    ctx.fillStyle=boss.vulnerable>0?'#fef08a':(boss.color||'#ef4444');
+    ctx.fillRect(x,y,Math.max(0,Math.floor(bw*h.rate)),bh);
+    ctx.strokeStyle='rgba(255,255,255,.35)';
+    ctx.lineWidth=2;
+    ctx.strokeRect(x,y,bw,bh);
+
+    // 구간선을 넣어서 체력바가 줄어드는지 눈으로 바로 확인 가능하게 함.
+    ctx.strokeStyle='rgba(255,255,255,.16)';
+    ctx.lineWidth=1;
+    for(let i=1;i<10;i++){
+      const sx=x+bw*i/10;
+      ctx.beginPath(); ctx.moveTo(sx,y); ctx.lineTo(sx,y+bh); ctx.stroke();
+    }
+
+    ctx.textAlign='center';
+    ctx.fillStyle='#fff';
+    ctx.font='900 16px system-ui';
+    ctx.fillText(`${boss.name}  ${stars(boss.tier)}  ${boss.vulnerable>0?'BREAK':'GUARD'}`, W/2, 23);
+    ctx.font='900 13px system-ui';
+    ctx.fillStyle='#e5e7eb';
+    ctx.fillText(`HP ${v130Fmt(h.hp)} / ${v130Fmt(h.max)}  (${Math.ceil(h.rate*100)}%)`, W/2, y+17);
+
+    const txt=String(boss.mechanicText||'패턴 예고를 보고 움직이세요.').trim();
+    if(txt){
+      const s=txt.length>48?txt.slice(0,48)+'...':txt;
+      const boxW=600, boxH=24, boxX=W/2-boxW/2, boxY=104;
+      ctx.fillStyle='rgba(15,23,42,.90)';
+      ctx.fillRect(boxX,boxY,boxW,boxH);
+      ctx.strokeStyle='rgba(148,163,184,.28)';
+      ctx.strokeRect(boxX,boxY,boxW,boxH);
+      ctx.font='800 12px system-ui';
+      ctx.fillStyle='#cbd5e1';
+      ctx.fillText(s,W/2,boxY+17);
+    }
+    ctx.restore();
+
+    try{
+      if(boss.clones) boss.clones.forEach(c=>drawBossShape(ctx,{...boss,color:c.real?'#fef08a':boss.color,sub:boss.sub,theme:boss.theme},c.x,c.y,boss.r*.65));
+    }catch(e){}
+  };
+
+  try{
+    window.RaidDungeonV130={version:V130_VERSION, changed:['보스 HP바를 fillRect 기반으로 완전 재작성','damageBoss 이후 boss.hp 숫자 정규화','시작 시 boss.hp/maxHp 정규화','안내창이 HP바를 가리지 않도록 104px 아래 고정'], hpCheck:function(){return boss?v130BossHp():null;}};
+    console.log('[RaidDungeon]', V130_VERSION, 'loaded inside closure');
+  }catch(e){}
+}catch(e){ console.warn('[V130 boss hp bar sync failed]', e); }
+
 })();
 
 
