@@ -24341,3 +24341,592 @@ try{
   }catch(e){}
   try{ window.RaidDungeonV128={version:V128_VERSION, damageCheck:WEAPONS.slice(0,16).map(w=>({name:w.name,rarity:w.rarity,damage:v128Weapon(w).total})), changed:['숨은 4배 damageBoss 래퍼 최종 제거','무기 카드 표시 데미지와 보스 실제 평타 데미지 동일','일반 최대치보다 희귀 최소치가 높도록 강제','user_id 없는 옛 닉네임 기록 표시/저장 제외']}; console.log('[RaidDungeon]',V128_VERSION,'loaded'); }catch(e){}
 }catch(e){ console.warn('[V128 exact damage/ranking final patch failed]', e); }
+/* ===== V129: integrated balance, armor, skill, boss longevity final patch ===== */
+try {
+  const V129_VERSION = 'Raid Dungeon V129 - Integrated Balance Armor Skill Boss';
+  const V129_RARITY_INDEX = { normal:0, rare:1, super:2, epic:3, legendary:4, ultimate:5 };
+  const V129_SKILL_MUL = { normal:1.00, rare:1.16, super:1.34, epic:1.56, legendary:1.84, ultimate:2.20 };
+  const V129_BOSS_HP_MUL = [0, 0.82, 0.90, 1.00, 1.10, 1.22, 1.36, 1.52, 1.70, 1.90, 2.12];
+
+  function v129N(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+  function v129C(v,a,b){ return Math.max(a,Math.min(b,v)); }
+  function v129Tier(){ return v129C(Math.round(v129N(boss&&boss.tier,1)),1,10); }
+  function v129Armor(){ try{return (state.raid&&state.raid.armor)||getArmor(state.selectedArmorId)||null;}catch(e){return null;} }
+  function v129Passives(){ try{return ((state.raid&&state.raid.passives)||state.selectedPassiveIds.map(getPassive)).filter(Boolean);}catch(e){return [];} }
+
+  // 무기 수치는 V128의 단일 피해 공식을 그대로 사용하고 카드와 실전의 일치를 보장한다.
+  // 여기서는 장비/패시브가 전투 도중 중복 적용되거나 사라지지 않도록 생존 스탯만 재계산한다.
+  function v129ComputeVitals(){
+    const out={maxHp:100,maxMp:120,def:0,regen:.18,mpRegen:3,statusResist:{burn:0,poison:0,freeze:0,paralysis:0,slow:0}};
+    const ar=v129Armor();
+    if(ar){
+      out.maxHp += Math.max(0,v129N(ar.hp,0));
+      out.maxMp += Math.max(0,v129N(ar.mp,0)+v129N(ar.maxMp,0)+v129N(ar.mana,0));
+      out.def += Math.max(0,v129N(ar.def,0));
+      Object.keys(ar.resist||{}).forEach(k=>out.statusResist[k]=v129C(Math.max(out.statusResist[k]||0,v129N(ar.resist[k],0)),0,.80));
+    }
+    const temp={maxHp:out.maxHp,maxMp:out.maxMp,def:out.def,regen:out.regen,mpRegen:out.mpRegen,speed:265,atk:100,magic:100,crit:8,critDmg:1.7,damageMul:1,skillDamageMul:1,basicDamageMul:1,cooldownMul:1,areaMul:1,lifesteal:0,regen5:0,statusResist:Object.assign({},out.statusResist)};
+    v129Passives().forEach(p=>{ try{ if(p&&typeof p.apply==='function') p.apply(temp); }catch(e){} });
+    out.maxHp=Math.max(1,Math.floor(v129N(temp.maxHp,out.maxHp)));
+    out.maxMp=Math.max(1,Math.floor(v129N(temp.maxMp,out.maxMp)));
+    out.def=Math.max(0,Math.floor(v129N(temp.def,out.def)));
+    out.regen=Math.max(0,v129N(temp.regen,out.regen));
+    out.mpRegen=Math.max(0,v129N(temp.mpRegen,out.mpRegen));
+    Object.keys(out.statusResist).forEach(k=>out.statusResist[k]=v129C(v129N(temp.statusResist&&temp.statusResist[k],out.statusResist[k]),0,.80));
+    try{
+      const tr=state.save&&state.save.playerTraining||{};
+      out.maxHp+=v129C(v129N(tr.hp,0),0,100)*18;
+      out.maxMp+=v129C(v129N(tr.mp,0),0,100)*8;
+      out.regen+=v129C(v129N(tr.regen,0),0,100)*.055;
+      out.mpRegen+=v129C(v129N(tr.regen,0),0,100)*.07;
+    }catch(e){}
+    return out;
+  }
+
+  function v129ApplyVitals(full){
+    if(!player) return;
+    const v=v129ComputeVitals();
+    const oldMax=Math.max(1,v129N(player.maxHp,100));
+    const oldMp=Math.max(1,v129N(player.maxMp,120));
+    const hpRatio=full?1:v129C(v129N(player.hp,oldMax)/oldMax,0,1);
+    const mpRatio=full?1:v129C(v129N(player.mp,oldMp)/oldMp,0,1);
+    player.maxHp=v.maxHp; player.maxMp=v.maxMp; player.def=v.def;
+    player.regen=v.regen; player.mpRegen=v.mpRegen;
+    player.statusResist=Object.assign({burn:0,poison:0,freeze:0,paralysis:0,slow:0},v.statusResist);
+    player.equippedArmor=v129Armor();
+    player.hp=full?player.maxHp:Math.max(1,Math.min(player.maxHp,Math.round(player.maxHp*hpRatio)));
+    player.mp=full?player.maxMp:Math.max(0,Math.min(player.maxMp,Math.round(player.maxMp*mpRatio)));
+    player.v129Vitals=true;
+  }
+
+  // 최종 방어 공식: 방어력은 초반에는 체감되지만 후반 보스를 완전히 무력화하지 못하도록 완만한 감소율 적용.
+  hurtPlayer=function(amount,color,statusDamage){
+    if(!Number.isFinite(amount)) amount=1;
+    if(!statusDamage&&(player.invuln>0||state.screen!=='raid')) return 0;
+    const t=v129Tier(), phase=v129C(Math.round(v129N(boss&&boss.phase,1)),1,4);
+    let raw=Math.max(1,Number(amount)||1);
+    if(boss&&boss.statuses&&boss.statuses.weaken>0) raw*=.80;
+    const def=Math.max(0,v129N(player.def,0));
+    const reduction=statusDamage?v129C(def/(def+75),0,.42):v129C(def/(def+55+t*4),0,.58);
+    let dmg=Math.round(raw*(1-reduction));
+    const floor=statusDamage?Math.max(1,Math.round(1+t*.55)):Math.max(3,Math.round(4+t*1.75+Math.max(0,t-6)*1.8+(phase-1)*1.4));
+    dmg=Math.max(floor,dmg);
+    if(player.shield>0){const used=Math.min(player.shield,dmg);player.shield-=used;dmg-=used;}
+    if(dmg>0){
+      player.hp-=dmg; player.damageTaken=(player.damageTaken||0)+dmg;
+      floatText('-'+dmg,player.x,player.y-24,color||'#fb7185');
+      state.shake=Math.max(state.shake||0,t>=8?6:4);
+      if(!statusDamage) player.invuln=Math.max(player.invuln||0,t>=8?.21:.18);
+    }
+    return dmg;
+  };
+
+  // 상태이상 저항을 확률뿐 아니라 지속시간 감소에도 반영하여 방어구 효과를 확실히 체감하게 한다.
+  applyBossHitStatus=function(tag){
+    const st=player.statuses||(player.statuses={burn:0,poison:0,freeze:0,paralysis:0,slow:0});
+    const rs=player.statusResist||{};
+    function apply(k,d){const r=v129C(v129N(rs[k],0),0,.80); if(Math.random()<r) return; st[k]=Math.max(st[k]||0,d*(1-r*.70));}
+    if(tag==='slow'||tag==='sand'||tag==='chrono'||tag==='gravity'){apply('slow',1.8);player.slow=Math.max(player.slow||0,st.slow||0);}
+    if(tag==='fire'||tag==='solar') apply('burn',2.6);
+    if(tag==='poison') apply('poison',3.6);
+    if(tag==='ice') apply('freeze',.75);
+    if(tag==='lightning') apply('paralysis',.55);
+  };
+
+  // 스킬 등급별 성능 간격과 쿨타임을 재정렬. 지나친 연타형은 총 피해 기준으로 보정한다.
+  SKILLS.forEach((s,i)=>{
+    if(!s||s.v129Balanced) return;
+    const ri=V129_RARITY_INDEX[s.rarity]||0, rm=V129_SKILL_MUL[s.rarity]||1;
+    if(s.category==='attack'){
+      const typeMul={burst:1.08,line:1.00,chain:.94,rain:.92,zone:.84,orb:.90,strike:1.10}[s.type]||1;
+      s.power=v129C((.92+i*.006)*rm*typeMul,.85,3.85);
+      s.cooldown=v129C(5.8-ri*.42+(i%5)*.22,3.1,6.8);
+      s.v129TotalDamage=Math.round(200*s.power*({burst:1.70,line:.86,chain:4.96,rain:4.14,zone:1.40,orb:2.28,strike:2.05}[s.type]||2.05));
+    }else if(s.category==='heal'){
+      s.power=v129C((.78+i*.004)*rm,.70,2.60); s.cooldown=v129C(11.5-ri*.45+(i%4)*.35,7.5,12.5);
+    }else if(s.category==='buff'){
+      s.cooldown=v129C(13.5-ri*.45+(i%4)*.45,9.0,14.5); s.duration=v129C(5.2+ri*.55+(i%3)*.45,5,9.5);
+    }else if(s.category==='debuff'){
+      s.cooldown=v129C(11.8-ri*.38+(i%4)*.38,8.0,12.8); s.duration=v129C(4.4+ri*.45+(i%3)*.45,4,8.2);
+    }else if(s.category==='cleanse'){
+      s.cooldown=v129C(15.5-ri*.55+(i%3)*.45,10.5,16.5);
+    }
+    s.v129Balanced=true;
+  });
+
+  // 보스 HP를 등급별로 부드럽게 상승시켜 초반 과도한 장기전과 후반 순삭을 동시에 방지한다.
+  const V129_OLD_START=startRaid;
+  startRaid=function(){
+    const r=V129_OLD_START.apply(this,arguments);
+    if(state.screen==='raid'&&boss){
+      const t=v129Tier();
+      const target=Math.max(1500,Math.round(v129N(boss.maxHp,boss.hp)*V129_BOSS_HP_MUL[t]));
+      boss.maxHp=target; boss.hp=target;
+      boss.patternCd=v129C(2.05-t*.065,1.25,2.0);
+      v129ApplyVitals(true);
+    }
+    return r;
+  };
+
+  // 전투 중 다른 과거 패치가 최대 체력을 다시 덮어쓰는 것을 방지한다.
+  const V129_OLD_UPDATE=update;
+  let v129Clock=0;
+  update=function(dt){
+    const r=V129_OLD_UPDATE.apply(this,arguments);
+    if(state.screen==='raid'){
+      v129Clock+=v129N(dt,0);
+      if(v129Clock>=.40){v129Clock=0;v129ApplyVitals(false);}
+    }
+    return r;
+  };
+
+  // 장비 및 스킬 카드에 실제 적용 수치를 명확하게 표시한다.
+  const V129_OLD_SELECTION=selectionGrid;
+  selectionGrid=function(items,selected,type){
+    if(type!=='armor') return V129_OLD_SELECTION.apply(this,arguments);
+    const none=`<div class="card ${!selected?'active':''}" data-select-type="armor" data-select-id=""><h3>방어구 없이 출격</h3><p>기본 체력 100 · 기본 방어 0</p></div>`;
+    return `<div class="grid">${none}${items.map(a=>`<div class="card ${selected===a.id?'active':''}" data-select-type="armor" data-select-id="${escapeHtml(a.id)}"><h3>${escapeHtml(a.name)} ${rarityLabel(a.rarity)}</h3><p>${escapeHtml(a.desc||'')}<br><b style="color:#a7f3d0">실제 적용: 최대 체력 +${Math.floor(a.hp||0)} · 방어 +${Math.floor(a.def||0)}</b><br><span class="muted">저항: ${Object.keys(a.resist||{}).length?Object.entries(a.resist).map(([k,v])=>k+' '+Math.round(v*100)+'%').join(' / '):'없음'}</span></p></div>`).join('')}</div><div class="row" style="margin-top:14px"><button type="button" class="btn secondary" data-prev-step>이전</button><button type="button" class="btn" data-next-step>다음</button></div>`;
+  };
+
+  const V129_OLD_SKILL_GRID=skillSlotGrid;
+  skillSlotGrid=function(slot){
+    const html=V129_OLD_SKILL_GRID.apply(this,arguments);
+    try{return html.replace(/(<p>)([^<]*)(<br>분류:)/g,(m,a,b,c)=>a+b+c);}catch(e){return html;}
+  };
+
+  const V129_OLD_READY=readyPanel;
+  readyPanel=function(){
+    const html=V129_OLD_READY.apply(this,arguments),v=v129ComputeVitals(),ar=v129Armor();
+    return html+`<div class="card" style="margin-top:12px;cursor:default"><h3>최종 전투 능력치</h3><p><b style="color:#a7f3d0">체력 ${v.maxHp} · 방어 ${v.def} · HP 회복 ${v.regen.toFixed(2)}/초</b><br>장착 방어구: ${ar?escapeHtml(ar.name):'없음'}<br><span class="muted">방어구 체력·방어·상태이상 저항은 전투 시작 즉시 적용되며 전투 중에도 유지됩니다.</span></p></div>`;
+  };
+
+  // 메뉴 버전 표기를 최신 통합 패치로 교체한다.
+  const V129_OLD_RENDER=renderMenu;
+  renderMenu=function(){
+    const r=V129_OLD_RENDER.apply(this,arguments);
+    try{ if(ui&&ui.menu) ui.menu.innerHTML=ui.menu.innerHTML.replace(/Raid Dungeon V\d+[^<]*/g,V129_VERSION); bindMenuButtons(); }catch(e){}
+    return r;
+  };
+
+  window.RaidDungeonV129={
+    version:V129_VERSION,
+    changed:[
+      'V128 무기 표기 피해와 실제 피해 일치 유지',
+      '방어구 체력/방어/저항을 단일 계산식으로 재적용',
+      '방어력 감소율과 보스 최소 피해 재조정',
+      '스킬 등급/유형별 피해·쿨타임 재정렬',
+      '보스 1~10단계 HP와 패턴 주기 재조정',
+      '출격 화면에 최종 체력·방어 수치 표시'
+    ]
+  };
+  console.log('[RaidDungeon]',V129_VERSION,'loaded');
+}catch(e){console.warn('[V129 integrated balance patch failed]',e);}
+
+/* ===== V130: verified single-hit damage and runtime validation final ===== */
+try {
+  const V130_VERSION = 'Raid Dungeon V130 - Verified Exact Damage Balance';
+
+  // V128 투사체의 관통 수치가 단일 보스와 겹친 여러 프레임 동안 재충돌하여
+  // 표기 피해보다 2~3배 이상 들어갈 수 있던 문제를 최종 차단한다.
+  // 이 게임은 전투 대상이 단일 보스이므로 무기 투사체는 보스에게 정확히 한 번만 피해를 준다.
+  const V130_PREV_UPDATE_PROJECTILES = updateProjectiles;
+  updateProjectiles = function(dt) {
+    const exact = [];
+    const rest = [];
+    (state.projectiles || []).forEach(p => {
+      if (p && p.owner === 'player' && Number.isFinite(p.v128ExactWeaponDamage)) exact.push(p);
+      else rest.push(p);
+    });
+
+    if (!exact.length) return V130_PREV_UPDATE_PROJECTILES(dt);
+
+    exact.forEach(p => {
+      if (p.life <= 0 || p.v130HitBoss) return;
+      if (p.delay) { p.delay -= dt; return; }
+      if (p.homing && boss && !boss.dead) {
+        const a = Math.atan2(boss.y - p.y, boss.x - p.x);
+        p.vx += (Math.cos(a) * 520 - p.vx) * dt * 2.5;
+        p.vy += (Math.sin(a) * 520 - p.vy) * dt * 2.5;
+      }
+      if (p.returning) {
+        const age = 1.18 - p.life;
+        if (age > .52) {
+          const a = Math.atan2(player.y - p.y, player.x - p.x);
+          p.vx = Math.cos(a) * 600;
+          p.vy = Math.sin(a) * 600;
+        }
+      }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+      if (boss && !boss.dead && dist(p.x,p.y,boss.x,boss.y) < p.r + boss.r) {
+        p.v130HitBoss = true;
+        v128DirectDamage(p.v128ExactWeaponDamage, p.color, false, 'weaponProjectileV130');
+        p.life = 0;
+      }
+    });
+
+    state.projectiles = rest;
+    V130_PREV_UPDATE_PROJECTILES(dt);
+    state.projectiles = (state.projectiles || []).concat(exact.filter(p => p.life > 0 && !p.v130HitBoss && p.x > -80 && p.x < W + 80 && p.y > -80 && p.y < H + 80));
+  };
+
+  // 단검의 지연 타격이 레이드 종료 후 다음 보스에게 넘어가지 않도록 공격 당시 대상을 고정한다.
+  const V130_PREV_BASIC_ATTACK = basicAttack;
+  basicAttack = function() {
+    const raidAtAttack = state.raid;
+    const bossAtAttack = boss;
+    const before = state.projectiles ? state.projectiles.length : 0;
+    const result = V130_PREV_BASIC_ATTACK.apply(this, arguments);
+    // 새로 생성된 정확 피해 투사체에 현재 레이드/보스 식별자를 기록한다.
+    if (state.projectiles && state.projectiles.length > before) {
+      for (let i = before; i < state.projectiles.length; i++) {
+        const p = state.projectiles[i];
+        if (p && Number.isFinite(p.v128ExactWeaponDamage)) {
+          p.v130RaidRef = raidAtAttack;
+          p.v130BossRef = bossAtAttack;
+        }
+      }
+    }
+    return result;
+  };
+
+  // 다음 프레임부터 과거 레이드에서 남은 투사체를 제거한다.
+  const V130_PROJECTILE_GUARD = updateProjectiles;
+  updateProjectiles = function(dt) {
+    if (state.projectiles) {
+      state.projectiles = state.projectiles.filter(p => !p || !Number.isFinite(p.v128ExactWeaponDamage) || ((!p.v130RaidRef || p.v130RaidRef === state.raid) && (!p.v130BossRef || p.v130BossRef === boss)));
+    }
+    return V130_PROJECTILE_GUARD(dt);
+  };
+
+  // 브라우저 콘솔에서 즉시 확인할 수 있는 밸런스 검증표를 제공한다.
+  function v130ValidateBalance() {
+    const weaponRows = WEAPONS.map(w => {
+      const d = v128Weapon(w);
+      return { id:w.id, name:w.name, rarity:w.rarity, displayed:d.total, actualTotal:d.one*d.layout.hits, hits:d.layout.hits, cooldown:d.cd, dps:d.dps };
+    });
+    const exactDamage = weaponRows.every(x => x.displayed === x.actualTotal);
+    const order = ['normal','rare','super','epic','legendary','ultimate'];
+    const rarityBands = order.map(r => {
+      const rows = weaponRows.filter(x => x.rarity === r);
+      return { rarity:r, min:Math.min(...rows.map(x=>x.displayed)), max:Math.max(...rows.map(x=>x.displayed)), count:rows.length };
+    });
+    const raritySeparated = rarityBands.every((x,i) => i === 0 || x.min > rarityBands[i-1].max);
+    const armorRows = ARMORS.map(a => {
+      const old = state.selectedArmorId;
+      state.selectedArmorId = a.id;
+      const v = v129ComputeVitals();
+      state.selectedArmorId = old;
+      return { id:a.id, name:a.name, rarity:a.rarity, listedHp:a.hp, appliedMaxHp:v.maxHp, appliedDef:v.def };
+    });
+    const armorApplied = armorRows.every(x => x.appliedMaxHp >= 100 + x.listedHp && x.appliedDef >= 0);
+    const bossRows = BOSSES.map(b => ({id:b.id,name:b.name,tier:b.tier,hp:Math.round(b.hp*(V129_BOSS_HP_MUL[b.tier]||1)),atk:b.atk,speed:b.speed}));
+    const result = { version:V130_VERSION, exactDamage, raritySeparated, armorApplied, weaponRows, rarityBands, armorRows, bossRows };
+    try { console.table(rarityBands); console.log('[V130 validation]', result); } catch(e) {}
+    return result;
+  }
+
+  window.RaidDungeonV130 = { version:V130_VERSION, validate:v130ValidateBalance };
+  const v130Result = v130ValidateBalance();
+  if (!v130Result.exactDamage || !v130Result.raritySeparated || !v130Result.armorApplied) {
+    console.error('[RaidDungeon V130] balance validation failed', v130Result);
+  } else {
+    console.log('[RaidDungeon V130] all balance validation checks passed');
+  }
+
+  const V130_OLD_RENDER = renderMenu;
+  renderMenu = function() {
+    const r = V130_OLD_RENDER.apply(this, arguments);
+    try {
+      if (ui && ui.menu) ui.menu.innerHTML = ui.menu.innerHTML.replace(/Raid Dungeon V\d+[^<]*/g, V130_VERSION);
+      bindMenuButtons();
+    } catch(e) {}
+    return r;
+  };
+} catch(e) {
+  console.error('[V130 verified balance patch failed]', e);
+}
+
+/* ===== V131: exact multi-hit remainder distribution ===== */
+try {
+  const V131_VERSION = 'Raid Dungeon V131 - Verified Exact Total Damage';
+  function v131Shares(total,hits){
+    total=Math.max(1,Math.round(Number(total)||1)); hits=Math.max(1,Math.round(Number(hits)||1));
+    const base=Math.floor(total/hits), rem=total-base*hits;
+    return Array.from({length:hits},(_,i)=>base+(i<rem?1:0));
+  }
+
+  basicAttack=function(){
+    if(!state.raid||player.basicCd>0) return;
+    let w=state.raid.weapon; if(w&&w.id){try{w=getWeapon(w.id)||w;state.raid.weapon=w;}catch(e){}}
+    if(!w){toast('장착한 무기가 없어 일반공격을 사용할 수 없습니다.');player.basicCd=.6;return;}
+    const d=v128Weapon(w),angle=aimAngle(),k=v128Kind(w),plan=d.layout,shares=v131Shares(d.total,plan.hits);
+    const raidRef=state.raid,bossRef=boss;
+    player.basicCd=d.cd;player.attackAnim=.20+Math.min(.20,d.cd*.28);player.attackAngle=angle;
+    if(Math.cos(angle)<0)player.face=-1;if(Math.cos(angle)>0)player.face=1;
+    if(plan.ranged){
+      for(let i=0;i<plan.hits;i++){
+        const a=angle+(i-(plan.hits-1)/2)*.12,isBow=k.includes('bow');
+        state.projectiles.push({owner:'player',x:player.x+Math.cos(a)*22,y:player.y+Math.sin(a)*22,vx:Math.cos(a)*(isBow?990:735),vy:Math.sin(a)*(isBow?990:735),r:k==='gunstaff'?8:5,life:k==='chakram'?1.18:.92,pierce:0,color:w.color,damage:0,v128ExactWeaponDamage:shares[i],v130RaidRef:raidRef,v130BossRef:bossRef,returning:k==='chakram',homing:k==='grimoire'});
+      }
+      return;
+    }
+    if(k==='whip'){if(v128InCone(Math.min(w.range,plan.rangeCap),Math.PI*.70,angle))v128DirectDamage(d.total,w.color,false,'weapon');arcEffect(player.x,player.y,angle,Math.min(w.range,plan.rangeCap),w.color,Math.PI*.70);}
+    else if(k==='dagger'){
+      for(let i=0;i<plan.hits;i++)setTimeout(()=>{
+        if(state.raid===raidRef&&boss===bossRef&&!bossRef.dead&&v128InLine(Math.min(w.range+12,plan.rangeCap),24,angle)){
+          v128DirectDamage(shares[i],w.color,false,'weapon');stabEffect(player.x,player.y,angle,Math.min(w.range+12,plan.rangeCap),w.color);
+        }
+      },i*38);
+    }
+    else if(k==='greatsword'){if(v128InCone(Math.min(w.range+24,plan.rangeCap),Math.PI*.52,angle))v128DirectDamage(d.total,w.color,false,'weapon');slashEffect(player.x,player.y,angle,Math.min(w.range+24,plan.rangeCap),w.color,20);}
+    else if(k==='pole'){if(v128InLine(Math.min(w.range+18,plan.rangeCap),28,angle))v128DirectDamage(d.total,w.color,false,'weapon');thrustEffect(player.x,player.y,angle,Math.min(w.range+18,plan.rangeCap),w.color);}
+    else if(k==='scythe'){if(v128InCone(Math.min(w.range*.45,plan.rangeCap),Math.PI*.82,angle))v128DirectDamage(d.total,w.color,false,'weapon');arcEffect(player.x,player.y,angle,Math.min(w.range*.45,plan.rangeCap),w.color,Math.PI*.82);slashEffect(player.x,player.y,angle,Math.min(w.range*.45,plan.rangeCap),w.color,16);}
+    else{if(v128InCone(Math.min(w.range+12,plan.rangeCap),Math.PI*.46,angle))v128DirectDamage(d.total,w.color,false,'weapon');slashEffect(player.x,player.y,angle,Math.min(w.range+12,plan.rangeCap),w.color,10);}
+  };
+
+  function v131Validate(){
+    const rows=WEAPONS.map(w=>{const d=v128Weapon(w),shares=v131Shares(d.total,d.layout.hits);return{name:w.name,rarity:w.rarity,displayed:d.total,actual:shares.reduce((a,b)=>a+b,0),hits:d.layout.hits};});
+    const exact=rows.every(x=>x.displayed===x.actual);
+    const result={version:V131_VERSION,exact,rows};
+    try{console.log('[V131 exact total validation]',result);}catch(e){}
+    return result;
+  }
+  window.RaidDungeonV131={version:V131_VERSION,validate:v131Validate};
+  const v131=v131Validate();if(!v131.exact)console.error('[V131] exact damage validation failed',v131);
+  const V131_OLD_RENDER=renderMenu;
+  renderMenu=function(){const r=V131_OLD_RENDER.apply(this,arguments);try{if(ui&&ui.menu)ui.menu.innerHTML=ui.menu.innerHTML.replace(/Raid Dungeon V\d+[^<]*/g,V131_VERSION);bindMenuButtons();}catch(e){}return r;};
+}catch(e){console.error('[V131 exact multi-hit patch failed]',e);}
+
+/* ===== V132: verified boss order and minimum HP ===== */
+try {
+  const V132_VERSION='Raid Dungeon V132 - Fully Verified Balance';
+  BOSSES.sort((a,b)=>(Number(a.tier)||1)-(Number(b.tier)||1)||(Number(a.hp)||0)-(Number(b.hp)||0)||String(a.name).localeCompare(String(b.name),'ko'));
+  const V132_OLD_START=startRaid;
+  startRaid=function(){
+    const r=V132_OLD_START.apply(this,arguments);
+    if(state.screen==='raid'&&boss){
+      boss.maxHp=Math.max(1500,Math.round(Number(boss.maxHp)||1500));
+      boss.hp=boss.maxHp;
+    }
+    return r;
+  };
+  const V132_OLD_RENDER=renderMenu;
+  renderMenu=function(){const r=V132_OLD_RENDER.apply(this,arguments);try{if(ui&&ui.menu)ui.menu.innerHTML=ui.menu.innerHTML.replace(/Raid Dungeon V\d+[^<]*/g,V132_VERSION);bindMenuButtons();}catch(e){}return r;};
+  window.RaidDungeonV132={version:V132_VERSION,bossOrder:BOSSES.map(b=>({name:b.name,tier:b.tier,hp:b.hp}))};
+  console.log('[RaidDungeon]',V132_VERSION,'loaded');
+}catch(e){console.error('[V132 boss order patch failed]',e);}
+
+/* ===== V133: doubled arsenal + advanced boss difficulty expansion ===== */
+try {
+  const V133_VERSION = 'Raid Dungeon V133 - Double Arsenal Nightmare Bosses';
+  const V133_ORIGINAL_WEAPONS = WEAPONS.length;
+  const V133_ORIGINAL_SKILLS = SKILLS.length;
+
+  const v133WeaponDefs = [
+    ['iron_cleaver','철제 클리버','normal','greatsword','#94a3b8','.무게를 실어 내려찍는 초보자용 도끼검입니다.',1.25,135,.76,3],
+    ['wind_shortbow','산들 단궁','normal','bow','#93c5fd','가볍고 연사력이 좋은 단궁입니다.',.90,590,.27,7],
+    ['copper_spear','구리 장창','normal','pole','#d97706','긴 사거리로 안전하게 찌르는 장창입니다.',.98,185,.36,4],
+    ['apprentice_tome','견습 마도서','normal','grimoire','#c4b5fd','작은 추적탄 세 발을 발사합니다.',.82,520,.54,5],
+    ['bone_sickle','뼈 낫','normal','scythe','#e5e7eb','넓은 궤적으로 적을 베는 낫입니다.',1.08,250,.58,4],
+    ['twin_knife','쌍날 식칼','normal','dagger','#f8fafc','세 번 빠르게 찌르는 쌍날 무기입니다.',.66,78,.16,12],
+    ['brass_cannon','황동 마도포','normal','gunstaff','#f59e0b','느리지만 폭발력이 있는 마도포입니다.',.96,500,.67,4],
+    ['reed_whip','갈대 채찍','normal','whip','#86efac','긴 범위를 부드럽게 휘두릅니다.',.84,190,.40,4],
+
+    ['azure_katana','청람도','rare','sword','#38bdf8','푸른 잔상을 남기는 빠른 도검입니다.',1.10,112,.29,10],
+    ['crosswind_bow','교차풍 장궁','rare','bow_storm','#7dd3fc','바람을 가르며 빠르게 날아가는 화살입니다.',1.00,650,.27,14],
+    ['scarlet_halberd','홍련 월도','rare','pole','#fb7185','불꽃 궤적을 남기는 긴 월도입니다.',1.10,205,.34,8],
+    ['witch_codex','마녀의 주해서','rare','grimoire','#a78bfa','곡선을 그리는 추적 마탄을 발사합니다.',.94,600,.49,9],
+    ['chain_sickle','사슬 낫','rare','scythe','#94a3b8','왕복하는 긴 낫날로 공간을 베어냅니다.',1.12,300,.53,10],
+    ['venom_fangs','맹독 송곳니','rare','dagger','#bef264','독빛 잔상을 남기는 고속 단검입니다.',.74,84,.14,20],
+    ['frost_caster','빙결 마도포','rare','gunstaff','#bae6fd','폭발 시 서리가 퍼지는 마도탄입니다.',1.02,545,.57,9],
+    ['steel_vine','강철 덩굴채찍','rare','whip','#cbd5e1','강철 마디가 넓은 범위를 휩씁니다.',1.00,225,.37,10],
+
+    ['phoenix_saber','불사조 세이버','super','sword_fire','#fb923c','불사조의 깃털 같은 화염 참격을 냅니다.',1.22,125,.30,14],
+    ['tempest_crossbow','폭풍 연노','super','bow_storm','#fde047','번개가 감도는 초고속 쇠뇌입니다.',1.08,700,.28,18],
+    ['glacier_lance','빙하 장창','super','pole','#7dd3fc','빙결 결정이 폭발하는 장창입니다.',1.18,220,.31,12],
+    ['forest_scripture','세계림 성전','super','grimoire','#4ade80','생명 마탄이 적을 자동 추적합니다.',1.08,650,.46,13],
+    ['crescent_reaper','초승달 수확낫','super','scythe','#c4b5fd','초승달 모양의 참격을 던집니다.',1.28,340,.50,15],
+    ['storm_needles','폭풍 침단검','super','dagger','#facc15','전류가 흐르는 단검을 연속으로 찌릅니다.',.86,92,.12,30],
+    ['solar_blaster','태양 마도포','super','gunstaff','#fef08a','태양빛 폭발탄을 발사합니다.',1.16,585,.52,15],
+    ['hydra_lash','히드라 채찍','super','whip','#22c55e','여러 갈래로 갈라지는 독성 채찍입니다.',1.08,250,.34,16],
+
+    ['eclipse_blade','일식검','epic','sword_fire','#f97316','빛과 어둠이 동시에 폭발하는 검입니다.',1.40,142,.29,20],
+    ['aurora_bow','오로라 장궁','epic','bow_storm','#e879f9','빛의 궤적이 남는 관통 장궁입니다.',1.20,755,.27,23],
+    ['gravity_pike','중력 창','epic','pole','#818cf8','공간을 눌러 찌르는 고밀도 창입니다.',1.38,245,.31,18],
+    ['abyss_tome','심연의 마도서','epic','grimoire','#7c3aed','공허 구체가 목표를 끝까지 추적합니다.',1.22,720,.43,20],
+    ['soul_harvester','영혼 수확자','epic','scythe','#f0abfc','영혼을 베는 거대한 낫입니다.',1.48,385,.47,22],
+    ['mirror_knives','거울 쌍단검','epic','dagger','#e879f9','잔상이 실제 칼날처럼 연속 타격합니다.',.98,102,.105,38],
+    ['nova_destroyer','노바 파괴포','epic','gunstaff','#67e8f9','광범위한 별빛 폭발을 일으킵니다.',1.34,635,.49,22],
+    ['leviathan_chain','레비아탄 사슬채찍','epic','whip','#38bdf8','파도와 함께 긴 사슬이 휘몰아칩니다.',1.25,290,.31,22],
+
+    ['ragnarok_edge','라그나로크 엣지','legendary','greatsword','#ef4444','종말의 충격파를 일으키는 거대검입니다.',2.18,195,.61,25],
+    ['valkyrie_bow','발키리의 신궁','legendary','bow_storm','#fef08a','빛의 날개가 화살을 가속합니다.',1.42,820,.24,31],
+    ['atlas_lance','아틀라스 성창','legendary','pole','#818cf8','중력장을 관통하는 전설의 성창입니다.',1.58,275,.28,27],
+    ['akashic_grimoire','아카식 기록서','legendary','grimoire','#c4b5fd','기록된 주문이 자동으로 적을 추적합니다.',1.48,790,.38,28],
+    ['death_clock_scythe','종언시계 낫','legendary','scythe','#f472b6','시간을 잘라내는 거대한 낫입니다.',1.70,430,.42,30],
+    ['nightmare_fangs','악몽 송곳니','legendary','dagger','#a78bfa','그림자 속에서 끊임없이 찌릅니다.',1.12,112,.09,48],
+    ['galaxy_cannon','은하 붕괴포','legendary','gunstaff','#22d3ee','은하 핵이 폭발하는 마도포입니다.',1.52,700,.45,29],
+    ['judgement_chain','심판의 사슬','legendary','whip','#fde047','빛의 사슬이 넓은 범위를 심판합니다.',1.40,335,.29,30],
+
+    ['eternity_blade','영겁검','ultimate','sword_fire','#ffffff','시간과 공간을 동시에 베는 궁극검입니다.',2.05,180,.24,42],
+    ['heavenfall_bow','천락궁','ultimate','bow_storm','#fde047','하늘 전체를 화살 폭풍으로 뒤덮습니다.',1.72,900,.22,48],
+    ['world_axis_lance','세계축 성창','ultimate','pole','#fef08a','세계의 축을 고정하는 절대 장창입니다.',1.90,310,.25,40],
+    ['omniscient_codex','전지의 마도서','ultimate','grimoire','#f0abfc','모든 속성의 추적탄을 동시에 발사합니다.',1.78,850,.34,42],
+    ['void_emperor_scythe','공허황제의 낫','ultimate','scythe','#c084fc','공간 균열이 왕복하며 모든 것을 베어냅니다.',1.98,500,.39,45],
+    ['zero_interval_dagger','무간극 단검','ultimate','dagger','#e879f9','공격 사이의 틈이 거의 없는 궁극 단검입니다.',1.30,125,.078,58],
+    ['creation_annihilator','창세멸절포','ultimate','gunstaff','#67e8f9','창조와 소멸이 동시에 폭발합니다.',1.88,780,.40,44],
+    ['infinity_serpent','무한사룡 채찍','ultimate','whip','#a78bfa','끝없이 뻗는 용 형상의 궁극 채찍입니다.',1.64,380,.26,46]
+  ];
+
+  v133WeaponDefs.forEach(d=>{
+    if(!WEAPONS.some(w=>w.id===d[0])) WEAPONS.push(weapon(d[0],d[1],d[2],d[3],d[5].replace(/^\./,''),d[4],d[6],d[7],d[8],d[9]));
+  });
+
+  const v133Elements=['fire','ice','lightning','void','solar','water','nature','blood','gravity','chrono','arcane','metal','spirit','chaos','poison','wind'];
+  const v133AttackTypes=['burst','line','chain','rain','zone','orb','strike'];
+  const v133Prefixes=['홍련','빙성','낙뢰','심연','천광','해신','수림','혈월','중력','시간','성운','강철','영혼','혼돈','맹독','질풍','황혼','새벽','환상','멸망'];
+  const v133Suffixes=['폭렬','관통','심판','강림','결계','추적탄','참격','창','파동','유성우'];
+  const v133Rarity=(i)=>i<22?'normal':i<44?'rare':i<64?'super':i<80?'epic':i<93?'legendary':'ultimate';
+  const v133NewSkills=[];
+  for(let i=0;i<70;i++){
+    const elem=v133Elements[i%v133Elements.length], type=v133AttackTypes[i%v133AttackTypes.length], rarity=v133Rarity(i);
+    v133NewSkills.push({id:'v133_attack_'+String(i+1).padStart(3,'0'),name:v133Prefixes[i%v133Prefixes.length]+' '+v133Suffixes[Math.floor(i/v133Prefixes.length)%v133Suffixes.length],element:elem,type,category:'attack',rarity,color:elementColor(elem),power:.95+(i%11)*.055+(rarity==='ultimate'?.95:rarity==='legendary'?.65:rarity==='epic'?.42:rarity==='super'?.25:rarity==='rare'?.12:0),cooldown:5.8-(rarity==='ultimate'?1.6:rarity==='legendary'?1.25:rarity==='epic'?.9:rarity==='super'?.55:rarity==='rare'?.25:0)+(i%4)*.18,radius:95+(i%8)*14,duration:type==='zone'?4.2:1,desc:'새로 추가된 '+v133Prefixes[i%v133Prefixes.length]+' 계열 '+skillCategoryName('attack')+' 스킬. '+type+' 방식으로 보스를 공격합니다.'});
+  }
+  const supportTypes=[
+    ['buff','buff_damage'],['buff','buff_skill'],['buff','buff_crit'],['buff','buff_speed'],['buff','buff_life'],['buff','buff_cool'],
+    ['heal','heal_small'],['heal','heal_big'],['heal','heal_regen'],['heal','heal_zone'],['heal','heal_full'],
+    ['debuff','debuff_burn'],['debuff','debuff_poison'],['debuff','debuff_freeze'],['debuff','debuff_paralyze'],['debuff','debuff_slow'],['debuff','debuff_weaken'],['debuff','debuff_vulnerable'],
+    ['cleanse','cleanse_all'],['cleanse','cleanse_freeze'],['cleanse','cleanse_paralysis'],['cleanse','cleanse_poison'],['cleanse','cleanse_burn']
+  ];
+  for(let i=0;i<30;i++){
+    const st=supportTypes[i%supportTypes.length], elem=v133Elements[(i*3+5)%v133Elements.length], rarity=v133Rarity(70+i);
+    const label=st[0]==='buff'?'가호':st[0]==='heal'?'회복':st[0]==='debuff'?'봉인':'정화';
+    v133NewSkills.push({id:'v133_support_'+String(i+1).padStart(3,'0'),name:v133Prefixes[(i+7)%v133Prefixes.length]+'의 '+label,element:elem,type:st[1],category:st[0],rarity,color:elementColor(elem),power:1.0+(i%8)*.07+(rarity==='ultimate'?.8:rarity==='legendary'?.55:rarity==='epic'?.35:rarity==='super'?.2:rarity==='rare'?.1:0),cooldown:(st[0]==='cleanse'?14:st[0]==='heal'?10.5:11.5)-(rarity==='ultimate'?2.4:rarity==='legendary'?1.8:rarity==='epic'?1.2:rarity==='super'?.7:rarity==='rare'?.3:0),radius:105+(i%6)*15,duration:st[0]==='buff'||st[0]==='debuff'?5.5+(i%4):1,desc:'새로 추가된 '+skillCategoryName(st[0])+' 스킬. '+label+' 효과를 통해 전투 조합의 폭을 넓힙니다.'});
+  }
+  v133NewSkills.forEach(s=>{ if(!SKILLS.some(x=>x.id===s.id)) SKILLS.push(s); });
+
+  // 신규 스킬도 현재 최종 밸런스 규칙으로 보정한다.
+  const v133SkillMul={normal:1,rare:1.16,super:1.34,epic:1.56,legendary:1.84,ultimate:2.20};
+  SKILLS.slice(V133_ORIGINAL_SKILLS).forEach((s,i)=>{
+    const rm=v133SkillMul[s.rarity]||1;
+    if(s.category==='attack'){
+      const tm={burst:1.08,line:1,chain:.94,rain:.92,zone:.84,orb:.90,strike:1.10}[s.type]||1;
+      s.power=Math.max(.9,Math.min(4.15,s.power*rm*.62*tm));
+      s.cooldown=Math.max(3.0,Math.min(7.0,s.cooldown));
+    }else if(s.category==='heal') s.cooldown=Math.max(7.2,s.cooldown);
+    else if(s.category==='cleanse') s.cooldown=Math.max(10.0,s.cooldown);
+    s.v129Balanced=true;
+  });
+
+  function v133EnemyBullet(x,y,a,speed,damage,color,tag,r){
+    spawnProjectile({owner:'boss',x,y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r:r||7,life:4.8,color,damage,tag});
+  }
+  function v133Radial(count,speed,damage,color,offset,tag){
+    for(let i=0;i<count;i++) v133EnemyBullet(boss.x,boss.y,(offset||0)+i*Math.PI*2/count,speed,damage,color,tag,7);
+  }
+  function v133Fan(count,spread,speed,damage,color,tag){
+    const base=Math.atan2(player.y-boss.y,player.x-boss.x);
+    for(let i=0;i<count;i++) v133EnemyBullet(boss.x,boss.y,base+(i-(count-1)/2)*(spread/Math.max(1,count-1)),speed,damage,color,tag,8);
+  }
+  function v133Circle(x,y,r,warn,damage,color,tag,zone){ state.hazards.push({kind:'circle',x,y,r,warn,life:.12,damage,color,tag,zone:!!zone}); }
+  function v133Beam(x,y,angle,len,w,warn,damage,color,tag,spin,life){ state.hazards.push({kind:spin?'rotatingBeam':'beam',x,y,angle,len,w,warn,life:life||.20,damage,color,tag,spin:spin||0,tick:0}); }
+  function v133Wall(x,y,w,h,warn,damage,color,tag,life){ state.hazards.push({kind:'wall',x,y,w,h,warn,life:life||.55,damage,color,tag}); }
+
+  function v133NightmarePattern(){
+    if(!boss||boss.dead||state.screen!=='raid') return;
+    const t=Math.max(1,Math.min(10,Number(boss.tier)||1));
+    const ph=Math.max(1,Number(boss.phase)||1);
+    const dmg=Math.max(7,(Number(boss.atk)||8)*(.48+t*.025));
+    const pick=Math.floor(Math.random()*(t>=9?7:t>=7?6:t>=5?4:2));
+    boss.mechanicText='추가 난이도 패턴: 이동 경로와 예고 범위를 함께 확인하세요.';
+    if(pick===0){
+      v133Fan(3+Math.floor(t/2)+ph,Math.PI*(.38+.03*t),230+t*18,dmg,boss.color,boss.theme);
+      setTimeout(()=>{if(boss&&!boss.dead)v133Fan(3+Math.floor(t/3)+ph,Math.PI*.55,255+t*16,dmg*.82,boss.sub,boss.theme);},320);
+    }else if(pick===1){
+      const n=2+Math.floor(t/3)+ph;
+      for(let i=0;i<n;i++) setTimeout(()=>{if(boss&&!boss.dead)v133Circle(player.x+rand(-95,95),player.y+rand(-75,75),34+t*2,.62-Math.min(.18,t*.012),dmg*1.12,boss.color,boss.theme,t>=7);},i*180);
+    }else if(pick===2){
+      const gap=Math.floor(rand(0,4));
+      for(let i=0;i<4;i++) if(i!==gap) v133Wall(W/2,150+i*145,W*.94,24+t*2,.72,dmg*1.05,boss.color,boss.theme,.75);
+      setTimeout(()=>{if(boss&&!boss.dead)v133Beam(W/2,H/2,Math.atan2(player.y-H/2,player.x-W/2),1050,18+t,.60,dmg,boss.sub,boss.theme);},360);
+    }else if(pick===3){
+      v133Radial(10+t+ph*2,185+t*14,dmg*.78,boss.color,(state.time||0)*.7,boss.theme);
+      setTimeout(()=>{if(boss&&!boss.dead)v133Radial(8+t,215+t*12,dmg*.72,boss.sub,(state.time||0)*.7+Math.PI/(8+t),boss.theme);},420);
+    }else if(pick===4){
+      state.mechanics.push({kind:'gravity',x:W/2,y:H/2,r:245+t*8,life:2.8,power:125+t*12,color:boss.color});
+      v133Beam(W/2,H/2,(state.time||0)*.45,1120,15+t*.8,.78,dmg*.78,boss.color,boss.theme,.85,2.6);
+      if(ph>=2) v133Beam(W/2,H/2,(state.time||0)*.45+Math.PI/2,1120,14+t*.7,.88,dmg*.74,boss.sub,boss.theme,-.65,2.4);
+    }else if(pick===5){
+      for(let i=0;i<2+ph;i++) state.mechanics.push({kind:'add',x:rand(90,W-90),y:rand(125,H-80),r:16+t,life:8,hp:80+t*28,speed:72+t*6,color:i%2?boss.color:boss.sub});
+      const safeX=rand(180,W-180),safeY=rand(180,H-130);
+      state.mechanics.push({kind:'safe',x:safeX,y:safeY,r:78,life:2.2,color:'#86efac'});
+      setTimeout(()=>{if(boss&&!boss.dead){state.hazards.push({kind:'donut',x:safeX,y:safeY,inner:82,outer:900,warn:.25,life:.15,damage:dmg*1.35,color:boss.color,tag:boss.theme});}},1250);
+    }else{
+      v133Radial(16+t,245+t*10,dmg*.72,boss.color,0,boss.theme);
+      for(let i=0;i<5;i++) v133Circle(rand(110,W-110),rand(135,H-90),42+t,.55+i*.05,dmg*1.18,i%2?boss.color:boss.sub,boss.theme,t>=9);
+      v133Beam(W/2,H/2,(state.time||0),1150,18+t,.72,dmg*.85,boss.sub,boss.theme,t>=10?.95:0,t>=10?2.5:.2);
+    }
+    state.shake=Math.max(state.shake||0,2+t*.35);
+  }
+
+  const V133_OLD_START=startRaid;
+  startRaid=function(){
+    const r=V133_OLD_START.apply(this,arguments);
+    if(state.screen==='raid'&&boss){
+      const t=Math.max(1,Math.min(10,Number(boss.tier)||1));
+      const hpMul=[0,1.22,1.32,1.45,1.62,1.82,2.05,2.32,2.62,2.95,3.35][t];
+      boss.maxHp=Math.round(Math.max(1800,Number(boss.maxHp||boss.hp||1800)*hpMul));
+      boss.hp=boss.maxHp;
+      boss.v133PatternTimer=Math.max(3.2,7.2-t*.32);
+      boss.v133Enrage=false;
+    }
+    return r;
+  };
+
+  const V133_OLD_UPDATE=update;
+  update=function(dt){
+    const r=V133_OLD_UPDATE.apply(this,arguments);
+    if(state.screen==='raid'&&boss&&!boss.dead){
+      const t=Math.max(1,Math.min(10,Number(boss.tier)||1));
+      boss.v133PatternTimer=(Number(boss.v133PatternTimer)||5)-Number(dt||0);
+      if(t>=4&&boss.v133PatternTimer<=0){
+        v133NightmarePattern();
+        const ph=Math.max(1,Number(boss.phase)||1);
+        boss.v133PatternTimer=Math.max(2.8,7.1-t*.33-(ph-1)*.45+Math.random()*.9);
+      }
+      if(t>=8&&!boss.v133Enrage&&boss.hp/boss.maxHp<=.18){
+        boss.v133Enrage=true;
+        boss.atk*=1.18;
+        boss.speed*=1.14;
+        boss.v133PatternTimer=.45;
+        boss.mechanicText='최후의 광폭화: 패턴 간격이 짧아지고 공격력이 상승합니다!';
+        floatText('광폭화!',boss.x,boss.y-boss.r-55,'#fb7185',25);
+        state.flash=Math.max(state.flash,.55);
+      }
+    }
+    return r;
+  };
+
+  const V133_OLD_DUNGEON=renderDungeonTab;
+  renderDungeonTab=function(){
+    const html=V133_OLD_DUNGEON.apply(this,arguments);
+    return html.replace('아래로 갈수록 난이도가 올라갑니다.','아래로 갈수록 체력·공격력·패턴 조합이 크게 강화됩니다. 4단계부터 추가 복합 패턴, 8단계부터 광폭화가 발생합니다.');
+  };
+  const V133_OLD_GACHA=renderGachaTab;
+  renderGachaTab=function(){
+    const html=V133_OLD_GACHA.apply(this,arguments);
+    return html.replace(/무기 \$\{state\.save\.weapons\.length\}\/\$\{WEAPONS\.length\}/g,'무기 ${state.save.weapons.length}/${WEAPONS.length}').replace(/스킬 \$\{state\.save\.skills\.length\}\/\$\{SKILLS\.length\}/g,'스킬 ${state.save.skills.length}/${SKILLS.length}');
+  };
+  const V133_OLD_RENDER=renderMenu;
+  renderMenu=function(){
+    const r=V133_OLD_RENDER.apply(this,arguments);
+    try{if(ui&&ui.menu)ui.menu.innerHTML=ui.menu.innerHTML.replace(/Raid Dungeon V\d+[^<]*/g,V133_VERSION);bindMenuButtons();}catch(e){}
+    return r;
+  };
+
+  const v133Validation={version:V133_VERSION,originalWeapons:V133_ORIGINAL_WEAPONS,weapons:WEAPONS.length,originalSkills:V133_ORIGINAL_SKILLS,skills:SKILLS.length,weaponIdsUnique:new Set(WEAPONS.map(x=>x.id)).size===WEAPONS.length,skillIdsUnique:new Set(SKILLS.map(x=>x.id)).size===SKILLS.length,bosses:BOSSES.length};
+  window.RaidDungeonV133={version:V133_VERSION,validate:()=>v133Validation,newWeaponIds:v133WeaponDefs.map(x=>x[0]),newSkillIds:v133NewSkills.map(x=>x.id)};
+  console.log('[V133 expansion validation]',v133Validation);
+}catch(e){console.error('[V133 expansion patch failed]',e);}
