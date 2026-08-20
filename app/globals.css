@@ -199,3 +199,49 @@ body{overflow-x:hidden}.app{min-height:100vh;background:radial-gradient(circle a
 .directGame{width:min(100%,980px);margin:0 auto;display:grid;gap:14px}.directHud{display:grid;grid-template-columns:minmax(0,2fr) repeat(3,minmax(72px,.55fr));gap:8px}.directHud>span{min-width:0;background:#0e1117;border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:11px 14px;display:flex;flex-direction:column;gap:3px}.directHud b{font-size:clamp(14px,2vw,20px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.directHud small{font-size:10px;letter-spacing:.13em;color:#7d8799}.gatePrompt{border:1px solid rgba(212,179,91,.34);background:rgba(212,179,91,.08);border-radius:14px;padding:12px 16px;text-align:center;font-weight:800;font-size:clamp(15px,2.2vw,21px)}.directArena{position:relative;overflow:hidden;aspect-ratio:16/8.7;min-height:310px;border-radius:24px;border:1px solid rgba(255,255,255,.11);background:radial-gradient(circle at 50% 50%,rgba(57,77,103,.24),transparent 55%),linear-gradient(180deg,#0b0e13,#080a0e);box-shadow:inset 0 0 80px rgba(0,0,0,.5)}.arenaGrid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:38px 38px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.8),rgba(0,0,0,.25))}.playerAvatar{position:absolute;width:38px;height:38px;transform:translate(-50%,-50%);border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#f7d67d,#a67821);border:2px solid #fff2bd;box-shadow:0 0 0 6px rgba(226,187,86,.1),0 10px 28px rgba(0,0,0,.45);transition:left .055s linear,top .055s linear;z-index:8}.playerAvatar span{font-size:15px;color:#16130a}.playerAvatar i{position:absolute;width:16px;height:7px;border-radius:50%;background:rgba(0,0,0,.5);bottom:-11px;filter:blur(2px)}.arenaTarget{position:absolute;transform:translate(-50%,-50%);width:54px;height:54px;border-radius:16px;display:grid;place-items:center;background:#141a23;border:1px solid rgba(122,181,255,.45);box-shadow:0 0 0 5px rgba(82,151,255,.07),0 10px 24px rgba(0,0,0,.32);z-index:5}.arenaTarget.active{border-color:#f6cf72;background:#2a2314;box-shadow:0 0 0 7px rgba(246,207,114,.09),0 0 28px rgba(246,207,114,.25)}.arenaTarget b{font-size:16px}.dummyIcon,.orbIcon{font-size:24px;color:#8dc3ff}.arenaHazard{position:absolute;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;border:1px solid rgba(255,90,90,.45);background:rgba(151,37,46,.14);display:grid;place-items:center;animation:hazardPulse 1.5s ease-in-out infinite alternate}.arenaHazard span{width:18px;height:18px;border-radius:50%;background:#8e2d36;box-shadow:0 0 22px rgba(255,63,76,.35)}@keyframes hazardPulse{to{transform:translate(-50%,-50%) scale(1.13);filter:brightness(1.2)}}.arenaFlash{position:absolute;left:50%;top:12%;transform:translateX(-50%);z-index:15;padding:8px 14px;border-radius:999px;background:rgba(5,7,10,.84);border:1px solid rgba(255,255,255,.13);font-weight:900;letter-spacing:.06em}.arenaOverlay{position:absolute;inset:0;z-index:20;display:grid;place-content:center;justify-items:center;text-align:center;gap:10px;background:rgba(5,7,10,.72);backdrop-filter:blur(8px);padding:20px}.arenaOverlay strong{font-size:clamp(24px,5vw,48px);letter-spacing:-.04em}.arenaOverlay p{margin:0;color:#aab3c0}.arenaOverlay.result{background:rgba(5,7,10,.68)}.directHelp{display:flex;gap:10px;flex-wrap:wrap}.directHelp span{font-size:12px;color:#87909d;background:#0d1016;border:1px solid rgba(255,255,255,.07);padding:8px 10px;border-radius:10px}.directHelp b{color:#dfe5ee}.mode-survive .arenaTarget{border-color:rgba(91,226,158,.46)}.mode-gate .arenaTarget{width:auto;min-width:82px;padding:0 12px;border-color:rgba(189,139,255,.5)}
 @media (max-width:700px){.directHud{grid-template-columns:1fr 1fr}.directHud>span:first-child{grid-column:1/-1}.directArena{aspect-ratio:auto;min-height:360px;border-radius:18px}.arenaTarget{width:46px;height:46px}.playerAvatar{width:34px;height:34px}.directHelp{justify-content:center}.gatePrompt{font-size:15px}.gameArena{padding-inline:0!important}}
 @media (prefers-reduced-motion:reduce){.arenaHazard{animation:none}.playerAvatar{transition:none}}
+
+
+/* v16 commercial party presentation */
+:root{--festival-a:#7c5cff;--festival-b:#2dd4bf;--festival-c:#ffcc66;--festival-red:#ff6b7a}
+body{background:
+  radial-gradient(circle at 18% 0%,rgba(124,92,255,.18),transparent 30%),
+  radial-gradient(circle at 88% 12%,rgba(45,212,191,.10),transparent 26%),
+  linear-gradient(180deg,#080a10 0%,#0a0d14 48%,#07090e 100%)}
+.gameNav{border-bottom:1px solid rgba(255,255,255,.07);background:rgba(8,10,16,.82);backdrop-filter:blur(20px)}
+.brandGlyph{background:linear-gradient(145deg,var(--festival-a),#4f46e5)!important;box-shadow:0 8px 28px rgba(124,92,255,.28)}
+.homeHero{position:relative}.homeHero:after{content:"28 GAMES · LIVE";display:inline-flex;margin-top:26px;padding:8px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.035);font-size:10px;font-weight:900;letter-spacing:.16em;color:#aab4c5}
+.matchCard{box-shadow:0 28px 80px rgba(0,0,0,.34);border-color:rgba(255,255,255,.10)!important;background:linear-gradient(180deg,rgba(20,24,34,.96),rgba(12,15,22,.98))!important}
+.modeSelect button.active{box-shadow:0 0 0 1px rgba(124,92,255,.65),0 12px 32px rgba(124,92,255,.12)!important}
+.cardBack{background:
+  radial-gradient(circle at 50% 36%,rgba(124,92,255,.20),transparent 28%),
+  linear-gradient(145deg,#171d2a,#0c1018 70%)!important}
+.cardBack:after{content:"";position:absolute;inset:28%;border:1px solid rgba(255,255,255,.08);transform:rotate(45deg);border-radius:12px}
+.roulette{position:relative;overflow:hidden;background:
+  linear-gradient(135deg,rgba(124,92,255,.16),transparent 35%),
+  linear-gradient(225deg,rgba(45,212,191,.10),transparent 35%),#0d1119!important;border-color:rgba(255,255,255,.10)!important}
+.roulette:before{content:"";position:absolute;inset:-50%;background:conic-gradient(from 0deg,transparent,rgba(124,92,255,.08),transparent,rgba(45,212,191,.07),transparent);animation:festivalSpin 8s linear infinite;pointer-events:none}
+.roulette>*{position:relative;z-index:1}@keyframes festivalSpin{to{transform:rotate(360deg)}}
+.rouletteWindow{border-color:rgba(255,255,255,.13)!important;background:rgba(6,8,13,.82)!important;box-shadow:inset 0 0 50px rgba(124,92,255,.08)}
+.rouletteWindow span{font-size:clamp(26px,5.5vw,58px)!important;letter-spacing:-.05em}
+.tutorialStage{border-color:rgba(255,255,255,.09)!important;background:linear-gradient(180deg,#10141d,#0a0d13)!important}
+.rulesPanel,.practicePanel{border-color:rgba(255,255,255,.08)!important;background:#0b0f16!important}
+.directArena{background:radial-gradient(circle at 50% 45%,rgba(65,88,125,.22),transparent 56%),linear-gradient(180deg,#0c111a,#080b11)!important}
+.directArena:after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 100px rgba(0,0,0,.55);z-index:2}
+.playerAvatar{z-index:12!important;background:linear-gradient(145deg,#fff0b8,#d3952f)!important;box-shadow:0 0 0 5px rgba(255,211,111,.10),0 12px 30px rgba(0,0,0,.46)!important}
+.arenaTarget{z-index:7!important}.captureIcon{font-size:24px;color:#ffd86f;text-shadow:0 0 18px rgba(255,216,111,.45)}
+.theme-track .directArena,.theme-hurdle .directArena,.theme-field .directArena{background:linear-gradient(180deg,#11221c,#09110f)!important}
+.theme-sky .directArena{background:linear-gradient(180deg,#16213a,#0a1020)!important}
+.theme-energy .directArena,.theme-zone .directArena,.theme-overtime .directArena{background:radial-gradient(circle at 50% 50%,rgba(45,212,191,.17),transparent 55%),#081311!important}
+.theme-factory .directArena,.theme-warehouse .directArena,.theme-forge .directArena{background:radial-gradient(circle at 50% 50%,rgba(255,150,70,.10),transparent 50%),#15100d!important}
+.theme-bumper .directArena,.theme-impact .directArena,.theme-floor .directArena,.theme-shock .directArena{background:radial-gradient(circle at 50% 45%,rgba(255,78,96,.13),transparent 50%),#130b0e!important}
+.theme-maze .directArena,.theme-code .directArena,.theme-switch .directArena,.theme-laser .directArena{background:radial-gradient(circle at 50% 45%,rgba(107,92,255,.18),transparent 52%),#0b0b18!important}
+.theme-word .directArena,.theme-reply .directArena,.theme-keyword .directArena,.theme-echo .directArena{background:radial-gradient(circle at 50% 45%,rgba(236,72,153,.12),transparent 55%),#140b13!important}
+.theme-training .directArena,.theme-hunt .directArena,.theme-treasure .directArena,.theme-duel .directArena{background:radial-gradient(circle at 50% 45%,rgba(255,204,102,.12),transparent 55%),#14110a!important}
+.theme-core .arenaTarget,.theme-bumper .arenaTarget{border-color:rgba(255,204,102,.55)!important;background:#241d10!important}
+.theme-treasure .arenaTarget{border-color:rgba(255,215,90,.58)!important;background:#231b0d!important}
+.screenShell{animation:screenIn .28s ease both}@keyframes screenIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.btn.primary{background:linear-gradient(135deg,#8b6cff,#6e56e8)!important;border-color:#8b6cff!important;color:#fff!important;box-shadow:0 10px 28px rgba(124,92,255,.18)}
+.btn.gold{background:linear-gradient(135deg,#ffd66f,#e6a941)!important;color:#171106!important}
+.stageHeader h1,.homeHero h1,.finalScreen h1{letter-spacing:-.06em!important}
+@media(max-width:640px){.homeHero:after{margin-top:18px}.rouletteWindow span{font-size:34px!important}.directArena{min-height:420px!important}.directHud>span{padding:9px 11px}.directHud small{font-size:9px}.arenaTarget{width:48px;height:48px}.tutorialStage{padding-inline:12px!important}}
+@media(prefers-reduced-motion:reduce){.roulette:before,.screenShell{animation:none!important}}

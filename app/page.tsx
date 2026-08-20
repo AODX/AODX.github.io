@@ -9,7 +9,7 @@ const supabase = createClient(
 );
 
 type GameMode = 'normal' | 'long';
-type MiniGameType = 'arm_mash' | 'arm_timing' | 'leg_reaction' | 'leg_timing' | 'cardio_mash' | 'cardio_timing' | 'bone_timing' | 'bone_reaction' | 'intelligence_logic' | 'intelligence_memory' | 'verbal_logic' | 'verbal_reaction' | 'tool_timing' | 'tool_reaction';
+type MiniGameType = 'arm_mash'|'arm_timing'|'arm_bumper'|'arm_push'|'leg_reaction'|'leg_timing'|'leg_platform'|'leg_flag'|'cardio_mash'|'cardio_timing'|'cardio_conveyor'|'cardio_zone'|'bone_timing'|'bone_reaction'|'bone_floor'|'bone_shock'|'intelligence_logic'|'intelligence_memory'|'intelligence_switch'|'intelligence_laser'|'verbal_logic'|'verbal_reaction'|'verbal_capture'|'verbal_echo'|'tool_timing'|'tool_reaction'|'tool_treasure'|'tool_duel';
 type CardCategory = 'arm' | 'leg' | 'cardio' | 'bone' | 'condition' | 'tool' | 'intelligence' | 'verbal';
 type CardRarity = '일반' | '고급' | '희귀' | '영웅' | '전설';
 type CharacterStats = { arm:number; leg:number; cardio:number; bone:number; condition:number; tool:number; intelligence:number; verbal:number };
@@ -174,22 +174,36 @@ function buildStats(cards:DrawnCard[]):CharacterStats {
 }
 
 const miniGameInfo:Record<MiniGameType,{name:string;stat:string;desc:string;tutorial:string[]}>= {
-  arm_mash:{ name:'브레이커 런', stat:'팔힘', desc:'캐릭터를 직접 움직여 샌드백에 접근하고 공격해 최대한 많이 파괴합니다.', tutorial:['WASD/방향키 또는 모바일 조이스틱으로 이동하세요.','샌드백 가까이에서 SPACE 또는 A 버튼으로 공격하세요.','팔힘이 높을수록 한 번의 공격 점수가 커집니다.'] },
-  arm_timing:{ name:'크레이트 스매시', stat:'팔힘', desc:'아레나를 돌아다니며 상자를 찾아 직접 부수는 액션 미니게임입니다.', tutorial:['캐릭터를 직접 움직여 상자를 찾으세요.','상자 근처에서 공격 버튼을 눌러 파괴하세요.','남은 시간 안에 더 많은 상자를 부수면 승리합니다.'] },
-  leg_reaction:{ name:'체크포인트 스프린트', stat:'다리힘', desc:'캐릭터를 직접 달려 순서대로 체크포인트를 통과하는 스피드전입니다.', tutorial:['조이스틱/WASD로 캐릭터를 달리세요.','빛나는 체크포인트를 순서대로 밟으세요.','다리힘이 좋을수록 이동 속도가 빨라집니다.'] },
-  leg_timing:{ name:'허들 러시', stat:'다리힘', desc:'장애물 사이를 직접 조작해 피하며 결승선을 향하는 코스입니다.', tutorial:['캐릭터를 직접 움직여 장애물을 피하세요.','빨간 장애물에 닿으면 시간과 점수를 잃습니다.','다리힘은 가속과 이동 속도에 영향을 줍니다.'] },
-  cardio_mash:{ name:'엔듀런스 서킷', stat:'심폐지구력', desc:'넓은 코스를 계속 달리며 에너지 오브를 모으는 지구력전입니다.', tutorial:['맵을 직접 달리며 오브를 수집하세요.','시간이 지날수록 기본 이동력이 조금 떨어집니다.','심폐지구력이 높으면 속도 저하가 적습니다.'] },
-  cardio_timing:{ name:'존 러너', stat:'심폐지구력', desc:'맵을 돌아다니며 나타나는 점령 지점을 빠르게 밟아 유지하는 경기입니다.', tutorial:['빛나는 존까지 직접 이동하세요.','존 위에 잠시 머물면 점령됩니다.','심폐지구력이 높을수록 연속 이동에 유리합니다.'] },
-  bone_timing:{ name:'임팩트 서바이벌', stat:'골밀도', desc:'충격 구역을 피해 직접 움직이며 최대한 오래 버티는 생존전입니다.', tutorial:['캐릭터를 직접 이동해 위험 지대를 피하세요.','빨간 충격 구역과 부딪히면 HP가 감소합니다.','골밀도가 높을수록 충격 피해가 감소합니다.'] },
-  bone_reaction:{ name:'범퍼 아레나', stat:'골밀도', desc:'맵의 범퍼와 충돌을 피하면서 오브를 모으는 생존 액션입니다.', tutorial:['조이스틱/WASD로 계속 움직이세요.','범퍼를 피하며 점수 오브를 모으세요.','골밀도가 높으면 충돌 페널티가 줄어듭니다.'] },
-  intelligence_logic:{ name:'루트 브레이커', stat:'IQ', desc:'캐릭터를 움직여 가장 효율적인 길을 찾아 목표 지점에 도달하는 경로전입니다.', tutorial:['직접 캐릭터를 움직여 출구를 찾으세요.','위험 지형을 피하고 짧은 경로를 선택하세요.','IQ가 높으면 정답 루트 힌트가 더 오래 표시됩니다.'] },
-  intelligence_memory:{ name:'코드 게이트', stat:'IQ', desc:'화면의 문제를 보고 캐릭터를 직접 정답 게이트까지 이동시키는 액션 퍼즐입니다.', tutorial:['상단 문제를 확인하세요.','캐릭터를 직접 움직여 정답 숫자가 적힌 게이트로 들어가세요.','오답 게이트는 감점, 정답 게이트는 큰 점수입니다.'] },
-  verbal_logic:{ name:'워드 게이트', stat:'언어능력', desc:'단어 문제의 정답을 판단하고 해당 게이트까지 직접 달려가는 경기입니다.', tutorial:['상단 단어 문제를 읽으세요.','정답이라고 생각하는 단어 게이트로 캐릭터를 이동하세요.','언어능력이 높을수록 정답 보너스가 커집니다.'] },
-  verbal_reaction:{ name:'리플라이 러시', stat:'언어능력', desc:'맵에 튀어나오는 말풍선을 추적해 직접 접근하고 반응 버튼으로 처리합니다.', tutorial:['캐릭터를 직접 움직여 말풍선을 쫓으세요.','가까이에서 SPACE/A를 눌러 처리하세요.','언어능력이 높을수록 처리 점수가 올라갑니다.'] },
-  tool_timing:{ name:'웨폰 트레이닝', stat:'도구', desc:'뽑은 무기를 들고 캐릭터를 직접 조작해 훈련 표적을 공격합니다.', tutorial:['직접 이동해 표적의 사거리 안으로 들어가세요.','SPACE/A로 장비를 사용해 공격하세요.','좋은 장비일수록 공격 범위와 점수가 조금 더 높습니다.'] },
-  tool_reaction:{ name:'타겟 헌트', stat:'도구', desc:'움직이는 표적을 추적해 직접 접근하고 공격하는 추격전입니다.', tutorial:['표적 위치를 확인하고 직접 추격하세요.','사거리 안에서 공격 버튼을 누르세요.','장비 성능이 높을수록 명중 보너스가 커집니다.'] },
+  arm_mash:{name:'파워 브레이커',stat:'팔힘',desc:'아레나를 돌며 강화 블록을 부수는 근력전입니다.',tutorial:['캐릭터를 직접 움직여 블록에 접근하세요.','사거리 안에서 공격 버튼으로 파괴하세요.','팔힘이 높을수록 한 번에 더 큰 점수를 얻습니다.']},
+  arm_timing:{name:'크레이트 크래시',stat:'팔힘',desc:'흩어진 상자를 찾아 연속으로 파괴하는 액션 경기입니다.',tutorial:['상자를 빠르게 찾아 이동하세요.','공격으로 상자를 부수고 콤보를 이어가세요.','짧은 동선을 설계할수록 유리합니다.']},
+  arm_bumper:{name:'범퍼 배시',stat:'팔힘',desc:'강화 범퍼를 밀어 지정 구역 밖으로 보내는 파워 게임입니다.',tutorial:['범퍼 가까이까지 이동하세요.','공격 버튼을 연속 입력해 범퍼를 밀어내세요.','팔힘이 높을수록 밀어내는 점수가 커집니다.']},
+  arm_push:{name:'타이탄 푸시',stat:'팔힘',desc:'중앙의 거대 코어를 여러 구간으로 밀어내는 힘 대결입니다.',tutorial:['코어 뒤쪽으로 이동하세요.','공격을 반복해 코어를 다음 구간으로 보내세요.','빠른 위치 선정과 팔힘이 핵심입니다.']},
+  leg_reaction:{name:'체크포인트 스프린트',stat:'다리힘',desc:'빛나는 체크포인트를 순서대로 밟는 고속 레이스입니다.',tutorial:['WASD/조이스틱으로 직접 달리세요.','번호 순서대로 체크포인트를 통과하세요.','다리힘이 높을수록 이동 속도가 빨라집니다.']},
+  leg_timing:{name:'허들 러시',stat:'다리힘',desc:'장애물 사이를 빠르게 뚫고 결승선까지 도달하세요.',tutorial:['붉은 장애물을 피하며 이동하세요.','체크포인트를 순서대로 통과하세요.','충돌하면 점수가 깎입니다.']},
+  leg_platform:{name:'스카이 스텝',stat:'다리힘',desc:'좁은 발판 지점을 빠르게 이어 밟는 이동 기술전입니다.',tutorial:['빛나는 발판을 순서대로 밟으세요.','잘못된 방향으로 가면 시간이 낭비됩니다.','다리힘이 높으면 기동력이 상승합니다.']},
+  leg_flag:{name:'플래그 대시',stat:'다리힘',desc:'맵 곳곳의 깃발을 가장 빠른 루트로 회수하는 경기입니다.',tutorial:['보이는 깃발을 직접 찾아 이동하세요.','깃발을 밟으면 즉시 획득합니다.','동선을 짧게 잡아 많은 깃발을 모으세요.']},
+  cardio_mash:{name:'엔듀런스 서킷',stat:'심폐지구력',desc:'넓은 코스를 달리며 에너지 오브를 끝까지 수집합니다.',tutorial:['맵 전체를 계속 이동하세요.','에너지 오브를 최대한 많이 모으세요.','심폐지구력이 높으면 장거리 이동에 유리합니다.']},
+  cardio_timing:{name:'존 러너',stat:'심폐지구력',desc:'계속 바뀌는 점령 지점을 찾아 이동하는 지구력전입니다.',tutorial:['빛나는 존을 찾아 빠르게 이동하세요.','존에 들어가 점수를 확보하세요.','긴 시간 페이스 유지가 중요합니다.']},
+  cardio_conveyor:{name:'컨베이어 체이스',stat:'심폐지구력',desc:'위험 구역을 피해 에너지 셀을 연속 수집하는 추격전입니다.',tutorial:['움직임을 멈추지 말고 셀을 모으세요.','위험 구역에 닿으면 체력이 줄어듭니다.','심폐지구력이 높을수록 후반에 강합니다.']},
+  cardio_zone:{name:'오버타임 오브',stat:'심폐지구력',desc:'시간이 갈수록 위험해지는 필드에서 오브를 모으는 장기전입니다.',tutorial:['오브를 찾아 계속 이동하세요.','충돌 피해를 최소화하세요.','마지막까지 살아남으며 점수를 쌓으세요.']},
+  bone_timing:{name:'임팩트 서바이벌',stat:'골밀도',desc:'충격 구역을 피해 오래 살아남는 생존 미니게임입니다.',tutorial:['붉은 충격 구역을 피하세요.','오브를 모으면 추가 점수를 얻습니다.','골밀도가 높을수록 충돌 피해가 감소합니다.']},
+  bone_reaction:{name:'범퍼 아레나',stat:'골밀도',desc:'범퍼 사이를 뚫고 점수 오브를 모으는 생존전입니다.',tutorial:['범퍼와 충돌하지 않도록 이동하세요.','점수 오브를 최대한 많이 회수하세요.','골밀도가 높으면 실수 복구가 쉽습니다.']},
+  bone_floor:{name:'브레이킹 플로어',stat:'골밀도',desc:'위험 타일을 피해 안전 지점만 빠르게 밟는 생존 경기입니다.',tutorial:['위험 지점을 피해 안전 마커를 밟으세요.','동선을 급하게 바꾸면 충돌하기 쉽습니다.','골밀도는 충돌 페널티를 줄여줍니다.']},
+  bone_shock:{name:'쇼크웨이브 링',stat:'골밀도',desc:'충격 링 사이에서 위치를 바꾸며 버티는 서바이벌입니다.',tutorial:['붉은 충격 지대를 피해 이동하세요.','안전 오브를 모아 점수를 올리세요.','끝까지 HP를 지키는 것이 중요합니다.']},
+  intelligence_logic:{name:'루트 브레이커',stat:'IQ',desc:'가장 효율적인 순서를 판단해 체크포인트를 통과하는 경로전입니다.',tutorial:['번호 순서대로 지점을 찾아 이동하세요.','불필요한 이동을 줄이세요.','IQ가 높을수록 게임 보정이 좋아집니다.']},
+  intelligence_memory:{name:'코드 게이트',stat:'IQ',desc:'화면의 계산 문제를 풀고 정답 게이트까지 직접 달려갑니다.',tutorial:['상단 문제를 확인하세요.','정답 숫자의 게이트로 캐릭터를 이동하세요.','오답 게이트는 감점됩니다.']},
+  intelligence_switch:{name:'스위치 네트워크',stat:'IQ',desc:'순서가 꼬인 스위치를 올바른 순서로 밟는 논리 액션입니다.',tutorial:['빛나는 번호를 순서대로 찾아가세요.','잘못된 스위치는 시간을 낭비합니다.','최단 경로를 판단해 이동하세요.']},
+  intelligence_laser:{name:'레이저 라우트',stat:'IQ',desc:'위험 지대를 피해 가장 효율적인 루트로 목표를 회수합니다.',tutorial:['붉은 위험 구역을 피하세요.','목표 오브를 빠르게 수집하세요.','안전한 최단 경로를 고르는 판단이 중요합니다.']},
+  verbal_logic:{name:'워드 게이트',stat:'언어능력',desc:'단어 문제를 읽고 정답 게이트까지 직접 달려가는 액션 퀴즈입니다.',tutorial:['상단 단어 문제를 읽으세요.','정답 단어가 적힌 게이트로 이동하세요.','정답이면 큰 점수를 얻습니다.']},
+  verbal_reaction:{name:'리플라이 러시',stat:'언어능력',desc:'맵의 말풍선을 추적해 접근 후 액션으로 처리합니다.',tutorial:['말풍선을 찾아 직접 추격하세요.','가까이에서 공격/A 버튼으로 처리하세요.','연속 처리로 높은 점수를 노리세요.']},
+  verbal_capture:{name:'키워드 캡처',stat:'언어능력',desc:'흩어진 키워드 토큰을 빠르게 모으는 언어 액션입니다.',tutorial:['맵의 키워드 토큰을 찾아가세요.','토큰을 밟아 획득하세요.','가장 효율적인 동선으로 많이 모으세요.']},
+  verbal_echo:{name:'에코 체이스',stat:'언어능력',desc:'튀어나오는 대사 표식을 따라가 빠르게 반응하는 추격전입니다.',tutorial:['새로 등장한 표식을 찾아 이동하세요.','가까이에서 액션 버튼으로 획득하세요.','언어능력이 높을수록 처리 점수가 커집니다.']},
+  tool_timing:{name:'웨폰 트레이닝',stat:'도구',desc:'뽑은 장비를 들고 표적을 직접 찾아 공격합니다.',tutorial:['표적의 사거리 안까지 접근하세요.','SPACE/A 버튼으로 장비를 사용하세요.','도구 성능이 높으면 공격 보정이 상승합니다.']},
+  tool_reaction:{name:'타겟 헌트',stat:'도구',desc:'맵 곳곳에 나타나는 표적을 추격해 직접 공격합니다.',tutorial:['표적을 빠르게 찾아 이동하세요.','가까이에서 공격해 제거하세요.','사거리와 동선 관리가 중요합니다.']},
+  tool_treasure:{name:'트레저 브레이크',stat:'도구',desc:'상자 사이에서 보너스 코어를 찾아 빠르게 파괴합니다.',tutorial:['여러 상자를 탐색하세요.','가까이에서 공격 버튼으로 파괴하세요.','도구가 좋을수록 한 번의 공격 가치가 높습니다.']},
+  tool_duel:{name:'아레나 듀얼 드릴',stat:'도구',desc:'훈련 더미를 연속으로 찾아 처치하는 장비 숙련전입니다.',tutorial:['더미까지 직접 이동하세요.','공격 범위 안에서 액션 버튼을 누르세요.','연속 처치로 클리어 시간을 줄이세요.']},
 };
-const miniGameOrder:MiniGameType[]=['arm_mash','arm_timing','leg_reaction','leg_timing','cardio_mash','cardio_timing','bone_timing','bone_reaction','intelligence_logic','intelligence_memory','verbal_logic','verbal_reaction','tool_timing','tool_reaction'];
+const miniGameOrder:MiniGameType[]=['arm_mash','arm_timing','arm_bumper','arm_push','leg_reaction','leg_timing','leg_platform','leg_flag','cardio_mash','cardio_timing','cardio_conveyor','cardio_zone','bone_timing','bone_reaction','bone_floor','bone_shock','intelligence_logic','intelligence_memory','intelligence_switch','intelligence_laser','verbal_logic','verbal_reaction','verbal_capture','verbal_echo','tool_timing','tool_reaction','tool_treasure','tool_duel'];
 
 function getSessionId() {
   if (typeof window === 'undefined') return '';
@@ -241,9 +255,9 @@ function MiniGameRoulette({ selected, seed, onDone }: { selected: MiniGameType; 
   }, [selected, seed, onDone]);
   const active = miniGameOrder[index] || selected;
   return <div className={`roulette ${done ? 'done' : ''}`}>
-    <div className="rouletteLabel">NEXT MINI GAME</div>
+    <div className="rouletteLabel">FESTIVAL GAME SELECT</div>
     <div className="rouletteWindow"><span>{miniGameInfo[active].name}</span></div>
-    <div className="rouletteMeta">{done ? `${miniGameInfo[selected].stat} · 선택 완료` : '룰렛이 미니게임을 고르는 중...'}</div>
+    <div className="rouletteMeta">{done ? `${miniGameInfo[selected].stat} · 선택 완료` : '28개 미니게임 중 하나를 선택하는 중...'}</div>
   </div>;
 }
 
@@ -483,18 +497,18 @@ function WordGame({ seed, stat, onFinish, disabled }: { seed:number; stat:number
 }
 
 
-type DirectMode = 'combat'|'race'|'collect'|'survive'|'gate';
+type DirectMode = 'combat'|'race'|'collect'|'survive'|'gate'|'capture';
 
 function DirectArenaGame({ type, stat, seed, tool, onFinish, disabled }: { type:MiniGameType; stat:number; seed:number; tool:string; onFinish:GameFinish; disabled:boolean }) {
   const cfg = useMemo(()=>{
-    const map:Record<MiniGameType,{mode:DirectMode;duration:number;action:boolean;prompt?:string;correct?:string;labels?:string[]}>= {
-      arm_mash:{mode:'combat',duration:18,action:true}, arm_timing:{mode:'combat',duration:18,action:true},
-      leg_reaction:{mode:'race',duration:20,action:false}, leg_timing:{mode:'race',duration:20,action:false},
-      cardio_mash:{mode:'collect',duration:22,action:false}, cardio_timing:{mode:'collect',duration:22,action:false},
-      bone_timing:{mode:'survive',duration:20,action:false}, bone_reaction:{mode:'survive',duration:20,action:false},
-      intelligence_logic:{mode:'race',duration:22,action:false}, intelligence_memory:{mode:'gate',duration:22,action:false,prompt:'12 + 7 = ?',correct:'19',labels:['19','17','21','16']},
-      verbal_logic:{mode:'gate',duration:22,action:false,prompt:'「신속」과 가장 가까운 뜻은?',correct:'빠름',labels:['빠름','무거움','조용함','느림']},
-      verbal_reaction:{mode:'combat',duration:18,action:true}, tool_timing:{mode:'combat',duration:20,action:true}, tool_reaction:{mode:'combat',duration:20,action:true},
+    const map:Record<MiniGameType,{mode:DirectMode;duration:number;action:boolean;prompt?:string;correct?:string;labels?:string[];theme:string;objective:string}>= {
+      arm_mash:{mode:'combat',duration:20,action:true,theme:'forge',objective:'블록 파괴'}, arm_timing:{mode:'combat',duration:20,action:true,theme:'warehouse',objective:'상자 연속 파괴'}, arm_bumper:{mode:'combat',duration:18,action:true,theme:'bumper',objective:'범퍼 밀어내기'}, arm_push:{mode:'combat',duration:22,action:true,theme:'core',objective:'거대 코어 제압'},
+      leg_reaction:{mode:'race',duration:22,action:false,theme:'track',objective:'체크포인트 완주'}, leg_timing:{mode:'race',duration:22,action:false,theme:'hurdle',objective:'장애물 코스 완주'}, leg_platform:{mode:'race',duration:21,action:false,theme:'sky',objective:'발판 순서 통과'}, leg_flag:{mode:'collect',duration:20,action:false,theme:'field',objective:'깃발 수집'},
+      cardio_mash:{mode:'collect',duration:24,action:false,theme:'energy',objective:'에너지 오브 수집'}, cardio_timing:{mode:'capture',duration:24,action:false,theme:'zone',objective:'점령 지점 확보'}, cardio_conveyor:{mode:'collect',duration:25,action:false,theme:'factory',objective:'에너지 셀 수집'}, cardio_zone:{mode:'survive',duration:25,action:false,theme:'overtime',objective:'생존 + 오브 수집'},
+      bone_timing:{mode:'survive',duration:22,action:false,theme:'impact',objective:'충격 회피'}, bone_reaction:{mode:'survive',duration:22,action:false,theme:'bumper',objective:'범퍼 생존'}, bone_floor:{mode:'capture',duration:22,action:false,theme:'floor',objective:'안전 타일 확보'}, bone_shock:{mode:'survive',duration:23,action:false,theme:'shock',objective:'쇼크웨이브 생존'},
+      intelligence_logic:{mode:'race',duration:24,action:false,theme:'maze',objective:'최단 루트 완주'}, intelligence_memory:{mode:'gate',duration:24,action:false,prompt:'12 + 7 = ?',correct:'19',labels:['19','17','21','16'],theme:'code',objective:'정답 게이트 선택'}, intelligence_switch:{mode:'race',duration:24,action:false,theme:'switch',objective:'스위치 순서 통과'}, intelligence_laser:{mode:'collect',duration:23,action:false,theme:'laser',objective:'레이저 회피 수집'},
+      verbal_logic:{mode:'gate',duration:24,action:false,prompt:'「신속」과 가장 가까운 뜻은?',correct:'빠름',labels:['빠름','무거움','조용함','느림'],theme:'word',objective:'정답 워드 게이트'}, verbal_reaction:{mode:'combat',duration:20,action:true,theme:'reply',objective:'말풍선 연속 처리'}, verbal_capture:{mode:'collect',duration:22,action:false,theme:'keyword',objective:'키워드 토큰 수집'}, verbal_echo:{mode:'combat',duration:21,action:true,theme:'echo',objective:'대사 표식 추격'},
+      tool_timing:{mode:'combat',duration:22,action:true,theme:'training',objective:'훈련 표적 격파'}, tool_reaction:{mode:'combat',duration:22,action:true,theme:'hunt',objective:'이동 표적 추격'}, tool_treasure:{mode:'combat',duration:22,action:true,theme:'treasure',objective:'보너스 코어 파괴'}, tool_duel:{mode:'combat',duration:22,action:true,theme:'duel',objective:'더미 연속 처치'},
     }; return map[type];
   },[type]);
   const [phase,setPhase]=useState<'ready'|'running'|'done'>('ready');
@@ -510,7 +524,7 @@ function DirectArenaGame({ type, stat, seed, tool, onFinish, disabled }: { type:
   const hpRef=useRef(hp); hpRef.current=hp;
   const timeRef=useRef(timeLeft); timeRef.current=timeLeft;
   const startRef=useRef(0);
-  const targetCount=cfg.mode==='race'?7:cfg.mode==='gate'?4:8;
+  const targetCount=cfg.mode==='race'?7:cfg.mode==='gate'?4:cfg.mode==='capture'?6:8;
   const targets=useMemo(()=>Array.from({length:targetCount},(_,i)=>{
     let x=(Math.abs(seed)+i*7919)%73+14; let y=(Math.abs(seed*3)+i*3571)%70+15;
     if(cfg.mode==='race'){ x=18+i*(70/(targetCount-1)); y=22+((seed+i*31)%3)*28; }
@@ -526,7 +540,7 @@ function DirectArenaGame({ type, stat, seed, tool, onFinish, disabled }: { type:
     const statBonus=Math.round(Math.max(0,stat)*6);
     const adjusted=raw+statBonus;
     setFlash(`${reason} · ${adjusted.toLocaleString()} PTS`);
-    onFinish(raw,adjusted,{mode:cfg.mode,score:scoreRef.current,hp:hpRef.current,stat,tool});
+    onFinish(raw,adjusted,{mode:cfg.mode,theme:cfg.theme,objective:cfg.objective,score:scoreRef.current,hp:hpRef.current,stat,tool});
   },[cfg.mode,onFinish,stat,tool]);
 
   useEffect(()=>{
@@ -560,7 +574,7 @@ function DirectArenaGame({ type, stat, seed, tool, onFinish, disabled }: { type:
     if(cfg.mode==='gate'){
       if(candidate.label===cfg.correct){setScore(v=>v+500);setCollected(v=>[...v,candidate.id]);setFlash('정답 게이트 +500');setTimeout(()=>finish('CLEAR'),350);}else{setScore(v=>Math.max(0,v-120));setFlash('오답 -120');setTimeout(()=>setFlash(''),450);} return;
     }
-    setCollected(v=>[...v,candidate.id]); setScore(v=>v+180); setFlash('+180'); setTimeout(()=>setFlash(''),300);
+    setCollected(v=>[...v,candidate.id]); const pickup=cfg.mode==='capture'?240:180; setScore(v=>v+pickup); setFlash(`+${pickup}`); setTimeout(()=>setFlash(''),300);
     if(cfg.mode==='race'&&candidate.id===targetCount-1) setTimeout(()=>finish('FINISH'),250);
   },[phase,disabled,type,stat,hazards,targets,collected,cfg.mode,cfg.correct,nextRaceId,targetCount,finish]);
 
@@ -582,13 +596,13 @@ function DirectArenaGame({ type, stat, seed, tool, onFinish, disabled }: { type:
   },[move,attack]);
 
   const start=()=>{if(disabled)return;doneRef.current=false;setPos({x:12,y:50});setScore(0);setHp(100);setCollected([]);setTimeLeft(cfg.duration);setFlash('GO!');setPhase('running');setTimeout(()=>setFlash(''),450);};
-  return <div className={`directGame mode-${cfg.mode}`}>
-    <div className="directHud"><span><b>{miniGameInfo[type].name}</b><small>{tool&&type.startsWith('tool_')?tool:miniGameInfo[type].stat}</small></span><span><b>{score.toLocaleString()}</b><small>SCORE</small></span><span><b>{Math.ceil(timeLeft)}s</b><small>TIME</small></span><span><b>{hp}</b><small>HP</small></span></div>
+  return <div className={`directGame mode-${cfg.mode} theme-${cfg.theme}`}>
+    <div className="directHud"><span><b>{miniGameInfo[type].name}</b><small>{cfg.objective} · {tool&&type.startsWith('tool_')?tool:miniGameInfo[type].stat}</small></span><span><b>{score.toLocaleString()}</b><small>SCORE</small></span><span><b>{Math.ceil(timeLeft)}s</b><small>TIME</small></span><span><b>{hp}</b><small>HP</small></span></div>
     {cfg.prompt&&<div className="gatePrompt">{cfg.prompt}</div>}
     <div className="directArena">
       <div className="arenaGrid"/>
       {hazards.map(h=><div key={h.id} className="arenaHazard" style={{left:`${h.x}%`,top:`${h.y}%`}}><span/></div>)}
-      {targets.map(t=>!collected.includes(t.id)&&<div key={t.id} className={`arenaTarget ${cfg.mode==='race'&&t.id===nextRaceId?'active':''}`} style={{left:`${t.x}%`,top:`${t.y}%`}}>{cfg.mode==='race'?<b>{t.id+1}</b>:cfg.mode==='gate'?<b>{t.label}</b>:cfg.mode==='combat'?<span className="dummyIcon">◎</span>:<span className="orbIcon">◆</span>}</div>)}
+      {targets.map(t=>!collected.includes(t.id)&&<div key={t.id} className={`arenaTarget ${cfg.mode==='race'&&t.id===nextRaceId?'active':''}`} style={{left:`${t.x}%`,top:`${t.y}%`}}>{cfg.mode==='race'?<b>{t.id+1}</b>:cfg.mode==='gate'?<b>{t.label}</b>:cfg.mode==='combat'?<span className="dummyIcon">◎</span>:cfg.mode==='capture'?<span className="captureIcon">✦</span>:<span className="orbIcon">◆</span>}</div>)}
       <div className="playerAvatar" style={{left:`${pos.x}%`,top:`${pos.y}%`}}><span>{tool&&type.startsWith('tool_')?'⚔':'◆'}</span><i/></div>
       {flash&&<div className="arenaFlash">{flash}</div>}
       {phase==='ready'&&<div className="arenaOverlay"><strong>{miniGameInfo[type].name}</strong><p>캐릭터를 직접 조작해서 승부하세요.</p><button className="btn primary big" onClick={start}>START</button></div>}
@@ -855,17 +869,17 @@ export default function Home() {
 
   return <main className={`app screen-${screen}`}>
     <header className="gameNav">
-      <button className="brandButton" onClick={()=>{ if(!room) return; }}><span className="brandGlyph">V</span><span><b>VANTA</b><small>ARENA</small></span></button>
+      <button className="brandButton" onClick={()=>{ if(!room) return; }}><span className="brandGlyph">V</span><span><b>VANTA</b><small>FESTIVAL</small></span></button>
       {room&&<div className="navRoom"><span>ROOM</span><b>{room.code}</b><i>{room.mode==='long'?'LONG · 10 WINS':'QUICK · 2 WINS'}</i></div>}
       {room&&<button className="navExit" onClick={leaveRoom}>나가기</button>}
     </header>
 
     {screen==='home'&&<section className="screenShell homeScreen">
       <div className="homeHero">
-        <span className="heroEyebrow">ONLINE CHARACTER DUEL</span>
+        <span className="heroEyebrow">ONLINE PARTY BATTLE</span>
         <h1>뽑고. 만들고.<br/><em>직접 이긴다.</em></h1>
-        <p>8번의 카드 드래프트로 나만의 캐릭터를 만든 뒤, 룰렛이 고른 고퀄리티 미니게임에서 실력으로 승부하세요.</p>
-        <div className="heroBadges"><span>3-CARD DRAFT</span><span>14 MINI GAMES</span><span>REALTIME 1V1</span></div>
+        <p>8번의 카드 드래프트로 캐릭터를 만들고, 28개의 직접 조작 미니게임을 돌며 매치 포인트를 먼저 가져가세요.</p>
+        <div className="heroBadges"><span>3-CARD DRAFT</span><span>28 MINI GAMES</span><span>REALTIME 1V1</span></div>
       </div>
       <div className="matchCard">
         <label>PLAYER NAME<input className="input" value={nickname} onChange={e=>setNickname(e.target.value)} maxLength={20} placeholder="닉네임 입력"/></label>
