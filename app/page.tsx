@@ -9,10 +9,10 @@ const supabase = createClient(
 );
 
 type GameMode = 'normal' | 'long';
-type MiniGameType = 'arm' | 'leg' | 'cardio' | 'tool' | 'intelligence' | 'verbal';
-type CardCategory = 'arm' | 'leg' | 'cardio' | 'tool' | 'intelligence' | 'verbal';
+type MiniGameType = 'arm' | 'leg' | 'cardio' | 'bone' | 'intelligence' | 'verbal' | 'tool';
+type CardCategory = 'arm' | 'leg' | 'cardio' | 'bone' | 'tool' | 'intelligence' | 'verbal';
 type CardRarity = '일반' | '고급' | '희귀' | '영웅' | '전설';
-type CharacterStats = { arm:number; leg:number; cardio:number; tool:number; intelligence:number; verbal:number };
+type CharacterStats = { arm:number; leg:number; cardio:number; bone:number; tool:number; intelligence:number; verbal:number };
 type DrawnCard = { category:CardCategory; title:string; subtitle:string; rarity:CardRarity; value:number; display:string; bonusText:string };
 type CharacterChoices = { cards:DrawnCard[] };
 type ArenaRoom = { id:string; code:string; host_session_id:string; mode:GameMode; win_target:number; status:'lobby'|'playing'|'round_result'|'finished'; current_game:MiniGameType|null; game_no:number; game_seed:number; winner_player_id:string|null; created_at:string };
@@ -21,12 +21,13 @@ type ArenaResult = { id:number; room_id:string; game_no:number; player_id:string
 type ChatMessage = { id:number; room_id:string|null; session_id:string; user_name:string; body:string; created_at:string };
 
 const cardStages:{ key:CardCategory; label:string; eyebrow:string; icon:string; description:string }[] = [
-  { key:'arm', label:'팔힘', eyebrow:'PHYSICAL 01', icon:'ARM', description:'팔로 내는 힘. 카드가 공개되면 평균 대비 어느 정도인지 바로 보여줘요.' },
-  { key:'leg', label:'다리힘', eyebrow:'PHYSICAL 02', icon:'LEG', description:'달리기·점프·순간 가속에 쓰는 하체 힘을 보여줘요.' },
-  { key:'cardio', label:'심폐지구력', eyebrow:'PHYSICAL 03', icon:'LUNG', description:'얼마나 오래 지치지 않고 움직일 수 있는지 보여줘요.' },
-  { key:'tool', label:'도구', eyebrow:'UTILITY 04', icon:'TOOL', description:'맨손이 가장 자주 나오고, 풍선검·스펀지 검·목검 같은 전투용 도구가 낮은 확률로 등장해요.' },
-  { key:'intelligence', label:'지능', eyebrow:'MIND 05', icon:'INT', description:'문제 이해·패턴 파악·판단 속도가 어느 정도인지 보여줘요.' },
-  { key:'verbal', label:'언어능력', eyebrow:'SOCIAL 06', icon:'WORD', description:'말센스·설득·즉답 능력이 어느 정도인지 보여줘요.' },
+  { key:'arm', label:'팔힘', eyebrow:'PHYSICAL 01', icon:'ARM', description:'붙잡기·밀기·연타에 영향을 주는 상체 출력입니다.' },
+  { key:'leg', label:'다리힘', eyebrow:'PHYSICAL 02', icon:'LEG', description:'달리기·점프·킥·순간 가속에 영향을 주는 하체 출력입니다.' },
+  { key:'cardio', label:'심폐지구력', eyebrow:'PHYSICAL 03', icon:'LUNG', description:'지치지 않고 움직일 수 있는 지속 시간을 결정합니다.' },
+  { key:'bone', label:'골밀도', eyebrow:'PHYSICAL 04', icon:'BONE', description:'충격을 버티고 부상 위험을 낮추는 골격 내구도입니다.' },
+  { key:'intelligence', label:'지능', eyebrow:'MIND 05', icon:'INT', description:'패턴 파악·판단·전략 미니게임에 영향을 줍니다.' },
+  { key:'verbal', label:'언어능력', eyebrow:'SOCIAL 06', icon:'WORD', description:'즉답·설득·언어 판단 미니게임에 영향을 줍니다.' },
+  { key:'tool', label:'도구', eyebrow:'EQUIPMENT 07', icon:'TOOL', description:'마지막에 장비를 뽑습니다. 맨손이 가장 흔하고 좋은 장비일수록 희귀합니다.' },
 ];
 
 const rarityWeights:{ rarity:CardRarity; weight:number }[] = [
@@ -35,35 +36,42 @@ const rarityWeights:{ rarity:CardRarity; weight:number }[] = [
 
 const statCardValues:Record<Exclude<CardCategory,'tool'>,Record<CardRarity,{value:number;display:string;title:string;subtitle:string}[]>> = {
   arm:{
-    '일반':[{value:18,display:'18 kg',title:'평범한 팔힘',subtitle:'꾸준하지만 폭발적이지 않은 출력'},{value:24,display:'24 kg',title:'단단한 전완',subtitle:'연타와 버티기에 유리'}],
+    '일반':[{value:10,display:'10 kg',title:'매우 약한 팔힘',subtitle:'붙잡기와 밀기에서 쉽게 밀리는 편'},{value:14,display:'14 kg',title:'약한 팔힘',subtitle:'짧은 연타에도 힘이 빨리 떨어짐'},{value:18,display:'18 kg',title:'평균 이하 팔힘',subtitle:'일상 수준은 가능하지만 힘 대결에는 불리'}],
     '고급':[{value:34,display:'34 kg',title:'운동으로 다져진 팔',subtitle:'안정적인 상체 출력'},{value:42,display:'42 kg',title:'강한 악력',subtitle:'짧은 순간 높은 힘을 냄'}],
     '희귀':[{value:58,display:'58 kg',title:'철근 같은 팔',subtitle:'상체 미니게임에서 큰 우위'}],
     '영웅':[{value:78,display:'78 kg',title:'괴력의 팔',subtitle:'연타 점수에 강한 보정'}],
     '전설':[{value:120,display:'120 kg',title:'타이탄 암',subtitle:'전설적인 상체 출력'}],
   },
   leg:{
-    '일반':[{value:18,display:'Lv.18',title:'보통 하체',subtitle:'안정적인 출발'},{value:24,display:'Lv.24',title:'가벼운 스텝',subtitle:'민첩한 방향 전환'}],
-    '고급':[{value:35,display:'Lv.35',title:'스프린터 하체',subtitle:'첫 움직임이 빠름'},{value:43,display:'Lv.43',title:'폭발적 스타트',subtitle:'반응전에서 강한 보정'}],
-    '희귀':[{value:59,display:'Lv.59',title:'스프링 레그',subtitle:'순간 가속이 매우 빠름'}],
-    '영웅':[{value:80,display:'Lv.80',title:'번개 같은 하체',subtitle:'신호 반응에서 압도적'}],
-    '전설':[{value:125,display:'Lv.125',title:'헤르메스 스텝',subtitle:'전설급 반응 보정'}],
+    '일반':[{value:20,display:'20 kg',title:'매우 약한 하체',subtitle:'점프와 순간 가속에서 크게 불리'},{value:28,display:'28 kg',title:'약한 다리힘',subtitle:'빠른 방향 전환과 버티기에 약함'},{value:35,display:'35 kg',title:'평균 이하 다리힘',subtitle:'일상 움직임은 가능하지만 힘 대결엔 불리'}],
+    '고급':[{value:65,display:'65 kg',title:'운동으로 다져진 하체',subtitle:'달리기·점프에서 안정적인 출력'},{value:80,display:'80 kg',title:'강한 다리힘',subtitle:'순간 가속과 버티기에 유리'}],
+    '희귀':[{value:110,display:'110 kg',title:'폭발적인 하체',subtitle:'스프린트와 점프에서 큰 우위'}],
+    '영웅':[{value:150,display:'150 kg',title:'프로급 하체 출력',subtitle:'강한 추진력과 빠른 스타트'}],
+    '전설':[{value:220,display:'220 kg',title:'세계급 하체 출력',subtitle:'극소수만 가능한 전설급 다리힘'}],
   },
   cardio:{
-    '일반':[{value:10,display:'10초',title:'짧은 심폐지구력',subtitle:'폭발적이지만 금방 지침'},{value:20,display:'20초',title:'기초 심폐지구력',subtitle:'짧은 승부에 적합'}],
+    '일반':[{value:5,display:'5초',title:'매우 짧은 지구력',subtitle:'조금만 몰아쳐도 급격히 지침'},{value:10,display:'10초',title:'짧은 심폐지구력',subtitle:'초반 이후 페이스가 빠르게 떨어짐'},{value:15,display:'15초',title:'평균 이하 지구력',subtitle:'짧은 승부에는 버티지만 장기전에 불리'}],
     '고급':[{value:30,display:'30초',title:'안정된 호흡',subtitle:'30초 동안 페이스 유지'},{value:45,display:'45초',title:'강한 폐활량',subtitle:'연속 행동 유지에 유리'}],
     '희귀':[{value:90,display:'1분 30초',title:'장거리 체력',subtitle:'지구력전에서 큰 우위'}],
     '영웅':[{value:300,display:'5분',title:'끝없는 호흡',subtitle:'장기전 특화'}],
     '전설':[{value:3600,display:'1시간',title:'무한 심폐',subtitle:'극도로 희귀한 전설급 지구력'}],
   },
+  bone:{
+    '일반':[{value:65,display:'평균 대비 65%',title:'매우 약한 골격',subtitle:'충격 누적과 부상 판정에서 크게 불리'},{value:75,display:'평균 대비 75%',title:'약한 골격',subtitle:'강한 충격을 오래 버티기 어려움'},{value:85,display:'평균 대비 85%',title:'평균 이하 골밀도',subtitle:'반복 충격에 약간 불리한 편'}],
+    '고급':[{value:100,display:'평균 대비 100%',title:'평균 골밀도',subtitle:'평균적인 충격 내구력'},{value:110,display:'평균 대비 110%',title:'단단한 골격',subtitle:'타격과 충격을 비교적 잘 버팀'}],
+    '희귀':[{value:125,display:'평균 대비 125%',title:'운동선수급 골격',subtitle:'충격 내성이 확실히 높은 편'}],
+    '영웅':[{value:150,display:'평균 대비 150%',title:'프로급 강골',subtitle:'반복 타격에도 높은 내구력을 보임'}],
+    '전설':[{value:185,display:'평균 대비 185%',title:'세계 최정상급 골격',subtitle:'게임 내 최상급 충격 내성'}],
+  },
   intelligence:{
-    '일반':[{value:20,display:'20 PTS',title:'빠른 이해',subtitle:'기본적인 패턴 파악'},{value:26,display:'26 PTS',title:'좋은 기억력',subtitle:'문제를 안정적으로 풂'}],
+    '일반':[{value:8,display:'8 PTS',title:'판단이 느림',subtitle:'패턴을 파악하는 데 시간이 오래 걸림'},{value:14,display:'14 PTS',title:'단순한 사고',subtitle:'복잡한 규칙에서 실수가 잦음'},{value:20,display:'20 PTS',title:'평균 이하 판단력',subtitle:'기본 문제는 풀지만 빠른 전략전에 불리'}],
     '고급':[{value:38,display:'38 PTS',title:'분석형 사고',subtitle:'규칙을 빨리 발견'},{value:46,display:'46 PTS',title:'고속 추론',subtitle:'논리전에서 높은 보정'}],
     '희귀':[{value:62,display:'62 PTS',title:'전략 두뇌',subtitle:'복잡한 패턴도 빠르게 처리'}],
     '영웅':[{value:84,display:'84 PTS',title:'천재적 직관',subtitle:'문제 해결 속도가 매우 빠름'}],
     '전설':[{value:130,display:'130 PTS',title:'오라클 브레인',subtitle:'전설급 분석 능력'}],
   },
   verbal:{
-    '일반':[{value:18,display:'18 PTS',title:'평범한 말센스',subtitle:'기본적인 언어 순발력'},{value:25,display:'25 PTS',title:'빠른 말대응',subtitle:'짧은 판단에 강함'}],
+    '일반':[{value:7,display:'7 PTS',title:'말문이 잘 막힘',subtitle:'즉답과 설득에서 크게 불리'},{value:12,display:'12 PTS',title:'서툰 화법',subtitle:'압박 상황에서 표현이 자주 꼬임'},{value:18,display:'18 PTS',title:'평균 이하 언어능력',subtitle:'기본 대화는 가능하지만 언어전에 약함'}],
     '고급':[{value:36,display:'36 PTS',title:'재치 있는 화법',subtitle:'언어 선택이 빠름'},{value:44,display:'44 PTS',title:'논리적 설득력',subtitle:'언어전에서 높은 보정'}],
     '희귀':[{value:60,display:'60 PTS',title:'토론 에이스',subtitle:'빠르고 정확한 언어 판단'}],
     '영웅':[{value:82,display:'82 PTS',title:'말의 지배자',subtitle:'언어 미니게임 특화'}],
@@ -72,15 +80,15 @@ const statCardValues:Record<Exclude<CardCategory,'tool'>,Record<CardRarity,{valu
 };
 
 const toolCards:{ rarity:CardRarity; title:string; subtitle:string; value:number; display:string; weight:number }[] = [
-  { rarity:'일반', title:'맨손', subtitle:'별도 도구 없이 신체 능력만으로 승부', value:0, display:'무장 없음', weight:42 },
-  { rarity:'일반', title:'풍선검', subtitle:'매우 가볍고 다루기 쉽지만 전투 영향은 작음', value:6, display:'도움 낮음', weight:18 },
-  { rarity:'일반', title:'스펀지 검', subtitle:'가볍고 안전한 연습용 검', value:10, display:'도움 낮음', weight:13 },
-  { rarity:'고급', title:'고무 망치', subtitle:'묵직한 타격감을 주는 연습용 도구', value:16, display:'도움 보통', weight:9 },
-  { rarity:'고급', title:'훈련용 방패', subtitle:'공격보다는 방어와 버티기에 유리', value:20, display:'방어 보조', weight:7 },
-  { rarity:'희귀', title:'목검', subtitle:'균형 잡힌 훈련용 무기. 공격과 방어 모두에 도움', value:30, display:'도움 높음', weight:6 },
-  { rarity:'희귀', title:'연습용 장봉', subtitle:'긴 사거리로 거리 유지에 유리한 훈련용 도구', value:34, display:'도움 높음', weight:3 },
-  { rarity:'영웅', title:'강화 목검', subtitle:'무게 균형이 뛰어나 전투 미니게임에 큰 보정', value:48, display:'큰 도움', weight:1.5 },
-  { rarity:'전설', title:'챔피언 훈련검', subtitle:'극히 드문 최고급 훈련용 장비', value:70, display:'매우 큰 도움', weight:0.5 },
+  { rarity:'일반', title:'맨손', subtitle:'장비 보정 없음. 순수 신체 능력으로만 승부합니다.', value:0, display:'장비 없음', weight:46 },
+  { rarity:'일반', title:'풍선검', subtitle:'사거리는 생기지만 너무 가벼워 전투 보정은 거의 없습니다.', value:4, display:'전투 보정 +4', weight:15 },
+  { rarity:'일반', title:'스펀지 검', subtitle:'다루기 쉽지만 타격과 견제 효과가 낮습니다.', value:8, display:'전투 보정 +8', weight:11 },
+  { rarity:'고급', title:'고무 망치', subtitle:'짧은 사거리 대신 묵직한 타이밍 공격에 도움을 줍니다.', value:15, display:'전투 보정 +15', weight:8 },
+  { rarity:'고급', title:'훈련용 방패', subtitle:'공격력은 낮지만 방어·버티기 판정에 유리합니다.', value:20, display:'전투 보정 +20', weight:7 },
+  { rarity:'희귀', title:'목검', subtitle:'공격·방어·사거리의 균형이 좋은 훈련용 무기입니다.', value:31, display:'전투 보정 +31', weight:6 },
+  { rarity:'희귀', title:'연습용 장봉', subtitle:'긴 사거리로 거리 유지와 선제 견제에 유리합니다.', value:35, display:'전투 보정 +35', weight:3.5 },
+  { rarity:'영웅', title:'강화 목검', subtitle:'균형과 무게 배분이 뛰어난 상급 훈련 장비입니다.', value:50, display:'전투 보정 +50', weight:2 },
+  { rarity:'전설', title:'챔피언 훈련검', subtitle:'극히 드문 최고급 훈련 장비. 도구 미니게임에서 압도적입니다.', value:72, display:'전투 보정 +72', weight:1.5 },
 ];
 
 function drawToolCard():DrawnCard {
@@ -106,7 +114,7 @@ function drawCard(category:CardCategory):DrawnCard {
   if(category==='tool') return drawToolCard();
   const pool=statCardValues[category][rarity];
   const item=pool[Math.floor(Math.random()*pool.length)];
-  const names:Record<Exclude<CardCategory,'tool'>,string>={arm:'팔힘',leg:'다리힘',cardio:'심폐지구력',intelligence:'지능',verbal:'언어능력'};
+  const names:Record<Exclude<CardCategory,'tool'>,string>={arm:'팔힘',leg:'다리힘',cardio:'심폐지구력',bone:'골밀도',intelligence:'지능',verbal:'언어능력'};
   return { category, rarity, title:item.title, subtitle:item.subtitle, value:item.value, display:item.display, bonusText:`${names[category]} +${item.value}` };
 }
 
@@ -135,20 +143,21 @@ function cardPercentText(rarity:CardRarity):string {
 }
 
 function buildStats(cards:DrawnCard[]):CharacterStats {
-  const stats:CharacterStats={ arm:0,leg:0,cardio:0,tool:0,intelligence:0,verbal:0 };
+  const stats:CharacterStats={ arm:0,leg:0,cardio:0,bone:0,tool:0,intelligence:0,verbal:0 };
   for(const card of cards) stats[card.category]=card.value;
   return stats;
 }
 
 const miniGameInfo:Record<MiniGameType,{name:string;stat:string;desc:string}>={
-  arm:{ name:'팔힘 연타전', stat:'팔힘', desc:'5초 동안 최대한 빠르게 연타해 상체 출력을 증명하세요.' },
+  arm:{ name:'팔힘 연타전', stat:'팔힘', desc:'제한 시간 동안 빠르게 연타해 상체 출력을 겨룹니다.' },
   leg:{ name:'다리 반응전', stat:'다리힘', desc:'신호가 바뀌는 순간 눌러 순간 가속과 반응을 겨룹니다.' },
-  cardio:{ name:'심폐 버티기', stat:'심폐지구력', desc:'8초 동안 페이스를 유지하며 최대한 많은 입력을 성공시키세요.' },
-  tool:{ name:'도구 활용전', stat:'도구', desc:'뽑은 도구의 보정을 받아 움직이는 게이지를 정확한 타이밍에 멈추세요.' },
-  intelligence:{ name:'지능 스피드전', stat:'지능', desc:'같은 패턴 문제를 더 빠르고 정확하게 풀어보세요.' },
-  verbal:{ name:'언어 순발전', stat:'언어능력', desc:'언어 패턴 문제를 빠르게 판단해 정답을 선택하세요.' },
+  cardio:{ name:'심폐 버티기', stat:'심폐지구력', desc:'페이스를 유지하며 최대한 많은 입력을 성공시키세요.' },
+  bone:{ name:'충격 버티기', stat:'골밀도', desc:'움직이는 게이지를 안전 구간에 맞춰 골격 내구도를 겨룹니다.' },
+  intelligence:{ name:'지능 스피드전', stat:'지능', desc:'패턴 문제를 더 빠르고 정확하게 풀어보세요.' },
+  verbal:{ name:'언어 순발전', stat:'언어능력', desc:'언어 패턴을 빠르게 판단해 정답을 선택하세요.' },
+  tool:{ name:'도구 활용전', stat:'도구', desc:'마지막 승부에서 뽑은 장비 보정을 활용해 정확도를 겨룹니다.' },
 };
-const miniGameOrder:MiniGameType[]=['arm','leg','cardio','tool','intelligence','verbal'];
+const miniGameOrder:MiniGameType[]=['arm','leg','cardio','bone','intelligence','verbal','tool'];
 function getSessionId() {
   if (typeof window === 'undefined') return '';
   let id = localStorage.getItem('arena-session-v2');
@@ -537,34 +546,38 @@ export default function Home() {
 
   return <main className="app">
     <header className="top">
-      <div><div className="brand">캐릭터 카드 아레나</div><div className="sub">카드 6장을 순서대로 뽑고, 완성된 캐릭터로 미니게임 대결!</div></div>
+      <div><div className="brand">캐릭터 카드 아레나</div><div className="sub">카드 7장을 순서대로 뽑고, 완성된 캐릭터로 미니게임 대결!</div></div>
       {room && <div className="roomBadge">ROOM <b>{room.code}</b> · {room.mode === 'long' ? '롱 플레이 / 10승' : '일반 / 2승'}</div>}
     </header>
 
     <div className="layout">
       <section className="panel mainPanel">
-        {!room ? <>
-          <h2 className="title">로비</h2>
-          <label className="label">내 닉네임</label>
-          <input className="input" value={nickname} onChange={e => setNickname(e.target.value)} maxLength={20} placeholder="닉네임" />
-          <div className="section">
-            <h3 className="title">게임 모드</h3>
-            <div className="modeGrid">
-              <button className={`modeCard ${mode === 'normal' ? 'selected' : ''}`} onClick={() => setMode('normal')}><b>일반</b><span>미니게임을 먼저 2번 이기면 최종 승리</span></button>
-              <button className={`modeCard ${mode === 'long' ? 'selected' : ''}`} onClick={() => setMode('long')}><b>롱 플레이</b><span>미니게임을 먼저 10번 이기면 최종 승리</span></button>
-            </div>
-            <button className="btn primary full" onClick={createRoom}>새 방 만들기</button>
+        {!room ? <div className="lobbyHome">
+          <div className="heroMark">CHARACTER ARENA</div>
+          <h1 className="lobbyHeadline">카드를 뽑고,<br/>내 캐릭터로 붙는다.</h1>
+          <p className="lobbyLead">능력은 랜덤. 조작은 직접. 먼저 목표 승수를 채우면 승리합니다.</p>
+
+          <div className="lobbyNick">
+            <label className="label">PLAYER NAME</label>
+            <input className="input lobbyInput" value={nickname} onChange={e => setNickname(e.target.value)} maxLength={20} placeholder="닉네임을 입력하세요" />
           </div>
-          <div className="section">
-            <h3 className="title">방 참여</h3>
-            <div className="row"><input className="input grow" value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} placeholder="6자리 방 코드" maxLength={6}/><button className="btn purple" onClick={joinRoom}>참여</button></div>
+
+          <div className="modeGrid lobbyModes">
+            <button className={`modeCard ${mode === 'normal' ? 'selected' : ''}`} onClick={() => setMode('normal')}><span className="modeTag">QUICK</span><b>일반전</b><strong>2승</strong><span>짧고 빠른 대결</span></button>
+            <button className={`modeCard ${mode === 'long' ? 'selected' : ''}`} onClick={() => setMode('long')}><span className="modeTag">LONG</span><b>롱 플레이</b><strong>10승</strong><span>캐릭터 성능을 길게 겨루는 대결</span></button>
           </div>
-        </> : <>
+
+          <div className="lobbyActions">
+            <button className="btn primary createRoomBtn" onClick={createRoom}><small>새 게임</small><b>방 만들기</b><span>선택한 모드로 바로 시작</span></button>
+            <div className="joinBox"><small>초대받았나요?</small><b>방 코드로 참가</b><div className="joinRow"><input className="input grow" value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} placeholder="6자리 코드" maxLength={6}/><button className="btn purple" onClick={joinRoom}>입장</button></div></div>
+          </div>
+          <div className="lobbyFlow"><span>① 방 입장</span><i>→</i><span>② 카드 7장</span><i>→</i><span>③ 미니게임</span><i>→</i><span>④ 우승</span></div>
+        </div> : <>
           <div className="row between"><div><h2 className="title">방 {room.code}</h2><div className="muted">{room.mode === 'long' ? '10승 먼저 달성' : '2승 먼저 달성'} · 현재 상태 {room.status}</div></div><button className="btn danger" onClick={leaveRoom}>방 나가기</button></div>
 
           {!me && room.status === 'lobby' && <div className="section cardForge">
             <div className="forgeTop">
-              <div><span className="kicker">캐릭터 만들기</span><h3 className="title">6장을 순서대로 뽑아보세요</h3><p className="muted">앞면은 절대 미리 보이지 않습니다. <b>팔힘 → 다리힘 → 심폐지구력 → 도구 → 지능 → 언어능력</b> 순서로 한 장씩 공개돼요.</p></div>
+              <div><span className="kicker">캐릭터 만들기</span><h3 className="title">7장을 순서대로 뽑아보세요</h3><p className="muted">앞면은 절대 미리 보이지 않습니다. <b>팔힘 → 다리힘 → 심폐지구력 → 골밀도 → 지능 → 언어능력 → 도구</b> 순서로 한 장씩 공개돼요.</p></div>
               <div className="drawCounter"><b>{Math.min(activeDraw + 1, cardStages.length)}</b><span>/ {cardStages.length}</span></div>
             </div>
             <input className="input premiumInput" value={charName} onChange={e => setCharName(e.target.value)} maxLength={24} placeholder="캐릭터 이름을 입력하세요" />
@@ -590,11 +603,11 @@ export default function Home() {
                 </span>
               </button>
               {!isCardFlipped ? <div className="drawHint">카드를 눌러 랜덤 능력을 공개하세요.</div> : <button type="button" className="btn primary nextDraw" onClick={goNextCard}>{activeDraw === cardStages.length - 1 ? '카드 완성' : '다음 카드 뽑기 →'}</button>}
-            </div> : <div className="forgeComplete"><span className="kicker">BUILD COMPLETE</span><h2>{charName.trim() || '이름 없는 캐릭터'}</h2><p>6장의 랜덤 카드가 모두 공개되었습니다.</p></div>}
+            </div> : <div className="forgeComplete"><span className="kicker">BUILD COMPLETE</span><h2>{charName.trim() || '이름 없는 캐릭터'}</h2><p>7장의 랜덤 카드가 모두 공개되었습니다.</p></div>}
 
             {drawnCards.length > 0 && <div className="drawnDeck">{drawnCards.map((card,idx)=><div className={`miniDrawCard rarity-${card.rarity}`} key={`${card.category}-${idx}`}><span>{cardStages.find(x=>x.key===card.category)?.label}</span><b>{cardLevelLabel(card.category, card.rarity)}</b><strong>{card.display}</strong></div>)}</div>}
 
-            <div className="statsPreview premiumStats"><b>현재 능력치</b><div className="statMatrix"><span>팔힘<strong>{previewStats.arm}</strong></span><span>다리힘<strong>{previewStats.leg}</strong></span><span>심폐<strong>{previewStats.cardio}</strong></span><span>도구<strong>{previewStats.tool}</strong></span><span>지능<strong>{previewStats.intelligence}</strong></span><span>언어<strong>{previewStats.verbal}</strong></span></div></div>
+            <div className="statsPreview premiumStats"><b>현재 능력치</b><div className="statMatrix"><span>팔힘<strong>{previewStats.arm}</strong></span><span>다리힘<strong>{previewStats.leg}</strong></span><span>심폐<strong>{previewStats.cardio}</strong></span><span>골밀도<strong>{previewStats.bone}</strong></span><span>도구<strong>{previewStats.tool}</strong></span><span>지능<strong>{previewStats.intelligence}</strong></span><span>언어<strong>{previewStats.verbal}</strong></span></div></div>
             <div className="row forgeActions"><button className="btn ghost" onClick={resetCardDraw} disabled={drawnCards.length === 0}>처음부터 다시</button><button className="btn gold grow" onClick={createCharacter} disabled={!allCardsDrawn || !charName.trim()}>이 캐릭터로 참가</button></div>
           </div>}
 
@@ -604,7 +617,7 @@ export default function Home() {
               <div className="row between"><strong>{p.char_name}</strong><span className={`ready ${p.ready ? 'yes' : ''}`}>{p.ready ? 'READY' : 'WAIT'}</span></div>
               <div className="muted">{p.user_name}{p.id === me?.id ? ' · 나' : ''}</div>
               <div className="score">{p.score} / {room.win_target}승</div>
-              <div className="statChips"><span>팔 {p.stats.arm}</span><span>다리 {p.stats.leg}</span><span>심폐 {p.stats.cardio}</span><span>도구 {p.stats.tool}</span><span>지능 {p.stats.intelligence}</span><span>언어 {p.stats.verbal}</span></div>
+              <div className="statChips"><span>팔 {p.stats.arm}</span><span>다리 {p.stats.leg}</span><span>심폐 {p.stats.cardio}</span><span>골밀도 {p.stats.bone}</span><span>도구 {p.stats.tool}</span><span>지능 {p.stats.intelligence}</span><span>언어 {p.stats.verbal}</span></div>
             </div>)}</div>
             {players.length < 2 && <div className="status">상대가 방 코드 <b>{room.code}</b>로 들어오기를 기다리는 중…</div>}
           </div>
@@ -617,9 +630,10 @@ export default function Home() {
               {room.current_game === 'arm' && <MashGame statPower={me.stats.arm} statEndurance={Math.round(me.stats.arm/2)} onFinish={submitResult} disabled={submitting}/>} 
               {room.current_game === 'leg' && <ReactionGame seed={room.game_seed} stat={me.stats.leg} onFinish={submitResult} disabled={submitting}/>} 
               {room.current_game === 'cardio' && <MashGame statPower={Math.round(me.stats.cardio/10)} statEndurance={Math.min(120, Math.round(me.stats.cardio/3))} onFinish={submitResult} disabled={submitting}/>} 
-              {room.current_game === 'tool' && <TimingGame stat={me.stats.tool} onFinish={submitResult} disabled={submitting}/>} 
+              {room.current_game === 'bone' && <TimingGame stat={me.stats.bone} onFinish={submitResult} disabled={submitting}/>} 
               {room.current_game === 'intelligence' && <LogicGame seed={room.game_seed} stat={me.stats.intelligence} onFinish={submitResult} disabled={submitting}/>} 
               {room.current_game === 'verbal' && <LogicGame seed={room.game_seed + 7919} stat={me.stats.verbal} onFinish={submitResult} disabled={submitting}/>} 
+              {room.current_game === 'tool' && <TimingGame stat={me.stats.tool} onFinish={submitResult} disabled={submitting}/>} 
             </>}
           </div>}
 
