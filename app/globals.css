@@ -1,459 +1,52 @@
-:root{color-scheme:dark;--bg:#07090d;--panel:#111722;--panel2:#0a0e14;--line:#293140;--text:#f5f7fb;--muted:#9099aa;--cyan:#89f0d0;--purple:#9d8cff;--gold:#ffd67a;--red:#ff788e;--green:#63e6be}
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -5%,#1a2332 0,#090c12 36%,#050608 100%);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input{font:inherit}.app{max-width:1380px;margin:auto;padding:18px}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.brand{font-size:clamp(21px,3.5vw,34px);font-weight:1000;letter-spacing:-1px}.sub,.muted,.hint{color:var(--muted)}.sub{font-size:12px}.roomBadge{border:1px solid var(--line);background:#0b1018;padding:10px 12px;border-radius:999px;font-size:12px}.layout{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(300px,.75fr);gap:14px}.panel{background:linear-gradient(180deg,rgba(18,24,34,.97),rgba(10,13,19,.97));border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:0 18px 55px #0008}.mainPanel{min-height:660px}.section{border-top:1px dashed #2a3342;margin-top:18px;padding-top:18px}.title{margin:0 0 10px}.label{font-size:12px;color:var(--muted);display:block;margin:0 0 6px}.input{width:100%;background:#070a0f;border:1px solid #303a49;border-radius:12px;color:var(--text);padding:12px;outline:none}.input:focus{border-color:#667386}.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.between{justify-content:space-between}.grow{flex:1}.btn{border:1px solid #394454;background:#171e28;color:#fff;border-radius:12px;padding:10px 14px;font-weight:850;cursor:pointer;min-height:42px}.btn:hover:not(:disabled){filter:brightness(1.12)}.btn:disabled{opacity:.45;cursor:not-allowed}.primary{background:#dffff6;color:#07110e;border-color:#dffff6}.purple{background:#7564e9;border-color:#8f7fff}.gold{background:#4c3915;color:#ffe2a0;border-color:#80632b}.danger{background:#551e29;border-color:#923142}.full{width:100%;margin-top:10px}.big{min-height:50px;font-size:16px}.modeGrid,.choiceGrid,.players,.resultGrid{display:grid;gap:10px}.modeGrid{grid-template-columns:1fr 1fr;margin-bottom:10px}.modeCard,.choiceCard{background:#0a0e15;border:1px solid #2e3745;color:var(--text);border-radius:14px;padding:14px;text-align:left;cursor:pointer}.modeCard b,.choiceCard strong{display:block;font-size:16px;margin-bottom:5px}.modeCard span,.choiceCard span{display:block;color:var(--muted);font-size:12px;line-height:1.45}.modeCard.selected,.choiceCard.selected{border-color:var(--cyan);box-shadow:0 0 0 1px #89f0d055;background:#10201e}.choiceGroup{margin-top:15px}.choiceHead{display:flex;justify-content:space-between;gap:10px;margin-bottom:7px}.choiceHead span{font-size:11px;color:var(--muted)}.choiceGrid{grid-template-columns:repeat(3,1fr)}.statsPreview,.status,.waitingBox{background:#080c12;border:1px solid #283141;border-radius:14px;padding:12px;margin-top:10px}.statsPreview b{display:block;margin-bottom:6px}.stats{color:#b8c1cf;font-size:13px}.players{grid-template-columns:1fr 1fr}.playerCard{background:#080c12;border:1px solid #293241;border-radius:15px;padding:13px}.playerCard.me{border-color:#5c9f90}.ready{font-size:10px;border:1px solid #4a4f5b;border-radius:999px;padding:3px 7px;color:#7f8796}.ready.yes{color:var(--green);border-color:#3d826e}.score{font-size:25px;font-weight:1000;margin:10px 0}.statChips{display:flex;flex-wrap:wrap;gap:5px}.statChips span{font-size:10px;background:#151b24;border:1px solid #2c3543;padding:5px 7px;border-radius:999px}.arenaSection{background:linear-gradient(180deg,#111827,#080b10);border:1px solid #334051;border-radius:18px;padding:16px}.gameHeader{display:flex;justify-content:space-between;gap:12px}.gameHeader h2{margin:5px 0}.gameHeader p{margin:0;color:var(--muted);font-size:12px}.roundNo{font-size:11px;color:var(--gold);font-weight:900}.statFocus{background:#0a0e15;border:1px solid #303949;border-radius:12px;padding:10px;min-width:120px;text-align:center;color:var(--muted);font-size:11px}.statFocus b{color:var(--cyan);font-size:15px}.minigameBox{margin-top:16px}.reactionPad{height:180px;border-radius:18px;border:1px solid #3a4556;background:#151b24;display:flex;align-items:center;justify-content:center;font-size:clamp(18px,4vw,30px);font-weight:1000;user-select:none;touch-action:manipulation;margin-bottom:10px}.reactionPad.wait{background:#3b2f10}.reactionPad.go{background:#0a6a4f}.reactionPad.done{background:#141922}.gameReadout{display:flex;justify-content:space-between;align-items:center;font-size:20px;margin-bottom:10px}.mashPad{width:100%;height:190px;background:linear-gradient(180deg,#7f69ff,#4e3ebf);border:0;border-radius:24px;color:white;font-size:42px;font-weight:1000;box-shadow:inset 0 -10px 0 #0003;touch-action:manipulation}.mashPad:active:not(:disabled){transform:translateY(3px)}.mashPad:disabled{opacity:.45}.timingTrack{height:72px;position:relative;border-radius:14px;border:1px solid #354052;background:#080b10;overflow:hidden;margin-bottom:12px}.targetZone{position:absolute;left:44%;width:12%;top:0;bottom:0;background:#17634766}.timingNeedle{position:absolute;top:0;bottom:0;width:4px;background:#fff;transform:translateX(-2px);box-shadow:0 0 12px #fff}.logicQuestion{text-align:center;font-size:clamp(24px,5vw,42px);font-weight:1000;padding:28px 8px}.logicOptions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.choiceBtn{min-height:62px;border-radius:14px;border:1px solid #354052;background:#121923;color:white;font-size:20px;font-weight:900}.choiceBtn:hover:not(:disabled){border-color:var(--cyan)}.hint{font-size:11px;margin-top:8px}.waitingBox{display:flex;flex-direction:column;gap:6px;align-items:center;padding:24px}.waitingBox b{font-size:20px;color:var(--green)}.resultPanel,.finalPanel{text-align:center}.resultGrid{grid-template-columns:1fr 1fr}.resultCard{display:flex;flex-direction:column;gap:6px;background:#080c12;border:1px solid #2c3544;border-radius:14px;padding:14px}.resultCard.winner{border-color:var(--gold);box-shadow:0 0 0 1px #ffd67a44}.resultCard b{font-size:24px}.ok{color:var(--green)}.trophy{font-size:64px}.history{display:flex;flex-direction:column;gap:6px}.historyRow{display:flex;justify-content:space-between;gap:10px;padding:9px 10px;border-radius:10px;background:#090d13;font-size:12px}.chatPanel{height:650px;display:flex;flex-direction:column;position:sticky;top:12px}.chatExplain{font-size:11px;margin-bottom:8px}.chatLog{flex:1;overflow:auto;background:#06090d;border:1px solid #252d39;border-radius:13px;padding:10px;margin-bottom:8px}.msg{margin-bottom:10px;word-break:break-word}.who{color:var(--cyan);font-weight:900}.time{font-size:9px;color:#677181;margin-left:6px}
-@media(max-width:900px){.layout{grid-template-columns:1fr}.chatPanel{position:static;height:380px}.mainPanel{min-height:auto}}
-@media(max-width:620px){.app{padding:9px}.panel{padding:12px;border-radius:15px}.top{align-items:flex-start;flex-direction:column}.roomBadge{border-radius:12px}.modeGrid,.players,.resultGrid{grid-template-columns:1fr}.choiceGrid{grid-template-columns:1fr}.choiceHead{flex-direction:column}.gameHeader{flex-direction:column}.statFocus{text-align:left}.reactionPad,.mashPad{height:150px}.logicQuestion{padding:20px 4px}.historyRow{flex-direction:column}.btn,.input{min-height:46px}}
-
-/* v3 premium card forge */
-:root{--ink:#06070a;--glass:rgba(14,18,27,.82);--silver:#d9e1ef;--aqua:#72f5d0;--violet:#8f7cff;--amber:#f5c86a}
-body{background:
-  radial-gradient(circle at 18% 0%,rgba(87,72,176,.18),transparent 31%),
-  radial-gradient(circle at 82% 10%,rgba(61,196,168,.13),transparent 29%),
-  linear-gradient(180deg,#090b11 0%,#050609 48%,#020304 100%);background-attachment:fixed}
-.app{max-width:1460px;padding:24px}.brand{font-size:clamp(22px,3.2vw,38px);font-weight:950;letter-spacing:-1.6px;background:linear-gradient(90deg,#fff 0%,#c8d4e9 45%,#7df1d3 100%);-webkit-background-clip:text;background-clip:text;color:transparent}.sub{margin-top:5px;letter-spacing:.02em}.panel{background:linear-gradient(180deg,rgba(16,20,29,.88),rgba(7,9,14,.94));border:1px solid rgba(180,198,224,.13);box-shadow:0 24px 80px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.035);backdrop-filter:blur(18px)}
-.roomBadge{background:rgba(7,10,15,.74);border-color:rgba(124,245,211,.24);box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
-.modeCard,.playerCard,.status,.statsPreview,.waitingBox,.resultCard{background:linear-gradient(180deg,rgba(14,18,26,.92),rgba(7,9,14,.96));border-color:rgba(168,187,214,.14)}
-.modeCard.selected{border-color:rgba(114,245,208,.55);box-shadow:0 0 0 1px rgba(114,245,208,.14),0 14px 34px rgba(26,152,124,.09);background:linear-gradient(180deg,rgba(20,42,38,.75),rgba(8,18,17,.9))}
-.btn{border-radius:14px;transition:transform .18s ease,filter .18s ease,border-color .18s ease}.btn:hover:not(:disabled){transform:translateY(-1px)}.primary{background:linear-gradient(180deg,#dffff6,#9fe6d4);color:#07120f;border-color:#cffff3;box-shadow:0 8px 24px rgba(70,208,171,.12)}.gold{background:linear-gradient(180deg,#f4cf78,#bc8f35);color:#171004;border-color:#f4d98c}.purple{background:linear-gradient(180deg,#7769dd,#5145ab);border-color:#978af4}.ghost{background:rgba(255,255,255,.035);border-color:rgba(255,255,255,.12);color:#d3dbe8}
-.input{background:rgba(3,5,9,.74);border-color:rgba(178,196,222,.18);box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}.input:focus{border-color:rgba(114,245,208,.55);box-shadow:0 0 0 3px rgba(114,245,208,.07)}
-.kicker{display:inline-flex;align-items:center;gap:8px;color:#7fe3cc;font-size:10px;font-weight:900;letter-spacing:.18em;text-transform:uppercase}.cardForge{position:relative;overflow:hidden}.cardForge:before{content:"";position:absolute;right:-120px;top:-160px;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,rgba(115,101,220,.13),transparent 68%);pointer-events:none}.forgeTop{position:relative;display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:16px}.forgeTop .title{font-size:clamp(24px,3vw,34px);margin:5px 0 7px;letter-spacing:-.04em}.forgeTop p{max-width:700px;line-height:1.65;margin:0}.drawCounter{min-width:92px;padding:12px 14px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.025);border-radius:18px;text-align:center}.drawCounter b{font-size:28px}.drawCounter span{color:#6f7a8c}.premiumInput{font-size:16px;min-height:50px;margin:8px 0 18px}
-.drawRail{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:22px}.railStep{position:relative;display:flex;align-items:center;gap:8px;min-width:0;padding:9px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);color:#5f697a;transition:.2s ease}.railStep span{display:grid;place-items:center;width:25px;height:25px;flex:0 0 auto;border-radius:50%;background:#111620;border:1px solid rgba(255,255,255,.08);font-size:10px;font-weight:900}.railStep small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:800}.railStep.active{color:#e8fff8;border-color:rgba(114,245,208,.35);background:rgba(64,186,154,.08)}.railStep.active span{color:#06120e;background:#8ff1d7;border-color:#8ff1d7}.railStep.done{color:#9debd9}.railStep.done span{background:#173e34;color:#9debd9;border-color:#2d6b5c}
-.drawStage{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,320px);grid-template-areas:"copy card" "hint card";gap:18px 26px;align-items:center;padding:28px;border-radius:24px;border:1px solid rgba(190,205,229,.11);background:linear-gradient(135deg,rgba(14,18,27,.8),rgba(6,8,13,.95));box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}.stageCopy{grid-area:copy}.stageCopy .eyebrow{font-size:10px;letter-spacing:.18em;color:#6e7890;font-weight:900}.stageCopy h2{font-size:clamp(32px,6vw,62px);line-height:.95;margin:10px 0 12px;letter-spacing:-.06em}.stageCopy p{max-width:520px;color:#8e99aa;line-height:1.6;margin:0}.drawHint,.nextDraw{grid-area:hint}.drawHint{font-size:12px;color:#6f7888}.nextDraw{justify-self:start;min-width:180px}
-.mysteryCard{grid-area:card;width:100%;aspect-ratio:.67;border:0;padding:0;background:transparent;perspective:1200px;cursor:pointer}.mysteryCard:disabled{cursor:default}.cardInner{position:relative;display:block;width:100%;height:100%;transform-style:preserve-3d;transition:transform .72s cubic-bezier(.2,.75,.2,1)}.mysteryCard.flipped .cardInner{transform:rotateY(180deg)}.cardFace{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:24px;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden}.cardBack{border:1px solid rgba(198,211,234,.18);background:
-  linear-gradient(135deg,rgba(255,255,255,.025),transparent 32%),
-  repeating-linear-gradient(45deg,transparent 0 13px,rgba(255,255,255,.018) 13px 14px),
-  radial-gradient(circle at 50% 40%,#21293a 0,#111722 48%,#080b10 100%);box-shadow:0 30px 70px rgba(0,0,0,.45),inset 0 0 0 7px rgba(255,255,255,.018)}.cardBack:after{content:"";position:absolute;inset:13px;border:1px solid rgba(137,240,208,.18);border-radius:17px}.backMark{display:grid;place-items:center;width:84px;height:84px;border:1px solid rgba(126,242,211,.3);border-radius:24px;font-size:39px;font-weight:1000;color:#9cf0da;box-shadow:inset 0 0 35px rgba(90,214,181,.06)}.cardBack b{margin-top:25px;font-size:12px;letter-spacing:.16em}.cardBack small{margin-top:7px;color:#647083}.backGrid{position:absolute;inset:0;background:radial-gradient(circle at center,transparent 0 30%,rgba(98,244,206,.05) 30.5% 31%,transparent 31.5%);opacity:.8}.cardFront{transform:rotateY(180deg);padding:28px;text-align:center;border:1px solid rgba(255,255,255,.18);background:linear-gradient(160deg,#171d29,#090d14);box-shadow:0 30px 70px rgba(0,0,0,.45)}.cardFront:before{content:"";position:absolute;inset:-25%;background:radial-gradient(circle at 50% 25%,rgba(255,255,255,.12),transparent 28%);pointer-events:none}.rarityPill{position:absolute;top:18px;left:18px;border:1px solid currentColor;border-radius:999px;padding:5px 9px;font-size:9px;font-weight:900;letter-spacing:.08em}.frontIcon{display:grid;place-items:center;width:78px;height:78px;border-radius:22px;border:1px solid currentColor;font-size:13px;font-weight:1000;letter-spacing:.08em;margin-bottom:20px}.cardFront small{color:#7f8a9c;font-weight:800}.cardFront strong{font-size:clamp(21px,3vw,28px);margin:7px 0 10px;letter-spacing:-.03em}.cardFront em{font-style:normal;font-size:clamp(28px,4vw,42px);font-weight:1000;letter-spacing:-.04em}.cardFront p{font-size:11px;color:#8e99aa;line-height:1.5;margin:12px 0 0}.rarity-일반{color:#c8d0dc}.rarity-고급{color:#7fe8ca}.rarity-희귀{color:#6fb4ff}.rarity-영웅{color:#bc8cff}.rarity-전설{color:#ffd16d;background:radial-gradient(circle at 50% 15%,rgba(245,187,62,.16),transparent 35%),linear-gradient(160deg,#201a0c,#0c0b08)}.rarity-전설.cardFront{box-shadow:0 30px 80px rgba(216,164,44,.12),inset 0 0 60px rgba(240,183,55,.05)}
-.forgeComplete{text-align:center;padding:28px;border:1px solid rgba(114,245,208,.22);background:linear-gradient(180deg,rgba(30,76,65,.13),rgba(8,16,14,.18));border-radius:20px}.forgeComplete h2{font-size:32px;margin:7px 0}.forgeComplete p{color:#8b978f;margin:0}.drawnDeck{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:15px}.miniDrawCard{min-width:0;padding:12px 10px;border:1px solid rgba(255,255,255,.1);border-radius:14px;background:rgba(255,255,255,.025);display:flex;flex-direction:column;gap:5px}.miniDrawCard span,.miniDrawCard small{font-size:9px;color:#727d8f}.miniDrawCard b{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.miniDrawCard strong{font-size:14px;white-space:nowrap}.premiumStats{margin-top:14px;padding:15px}.statMatrix{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:10px}.statMatrix span{display:flex;flex-direction:column;gap:3px;padding:9px 10px;border-radius:10px;background:rgba(255,255,255,.025);font-size:9px;color:#6f798a}.statMatrix strong{font-size:18px;color:#e9eef6}.forgeActions{margin-top:10px}.forgeActions .grow{min-width:180px}.statChips span{background:rgba(255,255,255,.035);border-color:rgba(255,255,255,.08)}
-.arenaSection{background:radial-gradient(circle at 100% 0%,rgba(111,93,224,.12),transparent 35%),linear-gradient(180deg,#111722,#080b10);border-color:rgba(164,178,207,.18)}
-@media(max-width:900px){.drawRail{grid-template-columns:repeat(3,1fr)}.drawnDeck,.statMatrix{grid-template-columns:repeat(3,1fr)}.drawStage{grid-template-columns:minmax(0,1fr) minmax(220px,280px)}}
-@media(max-width:620px){.app{padding:10px}.forgeTop{flex-direction:column}.drawCounter{min-width:76px}.drawStage{grid-template-columns:1fr;grid-template-areas:"copy" "card" "hint";padding:16px}.mysteryCard{max-width:280px;justify-self:center}.drawRail{grid-template-columns:repeat(2,1fr)}.drawnDeck,.statMatrix{grid-template-columns:repeat(2,1fr)}.stageCopy h2{font-size:38px}.nextDraw{justify-self:stretch;width:100%}.forgeActions{align-items:stretch}.forgeActions .btn{width:100%}}
-@media(prefers-reduced-motion:reduce){.cardInner,.btn{transition:none!important}}
-
-/* =========================================================
-   AURELIS UI v4 - Luxury Arena polish
-   UI-only override. No game logic / Supabase changes.
-   ========================================================= */
 :root{
-  --lux-bg:#040509;
-  --lux-panel:rgba(10,13,20,.82);
-  --lux-panel-2:rgba(14,18,28,.88);
-  --lux-line:rgba(203,219,244,.12);
-  --lux-line-strong:rgba(203,219,244,.22);
-  --lux-text:#f4f7fb;
-  --lux-muted:#8994a8;
-  --lux-mint:#8af2d6;
-  --lux-mint-2:#45cfa9;
-  --lux-violet:#9a8cff;
-  --lux-gold:#f7ce78;
-  --lux-red:#ff7f8a;
+  color-scheme:dark;
+  --bg:#090b10;
+  --panel:#11151d;
+  --panel-2:#0d1118;
+  --line:#242a36;
+  --text:#f4f7fb;
+  --muted:#8f99aa;
+  --accent:#7df0d0;
+  --accent-2:#8d7cff;
+  --gold:#f2c66d;
+  --danger:#ff7b8a;
 }
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;background:radial-gradient(circle at 50% -10%,#182132 0,#0b0e14 34%,#080a0f 72%);color:var(--text);font-family:Inter,Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
+button,input{font:inherit}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:.55}
+.app{width:min(1220px,100%);margin:0 auto;padding:24px clamp(14px,3vw,34px) 48px}
+.top,.row,.between{display:flex;align-items:center}.top,.between{justify-content:space-between}.row{gap:10px}.grow{flex:1}.full{width:100%}
+.top{min-height:68px;gap:18px;margin-bottom:18px}
+.brand{font-size:clamp(24px,3vw,36px);font-weight:950;letter-spacing:-.055em}.sub{font-size:11px;color:var(--muted);letter-spacing:.16em;margin-top:6px}.roomBadge{white-space:nowrap;border:1px solid var(--line);background:#0c1017;padding:10px 13px;border-radius:12px;font-size:12px;color:#b9c2d1}.roomBadge b{color:var(--accent)}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}.panel{border:1px solid var(--line);background:rgba(15,19,27,.96);border-radius:22px;box-shadow:0 18px 48px rgba(0,0,0,.26)}.mainPanel{padding:clamp(16px,2.5vw,28px)}.chatPanel{position:sticky;top:16px;padding:16px}
+.title{margin:0;font-size:20px;letter-spacing:-.03em}.muted,.hint,.chatExplain{color:var(--muted)}.muted{line-height:1.6}.label{display:block;font-size:11px;font-weight:800;color:#aeb7c6;letter-spacing:.12em;margin-bottom:8px}
+.input{width:100%;min-height:50px;border-radius:13px;border:1px solid #2b3240;background:#090c12;color:var(--text);padding:0 14px;outline:none}.input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(125,240,208,.08)}.input::placeholder{color:#596273}
+.btn{min-height:46px;border:1px solid #313847;border-radius:13px;background:#171c25;color:var(--text);font-weight:850;padding:0 16px;transition:.16s ease}.btn:hover:not(:disabled){transform:translateY(-1px);border-color:#475164}.btn.primary{background:var(--accent);border-color:var(--accent);color:#07100d}.btn.purple{background:var(--accent-2);border-color:var(--accent-2);color:#fff}.btn.gold{background:var(--gold);border-color:var(--gold);color:#171106}.btn.ghost{background:#0d1118}.btn.danger{background:#231117;border-color:#552630;color:#ffadb7}.btn.big{min-height:56px;font-size:16px}
+.section{margin-top:16px;border:1px solid var(--line);background:var(--panel-2);border-radius:18px;padding:18px}
 
-html{background:var(--lux-bg)}
-body{
-  min-height:100%;
-  color:var(--lux-text);
-  background:
-    radial-gradient(900px 560px at 8% -8%,rgba(123,103,255,.17),transparent 60%),
-    radial-gradient(820px 520px at 96% 3%,rgba(74,223,185,.12),transparent 61%),
-    radial-gradient(620px 420px at 50% 118%,rgba(51,81,151,.10),transparent 68%),
-    linear-gradient(180deg,#090b12 0%,#05070b 44%,#020305 100%);
-}
-body:before{
-  content:"";
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  opacity:.26;
-  background-image:
-    linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px);
-  background-size:42px 42px;
-  -webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,.82),transparent 82%);
-  mask-image:linear-gradient(to bottom,rgba(0,0,0,.82),transparent 82%);
-}
+/* Home */
+.lobbyHome{padding:clamp(8px,2vw,18px) 0}.heroMark{display:inline-flex;border:1px solid #2f3745;background:#0c1119;color:var(--accent);border-radius:999px;padding:7px 10px;font-size:10px;font-weight:900;letter-spacing:.14em}.lobbyHeadline{font-size:clamp(36px,6vw,70px);line-height:1.02;letter-spacing:-.06em;margin:20px 0 14px;max-width:880px;text-wrap:balance}.lobbyLead{font-size:clamp(14px,2vw,18px);line-height:1.65;color:#9da7b7;max-width:720px;margin:0 0 28px}.lobbyNick{max-width:520px;margin-bottom:16px}.lobbyInput{font-size:17px}.modeGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.modeCard{min-width:0;text-align:left;display:grid;grid-template-columns:1fr auto;gap:6px 12px;padding:18px;border-radius:16px;border:1px solid #2b3240;background:#0b0f16;color:var(--text)}.modeCard b{font-size:19px}.modeCard strong{font-size:26px;color:#dce4ef}.modeCard span:last-child{grid-column:1/-1;color:var(--muted);font-size:13px}.modeTag{font-size:9px;color:#718095;letter-spacing:.14em}.modeCard.selected{border-color:var(--accent);background:linear-gradient(180deg,#10221f,#0b1212);box-shadow:inset 0 0 0 1px rgba(125,240,208,.05)}
+.lobbyActions{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.createRoomBtn{min-height:112px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;text-align:left;padding:18px}.createRoomBtn small,.joinBox small{font-size:10px;letter-spacing:.1em;opacity:.7}.createRoomBtn b,.joinBox b{font-size:19px;margin:4px 0}.createRoomBtn span{font-size:12px;opacity:.75}.joinBox{border:1px solid var(--line);background:#0b0f16;border-radius:16px;padding:16px}.joinRow{display:flex;gap:8px;margin-top:10px}.lobbyFlow{display:flex;flex-wrap:wrap;gap:8px 11px;margin-top:18px;color:#6f7a8d;font-size:12px}.lobbyFlow i{font-style:normal;color:#3e4654}
 
-.app{position:relative;z-index:1;max-width:1500px;padding:30px clamp(12px,2.5vw,34px) 42px}
-.top{padding:6px 2px 22px;align-items:center}
-.brand{
-  font-size:clamp(24px,3.5vw,42px);
-  letter-spacing:-.055em;
-  line-height:1;
-  filter:drop-shadow(0 7px 25px rgba(103,231,196,.08));
-}
-.sub{margin-top:9px;color:#778196;font-size:12px}
-.roomBadge{
-  padding:11px 15px;
-  border-radius:999px;
-  background:rgba(4,7,11,.72);
-  border:1px solid rgba(138,242,214,.2);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 10px 30px rgba(0,0,0,.18);
-  letter-spacing:.05em;
-}
+/* Draft */
+.cardForge{background:linear-gradient(180deg,#111722,#0c1017);overflow:hidden}.forgeTop{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.kicker,.eyebrow,.roundNo{display:block;color:var(--accent);font-size:10px;font-weight:900;letter-spacing:.15em;text-transform:uppercase}.forgeTop h3{font-size:26px;margin-top:6px}.forgeTop p{max-width:760px;margin:8px 0 0}.drawCounter{flex:0 0 auto;display:flex;align-items:baseline;gap:3px;border:1px solid var(--line);background:#090d13;border-radius:14px;padding:9px 12px}.drawCounter b{font-size:24px}.drawCounter span{font-size:12px;color:var(--muted)}.premiumInput{margin-top:16px}
+.drawRail{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;margin:14px 0}.railStep{min-width:0;display:flex;align-items:center;gap:7px;border:1px solid #262d3a;background:#0b0f16;border-radius:11px;padding:9px}.railStep span{width:24px;height:24px;display:grid;place-items:center;border-radius:8px;background:#151b25;font-size:11px;font-weight:900;flex:0 0 auto}.railStep small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#788396;font-size:10px}.railStep.active{border-color:var(--accent)}.railStep.active small{color:#eafdf7}.railStep.done{opacity:.68}
+.drawStage{border:1px solid var(--line);background:#090d13;border-radius:18px;padding:18px}.stageCopy{display:grid;grid-template-columns:auto 1fr;align-items:end;gap:8px 14px;margin-bottom:18px}.stageCopy .eyebrow{grid-column:1/-1}.stageCopy h2{margin:0;font-size:30px;letter-spacing:-.04em}.stageCopy p{margin:0;color:var(--muted);font-size:13px;line-height:1.5;justify-self:end;text-align:right;max-width:520px}
+.choiceDeck{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;max-width:920px;margin:0 auto}.choiceCard{appearance:none;border:0;background:none;padding:0;min-width:0;aspect-ratio:3/4.3;perspective:1200px}.choiceCard .cardInner{position:relative;display:block;width:100%;height:100%;transform-style:preserve-3d;transition:transform .62s cubic-bezier(.2,.8,.2,1)}.choiceCard.flipped .cardInner{transform:rotateY(180deg)}.cardFace{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border-radius:20px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden}.cardBack{border:1px solid #394253;background:radial-gradient(circle at 50% 35%,#1a2636 0,#101722 40%,#080b11 100%);box-shadow:0 16px 34px rgba(0,0,0,.3)}.cardBack:before{content:"";position:absolute;inset:12px;border:1px solid rgba(255,255,255,.08);border-radius:14px}.cardBack b{font-size:12px;letter-spacing:.28em;margin-top:14px}.cardBack small{font-size:9px;color:#6f7a8c;letter-spacing:.18em;margin-top:5px}.backMark{width:62px;height:62px;border-radius:18px;display:grid;place-items:center;border:1px solid rgba(125,240,208,.35);color:var(--accent);font-weight:950;font-size:27px;background:rgba(125,240,208,.03)}.pickNo{position:absolute;top:16px;left:16px;color:#657183;font-size:11px;font-weight:900;letter-spacing:.12em}.cardFront{transform:rotateY(180deg);padding:18px;border:1px solid #425063;background:linear-gradient(160deg,#1a2130,#0b0f15)}.rarityPill{position:absolute;top:14px;left:14px;border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:5px 8px;font-size:9px;font-weight:900}.cardCategoryLabel{font-size:10px;color:#8f9aac;letter-spacing:.08em;margin-bottom:12px}.tierTitle{font-size:clamp(18px,2vw,28px);letter-spacing:-.045em;line-height:1.12;max-width:92%}.cardFront em{font-style:normal;font-size:clamp(20px,2.5vw,34px);font-weight:950;margin:10px 0;color:#fff}.cardFront p{font-size:11px;line-height:1.55;color:#9ca6b5;margin:0;max-width:210px}.cardFront p b{color:#dce3ed}.selectedFlag{position:absolute;bottom:14px;border-radius:999px;padding:5px 9px;font-size:8px;font-weight:900;letter-spacing:.14em;background:var(--accent);color:#07100d}.choiceCard.discarded{opacity:.22;filter:grayscale(.7)}.choiceCard.chosen{filter:drop-shadow(0 14px 28px rgba(125,240,208,.1))}.drawHint{text-align:center;color:#7e899a;font-size:12px;margin-top:14px}.nextDraw{display:block;margin:14px auto 0;min-width:220px}
+.rarity-일반{color:#c8d0da}.rarity-고급{color:#8de7cf}.rarity-희귀{color:#84bfff}.rarity-영웅{color:#c39cff}.rarity-전설{color:#f2cf78}.rarity-전설.cardFront{background:linear-gradient(160deg,#2b2110,#100d08);border-color:#7b622f}
+.forgeComplete{text-align:center;padding:32px;border:1px solid #2d3947;border-radius:16px;background:#0a1016}.forgeComplete h2{font-size:30px;margin:6px 0}.forgeComplete p{color:var(--muted);margin:0}.drawnDeck{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;margin-top:12px}.miniDrawCard{min-width:0;border:1px solid #2a313e;background:#0b0f16;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:5px}.miniDrawCard span{font-size:9px;color:#728095}.miniDrawCard b{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.miniDrawCard strong{font-size:14px;color:#f0f4f9}.premiumStats{margin-top:12px;border:1px solid var(--line);border-radius:14px;padding:13px;background:#0a0e14}.statMatrix{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:8px}.statMatrix span{min-width:0;border-radius:10px;background:#111722;padding:8px;color:#7f8a9c;font-size:9px}.statMatrix strong{display:block;color:#edf2f7;font-size:17px;margin-top:3px}.forgeActions{margin-top:12px}
 
-.layout{gap:18px;align-items:start}
-.panel{
-  border-radius:26px;
-  border:1px solid var(--lux-line);
-  background:
-    linear-gradient(180deg,rgba(19,24,35,.76),rgba(7,9,14,.9)),
-    rgba(5,7,11,.86);
-  box-shadow:
-    0 30px 80px rgba(0,0,0,.33),
-    inset 0 1px 0 rgba(255,255,255,.04);
-  backdrop-filter:blur(22px) saturate(120%);
-}
-.mainPanel{padding:clamp(16px,2.2vw,26px)}
-.chatPanel{padding:18px;top:18px}
-.title{letter-spacing:-.035em}
-.label{color:#a2acbc;font-size:11px;font-weight:850;letter-spacing:.04em}
-.muted,.hint,.chatExplain{color:var(--lux-muted)}
-
-.section{
-  border-radius:21px;
-  border:1px solid rgba(255,255,255,.075);
-  background:linear-gradient(180deg,rgba(255,255,255,.026),rgba(255,255,255,.012));
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
-}
-
-.input{
-  min-height:50px;
-  border-radius:14px;
-  padding:0 15px;
-  color:#f8fbff;
-  background:rgba(2,4,8,.66);
-  border:1px solid rgba(190,207,235,.15);
-  transition:border-color .18s ease,box-shadow .18s ease,background .18s ease;
-}
-.input::placeholder{color:#505a6c}
-.input:hover{background:rgba(5,7,12,.8)}
-.input:focus{
-  outline:none;
-  border-color:rgba(138,242,214,.52);
-  box-shadow:0 0 0 4px rgba(91,217,184,.075),inset 0 1px 0 rgba(255,255,255,.03);
-}
-
-.btn{
-  min-height:46px;
-  border-radius:14px;
-  padding:0 18px;
-  font-weight:900;
-  letter-spacing:-.015em;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.13),0 9px 24px rgba(0,0,0,.14);
-}
-.btn:active:not(:disabled){transform:translateY(1px) scale(.995)}
-.primary{
-  background:linear-gradient(180deg,#dcfff5 0%,#98ebd3 100%);
-  border-color:#c7faeb;
-  color:#06110e;
-  box-shadow:0 10px 30px rgba(66,211,173,.13),inset 0 1px 0 #fff;
-}
-.purple{
-  background:linear-gradient(180deg,#8e81f0,#6456c8);
-  border-color:#a99fff;
-  box-shadow:0 10px 30px rgba(112,93,225,.14),inset 0 1px 0 rgba(255,255,255,.18);
-}
-.gold{
-  background:linear-gradient(180deg,#ffdf91,#d4a94e);
-  border-color:#ffe5a6;
-  color:#171004;
-  box-shadow:0 10px 30px rgba(222,171,66,.13),inset 0 1px 0 rgba(255,255,255,.28);
-}
-.ghost{background:rgba(255,255,255,.025);border-color:rgba(255,255,255,.1)}
-.danger{background:rgba(117,29,43,.34);border-color:rgba(255,110,125,.23);color:#ffabb4}
-
-.modeGrid{gap:12px}
-.modeCard{
-  position:relative;
-  overflow:hidden;
-  border-radius:18px;
-  padding:19px;
-  min-height:116px;
-  background:linear-gradient(150deg,rgba(20,25,36,.94),rgba(8,10,16,.96));
-  border:1px solid rgba(190,207,235,.11);
-  transition:transform .2s ease,border-color .2s ease,background .2s ease,box-shadow .2s ease;
-}
-.modeCard:before{content:"";position:absolute;width:150px;height:150px;right:-75px;top:-75px;border-radius:50%;background:radial-gradient(circle,rgba(145,130,255,.15),transparent 65%);pointer-events:none}
-.modeCard b{font-size:20px;position:relative}
-.modeCard span{position:relative;color:#7f899b;line-height:1.55}
-.modeCard:hover{transform:translateY(-2px);border-color:rgba(180,198,227,.22)}
-.modeCard.selected{
-  border-color:rgba(138,242,214,.52);
-  background:linear-gradient(145deg,rgba(24,55,49,.72),rgba(8,17,16,.95));
-  box-shadow:0 16px 40px rgba(46,171,139,.08),inset 0 1px 0 rgba(255,255,255,.06);
-}
-.modeCard.selected:after{content:"SELECTED";position:absolute;top:12px;right:12px;padding:4px 7px;border-radius:999px;background:rgba(138,242,214,.12);border:1px solid rgba(138,242,214,.22);color:#9ef5de;font-size:8px;font-weight:950;letter-spacing:.12em}
-
-/* Character forge */
-.cardForge{
-  padding:clamp(16px,2vw,24px);
-  background:
-    radial-gradient(500px 270px at 100% 0%,rgba(124,104,255,.13),transparent 66%),
-    radial-gradient(400px 260px at 0% 100%,rgba(67,210,174,.08),transparent 68%),
-    linear-gradient(180deg,rgba(18,23,33,.85),rgba(7,9,14,.94));
-}
-.forgeTop{margin-bottom:18px}
-.kicker{color:#8cebd4;text-shadow:0 0 24px rgba(92,226,193,.18)}
-.drawCounter{
-  border-radius:18px;
-  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.018));
-  border-color:rgba(255,255,255,.1);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
-}
-.drawCounter b{font-size:30px;color:#f7fbff}
-.premiumInput{font-weight:800;letter-spacing:-.01em}
-
-.drawRail{gap:7px}
-.railStep{min-height:48px;border-radius:14px;background:rgba(255,255,255,.016)}
-.railStep.active{
-  color:#eafff9;
-  border-color:rgba(138,242,214,.4);
-  background:linear-gradient(180deg,rgba(60,196,161,.12),rgba(39,133,110,.055));
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 8px 24px rgba(31,133,107,.06);
-}
-.railStep.active span{box-shadow:0 0 24px rgba(98,230,194,.2)}
-
-.drawStage{
-  min-height:430px;
-  padding:clamp(18px,3vw,34px);
-  border-radius:26px;
-  border-color:rgba(203,219,244,.1);
-  background:
-    radial-gradient(500px 280px at 78% 18%,rgba(108,92,230,.085),transparent 65%),
-    linear-gradient(145deg,rgba(15,19,29,.88),rgba(4,6,10,.97));
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 18px 50px rgba(0,0,0,.17);
-}
-.stageCopy h2{font-weight:1000;text-wrap:balance}
-.stageCopy p{font-size:13px}
-
-.mysteryCard{max-width:330px;justify-self:end;filter:drop-shadow(0 34px 34px rgba(0,0,0,.34))}
-.cardInner{transition:transform .78s cubic-bezier(.2,.82,.18,1)}
-.cardFace{border-radius:28px}
-.cardBack{
-  border:1px solid rgba(212,225,244,.2);
-  background:
-    linear-gradient(135deg,rgba(255,255,255,.045),transparent 25%),
-    repeating-linear-gradient(45deg,transparent 0 15px,rgba(255,255,255,.018) 15px 16px),
-    radial-gradient(circle at 50% 40%,#202b3f 0%,#101722 44%,#06090e 100%);
-  box-shadow:
-    0 34px 78px rgba(0,0,0,.48),
-    inset 0 1px 0 rgba(255,255,255,.08),
-    inset 0 0 0 7px rgba(255,255,255,.015),
-    inset 0 0 70px rgba(102,237,202,.035);
-}
-.cardBack:before{content:"";position:absolute;inset:22px;border-radius:18px;border:1px solid rgba(255,255,255,.045);background:linear-gradient(135deg,transparent,rgba(116,240,209,.025),transparent)}
-.cardBack:after{inset:13px;border-color:rgba(138,242,214,.2)}
-.backMark{
-  position:relative;z-index:2;
-  width:92px;height:92px;
-  border-radius:26px;
-  border:1px solid rgba(138,242,214,.38);
-  background:linear-gradient(145deg,rgba(138,242,214,.055),rgba(131,111,255,.045));
-  color:#b8f9e7;
-  text-shadow:0 0 24px rgba(91,231,194,.28);
-  box-shadow:0 0 0 8px rgba(255,255,255,.012),inset 0 0 36px rgba(91,231,194,.07);
-}
-.cardBack b{position:relative;z-index:2;color:#e6edf8;letter-spacing:.2em}
-.cardBack small{position:relative;z-index:2;color:#677387}
-.backGrid{background:radial-gradient(circle at center,transparent 0 29%,rgba(113,245,210,.055) 29.5% 30%,transparent 30.5%);opacity:1}
-
-.cardFront{
-  padding:30px;
-  border-color:rgba(255,255,255,.2);
-  background:
-    radial-gradient(circle at 50% -4%,rgba(255,255,255,.13),transparent 30%),
-    linear-gradient(155deg,#19202d,#080c12);
-  box-shadow:0 34px 80px rgba(0,0,0,.46),inset 0 1px 0 rgba(255,255,255,.08);
-}
-.rarityPill{top:17px;left:17px;background:rgba(0,0,0,.28);backdrop-filter:blur(8px)}
-.frontIcon{width:82px;height:82px;border-radius:24px;background:rgba(255,255,255,.025);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
-.cardFront strong{font-size:clamp(21px,3vw,29px)}
-.cardFront em{text-shadow:0 8px 26px rgba(0,0,0,.35)}
-.cardFront p{max-width:230px}
-.rarity-일반{color:#cbd4e0}
-.rarity-고급{color:#88efd1}
-.rarity-희귀{color:#79baff}
-.rarity-영웅{color:#c497ff}
-.rarity-전설{
-  color:#ffd777;
-  background:
-    radial-gradient(circle at 50% 13%,rgba(255,204,87,.22),transparent 35%),
-    radial-gradient(circle at 95% 90%,rgba(255,132,50,.08),transparent 36%),
-    linear-gradient(158deg,#251c0a,#0d0b07 68%);
-}
-.rarity-전설.cardFront{border-color:rgba(255,213,112,.36);box-shadow:0 35px 90px rgba(222,161,44,.13),inset 0 1px 0 rgba(255,245,205,.15),inset 0 0 70px rgba(255,194,65,.05)}
-
-@keyframes cardBreathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-@keyframes legendaryGlow{0%,100%{filter:brightness(1) saturate(1)}50%{filter:brightness(1.08) saturate(1.12)}}
-@media (hover:hover) and (pointer:fine){
-  .mysteryCard:not(.flipped):not(:disabled){animation:cardBreathe 3.2s ease-in-out infinite}
-  .mysteryCard:not(.flipped):hover .cardBack{border-color:rgba(138,242,214,.4);box-shadow:0 38px 90px rgba(0,0,0,.52),0 0 45px rgba(72,218,181,.08),inset 0 1px 0 rgba(255,255,255,.09)}
-  .miniDrawCard:hover,.playerCard:hover{transform:translateY(-2px);border-color:rgba(190,207,235,.22)}
-}
-.rarity-전설.cardFront{animation:legendaryGlow 2.6s ease-in-out infinite}
-
-.forgeComplete{border-radius:21px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
-.drawnDeck{gap:9px}
-.miniDrawCard{
-  min-height:112px;
-  padding:13px 11px;
-  border-radius:16px;
-  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.014));
-  border-color:rgba(255,255,255,.085);
-  transition:.18s ease;
-}
-.miniDrawCard b{color:#e6edf7}
-.miniDrawCard strong{font-size:15px}
-.premiumStats{border-radius:17px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.06)}
-.statMatrix{gap:7px}
-.statMatrix span{border:1px solid rgba(255,255,255,.055);background:rgba(255,255,255,.019);border-radius:12px;padding:10px 11px}
-.statMatrix strong{font-size:20px;letter-spacing:-.03em}
-
-/* Player lobby */
-.players{gap:10px}
-.playerCard{
-  position:relative;
-  border-radius:18px;
-  padding:16px;
-  background:linear-gradient(150deg,rgba(17,22,32,.94),rgba(7,9,14,.97));
-  border-color:rgba(190,207,235,.1);
-  transition:transform .18s ease,border-color .18s ease;
-}
-.playerCard.me{border-color:rgba(138,242,214,.28);box-shadow:inset 0 0 0 1px rgba(138,242,214,.035)}
-.ready{padding:5px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.09);font-size:9px;letter-spacing:.1em}
-.ready.yes{color:#9cf5df;border-color:rgba(138,242,214,.25);background:rgba(72,200,167,.08)}
-.score{font-size:30px;font-weight:1000;letter-spacing:-.05em;margin:11px 0}
-.statChips{gap:5px}.statChips span{border-radius:999px;padding:5px 8px}
-.status{border-radius:14px;background:rgba(255,255,255,.022);border:1px solid rgba(255,255,255,.06)}
-.status.ok{border-color:rgba(138,242,214,.2);background:rgba(48,181,147,.07)}
-
-/* Mini games */
-.arenaSection{
-  overflow:hidden;
-  border-radius:24px;
-  background:
-    radial-gradient(500px 260px at 100% 0%,rgba(124,106,255,.15),transparent 64%),
-    radial-gradient(430px 280px at 0% 100%,rgba(73,211,176,.08),transparent 68%),
-    linear-gradient(180deg,#121825,#070a0f);
-}
-.gameHeader{padding-bottom:18px;border-bottom:1px solid rgba(255,255,255,.07)}
-.gameHeader h2{font-size:clamp(26px,4vw,40px);letter-spacing:-.045em}
-.roundNo{color:#8df0d7;letter-spacing:.15em}
-.statFocus{border-radius:14px;border:1px solid rgba(138,242,214,.13);background:rgba(37,135,111,.055)}
-.reactionPad,.mashPad,.timingArea,.logicGame{
-  border-radius:21px;
-  border-color:rgba(255,255,255,.09);
-  background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(0,0,0,.12));
-}
-
-/* Results */
-.resultPanel,.finalPanel{background:radial-gradient(circle at 50% 0%,rgba(129,105,255,.11),transparent 38%),linear-gradient(180deg,rgba(18,22,32,.9),rgba(7,9,14,.95))}
-.resultCard{border-radius:18px;padding:17px;background:rgba(255,255,255,.022)}
-.resultCard.winner{border-color:rgba(247,206,120,.32);background:linear-gradient(180deg,rgba(247,206,120,.075),rgba(96,66,17,.035));box-shadow:0 14px 38px rgba(211,155,48,.06)}
-.finalPanel .trophy{filter:drop-shadow(0 12px 32px rgba(244,190,71,.18))}
-.historyRow{border-radius:12px;padding:11px 12px;background:rgba(255,255,255,.018)}
+/* Players and game */
+.players{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}.playerCard{border:1px solid #2b3240;background:#0b0f16;border-radius:15px;padding:14px}.playerCard.me{border-color:#3e7467}.ready{font-size:9px;font-weight:900;letter-spacing:.12em;color:#687386}.ready.yes{color:var(--accent)}.score{font-size:28px;font-weight:950;margin:12px 0}.statChips{display:flex;flex-wrap:wrap;gap:5px}.statChips span{border:1px solid #29313d;background:#101620;border-radius:999px;padding:5px 7px;color:#9da7b5;font-size:10px}.status{margin-top:12px;padding:12px;border-radius:12px;background:#0a0e14;color:#9ba6b6;font-size:13px;text-align:center}.status.ok{border:1px solid #2c5b4e;color:#a6f3dc}.arenaSection{padding:20px}.gameHeader{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}.gameHeader h2{font-size:30px;margin:6px 0}.gameHeader p{margin:0;color:var(--muted)}.statFocus{border:1px solid #2e3745;background:#0a0e14;border-radius:12px;padding:10px 12px;font-size:10px;color:#7d8899;text-align:right}.statFocus b{display:block;color:var(--accent);font-size:16px;margin-top:3px}.minigameBox{margin-top:18px;border:1px solid #252d39;background:#080b10;border-radius:16px;padding:18px;text-align:center}.reactionPad,.mashPad{width:100%;min-height:180px;border-radius:16px;border:1px solid #313947;background:#111722;color:#e9eef5;font-size:clamp(24px,5vw,48px);font-weight:950;display:grid;place-items:center}.reactionPad.go{background:#13352c;border-color:#3d9a80;color:#c8ffef}.mashPad{margin-top:12px}.gameReadout{display:flex;justify-content:center;gap:18px;align-items:baseline;margin-bottom:12px}.gameReadout strong{font-size:28px}.gameReadout span{color:var(--muted)}.timingTrack{position:relative;height:54px;border-radius:14px;background:#131924;border:1px solid #303847;margin:8px 0 16px;overflow:hidden}.targetZone{position:absolute;left:43%;width:14%;top:0;bottom:0;background:#173d33}.timingNeedle{position:absolute;top:0;bottom:0;width:3px;background:#fff;transform:translateX(-50%)}.logicQuestion{font-size:clamp(24px,5vw,42px);font-weight:950;letter-spacing:.08em;margin:18px 0}.logicOptions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.choiceBtn{min-height:58px;border:1px solid #313947;border-radius:12px;background:#111722;color:#fff;font-weight:900}.choiceBtn:hover:not(:disabled){border-color:var(--accent)}.hint{font-size:11px;margin-top:12px}.waitingBox{display:grid;gap:8px;text-align:center;padding:30px}.waitingBox b{font-size:22px}.waitingBox span{color:var(--muted)}
+.resultGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}.resultCard{border:1px solid #2a313e;background:#0b0f16;border-radius:14px;padding:16px;display:grid;gap:6px}.resultCard.winner{border-color:#4c806f;background:#0d1715}.resultCard span{color:var(--muted)}.resultCard b{font-size:24px}.finalPanel{text-align:center}.trophy{font-size:46px}.finalPanel h1{font-size:38px;margin:8px 0}.history{display:grid;gap:7px;margin-top:10px}.historyRow{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #202633;color:#9ca6b5;font-size:12px}
 
 /* Chat */
-.chatPanel{background:linear-gradient(180deg,rgba(13,17,25,.9),rgba(5,7,11,.94))}
-.chatLog{
-  border-radius:17px;
-  background:rgba(1,3,6,.36);
-  border:1px solid rgba(255,255,255,.055);
-  scrollbar-width:thin;
-  scrollbar-color:#30394a transparent;
-}
-.msg{padding:10px 11px;border-bottom:1px solid rgba(255,255,255,.035)}
-.msg:last-child{border-bottom:0}
-.who{color:#a7f2df;font-weight:900}.time{color:#4f5a6c}
+.chatExplain{font-size:11px;line-height:1.5;margin:6px 0 12px}.chatLog{height:420px;overflow:auto;border:1px solid #242b37;background:#090c12;border-radius:13px;padding:10px;margin-bottom:10px}.msg{padding:9px 3px;border-bottom:1px solid #1b2029}.msg:last-child{border-bottom:0}.who{font-size:11px;font-weight:900;color:#d6dee9}.time{font-size:9px;color:#5d6777;margin-left:7px}.msg div{margin-top:3px;font-size:12px;line-height:1.45;color:#9fa9b7;overflow-wrap:anywhere}
 
-@media(max-width:1100px){
-  .layout{gap:13px}
-  .chatPanel{top:auto}
-  .drawStage{min-height:390px}
-}
-@media(max-width:900px){
-  .panel{border-radius:21px}
-  .drawStage{grid-template-columns:minmax(0,1fr) minmax(210px,270px)}
-  .mysteryCard{max-width:285px}
-}
-@media(max-width:620px){
-  .app{padding:10px 9px 26px}
-  .top{padding:8px 4px 15px}
-  .brand{font-size:26px}
-  .sub{font-size:11px;line-height:1.5}
-  .roomBadge{width:100%;text-align:center;margin-top:10px}
-  .mainPanel,.chatPanel{padding:13px}
-  .section{border-radius:17px}
-  .cardForge{padding:14px}
-  .drawStage{min-height:0;padding:16px 13px 18px;border-radius:19px}
-  .mysteryCard{max-width:270px;justify-self:center}
-  .cardFace{border-radius:23px}
-  .drawRail{gap:6px}.railStep{min-height:43px;padding:7px 8px}
-  .modeGrid{grid-template-columns:1fr}
-  .modeCard{min-height:100px}
-  .drawnDeck,.statMatrix{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .miniDrawCard{min-height:98px}
-  .forgeActions{gap:8px}
-  .gameHeader{gap:10px}
-  .score{font-size:27px}
-}
-@media(prefers-reduced-motion:reduce){
-  .mysteryCard,.rarity-전설.cardFront{animation:none!important}
-}
-
-/* =========================================================
-   v5 CLARITY - simpler, brighter, easier to understand
-   ========================================================= */
-:root{
-  --clear-bg:#070910;
-  --clear-panel:#101521;
-  --clear-card:#141b29;
-  --clear-line:#29364a;
-  --clear-text:#f8fbff;
-  --clear-muted:#a7b1c2;
-  --clear-cyan:#72f5d0;
-  --clear-blue:#74a7ff;
-  --clear-purple:#a98cff;
-  --clear-gold:#ffd36c;
-}
-body{background:radial-gradient(1000px 620px at 50% -10%,rgba(81,105,255,.18),transparent 58%),linear-gradient(180deg,#0b0e17,#05070b 68%);}
-body:before{opacity:.12}
-.app{max-width:1320px;padding:22px clamp(10px,2vw,24px) 38px}
-.top{margin-bottom:16px;padding:4px 2px 12px}
-.brand{font-size:clamp(27px,4vw,44px);letter-spacing:-.05em;background:none;color:#fff;filter:none}
-.sub{font-size:13px;color:#aeb8ca;margin-top:7px}
-.layout{grid-template-columns:minmax(0,1fr) 330px;gap:16px}
-.panel{border-radius:20px;background:#0d121c;border:1px solid #202b3b;box-shadow:0 18px 55px rgba(0,0,0,.28);backdrop-filter:none}
-.mainPanel{padding:20px}.chatPanel{padding:15px;border-radius:18px}
-.section{border-top:1px solid #202b3b;padding-top:18px;margin-top:18px}
-.title{font-weight:950;color:#fff}
-.muted,.hint,.chatExplain{color:#9faabd}
-.btn{border-radius:13px;min-height:48px;font-size:14px}.primary{background:linear-gradient(180deg,#b8ffe8,#6ee3c2);color:#05100d}.purple{background:linear-gradient(180deg,#9b8cff,#6d5add)}
-.modeCard{min-height:110px;border:2px solid #243044;background:#111824}.modeCard b{font-size:21px}.modeCard span{font-size:13px;color:#a6b0c0}.modeCard.selected{border-color:#72f5d0;background:#10241f;box-shadow:0 0 0 4px rgba(114,245,208,.07)}
-
-.cardForge{padding:22px;background:linear-gradient(180deg,#111827,#0a0f18);border:1px solid #2a3850;border-radius:22px;overflow:visible}
-.cardForge:before{display:none}.forgeTop{align-items:center;margin-bottom:16px}.forgeTop .title{font-size:clamp(25px,3vw,34px);margin:5px 0}.forgeTop p{font-size:13px;color:#b0bacb;max-width:760px}.forgeTop p b{color:#fff}.kicker{color:#72f5d0;font-size:11px;letter-spacing:.07em;text-transform:none}
-.drawCounter{background:#172131;border:1px solid #334158;border-radius:15px;padding:11px 14px}.drawCounter b{font-size:28px}.drawCounter span{color:#a5b0c1}
-.premiumInput{background:#070b12;border:2px solid #2c394e;min-height:54px;font-size:17px}
-.drawRail{gap:7px;margin:14px 0 18px}.railStep{min-height:52px;padding:8px;background:#0b111b;border:1px solid #202c3e;color:#7f8b9e}.railStep span{width:28px;height:28px}.railStep small{font-size:11px}.railStep.active{border:2px solid #72f5d0;background:#102a24;color:#e9fff8;box-shadow:0 0 0 4px rgba(114,245,208,.06)}.railStep.done{background:#101a1a;color:#91e8d1}
-.drawStage{min-height:480px;grid-template-columns:minmax(0,.8fr) minmax(290px,370px);padding:30px;gap:24px 34px;background:#080d15;border:1px solid #27344a;border-radius:22px}
-.stageCopy .eyebrow{display:none}.stageCopy h2{font-size:clamp(38px,6vw,64px);margin:0 0 12px;color:#fff}.stageCopy p{font-size:16px;line-height:1.65;color:#b0bacb;max-width:460px}.drawHint{font-size:14px;color:#dce5f4;font-weight:800}.nextDraw{font-size:15px;min-width:210px}
-.mysteryCard{max-width:360px;justify-self:end;filter:drop-shadow(0 28px 40px rgba(0,0,0,.4))}.cardFace{border-radius:26px}.cardBack{border:2px solid #40506a;background:radial-gradient(circle at 50% 35%,#27344a,#111824 58%,#080c13);box-shadow:0 28px 70px rgba(0,0,0,.46),inset 0 0 0 8px rgba(255,255,255,.018)}.cardBack:after{border:2px solid rgba(114,245,208,.28)}.backMark{width:96px;height:96px;border-radius:50%;font-size:42px;background:#101c21;border:2px solid #72f5d0;color:#baffe9}.cardBack b{font-size:13px;color:#fff}.cardBack small{font-size:12px;color:#9da9ba}
-.cardFront{padding:24px 24px 22px;background:linear-gradient(180deg,#17202e,#0b1018);border:2px solid currentColor}.cardFront:before{opacity:.6}.rarityPill{top:16px;left:16px;font-size:10px;background:rgba(5,8,12,.72);padding:6px 10px}.frontIcon{width:64px;height:64px;border-radius:18px;margin-bottom:13px}.cardCategoryLabel{font-size:12px!important;color:#aab5c5!important}.tierTitle{font-size:clamp(27px,4vw,38px)!important;line-height:1.05;margin:7px 0 7px!important;color:currentColor!important}.cardFront em{font-size:clamp(32px,5vw,48px);color:#fff}.standingBadge{margin-top:9px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.12);font-size:11px;font-weight:900;color:#fff}.wowLine{width:100%;margin-top:11px;padding:11px 12px;border-radius:12px;background:currentColor;color:#081018;font-size:16px;font-weight:1000;letter-spacing:-.02em}.cardFront p{margin-top:11px;color:#aeb8c8;font-size:11px;line-height:1.45}.cardFront p b{color:#edf3fb;font-size:12px}.rarity-일반{color:#c7cfdb}.rarity-고급{color:#7fe8ca}.rarity-희귀{color:#74a7ff}.rarity-영웅{color:#bd91ff}.rarity-전설{color:#ffd36c}
-.drawnDeck{grid-template-columns:repeat(3,1fr);gap:9px;margin-top:14px}.miniDrawCard{padding:12px 13px;border-radius:13px;background:#0a1019;border:1px solid #27344a;gap:4px}.miniDrawCard span{font-size:10px;color:#8d99aa}.miniDrawCard b{font-size:14px;white-space:normal;color:currentColor}.miniDrawCard strong{font-size:18px;color:#fff}.miniDrawCard small{font-size:11px;color:#aab4c4}
-.premiumStats{background:#0a1019;border:1px solid #27344a;padding:14px}.premiumStats>b{font-size:14px}.statMatrix{grid-template-columns:repeat(3,1fr);gap:8px}.statMatrix span{background:#101827;border:1px solid #253249;border-radius:10px;font-size:11px;color:#9ba7b9}.statMatrix strong{font-size:21px;color:#fff}
-.forgeActions{gap:10px}.forgeActions .gold{background:linear-gradient(180deg,#ffe38f,#e4b94c);color:#171004}
-.playerCard{border:1px solid #2a3850;background:#0b111a}.playerCard.me{border:2px solid #72f5d0}.statChips span{font-size:11px;background:#111a27;border:1px solid #293750}
-.arenaSection{background:#0a1019;border:1px solid #2b3950}.gameHeader h2{font-size:27px}.statFocus{background:#111a27;border:1px solid #33425a}.statFocus b{color:#72f5d0}
-.chatLog{background:#070b11;border:1px solid #202c3e}.who{color:#72f5d0}
-@media(max-width:1000px){.layout{grid-template-columns:1fr}.chatPanel{position:static;height:380px}.drawStage{grid-template-columns:minmax(0,1fr) minmax(270px,340px)}}
-@media(max-width:700px){.app{padding:10px}.mainPanel{padding:13px}.cardForge{padding:14px}.forgeTop{align-items:flex-start}.drawRail{grid-template-columns:repeat(3,1fr)}.drawStage{grid-template-columns:1fr;grid-template-areas:"copy" "card" "hint";min-height:0;padding:18px}.stageCopy{text-align:center}.stageCopy h2{font-size:42px}.stageCopy p{font-size:14px;margin:auto}.mysteryCard{max-width:310px;justify-self:center}.drawnDeck,.statMatrix{grid-template-columns:repeat(2,1fr)}.nextDraw{width:100%;justify-self:stretch}.forgeActions{align-items:stretch}.forgeActions .btn{width:100%}}
-@media(max-width:390px){.drawRail{grid-template-columns:repeat(2,1fr)}.drawnDeck,.statMatrix{grid-template-columns:1fr}.tierTitle{font-size:29px!important}.cardFront em{font-size:36px}}
-
-/* v8 - simplified, high-contrast home */
-:root{--home-accent:#78f7d2;--home-blue:#8fa4ff;--home-card:#10141c;--home-border:rgba(255,255,255,.11)}
-body{background:radial-gradient(circle at 50% -180px,rgba(100,115,255,.22),transparent 420px),linear-gradient(180deg,#080a0f 0%,#050608 100%)}
-.top{max-width:1180px;margin:0 auto 18px;padding:2px 4px}.brand{font-size:18px;letter-spacing:-.4px;background:none;color:#f6f8fc}.sub{display:none}.layout{max-width:1180px;margin:auto;grid-template-columns:minmax(0,1fr) 330px;gap:16px}.panel{border-radius:24px;box-shadow:none;background:#0b0e14;border:1px solid rgba(255,255,255,.09)}.mainPanel{padding:26px;min-height:620px}.chatPanel{background:#090c11;border-color:rgba(255,255,255,.08)}
-.lobbyHome{max-width:760px;margin:4px auto 20px;padding:20px 6px 8px}.heroMark{display:inline-flex;padding:7px 10px;border-radius:999px;background:rgba(120,247,210,.10);border:1px solid rgba(120,247,210,.22);color:#9ff8df;font-size:10px;font-weight:950;letter-spacing:.18em}.lobbyHeadline{font-size:clamp(38px,7vw,68px);line-height:.98;letter-spacing:-3.4px;margin:18px 0 16px;font-weight:1000;max-width:680px}.lobbyLead{margin:0 0 28px;color:#9da7b6;font-size:14px;line-height:1.7}.lobbyNick{max-width:540px;margin-bottom:18px}.lobbyInput{font-size:17px;min-height:54px;border-radius:15px;background:#07090d}.lobbyModes{grid-template-columns:1fr 1fr;gap:12px;margin:0 0 16px}.lobbyModes .modeCard{min-height:145px;padding:17px;position:relative;border-radius:18px;background:#10141c;border:1px solid rgba(255,255,255,.10)}.lobbyModes .modeCard.selected{background:linear-gradient(145deg,rgba(120,247,210,.12),rgba(143,164,255,.08));border-color:rgba(120,247,210,.58);box-shadow:inset 0 0 0 1px rgba(120,247,210,.12)}.lobbyModes .modeTag{font-size:9px;letter-spacing:.14em;font-weight:950;color:#8f9bab}.lobbyModes .modeCard b{font-size:22px;margin:12px 0 4px}.lobbyModes .modeCard strong{position:absolute;right:16px;top:14px;font-size:24px;color:#fff}.lobbyModes .modeCard>span:last-child{font-size:12px;color:#8e98a8}.lobbyActions{display:grid;grid-template-columns:1.05fr .95fr;gap:12px}.createRoomBtn,.joinBox{min-height:132px;border-radius:18px}.createRoomBtn{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:19px 20px;margin:0;background:linear-gradient(135deg,#b7ffea,#78e9ca);border:0;color:#06100d}.createRoomBtn small,.joinBox small{font-size:10px;font-weight:900;letter-spacing:.08em;opacity:.66}.createRoomBtn b,.joinBox>b{font-size:23px;margin:5px 0}.createRoomBtn span{font-size:11px;opacity:.7}.joinBox{padding:17px 18px;background:#10141c;border:1px solid rgba(255,255,255,.1)}.joinRow{display:flex;gap:7px;margin-top:10px}.joinRow .input{min-width:0}.joinRow .btn{min-width:72px}.lobbyFlow{display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;margin-top:20px;color:#7f8998;font-size:11px}.lobbyFlow i{font-style:normal;color:#4c5562}.lobbyFlow span{white-space:nowrap}
-.cardForge{border-top:0!important;margin-top:16px!important;padding:22px!important;background:#0d1118;border:1px solid rgba(255,255,255,.09)!important;border-radius:22px}.drawRail{overflow-x:auto;justify-content:flex-start;padding-bottom:5px}.railStep{min-width:76px}.stageCopy h2{font-size:clamp(28px,5vw,44px);letter-spacing:-1.8px}.mysteryCard{filter:drop-shadow(0 18px 35px rgba(0,0,0,.38))}.drawHint{font-size:12px}.premiumStats{background:#090c11}.statMatrix{grid-template-columns:repeat(4,1fr)}
-.chatPanel .title{font-size:16px}.chatExplain{display:none}.chatLog{background:#06080c}.roomBadge{font-size:11px}
-@media(max-width:900px){.layout{grid-template-columns:1fr}.chatPanel{height:340px}.lobbyHome{max-width:780px}}
-@media(max-width:620px){.app{padding:10px}.mainPanel{padding:16px}.lobbyHome{padding:10px 0}.lobbyHeadline{font-size:42px;letter-spacing:-2.1px}.lobbyLead{font-size:13px;margin-bottom:20px}.lobbyModes,.lobbyActions{grid-template-columns:1fr}.lobbyModes .modeCard{min-height:116px}.createRoomBtn,.joinBox{min-height:auto}.createRoomBtn{padding:17px}.lobbyFlow{justify-content:flex-start;gap:7px}.statMatrix{grid-template-columns:repeat(2,1fr)}.cardForge{padding:14px!important}.drawRail{margin-left:-2px;margin-right:-2px}.chatPanel{height:320px}}
+@media (hover:hover) and (pointer:fine){.choiceCard:not(:disabled):hover .cardInner{transform:translateY(-5px)}.choiceCard.flipped:hover .cardInner{transform:translateY(-5px) rotateY(180deg)}}
+@media (max-width:980px){.layout{grid-template-columns:1fr}.chatPanel{position:static}.chatLog{height:280px}.drawnDeck,.statMatrix{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:720px){.app{padding:14px 10px 32px}.top{align-items:flex-start;flex-direction:column}.roomBadge{white-space:normal}.mainPanel{padding:12px}.lobbyHeadline{font-size:42px}.modeGrid,.lobbyActions,.players,.resultGrid{grid-template-columns:1fr}.drawRail{grid-template-columns:repeat(4,minmax(0,1fr))}.choiceDeck{gap:8px}.cardFace{border-radius:15px}.cardFront{padding:10px}.tierTitle{font-size:15px}.cardFront em{font-size:19px;margin:6px 0}.cardFront p{font-size:9px;line-height:1.35}.rarityPill{top:9px;left:9px;padding:4px 6px}.selectedFlag{bottom:9px}.pickNo{top:10px;left:10px}.backMark{width:46px;height:46px;border-radius:13px;font-size:22px}.cardBack b{font-size:9px}.cardBack small{font-size:7px}.stageCopy{grid-template-columns:1fr}.stageCopy p{justify-self:start;text-align:left}.forgeTop{align-items:flex-start}.drawnDeck,.statMatrix{grid-template-columns:repeat(2,minmax(0,1fr))}.logicOptions{grid-template-columns:repeat(2,minmax(0,1fr))}.gameHeader{flex-direction:column}.statFocus{text-align:left}.reactionPad,.mashPad{min-height:150px}}
+@media (max-width:420px){.lobbyHeadline{font-size:36px}.forgeTop{flex-direction:column}.drawCounter{align-self:flex-end}.drawRail{grid-template-columns:repeat(2,minmax(0,1fr))}.choiceDeck{gap:6px}.choiceCard{aspect-ratio:3/4.7}.cardFront p{display:none}.cardCategoryLabel{margin-bottom:7px}.tierTitle{font-size:13px}.cardFront em{font-size:16px}.selectedFlag{font-size:7px}.joinRow{flex-direction:column}.row.forgeActions{flex-direction:column}.forgeActions .btn{width:100%}}

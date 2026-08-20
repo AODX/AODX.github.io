@@ -346,6 +346,8 @@ export default function Home() {
   const [drawnCards, setDrawnCards] = useState<DrawnCard[]>([]);
   const [activeDraw, setActiveDraw] = useState(0);
   const [isCardFlipped, setIsCardFlipped] = useState(false);
+  const [cardChoices, setCardChoices] = useState<DrawnCard[]>([]);
+  const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [mode, setMode] = useState<'normal' | 'long'>('normal');
   const [joinCode, setJoinCode] = useState('');
   const [room, setRoom] = useState<ArenaRoom | null>(null);
@@ -434,27 +436,37 @@ export default function Home() {
 
   async function leaveRoom() {
     if (me && room?.status === 'lobby') await supabase.from('arena_players').delete().eq('id', me.id);
-    setRoom(null); setPlayers([]); setResults([]); setDrawnCards([]); setActiveDraw(0); setIsCardFlipped(false); setCharName('');
+    setRoom(null); setPlayers([]); setResults([]); setDrawnCards([]); setActiveDraw(0); setIsCardFlipped(false); setCardChoices([]); setSelectedChoice(null); setCharName('');
   }
 
-  function revealCurrentCard() {
-    if (activeDraw >= cardStages.length || isCardFlipped) return;
-    const stage = cardStages[activeDraw];
-    const card = drawCard(stage.key);
+  useEffect(() => {
+    if (activeDraw >= cardStages.length || isCardFlipped || cardChoices.length > 0) return;
+    const category = cardStages[activeDraw].key;
+    setCardChoices([drawCard(category), drawCard(category), drawCard(category)]);
+  }, [activeDraw, isCardFlipped, cardChoices.length]);
+
+  function chooseCurrentCard(index:number) {
+    if (activeDraw >= cardStages.length || isCardFlipped || selectedChoice !== null) return;
+    const card = cardChoices[index] || drawCard(cardStages[activeDraw].key);
     setDrawnCards(prev => [...prev, card]);
+    setSelectedChoice(index);
     setIsCardFlipped(true);
   }
 
   function goNextCard() {
-    if (!isCardFlipped) return;
+    if (!isCardFlipped || selectedChoice === null) return;
     setActiveDraw(prev => Math.min(cardStages.length, prev + 1));
     setIsCardFlipped(false);
+    setCardChoices([]);
+    setSelectedChoice(null);
   }
 
   function resetCardDraw() {
     setDrawnCards([]);
     setActiveDraw(0);
     setIsCardFlipped(false);
+    setCardChoices([]);
+    setSelectedChoice(null);
   }
 
   async function createCharacter() {
@@ -546,16 +558,16 @@ export default function Home() {
 
   return <main className="app">
     <header className="top">
-      <div><div className="brand">캐릭터 카드 아레나</div><div className="sub">카드 7장을 순서대로 뽑고, 완성된 캐릭터로 미니게임 대결!</div></div>
+      <div><div className="brand">VANTA ARENA</div><div className="sub">BUILD YOUR FIGHTER · PLAY TO WIN</div></div>
       {room && <div className="roomBadge">ROOM <b>{room.code}</b> · {room.mode === 'long' ? '롱 플레이 / 10승' : '일반 / 2승'}</div>}
     </header>
 
     <div className="layout">
       <section className="panel mainPanel">
         {!room ? <div className="lobbyHome">
-          <div className="heroMark">CHARACTER ARENA</div>
-          <h1 className="lobbyHeadline">카드를 뽑고,<br/>내 캐릭터로 붙는다.</h1>
-          <p className="lobbyLead">능력은 랜덤. 조작은 직접. 먼저 목표 승수를 채우면 승리합니다.</p>
+          <div className="heroMark">VANTA / ONLINE ARENA</div>
+          <h1 className="lobbyHeadline">세 장 중 하나를 고르고,<br/>완성한 캐릭터로 승부하세요.</h1>
+          <p className="lobbyLead">능력 카드 7종을 선택해 캐릭터를 완성하고, 직접 조작하는 미니게임으로 승자를 가립니다.</p>
 
           <div className="lobbyNick">
             <label className="label">PLAYER NAME</label>
@@ -571,13 +583,13 @@ export default function Home() {
             <button className="btn primary createRoomBtn" onClick={createRoom}><small>새 게임</small><b>방 만들기</b><span>선택한 모드로 바로 시작</span></button>
             <div className="joinBox"><small>초대받았나요?</small><b>방 코드로 참가</b><div className="joinRow"><input className="input grow" value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} placeholder="6자리 코드" maxLength={6}/><button className="btn purple" onClick={joinRoom}>입장</button></div></div>
           </div>
-          <div className="lobbyFlow"><span>① 방 입장</span><i>→</i><span>② 카드 7장</span><i>→</i><span>③ 미니게임</span><i>→</i><span>④ 우승</span></div>
+          <div className="lobbyFlow"><span>01 방 입장</span><i>•</i><span>02 카드 선택</span><i>•</i><span>03 미니게임</span><i>•</i><span>04 승리</span></div>
         </div> : <>
           <div className="row between"><div><h2 className="title">방 {room.code}</h2><div className="muted">{room.mode === 'long' ? '10승 먼저 달성' : '2승 먼저 달성'} · 현재 상태 {room.status}</div></div><button className="btn danger" onClick={leaveRoom}>방 나가기</button></div>
 
           {!me && room.status === 'lobby' && <div className="section cardForge">
             <div className="forgeTop">
-              <div><span className="kicker">캐릭터 만들기</span><h3 className="title">7장을 순서대로 뽑아보세요</h3><p className="muted">앞면은 절대 미리 보이지 않습니다. <b>팔힘 → 다리힘 → 심폐지구력 → 골밀도 → 지능 → 언어능력 → 도구</b> 순서로 한 장씩 공개돼요.</p></div>
+              <div><span className="kicker">FIGHTER DRAFT</span><h3 className="title">매 단계마다 3장 중 1장을 선택하세요</h3><p className="muted">세 카드는 모두 뒤집힌 상태입니다. 하나를 고르면 그 카드만 공개되고 선택이 확정됩니다. <b>팔힘 → 다리힘 → 심폐지구력 → 골밀도 → 지능 → 언어능력 → 도구</b> 순서입니다.</p></div>
               <div className="drawCounter"><b>{Math.min(activeDraw + 1, cardStages.length)}</b><span>/ {cardStages.length}</span></div>
             </div>
             <input className="input premiumInput" value={charName} onChange={e => setCharName(e.target.value)} maxLength={24} placeholder="캐릭터 이름을 입력하세요" />
@@ -586,24 +598,30 @@ export default function Home() {
 
             {activeDraw < cardStages.length ? <div className="drawStage">
               <div className="stageCopy"><span className="eyebrow">{cardStages[activeDraw].eyebrow}</span><h2>{cardStages[activeDraw].label}</h2><p>{cardStages[activeDraw].description}</p></div>
-              <button type="button" className={`mysteryCard ${isCardFlipped ? 'flipped' : ''}`} onClick={revealCurrentCard} disabled={isCardFlipped} aria-label={`${cardStages[activeDraw].label} 카드 뒤집기`}>
-                <span className="cardInner">
-                  <span className="cardFace cardBack"><span className="backMark">A</span><span className="backGrid"/><b>SEALED CARD</b><small>탭해서 공개</small></span>
-                  <span className={`cardFace cardFront rarity-${drawnCards[activeDraw]?.rarity || '일반'}`}>
-                    <span className="rarityPill">{drawnCards[activeDraw]?.rarity || ''}</span>
-                    <span className="frontIcon">{cardStages[activeDraw].icon}</span>
-                    <small className="cardCategoryLabel">{cardStages[activeDraw].label}</small>
-                    {drawnCards[activeDraw] && <>
-                      <strong className="tierTitle">{cardLevelLabel(drawnCards[activeDraw].category, drawnCards[activeDraw].rarity)}</strong>
-                      <em>{drawnCards[activeDraw].display}</em>
-                      <span className="standingBadge">체감 등급 · {cardPercentText(drawnCards[activeDraw].rarity)}</span>
-                      <p><b>{drawnCards[activeDraw].title}</b><br/>{drawnCards[activeDraw].subtitle}</p>
-                    </>}
-                  </span>
-                </span>
-              </button>
-              {!isCardFlipped ? <div className="drawHint">카드를 눌러 랜덤 능력을 공개하세요.</div> : <button type="button" className="btn primary nextDraw" onClick={goNextCard}>{activeDraw === cardStages.length - 1 ? '카드 완성' : '다음 카드 뽑기 →'}</button>}
-            </div> : <div className="forgeComplete"><span className="kicker">BUILD COMPLETE</span><h2>{charName.trim() || '이름 없는 캐릭터'}</h2><p>7장의 랜덤 카드가 모두 공개되었습니다.</p></div>}
+              <div className="choiceDeck" aria-label={`${cardStages[activeDraw].label} 카드 3장 중 하나 선택`}>
+                {[0,1,2].map(index => {
+                  const chosen = selectedChoice === index;
+                  const locked = selectedChoice !== null && !chosen;
+                  const card = cardChoices[index];
+                  return <button type="button" key={`${activeDraw}-${index}`} className={`choiceCard ${chosen ? 'chosen flipped' : ''} ${locked ? 'discarded' : ''}`} onClick={() => chooseCurrentCard(index)} disabled={isCardFlipped} aria-label={`${index + 1}번 카드 선택`}>
+                    <span className="cardInner">
+                      <span className="cardFace cardBack"><span className="pickNo">0{index + 1}</span><span className="backMark">V</span><b>VANTA</b><small>SELECT CARD</small></span>
+                      <span className={`cardFace cardFront rarity-${chosen && card ? card.rarity : '일반'}`}>
+                        {chosen && card && <>
+                          <span className="rarityPill">{card.rarity}</span>
+                          <small className="cardCategoryLabel">{cardStages[activeDraw].label}</small>
+                          <strong className="tierTitle">{cardLevelLabel(card.category, card.rarity)}</strong>
+                          <em>{card.display}</em>
+                          <p><b>{card.title}</b><br/>{card.subtitle}</p>
+                          <span className="selectedFlag">SELECTED</span>
+                        </>}
+                      </span>
+                    </span>
+                  </button>;
+                })}
+              </div>
+              {!isCardFlipped ? <div className="drawHint">앞면은 보이지 않습니다. 원하는 카드 한 장을 선택하세요.</div> : <button type="button" className="btn primary nextDraw" onClick={goNextCard}>{activeDraw === cardStages.length - 1 ? '캐릭터 완성' : '다음 능력 선택'}</button>}
+            </div> : <div className="forgeComplete"><span className="kicker">DRAFT COMPLETE</span><h2>{charName.trim() || '이름 없는 캐릭터'}</h2><p>7개의 능력 선택이 완료되었습니다.</p></div>}
 
             {drawnCards.length > 0 && <div className="drawnDeck">{drawnCards.map((card,idx)=><div className={`miniDrawCard rarity-${card.rarity}`} key={`${card.category}-${idx}`}><span>{cardStages.find(x=>x.key===card.category)?.label}</span><b>{cardLevelLabel(card.category, card.rarity)}</b><strong>{card.display}</strong></div>)}</div>}
 
