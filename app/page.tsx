@@ -82,12 +82,12 @@ const statCardValues:Record<Exclude<CardCategory,'tool'|'condition'>,Record<Card
 
 const conditionCards:{ rarity:CardRarity; title:string; subtitle:string; value:number; display:string; weight:number }[] = [
   { rarity:'희귀', title:'정상', subtitle:'특별한 건강 디버프가 없습니다.', value:0, display:'디버프 없음', weight:40 },
-  { rarity:'일반', title:'감기', subtitle:'게임 내 전체 능력 보정이 소폭 감소합니다.', value:-4, display:'전체 -4', weight:17 },
-  { rarity:'일반', title:'알레르기 증상', subtitle:'컨디션 저하로 게임 내 전체 능력 보정이 감소합니다.', value:-5, display:'전체 -5', weight:10 },
-  { rarity:'일반', title:'편두통', subtitle:'집중 저하 상태로 게임 내 전체 능력 보정이 감소합니다.', value:-6, display:'전체 -6', weight:8 },
+  { rarity:'일반', title:'감기', subtitle:'게임 내 전체 능력치 보정이 소폭 감소합니다.', value:-4, display:'전체 -4', weight:17 },
+  { rarity:'일반', title:'알레르기 증상', subtitle:'컨디션 저하로 게임 내 전체 능력치 보정이 감소합니다.', value:-5, display:'전체 -5', weight:10 },
+  { rarity:'일반', title:'편두통', subtitle:'집중 저하 상태로 게임 내 전체 능력치 보정이 감소합니다.', value:-6, display:'전체 -6', weight:8 },
   { rarity:'고급', title:'빈혈 상태', subtitle:'게임 내 지속력과 반응 보정에 불리한 전체 디버프가 적용됩니다.', value:-7, display:'전체 -7', weight:7 },
-  { rarity:'고급', title:'천식', subtitle:'게임 밸런스용 상태 카드로 전체 능력 보정이 감소합니다.', value:-9, display:'전체 -9', weight:6 },
-  { rarity:'고급', title:'독감', subtitle:'강한 컨디션 저하로 게임 내 전체 능력 보정이 감소합니다.', value:-10, display:'전체 -10', weight:5 },
+  { rarity:'고급', title:'천식', subtitle:'게임 밸런스용 상태 카드로 전체 능력치 보정이 감소합니다.', value:-9, display:'전체 -9', weight:6 },
+  { rarity:'고급', title:'독감', subtitle:'강한 컨디션 저하로 게임 내 전체 능력치 보정이 감소합니다.', value:-10, display:'전체 -10', weight:5 },
   { rarity:'희귀', title:'폐렴', subtitle:'게임 내 큰 컨디션 디버프가 적용됩니다.', value:-13, display:'전체 -13', weight:3.5 },
   { rarity:'영웅', title:'만성 통증', subtitle:'모든 미니게임에 강한 게임용 디버프가 적용됩니다.', value:-15, display:'전체 -15', weight:2 },
   { rarity:'전설', title:'암', subtitle:'매우 희귀한 중증 상태 카드입니다. 게임 내 가장 큰 전체 디버프가 적용됩니다.', value:-20, display:'전체 -20', weight:1.5 },
@@ -99,7 +99,7 @@ function drawConditionCard():DrawnCard {
   let sum=0;
   let item=conditionCards[0];
   for(const row of conditionCards){ sum+=row.weight; if(roll<sum){item=row;break;} }
-  return { category:'condition', rarity:item.rarity, title:item.title, subtitle:item.subtitle, value:item.value, display:item.display, bonusText:item.value===0?'건강 디버프 없음':`전체 능력 ${item.value}` };
+  return { category:'condition', rarity:item.rarity, title:item.title, subtitle:item.subtitle, value:item.value, display:item.display, bonusText:item.value===0?'건강 디버프 없음':`전체 능력치 ${item.value}` };
 }
 
 const toolCards:{ rarity:CardRarity; title:string; subtitle:string; value:number; display:string; weight:number }[] = [
@@ -762,14 +762,6 @@ export default function Home() {
     setSelectedChoice(null);
   }
 
-  function resetCardDraw() {
-    setDrawnCards([]);
-    setActiveDraw(0);
-    setIsCardFlipped(false);
-    setCardChoices([]);
-    setSelectedChoice(null);
-  }
-
   async function createCharacter() {
     if (!room) return;
     if (!charName.trim()) return alert('캐릭터 이름을 입력해주세요.');
@@ -898,8 +890,8 @@ export default function Home() {
         <input className="input charNameInput" value={charName} onChange={e=>setCharName(e.target.value)} maxLength={24} placeholder="캐릭터 이름"/>
         {activeDraw<cardStages.length?<>
           <div className="cardTriplet">{[0,1,2].map(index=>{const chosen=selectedChoice===index;const locked=selectedChoice!==null&&!chosen;const card=cardChoices[index];return <button key={`${activeDraw}-${index}`} className={`choiceCard ${chosen?'chosen flipped':''} ${locked?'discarded':''}`} onClick={()=>chooseCurrentCard(index)} disabled={isCardFlipped}><span className="cardInner"><span className="cardFace cardBack"><span className="pickNo">0{index+1}</span><span className="backMark">V</span><b>VANTA</b><small>SEALED</small></span><span className={`cardFace cardFront rarity-${chosen&&card?card.rarity:'일반'}`}>{chosen&&card&&<><span className="rarityPill">{card.rarity}</span><small>{cardStages[activeDraw].label}</small><strong>{card.category==='tool'||card.category==='condition'?card.title:cardLevelLabel(card.category,card.rarity)}</strong><em>{card.display}</em><p>{card.title}<br/><span>{card.subtitle}</span></p></>}</span></span></button>})}</div>
-          {isCardFlipped?<button className="btn primary big nextCardButton" onClick={goNextCard}>{activeDraw===cardStages.length-1?'캐릭터 완성':'다음 능력 뽑기'}</button>:<p className="draftHint">카드의 내용은 선택하기 전까지 절대 보이지 않습니다.</p>}
-        </>:<div className="characterSummary"><div className="avatarOrb">{(charName||'?').slice(0,1)}</div><h2>{charName||'이름 없는 캐릭터'}</h2><div className="summaryGrid">{drawnCards.map(c=><span key={c.category}><small>{cardStages.find(x=>x.key===c.category)?.label}</small><b>{c.category==='tool'||c.category==='condition'?c.title:c.display}</b></span>)}</div><button className="btn gold huge" onClick={createCharacter} disabled={!charName.trim()}>이 캐릭터로 참가</button><button className="textButton" onClick={resetCardDraw}>다시 뽑기</button></div>}
+          {isCardFlipped?<button className="btn primary big nextCardButton" onClick={goNextCard}>{activeDraw===cardStages.length-1?'캐릭터 완성':'다음 능력치 뽑기'}</button>:<p className="draftHint">카드의 내용은 선택하기 전까지 절대 보이지 않습니다.</p>}
+        </>:<div className="characterSummary"><div className="avatarOrb">{(charName||'?').slice(0,1)}</div><h2>{charName||'이름 없는 캐릭터'}</h2><h3 className="summaryTitle">현재 능력치</h3><div className="summaryGrid">{drawnCards.map(c=><span key={c.category}><small>{cardStages.find(x=>x.key===c.category)?.label}</small><b>{c.category==='tool'||c.category==='condition'?c.title:c.display}</b></span>)}</div><p className="drawLockNotice">선택한 카드는 확정됩니다. 다시 뽑을 수 없습니다.</p><button className="btn gold huge" onClick={createCharacter} disabled={!charName.trim()}>이 캐릭터로 참가</button></div>}
       </div>
     </section>}
 
