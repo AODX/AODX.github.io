@@ -9,57 +9,111 @@ const supabase = createClient(
 );
 
 type GameMode = 'normal' | 'long';
-type MiniGameType = 'reaction' | 'mash' | 'timing' | 'logic';
-type CharacterStats = { power:number; endurance:number; reaction:number; focus:number; logic:number };
-type CharacterChoices = { body:string; mind:string; speech:string; special:string };
+type MiniGameType = 'arm' | 'leg' | 'cardio' | 'tool' | 'intelligence' | 'verbal';
+type CardCategory = 'arm' | 'leg' | 'cardio' | 'tool' | 'intelligence' | 'verbal';
+type CardRarity = '일반' | '고급' | '희귀' | '영웅' | '전설';
+type CharacterStats = { arm:number; leg:number; cardio:number; tool:number; intelligence:number; verbal:number };
+type DrawnCard = { category:CardCategory; title:string; subtitle:string; rarity:CardRarity; value:number; display:string; bonusText:string };
+type CharacterChoices = { cards:DrawnCard[] };
 type ArenaRoom = { id:string; code:string; host_session_id:string; mode:GameMode; win_target:number; status:'lobby'|'playing'|'round_result'|'finished'; current_game:MiniGameType|null; game_no:number; game_seed:number; winner_player_id:string|null; created_at:string };
 type ArenaPlayer = { id:string; room_id:string; session_id:string; user_name:string; char_name:string; choices:CharacterChoices; stats:CharacterStats; ready:boolean; score:number; created_at:string };
 type ArenaResult = { id:number; room_id:string; game_no:number; player_id:string; game_type:MiniGameType; raw_score:number; adjusted_score:number; detail:Record<string,unknown>; created_at:string };
 type ChatMessage = { id:number; room_id:string|null; session_id:string; user_name:string; body:string; created_at:string };
 
-const choiceGroups = [
-  { key:'body' as const, title:'1. 신체 타입', description:'힘·지구력·반응 속도의 기본 방향을 정합니다.', options:[
-    { id:'sprinter', name:'스프린터', desc:'빠른 시작과 반응', stats:{ power:7,endurance:5,reaction:18,focus:3,logic:2 } },
-    { id:'tank', name:'탱커', desc:'강한 힘과 오래 버티기', stats:{ power:16,endurance:18,reaction:2,focus:3,logic:1 } },
-    { id:'balanced', name:'밸런서', desc:'전체적으로 안정적인 신체', stats:{ power:10,endurance:10,reaction:10,focus:3,logic:2 } },
-  ]},
-  { key:'mind' as const, title:'2. 정신 스타일', description:'집중력과 판단 능력에 영향을 줍니다.', options:[
-    { id:'focus', name:'몰입형', desc:'타이밍 미니게임에 강함', stats:{ power:1,endurance:2,reaction:3,focus:20,logic:7 } },
-    { id:'calm', name:'침착형', desc:'집중과 논리의 균형', stats:{ power:1,endurance:3,reaction:3,focus:14,logic:13 } },
-    { id:'instinct', name:'본능형', desc:'빠른 반응을 믿는 스타일', stats:{ power:3,endurance:2,reaction:12,focus:7,logic:4 } },
-  ]},
-  { key:'speech' as const, title:'3. 언어 스타일', description:'논리·순발력 계열 게임 보정을 만듭니다.', options:[
-    { id:'logical', name:'논리파', desc:'문제 해결 능력 극대화', stats:{ power:0,endurance:0,reaction:2,focus:5,logic:20 } },
-    { id:'wit', name:'순발파', desc:'빠른 답과 반응', stats:{ power:0,endurance:0,reaction:8,focus:5,logic:12 } },
-    { id:'steady', name:'설득파', desc:'집중과 논리를 함께 강화', stats:{ power:0,endurance:1,reaction:2,focus:10,logic:13 } },
-  ]},
-  { key:'special' as const, title:'4. 특기', description:'마지막으로 한 분야를 확실하게 강화합니다.', options:[
-    { id:'cardio', name:'강심장', desc:'지구력 특화', stats:{ power:3,endurance:22,reaction:1,focus:3,logic:1 } },
-    { id:'reflex', name:'초반응', desc:'반응 속도 특화', stats:{ power:1,endurance:2,reaction:20,focus:4,logic:1 } },
-    { id:'strategist', name:'전략가', desc:'집중·논리 특화', stats:{ power:0,endurance:1,reaction:2,focus:13,logic:15 } },
-  ]},
-] as const;
+const cardStages:{ key:CardCategory; label:string; eyebrow:string; icon:string; description:string }[] = [
+  { key:'arm', label:'팔힘', eyebrow:'PHYSICAL 01', icon:'ARM', description:'밀기·당기기·연타 계열의 기본 출력' },
+  { key:'leg', label:'다리힘', eyebrow:'PHYSICAL 02', icon:'LEG', description:'순간 가속과 반응 속도에 영향을 주는 하체 출력' },
+  { key:'cardio', label:'심폐지구력', eyebrow:'PHYSICAL 03', icon:'LUNG', description:'오래 버티는 능력과 연속 행동 유지력' },
+  { key:'tool', label:'도구', eyebrow:'UTILITY 04', icon:'TOOL', description:'랜덤 도구가 조작 계열 미니게임에 보너스 제공' },
+  { key:'intelligence', label:'지능', eyebrow:'MIND 05', icon:'INT', description:'패턴 파악과 문제 해결 속도' },
+  { key:'verbal', label:'언어능력', eyebrow:'SOCIAL 06', icon:'WORD', description:'언어 순발력과 빠른 판단 능력' },
+];
 
-function buildStats(choices: CharacterChoices): CharacterStats {
-  const stats:CharacterStats={ power:10,endurance:10,reaction:10,focus:10,logic:10 };
-  for (const group of choiceGroups) {
-    const selected = group.options.find(o => o.id === choices[group.key]);
-    if (!selected) continue;
-    stats.power += selected.stats.power; stats.endurance += selected.stats.endurance; stats.reaction += selected.stats.reaction; stats.focus += selected.stats.focus; stats.logic += selected.stats.logic;
+const rarityWeights:{ rarity:CardRarity; weight:number }[] = [
+  { rarity:'일반', weight:54 }, { rarity:'고급', weight:25 }, { rarity:'희귀', weight:13 }, { rarity:'영웅', weight:6.5 }, { rarity:'전설', weight:1.5 },
+];
+
+const statCardValues:Record<Exclude<CardCategory,'tool'>,Record<CardRarity,{value:number;display:string;title:string;subtitle:string}[]>> = {
+  arm:{
+    '일반':[{value:18,display:'18 kg',title:'평범한 팔힘',subtitle:'꾸준하지만 폭발적이지 않은 출력'},{value:24,display:'24 kg',title:'단단한 전완',subtitle:'연타와 버티기에 유리'}],
+    '고급':[{value:34,display:'34 kg',title:'운동으로 다져진 팔',subtitle:'안정적인 상체 출력'},{value:42,display:'42 kg',title:'강한 악력',subtitle:'짧은 순간 높은 힘을 냄'}],
+    '희귀':[{value:58,display:'58 kg',title:'철근 같은 팔',subtitle:'상체 미니게임에서 큰 우위'}],
+    '영웅':[{value:78,display:'78 kg',title:'괴력의 팔',subtitle:'연타 점수에 강한 보정'}],
+    '전설':[{value:120,display:'120 kg',title:'타이탄 암',subtitle:'전설적인 상체 출력'}],
+  },
+  leg:{
+    '일반':[{value:18,display:'Lv.18',title:'보통 하체',subtitle:'안정적인 출발'},{value:24,display:'Lv.24',title:'가벼운 스텝',subtitle:'민첩한 방향 전환'}],
+    '고급':[{value:35,display:'Lv.35',title:'스프린터 하체',subtitle:'첫 움직임이 빠름'},{value:43,display:'Lv.43',title:'폭발적 스타트',subtitle:'반응전에서 강한 보정'}],
+    '희귀':[{value:59,display:'Lv.59',title:'스프링 레그',subtitle:'순간 가속이 매우 빠름'}],
+    '영웅':[{value:80,display:'Lv.80',title:'번개 같은 하체',subtitle:'신호 반응에서 압도적'}],
+    '전설':[{value:125,display:'Lv.125',title:'헤르메스 스텝',subtitle:'전설급 반응 보정'}],
+  },
+  cardio:{
+    '일반':[{value:10,display:'10초',title:'짧은 심폐지구력',subtitle:'폭발적이지만 금방 지침'},{value:20,display:'20초',title:'기초 심폐지구력',subtitle:'짧은 승부에 적합'}],
+    '고급':[{value:30,display:'30초',title:'안정된 호흡',subtitle:'30초 동안 페이스 유지'},{value:45,display:'45초',title:'강한 폐활량',subtitle:'연속 행동 유지에 유리'}],
+    '희귀':[{value:90,display:'1분 30초',title:'장거리 체력',subtitle:'지구력전에서 큰 우위'}],
+    '영웅':[{value:300,display:'5분',title:'끝없는 호흡',subtitle:'장기전 특화'}],
+    '전설':[{value:3600,display:'1시간',title:'무한 심폐',subtitle:'극도로 희귀한 전설급 지구력'}],
+  },
+  intelligence:{
+    '일반':[{value:20,display:'20 PTS',title:'빠른 이해',subtitle:'기본적인 패턴 파악'},{value:26,display:'26 PTS',title:'좋은 기억력',subtitle:'문제를 안정적으로 풂'}],
+    '고급':[{value:38,display:'38 PTS',title:'분석형 사고',subtitle:'규칙을 빨리 발견'},{value:46,display:'46 PTS',title:'고속 추론',subtitle:'논리전에서 높은 보정'}],
+    '희귀':[{value:62,display:'62 PTS',title:'전략 두뇌',subtitle:'복잡한 패턴도 빠르게 처리'}],
+    '영웅':[{value:84,display:'84 PTS',title:'천재적 직관',subtitle:'문제 해결 속도가 매우 빠름'}],
+    '전설':[{value:130,display:'130 PTS',title:'오라클 브레인',subtitle:'전설급 분석 능력'}],
+  },
+  verbal:{
+    '일반':[{value:18,display:'18 PTS',title:'평범한 말센스',subtitle:'기본적인 언어 순발력'},{value:25,display:'25 PTS',title:'빠른 말대응',subtitle:'짧은 판단에 강함'}],
+    '고급':[{value:36,display:'36 PTS',title:'재치 있는 화법',subtitle:'언어 선택이 빠름'},{value:44,display:'44 PTS',title:'논리적 설득력',subtitle:'언어전에서 높은 보정'}],
+    '희귀':[{value:60,display:'60 PTS',title:'토론 에이스',subtitle:'빠르고 정확한 언어 판단'}],
+    '영웅':[{value:82,display:'82 PTS',title:'말의 지배자',subtitle:'언어 미니게임 특화'}],
+    '전설':[{value:128,display:'128 PTS',title:'레전드 스피커',subtitle:'전설급 언어 순발력'}],
+  },
+};
+
+const toolCards:Record<CardRarity,{title:string;subtitle:string;value:number;display:string}[]> = {
+  '일반':[{title:'손목 밴드',subtitle:'흔들림을 조금 줄여준다',value:15,display:'+15 CONTROL'},{title:'스톱워치',subtitle:'타이밍 감각을 보조한다',value:18,display:'+18 CONTROL'}],
+  '고급':[{title:'그립 글러브',subtitle:'입력 안정성이 좋아진다',value:30,display:'+30 CONTROL'},{title:'스포츠 테이프',subtitle:'집중을 유지하기 쉬워진다',value:34,display:'+34 CONTROL'}],
+  '희귀':[{title:'프로 컨트롤러',subtitle:'도구 조작 보정이 크게 상승',value:52,display:'+52 CONTROL'}],
+  '영웅':[{title:'정밀 센서 글러브',subtitle:'타이밍 조작에 강한 보정',value:76,display:'+76 CONTROL'}],
+  '전설':[{title:'오메가 기어',subtitle:'극도로 희귀한 최고급 도구',value:120,display:'+120 CONTROL'}],
+};
+
+function pickRarity():CardRarity {
+  const roll=Math.random()*100;
+  let sum=0;
+  for(const row of rarityWeights){ sum+=row.weight; if(roll<sum) return row.rarity; }
+  return '일반';
+}
+
+function drawCard(category:CardCategory):DrawnCard {
+  const rarity=pickRarity();
+  if(category==='tool'){
+    const pool=toolCards[rarity];
+    const item=pool[Math.floor(Math.random()*pool.length)];
+    return { category, rarity, title:item.title, subtitle:item.subtitle, value:item.value, display:item.display, bonusText:`도구 조작 +${item.value}` };
   }
+  const pool=statCardValues[category][rarity];
+  const item=pool[Math.floor(Math.random()*pool.length)];
+  const names:Record<Exclude<CardCategory,'tool'>,string>={arm:'팔힘',leg:'다리힘',cardio:'심폐지구력',intelligence:'지능',verbal:'언어능력'};
+  return { category, rarity, title:item.title, subtitle:item.subtitle, value:item.value, display:item.display, bonusText:`${names[category]} +${item.value}` };
+}
+
+function buildStats(cards:DrawnCard[]):CharacterStats {
+  const stats:CharacterStats={ arm:0,leg:0,cardio:0,tool:0,intelligence:0,verbal:0 };
+  for(const card of cards) stats[card.category]=card.value;
   return stats;
 }
 
 const miniGameInfo:Record<MiniGameType,{name:string;stat:string;desc:string}>={
-  reaction:{ name:'반응 속도전', stat:'반응', desc:'신호가 바뀌는 순간 최대한 빨리 눌러라.' },
-  mash:{ name:'지구력 연타전', stat:'지구력 + 힘', desc:'7초 동안 버튼을 최대한 많이 연타하라.' },
-  timing:{ name:'집중 타이밍전', stat:'집중', desc:'움직이는 게이지를 중앙에 최대한 가깝게 멈춰라.' },
-  logic:{ name:'논리 스피드전', stat:'논리', desc:'같은 문제를 더 빠르고 정확하게 풀어라.' },
+  arm:{ name:'팔힘 연타전', stat:'팔힘', desc:'5초 동안 최대한 빠르게 연타해 상체 출력을 증명하세요.' },
+  leg:{ name:'다리 반응전', stat:'다리힘', desc:'신호가 바뀌는 순간 눌러 순간 가속과 반응을 겨룹니다.' },
+  cardio:{ name:'심폐 버티기', stat:'심폐지구력', desc:'8초 동안 페이스를 유지하며 최대한 많은 입력을 성공시키세요.' },
+  tool:{ name:'도구 컨트롤', stat:'도구', desc:'움직이는 게이지를 중앙에 정밀하게 멈추세요.' },
+  intelligence:{ name:'지능 스피드전', stat:'지능', desc:'같은 패턴 문제를 더 빠르고 정확하게 풀어보세요.' },
+  verbal:{ name:'언어 순발전', stat:'언어능력', desc:'언어 패턴 문제를 빠르게 판단해 정답을 선택하세요.' },
 };
-const miniGameOrder:MiniGameType[]=['reaction','mash','timing','logic'];
-
-const emptyChoices: CharacterChoices = { body: '', mind: '', speech: '', special: '' };
-
+const miniGameOrder:MiniGameType[]=['arm','leg','cardio','tool','intelligence','verbal'];
 function getSessionId() {
   if (typeof window === 'undefined') return '';
   let id = localStorage.getItem('arena-session-v2');
@@ -245,7 +299,9 @@ export default function Home() {
   const [sessionId, setSessionId] = useState('');
   const [nickname, setNickname] = useState('');
   const [charName, setCharName] = useState('');
-  const [choices, setChoices] = useState<CharacterChoices>(emptyChoices);
+  const [drawnCards, setDrawnCards] = useState<DrawnCard[]>([]);
+  const [activeDraw, setActiveDraw] = useState(0);
+  const [isCardFlipped, setIsCardFlipped] = useState(false);
   const [mode, setMode] = useState<'normal' | 'long'>('normal');
   const [joinCode, setJoinCode] = useState('');
   const [room, setRoom] = useState<ArenaRoom | null>(null);
@@ -265,8 +321,8 @@ export default function Home() {
   const currentResults = useMemo(() => room ? results.filter(r => r.game_no === room.game_no) : [], [results, room]);
   const myCurrentResult = useMemo(() => me ? currentResults.find(r => r.player_id === me.id) : undefined, [currentResults, me]);
   const bothReady = players.length === 2 && players.every(p => p.ready);
-  const allChoicesDone = Object.values(choices).every(Boolean);
-  const previewStats = useMemo(() => allChoicesDone ? buildStats(choices) : null, [choices, allChoicesDone]);
+  const allCardsDrawn = drawnCards.length === cardStages.length;
+  const previewStats = useMemo(() => buildStats(drawnCards), [drawnCards]);
 
   useEffect(() => { setSessionId(getSessionId()); }, []);
 
@@ -334,16 +390,37 @@ export default function Home() {
 
   async function leaveRoom() {
     if (me && room?.status === 'lobby') await supabase.from('arena_players').delete().eq('id', me.id);
-    setRoom(null); setPlayers([]); setResults([]); setChoices(emptyChoices); setCharName('');
+    setRoom(null); setPlayers([]); setResults([]); setDrawnCards([]); setActiveDraw(0); setIsCardFlipped(false); setCharName('');
+  }
+
+  function revealCurrentCard() {
+    if (activeDraw >= cardStages.length || isCardFlipped) return;
+    const stage = cardStages[activeDraw];
+    const card = drawCard(stage.key);
+    setDrawnCards(prev => [...prev, card]);
+    setIsCardFlipped(true);
+  }
+
+  function goNextCard() {
+    if (!isCardFlipped) return;
+    setActiveDraw(prev => Math.min(cardStages.length, prev + 1));
+    setIsCardFlipped(false);
+  }
+
+  function resetCardDraw() {
+    setDrawnCards([]);
+    setActiveDraw(0);
+    setIsCardFlipped(false);
   }
 
   async function createCharacter() {
     if (!room) return;
     if (!charName.trim()) return alert('캐릭터 이름을 입력해주세요.');
-    if (!allChoicesDone) return alert('4개의 선택지를 모두 골라주세요.');
+    if (!allCardsDrawn) return alert('카드를 순서대로 모두 뽑아주세요.');
     if (players.length >= 2 && !me) return alert('현재 방은 2인용입니다.');
     if (me) return alert('이미 캐릭터를 만들었습니다.');
-    const stats = buildStats(choices);
+    const stats = buildStats(drawnCards);
+    const choices:CharacterChoices = { cards: drawnCards };
     const { error } = await supabase.from('arena_players').insert({
       room_id: room.id, session_id: sessionId, user_name: nickname.trim(), char_name: charName.trim(), choices, stats,
     });
@@ -425,7 +502,7 @@ export default function Home() {
 
   return <main className="app">
     <header className="top">
-      <div><div className="brand">🎮 CHARACTER MINI ARENA</div><div className="sub">선택지로 캐릭터를 만들고 직접 조작하는 실시간 2인 미니게임</div></div>
+      <div><div className="brand">AURELIS // CHARACTER ARENA</div><div className="sub">랜덤 카드로 완성한 캐릭터를 직접 조작하는 실시간 2인 아레나</div></div>
       {room && <div className="roomBadge">ROOM <b>{room.code}</b> · {room.mode === 'long' ? '롱 플레이 / 10승' : '일반 / 2승'}</div>}
     </header>
 
@@ -450,16 +527,32 @@ export default function Home() {
         </> : <>
           <div className="row between"><div><h2 className="title">방 {room.code}</h2><div className="muted">{room.mode === 'long' ? '10승 먼저 달성' : '2승 먼저 달성'} · 현재 상태 {room.status}</div></div><button className="btn danger" onClick={leaveRoom}>방 나가기</button></div>
 
-          {!me && room.status === 'lobby' && <div className="section">
-            <h3 className="title">캐릭터 만들기</h3>
-            <p className="muted">능력치를 직접 숫자로 찍는 대신, 아래 선택지를 골라 캐릭터 성향과 능력치가 만들어집니다.</p>
-            <input className="input" value={charName} onChange={e => setCharName(e.target.value)} maxLength={24} placeholder="캐릭터 이름을 직접 입력" />
-            {choiceGroups.map(group => <div className="choiceGroup" key={group.key}>
-              <div className="choiceHead"><b>{group.title}</b><span>{group.description}</span></div>
-              <div className="choiceGrid">{group.options.map(option => <button key={option.id} className={`choiceCard ${choices[group.key] === option.id ? 'selected' : ''}`} onClick={() => setChoices(prev => ({ ...prev, [group.key]: option.id }))}><strong>{option.name}</strong><span>{option.desc}</span></button>)}</div>
-            </div>)}
-            {previewStats && <div className="statsPreview"><b>완성 예정 능력치</b><div className="stats">힘 {previewStats.power} · 지구력 {previewStats.endurance} · 반응 {previewStats.reaction} · 집중 {previewStats.focus} · 논리 {previewStats.logic}</div></div>}
-            <button className="btn gold full" onClick={createCharacter} disabled={!allChoicesDone || !charName.trim()}>이 캐릭터로 참가</button>
+          {!me && room.status === 'lobby' && <div className="section cardForge">
+            <div className="forgeTop">
+              <div><span className="kicker">CHARACTER FORGE</span><h3 className="title">카드로 캐릭터 생성</h3><p className="muted">카드 내용은 미리 볼 수 없습니다. 팔힘 → 다리힘 → 심폐지구력 → 도구 → 지능 → 언어능력 순서로 한 장씩 공개됩니다.</p></div>
+              <div className="drawCounter"><b>{Math.min(activeDraw + 1, cardStages.length)}</b><span>/ {cardStages.length}</span></div>
+            </div>
+            <input className="input premiumInput" value={charName} onChange={e => setCharName(e.target.value)} maxLength={24} placeholder="캐릭터 이름을 입력하세요" />
+
+            <div className="drawRail">{cardStages.map((stage,idx)=><div key={stage.key} className={`railStep ${idx < activeDraw ? 'done' : idx === activeDraw ? 'active' : ''}`}><span>{idx < activeDraw ? '✓' : idx + 1}</span><small>{stage.label}</small></div>)}</div>
+
+            {activeDraw < cardStages.length ? <div className="drawStage">
+              <div className="stageCopy"><span className="eyebrow">{cardStages[activeDraw].eyebrow}</span><h2>{cardStages[activeDraw].label}</h2><p>{cardStages[activeDraw].description}</p></div>
+              <button type="button" className={`mysteryCard ${isCardFlipped ? 'flipped' : ''}`} onClick={revealCurrentCard} disabled={isCardFlipped} aria-label={`${cardStages[activeDraw].label} 카드 뒤집기`}>
+                <span className="cardInner">
+                  <span className="cardFace cardBack"><span className="backMark">A</span><span className="backGrid"/><b>SEALED CARD</b><small>탭해서 공개</small></span>
+                  <span className={`cardFace cardFront rarity-${drawnCards[activeDraw]?.rarity || '일반'}`}>
+                    <span className="rarityPill">{drawnCards[activeDraw]?.rarity || ''}</span><span className="frontIcon">{cardStages[activeDraw].icon}</span><small>{cardStages[activeDraw].label}</small><strong>{drawnCards[activeDraw]?.title || ''}</strong><em>{drawnCards[activeDraw]?.display || ''}</em><p>{drawnCards[activeDraw]?.subtitle || ''}</p>
+                  </span>
+                </span>
+              </button>
+              {!isCardFlipped ? <div className="drawHint">카드를 눌러 랜덤 능력을 공개하세요.</div> : <button type="button" className="btn primary nextDraw" onClick={goNextCard}>{activeDraw === cardStages.length - 1 ? '카드 완성' : '다음 카드 뽑기 →'}</button>}
+            </div> : <div className="forgeComplete"><span className="kicker">BUILD COMPLETE</span><h2>{charName.trim() || '이름 없는 캐릭터'}</h2><p>6장의 랜덤 카드가 모두 공개되었습니다.</p></div>}
+
+            {drawnCards.length > 0 && <div className="drawnDeck">{drawnCards.map((card,idx)=><div className={`miniDrawCard rarity-${card.rarity}`} key={`${card.category}-${idx}`}><span>{cardStages.find(x=>x.key===card.category)?.label}</span><b>{card.title}</b><strong>{card.display}</strong><small>{card.rarity}</small></div>)}</div>}
+
+            <div className="statsPreview premiumStats"><b>현재 능력치</b><div className="statMatrix"><span>팔힘<strong>{previewStats.arm}</strong></span><span>다리힘<strong>{previewStats.leg}</strong></span><span>심폐<strong>{previewStats.cardio}</strong></span><span>도구<strong>{previewStats.tool}</strong></span><span>지능<strong>{previewStats.intelligence}</strong></span><span>언어<strong>{previewStats.verbal}</strong></span></div></div>
+            <div className="row forgeActions"><button className="btn ghost" onClick={resetCardDraw} disabled={drawnCards.length === 0}>처음부터 다시</button><button className="btn gold grow" onClick={createCharacter} disabled={!allCardsDrawn || !charName.trim()}>이 캐릭터로 참가</button></div>
           </div>}
 
           <div className="section">
@@ -468,7 +561,7 @@ export default function Home() {
               <div className="row between"><strong>{p.char_name}</strong><span className={`ready ${p.ready ? 'yes' : ''}`}>{p.ready ? 'READY' : 'WAIT'}</span></div>
               <div className="muted">{p.user_name}{p.id === me?.id ? ' · 나' : ''}</div>
               <div className="score">{p.score} / {room.win_target}승</div>
-              <div className="statChips"><span>힘 {p.stats.power}</span><span>지구력 {p.stats.endurance}</span><span>반응 {p.stats.reaction}</span><span>집중 {p.stats.focus}</span><span>논리 {p.stats.logic}</span></div>
+              <div className="statChips"><span>팔 {p.stats.arm}</span><span>다리 {p.stats.leg}</span><span>심폐 {p.stats.cardio}</span><span>도구 {p.stats.tool}</span><span>지능 {p.stats.intelligence}</span><span>언어 {p.stats.verbal}</span></div>
             </div>)}</div>
             {players.length < 2 && <div className="status">상대가 방 코드 <b>{room.code}</b>로 들어오기를 기다리는 중…</div>}
           </div>
@@ -478,10 +571,12 @@ export default function Home() {
           {room.status === 'playing' && room.current_game && me && <div className="section arenaSection">
             <div className="gameHeader"><div><span className="roundNo">GAME {room.game_no}</span><h2>{miniGameInfo[room.current_game].name}</h2><p>{miniGameInfo[room.current_game].desc}</p></div><div className="statFocus">관련 능력치<br/><b>{miniGameInfo[room.current_game].stat}</b></div></div>
             {myCurrentResult ? <div className="waitingBox"><b>결과 제출 완료!</b><span>내 보정 점수 {myCurrentResult.adjusted_score}</span><span>{opponent ? `${opponent.char_name}의 플레이를 기다리는 중…` : '상대를 기다리는 중…'}</span></div> : <>
-              {room.current_game === 'reaction' && <ReactionGame seed={room.game_seed} stat={me.stats.reaction} onFinish={submitResult} disabled={submitting}/>} 
-              {room.current_game === 'mash' && <MashGame statPower={me.stats.power} statEndurance={me.stats.endurance} onFinish={submitResult} disabled={submitting}/>} 
-              {room.current_game === 'timing' && <TimingGame stat={me.stats.focus} onFinish={submitResult} disabled={submitting}/>} 
-              {room.current_game === 'logic' && <LogicGame seed={room.game_seed} stat={me.stats.logic} onFinish={submitResult} disabled={submitting}/>} 
+              {room.current_game === 'arm' && <MashGame statPower={me.stats.arm} statEndurance={Math.round(me.stats.arm/2)} onFinish={submitResult} disabled={submitting}/>} 
+              {room.current_game === 'leg' && <ReactionGame seed={room.game_seed} stat={me.stats.leg} onFinish={submitResult} disabled={submitting}/>} 
+              {room.current_game === 'cardio' && <MashGame statPower={Math.round(me.stats.cardio/10)} statEndurance={Math.min(120, Math.round(me.stats.cardio/3))} onFinish={submitResult} disabled={submitting}/>} 
+              {room.current_game === 'tool' && <TimingGame stat={me.stats.tool} onFinish={submitResult} disabled={submitting}/>} 
+              {room.current_game === 'intelligence' && <LogicGame seed={room.game_seed} stat={me.stats.intelligence} onFinish={submitResult} disabled={submitting}/>} 
+              {room.current_game === 'verbal' && <LogicGame seed={room.game_seed + 7919} stat={me.stats.verbal} onFinish={submitResult} disabled={submitting}/>} 
             </>}
           </div>}
 
@@ -498,7 +593,7 @@ export default function Home() {
             {isHost && <button className="btn gold full" onClick={rematch}>같은 캐릭터로 재대결</button>}
           </div>}
 
-          {results.length > 0 && <div className="section"><h3 className="title">경기 기록</h3><div className="history">{Array.from(new Set(results.map(r => r.game_no))).sort((a,b) => b-a).map(no => { const rs = results.filter(r => r.game_no === no).sort((a,b) => b.adjusted_score - a.adjusted_score); return <div className="historyRow" key={no}><span>#{no} {miniGameInfo[rs[0]?.game_type || 'reaction'].name}</span><span>{rs.map(r => `${players.find(p => p.id === r.player_id)?.char_name || '?'} ${r.adjusted_score}`).join(' vs ')}</span></div>; })}</div></div>}
+          {results.length > 0 && <div className="section"><h3 className="title">경기 기록</h3><div className="history">{Array.from<number>(new Set<number>(results.map(r => Number(r.game_no)))).sort((a:number,b:number) => b-a).map(no => { const rs = results.filter(r => r.game_no === no).sort((a,b) => b.adjusted_score - a.adjusted_score); return <div className="historyRow" key={no}><span>#{no} {miniGameInfo[rs[0]?.game_type || 'arm'].name}</span><span>{rs.map(r => `${players.find(p => p.id === r.player_id)?.char_name || '?'} ${r.adjusted_score}`).join(' vs ')}</span></div>; })}</div></div>}
         </>}
       </section>
 
