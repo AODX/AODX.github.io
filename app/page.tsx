@@ -174,20 +174,20 @@ function buildStats(cards:DrawnCard[]):CharacterStats {
 }
 
 const miniGameInfo:Record<MiniGameType,{name:string;stat:string;desc:string;tutorial:string[]}>= {
-  arm_mash:{ name:'파워 러시', stat:'팔힘', desc:'제한 시간 동안 최대한 빠르게 연타해 상체 출력을 겨룹니다.', tutorial:['TAP 버튼을 최대한 빠르게 누르세요.','7초 동안 누른 횟수가 기본 점수가 됩니다.','팔힘이 높을수록 최종 점수에 추가 보정이 붙습니다.'] },
-  arm_timing:{ name:'그립 타이밍', stat:'팔힘', desc:'움직이는 게이지를 중앙에 멈춰 순간적인 힘 조절을 겨룹니다.', tutorial:['게이지 시작을 누르면 바늘이 움직입니다.','중앙의 안전 구간에 들어왔을 때 STOP을 누르세요.','팔힘이 높으면 정확도 점수에 추가 보정이 붙습니다.'] },
-  leg_reaction:{ name:'스타트 대시', stat:'다리힘', desc:'신호가 뜨는 순간 눌러 폭발적인 스타트 반응을 겨룹니다.', tutorial:['준비 후 초록 신호가 뜰 때까지 기다리세요.','너무 일찍 누르면 큰 감점입니다.','다리힘이 높을수록 스타트 점수에 보정이 붙습니다.'] },
-  leg_timing:{ name:'스텝 컨트롤', stat:'다리힘', desc:'정확한 타이밍에 스텝을 멈춰 하체 컨트롤을 겨룹니다.', tutorial:['움직이는 바늘을 중앙 구간에 맞추세요.','가까울수록 높은 기본 점수를 얻습니다.','다리힘이 높으면 최종 점수가 더 올라갑니다.'] },
-  cardio_mash:{ name:'엔듀런스 러시', stat:'심폐지구력', desc:'꾸준히 입력을 이어가며 지구력과 페이스를 겨룹니다.', tutorial:['7초 동안 TAP을 계속 누르세요.','입력을 쉬지 않고 유지하는 것이 중요합니다.','심폐지구력이 높을수록 지속력 보정이 커집니다.'] },
-  cardio_timing:{ name:'페이스 메이커', stat:'심폐지구력', desc:'과하지도 느리지도 않은 페이스를 맞춰 지구력 조절을 겨룹니다.', tutorial:['게이지 중앙을 목표로 타이밍을 맞추세요.','너무 빠르거나 느리면 점수가 줄어듭니다.','심폐지구력이 높을수록 페이스 유지 보정이 붙습니다.'] },
-  bone_timing:{ name:'임팩트 가드', stat:'골밀도', desc:'충격 순간에 정확히 가드를 맞춰 내구도를 겨룹니다.', tutorial:['게이지가 중앙에 왔을 때 STOP을 누르세요.','중앙에 가까울수록 충격을 잘 받아냅니다.','골밀도가 높을수록 내구도 보정이 붙습니다.'] },
-  bone_reaction:{ name:'쇼크 리액트', stat:'골밀도', desc:'갑작스러운 충격 신호에 반응해 버티는 능력을 겨룹니다.', tutorial:['신호가 뜰 때까지 기다렸다가 즉시 누르세요.','성급하게 누르면 실점합니다.','골밀도가 높을수록 최종 생존 점수가 올라갑니다.'] },
-  intelligence_logic:{ name:'패턴 브레이커', stat:'IQ', desc:'숫자 규칙을 빠르게 찾아 정답을 고르는 추론전입니다.', tutorial:['문제 열기를 누르면 수열이 나타납니다.','규칙을 파악해 정답 하나를 빠르게 고르세요.','IQ가 높을수록 정답 시 보너스 점수가 붙습니다.'] },
-  intelligence_memory:{ name:'메모리 플래시', stat:'IQ', desc:'잠깐 보이는 숫자 배열을 기억해 정확히 찾아내는 기억전입니다.', tutorial:['숫자 배열이 잠깐 나타난 뒤 사라집니다.','기억한 배열과 같은 선택지를 누르세요.','IQ가 높을수록 정답 점수에 보정이 붙습니다.'] },
-  verbal_logic:{ name:'워드 로직', stat:'언어능력', desc:'단어 관계와 의미를 빠르게 판단하는 언어 추론전입니다.', tutorial:['문제를 읽고 가장 알맞은 단어를 고르세요.','정확도와 선택 속도를 함께 계산합니다.','언어능력이 높을수록 정답 보너스가 커집니다.'] },
-  verbal_reaction:{ name:'퀵 리스폰스', stat:'언어능력', desc:'문장이 뜨는 순간 빠르게 반응해 언어 순발력을 겨룹니다.', tutorial:['준비 후 신호 문구가 뜰 때까지 기다리세요.','문구가 뜨면 바로 버튼을 누르세요.','언어능력이 높을수록 순발력 점수에 보정이 붙습니다.'] },
-  tool_timing:{ name:'웨폰 컨트롤', stat:'장비', desc:'뽑은 장비의 특성을 살려 정확한 타이밍을 겨룹니다.', tutorial:['움직이는 게이지를 중앙 구간에 맞추세요.','좋은 장비일수록 컨트롤 점수에 약간의 보정이 붙습니다.','장비 이름과 특성은 캐릭터 카드에서 확인할 수 있습니다.'] },
-  tool_reaction:{ name:'레인지 듀얼', stat:'장비', desc:'거리 싸움 신호에 빠르게 반응해 장비 활용도를 겨룹니다.', tutorial:['신호가 뜰 때까지 기다리세요.','신호가 뜨면 즉시 반응 버튼을 누르세요.','장비 성능이 높을수록 활용 점수에 보정이 붙습니다.'] },
+  arm_mash:{ name:'브레이커 런', stat:'팔힘', desc:'캐릭터를 직접 움직여 샌드백에 접근하고 공격해 최대한 많이 파괴합니다.', tutorial:['WASD/방향키 또는 모바일 조이스틱으로 이동하세요.','샌드백 가까이에서 SPACE 또는 A 버튼으로 공격하세요.','팔힘이 높을수록 한 번의 공격 점수가 커집니다.'] },
+  arm_timing:{ name:'크레이트 스매시', stat:'팔힘', desc:'아레나를 돌아다니며 상자를 찾아 직접 부수는 액션 미니게임입니다.', tutorial:['캐릭터를 직접 움직여 상자를 찾으세요.','상자 근처에서 공격 버튼을 눌러 파괴하세요.','남은 시간 안에 더 많은 상자를 부수면 승리합니다.'] },
+  leg_reaction:{ name:'체크포인트 스프린트', stat:'다리힘', desc:'캐릭터를 직접 달려 순서대로 체크포인트를 통과하는 스피드전입니다.', tutorial:['조이스틱/WASD로 캐릭터를 달리세요.','빛나는 체크포인트를 순서대로 밟으세요.','다리힘이 좋을수록 이동 속도가 빨라집니다.'] },
+  leg_timing:{ name:'허들 러시', stat:'다리힘', desc:'장애물 사이를 직접 조작해 피하며 결승선을 향하는 코스입니다.', tutorial:['캐릭터를 직접 움직여 장애물을 피하세요.','빨간 장애물에 닿으면 시간과 점수를 잃습니다.','다리힘은 가속과 이동 속도에 영향을 줍니다.'] },
+  cardio_mash:{ name:'엔듀런스 서킷', stat:'심폐지구력', desc:'넓은 코스를 계속 달리며 에너지 오브를 모으는 지구력전입니다.', tutorial:['맵을 직접 달리며 오브를 수집하세요.','시간이 지날수록 기본 이동력이 조금 떨어집니다.','심폐지구력이 높으면 속도 저하가 적습니다.'] },
+  cardio_timing:{ name:'존 러너', stat:'심폐지구력', desc:'맵을 돌아다니며 나타나는 점령 지점을 빠르게 밟아 유지하는 경기입니다.', tutorial:['빛나는 존까지 직접 이동하세요.','존 위에 잠시 머물면 점령됩니다.','심폐지구력이 높을수록 연속 이동에 유리합니다.'] },
+  bone_timing:{ name:'임팩트 서바이벌', stat:'골밀도', desc:'충격 구역을 피해 직접 움직이며 최대한 오래 버티는 생존전입니다.', tutorial:['캐릭터를 직접 이동해 위험 지대를 피하세요.','빨간 충격 구역과 부딪히면 HP가 감소합니다.','골밀도가 높을수록 충격 피해가 감소합니다.'] },
+  bone_reaction:{ name:'범퍼 아레나', stat:'골밀도', desc:'맵의 범퍼와 충돌을 피하면서 오브를 모으는 생존 액션입니다.', tutorial:['조이스틱/WASD로 계속 움직이세요.','범퍼를 피하며 점수 오브를 모으세요.','골밀도가 높으면 충돌 페널티가 줄어듭니다.'] },
+  intelligence_logic:{ name:'루트 브레이커', stat:'IQ', desc:'캐릭터를 움직여 가장 효율적인 길을 찾아 목표 지점에 도달하는 경로전입니다.', tutorial:['직접 캐릭터를 움직여 출구를 찾으세요.','위험 지형을 피하고 짧은 경로를 선택하세요.','IQ가 높으면 정답 루트 힌트가 더 오래 표시됩니다.'] },
+  intelligence_memory:{ name:'코드 게이트', stat:'IQ', desc:'화면의 문제를 보고 캐릭터를 직접 정답 게이트까지 이동시키는 액션 퍼즐입니다.', tutorial:['상단 문제를 확인하세요.','캐릭터를 직접 움직여 정답 숫자가 적힌 게이트로 들어가세요.','오답 게이트는 감점, 정답 게이트는 큰 점수입니다.'] },
+  verbal_logic:{ name:'워드 게이트', stat:'언어능력', desc:'단어 문제의 정답을 판단하고 해당 게이트까지 직접 달려가는 경기입니다.', tutorial:['상단 단어 문제를 읽으세요.','정답이라고 생각하는 단어 게이트로 캐릭터를 이동하세요.','언어능력이 높을수록 정답 보너스가 커집니다.'] },
+  verbal_reaction:{ name:'리플라이 러시', stat:'언어능력', desc:'맵에 튀어나오는 말풍선을 추적해 직접 접근하고 반응 버튼으로 처리합니다.', tutorial:['캐릭터를 직접 움직여 말풍선을 쫓으세요.','가까이에서 SPACE/A를 눌러 처리하세요.','언어능력이 높을수록 처리 점수가 올라갑니다.'] },
+  tool_timing:{ name:'웨폰 트레이닝', stat:'도구', desc:'뽑은 무기를 들고 캐릭터를 직접 조작해 훈련 표적을 공격합니다.', tutorial:['직접 이동해 표적의 사거리 안으로 들어가세요.','SPACE/A로 장비를 사용해 공격하세요.','좋은 장비일수록 공격 범위와 점수가 조금 더 높습니다.'] },
+  tool_reaction:{ name:'타겟 헌트', stat:'도구', desc:'움직이는 표적을 추적해 직접 접근하고 공격하는 추격전입니다.', tutorial:['표적 위치를 확인하고 직접 추격하세요.','사거리 안에서 공격 버튼을 누르세요.','장비 성능이 높을수록 명중 보너스가 커집니다.'] },
 };
 const miniGameOrder:MiniGameType[]=['arm_mash','arm_timing','leg_reaction','leg_timing','cardio_mash','cardio_timing','bone_timing','bone_reaction','intelligence_logic','intelligence_memory','verbal_logic','verbal_reaction','tool_timing','tool_reaction'];
 
@@ -482,27 +482,134 @@ function WordGame({ seed, stat, onFinish, disabled }: { seed:number; stat:number
   </div>;
 }
 
+
+type DirectMode = 'combat'|'race'|'collect'|'survive'|'gate';
+
+function DirectArenaGame({ type, stat, seed, tool, onFinish, disabled }: { type:MiniGameType; stat:number; seed:number; tool:string; onFinish:GameFinish; disabled:boolean }) {
+  const cfg = useMemo(()=>{
+    const map:Record<MiniGameType,{mode:DirectMode;duration:number;action:boolean;prompt?:string;correct?:string;labels?:string[]}>= {
+      arm_mash:{mode:'combat',duration:18,action:true}, arm_timing:{mode:'combat',duration:18,action:true},
+      leg_reaction:{mode:'race',duration:20,action:false}, leg_timing:{mode:'race',duration:20,action:false},
+      cardio_mash:{mode:'collect',duration:22,action:false}, cardio_timing:{mode:'collect',duration:22,action:false},
+      bone_timing:{mode:'survive',duration:20,action:false}, bone_reaction:{mode:'survive',duration:20,action:false},
+      intelligence_logic:{mode:'race',duration:22,action:false}, intelligence_memory:{mode:'gate',duration:22,action:false,prompt:'12 + 7 = ?',correct:'19',labels:['19','17','21','16']},
+      verbal_logic:{mode:'gate',duration:22,action:false,prompt:'「신속」과 가장 가까운 뜻은?',correct:'빠름',labels:['빠름','무거움','조용함','느림']},
+      verbal_reaction:{mode:'combat',duration:18,action:true}, tool_timing:{mode:'combat',duration:20,action:true}, tool_reaction:{mode:'combat',duration:20,action:true},
+    }; return map[type];
+  },[type]);
+  const [phase,setPhase]=useState<'ready'|'running'|'done'>('ready');
+  const [pos,setPos]=useState({x:12,y:50});
+  const [score,setScore]=useState(0);
+  const [hp,setHp]=useState(100);
+  const [timeLeft,setTimeLeft]=useState(cfg.duration);
+  const [collected,setCollected]=useState<number[]>([]);
+  const [flash,setFlash]=useState('');
+  const doneRef=useRef(false);
+  const posRef=useRef(pos); posRef.current=pos;
+  const scoreRef=useRef(score); scoreRef.current=score;
+  const hpRef=useRef(hp); hpRef.current=hp;
+  const timeRef=useRef(timeLeft); timeRef.current=timeLeft;
+  const startRef=useRef(0);
+  const targetCount=cfg.mode==='race'?7:cfg.mode==='gate'?4:8;
+  const targets=useMemo(()=>Array.from({length:targetCount},(_,i)=>{
+    let x=(Math.abs(seed)+i*7919)%73+14; let y=(Math.abs(seed*3)+i*3571)%70+15;
+    if(cfg.mode==='race'){ x=18+i*(70/(targetCount-1)); y=22+((seed+i*31)%3)*28; }
+    return {id:i,x,y,label:cfg.labels?.[i]||''};
+  }),[seed,targetCount,cfg.mode,cfg.labels]);
+  const hazards=useMemo(()=>Array.from({length:5},(_,i)=>({id:i,x:28+((seed+i*47)%55),y:15+((seed*5+i*29)%70)})),[seed]);
+  const nextRaceId=cfg.mode==='race'?collected.length:-1;
+
+  const finish=useCallback((reason='TIME')=>{
+    if(doneRef.current) return; doneRef.current=true; setPhase('done');
+    const survival=Math.max(0,hpRef.current)*5;
+    const raw=Math.max(0,Math.round(scoreRef.current + survival + Math.max(0,timeRef.current)*8));
+    const statBonus=Math.round(Math.max(0,stat)*6);
+    const adjusted=raw+statBonus;
+    setFlash(`${reason} · ${adjusted.toLocaleString()} PTS`);
+    onFinish(raw,adjusted,{mode:cfg.mode,score:scoreRef.current,hp:hpRef.current,stat,tool});
+  },[cfg.mode,onFinish,stat,tool]);
+
+  useEffect(()=>{
+    if(phase!=='running') return;
+    startRef.current=performance.now();
+    const t=setInterval(()=>setTimeLeft(v=>{const n=Math.max(0,+(v-.1).toFixed(1)); if(n<=0){setTimeout(()=>finish('TIME UP'),0);} return n;}),100);
+    return ()=>clearInterval(t);
+  },[phase,finish]);
+
+  const move=useCallback((dir:JoystickDirection)=>{
+    if(phase!=='running'||disabled) return;
+    if(dir==='action') return;
+    const base=type.startsWith('leg_')?5.2:type.startsWith('cardio_')?4.5:4.0;
+    const statBoost=Math.min(2.2,Math.max(0,stat)/120);
+    const step=base+statBoost;
+    const delta:Record<string,[number,number]>={up:[0,-step],down:[0,step],left:[-step,0],right:[step,0]};
+    const d=delta[dir]; if(!d) return;
+    const np={x:Math.max(3,Math.min(97,posRef.current.x+d[0])),y:Math.max(5,Math.min(95,posRef.current.y+d[1]))};
+    posRef.current=np; setPos(np);
+    // hazards
+    if(hazards.some(h=>Math.hypot(np.x-h.x,np.y-h.y)<7)){
+      const reduction=type.startsWith('bone_')?Math.min(12,stat/15):0;
+      const dmg=Math.max(3,Math.round(14-reduction)); setHp(v=>Math.max(0,v-dmg)); setScore(v=>Math.max(0,v-40)); setFlash(`-${dmg} HP`);
+      setTimeout(()=>setFlash(''),350);
+      if(hpRef.current-dmg<=0) setTimeout(()=>finish('K.O.'),0);
+    }
+    const candidate=targets.find(t=>!collected.includes(t.id)&&Math.hypot(np.x-t.x,np.y-t.y)<8);
+    if(!candidate) return;
+    if(cfg.mode==='combat') return;
+    if(cfg.mode==='race'&&candidate.id!==nextRaceId) return;
+    if(cfg.mode==='gate'){
+      if(candidate.label===cfg.correct){setScore(v=>v+500);setCollected(v=>[...v,candidate.id]);setFlash('정답 게이트 +500');setTimeout(()=>finish('CLEAR'),350);}else{setScore(v=>Math.max(0,v-120));setFlash('오답 -120');setTimeout(()=>setFlash(''),450);} return;
+    }
+    setCollected(v=>[...v,candidate.id]); setScore(v=>v+180); setFlash('+180'); setTimeout(()=>setFlash(''),300);
+    if(cfg.mode==='race'&&candidate.id===targetCount-1) setTimeout(()=>finish('FINISH'),250);
+  },[phase,disabled,type,stat,hazards,targets,collected,cfg.mode,cfg.correct,nextRaceId,targetCount,finish]);
+
+  const attack=useCallback(()=>{
+    if(phase!=='running'||disabled||!cfg.action) return;
+    const nearest=targets.find(t=>!collected.includes(t.id)&&Math.hypot(posRef.current.x-t.x,posRef.current.y-t.y)<14+Math.min(8,stat/25));
+    if(!nearest){setFlash('MISS');setTimeout(()=>setFlash(''),250);return;}
+    setCollected(v=>[...v,nearest.id]); const gain=Math.round(180+Math.max(0,stat)*2.2); setScore(v=>v+gain); setFlash(`HIT +${gain}`); setTimeout(()=>setFlash(''),300);
+    if(collected.length+1>=targetCount) setTimeout(()=>finish('ALL CLEAR'),300);
+  },[phase,disabled,cfg.action,targets,collected,stat,targetCount,finish]);
+
+  useJoystickInput(direction=>direction==='action'?attack():move(direction));
+  useEffect(()=>{
+    const key=(e:KeyboardEvent)=>{
+      if(['INPUT','TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+      const k=e.key.toLowerCase(); const m:Record<string,JoystickDirection>={w:'up',arrowup:'up',s:'down',arrowdown:'down',a:'left',arrowleft:'left',d:'right',arrowright:'right'};
+      if(k===' '||k==='enter'){e.preventDefault();attack();return;} if(m[k]){e.preventDefault();move(m[k]);}
+    }; window.addEventListener('keydown',key); return()=>window.removeEventListener('keydown',key);
+  },[move,attack]);
+
+  const start=()=>{if(disabled)return;doneRef.current=false;setPos({x:12,y:50});setScore(0);setHp(100);setCollected([]);setTimeLeft(cfg.duration);setFlash('GO!');setPhase('running');setTimeout(()=>setFlash(''),450);};
+  return <div className={`directGame mode-${cfg.mode}`}>
+    <div className="directHud"><span><b>{miniGameInfo[type].name}</b><small>{tool&&type.startsWith('tool_')?tool:miniGameInfo[type].stat}</small></span><span><b>{score.toLocaleString()}</b><small>SCORE</small></span><span><b>{Math.ceil(timeLeft)}s</b><small>TIME</small></span><span><b>{hp}</b><small>HP</small></span></div>
+    {cfg.prompt&&<div className="gatePrompt">{cfg.prompt}</div>}
+    <div className="directArena">
+      <div className="arenaGrid"/>
+      {hazards.map(h=><div key={h.id} className="arenaHazard" style={{left:`${h.x}%`,top:`${h.y}%`}}><span/></div>)}
+      {targets.map(t=>!collected.includes(t.id)&&<div key={t.id} className={`arenaTarget ${cfg.mode==='race'&&t.id===nextRaceId?'active':''}`} style={{left:`${t.x}%`,top:`${t.y}%`}}>{cfg.mode==='race'?<b>{t.id+1}</b>:cfg.mode==='gate'?<b>{t.label}</b>:cfg.mode==='combat'?<span className="dummyIcon">◎</span>:<span className="orbIcon">◆</span>}</div>)}
+      <div className="playerAvatar" style={{left:`${pos.x}%`,top:`${pos.y}%`}}><span>{tool&&type.startsWith('tool_')?'⚔':'◆'}</span><i/></div>
+      {flash&&<div className="arenaFlash">{flash}</div>}
+      {phase==='ready'&&<div className="arenaOverlay"><strong>{miniGameInfo[type].name}</strong><p>캐릭터를 직접 조작해서 승부하세요.</p><button className="btn primary big" onClick={start}>START</button></div>}
+      {phase==='done'&&<div className="arenaOverlay result"><strong>RUN COMPLETE</strong><p>{flash}</p></div>}
+    </div>
+    <div className="directHelp"><span>이동 <b>WASD / 방향키 / 조이스틱</b></span>{cfg.action&&<span>액션 <b>SPACE / A</b></span>}</div>
+  </div>;
+}
+
 function GameRenderer({ type, player, seed, onFinish, disabled }: { type:MiniGameType; player:ArenaPlayer; seed:number; onFinish:GameFinish; disabled:boolean }) {
   const debuff=Math.min(0,player.stats.condition||0);
-  const adjustedStat=(value:number)=>Math.max(0,value+debuff);
-  let game:ReactNode;
-  switch(type){
-    case 'arm_mash': game=<MashGame statPower={adjustedStat(player.stats.arm)} statEndurance={adjustedStat(Math.round(player.stats.arm/2))} onFinish={onFinish} disabled={disabled}/>; break;
-    case 'arm_timing': game=<TimingGame stat={adjustedStat(player.stats.arm)} onFinish={onFinish} disabled={disabled}/>; break;
-    case 'leg_reaction': game=<ReactionGame seed={seed} stat={adjustedStat(Math.round(player.stats.leg/2))} onFinish={onFinish} disabled={disabled}/>; break;
-    case 'leg_timing': game=<TimingGame stat={adjustedStat(Math.round(player.stats.leg/2))} onFinish={onFinish} disabled={disabled}/>; break;
-    case 'cardio_mash': game=<MashGame statPower={adjustedStat(Math.max(1,Math.round(player.stats.cardio/20)))} statEndurance={adjustedStat(Math.min(150,Math.round(player.stats.cardio/3)))} onFinish={onFinish} disabled={disabled}/>; break;
-    case 'cardio_timing': game=<TimingGame stat={adjustedStat(Math.min(160,Math.round(player.stats.cardio/4)))} onFinish={onFinish} disabled={disabled}/>; break;
-    case 'bone_timing': game=<TimingGame stat={adjustedStat(player.stats.bone)} onFinish={onFinish} disabled={disabled}/>; break;
-    case 'bone_reaction': game=<ReactionGame seed={seed+911} stat={adjustedStat(player.stats.bone)} onFinish={onFinish} disabled={disabled}/>; break;
-    case 'intelligence_logic': game=<LogicGame seed={seed} stat={adjustedStat(Math.max(0,player.stats.intelligence-70))} onFinish={onFinish} disabled={disabled}/>; break;
-    case 'intelligence_memory': game=<MemoryGame seed={seed} stat={adjustedStat(player.stats.intelligence)} onFinish={onFinish} disabled={disabled}/>; break;
-    case 'verbal_logic': game=<WordGame seed={seed} stat={adjustedStat(player.stats.verbal)} onFinish={onFinish} disabled={disabled}/>; break;
-    case 'verbal_reaction': game=<ReactionGame seed={seed+2027} stat={adjustedStat(player.stats.verbal)} onFinish={onFinish} disabled={disabled}/>; break;
-    case 'tool_timing': game=<TimingGame stat={adjustedStat(player.stats.tool)} onFinish={onFinish} disabled={disabled}/>; break;
-    case 'tool_reaction': game=<ReactionGame seed={seed+4441} stat={adjustedStat(player.stats.tool)} onFinish={onFinish} disabled={disabled}/>; break;
-  }
-  return <div className="gameWithControls">{debuff<0&&<div className="conditionDebuff">건강 상태 디버프 <b>{debuff}</b></div>}{game}<VirtualJoystick/></div>;
+  const withDebuff=(v:number)=>Math.max(0,v+debuff);
+  let stat=0;
+  if(type.startsWith('arm_')) stat=withDebuff(player.stats.arm);
+  else if(type.startsWith('leg_')) stat=withDebuff(player.stats.leg);
+  else if(type.startsWith('cardio_')) stat=withDebuff(Math.min(180,Math.round(player.stats.cardio/3)));
+  else if(type.startsWith('bone_')) stat=withDebuff(player.stats.bone);
+  else if(type.startsWith('intelligence_')) stat=withDebuff(Math.max(0,player.stats.intelligence-60));
+  else if(type.startsWith('verbal_')) stat=withDebuff(player.stats.verbal);
+  else stat=withDebuff(player.stats.tool);
+  return <div className="gameWithControls">{debuff<0&&<div className="conditionDebuff">건강 상태 디버프 <b>{debuff}</b></div>}<DirectArenaGame type={type} stat={stat} seed={seed} tool={toolName(player)} onFinish={onFinish} disabled={disabled}/><VirtualJoystick/></div>;
 }
 
 function toolName(player:ArenaPlayer | undefined):string {
