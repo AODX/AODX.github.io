@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../lib/supabase';
 
 type GameMode = 'normal' | 'long';
 type MiniGameType = 'reaction' | 'mash' | 'timing' | 'logic';
