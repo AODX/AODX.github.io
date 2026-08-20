@@ -1,0 +1,30 @@
+VANTA FESTIVAL - Render 전환 방법
+
+[Git에 넣을 파일]
+1) package.json
+2) render.yaml
+
+둘 다 Git 저장소의 가장 바깥(최상위)에 넣으세요.
+app 폴더와 같은 위치에 package.json / render.yaml 이 보여야 합니다.
+
+[Render에서 처음 한 번만]
+1. Render 로그인
+2. New + -> Blueprint 선택
+3. 현재 GitHub 저장소 연결
+4. render.yaml을 자동으로 읽으면 Apply
+5. 환경변수 입력창에서 기존 Supabase 값을 넣기
+   NEXT_PUBLIC_SUPABASE_URL
+   NEXT_PUBLIC_SUPABASE_ANON_KEY
+6. Deploy 완료를 기다리기
+
+이후에는 main 브랜치에 push할 때 Render가 자동 배포합니다.
+Supabase DB/Realtime 구조는 그대로 사용합니다.
+Vercel 설정은 더 이상 만질 필요 없습니다.
+
+[Blueprint가 싫다면 Web Service로 수동 생성]
+Runtime: Node
+Build Command: npm ci && npm run build
+Start Command: npm run start:render
+Environment Variables: 위 Supabase 2개
+
+주의: .env.local 파일이나 실제 키를 GitHub에 올리지 마세요.

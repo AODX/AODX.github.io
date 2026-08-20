@@ -1,12 +1,12 @@
 {
-  "name": "text-battle-arena",
-  "version": "2.0.0",
+  "name": "vanta-festival",
+  "version": "17.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "start:render": "next start -p ${PORT:-10000}"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
