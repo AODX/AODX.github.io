@@ -64,3 +64,98 @@ button:disabled{cursor:not-allowed;opacity:.55}
 
 @media (max-width:900px){.homeSteps{grid-template-columns:repeat(2,minmax(0,1fr))}.tutorialGrid{grid-template-columns:1fr}.consentBar{align-items:stretch;flex-direction:column}.consentBar .btn{width:100%}}
 @media (max-width:560px){.startPanel{padding:14px}.homeSteps{grid-template-columns:1fr}.cleanHome .lobbyHeadline{font-size:38px}.roulette{padding:16px 10px}.rouletteWindow{min-height:82px}.rouletteWindow span{font-size:29px}.tutorialArena{padding:12px}.wordOptions{grid-template-columns:1fr}.roomTop{flex-direction:column}.roomTop .btn{width:100%}}
+
+/* v12 mobile + tablet playability */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:manipulation}
+body{overscroll-behavior-y:none}
+button,.btn,.choiceCard,.reactionPad,.mashPad,.choiceBtn,.modeCard{-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+input{font-size:16px}
+.app{padding-left:max(clamp(10px,3vw,34px),env(safe-area-inset-left));padding-right:max(clamp(10px,3vw,34px),env(safe-area-inset-right));padding-bottom:max(36px,env(safe-area-inset-bottom))}
+.choiceCard,.btn,.choiceBtn,.modeCard{min-height:44px}
+
+@media (max-width:1024px){
+  .app{width:100%;max-width:100%;padding-top:16px}
+  .layout{grid-template-columns:1fr;gap:14px}
+  .chatPanel{position:static;order:2;padding:14px}
+  .mainPanel{order:1}
+  .chatLog{height:240px}
+  .top{min-height:auto;margin-bottom:12px}
+  .brand{font-size:28px}
+  .roomBadge{font-size:11px}
+  .section{padding:15px}
+  .choiceDeck{max-width:760px}
+  .reactionPad,.mashPad{min-height:200px}
+}
+
+@media (min-width:600px) and (max-width:1024px){
+  .app{padding-left:20px;padding-right:20px}
+  .mainPanel{padding:20px}
+  .choiceDeck{gap:12px}
+  .cardFace{border-radius:18px}
+  .tierTitle{font-size:clamp(18px,3vw,25px)}
+  .cardFront em{font-size:clamp(22px,4vw,30px)}
+  .drawnDeck,.statMatrix{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .players{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tutorialGrid{grid-template-columns:1fr 1fr}
+}
+
+@media (max-width:599px){
+  body{background:#080a0f}
+  .app{padding-top:10px;padding-left:max(8px,env(safe-area-inset-left));padding-right:max(8px,env(safe-area-inset-right));padding-bottom:max(26px,env(safe-area-inset-bottom))}
+  .top{gap:8px;margin-bottom:10px}
+  .brand{font-size:24px;letter-spacing:-.04em}
+  .sub{font-size:9px;letter-spacing:.1em;margin-top:3px}
+  .roomBadge{width:100%;padding:8px 10px;border-radius:10px}
+  .panel{border-radius:16px}
+  .mainPanel{padding:10px}
+  .section{margin-top:10px;padding:12px;border-radius:14px}
+
+  .cleanHome{gap:14px;padding-top:2px}
+  .homeIntro{padding:2px}
+  .cleanHome .lobbyHeadline{font-size:34px;line-height:1.04;margin:10px 0 8px}
+  .cleanHome .lobbyLead{font-size:13px;line-height:1.5}
+  .startPanel{padding:12px;border-radius:14px}
+  .modeGrid{grid-template-columns:1fr 1fr;gap:7px}
+  .modeCard{padding:12px 10px;border-radius:12px;grid-template-columns:1fr auto;gap:3px 6px}
+  .modeCard b{font-size:15px}.modeCard strong{font-size:20px}.modeCard span:last-child{font-size:10px;line-height:1.3}
+  .lobbyActions{grid-template-columns:1fr;gap:8px}.createRoomBtn{min-height:82px}
+  .joinRow{display:grid;grid-template-columns:1fr auto;gap:7px}.joinRow .btn{min-width:74px}
+  .homeSteps{display:none}
+
+  .forgeTop{gap:8px}.forgeTop h3{font-size:21px;margin:4px 0}.forgeTop p{font-size:12px;line-height:1.4}
+  .drawCounter{padding:7px 9px}.drawCounter b{font-size:20px}
+  .drawRail{display:flex;overflow-x:auto;gap:6px;padding-bottom:4px;scrollbar-width:none}.drawRail::-webkit-scrollbar{display:none}.railStep{flex:0 0 auto;min-width:86px;padding:7px}
+  .drawStage{padding:11px;border-radius:14px}.stageCopy{margin-bottom:10px;gap:4px}.stageCopy h2{font-size:23px}.stageCopy p{font-size:11px}
+  .choiceDeck{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;width:100%}
+  .choiceCard{aspect-ratio:2.8/4.15}
+  .cardFace{border-radius:12px}
+  .cardBack:before{inset:7px;border-radius:9px}
+  .pickNo{top:8px;left:8px;font-size:8px}.backMark{width:40px;height:40px;border-radius:11px;font-size:18px}.cardBack b{font-size:8px;letter-spacing:.18em;margin-top:8px}.cardBack small{display:none}
+  .cardFront{padding:8px 5px}.rarityPill{top:6px;left:6px;font-size:7px;padding:3px 5px}.cardCategoryLabel{font-size:8px;margin:14px 0 4px}.tierTitle{font-size:12px;line-height:1.08}.cardFront em{font-size:14px;margin:5px 0}.cardFront p{display:none}.selectedFlag{bottom:6px;font-size:6px;padding:3px 5px}
+  .nextDraw{width:100%;min-width:0}
+  .drawnDeck,.statMatrix{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.miniDrawCard{padding:8px}.statMatrix>span{padding:9px}
+  .forgeActions{display:grid!important;grid-template-columns:1fr;gap:7px}.forgeActions .btn{width:100%}
+
+  .players{grid-template-columns:1fr}.playerCard{padding:12px}.score{font-size:24px}
+  .roomTop h2{font-size:24px}.roomTop p{font-size:11px}
+  .roulette{padding:12px 8px;margin-bottom:12px;border-radius:14px}.rouletteWindow{min-height:70px;margin:8px auto}.rouletteWindow span{font-size:25px}.rouletteMeta{font-size:10px}
+  .tutorialArena{padding:10px}.tutorialGrid{grid-template-columns:1fr;gap:8px}.tutorialRules,.practiceBox{padding:11px}.tutorialRules h3,.practiceBox h3{font-size:17px}.tutorialStep{padding:7px 0;font-size:11px}.consentBar{padding:10px;gap:8px}
+
+  .gameHeader h2{font-size:24px}.minigameBox{padding:10px;border-radius:13px}.reactionPad,.mashPad{min-height:180px;border-radius:13px;font-size:32px}.gameReadout{gap:10px;flex-wrap:wrap}.logicQuestion{font-size:28px}.logicOptions,.wordOptions{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.choiceBtn{min-height:56px;font-size:16px}.timingTrack{height:64px}.memoryFlash{font-size:44px;padding:26px 5px}
+
+  .chatPanel{padding:10px}.chatLog{height:210px}.chatExplain{font-size:10px}.chatPanel .row{gap:6px}.chatPanel .input{min-width:0}.chatPanel .btn{padding:0 12px;min-width:66px}
+  .resultGrid{grid-template-columns:1fr}.finalPanel h1{font-size:30px}
+}
+
+@media (max-width:360px){
+  .cleanHome .lobbyHeadline{font-size:30px}
+  .modeGrid{grid-template-columns:1fr}
+  .choiceDeck{gap:4px}.choiceCard{aspect-ratio:2.65/4.25}.tierTitle{font-size:11px}.cardFront em{font-size:12px}
+  .drawnDeck,.statMatrix{grid-template-columns:1fr 1fr}
+  .logicOptions,.wordOptions{grid-template-columns:1fr}
+}
+
+@media (orientation:landscape) and (max-height:560px) and (max-width:1024px){
+  .app{padding-top:8px}.top{flex-direction:row;align-items:center}.sub{display:none}.chatLog{height:170px}
+  .reactionPad,.mashPad{min-height:130px}.rouletteWindow{min-height:64px}.tutorialStep{padding:6px 0}
+}
