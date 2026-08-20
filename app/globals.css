@@ -159,3 +159,31 @@ input{font-size:16px}
   .app{padding-top:8px}.top{flex-direction:row;align-items:center}.sub{display:none}.chatLog{height:170px}
   .reactionPad,.mashPad{min-height:130px}.rouletteWindow{min-height:64px}.tutorialStep{padding:6px 0}
 }
+
+/* v13 health draft + touch joystick */
+.drawRail{grid-template-columns:repeat(8,minmax(0,1fr))}
+.drawnDeck{grid-template-columns:repeat(8,minmax(0,1fr))}
+.statMatrix{grid-template-columns:repeat(8,minmax(0,1fr))}
+.medicalNote{display:block;margin-top:6px;color:#6e7887;font-size:10px;line-height:1.45}
+.conditionDebuff{display:inline-flex;align-items:center;gap:6px;margin:0 0 8px;padding:7px 10px;border:1px solid #50333a;background:#1a1014;border-radius:999px;color:#dbaab2;font-size:11px}
+.conditionDebuff b{color:#ff9eaa}
+.gameWithControls{min-width:0}
+.touchControls{display:none;align-items:center;justify-content:center;gap:28px;margin-top:14px;padding:14px;border-top:1px solid #202733}
+.joystickBase{position:relative;width:132px;height:132px;flex:0 0 132px;border-radius:50%;background:radial-gradient(circle at 50% 48%,#171e29 0,#0d1219 58%,#080b10 100%);border:1px solid #303a49;box-shadow:inset 0 0 0 10px #0a0e14;touch-action:none;user-select:none}
+.joystickRing{position:absolute;inset:30px;border:1px solid #2a3442;border-radius:50%}
+.joystickStick{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px;border-radius:50%;background:linear-gradient(180deg,#657186,#394252);border:1px solid #7c8799;box-shadow:0 8px 18px rgba(0,0,0,.35);transition:transform .07s linear;pointer-events:none}
+.joyLabel{position:absolute;left:0;right:0;bottom:8px;text-align:center;color:#4f5b6b;font-size:8px;font-weight:900;letter-spacing:.15em;pointer-events:none}
+.actionButton{width:82px;height:82px;border-radius:50%;border:1px solid #775d30;background:radial-gradient(circle at 35% 30%,#f0cf7c,#9b7437 68%,#654821);color:#161006;font-size:26px;font-weight:950;box-shadow:0 10px 25px rgba(0,0,0,.28);touch-action:manipulation}
+.actionButton:active{transform:scale(.96)}
+
+@media (hover:none) and (pointer:coarse){
+  .touchControls{display:flex}
+}
+@media (min-width:600px) and (max-width:1024px){
+  .drawnDeck,.statMatrix{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .touchControls{gap:44px}.joystickBase{width:150px;height:150px;flex-basis:150px}.actionButton{width:92px;height:92px}
+}
+@media (max-width:599px){
+  .drawnDeck,.statMatrix{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .touchControls{gap:22px;padding:12px 4px 4px}.joystickBase{width:122px;height:122px;flex-basis:122px}.actionButton{width:76px;height:76px}
+}

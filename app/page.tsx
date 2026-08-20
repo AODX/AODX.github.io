@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -10,9 +10,9 @@ const supabase = createClient(
 
 type GameMode = 'normal' | 'long';
 type MiniGameType = 'arm_mash' | 'arm_timing' | 'leg_reaction' | 'leg_timing' | 'cardio_mash' | 'cardio_timing' | 'bone_timing' | 'bone_reaction' | 'intelligence_logic' | 'intelligence_memory' | 'verbal_logic' | 'verbal_reaction' | 'tool_timing' | 'tool_reaction';
-type CardCategory = 'arm' | 'leg' | 'cardio' | 'bone' | 'tool' | 'intelligence' | 'verbal';
+type CardCategory = 'arm' | 'leg' | 'cardio' | 'bone' | 'condition' | 'tool' | 'intelligence' | 'verbal';
 type CardRarity = '일반' | '고급' | '희귀' | '영웅' | '전설';
-type CharacterStats = { arm:number; leg:number; cardio:number; bone:number; tool:number; intelligence:number; verbal:number };
+type CharacterStats = { arm:number; leg:number; cardio:number; bone:number; condition:number; tool:number; intelligence:number; verbal:number };
 type DrawnCard = { category:CardCategory; title:string; subtitle:string; rarity:CardRarity; value:number; display:string; bonusText:string };
 type CharacterChoices = { cards:DrawnCard[] };
 type ArenaRoom = { id:string; code:string; host_session_id:string; mode:GameMode; win_target:number; status:'lobby'|'playing'|'round_result'|'finished'; current_game:MiniGameType|null; game_no:number; game_seed:number; winner_player_id:string|null; created_at:string };
@@ -27,14 +27,15 @@ const cardStages:{ key:CardCategory; label:string; eyebrow:string; icon:string; 
   { key:'bone', label:'골밀도', eyebrow:'PHYSICAL 04', icon:'BONE', description:'충격을 버티고 부상 위험을 낮추는 골격 내구도입니다.' },
   { key:'intelligence', label:'IQ', eyebrow:'MIND 05', icon:'IQ', description:'추론·기억·패턴 파악 미니게임에 영향을 주는 지능 수치입니다.' },
   { key:'verbal', label:'언어능력', eyebrow:'SOCIAL 06', icon:'WORD', description:'즉답·설득·언어 판단 미니게임에 영향을 줍니다.' },
-  { key:'tool', label:'도구', eyebrow:'EQUIPMENT 07', icon:'TOOL', description:'마지막에 장비를 뽑습니다. 맨손이 가장 흔하고 좋은 장비일수록 희귀합니다.' },
+  { key:'condition', label:'건강 상태', eyebrow:'CONDITION 07', icon:'HEALTH', description:'3장 중 하나를 고릅니다. 정상일 수도 있지만 질환 카드가 나오면 모든 미니게임에 게임용 디버프가 적용됩니다.' },
+  { key:'tool', label:'도구', eyebrow:'EQUIPMENT 08', icon:'TOOL', description:'마지막에 장비를 뽑습니다. 맨손이 가장 흔하고 좋은 장비일수록 희귀합니다.' },
 ];
 
 const rarityWeights:{ rarity:CardRarity; weight:number }[] = [
   { rarity:'일반', weight:54 }, { rarity:'고급', weight:25 }, { rarity:'희귀', weight:13 }, { rarity:'영웅', weight:6.5 }, { rarity:'전설', weight:1.5 },
 ];
 
-const statCardValues:Record<Exclude<CardCategory,'tool'>,Record<CardRarity,{value:number;display:string;title:string;subtitle:string}[]>> = {
+const statCardValues:Record<Exclude<CardCategory,'tool'|'condition'>,Record<CardRarity,{value:number;display:string;title:string;subtitle:string}[]>> = {
   arm:{
     '일반':[{value:10,display:'10 kg',title:'매우 약한 팔힘',subtitle:'붙잡기와 밀기에서 쉽게 밀리는 편'},{value:14,display:'14 kg',title:'약한 팔힘',subtitle:'짧은 연타에도 힘이 빨리 떨어짐'},{value:18,display:'18 kg',title:'평균 이하 팔힘',subtitle:'일상 수준은 가능하지만 힘 대결에는 불리'}],
     '고급':[{value:34,display:'34 kg',title:'운동으로 다져진 팔',subtitle:'안정적인 상체 출력'},{value:42,display:'42 kg',title:'강한 악력',subtitle:'짧은 순간 높은 힘을 냄'}],
@@ -79,6 +80,28 @@ const statCardValues:Record<Exclude<CardCategory,'tool'>,Record<CardRarity,{valu
   },
 };
 
+const conditionCards:{ rarity:CardRarity; title:string; subtitle:string; value:number; display:string; weight:number }[] = [
+  { rarity:'희귀', title:'정상', subtitle:'특별한 건강 디버프가 없습니다.', value:0, display:'디버프 없음', weight:40 },
+  { rarity:'일반', title:'감기', subtitle:'게임 내 전체 능력 보정이 소폭 감소합니다.', value:-4, display:'전체 -4', weight:17 },
+  { rarity:'일반', title:'알레르기 증상', subtitle:'컨디션 저하로 게임 내 전체 능력 보정이 감소합니다.', value:-5, display:'전체 -5', weight:10 },
+  { rarity:'일반', title:'편두통', subtitle:'집중 저하 상태로 게임 내 전체 능력 보정이 감소합니다.', value:-6, display:'전체 -6', weight:8 },
+  { rarity:'고급', title:'빈혈 상태', subtitle:'게임 내 지속력과 반응 보정에 불리한 전체 디버프가 적용됩니다.', value:-7, display:'전체 -7', weight:7 },
+  { rarity:'고급', title:'천식', subtitle:'게임 밸런스용 상태 카드로 전체 능력 보정이 감소합니다.', value:-9, display:'전체 -9', weight:6 },
+  { rarity:'고급', title:'독감', subtitle:'강한 컨디션 저하로 게임 내 전체 능력 보정이 감소합니다.', value:-10, display:'전체 -10', weight:5 },
+  { rarity:'희귀', title:'폐렴', subtitle:'게임 내 큰 컨디션 디버프가 적용됩니다.', value:-13, display:'전체 -13', weight:3.5 },
+  { rarity:'영웅', title:'만성 통증', subtitle:'모든 미니게임에 강한 게임용 디버프가 적용됩니다.', value:-15, display:'전체 -15', weight:2 },
+  { rarity:'전설', title:'암', subtitle:'매우 희귀한 중증 상태 카드입니다. 게임 내 가장 큰 전체 디버프가 적용됩니다.', value:-20, display:'전체 -20', weight:1.5 },
+];
+
+function drawConditionCard():DrawnCard {
+  const total=conditionCards.reduce((a,b)=>a+b.weight,0);
+  const roll=Math.random()*total;
+  let sum=0;
+  let item=conditionCards[0];
+  for(const row of conditionCards){ sum+=row.weight; if(roll<sum){item=row;break;} }
+  return { category:'condition', rarity:item.rarity, title:item.title, subtitle:item.subtitle, value:item.value, display:item.display, bonusText:item.value===0?'건강 디버프 없음':`전체 능력 ${item.value}` };
+}
+
 const toolCards:{ rarity:CardRarity; title:string; subtitle:string; value:number; display:string; weight:number }[] = [
   { rarity:'일반', title:'맨손', subtitle:'무기 없이 순수 신체 능력으로 승부합니다.', value:0, display:'맨손', weight:46 },
   { rarity:'일반', title:'풍선검', subtitle:'가볍고 긴 모양 덕분에 거리 감각 연습에는 도움이 됩니다.', value:4, display:'장난감 무기', weight:15 },
@@ -112,9 +135,10 @@ function pickRarity():CardRarity {
 function drawCard(category:CardCategory):DrawnCard {
   const rarity=pickRarity();
   if(category==='tool') return drawToolCard();
+  if(category==='condition') return drawConditionCard();
   const pool=statCardValues[category][rarity];
   const item=pool[Math.floor(Math.random()*pool.length)];
-  const names:Record<Exclude<CardCategory,'tool'>,string>={arm:'팔힘',leg:'다리힘',cardio:'심폐지구력',bone:'골밀도',intelligence:'지능',verbal:'언어능력'};
+  const names:Record<Exclude<CardCategory,'tool'|'condition'>,string>={arm:'팔힘',leg:'다리힘',cardio:'심폐지구력',bone:'골밀도',intelligence:'지능',verbal:'언어능력'};
   return { category, rarity, title:item.title, subtitle:item.subtitle, value:item.value, display:item.display, bonusText:`${names[category]} +${item.value}` };
 }
 
@@ -131,6 +155,7 @@ function cardLevelLabel(category:CardCategory, rarity:CardRarity):string {
   const verbal:Record<CardRarity,string> = {
     '일반':'평균 이하', '고급':'평균', '희귀':'평균 이상', '영웅':'프로 토론가급', '전설':'세계 최정상급'
   };
+  if(category==='condition') return rarity==='희귀' ? '정상 컨디션' : '건강 디버프';
   if(category==='tool') return tool[rarity];
   if(category==='intelligence') return mind[rarity];
   if(category==='verbal') return verbal[rarity];
@@ -143,7 +168,7 @@ function cardPercentText(rarity:CardRarity):string {
 }
 
 function buildStats(cards:DrawnCard[]):CharacterStats {
-  const stats:CharacterStats={ arm:0,leg:0,cardio:0,bone:0,tool:0,intelligence:0,verbal:0 };
+  const stats:CharacterStats={ arm:0,leg:0,cardio:0,bone:0,condition:0,tool:0,intelligence:0,verbal:0 };
   for(const card of cards) stats[card.category]=card.value;
   return stats;
 }
@@ -222,6 +247,45 @@ function MiniGameRoulette({ selected, seed, onDone }: { selected: MiniGameType; 
   </div>;
 }
 
+type JoystickDirection = 'up'|'right'|'down'|'left'|'action';
+function emitJoystick(direction:JoystickDirection){
+  if(typeof window==='undefined') return;
+  window.dispatchEvent(new CustomEvent('vanta-joystick',{detail:{direction}}));
+}
+function useJoystickInput(handler:(direction:JoystickDirection)=>void){
+  const handlerRef=useRef(handler);
+  handlerRef.current=handler;
+  useEffect(()=>{
+    const listener=(event:Event)=>{
+      const e=event as CustomEvent<{direction:JoystickDirection}>;
+      if(e.detail?.direction) handlerRef.current(e.detail.direction);
+    };
+    window.addEventListener('vanta-joystick',listener as EventListener);
+    return ()=>window.removeEventListener('vanta-joystick',listener as EventListener);
+  },[]);
+}
+function VirtualJoystick(){
+  const baseRef=useRef<HTMLDivElement>(null);
+  const activeRef=useRef(false);
+  const lastEmitRef=useRef(0);
+  const [stick,setStick]=useState({x:0,y:0});
+  function move(clientX:number,clientY:number,force=false){
+    const rect=baseRef.current?.getBoundingClientRect(); if(!rect) return;
+    const dx=clientX-(rect.left+rect.width/2), dy=clientY-(rect.top+rect.height/2);
+    const max=rect.width*.29; const len=Math.hypot(dx,dy)||1; const scale=Math.min(1,max/len);
+    const x=dx*scale,y=dy*scale; setStick({x,y});
+    if(Math.hypot(dx,dy)<rect.width*.16) return;
+    const direction:JoystickDirection=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up');
+    const now=performance.now(); if(force||now-lastEmitRef.current>95){lastEmitRef.current=now;emitJoystick(direction);}
+  }
+  return <div className="touchControls" aria-label="모바일 조이스틱">
+    <div ref={baseRef} className="joystickBase" onPointerDown={e=>{activeRef.current=true;e.currentTarget.setPointerCapture(e.pointerId);move(e.clientX,e.clientY,true);}} onPointerMove={e=>{if(activeRef.current)move(e.clientX,e.clientY);}} onPointerUp={()=>{activeRef.current=false;setStick({x:0,y:0});}} onPointerCancel={()=>{activeRef.current=false;setStick({x:0,y:0});}}>
+      <span className="joystickRing"/><span className="joystickStick" style={{transform:`translate(${stick.x}px,${stick.y}px)`}}/><span className="joyLabel">MOVE</span>
+    </div>
+    <button type="button" className="actionButton" onPointerDown={()=>emitJoystick('action')}>A</button>
+  </div>;
+}
+
 function ReactionGame({ seed, stat, onFinish, disabled }: { seed: number; stat: number; onFinish: (raw: number, adjusted: number, detail: Record<string, unknown>) => void; disabled: boolean }) {
   const [phase, setPhase] = useState<'idle' | 'wait' | 'go' | 'done'>('idle');
   const [text, setText] = useState('준비 버튼을 누르세요');
@@ -241,6 +305,8 @@ function ReactionGame({ seed, stat, onFinish, disabled }: { seed: number; stat: 
       setText('지금!');
     }, delay);
   }
+
+  useJoystickInput(direction=>{ if(direction==='action' && phase==='idle') start(); else if(phase!=='idle') hit(); });
 
   function hit() {
     if (disabled || phase === 'done' || phase === 'idle') return;
@@ -290,6 +356,8 @@ function MashGame({ statPower, statEndurance, onFinish, disabled }: { statPower:
     }, 50);
   }
 
+  useJoystickInput(()=>{ if(!running && !doneRef.current) start(); else tap(); });
+
   function tap() {
     if (!running || disabled) return;
     countRef.current += 1;
@@ -325,6 +393,8 @@ function TimingGame({ stat, onFinish, disabled }: { stat: number; onFinish: (raw
     };
     frameRef.current = requestAnimationFrame(loop);
   }
+
+  useJoystickInput(()=>{ if(!running && !done) start(); else stop(); });
 
   function stop() {
     if (!running || disabled) return;
@@ -371,6 +441,8 @@ function LogicGame({ seed, stat, onFinish, disabled }: { seed: number; stat: num
     onFinish(raw, adjusted, { correct, answer: v, expected: q.answer, ms, logicStat: stat });
   }
 
+  useJoystickInput(direction=>{ if(!started){ if(direction==='action') start(); return; } if(done) return; const map:Record<string,number>={up:0,right:1,down:2,left:3}; const idx=map[direction]; if(idx!==undefined && q.options[idx]!==undefined) answer(q.options[idx]); });
+
   return <div className="minigameBox">
     {!started && <button className="btn primary big" onClick={start} disabled={disabled}>문제 열기</button>}
     {started && <>
@@ -414,6 +486,8 @@ function MemoryGame({ seed, stat, onFinish, disabled }: { seed:number; stat:numb
     setPhase('done');
     onFinish(raw,adjusted,{correct,answer:v,expected:digits,ms,iq:stat});
   }
+  useJoystickInput(direction=>{ if(phase==='idle'){ if(direction==='action') start(); return; } if(phase!=='pick') return; const map:Record<string,number>={up:0,right:1,down:2,left:3}; const idx=map[direction]; if(idx!==undefined && options[idx]!==undefined) choose(options[idx]); });
+
   return <div className="minigameBox">
     {phase==='idle' && <button className="btn primary big" onClick={start} disabled={disabled}>기억 도전 시작</button>}
     {phase==='show' && <div className="memoryFlash">{digits}</div>}
@@ -446,6 +520,8 @@ function WordGame({ seed, stat, onFinish, disabled }: { seed:number; stat:number
     const adjusted=correct?Math.round(raw+stat*7):0;
     setDone(true); onFinish(raw,adjusted,{correct,answer:v,expected:q.a,ms,verbal:stat});
   }
+  useJoystickInput(direction=>{ if(!started){ if(direction==='action') start(); return; } if(done) return; const map:Record<string,number>={up:0,right:1,down:2,left:3}; const idx=map[direction]; if(idx!==undefined && options[idx]!==undefined) choose(options[idx]); });
+
   return <div className="minigameBox">
     {!started && <button className="btn primary big" onClick={start} disabled={disabled}>문제 시작</button>}
     {started && <><div className="wordQuestion">{q.q}</div><div className="wordOptions">{options.map(v=><button className="choiceBtn" key={v} onClick={()=>choose(v)} disabled={done}>{v}</button>)}</div></>}
@@ -454,22 +530,26 @@ function WordGame({ seed, stat, onFinish, disabled }: { seed:number; stat:number
 }
 
 function GameRenderer({ type, player, seed, onFinish, disabled }: { type:MiniGameType; player:ArenaPlayer; seed:number; onFinish:GameFinish; disabled:boolean }) {
+  const debuff=Math.min(0,player.stats.condition||0);
+  const adjustedStat=(value:number)=>Math.max(0,value+debuff);
+  let game:ReactNode;
   switch(type){
-    case 'arm_mash': return <MashGame statPower={player.stats.arm} statEndurance={Math.round(player.stats.arm/2)} onFinish={onFinish} disabled={disabled}/>;
-    case 'arm_timing': return <TimingGame stat={player.stats.arm} onFinish={onFinish} disabled={disabled}/>;
-    case 'leg_reaction': return <ReactionGame seed={seed} stat={Math.round(player.stats.leg/2)} onFinish={onFinish} disabled={disabled}/>;
-    case 'leg_timing': return <TimingGame stat={Math.round(player.stats.leg/2)} onFinish={onFinish} disabled={disabled}/>;
-    case 'cardio_mash': return <MashGame statPower={Math.max(1,Math.round(player.stats.cardio/20))} statEndurance={Math.min(150,Math.round(player.stats.cardio/3))} onFinish={onFinish} disabled={disabled}/>;
-    case 'cardio_timing': return <TimingGame stat={Math.min(160,Math.round(player.stats.cardio/4))} onFinish={onFinish} disabled={disabled}/>;
-    case 'bone_timing': return <TimingGame stat={player.stats.bone} onFinish={onFinish} disabled={disabled}/>;
-    case 'bone_reaction': return <ReactionGame seed={seed+911} stat={player.stats.bone} onFinish={onFinish} disabled={disabled}/>;
-    case 'intelligence_logic': return <LogicGame seed={seed} stat={Math.max(0,player.stats.intelligence-70)} onFinish={onFinish} disabled={disabled}/>;
-    case 'intelligence_memory': return <MemoryGame seed={seed} stat={player.stats.intelligence} onFinish={onFinish} disabled={disabled}/>;
-    case 'verbal_logic': return <WordGame seed={seed} stat={player.stats.verbal} onFinish={onFinish} disabled={disabled}/>;
-    case 'verbal_reaction': return <ReactionGame seed={seed+2027} stat={player.stats.verbal} onFinish={onFinish} disabled={disabled}/>;
-    case 'tool_timing': return <TimingGame stat={player.stats.tool} onFinish={onFinish} disabled={disabled}/>;
-    case 'tool_reaction': return <ReactionGame seed={seed+4441} stat={player.stats.tool} onFinish={onFinish} disabled={disabled}/>;
+    case 'arm_mash': game=<MashGame statPower={adjustedStat(player.stats.arm)} statEndurance={adjustedStat(Math.round(player.stats.arm/2))} onFinish={onFinish} disabled={disabled}/>; break;
+    case 'arm_timing': game=<TimingGame stat={adjustedStat(player.stats.arm)} onFinish={onFinish} disabled={disabled}/>; break;
+    case 'leg_reaction': game=<ReactionGame seed={seed} stat={adjustedStat(Math.round(player.stats.leg/2))} onFinish={onFinish} disabled={disabled}/>; break;
+    case 'leg_timing': game=<TimingGame stat={adjustedStat(Math.round(player.stats.leg/2))} onFinish={onFinish} disabled={disabled}/>; break;
+    case 'cardio_mash': game=<MashGame statPower={adjustedStat(Math.max(1,Math.round(player.stats.cardio/20)))} statEndurance={adjustedStat(Math.min(150,Math.round(player.stats.cardio/3)))} onFinish={onFinish} disabled={disabled}/>; break;
+    case 'cardio_timing': game=<TimingGame stat={adjustedStat(Math.min(160,Math.round(player.stats.cardio/4)))} onFinish={onFinish} disabled={disabled}/>; break;
+    case 'bone_timing': game=<TimingGame stat={adjustedStat(player.stats.bone)} onFinish={onFinish} disabled={disabled}/>; break;
+    case 'bone_reaction': game=<ReactionGame seed={seed+911} stat={adjustedStat(player.stats.bone)} onFinish={onFinish} disabled={disabled}/>; break;
+    case 'intelligence_logic': game=<LogicGame seed={seed} stat={adjustedStat(Math.max(0,player.stats.intelligence-70))} onFinish={onFinish} disabled={disabled}/>; break;
+    case 'intelligence_memory': game=<MemoryGame seed={seed} stat={adjustedStat(player.stats.intelligence)} onFinish={onFinish} disabled={disabled}/>; break;
+    case 'verbal_logic': game=<WordGame seed={seed} stat={adjustedStat(player.stats.verbal)} onFinish={onFinish} disabled={disabled}/>; break;
+    case 'verbal_reaction': game=<ReactionGame seed={seed+2027} stat={adjustedStat(player.stats.verbal)} onFinish={onFinish} disabled={disabled}/>; break;
+    case 'tool_timing': game=<TimingGame stat={adjustedStat(player.stats.tool)} onFinish={onFinish} disabled={disabled}/>; break;
+    case 'tool_reaction': game=<ReactionGame seed={seed+4441} stat={adjustedStat(player.stats.tool)} onFinish={onFinish} disabled={disabled}/>; break;
   }
+  return <div className="gameWithControls">{debuff<0&&<div className="conditionDebuff">건강 상태 디버프 <b>{debuff}</b></div>}{game}<VirtualJoystick/></div>;
 }
 
 function toolName(player:ArenaPlayer | undefined):string {
@@ -742,24 +822,24 @@ export default function Home() {
           <div className="roomTop"><div><span className="kicker">MATCH ROOM</span><h2>방 {room.code}</h2><p>{room.mode === 'long' ? '10승을 먼저 달성하면 우승' : '2승을 먼저 달성하면 우승'}</p></div><button className="btn danger" onClick={leaveRoom}>방 나가기</button></div>
 
           {!me && isSetupLobby && <div className="section cardForge">
-            <div className="forgeTop"><div><span className="kicker">CHARACTER DRAFT</span><h3 className="title">카드 3장 중 하나를 고르세요</h3><p className="muted">앞면은 선택 전까지 보이지 않습니다. <b>팔힘 → 다리힘 → 심폐지구력 → 골밀도 → IQ → 언어능력 → 도구</b> 순서로 진행됩니다.</p></div><div className="drawCounter"><b>{Math.min(activeDraw + 1, cardStages.length)}</b><span>/ {cardStages.length}</span></div></div>
+            <div className="forgeTop"><div><span className="kicker">CHARACTER DRAFT</span><h3 className="title">카드 3장 중 하나를 고르세요</h3><p className="muted">앞면은 선택 전까지 보이지 않습니다. <b>팔힘 → 다리힘 → 심폐지구력 → 골밀도 → IQ → 언어능력 → 건강 상태 → 도구</b> 순서로 진행됩니다.</p></div><div className="drawCounter"><b>{Math.min(activeDraw + 1, cardStages.length)}</b><span>/ {cardStages.length}</span></div></div>
             <input className="input premiumInput" value={charName} onChange={e => setCharName(e.target.value)} maxLength={24} placeholder="캐릭터 이름" />
             <div className="drawRail">{cardStages.map((stage,idx)=><div key={stage.key} className={`railStep ${idx < activeDraw ? 'done' : idx === activeDraw ? 'active' : ''}`}><span>{idx < activeDraw ? '✓' : idx + 1}</span><small>{stage.label}</small></div>)}</div>
             {activeDraw < cardStages.length ? <div className="drawStage">
               <div className="stageCopy"><span className="eyebrow">{cardStages[activeDraw].eyebrow}</span><h2>{cardStages[activeDraw].label}</h2><p>{cardStages[activeDraw].description}</p></div>
               <div className="choiceDeck" aria-label={`${cardStages[activeDraw].label} 카드 3장 중 하나 선택`}>
-                {[0,1,2].map(index => { const chosen=selectedChoice===index; const locked=selectedChoice!==null&&!chosen; const card=cardChoices[index]; return <button type="button" key={`${activeDraw}-${index}`} className={`choiceCard ${chosen ? 'chosen flipped' : ''} ${locked ? 'discarded' : ''}`} onClick={()=>chooseCurrentCard(index)} disabled={isCardFlipped} aria-label={`${index+1}번 카드 선택`}><span className="cardInner"><span className="cardFace cardBack"><span className="pickNo">0{index+1}</span><span className="backMark">V</span><b>VANTA</b><small>HIDDEN CARD</small></span><span className={`cardFace cardFront rarity-${chosen&&card?card.rarity:'일반'}`}>{chosen&&card&&<><span className="rarityPill">{card.rarity}</span><small className="cardCategoryLabel">{cardStages[activeDraw].label}</small><strong className="tierTitle">{card.category==='tool' ? card.title : cardLevelLabel(card.category,card.rarity)}</strong><em>{card.display}</em><p><b>{card.title}</b><br/>{card.subtitle}</p><span className="selectedFlag">SELECTED</span></>}</span></span></button>; })}
+                {[0,1,2].map(index => { const chosen=selectedChoice===index; const locked=selectedChoice!==null&&!chosen; const card=cardChoices[index]; return <button type="button" key={`${activeDraw}-${index}`} className={`choiceCard ${chosen ? 'chosen flipped' : ''} ${locked ? 'discarded' : ''}`} onClick={()=>chooseCurrentCard(index)} disabled={isCardFlipped} aria-label={`${index+1}번 카드 선택`}><span className="cardInner"><span className="cardFace cardBack"><span className="pickNo">0{index+1}</span><span className="backMark">V</span><b>VANTA</b><small>HIDDEN CARD</small></span><span className={`cardFace cardFront rarity-${chosen&&card?card.rarity:'일반'}`}>{chosen&&card&&<><span className="rarityPill">{card.rarity}</span><small className="cardCategoryLabel">{cardStages[activeDraw].label}</small><strong className="tierTitle">{card.category==='tool'||card.category==='condition' ? card.title : cardLevelLabel(card.category,card.rarity)}</strong><em>{card.display}</em><p><b>{card.title}</b><br/>{card.subtitle}</p><span className="selectedFlag">SELECTED</span></>}</span></span></button>; })}
               </div>
-              {!isCardFlipped ? <div className="drawHint">세 장 중 원하는 카드 하나를 선택하세요.</div> : <button type="button" className="btn primary nextDraw" onClick={goNextCard}>{activeDraw===cardStages.length-1?'캐릭터 완성':'다음 카드'}</button>}
+              {!isCardFlipped ? <div className="drawHint">세 장 중 원하는 카드 하나를 선택하세요.{cardStages[activeDraw].key==='condition'&&<small className="medicalNote">상태 카드는 게임 밸런스용 가상 수치이며 실제 의학적 판단과 무관합니다.</small>}</div> : <button type="button" className="btn primary nextDraw" onClick={goNextCard}>{activeDraw===cardStages.length-1?'캐릭터 완성':'다음 카드'}</button>}
             </div> : <div className="forgeComplete"><span className="kicker">DRAFT COMPLETE</span><h2>{charName.trim()||'이름 없는 캐릭터'}</h2><p>모든 능력 카드 선택이 끝났습니다.</p></div>}
-            {drawnCards.length>0 && <div className="drawnDeck">{drawnCards.map((card,idx)=><div className={`miniDrawCard rarity-${card.rarity}`} key={`${card.category}-${idx}`}><span>{cardStages.find(x=>x.key===card.category)?.label}</span><b>{card.category==='tool'?card.title:cardLevelLabel(card.category,card.rarity)}</b><strong>{card.display}</strong></div>)}</div>}
-            <div className="statsPreview premiumStats"><b>현재 캐릭터</b><div className="statMatrix"><span>팔힘<strong>{previewStats.arm} kg</strong></span><span>다리힘<strong>{previewStats.leg} kg</strong></span><span>심폐<strong>{previewStats.cardio>=60?`${Math.round(previewStats.cardio/60)}분`:`${previewStats.cardio}초`}</strong></span><span>골밀도<strong>{previewStats.bone}%</strong></span><span>IQ<strong>{previewStats.intelligence||'-'}</strong></span><span>언어<strong>{previewStats.verbal}</strong></span><span>도구<strong>{drawnCards.find(c=>c.category==='tool')?.title||'-'}</strong></span></div></div>
+            {drawnCards.length>0 && <div className="drawnDeck">{drawnCards.map((card,idx)=><div className={`miniDrawCard rarity-${card.rarity}`} key={`${card.category}-${idx}`}><span>{cardStages.find(x=>x.key===card.category)?.label}</span><b>{card.category==='tool'||card.category==='condition'?card.title:cardLevelLabel(card.category,card.rarity)}</b><strong>{card.display}</strong></div>)}</div>}
+            <div className="statsPreview premiumStats"><b>현재 캐릭터</b><div className="statMatrix"><span>팔힘<strong>{previewStats.arm} kg</strong></span><span>다리힘<strong>{previewStats.leg} kg</strong></span><span>심폐<strong>{previewStats.cardio>=60?`${Math.round(previewStats.cardio/60)}분`:`${previewStats.cardio}초`}</strong></span><span>골밀도<strong>{previewStats.bone}%</strong></span><span>IQ<strong>{previewStats.intelligence||'-'}</strong></span><span>언어<strong>{previewStats.verbal}</strong></span><span>건강<strong>{drawnCards.find(c=>c.category==='condition')?.title||'-'}</strong></span><span>도구<strong>{drawnCards.find(c=>c.category==='tool')?.title||'-'}</strong></span></div></div>
             <div className="row forgeActions"><button className="btn ghost" onClick={resetCardDraw} disabled={drawnCards.length===0}>처음부터</button><button className="btn gold grow" onClick={createCharacter} disabled={!allCardsDrawn||!charName.trim()}>이 캐릭터로 참가</button></div>
           </div>}
 
           <div className="section playerSection">
             <div className="row between"><h3 className="title">플레이어 {players.length}/2</h3>{me && isSetupLobby && <button className={`btn ${me.ready?'gold':'primary'}`} onClick={toggleReady}>{me.ready?'준비 취소':'매치 준비'}</button>}</div>
-            <div className="players">{players.map(p=><div className={`playerCard ${p.id===me?.id?'me':''}`} key={p.id}><div className="row between"><strong>{p.char_name}</strong><span className={`ready ${p.ready?'yes':''}`}>{p.ready?'READY':'WAIT'}</span></div><div className="muted">{p.user_name}{p.id===me?.id?' · 나':''}</div><div className="score">{p.score} / {room.win_target}승</div><div className="statChips"><span>팔 {p.stats.arm}</span><span>다리 {p.stats.leg}</span><span>심폐 {p.stats.cardio}</span><span>골밀도 {p.stats.bone}%</span><span>IQ {p.stats.intelligence}</span><span>언어 {p.stats.verbal}</span><span>도구 {toolName(p)}</span></div></div>)}</div>
+            <div className="players">{players.map(p=><div className={`playerCard ${p.id===me?.id?'me':''}`} key={p.id}><div className="row between"><strong>{p.char_name}</strong><span className={`ready ${p.ready?'yes':''}`}>{p.ready?'READY':'WAIT'}</span></div><div className="muted">{p.user_name}{p.id===me?.id?' · 나':''}</div><div className="score">{p.score} / {room.win_target}승</div><div className="statChips"><span>팔 {p.stats.arm}</span><span>다리 {p.stats.leg}</span><span>심폐 {p.stats.cardio}</span><span>골밀도 {p.stats.bone}%</span><span>IQ {p.stats.intelligence}</span><span>언어 {p.stats.verbal}</span><span>건강 {p.choices?.cards?.find(c=>c.category==='condition')?.title||'정상'}</span><span>도구 {toolName(p)}</span></div></div>)}</div>
             {players.length<2 && <div className="status">상대가 방 코드 <b>{room.code}</b>로 들어오기를 기다리는 중…</div>}
           </div>
 
