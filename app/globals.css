@@ -398,3 +398,52 @@ body:before{
 @media(prefers-reduced-motion:reduce){
   .mysteryCard,.rarity-전설.cardFront{animation:none!important}
 }
+
+/* =========================================================
+   v5 CLARITY - simpler, brighter, easier to understand
+   ========================================================= */
+:root{
+  --clear-bg:#070910;
+  --clear-panel:#101521;
+  --clear-card:#141b29;
+  --clear-line:#29364a;
+  --clear-text:#f8fbff;
+  --clear-muted:#a7b1c2;
+  --clear-cyan:#72f5d0;
+  --clear-blue:#74a7ff;
+  --clear-purple:#a98cff;
+  --clear-gold:#ffd36c;
+}
+body{background:radial-gradient(1000px 620px at 50% -10%,rgba(81,105,255,.18),transparent 58%),linear-gradient(180deg,#0b0e17,#05070b 68%);}
+body:before{opacity:.12}
+.app{max-width:1320px;padding:22px clamp(10px,2vw,24px) 38px}
+.top{margin-bottom:16px;padding:4px 2px 12px}
+.brand{font-size:clamp(27px,4vw,44px);letter-spacing:-.05em;background:none;color:#fff;filter:none}
+.sub{font-size:13px;color:#aeb8ca;margin-top:7px}
+.layout{grid-template-columns:minmax(0,1fr) 330px;gap:16px}
+.panel{border-radius:20px;background:#0d121c;border:1px solid #202b3b;box-shadow:0 18px 55px rgba(0,0,0,.28);backdrop-filter:none}
+.mainPanel{padding:20px}.chatPanel{padding:15px;border-radius:18px}
+.section{border-top:1px solid #202b3b;padding-top:18px;margin-top:18px}
+.title{font-weight:950;color:#fff}
+.muted,.hint,.chatExplain{color:#9faabd}
+.btn{border-radius:13px;min-height:48px;font-size:14px}.primary{background:linear-gradient(180deg,#b8ffe8,#6ee3c2);color:#05100d}.purple{background:linear-gradient(180deg,#9b8cff,#6d5add)}
+.modeCard{min-height:110px;border:2px solid #243044;background:#111824}.modeCard b{font-size:21px}.modeCard span{font-size:13px;color:#a6b0c0}.modeCard.selected{border-color:#72f5d0;background:#10241f;box-shadow:0 0 0 4px rgba(114,245,208,.07)}
+
+.cardForge{padding:22px;background:linear-gradient(180deg,#111827,#0a0f18);border:1px solid #2a3850;border-radius:22px;overflow:visible}
+.cardForge:before{display:none}.forgeTop{align-items:center;margin-bottom:16px}.forgeTop .title{font-size:clamp(25px,3vw,34px);margin:5px 0}.forgeTop p{font-size:13px;color:#b0bacb;max-width:760px}.forgeTop p b{color:#fff}.kicker{color:#72f5d0;font-size:11px;letter-spacing:.07em;text-transform:none}
+.drawCounter{background:#172131;border:1px solid #334158;border-radius:15px;padding:11px 14px}.drawCounter b{font-size:28px}.drawCounter span{color:#a5b0c1}
+.premiumInput{background:#070b12;border:2px solid #2c394e;min-height:54px;font-size:17px}
+.drawRail{gap:7px;margin:14px 0 18px}.railStep{min-height:52px;padding:8px;background:#0b111b;border:1px solid #202c3e;color:#7f8b9e}.railStep span{width:28px;height:28px}.railStep small{font-size:11px}.railStep.active{border:2px solid #72f5d0;background:#102a24;color:#e9fff8;box-shadow:0 0 0 4px rgba(114,245,208,.06)}.railStep.done{background:#101a1a;color:#91e8d1}
+.drawStage{min-height:480px;grid-template-columns:minmax(0,.8fr) minmax(290px,370px);padding:30px;gap:24px 34px;background:#080d15;border:1px solid #27344a;border-radius:22px}
+.stageCopy .eyebrow{display:none}.stageCopy h2{font-size:clamp(38px,6vw,64px);margin:0 0 12px;color:#fff}.stageCopy p{font-size:16px;line-height:1.65;color:#b0bacb;max-width:460px}.drawHint{font-size:14px;color:#dce5f4;font-weight:800}.nextDraw{font-size:15px;min-width:210px}
+.mysteryCard{max-width:360px;justify-self:end;filter:drop-shadow(0 28px 40px rgba(0,0,0,.4))}.cardFace{border-radius:26px}.cardBack{border:2px solid #40506a;background:radial-gradient(circle at 50% 35%,#27344a,#111824 58%,#080c13);box-shadow:0 28px 70px rgba(0,0,0,.46),inset 0 0 0 8px rgba(255,255,255,.018)}.cardBack:after{border:2px solid rgba(114,245,208,.28)}.backMark{width:96px;height:96px;border-radius:50%;font-size:42px;background:#101c21;border:2px solid #72f5d0;color:#baffe9}.cardBack b{font-size:13px;color:#fff}.cardBack small{font-size:12px;color:#9da9ba}
+.cardFront{padding:24px 24px 22px;background:linear-gradient(180deg,#17202e,#0b1018);border:2px solid currentColor}.cardFront:before{opacity:.6}.rarityPill{top:16px;left:16px;font-size:10px;background:rgba(5,8,12,.72);padding:6px 10px}.frontIcon{width:64px;height:64px;border-radius:18px;margin-bottom:13px}.cardCategoryLabel{font-size:12px!important;color:#aab5c5!important}.tierTitle{font-size:clamp(27px,4vw,38px)!important;line-height:1.05;margin:7px 0 7px!important;color:currentColor!important}.cardFront em{font-size:clamp(32px,5vw,48px);color:#fff}.standingBadge{margin-top:9px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.12);font-size:11px;font-weight:900;color:#fff}.wowLine{width:100%;margin-top:11px;padding:11px 12px;border-radius:12px;background:currentColor;color:#081018;font-size:16px;font-weight:1000;letter-spacing:-.02em}.cardFront p{margin-top:11px;color:#aeb8c8;font-size:11px;line-height:1.45}.cardFront p b{color:#edf3fb;font-size:12px}.rarity-일반{color:#c7cfdb}.rarity-고급{color:#7fe8ca}.rarity-희귀{color:#74a7ff}.rarity-영웅{color:#bd91ff}.rarity-전설{color:#ffd36c}
+.drawnDeck{grid-template-columns:repeat(3,1fr);gap:9px;margin-top:14px}.miniDrawCard{padding:12px 13px;border-radius:13px;background:#0a1019;border:1px solid #27344a;gap:4px}.miniDrawCard span{font-size:10px;color:#8d99aa}.miniDrawCard b{font-size:14px;white-space:normal;color:currentColor}.miniDrawCard strong{font-size:18px;color:#fff}.miniDrawCard small{font-size:11px;color:#aab4c4}
+.premiumStats{background:#0a1019;border:1px solid #27344a;padding:14px}.premiumStats>b{font-size:14px}.statMatrix{grid-template-columns:repeat(3,1fr);gap:8px}.statMatrix span{background:#101827;border:1px solid #253249;border-radius:10px;font-size:11px;color:#9ba7b9}.statMatrix strong{font-size:21px;color:#fff}
+.forgeActions{gap:10px}.forgeActions .gold{background:linear-gradient(180deg,#ffe38f,#e4b94c);color:#171004}
+.playerCard{border:1px solid #2a3850;background:#0b111a}.playerCard.me{border:2px solid #72f5d0}.statChips span{font-size:11px;background:#111a27;border:1px solid #293750}
+.arenaSection{background:#0a1019;border:1px solid #2b3950}.gameHeader h2{font-size:27px}.statFocus{background:#111a27;border:1px solid #33425a}.statFocus b{color:#72f5d0}
+.chatLog{background:#070b11;border:1px solid #202c3e}.who{color:#72f5d0}
+@media(max-width:1000px){.layout{grid-template-columns:1fr}.chatPanel{position:static;height:380px}.drawStage{grid-template-columns:minmax(0,1fr) minmax(270px,340px)}}
+@media(max-width:700px){.app{padding:10px}.mainPanel{padding:13px}.cardForge{padding:14px}.forgeTop{align-items:flex-start}.drawRail{grid-template-columns:repeat(3,1fr)}.drawStage{grid-template-columns:1fr;grid-template-areas:"copy" "card" "hint";min-height:0;padding:18px}.stageCopy{text-align:center}.stageCopy h2{font-size:42px}.stageCopy p{font-size:14px;margin:auto}.mysteryCard{max-width:310px;justify-self:center}.drawnDeck,.statMatrix{grid-template-columns:repeat(2,1fr)}.nextDraw{width:100%;justify-self:stretch}.forgeActions{align-items:stretch}.forgeActions .btn{width:100%}}
+@media(max-width:390px){.drawRail{grid-template-columns:repeat(2,1fr)}.drawnDeck,.statMatrix{grid-template-columns:1fr}.tierTitle{font-size:29px!important}.cardFront em{font-size:36px}}

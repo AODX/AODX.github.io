@@ -21,12 +21,12 @@ type ArenaResult = { id:number; room_id:string; game_no:number; player_id:string
 type ChatMessage = { id:number; room_id:string|null; session_id:string; user_name:string; body:string; created_at:string };
 
 const cardStages:{ key:CardCategory; label:string; eyebrow:string; icon:string; description:string }[] = [
-  { key:'arm', label:'팔힘', eyebrow:'PHYSICAL 01', icon:'ARM', description:'밀기·당기기·연타 계열의 기본 출력' },
-  { key:'leg', label:'다리힘', eyebrow:'PHYSICAL 02', icon:'LEG', description:'순간 가속과 반응 속도에 영향을 주는 하체 출력' },
-  { key:'cardio', label:'심폐지구력', eyebrow:'PHYSICAL 03', icon:'LUNG', description:'오래 버티는 능력과 연속 행동 유지력' },
-  { key:'tool', label:'도구', eyebrow:'UTILITY 04', icon:'TOOL', description:'랜덤 도구가 조작 계열 미니게임에 보너스 제공' },
-  { key:'intelligence', label:'지능', eyebrow:'MIND 05', icon:'INT', description:'패턴 파악과 문제 해결 속도' },
-  { key:'verbal', label:'언어능력', eyebrow:'SOCIAL 06', icon:'WORD', description:'언어 순발력과 빠른 판단 능력' },
+  { key:'arm', label:'팔힘', eyebrow:'PHYSICAL 01', icon:'ARM', description:'팔로 내는 힘. 카드가 공개되면 평균 대비 어느 정도인지 바로 보여줘요.' },
+  { key:'leg', label:'다리힘', eyebrow:'PHYSICAL 02', icon:'LEG', description:'달리기·점프·순간 가속에 쓰는 하체 힘을 보여줘요.' },
+  { key:'cardio', label:'심폐지구력', eyebrow:'PHYSICAL 03', icon:'LUNG', description:'얼마나 오래 지치지 않고 움직일 수 있는지 보여줘요.' },
+  { key:'tool', label:'도구', eyebrow:'UTILITY 04', icon:'TOOL', description:'맨손이 가장 자주 나오고, 풍선검·스펀지 검·목검 같은 전투용 도구가 낮은 확률로 등장해요.' },
+  { key:'intelligence', label:'지능', eyebrow:'MIND 05', icon:'INT', description:'문제 이해·패턴 파악·판단 속도가 어느 정도인지 보여줘요.' },
+  { key:'verbal', label:'언어능력', eyebrow:'SOCIAL 06', icon:'WORD', description:'말센스·설득·즉답 능력이 어느 정도인지 보여줘요.' },
 ];
 
 const rarityWeights:{ rarity:CardRarity; weight:number }[] = [
@@ -71,13 +71,28 @@ const statCardValues:Record<Exclude<CardCategory,'tool'>,Record<CardRarity,{valu
   },
 };
 
-const toolCards:Record<CardRarity,{title:string;subtitle:string;value:number;display:string}[]> = {
-  '일반':[{title:'손목 밴드',subtitle:'흔들림을 조금 줄여준다',value:15,display:'+15 CONTROL'},{title:'스톱워치',subtitle:'타이밍 감각을 보조한다',value:18,display:'+18 CONTROL'}],
-  '고급':[{title:'그립 글러브',subtitle:'입력 안정성이 좋아진다',value:30,display:'+30 CONTROL'},{title:'스포츠 테이프',subtitle:'집중을 유지하기 쉬워진다',value:34,display:'+34 CONTROL'}],
-  '희귀':[{title:'프로 컨트롤러',subtitle:'도구 조작 보정이 크게 상승',value:52,display:'+52 CONTROL'}],
-  '영웅':[{title:'정밀 센서 글러브',subtitle:'타이밍 조작에 강한 보정',value:76,display:'+76 CONTROL'}],
-  '전설':[{title:'오메가 기어',subtitle:'극도로 희귀한 최고급 도구',value:120,display:'+120 CONTROL'}],
-};
+const toolCards:{ rarity:CardRarity; title:string; subtitle:string; value:number; display:string; weight:number }[] = [
+  { rarity:'일반', title:'맨손', subtitle:'별도 도구 없이 신체 능력만으로 승부', value:0, display:'무장 없음', weight:42 },
+  { rarity:'일반', title:'풍선검', subtitle:'매우 가볍고 다루기 쉽지만 전투 영향은 작음', value:6, display:'도움 낮음', weight:18 },
+  { rarity:'일반', title:'스펀지 검', subtitle:'가볍고 안전한 연습용 검', value:10, display:'도움 낮음', weight:13 },
+  { rarity:'고급', title:'고무 망치', subtitle:'묵직한 타격감을 주는 연습용 도구', value:16, display:'도움 보통', weight:9 },
+  { rarity:'고급', title:'훈련용 방패', subtitle:'공격보다는 방어와 버티기에 유리', value:20, display:'방어 보조', weight:7 },
+  { rarity:'희귀', title:'목검', subtitle:'균형 잡힌 훈련용 무기. 공격과 방어 모두에 도움', value:30, display:'도움 높음', weight:6 },
+  { rarity:'희귀', title:'연습용 장봉', subtitle:'긴 사거리로 거리 유지에 유리한 훈련용 도구', value:34, display:'도움 높음', weight:3 },
+  { rarity:'영웅', title:'강화 목검', subtitle:'무게 균형이 뛰어나 전투 미니게임에 큰 보정', value:48, display:'큰 도움', weight:1.5 },
+  { rarity:'전설', title:'챔피언 훈련검', subtitle:'극히 드문 최고급 훈련용 장비', value:70, display:'매우 큰 도움', weight:0.5 },
+];
+
+function drawToolCard():DrawnCard {
+  const roll=Math.random()*100;
+  let sum=0;
+  let item=toolCards[0];
+  for(const row of toolCards){
+    sum+=row.weight;
+    if(roll<sum){ item=row; break; }
+  }
+  return { category:'tool', rarity:item.rarity, title:item.title, subtitle:item.subtitle, value:item.value, display:item.display, bonusText:`도구 보정 +${item.value}` };
+}
 
 function pickRarity():CardRarity {
   const roll=Math.random()*100;
@@ -88,15 +103,35 @@ function pickRarity():CardRarity {
 
 function drawCard(category:CardCategory):DrawnCard {
   const rarity=pickRarity();
-  if(category==='tool'){
-    const pool=toolCards[rarity];
-    const item=pool[Math.floor(Math.random()*pool.length)];
-    return { category, rarity, title:item.title, subtitle:item.subtitle, value:item.value, display:item.display, bonusText:`도구 조작 +${item.value}` };
-  }
+  if(category==='tool') return drawToolCard();
   const pool=statCardValues[category][rarity];
   const item=pool[Math.floor(Math.random()*pool.length)];
   const names:Record<Exclude<CardCategory,'tool'>,string>={arm:'팔힘',leg:'다리힘',cardio:'심폐지구력',intelligence:'지능',verbal:'언어능력'};
   return { category, rarity, title:item.title, subtitle:item.subtitle, value:item.value, display:item.display, bonusText:`${names[category]} +${item.value}` };
+}
+
+function cardLevelLabel(category:CardCategory, rarity:CardRarity):string {
+  const physical:Record<CardRarity,string> = {
+    '일반':'평균 이하', '고급':'평균', '희귀':'평균 이상', '영웅':'프로급 운동선수', '전설':'세계 최정상급'
+  };
+  const tool:Record<CardRarity,string> = {
+    '일반':'전투 도움 · 거의 없음', '고급':'전투 도움 · 낮음', '희귀':'전투 도움 · 보통', '영웅':'전투 도움 · 높음', '전설':'전투 도움 · 매우 높음'
+  };
+  const mind:Record<CardRarity,string> = {
+    '일반':'평균 이하', '고급':'평균', '희귀':'평균 이상', '영웅':'상위 1%급', '전설':'세계 최정상급'
+  };
+  const verbal:Record<CardRarity,string> = {
+    '일반':'평균 이하', '고급':'평균', '희귀':'평균 이상', '영웅':'프로 토론가급', '전설':'세계 최정상급'
+  };
+  if(category==='tool') return tool[rarity];
+  if(category==='intelligence') return mind[rarity];
+  if(category==='verbal') return verbal[rarity];
+  return physical[rarity];
+}
+
+function cardPercentText(rarity:CardRarity):string {
+  const t:Record<CardRarity,string> = {'일반':'하위권','고급':'보통','희귀':'상위권','영웅':'최상위권','전설':'극소수'};
+  return t[rarity];
 }
 
 function buildStats(cards:DrawnCard[]):CharacterStats {
@@ -109,7 +144,7 @@ const miniGameInfo:Record<MiniGameType,{name:string;stat:string;desc:string}>={
   arm:{ name:'팔힘 연타전', stat:'팔힘', desc:'5초 동안 최대한 빠르게 연타해 상체 출력을 증명하세요.' },
   leg:{ name:'다리 반응전', stat:'다리힘', desc:'신호가 바뀌는 순간 눌러 순간 가속과 반응을 겨룹니다.' },
   cardio:{ name:'심폐 버티기', stat:'심폐지구력', desc:'8초 동안 페이스를 유지하며 최대한 많은 입력을 성공시키세요.' },
-  tool:{ name:'도구 컨트롤', stat:'도구', desc:'움직이는 게이지를 중앙에 정밀하게 멈추세요.' },
+  tool:{ name:'도구 활용전', stat:'도구', desc:'뽑은 도구의 보정을 받아 움직이는 게이지를 정확한 타이밍에 멈추세요.' },
   intelligence:{ name:'지능 스피드전', stat:'지능', desc:'같은 패턴 문제를 더 빠르고 정확하게 풀어보세요.' },
   verbal:{ name:'언어 순발전', stat:'언어능력', desc:'언어 패턴 문제를 빠르게 판단해 정답을 선택하세요.' },
 };
@@ -502,7 +537,7 @@ export default function Home() {
 
   return <main className="app">
     <header className="top">
-      <div><div className="brand">AURELIS // CHARACTER ARENA</div><div className="sub">랜덤 카드로 완성한 캐릭터를 직접 조작하는 실시간 2인 아레나</div></div>
+      <div><div className="brand">캐릭터 카드 아레나</div><div className="sub">카드 6장을 순서대로 뽑고, 완성된 캐릭터로 미니게임 대결!</div></div>
       {room && <div className="roomBadge">ROOM <b>{room.code}</b> · {room.mode === 'long' ? '롱 플레이 / 10승' : '일반 / 2승'}</div>}
     </header>
 
@@ -529,7 +564,7 @@ export default function Home() {
 
           {!me && room.status === 'lobby' && <div className="section cardForge">
             <div className="forgeTop">
-              <div><span className="kicker">CHARACTER FORGE</span><h3 className="title">카드로 캐릭터 생성</h3><p className="muted">카드 내용은 미리 볼 수 없습니다. 팔힘 → 다리힘 → 심폐지구력 → 도구 → 지능 → 언어능력 순서로 한 장씩 공개됩니다.</p></div>
+              <div><span className="kicker">캐릭터 만들기</span><h3 className="title">6장을 순서대로 뽑아보세요</h3><p className="muted">앞면은 절대 미리 보이지 않습니다. <b>팔힘 → 다리힘 → 심폐지구력 → 도구 → 지능 → 언어능력</b> 순서로 한 장씩 공개돼요.</p></div>
               <div className="drawCounter"><b>{Math.min(activeDraw + 1, cardStages.length)}</b><span>/ {cardStages.length}</span></div>
             </div>
             <input className="input premiumInput" value={charName} onChange={e => setCharName(e.target.value)} maxLength={24} placeholder="캐릭터 이름을 입력하세요" />
@@ -542,14 +577,22 @@ export default function Home() {
                 <span className="cardInner">
                   <span className="cardFace cardBack"><span className="backMark">A</span><span className="backGrid"/><b>SEALED CARD</b><small>탭해서 공개</small></span>
                   <span className={`cardFace cardFront rarity-${drawnCards[activeDraw]?.rarity || '일반'}`}>
-                    <span className="rarityPill">{drawnCards[activeDraw]?.rarity || ''}</span><span className="frontIcon">{cardStages[activeDraw].icon}</span><small>{cardStages[activeDraw].label}</small><strong>{drawnCards[activeDraw]?.title || ''}</strong><em>{drawnCards[activeDraw]?.display || ''}</em><p>{drawnCards[activeDraw]?.subtitle || ''}</p>
+                    <span className="rarityPill">{drawnCards[activeDraw]?.rarity || ''}</span>
+                    <span className="frontIcon">{cardStages[activeDraw].icon}</span>
+                    <small className="cardCategoryLabel">{cardStages[activeDraw].label}</small>
+                    {drawnCards[activeDraw] && <>
+                      <strong className="tierTitle">{cardLevelLabel(drawnCards[activeDraw].category, drawnCards[activeDraw].rarity)}</strong>
+                      <em>{drawnCards[activeDraw].display}</em>
+                      <span className="standingBadge">체감 등급 · {cardPercentText(drawnCards[activeDraw].rarity)}</span>
+                      <p><b>{drawnCards[activeDraw].title}</b><br/>{drawnCards[activeDraw].subtitle}</p>
+                    </>}
                   </span>
                 </span>
               </button>
               {!isCardFlipped ? <div className="drawHint">카드를 눌러 랜덤 능력을 공개하세요.</div> : <button type="button" className="btn primary nextDraw" onClick={goNextCard}>{activeDraw === cardStages.length - 1 ? '카드 완성' : '다음 카드 뽑기 →'}</button>}
             </div> : <div className="forgeComplete"><span className="kicker">BUILD COMPLETE</span><h2>{charName.trim() || '이름 없는 캐릭터'}</h2><p>6장의 랜덤 카드가 모두 공개되었습니다.</p></div>}
 
-            {drawnCards.length > 0 && <div className="drawnDeck">{drawnCards.map((card,idx)=><div className={`miniDrawCard rarity-${card.rarity}`} key={`${card.category}-${idx}`}><span>{cardStages.find(x=>x.key===card.category)?.label}</span><b>{card.title}</b><strong>{card.display}</strong><small>{card.rarity}</small></div>)}</div>}
+            {drawnCards.length > 0 && <div className="drawnDeck">{drawnCards.map((card,idx)=><div className={`miniDrawCard rarity-${card.rarity}`} key={`${card.category}-${idx}`}><span>{cardStages.find(x=>x.key===card.category)?.label}</span><b>{cardLevelLabel(card.category, card.rarity)}</b><strong>{card.display}</strong></div>)}</div>}
 
             <div className="statsPreview premiumStats"><b>현재 능력치</b><div className="statMatrix"><span>팔힘<strong>{previewStats.arm}</strong></span><span>다리힘<strong>{previewStats.leg}</strong></span><span>심폐<strong>{previewStats.cardio}</strong></span><span>도구<strong>{previewStats.tool}</strong></span><span>지능<strong>{previewStats.intelligence}</strong></span><span>언어<strong>{previewStats.verbal}</strong></span></div></div>
             <div className="row forgeActions"><button className="btn ghost" onClick={resetCardDraw} disabled={drawnCards.length === 0}>처음부터 다시</button><button className="btn gold grow" onClick={createCharacter} disabled={!allCardsDrawn || !charName.trim()}>이 캐릭터로 참가</button></div>
