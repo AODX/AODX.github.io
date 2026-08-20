@@ -9,7 +9,7 @@ const supabase = createClient(
 );
 
 type GameMode = 'normal' | 'long';
-type MiniGameType = 'arm' | 'leg' | 'cardio' | 'bone' | 'intelligence' | 'verbal' | 'tool';
+type MiniGameType = 'arm_mash' | 'arm_timing' | 'leg_reaction' | 'leg_timing' | 'cardio_mash' | 'cardio_timing' | 'bone_timing' | 'bone_reaction' | 'intelligence_logic' | 'intelligence_memory' | 'verbal_logic' | 'verbal_reaction' | 'tool_timing' | 'tool_reaction';
 type CardCategory = 'arm' | 'leg' | 'cardio' | 'bone' | 'tool' | 'intelligence' | 'verbal';
 type CardRarity = '일반' | '고급' | '희귀' | '영웅' | '전설';
 type CharacterStats = { arm:number; leg:number; cardio:number; bone:number; tool:number; intelligence:number; verbal:number };
@@ -25,7 +25,7 @@ const cardStages:{ key:CardCategory; label:string; eyebrow:string; icon:string; 
   { key:'leg', label:'다리힘', eyebrow:'PHYSICAL 02', icon:'LEG', description:'달리기·점프·킥·순간 가속에 영향을 주는 하체 출력입니다.' },
   { key:'cardio', label:'심폐지구력', eyebrow:'PHYSICAL 03', icon:'LUNG', description:'지치지 않고 움직일 수 있는 지속 시간을 결정합니다.' },
   { key:'bone', label:'골밀도', eyebrow:'PHYSICAL 04', icon:'BONE', description:'충격을 버티고 부상 위험을 낮추는 골격 내구도입니다.' },
-  { key:'intelligence', label:'지능', eyebrow:'MIND 05', icon:'INT', description:'패턴 파악·판단·전략 미니게임에 영향을 줍니다.' },
+  { key:'intelligence', label:'IQ', eyebrow:'MIND 05', icon:'IQ', description:'추론·기억·패턴 파악 미니게임에 영향을 주는 지능 수치입니다.' },
   { key:'verbal', label:'언어능력', eyebrow:'SOCIAL 06', icon:'WORD', description:'즉답·설득·언어 판단 미니게임에 영향을 줍니다.' },
   { key:'tool', label:'도구', eyebrow:'EQUIPMENT 07', icon:'TOOL', description:'마지막에 장비를 뽑습니다. 맨손이 가장 흔하고 좋은 장비일수록 희귀합니다.' },
 ];
@@ -64,11 +64,11 @@ const statCardValues:Record<Exclude<CardCategory,'tool'>,Record<CardRarity,{valu
     '전설':[{value:185,display:'평균 대비 185%',title:'세계 최정상급 골격',subtitle:'게임 내 최상급 충격 내성'}],
   },
   intelligence:{
-    '일반':[{value:8,display:'8 PTS',title:'판단이 느림',subtitle:'패턴을 파악하는 데 시간이 오래 걸림'},{value:14,display:'14 PTS',title:'단순한 사고',subtitle:'복잡한 규칙에서 실수가 잦음'},{value:20,display:'20 PTS',title:'평균 이하 판단력',subtitle:'기본 문제는 풀지만 빠른 전략전에 불리'}],
-    '고급':[{value:38,display:'38 PTS',title:'분석형 사고',subtitle:'규칙을 빨리 발견'},{value:46,display:'46 PTS',title:'고속 추론',subtitle:'논리전에서 높은 보정'}],
-    '희귀':[{value:62,display:'62 PTS',title:'전략 두뇌',subtitle:'복잡한 패턴도 빠르게 처리'}],
-    '영웅':[{value:84,display:'84 PTS',title:'천재적 직관',subtitle:'문제 해결 속도가 매우 빠름'}],
-    '전설':[{value:130,display:'130 PTS',title:'오라클 브레인',subtitle:'전설급 분석 능력'}],
+    '일반':[{value:75,display:'IQ 75',title:'매우 느린 판단',subtitle:'복잡한 규칙과 빠른 판단에 크게 불리'},{value:85,display:'IQ 85',title:'느린 분석',subtitle:'단순한 문제는 풀지만 패턴 파악이 느린 편'},{value:95,display:'IQ 95',title:'평균 이하 추론',subtitle:'기본적인 판단은 가능하지만 전략전에는 약간 불리'}],
+    '고급':[{value:100,display:'IQ 100',title:'평균적인 사고력',subtitle:'일반적인 문제를 안정적으로 처리'},{value:110,display:'IQ 110',title:'빠른 분석력',subtitle:'규칙과 패턴을 비교적 빠르게 발견'}],
+    '희귀':[{value:120,display:'IQ 120',title:'뛰어난 전략 두뇌',subtitle:'복잡한 패턴도 빠르게 처리'}],
+    '영웅':[{value:135,display:'IQ 135',title:'최상위권 추론력',subtitle:'고난도 문제 해결과 순간 판단에 강함'}],
+    '전설':[{value:155,display:'IQ 155',title:'세계급 천재',subtitle:'게임 내 최상급 분석과 추론 능력'}],
   },
   verbal:{
     '일반':[{value:7,display:'7 PTS',title:'말문이 잘 막힘',subtitle:'즉답과 설득에서 크게 불리'},{value:12,display:'12 PTS',title:'서툰 화법',subtitle:'압박 상황에서 표현이 자주 꼬임'},{value:18,display:'18 PTS',title:'평균 이하 언어능력',subtitle:'기본 대화는 가능하지만 언어전에 약함'}],
@@ -80,15 +80,15 @@ const statCardValues:Record<Exclude<CardCategory,'tool'>,Record<CardRarity,{valu
 };
 
 const toolCards:{ rarity:CardRarity; title:string; subtitle:string; value:number; display:string; weight:number }[] = [
-  { rarity:'일반', title:'맨손', subtitle:'장비 보정 없음. 순수 신체 능력으로만 승부합니다.', value:0, display:'장비 없음', weight:46 },
-  { rarity:'일반', title:'풍선검', subtitle:'사거리는 생기지만 너무 가벼워 전투 보정은 거의 없습니다.', value:4, display:'전투 보정 +4', weight:15 },
-  { rarity:'일반', title:'스펀지 검', subtitle:'다루기 쉽지만 타격과 견제 효과가 낮습니다.', value:8, display:'전투 보정 +8', weight:11 },
-  { rarity:'고급', title:'고무 망치', subtitle:'짧은 사거리 대신 묵직한 타이밍 공격에 도움을 줍니다.', value:15, display:'전투 보정 +15', weight:8 },
-  { rarity:'고급', title:'훈련용 방패', subtitle:'공격력은 낮지만 방어·버티기 판정에 유리합니다.', value:20, display:'전투 보정 +20', weight:7 },
-  { rarity:'희귀', title:'목검', subtitle:'공격·방어·사거리의 균형이 좋은 훈련용 무기입니다.', value:31, display:'전투 보정 +31', weight:6 },
-  { rarity:'희귀', title:'연습용 장봉', subtitle:'긴 사거리로 거리 유지와 선제 견제에 유리합니다.', value:35, display:'전투 보정 +35', weight:3.5 },
-  { rarity:'영웅', title:'강화 목검', subtitle:'균형과 무게 배분이 뛰어난 상급 훈련 장비입니다.', value:50, display:'전투 보정 +50', weight:2 },
-  { rarity:'전설', title:'챔피언 훈련검', subtitle:'극히 드문 최고급 훈련 장비. 도구 미니게임에서 압도적입니다.', value:72, display:'전투 보정 +72', weight:1.5 },
+  { rarity:'일반', title:'맨손', subtitle:'무기 없이 순수 신체 능력으로 승부합니다.', value:0, display:'맨손', weight:46 },
+  { rarity:'일반', title:'풍선검', subtitle:'가볍고 긴 모양 덕분에 거리 감각 연습에는 도움이 됩니다.', value:4, display:'장난감 무기', weight:15 },
+  { rarity:'일반', title:'스펀지 검', subtitle:'가볍고 다루기 쉬운 안전한 연습용 검입니다.', value:8, display:'연습용 검', weight:11 },
+  { rarity:'고급', title:'고무 망치', subtitle:'짧은 사거리 대신 타이밍을 맞춘 묵직한 한 방에 유리합니다.', value:15, display:'근거리 무기', weight:8 },
+  { rarity:'고급', title:'훈련용 방패', subtitle:'공격보다는 막기와 버티기에 특화된 장비입니다.', value:20, display:'방어 장비', weight:7 },
+  { rarity:'희귀', title:'목검', subtitle:'공격·방어·사거리 밸런스가 좋은 대표적인 훈련용 무기입니다.', value:31, display:'균형형 무기', weight:6 },
+  { rarity:'희귀', title:'연습용 장봉', subtitle:'긴 사거리로 거리 유지와 선제 견제에 유리합니다.', value:35, display:'장거리 무기', weight:3.5 },
+  { rarity:'영웅', title:'강화 목검', subtitle:'무게 중심과 그립이 뛰어난 상급 훈련용 무기입니다.', value:50, display:'상급 훈련 무기', weight:2 },
+  { rarity:'전설', title:'챔피언 훈련검', subtitle:'극히 드문 최고급 훈련 장비로 정교한 컨트롤에 강합니다.', value:72, display:'최상급 훈련 무기', weight:1.5 },
 ];
 
 function drawToolCard():DrawnCard {
@@ -123,7 +123,7 @@ function cardLevelLabel(category:CardCategory, rarity:CardRarity):string {
     '일반':'평균 이하', '고급':'평균', '희귀':'평균 이상', '영웅':'프로급 운동선수', '전설':'세계 최정상급'
   };
   const tool:Record<CardRarity,string> = {
-    '일반':'전투 도움 · 거의 없음', '고급':'전투 도움 · 낮음', '희귀':'전투 도움 · 보통', '영웅':'전투 도움 · 높음', '전설':'전투 도움 · 매우 높음'
+    '일반':'기본 장비', '고급':'실전형 장비', '희귀':'숙련자용 장비', '영웅':'상급 장비', '전설':'챔피언 장비'
   };
   const mind:Record<CardRarity,string> = {
     '일반':'평균 이하', '고급':'평균', '희귀':'평균 이상', '영웅':'상위 1%급', '전설':'세계 최정상급'
@@ -148,16 +148,24 @@ function buildStats(cards:DrawnCard[]):CharacterStats {
   return stats;
 }
 
-const miniGameInfo:Record<MiniGameType,{name:string;stat:string;desc:string}>={
-  arm:{ name:'팔힘 연타전', stat:'팔힘', desc:'제한 시간 동안 빠르게 연타해 상체 출력을 겨룹니다.' },
-  leg:{ name:'다리 반응전', stat:'다리힘', desc:'신호가 바뀌는 순간 눌러 순간 가속과 반응을 겨룹니다.' },
-  cardio:{ name:'심폐 버티기', stat:'심폐지구력', desc:'페이스를 유지하며 최대한 많은 입력을 성공시키세요.' },
-  bone:{ name:'충격 버티기', stat:'골밀도', desc:'움직이는 게이지를 안전 구간에 맞춰 골격 내구도를 겨룹니다.' },
-  intelligence:{ name:'지능 스피드전', stat:'지능', desc:'패턴 문제를 더 빠르고 정확하게 풀어보세요.' },
-  verbal:{ name:'언어 순발전', stat:'언어능력', desc:'언어 패턴을 빠르게 판단해 정답을 선택하세요.' },
-  tool:{ name:'도구 활용전', stat:'도구', desc:'마지막 승부에서 뽑은 장비 보정을 활용해 정확도를 겨룹니다.' },
+const miniGameInfo:Record<MiniGameType,{name:string;stat:string;desc:string;tutorial:string[]}>= {
+  arm_mash:{ name:'파워 러시', stat:'팔힘', desc:'제한 시간 동안 최대한 빠르게 연타해 상체 출력을 겨룹니다.', tutorial:['TAP 버튼을 최대한 빠르게 누르세요.','7초 동안 누른 횟수가 기본 점수가 됩니다.','팔힘이 높을수록 최종 점수에 추가 보정이 붙습니다.'] },
+  arm_timing:{ name:'그립 타이밍', stat:'팔힘', desc:'움직이는 게이지를 중앙에 멈춰 순간적인 힘 조절을 겨룹니다.', tutorial:['게이지 시작을 누르면 바늘이 움직입니다.','중앙의 안전 구간에 들어왔을 때 STOP을 누르세요.','팔힘이 높으면 정확도 점수에 추가 보정이 붙습니다.'] },
+  leg_reaction:{ name:'스타트 대시', stat:'다리힘', desc:'신호가 뜨는 순간 눌러 폭발적인 스타트 반응을 겨룹니다.', tutorial:['준비 후 초록 신호가 뜰 때까지 기다리세요.','너무 일찍 누르면 큰 감점입니다.','다리힘이 높을수록 스타트 점수에 보정이 붙습니다.'] },
+  leg_timing:{ name:'스텝 컨트롤', stat:'다리힘', desc:'정확한 타이밍에 스텝을 멈춰 하체 컨트롤을 겨룹니다.', tutorial:['움직이는 바늘을 중앙 구간에 맞추세요.','가까울수록 높은 기본 점수를 얻습니다.','다리힘이 높으면 최종 점수가 더 올라갑니다.'] },
+  cardio_mash:{ name:'엔듀런스 러시', stat:'심폐지구력', desc:'꾸준히 입력을 이어가며 지구력과 페이스를 겨룹니다.', tutorial:['7초 동안 TAP을 계속 누르세요.','입력을 쉬지 않고 유지하는 것이 중요합니다.','심폐지구력이 높을수록 지속력 보정이 커집니다.'] },
+  cardio_timing:{ name:'페이스 메이커', stat:'심폐지구력', desc:'과하지도 느리지도 않은 페이스를 맞춰 지구력 조절을 겨룹니다.', tutorial:['게이지 중앙을 목표로 타이밍을 맞추세요.','너무 빠르거나 느리면 점수가 줄어듭니다.','심폐지구력이 높을수록 페이스 유지 보정이 붙습니다.'] },
+  bone_timing:{ name:'임팩트 가드', stat:'골밀도', desc:'충격 순간에 정확히 가드를 맞춰 내구도를 겨룹니다.', tutorial:['게이지가 중앙에 왔을 때 STOP을 누르세요.','중앙에 가까울수록 충격을 잘 받아냅니다.','골밀도가 높을수록 내구도 보정이 붙습니다.'] },
+  bone_reaction:{ name:'쇼크 리액트', stat:'골밀도', desc:'갑작스러운 충격 신호에 반응해 버티는 능력을 겨룹니다.', tutorial:['신호가 뜰 때까지 기다렸다가 즉시 누르세요.','성급하게 누르면 실점합니다.','골밀도가 높을수록 최종 생존 점수가 올라갑니다.'] },
+  intelligence_logic:{ name:'패턴 브레이커', stat:'IQ', desc:'숫자 규칙을 빠르게 찾아 정답을 고르는 추론전입니다.', tutorial:['문제 열기를 누르면 수열이 나타납니다.','규칙을 파악해 정답 하나를 빠르게 고르세요.','IQ가 높을수록 정답 시 보너스 점수가 붙습니다.'] },
+  intelligence_memory:{ name:'메모리 플래시', stat:'IQ', desc:'잠깐 보이는 숫자 배열을 기억해 정확히 찾아내는 기억전입니다.', tutorial:['숫자 배열이 잠깐 나타난 뒤 사라집니다.','기억한 배열과 같은 선택지를 누르세요.','IQ가 높을수록 정답 점수에 보정이 붙습니다.'] },
+  verbal_logic:{ name:'워드 로직', stat:'언어능력', desc:'단어 관계와 의미를 빠르게 판단하는 언어 추론전입니다.', tutorial:['문제를 읽고 가장 알맞은 단어를 고르세요.','정확도와 선택 속도를 함께 계산합니다.','언어능력이 높을수록 정답 보너스가 커집니다.'] },
+  verbal_reaction:{ name:'퀵 리스폰스', stat:'언어능력', desc:'문장이 뜨는 순간 빠르게 반응해 언어 순발력을 겨룹니다.', tutorial:['준비 후 신호 문구가 뜰 때까지 기다리세요.','문구가 뜨면 바로 버튼을 누르세요.','언어능력이 높을수록 순발력 점수에 보정이 붙습니다.'] },
+  tool_timing:{ name:'웨폰 컨트롤', stat:'장비', desc:'뽑은 장비의 특성을 살려 정확한 타이밍을 겨룹니다.', tutorial:['움직이는 게이지를 중앙 구간에 맞추세요.','좋은 장비일수록 컨트롤 점수에 약간의 보정이 붙습니다.','장비 이름과 특성은 캐릭터 카드에서 확인할 수 있습니다.'] },
+  tool_reaction:{ name:'레인지 듀얼', stat:'장비', desc:'거리 싸움 신호에 빠르게 반응해 장비 활용도를 겨룹니다.', tutorial:['신호가 뜰 때까지 기다리세요.','신호가 뜨면 즉시 반응 버튼을 누르세요.','장비 성능이 높을수록 활용 점수에 보정이 붙습니다.'] },
 };
-const miniGameOrder:MiniGameType[]=['arm','leg','cardio','bone','intelligence','verbal','tool'];
+const miniGameOrder:MiniGameType[]=['arm_mash','arm_timing','leg_reaction','leg_timing','cardio_mash','cardio_timing','bone_timing','bone_reaction','intelligence_logic','intelligence_memory','verbal_logic','verbal_reaction','tool_timing','tool_reaction'];
+
 function getSessionId() {
   if (typeof window === 'undefined') return '';
   let id = localStorage.getItem('arena-session-v2');
@@ -176,8 +184,42 @@ function timeText(v: string) {
   return new Date(v).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 }
 
-function nextGame(gameNo: number): MiniGameType {
-  return miniGameOrder[(gameNo - 1) % miniGameOrder.length];
+function pickRandomGame(previous: MiniGameType | null): MiniGameType {
+  const pool = previous ? miniGameOrder.filter(g => g !== previous) : miniGameOrder;
+  return pool[Math.floor(Math.random() * pool.length)] || 'arm_mash';
+}
+
+function MiniGameRoulette({ selected, seed, onDone }: { selected: MiniGameType; seed: number; onDone: () => void }) {
+  const [index, setIndex] = useState(Math.abs(seed) % miniGameOrder.length);
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    let step = 0;
+    const total = 28;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const spin = () => {
+      if (cancelled) return;
+      step += 1;
+      if (step >= total) {
+        setIndex(miniGameOrder.indexOf(selected));
+        setDone(true);
+        onDone();
+        return;
+      }
+      setIndex(prev => (prev + 1 + (step % 3 === 0 ? 1 : 0)) % miniGameOrder.length);
+      const progress = step / total;
+      const delay = 55 + Math.round(progress * progress * 270);
+      timer = setTimeout(spin, delay);
+    };
+    timer = setTimeout(spin, 120);
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [selected, seed, onDone]);
+  const active = miniGameOrder[index] || selected;
+  return <div className={`roulette ${done ? 'done' : ''}`}>
+    <div className="rouletteLabel">NEXT MINI GAME</div>
+    <div className="rouletteWindow"><span>{miniGameInfo[active].name}</span></div>
+    <div className="rouletteMeta">{done ? `${miniGameInfo[selected].stat} · 선택 완료` : '룰렛이 미니게임을 고르는 중...'}</div>
+  </div>;
 }
 
 function ReactionGame({ seed, stat, onFinish, disabled }: { seed: number; stat: number; onFinish: (raw: number, adjusted: number, detail: Record<string, unknown>) => void; disabled: boolean }) {
@@ -339,6 +381,102 @@ function LogicGame({ seed, stat, onFinish, disabled }: { seed: number; stat: num
   </div>;
 }
 
+
+type GameFinish = (raw: number, adjusted: number, detail: Record<string, unknown>) => void;
+
+function MemoryGame({ seed, stat, onFinish, disabled }: { seed:number; stat:number; onFinish:GameFinish; disabled:boolean }) {
+  const [phase, setPhase] = useState<'idle'|'show'|'pick'|'done'>('idle');
+  const [startedAt, setStartedAt] = useState(0);
+  const digits = useMemo(() => {
+    const nums:number[]=[];
+    let x=Math.abs(seed)+17;
+    for(let i=0;i<5;i++){ x=(x*9301+49297)%233280; nums.push(1+(x%9)); }
+    return nums.join('');
+  },[seed]);
+  const options = useMemo(() => {
+    const a = digits;
+    const b = digits.slice(0,3)+((Number(digits[3])+3)%9+1)+digits[4];
+    const c = ((Number(digits[0])+4)%9+1)+digits.slice(1);
+    const d = digits.slice(0,4)+((Number(digits[4])+5)%9+1);
+    return [a,b,c,d].sort((u,v)=>((u.charCodeAt(0)+seed)%13)-((v.charCodeAt(0)+seed)%13));
+  },[digits,seed]);
+  function start(){
+    if(disabled || phase!=='idle') return;
+    setPhase('show');
+    setTimeout(()=>{ setPhase('pick'); setStartedAt(performance.now()); }, 1500);
+  }
+  function choose(v:string){
+    if(disabled || phase!=='pick') return;
+    const ms=Math.round(performance.now()-startedAt);
+    const correct=v===digits;
+    const raw=correct?Math.max(200,2200-ms):0;
+    const adjusted=correct?Math.round(raw+Math.max(0,stat-70)*5):0;
+    setPhase('done');
+    onFinish(raw,adjusted,{correct,answer:v,expected:digits,ms,iq:stat});
+  }
+  return <div className="minigameBox">
+    {phase==='idle' && <button className="btn primary big" onClick={start} disabled={disabled}>기억 도전 시작</button>}
+    {phase==='show' && <div className="memoryFlash">{digits}</div>}
+    {phase==='pick' && <><div className="memoryPrompt">방금 본 숫자를 고르세요</div><div className="logicOptions">{options.map(v=><button className="choiceBtn" key={v} onClick={()=>choose(v)}>{v}</button>)}</div></>}
+    {phase==='done' && <div className="gameReadout"><strong>제출 완료</strong></div>}
+    <div className="hint">숫자는 1.5초만 보입니다. IQ {stat}이 정답 점수에 보정됩니다.</div>
+  </div>;
+}
+
+const wordQuestions = [
+  {q:'「상승」의 반대말은?', a:'하락', o:['하락','확장','전진','유지']},
+  {q:'「신속」과 가장 가까운 뜻은?', a:'빠름', o:['빠름','무거움','조용함','단단함']},
+  {q:'「승인」의 반대 의미는?', a:'거절', o:['거절','동의','확인','기록']},
+  {q:'「명확」과 가장 가까운 뜻은?', a:'분명함', o:['분명함','복잡함','느림','약함']},
+  {q:'「침착」과 가장 가까운 뜻은?', a:'차분함', o:['차분함','격렬함','혼란','성급함']},
+  {q:'「확대」의 반대말은?', a:'축소', o:['축소','강화','반복','유지']},
+];
+function WordGame({ seed, stat, onFinish, disabled }: { seed:number; stat:number; onFinish:GameFinish; disabled:boolean }) {
+  const q=wordQuestions[Math.abs(seed)%wordQuestions.length];
+  const [started,setStarted]=useState(false);
+  const [done,setDone]=useState(false);
+  const startedRef=useRef(0);
+  const options=useMemo(()=>[...q.o].sort((a,b)=>((a.charCodeAt(0)+seed)%11)-((b.charCodeAt(0)+seed)%11)),[q,seed]);
+  function start(){ if(!disabled&&!started&&!done){startedRef.current=performance.now();setStarted(true);} }
+  function choose(v:string){
+    if(disabled||!started||done) return;
+    const ms=Math.round(performance.now()-startedRef.current);
+    const correct=v===q.a;
+    const raw=correct?Math.max(150,2000-ms):0;
+    const adjusted=correct?Math.round(raw+stat*7):0;
+    setDone(true); onFinish(raw,adjusted,{correct,answer:v,expected:q.a,ms,verbal:stat});
+  }
+  return <div className="minigameBox">
+    {!started && <button className="btn primary big" onClick={start} disabled={disabled}>문제 시작</button>}
+    {started && <><div className="wordQuestion">{q.q}</div><div className="wordOptions">{options.map(v=><button className="choiceBtn" key={v} onClick={()=>choose(v)} disabled={done}>{v}</button>)}</div></>}
+    <div className="hint">정답과 속도를 함께 봅니다. 언어능력 {stat}이 보정됩니다.</div>
+  </div>;
+}
+
+function GameRenderer({ type, player, seed, onFinish, disabled }: { type:MiniGameType; player:ArenaPlayer; seed:number; onFinish:GameFinish; disabled:boolean }) {
+  switch(type){
+    case 'arm_mash': return <MashGame statPower={player.stats.arm} statEndurance={Math.round(player.stats.arm/2)} onFinish={onFinish} disabled={disabled}/>;
+    case 'arm_timing': return <TimingGame stat={player.stats.arm} onFinish={onFinish} disabled={disabled}/>;
+    case 'leg_reaction': return <ReactionGame seed={seed} stat={Math.round(player.stats.leg/2)} onFinish={onFinish} disabled={disabled}/>;
+    case 'leg_timing': return <TimingGame stat={Math.round(player.stats.leg/2)} onFinish={onFinish} disabled={disabled}/>;
+    case 'cardio_mash': return <MashGame statPower={Math.max(1,Math.round(player.stats.cardio/20))} statEndurance={Math.min(150,Math.round(player.stats.cardio/3))} onFinish={onFinish} disabled={disabled}/>;
+    case 'cardio_timing': return <TimingGame stat={Math.min(160,Math.round(player.stats.cardio/4))} onFinish={onFinish} disabled={disabled}/>;
+    case 'bone_timing': return <TimingGame stat={player.stats.bone} onFinish={onFinish} disabled={disabled}/>;
+    case 'bone_reaction': return <ReactionGame seed={seed+911} stat={player.stats.bone} onFinish={onFinish} disabled={disabled}/>;
+    case 'intelligence_logic': return <LogicGame seed={seed} stat={Math.max(0,player.stats.intelligence-70)} onFinish={onFinish} disabled={disabled}/>;
+    case 'intelligence_memory': return <MemoryGame seed={seed} stat={player.stats.intelligence} onFinish={onFinish} disabled={disabled}/>;
+    case 'verbal_logic': return <WordGame seed={seed} stat={player.stats.verbal} onFinish={onFinish} disabled={disabled}/>;
+    case 'verbal_reaction': return <ReactionGame seed={seed+2027} stat={player.stats.verbal} onFinish={onFinish} disabled={disabled}/>;
+    case 'tool_timing': return <TimingGame stat={player.stats.tool} onFinish={onFinish} disabled={disabled}/>;
+    case 'tool_reaction': return <ReactionGame seed={seed+4441} stat={player.stats.tool} onFinish={onFinish} disabled={disabled}/>;
+  }
+}
+
+function toolName(player:ArenaPlayer | undefined):string {
+  if(!player) return '맨손';
+  return player.choices?.cards?.find(c=>c.category==='tool')?.title || '맨손';
+}
+
 export default function Home() {
   const [sessionId, setSessionId] = useState('');
   const [nickname, setNickname] = useState('');
@@ -357,8 +495,12 @@ export default function Home() {
   const [roomMessages, setRoomMessages] = useState<ChatMessage[]>([]);
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [rouletteDone, setRouletteDone] = useState(false);
+  const [practiceAttempt, setPracticeAttempt] = useState(0);
+  const [practiceResult, setPracticeResult] = useState<number | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
   const resolvingRef = useRef<string>('');
+  const startingGameRef = useRef<string>('');
 
   const me = useMemo(() => players.find(p => p.session_id === sessionId), [players, sessionId]);
   const opponent = useMemo(() => players.find(p => p.session_id !== sessionId), [players, sessionId]);
@@ -367,6 +509,8 @@ export default function Home() {
   const currentResults = useMemo(() => room ? results.filter(r => r.game_no === room.game_no) : [], [results, room]);
   const myCurrentResult = useMemo(() => me ? currentResults.find(r => r.player_id === me.id) : undefined, [currentResults, me]);
   const bothReady = players.length === 2 && players.every(p => p.ready);
+  const isTutorial = !!room && room.status === 'lobby' && !!room.current_game && room.game_no > 0;
+  const isSetupLobby = !!room && room.status === 'lobby' && !room.current_game;
   const allCardsDrawn = drawnCards.length === cardStages.length;
   const previewStats = useMemo(() => buildStats(drawnCards), [drawnCards]);
 
@@ -417,6 +561,8 @@ export default function Home() {
 
   useEffect(() => { chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight }); }, [activeMessages.length]);
 
+  useEffect(() => { setRouletteDone(false); setPracticeAttempt(0); setPracticeResult(null); }, [room?.game_no, room?.current_game]);
+
   async function createRoom() {
     if (!nickname.trim()) return alert('닉네임을 입력해주세요.');
     const winTarget = mode === 'long' ? 10 : 2;
@@ -436,7 +582,7 @@ export default function Home() {
 
   async function leaveRoom() {
     if (me && room?.status === 'lobby') await supabase.from('arena_players').delete().eq('id', me.id);
-    setRoom(null); setPlayers([]); setResults([]); setDrawnCards([]); setActiveDraw(0); setIsCardFlipped(false); setCardChoices([]); setSelectedChoice(null); setCharName('');
+    setRoom(null); setPlayers([]); setResults([]); setDrawnCards([]); setActiveDraw(0); setIsCardFlipped(false); setCardChoices([]); setSelectedChoice(null); setCharName(''); setRouletteDone(false); setPracticeAttempt(0); setPracticeResult(null);
   }
 
   useEffect(() => {
@@ -474,13 +620,12 @@ export default function Home() {
     if (!charName.trim()) return alert('캐릭터 이름을 입력해주세요.');
     if (!allCardsDrawn) return alert('카드를 순서대로 모두 뽑아주세요.');
     if (players.length >= 2 && !me) return alert('현재 방은 2인용입니다.');
-    if (me) return alert('이미 캐릭터를 만들었습니다.');
     const stats = buildStats(drawnCards);
     const choices:CharacterChoices = { cards: drawnCards };
-    const { error } = await supabase.from('arena_players').insert({
-      room_id: room.id, session_id: sessionId, user_name: nickname.trim(), char_name: charName.trim(), choices, stats,
-    });
-    if (error) alert('캐릭터 생성 실패: ' + error.message);
+    const payload = { room_id: room.id, session_id: sessionId, user_name: nickname.trim(), char_name: charName.trim(), choices, stats, ready:false };
+    const { error } = await supabase.from('arena_players').upsert(payload, { onConflict:'room_id,session_id' });
+    if (error) return alert('캐릭터 생성 실패: ' + error.message);
+    await refreshRoom(room.id);
   }
 
   async function toggleReady() {
@@ -495,19 +640,30 @@ export default function Home() {
     setMessage('');
   }
 
-  async function beginGame(resetScores = false) {
+  async function prepareGame(resetScores = false) {
     if (!room || !isHost) return;
-    if (!bothReady) return alert('두 플레이어 모두 준비해야 합니다.');
+    if (resetScores && !bothReady) return alert('두 플레이어 모두 준비해야 합니다.');
     const gameNo = resetScores ? 1 : room.game_no + 1;
-    const game = nextGame(gameNo);
+    const game = pickRandomGame(room.current_game);
     if (resetScores) {
       await supabase.from('arena_results').delete().eq('room_id', room.id);
       await supabase.from('arena_players').update({ score: 0 }).eq('room_id', room.id);
     }
+    await supabase.from('arena_players').update({ ready: false }).eq('room_id', room.id);
     await supabase.from('arena_rooms').update({
-      status: 'playing', game_no: gameNo, current_game: game, game_seed: Math.floor(Math.random() * 1000000), winner_player_id: null,
+      status: 'lobby', game_no: gameNo, current_game: game, game_seed: Math.floor(Math.random() * 1000000), winner_player_id: null,
     }).eq('id', room.id);
   }
+
+  useEffect(() => {
+    if (!room || !isHost || !isTutorial || !bothReady || !rouletteDone) return;
+    const key = `${room.id}:${room.game_no}`;
+    if (startingGameRef.current === key) return;
+    startingGameRef.current = key;
+    supabase.from('arena_rooms').update({ status:'playing' }).eq('id',room.id).then(() => {
+      setTimeout(() => { startingGameRef.current=''; }, 500);
+    });
+  }, [room, isHost, isTutorial, bothReady, rouletteDone]);
 
   async function submitResult(raw: number, adjusted: number, detail: Record<string, unknown>) {
     if (!room || !me || !room.current_game || myCurrentResult || submitting) return;
@@ -558,126 +714,81 @@ export default function Home() {
 
   return <main className="app">
     <header className="top">
-      <div><div className="brand">VANTA ARENA</div><div className="sub">BUILD YOUR FIGHTER · PLAY TO WIN</div></div>
-      {room && <div className="roomBadge">ROOM <b>{room.code}</b> · {room.mode === 'long' ? '롱 플레이 / 10승' : '일반 / 2승'}</div>}
+      <div><div className="brand">VANTA ARENA</div><div className="sub">CARD DRAFT · ONLINE MINI GAME DUEL</div></div>
+      {room && <div className="roomBadge">ROOM <b>{room.code}</b> · {room.mode === 'long' ? 'LONG / 10 WINS' : 'QUICK / 2 WINS'}</div>}
     </header>
 
     <div className="layout">
       <section className="panel mainPanel">
-        {!room ? <div className="lobbyHome">
-          <div className="heroMark">VANTA / ONLINE ARENA</div>
-          <h1 className="lobbyHeadline">세 장 중 하나를 고르고,<br/>완성한 캐릭터로 승부하세요.</h1>
-          <p className="lobbyLead">능력 카드 7종을 선택해 캐릭터를 완성하고, 직접 조작하는 미니게임으로 승자를 가립니다.</p>
-
-          <div className="lobbyNick">
-            <label className="label">PLAYER NAME</label>
-            <input className="input lobbyInput" value={nickname} onChange={e => setNickname(e.target.value)} maxLength={20} placeholder="닉네임을 입력하세요" />
+        {!room ? <div className="lobbyHome cleanHome">
+          <div className="homeIntro">
+            <span className="heroMark">ONLINE CHARACTER BATTLE</span>
+            <h1 className="lobbyHeadline">카드로 캐릭터를 만들고<br/>14개의 미니게임으로 승부.</h1>
+            <p className="lobbyLead">각 능력마다 뒤집힌 카드 3장 중 1장을 고릅니다. 완성한 캐릭터의 능력치가 실제 미니게임 결과에 영향을 줍니다.</p>
           </div>
 
-          <div className="modeGrid lobbyModes">
-            <button className={`modeCard ${mode === 'normal' ? 'selected' : ''}`} onClick={() => setMode('normal')}><span className="modeTag">QUICK</span><b>일반전</b><strong>2승</strong><span>짧고 빠른 대결</span></button>
-            <button className={`modeCard ${mode === 'long' ? 'selected' : ''}`} onClick={() => setMode('long')}><span className="modeTag">LONG</span><b>롱 플레이</b><strong>10승</strong><span>캐릭터 성능을 길게 겨루는 대결</span></button>
-          </div>
-
-          <div className="lobbyActions">
-            <button className="btn primary createRoomBtn" onClick={createRoom}><small>새 게임</small><b>방 만들기</b><span>선택한 모드로 바로 시작</span></button>
-            <div className="joinBox"><small>초대받았나요?</small><b>방 코드로 참가</b><div className="joinRow"><input className="input grow" value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} placeholder="6자리 코드" maxLength={6}/><button className="btn purple" onClick={joinRoom}>입장</button></div></div>
-          </div>
-          <div className="lobbyFlow"><span>01 방 입장</span><i>•</i><span>02 카드 선택</span><i>•</i><span>03 미니게임</span><i>•</i><span>04 승리</span></div>
-        </div> : <>
-          <div className="row between"><div><h2 className="title">방 {room.code}</h2><div className="muted">{room.mode === 'long' ? '10승 먼저 달성' : '2승 먼저 달성'} · 현재 상태 {room.status}</div></div><button className="btn danger" onClick={leaveRoom}>방 나가기</button></div>
-
-          {!me && room.status === 'lobby' && <div className="section cardForge">
-            <div className="forgeTop">
-              <div><span className="kicker">FIGHTER DRAFT</span><h3 className="title">매 단계마다 3장 중 1장을 선택하세요</h3><p className="muted">세 카드는 모두 뒤집힌 상태입니다. 하나를 고르면 그 카드만 공개되고 선택이 확정됩니다. <b>팔힘 → 다리힘 → 심폐지구력 → 골밀도 → 지능 → 언어능력 → 도구</b> 순서입니다.</p></div>
-              <div className="drawCounter"><b>{Math.min(activeDraw + 1, cardStages.length)}</b><span>/ {cardStages.length}</span></div>
+          <div className="startPanel">
+            <div className="fieldBlock"><label className="label">닉네임</label><input className="input lobbyInput" value={nickname} onChange={e => setNickname(e.target.value)} maxLength={20} placeholder="게임에서 사용할 이름" /></div>
+            <div className="modeGrid lobbyModes">
+              <button className={`modeCard ${mode === 'normal' ? 'selected' : ''}`} onClick={() => setMode('normal')}><span className="modeTag">QUICK MATCH</span><b>일반전</b><strong>2승</strong><span>가볍게 즐기는 빠른 매치</span></button>
+              <button className={`modeCard ${mode === 'long' ? 'selected' : ''}`} onClick={() => setMode('long')}><span className="modeTag">LONG MATCH</span><b>롱 플레이</b><strong>10승</strong><span>다양한 미니게임을 길게 겨루는 매치</span></button>
             </div>
-            <input className="input premiumInput" value={charName} onChange={e => setCharName(e.target.value)} maxLength={24} placeholder="캐릭터 이름을 입력하세요" />
+            <button className="btn primary full big homeCreate" onClick={createRoom}>새 방 만들기</button>
+            <div className="joinDivider"><span>또는 초대 코드로 참가</span></div>
+            <div className="joinRow"><input className="input grow" value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} placeholder="6자리 방 코드" maxLength={6}/><button className="btn purple" onClick={joinRoom}>입장</button></div>
+          </div>
+          <div className="homeSteps"><span><b>1</b> 카드 7종 선택</span><span><b>2</b> 룰렛으로 미니게임 결정</span><span><b>3</b> 연습 후 양쪽 시작 동의</span><span><b>4</b> 직접 플레이</span></div>
+        </div> : <>
+          <div className="roomTop"><div><span className="kicker">MATCH ROOM</span><h2>방 {room.code}</h2><p>{room.mode === 'long' ? '10승을 먼저 달성하면 우승' : '2승을 먼저 달성하면 우승'}</p></div><button className="btn danger" onClick={leaveRoom}>방 나가기</button></div>
 
+          {!me && isSetupLobby && <div className="section cardForge">
+            <div className="forgeTop"><div><span className="kicker">CHARACTER DRAFT</span><h3 className="title">카드 3장 중 하나를 고르세요</h3><p className="muted">앞면은 선택 전까지 보이지 않습니다. <b>팔힘 → 다리힘 → 심폐지구력 → 골밀도 → IQ → 언어능력 → 도구</b> 순서로 진행됩니다.</p></div><div className="drawCounter"><b>{Math.min(activeDraw + 1, cardStages.length)}</b><span>/ {cardStages.length}</span></div></div>
+            <input className="input premiumInput" value={charName} onChange={e => setCharName(e.target.value)} maxLength={24} placeholder="캐릭터 이름" />
             <div className="drawRail">{cardStages.map((stage,idx)=><div key={stage.key} className={`railStep ${idx < activeDraw ? 'done' : idx === activeDraw ? 'active' : ''}`}><span>{idx < activeDraw ? '✓' : idx + 1}</span><small>{stage.label}</small></div>)}</div>
-
             {activeDraw < cardStages.length ? <div className="drawStage">
               <div className="stageCopy"><span className="eyebrow">{cardStages[activeDraw].eyebrow}</span><h2>{cardStages[activeDraw].label}</h2><p>{cardStages[activeDraw].description}</p></div>
               <div className="choiceDeck" aria-label={`${cardStages[activeDraw].label} 카드 3장 중 하나 선택`}>
-                {[0,1,2].map(index => {
-                  const chosen = selectedChoice === index;
-                  const locked = selectedChoice !== null && !chosen;
-                  const card = cardChoices[index];
-                  return <button type="button" key={`${activeDraw}-${index}`} className={`choiceCard ${chosen ? 'chosen flipped' : ''} ${locked ? 'discarded' : ''}`} onClick={() => chooseCurrentCard(index)} disabled={isCardFlipped} aria-label={`${index + 1}번 카드 선택`}>
-                    <span className="cardInner">
-                      <span className="cardFace cardBack"><span className="pickNo">0{index + 1}</span><span className="backMark">V</span><b>VANTA</b><small>SELECT CARD</small></span>
-                      <span className={`cardFace cardFront rarity-${chosen && card ? card.rarity : '일반'}`}>
-                        {chosen && card && <>
-                          <span className="rarityPill">{card.rarity}</span>
-                          <small className="cardCategoryLabel">{cardStages[activeDraw].label}</small>
-                          <strong className="tierTitle">{cardLevelLabel(card.category, card.rarity)}</strong>
-                          <em>{card.display}</em>
-                          <p><b>{card.title}</b><br/>{card.subtitle}</p>
-                          <span className="selectedFlag">SELECTED</span>
-                        </>}
-                      </span>
-                    </span>
-                  </button>;
-                })}
+                {[0,1,2].map(index => { const chosen=selectedChoice===index; const locked=selectedChoice!==null&&!chosen; const card=cardChoices[index]; return <button type="button" key={`${activeDraw}-${index}`} className={`choiceCard ${chosen ? 'chosen flipped' : ''} ${locked ? 'discarded' : ''}`} onClick={()=>chooseCurrentCard(index)} disabled={isCardFlipped} aria-label={`${index+1}번 카드 선택`}><span className="cardInner"><span className="cardFace cardBack"><span className="pickNo">0{index+1}</span><span className="backMark">V</span><b>VANTA</b><small>HIDDEN CARD</small></span><span className={`cardFace cardFront rarity-${chosen&&card?card.rarity:'일반'}`}>{chosen&&card&&<><span className="rarityPill">{card.rarity}</span><small className="cardCategoryLabel">{cardStages[activeDraw].label}</small><strong className="tierTitle">{card.category==='tool' ? card.title : cardLevelLabel(card.category,card.rarity)}</strong><em>{card.display}</em><p><b>{card.title}</b><br/>{card.subtitle}</p><span className="selectedFlag">SELECTED</span></>}</span></span></button>; })}
               </div>
-              {!isCardFlipped ? <div className="drawHint">앞면은 보이지 않습니다. 원하는 카드 한 장을 선택하세요.</div> : <button type="button" className="btn primary nextDraw" onClick={goNextCard}>{activeDraw === cardStages.length - 1 ? '캐릭터 완성' : '다음 능력 선택'}</button>}
-            </div> : <div className="forgeComplete"><span className="kicker">DRAFT COMPLETE</span><h2>{charName.trim() || '이름 없는 캐릭터'}</h2><p>7개의 능력 선택이 완료되었습니다.</p></div>}
-
-            {drawnCards.length > 0 && <div className="drawnDeck">{drawnCards.map((card,idx)=><div className={`miniDrawCard rarity-${card.rarity}`} key={`${card.category}-${idx}`}><span>{cardStages.find(x=>x.key===card.category)?.label}</span><b>{cardLevelLabel(card.category, card.rarity)}</b><strong>{card.display}</strong></div>)}</div>}
-
-            <div className="statsPreview premiumStats"><b>현재 능력치</b><div className="statMatrix"><span>팔힘<strong>{previewStats.arm}</strong></span><span>다리힘<strong>{previewStats.leg}</strong></span><span>심폐<strong>{previewStats.cardio}</strong></span><span>골밀도<strong>{previewStats.bone}</strong></span><span>도구<strong>{previewStats.tool}</strong></span><span>지능<strong>{previewStats.intelligence}</strong></span><span>언어<strong>{previewStats.verbal}</strong></span></div></div>
-            <div className="row forgeActions"><button className="btn ghost" onClick={resetCardDraw} disabled={drawnCards.length === 0}>처음부터 다시</button><button className="btn gold grow" onClick={createCharacter} disabled={!allCardsDrawn || !charName.trim()}>이 캐릭터로 참가</button></div>
+              {!isCardFlipped ? <div className="drawHint">세 장 중 원하는 카드 하나를 선택하세요.</div> : <button type="button" className="btn primary nextDraw" onClick={goNextCard}>{activeDraw===cardStages.length-1?'캐릭터 완성':'다음 카드'}</button>}
+            </div> : <div className="forgeComplete"><span className="kicker">DRAFT COMPLETE</span><h2>{charName.trim()||'이름 없는 캐릭터'}</h2><p>모든 능력 카드 선택이 끝났습니다.</p></div>}
+            {drawnCards.length>0 && <div className="drawnDeck">{drawnCards.map((card,idx)=><div className={`miniDrawCard rarity-${card.rarity}`} key={`${card.category}-${idx}`}><span>{cardStages.find(x=>x.key===card.category)?.label}</span><b>{card.category==='tool'?card.title:cardLevelLabel(card.category,card.rarity)}</b><strong>{card.display}</strong></div>)}</div>}
+            <div className="statsPreview premiumStats"><b>현재 캐릭터</b><div className="statMatrix"><span>팔힘<strong>{previewStats.arm} kg</strong></span><span>다리힘<strong>{previewStats.leg} kg</strong></span><span>심폐<strong>{previewStats.cardio>=60?`${Math.round(previewStats.cardio/60)}분`:`${previewStats.cardio}초`}</strong></span><span>골밀도<strong>{previewStats.bone}%</strong></span><span>IQ<strong>{previewStats.intelligence||'-'}</strong></span><span>언어<strong>{previewStats.verbal}</strong></span><span>도구<strong>{drawnCards.find(c=>c.category==='tool')?.title||'-'}</strong></span></div></div>
+            <div className="row forgeActions"><button className="btn ghost" onClick={resetCardDraw} disabled={drawnCards.length===0}>처음부터</button><button className="btn gold grow" onClick={createCharacter} disabled={!allCardsDrawn||!charName.trim()}>이 캐릭터로 참가</button></div>
           </div>}
 
-          <div className="section">
-            <div className="row between"><h3 className="title">플레이어 {players.length}/2</h3>{me && room.status === 'lobby' && <button className={`btn ${me.ready ? 'gold' : 'primary'}`} onClick={toggleReady}>{me.ready ? '준비 취소' : '준비 완료'}</button>}</div>
-            <div className="players">{players.map(p => <div className={`playerCard ${p.id === me?.id ? 'me' : ''}`} key={p.id}>
-              <div className="row between"><strong>{p.char_name}</strong><span className={`ready ${p.ready ? 'yes' : ''}`}>{p.ready ? 'READY' : 'WAIT'}</span></div>
-              <div className="muted">{p.user_name}{p.id === me?.id ? ' · 나' : ''}</div>
-              <div className="score">{p.score} / {room.win_target}승</div>
-              <div className="statChips"><span>팔 {p.stats.arm}</span><span>다리 {p.stats.leg}</span><span>심폐 {p.stats.cardio}</span><span>골밀도 {p.stats.bone}</span><span>도구 {p.stats.tool}</span><span>지능 {p.stats.intelligence}</span><span>언어 {p.stats.verbal}</span></div>
-            </div>)}</div>
-            {players.length < 2 && <div className="status">상대가 방 코드 <b>{room.code}</b>로 들어오기를 기다리는 중…</div>}
+          <div className="section playerSection">
+            <div className="row between"><h3 className="title">플레이어 {players.length}/2</h3>{me && isSetupLobby && <button className={`btn ${me.ready?'gold':'primary'}`} onClick={toggleReady}>{me.ready?'준비 취소':'매치 준비'}</button>}</div>
+            <div className="players">{players.map(p=><div className={`playerCard ${p.id===me?.id?'me':''}`} key={p.id}><div className="row between"><strong>{p.char_name}</strong><span className={`ready ${p.ready?'yes':''}`}>{p.ready?'READY':'WAIT'}</span></div><div className="muted">{p.user_name}{p.id===me?.id?' · 나':''}</div><div className="score">{p.score} / {room.win_target}승</div><div className="statChips"><span>팔 {p.stats.arm}</span><span>다리 {p.stats.leg}</span><span>심폐 {p.stats.cardio}</span><span>골밀도 {p.stats.bone}%</span><span>IQ {p.stats.intelligence}</span><span>언어 {p.stats.verbal}</span><span>도구 {toolName(p)}</span></div></div>)}</div>
+            {players.length<2 && <div className="status">상대가 방 코드 <b>{room.code}</b>로 들어오기를 기다리는 중…</div>}
           </div>
 
-          {room.status === 'lobby' && isHost && <div className="section"><button className="btn primary full big" onClick={() => beginGame(true)} disabled={!bothReady}>미니게임 대결 시작</button>{!bothReady && <div className="hint">두 캐릭터가 모두 READY여야 시작할 수 있습니다.</div>}</div>}
+          {isSetupLobby && isHost && <div className="section startMatch"><button className="btn primary full big" onClick={()=>prepareGame(true)} disabled={!bothReady}>미니게임 대결 시작</button>{!bothReady&&<div className="hint">두 플레이어가 모두 매치 준비를 눌러야 합니다.</div>}</div>}
 
-          {room.status === 'playing' && room.current_game && me && <div className="section arenaSection">
-            <div className="gameHeader"><div><span className="roundNo">GAME {room.game_no}</span><h2>{miniGameInfo[room.current_game].name}</h2><p>{miniGameInfo[room.current_game].desc}</p></div><div className="statFocus">관련 능력치<br/><b>{miniGameInfo[room.current_game].stat}</b></div></div>
-            {myCurrentResult ? <div className="waitingBox"><b>결과 제출 완료!</b><span>내 보정 점수 {myCurrentResult.adjusted_score}</span><span>{opponent ? `${opponent.char_name}의 플레이를 기다리는 중…` : '상대를 기다리는 중…'}</span></div> : <>
-              {room.current_game === 'arm' && <MashGame statPower={me.stats.arm} statEndurance={Math.round(me.stats.arm/2)} onFinish={submitResult} disabled={submitting}/>} 
-              {room.current_game === 'leg' && <ReactionGame seed={room.game_seed} stat={me.stats.leg} onFinish={submitResult} disabled={submitting}/>} 
-              {room.current_game === 'cardio' && <MashGame statPower={Math.round(me.stats.cardio/10)} statEndurance={Math.min(120, Math.round(me.stats.cardio/3))} onFinish={submitResult} disabled={submitting}/>} 
-              {room.current_game === 'bone' && <TimingGame stat={me.stats.bone} onFinish={submitResult} disabled={submitting}/>} 
-              {room.current_game === 'intelligence' && <LogicGame seed={room.game_seed} stat={me.stats.intelligence} onFinish={submitResult} disabled={submitting}/>} 
-              {room.current_game === 'verbal' && <LogicGame seed={room.game_seed + 7919} stat={me.stats.verbal} onFinish={submitResult} disabled={submitting}/>} 
-              {room.current_game === 'tool' && <TimingGame stat={me.stats.tool} onFinish={submitResult} disabled={submitting}/>} 
-            </>}
+          {isTutorial && room.current_game && me && <div className="section tutorialArena">
+            <MiniGameRoulette selected={room.current_game} seed={room.game_seed} onDone={()=>setRouletteDone(true)} />
+            {rouletteDone && <div className="tutorialContent">
+              <div className="gameHeader"><div><span className="roundNo">GAME {room.game_no}</span><h2>{miniGameInfo[room.current_game].name}</h2><p>{miniGameInfo[room.current_game].desc}</p></div><div className="statFocus">관련 능력<br/><b>{miniGameInfo[room.current_game].stat}</b></div></div>
+              <div className="tutorialGrid"><div className="tutorialRules"><span className="kicker">HOW TO PLAY</span><h3>게임 방법</h3>{miniGameInfo[room.current_game].tutorial.map((t,i)=><div className="tutorialStep" key={t}><b>{i+1}</b><span>{t}</span></div>)}</div><div className="practiceBox"><span className="kicker">PRACTICE</span><h3>연습 모드</h3><p>연습 결과는 승패에 반영되지 않습니다. 원하는 만큼 감을 익힌 뒤 시작 동의를 누르세요.</p><GameRenderer key={`practice-${room.game_no}-${practiceAttempt}`} type={room.current_game} player={me} seed={room.game_seed+333} disabled={false} onFinish={(_,adjusted)=>setPracticeResult(adjusted)} />{practiceResult!==null&&<div className="practiceResult">연습 점수 <b>{practiceResult}</b><button className="btn ghost" onClick={()=>{setPracticeAttempt(v=>v+1);setPracticeResult(null);}}>다시 연습</button></div>}</div></div>
+              <div className="consentBar"><div><b>{me.ready?'시작 동의 완료':'준비되면 시작 동의'}</b><span>{opponent ? `${opponent.char_name}: ${opponent.ready?'동의 완료':'대기 중'}` : '상대 대기 중'}</span></div><button className={`btn ${me.ready?'gold':'primary'} big`} onClick={toggleReady}>{me.ready?'동의 취소':'게임 시작 동의'}</button></div>
+              {bothReady&&<div className="status ok">양쪽 모두 동의했습니다. 본 게임을 시작합니다…</div>}
+            </div>}
           </div>}
 
-          {room.status === 'round_result' && <div className="section resultPanel">
-            <h2>🏁 GAME {room.game_no} 결과</h2>
-            <div className="resultGrid">{players.map(p => { const r = currentResults.find(x => x.player_id === p.id); return <div className={`resultCard ${roundWinner?.id === p.id ? 'winner' : ''}`} key={p.id}><strong>{p.char_name}</strong><span>보정 점수 {r?.adjusted_score ?? '-'}</span><b>{p.score}승</b></div>; })}</div>
-            {roundWinner && <div className="status ok">이번 미니게임 승자: <b>{roundWinner.char_name}</b></div>}
-            {isHost && <button className="btn primary full big" onClick={() => beginGame(false)}>다음 미니게임</button>}
+          {room.status==='playing' && room.current_game && me && <div className="section arenaSection">
+            <div className="gameHeader"><div><span className="roundNo">GAME {room.game_no}</span><h2>{miniGameInfo[room.current_game].name}</h2><p>{miniGameInfo[room.current_game].desc}</p></div><div className="statFocus">관련 능력<br/><b>{miniGameInfo[room.current_game].stat}</b></div></div>
+            {myCurrentResult ? <div className="waitingBox"><b>플레이 완료</b><span>내 점수 {myCurrentResult.adjusted_score}</span><span>{opponent?`${opponent.char_name}의 플레이를 기다리는 중…`:'상대를 기다리는 중…'}</span></div> : <GameRenderer key={`real-${room.game_no}-${room.current_game}`} type={room.current_game} player={me} seed={room.game_seed} onFinish={submitResult} disabled={submitting}/>} 
           </div>}
 
-          {room.status === 'finished' && <div className="section finalPanel">
-            <div className="trophy">🏆</div><h1>{finalWinner?.char_name || '승자'} 우승!</h1><p>{room.win_target}승을 먼저 달성했습니다.</p>
-            <div className="resultGrid">{players.map(p => <div className={`resultCard ${finalWinner?.id === p.id ? 'winner' : ''}`} key={p.id}><strong>{p.char_name}</strong><b>{p.score}승</b></div>)}</div>
-            {isHost && <button className="btn gold full" onClick={rematch}>같은 캐릭터로 재대결</button>}
-          </div>}
+          {room.status==='round_result' && <div className="section resultPanel"><h2>GAME {room.game_no} 결과</h2><div className="resultGrid">{players.map(p=>{const r=currentResults.find(x=>x.player_id===p.id);return <div className={`resultCard ${roundWinner?.id===p.id?'winner':''}`} key={p.id}><strong>{p.char_name}</strong><span>점수 {r?.adjusted_score??'-'}</span><b>{p.score}승</b></div>;})}</div>{roundWinner&&<div className="status ok">이번 게임 승자: <b>{roundWinner.char_name}</b></div>}{isHost&&<button className="btn primary full big" onClick={()=>prepareGame(false)}>다음 미니게임 룰렛</button>}</div>}
 
-          {results.length > 0 && <div className="section"><h3 className="title">경기 기록</h3><div className="history">{Array.from<number>(new Set<number>(results.map(r => Number(r.game_no)))).sort((a:number,b:number) => b-a).map(no => { const rs = results.filter(r => r.game_no === no).sort((a,b) => b.adjusted_score - a.adjusted_score); return <div className="historyRow" key={no}><span>#{no} {miniGameInfo[rs[0]?.game_type || 'arm'].name}</span><span>{rs.map(r => `${players.find(p => p.id === r.player_id)?.char_name || '?'} ${r.adjusted_score}`).join(' vs ')}</span></div>; })}</div></div>}
+          {room.status==='finished' && <div className="section finalPanel"><div className="trophy">🏆</div><h1>{finalWinner?.char_name||'승자'} 우승!</h1><p>{room.win_target}승을 먼저 달성했습니다.</p><div className="resultGrid">{players.map(p=><div className={`resultCard ${finalWinner?.id===p.id?'winner':''}`} key={p.id}><strong>{p.char_name}</strong><b>{p.score}승</b></div>)}</div>{isHost&&<button className="btn gold full" onClick={rematch}>같은 캐릭터로 재대결</button>}</div>}
+
+          {results.length>0 && <div className="section"><h3 className="title">경기 기록</h3><div className="history">{Array.from<number>(new Set<number>(results.map(r=>Number(r.game_no)))).sort((a,b)=>b-a).map(no=>{const rs=results.filter(r=>r.game_no===no).sort((a,b)=>b.adjusted_score-a.adjusted_score);return <div className="historyRow" key={no}><span>#{no} {miniGameInfo[rs[0]?.game_type||'arm_mash'].name}</span><span>{rs.map(r=>`${players.find(p=>p.id===r.player_id)?.char_name||'?'} ${r.adjusted_score}`).join(' vs ')}</span></div>;})}</div></div>}
         </>}
       </section>
 
-      <aside className="panel chatPanel">
-        <h2 className="title">{room ? '방 채팅' : '전체 채팅'}</h2>
-        <div className="muted chatExplain">{room ? '방에 들어오면 전체 채팅은 숨겨지고 이 방의 채팅만 보입니다.' : '방에 들어가기 전에는 모든 유저가 이 전체 채팅을 봅니다.'}</div>
-        <div className="chatLog" ref={chatRef}>{activeMessages.map(m => <div className="msg" key={m.id}><span className="who">{m.user_name}</span><span className="time">{timeText(m.created_at)}</span><div>{m.body}</div></div>)}</div>
-        <form className="row" onSubmit={sendMessage}><input className="input grow" value={message} onChange={e => setMessage(e.target.value)} maxLength={400} placeholder={nickname ? '메시지 입력…' : '먼저 닉네임 입력'}/><button className="btn purple">전송</button></form>
-      </aside>
+      <aside className="panel chatPanel"><h2 className="title">{room?'방 채팅':'전체 채팅'}</h2><div className="muted chatExplain">{room?'이 방의 플레이어끼리 대화합니다.':'방에 들어가기 전 전체 유저 채팅입니다.'}</div><div className="chatLog" ref={chatRef}>{activeMessages.map(m=><div className="msg" key={m.id}><span className="who">{m.user_name}</span><span className="time">{timeText(m.created_at)}</span><div>{m.body}</div></div>)}</div><form className="row" onSubmit={sendMessage}><input className="input grow" value={message} onChange={e=>setMessage(e.target.value)} maxLength={400} placeholder={nickname?'메시지 입력…':'먼저 닉네임 입력'}/><button className="btn purple">전송</button></form></aside>
     </div>
   </main>;
 }
