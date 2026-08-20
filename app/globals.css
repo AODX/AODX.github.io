@@ -27,3 +27,374 @@ body{background:
 @media(max-width:900px){.drawRail{grid-template-columns:repeat(3,1fr)}.drawnDeck,.statMatrix{grid-template-columns:repeat(3,1fr)}.drawStage{grid-template-columns:minmax(0,1fr) minmax(220px,280px)}}
 @media(max-width:620px){.app{padding:10px}.forgeTop{flex-direction:column}.drawCounter{min-width:76px}.drawStage{grid-template-columns:1fr;grid-template-areas:"copy" "card" "hint";padding:16px}.mysteryCard{max-width:280px;justify-self:center}.drawRail{grid-template-columns:repeat(2,1fr)}.drawnDeck,.statMatrix{grid-template-columns:repeat(2,1fr)}.stageCopy h2{font-size:38px}.nextDraw{justify-self:stretch;width:100%}.forgeActions{align-items:stretch}.forgeActions .btn{width:100%}}
 @media(prefers-reduced-motion:reduce){.cardInner,.btn{transition:none!important}}
+
+/* =========================================================
+   AURELIS UI v4 - Luxury Arena polish
+   UI-only override. No game logic / Supabase changes.
+   ========================================================= */
+:root{
+  --lux-bg:#040509;
+  --lux-panel:rgba(10,13,20,.82);
+  --lux-panel-2:rgba(14,18,28,.88);
+  --lux-line:rgba(203,219,244,.12);
+  --lux-line-strong:rgba(203,219,244,.22);
+  --lux-text:#f4f7fb;
+  --lux-muted:#8994a8;
+  --lux-mint:#8af2d6;
+  --lux-mint-2:#45cfa9;
+  --lux-violet:#9a8cff;
+  --lux-gold:#f7ce78;
+  --lux-red:#ff7f8a;
+}
+
+html{background:var(--lux-bg)}
+body{
+  min-height:100%;
+  color:var(--lux-text);
+  background:
+    radial-gradient(900px 560px at 8% -8%,rgba(123,103,255,.17),transparent 60%),
+    radial-gradient(820px 520px at 96% 3%,rgba(74,223,185,.12),transparent 61%),
+    radial-gradient(620px 420px at 50% 118%,rgba(51,81,151,.10),transparent 68%),
+    linear-gradient(180deg,#090b12 0%,#05070b 44%,#020305 100%);
+}
+body:before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  opacity:.26;
+  background-image:
+    linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px);
+  background-size:42px 42px;
+  -webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,.82),transparent 82%);
+  mask-image:linear-gradient(to bottom,rgba(0,0,0,.82),transparent 82%);
+}
+
+.app{position:relative;z-index:1;max-width:1500px;padding:30px clamp(12px,2.5vw,34px) 42px}
+.top{padding:6px 2px 22px;align-items:center}
+.brand{
+  font-size:clamp(24px,3.5vw,42px);
+  letter-spacing:-.055em;
+  line-height:1;
+  filter:drop-shadow(0 7px 25px rgba(103,231,196,.08));
+}
+.sub{margin-top:9px;color:#778196;font-size:12px}
+.roomBadge{
+  padding:11px 15px;
+  border-radius:999px;
+  background:rgba(4,7,11,.72);
+  border:1px solid rgba(138,242,214,.2);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 10px 30px rgba(0,0,0,.18);
+  letter-spacing:.05em;
+}
+
+.layout{gap:18px;align-items:start}
+.panel{
+  border-radius:26px;
+  border:1px solid var(--lux-line);
+  background:
+    linear-gradient(180deg,rgba(19,24,35,.76),rgba(7,9,14,.9)),
+    rgba(5,7,11,.86);
+  box-shadow:
+    0 30px 80px rgba(0,0,0,.33),
+    inset 0 1px 0 rgba(255,255,255,.04);
+  backdrop-filter:blur(22px) saturate(120%);
+}
+.mainPanel{padding:clamp(16px,2.2vw,26px)}
+.chatPanel{padding:18px;top:18px}
+.title{letter-spacing:-.035em}
+.label{color:#a2acbc;font-size:11px;font-weight:850;letter-spacing:.04em}
+.muted,.hint,.chatExplain{color:var(--lux-muted)}
+
+.section{
+  border-radius:21px;
+  border:1px solid rgba(255,255,255,.075);
+  background:linear-gradient(180deg,rgba(255,255,255,.026),rgba(255,255,255,.012));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+}
+
+.input{
+  min-height:50px;
+  border-radius:14px;
+  padding:0 15px;
+  color:#f8fbff;
+  background:rgba(2,4,8,.66);
+  border:1px solid rgba(190,207,235,.15);
+  transition:border-color .18s ease,box-shadow .18s ease,background .18s ease;
+}
+.input::placeholder{color:#505a6c}
+.input:hover{background:rgba(5,7,12,.8)}
+.input:focus{
+  outline:none;
+  border-color:rgba(138,242,214,.52);
+  box-shadow:0 0 0 4px rgba(91,217,184,.075),inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+.btn{
+  min-height:46px;
+  border-radius:14px;
+  padding:0 18px;
+  font-weight:900;
+  letter-spacing:-.015em;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.13),0 9px 24px rgba(0,0,0,.14);
+}
+.btn:active:not(:disabled){transform:translateY(1px) scale(.995)}
+.primary{
+  background:linear-gradient(180deg,#dcfff5 0%,#98ebd3 100%);
+  border-color:#c7faeb;
+  color:#06110e;
+  box-shadow:0 10px 30px rgba(66,211,173,.13),inset 0 1px 0 #fff;
+}
+.purple{
+  background:linear-gradient(180deg,#8e81f0,#6456c8);
+  border-color:#a99fff;
+  box-shadow:0 10px 30px rgba(112,93,225,.14),inset 0 1px 0 rgba(255,255,255,.18);
+}
+.gold{
+  background:linear-gradient(180deg,#ffdf91,#d4a94e);
+  border-color:#ffe5a6;
+  color:#171004;
+  box-shadow:0 10px 30px rgba(222,171,66,.13),inset 0 1px 0 rgba(255,255,255,.28);
+}
+.ghost{background:rgba(255,255,255,.025);border-color:rgba(255,255,255,.1)}
+.danger{background:rgba(117,29,43,.34);border-color:rgba(255,110,125,.23);color:#ffabb4}
+
+.modeGrid{gap:12px}
+.modeCard{
+  position:relative;
+  overflow:hidden;
+  border-radius:18px;
+  padding:19px;
+  min-height:116px;
+  background:linear-gradient(150deg,rgba(20,25,36,.94),rgba(8,10,16,.96));
+  border:1px solid rgba(190,207,235,.11);
+  transition:transform .2s ease,border-color .2s ease,background .2s ease,box-shadow .2s ease;
+}
+.modeCard:before{content:"";position:absolute;width:150px;height:150px;right:-75px;top:-75px;border-radius:50%;background:radial-gradient(circle,rgba(145,130,255,.15),transparent 65%);pointer-events:none}
+.modeCard b{font-size:20px;position:relative}
+.modeCard span{position:relative;color:#7f899b;line-height:1.55}
+.modeCard:hover{transform:translateY(-2px);border-color:rgba(180,198,227,.22)}
+.modeCard.selected{
+  border-color:rgba(138,242,214,.52);
+  background:linear-gradient(145deg,rgba(24,55,49,.72),rgba(8,17,16,.95));
+  box-shadow:0 16px 40px rgba(46,171,139,.08),inset 0 1px 0 rgba(255,255,255,.06);
+}
+.modeCard.selected:after{content:"SELECTED";position:absolute;top:12px;right:12px;padding:4px 7px;border-radius:999px;background:rgba(138,242,214,.12);border:1px solid rgba(138,242,214,.22);color:#9ef5de;font-size:8px;font-weight:950;letter-spacing:.12em}
+
+/* Character forge */
+.cardForge{
+  padding:clamp(16px,2vw,24px);
+  background:
+    radial-gradient(500px 270px at 100% 0%,rgba(124,104,255,.13),transparent 66%),
+    radial-gradient(400px 260px at 0% 100%,rgba(67,210,174,.08),transparent 68%),
+    linear-gradient(180deg,rgba(18,23,33,.85),rgba(7,9,14,.94));
+}
+.forgeTop{margin-bottom:18px}
+.kicker{color:#8cebd4;text-shadow:0 0 24px rgba(92,226,193,.18)}
+.drawCounter{
+  border-radius:18px;
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.018));
+  border-color:rgba(255,255,255,.1);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+}
+.drawCounter b{font-size:30px;color:#f7fbff}
+.premiumInput{font-weight:800;letter-spacing:-.01em}
+
+.drawRail{gap:7px}
+.railStep{min-height:48px;border-radius:14px;background:rgba(255,255,255,.016)}
+.railStep.active{
+  color:#eafff9;
+  border-color:rgba(138,242,214,.4);
+  background:linear-gradient(180deg,rgba(60,196,161,.12),rgba(39,133,110,.055));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 8px 24px rgba(31,133,107,.06);
+}
+.railStep.active span{box-shadow:0 0 24px rgba(98,230,194,.2)}
+
+.drawStage{
+  min-height:430px;
+  padding:clamp(18px,3vw,34px);
+  border-radius:26px;
+  border-color:rgba(203,219,244,.1);
+  background:
+    radial-gradient(500px 280px at 78% 18%,rgba(108,92,230,.085),transparent 65%),
+    linear-gradient(145deg,rgba(15,19,29,.88),rgba(4,6,10,.97));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 18px 50px rgba(0,0,0,.17);
+}
+.stageCopy h2{font-weight:1000;text-wrap:balance}
+.stageCopy p{font-size:13px}
+
+.mysteryCard{max-width:330px;justify-self:end;filter:drop-shadow(0 34px 34px rgba(0,0,0,.34))}
+.cardInner{transition:transform .78s cubic-bezier(.2,.82,.18,1)}
+.cardFace{border-radius:28px}
+.cardBack{
+  border:1px solid rgba(212,225,244,.2);
+  background:
+    linear-gradient(135deg,rgba(255,255,255,.045),transparent 25%),
+    repeating-linear-gradient(45deg,transparent 0 15px,rgba(255,255,255,.018) 15px 16px),
+    radial-gradient(circle at 50% 40%,#202b3f 0%,#101722 44%,#06090e 100%);
+  box-shadow:
+    0 34px 78px rgba(0,0,0,.48),
+    inset 0 1px 0 rgba(255,255,255,.08),
+    inset 0 0 0 7px rgba(255,255,255,.015),
+    inset 0 0 70px rgba(102,237,202,.035);
+}
+.cardBack:before{content:"";position:absolute;inset:22px;border-radius:18px;border:1px solid rgba(255,255,255,.045);background:linear-gradient(135deg,transparent,rgba(116,240,209,.025),transparent)}
+.cardBack:after{inset:13px;border-color:rgba(138,242,214,.2)}
+.backMark{
+  position:relative;z-index:2;
+  width:92px;height:92px;
+  border-radius:26px;
+  border:1px solid rgba(138,242,214,.38);
+  background:linear-gradient(145deg,rgba(138,242,214,.055),rgba(131,111,255,.045));
+  color:#b8f9e7;
+  text-shadow:0 0 24px rgba(91,231,194,.28);
+  box-shadow:0 0 0 8px rgba(255,255,255,.012),inset 0 0 36px rgba(91,231,194,.07);
+}
+.cardBack b{position:relative;z-index:2;color:#e6edf8;letter-spacing:.2em}
+.cardBack small{position:relative;z-index:2;color:#677387}
+.backGrid{background:radial-gradient(circle at center,transparent 0 29%,rgba(113,245,210,.055) 29.5% 30%,transparent 30.5%);opacity:1}
+
+.cardFront{
+  padding:30px;
+  border-color:rgba(255,255,255,.2);
+  background:
+    radial-gradient(circle at 50% -4%,rgba(255,255,255,.13),transparent 30%),
+    linear-gradient(155deg,#19202d,#080c12);
+  box-shadow:0 34px 80px rgba(0,0,0,.46),inset 0 1px 0 rgba(255,255,255,.08);
+}
+.rarityPill{top:17px;left:17px;background:rgba(0,0,0,.28);backdrop-filter:blur(8px)}
+.frontIcon{width:82px;height:82px;border-radius:24px;background:rgba(255,255,255,.025);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.cardFront strong{font-size:clamp(21px,3vw,29px)}
+.cardFront em{text-shadow:0 8px 26px rgba(0,0,0,.35)}
+.cardFront p{max-width:230px}
+.rarity-일반{color:#cbd4e0}
+.rarity-고급{color:#88efd1}
+.rarity-희귀{color:#79baff}
+.rarity-영웅{color:#c497ff}
+.rarity-전설{
+  color:#ffd777;
+  background:
+    radial-gradient(circle at 50% 13%,rgba(255,204,87,.22),transparent 35%),
+    radial-gradient(circle at 95% 90%,rgba(255,132,50,.08),transparent 36%),
+    linear-gradient(158deg,#251c0a,#0d0b07 68%);
+}
+.rarity-전설.cardFront{border-color:rgba(255,213,112,.36);box-shadow:0 35px 90px rgba(222,161,44,.13),inset 0 1px 0 rgba(255,245,205,.15),inset 0 0 70px rgba(255,194,65,.05)}
+
+@keyframes cardBreathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes legendaryGlow{0%,100%{filter:brightness(1) saturate(1)}50%{filter:brightness(1.08) saturate(1.12)}}
+@media (hover:hover) and (pointer:fine){
+  .mysteryCard:not(.flipped):not(:disabled){animation:cardBreathe 3.2s ease-in-out infinite}
+  .mysteryCard:not(.flipped):hover .cardBack{border-color:rgba(138,242,214,.4);box-shadow:0 38px 90px rgba(0,0,0,.52),0 0 45px rgba(72,218,181,.08),inset 0 1px 0 rgba(255,255,255,.09)}
+  .miniDrawCard:hover,.playerCard:hover{transform:translateY(-2px);border-color:rgba(190,207,235,.22)}
+}
+.rarity-전설.cardFront{animation:legendaryGlow 2.6s ease-in-out infinite}
+
+.forgeComplete{border-radius:21px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+.drawnDeck{gap:9px}
+.miniDrawCard{
+  min-height:112px;
+  padding:13px 11px;
+  border-radius:16px;
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.014));
+  border-color:rgba(255,255,255,.085);
+  transition:.18s ease;
+}
+.miniDrawCard b{color:#e6edf7}
+.miniDrawCard strong{font-size:15px}
+.premiumStats{border-radius:17px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.06)}
+.statMatrix{gap:7px}
+.statMatrix span{border:1px solid rgba(255,255,255,.055);background:rgba(255,255,255,.019);border-radius:12px;padding:10px 11px}
+.statMatrix strong{font-size:20px;letter-spacing:-.03em}
+
+/* Player lobby */
+.players{gap:10px}
+.playerCard{
+  position:relative;
+  border-radius:18px;
+  padding:16px;
+  background:linear-gradient(150deg,rgba(17,22,32,.94),rgba(7,9,14,.97));
+  border-color:rgba(190,207,235,.1);
+  transition:transform .18s ease,border-color .18s ease;
+}
+.playerCard.me{border-color:rgba(138,242,214,.28);box-shadow:inset 0 0 0 1px rgba(138,242,214,.035)}
+.ready{padding:5px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.09);font-size:9px;letter-spacing:.1em}
+.ready.yes{color:#9cf5df;border-color:rgba(138,242,214,.25);background:rgba(72,200,167,.08)}
+.score{font-size:30px;font-weight:1000;letter-spacing:-.05em;margin:11px 0}
+.statChips{gap:5px}.statChips span{border-radius:999px;padding:5px 8px}
+.status{border-radius:14px;background:rgba(255,255,255,.022);border:1px solid rgba(255,255,255,.06)}
+.status.ok{border-color:rgba(138,242,214,.2);background:rgba(48,181,147,.07)}
+
+/* Mini games */
+.arenaSection{
+  overflow:hidden;
+  border-radius:24px;
+  background:
+    radial-gradient(500px 260px at 100% 0%,rgba(124,106,255,.15),transparent 64%),
+    radial-gradient(430px 280px at 0% 100%,rgba(73,211,176,.08),transparent 68%),
+    linear-gradient(180deg,#121825,#070a0f);
+}
+.gameHeader{padding-bottom:18px;border-bottom:1px solid rgba(255,255,255,.07)}
+.gameHeader h2{font-size:clamp(26px,4vw,40px);letter-spacing:-.045em}
+.roundNo{color:#8df0d7;letter-spacing:.15em}
+.statFocus{border-radius:14px;border:1px solid rgba(138,242,214,.13);background:rgba(37,135,111,.055)}
+.reactionPad,.mashPad,.timingArea,.logicGame{
+  border-radius:21px;
+  border-color:rgba(255,255,255,.09);
+  background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(0,0,0,.12));
+}
+
+/* Results */
+.resultPanel,.finalPanel{background:radial-gradient(circle at 50% 0%,rgba(129,105,255,.11),transparent 38%),linear-gradient(180deg,rgba(18,22,32,.9),rgba(7,9,14,.95))}
+.resultCard{border-radius:18px;padding:17px;background:rgba(255,255,255,.022)}
+.resultCard.winner{border-color:rgba(247,206,120,.32);background:linear-gradient(180deg,rgba(247,206,120,.075),rgba(96,66,17,.035));box-shadow:0 14px 38px rgba(211,155,48,.06)}
+.finalPanel .trophy{filter:drop-shadow(0 12px 32px rgba(244,190,71,.18))}
+.historyRow{border-radius:12px;padding:11px 12px;background:rgba(255,255,255,.018)}
+
+/* Chat */
+.chatPanel{background:linear-gradient(180deg,rgba(13,17,25,.9),rgba(5,7,11,.94))}
+.chatLog{
+  border-radius:17px;
+  background:rgba(1,3,6,.36);
+  border:1px solid rgba(255,255,255,.055);
+  scrollbar-width:thin;
+  scrollbar-color:#30394a transparent;
+}
+.msg{padding:10px 11px;border-bottom:1px solid rgba(255,255,255,.035)}
+.msg:last-child{border-bottom:0}
+.who{color:#a7f2df;font-weight:900}.time{color:#4f5a6c}
+
+@media(max-width:1100px){
+  .layout{gap:13px}
+  .chatPanel{top:auto}
+  .drawStage{min-height:390px}
+}
+@media(max-width:900px){
+  .panel{border-radius:21px}
+  .drawStage{grid-template-columns:minmax(0,1fr) minmax(210px,270px)}
+  .mysteryCard{max-width:285px}
+}
+@media(max-width:620px){
+  .app{padding:10px 9px 26px}
+  .top{padding:8px 4px 15px}
+  .brand{font-size:26px}
+  .sub{font-size:11px;line-height:1.5}
+  .roomBadge{width:100%;text-align:center;margin-top:10px}
+  .mainPanel,.chatPanel{padding:13px}
+  .section{border-radius:17px}
+  .cardForge{padding:14px}
+  .drawStage{min-height:0;padding:16px 13px 18px;border-radius:19px}
+  .mysteryCard{max-width:270px;justify-self:center}
+  .cardFace{border-radius:23px}
+  .drawRail{gap:6px}.railStep{min-height:43px;padding:7px 8px}
+  .modeGrid{grid-template-columns:1fr}
+  .modeCard{min-height:100px}
+  .drawnDeck,.statMatrix{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .miniDrawCard{min-height:98px}
+  .forgeActions{gap:8px}
+  .gameHeader{gap:10px}
+  .score{font-size:27px}
+}
+@media(prefers-reduced-motion:reduce){
+  .mysteryCard,.rarity-전설.cardFront{animation:none!important}
+}
