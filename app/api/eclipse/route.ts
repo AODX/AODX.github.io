@@ -100,12 +100,23 @@ function publicKey(): string {
   return key.trim();
 }
 
-function configuredAdminKey(): { key: string | null; source: 'secret' | 'service_role' | 'none' } {
+function configuredAdminKeys(): Array<{ key: string; source: 'secret' | 'service_role' }> {
+  const candidates: Array<{ key: string; source: 'secret' | 'service_role' }> = [];
   const secret = process.env.SUPABASE_SECRET_KEY?.trim();
-  if (secret) return { key: secret, source: 'secret' };
   const legacy = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (legacy) return { key: legacy, source: 'service_role' };
-  return { key: null, source: 'none' };
+  if (secret) candidates.push({ key: secret, source: 'secret' });
+  if (legacy && legacy !== secret) candidates.push({ key: legacy, source: 'service_role' });
+
+  // A leftover key from an older project must never mask a valid key that is also configured.
+  // Prefer legacy JWT keys whose embedded project ref matches the current NEXT_PUBLIC URL.
+  const currentRef = projectRefFromUrl(serverUrl());
+  return candidates.sort((a, b) => {
+    const aRef = decodeLegacyKeyPayload(a.key)?.ref;
+    const bRef = decodeLegacyKeyPayload(b.key)?.ref;
+    const aMatch = typeof aRef === 'string' && aRef === currentRef ? 1 : 0;
+    const bMatch = typeof bRef === 'string' && bRef === currentRef ? 1 : 0;
+    return bMatch - aMatch;
+  });
 }
 
 function publicAuthClient() {
@@ -138,81 +149,91 @@ type SecureServerStatus = {
 };
 
 async function probeSecureServer(): Promise<{ status: SecureServerStatus; client: AdminDbClient | null }> {
-  const configured = configuredAdminKey();
-  if (!configured.key) {
+  const candidates = configuredAdminKeys();
+  if (candidates.length === 0) {
     return {
       client: null,
       status: {
         secureDuelReady: false,
         code: 'MISSING_KEY',
-        message: '대전 서버용 Secret key가 아직 연결되지 않았습니다. 덱·상점·보관함은 정상 이용할 수 있습니다.',
-        keySource: configured.source,
+        message: '대전 서버 키가 아직 연결되지 않았습니다. Render에 SUPABASE_SECRET_KEY 또는 SUPABASE_SERVICE_ROLE_KEY를 등록해 주세요.',
+        keySource: 'none',
       },
     };
   }
 
   const urlRef = projectRefFromUrl(serverUrl());
-  const payload = decodeLegacyKeyPayload(configured.key);
-  const keyRef = typeof payload?.ref === 'string' ? payload.ref : null;
-  if (keyRef && keyRef !== urlRef) {
-    return {
-      client: null,
-      status: {
+  const failures: SecureServerStatus[] = [];
+
+  for (const configured of candidates) {
+    const payload = decodeLegacyKeyPayload(configured.key);
+    const keyRef = typeof payload?.ref === 'string' ? payload.ref : null;
+    if (keyRef && keyRef !== urlRef) {
+      failures.push({
         secureDuelReady: false,
         code: 'WRONG_PROJECT',
-        message: 'Render의 서버 키가 현재 Supabase 프로젝트와 다릅니다. 현재 프로젝트의 sb_secret_ 키로 교체해 주세요.',
+        message: `${configured.source === 'secret' ? 'SUPABASE_SECRET_KEY' : 'SUPABASE_SERVICE_ROLE_KEY'}가 다른 Supabase 프로젝트를 가리킵니다.`,
         keySource: configured.source,
-      },
-    };
-  }
-
-  try {
-    const client = adminClientFromKey(configured.key);
-    const { error } = await client.from('eclipse_private_states').select('room_id', { count: 'exact', head: true });
-    if (!error) {
-      return {
-        client,
-        status: {
-          secureDuelReady: true,
-          code: 'READY',
-          message: '보안 대전 서버가 정상 연결되었습니다.',
-          keySource: configured.source,
-        },
-      };
+      });
+      continue;
     }
 
-    const message = error.message || '';
-    if (/does not exist|relation .*eclipse_private_states|schema cache/i.test(message)) {
-      return {
-        client: null,
-        status: {
-          secureDuelReady: false,
-          code: 'DB_MIGRATION_REQUIRED',
-          message: 'ECLIPSE DUEL 데이터베이스 설치가 완료되지 않았습니다. v5 통합 SQL을 실행해 주세요.',
-          keySource: configured.source,
-        },
-      };
-    }
-    return {
-      client: null,
-      status: {
+    try {
+      const client = adminClientFromKey(configured.key);
+      const { error } = await client.from('eclipse_private_states').select('room_id', { count: 'exact', head: true });
+      if (!error) {
+        return {
+          client,
+          status: {
+            secureDuelReady: true,
+            code: 'READY',
+            message: `보안 대전 서버가 정상 연결되었습니다. (${configured.source === 'secret' ? 'Secret key' : 'Service role'})`,
+            keySource: configured.source,
+          },
+        };
+      }
+
+      const message = error.message || '';
+      if (/does not exist|relation .*eclipse_private_states|schema cache/i.test(message)) {
+        return {
+          client: null,
+          status: {
+            secureDuelReady: false,
+            code: 'DB_MIGRATION_REQUIRED',
+            message: '서버 키 연결은 확인했지만 ECLIPSE DUEL 대전 테이블이 없습니다. 최신 통합 SQL을 실행해 주세요.',
+            keySource: configured.source,
+          },
+        };
+      }
+
+      failures.push({
         secureDuelReady: false,
-        code: 'INVALID_KEY',
-        message: 'Render의 서버 키를 확인하지 못했습니다. 현재 Supabase 프로젝트의 sb_secret_ 키를 다시 저장해 주세요.',
+        code: /invalid api key|apikey|jwt/i.test(message) ? 'INVALID_KEY' : 'UNKNOWN',
+        message: `${configured.source === 'secret' ? 'SUPABASE_SECRET_KEY' : 'SUPABASE_SERVICE_ROLE_KEY'} 검증 실패: ${message || '알 수 없는 오류'}`,
         keySource: configured.source,
-      },
-    };
-  } catch {
-    return {
-      client: null,
-      status: {
+      });
+    } catch (error) {
+      failures.push({
         secureDuelReady: false,
         code: 'UNKNOWN',
-        message: '보안 대전 서버 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+        message: `${configured.source === 'secret' ? 'SUPABASE_SECRET_KEY' : 'SUPABASE_SERVICE_ROLE_KEY'} 연결을 확인하지 못했습니다.`,
         keySource: configured.source,
-      },
-    };
+      });
+    }
   }
+
+  const wrongProject = failures.find((item) => item.code === 'WRONG_PROJECT');
+  const invalid = failures.find((item) => item.code === 'INVALID_KEY');
+  const chosen = wrongProject ?? invalid ?? failures[0];
+  return {
+    client: null,
+    status: chosen ?? {
+      secureDuelReady: false,
+      code: 'UNKNOWN',
+      message: '보안 대전 서버 상태를 확인하지 못했습니다.',
+      keySource: 'none',
+    },
+  };
 }
 
 async function requireAdmin(): Promise<AdminDbClient> {
@@ -765,7 +786,7 @@ export async function GET() {
   return Response.json({
     ok: true,
     service: 'ECLIPSE DUEL',
-    version: '0.5.0',
+    version: '0.10.0',
     projectRef,
     serverStatus: probe.status,
   });
