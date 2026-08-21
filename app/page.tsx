@@ -328,11 +328,24 @@ async function accessToken(forceRefresh = false): Promise<string> {
 
 async function api(action: string, payload: Record<string, unknown> = {}, retried = false): Promise<ApiResult> {
   const token = await accessToken(false);
-  const response = await fetch('/api/eclipse', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ action, ...payload }),
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 12_000);
+  let response: Response;
+  try {
+    response = await fetch('/api/eclipse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ action, ...payload }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('서버 응답이 12초 이상 지연되어 요청을 취소했습니다. 다시 시도해 주세요.');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
   const result = (await response.json().catch(() => ({ ok: false, error: '서버 응답을 읽지 못했습니다.' }))) as ApiResult;
   if ((response.status === 401 || result.code === 'AUTH_EXPIRED') && !retried) {
     await accessToken(true);
@@ -1532,6 +1545,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   const [activeVfx, setActiveVfx] = useState<VisualEvent | null>(null);
   const [vfxQueue, setVfxQueue] = useState<VisualEvent[]>([]);
   const [coinClock, setCoinClock] = useState(() => Date.now());
+  const [turnClock, setTurnClock] = useState(() => Date.now());
+  const timeoutSyncTurn = useRef<number>(-1);
   const seenVfx = useRef<Set<string>>(new Set());
 
   const visualEvents = nullableState?.visualEvents ?? [];
@@ -1556,6 +1571,42 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
     return () => window.clearInterval(timer);
   }, [nullableState?.coinToss?.endsAt]);
 
+
+  useEffect(() => {
+    const endsAt = nullableState?.turnEndsAt;
+    if (!endsAt || nullableState?.status !== 'active') {
+      setTurnClock(Date.now());
+      return;
+    }
+    setTurnClock(Date.now());
+    const timer = window.setInterval(() => setTurnClock(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, [nullableState?.turnEndsAt, nullableState?.turnNumber, nullableState?.status]);
+
+  useEffect(() => {
+    const endsAt = nullableState?.turnEndsAt;
+    const turnNumber = nullableState?.turnNumber;
+    if (!endsAt || !turnNumber || nullableState?.status !== 'active') return;
+    const delay = Math.max(0, endsAt - Date.now() + 80);
+    const timer = window.setTimeout(() => {
+      if (timeoutSyncTurn.current === turnNumber) return;
+      timeoutSyncTurn.current = turnNumber;
+      api('get_room', { roomId: room.id })
+        .then((result) => {
+          if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
+        })
+        .catch((error) => setMessage(error instanceof Error ? error.message : '턴 시간 동기화 실패'));
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [nullableState?.turnEndsAt, nullableState?.turnNumber, nullableState?.status, room.id, onRefresh]);
+
+  useEffect(() => {
+    setSelectedHand(null);
+    setSelectedExtra(null);
+    setSelectedMaterials([]);
+    setSelectedAttacker(null);
+  }, [nullableState?.turnNumber, nullableState?.currentPlayerId]);
+
   useEffect(() => {
     if (activeVfx || vfxQueue.length === 0) return;
     const [next, ...rest] = vfxQueue;
@@ -1576,13 +1627,17 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   const me = profileMap[userId];
   const opponent = profileMap[opponentId];
   const coinTossActive = Boolean(state.coinToss && coinClock < state.coinToss.endsAt);
-  const myTurn = state.currentPlayerId === userId && !coinTossActive;
+  const turnExpiredLocally = Boolean(!coinTossActive && state.turnEndsAt && turnClock >= state.turnEndsAt);
+  const myTurn = state.currentPlayerId === userId && !coinTossActive && !turnExpiredLocally;
+  const turnSecondsLeft = coinTossActive ? 60 : Math.max(0, Math.ceil(((state.turnEndsAt ?? (turnClock + 60_000)) - turnClock) / 1000));
+  const turnTimerPercent = Math.max(0, Math.min(100, (turnSecondsLeft / 60) * 100));
   const selectedInstance = privateState.hand.find((card) => card.instanceId === selectedHand);
   const selectedCard = selectedInstance ? CARD_BY_ID[selectedInstance.cardId] : undefined;
   const selectedExtraInstance = privateState.extra.find((card) => card.instanceId === selectedExtra);
   const selectedExtraCard = selectedExtraInstance ? CARD_BY_ID[selectedExtraInstance.cardId] : undefined;
   const requiredMaterials = selectedExtraCard?.kind === 'fusion' ? selectedExtraCard.fusionRecipe?.materials.length ?? 0 : selectedExtraCard?.kind === 'evolution' ? 1 : 0;
   const canExtraSummon = Boolean(selectedExtraCard && selectedExtra && selectedMaterials.length === requiredMaterials && myTurn && state.phase === 'main' && !busy);
+  const canSpendTurnToDraw = Boolean(myTurn && state.phase === 'main' && !state.turnActionTaken && !busy && (state.deckCounts[userId] ?? 0) > 0);
 
   async function gameAction(gameAction: string, extra: Record<string, unknown> = {}) {
     setBusy(true);
@@ -1660,14 +1715,35 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
     gameAction('extra_summon', { extraInstanceId: selectedExtra, materialZones: selectedMaterials });
   }
 
+
+  function spendTurnToDraw() {
+    if (!canSpendTurnToDraw) return;
+    if (!confirm('카드 1장을 추가로 뽑는 대신 이번 턴을 즉시 종료할까요?')) return;
+    gameAction('draw_turn');
+  }
+
   return (
     <div className="duel-screen ascension-duel-screen">
       <DuelEffectLayer event={activeVfx} />
       <CoinTossOverlay state={state} profiles={payload.profiles} userId={userId} now={coinClock} />
       <div className="orientation-hint"><span>↻</span><b>기기를 가로로 돌려주세요</b><small>결투장은 가로 화면에 최적화되어 있습니다.</small></div>
+      {busy && <div className="v14-action-progress"><span />행동 처리 중…</div>}
       <header className="duel-topbar">
         <div className="duelist opponent"><Avatar id={opponent?.avatar} /><span><small>OPPONENT</small><b>{opponent?.display_name ?? '상대'}</b></span></div>
-        <div className="turn-orb"><small>{coinTossActive ? 'OPENING CEREMONY' : `TURN ${state.turnNumber}`}</small><b>{coinTossActive ? 'COIN TOSS' : myTurn ? 'YOUR TURN' : 'OPPONENT TURN'}</b><span>{coinTossActive ? 'FIRST PLAYER DECISION' : state.phase === 'main' ? 'MAIN PHASE' : 'BATTLE PHASE'}</span></div>
+        <div className="turn-orb">
+          <small>{coinTossActive ? 'OPENING CEREMONY' : `TURN ${state.turnNumber}`}</small>
+          <b>{coinTossActive ? 'COIN TOSS' : myTurn ? '내 턴' : '상대 턴'}</b>
+          <span>{coinTossActive ? 'FIRST PLAYER DECISION' : state.phase === 'main' ? '메인 단계' : '전투 단계'}</span>
+          {!coinTossActive && state.status === 'active' && (
+            <div className="v14-turn-live">
+              <span className="v14-live-energy"><small>내 에너지</small><strong>{state.energy[userId]?.current ?? 0}</strong><em>/ {state.energy[userId]?.max ?? 0}</em></span>
+              <div className={`v14-turn-timer ${turnSecondsLeft <= 10 ? 'danger' : turnSecondsLeft <= 20 ? 'warning' : ''}`}>
+                <span><small>남은 시간</small><strong>{turnSecondsLeft}</strong><em>초</em></span>
+                <i><b style={{ width: `${turnTimerPercent}%` }} /></i>
+              </div>
+            </div>
+          )}
+        </div>
         <div className="duel-top-actions"><button className={`log-toggle ${logOpen ? 'active' : ''}`} onClick={() => setLogOpen((value) => !value)}>LOG</button><button className="surrender-button" disabled={busy} onClick={() => confirm('항복하시겠습니까?') && gameAction('surrender')}>항복</button></div>
       </header>
 
@@ -1681,7 +1757,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
           <button disabled={!myTurn || state.phase !== 'battle' || selectedAttacker === null || busy} onClick={() => gameAction('attack', { attackerIndex: selectedAttacker, target: { kind: 'core' } })}>
             <span>ENEMY CORE</span><strong>{state.core[opponentId]}</strong>
           </button>
-          <div className="energy"><span>ENERGY</span><b>{state.energy[opponentId]?.current ?? 0}/{state.energy[opponentId]?.max ?? 0}</b></div>
+          <div className="energy"><span>상대 에너지</span><b>{state.energy[opponentId]?.current ?? 0} / {state.energy[opponentId]?.max ?? 0}</b></div>
         </div>
 
         <div className="zone-row enemy-secrets">
@@ -1715,16 +1791,19 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
         </div>
 
         <div className="core-panel my-core">
-          <div className="energy"><span>ENERGY</span><b>{state.energy[userId]?.current ?? 0}/{state.energy[userId]?.max ?? 0}</b></div>
-          <div><span>YOUR CORE</span><strong>{state.core[userId]}</strong></div>
+          <div className="energy v14-my-energy"><span>내 에너지</span><b>{state.energy[userId]?.current ?? 0} / {state.energy[userId]?.max ?? 0}</b></div>
+          <div><span>내 코어</span><strong>{state.core[userId]}</strong></div>
         </div>
       </section>
 
       <section className="duel-controls ascension-controls">
         <div className="duelist me"><Avatar id={me?.avatar} /><span><small>YOU</small><b>{me?.display_name ?? '나'}</b></span></div>
         <div className="hand-and-extra">
-          <div className="hand-zone">
-            {privateState.hand.map((instance) => <CardFace key={instance.instanceId} card={CARD_BY_ID[instance.cardId]} compact selected={selectedHand === instance.instanceId} disabled={!myTurn || state.phase !== 'main' || busy} onClick={() => chooseHand(instance.instanceId)} />)}
+          <div className="hand-zone-shell">
+            <header className="v14-hand-header"><span>내 손패</span><b>{privateState.hand.length}장</b><small>카드를 눌러 선택 · 우측 i 버튼으로 상세 확인</small></header>
+            <div className="hand-zone">
+              {privateState.hand.map((instance) => <CardFace key={instance.instanceId} card={CARD_BY_ID[instance.cardId]} compact selected={selectedHand === instance.instanceId} disabled={!myTurn || state.phase !== 'main' || busy} onClick={() => chooseHand(instance.instanceId)} />)}
+            </div>
           </div>
           <div className="extra-zone">
             <header><span>EXTRA</span><b>{privateState.extra.length}</b></header>
@@ -1733,10 +1812,15 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
         </div>
         <div className="phase-controls">
           {selectedCard && (
-            <div className={`selected-card-action ${selectedCard.summonMode === 'rift' ? 'rift' : ''}`}>
-              <b>{selectedCard.name}</b>
+            <div className={`selected-card-action v14-selected-card ${selectedCard.summonMode === 'rift' ? 'rift' : ''}`}>
+              <div className="v14-selected-head"><b>{selectedCard.name}</b><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>상세</button></div>
+              <div className="v14-selected-stats"><span>COST <b>{selectedCard.cost}</b></span>{isUnitCard(selectedCard) && <><span>ATK <b>{selectedCard.attack}</b></span><span>DEF <b>{selectedCard.health}</b></span></>}</div>
               <small>{selectedCard.summonMode === 'rift' ? `균열 조건 · ${extraRequirement(selectedCard)}` : selectedCard.text}</small>
-              {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button onClick={activateSelectedNoTarget}>발동</button>}
+              {selectedCard.kind === 'unit' && <em>필드의 빈 유닛 칸을 누르면 소환합니다.</em>}
+              {selectedCard.kind === 'trap' && <em>필드의 빈 함정 칸을 누르면 세트합니다.</em>}
+              {selectedCard.kind === 'spell' && selectedCard.target === 'enemy_unit' && <em>대상으로 삼을 적 유닛을 누르세요.</em>}
+              {selectedCard.kind === 'spell' && selectedCard.target === 'friendly_unit' && <em>대상으로 삼을 아군 유닛을 누르세요.</em>}
+              {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button onClick={activateSelectedNoTarget}>이 카드 발동</button>}
             </div>
           )}
           {selectedExtraCard && (
@@ -1750,7 +1834,12 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
           {message && <p>{message}</p>}
           {state.status === 'active' && (
             <>
-              {state.phase === 'main' && <button className="battle-button" disabled={!myTurn || busy} onClick={() => gameAction('battle_phase')}>전투 단계</button>}
+              {state.phase === 'main' && (
+                <button className="v14-draw-turn-button" disabled={!canSpendTurnToDraw} onClick={spendTurnToDraw} title={state.turnActionTaken ? '이번 턴에 이미 다른 행동을 했습니다.' : '카드 1장을 추가로 뽑고 즉시 턴을 종료합니다.'}>
+                  <span>＋ 카드 1장 뽑기</span><small>이번 턴 전체를 소비하고 즉시 턴 종료</small>
+                </button>
+              )}
+              {state.phase === 'main' && <button className="battle-button" disabled={!myTurn || busy} onClick={() => gameAction('battle_phase')}>전투 단계로</button>}
               <button className="end-turn-button" disabled={!myTurn || busy} onClick={() => gameAction('end_turn')}>턴 종료</button>
             </>
           )}
@@ -1999,9 +2088,10 @@ export default function Page() {
       finally { refreshing = false; }
     }
     const channel = supabase.channel(`room-${roomId}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'eclipse_rooms', filter: `id=eq.${roomId}` }, refresh).subscribe();
-    const timer = window.setInterval(refresh, 8000);
+    const pollMs = roomPayload?.room.status === 'active' ? 2500 : 8000;
+    const timer = window.setInterval(refresh, pollMs);
     return () => { window.clearInterval(timer); supabase.removeChannel(channel); };
-  }, [roomPayload?.room.id, session?.user.id]);
+  }, [roomPayload?.room.id, roomPayload?.room.status, session?.user.id]);
 
   if (!authReady) return <LoadingScreen />;
   if (!session) return <AuthScreen onSession={setSession} />;

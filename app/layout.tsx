@@ -8,6 +8,7 @@ import './theme-v9.css';
 import './theme-v10.css';
 import './theme-v11.css';
 import './theme-v13.css';
+import './theme-v14.css';
 
 export const metadata: Metadata = {
   title: 'ECLIPSE DUEL · Season Ascension',

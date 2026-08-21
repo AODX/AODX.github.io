@@ -83,6 +83,8 @@ export interface MatchState {
   currentPlayerId: string | null;
   firstPlayerId: string | null;
   coinToss?: CoinTossState;
+  turnEndsAt?: number | null;
+  turnActionTaken?: boolean;
   playerOrder: [string, string] | [];
   core: Record<string, number>;
   energy: Record<string, EnergyState>;
@@ -123,6 +125,7 @@ interface DamageReport {
 const MAX_LOGS = 90;
 const MAX_VISUAL_EVENTS = 18;
 const CORE_MAX = 25;
+export const TURN_DURATION_MS = 60_000;
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -223,6 +226,8 @@ export function initializeMatch(
     currentPlayerId: first,
     firstPlayerId: first,
     coinToss: { side: coinSide, winnerId: first, startedAt: tossStartedAt, endsAt: tossEndsAt },
+    turnEndsAt: tossEndsAt + TURN_DURATION_MS,
+    turnActionTaken: false,
     playerOrder: [first, second],
     core: { [playerA]: CORE_MAX, [playerB]: CORE_MAX },
     energy: {
@@ -250,7 +255,8 @@ export function initializeMatch(
 
 function assertActiveTurn(state: MatchState, playerId: string): void {
   if (state.status !== 'active') throw new Error('이미 종료된 결투입니다.');
-  if (state.coinToss && Date.now() < state.coinToss.startedAt + 3200) throw new Error('선공 결정 연출이 끝날 때까지 잠시 기다려 주세요.');
+  if (state.coinToss && Date.now() < state.coinToss.endsAt) throw new Error('선공 결정 연출이 끝날 때까지 잠시 기다려 주세요.');
+  if (state.turnEndsAt && Date.now() >= state.turnEndsAt) throw new Error('턴 제한 시간 60초가 종료되었습니다.');
   if (state.currentPlayerId !== playerId) throw new Error('상대 턴입니다.');
 }
 
@@ -616,6 +622,7 @@ export function playCard(
   }
 
   state.handCounts[playerId] = playerPrivate.hand.length;
+  state.turnActionTaken = true;
   destroyDefeatedUnits(state, privateStates);
   checkWinner(state);
   return { state, privateStates };
@@ -717,6 +724,7 @@ export function summonExtra(
   }
   state.boards[playerId].units[summonZone] = unit;
   state.extraCounts[playerId] = playerPrivate.extra.length;
+  state.turnActionTaken = true;
 
   if (card.kind === 'fusion') {
     appendLog(state, `공명 융합 — 「${card.name}」 강림!`, 'fusion');
@@ -738,6 +746,7 @@ export function beginBattlePhase(snapshot: GameSnapshot, playerId: string): Acti
   assertActiveTurn(state, playerId);
   if (state.phase !== 'main') throw new Error('이미 전투 단계입니다.');
   state.phase = 'battle';
+  state.turnActionTaken = true;
   appendLog(state, '전투 단계로 이동했습니다.', 'system');
   return { state, privateStates };
 }
@@ -838,19 +847,19 @@ export function attack(
     appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) ${defenderCard?.name ?? '적 유닛'}과 충돌했습니다.`, 'attack');
   }
 
+  state.turnActionTaken = true;
   destroyDefeatedUnits(state, privateStates);
   checkWinner(state);
   return { state, privateStates };
 }
 
-export function endTurn(snapshot: GameSnapshot, playerId: string): ActionResult {
-  const state = clone(snapshot.state);
-  const privateStates = clone(snapshot.privateStates);
-  assertActiveTurn(state, playerId);
+function advanceTurn(state: MatchState, privateStates: Record<string, PrivateState>, playerId: string, now = Date.now(), reason?: string): void {
   const nextPlayer = otherPlayer(state, playerId);
   state.currentPlayerId = nextPlayer;
   state.turnNumber += 1;
   state.phase = 'main';
+  state.turnActionTaken = false;
+  state.turnEndsAt = now + TURN_DURATION_MS;
   const nextEnergy = state.energy[nextPlayer] ?? { current: 0, max: 0 };
   nextEnergy.max = Math.min(10, nextEnergy.max + 1);
   nextEnergy.current = nextEnergy.max;
@@ -858,9 +867,57 @@ export function endTurn(snapshot: GameSnapshot, playerId: string): ActionResult 
   state.boards[nextPlayer].units.forEach((unit) => {
     if (unit) unit.canAttack = true;
   });
-  drawCards(state, privateStates[nextPlayer], nextPlayer, 1);
-  appendLog(state, `${nextPlayer.slice(0, 6)}의 턴입니다.`, 'system');
+  const drew = drawCards(state, privateStates[nextPlayer], nextPlayer, 1);
+  if (reason) appendLog(state, reason, 'system');
+  if (drew && state.status === 'active') appendLog(state, `${nextPlayer.slice(0, 6)}의 턴입니다.`, 'system');
+  if (state.status !== 'active') state.turnEndsAt = null;
   checkWinner(state);
+}
+
+export function drawAndEndTurn(snapshot: GameSnapshot, playerId: string): ActionResult {
+  const state = clone(snapshot.state);
+  const privateStates = clone(snapshot.privateStates);
+  assertActiveTurn(state, playerId);
+  if (state.phase !== 'main') throw new Error('메인 단계에서만 턴 소비 드로우를 선택할 수 있습니다.');
+  if (state.turnActionTaken) throw new Error('이번 턴에 이미 행동했습니다. 턴 소비 드로우는 다른 행동 전에만 사용할 수 있습니다.');
+  const playerPrivate = privateStates[playerId];
+  const drew = drawCards(state, playerPrivate, playerId, 1);
+  appendLog(state, `${playerId.slice(0, 6)}이(가) 턴을 소비해 카드 1장을 추가로 드로우했습니다.`, 'system');
+  appendVisual(state, { kind: 'special', vfx: 'draw-pulse', ownerId: playerId, label: 'TURN DRAW' });
+  if (!drew || state.status !== 'active') {
+    state.turnEndsAt = null;
+    checkWinner(state);
+    return { state, privateStates };
+  }
+  advanceTurn(state, privateStates, playerId, Date.now(), '추가 드로우를 선택해 턴을 종료했습니다.');
+  return { state, privateStates };
+}
+
+export function resolveTurnTimeout(snapshot: GameSnapshot, now = Date.now()): ActionResult {
+  const state = clone(snapshot.state);
+  const privateStates = clone(snapshot.privateStates);
+  if (state.status !== 'active' || !state.currentPlayerId) return { state, privateStates };
+  if (state.coinToss && now < state.coinToss.endsAt) {
+    if (!state.turnEndsAt) state.turnEndsAt = state.coinToss.endsAt + TURN_DURATION_MS;
+    return { state, privateStates };
+  }
+  if (!state.turnEndsAt) {
+    state.turnEndsAt = now + TURN_DURATION_MS;
+    state.turnActionTaken = Boolean(state.turnActionTaken);
+    return { state, privateStates };
+  }
+  if (now < state.turnEndsAt) return { state, privateStates };
+  const expiredPlayer = state.currentPlayerId;
+  appendLog(state, `${expiredPlayer.slice(0, 6)}의 제한 시간 60초가 종료되었습니다.`, 'system');
+  advanceTurn(state, privateStates, expiredPlayer, now, '시간 초과로 턴이 자동 종료되었습니다.');
+  return { state, privateStates };
+}
+
+export function endTurn(snapshot: GameSnapshot, playerId: string): ActionResult {
+  const state = clone(snapshot.state);
+  const privateStates = clone(snapshot.privateStates);
+  assertActiveTurn(state, playerId);
+  advanceTurn(state, privateStates, playerId);
   return { state, privateStates };
 }
 
