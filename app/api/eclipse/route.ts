@@ -1,12 +1,15 @@
 import { createClient, User } from '@supabase/supabase-js';
 import {
+  ASCENSION_STARTER_GRANTS,
   CARDS,
   PACKS,
   Rarity,
   STARTER_DECK,
+  STARTER_EXTRA_DECK,
   countCards,
   starterCollection,
   validateDeck,
+  validateExtraDeck,
 } from '../../game-data';
 import {
   GameSnapshot,
@@ -17,6 +20,7 @@ import {
   endTurn,
   initializeMatch,
   playCard,
+  summonExtra,
   surrender,
 } from '../../game-engine';
 
@@ -50,24 +54,41 @@ function env(name: string, fallback?: string): string {
   return value;
 }
 
+class AuthRequiredError extends Error {
+  code = 'AUTH_EXPIRED' as const;
+  constructor(message = '로그인 세션을 확인할 수 없습니다. 다시 로그인해 주세요.') {
+    super(message);
+    this.name = 'AuthRequiredError';
+  }
+}
+
+function publicAuthClient() {
+  const publicKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!publicKey) throw new Error('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY 환경변수가 없습니다.');
+  return createClient(env('NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_URL'), publicKey, {
+    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+  });
+}
+
 function adminClient() {
-  return createClient(
-    env('NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_URL'),
-    process.env.SUPABASE_SERVICE_ROLE_KEY || env('SUPABASE_SECRET_KEY'),
-    {
-      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
-    },
-  );
+  const secretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!secretKey) throw new Error('SUPABASE_SECRET_KEY 또는 SUPABASE_SERVICE_ROLE_KEY 환경변수가 없습니다.');
+  return createClient(env('NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_URL'), secretKey, {
+    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+  });
 }
 
 async function requireUser(request: Request): Promise<{ user: User; admin: ReturnType<typeof adminClient> }> {
   const authorization = request.headers.get('authorization') ?? '';
-  const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
-  if (!token) throw new Error('로그인이 필요합니다.');
-  const admin = adminClient();
-  const { data, error } = await admin.auth.getUser(token);
-  if (error || !data.user) throw new Error('로그인 정보가 만료되었습니다. 다시 로그인해 주세요.');
-  return { user: data.user, admin };
+  const token = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
+  if (!token) throw new AuthRequiredError('로그인이 필요합니다.');
+
+  // 사용자 토큰은 공개용 키로 검증합니다. 서버 관리자 키가 다른 프로젝트의 값이어도
+  // 이를 "세션 만료"로 잘못 표시하지 않도록 인증과 관리자 DB 연결을 분리했습니다.
+  const auth = publicAuthClient();
+  const { data, error } = await auth.auth.getUser(token);
+  if (error || !data.user) throw new AuthRequiredError();
+  return { user: data.user, admin: adminClient() };
 }
 
 function cleanText(value: unknown, maxLength: number): string {
@@ -117,30 +138,53 @@ async function ensureAccount(admin: ReturnType<typeof adminClient>, user: User):
     if (error) throw new Error(`기본 코인 지급 실패: ${error.message}`);
   }
 
-  const { count: collectionCount, error: collectionCountError } = await admin
+  const { data: collectionRows, error: collectionError } = await admin
     .from('eclipse_collections')
-    .select('*', { count: 'exact', head: true })
+    .select('card_id,quantity')
     .eq('user_id', user.id);
-  if (collectionCountError) throw new Error(`보유 카드 확인 실패: ${collectionCountError.message}`);
-  if ((collectionCount ?? 0) === 0) {
+  if (collectionError) throw new Error(`보유 카드 확인 실패: ${collectionError.message}`);
+
+  if ((collectionRows ?? []).length === 0) {
     const rows = Object.entries(starterCollection()).map(([card_id, quantity]) => ({ user_id: user.id, card_id, quantity }));
     const { error } = await admin.from('eclipse_collections').insert(rows);
     if (error) throw new Error(`기본 카드 지급 실패: ${error.message}`);
+  } else {
+    const owned = new Map<string, number>((collectionRows ?? []).map((row: { card_id: string; quantity: number }) => [row.card_id, row.quantity] as const));
+    const missing = Object.entries(ASCENSION_STARTER_GRANTS)
+      .filter(([cardId, quantity]) => (owned.get(cardId) ?? 0) < quantity)
+      .map(([card_id, quantity]) => ({ user_id: user.id, card_id, quantity }));
+    if (missing.length > 0) {
+      const { error } = await admin.from('eclipse_collections').upsert(missing, { onConflict: 'user_id,card_id' });
+      if (error) throw new Error(`승격 시스템 카드 지급 실패: ${error.message}`);
+    }
   }
 
-  const { count: deckCount, error: deckCountError } = await admin
+  const { data: decks, error: deckReadError } = await admin
     .from('eclipse_decks')
-    .select('*', { count: 'exact', head: true })
+    .select('id,extra_cards')
     .eq('user_id', user.id);
-  if (deckCountError) throw new Error(`덱 확인 실패: ${deckCountError.message}`);
-  if ((deckCount ?? 0) === 0) {
+  if (deckReadError) throw new Error(`덱 확인 실패: ${deckReadError.message}`);
+  if ((decks ?? []).length === 0) {
     const { error } = await admin.from('eclipse_decks').insert({
       user_id: user.id,
       name: '여명의 기본 덱',
       cards: STARTER_DECK,
+      extra_cards: STARTER_EXTRA_DECK,
       is_active: true,
     });
     if (error) throw new Error(`기본 덱 지급 실패: ${error.message}`);
+  } else {
+    for (const deck of decks ?? []) {
+      const extraCards = Array.isArray(deck.extra_cards) ? deck.extra_cards : [];
+      if (extraCards.length === 0) {
+        const { error } = await admin
+          .from('eclipse_decks')
+          .update({ extra_cards: STARTER_EXTRA_DECK })
+          .eq('id', deck.id)
+          .eq('user_id', user.id);
+        if (error) throw new Error(`기본 엑스트라 덱 지급 실패: ${error.message}`);
+      }
+    }
   }
 }
 
@@ -204,19 +248,25 @@ async function getCollectionMap(admin: ReturnType<typeof adminClient>, userId: s
   return Object.fromEntries((data ?? []).map((row: { card_id: string; quantity: number }) => [row.card_id, row.quantity]));
 }
 
-async function activeDeck(admin: ReturnType<typeof adminClient>, userId: string): Promise<string[]> {
+async function activeDeck(
+  admin: ReturnType<typeof adminClient>,
+  userId: string,
+): Promise<{ cards: string[]; extraCards: string[] }> {
   const { data, error } = await admin
     .from('eclipse_decks')
-    .select('cards')
+    .select('cards,extra_cards')
     .eq('user_id', userId)
     .eq('is_active', true)
     .maybeSingle();
   if (error) throw new Error(`활성 덱 확인 실패: ${error.message}`);
   const cards = Array.isArray(data?.cards) ? data.cards.map(String) : [];
+  const extraCards = Array.isArray(data?.extra_cards) ? data.extra_cards.map(String) : [];
   const collection = await getCollectionMap(admin, userId);
-  const validation = validateDeck(cards, collection);
-  if (validation) throw new Error(`활성 덱을 사용할 수 없습니다: ${validation}`);
-  return cards;
+  const mainValidation = validateDeck(cards, collection);
+  const extraValidation = validateExtraDeck(extraCards, collection);
+  if (mainValidation) throw new Error(`활성 덱을 사용할 수 없습니다: ${mainValidation}`);
+  if (extraValidation) throw new Error(`활성 엑스트라 덱을 사용할 수 없습니다: ${extraValidation}`);
+  return { cards, extraCards };
 }
 
 function rarityRank(rarity: Rarity): number {
@@ -239,8 +289,12 @@ function rollRarity(minimum: Rarity = 'common', legendaryBoost = false): Rarity 
   return rarityRank(rarity) < rarityRank(minimum) ? minimum : rarity;
 }
 
-function rollCard(rarity: Rarity, pickupElement?: string): string {
+function rollCard(rarity: Rarity, pickupElement?: string, ascensionBoost = false): string {
   let candidates = CARDS.filter((card) => card.rarity === rarity);
+  if (ascensionBoost && secureFloat() < 0.72) {
+    const ascension = candidates.filter((card) => card.summonMode === 'rift' || card.kind === 'fusion' || card.kind === 'evolution' || card.trapTrigger === 'fusion_summoned' || card.trapTrigger === 'evolution_summoned');
+    if (ascension.length > 0) candidates = ascension;
+  }
   if (pickupElement && secureFloat() < 0.6) {
     const pickup = candidates.filter((card) => card.element === pickupElement);
     if (pickup.length > 0) candidates = pickup;
@@ -257,7 +311,7 @@ function openPack(packId: string): { cardIds: string[]; pack: (typeof PACKS)[num
   for (let index = 0; index < 5; index += 1) {
     const minimum = index >= 5 - guaranteedSlots ? pack.guaranteed : 'common';
     const rarity = rollRarity(minimum, pack.id === 'mythic');
-    cards.push(rollCard(rarity, pack.pickupElement));
+    cards.push(rollCard(rarity, pack.pickupElement, pack.id === 'ascension'));
   }
   return { cardIds: cards, pack };
 }
@@ -361,17 +415,20 @@ async function handleAction(request: Request, body: RequestBody) {
     const deckId = cleanText(body.deckId, 64);
     const name = cleanText(body.name, 24) || '커스텀 덱';
     const cards = Array.isArray(body.cards) ? body.cards.map(String) : [];
+    const extraCards = Array.isArray(body.extraCards) ? body.extraCards.map(String) : [];
     const collection = await getCollectionMap(admin, user.id);
     const validation = validateDeck(cards, collection);
+    const extraValidation = validateExtraDeck(extraCards, collection);
     if (validation) throw new Error(validation);
+    if (extraValidation) throw new Error(extraValidation);
 
     if (deckId) {
-      const { error } = await admin.from('eclipse_decks').update({ name, cards }).eq('id', deckId).eq('user_id', user.id);
+      const { error } = await admin.from('eclipse_decks').update({ name, cards, extra_cards: extraCards }).eq('id', deckId).eq('user_id', user.id);
       if (error) throw new Error(error.message);
     } else {
       const { count } = await admin.from('eclipse_decks').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
       if ((count ?? 0) >= 5) throw new Error('덱은 최대 5개까지 저장할 수 있습니다.');
-      const { error } = await admin.from('eclipse_decks').insert({ user_id: user.id, name, cards, is_active: false });
+      const { error } = await admin.from('eclipse_decks').insert({ user_id: user.id, name, cards, extra_cards: extraCards, is_active: false });
       if (error) throw new Error(error.message);
     }
     return { hub: await getHub(admin, user.id) };
@@ -381,13 +438,16 @@ async function handleAction(request: Request, body: RequestBody) {
     const deckId = cleanText(body.deckId, 64);
     const { data: deck, error: deckError } = await admin
       .from('eclipse_decks')
-      .select('cards')
+      .select('cards,extra_cards')
       .eq('id', deckId)
       .eq('user_id', user.id)
       .single();
     if (deckError || !deck) throw new Error('덱을 찾을 수 없습니다.');
-    const validation = validateDeck(Array.isArray(deck.cards) ? deck.cards.map(String) : [], await getCollectionMap(admin, user.id));
+    const collection = await getCollectionMap(admin, user.id);
+    const validation = validateDeck(Array.isArray(deck.cards) ? deck.cards.map(String) : [], collection);
+    const extraValidation = validateExtraDeck(Array.isArray(deck.extra_cards) ? deck.extra_cards.map(String) : [], collection);
     if (validation) throw new Error(validation);
+    if (extraValidation) throw new Error(extraValidation);
     const { error: clearError } = await admin.from('eclipse_decks').update({ is_active: false }).eq('user_id', user.id);
     if (clearError) throw new Error(clearError.message);
     const { error } = await admin.from('eclipse_decks').update({ is_active: true }).eq('id', deckId).eq('user_id', user.id);
@@ -587,7 +647,14 @@ async function handleAction(request: Request, body: RequestBody) {
 
     if (room.ready_host && room.ready_guest && room.guest_id) {
       const [hostDeck, guestDeck] = await Promise.all([activeDeck(admin, room.host_id), activeDeck(admin, room.guest_id)]);
-      const snapshot = initializeMatch(room.host_id, hostDeck, room.guest_id, guestDeck);
+      const snapshot = initializeMatch(
+        room.host_id,
+        hostDeck.cards,
+        hostDeck.extraCards,
+        room.guest_id,
+        guestDeck.cards,
+        guestDeck.extraCards,
+      );
       await commitSnapshot(admin, room, snapshot);
       room = await fetchRoom(admin, room.id);
     }
@@ -613,6 +680,10 @@ async function handleAction(request: Request, body: RequestBody) {
           }
         : undefined;
       next = playCard(snapshot, user.id, instanceId, zone, target);
+    } else if (gameAction === 'extra_summon') {
+      const extraInstanceId = cleanText(body.extraInstanceId, 80);
+      const materialZones = Array.isArray(body.materialZones) ? body.materialZones.map(Number) : [];
+      next = summonExtra(snapshot, user.id, extraInstanceId, materialZones);
     } else if (gameAction === 'battle_phase') {
       next = beginBattlePhase(snapshot, user.id);
     } else if (gameAction === 'attack') {
@@ -691,7 +762,17 @@ export async function POST(request: Request) {
     const result = await handleAction(request, body);
     return Response.json({ ok: true, ...result });
   } catch (error) {
-    const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+    if (error instanceof AuthRequiredError) {
+      console.warn('[ECLIPSE AUTH]', error.message);
+      return Response.json({ ok: false, code: error.code, error: error.message }, { status: 401 });
+    }
+    let message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+    if (/invalid api key|invalid jwt|jwt malformed/i.test(message)) {
+      message = 'Render의 SUPABASE_SECRET_KEY 또는 SUPABASE_SERVICE_ROLE_KEY가 현재 Supabase 프로젝트와 일치하지 않습니다.';
+    }
+    if (/extra_cards.*does not exist|column .*extra_cards/i.test(message)) {
+      message = '승격 시스템 DB 업그레이드가 필요합니다. SUPABASE_ECLIPSE_DUEL_V2_UPGRADE.sql을 한 번 실행해 주세요.';
+    }
     console.error('[ECLIPSE API]', message);
     return Response.json({ ok: false, error: message }, { status: 400 });
   }
