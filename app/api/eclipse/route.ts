@@ -1,13 +1,5 @@
 import { createClient, User } from '@supabase/supabase-js';
 import {
-  ASCENSION_STARTER_GRANTS,
-  CARDS,
-  PACKS,
-  Rarity,
-  STARTER_DECK,
-  STARTER_EXTRA_DECK,
-  countCards,
-  starterCollection,
   validateDeck,
   validateExtraDeck,
 } from '../../game-data';
@@ -48,10 +40,26 @@ interface RoomRow {
   updated_at: string;
 }
 
-function env(name: string, fallback?: string): string {
-  const value = process.env[name] || (fallback ? process.env[fallback] : undefined);
-  if (!value) throw new Error(`${name} 환경변수가 없습니다.`);
-  return value;
+
+function projectRefFromUrl(value: string): string {
+  try {
+    const hostname = new URL(value).hostname;
+    return hostname.endsWith('.supabase.co') ? hostname.split('.')[0] : hostname;
+  } catch {
+    return 'unknown';
+  }
+}
+
+function decodeLegacyKeyPayload(key: string): Record<string, unknown> | null {
+  if (!key.startsWith('eyJ')) return null;
+  try {
+    const payload = key.split('.')[1];
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(payload.length / 4) * 4, '=');
+    return JSON.parse(globalThis.atob(normalized)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 }
 
 class AuthRequiredError extends Error {
@@ -62,33 +70,168 @@ class AuthRequiredError extends Error {
   }
 }
 
+class ServerConfigError extends Error {
+  code = 'SERVER_CONFIG' as const;
+  constructor(message: string) {
+    super(message);
+    this.name = 'ServerConfigError';
+  }
+}
+
+class SecureDuelUnavailableError extends Error {
+  code = 'DUEL_SERVER_OFFLINE' as const;
+  constructor(message: string) {
+    super(message);
+    this.name = 'SecureDuelUnavailableError';
+  }
+}
+
+function serverUrl(): string {
+  // 브라우저가 실제로 사용하는 NEXT_PUBLIC URL을 최우선으로 사용합니다.
+  // 예전 프로젝트의 SUPABASE_URL이 Render에 남아 있어도 현재 프로젝트 연결을 덮어쓰지 않습니다.
+  const value = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  if (!value) throw new ServerConfigError('Render에 NEXT_PUBLIC_SUPABASE_URL 환경변수가 없습니다.');
+  return value.trim();
+}
+
+function publicKey(): string {
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!key) throw new ServerConfigError('Render에 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY가 설정되지 않았습니다.');
+  return key.trim();
+}
+
+function configuredAdminKey(): { key: string | null; source: 'secret' | 'service_role' | 'none' } {
+  const secret = process.env.SUPABASE_SECRET_KEY?.trim();
+  if (secret) return { key: secret, source: 'secret' };
+  const legacy = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (legacy) return { key: legacy, source: 'service_role' };
+  return { key: null, source: 'none' };
+}
+
 function publicAuthClient() {
-  const publicKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!publicKey) throw new Error('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY 환경변수가 없습니다.');
-  return createClient(env('NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_URL'), publicKey, {
+  return createClient(serverUrl(), publicKey(), {
     auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
   });
 }
 
-function adminClient() {
-  const secretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!secretKey) throw new Error('SUPABASE_SECRET_KEY 또는 SUPABASE_SERVICE_ROLE_KEY 환경변수가 없습니다.');
-  return createClient(env('NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_URL'), secretKey, {
+function userClient(token: string) {
+  return createClient(serverUrl(), publicKey(), {
+    global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
   });
 }
 
-async function requireUser(request: Request): Promise<{ user: User; admin: ReturnType<typeof adminClient> }> {
+function adminClientFromKey(key: string) {
+  return createClient(serverUrl(), key, {
+    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+  });
+}
+
+type UserDbClient = ReturnType<typeof userClient>;
+type AdminDbClient = ReturnType<typeof adminClientFromKey>;
+
+type SecureServerStatus = {
+  secureDuelReady: boolean;
+  code: 'READY' | 'MISSING_KEY' | 'WRONG_PROJECT' | 'INVALID_KEY' | 'DB_MIGRATION_REQUIRED' | 'UNKNOWN';
+  message: string;
+  keySource: 'secret' | 'service_role' | 'none';
+};
+
+async function probeSecureServer(): Promise<{ status: SecureServerStatus; client: AdminDbClient | null }> {
+  const configured = configuredAdminKey();
+  if (!configured.key) {
+    return {
+      client: null,
+      status: {
+        secureDuelReady: false,
+        code: 'MISSING_KEY',
+        message: '대전 서버용 Secret key가 아직 연결되지 않았습니다. 덱·상점·보관함은 정상 이용할 수 있습니다.',
+        keySource: configured.source,
+      },
+    };
+  }
+
+  const urlRef = projectRefFromUrl(serverUrl());
+  const payload = decodeLegacyKeyPayload(configured.key);
+  const keyRef = typeof payload?.ref === 'string' ? payload.ref : null;
+  if (keyRef && keyRef !== urlRef) {
+    return {
+      client: null,
+      status: {
+        secureDuelReady: false,
+        code: 'WRONG_PROJECT',
+        message: 'Render의 서버 키가 현재 Supabase 프로젝트와 다릅니다. 현재 프로젝트의 sb_secret_ 키로 교체해 주세요.',
+        keySource: configured.source,
+      },
+    };
+  }
+
+  try {
+    const client = adminClientFromKey(configured.key);
+    const { error } = await client.from('eclipse_private_states').select('room_id', { count: 'exact', head: true });
+    if (!error) {
+      return {
+        client,
+        status: {
+          secureDuelReady: true,
+          code: 'READY',
+          message: '보안 대전 서버가 정상 연결되었습니다.',
+          keySource: configured.source,
+        },
+      };
+    }
+
+    const message = error.message || '';
+    if (/does not exist|relation .*eclipse_private_states|schema cache/i.test(message)) {
+      return {
+        client: null,
+        status: {
+          secureDuelReady: false,
+          code: 'DB_MIGRATION_REQUIRED',
+          message: 'ECLIPSE DUEL 데이터베이스 설치가 완료되지 않았습니다. v5 통합 SQL을 실행해 주세요.',
+          keySource: configured.source,
+        },
+      };
+    }
+    return {
+      client: null,
+      status: {
+        secureDuelReady: false,
+        code: 'INVALID_KEY',
+        message: 'Render의 서버 키를 확인하지 못했습니다. 현재 Supabase 프로젝트의 sb_secret_ 키를 다시 저장해 주세요.',
+        keySource: configured.source,
+      },
+    };
+  } catch {
+    return {
+      client: null,
+      status: {
+        secureDuelReady: false,
+        code: 'UNKNOWN',
+        message: '보안 대전 서버 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+        keySource: configured.source,
+      },
+    };
+  }
+}
+
+async function requireAdmin(): Promise<AdminDbClient> {
+  const probe = await probeSecureServer();
+  if (!probe.client || !probe.status.secureDuelReady) {
+    throw new SecureDuelUnavailableError(probe.status.message);
+  }
+  return probe.client;
+}
+
+async function requireUser(request: Request): Promise<{ user: User; client: UserDbClient; token: string }> {
   const authorization = request.headers.get('authorization') ?? '';
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
   if (!token) throw new AuthRequiredError('로그인이 필요합니다.');
 
-  // 사용자 토큰은 공개용 키로 검증합니다. 서버 관리자 키가 다른 프로젝트의 값이어도
-  // 이를 "세션 만료"로 잘못 표시하지 않도록 인증과 관리자 DB 연결을 분리했습니다.
   const auth = publicAuthClient();
   const { data, error } = await auth.auth.getUser(token);
   if (error || !data.user) throw new AuthRequiredError();
-  return { user: data.user, admin: adminClient() };
+  return { user: data.user, client: userClient(token), token };
 }
 
 function cleanText(value: unknown, maxLength: number): string {
@@ -110,85 +253,18 @@ function randomRoomCode(): string {
   return Array.from(bytes, (value) => alphabet[value % alphabet.length]).join('');
 }
 
-async function ensureAccount(admin: ReturnType<typeof adminClient>, user: User): Promise<void> {
+async function ensureAccount(client: UserDbClient, user: User): Promise<void> {
   const defaultName = cleanText(user.user_metadata?.display_name || user.email?.split('@')[0] || '신입 결투가', 16) || '신입 결투가';
-  const { data: profile, error: profileReadError } = await admin
-    .from('eclipse_profiles')
-    .select('user_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (profileReadError) throw new Error(`프로필 확인 실패: ${profileReadError.message}`);
-  if (!profile) {
-    const { error } = await admin.from('eclipse_profiles').insert({
-      user_id: user.id,
-      display_name: defaultName,
-      player_code: makePlayerCode(user.id),
-    });
-    if (error) throw new Error(`기본 프로필 생성 실패: ${error.message}`);
-  }
-
-  const { data: wallet, error: walletReadError } = await admin
-    .from('eclipse_wallets')
-    .select('user_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (walletReadError) throw new Error(`지갑 확인 실패: ${walletReadError.message}`);
-  if (!wallet) {
-    const { error } = await admin.from('eclipse_wallets').insert({ user_id: user.id, coins: 500 });
-    if (error) throw new Error(`기본 코인 지급 실패: ${error.message}`);
-  }
-
-  const { data: collectionRows, error: collectionError } = await admin
-    .from('eclipse_collections')
-    .select('card_id,quantity')
-    .eq('user_id', user.id);
-  if (collectionError) throw new Error(`보유 카드 확인 실패: ${collectionError.message}`);
-
-  if ((collectionRows ?? []).length === 0) {
-    const rows = Object.entries(starterCollection()).map(([card_id, quantity]) => ({ user_id: user.id, card_id, quantity }));
-    const { error } = await admin.from('eclipse_collections').insert(rows);
-    if (error) throw new Error(`기본 카드 지급 실패: ${error.message}`);
-  } else {
-    const owned = new Map<string, number>((collectionRows ?? []).map((row: { card_id: string; quantity: number }) => [row.card_id, row.quantity] as const));
-    const missing = Object.entries(ASCENSION_STARTER_GRANTS)
-      .filter(([cardId, quantity]) => (owned.get(cardId) ?? 0) < quantity)
-      .map(([card_id, quantity]) => ({ user_id: user.id, card_id, quantity }));
-    if (missing.length > 0) {
-      const { error } = await admin.from('eclipse_collections').upsert(missing, { onConflict: 'user_id,card_id' });
-      if (error) throw new Error(`승격 시스템 카드 지급 실패: ${error.message}`);
+  const { error } = await client.rpc('eclipse_bootstrap_my_account_v5', { p_display_name: defaultName });
+  if (error) {
+    if (/function .*eclipse_bootstrap_my_account_v5.*does not exist|schema cache/i.test(error.message)) {
+      throw new Error('ECLIPSE DUEL v5 데이터베이스 설치가 필요합니다. 동봉된 통합 SQL을 한 번 실행해 주세요.');
     }
-  }
-
-  const { data: decks, error: deckReadError } = await admin
-    .from('eclipse_decks')
-    .select('id,extra_cards')
-    .eq('user_id', user.id);
-  if (deckReadError) throw new Error(`덱 확인 실패: ${deckReadError.message}`);
-  if ((decks ?? []).length === 0) {
-    const { error } = await admin.from('eclipse_decks').insert({
-      user_id: user.id,
-      name: '여명의 기본 덱',
-      cards: STARTER_DECK,
-      extra_cards: STARTER_EXTRA_DECK,
-      is_active: true,
-    });
-    if (error) throw new Error(`기본 덱 지급 실패: ${error.message}`);
-  } else {
-    for (const deck of decks ?? []) {
-      const extraCards = Array.isArray(deck.extra_cards) ? deck.extra_cards : [];
-      if (extraCards.length === 0) {
-        const { error } = await admin
-          .from('eclipse_decks')
-          .update({ extra_cards: STARTER_EXTRA_DECK })
-          .eq('id', deck.id)
-          .eq('user_id', user.id);
-        if (error) throw new Error(`기본 엑스트라 덱 지급 실패: ${error.message}`);
-      }
-    }
+    throw new Error(`계정 초기화 실패: ${error.message}`);
   }
 }
 
-async function getHub(admin: ReturnType<typeof adminClient>, userId: string) {
+async function getHub(admin: UserDbClient | AdminDbClient, userId: string) {
   const [profileResult, walletResult, collectionResult, decksResult, requestsResult, friendsResult] = await Promise.all([
     admin.from('eclipse_profiles').select('*').eq('user_id', userId).single(),
     admin.from('eclipse_wallets').select('*').eq('user_id', userId).single(),
@@ -242,14 +318,14 @@ async function getHub(admin: ReturnType<typeof adminClient>, userId: string) {
   };
 }
 
-async function getCollectionMap(admin: ReturnType<typeof adminClient>, userId: string): Promise<Record<string, number>> {
+async function getCollectionMap(admin: UserDbClient | AdminDbClient, userId: string): Promise<Record<string, number>> {
   const { data, error } = await admin.from('eclipse_collections').select('card_id,quantity').eq('user_id', userId);
   if (error) throw new Error(`보유 카드 확인 실패: ${error.message}`);
   return Object.fromEntries((data ?? []).map((row: { card_id: string; quantity: number }) => [row.card_id, row.quantity]));
 }
 
 async function activeDeck(
-  admin: ReturnType<typeof adminClient>,
+  admin: UserDbClient | AdminDbClient,
   userId: string,
 ): Promise<{ cards: string[]; extraCards: string[] }> {
   const { data, error } = await admin
@@ -269,54 +345,7 @@ async function activeDeck(
   return { cards, extraCards };
 }
 
-function rarityRank(rarity: Rarity): number {
-  return { common: 0, rare: 1, epic: 2, legendary: 3 }[rarity];
-}
-
-function secureFloat(): number {
-  const values = new Uint32Array(1);
-  globalThis.crypto.getRandomValues(values);
-  return values[0] / 0xffffffff;
-}
-
-function rollRarity(minimum: Rarity = 'common', legendaryBoost = false): Rarity {
-  const roll = secureFloat();
-  let rarity: Rarity;
-  if (legendaryBoost ? roll < 0.06 : roll < 0.025) rarity = 'legendary';
-  else if (roll < 0.14) rarity = 'epic';
-  else if (roll < 0.42) rarity = 'rare';
-  else rarity = 'common';
-  return rarityRank(rarity) < rarityRank(minimum) ? minimum : rarity;
-}
-
-function rollCard(rarity: Rarity, pickupElement?: string, ascensionBoost = false): string {
-  let candidates = CARDS.filter((card) => card.rarity === rarity);
-  if (ascensionBoost && secureFloat() < 0.72) {
-    const ascension = candidates.filter((card) => card.summonMode === 'rift' || card.kind === 'fusion' || card.kind === 'evolution' || card.trapTrigger === 'fusion_summoned' || card.trapTrigger === 'evolution_summoned');
-    if (ascension.length > 0) candidates = ascension;
-  }
-  if (pickupElement && secureFloat() < 0.6) {
-    const pickup = candidates.filter((card) => card.element === pickupElement);
-    if (pickup.length > 0) candidates = pickup;
-  }
-  if (candidates.length === 0) candidates = CARDS;
-  return candidates[Math.floor(secureFloat() * candidates.length)].id;
-}
-
-function openPack(packId: string): { cardIds: string[]; pack: (typeof PACKS)[number] } {
-  const pack = PACKS.find((item) => item.id === packId);
-  if (!pack) throw new Error('존재하지 않는 카드 팩입니다.');
-  const guaranteedSlots = pack.id === 'elite' ? 2 : pack.id === 'mythic' ? 2 : 1;
-  const cards: string[] = [];
-  for (let index = 0; index < 5; index += 1) {
-    const minimum = index >= 5 - guaranteedSlots ? pack.guaranteed : 'common';
-    const rarity = rollRarity(minimum, pack.id === 'mythic');
-    cards.push(rollCard(rarity, pack.pickupElement, pack.id === 'ascension'));
-  }
-  return { cardIds: cards, pack };
-}
-
-async function fetchRoom(admin: ReturnType<typeof adminClient>, roomId: string): Promise<RoomRow> {
+async function fetchRoom(admin: AdminDbClient, roomId: string): Promise<RoomRow> {
   const { data, error } = await admin.from('eclipse_rooms').select('*').eq('id', roomId).single();
   if (error || !data) throw new Error('결투방을 찾을 수 없습니다.');
   return data as RoomRow;
@@ -326,7 +355,7 @@ function assertParticipant(room: RoomRow, userId: string): void {
   if (room.host_id !== userId && room.guest_id !== userId) throw new Error('이 결투방의 참가자가 아닙니다.');
 }
 
-async function loadSnapshot(admin: ReturnType<typeof adminClient>, room: RoomRow): Promise<GameSnapshot> {
+async function loadSnapshot(admin: AdminDbClient, room: RoomRow): Promise<GameSnapshot> {
   if (!room.state) throw new Error('결투 상태가 아직 생성되지 않았습니다.');
   const { data, error } = await admin.from('eclipse_private_states').select('user_id,state').eq('room_id', room.id);
   if (error) throw new Error(`비공개 카드 상태 불러오기 실패: ${error.message}`);
@@ -336,7 +365,7 @@ async function loadSnapshot(admin: ReturnType<typeof adminClient>, room: RoomRow
   return { state: room.state, privateStates };
 }
 
-async function commitSnapshot(admin: ReturnType<typeof adminClient>, room: RoomRow, snapshot: GameSnapshot): Promise<void> {
+async function commitSnapshot(admin: AdminDbClient, room: RoomRow, snapshot: GameSnapshot): Promise<void> {
   const privateRows = Object.entries(snapshot.privateStates).map(([user_id, state]) => ({ user_id, state }));
   const { data, error } = await admin.rpc('eclipse_commit_match', {
     p_room_id: room.id,
@@ -350,7 +379,7 @@ async function commitSnapshot(admin: ReturnType<typeof adminClient>, room: RoomR
   if (!data) throw new Error('상대 행동과 겹쳤습니다. 화면을 새로고침한 뒤 다시 시도하세요.');
 }
 
-async function rewardFinishedMatch(admin: ReturnType<typeof adminClient>, roomId: string, state: MatchState): Promise<void> {
+async function rewardFinishedMatch(admin: AdminDbClient, roomId: string, state: MatchState): Promise<void> {
   if (state.status !== 'finished' || !state.winnerId || state.playerOrder.length !== 2) return;
   for (const playerId of state.playerOrder) {
     const won = playerId === state.winnerId;
@@ -365,7 +394,7 @@ async function rewardFinishedMatch(admin: ReturnType<typeof adminClient>, roomId
   }
 }
 
-async function getRoomPayload(admin: ReturnType<typeof adminClient>, room: RoomRow, userId: string) {
+async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: string) {
   assertParticipant(room, userId);
   const profileIds = [room.host_id, room.guest_id].filter(Boolean) as string[];
   const { data: profiles, error: profileError } = await admin
@@ -390,12 +419,17 @@ async function getRoomPayload(admin: ReturnType<typeof adminClient>, room: RoomR
 }
 
 async function handleAction(request: Request, body: RequestBody) {
-  const { user, admin } = await requireUser(request);
-  await ensureAccount(admin, user);
+  const { user, client } = await requireUser(request);
+  await ensureAccount(client, user);
   const action = cleanText(body.action, 50);
 
   if (action === 'bootstrap' || action === 'hub') {
-    return { hub: await getHub(admin, user.id), user: { id: user.id, email: user.email } };
+    const probe = await probeSecureServer();
+    return {
+      hub: await getHub(client, user.id),
+      user: { id: user.id, email: user.email },
+      serverStatus: probe.status,
+    };
   }
 
   if (action === 'update_profile') {
@@ -403,12 +437,12 @@ async function handleAction(request: Request, body: RequestBody) {
     const statusMessage = cleanText(body.statusMessage, 60);
     const avatar = cleanText(body.avatar, 24) || 'eclipse';
     if (displayName.length < 2) throw new Error('플레이어 이름은 2자 이상 입력하세요.');
-    const { error } = await admin
+    const { error } = await client
       .from('eclipse_profiles')
       .update({ display_name: displayName, status_message: statusMessage, avatar })
       .eq('user_id', user.id);
     if (error) throw new Error(error.message);
-    return { hub: await getHub(admin, user.id) };
+    return { hub: await getHub(client, user.id) };
   }
 
   if (action === 'save_deck') {
@@ -416,149 +450,92 @@ async function handleAction(request: Request, body: RequestBody) {
     const name = cleanText(body.name, 24) || '커스텀 덱';
     const cards = Array.isArray(body.cards) ? body.cards.map(String) : [];
     const extraCards = Array.isArray(body.extraCards) ? body.extraCards.map(String) : [];
-    const collection = await getCollectionMap(admin, user.id);
+    const collection = await getCollectionMap(client, user.id);
     const validation = validateDeck(cards, collection);
     const extraValidation = validateExtraDeck(extraCards, collection);
     if (validation) throw new Error(validation);
     if (extraValidation) throw new Error(extraValidation);
 
     if (deckId) {
-      const { error } = await admin.from('eclipse_decks').update({ name, cards, extra_cards: extraCards }).eq('id', deckId).eq('user_id', user.id);
+      const { error } = await client.from('eclipse_decks').update({ name, cards, extra_cards: extraCards }).eq('id', deckId).eq('user_id', user.id);
       if (error) throw new Error(error.message);
     } else {
-      const { count } = await admin.from('eclipse_decks').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+      const { count } = await client.from('eclipse_decks').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
       if ((count ?? 0) >= 5) throw new Error('덱은 최대 5개까지 저장할 수 있습니다.');
-      const { error } = await admin.from('eclipse_decks').insert({ user_id: user.id, name, cards, extra_cards: extraCards, is_active: false });
+      const { error } = await client.from('eclipse_decks').insert({ user_id: user.id, name, cards, extra_cards: extraCards, is_active: false });
       if (error) throw new Error(error.message);
     }
-    return { hub: await getHub(admin, user.id) };
+    return { hub: await getHub(client, user.id) };
   }
 
   if (action === 'set_active_deck') {
     const deckId = cleanText(body.deckId, 64);
-    const { data: deck, error: deckError } = await admin
+    const { data: deck, error: deckError } = await client
       .from('eclipse_decks')
       .select('cards,extra_cards')
       .eq('id', deckId)
       .eq('user_id', user.id)
       .single();
     if (deckError || !deck) throw new Error('덱을 찾을 수 없습니다.');
-    const collection = await getCollectionMap(admin, user.id);
+    const collection = await getCollectionMap(client, user.id);
     const validation = validateDeck(Array.isArray(deck.cards) ? deck.cards.map(String) : [], collection);
     const extraValidation = validateExtraDeck(Array.isArray(deck.extra_cards) ? deck.extra_cards.map(String) : [], collection);
     if (validation) throw new Error(validation);
     if (extraValidation) throw new Error(extraValidation);
-    const { error: clearError } = await admin.from('eclipse_decks').update({ is_active: false }).eq('user_id', user.id);
+    const { error: clearError } = await client.from('eclipse_decks').update({ is_active: false }).eq('user_id', user.id);
     if (clearError) throw new Error(clearError.message);
-    const { error } = await admin.from('eclipse_decks').update({ is_active: true }).eq('id', deckId).eq('user_id', user.id);
+    const { error } = await client.from('eclipse_decks').update({ is_active: true }).eq('id', deckId).eq('user_id', user.id);
     if (error) throw new Error(error.message);
-    return { hub: await getHub(admin, user.id) };
+    return { hub: await getHub(client, user.id) };
   }
 
   if (action === 'buy_pack') {
     const packId = cleanText(body.packId, 30);
-    const { cardIds, pack } = openPack(packId);
-    const cardCounts = countCards(cardIds);
-    const items = Object.entries(cardCounts).map(([card_id, quantity]) => ({ card_id, quantity }));
-    const { data: balance, error } = await admin.rpc('eclipse_open_pack', {
-      p_user: user.id,
-      p_cost: pack.price,
-      p_cards: items,
-    });
+    const { data, error } = await client.rpc('eclipse_open_pack_v5', { p_pack_id: packId });
     if (error) throw new Error(error.message);
-    return { cardIds, balance, hub: await getHub(admin, user.id) };
+    const payload = (data ?? {}) as { cardIds?: string[]; balance?: number };
+    return {
+      cardIds: Array.isArray(payload.cardIds) ? payload.cardIds : [],
+      balance: Number(payload.balance ?? 0),
+      hub: await getHub(client, user.id),
+    };
   }
 
   if (action === 'send_global_message') {
     const message = cleanText(body.message, 180);
     if (!message) throw new Error('메시지를 입력하세요.');
-    if (/https?:\/\//i.test(message)) throw new Error('채팅에는 외부 링크를 보낼 수 없습니다.');
-    const { data: recentMessage } = await admin
-      .from('eclipse_global_messages')
-      .select('created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (recentMessage && Date.now() - new Date(recentMessage.created_at).getTime() < 1200) {
-      throw new Error('메시지는 1.2초 간격으로 보낼 수 있습니다.');
-    }
-    const { data: profile } = await admin.from('eclipse_profiles').select('display_name').eq('user_id', user.id).single();
-    const { error } = await admin.from('eclipse_global_messages').insert({
-      user_id: user.id,
-      display_name: profile?.display_name ?? '결투가',
-      body: message,
-    });
+    const { error } = await client.rpc('eclipse_send_global_message_v5', { p_body: message });
     if (error) throw new Error(error.message);
     return { ok: true };
   }
 
   if (action === 'friend_request') {
     const playerCode = cleanText(body.playerCode, 20).toUpperCase();
-    const { data: receiver, error: receiverError } = await admin
-      .from('eclipse_profiles')
-      .select('user_id')
-      .eq('player_code', playerCode)
-      .maybeSingle();
-    if (receiverError) throw new Error(receiverError.message);
-    if (!receiver) throw new Error('해당 친구 코드를 찾을 수 없습니다.');
-    if (receiver.user_id === user.id) throw new Error('자기 자신에게 친구 요청을 보낼 수 없습니다.');
-    const { data: existing } = await admin
-      .from('eclipse_friends')
-      .select('user_id')
-      .eq('user_id', user.id)
-      .eq('friend_id', receiver.user_id)
-      .maybeSingle();
-    if (existing) throw new Error('이미 친구입니다.');
-    const { error } = await admin.from('eclipse_friend_requests').insert({ sender_id: user.id, receiver_id: receiver.user_id });
-    if (error) throw new Error(error.code === '23505' ? '이미 친구 요청을 보냈습니다.' : error.message);
-    return { hub: await getHub(admin, user.id) };
+    const { error } = await client.rpc('eclipse_send_friend_request_v5', { p_player_code: playerCode });
+    if (error) throw new Error(error.message);
+    return { hub: await getHub(client, user.id) };
   }
 
   if (action === 'friend_respond') {
     const requestId = cleanText(body.requestId, 64);
     const accept = Boolean(body.accept);
-    const { data: requestRow, error: requestError } = await admin
-      .from('eclipse_friend_requests')
-      .select('*')
-      .eq('id', requestId)
-      .eq('receiver_id', user.id)
-      .eq('status', 'pending')
-      .single();
-    if (requestError || !requestRow) throw new Error('친구 요청을 찾을 수 없습니다.');
-    const { error: updateError } = await admin
-      .from('eclipse_friend_requests')
-      .update({ status: accept ? 'accepted' : 'declined' })
-      .eq('id', requestId);
-    if (updateError) throw new Error(updateError.message);
-    if (accept) {
-      const { error } = await admin.from('eclipse_friends').upsert([
-        { user_id: requestRow.sender_id, friend_id: requestRow.receiver_id },
-        { user_id: requestRow.receiver_id, friend_id: requestRow.sender_id },
-      ]);
-      if (error) throw new Error(error.message);
-    }
-    return { hub: await getHub(admin, user.id) };
+    const { error } = await client.rpc('eclipse_respond_friend_request_v5', {
+      p_request_id: requestId,
+      p_accept: accept,
+    });
+    if (error) throw new Error(error.message);
+    return { hub: await getHub(client, user.id) };
   }
 
   if (action === 'friend_remove') {
     const friendId = cleanText(body.friendId, 64);
-    const firstDelete = await admin
-      .from('eclipse_friends')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('friend_id', friendId);
-    if (firstDelete.error) throw new Error(firstDelete.error.message);
-    const secondDelete = await admin
-      .from('eclipse_friends')
-      .delete()
-      .eq('user_id', friendId)
-      .eq('friend_id', user.id);
-    if (secondDelete.error) throw new Error(secondDelete.error.message);
-    return { hub: await getHub(admin, user.id) };
+    const { error } = await client.rpc('eclipse_remove_friend_v5', { p_friend_id: friendId });
+    if (error) throw new Error(error.message);
+    return { hub: await getHub(client, user.id) };
   }
 
   if (action === 'create_room') {
+    const admin = await requireAdmin();
     await activeDeck(admin, user.id);
     let room: RoomRow | null = null;
     for (let attempt = 0; attempt < 5 && !room; attempt += 1) {
@@ -575,6 +552,7 @@ async function handleAction(request: Request, body: RequestBody) {
   }
 
   if (action === 'quick_match') {
+    const admin = await requireAdmin();
     await activeDeck(admin, user.id);
     const { data: candidates, error: candidateError } = await admin
       .from('eclipse_rooms')
@@ -608,6 +586,7 @@ async function handleAction(request: Request, body: RequestBody) {
   }
 
   if (action === 'join_room') {
+    const admin = await requireAdmin();
     await activeDeck(admin, user.id);
     const code = cleanText(body.code, 8).toUpperCase();
     const { data: found, error: findError } = await admin.from('eclipse_rooms').select('*').eq('code', code).maybeSingle();
@@ -629,12 +608,14 @@ async function handleAction(request: Request, body: RequestBody) {
   }
 
   if (action === 'get_room') {
+    const admin = await requireAdmin();
     const roomId = cleanText(body.roomId, 64);
     const room = await fetchRoom(admin, roomId);
     return await getRoomPayload(admin, room, user.id);
   }
 
   if (action === 'ready') {
+    const admin = await requireAdmin();
     const roomId = cleanText(body.roomId, 64);
     let room = await fetchRoom(admin, roomId);
     assertParticipant(room, user.id);
@@ -662,6 +643,7 @@ async function handleAction(request: Request, body: RequestBody) {
   }
 
   if (action === 'game_action') {
+    const admin = await requireAdmin();
     const roomId = cleanText(body.roomId, 64);
     const gameAction = cleanText(body.gameAction, 40);
     const room = await fetchRoom(admin, roomId);
@@ -711,31 +693,16 @@ async function handleAction(request: Request, body: RequestBody) {
     const roomId = cleanText(body.roomId, 64);
     const message = cleanText(body.message, 180);
     if (!message) throw new Error('메시지를 입력하세요.');
-    const room = await fetchRoom(admin, roomId);
-    assertParticipant(room, user.id);
-    const { data: recentMessage } = await admin
-      .from('eclipse_room_messages')
-      .select('created_at')
-      .eq('room_id', room.id)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (recentMessage && Date.now() - new Date(recentMessage.created_at).getTime() < 1200) {
-      throw new Error('메시지는 1.2초 간격으로 보낼 수 있습니다.');
-    }
-    const { data: profile } = await admin.from('eclipse_profiles').select('display_name').eq('user_id', user.id).single();
-    const { error } = await admin.from('eclipse_room_messages').insert({
-      room_id: room.id,
-      user_id: user.id,
-      display_name: profile?.display_name ?? '결투가',
-      body: message,
+    const { error } = await client.rpc('eclipse_send_room_message_v5', {
+      p_room_id: roomId,
+      p_body: message,
     });
     if (error) throw new Error(error.message);
     return { ok: true };
   }
 
   if (action === 'leave_room') {
+    const admin = await requireAdmin();
     const roomId = cleanText(body.roomId, 64);
     const room = await fetchRoom(admin, roomId);
     assertParticipant(room, user.id);
@@ -766,14 +733,40 @@ export async function POST(request: Request) {
       console.warn('[ECLIPSE AUTH]', error.message);
       return Response.json({ ok: false, code: error.code, error: error.message }, { status: 401 });
     }
+    if (error instanceof SecureDuelUnavailableError) {
+      console.warn('[ECLIPSE DUEL SERVER]', error.message);
+      return Response.json({ ok: false, code: error.code, error: error.message }, { status: 503 });
+    }
+    if (error instanceof ServerConfigError) {
+      console.error('[ECLIPSE CONFIG]', error.message);
+      return Response.json({ ok: false, code: error.code, error: error.message }, { status: 503 });
+    }
+
     let message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
-    if (/invalid api key|invalid jwt|jwt malformed/i.test(message)) {
-      message = 'Render의 SUPABASE_SECRET_KEY 또는 SUPABASE_SERVICE_ROLE_KEY가 현재 Supabase 프로젝트와 일치하지 않습니다.';
+    if (/invalid api key|no api key|apikey.*invalid|jwt malformed/i.test(message)) {
+      const ref = projectRefFromUrl(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '');
+      message = `Render의 서버 관리자 키가 현재 Supabase 프로젝트(${ref})와 일치하지 않습니다. ` +
+        `현재 프로젝트의 sb_secret_ 키를 SUPABASE_SECRET_KEY에 저장한 뒤 Clear build cache & deploy를 실행해 주세요.`;
+      console.error('[ECLIPSE CONFIG]', message);
+      return Response.json({ ok: false, code: 'SERVER_CONFIG', error: message }, { status: 503 });
     }
     if (/extra_cards.*does not exist|column .*extra_cards/i.test(message)) {
-      message = '승격 시스템 DB 업그레이드가 필요합니다. SUPABASE_ECLIPSE_DUEL_V2_UPGRADE.sql을 한 번 실행해 주세요.';
+      message = '승격 시스템 DB 업그레이드가 필요합니다. 동봉된 Supabase 통합 SQL을 한 번 실행해 주세요.';
     }
     console.error('[ECLIPSE API]', message);
-    return Response.json({ ok: false, error: message }, { status: 400 });
+    return Response.json({ ok: false, code: 'REQUEST_FAILED', error: message }, { status: 400 });
   }
+}
+
+export async function GET() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+  const projectRef = projectRefFromUrl(url);
+  const probe = await probeSecureServer();
+  return Response.json({
+    ok: true,
+    service: 'ECLIPSE DUEL',
+    version: '0.5.0',
+    projectRef,
+    serverStatus: probe.status,
+  });
 }
