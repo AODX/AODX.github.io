@@ -7,9 +7,10 @@ import './theme-v7.css';
 import './theme-v9.css';
 import './theme-v10.css';
 import './theme-v11.css';
+import './theme-v13.css';
 
 export const metadata: Metadata = {
-  title: 'ECLIPSE DUEL · Deck Studio',
+  title: 'ECLIPSE DUEL · Season Ascension',
   description: '320종 카드, 자동 덱 구성, 카드팩과 온라인 대전을 갖춘 오리지널 전략 카드게임',
   applicationName: 'ECLIPSE DUEL',
   icons: { icon: '/favicon.svg' },
