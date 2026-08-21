@@ -3180,3 +3180,830 @@ button.mode-card:hover {
     font-size: 11px;
   }
 }
+
+/* =========================================================
+   ECLIPSE DUEL v2 · ASCENSION SYSTEMS
+   Rift summon, Resonance Fusion, Legacy Evolution and VFX
+   ========================================================= */
+
+/* Card identity */
+.summon-badge {
+  position: absolute;
+  z-index: 5;
+  top: 42px;
+  left: 8px;
+  padding: 3px 6px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 7px;
+  font-weight: 950;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(8px);
+}
+
+.summon-badge.rift {
+  color: #cf9dff;
+  background: rgba(74, 25, 119, 0.78);
+}
+
+.summon-badge.fusion {
+  color: #71eeff;
+  background: rgba(18, 77, 99, 0.8);
+}
+
+.summon-badge.evolution {
+  color: #ffcf77;
+  background: rgba(114, 61, 16, 0.82);
+}
+
+.tcg-card.kind-fusion {
+  --card-accent: #57dfff;
+  background:
+    linear-gradient(136deg, rgba(57, 214, 255, 0.16), transparent 34%),
+    conic-gradient(from 225deg at 50% 45%, #07101c, #132d40, #090b16, #1d1a42, #07101c);
+  border-color: rgba(92, 229, 255, 0.68);
+}
+
+.tcg-card.kind-fusion::before {
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.12), transparent 24% 70%, rgba(103, 231, 255, 0.12)),
+    repeating-conic-gradient(from 45deg at 50% 42%, transparent 0 16deg, rgba(94, 224, 255, 0.035) 16deg 18deg);
+}
+
+.tcg-card.kind-evolution {
+  --card-accent: #f4bd58;
+  background:
+    linear-gradient(150deg, rgba(255, 199, 93, 0.18), transparent 35%),
+    conic-gradient(from 35deg at 50% 43%, #1b1008, #40280e, #14101b, #36214a, #1b1008);
+  border-color: rgba(255, 205, 105, 0.7);
+}
+
+.tcg-card.kind-evolution::before {
+  background:
+    linear-gradient(125deg, rgba(255, 248, 216, 0.14), transparent 26% 67%, rgba(255, 177, 80, 0.12)),
+    repeating-radial-gradient(circle at 50% 45%, transparent 0 16px, rgba(255, 208, 103, 0.035) 17px 18px);
+}
+
+.tcg-card.summon-rift:not(.kind-fusion):not(.kind-evolution) {
+  border-color: rgba(187, 106, 255, 0.58);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4), 0 0 22px rgba(139, 68, 225, 0.13);
+}
+
+.tcg-card.summon-rift .card-art::after {
+  border-radius: 38% 62% 42% 58%;
+  animation: riftCardOrbit 5s linear infinite;
+}
+
+@keyframes riftCardOrbit {
+  to { transform: rotate(328deg) scale(1.06); }
+}
+
+/* Deck editor */
+.dual-deck-status {
+  min-width: 320px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.dual-deck-status > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 13px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+
+.dual-deck-status span {
+  color: #777f93;
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: 0.16em;
+}
+
+.dual-deck-status strong {
+  color: #ff9bac;
+  font-size: 16px;
+}
+
+.dual-deck-status strong.valid { color: #69e0aa; }
+.dual-deck-status small {
+  grid-column: 1 / -1;
+  color: #9099ad;
+  font-size: 9px;
+  text-align: right;
+}
+
+.summon-system-guide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+
+.summon-system-guide > span {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  min-height: 68px;
+  align-content: center;
+  padding: 11px 12px 11px 15px;
+  overflow: hidden;
+  color: #f1f3fb;
+  background: rgba(255, 255, 255, 0.024);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.summon-system-guide > span::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: currentColor;
+  box-shadow: 0 0 18px currentColor;
+}
+
+.summon-system-guide small {
+  color: #7f889c;
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.summon-system-guide .rift { color: #c693ff; }
+.summon-system-guide .fusion { color: #68e6ff; }
+.summon-system-guide .evolution { color: #ffc66d; }
+
+.deck-zone-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 0 7px;
+  color: #8e97aa;
+  font-size: 9px;
+  letter-spacing: 0.13em;
+}
+
+.deck-zone-title b { color: #dce1ed; }
+.deck-zone-title.extra { color: #75deef; }
+
+.extra-deck-list {
+  min-height: 136px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(61, 196, 229, 0.08), transparent 60%),
+    rgba(4, 7, 13, 0.45);
+  border: 1px solid rgba(94, 213, 239, 0.13);
+  border-radius: 12px;
+}
+
+.extra-deck-list .tcg-card {
+  width: 100%;
+  min-width: 0;
+}
+
+.extra-empty {
+  min-height: 82px;
+  display: grid;
+  place-items: center;
+  color: rgba(115, 213, 236, 0.24);
+  border: 1px dashed rgba(115, 213, 236, 0.13);
+  border-radius: 9px;
+  font-size: 18px;
+}
+
+.dot.kind-fusion { background: #60e7ff; box-shadow: 0 0 10px rgba(96, 231, 255, 0.52); }
+.dot.kind-evolution { background: #ffc45d; box-shadow: 0 0 10px rgba(255, 196, 93, 0.52); }
+
+/* Ascension duel board */
+.ascension-duel-screen .battlefield {
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(105, 79, 232, 0.2), transparent 37%),
+    linear-gradient(rgba(7, 10, 16, 0.3), rgba(7, 10, 16, 0.72)),
+    linear-gradient(90deg, #080b13, #11182a 50%, #080b13);
+}
+
+.hand-and-extra {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 196px;
+  gap: 10px;
+  align-items: end;
+}
+
+.extra-zone {
+  min-width: 0;
+  padding: 7px;
+  background: rgba(47, 157, 184, 0.045);
+  border: 1px solid rgba(76, 211, 241, 0.12);
+  border-radius: 10px;
+}
+
+.extra-zone header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 3px 5px;
+  color: #67ddef;
+  font-size: 7px;
+  font-weight: 950;
+  letter-spacing: 0.16em;
+}
+
+.extra-zone > div {
+  display: flex;
+  min-height: 88px;
+  align-items: flex-end;
+  overflow-x: auto;
+  padding: 2px 2px 0;
+}
+
+.extra-zone .tcg-card {
+  width: 71px;
+  margin-left: -32px;
+  border-radius: 6px;
+}
+
+.extra-zone .tcg-card:first-child { margin-left: 0; }
+
+.origin-badge {
+  position: absolute;
+  z-index: 4;
+  top: 4px;
+  left: 4px;
+  padding: 2px 4px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: 5px;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  backdrop-filter: blur(8px);
+}
+
+.origin-badge.rift { color: #d9a8ff; background: rgba(63, 18, 99, 0.72); }
+.origin-badge.fusion { color: #72efff; background: rgba(11, 68, 86, 0.76); }
+.origin-badge.evolution { color: #ffd27e; background: rgba(98, 52, 10, 0.78); }
+
+.unit-slot.origin-rift { border-color: rgba(190, 106, 255, 0.28); }
+.unit-slot.origin-fusion { border-color: rgba(87, 223, 255, 0.38); box-shadow: inset 0 0 22px rgba(51, 191, 224, 0.05); }
+.unit-slot.origin-evolution { border-color: rgba(255, 198, 91, 0.38); box-shadow: inset 0 0 22px rgba(246, 168, 49, 0.05); }
+
+.unit-slot.material-selected {
+  border-color: #fff2a8;
+  box-shadow: 0 0 0 2px rgba(255, 208, 86, 0.32), 0 0 28px rgba(255, 169, 56, 0.25);
+  animation: materialPulse 0.9s ease-in-out infinite alternate;
+}
+
+.material-mark {
+  position: absolute;
+  z-index: 5;
+  inset: auto 4px 4px;
+  padding: 2px 3px;
+  color: #231705;
+  background: #ffd77c;
+  border-radius: 3px;
+  font-size: 5px;
+  font-weight: 950;
+}
+
+@keyframes materialPulse {
+  to { transform: translateY(-2px); filter: brightness(1.15); }
+}
+
+.selected-card-action.rift {
+  background: linear-gradient(135deg, rgba(103, 40, 167, 0.18), rgba(39, 20, 74, 0.1));
+  border-color: rgba(203, 137, 255, 0.3);
+}
+
+.selected-card-action.extra-action {
+  border-color: rgba(86, 218, 246, 0.26);
+  background: linear-gradient(135deg, rgba(43, 161, 191, 0.13), rgba(52, 39, 121, 0.08));
+}
+
+.selected-card-action.extra-action.evolution {
+  border-color: rgba(255, 196, 90, 0.28);
+  background: linear-gradient(135deg, rgba(169, 96, 24, 0.14), rgba(80, 42, 103, 0.08));
+}
+
+.selected-card-action.extra-action span {
+  color: #f2c875;
+  font-size: 7px;
+  font-weight: 900;
+}
+
+.battle-log p.tone-fusion { color: #70e4ff; background: rgba(30, 135, 163, 0.08); }
+.battle-log p.tone-evolution { color: #ffd27b; background: rgba(153, 86, 26, 0.08); }
+.battle-log p.tone-special { color: #d39dff; background: rgba(102, 42, 163, 0.08); }
+
+/* Full-screen card effects */
+.duel-vfx-layer {
+  position: fixed;
+  z-index: 500;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: none;
+  isolation: isolate;
+  animation: vfxLayerFade 1.65s ease both;
+}
+
+.duel-vfx-layer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, color-mix(in srgb, var(--vfx-main, #8e79ff) 20%, transparent), transparent 48%);
+  mix-blend-mode: screen;
+  animation: vfxFlash 1.2s ease-out both;
+}
+
+.duel-vfx {
+  --vfx-main: #947dff;
+  --vfx-alt: #5de4ff;
+  position: relative;
+  width: min(58vw, 670px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  filter: drop-shadow(0 0 30px color-mix(in srgb, var(--vfx-main) 48%, transparent));
+  transform: translateZ(0);
+}
+
+.duel-vfx::before,
+.duel-vfx::after {
+  content: "";
+  position: absolute;
+  inset: 18%;
+  border: 2px solid color-mix(in srgb, var(--vfx-main) 72%, white 10%);
+  border-radius: 50%;
+  box-shadow: 0 0 42px color-mix(in srgb, var(--vfx-main) 45%, transparent), inset 0 0 42px color-mix(in srgb, var(--vfx-alt) 18%, transparent);
+  animation: vfxSeal 1.25s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.duel-vfx::after {
+  inset: 30%;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--vfx-alt) 75%, white 8%);
+  animation: vfxSealReverse 1.3s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.vfx-ring {
+  position: absolute;
+  width: 62%;
+  aspect-ratio: 1;
+  border: 1px solid color-mix(in srgb, var(--vfx-main) 72%, transparent);
+  border-radius: 50%;
+  animation: vfxRing 1.2s ease-out both;
+}
+
+.vfx-ring.ring-b {
+  width: 42%;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--vfx-alt) 72%, transparent);
+  animation: vfxRingReverse 1.35s ease-out both;
+}
+
+.vfx-beam {
+  position: absolute;
+  width: 6px;
+  height: 92%;
+  background: linear-gradient(transparent, var(--vfx-main), #fff, var(--vfx-alt), transparent);
+  border-radius: 999px;
+  filter: blur(1px) drop-shadow(0 0 15px var(--vfx-main));
+  transform: rotate(35deg) scaleY(0);
+  animation: vfxBeam 0.85s 0.13s cubic-bezier(.25,.8,.25,1) both;
+}
+
+.vfx-beam.beam-b {
+  transform: rotate(-35deg) scaleY(0);
+  animation-delay: 0.22s;
+}
+
+.vfx-particles {
+  position: absolute;
+  inset: 0;
+}
+
+.vfx-particles i {
+  --angle: calc(var(--i) * 36deg);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  background: var(--vfx-alt);
+  border-radius: 50%;
+  box-shadow: 0 0 14px var(--vfx-main);
+  transform: rotate(var(--angle)) translateY(-40px) scale(0);
+  animation: vfxParticle 1.15s calc(var(--i) * 0.025s) ease-out both;
+}
+
+.duel-vfx > strong {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 128px;
+  height: 128px;
+  color: #fff;
+  background: radial-gradient(circle, color-mix(in srgb, var(--vfx-main) 48%, #080a12), rgba(5, 7, 12, 0.86));
+  border: 2px solid color-mix(in srgb, var(--vfx-alt) 65%, white 20%);
+  border-radius: 50%;
+  box-shadow: 0 0 60px color-mix(in srgb, var(--vfx-main) 48%, transparent), inset 0 0 32px color-mix(in srgb, var(--vfx-main) 35%, transparent);
+  font-size: 64px;
+  text-shadow: 0 0 24px var(--vfx-main);
+  animation: vfxSigil 1.35s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.duel-vfx > b {
+  position: absolute;
+  z-index: 4;
+  top: 72%;
+  min-width: 220px;
+  padding: 9px 18px;
+  color: #fff;
+  text-align: center;
+  background: linear-gradient(90deg, transparent, rgba(5, 8, 14, 0.86) 20% 80%, transparent);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-shadow: 0 0 18px var(--vfx-main);
+  animation: vfxTitle 1.4s ease both;
+}
+
+.duel-vfx > em {
+  position: absolute;
+  z-index: 5;
+  top: 28%;
+  right: 25%;
+  color: #fff;
+  font-size: 34px;
+  font-style: normal;
+  font-weight: 950;
+  text-shadow: 0 0 12px var(--vfx-main), 0 0 28px var(--vfx-alt);
+  animation: damageNumber 1.25s ease-out both;
+}
+
+/* VFX palettes */
+.vfx-dawn-pillar,
+.vfx-solar-slash,
+.vfx-solar-cross,
+.vfx-aegis-flare,
+.vfx-sunburst-seal,
+.vfx-ember-fall,
+.vfx-phoenix-ascend,
+.vfx-phoenix-dive,
+.vfx-rebirth-wings,
+.vfx-ash-rebirth {
+  --vfx-main: #ff8a38;
+  --vfx-alt: #ffe27a;
+}
+
+.vfx-moon-ripple,
+.vfx-crescent-cut,
+.vfx-mirror-moon,
+.vfx-lunar-script,
+.vfx-moon-dust,
+.vfx-moon-shatter {
+  --vfx-main: #7d8fff;
+  --vfx-alt: #bdeaff;
+}
+
+.vfx-storm-drop,
+.vfx-lightning-lance,
+.vfx-static-shell,
+.vfx-thunder-glyph,
+.vfx-spark-disperse,
+.vfx-magnet-storm,
+.vfx-rail-impact,
+.vfx-metal-thunder {
+  --vfx-main: #38dfff;
+  --vfx-alt: #b7fff4;
+}
+
+.vfx-worldroot-rise,
+.vfx-vine-whip,
+.vfx-root-shell,
+.vfx-bloom-circle,
+.vfx-petal-dissolve,
+.vfx-hydra-bloom,
+.vfx-ancient-bark,
+.vfx-forest-eclipse {
+  --vfx-main: #48d68a;
+  --vfx-alt: #d4f276;
+}
+
+.vfx-rift-tear,
+.vfx-void-lunge,
+.vfx-shadow-phase,
+.vfx-void-vortex,
+.vfx-void-fracture,
+.vfx-grave-bloom,
+.vfx-eclipse-convergence,
+.vfx-eclipse-maw,
+.vfx-umbra-corona,
+.vfx-eclipse-collapse,
+.vfx-alpha-mutation,
+.vfx-rift-rend,
+.vfx-phase-hide,
+.vfx-alpha-shatter {
+  --vfx-main: #a44fff;
+  --vfx-alt: #ff4fc9;
+}
+
+.vfx-crystal-forge,
+.vfx-iron-impact,
+.vfx-hex-bastion,
+.vfx-prism-script,
+.vfx-prism-break,
+.vfx-citadel-ascend,
+.vfx-sovereign-hammer,
+.vfx-royal-rampart,
+.vfx-fortress-fall,
+.vfx-resonance-shatter,
+.vfx-ancestral-chain {
+  --vfx-main: #8fa8ca;
+  --vfx-alt: #ffe4a6;
+}
+
+.vfx-duel-genesis { --vfx-main: #7d68ff; --vfx-alt: #61e3ff; }
+.vfx-token-birth { --vfx-main: #63d591; --vfx-alt: #efff9b; }
+.vfx-core-break { --vfx-main: #ff536f; --vfx-alt: #ffc56b; }
+
+/* Signature motion: each family reads differently */
+.vfx-dawn-pillar .vfx-beam,
+.vfx-phoenix-ascend .vfx-beam,
+.vfx-citadel-ascend .vfx-beam,
+.vfx-worldroot-rise .vfx-beam {
+  width: 24px;
+  height: 120%;
+  transform: rotate(0deg) scaleY(0);
+  filter: blur(4px) drop-shadow(0 0 28px var(--vfx-main));
+}
+
+.vfx-solar-slash .vfx-beam,
+.vfx-crescent-cut .vfx-beam,
+.vfx-void-lunge .vfx-beam,
+.vfx-rift-rend .vfx-beam,
+.vfx-rail-impact .vfx-beam {
+  width: 12px;
+  height: 130%;
+  transform: rotate(63deg) scaleY(0);
+}
+
+.vfx-solar-slash .beam-b,
+.vfx-crescent-cut .beam-b,
+.vfx-void-lunge .beam-b,
+.vfx-rift-rend .beam-b,
+.vfx-rail-impact .beam-b {
+  transform: rotate(68deg) scaleY(0);
+  margin-left: 28px;
+}
+
+.vfx-solar-cross .vfx-beam,
+.vfx-resonance-shatter .vfx-beam,
+.vfx-prism-break .vfx-beam {
+  width: 10px;
+  height: 118%;
+  transform: rotate(45deg) scaleY(0);
+}
+
+.vfx-solar-cross .beam-b,
+.vfx-resonance-shatter .beam-b,
+.vfx-prism-break .beam-b { transform: rotate(-45deg) scaleY(0); }
+
+.vfx-moon-ripple .vfx-ring,
+.vfx-mirror-moon .vfx-ring,
+.vfx-bloom-circle .vfx-ring,
+.vfx-hydra-bloom .vfx-ring {
+  animation-name: vfxRipple;
+  border-width: 5px;
+}
+
+.vfx-lightning-lance,
+.vfx-thunder-glyph,
+.vfx-static-shell,
+.vfx-metal-thunder {
+  animation: electricJolt 0.16s steps(2, end) 4 alternate;
+}
+
+.vfx-lightning-lance .vfx-beam,
+.vfx-thunder-glyph .vfx-beam,
+.vfx-metal-thunder .vfx-beam {
+  clip-path: polygon(42% 0, 100% 0, 62% 42%, 94% 42%, 27% 100%, 44% 55%, 7% 55%);
+  width: 55px;
+}
+
+.vfx-rift-tear::before,
+.vfx-void-vortex::before,
+.vfx-eclipse-convergence::before,
+.vfx-alpha-mutation::before {
+  border-radius: 42% 58% 35% 65%;
+  animation-name: riftOpen;
+}
+
+.vfx-worldroot-rise .vfx-particles i,
+.vfx-vine-whip .vfx-particles i,
+.vfx-root-shell .vfx-particles i,
+.vfx-forest-eclipse .vfx-particles i {
+  width: 7px;
+  height: 16px;
+  border-radius: 100% 0 100% 0;
+}
+
+.vfx-crystal-forge::before,
+.vfx-prism-script::before,
+.vfx-hex-bastion::before,
+.vfx-citadel-ascend::before,
+.vfx-royal-rampart::before {
+  border-radius: 14%;
+  transform: rotate(45deg);
+  animation-name: crystalSeal;
+}
+
+.vfx-phoenix-ascend .vfx-particles i,
+.vfx-phoenix-dive .vfx-particles i,
+.vfx-rebirth-wings .vfx-particles i,
+.vfx-ember-fall .vfx-particles i {
+  width: 6px;
+  height: 18px;
+  border-radius: 80% 20% 80% 20%;
+  background: linear-gradient(#fff2a8, #ff612f);
+}
+
+.event-fusion .duel-vfx {
+  animation: fusionConverge 1.45s cubic-bezier(.17,.84,.24,1) both;
+}
+
+.event-fusion .duel-vfx::before,
+.event-fusion .duel-vfx::after {
+  border-width: 3px;
+  box-shadow: 0 0 70px var(--vfx-main), inset 0 0 60px color-mix(in srgb, var(--vfx-alt) 35%, transparent);
+}
+
+.event-evolution .duel-vfx {
+  animation: evolutionRise 1.48s cubic-bezier(.22,.82,.22,1) both;
+}
+
+.event-evolution .duel-vfx > strong {
+  border-radius: 28% 72% 35% 65%;
+  animation-name: evolvedSigil;
+}
+
+.event-trap .duel-vfx-layer::before {
+  background: linear-gradient(135deg, rgba(161, 79, 255, 0.2), transparent 42%, rgba(255, 79, 117, 0.14));
+}
+
+.event-trap .duel-vfx::before,
+.event-trap .duel-vfx::after {
+  border-radius: 8%;
+  transform: rotate(45deg);
+}
+
+.event-attack .duel-vfx { transform: scale(0.9) rotate(-4deg); }
+.event-defense .duel-vfx > strong { box-shadow: 0 0 25px var(--vfx-main), inset 0 0 55px var(--vfx-alt); }
+
+@keyframes vfxLayerFade {
+  0% { opacity: 0; }
+  8%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes vfxFlash {
+  0% { opacity: 0; transform: scale(0.35); }
+  12% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.45); }
+}
+
+@keyframes vfxSeal {
+  0% { opacity: 0; transform: scale(0.15) rotate(-150deg); }
+  45% { opacity: 1; }
+  100% { opacity: 0.25; transform: scale(1.12) rotate(35deg); }
+}
+
+@keyframes vfxSealReverse {
+  0% { opacity: 0; transform: scale(1.6) rotate(160deg); }
+  45% { opacity: 1; }
+  100% { opacity: 0.3; transform: scale(0.72) rotate(-45deg); }
+}
+
+@keyframes vfxRing {
+  0% { opacity: 0; transform: scale(0.15) rotate(-80deg); }
+  45% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.4) rotate(55deg); }
+}
+
+@keyframes vfxRingReverse {
+  0% { opacity: 0; transform: scale(1.55) rotate(90deg); }
+  45% { opacity: 1; }
+  100% { opacity: 0; transform: scale(0.45) rotate(-60deg); }
+}
+
+@keyframes vfxRipple {
+  0% { opacity: 0.9; transform: scale(0.12); }
+  100% { opacity: 0; transform: scale(1.65); }
+}
+
+@keyframes vfxBeam {
+  0% { opacity: 0; transform: rotate(35deg) scaleY(0); }
+  35% { opacity: 1; transform: rotate(35deg) scaleY(1); }
+  100% { opacity: 0; transform: rotate(35deg) scaleY(1.08); }
+}
+
+@keyframes vfxParticle {
+  0% { opacity: 0; transform: rotate(var(--angle)) translateY(-35px) scale(0); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--angle)) translateY(-260px) scale(1.3); }
+}
+
+@keyframes vfxSigil {
+  0% { opacity: 0; transform: scale(2.6) rotate(-25deg); filter: blur(18px); }
+  35% { opacity: 1; transform: scale(0.86) rotate(4deg); filter: blur(0); }
+  70% { transform: scale(1); }
+  100% { opacity: 0.95; transform: scale(0.92); }
+}
+
+@keyframes vfxTitle {
+  0%, 18% { opacity: 0; transform: translateY(14px); letter-spacing: 0.35em; }
+  45%, 75% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-7px); }
+}
+
+@keyframes damageNumber {
+  0% { opacity: 0; transform: translateY(35px) scale(0.4); }
+  28% { opacity: 1; transform: translateY(0) scale(1.25); }
+  100% { opacity: 0; transform: translateY(-65px) scale(0.92); }
+}
+
+@keyframes electricJolt {
+  from { transform: translate(-3px, 2px) skewX(-2deg); filter: brightness(1); }
+  to { transform: translate(4px, -2px) skewX(3deg); filter: brightness(1.7); }
+}
+
+@keyframes riftOpen {
+  0% { transform: scaleX(0.05) rotate(-25deg); opacity: 0; }
+  45% { transform: scaleX(0.5) rotate(18deg); opacity: 1; }
+  100% { transform: scaleX(1.15) rotate(55deg); opacity: 0.22; }
+}
+
+@keyframes crystalSeal {
+  0% { opacity: 0; transform: rotate(0deg) scale(0.15); }
+  55% { opacity: 1; transform: rotate(45deg) scale(1); }
+  100% { opacity: 0.2; transform: rotate(95deg) scale(1.2); }
+}
+
+@keyframes fusionConverge {
+  0% { opacity: 0; transform: scale(2.2) rotate(-18deg); filter: blur(22px); }
+  38% { opacity: 1; transform: scale(0.7) rotate(5deg); filter: blur(0); }
+  68% { transform: scale(1.05) rotate(0); }
+  100% { opacity: 0.85; transform: scale(0.94); }
+}
+
+@keyframes evolutionRise {
+  0% { opacity: 0; transform: translateY(180px) scale(0.45); filter: brightness(0.2); }
+  45% { opacity: 1; transform: translateY(-18px) scale(1.08); filter: brightness(1.7); }
+  100% { opacity: 0.9; transform: translateY(0) scale(0.96); filter: brightness(1); }
+}
+
+@keyframes evolvedSigil {
+  0% { opacity: 0; transform: scale(0.25) rotate(-120deg); border-radius: 50%; }
+  48% { opacity: 1; transform: scale(1.16) rotate(18deg); }
+  100% { transform: scale(0.95) rotate(0); }
+}
+
+@media (max-width: 1250px) {
+  .hand-and-extra { grid-template-columns: minmax(0, 1fr) 160px; }
+  .extra-zone .tcg-card { width: 62px; margin-left: -30px; }
+  .dual-deck-status { min-width: 280px; }
+}
+
+@media (max-width: 800px) {
+  .dual-deck-status { min-width: 0; width: 100%; }
+  .summon-system-guide { grid-template-columns: 1fr; }
+  .extra-deck-list { grid-template-columns: repeat(6, minmax(54px, 1fr)); overflow-x: auto; }
+  .extra-deck-list .tcg-card { min-width: 64px; }
+  .duel-vfx { width: min(76vw, 560px); }
+  .duel-vfx > strong { width: 92px; height: 92px; font-size: 44px; }
+  .duel-vfx > b { top: 74%; font-size: 10px; }
+}
+
+@media (max-height: 700px) and (orientation: landscape) {
+  .hand-and-extra { grid-template-columns: minmax(0, 1fr) 150px; gap: 6px; }
+  .extra-zone { padding: 4px; }
+  .extra-zone > div { min-height: 70px; }
+  .extra-zone .tcg-card { width: 54px; margin-left: -26px; }
+  .summon-badge { top: 34px; font-size: 5px; }
+  .duel-vfx { width: min(66vh, 520px); }
+}

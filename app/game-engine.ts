@@ -1,7 +1,18 @@
-import { CARD_BY_ID, CardDefinition, Effect, randomId } from './game-data';
+import {
+  CARD_BY_ID,
+  CardDefinition,
+  Effect,
+  FusionMaterial,
+  TrapTrigger,
+  isUnitCard,
+  randomId,
+  resolveCardVfx,
+} from './game-data';
 
 export type MatchPhase = 'main' | 'battle';
 export type MatchStatus = 'waiting' | 'active' | 'finished';
+export type SummonOrigin = 'normal' | 'rift' | 'fusion' | 'evolution' | 'token';
+export type VisualEventKind = 'summon' | 'special' | 'fusion' | 'evolution' | 'spell' | 'trap' | 'attack' | 'defense' | 'destroy' | 'core';
 
 export interface CardInstance {
   instanceId: string;
@@ -18,6 +29,8 @@ export interface UnitState {
   shield: number;
   canAttack: boolean;
   summonedTurn: number;
+  summonedBy: SummonOrigin;
+  originCardIds: string[];
 }
 
 export interface PublicSecret {
@@ -38,7 +51,21 @@ export interface EnergyState {
 export interface MatchLog {
   id: string;
   text: string;
-  tone: 'normal' | 'attack' | 'system' | 'trap' | 'victory';
+  tone: 'normal' | 'attack' | 'system' | 'trap' | 'victory' | 'fusion' | 'evolution' | 'special';
+  createdAt: number;
+}
+
+export interface VisualEvent {
+  id: string;
+  kind: VisualEventKind;
+  vfx: string;
+  cardId?: string;
+  ownerId?: string;
+  targetOwnerId?: string;
+  sourceZone?: number;
+  targetZone?: number;
+  amount?: number;
+  label?: string;
   createdAt: number;
 }
 
@@ -54,8 +81,10 @@ export interface MatchState {
   boards: Record<string, PlayerBoard>;
   handCounts: Record<string, number>;
   deckCounts: Record<string, number>;
+  extraCounts: Record<string, number>;
   graveyards: Record<string, string[]>;
   logs: MatchLog[];
+  visualEvents: VisualEvent[];
   winnerId: string | null;
   winReason: string | null;
 }
@@ -64,6 +93,7 @@ export interface PrivateState {
   deck: CardInstance[];
   hand: CardInstance[];
   secrets: Array<CardInstance | null>;
+  extra: CardInstance[];
 }
 
 export interface GameSnapshot {
@@ -75,7 +105,15 @@ export interface ActionResult extends GameSnapshot {
   message?: string;
 }
 
-const MAX_LOGS = 80;
+interface DamageReport {
+  attempted: number;
+  absorbed: number;
+  healthDamage: number;
+  destroyed: boolean;
+}
+
+const MAX_LOGS = 90;
+const MAX_VISUAL_EVENTS = 18;
 const CORE_MAX = 25;
 
 function clone<T>(value: T): T {
@@ -87,6 +125,13 @@ function appendLog(state: MatchState, text: string, tone: MatchLog['tone'] = 'no
   if (state.logs.length > MAX_LOGS) state.logs.splice(0, state.logs.length - MAX_LOGS);
 }
 
+function appendVisual(state: MatchState, event: Omit<VisualEvent, 'id' | 'createdAt'>): void {
+  state.visualEvents.push({ ...event, id: randomId('vfx'), createdAt: Date.now() });
+  if (state.visualEvents.length > MAX_VISUAL_EVENTS) {
+    state.visualEvents.splice(0, state.visualEvents.length - MAX_VISUAL_EVENTS);
+  }
+}
+
 function otherPlayer(state: MatchState, playerId: string): string {
   const [a, b] = state.playerOrder;
   if (!a || !b) throw new Error('플레이어 구성이 완료되지 않았습니다.');
@@ -95,17 +140,18 @@ function otherPlayer(state: MatchState, playerId: string): string {
 
 function shuffle<T>(items: T[]): T[] {
   const result = [...items];
-  for (let i = result.length - 1; i > 0; i -= 1) {
+  for (let index = result.length - 1; index > 0; index -= 1) {
     const random = new Uint32Array(1);
     globalThis.crypto.getRandomValues(random);
-    const j = random[0] % (i + 1);
-    [result[i], result[j]] = [result[j], result[i]];
+    const target = random[0] % (index + 1);
+    [result[index], result[target]] = [result[target], result[index]];
   }
   return result;
 }
 
-function buildInstances(cardIds: string[]): CardInstance[] {
-  return shuffle(cardIds.map((cardId) => ({ instanceId: randomId('ci'), cardId })));
+function buildInstances(cardIds: string[], shuffleCards = true): CardInstance[] {
+  const instances = cardIds.map((cardId) => ({ instanceId: randomId('ci'), cardId }));
+  return shuffleCards ? shuffle(instances) : instances;
 }
 
 function emptyBoard(): PlayerBoard {
@@ -115,16 +161,17 @@ function emptyBoard(): PlayerBoard {
   };
 }
 
-function createPrivate(cardIds: string[]): PrivateState {
+function createPrivate(cardIds: string[], extraCardIds: string[]): PrivateState {
   return {
     deck: buildInstances(cardIds),
     hand: [],
     secrets: Array.from({ length: 5 }, () => null),
+    extra: buildInstances(extraCardIds, false),
   };
 }
 
 function drawCards(state: MatchState, privateState: PrivateState, playerId: string, amount: number): boolean {
-  for (let i = 0; i < amount; i += 1) {
+  for (let index = 0; index < amount; index += 1) {
     const card = privateState.deck.shift();
     if (!card) {
       state.status = 'finished';
@@ -140,15 +187,22 @@ function drawCards(state: MatchState, privateState: PrivateState, playerId: stri
   return true;
 }
 
-export function initializeMatch(playerA: string, deckA: string[], playerB: string, deckB: string[]): GameSnapshot {
+export function initializeMatch(
+  playerA: string,
+  deckA: string[],
+  extraA: string[],
+  playerB: string,
+  deckB: string[],
+  extraB: string[],
+): GameSnapshot {
   const random = new Uint32Array(1);
   globalThis.crypto.getRandomValues(random);
   const first = random[0] % 2 === 0 ? playerA : playerB;
   const second = first === playerA ? playerB : playerA;
 
   const privateStates: Record<string, PrivateState> = {
-    [playerA]: createPrivate(deckA),
-    [playerB]: createPrivate(deckB),
+    [playerA]: createPrivate(deckA, extraA),
+    [playerB]: createPrivate(deckB, extraB),
   };
 
   const state: MatchState = {
@@ -166,8 +220,10 @@ export function initializeMatch(playerA: string, deckA: string[], playerB: strin
     boards: { [playerA]: emptyBoard(), [playerB]: emptyBoard() },
     handCounts: { [playerA]: 0, [playerB]: 0 },
     deckCounts: { [playerA]: privateStates[playerA].deck.length, [playerB]: privateStates[playerB].deck.length },
+    extraCounts: { [playerA]: privateStates[playerA].extra.length, [playerB]: privateStates[playerB].extra.length },
     graveyards: { [playerA]: [], [playerB]: [] },
     logs: [],
+    visualEvents: [],
     winnerId: null,
     winReason: null,
   };
@@ -176,6 +232,7 @@ export function initializeMatch(playerA: string, deckA: string[], playerB: strin
   drawCards(state, privateStates[playerB], playerB, 5);
   appendLog(state, '결투가 시작되었습니다.', 'system');
   appendLog(state, `${first.slice(0, 6)}의 선공입니다.`, 'system');
+  appendVisual(state, { kind: 'summon', vfx: 'duel-genesis', label: 'DUEL START' });
   return { state, privateStates };
 }
 
@@ -193,9 +250,18 @@ function getCardFromHand(privateState: PrivateState, instanceId: string): { inde
   return { index, instance, card };
 }
 
+function getCardFromExtra(privateState: PrivateState, instanceId: string): { index: number; instance: CardInstance; card: CardDefinition } {
+  const index = privateState.extra.findIndex((item) => item.instanceId === instanceId);
+  if (index < 0) throw new Error('엑스트라 덱에서 카드를 찾을 수 없습니다.');
+  const instance = privateState.extra[index];
+  const card = CARD_BY_ID[instance.cardId];
+  if (!card || (card.kind !== 'fusion' && card.kind !== 'evolution')) throw new Error('사용할 수 없는 엑스트라 카드입니다.');
+  return { index, instance, card };
+}
+
 function spendEnergy(state: MatchState, playerId: string, amount: number): void {
   const energy = state.energy[playerId];
-  if (!energy || energy.current < amount) throw new Error('에너지가 부족합니다.');
+  if (!energy || energy.current < amount) throw new Error(`에너지가 부족합니다. ${amount} 에너지가 필요합니다.`);
   energy.current -= amount;
 }
 
@@ -207,7 +273,7 @@ function firstOpenSecret(board: PlayerBoard): number {
   return board.secrets.findIndex((slot) => slot === null);
 }
 
-function findTrap(privateState: PrivateState, trigger: NonNullable<CardDefinition['trapTrigger']>): { index: number; instance: CardInstance; card: CardDefinition } | null {
+function findTrap(privateState: PrivateState, trigger: TrapTrigger): { index: number; instance: CardInstance; card: CardDefinition } | null {
   for (let index = 0; index < privateState.secrets.length; index += 1) {
     const instance = privateState.secrets[index];
     if (!instance) continue;
@@ -222,19 +288,27 @@ function consumeTrap(state: MatchState, privateState: PrivateState, ownerId: str
   state.boards[ownerId].secrets[trapIndex] = null;
   state.graveyards[ownerId].push(card.id);
   appendLog(state, `함정 「${card.name}」 발동!`, 'trap');
+  appendVisual(state, {
+    kind: 'trap',
+    vfx: resolveCardVfx(card, 'activation'),
+    cardId: card.id,
+    ownerId,
+    label: card.name,
+  });
 }
 
-function damageUnit(state: MatchState, ownerId: string, unitIndex: number, amount: number): number {
+function damageUnit(state: MatchState, ownerId: string, unitIndex: number, amount: number): DamageReport {
   const unit = state.boards[ownerId].units[unitIndex];
-  if (!unit || amount <= 0) return 0;
+  if (!unit || amount <= 0) return { attempted: amount, absorbed: 0, healthDamage: 0, destroyed: false };
   let remaining = amount;
+  let absorbed = 0;
   if (unit.shield > 0) {
-    const absorbed = Math.min(unit.shield, remaining);
+    absorbed = Math.min(unit.shield, remaining);
     unit.shield -= absorbed;
     remaining -= absorbed;
   }
   if (remaining > 0) unit.health -= remaining;
-  return amount;
+  return { attempted: amount, absorbed, healthDamage: remaining, destroyed: unit.health <= 0 };
 }
 
 function healCore(state: MatchState, playerId: string, amount: number): void {
@@ -311,31 +385,54 @@ function applyEffect(
         shield: 0,
         canAttack: false,
         summonedTurn: state.turnNumber,
+        summonedBy: 'token',
+        originCardIds: [],
       };
+      appendVisual(state, { kind: 'summon', vfx: 'token-birth', ownerId: actorId, targetZone: index, label: effect.name });
       break;
     }
   }
 }
 
+function triggerTrap(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  trapOwnerId: string,
+  trigger: TrapTrigger,
+  target?: { ownerId: string; unitIndex: number },
+): { negated: boolean; retaliation: number } {
+  const trap = findTrap(privateStates[trapOwnerId], trigger);
+  if (!trap || !trap.card.trapEffect) return { negated: false, retaliation: 0 };
+  consumeTrap(state, privateStates[trapOwnerId], trapOwnerId, trap.index, trap.card);
+  if (trap.card.trapEffect.kind === 'negate') return { negated: true, retaliation: 0 };
+  if (trap.card.trapEffect.kind === 'negate_and_damage') {
+    return { negated: true, retaliation: trap.card.trapEffect.amount };
+  }
+  applyEffect(state, privateStates, trapOwnerId, trap.card.trapEffect, target);
+  return { negated: false, retaliation: 0 };
+}
+
 function destroyDefeatedUnits(state: MatchState, privateStates: Record<string, PrivateState>): void {
   for (const playerId of state.playerOrder) {
     if (!playerId) continue;
-    const opponentId = otherPlayer(state, playerId);
     for (let index = 0; index < state.boards[playerId].units.length; index += 1) {
       const unit = state.boards[playerId].units[index];
       if (!unit || unit.health > 0) continue;
       const card = CARD_BY_ID[unit.cardId];
       state.graveyards[playerId].push(unit.cardId);
       state.boards[playerId].units[index] = null;
-      appendLog(state, `${card?.name ?? '토큰'}이(가) 파괴되었습니다.`, 'attack');
+      appendLog(state, `${card?.name ?? unit.cardId.replace('token:', '')}이(가) 파괴되었습니다.`, 'attack');
+      appendVisual(state, {
+        kind: 'destroy',
+        vfx: resolveCardVfx(card, 'destroy'),
+        cardId: card?.id,
+        ownerId: playerId,
+        targetZone: index,
+        label: card?.name ?? '토큰',
+      });
 
-      const trap = findTrap(privateStates[playerId], 'friendly_destroyed');
-      if (trap && trap.card.trapEffect && trap.card.trapEffect.kind !== 'negate' && trap.card.trapEffect.kind !== 'negate_and_damage') {
-        consumeTrap(state, privateStates[playerId], playerId, trap.index, trap.card);
-        applyEffect(state, privateStates, playerId, trap.card.trapEffect);
-      }
+      triggerTrap(state, privateStates, playerId, 'friendly_destroyed');
     }
-    void opponentId;
   }
 }
 
@@ -369,6 +466,71 @@ function validateTarget(state: MatchState, actorId: string, card: CardDefinition
   if (card.target === 'friendly_unit' && target.ownerId !== actorId) throw new Error('아군 유닛을 선택해야 합니다.');
 }
 
+function riftConditionMet(state: MatchState, playerId: string, card: CardDefinition): boolean {
+  const condition = card.riftCondition;
+  if (!condition) return false;
+  const opponentId = otherPlayer(state, playerId);
+  const myUnits = state.boards[playerId].units.filter(Boolean);
+  const enemyUnits = state.boards[opponentId].units.filter(Boolean);
+  switch (condition.kind) {
+    case 'empty_board': return myUnits.length === 0;
+    case 'core_below': return (state.core[playerId] ?? CORE_MAX) <= condition.value;
+    case 'opponent_more_units': return enemyUnits.length > myUnits.length;
+    case 'graveyard_min': return (state.graveyards[playerId]?.length ?? 0) >= condition.value;
+    case 'ally_element': return myUnits.some((unit) => CARD_BY_ID[unit?.cardId ?? '']?.element === condition.element);
+  }
+}
+
+function makeUnit(
+  state: MatchState,
+  playerId: string,
+  instance: CardInstance,
+  card: CardDefinition,
+  summonedBy: SummonOrigin,
+  originCardIds: string[] = [],
+): UnitState {
+  if (!isUnitCard(card)) throw new Error('유닛 카드가 아닙니다.');
+  return {
+    instanceId: instance.instanceId,
+    cardId: instance.cardId,
+    ownerId: playerId,
+    attack: card.attack ?? 0,
+    health: card.health ?? 1,
+    maxHealth: card.health ?? 1,
+    shield: 0,
+    canAttack: Boolean(card.keywords?.includes('charge')),
+    summonedTurn: state.turnNumber,
+    summonedBy,
+    originCardIds,
+  };
+}
+
+function afterUnitSummoned(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  playerId: string,
+  zone: number,
+  card: CardDefinition,
+  origin: SummonOrigin,
+): void {
+  const opponentId = otherPlayer(state, playerId);
+  const target = { ownerId: playerId, unitIndex: zone };
+  triggerTrap(state, privateStates, opponentId, 'unit_summoned', target);
+  if (state.boards[playerId].units[zone] && origin !== 'normal' && origin !== 'token') {
+    triggerTrap(state, privateStates, opponentId, 'special_summoned', target);
+  }
+  if (state.boards[playerId].units[zone] && origin === 'fusion') {
+    triggerTrap(state, privateStates, opponentId, 'fusion_summoned', target);
+  }
+  if (state.boards[playerId].units[zone] && origin === 'evolution') {
+    triggerTrap(state, privateStates, opponentId, 'evolution_summoned', target);
+  }
+  if (card.onSummon && state.boards[playerId].units[zone]) {
+    const selfTarget = { ownerId: playerId, unitIndex: zone };
+    applyEffect(state, privateStates, playerId, card.onSummon, card.onSummon.kind === 'shield_unit' ? selfTarget : undefined);
+  }
+}
+
 export function playCard(
   snapshot: GameSnapshot,
   playerId: string,
@@ -383,60 +545,55 @@ export function playCard(
 
   const playerPrivate = privateStates[playerId];
   const { index: handIndex, instance, card } = getCardFromHand(playerPrivate, instanceId);
+  if (card.kind === 'fusion' || card.kind === 'evolution') throw new Error('융합·진화 카드는 엑스트라 덱에서 소환해야 합니다.');
   validateTarget(state, playerId, card, target);
-  spendEnergy(state, playerId, card.cost);
-
   const opponentId = otherPlayer(state, playerId);
 
   if (card.kind === 'unit') {
+    const isRift = card.summonMode === 'rift';
+    if (isRift && !riftConditionMet(state, playerId, card)) {
+      throw new Error(`균열 소환 조건이 충족되지 않았습니다: ${card.riftCondition?.label ?? '조건 확인 필요'}`);
+    }
+    spendEnergy(state, playerId, isRift ? (card.riftCost ?? card.cost) : card.cost);
     const zone = Number.isInteger(requestedZone) ? Number(requestedZone) : firstOpenUnit(state.boards[playerId]);
     if (zone < 0 || zone > 4 || state.boards[playerId].units[zone]) throw new Error('선택한 유닛 칸을 사용할 수 없습니다.');
     playerPrivate.hand.splice(handIndex, 1);
-    const unit: UnitState = {
-      instanceId: instance.instanceId,
-      cardId: instance.cardId,
+    const origin: SummonOrigin = isRift ? 'rift' : 'normal';
+    state.boards[playerId].units[zone] = makeUnit(state, playerId, instance, card, origin);
+    appendLog(state, isRift ? `균열 소환 — 「${card.name}」!` : `${card.name} 소환.`, isRift ? 'special' : 'system');
+    appendVisual(state, {
+      kind: isRift ? 'special' : 'summon',
+      vfx: resolveCardVfx(card, 'summon'),
+      cardId: card.id,
       ownerId: playerId,
-      attack: card.attack ?? 0,
-      health: card.health ?? 1,
-      maxHealth: card.health ?? 1,
-      shield: 0,
-      canAttack: Boolean(card.keywords?.includes('charge')),
-      summonedTurn: state.turnNumber,
-    };
-    state.boards[playerId].units[zone] = unit;
-    appendLog(state, `${card.name} 소환.`, 'system');
-
-    const trap = findTrap(privateStates[opponentId], 'unit_summoned');
-    if (trap && trap.card.trapEffect && trap.card.trapEffect.kind !== 'negate' && trap.card.trapEffect.kind !== 'negate_and_damage') {
-      consumeTrap(state, privateStates[opponentId], opponentId, trap.index, trap.card);
-      applyEffect(state, privateStates, opponentId, trap.card.trapEffect, { ownerId: playerId, unitIndex: zone });
-    }
-
-    if (card.onSummon && state.boards[playerId].units[zone]) {
-      const selfTarget = { ownerId: playerId, unitIndex: zone };
-      applyEffect(state, privateStates, playerId, card.onSummon, card.onSummon.kind === 'shield_unit' ? selfTarget : undefined);
-    }
+      targetZone: zone,
+      label: card.name,
+    });
+    afterUnitSummoned(state, privateStates, playerId, zone, card, origin);
   } else if (card.kind === 'spell') {
+    spendEnergy(state, playerId, card.cost);
     playerPrivate.hand.splice(handIndex, 1);
-    const counter = findTrap(privateStates[opponentId], 'spell_played');
-    let negated = false;
-    if (counter && counter.card.trapEffect) {
-      consumeTrap(state, privateStates[opponentId], opponentId, counter.index, counter.card);
-      if (counter.card.trapEffect.kind === 'negate') negated = true;
-      if (counter.card.trapEffect.kind === 'negate_and_damage') {
-        negated = true;
-        state.core[playerId] -= counter.card.trapEffect.amount;
-      }
-    }
-    if (!negated && card.effect) {
+    appendVisual(state, {
+      kind: 'spell',
+      vfx: resolveCardVfx(card, 'activation'),
+      cardId: card.id,
+      ownerId: playerId,
+      targetOwnerId: target?.ownerId,
+      targetZone: target?.unitIndex,
+      label: card.name,
+    });
+    const counter = triggerTrap(state, privateStates, opponentId, 'spell_played');
+    if (!counter.negated && card.effect) {
       const effectTarget = card.target === 'enemy_core' ? undefined : target;
       applyEffect(state, privateStates, playerId, card.effect, effectTarget);
       appendLog(state, `주문 「${card.name}」 발동.`, 'system');
-    } else if (negated) {
+    } else if (counter.negated) {
+      if (counter.retaliation > 0) state.core[playerId] -= counter.retaliation;
       appendLog(state, `주문 「${card.name}」이(가) 무효화되었습니다.`, 'trap');
     }
     state.graveyards[playerId].push(card.id);
   } else {
+    spendEnergy(state, playerId, card.cost);
     const zone = Number.isInteger(requestedZone) ? Number(requestedZone) : firstOpenSecret(state.boards[playerId]);
     if (zone < 0 || zone > 4 || state.boards[playerId].secrets[zone]) throw new Error('선택한 함정 칸을 사용할 수 없습니다.');
     playerPrivate.hand.splice(handIndex, 1);
@@ -446,6 +603,117 @@ export function playCard(
   }
 
   state.handCounts[playerId] = playerPrivate.hand.length;
+  destroyDefeatedUnits(state, privateStates);
+  checkWinner(state);
+  return { state, privateStates };
+}
+
+function materialMatches(unit: UnitState, requirement: FusionMaterial): boolean {
+  const card = CARD_BY_ID[unit.cardId];
+  if (!card) return false;
+  if (requirement.cardIds?.length && !requirement.cardIds.includes(card.id)) return false;
+  if (requirement.element && card.element !== requirement.element) return false;
+  if (requirement.minCost !== undefined && card.cost < requirement.minCost) return false;
+  return true;
+}
+
+function canAssignFusionMaterials(units: UnitState[], requirements: FusionMaterial[], requirementIndex = 0, used = new Set<number>()): boolean {
+  if (requirementIndex >= requirements.length) return true;
+  for (let index = 0; index < units.length; index += 1) {
+    if (used.has(index) || !materialMatches(units[index], requirements[requirementIndex])) continue;
+    used.add(index);
+    if (canAssignFusionMaterials(units, requirements, requirementIndex + 1, used)) return true;
+    used.delete(index);
+  }
+  return false;
+}
+
+function evolutionMatches(unit: UnitState, card: CardDefinition): boolean {
+  const recipe = card.evolutionRecipe;
+  const source = CARD_BY_ID[unit.cardId];
+  if (!recipe || !source) return false;
+  const exactMatch = Boolean(recipe.fromIds?.includes(source.id));
+  const flexibleMatch = (!recipe.element || source.element === recipe.element)
+    && (recipe.minCost === undefined || source.cost >= recipe.minCost)
+    && (recipe.maxCost === undefined || source.cost <= recipe.maxCost);
+  return exactMatch || flexibleMatch;
+}
+
+export function summonExtra(
+  snapshot: GameSnapshot,
+  playerId: string,
+  extraInstanceId: string,
+  materialZones: number[],
+): ActionResult {
+  const state = clone(snapshot.state);
+  const privateStates = clone(snapshot.privateStates);
+  assertActiveTurn(state, playerId);
+  if (state.phase !== 'main') throw new Error('메인 단계에서만 융합·진화할 수 있습니다.');
+
+  const playerPrivate = privateStates[playerId];
+  const { index: extraIndex, instance, card } = getCardFromExtra(playerPrivate, extraInstanceId);
+  const uniqueZones = Array.from(new Set(materialZones.map(Number))).filter((zone) => Number.isInteger(zone) && zone >= 0 && zone <= 4);
+  const units = uniqueZones.map((zone) => state.boards[playerId].units[zone]).filter((unit): unit is UnitState => Boolean(unit));
+
+  let summonZone = -1;
+  let evolvedSource: UnitState | null = null;
+  let inheritedAttack = 0;
+  let inheritedHealth = 0;
+  let inheritedDamage = 0;
+  let inheritedShield = 0;
+
+  if (card.kind === 'fusion') {
+    const requirements = card.fusionRecipe?.materials ?? [];
+    if (requirements.length < 2) throw new Error('융합 소재 정보가 올바르지 않습니다.');
+    if (uniqueZones.length !== requirements.length || units.length !== requirements.length) {
+      throw new Error(`융합 소재 ${requirements.length}장을 선택하세요.`);
+    }
+    if (!canAssignFusionMaterials(units, requirements)) throw new Error(`융합 조건이 맞지 않습니다: ${card.fusionRecipe?.label}`);
+    spendEnergy(state, playerId, card.cost);
+    summonZone = uniqueZones[0];
+    for (const zone of uniqueZones) {
+      const material = state.boards[playerId].units[zone];
+      if (!material) continue;
+      state.graveyards[playerId].push(material.cardId);
+      state.boards[playerId].units[zone] = null;
+    }
+  } else {
+    if (uniqueZones.length !== 1 || units.length !== 1) throw new Error('진화시킬 아군 유닛 1장을 선택하세요.');
+    evolvedSource = units[0];
+    if (!evolutionMatches(evolvedSource, card)) throw new Error(`진화 조건이 맞지 않습니다: ${card.evolutionRecipe?.label}`);
+    spendEnergy(state, playerId, card.cost);
+    summonZone = uniqueZones[0];
+    const sourceCard = CARD_BY_ID[evolvedSource.cardId];
+    inheritedAttack = Math.max(0, evolvedSource.attack - (sourceCard?.attack ?? evolvedSource.attack));
+    inheritedHealth = Math.max(0, evolvedSource.maxHealth - (sourceCard?.health ?? evolvedSource.maxHealth));
+    inheritedDamage = Math.max(0, evolvedSource.maxHealth - evolvedSource.health);
+    inheritedShield = evolvedSource.shield;
+    state.graveyards[playerId].push(evolvedSource.cardId);
+    state.boards[playerId].units[summonZone] = null;
+  }
+
+  playerPrivate.extra.splice(extraIndex, 1);
+  const origin: SummonOrigin = card.kind === 'fusion' ? 'fusion' : 'evolution';
+  const unit = makeUnit(state, playerId, instance, card, origin, units.map((item) => item.cardId));
+  if (card.kind === 'evolution' && evolvedSource) {
+    unit.attack += inheritedAttack;
+    unit.maxHealth += inheritedHealth;
+    unit.health = Math.max(1, unit.maxHealth - inheritedDamage);
+    unit.shield = inheritedShield;
+    unit.canAttack = Boolean(card.keywords?.includes('charge')) || (evolvedSource.canAttack && evolvedSource.summonedTurn < state.turnNumber);
+  }
+  state.boards[playerId].units[summonZone] = unit;
+  state.extraCounts[playerId] = playerPrivate.extra.length;
+
+  if (card.kind === 'fusion') {
+    appendLog(state, `공명 융합 — 「${card.name}」 강림!`, 'fusion');
+    appendVisual(state, { kind: 'fusion', vfx: resolveCardVfx(card, 'summon'), cardId: card.id, ownerId: playerId, targetZone: summonZone, label: card.name });
+  } else {
+    appendLog(state, `계승 진화 — 「${card.name}」 각성!`, 'evolution');
+    appendVisual(state, { kind: 'evolution', vfx: resolveCardVfx(card, 'summon'), cardId: card.id, ownerId: playerId, targetZone: summonZone, label: card.name });
+  }
+
+  afterUnitSummoned(state, privateStates, playerId, summonZone, card, origin);
   destroyDefeatedUnits(state, privateStates);
   checkWinner(state);
   return { state, privateStates };
@@ -483,21 +751,31 @@ export function attack(
     .filter(({ unit }) => unit && CARD_BY_ID[unit.cardId]?.keywords?.includes('guard'))
     .map(({ index }) => index);
 
+  appendVisual(state, {
+    kind: 'attack',
+    vfx: resolveCardVfx(attackerCard, 'attack'),
+    cardId: attackerCard?.id,
+    ownerId: playerId,
+    targetOwnerId: opponentId,
+    sourceZone: attackerIndex,
+    targetZone: target.kind === 'unit' ? target.unitIndex : undefined,
+    amount: attacker.attack,
+    label: attackerCard?.name ?? '유닛 공격',
+  });
+
   if (target.kind === 'core') {
     if (state.boards[opponentId].units.some(Boolean)) throw new Error('상대 필드에 유닛이 남아 있어 직접 공격할 수 없습니다.');
-    const trap = findTrap(privateStates[opponentId], 'direct_attack');
-    if (trap && trap.card.trapEffect) {
-      consumeTrap(state, privateStates[opponentId], opponentId, trap.index, trap.card);
-      if (trap.card.trapEffect.kind === 'negate_and_damage') {
-        damageUnit(state, playerId, attackerIndex, trap.card.trapEffect.amount);
-        attacker.canAttack = false;
-        appendLog(state, `${attackerCard?.name ?? '유닛'}의 직접 공격이 무효화되었습니다.`, 'trap');
-      }
+    const trap = triggerTrap(state, privateStates, opponentId, 'direct_attack');
+    if (trap.negated) {
+      if (trap.retaliation > 0) damageUnit(state, playerId, attackerIndex, trap.retaliation);
+      attacker.canAttack = false;
+      appendLog(state, `${attackerCard?.name ?? '유닛'}의 직접 공격이 무효화되었습니다.`, 'trap');
     } else {
       state.core[opponentId] -= attacker.attack;
       if (attackerCard?.keywords?.includes('lifesteal')) healCore(state, playerId, attacker.attack);
       attacker.canAttack = false;
       appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) 코어에 ${attacker.attack} 피해.`, 'attack');
+      appendVisual(state, { kind: 'core', vfx: 'core-break', ownerId: playerId, targetOwnerId: opponentId, amount: attacker.attack, label: 'CORE HIT' });
     }
   } else {
     if (target.unitIndex < 0 || target.unitIndex > 4) throw new Error('올바른 공격 대상을 선택하세요.');
@@ -505,26 +783,46 @@ export function attack(
     const defender = state.boards[opponentId].units[target.unitIndex];
     if (!defender) throw new Error('선택한 위치에 적 유닛이 없습니다.');
 
-    const ambush = findTrap(privateStates[opponentId], 'unit_attacked');
-    if (ambush && ambush.card.trapEffect && ambush.card.trapEffect.kind !== 'negate' && ambush.card.trapEffect.kind !== 'negate_and_damage') {
-      consumeTrap(state, privateStates[opponentId], opponentId, ambush.index, ambush.card);
-      applyEffect(state, privateStates, opponentId, ambush.card.trapEffect, { ownerId: opponentId, unitIndex: target.unitIndex });
-    }
-
+    triggerTrap(state, privateStates, opponentId, 'unit_attacked', { ownerId: opponentId, unitIndex: target.unitIndex });
     const defenderAfterTrap = state.boards[opponentId].units[target.unitIndex];
     if (!defenderAfterTrap) throw new Error('방어 유닛 상태가 올바르지 않습니다.');
+    const defenderCard = CARD_BY_ID[defenderAfterTrap.cardId];
+    const defenderDurabilityBefore = Math.max(0, defenderAfterTrap.health) + Math.max(0, defenderAfterTrap.shield);
     const attackerDamage = attacker.attack;
     const defenderDamage = defenderAfterTrap.attack;
-    damageUnit(state, opponentId, target.unitIndex, attackerDamage);
-    damageUnit(state, playerId, attackerIndex, defenderDamage);
+    const defenderReport = damageUnit(state, opponentId, target.unitIndex, attackerDamage);
+    const attackerReport = damageUnit(state, playerId, attackerIndex, defenderDamage);
+
+    if (defenderReport.absorbed > 0 || !defenderReport.destroyed) {
+      appendVisual(state, {
+        kind: 'defense',
+        vfx: resolveCardVfx(defenderCard, 'defense'),
+        cardId: defenderCard?.id,
+        ownerId: opponentId,
+        targetZone: target.unitIndex,
+        amount: defenderReport.absorbed || defenderReport.healthDamage,
+        label: defenderCard?.name ?? '방어',
+      });
+    }
+    if (attackerReport.absorbed > 0) {
+      appendVisual(state, {
+        kind: 'defense',
+        vfx: resolveCardVfx(attackerCard, 'defense'),
+        cardId: attackerCard?.id,
+        ownerId: playerId,
+        targetZone: attackerIndex,
+        amount: attackerReport.absorbed,
+        label: attackerCard?.name ?? '방어',
+      });
+    }
 
     if (attackerCard?.keywords?.includes('lifesteal')) healCore(state, playerId, attackerDamage);
     if (attackerCard?.keywords?.includes('pierce') && defenderAfterTrap.health <= 0) {
-      const overflow = Math.max(0, attackerDamage - Math.max(0, defenderAfterTrap.maxHealth + defenderAfterTrap.shield));
+      const overflow = Math.max(0, attackerDamage - defenderDurabilityBefore);
       if (overflow > 0) state.core[opponentId] -= overflow;
     }
     attacker.canAttack = false;
-    appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) 적 유닛과 충돌했습니다.`, 'attack');
+    appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) ${defenderCard?.name ?? '적 유닛'}과 충돌했습니다.`, 'attack');
   }
 
   destroyDefeatedUnits(state, privateStates);

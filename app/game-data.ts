@@ -1,7 +1,11 @@
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
-export type CardKind = 'unit' | 'spell' | 'trap';
+export type CardKind = 'unit' | 'spell' | 'trap' | 'fusion' | 'evolution';
+export type MainDeckKind = 'unit' | 'spell' | 'trap';
+export type ExtraDeckKind = 'fusion' | 'evolution';
 export type Element = 'solar' | 'lunar' | 'storm' | 'verdant' | 'void' | 'neutral';
 export type Keyword = 'guard' | 'charge' | 'lifesteal' | 'pierce';
+export type SummonMode = 'normal' | 'rift' | 'fusion' | 'evolution';
+export type VfxMoment = 'summon' | 'attack' | 'defense' | 'activation' | 'destroy';
 
 export type Effect =
   | { kind: 'damage_unit'; amount: number }
@@ -15,7 +19,50 @@ export type Effect =
   | { kind: 'destroy_weak'; maxHealth: number }
   | { kind: 'summon_token'; attack: number; health: number; name: string };
 
-export type TrapTrigger = 'spell_played' | 'unit_summoned' | 'direct_attack' | 'unit_attacked' | 'friendly_destroyed';
+export type TrapTrigger =
+  | 'spell_played'
+  | 'unit_summoned'
+  | 'special_summoned'
+  | 'fusion_summoned'
+  | 'evolution_summoned'
+  | 'direct_attack'
+  | 'unit_attacked'
+  | 'friendly_destroyed';
+
+export type RiftCondition =
+  | { kind: 'empty_board'; label: string }
+  | { kind: 'core_below'; value: number; label: string }
+  | { kind: 'opponent_more_units'; label: string }
+  | { kind: 'graveyard_min'; value: number; label: string }
+  | { kind: 'ally_element'; element: Element; label: string };
+
+export interface FusionMaterial {
+  label: string;
+  element?: Element;
+  cardIds?: string[];
+  minCost?: number;
+}
+
+export interface FusionRecipe {
+  label: string;
+  materials: FusionMaterial[];
+}
+
+export interface EvolutionRecipe {
+  label: string;
+  fromIds?: string[];
+  element?: Element;
+  minCost?: number;
+  maxCost?: number;
+}
+
+export interface CardVfxProfile {
+  summon?: string;
+  attack?: string;
+  defense?: string;
+  activation?: string;
+  destroy?: string;
+}
 
 export interface CardDefinition {
   id: string;
@@ -28,6 +75,11 @@ export interface CardDefinition {
   attack?: number;
   health?: number;
   keywords?: Keyword[];
+  summonMode?: SummonMode;
+  riftCost?: number;
+  riftCondition?: RiftCondition;
+  fusionRecipe?: FusionRecipe;
+  evolutionRecipe?: EvolutionRecipe;
   onSummon?: Effect;
   effect?: Effect;
   trapTrigger?: TrapTrigger;
@@ -36,6 +88,7 @@ export interface CardDefinition {
   text: string;
   flavor: string;
   sigil: string;
+  vfx?: CardVfxProfile;
 }
 
 export interface PackDefinition {
@@ -59,6 +112,8 @@ export const KIND_LABEL: Record<CardKind, string> = {
   unit: '유닛',
   spell: '주문',
   trap: '함정',
+  fusion: '공명 융합',
+  evolution: '계승 진화',
 };
 
 export const ELEMENT_LABEL: Record<Element, string> = {
@@ -233,30 +288,211 @@ export const CARDS: CardDefinition[] = [
     id: 'trap_solar_rebuke', name: '태양의 질책', subtitle: '소환자에게 내리는 열', kind: 'trap', rarity: 'epic', element: 'solar', cost: 3,
     trapTrigger: 'unit_summoned', trapEffect: { kind: 'damage_unit', amount: 4 }, target: 'none', text: '상대가 유닛을 소환하면 그 유닛에 4 피해.', flavor: '빛 앞에 모습을 드러낸 자는 그 대가를 치른다.', sigil: '☼',
   },
+
+  {
+    id: 'unit_rift_wanderer', name: '균열의 유랑자', subtitle: '빈 전장에 먼저 닿는 발', kind: 'unit', rarity: 'rare', element: 'void', cost: 4,
+    attack: 4, health: 3, keywords: ['charge'], summonMode: 'rift', riftCost: 1,
+    riftCondition: { kind: 'empty_board', label: '내 유닛 존이 비어 있을 때' }, target: 'none',
+    text: '균열 소환: 내 필드가 비어 있으면 에너지 1로 특수 소환. 속공.',
+    flavor: '아무도 서 있지 않은 곳에 가장 먼저 그림자가 도착한다.', sigil: '◬',
+    vfx: { summon: 'rift-tear', attack: 'void-lunge', defense: 'shadow-phase', destroy: 'void-fracture' },
+  },
+  {
+    id: 'unit_lastlight_vanguard', name: '최후광 선봉대', subtitle: '패배 직전의 역광', kind: 'unit', rarity: 'rare', element: 'solar', cost: 5,
+    attack: 4, health: 6, keywords: ['guard'], summonMode: 'rift', riftCost: 1,
+    riftCondition: { kind: 'core_below', value: 12, label: '내 코어가 12 이하일 때' }, target: 'none',
+    text: '균열 소환: 내 코어가 12 이하이면 에너지 1로 특수 소환. 수호.',
+    flavor: '빛은 가장 약해진 순간, 가장 긴 그림자를 만든다.', sigil: '✷',
+    vfx: { summon: 'dawn-pillar', attack: 'solar-cross', defense: 'aegis-flare', destroy: 'ember-fall' },
+  },
+  {
+    id: 'unit_tempest_interceptor', name: '뇌광 요격수', subtitle: '수적 열세를 가르는 섬광', kind: 'unit', rarity: 'epic', element: 'storm', cost: 5,
+    attack: 5, health: 4, keywords: ['charge'], summonMode: 'rift', riftCost: 2,
+    riftCondition: { kind: 'opponent_more_units', label: '상대 유닛 수가 더 많을 때' }, target: 'none',
+    text: '균열 소환: 상대 유닛이 더 많으면 에너지 2로 특수 소환. 속공.',
+    flavor: '열세는 그에게 후퇴 명령이 아니라 좌표다.', sigil: 'Ϟ',
+    vfx: { summon: 'storm-drop', attack: 'lightning-lance', defense: 'static-shell', destroy: 'spark-disperse' },
+  },
+  {
+    id: 'unit_gravebloom_medium', name: '묘화의 영매', subtitle: '쓰러진 이름을 꽃피우다', kind: 'unit', rarity: 'epic', element: 'verdant', cost: 5,
+    attack: 3, health: 5, summonMode: 'rift', riftCost: 2,
+    riftCondition: { kind: 'graveyard_min', value: 4, label: '내 묘지에 카드가 4장 이상일 때' },
+    onSummon: { kind: 'summon_token', attack: 2, health: 2, name: '기억의 꽃잎' }, target: 'none',
+    text: '균열 소환: 내 묘지에 카드가 4장 이상이면 에너지 2. 소환 시 2/2 기억의 꽃잎 소환.',
+    flavor: '죽은 이름은 사라지지 않는다. 뿌리의 언어로 바뀔 뿐이다.', sigil: '❋',
+    vfx: { summon: 'grave-bloom', attack: 'vine-whip', defense: 'root-shell', destroy: 'petal-dissolve' },
+  },
+
+  {
+    id: 'fusion_eclipse_chimera', name: '일식 공명수', subtitle: '빛과 공허가 겹친 포효', kind: 'fusion', rarity: 'legendary', element: 'void', cost: 3,
+    attack: 9, health: 8, keywords: ['pierce'], summonMode: 'fusion',
+    fusionRecipe: { label: '태양 유닛 1장 + 공허 유닛 1장', materials: [
+      { label: '태양 유닛', element: 'solar' }, { label: '공허 유닛', element: 'void' },
+    ] },
+    onSummon: { kind: 'aoe_enemy', amount: 2 }, target: 'none',
+    text: '공명 융합. 소환 시 모든 적 유닛에 2 피해. 관통.',
+    flavor: '빛과 어둠은 적이 아니었다. 서로를 완성하지 못했을 뿐이다.', sigil: '☯',
+    vfx: { summon: 'eclipse-convergence', attack: 'eclipse-maw', defense: 'umbra-corona', destroy: 'eclipse-collapse' },
+  },
+  {
+    id: 'fusion_tempest_colossus', name: '천뢰 합금거신', subtitle: '금속에 갇힌 폭풍', kind: 'fusion', rarity: 'epic', element: 'storm', cost: 2,
+    attack: 7, health: 10, keywords: ['guard'], summonMode: 'fusion',
+    fusionRecipe: { label: '폭풍 유닛 1장 + 중립 유닛 1장', materials: [
+      { label: '폭풍 유닛', element: 'storm' }, { label: '중립 유닛', element: 'neutral' },
+    ] },
+    onSummon: { kind: 'shield_unit', amount: 3 }, target: 'none',
+    text: '공명 융합. 소환 시 자신에게 보호막 3. 수호.',
+    flavor: '번개가 갑옷을 입자 산맥조차 움직이기 시작했다.', sigil: '⚙',
+    vfx: { summon: 'magnet-storm', attack: 'rail-impact', defense: 'hex-bastion', destroy: 'metal-thunder' },
+  },
+  {
+    id: 'fusion_worldroot_hydra', name: '세계근원 히드라', subtitle: '달빛을 마시는 고대 뿌리', kind: 'fusion', rarity: 'epic', element: 'verdant', cost: 2,
+    attack: 6, health: 11, keywords: ['lifesteal'], summonMode: 'fusion',
+    fusionRecipe: { label: '대지 유닛 1장 + 달 유닛 1장', materials: [
+      { label: '대지 유닛', element: 'verdant' }, { label: '달 유닛', element: 'lunar' },
+    ] },
+    onSummon: { kind: 'heal_core', amount: 4 }, target: 'none',
+    text: '공명 융합. 소환 시 내 코어 4 회복. 흡수.',
+    flavor: '뿌리는 땅 아래에서 달의 조수를 기억하고 있었다.', sigil: '♆',
+    vfx: { summon: 'worldroot-rise', attack: 'hydra-bloom', defense: 'ancient-bark', destroy: 'forest-eclipse' },
+  },
+
+  {
+    id: 'evolution_ember_phoenix', name: '홍련계승 불사조', subtitle: '작은 불씨가 얻은 두 번째 하늘', kind: 'evolution', rarity: 'epic', element: 'solar', cost: 2,
+    attack: 6, health: 6, keywords: ['charge', 'lifesteal'], summonMode: 'evolution',
+    evolutionRecipe: { label: '잿불의 종자 또는 비용 2 이하 태양 유닛', fromIds: ['unit_ember_squire'], element: 'solar', maxCost: 2 },
+    target: 'none', text: '계승 진화. 진화 전 유닛의 강화 수치와 보호막을 이어받습니다. 속공, 흡수.',
+    flavor: '불씨는 자신이 작다는 사실을 잊는 순간 날개를 얻는다.', sigil: '♨',
+    vfx: { summon: 'phoenix-ascend', attack: 'phoenix-dive', defense: 'rebirth-wings', destroy: 'ash-rebirth' },
+  },
+  {
+    id: 'evolution_iron_sovereign', name: '철성계승 군주', subtitle: '성벽이 왕좌를 선택하다', kind: 'evolution', rarity: 'epic', element: 'neutral', cost: 2,
+    attack: 4, health: 12, keywords: ['guard'], summonMode: 'evolution',
+    evolutionRecipe: { label: '철벽 수호병 또는 비용 2 이하 중립 유닛', fromIds: ['unit_iron_bastion'], element: 'neutral', maxCost: 2 },
+    onSummon: { kind: 'shield_unit', amount: 4 }, target: 'none',
+    text: '계승 진화. 강화 수치와 보호막 계승. 소환 시 보호막 4. 수호.',
+    flavor: '오랫동안 지킨 자는 결국 지켜야 할 나라 그 자체가 된다.', sigil: '♜',
+    vfx: { summon: 'citadel-ascend', attack: 'sovereign-hammer', defense: 'royal-rampart', destroy: 'fortress-fall' },
+  },
+  {
+    id: 'evolution_rift_alpha', name: '균열계승 알파', subtitle: '사냥개가 경계의 주인이 되다', kind: 'evolution', rarity: 'legendary', element: 'void', cost: 3,
+    attack: 8, health: 6, keywords: ['charge', 'pierce'], summonMode: 'evolution',
+    evolutionRecipe: { label: '균열 사냥개 또는 비용 3 이하 공허 유닛', fromIds: ['unit_rift_hound'], element: 'void', maxCost: 3 },
+    target: 'none', text: '계승 진화. 강화 수치와 보호막 계승. 속공, 관통.',
+    flavor: '경계를 물어뜯던 야수는 마침내 경계가 어디인지 정하는 존재가 되었다.', sigil: '◈',
+    vfx: { summon: 'alpha-mutation', attack: 'rift-rend', defense: 'phase-hide', destroy: 'alpha-shatter' },
+  },
+
+  {
+    id: 'trap_resonance_break', name: '공명 붕괴진', subtitle: '완성 직전 깨지는 파동', kind: 'trap', rarity: 'epic', element: 'neutral', cost: 3,
+    trapTrigger: 'fusion_summoned', trapEffect: { kind: 'damage_unit', amount: 5 }, target: 'none',
+    text: '상대가 공명 융합하면 그 융합 유닛에 5 피해.',
+    flavor: '둘이 하나가 되는 순간은 동시에 가장 불안정한 순간이다.', sigil: '⨯',
+    vfx: { activation: 'resonance-shatter', destroy: 'prism-break' },
+  },
+  {
+    id: 'trap_ancestral_denial', name: '계승 거부', subtitle: '과거가 미래를 붙잡는 사슬', kind: 'trap', rarity: 'rare', element: 'lunar', cost: 2,
+    trapTrigger: 'evolution_summoned', trapEffect: { kind: 'damage_unit', amount: 4 }, target: 'none',
+    text: '상대가 계승 진화하면 그 진화 유닛에 4 피해.',
+    flavor: '모든 조상이 후계자를 축복하는 것은 아니다.', sigil: '☒',
+    vfx: { activation: 'ancestral-chain', destroy: 'moon-shatter' },
+  },
 ];
+
+// 기존 카드도 같은 속성의 공통 연출만 반복하지 않도록 카드별 시그니처 조합을 부여합니다.
+// 신규 승격 카드가 직접 정의한 vfx는 아래 값보다 우선 유지됩니다.
+const SIGNATURE_VFX: Partial<Record<string, CardVfxProfile>> = {
+  unit_ember_squire: { summon: 'sunburst-seal', attack: 'solar-slash', defense: 'aegis-flare', destroy: 'ember-fall' },
+  unit_rift_hound: { summon: 'rift-tear', attack: 'rift-rend', defense: 'phase-hide', destroy: 'void-fracture' },
+  unit_iron_bastion: { summon: 'citadel-ascend', attack: 'iron-impact', defense: 'royal-rampart', destroy: 'fortress-fall' },
+  unit_celestial_archer: { summon: 'dawn-pillar', attack: 'solar-cross', defense: 'aegis-flare', destroy: 'ember-fall' },
+  unit_verdant_sage: { summon: 'bloom-circle', attack: 'vine-whip', defense: 'root-shell', destroy: 'petal-dissolve' },
+  unit_tide_medic: { summon: 'moon-ripple', attack: 'crescent-cut', defense: 'mirror-moon', destroy: 'moon-dust' },
+  unit_storm_lancer: { summon: 'storm-drop', attack: 'lightning-lance', defense: 'static-shell', destroy: 'spark-disperse' },
+  unit_moon_priest: { summon: 'lunar-script', attack: 'crescent-cut', defense: 'mirror-moon', destroy: 'moon-shatter' },
+  unit_ashen_duelist: { summon: 'ember-fall', attack: 'solar-slash', defense: 'sunburst-seal', destroy: 'ash-rebirth' },
+  unit_crystal_warden: { summon: 'crystal-forge', attack: 'prism-break', defense: 'hex-bastion', destroy: 'prism-break' },
+  unit_void_reaper: { summon: 'grave-bloom', attack: 'void-lunge', defense: 'shadow-phase', destroy: 'void-vortex' },
+  unit_nova_golem: { summon: 'dawn-pillar', attack: 'sovereign-hammer', defense: 'aegis-flare', destroy: 'ember-fall' },
+  unit_timeweaver: { summon: 'moon-ripple', attack: 'lunar-script', defense: 'phase-hide', destroy: 'moon-dust' },
+  unit_oracle_glass: { summon: 'prism-script', attack: 'crystal-forge', defense: 'mirror-moon', destroy: 'prism-break' },
+  unit_eclipse_dragon: { summon: 'eclipse-convergence', attack: 'eclipse-maw', defense: 'umbra-corona', destroy: 'eclipse-collapse' },
+  unit_phoenix_knight: { summon: 'phoenix-ascend', attack: 'phoenix-dive', defense: 'rebirth-wings', destroy: 'ash-rebirth' },
+  unit_tempest_queen: { summon: 'magnet-storm', attack: 'metal-thunder', defense: 'static-shell', destroy: 'spark-disperse' },
+  unit_crownless_titan: { summon: 'citadel-ascend', attack: 'sovereign-hammer', defense: 'royal-rampart', destroy: 'fortress-fall' },
+  unit_star_devourer: { summon: 'void-vortex', attack: 'eclipse-maw', defense: 'umbra-corona', destroy: 'eclipse-collapse' },
+  unit_dawn_seraph: { summon: 'dawn-pillar', attack: 'solar-cross', defense: 'rebirth-wings', destroy: 'moon-dust' },
+
+  spell_spark_bolt: { activation: 'thunder-glyph' },
+  spell_battle_hymn: { activation: 'sunburst-seal' },
+  spell_mending_light: { activation: 'moon-ripple' },
+  spell_astral_insight: { activation: 'prism-script' },
+  spell_void_lance: { activation: 'rift-rend' },
+  spell_overgrowth: { activation: 'bloom-circle' },
+  spell_chain_lightning: { activation: 'magnet-storm' },
+  spell_cleanse: { activation: 'moon-shatter' },
+  spell_supernova: { activation: 'solar-cross' },
+  spell_rebirth_seed: { activation: 'worldroot-rise' },
+
+  trap_mirror_veil: { activation: 'mirror-moon', destroy: 'moon-shatter' },
+  trap_thorn_snare: { activation: 'vine-whip', destroy: 'petal-dissolve' },
+  trap_counter_sigil: { activation: 'prism-script', destroy: 'prism-break' },
+  trap_ambush: { activation: 'shadow-phase', destroy: 'void-fracture' },
+  trap_last_stand: { activation: 'aegis-flare', destroy: 'ember-fall' },
+  trap_storm_prison: { activation: 'static-shell', destroy: 'spark-disperse' },
+  trap_null_horizon: { activation: 'void-vortex', destroy: 'eclipse-collapse' },
+  trap_crystal_reversal: { activation: 'crystal-forge', destroy: 'prism-break' },
+  trap_blooming_guard: { activation: 'root-shell', destroy: 'petal-dissolve' },
+  trap_solar_rebuke: { activation: 'solar-cross', destroy: 'ember-fall' },
+};
+
+for (const card of CARDS) {
+  const signature = SIGNATURE_VFX[card.id];
+  if (signature) card.vfx = { ...signature, ...card.vfx };
+}
 
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));
 
 export const STARTER_DECK: string[] = [
-  'unit_ember_squire', 'unit_ember_squire', 'unit_ember_squire',
-  'unit_rift_hound', 'unit_rift_hound', 'unit_rift_hound',
+  'unit_ember_squire', 'unit_ember_squire',
+  'unit_rift_hound', 'unit_rift_hound',
   'unit_iron_bastion', 'unit_iron_bastion',
   'unit_celestial_archer', 'unit_celestial_archer',
   'unit_verdant_sage', 'unit_verdant_sage',
   'unit_tide_medic', 'unit_tide_medic',
   'unit_storm_lancer', 'unit_storm_lancer',
-  'unit_moon_priest',
-  'unit_crystal_warden',
+  'unit_moon_priest', 'unit_crystal_warden',
+  'unit_rift_wanderer', 'unit_lastlight_vanguard',
   'spell_spark_bolt', 'spell_spark_bolt',
   'spell_battle_hymn', 'spell_battle_hymn',
-  'spell_mending_light',
-  'spell_astral_insight',
-  'spell_void_lance',
-  'trap_mirror_veil', 'trap_mirror_veil',
-  'trap_thorn_snare',
-  'trap_counter_sigil',
-  'trap_blooming_guard',
+  'spell_mending_light', 'spell_astral_insight', 'spell_void_lance',
+  'trap_mirror_veil', 'trap_thorn_snare', 'trap_counter_sigil',
+  'trap_blooming_guard', 'trap_ancestral_denial',
 ];
+
+export const STARTER_EXTRA_DECK: string[] = [
+  'fusion_eclipse_chimera',
+  'fusion_tempest_colossus',
+  'fusion_worldroot_hydra',
+  'evolution_ember_phoenix',
+  'evolution_iron_sovereign',
+  'evolution_rift_alpha',
+];
+
+export const ASCENSION_STARTER_GRANTS: Record<string, number> = {
+  unit_rift_wanderer: 1,
+  unit_lastlight_vanguard: 1,
+  unit_tempest_interceptor: 1,
+  unit_gravebloom_medium: 1,
+  fusion_eclipse_chimera: 1,
+  fusion_tempest_colossus: 1,
+  fusion_worldroot_hydra: 1,
+  evolution_ember_phoenix: 1,
+  evolution_iron_sovereign: 1,
+  evolution_rift_alpha: 1,
+  trap_resonance_break: 1,
+  trap_ancestral_denial: 1,
+};
 
 export const PACKS: PackDefinition[] = [
   { id: 'standard', name: '시작의 성운', tagline: '희귀 이상 1장 보장', price: 120, guaranteed: 'rare', accent: '#7b86ff' },
@@ -264,15 +500,25 @@ export const PACKS: PackDefinition[] = [
   { id: 'solar_pickup', name: '태양의 계시', tagline: '태양 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'solar', accent: '#ff845c' },
   { id: 'void_pickup', name: '공허의 속삭임', tagline: '공허 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'void', accent: '#9c6cff' },
   { id: 'mythic', name: '왕실 비전', tagline: '영웅 이상 2장 보장 · 전설 확률 상승', price: 950, guaranteed: 'epic', accent: '#f4d683' },
+  { id: 'ascension', name: '승격의 문', tagline: '균열·융합·진화 카드 확률 상승', price: 720, guaranteed: 'epic', accent: '#7d5cff' },
 ];
 
 export const DECK_SIZE = 30;
+export const EXTRA_DECK_SIZE = 6;
 export const MAX_COPIES: Record<Rarity, number> = {
   common: 3,
   rare: 3,
   epic: 2,
   legendary: 1,
 };
+
+export function isExtraDeckCard(card: CardDefinition | undefined): card is CardDefinition & { kind: ExtraDeckKind } {
+  return Boolean(card && (card.kind === 'fusion' || card.kind === 'evolution'));
+}
+
+export function isUnitCard(card: CardDefinition | undefined): boolean {
+  return Boolean(card && (card.kind === 'unit' || card.kind === 'fusion' || card.kind === 'evolution'));
+}
 
 export function countCards(cardIds: string[]): Record<string, number> {
   return cardIds.reduce<Record<string, number>>((acc, cardId) => {
@@ -282,7 +528,10 @@ export function countCards(cardIds: string[]): Record<string, number> {
 }
 
 export function starterCollection(): Record<string, number> {
-  const counts = countCards(STARTER_DECK);
+  const counts = countCards([...STARTER_DECK, ...STARTER_EXTRA_DECK]);
+  for (const [cardId, quantity] of Object.entries(ASCENSION_STARTER_GRANTS)) {
+    counts[cardId] = Math.max(counts[cardId] ?? 0, quantity);
+  }
   for (const card of CARDS.filter((item) => item.rarity === 'common').slice(0, 8)) {
     counts[card.id] = Math.max(counts[card.id] ?? 0, 2);
   }
@@ -290,7 +539,7 @@ export function starterCollection(): Record<string, number> {
 }
 
 export function validateDeck(cardIds: string[], collection?: Record<string, number>): string | null {
-  if (cardIds.length !== DECK_SIZE) return `덱은 정확히 ${DECK_SIZE}장이어야 합니다.`;
+  if (cardIds.length !== DECK_SIZE) return `메인 덱은 정확히 ${DECK_SIZE}장이어야 합니다.`;
   const counts = countCards(cardIds);
   let unitCount = 0;
   let spellCount = 0;
@@ -299,6 +548,7 @@ export function validateDeck(cardIds: string[], collection?: Record<string, numb
   for (const [cardId, quantity] of Object.entries(counts)) {
     const card = CARD_BY_ID[cardId];
     if (!card) return `존재하지 않는 카드가 포함되어 있습니다: ${cardId}`;
+    if (isExtraDeckCard(card)) return `${card.name}은(는) 엑스트라 덱에 넣어야 합니다.`;
     if (quantity > MAX_COPIES[card.rarity]) return `${card.name}은(는) 최대 ${MAX_COPIES[card.rarity]}장까지 넣을 수 있습니다.`;
     if (collection && quantity > (collection[cardId] ?? 0)) return `${card.name}의 보유 수량이 부족합니다.`;
     if (card.kind === 'unit') unitCount += quantity;
@@ -312,6 +562,36 @@ export function validateDeck(cardIds: string[], collection?: Record<string, numb
   return null;
 }
 
+export function validateExtraDeck(cardIds: string[], collection?: Record<string, number>): string | null {
+  if (cardIds.length !== EXTRA_DECK_SIZE) return `엑스트라 덱은 정확히 ${EXTRA_DECK_SIZE}장이어야 합니다.`;
+  const counts = countCards(cardIds);
+  for (const [cardId, quantity] of Object.entries(counts)) {
+    const card = CARD_BY_ID[cardId];
+    if (!card) return `존재하지 않는 엑스트라 카드가 포함되어 있습니다: ${cardId}`;
+    if (!isExtraDeckCard(card)) return `${card.name}은(는) 메인 덱에 넣어야 합니다.`;
+    if (quantity > MAX_COPIES[card.rarity]) return `${card.name}은(는) 엑스트라 덱에 최대 ${MAX_COPIES[card.rarity]}장까지 넣을 수 있습니다.`;
+    if (collection && quantity > (collection[cardId] ?? 0)) return `${card.name}의 보유 수량이 부족합니다.`;
+  }
+  return null;
+}
+
+const ELEMENT_VFX: Record<Element, CardVfxProfile> = {
+  solar: { summon: 'dawn-pillar', attack: 'solar-slash', defense: 'aegis-flare', activation: 'sunburst-seal', destroy: 'ember-fall' },
+  lunar: { summon: 'moon-ripple', attack: 'crescent-cut', defense: 'mirror-moon', activation: 'lunar-script', destroy: 'moon-dust' },
+  storm: { summon: 'storm-drop', attack: 'lightning-lance', defense: 'static-shell', activation: 'thunder-glyph', destroy: 'spark-disperse' },
+  verdant: { summon: 'worldroot-rise', attack: 'vine-whip', defense: 'root-shell', activation: 'bloom-circle', destroy: 'petal-dissolve' },
+  void: { summon: 'rift-tear', attack: 'void-lunge', defense: 'shadow-phase', activation: 'void-vortex', destroy: 'void-fracture' },
+  neutral: { summon: 'crystal-forge', attack: 'iron-impact', defense: 'hex-bastion', activation: 'prism-script', destroy: 'prism-break' },
+};
+
+export function resolveCardVfx(card: CardDefinition | undefined, moment: VfxMoment): string {
+  if (!card) return moment === 'attack' ? 'iron-impact' : 'prism-script';
+  return card.vfx?.[moment] || ELEMENT_VFX[card.element][moment] || 'prism-script';
+}
+
 export function randomId(prefix = 'card'): string {
-  return `${prefix}_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
+  const random = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID().replace(/-/g, '').slice(0, 12)
+    : Math.random().toString(36).slice(2, 14);
+  return `${prefix}_${random}_${Date.now().toString(36)}`;
 }

@@ -8,6 +8,7 @@ import {
   type CardDefinition,
   type CardKind,
   DECK_SIZE,
+  EXTRA_DECK_SIZE,
   ELEMENT_LABEL,
   type Element,
   KIND_LABEL,
@@ -16,9 +17,12 @@ import {
   RARITY_LABEL,
   type Rarity,
   countCards,
+  isExtraDeckCard,
+  isUnitCard,
   validateDeck,
+  validateExtraDeck,
 } from './game-data';
-import type { MatchState, PrivateState, UnitState } from './game-engine';
+import type { MatchState, PrivateState, UnitState, VisualEvent } from './game-engine';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const supabaseKey =
@@ -45,7 +49,7 @@ type Profile = {
 
 type Wallet = { user_id: string; coins: number };
 type CollectionRow = { card_id: string; quantity: number };
-type DeckRow = { id: string; user_id: string; name: string; cards: string[]; is_active: boolean; created_at: string };
+type DeckRow = { id: string; user_id: string; name: string; cards: string[]; extra_cards: string[]; is_active: boolean; created_at: string };
 type FriendRequest = { id: string; sender_id: string; receiver_id: string; status: string; created_at: string };
 type FriendProfile = Pick<Profile, 'user_id' | 'display_name' | 'player_code' | 'avatar' | 'status_message' | 'wins' | 'losses' | 'xp'>;
 
@@ -79,6 +83,7 @@ type ChatMessage = { id: number; user_id: string; display_name: string; body: st
 
 type ApiResult = {
   ok: boolean;
+  code?: string;
   error?: string;
   hub?: HubData;
   user?: { id: string; email?: string };
@@ -123,17 +128,48 @@ function cardStyle(card: CardDefinition): CSSProperties {
   return { '--card-accent': ELEMENT_ACCENT[card.element] } as CSSProperties;
 }
 
-async function api(action: string, payload: Record<string, unknown> = {}): Promise<ApiResult> {
-  const { data } = await supabase.auth.getSession();
+function friendlyAuthMessage(message: string): string {
+  if (/invalid login credentials/i.test(message)) return '이메일 또는 비밀번호가 올바르지 않습니다.';
+  if (/email not confirmed/i.test(message)) return '가입 확인 메일을 먼저 확인해 주세요.';
+  if (/user already registered/i.test(message)) return '이미 가입된 이메일입니다. 로그인 탭을 이용해 주세요.';
+  if (/password should be at least/i.test(message)) return '비밀번호는 6자 이상이어야 합니다.';
+  if (/session.*expired|refresh token|jwt expired/i.test(message)) return '로그인 시간이 만료되어 세션을 새로 연결합니다. 다시 로그인해 주세요.';
+  return message;
+}
+
+async function accessToken(forceRefresh = false): Promise<string> {
+  let { data, error } = await supabase.auth.getSession();
+  if (error) throw new Error(friendlyAuthMessage(error.message));
+  const expiresSoon = !data.session?.expires_at || data.session.expires_at * 1000 < Date.now() + 60_000;
+  if (forceRefresh || expiresSoon) {
+    const refreshed = await supabase.auth.refreshSession();
+    if (refreshed.error || !refreshed.data.session) {
+      await supabase.auth.signOut({ scope: 'local' });
+      throw new Error('로그인 시간이 만료되었습니다. 다시 로그인해 주세요.');
+    }
+    data = refreshed.data;
+  }
   const token = data.session?.access_token;
   if (!token) throw new Error('로그인이 필요합니다.');
+  return token;
+}
+
+async function api(action: string, payload: Record<string, unknown> = {}, retried = false): Promise<ApiResult> {
+  const token = await accessToken(false);
   const response = await fetch('/api/eclipse', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ action, ...payload }),
   });
-  const result = (await response.json()) as ApiResult;
-  if (!response.ok || !result.ok) throw new Error(result.error || '서버 요청에 실패했습니다.');
+  const result = (await response.json().catch(() => ({ ok: false, error: '서버 응답을 읽지 못했습니다.' }))) as ApiResult;
+  if ((response.status === 401 || result.code === 'AUTH_EXPIRED') && !retried) {
+    await accessToken(true);
+    return api(action, payload, true);
+  }
+  if (!response.ok || !result.ok) {
+    if (response.status === 401 || result.code === 'AUTH_EXPIRED') await supabase.auth.signOut({ scope: 'local' });
+    throw new Error(friendlyAuthMessage(result.error || '서버 요청에 실패했습니다.'));
+  }
   return result;
 }
 
@@ -167,13 +203,16 @@ function CardFace({
   return (
     <button
       type="button"
-      className={`tcg-card rarity-${card.rarity} element-${card.element} ${compact ? 'compact' : ''} ${selected ? 'selected' : ''}`}
+      className={`tcg-card kind-${card.kind} summon-${card.summonMode ?? 'normal'} rarity-${card.rarity} element-${card.element} ${compact ? 'compact' : ''} ${selected ? 'selected' : ''}`}
       style={cardStyle(card)}
       onClick={onClick}
       disabled={disabled}
       title={card.text}
     >
       <span className="card-cost">{card.cost}</span>
+      {card.summonMode === 'rift' && <span className="summon-badge rift">균열</span>}
+      {card.kind === 'fusion' && <span className="summon-badge fusion">융합</span>}
+      {card.kind === 'evolution' && <span className="summon-badge evolution">진화</span>}
       {quantity !== undefined && <span className="card-quantity">×{quantity}</span>}
       <span className="card-topline">
         <b>{card.name}</b>
@@ -188,7 +227,7 @@ function CardFace({
       {!compact && <span className="card-text">{card.text}</span>}
       <span className="card-footer">
         <span>{KIND_LABEL[card.kind]}</span>
-        {card.kind === 'unit' ? <b>{card.attack} / {card.health}</b> : <b>{ELEMENT_LABEL[card.element]}</b>}
+        {isUnitCard(card) ? <b>{card.attack} / {card.health}</b> : <b>{ELEMENT_LABEL[card.element]}</b>}
       </span>
     </button>
   );
@@ -225,20 +264,28 @@ function AuthScreen({ onSession }: { onSession: (session: Session) => void }) {
       if (!supabaseUrl || !supabaseKey) throw new Error('Supabase 환경변수가 설정되지 않았습니다.');
       if (mode === 'signup') {
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: { data: { display_name: displayName.trim() || email.split('@')[0] } },
         });
         if (error) throw error;
         if (data.session) onSession(data.session);
-        else setMessage('가입 확인 메일을 보냈습니다. 메일을 확인한 뒤 로그인하세요.');
+        else setMessage('가입 확인 메일을 보냈습니다. 메일 확인 후 로그인해 주세요.');
       } else {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        // 오래된 프로젝트의 토큰이 브라우저에 남아 있어도 새 로그인을 방해하지 않도록 먼저 정리합니다.
+        await supabase.auth.signOut({ scope: 'local' });
+        const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
-        if (data.session) onSession(data.session);
+        if (!data.session) throw new Error('로그인 세션을 만들지 못했습니다.');
+        const verified = await supabase.auth.getUser(data.session.access_token);
+        if (verified.error || !verified.data.user) {
+          await supabase.auth.signOut({ scope: 'local' });
+          throw new Error('로그인 세션 검증에 실패했습니다. 다시 시도해 주세요.');
+        }
+        onSession(data.session);
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '로그인에 실패했습니다.');
+      setMessage(friendlyAuthMessage(error instanceof Error ? error.message : '로그인에 실패했습니다.'));
     } finally {
       setBusy(false);
     }
@@ -253,9 +300,9 @@ function AuthScreen({ onSession }: { onSession: (session: Session) => void }) {
         <h1>ECLIPSE<br /><strong>DUEL</strong></h1>
         <h2>카드를 수집하고, 덱을 설계하고, 상대의 코어를 무너뜨리세요.</h2>
         <div className="auth-features">
-          <span>30장 커스텀 덱</span>
+          <span>30장 메인 + 6장 엑스트라</span>
+          <span>균열 · 융합 · 진화</span>
           <span>실시간 1대1</span>
-          <span>숨겨진 함정</span>
         </div>
       </section>
       <form className="auth-panel" onSubmit={submit}>
@@ -294,18 +341,18 @@ function HomeView({ hub, onNavigate }: { hub: HubData; onNavigate: (view: View) 
     <div className="view-stack home-view">
       <section className="hero-banner">
         <div className="hero-copy">
-          <span className="eyebrow">SEASON 01 · ECLIPSE AWAKENING</span>
+          <span className="eyebrow">SEASON 02 · ASCENSION GATE</span>
           <h1>어둠이 내려올 때,<br /><strong>당신의 덱이 빛난다.</strong></h1>
-          <p>5개의 유닛 존과 5개의 비밀 존. 드로우, 소환, 함정, 전투의 흐름을 직접 설계하세요.</p>
+          <p>균열 소환, 공명 융합, 계승 진화. 5개의 유닛 존과 비밀 존에서 나만의 소환 연계를 완성하세요.</p>
           <div className="hero-actions">
             <button className="primary-button" onClick={() => onNavigate('duel')}>대전 시작</button>
             <button className="ghost-button" onClick={() => onNavigate('deck')}>덱 점검</button>
           </div>
         </div>
         <div className="hero-card-stack">
-          <CardFace card={CARD_BY_ID.unit_eclipse_dragon} />
-          <CardFace card={CARD_BY_ID.trap_null_horizon} />
-          <CardFace card={CARD_BY_ID.unit_dawn_seraph} />
+          <CardFace card={CARD_BY_ID.fusion_eclipse_chimera} />
+          <CardFace card={CARD_BY_ID.trap_resonance_break} />
+          <CardFace card={CARD_BY_ID.evolution_ember_phoenix} />
         </div>
       </section>
 
@@ -313,12 +360,14 @@ function HomeView({ hub, onNavigate }: { hub: HubData; onNavigate: (view: View) 
         <article className="panel active-deck-panel">
           <header><span>ACTIVE DECK</span><button onClick={() => onNavigate('deck')}>편집</button></header>
           <h3>{activeDeck?.name ?? '활성 덱 없음'}</h3>
-          <p>{activeDeck?.cards?.length ?? 0} / {DECK_SIZE}장</p>
+          <p>메인 {activeDeck?.cards?.length ?? 0} / {DECK_SIZE}장 · 엑스트라 {activeDeck?.extra_cards?.length ?? 0} / {EXTRA_DECK_SIZE}장</p>
           <div className="deck-composition">
             {(['unit', 'spell', 'trap'] as CardKind[]).map((kind) => {
               const count = (activeDeck?.cards ?? []).filter((id) => CARD_BY_ID[id]?.kind === kind).length;
               return <span key={kind}><i className={`dot kind-${kind}`} />{KIND_LABEL[kind]} <b>{count}</b></span>;
             })}
+            <span><i className="dot kind-fusion" />융합 <b>{(activeDeck?.extra_cards ?? []).filter((id) => CARD_BY_ID[id]?.kind === 'fusion').length}</b></span>
+            <span><i className="dot kind-evolution" />진화 <b>{(activeDeck?.extra_cards ?? []).filter((id) => CARD_BY_ID[id]?.kind === 'evolution').length}</b></span>
           </div>
         </article>
         <article className="panel stat-panel">
@@ -353,6 +402,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   const [selectedDeckId, setSelectedDeckId] = useState(defaultDeck?.id ?? '');
   const [deckName, setDeckName] = useState(defaultDeck?.name ?? '새 덱');
   const [deckCards, setDeckCards] = useState<string[]>(defaultDeck?.cards ?? []);
+  const [extraCards, setExtraCards] = useState<string[]>(defaultDeck?.extra_cards ?? []);
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState<'all' | CardKind>('all');
   const [element, setElement] = useState<'all' | Element>('all');
@@ -360,32 +410,58 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   const [message, setMessage] = useState('');
 
   const collection = useMemo(() => Object.fromEntries(hub.collection.map((row) => [row.card_id, row.quantity])), [hub.collection]);
-  const counts = useMemo(() => countCards(deckCards), [deckCards]);
-  const validation = validateDeck(deckCards, collection);
+  const mainCounts = useMemo(() => countCards(deckCards), [deckCards]);
+  const extraCounts = useMemo(() => countCards(extraCards), [extraCards]);
   const selectedDeck = hub.decks.find((deck) => deck.id === selectedDeckId);
+  const mainValidation = validateDeck(deckCards, collection);
+  const extraValidation = validateExtraDeck(extraCards, collection);
+  const validation = mainValidation || extraValidation;
 
   useEffect(() => {
-    if (!selectedDeck) return;
+    if (!selectedDeck) {
+      setDeckName('새 덱');
+      setDeckCards([]);
+      setExtraCards([]);
+      return;
+    }
     setDeckName(selectedDeck.name);
     setDeckCards(Array.isArray(selectedDeck.cards) ? selectedDeck.cards : []);
-  }, [selectedDeckId]);
+    setExtraCards(Array.isArray(selectedDeck.extra_cards) ? selectedDeck.extra_cards : []);
+  }, [selectedDeckId, selectedDeck]);
 
   const filtered = CARDS.filter((card) => {
     if (!collection[card.id]) return false;
     if (kind !== 'all' && card.kind !== kind) return false;
     if (element !== 'all' && card.element !== element) return false;
-    if (search && !`${card.name} ${card.text}`.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !`${card.name} ${card.text} ${card.subtitle}`.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
-  function addCard(card: CardDefinition) {
-    const max = Math.min(MAX_COPIES[card.rarity], collection[card.id] ?? 0);
-    if ((counts[card.id] ?? 0) >= max || deckCards.length >= DECK_SIZE) return;
-    setDeckCards((current) => [...current, card.id]);
+  function usedCopies(cardId: string): number {
+    return (mainCounts[cardId] ?? 0) + (extraCounts[cardId] ?? 0);
   }
 
-  function removeCard(cardId: string) {
+  function addCard(card: CardDefinition) {
+    const max = Math.min(MAX_COPIES[card.rarity], collection[card.id] ?? 0);
+    if (usedCopies(card.id) >= max) return;
+    if (isExtraDeckCard(card)) {
+      if (extraCards.length >= EXTRA_DECK_SIZE) return;
+      setExtraCards((current) => [...current, card.id]);
+    } else {
+      if (deckCards.length >= DECK_SIZE) return;
+      setDeckCards((current) => [...current, card.id]);
+    }
+  }
+
+  function removeMain(cardId: string) {
     setDeckCards((current) => {
+      const index = current.lastIndexOf(cardId);
+      return index < 0 ? current : [...current.slice(0, index), ...current.slice(index + 1)];
+    });
+  }
+
+  function removeExtra(cardId: string) {
+    setExtraCards((current) => {
       const index = current.lastIndexOf(cardId);
       return index < 0 ? current : [...current.slice(0, index), ...current.slice(index + 1)];
     });
@@ -395,9 +471,9 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     setBusy(true);
     setMessage('');
     try {
-      const result = await api('save_deck', { deckId: selectedDeckId, name: deckName, cards: deckCards });
+      const result = await api('save_deck', { deckId: selectedDeckId, name: deckName, cards: deckCards, extraCards });
       if (result.hub) onHub(result.hub);
-      setMessage('덱을 저장했습니다.');
+      setMessage('메인 덱과 엑스트라 덱을 저장했습니다.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '저장에 실패했습니다.');
     } finally {
@@ -408,6 +484,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   async function activateDeck() {
     if (!selectedDeckId) return;
     setBusy(true);
+    setMessage('');
     try {
       const result = await api('set_active_deck', { deckId: selectedDeckId });
       if (result.hub) onHub(result.hub);
@@ -420,41 +497,53 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   }
 
   return (
-    <div className="deck-builder">
+    <div className="deck-builder ascension-deck-builder">
       <section className="deck-header panel">
         <div>
-          <span className="eyebrow">DECK LAB</span>
+          <span className="eyebrow">DECK LAB · ASCENSION</span>
           <h2>덱 구성</h2>
-          <p>30장의 카드로 자신만의 승리 루트를 설계하세요.</p>
+          <p>30장 메인 덱과 6장 엑스트라 덱으로 균열 소환·공명 융합·계승 진화를 설계하세요.</p>
         </div>
-        <div className="deck-status">
-          <strong className={deckCards.length === DECK_SIZE && !validation ? 'valid' : ''}>{deckCards.length}/{DECK_SIZE}</strong>
-          <small>{validation ?? '사용 가능한 덱입니다.'}</small>
+        <div className="dual-deck-status">
+          <div><span>MAIN</span><strong className={deckCards.length === DECK_SIZE && !mainValidation ? 'valid' : ''}>{deckCards.length}/{DECK_SIZE}</strong></div>
+          <div><span>EXTRA</span><strong className={extraCards.length === EXTRA_DECK_SIZE && !extraValidation ? 'valid' : ''}>{extraCards.length}/{EXTRA_DECK_SIZE}</strong></div>
+          <small>{validation ?? '결투에 사용할 수 있는 덱입니다.'}</small>
         </div>
       </section>
 
       <div className="deck-workspace">
         <section className="collection-browser panel">
           <div className="deck-toolbar">
-            <input value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)} placeholder="카드명 또는 효과 검색" />
+            <input value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)} placeholder="카드명·효과·소환 조건 검색" />
             <select value={kind} onChange={(event: ChangeEvent<HTMLSelectElement>) => setKind(event.target.value as 'all' | CardKind)}>
-              <option value="all">모든 종류</option><option value="unit">유닛</option><option value="spell">주문</option><option value="trap">함정</option>
+              <option value="all">모든 종류</option>
+              <option value="unit">유닛</option><option value="spell">주문</option><option value="trap">함정</option>
+              <option value="fusion">공명 융합</option><option value="evolution">계승 진화</option>
             </select>
             <select value={element} onChange={(event: ChangeEvent<HTMLSelectElement>) => setElement(event.target.value as 'all' | Element)}>
               <option value="all">모든 속성</option>{Object.entries(ELEMENT_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </select>
           </div>
+          <div className="summon-system-guide">
+            <span className="rift">균열 소환<small>조건 충족 시 낮은 비용으로 손패에서 특수 소환</small></span>
+            <span className="fusion">공명 융합<small>필드의 서로 다른 소재를 합쳐 엑스트라 덱에서 강림</small></span>
+            <span className="evolution">계승 진화<small>기존 유닛의 강화와 보호막을 이어받아 각성</small></span>
+          </div>
           <div className="collection-grid deck-grid">
-            {filtered.map((card) => (
-              <CardFace
-                key={card.id}
-                card={card}
-                compact
-                quantity={(collection[card.id] ?? 0) - (counts[card.id] ?? 0)}
-                disabled={(counts[card.id] ?? 0) >= Math.min(MAX_COPIES[card.rarity], collection[card.id] ?? 0) || deckCards.length >= DECK_SIZE}
-                onClick={() => addCard(card)}
-              />
-            ))}
+            {filtered.map((card) => {
+              const max = Math.min(MAX_COPIES[card.rarity], collection[card.id] ?? 0);
+              const full = usedCopies(card.id) >= max || (isExtraDeckCard(card) ? extraCards.length >= EXTRA_DECK_SIZE : deckCards.length >= DECK_SIZE);
+              return (
+                <CardFace
+                  key={card.id}
+                  card={card}
+                  compact
+                  quantity={Math.max(0, (collection[card.id] ?? 0) - usedCopies(card.id))}
+                  disabled={full}
+                  onClick={() => addCard(card)}
+                />
+              );
+            })}
           </div>
         </section>
 
@@ -466,24 +555,37 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
             </select>
             <input value={deckName} onChange={(event: ChangeEvent<HTMLInputElement>) => setDeckName(event.target.value)} maxLength={24} />
           </div>
+
           <div className="deck-type-summary">
             {(['unit', 'spell', 'trap'] as CardKind[]).map((type) => (
               <span key={type}>{KIND_LABEL[type]} <b>{deckCards.filter((id) => CARD_BY_ID[id]?.kind === type).length}</b></span>
             ))}
           </div>
-          <div className="deck-card-list">
-            {Object.entries(counts)
+
+          <h3 className="deck-zone-title"><span>MAIN DECK</span><b>{deckCards.length}/{DECK_SIZE}</b></h3>
+          <div className="deck-card-list main-deck-list">
+            {Object.entries(mainCounts)
               .sort(([a], [b]) => (CARD_BY_ID[a]?.cost ?? 0) - (CARD_BY_ID[b]?.cost ?? 0))
               .map(([cardId, quantity]) => {
                 const card = CARD_BY_ID[cardId];
                 if (!card) return null;
                 return (
-                  <button key={cardId} onClick={() => removeCard(cardId)} style={cardStyle(card)}>
-                    <i>{card.cost}</i><span>{card.name}<small>{KIND_LABEL[card.kind]} · {RARITY_LABEL[card.rarity]}</small></span><b>×{quantity}</b><em>−</em>
+                  <button key={cardId} onClick={() => removeMain(cardId)} style={cardStyle(card)}>
+                    <i>{card.cost}</i><span>{card.name}<small>{card.summonMode === 'rift' ? '균열 소환 · ' : ''}{KIND_LABEL[card.kind]} · {RARITY_LABEL[card.rarity]}</small></span><b>×{quantity}</b><em>−</em>
                   </button>
                 );
               })}
           </div>
+
+          <h3 className="deck-zone-title extra"><span>EXTRA DECK</span><b>{extraCards.length}/{EXTRA_DECK_SIZE}</b></h3>
+          <div className="extra-deck-list">
+            {extraCards.map((cardId, index) => {
+              const card = CARD_BY_ID[cardId];
+              return card ? <CardFace key={`${cardId}-${index}`} card={card} compact onClick={() => removeExtra(cardId)} /> : null;
+            })}
+            {Array.from({ length: Math.max(0, EXTRA_DECK_SIZE - extraCards.length) }, (_, index) => <span className="extra-empty" key={index}>＋</span>)}
+          </div>
+
           {message && <p className="inline-message">{message}</p>}
           <div className="deck-actions">
             <button className="ghost-button" disabled={!selectedDeckId || selectedDeck?.is_active || busy || Boolean(validation)} onClick={activateDeck}>활성 덱 지정</button>
@@ -494,6 +596,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     </div>
   );
 }
+
 
 function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void }) {
   const [busyPack, setBusyPack] = useState('');
@@ -528,7 +631,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
         {PACKS.map((pack, index) => (
           <article className={`pack-card pack-${index}`} key={pack.id} style={{ '--pack-accent': pack.accent } as CSSProperties}>
             <span className="pack-shine" />
-            <div className="pack-emblem">{index === 0 ? '✦' : index === 1 ? '♜' : index === 2 ? '☀' : index === 3 ? '◉' : '♛'}</div>
+            <div className="pack-emblem">{pack.id === 'ascension' ? '∞' : index === 0 ? '✦' : index === 1 ? '♜' : index === 2 ? '☀' : index === 3 ? '◉' : '♛'}</div>
             <span className="eyebrow">5 CARDS</span>
             <h3>{pack.name}</h3>
             <p>{pack.tagline}</p>
@@ -724,11 +827,33 @@ function ChatDrawer({ open, roomId, onClose, profile }: { open: boolean; roomId?
   );
 }
 
+function DuelEffectLayer({ event }: { event: VisualEvent | null }) {
+  if (!event) return null;
+  const card = event.cardId ? CARD_BY_ID[event.cardId] : undefined;
+  return (
+    <div className={`duel-vfx-layer event-${event.kind}`} key={event.id} aria-hidden="true">
+      <div className={`duel-vfx vfx-${event.vfx}`}>
+        <span className="vfx-ring ring-a" />
+        <span className="vfx-ring ring-b" />
+        <span className="vfx-beam beam-a" />
+        <span className="vfx-beam beam-b" />
+        <span className="vfx-particles">
+          {Array.from({ length: 10 }, (_, index) => <i key={index} style={{ '--i': index } as CSSProperties} />)}
+        </span>
+        <strong>{card?.sigil ?? (event.kind === 'fusion' ? '∞' : event.kind === 'evolution' ? '△' : '◈')}</strong>
+        <b>{event.label ?? card?.name ?? ''}</b>
+        {event.amount !== undefined && event.amount > 0 && <em>{event.amount}</em>}
+      </div>
+    </div>
+  );
+}
+
 function UnitSlot({
   unit,
   owner,
   index,
   selected,
+  materialSelected,
   enemy,
   onClick,
 }: {
@@ -736,31 +861,74 @@ function UnitSlot({
   owner: string;
   index: number;
   selected?: boolean;
+  materialSelected?: boolean;
   enemy?: boolean;
   onClick?: () => void;
 }) {
   const card = unit ? CARD_BY_ID[unit.cardId] : undefined;
   return (
-    <button className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${enemy ? 'enemy' : ''}`} onClick={onClick} data-owner={owner} data-index={index}>
+    <button
+      className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''}`}
+      onClick={onClick}
+      data-owner={owner}
+      data-index={index}
+    >
       {!unit ? <span className="slot-mark">{index + 1}</span> : (
         <>
           <span className="unit-art" style={card ? cardStyle(card) : undefined}><strong>{card?.sigil ?? '✦'}</strong></span>
+          {unit.summonedBy !== 'normal' && unit.summonedBy !== 'token' && <span className={`origin-badge ${unit.summonedBy}`}>{unit.summonedBy === 'rift' ? 'RIFT' : unit.summonedBy === 'fusion' ? 'FUSION' : 'EVOLVE'}</span>}
           <span className="unit-name">{card?.name ?? unit.cardId.replace('token:', '')}</span>
           <span className="unit-stats"><b>{unit.attack}</b><i>⚔</i><b>{unit.health}</b>{unit.shield > 0 && <em>＋{unit.shield}</em>}</span>
           {!unit.canAttack && <span className="unit-state">REST</span>}
+          {materialSelected && <span className="material-mark">MATERIAL</span>}
         </>
       )}
     </button>
   );
 }
 
+function extraRequirement(card: CardDefinition): string {
+  if (card.kind === 'fusion') return card.fusionRecipe?.label ?? '융합 소재를 선택하세요.';
+  if (card.kind === 'evolution') return card.evolutionRecipe?.label ?? '진화시킬 유닛을 선택하세요.';
+  if (card.summonMode === 'rift') return card.riftCondition?.label ?? '균열 조건을 확인하세요.';
+  return card.text;
+}
+
 function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPayload; userId: string; onRefresh: (payload: RoomPayload) => void; onLeave: () => void }) {
   const { room, privateState: nullablePrivateState } = payload;
   const nullableState = room.state;
   const [selectedHand, setSelectedHand] = useState<string | null>(null);
+  const [selectedExtra, setSelectedExtra] = useState<string | null>(null);
+  const [selectedMaterials, setSelectedMaterials] = useState<number[]>([]);
   const [selectedAttacker, setSelectedAttacker] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [activeVfx, setActiveVfx] = useState<VisualEvent | null>(null);
+  const [vfxQueue, setVfxQueue] = useState<VisualEvent[]>([]);
+  const seenVfx = useRef<Set<string>>(new Set());
+
+  const visualEvents = nullableState?.visualEvents ?? [];
+  const visualEventSignature = visualEvents.map((event) => event.id).join('|');
+
+  useEffect(() => {
+    let unseen = visualEvents.filter((event) => !seenVfx.current.has(event.id));
+    if (unseen.length === 0) return;
+    if (seenVfx.current.size === 0 && unseen.length > 1) unseen = unseen.slice(-1);
+    visualEvents.forEach((event) => seenVfx.current.add(event.id));
+    setVfxQueue((current) => [...current, ...unseen].slice(-10));
+  }, [visualEventSignature]);
+
+  useEffect(() => {
+    if (activeVfx || vfxQueue.length === 0) return;
+    const [next, ...rest] = vfxQueue;
+    setVfxQueue(rest);
+    setActiveVfx(next);
+    const timer = window.setTimeout(() => {
+      setActiveVfx((current) => current?.id === next.id ? null : current);
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [activeVfx, vfxQueue]);
+
   if (!nullableState || !nullablePrivateState || nullableState.playerOrder.length !== 2) return <LoadingScreen text="결투 상태를 동기화하는 중" />;
   const state = nullableState;
   const privateState = nullablePrivateState;
@@ -772,23 +940,68 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   const myTurn = state.currentPlayerId === userId;
   const selectedInstance = privateState.hand.find((card) => card.instanceId === selectedHand);
   const selectedCard = selectedInstance ? CARD_BY_ID[selectedInstance.cardId] : undefined;
+  const selectedExtraInstance = privateState.extra.find((card) => card.instanceId === selectedExtra);
+  const selectedExtraCard = selectedExtraInstance ? CARD_BY_ID[selectedExtraInstance.cardId] : undefined;
+  const requiredMaterials = selectedExtraCard?.kind === 'fusion' ? selectedExtraCard.fusionRecipe?.materials.length ?? 0 : selectedExtraCard?.kind === 'evolution' ? 1 : 0;
+  const canExtraSummon = Boolean(selectedExtraCard && selectedExtra && selectedMaterials.length === requiredMaterials && myTurn && state.phase === 'main' && !busy);
 
   async function gameAction(gameAction: string, extra: Record<string, unknown> = {}) {
-    setBusy(true); setMessage('');
+    setBusy(true);
+    setMessage('');
     try {
       const result = await api('game_action', { roomId: room.id, gameAction, ...extra });
       if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
-      setSelectedHand(null); setSelectedAttacker(null);
-    } catch (error) { setMessage(error instanceof Error ? error.message : '행동 처리 실패'); }
-    finally { setBusy(false); }
+      setSelectedHand(null);
+      setSelectedExtra(null);
+      setSelectedMaterials([]);
+      setSelectedAttacker(null);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '행동 처리 실패');
+    } finally {
+      setBusy(false);
+    }
   }
 
-  function playToZone(zone: number, kind: 'unit' | 'trap') {
-    if (!selectedCard || selectedCard.kind !== kind || !selectedHand) return;
+  function chooseHand(instanceId: string) {
+    setSelectedHand((current) => current === instanceId ? null : instanceId);
+    setSelectedExtra(null);
+    setSelectedMaterials([]);
+    setSelectedAttacker(null);
+  }
+
+  function chooseExtra(instanceId: string) {
+    setSelectedExtra((current) => current === instanceId ? null : instanceId);
+    setSelectedHand(null);
+    setSelectedMaterials([]);
+    setSelectedAttacker(null);
+  }
+
+  function playToUnitZone(zone: number) {
+    if (!selectedCard || selectedCard.kind !== 'unit' || !selectedHand) return;
     gameAction('play_card', { instanceId: selectedHand, zone });
   }
 
+  function playToSecretZone(zone: number) {
+    if (!selectedCard || selectedCard.kind !== 'trap' || !selectedHand) return;
+    gameAction('play_card', { instanceId: selectedHand, zone });
+  }
+
+  function toggleMaterial(unitIndex: number) {
+    if (!selectedExtraCard || !state.boards[userId].units[unitIndex]) return;
+    const limit = selectedExtraCard.kind === 'fusion' ? selectedExtraCard.fusionRecipe?.materials.length ?? 0 : 1;
+    setSelectedMaterials((current) => {
+      if (current.includes(unitIndex)) return current.filter((item) => item !== unitIndex);
+      if (limit <= 1) return [unitIndex];
+      if (current.length >= limit) return [...current.slice(1), unitIndex];
+      return [...current, unitIndex];
+    });
+  }
+
   function targetUnit(ownerId: string, unitIndex: number) {
+    if (selectedExtraCard && ownerId === userId && state.phase === 'main') {
+      toggleMaterial(unitIndex);
+      return;
+    }
     if (selectedCard && selectedHand && state.phase === 'main') {
       if (selectedCard.target === 'enemy_unit' && ownerId === opponentId) gameAction('play_card', { instanceId: selectedHand, target: { ownerId, unitIndex } });
       else if (selectedCard.target === 'friendly_unit' && ownerId === userId) gameAction('play_card', { instanceId: selectedHand, target: { ownerId, unitIndex } });
@@ -803,8 +1016,14 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
     gameAction('play_card', { instanceId: selectedHand });
   }
 
+  function summonSelectedExtra() {
+    if (!selectedExtra || !canExtraSummon) return;
+    gameAction('extra_summon', { extraInstanceId: selectedExtra, materialZones: selectedMaterials });
+  }
+
   return (
-    <div className="duel-screen">
+    <div className="duel-screen ascension-duel-screen">
+      <DuelEffectLayer event={activeVfx} />
       <div className="orientation-hint"><span>↻</span><b>기기를 가로로 돌려주세요</b><small>결투장은 가로 화면에 최적화되어 있습니다.</small></div>
       <header className="duel-topbar">
         <div className="duelist opponent"><Avatar id={opponent?.avatar} /><span><small>OPPONENT</small><b>{opponent?.display_name ?? '상대'}</b></span></div>
@@ -834,15 +1053,25 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
 
         <div className="field-center">
           <div className="eclipse-ring"><span>◈</span></div>
-          <div className="deck-piles"><span>상대 덱 <b>{state.deckCounts[opponentId]}</b></span><span>상대 묘지 <b>{state.graveyards[opponentId]?.length ?? 0}</b></span></div>
-          <div className="deck-piles mine"><span>내 묘지 <b>{state.graveyards[userId]?.length ?? 0}</b></span><span>내 덱 <b>{state.deckCounts[userId]}</b></span></div>
+          <div className="deck-piles"><span>상대 덱 <b>{state.deckCounts[opponentId]}</b></span><span>상대 엑스트라 <b>{state.extraCounts?.[opponentId] ?? 0}</b></span><span>상대 묘지 <b>{state.graveyards[opponentId]?.length ?? 0}</b></span></div>
+          <div className="deck-piles mine"><span>내 묘지 <b>{state.graveyards[userId]?.length ?? 0}</b></span><span>내 엑스트라 <b>{state.extraCounts?.[userId] ?? privateState.extra.length}</b></span><span>내 덱 <b>{state.deckCounts[userId]}</b></span></div>
         </div>
 
         <div className="zone-row my-units">
-          {state.boards[userId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={userId} index={index} selected={selectedAttacker === index} onClick={() => unit ? targetUnit(userId, index) : playToZone(index, 'unit')} />)}
+          {state.boards[userId].units.map((unit, index) => (
+            <UnitSlot
+              key={index}
+              unit={unit}
+              owner={userId}
+              index={index}
+              selected={selectedAttacker === index}
+              materialSelected={selectedMaterials.includes(index)}
+              onClick={() => unit ? targetUnit(userId, index) : playToUnitZone(index)}
+            />
+          ))}
         </div>
         <div className="zone-row my-secrets">
-          {state.boards[userId].secrets.map((secret, index) => <button className={`secret-slot ${secret ? 'set' : ''}`} key={index} onClick={() => !secret && playToZone(index, 'trap')}>{secret ? <CardFace hidden compact /> : <span>{index + 1}</span>}</button>)}
+          {state.boards[userId].secrets.map((secret, index) => <button className={`secret-slot ${secret ? 'set' : ''}`} key={index} onClick={() => !secret && playToSecretZone(index)}>{secret ? <CardFace hidden compact /> : <span>{index + 1}</span>}</button>)}
         </div>
 
         <div className="core-panel my-core">
@@ -851,13 +1080,33 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
         </div>
       </section>
 
-      <section className="duel-controls">
+      <section className="duel-controls ascension-controls">
         <div className="duelist me"><Avatar id={me?.avatar} /><span><small>YOU</small><b>{me?.display_name ?? '나'}</b></span></div>
-        <div className="hand-zone">
-          {privateState.hand.map((instance) => <CardFace key={instance.instanceId} card={CARD_BY_ID[instance.cardId]} compact selected={selectedHand === instance.instanceId} disabled={!myTurn || state.phase !== 'main' || busy} onClick={() => setSelectedHand((current) => current === instance.instanceId ? null : instance.instanceId)} />)}
+        <div className="hand-and-extra">
+          <div className="hand-zone">
+            {privateState.hand.map((instance) => <CardFace key={instance.instanceId} card={CARD_BY_ID[instance.cardId]} compact selected={selectedHand === instance.instanceId} disabled={!myTurn || state.phase !== 'main' || busy} onClick={() => chooseHand(instance.instanceId)} />)}
+          </div>
+          <div className="extra-zone">
+            <header><span>EXTRA</span><b>{privateState.extra.length}</b></header>
+            <div>{privateState.extra.map((instance) => <CardFace key={instance.instanceId} card={CARD_BY_ID[instance.cardId]} compact selected={selectedExtra === instance.instanceId} disabled={!myTurn || state.phase !== 'main' || busy} onClick={() => chooseExtra(instance.instanceId)} />)}</div>
+          </div>
         </div>
         <div className="phase-controls">
-          {selectedCard && <div className="selected-card-action"><b>{selectedCard.name}</b><small>{selectedCard.text}</small>{selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button onClick={activateSelectedNoTarget}>발동</button>}</div>}
+          {selectedCard && (
+            <div className={`selected-card-action ${selectedCard.summonMode === 'rift' ? 'rift' : ''}`}>
+              <b>{selectedCard.name}</b>
+              <small>{selectedCard.summonMode === 'rift' ? `균열 조건 · ${extraRequirement(selectedCard)}` : selectedCard.text}</small>
+              {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button onClick={activateSelectedNoTarget}>발동</button>}
+            </div>
+          )}
+          {selectedExtraCard && (
+            <div className={`selected-card-action extra-action ${selectedExtraCard.kind}`}>
+              <b>{selectedExtraCard.name}</b>
+              <small>{extraRequirement(selectedExtraCard)}</small>
+              <span>소재 선택 {selectedMaterials.length}/{requiredMaterials}</span>
+              <button disabled={!canExtraSummon} onClick={summonSelectedExtra}>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</button>
+            </div>
+          )}
           {message && <p>{message}</p>}
           {state.status === 'active' && (
             <>
@@ -870,7 +1119,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
 
       <aside className="battle-log">
         <header>DUEL LOG</header>
-        <div>{state.logs.slice(-8).reverse().map((log) => <p className={`tone-${log.tone}`} key={log.id}>{log.text}</p>)}</div>
+        <div>{state.logs.slice(-10).reverse().map((log) => <p className={`tone-${log.tone}`} key={log.id}>{log.text}</p>)}</div>
       </aside>
 
       {state.status === 'finished' && (
@@ -888,6 +1137,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
     </div>
   );
 }
+
 
 function DuelView({ userId, hub, roomPayload, onRoom, onHub }: { userId: string; hub: HubData; roomPayload: RoomPayload | null; onRoom: (room: RoomPayload | null) => void; onHub: (hub: HubData) => void }) {
   const [code, setCode] = useState('');
@@ -950,7 +1200,7 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub }: { userId: string;
         <button className="mode-card private" disabled={busy || !activeDeck} onClick={() => roomAction('create_room')}><span>PRIVATE</span><h3>비공개 방</h3><p>방 코드를 공유해 친구와 결투합니다.</p><em>방 만들기 →</em></button>
         <article className="mode-card join"><span>JOIN ROOM</span><h3>코드로 참가</h3><p>친구에게 받은 6자리 코드를 입력하세요.</p><div className="inline-form"><input value={code} onChange={(event: ChangeEvent<HTMLInputElement>) => setCode(event.target.value.toUpperCase())} maxLength={6} placeholder="ABC123" /><button disabled={busy || code.length < 6} onClick={() => roomAction('join_room', { code })}>입장</button></div></article>
       </section>
-      <section className="active-deck-strip panel"><span>사용 덱</span><b>{activeDeck?.name ?? '활성 덱 없음'}</b><small>{activeDeck?.cards.length ?? 0}/{DECK_SIZE}장</small>{!activeDeck && <em>덱 구성에서 활성 덱을 지정하세요.</em>}</section>
+      <section className="active-deck-strip panel"><span>사용 덱</span><b>{activeDeck?.name ?? '활성 덱 없음'}</b><small>MAIN {activeDeck?.cards.length ?? 0}/{DECK_SIZE} · EXTRA {activeDeck?.extra_cards?.length ?? 0}/{EXTRA_DECK_SIZE}</small>{!activeDeck && <em>덱 구성에서 활성 덱을 지정하세요.</em>}</section>
       {message && <p className="error-banner">{message}</p>}
     </div>
   );
@@ -966,17 +1216,80 @@ export default function Page() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }: any) => { setSession(data.session); setAuthReady(true); });
-    const { data } = supabase.auth.onAuthStateChange((_event: any, nextSession: Session | null) => { setSession(nextSession); setAuthReady(true); if (!nextSession) { setHub(null); setRoomPayload(null); } });
-    return () => data.subscription.unsubscribe();
+    let mounted = true;
+    let unsubscribe: (() => void) | undefined;
+
+    async function restoreSession() {
+      let nextSession: Session | null = null;
+      try {
+        const current = await supabase.auth.getSession();
+        if (current.error) throw current.error;
+        nextSession = current.data.session;
+
+        const expiresSoon = nextSession && (!nextSession.expires_at || nextSession.expires_at * 1000 < Date.now() + 60_000);
+        if (expiresSoon) {
+          const refreshed = await supabase.auth.refreshSession();
+          if (refreshed.error) throw refreshed.error;
+          nextSession = refreshed.data.session;
+        }
+
+        if (nextSession) {
+          const verified = await supabase.auth.getUser(nextSession.access_token);
+          if (verified.error || !verified.data.user) {
+            const refreshed = await supabase.auth.refreshSession();
+            nextSession = refreshed.data.session;
+            if (!nextSession) throw refreshed.error ?? new Error('저장된 로그인 정보를 복구하지 못했습니다.');
+            const reverified = await supabase.auth.getUser(nextSession.access_token);
+            if (reverified.error || !reverified.data.user) throw reverified.error ?? new Error('로그인 정보를 확인하지 못했습니다.');
+          }
+        }
+      } catch {
+        nextSession = null;
+        await supabase.auth.signOut({ scope: 'local' });
+      } finally {
+        if (mounted) {
+          setSession(nextSession);
+          setAuthReady(true);
+          if (!nextSession) {
+            setHub(null);
+            setRoomPayload(null);
+          }
+        }
+      }
+
+      if (!mounted) return;
+      const authListener = supabase.auth.onAuthStateChange((_event: string, changedSession: Session | null) => {
+        if (!mounted) return;
+        setSession(changedSession);
+        setAuthReady(true);
+        if (!changedSession) {
+          setHub(null);
+          setRoomPayload(null);
+        }
+      });
+      unsubscribe = () => authListener.data.subscription.unsubscribe();
+    }
+
+    void restoreSession();
+    return () => {
+      mounted = false;
+      unsubscribe?.();
+    };
   }, []);
 
   useEffect(() => {
     if (!session) return;
     let alive = true;
+    setHub(null);
+    setRoomPayload(null);
+    setError('');
     api('bootstrap')
-      .then((result) => { if (alive && result.hub) setHub(result.hub); })
-      .catch((reason) => { if (alive) setError(reason instanceof Error ? reason.message : '계정 정보를 불러오지 못했습니다.'); });
+      .then((result) => {
+        if (alive && result.hub) setHub(result.hub);
+      })
+      .catch((reason) => {
+        if (alive) setError(reason instanceof Error ? reason.message : '계정 정보를 불러오지 못했습니다.');
+      });
     return () => { alive = false; };
   }, [session?.user.id]);
 
