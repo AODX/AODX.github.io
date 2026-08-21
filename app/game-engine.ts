@@ -853,6 +853,29 @@ export function attack(
   return { state, privateStates };
 }
 
+function expectedEnergyMax(state: MatchState, playerId: string, turnNumber = state.turnNumber): number {
+  if (!state.firstPlayerId) return Math.min(10, Math.max(1, Math.ceil(turnNumber / 2)));
+  const personalTurn = playerId === state.firstPlayerId
+    ? Math.ceil(turnNumber / 2)
+    : Math.floor(turnNumber / 2);
+  return Math.min(10, Math.max(0, personalTurn));
+}
+
+function repairCurrentTurnEnergy(state: MatchState): boolean {
+  const playerId = state.currentPlayerId;
+  if (!playerId || state.status !== 'active') return false;
+  const expected = expectedEnergyMax(state, playerId);
+  const energy = state.energy[playerId] ?? { current: 0, max: 0 };
+  if (energy.max >= expected) return false;
+  const beforeMax = energy.max;
+  energy.max = expected;
+  // Old rooms created before the energy-growth fix can enter a turn with a stale max.
+  // Only refill the newly unlocked amount when no action has been taken yet.
+  if (!state.turnActionTaken) energy.current = Math.min(expected, Math.max(energy.current + (expected - beforeMax), expected));
+  state.energy[playerId] = energy;
+  return true;
+}
+
 function advanceTurn(state: MatchState, privateStates: Record<string, PrivateState>, playerId: string, now = Date.now(), reason?: string): void {
   const nextPlayer = otherPlayer(state, playerId);
   state.currentPlayerId = nextPlayer;
@@ -861,7 +884,9 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
   state.turnActionTaken = false;
   state.turnEndsAt = now + TURN_DURATION_MS;
   const nextEnergy = state.energy[nextPlayer] ?? { current: 0, max: 0 };
-  nextEnergy.max = Math.min(10, nextEnergy.max + 1);
+  // Energy grows once whenever that player receives a new turn: 1, 2, 3 ... up to 10.
+  // Deriving it from turn number also repairs stale rooms instead of relying on old state.
+  nextEnergy.max = expectedEnergyMax(state, nextPlayer, state.turnNumber);
   nextEnergy.current = nextEnergy.max;
   state.energy[nextPlayer] = nextEnergy;
   state.boards[nextPlayer].units.forEach((unit) => {
@@ -869,7 +894,7 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
   });
   const drew = drawCards(state, privateStates[nextPlayer], nextPlayer, 1);
   if (reason) appendLog(state, reason, 'system');
-  if (drew && state.status === 'active') appendLog(state, `${nextPlayer.slice(0, 6)}의 턴입니다.`, 'system');
+  if (drew && state.status === 'active') appendLog(state, `${nextPlayer.slice(0, 6)}의 턴입니다. 에너지 ${nextEnergy.current}/${nextEnergy.max}.`, 'system');
   if (state.status !== 'active') state.turnEndsAt = null;
   checkWinner(state);
 }
@@ -897,6 +922,7 @@ export function resolveTurnTimeout(snapshot: GameSnapshot, now = Date.now()): Ac
   const state = clone(snapshot.state);
   const privateStates = clone(snapshot.privateStates);
   if (state.status !== 'active' || !state.currentPlayerId) return { state, privateStates };
+  repairCurrentTurnEnergy(state);
   if (state.coinToss && now < state.coinToss.endsAt) {
     if (!state.turnEndsAt) state.turnEndsAt = state.coinToss.endsAt + TURN_DURATION_MS;
     return { state, privateStates };

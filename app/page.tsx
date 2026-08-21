@@ -1473,6 +1473,7 @@ function UnitSlot({
   index,
   selected,
   materialSelected,
+  targetable,
   enemy,
   onClick,
 }: {
@@ -1481,24 +1482,28 @@ function UnitSlot({
   index: number;
   selected?: boolean;
   materialSelected?: boolean;
+  targetable?: boolean;
   enemy?: boolean;
   onClick?: () => void;
 }) {
   const card = unit ? CARD_BY_ID[unit.cardId] : undefined;
   return (
     <button
-      className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''}`}
+      type="button"
+      className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${targetable ? 'targetable' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''}`}
       onClick={onClick}
       data-owner={owner}
       data-index={index}
     >
       {!unit ? <span className="slot-mark">{index + 1}</span> : (
         <>
-          <span className={`unit-art ${card ? `variant-${hashString(card.id) % 6}` : ''}`} style={card ? cardStyle(card) : undefined}><strong>{card?.sigil ?? '✦'}</strong><i /></span>
+          <span className={`unit-art ${card ? `variant-${hashString(card.id) % 6}` : ''}`} style={card ? cardStyle(card) : undefined}>
+            {card ? <CardIllustration card={card} compact /> : <strong>✦</strong>}
+          </span>
           {card && <span className="unit-info-hotspot" role="button" tabIndex={0} aria-label={`${card.name} 상세 정보`} onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); requestCardInspection(card.id); }} onKeyDown={(event: React.KeyboardEvent) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); requestCardInspection(card.id); } }}>i</span>}
           {unit.summonedBy !== 'normal' && unit.summonedBy !== 'token' && <span className={`origin-badge ${unit.summonedBy}`}>{unit.summonedBy === 'rift' ? 'RIFT' : unit.summonedBy === 'fusion' ? 'FUSION' : 'EVOLVE'}</span>}
           <span className="unit-name">{card?.name ?? unit.cardId.replace('token:', '')}</span>
-          <span className="unit-stats"><b>{unit.attack}</b><i>⚔</i><b>{unit.health}</b>{unit.shield > 0 && <em>＋{unit.shield}</em>}</span>
+          <span className="unit-stats"><b>{unit.attack}</b><i>ATK</i><b>{unit.health}</b>{unit.shield > 0 && <em>＋{unit.shield}</em>}</span>
           {!unit.canAttack && <span className="unit-state">REST</span>}
           {materialSelected && <span className="material-mark">MATERIAL</span>}
         </>
@@ -1528,6 +1533,23 @@ function CoinTossOverlay({ state, profiles, userId, now }: { state: MatchState; 
       <div className="coin-toss-copy"><small>FIRST TURN DECISION</small><h2>{revealed ? '선공이 결정되었습니다' : '운명의 코인을 던집니다'}</h2><p>{revealed ? `${toss.side === 'solar' ? '태양면' : '월식면'} · ${isMe ? '당신' : winner?.display_name ?? '상대'}이(가) 선공입니다.` : '두 플레이어의 시작 순서를 공정하게 결정합니다.'}</p></div>
       <div className="duel-coin" aria-hidden="true"><span className="coin-face coin-front"><b>☀</b><small>SOLAR</small></span><span className="coin-face coin-back"><b>◐</b><small>ECLIPSE</small></span><i /></div>
       <div className="coin-result"><span>{revealed ? (isMe ? 'YOU GO FIRST' : 'OPPONENT GOES FIRST') : 'FLIPPING'}</span><div><i /></div></div>
+    </div>
+  );
+}
+
+function DuelEnergyMeter({ label, current, max, nextMax, opponent = false, compact = false }: { label: string; current: number; max: number; nextMax?: number; opponent?: boolean; compact?: boolean }) {
+  const safeCurrent = Math.max(0, Math.min(10, current));
+  const safeMax = Math.max(0, Math.min(10, max));
+  return (
+    <div className={`v15-energy-meter ${opponent ? 'opponent' : 'mine'} ${compact ? 'compact' : ''}`}>
+      <div className="v15-energy-copy">
+        <span>{label}</span>
+        <b>{safeCurrent}<em>/ {safeMax}</em></b>
+        {typeof nextMax === 'number' && nextMax > safeMax && <small>다음 내 턴 {nextMax}</small>}
+      </div>
+      <div className="v15-energy-pips" aria-label={`${label} ${safeCurrent}/${safeMax}`}>
+        {Array.from({ length: 10 }, (_, index) => <i key={index} className={index < safeCurrent ? 'active' : index < safeMax ? 'available' : 'locked'} />)}
+      </div>
     </div>
   );
 }
@@ -1571,7 +1593,6 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
     return () => window.clearInterval(timer);
   }, [nullableState?.coinToss?.endsAt]);
 
-
   useEffect(() => {
     const endsAt = nullableState?.turnEndsAt;
     if (!endsAt || nullableState?.status !== 'active') {
@@ -1605,7 +1626,21 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
     setSelectedExtra(null);
     setSelectedMaterials([]);
     setSelectedAttacker(null);
+    setMessage('');
   }, [nullableState?.turnNumber, nullableState?.currentPlayerId]);
+
+  useEffect(() => {
+    const cancel = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setSelectedHand(null);
+      setSelectedExtra(null);
+      setSelectedMaterials([]);
+      setSelectedAttacker(null);
+      setMessage('선택을 취소했습니다.');
+    };
+    window.addEventListener('keydown', cancel);
+    return () => window.removeEventListener('keydown', cancel);
+  }, []);
 
   useEffect(() => {
     if (activeVfx || vfxQueue.length === 0) return;
@@ -1614,7 +1649,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
     setActiveVfx(next);
     const timer = window.setTimeout(() => {
       setActiveVfx((current) => current?.id === next.id ? null : current);
-    }, 1500);
+    }, 1300);
     return () => window.clearTimeout(timer);
   }, [activeVfx, vfxQueue]);
 
@@ -1638,17 +1673,35 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   const requiredMaterials = selectedExtraCard?.kind === 'fusion' ? selectedExtraCard.fusionRecipe?.materials.length ?? 0 : selectedExtraCard?.kind === 'evolution' ? 1 : 0;
   const canExtraSummon = Boolean(selectedExtraCard && selectedExtra && selectedMaterials.length === requiredMaterials && myTurn && state.phase === 'main' && !busy);
   const canSpendTurnToDraw = Boolean(myTurn && state.phase === 'main' && !state.turnActionTaken && !busy && (state.deckCounts[userId] ?? 0) > 0);
+  const myEnergy = state.energy[userId] ?? { current: 0, max: 0 };
+  const opponentEnergy = state.energy[opponentId] ?? { current: 0, max: 0 };
+  const nextMyEnergyMax = myTurn ? myEnergy.max : Math.min(10, Math.max(1, myEnergy.max + 1));
+  const roundNumber = Math.max(1, Math.ceil(state.turnNumber / 2));
+  const phaseLabel = state.phase === 'main' ? '메인 단계' : '전투 단계';
+  const selectedHandCost = selectedCard?.summonMode === 'rift' && selectedCard.riftCost !== undefined ? `${selectedCard.cost} / 균열 ${selectedCard.riftCost}` : selectedCard?.cost;
+  const selectingUnitToSummon = Boolean(myTurn && state.phase === 'main' && selectedCard?.kind === 'unit');
+  const selectingTrapToSet = Boolean(myTurn && state.phase === 'main' && selectedCard?.kind === 'trap');
+  const selectingEnemyTarget = Boolean(myTurn && state.phase === 'main' && selectedCard?.target === 'enemy_unit');
+  const selectingFriendlyTarget = Boolean(myTurn && state.phase === 'main' && selectedCard?.target === 'friendly_unit');
+  const selectingMaterials = Boolean(myTurn && state.phase === 'main' && selectedExtraCard);
+  const selectingAttackTarget = Boolean(myTurn && state.phase === 'battle' && selectedAttacker !== null);
+
+  function clearSelection(note = '') {
+    setSelectedHand(null);
+    setSelectedExtra(null);
+    setSelectedMaterials([]);
+    setSelectedAttacker(null);
+    if (note) setMessage(note);
+  }
 
   async function gameAction(gameAction: string, extra: Record<string, unknown> = {}) {
+    if (busy) return;
     setBusy(true);
     setMessage('');
     try {
       const result = await api('game_action', { roomId: room.id, gameAction, ...extra });
       if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
-      setSelectedHand(null);
-      setSelectedExtra(null);
-      setSelectedMaterials([]);
-      setSelectedAttacker(null);
+      clearSelection();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '행동 처리 실패');
     } finally {
@@ -1657,6 +1710,15 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   }
 
   function chooseHand(instanceId: string) {
+    if (busy) return;
+    const instance = privateState.hand.find((card) => card.instanceId === instanceId);
+    if (!instance) return;
+    if (!myTurn || state.phase !== 'main') {
+      requestCardInspection(instance.cardId);
+      setMessage(!myTurn ? '상대 턴입니다. 카드 정보만 확인할 수 있습니다.' : '전투 단계에서는 손패를 사용할 수 없습니다. 카드 정보만 표시합니다.');
+      return;
+    }
+    setMessage('');
     setSelectedHand((current) => current === instanceId ? null : instanceId);
     setSelectedExtra(null);
     setSelectedMaterials([]);
@@ -1664,6 +1726,15 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   }
 
   function chooseExtra(instanceId: string) {
+    if (busy) return;
+    const instance = privateState.extra.find((card) => card.instanceId === instanceId);
+    if (!instance) return;
+    if (!myTurn || state.phase !== 'main') {
+      requestCardInspection(instance.cardId);
+      setMessage(!myTurn ? '상대 턴입니다. 엑스트라 카드 정보만 확인할 수 있습니다.' : '전투 단계에서는 엑스트라 소환을 할 수 없습니다.');
+      return;
+    }
+    setMessage('');
     setSelectedExtra((current) => current === instanceId ? null : instanceId);
     setSelectedHand(null);
     setSelectedMaterials([]);
@@ -1671,12 +1742,26 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   }
 
   function playToUnitZone(zone: number) {
-    if (!selectedCard || selectedCard.kind !== 'unit' || !selectedHand) return;
+    if (!myTurn || state.phase !== 'main') {
+      setMessage('내 메인 단계에서만 유닛을 소환할 수 있습니다.');
+      return;
+    }
+    if (!selectedCard || selectedCard.kind !== 'unit' || !selectedHand) {
+      setMessage('먼저 손패에서 소환할 유닛 카드를 선택하세요.');
+      return;
+    }
     gameAction('play_card', { instanceId: selectedHand, zone });
   }
 
   function playToSecretZone(zone: number) {
-    if (!selectedCard || selectedCard.kind !== 'trap' || !selectedHand) return;
+    if (!myTurn || state.phase !== 'main') {
+      setMessage('내 메인 단계에서만 함정을 세트할 수 있습니다.');
+      return;
+    }
+    if (!selectedCard || selectedCard.kind !== 'trap' || !selectedHand) {
+      setMessage('먼저 손패에서 함정 카드를 선택하세요.');
+      return;
+    }
     gameAction('play_card', { instanceId: selectedHand, zone });
   }
 
@@ -1692,17 +1777,53 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   }
 
   function targetUnit(ownerId: string, unitIndex: number) {
+    const unit = state.boards[ownerId]?.units[unitIndex];
+    const card = unit ? CARD_BY_ID[unit.cardId] : undefined;
+    if (!myTurn) {
+      if (card) requestCardInspection(card.id);
+      setMessage('상대 턴입니다. 필드 카드는 상세 정보만 확인할 수 있습니다.');
+      return;
+    }
     if (selectedExtraCard && ownerId === userId && state.phase === 'main') {
       toggleMaterial(unitIndex);
+      setMessage('엑스트라 소환 소재를 선택했습니다.');
       return;
     }
     if (selectedCard && selectedHand && state.phase === 'main') {
-      if (selectedCard.target === 'enemy_unit' && ownerId === opponentId) gameAction('play_card', { instanceId: selectedHand, target: { ownerId, unitIndex } });
-      else if (selectedCard.target === 'friendly_unit' && ownerId === userId) gameAction('play_card', { instanceId: selectedHand, target: { ownerId, unitIndex } });
+      if (selectedCard.target === 'enemy_unit' && ownerId === opponentId) {
+        gameAction('play_card', { instanceId: selectedHand, target: { ownerId, unitIndex } });
+        return;
+      }
+      if (selectedCard.target === 'friendly_unit' && ownerId === userId) {
+        gameAction('play_card', { instanceId: selectedHand, target: { ownerId, unitIndex } });
+        return;
+      }
+      if (selectedCard.target !== 'none' && selectedCard.target !== 'enemy_core') {
+        setMessage('이 카드는 현재 선택한 대상에 사용할 수 없습니다. 빛나는 칸을 선택하세요.');
+        return;
+      }
+    }
+    if (selectedAttacker !== null && ownerId === opponentId && state.phase === 'battle') {
+      gameAction('attack', { attackerIndex: selectedAttacker, target: { kind: 'unit', unitIndex } });
       return;
     }
-    if (selectedAttacker !== null && ownerId === opponentId) gameAction('attack', { attackerIndex: selectedAttacker, target: { kind: 'unit', unitIndex } });
-    else if (ownerId === userId && state.phase === 'battle' && myTurn) setSelectedAttacker(unitIndex);
+    if (ownerId === userId && state.phase === 'battle') {
+      if (!unit) return;
+      if (!unit.canAttack) {
+        setMessage('이 유닛은 이번 턴에 공격할 수 없습니다.');
+        return;
+      }
+      setSelectedAttacker((current) => current === unitIndex ? null : unitIndex);
+      setMessage(currentAttackHint(unitIndex));
+      return;
+    }
+    if (card) requestCardInspection(card.id);
+  }
+
+  function currentAttackHint(unitIndex: number) {
+    const unit = state.boards[userId].units[unitIndex];
+    const card = unit ? CARD_BY_ID[unit.cardId] : undefined;
+    return `${card?.name ?? '유닛'} 선택 · 공격할 적 유닛 또는 상대 코어를 누르세요.`;
   }
 
   function activateSelectedNoTarget() {
@@ -1711,10 +1832,12 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   }
 
   function summonSelectedExtra() {
-    if (!selectedExtra || !canExtraSummon) return;
+    if (!selectedExtra || !canExtraSummon) {
+      setMessage('필요한 소재를 모두 선택해야 합니다.');
+      return;
+    }
     gameAction('extra_summon', { extraInstanceId: selectedExtra, materialZones: selectedMaterials });
   }
-
 
   function spendTurnToDraw() {
     if (!canSpendTurnToDraw) return;
@@ -1722,55 +1845,67 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
     gameAction('draw_turn');
   }
 
+  const actionGuide = !myTurn
+    ? '상대가 플레이 중입니다. 손패나 필드 카드를 눌러 상세 정보는 확인할 수 있습니다.'
+    : state.phase === 'battle'
+      ? selectedAttacker !== null ? '공격할 적 유닛 또는 상대 코어를 선택하세요.' : '공격 가능한 내 유닛을 선택하세요.'
+      : selectedExtraCard ? `소재 ${selectedMaterials.length}/${requiredMaterials} 선택 후 소환하세요.`
+        : selectedCard?.kind === 'unit' ? '빛나는 빈 유닛 칸을 눌러 소환하세요.'
+          : selectedCard?.kind === 'trap' ? '빛나는 빈 함정 칸을 눌러 세트하세요.'
+            : selectedCard?.target === 'enemy_unit' ? '빛나는 적 유닛을 선택하세요.'
+              : selectedCard?.target === 'friendly_unit' ? '빛나는 아군 유닛을 선택하세요.'
+                : selectedCard ? '오른쪽 행동 버튼으로 카드를 발동하세요.'
+                  : '손패에서 카드를 선택하거나 전투 단계로 이동하세요.';
+
   return (
-    <div className="duel-screen ascension-duel-screen">
+    <div className="duel-screen ascension-duel-screen v15-duel-screen">
       <DuelEffectLayer event={activeVfx} />
       <CoinTossOverlay state={state} profiles={payload.profiles} userId={userId} now={coinClock} />
       <div className="orientation-hint"><span>↻</span><b>기기를 가로로 돌려주세요</b><small>결투장은 가로 화면에 최적화되어 있습니다.</small></div>
-      {busy && <div className="v14-action-progress"><span />행동 처리 중…</div>}
-      <header className="duel-topbar">
+      {busy && <div className="v14-action-progress v15-action-progress"><span />서버에서 행동을 처리하고 있습니다…</div>}
+
+      <header className="duel-topbar v15-duel-topbar">
         <div className="duelist opponent"><Avatar id={opponent?.avatar} /><span><small>OPPONENT</small><b>{opponent?.display_name ?? '상대'}</b></span></div>
-        <div className="turn-orb">
-          <small>{coinTossActive ? 'OPENING CEREMONY' : `TURN ${state.turnNumber}`}</small>
-          <b>{coinTossActive ? 'COIN TOSS' : myTurn ? '내 턴' : '상대 턴'}</b>
-          <span>{coinTossActive ? 'FIRST PLAYER DECISION' : state.phase === 'main' ? '메인 단계' : '전투 단계'}</span>
+        <div className="v15-turn-center">
+          <div className="v15-turn-title"><small>ROUND {roundNumber} · TURN {state.turnNumber}</small><b>{coinTossActive ? '선공 결정 중' : myTurn ? '내 턴' : '상대 턴'}</b><span>{coinTossActive ? 'OPENING' : phaseLabel}</span></div>
           {!coinTossActive && state.status === 'active' && (
-            <div className="v14-turn-live">
-              <span className="v14-live-energy"><small>내 에너지</small><strong>{state.energy[userId]?.current ?? 0}</strong><em>/ {state.energy[userId]?.max ?? 0}</em></span>
-              <div className={`v14-turn-timer ${turnSecondsLeft <= 10 ? 'danger' : turnSecondsLeft <= 20 ? 'warning' : ''}`}>
+            <>
+              <DuelEnergyMeter label="내 에너지" current={myEnergy.current} max={myEnergy.max} nextMax={!myTurn ? nextMyEnergyMax : undefined} compact />
+              <div className={`v14-turn-timer v15-turn-timer ${turnSecondsLeft <= 10 ? 'danger' : turnSecondsLeft <= 20 ? 'warning' : ''}`}>
                 <span><small>남은 시간</small><strong>{turnSecondsLeft}</strong><em>초</em></span>
                 <i><b style={{ width: `${turnTimerPercent}%` }} /></i>
               </div>
-            </div>
+            </>
           )}
         </div>
-        <div className="duel-top-actions"><button className={`log-toggle ${logOpen ? 'active' : ''}`} onClick={() => setLogOpen((value) => !value)}>LOG</button><button className="surrender-button" disabled={busy} onClick={() => confirm('항복하시겠습니까?') && gameAction('surrender')}>항복</button></div>
+        <div className="duel-top-actions"><button className={`log-toggle ${logOpen ? 'active' : ''}`} onClick={() => setLogOpen((value) => !value)}>기록</button><button className="surrender-button" disabled={busy} onClick={() => confirm('항복하시겠습니까?') && gameAction('surrender')}>항복</button></div>
       </header>
 
-      <section className="battlefield">
+      <section className="battlefield v15-battlefield">
         <div className="battlefield-texture" />
-        <div className="opponent-hand">
+        <div className="v15-field-caption opponent"><span>OPPONENT FIELD</span><b>CORE {state.core[opponentId]}</b></div>
+        <div className="opponent-hand v15-opponent-hand">
           {Array.from({ length: Math.min(8, state.handCounts[opponentId] ?? 0) }, (_, index) => <CardFace key={index} hidden compact />)}
-          {(state.handCounts[opponentId] ?? 0) > 8 && <b>+{state.handCounts[opponentId] - 8}</b>}
+          {(state.handCounts[opponentId] ?? 0) > 8 && <b>+{(state.handCounts[opponentId] ?? 0) - 8}</b>}
         </div>
-        <div className="core-panel enemy-core">
-          <button disabled={!myTurn || state.phase !== 'battle' || selectedAttacker === null || busy} onClick={() => gameAction('attack', { attackerIndex: selectedAttacker, target: { kind: 'core' } })}>
-            <span>ENEMY CORE</span><strong>{state.core[opponentId]}</strong>
+        <div className="core-panel enemy-core v15-core-panel">
+          <button className={selectingAttackTarget ? 'targetable' : ''} disabled={!myTurn || state.phase !== 'battle' || selectedAttacker === null || busy} onClick={() => gameAction('attack', { attackerIndex: selectedAttacker, target: { kind: 'core' } })}>
+            <span>상대 코어</span><strong>{state.core[opponentId]}</strong><small>{selectingAttackTarget ? '직접 공격' : 'ENEMY CORE'}</small>
           </button>
-          <div className="energy"><span>상대 에너지</span><b>{state.energy[opponentId]?.current ?? 0} / {state.energy[opponentId]?.max ?? 0}</b></div>
+          <DuelEnergyMeter label="상대 에너지" current={opponentEnergy.current} max={opponentEnergy.max} opponent />
         </div>
 
         <div className="zone-row enemy-secrets">
           {state.boards[opponentId].secrets.map((secret, index) => <div className={`secret-slot ${secret ? 'set' : ''}`} key={index}>{secret ? <CardFace hidden compact /> : <span>{index + 1}</span>}</div>)}
         </div>
         <div className="zone-row enemy-units">
-          {state.boards[opponentId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={opponentId} index={index} enemy onClick={() => targetUnit(opponentId, index)} />)}
+          {state.boards[opponentId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={opponentId} index={index} enemy targetable={Boolean(unit && (selectingEnemyTarget || selectingAttackTarget))} onClick={() => targetUnit(opponentId, index)} />)}
         </div>
 
-        <div className="field-center">
+        <div className="field-center v15-field-center">
+          <div className="deck-piles"><span>상대 덱 <b>{state.deckCounts[opponentId]}</b></span><span>묘지 <b>{state.graveyards[opponentId]?.length ?? 0}</b></span></div>
           <div className="eclipse-ring"><span>◈</span></div>
-          <div className="deck-piles"><span>상대 덱 <b>{state.deckCounts[opponentId]}</b></span><span>상대 엑스트라 <b>{state.extraCounts?.[opponentId] ?? 0}</b></span><span>상대 묘지 <b>{state.graveyards[opponentId]?.length ?? 0}</b></span></div>
-          <div className="deck-piles mine"><span>내 묘지 <b>{state.graveyards[userId]?.length ?? 0}</b></span><span>내 엑스트라 <b>{state.extraCounts?.[userId] ?? privateState.extra.length}</b></span><span>내 덱 <b>{state.deckCounts[userId]}</b></span></div>
+          <div className="deck-piles mine"><span>내 덱 <b>{state.deckCounts[userId]}</b></span><span>묘지 <b>{state.graveyards[userId]?.length ?? 0}</b></span></div>
         </div>
 
         <div className="zone-row my-units">
@@ -1782,68 +1917,73 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
               index={index}
               selected={selectedAttacker === index}
               materialSelected={selectedMaterials.includes(index)}
+              targetable={unit ? Boolean(selectingFriendlyTarget || selectingMaterials || (myTurn && state.phase === 'battle' && unit.canAttack)) : selectingUnitToSummon}
               onClick={() => unit ? targetUnit(userId, index) : playToUnitZone(index)}
             />
           ))}
         </div>
         <div className="zone-row my-secrets">
-          {state.boards[userId].secrets.map((secret, index) => <button className={`secret-slot ${secret ? 'set' : ''}`} key={index} onClick={() => !secret && playToSecretZone(index)}>{secret ? <CardFace hidden compact /> : <span>{index + 1}</span>}</button>)}
+          {state.boards[userId].secrets.map((secret, index) => <button type="button" className={`secret-slot ${secret ? 'set' : ''} ${!secret && selectingTrapToSet ? 'targetable' : ''}`} key={index} onClick={() => !secret && playToSecretZone(index)}>{secret ? <CardFace hidden compact /> : <span>{index + 1}</span>}</button>)}
         </div>
 
-        <div className="core-panel my-core">
-          <div className="energy v14-my-energy"><span>내 에너지</span><b>{state.energy[userId]?.current ?? 0} / {state.energy[userId]?.max ?? 0}</b></div>
-          <div><span>내 코어</span><strong>{state.core[userId]}</strong></div>
+        <div className="core-panel my-core v15-core-panel">
+          <DuelEnergyMeter label="내 에너지" current={myEnergy.current} max={myEnergy.max} nextMax={!myTurn ? nextMyEnergyMax : undefined} />
+          <div><span>내 코어</span><strong>{state.core[userId]}</strong><small>YOUR CORE</small></div>
         </div>
+        <div className="v15-field-caption mine"><span>YOUR FIELD</span><b>{actionGuide}</b></div>
       </section>
 
-      <section className="duel-controls ascension-controls">
-        <div className="duelist me"><Avatar id={me?.avatar} /><span><small>YOU</small><b>{me?.display_name ?? '나'}</b></span></div>
-        <div className="hand-and-extra">
-          <div className="hand-zone-shell">
-            <header className="v14-hand-header"><span>내 손패</span><b>{privateState.hand.length}장</b><small>카드를 눌러 선택 · 우측 i 버튼으로 상세 확인</small></header>
-            <div className="hand-zone">
-              {privateState.hand.map((instance) => <CardFace key={instance.instanceId} card={CARD_BY_ID[instance.cardId]} compact selected={selectedHand === instance.instanceId} disabled={!myTurn || state.phase !== 'main' || busy} onClick={() => chooseHand(instance.instanceId)} />)}
+      <section className="duel-controls ascension-controls v15-duel-controls">
+        <div className="v15-player-dock">
+          <Avatar id={me?.avatar} /><span><small>YOU</small><b>{me?.display_name ?? '나'}</b><em>{myTurn ? `${phaseLabel} · 행동 가능` : '상대 턴 · 정보 확인 가능'}</em></span>
+          <DuelEnergyMeter label="ENERGY" current={myEnergy.current} max={myEnergy.max} nextMax={!myTurn ? nextMyEnergyMax : undefined} compact />
+        </div>
+
+        <div className="hand-and-extra v15-hand-and-extra">
+          <div className="hand-zone-shell v15-hand-zone-shell">
+            <header className="v14-hand-header v15-hand-header"><span>내 손패</span><b>{privateState.hand.length}장</b><small>{myTurn && state.phase === 'main' ? '카드 선택 → 빛나는 필드/행동 버튼 사용' : '카드를 누르면 상세 정보를 볼 수 있습니다.'}</small></header>
+            <div className="hand-zone v15-hand-zone">
+              {privateState.hand.map((instance) => {
+                const card = CARD_BY_ID[instance.cardId];
+                const affordable = Boolean(card && myEnergy.current >= (card.summonMode === 'rift' && card.riftCost !== undefined ? Math.min(card.cost, card.riftCost) : card.cost));
+                return <div className={`v15-hand-card ${myTurn && state.phase === 'main' ? (affordable ? 'affordable' : 'expensive') : 'view-only'}`} key={instance.instanceId}><CardFace card={card} compact selected={selectedHand === instance.instanceId} disabled={busy} onClick={() => chooseHand(instance.instanceId)} /></div>;
+              })}
             </div>
           </div>
-          <div className="extra-zone">
+          <div className="extra-zone v15-extra-zone">
             <header><span>EXTRA</span><b>{privateState.extra.length}</b></header>
-            <div>{privateState.extra.map((instance) => <CardFace key={instance.instanceId} card={CARD_BY_ID[instance.cardId]} compact selected={selectedExtra === instance.instanceId} disabled={!myTurn || state.phase !== 'main' || busy} onClick={() => chooseExtra(instance.instanceId)} />)}</div>
+            <div>{privateState.extra.map((instance) => <CardFace key={instance.instanceId} card={CARD_BY_ID[instance.cardId]} compact selected={selectedExtra === instance.instanceId} disabled={busy} onClick={() => chooseExtra(instance.instanceId)} />)}</div>
           </div>
         </div>
-        <div className="phase-controls">
+
+        <aside className="phase-controls v15-phase-controls">
+          <div className={`v15-action-guide ${myTurn ? 'mine' : 'opponent'}`}><small>{myTurn ? 'YOUR ACTION' : 'WAITING'}</small><b>{myTurn ? phaseLabel : '상대가 플레이 중입니다'}</b><span>{actionGuide}</span></div>
           {selectedCard && (
-            <div className={`selected-card-action v14-selected-card ${selectedCard.summonMode === 'rift' ? 'rift' : ''}`}>
-              <div className="v14-selected-head"><b>{selectedCard.name}</b><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>상세</button></div>
-              <div className="v14-selected-stats"><span>COST <b>{selectedCard.cost}</b></span>{isUnitCard(selectedCard) && <><span>ATK <b>{selectedCard.attack}</b></span><span>DEF <b>{selectedCard.health}</b></span></>}</div>
+            <div className={`selected-card-action v14-selected-card v15-selected-card ${selectedCard.summonMode === 'rift' ? 'rift' : ''}`}>
+              <div className="v14-selected-head"><b>{selectedCard.name}</b><div><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>취소</button></div></div>
+              <div className="v14-selected-stats"><span>COST <b>{selectedHandCost}</b></span>{isUnitCard(selectedCard) && <><span>ATK <b>{selectedCard.attack}</b></span><span>DEF <b>{selectedCard.health}</b></span></>}<span>ENERGY <b>{myEnergy.current}/{myEnergy.max}</b></span></div>
               <small>{selectedCard.summonMode === 'rift' ? `균열 조건 · ${extraRequirement(selectedCard)}` : selectedCard.text}</small>
-              {selectedCard.kind === 'unit' && <em>필드의 빈 유닛 칸을 누르면 소환합니다.</em>}
-              {selectedCard.kind === 'trap' && <em>필드의 빈 함정 칸을 누르면 세트합니다.</em>}
-              {selectedCard.kind === 'spell' && selectedCard.target === 'enemy_unit' && <em>대상으로 삼을 적 유닛을 누르세요.</em>}
-              {selectedCard.kind === 'spell' && selectedCard.target === 'friendly_unit' && <em>대상으로 삼을 아군 유닛을 누르세요.</em>}
-              {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button onClick={activateSelectedNoTarget}>이 카드 발동</button>}
+              {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button className="v15-primary-action" onClick={activateSelectedNoTarget}>이 카드 발동</button>}
             </div>
           )}
           {selectedExtraCard && (
-            <div className={`selected-card-action extra-action ${selectedExtraCard.kind}`}>
-              <b>{selectedExtraCard.name}</b>
+            <div className={`selected-card-action extra-action v15-selected-card ${selectedExtraCard.kind}`}>
+              <div className="v14-selected-head"><b>{selectedExtraCard.name}</b><div><button type="button" onClick={() => requestCardInspection(selectedExtraCard.id)}>상세</button><button type="button" onClick={() => clearSelection('엑스트라 카드 선택을 취소했습니다.')}>취소</button></div></div>
               <small>{extraRequirement(selectedExtraCard)}</small>
               <span>소재 선택 {selectedMaterials.length}/{requiredMaterials}</span>
-              <button disabled={!canExtraSummon} onClick={summonSelectedExtra}>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</button>
+              <button className="v15-primary-action" disabled={!canExtraSummon} onClick={summonSelectedExtra}>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</button>
             </div>
           )}
-          {message && <p>{message}</p>}
+          {selectedAttacker !== null && <button className="v15-cancel-attack" type="button" onClick={() => { setSelectedAttacker(null); setMessage('공격 유닛 선택을 취소했습니다.'); }}>공격 선택 취소</button>}
+          {message && <p className="v15-action-message">{message}</p>}
           {state.status === 'active' && (
-            <>
-              {state.phase === 'main' && (
-                <button className="v14-draw-turn-button" disabled={!canSpendTurnToDraw} onClick={spendTurnToDraw} title={state.turnActionTaken ? '이번 턴에 이미 다른 행동을 했습니다.' : '카드 1장을 추가로 뽑고 즉시 턴을 종료합니다.'}>
-                  <span>＋ 카드 1장 뽑기</span><small>이번 턴 전체를 소비하고 즉시 턴 종료</small>
-                </button>
-              )}
-              {state.phase === 'main' && <button className="battle-button" disabled={!myTurn || busy} onClick={() => gameAction('battle_phase')}>전투 단계로</button>}
+            <div className="v15-phase-buttons">
+              {state.phase === 'main' && <button className="v14-draw-turn-button" disabled={!canSpendTurnToDraw} onClick={spendTurnToDraw} title={state.turnActionTaken ? '이번 턴에 이미 다른 행동을 했습니다.' : '카드 1장을 추가로 뽑고 즉시 턴을 종료합니다.'}><span>＋ 1장 드로우</span><small>행동 대신 드로우 후 턴 종료</small></button>}
+              {state.phase === 'main' && <button className="battle-button" disabled={!myTurn || busy} onClick={() => gameAction('battle_phase')}>전투 단계</button>}
               <button className="end-turn-button" disabled={!myTurn || busy} onClick={() => gameAction('end_turn')}>턴 종료</button>
-            </>
+            </div>
           )}
-        </div>
+        </aside>
       </section>
 
       <aside className={`battle-log ${logOpen ? 'open' : ''}`}>
