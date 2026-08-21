@@ -1,6 +1,6 @@
 {
-  "name": "vanta-festival",
-  "version": "18.0.0",
+  "name": "eclipse-duel",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
