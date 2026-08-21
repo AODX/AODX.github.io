@@ -435,7 +435,8 @@ function timeoutStateChanged(before: GameSnapshot, after: GameSnapshot): boolean
   return before.state.turnNumber !== after.state.turnNumber
     || before.state.currentPlayerId !== after.state.currentPlayerId
     || before.state.turnEndsAt !== after.state.turnEndsAt
-    || before.state.status !== after.state.status;
+    || before.state.status !== after.state.status
+    || JSON.stringify(before.state.energy) !== JSON.stringify(after.state.energy);
 }
 
 async function normalizeTurnTimeout(admin: AdminDbClient, room: RoomRow): Promise<{ room: RoomRow; snapshot: GameSnapshot | null; advanced: boolean }> {
