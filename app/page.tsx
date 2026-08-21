@@ -95,13 +95,13 @@ type ApiResult = {
 };
 
 const NAV_ITEMS: Array<{ id: View; label: string; icon: string }> = [
-  { id: 'home', label: '홈', icon: '◈' },
-  { id: 'duel', label: '대전하기', icon: '⚔' },
-  { id: 'deck', label: '덱 구성', icon: '▤' },
-  { id: 'shop', label: '상점', icon: '✦' },
-  { id: 'collection', label: '보관함', icon: '◇' },
-  { id: 'friends', label: '친구', icon: '♢' },
-  { id: 'profile', label: '프로필', icon: '◎' },
+  { id: 'home', label: '홈', icon: 'HM' },
+  { id: 'duel', label: '대전하기', icon: 'VS' },
+  { id: 'deck', label: '덱 구성', icon: 'DK' },
+  { id: 'shop', label: '상점', icon: 'SH' },
+  { id: 'collection', label: '보관함', icon: 'CL' },
+  { id: 'friends', label: '친구', icon: 'FR' },
+  { id: 'profile', label: '프로필', icon: 'ID' },
 ];
 
 const ELEMENT_ACCENT: Record<Element, string> = {
@@ -133,7 +133,12 @@ function friendlyAuthMessage(message: string): string {
   if (/email not confirmed/i.test(message)) return '가입 확인 메일을 먼저 확인해 주세요.';
   if (/user already registered/i.test(message)) return '이미 가입된 이메일입니다. 로그인 탭을 이용해 주세요.';
   if (/password should be at least/i.test(message)) return '비밀번호는 6자 이상이어야 합니다.';
-  if (/session.*expired|refresh token|jwt expired/i.test(message)) return '로그인 시간이 만료되어 세션을 새로 연결합니다. 다시 로그인해 주세요.';
+  if (/invalid.*email|email.*invalid/i.test(message)) return '사용할 수 있는 이메일 주소를 입력해 주세요.';
+  if (/rate limit|too many requests/i.test(message)) return '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.';
+  if (/database error saving new user|failed to save new user/i.test(message)) {
+    return '회원가입용 데이터베이스 연결이 남아 있는 이전 프로젝트 설정과 충돌했습니다. v3 DB 복구 SQL을 실행한 뒤 다시 가입해 주세요.';
+  }
+  if (/session.*expired|refresh token|jwt expired/i.test(message)) return '로그인 시간이 만료되었습니다. 다시 로그인해 주세요.';
   return message;
 }
 
@@ -240,7 +245,7 @@ function Avatar({ id, size = 'medium' }: { id?: string; size?: 'small' | 'medium
 function LoadingScreen({ text = '결투장을 준비하는 중' }: { text?: string }) {
   return (
     <main className="loading-screen">
-      <div className="loading-sigil"><span>◈</span></div>
+      <div className="loading-sigil"><span>E</span></div>
       <h1>ECLIPSE DUEL</h1>
       <p>{text}</p>
       <div className="loading-bar"><span /></div>
@@ -255,22 +260,42 @@ function AuthScreen({ onSession }: { onSession: (session: Session) => void }) {
   const [displayName, setDisplayName] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const submitLock = useRef(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (submitLock.current) return;
+    submitLock.current = true;
     setBusy(true);
     setMessage('');
     try {
       if (!supabaseUrl || !supabaseKey) throw new Error('Supabase 환경변수가 설정되지 않았습니다.');
       if (mode === 'signup') {
+        await supabase.auth.signOut({ scope: 'local' });
+        const cleanEmail = email.trim().toLowerCase();
+        const cleanName = displayName.trim() || cleanEmail.split('@')[0];
         const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
+          email: cleanEmail,
           password,
-          options: { data: { display_name: displayName.trim() || email.split('@')[0] } },
+          options: {
+            data: { display_name: cleanName },
+            emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+          },
         });
-        if (error) throw error;
-        if (data.session) onSession(data.session);
-        else setMessage('가입 확인 메일을 보냈습니다. 메일 확인 후 로그인해 주세요.');
+        if (error) {
+          await supabase.auth.signOut({ scope: 'local' });
+          throw error;
+        }
+        if (data.session) {
+          const verified = await supabase.auth.getUser(data.session.access_token);
+          if (verified.error || !verified.data.user) {
+            await supabase.auth.signOut({ scope: 'local' });
+            throw verified.error ?? new Error('회원가입 세션을 확인하지 못했습니다.');
+          }
+          onSession(data.session);
+        } else {
+          setMessage('가입 확인 메일을 보냈습니다. 메일의 확인 링크를 누른 뒤 로그인해 주세요.');
+        }
       } else {
         // 오래된 프로젝트의 토큰이 브라우저에 남아 있어도 새 로그인을 방해하지 않도록 먼저 정리합니다.
         await supabase.auth.signOut({ scope: 'local' });
@@ -287,6 +312,7 @@ function AuthScreen({ onSession }: { onSession: (session: Session) => void }) {
     } catch (error) {
       setMessage(friendlyAuthMessage(error instanceof Error ? error.message : '로그인에 실패했습니다.'));
     } finally {
+      submitLock.current = false;
       setBusy(false);
     }
   }
@@ -296,9 +322,9 @@ function AuthScreen({ onSession }: { onSession: (session: Session) => void }) {
       <div className="auth-atmosphere"><span /><span /><span /></div>
       <section className="auth-brand">
         <div className="brand-emblem">E</div>
-        <p>ORIGINAL ONLINE CARD BATTLE</p>
+        <p>ONLINE STRATEGY CARD GAME</p>
         <h1>ECLIPSE<br /><strong>DUEL</strong></h1>
-        <h2>카드를 수집하고, 덱을 설계하고, 상대의 코어를 무너뜨리세요.</h2>
+        <h2>수집과 덱 설계, 실시간 결투가 하나의 시즌으로 이어집니다.</h2>
         <div className="auth-features">
           <span>30장 메인 + 6장 엑스트라</span>
           <span>균열 · 융합 · 진화</span>
@@ -308,9 +334,9 @@ function AuthScreen({ onSession }: { onSession: (session: Session) => void }) {
       <form className="auth-panel" onSubmit={submit}>
         <div className="auth-tabs">
           <button type="button" className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>로그인</button>
-          <button type="button" className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>신규 등록</button>
+          <button type="button" className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>회원가입</button>
         </div>
-        <h3>{mode === 'login' ? '결투장으로 돌아오기' : '새로운 결투가 등록'}</h3>
+        <h3>{mode === 'login' ? '계정 로그인' : '새 계정 만들기'}</h3>
         {mode === 'signup' && (
           <label>
             <span>플레이어 이름</span>
@@ -329,6 +355,23 @@ function AuthScreen({ onSession }: { onSession: (session: Session) => void }) {
         <button className="primary-button auth-submit" disabled={busy}>{busy ? '처리 중...' : mode === 'login' ? '로그인' : '계정 만들기'}</button>
         <small>이 게임은 독자적인 세계관과 카드 규칙으로 제작된 오리지널 프로젝트입니다.</small>
       </form>
+    </main>
+  );
+}
+
+
+function AccountErrorScreen({ message, onRetry, onSignOut }: { message: string; onRetry: () => void; onSignOut: () => void }) {
+  return (
+    <main className="account-error-screen">
+      <section>
+        <span className="error-code">CONNECTION CHECK</span>
+        <h1>계정 정보를 불러오지 못했습니다.</h1>
+        <p>{message}</p>
+        <div>
+          <button className="primary-button" onClick={onRetry}>다시 시도</button>
+          <button className="ghost-button" onClick={onSignOut}>로그아웃</button>
+        </div>
+      </section>
     </main>
   );
 }
@@ -384,13 +427,13 @@ function HomeView({ hub, onNavigate }: { hub: HubData; onNavigate: (view: View) 
 
       <section className="quick-grid">
         <button className="quick-card duel-quick" onClick={() => onNavigate('duel')}>
-          <span>⚔</span><div><b>랭크 결투</b><small>상대를 찾아 즉시 대전</small></div><em>PLAY</em>
+          <span className="quick-icon">VS</span><div><b>랭크 결투</b><small>상대를 찾아 즉시 대전</small></div><em>PLAY</em>
         </button>
         <button className="quick-card" onClick={() => onNavigate('shop')}>
-          <span>✦</span><div><b>카드 팩 상점</b><small>새로운 전술을 획득</small></div><em>{hub.wallet.coins} C</em>
+          <span className="quick-icon">PK</span><div><b>카드 팩 상점</b><small>새로운 전술을 획득</small></div><em>{hub.wallet.coins} C</em>
         </button>
         <button className="quick-card" onClick={() => onNavigate('friends')}>
-          <span>♢</span><div><b>친구 목록</b><small>친구와 비공개 결투</small></div><em>{hub.friends.length}</em>
+          <span className="quick-icon">FR</span><div><b>친구 목록</b><small>친구와 비공개 결투</small></div><em>{hub.friends.length}</em>
         </button>
       </section>
     </div>
@@ -624,7 +667,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
     <div className="view-stack">
       <section className="section-heading">
         <div><span className="eyebrow">ECLIPSE SHOP</span><h2>카드 팩 상점</h2><p>획득한 카드는 즉시 보관함과 덱 편집에 반영됩니다.</p></div>
-        <div className="currency-pill">✦ {hub.wallet.coins.toLocaleString()} COIN</div>
+        <div className="currency-pill"><small>COIN</small>{hub.wallet.coins.toLocaleString()}</div>
       </section>
       {error && <p className="error-banner">{error}</p>}
       <section className="pack-grid">
@@ -1214,6 +1257,7 @@ export default function Page() {
   const [chatOpen, setChatOpen] = useState(false);
   const [roomPayload, setRoomPayload] = useState<RoomPayload | null>(null);
   const [error, setError] = useState('');
+  const [bootstrapVersion, setBootstrapVersion] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -1285,13 +1329,13 @@ export default function Page() {
     setError('');
     api('bootstrap')
       .then((result) => {
-        if (alive && result.hub) setHub(result.hub);
+        if (alive && result.hub) { setHub(result.hub); setError(''); }
       })
       .catch((reason) => {
         if (alive) setError(reason instanceof Error ? reason.message : '계정 정보를 불러오지 못했습니다.');
       });
     return () => { alive = false; };
-  }, [session?.user.id]);
+  }, [session?.user.id, bootstrapVersion]);
 
   useEffect(() => {
     if (!roomPayload?.room.id || !session) return;
@@ -1313,7 +1357,8 @@ export default function Page() {
 
   if (!authReady) return <LoadingScreen />;
   if (!session) return <AuthScreen onSession={setSession} />;
-  if (!hub) return <LoadingScreen text={error || '계정과 카드 보관함을 불러오는 중'} />;
+  if (!hub && error) return <AccountErrorScreen message={error} onRetry={() => { setError(''); setBootstrapVersion((value) => value + 1); }} onSignOut={() => supabase.auth.signOut({ scope: 'local' })} />;
+  if (!hub) return <LoadingScreen text="계정과 카드 보관함을 불러오는 중" />;
 
   const content = (() => {
     switch (view) {
@@ -1340,7 +1385,7 @@ export default function Page() {
       <header className="topbar">
         <div className="mobile-logo"><span>E</span><b>ECLIPSE DUEL</b></div>
         <div className="topbar-title"><small>{NAV_ITEMS.find((item) => item.id === view)?.label}</small><b>{view === 'home' ? `어서 오세요, ${hub.profile.display_name}` : 'ECLIPSE NETWORK'}</b></div>
-        <div className="topbar-actions"><span className="currency-pill">✦ {hub.wallet.coins.toLocaleString()}</span><button className={`chat-toggle ${chatOpen ? 'active' : ''}`} onClick={() => setChatOpen((value) => !value)}>⌁ <span>{roomChat ? '방 채팅' : '전체 채팅'}</span></button><button className="profile-chip" onClick={() => setView('profile')}><Avatar id={hub.profile.avatar} size="small" /><span>{hub.profile.display_name}</span></button></div>
+        <div className="topbar-actions"><span className="currency-pill"><small>COIN</small>{hub.wallet.coins.toLocaleString()}</span><button className={`chat-toggle ${chatOpen ? 'active' : ''}`} onClick={() => setChatOpen((value) => !value)}><i>CH</i><span>{roomChat ? '방 채팅' : '전체 채팅'}</span></button><button className="profile-chip" onClick={() => setView('profile')}><Avatar id={hub.profile.avatar} size="small" /><span>{hub.profile.display_name}</span></button></div>
       </header>
 
       <section className="content-area">{error && <div className="global-error"><span>{error}</span><button onClick={() => setError('')}>×</button></div>}{content}</section>
