@@ -6,12 +6,13 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm run start:render
     autoDeploy: true
+    healthCheckPath: /api/eclipse
     envVars:
       - key: NODE_VERSION
         value: 22.16.0
       - key: NEXT_PUBLIC_SUPABASE_URL
         sync: false
-      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+      - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
         sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
+      - key: SUPABASE_SECRET_KEY
         sync: false

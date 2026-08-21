@@ -1,0 +1,18 @@
+ECLIPSE DUEL v5 · Render 환경변수
+==================================
+
+필수 공개 설정
+NEXT_PUBLIC_SUPABASE_URL=https://현재프로젝트ID.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_전체키
+
+온라인 결투용 서버 비밀 설정
+SUPABASE_SECRET_KEY=sb_secret_전체키
+
+삭제 권장
+SUPABASE_URL=예전 프로젝트 주소인 경우 삭제
+SUPABASE_SERVICE_ROLE_KEY=예전 프로젝트 키인 경우 삭제
+
+주의
+- 위 값을 이 파일에 실제로 적어서 GitHub에 올리지 마세요.
+- 실제 값은 Render Dashboard의 Environment에만 저장하세요.
+- 세 값은 반드시 같은 Supabase 프로젝트에서 복사해야 합니다.
