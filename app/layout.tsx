@@ -6,6 +6,7 @@ import './theme-v6.css';
 import './theme-v7.css';
 import './theme-v9.css';
 import './theme-v10.css';
+import './theme-v11.css';
 
 export const metadata: Metadata = {
   title: 'ECLIPSE DUEL · Deck Studio',

@@ -710,14 +710,6 @@ function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate:
 
   return (
     <div className="view-stack home-view v6-home">
-      {!serverStatus.secureDuelReady && (
-        <section className="server-notice compact-notice" role="status">
-          <span className="server-notice-icon">!</span>
-          <div><small>ONLINE DUEL</small><b>온라인 대전 연결을 확인해 주세요.</b><p>{serverStatus.message}</p></div>
-          <button onClick={() => onNavigate('duel')}>확인</button>
-        </section>
-      )}
-
       <section className="v6-home-hero">
         <div className="v6-hero-copy">
           <span className="eyebrow"><i /> ECLIPSE DUEL · SEASON ASCENSION</span>
@@ -1993,7 +1985,7 @@ export default function Page() {
       <header className="topbar">
         <div className="mobile-logo"><span className="logo-glyph"><i>E</i></span><b>ECLIPSE DUEL</b></div>
         <div className="topbar-title"><small>{NAV_ITEMS.find((item) => item.id === view)?.label ?? (view === 'friends' ? '친구' : '프로필')}</small><b>{view === 'home' ? `${hub.profile.display_name}의 커맨드 룸` : 'ECLIPSE NETWORK'}</b></div>
-        <div className="topbar-actions v9-topbar-actions"><span className="currency-pill"><GameIcon name="coin" /><small>COIN</small><b>{hub.wallet.coins.toLocaleString()}</b></span><button className={`v9-icon-button v10-sound-button ${soundEnabled ? 'active' : ''}`} onClick={toggleSound} title={soundEnabled ? '사운드 끄기' : '사운드 켜기'} aria-label={soundEnabled ? '사운드 끄기' : '사운드 켜기'}><GameIcon name="sound" /><span>{soundEnabled ? 'ON' : 'OFF'}</span></button><button className="v9-icon-button" onClick={() => { playUiSound('click'); setView('friends'); }} title="친구"><GameIcon name="friends" /></button><button className={`chat-toggle ${chatOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setChatOpen((value) => !value); }}><GameIcon name="chat" /><span>{roomChat ? '방 채팅' : '채팅'}</span></button><button className="profile-chip" onClick={() => { playUiSound('click'); setView('profile'); }}><Avatar id={hub.profile.avatar} size="small" /><span>{hub.profile.display_name}</span></button></div>
+        <div className="topbar-actions v9-topbar-actions">{!serverStatus.secureDuelReady && <button className="server-status-mini" onClick={() => setView('duel')} title={serverStatus.message}><span className="status-dot" />대전 설정</button>}<span className="currency-pill"><GameIcon name="coin" /><small>COIN</small><b>{hub.wallet.coins.toLocaleString()}</b></span><button className={`v9-icon-button v10-sound-button ${soundEnabled ? 'active' : ''}`} onClick={toggleSound} title={soundEnabled ? '사운드 끄기' : '사운드 켜기'} aria-label={soundEnabled ? '사운드 끄기' : '사운드 켜기'}><GameIcon name="sound" /><span>{soundEnabled ? 'ON' : 'OFF'}</span></button><button className="v9-icon-button" onClick={() => { playUiSound('click'); setView('friends'); }} title="친구"><GameIcon name="friends" /></button><button className={`chat-toggle ${chatOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setChatOpen((value) => !value); }}><GameIcon name="chat" /><span>{roomChat ? '방 채팅' : '채팅'}</span></button><button className="profile-chip" onClick={() => { playUiSound('click'); setView('profile'); }}><Avatar id={hub.profile.avatar} size="small" /><span>{hub.profile.display_name}</span></button></div>
       </header>
 
       <section className="content-area">{error && <div className="global-error"><span>{error}</span><button onClick={() => setError('')}>×</button></div>}{content}</section>
