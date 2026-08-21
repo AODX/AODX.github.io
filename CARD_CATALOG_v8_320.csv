@@ -1,0 +1,269 @@
+﻿id,name,series,kind,rarity,element,cost,attack,defense,text
+unit_v8_solar_01,새벽의 성검기사,여명 성기사단,unit,common,solar,2,2,4,소환 시 상대 코어에 1 피해. 수호
+unit_v8_solar_02,침묵의 광휘사자,수정 자동기,unit,common,solar,3,3,5,소환 시 카드 1장을 뽑습니다. 속공
+unit_v8_solar_03,망각의 홍염창병,일식 공명단,unit,rare,solar,3,5,4,소환 시 이번 턴 에너지 1 회복. 흡수
+unit_v8_solar_04,서약의 성광사냥꾼,여명 성기사단,unit,common,solar,3,2,4,소환 시 상대 코어에 1 피해. 관통
+unit_v8_solar_05,유리빛 태양매,수정 자동기,unit,rare,solar,3,4,6,소환 시 카드 1장을 뽑습니다.
+unit_v8_solar_06,붉은달의 백금세라프,일식 공명단,unit,epic,solar,6,7,6,균열 소환: 조건을 만족하면 비용 4. 소환 시 이번 턴 에너지 1 회복.
+unit_v8_solar_07,심장부의 화염용,여명 성기사단,unit,common,solar,2,2,4,소환 시 상대 코어에 1 피해. 수호
+unit_v8_solar_08,황혼의 태양골렘,수정 자동기,unit,rare,solar,4,4,6,소환 시 카드 1장을 뽑습니다. 속공
+unit_v8_solar_09,고대의 여명수호자,일식 공명단,unit,legendary,solar,7,9,8,균열 소환: 조건을 만족하면 비용 5. 소환 시 이번 턴 에너지 1 회복. 흡수
+unit_v8_solar_10,불멸의 불꽃무희,여명 성기사단,unit,common,solar,3,2,4,소환 시 상대 코어에 1 피해. 관통
+unit_v8_solar_11,붕괴의 광륜마도사,수정 자동기,unit,rare,solar,3,4,6,소환 시 카드 1장을 뽑습니다.
+unit_v8_solar_12,검은별의 성창대장,일식 공명단,unit,common,solar,3,4,3,소환 시 이번 턴 에너지 1 회복.
+unit_v8_solar_13,백은의 홍련늑대,여명 성기사단,unit,common,solar,2,2,4,균열 소환: 조건을 만족하면 비용 1. 소환 시 상대 코어에 1 피해. 수호
+unit_v8_solar_14,경계의 성화사제,수정 자동기,unit,epic,solar,6,6,8,소환 시 카드 1장을 뽑습니다. 속공
+unit_v8_solar_15,찬란한 태양거인,일식 공명단,unit,common,solar,2,4,3,소환 시 이번 턴 에너지 1 회복. 흡수
+unit_v8_solar_16,유성의 빛의기수,여명 성기사단,unit,rare,solar,4,3,5,소환 시 상대 코어에 2 피해. 관통
+unit_v8_solar_17,심연의 재탄생기사,수정 자동기,unit,epic,solar,5,6,8,소환 시 카드 1장을 뽑습니다.
+unit_v8_solar_18,왕실의 일광포병,일식 공명단,unit,common,solar,3,4,3,소환 시 이번 턴 에너지 1 회복.
+unit_v8_solar_19,푸른별의 화관수호수,여명 성기사단,unit,rare,solar,3,3,5,소환 시 상대 코어에 2 피해. 수호
+unit_v8_solar_20,천공의 성역집행관,수정 자동기,unit,common,solar,3,3,5,균열 소환: 조건을 만족하면 비용 1. 소환 시 카드 1장을 뽑습니다. 속공
+unit_v8_lunar_01,황혼의 은월검사,월영 몽환단,unit,common,lunar,2,2,4,소환 시 코어를 2 회복. 속공
+unit_v8_lunar_02,고대의 몽환사제,세계수 생명군,unit,rare,lunar,4,4,6,소환 시 아군 유닛 하나에게 보호막 2. 흡수
+unit_v8_lunar_03,불멸의 월광여우,월영 몽환단,unit,epic,lunar,5,7,6,관통
+unit_v8_lunar_04,붕괴의 수면마도사,세계수 생명군,unit,common,lunar,3,2,4,소환 시 코어를 2 회복.
+unit_v8_lunar_05,검은별의 초승궁수,월영 몽환단,unit,rare,lunar,3,4,6,소환 시 아군 유닛 하나에게 보호막 2.
+unit_v8_lunar_06,백은의 거울기사,세계수 생명군,unit,legendary,lunar,8,9,8,균열 소환: 조건을 만족하면 비용 6. 수호
+unit_v8_lunar_07,경계의 백야나비,월영 몽환단,unit,common,lunar,2,2,4,소환 시 코어를 2 회복. 속공
+unit_v8_lunar_08,찬란한 월식사냥꾼,세계수 생명군,unit,rare,lunar,4,4,6,소환 시 아군 유닛 하나에게 보호막 2. 흡수
+unit_v8_lunar_09,유성의 별잠수호자,월영 몽환단,unit,common,lunar,2,4,3,관통
+unit_v8_lunar_10,심연의 달빛치유사,세계수 생명군,unit,common,lunar,3,2,4,소환 시 코어를 2 회복.
+unit_v8_lunar_11,왕실의 은하술사,월영 몽환단,unit,epic,lunar,5,6,8,소환 시 아군 유닛 하나에게 보호막 2.
+unit_v8_lunar_12,푸른별의 몽중무희,세계수 생명군,unit,common,lunar,3,4,3,수호
+unit_v8_lunar_13,천공의 서리늑대,월영 몽환단,unit,rare,lunar,3,3,5,균열 소환: 조건을 만족하면 비용 1. 소환 시 코어를 2 회복. 속공
+unit_v8_lunar_14,새벽의 월궁수호자,세계수 생명군,unit,epic,lunar,6,6,8,소환 시 아군 유닛 하나에게 보호막 2. 흡수
+unit_v8_lunar_15,침묵의 야광용,월영 몽환단,unit,common,lunar,2,4,3,관통
+unit_v8_lunar_16,망각의 달의재판관,세계수 생명군,unit,rare,lunar,4,3,5,소환 시 코어를 2 회복.
+unit_v8_lunar_17,서약의 미라지기수,월영 몽환단,unit,common,lunar,2,3,5,소환 시 아군 유닛 하나에게 보호막 1.
+unit_v8_lunar_18,유리빛 월해정령,세계수 생명군,unit,common,lunar,3,4,3,수호
+unit_v8_lunar_19,붉은달의 은월거인,월영 몽환단,unit,epic,lunar,5,5,7,소환 시 코어를 4 회복. 속공
+unit_v8_lunar_20,심장부의 꿈의기록자,세계수 생명군,unit,common,lunar,3,3,5,균열 소환: 조건을 만족하면 비용 1. 소환 시 아군 유닛 하나에게 보호막 1. 흡수
+unit_v8_storm_01,찬란한 뇌광기병,천뢰 기동군,unit,common,storm,2,2,4,소환 시 카드 1장을 뽑습니다. 흡수
+unit_v8_storm_02,유성의 천둥사냥꾼,심연 포식군,unit,rare,storm,4,4,6,소환 시 이번 턴 에너지 1 회복. 관통
+unit_v8_storm_03,심연의 폭풍매,원초의 수호령,unit,legendary,storm,7,9,8,균열 소환: 조건을 만족하면 비용 5. 소환 시 상대 코어에 2 피해. 흡수
+unit_v8_storm_04,왕실의 전격검사,천뢰 기동군,unit,common,storm,3,2,4,소환 시 카드 1장을 뽑습니다.
+unit_v8_storm_05,푸른별의 번개용,심연 포식군,unit,rare,storm,3,4,6,소환 시 이번 턴 에너지 1 회복. 수호
+unit_v8_storm_06,천공의 뇌운술사,원초의 수호령,unit,common,storm,3,4,3,균열 소환: 조건을 만족하면 비용 1. 소환 시 상대 코어에 1 피해. 속공
+unit_v8_storm_07,새벽의 폭풍거인,천뢰 기동군,unit,common,storm,2,2,4,소환 시 카드 1장을 뽑습니다. 흡수
+unit_v8_storm_08,침묵의 청뢰기사,심연 포식군,unit,epic,storm,6,6,8,소환 시 이번 턴 에너지 1 회복. 관통
+unit_v8_storm_09,망각의 전류포병,원초의 수호령,unit,common,storm,2,4,3,소환 시 상대 코어에 1 피해.
+unit_v8_storm_10,서약의 질풍무희,천뢰 기동군,unit,rare,storm,4,3,5,소환 시 카드 1장을 뽑습니다.
+unit_v8_storm_11,유리빛 벼락늑대,심연 포식군,unit,epic,storm,5,6,8,소환 시 이번 턴 에너지 1 회복. 수호
+unit_v8_storm_12,붉은달의 천공집행관,원초의 수호령,unit,common,storm,3,4,3,소환 시 상대 코어에 1 피해. 속공
+unit_v8_storm_13,심장부의 기류정찰병,천뢰 기동군,unit,rare,storm,3,3,5,균열 소환: 조건을 만족하면 비용 1. 소환 시 카드 1장을 뽑습니다. 흡수
+unit_v8_storm_14,황혼의 전하수호자,심연 포식군,unit,common,storm,3,3,5,소환 시 이번 턴 에너지 1 회복. 관통
+unit_v8_storm_15,고대의 폭뢰대장,원초의 수호령,unit,common,storm,2,4,3,소환 시 상대 코어에 1 피해.
+unit_v8_storm_16,불멸의 번개정령,천뢰 기동군,unit,epic,storm,6,5,7,소환 시 카드 1장을 뽑습니다.
+unit_v8_storm_17,붕괴의 질풍궁수,심연 포식군,unit,common,storm,2,3,5,소환 시 이번 턴 에너지 1 회복. 수호
+unit_v8_storm_18,검은별의 낙뢰골렘,원초의 수호령,unit,rare,storm,4,5,4,소환 시 상대 코어에 2 피해. 속공
+unit_v8_storm_19,백은의 전광기수,천뢰 기동군,unit,epic,storm,5,5,7,소환 시 카드 1장을 뽑습니다. 흡수
+unit_v8_storm_20,경계의 천뢰군주,심연 포식군,unit,common,storm,3,3,5,균열 소환: 조건을 만족하면 비용 1. 소환 시 이번 턴 에너지 1 회복. 관통
+unit_v8_verdant_01,침묵의 수림기사,세계수 생명군,unit,common,verdant,2,2,4,소환 시 아군 유닛 하나에게 보호막 1. 관통
+unit_v8_verdant_02,망각의 고목현자,원초의 수호령,unit,rare,verdant,4,4,6,안정적인 전투 능력으로 전선을 유지합니다.
+unit_v8_verdant_03,서약의 꽃잎무희,세계수 생명군,unit,common,verdant,2,4,3,소환 시 코어를 2 회복.
+unit_v8_verdant_04,유리빛 덩굴사냥꾼,원초의 수호령,unit,common,verdant,3,2,4,소환 시 아군 유닛 하나에게 보호막 1. 수호
+unit_v8_verdant_05,붉은달의 세계수사제,세계수 생명군,unit,epic,verdant,5,6,8,속공
+unit_v8_verdant_06,심장부의 이끼골렘,원초의 수호령,unit,common,verdant,3,4,3,균열 소환: 조건을 만족하면 비용 1. 소환 시 코어를 2 회복. 흡수
+unit_v8_verdant_07,황혼의 녹엽궁수,세계수 생명군,unit,rare,verdant,3,3,5,소환 시 아군 유닛 하나에게 보호막 2. 관통
+unit_v8_verdant_08,고대의 수호사슴,원초의 수호령,unit,epic,verdant,6,6,8,안정적인 전투 능력으로 전선을 유지합니다.
+unit_v8_verdant_09,불멸의 꽃가루마도사,세계수 생명군,unit,common,verdant,2,4,3,소환 시 코어를 2 회복.
+unit_v8_verdant_10,붕괴의 뿌리거인,원초의 수호령,unit,rare,verdant,4,3,5,소환 시 아군 유닛 하나에게 보호막 2. 수호
+unit_v8_verdant_11,검은별의 숲의기수,세계수 생명군,unit,common,verdant,2,3,5,속공
+unit_v8_verdant_12,백은의 생명용,원초의 수호령,unit,common,verdant,3,4,3,소환 시 코어를 2 회복. 흡수
+unit_v8_verdant_13,경계의 초록늑대,세계수 생명군,unit,epic,verdant,5,5,7,균열 소환: 조건을 만족하면 비용 3. 소환 시 아군 유닛 하나에게 보호막 2. 관통
+unit_v8_verdant_14,찬란한 고목파수꾼,원초의 수호령,unit,common,verdant,3,3,5,안정적인 전투 능력으로 전선을 유지합니다.
+unit_v8_verdant_15,유성의 숲빛치유사,세계수 생명군,unit,rare,verdant,3,5,4,소환 시 코어를 2 회복.
+unit_v8_verdant_16,심연의 새싹전사,원초의 수호령,unit,epic,verdant,6,5,7,소환 시 아군 유닛 하나에게 보호막 2. 수호
+unit_v8_verdant_17,왕실의 수액정령,세계수 생명군,unit,common,verdant,2,3,5,속공
+unit_v8_verdant_18,푸른별의 산림집행관,원초의 수호령,unit,rare,verdant,4,5,4,소환 시 코어를 2 회복. 흡수
+unit_v8_verdant_19,천공의 비취수호자,세계수 생명군,unit,legendary,verdant,7,7,9,균열 소환: 조건을 만족하면 비용 5. 소환 시 아군 유닛 하나에게 보호막 2. 관통
+unit_v8_verdant_20,새벽의 원시군주,원초의 수호령,unit,common,verdant,3,3,5,균열 소환: 조건을 만족하면 비용 1.
+unit_v8_void_01,고대의 균열사냥꾼,월영 몽환단,unit,common,void,2,2,4,소환 시 이번 턴 에너지 1 회복.
+unit_v8_void_02,불멸의 심연검사,심연 포식군,unit,epic,void,6,6,8,소환 시 상대 코어에 2 피해.
+unit_v8_void_03,붕괴의 공허용,일식 공명단,unit,common,void,2,4,3,소환 시 카드 1장을 뽑습니다. 수호
+unit_v8_void_04,검은별의 그림자사제,월영 몽환단,unit,rare,void,4,3,5,소환 시 이번 턴 에너지 1 회복. 속공
+unit_v8_void_05,백은의 식성포식자,심연 포식군,unit,epic,void,5,6,8,소환 시 상대 코어에 2 피해. 흡수
+unit_v8_void_06,경계의 균열늑대,일식 공명단,unit,common,void,3,4,3,균열 소환: 조건을 만족하면 비용 1. 소환 시 카드 1장을 뽑습니다. 관통
+unit_v8_void_07,찬란한 무명기사,월영 몽환단,unit,rare,void,3,3,5,소환 시 이번 턴 에너지 1 회복.
+unit_v8_void_08,유성의 흑성마도사,심연 포식군,unit,common,void,3,3,5,소환 시 상대 코어에 1 피해.
+unit_v8_void_09,심연의 심연거인,일식 공명단,unit,common,void,2,4,3,소환 시 카드 1장을 뽑습니다. 수호
+unit_v8_void_10,왕실의 그림자궁수,월영 몽환단,unit,epic,void,6,5,7,소환 시 이번 턴 에너지 1 회복. 속공
+unit_v8_void_11,푸른별의 소멸기수,심연 포식군,unit,common,void,2,3,5,소환 시 상대 코어에 1 피해. 흡수
+unit_v8_void_12,천공의 공허수확자,일식 공명단,unit,rare,void,4,5,4,소환 시 카드 1장을 뽑습니다. 관통
+unit_v8_void_13,새벽의 검은세라프,월영 몽환단,unit,epic,void,5,5,7,균열 소환: 조건을 만족하면 비용 3. 소환 시 이번 턴 에너지 1 회복.
+unit_v8_void_14,침묵의 차원포병,심연 포식군,unit,common,void,3,3,5,소환 시 상대 코어에 1 피해.
+unit_v8_void_15,망각의 무저갱수호자,일식 공명단,unit,rare,void,3,5,4,소환 시 카드 1장을 뽑습니다. 수호
+unit_v8_void_16,서약의 밤의집행관,월영 몽환단,unit,legendary,void,8,7,9,소환 시 이번 턴 에너지 1 회복. 속공
+unit_v8_void_17,유리빛 균열정령,심연 포식군,unit,common,void,2,3,5,소환 시 상대 코어에 1 피해. 흡수
+unit_v8_void_18,붉은달의 흑월무희,일식 공명단,unit,rare,void,4,5,4,소환 시 카드 1장을 뽑습니다. 관통
+unit_v8_void_19,심장부의 공허군주,월영 몽환단,unit,common,void,2,2,4,소환 시 이번 턴 에너지 1 회복.
+unit_v8_void_20,황혼의 경계파괴자,심연 포식군,unit,rare,void,4,4,6,균열 소환: 조건을 만족하면 비용 2. 소환 시 상대 코어에 2 피해.
+unit_v8_neutral_01,유성의 성철기사,여명 성기사단,unit,rare,neutral,3,3,5,안정적인 전투 능력으로 전선을 유지합니다.
+unit_v8_neutral_02,심연의 수정파수꾼,천뢰 기동군,unit,epic,neutral,6,6,8,소환 시 코어를 4 회복. 수호
+unit_v8_neutral_03,왕실의 기계궁수,수정 자동기,unit,common,neutral,2,4,3,소환 시 아군 유닛 하나에게 보호막 1. 속공
+unit_v8_neutral_04,푸른별의 합금골렘,여명 성기사단,unit,rare,neutral,4,3,5,흡수
+unit_v8_neutral_05,천공의 프리즘술사,천뢰 기동군,unit,common,neutral,2,3,5,소환 시 코어를 2 회복. 관통
+unit_v8_neutral_06,새벽의 백금수호자,수정 자동기,unit,common,neutral,3,4,3,균열 소환: 조건을 만족하면 비용 1. 소환 시 아군 유닛 하나에게 보호막 1.
+unit_v8_neutral_07,침묵의 기어기병,여명 성기사단,unit,epic,neutral,5,5,7,안정적인 전투 능력으로 전선을 유지합니다.
+unit_v8_neutral_08,망각의 수정용,천뢰 기동군,unit,common,neutral,3,3,5,소환 시 코어를 2 회복. 수호
+unit_v8_neutral_09,서약의 시계장치사제,수정 자동기,unit,rare,neutral,3,5,4,소환 시 아군 유닛 하나에게 보호막 2. 속공
+unit_v8_neutral_10,유리빛 철갑거인,여명 성기사단,unit,epic,neutral,6,5,7,흡수
+unit_v8_neutral_11,붉은달의 기계늑대,천뢰 기동군,unit,common,neutral,2,3,5,소환 시 코어를 2 회복. 관통
+unit_v8_neutral_12,심장부의 프리즘무희,수정 자동기,unit,rare,neutral,4,5,4,소환 시 아군 유닛 하나에게 보호막 2.
+unit_v8_neutral_13,황혼의 합금집행관,여명 성기사단,unit,legendary,neutral,7,7,9,균열 소환: 조건을 만족하면 비용 5. 관통
+unit_v8_neutral_14,고대의 기계포병,천뢰 기동군,unit,common,neutral,3,3,5,소환 시 코어를 2 회복. 수호
+unit_v8_neutral_15,불멸의 수정사냥꾼,수정 자동기,unit,rare,neutral,3,5,4,소환 시 아군 유닛 하나에게 보호막 2. 속공
+unit_v8_neutral_16,붕괴의 성철군주,여명 성기사단,unit,common,neutral,3,2,4,흡수
+unit_v8_neutral_17,검은별의 기어수호병,천뢰 기동군,unit,rare,neutral,3,4,6,소환 시 코어를 2 회복. 관통
+unit_v8_neutral_18,백은의 결정정령,수정 자동기,unit,epic,neutral,6,7,6,소환 시 아군 유닛 하나에게 보호막 2.
+unit_v8_neutral_19,경계의 백은검사,여명 성기사단,unit,common,neutral,2,2,4,안정적인 전투 능력으로 전선을 유지합니다.
+unit_v8_neutral_20,찬란한 자동기대장,천뢰 기동군,unit,rare,neutral,4,4,6,균열 소환: 조건을 만족하면 비용 2. 소환 시 코어를 2 회복. 수호
+spell_v8_solar_01,새벽의 태양섬광,여명 성기사단,spell,epic,solar,4,,,적 유닛 하나에 4 피해.
+spell_v8_solar_02,황혼의 홍련폭발,수정 자동기,spell,common,solar,2,,,상대 코어에 2 피해.
+spell_v8_solar_03,찬란한 성광축복,일식 공명단,spell,rare,solar,2,,,내 코어를 3 회복.
+spell_v8_solar_04,침묵의 여명검무,여명 성기사단,spell,legendary,solar,7,,,카드 2장을 뽑습니다.
+spell_v8_solar_05,고대의 백열충격,수정 자동기,spell,common,solar,1,,,"아군 유닛 하나에게 공격력 +2, 체력 +1."
+spell_v8_solar_06,유성의 성화의맹세,일식 공명단,spell,rare,solar,3,,,모든 적 유닛에 1 피해.
+spell_v8_solar_07,망각의 태양창,여명 성기사단,spell,common,solar,1,,,이번 턴 에너지 1 회복.
+spell_v8_solar_08,불멸의 광휘폭풍,수정 자동기,spell,rare,solar,3,,,아군 유닛 하나에게 보호막 2.
+spell_v8_solar_09,심연의 불꽃재생,일식 공명단,spell,epic,solar,4,,,현재 체력이 4 이하인 적 유닛 하나를 파괴.
+spell_v8_solar_10,서약의 성역선고,여명 성기사단,spell,common,solar,2,,,빈 칸에 2/2 태양의 잔영을 소환.
+spell_v8_lunar_01,찬란한 월광치유,세계수 생명군,spell,legendary,lunar,6,,,상대 코어에 4 피해.
+spell_v8_lunar_02,침묵의 초승절단,월영 몽환단,spell,common,lunar,2,,,내 코어를 3 회복.
+spell_v8_lunar_03,고대의 몽환장막,세계수 생명군,spell,rare,lunar,2,,,카드 2장을 뽑습니다.
+spell_v8_lunar_04,유성의 은월파동,월영 몽환단,spell,common,lunar,2,,,"아군 유닛 하나에게 공격력 +2, 체력 +1."
+spell_v8_lunar_05,망각의 거울반사,세계수 생명군,spell,rare,lunar,2,,,모든 적 유닛에 1 피해.
+spell_v8_lunar_06,불멸의 별잠의계시,월영 몽환단,spell,epic,lunar,5,,,이번 턴 에너지 1 회복.
+spell_v8_lunar_07,심연의 월식정화,세계수 생명군,spell,common,lunar,1,,,아군 유닛 하나에게 보호막 2.
+spell_v8_lunar_08,서약의 서리달빛,월영 몽환단,spell,rare,lunar,3,,,현재 체력이 4 이하인 적 유닛 하나를 파괴.
+spell_v8_lunar_09,붕괴의 꿈결도약,세계수 생명군,spell,legendary,lunar,6,,,빈 칸에 3/3 월영의 잔영을 소환.
+spell_v8_lunar_10,왕실의 백야회복,월영 몽환단,spell,common,lunar,2,,,적 유닛 하나에 2 피해.
+spell_v8_storm_01,고대의 연쇄낙뢰,천뢰 기동군,spell,common,storm,1,,,내 코어를 3 회복.
+spell_v8_storm_02,유성의 천둥창,심연 포식군,spell,rare,storm,3,,,카드 2장을 뽑습니다.
+spell_v8_storm_03,망각의 전류폭주,원초의 수호령,spell,epic,storm,4,,,"아군 유닛 하나에게 공격력 +2, 체력 +3."
+spell_v8_storm_04,불멸의 폭풍도약,천뢰 기동군,spell,common,storm,2,,,모든 적 유닛에 1 피해.
+spell_v8_storm_05,심연의 뇌운폭발,심연 포식군,spell,rare,storm,2,,,이번 턴 에너지 1 회복.
+spell_v8_storm_06,서약의 자기장붕괴,원초의 수호령,spell,legendary,storm,7,,,아군 유닛 하나에게 보호막 4.
+spell_v8_storm_07,붕괴의 질풍가속,천뢰 기동군,spell,common,storm,1,,,현재 체력이 2 이하인 적 유닛 하나를 파괴.
+spell_v8_storm_08,왕실의 전격충전,심연 포식군,spell,rare,storm,3,,,빈 칸에 2/3 폭풍의 잔영을 소환.
+spell_v8_storm_09,유리빛 낙뢰심판,원초의 수호령,spell,common,storm,1,,,적 유닛 하나에 2 피해.
+spell_v8_storm_10,검은별의 천뢰공명,천뢰 기동군,spell,common,storm,2,,,상대 코어에 2 피해.
+spell_v8_verdant_01,망각의 급속성장,원초의 수호령,spell,common,verdant,1,,,카드 1장을 뽑습니다.
+spell_v8_verdant_02,불멸의 세계수축복,세계수 생명군,spell,rare,verdant,3,,,"아군 유닛 하나에게 공격력 +2, 체력 +3."
+spell_v8_verdant_03,심연의 덩굴폭발,원초의 수호령,spell,legendary,verdant,6,,,모든 적 유닛에 3 피해.
+spell_v8_verdant_04,서약의 생명순환,세계수 생명군,spell,common,verdant,2,,,이번 턴 에너지 1 회복.
+spell_v8_verdant_05,붕괴의 꽃잎폭풍,원초의 수호령,spell,rare,verdant,2,,,아군 유닛 하나에게 보호막 2.
+spell_v8_verdant_06,왕실의 뿌리봉쇄,세계수 생명군,spell,common,verdant,2,,,현재 체력이 2 이하인 적 유닛 하나를 파괴.
+spell_v8_verdant_07,유리빛 숲의회복,원초의 수호령,spell,common,verdant,1,,,빈 칸에 2/2 세계수의 잔영을 소환.
+spell_v8_verdant_08,검은별의 비취성장,세계수 생명군,spell,epic,verdant,5,,,적 유닛 하나에 4 피해.
+spell_v8_verdant_09,푸른별의 수액재생,원초의 수호령,spell,common,verdant,1,,,상대 코어에 2 피해.
+spell_v8_verdant_10,붉은달의 원시각성,세계수 생명군,spell,rare,verdant,3,,,내 코어를 3 회복.
+spell_v8_void_01,심연의 공허창,월영 몽환단,spell,common,void,1,,,"아군 유닛 하나에게 공격력 +2, 체력 +1."
+spell_v8_void_02,서약의 균열붕괴,심연 포식군,spell,rare,void,3,,,모든 적 유닛에 1 피해.
+spell_v8_void_03,붕괴의 심연흡수,일식 공명단,spell,common,void,1,,,이번 턴 에너지 1 회복.
+spell_v8_void_04,왕실의 그림자폭발,월영 몽환단,spell,common,void,2,,,아군 유닛 하나에게 보호막 2.
+spell_v8_void_05,유리빛 차원절단,심연 포식군,spell,epic,void,4,,,현재 체력이 4 이하인 적 유닛 하나를 파괴.
+spell_v8_void_06,검은별의 소멸파동,일식 공명단,spell,common,void,2,,,빈 칸에 2/2 공허의 잔영을 소환.
+spell_v8_void_07,푸른별의 무의선고,월영 몽환단,spell,rare,void,2,,,적 유닛 하나에 2 피해.
+spell_v8_void_08,붉은달의 흑성침식,심연 포식군,spell,epic,void,5,,,상대 코어에 2 피해.
+spell_v8_void_09,백은의 경계파열,일식 공명단,spell,common,void,1,,,내 코어를 3 회복.
+spell_v8_void_10,천공의 심연귀환,월영 몽환단,spell,rare,void,3,,,카드 2장을 뽑습니다.
+spell_v8_neutral_01,붕괴의 수정증폭,여명 성기사단,spell,common,neutral,1,,,모든 적 유닛에 1 피해.
+spell_v8_neutral_02,왕실의 기계가속,천뢰 기동군,spell,epic,neutral,5,,,이번 턴 에너지 1 회복.
+spell_v8_neutral_03,유리빛 프리즘장막,수정 자동기,spell,common,neutral,1,,,아군 유닛 하나에게 보호막 2.
+spell_v8_neutral_04,검은별의 철갑강화,여명 성기사단,spell,rare,neutral,3,,,현재 체력이 4 이하인 적 유닛 하나를 파괴.
+spell_v8_neutral_05,푸른별의 성철충격,천뢰 기동군,spell,epic,neutral,4,,,빈 칸에 3/3 성철의 잔영을 소환.
+spell_v8_neutral_06,붉은달의 시계역행,수정 자동기,spell,common,neutral,2,,,적 유닛 하나에 2 피해.
+spell_v8_neutral_07,백은의 기어재구성,여명 성기사단,spell,rare,neutral,2,,,상대 코어에 2 피해.
+spell_v8_neutral_08,천공의 결정폭발,천뢰 기동군,spell,common,neutral,2,,,내 코어를 3 회복.
+spell_v8_neutral_09,심장부의 합금보강,수정 자동기,spell,common,neutral,1,,,카드 1장을 뽑습니다.
+spell_v8_neutral_10,경계의 프리즘통찰,여명 성기사단,spell,rare,neutral,3,,,"아군 유닛 하나에게 공격력 +2, 체력 +3."
+trap_v8_solar_01,새벽의 성화반격,일식 공명단,trap,rare,solar,2,,,"상대가 주문을 사용할 때, 그 행동을 무효화합니다."
+trap_v8_solar_02,찬란한 광휘방벽,여명 성기사단,trap,common,solar,2,,,"상대가 유닛을 소환할 때, 적 유닛 하나에 2 피해."
+trap_v8_solar_03,고대의 홍련역습,수정 자동기,trap,common,solar,2,,,"상대가 코어를 직접 공격할 때, 그 행동을 무효화하고 공격 유닛/상대 코어에 2 피해."
+trap_v8_solar_04,망각의 태양심판,일식 공명단,trap,rare,solar,2,,,"내 유닛이 공격받을 때, 아군 유닛 하나에게 공격력 +2, 체력 +2."
+trap_v8_solar_05,심연의 여명매복,여명 성기사단,trap,common,solar,2,,,"내 유닛이 파괴될 때, 빈 칸에 2/3 태양 수호령을 소환."
+trap_v8_solar_06,붕괴의 성검봉인,수정 자동기,trap,rare,solar,2,,,"특수 소환이 발생할 때, 적 유닛 하나에 2 피해."
+trap_v8_solar_07,유리빛 불꽃보복,일식 공명단,trap,epic,solar,3,,,"공명 융합이 발생할 때, 적 유닛 하나에 4 피해."
+trap_v8_solar_08,푸른별의 성역결계,여명 성기사단,trap,common,solar,2,,,"계승 진화가 발생할 때, 적 유닛 하나에 2 피해."
+trap_v8_lunar_01,황혼의 거울장막,세계수 생명군,trap,rare,lunar,2,,,"상대가 유닛을 소환할 때, 적 유닛 하나에 2 피해."
+trap_v8_lunar_02,침묵의 월영봉인,월영 몽환단,trap,common,lunar,2,,,"상대가 코어를 직접 공격할 때, 그 행동을 무효화하고 공격 유닛/상대 코어에 2 피해."
+trap_v8_lunar_03,유성의 몽환덫,세계수 생명군,trap,rare,lunar,2,,,"내 유닛이 공격받을 때, 아군 유닛 하나에게 공격력 +2, 체력 +2."
+trap_v8_lunar_04,불멸의 초승반격,월영 몽환단,trap,epic,lunar,3,,,"내 유닛이 파괴될 때, 빈 칸에 3/3 월영 수호령을 소환."
+trap_v8_lunar_05,서약의 은월미궁,세계수 생명군,trap,common,lunar,2,,,"특수 소환이 발생할 때, 적 유닛 하나에 2 피해."
+trap_v8_lunar_06,왕실의 꿈결방벽,월영 몽환단,trap,rare,lunar,2,,,"공명 융합이 발생할 때, 적 유닛 하나에 2 피해."
+trap_v8_lunar_07,검은별의 달빛역전,세계수 생명군,trap,legendary,lunar,4,,,"계승 진화가 발생할 때, 적 유닛 하나에 4 피해."
+trap_v8_lunar_08,붉은달의 백야봉인,월영 몽환단,trap,common,lunar,2,,,"상대가 주문을 사용할 때, 그 행동을 무효화합니다."
+trap_v8_storm_01,찬란한 폭풍감옥,원초의 수호령,trap,epic,storm,3,,,"상대가 코어를 직접 공격할 때, 그 행동을 무효화하고 공격 유닛/상대 코어에 2 피해."
+trap_v8_storm_02,고대의 낙뢰덫,천뢰 기동군,trap,common,storm,2,,,"내 유닛이 공격받을 때, 아군 유닛 하나에게 공격력 +2, 체력 +2."
+trap_v8_storm_03,망각의 전류반격,심연 포식군,trap,rare,storm,2,,,"내 유닛이 파괴될 때, 빈 칸에 2/3 폭풍 수호령을 소환."
+trap_v8_storm_04,심연의 천둥봉쇄,원초의 수호령,trap,legendary,storm,4,,,"특수 소환이 발생할 때, 적 유닛 하나에 4 피해."
+trap_v8_storm_05,붕괴의 질풍역전,천뢰 기동군,trap,common,storm,2,,,"공명 융합이 발생할 때, 적 유닛 하나에 2 피해."
+trap_v8_storm_06,유리빛 전격매복,심연 포식군,trap,rare,storm,2,,,"계승 진화가 발생할 때, 적 유닛 하나에 2 피해."
+trap_v8_storm_07,푸른별의 뇌광장벽,원초의 수호령,trap,common,storm,2,,,"상대가 주문을 사용할 때, 그 행동을 무효화합니다."
+trap_v8_storm_08,백은의 자기장함정,천뢰 기동군,trap,rare,storm,2,,,"상대가 유닛을 소환할 때, 적 유닛 하나에 2 피해."
+trap_v8_verdant_01,침묵의 가시덫,원초의 수호령,trap,legendary,verdant,4,,,"내 유닛이 공격받을 때, 아군 유닛 하나에게 공격력 +2, 체력 +4."
+trap_v8_verdant_02,유성의 뿌리속박,세계수 생명군,trap,common,verdant,2,,,"내 유닛이 파괴될 때, 빈 칸에 2/3 세계수 수호령을 소환."
+trap_v8_verdant_03,불멸의 꽃잎반격,원초의 수호령,trap,rare,verdant,2,,,"특수 소환이 발생할 때, 적 유닛 하나에 2 피해."
+trap_v8_verdant_04,서약의 숲의매복,세계수 생명군,trap,common,verdant,2,,,"공명 융합이 발생할 때, 적 유닛 하나에 2 피해."
+trap_v8_verdant_05,왕실의 세계수방벽,원초의 수호령,trap,rare,verdant,2,,,"계승 진화가 발생할 때, 적 유닛 하나에 2 피해."
+trap_v8_verdant_06,검은별의 이끼봉인,세계수 생명군,trap,epic,verdant,3,,,"상대가 주문을 사용할 때, 그 행동을 무효화합니다."
+trap_v8_verdant_07,붉은달의 생명역전,원초의 수호령,trap,common,verdant,2,,,"상대가 유닛을 소환할 때, 적 유닛 하나에 2 피해."
+trap_v8_verdant_08,천공의 덩굴감옥,세계수 생명군,trap,rare,verdant,2,,,"상대가 코어를 직접 공격할 때, 그 행동을 무효화하고 공격 유닛/상대 코어에 2 피해."
+trap_v8_void_01,고대의 무의지평선,일식 공명단,trap,common,void,2,,,"내 유닛이 파괴될 때, 빈 칸에 2/3 공허 수호령을 소환."
+trap_v8_void_02,망각의 균열매복,월영 몽환단,trap,rare,void,2,,,"특수 소환이 발생할 때, 적 유닛 하나에 2 피해."
+trap_v8_void_03,심연의 심연봉인,심연 포식군,trap,epic,void,3,,,"공명 융합이 발생할 때, 적 유닛 하나에 4 피해."
+trap_v8_void_04,붕괴의 그림자역습,일식 공명단,trap,common,void,2,,,"계승 진화가 발생할 때, 적 유닛 하나에 2 피해."
+trap_v8_void_05,유리빛 공허장벽,월영 몽환단,trap,rare,void,2,,,"상대가 주문을 사용할 때, 그 행동을 무효화합니다."
+trap_v8_void_06,푸른별의 차원덫,심연 포식군,trap,epic,void,3,,,"상대가 유닛을 소환할 때, 적 유닛 하나에 4 피해."
+trap_v8_void_07,백은의 소멸반격,일식 공명단,trap,common,void,2,,,"상대가 코어를 직접 공격할 때, 그 행동을 무효화하고 공격 유닛/상대 코어에 2 피해."
+trap_v8_void_08,심장부의 흑성결계,월영 몽환단,trap,rare,void,2,,,"내 유닛이 공격받을 때, 아군 유닛 하나에게 공격력 +2, 체력 +2."
+trap_v8_neutral_01,유성의 수정반전,수정 자동기,trap,common,neutral,2,,,"특수 소환이 발생할 때, 적 유닛 하나에 2 피해."
+trap_v8_neutral_02,불멸의 프리즘봉인,여명 성기사단,trap,rare,neutral,2,,,"공명 융합이 발생할 때, 적 유닛 하나에 2 피해."
+trap_v8_neutral_03,서약의 성철방벽,천뢰 기동군,trap,epic,neutral,3,,,"계승 진화가 발생할 때, 적 유닛 하나에 4 피해."
+trap_v8_neutral_04,왕실의 기계매복,수정 자동기,trap,common,neutral,2,,,"상대가 주문을 사용할 때, 그 행동을 무효화합니다."
+trap_v8_neutral_05,검은별의 합금역전,여명 성기사단,trap,rare,neutral,2,,,"상대가 유닛을 소환할 때, 적 유닛 하나에 2 피해."
+trap_v8_neutral_06,붉은달의 기어함정,천뢰 기동군,trap,common,neutral,2,,,"상대가 코어를 직접 공격할 때, 그 행동을 무효화하고 공격 유닛/상대 코어에 2 피해."
+trap_v8_neutral_07,천공의 결정결계,수정 자동기,trap,common,neutral,2,,,"내 유닛이 공격받을 때, 아군 유닛 하나에게 공격력 +2, 체력 +2."
+trap_v8_neutral_08,경계의 자동기반격,여명 성기사단,trap,epic,neutral,3,,,"내 유닛이 파괴될 때, 빈 칸에 3/3 성철 수호령을 소환."
+fusion_v8_01,천식 공명룡,일식 공명단,fusion,legendary,solar,7,8,9,공명 융합. 소환 시 모든 적 유닛에 2 피해.
+fusion_v8_02,성뢰 합금거신,일식 공명단,fusion,epic,storm,6,7,8,공명 융합. 소환 시 카드 2장을 뽑습니다.
+fusion_v8_03,세계근원 환수,일식 공명단,fusion,epic,verdant,6,8,6,공명 융합. 소환 시 내 코어를 5 회복.
+fusion_v8_04,홍뢰 성창황,일식 공명단,fusion,epic,solar,6,6,7,공명 융합. 소환 시 이번 턴 에너지 2 회복.
+fusion_v8_05,월식 심연마녀,일식 공명단,fusion,legendary,void,7,9,10,공명 융합. 소환 시 모든 적 유닛에 2 피해.
+fusion_v8_06,비취 프리즘수,일식 공명단,fusion,epic,verdant,6,8,6,공명 융합. 소환 시 카드 2장을 뽑습니다.
+fusion_v8_07,쌍월 태양기사,일식 공명단,fusion,epic,solar,6,6,7,공명 융합. 소환 시 내 코어를 5 회복.
+fusion_v8_08,풍림 천공룡,일식 공명단,fusion,epic,storm,6,7,8,공명 융합. 소환 시 이번 턴 에너지 2 회복.
+fusion_v8_09,무광 수정군주,일식 공명단,fusion,legendary,void,7,10,8,공명 융합. 소환 시 모든 적 유닛에 2 피해.
+fusion_v8_10,성림 불멸수,일식 공명단,fusion,epic,solar,6,6,7,공명 융합. 소환 시 카드 2장을 뽑습니다.
+fusion_v8_11,월뢰 환상기사,일식 공명단,fusion,epic,lunar,6,7,8,공명 융합. 소환 시 내 코어를 5 회복.
+fusion_v8_12,심록 포식화,일식 공명단,fusion,epic,verdant,6,8,6,공명 융합. 소환 시 이번 턴 에너지 2 회복.
+fusion_v8_13,은정 기계성녀,일식 공명단,fusion,legendary,neutral,7,8,9,공명 융합. 소환 시 모든 적 유닛에 2 피해.
+fusion_v8_14,태양성철 황제,일식 공명단,fusion,epic,solar,6,7,8,공명 융합. 소환 시 카드 2장을 뽑습니다.
+fusion_v8_15,폭허 차원수,일식 공명단,fusion,epic,storm,6,8,6,공명 융합. 소환 시 내 코어를 5 회복.
+fusion_v8_16,월림 꿈결현자,일식 공명단,fusion,epic,lunar,6,6,7,공명 융합. 소환 시 이번 턴 에너지 2 회복.
+fusion_v8_17,결정심연 집행자,일식 공명단,fusion,legendary,neutral,7,9,10,공명 융합. 소환 시 모든 적 유닛에 2 피해.
+fusion_v8_18,일식 공명황,일식 공명단,fusion,epic,solar,6,8,6,공명 융합. 소환 시 카드 2장을 뽑습니다.
+fusion_v8_19,뇌월 천공세라프,일식 공명단,fusion,epic,storm,6,6,7,공명 융합. 소환 시 내 코어를 5 회복.
+fusion_v8_20,녹광 태양신수,일식 공명단,fusion,legendary,verdant,7,9,10,공명 융합. 소환 시 이번 턴 에너지 2 회복.
+evolution_v8_01,태양계승 성검기사 황,계승자 연대기,evolution,epic,solar,5,7,8,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 모든 적 유닛에 1 피해.
+evolution_v8_02,월영계승 몽환사제 오버로드,계승자 연대기,evolution,epic,lunar,5,8,7,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 아군 유닛 하나에게 보호막 3.
+evolution_v8_03,폭풍계승 폭풍매 아크,계승자 연대기,evolution,epic,storm,5,7,8,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 상대 코어에 2 피해.
+evolution_v8_04,세계수계승 덩굴사냥꾼 프라임,계승자 연대기,evolution,epic,verdant,5,8,7,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 내 코어를 4 회복.
+evolution_v8_05,공허계승 식성포식자 레퀴엠,계승자 연대기,evolution,epic,void,5,7,8,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 모든 적 유닛에 1 피해.
+evolution_v8_06,성철계승 백금수호자 이터널,계승자 연대기,evolution,legendary,neutral,7,10,9,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 아군 유닛 하나에게 보호막 3.
+evolution_v8_07,태양계승 화염용 노바,계승자 연대기,evolution,epic,solar,5,7,8,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 상대 코어에 2 피해.
+evolution_v8_08,월영계승 월식사냥꾼 제로,계승자 연대기,evolution,epic,lunar,5,8,7,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 내 코어를 4 회복.
+evolution_v8_09,폭풍계승 전류포병 황,계승자 연대기,evolution,epic,storm,5,7,8,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 모든 적 유닛에 1 피해.
+evolution_v8_10,세계수계승 뿌리거인 오버로드,계승자 연대기,evolution,epic,verdant,5,8,7,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 아군 유닛 하나에게 보호막 3.
+evolution_v8_11,공허계승 소멸기수 아크,계승자 연대기,evolution,epic,void,5,7,8,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 상대 코어에 2 피해.
+evolution_v8_12,성철계승 프리즘무희 프라임,계승자 연대기,evolution,legendary,neutral,7,10,9,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 내 코어를 4 회복.
+evolution_v8_13,태양계승 홍련늑대 레퀴엠,계승자 연대기,evolution,epic,solar,5,7,8,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 모든 적 유닛에 1 피해.
+evolution_v8_14,월영계승 월궁수호자 이터널,계승자 연대기,evolution,epic,lunar,5,8,7,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 아군 유닛 하나에게 보호막 3.
+evolution_v8_15,폭풍계승 폭뢰대장 노바,계승자 연대기,evolution,epic,storm,5,7,8,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 상대 코어에 2 피해.
+evolution_v8_16,세계수계승 새싹전사 제로,계승자 연대기,evolution,epic,verdant,5,8,7,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 내 코어를 4 회복.
+evolution_v8_17,공허계승 균열정령 황,계승자 연대기,evolution,epic,void,5,7,8,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 모든 적 유닛에 1 피해.
+evolution_v8_18,성철계승 결정정령 오버로드,계승자 연대기,evolution,legendary,neutral,7,10,9,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 아군 유닛 하나에게 보호막 3.
+evolution_v8_19,태양계승 화관수호수 아크,계승자 연대기,evolution,epic,solar,5,7,8,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 상대 코어에 2 피해.
+evolution_v8_20,월영계승 꿈의기록자 프라임,계승자 연대기,evolution,legendary,lunar,7,10,9,계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 내 코어를 4 회복.
