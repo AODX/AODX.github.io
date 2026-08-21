@@ -9,9 +9,11 @@ import {
   MatchState,
   attack,
   beginBattlePhase,
+  drawAndEndTurn,
   endTurn,
   initializeMatch,
   playCard,
+  resolveTurnTimeout,
   summonExtra,
   surrender,
 } from '../../game-engine';
@@ -428,6 +430,31 @@ async function rewardFinishedMatch(admin: AdminDbClient, roomId: string, state: 
   }
 }
 
+
+function timeoutStateChanged(before: GameSnapshot, after: GameSnapshot): boolean {
+  return before.state.turnNumber !== after.state.turnNumber
+    || before.state.currentPlayerId !== after.state.currentPlayerId
+    || before.state.turnEndsAt !== after.state.turnEndsAt
+    || before.state.status !== after.state.status;
+}
+
+async function normalizeTurnTimeout(admin: AdminDbClient, room: RoomRow): Promise<{ room: RoomRow; snapshot: GameSnapshot | null; advanced: boolean }> {
+  if (room.status !== 'active' || !room.state) return { room, snapshot: null, advanced: false };
+  const snapshot = await loadSnapshot(admin, room);
+  const normalized = resolveTurnTimeout(snapshot);
+  if (!timeoutStateChanged(snapshot, normalized)) return { room, snapshot, advanced: false };
+  const advanced = normalized.state.turnNumber !== snapshot.state.turnNumber || normalized.state.status !== snapshot.state.status;
+  try {
+    await commitSnapshot(admin, room, normalized);
+  } catch (error) {
+    if (!(error instanceof Error) || !/상대 행동과 겹쳤습니다/.test(error.message)) throw error;
+  }
+  await rewardFinishedMatch(admin, room.id, normalized.state);
+  const freshRoom = await fetchRoom(admin, room.id);
+  const freshSnapshot = freshRoom.status === 'active' && freshRoom.state ? await loadSnapshot(admin, freshRoom) : null;
+  return { room: freshRoom, snapshot: freshSnapshot, advanced };
+}
+
 async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: string) {
   assertParticipant(room, userId);
   const profileIds = [room.host_id, room.guest_id].filter(Boolean) as string[];
@@ -644,7 +671,10 @@ async function handleAction(request: Request, body: RequestBody) {
   if (action === 'get_room') {
     const admin = await requireAdmin();
     const roomId = cleanText(body.roomId, 64);
-    const room = await fetchRoom(admin, roomId);
+    let room = await fetchRoom(admin, roomId);
+    assertParticipant(room, user.id);
+    const normalized = await normalizeTurnTimeout(admin, room);
+    room = normalized.room;
     return await getRoomPayload(admin, room, user.id);
   }
 
@@ -680,10 +710,16 @@ async function handleAction(request: Request, body: RequestBody) {
     const admin = await requireAdmin();
     const roomId = cleanText(body.roomId, 64);
     const gameAction = cleanText(body.gameAction, 40);
-    const room = await fetchRoom(admin, roomId);
+    let room = await fetchRoom(admin, roomId);
     assertParticipant(room, user.id);
     if (room.status !== 'active') throw new Error('진행 중인 결투가 아닙니다.');
-    const snapshot = await loadSnapshot(admin, room);
+
+    const normalized = await normalizeTurnTimeout(admin, room);
+    room = normalized.room;
+    if (normalized.advanced || room.status !== 'active') {
+      return await getRoomPayload(admin, room, user.id);
+    }
+    const snapshot = normalized.snapshot ?? await loadSnapshot(admin, room);
     let next: GameSnapshot;
 
     if (gameAction === 'play_card') {
@@ -710,6 +746,8 @@ async function handleAction(request: Request, body: RequestBody) {
         ? ({ kind: 'core' } as const)
         : ({ kind: 'unit', unitIndex: Number(rawTarget.unitIndex) } as const);
       next = attack(snapshot, user.id, attackerIndex, target);
+    } else if (gameAction === 'draw_turn') {
+      next = drawAndEndTurn(snapshot, user.id);
     } else if (gameAction === 'end_turn') {
       next = endTurn(snapshot, user.id);
     } else if (gameAction === 'surrender') {
