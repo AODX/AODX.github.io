@@ -1,10 +1,13 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import './theme-v3.css';
+import './theme-v4.css';
+import './theme-v5.css';
 
 export const metadata: Metadata = {
-  title: 'ECLIPSE DUEL · Ascension',
-  description: '수집하고, 덱을 구성하고, 실시간으로 겨루는 오리지널 온라인 카드 배틀',
+  title: 'ECLIPSE DUEL · Stable Client',
+  description: '균열 소환, 공명 융합, 계승 진화로 완성하는 오리지널 온라인 전략 카드게임',
+  applicationName: 'ECLIPSE DUEL',
+  icons: { icon: '/favicon.svg' },
 };
 
 export const viewport: Viewport = {
@@ -12,7 +15,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
-  themeColor: '#07090e',
+  themeColor: '#05070d',
+  colorScheme: 'dark',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

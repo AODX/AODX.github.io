@@ -1,0 +1,344 @@
+/* ========================================================================== */
+/* ECLIPSE DUEL · v5 STABLE CLIENT                                            */
+/* Non-blocking server status, calmer hierarchy, and production-like spacing. */
+/* ========================================================================== */
+
+:root {
+  --v5-bg: #06080d;
+  --v5-panel: rgba(13, 18, 28, 0.94);
+  --v5-panel-strong: #101723;
+  --v5-line: rgba(160, 184, 224, 0.14);
+  --v5-line-strong: rgba(151, 191, 255, 0.26);
+  --v5-text: #f5f8ff;
+  --v5-muted: #98a5b9;
+  --v5-blue: #79a7ff;
+  --v5-cyan: #62d8ff;
+  --v5-green: #55d59c;
+  --v5-amber: #e4b966;
+  --v5-red: #ff7184;
+}
+
+body {
+  background:
+    radial-gradient(1200px 720px at 72% -22%, rgba(74, 112, 202, 0.12), transparent 64%),
+    linear-gradient(180deg, #080b12 0%, var(--v5-bg) 100%);
+}
+
+.game-app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,.014) 1px, transparent 1px);
+  background-size: 88px 88px;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.55), transparent 75%);
+}
+
+.content-area {
+  padding-top: clamp(22px, 2.4vw, 34px);
+}
+
+.view-stack {
+  gap: 22px;
+}
+
+.panel,
+.command-card,
+.mode-card {
+  border-color: var(--v5-line);
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.22);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Secure-server status                                                       */
+/* -------------------------------------------------------------------------- */
+
+.server-notice {
+  min-height: 84px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid rgba(228, 185, 102, 0.28);
+  border-radius: 14px;
+  background:
+    linear-gradient(100deg, rgba(228, 185, 102, 0.08), transparent 44%),
+    rgba(13, 18, 28, 0.94);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.18);
+}
+
+.server-notice-icon,
+.duel-server-emblem {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  color: #251a07;
+  background: linear-gradient(145deg, #f2cf82, #dba754);
+  font-weight: 900;
+  box-shadow: 0 8px 24px rgba(228, 185, 102, 0.2);
+}
+
+.server-notice div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.server-notice small,
+.duel-server-panel > div:nth-child(2) > span {
+  color: var(--v5-amber);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .18em;
+}
+
+.server-notice b {
+  color: var(--v5-text);
+  font-size: 14px;
+}
+
+.server-notice p {
+  margin: 0;
+  color: var(--v5-muted);
+  font-size: 12px;
+  line-height: 1.55;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.server-notice button {
+  min-height: 38px;
+  padding: 0 15px;
+  color: #f6d998;
+  border: 1px solid rgba(228, 185, 102, 0.3);
+  border-radius: 9px;
+  background: rgba(228, 185, 102, 0.06);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.server-notice button:hover {
+  background: rgba(228, 185, 102, 0.12);
+}
+
+.server-status-pill {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--v5-line);
+  border-radius: 10px;
+  background: rgba(255,255,255,.024);
+  color: #cbd4e2;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.server-status-pill i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--v5-red);
+  box-shadow: 0 0 12px rgba(255, 113, 132, 0.55);
+}
+
+.server-status-pill.ready i {
+  background: var(--v5-green);
+  box-shadow: 0 0 12px rgba(85, 213, 156, 0.55);
+}
+
+.server-status-pill:hover {
+  border-color: var(--v5-line-strong);
+  background: rgba(255,255,255,.045);
+}
+
+.command-card.server-paused {
+  border-color: rgba(228, 185, 102, 0.22);
+  background:
+    linear-gradient(145deg, rgba(43, 35, 21, 0.72), rgba(12, 16, 24, 0.96));
+}
+
+.command-card.server-paused .command-index,
+.command-card.server-paused small,
+.command-card.server-paused em {
+  color: var(--v5-amber);
+}
+
+.duel-server-panel {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) minmax(270px, .8fr);
+  align-items: center;
+  gap: 20px;
+  padding: 22px;
+  border-color: rgba(228, 185, 102, 0.26);
+  background:
+    radial-gradient(500px 240px at 12% 50%, rgba(228, 185, 102, 0.08), transparent 72%),
+    var(--v5-panel);
+}
+
+.duel-server-emblem {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  font-size: 20px;
+}
+
+.duel-server-panel h2 {
+  margin: 5px 0 6px;
+  color: var(--v5-text);
+  font-size: clamp(18px, 2vw, 24px);
+}
+
+.duel-server-panel p,
+.duel-server-panel small {
+  margin: 0;
+  color: var(--v5-muted);
+  line-height: 1.65;
+}
+
+.duel-server-panel ol {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  list-style: none;
+}
+
+.duel-server-panel li {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  align-items: center;
+  gap: 9px;
+  color: #cdd5e2;
+  font-size: 12px;
+}
+
+.duel-server-panel li b {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  color: var(--v5-amber);
+  background: rgba(228, 185, 102, 0.08);
+  border: 1px solid rgba(228, 185, 102, 0.2);
+}
+
+.duel-server-panel code {
+  padding: 2px 5px;
+  border-radius: 5px;
+  color: #e8c77f;
+  background: rgba(228, 185, 102, 0.07);
+}
+
+.duel-server-panel > small {
+  grid-column: 2 / -1;
+  padding-top: 4px;
+  font-size: 11px;
+}
+
+.duel-mode-grid.is-disabled {
+  opacity: .48;
+  filter: saturate(.65);
+}
+
+.duel-mode-grid.is-disabled .mode-card {
+  cursor: not-allowed;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Calmer game-client hierarchy                                               */
+/* -------------------------------------------------------------------------- */
+
+.topbar {
+  backdrop-filter: blur(22px) saturate(1.15);
+  -webkit-backdrop-filter: blur(22px) saturate(1.15);
+  background: rgba(7, 10, 16, .86);
+  border-bottom-color: rgba(155, 179, 218, .11);
+}
+
+.sidebar {
+  background: linear-gradient(180deg, rgba(8, 12, 19, .98), rgba(6, 9, 15, .98));
+  border-right-color: rgba(155, 179, 218, .11);
+}
+
+.lobby-hero {
+  border-color: rgba(139, 171, 225, .15);
+  background:
+    radial-gradient(650px 420px at 82% 48%, rgba(93, 120, 214, .16), transparent 68%),
+    linear-gradient(125deg, rgba(17, 24, 37, .98), rgba(8, 12, 20, .98));
+}
+
+.lobby-copy h1,
+.duel-hero h1 {
+  text-wrap: balance;
+}
+
+.home-command-grid {
+  gap: 16px;
+}
+
+.command-card {
+  min-height: 168px;
+}
+
+.tcg-card {
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .35);
+}
+
+.tcg-card:hover:not(:disabled) {
+  transform: translateY(-5px) scale(1.012);
+}
+
+.global-error {
+  border: 1px solid rgba(255, 113, 132, .24);
+  background: rgba(54, 16, 24, .86);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, .24);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Responsive                                                                 */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .server-status-pill span { display: none; }
+  .server-status-pill { width: 38px; justify-content: center; padding: 0; }
+  .duel-server-panel { grid-template-columns: 48px minmax(0, 1fr); }
+  .duel-server-panel ol,
+  .duel-server-panel > small { grid-column: 2; }
+}
+
+@media (max-width: 760px) {
+  .server-notice {
+    grid-template-columns: 36px minmax(0, 1fr);
+    padding: 13px;
+  }
+  .server-notice-icon { width: 36px; height: 36px; }
+  .server-notice button { grid-column: 2; justify-self: start; }
+  .server-notice p { white-space: normal; }
+
+  .duel-server-panel {
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: start;
+    padding: 17px;
+  }
+  .duel-server-emblem { width: 42px; height: 42px; border-radius: 12px; }
+  .duel-server-panel ol,
+  .duel-server-panel > small { grid-column: 1 / -1; }
+
+  .topbar-actions .server-status-pill { display: inline-flex; }
+}
+
+@media (max-width: 480px) {
+  .server-notice b { font-size: 13px; }
+  .server-notice p { font-size: 11px; }
+  .duel-server-panel h2 { font-size: 18px; }
+}
