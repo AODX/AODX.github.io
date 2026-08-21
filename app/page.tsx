@@ -429,7 +429,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
 
         <div className="card-detail-content">
           <header>
-            <div><span>{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}</span><h2>{card.name}</h2><p>{card.subtitle}</p></div>
+            <div><span>{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}{card.series ? ` · ${card.series}` : ''}</span><h2>{card.name}</h2><p>{card.subtitle}</p></div>
             <strong className="detail-cost"><small>COST</small>{card.cost}</strong>
           </header>
 
@@ -759,7 +759,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     if (!collection[card.id]) return false;
     if (kind !== 'all' && card.kind !== kind) return false;
     if (element !== 'all' && card.element !== element) return false;
-    if (search && !`${card.name} ${card.text} ${card.subtitle}`.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !`${card.name} ${card.text} ${card.subtitle} ${card.series ?? ''}`.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
