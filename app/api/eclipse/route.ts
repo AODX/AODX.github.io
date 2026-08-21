@@ -222,9 +222,22 @@ async function probeSecureServer(): Promise<{ status: SecureServerStatus; client
     }
   }
 
-  const wrongProject = failures.find((item) => item.code === 'WRONG_PROJECT');
-  const invalid = failures.find((item) => item.code === 'INVALID_KEY');
-  const chosen = wrongProject ?? invalid ?? failures[0];
+  const secretConfigured = Boolean(process.env.SUPABASE_SECRET_KEY?.trim());
+  const secretFailure = failures.find((item) => item.keySource === 'secret');
+  const legacyFailure = failures.find((item) => item.keySource === 'service_role');
+  let chosen = secretFailure ?? legacyFailure ?? failures[0];
+
+  // A stale legacy service-role key is common after moving the same Git project to a new Supabase project.
+  // Do not present it as if the browser login were broken. The fix is simply to add the current project's sb_secret_ key.
+  if (!secretConfigured && legacyFailure?.code === 'WRONG_PROJECT') {
+    chosen = {
+      secureDuelReady: false,
+      code: 'MISSING_KEY',
+      message: '현재 프로젝트용 SUPABASE_SECRET_KEY가 없습니다. Render Environment에 현재 Supabase 프로젝트의 sb_secret_ 키를 한 번 등록해 주세요. 예전 SUPABASE_SERVICE_ROLE_KEY는 자동으로 무시됩니다.',
+      keySource: 'none',
+    };
+  }
+
   return {
     client: null,
     status: chosen ?? {
