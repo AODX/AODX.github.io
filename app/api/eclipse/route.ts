@@ -317,6 +317,10 @@ async function getHub(admin: UserDbClient | AdminDbClient, userId: string) {
   if (requestsResult.error) throw new Error(requestsResult.error.message);
   if (friendsResult.error) throw new Error(friendsResult.error.message);
 
+  const cosmeticsResult = await admin.from('eclipse_profile_cosmetics').select('cosmetic_id').eq('user_id', userId);
+  const cosmeticsMissing = Boolean(cosmeticsResult.error && /eclipse_profile_cosmetics|does not exist|schema cache/i.test(cosmeticsResult.error.message));
+  if (cosmeticsResult.error && !cosmeticsMissing) throw new Error(cosmeticsResult.error.message);
+
   const friendIds = (friendsResult.data ?? []).map((row: { friend_id: string }) => row.friend_id);
   let friendProfiles: unknown[] = [];
   if (friendIds.length > 0) {
@@ -351,6 +355,7 @@ async function getHub(admin: UserDbClient | AdminDbClient, userId: string) {
     friendRequests: requestsResult.data ?? [],
     friends: friendProfiles,
     requestProfiles,
+    profileCosmetics: cosmeticsMissing ? [] : (cosmeticsResult.data ?? []).map((row: { cosmetic_id: string }) => row.cosmetic_id),
   };
 }
 
@@ -561,6 +566,26 @@ async function handleAction(request: Request, body: RequestBody) {
       balance: Number(payload.balance ?? 0),
       hub: await getHub(client, user.id),
     };
+  }
+
+  if (action === 'buy_profile_cosmetic') {
+    const cosmeticId = cleanText(body.cosmeticId, 40);
+    const { error } = await client.rpc('eclipse_buy_profile_cosmetic_v17', { p_cosmetic_id: cosmeticId });
+    if (error) {
+      if (/function .*eclipse_buy_profile_cosmetic_v17.*does not exist|schema cache/i.test(error.message)) throw new Error('프로필 스킨 상점 DB 업그레이드가 필요합니다. v17 SQL을 한 번 실행해 주세요.');
+      throw new Error(error.message);
+    }
+    return { hub: await getHub(client, user.id) };
+  }
+
+  if (action === 'equip_profile_cosmetic') {
+    const cosmeticId = cleanText(body.cosmeticId, 40);
+    const { error } = await client.rpc('eclipse_equip_profile_cosmetic_v17', { p_cosmetic_id: cosmeticId });
+    if (error) {
+      if (/function .*eclipse_equip_profile_cosmetic_v17.*does not exist|schema cache/i.test(error.message)) throw new Error('프로필 스킨 상점 DB 업그레이드가 필요합니다. v17 SQL을 한 번 실행해 주세요.');
+      throw new Error(error.message);
+    }
+    return { hub: await getHub(client, user.id) };
   }
 
   if (action === 'send_global_message') {
@@ -838,7 +863,7 @@ export async function GET() {
   return Response.json({
     ok: true,
     service: 'ECLIPSE DUEL',
-    version: '0.10.0',
+    version: '0.17.0',
     projectRef,
     serverStatus: probe.status,
   });
