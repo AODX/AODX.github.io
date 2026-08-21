@@ -69,12 +69,20 @@ export interface VisualEvent {
   createdAt: number;
 }
 
+export interface CoinTossState {
+  side: 'solar' | 'lunar';
+  winnerId: string;
+  startedAt: number;
+  endsAt: number;
+}
+
 export interface MatchState {
   status: MatchStatus;
   phase: MatchPhase;
   turnNumber: number;
   currentPlayerId: string | null;
   firstPlayerId: string | null;
+  coinToss?: CoinTossState;
   playerOrder: [string, string] | [];
   core: Record<string, number>;
   energy: Record<string, EnergyState>;
@@ -197,8 +205,11 @@ export function initializeMatch(
 ): GameSnapshot {
   const random = new Uint32Array(1);
   globalThis.crypto.getRandomValues(random);
-  const first = random[0] % 2 === 0 ? playerA : playerB;
+  const coinSide: 'solar' | 'lunar' = random[0] % 2 === 0 ? 'solar' : 'lunar';
+  const first = coinSide === 'solar' ? playerA : playerB;
   const second = first === playerA ? playerB : playerA;
+  const tossStartedAt = Date.now();
+  const tossEndsAt = tossStartedAt + 4800;
 
   const privateStates: Record<string, PrivateState> = {
     [playerA]: createPrivate(deckA, extraA),
@@ -211,6 +222,7 @@ export function initializeMatch(
     turnNumber: 1,
     currentPlayerId: first,
     firstPlayerId: first,
+    coinToss: { side: coinSide, winnerId: first, startedAt: tossStartedAt, endsAt: tossEndsAt },
     playerOrder: [first, second],
     core: { [playerA]: CORE_MAX, [playerB]: CORE_MAX },
     energy: {
@@ -231,13 +243,14 @@ export function initializeMatch(
   drawCards(state, privateStates[playerA], playerA, 5);
   drawCards(state, privateStates[playerB], playerB, 5);
   appendLog(state, '결투가 시작되었습니다.', 'system');
-  appendLog(state, `${first.slice(0, 6)}의 선공입니다.`, 'system');
+  appendLog(state, `${coinSide === 'solar' ? '태양면' : '월식면'}이 나왔습니다. ${first.slice(0, 6)}의 선공입니다.`, 'system');
   appendVisual(state, { kind: 'summon', vfx: 'duel-genesis', label: 'DUEL START' });
   return { state, privateStates };
 }
 
 function assertActiveTurn(state: MatchState, playerId: string): void {
   if (state.status !== 'active') throw new Error('이미 종료된 결투입니다.');
+  if (state.coinToss && Date.now() < state.coinToss.startedAt + 3200) throw new Error('선공 결정 연출이 끝날 때까지 잠시 기다려 주세요.');
   if (state.currentPlayerId !== playerId) throw new Error('상대 턴입니다.');
 }
 

@@ -7,6 +7,7 @@ import {
   CARD_BY_ID,
   type CardDefinition,
   type CardKind,
+  type Keyword,
   DECK_SIZE,
   EXTRA_DECK_SIZE,
   ELEMENT_LABEL,
@@ -142,6 +143,59 @@ function hashString(value: string): number {
   return Math.abs(hash);
 }
 
+
+const CARD_INSPECT_EVENT = 'eclipse:inspect-card';
+
+function requestCardInspection(cardId: string): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent<string>(CARD_INSPECT_EVENT, { detail: cardId }));
+}
+
+const KEYWORD_DESCRIPTION: Record<Keyword, string> = {
+  guard: '수호 · 상대는 가능한 경우 이 유닛을 먼저 공격해야 합니다.',
+  charge: '속공 · 소환된 턴에도 즉시 공격할 수 있습니다.',
+  lifesteal: '흡수 · 가한 전투 피해만큼 내 코어를 회복합니다.',
+  pierce: '관통 · 유닛을 파괴하고 남은 피해를 상대 코어에 줍니다.',
+};
+
+function effectDescription(effect: CardDefinition['effect'] | CardDefinition['onSummon'] | CardDefinition['trapEffect']): string {
+  if (!effect) return '';
+  if (effect.kind === 'damage_unit') return `대상 유닛에게 ${effect.amount} 피해`;
+  if (effect.kind === 'damage_core') return `상대 코어에 ${effect.amount} 피해`;
+  if (effect.kind === 'heal_core') return `내 코어를 ${effect.amount} 회복`;
+  if (effect.kind === 'draw') return `카드를 ${effect.amount}장 드로우`;
+  if (effect.kind === 'buff_unit') return `아군 유닛에게 공격력 +${effect.attack}, 방어력 +${effect.health}`;
+  if (effect.kind === 'shield_unit') return `아군 유닛에게 보호막 ${effect.amount} 부여`;
+  if (effect.kind === 'aoe_enemy') return `모든 적 유닛에게 ${effect.amount} 피해`;
+  if (effect.kind === 'gain_energy') return `이번 턴 에너지 ${effect.amount} 획득`;
+  if (effect.kind === 'destroy_weak') return `방어력 ${effect.maxHealth} 이하의 유닛 1장 파괴`;
+  if (effect.kind === 'summon_token') return `${effect.name} 토큰(${effect.attack}/${effect.health}) 소환`;
+  if (effect.kind === 'negate') return '발동을 무효화';
+  if (effect.kind === 'negate_and_damage') return `발동을 무효화하고 코어에 ${effect.amount} 피해`;
+  return '';
+}
+
+function trapTriggerDescription(trigger: CardDefinition['trapTrigger']): string {
+  const labels: Record<NonNullable<CardDefinition['trapTrigger']>, string> = {
+    spell_played: '상대가 주문을 발동했을 때',
+    unit_summoned: '상대가 유닛을 일반 소환했을 때',
+    special_summoned: '상대가 특수 소환했을 때',
+    fusion_summoned: '상대가 공명 융합했을 때',
+    evolution_summoned: '상대가 계승 진화했을 때',
+    direct_attack: '상대가 코어를 직접 공격했을 때',
+    unit_attacked: '내 유닛이 공격받았을 때',
+    friendly_destroyed: '내 유닛이 파괴되었을 때',
+  };
+  return trigger ? labels[trigger] : '';
+}
+
+function summonConditionDescription(card: CardDefinition): string {
+  if (card.summonMode === 'rift') return `${card.riftCondition?.label ?? '균열 조건 충족'} · 에너지 ${card.riftCost ?? card.cost}`;
+  if (card.kind === 'fusion') return card.fusionRecipe?.label ?? '지정된 두 소재 유닛을 필드에서 묘지로 보내 공명 융합합니다.';
+  if (card.kind === 'evolution') return card.evolutionRecipe?.label ?? '조건을 만족하는 필드 유닛 1장을 계승시켜 진화합니다.';
+  return '';
+}
+
 function GameIcon({ name }: { name: View | 'chat' | 'coin' | 'logout' | 'sound' }) {
   const paths: Record<string, React.ReactNode> = {
     home: <><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1Z"/><path d="M9 10h6"/></>,
@@ -234,6 +288,7 @@ function CardFace({
   quantity,
   onClick,
   hidden = false,
+  inspectable = true,
 }: {
   card?: CardDefinition;
   compact?: boolean;
@@ -242,31 +297,59 @@ function CardFace({
   quantity?: number;
   onClick?: () => void;
   hidden?: boolean;
+  inspectable?: boolean;
 }) {
   if (hidden || !card) {
+    const interactive = Boolean(onClick) && !disabled;
     return (
-      <button type="button" className={`tcg-card card-back ${compact ? 'compact' : ''}`} disabled>
+      <button
+        type="button"
+        className={`tcg-card card-back ${compact ? 'compact' : ''} ${disabled ? 'is-disabled' : ''} ${interactive ? 'is-interactive' : 'is-static'}`}
+        aria-label={interactive ? '뒤집힌 카드 공개' : '뒤집힌 카드'}
+        aria-disabled={!interactive}
+        onClick={() => { if (interactive) onClick?.(); }}
+      >
         <span className="back-orbit" />
         <span className="back-mark">E</span>
         <span className="back-title">ECLIPSE</span>
+        <span className="back-hint">TAP TO REVEAL</span>
       </button>
     );
+  }
+
+  const cardId = card.id;
+  const performAction = onClick ?? (inspectable ? () => requestCardInspection(cardId) : undefined);
+
+  function openInspector(event: React.MouseEvent | React.KeyboardEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    requestCardInspection(cardId);
   }
 
   return (
     <button
       type="button"
-      className={`tcg-card kind-${card.kind} summon-${card.summonMode ?? 'normal'} rarity-${card.rarity} element-${card.element} ${compact ? 'compact' : ''} ${selected ? 'selected' : ''}`}
+      className={`tcg-card kind-${card.kind} summon-${card.summonMode ?? 'normal'} rarity-${card.rarity} element-${card.element} ${compact ? 'compact' : ''} ${selected ? 'selected' : ''} ${disabled ? 'is-disabled' : ''}`}
       style={cardStyle(card)}
-      onClick={onClick}
-      disabled={disabled}
-      title={card.text}
+      onClick={() => { if (!disabled) performAction?.(); }}
+      aria-disabled={disabled}
+      title={onClick ? `${card.name} 선택` : `${card.name} 상세 보기`}
     >
       <span className="card-cost">{card.cost}</span>
       {card.summonMode === 'rift' && <span className="summon-badge rift">균열</span>}
       {card.kind === 'fusion' && <span className="summon-badge fusion">융합</span>}
       {card.kind === 'evolution' && <span className="summon-badge evolution">진화</span>}
       {quantity !== undefined && <span className="card-quantity">×{quantity}</span>}
+      {inspectable && (
+        <span
+          className="card-info-hotspot"
+          role="button"
+          tabIndex={0}
+          aria-label={`${card.name} 상세 정보`}
+          onClick={openInspector}
+          onKeyDown={(event: React.KeyboardEvent) => { if (event.key === 'Enter' || event.key === ' ') openInspector(event); }}
+        >i</span>
+      )}
       <span className="card-topline">
         <b>{card.name}</b>
         <small>{RARITY_LABEL[card.rarity]}</small>
@@ -282,6 +365,75 @@ function CardFace({
         {isUnitCard(card) ? <b>{card.attack} / {card.health}</b> : <b>{ELEMENT_LABEL[card.element]}</b>}
       </span>
     </button>
+  );
+}
+
+function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () => void }) {
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [onClose]);
+
+  const summonCondition = summonConditionDescription(card);
+  const effectRows = [
+    card.onSummon ? { label: '소환 효과', value: effectDescription(card.onSummon) } : null,
+    card.effect ? { label: '카드 효과', value: effectDescription(card.effect) } : null,
+    card.trapTrigger ? { label: '발동 조건', value: trapTriggerDescription(card.trapTrigger) } : null,
+    card.trapEffect ? { label: '함정 효과', value: effectDescription(card.trapEffect) } : null,
+  ].filter((row): row is { label: string; value: string } => Boolean(row?.value));
+
+  return (
+    <div className="modal-layer card-detail-layer" role="presentation" onMouseDown={(event: React.MouseEvent) => { if (event.currentTarget === event.target) onClose(); }}>
+      <section className={`card-detail-modal element-${card.element} rarity-${card.rarity}`} role="dialog" aria-modal="true" aria-label={`${card.name} 카드 상세 정보`}>
+        <button className="modal-close" type="button" onClick={onClose} aria-label="닫기">×</button>
+        <div className="card-detail-visual">
+          <CardFace card={card} inspectable={false} />
+          <div className="card-detail-flavor"><span>LORE</span><p>{card.flavor}</p></div>
+        </div>
+        <div className="card-detail-content">
+          <header>
+            <div><span>{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}</span><h2>{card.name}</h2><p>{card.subtitle}</p></div>
+            <strong className="detail-cost"><small>COST</small>{card.cost}</strong>
+          </header>
+
+          {isUnitCard(card) && (
+            <div className="detail-stat-row">
+              <span><small>공격력</small><b>{card.attack ?? 0}</b></span>
+              <span><small>방어력</small><b>{card.health ?? 0}</b></span>
+              <span><small>소환 방식</small><b>{card.kind === 'fusion' ? '공명 융합' : card.kind === 'evolution' ? '계승 진화' : card.summonMode === 'rift' ? '균열 소환' : '일반 소환'}</b></span>
+            </div>
+          )}
+
+          <section className="detail-section primary-effect">
+            <span>카드 설명</span>
+            <p>{card.text}</p>
+          </section>
+
+          {summonCondition && (
+            <section className="detail-section summon-condition">
+              <span>소환 조건</span>
+              <p>{summonCondition}</p>
+            </section>
+          )}
+
+          {card.keywords && card.keywords.length > 0 && (
+            <section className="detail-section">
+              <span>키워드 효과</span>
+              <div className="keyword-list">{card.keywords.map((keyword) => <p key={keyword}><b>{KEYWORD_DESCRIPTION[keyword].split(' · ')[0]}</b>{KEYWORD_DESCRIPTION[keyword].split(' · ')[1]}</p>)}</div>
+            </section>
+          )}
+
+          {effectRows.length > 0 && (
+            <section className="detail-effect-grid">
+              {effectRows.map((row) => <div key={row.label}><small>{row.label}</small><b>{row.value}</b></div>)}
+            </section>
+          )}
+
+          <button className="primary-button detail-close-button" type="button" onClick={onClose}>확인</button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -428,7 +580,7 @@ function AuthScreen({ onSession }: { onSession: (session: Session) => void }) {
           <button className="primary-button auth-submit" disabled={busy}>{busy ? <><i className="button-spinner" /> 처리 중</> : mode === 'login' ? '게임 시작' : '계정 생성'}</button>
           <div className="auth-secure"><span>◈</span><p>로그인 정보는 Supabase Auth로 보호됩니다.</p></div>
         </form>
-        <footer><span>VERSION 0.5.0 · STABLE</span><span>ORIGINAL IP</span></footer>
+        <footer><span>VERSION 0.6.0 · ORIGIN</span><span>ORIGINAL IP</span></footer>
       </section>
     </main>
   );
@@ -464,78 +616,66 @@ function AccountErrorScreen({ message, onRetry, onSignOut }: { message: string; 
 
 function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate: (view: View) => void; serverStatus: SecureServerStatus }) {
   const activeDeck = hub.decks.find((deck) => deck.is_active) ?? hub.decks[0];
-  const collectionCount = hub.collection.reduce((sum, row) => sum + row.quantity, 0);
   const level = levelFromXp(hub.profile.xp);
-  const mainUnitCount = (activeDeck?.cards ?? []).filter((id) => CARD_BY_ID[id]?.kind === 'unit').length;
-  const mainSpellCount = (activeDeck?.cards ?? []).filter((id) => CARD_BY_ID[id]?.kind === 'spell').length;
-  const mainTrapCount = (activeDeck?.cards ?? []).filter((id) => CARD_BY_ID[id]?.kind === 'trap').length;
+  const collectionCount = hub.collection.reduce((sum, row) => sum + row.quantity, 0);
+  const featureCard = CARD_BY_ID.fusion_eclipse_chimera;
 
   return (
-    <div className="view-stack home-view premium-home">
+    <div className="view-stack home-view v6-home">
       {!serverStatus.secureDuelReady && (
-        <section className="server-notice" role="status">
+        <section className="server-notice compact-notice" role="status">
           <span className="server-notice-icon">!</span>
-          <div><small>SECURE DUEL SERVER</small><b>메인 기능은 정상입니다. 온라인 대전만 준비 중입니다.</b><p>{serverStatus.message}</p></div>
-          <button onClick={() => onNavigate('duel')}>상태 보기</button>
+          <div><small>ONLINE DUEL</small><b>온라인 대전 연결을 확인해 주세요.</b><p>{serverStatus.message}</p></div>
+          <button onClick={() => onNavigate('duel')}>확인</button>
         </section>
       )}
-      <section className="lobby-hero">
-        <div className="lobby-hero-grid" aria-hidden="true" />
-        <div className="lobby-copy">
-          <span className="eyebrow"><i /> SEASON 02 · ASCENSION</span>
-          <h1>전략은 조용히 쌓이고,<br /><strong>한 장으로 폭발한다.</strong></h1>
-          <p>균열 소환으로 흐름을 뒤집고, 공명 융합과 계승 진화로 전장을 완성하세요. 모든 선택이 다음 턴의 승률을 바꿉니다.</p>
+
+      <section className="v6-home-hero">
+        <div className="v6-hero-copy">
+          <span className="eyebrow"><i /> ECLIPSE DUEL · SEASON ASCENSION</span>
+          <h1>덱을 설계하고,<br /><strong>한 수 앞을 읽으세요.</strong></h1>
+          <p>균열 소환, 공명 융합, 계승 진화를 조합하는 1대1 전략 카드게임입니다. 처음이라면 기본 덱으로 바로 시작할 수 있습니다.</p>
           <div className="hero-actions">
-            <button className="primary-button play-now" onClick={() => onNavigate('duel')}><span>온라인 대전</span><em>PLAY</em></button>
-            <button className="ghost-button" onClick={() => onNavigate('deck')}>활성 덱 편집</button>
+            <button className="primary-button play-now" onClick={() => onNavigate('duel')}><span>대전 시작</span><em>PLAY</em></button>
+            <button className="ghost-button" onClick={() => onNavigate('deck')}>내 덱 확인</button>
           </div>
-          <div className="season-status">
-            <span><small>DUELIST</small><b>LV. {level}</b></span>
-            <span><small>RECORD</small><b>{hub.profile.wins}W · {hub.profile.losses}L</b></span>
-            <span><small>COLLECTION</small><b>{hub.collection.length} / {CARDS.length}</b></span>
+          <div className="v6-player-summary">
+            <span><small>LEVEL</small><b>{level}</b></span>
+            <span><small>RECORD</small><b>{hub.profile.wins}승 {hub.profile.losses}패</b></span>
+            <span><small>CARDS</small><b>{hub.collection.length}/{CARDS.length}</b></span>
           </div>
         </div>
-
-        <div className="featured-card-stage">
-          <div className="stage-halo" />
-          <div className="stage-card stage-card-back"><CardFace card={CARD_BY_ID.trap_resonance_break} /></div>
-          <div className="stage-card stage-card-mid"><CardFace card={CARD_BY_ID.evolution_ember_phoenix} /></div>
-          <div className="stage-card stage-card-front"><CardFace card={CARD_BY_ID.fusion_eclipse_chimera} /></div>
-          <div className="featured-caption"><small>FEATURED ASCENSION</small><b>일식 공명수</b><span>태양과 공허가 겹치는 순간, 전장은 새로운 규칙을 얻습니다.</span></div>
+        <div className="v6-feature-card">
+          <div className="feature-glow" />
+          <CardFace card={featureCard} />
+          <div className="feature-copy"><small>FEATURED CARD</small><b>{featureCard.name}</b><span>카드를 눌러 효과와 소환 조건을 확인하세요.</span></div>
         </div>
       </section>
 
-      <section className="home-command-grid">
-        <article className="command-card active-deck-command">
+      <section className="v6-start-guide">
+        <header><div><small>NEW DUELIST GUIDE</small><h2>처음이라면 이 순서로 시작하세요</h2></div><span>3 STEPS</span></header>
+        <div className="v6-guide-steps">
+          <button onClick={() => onNavigate('deck')}><i>01</i><span><b>기본 덱 확인</b><small>지급된 30장 덱과 6장 엑스트라 덱을 확인합니다.</small></span><em>→</em></button>
+          <button onClick={() => onNavigate('duel')}><i>02</i><span><b>첫 결투</b><small>코인 토스로 선공을 정한 뒤 턴제 결투를 진행합니다.</small></span><em>→</em></button>
+          <button onClick={() => onNavigate('shop')}><i>03</i><span><b>카드 팩 개봉</b><small>획득한 코인으로 팩을 열고 새로운 전략을 수집합니다.</small></span><em>→</em></button>
+        </div>
+      </section>
+
+      <section className="v6-dashboard-grid">
+        <article className="v6-dashboard-card active-deck-card">
           <header><span>ACTIVE DECK</span><button onClick={() => onNavigate('deck')}>편집</button></header>
-          <div className="command-deck-title"><div className="mini-deck-emblem">ED</div><div><h3>{activeDeck?.name ?? '활성 덱 없음'}</h3><p>MAIN {activeDeck?.cards?.length ?? 0}/{DECK_SIZE} · EXTRA {activeDeck?.extra_cards?.length ?? 0}/{EXTRA_DECK_SIZE}</p></div></div>
-          <div className="deck-spectrum">
-            <span style={{ '--weight': Math.max(1, mainUnitCount) } as CSSProperties}><i className="kind-unit" />유닛 <b>{mainUnitCount}</b></span>
-            <span style={{ '--weight': Math.max(1, mainSpellCount) } as CSSProperties}><i className="kind-spell" />주문 <b>{mainSpellCount}</b></span>
-            <span style={{ '--weight': Math.max(1, mainTrapCount) } as CSSProperties}><i className="kind-trap" />함정 <b>{mainTrapCount}</b></span>
-          </div>
+          <div className="deck-emblem-large">ED</div>
+          <div><h3>{activeDeck?.name ?? '활성 덱 없음'}</h3><p>메인 {activeDeck?.cards?.length ?? 0}/{DECK_SIZE} · 엑스트라 {activeDeck?.extra_cards?.length ?? 0}/{EXTRA_DECK_SIZE}</p></div>
         </article>
-
-        <button className={`command-card quick-command ranked-command ${serverStatus.secureDuelReady ? '' : 'server-paused'}`} onClick={() => onNavigate('duel')}>
-          <span className="command-index">01</span><div><small>{serverStatus.secureDuelReady ? 'RANKED MATCH' : 'SERVER CHECK'}</small><h3>{serverStatus.secureDuelReady ? '빠른 대전' : '대전 서버 확인'}</h3><p>{serverStatus.secureDuelReady ? '실력에 맞는 상대를 찾아 즉시 결투합니다.' : '덱·상점·채팅은 이용할 수 있으며 대전 연결 상태만 확인하면 됩니다.'}</p></div><em>{serverStatus.secureDuelReady ? '대전 시작' : '상태 보기'}</em>
-        </button>
-
-        <button className="command-card quick-command shop-command" onClick={() => onNavigate('shop')}>
-          <span className="command-index">02</span><div><small>ARCANA SHOP</small><h3>카드 팩</h3><p>새로운 소환 연계와 전술을 획득하세요.</p></div><em>{hub.wallet.coins.toLocaleString()} C</em>
-        </button>
-
-        <article className="command-card progression-command">
-          <header><span>DUELIST PROGRESS</span><b>{hub.profile.xp} XP</b></header>
-          <div className="progress-orbit"><strong>{level}</strong><small>LEVEL</small></div>
-          <div className="progress-copy"><h3>다음 승급을 향해</h3><p>결투를 완료해 경험치와 코인을 획득하세요.</p><div className="progress"><span style={{ width: `${Math.min(100, ((hub.profile.xp % 1000) / 1000) * 100)}%` }} /></div></div>
+        <article className="v6-dashboard-card stat-card">
+          <header><span>DUELIST STATUS</span><b>{winRate(hub.profile)}%</b></header>
+          <div className="v6-stat-line"><span><small>보유 카드</small><b>{collectionCount.toLocaleString()}</b></span><span><small>친구</small><b>{hub.friends.length}</b></span><span><small>코인</small><b>{hub.wallet.coins.toLocaleString()}</b></span></div>
+          <div className="progress"><span style={{ width: `${Math.min(100, ((hub.profile.xp % 1000) / 1000) * 100)}%` }} /></div>
+          <p>다음 레벨까지 결투를 이어가세요.</p>
         </article>
-      </section>
-
-      <section className="home-footer-strip">
-        <span><small>OWNED CARDS</small><b>{collectionCount.toLocaleString()}</b></span>
-        <span><small>WIN RATE</small><b>{winRate(hub.profile)}%</b></span>
-        <span><small>FRIENDS</small><b>{hub.friends.length}</b></span>
-        <button onClick={() => onNavigate('friends')}>친구 관리 <b>→</b></button>
+        <button className="v6-dashboard-card v6-shop-shortcut" onClick={() => onNavigate('shop')}>
+          <small>PACK SHOP</small><h3>새로운 카드를 발견하세요.</h3><p>팩 개봉 연출과 함께 5장의 카드를 획득합니다.</p><span>상점 열기 →</span>
+        </button>
       </section>
     </div>
   );
@@ -746,7 +886,11 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
   const [busyPack, setBusyPack] = useState('');
   const [opened, setOpened] = useState<string[]>([]);
   const [revealed, setRevealed] = useState<boolean[]>([]);
+  const [openingPackId, setOpeningPackId] = useState('');
+  const [openingStage, setOpeningStage] = useState<'idle' | 'sealed' | 'tearing' | 'reveal' | 'summary'>('idle');
+  const [activeCardIndex, setActiveCardIndex] = useState(0);
   const [error, setError] = useState('');
+  const selectedPack = PACKS.find((pack) => pack.id === openingPackId);
 
   async function buy(packId: string) {
     setBusyPack(packId);
@@ -755,8 +899,12 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
       const result = await api('buy_pack', { packId });
       if (result.hub) onHub(result.hub);
       const cards = result.cardIds ?? [];
+      if (cards.length === 0) throw new Error('팩에서 카드를 불러오지 못했습니다.');
+      setOpeningPackId(packId);
       setOpened(cards);
       setRevealed(cards.map(() => false));
+      setActiveCardIndex(0);
+      setOpeningStage('sealed');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '팩 구매에 실패했습니다.');
     } finally {
@@ -764,46 +912,107 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
     }
   }
 
+  function tearPack() {
+    if (openingStage !== 'sealed') return;
+    setOpeningStage('tearing');
+    window.setTimeout(() => setOpeningStage('reveal'), 1050);
+  }
+
+  function revealCurrent() {
+    if (openingStage !== 'reveal') return;
+    setRevealed((current) => current.map((value, index) => index === activeCardIndex ? true : value));
+  }
+
+  function advanceOpening() {
+    if (!revealed[activeCardIndex]) return;
+    if (activeCardIndex < opened.length - 1) setActiveCardIndex((index) => index + 1);
+    else setOpeningStage('summary');
+  }
+
+  function revealAll() {
+    setRevealed(opened.map(() => true));
+    setOpeningStage('summary');
+  }
+
+  function closeOpening() {
+    setOpened([]);
+    setRevealed([]);
+    setOpeningPackId('');
+    setOpeningStage('idle');
+    setActiveCardIndex(0);
+  }
+
   return (
-    <div className="view-stack">
-      <section className="section-heading">
-        <div><span className="eyebrow">ECLIPSE SHOP</span><h2>카드 팩 상점</h2><p>획득한 카드는 즉시 보관함과 덱 편집에 반영됩니다.</p></div>
+    <div className="view-stack v6-shop-view">
+      <section className="section-heading v6-section-heading">
+        <div><span className="eyebrow">ECLIPSE PACK LAB</span><h2>카드 팩 상점</h2><p>팩을 찢고, 카드를 한 장씩 뒤집어 새로운 전략을 획득하세요.</p></div>
         <div className="currency-pill"><small>COIN</small>{hub.wallet.coins.toLocaleString()}</div>
       </section>
       {error && <p className="error-banner">{error}</p>}
-      <section className="pack-grid">
+      <section className="pack-grid v6-pack-grid">
         {PACKS.map((pack, index) => (
-          <article className={`pack-card pack-${index}`} key={pack.id} style={{ '--pack-accent': pack.accent } as CSSProperties}>
-            <span className="pack-shine" />
-            <div className="pack-emblem">{pack.id === 'ascension' ? '∞' : index === 0 ? '✦' : index === 1 ? '♜' : index === 2 ? '☀' : index === 3 ? '◉' : '♛'}</div>
-            <span className="eyebrow">5 CARDS</span>
-            <h3>{pack.name}</h3>
-            <p>{pack.tagline}</p>
-            <div className="pack-price"><b>{pack.price}</b> COIN</div>
-            <button className="primary-button" disabled={busyPack === pack.id || hub.wallet.coins < pack.price} onClick={() => buy(pack.id)}>
-              {busyPack === pack.id ? '개봉 준비 중...' : '팩 개봉'}
-            </button>
+          <article className={`pack-card v6-pack-card pack-${index}`} key={pack.id} style={{ '--pack-accent': pack.accent } as CSSProperties}>
+            <div className="pack-product-visual" aria-hidden="true"><span className="pack-foil" /><span className="pack-seal">{pack.id === 'ascension' ? '∞' : index === 0 ? '✦' : index === 1 ? '♜' : index === 2 ? '☀' : index === 3 ? '◉' : '♛'}</span><b>ECLIPSE</b><small>5 CARD BOOSTER</small></div>
+            <div className="pack-product-copy">
+              <span className="eyebrow">5 CARDS · {RARITY_LABEL[pack.guaranteed]} 이상 보장</span>
+              <h3>{pack.name}</h3>
+              <p>{pack.tagline}</p>
+              <div className="pack-price"><b>{pack.price}</b> COIN</div>
+              <button className="primary-button" disabled={busyPack === pack.id || hub.wallet.coins < pack.price} onClick={() => buy(pack.id)}>
+                {busyPack === pack.id ? '팩을 준비하는 중...' : hub.wallet.coins < pack.price ? '코인 부족' : '팩 구매 및 개봉'}
+              </button>
+            </div>
           </article>
         ))}
       </section>
 
-      {opened.length > 0 && (
-        <div className="modal-layer">
-          <section className="pack-opening-modal">
-            <span className="eyebrow">PACK OPENING</span>
-            <h2>카드를 눌러 공개하세요</h2>
-            <div className="opening-cards">
-              {opened.map((cardId, index) => (
-                <div className={revealed[index] ? 'revealed' : ''} key={`${cardId}-${index}`}>
+      {openingStage !== 'idle' && opened.length > 0 && (
+        <div className={`modal-layer pack-experience-layer stage-${openingStage}`}>
+          <section className="pack-experience-modal" style={{ '--pack-accent': selectedPack?.accent ?? '#7c8cff' } as CSSProperties}>
+            <header className="pack-experience-header"><div><span>PACK OPENING</span><h2>{selectedPack?.name ?? 'ECLIPSE PACK'}</h2></div><button className="modal-close" type="button" onClick={closeOpening} aria-label="팩 개봉 화면 닫기">×</button></header>
+
+            {(openingStage === 'sealed' || openingStage === 'tearing') && (
+              <div className="sealed-pack-stage">
+                <div className="pack-light-burst" />
+                <button className={`physical-pack ${openingStage === 'tearing' ? 'is-tearing' : ''}`} type="button" onClick={tearPack} aria-label="카드 팩 뜯기">
+                  <span className="physical-pack-top" />
+                  <span className="physical-pack-foil" />
+                  <span className="physical-pack-logo">ECLIPSE</span>
+                  <span className="physical-pack-title">{selectedPack?.name}</span>
+                  <span className="physical-pack-count">5 CARDS</span>
+                  <span className="physical-pack-tear-line"><i /></span>
+                </button>
+                <div className="pack-opening-guide"><b>{openingStage === 'sealed' ? '팩을 눌러 봉인을 뜯으세요' : '봉인을 해제하는 중...'}</b><span>{openingStage === 'sealed' ? '클릭 또는 탭' : '카드 에너지를 전개합니다'}</span></div>
+              </div>
+            )}
+
+            {openingStage === 'reveal' && (
+              <div className="single-card-reveal-stage">
+                <div className="reveal-progress"><span>{activeCardIndex + 1} / {opened.length}</span><div>{opened.map((_, index) => <i key={index} className={index < activeCardIndex || revealed[index] ? 'done' : index === activeCardIndex ? 'active' : ''} />)}</div></div>
+                <div className={`reveal-card-focus ${revealed[activeCardIndex] ? 'is-revealed' : ''}`}>
+                  <div className="card-stack-shadow shadow-a" /><div className="card-stack-shadow shadow-b" />
                   <CardFace
-                    card={CARD_BY_ID[cardId]}
-                    hidden={!revealed[index]}
-                    onClick={() => setRevealed((current) => current.map((value, itemIndex) => itemIndex === index ? true : value))}
+                    card={CARD_BY_ID[opened[activeCardIndex]]}
+                    hidden={!revealed[activeCardIndex]}
+                    onClick={revealed[activeCardIndex] ? () => requestCardInspection(opened[activeCardIndex]) : revealCurrent}
+                    inspectable={revealed[activeCardIndex]}
                   />
+                  {!revealed[activeCardIndex] && <span className="reveal-tap-label">카드를 눌러 공개</span>}
                 </div>
-              ))}
-            </div>
-            <button className="primary-button" disabled={revealed.some((value) => !value)} onClick={() => setOpened([])}>보관함으로 보내기</button>
+                <div className="reveal-actions">
+                  <button className="ghost-button" type="button" onClick={revealAll}>모두 공개</button>
+                  <button className="primary-button" type="button" disabled={!revealed[activeCardIndex]} onClick={advanceOpening}>{activeCardIndex < opened.length - 1 ? '다음 카드' : '결과 확인'}</button>
+                </div>
+              </div>
+            )}
+
+            {openingStage === 'summary' && (
+              <div className="pack-summary-stage">
+                <div className="summary-burst"><span>PACK COMPLETE</span><h3>새로운 카드 5장을 획득했습니다</h3><p>카드를 누르면 상세 효과와 소환 조건을 확인할 수 있습니다.</p></div>
+                <div className="summary-card-row">{opened.map((cardId, index) => <div style={{ '--delay': index } as CSSProperties} key={`${cardId}-${index}`}><CardFace card={CARD_BY_ID[cardId]} compact /></div>)}</div>
+                <button className="primary-button summary-close" type="button" onClick={closeOpening}>보관함에 저장하고 닫기</button>
+              </div>
+            )}
           </section>
         </div>
       )}
@@ -1020,6 +1229,7 @@ function UnitSlot({
       {!unit ? <span className="slot-mark">{index + 1}</span> : (
         <>
           <span className={`unit-art ${card ? `variant-${hashString(card.id) % 6}` : ''}`} style={card ? cardStyle(card) : undefined}><strong>{card?.sigil ?? '✦'}</strong><i /></span>
+          {card && <span className="unit-info-hotspot" role="button" tabIndex={0} aria-label={`${card.name} 상세 정보`} onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); requestCardInspection(card.id); }} onKeyDown={(event: React.KeyboardEvent) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); requestCardInspection(card.id); } }}>i</span>}
           {unit.summonedBy !== 'normal' && unit.summonedBy !== 'token' && <span className={`origin-badge ${unit.summonedBy}`}>{unit.summonedBy === 'rift' ? 'RIFT' : unit.summonedBy === 'fusion' ? 'FUSION' : 'EVOLVE'}</span>}
           <span className="unit-name">{card?.name ?? unit.cardId.replace('token:', '')}</span>
           <span className="unit-stats"><b>{unit.attack}</b><i>⚔</i><b>{unit.health}</b>{unit.shield > 0 && <em>＋{unit.shield}</em>}</span>
@@ -1038,6 +1248,24 @@ function extraRequirement(card: CardDefinition): string {
   return card.text;
 }
 
+
+function CoinTossOverlay({ state, profiles, userId, now }: { state: MatchState; profiles: RoomProfile[]; userId: string; now: number }) {
+  const toss = state.coinToss;
+  if (!toss || now >= toss.endsAt) return null;
+  const elapsed = Math.max(0, now - toss.startedAt);
+  const revealed = elapsed >= 2600;
+  const winner = profiles.find((profile) => profile.user_id === toss.winnerId);
+  const isMe = toss.winnerId === userId;
+  return (
+    <div className={`coin-toss-overlay side-${toss.side} ${revealed ? 'is-revealed' : ''}`}>
+      <div className="coin-toss-space" aria-hidden="true"><span className="coin-orbit orbit-a" /><span className="coin-orbit orbit-b" /><span className="coin-spark spark-a" /><span className="coin-spark spark-b" /></div>
+      <div className="coin-toss-copy"><small>FIRST TURN DECISION</small><h2>{revealed ? '선공이 결정되었습니다' : '운명의 코인을 던집니다'}</h2><p>{revealed ? `${toss.side === 'solar' ? '태양면' : '월식면'} · ${isMe ? '당신' : winner?.display_name ?? '상대'}이(가) 선공입니다.` : '두 플레이어의 시작 순서를 공정하게 결정합니다.'}</p></div>
+      <div className="duel-coin" aria-hidden="true"><span className="coin-face coin-front"><b>☀</b><small>SOLAR</small></span><span className="coin-face coin-back"><b>◐</b><small>ECLIPSE</small></span><i /></div>
+      <div className="coin-result"><span>{revealed ? (isMe ? 'YOU GO FIRST' : 'OPPONENT GOES FIRST') : 'FLIPPING'}</span><div><i /></div></div>
+    </div>
+  );
+}
+
 function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPayload; userId: string; onRefresh: (payload: RoomPayload) => void; onLeave: () => void }) {
   const { room, privateState: nullablePrivateState } = payload;
   const nullableState = room.state;
@@ -1050,6 +1278,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   const [logOpen, setLogOpen] = useState(false);
   const [activeVfx, setActiveVfx] = useState<VisualEvent | null>(null);
   const [vfxQueue, setVfxQueue] = useState<VisualEvent[]>([]);
+  const [coinClock, setCoinClock] = useState(() => Date.now());
   const seenVfx = useRef<Set<string>>(new Set());
 
   const visualEvents = nullableState?.visualEvents ?? [];
@@ -1062,6 +1291,17 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
     visualEvents.forEach((event) => seenVfx.current.add(event.id));
     setVfxQueue((current) => [...current, ...unseen].slice(-10));
   }, [visualEventSignature]);
+
+  useEffect(() => {
+    const endsAt = nullableState?.coinToss?.endsAt;
+    if (!endsAt || Date.now() >= endsAt) {
+      setCoinClock(Date.now());
+      return;
+    }
+    setCoinClock(Date.now());
+    const timer = window.setInterval(() => setCoinClock(Date.now()), 100);
+    return () => window.clearInterval(timer);
+  }, [nullableState?.coinToss?.endsAt]);
 
   useEffect(() => {
     if (activeVfx || vfxQueue.length === 0) return;
@@ -1082,7 +1322,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   const profileMap = Object.fromEntries(payload.profiles.map((profile) => [profile.user_id, profile]));
   const me = profileMap[userId];
   const opponent = profileMap[opponentId];
-  const myTurn = state.currentPlayerId === userId;
+  const coinTossActive = Boolean(state.coinToss && coinClock < state.coinToss.endsAt);
+  const myTurn = state.currentPlayerId === userId && !coinTossActive;
   const selectedInstance = privateState.hand.find((card) => card.instanceId === selectedHand);
   const selectedCard = selectedInstance ? CARD_BY_ID[selectedInstance.cardId] : undefined;
   const selectedExtraInstance = privateState.extra.find((card) => card.instanceId === selectedExtra);
@@ -1169,10 +1410,11 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   return (
     <div className="duel-screen ascension-duel-screen">
       <DuelEffectLayer event={activeVfx} />
+      <CoinTossOverlay state={state} profiles={payload.profiles} userId={userId} now={coinClock} />
       <div className="orientation-hint"><span>↻</span><b>기기를 가로로 돌려주세요</b><small>결투장은 가로 화면에 최적화되어 있습니다.</small></div>
       <header className="duel-topbar">
         <div className="duelist opponent"><Avatar id={opponent?.avatar} /><span><small>OPPONENT</small><b>{opponent?.display_name ?? '상대'}</b></span></div>
-        <div className="turn-orb"><small>TURN {state.turnNumber}</small><b>{myTurn ? 'YOUR TURN' : 'OPPONENT TURN'}</b><span>{state.phase === 'main' ? 'MAIN PHASE' : 'BATTLE PHASE'}</span></div>
+        <div className="turn-orb"><small>{coinTossActive ? 'OPENING CEREMONY' : `TURN ${state.turnNumber}`}</small><b>{coinTossActive ? 'COIN TOSS' : myTurn ? 'YOUR TURN' : 'OPPONENT TURN'}</b><span>{coinTossActive ? 'FIRST PLAYER DECISION' : state.phase === 'main' ? 'MAIN PHASE' : 'BATTLE PHASE'}</span></div>
         <div className="duel-top-actions"><button className={`log-toggle ${logOpen ? 'active' : ''}`} onClick={() => setLogOpen((value) => !value)}>LOG</button><button className="surrender-button" disabled={busy} onClick={() => confirm('항복하시겠습니까?') && gameAction('surrender')}>항복</button></div>
       </header>
 
@@ -1382,6 +1624,16 @@ export default function Page() {
     keySource: 'none',
   });
   const [bootstrapVersion, setBootstrapVersion] = useState(0);
+  const [inspectedCardId, setInspectedCardId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const openInspector = (event: Event) => {
+      const cardId = (event as CustomEvent<string>).detail;
+      if (cardId && CARD_BY_ID[cardId]) setInspectedCardId(cardId);
+    };
+    window.addEventListener(CARD_INSPECT_EVENT, openInspector);
+    return () => window.removeEventListener(CARD_INSPECT_EVENT, openInspector);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -1521,6 +1773,7 @@ export default function Page() {
       <nav className="mobile-nav">{NAV_ITEMS.slice(0, 5).map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => setView(item.id)}><i><GameIcon name={item.id} /></i><span>{item.label}</span></button>)}</nav>
       <ChatDrawer open={chatOpen} roomId={roomChat} onClose={() => setChatOpen(false)} profile={hub.profile} />
       {chatOpen && <button className="chat-backdrop" aria-label="채팅 닫기" onClick={() => setChatOpen(false)} />}
+      {inspectedCardId && CARD_BY_ID[inspectedCardId] && <CardDetailModal card={CARD_BY_ID[inspectedCardId]} onClose={() => setInspectedCardId(null)} />}
     </main>
   );
 }
