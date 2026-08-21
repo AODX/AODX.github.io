@@ -693,7 +693,7 @@ export default function Home() {
     try {
       const root = document.documentElement as HTMLElement & { requestFullscreen?: () => Promise<void> };
       if (!document.fullscreenElement && root.requestFullscreen) await root.requestFullscreen();
-      const orientation = screen.orientation as ScreenOrientation & { lock?: (orientation: 'landscape') => Promise<void> };
+      const orientation = window.screen.orientation as ScreenOrientation & { lock?: (orientation: 'landscape') => Promise<void> };
       if (orientation?.lock) await orientation.lock('landscape');
       setOrientationMessage('가로 모드를 요청했습니다.');
     } catch {
