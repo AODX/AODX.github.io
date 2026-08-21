@@ -140,7 +140,7 @@ function getAudioContext(): AudioContext | null {
   return sharedAudioContext;
 }
 
-type UiSound = 'click' | 'card' | 'remove' | 'auto' | 'save' | 'pack' | 'reveal' | 'success';
+type UiSound = 'click' | 'card' | 'remove' | 'auto' | 'save' | 'pack' | 'reveal' | 'success' | 'summon' | 'attack' | 'spell' | 'trap' | 'damage' | 'turn';
 
 function playUiSound(kind: UiSound): void {
   const context = getAudioContext();
@@ -159,6 +159,12 @@ function playUiSound(kind: UiSound): void {
     pack: ['sawtooth', 180, 460, 0.16],
     reveal: ['triangle', 460, 960, 0.12],
     success: ['sine', 620, 1040, 0.18],
+    summon: ['triangle', 260, 720, 0.18],
+    attack: ['sawtooth', 180, 92, 0.11],
+    spell: ['sine', 420, 1180, 0.2],
+    trap: ['square', 260, 620, 0.18],
+    damage: ['sawtooth', 120, 70, 0.1],
+    turn: ['sine', 520, 760, 0.12],
   };
   const [type, start, end, duration] = settings[kind];
   osc.type = type;
@@ -1446,11 +1452,48 @@ function ChatDrawer({ open, roomId, onClose, profile }: { open: boolean; roomId?
   );
 }
 
-function DuelEffectLayer({ event }: { event: VisualEvent | null }) {
+function duelEventLabel(event: VisualEvent): string {
+  if (event.kind === 'summon') return '일반 소환';
+  if (event.kind === 'special') return '균열 특수 소환';
+  if (event.kind === 'fusion') return '공명 융합';
+  if (event.kind === 'evolution') return '계승 진화';
+  if (event.kind === 'spell') return '주문 발동';
+  if (event.kind === 'trap') return '함정 발동';
+  if (event.kind === 'set') return '함정 세트';
+  if (event.kind === 'draw') return '드로우';
+  if (event.kind === 'attack') return '공격 선언';
+  if (event.kind === 'defense') return '방어 / 피해';
+  if (event.kind === 'destroy') return '파괴';
+  if (event.kind === 'core') return '리더 직접 피해';
+  return '행동';
+}
+
+function duelEventLocation(event: VisualEvent): string {
+  if (event.kind === 'attack') return event.targetZone !== undefined ? `필드 ${Number(event.sourceZone ?? 0) + 1} → 상대 ${event.targetZone + 1}` : `필드 ${Number(event.sourceZone ?? 0) + 1} → 상대 리더`;
+  if (event.kind === 'set' && event.targetZone !== undefined) return `함정 존 ${event.targetZone + 1}`;
+  if ((event.kind === 'summon' || event.kind === 'special' || event.kind === 'fusion' || event.kind === 'evolution') && event.targetZone !== undefined) return `유닛 존 ${event.targetZone + 1}`;
+  if (event.kind === 'core') return `리더 피해 ${event.amount ?? ''}`.trim();
+  return '';
+}
+
+function DuelEffectLayer({ event, userId, profiles }: { event: VisualEvent | null; userId: string; profiles: RoomProfile[] }) {
   if (!event) return null;
   const card = event.cardId ? CARD_BY_ID[event.cardId] : undefined;
+  const owner = profiles.find((profile) => profile.user_id === event.ownerId);
+  const mine = event.ownerId === userId;
   return (
-    <div className={`duel-vfx-layer event-${event.kind}`} key={event.id} aria-hidden="true">
+    <div className={`duel-vfx-layer v16-vfx-layer event-${event.kind} ${mine ? 'from-me' : 'from-opponent'}`} key={event.id} aria-live="polite">
+      <div className="v16-action-cue">
+        <span className="v16-action-side">{mine ? 'MY ACTION' : 'OPPONENT ACTION'}</span>
+        <b>{duelEventLabel(event)}</b>
+        <small>{duelEventLocation(event) || owner?.display_name || (mine ? '나' : '상대')}</small>
+      </div>
+      {card && (
+        <div className={`v16-event-card element-${card.element}`} style={cardStyle(card)}>
+          <CardIllustration card={card} compact />
+          <span>{card.name}</span>
+        </div>
+      )}
       <div className={`duel-vfx vfx-${event.vfx} element-${card?.element ?? 'neutral'} kind-${event.kind}`} style={card ? cardStyle(card) : undefined}>
         <span className="vfx-ring ring-a" />
         <span className="vfx-ring ring-b" />
@@ -1459,10 +1502,11 @@ function DuelEffectLayer({ event }: { event: VisualEvent | null }) {
         <span className="vfx-particles">
           {Array.from({ length: 18 }, (_, index) => <i key={index} style={{ '--i': index } as CSSProperties} />)}
         </span>
-        <strong>{card?.sigil ?? (event.kind === 'fusion' ? '∞' : event.kind === 'evolution' ? '△' : '◈')}</strong>
-        <b>{event.label ?? card?.name ?? ''}</b>
+        <strong>{card?.sigil ?? (event.kind === 'fusion' ? '∞' : event.kind === 'evolution' ? '△' : event.kind === 'attack' ? '➜' : event.kind === 'trap' ? '!' : '◈')}</strong>
+        <b>{event.label ?? card?.name ?? duelEventLabel(event)}</b>
         {event.amount !== undefined && event.amount > 0 && <em>{event.amount}</em>}
       </div>
+      {event.kind === 'attack' && <span className="v16-attack-streak" />}
     </div>
   );
 }
@@ -1517,6 +1561,50 @@ function extraRequirement(card: CardDefinition): string {
   if (card.kind === 'evolution') return card.evolutionRecipe?.label ?? '진화시킬 유닛을 선택하세요.';
   if (card.summonMode === 'rift') return card.riftCondition?.label ?? '균열 조건을 확인하세요.';
   return card.text;
+}
+
+
+function clientRiftReady(state: MatchState, playerId: string, opponentId: string, card: CardDefinition): boolean {
+  const condition = card.riftCondition;
+  if (card.summonMode !== 'rift' || !condition) return false;
+  const myUnits = state.boards[playerId].units.filter(Boolean);
+  const enemyUnits = state.boards[opponentId].units.filter(Boolean);
+  if (condition.kind === 'empty_board') return myUnits.length === 0;
+  if (condition.kind === 'core_below') return (state.core[playerId] ?? 25) <= condition.value;
+  if (condition.kind === 'opponent_more_units') return enemyUnits.length > myUnits.length;
+  if (condition.kind === 'graveyard_min') return (state.graveyards[playerId]?.length ?? 0) >= condition.value;
+  if (condition.kind === 'ally_element') return myUnits.some((unit) => CARD_BY_ID[unit?.cardId ?? '']?.element === condition.element);
+  return false;
+}
+
+function clientFusionMaterialMatches(unit: UnitState, material: NonNullable<CardDefinition['fusionRecipe']>['materials'][number]): boolean {
+  const source = CARD_BY_ID[unit.cardId];
+  if (!source) return false;
+  if (material.cardIds?.length && !material.cardIds.includes(source.id)) return false;
+  if (material.element && source.element !== material.element) return false;
+  if (material.minCost !== undefined && source.cost < material.minCost) return false;
+  return true;
+}
+
+function clientCanAssignFusion(units: UnitState[], materials: NonNullable<CardDefinition['fusionRecipe']>['materials'], at = 0, used = new Set<number>()): boolean {
+  if (at >= materials.length) return true;
+  for (let index = 0; index < units.length; index += 1) {
+    if (used.has(index) || !clientFusionMaterialMatches(units[index], materials[at])) continue;
+    used.add(index);
+    if (clientCanAssignFusion(units, materials, at + 1, used)) return true;
+    used.delete(index);
+  }
+  return false;
+}
+
+function clientEvolutionReady(unit: UnitState, card: CardDefinition): boolean {
+  const recipe = card.evolutionRecipe;
+  const source = CARD_BY_ID[unit.cardId];
+  if (!recipe || !source) return false;
+  if (recipe.fromIds?.includes(source.id)) return true;
+  return (!recipe.element || recipe.element === source.element)
+    && (recipe.minCost === undefined || source.cost >= recipe.minCost)
+    && (recipe.maxCost === undefined || source.cost <= recipe.maxCost);
 }
 
 
@@ -1647,11 +1735,23 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
     const [next, ...rest] = vfxQueue;
     setVfxQueue(rest);
     setActiveVfx(next);
+    const duration = next.kind === 'attack' || next.kind === 'defense' || next.kind === 'core' ? 1050 : next.kind === 'draw' || next.kind === 'set' ? 900 : 1450;
     const timer = window.setTimeout(() => {
       setActiveVfx((current) => current?.id === next.id ? null : current);
-    }, 1300);
+    }, duration);
     return () => window.clearTimeout(timer);
   }, [activeVfx, vfxQueue]);
+
+  useEffect(() => {
+    if (!activeVfx) return;
+    const sound: UiSound = activeVfx.kind === 'attack' ? 'attack'
+      : activeVfx.kind === 'spell' ? 'spell'
+        : activeVfx.kind === 'trap' || activeVfx.kind === 'set' ? 'trap'
+          : activeVfx.kind === 'core' || activeVfx.kind === 'destroy' || activeVfx.kind === 'defense' ? 'damage'
+            : activeVfx.kind === 'draw' ? 'turn'
+              : 'summon';
+    playUiSound(sound);
+  }, [activeVfx?.id]);
 
   if (!nullableState || !nullablePrivateState || nullableState.playerOrder.length !== 2) return <LoadingScreen text="결투 상태를 동기화하는 중" />;
   const state = nullableState;
@@ -1685,6 +1785,25 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   const selectingFriendlyTarget = Boolean(myTurn && state.phase === 'main' && selectedCard?.target === 'friendly_unit');
   const selectingMaterials = Boolean(myTurn && state.phase === 'main' && selectedExtraCard);
   const selectingAttackTarget = Boolean(myTurn && state.phase === 'battle' && selectedAttacker !== null);
+  const opponentHasUnits = state.boards[opponentId].units.some(Boolean);
+  const directAttackOpen = !opponentHasUnits;
+  const selectedAttackerCanHitCore = Boolean(selectingAttackTarget && directAttackOpen);
+  const myFieldUnits = state.boards[userId].units.filter((unit): unit is UnitState => Boolean(unit));
+  const riftReadyInstances = privateState.hand.filter((instance) => {
+    const card = CARD_BY_ID[instance.cardId];
+    if (!card || card.kind !== 'unit' || card.summonMode !== 'rift') return false;
+    const cost = card.riftCost ?? card.cost;
+    return myTurn && state.phase === 'main' && myEnergy.current >= cost && state.boards[userId].units.some((slot) => !slot) && clientRiftReady(state, userId, opponentId, card);
+  });
+  const extraReadyInstances = privateState.extra.filter((instance) => {
+    const card = CARD_BY_ID[instance.cardId];
+    if (!card || card.cost > myEnergy.current || !myTurn || state.phase !== 'main') return false;
+    if (card.kind === 'fusion') { const materials = card.fusionRecipe?.materials ?? []; return materials.length > 0 && clientCanAssignFusion(myFieldUnits, materials); }
+    if (card.kind === 'evolution') return myFieldUnits.some((unit) => clientEvolutionReady(unit, card));
+    return false;
+  });
+  const specialReadyIds = new Set([...riftReadyInstances.map((item) => item.instanceId), ...extraReadyInstances.map((item) => item.instanceId)]);
+  const specialReadyCount = specialReadyIds.size;
 
   function clearSelection(note = '') {
     setSelectedHand(null);
@@ -1823,7 +1942,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   function currentAttackHint(unitIndex: number) {
     const unit = state.boards[userId].units[unitIndex];
     const card = unit ? CARD_BY_ID[unit.cardId] : undefined;
-    return `${card?.name ?? '유닛'} 선택 · 공격할 적 유닛 또는 상대 코어를 누르세요.`;
+    return directAttackOpen ? `${card?.name ?? '유닛'} 선택 · 상대 필드가 비었습니다. 상대 리더를 직접 공격할 수 있습니다.` : `${card?.name ?? '유닛'} 선택 · 공격할 상대 유닛을 선택하세요.`;
   }
 
   function activateSelectedNoTarget() {
@@ -1846,25 +1965,30 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   }
 
   const actionGuide = !myTurn
-    ? '상대가 플레이 중입니다. 손패나 필드 카드를 눌러 상세 정보는 확인할 수 있습니다.'
+    ? '상대 행동을 확인 중입니다. 중앙 연출과 최근 행동 기록에서 소환·주문·함정·공격을 확인할 수 있습니다.'
     : state.phase === 'battle'
-      ? selectedAttacker !== null ? '공격할 적 유닛 또는 상대 코어를 선택하세요.' : '공격 가능한 내 유닛을 선택하세요.'
-      : selectedExtraCard ? `소재 ${selectedMaterials.length}/${requiredMaterials} 선택 후 소환하세요.`
+      ? selectedAttacker !== null
+        ? directAttackOpen ? '상대 필드가 비었습니다. 상대 리더를 눌러 직접 공격하세요.' : '공격할 상대 유닛을 선택하세요.'
+        : '빛나는 내 유닛을 선택해 공격을 선언하세요.'
+      : selectedExtraCard ? `소재 ${selectedMaterials.length}/${requiredMaterials} 선택 후 특수 소환하세요.`
         : selectedCard?.kind === 'unit' ? '빛나는 빈 유닛 칸을 눌러 소환하세요.'
-          : selectedCard?.kind === 'trap' ? '빛나는 빈 함정 칸을 눌러 세트하세요.'
+          : selectedCard?.kind === 'trap' ? '빛나는 빈 함정 칸을 눌러 세트하세요. 세트한 함정은 나에게만 앞면으로 보입니다.'
             : selectedCard?.target === 'enemy_unit' ? '빛나는 적 유닛을 선택하세요.'
               : selectedCard?.target === 'friendly_unit' ? '빛나는 아군 유닛을 선택하세요.'
-                : selectedCard ? '오른쪽 행동 버튼으로 카드를 발동하세요.'
-                  : '손패에서 카드를 선택하거나 전투 단계로 이동하세요.';
+                : selectedCard ? '행동 버튼으로 카드를 발동하세요.'
+                  : specialReadyCount > 0 ? `특수 소환 가능 카드 ${specialReadyCount}장이 있습니다.` : '손패에서 카드를 선택하거나 전투 단계로 이동하세요.';
 
   return (
     <div className="duel-screen ascension-duel-screen v15-duel-screen">
-      <DuelEffectLayer event={activeVfx} />
+      <DuelEffectLayer event={activeVfx} userId={userId} profiles={payload.profiles} />
       <CoinTossOverlay state={state} profiles={payload.profiles} userId={userId} now={coinClock} />
       <div className="orientation-hint"><span>↻</span><b>기기를 가로로 돌려주세요</b><small>결투장은 가로 화면에 최적화되어 있습니다.</small></div>
       {busy && <div className="v14-action-progress v15-action-progress"><span />서버에서 행동을 처리하고 있습니다…</div>}
+      {myTurn && specialReadyCount > 0 && state.phase === 'main' && (
+        <div className="v16-special-toast"><span>✦</span><div><b>특수 소환 가능</b><small>균열·공명 융합·계승 진화 중 {specialReadyCount}장이 현재 조건을 만족합니다.</small></div></div>
+      )}
 
-      <header className="duel-topbar v15-duel-topbar">
+      <header className="duel-topbar v15-duel-topbar v16-duel-topbar">
         <div className="duelist opponent"><Avatar id={opponent?.avatar} /><span><small>OPPONENT</small><b>{opponent?.display_name ?? '상대'}</b></span></div>
         <div className="v15-turn-center">
           <div className="v15-turn-title"><small>ROUND {roundNumber} · TURN {state.turnNumber}</small><b>{coinTossActive ? '선공 결정 중' : myTurn ? '내 턴' : '상대 턴'}</b><span>{coinTossActive ? 'OPENING' : phaseLabel}</span></div>
@@ -1881,22 +2005,27 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
         <div className="duel-top-actions"><button className={`log-toggle ${logOpen ? 'active' : ''}`} onClick={() => setLogOpen((value) => !value)}>기록</button><button className="surrender-button" disabled={busy} onClick={() => confirm('항복하시겠습니까?') && gameAction('surrender')}>항복</button></div>
       </header>
 
-      <section className="battlefield v15-battlefield">
-        <div className="battlefield-texture" />
+      <section className="battlefield v15-battlefield v16-battlefield">
+        <div className="battlefield-texture v16-battlefield-texture" />
+        <div className="v16-arena-rune" aria-hidden="true"><i /><i /><i /></div>
+        <aside className="v16-live-feed" aria-label="최근 행동">
+          <header><span>LIVE</span><b>최근 행동</b></header>
+          {state.logs.slice(-4).reverse().map((log) => <p className={`tone-${log.tone}`} key={log.id}>{log.text}</p>)}
+        </aside>
         <div className="v15-field-caption opponent"><span>OPPONENT FIELD</span><b>CORE {state.core[opponentId]}</b></div>
         <div className="opponent-hand v15-opponent-hand">
           {Array.from({ length: Math.min(8, state.handCounts[opponentId] ?? 0) }, (_, index) => <CardFace key={index} hidden compact />)}
           {(state.handCounts[opponentId] ?? 0) > 8 && <b>+{(state.handCounts[opponentId] ?? 0) - 8}</b>}
         </div>
         <div className="core-panel enemy-core v15-core-panel">
-          <button className={selectingAttackTarget ? 'targetable' : ''} disabled={!myTurn || state.phase !== 'battle' || selectedAttacker === null || busy} onClick={() => gameAction('attack', { attackerIndex: selectedAttacker, target: { kind: 'core' } })}>
-            <span>상대 코어</span><strong>{state.core[opponentId]}</strong><small>{selectingAttackTarget ? '직접 공격' : 'ENEMY CORE'}</small>
+          <button className={`v16-leader-core ${selectedAttackerCanHitCore ? 'targetable direct-ready' : ''}`} disabled={!selectedAttackerCanHitCore || busy} onClick={() => gameAction('attack', { attackerIndex: selectedAttacker, target: { kind: 'core' } })}>
+            <span>상대 체력</span><strong>{state.core[opponentId]}</strong><small>{selectedAttackerCanHitCore ? '직접 공격 가능' : opponentHasUnits && selectingAttackTarget ? '상대 유닛을 먼저 공격' : 'ENEMY HP'}</small>
           </button>
           <DuelEnergyMeter label="상대 에너지" current={opponentEnergy.current} max={opponentEnergy.max} opponent />
         </div>
 
         <div className="zone-row enemy-secrets">
-          {state.boards[opponentId].secrets.map((secret, index) => <div className={`secret-slot ${secret ? 'set' : ''}`} key={index}>{secret ? <CardFace hidden compact /> : <span>{index + 1}</span>}</div>)}
+          {state.boards[opponentId].secrets.map((secret, index) => <div className={`secret-slot v16-secret-slot enemy ${secret ? 'set' : ''}`} key={index}>{secret ? <><CardFace hidden compact /><small>SET</small></> : <span>{index + 1}</span>}</div>)}
         </div>
         <div className="zone-row enemy-units">
           {state.boards[opponentId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={opponentId} index={index} enemy targetable={Boolean(unit && (selectingEnemyTarget || selectingAttackTarget))} onClick={() => targetUnit(opponentId, index)} />)}
@@ -1923,12 +2052,22 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
           ))}
         </div>
         <div className="zone-row my-secrets">
-          {state.boards[userId].secrets.map((secret, index) => <button type="button" className={`secret-slot ${secret ? 'set' : ''} ${!secret && selectingTrapToSet ? 'targetable' : ''}`} key={index} onClick={() => !secret && playToSecretZone(index)}>{secret ? <CardFace hidden compact /> : <span>{index + 1}</span>}</button>)}
+          {state.boards[userId].secrets.map((secret, index) => {
+            const ownedInstance = privateState.secrets[index];
+            const ownedTrap = ownedInstance ? CARD_BY_ID[ownedInstance.cardId] : undefined;
+            if (secret && ownedTrap) return (
+              <button type="button" className="secret-slot v16-secret-slot mine set revealed" key={index} onClick={() => requestCardInspection(ownedTrap.id)} title={`${ownedTrap.name} · ${trapTriggerDescription(ownedTrap.trapTrigger)}`}>
+                <CardIllustration card={ownedTrap} compact />
+                <b>{ownedTrap.name}</b><small>ARMED</small>
+              </button>
+            );
+            return <button type="button" className={`secret-slot v16-secret-slot mine ${!secret && selectingTrapToSet ? 'targetable' : ''}`} key={index} onClick={() => !secret && playToSecretZone(index)}><span>{index + 1}</span></button>;
+          })}
         </div>
 
         <div className="core-panel my-core v15-core-panel">
           <DuelEnergyMeter label="내 에너지" current={myEnergy.current} max={myEnergy.max} nextMax={!myTurn ? nextMyEnergyMax : undefined} />
-          <div><span>내 코어</span><strong>{state.core[userId]}</strong><small>YOUR CORE</small></div>
+          <div className="v16-my-hp"><span>내 체력</span><strong>{state.core[userId]}</strong><small>YOUR HP</small></div>
         </div>
         <div className="v15-field-caption mine"><span>YOUR FIELD</span><b>{actionGuide}</b></div>
       </section>
@@ -1946,18 +2085,18 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
               {privateState.hand.map((instance) => {
                 const card = CARD_BY_ID[instance.cardId];
                 const affordable = Boolean(card && myEnergy.current >= (card.summonMode === 'rift' && card.riftCost !== undefined ? Math.min(card.cost, card.riftCost) : card.cost));
-                return <div className={`v15-hand-card ${myTurn && state.phase === 'main' ? (affordable ? 'affordable' : 'expensive') : 'view-only'}`} key={instance.instanceId}><CardFace card={card} compact selected={selectedHand === instance.instanceId} disabled={busy} onClick={() => chooseHand(instance.instanceId)} /></div>;
+                return <div className={`v15-hand-card ${specialReadyIds.has(instance.instanceId) ? 'v16-special-ready-card' : ''} ${myTurn && state.phase === 'main' ? (affordable ? 'affordable' : 'expensive') : 'view-only'}`} key={instance.instanceId}>{specialReadyIds.has(instance.instanceId) && <span className="v16-special-ready-badge">SPECIAL</span>}<CardFace card={card} compact selected={selectedHand === instance.instanceId} disabled={busy} onClick={() => chooseHand(instance.instanceId)} /></div>;
               })}
             </div>
           </div>
           <div className="extra-zone v15-extra-zone">
             <header><span>EXTRA</span><b>{privateState.extra.length}</b></header>
-            <div>{privateState.extra.map((instance) => <CardFace key={instance.instanceId} card={CARD_BY_ID[instance.cardId]} compact selected={selectedExtra === instance.instanceId} disabled={busy} onClick={() => chooseExtra(instance.instanceId)} />)}</div>
+            <div>{privateState.extra.map((instance) => <div className={`v16-extra-card ${specialReadyIds.has(instance.instanceId) ? 'special-ready' : ''}`} key={instance.instanceId}>{specialReadyIds.has(instance.instanceId) && <span>SPECIAL</span>}<CardFace card={CARD_BY_ID[instance.cardId]} compact selected={selectedExtra === instance.instanceId} disabled={busy} onClick={() => chooseExtra(instance.instanceId)} /></div>)}</div>
           </div>
         </div>
 
         <aside className="phase-controls v15-phase-controls">
-          <div className={`v15-action-guide ${myTurn ? 'mine' : 'opponent'}`}><small>{myTurn ? 'YOUR ACTION' : 'WAITING'}</small><b>{myTurn ? phaseLabel : '상대가 플레이 중입니다'}</b><span>{actionGuide}</span></div>
+          <div className={`v15-action-guide v16-action-guide ${myTurn ? 'mine' : 'opponent'}`}><small>{myTurn ? 'YOUR ACTION' : 'OPPONENT TURN'}</small><b>{myTurn ? phaseLabel : '상대 행동을 관전 중'}</b><span>{actionGuide}</span>{!myTurn && state.logs.length > 0 && <em>최근: {state.logs[state.logs.length - 1]?.text}</em>}</div>
           {selectedCard && (
             <div className={`selected-card-action v14-selected-card v15-selected-card ${selectedCard.summonMode === 'rift' ? 'rift' : ''}`}>
               <div className="v14-selected-head"><b>{selectedCard.name}</b><div><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>취소</button></div></div>

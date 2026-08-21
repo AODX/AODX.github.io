@@ -12,7 +12,7 @@ import {
 export type MatchPhase = 'main' | 'battle';
 export type MatchStatus = 'waiting' | 'active' | 'finished';
 export type SummonOrigin = 'normal' | 'rift' | 'fusion' | 'evolution' | 'token';
-export type VisualEventKind = 'summon' | 'special' | 'fusion' | 'evolution' | 'spell' | 'trap' | 'attack' | 'defense' | 'destroy' | 'core';
+export type VisualEventKind = 'summon' | 'special' | 'fusion' | 'evolution' | 'spell' | 'trap' | 'set' | 'draw' | 'attack' | 'defense' | 'destroy' | 'core';
 
 export interface CardInstance {
   instanceId: string;
@@ -348,13 +348,17 @@ function applyEffect(
     case 'damage_unit': {
       if (!target) throw new Error('대상 유닛을 선택해야 합니다.');
       damageUnit(state, target.ownerId, target.unitIndex, effect.amount);
+      appendVisual(state, { kind: 'defense', vfx: 'effect-impact', ownerId: actorId, targetOwnerId: target.ownerId, targetZone: target.unitIndex, amount: effect.amount, label: '효과 피해' });
       break;
     }
     case 'damage_core':
       state.core[opponentId] -= effect.amount;
+      appendVisual(state, { kind: 'core', vfx: 'core-impact', ownerId: actorId, targetOwnerId: opponentId, amount: effect.amount, label: '코어 피해' });
+      appendLog(state, `효과로 상대 코어에 ${effect.amount} 피해.`, 'attack');
       break;
     case 'heal_core':
       healCore(state, actorId, effect.amount);
+      appendLog(state, `코어를 ${effect.amount} 회복했습니다.`, 'system');
       break;
     case 'draw':
       drawCards(state, actorPrivate, actorId, effect.amount);
@@ -592,6 +596,7 @@ export function playCard(
   } else if (card.kind === 'spell') {
     spendEnergy(state, playerId, card.cost);
     playerPrivate.hand.splice(handIndex, 1);
+    appendLog(state, `주문 「${card.name}」 발동 선언.`, 'system');
     appendVisual(state, {
       kind: 'spell',
       vfx: resolveCardVfx(card, 'activation'),
@@ -605,7 +610,7 @@ export function playCard(
     if (!counter.negated && card.effect) {
       const effectTarget = card.target === 'enemy_core' ? undefined : target;
       applyEffect(state, privateStates, playerId, card.effect, effectTarget);
-      appendLog(state, `주문 「${card.name}」 발동.`, 'system');
+      appendLog(state, `주문 「${card.name}」 효과 처리 완료.`, 'system');
     } else if (counter.negated) {
       if (counter.retaliation > 0) state.core[playerId] -= counter.retaliation;
       appendLog(state, `주문 「${card.name}」이(가) 무효화되었습니다.`, 'trap');
@@ -619,6 +624,13 @@ export function playCard(
     playerPrivate.secrets[zone] = instance;
     state.boards[playerId].secrets[zone] = { occupied: true };
     appendLog(state, '함정 카드 1장을 세트했습니다.', 'system');
+    appendVisual(state, {
+      kind: 'set',
+      vfx: 'secret-set',
+      ownerId: playerId,
+      targetZone: zone,
+      label: '함정 세트',
+    });
   }
 
   state.handCounts[playerId] = playerPrivate.hand.length;
@@ -787,6 +799,7 @@ export function attack(
 
   if (target.kind === 'core') {
     if (state.boards[opponentId].units.some(Boolean)) throw new Error('상대 필드에 유닛이 남아 있어 직접 공격할 수 없습니다.');
+    appendLog(state, `${attackerCard?.name ?? '유닛'} → 상대 코어 직접 공격 선언 (${attacker.attack})`, 'attack');
     const trap = triggerTrap(state, privateStates, opponentId, 'direct_attack');
     if (trap.negated) {
       if (trap.retaliation > 0) damageUnit(state, playerId, attackerIndex, trap.retaliation);
@@ -804,6 +817,8 @@ export function attack(
     if (guardIndexes.length > 0 && !guardIndexes.includes(target.unitIndex)) throw new Error('수호 유닛을 먼저 공격해야 합니다.');
     const defender = state.boards[opponentId].units[target.unitIndex];
     if (!defender) throw new Error('선택한 위치에 적 유닛이 없습니다.');
+    const declaredDefenderCard = CARD_BY_ID[defender.cardId];
+    appendLog(state, `${attackerCard?.name ?? '유닛'} → ${declaredDefenderCard?.name ?? '적 유닛'} 공격 선언 (${attacker.attack})`, 'attack');
 
     triggerTrap(state, privateStates, opponentId, 'unit_attacked', { ownerId: opponentId, unitIndex: target.unitIndex });
     const defenderAfterTrap = state.boards[opponentId].units[target.unitIndex];
@@ -844,7 +859,7 @@ export function attack(
       if (overflow > 0) state.core[opponentId] -= overflow;
     }
     attacker.canAttack = false;
-    appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) ${defenderCard?.name ?? '적 유닛'}과 충돌했습니다.`, 'attack');
+    appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) ${defenderCard?.name ?? '적 유닛'}에게 ${attackerDamage} 피해 · 반격 ${defenderDamage} 피해.`, 'attack');
   }
 
   state.turnActionTaken = true;
@@ -893,8 +908,11 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
     if (unit) unit.canAttack = true;
   });
   const drew = drawCards(state, privateStates[nextPlayer], nextPlayer, 1);
+  if (drew && state.status === 'active') {
+    appendVisual(state, { kind: 'draw', vfx: 'turn-draw', ownerId: nextPlayer, label: '턴 시작 드로우' });
+  }
   if (reason) appendLog(state, reason, 'system');
-  if (drew && state.status === 'active') appendLog(state, `${nextPlayer.slice(0, 6)}의 턴입니다. 에너지 ${nextEnergy.current}/${nextEnergy.max}.`, 'system');
+  if (drew && state.status === 'active') appendLog(state, `${nextPlayer.slice(0, 6)}의 턴 시작 · 카드 1장 드로우 · 에너지 ${nextEnergy.current}/${nextEnergy.max}.`, 'system');
   if (state.status !== 'active') state.turnEndsAt = null;
   checkWinner(state);
 }
@@ -908,7 +926,7 @@ export function drawAndEndTurn(snapshot: GameSnapshot, playerId: string): Action
   const playerPrivate = privateStates[playerId];
   const drew = drawCards(state, playerPrivate, playerId, 1);
   appendLog(state, `${playerId.slice(0, 6)}이(가) 턴을 소비해 카드 1장을 추가로 드로우했습니다.`, 'system');
-  appendVisual(state, { kind: 'special', vfx: 'draw-pulse', ownerId: playerId, label: 'TURN DRAW' });
+  appendVisual(state, { kind: 'draw', vfx: 'draw-pulse', ownerId: playerId, label: '턴 소비 드로우' });
   if (!drew || state.status !== 'active') {
     state.turnEndsAt = null;
     checkWinner(state);
