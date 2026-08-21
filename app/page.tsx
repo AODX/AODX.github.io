@@ -652,6 +652,8 @@ export default function Home() {
   const [rouletteDone, setRouletteDone] = useState(false);
   const [practiceAttempt, setPracticeAttempt] = useState(0);
   const [practiceResult, setPracticeResult] = useState<number | null>(null);
+  const [needsLandscape, setNeedsLandscape] = useState(false);
+  const [orientationMessage, setOrientationMessage] = useState('');
   const chatRef = useRef<HTMLDivElement>(null);
   const resolvingRef = useRef<string>('');
   const startingGameRef = useRef<string>('');
@@ -670,6 +672,34 @@ export default function Home() {
   const screen = !room ? 'home' : (!me && isSetupLobby ? 'draft' : isTutorial ? 'roulette' : room.status==='playing' ? 'game' : room.status==='round_result' ? 'result' : room.status==='finished' ? 'final' : 'room');
 
   useEffect(() => { setSessionId(getSessionId()); }, []);
+
+  useEffect(() => {
+    const updateOrientation = () => {
+      const coarse = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+      const tabletOrPhone = coarse && Math.min(window.screen.width, window.screen.height) <= 1024;
+      setNeedsLandscape(tabletOrPhone && window.innerHeight > window.innerWidth);
+    };
+    updateOrientation();
+    window.addEventListener('resize', updateOrientation);
+    window.addEventListener('orientationchange', updateOrientation);
+    return () => {
+      window.removeEventListener('resize', updateOrientation);
+      window.removeEventListener('orientationchange', updateOrientation);
+    };
+  }, []);
+
+  async function tryLandscapeMode() {
+    setOrientationMessage('');
+    try {
+      const root = document.documentElement as HTMLElement & { requestFullscreen?: () => Promise<void> };
+      if (!document.fullscreenElement && root.requestFullscreen) await root.requestFullscreen();
+      const orientation = screen.orientation as ScreenOrientation & { lock?: (orientation: 'landscape') => Promise<void> };
+      if (orientation?.lock) await orientation.lock('landscape');
+      setOrientationMessage('가로 모드를 요청했습니다.');
+    } catch {
+      setOrientationMessage('자동 전환이 제한된 기기입니다. 기기를 가로로 돌려주세요.');
+    }
+  }
 
   const fetchGlobal = useCallback(async () => {
     const { data } = await supabase.from('arena_messages').select('*').is('room_id', null).order('created_at').limit(100);
@@ -860,6 +890,16 @@ export default function Home() {
     : undefined;
 
   return <main className={`app screen-${screen}`}>
+    {needsLandscape&&<div className="landscapeGate" role="dialog" aria-modal="true" aria-label="가로 화면 필요">
+      <div className="landscapeCard">
+        <div className="rotateDevice" aria-hidden="true"><span>▰</span><i>↻</i></div>
+        <small>MOBILE / TABLET</small>
+        <h1>가로 화면으로 플레이하세요</h1>
+        <p>VANTA FESTIVAL은 폰과 태블릿에서 가로 화면에 맞춰 조작부와 경기장을 크게 표시합니다.</p>
+        <button className="btn primary huge" type="button" onClick={tryLandscapeMode}>가로 모드로 전환</button>
+        <span className="orientationHint">{orientationMessage||'자동 전환이 안 되면 기기를 직접 가로로 돌려주세요.'}</span>
+      </div>
+    </div>}
     <header className="gameNav">
       <button className="brandButton" onClick={()=>{ if(!room) return; }}><span className="brandGlyph">V</span><span><b>VANTA</b><small>FESTIVAL</small></span></button>
       {room&&<div className="navRoom"><span>ROOM</span><b>{room.code}</b><i>{room.mode==='long'?'LONG · 10 WINS':'QUICK · 2 WINS'}</i></div>}
