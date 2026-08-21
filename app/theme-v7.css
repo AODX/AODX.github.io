@@ -1,0 +1,667 @@
+/* ========================================================================== */
+/* ECLIPSE DUEL v7 · ART REFORGED                                             */
+/* Card layout stabilization, responsive detail view, lighter interaction,    */
+/* and original per-card artwork presentation.                                */
+/* ========================================================================== */
+
+:root {
+  --v7-speed: 120ms;
+  --v7-ease: cubic-bezier(.2, .8, .2, 1);
+  --v7-panel: #0b111a;
+  --v7-panel-2: #101824;
+  --v7-line: rgba(174, 198, 229, .16);
+  --v7-text: #f4f7fc;
+  --v7-muted: #96a5ba;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Card shell: fixed rows and no stretching children                          */
+/* -------------------------------------------------------------------------- */
+
+.tcg-card {
+  width: 216px;
+  max-width: 100%;
+  aspect-ratio: 5 / 7 !important;
+  display: grid !important;
+  grid-template-rows: 38px minmax(0, 1fr) 22px 58px 31px !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  contain: layout paint style;
+  isolation: isolate;
+  touch-action: manipulation;
+  transform: translate3d(0, 0, 0);
+  transition:
+    transform var(--v7-speed) var(--v7-ease),
+    border-color var(--v7-speed) linear,
+    box-shadow var(--v7-speed) linear !important;
+}
+
+.tcg-card::after {
+  display: none !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tcg-card:not(:disabled):hover,
+  .tcg-card:not(.is-disabled):hover {
+    z-index: 6;
+    transform: translate3d(0, -4px, 0) scale(1.012) !important;
+    box-shadow:
+      0 19px 42px rgba(0, 0, 0, .42),
+      0 0 18px color-mix(in srgb, var(--card-accent) 13%, transparent) !important;
+  }
+}
+
+.tcg-card:active {
+  transform: translate3d(0, 0, 0) scale(.985) !important;
+  transition-duration: 45ms !important;
+}
+
+.tcg-card.compact {
+  width: 122px;
+  aspect-ratio: 5 / 7 !important;
+  grid-template-rows: 28px minmax(0, 1fr) 18px 24px !important;
+}
+
+.tcg-card > .card-topline {
+  grid-row: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  padding: 0 38px 0 12px !important;
+  overflow: hidden;
+}
+
+.tcg-card.compact > .card-topline {
+  padding: 0 25px 0 8px !important;
+}
+
+.tcg-card > .card-topline b,
+.tcg-card > .card-topline small,
+.tcg-card > .card-subtitle,
+.tcg-card > .card-text,
+.tcg-card > .card-footer span,
+.tcg-card > .card-footer b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tcg-card > .card-topline b {
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.1;
+}
+
+.tcg-card > .card-topline small {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: 7px;
+}
+
+.tcg-card > .card-art {
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0 !important;
+  position: relative;
+  display: block !important;
+  margin: 7px 8px 0 !important;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 8px;
+  background: #070b11;
+  transform: translateZ(0);
+}
+
+.tcg-card.compact > .card-art {
+  margin: 4px 5px 0 !important;
+  border-radius: 5px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Per-card artwork                                                           */
+/* -------------------------------------------------------------------------- */
+
+.card-illustration {
+  position: absolute !important;
+  inset: 0 !important;
+  display: block !important;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--card-accent) 28%, transparent), transparent 48%),
+    #080c13;
+  transform: translateZ(0);
+}
+
+.card-illustration .card-art-image {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+  user-select: none;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  transform: translate3d(0, 0, 0) scale(1.002);
+  transition: transform 180ms var(--v7-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tcg-card:hover .card-art-image {
+    transform: translate3d(0, 0, 0) scale(1.025);
+  }
+}
+
+.card-art-grade,
+.card-art-vignette,
+.card-art-rune {
+  position: absolute;
+  pointer-events: none;
+}
+
+.card-art-grade {
+  inset: 0;
+  z-index: 2;
+  opacity: .24;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, .13), transparent 23% 72%, rgba(255, 255, 255, .04)),
+    linear-gradient(180deg, transparent 60%, color-mix(in srgb, var(--card-accent) 16%, transparent));
+}
+
+.card-illustration.rarity-epic .card-art-grade,
+.card-illustration.rarity-legendary .card-art-grade {
+  opacity: .38;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, .18), transparent 25% 68%, rgba(255, 255, 255, .07)),
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--card-accent) 18%, transparent), transparent 52%);
+}
+
+.card-art-vignette {
+  inset: 0;
+  z-index: 3;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, .02) 52%, rgba(0, 0, 0, .42) 100%),
+    linear-gradient(90deg, rgba(0, 0, 0, .16), transparent 22% 78%, rgba(0, 0, 0, .16));
+}
+
+.card-art-rune {
+  z-index: 4;
+  right: 8px;
+  bottom: 7px;
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, .72);
+  background: rgba(3, 7, 12, .64);
+  font-family: Georgia, serif;
+  font-size: 13px;
+  text-shadow: 0 0 10px var(--card-accent);
+}
+
+.tcg-card.compact .card-art-rune {
+  right: 4px;
+  bottom: 4px;
+  width: 18px;
+  height: 18px;
+  font-size: 9px;
+}
+
+.tcg-card > .card-subtitle {
+  grid-row: 3;
+  display: block !important;
+  min-height: 0;
+  padding: 6px 11px 0 !important;
+  white-space: nowrap;
+  font-size: 8px;
+  line-height: 1.1;
+}
+
+.tcg-card > .card-text {
+  grid-row: 4;
+  min-height: 0 !important;
+  display: -webkit-box !important;
+  padding: 7px 11px 6px !important;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.tcg-card > .card-footer {
+  grid-row: 5;
+  min-height: 0;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 11px !important;
+  overflow: hidden;
+}
+
+.tcg-card > .card-footer span,
+.tcg-card > .card-footer b {
+  white-space: nowrap;
+}
+
+.tcg-card > .card-footer b {
+  flex: 0 0 auto;
+}
+
+.tcg-card.compact > .card-subtitle {
+  grid-row: 3;
+  display: block !important;
+  padding: 4px 6px 1px !important;
+  font-size: 6px;
+}
+
+.tcg-card.compact > .card-text {
+  display: none !important;
+}
+
+.tcg-card.compact > .card-footer {
+  grid-row: 4;
+  padding: 0 6px !important;
+}
+
+/* Old theme collision fix: badges can never stretch vertically. */
+.tcg-card > .summon-badge {
+  position: absolute !important;
+  inset: auto auto 35px 9px !important;
+  z-index: 20 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: calc(100% - 18px) !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  max-height: 20px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: auto !important;
+  justify-self: auto !important;
+  padding: 0 7px !important;
+  overflow: hidden !important;
+  border-radius: 999px !important;
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
+  white-space: nowrap !important;
+  line-height: 20px !important;
+  font-size: 6px !important;
+  backdrop-filter: none !important;
+}
+
+.tcg-card.compact > .summon-badge {
+  inset: auto auto 26px 5px !important;
+  height: 15px !important;
+  min-height: 15px !important;
+  max-height: 15px !important;
+  padding: 0 5px !important;
+  line-height: 15px !important;
+  font-size: 5px !important;
+}
+
+.tcg-card > .card-cost {
+  top: 43px !important;
+  left: 10px !important;
+  width: 30px !important;
+  height: 30px !important;
+}
+
+.tcg-card.compact > .card-cost {
+  top: 31px !important;
+  left: 6px !important;
+  width: 22px !important;
+  height: 22px !important;
+}
+
+.tcg-card > .card-quantity {
+  top: 43px !important;
+  right: 9px !important;
+}
+
+.tcg-card.compact > .card-quantity {
+  top: 31px !important;
+  right: 5px !important;
+}
+
+.tcg-card > .card-info-hotspot {
+  top: 8px !important;
+  right: 8px !important;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  min-height: 22px !important;
+  max-width: 22px !important;
+  max-height: 22px !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+  backdrop-filter: none !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Card detail viewer                                                         */
+/* -------------------------------------------------------------------------- */
+
+.card-detail-layer {
+  padding: clamp(10px, 2vw, 24px) !important;
+  background: rgba(2, 5, 10, .93) !important;
+  backdrop-filter: none !important;
+}
+
+.card-detail-modal {
+  width: min(100%, 1080px) !important;
+  max-height: min(92dvh, 800px) !important;
+  display: grid !important;
+  grid-template-columns: minmax(320px, 440px) minmax(0, 1fr) !important;
+  align-items: stretch !important;
+  gap: clamp(22px, 3vw, 42px) !important;
+  padding: clamp(22px, 3vw, 38px) !important;
+  overflow: hidden !important;
+  border-radius: 24px !important;
+  animation: v7-modal-in 150ms var(--v7-ease) both;
+}
+
+@keyframes v7-modal-in {
+  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(.99); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+.card-detail-visual {
+  min-width: 0;
+  min-height: 0;
+  display: grid !important;
+  grid-template-rows: auto auto !important;
+  align-content: start !important;
+  justify-items: stretch !important;
+  gap: 14px !important;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.card-detail-artwork {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--card-accent) 45%, rgba(255, 255, 255, .12));
+  border-radius: 18px;
+  background: #070b12;
+  box-shadow: 0 24px 54px rgba(0, 0, 0, .42);
+  isolation: isolate;
+}
+
+.card-detail-artwork > .card-illustration {
+  position: absolute !important;
+  inset: 0 !important;
+}
+
+.card-detail-artwork .card-art-image {
+  object-fit: cover;
+}
+
+.card-detail-artwork::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(2, 5, 10, .12) 42%, rgba(2, 5, 10, .88) 100%),
+    linear-gradient(90deg, rgba(2, 5, 10, .16), transparent 24% 76%, rgba(2, 5, 10, .16));
+}
+
+.card-detail-artbar {
+  position: absolute;
+  z-index: 7;
+  left: 18px;
+  right: 96px;
+  bottom: 16px;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.card-detail-artbar > span {
+  color: color-mix(in srgb, var(--card-accent) 72%, white 28%);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .13em;
+}
+
+.card-detail-artbar > strong {
+  overflow: hidden;
+  color: #fff;
+  font-size: clamp(20px, 2.4vw, 30px);
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 3px 18px rgba(0, 0, 0, .8);
+}
+
+.card-detail-artbar > small {
+  overflow: hidden;
+  color: rgba(229, 237, 248, .75);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-detail-sigil {
+  position: absolute;
+  z-index: 7;
+  right: 16px;
+  bottom: 16px;
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 16px;
+  color: #fff;
+  background: rgba(3, 7, 12, .8);
+  font-family: Georgia, serif;
+  font-size: 28px;
+  font-style: normal;
+  text-shadow: 0 0 15px var(--card-accent);
+}
+
+.card-detail-flavor {
+  width: 100% !important;
+  min-width: 0;
+  margin: 0 !important;
+  padding: 14px 16px !important;
+  overflow: hidden;
+}
+
+.card-detail-flavor p {
+  overflow-wrap: anywhere;
+}
+
+.card-detail-content {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding: 4px 8px 4px 0 !important;
+}
+
+.card-detail-content > header h2,
+.card-detail-content > header p,
+.detail-section p,
+.detail-effect-grid b,
+.keyword-list p {
+  overflow-wrap: anywhere;
+}
+
+.card-detail-content > header h2 {
+  font-size: clamp(28px, 3vw, 42px) !important;
+}
+
+.detail-stat-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+.detail-stat-row > span,
+.detail-effect-grid > div,
+.detail-section {
+  overflow: hidden;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Pack opening: reliable clicks and lighter animation                        */
+/* -------------------------------------------------------------------------- */
+
+.pack-experience-layer {
+  backdrop-filter: none !important;
+}
+
+.pack-experience-modal {
+  contain: layout paint;
+  transform: translateZ(0);
+}
+
+.pack-experience-modal .tcg-card,
+.reveal-card-focus .tcg-card,
+.summary-card-row .tcg-card,
+.card-back,
+.physical-pack {
+  pointer-events: auto !important;
+  touch-action: manipulation;
+}
+
+.reveal-card-focus,
+.summary-card-row,
+.sealed-pack-stage {
+  contain: layout paint;
+}
+
+.reveal-card-focus .tcg-card,
+.physical-pack {
+  transition-duration: 110ms !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Responsive                                                                 */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 860px) {
+  .card-detail-modal {
+    grid-template-columns: 300px minmax(0, 1fr) !important;
+    gap: 20px !important;
+    padding: 20px !important;
+  }
+
+  .card-detail-artbar > strong {
+    font-size: 20px;
+  }
+
+  .detail-stat-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 680px) {
+  .card-detail-layer {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .card-detail-modal {
+    width: 100% !important;
+    max-height: 94dvh !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    gap: 16px !important;
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom)) !important;
+    border-radius: 22px 22px 0 0 !important;
+  }
+
+  .card-detail-visual {
+    overflow: visible;
+  }
+
+  .card-detail-flavor {
+    display: none;
+  }
+
+  .card-detail-content {
+    padding-right: 2px !important;
+  }
+
+  .card-detail-content > header {
+    padding-right: 42px;
+  }
+
+  .card-detail-artbar {
+    right: 84px;
+  }
+
+  .card-detail-artbar > strong {
+    font-size: 18px;
+  }
+
+  .card-detail-artbar > small {
+    font-size: 8px;
+  }
+
+  .card-detail-sigil {
+    width: 48px;
+    height: 48px;
+    font-size: 23px;
+  }
+}
+
+@media (max-width: 420px) {
+  .tcg-card {
+    width: 182px;
+  }
+
+  .card-detail-artbar {
+    left: 12px;
+    right: 72px;
+    bottom: 11px;
+  }
+
+  .card-detail-sigil {
+    right: 10px;
+    bottom: 10px;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    font-size: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+@media (hover: none), (max-width: 720px) {
+  .tcg-card,
+  .card-detail-modal,
+  .pack-experience-modal {
+    box-shadow: 0 16px 36px rgba(0, 0, 0, .34) !important;
+  }
+
+  .topbar,
+  .chat-drawer,
+  .sidebar {
+    backdrop-filter: none !important;
+  }
+}

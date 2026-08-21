@@ -143,11 +143,24 @@ function hashString(value: string): number {
   return Math.abs(hash);
 }
 
+function cardArtworkPath(cardId: string): string {
+  return `/card-art/${cardId}.webp`;
+}
+
+function preloadCardArtwork(cardIds: string[]): void {
+  if (typeof window === 'undefined') return;
+  for (const cardId of Array.from(new Set(cardIds))) {
+    const image = new window.Image();
+    image.decoding = 'async';
+    image.src = cardArtworkPath(cardId);
+  }
+}
 
 const CARD_INSPECT_EVENT = 'eclipse:inspect-card';
 
 function requestCardInspection(cardId: string): void {
   if (typeof window === 'undefined') return;
+  preloadCardArtwork([cardId]);
   window.dispatchEvent(new CustomEvent<string>(CARD_INSPECT_EVENT, { detail: cardId }));
 }
 
@@ -213,19 +226,24 @@ function GameIcon({ name }: { name: View | 'chat' | 'coin' | 'logout' | 'sound' 
   return <svg className="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-function CardIllustration({ card, compact = false }: { card: CardDefinition; compact?: boolean }) {
+function CardIllustration({ card, compact = false, hero = false }: { card: CardDefinition; compact?: boolean; hero?: boolean }) {
   const variant = hashString(card.id) % 6;
   return (
-    <span className={`card-illustration variant-${variant} element-${card.element} ${compact ? 'is-compact' : ''}`} aria-hidden="true">
-      <span className="illustration-sky" />
-      <span className="illustration-orbit orbit-one" />
-      <span className="illustration-orbit orbit-two" />
-      <span className="illustration-land" />
-      <span className="illustration-shard shard-one" />
-      <span className="illustration-shard shard-two" />
-      <span className="illustration-shard shard-three" />
-      <strong>{card.sigil}</strong>
-      <em>{card.subtitle}</em>
+    <span className={`card-illustration variant-${variant} element-${card.element} rarity-${card.rarity} ${compact ? 'is-compact' : ''} ${hero ? 'is-hero' : ''}`} aria-hidden="true">
+      <img
+        className="card-art-image"
+        src={cardArtworkPath(card.id)}
+        alt=""
+        width={960}
+        height={600}
+        loading={hero ? 'eager' : 'lazy'}
+        decoding="async"
+        draggable={false}
+        onError={(event) => { if (!event.currentTarget.src.endsWith('/fallback.webp')) event.currentTarget.src = '/card-art/fallback.webp'; }}
+      />
+      <span className="card-art-grade" />
+      <span className="card-art-vignette" />
+      <span className="card-art-rune">{card.sigil}</span>
     </span>
   );
 }
@@ -383,30 +401,54 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
     card.trapEffect ? { label: '함정 효과', value: effectDescription(card.trapEffect) } : null,
   ].filter((row): row is { label: string; value: string } => Boolean(row?.value));
 
+  const summonLabel = card.kind === 'fusion'
+    ? '공명 융합'
+    : card.kind === 'evolution'
+      ? '계승 진화'
+      : card.summonMode === 'rift'
+        ? '균열 소환'
+        : '일반 소환';
+
   return (
     <div className="modal-layer card-detail-layer" role="presentation" onMouseDown={(event: React.MouseEvent) => { if (event.currentTarget === event.target) onClose(); }}>
       <section className={`card-detail-modal element-${card.element} rarity-${card.rarity}`} role="dialog" aria-modal="true" aria-label={`${card.name} 카드 상세 정보`}>
         <button className="modal-close" type="button" onClick={onClose} aria-label="닫기">×</button>
+
         <div className="card-detail-visual">
-          <CardFace card={card} inspectable={false} />
+          <div className="card-detail-artwork">
+            <CardIllustration card={card} hero />
+            <div className="card-detail-artbar">
+              <span>{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]}</span>
+              <strong>{card.name}</strong>
+              <small>{card.subtitle}</small>
+            </div>
+            <i className="card-detail-sigil">{card.sigil}</i>
+          </div>
           <div className="card-detail-flavor"><span>LORE</span><p>{card.flavor}</p></div>
         </div>
+
         <div className="card-detail-content">
           <header>
             <div><span>{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}</span><h2>{card.name}</h2><p>{card.subtitle}</p></div>
             <strong className="detail-cost"><small>COST</small>{card.cost}</strong>
           </header>
 
-          {isUnitCard(card) && (
+          {isUnitCard(card) ? (
             <div className="detail-stat-row">
               <span><small>공격력</small><b>{card.attack ?? 0}</b></span>
               <span><small>방어력</small><b>{card.health ?? 0}</b></span>
-              <span><small>소환 방식</small><b>{card.kind === 'fusion' ? '공명 융합' : card.kind === 'evolution' ? '계승 진화' : card.summonMode === 'rift' ? '균열 소환' : '일반 소환'}</b></span>
+              <span><small>소환 방식</small><b>{summonLabel}</b></span>
+            </div>
+          ) : (
+            <div className="detail-stat-row detail-stat-row-spell">
+              <span><small>카드 종류</small><b>{KIND_LABEL[card.kind]}</b></span>
+              <span><small>속성</small><b>{ELEMENT_LABEL[card.element]}</b></span>
+              <span><small>대상</small><b>{card.target === 'enemy_unit' ? '적 유닛' : card.target === 'friendly_unit' ? '아군 유닛' : card.target === 'enemy_core' ? '상대 코어' : '자동 적용'}</b></span>
             </div>
           )}
 
           <section className="detail-section primary-effect">
-            <span>카드 설명</span>
+            <span>카드 효과</span>
             <p>{card.text}</p>
           </section>
 
@@ -419,7 +461,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
 
           {card.keywords && card.keywords.length > 0 && (
             <section className="detail-section">
-              <span>키워드 효과</span>
+              <span>특수 효과</span>
               <div className="keyword-list">{card.keywords.map((keyword) => <p key={keyword}><b>{KEYWORD_DESCRIPTION[keyword].split(' · ')[0]}</b>{KEYWORD_DESCRIPTION[keyword].split(' · ')[1]}</p>)}</div>
             </section>
           )}
@@ -430,7 +472,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             </section>
           )}
 
-          <button className="primary-button detail-close-button" type="button" onClick={onClose}>확인</button>
+          <button className="primary-button detail-close-button" type="button" onClick={onClose}>닫기</button>
         </div>
       </section>
     </div>
@@ -900,6 +942,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
       if (result.hub) onHub(result.hub);
       const cards = result.cardIds ?? [];
       if (cards.length === 0) throw new Error('팩에서 카드를 불러오지 못했습니다.');
+      preloadCardArtwork(cards);
       setOpeningPackId(packId);
       setOpened(cards);
       setRevealed(cards.map(() => false));

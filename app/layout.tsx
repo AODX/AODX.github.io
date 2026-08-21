@@ -3,10 +3,11 @@ import './globals.css';
 import './theme-v4.css';
 import './theme-v5.css';
 import './theme-v6.css';
+import './theme-v7.css';
 
 export const metadata: Metadata = {
-  title: 'ECLIPSE DUEL · Origin Client',
-  description: '균열 소환, 공명 융합, 계승 진화와 코인 토스로 완성하는 오리지널 온라인 전략 카드게임',
+  title: 'ECLIPSE DUEL · Art Reforged',
+  description: '고유 카드 아트와 균열 소환, 공명 융합, 계승 진화로 완성하는 오리지널 온라인 전략 카드게임',
   applicationName: 'ECLIPSE DUEL',
   icons: { icon: '/favicon.svg' },
 };
