@@ -46,6 +46,8 @@ type Profile = {
   wins: number;
   losses: number;
   xp: number;
+  profile_theme?: string;
+  profile_frame?: string;
 };
 
 type Wallet = { user_id: string; coins: number };
@@ -62,6 +64,7 @@ type HubData = {
   friendRequests: FriendRequest[];
   friends: FriendProfile[];
   requestProfiles: Array<Pick<Profile, 'user_id' | 'display_name' | 'player_code' | 'avatar'>>;
+  profileCosmetics?: string[];
 };
 
 type RoomRow = {
@@ -122,6 +125,30 @@ const ELEMENT_ACCENT: Record<Element, string> = {
 };
 
 const AVATARS = ['eclipse', 'nova', 'oracle', 'warden', 'reaper', 'seraph'];
+
+
+type ProfileCosmeticKind = 'background' | 'frame';
+type ProfileCosmetic = {
+  id: string;
+  kind: ProfileCosmeticKind;
+  name: string;
+  price: number;
+  rarity: 'rare' | 'epic' | 'legendary';
+  description: string;
+  accent: string;
+};
+
+const PROFILE_COSMETICS: ProfileCosmetic[] = [
+  { id: 'bg_eclipse_nexus', kind: 'background', name: '일식의 중추', price: 700, rarity: 'rare', description: '푸른 일식과 궤도 링이 흐르는 결투가 프로필 배경.', accent: '#66c8ff' },
+  { id: 'bg_solar_cathedral', kind: 'background', name: '태양 성당', price: 1100, rarity: 'epic', description: '황금빛 성광과 스테인드 글라스가 펼쳐지는 배경.', accent: '#ffc56a' },
+  { id: 'bg_lunar_archive', kind: 'background', name: '월영 기록고', price: 1100, rarity: 'epic', description: '달빛 문양과 떠다니는 기록 파편으로 구성된 배경.', accent: '#91a8ff' },
+  { id: 'bg_void_throne', kind: 'background', name: '공허의 왕좌', price: 1700, rarity: 'legendary', description: '균열과 암흑 성운이 뒤틀리는 전설급 프로필 배경.', accent: '#bd78ff' },
+  { id: 'frame_aurora', kind: 'frame', name: '오로라 프레임', price: 500, rarity: 'rare', description: '청록과 보랏빛이 은은하게 흐르는 프로필 프레임.', accent: '#6de8ff' },
+  { id: 'frame_royal', kind: 'frame', name: '왕실 금장', price: 900, rarity: 'epic', description: '금빛 각인과 왕실 문양을 두른 프로필 프레임.', accent: '#ffd16d' },
+  { id: 'frame_rift', kind: 'frame', name: '균열 파편', price: 1250, rarity: 'epic', description: '공간 파편이 가장자리에서 떠오르는 프레임.', accent: '#a977ff' },
+  { id: 'frame_astral', kind: 'frame', name: '성계의 관', price: 1800, rarity: 'legendary', description: '별빛 궤도와 광휘가 회전하는 전설급 프레임.', accent: '#81a4ff' },
+];
+
 
 const SOUND_STORAGE_KEY = 'eclipse-duel:sound-enabled';
 let globalSoundEnabled = true;
@@ -1151,6 +1178,8 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
 }
 
 function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void }) {
+  const [shopTab, setShopTab] = useState<'packs' | 'profile'>('packs');
+  const [busyCosmetic, setBusyCosmetic] = useState('');
   const [busyPack, setBusyPack] = useState('');
   const [opened, setOpened] = useState<string[]>([]);
   const [revealed, setRevealed] = useState<boolean[]>([]);
@@ -1179,6 +1208,21 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
       setError(reason instanceof Error ? reason.message : '팩 구매에 실패했습니다.');
     } finally {
       setBusyPack('');
+    }
+  }
+
+
+  async function buyCosmetic(cosmeticId: string) {
+    setBusyCosmetic(cosmeticId);
+    setError('');
+    try {
+      const result = await api('buy_profile_cosmetic', { cosmeticId });
+      if (result.hub) onHub(result.hub);
+      playUiSound('success');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '프로필 아이템 구매에 실패했습니다.');
+    } finally {
+      setBusyCosmetic('');
     }
   }
 
@@ -1215,12 +1259,17 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
   }
 
   return (
-    <div className="view-stack v6-shop-view">
+    <div className="view-stack v6-shop-view v17-shop-view">
       <section className="section-heading v6-section-heading">
-        <div><span className="eyebrow">ECLIPSE PACK LAB</span><h2>카드 팩 상점</h2><p>팩을 찢고, 카드를 한 장씩 뒤집어 새로운 전략을 획득하세요.</p></div>
+        <div><span className="eyebrow">ECLIPSE MARKET</span><h2>상점</h2><p>카드팩과 프로필 스킨을 구매해 덱과 결투가 화면을 꾸미세요.</p></div>
         <div className="currency-pill"><small>COIN</small>{hub.wallet.coins.toLocaleString()}</div>
       </section>
+      <div className="v17-shop-tabs">
+        <button className={shopTab === 'packs' ? 'active' : ''} onClick={() => setShopTab('packs')}><b>카드팩</b><small>새 카드 획득</small></button>
+        <button className={shopTab === 'profile' ? 'active' : ''} onClick={() => setShopTab('profile')}><b>프로필 스킨</b><small>배경 · 프레임</small></button>
+      </div>
       {error && <p className="error-banner">{error}</p>}
+      {shopTab === 'packs' ? (
       <section className="pack-grid v6-pack-grid">
         {PACKS.map((pack, index) => (
           <article className={`pack-card v6-pack-card pack-${index}`} key={pack.id} style={{ '--pack-accent': pack.accent } as CSSProperties}>
@@ -1237,6 +1286,24 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
           </article>
         ))}
       </section>
+      ) : (
+        <section className="v17-cosmetic-grid">
+          {PROFILE_COSMETICS.map((item) => {
+            const owned = (hub.profileCosmetics ?? []).includes(item.id);
+            return (
+              <article className={`v17-cosmetic-card kind-${item.kind} rarity-${item.rarity}`} key={item.id} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>
+                <div className={`v17-cosmetic-preview ${item.id}`}>
+                  <div className="v17-cosmetic-avatar"><Avatar id={hub.profile.avatar} /></div>
+                  <span>{item.kind === 'background' ? 'PROFILE BACKGROUND' : 'PROFILE FRAME'}</span>
+                  <b>{hub.profile.display_name}</b>
+                </div>
+                <div className="v17-cosmetic-copy"><span className="eyebrow">{item.rarity.toUpperCase()} · {item.kind === 'background' ? '배경' : '프레임'}</span><h3>{item.name}</h3><p>{item.description}</p></div>
+                <div className="v17-cosmetic-buy"><strong>{item.price.toLocaleString()} COIN</strong><button className="primary-button" disabled={owned || busyCosmetic === item.id || hub.wallet.coins < item.price} onClick={() => buyCosmetic(item.id)}>{owned ? '보유 중' : busyCosmetic === item.id ? '구매 중...' : hub.wallet.coins < item.price ? '코인 부족' : '구매'}</button></div>
+              </article>
+            );
+          })}
+        </section>
+      )}
 
       {openingStage !== 'idle' && opened.length > 0 && (
         <div className={`modal-layer pack-experience-layer stage-${openingStage}`}>
@@ -1369,6 +1436,8 @@ function ProfileView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   const [name, setName] = useState(hub.profile.display_name);
   const [status, setStatus] = useState(hub.profile.status_message);
   const [avatar, setAvatar] = useState(hub.profile.avatar);
+  const [theme, setTheme] = useState(hub.profile.profile_theme ?? 'bg_default');
+  const [frame, setFrame] = useState(hub.profile.profile_frame ?? 'frame_default');
   const [message, setMessage] = useState('');
 
   async function save() {
@@ -1379,9 +1448,22 @@ function ProfileView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     } catch (error) { setMessage(error instanceof Error ? error.message : '저장 실패'); }
   }
 
+  async function equipCosmetic(cosmeticId: string) {
+    try {
+      const result = await api('equip_profile_cosmetic', { cosmeticId });
+      if (result.hub) {
+        onHub(result.hub);
+        setTheme(result.hub.profile.profile_theme ?? 'bg_default');
+        setFrame(result.hub.profile.profile_frame ?? 'frame_default');
+      }
+      setMessage('프로필 스킨을 적용했습니다.');
+      playUiSound('success');
+    } catch (error) { setMessage(error instanceof Error ? error.message : '스킨 적용 실패'); }
+  }
+
   return (
     <div className="profile-layout">
-      <section className="profile-card panel">
+      <section className={`profile-card panel v17-profile-card theme-${theme} frame-${frame}`}>
         <Avatar id={avatar} size="large" />
         <span className="eyebrow">DUELIST PROFILE</span>
         <h2>{hub.profile.display_name}</h2>
@@ -1394,6 +1476,8 @@ function ProfileView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
         <label><span>플레이어 이름</span><input value={name} onChange={(event: ChangeEvent<HTMLInputElement>) => setName(event.target.value)} maxLength={16} /></label>
         <label><span>상태 메시지</span><input value={status} onChange={(event: ChangeEvent<HTMLInputElement>) => setStatus(event.target.value)} maxLength={60} /></label>
         <label><span>프로필 문양</span><div className="avatar-picker">{AVATARS.map((id) => <button className={avatar === id ? 'active' : ''} key={id} onClick={() => setAvatar(id)}><Avatar id={id} /></button>)}</div></label>
+        <div className="v17-profile-skin-picker"><span>보유 프로필 배경</span><div><button className={theme === 'bg_default' ? 'active' : ''} onClick={() => equipCosmetic('bg_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'background' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={theme === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.name}</button>)}</div></div>
+        <div className="v17-profile-skin-picker"><span>보유 프로필 프레임</span><div><button className={frame === 'frame_default' ? 'active' : ''} onClick={() => equipCosmetic('frame_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'frame' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={frame === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.name}</button>)}</div></div>
         {message && <p className="inline-message">{message}</p>}
         <button className="primary-button" onClick={save}>변경 사항 저장</button>
       </section>
@@ -1652,6 +1736,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [logOpen, setLogOpen] = useState(false);
+  const [surrenderOpen, setSurrenderOpen] = useState(false);
   const [activeVfx, setActiveVfx] = useState<VisualEvent | null>(null);
   const [vfxQueue, setVfxQueue] = useState<VisualEvent[]>([]);
   const [coinClock, setCoinClock] = useState(() => Date.now());
@@ -1979,7 +2064,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
                   : specialReadyCount > 0 ? `특수 소환 가능 카드 ${specialReadyCount}장이 있습니다.` : '손패에서 카드를 선택하거나 전투 단계로 이동하세요.';
 
   return (
-    <div className="duel-screen ascension-duel-screen v15-duel-screen">
+    <div className="duel-screen ascension-duel-screen v15-duel-screen v17-duel-screen">
       <DuelEffectLayer event={activeVfx} userId={userId} profiles={payload.profiles} />
       <CoinTossOverlay state={state} profiles={payload.profiles} userId={userId} now={coinClock} />
       <div className="orientation-hint"><span>↻</span><b>기기를 가로로 돌려주세요</b><small>결투장은 가로 화면에 최적화되어 있습니다.</small></div>
@@ -1988,7 +2073,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
         <div className="v16-special-toast"><span>✦</span><div><b>특수 소환 가능</b><small>균열·공명 융합·계승 진화 중 {specialReadyCount}장이 현재 조건을 만족합니다.</small></div></div>
       )}
 
-      <header className="duel-topbar v15-duel-topbar v16-duel-topbar">
+      <header className="duel-topbar v15-duel-topbar v16-duel-topbar v17-duel-topbar">
         <div className="duelist opponent"><Avatar id={opponent?.avatar} /><span><small>OPPONENT</small><b>{opponent?.display_name ?? '상대'}</b></span></div>
         <div className="v15-turn-center">
           <div className="v15-turn-title"><small>ROUND {roundNumber} · TURN {state.turnNumber}</small><b>{coinTossActive ? '선공 결정 중' : myTurn ? '내 턴' : '상대 턴'}</b><span>{coinTossActive ? 'OPENING' : phaseLabel}</span></div>
@@ -2002,10 +2087,10 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
             </>
           )}
         </div>
-        <div className="duel-top-actions"><button className={`log-toggle ${logOpen ? 'active' : ''}`} onClick={() => setLogOpen((value) => !value)}>기록</button><button className="surrender-button" disabled={busy} onClick={() => confirm('항복하시겠습니까?') && gameAction('surrender')}>항복</button></div>
+        <div className="duel-top-actions"><button className={`log-toggle ${logOpen ? 'active' : ''}`} onClick={() => setLogOpen((value) => !value)}>기록</button><button className="surrender-button" disabled={busy || state.status !== 'active'} onClick={() => setSurrenderOpen(true)}>항복</button></div>
       </header>
 
-      <section className="battlefield v15-battlefield v16-battlefield">
+      <section className="battlefield v15-battlefield v16-battlefield v17-battlefield">
         <div className="battlefield-texture v16-battlefield-texture" />
         <div className="v16-arena-rune" aria-hidden="true"><i /><i /><i /></div>
         <aside className="v16-live-feed" aria-label="최근 행동">
@@ -2072,7 +2157,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
         <div className="v15-field-caption mine"><span>YOUR FIELD</span><b>{actionGuide}</b></div>
       </section>
 
-      <section className="duel-controls ascension-controls v15-duel-controls">
+      <section className="duel-controls ascension-controls v15-duel-controls v17-duel-controls">
         <div className="v15-player-dock">
           <Avatar id={me?.avatar} /><span><small>YOU</small><b>{me?.display_name ?? '나'}</b><em>{myTurn ? `${phaseLabel} · 행동 가능` : '상대 턴 · 정보 확인 가능'}</em></span>
           <DuelEnergyMeter label="ENERGY" current={myEnergy.current} max={myEnergy.max} nextMax={!myTurn ? nextMyEnergyMax : undefined} compact />
@@ -2129,6 +2214,17 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
         <header><span>DUEL LOG</span><button onClick={() => setLogOpen(false)}>×</button></header>
         <div>{state.logs.slice(-12).reverse().map((log) => <p className={`tone-${log.tone}`} key={log.id}>{log.text}</p>)}</div>
       </aside>
+
+      {surrenderOpen && state.status === 'active' && (
+        <div className="modal-layer v17-surrender-layer">
+          <section className="v17-surrender-modal">
+            <span className="eyebrow">DUEL SURRENDER</span>
+            <h2>정말 항복하시겠습니까?</h2>
+            <p>항복하면 즉시 패배 처리되고 상대 플레이어가 승리합니다.</p>
+            <div><button className="ghost-button" disabled={busy} onClick={() => setSurrenderOpen(false)}>계속 싸우기</button><button className="danger-button" disabled={busy} onClick={() => { setSurrenderOpen(false); void gameAction('surrender'); }}>항복하기</button></div>
+          </section>
+        </div>
+      )}
 
       {state.status === 'finished' && (
         <div className="modal-layer">

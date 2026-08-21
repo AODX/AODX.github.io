@@ -969,10 +969,14 @@ export function surrender(snapshot: GameSnapshot, playerId: string): ActionResul
   const state = clone(snapshot.state);
   const privateStates = clone(snapshot.privateStates);
   if (state.status !== 'active') throw new Error('진행 중인 결투가 아닙니다.');
+  const winnerId = otherPlayer(state, playerId);
   state.status = 'finished';
-  state.winnerId = otherPlayer(state, playerId);
-  state.winReason = '상대 항복';
-  appendLog(state, '한 플레이어가 항복했습니다.', 'victory');
+  state.currentPlayerId = null;
+  state.turnEndsAt = null;
+  state.winnerId = winnerId;
+  state.winReason = '항복';
+  appendLog(state, `${playerId.slice(0, 6)}이(가) 항복했습니다.`, 'victory');
+  appendVisual(state, { kind: 'core', vfx: 'core-break', ownerId: playerId, targetOwnerId: playerId, label: 'SURRENDER' });
   return { state, privateStates };
 }
 

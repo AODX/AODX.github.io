@@ -1,0 +1,789 @@
+/* ECLIPSE DUEL v17 — collision-free duel layout + profile cosmetics */
+
+/* --------------------------------------------------------------------------
+   DUEL LAYOUT RESET
+   -------------------------------------------------------------------------- */
+.v17-duel-screen,
+.v17-duel-screen *,
+.v17-duel-screen *::before,
+.v17-duel-screen *::after {
+  box-sizing: border-box !important;
+}
+
+.game-app.in-duel,
+.game-app.in-duel main,
+.game-app.in-duel .content-shell {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  height: 100dvh !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.v17-duel-screen {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100dvh !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  display: grid !important;
+  grid-template-rows: 70px minmax(0, 1fr) clamp(244px, 28dvh, 288px) !important;
+  background: #03060c !important;
+}
+
+/* Older themes used negative margins and transforms to fan cards. In the duel
+   those rules are explicitly disabled so every interactive hit area matches
+   what the player actually sees. */
+.v17-duel-screen .tcg-card,
+.v17-duel-screen .hand-zone .tcg-card,
+.v17-duel-screen .extra-zone .tcg-card,
+.v17-duel-screen .opponent-hand .tcg-card {
+  margin-left: 0 !important;
+  transform: none !important;
+}
+
+.v17-duel-screen button,
+.v17-duel-screen .tcg-card {
+  touch-action: manipulation !important;
+}
+
+/* --------------------------------------------------------------------------
+   TOP HUD
+   -------------------------------------------------------------------------- */
+.v17-duel-topbar {
+  height: 70px !important;
+  min-height: 70px !important;
+  width: 100% !important;
+  padding: 8px 16px !important;
+  display: grid !important;
+  grid-template-columns: minmax(180px, 250px) minmax(0, 1fr) minmax(150px, 210px) !important;
+  gap: 12px !important;
+  align-items: center !important;
+  overflow: hidden !important;
+  border-bottom: 1px solid rgba(127, 158, 207, .18) !important;
+  background: rgba(4, 8, 15, .98) !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35) !important;
+}
+
+.v17-duel-topbar .duelist.opponent {
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+.v17-duel-topbar .duelist.opponent span {
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+.v17-duel-topbar .duelist.opponent b {
+  display: block !important;
+  max-width: 100% !important;
+  font-size: 16px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.v17-duel-topbar .v15-turn-center {
+  width: min(100%, 760px) !important;
+  min-width: 0 !important;
+  justify-self: center !important;
+  display: grid !important;
+  grid-template-columns: minmax(120px, .8fr) minmax(180px, 1.15fr) minmax(160px, 1fr) !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+.v17-duel-topbar .v15-turn-title {
+  min-width: 0 !important;
+  text-align: center !important;
+}
+.v17-duel-topbar .v15-turn-title small,
+.v17-duel-topbar .v15-turn-title span {
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.v17-duel-topbar .v15-turn-title b {
+  font-size: 20px !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+.v17-duel-topbar .v15-energy-meter.compact,
+.v17-duel-topbar .v14-turn-timer {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+.v17-duel-topbar .duel-top-actions {
+  width: 100% !important;
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 7px !important;
+}
+.v17-duel-topbar .duel-top-actions button {
+  min-width: 0 !important;
+  width: 100% !important;
+  height: 40px !important;
+  padding: 0 10px !important;
+  font-size: 11px !important;
+  white-space: nowrap !important;
+}
+.v17-duel-topbar .surrender-button {
+  border-color: rgba(255, 99, 111, .34) !important;
+  color: #ffb0b8 !important;
+  background: rgba(78, 15, 25, .35) !important;
+}
+
+/* --------------------------------------------------------------------------
+   BATTLEFIELD — three explicit columns, nothing floats over another panel
+   -------------------------------------------------------------------------- */
+.v17-battlefield {
+  position: relative !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  display: grid !important;
+  grid-template-columns: clamp(138px, 10vw, 170px) minmax(560px, 1fr) clamp(176px, 14vw, 230px) !important;
+  grid-template-rows: 54px 42px minmax(92px, 1fr) 38px minmax(92px, 1fr) 42px !important;
+  column-gap: clamp(8px, 1vw, 16px) !important;
+  row-gap: 5px !important;
+  padding: 8px clamp(10px, 1.5vw, 24px) !important;
+  background:
+    radial-gradient(circle at 50% 49%, rgba(80, 84, 205, .13), transparent 34%),
+    linear-gradient(180deg, #0a101c, #060a12) !important;
+}
+
+.v17-battlefield .v15-field-caption { display: none !important; }
+
+.v17-battlefield .v15-opponent-hand {
+  position: static !important;
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+  justify-self: center !important;
+  align-self: center !important;
+  width: min(100%, 700px) !important;
+  max-width: 700px !important;
+  height: 50px !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  overflow: hidden !important;
+  opacity: .9 !important;
+  z-index: 3 !important;
+}
+.v17-battlefield .v15-opponent-hand .tcg-card.compact {
+  flex: 0 0 38px !important;
+  width: 38px !important;
+  min-width: 38px !important;
+  height: 54px !important;
+  min-height: 54px !important;
+  border-radius: 7px !important;
+}
+
+.v17-battlefield .enemy-secrets { grid-column: 2 !important; grid-row: 2 !important; }
+.v17-battlefield .enemy-units   { grid-column: 2 !important; grid-row: 3 !important; }
+.v17-battlefield .v15-field-center { grid-column: 2 !important; grid-row: 4 !important; }
+.v17-battlefield .my-units      { grid-column: 2 !important; grid-row: 5 !important; }
+.v17-battlefield .my-secrets    { grid-column: 2 !important; grid-row: 6 !important; }
+
+.v17-battlefield .enemy-core {
+  grid-column: 1 !important;
+  grid-row: 1 / 4 !important;
+  align-self: stretch !important;
+}
+.v17-battlefield .my-core {
+  grid-column: 1 !important;
+  grid-row: 4 / 7 !important;
+  align-self: stretch !important;
+}
+
+/* The previous LIVE feed was absolute and could sit on top of cards. */
+.v17-battlefield .v16-live-feed {
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
+  grid-column: 3 !important;
+  grid-row: 1 / 7 !important;
+  width: 100% !important;
+  max-width: none !important;
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  align-self: stretch !important;
+  padding: 10px !important;
+  overflow: hidden !important;
+  border-radius: 14px !important;
+  background: rgba(5,10,18,.86) !important;
+  border: 1px solid rgba(113, 145, 196, .18) !important;
+  backdrop-filter: none !important;
+}
+.v17-battlefield .v16-live-feed header { margin-bottom: 8px !important; }
+.v17-battlefield .v16-live-feed p {
+  padding: 8px 0 !important;
+  font-size: 10px !important;
+  line-height: 1.35 !important;
+  white-space: normal !important;
+  overflow: hidden !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+}
+
+.v17-battlefield .zone-row {
+  width: min(100%, 900px) !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  margin: 0 auto !important;
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: clamp(6px, .75vw, 11px) !important;
+  align-items: stretch !important;
+}
+
+.v17-battlefield .unit-slot {
+  position: relative !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 164px !important;
+  height: 100% !important;
+  min-height: 88px !important;
+  max-height: 146px !important;
+  margin: 0 !important;
+  transform: none !important;
+  overflow: hidden !important;
+  border-radius: 12px !important;
+}
+.v17-battlefield .unit-art {
+  inset: 5px 5px 42px !important;
+  min-height: 0 !important;
+}
+.v17-battlefield .unit-name {
+  left: 7px !important;
+  right: 7px !important;
+  bottom: 23px !important;
+  min-width: 0 !important;
+  font-size: 10px !important;
+  line-height: 1.1 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.v17-battlefield .unit-stats {
+  left: 6px !important;
+  right: 6px !important;
+  bottom: 5px !important;
+  min-width: 0 !important;
+  height: 18px !important;
+  gap: 5px !important;
+}
+.v17-battlefield .unit-stats b { font-size: 12px !important; }
+
+.v17-battlefield .secret-slot {
+  position: relative !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 164px !important;
+  height: 100% !important;
+  min-height: 34px !important;
+  max-height: 42px !important;
+  margin: 0 !important;
+  transform: none !important;
+  overflow: hidden !important;
+}
+.v17-battlefield .v16-secret-slot.mine.revealed {
+  display: grid !important;
+  grid-template-columns: 38px minmax(0,1fr) auto !important;
+  gap: 5px !important;
+  padding: 3px 6px 3px 3px !important;
+}
+.v17-battlefield .v16-secret-slot.mine.revealed .card-illustration {
+  width: 36px !important;
+  height: 28px !important;
+}
+.v17-battlefield .v16-secret-slot.mine.revealed b {
+  font-size: 8px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.v17-battlefield .v15-core-panel {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: grid !important;
+  grid-template-rows: minmax(88px, 1fr) auto !important;
+  gap: 8px !important;
+  align-content: center !important;
+}
+.v17-battlefield .v15-core-panel > button,
+.v17-battlefield .v15-core-panel > div:not(.v15-energy-meter) {
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 88px !important;
+  margin: 0 !important;
+}
+.v17-battlefield .v16-leader-core strong,
+.v17-battlefield .v16-my-hp strong { font-size: clamp(30px, 2.4vw, 42px) !important; }
+.v17-battlefield .v15-energy-meter { min-width: 0 !important; padding: 8px !important; }
+.v17-battlefield .v15-energy-copy > b { font-size: 18px !important; }
+
+.v17-battlefield .v15-field-center {
+  width: min(100%, 900px) !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0,1fr) 42px minmax(0,1fr) !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+.v17-battlefield .deck-piles {
+  min-width: 0 !important;
+  display: flex !important;
+  gap: 5px !important;
+  overflow: hidden !important;
+}
+.v17-battlefield .deck-piles span {
+  min-width: 0 !important;
+  padding: 4px 7px !important;
+  font-size: 9px !important;
+  white-space: nowrap !important;
+}
+.v17-battlefield .eclipse-ring { width: 34px !important; height: 34px !important; }
+
+/* --------------------------------------------------------------------------
+   BOTTOM HAND / EXTRA / ACTIONS
+   -------------------------------------------------------------------------- */
+.v17-duel-controls {
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  padding: 8px 10px 10px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) clamp(270px, 20vw, 320px) !important;
+  gap: 10px !important;
+  overflow: hidden !important;
+  border-top: 1px solid rgba(105,135,180,.16) !important;
+  background: #03070d !important;
+}
+
+.v17-duel-controls .v15-hand-and-extra {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  display: grid !important;
+  grid-template-columns: minmax(0,1fr) clamp(150px, 12vw, 190px) !important;
+  gap: 8px !important;
+}
+.v17-duel-controls .v15-hand-zone-shell,
+.v17-duel-controls .v15-extra-zone {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  display: grid !important;
+  grid-template-rows: 32px minmax(0,1fr) !important;
+}
+.v17-duel-controls .v15-hand-zone {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 7px 9px !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 8px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  overscroll-behavior-x: contain !important;
+  scroll-snap-type: x proximity !important;
+}
+.v17-duel-controls .v15-hand-card {
+  position: relative !important;
+  flex: 0 0 clamp(104px, 8vw, 126px) !important;
+  width: clamp(104px, 8vw, 126px) !important;
+  min-width: clamp(104px, 8vw, 126px) !important;
+  height: min(100%, 202px) !important;
+  min-height: 150px !important;
+  max-height: 202px !important;
+  margin: 0 !important;
+  transform: none !important;
+  scroll-snap-align: center !important;
+}
+.v17-duel-controls .v15-hand-card .tcg-card.compact {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  transform: none !important;
+  display: grid !important;
+  grid-template-rows: 34px minmax(0,1fr) 28px 28px !important;
+  overflow: hidden !important;
+}
+.v17-duel-controls .v15-hand-card .card-topline {
+  min-width: 0 !important;
+  padding-right: 4px !important;
+}
+.v17-duel-controls .v15-hand-card .card-topline b {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  font-size: 10px !important;
+  line-height: 1.08 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.v17-duel-controls .v15-hand-card .card-topline small { display: none !important; }
+.v17-duel-controls .v15-hand-card .card-art { min-height: 0 !important; }
+.v17-duel-controls .v15-hand-card .card-subtitle {
+  min-width: 0 !important;
+  padding: 4px 6px !important;
+  font-size: 7.5px !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.v17-duel-controls .v15-hand-card .card-footer {
+  min-width: 0 !important;
+  font-size: 8px !important;
+}
+.v17-duel-controls .v15-hand-card .card-cost {
+  width: 28px !important;
+  height: 28px !important;
+  font-size: 12px !important;
+}
+.v17-duel-controls .v15-hand-card .summon-badge {
+  top: 31px !important;
+  left: 5px !important;
+  right: auto !important;
+  width: auto !important;
+  max-width: calc(100% - 10px) !important;
+  padding: 2px 5px !important;
+  font-size: 6px !important;
+  white-space: nowrap !important;
+}
+.v17-duel-controls .v16-special-ready-badge {
+  top: 3px !important;
+  left: auto !important;
+  right: 4px !important;
+  transform: none !important;
+  font-size: 6px !important;
+}
+
+.v17-duel-controls .v15-extra-zone > div {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 7px !important;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+  grid-auto-rows: minmax(0,1fr) !important;
+  gap: 6px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+.v17-duel-controls .v16-extra-card {
+  min-width: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  transform: none !important;
+}
+.v17-duel-controls .v15-extra-zone .tcg-card.compact {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  min-height: 86px !important;
+  max-height: 126px !important;
+  margin: 0 !important;
+  transform: none !important;
+  overflow: hidden !important;
+}
+.v17-duel-controls .v15-extra-zone .card-topline b { font-size: 7px !important; }
+.v17-duel-controls .v15-extra-zone .card-subtitle { display: none !important; }
+.v17-duel-controls .v15-extra-zone .card-footer { font-size: 6px !important; }
+
+.v17-duel-controls .v15-phase-controls {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 7px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+.v17-duel-controls .v16-action-guide {
+  min-width: 0 !important;
+  min-height: 62px !important;
+  max-height: 96px !important;
+  overflow: hidden !important;
+}
+.v17-duel-controls .v16-action-guide b { font-size: 13px !important; }
+.v17-duel-controls .v16-action-guide span,
+.v17-duel-controls .v16-action-guide em {
+  font-size: 9px !important;
+  line-height: 1.35 !important;
+  white-space: normal !important;
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 2 !important;
+  overflow: hidden !important;
+}
+.v17-duel-controls .v15-selected-card {
+  flex: 0 0 auto !important;
+  max-height: 92px !important;
+  min-width: 0 !important;
+  overflow: auto !important;
+}
+.v17-duel-controls .v15-phase-buttons {
+  margin-top: auto !important;
+  flex: 0 0 auto !important;
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 6px !important;
+}
+.v17-duel-controls .v15-phase-buttons .v14-draw-turn-button {
+  grid-column: 1 / -1 !important;
+  min-height: 44px !important;
+}
+.v17-duel-controls .v15-phase-buttons > button {
+  min-width: 0 !important;
+  min-height: 38px !important;
+  font-size: 10px !important;
+}
+
+/* No animated movement on ready cards. A glow is enough and keeps hitboxes stable. */
+.v17-duel-screen .v16-special-ready-card .tcg-card.compact,
+.v17-duel-screen .v16-extra-card.special-ready .tcg-card.compact {
+  animation: none !important;
+  transform: none !important;
+  box-shadow: 0 0 0 2px rgba(88,220,255,.34), 0 0 16px rgba(76,181,255,.20) !important;
+}
+
+.v17-duel-screen .v16-special-toast {
+  top: 78px !important;
+  max-width: min(500px, calc(100vw - 28px)) !important;
+  min-width: 0 !important;
+  pointer-events: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   SURRENDER CONFIRMATION
+   -------------------------------------------------------------------------- */
+.v17-surrender-layer { z-index: 1600 !important; }
+.v17-surrender-modal {
+  width: min(440px, calc(100vw - 32px));
+  padding: 28px;
+  border-radius: 22px;
+  border: 1px solid rgba(255,116,126,.24);
+  background: linear-gradient(180deg, #121722, #090d14);
+  box-shadow: 0 30px 90px rgba(0,0,0,.62);
+  text-align: center;
+}
+.v17-surrender-modal h2 { margin: 8px 0 10px; font-size: 24px; }
+.v17-surrender-modal p { margin: 0; color: #9eacbf; font-size: 13px; line-height: 1.6; }
+.v17-surrender-modal > div { margin-top: 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.v17-surrender-modal button { min-height: 46px; }
+.danger-button {
+  border: 1px solid rgba(255,95,108,.38);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #b93443, #7f202d);
+  color: white;
+  font-weight: 850;
+}
+
+/* --------------------------------------------------------------------------
+   RESPONSIVE DUEL
+   -------------------------------------------------------------------------- */
+@media (max-width: 1260px) and (orientation: landscape) {
+  .v17-duel-screen { grid-template-rows: 64px minmax(0,1fr) 238px !important; }
+  .v17-duel-topbar {
+    height: 64px !important;
+    min-height: 64px !important;
+    grid-template-columns: 60px minmax(0,1fr) 140px !important;
+    gap: 8px !important;
+    padding: 6px 9px !important;
+  }
+  .v17-duel-topbar .duelist.opponent span { display: none !important; }
+  .v17-duel-topbar .v15-turn-center { grid-template-columns: 108px minmax(150px,1fr) minmax(135px,.9fr) !important; gap: 6px !important; }
+  .v17-duel-topbar .v15-turn-title b { font-size: 17px !important; }
+  .v17-battlefield {
+    grid-template-columns: 112px minmax(500px,1fr) 164px !important;
+    grid-template-rows: 48px 36px minmax(80px,1fr) 32px minmax(80px,1fr) 36px !important;
+    padding: 5px 7px !important;
+    column-gap: 6px !important;
+  }
+  .v17-battlefield .v16-live-feed p:nth-of-type(n+4) { display: none !important; }
+  .v17-battlefield .v15-core-panel > button,
+  .v17-battlefield .v15-core-panel > div:not(.v15-energy-meter) { min-height: 70px !important; }
+  .v17-battlefield .v15-energy-pips { display: none !important; }
+  .v17-duel-controls { grid-template-columns: minmax(0,1fr) 250px !important; padding: 6px !important; gap: 6px !important; }
+  .v17-duel-controls .v15-hand-and-extra { grid-template-columns: minmax(0,1fr) 136px !important; gap: 5px !important; }
+  .v17-duel-controls .v15-hand-card { flex-basis: 96px !important; width: 96px !important; min-width: 96px !important; min-height: 136px !important; max-height: 174px !important; }
+  .v17-duel-controls .v15-extra-zone > div { grid-template-columns: 1fr !important; }
+}
+
+@media (max-height: 760px) and (orientation: landscape) {
+  .v17-duel-screen { grid-template-rows: 58px minmax(0,1fr) 214px !important; }
+  .v17-duel-topbar { height: 58px !important; min-height: 58px !important; }
+  .v17-battlefield { grid-template-rows: 42px 30px minmax(68px,1fr) 27px minmax(68px,1fr) 30px !important; }
+  .v17-battlefield .unit-slot { min-height: 66px !important; }
+  .v17-battlefield .unit-art { inset: 4px 4px 35px !important; }
+  .v17-battlefield .secret-slot { min-height: 28px !important; max-height: 31px !important; }
+  .v17-battlefield .v16-leader-core strong,
+  .v17-battlefield .v16-my-hp strong { font-size: 28px !important; }
+  .v17-duel-controls .v15-hand-card { min-height: 128px !important; max-height: 166px !important; }
+  .v17-duel-controls .v15-hand-card .tcg-card.compact { grid-template-rows: 29px minmax(0,1fr) 24px 24px !important; }
+  .v17-duel-controls .v16-action-guide { min-height: 50px !important; max-height: 70px !important; padding: 6px 8px !important; }
+}
+
+@media (max-width: 980px) and (orientation: landscape) {
+  .v17-battlefield {
+    grid-template-columns: 92px minmax(470px,1fr) !important;
+  }
+  .v17-battlefield .v16-live-feed { display: none !important; }
+  .v17-duel-controls { grid-template-columns: minmax(0,1fr) 220px !important; }
+  .v17-duel-controls .v15-hand-and-extra { grid-template-columns: minmax(0,1fr) 112px !important; }
+}
+
+@media (orientation: portrait) and (max-width: 900px) {
+  .game-app.in-duel .orientation-hint { display: grid !important; z-index: 1700 !important; }
+}
+
+/* --------------------------------------------------------------------------
+   SHOP: PROFILE COSMETICS
+   -------------------------------------------------------------------------- */
+.v17-shop-tabs {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  gap: 6px;
+  padding: 5px;
+  width: min(520px, 100%);
+  border-radius: 15px;
+  border: 1px solid rgba(111,137,184,.16);
+  background: rgba(7,12,21,.82);
+}
+.v17-shop-tabs button {
+  min-height: 54px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: #8f9db2;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+}
+.v17-shop-tabs button b { font-size: 13px; }
+.v17-shop-tabs button small { font-size: 9px; }
+.v17-shop-tabs button.active {
+  color: #fff;
+  background: linear-gradient(180deg, rgba(72,93,185,.45), rgba(33,49,111,.52));
+  box-shadow: inset 0 0 0 1px rgba(127,154,255,.32);
+}
+
+.v17-cosmetic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 14px;
+}
+.v17-cosmetic-card {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--cosmetic-accent) 24%, rgba(255,255,255,.09));
+  background: linear-gradient(180deg, rgba(15,21,34,.98), rgba(8,12,21,.98));
+  box-shadow: 0 16px 36px rgba(0,0,0,.24);
+}
+.v17-cosmetic-preview {
+  position: relative;
+  height: 174px;
+  padding: 20px;
+  display: grid;
+  align-content: end;
+  gap: 4px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 72% 26%, color-mix(in srgb, var(--cosmetic-accent) 36%, transparent), transparent 35%),
+    linear-gradient(135deg, #111827, #070b13 66%);
+}
+.v17-cosmetic-preview::before,
+.v17-cosmetic-preview::after {
+  content: '';
+  position: absolute;
+  border: 1px solid color-mix(in srgb, var(--cosmetic-accent) 48%, transparent);
+  border-radius: 50%;
+  width: 210px;
+  height: 210px;
+  right: -70px;
+  top: -80px;
+  opacity: .55;
+}
+.v17-cosmetic-preview::after { width: 130px; height: 130px; right: -15px; top: -34px; opacity: .38; }
+.v17-cosmetic-avatar { position: absolute; right: 22px; top: 34px; z-index: 2; }
+.v17-cosmetic-avatar .avatar { width: 66px !important; height: 66px !important; }
+.v17-cosmetic-preview > span { position: relative; z-index: 2; font-size: 8px; letter-spacing: .16em; color: #9eabc1; }
+.v17-cosmetic-preview > b { position: relative; z-index: 2; font-size: 18px; }
+.v17-cosmetic-card.kind-frame .v17-cosmetic-preview { box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--cosmetic-accent) 68%, transparent), inset 0 0 24px color-mix(in srgb, var(--cosmetic-accent) 18%, transparent); }
+.v17-cosmetic-copy { padding: 16px 17px 4px; }
+.v17-cosmetic-copy h3 { margin: 4px 0 7px; font-size: 17px; }
+.v17-cosmetic-copy p { margin: 0; min-height: 42px; color: #8998ae; font-size: 11px; line-height: 1.55; }
+.v17-cosmetic-buy { padding: 14px 17px 17px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.v17-cosmetic-buy strong { font-size: 12px; color: #e3cf8c; }
+.v17-cosmetic-buy button { min-width: 92px; }
+
+/* Profile screen itself becomes the cosmetic preview. */
+.v17-profile-card {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-width: 2px !important;
+  background:
+    radial-gradient(circle at 50% 12%, rgba(88,112,255,.18), transparent 34%),
+    linear-gradient(180deg, #121827, #080c14) !important;
+}
+.v17-profile-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: .85;
+}
+.v17-profile-card.theme-bg_eclipse_nexus::before { background: radial-gradient(circle at 78% 18%, rgba(77,202,255,.35), transparent 28%), repeating-radial-gradient(circle at 78% 18%, transparent 0 26px, rgba(95,137,255,.12) 27px 28px); }
+.v17-profile-card.theme-bg_solar_cathedral::before { background: radial-gradient(circle at 50% 0, rgba(255,190,77,.32), transparent 36%), linear-gradient(135deg, rgba(255,186,72,.08) 25%, transparent 25% 50%, rgba(255,186,72,.06) 50% 75%, transparent 75%); background-size: auto, 60px 60px; }
+.v17-profile-card.theme-bg_lunar_archive::before { background: radial-gradient(circle at 70% 22%, rgba(129,151,255,.34), transparent 30%), repeating-linear-gradient(120deg, transparent 0 36px, rgba(140,165,255,.06) 37px 38px); }
+.v17-profile-card.theme-bg_void_throne::before { background: radial-gradient(circle at 55% 28%, rgba(172,82,255,.38), transparent 28%), conic-gradient(from 20deg at 55% 28%, transparent, rgba(122,57,207,.10), transparent 32%, rgba(111,56,183,.14), transparent 68%); }
+.v17-profile-card.frame-frame_aurora { border-color: #6de8ff !important; box-shadow: 0 0 0 1px rgba(109,232,255,.25), 0 0 32px rgba(74,190,255,.18) !important; }
+.v17-profile-card.frame-frame_royal { border-color: #ffd16d !important; box-shadow: inset 0 0 24px rgba(255,190,74,.09), 0 0 0 1px rgba(255,209,109,.18) !important; }
+.v17-profile-card.frame-frame_rift { border-color: #b780ff !important; box-shadow: 0 0 34px rgba(145,81,255,.22), inset 0 0 26px rgba(137,77,255,.10) !important; }
+.v17-profile-card.frame-frame_astral { border-color: #82a7ff !important; box-shadow: 0 0 0 2px rgba(125,161,255,.14), 0 0 42px rgba(74,126,255,.26), inset 0 0 38px rgba(77,118,255,.09) !important; }
+
+.v17-profile-skin-picker { display: grid; gap: 8px; }
+.v17-profile-skin-picker > span { font-size: 11px; color: #91a0b6; font-weight: 800; }
+.v17-profile-skin-picker > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.v17-profile-skin-picker button {
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(115,137,177,.20);
+  background: rgba(9,14,24,.8);
+  color: #9aa9bf;
+  font-size: 10px;
+}
+.v17-profile-skin-picker button.active {
+  color: white;
+  border-color: var(--cosmetic-accent, #7b8eff);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cosmetic-accent, #7b8eff) 35%, transparent);
+}
