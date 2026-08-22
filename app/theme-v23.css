@@ -1677,3 +1677,198 @@
   .v23-client [class*="emblem_"] .v26-emblem-orbit,
   .v23-client [class*="emblem-emblem_"] { animation:none!important; }
 }
+
+/* ========================================================================== 
+   V27D IMPACT FRAME FX PASS
+   Strong, distinct frame identities. No generic spin-loop treatment.
+   ========================================================================== */
+.v23-client .v28-frame-fx {
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  overflow:hidden;
+  pointer-events:none;
+  z-index:1;
+  isolation:isolate;
+}
+.v23-client .profile-card > .v28-frame-fx { z-index:1!important; }
+.v23-client .v17-cosmetic-scene > .v28-frame-fx { z-index:1!important; }
+.v23-client .v28-frame-core,
+.v23-client .v28-frame-particle { position:absolute;display:block;pointer-events:none; }
+.v23-client .v28-frame-core { inset:5px;border-radius:16px; }
+.v23-client .v28-frame-particle { width:9px;height:9px; }
+
+/* Neutralize the older generic animated pseudo layers; the new FX layer owns motion. */
+.v23-client .frame_aurora .v17-cosmetic-frame-ring::after,
+.v23-client .profile-card.frame-frame_aurora::after,
+.v23-client .frame_royal .v17-cosmetic-frame-ring::after,
+.v23-client .profile-card.frame-frame_royal::after,
+.v23-client .frame_rift .v17-cosmetic-frame-ring::after,
+.v23-client .profile-card.frame-frame_rift::after,
+.v23-client .frame_astral .v17-cosmetic-frame-ring::after,
+.v23-client .profile-card.frame-frame_astral::after,
+.v23-client .frame_prismatic_loop .v17-cosmetic-frame-ring::after,
+.v23-client .profile-card.frame-frame_prismatic_loop::after,
+.v23-client .frame_ember_crown .v17-cosmetic-frame-ring::after,
+.v23-client .profile-card.frame-frame_ember_crown::after,
+.v23-client .frame_neon_circuit .v17-cosmetic-frame-ring::after,
+.v23-client .profile-card.frame-frame_neon_circuit::after,
+.v23-client .frame_moonlace .v17-cosmetic-frame-ring::after,
+.v23-client .profile-card.frame-frame_moonlace::after,
+.v23-client .frame_blossom_arc .v17-cosmetic-frame-ring::after,
+.v23-client .profile-card.frame-frame_blossom_arc::after,
+.v23-client .frame_royal_window .v17-cosmetic-frame-ring::after,
+.v23-client .profile-card.frame-frame_royal_window::after {
+  animation:none!important;
+  transform:none!important;
+}
+
+/* 1. AURORA — flowing light curtains, not rotation. */
+.v23-client .fx-frame_aurora .v28-frame-core {
+  border:2px solid rgba(106,239,255,.58);
+  box-shadow:0 0 22px rgba(90,228,255,.32),inset 0 0 18px rgba(159,111,255,.12);
+  animation:v27dAuroraCore 3.8s ease-in-out infinite;
+}
+.v23-client .fx-frame_aurora .v28-frame-particle {
+  width:44%;height:28px;border-radius:60%;filter:blur(9px);opacity:.55;
+  background:linear-gradient(90deg,transparent,rgba(88,255,220,.8),rgba(145,120,255,.65),transparent);
+  mix-blend-mode:screen;
+}
+.v23-client .fx-frame_aurora .p1{left:-18%;top:5%;animation:v27dAuroraCurtain 4.8s ease-in-out infinite alternate}
+.v23-client .fx-frame_aurora .p2{right:-16%;top:28%;animation:v27dAuroraCurtain 5.6s ease-in-out -1.3s infinite alternate-reverse}
+.v23-client .fx-frame_aurora .p3{left:-14%;bottom:9%;animation:v27dAuroraCurtain 6.2s ease-in-out -.8s infinite alternate}
+.v23-client .fx-frame_aurora .p4{right:-18%;bottom:31%;animation:v27dAuroraCurtain 5.2s ease-in-out -2s infinite alternate-reverse}
+.v23-client .fx-frame_aurora .p5,.v23-client .fx-frame_aurora .p6{width:6px;height:6px;border-radius:50%;background:#d7ffff;box-shadow:0 0 13px #71f5ff;filter:none;opacity:.9}
+.v23-client .fx-frame_aurora .p5{left:12%;top:9%;animation:v27dAuroraSpark 2.4s ease-in-out infinite}
+.v23-client .fx-frame_aurora .p6{right:10%;bottom:12%;animation:v27dAuroraSpark 2.9s ease-in-out -.7s infinite}
+@keyframes v27dAuroraCore{0%,100%{filter:hue-rotate(0deg);opacity:.72}50%{filter:hue-rotate(32deg);opacity:1}}
+@keyframes v27dAuroraCurtain{from{transform:translateX(-9%) skewX(-12deg) scaleY(.8)}to{transform:translateX(22%) skewX(8deg) scaleY(1.25)}}
+@keyframes v27dAuroraSpark{0%,100%{transform:scale(.45);opacity:.25}50%{transform:scale(1.35);opacity:1}}
+
+/* 2. ROYAL — hard gold glints and corner jewel flashes. */
+.v23-client .fx-frame_royal .v28-frame-core {
+  border:2px solid rgba(255,211,111,.75);
+  box-shadow:0 0 18px rgba(255,185,64,.28),inset 0 0 14px rgba(255,235,163,.08);
+}
+.v23-client .fx-frame_royal .v28-frame-particle{width:6px;height:6px;background:#fff0a8;transform:rotate(45deg);box-shadow:0 0 12px rgba(255,196,78,.95);opacity:.12}
+.v23-client .fx-frame_royal .p1{left:5px;top:5px;animation:v27dRoyalGlint 3.2s steps(1,end) infinite}
+.v23-client .fx-frame_royal .p2{right:5px;top:5px;animation:v27dRoyalGlint 3.2s .8s steps(1,end) infinite}
+.v23-client .fx-frame_royal .p3{right:5px;bottom:5px;animation:v27dRoyalGlint 3.2s 1.6s steps(1,end) infinite}
+.v23-client .fx-frame_royal .p4{left:5px;bottom:5px;animation:v27dRoyalGlint 3.2s 2.4s steps(1,end) infinite}
+.v23-client .fx-frame_royal .p5{left:-20%;top:0;width:34%;height:100%;transform:skewX(-18deg);background:linear-gradient(90deg,transparent,rgba(255,240,176,.20),transparent);box-shadow:none;animation:v27dRoyalSweep 5.5s ease-in-out infinite}
+.v23-client .fx-frame_royal .p6{left:50%;top:2px;width:16px;height:2px;transform:translateX(-50%);background:#ffe69a;box-shadow:0 0 14px #ffc75e;animation:v27dRoyalPulse 2s ease-in-out infinite}
+@keyframes v27dRoyalGlint{0%,72%,100%{opacity:.12;transform:rotate(45deg) scale(.7)}76%,82%{opacity:1;transform:rotate(45deg) scale(1.8)}}
+@keyframes v27dRoyalSweep{0%,18%{transform:translateX(-80%) skewX(-18deg);opacity:0}42%{opacity:.8}68%,100%{transform:translateX(420%) skewX(-18deg);opacity:0}}
+@keyframes v27dRoyalPulse{0%,100%{opacity:.25;width:8px}50%{opacity:1;width:28px}}
+
+/* 3. RIFT — violent crack/shard jolts. */
+.v23-client .fx-frame_rift .v28-frame-core{border:2px solid rgba(184,125,255,.7);box-shadow:0 0 25px rgba(153,75,255,.32),inset 0 0 20px rgba(126,67,224,.15);animation:v27dRiftCore 2.1s steps(1,end) infinite}
+.v23-client .fx-frame_rift .v28-frame-particle{width:12px;height:18px;background:linear-gradient(150deg,#f1d7ff,#8e4dff 65%,transparent 66%);clip-path:polygon(50% 0,100% 38%,65% 100%,12% 74%,0 25%);filter:drop-shadow(0 0 6px rgba(178,94,255,.8));opacity:.15}
+.v23-client .fx-frame_rift .p1{left:2%;top:9%;animation:v27dRiftShard 2.8s steps(1,end) infinite}
+.v23-client .fx-frame_rift .p2{right:3%;top:18%;animation:v27dRiftShard 3.1s .7s steps(1,end) infinite}
+.v23-client .fx-frame_rift .p3{right:4%;bottom:12%;animation:v27dRiftShard 2.4s 1.1s steps(1,end) infinite}
+.v23-client .fx-frame_rift .p4{left:3%;bottom:18%;animation:v27dRiftShard 3.4s .3s steps(1,end) infinite}
+.v23-client .fx-frame_rift .p5{left:47%;top:2%;width:2px;height:22%;clip-path:none;background:#dba8ff;box-shadow:0 0 12px #a04cff;animation:v27dRiftCrack 2.7s steps(1,end) infinite}
+.v23-client .fx-frame_rift .p6{right:2%;top:48%;width:18%;height:2px;clip-path:none;background:#dba8ff;box-shadow:0 0 12px #a04cff;animation:v27dRiftCrack 3.3s .8s steps(1,end) infinite}
+@keyframes v27dRiftCore{0%,88%,100%{filter:none}89%{filter:brightness(1.8) contrast(1.3);transform:translateX(1px)}91%{transform:translateX(-1px)}93%{transform:none}}
+@keyframes v27dRiftShard{0%,76%,100%{opacity:.12;transform:translate(0,0) rotate(0) scale(.7)}78%{opacity:1;transform:translate(7px,-5px) rotate(28deg) scale(1.2)}84%{opacity:.55;transform:translate(-4px,6px) rotate(-18deg)}}
+@keyframes v27dRiftCrack{0%,84%,100%{opacity:.05;transform:scale(.4)}86%,90%{opacity:1;transform:scale(1)}}
+
+/* 4. ASTRAL — shooting stars and constellation blinks. */
+.v23-client .fx-frame_astral .v28-frame-core{border:1px solid rgba(188,223,255,.55);box-shadow:0 0 25px rgba(111,181,255,.24),inset 0 0 18px rgba(139,120,255,.10)}
+.v23-client .fx-frame_astral .v28-frame-particle{width:34px;height:2px;border-radius:99px;background:linear-gradient(90deg,transparent,#e9f8ff,#8fd8ff);box-shadow:0 0 9px rgba(141,214,255,.85);opacity:0}
+.v23-client .fx-frame_astral .p1{left:-30px;top:12%;animation:v27dMeteor 4.6s linear infinite}
+.v23-client .fx-frame_astral .p2{left:-25px;top:58%;animation:v27dMeteor 5.4s 1.5s linear infinite}
+.v23-client .fx-frame_astral .p3{left:18%;top:-10px;transform:rotate(55deg);animation:v27dMeteorVertical 5.8s .6s linear infinite}
+.v23-client .fx-frame_astral .p4,.v23-client .fx-frame_astral .p5,.v23-client .fx-frame_astral .p6{width:4px;height:4px;border-radius:50%;background:#eaf8ff;box-shadow:0 0 10px #9edcff;opacity:.3}
+.v23-client .fx-frame_astral .p4{right:9%;top:13%;animation:v27dStarBlink 2.1s infinite}
+.v23-client .fx-frame_astral .p5{right:7%;bottom:18%;animation:v27dStarBlink 2.7s .8s infinite}
+.v23-client .fx-frame_astral .p6{left:8%;bottom:9%;animation:v27dStarBlink 3s 1.3s infinite}
+@keyframes v27dMeteor{0%,12%{transform:translateX(0) translateY(0) rotate(12deg);opacity:0}18%{opacity:1}48%{opacity:.85}62%,100%{transform:translateX(420px) translateY(38px) rotate(12deg);opacity:0}}
+@keyframes v27dMeteorVertical{0%,10%{transform:translate(0,0) rotate(55deg);opacity:0}18%{opacity:1}58%,100%{transform:translate(210px,280px) rotate(55deg);opacity:0}}
+@keyframes v27dStarBlink{0%,100%{opacity:.2;transform:scale(.5)}50%{opacity:1;transform:scale(1.5)}}
+
+/* 5. PRISM — chromatic split/glitch flashes rather than a spin. */
+.v23-client .fx-frame_prismatic_loop .v28-frame-core{border:2px solid transparent;background:linear-gradient(#0000,#0000) padding-box,linear-gradient(90deg,#63e8ff,#a786ff,#ff79c8,#ffd76f,#74f0aa) border-box;box-shadow:0 0 24px rgba(190,124,255,.18);animation:v27dPrismCore 2.7s steps(7,end) infinite}
+.v23-client .fx-frame_prismatic_loop .v28-frame-particle{height:2px;width:28%;background:#fff;box-shadow:5px 0 #6ff7ff,-5px 0 #ff6fc7;opacity:0}
+.v23-client .fx-frame_prismatic_loop .p1{left:4%;top:4px;animation:v27dPrismFlash 2.8s steps(1,end) infinite}
+.v23-client .fx-frame_prismatic_loop .p2{right:4%;bottom:4px;animation:v27dPrismFlash 3.1s 1s steps(1,end) infinite}
+.v23-client .fx-frame_prismatic_loop .p3{left:4px;top:34%;width:2px;height:30%;animation:v27dPrismFlash 3.4s .5s steps(1,end) infinite}
+.v23-client .fx-frame_prismatic_loop .p4{right:4px;top:20%;width:2px;height:38%;animation:v27dPrismFlash 2.5s 1.4s steps(1,end) infinite}
+@keyframes v27dPrismCore{0%,100%{filter:hue-rotate(0deg)}35%{filter:hue-rotate(35deg) saturate(1.3)}68%{filter:hue-rotate(-25deg) saturate(1.5)}}
+@keyframes v27dPrismFlash{0%,84%,100%{opacity:0;transform:translateX(0)}86%{opacity:1;transform:translateX(4px)}89%{opacity:.6;transform:translateX(-3px)}92%{opacity:0}}
+
+/* 6. EMBER CROWN — visibly burning flames + sparks. */
+.v23-client .fx-frame_ember_crown .v28-frame-core{border:2px solid rgba(255,132,56,.72);box-shadow:0 0 26px rgba(255,75,22,.42),inset 0 0 18px rgba(255,133,34,.13);animation:v27dFireBorder .82s ease-in-out infinite alternate}
+.v23-client .fx-frame_ember_crown .v28-frame-particle{width:18px;height:34px;border-radius:65% 35% 68% 32%;background:radial-gradient(circle at 55% 74%,#fff1a0 0 10%,#ffb22f 22%,#ff5b22 56%,rgba(255,39,10,.05) 76%);filter:blur(.3px) drop-shadow(0 0 7px rgba(255,78,24,.9));transform-origin:50% 100%;opacity:.8}
+.v23-client .fx-frame_ember_crown .p1{left:3%;bottom:-10px;animation:v27dFlame 1.05s ease-in-out infinite}
+.v23-client .fx-frame_ember_crown .p2{left:15%;bottom:-12px;animation:v27dFlame .88s .2s ease-in-out infinite}
+.v23-client .fx-frame_ember_crown .p3{right:15%;bottom:-11px;animation:v27dFlame 1.18s .35s ease-in-out infinite}
+.v23-client .fx-frame_ember_crown .p4{right:3%;bottom:-8px;animation:v27dFlame .94s .1s ease-in-out infinite}
+.v23-client .fx-frame_ember_crown .p5{left:-8px;bottom:16%;animation:v27dSideFlame 1.1s .45s ease-in-out infinite}
+.v23-client .fx-frame_ember_crown .p6{right:-8px;bottom:23%;animation:v27dSideFlame .9s .25s ease-in-out infinite}
+.v23-client .fx-frame_ember_crown .p7,.v23-client .fx-frame_ember_crown .p8,.v23-client .fx-frame_ember_crown .p9,.v23-client .fx-frame_ember_crown .p10{width:4px;height:4px;border-radius:50%;background:#ffd16b;box-shadow:0 0 8px #ff6b24;opacity:0}
+.v23-client .fx-frame_ember_crown .p7{left:20%;bottom:8%;animation:v27dEmberSpark 1.9s linear infinite}
+.v23-client .fx-frame_ember_crown .p8{left:42%;bottom:5%;animation:v27dEmberSpark 2.3s .7s linear infinite}
+.v23-client .fx-frame_ember_crown .p9{right:28%;bottom:7%;animation:v27dEmberSpark 1.7s .35s linear infinite}
+.v23-client .fx-frame_ember_crown .p10{right:9%;bottom:12%;animation:v27dEmberSpark 2.1s 1s linear infinite}
+@keyframes v27dFireBorder{from{box-shadow:0 0 18px rgba(255,72,18,.28),inset 0 0 10px rgba(255,133,34,.08)}to{box-shadow:0 0 34px rgba(255,73,17,.58),inset 0 0 22px rgba(255,175,38,.20)}}
+@keyframes v27dFlame{0%,100%{transform:translateY(4px) scale(.72,1) rotate(-4deg);opacity:.55}35%{transform:translateY(-5px) scale(1.05,1.25) rotate(5deg);opacity:1}68%{transform:translateY(0) scale(.85,1.08) rotate(-2deg);opacity:.78}}
+@keyframes v27dSideFlame{0%,100%{transform:translateX(2px) scale(.7) rotate(70deg);opacity:.45}50%{transform:translateX(8px) translateY(-5px) scale(1.05) rotate(78deg);opacity:1}}
+@keyframes v27dEmberSpark{0%{transform:translateY(0) scale(.4);opacity:0}14%{opacity:1}70%{opacity:.65}100%{transform:translateY(-100px) translateX(18px) scale(.1);opacity:0}}
+
+/* 7. NEON CIRCUIT — aggressive electric crackle / short-outs. */
+.v23-client .fx-frame_neon_circuit .v28-frame-core{border:2px solid rgba(102,240,255,.62);box-shadow:0 0 22px rgba(72,225,255,.35),inset 0 0 16px rgba(255,81,215,.08);animation:v27dElectricBorder 1.2s steps(1,end) infinite}
+.v23-client .fx-frame_neon_circuit .v28-frame-particle{width:38px;height:3px;background:#c6fbff;box-shadow:0 0 8px #48e8ff,0 0 15px rgba(255,84,225,.45);clip-path:polygon(0 35%,30% 35%,37% 0,45% 100%,53% 25%,65% 55%,100% 55%,100% 85%,62% 85%,55% 100%,46% 35%,39% 100%,31% 65%,0 65%);opacity:0}
+.v23-client .fx-frame_neon_circuit .p1{left:6%;top:3px;animation:v27dZap 1.6s steps(1,end) infinite}
+.v23-client .fx-frame_neon_circuit .p2{right:7%;top:3px;animation:v27dZap 2.1s .5s steps(1,end) infinite}
+.v23-client .fx-frame_neon_circuit .p3{left:-15px;top:34%;transform:rotate(90deg);animation:v27dZap 1.8s .8s steps(1,end) infinite}
+.v23-client .fx-frame_neon_circuit .p4{right:-15px;bottom:29%;transform:rotate(90deg);animation:v27dZap 1.45s .2s steps(1,end) infinite}
+.v23-client .fx-frame_neon_circuit .p5{left:30%;bottom:3px;animation:v27dZap 2.3s 1.1s steps(1,end) infinite}
+.v23-client .fx-frame_neon_circuit .p6{right:17%;bottom:3px;animation:v27dZap 1.75s .65s steps(1,end) infinite}
+.v23-client .fx-frame_neon_circuit .p7,.v23-client .fx-frame_neon_circuit .p8{width:5px;height:5px;border-radius:50%;clip-path:none;background:#fff;box-shadow:0 0 12px #4ff6ff;opacity:.2}
+.v23-client .fx-frame_neon_circuit .p7{left:5px;top:5px;animation:v27dShortout 1.25s steps(1,end) infinite}
+.v23-client .fx-frame_neon_circuit .p8{right:5px;bottom:5px;animation:v27dShortout 1.7s .4s steps(1,end) infinite}
+@keyframes v27dElectricBorder{0%,100%{opacity:.85;filter:none}8%{opacity:.3}10%{opacity:1;filter:brightness(1.8)}12%{opacity:.65}68%{filter:none}70%{filter:brightness(1.5)}72%{filter:none}}
+@keyframes v27dZap{0%,72%,100%{opacity:0;transform:translateX(0)}74%{opacity:1}76%{transform:translateX(5px);opacity:.35}78%{transform:translateX(-3px);opacity:1}81%{opacity:0}}
+@keyframes v27dShortout{0%,82%,100%{opacity:.2;transform:scale(.6)}84%{opacity:1;transform:scale(1.7)}87%{opacity:.25}90%{opacity:1;transform:scale(1.2)}93%{opacity:.2}}
+
+/* 8. MOONLACE — cold moon mist drifting around the edges. */
+.v23-client .fx-frame_moonlace .v28-frame-core{border:1px solid rgba(220,232,255,.62);box-shadow:0 0 22px rgba(172,202,255,.20),inset 0 0 14px rgba(215,227,255,.08)}
+.v23-client .fx-frame_moonlace .v28-frame-particle{width:55%;height:22px;border-radius:50%;background:linear-gradient(90deg,transparent,rgba(225,235,255,.45),transparent);filter:blur(8px);opacity:.24}
+.v23-client .fx-frame_moonlace .p1{left:-20%;top:4%;animation:v27dMoonMist 6.4s ease-in-out infinite alternate}
+.v23-client .fx-frame_moonlace .p2{right:-20%;bottom:5%;animation:v27dMoonMist 7.2s 1.8s ease-in-out infinite alternate-reverse}
+.v23-client .fx-frame_moonlace .p3{left:-25%;top:45%;animation:v27dMoonMist 8s .6s ease-in-out infinite alternate}
+.v23-client .fx-frame_moonlace .p4{right:-25%;top:23%;animation:v27dMoonMist 6.8s 2.2s ease-in-out infinite alternate-reverse}
+.v23-client .fx-frame_moonlace .p5{right:8%;top:8%;width:9px;height:9px;border-radius:50%;filter:none;background:#edf5ff;box-shadow:0 0 15px #d3e2ff;animation:v27dMoonPearl 3s ease-in-out infinite}
+@keyframes v27dMoonMist{from{transform:translateX(-8%) scaleX(.85);opacity:.18}to{transform:translateX(30%) scaleX(1.2);opacity:.55}}
+@keyframes v27dMoonPearl{0%,100%{opacity:.3;transform:scale(.7)}50%{opacity:1;transform:scale(1.4)}}
+
+/* 9. BLOSSOM — petals physically drift and tumble. */
+.v23-client .fx-frame_blossom_arc .v28-frame-core{border:2px solid rgba(255,184,229,.58);box-shadow:0 0 20px rgba(255,139,211,.20),inset 0 0 14px rgba(255,200,235,.06)}
+.v23-client .fx-frame_blossom_arc .v28-frame-particle{width:8px;height:13px;border-radius:70% 20% 70% 20%;background:linear-gradient(145deg,#ffd9ef,#ff91cc);filter:drop-shadow(0 0 5px rgba(255,133,202,.5));opacity:0}
+.v23-client .fx-frame_blossom_arc .p1{left:9%;top:-15px;animation:v27dPetalFall 5.6s linear infinite}
+.v23-client .fx-frame_blossom_arc .p2{left:27%;top:-18px;animation:v27dPetalFall 6.8s 1.1s linear infinite}
+.v23-client .fx-frame_blossom_arc .p3{left:49%;top:-14px;animation:v27dPetalFall 5.2s 2s linear infinite}
+.v23-client .fx-frame_blossom_arc .p4{right:23%;top:-17px;animation:v27dPetalFall 7.1s .4s linear infinite}
+.v23-client .fx-frame_blossom_arc .p5{right:7%;top:-16px;animation:v27dPetalFall 6.1s 1.7s linear infinite}
+.v23-client .fx-frame_blossom_arc .p6{left:-8px;top:24%;animation:v27dPetalSide 5.7s .8s linear infinite}
+.v23-client .fx-frame_blossom_arc .p7{right:-8px;top:38%;animation:v27dPetalSide 6.4s 2.1s linear infinite reverse}
+@keyframes v27dPetalFall{0%{transform:translate(0,-10px) rotate(0deg);opacity:0}12%{opacity:.9}55%{transform:translate(24px,105px) rotate(190deg);opacity:.8}100%{transform:translate(-10px,230px) rotate(420deg);opacity:0}}
+@keyframes v27dPetalSide{0%{transform:translateX(0) rotate(0);opacity:0}15%{opacity:.9}100%{transform:translateX(150px) translateY(70px) rotate(330deg);opacity:0}}
+
+/* 10. ROYAL WINDOW — stained-glass beams open/close across the frame. */
+.v23-client .fx-frame_royal_window .v28-frame-core{border:2px solid rgba(255,219,139,.67);box-shadow:0 0 25px rgba(255,210,100,.20),inset 0 0 15px rgba(255,236,175,.07)}
+.v23-client .fx-frame_royal_window .v28-frame-particle{height:120%;width:18%;top:-10%;background:linear-gradient(180deg,rgba(255,221,130,.00),rgba(255,230,160,.23),rgba(255,166,112,.10),rgba(255,221,130,.00));filter:blur(1px);transform:skewX(-18deg);opacity:0}
+.v23-client .fx-frame_royal_window .p1{left:-20%;animation:v27dWindowBeam 6.2s ease-in-out infinite}
+.v23-client .fx-frame_royal_window .p2{left:-30%;animation:v27dWindowBeam 6.2s 1.4s ease-in-out infinite}
+.v23-client .fx-frame_royal_window .p3{left:-22%;animation:v27dWindowBeam 6.2s 2.8s ease-in-out infinite}
+.v23-client .fx-frame_royal_window .p4{right:6%;top:4px;width:5px;height:5px;border-radius:50%;background:#fff1bd;box-shadow:0 0 12px #ffd06d;filter:none;transform:none;animation:v27dWindowJewel 2.7s ease-in-out infinite}
+.v23-client .fx-frame_royal_window .p5{left:6%;bottom:4px;width:5px;height:5px;border-radius:50%;background:#fff1bd;box-shadow:0 0 12px #ffd06d;filter:none;transform:none;animation:v27dWindowJewel 3.1s 1s ease-in-out infinite}
+@keyframes v27dWindowBeam{0%,8%{transform:translateX(0) skewX(-18deg);opacity:0}28%{opacity:.7}65%{opacity:.35}85%,100%{transform:translateX(700%) skewX(-18deg);opacity:0}}
+@keyframes v27dWindowJewel{0%,100%{opacity:.25;transform:scale(.6)}50%{opacity:1;transform:scale(1.5)}}
+
+@media (prefers-reduced-motion: reduce) {
+  .v23-client .v28-frame-core,
+  .v23-client .v28-frame-particle { animation:none!important; }
+}

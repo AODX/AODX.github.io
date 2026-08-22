@@ -219,6 +219,17 @@ function NicknameText({ name, styleId, className = '' }: { name: string; styleId
   return <span className={`v26-nickname nickname-${styleId ?? 'nickname_default'} ${className}`.trim()}>{name}</span>;
 }
 
+function ProfileFrameFX({ frameId }: { frameId?: string }) {
+  const resolved = frameId ?? 'frame_default';
+  if (resolved === 'frame_default') return null;
+  return (
+    <span className={`v28-frame-fx fx-${resolved}`} aria-hidden="true">
+      <b className="v28-frame-core" />
+      {Array.from({ length: 12 }, (_, index) => <i key={index} className={`v28-frame-particle p${index + 1}`} />)}
+    </span>
+  );
+}
+
 
 const SOUND_STORAGE_KEY = 'eclipse-duel:sound-enabled';
 const SOUND_VOLUME_STORAGE_KEY = 'eclipse-duel:sound-volume';
@@ -528,6 +539,7 @@ function CosmeticPreview({ item, profile }: { item: ProfileCosmetic; profile: Pr
       <div className={`v17-cosmetic-scene kind-${item.kind}`}>
         <div className="v17-cosmetic-scene-glow" />
         <div className="v17-cosmetic-frame-ring" />
+        {item.kind === 'frame' && <ProfileFrameFX frameId={item.id} />}
         <div className="v17-cosmetic-title">
           <span>{item.kind === 'background' ? 'PROFILE BACKGROUND' : 'PROFILE FRAME'}</span>
           <b>{item.name}</b>
@@ -2023,6 +2035,7 @@ function ProfileView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   return (
     <div className="profile-layout">
       <section className={`profile-card panel v17-profile-card theme-${theme} frame-${frame} emblem-${emblem} nickname-${nicknameStyle}`}>
+        <ProfileFrameFX frameId={frame} />
         <span className={`v26-equipped-emblem emblem-${emblem}`}>{emblemGlyph(emblem)}</span>
         <Avatar id={avatar} size="large" />
         <span className="eyebrow">DUELIST PROFILE</span>
