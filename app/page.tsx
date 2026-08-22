@@ -169,6 +169,11 @@ const PROFILE_COSMETICS: ProfileCosmetic[] = [
   { id: 'emblem_comet_heart', kind: 'emblem', name: '코멧 하트', price: 1180, rarity: 'epic', description: '작은 혜성이 하트 궤도를 그리며 도는 문양.', accent: '#ffa4d0', glyph: '♥' },
   { id: 'emblem_clock_halo', kind: 'emblem', name: '클락 헤일로', price: 1540, rarity: 'legendary', description: '시계 눈금이 빛 고리로 회전하는 시간 문양.', accent: '#99ebff', glyph: '◔' },
   { id: 'emblem_storm_sigil', kind: 'emblem', name: '스톰 시질', price: 1320, rarity: 'epic', description: '번개 모양의 잔광이 주위를 맴도는 폭풍 문양.', accent: '#8dc9ff', glyph: '⚡' },
+  { id: 'emblem_prism_butterfly', kind: 'emblem', name: '프리즘 버터플라이', price: 1380, rarity: 'epic', description: '프리즘 날개가 펼쳐졌다 접히듯 반짝이는 프로필 문양.', accent: '#d59bff', glyph: '✣' },
+  { id: 'emblem_eclipse_crown', kind: 'emblem', name: '이클립스 크라운', price: 1760, rarity: 'legendary', description: '작은 일식 고리 위로 왕관 광채가 떠오르는 전설 문양.', accent: '#ffd17f', glyph: '♚' },
+  { id: 'emblem_sakura_halo', kind: 'emblem', name: '사쿠라 헤일로', price: 1260, rarity: 'epic', description: '벚꽃빛 헤일로가 숨 쉬듯 피고 지는 프로필 문양.', accent: '#ffabd8', glyph: '❁' },
+  { id: 'emblem_comet_arrow', kind: 'emblem', name: '코멧 애로우', price: 1480, rarity: 'epic', description: '혜성 꼬리가 사선으로 스쳐 지나가는 역동적인 문양.', accent: '#8ddfff', glyph: '➳' },
+  { id: 'emblem_arcane_node', kind: 'emblem', name: '아케인 노드', price: 1690, rarity: 'legendary', description: '마력 노드가 순차적으로 점등되는 전설 프로필 문양.', accent: '#be8dff', glyph: '✺' },
   { id: 'sleeve_eclipse_black', kind: 'sleeve', name: '일식 블랙 슬리브', price: 450, rarity: 'rare', description: '검은 일식 링과 은빛 E 문장이 새겨진 카드 보호 슬리브.', accent: '#7788ff', glyph: 'E' },
   { id: 'sleeve_solar_flare', kind: 'sleeve', name: '솔라 플레어 슬리브', price: 650, rarity: 'rare', description: '붉은 태양 홍염이 카드 뒷면을 감싸는 슬리브.', accent: '#ff985d', glyph: '☀' },
   { id: 'sleeve_lunar_glass', kind: 'sleeve', name: '루나 글라스 슬리브', price: 800, rarity: 'epic', description: '푸른 유리와 초승달 궤도로 빛나는 슬리브.', accent: '#9cb5ff', glyph: '☾' },
@@ -203,7 +208,7 @@ const PROFILE_COSMETICS: ProfileCosmetic[] = [
 
 
 const COSMETIC_KIND_LABEL: Record<ProfileCosmeticKind, string> = {
-  background: '배경', frame: '프레임', emblem: '프로필 문양', sleeve: '카드 슬리브', nickname: '닉네임 효과',
+  background: '배경', frame: '프레임', emblem: '문양/아이콘', sleeve: '카드 슬리브', nickname: '닉네임 효과',
 };
 const EMBLEM_BY_ID = Object.fromEntries(PROFILE_COSMETICS.filter((item) => item.kind === 'emblem').map((item) => [item.id, item])) as Record<string, ProfileCosmetic>;
 const SLEEVE_BY_ID = Object.fromEntries(PROFILE_COSMETICS.filter((item) => item.kind === 'sleeve').map((item) => [item.id, item])) as Record<string, ProfileCosmetic>;
@@ -514,7 +519,7 @@ function CosmeticPreview({ item, profile }: { item: ProfileCosmetic; profile: Pr
   if (item.kind === 'emblem') {
     return (
       <div className={`v17-cosmetic-preview ${item.id} kind-emblem`} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>
-        <div className="v26-emblem-preview"><span className="v26-emblem-orbit" /><b>{item.glyph ?? 'E'}</b><small>PROFILE EMBLEM</small></div>
+        <div className="v26-emblem-preview"><span className="v26-emblem-orbit" /><b>{item.glyph ?? 'E'}</b><small>PROFILE EMBLEM / ICON</small></div>
       </div>
     );
   }
@@ -1803,7 +1808,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
       </section>
       <div className="v17-shop-tabs">
         <button className={shopTab === 'packs' ? 'active' : ''} onClick={() => setShopTab('packs')}><b>카드팩</b><small>새 카드 획득</small></button>
-        <button className={shopTab === 'profile' ? 'active' : ''} onClick={() => setShopTab('profile')}><b>꾸미기</b><small>배경 · 프레임 · 문양 · 슬리브 · 닉네임</small></button>
+        <button className={shopTab === 'profile' ? 'active' : ''} onClick={() => setShopTab('profile')}><b>꾸미기</b><small>배경 · 프레임 · 문양/아이콘 · 슬리브 · 닉네임</small></button>
       </div>
       {error && <p className="error-banner">{error}</p>}
       {shopTab === 'packs' ? (
@@ -2033,7 +2038,7 @@ function ProfileView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
         <label><span>프로필 아이콘</span><div className="avatar-picker">{AVATARS.map((id) => <button className={avatar === id ? 'active' : ''} key={id} onClick={() => setAvatar(id)}><Avatar id={id} /></button>)}</div></label>
         <div className="v17-profile-skin-picker"><span>보유 프로필 배경</span><div><button className={theme === 'bg_default' ? 'active' : ''} onClick={() => equipCosmetic('bg_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'background' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={theme === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.name}</button>)}</div></div>
         <div className="v17-profile-skin-picker"><span>보유 프로필 프레임</span><div><button className={frame === 'frame_default' ? 'active' : ''} onClick={() => equipCosmetic('frame_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'frame' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={frame === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.name}</button>)}</div></div>
-        <div className="v17-profile-skin-picker"><span>보유 프로필 문양</span><div><button className={emblem === 'emblem_default' ? 'active' : ''} onClick={() => equipCosmetic('emblem_default')}>기본 E</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'emblem' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={emblem === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.glyph} {item.name}</button>)}</div></div>
+        <div className="v17-profile-skin-picker"><span>보유 프로필 문양/아이콘</span><div><button className={emblem === 'emblem_default' ? 'active' : ''} onClick={() => equipCosmetic('emblem_default')}>기본 E</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'emblem' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={emblem === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.glyph} {item.name}</button>)}</div></div>
         <div className="v17-profile-skin-picker"><span>보유 카드 슬리브</span><div><button className={sleeve === 'sleeve_default' ? 'active' : ''} onClick={() => equipCosmetic('sleeve_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'sleeve' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={sleeve === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.name}</button>)}</div><div className="v26-profile-sleeve-demo"><CardFace hidden compact inspectable={false} sleeveId={sleeve} /></div></div>
         <div className="v17-profile-skin-picker v26-nickname-picker"><span>보유 닉네임 효과</span><div><button className={nicknameStyle === 'nickname_default' ? 'active' : ''} onClick={() => equipCosmetic('nickname_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'nickname' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={nicknameStyle === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}><NicknameText name={item.name} styleId={item.id} /></button>)}</div><div className="v26-nickname-equipped-preview"><small>다른 플레이어에게도 이렇게 표시됩니다</small><NicknameText name={hub.profile.display_name} styleId={nicknameStyle} /></div></div>
         {message && <p className="inline-message">{message}</p>}
