@@ -1,0 +1,73 @@
+ECLIPSE DUEL v26 QA REPORT
+========================================
+
+[DATA / CONTENT]
+- Total cards: 520
+- New v26 cards: 200
+- Unique card IDs: 520 / 520
+- Unique display names: 520 / 520
+- Card series: 13
+- Card packs: 16 (3 core + 13 series)
+- New series card counts: chronorium 40, arcana_protocol 40, beastforge 40, phantom_carnival 40, astral_armada 40
+
+[STARTER / EXISTING RULES]
+- Main deck: 30
+- Extra deck: 6
+- Starter legendary count: 1 (evolution_rift_alpha)
+- v25 30-minute global chat retention: PRESENT
+
+[NEW SERIES ENGINE SMOKE TEST]
+- chronorium: OK (v26_chronorium_unit_08)
+- arcana_protocol: OK (v26_arcana_protocol_unit_08)
+- beastforge: OK (v26_beastforge_unit_08)
+- phantom_carnival: OK (v26_phantom_carnival_unit_08)
+- astral_armada: OK (v26_astral_armada_unit_08)
+
+[ART UNIQUENESS]
+- cards=520 art=520 missing=0 invalid=0 exact_duplicate_groups=0 near_duplicate_pairs=0
+- Similarity failure threshold: 0.940
+- Existing legacy art changed from v23 baseline: 182
+- New unique art files: 200
+
+[SQL / SERVER]
+- v26 catalog rows: 200 / 200
+- Missing v26 catalog rows: 0
+- Cosmetic product IDs configured: 30 / 30
+- profile_emblem column migration: PASS
+- card_sleeve column migration: PASS
+- nickname_style column migration: PASS
+- v26 buy/equip cosmetic RPC: PASS
+- v26 pack RPC: PASS
+
+[CSS PARSE]
+- app/globals.css: parse errors 0
+- app/theme-v19.css: parse errors 0
+- app/theme-v23.css: parse errors 0
+
+[TS/TSX SYNTAX]
+- app/page.tsx: transpile syntax errors 0
+- app/game-data.ts: transpile syntax errors 0
+- app/game-engine.ts: transpile syntax errors 0
+- app/api/eclipse/route.ts: transpile syntax errors 0
+- app/layout.tsx: transpile syntax errors 0
+- game-data.ts + game-engine.ts standalone TypeScript compile: PASS
+
+[IMPORTANT ENVIRONMENT LIMITATION]
+- npm dependency installation in this execution environment timed out, so a full `next build` production build could not be run here.
+- This report therefore confirms source syntax, data integrity, engine smoke tests, art integrity/uniqueness, CSS parsing and SQL/API wiring, but not a live Supabase two-account end-to-end session in this container.
+
+[V26.1 ANIMATED COSMETICS / NICKNAME FX]
+- Cosmetic products total: 30
+- Nickname FX products: 7 / 7
+- New animated backgrounds: 2
+- New animated frames: 2
+- Existing legendary cosmetic motion upgrades: 2
+- nickname_style profile migration: PASS
+- global chat nickname_style persistence: PASS
+- room chat nickname_style persistence: PASS
+- friend profile nickname_style query: PASS
+- room/opponent nickname_style query: PASS
+- cosmetic IDs missing from v26 SQL: 0
+- TS/TSX syntax after nickname propagation: PASS
+- theme-v23.css parse after animation styles: PASS
+- Animation/background and frame layers separated to avoid pseudo-element collision: PASS

@@ -1,0 +1,521 @@
+﻿id,name,kind,rarity,element,cost,series,series_id,summon_mode
+unit_ember_squire,잿불의 종자,unit,common,solar,1,,,normal
+unit_rift_hound,균열 사냥개,unit,common,void,2,,,normal
+unit_iron_bastion,철벽 수호병,unit,common,neutral,2,,,normal
+unit_celestial_archer,성광 궁수,unit,common,solar,2,,,normal
+unit_verdant_sage,푸른잎 현자,unit,common,verdant,2,,,normal
+unit_tide_medic,월광 치유사,unit,common,lunar,2,,,normal
+unit_storm_lancer,폭풍 창기병,unit,rare,storm,3,,,normal
+unit_moon_priest,은월 사제,unit,rare,lunar,3,,,normal
+unit_ashen_duelist,재의 결투가,unit,rare,solar,3,,,normal
+unit_crystal_warden,수정 파수꾼,unit,rare,neutral,4,,,normal
+unit_void_reaper,공허 수확자,unit,rare,void,4,,,normal
+unit_nova_golem,신성 거신,unit,rare,solar,5,,,normal
+unit_timeweaver,시간 직조사,unit,epic,lunar,5,,,normal
+unit_oracle_glass,유리의 예언자,unit,epic,neutral,4,,,normal
+unit_eclipse_dragon,식의 용,unit,epic,void,6,,,normal
+unit_phoenix_knight,불사조 기사,unit,epic,solar,5,,,normal
+unit_tempest_queen,폭풍의 여왕,unit,epic,storm,6,,,normal
+unit_crownless_titan,왕관 없는 거인,unit,legendary,neutral,8,,,normal
+unit_star_devourer,성식의 포식자,unit,legendary,void,9,,,normal
+unit_dawn_seraph,여명의 세라프,unit,legendary,solar,7,,,normal
+spell_spark_bolt,섬광탄,spell,common,storm,1,,,normal
+spell_battle_hymn,전투 찬가,spell,common,solar,2,,,normal
+spell_mending_light,회복의 빛,spell,common,lunar,2,,,normal
+spell_astral_insight,성운의 통찰,spell,rare,neutral,2,,,normal
+spell_void_lance,공허의 창,spell,rare,void,3,,,normal
+spell_overgrowth,급속 성장,spell,rare,verdant,3,,,normal
+spell_chain_lightning,연쇄 번개,spell,epic,storm,4,,,normal
+spell_cleanse,월식 정화,spell,epic,lunar,4,,,normal
+spell_supernova,초신성 폭발,spell,legendary,solar,7,,,normal
+spell_rebirth_seed,재생의 씨앗,spell,epic,verdant,4,,,normal
+trap_mirror_veil,거울 장막,trap,common,lunar,2,,,normal
+trap_thorn_snare,가시 덫,trap,common,verdant,2,,,normal
+trap_counter_sigil,역전의 문장,trap,rare,neutral,3,,,normal
+trap_ambush,그림자 매복,trap,rare,void,2,,,normal
+trap_last_stand,최후의 방벽,trap,epic,solar,3,,,normal
+trap_storm_prison,폭풍 감옥,trap,epic,storm,3,,,normal
+trap_null_horizon,무의 지평선,trap,legendary,void,4,,,normal
+trap_crystal_reversal,수정 반전,trap,rare,neutral,2,,,normal
+trap_blooming_guard,개화의 수호,trap,common,verdant,2,,,normal
+trap_solar_rebuke,태양의 질책,trap,epic,solar,3,,,normal
+unit_rift_wanderer,균열의 유랑자,unit,rare,void,4,,,rift
+unit_lastlight_vanguard,최후광 선봉대,unit,rare,solar,5,,,rift
+unit_tempest_interceptor,뇌광 요격수,unit,epic,storm,5,,,rift
+unit_gravebloom_medium,묘화의 영매,unit,epic,verdant,5,,,rift
+fusion_eclipse_chimera,이클립시온 크로스 - 네메시스 키메라,fusion,legendary,void,3,일식공명 이클립시온,eclipsion,fusion
+fusion_tempest_colossus,템페스트 드라이브 크로스 - 썬더 콜로서스,fusion,epic,storm,2,천뢰기동 템페스트 드라이브,tempest_drive,fusion
+fusion_worldroot_hydra,아르보리아 크로스 - 에버그린 히드라,fusion,epic,verdant,2,세계수권속 아르보리아,arborian,fusion
+evolution_ember_phoenix,루미나이츠 어센드 - 피닉스 브레이버,evolution,epic,solar,2,성휘전대 루미나이츠,luminaknights,evolution
+evolution_iron_sovereign,카이저기어 어센드 - 아이언 소버린,evolution,epic,neutral,2,황제기갑 카이저기어,kaisergear,evolution
+evolution_rift_alpha,이클립시온 어센드 - 리프트 알파,evolution,legendary,void,3,일식공명 이클립시온,eclipsion,evolution
+trap_resonance_break,공명 붕괴진,trap,epic,neutral,3,,,normal
+trap_ancestral_denial,계승 거부,trap,rare,lunar,2,,,normal
+unit_v8_solar_01,루미나이츠 글로리 세이버,unit,common,solar,2,성휘전대 루미나이츠,luminaknights,normal
+unit_v8_solar_02,카이저기어 발칸 프레임,unit,common,solar,3,황제기갑 카이저기어,kaisergear,normal
+unit_v8_solar_03,이클립시온 블랙 레조너,unit,rare,solar,3,일식공명 이클립시온,eclipsion,normal
+unit_v8_solar_04,루미나이츠 브레이브 세이버,unit,common,solar,3,성휘전대 루미나이츠,luminaknights,normal
+unit_v8_solar_05,카이저기어 시그마 프레임,unit,rare,solar,3,황제기갑 카이저기어,kaisergear,normal
+unit_v8_solar_06,이클립시온 크로노 레조너,unit,epic,solar,6,일식공명 이클립시온,eclipsion,rift
+unit_v8_solar_07,루미나이츠 크라운 세이버,unit,common,solar,2,성휘전대 루미나이츠,luminaknights,normal
+unit_v8_solar_08,카이저기어 오메가 프레임,unit,rare,solar,4,황제기갑 카이저기어,kaisergear,normal
+unit_v8_solar_09,이클립시온 아스트라 레조너,unit,legendary,solar,7,일식공명 이클립시온,eclipsion,rift
+unit_v8_solar_10,루미나이츠 솔 랜서,unit,common,solar,3,성휘전대 루미나이츠,luminaknights,normal
+unit_v8_solar_11,카이저기어 임페리얼 프레임,unit,rare,solar,3,황제기갑 카이저기어,kaisergear,normal
+unit_v8_solar_12,이클립시온 베일 레조너,unit,common,solar,3,일식공명 이클립시온,eclipsion,normal
+unit_v8_solar_13,루미나이츠 레이 랜서,unit,common,solar,2,성휘전대 루미나이츠,luminaknights,rift
+unit_v8_solar_14,카이저기어 알파 드라이버,unit,epic,solar,6,황제기갑 카이저기어,kaisergear,normal
+unit_v8_solar_15,이클립시온 리프트 레조너,unit,common,solar,2,일식공명 이클립시온,eclipsion,normal
+unit_v8_solar_16,루미나이츠 크림슨 랜서,unit,rare,solar,4,성휘전대 루미나이츠,luminaknights,normal
+unit_v8_solar_17,카이저기어 아이언 드라이버,unit,epic,solar,5,황제기갑 카이저기어,kaisergear,normal
+unit_v8_solar_18,이클립시온 루인 레조너,unit,common,solar,3,일식공명 이클립시온,eclipsion,normal
+unit_v8_solar_19,루미나이츠 아크 랜서,unit,rare,solar,3,성휘전대 루미나이츠,luminaknights,normal
+unit_v8_solar_20,카이저기어 제로 드라이버,unit,common,solar,3,황제기갑 카이저기어,kaisergear,rift
+unit_v8_lunar_01,녹턴 미라주 루나 팬텀,unit,common,lunar,2,월영환상 녹턴 미라주,nocturne,normal
+unit_v8_lunar_02,아르보리아 브룸 가디언,unit,rare,lunar,4,세계수권속 아르보리아,arborian,normal
+unit_v8_lunar_03,녹턴 미라주 베일 팬텀,unit,epic,lunar,5,월영환상 녹턴 미라주,nocturne,normal
+unit_v8_lunar_04,아르보리아 쏜 가디언,unit,common,lunar,3,세계수권속 아르보리아,arborian,normal
+unit_v8_lunar_05,녹턴 미라주 드림 팬텀,unit,rare,lunar,3,월영환상 녹턴 미라주,nocturne,normal
+unit_v8_lunar_06,아르보리아 루트 가디언,unit,legendary,lunar,8,세계수권속 아르보리아,arborian,rift
+unit_v8_lunar_07,녹턴 미라주 미러 팬텀,unit,common,lunar,2,월영환상 녹턴 미라주,nocturne,normal
+unit_v8_lunar_08,아르보리아 베르드 가디언,unit,rare,lunar,4,세계수권속 아르보리아,arborian,normal
+unit_v8_lunar_09,녹턴 미라주 실버 팬텀,unit,common,lunar,2,월영환상 녹턴 미라주,nocturne,normal
+unit_v8_lunar_10,아르보리아 세이지 가디언,unit,common,lunar,3,세계수권속 아르보리아,arborian,normal
+unit_v8_lunar_11,녹턴 미라주 크레센트 팬텀,unit,epic,lunar,5,월영환상 녹턴 미라주,nocturne,normal
+unit_v8_lunar_12,아르보리아 가이아 가디언,unit,common,lunar,3,세계수권속 아르보리아,arborian,normal
+unit_v8_lunar_13,녹턴 미라주 나이트 팬텀,unit,rare,lunar,3,월영환상 녹턴 미라주,nocturne,rift
+unit_v8_lunar_14,아르보리아 플로라 가디언,unit,epic,lunar,6,세계수권속 아르보리아,arborian,normal
+unit_v8_lunar_15,녹턴 미라주 에코 팬텀,unit,common,lunar,2,월영환상 녹턴 미라주,nocturne,normal
+unit_v8_lunar_16,아르보리아 크라운 가디언,unit,rare,lunar,4,세계수권속 아르보리아,arborian,normal
+unit_v8_lunar_17,녹턴 미라주 미스트 팬텀,unit,common,lunar,2,월영환상 녹턴 미라주,nocturne,normal
+unit_v8_lunar_18,아르보리아 시드 가디언,unit,common,lunar,3,세계수권속 아르보리아,arborian,normal
+unit_v8_lunar_19,녹턴 미라주 페이즈 팬텀,unit,epic,lunar,5,월영환상 녹턴 미라주,nocturne,normal
+unit_v8_lunar_20,아르보리아 오크 가디언,unit,common,lunar,3,세계수권속 아르보리아,arborian,rift
+unit_v8_storm_01,템페스트 드라이브 제노 라이더,unit,common,storm,2,천뢰기동 템페스트 드라이브,tempest_drive,normal
+unit_v8_storm_02,어비스 리퍼 블랙 리퍼,unit,rare,storm,4,심연포식 어비스 리퍼,abyss_reaper,normal
+unit_v8_storm_03,프라이멀 가디언 루인 비스트,unit,legendary,storm,7,원초수호 프라이멀 가디언,primal_guardian,rift
+unit_v8_storm_04,템페스트 드라이브 라이트닝 라이더,unit,common,storm,3,천뢰기동 템페스트 드라이브,tempest_drive,normal
+unit_v8_storm_05,어비스 리퍼 헝거 리퍼,unit,rare,storm,3,심연포식 어비스 리퍼,abyss_reaper,normal
+unit_v8_storm_06,프라이멀 가디언 토템 비스트,unit,common,storm,3,원초수호 프라이멀 가디언,primal_guardian,rift
+unit_v8_storm_07,템페스트 드라이브 터보 라이더,unit,common,storm,2,천뢰기동 템페스트 드라이브,tempest_drive,normal
+unit_v8_storm_08,어비스 리퍼 베놈 리퍼,unit,epic,storm,6,심연포식 어비스 리퍼,abyss_reaper,normal
+unit_v8_storm_09,프라이멀 가디언 와일드 비스트,unit,common,storm,2,원초수호 프라이멀 가디언,primal_guardian,normal
+unit_v8_storm_10,템페스트 드라이브 볼트 랜서,unit,rare,storm,4,천뢰기동 템페스트 드라이브,tempest_drive,normal
+unit_v8_storm_11,어비스 리퍼 셰이드 리퍼,unit,epic,storm,5,심연포식 어비스 리퍼,abyss_reaper,normal
+unit_v8_storm_12,프라이멀 가디언 스톤 비스트,unit,common,storm,3,원초수호 프라이멀 가디언,primal_guardian,normal
+unit_v8_storm_13,템페스트 드라이브 제타 랜서,unit,rare,storm,3,천뢰기동 템페스트 드라이브,tempest_drive,rift
+unit_v8_storm_14,어비스 리퍼 그레이브 리퍼,unit,common,storm,3,심연포식 어비스 리퍼,abyss_reaper,normal
+unit_v8_storm_15,프라이멀 가디언 스카이 비스트,unit,common,storm,2,원초수호 프라이멀 가디언,primal_guardian,normal
+unit_v8_storm_16,템페스트 드라이브 스톰 랜서,unit,epic,storm,6,천뢰기동 템페스트 드라이브,tempest_drive,normal
+unit_v8_storm_17,어비스 리퍼 네더 리퍼,unit,common,storm,2,심연포식 어비스 리퍼,abyss_reaper,normal
+unit_v8_storm_18,프라이멀 가디언 플레임 비스트,unit,rare,storm,4,원초수호 프라이멀 가디언,primal_guardian,normal
+unit_v8_storm_19,템페스트 드라이브 레일 랜서,unit,epic,storm,5,천뢰기동 템페스트 드라이브,tempest_drive,normal
+unit_v8_storm_20,어비스 리퍼 블러드 리퍼,unit,common,storm,3,심연포식 어비스 리퍼,abyss_reaper,rift
+unit_v8_verdant_01,아르보리아 브룸 드루이드,unit,common,verdant,2,세계수권속 아르보리아,arborian,normal
+unit_v8_verdant_02,프라이멀 가디언 타이드 비스트,unit,rare,verdant,4,원초수호 프라이멀 가디언,primal_guardian,normal
+unit_v8_verdant_03,아르보리아 쏜 드루이드,unit,common,verdant,2,세계수권속 아르보리아,arborian,normal
+unit_v8_verdant_04,프라이멀 가디언 테라 비스트,unit,common,verdant,3,원초수호 프라이멀 가디언,primal_guardian,normal
+unit_v8_verdant_05,아르보리아 루트 드루이드,unit,epic,verdant,5,세계수권속 아르보리아,arborian,normal
+unit_v8_verdant_06,프라이멀 가디언 팽 비스트,unit,common,verdant,3,원초수호 프라이멀 가디언,primal_guardian,rift
+unit_v8_verdant_07,아르보리아 베르드 드루이드,unit,rare,verdant,3,세계수권속 아르보리아,arborian,normal
+unit_v8_verdant_08,프라이멀 가디언 혼 비스트,unit,epic,verdant,6,원초수호 프라이멀 가디언,primal_guardian,normal
+unit_v8_verdant_09,아르보리아 세이지 드루이드,unit,common,verdant,2,세계수권속 아르보리아,arborian,normal
+unit_v8_verdant_10,프라이멀 가디언 루인 워든,unit,rare,verdant,4,원초수호 프라이멀 가디언,primal_guardian,normal
+unit_v8_verdant_11,아르보리아 가이아 드루이드,unit,common,verdant,2,세계수권속 아르보리아,arborian,normal
+unit_v8_verdant_12,프라이멀 가디언 토템 워든,unit,common,verdant,3,원초수호 프라이멀 가디언,primal_guardian,normal
+unit_v8_verdant_13,아르보리아 플로라 드루이드,unit,epic,verdant,5,세계수권속 아르보리아,arborian,rift
+unit_v8_verdant_14,프라이멀 가디언 와일드 워든,unit,common,verdant,3,원초수호 프라이멀 가디언,primal_guardian,normal
+unit_v8_verdant_15,아르보리아 크라운 드루이드,unit,rare,verdant,3,세계수권속 아르보리아,arborian,normal
+unit_v8_verdant_16,프라이멀 가디언 스톤 워든,unit,epic,verdant,6,원초수호 프라이멀 가디언,primal_guardian,normal
+unit_v8_verdant_17,아르보리아 시드 드루이드,unit,common,verdant,2,세계수권속 아르보리아,arborian,normal
+unit_v8_verdant_18,프라이멀 가디언 스카이 워든,unit,rare,verdant,4,원초수호 프라이멀 가디언,primal_guardian,normal
+unit_v8_verdant_19,아르보리아 오크 드루이드,unit,legendary,verdant,7,세계수권속 아르보리아,arborian,rift
+unit_v8_verdant_20,프라이멀 가디언 플레임 워든,unit,common,verdant,3,원초수호 프라이멀 가디언,primal_guardian,rift
+unit_v8_void_01,녹턴 미라주 루나 댄서,unit,common,void,2,월영환상 녹턴 미라주,nocturne,normal
+unit_v8_void_02,어비스 리퍼 다크 리퍼,unit,epic,void,6,심연포식 어비스 리퍼,abyss_reaper,normal
+unit_v8_void_03,이클립시온 네메시스 레조너,unit,common,void,2,일식공명 이클립시온,eclipsion,normal
+unit_v8_void_04,녹턴 미라주 베일 댄서,unit,rare,void,4,월영환상 녹턴 미라주,nocturne,normal
+unit_v8_void_05,어비스 리퍼 헬 리퍼,unit,epic,void,5,심연포식 어비스 리퍼,abyss_reaper,normal
+unit_v8_void_06,이클립시온 섀도 레조너,unit,common,void,3,일식공명 이클립시온,eclipsion,rift
+unit_v8_void_07,녹턴 미라주 드림 댄서,unit,rare,void,3,월영환상 녹턴 미라주,nocturne,normal
+unit_v8_void_08,어비스 리퍼 보이드 리퍼,unit,common,void,3,심연포식 어비스 리퍼,abyss_reaper,normal
+unit_v8_void_09,이클립시온 엔드 레조너,unit,common,void,2,일식공명 이클립시온,eclipsion,normal
+unit_v8_void_10,녹턴 미라주 미러 댄서,unit,epic,void,6,월영환상 녹턴 미라주,nocturne,normal
+unit_v8_void_11,어비스 리퍼 블랙 하운드,unit,common,void,2,심연포식 어비스 리퍼,abyss_reaper,normal
+unit_v8_void_12,이클립시온 오메가 레조너,unit,rare,void,4,일식공명 이클립시온,eclipsion,normal
+unit_v8_void_13,녹턴 미라주 실버 댄서,unit,epic,void,5,월영환상 녹턴 미라주,nocturne,rift
+unit_v8_void_14,어비스 리퍼 헝거 하운드,unit,common,void,3,심연포식 어비스 리퍼,abyss_reaper,normal
+unit_v8_void_15,이클립시온 블랙 키메라,unit,rare,void,3,일식공명 이클립시온,eclipsion,normal
+unit_v8_void_16,녹턴 미라주 크레센트 댄서,unit,legendary,void,8,월영환상 녹턴 미라주,nocturne,normal
+unit_v8_void_17,어비스 리퍼 베놈 하운드,unit,common,void,2,심연포식 어비스 리퍼,abyss_reaper,normal
+unit_v8_void_18,이클립시온 크로노 키메라,unit,rare,void,4,일식공명 이클립시온,eclipsion,normal
+unit_v8_void_19,녹턴 미라주 나이트 댄서,unit,common,void,2,월영환상 녹턴 미라주,nocturne,normal
+unit_v8_void_20,어비스 리퍼 셰이드 하운드,unit,rare,void,4,심연포식 어비스 리퍼,abyss_reaper,rift
+unit_v8_neutral_01,루미나이츠 솔 세이버,unit,rare,neutral,3,성휘전대 루미나이츠,luminaknights,normal
+unit_v8_neutral_02,템페스트 드라이브 볼트 라이더,unit,epic,neutral,6,천뢰기동 템페스트 드라이브,tempest_drive,normal
+unit_v8_neutral_03,카이저기어 알파 프레임,unit,common,neutral,2,황제기갑 카이저기어,kaisergear,normal
+unit_v8_neutral_04,루미나이츠 레이 세이버,unit,rare,neutral,4,성휘전대 루미나이츠,luminaknights,normal
+unit_v8_neutral_05,템페스트 드라이브 제타 라이더,unit,common,neutral,2,천뢰기동 템페스트 드라이브,tempest_drive,normal
+unit_v8_neutral_06,카이저기어 아이언 프레임,unit,common,neutral,3,황제기갑 카이저기어,kaisergear,rift
+unit_v8_neutral_07,루미나이츠 크림슨 세이버,unit,epic,neutral,5,성휘전대 루미나이츠,luminaknights,normal
+unit_v8_neutral_08,템페스트 드라이브 스톰 라이더,unit,common,neutral,3,천뢰기동 템페스트 드라이브,tempest_drive,normal
+unit_v8_neutral_09,카이저기어 제로 프레임,unit,rare,neutral,3,황제기갑 카이저기어,kaisergear,normal
+unit_v8_neutral_10,루미나이츠 아크 세이버,unit,epic,neutral,6,성휘전대 루미나이츠,luminaknights,normal
+unit_v8_neutral_11,템페스트 드라이브 레일 라이더,unit,common,neutral,2,천뢰기동 템페스트 드라이브,tempest_drive,normal
+unit_v8_neutral_12,카이저기어 블리츠 프레임,unit,rare,neutral,4,황제기갑 카이저기어,kaisergear,normal
+unit_v8_neutral_13,루미나이츠 노바 세이버,unit,legendary,neutral,7,성휘전대 루미나이츠,luminaknights,rift
+unit_v8_neutral_14,템페스트 드라이브 블리츠 라이더,unit,common,neutral,3,천뢰기동 템페스트 드라이브,tempest_drive,normal
+unit_v8_neutral_15,카이저기어 코어 프레임,unit,rare,neutral,3,황제기갑 카이저기어,kaisergear,normal
+unit_v8_neutral_16,루미나이츠 세라프 세이버,unit,common,neutral,3,성휘전대 루미나이츠,luminaknights,normal
+unit_v8_neutral_17,템페스트 드라이브 썬더 라이더,unit,rare,neutral,3,천뢰기동 템페스트 드라이브,tempest_drive,normal
+unit_v8_neutral_18,카이저기어 타이탄 프레임,unit,epic,neutral,6,황제기갑 카이저기어,kaisergear,normal
+unit_v8_neutral_19,루미나이츠 오로라 세이버,unit,common,neutral,2,성휘전대 루미나이츠,luminaknights,normal
+unit_v8_neutral_20,템페스트 드라이브 스파크 라이더,unit,rare,neutral,4,천뢰기동 템페스트 드라이브,tempest_drive,rift
+spell_v8_solar_01,루미나이츠 오더 - 히어로즈 링크,spell,epic,solar,4,성휘전대 루미나이츠,luminaknights,normal
+spell_v8_solar_02,카이저기어 오더 - 임페리얼 코드,spell,common,solar,2,황제기갑 카이저기어,kaisergear,normal
+spell_v8_solar_03,이클립시온 오더 - 리프트 콜,spell,rare,solar,2,일식공명 이클립시온,eclipsion,normal
+spell_v8_solar_04,루미나이츠 오더 - 세컨드 선,spell,legendary,solar,7,성휘전대 루미나이츠,luminaknights,normal
+spell_v8_solar_05,카이저기어 오더 - 메인 코어 링크,spell,common,solar,1,황제기갑 카이저기어,kaisergear,normal
+spell_v8_solar_06,이클립시온 오더 - 블랙 레조넌스,spell,rare,solar,3,일식공명 이클립시온,eclipsion,normal
+spell_v8_solar_07,루미나이츠 오더 - 크라운 차지,spell,common,solar,1,성휘전대 루미나이츠,luminaknights,normal
+spell_v8_solar_08,카이저기어 오더 - 포지 리부트,spell,rare,solar,3,황제기갑 카이저기어,kaisergear,normal
+spell_v8_solar_09,이클립시온 오더 - 제로 호라이즌,spell,epic,solar,4,일식공명 이클립시온,eclipsion,normal
+spell_v8_solar_10,루미나이츠 오더 - 샤이닝 오더,spell,common,solar,2,성휘전대 루미나이츠,luminaknights,normal
+spell_v8_lunar_01,아르보리아 오더 - 월드루트 콜,spell,legendary,lunar,6,세계수권속 아르보리아,arborian,normal
+spell_v8_lunar_02,녹턴 미라주 오더 - 문라이트 리콜,spell,common,lunar,2,월영환상 녹턴 미라주,nocturne,normal
+spell_v8_lunar_03,아르보리아 오더 - 생장 폭주,spell,rare,lunar,2,세계수권속 아르보리아,arborian,normal
+spell_v8_lunar_04,녹턴 미라주 오더 - 드림 셔플,spell,common,lunar,2,월영환상 녹턴 미라주,nocturne,normal
+spell_v8_lunar_05,아르보리아 오더 - 에버그린 링크,spell,rare,lunar,2,세계수권속 아르보리아,arborian,normal
+spell_v8_lunar_06,녹턴 미라주 오더 - 미러 스텝,spell,epic,lunar,5,월영환상 녹턴 미라주,nocturne,normal
+spell_v8_lunar_07,아르보리아 오더 - 가이아 리커버리,spell,common,lunar,1,세계수권속 아르보리아,arborian,normal
+spell_v8_lunar_08,녹턴 미라주 오더 - 녹턴 드로우,spell,rare,lunar,3,월영환상 녹턴 미라주,nocturne,normal
+spell_v8_lunar_09,아르보리아 오더 - 브룸 사이클,spell,legendary,lunar,6,세계수권속 아르보리아,arborian,normal
+spell_v8_lunar_10,녹턴 미라주 오더 - 크레센트 위시,spell,common,lunar,2,월영환상 녹턴 미라주,nocturne,normal
+spell_v8_storm_01,템페스트 드라이브 오더 - 썬더 콜,spell,common,storm,1,천뢰기동 템페스트 드라이브,tempest_drive,normal
+spell_v8_storm_02,어비스 리퍼 오더 - 그레이브 콜,spell,rare,storm,3,심연포식 어비스 리퍼,abyss_reaper,normal
+spell_v8_storm_03,프라이멀 가디언 오더 - 토템 콜,spell,epic,storm,4,원초수호 프라이멀 가디언,primal_guardian,normal
+spell_v8_storm_04,템페스트 드라이브 오더 - 부스트 시프트,spell,common,storm,2,천뢰기동 템페스트 드라이브,tempest_drive,normal
+spell_v8_storm_05,어비스 리퍼 오더 - 블랙 피드,spell,rare,storm,2,심연포식 어비스 리퍼,abyss_reaper,normal
+spell_v8_storm_06,프라이멀 가디언 오더 - 야성 해방,spell,legendary,storm,7,원초수호 프라이멀 가디언,primal_guardian,normal
+spell_v8_storm_07,템페스트 드라이브 오더 - 레일 점프,spell,common,storm,1,천뢰기동 템페스트 드라이브,tempest_drive,normal
+spell_v8_storm_08,어비스 리퍼 오더 - 네더 체인,spell,rare,storm,3,심연포식 어비스 리퍼,abyss_reaper,normal
+spell_v8_storm_09,프라이멀 가디언 오더 - 대지의 맹세,spell,common,storm,1,원초수호 프라이멀 가디언,primal_guardian,normal
+spell_v8_storm_10,템페스트 드라이브 오더 - 터보 링크,spell,common,storm,2,천뢰기동 템페스트 드라이브,tempest_drive,normal
+spell_v8_verdant_01,프라이멀 가디언 오더 - 프라이멀 링크,spell,common,verdant,1,원초수호 프라이멀 가디언,primal_guardian,normal
+spell_v8_verdant_02,아르보리아 오더 - 시드 리턴,spell,rare,verdant,3,세계수권속 아르보리아,arborian,normal
+spell_v8_verdant_03,프라이멀 가디언 오더 - 비스트 차지,spell,legendary,verdant,6,원초수호 프라이멀 가디언,primal_guardian,normal
+spell_v8_verdant_04,아르보리아 오더 - 쏜 크라운,spell,common,verdant,2,세계수권속 아르보리아,arborian,normal
+spell_v8_verdant_05,프라이멀 가디언 오더 - 스톤 하트,spell,rare,verdant,2,원초수호 프라이멀 가디언,primal_guardian,normal
+spell_v8_verdant_06,아르보리아 오더 - 루트 네트워크,spell,common,verdant,2,세계수권속 아르보리아,arborian,normal
+spell_v8_verdant_07,프라이멀 가디언 오더 - 스카이 로어,spell,common,verdant,1,원초수호 프라이멀 가디언,primal_guardian,normal
+spell_v8_verdant_08,아르보리아 오더 - 대지의 숨결,spell,epic,verdant,5,세계수권속 아르보리아,arborian,normal
+spell_v8_verdant_09,프라이멀 가디언 오더 - 테라 포스,spell,common,verdant,1,원초수호 프라이멀 가디언,primal_guardian,normal
+spell_v8_verdant_10,아르보리아 오더 - 아르보리아 블룸,spell,rare,verdant,3,세계수권속 아르보리아,arborian,normal
+spell_v8_void_01,녹턴 미라주 오더 - 실버 리커버리,spell,common,void,1,월영환상 녹턴 미라주,nocturne,normal
+spell_v8_void_02,어비스 리퍼 오더 - 보이드 헝거,spell,rare,void,3,심연포식 어비스 리퍼,abyss_reaper,normal
+spell_v8_void_03,이클립시온 오더 - 에코 리턴,spell,common,void,1,일식공명 이클립시온,eclipsion,normal
+spell_v8_void_04,녹턴 미라주 오더 - 팬텀 패스,spell,common,void,2,월영환상 녹턴 미라주,nocturne,normal
+spell_v8_void_05,어비스 리퍼 오더 - 리퍼 리턴,spell,epic,void,4,심연포식 어비스 리퍼,abyss_reaper,normal
+spell_v8_void_06,이클립시온 오더 - 그레이브 튜닝,spell,common,void,2,일식공명 이클립시온,eclipsion,normal
+spell_v8_void_07,녹턴 미라주 오더 - 루나 링크,spell,rare,void,2,월영환상 녹턴 미라주,nocturne,normal
+spell_v8_void_08,어비스 리퍼 오더 - 블러드 링크,spell,epic,void,5,심연포식 어비스 리퍼,abyss_reaper,normal
+spell_v8_void_09,이클립시온 오더 - 일식 동조,spell,common,void,1,일식공명 이클립시온,eclipsion,normal
+spell_v8_void_10,녹턴 미라주 오더 - 미스트 커튼,spell,rare,void,3,월영환상 녹턴 미라주,nocturne,normal
+spell_v8_neutral_01,루미나이츠 오더 - 브레이브 콜,spell,common,neutral,1,성휘전대 루미나이츠,luminaknights,normal
+spell_v8_neutral_02,템페스트 드라이브 오더 - 오버드라이브,spell,epic,neutral,5,천뢰기동 템페스트 드라이브,tempest_drive,normal
+spell_v8_neutral_03,카이저기어 오더 - 오버클럭,spell,common,neutral,1,황제기갑 카이저기어,kaisergear,normal
+spell_v8_neutral_04,루미나이츠 오더 - 라이트 크로스,spell,rare,neutral,3,성휘전대 루미나이츠,luminaknights,normal
+spell_v8_neutral_05,템페스트 드라이브 오더 - 볼트 체인,spell,epic,neutral,4,천뢰기동 템페스트 드라이브,tempest_drive,normal
+spell_v8_neutral_06,카이저기어 오더 - 리액터 스타트,spell,common,neutral,2,황제기갑 카이저기어,kaisergear,normal
+spell_v8_neutral_07,루미나이츠 오더 - 포메이션 체인지,spell,rare,neutral,2,성휘전대 루미나이츠,luminaknights,normal
+spell_v8_neutral_08,템페스트 드라이브 오더 - 제로 투 맥스,spell,common,neutral,2,천뢰기동 템페스트 드라이브,tempest_drive,normal
+spell_v8_neutral_09,카이저기어 오더 - 풀 아머 전개,spell,common,neutral,1,황제기갑 카이저기어,kaisergear,normal
+spell_v8_neutral_10,루미나이츠 오더 - 라이징 배너,spell,rare,neutral,3,성휘전대 루미나이츠,luminaknights,normal
+trap_v8_solar_01,이클립시온 리액터 - 리프트 리버설,trap,rare,solar,2,일식공명 이클립시온,eclipsion,normal
+trap_v8_solar_02,루미나이츠 리액터 - 세이비어 콜,trap,common,solar,2,성휘전대 루미나이츠,luminaknights,normal
+trap_v8_solar_03,카이저기어 리액터 - 코어 락,trap,common,solar,2,황제기갑 카이저기어,kaisergear,normal
+trap_v8_solar_04,이클립시온 리액터 - 에코 스네어,trap,rare,solar,2,일식공명 이클립시온,eclipsion,normal
+trap_v8_solar_05,루미나이츠 리액터 - 리턴 오브 라이트,trap,common,solar,2,성휘전대 루미나이츠,luminaknights,normal
+trap_v8_solar_06,카이저기어 리액터 - 디코이 프레임,trap,rare,solar,2,황제기갑 카이저기어,kaisergear,normal
+trap_v8_solar_07,이클립시온 리액터 - 블랙 아웃,trap,epic,solar,3,일식공명 이클립시온,eclipsion,normal
+trap_v8_solar_08,루미나이츠 리액터 - 크로스 카운터,trap,common,solar,2,성휘전대 루미나이츠,luminaknights,normal
+trap_v8_lunar_01,아르보리아 리액터 - 쏜 월,trap,rare,lunar,2,세계수권속 아르보리아,arborian,normal
+trap_v8_lunar_02,녹턴 미라주 리액터 - 미러 트릭,trap,common,lunar,2,월영환상 녹턴 미라주,nocturne,normal
+trap_v8_lunar_03,아르보리아 리액터 - 루트 바인드,trap,rare,lunar,2,세계수권속 아르보리아,arborian,normal
+trap_v8_lunar_04,녹턴 미라주 리액터 - 드림 캐처,trap,epic,lunar,3,월영환상 녹턴 미라주,nocturne,normal
+trap_v8_lunar_05,아르보리아 리액터 - 시드 셸터,trap,common,lunar,2,세계수권속 아르보리아,arborian,normal
+trap_v8_lunar_06,녹턴 미라주 리액터 - 문 페이즈,trap,rare,lunar,2,월영환상 녹턴 미라주,nocturne,normal
+trap_v8_lunar_07,아르보리아 리액터 - 가이아 리버스,trap,legendary,lunar,4,세계수권속 아르보리아,arborian,normal
+trap_v8_lunar_08,녹턴 미라주 리액터 - 팬텀 리버스,trap,common,lunar,2,월영환상 녹턴 미라주,nocturne,normal
+trap_v8_storm_01,프라이멀 가디언 리액터 - 토템 월,trap,epic,storm,3,원초수호 프라이멀 가디언,primal_guardian,normal
+trap_v8_storm_02,템페스트 드라이브 리액터 - 스톰 인터셉트,trap,common,storm,2,천뢰기동 템페스트 드라이브,tempest_drive,normal
+trap_v8_storm_03,어비스 리퍼 리액터 - 그레이브 스네어,trap,rare,storm,2,심연포식 어비스 리퍼,abyss_reaper,normal
+trap_v8_storm_04,프라이멀 가디언 리액터 - 와일드 카운터,trap,legendary,storm,4,원초수호 프라이멀 가디언,primal_guardian,normal
+trap_v8_storm_05,템페스트 드라이브 리액터 - 터보 카운터,trap,common,storm,2,천뢰기동 템페스트 드라이브,tempest_drive,normal
+trap_v8_storm_06,어비스 리퍼 리액터 - 헝거 카운터,trap,rare,storm,2,심연포식 어비스 리퍼,abyss_reaper,normal
+trap_v8_storm_07,프라이멀 가디언 리액터 - 스톤 셸,trap,common,storm,2,원초수호 프라이멀 가디언,primal_guardian,normal
+trap_v8_storm_08,템페스트 드라이브 리액터 - 레일 락,trap,rare,storm,2,천뢰기동 템페스트 드라이브,tempest_drive,normal
+trap_v8_verdant_01,프라이멀 가디언 리액터 - 비스트 리버스,trap,legendary,verdant,4,원초수호 프라이멀 가디언,primal_guardian,normal
+trap_v8_verdant_02,아르보리아 리액터 - 브룸 가드,trap,common,verdant,2,세계수권속 아르보리아,arborian,normal
+trap_v8_verdant_03,프라이멀 가디언 리액터 - 테라 가드,trap,rare,verdant,2,원초수호 프라이멀 가디언,primal_guardian,normal
+trap_v8_verdant_04,아르보리아 리액터 - 에버그린 카운터,trap,common,verdant,2,세계수권속 아르보리아,arborian,normal
+trap_v8_verdant_05,프라이멀 가디언 리액터 - 팽 트랩,trap,rare,verdant,2,원초수호 프라이멀 가디언,primal_guardian,normal
+trap_v8_verdant_06,아르보리아 리액터 - 월드루트 락,trap,epic,verdant,3,세계수권속 아르보리아,arborian,normal
+trap_v8_verdant_07,프라이멀 가디언 리액터 - 원초의 결계,trap,common,verdant,2,원초수호 프라이멀 가디언,primal_guardian,normal
+trap_v8_verdant_08,아르보리아 리액터 - 숲의 최후방어,trap,rare,verdant,2,세계수권속 아르보리아,arborian,normal
+trap_v8_void_01,이클립시온 리액터 - 그레이브 리콜,trap,common,void,2,일식공명 이클립시온,eclipsion,normal
+trap_v8_void_02,녹턴 미라주 리액터 - 실버 베일,trap,rare,void,2,월영환상 녹턴 미라주,nocturne,normal
+trap_v8_void_03,어비스 리퍼 리액터 - 보이드 바이트,trap,epic,void,3,심연포식 어비스 리퍼,abyss_reaper,normal
+trap_v8_void_04,이클립시온 리액터 - 공명 차단,trap,common,void,2,일식공명 이클립시온,eclipsion,normal
+trap_v8_void_05,녹턴 미라주 리액터 - 녹턴 카운터,trap,rare,void,2,월영환상 녹턴 미라주,nocturne,normal
+trap_v8_void_06,어비스 리퍼 리액터 - 네더 리버스,trap,epic,void,3,심연포식 어비스 리퍼,abyss_reaper,normal
+trap_v8_void_07,이클립시온 리액터 - 네메시스 미러,trap,common,void,2,일식공명 이클립시온,eclipsion,normal
+trap_v8_void_08,녹턴 미라주 리액터 - 미스트 룸,trap,rare,void,2,월영환상 녹턴 미라주,nocturne,normal
+trap_v8_neutral_01,카이저기어 리액터 - 이머전시 셸,trap,common,neutral,2,황제기갑 카이저기어,kaisergear,normal
+trap_v8_neutral_02,루미나이츠 리액터 - 가디언 인터셉트,trap,rare,neutral,2,성휘전대 루미나이츠,luminaknights,normal
+trap_v8_neutral_03,템페스트 드라이브 리액터 - 브레이크 체크,trap,epic,neutral,3,천뢰기동 템페스트 드라이브,tempest_drive,normal
+trap_v8_neutral_04,카이저기어 리액터 - 리버스 기어,trap,common,neutral,2,황제기갑 카이저기어,kaisergear,normal
+trap_v8_neutral_05,루미나이츠 리액터 - 리플렉트 실드,trap,rare,neutral,2,성휘전대 루미나이츠,luminaknights,normal
+trap_v8_neutral_06,템페스트 드라이브 리액터 - 리버스 볼트,trap,common,neutral,2,천뢰기동 템페스트 드라이브,tempest_drive,normal
+trap_v8_neutral_07,카이저기어 리액터 - 아머드 카운터,trap,common,neutral,2,황제기갑 카이저기어,kaisergear,normal
+trap_v8_neutral_08,루미나이츠 리액터 - 포메이션 브레이크,trap,epic,neutral,3,성휘전대 루미나이츠,luminaknights,normal
+fusion_v8_01,루미나이츠 크로스 - 그랜드 솔,fusion,legendary,solar,7,성휘전대 루미나이츠,luminaknights,fusion
+fusion_v8_02,카이저기어 크로스 - 기가 카이저,fusion,epic,storm,6,황제기갑 카이저기어,kaisergear,fusion
+fusion_v8_03,이클립시온 크로스 - 크로노 레비아탄,fusion,epic,verdant,6,일식공명 이클립시온,eclipsion,fusion
+fusion_v8_04,녹턴 미라주 크로스 - 풀문 디바,fusion,epic,solar,6,월영환상 녹턴 미라주,nocturne,fusion
+fusion_v8_05,아르보리아 크로스 - 월드루트 킹,fusion,legendary,void,7,세계수권속 아르보리아,arborian,fusion
+fusion_v8_06,템페스트 드라이브 크로스 - 볼트 카이저,fusion,epic,verdant,6,천뢰기동 템페스트 드라이브,tempest_drive,fusion
+fusion_v8_07,어비스 리퍼 크로스 - 어비스 타이런트,fusion,epic,solar,6,심연포식 어비스 리퍼,abyss_reaper,fusion
+fusion_v8_08,프라이멀 가디언 크로스 - 프라이멀 킹,fusion,epic,storm,6,원초수호 프라이멀 가디언,primal_guardian,fusion
+fusion_v8_09,루미나이츠 크로스 - 하이퍼 노바,fusion,legendary,void,7,성휘전대 루미나이츠,luminaknights,fusion
+fusion_v8_10,카이저기어 크로스 - 오메가 프레임,fusion,epic,solar,6,황제기갑 카이저기어,kaisergear,fusion
+fusion_v8_11,이클립시온 크로스 - 아스트라 드래곤,fusion,epic,lunar,6,일식공명 이클립시온,eclipsion,fusion
+fusion_v8_12,녹턴 미라주 크로스 - 미러 퀸,fusion,epic,verdant,6,월영환상 녹턴 미라주,nocturne,fusion
+fusion_v8_13,아르보리아 크로스 - 가이아 드래곤,fusion,legendary,neutral,7,세계수권속 아르보리아,arborian,fusion
+fusion_v8_14,템페스트 드라이브 크로스 - 라이트닝 노바,fusion,epic,solar,6,천뢰기동 템페스트 드라이브,tempest_drive,fusion
+fusion_v8_15,어비스 리퍼 크로스 - 그레이브 킹,fusion,epic,storm,6,심연포식 어비스 리퍼,abyss_reaper,fusion
+fusion_v8_16,프라이멀 가디언 크로스 - 토템 타이탄,fusion,epic,lunar,6,원초수호 프라이멀 가디언,primal_guardian,fusion
+fusion_v8_17,어비스 리퍼 크로스 - 보이드 리바이어던,fusion,legendary,neutral,7,심연포식 어비스 리퍼,abyss_reaper,fusion
+fusion_v8_18,카이저기어 크로스 - 임페리얼 타이탄,fusion,epic,solar,6,황제기갑 카이저기어,kaisergear,fusion
+fusion_v8_19,이클립시온 크로스 - 리프트 제로,fusion,epic,storm,6,일식공명 이클립시온,eclipsion,fusion
+fusion_v8_20,녹턴 미라주 크로스 - 녹턴 마제스티,fusion,legendary,verdant,7,월영환상 녹턴 미라주,nocturne,fusion
+evolution_v8_01,루미나이츠 어센드 - 아크 브레이버,evolution,epic,solar,5,성휘전대 루미나이츠,luminaknights,evolution
+evolution_v8_02,카이저기어 어센드 - 아틀라스 기어,evolution,epic,lunar,5,황제기갑 카이저기어,kaisergear,evolution
+evolution_v8_03,이클립시온 어센드 - 오메가 레조넌트,evolution,epic,storm,5,일식공명 이클립시온,eclipsion,evolution
+evolution_v8_04,녹턴 미라주 어센드 - 드림 이클립스,evolution,epic,verdant,5,월영환상 녹턴 미라주,nocturne,evolution
+evolution_v8_05,아르보리아 어센드 - 크라운 트렌트,evolution,epic,void,5,세계수권속 아르보리아,arborian,evolution
+evolution_v8_06,템페스트 드라이브 어센드 - 제타 오버로드,evolution,legendary,neutral,7,천뢰기동 템페스트 드라이브,tempest_drive,evolution
+evolution_v8_07,어비스 리퍼 어센드 - 네더 드래곤,evolution,epic,solar,5,심연포식 어비스 리퍼,abyss_reaper,evolution
+evolution_v8_08,프라이멀 가디언 어센드 - 와일드 드래곤,evolution,epic,lunar,5,원초수호 프라이멀 가디언,primal_guardian,evolution
+evolution_v8_09,루미나이츠 어센드 - 오메가 레이,evolution,epic,storm,5,성휘전대 루미나이츠,luminaknights,evolution
+evolution_v8_10,카이저기어 어센드 - 크라운 드라이버,evolution,epic,verdant,5,황제기갑 카이저기어,kaisergear,evolution
+evolution_v8_11,이클립시온 어센드 - 이클립스 타이런트,evolution,epic,void,5,일식공명 이클립시온,eclipsion,evolution
+evolution_v8_12,녹턴 미라주 어센드 - 루나 팬텀,evolution,legendary,neutral,7,월영환상 녹턴 미라주,nocturne,evolution
+evolution_v8_13,아르보리아 어센드 - 아르보리아 타이탄,evolution,epic,solar,5,세계수권속 아르보리아,arborian,evolution
+evolution_v8_14,템페스트 드라이브 어센드 - 스톰 브레이커,evolution,epic,lunar,5,천뢰기동 템페스트 드라이브,tempest_drive,evolution
+evolution_v8_15,어비스 리퍼 어센드 - 블랙 리퍼 제로,evolution,epic,storm,5,심연포식 어비스 리퍼,abyss_reaper,evolution
+evolution_v8_16,프라이멀 가디언 어센드 - 테라 베히모스,evolution,epic,verdant,5,원초수호 프라이멀 가디언,primal_guardian,evolution
+evolution_v8_17,루미나이츠 어센드 - 엑시드 세이버,evolution,epic,void,5,성휘전대 루미나이츠,luminaknights,evolution
+evolution_v8_18,카이저기어 어센드 - 그랜드 포트리스,evolution,legendary,neutral,7,황제기갑 카이저기어,kaisergear,evolution
+evolution_v8_19,이클립시온 어센드 - 엔드 브링어,evolution,epic,solar,5,일식공명 이클립시온,eclipsion,evolution
+evolution_v8_20,녹턴 미라주 어센드 - 실버 오라클,evolution,legendary,lunar,7,월영환상 녹턴 미라주,nocturne,evolution
+v26_chronorium_unit_01,크로노리움 세컨드 랜서,unit,common,neutral,1,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_02,크로노리움 미닛 위버,unit,common,lunar,2,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_03,크로노리움 호로로그 가드,unit,common,storm,3,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_04,크로노리움 리와인드 블레이드,unit,common,neutral,4,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_05,크로노리움 스냅 러너,unit,common,lunar,5,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_06,크로노리움 이온 클레릭,unit,common,storm,1,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_07,크로노리움 타임 오라클,unit,common,neutral,2,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_08,크로노리움 제로아워 집행관,unit,common,lunar,3,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_09,크로노리움 틱 가디언,unit,rare,storm,4,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_10,크로노리움 크로노 샷,unit,rare,neutral,5,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_11,크로노리움 에포크 세이버,unit,rare,lunar,2,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_12,크로노리움 루프 메이지,unit,rare,storm,2,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_13,크로노리움 타임락 센티널,unit,rare,neutral,3,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_14,크로노리움 델타 워처,unit,rare,lunar,4,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_15,크로노리움 리버스 나이트,unit,rare,storm,5,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_16,크로노리움 아워글라스 비숍,unit,epic,neutral,3,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_17,크로노리움 모먼트 드라군,unit,epic,lunar,3,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_18,크로노리움 패러독스 워든,unit,epic,storm,3,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_19,크로노리움 에이지 브레이커,unit,epic,neutral,4,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_20,크로노리움 이터널 캡틴,unit,epic,lunar,5,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_21,크로노리움 크로노스 레갈리아,unit,legendary,storm,7,시간성전 크로노리움,chronorium,normal
+v26_chronorium_unit_22,크로노리움 제로월드 아비터,unit,legendary,neutral,6,시간성전 크로노리움,chronorium,normal
+v26_chronorium_spell_01,크로노리움 오더 - 퀵 스타트,spell,common,lunar,1,시간성전 크로노리움,chronorium,normal
+v26_chronorium_spell_02,크로노리움 오더 - 리와인드 코드,spell,common,storm,2,시간성전 크로노리움,chronorium,normal
+v26_chronorium_spell_03,크로노리움 오더 - 스톱 더 모먼트,spell,rare,neutral,2,시간성전 크로노리움,chronorium,normal
+v26_chronorium_spell_04,크로노리움 오더 - 초침 가속,spell,rare,lunar,3,시간성전 크로노리움,chronorium,normal
+v26_chronorium_spell_05,크로노리움 오더 - 타임 시프트,spell,rare,storm,3,시간성전 크로노리움,chronorium,normal
+v26_chronorium_spell_06,크로노리움 오더 - 패러독스 루프,spell,epic,neutral,4,시간성전 크로노리움,chronorium,normal
+v26_chronorium_spell_07,크로노리움 오더 - 영겁의 윤환,spell,epic,lunar,5,시간성전 크로노리움,chronorium,normal
+v26_chronorium_spell_08,크로노리움 오더 - 최후시각 00:00,spell,legendary,storm,6,시간성전 크로노리움,chronorium,normal
+v26_chronorium_trap_01,크로노리움 리액터 - 지연 발동,trap,common,storm,1,시간성전 크로노리움,chronorium,normal
+v26_chronorium_trap_02,크로노리움 리액터 - 스톱워치 봉인,trap,common,neutral,2,시간성전 크로노리움,chronorium,normal
+v26_chronorium_trap_03,크로노리움 리액터 - 리버스 타이밍,trap,rare,lunar,2,시간성전 크로노리움,chronorium,normal
+v26_chronorium_trap_04,크로노리움 리액터 - 시간차 매복,trap,rare,storm,3,시간성전 크로노리움,chronorium,normal
+v26_chronorium_trap_05,크로노리움 리액터 - 영원의 감옥,trap,epic,neutral,4,시간성전 크로노리움,chronorium,normal
+v26_chronorium_trap_06,크로노리움 리액터 - 파이널 카운트,trap,legendary,lunar,5,시간성전 크로노리움,chronorium,normal
+v26_chronorium_fusion_01,크로노리움 크로스 - 패러독스 드래곤,fusion,epic,neutral,6,시간성전 크로노리움,chronorium,fusion
+v26_chronorium_fusion_02,크로노리움 크로스 - 이터널 레귤레이터,fusion,legendary,lunar,7,시간성전 크로노리움,chronorium,fusion
+v26_chronorium_evolution_01,크로노리움 어센드 - 제로아워 엠페러,evolution,epic,lunar,6,시간성전 크로노리움,chronorium,evolution
+v26_chronorium_evolution_02,크로노리움 어센드 - 크로노스 오메가,evolution,legendary,storm,7,시간성전 크로노리움,chronorium,evolution
+v26_arcana_protocol_unit_01,아르카나 프로토콜 룬 스크라이브,unit,common,lunar,1,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_02,아르카나 프로토콜 마나 리더,unit,common,void,2,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_03,아르카나 프로토콜 헥스 페이지,unit,common,neutral,3,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_04,아르카나 프로토콜 아스트랄 리브라,unit,common,lunar,4,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_05,아르카나 프로토콜 오브 위스퍼러,unit,common,void,5,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_06,아르카나 프로토콜 세븐스 시커,unit,common,neutral,1,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_07,아르카나 프로토콜 그리모어 가드,unit,common,lunar,2,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_08,아르카나 프로토콜 마기아 링크러,unit,common,void,3,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_09,아르카나 프로토콜 펜타클 메이지,unit,rare,neutral,4,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_10,아르카나 프로토콜 아케인 레이더,unit,rare,lunar,5,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_11,아르카나 프로토콜 룬 브레이커,unit,rare,void,2,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_12,아르카나 프로토콜 미스틱 큐레이터,unit,rare,neutral,2,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_13,아르카나 프로토콜 소울 인덱서,unit,rare,lunar,3,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_14,아르카나 프로토콜 위치 크래프터,unit,rare,void,4,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_15,아르카나 프로토콜 포뮬러 나이트,unit,rare,neutral,5,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_16,아르카나 프로토콜 오컬트 아카이비스트,unit,epic,lunar,3,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_17,아르카나 프로토콜 마나 엑시큐터,unit,epic,void,3,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_18,아르카나 프로토콜 아르카넘 프리스트,unit,epic,neutral,3,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_19,아르카나 프로토콜 시질 마스터,unit,epic,lunar,4,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_20,아르카나 프로토콜 코덱스 소버린,unit,epic,void,5,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_21,아르카나 프로토콜 그랜드 마기스터,unit,legendary,neutral,7,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_unit_22,아르카나 프로토콜 프로토콜 오메가,unit,legendary,lunar,6,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_spell_01,아르카나 프로토콜 오더 - 룬 인덱싱,spell,common,void,1,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_spell_02,아르카나 프로토콜 오더 - 그리모어 오픈,spell,common,neutral,2,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_spell_03,아르카나 프로토콜 오더 - 마나 리라이트,spell,rare,lunar,2,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_spell_04,아르카나 프로토콜 오더 - 아스트랄 계산식,spell,rare,void,3,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_spell_05,아르카나 프로토콜 오더 - 세븐스 포뮬러,spell,rare,neutral,3,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_spell_06,아르카나 프로토콜 오더 - 프로토콜 오버라이드,spell,epic,lunar,4,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_spell_07,아르카나 프로토콜 오더 - 아르카넘 리콜,spell,epic,void,5,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_spell_08,아르카나 프로토콜 오더 - 금단규약 제13식,spell,legendary,neutral,6,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_trap_01,아르카나 프로토콜 리액터 - 룬 카운터,trap,common,neutral,1,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_trap_02,아르카나 프로토콜 리액터 - 마나 실링,trap,common,lunar,2,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_trap_03,아르카나 프로토콜 리액터 - 시질 리버설,trap,rare,void,2,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_trap_04,아르카나 프로토콜 리액터 - 그리모어 트랩,trap,rare,neutral,3,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_trap_05,아르카나 프로토콜 리액터 - 프로토콜 차단,trap,epic,lunar,4,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_trap_06,아르카나 프로토콜 리액터 - 금서 봉인진,trap,legendary,void,5,마도규약 아르카나 프로토콜,arcana_protocol,normal
+v26_arcana_protocol_fusion_01,아르카나 프로토콜 크로스 - 그리모어 세라프,fusion,epic,lunar,6,마도규약 아르카나 프로토콜,arcana_protocol,fusion
+v26_arcana_protocol_fusion_02,아르카나 프로토콜 크로스 - 금단의 아카나,fusion,legendary,void,7,마도규약 아르카나 프로토콜,arcana_protocol,fusion
+v26_arcana_protocol_evolution_01,아르카나 프로토콜 어센드 - 마기스터 제로,evolution,epic,void,6,마도규약 아르카나 프로토콜,arcana_protocol,evolution
+v26_arcana_protocol_evolution_02,아르카나 프로토콜 어센드 - 프로토콜 인피니티,evolution,legendary,neutral,7,마도규약 아르카나 프로토콜,arcana_protocol,evolution
+v26_beastforge_unit_01,비스트포지 팽 스카우트,unit,common,verdant,1,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_02,비스트포지 혼 러너,unit,common,solar,2,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_03,비스트포지 클로 브루저,unit,common,neutral,3,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_04,비스트포지 아이언 울프,unit,common,verdant,4,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_05,비스트포지 브론즈 라이노,unit,common,solar,5,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_06,비스트포지 엠버 타이거,unit,common,neutral,1,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_07,비스트포지 가이아 베어,unit,common,verdant,2,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_08,비스트포지 스틸 호크,unit,common,solar,3,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_09,비스트포지 바이트 랜서,unit,rare,neutral,4,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_10,비스트포지 와일드 메카닉,unit,rare,verdant,5,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_11,비스트포지 코어 라이온,unit,rare,solar,2,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_12,비스트포지 기어 보어,unit,rare,neutral,2,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_13,비스트포지 썬더 재규어,unit,rare,verdant,3,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_14,비스트포지 포지 맘모스,unit,rare,solar,4,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_15,비스트포지 크롬 와이번,unit,rare,neutral,5,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_16,비스트포지 야수장갑 세이버,unit,epic,verdant,3,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_17,비스트포지 메탈 그리즐리,unit,epic,solar,3,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_18,비스트포지 베히모스 드라이버,unit,epic,neutral,3,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_19,비스트포지 알파 프레데터,unit,epic,verdant,4,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_20,비스트포지 타이탄 팽,unit,epic,solar,5,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_21,비스트포지 비스트 카이저,unit,legendary,neutral,7,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_unit_22,비스트포지 포지 레비아탄,unit,legendary,verdant,6,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_spell_01,비스트포지 오더 - 야수코어 점화,spell,common,solar,1,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_spell_02,비스트포지 오더 - 클로 업그레이드,spell,common,neutral,2,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_spell_03,비스트포지 오더 - 아이언 하울,spell,rare,verdant,2,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_spell_04,비스트포지 오더 - 와일드 싱크,spell,rare,solar,3,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_spell_05,비스트포지 오더 - 포지 리페어,spell,rare,neutral,3,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_spell_06,비스트포지 오더 - 베히모스 드라이브,spell,epic,verdant,4,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_spell_07,비스트포지 오더 - 프레데터 코드,spell,epic,solar,5,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_spell_08,비스트포지 오더 - 비스트포지 오버클래드,spell,legendary,neutral,6,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_trap_01,비스트포지 리액터 - 아이언 스네어,trap,common,neutral,1,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_trap_02,비스트포지 리액터 - 와일드 카운터,trap,common,verdant,2,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_trap_03,비스트포지 리액터 - 비스트 셸,trap,rare,solar,2,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_trap_04,비스트포지 리액터 - 포지 리액터,trap,rare,neutral,3,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_trap_05,비스트포지 리액터 - 타이탄 브레이크,trap,epic,verdant,4,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_trap_06,비스트포지 리액터 - 카이저 하울링 월,trap,legendary,solar,5,야수기갑 비스트포지,beastforge,normal
+v26_beastforge_fusion_01,비스트포지 크로스 - 기갑 키메라,fusion,epic,verdant,6,야수기갑 비스트포지,beastforge,fusion
+v26_beastforge_fusion_02,비스트포지 크로스 - 메탈 베히모스,fusion,legendary,solar,7,야수기갑 비스트포지,beastforge,fusion
+v26_beastforge_evolution_01,비스트포지 어센드 - 프레데터 카이저,evolution,epic,solar,6,야수기갑 비스트포지,beastforge,evolution
+v26_beastforge_evolution_02,비스트포지 어센드 - 오메가 레비아탄,evolution,legendary,neutral,7,야수기갑 비스트포지,beastforge,evolution
+v26_phantom_carnival_unit_01,팬텀 카니발 마스크 러너,unit,common,void,1,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_02,팬텀 카니발 미러 피에로,unit,common,lunar,2,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_03,팬텀 카니발 베일 댄서,unit,common,storm,3,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_04,팬텀 카니발 섀도 저글러,unit,common,void,4,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_05,팬텀 카니발 루나 마임,unit,common,lunar,5,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_06,팬텀 카니발 트릭 나이트,unit,common,storm,1,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_07,팬텀 카니발 커튼 콜러,unit,common,void,2,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_08,팬텀 카니발 팬텀 딜러,unit,common,lunar,3,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_09,팬텀 카니발 나이트 퍼펫,unit,rare,storm,4,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_10,팬텀 카니발 스펙터 링마스터,unit,rare,void,5,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_11,팬텀 카니발 에코 매지션,unit,rare,lunar,2,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_12,팬텀 카니발 미드나이트 클라운,unit,rare,storm,2,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_13,팬텀 카니발 드림 카드셔플러,unit,rare,void,3,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_14,팬텀 카니발 블랙 마리오네트,unit,rare,lunar,4,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_15,팬텀 카니발 문라이트 일루저니스트,unit,rare,storm,5,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_16,팬텀 카니발 스테이지 리퍼,unit,epic,void,3,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_17,팬텀 카니발 그림자 프리마,unit,epic,lunar,3,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_18,팬텀 카니발 오페라 팬텀,unit,epic,storm,3,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_19,팬텀 카니발 라스트 앙코르,unit,epic,void,4,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_20,팬텀 카니발 카니발 크라운,unit,epic,lunar,5,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_21,팬텀 카니발 팬텀 디렉터,unit,legendary,storm,7,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_unit_22,팬텀 카니발 제로 스테이지 마스터,unit,legendary,void,6,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_spell_01,팬텀 카니발 오더 - 커튼 오픈,spell,common,lunar,1,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_spell_02,팬텀 카니발 오더 - 미러 셔플,spell,common,storm,2,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_spell_03,팬텀 카니발 오더 - 팬텀 티켓,spell,rare,void,2,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_spell_04,팬텀 카니발 오더 - 드림 앙코르,spell,rare,lunar,3,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_spell_05,팬텀 카니발 오더 - 마스크 체인지,spell,rare,storm,3,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_spell_06,팬텀 카니발 오더 - 스테이지 리버스,spell,epic,void,4,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_spell_07,팬텀 카니발 오더 - 라스트 쇼타임,spell,epic,lunar,5,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_spell_08,팬텀 카니발 오더 - 그랜드 피날레,spell,legendary,storm,6,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_trap_01,팬텀 카니발 리액터 - 미러 트랩,trap,common,storm,1,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_trap_02,팬텀 카니발 리액터 - 커튼 폴,trap,common,void,2,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_trap_03,팬텀 카니발 리액터 - 팬텀 리버스,trap,rare,lunar,2,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_trap_04,팬텀 카니발 리액터 - 마리오네트 스네어,trap,rare,storm,3,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_trap_05,팬텀 카니발 리액터 - 블랙아웃 스테이지,trap,epic,void,4,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_trap_06,팬텀 카니발 리액터 - 라스트 앙코르 함정,trap,legendary,lunar,5,몽환극단 팬텀 카니발,phantom_carnival,normal
+v26_phantom_carnival_fusion_01,팬텀 카니발 크로스 - 미러 마리오네트,fusion,epic,void,6,몽환극단 팬텀 카니발,phantom_carnival,fusion
+v26_phantom_carnival_fusion_02,팬텀 카니발 크로스 - 나이트메어 링마스터,fusion,legendary,lunar,7,몽환극단 팬텀 카니발,phantom_carnival,fusion
+v26_phantom_carnival_evolution_01,팬텀 카니발 어센드 - 그랜드 디렉터,evolution,epic,lunar,6,몽환극단 팬텀 카니발,phantom_carnival,evolution
+v26_phantom_carnival_evolution_02,팬텀 카니발 어센드 - 엔드리스 쇼,evolution,legendary,storm,7,몽환극단 팬텀 카니발,phantom_carnival,evolution
+v26_astral_armada_unit_01,아스트라 아르마다 코멧 파일럿,unit,common,storm,1,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_02,아스트라 아르마다 노바 스카우트,unit,common,solar,2,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_03,아스트라 아르마다 루멘 엔지니어,unit,common,lunar,3,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_04,아스트라 아르마다 스타보드 마린,unit,common,storm,4,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_05,아스트라 아르마다 오비트 거너,unit,common,solar,5,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_06,아스트라 아르마다 셀레스티얼 네비게이터,unit,common,lunar,1,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_07,아스트라 아르마다 광자 갑판병,unit,common,storm,2,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_08,아스트라 아르마다 크루저 센티널,unit,common,solar,3,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_09,아스트라 아르마다 메테오 랜서,unit,rare,lunar,4,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_10,아스트라 아르마다 아스트라 캡틴,unit,rare,storm,5,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_11,아스트라 아르마다 솔라 프리깃,unit,rare,solar,2,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_12,아스트라 아르마다 루나 디스트로이어,unit,rare,lunar,2,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_13,아스트라 아르마다 네뷸라 캐리어,unit,rare,storm,3,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_14,아스트라 아르마다 퀘이사 포병,unit,rare,solar,4,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_15,아스트라 아르마다 스타실드 오퍼레이터,unit,rare,lunar,5,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_16,아스트라 아르마다 코스모스 제독,unit,epic,storm,3,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_17,아스트라 아르마다 펄서 드레드노트,unit,epic,solar,3,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_18,아스트라 아르마다 성해 기사함,unit,epic,lunar,3,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_19,아스트라 아르마다 오로라 플래그십,unit,epic,storm,4,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_20,아스트라 아르마다 갤럭시 커맨더,unit,epic,solar,5,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_21,아스트라 아르마다 아르마다 소버린,unit,legendary,lunar,7,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_unit_22,아스트라 아르마다 세레스티얼 타이탄,unit,legendary,storm,6,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_spell_01,아스트라 아르마다 오더 - 플릿 런치,spell,common,solar,1,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_spell_02,아스트라 아르마다 오더 - 오비탈 차지,spell,common,lunar,2,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_spell_03,아스트라 아르마다 오더 - 광자포 일제사격,spell,rare,storm,2,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_spell_04,아스트라 아르마다 오더 - 네뷸라 항로,spell,rare,solar,3,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_spell_05,아스트라 아르마다 오더 - 스타실드 전개,spell,rare,lunar,3,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_spell_06,아스트라 아르마다 오더 - 퀘이사 부스트,spell,epic,storm,4,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_spell_07,아스트라 아르마다 오더 - 아르마다 집결,spell,epic,solar,5,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_spell_08,아스트라 아르마다 오더 - 성해포격 오메가,spell,legendary,lunar,6,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_trap_01,아스트라 아르마다 리액터 - 디코이 프리깃,trap,common,lunar,1,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_trap_02,아스트라 아르마다 리액터 - 오비탈 인터셉트,trap,common,storm,2,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_trap_03,아스트라 아르마다 리액터 - 스타실드 리액터,trap,rare,solar,2,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_trap_04,아스트라 아르마다 리액터 - 메테오 카운터,trap,rare,lunar,3,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_trap_05,아스트라 아르마다 리액터 - 플래그십 방벽,trap,epic,storm,4,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_trap_06,아스트라 아르마다 리액터 - 아르마다 최종방어선,trap,legendary,solar,5,성해함대 아스트라 아르마다,astral_armada,normal
+v26_astral_armada_fusion_01,아스트라 아르마다 크로스 - 네뷸라 드레드노트,fusion,epic,storm,6,성해함대 아스트라 아르마다,astral_armada,fusion
+v26_astral_armada_fusion_02,아스트라 아르마다 크로스 - 퀘이사 캐리어,fusion,legendary,solar,7,성해함대 아스트라 아르마다,astral_armada,fusion
+v26_astral_armada_evolution_01,아스트라 아르마다 어센드 - 갤럭시 제독,evolution,epic,solar,6,성해함대 아스트라 아르마다,astral_armada,evolution
+v26_astral_armada_evolution_02,아스트라 아르마다 어센드 - 성해황제 오리온,evolution,legendary,lunar,7,성해함대 아스트라 아르마다,astral_armada,evolution
