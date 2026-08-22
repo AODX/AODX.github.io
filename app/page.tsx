@@ -799,7 +799,7 @@ function AuthScreen({ onSession }: { onSession: (session: Session) => void }) {
           <button className="primary-button auth-submit" disabled={busy}>{busy ? <><i className="button-spinner" /> 처리 중</> : mode === 'login' ? '게임 시작' : '계정 생성'}</button>
           <div className="auth-secure"><span>◈</span><p>로그인 정보는 Supabase Auth로 보호됩니다.</p></div>
         </form>
-        <footer><span>VERSION 0.6.0 · ORIGIN</span><span>ORIGINAL IP</span></footer>
+        <footer><span>VERSION 0.7.0 · REFORGED</span><span>ORIGINAL IP</span></footer>
       </section>
     </main>
   );
@@ -836,105 +836,99 @@ function AccountErrorScreen({ message, onRetry, onSignOut }: { message: string; 
 function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate: (view: View) => void; serverStatus: SecureServerStatus }) {
   const activeDeck = hub.decks.find((deck) => deck.is_active) ?? hub.decks[0];
   const level = levelFromXp(hub.profile.xp);
-  const featuredPool = [
-    CARD_BY_ID.unit_crownless_titan,
-    CARD_BY_ID.fusion_eclipse_chimera,
-    CARD_BY_ID.evolution_ember_phoenix,
-  ].filter((card): card is CardDefinition => Boolean(card));
-  const featureCard = featuredPool[(level - 1) % Math.max(1, featuredPool.length)] ?? CARDS[0];
   const deckMain = activeDeck?.cards?.length ?? 0;
   const deckExtra = activeDeck?.extra_cards?.length ?? 0;
   const deckReady = Boolean(activeDeck && deckMain === DECK_SIZE && deckExtra === EXTRA_DECK_SIZE);
   const xpInLevel = Math.max(0, hub.profile.xp % 1000);
-  const friends = hub.friends.slice(0, 3);
+  const winTotal = hub.profile.wins + hub.profile.losses;
+  const featuredPool = [
+    CARD_BY_ID.fusion_eclipse_chimera,
+    CARD_BY_ID.evolution_ember_phoenix,
+    CARD_BY_ID.unit_crownless_titan,
+    CARD_BY_ID.unit_rift_wanderer,
+  ].filter((card): card is CardDefinition => Boolean(card));
+  const featureCard = featuredPool[(level + hub.profile.wins) % Math.max(1, featuredPool.length)] ?? CARDS[0];
+  const friends = hub.friends.slice(0, 4);
 
   return (
-    <div className="view-stack v13-home">
-      <section className={`v13-network-strip ${serverStatus.secureDuelReady ? 'is-ready' : 'is-warning'}`}>
-        <div className="v13-network-main">
-          <span className="v13-live-dot" />
-          <b>{serverStatus.secureDuelReady ? '온라인 대전 준비 완료' : '온라인 대전 설정 확인 필요'}</b>
-          <small>{serverStatus.secureDuelReady ? '보안 결투 서버가 정상 연결되어 있습니다.' : '일반 기능은 사용할 수 있으며 대전 서버 설정만 확인하면 됩니다.'}</small>
+    <div className="v19-home">
+      <section className="v19-hero-shell">
+        <div className="v19-hero-copy">
+          <div className="v19-status-line">
+            <span className={`v19-online-dot ${serverStatus.secureDuelReady ? 'ready' : 'warning'}`} />
+            <b>{serverStatus.secureDuelReady ? 'ECLIPSE NETWORK · ONLINE' : 'ONLINE DUEL · SETUP REQUIRED'}</b>
+            <small>{serverStatus.secureDuelReady ? '보안 대전 서버 연결 완료' : '대전 서버 설정을 확인해 주세요'}</small>
+          </div>
+          <span className="v19-season-label">SEASON 01 · ASCENSION</span>
+          <h1>덱을 설계하고,<br /><strong>판도를 뒤집으세요.</strong></h1>
+          <p>30장 메인 덱과 6장 엑스트라 덱. 균열 소환, 공명 융합, 계승 진화를 연결해 한 수 앞을 설계하는 온라인 전략 TCG.</p>
+          <div className="v19-hero-actions">
+            <button className="v19-play-button" onClick={() => onNavigate('duel')}>
+              <span className="v19-action-icon"><GameIcon name="duel" /></span>
+              <span><b>대전 시작</b><small>빠른 매칭 · 친선전 · 방 대전</small></span>
+              <em>PLAY</em>
+            </button>
+            <button className="v19-sub-action" onClick={() => onNavigate('deck')}><GameIcon name="deck" /><span><b>덱 편집</b><small>자동 구성과 직접 편집</small></span></button>
+            <button className="v19-sub-action" onClick={() => onNavigate('shop')}><GameIcon name="shop" /><span><b>상점</b><small>카드팩 · 프로필 스킨</small></span></button>
+          </div>
+          <div className="v19-hero-stats">
+            <span><small>LEVEL</small><b>{level}</b></span>
+            <span><small>RECORD</small><b>{winTotal > 0 ? `${hub.profile.wins}승 ${hub.profile.losses}패` : '첫 대전 준비'}</b></span>
+            <span><small>COLLECTION</small><b>{hub.collection.length}<em> / {CARDS.length}</em></b></span>
+          </div>
         </div>
-        <button onClick={() => onNavigate('duel')}>{serverStatus.secureDuelReady ? '대전으로 이동' : '상태 확인'}</button>
+
+        <div className="v19-hero-stage" aria-label="추천 카드">
+          <div className="v19-stage-orbit" aria-hidden="true"><i /><i /><i /><span /></div>
+          <div className="v19-feature-card-wrap"><CardFace card={featureCard} /></div>
+          <div className="v19-feature-meta"><small>FEATURED CARD</small><b>{featureCard.name}</b><span>{RARITY_LABEL[featureCard.rarity]} · {ELEMENT_LABEL[featureCard.element]}</span><button onClick={() => requestCardInspection(featureCard.id)}>카드 상세 보기</button></div>
+        </div>
       </section>
 
-      <section className="v13-command-grid">
-        <article className="v13-hero-panel">
-          <div className="v13-eclipse-art" aria-hidden="true"><i /><i /><i /><span /></div>
-          <div className="v13-hero-content">
-            <span className="v13-kicker">ONLINE DUEL · SEASON ASCENSION</span>
-            <h1>한 장의 선택이<br /><strong>전장을 뒤집습니다.</strong></h1>
-            <p>손패와 에너지를 관리하고, 균열 소환·공명 융합·계승 진화를 연결해 상대의 전략을 무너뜨리세요.</p>
-            <div className="v13-primary-actions">
-              <button className="v13-action v13-action-primary" onClick={() => onNavigate('duel')}>
-                <i><GameIcon name="duel" /></i><span><b>빠른 대전</b><small>자동 매칭 또는 친구 대전</small></span><em>PLAY</em>
-              </button>
-              <button className="v13-action" onClick={() => onNavigate('duel')}>
-                <i className="v13-plus">+</i><span><b>방 만들기</b><small>초대 코드로 친구와 결투</small></span>
-              </button>
-              <button className="v13-action" onClick={() => onNavigate('deck')}>
-                <i><GameIcon name="deck" /></i><span><b>덱 편집</b><small>자동 구성과 직접 편집</small></span>
-              </button>
-            </div>
+      <section className="v19-dashboard-grid">
+        <article className="v19-current-deck-card">
+          <header><div><small>CURRENT DECK</small><h2>{activeDeck?.name ?? '활성 덱 없음'}</h2></div><button onClick={() => onNavigate('deck')} aria-label="덱 편집"><GameIcon name="deck" /></button></header>
+          <div className="v19-deck-visual" aria-hidden="true"><span className="v19-deck-stack"><i /><i /><b>E</b></span><span className="v19-deck-ring" /></div>
+          <div className="v19-deck-progress">
+            <span><small>MAIN</small><b>{deckMain} / {DECK_SIZE}</b><i><em style={{ width: `${Math.min(100, deckMain / DECK_SIZE * 100)}%` }} /></i></span>
+            <span><small>EXTRA</small><b>{deckExtra} / {EXTRA_DECK_SIZE}</b><i><em style={{ width: `${Math.min(100, deckExtra / EXTRA_DECK_SIZE * 100)}%` }} /></i></span>
           </div>
+          <button className={`v19-wide-cta ${deckReady ? 'ready' : 'warning'}`} onClick={() => onNavigate(deckReady ? 'duel' : 'deck')}>{deckReady ? '이 덱으로 대전하기' : '덱을 완성하세요'} <span>›</span></button>
         </article>
 
-        <article className="v13-deck-panel">
-          <header><div><small>현재 덱</small><h2>{activeDeck?.name ?? '활성 덱 없음'}</h2></div><button aria-label="덱 편집" onClick={() => onNavigate('deck')}>✎</button></header>
-          <button className="v13-deck-core" onClick={() => onNavigate('deck')} aria-label="현재 덱 열기">
-            <span className="v13-deck-orbit"><i /><i /><i /><b>E</b></span>
-          </button>
-          <div className="v13-deck-counts">
-            <span><small>메인 덱</small><b>{deckMain} / {DECK_SIZE}</b></span>
-            <span><small>엑스트라 덱</small><b>{deckExtra} / {EXTRA_DECK_SIZE}</b></span>
-          </div>
-          <button className="v13-wide-button" onClick={() => onNavigate('deck')}>{deckReady ? '덱 상세 보기' : '덱 완성하기'} <span>›</span></button>
+        <article className="v19-mode-card v19-mode-ranked" onClick={() => onNavigate('duel')}>
+          <div className="v19-mode-icon"><GameIcon name="duel" /></div>
+          <div><small>MATCH</small><h3>빠른 대전</h3><p>대기 중인 상대와 바로 연결합니다.</p></div><span className="v19-mode-arrow">›</span>
+        </article>
+        <article className="v19-mode-card" onClick={() => onNavigate('duel')}>
+          <div className="v19-mode-icon"><span>+</span></div>
+          <div><small>PRIVATE</small><h3>친구와 대전</h3><p>방을 만들거나 코드를 입력해 참가합니다.</p></div><span className="v19-mode-arrow">›</span>
+        </article>
+        <article className="v19-mode-card" onClick={() => onNavigate('collection')}>
+          <div className="v19-mode-icon"><GameIcon name="collection" /></div>
+          <div><small>COLLECTION</small><h3>카드 보관함</h3><p>{hub.collection.length}종 보유 · 효과와 소환 조건 확인</p></div><span className="v19-mode-arrow">›</span>
         </article>
 
-        <article className="v13-feature-panel">
-          <header><small>주목할 카드</small><span>{RARITY_LABEL[featureCard.rarity]}</span></header>
-          <div className="v13-feature-card"><CardFace card={featureCard} /></div>
-          <div className="v13-feature-caption"><b>{featureCard.name}</b><small>{featureCard.subtitle}</small><p>카드를 눌러 효과, 수치와 소환 조건을 확인하세요.</p></div>
-        </article>
-      </section>
-
-      <section className="v13-secondary-grid">
-        <article className="v13-simple-panel v13-join-panel">
-          <div><span className="v13-kicker">JOIN PRIVATE ROOM</span><h3>코드로 참가</h3><p>친구에게 받은 6자리 방 코드가 있다면 대전 화면에서 바로 입력할 수 있습니다.</p></div>
-          <button onClick={() => onNavigate('duel')}><span>ABC123</span><b>코드 입력 화면</b><em>›</em></button>
-        </article>
-
-        <article className="v13-simple-panel v13-readiness-panel">
-          <header><span className="v13-kicker">DUEL READINESS</span><h3>대전 준비 상태</h3></header>
-          <div className="v13-readiness-list">
-            <span><small>서버 연결</small><b className={serverStatus.secureDuelReady ? 'good' : 'warn'}>{serverStatus.secureDuelReady ? '정상' : '확인 필요'}</b></span>
-            <span><small>활성 덱</small><b className={deckReady ? 'good' : 'warn'}>{deckReady ? '준비 완료' : `${deckMain}/${DECK_SIZE}`}</b></span>
-            <span><small>보유 카드</small><b>{hub.collection.length} / {CARDS.length}</b></span>
-          </div>
-          <button onClick={() => onNavigate(serverStatus.secureDuelReady && deckReady ? 'duel' : deckReady ? 'duel' : 'deck')}>{serverStatus.secureDuelReady && deckReady ? '지금 대전하기' : deckReady ? '대전 설정 확인' : '덱 확인하기'} <span>›</span></button>
-        </article>
-
-        <article className="v13-simple-panel v13-friends-panel">
-          <header><div><span className="v13-kicker">FRIENDS</span><h3>친구</h3></div><button onClick={() => onNavigate('friends')}>전체 보기 ›</button></header>
-          <div className="v13-friend-list">
+        <article className="v19-social-card">
+          <header><div><small>SOCIAL</small><h3>친구</h3></div><button onClick={() => onNavigate('friends')}>전체 보기</button></header>
+          <div className="v19-friend-grid">
             {friends.length > 0 ? friends.map((friend) => (
-              <button key={friend.user_id} onClick={() => onNavigate('friends')}>
-                <Avatar id={friend.avatar} size="small" />
-                <span><b>{friend.display_name}</b><small>{friend.wins}승 {friend.losses}패 · 승률 {winRate(friend)}%</small></span>
-                <em>친구</em>
-              </button>
-            )) : <div className="v13-empty-friends"><b>아직 등록된 친구가 없습니다.</b><small>친구 코드를 검색해 함께 결투해 보세요.</small><button onClick={() => onNavigate('friends')}>친구 추가</button></div>}
+              <button key={friend.user_id} onClick={() => onNavigate('friends')}><Avatar id={friend.avatar} size="small" /><span><b>{friend.display_name}</b><small>LV.{levelFromXp(friend.xp)} · {friend.wins}승</small></span><i /></button>
+            )) : <button className="v19-add-friend" onClick={() => onNavigate('friends')}><span>+</span><b>친구 추가</b><small>친구 코드로 결투가를 찾아보세요.</small></button>}
           </div>
         </article>
-      </section>
 
-      <section className="v13-footer-grid">
-        <article className="v13-season-card">
-          <span className="v13-kicker">SEASON PROGRESS</span><div><h3>ECLIPSE · ASCENSION</h3><b>LV.{level}</b></div>
-          <div className="v13-xp-line"><span><i style={{ width: `${Math.min(100, xpInLevel / 10)}%` }} /></span><em>{xpInLevel} / 1000 XP</em></div>
+        <article className="v19-season-card">
+          <div className="v19-season-copy"><small>SEASON PASS</small><h3>ECLIPSE: ASCENSION</h3><p>다음 레벨까지 {1000 - xpInLevel} XP</p></div>
+          <div className="v19-level-emblem"><span>{level}</span><small>LV</small></div>
+          <div className="v19-season-bar"><i><em style={{ width: `${Math.min(100, xpInLevel / 10)}%` }} /></i><span>{xpInLevel} / 1000 XP</span></div>
         </article>
-        <article className="v13-notice-card"><div><span className="v13-kicker">QUICK ACCESS</span><h3>카드 수집과 덱 연구</h3></div><p>보유 카드 {hub.collection.length}종 · 친구 {hub.friends.length}명 · 코인 {hub.wallet.coins.toLocaleString()}</p><button onClick={() => onNavigate('collection')}>보관함 열기 ›</button></article>
+
+        <article className={`v19-server-card ${serverStatus.secureDuelReady ? 'ready' : 'warning'}`}>
+          <div className="v19-server-symbol"><span>{serverStatus.secureDuelReady ? '✓' : '!'}</span></div>
+          <div><small>DUEL SERVER</small><h3>{serverStatus.secureDuelReady ? '온라인 대전 준비 완료' : '대전 서버 확인 필요'}</h3><p>{serverStatus.secureDuelReady ? '매칭, 방 대전, 비공개 카드 상태가 정상 동기화됩니다.' : serverStatus.message}</p></div>
+          <button onClick={() => onNavigate('duel')}>{serverStatus.secureDuelReady ? '대전으로' : '상태 확인'} ›</button>
+        </article>
       </section>
     </div>
   );
@@ -2690,7 +2684,7 @@ export default function Page() {
   const roomChat = roomPayload && roomPayload.room.status !== 'cancelled' ? roomPayload.room.id : undefined;
 
   return (
-    <main className={`game-app v18-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`}>
+    <main className={`game-app v19-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`}>
       <div className="app-backdrop" aria-hidden="true"><span className="backdrop-grid" /><span className="backdrop-orbit" /><span className="backdrop-glow" /></div>
       <aside className="sidebar">
         <button className="game-logo" onClick={() => { playUiSound('click'); setView('home'); }}><span className="logo-glyph"><i>E</i></span><div><b>ECLIPSE</b><small>DUEL</small></div></button>
