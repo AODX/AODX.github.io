@@ -2380,3 +2380,166 @@
   .v23-client.in-duel .unit-slot.attack-target,
   .v23-client.in-duel .v30-trap-waiting-card>i { animation:none!important; }
 }
+
+/* === v31 resource conversion / extra summon limits / one-buff-per-unit === */
+.v23-client.in-duel .v31-energy-convert {
+  grid-column:1 / -1;
+  width:100%;
+  min-height:46px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:9px 12px;
+  border-radius:10px;
+  border:1px solid rgba(100,220,255,.26);
+  background:linear-gradient(135deg,rgba(11,37,53,.96),rgba(16,28,48,.96));
+  color:#dff9ff;
+  box-shadow:inset 0 0 24px rgba(79,214,255,.05);
+}
+.v23-client.in-duel .v31-energy-convert span { font-size:11px;font-weight:950;letter-spacing:.04em; }
+.v23-client.in-duel .v31-energy-convert small { color:#8eb9c8;font-size:9px;text-align:right; }
+.v23-client.in-duel .v31-energy-convert:not(:disabled):hover { border-color:rgba(107,229,255,.52);transform:translateY(-1px); }
+.v23-client.in-duel .v31-energy-convert:disabled { opacity:.42;cursor:not-allowed; }
+
+.v23-client.in-duel .v31-extra-usage {
+  display:inline-flex;
+  width:max-content;
+  max-width:100%;
+  margin-top:7px;
+  padding:5px 8px;
+  border-radius:8px;
+  border:1px solid rgba(190,150,255,.18);
+  background:rgba(43,25,67,.55);
+  color:#ceb8f7;
+  font-size:9px;
+  font-weight:850;
+}
+.v23-client.in-duel .v31-extra-limit-strip {
+  margin-top:6px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:7px 9px;
+  border:1px solid rgba(143,174,255,.13);
+  border-radius:9px;
+  background:rgba(7,13,24,.78);
+  color:#9fb0c7;
+  font-size:9px;
+}
+.v23-client.in-duel .v31-extra-limit-strip span { display:inline-flex;gap:4px;align-items:center; }
+.v23-client.in-duel .v31-extra-limit-strip b { color:#eef4ff;font-size:10px; }
+.v23-client.in-duel .v31-extra-limit-strip em { margin-left:auto;color:#7f90aa;font-style:normal; }
+.v23-client.in-duel .v31-extra-drawer-usage { display:flex;gap:8px;margin:0 0 12px; }
+.v23-client.in-duel .v31-extra-drawer-usage span {
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:9px 11px;
+  border-radius:9px;
+  border:1px solid rgba(151,123,255,.18);
+  background:rgba(29,20,47,.74);
+  color:#aeb9d0;
+  font-size:10px;
+}
+.v23-client.in-duel .v31-extra-drawer-usage b { color:#f2eaff;font-size:12px; }
+
+.v23-client.in-duel .v30-unit-traits .buff-used {
+  color:#9eeaff;
+  border-color:rgba(92,217,255,.28);
+  background:rgba(9,52,70,.82);
+}
+.v23-client.in-duel .unit-slot.buff-card-used::after {
+  content:"BUFF 1/1";
+  position:absolute;
+  right:5px;
+  bottom:35px;
+  z-index:11;
+  padding:3px 5px;
+  border-radius:6px;
+  border:1px solid rgba(88,218,255,.22);
+  background:rgba(6,30,42,.88);
+  color:#a8ecff;
+  font-size:7px;
+  font-weight:950;
+  letter-spacing:.05em;
+  pointer-events:none;
+}
+.v23-client.in-duel .unit-slot.buff-card-used.targetable { box-shadow:inset 0 0 0 1px rgba(100,190,220,.14); }
+
+@media (min-width:1920px) and (min-height:1000px) {
+  .v23-client.in-duel .v31-energy-convert span { font-size:13px; }
+  .v23-client.in-duel .v31-energy-convert small,
+  .v23-client.in-duel .v31-extra-limit-strip,
+  .v23-client.in-duel .v31-extra-usage { font-size:11px; }
+  .v23-client.in-duel .v31-extra-limit-strip b,
+  .v23-client.in-duel .v31-extra-drawer-usage b { font-size:13px; }
+}
+
+/* === v31 combat feedback / direct strike / full-height duel feed === */
+.v23-client .v30-card-traits .corestrike {
+  color:#ffc6d5;
+  border-color:rgba(255,92,137,.38);
+  background:rgba(74,16,37,.92);
+  box-shadow:0 0 14px rgba(255,70,125,.12);
+}
+.v23-client.in-duel .v30-unit-traits .corestrike {
+  color:#ffc2d3;
+  border-color:rgba(255,88,138,.48);
+  box-shadow:0 0 18px rgba(255,70,125,.18);
+}
+.v23-client.in-duel .unit-slot.has-corestrike {
+  box-shadow:inset 0 0 0 1px rgba(255,88,138,.15),0 0 22px rgba(255,64,122,.08);
+}
+
+.v23-client.in-duel .v31-damage-stack {
+  position:absolute;
+  left:var(--tx);
+  top:var(--ty);
+  z-index:18;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+}
+.v23-client.in-duel .v31-damage-stack .v18-floating-number {
+  position:relative!important;
+  left:auto!important;
+  top:auto!important;
+  transform:none!important;
+  min-width:max-content;
+}
+.v23-client.in-duel .v18-floating-number.health-damage,
+.v23-client.in-duel .kind-defense .v18-floating-number.health-damage {
+  color:#ff4f61!important;
+  text-shadow:0 0 12px rgba(255,40,60,.7),0 4px 24px rgba(0,0,0,.8)!important;
+}
+.v23-client.in-duel .v18-floating-number.shield-damage,
+.v23-client.in-duel .kind-defense .v18-floating-number.shield-damage {
+  color:#c1c9d2!important;
+  text-shadow:0 0 10px rgba(200,214,226,.42),0 4px 22px rgba(0,0,0,.8)!important;
+}
+
+/* The feed now consumes the actual unused rail height instead of being cut at 92/132px. */
+.v23-client.in-duel .v18-event-feed {
+  flex:1 1 150px!important;
+  min-height:120px!important;
+  max-height:none!important;
+  overflow:hidden!important;
+  display:flex!important;
+  flex-direction:column!important;
+}
+.v23-client.in-duel .v18-event-feed>div {
+  flex:1 1 auto!important;
+  min-height:0!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding-right:3px!important;
+}
+@media (max-height:900px) {
+  .v23-client.in-duel .v18-event-feed { min-height:88px!important;max-height:none!important; }
+}

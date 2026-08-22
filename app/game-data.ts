@@ -3,7 +3,7 @@ export type CardKind = 'unit' | 'spell' | 'trap' | 'fusion' | 'evolution';
 export type MainDeckKind = 'unit' | 'spell' | 'trap';
 export type ExtraDeckKind = 'fusion' | 'evolution';
 export type Element = 'solar' | 'lunar' | 'storm' | 'verdant' | 'void' | 'neutral';
-export type Keyword = 'guard' | 'charge' | 'lifesteal' | 'pierce';
+export type Keyword = 'guard' | 'charge' | 'lifesteal' | 'pierce' | 'corestrike';
 export type SummonMode = 'normal' | 'rift' | 'fusion' | 'evolution';
 export type VfxMoment = 'summon' | 'attack' | 'defense' | 'activation' | 'destroy';
 export type SeriesId = 'luminaknights' | 'kaisergear' | 'eclipsion' | 'nocturne' | 'arborian' | 'tempest_drive' | 'abyss_reaper' | 'primal_guardian' | 'chronorium' | 'arcana_protocol' | 'beastforge' | 'phantom_carnival' | 'astral_armada';
@@ -451,7 +451,7 @@ export const CARDS: CardDefinition[] = [
   {
     id: 'evolution_ember_phoenix', name: '홍련계승 불사조', subtitle: '작은 불씨가 얻은 두 번째 하늘', kind: 'evolution', rarity: 'epic', element: 'solar', cost: 2,
     attack: 6, health: 6, keywords: ['charge', 'lifesteal'], summonMode: 'evolution',
-    evolutionRecipe: { label: '잿불의 종자 또는 비용 2 이하 태양 유닛', fromIds: ['unit_ember_squire'], element: 'solar', maxCost: 2 },
+    evolutionRecipe: { label: '잿불의 종자 계승', fromIds: ['unit_ember_squire'] },
     target: 'none', text: '계승 진화. 진화 전 유닛의 강화 수치와 보호막을 이어받습니다. 속공, 흡수.',
     flavor: '불씨는 자신이 작다는 사실을 잊는 순간 날개를 얻는다.', sigil: '♨',
     vfx: { summon: 'phoenix-ascend', attack: 'phoenix-dive', defense: 'rebirth-wings', destroy: 'ash-rebirth' },
@@ -459,7 +459,7 @@ export const CARDS: CardDefinition[] = [
   {
     id: 'evolution_iron_sovereign', name: '철성계승 군주', subtitle: '성벽이 왕좌를 선택하다', kind: 'evolution', rarity: 'epic', element: 'neutral', cost: 2,
     attack: 4, health: 12, keywords: ['guard'], summonMode: 'evolution',
-    evolutionRecipe: { label: '철벽 수호병 또는 비용 2 이하 중립 유닛', fromIds: ['unit_iron_bastion'], element: 'neutral', maxCost: 2 },
+    evolutionRecipe: { label: '철벽 수호병 계승', fromIds: ['unit_iron_bastion'] },
     onSummon: { kind: 'shield_unit', amount: 4 }, target: 'none',
     text: '계승 진화. 강화 수치와 보호막 계승. 소환 시 보호막 4. 수호.',
     flavor: '오랫동안 지킨 자는 결국 지켜야 할 나라 그 자체가 된다.', sigil: '♜',
@@ -468,7 +468,7 @@ export const CARDS: CardDefinition[] = [
   {
     id: 'evolution_rift_alpha', name: '균열계승 알파', subtitle: '사냥개가 경계의 주인이 되다', kind: 'evolution', rarity: 'legendary', element: 'void', cost: 3,
     attack: 8, health: 6, keywords: ['charge', 'pierce'], summonMode: 'evolution',
-    evolutionRecipe: { label: '균열 사냥개 또는 비용 3 이하 공허 유닛', fromIds: ['unit_rift_hound'], element: 'void', maxCost: 3 },
+    evolutionRecipe: { label: '균열 사냥개 계승', fromIds: ['unit_rift_hound'] },
     target: 'none', text: '계승 진화. 강화 수치와 보호막 계승. 속공, 관통.',
     flavor: '경계를 물어뜯던 야수는 마침내 경계가 어디인지 정하는 존재가 되었다.', sigil: '◈',
     vfx: { summon: 'alpha-mutation', attack: 'rift-rend', defense: 'phase-hide', destroy: 'alpha-shatter' },
@@ -1398,21 +1398,131 @@ export const V26_EXPANSION_CARDS: CardDefinition[] = [
 ];
 CARDS.push(...V26_EXPANSION_CARDS);
 
+
+// v31 balance pass: keep non-Legendary spells within sane efficiency bands,
+// while ensuring expensive Epic/Legendary units and Legendary spells feel worth their cost.
+const DIRECT_CORE_STRIKE_IDS = new Set([
+  'unit_star_devourer',
+  'unit_v8_storm_03',
+  'unit_v8_void_16',
+  'unit_v8_neutral_13',
+  'v26_chronorium_unit_21',
+  'v26_arcana_protocol_unit_21',
+  'v26_beastforge_unit_21',
+  'v26_phantom_carnival_unit_21',
+  'v26_astral_armada_unit_21',
+]);
+
+function spellEffectText(effect: Effect): string {
+  switch (effect.kind) {
+    case 'damage_unit': return `적 유닛 하나에 ${effect.amount} 피해.`;
+    case 'damage_core': return `상대 코어에 ${effect.amount} 피해.`;
+    case 'heal_core': return `내 코어를 ${effect.amount} 회복.`;
+    case 'draw': return `카드 ${effect.amount}장을 뽑습니다.`;
+    case 'buff_unit': return `아군 유닛 하나에게 공격력 +${effect.attack}, 체력 +${effect.health}.`;
+    case 'shield_unit': return `아군 유닛 하나에게 보호막 ${effect.amount}.`;
+    case 'aoe_enemy': return `모든 적 유닛에 ${effect.amount} 피해.`;
+    case 'gain_energy': return `이번 턴 에너지 ${effect.amount} 회복.`;
+    case 'destroy_weak': return `현재 체력이 ${effect.maxHealth} 이하인 적 유닛 하나를 파괴.`;
+    case 'summon_token': return `${effect.name} ${effect.attack}/${effect.health} 토큰을 소환.`;
+  }
+}
+
+function clampNonLegendarySpell(card: CardDefinition): void {
+  if (card.kind !== 'spell' || !card.effect || card.rarity === 'legendary') return;
+  const tier = card.rarity === 'common' ? 0 : card.rarity === 'rare' ? 1 : 2;
+  const effect = card.effect;
+  switch (effect.kind) {
+    case 'damage_unit': effect.amount = Math.min(effect.amount, Math.max(2, card.cost + 1 + tier)); break;
+    case 'damage_core': effect.amount = Math.min(effect.amount, Math.max(1, Math.ceil(card.cost * 0.72) + tier)); break;
+    case 'aoe_enemy': effect.amount = Math.min(effect.amount, 1 + tier); break;
+    case 'draw': effect.amount = Math.min(effect.amount, card.rarity === 'epic' ? 2 : 1); break;
+    case 'gain_energy': effect.amount = Math.min(effect.amount, card.rarity === 'epic' ? 2 : 1); break;
+    case 'buff_unit': {
+      const cap = 1 + tier;
+      effect.attack = Math.min(effect.attack, cap);
+      effect.health = Math.min(effect.health, cap + (card.rarity === 'epic' ? 1 : 0));
+      break;
+    }
+    case 'shield_unit': effect.amount = Math.min(effect.amount, 2 + tier); break;
+    case 'destroy_weak': effect.maxHealth = Math.min(effect.maxHealth, 3 + tier * 2); break;
+    case 'summon_token': {
+      const statCap = Math.max(2, card.cost + tier);
+      effect.attack = Math.min(effect.attack, statCap);
+      effect.health = Math.min(effect.health, statCap + 1);
+      break;
+    }
+    case 'heal_core': effect.amount = Math.min(effect.amount, Math.max(2, card.cost + 2 + tier)); break;
+  }
+  card.text = spellEffectText(effect);
+}
+
+function strengthenLegendarySpell(card: CardDefinition): void {
+  if (card.kind !== 'spell' || card.rarity !== 'legendary' || !card.effect || card.cost < 6) return;
+  const effect = card.effect;
+  switch (effect.kind) {
+    case 'damage_unit': effect.amount = Math.max(effect.amount, card.cost + 1); break;
+    case 'damage_core': effect.amount = Math.max(effect.amount, Math.ceil(card.cost * 0.8)); break;
+    case 'aoe_enemy': effect.amount = Math.max(effect.amount, 4); break;
+    case 'draw': effect.amount = Math.max(effect.amount, 3); break;
+    case 'gain_energy': effect.amount = Math.max(effect.amount, 3); break;
+    case 'buff_unit': effect.attack = Math.max(effect.attack, 4); effect.health = Math.max(effect.health, 4); break;
+    case 'shield_unit': effect.amount = Math.max(effect.amount, 5); break;
+    case 'destroy_weak': effect.maxHealth = Math.max(effect.maxHealth, 8); break;
+    case 'summon_token': effect.attack = Math.max(effect.attack, 5); effect.health = Math.max(effect.health, 6); break;
+    case 'heal_core': effect.amount = Math.max(effect.amount, 8); break;
+  }
+  card.text = spellEffectText(effect);
+}
+
+function strengthenHighCostUnit(card: CardDefinition): void {
+  if (!isUnitCard(card) || card.kind === 'fusion' || card.kind === 'evolution') return;
+  if (card.rarity !== 'epic' && card.rarity !== 'legendary') return;
+  if (card.cost < 6) return;
+  const targetTotal = card.rarity === 'legendary' ? card.cost * 2 + 4 : card.cost * 2 + 1;
+  const currentTotal = (card.attack ?? 0) + (card.health ?? 0);
+  let missing = Math.max(0, targetTotal - currentTotal);
+  if (missing > 0) {
+    const attackGain = Math.ceil(missing * 0.45);
+    const healthGain = missing - attackGain;
+    card.attack = (card.attack ?? 0) + attackGain;
+    card.health = (card.health ?? 0) + healthGain;
+  }
+  if (card.rarity === 'legendary' && !card.onSummon) {
+    card.onSummon = { kind: 'draw', amount: 1 };
+    card.text = `${card.text} 소환 시 카드 1장을 뽑습니다.`;
+  }
+}
+
+for (const card of CARDS) {
+  clampNonLegendarySpell(card);
+  strengthenLegendarySpell(card);
+  strengthenHighCostUnit(card);
+  if (DIRECT_CORE_STRIKE_IDS.has(card.id) && isUnitCard(card) && card.rarity === 'legendary') {
+    card.keywords = Array.from(new Set([...(card.keywords ?? []), 'corestrike']));
+    if (!card.text.includes('직격')) card.text = `${card.text} 직격: 상대 수호가 없으면 다른 적 유닛을 무시하고 코어를 공격할 수 있습니다.`;
+  }
+}
+
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));
 
 export const STARTER_DECK: string[] = [
-  'unit_ember_squire', 'unit_ember_squire',
-  'unit_rift_hound', 'unit_rift_hound',
-  'unit_iron_bastion', 'unit_iron_bastion',
-  'unit_celestial_archer', 'unit_celestial_archer',
-  'unit_verdant_sage', 'unit_verdant_sage',
-  'unit_tide_medic', 'unit_tide_medic',
-  'unit_storm_lancer', 'unit_storm_lancer',
-  'unit_moon_priest', 'unit_crystal_warden',
-  'unit_rift_wanderer', 'unit_lastlight_vanguard',
-  'spell_spark_bolt', 'spell_spark_bolt',
-  'spell_battle_hymn', 'spell_battle_hymn',
-  'spell_mending_light', 'spell_astral_insight', 'spell_void_lance',
+  'unit_ember_squire', 'unit_ember_squire', 'unit_ember_squire',
+  'unit_rift_hound', 'unit_rift_hound', 'unit_rift_hound',
+  'unit_iron_bastion', 'unit_iron_bastion', 'unit_iron_bastion',
+  'unit_celestial_archer', 'unit_celestial_archer', 'unit_celestial_archer',
+  'unit_verdant_sage', 'unit_verdant_sage', 'unit_verdant_sage',
+  'unit_tide_medic', 'unit_tide_medic', 'unit_tide_medic',
+  'unit_storm_lancer', 'unit_storm_lancer', 'unit_storm_lancer',
+  'unit_moon_priest', 'unit_moon_priest',
+  'unit_crystal_warden', 'unit_crystal_warden',
+  'unit_rift_wanderer', 'unit_rift_wanderer',
+  'unit_lastlight_vanguard', 'unit_lastlight_vanguard',
+  'spell_spark_bolt', 'spell_spark_bolt', 'spell_spark_bolt',
+  'spell_battle_hymn', 'spell_battle_hymn', 'spell_battle_hymn',
+  'spell_mending_light', 'spell_mending_light',
+  'spell_astral_insight', 'spell_astral_insight',
+  'spell_void_lance',
   'trap_mirror_veil', 'trap_thorn_snare', 'trap_counter_sigil',
   'trap_blooming_guard', 'trap_ancestral_denial',
 ];
@@ -1466,7 +1576,7 @@ export const PACKS: PackDefinition[] = [
   })),
 ];
 
-export const DECK_SIZE = 30;
+export const DECK_SIZE = 45;
 export const EXTRA_DECK_SIZE = 6;
 export const MAX_COPIES: Record<Rarity, number> = {
   common: 3,
@@ -1519,9 +1629,9 @@ export function validateDeck(cardIds: string[], collection?: Record<string, numb
     if (card.kind === 'trap') trapCount += quantity;
   }
 
-  if (unitCount < 15) return '유닛 카드는 최소 15장 필요합니다.';
-  if (spellCount > 10) return '주문 카드는 최대 10장까지 넣을 수 있습니다.';
-  if (trapCount > 8) return '함정 카드는 최대 8장까지 넣을 수 있습니다.';
+  if (unitCount < 22) return '유닛 카드는 최소 22장 필요합니다.';
+  if (spellCount > 14) return '주문 카드는 최대 14장까지 넣을 수 있습니다.';
+  if (trapCount > 10) return '함정 카드는 최대 10장까지 넣을 수 있습니다.';
   return null;
 }
 

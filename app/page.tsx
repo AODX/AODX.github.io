@@ -255,7 +255,7 @@ function getAudioContext(): AudioContext | null {
   return sharedAudioContext;
 }
 
-type UiSound = 'click' | 'card' | 'remove' | 'auto' | 'save' | 'pack' | 'reveal' | 'success' | 'summon' | 'attack' | 'spell' | 'trap' | 'damage' | 'draw' | 'turn';
+type UiSound = 'click' | 'card' | 'remove' | 'auto' | 'save' | 'pack' | 'reveal' | 'success' | 'summon' | 'attack' | 'spell' | 'trap' | 'damage' | 'shield' | 'corehit' | 'destroy' | 'draw' | 'turn';
 
 function playUiSound(kind: UiSound): void {
   const context = getAudioContext();
@@ -268,7 +268,7 @@ function playUiSound(kind: UiSound): void {
   compressor.ratio.value = 7;
   compressor.attack.value = 0.002;
   compressor.release.value = 0.12;
-  const combatSound = kind === 'summon' || kind === 'attack' || kind === 'spell' || kind === 'trap' || kind === 'damage' || kind === 'draw' || kind === 'turn';
+  const combatSound = kind === 'summon' || kind === 'attack' || kind === 'spell' || kind === 'trap' || kind === 'damage' || kind === 'shield' || kind === 'corehit' || kind === 'destroy' || kind === 'draw' || kind === 'turn';
   const soundGain = Math.min(1.15, Math.max(0.001, globalSoundVolume) * (combatSound ? 1.22 : 1));
   master.gain.setValueAtTime(soundGain, now);
   master.connect(compressor);
@@ -371,6 +371,21 @@ function playUiSound(kind: UiSound): void {
       noise(0.22, 0.075, 0, 190);
       tone('sawtooth', 125, 46, 0.20, 0.055);
       tone('sine', 72, 48, 0.22, 0.032, 0.015);
+      break;
+    case 'shield':
+      noise(0.12, 0.04, 0, 1500);
+      tone('square', 760, 330, 0.12, 0.026);
+      tone('sine', 1180, 620, 0.17, 0.018, 0.015);
+      break;
+    case 'corehit':
+      noise(0.28, 0.085, 0, 120);
+      tone('sawtooth', 180, 42, 0.28, 0.065);
+      tone('square', 90, 48, 0.22, 0.035, 0.025);
+      break;
+    case 'destroy':
+      noise(0.32, 0.075, 0, 260);
+      tone('sawtooth', 320, 62, 0.30, 0.052);
+      tone('triangle', 880, 150, 0.24, 0.022, 0.035);
       break;
     case 'draw':
       noise(0.11, 0.012, 0, 1450);
@@ -564,6 +579,7 @@ const KEYWORD_DESCRIPTION: Record<Keyword, string> = {
   charge: '속공 · 소환된 턴에도 즉시 공격할 수 있습니다.',
   lifesteal: '흡수 · 가한 전투 피해만큼 내 코어를 회복합니다.',
   pierce: '관통 · 유닛을 파괴하고 남은 피해를 상대 코어에 줍니다.',
+  corestrike: '직격 · 상대 수호가 없으면 다른 적 유닛을 무시하고 코어를 직접 공격할 수 있습니다.',
 };
 
 function effectDescription(effect: CardDefinition['effect'] | CardDefinition['onSummon'] | CardDefinition['trapEffect'], trigger?: CardDefinition['trapTrigger']): string {
@@ -799,10 +815,11 @@ function CardFace({
       {card.summonMode === 'rift' && <span className="summon-badge rift">균열</span>}
       {card.kind === 'fusion' && <span className="summon-badge fusion">융합</span>}
       {card.kind === 'evolution' && <span className="summon-badge evolution">진화</span>}
-      {isUnitCard(card) && (card.keywords?.includes('charge') || card.keywords?.includes('guard')) && (
+      {isUnitCard(card) && (card.keywords?.includes('charge') || card.keywords?.includes('guard') || card.keywords?.includes('corestrike')) && (
         <span className="v30-card-traits" aria-label="전투 특성">
           {card.keywords?.includes('charge') && <i className="charge">속공</i>}
           {card.keywords?.includes('guard') && <i className="guard">수호</i>}
+          {card.keywords?.includes('corestrike') && <i className="corestrike">직격</i>}
         </span>
       )}
       {quantity !== undefined && <span className="card-quantity">×{quantity}</span>}
@@ -1156,7 +1173,7 @@ function AuthScreen({ onSession }: { onSession: (session: Session) => void }) {
         <div className="auth-showcase-copy">
           <span className="eyebrow"><i /> ORIGINAL ONLINE TCG</span>
           <h1>소환의 규칙을<br /><strong>직접 설계하세요.</strong></h1>
-          <p>30장 메인 덱과 6장 엑스트라 덱. 균열·공명·계승의 세 소환 체계로 나만의 승리 루트를 완성합니다.</p>
+          <p>45장 메인 덱과 6장 엑스트라 덱. 균열·공명·계승의 세 소환 체계로 나만의 승리 루트를 완성합니다.</p>
           <div className="auth-system-list">
             <span><b>RIFT</b><small>조건부 특수 소환</small></span>
             <span><b>RESONANCE</b><small>두 유닛의 공명 융합</small></span>
@@ -1262,7 +1279,7 @@ function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate:
           </div>
           <span className="v19-season-label">SEASON 01 · ASCENSION</span>
           <h1>덱을 설계하고,<br /><strong>판도를 뒤집으세요.</strong></h1>
-          <p>30장 메인 덱과 6장 엑스트라 덱. 8개 시리즈의 연계 효과와 균열 소환, 공명 융합, 계승 진화를 엮어 한 수 앞을 설계하는 온라인 전략 TCG.</p>
+          <p>45장 메인 덱과 6장 엑스트라 덱. 8개 시리즈의 연계 효과와 균열 소환, 공명 융합, 계승 진화를 엮어 한 수 앞을 설계하는 온라인 전략 TCG.</p>
           <div className="v19-hero-actions">
             <button className="v19-play-button" onClick={() => onNavigate('duel')}>
               <span className="v19-action-icon"><GameIcon name="duel" /></span>
@@ -1615,7 +1632,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
         <div>
           <span className="eyebrow">DECK STUDIO</span>
           <h2>덱 구성</h2>
-          <p>보유 카드에서 30장 + 엑스트라 6장을 고릅니다. 처음이라면 자동 구성을 먼저 사용해보세요.</p>
+          <p>보유 카드에서 45장 + 엑스트라 6장을 고릅니다. 처음이라면 자동 구성을 먼저 사용해보세요.</p>
         </div>
         <div className={`v9-deck-ready ${validation ? 'invalid' : 'valid'}`}>
           <b>{validation ? '구성 중' : '대전 가능'}</b>
@@ -2268,7 +2285,12 @@ function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualE
         <b>{duelEventLabel(event)}</b>
         <span>{event.label ?? card?.name ?? owner?.display_name ?? duelEventLocation(event)}</span>
       </div>
-      {event.amount !== undefined && event.amount > 0 && ['core', 'defense', 'heal', 'buff', 'energy'].includes(event.kind) && (
+      {event.kind === 'defense' && ((event.shieldAmount ?? 0) > 0 || (event.healthAmount ?? 0) > 0) ? (
+        <span className="v31-damage-stack">
+          {(event.shieldAmount ?? 0) > 0 && <strong className="v18-floating-number shield-damage">−{event.shieldAmount}</strong>}
+          {(event.healthAmount ?? 0) > 0 && <strong className="v18-floating-number damage health-damage">−{event.healthAmount}</strong>}
+        </span>
+      ) : event.amount !== undefined && event.amount > 0 && ['core', 'heal', 'buff', 'energy'].includes(event.kind) && (
         <strong className={`v18-floating-number ${event.kind === 'heal' || event.kind === 'energy' || event.kind === 'buff' ? 'positive' : 'damage'}`}>{event.kind === 'heal' || event.kind === 'energy' || event.kind === 'buff' ? '+' : '−'}{event.amount}</strong>
       )}
       {event.kind === 'draw' && (
@@ -2316,10 +2338,11 @@ function UnitSlot({
   const card = unit ? CARD_BY_ID[unit.cardId] : undefined;
   const hasCharge = Boolean(card?.keywords?.includes('charge'));
   const hasGuard = Boolean(card?.keywords?.includes('guard'));
+  const hasCorestrike = Boolean(card?.keywords?.includes('corestrike'));
   return (
     <button
       type="button"
-      className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${targetable ? 'targetable' : ''} ${attackReady ? 'attack-ready' : ''} ${attackTarget ? 'attack-target' : ''} ${hasCharge ? 'has-charge' : ''} ${hasGuard ? 'has-guard' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''}`}
+      className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${targetable ? 'targetable' : ''} ${attackReady ? 'attack-ready' : ''} ${attackTarget ? 'attack-target' : ''} ${hasCharge ? 'has-charge' : ''} ${hasGuard ? 'has-guard' : ''} ${hasCorestrike ? 'has-corestrike' : ''} ${unit?.buffCardApplied ? 'buff-card-used' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''}`}
       onClick={onClick}
       data-owner={owner}
       data-index={index}
@@ -2333,6 +2356,8 @@ function UnitSlot({
           <span className="v30-unit-traits" aria-label="유닛 전투 특성">
             {hasCharge && <i className="charge">속공</i>}
             {hasGuard && <i className="guard">수호</i>}
+            {hasCorestrike && <i className="corestrike">직격</i>}
+            {unit.buffCardApplied && <i className="buff-used">BUFF 1/1</i>}
           </span>
           {attackReady && <span className="v30-attack-ready-badge"><i />공격 가능</span>}
           {attackTarget && <span className="v30-attack-target-badge"><i />공격 대상</span>}
@@ -2348,8 +2373,11 @@ function UnitSlot({
 }
 
 function extraRequirement(card: CardDefinition): string {
-  if (card.kind === 'fusion') return card.fusionRecipe?.label ?? '융합 소재를 선택하세요.';
-  if (card.kind === 'evolution') return card.evolutionRecipe?.label ?? '진화시킬 유닛을 선택하세요.';
+  if (card.kind === 'fusion') {
+    const minCost = card.rarity === 'legendary' ? 4 : 3;
+    return `${card.fusionRecipe?.label ?? '융합 소재를 선택하세요.'} · 각 소재 비용 ${minCost} 이상`;
+  }
+  if (card.kind === 'evolution') return `${card.evolutionRecipe?.label ?? '진화시킬 유닛을 선택하세요.'} · 지정 원본이 이전 턴부터 생존 필요`;
   if (card.summonMode === 'rift') return card.riftCondition?.label ?? '균열 조건을 확인하세요.';
   return card.text;
 }
@@ -2381,33 +2409,35 @@ function clientRiftBlockReason(state: MatchState, playerId: string, opponentId: 
   return null;
 }
 
-function clientFusionMaterialMatches(unit: UnitState, material: NonNullable<CardDefinition['fusionRecipe']>['materials'][number]): boolean {
+function clientFusionMaterialMatches(unit: UnitState, material: NonNullable<CardDefinition['fusionRecipe']>['materials'][number], fusionCard: CardDefinition): boolean {
   const source = CARD_BY_ID[unit.cardId];
   if (!source) return false;
   if (material.cardIds?.length && !material.cardIds.includes(source.id)) return false;
   if (material.element && source.element !== material.element) return false;
-  if (material.minCost !== undefined && source.cost < material.minCost) return false;
+  const minimumCost = Math.max(material.minCost ?? 0, fusionCard.rarity === 'legendary' ? 4 : 3);
+  if (source.cost < minimumCost) return false;
   return true;
 }
 
-function clientCanAssignFusion(units: UnitState[], materials: NonNullable<CardDefinition['fusionRecipe']>['materials'], at = 0, used = new Set<number>()): boolean {
+function clientCanAssignFusion(units: UnitState[], materials: NonNullable<CardDefinition['fusionRecipe']>['materials'], fusionCard: CardDefinition, at = 0, used = new Set<number>()): boolean {
   if (at >= materials.length) return true;
   for (let index = 0; index < units.length; index += 1) {
-    if (used.has(index) || !clientFusionMaterialMatches(units[index], materials[at])) continue;
+    if (used.has(index) || !clientFusionMaterialMatches(units[index], materials[at], fusionCard)) continue;
     used.add(index);
-    if (clientCanAssignFusion(units, materials, at + 1, used)) return true;
+    if (clientCanAssignFusion(units, materials, fusionCard, at + 1, used)) return true;
     used.delete(index);
   }
   return false;
 }
 
-function clientEvolutionReady(unit: UnitState, card: CardDefinition): boolean {
+function clientEvolutionReady(unit: UnitState, card: CardDefinition, currentTurn: number): boolean {
   const recipe = card.evolutionRecipe;
   const source = CARD_BY_ID[unit.cardId];
-  if (!recipe || !source) return false;
-  if (recipe.fromIds?.includes(source.id)) return true;
+  if (!recipe || !source || unit.summonedTurn >= currentTurn) return false;
+  if (recipe.fromIds?.length) return recipe.fromIds.includes(source.id);
+  const hardenedMinCost = Math.max(recipe.minCost ?? 0, 3);
   return (!recipe.element || recipe.element === source.element)
-    && (recipe.minCost === undefined || source.cost >= recipe.minCost)
+    && source.cost >= hardenedMinCost
     && (recipe.maxCost === undefined || source.cost <= recipe.maxCost);
 }
 
@@ -2592,11 +2622,14 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     const sound: UiSound = activeVfx.kind === 'attack' ? 'attack'
       : activeVfx.kind === 'spell' ? 'spell'
         : activeVfx.kind === 'trap' || activeVfx.kind === 'set' ? 'trap'
-          : activeVfx.kind === 'core' || activeVfx.kind === 'destroy' || activeVfx.kind === 'defense' ? 'damage'
-            : activeVfx.kind === 'heal' || activeVfx.kind === 'buff' || activeVfx.kind === 'energy' ? 'success'
-              : activeVfx.kind === 'draw' ? 'draw'
-                : activeVfx.kind === 'turn' ? 'turn'
-                : 'summon';
+          : activeVfx.kind === 'core' ? 'corehit'
+            : activeVfx.kind === 'destroy' ? 'destroy'
+              : activeVfx.kind === 'defense' && (activeVfx.shieldAmount ?? 0) > 0 && (activeVfx.healthAmount ?? 0) === 0 ? 'shield'
+                : activeVfx.kind === 'defense' ? 'damage'
+                  : activeVfx.kind === 'heal' || activeVfx.kind === 'buff' || activeVfx.kind === 'energy' ? 'success'
+                    : activeVfx.kind === 'draw' ? 'draw'
+                      : activeVfx.kind === 'turn' ? 'turn'
+                      : 'summon';
     playUiSound(sound);
   }, [activeVfx?.id]);
 
@@ -2668,6 +2701,11 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const canSpendTurnToDraw = Boolean(myTurn && state.phase === 'main' && !state.turnActionTaken && !busy && (state.deckCounts[userId] ?? 0) > 0);
   const myEnergy = state.energy[userId] ?? { current: 0, max: 0 };
   const opponentEnergy = state.energy[opponentId] ?? { current: 0, max: 0 };
+  const myExtraUsage = state.extraSummonUsage?.[userId] ?? { fusion: 0, evolution: 0 };
+  const myExtraTurn = state.extraSummonTurn?.[userId] ?? {};
+  const energySacrificeUsed = state.energySacrificeTurn?.[userId] === state.turnNumber;
+  const canSacrificeSelectedForEnergy = Boolean(selectedHand && selectedCard && myTurn && !interactionLocked && state.phase === 'main' && !busy && !energySacrificeUsed && myEnergy.current < 10);
+  const selectedConsumesBuffSlot = Boolean(selectedCard?.kind === 'spell' && selectedCard.effect && (selectedCard.effect.kind === 'buff_unit' || selectedCard.effect.kind === 'shield_unit'));
   const nextMyEnergyMax = myTurn ? myEnergy.max : Math.min(10, Math.max(1, myEnergy.max + 1));
   const roundNumber = Math.max(1, Math.ceil(state.turnNumber / 2));
   const phaseLabel = state.phase === 'main' ? '메인 단계' : '전투 단계';
@@ -2679,9 +2717,11 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const selectingMaterials = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedExtraCard);
   const selectingAttackTarget = Boolean(myTurn && !interactionLocked && state.phase === 'battle' && selectedAttacker !== null);
   const opponentHasUnits = state.boards[opponentId].units.some(Boolean);
-  const directAttackOpen = !opponentHasUnits;
-  const selectedAttackerCanHitCore = Boolean(selectingAttackTarget && directAttackOpen);
   const guardTargetIndexes = state.boards[opponentId].units.flatMap((unit, index) => unit && CARD_BY_ID[unit.cardId]?.keywords?.includes('guard') ? [index] : []);
+  const selectedAttackerUnit = selectedAttacker !== null ? state.boards[userId].units[selectedAttacker] : null;
+  const selectedAttackerCard = selectedAttackerUnit ? CARD_BY_ID[selectedAttackerUnit.cardId] : undefined;
+  const directAttackOpen = !opponentHasUnits || (Boolean(selectedAttackerCard?.keywords?.includes('corestrike')) && guardTargetIndexes.length === 0);
+  const selectedAttackerCanHitCore = Boolean(selectingAttackTarget && directAttackOpen);
   const attackableTargetIndexes = selectedAttacker !== null && state.phase === 'battle'
     ? (guardTargetIndexes.length > 0 ? guardTargetIndexes : state.boards[opponentId].units.flatMap((unit, index) => unit ? [index] : []))
     : [];
@@ -2695,8 +2735,15 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const extraReadyInstances = privateState.extra.filter((instance) => {
     const card = CARD_BY_ID[instance.cardId];
     if (!card || card.cost > myEnergy.current || !myTurn || interactionLocked || state.phase !== 'main') return false;
-    if (card.kind === 'fusion') { const materials = card.fusionRecipe?.materials ?? []; return materials.length > 0 && clientCanAssignFusion(myFieldUnits, materials); }
-    if (card.kind === 'evolution') return myFieldUnits.some((unit) => clientEvolutionReady(unit, card));
+    if (card.kind === 'fusion') {
+      if (myExtraUsage.fusion >= 2 || myExtraTurn.fusion === state.turnNumber) return false;
+      const materials = card.fusionRecipe?.materials ?? [];
+      return materials.length > 0 && clientCanAssignFusion(myFieldUnits, materials, card);
+    }
+    if (card.kind === 'evolution') {
+      if (myExtraUsage.evolution >= 2 || myExtraTurn.evolution === state.turnNumber) return false;
+      return myFieldUnits.some((unit) => clientEvolutionReady(unit, card, state.turnNumber));
+    }
     return false;
   });
   const specialReadyIds = new Set([...riftReadyInstances.map((item) => item.instanceId), ...extraReadyInstances.map((item) => item.instanceId)]);
@@ -2735,10 +2782,15 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     if (interactionLocked) reasons.push('현재 함정 발동 여부를 결정하는 중이라 다른 행동을 할 수 없습니다.');
     if (myEnergy.current < card.cost) reasons.push(`에너지가 부족합니다. 필요 ${card.cost} / 현재 ${myEnergy.current}.`);
     if (card.kind === 'fusion') {
+      if (myExtraUsage.fusion >= 2) reasons.push('공명 융합은 한 게임에 최대 2번만 사용할 수 있습니다.');
+      if (myExtraTurn.fusion === state.turnNumber) reasons.push('공명 융합은 한 턴에 1번만 사용할 수 있습니다.');
       const materials = card.fusionRecipe?.materials ?? [];
-      if (!materials.length || !clientCanAssignFusion(myFieldUnits, materials)) reasons.push(`융합 소재 조건: ${card.fusionRecipe?.label ?? '지정 소재가 필요합니다.'}`);
+      const minCost = card.rarity === 'legendary' ? 4 : 3;
+      if (!materials.length || !clientCanAssignFusion(myFieldUnits, materials, card)) reasons.push(`융합 소재 조건: ${card.fusionRecipe?.label ?? '지정 소재가 필요합니다.'} · 각 소재 비용 ${minCost} 이상.`);
     } else if (card.kind === 'evolution') {
-      if (!myFieldUnits.some((unit) => clientEvolutionReady(unit, card))) reasons.push(`진화 조건: ${card.evolutionRecipe?.label ?? '조건에 맞는 아군 유닛이 필요합니다.'}`);
+      if (myExtraUsage.evolution >= 2) reasons.push('계승 진화는 한 게임에 최대 2번만 사용할 수 있습니다.');
+      if (myExtraTurn.evolution === state.turnNumber) reasons.push('계승 진화는 한 턴에 1번만 사용할 수 있습니다.');
+      if (!myFieldUnits.some((unit) => clientEvolutionReady(unit, card, state.turnNumber))) reasons.push(`진화 조건: ${card.evolutionRecipe?.label ?? '조건에 맞는 아군 유닛이 필요합니다.'} · 지정 원본이 이전 턴부터 생존해야 합니다.`);
     }
     return reasons;
   }
@@ -2864,6 +2916,10 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         return;
       }
       if (selectedCard.target === 'friendly_unit' && ownerId === userId) {
+        if (selectedConsumesBuffSlot && unit?.buffCardApplied) {
+          setMessage('이 캐릭터는 이미 버프류 카드를 1번 적용받았습니다. 다른 캐릭터를 선택하세요.');
+          return;
+        }
         gameAction('play_card', { instanceId: selectedHand, target: { ownerId, unitIndex } });
         return;
       }
@@ -2902,6 +2958,22 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   function activateSelectedNoTarget() {
     if (!selectedCard || !selectedHand) return;
     gameAction('play_card', { instanceId: selectedHand });
+  }
+
+  function sacrificeSelectedForEnergy() {
+    if (!selectedHand || !selectedCard) {
+      setMessage('에너지로 바꿀 손패 카드를 먼저 선택하세요.');
+      return;
+    }
+    if (energySacrificeUsed) {
+      setMessage('손패 에너지 전환은 한 턴에 1번만 사용할 수 있습니다.');
+      return;
+    }
+    if (myEnergy.current >= 10) {
+      setMessage('현재 에너지가 이미 최대 10입니다.');
+      return;
+    }
+    gameAction('sacrifice_energy', { instanceId: selectedHand });
   }
 
   function summonSelectedExtra() {
@@ -3106,7 +3178,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
                 index={index}
                 selected={selectedAttacker === index}
                 materialSelected={selectedMaterials.includes(index)}
-                targetable={unit ? Boolean(selectingFriendlyTarget || selectingMaterials || (myTurn && !interactionLocked && state.phase === 'battle' && unit.canAttack)) : selectingUnitToSummon}
+                targetable={unit ? Boolean((selectingFriendlyTarget && (!selectedConsumesBuffSlot || !unit.buffCardApplied)) || selectingMaterials || (myTurn && !interactionLocked && state.phase === 'battle' && unit.canAttack)) : selectingUnitToSummon}
                 attackReady={Boolean(unit && myTurn && !interactionLocked && state.phase === 'battle' && unit.canAttack)}
                 onClick={() => unit ? targetUnit(userId, index) : playToUnitZone(index)}
               />
@@ -3174,12 +3246,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
               <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p>{selectedCard.summonMode === 'rift' ? `균열 조건 · ${extraRequirement(selectedCard)}` : selectedCard.text}</p>{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical">{tacticalAbilityDescription(selectedCard)}</p>}</div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>선택 취소</button></div>
               {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button className="v18-context-primary" onClick={activateSelectedNoTarget}>주문 발동</button>}
+              {myTurn && state.phase === 'main' && <button className="v31-energy-convert" disabled={!canSacrificeSelectedForEnergy} onClick={sacrificeSelectedForEnergy}><span>손패 → ENERGY +1</span><small>{energySacrificeUsed ? '이번 턴 사용 완료' : myEnergy.current >= 10 ? '에너지 최대치' : '이 카드를 묘지로 보냅니다 · 턴당 1회'}</small></button>}
             </div>
           )}
           {selectedExtraCard && (
             <div className="v18-selected-card extra">
               <div className="v18-selected-art"><CardIllustration card={selectedExtraCard} compact /></div>
-              <div className="v18-selected-copy"><small>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</small><b>{selectedExtraCard.name}</b><p>{extraRequirement(selectedExtraCard)}</p><span className="v18-material-progress">소재 {selectedMaterials.length} / {requiredMaterials}</span></div>
+              <div className="v18-selected-copy"><small>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</small><b>{selectedExtraCard.name}</b><p>{extraRequirement(selectedExtraCard)}</p><span className="v18-material-progress">소재 {selectedMaterials.length} / {requiredMaterials}</span><span className="v31-extra-usage">{selectedExtraCard.kind === 'fusion' ? `이번 게임 공명 ${myExtraUsage.fusion}/2` : `이번 게임 계승 ${myExtraUsage.evolution}/2`} · 턴당 1회</span></div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedExtraCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('엑스트라 카드 선택을 취소했습니다.')}>선택 취소</button></div>
               <button className="v18-context-primary" disabled={!canAttemptExtraSummon} onClick={summonSelectedExtra}>{canExtraSummon ? (selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화') : '소환 조건 확인'}</button>
             </div>
@@ -3197,6 +3270,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
 
         <section className="v18-extra-access">
           <button type="button" onClick={() => setExtraOpen(true)}><span>EXTRA DECK</span><b>{privateState.extra.length}</b><small>{extraReadyInstances.length > 0 ? `${extraReadyInstances.length}장 소환 가능` : '융합 · 진화'}</small></button>
+          <div className="v31-extra-limit-strip"><span>공명 <b>{myExtraUsage.fusion}/2</b></span><span>계승 <b>{myExtraUsage.evolution}/2</b></span><em>각 턴 1회</em></div>
         </section>
 
         <section className="v18-event-feed">
@@ -3235,7 +3309,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         <div className="v18-extra-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) setExtraOpen(false); }}>
           <aside className="v18-extra-drawer">
             <header><div><small>EXTRA DECK</small><b>공명 융합 · 계승 진화</b></div><button type="button" onClick={() => setExtraOpen(false)}>×</button></header>
-            <p>빛나는 카드는 현재 필드와 에너지 조건으로 소환할 수 있습니다.</p>
+            <p>빛나는 카드는 현재 필드와 에너지 조건으로 소환할 수 있습니다. 공명과 계승은 각각 한 게임 2회, 한 턴 1회 제한입니다.</p>
+            <div className="v31-extra-drawer-usage"><span>공명 융합 <b>{myExtraUsage.fusion}/2</b></span><span>계승 진화 <b>{myExtraUsage.evolution}/2</b></span></div>
             <div>{privateState.extra.map((instance) => {
               const card = CARD_BY_ID[instance.cardId];
               const ready = specialReadyIds.has(instance.instanceId);
@@ -3781,7 +3856,7 @@ export default function Page() {
   const roomChat = roomPayload && roomPayload.room.status !== 'cancelled' ? roomPayload.room.id : undefined;
 
   return (
-    <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`} data-ui-build="v30">
+    <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`} data-ui-build="v31">
       <div className="app-backdrop" aria-hidden="true"><span className="backdrop-grid" /><span className="backdrop-orbit" /><span className="backdrop-glow" /></div>
       <aside className="sidebar">
         <button className="game-logo" onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView('home'); }}><span className="logo-glyph"><i>E</i></span><div><b>ECLIPSE</b><small>DUEL</small></div></button>
