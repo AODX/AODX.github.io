@@ -1,0 +1,81 @@
+ECLIPSE DUEL v25 QA REPORT
+==========================
+
+[DATA]
+PASS - cards: 320
+PASS - unique card IDs: 320 / 320
+PASS - unique display names: 320 / 320
+PASS - starter main deck: 30
+PASS - starter extra deck: 6
+PASS - starter legendary cards: exactly 1
+       -> 이클립시온 어센드 - 리프트 알파
+PASS - series cards: 274
+PASS - active SERIES LINK engine cards: 56
+PASS - 8 archetypes all contain at least one legendary card
+
+[SERIES DISTRIBUTION]
+PASS - luminaknights: 34 cards / 4 legendary / 7 link engines
+PASS - kaisergear: 31 cards / 1 legendary / 7 link engines
+PASS - eclipsion: 32 cards / 3 legendary / 7 link engines
+PASS - nocturne: 39 cards / 4 legendary / 7 link engines
+PASS - arborian: 43 cards / 7 legendary / 7 link engines
+PASS - tempest_drive: 31 cards / 1 legendary / 7 link engines
+PASS - abyss_reaper: 29 cards / 1 legendary / 7 link engines
+PASS - primal_guardian: 35 cards / 5 legendary / 7 link engines
+
+[PACK STORE]
+PASS - pack count: 11
+PASS - core packs: 3 (standard / rare / legendary)
+PASS - series packs: 8
+PASS - every displayed rarity probability sums to 100%
+PASS - core packs have no element restriction
+PASS - series pack SQL IDs match client pack IDs
+PASS - series pack minimum guaranteed series slots: 2
+PASS - series pack normal slot pickup rate: 75%
+PASS - legacy v5 pack RPC execute permission revoked for authenticated users
+
+[ENGINE SERIES LINK]
+PASS - search_series
+PASS - recover_series
+PASS - buff_series
+PASS - shield_series
+PASS - heal_per_series
+PASS - damage_core_per_series
+PASS - gain_energy_if_series
+PASS - each tested action produced a series-link visual event
+
+[CHAT RETENTION]
+PASS - global chat query limited to created_at >= now - 30 minutes
+PASS - DB cleanup RPC deletes messages older than 30 minutes
+PASS - send RPC performs cleanup before global insert
+PASS - local UI expiry removes stale messages every 60 seconds
+PASS - old global-send v5 RPC execute permission revoked for authenticated users
+PASS - room chat behavior remains separate
+
+[SQL]
+PASS - runtime series mapping and SQL catalog series mapping are identical
+PASS - v25 migration embedded once in 00_ALL_IN_ONE_FRESH_INSTALL.sql
+PASS - v25 migration embedded once in 01_BASE_V5.sql
+PASS - v25 migration embedded once in 02_CARD_EXPANSION_320.sql
+PASS - embedded migration suffix equals sql/05_V25_SERIES_PACKS_CHAT.sql
+
+[CODE / CSS]
+PASS - TypeScript/TSX transpile syntax diagnostics: 0 errors
+PASS - globals.css parser errors: 0
+PASS - theme-v19.css parser errors: 0
+PASS - theme-v23.css parser errors: 0
+PASS - client API literal actions checked against route handlers: missing 0
+
+[STATIC CHROMIUM LAYOUT QA]
+PASS - v25 shop: 11 pack cards rendered
+PASS - v25 shop: broken preview images 0
+PASS - v25 shop: 1920px document width at 1920px viewport (no horizontal overflow)
+PASS - v25 card detail: 1120 x 740 modal fits in 1600 x 1000 viewport
+PASS - v25 card detail: broken hero artwork 0
+
+[NOT EXECUTED IN THIS ENVIRONMENT]
+- Full Next.js production build (node_modules are not installed in the working copy)
+- Live Supabase RPC execution against the user's production database
+- Two real logged-in browser accounts completing an online match
+
+The engine logic, source syntax, SQL/client mapping, static browser layouts and series-link action paths were checked locally.
