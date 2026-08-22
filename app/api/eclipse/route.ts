@@ -15,6 +15,7 @@ import {
   playCard,
   resolveTurnTimeout,
   respondTrap,
+  sacrificeHandForEnergy,
   summonExtra,
   surrender,
 } from '../../game-engine';
@@ -955,6 +956,9 @@ async function handleAction(request: Request, body: RequestBody) {
       next = respondTrap(snapshot, user.id, body.activate === true);
     } else if (gameAction === 'draw_turn') {
       next = drawAndEndTurn(snapshot, user.id);
+    } else if (gameAction === 'sacrifice_energy') {
+      const instanceId = cleanText(body.instanceId, 80);
+      next = sacrificeHandForEnergy(snapshot, user.id, instanceId);
     } else if (gameAction === 'end_turn') {
       next = endTurn(snapshot, user.id);
     } else if (gameAction === 'surrender') {
