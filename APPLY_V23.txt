@@ -1,0 +1,15 @@
+ECLIPSE DUEL V23 적용 안내
+
+권장: 이 ZIP을 '부분 패치'가 아니라 현재 프로젝트 코드의 전체 교체본으로 사용하세요.
+이전 v20/v21/v22 CSS 파일을 섞어서 남겨두지 마세요.
+
+1) 현재 프로젝트 백업
+2) 기존 .env.local / Render 환경변수 보관
+3) 이 ZIP의 파일로 코드 전체 교체
+4) 기존 Supabase DB 사용자는 SQL 추가 실행 불필요
+5) 새 DB 설치만 sql/00_ALL_IN_ONE_FRESH_INSTALL.sql 사용
+6) npm install
+7) npm run build
+8) 배포
+
+이번 버전은 데스크톱/PC 품질 개선본이며 모바일/태블릿 전용 재설계는 포함하지 않았습니다.
