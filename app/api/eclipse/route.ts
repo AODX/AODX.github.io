@@ -590,8 +590,11 @@ async function handleAction(request: Request, body: RequestBody) {
 
   if (action === 'buy_pack') {
     const packId = cleanText(body.packId, 30);
-    const { data, error } = await client.rpc('eclipse_open_pack_v5', { p_pack_id: packId });
-    if (error) throw new Error(error.message);
+    const { data, error } = await client.rpc('eclipse_open_pack_v25', { p_pack_id: packId });
+    if (error) {
+      if (/eclipse_open_pack_v25|schema cache|does not exist/i.test(error.message)) throw new Error('v25 시리즈 카드팩 DB 업그레이드가 필요합니다. sql/05_V25_SERIES_PACKS_CHAT.sql을 한 번 실행해 주세요.');
+      throw new Error(error.message);
+    }
     const payload = (data ?? {}) as { cardIds?: string[]; balance?: number };
     return {
       cardIds: Array.isArray(payload.cardIds) ? payload.cardIds : [],
@@ -623,8 +626,11 @@ async function handleAction(request: Request, body: RequestBody) {
   if (action === 'send_global_message') {
     const message = cleanText(body.message, 180);
     if (!message) throw new Error('메시지를 입력하세요.');
-    const { error } = await client.rpc('eclipse_send_global_message_v5', { p_body: message });
-    if (error) throw new Error(error.message);
+    const { error } = await client.rpc('eclipse_send_global_message_v25', { p_body: message });
+    if (error) {
+      if (/eclipse_send_global_message_v25|schema cache|does not exist/i.test(error.message)) throw new Error('v25 글로벌 채팅 DB 업그레이드가 필요합니다. sql/05_V25_SERIES_PACKS_CHAT.sql을 한 번 실행해 주세요.');
+      throw new Error(error.message);
+    }
     return { ok: true };
   }
 
