@@ -12,6 +12,7 @@ import {
   drawAndEndTurn,
   endTurn,
   initializeMatch,
+  normalizeSnapshotIntegrity,
   playCard,
   resolveTurnTimeout,
   summonExtra,
@@ -403,17 +404,18 @@ async function loadSnapshot(admin: AdminDbClient, room: RoomRow): Promise<GameSn
   const privateStates: Record<string, PrivateState> = {};
   for (const row of data ?? []) privateStates[String(row.user_id)] = row.state as PrivateState;
   if (!room.guest_id || !privateStates[room.host_id] || !privateStates[room.guest_id]) throw new Error('양쪽 덱 상태가 완성되지 않았습니다.');
-  return { state: room.state, privateStates };
+  return normalizeSnapshotIntegrity({ state: room.state, privateStates });
 }
 
 async function commitSnapshot(admin: AdminDbClient, room: RoomRow, snapshot: GameSnapshot): Promise<void> {
-  const privateRows = Object.entries(snapshot.privateStates).map(([user_id, state]) => ({ user_id, state }));
+  const safeSnapshot = normalizeSnapshotIntegrity(snapshot);
+  const privateRows = Object.entries(safeSnapshot.privateStates).map(([user_id, state]) => ({ user_id, state }));
   const { data, error } = await admin.rpc('eclipse_commit_match', {
     p_room_id: room.id,
     p_expected_version: room.version,
-    p_state: snapshot.state,
-    p_status: snapshot.state.status,
-    p_winner: snapshot.state.winnerId,
+    p_state: safeSnapshot.state,
+    p_status: safeSnapshot.state.status,
+    p_winner: safeSnapshot.state.winnerId,
     p_private_states: privateRows,
   });
   if (error) throw new Error(`결투 상태 저장 실패: ${error.message}`);
@@ -471,18 +473,14 @@ async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: strin
   if (profileError) throw new Error(profileError.message);
 
   let privateState: PrivateState | null = null;
+  let safeRoom = room;
   if (room.state) {
-    const { data, error } = await admin
-      .from('eclipse_private_states')
-      .select('state')
-      .eq('room_id', room.id)
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    privateState = (data?.state as PrivateState | undefined) ?? null;
+    const snapshot = await loadSnapshot(admin, room);
+    privateState = snapshot.privateStates[userId] ?? null;
+    safeRoom = { ...room, state: snapshot.state };
   }
 
-  return { room, profiles: profiles ?? [], privateState };
+  return { room: safeRoom, profiles: profiles ?? [], privateState };
 }
 
 async function handleAction(request: Request, body: RequestBody) {
