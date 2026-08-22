@@ -2419,9 +2419,12 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const [vfxQueue, setVfxQueue] = useState<VisualEvent[]>([]);
   const [drawRevealQueue, setDrawRevealQueue] = useState<string[]>([]);
   const [recentDrawnIds, setRecentDrawnIds] = useState<Set<string>>(() => new Set());
+  const [hoveredHandCardId, setHoveredHandCardId] = useState<string | null>(null);
+  const [turnNotice, setTurnNotice] = useState<{ mine: boolean; turn: number } | null>(null);
   const [coinClock, setCoinClock] = useState(() => Date.now());
   const [turnClock, setTurnClock] = useState(() => Date.now());
   const timeoutSyncTurn = useRef<number>(-1);
+  const announcedTurn = useRef<string>('');
   const seenVfx = useRef<Set<string>>(new Set());
   const knownHandIds = useRef<Set<string>>(new Set(nullablePrivateState?.hand.map((card) => card.instanceId) ?? []));
   const actionLock = useRef(false);
@@ -2501,6 +2504,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     setSelectedExtra(null);
     setSelectedMaterials([]);
     setSelectedAttacker(null);
+    setHoveredHandCardId(null);
     setExtraOpen(false);
     setEndTurnConfirmOpen(false);
     setMessage('');
@@ -2551,6 +2555,17 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     playUiSound(sound);
   }, [activeVfx?.id]);
 
+  const preCoinTossActive = Boolean(nullableState?.coinToss && coinClock < nullableState.coinToss.endsAt);
+  const turnNoticeKey = nullableState ? `${nullableState.turnNumber}:${nullableState.currentPlayerId ?? ''}:${nullableState.status}` : '';
+  useEffect(() => {
+    if (!nullableState || nullableState.status !== 'active' || !nullableState.currentPlayerId || preCoinTossActive) return;
+    if (!turnNoticeKey || announcedTurn.current === turnNoticeKey) return;
+    announcedTurn.current = turnNoticeKey;
+    setTurnNotice({ mine: nullableState.currentPlayerId === userId, turn: nullableState.turnNumber });
+    const timer = window.setTimeout(() => setTurnNotice(null), 1450);
+    return () => window.clearTimeout(timer);
+  }, [turnNoticeKey, preCoinTossActive, userId]);
+
   if (!nullableState || !nullablePrivateState || nullableState.playerOrder.length !== 2) return <LoadingScreen text="결투 상태를 동기화하는 중" />;
   const state = nullableState;
   const privateState = nullablePrivateState;
@@ -2568,6 +2583,9 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const selectedCard = selectedInstance ? CARD_BY_ID[selectedInstance.cardId] : undefined;
   const selectedExtraInstance = privateState.extra.find((card) => card.instanceId === selectedExtra);
   const selectedExtraCard = selectedExtraInstance ? CARD_BY_ID[selectedExtraInstance.cardId] : undefined;
+  const hoveredHandCard = hoveredHandCardId ? CARD_BY_ID[hoveredHandCardId] : undefined;
+  const previewCard = selectedCard ?? selectedExtraCard ?? hoveredHandCard;
+  const previewIsHoverOnly = Boolean(hoveredHandCard && !selectedCard && !selectedExtraCard);
   const requiredMaterials = selectedExtraCard?.kind === 'fusion' ? selectedExtraCard.fusionRecipe?.materials.length ?? 0 : selectedExtraCard?.kind === 'evolution' ? 1 : 0;
   const canExtraSummon = Boolean(selectedExtraCard && selectedExtra && selectedMaterials.length === requiredMaterials && myTurn && state.phase === 'main' && !busy);
   const canSpendTurnToDraw = Boolean(myTurn && state.phase === 'main' && !state.turnActionTaken && !busy && (state.deckCounts[userId] ?? 0) > 0);
@@ -2791,15 +2809,38 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
                 : selectedCard ? '행동 버튼으로 카드를 발동하세요.'
                   : specialReadyCount > 0 ? `특수 소환 가능 카드 ${specialReadyCount}장이 있습니다.` : '손패에서 카드를 선택하거나 전투 단계로 이동하세요.';
 
-  const recentEvents = state.visualEvents.slice(-5).reverse();
-  const eventActorName = (event: VisualEvent) => event.ownerId === userId ? '나' : event.ownerId ? (profileMap[event.ownerId]?.display_name ?? '상대') : '시스템';
-  const eventActorStyle = (event: VisualEvent) => event.ownerId && event.ownerId !== userId ? profileMap[event.ownerId]?.nickname_style : undefined;
   const playableHandCount = privateState.hand.filter((instance) => {
     const card = CARD_BY_ID[instance.cardId];
     if (!card || !myTurn || state.phase !== 'main') return false;
     const cost = card.summonMode === 'rift' && card.riftCost !== undefined && clientRiftReady(state, userId, opponentId, card) ? card.riftCost : card.cost;
     return myEnergy.current >= cost;
   }).length;
+
+  const coach = coinTossActive
+    ? { step: 0, kicker: 'OPENING', title: '선공을 결정하고 있습니다', detail: '선공 결정이 끝나면 내 턴 또는 상대 턴이 화면 중앙에 표시됩니다.', tip: '결투가 시작되면 오른쪽 안내 패널이 다음 행동을 계속 알려줍니다.' }
+    : !myTurn
+      ? { step: 0, kicker: 'WAIT', title: '상대의 턴입니다', detail: '지금은 상대가 행동하는 시간입니다. 손패 카드에 마우스를 올리면 카드 효과를 미리 확인할 수 있습니다.', tip: '턴이 넘어오면 화면 중앙에 “나의 턴”이 표시됩니다.' }
+      : state.phase === 'battle'
+        ? selectedAttacker !== null
+          ? { step: 2, kicker: 'ATTACK · STEP 2', title: directAttackOpen ? '상대 리더를 선택하세요' : '공격 대상을 선택하세요', detail: directAttackOpen ? '상대 필드가 비었습니다. 왼쪽 위 상대 리더 패널을 누르면 직접 공격합니다.' : '빨갛게 표시되는 상대 유닛을 누르면 전투가 시작됩니다.', tip: '공격 대상을 고르기 전에는 언제든 “공격 선택 취소”를 누를 수 있습니다.' }
+          : { step: 2, kicker: 'ATTACK · STEP 1', title: '공격할 내 유닛을 선택하세요', detail: '전투 단계입니다. 파랗게 빛나는 내 유닛 중 공격할 카드를 먼저 누르세요.', tip: '유닛 선택 → 상대 유닛(또는 리더) 선택 순서로 공격합니다.' }
+        : selectedExtraCard
+          ? { step: 1, kicker: 'SPECIAL SUMMON', title: '특수 소환 소재를 고르세요', detail: `필드에서 빛나는 소재를 ${requiredMaterials}장 선택한 뒤 특수 소환 버튼을 누르세요.`, tip: `현재 선택 ${selectedMaterials.length}/${requiredMaterials}` }
+          : selectedCard?.kind === 'unit'
+            ? { step: 1, kicker: 'SUMMON', title: '소환할 빈 칸을 선택하세요', detail: '손패에서 유닛을 골랐습니다. 파랗게 빛나는 내 유닛 칸을 누르면 소환됩니다.', tip: `사용 에너지 ${selectedHandCost ?? selectedCard.cost} · 현재 ${myEnergy.current}/${myEnergy.max}` }
+            : selectedCard?.kind === 'trap'
+              ? { step: 1, kicker: 'SET TRAP', title: '함정을 놓을 칸을 선택하세요', detail: '아래쪽 S1~S5 중 빛나는 빈 함정 칸을 누르면 세트됩니다.', tip: '세트한 함정의 앞면은 나에게만 보입니다.' }
+              : selectedCard?.target === 'enemy_unit'
+                ? { step: 1, kicker: 'TARGET', title: '대상 적 유닛을 선택하세요', detail: '효과를 적용할 상대 유닛이 강조됩니다. 원하는 유닛을 누르세요.', tip: '카드 선택을 취소하려면 ESC를 누를 수 있습니다.' }
+                : selectedCard?.target === 'friendly_unit'
+                  ? { step: 1, kicker: 'TARGET', title: '대상 아군 유닛을 선택하세요', detail: '효과를 적용할 내 유닛이 강조됩니다. 원하는 유닛을 누르세요.', tip: '카드 선택을 취소하려면 ESC를 누를 수 있습니다.' }
+                  : selectedCard
+                    ? { step: 1, kicker: 'PLAY CARD', title: '카드를 발동할 준비가 됐습니다', detail: '오른쪽 카드 정보 아래의 발동 버튼을 눌러 효과를 사용하세요.', tip: '카드의 상세 규칙은 “전체 상세”에서 확인할 수 있습니다.' }
+                    : { step: 1, kicker: 'MAIN PHASE', title: '먼저 손패에서 카드를 선택하세요', detail: `밝게 표시된 카드 ${playableHandCount}장은 지금 사용할 수 있습니다. 유닛을 내거나 주문·함정을 사용하세요.`, tip: '공격하려면 유닛을 소환한 뒤 “전투 단계” 버튼을 누르세요.' };
+
+  const recentEvents = state.visualEvents.slice(-3).reverse();
+  const eventActorName = (event: VisualEvent) => event.ownerId === userId ? '나' : event.ownerId ? (profileMap[event.ownerId]?.display_name ?? '상대') : '시스템';
+  const eventActorStyle = (event: VisualEvent) => event.ownerId && event.ownerId !== userId ? profileMap[event.ownerId]?.nickname_style : undefined;
 
   const remainingAttackers = state.boards[userId].units.filter((unit) => Boolean(unit?.canAttack)).length;
   const remainingOpportunities = state.phase === 'battle' ? remainingAttackers : playableHandCount + specialReadyCount;
@@ -2829,6 +2870,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     <div className={`v18-duel-screen ${myTurn ? 'is-my-turn' : 'is-opponent-turn'} phase-${state.phase} fx-${activeVfx?.kind ?? 'idle'}`}>
       <DuelEffectLayer event={activeVfx} userId={userId} profiles={payload.profiles} drawCard={activeVfx?.kind === 'draw' && activeVfx.ownerId === userId ? CARD_BY_ID[drawRevealQueue[0] ?? ''] : undefined} />
       <CoinTossOverlay state={state} profiles={payload.profiles} userId={userId} now={coinClock} />
+      {turnNotice && !coinTossActive && state.status === 'active' && (
+        <div className={`v29-turn-notice ${turnNotice.mine ? 'mine' : 'opponent'}`} role="status" aria-live="polite">
+          <small>TURN {turnNotice.turn}</small>
+          <strong>{turnNotice.mine ? '나의 턴' : '상대의 턴'}</strong>
+          <span>{turnNotice.mine ? '카드를 내거나 전투를 진행하세요' : '상대의 행동을 기다리는 중'}</span>
+        </div>
+      )}
       <div className="orientation-hint"><span>↻</span><b>가로 화면을 권장합니다</b><small>결투 정보와 카드가 한 화면에 가장 선명하게 표시됩니다.</small></div>
       {busy && <div className="v18-action-progress"><span />행동 처리 중</div>}
 
@@ -2902,13 +2950,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
 
           <div className="v18-center-lane">
             <div className="v18-pile-stat"><small>OPPONENT</small><span>DECK <b>{state.deckCounts[opponentId]}</b></span><span>GRAVE <b>{state.graveyards[opponentId]?.length ?? 0}</b></span></div>
-            <div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div>
-            <div className={`v22-momentum ${momentumLabel === '유리' ? 'ahead' : momentumLabel === '불리' ? 'behind' : 'even'}`}>
-              <span><small>BATTLE FLOW</small><b>{momentumLabel}</b></span>
-              <i><b style={{ left: `${momentumPercent}%` }} /></i>
-              <em>필드 · 코어 · 손패 · 에너지 기준</em>
+            <div className="v29-center-status">
+              <div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div>
+              <div className={`v22-momentum ${momentumLabel === '유리' ? 'ahead' : momentumLabel === '불리' ? 'behind' : 'even'}`}>
+                <span><small>BATTLE FLOW</small><b>{momentumLabel}</b></span>
+                <i><b style={{ left: `${momentumPercent}%` }} /></i>
+              </div>
             </div>
-            <div className={`v18-field-guide ${myTurn ? 'mine' : 'opponent'}`}><small>{myTurn ? 'YOUR ACTION' : 'WATCHING'}</small><b>{actionGuide}</b></div>
             <div className="v18-pile-stat mine"><small>YOU</small><span>DECK <b>{state.deckCounts[userId]}</b></span><span>GRAVE <b>{state.graveyards[userId]?.length ?? 0}</b></span></div>
           </div>
 
@@ -2943,6 +2991,19 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       </main>
 
       <aside className="v18-command-rail">
+        <section className={`v29-action-coach ${myTurn ? 'mine' : 'opponent'} step-${coach.step}`}>
+          <header><span>{coach.kicker}</span><b>{myTurn ? phaseLabel : '관전 중'}</b></header>
+          <h3>{coach.title}</h3>
+          <p>{coach.detail}</p>
+          <div className="v29-coach-steps" aria-label="결투 진행 순서">
+            <span className={myTurn && state.phase === 'main' ? 'active' : state.phase === 'battle' || !myTurn ? 'done' : ''}><i>1</i>카드 사용</span>
+            <span className={myTurn && state.phase === 'battle' ? 'active' : state.phase === 'main' ? '' : 'done'}><i>2</i>공격</span>
+            <span><i>3</i>턴 종료</span>
+          </div>
+          <small>{coach.tip}</small>
+          {myTurn && <div className="v29-attack-how"><b>공격 방법</b><span>유닛 소환 → 전투 단계 → 내 유닛 선택 → 상대 유닛/리더 선택</span></div>}
+        </section>
+
         {myTurn && state.phase === 'main' && legendaryReadyCards.length > 0 && (
           <section className="v24-legendary-ready" aria-label="현재 소환 가능한 전설 카드">
             <header><span>LEGENDARY READY</span><b>{legendaryReadyCards.length}</b></header>
@@ -2961,15 +3022,19 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
           <button type="button" className="v18-special-ready" onClick={() => setExtraOpen(true)}><span>✦</span><div><b>특수 소환 가능</b><small>{specialReadyCount}장의 카드가 조건을 만족합니다.</small></div><em>보기</em></button>
         )}
 
-        <section className={`v18-context-panel ${selectedCard || selectedExtraCard ? 'has-card' : ''}`}>
-          {!selectedCard && !selectedExtraCard && (
-            <div className="v18-context-empty"><small>{myTurn ? 'ACTION GUIDE' : 'OPPONENT TURN'}</small><b>{myTurn ? phaseLabel : '상대 행동을 관전 중'}</b><p>{actionGuide}</p><span>사용 가능 손패 {playableHandCount} · 특수 소환 {specialReadyCount}</span></div>
+        {previewCard && <section className={`v18-context-panel has-card ${previewIsHoverOnly ? 'preview-only' : ''}`}>
+          {previewIsHoverOnly && hoveredHandCard && (
+            <div className="v18-selected-card v29-hover-preview">
+              <div className="v18-selected-art"><CardIllustration card={hoveredHandCard} compact /></div>
+              <div className="v18-selected-copy"><small>카드 미리보기 · {KIND_LABEL[hoveredHandCard.kind]} · {ELEMENT_LABEL[hoveredHandCard.element]}</small><b>{hoveredHandCard.name}</b><div><span>COST <strong>{hoveredHandCard.cost}</strong></span>{isUnitCard(hoveredHandCard) && <><span>ATK <strong>{hoveredHandCard.attack}</strong></span><span>DEF <strong>{hoveredHandCard.health}</strong></span></>}</div><p>{hoveredHandCard.text}</p></div>
+              <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(hoveredHandCard.id)}>전체 상세</button></div>
+            </div>
           )}
           {selectedCard && (
             <div className="v18-selected-card">
               <div className="v18-selected-art"><CardIllustration card={selectedCard} compact /></div>
               <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p>{selectedCard.summonMode === 'rift' ? `균열 조건 · ${extraRequirement(selectedCard)}` : selectedCard.text}</p></div>
-              <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>취소</button></div>
+              <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>선택 취소</button></div>
               {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button className="v18-context-primary" onClick={activateSelectedNoTarget}>주문 발동</button>}
             </div>
           )}
@@ -2977,18 +3042,18 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
             <div className="v18-selected-card extra">
               <div className="v18-selected-art"><CardIllustration card={selectedExtraCard} compact /></div>
               <div className="v18-selected-copy"><small>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</small><b>{selectedExtraCard.name}</b><p>{extraRequirement(selectedExtraCard)}</p><span className="v18-material-progress">소재 {selectedMaterials.length} / {requiredMaterials}</span></div>
-              <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedExtraCard.id)}>상세</button><button type="button" onClick={() => clearSelection('엑스트라 카드 선택을 취소했습니다.')}>취소</button></div>
+              <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedExtraCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('엑스트라 카드 선택을 취소했습니다.')}>선택 취소</button></div>
               <button className="v18-context-primary" disabled={!canExtraSummon} onClick={summonSelectedExtra}>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</button>
             </div>
           )}
-        </section>
+        </section>}
 
         {message && <div className="v18-action-message">{message}</div>}
         {selectedAttacker !== null && <button className="v18-cancel-attack" type="button" onClick={() => { setSelectedAttacker(null); setMessage('공격 유닛 선택을 취소했습니다.'); }}>공격 선택 취소</button>}
 
         <section className="v18-action-buttons">
           {state.phase === 'main' && <button className="v18-secondary-action" disabled={!canSpendTurnToDraw} onClick={spendTurnToDraw}><span>＋ 카드 1장</span><small>턴을 소비해 추가 드로우</small></button>}
-          {state.phase === 'main' && <button className="v18-battle-action" disabled={!myTurn || busy} onClick={() => gameAction('battle_phase')}><span>전투 단계</span><small>공격 가능한 유닛으로 전투</small></button>}
+          {state.phase === 'main' && <button className="v18-battle-action" disabled={!myTurn || busy} onClick={() => gameAction('battle_phase')}><span>전투 단계로 이동</span><small>이후 내 유닛 → 공격 대상 순서로 선택</small></button>}
           <button className="v18-end-turn" disabled={!myTurn || busy} onClick={requestEndTurn}><span>턴 종료</span><small>{remainingOpportunities > 0 ? `가능 행동 ${remainingOpportunities}` : `${turnSecondsLeft}초 남음`}</small></button>
         </section>
 
@@ -3003,14 +3068,21 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       </aside>
 
       <footer className="v18-hand-dock">
-        <div className="v18-hand-heading"><span><small>YOUR HAND</small><b>{privateState.hand.length} CARDS</b></span><em>{myTurn && state.phase === 'main' ? '밝게 표시된 카드는 지금 사용할 수 있습니다.' : '카드를 눌러 상세 정보를 확인할 수 있습니다.'}</em></div>
+        <div className="v18-hand-heading"><span><small>YOUR HAND</small><b>{privateState.hand.length} CARDS</b></span><em>{myTurn && state.phase === 'main' ? '밝게 표시된 카드는 지금 사용할 수 있습니다. 마우스를 올리면 오른쪽에 효과가 표시됩니다.' : '마우스를 올리거나 i 버튼을 눌러 카드 정보를 확인할 수 있습니다.'}</em></div>
         <div className="v18-hand-scroll">
           {privateState.hand.map((instance) => {
             const card = CARD_BY_ID[instance.cardId];
             const effectiveCost = card?.summonMode === 'rift' && card.riftCost !== undefined && clientRiftReady(state, userId, opponentId, card) ? card.riftCost : card?.cost ?? 99;
             const affordable = Boolean(card && myTurn && state.phase === 'main' && myEnergy.current >= effectiveCost);
             const legendaryReady = Boolean(card?.rarity === 'legendary' && legendaryReadyCards.some((item) => item.instanceId === instance.instanceId));
-            return <div className={`v18-hand-card ${specialReadyIds.has(instance.instanceId) ? 'special-ready' : ''} ${legendaryReady ? 'legendary-ready' : ''} ${recentDrawnIds.has(instance.instanceId) ? 'just-drawn' : ''} ${affordable ? 'playable' : 'not-playable'} ${selectedHand === instance.instanceId ? 'selected' : ''}`} key={instance.instanceId}>{specialReadyIds.has(instance.instanceId) && !legendaryReady && <span className="v18-special-badge">SPECIAL</span>}<CardFace card={card} compact selected={selectedHand === instance.instanceId} disabled={busy} onClick={() => chooseHand(instance.instanceId)} /></div>;
+            return <div
+              className={`v18-hand-card ${specialReadyIds.has(instance.instanceId) ? 'special-ready' : ''} ${legendaryReady ? 'legendary-ready' : ''} ${recentDrawnIds.has(instance.instanceId) ? 'just-drawn' : ''} ${affordable ? 'playable' : 'not-playable'} ${selectedHand === instance.instanceId ? 'selected' : ''}`}
+              key={instance.instanceId}
+              onMouseEnter={() => setHoveredHandCardId(instance.cardId)}
+              onMouseLeave={() => setHoveredHandCardId((current) => current === instance.cardId ? null : current)}
+              onFocusCapture={() => setHoveredHandCardId(instance.cardId)}
+              onBlurCapture={() => setHoveredHandCardId((current) => current === instance.cardId ? null : current)}
+            >{specialReadyIds.has(instance.instanceId) && !legendaryReady && <span className="v18-special-badge">SPECIAL</span>}<CardFace card={card} compact selected={selectedHand === instance.instanceId} disabled={busy} onClick={() => chooseHand(instance.instanceId)} /></div>;
           })}
         </div>
         <div className="v18-hand-side"><span>ENERGY <b>{myEnergy.current}/{myEnergy.max}</b></span><span>DECK <b>{state.deckCounts[userId] ?? 0}</b></span><button type="button" onClick={() => setExtraOpen(true)}>EXTRA {privateState.extra.length}</button></div>
