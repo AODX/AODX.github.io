@@ -5,7 +5,7 @@ import './theme-v23.css';
 
 export const metadata: Metadata = {
   title: 'ECLIPSE DUEL · Ascension',
-  description: '320종 카드, 덱 구성, 카드팩, 프로필 커스터마이징과 온라인 대전을 갖춘 오리지널 전략 카드게임',
+  description: '520종 카드, 덱 구성, 카드팩, 프로필 커스터마이징과 온라인 대전을 갖춘 오리지널 전략 카드게임',
   applicationName: 'ECLIPSE DUEL',
   icons: { icon: '/favicon.svg' },
 };

@@ -52,13 +52,16 @@ type Profile = {
   xp: number;
   profile_theme?: string;
   profile_frame?: string;
+  profile_emblem?: string;
+  card_sleeve?: string;
+  nickname_style?: string;
 };
 
 type Wallet = { user_id: string; coins: number };
 type CollectionRow = { card_id: string; quantity: number };
 type DeckRow = { id: string; user_id: string; name: string; cards: string[]; extra_cards: string[]; is_active: boolean; created_at: string };
 type FriendRequest = { id: string; sender_id: string; receiver_id: string; status: string; created_at: string };
-type FriendProfile = Pick<Profile, 'user_id' | 'display_name' | 'player_code' | 'avatar' | 'status_message' | 'wins' | 'losses' | 'xp'>;
+type FriendProfile = Pick<Profile, 'user_id' | 'display_name' | 'player_code' | 'avatar' | 'status_message' | 'wins' | 'losses' | 'xp' | 'nickname_style'>;
 
 type HubData = {
   profile: Profile;
@@ -67,7 +70,7 @@ type HubData = {
   decks: DeckRow[];
   friendRequests: FriendRequest[];
   friends: FriendProfile[];
-  requestProfiles: Array<Pick<Profile, 'user_id' | 'display_name' | 'player_code' | 'avatar'>>;
+  requestProfiles: Array<Pick<Profile, 'user_id' | 'display_name' | 'player_code' | 'avatar' | 'nickname_style'>>;
   profileCosmetics?: string[];
 };
 
@@ -85,9 +88,9 @@ type RoomRow = {
   winner_id: string | null;
 };
 
-type RoomProfile = Pick<Profile, 'user_id' | 'display_name' | 'avatar' | 'wins' | 'losses' | 'xp'>;
+type RoomProfile = Pick<Profile, 'user_id' | 'display_name' | 'avatar' | 'wins' | 'losses' | 'xp' | 'profile_emblem' | 'card_sleeve' | 'nickname_style'>;
 type RoomPayload = { room: RoomRow; profiles: RoomProfile[]; privateState: PrivateState | null };
-type ChatMessage = { id: number; user_id: string; display_name: string; body: string; created_at: string };
+type ChatMessage = { id: number; user_id: string; display_name: string; nickname_style?: string; body: string; created_at: string };
 
 type SecureServerStatus = {
   secureDuelReady: boolean;
@@ -132,7 +135,7 @@ const ELEMENT_ACCENT: Record<Element, string> = {
 const AVATARS = ['eclipse', 'nova', 'oracle', 'warden', 'reaper', 'seraph'];
 
 
-type ProfileCosmeticKind = 'background' | 'frame';
+type ProfileCosmeticKind = 'background' | 'frame' | 'emblem' | 'sleeve' | 'nickname';
 type ProfileCosmetic = {
   id: string;
   kind: ProfileCosmeticKind;
@@ -141,6 +144,7 @@ type ProfileCosmetic = {
   rarity: 'rare' | 'epic' | 'legendary';
   description: string;
   accent: string;
+  glyph?: string;
 };
 
 const PROFILE_COSMETICS: ProfileCosmetic[] = [
@@ -152,7 +156,42 @@ const PROFILE_COSMETICS: ProfileCosmetic[] = [
   { id: 'frame_royal', kind: 'frame', name: '왕실 금장', price: 900, rarity: 'epic', description: '금빛 각인과 왕실 문양을 두른 프로필 프레임.', accent: '#ffd16d' },
   { id: 'frame_rift', kind: 'frame', name: '균열 파편', price: 1250, rarity: 'epic', description: '공간 파편이 가장자리에서 떠오르는 프레임.', accent: '#a977ff' },
   { id: 'frame_astral', kind: 'frame', name: '성계의 관', price: 1800, rarity: 'legendary', description: '별빛 궤도와 광휘가 회전하는 전설급 프레임.', accent: '#81a4ff' },
+  { id: 'emblem_solar_crest', kind: 'emblem', name: '태양검 문장', price: 650, rarity: 'rare', description: '프로필 위에 장착하는 황금 태양검 문양.', accent: '#ffc866', glyph: '✦' },
+  { id: 'emblem_lunar_eye', kind: 'emblem', name: '월식의 눈', price: 800, rarity: 'epic', description: '달의 궤도와 눈동자가 겹치는 월영 문양.', accent: '#9eb5ff', glyph: '◉' },
+  { id: 'emblem_kaiser_crown', kind: 'emblem', name: '카이저 황관', price: 1000, rarity: 'epic', description: '황제기갑의 지휘권을 상징하는 금속 왕관.', accent: '#ffd37f', glyph: '♛' },
+  { id: 'emblem_rift_omega', kind: 'emblem', name: '균열 오메가', price: 1400, rarity: 'epic', description: '공간 균열이 Ω 형태로 응축된 공명 문양.', accent: '#c58cff', glyph: 'Ω' },
+  { id: 'emblem_astral_wings', kind: 'emblem', name: '성해의 쌍익', price: 1900, rarity: 'legendary', description: '별바다를 가르는 두 광익이 펼쳐지는 전설 문양.', accent: '#83dcff', glyph: '✧' },
+  { id: 'sleeve_eclipse_black', kind: 'sleeve', name: '일식 블랙 슬리브', price: 450, rarity: 'rare', description: '검은 일식 링과 은빛 E 문장이 새겨진 카드 보호 슬리브.', accent: '#7788ff', glyph: 'E' },
+  { id: 'sleeve_solar_flare', kind: 'sleeve', name: '솔라 플레어 슬리브', price: 650, rarity: 'rare', description: '붉은 태양 홍염이 카드 뒷면을 감싸는 슬리브.', accent: '#ff985d', glyph: '☀' },
+  { id: 'sleeve_lunar_glass', kind: 'sleeve', name: '루나 글라스 슬리브', price: 800, rarity: 'epic', description: '푸른 유리와 초승달 궤도로 빛나는 슬리브.', accent: '#9cb5ff', glyph: '☾' },
+  { id: 'sleeve_kaiser_chrome', kind: 'sleeve', name: '카이저 크롬 슬리브', price: 1050, rarity: 'epic', description: '황제기갑 장갑판처럼 분할된 크롬 카드 슬리브.', accent: '#d9c68d', glyph: 'K' },
+  { id: 'sleeve_void_prism', kind: 'sleeve', name: '보이드 프리즘 슬리브', price: 1350, rarity: 'epic', description: '보랏빛 프리즘 균열이 회전하는 공허 슬리브.', accent: '#c17cff', glyph: '◇' },
+  { id: 'sleeve_astral_navy', kind: 'sleeve', name: '아스트라 네이비 슬리브', price: 1700, rarity: 'legendary', description: '성해함대 항로와 별빛 함선 문장이 새겨진 전설 슬리브.', accent: '#69d8ff', glyph: '✶' },
+  { id: 'bg_nebula_vortex', kind: 'background', name: '성운 와류', price: 2300, rarity: 'legendary', description: '성운 입자와 궤도광이 끊임없이 회전하는 애니메이션 프로필 배경.', accent: '#8d7cff' },
+  { id: 'bg_chrono_rift', kind: 'background', name: '크로노 균열', price: 2600, rarity: 'legendary', description: '시간 균열과 시계 문양이 흐르며 왜곡되는 애니메이션 배경.', accent: '#66d8ff' },
+  { id: 'frame_prismatic_loop', kind: 'frame', name: '프리즘 루프', price: 2200, rarity: 'legendary', description: '무지갯빛 광선이 테두리를 따라 순환하는 애니메이션 프레임.', accent: '#f19cff' },
+  { id: 'frame_ember_crown', kind: 'frame', name: '홍염의 관', price: 2400, rarity: 'legendary', description: '불꽃 입자가 테두리를 타고 상승하는 애니메이션 전설 프레임.', accent: '#ff9a5f' },
+  { id: 'nickname_rainbow', kind: 'nickname', name: '레인보우 시프트', price: 900, rarity: 'epic', description: '닉네임을 따라 무지개 그라데이션이 계속 흐릅니다. 모든 플레이어 화면에 적용됩니다.', accent: '#ff74d5' },
+  { id: 'nickname_neon', kind: 'nickname', name: '네온 펄스', price: 850, rarity: 'epic', description: '청보라 네온이 부드럽게 점멸하는 닉네임 효과.', accent: '#6ee8ff' },
+  { id: 'nickname_starlight', kind: 'nickname', name: '스타라이트', price: 1200, rarity: 'epic', description: '별빛이 글자 위를 스쳐 지나가는 반짝임 애니메이션.', accent: '#c4dcff' },
+  { id: 'nickname_ember', kind: 'nickname', name: '홍염 파동', price: 1300, rarity: 'epic', description: '붉은색과 금색이 불꽃처럼 요동치는 닉네임 효과.', accent: '#ff945d' },
+  { id: 'nickname_glitch', kind: 'nickname', name: '보이드 글리치', price: 1600, rarity: 'legendary', description: '공허색 잔상과 짧은 디지털 왜곡이 발생하는 전설 닉네임 효과.', accent: '#bd7cff' },
+  { id: 'nickname_aurora', kind: 'nickname', name: '오로라 웨이브', price: 1800, rarity: 'legendary', description: '청록·보라·푸른빛이 물결처럼 이동하는 전설 닉네임 애니메이션.', accent: '#73e7da' },
+  { id: 'nickname_gold', kind: 'nickname', name: '황제의 서명', price: 2100, rarity: 'legendary', description: '금빛 하이라이트가 왕관처럼 반복해서 흐르는 전설 닉네임 효과.', accent: '#ffd06f' },
 ];
+
+
+const COSMETIC_KIND_LABEL: Record<ProfileCosmeticKind, string> = {
+  background: '배경', frame: '프레임', emblem: '프로필 문양', sleeve: '카드 슬리브', nickname: '닉네임 효과',
+};
+const EMBLEM_BY_ID = Object.fromEntries(PROFILE_COSMETICS.filter((item) => item.kind === 'emblem').map((item) => [item.id, item])) as Record<string, ProfileCosmetic>;
+const SLEEVE_BY_ID = Object.fromEntries(PROFILE_COSMETICS.filter((item) => item.kind === 'sleeve').map((item) => [item.id, item])) as Record<string, ProfileCosmetic>;
+function emblemGlyph(id?: string): string { return id && EMBLEM_BY_ID[id]?.glyph ? EMBLEM_BY_ID[id].glyph! : 'E'; }
+function sleeveGlyph(id?: string): string { return id && SLEEVE_BY_ID[id]?.glyph ? SLEEVE_BY_ID[id].glyph! : 'E'; }
+
+function NicknameText({ name, styleId, className = '' }: { name: string; styleId?: string; className?: string }) {
+  return <span className={`v26-nickname nickname-${styleId ?? 'nickname_default'} ${className}`.trim()}>{name}</span>;
+}
 
 
 const SOUND_STORAGE_KEY = 'eclipse-duel:sound-enabled';
@@ -392,6 +431,11 @@ function packEmblem(pack: (typeof PACKS)[number]): string {
     tempest_drive: 'ϟ',
     abyss_reaper: '†',
     primal_guardian: '⬢',
+    chronorium: '◷',
+    arcana_protocol: '✺',
+    beastforge: '♞',
+    phantom_carnival: '◐',
+    astral_armada: '✶',
   };
   return pack.seriesId ? glyphs[pack.seriesId] : '✦';
 }
@@ -432,6 +476,27 @@ function PackProductVisual({ pack }: { pack: (typeof PACKS)[number] }) {
 }
 
 function CosmeticPreview({ item, profile }: { item: ProfileCosmetic; profile: Profile }) {
+  if (item.kind === 'nickname') {
+    return (
+      <div className={`v17-cosmetic-preview ${item.id} kind-nickname`} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>
+        <div className="v26-nickname-preview"><small>NICKNAME FX</small><NicknameText name={profile.display_name} styleId={item.id} /><p>모든 프로필 · 채팅 · 대전 화면에 표시</p></div>
+      </div>
+    );
+  }
+  if (item.kind === 'sleeve') {
+    return (
+      <div className={`v17-cosmetic-preview ${item.id} kind-sleeve`} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>
+        <div className="v26-sleeve-preview"><div className={`v26-card-sleeve sleeve-${item.id}`}><i /><b>{item.glyph ?? 'E'}</b><small>ECLIPSE DUEL</small></div><span>DECK SLEEVE</span></div>
+      </div>
+    );
+  }
+  if (item.kind === 'emblem') {
+    return (
+      <div className={`v17-cosmetic-preview ${item.id} kind-emblem`} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>
+        <div className="v26-emblem-preview"><span className="v26-emblem-orbit" /><b>{item.glyph ?? 'E'}</b><small>PROFILE EMBLEM</small></div>
+      </div>
+    );
+  }
   return (
     <div className={`v17-cosmetic-preview ${item.id} kind-${item.kind}`} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>
       <div className={`v17-cosmetic-scene kind-${item.kind}`}>
@@ -443,10 +508,7 @@ function CosmeticPreview({ item, profile }: { item: ProfileCosmetic; profile: Pr
         </div>
         <div className="v17-cosmetic-profile-card">
           <div className="v17-cosmetic-avatar-wrap"><Avatar id={profile.avatar} /></div>
-          <div className="v17-cosmetic-usercopy">
-            <b>{profile.display_name}</b>
-            <span>Lv.{levelFromXp(profile.xp ?? 0)} · 결투가 프로필 미리보기</span>
-          </div>
+          <div className="v17-cosmetic-usercopy"><b><NicknameText name={profile.display_name} styleId={profile.nickname_style} /></b><span>Lv.{Math.max(1, Math.floor((profile.xp ?? 0) / 100) + 1)} · 결투가 프로필 미리보기</span></div>
         </div>
       </div>
     </div>
@@ -632,6 +694,7 @@ function CardFace({
   onClick,
   hidden = false,
   inspectable = true,
+  sleeveId = 'sleeve_default',
 }: {
   card?: CardDefinition;
   compact?: boolean;
@@ -641,19 +704,20 @@ function CardFace({
   onClick?: () => void;
   hidden?: boolean;
   inspectable?: boolean;
+  sleeveId?: string;
 }) {
   if (hidden || !card) {
     const interactive = Boolean(onClick) && !disabled;
     return (
       <button
         type="button"
-        className={`tcg-card card-back ${compact ? 'compact' : ''} ${disabled ? 'is-disabled' : ''} ${interactive ? 'is-interactive' : 'is-static'}`}
+        className={`tcg-card card-back sleeve-${sleeveId} ${compact ? 'compact' : ''} ${disabled ? 'is-disabled' : ''} ${interactive ? 'is-interactive' : 'is-static'}`}
         aria-label={interactive ? '뒤집힌 카드 공개' : '뒤집힌 카드'}
         aria-disabled={!interactive}
         onClick={() => { if (interactive) onClick?.(); }}
       >
         <span className="back-orbit" />
-        <span className="back-mark">E</span>
+        <span className="back-mark">{sleeveGlyph(sleeveId)}</span>
         <span className="back-title">ECLIPSE</span>
         <span className="back-hint">TAP TO REVEAL</span>
       </button>
@@ -933,7 +997,7 @@ function ControlCenter({
           <button type="button" onClick={onOpenGuide}><span>?</span><div><b>룰 가이드</b><small>키워드와 기본 규칙 확인</small></div></button>
           <button type="button" onClick={onOpenProfile}><span>◎</span><div><b>프로필</b><small>아바타와 프로필 스킨 관리</small></div></button>
         </section>
-        <footer><span>ECLIPSE DUEL · COMMERCIAL BUILD v24</span><button type="button" onClick={onSignOut}>로그아웃</button></footer>
+        <footer><span>ECLIPSE DUEL · COMMERCIAL BUILD v26</span><button type="button" onClick={onSignOut}>로그아웃</button></footer>
       </aside>
     </div>
   );
@@ -1193,7 +1257,7 @@ function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate:
           <header><div><small>SOCIAL</small><h3>친구</h3></div><button onClick={() => onNavigate('friends')}>전체 보기</button></header>
           <div className="v19-friend-grid">
             {friends.length > 0 ? friends.map((friend) => (
-              <button key={friend.user_id} onClick={() => onNavigate('friends')}><Avatar id={friend.avatar} size="small" /><span><b>{friend.display_name}</b><small>LV.{levelFromXp(friend.xp)} · {friend.wins}승</small></span><i /></button>
+              <button key={friend.user_id} onClick={() => onNavigate('friends')}><Avatar id={friend.avatar} size="small" /><span><b><NicknameText name={friend.display_name} styleId={friend.nickname_style} /></b><small>LV.{levelFromXp(friend.xp)} · {friend.wins}승</small></span><i /></button>
             )) : <button className="v19-add-friend" onClick={() => onNavigate('friends')}><span>+</span><b>친구 추가</b><small>친구 코드로 결투가를 찾아보세요.</small></button>}
           </div>
         </article>
@@ -1605,6 +1669,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
 
 function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void }) {
   const [shopTab, setShopTab] = useState<'packs' | 'profile'>('packs');
+  const [cosmeticFilter, setCosmeticFilter] = useState<'all' | ProfileCosmeticKind>('all');
   const [busyCosmetic, setBusyCosmetic] = useState('');
   const [busyPack, setBusyPack] = useState('');
   const [opened, setOpened] = useState<string[]>([]);
@@ -1717,13 +1782,13 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
       </section>
       <div className="v17-shop-tabs">
         <button className={shopTab === 'packs' ? 'active' : ''} onClick={() => setShopTab('packs')}><b>카드팩</b><small>새 카드 획득</small></button>
-        <button className={shopTab === 'profile' ? 'active' : ''} onClick={() => setShopTab('profile')}><b>프로필 스킨</b><small>배경 · 프레임</small></button>
+        <button className={shopTab === 'profile' ? 'active' : ''} onClick={() => setShopTab('profile')}><b>꾸미기</b><small>배경 · 프레임 · 문양 · 슬리브 · 닉네임</small></button>
       </div>
       {error && <p className="error-banner">{error}</p>}
       {shopTab === 'packs' ? (
         <div className="v25-pack-store">
           <section className="v25-pack-category">
-            <header><div><span>CORE BOOSTERS</span><h3>기본 카드팩</h3><p>속성 제한 없이 320장 전체 풀에서 랜덤 획득합니다.</p></div><small>GENERAL · RARE · LEGENDARY</small></header>
+            <header><div><span>CORE BOOSTERS</span><h3>기본 카드팩</h3><p>속성 제한 없이 전체 카드 풀에서 랜덤 획득합니다.</p></div><small>GENERAL · RARE · LEGENDARY</small></header>
             <div className="pack-grid v6-pack-grid v25-core-pack-grid">{corePacks.map((pack, index) => renderPackCard(pack, index))}</div>
           </section>
           <section className="v25-pack-category v25-series-category">
@@ -1732,18 +1797,24 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
           </section>
         </div>
       ) : (
-        <section className="v17-cosmetic-grid">
-          {PROFILE_COSMETICS.map((item) => {
+        <div className="v26-cosmetic-store">
+          <div className="v26-cosmetic-filter">
+            <button className={cosmeticFilter === 'all' ? 'active' : ''} onClick={() => setCosmeticFilter('all')}>전체</button>
+            {(['background','frame','emblem','sleeve','nickname'] as ProfileCosmeticKind[]).map((kind) => <button key={kind} className={cosmeticFilter === kind ? 'active' : ''} onClick={() => setCosmeticFilter(kind)}>{COSMETIC_KIND_LABEL[kind]}</button>)}
+          </div>
+          <section className="v17-cosmetic-grid">
+          {PROFILE_COSMETICS.filter((item) => cosmeticFilter === 'all' || item.kind === cosmeticFilter).map((item) => {
             const owned = (hub.profileCosmetics ?? []).includes(item.id);
             return (
               <article className={`v17-cosmetic-card kind-${item.kind} rarity-${item.rarity}`} key={item.id} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>
                 <CosmeticPreview item={item} profile={hub.profile} />
-                <div className="v17-cosmetic-copy"><span className="eyebrow">{item.rarity.toUpperCase()} · {item.kind === 'background' ? '배경' : '프레임'}</span><h3>{item.name}</h3><p>{item.description}</p></div>
+                <div className="v17-cosmetic-copy"><span className="eyebrow">{item.rarity.toUpperCase()} · {COSMETIC_KIND_LABEL[item.kind]}</span><h3>{item.name}</h3><p>{item.description}</p></div>
                 <div className="v17-cosmetic-buy"><strong>{item.price.toLocaleString()} COIN</strong><button className="primary-button" disabled={owned || busyCosmetic === item.id || hub.wallet.coins < item.price} onClick={() => buyCosmetic(item.id)}>{owned ? '보유 중' : busyCosmetic === item.id ? '구매 중...' : hub.wallet.coins < item.price ? '코인 부족' : '구매'}</button></div>
               </article>
             );
           })}
-        </section>
+          </section>
+        </div>
       )}
 
       {openingStage !== 'idle' && opened.length > 0 && (
@@ -1774,6 +1845,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
                   <CardFace
                     card={CARD_BY_ID[opened[activeCardIndex]]}
                     hidden={!revealed[activeCardIndex]}
+                    sleeveId={hub.profile.card_sleeve ?? 'sleeve_default'}
                     onClick={revealed[activeCardIndex] ? () => requestCardInspection(opened[activeCardIndex]) : revealCurrent}
                     inspectable={revealed[activeCardIndex]}
                   />
@@ -1872,14 +1944,14 @@ function FriendsView({ hub, userId, onHub }: { hub: HubData; userId: string; onH
           <h3>친구 추가</h3><p>상대의 ECLIPSE 친구 코드를 입력하세요.</p>
           <div className="inline-form"><input value={code} onChange={(event: ChangeEvent<HTMLInputElement>) => setCode(event.target.value.toUpperCase())} placeholder="ED-XXXXXXXXXX" /><button className="primary-button" onClick={requestFriend}>요청</button></div>
           {message && <p className="inline-message">{message}</p>}
-          {incoming.length > 0 && <div className="request-list"><h4>받은 요청</h4>{incoming.map((request) => { const profile = profileMap[request.sender_id]; return <div key={request.id}><Avatar id={profile?.avatar} size="small" /><span><b>{profile?.display_name ?? '결투가'}</b><small>{profile?.player_code}</small></span><button onClick={() => respond(request.id, true)}>수락</button><button onClick={() => respond(request.id, false)}>거절</button></div>; })}</div>}
-          {outgoing.length > 0 && <div className="request-list"><h4>보낸 요청</h4>{outgoing.map((request) => { const profile = profileMap[request.receiver_id]; return <div key={request.id}><Avatar id={profile?.avatar} size="small" /><span><b>{profile?.display_name ?? '결투가'}</b><small>응답 대기 중</small></span></div>; })}</div>}
+          {incoming.length > 0 && <div className="request-list"><h4>받은 요청</h4>{incoming.map((request) => { const profile = profileMap[request.sender_id]; return <div key={request.id}><Avatar id={profile?.avatar} size="small" /><span><b><NicknameText name={profile?.display_name ?? '결투가'} styleId={profile?.nickname_style} /></b><small>{profile?.player_code}</small></span><button onClick={() => respond(request.id, true)}>수락</button><button onClick={() => respond(request.id, false)}>거절</button></div>; })}</div>}
+          {outgoing.length > 0 && <div className="request-list"><h4>보낸 요청</h4>{outgoing.map((request) => { const profile = profileMap[request.receiver_id]; return <div key={request.id}><Avatar id={profile?.avatar} size="small" /><span><b><NicknameText name={profile?.display_name ?? '결투가'} styleId={profile?.nickname_style} /></b><small>응답 대기 중</small></span></div>; })}</div>}
         </article>
         <article className="panel friend-list-panel">
           <header><h3>친구 목록</h3><span>{hub.friends.length}명</span></header>
           <div className="friend-list">
             {hub.friends.length === 0 && <div className="empty-state"><span>♢</span><p>아직 등록된 친구가 없습니다.</p></div>}
-            {hub.friends.map((friend) => <div className="friend-row" key={friend.user_id}><Avatar id={friend.avatar} /><span><b>{friend.display_name}</b><small>{friend.status_message}</small></span><div><em>LV.{levelFromXp(friend.xp)}</em><small>{friend.wins}승 · 승률 {winRate(friend)}%</small></div><button onClick={() => remove(friend.user_id)}>삭제</button></div>)}
+            {hub.friends.map((friend) => <div className="friend-row" key={friend.user_id}><Avatar id={friend.avatar} /><span><b><NicknameText name={friend.display_name} styleId={friend.nickname_style} /></b><small>{friend.status_message}</small></span><div><em>LV.{levelFromXp(friend.xp)}</em><small>{friend.wins}승 · 승률 {winRate(friend)}%</small></div><button onClick={() => remove(friend.user_id)}>삭제</button></div>)}
           </div>
         </article>
       </section>
@@ -1893,6 +1965,9 @@ function ProfileView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   const [avatar, setAvatar] = useState(hub.profile.avatar);
   const [theme, setTheme] = useState(hub.profile.profile_theme ?? 'bg_default');
   const [frame, setFrame] = useState(hub.profile.profile_frame ?? 'frame_default');
+  const [emblem, setEmblem] = useState(hub.profile.profile_emblem ?? 'emblem_default');
+  const [sleeve, setSleeve] = useState(hub.profile.card_sleeve ?? 'sleeve_default');
+  const [nicknameStyle, setNicknameStyle] = useState(hub.profile.nickname_style ?? 'nickname_default');
   const [message, setMessage] = useState('');
 
   async function save() {
@@ -1910,6 +1985,9 @@ function ProfileView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
         onHub(result.hub);
         setTheme(result.hub.profile.profile_theme ?? 'bg_default');
         setFrame(result.hub.profile.profile_frame ?? 'frame_default');
+        setEmblem(result.hub.profile.profile_emblem ?? 'emblem_default');
+        setSleeve(result.hub.profile.card_sleeve ?? 'sleeve_default');
+        setNicknameStyle(result.hub.profile.nickname_style ?? 'nickname_default');
       }
       setMessage('프로필 스킨을 적용했습니다.');
       playUiSound('success');
@@ -1918,10 +1996,11 @@ function ProfileView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
 
   return (
     <div className="profile-layout">
-      <section className={`profile-card panel v17-profile-card theme-${theme} frame-${frame}`}>
+      <section className={`profile-card panel v17-profile-card theme-${theme} frame-${frame} emblem-${emblem} nickname-${nicknameStyle}`}>
+        <span className={`v26-equipped-emblem emblem-${emblem}`}>{emblemGlyph(emblem)}</span>
         <Avatar id={avatar} size="large" />
         <span className="eyebrow">DUELIST PROFILE</span>
-        <h2>{hub.profile.display_name}</h2>
+        <h2><NicknameText name={hub.profile.display_name} styleId={nicknameStyle} /></h2>
         <p>{hub.profile.status_message}</p>
         <div className="profile-code">{hub.profile.player_code}</div>
         <div className="profile-stats"><span><b>LV.{levelFromXp(hub.profile.xp)}</b><small>레벨</small></span><span><b>{hub.profile.wins}</b><small>승리</small></span><span><b>{winRate(hub.profile)}%</b><small>승률</small></span></div>
@@ -1930,9 +2009,12 @@ function ProfileView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
         <span className="eyebrow">CUSTOMIZE</span><h2>프로필 편집</h2>
         <label><span>플레이어 이름</span><input value={name} onChange={(event: ChangeEvent<HTMLInputElement>) => setName(event.target.value)} maxLength={16} /></label>
         <label><span>상태 메시지</span><input value={status} onChange={(event: ChangeEvent<HTMLInputElement>) => setStatus(event.target.value)} maxLength={60} /></label>
-        <label><span>프로필 문양</span><div className="avatar-picker">{AVATARS.map((id) => <button className={avatar === id ? 'active' : ''} key={id} onClick={() => setAvatar(id)}><Avatar id={id} /></button>)}</div></label>
+        <label><span>프로필 아이콘</span><div className="avatar-picker">{AVATARS.map((id) => <button className={avatar === id ? 'active' : ''} key={id} onClick={() => setAvatar(id)}><Avatar id={id} /></button>)}</div></label>
         <div className="v17-profile-skin-picker"><span>보유 프로필 배경</span><div><button className={theme === 'bg_default' ? 'active' : ''} onClick={() => equipCosmetic('bg_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'background' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={theme === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.name}</button>)}</div></div>
         <div className="v17-profile-skin-picker"><span>보유 프로필 프레임</span><div><button className={frame === 'frame_default' ? 'active' : ''} onClick={() => equipCosmetic('frame_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'frame' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={frame === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.name}</button>)}</div></div>
+        <div className="v17-profile-skin-picker"><span>보유 프로필 문양</span><div><button className={emblem === 'emblem_default' ? 'active' : ''} onClick={() => equipCosmetic('emblem_default')}>기본 E</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'emblem' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={emblem === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.glyph} {item.name}</button>)}</div></div>
+        <div className="v17-profile-skin-picker"><span>보유 카드 슬리브</span><div><button className={sleeve === 'sleeve_default' ? 'active' : ''} onClick={() => equipCosmetic('sleeve_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'sleeve' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={sleeve === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.name}</button>)}</div><div className="v26-profile-sleeve-demo"><CardFace hidden compact inspectable={false} sleeveId={sleeve} /></div></div>
+        <div className="v17-profile-skin-picker v26-nickname-picker"><span>보유 닉네임 효과</span><div><button className={nicknameStyle === 'nickname_default' ? 'active' : ''} onClick={() => equipCosmetic('nickname_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'nickname' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={nicknameStyle === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}><NicknameText name={item.name} styleId={item.id} /></button>)}</div><div className="v26-nickname-equipped-preview"><small>다른 플레이어에게도 이렇게 표시됩니다</small><NicknameText name={hub.profile.display_name} styleId={nicknameStyle} /></div></div>
         {message && <p className="inline-message">{message}</p>}
         <button className="primary-button" onClick={save}>변경 사항 저장</button>
       </section>
@@ -1995,7 +2077,7 @@ function ChatDrawer({ open, roomId, onClose, profile }: { open: boolean; roomId?
       <header><div><span>{roomId ? 'ROOM CHAT' : 'GLOBAL CHAT'}</span><h3>{roomId ? '결투방 채팅' : '전체 채팅'}</h3>{!roomId && <small>최근 30분 메시지만 보관됩니다.</small>}</div><button onClick={onClose}>×</button></header>
       <div className="chat-messages">
         {messages.length === 0 && <div className="empty-state"><span>···</span><p>첫 메시지를 남겨보세요.</p></div>}
-        {messages.map((message) => <div className={`chat-message ${message.user_id === profile.user_id ? 'mine' : ''}`} key={message.id}><b>{message.display_name}</b><p>{message.body}</p><small>{new Date(message.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small></div>)}
+        {messages.map((message) => <div className={`chat-message ${message.user_id === profile.user_id ? 'mine' : ''}`} key={message.id}><b><NicknameText name={message.display_name} styleId={message.nickname_style} /></b><p>{message.body}</p><small>{new Date(message.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small></div>)}
         <div ref={bottomRef} />
       </div>
       {error && <p className="chat-error">{error}</p>}
@@ -2127,10 +2209,10 @@ function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualE
       )}
       {event.kind === 'draw' && (
         <div className={`v24-draw-stage ${mine ? 'mine' : 'opponent'} ${mine && drawCard ? 'revealed' : 'concealed'}`} aria-hidden="true">
-          <div className="v24-draw-deck-stack"><i /><i /><i /><b>E</b></div>
+          <div className={`v24-draw-deck-stack sleeve-${owner?.card_sleeve ?? 'sleeve_default'}`}><i /><i /><i /><b>{sleeveGlyph(owner?.card_sleeve)}</b></div>
           <div className="v24-draw-flight">
             <div className="v24-draw-card-3d">
-              <div className="v24-draw-face v24-draw-back"><span>E</span><small>ECLIPSE</small></div>
+              <div className={`v24-draw-face v24-draw-back sleeve-${owner?.card_sleeve ?? 'sleeve_default'}`}><span>{sleeveGlyph(owner?.card_sleeve)}</span><small>ECLIPSE</small></div>
               <div className="v24-draw-face v24-draw-front">
                 {drawCard ? <><CardIllustration card={drawCard} hero /><span className="v24-draw-card-name"><small>{RARITY_LABEL[drawCard.rarity]} · {ELEMENT_LABEL[drawCard.element]}</small><b>{drawCard.name}</b></span></> : <><span className="v24-draw-hidden-mark">E</span><small>HIDDEN CARD</small></>}
               </div>
@@ -2251,7 +2333,7 @@ function CoinTossOverlay({ state, profiles, userId, now }: { state: MatchState; 
   return (
     <div className={`coin-toss-overlay side-${toss.side} ${revealed ? 'is-revealed' : ''}`}>
       <div className="coin-toss-space" aria-hidden="true"><span className="coin-orbit orbit-a" /><span className="coin-orbit orbit-b" /><span className="coin-spark spark-a" /><span className="coin-spark spark-b" /></div>
-      <div className="coin-toss-copy"><small>FIRST TURN DECISION</small><h2>{revealed ? '선공이 결정되었습니다' : '운명의 코인을 던집니다'}</h2><p>{revealed ? `${toss.side === 'solar' ? '태양면' : '월식면'} · ${isMe ? '당신' : winner?.display_name ?? '상대'}이(가) 선공입니다.` : '두 플레이어의 시작 순서를 공정하게 결정합니다.'}</p></div>
+      <div className="coin-toss-copy"><small>FIRST TURN DECISION</small><h2>{revealed ? '선공이 결정되었습니다' : '운명의 코인을 던집니다'}</h2><p>{revealed ? <>{toss.side === 'solar' ? '태양면' : '월식면'} · {isMe ? '당신' : <NicknameText name={winner?.display_name ?? '상대'} styleId={winner?.nickname_style} />}이(가) 선공입니다.</> : '두 플레이어의 시작 순서를 공정하게 결정합니다.'}</p></div>
       <div className="duel-coin" aria-hidden="true"><span className="coin-face coin-front"><b>☀</b><small>SOLAR</small></span><span className="coin-face coin-back"><b>◐</b><small>ECLIPSE</small></span><i /></div>
       <div className="coin-result"><span>{revealed ? (isMe ? 'YOU GO FIRST' : 'OPPONENT GOES FIRST') : 'FLIPPING'}</span><div><i /></div></div>
     </div>
@@ -2666,6 +2748,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
 
   const recentEvents = state.visualEvents.slice(-5).reverse();
   const eventActorName = (event: VisualEvent) => event.ownerId === userId ? '나' : event.ownerId ? (profileMap[event.ownerId]?.display_name ?? '상대') : '시스템';
+  const eventActorStyle = (event: VisualEvent) => event.ownerId && event.ownerId !== userId ? profileMap[event.ownerId]?.nickname_style : undefined;
   const playableHandCount = privateState.hand.filter((instance) => {
     const card = CARD_BY_ID[instance.cardId];
     if (!card || !myTurn || state.phase !== 'main') return false;
@@ -2734,7 +2817,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
           disabled={!selectedAttackerCanHitCore || busy}
           onClick={() => selectedAttacker !== null && gameAction('attack', { attackerIndex: selectedAttacker, target: { kind: 'core' } })}
         >
-          <div className="v18-leader-identity"><Avatar id={opponent?.avatar} /><span><small>OPPONENT</small><b>{opponent?.display_name ?? '상대'}</b></span></div>
+          <div className="v18-leader-identity"><Avatar id={opponent?.avatar} /><i className={`v26-duel-emblem emblem-${opponent?.profile_emblem ?? 'emblem_default'}`} aria-hidden="true">{emblemGlyph(opponent?.profile_emblem)}</i><span><small>OPPONENT</small><b><NicknameText name={opponent?.display_name ?? '상대'} styleId={opponent?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[opponentId]}</strong><em>{selectedAttackerCanHitCore ? 'DIRECT ATTACK' : 'ENEMY LEADER'}</em></div>
           <DuelEnergyMeter label="ENERGY" current={opponentEnergy.current} max={opponentEnergy.max} opponent compact />
           <div className="v18-mini-stats"><span>HAND <b>{state.handCounts[opponentId] ?? 0}</b></span><span>DECK <b>{state.deckCounts[opponentId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[opponentId]?.length ?? 0}</b></span></div>
@@ -2743,7 +2826,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         <div className="v18-leader-divider"><span>VS</span></div>
 
         <section className="v18-leader-card mine">
-          <div className="v18-leader-identity"><Avatar id={me?.avatar} /><span><small>YOU</small><b>{me?.display_name ?? '나'}</b></span></div>
+          <div className="v18-leader-identity"><Avatar id={me?.avatar} /><i className={`v26-duel-emblem emblem-${me?.profile_emblem ?? 'emblem_default'}`} aria-hidden="true">{emblemGlyph(me?.profile_emblem)}</i><span><small>YOU</small><b><NicknameText name={me?.display_name ?? '나'} styleId={me?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[userId]}</strong><em>{myTurn ? phaseLabel : 'WAITING'}</em></div>
           <DuelEnergyMeter label="ENERGY" current={myEnergy.current} max={myEnergy.max} nextMax={!myTurn ? nextMyEnergyMax : undefined} compact />
           <div className="v18-mini-stats"><span>HAND <b>{privateState.hand.length}</b></span><span>DECK <b>{state.deckCounts[userId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[userId]?.length ?? 0}</b></span></div>
@@ -2754,14 +2837,14 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         <div className="v18-arena-backdrop" aria-hidden="true"><i /><i /><i /><i /></div>
         <div className="v18-opponent-hand-strip" aria-label={`상대 손패 ${state.handCounts[opponentId] ?? 0}장`}>
           <span>HAND · {state.handCounts[opponentId] ?? 0}</span>
-          <div>{Array.from({ length: Math.min(9, state.handCounts[opponentId] ?? 0) }, (_, index) => <CardFace key={index} hidden compact />)}</div>
+          <div>{Array.from({ length: Math.min(9, state.handCounts[opponentId] ?? 0) }, (_, index) => <CardFace key={index} hidden compact inspectable={false} sleeveId={opponent?.card_sleeve ?? 'sleeve_default'} />)}</div>
         </div>
 
         <section className="v18-board">
           <div className="v18-zone-row v18-enemy-secrets">
             {state.boards[opponentId].secrets.map((secret, index) => (
               <div className={`v18-secret-slot enemy ${secret ? 'is-set' : ''}`} key={index}>
-                {secret ? <><span className="v18-secret-back">E</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}
+                {secret ? <><span className={`v18-secret-back sleeve-${opponent?.card_sleeve ?? 'sleeve_default'}`}>{sleeveGlyph(opponent?.card_sleeve)}</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}
               </div>
             ))}
           </div>
@@ -2870,7 +2953,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
 
         <section className="v18-event-feed">
           <header><span>DUEL FEED</span><button type="button" onClick={() => setLogOpen(true)}>전체 기록</button></header>
-          <div>{recentEvents.length > 0 ? recentEvents.map((event) => <div className={`v18-feed-item kind-${event.kind}`} key={event.id}><i /> <span><b>{eventActorName(event)} · {duelEventLabel(event)}</b><small>{event.label ?? (duelEventLocation(event) || '결투 행동')}</small></span></div>) : <p>아직 기록된 행동이 없습니다.</p>}</div>
+          <div>{recentEvents.length > 0 ? recentEvents.map((event) => <div className={`v18-feed-item kind-${event.kind}`} key={event.id}><i /> <span><b><NicknameText name={eventActorName(event)} styleId={eventActorStyle(event)} /> · {duelEventLabel(event)}</b><small>{event.label ?? (duelEventLocation(event) || '결투 행동')}</small></span></div>) : <p>아직 기록된 행동이 없습니다.</p>}</div>
         </section>
       </aside>
 
@@ -2996,9 +3079,9 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
           <h2>결투 준비</h2>
           <div className="room-code"><small>ROOM CODE</small><strong>{room.code}</strong><button onClick={() => navigator.clipboard.writeText(room.code)}>복사</button></div>
           <div className="versus-line">
-            <div><Avatar id={profileMap[room.host_id]?.avatar} size="large" /><b>{profileMap[room.host_id]?.display_name ?? 'HOST'}</b><span className={room.ready_host ? 'ready' : ''}>{room.ready_host ? 'READY' : 'WAITING'}</span></div>
+            <div><Avatar id={profileMap[room.host_id]?.avatar} size="large" /><b><NicknameText name={profileMap[room.host_id]?.display_name ?? 'HOST'} styleId={profileMap[room.host_id]?.nickname_style} /></b><span className={room.ready_host ? 'ready' : ''}>{room.ready_host ? 'READY' : 'WAITING'}</span></div>
             <strong>VS</strong>
-            <div>{room.guest_id ? <><Avatar id={profileMap[room.guest_id]?.avatar} size="large" /><b>{profileMap[room.guest_id]?.display_name ?? 'GUEST'}</b><span className={room.ready_guest ? 'ready' : ''}>{room.ready_guest ? 'READY' : 'WAITING'}</span></> : <><span className="empty-avatar">?</span><b>상대 대기 중</b><span>SHARE CODE</span></>}</div>
+            <div>{room.guest_id ? <><Avatar id={profileMap[room.guest_id]?.avatar} size="large" /><b><NicknameText name={profileMap[room.guest_id]?.display_name ?? 'GUEST'} styleId={profileMap[room.guest_id]?.nickname_style} /></b><span className={room.ready_guest ? 'ready' : ''}>{room.ready_guest ? 'READY' : 'WAITING'}</span></> : <><span className="empty-avatar">?</span><b>상대 대기 중</b><span>SHARE CODE</span></>}</div>
           </div>
           <p>양쪽 플레이어가 준비하면 활성 덱으로 결투가 시작됩니다.</p>
           {message && <p className="error-banner">{message}</p>}
@@ -3255,12 +3338,12 @@ export default function Page() {
   const roomChat = roomPayload && roomPayload.room.status !== 'cancelled' ? roomPayload.room.id : undefined;
 
   return (
-    <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`} data-ui-build="v24">
+    <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`} data-ui-build="v26">
       <div className="app-backdrop" aria-hidden="true"><span className="backdrop-grid" /><span className="backdrop-orbit" /><span className="backdrop-glow" /></div>
       <aside className="sidebar">
         <button className="game-logo" onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView('home'); }}><span className="logo-glyph"><i>E</i></span><div><b>ECLIPSE</b><small>DUEL</small></div></button>
         <nav>{NAV_ITEMS.map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView(item.id); }}><i><GameIcon name={item.id} /></i><span>{item.label}</span></button>)}</nav>
-        <div className="sidebar-profile"><Avatar id={hub.profile.avatar} size="small" /><span><b>{hub.profile.display_name}</b><small>LV.{levelFromXp(hub.profile.xp)}</small></span><button aria-label="로그아웃" onClick={() => supabase.auth.signOut({ scope: 'local' })}><GameIcon name="logout" /></button></div>
+        <div className="sidebar-profile"><Avatar id={hub.profile.avatar} size="small" /><span><b><NicknameText name={hub.profile.display_name} styleId={hub.profile.nickname_style} /></b><small>LV.{levelFromXp(hub.profile.xp)}</small></span><button aria-label="로그아웃" onClick={() => supabase.auth.signOut({ scope: 'local' })}><GameIcon name="logout" /></button></div>
       </aside>
 
       <header className="topbar">
@@ -3270,7 +3353,7 @@ export default function Page() {
         <div className="topbar-actions v9-topbar-actions">
           <span className="currency-pill"><GameIcon name="coin" /><small>COIN</small><b>{hub.wallet.coins.toLocaleString()}</b></span>
           <button className={`chat-toggle ${chatOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen((value) => !value); }}><GameIcon name="chat" /><span>{roomChat ? '방 채팅' : '채팅'}</span></button>
-          <button className="profile-chip" onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView('profile'); }}><Avatar id={hub.profile.avatar} size="small" /><span>{hub.profile.display_name}</span></button>
+          <button className="profile-chip" onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView('profile'); }}><Avatar id={hub.profile.avatar} size="small" /><i className={`v26-chip-emblem emblem-${hub.profile.profile_emblem ?? 'emblem_default'}`} aria-hidden="true">{emblemGlyph(hub.profile.profile_emblem)}</i><span><NicknameText name={hub.profile.display_name} styleId={hub.profile.nickname_style} /></span></button>
           <button className={`v9-icon-button v22-system-button ${settingsOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setChatOpen(false); setSettingsOpen((value) => !value); }} title="게임 설정" aria-label="게임 설정"><GameIcon name="settings" /><span>SYSTEM</span></button>
         </div>
       </header>
