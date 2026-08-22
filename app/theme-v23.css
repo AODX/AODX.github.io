@@ -1872,3 +1872,37 @@
   .v23-client .v28-frame-core,
   .v23-client .v28-frame-particle { animation:none!important; }
 }
+
+/* ========================================================================== 
+   V28C CHAT UNREAD INDICATOR
+   Kakao-style unread dot for messages from another player while drawer is closed.
+   ========================================================================== */
+.v23-client .chat-toggle {
+  position:relative!important;
+  overflow:visible!important;
+}
+.v23-client .chat-toggle .chat-unread-dot {
+  position:absolute!important;
+  top:5px!important;
+  right:7px!important;
+  width:10px!important;
+  height:10px!important;
+  min-width:10px!important;
+  border-radius:999px!important;
+  border:2px solid #081019!important;
+  background:#ff4056!important;
+  box-shadow:0 0 0 1px rgba(255,89,108,.15),0 0 12px rgba(255,51,78,.72)!important;
+  pointer-events:none!important;
+  z-index:8!important;
+  animation:v28cUnreadPing 1.65s ease-in-out infinite!important;
+}
+.v23-client .chat-toggle.has-unread svg {
+  filter:drop-shadow(0 0 5px rgba(255,71,91,.15));
+}
+@keyframes v28cUnreadPing {
+  0%,100% { transform:scale(1); box-shadow:0 0 0 1px rgba(255,89,108,.15),0 0 8px rgba(255,51,78,.55); }
+  50% { transform:scale(1.12); box-shadow:0 0 0 4px rgba(255,64,86,.07),0 0 14px rgba(255,51,78,.78); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .v23-client .chat-toggle .chat-unread-dot { animation:none!important; }
+}

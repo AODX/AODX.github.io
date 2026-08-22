@@ -2061,12 +2061,17 @@ function ProfileView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   );
 }
 
-function ChatDrawer({ open, roomId, onClose, profile }: { open: boolean; roomId?: string; onClose: () => void; profile: Profile }) {
+function ChatDrawer({ open, roomId, onClose, profile, onUnread }: { open: boolean; roomId?: string; onClose: () => void; profile: Profile; onUnread?: () => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const openRef = useRef(open);
+  const onUnreadRef = useRef(onUnread);
   const table = roomId ? 'eclipse_room_messages' : 'eclipse_global_messages';
+
+  useEffect(() => { openRef.current = open; }, [open]);
+  useEffect(() => { onUnreadRef.current = onUnread; }, [onUnread]);
 
   useEffect(() => {
     let alive = true;
@@ -2086,6 +2091,7 @@ function ChatDrawer({ open, roomId, onClose, profile }: { open: boolean; roomId?
         const next = payload.new as ChatMessage;
         if (!roomId && new Date(next.created_at).getTime() < Date.now() - 30 * 60 * 1000) return;
         setMessages((current) => [...current.slice(-59), next]);
+        if (next.user_id !== profile.user_id && !openRef.current) onUnreadRef.current?.();
       })
       .subscribe();
     const expiryTimer = roomId ? undefined : window.setInterval(() => {
@@ -2097,7 +2103,7 @@ function ChatDrawer({ open, roomId, onClose, profile }: { open: boolean; roomId?
       if (expiryTimer) window.clearInterval(expiryTimer);
       supabase.removeChannel(channel);
     };
-  }, [roomId, table]);
+  }, [roomId, table, profile.user_id]);
 
   useEffect(() => { if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, open]);
 
@@ -3167,6 +3173,7 @@ export default function Page() {
   const [hub, setHub] = useState<HubData | null>(null);
   const [view, setView] = useState<View>('home');
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatUnread, setChatUnread] = useState(false);
   const [roomPayload, setRoomPayload] = useState<RoomPayload | null>(null);
   const [error, setError] = useState('');
   const [serverStatus, setServerStatus] = useState<SecureServerStatus>({
@@ -3181,6 +3188,14 @@ export default function Page() {
   const [soundVolume, setSoundVolume] = useState(0.82);
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    if (chatOpen) setChatUnread(false);
+  }, [chatOpen]);
+
+  useEffect(() => {
+    setChatUnread(false);
+  }, [roomPayload?.room.id]);
   const [roomSyncState, setRoomSyncState] = useState<'live' | 'syncing' | 'offline'>('live');
   const [lastRoomSyncAt, setLastRoomSyncAt] = useState(() => Date.now());
 
@@ -3432,7 +3447,7 @@ export default function Page() {
         <button className={`v13-server-chip ${serverStatus.secureDuelReady ? 'ready' : 'warning'}`} onClick={() => setView('duel')} title={publicServerStatusMessage(serverStatus)}><span />{serverStatus.secureDuelReady ? '온라인' : '점검 중'}</button>
         <div className="topbar-actions v9-topbar-actions">
           <span className="currency-pill"><GameIcon name="coin" /><small>COIN</small><b>{hub.wallet.coins.toLocaleString()}</b></span>
-          <button className={`chat-toggle ${chatOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen((value) => !value); }}><GameIcon name="chat" /><span>{roomChat ? '방 채팅' : '채팅'}</span></button>
+          <button className={`chat-toggle ${chatOpen ? 'active' : ''} ${chatUnread ? 'has-unread' : ''}`} aria-label={`${roomChat ? '방 채팅' : '채팅'}${chatUnread ? ' - 새 메시지 있음' : ''}`} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen((value) => !value); }}><GameIcon name="chat" /><span>{roomChat ? '방 채팅' : '채팅'}</span>{chatUnread && <i className="chat-unread-dot" aria-hidden="true" />}</button>
           <button className="profile-chip" onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView('profile'); }}><Avatar id={hub.profile.avatar} size="small" /><i className={`v26-chip-emblem emblem-${hub.profile.profile_emblem ?? 'emblem_default'}`} aria-hidden="true">{emblemGlyph(hub.profile.profile_emblem)}</i><span><NicknameText name={hub.profile.display_name} styleId={hub.profile.nickname_style} /></span></button>
           <button className={`v9-icon-button v22-system-button ${settingsOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setChatOpen(false); setSettingsOpen((value) => !value); }} title="게임 설정" aria-label="게임 설정"><GameIcon name="settings" /><span>SYSTEM</span></button>
         </div>
@@ -3441,7 +3456,7 @@ export default function Page() {
       <section className="content-area">{error && <div className="global-error"><span>{error}</span><button onClick={() => setError('')}>×</button></div>}{content}</section>
 
       <nav className="mobile-nav">{NAV_ITEMS.map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView(item.id); }}><i><GameIcon name={item.id} /></i><span>{item.label}</span></button>)}</nav>
-      <ChatDrawer open={chatOpen} roomId={roomChat} onClose={() => setChatOpen(false)} profile={hub.profile} />
+      <ChatDrawer open={chatOpen} roomId={roomChat} onClose={() => setChatOpen(false)} profile={hub.profile} onUnread={() => setChatUnread(true)} />
       {chatOpen && <button className="chat-backdrop" aria-label="채팅 닫기" onClick={() => setChatOpen(false)} />}
       <ControlCenter
         open={settingsOpen}
