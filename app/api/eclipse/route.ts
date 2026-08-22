@@ -12,7 +12,6 @@ import {
   drawAndEndTurn,
   endTurn,
   initializeMatch,
-  normalizeSnapshotIntegrity,
   playCard,
   resolveTurnTimeout,
   summonExtra,
@@ -404,18 +403,17 @@ async function loadSnapshot(admin: AdminDbClient, room: RoomRow): Promise<GameSn
   const privateStates: Record<string, PrivateState> = {};
   for (const row of data ?? []) privateStates[String(row.user_id)] = row.state as PrivateState;
   if (!room.guest_id || !privateStates[room.host_id] || !privateStates[room.guest_id]) throw new Error('양쪽 덱 상태가 완성되지 않았습니다.');
-  return normalizeSnapshotIntegrity({ state: room.state, privateStates });
+  return { state: room.state, privateStates };
 }
 
 async function commitSnapshot(admin: AdminDbClient, room: RoomRow, snapshot: GameSnapshot): Promise<void> {
-  const safeSnapshot = normalizeSnapshotIntegrity(snapshot);
-  const privateRows = Object.entries(safeSnapshot.privateStates).map(([user_id, state]) => ({ user_id, state }));
+  const privateRows = Object.entries(snapshot.privateStates).map(([user_id, state]) => ({ user_id, state }));
   const { data, error } = await admin.rpc('eclipse_commit_match', {
     p_room_id: room.id,
     p_expected_version: room.version,
-    p_state: safeSnapshot.state,
-    p_status: safeSnapshot.state.status,
-    p_winner: safeSnapshot.state.winnerId,
+    p_state: snapshot.state,
+    p_status: snapshot.state.status,
+    p_winner: snapshot.state.winnerId,
     p_private_states: privateRows,
   });
   if (error) throw new Error(`결투 상태 저장 실패: ${error.message}`);
@@ -473,14 +471,31 @@ async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: strin
   if (profileError) throw new Error(profileError.message);
 
   let privateState: PrivateState | null = null;
-  let safeRoom = room;
   if (room.state) {
-    const snapshot = await loadSnapshot(admin, room);
-    privateState = snapshot.privateStates[userId] ?? null;
-    safeRoom = { ...room, state: snapshot.state };
+    const { data, error } = await admin
+      .from('eclipse_private_states')
+      .select('state')
+      .eq('room_id', room.id)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    privateState = (data?.state as PrivateState | undefined) ?? null;
   }
 
-  return { room: safeRoom, profiles: profiles ?? [], privateState };
+  return { room, profiles: profiles ?? [], privateState };
+}
+
+async function findResumableRoom(admin: AdminDbClient, userId: string): Promise<RoomRow | null> {
+  const { data, error } = await admin
+    .from('eclipse_rooms')
+    .select('*')
+    .in('status', ['waiting', 'active'])
+    .or(`host_id.eq.${userId},guest_id.eq.${userId}`)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`진행 중인 결투 확인 실패: ${error.message}`);
+  return (data as RoomRow | null) ?? null;
 }
 
 async function handleAction(request: Request, body: RequestBody) {
@@ -490,11 +505,30 @@ async function handleAction(request: Request, body: RequestBody) {
 
   if (action === 'bootstrap' || action === 'hub') {
     const probe = await probeSecureServer();
-    return {
+    const base = {
       hub: await getHub(client, user.id),
       user: { id: user.id, email: user.email },
       serverStatus: probe.status,
     };
+
+    // 브라우저 새로고침이나 순간적인 네트워크 끊김으로 결투를 잃지 않도록
+    // 최초 부트스트랩에서만 가장 최근의 진행 중 방을 자동 복구합니다.
+    if (action === 'bootstrap' && probe.client) {
+      try {
+        let resumable = await findResumableRoom(probe.client, user.id);
+        if (resumable?.status === 'active' && resumable.state) {
+          resumable = (await normalizeTurnTimeout(probe.client, resumable)).room;
+        }
+        if (resumable) {
+          return { ...base, ...(await getRoomPayload(probe.client, resumable, user.id)), resumedRoom: true };
+        }
+      } catch (error) {
+        // 허브 진입 자체를 막지 않습니다. 복구 실패는 사용자가 다시 대전 메뉴에서 재시도할 수 있습니다.
+        console.error('resume room error', error instanceof Error ? error.message : error);
+      }
+    }
+
+    return base;
   }
 
   if (action === 'update_profile') {
