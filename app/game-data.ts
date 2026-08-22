@@ -872,3 +872,32 @@ export function randomId(prefix = 'card'): string {
     : Math.random().toString(36).slice(2, 14);
   return `${prefix}_${random}_${Date.now().toString(36)}`;
 }
+
+/**
+ * Lightweight runtime/catalog validation used by release QA and server boot checks.
+ * It intentionally validates only immutable card definitions; player-owned data is validated server-side.
+ */
+export function validateCatalogIntegrity(): string[] {
+  const issues: string[] = [];
+  const ids = new Set<string>();
+  for (const card of CARDS) {
+    if (!card.id || !/^[a-z0-9_:-]+$/i.test(card.id)) issues.push(`잘못된 카드 ID: ${card.id || '(empty)'}`);
+    if (ids.has(card.id)) issues.push(`중복 카드 ID: ${card.id}`);
+    ids.add(card.id);
+    if (!card.name.trim()) issues.push(`${card.id}: 이름이 비어 있습니다.`);
+    if (!card.subtitle.trim()) issues.push(`${card.id}: 부제가 비어 있습니다.`);
+    if (!card.text.trim()) issues.push(`${card.id}: 효과 설명이 비어 있습니다.`);
+    if (!card.flavor.trim()) issues.push(`${card.id}: 로어가 비어 있습니다.`);
+    if (!Number.isInteger(card.cost) || card.cost < 0 || card.cost > 20) issues.push(`${card.id}: COST가 비정상입니다.`);
+    if (isUnitCard(card)) {
+      if (!Number.isFinite(card.attack) || (card.attack ?? -1) < 0) issues.push(`${card.id}: ATK가 비정상입니다.`);
+      if (!Number.isFinite(card.health) || (card.health ?? -1) <= 0) issues.push(`${card.id}: DEF가 비정상입니다.`);
+    }
+    if (card.kind === 'fusion' && (!card.fusionRecipe || card.fusionRecipe.materials.length < 2)) issues.push(`${card.id}: 공명 융합 소재 규칙이 없습니다.`);
+    if (card.kind === 'evolution' && !card.evolutionRecipe) issues.push(`${card.id}: 계승 진화 조건이 없습니다.`);
+    if (card.summonMode === 'rift' && (!card.riftCondition || card.riftCost === undefined)) issues.push(`${card.id}: 균열 소환 조건/비용이 없습니다.`);
+    if (card.kind === 'trap' && (!card.trapTrigger || !card.trapEffect)) issues.push(`${card.id}: 함정 발동 조건/효과가 없습니다.`);
+  }
+  if (CARDS.length < 300) issues.push(`카드 수가 300장 미만입니다: ${CARDS.length}`);
+  return issues;
+}

@@ -181,6 +181,116 @@ function createPrivate(cardIds: string[], extraCardIds: string[]): PrivateState 
   };
 }
 
+
+function normalizeFixedSlots<T>(items: Array<T | null> | undefined, size: number): Array<T | null> {
+  return Array.from({ length: size }, (_, index) => items?.[index] ?? null);
+}
+
+function assertKnownCardId(cardId: string, context: string): void {
+  if (!CARD_BY_ID[cardId]) throw new Error(`${context}에 존재하지 않는 카드가 있습니다: ${cardId}`);
+}
+
+function assertUniqueInstanceIds(state: MatchState, privateStates: Record<string, PrivateState>): void {
+  const seen = new Set<string>();
+  const register = (instanceId: string, context: string) => {
+    if (!instanceId) throw new Error(`${context}의 카드 인스턴스 ID가 비어 있습니다.`);
+    if (seen.has(instanceId)) throw new Error(`중복 카드 인스턴스가 감지되었습니다: ${instanceId}`);
+    seen.add(instanceId);
+  };
+
+  for (const playerId of state.playerOrder) {
+    const privateState = privateStates[playerId];
+    if (!privateState) continue;
+    privateState.deck.forEach((item) => register(item.instanceId, '덱'));
+    privateState.hand.forEach((item) => register(item.instanceId, '손패'));
+    privateState.extra.forEach((item) => register(item.instanceId, '엑스트라 덱'));
+    privateState.secrets.forEach((item) => { if (item) register(item.instanceId, '함정 존'); });
+    state.boards[playerId]?.units.forEach((unit) => { if (unit) register(unit.instanceId, '유닛 존'); });
+  }
+}
+
+/**
+ * Old rooms can survive several client revisions. Before any server-side action we normalize
+ * derived counters and fixed-size zones so stale UI data cannot corrupt a live match.
+ * Hidden card identities remain only in privateStates.
+ */
+export function normalizeSnapshotIntegrity(snapshot: GameSnapshot): GameSnapshot {
+  const state = clone(snapshot.state);
+  const privateStates = clone(snapshot.privateStates);
+  const players = state.playerOrder;
+
+  if (players.length !== 2 || !players[0] || !players[1] || players[0] === players[1]) {
+    throw new Error('결투 참가자 구성이 손상되었습니다. 새 방을 만들어 다시 시작해 주세요.');
+  }
+
+  for (const playerId of players) {
+    const privateState = privateStates[playerId];
+    if (!privateState) throw new Error('플레이어 비공개 덱 상태가 누락되었습니다. 새 방을 만들어 다시 시작해 주세요.');
+
+    privateState.deck = Array.isArray(privateState.deck) ? privateState.deck : [];
+    privateState.hand = Array.isArray(privateState.hand) ? privateState.hand : [];
+    privateState.extra = Array.isArray(privateState.extra) ? privateState.extra : [];
+    privateState.secrets = normalizeFixedSlots(privateState.secrets, 5);
+
+    for (const item of [...privateState.deck, ...privateState.hand, ...privateState.extra]) {
+      assertKnownCardId(item.cardId, '비공개 카드 상태');
+    }
+    for (const item of privateState.secrets) {
+      if (item) assertKnownCardId(item.cardId, '함정 존');
+    }
+
+    const existingBoard = state.boards[playerId] ?? emptyBoard();
+    const units = normalizeFixedSlots(existingBoard.units, 5) as Array<UnitState | null>;
+    const publicSecrets = normalizeFixedSlots(existingBoard.secrets, 5) as Array<PublicSecret | null>;
+    units.forEach((unit, index) => {
+      if (!unit) return;
+      assertKnownCardId(unit.cardId, `유닛 존 ${index + 1}`);
+      unit.ownerId = playerId;
+      unit.attack = Math.max(0, Number.isFinite(unit.attack) ? Math.floor(unit.attack) : 0);
+      unit.health = Math.max(0, Number.isFinite(unit.health) ? Math.floor(unit.health) : 0);
+      unit.maxHealth = Math.max(unit.health, Number.isFinite(unit.maxHealth) ? Math.floor(unit.maxHealth) : unit.health);
+      unit.shield = Math.max(0, Number.isFinite(unit.shield) ? Math.floor(unit.shield) : 0);
+      unit.canAttack = Boolean(unit.canAttack);
+      unit.originCardIds = Array.isArray(unit.originCardIds) ? unit.originCardIds.filter((id) => Boolean(CARD_BY_ID[id])) : [];
+    });
+
+    // Public state only exposes whether a trap slot is occupied. The actual card stays private.
+    const secrets = privateState.secrets.map((secret, index) => {
+      if (!secret) return null;
+      const previous = publicSecrets[index];
+      return { occupied: true, ...(previous?.revealedCardId ? { revealedCardId: previous.revealedCardId } : {}) };
+    });
+    state.boards[playerId] = { units, secrets };
+
+    state.handCounts[playerId] = privateState.hand.length;
+    state.deckCounts[playerId] = privateState.deck.length;
+    state.extraCounts[playerId] = privateState.extra.length;
+    state.graveyards[playerId] = Array.isArray(state.graveyards[playerId]) ? state.graveyards[playerId].filter((id) => Boolean(CARD_BY_ID[id])) : [];
+    state.core[playerId] = Math.max(0, Math.min(CORE_MAX, Number.isFinite(state.core[playerId]) ? Math.floor(state.core[playerId]) : CORE_MAX));
+
+    const energy = state.energy[playerId] ?? { current: 0, max: 0 };
+    energy.max = Math.max(0, Math.min(10, Number.isFinite(energy.max) ? Math.floor(energy.max) : 0));
+    energy.current = Math.max(0, Math.min(energy.max, Number.isFinite(energy.current) ? Math.floor(energy.current) : 0));
+    state.energy[playerId] = energy;
+  }
+
+  if (state.status === 'active') {
+    if (!state.currentPlayerId || !players.includes(state.currentPlayerId)) {
+      throw new Error('현재 턴 플레이어 정보가 손상되었습니다. 새 방을 만들어 다시 시작해 주세요.');
+    }
+    const expected = expectedEnergyMax(state, state.currentPlayerId);
+    const energy = state.energy[state.currentPlayerId];
+    if (energy.max < expected) {
+      const delta = expected - energy.max;
+      energy.max = expected;
+      if (!state.turnActionTaken) energy.current = Math.min(expected, energy.current + delta);
+    }
+  }
+
+  assertUniqueInstanceIds(state, privateStates);
+  return { state, privateStates };
+}
+
 function drawCards(state: MatchState, privateState: PrivateState, playerId: string, amount: number): boolean {
   for (let index = 0; index < amount; index += 1) {
     const card = privateState.deck.shift();
