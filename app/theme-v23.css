@@ -2107,3 +2107,39 @@
 @media (prefers-reduced-motion: reduce) {
   .v23-client.in-duel .v29-turn-notice { animation:none!important; }
 }
+
+/* ========================================================================== 
+   V29A FRIEND REQUEST REALTIME BADGE
+   ========================================================================== */
+.v23-client .sidebar nav button,
+.v23-client .mobile-nav button { position:relative!important; }
+.v23-client .social-request-badge {
+  position:absolute;
+  top:7px;
+  right:8px;
+  z-index:8;
+  min-width:18px;
+  height:18px;
+  padding:0 5px;
+  display:grid;
+  place-items:center;
+  border:2px solid #081019;
+  border-radius:999px;
+  background:#ff4058;
+  color:#fff!important;
+  font-size:9px!important;
+  font-weight:950!important;
+  line-height:1!important;
+  letter-spacing:-.02em;
+  box-shadow:0 0 0 1px rgba(255,88,108,.25),0 0 16px rgba(255,56,81,.42);
+  pointer-events:none;
+  animation:v29aFriendRequestPulse 1.8s ease-in-out infinite;
+}
+.v23-client .sidebar nav button.active .social-request-badge { border-color:#102331; }
+@keyframes v29aFriendRequestPulse {
+  0%,100% { transform:scale(1); box-shadow:0 0 0 1px rgba(255,88,108,.25),0 0 12px rgba(255,56,81,.28); }
+  50% { transform:scale(1.08); box-shadow:0 0 0 3px rgba(255,88,108,.08),0 0 20px rgba(255,56,81,.52); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .v23-client .social-request-badge { animation:none!important; }
+}

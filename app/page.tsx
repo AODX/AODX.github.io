@@ -3398,6 +3398,69 @@ export default function Page() {
     return () => { alive = false; };
   }, [session?.user.id, bootstrapVersion]);
 
+
+  useEffect(() => {
+    const userId = session?.user.id;
+    if (!userId) return;
+
+    let alive = true;
+    let refreshing = false;
+    let queued = false;
+    let refreshTimer: number | undefined;
+
+    async function refreshSocial() {
+      if (!alive) return;
+      if (refreshing) {
+        queued = true;
+        return;
+      }
+      refreshing = true;
+      try {
+        const result = await api('hub');
+        if (!alive) return;
+        if (result.hub) setHub(result.hub);
+      } catch (reason) {
+        if (typeof console !== 'undefined') console.warn('[ECLIPSE SOCIAL REALTIME]', reason instanceof Error ? reason.message : 'social refresh failed');
+      } finally {
+        refreshing = false;
+        if (queued && alive) {
+          queued = false;
+          window.setTimeout(() => { void refreshSocial(); }, 80);
+        }
+      }
+    }
+
+    function scheduleSocialRefresh() {
+      if (!alive) return;
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => { void refreshSocial(); }, 120);
+    }
+
+    const channel = supabase
+      .channel(`social-${userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'eclipse_friend_requests', filter: `receiver_id=eq.${userId}` }, scheduleSocialRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'eclipse_friend_requests', filter: `sender_id=eq.${userId}` }, scheduleSocialRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'eclipse_friends', filter: `user_id=eq.${userId}` }, scheduleSocialRefresh)
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          if (typeof console !== 'undefined') console.warn('[ECLIPSE SOCIAL REALTIME] subscription status:', status);
+        }
+      });
+
+    const onFocus = () => scheduleSocialRefresh();
+    const onVisible = () => { if (document.visibilityState === 'visible') scheduleSocialRefresh(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      alive = false;
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user.id]);
+
   useEffect(() => {
     if (!roomPayload?.room.id || !session) return;
     const roomId = roomPayload.room.id;
@@ -3490,6 +3553,8 @@ export default function Page() {
   if (!hub && error) return <AccountErrorScreen message={error} onRetry={() => { setError(''); setBootstrapVersion((value) => value + 1); }} onSignOut={() => supabase.auth.signOut({ scope: 'local' })} />;
   if (!hub) return <LoadingScreen text="계정과 카드 보관함을 불러오는 중" />;
 
+  const pendingFriendRequestCount = hub.friendRequests.filter((request) => request.receiver_id === session.user.id && request.status === 'pending').length;
+
   const content = (() => {
     switch (view) {
       case 'duel': return <DuelView userId={session.user.id} hub={hub} roomPayload={roomPayload} onRoom={setRoomPayload} onHub={setHub} serverStatus={serverStatus} syncState={roomSyncState} lastSyncAt={lastRoomSyncAt} />;
@@ -3505,11 +3570,11 @@ export default function Page() {
   const roomChat = roomPayload && roomPayload.room.status !== 'cancelled' ? roomPayload.room.id : undefined;
 
   return (
-    <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`} data-ui-build="v26">
+    <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`} data-ui-build="v29a">
       <div className="app-backdrop" aria-hidden="true"><span className="backdrop-grid" /><span className="backdrop-orbit" /><span className="backdrop-glow" /></div>
       <aside className="sidebar">
         <button className="game-logo" onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView('home'); }}><span className="logo-glyph"><i>E</i></span><div><b>ECLIPSE</b><small>DUEL</small></div></button>
-        <nav>{NAV_ITEMS.map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView(item.id); }}><i><GameIcon name={item.id} /></i><span>{item.label}</span></button>)}</nav>
+        <nav>{NAV_ITEMS.map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView(item.id); }}><i><GameIcon name={item.id} /></i><span>{item.label}</span>{item.id === 'friends' && pendingFriendRequestCount > 0 && <b className="social-request-badge" aria-label={`받은 친구 요청 ${pendingFriendRequestCount}개`}>{pendingFriendRequestCount > 9 ? '9+' : pendingFriendRequestCount}</b>}</button>)}</nav>
         <div className="sidebar-profile"><Avatar id={hub.profile.avatar} size="small" /><span><b><NicknameText name={hub.profile.display_name} styleId={hub.profile.nickname_style} /></b><small>LV.{levelFromXp(hub.profile.xp)}</small></span><button aria-label="로그아웃" onClick={() => supabase.auth.signOut({ scope: 'local' })}><GameIcon name="logout" /></button></div>
       </aside>
 
@@ -3527,7 +3592,7 @@ export default function Page() {
 
       <section className="content-area">{error && <div className="global-error"><span>{error}</span><button onClick={() => setError('')}>×</button></div>}{content}</section>
 
-      <nav className="mobile-nav">{NAV_ITEMS.map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView(item.id); }}><i><GameIcon name={item.id} /></i><span>{item.label}</span></button>)}</nav>
+      <nav className="mobile-nav">{NAV_ITEMS.map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView(item.id); }}><i><GameIcon name={item.id} /></i><span>{item.label}</span>{item.id === 'friends' && pendingFriendRequestCount > 0 && <b className="social-request-badge" aria-label={`받은 친구 요청 ${pendingFriendRequestCount}개`}>{pendingFriendRequestCount > 9 ? '9+' : pendingFriendRequestCount}</b>}</button>)}</nav>
       <ChatDrawer open={chatOpen} roomId={roomChat} onClose={() => setChatOpen(false)} profile={hub.profile} onUnread={() => setChatUnread(true)} />
       {chatOpen && <button className="chat-backdrop" aria-label="채팅 닫기" onClick={() => setChatOpen(false)} />}
       <ControlCenter
