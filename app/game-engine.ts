@@ -12,7 +12,7 @@ import {
 export type MatchPhase = 'main' | 'battle';
 export type MatchStatus = 'waiting' | 'active' | 'finished';
 export type SummonOrigin = 'normal' | 'rift' | 'fusion' | 'evolution' | 'token';
-export type VisualEventKind = 'summon' | 'special' | 'fusion' | 'evolution' | 'spell' | 'trap' | 'set' | 'draw' | 'attack' | 'defense' | 'destroy' | 'core';
+export type VisualEventKind = 'turn' | 'summon' | 'special' | 'fusion' | 'evolution' | 'spell' | 'trap' | 'set' | 'draw' | 'attack' | 'defense' | 'destroy' | 'core' | 'heal' | 'buff' | 'energy';
 
 export interface CardInstance {
   instanceId: string;
@@ -250,6 +250,7 @@ export function initializeMatch(
   appendLog(state, '결투가 시작되었습니다.', 'system');
   appendLog(state, `${coinSide === 'solar' ? '태양면' : '월식면'}이 나왔습니다. ${first.slice(0, 6)}의 선공입니다.`, 'system');
   appendVisual(state, { kind: 'summon', vfx: 'duel-genesis', label: 'DUEL START' });
+  appendVisual(state, { kind: 'turn', vfx: 'turn-shift', ownerId: first, label: 'FIRST TURN' });
   return { state, privateStates };
 }
 
@@ -359,10 +360,13 @@ function applyEffect(
     case 'heal_core':
       healCore(state, actorId, effect.amount);
       appendLog(state, `코어를 ${effect.amount} 회복했습니다.`, 'system');
+      appendVisual(state, { kind: 'heal', vfx: 'core-heal', ownerId: actorId, targetOwnerId: actorId, amount: effect.amount, label: '코어 회복' });
       break;
-    case 'draw':
-      drawCards(state, actorPrivate, actorId, effect.amount);
+    case 'draw': {
+      const drew = drawCards(state, actorPrivate, actorId, effect.amount);
+      if (drew) appendVisual(state, { kind: 'draw', vfx: 'effect-draw', ownerId: actorId, amount: effect.amount, label: `효과 드로우 ${effect.amount}` });
       break;
+    }
     case 'buff_unit': {
       if (!target) throw new Error('대상 유닛을 선택해야 합니다.');
       const unit = state.boards[target.ownerId].units[target.unitIndex];
@@ -370,6 +374,7 @@ function applyEffect(
       unit.attack += effect.attack;
       unit.health += effect.health;
       unit.maxHealth += effect.health;
+      appendVisual(state, { kind: 'buff', vfx: 'unit-empower', cardId: unit.cardId, ownerId: actorId, targetOwnerId: target.ownerId, targetZone: target.unitIndex, amount: Math.max(effect.attack, effect.health), label: '유닛 강화' });
       break;
     }
     case 'shield_unit': {
@@ -377,15 +382,18 @@ function applyEffect(
       const unit = state.boards[target.ownerId].units[target.unitIndex];
       if (!unit) throw new Error('대상 유닛이 없습니다.');
       unit.shield += effect.amount;
+      appendVisual(state, { kind: 'buff', vfx: 'shield-rise', cardId: unit.cardId, ownerId: actorId, targetOwnerId: target.ownerId, targetZone: target.unitIndex, amount: effect.amount, label: '보호막' });
       break;
     }
     case 'aoe_enemy':
       state.boards[opponentId].units.forEach((unit, index) => {
         if (unit) damageUnit(state, opponentId, index, effect.amount);
       });
+      appendVisual(state, { kind: 'defense', vfx: 'aoe-wave', ownerId: actorId, targetOwnerId: opponentId, amount: effect.amount, label: '광역 피해' });
       break;
     case 'gain_energy':
       state.energy[actorId].current = Math.min(10, state.energy[actorId].current + effect.amount);
+      appendVisual(state, { kind: 'energy', vfx: 'energy-surge', ownerId: actorId, targetOwnerId: actorId, amount: effect.amount, label: '에너지 회복' });
       break;
     case 'destroy_weak': {
       if (!target) throw new Error('대상 유닛을 선택해야 합니다.');
@@ -810,7 +818,7 @@ export function attack(
       if (attackerCard?.keywords?.includes('lifesteal')) healCore(state, playerId, attacker.attack);
       attacker.canAttack = false;
       appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) 코어에 ${attacker.attack} 피해.`, 'attack');
-      appendVisual(state, { kind: 'core', vfx: 'core-break', ownerId: playerId, targetOwnerId: opponentId, amount: attacker.attack, label: 'CORE HIT' });
+      appendVisual(state, { kind: 'core', vfx: 'core-break', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: opponentId, sourceZone: attackerIndex, amount: attacker.attack, label: '직접 공격' });
     }
   } else {
     if (target.unitIndex < 0 || target.unitIndex > 4) throw new Error('올바른 공격 대상을 선택하세요.');
@@ -907,6 +915,7 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
   state.boards[nextPlayer].units.forEach((unit) => {
     if (unit) unit.canAttack = true;
   });
+  appendVisual(state, { kind: 'turn', vfx: 'turn-shift', ownerId: nextPlayer, label: `TURN ${state.turnNumber}` });
   const drew = drawCards(state, privateStates[nextPlayer], nextPlayer, 1);
   if (drew && state.status === 'active') {
     appendVisual(state, { kind: 'draw', vfx: 'turn-draw', ownerId: nextPlayer, label: '턴 시작 드로우' });

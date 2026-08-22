@@ -173,35 +173,119 @@ function playUiSound(kind: UiSound): void {
   const context = getAudioContext();
   if (!context) return;
   const now = context.currentTime;
-  const gain = context.createGain();
-  const osc = context.createOscillator();
-  gain.connect(context.destination);
-  osc.connect(gain);
-  const settings: Record<UiSound, [OscillatorType, number, number, number]> = {
-    click: ['sine', 420, 520, 0.045],
-    card: ['triangle', 360, 620, 0.075],
-    remove: ['sine', 330, 220, 0.055],
-    auto: ['triangle', 300, 780, 0.14],
-    save: ['sine', 520, 820, 0.11],
-    pack: ['sawtooth', 180, 460, 0.16],
-    reveal: ['triangle', 460, 960, 0.12],
-    success: ['sine', 620, 1040, 0.18],
-    summon: ['triangle', 260, 720, 0.18],
-    attack: ['sawtooth', 180, 92, 0.11],
-    spell: ['sine', 420, 1180, 0.2],
-    trap: ['square', 260, 620, 0.18],
-    damage: ['sawtooth', 120, 70, 0.1],
-    turn: ['sine', 520, 760, 0.12],
+  const master = context.createGain();
+  const compressor = context.createDynamicsCompressor();
+  compressor.threshold.value = -18;
+  compressor.knee.value = 16;
+  compressor.ratio.value = 7;
+  compressor.attack.value = 0.002;
+  compressor.release.value = 0.12;
+  master.gain.setValueAtTime(0.82, now);
+  master.connect(compressor);
+  compressor.connect(context.destination);
+
+  const tone = (type: OscillatorType, from: number, to: number, duration: number, volume: number, delay = 0): void => {
+    const osc = context.createOscillator();
+    const gain = context.createGain();
+    const begin = now + delay;
+    osc.type = type;
+    osc.frequency.setValueAtTime(Math.max(45, from), begin);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(45, to), begin + duration);
+    gain.gain.setValueAtTime(0.0001, begin);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, volume), begin + Math.min(0.018, duration * 0.18));
+    gain.gain.exponentialRampToValueAtTime(0.0001, begin + duration);
+    osc.connect(gain);
+    gain.connect(master);
+    osc.start(begin);
+    osc.stop(begin + duration + 0.02);
   };
-  const [type, start, end, duration] = settings[kind];
-  osc.type = type;
-  osc.frequency.setValueAtTime(start, now);
-  osc.frequency.exponentialRampToValueAtTime(Math.max(50, end), now + duration);
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(kind === 'pack' ? 0.045 : 0.026, now + 0.012);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-  osc.start(now);
-  osc.stop(now + duration + 0.01);
+
+  const noise = (duration: number, volume: number, delay = 0, highpass = 180): void => {
+    const frames = Math.max(1, Math.floor(context.sampleRate * duration));
+    const buffer = context.createBuffer(1, frames, context.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < frames; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / frames);
+    const source = context.createBufferSource();
+    const filter = context.createBiquadFilter();
+    const gain = context.createGain();
+    const begin = now + delay;
+    filter.type = 'highpass';
+    filter.frequency.value = highpass;
+    gain.gain.setValueAtTime(volume, begin);
+    gain.gain.exponentialRampToValueAtTime(0.0001, begin + duration);
+    source.buffer = buffer;
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(master);
+    source.start(begin);
+    source.stop(begin + duration + 0.02);
+  };
+
+  switch (kind) {
+    case 'click':
+      tone('sine', 560, 730, 0.045, 0.018);
+      tone('triangle', 1120, 820, 0.035, 0.008, 0.004);
+      break;
+    case 'card':
+      tone('triangle', 410, 720, 0.085, 0.025);
+      noise(0.05, 0.009, 0.01, 1200);
+      break;
+    case 'remove':
+      tone('sine', 380, 180, 0.08, 0.02);
+      break;
+    case 'auto':
+      tone('triangle', 240, 620, 0.18, 0.024);
+      tone('sine', 480, 980, 0.15, 0.014, 0.035);
+      break;
+    case 'save':
+      tone('sine', 520, 780, 0.12, 0.022);
+      tone('sine', 780, 1040, 0.1, 0.016, 0.06);
+      break;
+    case 'pack':
+      noise(0.24, 0.04, 0, 650);
+      tone('sawtooth', 150, 420, 0.22, 0.025);
+      tone('sine', 380, 1050, 0.28, 0.015, 0.05);
+      break;
+    case 'reveal':
+      tone('triangle', 430, 980, 0.16, 0.025);
+      tone('sine', 860, 1320, 0.2, 0.012, 0.025);
+      break;
+    case 'success':
+      tone('sine', 520, 780, 0.13, 0.022);
+      tone('sine', 780, 1040, 0.14, 0.019, 0.07);
+      tone('triangle', 1040, 1560, 0.12, 0.01, 0.14);
+      break;
+    case 'summon':
+      tone('sine', 120, 390, 0.42, 0.03);
+      tone('triangle', 260, 880, 0.34, 0.025, 0.035);
+      noise(0.2, 0.022, 0.09, 900);
+      break;
+    case 'attack':
+      noise(0.14, 0.04, 0, 380);
+      tone('sawtooth', 240, 78, 0.14, 0.035);
+      tone('square', 520, 210, 0.08, 0.012, 0.025);
+      break;
+    case 'spell':
+      tone('sine', 320, 1180, 0.35, 0.024);
+      tone('triangle', 680, 1680, 0.28, 0.016, 0.055);
+      noise(0.18, 0.01, 0.08, 1600);
+      break;
+    case 'trap':
+      tone('square', 210, 640, 0.18, 0.02);
+      tone('triangle', 920, 260, 0.22, 0.018, 0.04);
+      noise(0.12, 0.025, 0.035, 1200);
+      break;
+    case 'damage':
+      noise(0.18, 0.055, 0, 240);
+      tone('sawtooth', 110, 48, 0.16, 0.04);
+      break;
+    case 'turn':
+      tone('sine', 430, 620, 0.11, 0.018);
+      tone('sine', 620, 930, 0.16, 0.02, 0.07);
+      break;
+    default:
+      break;
+  }
 }
 
 function levelFromXp(xp: number): number {
@@ -1537,8 +1621,9 @@ function ChatDrawer({ open, roomId, onClose, profile }: { open: boolean; roomId?
 }
 
 function duelEventLabel(event: VisualEvent): string {
+  if (event.kind === 'turn') return '턴 시작';
   if (event.kind === 'summon') return '일반 소환';
-  if (event.kind === 'special') return '균열 특수 소환';
+  if (event.kind === 'special') return '균열 소환';
   if (event.kind === 'fusion') return '공명 융합';
   if (event.kind === 'evolution') return '계승 진화';
   if (event.kind === 'spell') return '주문 발동';
@@ -1546,18 +1631,74 @@ function duelEventLabel(event: VisualEvent): string {
   if (event.kind === 'set') return '함정 세트';
   if (event.kind === 'draw') return '드로우';
   if (event.kind === 'attack') return '공격 선언';
-  if (event.kind === 'defense') return '방어 / 피해';
-  if (event.kind === 'destroy') return '파괴';
-  if (event.kind === 'core') return '리더 직접 피해';
+  if (event.kind === 'defense') return '피격 / 방어';
+  if (event.kind === 'destroy') return '카드 파괴';
+  if (event.kind === 'core') return '리더 피해';
+  if (event.kind === 'heal') return '리더 회복';
+  if (event.kind === 'buff') return '강화 효과';
+  if (event.kind === 'energy') return '에너지 회복';
   return '행동';
 }
 
 function duelEventLocation(event: VisualEvent): string {
-  if (event.kind === 'attack') return event.targetZone !== undefined ? `필드 ${Number(event.sourceZone ?? 0) + 1} → 상대 ${event.targetZone + 1}` : `필드 ${Number(event.sourceZone ?? 0) + 1} → 상대 리더`;
+  if (event.kind === 'attack') return event.targetZone !== undefined ? `필드 ${Number(event.sourceZone ?? 0) + 1} → 상대 필드 ${event.targetZone + 1}` : `필드 ${Number(event.sourceZone ?? 0) + 1} → 상대 리더`;
   if (event.kind === 'set' && event.targetZone !== undefined) return `함정 존 ${event.targetZone + 1}`;
   if ((event.kind === 'summon' || event.kind === 'special' || event.kind === 'fusion' || event.kind === 'evolution') && event.targetZone !== undefined) return `유닛 존 ${event.targetZone + 1}`;
-  if (event.kind === 'core') return `리더 피해 ${event.amount ?? ''}`.trim();
+  if ((event.kind === 'defense' || event.kind === 'destroy' || event.kind === 'buff') && event.targetZone !== undefined) return `유닛 존 ${event.targetZone + 1}`;
+  if (event.kind === 'core') return `피해 ${event.amount ?? ''}`.trim();
+  if (event.kind === 'heal') return `회복 ${event.amount ?? ''}`.trim();
+  if (event.kind === 'energy') return `에너지 +${event.amount ?? 0}`;
   return '';
+}
+
+type DuelPoint = { x: number; y: number };
+
+function duelZonePoint(ownerId: string | undefined, userId: string, zone: number | undefined, row: 'unit' | 'secret' | 'leader' | 'hand' | 'deck' = 'unit'): DuelPoint {
+  const mine = ownerId === userId;
+  if (row === 'leader') return mine ? { x: 8.5, y: 75 } : { x: 8.5, y: 24 };
+  if (row === 'hand') return mine ? { x: 51, y: 91 } : { x: 51, y: 9.5 };
+  if (row === 'deck') return mine ? { x: 84, y: 73 } : { x: 84, y: 26 };
+  const safeZone = Math.max(0, Math.min(4, zone ?? 2));
+  const x = 30 + safeZone * 10.5;
+  if (row === 'secret') return { x, y: mine ? 69 : 31 };
+  return { x, y: mine ? 59 : 41 };
+}
+
+function duelEventPoints(event: VisualEvent, userId: string): { source: DuelPoint; target: DuelPoint } {
+  const actorId = event.ownerId;
+  const targetId = event.targetOwnerId ?? event.ownerId;
+  if (event.kind === 'attack') {
+    return {
+      source: duelZonePoint(actorId, userId, event.sourceZone, 'unit'),
+      target: event.targetZone !== undefined ? duelZonePoint(targetId, userId, event.targetZone, 'unit') : duelZonePoint(targetId, userId, undefined, 'leader'),
+    };
+  }
+  if (event.kind === 'core' || event.kind === 'heal' || event.kind === 'energy') {
+    const source = event.sourceZone !== undefined ? duelZonePoint(actorId, userId, event.sourceZone, 'unit') : duelZonePoint(actorId, userId, undefined, 'leader');
+    return { source, target: duelZonePoint(targetId, userId, undefined, 'leader') };
+  }
+  if (event.kind === 'spell') {
+    return {
+      source: duelZonePoint(actorId, userId, undefined, 'hand'),
+      target: event.targetZone !== undefined ? duelZonePoint(targetId, userId, event.targetZone, 'unit') : duelZonePoint(targetId && targetId !== actorId ? targetId : (actorId === userId ? '__opponent__' : userId), userId, undefined, 'leader'),
+    };
+  }
+  if (event.kind === 'trap') {
+    return { source: duelZonePoint(actorId, userId, 2, 'secret'), target: duelZonePoint(actorId === userId ? '__opponent__' : userId, userId, event.targetZone, event.targetZone !== undefined ? 'unit' : 'leader') };
+  }
+  if (event.kind === 'set') {
+    const target = duelZonePoint(actorId, userId, event.targetZone, 'secret');
+    return { source: duelZonePoint(actorId, userId, undefined, 'hand'), target };
+  }
+  if (event.kind === 'draw') {
+    return { source: duelZonePoint(actorId, userId, undefined, 'deck'), target: duelZonePoint(actorId, userId, undefined, 'hand') };
+  }
+  if (event.kind === 'turn') {
+    const target = duelZonePoint(actorId, userId, undefined, 'leader');
+    return { source: { x: 50, y: 50 }, target };
+  }
+  const target = duelZonePoint(targetId, userId, event.targetZone, event.kind === 'destroy' || event.kind === 'defense' || event.kind === 'buff' ? 'unit' : 'unit');
+  return { source: { x: 50, y: 50 }, target };
 }
 
 function DuelEffectLayer({ event, userId, profiles }: { event: VisualEvent | null; userId: string; profiles: RoomProfile[] }) {
@@ -1565,32 +1706,40 @@ function DuelEffectLayer({ event, userId, profiles }: { event: VisualEvent | nul
   const card = event.cardId ? CARD_BY_ID[event.cardId] : undefined;
   const owner = profiles.find((profile) => profile.user_id === event.ownerId);
   const mine = event.ownerId === userId;
+  const { source, target } = duelEventPoints(event, userId);
+  const fxStyle = {
+    '--sx': `${source.x}%`, '--sy': `${source.y}%`, '--tx': `${target.x}%`, '--ty': `${target.y}%`,
+    '--fx-accent': card ? ELEMENT_ACCENT[card.element] : '#7ddcff',
+  } as CSSProperties;
+  const cinematicCardKinds: VisualEvent['kind'][] = ['summon', 'special', 'fusion', 'evolution', 'spell', 'trap'];
+  const showCardCutIn = Boolean(card && cinematicCardKinds.includes(event.kind));
+  const vfxClass = event.vfx ? `vfx-${event.vfx.replace(/[^a-z0-9-]/gi, '-')}` : 'vfx-generic';
   return (
-    <div className={`duel-vfx-layer v16-vfx-layer event-${event.kind} ${mine ? 'from-me' : 'from-opponent'}`} key={event.id} aria-live="polite">
-      <div className="v16-action-cue">
-        <span className="v16-action-side">{mine ? 'MY ACTION' : 'OPPONENT ACTION'}</span>
-        <b>{duelEventLabel(event)}</b>
-        <small>{duelEventLocation(event) || owner?.display_name || (mine ? '나' : '상대')}</small>
-      </div>
-      {card && (
-        <div className={`v16-event-card element-${card.element}`} style={cardStyle(card)}>
-          <CardIllustration card={card} compact />
-          <span>{card.name}</span>
+    <div className={`v18-cinematic-layer kind-${event.kind} ${vfxClass} ${mine ? 'from-me' : 'from-opponent'} element-${card?.element ?? 'neutral'}`} key={event.id} style={fxStyle} aria-live="polite">
+      <svg className="v18-motion-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <line x1={source.x} y1={source.y} x2={target.x} y2={target.y} />
+      </svg>
+      <span className="v18-motion-orb" aria-hidden="true" />
+      <span className="v18-impact-ring" aria-hidden="true" />
+      <span className="v18-impact-flare" aria-hidden="true" />
+      {(event.kind === 'destroy' || event.kind === 'core' || event.kind === 'defense') && <span className="v18-shard-field" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ '--piece': index } as CSSProperties} />)}</span>}
+      {(event.kind === 'fusion' || event.kind === 'evolution' || event.kind === 'special' || event.kind === 'summon') && <span className="v18-summon-gate" aria-hidden="true"><i /><i /><i /></span>}
+      {showCardCutIn && card && (
+        <div className="v18-card-cutin">
+          <CardIllustration card={card} hero />
+          <div><small>{mine ? 'YOUR ACTION' : 'OPPONENT ACTION'} · {duelEventLabel(event)}</small><b>{card.name}</b><span>{KIND_LABEL[card.kind]} · {ELEMENT_LABEL[card.element]}</span></div>
         </div>
       )}
-      <div className={`duel-vfx vfx-${event.vfx} element-${card?.element ?? 'neutral'} kind-${event.kind}`} style={card ? cardStyle(card) : undefined}>
-        <span className="vfx-ring ring-a" />
-        <span className="vfx-ring ring-b" />
-        <span className="vfx-beam beam-a" />
-        <span className="vfx-beam beam-b" />
-        <span className="vfx-particles">
-          {Array.from({ length: 18 }, (_, index) => <i key={index} style={{ '--i': index } as CSSProperties} />)}
-        </span>
-        <strong>{card?.sigil ?? (event.kind === 'fusion' ? '∞' : event.kind === 'evolution' ? '△' : event.kind === 'attack' ? '➜' : event.kind === 'trap' ? '!' : '◈')}</strong>
-        <b>{event.label ?? card?.name ?? duelEventLabel(event)}</b>
-        {event.amount !== undefined && event.amount > 0 && <em>{event.amount}</em>}
+      <div className="v18-event-banner">
+        <small>{mine ? 'MY ACTION' : event.ownerId ? 'OPPONENT ACTION' : 'DUEL EVENT'}</small>
+        <b>{duelEventLabel(event)}</b>
+        <span>{event.label ?? card?.name ?? owner?.display_name ?? duelEventLocation(event)}</span>
       </div>
-      {event.kind === 'attack' && <span className="v16-attack-streak" />}
+      {event.amount !== undefined && event.amount > 0 && ['core', 'defense', 'heal', 'buff', 'energy'].includes(event.kind) && (
+        <strong className={`v18-floating-number ${event.kind === 'heal' || event.kind === 'energy' || event.kind === 'buff' ? 'positive' : 'damage'}`}>{event.kind === 'heal' || event.kind === 'energy' || event.kind === 'buff' ? '+' : '−'}{event.amount}</strong>
+      )}
+      {event.kind === 'draw' && <span className="v18-draw-card" aria-hidden="true"><i>E</i></span>}
+      {event.kind === 'trap' && <span className="v18-trap-chain" aria-hidden="true"><i /><i /><i /></span>}
     </div>
   );
 }
@@ -1737,6 +1886,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   const [message, setMessage] = useState('');
   const [logOpen, setLogOpen] = useState(false);
   const [surrenderOpen, setSurrenderOpen] = useState(false);
+  const [extraOpen, setExtraOpen] = useState(false);
   const [activeVfx, setActiveVfx] = useState<VisualEvent | null>(null);
   const [vfxQueue, setVfxQueue] = useState<VisualEvent[]>([]);
   const [coinClock, setCoinClock] = useState(() => Date.now());
@@ -1799,6 +1949,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
     setSelectedExtra(null);
     setSelectedMaterials([]);
     setSelectedAttacker(null);
+    setExtraOpen(false);
     setMessage('');
   }, [nullableState?.turnNumber, nullableState?.currentPlayerId]);
 
@@ -1820,7 +1971,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
     const [next, ...rest] = vfxQueue;
     setVfxQueue(rest);
     setActiveVfx(next);
-    const duration = next.kind === 'attack' || next.kind === 'defense' || next.kind === 'core' ? 1050 : next.kind === 'draw' || next.kind === 'set' ? 900 : 1450;
+    const duration = next.kind === 'fusion' || next.kind === 'evolution' ? 1850
+      : next.kind === 'trap' ? 1550
+        : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? 1350
+          : next.kind === 'attack' || next.kind === 'core' || next.kind === 'destroy' ? 1150
+            : next.kind === 'defense' || next.kind === 'heal' || next.kind === 'buff' || next.kind === 'energy' ? 900
+              : next.kind === 'turn' ? 850
+                : 760;
     const timer = window.setTimeout(() => {
       setActiveVfx((current) => current?.id === next.id ? null : current);
     }, duration);
@@ -1833,8 +1990,9 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
       : activeVfx.kind === 'spell' ? 'spell'
         : activeVfx.kind === 'trap' || activeVfx.kind === 'set' ? 'trap'
           : activeVfx.kind === 'core' || activeVfx.kind === 'destroy' || activeVfx.kind === 'defense' ? 'damage'
-            : activeVfx.kind === 'draw' ? 'turn'
-              : 'summon';
+            : activeVfx.kind === 'heal' || activeVfx.kind === 'buff' || activeVfx.kind === 'energy' ? 'success'
+              : activeVfx.kind === 'draw' || activeVfx.kind === 'turn' ? 'turn'
+                : 'summon';
     playUiSound(sound);
   }, [activeVfx?.id]);
 
@@ -2063,177 +2221,221 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
                 : selectedCard ? '행동 버튼으로 카드를 발동하세요.'
                   : specialReadyCount > 0 ? `특수 소환 가능 카드 ${specialReadyCount}장이 있습니다.` : '손패에서 카드를 선택하거나 전투 단계로 이동하세요.';
 
+  const recentEvents = state.visualEvents.slice(-5).reverse();
+  const eventActorName = (event: VisualEvent) => event.ownerId === userId ? '나' : event.ownerId ? (profileMap[event.ownerId]?.display_name ?? '상대') : '시스템';
+  const playableHandCount = privateState.hand.filter((instance) => {
+    const card = CARD_BY_ID[instance.cardId];
+    if (!card || !myTurn || state.phase !== 'main') return false;
+    const cost = card.summonMode === 'rift' && card.riftCost !== undefined && clientRiftReady(state, userId, opponentId, card) ? card.riftCost : card.cost;
+    return myEnergy.current >= cost;
+  }).length;
+
   return (
-    <div className="duel-screen ascension-duel-screen v15-duel-screen v17-duel-screen">
+    <div className={`v18-duel-screen ${myTurn ? 'is-my-turn' : 'is-opponent-turn'} phase-${state.phase} fx-${activeVfx?.kind ?? 'idle'}`}>
       <DuelEffectLayer event={activeVfx} userId={userId} profiles={payload.profiles} />
       <CoinTossOverlay state={state} profiles={payload.profiles} userId={userId} now={coinClock} />
-      <div className="orientation-hint"><span>↻</span><b>기기를 가로로 돌려주세요</b><small>결투장은 가로 화면에 최적화되어 있습니다.</small></div>
-      {busy && <div className="v14-action-progress v15-action-progress"><span />서버에서 행동을 처리하고 있습니다…</div>}
-      {myTurn && specialReadyCount > 0 && state.phase === 'main' && (
-        <div className="v16-special-toast"><span>✦</span><div><b>특수 소환 가능</b><small>균열·공명 융합·계승 진화 중 {specialReadyCount}장이 현재 조건을 만족합니다.</small></div></div>
-      )}
+      <div className="orientation-hint"><span>↻</span><b>가로 화면을 권장합니다</b><small>결투 정보와 카드가 한 화면에 가장 선명하게 표시됩니다.</small></div>
+      {busy && <div className="v18-action-progress"><span />행동 처리 중</div>}
 
-      <header className="duel-topbar v15-duel-topbar v16-duel-topbar v17-duel-topbar">
-        <div className="duelist opponent"><Avatar id={opponent?.avatar} /><span><small>OPPONENT</small><b>{opponent?.display_name ?? '상대'}</b></span></div>
-        <div className="v15-turn-center">
-          <div className="v15-turn-title"><small>ROUND {roundNumber} · TURN {state.turnNumber}</small><b>{coinTossActive ? '선공 결정 중' : myTurn ? '내 턴' : '상대 턴'}</b><span>{coinTossActive ? 'OPENING' : phaseLabel}</span></div>
+      <header className="v18-duel-header">
+        <div className="v18-duel-brand">
+          <span className="v18-brand-mark">E</span>
+          <div><b>ECLIPSE DUEL</b><small>ROOM {room.code}</small></div>
+        </div>
+        <div className="v18-turn-hud">
+          <small>ROUND {roundNumber} · TURN {state.turnNumber}</small>
+          <div><b>{coinTossActive ? '선공 결정' : myTurn ? 'YOUR TURN' : 'OPPONENT TURN'}</b><span>{coinTossActive ? 'OPENING' : phaseLabel}</span></div>
           {!coinTossActive && state.status === 'active' && (
-            <>
-              <DuelEnergyMeter label="내 에너지" current={myEnergy.current} max={myEnergy.max} nextMax={!myTurn ? nextMyEnergyMax : undefined} compact />
-              <div className={`v14-turn-timer v15-turn-timer ${turnSecondsLeft <= 10 ? 'danger' : turnSecondsLeft <= 20 ? 'warning' : ''}`}>
-                <span><small>남은 시간</small><strong>{turnSecondsLeft}</strong><em>초</em></span>
-                <i><b style={{ width: `${turnTimerPercent}%` }} /></i>
-              </div>
-            </>
+            <div className={`v18-turn-timer ${turnSecondsLeft <= 10 ? 'danger' : turnSecondsLeft <= 20 ? 'warning' : ''}`}>
+              <strong>{turnSecondsLeft}</strong><small>SEC</small><i><b style={{ width: `${turnTimerPercent}%` }} /></i>
+            </div>
           )}
         </div>
-        <div className="duel-top-actions"><button className={`log-toggle ${logOpen ? 'active' : ''}`} onClick={() => setLogOpen((value) => !value)}>기록</button><button className="surrender-button" disabled={busy || state.status !== 'active'} onClick={() => setSurrenderOpen(true)}>항복</button></div>
+        <div className="v18-header-actions">
+          <button type="button" className={logOpen ? 'active' : ''} onClick={() => setLogOpen((value) => !value)}>기록</button>
+          <button type="button" className="danger" disabled={busy || state.status !== 'active'} onClick={() => setSurrenderOpen(true)}>항복</button>
+        </div>
       </header>
 
-      <section className="battlefield v15-battlefield v16-battlefield v17-battlefield">
-        <div className="battlefield-texture v16-battlefield-texture" />
-        <div className="v16-arena-rune" aria-hidden="true"><i /><i /><i /></div>
-        <aside className="v16-live-feed" aria-label="최근 행동">
-          <header><span>LIVE</span><b>최근 행동</b></header>
-          {state.logs.slice(-4).reverse().map((log) => <p className={`tone-${log.tone}`} key={log.id}>{log.text}</p>)}
-        </aside>
-        <div className="v15-field-caption opponent"><span>OPPONENT FIELD</span><b>CORE {state.core[opponentId]}</b></div>
-        <div className="opponent-hand v15-opponent-hand">
-          {Array.from({ length: Math.min(8, state.handCounts[opponentId] ?? 0) }, (_, index) => <CardFace key={index} hidden compact />)}
-          {(state.handCounts[opponentId] ?? 0) > 8 && <b>+{(state.handCounts[opponentId] ?? 0) - 8}</b>}
-        </div>
-        <div className="core-panel enemy-core v15-core-panel">
-          <button className={`v16-leader-core ${selectedAttackerCanHitCore ? 'targetable direct-ready' : ''}`} disabled={!selectedAttackerCanHitCore || busy} onClick={() => gameAction('attack', { attackerIndex: selectedAttacker, target: { kind: 'core' } })}>
-            <span>상대 체력</span><strong>{state.core[opponentId]}</strong><small>{selectedAttackerCanHitCore ? '직접 공격 가능' : opponentHasUnits && selectingAttackTarget ? '상대 유닛을 먼저 공격' : 'ENEMY HP'}</small>
-          </button>
-          <DuelEnergyMeter label="상대 에너지" current={opponentEnergy.current} max={opponentEnergy.max} opponent />
-        </div>
+      <aside className="v18-leader-rail">
+        <button
+          type="button"
+          className={`v18-leader-card opponent ${selectedAttackerCanHitCore ? 'targetable direct-ready' : ''}`}
+          disabled={!selectedAttackerCanHitCore || busy}
+          onClick={() => selectedAttacker !== null && gameAction('attack', { attackerIndex: selectedAttacker, target: { kind: 'core' } })}
+        >
+          <div className="v18-leader-identity"><Avatar id={opponent?.avatar} /><span><small>OPPONENT</small><b>{opponent?.display_name ?? '상대'}</b></span></div>
+          <div className="v18-hp-readout"><small>HP</small><strong>{state.core[opponentId]}</strong><em>{selectedAttackerCanHitCore ? 'DIRECT ATTACK' : 'ENEMY LEADER'}</em></div>
+          <DuelEnergyMeter label="ENERGY" current={opponentEnergy.current} max={opponentEnergy.max} opponent compact />
+          <div className="v18-mini-stats"><span>HAND <b>{state.handCounts[opponentId] ?? 0}</b></span><span>DECK <b>{state.deckCounts[opponentId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[opponentId]?.length ?? 0}</b></span></div>
+        </button>
 
-        <div className="zone-row enemy-secrets">
-          {state.boards[opponentId].secrets.map((secret, index) => <div className={`secret-slot v16-secret-slot enemy ${secret ? 'set' : ''}`} key={index}>{secret ? <><CardFace hidden compact /><small>SET</small></> : <span>{index + 1}</span>}</div>)}
-        </div>
-        <div className="zone-row enemy-units">
-          {state.boards[opponentId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={opponentId} index={index} enemy targetable={Boolean(unit && (selectingEnemyTarget || selectingAttackTarget))} onClick={() => targetUnit(opponentId, index)} />)}
-        </div>
+        <div className="v18-leader-divider"><span>VS</span></div>
 
-        <div className="field-center v15-field-center">
-          <div className="deck-piles"><span>상대 덱 <b>{state.deckCounts[opponentId]}</b></span><span>묘지 <b>{state.graveyards[opponentId]?.length ?? 0}</b></span></div>
-          <div className="eclipse-ring"><span>◈</span></div>
-          <div className="deck-piles mine"><span>내 덱 <b>{state.deckCounts[userId]}</b></span><span>묘지 <b>{state.graveyards[userId]?.length ?? 0}</b></span></div>
-        </div>
-
-        <div className="zone-row my-units">
-          {state.boards[userId].units.map((unit, index) => (
-            <UnitSlot
-              key={index}
-              unit={unit}
-              owner={userId}
-              index={index}
-              selected={selectedAttacker === index}
-              materialSelected={selectedMaterials.includes(index)}
-              targetable={unit ? Boolean(selectingFriendlyTarget || selectingMaterials || (myTurn && state.phase === 'battle' && unit.canAttack)) : selectingUnitToSummon}
-              onClick={() => unit ? targetUnit(userId, index) : playToUnitZone(index)}
-            />
-          ))}
-        </div>
-        <div className="zone-row my-secrets">
-          {state.boards[userId].secrets.map((secret, index) => {
-            const ownedInstance = privateState.secrets[index];
-            const ownedTrap = ownedInstance ? CARD_BY_ID[ownedInstance.cardId] : undefined;
-            if (secret && ownedTrap) return (
-              <button type="button" className="secret-slot v16-secret-slot mine set revealed" key={index} onClick={() => requestCardInspection(ownedTrap.id)} title={`${ownedTrap.name} · ${trapTriggerDescription(ownedTrap.trapTrigger)}`}>
-                <CardIllustration card={ownedTrap} compact />
-                <b>{ownedTrap.name}</b><small>ARMED</small>
-              </button>
-            );
-            return <button type="button" className={`secret-slot v16-secret-slot mine ${!secret && selectingTrapToSet ? 'targetable' : ''}`} key={index} onClick={() => !secret && playToSecretZone(index)}><span>{index + 1}</span></button>;
-          })}
-        </div>
-
-        <div className="core-panel my-core v15-core-panel">
-          <DuelEnergyMeter label="내 에너지" current={myEnergy.current} max={myEnergy.max} nextMax={!myTurn ? nextMyEnergyMax : undefined} />
-          <div className="v16-my-hp"><span>내 체력</span><strong>{state.core[userId]}</strong><small>YOUR HP</small></div>
-        </div>
-        <div className="v15-field-caption mine"><span>YOUR FIELD</span><b>{actionGuide}</b></div>
-      </section>
-
-      <section className="duel-controls ascension-controls v15-duel-controls v17-duel-controls">
-        <div className="v15-player-dock">
-          <Avatar id={me?.avatar} /><span><small>YOU</small><b>{me?.display_name ?? '나'}</b><em>{myTurn ? `${phaseLabel} · 행동 가능` : '상대 턴 · 정보 확인 가능'}</em></span>
+        <section className="v18-leader-card mine">
+          <div className="v18-leader-identity"><Avatar id={me?.avatar} /><span><small>YOU</small><b>{me?.display_name ?? '나'}</b></span></div>
+          <div className="v18-hp-readout"><small>HP</small><strong>{state.core[userId]}</strong><em>{myTurn ? phaseLabel : 'WAITING'}</em></div>
           <DuelEnergyMeter label="ENERGY" current={myEnergy.current} max={myEnergy.max} nextMax={!myTurn ? nextMyEnergyMax : undefined} compact />
+          <div className="v18-mini-stats"><span>HAND <b>{privateState.hand.length}</b></span><span>DECK <b>{state.deckCounts[userId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[userId]?.length ?? 0}</b></span></div>
+        </section>
+      </aside>
+
+      <main className="v18-arena">
+        <div className="v18-arena-backdrop" aria-hidden="true"><i /><i /><i /><i /></div>
+        <div className="v18-opponent-hand-strip" aria-label={`상대 손패 ${state.handCounts[opponentId] ?? 0}장`}>
+          <span>HAND · {state.handCounts[opponentId] ?? 0}</span>
+          <div>{Array.from({ length: Math.min(9, state.handCounts[opponentId] ?? 0) }, (_, index) => <CardFace key={index} hidden compact />)}</div>
         </div>
 
-        <div className="hand-and-extra v15-hand-and-extra">
-          <div className="hand-zone-shell v15-hand-zone-shell">
-            <header className="v14-hand-header v15-hand-header"><span>내 손패</span><b>{privateState.hand.length}장</b><small>{myTurn && state.phase === 'main' ? '카드 선택 → 빛나는 필드/행동 버튼 사용' : '카드를 누르면 상세 정보를 볼 수 있습니다.'}</small></header>
-            <div className="hand-zone v15-hand-zone">
-              {privateState.hand.map((instance) => {
-                const card = CARD_BY_ID[instance.cardId];
-                const affordable = Boolean(card && myEnergy.current >= (card.summonMode === 'rift' && card.riftCost !== undefined ? Math.min(card.cost, card.riftCost) : card.cost));
-                return <div className={`v15-hand-card ${specialReadyIds.has(instance.instanceId) ? 'v16-special-ready-card' : ''} ${myTurn && state.phase === 'main' ? (affordable ? 'affordable' : 'expensive') : 'view-only'}`} key={instance.instanceId}>{specialReadyIds.has(instance.instanceId) && <span className="v16-special-ready-badge">SPECIAL</span>}<CardFace card={card} compact selected={selectedHand === instance.instanceId} disabled={busy} onClick={() => chooseHand(instance.instanceId)} /></div>;
-              })}
-            </div>
+        <section className="v18-board">
+          <div className="v18-zone-row v18-enemy-secrets">
+            {state.boards[opponentId].secrets.map((secret, index) => (
+              <div className={`v18-secret-slot enemy ${secret ? 'is-set' : ''}`} key={index}>
+                {secret ? <><span className="v18-secret-back">E</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}
+              </div>
+            ))}
           </div>
-          <div className="extra-zone v15-extra-zone">
-            <header><span>EXTRA</span><b>{privateState.extra.length}</b></header>
-            <div>{privateState.extra.map((instance) => <div className={`v16-extra-card ${specialReadyIds.has(instance.instanceId) ? 'special-ready' : ''}`} key={instance.instanceId}>{specialReadyIds.has(instance.instanceId) && <span>SPECIAL</span>}<CardFace card={CARD_BY_ID[instance.cardId]} compact selected={selectedExtra === instance.instanceId} disabled={busy} onClick={() => chooseExtra(instance.instanceId)} /></div>)}</div>
-          </div>
-        </div>
 
-        <aside className="phase-controls v15-phase-controls">
-          <div className={`v15-action-guide v16-action-guide ${myTurn ? 'mine' : 'opponent'}`}><small>{myTurn ? 'YOUR ACTION' : 'OPPONENT TURN'}</small><b>{myTurn ? phaseLabel : '상대 행동을 관전 중'}</b><span>{actionGuide}</span>{!myTurn && state.logs.length > 0 && <em>최근: {state.logs[state.logs.length - 1]?.text}</em>}</div>
+          <div className="v18-zone-row v18-enemy-units">
+            {state.boards[opponentId].units.map((unit, index) => (
+              <UnitSlot key={index} unit={unit} owner={opponentId} index={index} enemy targetable={Boolean(unit && (selectingEnemyTarget || selectingAttackTarget))} onClick={() => targetUnit(opponentId, index)} />
+            ))}
+          </div>
+
+          <div className="v18-center-lane">
+            <div className="v18-pile-stat"><small>OPPONENT</small><span>DECK <b>{state.deckCounts[opponentId]}</b></span><span>GRAVE <b>{state.graveyards[opponentId]?.length ?? 0}</b></span></div>
+            <div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div>
+            <div className={`v18-field-guide ${myTurn ? 'mine' : 'opponent'}`}><small>{myTurn ? 'YOUR ACTION' : 'WATCHING'}</small><b>{actionGuide}</b></div>
+            <div className="v18-pile-stat mine"><small>YOU</small><span>DECK <b>{state.deckCounts[userId]}</b></span><span>GRAVE <b>{state.graveyards[userId]?.length ?? 0}</b></span></div>
+          </div>
+
+          <div className="v18-zone-row v18-my-units">
+            {state.boards[userId].units.map((unit, index) => (
+              <UnitSlot
+                key={index}
+                unit={unit}
+                owner={userId}
+                index={index}
+                selected={selectedAttacker === index}
+                materialSelected={selectedMaterials.includes(index)}
+                targetable={unit ? Boolean(selectingFriendlyTarget || selectingMaterials || (myTurn && state.phase === 'battle' && unit.canAttack)) : selectingUnitToSummon}
+                onClick={() => unit ? targetUnit(userId, index) : playToUnitZone(index)}
+              />
+            ))}
+          </div>
+
+          <div className="v18-zone-row v18-my-secrets">
+            {state.boards[userId].secrets.map((secret, index) => {
+              const ownedInstance = privateState.secrets[index];
+              const ownedTrap = ownedInstance ? CARD_BY_ID[ownedInstance.cardId] : undefined;
+              if (secret && ownedTrap) return (
+                <button type="button" className="v18-secret-slot mine is-set revealed" key={index} onClick={() => requestCardInspection(ownedTrap.id)} title={`${ownedTrap.name} · ${trapTriggerDescription(ownedTrap.trapTrigger)}`}>
+                  <CardIllustration card={ownedTrap} compact /><span><b>{ownedTrap.name}</b><small>ARMED</small></span>
+                </button>
+              );
+              return <button type="button" className={`v18-secret-slot mine ${!secret && selectingTrapToSet ? 'targetable' : ''}`} key={index} onClick={() => !secret && playToSecretZone(index)}><span className="v18-zone-number">S{index + 1}</span></button>;
+            })}
+          </div>
+        </section>
+      </main>
+
+      <aside className="v18-command-rail">
+        {myTurn && specialReadyCount > 0 && state.phase === 'main' && (
+          <button type="button" className="v18-special-ready" onClick={() => setExtraOpen(true)}><span>✦</span><div><b>특수 소환 가능</b><small>{specialReadyCount}장의 카드가 조건을 만족합니다.</small></div><em>보기</em></button>
+        )}
+
+        <section className={`v18-context-panel ${selectedCard || selectedExtraCard ? 'has-card' : ''}`}>
+          {!selectedCard && !selectedExtraCard && (
+            <div className="v18-context-empty"><small>{myTurn ? 'ACTION GUIDE' : 'OPPONENT TURN'}</small><b>{myTurn ? phaseLabel : '상대 행동을 관전 중'}</b><p>{actionGuide}</p><span>사용 가능 손패 {playableHandCount} · 특수 소환 {specialReadyCount}</span></div>
+          )}
           {selectedCard && (
-            <div className={`selected-card-action v14-selected-card v15-selected-card ${selectedCard.summonMode === 'rift' ? 'rift' : ''}`}>
-              <div className="v14-selected-head"><b>{selectedCard.name}</b><div><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>취소</button></div></div>
-              <div className="v14-selected-stats"><span>COST <b>{selectedHandCost}</b></span>{isUnitCard(selectedCard) && <><span>ATK <b>{selectedCard.attack}</b></span><span>DEF <b>{selectedCard.health}</b></span></>}<span>ENERGY <b>{myEnergy.current}/{myEnergy.max}</b></span></div>
-              <small>{selectedCard.summonMode === 'rift' ? `균열 조건 · ${extraRequirement(selectedCard)}` : selectedCard.text}</small>
-              {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button className="v15-primary-action" onClick={activateSelectedNoTarget}>이 카드 발동</button>}
+            <div className="v18-selected-card">
+              <div className="v18-selected-art"><CardIllustration card={selectedCard} compact /></div>
+              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p>{selectedCard.summonMode === 'rift' ? `균열 조건 · ${extraRequirement(selectedCard)}` : selectedCard.text}</p></div>
+              <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>취소</button></div>
+              {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button className="v18-context-primary" onClick={activateSelectedNoTarget}>주문 발동</button>}
             </div>
           )}
           {selectedExtraCard && (
-            <div className={`selected-card-action extra-action v15-selected-card ${selectedExtraCard.kind}`}>
-              <div className="v14-selected-head"><b>{selectedExtraCard.name}</b><div><button type="button" onClick={() => requestCardInspection(selectedExtraCard.id)}>상세</button><button type="button" onClick={() => clearSelection('엑스트라 카드 선택을 취소했습니다.')}>취소</button></div></div>
-              <small>{extraRequirement(selectedExtraCard)}</small>
-              <span>소재 선택 {selectedMaterials.length}/{requiredMaterials}</span>
-              <button className="v15-primary-action" disabled={!canExtraSummon} onClick={summonSelectedExtra}>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</button>
+            <div className="v18-selected-card extra">
+              <div className="v18-selected-art"><CardIllustration card={selectedExtraCard} compact /></div>
+              <div className="v18-selected-copy"><small>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</small><b>{selectedExtraCard.name}</b><p>{extraRequirement(selectedExtraCard)}</p><span className="v18-material-progress">소재 {selectedMaterials.length} / {requiredMaterials}</span></div>
+              <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedExtraCard.id)}>상세</button><button type="button" onClick={() => clearSelection('엑스트라 카드 선택을 취소했습니다.')}>취소</button></div>
+              <button className="v18-context-primary" disabled={!canExtraSummon} onClick={summonSelectedExtra}>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</button>
             </div>
           )}
-          {selectedAttacker !== null && <button className="v15-cancel-attack" type="button" onClick={() => { setSelectedAttacker(null); setMessage('공격 유닛 선택을 취소했습니다.'); }}>공격 선택 취소</button>}
-          {message && <p className="v15-action-message">{message}</p>}
-          {state.status === 'active' && (
-            <div className="v15-phase-buttons">
-              {state.phase === 'main' && <button className="v14-draw-turn-button" disabled={!canSpendTurnToDraw} onClick={spendTurnToDraw} title={state.turnActionTaken ? '이번 턴에 이미 다른 행동을 했습니다.' : '카드 1장을 추가로 뽑고 즉시 턴을 종료합니다.'}><span>＋ 1장 드로우</span><small>행동 대신 드로우 후 턴 종료</small></button>}
-              {state.phase === 'main' && <button className="battle-button" disabled={!myTurn || busy} onClick={() => gameAction('battle_phase')}>전투 단계</button>}
-              <button className="end-turn-button" disabled={!myTurn || busy} onClick={() => gameAction('end_turn')}>턴 종료</button>
-            </div>
-          )}
-        </aside>
-      </section>
+        </section>
 
-      <aside className={`battle-log ${logOpen ? 'open' : ''}`}>
-        <header><span>DUEL LOG</span><button onClick={() => setLogOpen(false)}>×</button></header>
-        <div>{state.logs.slice(-12).reverse().map((log) => <p className={`tone-${log.tone}`} key={log.id}>{log.text}</p>)}</div>
+        {message && <div className="v18-action-message">{message}</div>}
+        {selectedAttacker !== null && <button className="v18-cancel-attack" type="button" onClick={() => { setSelectedAttacker(null); setMessage('공격 유닛 선택을 취소했습니다.'); }}>공격 선택 취소</button>}
+
+        <section className="v18-action-buttons">
+          {state.phase === 'main' && <button className="v18-secondary-action" disabled={!canSpendTurnToDraw} onClick={spendTurnToDraw}><span>＋ 카드 1장</span><small>턴을 소비해 추가 드로우</small></button>}
+          {state.phase === 'main' && <button className="v18-battle-action" disabled={!myTurn || busy} onClick={() => gameAction('battle_phase')}><span>전투 단계</span><small>공격 가능한 유닛으로 전투</small></button>}
+          <button className="v18-end-turn" disabled={!myTurn || busy} onClick={() => gameAction('end_turn')}><span>턴 종료</span><small>{turnSecondsLeft}초 남음</small></button>
+        </section>
+
+        <section className="v18-extra-access">
+          <button type="button" onClick={() => setExtraOpen(true)}><span>EXTRA DECK</span><b>{privateState.extra.length}</b><small>{extraReadyInstances.length > 0 ? `${extraReadyInstances.length}장 소환 가능` : '융합 · 진화'}</small></button>
+        </section>
+
+        <section className="v18-event-feed">
+          <header><span>DUEL FEED</span><button type="button" onClick={() => setLogOpen(true)}>전체 기록</button></header>
+          <div>{recentEvents.length > 0 ? recentEvents.map((event) => <div className={`v18-feed-item kind-${event.kind}`} key={event.id}><i /> <span><b>{eventActorName(event)} · {duelEventLabel(event)}</b><small>{event.label ?? (duelEventLocation(event) || '결투 행동')}</small></span></div>) : <p>아직 기록된 행동이 없습니다.</p>}</div>
+        </section>
       </aside>
 
+      <footer className="v18-hand-dock">
+        <div className="v18-hand-heading"><span><small>YOUR HAND</small><b>{privateState.hand.length} CARDS</b></span><em>{myTurn && state.phase === 'main' ? '밝게 표시된 카드는 지금 사용할 수 있습니다.' : '카드를 눌러 상세 정보를 확인할 수 있습니다.'}</em></div>
+        <div className="v18-hand-scroll">
+          {privateState.hand.map((instance) => {
+            const card = CARD_BY_ID[instance.cardId];
+            const effectiveCost = card?.summonMode === 'rift' && card.riftCost !== undefined && clientRiftReady(state, userId, opponentId, card) ? card.riftCost : card?.cost ?? 99;
+            const affordable = Boolean(card && myTurn && state.phase === 'main' && myEnergy.current >= effectiveCost);
+            return <div className={`v18-hand-card ${specialReadyIds.has(instance.instanceId) ? 'special-ready' : ''} ${affordable ? 'playable' : 'not-playable'} ${selectedHand === instance.instanceId ? 'selected' : ''}`} key={instance.instanceId}>{specialReadyIds.has(instance.instanceId) && <span className="v18-special-badge">SPECIAL</span>}<CardFace card={card} compact selected={selectedHand === instance.instanceId} disabled={busy} onClick={() => chooseHand(instance.instanceId)} /></div>;
+          })}
+        </div>
+        <div className="v18-hand-side"><span>ENERGY <b>{myEnergy.current}/{myEnergy.max}</b></span><span>DECK <b>{state.deckCounts[userId] ?? 0}</b></span><button type="button" onClick={() => setExtraOpen(true)}>EXTRA {privateState.extra.length}</button></div>
+      </footer>
+
+      <aside className={`battle-log v18-battle-log ${logOpen ? 'open' : ''}`}>
+        <header><div><small>FULL HISTORY</small><b>결투 기록</b></div><button onClick={() => setLogOpen(false)}>×</button></header>
+        <div>{state.logs.slice(-40).reverse().map((log) => <p className={`tone-${log.tone}`} key={log.id}><span>{new Date(log.createdAt).toLocaleTimeString('ko-KR', { minute: '2-digit', second: '2-digit' })}</span>{log.text}</p>)}</div>
+      </aside>
+
+      {extraOpen && (
+        <div className="v18-extra-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) setExtraOpen(false); }}>
+          <aside className="v18-extra-drawer">
+            <header><div><small>EXTRA DECK</small><b>공명 융합 · 계승 진화</b></div><button type="button" onClick={() => setExtraOpen(false)}>×</button></header>
+            <p>빛나는 카드는 현재 필드와 에너지 조건으로 소환할 수 있습니다.</p>
+            <div>{privateState.extra.map((instance) => {
+              const card = CARD_BY_ID[instance.cardId];
+              const ready = specialReadyIds.has(instance.instanceId);
+              return <div className={`v18-extra-card ${ready ? 'ready' : ''} ${selectedExtra === instance.instanceId ? 'selected' : ''}`} key={instance.instanceId}>{ready && <span>READY</span>}<CardFace card={card} compact selected={selectedExtra === instance.instanceId} disabled={busy} onClick={() => { chooseExtra(instance.instanceId); setExtraOpen(false); }} /><small>{card ? extraRequirement(card) : ''}</small></div>;
+            })}</div>
+          </aside>
+        </div>
+      )}
+
       {surrenderOpen && state.status === 'active' && (
-        <div className="modal-layer v17-surrender-layer">
-          <section className="v17-surrender-modal">
-            <span className="eyebrow">DUEL SURRENDER</span>
-            <h2>정말 항복하시겠습니까?</h2>
-            <p>항복하면 즉시 패배 처리되고 상대 플레이어가 승리합니다.</p>
+        <div className="modal-layer v18-confirm-layer">
+          <section className="v18-confirm-modal">
+            <span className="eyebrow">SURRENDER</span>
+            <h2>결투를 포기하시겠습니까?</h2>
+            <p>항복 즉시 상대가 승리하며 현재 경기는 패배로 기록됩니다.</p>
             <div><button className="ghost-button" disabled={busy} onClick={() => setSurrenderOpen(false)}>계속 싸우기</button><button className="danger-button" disabled={busy} onClick={() => { setSurrenderOpen(false); void gameAction('surrender'); }}>항복하기</button></div>
           </section>
         </div>
       )}
 
       {state.status === 'finished' && (
-        <div className="modal-layer">
-          <section className="result-modal">
+        <div className="modal-layer v18-result-layer">
+          <section className={`v18-result-modal ${state.winnerId === userId ? 'win' : 'lose'}`}>
             <span className="result-emblem">{state.winnerId === userId ? '✦' : '◇'}</span>
-            <span className="eyebrow">DUEL COMPLETE</span>
+            <small>DUEL COMPLETE</small>
             <h2>{state.winnerId === userId ? 'VICTORY' : 'DEFEAT'}</h2>
             <p>{state.winReason}</p>
-            <div className="reward-preview">{state.winnerId === userId ? '+180 COIN · +100 XP' : '+35 COIN · +35 XP'}</div>
+            <div>{state.winnerId === userId ? '+180 COIN · +100 XP' : '+35 COIN · +35 XP'}</div>
             <button className="primary-button" onClick={onLeave}>허브로 돌아가기</button>
           </section>
         </div>
@@ -2488,7 +2690,7 @@ export default function Page() {
   const roomChat = roomPayload && roomPayload.room.status !== 'cancelled' ? roomPayload.room.id : undefined;
 
   return (
-    <main className={`game-app view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`}>
+    <main className={`game-app v18-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`}>
       <div className="app-backdrop" aria-hidden="true"><span className="backdrop-grid" /><span className="backdrop-orbit" /><span className="backdrop-glow" /></div>
       <aside className="sidebar">
         <button className="game-logo" onClick={() => { playUiSound('click'); setView('home'); }}><span className="logo-glyph"><i>E</i></span><div><b>ECLIPSE</b><small>DUEL</small></div></button>

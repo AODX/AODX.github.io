@@ -1,17 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import './theme-v4.css';
-import './theme-v5.css';
-import './theme-v6.css';
-import './theme-v7.css';
-import './theme-v9.css';
-import './theme-v10.css';
-import './theme-v11.css';
-import './theme-v13.css';
-import './theme-v14.css';
-import './theme-v15.css';
-import './theme-v16.css';
-import './theme-v17.css';
+import './theme-v18.css';
 
 export const metadata: Metadata = {
   title: 'ECLIPSE DUEL · Season Ascension',
