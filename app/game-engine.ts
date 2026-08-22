@@ -48,6 +48,15 @@ export interface EnergyState {
   max: number;
 }
 
+export interface MatchPlayerStats {
+  cardsDrawn: number;
+  cardsPlayed: number;
+  unitsSummoned: number;
+  specialSummons: number;
+  coreDamage: number;
+  healing: number;
+}
+
 export interface MatchLog {
   id: string;
   text: string;
@@ -95,6 +104,7 @@ export interface MatchState {
   graveyards: Record<string, string[]>;
   logs: MatchLog[];
   visualEvents: VisualEvent[];
+  matchStats?: Record<string, MatchPlayerStats>;
   winnerId: string | null;
   winReason: string | null;
 }
@@ -143,6 +153,16 @@ function appendVisual(state: MatchState, event: Omit<VisualEvent, 'id' | 'create
   }
 }
 
+function emptyMatchStats(): MatchPlayerStats {
+  return { cardsDrawn: 0, cardsPlayed: 0, unitsSummoned: 0, specialSummons: 0, coreDamage: 0, healing: 0 };
+}
+
+function statsFor(state: MatchState, playerId: string): MatchPlayerStats {
+  if (!state.matchStats) state.matchStats = {};
+  if (!state.matchStats[playerId]) state.matchStats[playerId] = emptyMatchStats();
+  return state.matchStats[playerId];
+}
+
 function otherPlayer(state: MatchState, playerId: string): string {
   const [a, b] = state.playerOrder;
   if (!a || !b) throw new Error('플레이어 구성이 완료되지 않았습니다.');
@@ -185,6 +205,8 @@ function drawCards(state: MatchState, privateState: PrivateState, playerId: stri
   for (let index = 0; index < amount; index += 1) {
     const card = privateState.deck.shift();
     if (!card) {
+      state.handCounts[playerId] = privateState.hand.length;
+      state.deckCounts[playerId] = privateState.deck.length;
       state.status = 'finished';
       state.winnerId = otherPlayer(state, playerId);
       state.winReason = '덱 소진';
@@ -192,6 +214,7 @@ function drawCards(state: MatchState, privateState: PrivateState, playerId: stri
       return false;
     }
     privateState.hand.push(card);
+    statsFor(state, playerId).cardsDrawn += 1;
   }
   state.handCounts[playerId] = privateState.hand.length;
   state.deckCounts[playerId] = privateState.deck.length;
@@ -241,6 +264,7 @@ export function initializeMatch(
     graveyards: { [playerA]: [], [playerB]: [] },
     logs: [],
     visualEvents: [],
+    matchStats: { [playerA]: emptyMatchStats(), [playerB]: emptyMatchStats() },
     winnerId: null,
     winReason: null,
   };
@@ -340,8 +364,11 @@ function damageCore(state: MatchState, playerId: string, amount: number): number
   return actual;
 }
 
-function healCore(state: MatchState, playerId: string, amount: number): void {
-  state.core[playerId] = Math.min(CORE_MAX, (state.core[playerId] ?? 0) + amount);
+function healCore(state: MatchState, playerId: string, amount: number): number {
+  const before = Math.max(0, state.core[playerId] ?? 0);
+  const after = Math.min(CORE_MAX, before + Math.max(0, amount));
+  state.core[playerId] = after;
+  return Math.max(0, after - before);
 }
 
 function applyEffect(
@@ -363,15 +390,18 @@ function applyEffect(
     }
     case 'damage_core': {
       const actualDamage = damageCore(state, opponentId, effect.amount);
+      statsFor(state, actorId).coreDamage += actualDamage;
       appendVisual(state, { kind: 'core', vfx: 'core-impact', ownerId: actorId, targetOwnerId: opponentId, amount: actualDamage, label: '코어 피해' });
       appendLog(state, `효과로 상대 코어에 ${actualDamage} 피해.`, 'attack');
       break;
     }
-    case 'heal_core':
-      healCore(state, actorId, effect.amount);
-      appendLog(state, `코어를 ${effect.amount} 회복했습니다.`, 'system');
-      appendVisual(state, { kind: 'heal', vfx: 'core-heal', ownerId: actorId, targetOwnerId: actorId, amount: effect.amount, label: '코어 회복' });
+    case 'heal_core': {
+      const healed = healCore(state, actorId, effect.amount);
+      statsFor(state, actorId).healing += healed;
+      appendLog(state, `코어를 ${healed} 회복했습니다.`, 'system');
+      appendVisual(state, { kind: 'heal', vfx: 'core-heal', ownerId: actorId, targetOwnerId: actorId, amount: healed, label: '코어 회복' });
       break;
+    }
     case 'draw': {
       const drew = drawCards(state, actorPrivate, actorId, effect.amount);
       if (drew) appendVisual(state, { kind: 'draw', vfx: 'effect-draw', ownerId: actorId, amount: effect.amount, label: `효과 드로우 ${effect.amount}` });
@@ -590,6 +620,8 @@ export function playCard(
   validateTarget(state, playerId, card, target);
   const opponentId = otherPlayer(state, playerId);
 
+  statsFor(state, playerId).cardsPlayed += 1;
+
   if (card.kind === 'unit') {
     const isRift = card.summonMode === 'rift';
     if (isRift && !riftConditionMet(state, playerId, card)) {
@@ -600,6 +632,8 @@ export function playCard(
     if (zone < 0 || zone > 4 || state.boards[playerId].units[zone]) throw new Error('선택한 유닛 칸을 사용할 수 없습니다.');
     playerPrivate.hand.splice(handIndex, 1);
     const origin: SummonOrigin = isRift ? 'rift' : 'normal';
+    statsFor(state, playerId).unitsSummoned += 1;
+    if (isRift) statsFor(state, playerId).specialSummons += 1;
     state.boards[playerId].units[zone] = makeUnit(state, playerId, instance, card, origin);
     appendLog(state, isRift ? `균열 소환 — 「${card.name}」!` : `${card.name} 소환.`, isRift ? 'special' : 'system');
     appendVisual(state, {
@@ -630,7 +664,11 @@ export function playCard(
       applyEffect(state, privateStates, playerId, card.effect, effectTarget);
       appendLog(state, `주문 「${card.name}」 효과 처리 완료.`, 'system');
     } else if (counter.negated) {
-      if (counter.retaliation > 0) damageCore(state, playerId, counter.retaliation);
+      if (counter.retaliation > 0) {
+        const retaliation = damageCore(state, playerId, counter.retaliation);
+        statsFor(state, opponentId).coreDamage += retaliation;
+        appendVisual(state, { kind: 'core', vfx: 'trap-retaliation', ownerId: opponentId, targetOwnerId: playerId, amount: retaliation, label: '함정 반격' });
+      }
       appendLog(state, `주문 「${card.name}」이(가) 무효화되었습니다.`, 'trap');
     }
     state.graveyards[playerId].push(card.id);
@@ -755,6 +793,9 @@ export function summonExtra(
   state.boards[playerId].units[summonZone] = unit;
   state.extraCounts[playerId] = playerPrivate.extra.length;
   state.turnActionTaken = true;
+  statsFor(state, playerId).cardsPlayed += 1;
+  statsFor(state, playerId).unitsSummoned += 1;
+  statsFor(state, playerId).specialSummons += 1;
 
   if (card.kind === 'fusion') {
     appendLog(state, `공명 융합 — 「${card.name}」 강림!`, 'fusion');
@@ -826,7 +867,12 @@ export function attack(
       appendLog(state, `${attackerCard?.name ?? '유닛'}의 직접 공격이 무효화되었습니다.`, 'trap');
     } else {
       const actualDamage = damageCore(state, opponentId, attacker.attack);
-      if (attackerCard?.keywords?.includes('lifesteal')) healCore(state, playerId, actualDamage);
+      statsFor(state, playerId).coreDamage += actualDamage;
+      if (attackerCard?.keywords?.includes('lifesteal')) {
+        const healed = healCore(state, playerId, actualDamage);
+        statsFor(state, playerId).healing += healed;
+        if (healed > 0) appendVisual(state, { kind: 'heal', vfx: 'lifesteal-return', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: playerId, sourceZone: attackerIndex, amount: healed, label: '흡수' });
+      }
       attacker.canAttack = false;
       appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) 코어에 ${actualDamage} 피해.`, 'attack');
       appendVisual(state, { kind: 'core', vfx: 'core-break', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: opponentId, sourceZone: attackerIndex, amount: actualDamage, label: '직접 공격' });
@@ -872,10 +918,18 @@ export function attack(
       });
     }
 
-    if (attackerCard?.keywords?.includes('lifesteal')) healCore(state, playerId, defenderReport.healthDamage);
+    if (attackerCard?.keywords?.includes('lifesteal')) {
+      const healed = healCore(state, playerId, defenderReport.healthDamage);
+      statsFor(state, playerId).healing += healed;
+      if (healed > 0) appendVisual(state, { kind: 'heal', vfx: 'lifesteal-return', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: playerId, sourceZone: attackerIndex, amount: healed, label: '흡수' });
+    }
     if (attackerCard?.keywords?.includes('pierce') && defenderAfterTrap.health <= 0) {
       const overflow = Math.max(0, attackerDamage - defenderDurabilityBefore);
-      if (overflow > 0) damageCore(state, opponentId, overflow);
+      if (overflow > 0) {
+        const pierceDamage = damageCore(state, opponentId, overflow);
+        statsFor(state, playerId).coreDamage += pierceDamage;
+        if (pierceDamage > 0) appendVisual(state, { kind: 'core', vfx: 'pierce-impact', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: opponentId, sourceZone: attackerIndex, amount: pierceDamage, label: '관통 피해' });
+      }
     }
     attacker.canAttack = false;
     appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) ${defenderCard?.name ?? '적 유닛'}에게 ${attackerDamage} 피해 · 반격 ${defenderDamage} 피해.`, 'attack');

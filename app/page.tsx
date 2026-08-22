@@ -152,11 +152,17 @@ const PROFILE_COSMETICS: ProfileCosmetic[] = [
 
 
 const SOUND_STORAGE_KEY = 'eclipse-duel:sound-enabled';
+const SOUND_VOLUME_STORAGE_KEY = 'eclipse-duel:sound-volume';
 let globalSoundEnabled = true;
+let globalSoundVolume = 0.82;
 let sharedAudioContext: AudioContext | null = null;
 
 function setGlobalSoundEnabled(enabled: boolean): void {
   globalSoundEnabled = enabled;
+}
+
+function setGlobalSoundVolume(volume: number): void {
+  globalSoundVolume = Math.max(0, Math.min(1, volume));
 }
 
 function getAudioContext(): AudioContext | null {
@@ -181,7 +187,7 @@ function playUiSound(kind: UiSound): void {
   compressor.ratio.value = 7;
   compressor.attack.value = 0.002;
   compressor.release.value = 0.12;
-  master.gain.setValueAtTime(0.82, now);
+  master.gain.setValueAtTime(Math.max(0.001, globalSoundVolume), now);
   master.connect(compressor);
   compressor.connect(context.destination);
 
@@ -329,6 +335,100 @@ function requestCardInspection(cardId: string): void {
   window.dispatchEvent(new CustomEvent<string>(CARD_INSPECT_EVENT, { detail: cardId }));
 }
 
+function packPreviewCards(pack: (typeof PACKS)[number]): CardDefinition[] {
+  const rarityScore: Record<Rarity, number> = { common: 1, rare: 2, epic: 3, legendary: 4 };
+  let pool = CARDS.filter((card) => !isExtraDeckCard(card));
+
+  if (pack.pickupElement) pool = pool.filter((card) => card.element === pack.pickupElement);
+  if (pack.id === 'ascension' || pack.id === 'genesis') {
+    pool = CARDS.filter((card) => card.kind === 'fusion' || card.kind === 'evolution' || card.summonMode === 'rift');
+  }
+  if (pack.id === 'mythic' || pack.id === 'archive') {
+    pool = CARDS.filter((card) => !isExtraDeckCard(card) && (card.rarity === 'legendary' || card.rarity === 'epic'));
+  }
+
+  const preferred = pool
+    .slice()
+    .sort((a, b) => (rarityScore[b.rarity] - rarityScore[a.rarity]) || (b.cost - a.cost) || a.name.localeCompare(b.name, 'ko'));
+
+  const uniqueNames = new Set<string>();
+  const picked: CardDefinition[] = [];
+  for (const card of preferred) {
+    if (uniqueNames.has(card.name)) continue;
+    picked.push(card);
+    uniqueNames.add(card.name);
+    if (picked.length >= 3) break;
+  }
+
+  if (picked.length >= 3) return picked;
+
+  for (const fallback of CARDS.filter((card) => !isExtraDeckCard(card)).sort((a, b) => (rarityScore[b.rarity] - rarityScore[a.rarity]) || (b.cost - a.cost))) {
+    if (uniqueNames.has(fallback.name)) continue;
+    picked.push(fallback);
+    uniqueNames.add(fallback.name);
+    if (picked.length >= 3) break;
+  }
+
+  return picked;
+}
+
+function PackProductVisual({ pack }: { pack: (typeof PACKS)[number] }) {
+  const previews = packPreviewCards(pack);
+  const emblem = pack.id === 'ascension' ? '∞' : pack.id === 'archive' ? '✶' : pack.pickupElement === 'solar' ? '☀' : pack.pickupElement === 'lunar' ? '☾' : pack.pickupElement === 'storm' ? '⚡' : pack.pickupElement === 'verdant' ? '❋' : pack.pickupElement === 'void' ? '◈' : pack.pickupElement === 'neutral' ? '⬢' : pack.id === 'elite' ? '♜' : pack.id === 'mythic' ? '♛' : '✦';
+
+  return (
+    <div className={`pack-product-visual ${pack.pickupElement ? `element-${pack.pickupElement}` : `pack-${pack.id}`}`} aria-hidden="true">
+      <div className="pack-preview-badges">
+        <span className="pack-preview-brand">ECLIPSE CARD BOOSTER</span>
+        <span className="pack-preview-emblem">{emblem}</span>
+      </div>
+      <div className="pack-preview-fan">
+        {previews.map((card, index) => (
+          <article key={card.id} className={`pack-preview-card slot-${index + 1}`} style={cardStyle(card)}>
+            <img
+              src={cardArtworkPath(card.id)}
+              alt=""
+              width={960}
+              height={600}
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+              onError={(event) => { if (!event.currentTarget.src.endsWith('/fallback.webp')) event.currentTarget.src = '/card-art/fallback.webp'; }}
+            />
+            <span className="pack-preview-card-overlay" />
+            <div className="pack-preview-copy">
+              <span>{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]}</span>
+              <b>{card.name}</b>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CosmeticPreview({ item, profile }: { item: ProfileCosmetic; profile: Profile }) {
+  return (
+    <div className={`v17-cosmetic-preview ${item.id} kind-${item.kind}`} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>
+      <div className={`v17-cosmetic-scene kind-${item.kind}`}>
+        <div className="v17-cosmetic-scene-glow" />
+        <div className="v17-cosmetic-frame-ring" />
+        <div className="v17-cosmetic-title">
+          <span>{item.kind === 'background' ? 'PROFILE BACKGROUND' : 'PROFILE FRAME'}</span>
+          <b>{item.name}</b>
+        </div>
+        <div className="v17-cosmetic-profile-card">
+          <div className="v17-cosmetic-avatar-wrap"><Avatar id={profile.avatar} /></div>
+          <div className="v17-cosmetic-usercopy">
+            <b>{profile.display_name}</b>
+            <span>Lv.{levelFromXp(profile.xp ?? 0)} · 결투가 프로필 미리보기</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const KEYWORD_DESCRIPTION: Record<Keyword, string> = {
   guard: '수호 · 상대는 가능한 경우 이 유닛을 먼저 공격해야 합니다.',
   charge: '속공 · 소환된 턴에도 즉시 공격할 수 있습니다.',
@@ -376,7 +476,7 @@ function summonConditionDescription(card: CardDefinition): string {
   return '';
 }
 
-function GameIcon({ name }: { name: View | 'chat' | 'coin' | 'logout' | 'sound' }) {
+function GameIcon({ name }: { name: View | 'chat' | 'coin' | 'logout' | 'sound' | 'settings' }) {
   const paths: Record<string, React.ReactNode> = {
     home: <><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1Z"/><path d="M9 10h6"/></>,
     duel: <><path d="m5 4 14 14"/><path d="m19 4-6 6"/><path d="m11 12-6 6"/><path d="M3 3l5 1-4 4Z"/><path d="m21 3-1 5-4-4Z"/></>,
@@ -389,6 +489,7 @@ function GameIcon({ name }: { name: View | 'chat' | 'coin' | 'logout' | 'sound' 
     coin: <><circle cx="12" cy="12" r="9"/><path d="M14.5 8.5c-.8-.8-4-.8-4 1.2 0 2.2 4.8 1 4.8 3.4 0 2.1-3.8 2.2-5.3 1.1M12 6v12"/></>,
     logout: <><path d="M10 4H5v16h5"/><path d="m14 8 4 4-4 4M18 12H9"/></>,
     sound: <><path d="M4 10h4l5-4v12l-5-4H4Z"/><path d="M17 9c1.2 1.6 1.2 4.4 0 6M20 6c3 3.2 3 8.8 0 12"/></>,
+    settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></>,
   };
   return <svg className="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -614,7 +715,6 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             </div>
             <i className="card-detail-sigil">{card.sigil}</i>
           </div>
-          <div className="card-detail-flavor"><span>LORE</span><p>{card.flavor}</p></div>
         </div>
 
         <div className="card-detail-content">
@@ -648,6 +748,11 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
               <p>{summonCondition}</p>
             </section>
           )}
+
+          <section className="detail-section detail-lore">
+            <span>LORE</span>
+            <p>{card.flavor}</p>
+          </section>
 
           {card.keywords && card.keywords.length > 0 && (
             <section className="detail-section">
@@ -699,6 +804,55 @@ function GameGuideModal({ onClose }: { onClose: () => void }) {
         </div>
         <div className="v20-guide-footer"><span>정보가 곧 실력입니다. 카드 효과와 발동 조건은 상세 보기에서 확인하세요.</span><button className="primary-button" type="button" onClick={onClose}>확인하고 돌아가기</button></div>
       </section>
+    </div>
+  );
+}
+
+function ControlCenter({
+  open,
+  soundEnabled,
+  soundVolume,
+  onClose,
+  onToggleSound,
+  onVolumeChange,
+  onOpenGuide,
+  onOpenProfile,
+  onSignOut,
+}: {
+  open: boolean;
+  soundEnabled: boolean;
+  soundVolume: number;
+  onClose: () => void;
+  onToggleSound: () => void;
+  onVolumeChange: (volume: number) => void;
+  onOpenGuide: () => void;
+  onOpenProfile: () => void;
+  onSignOut: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="v22-control-layer" role="presentation" onMouseDown={(event: React.MouseEvent) => { if (event.currentTarget === event.target) onClose(); }}>
+      <aside className="v22-control-panel" role="dialog" aria-modal="true" aria-label="게임 설정">
+        <header>
+          <div><span>SYSTEM PANEL</span><h3>게임 설정</h3><p>오디오와 게임 도움말을 한곳에서 관리합니다.</p></div>
+          <button type="button" onClick={onClose} aria-label="설정 닫기">×</button>
+        </header>
+        <section className="v22-control-section">
+          <div className="v22-control-row">
+            <div><b>게임 사운드</b><span>효과음과 전투 피드백 사운드</span></div>
+            <button className={`v22-toggle ${soundEnabled ? 'active' : ''}`} type="button" onClick={onToggleSound} aria-pressed={soundEnabled}><i />{soundEnabled ? 'ON' : 'OFF'}</button>
+          </div>
+          <label className="v22-volume-control">
+            <span><b>볼륨</b><em>{Math.round(soundVolume * 100)}%</em></span>
+            <input type="range" min="0" max="100" step="5" value={Math.round(soundVolume * 100)} onChange={(event: ChangeEvent<HTMLInputElement>) => onVolumeChange(Number(event.target.value) / 100)} disabled={!soundEnabled} />
+          </label>
+        </section>
+        <section className="v22-control-actions">
+          <button type="button" onClick={onOpenGuide}><span>?</span><div><b>룰 가이드</b><small>키워드와 기본 규칙 확인</small></div></button>
+          <button type="button" onClick={onOpenProfile}><span>◎</span><div><b>프로필</b><small>아바타와 프로필 스킨 관리</small></div></button>
+        </section>
+        <footer><span>ECLIPSE DUEL · COMMERCIAL BUILD v22</span><button type="button" onClick={onSignOut}>로그아웃</button></footer>
+      </aside>
     </div>
   );
 }
@@ -1209,6 +1363,33 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     return bins;
   }, [deckCards]);
   const curveMax = Math.max(1, ...costCurve);
+  const deckDoctor = useMemo(() => {
+    const early = deckCards.filter((id) => (CARD_BY_ID[id]?.cost ?? 99) <= 2).length;
+    const late = deckCards.filter((id) => (CARD_BY_ID[id]?.cost ?? 0) >= 6).length;
+    const interaction = spellCount + trapCount;
+    const elementCounts: Partial<Record<Element, number>> = {};
+    for (const id of deckCards) {
+      const card = CARD_BY_ID[id];
+      if (!card) continue;
+      elementCounts[card.element] = (elementCounts[card.element] ?? 0) + 1;
+    }
+    const [focusElement, focusCount] = (Object.entries(elementCounts).sort((a, b) => Number(b[1]) - Number(a[1]))[0] ?? ['neutral', 0]) as [Element, number];
+    let score = 100;
+    const tips: string[] = [];
+    if (deckCards.length !== DECK_SIZE) { score -= 28; tips.push(`메인 덱을 ${DECK_SIZE}장까지 완성하세요.`); }
+    if (extraCards.length !== EXTRA_DECK_SIZE) { score -= 10; tips.push(`엑스트라 덱을 ${EXTRA_DECK_SIZE}장까지 채우면 특수 소환 선택지가 안정됩니다.`); }
+    if (unitCount < 15) { score -= 18; tips.push('유닛이 부족합니다. 초중반 필드 유지력을 위해 최소 15장을 권장합니다.'); }
+    if (early < 6) { score -= 12; tips.push('1~2비용 카드가 적습니다. 초반 손패 사고를 줄이려면 6장 이상을 권장합니다.'); }
+    if (late > 8) { score -= 10; tips.push('6비용 이상 카드가 많아 손패가 무거울 수 있습니다. 고비용 카드를 8장 이하로 줄여보세요.'); }
+    if (averageCost > 4.4) { score -= 12; tips.push(`평균 비용 ${averageCost.toFixed(1)}은 다소 무겁습니다. 3.0~4.2 구간이 안정적입니다.`); }
+    if (averageCost > 0 && averageCost < 2.2) { score -= 7; tips.push('평균 비용이 매우 낮습니다. 후반 결정력을 위한 중고비용 카드가 필요합니다.'); }
+    if (interaction < 5) { score -= 9; tips.push('주문·함정 비중이 낮습니다. 상대 전개에 대응할 카드 5장 이상을 권장합니다.'); }
+    if (deckCards.length > 0 && focusCount / deckCards.length < 0.34) { score -= 6; tips.push('속성이 지나치게 분산되어 있습니다. 핵심 속성 1~2개에 집중하면 시너지가 선명해집니다.'); }
+    if (!validation && tips.length === 0) tips.push('곡선과 카드 비율이 안정적입니다. 실제 대전에서 첫 5턴 손패를 기준으로 미세 조정하세요.');
+    const bounded = Math.max(0, Math.min(100, score));
+    const label = bounded >= 90 ? '대전 준비 완료' : bounded >= 75 ? '안정적' : bounded >= 55 ? '조정 권장' : '재구성 필요';
+    return { score: bounded, label, tips: tips.slice(0, 3), early, late, focusElement, focusCount };
+  }, [deckCards, extraCards, unitCount, spellCount, trapCount, averageCost, validation]);
 
   return (
     <div className="v9-deck-page">
@@ -1283,6 +1464,11 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
 
         <aside className="v9-current-deck panel">
           <header className="v9-current-head"><div><span className="eyebrow">CURRENT DECK</span><h3>{deckName || '새 덱'}</h3></div><div><b>{deckCards.length}</b><small>/ {DECK_SIZE}</small></div></header>
+          <section className={`v22-deck-doctor grade-${deckDoctor.score >= 90 ? 's' : deckDoctor.score >= 75 ? 'a' : deckDoctor.score >= 55 ? 'b' : 'c'}`}>
+            <div className="v22-doctor-score"><span><b>{deckDoctor.score}</b><small>/100</small></span><div><small>DECK HEALTH</small><strong>{deckDoctor.label}</strong><em>{ELEMENT_LABEL[deckDoctor.focusElement]} 중심 · 초반 {deckDoctor.early}장 · 고비용 {deckDoctor.late}장</em></div></div>
+            <div className="v22-doctor-meter"><i style={{ width: `${deckDoctor.score}%` }} /></div>
+            <ul>{deckDoctor.tips.map((tip) => <li key={tip}>{tip}</li>)}</ul>
+          </section>
           <section className="v20-deck-analytics" aria-label="덱 비용 분석">
             <div className="v20-deck-metrics"><span><small>평균 비용</small><b>{averageCost.toFixed(1)}</b></span><span><small>유닛</small><b>{unitCount}</b></span><span><small>주문 / 함정</small><b>{spellCount} / {trapCount}</b></span></div>
             <div className="v20-cost-curve">{costCurve.map((count, index) => <span key={index}><i style={{ height: `${Math.max(8, (count / curveMax) * 100)}%` }} /><b>{count}</b><small>{['0-1','2','3','4','5','6','7+'][index]}</small></span>)}</div>
@@ -1413,7 +1599,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
       <section className="pack-grid v6-pack-grid">
         {PACKS.map((pack, index) => (
           <article className={`pack-card v6-pack-card pack-${index}`} key={pack.id} style={{ '--pack-accent': pack.accent } as CSSProperties}>
-            <div className="pack-product-visual" aria-hidden="true"><span className="pack-foil" /><span className="pack-seal">{pack.id === 'ascension' ? '∞' : index === 0 ? '✦' : index === 1 ? '♜' : index === 2 ? '☀' : index === 3 ? '◉' : '♛'}</span><b>ECLIPSE</b><small>5 CARD BOOSTER</small></div>
+            <PackProductVisual pack={pack} />
             <div className="pack-product-copy">
               <span className="eyebrow">5 CARDS · {RARITY_LABEL[pack.guaranteed]} 이상 보장</span>
               <h3>{pack.name}</h3>
@@ -1436,11 +1622,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
             const owned = (hub.profileCosmetics ?? []).includes(item.id);
             return (
               <article className={`v17-cosmetic-card kind-${item.kind} rarity-${item.rarity}`} key={item.id} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>
-                <div className={`v17-cosmetic-preview ${item.id}`}>
-                  <div className="v17-cosmetic-avatar"><Avatar id={hub.profile.avatar} /></div>
-                  <span>{item.kind === 'background' ? 'PROFILE BACKGROUND' : 'PROFILE FRAME'}</span>
-                  <b>{hub.profile.display_name}</b>
-                </div>
+                <CosmeticPreview item={item} profile={hub.profile} />
                 <div className="v17-cosmetic-copy"><span className="eyebrow">{item.rarity.toUpperCase()} · {item.kind === 'background' ? '배경' : '프레임'}</span><h3>{item.name}</h3><p>{item.description}</p></div>
                 <div className="v17-cosmetic-buy"><strong>{item.price.toLocaleString()} COIN</strong><button className="primary-button" disabled={owned || busyCosmetic === item.id || hub.wallet.coins < item.price} onClick={() => buyCosmetic(item.id)}>{owned ? '보유 중' : busyCosmetic === item.id ? '구매 중...' : hub.wallet.coins < item.price ? '코인 부족' : '구매'}</button></div>
               </article>
@@ -1472,7 +1654,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
             {openingStage === 'reveal' && (
               <div className="single-card-reveal-stage">
                 <div className="reveal-progress"><span>{activeCardIndex + 1} / {opened.length}</span><div>{opened.map((_, index) => <i key={index} className={index < activeCardIndex || revealed[index] ? 'done' : index === activeCardIndex ? 'active' : ''} />)}</div></div>
-                <div className={`reveal-card-focus ${revealed[activeCardIndex] ? 'is-revealed' : ''}`}>
+                <div className={`reveal-card-focus rarity-${CARD_BY_ID[opened[activeCardIndex]]?.rarity ?? 'common'} ${revealed[activeCardIndex] ? 'is-revealed' : ''}`}>
                   <div className="card-stack-shadow shadow-a" /><div className="card-stack-shadow shadow-b" />
                   <CardFace
                     card={CARD_BY_ID[opened[activeCardIndex]]}
@@ -1507,7 +1689,15 @@ function CollectionView({ hub }: { hub: HubData }) {
   const [search, setSearch] = useState('');
   const [rarity, setRarity] = useState<'all' | Rarity>('all');
   const collection = Object.fromEntries(hub.collection.map((row) => [row.card_id, row.quantity]));
-  const visible = CARDS.filter((card) => (collection[card.id] ?? 0) > 0)
+  const ownedUnique = CARDS.filter((card) => (collection[card.id] ?? 0) > 0);
+  const ownedCopies = hub.collection.reduce((sum, row) => sum + row.quantity, 0);
+  const completion = CARDS.length > 0 ? Math.round((ownedUnique.length / CARDS.length) * 100) : 0;
+  const raritySummary = (['common', 'rare', 'epic', 'legendary'] as Rarity[]).map((tier) => {
+    const total = CARDS.filter((card) => card.rarity === tier).length;
+    const owned = ownedUnique.filter((card) => card.rarity === tier).length;
+    return { tier, total, owned };
+  });
+  const visible = ownedUnique
     .filter((card) => rarity === 'all' || card.rarity === rarity)
     .filter((card) => !search || `${card.name} ${card.text}`.toLowerCase().includes(search.toLowerCase()));
   return (
@@ -1515,6 +1705,10 @@ function CollectionView({ hub }: { hub: HubData }) {
       <section className="section-heading">
         <div><span className="eyebrow">CARD VAULT</span><h2>보관함</h2><p>{visible.length}종의 카드가 표시되고 있습니다.</p></div>
         <div className="collection-tools"><input value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)} placeholder="카드 검색" /><select value={rarity} onChange={(event: ChangeEvent<HTMLSelectElement>) => setRarity(event.target.value as 'all' | Rarity)}><option value="all">모든 등급</option>{Object.entries(RARITY_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></div>
+      </section>
+      <section className="v22-vault-summary panel">
+        <div className="v22-vault-completion"><span><small>COLLECTION</small><b>{completion}%</b></span><div><strong>{ownedUnique.length} / {CARDS.length}종 수집</strong><i><b style={{ width: `${completion}%` }} /></i><em>총 보유 카드 {ownedCopies.toLocaleString()}장</em></div></div>
+        <div className="v22-vault-rarities">{raritySummary.map((item) => <button type="button" key={item.tier} className={`rarity-${item.tier}`} onClick={() => setRarity(item.tier)}><span>{RARITY_LABEL[item.tier]}</span><b>{item.owned}<small>/{item.total}</small></b></button>)}</div>
       </section>
       <section className="collection-grid vault-grid">
         {visible.map((card) => <CardFace key={card.id} card={card} quantity={collection[card.id]} />)}
@@ -1775,7 +1969,10 @@ function DuelEffectLayer({ event, userId, profiles }: { event: VisualEvent | nul
   const showCardCutIn = Boolean(card && cinematicCardKinds.includes(event.kind));
   const vfxClass = event.vfx ? `vfx-${event.vfx.replace(/[^a-z0-9-]/gi, '-')}` : 'vfx-generic';
   return (
-    <div className={`v18-cinematic-layer kind-${event.kind} ${vfxClass} ${mine ? 'from-me' : 'from-opponent'} element-${card?.element ?? 'neutral'}`} key={event.id} style={fxStyle} aria-live="polite">
+    <div className={`v18-cinematic-layer kind-${event.kind} ${vfxClass} ${mine ? 'from-me' : 'from-opponent'} element-${card?.element ?? 'neutral'} rarity-${card?.rarity ?? 'common'}`} key={event.id} style={fxStyle} aria-live="polite">
+      <span className="v22-cinematic-letterbox" aria-hidden="true" />
+      <span className="v22-screen-flash" aria-hidden="true" />
+      <span className="v22-element-particles" aria-hidden="true">{Array.from({ length: 18 }, (_, index) => <i key={index} style={{ '--particle': index } as CSSProperties} />)}</span>
       <svg className="v18-motion-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <line x1={source.x} y1={source.y} x2={target.x} y2={target.y} />
       </svg>
@@ -1935,7 +2132,7 @@ function DuelEnergyMeter({ label, current, max, nextMax, opponent = false, compa
   );
 }
 
-function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPayload; userId: string; onRefresh: (payload: RoomPayload) => void; onLeave: () => void }) {
+function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt }: { payload: RoomPayload; userId: string; onRefresh: (payload: RoomPayload) => void; onLeave: () => void; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number }) {
   const { room, privateState: nullablePrivateState } = payload;
   const nullableState = room.state;
   const [selectedHand, setSelectedHand] = useState<string | null>(null);
@@ -1946,6 +2143,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   const [message, setMessage] = useState('');
   const [logOpen, setLogOpen] = useState(false);
   const [surrenderOpen, setSurrenderOpen] = useState(false);
+  const [endTurnConfirmOpen, setEndTurnConfirmOpen] = useState(false);
   const [extraOpen, setExtraOpen] = useState(false);
   const [activeVfx, setActiveVfx] = useState<VisualEvent | null>(null);
   const [vfxQueue, setVfxQueue] = useState<VisualEvent[]>([]);
@@ -2011,6 +2209,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
     setSelectedMaterials([]);
     setSelectedAttacker(null);
     setExtraOpen(false);
+    setEndTurnConfirmOpen(false);
     setMessage('');
   }, [nullableState?.turnNumber, nullableState?.currentPlayerId]);
 
@@ -2293,6 +2492,30 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
     return myEnergy.current >= cost;
   }).length;
 
+  const remainingAttackers = state.boards[userId].units.filter((unit) => Boolean(unit?.canAttack)).length;
+  const remainingOpportunities = state.phase === 'battle' ? remainingAttackers : playableHandCount + specialReadyCount;
+
+  function requestEndTurn() {
+    if (!myTurn || busy) return;
+    if (remainingOpportunities > 0) {
+      setEndTurnConfirmOpen(true);
+      return;
+    }
+    void gameAction('end_turn');
+  }
+
+  const fieldPower = (ownerId: string) => state.boards[ownerId].units.reduce((sum, unit) => sum + (unit ? unit.attack + Math.max(0, unit.health) + unit.shield * 0.7 : 0), 0);
+  const momentumRaw = (state.core[userId] - state.core[opponentId]) * 1.2
+    + (fieldPower(userId) - fieldPower(opponentId)) * 0.55
+    + (privateState.hand.length - (state.handCounts[opponentId] ?? 0)) * 0.75
+    + (myEnergy.current - opponentEnergy.current) * 0.35;
+  const momentum = Math.max(-10, Math.min(10, momentumRaw));
+  const momentumPercent = Math.round(((momentum + 10) / 20) * 100);
+  const momentumLabel = momentum >= 4 ? '유리' : momentum <= -4 ? '불리' : '접전';
+  const myMatchStats = state.matchStats?.[userId] ?? { cardsDrawn: 0, cardsPlayed: 0, unitsSummoned: 0, specialSummons: 0, coreDamage: 0, healing: 0 };
+  const opponentMatchStats = state.matchStats?.[opponentId] ?? { cardsDrawn: 0, cardsPlayed: 0, unitsSummoned: 0, specialSummons: 0, coreDamage: 0, healing: 0 };
+  const syncAgeSeconds = Math.max(0, Math.floor((Date.now() - lastSyncAt) / 1000));
+
   return (
     <div className={`v18-duel-screen ${myTurn ? 'is-my-turn' : 'is-opponent-turn'} phase-${state.phase} fx-${activeVfx?.kind ?? 'idle'}`}>
       <DuelEffectLayer event={activeVfx} userId={userId} profiles={payload.profiles} />
@@ -2313,6 +2536,9 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
               <strong>{turnSecondsLeft}</strong><small>SEC</small><i><b style={{ width: `${turnTimerPercent}%` }} /></i>
             </div>
           )}
+        </div>
+        <div className={`v22-sync-chip ${syncState}`}>
+          <i /><span>{syncState === 'live' ? 'LIVE' : syncState === 'syncing' ? 'SYNCING' : 'RECONNECTING'}</span><small>{syncState === 'live' ? `${syncAgeSeconds}s` : syncState === 'syncing' ? '동기화 중' : '연결 복구 중'}</small>
         </div>
         <div className="v18-header-actions">
           <button type="button" className={logOpen ? 'active' : ''} onClick={() => setLogOpen((value) => !value)}>기록</button>
@@ -2368,6 +2594,11 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
           <div className="v18-center-lane">
             <div className="v18-pile-stat"><small>OPPONENT</small><span>DECK <b>{state.deckCounts[opponentId]}</b></span><span>GRAVE <b>{state.graveyards[opponentId]?.length ?? 0}</b></span></div>
             <div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div>
+            <div className={`v22-momentum ${momentumLabel === '유리' ? 'ahead' : momentumLabel === '불리' ? 'behind' : 'even'}`}>
+              <span><small>BATTLE FLOW</small><b>{momentumLabel}</b></span>
+              <i><b style={{ left: `${momentumPercent}%` }} /></i>
+              <em>필드 · 코어 · 손패 · 에너지 기준</em>
+            </div>
             <div className={`v18-field-guide ${myTurn ? 'mine' : 'opponent'}`}><small>{myTurn ? 'YOUR ACTION' : 'WATCHING'}</small><b>{actionGuide}</b></div>
             <div className="v18-pile-stat mine"><small>YOU</small><span>DECK <b>{state.deckCounts[userId]}</b></span><span>GRAVE <b>{state.graveyards[userId]?.length ?? 0}</b></span></div>
           </div>
@@ -2435,7 +2666,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
         <section className="v18-action-buttons">
           {state.phase === 'main' && <button className="v18-secondary-action" disabled={!canSpendTurnToDraw} onClick={spendTurnToDraw}><span>＋ 카드 1장</span><small>턴을 소비해 추가 드로우</small></button>}
           {state.phase === 'main' && <button className="v18-battle-action" disabled={!myTurn || busy} onClick={() => gameAction('battle_phase')}><span>전투 단계</span><small>공격 가능한 유닛으로 전투</small></button>}
-          <button className="v18-end-turn" disabled={!myTurn || busy} onClick={() => gameAction('end_turn')}><span>턴 종료</span><small>{turnSecondsLeft}초 남음</small></button>
+          <button className="v18-end-turn" disabled={!myTurn || busy} onClick={requestEndTurn}><span>턴 종료</span><small>{remainingOpportunities > 0 ? `가능 행동 ${remainingOpportunities}` : `${turnSecondsLeft}초 남음`}</small></button>
         </section>
 
         <section className="v18-extra-access">
@@ -2480,6 +2711,17 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
         </div>
       )}
 
+      {endTurnConfirmOpen && state.status === 'active' && (
+        <div className="modal-layer v18-confirm-layer v22-turn-confirm-layer">
+          <section className="v18-confirm-modal v22-turn-confirm">
+            <span className="eyebrow">ACTION CHECK</span>
+            <h2>아직 사용할 수 있는 행동이 있습니다.</h2>
+            <p>{state.phase === 'battle' ? `공격 가능한 유닛이 ${remainingAttackers}장 남아 있습니다.` : `현재 사용할 수 있는 손패/특수 소환 선택지가 ${remainingOpportunities}개 남아 있습니다.`} 그대로 턴을 종료할까요?</p>
+            <div><button className="ghost-button" disabled={busy} onClick={() => setEndTurnConfirmOpen(false)}>전장으로 돌아가기</button><button className="primary-button" disabled={busy} onClick={() => { setEndTurnConfirmOpen(false); void gameAction('end_turn'); }}>그래도 턴 종료</button></div>
+          </section>
+        </div>
+      )}
+
       {surrenderOpen && state.status === 'active' && (
         <div className="modal-layer v18-confirm-layer">
           <section className="v18-confirm-modal">
@@ -2493,13 +2735,19 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
 
       {state.status === 'finished' && (
         <div className="modal-layer v18-result-layer">
-          <section className={`v18-result-modal ${state.winnerId === userId ? 'win' : 'lose'}`}>
-            <span className="result-emblem">{state.winnerId === userId ? '✦' : '◇'}</span>
-            <small>DUEL COMPLETE</small>
-            <h2>{state.winnerId === userId ? 'VICTORY' : 'DEFEAT'}</h2>
-            <p>{state.winReason}</p>
-            <div>{state.winnerId === userId ? '+180 COIN · +100 XP' : '+35 COIN · +35 XP'}</div>
-            <button className="primary-button" onClick={onLeave}>허브로 돌아가기</button>
+          <section className={`v18-result-modal v22-result-modal ${state.winnerId === userId ? 'win' : 'lose'}`}>
+            <div className="v22-result-hero">
+              <span className="result-emblem">{state.winnerId === userId ? '✦' : '◇'}</span>
+              <div><small>DUEL COMPLETE · TURN {state.turnNumber}</small><h2>{state.winnerId === userId ? 'VICTORY' : 'DEFEAT'}</h2><p>{state.winReason}</p></div>
+              <strong>{state.winnerId === userId ? '+180 COIN · +100 XP' : '+35 COIN · +35 XP'}</strong>
+            </div>
+            <div className="v22-result-stats">
+              <article><small>CORE DAMAGE</small><b>{myMatchStats.coreDamage}</b><span>상대 {opponentMatchStats.coreDamage}</span></article>
+              <article><small>CARDS PLAYED</small><b>{myMatchStats.cardsPlayed}</b><span>상대 {opponentMatchStats.cardsPlayed}</span></article>
+              <article><small>SUMMONS</small><b>{myMatchStats.unitsSummoned}</b><span>특수 {myMatchStats.specialSummons}</span></article>
+              <article><small>HEALING</small><b>{myMatchStats.healing}</b><span>드로우 {myMatchStats.cardsDrawn}</span></article>
+            </div>
+            <div className="v22-result-footer"><span>결투 기록은 결과 확정 후 계정 전적과 보상에 반영됩니다.</span><button className="primary-button" onClick={onLeave}>허브로 돌아가기</button></div>
           </section>
         </div>
       )}
@@ -2508,7 +2756,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
 }
 
 
-function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus }: { userId: string; hub: HubData; roomPayload: RoomPayload | null; onRoom: (room: RoomPayload | null) => void; onHub: (hub: HubData) => void; serverStatus: SecureServerStatus }) {
+function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncState, lastSyncAt }: { userId: string; hub: HubData; roomPayload: RoomPayload | null; onRoom: (room: RoomPayload | null) => void; onHub: (hub: HubData) => void; serverStatus: SecureServerStatus; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number }) {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -2537,7 +2785,7 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus }: { u
   }
 
   if (roomPayload?.room.status === 'active' || roomPayload?.room.status === 'finished') {
-    return <DuelBoard payload={roomPayload} userId={userId} onRefresh={onRoom} onLeave={leaveRoom} />;
+    return <DuelBoard payload={roomPayload} userId={userId} onRefresh={onRoom} onLeave={leaveRoom} syncState={syncState} lastSyncAt={lastSyncAt} />;
   }
 
   if (roomPayload) {
@@ -2611,13 +2859,21 @@ export default function Page() {
   const [bootstrapVersion, setBootstrapVersion] = useState(0);
   const [inspectedCardId, setInspectedCardId] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundVolume, setSoundVolume] = useState(0.82);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [roomSyncState, setRoomSyncState] = useState<'live' | 'syncing' | 'offline'>('live');
+  const [lastRoomSyncAt, setLastRoomSyncAt] = useState(() => Date.now());
 
   useEffect(() => {
     const stored = window.localStorage.getItem(SOUND_STORAGE_KEY);
     const enabled = stored !== 'off';
+    const storedVolume = Number(window.localStorage.getItem(SOUND_VOLUME_STORAGE_KEY));
+    const volume = Number.isFinite(storedVolume) && storedVolume >= 0 && storedVolume <= 1 ? storedVolume : 0.82;
     setSoundEnabled(enabled);
+    setSoundVolume(volume);
     setGlobalSoundEnabled(enabled);
+    setGlobalSoundVolume(volume);
   }, []);
 
   function toggleSound() {
@@ -2627,6 +2883,18 @@ export default function Page() {
     window.localStorage.setItem(SOUND_STORAGE_KEY, next ? 'on' : 'off');
     if (next) window.setTimeout(() => playUiSound('success'), 0);
   }
+
+  function changeSoundVolume(volume: number) {
+    const next = Math.max(0, Math.min(1, volume));
+    setSoundVolume(next);
+    setGlobalSoundVolume(next);
+    window.localStorage.setItem(SOUND_VOLUME_STORAGE_KEY, String(next));
+    if (soundEnabled && next > 0) window.setTimeout(() => playUiSound('click'), 0);
+  }
+
+  useEffect(() => {
+    if (roomPayload?.room.status === 'active') setSettingsOpen(false);
+  }, [roomPayload?.room.status]);
 
   useEffect(() => {
     const openInspector = (event: Event) => {
@@ -2712,6 +2980,8 @@ export default function Page() {
         if (result.serverStatus) setServerStatus(result.serverStatus);
         if (result.room && result.profiles) {
           setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
+          setRoomSyncState('live');
+          setLastRoomSyncAt(Date.now());
           setView('duel');
         }
         setError('');
@@ -2729,13 +2999,26 @@ export default function Page() {
     async function refresh() {
       if (refreshing) return;
       refreshing = true;
+      const slowTimer = window.setTimeout(() => setRoomSyncState('syncing'), 350);
       try {
         const result = await api('get_room', { roomId });
-        if (result.room && result.profiles) setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
-      } catch (reason) { setError(reason instanceof Error ? reason.message : '방 동기화 실패'); }
-      finally { refreshing = false; }
+        if (result.room && result.profiles) {
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
+          setRoomSyncState('live');
+          setLastRoomSyncAt(Date.now());
+        }
+      } catch (reason) {
+        setRoomSyncState('offline');
+        setError(reason instanceof Error ? reason.message : '방 동기화 실패');
+      } finally {
+        window.clearTimeout(slowTimer);
+        refreshing = false;
+      }
     }
-    const channel = supabase.channel(`room-${roomId}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'eclipse_rooms', filter: `id=eq.${roomId}` }, refresh).subscribe();
+    const channel = supabase.channel(`room-${roomId}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'eclipse_rooms', filter: `id=eq.${roomId}` }, refresh).subscribe((status) => {
+      if (status === 'SUBSCRIBED') { setRoomSyncState('live'); setLastRoomSyncAt(Date.now()); }
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setRoomSyncState('offline');
+    });
     const pollMs = roomPayload?.room.status === 'active' ? 2500 : 8000;
     const timer = window.setInterval(refresh, pollMs);
     return () => { window.clearInterval(timer); supabase.removeChannel(channel); };
@@ -2748,7 +3031,7 @@ export default function Page() {
 
   const content = (() => {
     switch (view) {
-      case 'duel': return <DuelView userId={session.user.id} hub={hub} roomPayload={roomPayload} onRoom={setRoomPayload} onHub={setHub} serverStatus={serverStatus} />;
+      case 'duel': return <DuelView userId={session.user.id} hub={hub} roomPayload={roomPayload} onRoom={setRoomPayload} onHub={setHub} serverStatus={serverStatus} syncState={roomSyncState} lastSyncAt={lastRoomSyncAt} />;
       case 'deck': return <DeckBuilder hub={hub} onHub={setHub} />;
       case 'shop': return <ShopView hub={hub} onHub={setHub} />;
       case 'collection': return <CollectionView hub={hub} />;
@@ -2773,7 +3056,12 @@ export default function Page() {
         <div className="mobile-logo"><span className="logo-glyph"><i>E</i></span><b>ECLIPSE DUEL</b></div>
         <div className="topbar-title"><small>{NAV_ITEMS.find((item) => item.id === view)?.label ?? (view === 'profile' ? '프로필' : 'ECLIPSE')}</small><b>ECLIPSE NETWORK</b></div>
         <button className={`v13-server-chip ${serverStatus.secureDuelReady ? 'ready' : 'warning'}`} onClick={() => setView('duel')} title={serverStatus.message}><span />{serverStatus.secureDuelReady ? '온라인' : '대전 설정'}</button>
-        <div className="topbar-actions v9-topbar-actions"><button className="v9-icon-button v20-help-button" onClick={() => { playUiSound('click'); setGuideOpen(true); }} title="게임 룰 가이드" aria-label="게임 룰 가이드"><b>?</b><span>GUIDE</span></button><span className="currency-pill"><GameIcon name="coin" /><small>COIN</small><b>{hub.wallet.coins.toLocaleString()}</b></span><button className={`v9-icon-button v10-sound-button ${soundEnabled ? 'active' : ''}`} onClick={toggleSound} title={soundEnabled ? '사운드 끄기' : '사운드 켜기'} aria-label={soundEnabled ? '사운드 끄기' : '사운드 켜기'}><GameIcon name="sound" /><span>{soundEnabled ? 'ON' : 'OFF'}</span></button><button className={`chat-toggle ${chatOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setChatOpen((value) => !value); }}><GameIcon name="chat" /><span>{roomChat ? '방 채팅' : '채팅'}</span></button><button className="profile-chip" onClick={() => { playUiSound('click'); setView('profile'); }}><Avatar id={hub.profile.avatar} size="small" /><span>{hub.profile.display_name}</span></button></div>
+        <div className="topbar-actions v9-topbar-actions">
+          <span className="currency-pill"><GameIcon name="coin" /><small>COIN</small><b>{hub.wallet.coins.toLocaleString()}</b></span>
+          <button className={`chat-toggle ${chatOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setChatOpen((value) => !value); }}><GameIcon name="chat" /><span>{roomChat ? '방 채팅' : '채팅'}</span></button>
+          <button className="profile-chip" onClick={() => { playUiSound('click'); setView('profile'); }}><Avatar id={hub.profile.avatar} size="small" /><span>{hub.profile.display_name}</span></button>
+          <button className={`v9-icon-button v22-system-button ${settingsOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setSettingsOpen((value) => !value); }} title="게임 설정" aria-label="게임 설정"><GameIcon name="settings" /><span>SYSTEM</span></button>
+        </div>
       </header>
 
       <section className="content-area">{error && <div className="global-error"><span>{error}</span><button onClick={() => setError('')}>×</button></div>}{content}</section>
@@ -2781,6 +3069,17 @@ export default function Page() {
       <nav className="mobile-nav">{NAV_ITEMS.map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { playUiSound('click'); setView(item.id); }}><i><GameIcon name={item.id} /></i><span>{item.label}</span></button>)}</nav>
       <ChatDrawer open={chatOpen} roomId={roomChat} onClose={() => setChatOpen(false)} profile={hub.profile} />
       {chatOpen && <button className="chat-backdrop" aria-label="채팅 닫기" onClick={() => setChatOpen(false)} />}
+      <ControlCenter
+        open={settingsOpen}
+        soundEnabled={soundEnabled}
+        soundVolume={soundVolume}
+        onClose={() => setSettingsOpen(false)}
+        onToggleSound={toggleSound}
+        onVolumeChange={changeSoundVolume}
+        onOpenGuide={() => { setSettingsOpen(false); setGuideOpen(true); }}
+        onOpenProfile={() => { setSettingsOpen(false); setView('profile'); }}
+        onSignOut={() => { setSettingsOpen(false); void supabase.auth.signOut({ scope: 'local' }); }}
+      />
       {inspectedCardId && CARD_BY_ID[inspectedCardId] && <CardDetailModal card={CARD_BY_ID[inspectedCardId]} onClose={() => setInspectedCardId(null)} />}
       {guideOpen && <GameGuideModal onClose={() => setGuideOpen(false)} />}
     </main>

@@ -788,6 +788,50 @@ for (const card of CARDS) {
   if (signature) card.vfx = { ...signature, ...card.vfx };
 }
 
+
+/*
+ * v22 live-balance normalization
+ *
+ * The v8 expansion contained a small cluster of low-cost units whose raw body,
+ * keyword and summon effect all exceeded the baseline at the same time. These
+ * are conservative stat-only corrections to the 24 clearest outliers; card
+ * identity/effects are preserved. This is intentionally narrower than a full
+ * meta rebalance so real match telemetry can drive later tuning.
+ */
+const V22_UNIT_BALANCE_OVERRIDES: Record<string, Pick<CardDefinition, 'attack' | 'health'>> = {
+  unit_v8_solar_02: { attack: 2, health: 3 },
+  unit_v8_solar_05: { attack: 3, health: 4 },
+  unit_v8_solar_11: { attack: 3, health: 4 },
+  unit_v8_solar_15: { attack: 2, health: 1 },
+  unit_v8_solar_20: { attack: 1, health: 2 },
+  unit_v8_lunar_13: { attack: 2, health: 2 },
+  unit_v8_lunar_20: { attack: 2, health: 2 },
+  unit_v8_storm_01: { attack: 1, health: 2 },
+  unit_v8_storm_05: { attack: 2, health: 4 },
+  unit_v8_storm_06: { attack: 2, health: 2 },
+  unit_v8_storm_07: { attack: 1, health: 2 },
+  unit_v8_storm_13: { attack: 1, health: 2 },
+  unit_v8_storm_17: { attack: 1, health: 3 },
+  unit_v8_storm_20: { attack: 1, health: 2 },
+  unit_v8_verdant_06: { attack: 2, health: 2 },
+  unit_v8_verdant_11: { attack: 2, health: 3 },
+  unit_v8_verdant_17: { attack: 2, health: 3 },
+  unit_v8_void_03: { attack: 1, health: 3 },
+  unit_v8_void_06: { attack: 2, health: 1 },
+  unit_v8_void_09: { attack: 1, health: 3 },
+  unit_v8_void_11: { attack: 2, health: 2 },
+  unit_v8_void_17: { attack: 2, health: 2 },
+  unit_v8_neutral_05: { attack: 2, health: 2 },
+  unit_v8_neutral_11: { attack: 2, health: 2 },
+};
+
+for (const card of CARDS) {
+  const override = V22_UNIT_BALANCE_OVERRIDES[card.id];
+  if (!override) continue;
+  card.attack = override.attack;
+  card.health = override.health;
+}
+
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));
 
 export const STARTER_DECK: string[] = [

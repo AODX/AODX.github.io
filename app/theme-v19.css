@@ -1862,6 +1862,91 @@ button { touch-action: manipulation; }
 .v19-client .v20-pack-odds em { grid-column:1/-1;color:#8da0b0;font-size:9px;font-style:normal;line-height:1.45; }
 .v19-client .v20-pack-odds p { margin:0!important;color:#b6c4cf!important;font-size:9px!important;line-height:1.45!important; }
 
+/* Commercial UI repair pass: clear image previews, stronger hierarchy, safer spacing. */
+.v19-client .v9-topbar-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+.v19-client .v20-help-button,
+.v19-client .v10-sound-button,
+.v19-client .v9-icon-button,
+.v19-client .currency-pill,
+.v19-client .profile-chip { flex:0 0 auto; min-height:42px; }
+.v19-client .v10-sound-button { min-width:78px; padding-inline:12px; }
+.v19-client .currency-pill { min-width:92px; justify-content:center; }
+.v19-client .profile-chip { padding-right:12px; gap:9px; }
+
+.v19-client .tcg-card { overflow:hidden; }
+.v19-client .card-art { min-height:124px; }
+.v19-client .card-illustration { display:block; width:100%; height:100%; }
+.v19-client .card-art-image { width:100%; height:100%; object-fit:cover; filter:saturate(1.12) contrast(1.05) brightness(1.08); transform:scale(1.02); }
+.v19-client .tcg-card.compact { min-height:246px; }
+.v19-client .tcg-card.compact .card-art { min-height:128px; }
+.v19-client .card-topline b,
+.v19-client .card-footer b,
+.v19-client .card-footer span { text-shadow:0 1px 4px rgba(0,0,0,.45); }
+.v19-client .card-text { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.v19-client .collection-grid.v9-card-grid { align-content:start; }
+
+.v19-client .v9-current-deck { min-width:0; }
+.v19-client .v9-current-head h3 { line-height:1.1; word-break:keep-all; }
+.v19-client .v9-deck-row { grid-template-columns:30px minmax(0,1fr) auto 18px!important; align-items:center; gap:10px!important; }
+.v19-client .v9-deck-row i { width:30px; height:30px; display:grid; place-items:center; border-radius:9px; background:rgba(255,255,255,.06); color:#f2f6fb; font-style:normal; font-weight:800; }
+.v19-client .v9-deck-row span { min-width:0; display:grid; }
+.v19-client .v9-deck-row span b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.v19-client .v9-deck-row span small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.v19-client .v9-deck-row strong { color:#e9f3fb; font-size:13px; }
+.v19-client .v9-deck-row em { color:#8da8bb; font-style:normal; }
+
+.v19-client .card-detail-modal { grid-template-columns:minmax(320px,.8fr) minmax(0,1.2fr)!important; }
+.v19-client .card-detail-visual { grid-template-rows:minmax(0,1fr)!important; }
+.v19-client .card-detail-artwork { min-height:540px; }
+.v19-client .detail-section.detail-lore p { color:#9cb1c1; font-style:italic; }
+
+.v19-client .pack-card { overflow:hidden; display:grid; grid-template-rows:auto 1fr; min-height:575px; }
+.v19-client .pack-product-visual { position:relative; min-height:250px; padding:16px 16px 14px; border:1px solid rgba(255,255,255,.08); border-radius:20px; background:radial-gradient(circle at top left, color-mix(in srgb, var(--pack-accent) 20%, transparent), transparent 42%), linear-gradient(180deg, rgba(10,17,26,.96), rgba(7,11,17,.92)); overflow:hidden; }
+.v19-client .pack-product-visual::after { content:""; position:absolute; inset:auto -20% -35% 25%; height:70%; background:radial-gradient(circle, color-mix(in srgb, var(--pack-accent) 18%, transparent), transparent 65%); pointer-events:none; }
+.v19-client .pack-preview-badges { position:relative; z-index:2; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.v19-client .pack-preview-brand { color:#edf5ff; font-size:11px; font-weight:900; letter-spacing:.08em; }
+.v19-client .pack-preview-emblem { width:36px; height:36px; display:grid; place-items:center; border-radius:50%; border:1px solid color-mix(in srgb, var(--pack-accent) 50%, transparent); background:rgba(5,9,14,.72); color:#fff; box-shadow:0 0 22px color-mix(in srgb, var(--pack-accent) 18%, transparent); }
+.v19-client .pack-preview-fan { position:relative; z-index:2; min-height:170px; margin-top:16px; }
+.v19-client .pack-preview-card { position:absolute; inset:auto auto 0 0; width:43%; aspect-ratio:0.72; border-radius:15px; overflow:hidden; border:1px solid rgba(255,255,255,.14); box-shadow:0 18px 44px rgba(0,0,0,.34); }
+.v19-client .pack-preview-card img { width:100%; height:100%; object-fit:cover; display:block; filter:saturate(1.1) brightness(1.08); }
+.v19-client .pack-preview-card-overlay { position:absolute; inset:0; background:linear-gradient(180deg, rgba(2,4,8,.06), rgba(2,4,8,.12) 45%, rgba(2,4,8,.84)); }
+.v19-client .pack-preview-copy { position:absolute; inset:auto 0 0 0; padding:12px 12px 11px; display:grid; gap:3px; }
+.v19-client .pack-preview-copy span { color:#9cb4c6; font-size:9px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+.v19-client .pack-preview-copy b { color:#f4f8fb; font-size:13px; line-height:1.15; text-shadow:0 2px 10px rgba(0,0,0,.45); }
+.v19-client .pack-preview-card.slot-1 { left:0; bottom:8px; transform:rotate(-11deg); }
+.v19-client .pack-preview-card.slot-2 { left:28%; bottom:28px; z-index:2; transform:rotate(-1deg) scale(1.03); }
+.v19-client .pack-preview-card.slot-3 { right:0; left:auto; bottom:8px; transform:rotate(11deg); }
+.v19-client .pack-product-copy { display:grid; align-content:start; gap:10px; }
+.v19-client .pack-product-copy h3 { line-height:1.08; }
+.v19-client .pack-price { margin-top:auto; }
+
+.v19-client .v17-cosmetic-grid { align-items:stretch; }
+.v19-client .v17-cosmetic-card { display:grid; grid-template-rows:auto 1fr auto; min-height:340px; overflow:hidden; }
+.v19-client .v17-cosmetic-preview { min-height:198px; padding:0; border-radius:18px; overflow:hidden; }
+.v19-client .v17-cosmetic-scene { position:relative; min-height:198px; height:100%; overflow:hidden; border-radius:18px; background:linear-gradient(140deg,#111a26,#0a1017); }
+.v19-client .v17-cosmetic-scene::before { content:""; position:absolute; inset:0; background:radial-gradient(circle at 18% 20%, color-mix(in srgb, var(--cosmetic-accent) 22%, transparent), transparent 36%), linear-gradient(135deg, rgba(255,255,255,.05), transparent 42%); }
+.v19-client .v17-cosmetic-scene-glow { position:absolute; inset:auto -12% -30% 38%; height:78%; background:radial-gradient(circle, color-mix(in srgb, var(--cosmetic-accent) 24%, transparent), transparent 68%); }
+.v19-client .v17-cosmetic-frame-ring { position:absolute; inset:10px; border-radius:18px; border:2px solid color-mix(in srgb, var(--cosmetic-accent) 42%, rgba(255,255,255,.18)); box-shadow:inset 0 0 0 1px rgba(255,255,255,.08), 0 0 26px color-mix(in srgb, var(--cosmetic-accent) 16%, transparent); pointer-events:none; }
+.v19-client .v17-cosmetic-scene.kind-background .v17-cosmetic-frame-ring { inset:14px; border-width:1px; opacity:.72; }
+.v19-client .v17-cosmetic-title { position:absolute; top:14px; left:14px; right:14px; z-index:2; display:grid; gap:4px; }
+.v19-client .v17-cosmetic-title span { color:#8eb0c8; font-size:9px; font-weight:900; letter-spacing:.12em; }
+.v19-client .v17-cosmetic-title b { color:#f3f8fc; font-size:18px; letter-spacing:-.03em; }
+.v19-client .v17-cosmetic-profile-card { position:absolute; left:14px; right:14px; bottom:14px; z-index:2; display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:16px; border:1px solid rgba(255,255,255,.1); background:rgba(5,9,14,.78); backdrop-filter:blur(10px); }
+.v19-client .v17-cosmetic-avatar-wrap { flex:0 0 auto; }
+.v19-client .v17-cosmetic-usercopy { display:grid; gap:3px; min-width:0; }
+.v19-client .v17-cosmetic-usercopy b { color:#f3f8fc; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.v19-client .v17-cosmetic-usercopy span { color:#94a8b8; font-size:11px; line-height:1.35; }
+.v19-client .v17-cosmetic-copy h3 { line-height:1.08; }
+.v19-client .v17-cosmetic-copy p { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.v19-client .bg_eclipse_nexus .v17-cosmetic-scene::before { background:radial-gradient(circle at 20% 25%, rgba(124,168,255,.34), transparent 34%), radial-gradient(circle at 82% 72%, rgba(62,88,184,.28), transparent 42%), linear-gradient(145deg, #0f1a34, #09111b 52%, #05080d); }
+.v19-client .bg_solar_sanctum .v17-cosmetic-scene::before { background:radial-gradient(circle at 20% 20%, rgba(255,219,157,.36), transparent 34%), radial-gradient(circle at 80% 76%, rgba(255,144,84,.28), transparent 42%), linear-gradient(145deg, #2e1c12, #100e15 52%, #06080d); }
+.v19-client .bg_lunar_archive .v17-cosmetic-scene::before { background:radial-gradient(circle at 18% 18%, rgba(216,228,255,.32), transparent 34%), radial-gradient(circle at 72% 30%, rgba(110,132,255,.2), transparent 40%), linear-gradient(145deg, #13172b, #0b1020 55%, #05080d); }
+.v19-client .bg_void_throne .v17-cosmetic-scene::before { background:radial-gradient(circle at 22% 18%, rgba(198,120,255,.34), transparent 34%), radial-gradient(circle at 80% 80%, rgba(77,25,138,.24), transparent 42%), linear-gradient(145deg, #1c1231, #0b0c19 55%, #05070d); }
+.v19-client .frame_aurora .v17-cosmetic-frame-ring { border-color:rgba(115,187,255,.84); box-shadow:inset 0 0 0 1px rgba(255,255,255,.14), 0 0 24px rgba(92,168,255,.3); }
+.v19-client .frame_royal .v17-cosmetic-frame-ring { border-color:rgba(255,204,103,.86); box-shadow:inset 0 0 0 1px rgba(255,255,255,.14), 0 0 24px rgba(255,188,82,.3); }
+.v19-client .frame_shard .v17-cosmetic-frame-ring { border-color:rgba(178,142,255,.9); box-shadow:inset 0 0 0 1px rgba(255,255,255,.14), 0 0 28px rgba(156,119,255,.33); }
+.v19-client .frame_celestial .v17-cosmetic-frame-ring { border-color:rgba(215,236,255,.92); box-shadow:inset 0 0 0 1px rgba(255,255,255,.18), 0 0 30px rgba(158,207,255,.35); }
+
 @media (max-width:860px) {
   .v19-client .card-detail-modal { grid-template-columns:1fr!important;max-height:calc(100dvh - 20px)!important;overflow-y:auto!important; }
   .v19-client .card-detail-visual { grid-template-columns:minmax(190px,.75fr) minmax(0,1fr);grid-template-rows:auto;gap:14px;min-height:280px;border-right:0;border-bottom:1px solid rgba(153,197,226,.13);padding:14px; }
@@ -1890,3 +1975,390 @@ button { touch-action: manipulation; }
   .v19-client *, .v19-client *::before, .v19-client *::after { scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important; }
   .v19-client .v18-cinematic-layer,.v19-client .pack-light-burst { backdrop-filter:none!important; }
 }
+
+/* ========================================================================== 
+   V22 COMMERCIAL DESKTOP POLISH PASS
+   The goal of this layer is not "more decoration"; it is stronger hierarchy,
+   clear interaction feedback and consistent premium presentation.
+   ========================================================================== */
+
+.v19-client .v22-system-button {
+  min-width:104px;
+  padding:0 13px;
+  gap:8px;
+  color:#a8bac8;
+}
+.v19-client .v22-system-button .ui-icon { width:18px;height:18px; }
+.v19-client .v22-system-button span { font-size:9px;font-weight:950;letter-spacing:.12em; }
+.v19-client .v22-system-button.active { color:#dff6ff;border-color:rgba(101,205,247,.34);background:#112131;box-shadow:0 0 24px rgba(72,169,220,.08); }
+
+/* Unified system panel replaces the cramped row of unrelated topbar toggles. */
+.v19-client .v22-control-layer {
+  position:fixed;inset:0;z-index:2300;
+  background:rgba(2,5,9,.42);
+  backdrop-filter:blur(6px);
+}
+.v19-client .v22-control-panel {
+  position:absolute;top:calc(var(--topbar) + 10px);right:24px;
+  width:min(420px,calc(100vw - 48px));
+  overflow:hidden;
+  border:1px solid rgba(154,205,235,.2);
+  border-radius:20px;
+  background:linear-gradient(145deg,rgba(15,24,35,.99),rgba(7,12,19,.99));
+  box-shadow:0 28px 100px rgba(0,0,0,.58),0 0 0 1px rgba(255,255,255,.02) inset;
+  animation:v22PanelIn .18s ease-out both;
+}
+.v19-client .v22-control-panel>header { display:flex;justify-content:space-between;gap:18px;padding:22px 22px 18px;border-bottom:1px solid rgba(255,255,255,.065); }
+.v19-client .v22-control-panel>header span { color:#70d7ff;font-size:9px;font-weight:950;letter-spacing:.18em; }
+.v19-client .v22-control-panel>header h3 { margin:5px 0 3px;color:#f2f8fc;font-size:24px;letter-spacing:-.035em; }
+.v19-client .v22-control-panel>header p { margin:0;color:#7f93a4;font-size:11px;line-height:1.5; }
+.v19-client .v22-control-panel>header button { flex:0 0 36px;width:36px;height:36px;border:1px solid rgba(255,255,255,.09);border-radius:10px;background:#09101a;color:#e9f4fa;font-size:22px; }
+.v19-client .v22-control-section { padding:18px 20px;display:grid;gap:16px;border-bottom:1px solid rgba(255,255,255,.055); }
+.v19-client .v22-control-row { display:flex;align-items:center;justify-content:space-between;gap:20px; }
+.v19-client .v22-control-row>div { display:grid;gap:3px; }
+.v19-client .v22-control-row b { color:#e5eef5;font-size:13px; }
+.v19-client .v22-control-row span { color:#718596;font-size:10px; }
+.v19-client .v22-toggle { min-width:78px;height:34px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid rgba(255,255,255,.1);border-radius:999px;background:#080e16;color:#7f91a2;font-size:9px;font-weight:950;letter-spacing:.08em; }
+.v19-client .v22-toggle i { width:10px;height:10px;border-radius:50%;background:#556574;box-shadow:none; }
+.v19-client .v22-toggle.active { color:#dff8ec;border-color:rgba(92,226,166,.28);background:rgba(32,103,73,.16); }
+.v19-client .v22-toggle.active i { background:#66e2aa;box-shadow:0 0 16px rgba(102,226,170,.55); }
+.v19-client .v22-volume-control { display:grid;gap:9px; }
+.v19-client .v22-volume-control>span { display:flex;justify-content:space-between;align-items:center; }
+.v19-client .v22-volume-control b { color:#d9e6ef;font-size:11px; }
+.v19-client .v22-volume-control em { color:#84d9fa;font-size:10px;font-style:normal;font-weight:900; }
+.v19-client .v22-volume-control input[type="range"] { width:100%;accent-color:#66cfee; }
+.v19-client .v22-control-actions { display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:18px 20px; }
+.v19-client .v22-control-actions>button { min-width:0;display:flex;align-items:center;gap:11px;padding:13px;border:1px solid rgba(255,255,255,.075);border-radius:13px;background:#0a111a;text-align:left; }
+.v19-client .v22-control-actions>button>span { flex:0 0 34px;width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:#122232;color:#91e1ff;font-weight:950; }
+.v19-client .v22-control-actions>button>div { min-width:0;display:grid;gap:2px; }
+.v19-client .v22-control-actions b { color:#e8f1f7;font-size:11px; }
+.v19-client .v22-control-actions small { color:#718495;font-size:9px; }
+.v19-client .v22-control-panel>footer { display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 20px;background:rgba(3,7,12,.58); }
+.v19-client .v22-control-panel>footer span { color:#556a7d;font-size:8px;letter-spacing:.08em; }
+.v19-client .v22-control-panel>footer button { border:0;background:transparent;color:#9aaab8;font-size:9px;font-weight:900; }
+@keyframes v22PanelIn { from{opacity:0;transform:translateY(-8px) scale(.985)} to{opacity:1;transform:none} }
+
+/* Deck Doctor: useful feedback instead of decorative analytics only. */
+.v19-client .v22-deck-doctor { display:grid;gap:10px;padding:13px;border:1px solid rgba(145,194,224,.12);border-radius:15px;background:linear-gradient(155deg,#0d1722,#081019); }
+.v19-client .v22-doctor-score { display:grid;grid-template-columns:58px minmax(0,1fr);gap:12px;align-items:center; }
+.v19-client .v22-doctor-score>span { width:58px;height:58px;display:flex;align-items:baseline;justify-content:center;border-radius:50%;border:1px solid rgba(114,207,241,.28);background:radial-gradient(circle,rgba(83,187,230,.12),rgba(6,11,17,.9));box-shadow:0 0 28px rgba(69,164,209,.08); }
+.v19-client .v22-doctor-score>span b { color:#dff6ff;font-size:21px;line-height:58px; }
+.v19-client .v22-doctor-score>span small { color:#6c8293;font-size:7px; }
+.v19-client .v22-doctor-score>div { min-width:0;display:grid;gap:2px; }
+.v19-client .v22-doctor-score>div small { color:#60788a;font-size:8px;font-weight:950;letter-spacing:.12em; }
+.v19-client .v22-doctor-score strong { color:#e8f1f6;font-size:13px; }
+.v19-client .v22-doctor-score em { color:#8296a6;font-size:9px;font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.v19-client .v22-doctor-meter { height:5px;overflow:hidden;border-radius:99px;background:#07101a; }
+.v19-client .v22-doctor-meter i { display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#4ea7d2,#69e0b4);box-shadow:0 0 16px rgba(94,215,188,.24); }
+.v19-client .v22-deck-doctor.grade-b .v22-doctor-meter i { background:linear-gradient(90deg,#7492d7,#d3b161); }
+.v19-client .v22-deck-doctor.grade-c .v22-doctor-meter i { background:linear-gradient(90deg,#ad6e67,#dd8a72); }
+.v19-client .v22-deck-doctor ul { display:grid;gap:5px;margin:0;padding:0;list-style:none; }
+.v19-client .v22-deck-doctor li { position:relative;padding-left:12px;color:#8da0af;font-size:9px;line-height:1.45; }
+.v19-client .v22-deck-doctor li::before { content:"";position:absolute;left:0;top:.55em;width:4px;height:4px;border-radius:50%;background:#6bcbe9; }
+
+/* Card vault progression. */
+.v19-client .v22-vault-summary { display:grid;grid-template-columns:minmax(310px,.8fr) minmax(0,1.2fr);gap:18px;align-items:center;padding:16px 18px;margin-bottom:16px; }
+.v19-client .v22-vault-completion { display:grid;grid-template-columns:84px minmax(0,1fr);gap:15px;align-items:center; }
+.v19-client .v22-vault-completion>span { width:82px;height:82px;display:grid;place-items:center;align-content:center;border-radius:50%;border:1px solid rgba(114,201,238,.24);background:radial-gradient(circle,rgba(70,165,213,.13),rgba(5,10,16,.85)); }
+.v19-client .v22-vault-completion>span small { color:#687f90;font-size:7px;letter-spacing:.1em; }
+.v19-client .v22-vault-completion>span b { color:#e5f6ff;font-size:22px; }
+.v19-client .v22-vault-completion>div { display:grid;gap:7px; }
+.v19-client .v22-vault-completion strong { color:#dce8f0;font-size:12px; }
+.v19-client .v22-vault-completion i { height:6px;border-radius:99px;overflow:hidden;background:#07111a; }
+.v19-client .v22-vault-completion i b { display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#4d9ecb,#6ad9b4); }
+.v19-client .v22-vault-completion em { color:#758b9b;font-size:9px;font-style:normal; }
+.v19-client .v22-vault-rarities { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px; }
+.v19-client .v22-vault-rarities button { min-width:0;display:grid;gap:5px;padding:11px 12px;border:1px solid rgba(255,255,255,.075);border-radius:12px;background:#09111a;text-align:left; }
+.v19-client .v22-vault-rarities button span { color:#768c9c;font-size:8px;font-weight:900;letter-spacing:.08em; }
+.v19-client .v22-vault-rarities button b { color:#e5eef4;font-size:18px; }
+.v19-client .v22-vault-rarities button b small { color:#607486;font-size:9px;font-weight:700; }
+.v19-client .v22-vault-rarities .rarity-legendary { border-color:rgba(245,199,102,.22);background:linear-gradient(145deg,rgba(77,55,19,.18),#09111a); }
+.v19-client .v22-vault-rarities .rarity-epic { border-color:rgba(175,124,255,.19); }
+
+/* Better desktop card density. The previous 132px cards read like debug thumbnails. */
+@media (min-width:861px) {
+  .v19-client .v9-card-grid { grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:13px; }
+  .v19-client .v9-card-grid .tcg-card.compact { width:100%;min-height:0;aspect-ratio:.68; }
+  .v19-client .v9-card-grid .tcg-card.compact .card-art { min-height:132px; }
+  .v19-client .vault-grid { grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:14px; }
+  .v19-client .vault-grid .tcg-card { width:100%; }
+}
+
+/* Card inspector: stable portrait art + scrollable rules panel. */
+.v19-client .card-detail-layer { background:radial-gradient(circle at 50% 40%,rgba(31,63,86,.2),transparent 45%),rgba(1,4,7,.89)!important; }
+.v19-client .card-detail-modal { width:min(1120px,calc(100vw - 50px))!important;max-height:min(790px,calc(100dvh - 50px))!important;grid-template-columns:minmax(340px,.76fr) minmax(0,1.24fr)!important; }
+.v19-client .card-detail-visual { padding:22px!important;background:linear-gradient(180deg,rgba(8,15,23,.7),rgba(3,7,12,.92))!important; }
+.v19-client .card-detail-artwork { min-height:0!important;height:100%;border-radius:21px!important; }
+.v19-client .card-detail-artwork .card-art-image { filter:saturate(1.14) contrast(1.06) brightness(1.06); }
+.v19-client .card-detail-content { padding:32px 32px 28px!important; }
+.v19-client .detail-section.detail-lore { background:linear-gradient(145deg,rgba(109,134,165,.05),rgba(6,11,17,.72)); }
+
+/* Store product cards now behave like actual products, not cropped empty panels. */
+@media (min-width:861px) {
+  .v19-client .v6-pack-grid,.v19-client .pack-grid { grid-template-columns:repeat(3,minmax(280px,1fr));gap:16px;align-items:stretch; }
+}
+.v19-client .pack-card { min-height:610px;padding:16px!important;gap:14px; }
+.v19-client .pack-product-visual { min-height:270px!important; }
+.v19-client .pack-preview-fan { min-height:192px; }
+.v19-client .pack-preview-card { width:41%; }
+.v19-client .pack-product-copy { padding:2px 3px 3px; }
+.v19-client .pack-product-copy>.eyebrow { margin-top:2px; }
+.v19-client .pack-product-copy h3 { margin:0;font-size:20px; }
+.v19-client .pack-product-copy>p { min-height:34px!important;font-size:10px!important; }
+.v19-client .v20-pack-odds { margin:2px 0 0; }
+.v19-client .pack-price { padding:6px 0 3px!important; }
+
+/* Exact cosmetic ids in the current data set. */
+.v19-client .bg_eclipse_nexus .v17-cosmetic-scene::before { background:radial-gradient(circle at 20% 24%,rgba(80,170,255,.36),transparent 32%),radial-gradient(circle at 80% 70%,rgba(70,78,210,.28),transparent 40%),linear-gradient(145deg,#0e1b36,#080d18 56%,#05080d); }
+.v19-client .bg_solar_cathedral .v17-cosmetic-scene::before { background:linear-gradient(118deg,transparent 48%,rgba(255,214,128,.12) 49%,transparent 51%),radial-gradient(circle at 28% 22%,rgba(255,213,131,.38),transparent 34%),linear-gradient(145deg,#2e1d11,#140f0b 54%,#06080c); }
+.v19-client .bg_lunar_archive .v17-cosmetic-scene::before { background:radial-gradient(circle at 20% 20%,rgba(202,219,255,.32),transparent 34%),radial-gradient(circle at 70% 35%,rgba(91,119,255,.24),transparent 40%),linear-gradient(145deg,#12172e,#0a1020 55%,#05080d); }
+.v19-client .bg_void_throne .v17-cosmetic-scene::before { background:radial-gradient(circle at 24% 18%,rgba(191,111,255,.35),transparent 34%),radial-gradient(circle at 76% 74%,rgba(72,22,137,.3),transparent 43%),linear-gradient(145deg,#1c1232,#0a0c18 55%,#05070d); }
+.v19-client .frame_aurora .v17-cosmetic-frame-ring { border-color:rgba(105,226,255,.84);box-shadow:0 0 28px rgba(90,205,255,.27),inset 0 0 18px rgba(129,115,255,.1); }
+.v19-client .frame_royal .v17-cosmetic-frame-ring { border-color:rgba(255,207,104,.9);box-shadow:0 0 28px rgba(255,190,77,.25),inset 0 0 18px rgba(255,225,147,.08); }
+.v19-client .frame_rift .v17-cosmetic-frame-ring { border-color:rgba(175,127,255,.9);box-shadow:0 0 30px rgba(151,104,255,.3),inset 0 0 22px rgba(112,70,214,.12); }
+.v19-client .frame_astral .v17-cosmetic-frame-ring { border-color:rgba(170,209,255,.95);box-shadow:0 0 34px rgba(124,176,255,.3),inset 0 0 24px rgba(132,115,255,.1); }
+
+/* Duel flow indicator. */
+.v19-client .v22-momentum { width:min(250px,30vw);display:grid;gap:4px;padding:6px 10px;border:1px solid rgba(255,255,255,.06);border-radius:10px;background:rgba(5,10,16,.74);backdrop-filter:blur(7px); }
+.v19-client .v22-momentum>span { display:flex;align-items:center;justify-content:space-between;gap:10px; }
+.v19-client .v22-momentum small { color:#60778a;font-size:5.5px;font-weight:950;letter-spacing:.16em; }
+.v19-client .v22-momentum span b { color:#c9d6df;font-size:8px; }
+.v19-client .v22-momentum>i { position:relative;height:3px;border-radius:99px;background:linear-gradient(90deg,#d26978 0 48%,#445665 48% 52%,#68cda3 52%); }
+.v19-client .v22-momentum>i b { position:absolute;top:50%;width:7px;height:7px;border:1px solid rgba(255,255,255,.8);border-radius:50%;background:#e8f5fc;transform:translate(-50%,-50%);box-shadow:0 0 10px currentColor;transition:left .4s ease; }
+.v19-client .v22-momentum>em { color:#526777;font-size:5.5px;font-style:normal;text-align:center; }
+.v19-client .v22-momentum.ahead span b { color:#77e0b2; }.v19-client .v22-momentum.behind span b { color:#ee8692; }.v19-client .v22-momentum.even span b { color:#c4d5e1; }
+
+/* Event VFX. All are CSS-only and tied to existing server-authoritative visual events. */
+.v19-client .v22-cinematic-letterbox { position:absolute;inset:0;pointer-events:none;opacity:0; }
+.v19-client .kind-fusion .v22-cinematic-letterbox,.v19-client .kind-evolution .v22-cinematic-letterbox,.v19-client .kind-special .v22-cinematic-letterbox,.v19-client .kind-trap .v22-cinematic-letterbox { opacity:1;box-shadow:inset 0 7.5vh 0 rgba(0,0,0,.74),inset 0 -7.5vh 0 rgba(0,0,0,.74);animation:v22Letterbox 1.25s ease both; }
+.v19-client .v22-screen-flash { position:absolute;left:var(--tx);top:var(--ty);width:38vmin;height:38vmin;transform:translate(-50%,-50%) scale(.2);border-radius:50%;pointer-events:none;opacity:0;background:radial-gradient(circle,#fff 0,color-mix(in srgb,var(--fx-accent) 62%,transparent) 12%,transparent 67%);mix-blend-mode:screen; }
+.v19-client .kind-attack .v22-screen-flash,.v19-client .kind-core .v22-screen-flash,.v19-client .kind-destroy .v22-screen-flash,.v19-client .kind-spell .v22-screen-flash,.v19-client .kind-trap .v22-screen-flash { animation:v22ImpactFlash .62s ease-out both; }
+.v19-client .v22-element-particles { position:absolute;inset:0;overflow:hidden;pointer-events:none; }
+.v19-client .v22-element-particles i { --p-angle:calc(var(--particle) * 20deg);position:absolute;left:var(--tx);top:var(--ty);width:6px;height:14px;margin:-7px -3px;border-radius:999px;background:var(--fx-accent);box-shadow:0 0 12px var(--fx-accent);opacity:0;transform-origin:center; }
+.v19-client .kind-attack .v22-element-particles i,.v19-client .kind-core .v22-element-particles i,.v19-client .kind-destroy .v22-element-particles i,.v19-client .kind-special .v22-element-particles i,.v19-client .kind-fusion .v22-element-particles i,.v19-client .kind-evolution .v22-element-particles i { animation:v22ParticleBurst .82s cubic-bezier(.12,.7,.2,1) both;animation-delay:calc(var(--particle) * 8ms); }
+.v19-client .element-storm .v22-element-particles i { width:3px;height:20px;border-radius:1px; }
+.v19-client .element-verdant .v22-element-particles i { width:8px;height:12px;border-radius:100% 0 100% 0; }
+.v19-client .element-void .v22-element-particles i { width:8px;height:8px;border-radius:1px;transform:rotate(45deg); }
+.v19-client .element-solar .v22-element-particles i { background:#ffe0a1; }
+.v19-client .element-lunar .v22-element-particles i { background:#c5d1ff; }
+.v19-client .v18-duel-screen:has(.v18-cinematic-layer.kind-core) .v18-arena,.v19-client .v18-duel-screen:has(.v18-cinematic-layer.kind-destroy) .v18-arena { animation:v22ArenaShake .36s ease-out both; }
+@keyframes v22Letterbox { 0%{opacity:0}15%{opacity:1}80%{opacity:1}100%{opacity:0} }
+@keyframes v22ImpactFlash { 0%{opacity:0;transform:translate(-50%,-50%) scale(.08)}18%{opacity:.95}100%{opacity:0;transform:translate(-50%,-50%) scale(1.25)} }
+@keyframes v22ParticleBurst { 0%{opacity:0;transform:rotate(var(--p-angle)) translateX(8px) scale(.45)}18%{opacity:1}100%{opacity:0;transform:rotate(var(--p-angle)) translateX(calc(70px + var(--particle) * 2px)) scale(.1)} }
+@keyframes v22ArenaShake { 0%,100%{transform:none}25%{transform:translateX(-3px)}50%{transform:translateX(4px)}75%{transform:translateX(-2px)} }
+
+/* Result screen gives players a reason to review the match instead of showing one line. */
+.v19-client .v22-result-modal { width:min(760px,calc(100vw - 50px))!important;padding:0!important;overflow:hidden;border-radius:24px!important;background:linear-gradient(150deg,#101a26,#070c12)!important; }
+.v19-client .v22-result-hero { display:grid;grid-template-columns:74px minmax(0,1fr) auto;gap:18px;align-items:center;padding:26px 28px;border-bottom:1px solid rgba(255,255,255,.07);background:radial-gradient(circle at 20% 20%,rgba(80,169,215,.14),transparent 35%); }
+.v19-client .v22-result-modal.win .v22-result-hero { background:radial-gradient(circle at 20% 20%,rgba(89,218,170,.16),transparent 35%); }
+.v19-client .v22-result-hero .result-emblem { width:66px;height:66px;display:grid;place-items:center;border-radius:50%;border:1px solid rgba(137,206,235,.28);background:#09121c;font-size:27px; }
+.v19-client .v22-result-hero small { color:#71889a;font-size:8px;font-weight:950;letter-spacing:.12em; }
+.v19-client .v22-result-hero h2 { margin:3px 0 2px!important;font-size:36px!important;letter-spacing:-.045em!important; }
+.v19-client .v22-result-modal.win .v22-result-hero h2 { color:#8aebc0; }.v19-client .v22-result-modal.lose .v22-result-hero h2 { color:#e58a96; }
+.v19-client .v22-result-hero p { margin:0!important;color:#8fa0ad!important;font-size:11px!important; }
+.v19-client .v22-result-hero>strong { padding:10px 12px;border:1px solid rgba(244,207,117,.15);border-radius:11px;color:#f3d784;background:rgba(73,58,24,.14);font-size:11px;white-space:nowrap; }
+.v19-client .v22-result-stats { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:22px 26px 18px; }
+.v19-client .v22-result-stats article { min-width:0;display:grid;gap:4px;padding:13px;border:1px solid rgba(255,255,255,.065);border-radius:13px;background:#091019;text-align:left; }
+.v19-client .v22-result-stats small { color:#657b8c;font-size:7px;font-weight:950;letter-spacing:.1em; }
+.v19-client .v22-result-stats b { color:#edf6fb;font-size:24px; }
+.v19-client .v22-result-stats span { color:#758a9a;font-size:9px; }
+.v19-client .v22-result-footer { display:flex;align-items:center;justify-content:space-between;gap:18px;padding:0 26px 24px; }
+.v19-client .v22-result-footer span { color:#687d8d;font-size:9px;line-height:1.45; }
+.v19-client .v22-result-footer button { flex:0 0 180px; }
+
+/* Desktop battle surface polish: more separation between layers and stronger target feedback. */
+@media (min-width:861px) {
+  .v19-client .v18-board { box-shadow:inset 0 0 80px rgba(0,0,0,.18); }
+  .v19-client .v18-duel-screen.phase-battle .v18-field-core { filter:drop-shadow(0 0 16px rgba(231,110,94,.25)); }
+  .v19-client .v18-duel-screen.phase-main .v18-field-core { filter:drop-shadow(0 0 16px rgba(87,194,234,.18)); }
+  .v19-client .unit-slot.targetable { border-color:rgba(106,226,255,.72)!important;box-shadow:0 0 0 1px rgba(106,226,255,.22) inset,0 0 25px rgba(79,199,239,.16)!important;animation:v22TargetPulse 1.25s ease-in-out infinite; }
+  .v19-client .unit-slot.selected { box-shadow:0 0 0 2px rgba(255,225,135,.75) inset,0 0 34px rgba(255,190,83,.2)!important; }
+  .v19-client .v18-hand-card.playable .tcg-card { filter:none; }
+  .v19-client .v18-hand-card.not-playable .tcg-card { filter:saturate(.58) brightness(.72);opacity:.74; }
+  .v19-client .v18-hand-card.playable:hover { transform:translateY(-7px); }
+}
+@keyframes v22TargetPulse { 0%,100%{filter:brightness(1)}50%{filter:brightness(1.12)} }
+
+
+/* Live room synchronization indicator — reflects actual realtime/polling state. */
+.v19-client .v22-sync-chip { min-width:94px;height:34px;display:grid;grid-template-columns:8px auto;grid-template-rows:1fr 1fr;column-gap:7px;align-items:center;padding:5px 10px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(7,12,18,.86); }
+.v19-client .v22-sync-chip i { grid-row:1/3;width:7px;height:7px;border-radius:50%;background:#617383; }
+.v19-client .v22-sync-chip span { align-self:end;color:#a9bac6;font-size:7px;font-weight:950;letter-spacing:.12em; }
+.v19-client .v22-sync-chip small { align-self:start;color:#536878;font-size:6px; }
+.v19-client .v22-sync-chip.live i { background:#5ee0a6;box-shadow:0 0 12px rgba(94,224,166,.5); }
+.v19-client .v22-sync-chip.live span { color:#c7f6e1; }
+.v19-client .v22-sync-chip.syncing i { background:#67d3f5;box-shadow:0 0 12px rgba(103,211,245,.45);animation:v22SyncPulse .8s ease-in-out infinite; }
+.v19-client .v22-sync-chip.offline { border-color:rgba(235,120,126,.18);background:rgba(72,20,25,.16); }
+.v19-client .v22-sync-chip.offline i { background:#ec7d84;box-shadow:0 0 12px rgba(236,125,132,.4);animation:v22SyncPulse .7s ease-in-out infinite; }
+.v19-client .v22-sync-chip.offline span { color:#efadb2; }
+@keyframes v22SyncPulse { 0%,100%{opacity:.45;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)} }
+
+/* Keep the pre-existing responsive fallback intact even though v22 does not target mobile/tablet. */
+@media (max-width:860px) {
+  .v19-client .card-detail-modal { grid-template-columns:1fr!important;max-height:calc(100dvh - 20px)!important;overflow-y:auto!important; }
+  .v19-client .card-detail-visual { min-height:280px!important;border-right:0!important;border-bottom:1px solid rgba(153,197,226,.13)!important;padding:14px!important; }
+  .v19-client .card-detail-artwork { min-height:260px!important;height:auto!important; }
+  .v19-client .card-detail-content { overflow:visible!important;padding:22px!important; }
+  .v19-client .v22-vault-summary { grid-template-columns:1fr; }
+  .v19-client .v22-result-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
+/* Large desktop readability pass. Existing v19 used 6-8px labels in many places;
+   that looks like an internal debug client on a 1440-1920px monitor. */
+@media (min-width:1400px) {
+  .v19-client { font-size:15px; }
+  .v19-client .content-area { padding:34px 44px 64px; }
+  .v19-client .content-area > * { max-width:1660px; }
+  .v19-client .topbar-title small { font-size:10px; }
+  .v19-client .topbar-title b { font-size:15px; }
+  .v19-client .currency-pill small { font-size:9px; }
+  .v19-client .currency-pill b { font-size:15px; }
+  .v19-client .chat-toggle,.v19-client .profile-chip,.v19-client .v22-system-button { min-height:44px; }
+  .v19-client .section-heading p { font-size:13px; }
+  .v19-client .v9-filter-row input,.v19-client .v9-filter-row select { min-height:44px;font-size:12px; }
+
+  .v19-client.in-duel .v18-duel-screen { --leader-col:220px;--command-col:330px;--header-h:72px;--hand-h:250px; }
+  .v19-client.in-duel .v18-duel-header { padding-inline:20px;gap:16px; }
+  .v19-client.in-duel .v18-duel-brand small { font-size:9px; }.v19-client.in-duel .v18-duel-brand b { font-size:14px; }
+  .v19-client.in-duel .v18-turn-hud small { font-size:9px; }.v19-client.in-duel .v18-turn-hud b { font-size:16px; }
+  .v19-client.in-duel .v18-header-actions button { height:40px;font-size:10px;padding-inline:14px; }
+  .v19-client.in-duel .v18-leader-card { padding:16px 14px;gap:10px; }
+  .v19-client.in-duel .v18-leader-identity small { font-size:9px; }.v19-client.in-duel .v18-leader-identity b { font-size:13px; }
+  .v19-client.in-duel .v18-hp-readout small,.v19-client.in-duel .v18-hp-readout em { font-size:9px; }
+  .v19-client.in-duel .v18-mini-stats span { font-size:8px;padding:7px 4px; }.v19-client.in-duel .v18-mini-stats b { font-size:12px; }
+  .v19-client.in-duel .v18-command-rail { padding:12px;gap:9px; }
+  .v19-client.in-duel .v18-context-empty small { font-size:8px; }.v19-client.in-duel .v18-context-empty b { font-size:14px; }.v19-client.in-duel .v18-context-empty p { font-size:9px;line-height:1.6; }.v19-client.in-duel .v18-context-empty span { font-size:8px; }
+  .v19-client.in-duel .v18-selected-copy small,.v19-client.in-duel .v18-selected-copy p,.v19-client.in-duel .v18-selected-copy>div span { font-size:8px; }.v19-client.in-duel .v18-selected-copy>b { font-size:12px; }
+  .v19-client.in-duel .v18-action-buttons button { min-height:52px;padding:9px 12px; }.v19-client.in-duel .v18-action-buttons button span { font-size:11px; }.v19-client.in-duel .v18-action-buttons button small { font-size:8px; }
+  .v19-client.in-duel .v18-event-feed header span,.v19-client.in-duel .v18-event-feed header button { font-size:8px; }.v19-client.in-duel .v18-feed-item b { font-size:9px; }.v19-client.in-duel .v18-feed-item small { font-size:8px; }
+  .v19-client.in-duel .v18-hand-heading small,.v19-client.in-duel .v18-hand-heading em { font-size:8px; }.v19-client.in-duel .v18-hand-heading b { font-size:11px; }
+  .v19-client.in-duel .v18-hand-card { flex-basis:clamp(128px,8.5vw,158px); }.v19-client.in-duel .v18-hand-card .tcg-card { max-height:205px; }
+  .v19-client.in-duel .v18-hand-side { min-width:120px; }.v19-client.in-duel .v18-hand-side span { font-size:8px; }.v19-client.in-duel .v18-hand-side b { font-size:11px; }
+  .v19-client.in-duel .v18-unit-slot .unit-name { font-size:10px; }.v19-client.in-duel .v18-unit-slot .unit-stats { font-size:11px; }
+}
+
+/* Card inspector must show the entire illustration; the source art is landscape. */
+.v19-client .card-detail-artwork .card-art-image { object-fit:contain!important;background:#03070c; }
+.v19-client .card-detail-artwork .card-illustration { background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--detail-accent) 15%,transparent),transparent 48%),#03070c!important; }
+
+@media (min-width:861px) {
+  .v19-client.in-duel .v18-duel-header { grid-template-columns:minmax(170px,1fr) auto auto auto; }
+}
+
+/* ============================================================
+   V22 RARITY REVEALS + DECISION SAFETY
+   ============================================================ */
+/* Pack reveals visibly scale with rarity. Common stays restrained; legendary gets a real event. */
+.v19-client .reveal-card-focus::before,
+.v19-client .reveal-card-focus::after {
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:clamp(250px,31vw,390px);
+  aspect-ratio:1;
+  border-radius:50%;
+  pointer-events:none;
+  opacity:0;
+  transform:translate(-50%,-50%) scale(.2);
+}
+.v19-client .reveal-card-focus.is-revealed::before {
+  border:1px solid rgba(172,205,229,.14);
+  animation:v22RevealRing .86s cubic-bezier(.08,.72,.2,1) both;
+}
+.v19-client .reveal-card-focus.is-revealed::after {
+  background:radial-gradient(circle,rgba(213,236,255,.2),transparent 62%);
+  filter:blur(3px);
+  animation:v22RevealGlow .82s ease-out both;
+}
+.v19-client .reveal-card-focus.rarity-rare.is-revealed::before {
+  border-color:rgba(89,189,255,.54);
+  box-shadow:0 0 45px rgba(59,162,235,.22),inset 0 0 34px rgba(78,180,246,.12);
+}
+.v19-client .reveal-card-focus.rarity-epic.is-revealed::before {
+  width:clamp(290px,34vw,430px);
+  border-color:rgba(188,125,255,.72);
+  box-shadow:0 0 60px rgba(154,91,255,.3),inset 0 0 44px rgba(166,102,255,.14);
+  animation-duration:1s;
+}
+.v19-client .reveal-card-focus.rarity-epic.is-revealed::after {
+  background:conic-gradient(from 0deg,transparent,rgba(192,137,255,.24),transparent 22%,rgba(127,105,255,.18),transparent 48%,rgba(216,173,255,.22),transparent 72%);
+  filter:blur(2px);
+  animation:v22EpicHalo 1.15s ease-out both;
+}
+.v19-client .reveal-card-focus.rarity-legendary.is-revealed::before {
+  width:clamp(330px,38vw,500px);
+  border:2px solid rgba(255,220,131,.88);
+  border-style:double;
+  box-shadow:0 0 72px rgba(255,189,69,.42),0 0 150px rgba(180,116,39,.2),inset 0 0 58px rgba(255,217,115,.18);
+  animation:v22LegendRing 1.35s cubic-bezier(.06,.78,.18,1) both;
+}
+.v19-client .reveal-card-focus.rarity-legendary.is-revealed::after {
+  width:clamp(410px,45vw,600px);
+  background:repeating-conic-gradient(from 0deg,rgba(255,220,126,.22) 0 2deg,transparent 2deg 12deg);
+  mask-image:radial-gradient(circle,transparent 0 34%,#000 42% 58%,transparent 72%);
+  animation:v22LegendBurst 1.55s cubic-bezier(.1,.7,.18,1) both;
+}
+.v19-client .reveal-card-focus.rarity-epic.is-revealed .tcg-card {
+  box-shadow:0 30px 90px rgba(0,0,0,.62),0 0 48px rgba(157,101,255,.33);
+}
+.v19-client .reveal-card-focus.rarity-legendary.is-revealed .tcg-card {
+  box-shadow:0 38px 110px rgba(0,0,0,.7),0 0 62px rgba(255,193,77,.4),0 0 0 1px rgba(255,231,155,.35);
+  animation:v22LegendCardReveal 1s cubic-bezier(.12,.82,.16,1) both;
+}
+@keyframes v22RevealRing { 0%{opacity:0;transform:translate(-50%,-50%) scale(.18)}30%{opacity:.9}100%{opacity:0;transform:translate(-50%,-50%) scale(1.15)} }
+@keyframes v22RevealGlow { 0%{opacity:0;transform:translate(-50%,-50%) scale(.25)}28%{opacity:.88}100%{opacity:0;transform:translate(-50%,-50%) scale(1.3)} }
+@keyframes v22EpicHalo { 0%{opacity:0;transform:translate(-50%,-50%) rotate(-32deg) scale(.35)}32%{opacity:.9}100%{opacity:0;transform:translate(-50%,-50%) rotate(75deg) scale(1.2)} }
+@keyframes v22LegendRing { 0%{opacity:0;transform:translate(-50%,-50%) scale(.1) rotate(-18deg)}22%{opacity:1}60%{opacity:.92}100%{opacity:0;transform:translate(-50%,-50%) scale(1.28) rotate(12deg)} }
+@keyframes v22LegendBurst { 0%{opacity:0;transform:translate(-50%,-50%) rotate(-20deg) scale(.22)}20%{opacity:1}75%{opacity:.75}100%{opacity:0;transform:translate(-50%,-50%) rotate(30deg) scale(1.18)} }
+@keyframes v22LegendCardReveal { 0%{opacity:0;transform:rotateY(180deg) scale(.72);filter:brightness(3) saturate(.7)}45%{opacity:1;transform:rotateY(-7deg) scale(1.07);filter:brightness(1.45) saturate(1.3)}100%{transform:rotateY(0) scale(1);filter:none} }
+
+/* Rarity also changes battle cinematics. The underlying action stays readable. */
+.v19-client .v18-cinematic-layer.rarity-epic .v18-card-cutin {
+  box-shadow:0 26px 90px rgba(0,0,0,.58),0 0 36px rgba(160,105,255,.2);
+}
+.v19-client .v18-cinematic-layer.rarity-legendary .v18-card-cutin {
+  box-shadow:0 28px 100px rgba(0,0,0,.66),0 0 44px rgba(255,197,90,.24);
+}
+.v19-client .v18-cinematic-layer.rarity-legendary .v22-screen-flash {
+  width:48vmin;height:48vmin;
+  background:radial-gradient(circle,#fff 0,#fff5c6 8%,color-mix(in srgb,var(--fx-accent) 65%,#f6c46c) 18%,transparent 68%);
+}
+.v19-client .v18-cinematic-layer.rarity-legendary .v22-element-particles i {
+  box-shadow:0 0 18px var(--fx-accent),0 0 4px #fff;
+  animation-duration:1.05s;
+}
+.v19-client .v18-cinematic-layer.rarity-epic .v18-impact-ring,
+.v19-client .v18-cinematic-layer.rarity-legendary .v18-impact-ring { border-width:3px; }
+.v19-client .v18-cinematic-layer.rarity-legendary .v18-impact-ring { box-shadow:0 0 0 9px rgba(255,255,255,.04),0 0 50px color-mix(in srgb,var(--fx-accent) 50%,transparent); }
+
+/* End-turn confirmation is a deliberate decision panel, not a generic alert. */
+.v19-client .v22-turn-confirm-layer { z-index:205; background:rgba(2,5,9,.78)!important;backdrop-filter:blur(10px)!important; }
+.v19-client .v22-turn-confirm {
+  width:min(600px,calc(100vw - 54px))!important;
+  padding:30px 32px 28px!important;
+  border-color:rgba(239,190,103,.22)!important;
+  background:radial-gradient(circle at 50% 0,rgba(223,168,73,.1),transparent 38%),linear-gradient(150deg,#121923,#090e15)!important;
+  box-shadow:0 34px 100px rgba(0,0,0,.64)!important;
+}
+.v19-client .v22-turn-confirm .eyebrow { color:#e4bd72!important; }
+.v19-client .v22-turn-confirm h2 { margin:8px 0 10px!important;font-size:26px!important;letter-spacing:-.035em; }
+.v19-client .v22-turn-confirm p { max-width:500px;margin:0 auto 23px!important;color:#94a5b2!important;font-size:12px!important;line-height:1.7!important; }
+.v19-client .v22-turn-confirm>div { display:grid!important;grid-template-columns:1fr 1fr;gap:10px!important; }
+.v19-client .v22-turn-confirm>div button { min-height:47px; }
+
+/* Asset visibility hardening. Card art must always sit above decorative orbital lines. */
+.v19-client .card-art { isolation:isolate; }
+.v19-client .card-art::before,.v19-client .card-art::after { z-index:0!important;pointer-events:none; }
+.v19-client .card-art>.card-illustration { position:relative;z-index:1; }
+.v19-client .card-art .card-art-image { z-index:1;opacity:1!important;visibility:visible!important; }
+.v19-client .card-art .card-art-grade,.v19-client .card-art .card-art-vignette,.v19-client .card-art .card-art-rune { z-index:2; }
+.v19-client .card-art .art-element { position:absolute;z-index:4;right:7px;bottom:6px; }
+
+/* Screen transitions and navigation feedback for a shipped-client feel. */
+.v19-client:not(.in-duel) .content-area > :not(.global-error) { animation:v22ViewEnter .26s cubic-bezier(.16,.74,.24,1) both; }
+.v19-client .sidebar nav button { position:relative;overflow:hidden; }
+.v19-client .sidebar nav button::after { content:"";position:absolute;left:50%;right:50%;bottom:5px;height:2px;border-radius:99px;background:#70d8ff;opacity:0;transition:left .2s ease,right .2s ease,opacity .2s ease; }
+.v19-client .sidebar nav button.active::after { left:19%;right:19%;opacity:.72; }
+.v19-client .primary-button:not(:disabled):active,.v19-client .ghost-button:not(:disabled):active,.v19-client .v22-system-button:not(:disabled):active { transform:translateY(1px) scale(.985)!important; }
+@keyframes v22ViewEnter { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
