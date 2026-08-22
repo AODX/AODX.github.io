@@ -347,44 +347,45 @@ function packPreviewCards(pack: (typeof PACKS)[number]): CardDefinition[] {
     pool = CARDS.filter((card) => !isExtraDeckCard(card) && (card.rarity === 'legendary' || card.rarity === 'epic'));
   }
 
-  const preferred = pool
-    .slice()
-    .sort((a, b) => (rarityScore[b.rarity] - rarityScore[a.rarity]) || (b.cost - a.cost) || a.name.localeCompare(b.name, 'ko'));
+  // Each product gets a deterministic but distinct art trio. This prevents the store
+  // from looking like twelve copies of the same pack while keeping the preview stable.
+  const seed = hashString(pack.id);
+  const preferred = pool.slice().sort((a, b) => {
+    const rarityDelta = rarityScore[b.rarity] - rarityScore[a.rarity];
+    if (rarityDelta) return rarityDelta;
+    const aHash = hashString(`${pack.id}:${a.id}`) % 10007;
+    const bHash = hashString(`${pack.id}:${b.id}`) % 10007;
+    return aHash - bHash || a.name.localeCompare(b.name, 'ko');
+  });
 
-  const uniqueNames = new Set<string>();
   const picked: CardDefinition[] = [];
-  for (const card of preferred) {
-    if (uniqueNames.has(card.name)) continue;
+  const used = new Set<string>();
+  const offset = preferred.length ? seed % preferred.length : 0;
+  for (let step = 0; step < preferred.length && picked.length < 3; step += 1) {
+    const card = preferred[(offset + step) % preferred.length];
+    if (used.has(card.id)) continue;
     picked.push(card);
-    uniqueNames.add(card.name);
-    if (picked.length >= 3) break;
+    used.add(card.id);
   }
 
-  if (picked.length >= 3) return picked;
-
-  for (const fallback of CARDS.filter((card) => !isExtraDeckCard(card)).sort((a, b) => (rarityScore[b.rarity] - rarityScore[a.rarity]) || (b.cost - a.cost))) {
-    if (uniqueNames.has(fallback.name)) continue;
+  for (const fallback of CARDS.filter((card) => !isExtraDeckCard(card))) {
+    if (picked.length >= 3) break;
+    if (used.has(fallback.id)) continue;
     picked.push(fallback);
-    uniqueNames.add(fallback.name);
-    if (picked.length >= 3) break;
+    used.add(fallback.id);
   }
-
   return picked;
 }
 
 function PackProductVisual({ pack }: { pack: (typeof PACKS)[number] }) {
   const previews = packPreviewCards(pack);
-  const emblem = pack.id === 'ascension' ? '∞' : pack.id === 'archive' ? '✶' : pack.pickupElement === 'solar' ? '☀' : pack.pickupElement === 'lunar' ? '☾' : pack.pickupElement === 'storm' ? '⚡' : pack.pickupElement === 'verdant' ? '❋' : pack.pickupElement === 'void' ? '◈' : pack.pickupElement === 'neutral' ? '⬢' : pack.id === 'elite' ? '♜' : pack.id === 'mythic' ? '♛' : '✦';
+  const emblem = pack.id === 'ascension' ? '∞' : pack.id === 'archive' ? '✶' : pack.pickupElement === 'solar' ? '☀' : pack.pickupElement === 'lunar' ? '☾' : pack.pickupElement === 'storm' ? 'ϟ' : pack.pickupElement === 'verdant' ? '✤' : pack.pickupElement === 'void' ? '◇' : pack.pickupElement === 'neutral' ? '⬢' : pack.id === 'elite' ? '♜' : pack.id === 'mythic' ? '♛' : '✦';
 
   return (
-    <div className={`pack-product-visual ${pack.pickupElement ? `element-${pack.pickupElement}` : `pack-${pack.id}`}`} aria-hidden="true">
-      <div className="pack-preview-badges">
-        <span className="pack-preview-brand">ECLIPSE CARD BOOSTER</span>
-        <span className="pack-preview-emblem">{emblem}</span>
-      </div>
-      <div className="pack-preview-fan">
+    <div className={`pack-product-visual v23-pack-visual ${pack.pickupElement ? `element-${pack.pickupElement}` : `pack-${pack.id}`}`} aria-hidden="true">
+      <div className="v23-pack-fan">
         {previews.map((card, index) => (
-          <article key={card.id} className={`pack-preview-card slot-${index + 1}`} style={cardStyle(card)}>
+          <span key={card.id} className={`v23-pack-art art-${index + 1}`} style={cardStyle(card)}>
             <img
               src={cardArtworkPath(card.id)}
               alt=""
@@ -395,14 +396,17 @@ function PackProductVisual({ pack }: { pack: (typeof PACKS)[number] }) {
               draggable={false}
               onError={(event) => { if (!event.currentTarget.src.endsWith('/fallback.webp')) event.currentTarget.src = '/card-art/fallback.webp'; }}
             />
-            <span className="pack-preview-card-overlay" />
-            <div className="pack-preview-copy">
-              <span>{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]}</span>
-              <b>{card.name}</b>
-            </div>
-          </article>
+          </span>
         ))}
       </div>
+      <div className="v23-booster-pack">
+        <span className="v23-pack-kicker">ECLIPSE DUEL</span>
+        <i className="v23-pack-emblem">{emblem}</i>
+        <strong>{pack.name}</strong>
+        <small>5 CARD BOOSTER</small>
+        <em>{RARITY_LABEL[pack.guaranteed]}+ GUARANTEED</em>
+      </div>
+      <div className="v23-pack-sheen" />
     </div>
   );
 }
@@ -520,14 +524,30 @@ function friendlyAuthMessage(message: string): string {
   if (/invalid login credentials/i.test(message)) return '이메일 또는 비밀번호가 올바르지 않습니다.';
   if (/email not confirmed/i.test(message)) return '가입 확인 메일을 먼저 확인해 주세요.';
   if (/user already registered/i.test(message)) return '이미 가입된 이메일입니다. 로그인 탭을 이용해 주세요.';
-  if (/password should be at least/i.test(message)) return '비밀번호는 6자 이상이어야 합니다.';
+  if (/password should be at least/i.test(message)) return '비밀번호가 서비스 보안 기준보다 짧습니다.';
   if (/invalid.*email|email.*invalid/i.test(message)) return '사용할 수 있는 이메일 주소를 입력해 주세요.';
   if (/rate limit|too many requests/i.test(message)) return '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.';
-  if (/database error saving new user|failed to save new user/i.test(message)) {
-    return '회원가입용 데이터베이스 연결이 남아 있는 이전 프로젝트 설정과 충돌했습니다. v5 통합 SQL을 실행한 뒤 다시 가입해 주세요.';
-  }
+  if (/database error saving new user|failed to save new user/i.test(message)) return '계정 생성 서버에 일시적인 문제가 있습니다. 잠시 후 다시 시도해 주세요.';
   if (/session.*expired|refresh token|jwt expired/i.test(message)) return '로그인 시간이 만료되었습니다. 다시 로그인해 주세요.';
   return message;
+}
+
+function friendlyServiceMessage(message: string): string {
+  const clean = message.trim();
+  if (!clean) return '서버 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+  if (/SUPABASE|service role|secret key|schema cache|통합 SQL|SQL을|DB 업그레이드|migration|does not exist|eclipse_private_states|eclipse_profile_cosmetics/i.test(clean)) {
+    return '온라인 서비스가 점검 중입니다. 잠시 후 다시 시도해 주세요.';
+  }
+  if (/fetch|network|failed to fetch|load failed|connection|연결.*실패/i.test(clean)) return '네트워크 연결이 불안정합니다. 연결 상태를 확인한 뒤 다시 시도해 주세요.';
+  if (/12초 이상|timeout|timed out/i.test(clean)) return '서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.';
+  return friendlyAuthMessage(clean);
+}
+
+function publicServerStatusMessage(status: SecureServerStatus): string {
+  if (status.secureDuelReady) return '온라인 대전 서버 연결 완료';
+  if (status.code === 'DB_MIGRATION_REQUIRED') return '온라인 대전 서비스를 점검하고 있습니다.';
+  if (status.code === 'MISSING_KEY' || status.code === 'INVALID_KEY' || status.code === 'WRONG_PROJECT') return '온라인 대전 서비스 연결을 준비하고 있습니다.';
+  return '온라인 대전 서버 상태를 확인하는 중입니다.';
 }
 
 async function accessToken(forceRefresh = false): Promise<string> {
@@ -560,10 +580,13 @@ async function api(action: string, payload: Record<string, unknown> = {}, retrie
       signal: controller.signal,
     });
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('서버 응답이 12초 이상 지연되어 요청을 취소했습니다. 다시 시도해 주세요.');
+    const safeRead = action === 'bootstrap' || action === 'hub' || action === 'get_room';
+    if (!retried && safeRead) {
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
+      return api(action, payload, true);
     }
-    throw error;
+    if (error instanceof DOMException && error.name === 'AbortError') throw new Error('서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.');
+    throw new Error('네트워크 연결이 불안정합니다. 연결 상태를 확인한 뒤 다시 시도해 주세요.');
   } finally {
     window.clearTimeout(timeout);
   }
@@ -574,7 +597,8 @@ async function api(action: string, payload: Record<string, unknown> = {}, retrie
   }
   if (!response.ok || !result.ok) {
     if (response.status === 401 || result.code === 'AUTH_EXPIRED') await supabase.auth.signOut({ scope: 'local' });
-    throw new Error(friendlyAuthMessage(result.error || '서버 요청에 실패했습니다.'));
+    if (typeof console !== 'undefined') console.error('[ECLIPSE API]', action, result.code ?? response.status, result.error ?? 'unknown error');
+    throw new Error(friendlyServiceMessage(result.error || '서버 요청에 실패했습니다.'));
   }
   return result;
 }
@@ -625,13 +649,22 @@ function CardFace({
     requestCardInspection(cardId);
   }
 
+  function activateCard(event?: React.KeyboardEvent<HTMLDivElement>) {
+    if (event && event.key !== 'Enter' && event.key !== ' ') return;
+    if (event) event.preventDefault();
+    if (!disabled) performAction?.();
+  }
+
   return (
-    <button
-      type="button"
+    <div
       className={`tcg-card kind-${card.kind} summon-${card.summonMode ?? 'normal'} rarity-${card.rarity} element-${card.element} ${compact ? 'compact' : ''} ${selected ? 'selected' : ''} ${disabled ? 'is-disabled' : ''}`}
       style={cardStyle(card)}
-      onClick={() => { if (!disabled) performAction?.(); }}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      onClick={() => activateCard()}
+      onKeyDown={activateCard}
       aria-disabled={disabled}
+      aria-label={onClick ? `${card.name} 선택` : `${card.name} 상세 보기`}
       title={onClick ? `${card.name} 선택` : `${card.name} 상세 보기`}
     >
       <span className="card-cost">{card.cost}</span>
@@ -640,14 +673,13 @@ function CardFace({
       {card.kind === 'evolution' && <span className="summon-badge evolution">진화</span>}
       {quantity !== undefined && <span className="card-quantity">×{quantity}</span>}
       {inspectable && (
-        <span
+        <button
+          type="button"
           className="card-info-hotspot"
-          role="button"
-          tabIndex={0}
           aria-label={`${card.name} 상세 정보`}
           onClick={openInspector}
-          onKeyDown={(event: React.KeyboardEvent) => { if (event.key === 'Enter' || event.key === ' ') openInspector(event); }}
-        >i</span>
+          onKeyDown={(event: React.KeyboardEvent<HTMLButtonElement>) => { if (event.key === 'Enter' || event.key === ' ') openInspector(event); }}
+        >i</button>
       )}
       <span className="card-topline">
         <b>{card.name}</b>
@@ -663,7 +695,7 @@ function CardFace({
         <span>{KIND_LABEL[card.kind]}</span>
         {isUnitCard(card) ? <b>{card.attack} / {card.health}</b> : <b>{ELEMENT_LABEL[card.element]}</b>}
       </span>
-    </button>
+    </div>
   );
 }
 
@@ -829,13 +861,28 @@ function ControlCenter({
   onOpenProfile: () => void;
   onSignOut: () => void;
 }) {
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    closeButtonRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [open, onClose]);
   if (!open) return null;
   return (
     <div className="v22-control-layer" role="presentation" onMouseDown={(event: React.MouseEvent) => { if (event.currentTarget === event.target) onClose(); }}>
       <aside className="v22-control-panel" role="dialog" aria-modal="true" aria-label="게임 설정">
         <header>
           <div><span>SYSTEM PANEL</span><h3>게임 설정</h3><p>오디오와 게임 도움말을 한곳에서 관리합니다.</p></div>
-          <button type="button" onClick={onClose} aria-label="설정 닫기">×</button>
+          <button ref={closeButtonRef} type="button" onClick={onClose} aria-label="설정 닫기">×</button>
         </header>
         <section className="v22-control-section">
           <div className="v22-control-row">
@@ -851,7 +898,7 @@ function ControlCenter({
           <button type="button" onClick={onOpenGuide}><span>?</span><div><b>룰 가이드</b><small>키워드와 기본 규칙 확인</small></div></button>
           <button type="button" onClick={onOpenProfile}><span>◎</span><div><b>프로필</b><small>아바타와 프로필 스킨 관리</small></div></button>
         </section>
-        <footer><span>ECLIPSE DUEL · COMMERCIAL BUILD v22</span><button type="button" onClick={onSignOut}>로그아웃</button></footer>
+        <footer><span>ECLIPSE DUEL · COMMERCIAL BUILD v23</span><button type="button" onClick={onSignOut}>로그아웃</button></footer>
       </aside>
     </div>
   );
@@ -1000,7 +1047,7 @@ function AuthScreen({ onSession }: { onSession: (session: Session) => void }) {
           <button className="primary-button auth-submit" disabled={busy}>{busy ? <><i className="button-spinner" /> 처리 중</> : mode === 'login' ? '게임 시작' : '계정 생성'}</button>
           <div className="auth-secure"><span>◈</span><p>로그인 정보는 Supabase Auth로 보호됩니다.</p></div>
         </form>
-        <footer><span>VERSION 0.7.0 · REFORGED</span><span>ORIGINAL IP</span></footer>
+        <footer><span>VERSION 0.9.0 · RETAIL STABILIZED</span><span>ORIGINAL IP</span></footer>
       </section>
     </main>
   );
@@ -1009,24 +1056,21 @@ function AuthScreen({ onSession }: { onSession: (session: Session) => void }) {
 
 
 function AccountErrorScreen({ message, onRetry, onSignOut }: { message: string; onRetry: () => void; onSignOut: () => void }) {
-  const migrationIssue = /v5 데이터베이스|통합 SQL|does not exist|schema cache/i.test(message);
   return (
     <main className="account-error-screen">
       <div className="connection-backdrop" aria-hidden="true"><span /><span /><span /></div>
       <section className="connection-card">
-        <div className={`connection-emblem ${migrationIssue ? 'warning' : ''}`}><span>{migrationIssue ? '!' : '↻'}</span></div>
-        <span className="error-code">ACCOUNT RECOVERY</span>
-        <h1>{migrationIssue ? '데이터베이스 설치를 확인해 주세요.' : '계정 정보를 불러오지 못했습니다.'}</h1>
-        <p>{message}</p>
-        {migrationIssue && (
-          <div className="setup-steps">
-            <span><b>1</b><em>동봉된 v5 통합 SQL 열기</em></span>
-            <span><b>2</b><em>Supabase SQL Editor에 전체 붙여넣기</em></span>
-            <span><b>3</b><em>Run 실행 후 페이지 새로고침</em></span>
-          </div>
-        )}
+        <div className="connection-emblem warning"><span>↻</span></div>
+        <span className="error-code">CONNECTION RECOVERY</span>
+        <h1>서비스 연결을 다시 확인하고 있습니다.</h1>
+        <p>{friendlyServiceMessage(message)}</p>
+        <div className="setup-steps">
+          <span><b>1</b><em>인터넷 연결 상태 확인</em></span>
+          <span><b>2</b><em>잠시 후 다시 연결</em></span>
+          <span><b>3</b><em>계속되면 다시 로그인</em></span>
+        </div>
         <div className="connection-actions">
-          <button className="primary-button" onClick={onRetry}>다시 불러오기</button>
+          <button className="primary-button" onClick={onRetry}>다시 연결</button>
           <button className="ghost-button" onClick={onSignOut}>로그아웃</button>
         </div>
       </section>
@@ -1057,8 +1101,8 @@ function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate:
         <div className="v19-hero-copy">
           <div className="v19-status-line">
             <span className={`v19-online-dot ${serverStatus.secureDuelReady ? 'ready' : 'warning'}`} />
-            <b>{serverStatus.secureDuelReady ? 'ECLIPSE NETWORK · ONLINE' : 'ONLINE DUEL · SETUP REQUIRED'}</b>
-            <small>{serverStatus.secureDuelReady ? '보안 대전 서버 연결 완료' : '대전 서버 설정을 확인해 주세요'}</small>
+            <b>{serverStatus.secureDuelReady ? 'ECLIPSE NETWORK · ONLINE' : 'ECLIPSE NETWORK · SERVICE CHECK'}</b>
+            <small>{publicServerStatusMessage(serverStatus)}</small>
           </div>
           <span className="v19-season-label">SEASON 01 · ASCENSION</span>
           <h1>덱을 설계하고,<br /><strong>판도를 뒤집으세요.</strong></h1>
@@ -1127,8 +1171,8 @@ function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate:
 
         <article className={`v19-server-card ${serverStatus.secureDuelReady ? 'ready' : 'warning'}`}>
           <div className="v19-server-symbol"><span>{serverStatus.secureDuelReady ? '✓' : '!'}</span></div>
-          <div><small>DUEL SERVER</small><h3>{serverStatus.secureDuelReady ? '온라인 대전 준비 완료' : '대전 서버 확인 필요'}</h3><p>{serverStatus.secureDuelReady ? '매칭, 방 대전, 비공개 카드 상태가 정상 동기화됩니다.' : serverStatus.message}</p></div>
-          <button onClick={() => onNavigate('duel')}>{serverStatus.secureDuelReady ? '대전으로' : '상태 확인'} ›</button>
+          <div><small>DUEL SERVER</small><h3>{serverStatus.secureDuelReady ? '온라인 대전 준비 완료' : '온라인 대전 점검 중'}</h3><p>{serverStatus.secureDuelReady ? '매칭, 방 대전, 비공개 카드 상태가 정상 동기화됩니다.' : publicServerStatusMessage(serverStatus)}</p></div>
+          <button onClick={() => onNavigate('duel')}>{serverStatus.secureDuelReady ? '대전으로' : '확인'} ›</button>
         </article>
       </section>
     </div>
@@ -2822,13 +2866,13 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
       {!serverStatus.secureDuelReady && (
         <section className="duel-server-panel panel">
           <div className="duel-server-emblem">!</div>
-          <div><span>SECURE DUEL SERVER</span><h2>온라인 대전 연결이 아직 완료되지 않았습니다.</h2><p>{serverStatus.message}</p></div>
+          <div><span>ECLIPSE NETWORK</span><h2>온라인 대전 서비스를 점검하고 있습니다.</h2><p>{publicServerStatusMessage(serverStatus)}</p></div>
           <ol>
-            <li><b>1</b><span>현재 Supabase 프로젝트의 <code>sb_secret_...</code> 키 복사</span></li>
-            <li><b>2</b><span>Render의 <code>SUPABASE_SECRET_KEY</code>에 저장</span></li>
-            <li><b>3</b><span>Clear build cache &amp; deploy 실행</span></li>
+            <li><b>1</b><span>덱 구성과 카드 보관함은 계속 이용할 수 있습니다.</span></li>
+            <li><b>2</b><span>대전 서버가 복구되면 별도 설정 없이 바로 이용할 수 있습니다.</span></li>
+            <li><b>3</b><span>잠시 후 대전 메뉴에서 다시 확인해 주세요.</span></li>
           </ol>
-          <small>로그인·덱 구성·상점·보관함·친구·채팅은 이 상태에서도 정상 작동합니다.</small>
+          <small>현재 계정과 보유 카드 데이터는 그대로 유지됩니다.</small>
         </section>
       )}
       <section className={`duel-mode-grid ${serverStatus.secureDuelReady ? '' : 'is-disabled'}`}>
@@ -3009,7 +3053,7 @@ export default function Page() {
         }
       } catch (reason) {
         setRoomSyncState('offline');
-        setError(reason instanceof Error ? reason.message : '방 동기화 실패');
+        if (typeof console !== 'undefined') console.warn('[ECLIPSE SYNC]', reason instanceof Error ? reason.message : 'room sync failed');
       } finally {
         window.clearTimeout(slowTimer);
         refreshing = false;
@@ -3019,9 +3063,24 @@ export default function Page() {
       if (status === 'SUBSCRIBED') { setRoomSyncState('live'); setLastRoomSyncAt(Date.now()); }
       if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setRoomSyncState('offline');
     });
+    const onFocus = () => { void refresh(); };
+    const onVisibility = () => { if (document.visibilityState === 'visible') void refresh(); };
+    const onOffline = () => setRoomSyncState('offline');
+    const onOnline = () => { setRoomSyncState('syncing'); void refresh(); };
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    document.addEventListener('visibilitychange', onVisibility);
     const pollMs = roomPayload?.room.status === 'active' ? 2500 : 8000;
     const timer = window.setInterval(refresh, pollMs);
-    return () => { window.clearInterval(timer); supabase.removeChannel(channel); };
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+      document.removeEventListener('visibilitychange', onVisibility);
+      supabase.removeChannel(channel);
+    };
   }, [roomPayload?.room.id, roomPayload?.room.status, session?.user.id]);
 
   if (!authReady) return <LoadingScreen />;
@@ -3044,29 +3103,29 @@ export default function Page() {
   const roomChat = roomPayload && roomPayload.room.status !== 'cancelled' ? roomPayload.room.id : undefined;
 
   return (
-    <main className={`game-app v19-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`}>
+    <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`} data-ui-build="v23">
       <div className="app-backdrop" aria-hidden="true"><span className="backdrop-grid" /><span className="backdrop-orbit" /><span className="backdrop-glow" /></div>
       <aside className="sidebar">
-        <button className="game-logo" onClick={() => { playUiSound('click'); setView('home'); }}><span className="logo-glyph"><i>E</i></span><div><b>ECLIPSE</b><small>DUEL</small></div></button>
-        <nav>{NAV_ITEMS.map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { playUiSound('click'); setView(item.id); }}><i><GameIcon name={item.id} /></i><span>{item.label}</span></button>)}</nav>
+        <button className="game-logo" onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView('home'); }}><span className="logo-glyph"><i>E</i></span><div><b>ECLIPSE</b><small>DUEL</small></div></button>
+        <nav>{NAV_ITEMS.map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView(item.id); }}><i><GameIcon name={item.id} /></i><span>{item.label}</span></button>)}</nav>
         <div className="sidebar-profile"><Avatar id={hub.profile.avatar} size="small" /><span><b>{hub.profile.display_name}</b><small>LV.{levelFromXp(hub.profile.xp)}</small></span><button aria-label="로그아웃" onClick={() => supabase.auth.signOut({ scope: 'local' })}><GameIcon name="logout" /></button></div>
       </aside>
 
       <header className="topbar">
         <div className="mobile-logo"><span className="logo-glyph"><i>E</i></span><b>ECLIPSE DUEL</b></div>
         <div className="topbar-title"><small>{NAV_ITEMS.find((item) => item.id === view)?.label ?? (view === 'profile' ? '프로필' : 'ECLIPSE')}</small><b>ECLIPSE NETWORK</b></div>
-        <button className={`v13-server-chip ${serverStatus.secureDuelReady ? 'ready' : 'warning'}`} onClick={() => setView('duel')} title={serverStatus.message}><span />{serverStatus.secureDuelReady ? '온라인' : '대전 설정'}</button>
+        <button className={`v13-server-chip ${serverStatus.secureDuelReady ? 'ready' : 'warning'}`} onClick={() => setView('duel')} title={publicServerStatusMessage(serverStatus)}><span />{serverStatus.secureDuelReady ? '온라인' : '점검 중'}</button>
         <div className="topbar-actions v9-topbar-actions">
           <span className="currency-pill"><GameIcon name="coin" /><small>COIN</small><b>{hub.wallet.coins.toLocaleString()}</b></span>
-          <button className={`chat-toggle ${chatOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setChatOpen((value) => !value); }}><GameIcon name="chat" /><span>{roomChat ? '방 채팅' : '채팅'}</span></button>
-          <button className="profile-chip" onClick={() => { playUiSound('click'); setView('profile'); }}><Avatar id={hub.profile.avatar} size="small" /><span>{hub.profile.display_name}</span></button>
-          <button className={`v9-icon-button v22-system-button ${settingsOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setSettingsOpen((value) => !value); }} title="게임 설정" aria-label="게임 설정"><GameIcon name="settings" /><span>SYSTEM</span></button>
+          <button className={`chat-toggle ${chatOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen((value) => !value); }}><GameIcon name="chat" /><span>{roomChat ? '방 채팅' : '채팅'}</span></button>
+          <button className="profile-chip" onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView('profile'); }}><Avatar id={hub.profile.avatar} size="small" /><span>{hub.profile.display_name}</span></button>
+          <button className={`v9-icon-button v22-system-button ${settingsOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setChatOpen(false); setSettingsOpen((value) => !value); }} title="게임 설정" aria-label="게임 설정"><GameIcon name="settings" /><span>SYSTEM</span></button>
         </div>
       </header>
 
       <section className="content-area">{error && <div className="global-error"><span>{error}</span><button onClick={() => setError('')}>×</button></div>}{content}</section>
 
-      <nav className="mobile-nav">{NAV_ITEMS.map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { playUiSound('click'); setView(item.id); }}><i><GameIcon name={item.id} /></i><span>{item.label}</span></button>)}</nav>
+      <nav className="mobile-nav">{NAV_ITEMS.map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView(item.id); }}><i><GameIcon name={item.id} /></i><span>{item.label}</span></button>)}</nav>
       <ChatDrawer open={chatOpen} roomId={roomChat} onClose={() => setChatOpen(false)} profile={hub.profile} />
       {chatOpen && <button className="chat-backdrop" aria-label="채팅 닫기" onClick={() => setChatOpen(false)} />}
       <ControlCenter
