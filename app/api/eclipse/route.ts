@@ -758,7 +758,11 @@ async function handleAction(request: Request, body: RequestBody) {
         guestDeck.cards,
         guestDeck.extraCards,
       );
-      await commitSnapshot(admin, room, snapshot);
+      try {
+        await commitSnapshot(admin, room, snapshot);
+      } catch (error) {
+        if (!(error instanceof Error) || !/상대 행동과 겹쳤습니다/.test(error.message)) throw error;
+      }
       room = await fetchRoom(admin, room.id);
     }
     return await getRoomPayload(admin, room, user.id);
@@ -814,7 +818,14 @@ async function handleAction(request: Request, body: RequestBody) {
       throw new Error('알 수 없는 결투 행동입니다.');
     }
 
-    await commitSnapshot(admin, room, next);
+    try {
+      await commitSnapshot(admin, room, next);
+    } catch (error) {
+      if (error instanceof Error && /상대 행동과 겹쳤습니다/.test(error.message)) {
+        return await getRoomPayload(admin, await fetchRoom(admin, room.id), user.id);
+      }
+      throw error;
+    }
     await rewardFinishedMatch(admin, room.id, next.state);
     return await getRoomPayload(admin, await fetchRoom(admin, room.id), user.id);
   }
