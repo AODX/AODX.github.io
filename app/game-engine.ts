@@ -86,6 +86,25 @@ export interface CoinTossState {
   endsAt: number;
 }
 
+export type PendingTrapContinuation =
+  | { kind: 'spell'; actorId: string; cardId: string; target?: { ownerId: string; unitIndex: number } }
+  | { kind: 'summon'; actorId: string; zone: number; cardId: string; origin: SummonOrigin; remainingTriggers: TrapTrigger[] }
+  | { kind: 'attack_core'; actorId: string; attackerIndex: number; bonusDamage: number }
+  | { kind: 'attack_unit'; actorId: string; attackerIndex: number; targetIndex: number; bonusDamage: number }
+  | { kind: 'post_action' };
+
+export interface PendingTrapWindow {
+  id: string;
+  ownerId: string;
+  trigger: TrapTrigger;
+  trapZone: number;
+  targetOwnerId?: string;
+  targetUnitIndex?: number;
+  openedAt: number;
+  endsAt: number;
+  continuation: PendingTrapContinuation;
+}
+
 export interface MatchState {
   status: MatchStatus;
   phase: MatchPhase;
@@ -95,6 +114,7 @@ export interface MatchState {
   coinToss?: CoinTossState;
   turnEndsAt?: number | null;
   turnActionTaken?: boolean;
+  pendingTrap?: PendingTrapWindow | null;
   playerOrder: [string, string] | [];
   core: Record<string, number>;
   energy: Record<string, EnergyState>;
@@ -137,6 +157,7 @@ const MAX_LOGS = 90;
 const MAX_VISUAL_EVENTS = 18;
 const CORE_MAX = 25;
 export const TURN_DURATION_MS = 60_000;
+export const TRAP_RESPONSE_MS = 7_000;
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -281,6 +302,7 @@ export function initializeMatch(
 
 function assertActiveTurn(state: MatchState, playerId: string): void {
   if (state.status !== 'active') throw new Error('이미 종료된 결투입니다.');
+  if (state.pendingTrap) throw new Error('함정 발동 여부를 결정하는 중입니다. 잠시만 기다려 주세요.');
   if (state.coinToss && Date.now() < state.coinToss.endsAt) throw new Error('선공 결정 연출이 끝날 때까지 잠시 기다려 주세요.');
   if (state.turnEndsAt && Date.now() >= state.turnEndsAt) throw new Error('턴 제한 시간 60초가 종료되었습니다.');
   if (state.currentPlayerId !== playerId) throw new Error('상대 턴입니다.');
@@ -608,38 +630,215 @@ function applySeriesAbility(
   }
 }
 
-function triggerTrap(
+type TrapResolution = { negated: boolean; retaliation: number };
+
+function applyTacticalOnSummon(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  playerId: string,
+  zone: number,
+  card: CardDefinition,
+): void {
+  if (!card.seriesId) return;
+  const unit = state.boards[playerId].units[zone];
+  if (!unit) return;
+  const allies = state.boards[playerId].units
+    .map((item, index) => ({ item, index, card: item ? CARD_BY_ID[item.cardId] : undefined }))
+    .filter(({ item, index, card: allyCard }) => item && index !== zone && allyCard?.seriesId === card.seriesId);
+  const opponentId = otherPlayer(state, playerId);
+
+  switch (card.seriesId) {
+    case 'luminaknights':
+      if (allies.length > 0) {
+        unit.attack += 1; unit.health += 1; unit.maxHealth += 1;
+        appendLog(state, `전술 · 집결 출격 — 「${card.name}」 +1/+1.`, 'special');
+        appendVisual(state, { kind: 'buff', vfx: 'tactical-rally', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '집결 출격' });
+      }
+      break;
+    case 'kaisergear':
+      if (allies.length > 0) {
+        unit.shield += 1;
+        appendLog(state, `전술 · 중장 장갑 — 「${card.name}」 보호막 1.`, 'special');
+        appendVisual(state, { kind: 'buff', vfx: 'tactical-armor', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '중장 장갑' });
+      }
+      break;
+    case 'arborian':
+      if (allies.length > 0) {
+        const target = allies.sort((a, b) => (a.item?.health ?? 99) - (b.item?.health ?? 99))[0];
+        if (target.item) {
+          target.item.health += 1; target.item.maxHealth += 1;
+          appendLog(state, '전술 · 생장 맥동 — 기존 아르보리아 유닛의 체력이 성장했습니다.', 'special');
+          appendVisual(state, { kind: 'buff', vfx: 'tactical-growth', cardId: target.card?.id, ownerId: playerId, targetZone: target.index, amount: 1, label: '생장 맥동' });
+        }
+      }
+      break;
+    case 'tempest_drive':
+      if (allies.length > 0 && !unit.canAttack) {
+        unit.canAttack = true;
+        appendLog(state, `전술 · 애프터버너 — 「${card.name}」이(가) 즉시 공격 가능 상태가 되었습니다.`, 'special');
+        appendVisual(state, { kind: 'energy', vfx: 'tactical-afterburner', cardId: card.id, ownerId: playerId, targetZone: zone, label: '애프터버너' });
+      }
+      break;
+    case 'primal_guardian':
+      if (allies.length > 0) {
+        unit.shield += 1; unit.health += 1; unit.maxHealth += 1;
+        appendLog(state, `전술 · 군집 수호 — 「${card.name}」 보호막 1 · 체력 +1.`, 'special');
+        appendVisual(state, { kind: 'buff', vfx: 'tactical-packguard', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '군집 수호' });
+      }
+      break;
+    case 'chronorium':
+      if ((state.energy[playerId]?.current ?? 0) >= 2) {
+        unit.attack += 1; unit.shield += 1;
+        appendLog(state, `전술 · 시간 선점 — 「${card.name}」 공격력 +1 · 보호막 1.`, 'special');
+        appendVisual(state, { kind: 'buff', vfx: 'tactical-chrono', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '시간 선점' });
+      }
+      break;
+    case 'arcana_protocol': {
+      const spellCount = (state.graveyards[playerId] ?? []).filter((id) => CARD_BY_ID[id]?.kind === 'spell').length;
+      if (spellCount >= 2 && drawCards(state, privateStates[playerId], playerId, 1)) {
+        appendLog(state, `전술 · 규약 재기록 — 「${card.name}」 효과로 카드 1장 드로우.`, 'special');
+        appendVisual(state, { kind: 'draw', vfx: 'tactical-protocol', cardId: card.id, ownerId: playerId, amount: 1, label: '규약 재기록' });
+      }
+      break;
+    }
+    case 'astral_armada': {
+      const formation = state.boards[playerId].units.filter((item) => item && CARD_BY_ID[item.cardId]?.seriesId === 'astral_armada');
+      if (formation.length >= 2) {
+        for (const ally of formation) if (ally) ally.shield += 1;
+        appendLog(state, `전술 · 편대 방벽 — 아스트라 아르마다 ${formation.length}장에 보호막 1.`, 'special');
+        appendVisual(state, { kind: 'buff', vfx: 'tactical-formation', cardId: card.id, ownerId: playerId, amount: 1, label: '편대 방벽' });
+      }
+      break;
+    }
+    default:
+      void opponentId;
+      break;
+  }
+}
+
+function applyTacticalOnAttackStart(state: MatchState, playerId: string, attackerIndex: number): number {
+  const attacker = state.boards[playerId].units[attackerIndex];
+  if (!attacker) return 0;
+  const card = CARD_BY_ID[attacker.cardId];
+  if (!card?.seriesId) return 0;
+  const opponentId = otherPlayer(state, playerId);
+  if (card.seriesId === 'nocturne' && (state.core[playerId] ?? 0) < (state.core[opponentId] ?? 0)) {
+    const healed = healCore(state, playerId, 1);
+    if (healed > 0) {
+      statsFor(state, playerId).healing += healed;
+      appendLog(state, `전술 · 월영 회귀 — 「${card.name}」 공격 선언으로 코어 1 회복.`, 'special');
+      appendVisual(state, { kind: 'heal', vfx: 'tactical-moon-return', cardId: card.id, ownerId: playerId, targetOwnerId: playerId, sourceZone: attackerIndex, amount: healed, label: '월영 회귀' });
+    }
+  }
+  if (card.seriesId === 'beastforge' && attacker.shield > 0) {
+    appendLog(state, `전술 · 합금 충격 — 「${card.name}」의 이번 공격 피해 +1.`, 'special');
+    return 1;
+  }
+  return 0;
+}
+
+function applyTacticalOnKill(state: MatchState, playerId: string, attackerIndex: number): void {
+  const attacker = state.boards[playerId].units[attackerIndex];
+  const card = attacker ? CARD_BY_ID[attacker.cardId] : undefined;
+  if (card?.seriesId !== 'abyss_reaper') return;
+  const healed = healCore(state, playerId, 1);
+  if (healed <= 0) return;
+  statsFor(state, playerId).healing += healed;
+  appendLog(state, `전술 · 포식 반향 — 「${card.name}」이(가) 적을 파괴해 코어 1 회복.`, 'special');
+  appendVisual(state, { kind: 'heal', vfx: 'tactical-devour', cardId: card.id, ownerId: playerId, targetOwnerId: playerId, sourceZone: attackerIndex, amount: healed, label: '포식 반향' });
+}
+
+function applyTacticalOnDestroyed(state: MatchState, ownerId: string, card: CardDefinition | undefined): void {
+  if (card?.seriesId !== 'eclipsion') return;
+  if ((state.graveyards[ownerId]?.length ?? 0) < 4) return;
+  const opponentId = otherPlayer(state, ownerId);
+  const actual = damageCore(state, opponentId, 1);
+  if (actual <= 0) return;
+  statsFor(state, ownerId).coreDamage += actual;
+  appendLog(state, `전술 · 잔향 포식 — 「${card.name}」의 파괴 잔향이 상대 코어에 1 피해.`, 'special');
+  appendVisual(state, { kind: 'core', vfx: 'tactical-echo', cardId: card.id, ownerId, targetOwnerId: opponentId, amount: actual, label: '잔향 포식' });
+}
+
+function applyTacticalOnTrap(state: MatchState, trapOwnerId: string, trapCard: CardDefinition): void {
+  if (trapCard.seriesId !== 'phantom_carnival') return;
+  const targetIndex = state.boards[trapOwnerId].units.findIndex((unit) => unit && CARD_BY_ID[unit.cardId]?.seriesId === 'phantom_carnival');
+  if (targetIndex < 0) return;
+  const unit = state.boards[trapOwnerId].units[targetIndex];
+  if (!unit) return;
+  unit.attack += 1; unit.health += 1; unit.maxHealth += 1;
+  const targetCard = CARD_BY_ID[unit.cardId];
+  appendLog(state, `전술 · 앙코르 트릭 — 「${targetCard?.name ?? '팬텀 유닛'}」 +1/+1.`, 'special');
+  appendVisual(state, { kind: 'buff', vfx: 'tactical-encore', cardId: targetCard?.id, ownerId: trapOwnerId, targetZone: targetIndex, amount: 1, label: '앙코르 트릭' });
+}
+
+function activateTrapAt(
   state: MatchState,
   privateStates: Record<string, PrivateState>,
   trapOwnerId: string,
   trigger: TrapTrigger,
+  trapIndex: number,
   target?: { ownerId: string; unitIndex: number },
-): { negated: boolean; retaliation: number } {
-  const trap = findTrap(privateStates[trapOwnerId], trigger);
-  if (!trap || !trap.card.trapEffect) return { negated: false, retaliation: 0 };
-  consumeTrap(state, privateStates[trapOwnerId], trapOwnerId, trap.index, trap.card);
-  if (trap.card.trapEffect.kind === 'negate') {
-    applySeriesAbility(state, privateStates, trapOwnerId, trap.card);
+): TrapResolution {
+  const instance = privateStates[trapOwnerId]?.secrets[trapIndex];
+  const card = instance ? CARD_BY_ID[instance.cardId] : undefined;
+  if (!instance || !card || card.kind !== 'trap' || card.trapTrigger !== trigger || !card.trapEffect) {
+    throw new Error('발동할 수 있는 함정 카드를 찾을 수 없습니다.');
+  }
+  consumeTrap(state, privateStates[trapOwnerId], trapOwnerId, trapIndex, card);
+  applyTacticalOnTrap(state, trapOwnerId, card);
+  if (card.trapEffect.kind === 'negate') {
+    applySeriesAbility(state, privateStates, trapOwnerId, card);
     return { negated: true, retaliation: 0 };
   }
-  if (trap.card.trapEffect.kind === 'negate_and_damage') {
-    applySeriesAbility(state, privateStates, trapOwnerId, trap.card);
-    return { negated: true, retaliation: trap.card.trapEffect.amount };
+  if (card.trapEffect.kind === 'negate_and_damage') {
+    applySeriesAbility(state, privateStates, trapOwnerId, card);
+    return { negated: true, retaliation: card.trapEffect.amount };
   }
-  applyEffect(state, privateStates, trapOwnerId, trap.card.trapEffect, target);
-  applySeriesAbility(state, privateStates, trapOwnerId, trap.card);
+  applyEffect(state, privateStates, trapOwnerId, card.trapEffect, target);
+  applySeriesAbility(state, privateStates, trapOwnerId, card);
   return { negated: false, retaliation: 0 };
 }
 
-function destroyDefeatedUnits(state: MatchState, privateStates: Record<string, PrivateState>): void {
+function openTrapWindow(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  trapOwnerId: string,
+  trigger: TrapTrigger,
+  continuation: PendingTrapContinuation,
+  target?: { ownerId: string; unitIndex: number },
+): boolean {
+  if (state.pendingTrap) return true;
+  const trap = findTrap(privateStates[trapOwnerId], trigger);
+  if (!trap || !trap.card.trapEffect) return false;
+  const now = Date.now();
+  state.pendingTrap = {
+    id: randomId('trap-window'),
+    ownerId: trapOwnerId,
+    trigger,
+    trapZone: trap.index,
+    targetOwnerId: target?.ownerId,
+    targetUnitIndex: target?.unitIndex,
+    openedAt: now,
+    endsAt: now + TRAP_RESPONSE_MS,
+    continuation,
+  };
+  if (state.turnEndsAt) state.turnEndsAt += TRAP_RESPONSE_MS;
+  appendLog(state, `함정 대응 가능 — ${trapOwnerId.slice(0, 6)}의 선택을 기다립니다.`, 'trap');
+  return true;
+}
+
+function destroyDefeatedUnits(state: MatchState, privateStates: Record<string, PrivateState>): boolean {
+  const possibleTrapOwners: string[] = [];
   for (const playerId of state.playerOrder) {
     if (!playerId) continue;
+    let destroyedAny = false;
     for (let index = 0; index < state.boards[playerId].units.length; index += 1) {
       const unit = state.boards[playerId].units[index];
       if (!unit || unit.health > 0) continue;
       const card = CARD_BY_ID[unit.cardId];
       state.graveyards[playerId].push(unit.cardId);
       state.boards[playerId].units[index] = null;
+      destroyedAny = true;
       appendLog(state, `${card?.name ?? unit.cardId.replace('token:', '')}이(가) 파괴되었습니다.`, 'attack');
       appendVisual(state, {
         kind: 'destroy',
@@ -649,10 +848,16 @@ function destroyDefeatedUnits(state: MatchState, privateStates: Record<string, P
         targetZone: index,
         label: card?.name ?? '토큰',
       });
-
-      triggerTrap(state, privateStates, playerId, 'friendly_destroyed');
+      applyTacticalOnDestroyed(state, playerId, card);
     }
+    if (destroyedAny && findTrap(privateStates[playerId], 'friendly_destroyed')) possibleTrapOwners.push(playerId);
   }
+
+  if (!state.pendingTrap) {
+    const ownerId = possibleTrapOwners[0];
+    if (ownerId && openTrapWindow(state, privateStates, ownerId, 'friendly_destroyed', { kind: 'post_action' })) return true;
+  }
+  return Boolean(state.pendingTrap);
 }
 
 function checkWinner(state: MatchState): void {
@@ -724,31 +929,97 @@ function makeUnit(
   };
 }
 
-function afterUnitSummoned(
+function summonReactionTriggers(origin: SummonOrigin): TrapTrigger[] {
+  const triggers: TrapTrigger[] = ['unit_summoned'];
+  if (origin !== 'normal' && origin !== 'token') triggers.push('special_summoned');
+  if (origin === 'fusion') triggers.push('fusion_summoned');
+  if (origin === 'evolution') triggers.push('evolution_summoned');
+  return triggers;
+}
+
+function continueSummonResolution(
   state: MatchState,
   privateStates: Record<string, PrivateState>,
-  playerId: string,
-  zone: number,
-  card: CardDefinition,
-  origin: SummonOrigin,
+  continuation: Extract<PendingTrapContinuation, { kind: 'summon' }>,
+  trapResult: TrapResolution = { negated: false, retaliation: 0 },
 ): void {
-  const opponentId = otherPlayer(state, playerId);
-  const target = { ownerId: playerId, unitIndex: zone };
-  triggerTrap(state, privateStates, opponentId, 'unit_summoned', target);
-  if (state.boards[playerId].units[zone] && origin !== 'normal' && origin !== 'token') {
-    triggerTrap(state, privateStates, opponentId, 'special_summoned', target);
+  const { actorId, zone, cardId, origin } = continuation;
+  const opponentId = otherPlayer(state, actorId);
+  const card = CARD_BY_ID[cardId];
+  const unit = state.boards[actorId].units[zone];
+
+  // A trap may deal lethal damage before the remaining summon reactions resolve.
+  // Do not keep offering summon-trigger windows for a unit that has already died.
+  if (unit && unit.health <= 0) {
+    destroyDefeatedUnits(state, privateStates);
+    checkWinner(state);
+    return;
   }
-  if (state.boards[playerId].units[zone] && origin === 'fusion') {
-    triggerTrap(state, privateStates, opponentId, 'fusion_summoned', target);
+
+  if (trapResult.negated && unit) {
+    state.graveyards[actorId].push(unit.cardId);
+    state.boards[actorId].units[zone] = null;
+    appendLog(state, `「${card?.name ?? '유닛'}」의 소환이 함정으로 무효화되었습니다.`, 'trap');
+    appendVisual(state, { kind: 'destroy', vfx: 'summon-negated', cardId: card?.id, ownerId: actorId, targetZone: zone, label: '소환 무효' });
+    destroyDefeatedUnits(state, privateStates);
+    checkWinner(state);
+    return;
   }
-  if (state.boards[playerId].units[zone] && origin === 'evolution') {
-    triggerTrap(state, privateStates, opponentId, 'evolution_summoned', target);
+
+  if (!unit || !card) {
+    destroyDefeatedUnits(state, privateStates);
+    checkWinner(state);
+    return;
   }
-  if (card.onSummon && state.boards[playerId].units[zone]) {
-    const selfTarget = { ownerId: playerId, unitIndex: zone };
-    applyEffect(state, privateStates, playerId, card.onSummon, card.onSummon.kind === 'shield_unit' ? selfTarget : undefined);
+
+  const [nextTrigger, ...remaining] = continuation.remainingTriggers;
+  if (nextTrigger) {
+    const nextContinuation: Extract<PendingTrapContinuation, { kind: 'summon' }> = { ...continuation, remainingTriggers: remaining };
+    if (openTrapWindow(state, privateStates, opponentId, nextTrigger, nextContinuation, { ownerId: actorId, unitIndex: zone })) return;
+    continueSummonResolution(state, privateStates, nextContinuation);
+    return;
   }
-  if (state.boards[playerId].units[zone]) applySeriesAbility(state, privateStates, playerId, card);
+
+  if (card.onSummon && state.boards[actorId].units[zone]) {
+    const selfTarget = { ownerId: actorId, unitIndex: zone };
+    applyEffect(state, privateStates, actorId, card.onSummon, card.onSummon.kind === 'shield_unit' ? selfTarget : undefined);
+  }
+  if (state.boards[actorId].units[zone]) {
+    applySeriesAbility(state, privateStates, actorId, card);
+    applyTacticalOnSummon(state, privateStates, actorId, zone, card);
+  }
+  destroyDefeatedUnits(state, privateStates);
+  checkWinner(state);
+}
+
+function resolveSpellContinuation(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  continuation: Extract<PendingTrapContinuation, { kind: 'spell' }>,
+  trapResult: TrapResolution = { negated: false, retaliation: 0 },
+): void {
+  const card = CARD_BY_ID[continuation.cardId];
+  if (!card) throw new Error('주문 카드 정의를 찾을 수 없습니다.');
+  const opponentId = otherPlayer(state, continuation.actorId);
+
+  if (!trapResult.negated) {
+    if (card.effect) {
+      const effectTarget = card.target === 'enemy_core' ? undefined : continuation.target;
+      applyEffect(state, privateStates, continuation.actorId, card.effect, effectTarget);
+    }
+    applySeriesAbility(state, privateStates, continuation.actorId, card);
+    appendLog(state, `주문 「${card.name}」 효과 처리 완료.`, 'system');
+  } else {
+    if (trapResult.retaliation > 0) {
+      const retaliation = damageCore(state, continuation.actorId, trapResult.retaliation);
+      statsFor(state, opponentId).coreDamage += retaliation;
+      appendVisual(state, { kind: 'core', vfx: 'trap-retaliation', ownerId: opponentId, targetOwnerId: continuation.actorId, amount: retaliation, label: '함정 반격' });
+    }
+    appendLog(state, `주문 「${card.name}」이(가) 무효화되었습니다.`, 'trap');
+  }
+  state.graveyards[continuation.actorId].push(card.id);
+  destroyDefeatedUnits(state, privateStates);
+  checkWinner(state);
 }
 
 export function playCard(
@@ -793,38 +1064,21 @@ export function playCard(
       targetZone: zone,
       label: card.name,
     });
-    afterUnitSummoned(state, privateStates, playerId, zone, card, origin);
+    continueSummonResolution(state, privateStates, {
+      kind: 'summon', actorId: playerId, zone, cardId: card.id, origin, remainingTriggers: summonReactionTriggers(origin),
+    });
   } else if (card.kind === 'spell') {
     spendEnergy(state, playerId, card.cost);
     playerPrivate.hand.splice(handIndex, 1);
     appendLog(state, `주문 「${card.name}」 발동 선언.`, 'system');
     appendVisual(state, {
-      kind: 'spell',
-      vfx: resolveCardVfx(card, 'activation'),
-      cardId: card.id,
-      ownerId: playerId,
-      targetOwnerId: target?.ownerId,
-      targetZone: target?.unitIndex,
-      label: card.name,
+      kind: 'spell', vfx: resolveCardVfx(card, 'activation'), cardId: card.id, ownerId: playerId,
+      targetOwnerId: target?.ownerId, targetZone: target?.unitIndex, label: card.name,
     });
-    const counter = triggerTrap(state, privateStates, opponentId, 'spell_played');
-    if (!counter.negated && card.effect) {
-      const effectTarget = card.target === 'enemy_core' ? undefined : target;
-      applyEffect(state, privateStates, playerId, card.effect, effectTarget);
-      applySeriesAbility(state, privateStates, playerId, card);
-      appendLog(state, `주문 「${card.name}」 효과 처리 완료.`, 'system');
-    } else if (!counter.negated) {
-      applySeriesAbility(state, privateStates, playerId, card);
-      appendLog(state, `주문 「${card.name}」 효과 처리 완료.`, 'system');
-    } else if (counter.negated) {
-      if (counter.retaliation > 0) {
-        const retaliation = damageCore(state, playerId, counter.retaliation);
-        statsFor(state, opponentId).coreDamage += retaliation;
-        appendVisual(state, { kind: 'core', vfx: 'trap-retaliation', ownerId: opponentId, targetOwnerId: playerId, amount: retaliation, label: '함정 반격' });
-      }
-      appendLog(state, `주문 「${card.name}」이(가) 무효화되었습니다.`, 'trap');
+    const continuation: Extract<PendingTrapContinuation, { kind: 'spell' }> = { kind: 'spell', actorId: playerId, cardId: card.id, target };
+    if (!openTrapWindow(state, privateStates, opponentId, 'spell_played', continuation, target)) {
+      resolveSpellContinuation(state, privateStates, continuation);
     }
-    state.graveyards[playerId].push(card.id);
   } else {
     spendEnergy(state, playerId, card.cost);
     const zone = Number.isInteger(requestedZone) ? Number(requestedZone) : firstOpenSecret(state.boards[playerId]);
@@ -833,19 +1087,15 @@ export function playCard(
     playerPrivate.secrets[zone] = instance;
     state.boards[playerId].secrets[zone] = { occupied: true };
     appendLog(state, '함정 카드 1장을 세트했습니다.', 'system');
-    appendVisual(state, {
-      kind: 'set',
-      vfx: 'secret-set',
-      ownerId: playerId,
-      targetZone: zone,
-      label: '함정 세트',
-    });
+    appendVisual(state, { kind: 'set', vfx: 'secret-set', ownerId: playerId, targetZone: zone, label: '함정 세트' });
   }
 
   state.handCounts[playerId] = playerPrivate.hand.length;
   state.turnActionTaken = true;
-  destroyDefeatedUnits(state, privateStates);
-  checkWinner(state);
+  if (!state.pendingTrap) {
+    destroyDefeatedUnits(state, privateStates);
+    checkWinner(state);
+  }
   return { state, privateStates };
 }
 
@@ -958,9 +1208,13 @@ export function summonExtra(
     appendVisual(state, { kind: 'evolution', vfx: resolveCardVfx(card, 'summon'), cardId: card.id, ownerId: playerId, targetZone: summonZone, label: card.name });
   }
 
-  afterUnitSummoned(state, privateStates, playerId, summonZone, card, origin);
-  destroyDefeatedUnits(state, privateStates);
-  checkWinner(state);
+  continueSummonResolution(state, privateStates, {
+    kind: 'summon', actorId: playerId, zone: summonZone, cardId: card.id, origin, remainingTriggers: summonReactionTriggers(origin),
+  });
+  if (!state.pendingTrap) {
+    destroyDefeatedUnits(state, privateStates);
+    checkWinner(state);
+  }
   return { state, privateStates };
 }
 
@@ -974,6 +1228,107 @@ export function beginBattlePhase(snapshot: GameSnapshot, playerId: string): Acti
   appendLog(state, '전투 단계로 이동했습니다.', 'system');
   appendVisual(state, { kind: 'turn', vfx: 'battle-phase', ownerId: playerId, label: 'BATTLE PHASE' });
   return { state, privateStates };
+}
+
+function resolveCoreAttack(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  continuation: Extract<PendingTrapContinuation, { kind: 'attack_core' }>,
+  trapResult: TrapResolution = { negated: false, retaliation: 0 },
+): void {
+  const playerId = continuation.actorId;
+  const opponentId = otherPlayer(state, playerId);
+  const attacker = state.boards[playerId].units[continuation.attackerIndex];
+  if (!attacker) {
+    appendLog(state, '공격 유닛이 사라져 공격이 취소되었습니다.', 'system');
+    return;
+  }
+  const attackerCard = CARD_BY_ID[attacker.cardId];
+  if (trapResult.negated) {
+    if (trapResult.retaliation > 0) damageUnit(state, playerId, continuation.attackerIndex, trapResult.retaliation);
+    attacker.canAttack = false;
+    appendLog(state, `${attackerCard?.name ?? '유닛'}의 직접 공격이 무효화되었습니다.`, 'trap');
+  } else {
+    const damage = Math.max(0, attacker.attack + continuation.bonusDamage);
+    const actualDamage = damageCore(state, opponentId, damage);
+    statsFor(state, playerId).coreDamage += actualDamage;
+    if (attackerCard?.keywords?.includes('lifesteal')) {
+      const healed = healCore(state, playerId, actualDamage);
+      statsFor(state, playerId).healing += healed;
+      if (healed > 0) appendVisual(state, { kind: 'heal', vfx: 'lifesteal-return', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: playerId, sourceZone: continuation.attackerIndex, amount: healed, label: '흡수' });
+    }
+    attacker.canAttack = false;
+    appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) 코어에 ${actualDamage} 피해.`, 'attack');
+    appendVisual(state, { kind: 'core', vfx: 'core-break', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: opponentId, sourceZone: continuation.attackerIndex, amount: actualDamage, label: '직접 공격' });
+  }
+  destroyDefeatedUnits(state, privateStates);
+  checkWinner(state);
+}
+
+function resolveUnitAttack(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  continuation: Extract<PendingTrapContinuation, { kind: 'attack_unit' }>,
+  trapResult: TrapResolution = { negated: false, retaliation: 0 },
+): void {
+  const playerId = continuation.actorId;
+  const opponentId = otherPlayer(state, playerId);
+  const attacker = state.boards[playerId].units[continuation.attackerIndex];
+  if (!attacker) {
+    appendLog(state, '공격 유닛이 사라져 공격이 취소되었습니다.', 'system');
+    return;
+  }
+  const attackerCard = CARD_BY_ID[attacker.cardId];
+  if (trapResult.negated) {
+    attacker.canAttack = false;
+    if (trapResult.retaliation > 0) damageUnit(state, playerId, continuation.attackerIndex, trapResult.retaliation);
+    appendLog(state, `${attackerCard?.name ?? '유닛'}의 공격이 함정으로 무효화되었습니다.`, 'trap');
+    destroyDefeatedUnits(state, privateStates);
+    checkWinner(state);
+    return;
+  }
+
+  const defender = state.boards[opponentId].units[continuation.targetIndex];
+  if (!defender) {
+    // The attack was already declared and may have forced a trap response, so the
+    // attack opportunity is consumed even if that response removed the target.
+    attacker.canAttack = false;
+    appendLog(state, '공격 대상이 사라져 공격이 취소되었습니다. 공격 기회는 소모됩니다.', 'system');
+    destroyDefeatedUnits(state, privateStates);
+    checkWinner(state);
+    return;
+  }
+  const defenderCard = CARD_BY_ID[defender.cardId];
+  const defenderDurabilityBefore = Math.max(0, defender.health) + Math.max(0, defender.shield);
+  const attackerDamage = Math.max(0, attacker.attack + continuation.bonusDamage);
+  const defenderDamage = defender.attack;
+  const defenderReport = damageUnit(state, opponentId, continuation.targetIndex, attackerDamage);
+  const attackerReport = damageUnit(state, playerId, continuation.attackerIndex, defenderDamage);
+
+  if (defenderReport.absorbed > 0 || !defenderReport.destroyed) {
+    appendVisual(state, { kind: 'defense', vfx: resolveCardVfx(defenderCard, 'defense'), cardId: defenderCard?.id, ownerId: opponentId, targetZone: continuation.targetIndex, amount: defenderReport.absorbed || defenderReport.healthDamage, label: defenderCard?.name ?? '방어' });
+  }
+  if (attackerReport.absorbed > 0) {
+    appendVisual(state, { kind: 'defense', vfx: resolveCardVfx(attackerCard, 'defense'), cardId: attackerCard?.id, ownerId: playerId, targetZone: continuation.attackerIndex, amount: attackerReport.absorbed, label: attackerCard?.name ?? '방어' });
+  }
+  if (attackerCard?.keywords?.includes('lifesteal')) {
+    const healed = healCore(state, playerId, defenderReport.healthDamage);
+    statsFor(state, playerId).healing += healed;
+    if (healed > 0) appendVisual(state, { kind: 'heal', vfx: 'lifesteal-return', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: playerId, sourceZone: continuation.attackerIndex, amount: healed, label: '흡수' });
+  }
+  if (attackerCard?.keywords?.includes('pierce') && defender.health <= 0) {
+    const overflow = Math.max(0, attackerDamage - defenderDurabilityBefore);
+    if (overflow > 0) {
+      const pierceDamage = damageCore(state, opponentId, overflow);
+      statsFor(state, playerId).coreDamage += pierceDamage;
+      if (pierceDamage > 0) appendVisual(state, { kind: 'core', vfx: 'pierce-impact', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: opponentId, sourceZone: continuation.attackerIndex, amount: pierceDamage, label: '관통 피해' });
+    }
+  }
+  if (defenderReport.destroyed) applyTacticalOnKill(state, playerId, continuation.attackerIndex);
+  attacker.canAttack = false;
+  appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) ${defenderCard?.name ?? '적 유닛'}에게 ${attackerDamage} 피해 · 반격 ${defenderDamage} 피해.`, 'attack');
+  destroyDefeatedUnits(state, privateStates);
+  checkWinner(state);
 }
 
 export function attack(
@@ -998,99 +1353,73 @@ export function attack(
     .filter(({ unit }) => unit && CARD_BY_ID[unit.cardId]?.keywords?.includes('guard'))
     .map(({ index }) => index);
 
-  appendVisual(state, {
-    kind: 'attack',
-    vfx: resolveCardVfx(attackerCard, 'attack'),
-    cardId: attackerCard?.id,
-    ownerId: playerId,
-    targetOwnerId: opponentId,
-    sourceZone: attackerIndex,
-    targetZone: target.kind === 'unit' ? target.unitIndex : undefined,
-    amount: attacker.attack,
-    label: attackerCard?.name ?? '유닛 공격',
-  });
-
   if (target.kind === 'core') {
     if (state.boards[opponentId].units.some(Boolean)) throw new Error('상대 필드에 유닛이 남아 있어 직접 공격할 수 없습니다.');
-    appendLog(state, `${attackerCard?.name ?? '유닛'} → 상대 코어 직접 공격 선언 (${attacker.attack})`, 'attack');
-    const trap = triggerTrap(state, privateStates, opponentId, 'direct_attack');
-    if (trap.negated) {
-      if (trap.retaliation > 0) damageUnit(state, playerId, attackerIndex, trap.retaliation);
-      attacker.canAttack = false;
-      appendLog(state, `${attackerCard?.name ?? '유닛'}의 직접 공격이 무효화되었습니다.`, 'trap');
-    } else {
-      const actualDamage = damageCore(state, opponentId, attacker.attack);
-      statsFor(state, playerId).coreDamage += actualDamage;
-      if (attackerCard?.keywords?.includes('lifesteal')) {
-        const healed = healCore(state, playerId, actualDamage);
-        statsFor(state, playerId).healing += healed;
-        if (healed > 0) appendVisual(state, { kind: 'heal', vfx: 'lifesteal-return', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: playerId, sourceZone: attackerIndex, amount: healed, label: '흡수' });
-      }
-      attacker.canAttack = false;
-      appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) 코어에 ${actualDamage} 피해.`, 'attack');
-      appendVisual(state, { kind: 'core', vfx: 'core-break', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: opponentId, sourceZone: attackerIndex, amount: actualDamage, label: '직접 공격' });
-    }
   } else {
     if (target.unitIndex < 0 || target.unitIndex > 4) throw new Error('올바른 공격 대상을 선택하세요.');
     if (guardIndexes.length > 0 && !guardIndexes.includes(target.unitIndex)) throw new Error('수호 유닛을 먼저 공격해야 합니다.');
-    const defender = state.boards[opponentId].units[target.unitIndex];
-    if (!defender) throw new Error('선택한 위치에 적 유닛이 없습니다.');
-    const declaredDefenderCard = CARD_BY_ID[defender.cardId];
-    appendLog(state, `${attackerCard?.name ?? '유닛'} → ${declaredDefenderCard?.name ?? '적 유닛'} 공격 선언 (${attacker.attack})`, 'attack');
+    if (!state.boards[opponentId].units[target.unitIndex]) throw new Error('선택한 위치에 적 유닛이 없습니다.');
+  }
 
-    triggerTrap(state, privateStates, opponentId, 'unit_attacked', { ownerId: opponentId, unitIndex: target.unitIndex });
-    const defenderAfterTrap = state.boards[opponentId].units[target.unitIndex];
-    if (!defenderAfterTrap) throw new Error('방어 유닛 상태가 올바르지 않습니다.');
-    const defenderCard = CARD_BY_ID[defenderAfterTrap.cardId];
-    const defenderDurabilityBefore = Math.max(0, defenderAfterTrap.health) + Math.max(0, defenderAfterTrap.shield);
-    const attackerDamage = attacker.attack;
-    const defenderDamage = defenderAfterTrap.attack;
-    const defenderReport = damageUnit(state, opponentId, target.unitIndex, attackerDamage);
-    const attackerReport = damageUnit(state, playerId, attackerIndex, defenderDamage);
+  const bonusDamage = applyTacticalOnAttackStart(state, playerId, attackerIndex);
+  appendVisual(state, {
+    kind: 'attack', vfx: resolveCardVfx(attackerCard, 'attack'), cardId: attackerCard?.id, ownerId: playerId,
+    targetOwnerId: opponentId, sourceZone: attackerIndex, targetZone: target.kind === 'unit' ? target.unitIndex : undefined,
+    amount: attacker.attack + bonusDamage, label: attackerCard?.name ?? '유닛 공격',
+  });
 
-    if (defenderReport.absorbed > 0 || !defenderReport.destroyed) {
-      appendVisual(state, {
-        kind: 'defense',
-        vfx: resolveCardVfx(defenderCard, 'defense'),
-        cardId: defenderCard?.id,
-        ownerId: opponentId,
-        targetZone: target.unitIndex,
-        amount: defenderReport.absorbed || defenderReport.healthDamage,
-        label: defenderCard?.name ?? '방어',
-      });
-    }
-    if (attackerReport.absorbed > 0) {
-      appendVisual(state, {
-        kind: 'defense',
-        vfx: resolveCardVfx(attackerCard, 'defense'),
-        cardId: attackerCard?.id,
-        ownerId: playerId,
-        targetZone: attackerIndex,
-        amount: attackerReport.absorbed,
-        label: attackerCard?.name ?? '방어',
-      });
-    }
-
-    if (attackerCard?.keywords?.includes('lifesteal')) {
-      const healed = healCore(state, playerId, defenderReport.healthDamage);
-      statsFor(state, playerId).healing += healed;
-      if (healed > 0) appendVisual(state, { kind: 'heal', vfx: 'lifesteal-return', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: playerId, sourceZone: attackerIndex, amount: healed, label: '흡수' });
-    }
-    if (attackerCard?.keywords?.includes('pierce') && defenderAfterTrap.health <= 0) {
-      const overflow = Math.max(0, attackerDamage - defenderDurabilityBefore);
-      if (overflow > 0) {
-        const pierceDamage = damageCore(state, opponentId, overflow);
-        statsFor(state, playerId).coreDamage += pierceDamage;
-        if (pierceDamage > 0) appendVisual(state, { kind: 'core', vfx: 'pierce-impact', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: opponentId, sourceZone: attackerIndex, amount: pierceDamage, label: '관통 피해' });
-      }
-    }
-    attacker.canAttack = false;
-    appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) ${defenderCard?.name ?? '적 유닛'}에게 ${attackerDamage} 피해 · 반격 ${defenderDamage} 피해.`, 'attack');
+  if (target.kind === 'core') {
+    appendLog(state, `${attackerCard?.name ?? '유닛'} → 상대 코어 직접 공격 선언 (${attacker.attack + bonusDamage})`, 'attack');
+    const continuation: Extract<PendingTrapContinuation, { kind: 'attack_core' }> = { kind: 'attack_core', actorId: playerId, attackerIndex, bonusDamage };
+    if (!openTrapWindow(state, privateStates, opponentId, 'direct_attack', continuation)) resolveCoreAttack(state, privateStates, continuation);
+  } else {
+    const defenderCard = CARD_BY_ID[state.boards[opponentId].units[target.unitIndex]?.cardId ?? ''];
+    appendLog(state, `${attackerCard?.name ?? '유닛'} → ${defenderCard?.name ?? '적 유닛'} 공격 선언 (${attacker.attack + bonusDamage})`, 'attack');
+    const continuation: Extract<PendingTrapContinuation, { kind: 'attack_unit' }> = { kind: 'attack_unit', actorId: playerId, attackerIndex, targetIndex: target.unitIndex, bonusDamage };
+    if (!openTrapWindow(state, privateStates, opponentId, 'unit_attacked', continuation, { ownerId: opponentId, unitIndex: target.unitIndex })) resolveUnitAttack(state, privateStates, continuation);
   }
 
   state.turnActionTaken = true;
-  destroyDefeatedUnits(state, privateStates);
-  checkWinner(state);
+  return { state, privateStates };
+}
+
+function continueAfterTrapDecision(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  pending: PendingTrapWindow,
+  trapResult: TrapResolution,
+): void {
+  const continuation = pending.continuation;
+  if (continuation.kind === 'spell') resolveSpellContinuation(state, privateStates, continuation, trapResult);
+  else if (continuation.kind === 'summon') continueSummonResolution(state, privateStates, continuation, trapResult);
+  else if (continuation.kind === 'attack_core') resolveCoreAttack(state, privateStates, continuation, trapResult);
+  else if (continuation.kind === 'attack_unit') resolveUnitAttack(state, privateStates, continuation, trapResult);
+  else {
+    destroyDefeatedUnits(state, privateStates);
+    checkWinner(state);
+  }
+}
+
+export function respondTrap(snapshot: GameSnapshot, playerId: string, activate: boolean): ActionResult {
+  const state = clone(snapshot.state);
+  const privateStates = clone(snapshot.privateStates);
+  const pending = state.pendingTrap;
+  if (!pending) throw new Error('현재 응답할 함정 타이밍이 없습니다.');
+  if (pending.ownerId !== playerId) throw new Error('상대의 함정 선택을 기다리는 중입니다.');
+
+  let result: TrapResolution = { negated: false, retaliation: 0 };
+  if (activate) {
+    const target = pending.targetOwnerId !== undefined && pending.targetUnitIndex !== undefined
+      ? { ownerId: pending.targetOwnerId, unitIndex: pending.targetUnitIndex }
+      : undefined;
+    result = activateTrapAt(state, privateStates, playerId, pending.trigger, pending.trapZone, target);
+  } else {
+    const instance = privateStates[playerId]?.secrets[pending.trapZone];
+    const card = instance ? CARD_BY_ID[instance.cardId] : undefined;
+    appendLog(state, `함정 「${card?.name ?? '세트 카드'}」 발동을 이번 타이밍에는 보류했습니다.`, 'trap');
+  }
+  state.pendingTrap = null;
+  continueAfterTrapDecision(state, privateStates, pending, result);
   return { state, privateStates };
 }
 
@@ -1167,6 +1496,16 @@ export function resolveTurnTimeout(snapshot: GameSnapshot, now = Date.now()): Ac
   const state = clone(snapshot.state);
   const privateStates = clone(snapshot.privateStates);
   if (state.status !== 'active' || !state.currentPlayerId) return { state, privateStates };
+
+  if (state.pendingTrap) {
+    if (now < state.pendingTrap.endsAt) return { state, privateStates };
+    const pending = state.pendingTrap;
+    state.pendingTrap = null;
+    appendLog(state, '함정 응답 시간이 지나 자동으로 “사용하지 않기”가 선택되었습니다.', 'trap');
+    continueAfterTrapDecision(state, privateStates, pending, { negated: false, retaliation: 0 });
+    return { state, privateStates };
+  }
+
   repairCurrentTurnEnergy(state);
   if (state.coinToss && now < state.coinToss.endsAt) {
     if (!state.turnEndsAt) state.turnEndsAt = state.coinToss.endsAt + TURN_DURATION_MS;

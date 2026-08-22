@@ -195,6 +195,27 @@ export function seriesAbilityDescription(card: CardDefinition): string {
   return '';
 }
 
+
+export function tacticalAbilityDescription(card: CardDefinition): string {
+  if (!isUnitCard(card) || !card.seriesId) return '';
+  switch (card.seriesId) {
+    case 'luminaknights': return '전술 · 집결 출격: 같은 시리즈 아군이 이미 있으면 소환 시 자신 +1/+1.';
+    case 'kaisergear': return '전술 · 중장 장갑: 같은 시리즈 아군이 있으면 소환 시 보호막 1 획득.';
+    case 'eclipsion': return '전술 · 잔향 포식: 이 유닛이 파괴될 때 내 묘지가 4장 이상이면 상대 코어에 1 피해.';
+    case 'nocturne': return '전술 · 월영 회귀: 공격 선언 시 내 코어가 상대보다 낮으면 코어 1 회복.';
+    case 'arborian': return '전술 · 생장 맥동: 같은 시리즈 유닛을 소환하면 기존 아군 1장의 최대 체력/체력 +1.';
+    case 'tempest_drive': return '전술 · 애프터버너: 같은 시리즈 아군이 있으면 소환된 턴에도 즉시 공격 가능.';
+    case 'abyss_reaper': return '전술 · 포식 반향: 이 유닛의 전투로 적 유닛을 파괴하면 코어 1 회복.';
+    case 'primal_guardian': return '전술 · 군집 수호: 같은 시리즈 아군이 있으면 소환 시 보호막 1과 체력 +1.';
+    case 'chronorium': return '전술 · 시간 선점: 소환 후 에너지가 2 이상 남아 있으면 공격력 +1과 보호막 1.';
+    case 'arcana_protocol': return '전술 · 규약 재기록: 내 묘지에 주문이 2장 이상이면 소환 시 카드 1장 드로우.';
+    case 'beastforge': return '전술 · 합금 충격: 보호막을 가진 상태로 공격하면 그 전투에서 공격 피해 +1.';
+    case 'phantom_carnival': return '전술 · 앙코르 트릭: 내 함정이 발동할 때 내 팬텀 카니발 유닛 1장을 +1/+1.';
+    case 'astral_armada': return '전술 · 편대 방벽: 같은 시리즈 유닛이 2장 이상이 되면 소환 시 편대 전원 보호막 +1.';
+    default: return '';
+  }
+}
+
 export const CARDS: CardDefinition[] = [
   {
     id: 'unit_ember_squire', name: '잿불의 종자', subtitle: '작은 불꽃의 맹세', kind: 'unit', rarity: 'common', element: 'solar', cost: 1,

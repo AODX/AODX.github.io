@@ -24,6 +24,7 @@ import {
   isExtraDeckCard,
   isUnitCard,
   seriesAbilityDescription,
+  tacticalAbilityDescription,
   validateDeck,
   validateExtraDeck,
 } from './game-data';
@@ -267,7 +268,9 @@ function playUiSound(kind: UiSound): void {
   compressor.ratio.value = 7;
   compressor.attack.value = 0.002;
   compressor.release.value = 0.12;
-  master.gain.setValueAtTime(Math.max(0.001, globalSoundVolume), now);
+  const combatSound = kind === 'summon' || kind === 'attack' || kind === 'spell' || kind === 'trap' || kind === 'damage' || kind === 'draw' || kind === 'turn';
+  const soundGain = Math.min(1.15, Math.max(0.001, globalSoundVolume) * (combatSound ? 1.22 : 1));
+  master.gain.setValueAtTime(soundGain, now);
   master.connect(compressor);
   compressor.connect(context.destination);
 
@@ -348,9 +351,10 @@ function playUiSound(kind: UiSound): void {
       noise(0.2, 0.022, 0.09, 900);
       break;
     case 'attack':
-      noise(0.14, 0.04, 0, 380);
-      tone('sawtooth', 240, 78, 0.14, 0.035);
-      tone('square', 520, 210, 0.08, 0.012, 0.025);
+      noise(0.18, 0.065, 0, 300);
+      tone('sawtooth', 260, 72, 0.18, 0.052);
+      tone('square', 560, 190, 0.10, 0.018, 0.02);
+      tone('sine', 95, 52, 0.20, 0.035, 0.018);
       break;
     case 'spell':
       tone('sine', 320, 1180, 0.35, 0.024);
@@ -358,13 +362,15 @@ function playUiSound(kind: UiSound): void {
       noise(0.18, 0.01, 0.08, 1600);
       break;
     case 'trap':
-      tone('square', 210, 640, 0.18, 0.02);
-      tone('triangle', 920, 260, 0.22, 0.018, 0.04);
-      noise(0.12, 0.025, 0.035, 1200);
+      tone('square', 190, 760, 0.22, 0.032);
+      tone('triangle', 1040, 230, 0.27, 0.027, 0.035);
+      noise(0.18, 0.052, 0.025, 900);
+      tone('sine', 84, 56, 0.24, 0.035, 0.06);
       break;
     case 'damage':
-      noise(0.18, 0.055, 0, 240);
-      tone('sawtooth', 110, 48, 0.16, 0.04);
+      noise(0.22, 0.075, 0, 190);
+      tone('sawtooth', 125, 46, 0.20, 0.055);
+      tone('sine', 72, 48, 0.22, 0.032, 0.015);
       break;
     case 'draw':
       noise(0.11, 0.012, 0, 1450);
@@ -793,6 +799,12 @@ function CardFace({
       {card.summonMode === 'rift' && <span className="summon-badge rift">균열</span>}
       {card.kind === 'fusion' && <span className="summon-badge fusion">융합</span>}
       {card.kind === 'evolution' && <span className="summon-badge evolution">진화</span>}
+      {isUnitCard(card) && (card.keywords?.includes('charge') || card.keywords?.includes('guard')) && (
+        <span className="v30-card-traits" aria-label="전투 특성">
+          {card.keywords?.includes('charge') && <i className="charge">속공</i>}
+          {card.keywords?.includes('guard') && <i className="guard">수호</i>}
+        </span>
+      )}
       {quantity !== undefined && <span className="card-quantity">×{quantity}</span>}
       {inspectable && (
         <button
@@ -907,6 +919,13 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             <section className="detail-section v25-series-profile">
               <span>시리즈 전술</span>
               <p><b>{card.series}</b> · {SERIES_BY_ID[card.seriesId].mechanic}</p>
+            </section>
+          )}
+
+          {tacticalAbilityDescription(card) && (
+            <section className="detail-section v30-tactical-effect">
+              <span>TACTICAL PASSIVE · 전술 패시브</span>
+              <p>{tacticalAbilityDescription(card)}</p>
             </section>
           )}
 
@@ -2278,6 +2297,8 @@ function UnitSlot({
   selected,
   materialSelected,
   targetable,
+  attackReady,
+  attackTarget,
   enemy,
   onClick,
 }: {
@@ -2287,14 +2308,18 @@ function UnitSlot({
   selected?: boolean;
   materialSelected?: boolean;
   targetable?: boolean;
+  attackReady?: boolean;
+  attackTarget?: boolean;
   enemy?: boolean;
   onClick?: () => void;
 }) {
   const card = unit ? CARD_BY_ID[unit.cardId] : undefined;
+  const hasCharge = Boolean(card?.keywords?.includes('charge'));
+  const hasGuard = Boolean(card?.keywords?.includes('guard'));
   return (
     <button
       type="button"
-      className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${targetable ? 'targetable' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''}`}
+      className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${targetable ? 'targetable' : ''} ${attackReady ? 'attack-ready' : ''} ${attackTarget ? 'attack-target' : ''} ${hasCharge ? 'has-charge' : ''} ${hasGuard ? 'has-guard' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''}`}
       onClick={onClick}
       data-owner={owner}
       data-index={index}
@@ -2305,6 +2330,12 @@ function UnitSlot({
             {card ? <CardIllustration card={card} compact /> : <strong>✦</strong>}
           </span>
           {card && <span className="unit-info-hotspot" role="button" tabIndex={0} aria-label={`${card.name} 상세 정보`} onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); requestCardInspection(card.id); }} onKeyDown={(event: React.KeyboardEvent) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); requestCardInspection(card.id); } }}>i</span>}
+          <span className="v30-unit-traits" aria-label="유닛 전투 특성">
+            {hasCharge && <i className="charge">속공</i>}
+            {hasGuard && <i className="guard">수호</i>}
+          </span>
+          {attackReady && <span className="v30-attack-ready-badge"><i />공격 가능</span>}
+          {attackTarget && <span className="v30-attack-target-badge"><i />공격 대상</span>}
           {unit.summonedBy !== 'normal' && unit.summonedBy !== 'token' && <span className={`origin-badge ${unit.summonedBy}`}>{unit.summonedBy === 'rift' ? 'RIFT' : unit.summonedBy === 'fusion' ? 'FUSION' : 'EVOLVE'}</span>}
           <span className="unit-name">{card?.name ?? unit.cardId.replace('token:', '')}</span>
           <span className="unit-stats"><b>{unit.attack}</b><i>ATK</i><b>{unit.health}</b>{unit.shield > 0 && <em>＋{unit.shield}</em>}</span>
@@ -2335,6 +2366,19 @@ function clientRiftReady(state: MatchState, playerId: string, opponentId: string
   if (condition.kind === 'graveyard_min') return (state.graveyards[playerId]?.length ?? 0) >= condition.value;
   if (condition.kind === 'ally_element') return myUnits.some((unit) => CARD_BY_ID[unit?.cardId ?? '']?.element === condition.element);
   return false;
+}
+
+function clientRiftBlockReason(state: MatchState, playerId: string, opponentId: string, card: CardDefinition): string | null {
+  const condition = card.riftCondition;
+  if (card.summonMode !== 'rift' || !condition) return null;
+  const myUnits = state.boards[playerId].units.filter(Boolean);
+  const enemyUnits = state.boards[opponentId].units.filter(Boolean);
+  if (condition.kind === 'empty_board' && myUnits.length > 0) return `내 필드가 비어 있어야 합니다. 현재 내 유닛 ${myUnits.length}장.`;
+  if (condition.kind === 'core_below' && (state.core[playerId] ?? 25) > condition.value) return `내 HP가 ${condition.value} 이하일 때만 가능합니다. 현재 HP ${state.core[playerId] ?? 25}.`;
+  if (condition.kind === 'opponent_more_units' && enemyUnits.length <= myUnits.length) return `상대 유닛 수가 내 유닛보다 많아야 합니다. 현재 나 ${myUnits.length} / 상대 ${enemyUnits.length}.`;
+  if (condition.kind === 'graveyard_min' && (state.graveyards[playerId]?.length ?? 0) < condition.value) return `내 묘지에 카드가 ${condition.value}장 이상 필요합니다. 현재 ${state.graveyards[playerId]?.length ?? 0}장.`;
+  if (condition.kind === 'ally_element' && !myUnits.some((unit) => CARD_BY_ID[unit?.cardId ?? '']?.element === condition.element)) return `내 필드에 ${ELEMENT_LABEL[condition.element]} 속성 아군이 1장 이상 필요합니다.`;
+  return null;
 }
 
 function clientFusionMaterialMatches(unit: UnitState, material: NonNullable<CardDefinition['fusionRecipe']>['materials'][number]): boolean {
@@ -2421,6 +2465,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const [recentDrawnIds, setRecentDrawnIds] = useState<Set<string>>(() => new Set());
   const [hoveredHandCardId, setHoveredHandCardId] = useState<string | null>(null);
   const [turnNotice, setTurnNotice] = useState<{ mine: boolean; turn: number } | null>(null);
+  const [summonBlock, setSummonBlock] = useState<{ cardId: string; title: string; reasons: string[] } | null>(null);
   const [coinClock, setCoinClock] = useState(() => Date.now());
   const [turnClock, setTurnClock] = useState(() => Date.now());
   const timeoutSyncTurn = useRef<number>(-1);
@@ -2555,6 +2600,27 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     playUiSound(sound);
   }, [activeVfx?.id]);
 
+  useEffect(() => {
+    let confirmed = false;
+    const unlockAudio = () => {
+      const context = getAudioContext();
+      if (!context) return;
+      const confirm = () => {
+        if (confirmed || !globalSoundEnabled || globalSoundVolume <= 0) return;
+        confirmed = true;
+        playUiSound('click');
+      };
+      if (context.state === 'suspended') void context.resume().then(confirm).catch(() => undefined);
+      else confirm();
+    };
+    window.addEventListener('pointerdown', unlockAudio, true);
+    window.addEventListener('keydown', unlockAudio, true);
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio, true);
+      window.removeEventListener('keydown', unlockAudio, true);
+    };
+  }, []);
+
   const preCoinTossActive = Boolean(nullableState?.coinToss && coinClock < nullableState.coinToss.endsAt);
   const turnNoticeKey = nullableState ? `${nullableState.turnNumber}:${nullableState.currentPlayerId ?? ''}:${nullableState.status}` : '';
   useEffect(() => {
@@ -2566,14 +2632,24 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     return () => window.clearTimeout(timer);
   }, [turnNoticeKey, preCoinTossActive, userId]);
 
+  useEffect(() => {
+    if (!nullableState?.pendingTrap?.id) return;
+    playUiSound('trap');
+  }, [nullableState?.pendingTrap?.id]);
+
   if (!nullableState || !nullablePrivateState || nullableState.playerOrder.length !== 2) return <LoadingScreen text="결투 상태를 동기화하는 중" />;
   const state = nullableState;
   const privateState = nullablePrivateState;
+  const pendingTrap = state.pendingTrap ?? null;
+  const interactionLocked = Boolean(pendingTrap);
 
   const opponentId = state.playerOrder.find((id) => id !== userId) ?? '';
   const profileMap = Object.fromEntries(payload.profiles.map((profile) => [profile.user_id, profile]));
   const me = profileMap[userId];
   const opponent = profileMap[opponentId];
+  const pendingTrapInstance = pendingTrap?.ownerId === userId ? privateState.secrets[pendingTrap.trapZone] : null;
+  const pendingTrapCard = pendingTrapInstance ? CARD_BY_ID[pendingTrapInstance.cardId] : undefined;
+  const trapResponseSeconds = pendingTrap ? Math.max(0, Math.ceil((pendingTrap.endsAt - turnClock) / 1000)) : 0;
   const coinTossActive = Boolean(state.coinToss && coinClock < state.coinToss.endsAt);
   const turnExpiredLocally = Boolean(!coinTossActive && state.turnEndsAt && turnClock >= state.turnEndsAt);
   const myTurn = state.currentPlayerId === userId && !coinTossActive && !turnExpiredLocally;
@@ -2587,7 +2663,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const previewCard = selectedCard ?? selectedExtraCard ?? hoveredHandCard;
   const previewIsHoverOnly = Boolean(hoveredHandCard && !selectedCard && !selectedExtraCard);
   const requiredMaterials = selectedExtraCard?.kind === 'fusion' ? selectedExtraCard.fusionRecipe?.materials.length ?? 0 : selectedExtraCard?.kind === 'evolution' ? 1 : 0;
-  const canExtraSummon = Boolean(selectedExtraCard && selectedExtra && selectedMaterials.length === requiredMaterials && myTurn && state.phase === 'main' && !busy);
+  const canExtraSummon = Boolean(selectedExtraCard && selectedExtra && selectedMaterials.length === requiredMaterials && myTurn && !interactionLocked && state.phase === 'main' && !busy);
+  const canAttemptExtraSummon = Boolean(selectedExtraCard && selectedExtra && myTurn && !interactionLocked && state.phase === 'main' && !busy);
   const canSpendTurnToDraw = Boolean(myTurn && state.phase === 'main' && !state.turnActionTaken && !busy && (state.deckCounts[userId] ?? 0) > 0);
   const myEnergy = state.energy[userId] ?? { current: 0, max: 0 };
   const opponentEnergy = state.energy[opponentId] ?? { current: 0, max: 0 };
@@ -2595,25 +2672,29 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const roundNumber = Math.max(1, Math.ceil(state.turnNumber / 2));
   const phaseLabel = state.phase === 'main' ? '메인 단계' : '전투 단계';
   const selectedHandCost = selectedCard?.summonMode === 'rift' && selectedCard.riftCost !== undefined ? `${selectedCard.cost} / 균열 ${selectedCard.riftCost}` : selectedCard?.cost;
-  const selectingUnitToSummon = Boolean(myTurn && state.phase === 'main' && selectedCard?.kind === 'unit');
-  const selectingTrapToSet = Boolean(myTurn && state.phase === 'main' && selectedCard?.kind === 'trap');
-  const selectingEnemyTarget = Boolean(myTurn && state.phase === 'main' && selectedCard?.target === 'enemy_unit');
-  const selectingFriendlyTarget = Boolean(myTurn && state.phase === 'main' && selectedCard?.target === 'friendly_unit');
-  const selectingMaterials = Boolean(myTurn && state.phase === 'main' && selectedExtraCard);
-  const selectingAttackTarget = Boolean(myTurn && state.phase === 'battle' && selectedAttacker !== null);
+  const selectingUnitToSummon = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.kind === 'unit');
+  const selectingTrapToSet = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.kind === 'trap');
+  const selectingEnemyTarget = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.target === 'enemy_unit');
+  const selectingFriendlyTarget = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.target === 'friendly_unit');
+  const selectingMaterials = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedExtraCard);
+  const selectingAttackTarget = Boolean(myTurn && !interactionLocked && state.phase === 'battle' && selectedAttacker !== null);
   const opponentHasUnits = state.boards[opponentId].units.some(Boolean);
   const directAttackOpen = !opponentHasUnits;
   const selectedAttackerCanHitCore = Boolean(selectingAttackTarget && directAttackOpen);
+  const guardTargetIndexes = state.boards[opponentId].units.flatMap((unit, index) => unit && CARD_BY_ID[unit.cardId]?.keywords?.includes('guard') ? [index] : []);
+  const attackableTargetIndexes = selectedAttacker !== null && state.phase === 'battle'
+    ? (guardTargetIndexes.length > 0 ? guardTargetIndexes : state.boards[opponentId].units.flatMap((unit, index) => unit ? [index] : []))
+    : [];
   const myFieldUnits = state.boards[userId].units.filter((unit): unit is UnitState => Boolean(unit));
   const riftReadyInstances = privateState.hand.filter((instance) => {
     const card = CARD_BY_ID[instance.cardId];
     if (!card || card.kind !== 'unit' || card.summonMode !== 'rift') return false;
     const cost = card.riftCost ?? card.cost;
-    return myTurn && state.phase === 'main' && myEnergy.current >= cost && state.boards[userId].units.some((slot) => !slot) && clientRiftReady(state, userId, opponentId, card);
+    return myTurn && !interactionLocked && state.phase === 'main' && myEnergy.current >= cost && state.boards[userId].units.some((slot) => !slot) && clientRiftReady(state, userId, opponentId, card);
   });
   const extraReadyInstances = privateState.extra.filter((instance) => {
     const card = CARD_BY_ID[instance.cardId];
-    if (!card || card.cost > myEnergy.current || !myTurn || state.phase !== 'main') return false;
+    if (!card || card.cost > myEnergy.current || !myTurn || interactionLocked || state.phase !== 'main') return false;
     if (card.kind === 'fusion') { const materials = card.fusionRecipe?.materials ?? []; return materials.length > 0 && clientCanAssignFusion(myFieldUnits, materials); }
     if (card.kind === 'evolution') return myFieldUnits.some((unit) => clientEvolutionReady(unit, card));
     return false;
@@ -2633,6 +2714,39 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     return card?.rarity === 'legendary' ? [{ instanceId: instance.instanceId, card, source: 'extra' as const }] : [];
   });
   const legendaryReadyCards = [...legendaryReadyFromHand, ...legendaryReadyFromExtra];
+
+  function handSummonBlockReasons(card: CardDefinition): string[] {
+    const reasons: string[] = [];
+    if (!myTurn) reasons.push('지금은 상대 턴입니다.');
+    if (state.phase !== 'main') reasons.push('유닛 소환은 메인 단계에서만 가능합니다.');
+    if (interactionLocked) reasons.push('현재 함정 발동 여부를 결정하는 중이라 다른 행동을 할 수 없습니다.');
+    if (!state.boards[userId].units.some((slot) => !slot)) reasons.push('내 유닛 칸 5개가 모두 차 있습니다.');
+    const requiredEnergy = card.summonMode === 'rift' ? (card.riftCost ?? card.cost) : card.cost;
+    if (myEnergy.current < requiredEnergy) reasons.push(`에너지가 부족합니다. 필요 ${requiredEnergy} / 현재 ${myEnergy.current}.`);
+    const riftReason = clientRiftBlockReason(state, userId, opponentId, card);
+    if (riftReason) reasons.push(riftReason);
+    return reasons;
+  }
+
+  function extraSummonBlockReasons(card: CardDefinition): string[] {
+    const reasons: string[] = [];
+    if (!myTurn) reasons.push('지금은 상대 턴입니다.');
+    if (state.phase !== 'main') reasons.push('융합·진화는 메인 단계에서만 가능합니다.');
+    if (interactionLocked) reasons.push('현재 함정 발동 여부를 결정하는 중이라 다른 행동을 할 수 없습니다.');
+    if (myEnergy.current < card.cost) reasons.push(`에너지가 부족합니다. 필요 ${card.cost} / 현재 ${myEnergy.current}.`);
+    if (card.kind === 'fusion') {
+      const materials = card.fusionRecipe?.materials ?? [];
+      if (!materials.length || !clientCanAssignFusion(myFieldUnits, materials)) reasons.push(`융합 소재 조건: ${card.fusionRecipe?.label ?? '지정 소재가 필요합니다.'}`);
+    } else if (card.kind === 'evolution') {
+      if (!myFieldUnits.some((unit) => clientEvolutionReady(unit, card))) reasons.push(`진화 조건: ${card.evolutionRecipe?.label ?? '조건에 맞는 아군 유닛이 필요합니다.'}`);
+    }
+    return reasons;
+  }
+
+  function showSummonBlock(card: CardDefinition, reasons: string[]) {
+    setSummonBlock({ cardId: card.id, title: `${card.name} · 지금 소환할 수 없는 이유`, reasons: reasons.length ? reasons : ['필요한 소환 조건을 다시 확인해 주세요.'] });
+    playUiSound('remove');
+  }
 
   function clearSelection(note = '') {
     setSelectedHand(null);
@@ -2700,6 +2814,11 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       setMessage('먼저 손패에서 소환할 유닛 카드를 선택하세요.');
       return;
     }
+    const blockReasons = handSummonBlockReasons(selectedCard);
+    if (blockReasons.length > 0) {
+      showSummonBlock(selectedCard, blockReasons);
+      return;
+    }
     gameAction('play_card', { instanceId: selectedHand, zone });
   }
 
@@ -2754,6 +2873,10 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       }
     }
     if (selectedAttacker !== null && ownerId === opponentId && state.phase === 'battle') {
+      if (!attackableTargetIndexes.includes(unitIndex)) {
+        setMessage(guardTargetIndexes.length > 0 ? '수호 유닛이 있습니다. 수호 표시가 있는 유닛을 먼저 공격해야 합니다.' : '현재 공격할 수 없는 대상입니다.');
+        return;
+      }
       gameAction('attack', { attackerIndex: selectedAttacker, target: { kind: 'unit', unitIndex } });
       return;
     }
@@ -2782,8 +2905,17 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   }
 
   function summonSelectedExtra() {
-    if (!selectedExtra || !canExtraSummon) {
-      setMessage('필요한 소재를 모두 선택해야 합니다.');
+    if (!selectedExtra || !selectedExtraCard) {
+      setMessage('먼저 엑스트라 카드를 선택하세요.');
+      return;
+    }
+    const blockReasons = extraSummonBlockReasons(selectedExtraCard);
+    if (blockReasons.length > 0) {
+      showSummonBlock(selectedExtraCard, blockReasons);
+      return;
+    }
+    if (!canExtraSummon) {
+      showSummonBlock(selectedExtraCard, [`필요한 소재를 모두 선택해야 합니다. 현재 ${selectedMaterials.length}/${requiredMaterials}장 선택.`]);
       return;
     }
     gameAction('extra_summon', { extraInstanceId: selectedExtra, materialZones: selectedMaterials });
@@ -2818,6 +2950,10 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
 
   const coach = coinTossActive
     ? { step: 0, kicker: 'OPENING', title: '선공을 결정하고 있습니다', detail: '선공 결정이 끝나면 내 턴 또는 상대 턴이 화면 중앙에 표시됩니다.', tip: '결투가 시작되면 오른쪽 안내 패널이 다음 행동을 계속 알려줍니다.' }
+    : pendingTrap
+      ? pendingTrap.ownerId === userId
+        ? { step: 0, kicker: 'TRAP RESPONSE', title: '함정을 발동할까요?', detail: `발동 가능 타이밍입니다. ${trapResponseSeconds}초 안에 사용 여부를 선택하세요.`, tip: '사용하지 않기를 골라도 함정 카드는 그대로 세트 상태로 남습니다.' }
+        : { step: 0, kicker: 'WAIT RESPONSE', title: '상대의 함정 선택을 기다리는 중', detail: '상대가 함정을 발동할지 넘길지 결정하고 있습니다.', tip: '응답 시간 동안 턴 시간은 보정됩니다.' }
     : !myTurn
       ? { step: 0, kicker: 'WAIT', title: '상대의 턴입니다', detail: '지금은 상대가 행동하는 시간입니다. 손패 카드에 마우스를 올리면 카드 효과를 미리 확인할 수 있습니다.', tip: '턴이 넘어오면 화면 중앙에 “나의 턴”이 표시됩니다.' }
       : state.phase === 'battle'
@@ -2865,6 +3001,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const myMatchStats = state.matchStats?.[userId] ?? { cardsDrawn: 0, cardsPlayed: 0, unitsSummoned: 0, specialSummons: 0, coreDamage: 0, healing: 0 };
   const opponentMatchStats = state.matchStats?.[opponentId] ?? { cardsDrawn: 0, cardsPlayed: 0, unitsSummoned: 0, specialSummons: 0, coreDamage: 0, healing: 0 };
   const syncAgeSeconds = Math.max(0, Math.floor((Date.now() - lastSyncAt) / 1000));
+  const displayedSyncState: 'live' | 'syncing' | 'offline' = syncState === 'offline' && syncAgeSeconds <= 8 ? 'live' : syncState;
 
   return (
     <div className={`v18-duel-screen ${myTurn ? 'is-my-turn' : 'is-opponent-turn'} phase-${state.phase} fx-${activeVfx?.kind ?? 'idle'}`}>
@@ -2894,8 +3031,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
             </div>
           )}
         </div>
-        <div className={`v22-sync-chip ${syncState}`}>
-          <i /><span>{syncState === 'live' ? 'LIVE' : syncState === 'syncing' ? 'SYNCING' : 'RECONNECTING'}</span><small>{syncState === 'live' ? `${syncAgeSeconds}s` : syncState === 'syncing' ? '동기화 중' : '연결 복구 중'}</small>
+        <div className={`v22-sync-chip ${displayedSyncState}`}>
+          <i /><span>{displayedSyncState === 'live' ? 'LIVE' : displayedSyncState === 'syncing' ? 'SYNCING' : 'RECONNECTING'}</span><small>{displayedSyncState === 'live' ? '연결됨' : displayedSyncState === 'syncing' ? '백그라운드 동기화' : '연결 복구 중'}</small>
         </div>
         <div className="v18-header-actions">
           <button type="button" className={logOpen ? 'active' : ''} onClick={() => setLogOpen((value) => !value)}>기록</button>
@@ -2944,7 +3081,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
 
           <div className="v18-zone-row v18-enemy-units">
             {state.boards[opponentId].units.map((unit, index) => (
-              <UnitSlot key={index} unit={unit} owner={opponentId} index={index} enemy targetable={Boolean(unit && (selectingEnemyTarget || selectingAttackTarget))} onClick={() => targetUnit(opponentId, index)} />
+              <UnitSlot key={index} unit={unit} owner={opponentId} index={index} enemy targetable={Boolean(unit && (selectingEnemyTarget || (selectingAttackTarget && attackableTargetIndexes.includes(index))))} attackTarget={Boolean(unit && selectingAttackTarget && attackableTargetIndexes.includes(index))} onClick={() => targetUnit(opponentId, index)} />
             ))}
           </div>
 
@@ -2969,7 +3106,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
                 index={index}
                 selected={selectedAttacker === index}
                 materialSelected={selectedMaterials.includes(index)}
-                targetable={unit ? Boolean(selectingFriendlyTarget || selectingMaterials || (myTurn && state.phase === 'battle' && unit.canAttack)) : selectingUnitToSummon}
+                targetable={unit ? Boolean(selectingFriendlyTarget || selectingMaterials || (myTurn && !interactionLocked && state.phase === 'battle' && unit.canAttack)) : selectingUnitToSummon}
+                attackReady={Boolean(unit && myTurn && !interactionLocked && state.phase === 'battle' && unit.canAttack)}
                 onClick={() => unit ? targetUnit(userId, index) : playToUnitZone(index)}
               />
             ))}
@@ -3026,14 +3164,14 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
           {previewIsHoverOnly && hoveredHandCard && (
             <div className="v18-selected-card v29-hover-preview">
               <div className="v18-selected-art"><CardIllustration card={hoveredHandCard} compact /></div>
-              <div className="v18-selected-copy"><small>카드 미리보기 · {KIND_LABEL[hoveredHandCard.kind]} · {ELEMENT_LABEL[hoveredHandCard.element]}</small><b>{hoveredHandCard.name}</b><div><span>COST <strong>{hoveredHandCard.cost}</strong></span>{isUnitCard(hoveredHandCard) && <><span>ATK <strong>{hoveredHandCard.attack}</strong></span><span>DEF <strong>{hoveredHandCard.health}</strong></span></>}</div><p>{hoveredHandCard.text}</p></div>
+              <div className="v18-selected-copy"><small>카드 미리보기 · {KIND_LABEL[hoveredHandCard.kind]} · {ELEMENT_LABEL[hoveredHandCard.element]}</small><b>{hoveredHandCard.name}</b><div><span>COST <strong>{hoveredHandCard.cost}</strong></span>{isUnitCard(hoveredHandCard) && <><span>ATK <strong>{hoveredHandCard.attack}</strong></span><span>DEF <strong>{hoveredHandCard.health}</strong></span></>}</div><p>{hoveredHandCard.text}</p>{tacticalAbilityDescription(hoveredHandCard) && <p className="v30-preview-tactical">{tacticalAbilityDescription(hoveredHandCard)}</p>}</div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(hoveredHandCard.id)}>전체 상세</button></div>
             </div>
           )}
           {selectedCard && (
             <div className="v18-selected-card">
               <div className="v18-selected-art"><CardIllustration card={selectedCard} compact /></div>
-              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p>{selectedCard.summonMode === 'rift' ? `균열 조건 · ${extraRequirement(selectedCard)}` : selectedCard.text}</p></div>
+              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p>{selectedCard.summonMode === 'rift' ? `균열 조건 · ${extraRequirement(selectedCard)}` : selectedCard.text}</p>{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical">{tacticalAbilityDescription(selectedCard)}</p>}</div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>선택 취소</button></div>
               {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button className="v18-context-primary" onClick={activateSelectedNoTarget}>주문 발동</button>}
             </div>
@@ -3043,7 +3181,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
               <div className="v18-selected-art"><CardIllustration card={selectedExtraCard} compact /></div>
               <div className="v18-selected-copy"><small>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</small><b>{selectedExtraCard.name}</b><p>{extraRequirement(selectedExtraCard)}</p><span className="v18-material-progress">소재 {selectedMaterials.length} / {requiredMaterials}</span></div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedExtraCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('엑스트라 카드 선택을 취소했습니다.')}>선택 취소</button></div>
-              <button className="v18-context-primary" disabled={!canExtraSummon} onClick={summonSelectedExtra}>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</button>
+              <button className="v18-context-primary" disabled={!canAttemptExtraSummon} onClick={summonSelectedExtra}>{canExtraSummon ? (selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화') : '소환 조건 확인'}</button>
             </div>
           )}
         </section>}
@@ -3053,8 +3191,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
 
         <section className="v18-action-buttons">
           {state.phase === 'main' && <button className="v18-secondary-action" disabled={!canSpendTurnToDraw} onClick={spendTurnToDraw}><span>＋ 카드 1장</span><small>턴을 소비해 추가 드로우</small></button>}
-          {state.phase === 'main' && <button className="v18-battle-action" disabled={!myTurn || busy} onClick={() => gameAction('battle_phase')}><span>전투 단계로 이동</span><small>이후 내 유닛 → 공격 대상 순서로 선택</small></button>}
-          <button className="v18-end-turn" disabled={!myTurn || busy} onClick={requestEndTurn}><span>턴 종료</span><small>{remainingOpportunities > 0 ? `가능 행동 ${remainingOpportunities}` : `${turnSecondsLeft}초 남음`}</small></button>
+          {state.phase === 'main' && <button className="v18-battle-action" disabled={!myTurn || busy || interactionLocked} onClick={() => gameAction('battle_phase')}><span>전투 단계로 이동</span><small>이후 내 유닛 → 공격 대상 순서로 선택</small></button>}
+          <button className="v18-end-turn" disabled={!myTurn || busy || interactionLocked} onClick={requestEndTurn}><span>턴 종료</span><small>{remainingOpportunities > 0 ? `가능 행동 ${remainingOpportunities}` : `${turnSecondsLeft}초 남음`}</small></button>
         </section>
 
         <section className="v18-extra-access">
@@ -3073,7 +3211,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
           {privateState.hand.map((instance) => {
             const card = CARD_BY_ID[instance.cardId];
             const effectiveCost = card?.summonMode === 'rift' && card.riftCost !== undefined && clientRiftReady(state, userId, opponentId, card) ? card.riftCost : card?.cost ?? 99;
-            const affordable = Boolean(card && myTurn && state.phase === 'main' && myEnergy.current >= effectiveCost);
+            const affordable = Boolean(card && myTurn && !interactionLocked && state.phase === 'main' && myEnergy.current >= effectiveCost);
             const legendaryReady = Boolean(card?.rarity === 'legendary' && legendaryReadyCards.some((item) => item.instanceId === instance.instanceId));
             return <div
               className={`v18-hand-card ${specialReadyIds.has(instance.instanceId) ? 'special-ready' : ''} ${legendaryReady ? 'legendary-ready' : ''} ${recentDrawnIds.has(instance.instanceId) ? 'just-drawn' : ''} ${affordable ? 'playable' : 'not-playable'} ${selectedHand === instance.instanceId ? 'selected' : ''}`}
@@ -3104,6 +3242,45 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
               return <div className={`v18-extra-card ${ready ? 'ready' : ''} ${selectedExtra === instance.instanceId ? 'selected' : ''}`} key={instance.instanceId}>{ready && <span>READY</span>}<CardFace card={card} compact selected={selectedExtra === instance.instanceId} disabled={busy} onClick={() => { chooseExtra(instance.instanceId); setExtraOpen(false); }} /><small>{card ? extraRequirement(card) : ''}</small></div>;
             })}</div>
           </aside>
+        </div>
+      )}
+
+      {pendingTrap && state.status === 'active' && (
+        <div className={`v30-trap-response-layer ${pendingTrap.ownerId === userId ? 'mine' : 'waiting'}`} role="dialog" aria-modal={pendingTrap.ownerId === userId ? 'true' : undefined} aria-live="assertive">
+          {pendingTrap.ownerId === userId && pendingTrapCard ? (
+            <section className="v30-trap-response-card">
+              <div className="v30-trap-response-art"><CardIllustration card={pendingTrapCard} hero /></div>
+              <div className="v30-trap-response-copy">
+                <small>TRAP RESPONSE · {trapResponseSeconds} SEC</small>
+                <h2>함정을 발동할까요?</h2>
+                <b>{pendingTrapCard.name}</b>
+                <p><strong>발동 조건</strong> {trapTriggerDescription(pendingTrapCard.trapTrigger)}</p>
+                <p>{pendingTrapCard.text}</p>
+                <div className="v30-trap-response-actions">
+                  <button className="ghost-button" disabled={busy} onClick={() => void gameAction('trap_response', { activate: false })}>이번에는 사용하지 않기</button>
+                  <button className="primary-button" disabled={busy} onClick={() => void gameAction('trap_response', { activate: true })}>함정 발동</button>
+                </div>
+                <em>사용하지 않기를 선택하면 이 함정은 세트 상태로 유지됩니다.</em>
+              </div>
+            </section>
+          ) : (
+            <section className="v30-trap-waiting-card"><i /><div><small>TRAP WINDOW</small><b>상대의 함정 응답 대기 중</b><span>최대 {trapResponseSeconds}초 · 미응답 시 자동으로 넘어갑니다.</span></div></section>
+          )}
+        </div>
+      )}
+
+      {summonBlock && (
+        <div className="v30-summon-block-layer" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.currentTarget === event.target) setSummonBlock(null); }}>
+          <section className="v30-summon-block-card">
+            <div className="v30-summon-block-art"><CardIllustration card={CARD_BY_ID[summonBlock.cardId]} hero /></div>
+            <div>
+              <small>SUMMON CONDITION</small>
+              <h2>{summonBlock.title}</h2>
+              <p>이 카드는 조건부 소환 카드입니다. 아래 조건을 맞추면 사용할 수 있습니다.</p>
+              <ul>{summonBlock.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+              <button className="primary-button" onClick={() => setSummonBlock(null)}>확인</button>
+            </div>
+          </section>
         </div>
       )}
 
@@ -3464,47 +3641,81 @@ export default function Page() {
   useEffect(() => {
     if (!roomPayload?.room.id || !session) return;
     const roomId = roomPayload.room.id;
+    let alive = true;
     let refreshing = false;
+    let lastSuccessfulSync = Date.now();
+    let degradedTimer: number | undefined;
+
     async function refresh() {
-      if (refreshing) return;
+      if (!alive || refreshing) return;
       refreshing = true;
-      const slowTimer = window.setTimeout(() => setRoomSyncState('syncing'), 350);
+      const slowTimer = window.setTimeout(() => {
+        if (alive && Date.now() - lastSuccessfulSync > 12_000) setRoomSyncState('syncing');
+      }, 1800);
       try {
         const result = await api('get_room', { roomId });
+        if (!alive) return;
         if (result.room && result.profiles) {
           setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
+          lastSuccessfulSync = Date.now();
           setRoomSyncState('live');
-          setLastRoomSyncAt(Date.now());
+          setLastRoomSyncAt(lastSuccessfulSync);
         }
       } catch (reason) {
-        setRoomSyncState('offline');
+        if (!alive) return;
+        if (navigator.onLine === false) setRoomSyncState('offline');
+        else if (Date.now() - lastSuccessfulSync > 12_000) setRoomSyncState('syncing');
         if (typeof console !== 'undefined') console.warn('[ECLIPSE SYNC]', reason instanceof Error ? reason.message : 'room sync failed');
       } finally {
         window.clearTimeout(slowTimer);
         refreshing = false;
       }
     }
-    const channel = supabase.channel(`room-${roomId}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'eclipse_rooms', filter: `id=eq.${roomId}` }, refresh).subscribe((status) => {
-      if (status === 'SUBSCRIBED') { setRoomSyncState('live'); setLastRoomSyncAt(Date.now()); }
-      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setRoomSyncState('offline');
-    });
+
+    const channel = supabase
+      .channel(`room-${roomId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'eclipse_rooms', filter: `id=eq.${roomId}` }, () => { void refresh(); })
+      .subscribe((status) => {
+        if (!alive) return;
+        if (status === 'SUBSCRIBED') {
+          if (degradedTimer) window.clearTimeout(degradedTimer);
+          lastSuccessfulSync = Date.now();
+          setRoomSyncState('live');
+          setLastRoomSyncAt(lastSuccessfulSync);
+          return;
+        }
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          // Realtime sockets can briefly re-negotiate even though HTTP room sync is healthy.
+          // Do not flash RECONNECTING for those transient transport events.
+          if (degradedTimer) window.clearTimeout(degradedTimer);
+          degradedTimer = window.setTimeout(() => {
+            if (!alive) return;
+            if (navigator.onLine === false) setRoomSyncState('offline');
+            void refresh();
+          }, 2200);
+        }
+      });
+
     const onFocus = () => { void refresh(); };
     const onVisibility = () => { if (document.visibilityState === 'visible') void refresh(); };
-    const onOffline = () => setRoomSyncState('offline');
-    const onOnline = () => { setRoomSyncState('syncing'); void refresh(); };
+    const onOffline = () => { if (alive) setRoomSyncState('offline'); };
+    const onOnline = () => { if (alive) void refresh(); };
     window.addEventListener('focus', onFocus);
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     document.addEventListener('visibilitychange', onVisibility);
-    const pollMs = roomPayload?.room.status === 'active' ? 2500 : 8000;
-    const timer = window.setInterval(refresh, pollMs);
+    const pollMs = roomPayload?.room.status === 'active' ? 3000 : 8000;
+    const timer = window.setInterval(() => { void refresh(); }, pollMs);
+
     return () => {
+      alive = false;
       window.clearInterval(timer);
+      if (degradedTimer) window.clearTimeout(degradedTimer);
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
       document.removeEventListener('visibilitychange', onVisibility);
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
   }, [roomPayload?.room.id, roomPayload?.room.status, session?.user.id]);
 
@@ -3570,7 +3781,7 @@ export default function Page() {
   const roomChat = roomPayload && roomPayload.room.status !== 'cancelled' ? roomPayload.room.id : undefined;
 
   return (
-    <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`} data-ui-build="v29a">
+    <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`} data-ui-build="v30">
       <div className="app-backdrop" aria-hidden="true"><span className="backdrop-grid" /><span className="backdrop-orbit" /><span className="backdrop-glow" /></div>
       <aside className="sidebar">
         <button className="game-logo" onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView('home'); }}><span className="logo-glyph"><i>E</i></span><div><b>ECLIPSE</b><small>DUEL</small></div></button>
