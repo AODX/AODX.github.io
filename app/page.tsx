@@ -174,7 +174,7 @@ function getAudioContext(): AudioContext | null {
   return sharedAudioContext;
 }
 
-type UiSound = 'click' | 'card' | 'remove' | 'auto' | 'save' | 'pack' | 'reveal' | 'success' | 'summon' | 'attack' | 'spell' | 'trap' | 'damage' | 'turn';
+type UiSound = 'click' | 'card' | 'remove' | 'auto' | 'save' | 'pack' | 'reveal' | 'success' | 'summon' | 'attack' | 'spell' | 'trap' | 'damage' | 'draw' | 'turn';
 
 function playUiSound(kind: UiSound): void {
   const context = getAudioContext();
@@ -285,6 +285,11 @@ function playUiSound(kind: UiSound): void {
     case 'damage':
       noise(0.18, 0.055, 0, 240);
       tone('sawtooth', 110, 48, 0.16, 0.04);
+      break;
+    case 'draw':
+      noise(0.11, 0.012, 0, 1450);
+      tone('triangle', 290, 540, 0.13, 0.018, 0.015);
+      tone('sine', 620, 980, 0.17, 0.014, 0.075);
       break;
     case 'turn':
       tone('sine', 430, 620, 0.11, 0.018);
@@ -898,7 +903,7 @@ function ControlCenter({
           <button type="button" onClick={onOpenGuide}><span>?</span><div><b>룰 가이드</b><small>키워드와 기본 규칙 확인</small></div></button>
           <button type="button" onClick={onOpenProfile}><span>◎</span><div><b>프로필</b><small>아바타와 프로필 스킨 관리</small></div></button>
         </section>
-        <footer><span>ECLIPSE DUEL · COMMERCIAL BUILD v23</span><button type="button" onClick={onSignOut}>로그아웃</button></footer>
+        <footer><span>ECLIPSE DUEL · COMMERCIAL BUILD v24</span><button type="button" onClick={onSignOut}>로그아웃</button></footer>
       </aside>
     </div>
   );
@@ -1999,7 +2004,7 @@ function duelEventPoints(event: VisualEvent, userId: string): { source: DuelPoin
   return { source: { x: 50, y: 50 }, target };
 }
 
-function DuelEffectLayer({ event, userId, profiles }: { event: VisualEvent | null; userId: string; profiles: RoomProfile[] }) {
+function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualEvent | null; userId: string; profiles: RoomProfile[]; drawCard?: CardDefinition }) {
   if (!event) return null;
   const card = event.cardId ? CARD_BY_ID[event.cardId] : undefined;
   const owner = profiles.find((profile) => profile.user_id === event.ownerId);
@@ -2039,7 +2044,20 @@ function DuelEffectLayer({ event, userId, profiles }: { event: VisualEvent | nul
       {event.amount !== undefined && event.amount > 0 && ['core', 'defense', 'heal', 'buff', 'energy'].includes(event.kind) && (
         <strong className={`v18-floating-number ${event.kind === 'heal' || event.kind === 'energy' || event.kind === 'buff' ? 'positive' : 'damage'}`}>{event.kind === 'heal' || event.kind === 'energy' || event.kind === 'buff' ? '+' : '−'}{event.amount}</strong>
       )}
-      {event.kind === 'draw' && <span className="v18-draw-card" aria-hidden="true"><i>E</i></span>}
+      {event.kind === 'draw' && (
+        <div className={`v24-draw-stage ${mine ? 'mine' : 'opponent'} ${mine && drawCard ? 'revealed' : 'concealed'}`} aria-hidden="true">
+          <div className="v24-draw-deck-stack"><i /><i /><i /><b>E</b></div>
+          <div className="v24-draw-flight">
+            <div className="v24-draw-card-3d">
+              <div className="v24-draw-face v24-draw-back"><span>E</span><small>ECLIPSE</small></div>
+              <div className="v24-draw-face v24-draw-front">
+                {drawCard ? <><CardIllustration card={drawCard} hero /><span className="v24-draw-card-name"><small>{RARITY_LABEL[drawCard.rarity]} · {ELEMENT_LABEL[drawCard.element]}</small><b>{drawCard.name}</b></span></> : <><span className="v24-draw-hidden-mark">E</span><small>HIDDEN CARD</small></>}
+              </div>
+            </div>
+          </div>
+          {mine && drawCard && <div className="v24-draw-caption"><small>DRAWN CARD</small><b>{drawCard.name}</b><span>손패에 추가됩니다</span></div>}
+        </div>
+      )}
       {event.kind === 'trap' && <span className="v18-trap-chain" aria-hidden="true"><i /><i /><i /></span>}
     </div>
   );
@@ -2191,10 +2209,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const [extraOpen, setExtraOpen] = useState(false);
   const [activeVfx, setActiveVfx] = useState<VisualEvent | null>(null);
   const [vfxQueue, setVfxQueue] = useState<VisualEvent[]>([]);
+  const [drawRevealQueue, setDrawRevealQueue] = useState<string[]>([]);
+  const [recentDrawnIds, setRecentDrawnIds] = useState<Set<string>>(() => new Set());
   const [coinClock, setCoinClock] = useState(() => Date.now());
   const [turnClock, setTurnClock] = useState(() => Date.now());
   const timeoutSyncTurn = useRef<number>(-1);
   const seenVfx = useRef<Set<string>>(new Set());
+  const knownHandIds = useRef<Set<string>>(new Set(nullablePrivateState?.hand.map((card) => card.instanceId) ?? []));
   const actionLock = useRef(false);
 
   const visualEvents = nullableState?.visualEvents ?? [];
@@ -2207,6 +2228,26 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     visualEvents.forEach((event) => seenVfx.current.add(event.id));
     setVfxQueue((current) => [...current, ...unseen].slice(-10));
   }, [visualEventSignature]);
+
+  const privateHandSignature = nullablePrivateState?.hand.map((card) => card.instanceId).join('|') ?? '';
+  useEffect(() => {
+    if (!nullablePrivateState) return;
+    const currentIds = new Set(nullablePrivateState.hand.map((card) => card.instanceId));
+    const added = nullablePrivateState.hand.filter((card) => !knownHandIds.current.has(card.instanceId));
+    knownHandIds.current = currentIds;
+    if (added.length === 0) return;
+    setDrawRevealQueue((current) => [...current, ...added.map((card) => card.cardId)].slice(-12));
+    setRecentDrawnIds(new Set(added.map((card) => card.instanceId)));
+    const timer = window.setTimeout(() => setRecentDrawnIds(new Set()), 1800);
+    return () => window.clearTimeout(timer);
+  }, [privateHandSignature]);
+
+  useEffect(() => {
+    if (!activeVfx || activeVfx.kind !== 'draw' || activeVfx.ownerId !== userId) return;
+    const consumed = Math.max(1, activeVfx.amount ?? 1);
+    const timer = window.setTimeout(() => setDrawRevealQueue((current) => current.slice(consumed)), 1120);
+    return () => window.clearTimeout(timer);
+  }, [activeVfx?.id, activeVfx?.kind, activeVfx?.ownerId, activeVfx?.amount, userId]);
 
   useEffect(() => {
     const endsAt = nullableState?.coinToss?.endsAt;
@@ -2280,8 +2321,9 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? 1350
           : next.kind === 'attack' || next.kind === 'core' || next.kind === 'destroy' ? 1150
             : next.kind === 'defense' || next.kind === 'heal' || next.kind === 'buff' || next.kind === 'energy' ? 900
-              : next.kind === 'turn' ? 850
-                : 760;
+              : next.kind === 'draw' ? 1250
+                : next.kind === 'turn' ? 850
+                  : 760;
     const timer = window.setTimeout(() => {
       setActiveVfx((current) => current?.id === next.id ? null : current);
     }, duration);
@@ -2295,7 +2337,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         : activeVfx.kind === 'trap' || activeVfx.kind === 'set' ? 'trap'
           : activeVfx.kind === 'core' || activeVfx.kind === 'destroy' || activeVfx.kind === 'defense' ? 'damage'
             : activeVfx.kind === 'heal' || activeVfx.kind === 'buff' || activeVfx.kind === 'energy' ? 'success'
-              : activeVfx.kind === 'draw' || activeVfx.kind === 'turn' ? 'turn'
+              : activeVfx.kind === 'draw' ? 'draw'
+                : activeVfx.kind === 'turn' ? 'turn'
                 : 'summon';
     playUiSound(sound);
   }, [activeVfx?.id]);
@@ -2351,6 +2394,19 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   });
   const specialReadyIds = new Set([...riftReadyInstances.map((item) => item.instanceId), ...extraReadyInstances.map((item) => item.instanceId)]);
   const specialReadyCount = specialReadyIds.size;
+  const emptyUnitZone = state.boards[userId].units.some((slot) => !slot);
+  const legendaryReadyFromHand = privateState.hand.flatMap((instance) => {
+    const card = CARD_BY_ID[instance.cardId];
+    if (!card || card.rarity !== 'legendary' || card.kind !== 'unit' || !myTurn || state.phase !== 'main' || !emptyUnitZone) return [];
+    const cost = card.summonMode === 'rift' ? (card.riftCost ?? card.cost) : card.cost;
+    const ready = myEnergy.current >= cost && (card.summonMode !== 'rift' || clientRiftReady(state, userId, opponentId, card));
+    return ready ? [{ instanceId: instance.instanceId, card, source: 'hand' as const }] : [];
+  });
+  const legendaryReadyFromExtra = extraReadyInstances.flatMap((instance) => {
+    const card = CARD_BY_ID[instance.cardId];
+    return card?.rarity === 'legendary' ? [{ instanceId: instance.instanceId, card, source: 'extra' as const }] : [];
+  });
+  const legendaryReadyCards = [...legendaryReadyFromHand, ...legendaryReadyFromExtra];
 
   function clearSelection(note = '') {
     setSelectedHand(null);
@@ -2562,7 +2618,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
 
   return (
     <div className={`v18-duel-screen ${myTurn ? 'is-my-turn' : 'is-opponent-turn'} phase-${state.phase} fx-${activeVfx?.kind ?? 'idle'}`}>
-      <DuelEffectLayer event={activeVfx} userId={userId} profiles={payload.profiles} />
+      <DuelEffectLayer event={activeVfx} userId={userId} profiles={payload.profiles} drawCard={activeVfx?.kind === 'draw' && activeVfx.ownerId === userId ? CARD_BY_ID[drawRevealQueue[0] ?? ''] : undefined} />
       <CoinTossOverlay state={state} profiles={payload.profiles} userId={userId} now={coinClock} />
       <div className="orientation-hint"><span>↻</span><b>가로 화면을 권장합니다</b><small>결투 정보와 카드가 한 화면에 가장 선명하게 표시됩니다.</small></div>
       {busy && <div className="v18-action-progress"><span />행동 처리 중</div>}
@@ -2678,6 +2734,20 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       </main>
 
       <aside className="v18-command-rail">
+        {myTurn && state.phase === 'main' && legendaryReadyCards.length > 0 && (
+          <section className="v24-legendary-ready" aria-label="현재 소환 가능한 전설 카드">
+            <header><span>LEGENDARY READY</span><b>{legendaryReadyCards.length}</b></header>
+            <div>
+              {legendaryReadyCards.map(({ instanceId, card, source }) => (
+                <button type="button" key={instanceId} onClick={() => source === 'hand' ? chooseHand(instanceId) : chooseExtra(instanceId)} title={`${card.name} 선택`}>
+                  <span className="v24-legendary-thumb"><CardIllustration card={card} compact /></span>
+                  <span className="v24-legendary-copy"><small>{source === 'hand' ? 'HAND' : 'EXTRA'} · COST {card.summonMode === 'rift' ? (card.riftCost ?? card.cost) : card.cost}</small><b>{card.name}</b><em>지금 소환 조건 충족</em></span>
+                  <i>소환 준비</i>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
         {myTurn && specialReadyCount > 0 && state.phase === 'main' && (
           <button type="button" className="v18-special-ready" onClick={() => setExtraOpen(true)}><span>✦</span><div><b>특수 소환 가능</b><small>{specialReadyCount}장의 카드가 조건을 만족합니다.</small></div><em>보기</em></button>
         )}
@@ -2730,7 +2800,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
             const card = CARD_BY_ID[instance.cardId];
             const effectiveCost = card?.summonMode === 'rift' && card.riftCost !== undefined && clientRiftReady(state, userId, opponentId, card) ? card.riftCost : card?.cost ?? 99;
             const affordable = Boolean(card && myTurn && state.phase === 'main' && myEnergy.current >= effectiveCost);
-            return <div className={`v18-hand-card ${specialReadyIds.has(instance.instanceId) ? 'special-ready' : ''} ${affordable ? 'playable' : 'not-playable'} ${selectedHand === instance.instanceId ? 'selected' : ''}`} key={instance.instanceId}>{specialReadyIds.has(instance.instanceId) && <span className="v18-special-badge">SPECIAL</span>}<CardFace card={card} compact selected={selectedHand === instance.instanceId} disabled={busy} onClick={() => chooseHand(instance.instanceId)} /></div>;
+            const legendaryReady = Boolean(card?.rarity === 'legendary' && legendaryReadyCards.some((item) => item.instanceId === instance.instanceId));
+            return <div className={`v18-hand-card ${specialReadyIds.has(instance.instanceId) ? 'special-ready' : ''} ${legendaryReady ? 'legendary-ready' : ''} ${recentDrawnIds.has(instance.instanceId) ? 'just-drawn' : ''} ${affordable ? 'playable' : 'not-playable'} ${selectedHand === instance.instanceId ? 'selected' : ''}`} key={instance.instanceId}>{specialReadyIds.has(instance.instanceId) && !legendaryReady && <span className="v18-special-badge">SPECIAL</span>}<CardFace card={card} compact selected={selectedHand === instance.instanceId} disabled={busy} onClick={() => chooseHand(instance.instanceId)} /></div>;
           })}
         </div>
         <div className="v18-hand-side"><span>ENERGY <b>{myEnergy.current}/{myEnergy.max}</b></span><span>DECK <b>{state.deckCounts[userId] ?? 0}</b></span><button type="button" onClick={() => setExtraOpen(true)}>EXTRA {privateState.extra.length}</button></div>
@@ -3103,7 +3174,7 @@ export default function Page() {
   const roomChat = roomPayload && roomPayload.room.status !== 'cancelled' ? roomPayload.room.id : undefined;
 
   return (
-    <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`} data-ui-build="v23">
+    <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`} data-ui-build="v24">
       <div className="app-backdrop" aria-hidden="true"><span className="backdrop-grid" /><span className="backdrop-orbit" /><span className="backdrop-glow" /></div>
       <aside className="sidebar">
         <button className="game-logo" onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView('home'); }}><span className="logo-glyph"><i>E</i></span><div><b>ECLIPSE</b><small>DUEL</small></div></button>

@@ -852,11 +852,11 @@ export const STARTER_DECK: string[] = [
 ];
 
 export const STARTER_EXTRA_DECK: string[] = [
-  'fusion_eclipse_chimera',
   'fusion_tempest_colossus',
   'fusion_worldroot_hydra',
-  'evolution_ember_phoenix',
+  'evolution_ember_phoenix', 'evolution_ember_phoenix',
   'evolution_iron_sovereign',
+  // Starter players receive exactly one Legendary: a clear first chase/signature card.
   'evolution_rift_alpha',
 ];
 
@@ -865,10 +865,9 @@ export const ASCENSION_STARTER_GRANTS: Record<string, number> = {
   unit_lastlight_vanguard: 1,
   unit_tempest_interceptor: 1,
   unit_gravebloom_medium: 1,
-  fusion_eclipse_chimera: 1,
   fusion_tempest_colossus: 1,
   fusion_worldroot_hydra: 1,
-  evolution_ember_phoenix: 1,
+  evolution_ember_phoenix: 2,
   evolution_iron_sovereign: 1,
   evolution_rift_alpha: 1,
   trap_resonance_break: 1,

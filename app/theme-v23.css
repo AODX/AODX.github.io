@@ -555,3 +555,175 @@
 .v23-client .tcg-card[role="button"] { cursor:pointer; }
 .v23-client .tcg-card.is-disabled[role="button"] { cursor:not-allowed; }
 .v23-client .tcg-card .card-info-hotspot { padding:0!important;cursor:help!important;font-family:inherit!important;line-height:1!important; }
+
+/* ========================================================================== 
+   V24 DUEL READABILITY + 3D DRAW PASS
+   Desktop-first. No mobile layout redesign in this patch.
+   ========================================================================== */
+
+/* Summonable Legendary cards get a dedicated command-rail surface instead of
+   another badge floating on top of the hand card. This keeps the card itself clean. */
+.v23-client.in-duel .v24-legendary-ready {
+  flex:0 0 auto;
+  min-width:0;
+  padding:10px;
+  border:1px solid rgba(246,205,104,.34);
+  border-radius:13px;
+  background:
+    radial-gradient(circle at 12% 0%,rgba(255,210,96,.13),transparent 38%),
+    linear-gradient(145deg,rgba(36,28,15,.96),rgba(12,15,21,.97));
+  box-shadow:0 14px 32px rgba(0,0,0,.22),inset 0 1px rgba(255,244,203,.05);
+  overflow:hidden;
+}
+.v23-client.in-duel .v24-legendary-ready>header {
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-bottom:8px;padding-bottom:7px;border-bottom:1px solid rgba(255,216,121,.12);
+}
+.v23-client.in-duel .v24-legendary-ready>header span {
+  color:#f2ce74;font-size:7px;font-weight:950;letter-spacing:.17em;
+}
+.v23-client.in-duel .v24-legendary-ready>header b {
+  min-width:22px;height:22px;display:grid;place-items:center;border-radius:999px;
+  background:rgba(238,193,79,.13);color:#ffe49a;font-size:9px;
+}
+.v23-client.in-duel .v24-legendary-ready>div {
+  display:grid;gap:6px;max-height:154px;overflow:auto;padding-right:2px;
+}
+.v23-client.in-duel .v24-legendary-ready button {
+  min-width:0;min-height:62px;display:grid;
+  grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:9px;
+  padding:6px;border:1px solid rgba(242,202,101,.12);border-radius:10px;
+  background:linear-gradient(135deg,rgba(255,214,110,.055),rgba(6,10,15,.74));
+  color:#f7f0dd;text-align:left;overflow:hidden;
+}
+.v23-client.in-duel .v24-legendary-ready button:hover {
+  border-color:rgba(255,222,132,.38);background:linear-gradient(135deg,rgba(255,214,110,.10),rgba(9,14,21,.9));
+  box-shadow:0 0 22px rgba(228,176,60,.08);
+}
+.v23-client.in-duel .v24-legendary-thumb {
+  position:relative;width:44px;height:52px;display:block;overflow:hidden;border-radius:7px;
+  border:1px solid rgba(250,212,117,.24);background:#070b10;
+}
+.v23-client.in-duel .v24-legendary-thumb>.card-illustration { position:absolute!important;inset:0!important;width:100%!important;height:100%!important; }
+.v23-client.in-duel .v24-legendary-thumb .card-art-image { width:100%!important;height:100%!important;object-fit:cover!important; }
+.v23-client.in-duel .v24-legendary-copy { min-width:0;display:grid;gap:2px; }
+.v23-client.in-duel .v24-legendary-copy small { color:#947f58;font-size:6px;font-weight:900;letter-spacing:.08em; }
+.v23-client.in-duel .v24-legendary-copy b { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff3c5;font-size:9px; }
+.v23-client.in-duel .v24-legendary-copy em { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#b1a27f;font-size:6.5px;font-style:normal; }
+.v23-client.in-duel .v24-legendary-ready button>i {
+  align-self:stretch;display:grid;place-items:center;padding:0 7px;border-left:1px solid rgba(255,219,124,.11);
+  color:#f1cc72;font-size:6.5px;font-style:normal;font-weight:900;white-space:nowrap;
+}
+.v23-client.in-duel .v18-hand-card.legendary-ready .tcg-card {
+  border-color:rgba(255,213,102,.82)!important;
+  box-shadow:0 0 0 1px rgba(255,226,139,.18),0 0 28px rgba(221,168,45,.18),0 18px 38px rgba(0,0,0,.34)!important;
+}
+.v23-client.in-duel .v18-hand-card.legendary-ready::after {
+  border-color:rgba(255,213,102,.64)!important;
+  box-shadow:0 0 22px rgba(221,168,45,.22)!important;
+}
+
+/* Newly drawn cards visually settle into the hand after the cinematic. */
+.v23-client.in-duel .v18-hand-card.just-drawn {
+  transform-origin:50% 100%;
+  animation:v24HandReceive 1.15s cubic-bezier(.18,.84,.24,1) both;
+  z-index:24;
+}
+@keyframes v24HandReceive {
+  0% { opacity:.15;transform:translateY(-34px) scale(.84) rotateY(-18deg);filter:brightness(1.5); }
+  42% { opacity:1;transform:translateY(-14px) scale(1.06) rotateY(3deg);filter:brightness(1.18); }
+  72% { transform:translateY(-4px) scale(1.02) rotateY(0);filter:brightness(1.05); }
+  100% { transform:translateY(0) scale(1);filter:none; }
+}
+
+/* 3D deck -> reveal -> hand draw cinematic. */
+.v23-client.in-duel .v18-cinematic-layer.kind-draw .v18-motion-line,
+.v23-client.in-duel .v18-cinematic-layer.kind-draw .v18-motion-orb,
+.v23-client.in-duel .v18-cinematic-layer.kind-draw .v18-impact-ring,
+.v23-client.in-duel .v18-cinematic-layer.kind-draw .v18-impact-flare,
+.v23-client.in-duel .v18-cinematic-layer.kind-draw .v18-event-banner { display:none!important; }
+.v23-client.in-duel .v24-draw-stage {
+  position:absolute;inset:0;z-index:18;pointer-events:none;perspective:1600px;overflow:hidden;
+}
+.v23-client.in-duel .v24-draw-deck-stack {
+  position:absolute;left:var(--sx);top:var(--sy);width:58px;height:82px;margin:-41px -29px;
+  transform:perspective(700px) rotateX(58deg) rotateZ(-8deg);transform-style:preserve-3d;
+  border-radius:8px;background:linear-gradient(145deg,#102234,#050a10);border:1px solid rgba(110,211,249,.28);
+  box-shadow:-4px 5px 0 #07121c,-8px 10px 0 #050b12,0 16px 40px rgba(0,0,0,.48);
+  animation:v24DeckPulse 1.05s ease both;
+}
+.v23-client.in-duel .v24-draw-deck-stack::before,
+.v23-client.in-duel .v24-draw-deck-stack::after {
+  content:"";position:absolute;inset:5px;border:1px solid rgba(111,217,255,.16);border-radius:6px;
+}
+.v23-client.in-duel .v24-draw-deck-stack::after { inset:13px;border-radius:50%; }
+.v23-client.in-duel .v24-draw-deck-stack b { position:absolute;inset:0;display:grid;place-items:center;color:#8fe8ff;font-size:21px;text-shadow:0 0 22px rgba(100,221,255,.45); }
+.v23-client.in-duel .v24-draw-flight {
+  position:absolute;left:var(--sx);top:var(--sy);width:144px;height:202px;margin:-101px -72px;
+  transform-style:preserve-3d;filter:drop-shadow(0 26px 34px rgba(0,0,0,.42));
+  animation:v24DrawFlight 1.12s cubic-bezier(.17,.78,.22,1) both;
+}
+.v23-client.in-duel .v24-draw-card-3d {
+  position:relative;width:100%;height:100%;transform-style:preserve-3d;
+  animation:v24DrawBackSpin 1.12s cubic-bezier(.2,.72,.2,1) both;
+}
+.v23-client.in-duel .v24-draw-stage.mine.revealed .v24-draw-card-3d { animation-name:v24DrawRevealSpin; }
+.v23-client.in-duel .v24-draw-face {
+  position:absolute;inset:0;overflow:hidden;border-radius:14px;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  border:1px solid rgba(145,214,243,.32);background:#07101a;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.03),0 18px 50px rgba(0,0,0,.5);
+}
+.v23-client.in-duel .v24-draw-back {
+  display:grid;place-items:center;background:
+    radial-gradient(circle at 50% 48%,rgba(79,178,230,.24),transparent 25%),
+    repeating-radial-gradient(circle at center,transparent 0 20px,rgba(96,196,238,.07) 21px 22px),
+    linear-gradient(145deg,#102338,#050910 70%);
+}
+.v23-client.in-duel .v24-draw-back::before { content:"";position:absolute;inset:11px;border:1px solid rgba(100,211,250,.18);border-radius:10px; }
+.v23-client.in-duel .v24-draw-back span { width:50px;height:50px;display:grid;place-items:center;border-radius:50%;border:1px solid rgba(120,220,255,.36);color:#a8ecff;font-size:24px;font-weight:950;box-shadow:0 0 34px rgba(82,191,233,.18); }
+.v23-client.in-duel .v24-draw-back small { position:absolute;bottom:18px;color:#63879d;font-size:8px;font-weight:900;letter-spacing:.2em; }
+.v23-client.in-duel .v24-draw-front { transform:rotateY(180deg);background:#060a0f; }
+.v23-client.in-duel .v24-draw-front>.card-illustration { position:absolute!important;inset:0!important;width:100%!important;height:100%!important; }
+.v23-client.in-duel .v24-draw-front .card-art-image { width:100%!important;height:100%!important;object-fit:cover!important; }
+.v23-client.in-duel .v24-draw-front::after { content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 48%,rgba(2,5,8,.92));pointer-events:none; }
+.v23-client.in-duel .v24-draw-card-name { position:absolute;z-index:4;left:11px;right:11px;bottom:11px;display:grid;gap:3px; }
+.v23-client.in-duel .v24-draw-card-name small { color:#b8cad6;font-size:7px;font-weight:900;letter-spacing:.08em; }
+.v23-client.in-duel .v24-draw-card-name b { color:white;font-size:13px;line-height:1.1;text-shadow:0 2px 10px #000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.v23-client.in-duel .v24-draw-hidden-mark { position:absolute;inset:0;display:grid;place-items:center;color:#86dcff;font-size:28px;font-weight:950; }
+.v23-client.in-duel .v24-draw-front>small { position:absolute;left:0;right:0;bottom:18px;text-align:center;color:#6c8495;font-size:7px;letter-spacing:.15em; }
+.v23-client.in-duel .v24-draw-caption {
+  position:absolute;left:50%;top:62%;min-width:240px;max-width:380px;transform:translate(-50%,-50%);
+  display:grid;justify-items:center;gap:3px;padding:10px 16px;border-radius:12px;
+  border:1px solid rgba(136,218,248,.16);background:rgba(3,8,13,.72);backdrop-filter:blur(12px);
+  opacity:0;animation:v24DrawCaption .82s .30s ease both;
+}
+.v23-client.in-duel .v24-draw-caption small { color:#75d8f8;font-size:7px;font-weight:950;letter-spacing:.18em; }
+.v23-client.in-duel .v24-draw-caption b { color:#f1f8fc;font-size:14px; }
+.v23-client.in-duel .v24-draw-caption span { color:#71899a;font-size:7px; }
+@keyframes v24DeckPulse {
+  0% { opacity:.35;transform:perspective(700px) rotateX(58deg) rotateZ(-8deg) scale(.92); }
+  30% { opacity:1;transform:perspective(700px) rotateX(58deg) rotateZ(-5deg) scale(1.06);box-shadow:-4px 5px 0 #07121c,-8px 10px 0 #050b12,0 0 42px rgba(86,205,247,.25); }
+  100% { opacity:.72;transform:perspective(700px) rotateX(58deg) rotateZ(-8deg) scale(1); }
+}
+@keyframes v24DrawFlight {
+  0% { left:var(--sx);top:var(--sy);transform:translate3d(0,0,-140px) scale(.42) rotateZ(-18deg);opacity:.15; }
+  22% { left:72%;top:55%;transform:translate3d(0,0,80px) scale(.72) rotateZ(-9deg);opacity:1; }
+  54% { left:50%;top:45%;transform:translate3d(0,0,190px) scale(1.08) rotateZ(2deg);opacity:1; }
+  78% { left:50%;top:54%;transform:translate3d(0,0,110px) scale(.94) rotateZ(1deg);opacity:1; }
+  100% { left:var(--tx);top:var(--ty);transform:translate3d(0,0,-30px) scale(.44) rotateZ(0deg);opacity:.08; }
+}
+@keyframes v24DrawBackSpin {
+  0% { transform:rotateY(0deg) rotateX(3deg); }
+  58% { transform:rotateY(0deg) rotateX(0deg); }
+  100% { transform:rotateY(0deg) rotateX(0deg); }
+}
+@keyframes v24DrawRevealSpin {
+  0%,24% { transform:rotateY(0deg) rotateX(4deg); }
+  54%,82% { transform:rotateY(180deg) rotateX(0deg); }
+  100% { transform:rotateY(180deg) rotateX(0deg); }
+}
+@keyframes v24DrawCaption {
+  0% { opacity:0;transform:translate(-50%,-42%) scale(.94); }
+  28%,72% { opacity:1;transform:translate(-50%,-50%) scale(1); }
+  100% { opacity:0;transform:translate(-50%,-57%) scale(.98); }
+}
