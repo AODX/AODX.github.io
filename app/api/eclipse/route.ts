@@ -963,10 +963,12 @@ async function handleAction(request: Request, body: RequestBody) {
     if (gameAction === 'play_card') {
       const instanceId = cleanText(body.instanceId, 80);
       const zone = typeof body.zone === 'number' ? body.zone : undefined;
-      const target = body.target && typeof body.target === 'object'
+      const rawTarget = body.target && typeof body.target === 'object' ? body.target as Record<string, unknown> : undefined;
+      const target = rawTarget
         ? {
-            ownerId: cleanText((body.target as Record<string, unknown>).ownerId, 64),
-            unitIndex: Number((body.target as Record<string, unknown>).unitIndex),
+            ownerId: cleanText(rawTarget.ownerId, 64),
+            unitIndex: rawTarget.unitIndex === undefined ? undefined : Number(rawTarget.unitIndex),
+            graveyardIndex: rawTarget.graveyardIndex === undefined ? undefined : Number(rawTarget.graveyardIndex),
           }
         : undefined;
       next = playCard(snapshot, user.id, instanceId, zone, target);
