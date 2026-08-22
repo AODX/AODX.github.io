@@ -2623,3 +2623,126 @@
 .v23-client.in-duel .v31-field-retire-action:disabled {
   opacity:.46;
 }
+
+/* --------------------------------------------------------------------------
+   v31d · Legendary graveyard target picker
+   -------------------------------------------------------------------------- */
+.v31d-grave-target-button {
+  min-height: 46px;
+}
+
+.v31d-grave-picker-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 240;
+  display: grid;
+  place-items: center;
+  padding: clamp(14px, 2.4vw, 34px);
+  background: rgba(3, 5, 12, 0.82);
+  backdrop-filter: blur(12px);
+}
+
+.v31d-grave-picker {
+  width: min(1120px, 96vw);
+  max-height: min(820px, 92vh);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  border: 1px solid rgba(205, 222, 255, 0.22);
+  border-radius: 22px;
+  background: linear-gradient(155deg, rgba(15, 20, 34, 0.98), rgba(6, 9, 19, 0.98));
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55), inset 0 0 60px rgba(108, 123, 255, 0.05);
+}
+
+.v31d-grave-picker > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.v31d-grave-picker > header div {
+  display: grid;
+  gap: 3px;
+}
+
+.v31d-grave-picker > header small {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: rgba(157, 255, 188, 0.72);
+}
+
+.v31d-grave-picker > header b {
+  font-size: clamp(18px, 2vw, 25px);
+  color: #f4f7ff;
+}
+
+.v31d-grave-picker > header button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.v31d-grave-picker > p {
+  margin: 0;
+  padding: 12px 22px;
+  color: rgba(226, 233, 250, 0.74);
+  font-size: 13px;
+  line-height: 1.55;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.v31d-grave-picker-grid {
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 22px 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(142px, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+
+.v31d-grave-picker-card {
+  display: grid;
+  gap: 7px;
+}
+
+.v31d-grave-picker-card .tcg-card {
+  width: 100%;
+}
+
+.v31d-grave-picker-card > small {
+  text-align: center;
+  color: rgba(210, 220, 242, 0.68);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.v31d-grave-picker-card:hover .tcg-card {
+  transform: translateY(-4px);
+  filter: brightness(1.08);
+}
+
+.v31d-grave-empty {
+  grid-column: 1 / -1;
+  padding: 42px 18px;
+  text-align: center;
+  color: rgba(221, 230, 247, 0.62);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+}
+
+@media (max-width: 720px) {
+  .v31d-grave-picker-layer { padding: 8px; }
+  .v31d-grave-picker { width: 100%; max-height: 94vh; border-radius: 16px; }
+  .v31d-grave-picker-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 14px; gap: 12px; }
+  .v31d-grave-picker > header { padding: 14px; }
+  .v31d-grave-picker > p { padding: 10px 14px; }
+}

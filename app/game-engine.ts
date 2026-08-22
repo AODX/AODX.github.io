@@ -21,6 +21,17 @@ export interface CardInstance {
   cardId: string;
 }
 
+export interface CardActionTarget {
+  ownerId: string;
+  unitIndex?: number;
+  graveyardIndex?: number;
+}
+
+interface UnitBoardTarget {
+  ownerId: string;
+  unitIndex: number;
+}
+
 export interface UnitState {
   instanceId: string;
   cardId: string;
@@ -92,7 +103,7 @@ export interface CoinTossState {
 }
 
 export type PendingTrapContinuation =
-  | { kind: 'spell'; actorId: string; cardId: string; target?: { ownerId: string; unitIndex: number } }
+  | { kind: 'spell'; actorId: string; cardId: string; target?: CardActionTarget }
   | { kind: 'summon'; actorId: string; zone: number; cardId: string; origin: SummonOrigin; remainingTriggers: TrapTrigger[] }
   | { kind: 'attack_core'; actorId: string; attackerIndex: number; bonusDamage: number }
   | { kind: 'attack_unit'; actorId: string; attackerIndex: number; targetIndex: number; bonusDamage: number }
@@ -472,7 +483,7 @@ function applyEffect(
   privateStates: Record<string, PrivateState>,
   actorId: string,
   effect: Effect,
-  target?: { ownerId: string; unitIndex: number },
+  target?: CardActionTarget,
   sourceCard?: CardDefinition,
 ): void {
   const opponentId = otherPlayer(state, actorId);
@@ -480,9 +491,10 @@ function applyEffect(
 
   switch (effect.kind) {
     case 'damage_unit': {
-      if (!target) throw new Error('대상 유닛을 선택해야 합니다.');
-      const report = damageUnit(state, target.ownerId, target.unitIndex, effect.amount);
-      appendVisual(state, { kind: 'defense', vfx: 'effect-impact', ownerId: actorId, targetOwnerId: target.ownerId, targetZone: target.unitIndex, amount: report.absorbed + report.healthDamage, shieldAmount: report.absorbed, healthAmount: report.healthDamage, label: '효과 피해' });
+      if (!target || !Number.isInteger(target.unitIndex)) throw new Error('대상 유닛을 선택해야 합니다.');
+      const unitIndex = Number(target.unitIndex);
+      const report = damageUnit(state, target.ownerId, unitIndex, effect.amount);
+      appendVisual(state, { kind: 'defense', vfx: 'effect-impact', ownerId: actorId, targetOwnerId: target.ownerId, targetZone: unitIndex, amount: report.absorbed + report.healthDamage, shieldAmount: report.absorbed, healthAmount: report.healthDamage, label: '효과 피해' });
       break;
     }
     case 'damage_core': {
@@ -505,25 +517,27 @@ function applyEffect(
       break;
     }
     case 'buff_unit': {
-      if (!target) throw new Error('대상 유닛을 선택해야 합니다.');
-      const unit = state.boards[target.ownerId].units[target.unitIndex];
+      if (!target || !Number.isInteger(target.unitIndex)) throw new Error('대상 유닛을 선택해야 합니다.');
+      const unitIndex = Number(target.unitIndex);
+      const unit = state.boards[target.ownerId].units[unitIndex];
       if (!unit) throw new Error('대상 유닛이 없습니다.');
       if (sourceConsumesUnitBuffSlot(sourceCard, effect) && unit.buffCardApplied) throw new Error('이 캐릭터는 이미 버프류 카드를 1번 적용받았습니다.');
       unit.attack += effect.attack;
       unit.health += effect.health;
       unit.maxHealth += effect.health;
       if (sourceConsumesUnitBuffSlot(sourceCard, effect)) unit.buffCardApplied = true;
-      appendVisual(state, { kind: 'buff', vfx: 'unit-empower', cardId: unit.cardId, ownerId: actorId, targetOwnerId: target.ownerId, targetZone: target.unitIndex, amount: Math.max(effect.attack, effect.health), label: '유닛 강화' });
+      appendVisual(state, { kind: 'buff', vfx: 'unit-empower', cardId: unit.cardId, ownerId: actorId, targetOwnerId: target.ownerId, targetZone: unitIndex, amount: Math.max(effect.attack, effect.health), label: '유닛 강화' });
       break;
     }
     case 'shield_unit': {
-      if (!target) throw new Error('대상 유닛을 선택해야 합니다.');
-      const unit = state.boards[target.ownerId].units[target.unitIndex];
+      if (!target || !Number.isInteger(target.unitIndex)) throw new Error('대상 유닛을 선택해야 합니다.');
+      const unitIndex = Number(target.unitIndex);
+      const unit = state.boards[target.ownerId].units[unitIndex];
       if (!unit) throw new Error('대상 유닛이 없습니다.');
       if (sourceConsumesUnitBuffSlot(sourceCard, effect) && unit.buffCardApplied) throw new Error('이 캐릭터는 이미 버프류 카드를 1번 적용받았습니다.');
       unit.shield += effect.amount;
       if (sourceConsumesUnitBuffSlot(sourceCard, effect)) unit.buffCardApplied = true;
-      appendVisual(state, { kind: 'buff', vfx: 'shield-rise', cardId: unit.cardId, ownerId: actorId, targetOwnerId: target.ownerId, targetZone: target.unitIndex, amount: effect.amount, label: '보호막' });
+      appendVisual(state, { kind: 'buff', vfx: 'shield-rise', cardId: unit.cardId, ownerId: actorId, targetOwnerId: target.ownerId, targetZone: unitIndex, amount: effect.amount, label: '보호막' });
       break;
     }
     case 'aoe_enemy':
@@ -538,8 +552,9 @@ function applyEffect(
       appendVisual(state, { kind: 'energy', vfx: 'energy-surge', ownerId: actorId, targetOwnerId: actorId, amount: effect.amount, label: '에너지 회복' });
       break;
     case 'destroy_weak': {
-      if (!target) throw new Error('대상 유닛을 선택해야 합니다.');
-      const unit = state.boards[target.ownerId].units[target.unitIndex];
+      if (!target || !Number.isInteger(target.unitIndex)) throw new Error('대상 유닛을 선택해야 합니다.');
+      const unitIndex = Number(target.unitIndex);
+      const unit = state.boards[target.ownerId].units[unitIndex];
       if (!unit) throw new Error('대상 유닛이 없습니다.');
       if (unit.health > effect.maxHealth) throw new Error(`현재 체력이 ${effect.maxHealth} 이하인 유닛만 파괴할 수 있습니다.`);
       unit.health = 0;
@@ -563,6 +578,140 @@ function applyEffect(
         buffCardApplied: false,
       };
       appendVisual(state, { kind: 'summon', vfx: 'token-birth', ownerId: actorId, targetZone: index, label: effect.name });
+      break;
+    }
+    case 'steal_unit': {
+      if (!target || !Number.isInteger(target.unitIndex)) throw new Error('강탈할 적 유닛을 선택해야 합니다.');
+      const unitIndex = Number(target.unitIndex);
+      const sourceBoard = state.boards[target.ownerId];
+      const stolen = sourceBoard?.units[unitIndex];
+      if (!stolen) throw new Error('강탈할 유닛이 없습니다.');
+      const destination = firstOpenUnit(state.boards[actorId]);
+      if (destination < 0) throw new Error('강탈한 유닛을 놓을 빈 유닛 칸이 없습니다.');
+      sourceBoard.units[unitIndex] = null;
+      stolen.ownerId = actorId;
+      stolen.canAttack = false;
+      stolen.shield = 0;
+      stolen.summonedTurn = state.turnNumber;
+      state.boards[actorId].units[destination] = stolen;
+      const stolenCard = CARD_BY_ID[stolen.cardId];
+      appendLog(state, `전설 주문으로 「${stolenCard?.name ?? '유닛'}」의 지배권을 강탈했습니다.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: 'legendary-seizure', cardId: stolenCard?.id, ownerId: actorId, targetOwnerId: actorId, targetZone: destination, label: '지배권 강탈' });
+      break;
+    }
+    case 'revive_unit': {
+      if (!target || target.ownerId !== actorId || !Number.isInteger(target.graveyardIndex)) throw new Error('묘지에서 부활할 유닛을 선택해야 합니다.');
+      const graveyardIndex = Number(target.graveyardIndex);
+      const cardId = state.graveyards[actorId]?.[graveyardIndex];
+      const revivedCard = cardId ? CARD_BY_ID[cardId] : undefined;
+      if (!revivedCard || revivedCard.kind !== 'unit') throw new Error('메인 덱 유닛만 부활시킬 수 있습니다.');
+      const destination = firstOpenUnit(state.boards[actorId]);
+      if (destination < 0) throw new Error('부활시킬 빈 유닛 칸이 없습니다.');
+      state.graveyards[actorId].splice(graveyardIndex, 1);
+      const revived = makeUnit(state, actorId, { instanceId: randomId('revive'), cardId }, revivedCard, 'normal');
+      revived.canAttack = false;
+      revived.shield = 0;
+      revived.buffCardApplied = false;
+      state.boards[actorId].units[destination] = revived;
+      statsFor(state, actorId).unitsSummoned += 1;
+      statsFor(state, actorId).specialSummons += 1;
+      appendLog(state, `묘지에서 「${revivedCard.name}」을(를) 부활시켰습니다. 소환 효과는 재발동하지 않습니다.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: 'grave-revival', cardId: revivedCard.id, ownerId: actorId, targetOwnerId: actorId, targetZone: destination, label: '묘지 부활' });
+      break;
+    }
+    case 'mass_recall': {
+      let recalled = 0;
+      for (const ownerId of state.playerOrder) {
+        if (!ownerId) continue;
+        const board = state.boards[ownerId];
+        const privateState = privateStates[ownerId];
+        board.units.forEach((unit, index) => {
+          if (!unit) return;
+          const unitCard = CARD_BY_ID[unit.cardId];
+          board.units[index] = null;
+          if (!unitCard) return; // tokens vanish
+          if (unitCard.kind === 'fusion' || unitCard.kind === 'evolution') {
+            privateState.extra.push({ instanceId: randomId('ci'), cardId: unitCard.id });
+          } else if (unitCard.kind === 'unit') {
+            privateState.hand.push({ instanceId: randomId('ci'), cardId: unitCard.id });
+          }
+          recalled += 1;
+        });
+        state.handCounts[ownerId] = privateState.hand.length;
+        state.extraCounts[ownerId] = privateState.extra.length;
+      }
+      appendLog(state, `시간의 대회수로 필드 유닛 ${recalled}장을 원래 영역으로 되돌렸습니다. 토큰은 소멸했습니다.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: 'grand-recall', ownerId: actorId, amount: recalled, label: '시간의 대회수' });
+      break;
+    }
+    case 'invert_all_units': {
+      let changed = 0;
+      for (const ownerId of state.playerOrder) {
+        if (!ownerId) continue;
+        for (const unit of state.boards[ownerId].units) {
+          if (!unit) continue;
+          const oldAttack = unit.attack;
+          const oldHealth = unit.health;
+          unit.attack = Math.max(0, oldHealth);
+          unit.health = Math.max(1, oldAttack);
+          unit.maxHealth = Math.max(1, oldAttack);
+          changed += 1;
+        }
+      }
+      appendLog(state, `전장의 역위상으로 ${changed}장 유닛의 현재 공격력과 체력이 뒤바뀌었습니다.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: 'battlefield-inversion', ownerId: actorId, amount: changed, label: '전장 역위상' });
+      break;
+    }
+    case 'erase_opponent_grave': {
+      const grave = state.graveyards[opponentId] ?? [];
+      const removeCount = Math.min(effect.amount, grave.length);
+      const selectedIndexes = shuffle(grave.map((_, index) => index)).slice(0, removeCount).sort((a, b) => b - a);
+      for (const index of selectedIndexes) grave.splice(index, 1);
+      let drew = false;
+      if (effect.draw > 0) drew = drawCards(state, actorPrivate, actorId, effect.draw);
+      appendLog(state, `상대 묘지의 카드 ${removeCount}장을 소멸시켰${drew ? `고 카드 ${effect.draw}장을 뽑았습니다` : '습니다'}.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: 'grave-oblivion', ownerId: actorId, targetOwnerId: opponentId, amount: removeCount, label: '묘지 소멸' });
+      break;
+    }
+    case 'reweave_hand': {
+      const handCount = actorPrivate.hand.length;
+      const rewoven = actorPrivate.hand.splice(0, actorPrivate.hand.length);
+      actorPrivate.deck = shuffle([...actorPrivate.deck, ...rewoven]);
+      state.handCounts[actorId] = actorPrivate.hand.length;
+      state.deckCounts[actorId] = actorPrivate.deck.length;
+      const drawAmount = handCount + effect.bonusDraw;
+      const drew = drawCards(state, actorPrivate, actorId, drawAmount);
+      appendLog(state, `남은 손패 ${handCount}장을 덱에 다시 섞고 ${drawAmount}장을 새로 뽑았습니다.`, 'special');
+      if (drew) appendVisual(state, { kind: 'draw', vfx: 'fate-reweave', ownerId: actorId, amount: drawAmount, label: '운명 재봉' });
+      break;
+    }
+    case 'mirror_unit': {
+      if (!target || !Number.isInteger(target.unitIndex)) throw new Error('복제할 적 유닛을 선택해야 합니다.');
+      const source = state.boards[target.ownerId]?.units[Number(target.unitIndex)];
+      if (!source) throw new Error('복제할 유닛이 없습니다.');
+      const destination = firstOpenUnit(state.boards[actorId]);
+      if (destination < 0) throw new Error('거울 토큰을 소환할 빈 유닛 칸이 없습니다.');
+      const sourceCard = CARD_BY_ID[source.cardId];
+      const tokenName = `${sourceCard?.name ?? '유닛'}의 거울상`;
+      const copiedHealth = Math.max(1, source.health);
+      state.boards[actorId].units[destination] = {
+        instanceId: randomId('mirror'), cardId: `token:${tokenName}`, ownerId: actorId,
+        attack: Math.max(0, source.attack), health: copiedHealth, maxHealth: copiedHealth, shield: 0, canAttack: false,
+        summonedTurn: state.turnNumber, summonedBy: 'token', originCardIds: [], buffCardApplied: false,
+      };
+      appendLog(state, `「${sourceCard?.name ?? '적 유닛'}」의 현재 능력치를 복사한 거울 토큰을 소환했습니다.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: 'mirror-incarnation', cardId: sourceCard?.id, ownerId: actorId, targetOwnerId: actorId, targetZone: destination, label: '거울의 현현' });
+      break;
+    }
+    case 'exchange_hands': {
+      const opponentPrivate = privateStates[opponentId];
+      const myHand = actorPrivate.hand;
+      actorPrivate.hand = opponentPrivate.hand;
+      opponentPrivate.hand = myHand;
+      state.handCounts[actorId] = actorPrivate.hand.length;
+      state.handCounts[opponentId] = opponentPrivate.hand.length;
+      appendLog(state, `패러독스 교환으로 서로의 남은 손패를 맞바꿨습니다.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: 'hand-paradox', ownerId: actorId, targetOwnerId: opponentId, label: '손패 교환' });
       break;
     }
   }
@@ -857,7 +1006,7 @@ function activateTrapAt(
   trapOwnerId: string,
   trigger: TrapTrigger,
   trapIndex: number,
-  target?: { ownerId: string; unitIndex: number },
+  target?: UnitBoardTarget,
 ): TrapResolution {
   const instance = privateStates[trapOwnerId]?.secrets[trapIndex];
   const card = instance ? CARD_BY_ID[instance.cardId] : undefined;
@@ -885,7 +1034,7 @@ function openTrapWindow(
   trapOwnerId: string,
   trigger: TrapTrigger,
   continuation: PendingTrapContinuation,
-  target?: { ownerId: string; unitIndex: number },
+  target?: UnitBoardTarget,
 ): boolean {
   if (state.pendingTrap) return true;
   const trap = findTrap(privateStates[trapOwnerId], trigger, (card) => {
@@ -963,14 +1112,30 @@ function checkWinner(state: MatchState): void {
   if (state.status === 'finished' && state.winnerId) appendLog(state, '결투가 종료되었습니다.', 'victory');
 }
 
-function validateTarget(state: MatchState, actorId: string, card: CardDefinition, target?: { ownerId: string; unitIndex: number }): void {
+function validateTarget(state: MatchState, actorId: string, card: CardDefinition, target?: CardActionTarget): void {
   const opponentId = otherPlayer(state, actorId);
   if (card.target === 'none' || card.target === 'enemy_core') return;
-  if (!target || target.unitIndex < 0 || target.unitIndex > 4) throw new Error('올바른 대상 유닛을 선택하세요.');
-  const unit = state.boards[target.ownerId]?.units[target.unitIndex];
+
+  if (card.target === 'friendly_graveyard_unit') {
+    if (!target || target.ownerId !== actorId || !Number.isInteger(target.graveyardIndex)) throw new Error('내 묘지에서 부활할 유닛을 선택하세요.');
+    const graveyardIndex = Number(target.graveyardIndex);
+    const cardId = state.graveyards[actorId]?.[graveyardIndex];
+    const graveCard = cardId ? CARD_BY_ID[cardId] : undefined;
+    if (!graveCard || graveCard.kind !== 'unit') throw new Error('부활할 수 있는 메인 덱 유닛을 선택하세요.');
+    if (firstOpenUnit(state.boards[actorId]) < 0) throw new Error('부활시킬 빈 유닛 칸이 없습니다.');
+    return;
+  }
+
+  if (!target || !Number.isInteger(target.unitIndex)) throw new Error('올바른 대상 유닛을 선택하세요.');
+  const unitIndex = Number(target.unitIndex);
+  if (unitIndex < 0 || unitIndex > 4) throw new Error('올바른 대상 유닛을 선택하세요.');
+  const unit = state.boards[target.ownerId]?.units[unitIndex];
   if (!unit) throw new Error('선택한 위치에 유닛이 없습니다.');
   if (card.target === 'enemy_unit' && target.ownerId !== opponentId) throw new Error('적 유닛을 선택해야 합니다.');
   if (card.target === 'friendly_unit' && target.ownerId !== actorId) throw new Error('아군 유닛을 선택해야 합니다.');
+  if ((card.effect?.kind === 'steal_unit' || card.effect?.kind === 'mirror_unit') && firstOpenUnit(state.boards[actorId]) < 0) {
+    throw new Error(card.effect.kind === 'steal_unit' ? '강탈한 유닛을 놓을 빈 유닛 칸이 없습니다.' : '거울 토큰을 소환할 빈 유닛 칸이 없습니다.');
+  }
 }
 
 function riftConditionMet(state: MatchState, playerId: string, card: CardDefinition): boolean {
@@ -1111,7 +1276,7 @@ export function playCard(
   playerId: string,
   instanceId: string,
   requestedZone?: number,
-  target?: { ownerId: string; unitIndex: number },
+  target?: CardActionTarget,
 ): ActionResult {
   const state = clone(snapshot.state);
   const privateStates = clone(snapshot.privateStates);
@@ -1122,8 +1287,8 @@ export function playCard(
   const { index: handIndex, instance, card } = getCardFromHand(playerPrivate, instanceId);
   if (card.kind === 'fusion' || card.kind === 'evolution') throw new Error('융합·진화 카드는 엑스트라 덱에서 소환해야 합니다.');
   validateTarget(state, playerId, card, target);
-  if (card.kind === 'spell' && card.effect && isBuffCardEffect(card.effect) && target) {
-    const targetUnit = state.boards[target.ownerId]?.units[target.unitIndex];
+  if (card.kind === 'spell' && card.effect && isBuffCardEffect(card.effect) && target && Number.isInteger(target.unitIndex)) {
+    const targetUnit = state.boards[target.ownerId]?.units[Number(target.unitIndex)];
     if (targetUnit?.buffCardApplied) throw new Error('이 캐릭터는 이미 버프류 카드를 1번 적용받았습니다. 다른 캐릭터를 선택하세요.');
   }
   const opponentId = otherPlayer(state, playerId);
@@ -1164,7 +1329,10 @@ export function playCard(
       targetOwnerId: target?.ownerId, targetZone: target?.unitIndex, label: card.name,
     });
     const continuation: Extract<PendingTrapContinuation, { kind: 'spell' }> = { kind: 'spell', actorId: playerId, cardId: card.id, target };
-    if (!openTrapWindow(state, privateStates, opponentId, 'spell_played', continuation, target)) {
+    const unitTarget: UnitBoardTarget | undefined = target && Number.isInteger(target.unitIndex)
+      ? { ownerId: target.ownerId, unitIndex: Number(target.unitIndex) }
+      : undefined;
+    if (!openTrapWindow(state, privateStates, opponentId, 'spell_played', continuation, unitTarget)) {
       resolveSpellContinuation(state, privateStates, continuation);
     }
   } else {

@@ -27,7 +27,15 @@ export type Effect =
   | { kind: 'aoe_enemy'; amount: number }
   | { kind: 'gain_energy'; amount: number }
   | { kind: 'destroy_weak'; maxHealth: number }
-  | { kind: 'summon_token'; attack: number; health: number; name: string };
+  | { kind: 'summon_token'; attack: number; health: number; name: string }
+  | { kind: 'steal_unit' }
+  | { kind: 'revive_unit' }
+  | { kind: 'mass_recall' }
+  | { kind: 'invert_all_units' }
+  | { kind: 'erase_opponent_grave'; amount: number; draw: number }
+  | { kind: 'reweave_hand'; bonusDraw: number }
+  | { kind: 'mirror_unit' }
+  | { kind: 'exchange_hands' };
 
 export type TrapTrigger =
   | 'spell_played'
@@ -104,7 +112,7 @@ export interface CardDefinition {
   effect?: Effect;
   trapTrigger?: TrapTrigger;
   trapEffect?: Effect | { kind: 'negate' } | { kind: 'negate_and_damage'; amount: number };
-  target: 'none' | 'enemy_unit' | 'friendly_unit' | 'enemy_core';
+  target: 'none' | 'enemy_unit' | 'friendly_unit' | 'enemy_core' | 'friendly_graveyard_unit';
   text: string;
   flavor: string;
   sigil: string;
@@ -1398,6 +1406,64 @@ export const V26_EXPANSION_CARDS: CardDefinition[] = [
 ];
 CARDS.push(...V26_EXPANSION_CARDS);
 
+/* --------------------------------------------------------------------------
+ * v31d Legendary spell suite
+ * --------------------------------------------------------------------------
+ * These are deliberately high-cost, one-copy Legendary spells with effects
+ * that change how a duel is played rather than simply inflating damage.
+ */
+export const V31D_LEGENDARY_SPELLS: CardDefinition[] = [
+  {
+    id: 'spell_v31d_sovereign_seizure', name: '왕권 강탈', subtitle: '지배권을 뒤집는 단 한 장',
+    kind: 'spell', rarity: 'legendary', element: 'void', cost: 8, effect: { kind: 'steal_unit' }, target: 'enemy_unit',
+    text: '적 유닛 1장의 지배권을 가져옵니다. 강탈한 유닛은 이번 턴 공격할 수 없고 보호막을 잃습니다.',
+    flavor: '왕좌는 쓰러지는 것이 아니라, 주인이 바뀌는 순간 가장 조용히 무너진다.', sigil: '♜',
+  },
+  {
+    id: 'spell_v31d_grave_rebirth', name: '황혼의 소생계약', subtitle: '기억이 육체를 다시 부른다',
+    kind: 'spell', rarity: 'legendary', element: 'verdant', cost: 7, effect: { kind: 'revive_unit' }, target: 'friendly_graveyard_unit',
+    text: '내 묘지의 메인 덱 유닛 1장을 선택해 빈 칸에 완전한 체력으로 부활시킵니다. 소환 효과는 다시 발동하지 않으며 이번 턴 공격할 수 없습니다.',
+    flavor: '죽음은 끝이 아니라, 이름을 다시 불러낼 수 없게 되는 순간부터 시작된다.', sigil: '✿',
+  },
+  {
+    id: 'spell_v31d_grand_recall', name: '시간의 대회수', subtitle: '전장을 한 순간 전으로 되감는다',
+    kind: 'spell', rarity: 'legendary', element: 'neutral', cost: 9, effect: { kind: 'mass_recall' }, target: 'none',
+    text: '양쪽 필드의 모든 유닛을 되돌립니다. 메인 덱 유닛은 손패, 엑스트라 유닛은 엑스트라 덱으로 돌아가고 토큰은 소멸합니다.',
+    flavor: '누군가 시계를 되감았고, 전장은 자신이 싸웠다는 사실조차 잊었다.', sigil: '⌛',
+  },
+  {
+    id: 'spell_v31d_battlefield_inversion', name: '전장의 역위상', subtitle: '힘과 생존의 기준을 뒤집다',
+    kind: 'spell', rarity: 'legendary', element: 'lunar', cost: 7, effect: { kind: 'invert_all_units' }, target: 'none',
+    text: '필드의 모든 유닛은 현재 공격력과 체력을 서로 바꿉니다. 보호막은 유지됩니다.',
+    flavor: '강한 자는 버티지 못하고, 버티던 자는 갑자기 칼날이 된다.', sigil: '⇄',
+  },
+  {
+    id: 'spell_v31d_oblivion_archive', name: '망각의 봉인서고', subtitle: '되살아날 미래 자체를 지운다',
+    kind: 'spell', rarity: 'legendary', element: 'void', cost: 6, effect: { kind: 'erase_opponent_grave', amount: 5, draw: 1 }, target: 'none',
+    text: '상대 묘지에서 카드 최대 5장을 무작위로 소멸시키고 카드 1장을 뽑습니다.',
+    flavor: '기록이 없으면 귀환도 없다. 서고는 불타지 않고, 이름만 사라진다.', sigil: '▧',
+  },
+  {
+    id: 'spell_v31d_fate_reweave', name: '운명 재봉', subtitle: '쥔 패를 버리지 않고 미래를 다시 고른다',
+    kind: 'spell', rarity: 'legendary', element: 'neutral', cost: 6, effect: { kind: 'reweave_hand', bonusDraw: 2 }, target: 'none',
+    text: '내 남은 손패를 덱에 섞고, 섞은 장수보다 2장 더 새로 뽑습니다.',
+    flavor: '실패한 선택을 버리는 대신 실을 풀어 처음부터 다시 짠다.', sigil: '✧',
+  },
+  {
+    id: 'spell_v31d_mirror_incarnation', name: '거울의 현현', subtitle: '상대의 힘만을 훔친 빈 형상',
+    kind: 'spell', rarity: 'legendary', element: 'lunar', cost: 7, effect: { kind: 'mirror_unit' }, target: 'enemy_unit',
+    text: '적 유닛 1장의 현재 공격력과 체력을 복사한 능력 없는 거울 토큰을 내 필드에 소환합니다. 이번 턴 공격할 수 없습니다.',
+    flavor: '거울은 영혼을 복사하지 않는다. 그래서 더 위험한 순간도 있다.', sigil: '◇',
+  },
+  {
+    id: 'spell_v31d_hand_exchange', name: '패러독스 교환', subtitle: '서로가 준비한 미래를 맞바꾼다',
+    kind: 'spell', rarity: 'legendary', element: 'storm', cost: 8, effect: { kind: 'exchange_hands' }, target: 'none',
+    text: '서로의 남은 손패를 전부 교환합니다.',
+    flavor: '계획을 읽는 가장 확실한 방법은 그 계획을 직접 손에 쥐는 것이다.', sigil: '∞',
+  },
+];
+CARDS.push(...V31D_LEGENDARY_SPELLS);
+
 
 // v31 balance pass: keep non-Legendary spells within sane efficiency bands,
 // while ensuring expensive Epic/Legendary units and Legendary spells feel worth their cost.
@@ -1425,6 +1491,14 @@ function spellEffectText(effect: Effect): string {
     case 'gain_energy': return `이번 턴 에너지 ${effect.amount} 회복.`;
     case 'destroy_weak': return `현재 체력이 ${effect.maxHealth} 이하인 적 유닛 하나를 파괴.`;
     case 'summon_token': return `${effect.name} ${effect.attack}/${effect.health} 토큰을 소환.`;
+    case 'steal_unit': return '적 유닛 1장의 지배권을 가져옵니다. 강탈한 유닛은 이번 턴 공격할 수 없고 보호막을 잃습니다.';
+    case 'revive_unit': return '내 묘지의 메인 덱 유닛 1장을 선택해 완전한 체력으로 부활시킵니다. 소환 효과는 다시 발동하지 않으며 이번 턴 공격할 수 없습니다.';
+    case 'mass_recall': return '양쪽 필드의 모든 유닛을 되돌립니다. 메인 덱 유닛은 손패, 엑스트라 유닛은 엑스트라 덱으로 돌아가고 토큰은 소멸합니다.';
+    case 'invert_all_units': return '필드의 모든 유닛은 현재 공격력과 체력을 서로 바꿉니다.';
+    case 'erase_opponent_grave': return `상대 묘지에서 카드 최대 ${effect.amount}장을 무작위로 소멸시키고 카드 ${effect.draw}장을 뽑습니다.`;
+    case 'reweave_hand': return `내 남은 손패를 덱에 섞고, 섞은 장수보다 ${effect.bonusDraw}장 더 새로 뽑습니다.`;
+    case 'mirror_unit': return '적 유닛 1장의 현재 공격력과 체력을 복사한 능력 없는 거울 토큰을 내 필드에 소환합니다. 이번 턴 공격할 수 없습니다.';
+    case 'exchange_hands': return '서로의 남은 손패를 전부 교환합니다.';
   }
 }
 
@@ -1453,6 +1527,14 @@ function clampNonLegendarySpell(card: CardDefinition): void {
       break;
     }
     case 'heal_core': effect.amount = Math.min(effect.amount, Math.max(2, card.cost + 2 + tier)); break;
+    case 'steal_unit':
+    case 'revive_unit':
+    case 'mass_recall':
+    case 'invert_all_units':
+    case 'erase_opponent_grave':
+    case 'reweave_hand':
+    case 'mirror_unit':
+    case 'exchange_hands': break;
   }
   card.text = spellEffectText(effect);
 }
@@ -1471,6 +1553,14 @@ function strengthenLegendarySpell(card: CardDefinition): void {
     case 'destroy_weak': effect.maxHealth = Math.max(effect.maxHealth, 8); break;
     case 'summon_token': effect.attack = Math.max(effect.attack, 5); effect.health = Math.max(effect.health, 6); break;
     case 'heal_core': effect.amount = Math.max(effect.amount, 8); break;
+    case 'steal_unit':
+    case 'revive_unit':
+    case 'mass_recall':
+    case 'invert_all_units':
+    case 'erase_opponent_grave':
+    case 'reweave_hand':
+    case 'mirror_unit':
+    case 'exchange_hands': break;
   }
   card.text = spellEffectText(effect);
 }

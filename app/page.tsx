@@ -916,7 +916,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             <div className="detail-stat-row detail-stat-row-spell">
               <span><small>카드 종류</small><b>{KIND_LABEL[card.kind]}</b></span>
               <span><small>속성</small><b>{ELEMENT_LABEL[card.element]}</b></span>
-              <span><small>대상</small><b>{card.target === 'enemy_unit' ? '적 유닛' : card.target === 'friendly_unit' ? '아군 유닛' : card.target === 'enemy_core' ? '상대 코어' : '자동 적용'}</b></span>
+              <span><small>대상</small><b>{card.target === 'enemy_unit' ? '적 유닛' : card.target === 'friendly_unit' ? '아군 유닛' : card.target === 'friendly_graveyard_unit' ? '내 묘지 유닛' : card.target === 'enemy_core' ? '상대 코어' : '자동 적용'}</b></span>
             </div>
           )}
 
@@ -2562,6 +2562,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const [hoveredHandCardId, setHoveredHandCardId] = useState<string | null>(null);
   const [turnNotice, setTurnNotice] = useState<{ mine: boolean; turn: number } | null>(null);
   const [summonBlock, setSummonBlock] = useState<{ cardId: string; title: string; reasons: string[] } | null>(null);
+  const [graveTargetOpen, setGraveTargetOpen] = useState(false);
   const [coinClock, setCoinClock] = useState(() => Date.now());
   const [turnClock, setTurnClock] = useState(() => Date.now());
   const timeoutSyncTurn = useRef<number>(-1);
@@ -2662,6 +2663,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     setSelectedFieldUnit(null);
     setHoveredHandCardId(null);
     setExtraOpen(false);
+    setGraveTargetOpen(false);
     setEndTurnConfirmOpen(false);
     setMessage('');
   }, [nullableState?.turnNumber, nullableState?.currentPlayerId]);
@@ -2674,6 +2676,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       setSelectedMaterials([]);
       setSelectedAttacker(null);
       setSelectedFieldUnit(null);
+      setGraveTargetOpen(false);
       setMessage('선택을 취소했습니다.');
     };
     window.addEventListener('keydown', cancel);
@@ -2793,6 +2796,12 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const canRetireSelectedFieldUnit = Boolean(selectedFieldUnitState && myTurn && !interactionLocked && state.phase === 'main' && !busy && !fieldSacrificeUsed);
   const canSacrificeSelectedForEnergy = Boolean(selectedHand && selectedCard && myTurn && !interactionLocked && state.phase === 'main' && !busy && !energySacrificeUsed && myEnergy.current < 10);
   const selectedConsumesBuffSlot = Boolean(selectedCard?.kind === 'spell' && selectedCard.effect && (selectedCard.effect.kind === 'buff_unit' || selectedCard.effect.kind === 'shield_unit'));
+  const graveyardReviveTargets = (state.graveyards[userId] ?? []).flatMap((cardId, graveyardIndex) => {
+    const card = CARD_BY_ID[cardId];
+    return card?.kind === 'unit' ? [{ card, graveyardIndex }] : [];
+  });
+  const selectingGraveyardTarget = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.target === 'friendly_graveyard_unit');
+  const canChooseGraveyardTarget = Boolean(selectingGraveyardTarget && selectedCard && myEnergy.current >= selectedCard.cost && graveyardReviveTargets.length > 0 && state.boards[userId].units.some((slot) => !slot) && !busy);
   const nextMyEnergyMax = myTurn ? myEnergy.max : Math.min(10, Math.max(1, myEnergy.max + 1));
   const roundNumber = Math.max(1, Math.ceil(state.turnNumber / 2));
   const phaseLabel = state.phase === 'main' ? '메인 단계' : '전투 단계';
@@ -2894,6 +2903,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     setSelectedMaterials([]);
     setSelectedAttacker(null);
     setSelectedFieldUnit(null);
+    setGraveTargetOpen(false);
     if (note) setMessage(note);
   }
 
@@ -2929,6 +2939,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     setSelectedMaterials([]);
     setSelectedAttacker(null);
     setSelectedFieldUnit(null);
+    setGraveTargetOpen(false);
   }
 
   function chooseExtra(instanceId: string) {
@@ -2946,6 +2957,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     setSelectedMaterials([]);
     setSelectedAttacker(null);
     setSelectedFieldUnit(null);
+    setGraveTargetOpen(false);
   }
 
   function playToUnitZone(zone: number) {
@@ -3058,6 +3070,30 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     gameAction('play_card', { instanceId: selectedHand });
   }
 
+  function openGraveyardTargetPicker() {
+    if (!selectedCard || !selectedHand || selectedCard.target !== 'friendly_graveyard_unit') return;
+    if (myEnergy.current < selectedCard.cost) {
+      setMessage(`에너지가 부족합니다. 필요 ${selectedCard.cost} / 현재 ${myEnergy.current}.`);
+      return;
+    }
+    if (!state.boards[userId].units.some((slot) => !slot)) {
+      setMessage('부활시킬 빈 유닛 칸이 없습니다.');
+      return;
+    }
+    if (graveyardReviveTargets.length === 0) {
+      setMessage('내 묘지에 부활시킬 메인 덱 유닛이 없습니다.');
+      return;
+    }
+    setGraveTargetOpen(true);
+    setMessage('묘지에서 부활시킬 유닛 1장을 선택하세요.');
+  }
+
+  function reviveFromGraveyard(graveyardIndex: number) {
+    if (!selectedHand || !selectedCard || selectedCard.target !== 'friendly_graveyard_unit') return;
+    setGraveTargetOpen(false);
+    gameAction('play_card', { instanceId: selectedHand, target: { ownerId: userId, graveyardIndex } });
+  }
+
   function sacrificeSelectedForEnergy() {
     if (!selectedHand || !selectedCard) {
       setMessage('에너지로 바꿀 손패 카드를 먼저 선택하세요.');
@@ -3121,7 +3157,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
           : selectedCard?.kind === 'trap' ? '빛나는 빈 함정 칸을 눌러 세트하세요. 세트한 함정은 나에게만 앞면으로 보입니다.'
             : selectedCard?.target === 'enemy_unit' ? '빛나는 적 유닛을 선택하세요.'
               : selectedCard?.target === 'friendly_unit' ? '빛나는 아군 유닛을 선택하세요.'
-                : selectedCard ? '행동 버튼으로 카드를 발동하세요.'
+                : selectedCard?.target === 'friendly_graveyard_unit' ? '오른쪽의 “묘지에서 대상 선택” 버튼을 눌러 부활할 유닛을 고르세요.'
+                  : selectedCard ? '행동 버튼으로 카드를 발동하세요.'
                   : specialReadyCount > 0 ? `특수 소환 가능 카드 ${specialReadyCount}장이 있습니다.` : '손패에서 카드를 선택하거나 전투 단계로 이동하세요.';
 
   const playableHandCount = privateState.hand.filter((instance) => {
@@ -3155,6 +3192,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
                 ? { step: 1, kicker: 'TARGET', title: '대상 적 유닛을 선택하세요', detail: '효과를 적용할 상대 유닛이 강조됩니다. 원하는 유닛을 누르세요.', tip: '카드 선택을 취소하려면 ESC를 누를 수 있습니다.' }
                 : selectedCard?.target === 'friendly_unit'
                   ? { step: 1, kicker: 'TARGET', title: '대상 아군 유닛을 선택하세요', detail: '효과를 적용할 내 유닛이 강조됩니다. 원하는 유닛을 누르세요.', tip: '카드 선택을 취소하려면 ESC를 누를 수 있습니다.' }
+                  : selectedCard?.target === 'friendly_graveyard_unit'
+                    ? { step: 1, kicker: 'GRAVE TARGET', title: '부활할 묘지 유닛을 선택하세요', detail: `현재 부활 가능한 메인 덱 유닛이 ${graveyardReviveTargets.length}장 있습니다. 오른쪽 카드 정보의 대상 선택 버튼을 누르세요.`, tip: '부활한 유닛은 소환 효과를 다시 발동하지 않고 이번 턴 공격할 수 없습니다.' }
                   : selectedCard
                     ? { step: 1, kicker: 'PLAY CARD', title: '카드를 발동할 준비가 됐습니다', detail: '오른쪽 카드 정보 아래의 발동 버튼을 눌러 효과를 사용하세요.', tip: '카드의 상세 규칙은 “전체 상세”에서 확인할 수 있습니다.' }
                     : { step: 1, kicker: 'MAIN PHASE', title: '먼저 손패에서 카드를 선택하세요', detail: `밝게 표시된 카드 ${playableHandCount}장은 지금 사용할 수 있습니다. 유닛을 내거나 주문·함정을 사용하세요.`, tip: '공격하려면 유닛을 소환한 뒤 “전투 단계” 버튼을 누르세요.' };
@@ -3360,6 +3399,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
               <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p>{selectedCard.summonMode === 'rift' ? `균열 조건 · ${extraRequirement(selectedCard)}` : selectedCard.text}</p>{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical">{tacticalAbilityDescription(selectedCard)}</p>}</div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>선택 취소</button></div>
               {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button className="v18-context-primary" onClick={activateSelectedNoTarget}>주문 발동</button>}
+              {selectedCard.kind === 'spell' && selectedCard.target === 'friendly_graveyard_unit' && <button className="v18-context-primary v31d-grave-target-button" disabled={!canChooseGraveyardTarget} onClick={openGraveyardTargetPicker}>묘지에서 부활 대상 선택 · {graveyardReviveTargets.length}</button>}
               {myTurn && state.phase === 'main' && <button className="v31-energy-convert" disabled={!canSacrificeSelectedForEnergy} onClick={sacrificeSelectedForEnergy}><span>손패 → ENERGY +1</span><small>{energySacrificeUsed ? '이번 턴 사용 완료' : myEnergy.current >= 10 ? '에너지 최대치' : '이 카드를 묘지로 보냅니다 · 턴당 1회'}</small></button>}
             </div>
           )}
@@ -3432,6 +3472,23 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
               return <div className={`v18-extra-card ${ready ? 'ready' : ''} ${selectedExtra === instance.instanceId ? 'selected' : ''}`} key={instance.instanceId}>{ready && <span>READY</span>}<CardFace card={card} compact selected={selectedExtra === instance.instanceId} disabled={busy} onClick={() => { chooseExtra(instance.instanceId); setExtraOpen(false); }} /><small>{card ? extraRequirement(card) : ''}</small></div>;
             })}</div>
           </aside>
+        </div>
+      )}
+
+      {graveTargetOpen && selectedCard?.target === 'friendly_graveyard_unit' && selectedHand && (
+        <div className="v31d-grave-picker-layer" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.currentTarget === event.target) setGraveTargetOpen(false); }}>
+          <section className="v31d-grave-picker">
+            <header><div><small>LEGENDARY REVIVAL</small><b>묘지에서 부활할 유닛 선택</b></div><button type="button" onClick={() => setGraveTargetOpen(false)}>×</button></header>
+            <p>메인 덱 유닛 1장을 선택합니다. 부활 시 기본 능력치로 돌아오며 소환 효과는 다시 발동하지 않고 이번 턴 공격할 수 없습니다.</p>
+            <div className="v31d-grave-picker-grid">
+              {graveyardReviveTargets.length > 0 ? [...graveyardReviveTargets].reverse().map(({ card, graveyardIndex }) => (
+                <div className="v31d-grave-picker-card" key={`${graveyardIndex}-${card.id}`}>
+                  <CardFace card={card} compact disabled={busy} inspectable={false} onClick={() => reviveFromGraveyard(graveyardIndex)} />
+                  <small>COST {card.cost} · {card.attack}/{card.health}</small>
+                </div>
+              )) : <div className="v31d-grave-empty">부활 가능한 메인 덱 유닛이 없습니다.</div>}
+            </div>
+          </section>
         </div>
       )}
 
