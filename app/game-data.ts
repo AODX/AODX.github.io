@@ -6,6 +6,16 @@ export type Element = 'solar' | 'lunar' | 'storm' | 'verdant' | 'void' | 'neutra
 export type Keyword = 'guard' | 'charge' | 'lifesteal' | 'pierce';
 export type SummonMode = 'normal' | 'rift' | 'fusion' | 'evolution';
 export type VfxMoment = 'summon' | 'attack' | 'defense' | 'activation' | 'destroy';
+export type SeriesId = 'luminaknights' | 'kaisergear' | 'eclipsion' | 'nocturne' | 'arborian' | 'tempest_drive' | 'abyss_reaper' | 'primal_guardian';
+
+export type SeriesAbility =
+  | { kind: 'search_series'; amount: number }
+  | { kind: 'buff_series'; attack: number; health: number }
+  | { kind: 'shield_series'; amount: number }
+  | { kind: 'heal_per_series'; amount: number; cap: number }
+  | { kind: 'damage_core_per_series'; amount: number; cap: number }
+  | { kind: 'gain_energy_if_series'; amount: number; minimumAllies?: number }
+  | { kind: 'recover_series'; amount: number };
 
 export type Effect =
   | { kind: 'damage_unit'; amount: number }
@@ -56,6 +66,16 @@ export interface EvolutionRecipe {
   maxCost?: number;
 }
 
+export interface CardSeriesDefinition {
+  id: SeriesId;
+  name: string;
+  shortName: string;
+  packName: string;
+  tagline: string;
+  mechanic: string;
+  accent: string;
+}
+
 export interface CardVfxProfile {
   summon?: string;
   attack?: string;
@@ -90,6 +110,8 @@ export interface CardDefinition {
   sigil: string;
   vfx?: CardVfxProfile;
   series?: string;
+  seriesId?: SeriesId;
+  seriesAbility?: SeriesAbility;
 }
 
 export interface PackOdds {
@@ -100,6 +122,8 @@ export interface PackOdds {
   guaranteedSlots: number;
   pickupRate?: number;
   ascensionRate?: number;
+  seriesRate?: number;
+  seriesGuaranteedSlots?: number;
 }
 
 export interface PackDefinition {
@@ -109,6 +133,8 @@ export interface PackDefinition {
   price: number;
   guaranteed: Rarity;
   pickupElement?: Element;
+  seriesId?: SeriesId;
+  category?: 'core' | 'series';
   accent: string;
   odds: PackOdds;
 }
@@ -136,6 +162,33 @@ export const ELEMENT_LABEL: Record<Element, string> = {
   void: '공허',
   neutral: '중립',
 };
+
+export const CARD_SERIES: CardSeriesDefinition[] = [
+  { id: 'luminaknights', name: '성휘전대 루미나이츠', shortName: '루미나이츠', packName: '성휘전대 루미나이츠', tagline: '전개와 연속 소환으로 전장을 장악하는 영웅 전대 시리즈', mechanic: '연계 소환 · 전개 강화', accent: '#ffbf6b' },
+  { id: 'kaisergear', name: '황제기갑 카이저기어', shortName: '카이저기어', packName: '황제기갑 카이저기어', tagline: '보호막과 에너지 가속으로 거대 기갑을 완성하는 시리즈', mechanic: '보호막 · 에너지 가속', accent: '#92b9ff' },
+  { id: 'eclipsion', name: '일식공명 이클립시온', shortName: '이클립시온', packName: '일식공명 이클립시온', tagline: '묘지와 균열을 자원으로 되살아나는 공명 시리즈', mechanic: '묘지 회수 · 균열 공명', accent: '#b587ff' },
+  { id: 'nocturne', name: '월영환상 녹턴 미라주', shortName: '녹턴 미라주', packName: '월영환상 녹턴 미라주', tagline: '회복과 서치로 손패 우위를 쌓는 환상 시리즈', mechanic: '회복 · 서치 컨트롤', accent: '#9db7ff' },
+  { id: 'arborian', name: '세계수권속 아르보리아', shortName: '아르보리아', packName: '세계수권속 아르보리아', tagline: '필드를 키우고 보호하며 장기전을 지배하는 생장 시리즈', mechanic: '성장 · 광역 강화', accent: '#7bd998' },
+  { id: 'tempest_drive', name: '천뢰기동 템페스트 드라이브', shortName: '템페스트 드라이브', packName: '천뢰기동 템페스트 드라이브', tagline: '속공과 에너지 연계로 턴을 폭발시키는 고속 시리즈', mechanic: '속공 · 에너지 콤보', accent: '#66ddff' },
+  { id: 'abyss_reaper', name: '심연포식 어비스 리퍼', shortName: '어비스 리퍼', packName: '심연포식 어비스 리퍼', tagline: '묘지 회수와 코어 압박으로 상대 자원을 갉아먹는 시리즈', mechanic: '회수 · 코어 압박', accent: '#c178ff' },
+  { id: 'primal_guardian', name: '원초수호 프라이멀 가디언', shortName: '프라이멀 가디언', packName: '원초수호 프라이멀 가디언', tagline: '야수와 수호령이 서로를 강화하며 버티는 수호 시리즈', mechanic: '수호 · 전장 강화', accent: '#d0c49a' },
+];
+
+export const SERIES_BY_ID: Record<SeriesId, CardSeriesDefinition> = Object.fromEntries(CARD_SERIES.map((series) => [series.id, series])) as Record<SeriesId, CardSeriesDefinition>;
+
+export function seriesAbilityDescription(card: CardDefinition): string {
+  const ability = card.seriesAbility;
+  if (!ability || !card.seriesId) return '';
+  const name = SERIES_BY_ID[card.seriesId].shortName;
+  if (ability.kind === 'search_series') return `연계: 덱에서 「${name}」 카드 ${ability.amount}장을 찾아 손에 넣습니다.`;
+  if (ability.kind === 'buff_series') return `연계: 내 필드의 「${name}」 유닛 전부 공격력 +${ability.attack}, 체력 +${ability.health}.`;
+  if (ability.kind === 'shield_series') return `연계: 내 필드의 「${name}」 유닛 전부 보호막 ${ability.amount} 획득.`;
+  if (ability.kind === 'heal_per_series') return `연계: 내 필드의 「${name}」 유닛 수만큼 코어를 ${ability.amount}씩 회복합니다. 최대 ${ability.cap}.`;
+  if (ability.kind === 'damage_core_per_series') return `연계: 내 필드의 「${name}」 유닛 수만큼 상대 코어에 ${ability.amount}씩 피해. 최대 ${ability.cap}.`;
+  if (ability.kind === 'gain_energy_if_series') return `연계: 「${name}」 유닛이 ${ability.minimumAllies ?? 2}장 이상이면 에너지 ${ability.amount} 회복.`;
+  if (ability.kind === 'recover_series') return `연계: 내 묘지의 「${name}」 카드 ${ability.amount}장을 손으로 되돌립니다.`;
+  return '';
+}
 
 export const CARDS: CardDefinition[] = [
   {
@@ -832,6 +885,276 @@ for (const card of CARDS) {
   card.health = override.health;
 }
 
+/* --------------------------------------------------------------------------
+ * v25 archetype / series identity layer
+ * --------------------------------------------------------------------------
+ * The original 320-card pool had useful internal "series" tags, but most cards
+ * still read like unrelated standalone cards. v25 turns those tags into eight
+ * real deck archetypes. Card IDs stay unchanged so existing collections/decks
+ * remain valid; only player-facing names, series metadata and selected link
+ * abilities are upgraded.
+ */
+const V25_LEGACY_SERIES_MAP: Record<string, SeriesId> = {
+  '여명 성기사단': 'luminaknights',
+  '수정 자동기': 'kaisergear',
+  '일식 공명단': 'eclipsion',
+  '월영 몽환단': 'nocturne',
+  '세계수 생명군': 'arborian',
+  '천뢰 기동군': 'tempest_drive',
+  '심연 포식군': 'abyss_reaper',
+  '원초의 수호령': 'primal_guardian',
+};
+
+const V25_EXTRA_SERIES_ORDER: SeriesId[] = [
+  'luminaknights', 'kaisergear', 'eclipsion', 'nocturne',
+  'arborian', 'tempest_drive', 'abyss_reaper', 'primal_guardian',
+];
+
+const V25_BASE_SERIES_OVERRIDES: Record<string, SeriesId> = {
+  fusion_eclipse_chimera: 'eclipsion',
+  fusion_tempest_colossus: 'tempest_drive',
+  fusion_worldroot_hydra: 'arborian',
+  evolution_ember_phoenix: 'luminaknights',
+  evolution_iron_sovereign: 'kaisergear',
+  evolution_rift_alpha: 'eclipsion',
+  fusion_v8_17: 'abyss_reaper',
+};
+
+const V25_BASE_NAME_OVERRIDES: Record<string, { name: string; subtitle: string }> = {
+  fusion_eclipse_chimera: { name: '이클립시온 크로스 - 네메시스 키메라', subtitle: '일식공명의 원형 융합체' },
+  fusion_tempest_colossus: { name: '템페스트 드라이브 크로스 - 썬더 콜로서스', subtitle: '천뢰기동의 초고속 거신' },
+  fusion_worldroot_hydra: { name: '아르보리아 크로스 - 에버그린 히드라', subtitle: '세계수권속의 다중 생장체' },
+  evolution_ember_phoenix: { name: '루미나이츠 어센드 - 피닉스 브레이버', subtitle: '성휘전대의 재점화 계승체' },
+  evolution_iron_sovereign: { name: '카이저기어 어센드 - 아이언 소버린', subtitle: '황제기갑의 최종 지휘 프레임' },
+  evolution_rift_alpha: { name: '이클립시온 어센드 - 리프트 알파', subtitle: '균열을 계승한 최초의 공명체' },
+};
+
+type V25NameBank = {
+  stems: string[];
+  roles: string[];
+  spells: string[];
+  traps: string[];
+  apex: string[];
+};
+
+const V25_NAME_BANKS: Record<SeriesId, V25NameBank> = {
+  luminaknights: {
+    stems: ['솔', '레이', '크림슨', '아크', '노바', '세라프', '오로라', '글로리', '브레이브', '크라운'],
+    roles: ['세이버', '랜서'],
+    spells: ['브레이브 콜', '라이트 크로스', '포메이션 체인지', '라이징 배너', '히어로즈 링크', '세컨드 선', '크라운 차지', '샤이닝 오더', '레스큐 비콘', '파이널 레이'],
+    traps: ['가디언 인터셉트', '리플렉트 실드', '포메이션 브레이크', '세이비어 콜', '리턴 오브 라이트', '크로스 카운터', '제로 디펜스', '라스트 스탠드'],
+    apex: ['그랜드 솔', '하이퍼 노바', '세라프 크라운', '아크 브레이버', '오메가 레이', '엑시드 세이버', '라디언트 킹', '유나이트 제로'],
+  },
+  kaisergear: {
+    stems: ['알파', '아이언', '제로', '블리츠', '코어', '타이탄', '발칸', '시그마', '오메가', '임페리얼'],
+    roles: ['프레임', '드라이버'],
+    spells: ['오버클럭', '리액터 스타트', '풀 아머 전개', '임페리얼 코드', '메인 코어 링크', '포지 리부트', '부스터 이그니션', '아머 리페어', '제로 시퀀스', '카이저 커맨드'],
+    traps: ['이머전시 셸', '리버스 기어', '아머드 카운터', '코어 락', '디코이 프레임', '오버히트 브레이크', '임페리얼 월', '리부트 프로토콜'],
+    apex: ['기가 카이저', '오메가 프레임', '임페리얼 타이탄', '제로 엠페러', '아틀라스 기어', '크라운 드라이버', '그랜드 포트리스', '카이저 오버로드'],
+  },
+  eclipsion: {
+    stems: ['블랙', '크로노', '아스트라', '베일', '리프트', '루인', '네메시스', '섀도', '엔드', '오메가'],
+    roles: ['레조너', '키메라'],
+    spells: ['리프트 콜', '블랙 레조넌스', '제로 호라이즌', '에코 리턴', '그레이브 튜닝', '일식 동조', '보이드 펄스', '네메시스 코드', '크로노 브레이크', '라스트 이클립스'],
+    traps: ['리프트 리버설', '에코 스네어', '블랙 아웃', '그레이브 리콜', '공명 차단', '네메시스 미러', '제로 폴드', '이클립스 엔드'],
+    apex: ['네메시스 키메라', '크로노 레비아탄', '아스트라 드래곤', '리프트 제로', '블랙 세라핌', '오메가 레조넌트', '이클립스 타이런트', '엔드 브링어'],
+  },
+  nocturne: {
+    stems: ['루나', '베일', '드림', '미러', '실버', '크레센트', '나이트', '에코', '미스트', '페이즈'],
+    roles: ['팬텀', '댄서'],
+    spells: ['문라이트 리콜', '드림 셔플', '미러 스텝', '녹턴 드로우', '크레센트 위시', '실버 리커버리', '팬텀 패스', '루나 링크', '미스트 커튼', '미드나이트 앙코르'],
+    traps: ['미러 트릭', '드림 캐처', '문 페이즈', '팬텀 리버스', '실버 베일', '녹턴 카운터', '미스트 룸', '라스트 문'],
+    apex: ['풀문 디바', '미러 퀸', '녹턴 마제스티', '드림 이클립스', '루나 팬텀', '실버 오라클', '크레센트 엠프레스', '미드나이트 제로'],
+  },
+  arborian: {
+    stems: ['브룸', '쏜', '루트', '베르드', '세이지', '가이아', '플로라', '크라운', '시드', '오크'],
+    roles: ['가디언', '드루이드'],
+    spells: ['월드루트 콜', '생장 폭주', '에버그린 링크', '가이아 리커버리', '브룸 사이클', '시드 리턴', '쏜 크라운', '루트 네트워크', '대지의 숨결', '아르보리아 블룸'],
+    traps: ['쏜 월', '루트 바인드', '시드 셸터', '가이아 리버스', '브룸 가드', '에버그린 카운터', '월드루트 락', '숲의 최후방어'],
+    apex: ['월드루트 킹', '가이아 드래곤', '에버그린 히드라', '크라운 트렌트', '아르보리아 타이탄', '블룸 세라프', '루트 엠페러', '제네시스 트리'],
+  },
+  tempest_drive: {
+    stems: ['볼트', '제타', '스톰', '레일', '블리츠', '썬더', '스파크', '제노', '라이트닝', '터보'],
+    roles: ['라이더', '랜서'],
+    spells: ['오버드라이브', '볼트 체인', '제로 투 맥스', '썬더 콜', '부스트 시프트', '레일 점프', '터보 링크', '스파크 리로드', '라이트닝 패스', '템페스트 러시'],
+    traps: ['브레이크 체크', '리버스 볼트', '스톰 인터셉트', '터보 카운터', '레일 락', '블리츠 리턴', '오버스피드 월', '라스트 드라이브'],
+    apex: ['템페스트 엑시드', '볼트 카이저', '라이트닝 노바', '제타 오버로드', '스톰 브레이커', '터보 제네시스', '썬더 콜로서스', '인피니트 드라이브'],
+  },
+  abyss_reaper: {
+    stems: ['블랙', '헝거', '베놈', '셰이드', '그레이브', '네더', '블러드', '다크', '헬', '보이드'],
+    roles: ['리퍼', '하운드'],
+    spells: ['그레이브 콜', '블랙 피드', '네더 체인', '보이드 헝거', '리퍼 리턴', '블러드 링크', '심연 동조', '베놈 드레인', '다크 리콜', '어비스 엔드'],
+    traps: ['그레이브 스네어', '헝거 카운터', '보이드 바이트', '네더 리버스', '블랙 미러', '리퍼 마크', '심연 봉인', '라스트 디바우어'],
+    apex: ['어비스 타이런트', '그레이브 킹', '보이드 리바이어던', '네더 드래곤', '블랙 리퍼 제로', '헝거 오메가', '다크 엠페러', '엔드 디바우어'],
+  },
+  primal_guardian: {
+    stems: ['루인', '토템', '와일드', '스톤', '스카이', '플레임', '타이드', '테라', '팽', '혼'],
+    roles: ['비스트', '워든'],
+    spells: ['토템 콜', '야성 해방', '대지의 맹세', '프라이멀 링크', '비스트 차지', '스톤 하트', '스카이 로어', '테라 포스', '팽 러시', '가디언 어웨이크'],
+    traps: ['토템 월', '와일드 카운터', '스톤 셸', '비스트 리버스', '테라 가드', '팽 트랩', '원초의 결계', '가디언 라스트'],
+    apex: ['프라이멀 킹', '토템 타이탄', '와일드 드래곤', '테라 베히모스', '스톤 엠페러', '스카이 가루다', '가디언 오메가', '원초신수'],
+  },
+};
+
+const V25_SERIES_ABILITY_PLANS: Record<SeriesId, SeriesAbility[]> = {
+  luminaknights: [
+    { kind: 'search_series', amount: 1 },
+    { kind: 'gain_energy_if_series', amount: 1, minimumAllies: 2 },
+    { kind: 'buff_series', attack: 1, health: 0 },
+    { kind: 'search_series', amount: 1 },
+    { kind: 'shield_series', amount: 1 },
+    { kind: 'buff_series', attack: 1, health: 1 },
+    { kind: 'damage_core_per_series', amount: 1, cap: 3 },
+  ],
+  kaisergear: [
+    { kind: 'shield_series', amount: 1 },
+    { kind: 'gain_energy_if_series', amount: 1, minimumAllies: 2 },
+    { kind: 'buff_series', attack: 0, health: 1 },
+    { kind: 'search_series', amount: 1 },
+    { kind: 'shield_series', amount: 2 },
+    { kind: 'buff_series', attack: 1, health: 1 },
+    { kind: 'gain_energy_if_series', amount: 2, minimumAllies: 3 },
+  ],
+  eclipsion: [
+    { kind: 'recover_series', amount: 1 },
+    { kind: 'damage_core_per_series', amount: 1, cap: 3 },
+    { kind: 'search_series', amount: 1 },
+    { kind: 'recover_series', amount: 1 },
+    { kind: 'gain_energy_if_series', amount: 1, minimumAllies: 2 },
+    { kind: 'damage_core_per_series', amount: 1, cap: 4 },
+    { kind: 'recover_series', amount: 2 },
+  ],
+  nocturne: [
+    { kind: 'search_series', amount: 1 },
+    { kind: 'heal_per_series', amount: 1, cap: 4 },
+    { kind: 'shield_series', amount: 1 },
+    { kind: 'search_series', amount: 1 },
+    { kind: 'heal_per_series', amount: 1, cap: 5 },
+    { kind: 'buff_series', attack: 1, health: 0 },
+    { kind: 'search_series', amount: 2 },
+  ],
+  arborian: [
+    { kind: 'buff_series', attack: 0, health: 1 },
+    { kind: 'shield_series', amount: 1 },
+    { kind: 'heal_per_series', amount: 1, cap: 4 },
+    { kind: 'search_series', amount: 1 },
+    { kind: 'recover_series', amount: 1 },
+    { kind: 'buff_series', attack: 1, health: 1 },
+    { kind: 'shield_series', amount: 2 },
+  ],
+  tempest_drive: [
+    { kind: 'gain_energy_if_series', amount: 1, minimumAllies: 2 },
+    { kind: 'damage_core_per_series', amount: 1, cap: 2 },
+    { kind: 'search_series', amount: 1 },
+    { kind: 'buff_series', attack: 1, health: 0 },
+    { kind: 'gain_energy_if_series', amount: 1, minimumAllies: 1 },
+    { kind: 'damage_core_per_series', amount: 1, cap: 3 },
+    { kind: 'gain_energy_if_series', amount: 2, minimumAllies: 3 },
+  ],
+  abyss_reaper: [
+    { kind: 'recover_series', amount: 1 },
+    { kind: 'damage_core_per_series', amount: 1, cap: 3 },
+    { kind: 'search_series', amount: 1 },
+    { kind: 'recover_series', amount: 1 },
+    { kind: 'damage_core_per_series', amount: 1, cap: 2 },
+    { kind: 'gain_energy_if_series', amount: 1, minimumAllies: 2 },
+    { kind: 'recover_series', amount: 2 },
+  ],
+  primal_guardian: [
+    { kind: 'buff_series', attack: 1, health: 1 },
+    { kind: 'shield_series', amount: 1 },
+    { kind: 'search_series', amount: 1 },
+    { kind: 'heal_per_series', amount: 1, cap: 3 },
+    { kind: 'shield_series', amount: 2 },
+    { kind: 'buff_series', attack: 1, health: 1 },
+    { kind: 'heal_per_series', amount: 1, cap: 5 },
+  ],
+};
+
+function v25SeriesForCard(card: CardDefinition): SeriesId | undefined {
+  const base = V25_BASE_SERIES_OVERRIDES[card.id];
+  if (base) return base;
+
+  const extraMatch = card.id.match(/^(?:fusion|evolution)_v8_(\d{2})$/);
+  if (extraMatch) return V25_EXTRA_SERIES_ORDER[(Number(extraMatch[1]) - 1) % V25_EXTRA_SERIES_ORDER.length];
+
+  if (card.series && V25_LEGACY_SERIES_MAP[card.series]) return V25_LEGACY_SERIES_MAP[card.series];
+  return undefined;
+}
+
+function v25RenameSeriesCards(): void {
+  const grouped = new Map<SeriesId, Record<CardKind, CardDefinition[]>>();
+  for (const definition of CARD_SERIES) {
+    grouped.set(definition.id, { unit: [], spell: [], trap: [], fusion: [], evolution: [] });
+  }
+
+  for (const card of CARDS) {
+    const previousSeries = card.series;
+    const seriesId = v25SeriesForCard(card);
+    if (!seriesId) continue;
+    const definition = SERIES_BY_ID[seriesId];
+    card.seriesId = seriesId;
+    card.series = definition.name;
+    const baseName = V25_BASE_NAME_OVERRIDES[card.id];
+    if (baseName) {
+      card.name = baseName.name;
+      card.subtitle = baseName.subtitle;
+    }
+    if (previousSeries && card.flavor.includes(previousSeries)) card.flavor = card.flavor.replace(previousSeries, definition.name);
+    grouped.get(seriesId)?.[card.kind].push(card);
+  }
+
+  for (const definition of CARD_SERIES) {
+    const bank = V25_NAME_BANKS[definition.id];
+    const groups = grouped.get(definition.id)!;
+    for (const kind of Object.keys(groups) as CardKind[]) groups[kind].sort((a, b) => a.id.localeCompare(b.id));
+
+    groups.unit.forEach((card, index) => {
+      if (!card.id.includes('_v8_')) return;
+      const stem = bank.stems[index % bank.stems.length];
+      const role = bank.roles[Math.floor(index / bank.stems.length) % bank.roles.length];
+      card.name = `${definition.shortName} ${stem} ${role}`;
+      card.subtitle = `${definition.mechanic}의 전개 요원`;
+    });
+    groups.spell.forEach((card, index) => {
+      if (!card.id.includes('_v8_')) return;
+      card.name = `${definition.shortName} 오더 - ${bank.spells[index % bank.spells.length]}`;
+      card.subtitle = `${definition.shortName} 전용 전술 카드`;
+    });
+    groups.trap.forEach((card, index) => {
+      if (!card.id.includes('_v8_')) return;
+      card.name = `${definition.shortName} 리액터 - ${bank.traps[index % bank.traps.length]}`;
+      card.subtitle = `${definition.shortName} 전용 대응 카드`;
+    });
+    [...groups.fusion, ...groups.evolution].forEach((card, index) => {
+      if (!card.id.includes('_v8_')) return;
+      const label = card.kind === 'fusion' ? '크로스' : '어센드';
+      card.name = `${definition.shortName} ${label} - ${bank.apex[index % bank.apex.length]}`;
+      card.subtitle = `${definition.shortName}의 최종 전개`;
+    });
+
+    const flagshipUnit = groups.unit.find((card) => card.rarity === 'legendary')
+      ?? groups.unit.find((card) => card.rarity === 'epic')
+      ?? groups.unit.find((card) => card.rarity === 'rare');
+    const secondUnit = groups.unit.find((card) => card !== flagshipUnit && (card.rarity === 'epic' || card.rarity === 'rare'));
+    const candidates = [
+      flagshipUnit,
+      secondUnit,
+      groups.spell[0],
+      groups.spell[1],
+      groups.trap[0],
+      groups.fusion[0],
+      groups.evolution[0],
+    ].filter((card): card is CardDefinition => Boolean(card));
+
+    candidates.forEach((card, index) => {
+      card.seriesAbility = V25_SERIES_ABILITY_PLANS[definition.id][index % V25_SERIES_ABILITY_PLANS[definition.id].length];
+    });
+  }
+}
+
+v25RenameSeriesCards();
+
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));
 
 export const STARTER_DECK: string[] = [
@@ -875,18 +1198,29 @@ export const ASCENSION_STARTER_GRANTS: Record<string, number> = {
 };
 
 export const PACKS: PackDefinition[] = [
-  { id: 'standard', name: '시작의 성운', tagline: '희귀 이상 1장 보장', price: 120, guaranteed: 'rare', accent: '#7b86ff', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1 } },
-  { id: 'elite', name: '결투가의 금고', tagline: '희귀 이상 2장 보장', price: 360, guaranteed: 'rare', accent: '#dfb35f', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 2 } },
-  { id: 'solar_pickup', name: '태양의 계시', tagline: '태양 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'solar', accent: '#ff845c', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1, pickupRate: 60 } },
-  { id: 'void_pickup', name: '공허의 속삭임', tagline: '공허 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'void', accent: '#9c6cff', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1, pickupRate: 60 } },
-  { id: 'mythic', name: '왕실 비전', tagline: '영웅 이상 2장 보장 · 전설 확률 상승', price: 950, guaranteed: 'epic', accent: '#f4d683', odds: { common: 55, rare: 29, epic: 9.5, legendary: 6.5, guaranteedSlots: 2 } },
-  { id: 'ascension', name: '승격의 문', tagline: '균열·융합·진화 카드 확률 상승', price: 720, guaranteed: 'epic', accent: '#7d5cff', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1, ascensionRate: 72 } },
-  { id: 'lunar_pickup', name: '은월의 회랑', tagline: '달 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'lunar', accent: '#9fb7ff', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1, pickupRate: 60 } },
-  { id: 'storm_pickup', name: '천뢰 전선', tagline: '폭풍 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'storm', accent: '#62d9ff', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1, pickupRate: 60 } },
-  { id: 'verdant_pickup', name: '세계수의 맥동', tagline: '대지 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'verdant', accent: '#72d394', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1, pickupRate: 60 } },
-  { id: 'neutral_pickup', name: '성철 기동고', tagline: '중립 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'neutral', accent: '#c4d0df', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1, pickupRate: 60 } },
-  { id: 'archive', name: '일식 대기록고', tagline: '전 속성 · 영웅 이상 2장 · 전설 확률 대폭 상승', price: 1250, guaranteed: 'epic', accent: '#f3c96b', odds: { common: 55, rare: 29, epic: 6, legendary: 10, guaranteedSlots: 2 } },
-  { id: 'genesis', name: '공명 창세팩', tagline: '융합·진화·균열 집중 · 영웅 이상 2장', price: 1100, guaranteed: 'epic', accent: '#bd7cff', odds: { common: 55, rare: 29, epic: 9, legendary: 7, guaranteedSlots: 2, ascensionRate: 72 } },
+  {
+    id: 'standard', name: '일반 카드팩', tagline: '전 속성 랜덤 · 희귀 이상 1장 보장', price: 120, guaranteed: 'rare', category: 'core', accent: '#7b86ff',
+    odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1 },
+  },
+  {
+    id: 'rare', name: '희귀 카드팩', tagline: '전 속성 랜덤 · 희귀 이상 2장 보장', price: 420, guaranteed: 'rare', category: 'core', accent: '#4fc4ff',
+    odds: { common: 30, rare: 45, epic: 20, legendary: 5, guaranteedSlots: 2 },
+  },
+  {
+    id: 'legendary', name: '전설 카드팩', tagline: '전 속성 랜덤 · 전설 카드 1장 확정', price: 1600, guaranteed: 'legendary', category: 'core', accent: '#f1c766',
+    odds: { common: 10, rare: 35, epic: 40, legendary: 15, guaranteedSlots: 1 },
+  },
+  ...CARD_SERIES.map((series) => ({
+    id: `series_${series.id}`,
+    name: series.packName,
+    tagline: `${series.tagline} · 시리즈 카드 2장 이상 보장`,
+    price: 560,
+    guaranteed: 'rare' as Rarity,
+    seriesId: series.id,
+    category: 'series' as const,
+    accent: series.accent,
+    odds: { common: 45, rare: 32, epic: 18, legendary: 5, guaranteedSlots: 1, seriesRate: 75, seriesGuaranteedSlots: 2 },
+  })),
 ];
 
 export const DECK_SIZE = 30;

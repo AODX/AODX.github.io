@@ -5,6 +5,8 @@ import { ChangeEvent, CSSProperties, FormEvent, useEffect, useMemo, useRef, useS
 import {
   CARDS,
   CARD_BY_ID,
+  CARD_SERIES,
+  SERIES_BY_ID,
   type CardDefinition,
   type CardKind,
   type Keyword,
@@ -17,9 +19,11 @@ import {
   PACKS,
   RARITY_LABEL,
   type Rarity,
+  type SeriesId,
   countCards,
   isExtraDeckCard,
   isUnitCard,
+  seriesAbilityDescription,
   validateDeck,
   validateExtraDeck,
 } from './game-data';
@@ -344,16 +348,9 @@ function packPreviewCards(pack: (typeof PACKS)[number]): CardDefinition[] {
   const rarityScore: Record<Rarity, number> = { common: 1, rare: 2, epic: 3, legendary: 4 };
   let pool = CARDS.filter((card) => !isExtraDeckCard(card));
 
-  if (pack.pickupElement) pool = pool.filter((card) => card.element === pack.pickupElement);
-  if (pack.id === 'ascension' || pack.id === 'genesis') {
-    pool = CARDS.filter((card) => card.kind === 'fusion' || card.kind === 'evolution' || card.summonMode === 'rift');
-  }
-  if (pack.id === 'mythic' || pack.id === 'archive') {
-    pool = CARDS.filter((card) => !isExtraDeckCard(card) && (card.rarity === 'legendary' || card.rarity === 'epic'));
-  }
+  if (pack.seriesId) pool = CARDS.filter((card) => card.seriesId === pack.seriesId);
+  if (pack.id === 'legendary') pool = CARDS.filter((card) => card.rarity === 'legendary' || card.rarity === 'epic');
 
-  // Each product gets a deterministic but distinct art trio. This prevents the store
-  // from looking like twelve copies of the same pack while keeping the preview stable.
   const seed = hashString(pack.id);
   const preferred = pool.slice().sort((a, b) => {
     const rarityDelta = rarityScore[b.rarity] - rarityScore[a.rarity];
@@ -382,12 +379,30 @@ function packPreviewCards(pack: (typeof PACKS)[number]): CardDefinition[] {
   return picked;
 }
 
+function packEmblem(pack: (typeof PACKS)[number]): string {
+  if (pack.id === 'standard') return '✦';
+  if (pack.id === 'rare') return '◆';
+  if (pack.id === 'legendary') return '♛';
+  const glyphs: Record<SeriesId, string> = {
+    luminaknights: '✧',
+    kaisergear: '⚙',
+    eclipsion: '◈',
+    nocturne: '☾',
+    arborian: '❈',
+    tempest_drive: 'ϟ',
+    abyss_reaper: '†',
+    primal_guardian: '⬢',
+  };
+  return pack.seriesId ? glyphs[pack.seriesId] : '✦';
+}
+
 function PackProductVisual({ pack }: { pack: (typeof PACKS)[number] }) {
   const previews = packPreviewCards(pack);
-  const emblem = pack.id === 'ascension' ? '∞' : pack.id === 'archive' ? '✶' : pack.pickupElement === 'solar' ? '☀' : pack.pickupElement === 'lunar' ? '☾' : pack.pickupElement === 'storm' ? 'ϟ' : pack.pickupElement === 'verdant' ? '✤' : pack.pickupElement === 'void' ? '◇' : pack.pickupElement === 'neutral' ? '⬢' : pack.id === 'elite' ? '♜' : pack.id === 'mythic' ? '♛' : '✦';
+  const emblem = packEmblem(pack);
+  const series = pack.seriesId ? SERIES_BY_ID[pack.seriesId] : null;
 
   return (
-    <div className={`pack-product-visual v23-pack-visual ${pack.pickupElement ? `element-${pack.pickupElement}` : `pack-${pack.id}`}`} aria-hidden="true">
+    <div className={`pack-product-visual v23-pack-visual ${pack.seriesId ? `series-${pack.seriesId}` : `pack-${pack.id}`}`} aria-hidden="true">
       <div className="v23-pack-fan">
         {previews.map((card, index) => (
           <span key={card.id} className={`v23-pack-art art-${index + 1}`} style={cardStyle(card)}>
@@ -405,11 +420,11 @@ function PackProductVisual({ pack }: { pack: (typeof PACKS)[number] }) {
         ))}
       </div>
       <div className="v23-booster-pack">
-        <span className="v23-pack-kicker">ECLIPSE DUEL</span>
+        <span className="v23-pack-kicker">{series ? 'SERIES BOOSTER' : 'ECLIPSE DUEL'}</span>
         <i className="v23-pack-emblem">{emblem}</i>
         <strong>{pack.name}</strong>
-        <small>5 CARD BOOSTER</small>
-        <em>{RARITY_LABEL[pack.guaranteed]}+ GUARANTEED</em>
+        <small>{series ? series.mechanic : '5 CARD BOOSTER'}</small>
+        <em>{series ? `${pack.odds.seriesGuaranteedSlots ?? 2} SERIES+` : `${RARITY_LABEL[pack.guaranteed]}+ GUARANTEED`}</em>
       </div>
       <div className="v23-pack-sheen" />
     </div>
@@ -688,7 +703,7 @@ function CardFace({
       )}
       <span className="card-topline">
         <b>{card.name}</b>
-        <small>{RARITY_LABEL[card.rarity]}</small>
+        <small>{RARITY_LABEL[card.rarity]}{card.seriesId ? ` · ${SERIES_BY_ID[card.seriesId].shortName}` : ''}</small>
       </span>
       <span className="card-art">
         <CardIllustration card={card} compact={compact} />
@@ -779,6 +794,20 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             <p>{card.text}</p>
           </section>
 
+          {card.seriesId && card.seriesAbility && (
+            <section className={`detail-section v25-series-effect series-${card.seriesId}`}>
+              <span>SERIES LINK · {SERIES_BY_ID[card.seriesId].shortName}</span>
+              <p>{seriesAbilityDescription(card)}</p>
+            </section>
+          )}
+
+          {card.seriesId && (
+            <section className="detail-section v25-series-profile">
+              <span>시리즈 전술</span>
+              <p><b>{card.series}</b> · {SERIES_BY_ID[card.seriesId].mechanic}</p>
+            </section>
+          )}
+
           {summonCondition && (
             <section className="detail-section summon-condition">
               <span>소환 조건</span>
@@ -838,6 +867,7 @@ function GameGuideModal({ onClose }: { onClose: () => void }) {
           <article><b>04 · 특수 소환</b><p>균열은 조건과 에너지를, 공명 융합은 지정 소재를, 계승 진화는 조건을 만족한 필드 유닛을 요구합니다.</p></article>
           <article><b>05 · 전투 키워드</b><p><strong>수호</strong>는 공격 우선 대상, <strong>속공</strong>은 소환 턴 공격, <strong>흡수</strong>는 실제 전투 피해 회복, <strong>관통</strong>은 초과 피해를 코어에 전달합니다.</p></article>
           <article><b>06 · 조작 팁</b><p>카드의 <strong>i</strong> 버튼으로 언제든 상세 정보를 볼 수 있습니다. 선택 중 <strong>Esc</strong>를 누르면 카드·공격 대상을 취소합니다.</p></article>
+          <article><b>07 · 시리즈 링크</b><p>같은 시리즈 카드는 서로 서치·회수·강화·보호막·에너지·코어 압박으로 연계됩니다. 상세 보기의 <strong>SERIES LINK</strong>를 확인하고 한 시리즈를 중심으로 덱을 설계해보세요.</p></article>
         </div>
         <div className="v20-guide-footer"><span>정보가 곧 실력입니다. 카드 효과와 발동 조건은 상세 보기에서 확인하세요.</span><button className="primary-button" type="button" onClick={onClose}>확인하고 돌아가기</button></div>
       </section>
@@ -1111,7 +1141,7 @@ function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate:
           </div>
           <span className="v19-season-label">SEASON 01 · ASCENSION</span>
           <h1>덱을 설계하고,<br /><strong>판도를 뒤집으세요.</strong></h1>
-          <p>30장 메인 덱과 6장 엑스트라 덱. 균열 소환, 공명 융합, 계승 진화를 연결해 한 수 앞을 설계하는 온라인 전략 TCG.</p>
+          <p>30장 메인 덱과 6장 엑스트라 덱. 8개 시리즈의 연계 효과와 균열 소환, 공명 융합, 계승 진화를 엮어 한 수 앞을 설계하는 온라인 전략 TCG.</p>
           <div className="v19-hero-actions">
             <button className="v19-play-button" onClick={() => onNavigate('duel')}>
               <span className="v19-action-icon"><GameIcon name="duel" /></span>
@@ -1193,6 +1223,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState<'all' | CardKind>('all');
   const [element, setElement] = useState<'all' | Element>('all');
+  const [seriesFilter, setSeriesFilter] = useState<'all' | SeriesId>('all');
   const [sort, setSort] = useState<'recommended' | 'cost' | 'rarity' | 'name'>('recommended');
   const [autoStyle, setAutoStyle] = useState<'balanced' | 'aggro' | 'control' | 'theme'>('balanced');
   const [busy, setBusy] = useState(false);
@@ -1233,6 +1264,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     if (!collection[card.id]) return false;
     if (kind !== 'all' && card.kind !== kind) return false;
     if (element !== 'all' && card.element !== element) return false;
+    if (seriesFilter !== 'all' && card.seriesId !== seriesFilter) return false;
     if (search && !`${card.name} ${card.text} ${card.subtitle} ${card.series ?? ''}`.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   }).sort((a, b) => {
@@ -1241,7 +1273,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     if (sort === 'name') return a.name.localeCompare(b.name, 'ko');
     const score = (card: CardDefinition) => rarityWeight[card.rarity] * 7 + (card.element === dominantElement ? 5 : 0) - card.cost * 0.35;
     return score(b) - score(a);
-  }), [collection, kind, element, search, sort, dominantElement]);
+  }), [collection, kind, element, seriesFilter, search, sort, dominantElement]);
 
   function usedCopies(cardId: string): number {
     return (mainCounts[cardId] ?? 0) + (extraCounts[cardId] ?? 0);
@@ -1287,6 +1319,8 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     let score = rarityWeight[card.rarity] * 10;
     score += card.element === primary ? (style === 'theme' ? 20 : 8) : 0;
     score += card.series ? 2 : 0;
+    if (seriesFilter !== 'all') score += card.seriesId === seriesFilter ? 28 : -4;
+    if (card.seriesAbility) score += 6;
     if (card.summonMode === 'rift') score += 5;
     if (card.keywords?.includes('charge')) score += style === 'aggro' ? 12 : 3;
     if (card.keywords?.includes('pierce')) score += style === 'aggro' ? 10 : 4;
@@ -1323,7 +1357,8 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
         if (nextMain.filter((id) => CARD_BY_ID[id]?.kind === cardKind).length >= wanted) break;
         const owned = collection[card.id] ?? 0;
         const limit = Math.min(MAX_COPIES[card.rarity], owned);
-        const desiredCopies = card.rarity === 'legendary' ? 1 : card.rarity === 'epic' ? Math.min(2, limit) : Math.min(style === 'theme' && card.element === primary ? 3 : 2, limit);
+        const archetypeCore = seriesFilter !== 'all' && card.seriesId === seriesFilter;
+        const desiredCopies = card.rarity === 'legendary' ? 1 : card.rarity === 'epic' ? Math.min(2, limit) : Math.min((archetypeCore || (style === 'theme' && card.element === primary)) ? 3 : 2, limit);
         for (let index = counts[card.id] ?? 0; index < desiredCopies; index += 1) {
           if (nextMain.filter((id) => CARD_BY_ID[id]?.kind === cardKind).length >= wanted) break;
           nextMain.push(card.id);
@@ -1361,7 +1396,9 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
 
     setDeckCards(nextMain.slice(0, DECK_SIZE));
     setExtraCards(nextExtra.slice(0, EXTRA_DECK_SIZE));
-    const styleLabel = { balanced: '균형형', aggro: '속공형', control: '컨트롤형', theme: `${ELEMENT_LABEL[primary]} 테마형` }[style];
+    const styleLabel = seriesFilter !== 'all'
+      ? `${SERIES_BY_ID[seriesFilter].shortName} 시리즈형`
+      : { balanced: '균형형', aggro: '속공형', control: '컨트롤형', theme: `${ELEMENT_LABEL[primary]} 테마형` }[style];
     const ready = nextMain.length >= DECK_SIZE && nextExtra.length >= EXTRA_DECK_SIZE;
     setMessage(ready ? `${styleLabel} 추천 덱을 완성했습니다. 저장 전에 카드 구성을 확인해보세요.` : `${styleLabel} 자동 구성을 적용했습니다. 보유 카드가 부족한 슬롯은 직접 채워주세요.`);
     playUiSound('auto');
@@ -1423,6 +1460,15 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
       elementCounts[card.element] = (elementCounts[card.element] ?? 0) + 1;
     }
     const [focusElement, focusCount] = (Object.entries(elementCounts).sort((a, b) => Number(b[1]) - Number(a[1]))[0] ?? ['neutral', 0]) as [Element, number];
+    const seriesCounts: Partial<Record<SeriesId, number>> = {};
+    let seriesLinkCount = 0;
+    for (const id of deckCards) {
+      const card = CARD_BY_ID[id];
+      if (!card?.seriesId) continue;
+      seriesCounts[card.seriesId] = (seriesCounts[card.seriesId] ?? 0) + 1;
+      if (card.seriesAbility) seriesLinkCount += 1;
+    }
+    const [focusSeries, focusSeriesCount] = (Object.entries(seriesCounts).sort((a, b) => Number(b[1]) - Number(a[1]))[0] ?? [null, 0]) as [SeriesId | null, number];
     let score = 100;
     const tips: string[] = [];
     if (deckCards.length !== DECK_SIZE) { score -= 28; tips.push(`메인 덱을 ${DECK_SIZE}장까지 완성하세요.`); }
@@ -1434,11 +1480,13 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     if (averageCost > 0 && averageCost < 2.2) { score -= 7; tips.push('평균 비용이 매우 낮습니다. 후반 결정력을 위한 중고비용 카드가 필요합니다.'); }
     if (interaction < 5) { score -= 9; tips.push('주문·함정 비중이 낮습니다. 상대 전개에 대응할 카드 5장 이상을 권장합니다.'); }
     if (deckCards.length > 0 && focusCount / deckCards.length < 0.34) { score -= 6; tips.push('속성이 지나치게 분산되어 있습니다. 핵심 속성 1~2개에 집중하면 시너지가 선명해집니다.'); }
-    if (!validation && tips.length === 0) tips.push('곡선과 카드 비율이 안정적입니다. 실제 대전에서 첫 5턴 손패를 기준으로 미세 조정하세요.');
+    if (seriesFilter !== 'all' && focusSeriesCount < 12) { score -= 8; tips.push(`${SERIES_BY_ID[seriesFilter].shortName} 연계를 안정적으로 보기 위해 메인 덱에 시리즈 카드 12장 이상을 권장합니다.`); }
+    if (focusSeries && focusSeriesCount >= 12 && seriesLinkCount < 3) { score -= 5; tips.push(`${SERIES_BY_ID[focusSeries].shortName} 카드는 충분하지만 SERIES LINK 엔진 카드가 적습니다. 서치·회수·강화 효과 카드를 3장 이상 확보해보세요.`); }
+    if (!validation && tips.length === 0) tips.push('곡선과 카드 비율, 시리즈 연계가 안정적입니다. 실제 대전에서 첫 5턴 손패를 기준으로 미세 조정하세요.');
     const bounded = Math.max(0, Math.min(100, score));
     const label = bounded >= 90 ? '대전 준비 완료' : bounded >= 75 ? '안정적' : bounded >= 55 ? '조정 권장' : '재구성 필요';
-    return { score: bounded, label, tips: tips.slice(0, 3), early, late, focusElement, focusCount };
-  }, [deckCards, extraCards, unitCount, spellCount, trapCount, averageCost, validation]);
+    return { score: bounded, label, tips: tips.slice(0, 3), early, late, focusElement, focusCount, focusSeries, focusSeriesCount, seriesLinkCount };
+  }, [deckCards, extraCards, unitCount, spellCount, trapCount, averageCost, validation, seriesFilter]);
 
   return (
     <div className="v9-deck-page">
@@ -1464,7 +1512,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
         <div className="v9-auto-controls">
           <div className="v9-style-pills">
             {([
-              ['balanced', '균형형'], ['aggro', '속공형'], ['control', '컨트롤형'], ['theme', `${ELEMENT_LABEL[element !== 'all' ? element : dominantElement]} 테마`],
+              ['balanced', '균형형'], ['aggro', '속공형'], ['control', '컨트롤형'], ['theme', seriesFilter !== 'all' ? `${SERIES_BY_ID[seriesFilter].shortName} 시리즈` : `${ELEMENT_LABEL[element !== 'all' ? element : dominantElement]} 테마`],
             ] as Array<[typeof autoStyle, string]>).map(([id, label]) => (
               <button key={id} className={autoStyle === id ? 'active' : ''} onClick={() => setAutoStyle(id)}>{label}</button>
             ))}
@@ -1498,6 +1546,9 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
             <select value={element} onChange={(event: ChangeEvent<HTMLSelectElement>) => setElement(event.target.value as 'all' | Element)}>
               <option value="all">모든 속성</option>{Object.entries(ELEMENT_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </select>
+            <select value={seriesFilter} onChange={(event: ChangeEvent<HTMLSelectElement>) => setSeriesFilter(event.target.value as 'all' | SeriesId)}>
+              <option value="all">모든 시리즈</option>{CARD_SERIES.map((series) => <option key={series.id} value={series.id}>{series.shortName}</option>)}
+            </select>
             <select value={sort} onChange={(event: ChangeEvent<HTMLSelectElement>) => setSort(event.target.value as typeof sort)}>
               <option value="recommended">추천순</option><option value="cost">비용순</option><option value="rarity">등급순</option><option value="name">이름순</option>
             </select>
@@ -1514,7 +1565,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
         <aside className="v9-current-deck panel">
           <header className="v9-current-head"><div><span className="eyebrow">CURRENT DECK</span><h3>{deckName || '새 덱'}</h3></div><div><b>{deckCards.length}</b><small>/ {DECK_SIZE}</small></div></header>
           <section className={`v22-deck-doctor grade-${deckDoctor.score >= 90 ? 's' : deckDoctor.score >= 75 ? 'a' : deckDoctor.score >= 55 ? 'b' : 'c'}`}>
-            <div className="v22-doctor-score"><span><b>{deckDoctor.score}</b><small>/100</small></span><div><small>DECK HEALTH</small><strong>{deckDoctor.label}</strong><em>{ELEMENT_LABEL[deckDoctor.focusElement]} 중심 · 초반 {deckDoctor.early}장 · 고비용 {deckDoctor.late}장</em></div></div>
+            <div className="v22-doctor-score"><span><b>{deckDoctor.score}</b><small>/100</small></span><div><small>DECK HEALTH</small><strong>{deckDoctor.label}</strong><em>{deckDoctor.focusSeries && deckDoctor.focusSeriesCount >= 8 ? `${SERIES_BY_ID[deckDoctor.focusSeries].shortName} ${deckDoctor.focusSeriesCount}장 · LINK ${deckDoctor.seriesLinkCount}장` : `${ELEMENT_LABEL[deckDoctor.focusElement]} 중심`} · 초반 {deckDoctor.early}장 · 고비용 {deckDoctor.late}장</em></div></div>
             <div className="v22-doctor-meter"><i style={{ width: `${deckDoctor.score}%` }} /></div>
             <ul>{deckDoctor.tips.map((tip) => <li key={tip}>{tip}</li>)}</ul>
           </section>
@@ -1563,6 +1614,8 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const [error, setError] = useState('');
   const selectedPack = PACKS.find((pack) => pack.id === openingPackId);
+  const corePacks = PACKS.filter((pack) => pack.category === 'core');
+  const seriesPacks = PACKS.filter((pack) => pack.category === 'series');
 
   async function buy(packId: string) {
     setBusyPack(packId);
@@ -1633,6 +1686,29 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
     setActiveCardIndex(0);
   }
 
+  function renderPackCard(pack: (typeof PACKS)[number], index: number) {
+    const series = pack.seriesId ? SERIES_BY_ID[pack.seriesId] : null;
+    return (
+      <article className={`pack-card v6-pack-card ${series ? `series-${series.id}` : `core-${pack.id}`}`} key={pack.id} style={{ '--pack-accent': pack.accent } as CSSProperties}>
+        <PackProductVisual pack={pack} />
+        <div className="pack-product-copy">
+          <span className="eyebrow">{series ? `SERIES ${String(index + 1).padStart(2, '0')} · ${series.mechanic}` : `CORE BOOSTER · 5 CARDS`}</span>
+          <h3>{pack.name}</h3>
+          <p>{pack.tagline}</p>
+          {series && <div className="v25-series-pack-note"><b>{series.shortName}</b><span>{series.mechanic}</span></div>}
+          <div className="v20-pack-odds">
+            <span><small>기본 슬롯</small><b>전설 {pack.odds.legendary}%</b><em>영웅 {pack.odds.epic}% · 희귀 {pack.odds.rare}% · 일반 {pack.odds.common}%</em></span>
+            <p>{pack.odds.guaranteedSlots}칸 {RARITY_LABEL[pack.guaranteed]} 이상 보장{series ? ` · 시리즈 카드 ${pack.odds.seriesGuaranteedSlots ?? 2}장 이상 보장 · 일반 슬롯 ${pack.odds.seriesRate ?? 75}% 시리즈 픽업` : ''}</p>
+          </div>
+          <div className="pack-price"><b>{pack.price}</b> COIN</div>
+          <button className="primary-button" disabled={busyPack === pack.id || hub.wallet.coins < pack.price} onClick={() => buy(pack.id)}>
+            {busyPack === pack.id ? '팩을 준비하는 중...' : hub.wallet.coins < pack.price ? '코인 부족' : '팩 구매 및 개봉'}
+          </button>
+        </div>
+      </article>
+    );
+  }
+
   return (
     <div className="view-stack v6-shop-view v17-shop-view">
       <section className="section-heading v6-section-heading">
@@ -1645,26 +1721,16 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
       </div>
       {error && <p className="error-banner">{error}</p>}
       {shopTab === 'packs' ? (
-      <section className="pack-grid v6-pack-grid">
-        {PACKS.map((pack, index) => (
-          <article className={`pack-card v6-pack-card pack-${index}`} key={pack.id} style={{ '--pack-accent': pack.accent } as CSSProperties}>
-            <PackProductVisual pack={pack} />
-            <div className="pack-product-copy">
-              <span className="eyebrow">5 CARDS · {RARITY_LABEL[pack.guaranteed]} 이상 보장</span>
-              <h3>{pack.name}</h3>
-              <p>{pack.tagline}</p>
-              <div className="v20-pack-odds">
-                <span><small>기본 슬롯</small><b>전설 {pack.odds.legendary}%</b><em>영웅 {pack.odds.epic}% · 희귀 {pack.odds.rare}% · 일반 {pack.odds.common}%</em></span>
-                <p>{pack.odds.guaranteedSlots}칸 {RARITY_LABEL[pack.guaranteed]} 이상 보장{pack.odds.pickupRate ? ` · ${ELEMENT_LABEL[pack.pickupElement ?? 'neutral']} 픽업 ${pack.odds.pickupRate}%` : ''}{pack.odds.ascensionRate ? ` · 승격군 ${pack.odds.ascensionRate}%` : ''}</p>
-              </div>
-              <div className="pack-price"><b>{pack.price}</b> COIN</div>
-              <button className="primary-button" disabled={busyPack === pack.id || hub.wallet.coins < pack.price} onClick={() => buy(pack.id)}>
-                {busyPack === pack.id ? '팩을 준비하는 중...' : hub.wallet.coins < pack.price ? '코인 부족' : '팩 구매 및 개봉'}
-              </button>
-            </div>
-          </article>
-        ))}
-      </section>
+        <div className="v25-pack-store">
+          <section className="v25-pack-category">
+            <header><div><span>CORE BOOSTERS</span><h3>기본 카드팩</h3><p>속성 제한 없이 320장 전체 풀에서 랜덤 획득합니다.</p></div><small>GENERAL · RARE · LEGENDARY</small></header>
+            <div className="pack-grid v6-pack-grid v25-core-pack-grid">{corePacks.map((pack, index) => renderPackCard(pack, index))}</div>
+          </section>
+          <section className="v25-pack-category v25-series-category">
+            <header><div><span>SERIES BOOSTERS</span><h3>시리즈 카드팩</h3><p>같은 이름만 묶은 카드가 아니라 서로 서치·강화·회수·에너지 연계가 실제로 작동하는 아키타입 팩입니다.</p></div><small>{CARD_SERIES.length} ARCHETYPES</small></header>
+            <div className="pack-grid v6-pack-grid v25-series-pack-grid">{seriesPacks.map((pack, index) => renderPackCard(pack, index))}</div>
+          </section>
+        </div>
       ) : (
         <section className="v17-cosmetic-grid">
           {PROFILE_COSMETICS.map((item) => {
@@ -1737,6 +1803,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
 function CollectionView({ hub }: { hub: HubData }) {
   const [search, setSearch] = useState('');
   const [rarity, setRarity] = useState<'all' | Rarity>('all');
+  const [seriesFilter, setSeriesFilter] = useState<'all' | SeriesId>('all');
   const collection = Object.fromEntries(hub.collection.map((row) => [row.card_id, row.quantity]));
   const ownedUnique = CARDS.filter((card) => (collection[card.id] ?? 0) > 0);
   const ownedCopies = hub.collection.reduce((sum, row) => sum + row.quantity, 0);
@@ -1748,12 +1815,13 @@ function CollectionView({ hub }: { hub: HubData }) {
   });
   const visible = ownedUnique
     .filter((card) => rarity === 'all' || card.rarity === rarity)
-    .filter((card) => !search || `${card.name} ${card.text}`.toLowerCase().includes(search.toLowerCase()));
+    .filter((card) => seriesFilter === 'all' || card.seriesId === seriesFilter)
+    .filter((card) => !search || `${card.name} ${card.text} ${card.series ?? ''}`.toLowerCase().includes(search.toLowerCase()));
   return (
     <div className="view-stack">
       <section className="section-heading">
         <div><span className="eyebrow">CARD VAULT</span><h2>보관함</h2><p>{visible.length}종의 카드가 표시되고 있습니다.</p></div>
-        <div className="collection-tools"><input value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)} placeholder="카드 검색" /><select value={rarity} onChange={(event: ChangeEvent<HTMLSelectElement>) => setRarity(event.target.value as 'all' | Rarity)}><option value="all">모든 등급</option>{Object.entries(RARITY_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></div>
+        <div className="collection-tools"><input value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)} placeholder="카드 검색" /><select value={rarity} onChange={(event: ChangeEvent<HTMLSelectElement>) => setRarity(event.target.value as 'all' | Rarity)}><option value="all">모든 등급</option>{Object.entries(RARITY_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select><select value={seriesFilter} onChange={(event: ChangeEvent<HTMLSelectElement>) => setSeriesFilter(event.target.value as 'all' | SeriesId)}><option value="all">모든 시리즈</option>{CARD_SERIES.map((series) => <option key={series.id} value={series.id}>{series.shortName}</option>)}</select></div>
       </section>
       <section className="v22-vault-summary panel">
         <div className="v22-vault-completion"><span><small>COLLECTION</small><b>{completion}%</b></span><div><strong>{ownedUnique.length} / {CARDS.length}종 수집</strong><i><b style={{ width: `${completion}%` }} /></i><em>총 보유 카드 {ownedCopies.toLocaleString()}장</em></div></div>
@@ -1882,8 +1950,11 @@ function ChatDrawer({ open, roomId, onClose, profile }: { open: boolean; roomId?
   useEffect(() => {
     let alive = true;
     async function load() {
+      const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+      if (!roomId) await supabase.rpc('eclipse_cleanup_global_messages_v25');
       let query = supabase.from(table).select('*').order('created_at', { ascending: false }).limit(60);
       if (roomId) query = query.eq('room_id', roomId);
+      else query = query.gte('created_at', cutoff);
       const { data } = await query;
       if (alive) setMessages(((data ?? []) as ChatMessage[]).reverse());
     }
@@ -1891,10 +1962,20 @@ function ChatDrawer({ open, roomId, onClose, profile }: { open: boolean; roomId?
     const channel = supabase
       .channel(`chat-${table}-${roomId ?? 'global'}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table, ...(roomId ? { filter: `room_id=eq.${roomId}` } : {}) }, (payload: any) => {
-        setMessages((current) => [...current.slice(-59), payload.new as ChatMessage]);
+        const next = payload.new as ChatMessage;
+        if (!roomId && new Date(next.created_at).getTime() < Date.now() - 30 * 60 * 1000) return;
+        setMessages((current) => [...current.slice(-59), next]);
       })
       .subscribe();
-    return () => { alive = false; supabase.removeChannel(channel); };
+    const expiryTimer = roomId ? undefined : window.setInterval(() => {
+      const cutoffMs = Date.now() - 30 * 60 * 1000;
+      setMessages((current) => current.filter((message) => new Date(message.created_at).getTime() >= cutoffMs));
+    }, 60_000);
+    return () => {
+      alive = false;
+      if (expiryTimer) window.clearInterval(expiryTimer);
+      supabase.removeChannel(channel);
+    };
   }, [roomId, table]);
 
   useEffect(() => { if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, open]);
@@ -1911,7 +1992,7 @@ function ChatDrawer({ open, roomId, onClose, profile }: { open: boolean; roomId?
 
   return (
     <aside className={`chat-drawer ${open ? 'open' : ''}`}>
-      <header><div><span>{roomId ? 'ROOM CHAT' : 'GLOBAL CHAT'}</span><h3>{roomId ? '결투방 채팅' : '전체 채팅'}</h3></div><button onClick={onClose}>×</button></header>
+      <header><div><span>{roomId ? 'ROOM CHAT' : 'GLOBAL CHAT'}</span><h3>{roomId ? '결투방 채팅' : '전체 채팅'}</h3>{!roomId && <small>최근 30분 메시지만 보관됩니다.</small>}</div><button onClick={onClose}>×</button></header>
       <div className="chat-messages">
         {messages.length === 0 && <div className="empty-state"><span>···</span><p>첫 메시지를 남겨보세요.</p></div>}
         {messages.map((message) => <div className={`chat-message ${message.user_id === profile.user_id ? 'mine' : ''}`} key={message.id}><b>{message.display_name}</b><p>{message.body}</p><small>{new Date(message.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small></div>)}

@@ -3,6 +3,7 @@ import {
   CardDefinition,
   Effect,
   FusionMaterial,
+  SeriesId,
   TrapTrigger,
   isUnitCard,
   randomId,
@@ -465,6 +466,148 @@ function applyEffect(
   }
 }
 
+function seriesUnitCount(state: MatchState, playerId: string, seriesId: SeriesId): number {
+  return state.boards[playerId].units.filter((unit) => unit && CARD_BY_ID[unit.cardId]?.seriesId === seriesId).length;
+}
+
+function searchSeriesCards(
+  state: MatchState,
+  privateState: PrivateState,
+  playerId: string,
+  seriesId: SeriesId,
+  amount: number,
+): number {
+  let moved = 0;
+  for (let count = 0; count < amount; count += 1) {
+    const index = privateState.deck.findIndex((instance) => CARD_BY_ID[instance.cardId]?.seriesId === seriesId);
+    if (index < 0) break;
+    const [instance] = privateState.deck.splice(index, 1);
+    privateState.hand.push(instance);
+    statsFor(state, playerId).cardsDrawn += 1;
+    moved += 1;
+  }
+  state.handCounts[playerId] = privateState.hand.length;
+  state.deckCounts[playerId] = privateState.deck.length;
+  return moved;
+}
+
+function recoverSeriesCards(
+  state: MatchState,
+  privateState: PrivateState,
+  playerId: string,
+  seriesId: SeriesId,
+  amount: number,
+  sourceCardId: string,
+): number {
+  let moved = 0;
+  for (let count = 0; count < amount; count += 1) {
+    let index = state.graveyards[playerId].findIndex((cardId) => cardId !== sourceCardId && CARD_BY_ID[cardId]?.seriesId === seriesId);
+    if (index < 0) break;
+    const [cardId] = state.graveyards[playerId].splice(index, 1);
+    privateState.hand.push({ instanceId: randomId('ci'), cardId });
+    moved += 1;
+  }
+  state.handCounts[playerId] = privateState.hand.length;
+  return moved;
+}
+
+function applySeriesAbility(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  actorId: string,
+  sourceCard: CardDefinition,
+): void {
+  const ability = sourceCard.seriesAbility;
+  const seriesId = sourceCard.seriesId;
+  if (!ability || !seriesId) return;
+
+  const actorPrivate = privateStates[actorId];
+  const opponentId = otherPlayer(state, actorId);
+  const seriesName = sourceCard.series ?? seriesId;
+  const vfx = `series-link-${seriesId}`;
+  let result = 0;
+
+  switch (ability.kind) {
+    case 'search_series': {
+      result = searchSeriesCards(state, actorPrivate, actorId, seriesId, ability.amount);
+      if (result > 0) {
+        appendLog(state, `SERIES LINK — 「${seriesName}」 카드 ${result}장을 서치했습니다.`, 'special');
+        appendVisual(state, { kind: 'draw', vfx, cardId: sourceCard.id, ownerId: actorId, amount: result, label: 'SERIES SEARCH' });
+      }
+      break;
+    }
+    case 'recover_series': {
+      result = recoverSeriesCards(state, actorPrivate, actorId, seriesId, ability.amount, sourceCard.id);
+      if (result > 0) {
+        appendLog(state, `SERIES LINK — 묘지의 「${seriesName}」 카드 ${result}장을 회수했습니다.`, 'special');
+        appendVisual(state, { kind: 'draw', vfx, cardId: sourceCard.id, ownerId: actorId, amount: result, label: 'SERIES RECOVER' });
+      }
+      break;
+    }
+    case 'buff_series': {
+      for (const unit of state.boards[actorId].units) {
+        if (!unit || CARD_BY_ID[unit.cardId]?.seriesId !== seriesId) continue;
+        unit.attack += ability.attack;
+        unit.health += ability.health;
+        unit.maxHealth += ability.health;
+        result += 1;
+      }
+      if (result > 0) {
+        appendLog(state, `SERIES LINK — 「${seriesName}」 유닛 ${result}장이 강화되었습니다.`, 'special');
+        appendVisual(state, { kind: 'buff', vfx, cardId: sourceCard.id, ownerId: actorId, amount: Math.max(ability.attack, ability.health), label: 'SERIES BOOST' });
+      }
+      break;
+    }
+    case 'shield_series': {
+      for (const unit of state.boards[actorId].units) {
+        if (!unit || CARD_BY_ID[unit.cardId]?.seriesId !== seriesId) continue;
+        unit.shield += ability.amount;
+        result += 1;
+      }
+      if (result > 0) {
+        appendLog(state, `SERIES LINK — 「${seriesName}」 유닛 ${result}장에 보호막 ${ability.amount}.`, 'special');
+        appendVisual(state, { kind: 'buff', vfx, cardId: sourceCard.id, ownerId: actorId, amount: ability.amount, label: 'SERIES SHIELD' });
+      }
+      break;
+    }
+    case 'heal_per_series': {
+      const units = seriesUnitCount(state, actorId, seriesId);
+      const requested = Math.min(ability.cap, units * ability.amount);
+      result = healCore(state, actorId, requested);
+      if (result > 0) {
+        statsFor(state, actorId).healing += result;
+        appendLog(state, `SERIES LINK — 「${seriesName}」 공명으로 코어 ${result} 회복.`, 'special');
+        appendVisual(state, { kind: 'heal', vfx, cardId: sourceCard.id, ownerId: actorId, targetOwnerId: actorId, amount: result, label: 'SERIES HEAL' });
+      }
+      break;
+    }
+    case 'damage_core_per_series': {
+      const units = seriesUnitCount(state, actorId, seriesId);
+      const requested = Math.min(ability.cap, units * ability.amount);
+      result = damageCore(state, opponentId, requested);
+      if (result > 0) {
+        statsFor(state, actorId).coreDamage += result;
+        appendLog(state, `SERIES LINK — 「${seriesName}」 연계로 상대 코어에 ${result} 피해.`, 'special');
+        appendVisual(state, { kind: 'core', vfx, cardId: sourceCard.id, ownerId: actorId, targetOwnerId: opponentId, amount: result, label: 'SERIES IMPACT' });
+      }
+      break;
+    }
+    case 'gain_energy_if_series': {
+      const units = seriesUnitCount(state, actorId, seriesId);
+      if (units < (ability.minimumAllies ?? 2)) break;
+      const energy = state.energy[actorId];
+      const before = energy.current;
+      energy.current = Math.min(energy.max, energy.current + ability.amount);
+      result = energy.current - before;
+      if (result > 0) {
+        appendLog(state, `SERIES LINK — 「${seriesName}」 연계로 에너지 ${result} 회복.`, 'special');
+        appendVisual(state, { kind: 'energy', vfx, cardId: sourceCard.id, ownerId: actorId, amount: result, label: 'SERIES ENERGY' });
+      }
+      break;
+    }
+  }
+}
+
 function triggerTrap(
   state: MatchState,
   privateStates: Record<string, PrivateState>,
@@ -475,11 +618,16 @@ function triggerTrap(
   const trap = findTrap(privateStates[trapOwnerId], trigger);
   if (!trap || !trap.card.trapEffect) return { negated: false, retaliation: 0 };
   consumeTrap(state, privateStates[trapOwnerId], trapOwnerId, trap.index, trap.card);
-  if (trap.card.trapEffect.kind === 'negate') return { negated: true, retaliation: 0 };
+  if (trap.card.trapEffect.kind === 'negate') {
+    applySeriesAbility(state, privateStates, trapOwnerId, trap.card);
+    return { negated: true, retaliation: 0 };
+  }
   if (trap.card.trapEffect.kind === 'negate_and_damage') {
+    applySeriesAbility(state, privateStates, trapOwnerId, trap.card);
     return { negated: true, retaliation: trap.card.trapEffect.amount };
   }
   applyEffect(state, privateStates, trapOwnerId, trap.card.trapEffect, target);
+  applySeriesAbility(state, privateStates, trapOwnerId, trap.card);
   return { negated: false, retaliation: 0 };
 }
 
@@ -600,6 +748,7 @@ function afterUnitSummoned(
     const selfTarget = { ownerId: playerId, unitIndex: zone };
     applyEffect(state, privateStates, playerId, card.onSummon, card.onSummon.kind === 'shield_unit' ? selfTarget : undefined);
   }
+  if (state.boards[playerId].units[zone]) applySeriesAbility(state, privateStates, playerId, card);
 }
 
 export function playCard(
@@ -662,6 +811,10 @@ export function playCard(
     if (!counter.negated && card.effect) {
       const effectTarget = card.target === 'enemy_core' ? undefined : target;
       applyEffect(state, privateStates, playerId, card.effect, effectTarget);
+      applySeriesAbility(state, privateStates, playerId, card);
+      appendLog(state, `주문 「${card.name}」 효과 처리 완료.`, 'system');
+    } else if (!counter.negated) {
+      applySeriesAbility(state, privateStates, playerId, card);
       appendLog(state, `주문 「${card.name}」 효과 처리 완료.`, 'system');
     } else if (counter.negated) {
       if (counter.retaliation > 0) {
