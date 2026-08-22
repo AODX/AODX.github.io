@@ -16,6 +16,7 @@ import {
   resolveTurnTimeout,
   respondTrap,
   sacrificeHandForEnergy,
+  sacrificeFieldUnitForEnergy,
   summonExtra,
   surrender,
 } from '../../game-engine';
@@ -990,6 +991,9 @@ async function handleAction(request: Request, body: RequestBody) {
     } else if (gameAction === 'sacrifice_energy') {
       const instanceId = cleanText(body.instanceId, 80);
       next = sacrificeHandForEnergy(snapshot, user.id, instanceId);
+    } else if (gameAction === 'sacrifice_field_energy') {
+      const unitIndex = Number(body.unitIndex);
+      next = sacrificeFieldUnitForEnergy(snapshot, user.id, unitIndex);
     } else if (gameAction === 'end_turn') {
       next = endTurn(snapshot, user.id);
     } else if (gameAction === 'surrender') {
