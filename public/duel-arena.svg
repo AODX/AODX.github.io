@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="72%">
+      <stop offset="0" stop-color="#15223b"/>
+      <stop offset="0.38" stop-color="#0b1424"/>
+      <stop offset="1" stop-color="#04070d"/>
+    </radialGradient>
+    <linearGradient id="lane" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#3f8cb8" stop-opacity=".16"/>
+      <stop offset=".55" stop-color="#7254b7" stop-opacity=".09"/>
+      <stop offset="1" stop-color="#111827" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="12" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="micro" width="56" height="56" patternUnits="userSpaceOnUse">
+      <path d="M0 28h56M28 0v56" stroke="#8fc9e9" stroke-opacity=".025" stroke-width="1"/>
+      <circle cx="28" cy="28" r="1.3" fill="#b9ddf4" fill-opacity=".06"/>
+    </pattern>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <rect width="1920" height="1080" fill="url(#micro)"/>
+  <ellipse cx="960" cy="540" rx="700" ry="430" fill="none" stroke="#6ad9ff" stroke-opacity=".08" stroke-width="2"/>
+  <ellipse cx="960" cy="540" rx="530" ry="330" fill="none" stroke="#a28cff" stroke-opacity=".08" stroke-width="2"/>
+  <ellipse cx="960" cy="540" rx="350" ry="220" fill="none" stroke="#d9bc78" stroke-opacity=".07" stroke-width="2"/>
+  <path d="M0 540h1920" stroke="#81d4ff" stroke-opacity=".1" stroke-width="2"/>
+  <path d="M960 0v1080" stroke="#8a76f1" stroke-opacity=".065" stroke-width="2"/>
+  <path d="M260 170h1400l-150 255H410z" fill="url(#lane)" opacity=".6"/>
+  <path d="M410 655h1100l150 255H260z" fill="url(#lane)" opacity=".46" transform="rotate(180 960 782.5)"/>
+  <g fill="none" stroke="#9dcff0" stroke-opacity=".055" stroke-width="2">
+    <path d="M380 210 960 540 1540 210"/>
+    <path d="M380 870 960 540 1540 870"/>
+    <path d="M640 120 960 540 1280 120"/>
+    <path d="M640 960 960 540 1280 960"/>
+  </g>
+  <g filter="url(#glow)">
+    <circle cx="960" cy="540" r="18" fill="#7bdcff" fill-opacity=".3"/>
+    <circle cx="960" cy="540" r="6" fill="#d7f5ff"/>
+  </g>
+  <g stroke="#d5b974" stroke-opacity=".085" fill="none">
+    <path d="m960 440 86 50v100l-86 50-86-50V490z"/>
+    <path d="m960 472 58 34v68l-58 34-58-34v-68z"/>
+  </g>
+  <rect x="44" y="44" width="1832" height="992" rx="44" fill="none" stroke="#c5d8ed" stroke-opacity=".05"/>
+</svg>
