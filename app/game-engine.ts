@@ -1226,12 +1226,25 @@ function canAssignFusionMaterials(units: UnitState[], requirements: FusionMateri
 }
 
 function evolutionRequiredTurnGap(sourceCard: CardDefinition, evolutionCard: CardDefinition): number {
-  // Low-cost named predecessors made some excellent Extra Deck evolutions nearly free.
-  // Those must now stay on the field through two of their owner's turns (4 global turns).
-  // Mid/high-cost predecessors keep the previous one-round survival requirement.
-  if (evolutionCard.evolutionRecipe?.fromIds?.length && sourceCard.cost <= 2) return 4;
-  if (evolutionCard.rarity === 'legendary' && evolutionCard.evolutionRecipe?.fromIds?.length && sourceCard.cost <= 3) return 4;
-  return 2;
+  const namedRecipe = Boolean(evolutionCard.evolutionRecipe?.fromIds?.length);
+
+  // v31c: Ascension is a premium Extra Deck payoff. Cheap predecessors now
+  // need a real setup window instead of turning into an apex card immediately.
+  // 2 global turns = 1 full round, 4 = 2 rounds, 6 = 3 rounds.
+  if (namedRecipe) {
+    if (evolutionCard.rarity === 'legendary') {
+      if (sourceCard.cost <= 3) return 6;
+      if (sourceCard.cost <= 5) return 4;
+      return 2;
+    }
+    if (sourceCard.cost <= 2) return 6;
+    if (sourceCard.cost <= 4) return 4;
+    return 2;
+  }
+
+  // Broad, non-named recipes are intentionally slower because they are much
+  // easier to assemble than a specific predecessor chain.
+  return 4;
 }
 
 function evolutionMatches(unit: UnitState, card: CardDefinition, turnNumber: number): boolean {
@@ -1242,8 +1255,8 @@ function evolutionMatches(unit: UnitState, card: CardDefinition, turnNumber: num
   if (turnNumber - unit.summonedTurn < requiredGap) return false;
   // If a named predecessor exists, only that exact predecessor can evolve.
   if (recipe.fromIds?.length) return recipe.fromIds.includes(source.id);
-  // Broad element/cost evolutions receive a stronger rarity-based floor.
-  const hardenedMinCost = Math.max(recipe.minCost ?? 0, card.rarity === 'legendary' ? 5 : 4);
+  // Broad element/cost evolutions need a higher rarity-based body floor as well.
+  const hardenedMinCost = Math.max(recipe.minCost ?? 0, card.rarity === 'legendary' ? 6 : 5);
   return (!recipe.element || source.element === recipe.element)
     && source.cost >= hardenedMinCost
     && (recipe.maxCost === undefined || source.cost <= recipe.maxCost);
@@ -1293,7 +1306,7 @@ export function summonExtra(
   } else {
     if (uniqueZones.length !== 1 || units.length !== 1) throw new Error('진화시킬 아군 유닛 1장을 선택하세요.');
     evolvedSource = units[0];
-    if (!evolutionMatches(evolvedSource, card, state.turnNumber)) throw new Error(`진화 조건이 맞지 않습니다: ${card.evolutionRecipe?.label} · 저비용 원본은 2라운드, 그 외 원본은 최소 1라운드 생존해야 합니다.`);
+    if (!evolutionMatches(evolvedSource, card, state.turnNumber)) throw new Error(`진화 조건이 맞지 않습니다: ${card.evolutionRecipe?.label} · 저비용 원본은 최대 3라운드, 중비용 원본은 2라운드, 고비용 원본은 최소 1라운드 생존해야 합니다.`);
     spendEnergy(state, playerId, card.cost);
     summonZone = uniqueZones[0];
     const sourceCard = CARD_BY_ID[evolvedSource.cardId];

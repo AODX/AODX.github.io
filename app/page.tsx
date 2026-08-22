@@ -2404,12 +2404,29 @@ function clientFusionMaterialMinimumCost(card: CardDefinition, material?: NonNul
   return Math.max(material?.minCost ?? 0, floor);
 }
 
+function clientEvolutionRequiredTurnGap(source: CardDefinition, evolutionCard: CardDefinition): number {
+  const namedRecipe = Boolean(evolutionCard.evolutionRecipe?.fromIds?.length);
+  if (namedRecipe) {
+    if (evolutionCard.rarity === 'legendary') {
+      if (source.cost <= 3) return 6;
+      if (source.cost <= 5) return 4;
+      return 2;
+    }
+    if (source.cost <= 2) return 6;
+    if (source.cost <= 4) return 4;
+    return 2;
+  }
+  return 4;
+}
+
 function evolutionSurvivalRequirement(card: CardDefinition): string {
   const sources = (card.evolutionRecipe?.fromIds ?? []).map((id) => CARD_BY_ID[id]).filter((source): source is CardDefinition => Boolean(source));
-  const needsTwoRounds = sources.some((source) => source.cost <= 2 || (card.rarity === 'legendary' && source.cost <= 3));
-  if (needsTwoRounds) return '지정 저비용 원본이 2라운드 생존 필요';
-  if (sources.length > 0) return '지정 원본이 1라운드 생존 필요';
-  return `범용 원본 비용 ${card.rarity === 'legendary' ? 5 : 4} 이상 + 1라운드 생존`;
+  if (sources.length > 0) {
+    const longestGap = Math.max(...sources.map((source) => clientEvolutionRequiredTurnGap(source, card)));
+    const rounds = Math.max(1, Math.ceil(longestGap / 2));
+    return `지정 원본이 ${rounds}라운드 생존 필요`;
+  }
+  return `범용 원본 비용 ${card.rarity === 'legendary' ? 6 : 5} 이상 + 2라운드 생존`;
 }
 
 function extraRequirement(card: CardDefinition): string {
@@ -2479,10 +2496,10 @@ function clientEvolutionReady(unit: UnitState, card: CardDefinition, currentTurn
   const recipe = card.evolutionRecipe;
   const source = CARD_BY_ID[unit.cardId];
   if (!recipe || !source) return false;
-  const requiredGap = recipe.fromIds?.length && (source.cost <= 2 || (card.rarity === 'legendary' && source.cost <= 3)) ? 4 : 2;
+  const requiredGap = clientEvolutionRequiredTurnGap(source, card);
   if (currentTurn - unit.summonedTurn < requiredGap) return false;
   if (recipe.fromIds?.length) return recipe.fromIds.includes(source.id);
-  const hardenedMinCost = Math.max(recipe.minCost ?? 0, card.rarity === 'legendary' ? 5 : 4);
+  const hardenedMinCost = Math.max(recipe.minCost ?? 0, card.rarity === 'legendary' ? 6 : 5);
   return (!recipe.element || recipe.element === source.element)
     && source.cost >= hardenedMinCost
     && (recipe.maxCost === undefined || source.cost <= recipe.maxCost);
@@ -3407,7 +3424,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         <div className="v18-extra-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) setExtraOpen(false); }}>
           <aside className="v18-extra-drawer">
             <header><div><small>EXTRA DECK</small><b>공명 융합 · 계승 진화</b></div><button type="button" onClick={() => setExtraOpen(false)}>×</button></header>
-            <p>빛나는 카드는 강화된 소재·생존 조건과 에너지를 모두 만족한 카드입니다. 범용 융합 소재와 저비용 진화 원본은 더 오래/강하게 준비해야 하며, 공명과 계승은 각각 한 게임 2회·한 턴 1회입니다.</p>
+            <p>빛나는 카드는 강화된 소재·생존 조건과 에너지를 모두 만족한 카드입니다. 계승은 원본 비용이 낮을수록 2~3라운드까지 준비가 필요하며, 공명과 계승은 각각 한 게임 2회·한 턴 1회입니다.</p>
             <div className="v31-extra-drawer-usage"><span>공명 융합 <b>{myExtraUsage.fusion}/2</b></span><span>계승 진화 <b>{myExtraUsage.evolution}/2</b></span></div>
             <div>{privateState.extra.map((instance) => {
               const card = CARD_BY_ID[instance.cardId];

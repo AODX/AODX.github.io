@@ -1504,6 +1504,70 @@ for (const card of CARDS) {
   }
 }
 
+/* --------------------------------------------------------------------------
+ * v31c rarity / Ascension tuning
+ * --------------------------------------------------------------------------
+ * A handful of high-rarity units still felt too close to ordinary bodies.
+ * This is intentionally a small, identity-preserving pass rather than a
+ * blanket power increase across the whole pool.
+ *
+ * Ascension cards are premium Extra Deck payoffs, so the cheapest legacy
+ * evolutions also receive a minimum ENERGY cost. Existing expensive cards are
+ * untouched by this floor.
+ */
+const V31C_UNIT_TUNING: Record<string, {
+  attack?: number;
+  health?: number;
+  addKeywords?: Keyword[];
+  onSummon?: Effect;
+  text?: string;
+}> = {
+  unit_timeweaver: {
+    attack: 5,
+    health: 6,
+    text: '소환 시 이번 턴 에너지 1 회복.',
+  },
+  unit_eclipse_dragon: {
+    attack: 8,
+    health: 7,
+    onSummon: { kind: 'damage_core', amount: 2 },
+    text: '소환 시 상대 코어에 2 피해. 관통.',
+  },
+  unit_tempest_queen: {
+    attack: 7,
+    health: 7,
+    onSummon: { kind: 'aoe_enemy', amount: 2 },
+    text: '소환 시 모든 적 유닛에 2 피해.',
+  },
+  unit_v8_verdant_08: {
+    attack: 7,
+    health: 9,
+    addKeywords: ['guard'],
+    text: '수호.',
+  },
+  unit_v8_neutral_07: {
+    attack: 6,
+    health: 8,
+    addKeywords: ['charge'],
+    text: '속공.',
+  },
+};
+
+for (const card of CARDS) {
+  if (card.kind === 'evolution') {
+    const minimumEvolutionCost = card.rarity === 'legendary' ? 5 : 4;
+    card.cost = Math.max(card.cost, minimumEvolutionCost);
+  }
+
+  const tuning = V31C_UNIT_TUNING[card.id];
+  if (!tuning || !isUnitCard(card) || card.kind === 'fusion' || card.kind === 'evolution') continue;
+  if (tuning.attack !== undefined) card.attack = tuning.attack;
+  if (tuning.health !== undefined) card.health = tuning.health;
+  if (tuning.addKeywords?.length) card.keywords = Array.from(new Set([...(card.keywords ?? []), ...tuning.addKeywords]));
+  if (tuning.onSummon) card.onSummon = tuning.onSummon;
+  if (tuning.text) card.text = tuning.text;
+}
+
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));
 
 export const STARTER_DECK: string[] = [
