@@ -1,0 +1,7 @@
+ECLIPSE DUEL V23 CARD ART CHECK
+card_definitions=320
+unique_card_ids=320
+matching_card_art=320
+fallback_art=1
+missing=0
+abnormally_small_files=0

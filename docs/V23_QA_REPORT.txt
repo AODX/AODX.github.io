@@ -1,0 +1,69 @@
+ECLIPSE DUEL V23 QA REPORT
+==========================
+
+[PASS] TypeScript/TSX syntax transpile
+- app/page.tsx
+- app/layout.tsx
+- app/error.tsx
+- app/loading.tsx
+- app/not-found.tsx
+- app/game-data.ts
+- app/game-engine.ts
+- app/api/eclipse/route.ts
+
+[PASS] CSS parsing
+- app/globals.css: parse error 0
+- app/theme-v19.css: parse error 0
+- app/theme-v23.css: parse error 0
+
+[PASS] Content integrity
+- Card definitions: 320
+- Unique card IDs: 320
+- Missing card-art WEBP: 0
+- Abnormally tiny art files: 0
+- Starter main deck: 30
+- Starter extra deck: 6
+- Packs: 12
+- Pack base rarity odds sum: all 100%
+- Fusion/Evolution reference integrity: PASS
+
+[PASS] Client/API action compatibility
+- Every client API action has a matching server route
+- Every server action used by the client is recognized
+- 11 route RPC names all exist in bundled SQL files
+
+[PASS] Engine smoke test
+- match initialization
+- 5-card opening hands
+- turn rotation
+- privacy sanitization
+
+[PASS] Combat behavior test
+- Charge unit immediate attack
+- Energy spending
+- Direct core damage
+- Lifesteal limited to actual damage/healing cap
+- Match statistics update
+- Attacker exhaust after attack
+
+[PASS] Automated engine simulation
+- 100 simulated starter-deck matches
+- 100/100 completed without invariant failure
+- Core HP stayed in 0..25
+- Energy stayed in 0..10
+- Hand/deck/extra public counts matched private state
+- Board slot sizes stayed valid
+
+[PASS] Static desktop visual QA at 1920-wide class viewport
+- card detail modal
+- SYSTEM panel
+- topbar controls
+- deck builder + Deck Doctor
+- collection summary + card grid
+- pack product cards
+- profile cosmetics
+- profile editor
+- duel battlefield layout
+
+[IMPORTANT]
+A real Next.js production build could not be executed inside this work environment because project npm dependencies are not installed here. The source syntax, CSS, game engine and static Chromium rendering were tested instead. Production deploy should run `npm install` + `npm run build` in the normal Render/local environment.

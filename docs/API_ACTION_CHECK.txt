@@ -1,0 +1,5 @@
+ECLIPSE DUEL V23 API ACTION CHECK
+client_actions=bootstrap,buy_pack,buy_profile_cosmetic,create_room,equip_profile_cosmetic,friend_remove,friend_request,friend_respond,game_action,get_room,hub,join_room,leave_room,quick_match,ready,save_deck,send_global_message,send_room_message,set_active_deck,update_profile
+route_actions=bootstrap,buy_pack,buy_profile_cosmetic,create_room,equip_profile_cosmetic,friend_remove,friend_request,friend_respond,game_action,get_room,hub,join_room,leave_room,quick_match,ready,save_deck,send_global_message,send_room_message,set_active_deck,update_profile
+missing=[]
+RPC references checked against bundled SQL: PASS
