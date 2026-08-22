@@ -42,6 +42,129 @@ interface RoomRow {
   updated_at: string;
 }
 
+const MATCH_PRESENCE_TTL_MS = 20_000;
+const MATCH_PRESENCE_STALE_CUTOFF = () => new Date(Date.now() - MATCH_PRESENCE_TTL_MS).toISOString();
+
+async function touchMatchPresence(admin: AdminDbClient, userId: string): Promise<void> {
+  const { error } = await admin
+    .from('eclipse_match_presence')
+    .upsert({ user_id: userId, last_seen_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  if (error) {
+    if (/eclipse_match_presence|does not exist|schema cache/i.test(error.message)) {
+      throw new Error('빠른 대전 온라인 감지 DB 업그레이드가 필요합니다. sql/10_V28_QUICK_MATCH_PRESENCE.sql을 한 번 실행해 주세요.');
+    }
+    throw new Error(error.message);
+  }
+}
+
+async function onlinePresenceSet(admin: AdminDbClient, userIds: string[]): Promise<Set<string>> {
+  const unique = [...new Set(userIds.filter(Boolean))];
+  if (!unique.length) return new Set<string>();
+  const { data, error } = await admin
+    .from('eclipse_match_presence')
+    .select('user_id,last_seen_at')
+    .in('user_id', unique)
+    .gte('last_seen_at', MATCH_PRESENCE_STALE_CUTOFF());
+  if (error) {
+    if (/eclipse_match_presence|does not exist|schema cache/i.test(error.message)) {
+      throw new Error('빠른 대전 온라인 감지 DB 업그레이드가 필요합니다. sql/10_V28_QUICK_MATCH_PRESENCE.sql을 한 번 실행해 주세요.');
+    }
+    throw new Error(error.message);
+  }
+  return new Set((data ?? []).map((row: { user_id: string }) => row.user_id));
+}
+
+async function cleanupStalePublicWaitingRooms(admin: AdminDbClient): Promise<void> {
+  const { data, error } = await admin
+    .from('eclipse_rooms')
+    .select('id,host_id,guest_id,ready_host,ready_guest')
+    .eq('public_match', true)
+    .eq('status', 'waiting')
+    .order('updated_at', { ascending: false })
+    .limit(100);
+  if (error) throw new Error(error.message);
+  const rooms = (data ?? []) as Array<Pick<RoomRow, 'id' | 'host_id' | 'guest_id' | 'ready_host' | 'ready_guest'>>;
+  if (!rooms.length) return;
+
+  const online = await onlinePresenceSet(admin, rooms.flatMap((room) => [room.host_id, room.guest_id ?? '']).filter(Boolean));
+  for (const room of rooms) {
+    const hostOnline = online.has(room.host_id);
+    const guestOnline = room.guest_id ? online.has(room.guest_id) : false;
+    if (!hostOnline) {
+      const { error: cancelError } = await admin.from('eclipse_rooms').update({ status: 'cancelled' }).eq('id', room.id).eq('status', 'waiting');
+      if (cancelError) throw new Error(cancelError.message);
+      continue;
+    }
+    if (room.guest_id && !guestOnline) {
+      const { error: clearError } = await admin
+        .from('eclipse_rooms')
+        .update({ guest_id: null, ready_host: false, ready_guest: false })
+        .eq('id', room.id)
+        .eq('status', 'waiting')
+        .eq('guest_id', room.guest_id);
+      if (clearError) throw new Error(clearError.message);
+    }
+  }
+
+  // Presence rows are tiny, but remove very old entries so the table never grows forever.
+  const oldCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  await admin.from('eclipse_match_presence').delete().lt('last_seen_at', oldCutoff);
+}
+
+async function runQuickMatch(admin: AdminDbClient, userId: string): Promise<Awaited<ReturnType<typeof getRoomPayload>>> {
+  await touchMatchPresence(admin, userId);
+  await cleanupStalePublicWaitingRooms(admin);
+
+  // Reuse an already-valid public waiting room instead of creating duplicate ghost rooms.
+  const { data: existingRooms, error: existingError } = await admin
+    .from('eclipse_rooms')
+    .select('*')
+    .eq('public_match', true)
+    .eq('status', 'waiting')
+    .or(`host_id.eq.${userId},guest_id.eq.${userId}`)
+    .order('updated_at', { ascending: false })
+    .limit(3);
+  if (existingError) throw new Error(existingError.message);
+  if (existingRooms?.length) {
+    const existing = existingRooms[0] as RoomRow;
+    return await getRoomPayload(admin, existing, userId);
+  }
+
+  const { data: candidates, error: candidateError } = await admin
+    .from('eclipse_rooms')
+    .select('*')
+    .eq('public_match', true)
+    .eq('status', 'waiting')
+    .is('guest_id', null)
+    .neq('host_id', userId)
+    .order('created_at')
+    .limit(12);
+  if (candidateError) throw new Error(candidateError.message);
+
+  const candidateRows = (candidates ?? []) as RoomRow[];
+  const onlineHosts = await onlinePresenceSet(admin, candidateRows.map((candidate) => candidate.host_id));
+  for (const candidate of candidateRows) {
+    if (!onlineHosts.has(candidate.host_id)) continue;
+    const { data, error } = await admin
+      .from('eclipse_rooms')
+      .update({ guest_id: userId, ready_host: false, ready_guest: false })
+      .eq('id', candidate.id)
+      .eq('status', 'waiting')
+      .is('guest_id', null)
+      .select('*')
+      .maybeSingle();
+    if (!error && data) return await getRoomPayload(admin, data as RoomRow, userId);
+  }
+
+  const { data, error } = await admin
+    .from('eclipse_rooms')
+    .insert({ code: randomRoomCode(), host_id: userId, public_match: true })
+    .select('*')
+    .single();
+  if (error || !data) throw new Error(error?.message ?? '자동 매칭 대기실 생성 실패');
+  return await getRoomPayload(admin, data as RoomRow, userId);
+}
+
 
 function projectRefFromUrl(value: string): string {
   try {
@@ -515,6 +638,8 @@ async function handleAction(request: Request, body: RequestBody) {
     // 최초 부트스트랩에서만 가장 최근의 진행 중 방을 자동 복구합니다.
     if (action === 'bootstrap' && probe.client) {
       try {
+        await touchMatchPresence(probe.client, user.id);
+        await cleanupStalePublicWaitingRooms(probe.client);
         let resumable = await findResumableRoom(probe.client, user.id);
         if (resumable?.status === 'active' && resumable.state) {
           resumable = (await normalizeTurnTimeout(probe.client, resumable)).room;
@@ -679,35 +804,49 @@ async function handleAction(request: Request, body: RequestBody) {
   if (action === 'quick_match') {
     const admin = await requireAdmin();
     await activeDeck(admin, user.id);
-    const { data: candidates, error: candidateError } = await admin
-      .from('eclipse_rooms')
-      .select('*')
-      .eq('public_match', true)
-      .eq('status', 'waiting')
-      .is('guest_id', null)
-      .neq('host_id', user.id)
-      .order('created_at')
-      .limit(5);
-    if (candidateError) throw new Error(candidateError.message);
+    return await runQuickMatch(admin, user.id);
+  }
 
-    for (const candidate of candidates ?? []) {
+  if (action === 'match_presence') {
+    const admin = await requireAdmin();
+    await touchMatchPresence(admin, user.id);
+    const roomId = cleanText(body.roomId, 64);
+    if (!roomId) return { ok: true };
+
+    let room = await fetchRoom(admin, roomId);
+    assertParticipant(room, user.id);
+    if (!room.public_match) return { ok: true };
+    if (room.status === 'cancelled') {
+      return { ...(await runQuickMatch(admin, user.id)), heartbeat: true, rematched: true };
+    }
+    if (room.status !== 'waiting') return { ok: true };
+
+    const otherId = room.host_id === user.id ? room.guest_id : room.host_id;
+    if (!otherId) return { ...(await getRoomPayload(admin, room, user.id)), heartbeat: true };
+
+    const online = await onlinePresenceSet(admin, [otherId]);
+    if (online.has(otherId)) return { ...(await getRoomPayload(admin, room, user.id)), heartbeat: true };
+
+    if (room.host_id === user.id) {
       const { data, error } = await admin
         .from('eclipse_rooms')
-        .update({ guest_id: user.id })
-        .eq('id', candidate.id)
-        .is('guest_id', null)
+        .update({ guest_id: null, ready_host: false, ready_guest: false })
+        .eq('id', room.id)
+        .eq('status', 'waiting')
         .select('*')
-        .maybeSingle();
-      if (!error && data) return await getRoomPayload(admin, data as RoomRow, user.id);
+        .single();
+      if (error || !data) throw new Error(error?.message ?? '오프라인 상대 정리 실패');
+      return { ...(await getRoomPayload(admin, data as RoomRow, user.id)), heartbeat: true, opponentDisconnected: true };
     }
 
-    const { data, error } = await admin
+    // I am the guest and the host disappeared: cancel the ghost room and immediately requeue me.
+    const { error: cancelError } = await admin
       .from('eclipse_rooms')
-      .insert({ code: randomRoomCode(), host_id: user.id, public_match: true })
-      .select('*')
-      .single();
-    if (error || !data) throw new Error(error?.message ?? '자동 매칭 대기실 생성 실패');
-    return await getRoomPayload(admin, data as RoomRow, user.id);
+      .update({ status: 'cancelled' })
+      .eq('id', room.id)
+      .eq('status', 'waiting');
+    if (cancelError) throw new Error(cancelError.message);
+    return { ...(await runQuickMatch(admin, user.id)), heartbeat: true, rematched: true, opponentDisconnected: true };
   }
 
   if (action === 'join_room') {
