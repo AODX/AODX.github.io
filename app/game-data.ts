@@ -92,6 +92,16 @@ export interface CardDefinition {
   series?: string;
 }
 
+export interface PackOdds {
+  common: number;
+  rare: number;
+  epic: number;
+  legendary: number;
+  guaranteedSlots: number;
+  pickupRate?: number;
+  ascensionRate?: number;
+}
+
 export interface PackDefinition {
   id: string;
   name: string;
@@ -100,6 +110,7 @@ export interface PackDefinition {
   guaranteed: Rarity;
   pickupElement?: Element;
   accent: string;
+  odds: PackOdds;
 }
 
 export const RARITY_LABEL: Record<Rarity, string> = {
@@ -670,6 +681,61 @@ export const CARDS: CardDefinition[] = [
   { id: 'evolution_v8_20', name: '월영계승 꿈의기록자 프라임', subtitle: '전장의 기억을 이어받아 한계를 넘어선 계승체', kind: 'evolution', rarity: 'legendary', element: 'lunar', cost: 7, attack: 10, health: 9, keywords: ['pierce'], summonMode: 'evolution', evolutionRecipe: { label: '꿈의기록자 계승', fromIds: ['unit_v8_lunar_20'] }, onSummon: { kind: 'heal_core', amount: 4 }, target: 'none', text: '계승 진화. 진화 전 유닛의 강화 상태를 이어받습니다. 내 코어를 4 회복.', flavor: '진화는 새로운 존재가 되는 일이 아니라, 축적된 전투의 기억을 완성하는 일이다.', sigil: '✧', series: '계승자 연대기' },
 ];
 
+// v8 확장 카드의 서사 문구를 카드별로 구분해 대량 생성 느낌을 줄이고,
+// 룰 텍스트와 실제 엔진 판정을 일치시킵니다. 게임 밸런스 수치는 변경하지 않습니다.
+const V8_SUBTITLE_BY_ELEMENT: Record<Element, string[]> = {
+  solar: ['첫 빛을 가르는 선봉', '백열의 궤적을 남기는 자', '황혼까지 꺼지지 않는 맹세', '성화의 끝에서 선 결투가', '태양문을 지키는 마지막 검'],
+  lunar: ['은빛 장막을 걷는 자', '꿈과 현실의 경계를 읽는 눈', '월식 아래 맺은 조용한 서약', '달그림자에 숨은 두 번째 칼날', '별이 지기 전 돌아오는 파수꾼'],
+  storm: ['천둥보다 먼저 도착한 창끝', '폭풍의 심장을 겨눈 추적자', '번개가 새긴 전선의 좌표', '구름벽을 찢는 돌격 신호', '정전 뒤에도 남는 푸른 잔광'],
+  verdant: ['뿌리 아래 잠든 맹세의 수호자', '새순과 고목을 잇는 전령', '세계수의 맥박을 듣는 자', '흙먼지 속에서 다시 선 방벽', '계절을 넘어 전장을 기억하는 씨앗'],
+  void: ['균열 가장자리에서 돌아온 자', '빛이 닿지 않는 좌표의 사냥꾼', '심연의 침묵을 무기로 삼는 자', '공백 너머의 흔적을 추적하는 눈', '소멸 직전에 남은 마지막 의지'],
+  neutral: ['결정 회로로 새긴 전술 규율', '성철 장갑에 봉인된 명령', '오차 없는 궤도를 걷는 집행자', '프리즘 코어가 선택한 수호기', '금속성 새벽을 여는 전진 신호'],
+};
+
+const V8_KIND_SUBTITLE: Record<CardKind, string[]> = {
+  unit: ['전선 기록', '결투 기록', '수호 기록', '원정 기록'],
+  spell: ['전술식', '공명식', '전장 술식', '비전식'],
+  trap: ['역전식', '매복식', '봉쇄식', '반격식'],
+  fusion: ['서로 다른 궤도의 완전 공명', '두 힘이 하나의 이름을 얻은 순간', '상극을 넘어선 공명체', '경계를 접어 만든 합일의 형상'],
+  evolution: ['축적된 전투가 완성한 다음 형태', '기억을 갑옷으로 바꾼 계승체', '한계를 넘어 이어진 전장의 의지', '이전의 상처까지 힘으로 삼은 계승'],
+};
+
+const V8_LORE_BY_ELEMENT: Record<Element, string[]> = {
+  solar: ['여명 전선의 기록에는 승리보다 먼저 버틴 이름이 적힌다.', '태양은 편을 들지 않는다. 끝까지 서 있는 자를 비출 뿐이다.', '불꽃이 작아질수록 기사단은 검을 더 높이 들었다.'],
+  lunar: ['월영의 기록관은 꿈에서 본 경로도 전술 지도에 남긴다.', '달빛은 감추는 빛이다. 보이지 않는 움직임이 전황을 바꾼다.', '침묵은 후퇴가 아니라 다음 한 수를 숨기는 방식이었다.'],
+  storm: ['천뢰 부대는 번개보다 빠른 판단만을 전술이라 불렀다.', '폭풍은 길을 만들지 않는다. 돌파한 자의 궤적이 길이 된다.', '한 번의 섬광 뒤에 남는 것은 속도가 아니라 정확한 결단이다.'],
+  verdant: ['세계수 군단은 쓰러진 자리에서 다음 방어선을 자라게 했다.', '뿌리는 움직이지 않지만 전장의 모든 진동을 먼저 기억한다.', '생명은 약해서 버티는 것이 아니라, 다시 자랄 방법을 알기에 강하다.'],
+  void: ['심연 부대의 지도에는 존재하지 않는 길이 가장 많이 표시돼 있다.', '공허는 비어 있지 않다. 사라진 것들의 방향이 그 안에 남아 있다.', '균열을 오래 바라본 자는 적보다 먼저 자신의 그림자를 경계한다.'],
+  neutral: ['성철 기동군은 감정 대신 기록으로 실패를 반복하지 않았다.', '완벽한 기계는 없다. 그래서 그들은 오차까지 전술에 포함했다.', '결정 회로가 빛날 때마다 오래된 명령 하나가 새 전장에 맞게 고쳐졌다.'],
+};
+
+for (const card of CARDS) {
+  if (card.keywords) card.keywords = Array.from(new Set(card.keywords));
+
+  if (card.trapTrigger === 'direct_attack' && card.trapEffect?.kind === 'negate_and_damage') {
+    card.text = `상대가 코어를 직접 공격할 때, 그 공격을 무효화하고 공격 유닛에 ${card.trapEffect.amount} 피해.`;
+  }
+
+  if (!card.id.includes('_v8_')) continue;
+  const numericPart = Number(card.id.match(/(\d+)$/)?.[1] ?? 1);
+  const elementLines = V8_SUBTITLE_BY_ELEMENT[card.element];
+  const kindLines = V8_KIND_SUBTITLE[card.kind];
+  if (card.kind === 'fusion' || card.kind === 'evolution') {
+    card.subtitle = `${kindLines[(numericPart - 1) % kindLines.length]} · ${String(numericPart).padStart(2, '0')}`;
+  } else {
+    card.subtitle = `${elementLines[(numericPart - 1) % elementLines.length]} · ${kindLines[(numericPart - 1) % kindLines.length]}`;
+  }
+
+  const lore = V8_LORE_BY_ELEMENT[card.element][(numericPart - 1) % V8_LORE_BY_ELEMENT[card.element].length];
+  if (card.kind === 'fusion') {
+    card.flavor = `“${card.name}.” 공명 관측소는 두 파장이 완전히 겹친 그 순간에만 이 이름을 사용했다.`;
+  } else if (card.kind === 'evolution') {
+    card.flavor = `${card.name}은(는) 이전 형태의 전투 기록을 버리지 않았다. 상처와 승리 모두가 다음 형태의 설계도가 되었다.`;
+  } else {
+    card.flavor = `${lore} — ${card.name}, 현장 기록.`;
+  }
+}
+
 // 기존 카드도 같은 속성의 공통 연출만 반복하지 않도록 카드별 시그니처 조합을 부여합니다.
 // 신규 승격 카드가 직접 정의한 vfx는 아래 값보다 우선 유지됩니다.
 const SIGNATURE_VFX: Partial<Record<string, CardVfxProfile>> = {
@@ -766,18 +832,18 @@ export const ASCENSION_STARTER_GRANTS: Record<string, number> = {
 };
 
 export const PACKS: PackDefinition[] = [
-  { id: 'standard', name: '시작의 성운', tagline: '희귀 이상 1장 보장', price: 120, guaranteed: 'rare', accent: '#7b86ff' },
-  { id: 'elite', name: '결투가의 금고', tagline: '희귀 이상 2장 보장', price: 360, guaranteed: 'rare', accent: '#dfb35f' },
-  { id: 'solar_pickup', name: '태양의 계시', tagline: '태양 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'solar', accent: '#ff845c' },
-  { id: 'void_pickup', name: '공허의 속삭임', tagline: '공허 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'void', accent: '#9c6cff' },
-  { id: 'mythic', name: '왕실 비전', tagline: '영웅 이상 2장 보장 · 전설 확률 상승', price: 950, guaranteed: 'epic', accent: '#f4d683' },
-  { id: 'ascension', name: '승격의 문', tagline: '균열·융합·진화 카드 확률 상승', price: 720, guaranteed: 'epic', accent: '#7d5cff' },
-  { id: 'lunar_pickup', name: '은월의 회랑', tagline: '달 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'lunar', accent: '#9fb7ff' },
-  { id: 'storm_pickup', name: '천뢰 전선', tagline: '폭풍 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'storm', accent: '#62d9ff' },
-  { id: 'verdant_pickup', name: '세계수의 맥동', tagline: '대지 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'verdant', accent: '#72d394' },
-  { id: 'neutral_pickup', name: '성철 기동고', tagline: '중립 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'neutral', accent: '#c4d0df' },
-  { id: 'archive', name: '일식 대기록고', tagline: '전 속성 · 영웅 이상 2장 · 전설 확률 대폭 상승', price: 1250, guaranteed: 'epic', accent: '#f3c96b' },
-  { id: 'genesis', name: '공명 창세팩', tagline: '융합·진화·균열 집중 · 영웅 이상 2장', price: 1100, guaranteed: 'epic', accent: '#bd7cff' },
+  { id: 'standard', name: '시작의 성운', tagline: '희귀 이상 1장 보장', price: 120, guaranteed: 'rare', accent: '#7b86ff', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1 } },
+  { id: 'elite', name: '결투가의 금고', tagline: '희귀 이상 2장 보장', price: 360, guaranteed: 'rare', accent: '#dfb35f', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 2 } },
+  { id: 'solar_pickup', name: '태양의 계시', tagline: '태양 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'solar', accent: '#ff845c', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1, pickupRate: 60 } },
+  { id: 'void_pickup', name: '공허의 속삭임', tagline: '공허 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'void', accent: '#9c6cff', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1, pickupRate: 60 } },
+  { id: 'mythic', name: '왕실 비전', tagline: '영웅 이상 2장 보장 · 전설 확률 상승', price: 950, guaranteed: 'epic', accent: '#f4d683', odds: { common: 55, rare: 29, epic: 9.5, legendary: 6.5, guaranteedSlots: 2 } },
+  { id: 'ascension', name: '승격의 문', tagline: '균열·융합·진화 카드 확률 상승', price: 720, guaranteed: 'epic', accent: '#7d5cff', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1, ascensionRate: 72 } },
+  { id: 'lunar_pickup', name: '은월의 회랑', tagline: '달 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'lunar', accent: '#9fb7ff', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1, pickupRate: 60 } },
+  { id: 'storm_pickup', name: '천뢰 전선', tagline: '폭풍 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'storm', accent: '#62d9ff', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1, pickupRate: 60 } },
+  { id: 'verdant_pickup', name: '세계수의 맥동', tagline: '대지 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'verdant', accent: '#72d394', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1, pickupRate: 60 } },
+  { id: 'neutral_pickup', name: '성철 기동고', tagline: '중립 카드 확률 상승 · 영웅 이상 1장 보장', price: 650, guaranteed: 'epic', pickupElement: 'neutral', accent: '#c4d0df', odds: { common: 55, rare: 29, epic: 13.5, legendary: 2.5, guaranteedSlots: 1, pickupRate: 60 } },
+  { id: 'archive', name: '일식 대기록고', tagline: '전 속성 · 영웅 이상 2장 · 전설 확률 대폭 상승', price: 1250, guaranteed: 'epic', accent: '#f3c96b', odds: { common: 55, rare: 29, epic: 6, legendary: 10, guaranteedSlots: 2 } },
+  { id: 'genesis', name: '공명 창세팩', tagline: '융합·진화·균열 집중 · 영웅 이상 2장', price: 1100, guaranteed: 'epic', accent: '#bd7cff', odds: { common: 55, rare: 29, epic: 9, legendary: 7, guaranteedSlots: 2, ascensionRate: 72 } },
 ];
 
 export const DECK_SIZE = 30;
@@ -871,33 +937,4 @@ export function randomId(prefix = 'card'): string {
     ? crypto.randomUUID().replace(/-/g, '').slice(0, 12)
     : Math.random().toString(36).slice(2, 14);
   return `${prefix}_${random}_${Date.now().toString(36)}`;
-}
-
-/**
- * Lightweight runtime/catalog validation used by release QA and server boot checks.
- * It intentionally validates only immutable card definitions; player-owned data is validated server-side.
- */
-export function validateCatalogIntegrity(): string[] {
-  const issues: string[] = [];
-  const ids = new Set<string>();
-  for (const card of CARDS) {
-    if (!card.id || !/^[a-z0-9_:-]+$/i.test(card.id)) issues.push(`잘못된 카드 ID: ${card.id || '(empty)'}`);
-    if (ids.has(card.id)) issues.push(`중복 카드 ID: ${card.id}`);
-    ids.add(card.id);
-    if (!card.name.trim()) issues.push(`${card.id}: 이름이 비어 있습니다.`);
-    if (!card.subtitle.trim()) issues.push(`${card.id}: 부제가 비어 있습니다.`);
-    if (!card.text.trim()) issues.push(`${card.id}: 효과 설명이 비어 있습니다.`);
-    if (!card.flavor.trim()) issues.push(`${card.id}: 로어가 비어 있습니다.`);
-    if (!Number.isInteger(card.cost) || card.cost < 0 || card.cost > 20) issues.push(`${card.id}: COST가 비정상입니다.`);
-    if (isUnitCard(card)) {
-      if (!Number.isFinite(card.attack) || (card.attack ?? -1) < 0) issues.push(`${card.id}: ATK가 비정상입니다.`);
-      if (!Number.isFinite(card.health) || (card.health ?? -1) <= 0) issues.push(`${card.id}: DEF가 비정상입니다.`);
-    }
-    if (card.kind === 'fusion' && (!card.fusionRecipe || card.fusionRecipe.materials.length < 2)) issues.push(`${card.id}: 공명 융합 소재 규칙이 없습니다.`);
-    if (card.kind === 'evolution' && !card.evolutionRecipe) issues.push(`${card.id}: 계승 진화 조건이 없습니다.`);
-    if (card.summonMode === 'rift' && (!card.riftCondition || card.riftCost === undefined)) issues.push(`${card.id}: 균열 소환 조건/비용이 없습니다.`);
-    if (card.kind === 'trap' && (!card.trapTrigger || !card.trapEffect)) issues.push(`${card.id}: 함정 발동 조건/효과가 없습니다.`);
-  }
-  if (CARDS.length < 300) issues.push(`카드 수가 300장 미만입니다: ${CARDS.length}`);
-  return issues;
 }

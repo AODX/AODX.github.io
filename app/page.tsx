@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient, Session } from '@supabase/supabase-js';
-import { ChangeEvent, CSSProperties, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CARDS,
   CARD_BY_ID,
@@ -104,6 +104,7 @@ type ApiResult = {
   cardIds?: string[];
   balance?: number;
   serverStatus?: SecureServerStatus;
+  resumedRoom?: boolean;
 };
 
 const NAV_ITEMS: Array<{ id: View; label: string; icon: string }> = [
@@ -335,7 +336,7 @@ const KEYWORD_DESCRIPTION: Record<Keyword, string> = {
   pierce: '관통 · 유닛을 파괴하고 남은 피해를 상대 코어에 줍니다.',
 };
 
-function effectDescription(effect: CardDefinition['effect'] | CardDefinition['onSummon'] | CardDefinition['trapEffect']): string {
+function effectDescription(effect: CardDefinition['effect'] | CardDefinition['onSummon'] | CardDefinition['trapEffect'], trigger?: CardDefinition['trapTrigger']): string {
   if (!effect) return '';
   if (effect.kind === 'damage_unit') return `대상 유닛에게 ${effect.amount} 피해`;
   if (effect.kind === 'damage_core') return `상대 코어에 ${effect.amount} 피해`;
@@ -348,7 +349,9 @@ function effectDescription(effect: CardDefinition['effect'] | CardDefinition['on
   if (effect.kind === 'destroy_weak') return `방어력 ${effect.maxHealth} 이하의 유닛 1장 파괴`;
   if (effect.kind === 'summon_token') return `${effect.name} 토큰(${effect.attack}/${effect.health}) 소환`;
   if (effect.kind === 'negate') return '발동을 무효화';
-  if (effect.kind === 'negate_and_damage') return `발동을 무효화하고 코어에 ${effect.amount} 피해`;
+  if (effect.kind === 'negate_and_damage') return trigger === 'direct_attack'
+    ? `직접 공격을 무효화하고 공격 유닛에 ${effect.amount} 피해`
+    : `발동을 무효화하고 상대 코어에 ${effect.amount} 피해`;
   return '';
 }
 
@@ -392,43 +395,22 @@ function GameIcon({ name }: { name: View | 'chat' | 'coin' | 'logout' | 'sound' 
 
 function CardIllustration({ card, compact = false, hero = false }: { card: CardDefinition; compact?: boolean; hero?: boolean }) {
   const variant = hashString(card.id) % 6;
-  const [imageFailed, setImageFailed] = useState(false);
-  const [imageReady, setImageReady] = useState(false);
-
-  useEffect(() => {
-    setImageFailed(false);
-    setImageReady(false);
-  }, [card.id]);
-
   return (
-    <span
-      className={`card-illustration variant-${variant} element-${card.element} rarity-${card.rarity} ${compact ? 'is-compact' : ''} ${hero ? 'is-hero' : ''} ${imageReady ? 'is-loaded' : 'is-loading'} ${imageFailed ? 'has-fallback' : ''}`}
-      aria-hidden="true"
-    >
-      {!imageFailed && (
-        <img
-          className="card-art-image"
-          src={cardArtworkPath(card.id)}
-          alt=""
-          width={960}
-          height={600}
-          loading={hero ? 'eager' : 'lazy'}
-          decoding="async"
-          draggable={false}
-          onLoad={() => setImageReady(true)}
-          onError={() => { setImageFailed(true); setImageReady(true); }}
-        />
-      )}
-      {imageFailed && (
-        <span className="card-art-fallback" role="img" aria-label={`${card.name} 카드 이미지 대체 표시`}>
-          <i>{card.sigil}</i>
-          <b>{card.name}</b>
-          <small>{ELEMENT_LABEL[card.element]} · {RARITY_LABEL[card.rarity]}</small>
-        </span>
-      )}
+    <span className={`card-illustration variant-${variant} element-${card.element} rarity-${card.rarity} ${compact ? 'is-compact' : ''} ${hero ? 'is-hero' : ''}`} aria-hidden="true">
+      <img
+        className="card-art-image"
+        src={cardArtworkPath(card.id)}
+        alt=""
+        width={960}
+        height={600}
+        loading={hero ? 'eager' : 'lazy'}
+        decoding="async"
+        draggable={false}
+        onError={(event) => { if (!event.currentTarget.src.endsWith('/fallback.webp')) event.currentTarget.src = '/card-art/fallback.webp'; }}
+      />
       <span className="card-art-grade" />
       <span className="card-art-vignette" />
-      {!imageReady && !imageFailed && <span className="card-art-loading"><i /></span>}
+      <span className="card-art-rune">{card.sigil}</span>
     </span>
   );
 }
@@ -585,23 +567,28 @@ function CardFace({
 }
 
 function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () => void }) {
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
   useEffect(() => {
-    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    closeButtonRef.current?.focus();
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
     window.addEventListener('keydown', close);
     return () => {
       window.removeEventListener('keydown', close);
       document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
     };
   }, [onClose]);
 
   const summonCondition = summonConditionDescription(card);
   const effectRows = [
     card.onSummon ? { label: '소환 효과', value: effectDescription(card.onSummon) } : null,
-    card.effect ? { label: '발동 효과', value: effectDescription(card.effect) } : null,
-    card.trapTrigger ? { label: '함정 발동 조건', value: trapTriggerDescription(card.trapTrigger) } : null,
-    card.trapEffect ? { label: '함정 처리', value: effectDescription(card.trapEffect) } : null,
+    card.effect ? { label: '카드 효과', value: effectDescription(card.effect) } : null,
+    card.trapTrigger ? { label: '발동 조건', value: trapTriggerDescription(card.trapTrigger) } : null,
+    card.trapEffect ? { label: '함정 효과', value: effectDescription(card.trapEffect, card.trapTrigger) } : null,
   ].filter((row): row is { label: string; value: string } => Boolean(row?.value));
 
   const summonLabel = card.kind === 'fusion'
@@ -610,105 +597,107 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
       ? '계승 진화'
       : card.summonMode === 'rift'
         ? '균열 소환'
-        : card.kind === 'unit' ? '일반 소환' : '해당 없음';
-
-  const targetLabel = card.target === 'enemy_unit'
-    ? '적 유닛 1장'
-    : card.target === 'friendly_unit'
-      ? '아군 유닛 1장'
-      : card.target === 'enemy_core'
-        ? '상대 코어'
-        : '대상 지정 없음';
+        : '일반 소환';
 
   return (
-    <div className="v20-card-inspector-layer" role="presentation" onMouseDown={(event: React.MouseEvent) => { if (event.currentTarget === event.target) onClose(); }}>
-      <section className={`v20-card-inspector element-${card.element} rarity-${card.rarity}`} role="dialog" aria-modal="true" aria-labelledby={`card-detail-${card.id}`}>
-        <header className="v20-card-inspector-header">
-          <div>
-            <span className="v20-card-kicker">{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}</span>
-            <h2 id={`card-detail-${card.id}`}>{card.name}</h2>
-            <p>{card.subtitle}</p>
+    <div className="modal-layer card-detail-layer" role="presentation" onMouseDown={(event: React.MouseEvent) => { if (event.currentTarget === event.target) onClose(); }}>
+      <section className={`card-detail-modal element-${card.element} rarity-${card.rarity}`} role="dialog" aria-modal="true" aria-labelledby="card-detail-title" aria-describedby="card-detail-effect">
+        <button ref={closeButtonRef} className="modal-close" type="button" onClick={onClose} aria-label="닫기">×</button>
+
+        <div className="card-detail-visual">
+          <div className="card-detail-artwork">
+            <CardIllustration card={card} hero />
+            <div className="card-detail-artbar">
+              <span>{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]}</span>
+              <strong>{card.name}</strong>
+              <small>{card.subtitle}</small>
+            </div>
+            <i className="card-detail-sigil">{card.sigil}</i>
           </div>
-          <button className="v20-card-inspector-close" type="button" onClick={onClose} aria-label="카드 상세 닫기">×</button>
-        </header>
-
-        <div className="v20-card-inspector-body">
-          <aside className="v20-card-inspector-visual">
-            <div className="v20-card-hero-art" style={cardStyle(card)}>
-              <CardIllustration card={card} hero />
-              <div className="v20-card-hero-overlay">
-                <span>{card.series || 'ECLIPSE ARCHIVE'}</span>
-                <b>{card.name}</b>
-              </div>
-            </div>
-            <div className="v20-card-lore">
-              <span>LORE</span>
-              <p>{card.flavor}</p>
-            </div>
-          </aside>
-
-          <main className="v20-card-inspector-info">
-            <div className="v20-card-stat-grid">
-              <div><small>COST</small><strong>{card.cost}</strong></div>
-              {isUnitCard(card) ? <>
-                <div><small>ATK</small><strong>{card.attack ?? 0}</strong></div>
-                <div><small>DEF</small><strong>{card.health ?? 0}</strong></div>
-              </> : <>
-                <div><small>TYPE</small><strong>{KIND_LABEL[card.kind]}</strong></div>
-                <div><small>TARGET</small><strong>{targetLabel}</strong></div>
-              </>}
-            </div>
-
-            <section className="v20-card-info-section v20-card-info-primary">
-              <span>카드 효과</span>
-              <p>{card.text}</p>
-            </section>
-
-            <div className="v20-card-rule-grid">
-              <section className="v20-card-info-section">
-                <span>사용 / 소환 방식</span>
-                <p>{summonLabel}</p>
-              </section>
-              <section className="v20-card-info-section">
-                <span>대상</span>
-                <p>{targetLabel}</p>
-              </section>
-            </div>
-
-            {summonCondition && (
-              <section className="v20-card-info-section v20-card-info-condition">
-                <span>소환 조건</span>
-                <p>{summonCondition}</p>
-              </section>
-            )}
-
-            {card.keywords && card.keywords.length > 0 && (
-              <section className="v20-card-info-section">
-                <span>키워드</span>
-                <div className="v20-keyword-grid">
-                  {card.keywords.map((keyword) => {
-                    const [title, description] = KEYWORD_DESCRIPTION[keyword].split(' · ');
-                    return <div key={keyword}><b>{title}</b><p>{description || '고유 키워드 효과'}</p></div>;
-                  })}
-                </div>
-              </section>
-            )}
-
-            {effectRows.length > 0 && (
-              <section className="v20-card-info-section">
-                <span>세부 처리</span>
-                <div className="v20-effect-list">
-                  {effectRows.map((row) => <div key={row.label}><small>{row.label}</small><b>{row.value}</b></div>)}
-                </div>
-              </section>
-            )}
-          </main>
+          <div className="card-detail-flavor"><span>LORE</span><p>{card.flavor}</p></div>
         </div>
 
-        <footer className="v20-card-inspector-footer">
-          <span>카드 ID · {card.id}</span>
-          <button className="primary-button" type="button" onClick={onClose}>확인</button>
-        </footer>
+        <div className="card-detail-content">
+          <header>
+            <div><span>{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}{card.series ? ` · ${card.series}` : ''}</span><h2 id="card-detail-title">{card.name}</h2><p>{card.subtitle}</p></div>
+            <strong className="detail-cost"><small>COST</small>{card.cost}</strong>
+          </header>
+
+          {isUnitCard(card) ? (
+            <div className="detail-stat-row">
+              <span><small>공격력</small><b>{card.attack ?? 0}</b></span>
+              <span><small>방어력</small><b>{card.health ?? 0}</b></span>
+              <span><small>소환 방식</small><b>{summonLabel}</b></span>
+            </div>
+          ) : (
+            <div className="detail-stat-row detail-stat-row-spell">
+              <span><small>카드 종류</small><b>{KIND_LABEL[card.kind]}</b></span>
+              <span><small>속성</small><b>{ELEMENT_LABEL[card.element]}</b></span>
+              <span><small>대상</small><b>{card.target === 'enemy_unit' ? '적 유닛' : card.target === 'friendly_unit' ? '아군 유닛' : card.target === 'enemy_core' ? '상대 코어' : '자동 적용'}</b></span>
+            </div>
+          )}
+
+          <section className="detail-section primary-effect" id="card-detail-effect">
+            <span>카드 효과</span>
+            <p>{card.text}</p>
+          </section>
+
+          {summonCondition && (
+            <section className="detail-section summon-condition">
+              <span>소환 조건</span>
+              <p>{summonCondition}</p>
+            </section>
+          )}
+
+          {card.keywords && card.keywords.length > 0 && (
+            <section className="detail-section">
+              <span>특수 효과</span>
+              <div className="keyword-list">{card.keywords.map((keyword) => <p key={keyword}><b>{KEYWORD_DESCRIPTION[keyword].split(' · ')[0]}</b>{KEYWORD_DESCRIPTION[keyword].split(' · ')[1]}</p>)}</div>
+            </section>
+          )}
+
+          {effectRows.length > 0 && (
+            <section className="detail-effect-grid">
+              {effectRows.map((row) => <div key={row.label}><small>{row.label}</small><b>{row.value}</b></div>)}
+            </section>
+          )}
+
+          <button className="primary-button detail-close-button" type="button" onClick={onClose}>닫기</button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function GameGuideModal({ onClose }: { onClose: () => void }) {
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    closeButtonRef.current?.focus();
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', close);
+    return () => {
+      window.removeEventListener('keydown', close);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [onClose]);
+
+  return (
+    <div className="modal-layer v20-guide-layer" role="presentation" onMouseDown={(event: React.MouseEvent) => { if (event.currentTarget === event.target) onClose(); }}>
+      <section className="v20-guide-modal" role="dialog" aria-modal="true" aria-labelledby="v20-guide-title">
+        <header><div><span>FIELD MANUAL</span><h2 id="v20-guide-title">ECLIPSE DUEL 룰 가이드</h2><p>첫 결투 전에 핵심 규칙만 빠르게 확인할 수 있습니다.</p></div><button ref={closeButtonRef} className="modal-close" type="button" onClick={onClose} aria-label="룰 가이드 닫기">×</button></header>
+        <div className="v20-guide-grid">
+          <article><b>01 · 승리 조건</b><p>상대 코어 25를 0으로 만들면 승리합니다. 덱을 더 이상 뽑을 수 없는 상황도 패배로 처리됩니다.</p></article>
+          <article><b>02 · 턴 흐름</b><p>메인 단계에서 소환·주문·함정을 준비하고, 배틀 단계에서 공격합니다. 각 턴은 60초 안에 결정해야 합니다.</p></article>
+          <article><b>03 · 에너지</b><p>내 턴이 돌아올 때 최대 에너지가 성장하며 10에서 멈춥니다. 카드는 표시된 비용만큼 에너지를 사용합니다.</p></article>
+          <article><b>04 · 특수 소환</b><p>균열은 조건과 에너지를, 공명 융합은 지정 소재를, 계승 진화는 조건을 만족한 필드 유닛을 요구합니다.</p></article>
+          <article><b>05 · 전투 키워드</b><p><strong>수호</strong>는 공격 우선 대상, <strong>속공</strong>은 소환 턴 공격, <strong>흡수</strong>는 실제 전투 피해 회복, <strong>관통</strong>은 초과 피해를 코어에 전달합니다.</p></article>
+          <article><b>06 · 조작 팁</b><p>카드의 <strong>i</strong> 버튼으로 언제든 상세 정보를 볼 수 있습니다. 선택 중 <strong>Esc</strong>를 누르면 카드·공격 대상을 취소합니다.</p></article>
+        </div>
+        <div className="v20-guide-footer"><span>정보가 곧 실력입니다. 카드 효과와 발동 조건은 상세 보기에서 확인하세요.</span><button className="primary-button" type="button" onClick={onClose}>확인하고 돌아가기</button></div>
       </section>
     </div>
   );
@@ -977,7 +966,7 @@ function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate:
         </article>
 
         <article className="v19-season-card">
-          <div className="v19-season-copy"><small>SEASON PASS</small><h3>ECLIPSE: ASCENSION</h3><p>다음 레벨까지 {1000 - xpInLevel} XP</p></div>
+          <div className="v19-season-copy"><small>SEASON PROGRESS</small><h3>ECLIPSE: ASCENSION</h3><p>다음 레벨까지 {1000 - xpInLevel} XP</p></div>
           <div className="v19-level-emblem"><span>{level}</span><small>LV</small></div>
           <div className="v19-season-bar"><i><em style={{ width: `${Math.min(100, xpInLevel / 10)}%` }} /></i><span>{xpInLevel} / 1000 XP</span></div>
         </article>
@@ -1209,6 +1198,17 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   const unitCount = deckCards.filter((id) => CARD_BY_ID[id]?.kind === 'unit').length;
   const spellCount = deckCards.filter((id) => CARD_BY_ID[id]?.kind === 'spell').length;
   const trapCount = deckCards.filter((id) => CARD_BY_ID[id]?.kind === 'trap').length;
+  const averageCost = deckCards.length > 0 ? deckCards.reduce((sum, id) => sum + (CARD_BY_ID[id]?.cost ?? 0), 0) / deckCards.length : 0;
+  const costCurve = useMemo(() => {
+    const bins = [0, 0, 0, 0, 0, 0, 0];
+    for (const id of deckCards) {
+      const cost = CARD_BY_ID[id]?.cost ?? 0;
+      const index = cost <= 1 ? 0 : cost >= 7 ? 6 : cost - 1;
+      bins[index] += 1;
+    }
+    return bins;
+  }, [deckCards]);
+  const curveMax = Math.max(1, ...costCurve);
 
   return (
     <div className="v9-deck-page">
@@ -1283,6 +1283,10 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
 
         <aside className="v9-current-deck panel">
           <header className="v9-current-head"><div><span className="eyebrow">CURRENT DECK</span><h3>{deckName || '새 덱'}</h3></div><div><b>{deckCards.length}</b><small>/ {DECK_SIZE}</small></div></header>
+          <section className="v20-deck-analytics" aria-label="덱 비용 분석">
+            <div className="v20-deck-metrics"><span><small>평균 비용</small><b>{averageCost.toFixed(1)}</b></span><span><small>유닛</small><b>{unitCount}</b></span><span><small>주문 / 함정</small><b>{spellCount} / {trapCount}</b></span></div>
+            <div className="v20-cost-curve">{costCurve.map((count, index) => <span key={index}><i style={{ height: `${Math.max(8, (count / curveMax) * 100)}%` }} /><b>{count}</b><small>{['0-1','2','3','4','5','6','7+'][index]}</small></span>)}</div>
+          </section>
           <div className="v9-deck-list-scroll">
             {Object.entries(mainCounts).sort(([a], [b]) => (CARD_BY_ID[a]?.cost ?? 0) - (CARD_BY_ID[b]?.cost ?? 0)).map(([cardId, quantity]) => {
               const card = CARD_BY_ID[cardId];
@@ -1414,6 +1418,10 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
               <span className="eyebrow">5 CARDS · {RARITY_LABEL[pack.guaranteed]} 이상 보장</span>
               <h3>{pack.name}</h3>
               <p>{pack.tagline}</p>
+              <div className="v20-pack-odds">
+                <span><small>기본 슬롯</small><b>전설 {pack.odds.legendary}%</b><em>영웅 {pack.odds.epic}% · 희귀 {pack.odds.rare}% · 일반 {pack.odds.common}%</em></span>
+                <p>{pack.odds.guaranteedSlots}칸 {RARITY_LABEL[pack.guaranteed]} 이상 보장{pack.odds.pickupRate ? ` · ${ELEMENT_LABEL[pack.pickupElement ?? 'neutral']} 픽업 ${pack.odds.pickupRate}%` : ''}{pack.odds.ascensionRate ? ` · 승격군 ${pack.odds.ascensionRate}%` : ''}</p>
+              </div>
               <div className="pack-price"><b>{pack.price}</b> COIN</div>
               <button className="primary-button" disabled={busyPack === pack.id || hub.wallet.coins < pack.price} onClick={() => buy(pack.id)}>
                 {busyPack === pack.id ? '팩을 준비하는 중...' : hub.wallet.coins < pack.price ? '코인 부족' : '팩 구매 및 개봉'}
@@ -1945,6 +1953,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   const [turnClock, setTurnClock] = useState(() => Date.now());
   const timeoutSyncTurn = useRef<number>(-1);
   const seenVfx = useRef<Set<string>>(new Set());
+  const actionLock = useRef(false);
 
   const visualEvents = nullableState?.visualEvents ?? [];
   const visualEventSignature = visualEvents.map((event) => event.id).join('|');
@@ -2048,23 +2057,6 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
     playUiSound(sound);
   }, [activeVfx?.id]);
 
-  const duelArtworkSignature = useMemo(() => {
-    const ids: string[] = [];
-    for (const instance of nullablePrivateState?.hand ?? []) ids.push(instance.cardId);
-    for (const instance of nullablePrivateState?.extra ?? []) ids.push(instance.cardId);
-    if (nullableState) {
-      for (const board of Object.values(nullableState.boards)) {
-        for (const unit of board.units) if (unit?.cardId) ids.push(unit.cardId);
-      }
-    }
-    return Array.from(new Set(ids)).sort().join('|');
-  }, [nullablePrivateState, nullableState]);
-
-  useEffect(() => {
-    if (!duelArtworkSignature) return;
-    preloadCardArtwork(duelArtworkSignature.split('|'));
-  }, [duelArtworkSignature]);
-
   if (!nullableState || !nullablePrivateState || nullableState.playerOrder.length !== 2) return <LoadingScreen text="결투 상태를 동기화하는 중" />;
   const state = nullableState;
   const privateState = nullablePrivateState;
@@ -2126,7 +2118,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
   }
 
   async function gameAction(gameAction: string, extra: Record<string, unknown> = {}) {
-    if (busy) return;
+    if (actionLock.current || busy) return;
+    actionLock.current = true;
     setBusy(true);
     setMessage('');
     try {
@@ -2134,19 +2127,9 @@ function DuelBoard({ payload, userId, onRefresh, onLeave }: { payload: RoomPaylo
       if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
       clearSelection();
     } catch (error) {
-      const text = error instanceof Error ? error.message : '행동 처리 실패';
-      if (/상대 행동과 겹쳤습니다|version|동기화/i.test(text)) {
-        try {
-          const fresh = await api('get_room', { roomId: room.id });
-          if (fresh.room && fresh.profiles) onRefresh({ room: fresh.room, profiles: fresh.profiles, privateState: fresh.privateState ?? null });
-          clearSelection('상대 행동을 먼저 반영했습니다. 현재 필드를 확인하고 다시 선택해 주세요.');
-        } catch {
-          setMessage(text);
-        }
-      } else {
-        setMessage(text);
-      }
+      setMessage(error instanceof Error ? error.message : '행동 처리 실패');
     } finally {
+      actionLock.current = false;
       setBusy(false);
     }
   }
@@ -2529,19 +2512,22 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus }: { u
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const roomActionLock = useRef(false);
 
   async function roomAction(action: string, payload: Record<string, unknown> = {}) {
     if (!serverStatus.secureDuelReady) {
       setMessage(serverStatus.message);
       return undefined;
     }
+    if (roomActionLock.current || busy) return undefined;
+    roomActionLock.current = true;
     setBusy(true); setMessage('');
     try {
       const result = await api(action, payload);
       if (result.room && result.profiles) onRoom({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
       return result;
     } catch (error) { setMessage(error instanceof Error ? error.message : '요청 실패'); }
-    finally { setBusy(false); }
+    finally { roomActionLock.current = false; setBusy(false); }
   }
 
   async function leaveRoom() {
@@ -2598,7 +2584,7 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus }: { u
         </section>
       )}
       <section className={`duel-mode-grid ${serverStatus.secureDuelReady ? '' : 'is-disabled'}`}>
-        <button className="mode-card ranked" disabled={busy || !activeDeck || !serverStatus.secureDuelReady} onClick={() => roomAction('quick_match')}><span>RANKED</span><h3>빠른 대전</h3><p>대기 중인 상대를 찾아 자동으로 연결합니다.</p><em>매칭 시작 →</em></button>
+        <button className="mode-card ranked" disabled={busy || !activeDeck || !serverStatus.secureDuelReady} onClick={() => roomAction('quick_match')}><span>QUICK MATCH</span><h3>빠른 대전</h3><p>대기 중인 상대를 찾아 자동으로 연결합니다.</p><em>매칭 시작 →</em></button>
         <button className="mode-card private" disabled={busy || !activeDeck || !serverStatus.secureDuelReady} onClick={() => roomAction('create_room')}><span>PRIVATE</span><h3>비공개 방</h3><p>방 코드를 공유해 친구와 결투합니다.</p><em>방 만들기 →</em></button>
         <article className="mode-card join"><span>JOIN ROOM</span><h3>코드로 참가</h3><p>친구에게 받은 6자리 코드를 입력하세요.</p><div className="inline-form"><input value={code} onChange={(event: ChangeEvent<HTMLInputElement>) => setCode(event.target.value.toUpperCase())} maxLength={6} placeholder="ABC123" /><button disabled={busy || code.length < 6 || !serverStatus.secureDuelReady} onClick={() => roomAction('join_room', { code })}>입장</button></div></article>
       </section>
@@ -2625,13 +2611,7 @@ export default function Page() {
   const [bootstrapVersion, setBootstrapVersion] = useState(0);
   const [inspectedCardId, setInspectedCardId] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const applyRoomPayload = useCallback((next: RoomPayload | null) => {
-    setRoomPayload((current) => {
-      if (!next) return null;
-      if (!current || current.room.id !== next.room.id) return next;
-      return next.room.version >= current.room.version ? next : current;
-    });
-  }, []);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(SOUND_STORAGE_KEY);
@@ -2730,6 +2710,10 @@ export default function Page() {
         if (!alive) return;
         if (result.hub) setHub(result.hub);
         if (result.serverStatus) setServerStatus(result.serverStatus);
+        if (result.room && result.profiles) {
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
+          setView('duel');
+        }
         setError('');
       })
       .catch((reason) => {
@@ -2747,7 +2731,7 @@ export default function Page() {
       refreshing = true;
       try {
         const result = await api('get_room', { roomId });
-        if (result.room && result.profiles) applyRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
+        if (result.room && result.profiles) setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
       } catch (reason) { setError(reason instanceof Error ? reason.message : '방 동기화 실패'); }
       finally { refreshing = false; }
     }
@@ -2755,7 +2739,7 @@ export default function Page() {
     const pollMs = roomPayload?.room.status === 'active' ? 2500 : 8000;
     const timer = window.setInterval(refresh, pollMs);
     return () => { window.clearInterval(timer); supabase.removeChannel(channel); };
-  }, [roomPayload?.room.id, roomPayload?.room.status, session?.user.id, applyRoomPayload]);
+  }, [roomPayload?.room.id, roomPayload?.room.status, session?.user.id]);
 
   if (!authReady) return <LoadingScreen />;
   if (!session) return <AuthScreen onSession={setSession} />;
@@ -2764,7 +2748,7 @@ export default function Page() {
 
   const content = (() => {
     switch (view) {
-      case 'duel': return <DuelView userId={session.user.id} hub={hub} roomPayload={roomPayload} onRoom={applyRoomPayload} onHub={setHub} serverStatus={serverStatus} />;
+      case 'duel': return <DuelView userId={session.user.id} hub={hub} roomPayload={roomPayload} onRoom={setRoomPayload} onHub={setHub} serverStatus={serverStatus} />;
       case 'deck': return <DeckBuilder hub={hub} onHub={setHub} />;
       case 'shop': return <ShopView hub={hub} onHub={setHub} />;
       case 'collection': return <CollectionView hub={hub} />;
@@ -2777,7 +2761,7 @@ export default function Page() {
   const roomChat = roomPayload && roomPayload.room.status !== 'cancelled' ? roomPayload.room.id : undefined;
 
   return (
-    <main className={`game-app v19-client v20-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`}>
+    <main className={`game-app v19-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`}>
       <div className="app-backdrop" aria-hidden="true"><span className="backdrop-grid" /><span className="backdrop-orbit" /><span className="backdrop-glow" /></div>
       <aside className="sidebar">
         <button className="game-logo" onClick={() => { playUiSound('click'); setView('home'); }}><span className="logo-glyph"><i>E</i></span><div><b>ECLIPSE</b><small>DUEL</small></div></button>
@@ -2789,7 +2773,7 @@ export default function Page() {
         <div className="mobile-logo"><span className="logo-glyph"><i>E</i></span><b>ECLIPSE DUEL</b></div>
         <div className="topbar-title"><small>{NAV_ITEMS.find((item) => item.id === view)?.label ?? (view === 'profile' ? '프로필' : 'ECLIPSE')}</small><b>ECLIPSE NETWORK</b></div>
         <button className={`v13-server-chip ${serverStatus.secureDuelReady ? 'ready' : 'warning'}`} onClick={() => setView('duel')} title={serverStatus.message}><span />{serverStatus.secureDuelReady ? '온라인' : '대전 설정'}</button>
-        <div className="topbar-actions v9-topbar-actions"><span className="currency-pill"><GameIcon name="coin" /><small>COIN</small><b>{hub.wallet.coins.toLocaleString()}</b></span><button className={`v9-icon-button v10-sound-button ${soundEnabled ? 'active' : ''}`} onClick={toggleSound} title={soundEnabled ? '사운드 끄기' : '사운드 켜기'} aria-label={soundEnabled ? '사운드 끄기' : '사운드 켜기'}><GameIcon name="sound" /><span>{soundEnabled ? 'ON' : 'OFF'}</span></button><button className={`chat-toggle ${chatOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setChatOpen((value) => !value); }}><GameIcon name="chat" /><span>{roomChat ? '방 채팅' : '채팅'}</span></button><button className="profile-chip" onClick={() => { playUiSound('click'); setView('profile'); }}><Avatar id={hub.profile.avatar} size="small" /><span>{hub.profile.display_name}</span></button></div>
+        <div className="topbar-actions v9-topbar-actions"><button className="v9-icon-button v20-help-button" onClick={() => { playUiSound('click'); setGuideOpen(true); }} title="게임 룰 가이드" aria-label="게임 룰 가이드"><b>?</b><span>GUIDE</span></button><span className="currency-pill"><GameIcon name="coin" /><small>COIN</small><b>{hub.wallet.coins.toLocaleString()}</b></span><button className={`v9-icon-button v10-sound-button ${soundEnabled ? 'active' : ''}`} onClick={toggleSound} title={soundEnabled ? '사운드 끄기' : '사운드 켜기'} aria-label={soundEnabled ? '사운드 끄기' : '사운드 켜기'}><GameIcon name="sound" /><span>{soundEnabled ? 'ON' : 'OFF'}</span></button><button className={`chat-toggle ${chatOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setChatOpen((value) => !value); }}><GameIcon name="chat" /><span>{roomChat ? '방 채팅' : '채팅'}</span></button><button className="profile-chip" onClick={() => { playUiSound('click'); setView('profile'); }}><Avatar id={hub.profile.avatar} size="small" /><span>{hub.profile.display_name}</span></button></div>
       </header>
 
       <section className="content-area">{error && <div className="global-error"><span>{error}</span><button onClick={() => setError('')}>×</button></div>}{content}</section>
@@ -2798,6 +2782,7 @@ export default function Page() {
       <ChatDrawer open={chatOpen} roomId={roomChat} onClose={() => setChatOpen(false)} profile={hub.profile} />
       {chatOpen && <button className="chat-backdrop" aria-label="채팅 닫기" onClick={() => setChatOpen(false)} />}
       {inspectedCardId && CARD_BY_ID[inspectedCardId] && <CardDetailModal card={CARD_BY_ID[inspectedCardId]} onClose={() => setInspectedCardId(null)} />}
+      {guideOpen && <GameGuideModal onClose={() => setGuideOpen(false)} />}
     </main>
   );
 }
