@@ -545,6 +545,38 @@ async function commitSnapshot(admin: AdminDbClient, room: RoomRow, snapshot: Gam
   if (!data) throw new Error('상대 행동과 겹쳤습니다. 화면을 새로고침한 뒤 다시 시도하세요.');
 }
 
+// READY 버튼은 양쪽 브라우저에서 거의 동시에 눌릴 수 있습니다.
+// 각 UPDATE의 RETURNING 결과만 보고 시작 여부를 판단하면, 두 요청 모두
+// 상대 READY를 보기 전에 끝나 최종 DB는 READY/READY인데 게임이 시작되지 않는
+// 경합이 생길 수 있습니다. 항상 UPDATE 이후 최신 행을 다시 읽고 시작을 시도합니다.
+async function startWaitingRoomIfReady(admin: AdminDbClient, roomId: string): Promise<RoomRow> {
+  let latest = await fetchRoom(admin, roomId);
+  if (latest.status !== 'waiting' || !latest.guest_id || !latest.ready_host || !latest.ready_guest) return latest;
+
+  const [hostDeck, guestDeck] = await Promise.all([
+    activeDeck(admin, latest.host_id),
+    activeDeck(admin, latest.guest_id),
+  ]);
+  const snapshot = initializeMatch(
+    latest.host_id,
+    hostDeck.cards,
+    hostDeck.extraCards,
+    latest.guest_id,
+    guestDeck.cards,
+    guestDeck.extraCards,
+  );
+
+  try {
+    await commitSnapshot(admin, latest, snapshot);
+  } catch (error) {
+    // 양쪽 READY 요청/동기화가 동시에 시작을 시도해도 버전 잠금으로 한쪽만
+    // 성공합니다. 이 충돌은 정상적인 동시성 상황이므로 최신 방을 다시 읽습니다.
+    if (!(error instanceof Error) || !/상대 행동과 겹쳤습니다/.test(error.message)) throw error;
+  }
+  latest = await fetchRoom(admin, roomId);
+  return latest;
+}
+
 async function rewardFinishedMatch(admin: AdminDbClient, roomId: string, state: MatchState): Promise<void> {
   if (state.status !== 'finished' || !state.winnerId || state.playerOrder.length !== 2) return;
   for (const playerId of state.playerOrder) {
@@ -875,6 +907,13 @@ async function handleAction(request: Request, body: RequestBody) {
     const roomId = cleanText(body.roomId, 64);
     let room = await fetchRoom(admin, roomId);
     assertParticipant(room, user.id);
+
+    // 예전 요청 경합으로 READY/READY 상태에서 멈춘 빠른대전도 다음 동기화에서
+    // 자동으로 시작되도록 복구합니다.
+    if (room.status === 'waiting' && room.guest_id && room.ready_host && room.ready_guest) {
+      room = await startWaitingRoomIfReady(admin, room.id);
+    }
+
     const normalized = await normalizeTurnTimeout(admin, room);
     room = normalized.room;
     return await getRoomPayload(admin, room, user.id);
@@ -888,27 +927,19 @@ async function handleAction(request: Request, body: RequestBody) {
     if (!room.guest_id) throw new Error('상대 플레이어를 기다리고 있습니다.');
     if (room.status !== 'waiting') return await getRoomPayload(admin, room, user.id);
     const field = room.host_id === user.id ? 'ready_host' : 'ready_guest';
-    const { data, error } = await admin.from('eclipse_rooms').update({ [field]: true }).eq('id', room.id).select('*').single();
+    const { data, error } = await admin
+      .from('eclipse_rooms')
+      .update({ [field]: true })
+      .eq('id', room.id)
+      .eq('status', 'waiting')
+      .select('*')
+      .single();
     if (error || !data) throw new Error(error?.message ?? '준비 상태 저장 실패');
-    room = data as RoomRow;
 
-    if (room.ready_host && room.ready_guest && room.guest_id) {
-      const [hostDeck, guestDeck] = await Promise.all([activeDeck(admin, room.host_id), activeDeck(admin, room.guest_id)]);
-      const snapshot = initializeMatch(
-        room.host_id,
-        hostDeck.cards,
-        hostDeck.extraCards,
-        room.guest_id,
-        guestDeck.cards,
-        guestDeck.extraCards,
-      );
-      try {
-        await commitSnapshot(admin, room, snapshot);
-      } catch (error) {
-        if (!(error instanceof Error) || !/상대 행동과 겹쳤습니다/.test(error.message)) throw error;
-      }
-      room = await fetchRoom(admin, room.id);
-    }
+    // UPDATE RETURNING 행만 믿지 않고 최신 READY 상태를 다시 조회합니다.
+    // 두 플레이어가 동시에 준비해도 마지막 READY 이후 반드시 한 요청은
+    // READY/READY를 확인하고 매치를 시작합니다.
+    room = await startWaitingRoomIfReady(admin, room.id);
     return await getRoomPayload(admin, room, user.id);
   }
 
