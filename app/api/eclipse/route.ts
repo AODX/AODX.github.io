@@ -14,6 +14,7 @@ import {
   initializeMatch,
   playCard,
   resolveTurnTimeout,
+  respondTrap,
   summonExtra,
   surrender,
 } from '../../game-engine';
@@ -560,11 +561,8 @@ async function rewardFinishedMatch(admin: AdminDbClient, roomId: string, state: 
 
 
 function timeoutStateChanged(before: GameSnapshot, after: GameSnapshot): boolean {
-  return before.state.turnNumber !== after.state.turnNumber
-    || before.state.currentPlayerId !== after.state.currentPlayerId
-    || before.state.turnEndsAt !== after.state.turnEndsAt
-    || before.state.status !== after.state.status
-    || JSON.stringify(before.state.energy) !== JSON.stringify(after.state.energy);
+  return JSON.stringify(before.state) !== JSON.stringify(after.state)
+    || JSON.stringify(before.privateStates) !== JSON.stringify(after.privateStates);
 }
 
 async function normalizeTurnTimeout(admin: AdminDbClient, room: RoomRow): Promise<{ room: RoomRow; snapshot: GameSnapshot | null; advanced: boolean }> {
@@ -953,6 +951,8 @@ async function handleAction(request: Request, body: RequestBody) {
         ? ({ kind: 'core' } as const)
         : ({ kind: 'unit', unitIndex: Number(rawTarget.unitIndex) } as const);
       next = attack(snapshot, user.id, attackerIndex, target);
+    } else if (gameAction === 'trap_response') {
+      next = respondTrap(snapshot, user.id, body.activate === true);
     } else if (gameAction === 'draw_turn') {
       next = drawAndEndTurn(snapshot, user.id);
     } else if (gameAction === 'end_turn') {
