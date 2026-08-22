@@ -93,8 +93,8 @@
   transform:none;
 }
 .v23-client .tcg-card.compact {
-  grid-template-rows:32px minmax(105px,1fr) 26px!important;
-  min-height:228px!important;
+  grid-template-rows:40px minmax(97px,1fr) 26px!important;
+  min-height:236px!important;
 }
 .v23-client .tcg-card:not(:disabled):hover {
   transform:translateY(-5px)!important;
@@ -103,17 +103,19 @@
   box-shadow:0 22px 50px rgba(0,0,0,.42),0 0 28px color-mix(in srgb,var(--card-accent,#72d8ff) 13%,transparent)!important;
 }
 .v23-client .tcg-card .card-topline {
-  height:36px!important;
-  min-height:36px!important;
-  padding:7px 37px 6px 43px!important;
-  display:flex!important;
-  align-items:center!important;
-  gap:8px!important;
+  height:40px!important;
+  min-height:40px!important;
+  padding:5px 72px 5px 43px!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  align-content:center!important;
+  justify-items:start!important;
+  gap:1px!important;
   background:linear-gradient(180deg,#111a25,#0a1018)!important;
   border-bottom:1px solid rgba(255,255,255,.06)!important;
 }
-.v23-client .tcg-card .card-topline b { font-size:11px!important;line-height:1.15!important; }
-.v23-client .tcg-card .card-topline small { font-size:7px!important; }
+.v23-client .tcg-card .card-topline b { width:100%!important;font-size:11px!important;line-height:1.12!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important; }
+.v23-client .tcg-card .card-topline small { width:100%!important;font-size:7px!important;line-height:1.05!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important; }
 .v23-client .tcg-card .card-art {
   position:relative!important;
   min-height:124px!important;
@@ -207,6 +209,24 @@
   z-index:9!important;font-size:10px!important;font-weight:900!important;
 }
 .v23-client .tcg-card .card-cost { top:7px!important;left:7px!important;z-index:9!important; }
+.v23-client .tcg-card .summon-badge {
+  top:8px!important;
+  right:36px!important;
+  left:auto!important;
+  bottom:auto!important;
+  z-index:10!important;
+  height:18px!important;
+  min-width:34px!important;
+  max-width:42px!important;
+  padding:0 6px!important;
+  display:grid!important;
+  place-items:center!important;
+  border-radius:6px!important;
+  font-size:7px!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+  writing-mode:horizontal-tb!important;
+}
 
 /* ---------- card inspector: fixed-height = no collapsed art column ---------- */
 .v23-client .card-detail-layer {
