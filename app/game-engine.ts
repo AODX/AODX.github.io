@@ -122,6 +122,8 @@ export interface MatchState {
   pendingTrap?: PendingTrapWindow | null;
   /** Turn number when each player last converted one hand card into +1 temporary energy. */
   energySacrificeTurn?: Record<string, number>;
+  /** Turn number when each player last retired one of their own field units for +1 temporary energy. */
+  fieldSacrificeTurn?: Record<string, number>;
   /** Per-match hard cap: max 2 fusion summons and max 2 evolution summons per player. */
   extraSummonUsage?: Record<string, { fusion: number; evolution: number }>;
   /** Turn number when each extra summon type was last used, enforcing max once per turn per type. */
@@ -304,6 +306,7 @@ export function initializeMatch(
     turnEndsAt: tossEndsAt + TURN_DURATION_MS,
     turnActionTaken: false,
     energySacrificeTurn: {},
+    fieldSacrificeTurn: {},
     extraSummonUsage: { [playerA]: { fusion: 0, evolution: 0 }, [playerB]: { fusion: 0, evolution: 0 } },
     extraSummonTurn: { [playerA]: {}, [playerB]: {} },
     playerOrder: [first, second],
@@ -1184,8 +1187,21 @@ export function playCard(
   return { state, privateStates };
 }
 
-function fusionMaterialMinimumCost(card: CardDefinition): number {
-  return card.rarity === 'legendary' ? 4 : 3;
+function fusionMaterialMinimumCost(card: CardDefinition, requirement?: FusionMaterial): number {
+  // Exact named recipes are already restrictive enough, so keep the v31 floor there.
+  // Broad element-only recipes were still too easy to assemble; those now need stronger bodies.
+  const exactRecipe = Boolean(requirement?.cardIds?.length);
+  const floor = exactRecipe
+    ? (card.rarity === 'legendary' ? 4 : 3)
+    : (card.rarity === 'legendary' ? 5 : 4);
+  return Math.max(requirement?.minCost ?? 0, floor);
+}
+
+function fusionRequirementSummary(card: CardDefinition): string {
+  const materials = card.fusionRecipe?.materials ?? [];
+  const hasBroadMaterial = materials.some((requirement) => !requirement.cardIds?.length);
+  if (!hasBroadMaterial) return '지정된 카드 소재 조합이 정확히 필요합니다.';
+  return `범용 소재는 각 비용 ${card.rarity === 'legendary' ? 5 : 4} 이상이어야 합니다.`;
 }
 
 function materialMatches(unit: UnitState, requirement: FusionMaterial, fusionCard: CardDefinition): boolean {
@@ -1193,7 +1209,7 @@ function materialMatches(unit: UnitState, requirement: FusionMaterial, fusionCar
   if (!card) return false;
   if (requirement.cardIds?.length && !requirement.cardIds.includes(card.id)) return false;
   if (requirement.element && card.element !== requirement.element) return false;
-  const requiredMinCost = Math.max(requirement.minCost ?? 0, fusionMaterialMinimumCost(fusionCard));
+  const requiredMinCost = fusionMaterialMinimumCost(fusionCard, requirement);
   if (card.cost < requiredMinCost) return false;
   return true;
 }
@@ -1209,16 +1225,25 @@ function canAssignFusionMaterials(units: UnitState[], requirements: FusionMateri
   return false;
 }
 
+function evolutionRequiredTurnGap(sourceCard: CardDefinition, evolutionCard: CardDefinition): number {
+  // Low-cost named predecessors made some excellent Extra Deck evolutions nearly free.
+  // Those must now stay on the field through two of their owner's turns (4 global turns).
+  // Mid/high-cost predecessors keep the previous one-round survival requirement.
+  if (evolutionCard.evolutionRecipe?.fromIds?.length && sourceCard.cost <= 2) return 4;
+  if (evolutionCard.rarity === 'legendary' && evolutionCard.evolutionRecipe?.fromIds?.length && sourceCard.cost <= 3) return 4;
+  return 2;
+}
+
 function evolutionMatches(unit: UnitState, card: CardDefinition, turnNumber: number): boolean {
   const recipe = card.evolutionRecipe;
   const source = CARD_BY_ID[unit.cardId];
   if (!recipe || !source) return false;
-  // Evolution is intentionally slower now: the source must survive at least one turn.
-  if (unit.summonedTurn >= turnNumber) return false;
-  // If a named predecessor exists, only that exact predecessor can evolve. This closes
-  // the old broad "same element + low cost" shortcut that made some evolutions trivial.
+  const requiredGap = evolutionRequiredTurnGap(source, card);
+  if (turnNumber - unit.summonedTurn < requiredGap) return false;
+  // If a named predecessor exists, only that exact predecessor can evolve.
   if (recipe.fromIds?.length) return recipe.fromIds.includes(source.id);
-  const hardenedMinCost = Math.max(recipe.minCost ?? 0, 3);
+  // Broad element/cost evolutions receive a stronger rarity-based floor.
+  const hardenedMinCost = Math.max(recipe.minCost ?? 0, card.rarity === 'legendary' ? 5 : 4);
   return (!recipe.element || source.element === recipe.element)
     && source.cost >= hardenedMinCost
     && (recipe.maxCost === undefined || source.cost <= recipe.maxCost);
@@ -1256,7 +1281,7 @@ export function summonExtra(
     if (uniqueZones.length !== requirements.length || units.length !== requirements.length) {
       throw new Error(`융합 소재 ${requirements.length}장을 선택하세요.`);
     }
-    if (!canAssignFusionMaterials(units, requirements, card)) throw new Error(`융합 조건이 맞지 않습니다: ${card.fusionRecipe?.label} · 각 소재 비용 ${fusionMaterialMinimumCost(card)} 이상 필요`);
+    if (!canAssignFusionMaterials(units, requirements, card)) throw new Error(`융합 조건이 맞지 않습니다: ${card.fusionRecipe?.label} · ${fusionRequirementSummary(card)}`);
     spendEnergy(state, playerId, card.cost);
     summonZone = uniqueZones[0];
     for (const zone of uniqueZones) {
@@ -1268,7 +1293,7 @@ export function summonExtra(
   } else {
     if (uniqueZones.length !== 1 || units.length !== 1) throw new Error('진화시킬 아군 유닛 1장을 선택하세요.');
     evolvedSource = units[0];
-    if (!evolutionMatches(evolvedSource, card, state.turnNumber)) throw new Error(`진화 조건이 맞지 않습니다: ${card.evolutionRecipe?.label} · 지정 원본이 이전 턴부터 생존해야 합니다.`);
+    if (!evolutionMatches(evolvedSource, card, state.turnNumber)) throw new Error(`진화 조건이 맞지 않습니다: ${card.evolutionRecipe?.label} · 저비용 원본은 2라운드, 그 외 원본은 최소 1라운드 생존해야 합니다.`);
     spendEnergy(state, playerId, card.cost);
     summonZone = uniqueZones[0];
     const sourceCard = CARD_BY_ID[evolvedSource.cardId];
@@ -1345,6 +1370,42 @@ export function sacrificeHandForEnergy(
   appendLog(state, `에너지 전환 — 손패의 「${card.name}」을(를) 묘지로 보내 이번 턴 에너지 +1.`, 'system');
   appendVisual(state, { kind: 'energy', vfx: 'hand-sacrifice-energy', cardId: card.id, ownerId: playerId, targetOwnerId: playerId, amount: 1, label: '손패 → 에너지' });
   return { state, privateStates, message: '손패 1장을 묘지로 보내 에너지 1을 얻었습니다.' };
+}
+
+export function sacrificeFieldUnitForEnergy(
+  snapshot: GameSnapshot,
+  playerId: string,
+  unitIndex: number,
+): ActionResult {
+  const state = clone(snapshot.state);
+  const privateStates = clone(snapshot.privateStates);
+  assertActiveTurn(state, playerId);
+  if (state.phase !== 'main') throw new Error('필드 캐릭터 정리는 메인 단계에서만 사용할 수 있습니다.');
+  if (state.fieldSacrificeTurn?.[playerId] === state.turnNumber) throw new Error('필드 캐릭터 정리는 한 턴에 1번만 사용할 수 있습니다.');
+  if (!Number.isInteger(unitIndex) || unitIndex < 0 || unitIndex > 4) throw new Error('정리할 내 캐릭터를 선택하세요.');
+
+  const unit = state.boards[playerId]?.units[unitIndex];
+  if (!unit) throw new Error('선택한 위치에 내 캐릭터가 없습니다.');
+  const card = CARD_BY_ID[unit.cardId];
+  const energy = state.energy[playerId];
+  if (!energy) throw new Error('에너지 상태를 찾을 수 없습니다.');
+
+  // Voluntary retirement is not treated as combat destruction, so destroy-trigger traps
+  // and tactical death bonuses cannot be farmed. Real cards go to the grave; tokens vanish.
+  state.boards[playerId].units[unitIndex] = null;
+  if (card) state.graveyards[playerId].push(card.id);
+  if (!state.fieldSacrificeTurn) state.fieldSacrificeTurn = {};
+  state.fieldSacrificeTurn[playerId] = state.turnNumber;
+  state.turnActionTaken = true;
+
+  const before = energy.current;
+  energy.current = Math.min(10, energy.current + 1);
+  const gained = energy.current - before;
+  const name = (card?.name ?? unit.cardId.replace('token:', '')) || '토큰';
+  appendLog(state, `필드 정리 — 「${name}」을(를) ${card ? '묘지로 보내고' : '소멸시키고'}${gained > 0 ? ' 에너지 +1.' : ' 빈 유닛 칸을 확보했습니다.'}`, 'system');
+  appendVisual(state, { kind: 'destroy', vfx: 'field-retire', cardId: card?.id, ownerId: playerId, targetOwnerId: playerId, targetZone: unitIndex, label: '필드 정리' });
+  if (gained > 0) appendVisual(state, { kind: 'energy', vfx: 'field-retire-energy', cardId: card?.id, ownerId: playerId, targetOwnerId: playerId, amount: gained, label: '필드 → ENERGY' });
+  return { state, privateStates, message: gained > 0 ? '필드 캐릭터 1장을 묘지로 보내 에너지 1을 얻었습니다.' : '필드 캐릭터를 정리해 빈 칸을 만들었습니다. (에너지는 이미 최대입니다.)' };
 }
 
 export function beginBattlePhase(snapshot: GameSnapshot, playerId: string): ActionResult {

@@ -2543,3 +2543,83 @@
 @media (max-height:900px) {
   .v23-client.in-duel .v18-event-feed { min-height:88px!important;max-height:none!important; }
 }
+
+/* === v31b reliable damage popups / field retirement === */
+.v23-client.in-duel .v31-damage-popup-layer {
+  position:fixed;
+  inset:0;
+  z-index:235;
+  pointer-events:none;
+  overflow:hidden;
+}
+.v23-client.in-duel .v31-damage-popup-group {
+  position:absolute;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:4px;
+  transform:translate(-50%,-50%);
+  animation:v31DamagePopupRise 1.35s ease-out both;
+  filter:drop-shadow(0 8px 16px rgba(0,0,0,.72));
+}
+.v23-client.in-duel .v31-damage-popup {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-width:max-content;
+  padding:3px 9px 5px;
+  border-radius:10px;
+  border:1px solid currentColor;
+  background:rgba(3,6,9,.82);
+  font-size:clamp(30px,4.2vw,58px);
+  line-height:.95;
+  font-weight:1000;
+  letter-spacing:-.055em;
+  -webkit-text-stroke:.4px rgba(0,0,0,.45);
+}
+.v23-client.in-duel .v31-damage-popup small {
+  font-size:clamp(8px,.72vw,12px);
+  line-height:1;
+  letter-spacing:.12em;
+  font-weight:1000;
+  opacity:.9;
+}
+.v23-client.in-duel .v31-damage-popup.health {
+  color:#ff4458;
+  border-color:rgba(255,68,88,.6);
+  text-shadow:0 0 12px rgba(255,30,55,.78),0 0 28px rgba(255,35,58,.38);
+}
+.v23-client.in-duel .v31-damage-popup.shield {
+  color:#c7ced6;
+  border-color:rgba(205,216,226,.5);
+  text-shadow:0 0 10px rgba(211,222,232,.5),0 0 24px rgba(170,190,210,.25);
+}
+.v23-client.in-duel .v31-damage-popup-group.core .v31-damage-popup {
+  font-size:clamp(34px,4.8vw,66px);
+}
+@keyframes v31DamagePopupRise {
+  0% { opacity:0; transform:translate(-50%,-20%) scale(.55); }
+  14% { opacity:1; transform:translate(-50%,-52%) scale(1.16); }
+  68% { opacity:1; transform:translate(-50%,-72%) scale(1); }
+  100% { opacity:0; transform:translate(-50%,-125%) scale(.94); }
+}
+
+/* Keep the older cinematic number visible as a second fallback instead of letting its
+   delayed animation get cut off when the short defense cinematic ends. */
+.v23-client.in-duel .v31-damage-stack .v18-floating-number {
+  animation:v18Number 1.05s .02s ease-out both!important;
+}
+
+.v23-client.in-duel .v31-field-retire-action {
+  background:linear-gradient(135deg,#123125,#17352e)!important;
+  border-color:rgba(87,221,170,.28)!important;
+  color:#c8ffe7!important;
+  box-shadow:inset 0 0 22px rgba(71,203,150,.05);
+}
+.v23-client.in-duel .v31-field-retire-action:not(:disabled):hover {
+  border-color:rgba(105,239,186,.52)!important;
+  box-shadow:inset 0 0 30px rgba(71,203,150,.09),0 0 18px rgba(71,203,150,.08);
+}
+.v23-client.in-duel .v31-field-retire-action:disabled {
+  opacity:.46;
+}

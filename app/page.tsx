@@ -2312,6 +2312,30 @@ function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualE
   );
 }
 
+function DuelDamagePopupLayer({ events, userId }: { events: VisualEvent[]; userId: string }) {
+  if (events.length === 0) return null;
+  return (
+    <div className="v31-damage-popup-layer" aria-live="assertive" aria-atomic="false">
+      {events.map((event) => {
+        const { target } = duelEventPoints(event, userId);
+        const style = { left: `${target.x}%`, top: `${target.y}%` } as CSSProperties;
+        if (event.kind === 'defense' && ((event.shieldAmount ?? 0) > 0 || (event.healthAmount ?? 0) > 0)) {
+          return (
+            <span className="v31-damage-popup-group" style={style} key={event.id}>
+              {(event.shieldAmount ?? 0) > 0 && <strong className="v31-damage-popup shield"><small>SHIELD</small>−{event.shieldAmount}</strong>}
+              {(event.healthAmount ?? 0) > 0 && <strong className="v31-damage-popup health"><small>DAMAGE</small>−{event.healthAmount}</strong>}
+            </span>
+          );
+        }
+        if (event.kind === 'core' && (event.amount ?? 0) > 0) {
+          return <span className="v31-damage-popup-group core" style={style} key={event.id}><strong className="v31-damage-popup health"><small>CORE</small>−{event.amount}</strong></span>;
+        }
+        return null;
+      })}
+    </div>
+  );
+}
+
 function UnitSlot({
   unit,
   owner,
@@ -2372,12 +2396,33 @@ function UnitSlot({
   );
 }
 
+function clientFusionMaterialMinimumCost(card: CardDefinition, material?: NonNullable<CardDefinition['fusionRecipe']>['materials'][number]): number {
+  const exactRecipe = Boolean(material?.cardIds?.length);
+  const floor = exactRecipe
+    ? (card.rarity === 'legendary' ? 4 : 3)
+    : (card.rarity === 'legendary' ? 5 : 4);
+  return Math.max(material?.minCost ?? 0, floor);
+}
+
+function evolutionSurvivalRequirement(card: CardDefinition): string {
+  const sources = (card.evolutionRecipe?.fromIds ?? []).map((id) => CARD_BY_ID[id]).filter((source): source is CardDefinition => Boolean(source));
+  const needsTwoRounds = sources.some((source) => source.cost <= 2 || (card.rarity === 'legendary' && source.cost <= 3));
+  if (needsTwoRounds) return '지정 저비용 원본이 2라운드 생존 필요';
+  if (sources.length > 0) return '지정 원본이 1라운드 생존 필요';
+  return `범용 원본 비용 ${card.rarity === 'legendary' ? 5 : 4} 이상 + 1라운드 생존`;
+}
+
 function extraRequirement(card: CardDefinition): string {
   if (card.kind === 'fusion') {
-    const minCost = card.rarity === 'legendary' ? 4 : 3;
-    return `${card.fusionRecipe?.label ?? '융합 소재를 선택하세요.'} · 각 소재 비용 ${minCost} 이상`;
+    const materials = card.fusionRecipe?.materials ?? [];
+    const broad = materials.filter((material) => !material.cardIds?.length);
+    if (broad.length > 0) {
+      const minCost = card.rarity === 'legendary' ? 5 : 4;
+      return `${card.fusionRecipe?.label ?? '융합 소재를 선택하세요.'} · 범용 소재는 각 비용 ${minCost} 이상`;
+    }
+    return `${card.fusionRecipe?.label ?? '융합 소재를 선택하세요.'} · 지정 소재 조합 필요`;
   }
-  if (card.kind === 'evolution') return `${card.evolutionRecipe?.label ?? '진화시킬 유닛을 선택하세요.'} · 지정 원본이 이전 턴부터 생존 필요`;
+  if (card.kind === 'evolution') return `${card.evolutionRecipe?.label ?? '진화시킬 유닛을 선택하세요.'} · ${evolutionSurvivalRequirement(card)}`;
   if (card.summonMode === 'rift') return card.riftCondition?.label ?? '균열 조건을 확인하세요.';
   return card.text;
 }
@@ -2414,7 +2459,7 @@ function clientFusionMaterialMatches(unit: UnitState, material: NonNullable<Card
   if (!source) return false;
   if (material.cardIds?.length && !material.cardIds.includes(source.id)) return false;
   if (material.element && source.element !== material.element) return false;
-  const minimumCost = Math.max(material.minCost ?? 0, fusionCard.rarity === 'legendary' ? 4 : 3);
+  const minimumCost = clientFusionMaterialMinimumCost(fusionCard, material);
   if (source.cost < minimumCost) return false;
   return true;
 }
@@ -2433,9 +2478,11 @@ function clientCanAssignFusion(units: UnitState[], materials: NonNullable<CardDe
 function clientEvolutionReady(unit: UnitState, card: CardDefinition, currentTurn: number): boolean {
   const recipe = card.evolutionRecipe;
   const source = CARD_BY_ID[unit.cardId];
-  if (!recipe || !source || unit.summonedTurn >= currentTurn) return false;
+  if (!recipe || !source) return false;
+  const requiredGap = recipe.fromIds?.length && (source.cost <= 2 || (card.rarity === 'legendary' && source.cost <= 3)) ? 4 : 2;
+  if (currentTurn - unit.summonedTurn < requiredGap) return false;
   if (recipe.fromIds?.length) return recipe.fromIds.includes(source.id);
-  const hardenedMinCost = Math.max(recipe.minCost ?? 0, 3);
+  const hardenedMinCost = Math.max(recipe.minCost ?? 0, card.rarity === 'legendary' ? 5 : 4);
   return (!recipe.element || recipe.element === source.element)
     && source.cost >= hardenedMinCost
     && (recipe.maxCost === undefined || source.cost <= recipe.maxCost);
@@ -2483,6 +2530,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const [selectedExtra, setSelectedExtra] = useState<string | null>(null);
   const [selectedMaterials, setSelectedMaterials] = useState<number[]>([]);
   const [selectedAttacker, setSelectedAttacker] = useState<number | null>(null);
+  const [selectedFieldUnit, setSelectedFieldUnit] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [logOpen, setLogOpen] = useState(false);
@@ -2491,6 +2539,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const [extraOpen, setExtraOpen] = useState(false);
   const [activeVfx, setActiveVfx] = useState<VisualEvent | null>(null);
   const [vfxQueue, setVfxQueue] = useState<VisualEvent[]>([]);
+  const [damagePopups, setDamagePopups] = useState<VisualEvent[]>([]);
   const [drawRevealQueue, setDrawRevealQueue] = useState<string[]>([]);
   const [recentDrawnIds, setRecentDrawnIds] = useState<Set<string>>(() => new Set());
   const [hoveredHandCardId, setHoveredHandCardId] = useState<string | null>(null);
@@ -2501,6 +2550,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const timeoutSyncTurn = useRef<number>(-1);
   const announcedTurn = useRef<string>('');
   const seenVfx = useRef<Set<string>>(new Set());
+  const seenDamagePopups = useRef<Set<string>>(new Set(nullableState?.visualEvents.map((event) => event.id) ?? []));
   const knownHandIds = useRef<Set<string>>(new Set(nullablePrivateState?.hand.map((card) => card.instanceId) ?? []));
   const actionLock = useRef(false);
 
@@ -2513,6 +2563,19 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     if (seenVfx.current.size === 0 && unseen.length > 1) unseen = unseen.slice(-1);
     visualEvents.forEach((event) => seenVfx.current.add(event.id));
     setVfxQueue((current) => [...current, ...unseen].slice(-10));
+  }, [visualEventSignature]);
+
+  useEffect(() => {
+    const damageEvents = visualEvents.filter((event) =>
+      !seenDamagePopups.current.has(event.id)
+      && ((event.kind === 'defense' && ((event.shieldAmount ?? 0) > 0 || (event.healthAmount ?? 0) > 0))
+        || (event.kind === 'core' && (event.amount ?? 0) > 0)),
+    );
+    visualEvents.forEach((event) => seenDamagePopups.current.add(event.id));
+    if (damageEvents.length === 0) return;
+    setDamagePopups((current) => [...current, ...damageEvents].slice(-8));
+    const ids = new Set(damageEvents.map((event) => event.id));
+    window.setTimeout(() => setDamagePopups((current) => current.filter((event) => !ids.has(event.id))), 1450);
   }, [visualEventSignature]);
 
   const privateHandSignature = nullablePrivateState?.hand.map((card) => card.instanceId).join('|') ?? '';
@@ -2579,6 +2642,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     setSelectedExtra(null);
     setSelectedMaterials([]);
     setSelectedAttacker(null);
+    setSelectedFieldUnit(null);
     setHoveredHandCardId(null);
     setExtraOpen(false);
     setEndTurnConfirmOpen(false);
@@ -2592,6 +2656,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       setSelectedExtra(null);
       setSelectedMaterials([]);
       setSelectedAttacker(null);
+      setSelectedFieldUnit(null);
       setMessage('선택을 취소했습니다.');
     };
     window.addEventListener('keydown', cancel);
@@ -2607,7 +2672,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       : next.kind === 'trap' ? 1550
         : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? 1350
           : next.kind === 'attack' || next.kind === 'core' || next.kind === 'destroy' ? 1150
-            : next.kind === 'defense' || next.kind === 'heal' || next.kind === 'buff' || next.kind === 'energy' ? 900
+            : next.kind === 'defense' ? 1250
+              : next.kind === 'heal' || next.kind === 'buff' || next.kind === 'energy' ? 900
               : next.kind === 'draw' ? 1250
                 : next.kind === 'turn' ? 850
                   : 760;
@@ -2704,6 +2770,10 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const myExtraUsage = state.extraSummonUsage?.[userId] ?? { fusion: 0, evolution: 0 };
   const myExtraTurn = state.extraSummonTurn?.[userId] ?? {};
   const energySacrificeUsed = state.energySacrificeTurn?.[userId] === state.turnNumber;
+  const fieldSacrificeUsed = state.fieldSacrificeTurn?.[userId] === state.turnNumber;
+  const selectedFieldUnitState = selectedFieldUnit !== null ? state.boards[userId].units[selectedFieldUnit] : null;
+  const selectedFieldUnitCard = selectedFieldUnitState ? CARD_BY_ID[selectedFieldUnitState.cardId] : undefined;
+  const canRetireSelectedFieldUnit = Boolean(selectedFieldUnitState && myTurn && !interactionLocked && state.phase === 'main' && !busy && !fieldSacrificeUsed);
   const canSacrificeSelectedForEnergy = Boolean(selectedHand && selectedCard && myTurn && !interactionLocked && state.phase === 'main' && !busy && !energySacrificeUsed && myEnergy.current < 10);
   const selectedConsumesBuffSlot = Boolean(selectedCard?.kind === 'spell' && selectedCard.effect && (selectedCard.effect.kind === 'buff_unit' || selectedCard.effect.kind === 'shield_unit'));
   const nextMyEnergyMax = myTurn ? myEnergy.max : Math.min(10, Math.max(1, myEnergy.max + 1));
@@ -2785,12 +2855,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       if (myExtraUsage.fusion >= 2) reasons.push('공명 융합은 한 게임에 최대 2번만 사용할 수 있습니다.');
       if (myExtraTurn.fusion === state.turnNumber) reasons.push('공명 융합은 한 턴에 1번만 사용할 수 있습니다.');
       const materials = card.fusionRecipe?.materials ?? [];
-      const minCost = card.rarity === 'legendary' ? 4 : 3;
-      if (!materials.length || !clientCanAssignFusion(myFieldUnits, materials, card)) reasons.push(`융합 소재 조건: ${card.fusionRecipe?.label ?? '지정 소재가 필요합니다.'} · 각 소재 비용 ${minCost} 이상.`);
+      const broad = materials.some((material) => !material.cardIds?.length);
+      const detail = broad ? `범용 소재는 각 비용 ${card.rarity === 'legendary' ? 5 : 4} 이상` : '지정 소재 조합 필요';
+      if (!materials.length || !clientCanAssignFusion(myFieldUnits, materials, card)) reasons.push(`융합 소재 조건: ${card.fusionRecipe?.label ?? '지정 소재가 필요합니다.'} · ${detail}.`);
     } else if (card.kind === 'evolution') {
       if (myExtraUsage.evolution >= 2) reasons.push('계승 진화는 한 게임에 최대 2번만 사용할 수 있습니다.');
       if (myExtraTurn.evolution === state.turnNumber) reasons.push('계승 진화는 한 턴에 1번만 사용할 수 있습니다.');
-      if (!myFieldUnits.some((unit) => clientEvolutionReady(unit, card, state.turnNumber))) reasons.push(`진화 조건: ${card.evolutionRecipe?.label ?? '조건에 맞는 아군 유닛이 필요합니다.'} · 지정 원본이 이전 턴부터 생존해야 합니다.`);
+      if (!myFieldUnits.some((unit) => clientEvolutionReady(unit, card, state.turnNumber))) reasons.push(`진화 조건: ${card.evolutionRecipe?.label ?? '조건에 맞는 아군 유닛이 필요합니다.'} · ${evolutionSurvivalRequirement(card)}.`);
     }
     return reasons;
   }
@@ -2805,6 +2876,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     setSelectedExtra(null);
     setSelectedMaterials([]);
     setSelectedAttacker(null);
+    setSelectedFieldUnit(null);
     if (note) setMessage(note);
   }
 
@@ -2839,6 +2911,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     setSelectedExtra(null);
     setSelectedMaterials([]);
     setSelectedAttacker(null);
+    setSelectedFieldUnit(null);
   }
 
   function chooseExtra(instanceId: string) {
@@ -2855,6 +2928,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     setSelectedHand(null);
     setSelectedMaterials([]);
     setSelectedAttacker(null);
+    setSelectedFieldUnit(null);
   }
 
   function playToUnitZone(zone: number) {
@@ -2928,6 +3002,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         return;
       }
     }
+    if (!selectedCard && !selectedExtraCard && ownerId === userId && unit && state.phase === 'main') {
+      setSelectedFieldUnit((current) => current === unitIndex ? null : unitIndex);
+      setMessage(fieldSacrificeUsed
+        ? '필드 정리는 이번 턴에 이미 사용했습니다. i 버튼으로 카드 상세를 볼 수 있습니다.'
+        : `${card?.name ?? '캐릭터'} 선택 · 아래 “필드 → ENERGY” 버튼으로 묘지에 보내 빈 칸을 만들 수 있습니다.`);
+      return;
+    }
     if (selectedAttacker !== null && ownerId === opponentId && state.phase === 'battle') {
       if (!attackableTargetIndexes.includes(unitIndex)) {
         setMessage(guardTargetIndexes.length > 0 ? '수호 유닛이 있습니다. 수호 표시가 있는 유닛을 먼저 공격해야 합니다.' : '현재 공격할 수 없는 대상입니다.');
@@ -2976,6 +3057,18 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     gameAction('sacrifice_energy', { instanceId: selectedHand });
   }
 
+  function retireSelectedFieldUnit() {
+    if (selectedFieldUnit === null || !selectedFieldUnitState) {
+      setMessage('먼저 내 필드의 캐릭터를 선택하세요.');
+      return;
+    }
+    if (fieldSacrificeUsed) {
+      setMessage('필드 캐릭터 정리는 한 턴에 1번만 사용할 수 있습니다.');
+      return;
+    }
+    gameAction('sacrifice_field_energy', { unitIndex: selectedFieldUnit });
+  }
+
   function summonSelectedExtra() {
     if (!selectedExtra || !selectedExtraCard) {
       setMessage('먼저 엑스트라 카드를 선택하세요.');
@@ -3006,6 +3099,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         ? directAttackOpen ? '상대 필드가 비었습니다. 상대 리더를 눌러 직접 공격하세요.' : '공격할 상대 유닛을 선택하세요.'
         : '빛나는 내 유닛을 선택해 공격을 선언하세요.'
       : selectedExtraCard ? `소재 ${selectedMaterials.length}/${requiredMaterials} 선택 후 특수 소환하세요.`
+        : selectedFieldUnitState ? `선택한 ${selectedFieldUnitCard?.name ?? '캐릭터'}을(를) 묘지로 보내 빈 칸을 만들고 에너지 1을 얻을 수 있습니다.`
         : selectedCard?.kind === 'unit' ? '빛나는 빈 유닛 칸을 눌러 소환하세요.'
           : selectedCard?.kind === 'trap' ? '빛나는 빈 함정 칸을 눌러 세트하세요. 세트한 함정은 나에게만 앞면으로 보입니다.'
             : selectedCard?.target === 'enemy_unit' ? '빛나는 적 유닛을 선택하세요.'
@@ -3032,8 +3126,10 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         ? selectedAttacker !== null
           ? { step: 2, kicker: 'ATTACK · STEP 2', title: directAttackOpen ? '상대 리더를 선택하세요' : '공격 대상을 선택하세요', detail: directAttackOpen ? '상대 필드가 비었습니다. 왼쪽 위 상대 리더 패널을 누르면 직접 공격합니다.' : '빨갛게 표시되는 상대 유닛을 누르면 전투가 시작됩니다.', tip: '공격 대상을 고르기 전에는 언제든 “공격 선택 취소”를 누를 수 있습니다.' }
           : { step: 2, kicker: 'ATTACK · STEP 1', title: '공격할 내 유닛을 선택하세요', detail: '전투 단계입니다. 파랗게 빛나는 내 유닛 중 공격할 카드를 먼저 누르세요.', tip: '유닛 선택 → 상대 유닛(또는 리더) 선택 순서로 공격합니다.' }
-        : selectedExtraCard
-          ? { step: 1, kicker: 'SPECIAL SUMMON', title: '특수 소환 소재를 고르세요', detail: `필드에서 빛나는 소재를 ${requiredMaterials}장 선택한 뒤 특수 소환 버튼을 누르세요.`, tip: `현재 선택 ${selectedMaterials.length}/${requiredMaterials}` }
+        : selectedFieldUnitState
+          ? { step: 1, kicker: 'FIELD RETIRE', title: `${selectedFieldUnitCard?.name ?? '캐릭터'}을 정리할까요?`, detail: '선택한 내 캐릭터를 묘지로 보내 유닛 칸을 비웁니다. 에너지가 10 미만이면 +1을 얻습니다.', tip: fieldSacrificeUsed ? '이번 턴에는 이미 필드 정리를 사용했습니다.' : '필드 정리는 턴당 1회이며 전투 파괴로 취급하지 않습니다.' }
+          : selectedExtraCard
+            ? { step: 1, kicker: 'SPECIAL SUMMON', title: '특수 소환 소재를 고르세요', detail: `필드에서 빛나는 소재를 ${requiredMaterials}장 선택한 뒤 특수 소환 버튼을 누르세요.`, tip: `현재 선택 ${selectedMaterials.length}/${requiredMaterials}` }
           : selectedCard?.kind === 'unit'
             ? { step: 1, kicker: 'SUMMON', title: '소환할 빈 칸을 선택하세요', detail: '손패에서 유닛을 골랐습니다. 파랗게 빛나는 내 유닛 칸을 누르면 소환됩니다.', tip: `사용 에너지 ${selectedHandCost ?? selectedCard.cost} · 현재 ${myEnergy.current}/${myEnergy.max}` }
             : selectedCard?.kind === 'trap'
@@ -3078,6 +3174,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   return (
     <div className={`v18-duel-screen ${myTurn ? 'is-my-turn' : 'is-opponent-turn'} phase-${state.phase} fx-${activeVfx?.kind ?? 'idle'}`}>
       <DuelEffectLayer event={activeVfx} userId={userId} profiles={payload.profiles} drawCard={activeVfx?.kind === 'draw' && activeVfx.ownerId === userId ? CARD_BY_ID[drawRevealQueue[0] ?? ''] : undefined} />
+      <DuelDamagePopupLayer events={damagePopups} userId={userId} />
       <CoinTossOverlay state={state} profiles={payload.profiles} userId={userId} now={coinClock} />
       {turnNotice && !coinTossActive && state.status === 'active' && (
         <div className={`v29-turn-notice ${turnNotice.mine ? 'mine' : 'opponent'}`} role="status" aria-live="polite">
@@ -3176,9 +3273,9 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
                 unit={unit}
                 owner={userId}
                 index={index}
-                selected={selectedAttacker === index}
+                selected={selectedAttacker === index || selectedFieldUnit === index}
                 materialSelected={selectedMaterials.includes(index)}
-                targetable={unit ? Boolean((selectingFriendlyTarget && (!selectedConsumesBuffSlot || !unit.buffCardApplied)) || selectingMaterials || (myTurn && !interactionLocked && state.phase === 'battle' && unit.canAttack)) : selectingUnitToSummon}
+                targetable={unit ? Boolean((selectingFriendlyTarget && (!selectedConsumesBuffSlot || !unit.buffCardApplied)) || selectingMaterials || (myTurn && !interactionLocked && state.phase === 'battle' && unit.canAttack) || (myTurn && !interactionLocked && state.phase === 'main' && !selectedCard && !selectedExtraCard && !fieldSacrificeUsed)) : selectingUnitToSummon}
                 attackReady={Boolean(unit && myTurn && !interactionLocked && state.phase === 'battle' && unit.canAttack)}
                 onClick={() => unit ? targetUnit(userId, index) : playToUnitZone(index)}
               />
@@ -3263,6 +3360,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         {selectedAttacker !== null && <button className="v18-cancel-attack" type="button" onClick={() => { setSelectedAttacker(null); setMessage('공격 유닛 선택을 취소했습니다.'); }}>공격 선택 취소</button>}
 
         <section className="v18-action-buttons">
+          {state.phase === 'main' && <button className="v31-field-retire-action" disabled={!canRetireSelectedFieldUnit} onClick={retireSelectedFieldUnit}><span>필드 → ENERGY {myEnergy.current < 10 ? '+1' : '+0'}</span><small>{fieldSacrificeUsed ? '이번 턴 사용 완료' : selectedFieldUnitState ? `${selectedFieldUnitCard?.name ?? '선택 캐릭터'}을 묘지로 보내 빈 칸 확보 · 턴당 1회` : '내 필드 캐릭터를 먼저 선택하세요'}</small></button>}
           {state.phase === 'main' && <button className="v18-secondary-action" disabled={!canSpendTurnToDraw} onClick={spendTurnToDraw}><span>＋ 카드 1장</span><small>턴을 소비해 추가 드로우</small></button>}
           {state.phase === 'main' && <button className="v18-battle-action" disabled={!myTurn || busy || interactionLocked} onClick={() => gameAction('battle_phase')}><span>전투 단계로 이동</span><small>이후 내 유닛 → 공격 대상 순서로 선택</small></button>}
           <button className="v18-end-turn" disabled={!myTurn || busy || interactionLocked} onClick={requestEndTurn}><span>턴 종료</span><small>{remainingOpportunities > 0 ? `가능 행동 ${remainingOpportunities}` : `${turnSecondsLeft}초 남음`}</small></button>
@@ -3309,7 +3407,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         <div className="v18-extra-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) setExtraOpen(false); }}>
           <aside className="v18-extra-drawer">
             <header><div><small>EXTRA DECK</small><b>공명 융합 · 계승 진화</b></div><button type="button" onClick={() => setExtraOpen(false)}>×</button></header>
-            <p>빛나는 카드는 현재 필드와 에너지 조건으로 소환할 수 있습니다. 공명과 계승은 각각 한 게임 2회, 한 턴 1회 제한입니다.</p>
+            <p>빛나는 카드는 강화된 소재·생존 조건과 에너지를 모두 만족한 카드입니다. 범용 융합 소재와 저비용 진화 원본은 더 오래/강하게 준비해야 하며, 공명과 계승은 각각 한 게임 2회·한 턴 1회입니다.</p>
             <div className="v31-extra-drawer-usage"><span>공명 융합 <b>{myExtraUsage.fusion}/2</b></span><span>계승 진화 <b>{myExtraUsage.evolution}/2</b></span></div>
             <div>{privateState.extra.map((instance) => {
               const card = CARD_BY_ID[instance.cardId];
