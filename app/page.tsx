@@ -3455,7 +3455,7 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
           </div>
           <p>{room.public_match ? (room.guest_id ? '현재 온라인 상태가 확인된 상대입니다. 양쪽 플레이어가 준비하면 결투가 시작됩니다.' : '온라인 상태가 확인된 상대만 연결합니다. 연결이 끊긴 대기 유저는 자동으로 제외됩니다.') : '양쪽 플레이어가 준비하면 활성 덱으로 결투가 시작됩니다.'}</p>
           {message && <p className="error-banner">{message}</p>}
-          <div className="waiting-actions"><button className="ghost-button" onClick={leaveRoom}>나가기</button><button className="primary-button" disabled={busy || myReady || !room.guest_id} onClick={() => roomAction('ready', { roomId: room.id })}>{myReady ? '준비 완료' : '결투 준비'}</button></div>
+          <div className="waiting-actions"><button className="ghost-button" disabled={busy} onClick={leaveRoom}>나가기</button><button className="primary-button" aria-busy={busy} disabled={busy || myReady || !room.guest_id} onClick={() => roomAction('ready', { roomId: room.id })}>{busy ? '준비 처리 중…' : myReady ? '준비 완료' : '결투 준비'}</button></div>
         </section>
       </div>
     );
