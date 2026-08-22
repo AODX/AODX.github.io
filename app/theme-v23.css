@@ -1251,3 +1251,185 @@
   .v23-client .bg_starfall_garden .v17-cosmetic-scene::after,
   .v23-client .profile-card.theme-bg_starfall_garden::before { animation:none!important; }
 }
+
+
+/* ========================================================================== 
+   V27B DISTINCT MOTION PASS
+   - fixes weak background motion
+   - adds more animated frames
+   - adds more animated emblems
+   - animates newly-added sleeves too
+   ========================================================================== */
+.v23-client .bg_aurora_tide .v17-cosmetic-scene,
+.v23-client .profile-card.theme-bg_aurora_tide {
+  background:
+    radial-gradient(circle at 22% 24%,rgba(122,255,227,.26),transparent 24%),
+    radial-gradient(circle at 78% 72%,rgba(136,173,255,.22),transparent 28%),
+    linear-gradient(120deg,#163248,#0b1724 55%,#05080f)!important;
+  background-size:140% 140%, 140% 140%, 100% 100%!important;
+  animation:v27AuroraBg 8.8s ease-in-out infinite alternate!important;
+}
+.v23-client .bg_aurora_tide .v17-cosmetic-scene::after,
+.v23-client .profile-card.theme-bg_aurora_tide::before {
+  content:""; position:absolute; inset:-18%; pointer-events:none;
+  background:
+    linear-gradient(110deg,transparent 0 12%,rgba(96,247,219,.30) 18%,transparent 28%,rgba(171,147,255,.22) 42%,transparent 54%,rgba(132,255,226,.18) 70%,transparent 82%),
+    linear-gradient(160deg,transparent 0 30%,rgba(180,227,255,.12) 36%,transparent 46%);
+  filter:blur(7px); opacity:.95; animation:v27AuroraRibbon 7s ease-in-out infinite alternate!important; z-index:0;
+}
+@keyframes v27AuroraBg { from{background-position:0% 0%,100% 100%,50% 50%} to{background-position:18% 8%,84% 74%,50% 50%} }
+@keyframes v27AuroraRibbon { from{transform:translateX(-8%) translateY(-3%) skewX(-10deg)} to{transform:translateX(9%) translateY(4%) skewX(10deg)} }
+
+.v23-client .bg_starfall_garden .v17-cosmetic-scene,
+.v23-client .profile-card.theme-bg_starfall_garden {
+  background:
+    radial-gradient(circle at 20% 24%,rgba(255,178,230,.25),transparent 24%),
+    radial-gradient(circle at 80% 78%,rgba(184,147,255,.20),transparent 26%),
+    linear-gradient(140deg,#281328,#0b0912 62%,#05060b)!important;
+  background-size:130% 130%,150% 150%,100% 100%!important;
+  animation:v27GardenGlow 10s ease-in-out infinite alternate!important;
+}
+.v23-client .bg_starfall_garden .v17-cosmetic-scene::after,
+.v23-client .profile-card.theme-bg_starfall_garden::before {
+  content:"✦  ❀  ✦  ❀  ✦  ❀"; position:absolute; inset:-12%; display:grid; place-items:center;
+  color:rgba(255,208,239,.34); letter-spacing:22px; font-size:26px; line-height:1; text-shadow:0 0 12px rgba(255,177,226,.22);
+  pointer-events:none; animation:v27StarfallDrift 8.4s linear infinite!important; z-index:0;
+}
+@keyframes v27GardenGlow { from{background-position:0% 0%,100% 100%,50% 50%} to{background-position:10% 8%,88% 74%,50% 50%} }
+@keyframes v27StarfallDrift { 0%{transform:translate(-6%,-10%) rotate(-6deg);opacity:.2} 50%{opacity:.95} 100%{transform:translate(10%,12%) rotate(8deg);opacity:.3} }
+
+/* animated frames */
+.v23-client .frame_neon_circuit .v17-cosmetic-frame-ring,
+.v23-client .profile-card.frame-frame_neon_circuit { border-color:rgba(102,239,255,.86)!important;box-shadow:0 0 28px rgba(84,229,255,.22)!important; }
+.v23-client .frame_neon_circuit .v17-cosmetic-frame-ring::after,
+.v23-client .profile-card.frame-frame_neon_circuit::after {
+  content:"";position:absolute;inset:5px;border-radius:17px;padding:2px;
+  background:repeating-conic-gradient(from 0deg,#6cf2ff 0 10deg,transparent 10deg 24deg,#ff78d8 24deg 32deg,transparent 32deg 48deg,#75ffb5 48deg 54deg,transparent 54deg 72deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
+  animation:v27NeonCircuit 2.8s linear infinite;pointer-events:none;z-index:1;
+}
+@keyframes v27NeonCircuit { to{transform:rotate(360deg)} }
+
+.v23-client .frame_moonlace .v17-cosmetic-frame-ring,
+.v23-client .profile-card.frame-frame_moonlace { border-color:rgba(198,214,255,.88)!important;box-shadow:0 0 28px rgba(183,205,255,.16)!important; }
+.v23-client .frame_moonlace .v17-cosmetic-frame-ring::after,
+.v23-client .profile-card.frame-frame_moonlace::after {
+  content:"";position:absolute;inset:6px;border-radius:16px;border:2px solid rgba(220,230,255,.35);pointer-events:none;z-index:1;
+  background:linear-gradient(120deg,transparent 0 28%,rgba(255,255,255,.18) 44%,transparent 58%);
+  background-size:220% 100%;animation:v27MoonlaceSweep 4.8s ease-in-out infinite;
+}
+@keyframes v27MoonlaceSweep { 0%,100%{background-position:120% 0} 50%{background-position:-20% 0} }
+
+.v23-client .frame_blossom_arc .v17-cosmetic-frame-ring,
+.v23-client .profile-card.frame-frame_blossom_arc { border-color:rgba(255,175,225,.86)!important;box-shadow:0 0 28px rgba(255,158,211,.20)!important; }
+.v23-client .frame_blossom_arc .v17-cosmetic-frame-ring::after,
+.v23-client .profile-card.frame-frame_blossom_arc::after {
+  content:"❀  ✿  ❀  ✿";position:absolute;inset:5px;border-radius:17px;display:grid;place-items:center;color:rgba(255,201,233,.74);letter-spacing:18px;font-size:14px;pointer-events:none;z-index:1;
+  animation:v27BlossomArc 6.4s ease-in-out infinite;
+}
+@keyframes v27BlossomArc { 0%,100%{transform:rotate(-4deg) scale(.98)} 50%{transform:rotate(4deg) scale(1.03)} }
+
+.v23-client .frame_royal_window .v17-cosmetic-frame-ring,
+.v23-client .profile-card.frame-frame_royal_window { border-color:rgba(255,216,129,.86)!important;box-shadow:0 0 30px rgba(255,210,111,.19)!important; }
+.v23-client .frame_royal_window .v17-cosmetic-frame-ring::after,
+.v23-client .profile-card.frame-frame_royal_window::after {
+  content:"";position:absolute;inset:6px;border-radius:16px;pointer-events:none;z-index:1;
+  background:
+    linear-gradient(90deg,rgba(255,236,171,.16) 0 2px,transparent 2px 48%,rgba(255,236,171,.16) 48% 52%,transparent 52% 98%,rgba(255,236,171,.16) 98% 100%),
+    linear-gradient(0deg,rgba(255,236,171,.14) 0 2px,transparent 2px 48%,rgba(255,236,171,.14) 48% 52%,transparent 52% 98%,rgba(255,236,171,.14) 98% 100%),
+    linear-gradient(120deg,transparent 0 32%,rgba(255,255,255,.18) 46%,transparent 60%);
+  background-size:100% 100%,100% 100%,220% 100%;
+  animation:v27WindowSweep 5.2s ease-in-out infinite;
+}
+@keyframes v27WindowSweep { 0%,100%{background-position:0 0,0 0,120% 0} 50%{background-position:0 0,0 0,-20% 0} }
+
+/* extra animated emblems */
+.v23-client .emblem-emblem_comet_heart { color:#ffb3d8!important; text-shadow:0 0 14px rgba(255,124,188,.30)!important; animation:v27CometHeart 2.6s ease-in-out infinite; }
+.v23-client .emblem-emblem_clock_halo { color:#a6ecff!important; text-shadow:0 0 16px rgba(94,225,255,.33)!important; animation:v27ClockHalo 3.8s linear infinite; }
+.v23-client .emblem-emblem_storm_sigil { color:#b6d6ff!important; text-shadow:0 0 16px rgba(118,183,255,.35)!important; animation:v27StormSigil 1.9s ease-in-out infinite; }
+@keyframes v27CometHeart { 0%,100%{transform:scale(1) rotate(0deg)} 25%{transform:translateX(1px) translateY(-1px) scale(1.06)} 50%{transform:translateX(-1px) translateY(-2px) scale(1.12)} 75%{transform:translateX(1px) scale(1.04)} }
+@keyframes v27ClockHalo { to{transform:rotate(360deg)} }
+@keyframes v27StormSigil { 0%,100%{transform:translateX(0);filter:brightness(1)} 20%{transform:translateX(-1px)} 40%{transform:translateX(1px);filter:brightness(1.2)} 60%{transform:translateX(-2px)} 80%{transform:translateX(1px)} }
+
+/* animate newly-added sleeves too */
+.v23-client .card-back.sleeve-sleeve_starry_night,
+.v23-client .v24-draw-back.sleeve-sleeve_starry_night,
+.v23-client .v24-draw-deck-stack.sleeve-sleeve_starry_night,
+.v23-client .v26-card-sleeve.sleeve-sleeve_starry_night { background-size:100% 100%!important; animation:v27StarrySleeve 5.8s ease-in-out infinite alternate; }
+@keyframes v27StarrySleeve { from{transform:translateY(0);filter:brightness(.96)} to{transform:translateY(-1px);filter:brightness(1.10)} }
+
+.v23-client .card-back.sleeve-sleeve_neon_sign,
+.v23-client .v24-draw-back.sleeve-sleeve_neon_sign,
+.v23-client .v24-draw-deck-stack.sleeve-sleeve_neon_sign,
+.v23-client .v26-card-sleeve.sleeve-sleeve_neon_sign { background-size:120% 120%,120% 120%,100% 100%!important; animation:v27NeonSleeve 3.8s linear infinite; }
+@keyframes v27NeonSleeve { from{background-position:0 0,0 0,50% 50%} to{background-position:24px 0,0 18px,50% 50%} }
+
+.v23-client .card-back.sleeve-sleeve_blossom_garden,
+.v23-client .v24-draw-back.sleeve-sleeve_blossom_garden,
+.v23-client .v24-draw-deck-stack.sleeve-sleeve_blossom_garden,
+.v23-client .v26-card-sleeve.sleeve-sleeve_blossom_garden { animation:v27BlossomSleeve 6.4s ease-in-out infinite alternate; }
+@keyframes v27BlossomSleeve { from{background-position:0 0,100% 100%,50% 50%,50% 50%} to{background-position:8px 6px,92% 84%,50% 50%,50% 50%} }
+
+.v23-client .card-back.sleeve-sleeve_holo_checker,
+.v23-client .v24-draw-back.sleeve-sleeve_holo_checker,
+.v23-client .v24-draw-deck-stack.sleeve-sleeve_holo_checker,
+.v23-client .v26-card-sleeve.sleeve-sleeve_holo_checker { animation:v27HoloSleeve 4.4s linear infinite; }
+@keyframes v27HoloSleeve { from{background-position:0 0,0 0,50% 50%} to{background-position:26px 26px,-26px 26px,50% 50%} }
+
+.v23-client .card-back.sleeve-sleeve_royal_wallpaper,
+.v23-client .v24-draw-back.sleeve-sleeve_royal_wallpaper,
+.v23-client .v24-draw-deck-stack.sleeve-sleeve_royal_wallpaper,
+.v23-client .v26-card-sleeve.sleeve-sleeve_royal_wallpaper { animation:v27RoyalSleeve 8.2s ease-in-out infinite alternate; }
+@keyframes v27RoyalSleeve { from{filter:saturate(.92) brightness(.95)} to{filter:saturate(1.08) brightness(1.08)} }
+
+.v23-client .card-back.sleeve-sleeve_moonlit_window,
+.v23-client .v24-draw-back.sleeve-sleeve_moonlit_window,
+.v23-client .v24-draw-deck-stack.sleeve-sleeve_moonlit_window,
+.v23-client .v26-card-sleeve.sleeve-sleeve_moonlit_window { animation:v27MoonlitSleeve 6.8s ease-in-out infinite alternate; }
+@keyframes v27MoonlitSleeve { from{background-position:0 0,0 0,68% 24%,50% 50%} to{background-position:2px 0,0 3px,72% 28%,50% 50%} }
+
+@media (prefers-reduced-motion: reduce) {
+  .v23-client .bg_aurora_tide .v17-cosmetic-scene,
+  .v23-client .profile-card.theme-bg_aurora_tide,
+  .v23-client .bg_starfall_garden .v17-cosmetic-scene,
+  .v23-client .profile-card.theme-bg_starfall_garden,
+  .v23-client .bg_aurora_tide .v17-cosmetic-scene::after,
+  .v23-client .profile-card.theme-bg_aurora_tide::before,
+  .v23-client .bg_starfall_garden .v17-cosmetic-scene::after,
+  .v23-client .profile-card.theme-bg_starfall_garden::before,
+  .v23-client .frame_neon_circuit .v17-cosmetic-frame-ring::after,
+  .v23-client .profile-card.frame-frame_neon_circuit::after,
+  .v23-client .frame_moonlace .v17-cosmetic-frame-ring::after,
+  .v23-client .profile-card.frame-frame_moonlace::after,
+  .v23-client .frame_blossom_arc .v17-cosmetic-frame-ring::after,
+  .v23-client .profile-card.frame-frame_blossom_arc::after,
+  .v23-client .frame_royal_window .v17-cosmetic-frame-ring::after,
+  .v23-client .profile-card.frame-frame_royal_window::after,
+  .v23-client .emblem-emblem_comet_heart,
+  .v23-client .emblem-emblem_clock_halo,
+  .v23-client .emblem-emblem_storm_sigil,
+  .v23-client .card-back.sleeve-sleeve_starry_night,
+  .v23-client .v24-draw-back.sleeve-sleeve_starry_night,
+  .v23-client .v24-draw-deck-stack.sleeve-sleeve_starry_night,
+  .v23-client .v26-card-sleeve.sleeve-sleeve_starry_night,
+  .v23-client .card-back.sleeve-sleeve_neon_sign,
+  .v23-client .v24-draw-back.sleeve-sleeve_neon_sign,
+  .v23-client .v24-draw-deck-stack.sleeve-sleeve_neon_sign,
+  .v23-client .v26-card-sleeve.sleeve-sleeve_neon_sign,
+  .v23-client .card-back.sleeve-sleeve_blossom_garden,
+  .v23-client .v24-draw-back.sleeve-sleeve_blossom_garden,
+  .v23-client .v24-draw-deck-stack.sleeve-sleeve_blossom_garden,
+  .v23-client .v26-card-sleeve.sleeve-sleeve_blossom_garden,
+  .v23-client .card-back.sleeve-sleeve_holo_checker,
+  .v23-client .v24-draw-back.sleeve-sleeve_holo_checker,
+  .v23-client .v24-draw-deck-stack.sleeve-sleeve_holo_checker,
+  .v23-client .v26-card-sleeve.sleeve-sleeve_holo_checker,
+  .v23-client .card-back.sleeve-sleeve_royal_wallpaper,
+  .v23-client .v24-draw-back.sleeve-sleeve_royal_wallpaper,
+  .v23-client .v24-draw-deck-stack.sleeve-sleeve_royal_wallpaper,
+  .v23-client .v26-card-sleeve.sleeve-sleeve_royal_wallpaper,
+  .v23-client .card-back.sleeve-sleeve_moonlit_window,
+  .v23-client .v24-draw-back.sleeve-sleeve_moonlit_window,
+  .v23-client .v24-draw-deck-stack.sleeve-sleeve_moonlit_window,
+  .v23-client .v26-card-sleeve.sleeve-sleeve_moonlit_window { animation:none!important; }
+}
