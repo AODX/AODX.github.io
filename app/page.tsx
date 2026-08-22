@@ -3361,6 +3361,7 @@ export default function Page() {
   useEffect(() => {
     const room = roomPayload?.room;
     if (!session || !room?.id || !room.public_match || room.status !== 'waiting') return;
+    const roomId = room.id;
     let alive = true;
     let sending = false;
 
@@ -3368,7 +3369,7 @@ export default function Page() {
       if (!alive || sending || document.visibilityState === 'hidden') return;
       sending = true;
       try {
-        const result = await api('match_presence', { roomId: room.id });
+        const result = await api('match_presence', { roomId });
         if (!alive) return;
         if (result.room && result.profiles) {
           setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
