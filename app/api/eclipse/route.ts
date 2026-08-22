@@ -326,7 +326,7 @@ async function getHub(admin: UserDbClient | AdminDbClient, userId: string) {
   if (friendIds.length > 0) {
     const { data, error } = await admin
       .from('eclipse_profiles')
-      .select('user_id,display_name,player_code,avatar,status_message,wins,losses,xp')
+      .select('user_id,display_name,player_code,avatar,status_message,wins,losses,xp,nickname_style')
       .in('user_id', friendIds);
     if (error) throw new Error(error.message);
     friendProfiles = data ?? [];
@@ -341,7 +341,7 @@ async function getHub(admin: UserDbClient | AdminDbClient, userId: string) {
   if (requestUserIds.length > 0) {
     const { data, error } = await admin
       .from('eclipse_profiles')
-      .select('user_id,display_name,player_code,avatar')
+      .select('user_id,display_name,player_code,avatar,nickname_style')
       .in('user_id', requestUserIds);
     if (error) throw new Error(error.message);
     requestProfiles = data ?? [];
@@ -466,7 +466,7 @@ async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: strin
   const profileIds = [room.host_id, room.guest_id].filter(Boolean) as string[];
   const { data: profiles, error: profileError } = await admin
     .from('eclipse_profiles')
-    .select('user_id,display_name,avatar,wins,losses,xp')
+    .select('user_id,display_name,avatar,wins,losses,xp,profile_emblem,card_sleeve,nickname_style')
     .in('user_id', profileIds);
   if (profileError) throw new Error(profileError.message);
 
@@ -590,9 +590,9 @@ async function handleAction(request: Request, body: RequestBody) {
 
   if (action === 'buy_pack') {
     const packId = cleanText(body.packId, 30);
-    const { data, error } = await client.rpc('eclipse_open_pack_v25', { p_pack_id: packId });
+    const { data, error } = await client.rpc('eclipse_open_pack_v26', { p_pack_id: packId });
     if (error) {
-      if (/eclipse_open_pack_v25|schema cache|does not exist/i.test(error.message)) throw new Error('v25 시리즈 카드팩 DB 업그레이드가 필요합니다. sql/05_V25_SERIES_PACKS_CHAT.sql을 한 번 실행해 주세요.');
+      if (/eclipse_open_pack_v26|schema cache|does not exist/i.test(error.message)) throw new Error('v26 카드 확장 DB 업그레이드가 필요합니다. sql/06_V26_EXPANSION_COSMETICS.sql을 한 번 실행해 주세요.');
       throw new Error(error.message);
     }
     const payload = (data ?? {}) as { cardIds?: string[]; balance?: number };
@@ -605,9 +605,9 @@ async function handleAction(request: Request, body: RequestBody) {
 
   if (action === 'buy_profile_cosmetic') {
     const cosmeticId = cleanText(body.cosmeticId, 40);
-    const { error } = await client.rpc('eclipse_buy_profile_cosmetic_v17', { p_cosmetic_id: cosmeticId });
+    const { error } = await client.rpc('eclipse_buy_profile_cosmetic_v26', { p_cosmetic_id: cosmeticId });
     if (error) {
-      if (/function .*eclipse_buy_profile_cosmetic_v17.*does not exist|schema cache/i.test(error.message)) throw new Error('프로필 스킨 상점 DB 업그레이드가 필요합니다. v17 SQL을 한 번 실행해 주세요.');
+      if (/function .*eclipse_buy_profile_cosmetic_v26.*does not exist|schema cache/i.test(error.message)) throw new Error('v26 꾸미기 상점 DB 업그레이드가 필요합니다. sql/06_V26_EXPANSION_COSMETICS.sql을 한 번 실행해 주세요.');
       throw new Error(error.message);
     }
     return { hub: await getHub(client, user.id) };
@@ -615,9 +615,9 @@ async function handleAction(request: Request, body: RequestBody) {
 
   if (action === 'equip_profile_cosmetic') {
     const cosmeticId = cleanText(body.cosmeticId, 40);
-    const { error } = await client.rpc('eclipse_equip_profile_cosmetic_v17', { p_cosmetic_id: cosmeticId });
+    const { error } = await client.rpc('eclipse_equip_profile_cosmetic_v26', { p_cosmetic_id: cosmeticId });
     if (error) {
-      if (/function .*eclipse_equip_profile_cosmetic_v17.*does not exist|schema cache/i.test(error.message)) throw new Error('프로필 스킨 상점 DB 업그레이드가 필요합니다. v17 SQL을 한 번 실행해 주세요.');
+      if (/function .*eclipse_equip_profile_cosmetic_v26.*does not exist|schema cache/i.test(error.message)) throw new Error('v26 꾸미기 상점 DB 업그레이드가 필요합니다. sql/06_V26_EXPANSION_COSMETICS.sql을 한 번 실행해 주세요.');
       throw new Error(error.message);
     }
     return { hub: await getHub(client, user.id) };
