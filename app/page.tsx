@@ -3114,15 +3114,16 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
     return (
       <div className="waiting-room">
         <section className="waiting-card panel">
-          <span className="eyebrow">PRIVATE DUEL ROOM</span>
-          <h2>결투 준비</h2>
-          <div className="room-code"><small>ROOM CODE</small><strong>{room.code}</strong><button onClick={() => navigator.clipboard.writeText(room.code)}>복사</button></div>
+          <span className="eyebrow">{room.public_match ? 'QUICK MATCH' : 'PRIVATE DUEL ROOM'}</span>
+          <h2>{room.public_match ? (room.guest_id ? '상대 연결 완료' : '상대 검색 중') : '결투 준비'}</h2>
+          {!room.public_match && <div className="room-code"><small>ROOM CODE</small><strong>{room.code}</strong><button onClick={() => navigator.clipboard.writeText(room.code)}>복사</button></div>}
+          {room.public_match && <div className="room-code"><small>MATCH STATUS</small><strong>{room.guest_id ? 'CONNECTED' : 'SEARCHING'}</strong></div>}
           <div className="versus-line">
             <div><Avatar id={profileMap[room.host_id]?.avatar} size="large" /><b><NicknameText name={profileMap[room.host_id]?.display_name ?? 'HOST'} styleId={profileMap[room.host_id]?.nickname_style} /></b><span className={room.ready_host ? 'ready' : ''}>{room.ready_host ? 'READY' : 'WAITING'}</span></div>
             <strong>VS</strong>
             <div>{room.guest_id ? <><Avatar id={profileMap[room.guest_id]?.avatar} size="large" /><b><NicknameText name={profileMap[room.guest_id]?.display_name ?? 'GUEST'} styleId={profileMap[room.guest_id]?.nickname_style} /></b><span className={room.ready_guest ? 'ready' : ''}>{room.ready_guest ? 'READY' : 'WAITING'}</span></> : <><span className="empty-avatar">?</span><b>상대 대기 중</b><span>SHARE CODE</span></>}</div>
           </div>
-          <p>양쪽 플레이어가 준비하면 활성 덱으로 결투가 시작됩니다.</p>
+          <p>{room.public_match ? (room.guest_id ? '현재 온라인 상태가 확인된 상대입니다. 양쪽 플레이어가 준비하면 결투가 시작됩니다.' : '온라인 상태가 확인된 상대만 연결합니다. 연결이 끊긴 대기 유저는 자동으로 제외됩니다.') : '양쪽 플레이어가 준비하면 활성 덱으로 결투가 시작됩니다.'}</p>
           {message && <p className="error-banner">{message}</p>}
           <div className="waiting-actions"><button className="ghost-button" onClick={leaveRoom}>나가기</button><button className="primary-button" disabled={busy || myReady || !room.guest_id} onClick={() => roomAction('ready', { roomId: room.id })}>{myReady ? '준비 완료' : '결투 준비'}</button></div>
         </section>
@@ -3356,6 +3357,45 @@ export default function Page() {
       supabase.removeChannel(channel);
     };
   }, [roomPayload?.room.id, roomPayload?.room.status, session?.user.id]);
+
+  useEffect(() => {
+    const room = roomPayload?.room;
+    if (!session || !room?.id || !room.public_match || room.status !== 'waiting') return;
+    let alive = true;
+    let sending = false;
+
+    async function heartbeat() {
+      if (!alive || sending || document.visibilityState === 'hidden') return;
+      sending = true;
+      try {
+        const result = await api('match_presence', { roomId: room.id });
+        if (!alive) return;
+        if (result.room && result.profiles) {
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
+          setRoomSyncState('live');
+          setLastRoomSyncAt(Date.now());
+        }
+      } catch (reason) {
+        if (!alive) return;
+        if (typeof console !== 'undefined') console.warn('[ECLIPSE MATCH PRESENCE]', reason instanceof Error ? reason.message : 'presence heartbeat failed');
+      } finally {
+        sending = false;
+      }
+    }
+
+    void heartbeat();
+    const timer = window.setInterval(heartbeat, 5_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') void heartbeat(); };
+    const onOnline = () => { void heartbeat(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', onOnline);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [roomPayload?.room.id, roomPayload?.room.public_match, roomPayload?.room.status, session?.user.id]);
 
   if (!authReady) return <LoadingScreen />;
   if (!session) return <AuthScreen onSession={setSession} />;
