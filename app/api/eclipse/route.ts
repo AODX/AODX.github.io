@@ -459,7 +459,7 @@ async function getHub(admin: UserDbClient | AdminDbClient, userId: string) {
   if (friendIds.length > 0) {
     const { data, error } = await admin
       .from('eclipse_profiles')
-      .select('user_id,display_name,player_code,avatar,status_message,wins,losses,xp,nickname_style')
+      .select('user_id,display_name,player_code,avatar,status_message,wins,losses,xp,nickname_style,profile_theme,profile_frame')
       .in('user_id', friendIds);
     if (error) throw new Error(error.message);
     friendProfiles = data ?? [];
@@ -474,7 +474,7 @@ async function getHub(admin: UserDbClient | AdminDbClient, userId: string) {
   if (requestUserIds.length > 0) {
     const { data, error } = await admin
       .from('eclipse_profiles')
-      .select('user_id,display_name,player_code,avatar,nickname_style')
+      .select('user_id,display_name,player_code,avatar,nickname_style,profile_theme,profile_frame')
       .in('user_id', requestUserIds);
     if (error) throw new Error(error.message);
     requestProfiles = data ?? [];
