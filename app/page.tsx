@@ -87,6 +87,11 @@ type RoomRow = {
   status: 'waiting' | 'active' | 'finished' | 'cancelled';
   ready_host: boolean;
   ready_guest: boolean;
+  wager_amount?: number;
+  wager_host_accepted?: boolean;
+  wager_guest_accepted?: boolean;
+  wager_locked?: boolean;
+  wager_settled?: boolean;
   state: MatchState | null;
   version: number;
   winner_id: string | null;
@@ -3512,6 +3517,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const momentumLabel = momentum >= 4 ? '유리' : momentum <= -4 ? '불리' : '접전';
   const myMatchStats = state.matchStats?.[userId] ?? { cardsDrawn: 0, cardsPlayed: 0, unitsSummoned: 0, specialSummons: 0, coreDamage: 0, healing: 0 };
   const opponentMatchStats = state.matchStats?.[opponentId] ?? { cardsDrawn: 0, cardsPlayed: 0, unitsSummoned: 0, specialSummons: 0, coreDamage: 0, healing: 0 };
+  const duelWagerAmount = room.public_match ? 0 : Math.max(0, Number(room.wager_amount ?? 0));
   const syncAgeSeconds = Math.max(0, Math.floor((Date.now() - lastSyncAt) / 1000));
   const displayedSyncState: 'live' | 'syncing' | 'offline' = syncState === 'offline' && syncAgeSeconds <= 8 ? 'live' : syncState;
 
@@ -3535,6 +3541,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
           <span className="v18-brand-mark">E</span>
           <div><b>ECLIPSE DUEL</b><small>ROOM {room.code}</small></div>
         </div>
+        {duelWagerAmount > 0 && <div className="v31k-duel-wager-badge"><small>COIN DUEL</small><b>{duelWagerAmount.toLocaleString()} EACH</b><span>PRIZE {(duelWagerAmount * 2).toLocaleString()}</span></div>}
         <div className="v18-turn-hud">
           <small>ROUND {roundNumber} · TURN {state.turnNumber}</small>
           <div><b>{coinTossActive ? '선공 결정' : myTurn ? 'YOUR TURN' : 'OPPONENT TURN'}</b><span>{coinTossActive ? 'OPENING' : phaseLabel}</span></div>
@@ -3857,7 +3864,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
             <div className="v22-result-hero">
               <span className="result-emblem">{state.winnerId === userId ? '✦' : '◇'}</span>
               <div><small>DUEL COMPLETE · TURN {state.turnNumber}</small><h2>{state.winnerId === userId ? 'VICTORY' : 'DEFEAT'}</h2><p>{state.winReason}</p></div>
-              <strong>{state.winnerId === userId ? '+180 COIN · +100 XP' : '+35 COIN · +35 XP'}</strong>
+              <strong>{state.winnerId === userId ? `+180 COIN · +100 XP${duelWagerAmount > 0 ? ` · 내기 +${duelWagerAmount.toLocaleString()}` : ''}` : `+35 COIN · +35 XP${duelWagerAmount > 0 ? ` · 내기 -${duelWagerAmount.toLocaleString()}` : ''}`}</strong>
             </div>
             <div className="v22-result-stats">
               <article><small>CORE DAMAGE</small><b>{myMatchStats.coreDamage}</b><span>상대 {opponentMatchStats.coreDamage}</span></article>
@@ -3878,7 +3885,13 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [wagerInput, setWagerInput] = useState('500');
   const roomActionLock = useRef(false);
+
+  useEffect(() => {
+    const amount = Math.max(0, Number(roomPayload?.room.wager_amount ?? 0));
+    if (!roomPayload?.room.public_match && amount > 0) setWagerInput(String(amount));
+  }, [roomPayload?.room.id, roomPayload?.room.public_match, roomPayload?.room.wager_amount]);
 
   async function roomAction(action: string, payload: Record<string, unknown> = {}) {
     if (!serverStatus.secureDuelReady) {
@@ -3911,6 +3924,12 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
     const profileMap = Object.fromEntries(roomPayload.profiles.map((profile) => [profile.user_id, profile]));
     const isHost = room.host_id === userId;
     const myReady = isHost ? room.ready_host : room.ready_guest;
+    const wagerAmount = Math.max(0, Number(room.wager_amount ?? 0));
+    const wagerEnabled = !room.public_match && wagerAmount > 0;
+    const wagerAgreed = !wagerEnabled || (room.wager_host_accepted === true && room.wager_guest_accepted === true);
+    const myWagerAccepted = isHost ? room.wager_host_accepted === true : room.wager_guest_accepted === true;
+    const readyBlockedByWager = !room.public_match && wagerEnabled && !wagerAgreed;
+    const canAffordWager = hub.wallet.coins >= wagerAmount;
     return (
       <div className="waiting-room">
         <section className="waiting-card panel">
@@ -3923,9 +3942,57 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
             <strong>VS</strong>
             <div>{room.guest_id ? <><Avatar id={profileMap[room.guest_id]?.avatar} size="large" /><b><NicknameText name={profileMap[room.guest_id]?.display_name ?? 'GUEST'} styleId={profileMap[room.guest_id]?.nickname_style} /></b><span className={room.ready_guest ? 'ready' : ''}>{room.ready_guest ? 'READY' : 'WAITING'}</span></> : <><span className="empty-avatar">?</span><b>상대 대기 중</b><span>SHARE CODE</span></>}</div>
           </div>
-          <p>{room.public_match ? (room.guest_id ? '현재 온라인 상태가 확인된 상대입니다. 양쪽 플레이어가 준비하면 결투가 시작됩니다.' : '온라인 상태가 확인된 상대만 연결합니다. 연결이 끊긴 대기 유저는 자동으로 제외됩니다.') : '양쪽 플레이어가 준비하면 활성 덱으로 결투가 시작됩니다.'}</p>
+
+          {!room.public_match && (
+            <section className={`v31k-wager-panel ${wagerEnabled ? 'active' : ''}`}>
+              <div className="v31k-wager-title">
+                <div><small>COIN DUEL</small><b>코인 내기</b><span>게임 안에서 사용하는 COIN만 걸 수 있습니다.</span></div>
+                <strong>{wagerEnabled ? `${wagerAmount.toLocaleString()} × 2` : 'OFF'}</strong>
+              </div>
+              <div className="v31k-wager-summary">
+                <span><small>각자 판돈</small><b>{wagerAmount.toLocaleString()} COIN</b></span>
+                <i>→</i>
+                <span><small>승자 수령</small><b>{(wagerAmount * 2).toLocaleString()} COIN</b></span>
+              </div>
+
+              {isHost ? (
+                <div className="v31k-wager-host">
+                  <small>방장이 판돈을 정하면 상대가 동의한 뒤 READY할 수 있습니다.</small>
+                  <div className="v31k-wager-presets">
+                    {[0, 100, 300, 500, 1000, 2500, 5000].map((amount) => (
+                      <button key={amount} type="button" className={wagerAmount === amount ? 'selected' : ''} disabled={busy || room.wager_locked === true} onClick={() => { setWagerInput(String(amount || 500)); void roomAction('set_room_wager', { roomId: room.id, amount }); }}>{amount === 0 ? '내기 없음' : amount.toLocaleString()}</button>
+                    ))}
+                  </div>
+                  <div className="v31k-wager-custom">
+                    <input type="number" min={0} max={10000} step={50} value={wagerInput} onChange={(event) => setWagerInput(event.target.value)} aria-label="판돈 직접 입력" />
+                    <span>COIN</span>
+                    <button type="button" disabled={busy || room.wager_locked === true} onClick={() => roomAction('set_room_wager', { roomId: room.id, amount: Number(wagerInput) })}>적용</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="v31k-wager-guest">
+                  {wagerEnabled ? (
+                    <button type="button" className={myWagerAccepted ? 'accepted' : ''} disabled={busy || myWagerAccepted || !canAffordWager || room.wager_locked === true} onClick={() => roomAction('accept_room_wager', { roomId: room.id })}>
+                      {myWagerAccepted ? '판돈 동의 완료' : canAffordWager ? `${wagerAmount.toLocaleString()} COIN 내기 동의` : '코인이 부족합니다'}
+                    </button>
+                  ) : <span>현재 방은 코인을 걸지 않는 일반 친선전입니다.</span>}
+                </div>
+              )}
+
+              {wagerEnabled && (
+                <div className="v31k-wager-consent">
+                  <span className={room.wager_host_accepted ? 'ok' : ''}><i />방장 {room.wager_host_accepted ? '동의' : '대기'}</span>
+                  <span className={room.wager_guest_accepted ? 'ok' : ''}><i />상대 {room.wager_guest_accepted ? '동의' : '대기'}</span>
+                  {room.wager_locked && <em>판돈 예치 완료</em>}
+                </div>
+              )}
+              {wagerEnabled && !canAffordWager && <p className="v31k-wager-warning">내 보유 코인 {hub.wallet.coins.toLocaleString()} · 판돈이 부족합니다.</p>}
+            </section>
+          )}
+
+          <p>{room.public_match ? (room.guest_id ? '현재 온라인 상태가 확인된 상대입니다. 양쪽 플레이어가 준비하면 결투가 시작됩니다.' : '온라인 상태가 확인된 상대만 연결합니다. 연결이 끊긴 대기 유저는 자동으로 제외됩니다.') : wagerEnabled ? (wagerAgreed ? '판돈 합의 완료. 양쪽이 준비하면 코인이 안전하게 예치된 뒤 결투가 시작됩니다.' : '양쪽이 같은 판돈에 동의해야 결투 준비를 할 수 있습니다.') : '양쪽 플레이어가 준비하면 활성 덱으로 결투가 시작됩니다.'}</p>
           {message && <p className="error-banner">{message}</p>}
-          <div className="waiting-actions"><button className="ghost-button" disabled={busy} onClick={leaveRoom}>나가기</button><button className="primary-button" aria-busy={busy} disabled={busy || myReady || !room.guest_id} onClick={() => roomAction('ready', { roomId: room.id })}>{busy ? '준비 처리 중…' : myReady ? '준비 완료' : '결투 준비'}</button></div>
+          <div className="waiting-actions"><button className="ghost-button" disabled={busy} onClick={leaveRoom}>나가기</button><button className="primary-button" aria-busy={busy} disabled={busy || myReady || !room.guest_id || readyBlockedByWager} onClick={() => roomAction('ready', { roomId: room.id })}>{busy ? '준비 처리 중…' : myReady ? '준비 완료' : readyBlockedByWager ? '판돈 동의 필요' : '결투 준비'}</button></div>
         </section>
       </div>
     );
