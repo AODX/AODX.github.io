@@ -604,20 +604,29 @@ async function startWaitingRoomIfReady(admin: AdminDbClient, roomId: string): Pr
   let latest = await fetchRoom(admin, roomId);
   if (latest.status !== 'waiting' || !latest.guest_id || !latest.ready_host || !latest.ready_guest) return latest;
 
+  // guest_id는 위 조건에서 존재가 확인됐지만, latest를 아래에서 다시 읽으면
+  // TypeScript의 null 좁히기가 풀립니다. 시작 대상 게스트를 별도 string으로 고정합니다.
+  const startingGuestId = latest.guest_id;
   const [hostDeck, guestDeck] = await Promise.all([
     activeDeck(admin, latest.host_id),
-    activeDeck(admin, latest.guest_id),
+    activeDeck(admin, startingGuestId),
   ]);
   if (!latest.public_match && roomWagerAmount(latest) > 0) {
     if (!roomWagerAccepted(latest)) throw new Error('양쪽 플레이어가 판돈에 동의해야 결투를 시작할 수 있습니다.');
     await lockRoomWager(admin, latest);
     latest = await fetchRoom(admin, roomId);
+
+    // 판돈 잠금과 재조회 사이에 방 참가자가 바뀌는 비정상 경합도 방어합니다.
+    if (!latest.guest_id || latest.guest_id !== startingGuestId) {
+      await refundRoomWager(admin, latest);
+      throw new Error('대전 상대 정보가 변경되었습니다. 방 상태를 새로고침한 뒤 다시 준비해 주세요.');
+    }
   }
   const snapshot = initializeMatch(
     latest.host_id,
     hostDeck.cards,
     hostDeck.extraCards,
-    latest.guest_id,
+    startingGuestId,
     guestDeck.cards,
     guestDeck.extraCards,
   );
