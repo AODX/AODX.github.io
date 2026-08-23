@@ -3443,3 +3443,39 @@
 @media (prefers-reduced-motion: reduce) {
   .v23-client .v31-social-skin { animation:none!important; }
 }
+
+/* ========================================================================== 
+   V31K6 SOCIAL FRAME FX FIX
+   Use the same real ProfileFrameFX layer as the profile card instead of only
+   recoloring the border. This makes purchased animated frames visible in
+   chat, friend rows, friend requests and the home social preview.
+   ========================================================================== */
+.v23-client .v31-social-skin > .v28-frame-fx {
+  z-index:8!important;
+  border-radius:inherit!important;
+}
+.v23-client .v31-social-skin > .v28-frame-fx .v28-frame-core {
+  inset:2px!important;
+  border-radius:inherit!important;
+}
+.v23-client .chat-message.v31-social-skin > .v28-frame-fx .v28-frame-core {
+  inset:1px!important;
+}
+.v23-client .v31-social-skin.frame-frame_aurora,
+.v23-client .v31-social-skin.frame-frame_royal,
+.v23-client .v31-social-skin.frame-frame_rift,
+.v23-client .v31-social-skin.frame-frame_astral,
+.v23-client .v31-social-skin.frame-frame_prismatic_loop,
+.v23-client .v31-social-skin.frame-frame_ember_crown,
+.v23-client .v31-social-skin.frame-frame_neon_circuit,
+.v23-client .v31-social-skin.frame-frame_moonlace,
+.v23-client .v31-social-skin.frame-frame_blossom_arc,
+.v23-client .v31-social-skin.frame-frame_royal_window {
+  border-color:transparent!important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .v23-client .v31-social-skin > .v28-frame-fx .v28-frame-core,
+  .v23-client .v31-social-skin > .v28-frame-fx .v28-frame-particle {
+    animation:none!important;
+  }
+}
