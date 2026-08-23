@@ -18,11 +18,20 @@ export type SeriesAbility =
   | { kind: 'recover_series'; amount: number };
 
 
-export type AbyssTacticalPassive =
-  | 'devour_echo'
-  | 'grave_armor'
-  | 'void_edge'
-  | 'last_curse';
+export type SeriesTacticalPassive =
+  | 'lumina_rally' | 'lumina_cover' | 'lumina_combo' | 'lumina_victory'
+  | 'kaiser_armor' | 'kaiser_thruster' | 'kaiser_salvage' | 'kaiser_emergency'
+  | 'eclipse_gloom' | 'eclipse_graveblade' | 'eclipse_feast' | 'eclipse_afterimage'
+  | 'nocturne_veil' | 'nocturne_moonreturn' | 'nocturne_dreamdraw' | 'nocturne_fade'
+  | 'arborian_pulse' | 'arborian_root' | 'arborian_sap' | 'arborian_seedfall'
+  | 'tempest_afterburner' | 'tempest_overcurrent' | 'tempest_recharge' | 'tempest_residual'
+  | 'abyss_devour_echo' | 'abyss_grave_armor' | 'abyss_void_edge' | 'abyss_last_curse'
+  | 'primal_packguard' | 'primal_alpha' | 'primal_hunt' | 'primal_spirit_guard'
+  | 'chrono_priority' | 'chrono_accel_strike' | 'chrono_forecast' | 'chrono_restore'
+  | 'arcana_rewrite' | 'arcana_conduit' | 'arcana_runeblade' | 'arcana_sealburst'
+  | 'beast_plating_passive' | 'beast_alloy_strike' | 'beast_predatory_repair' | 'beast_legacy'
+  | 'phantom_backstage' | 'phantom_ambush' | 'phantom_encore_passive' | 'phantom_smoke'
+  | 'astral_formation_wall' | 'astral_photon_thrust' | 'astral_supply' | 'astral_lastship';
 
 export type SeriesSignature =
   | 'lumina_beacon' | 'lumina_reinforce' | 'lumina_united' | 'lumina_finisher'
@@ -179,8 +188,8 @@ export interface CardDefinition {
   seriesAbility?: SeriesAbility;
   /** One of four themed signature effects unique to this card series. */
   seriesSignature?: SeriesSignature;
-  /** Individual tactical passive used by Abyss Reaper units. */
-  abyssTacticalPassive?: AbyssTacticalPassive;
+  /** One of four unit passives unique to this series. */
+  seriesTacticalPassive?: SeriesTacticalPassive;
 }
 
 export interface PackOdds {
@@ -333,6 +342,73 @@ export const SERIES_SIGNATURE_META: Record<SeriesSignature, { name: string; desc
   astral_formation: { name: '성해 진형', description: '아스트라 3체 이상이면 아군 아스트라 전원 보호막 +1.' },
 };
 
+export const SERIES_TACTICAL_META: Record<SeriesTacticalPassive, { name: string; description: string }> = {
+  lumina_rally: { name: '집결 출격', description: '같은 시리즈 아군이 있으면 소환 시 자신 +1/+1.' },
+  lumina_cover: { name: '동료 엄호', description: '소환 시 다른 루미나이츠가 2체 이상이면 체력이 가장 낮은 아군 루미나이츠 보호막 +1.' },
+  lumina_combo: { name: '연계 돌격', description: '공격할 때 다른 루미나이츠가 있으면 그 전투 피해 +1.' },
+  lumina_victory: { name: '승전 신호', description: '전투로 적을 파괴하고 루미나이츠가 2체 이상이면 카드 1장 드로우.' },
+
+  kaiser_armor: { name: '중장 장갑', description: '같은 시리즈 아군이 있으면 소환 시 보호막 1 획득.' },
+  kaiser_thruster: { name: '장갑 추진', description: '보호막이 있으면 공격 시 보호막 1을 소모하고 그 전투 피해 +2.' },
+  kaiser_salvage: { name: '전투 수복', description: '전투로 적을 파괴하면 자신의 보호막 +1.' },
+  kaiser_emergency: { name: '잔해 회수', description: '파괴될 때 남은 카이저기어 1체의 보호막 +1.' },
+
+  eclipse_gloom: { name: '일식 장막', description: '내 묘지가 3장 이상이면 소환 시 보호막 1 획득.' },
+  eclipse_graveblade: { name: '묘지 공명검', description: '내 묘지가 4장 이상이면 공격 피해 +1.' },
+  eclipse_feast: { name: '잔향 섭식', description: '전투로 적을 파괴하고 내 묘지가 5장 이상이면 코어 1 회복.' },
+  eclipse_afterimage: { name: '잔향 포식', description: '파괴될 때 내 묘지가 4장 이상이면 상대 코어 1 피해.' },
+
+  nocturne_veil: { name: '월영 장막', description: '내 코어가 상대보다 낮으면 소환 시 보호막 1 획득.' },
+  nocturne_moonreturn: { name: '월영 회귀', description: '내 코어가 상대보다 낮으면 공격 선언 시 코어 1 회복.' },
+  nocturne_dreamdraw: { name: '몽중 전리품', description: '내 코어가 상대보다 낮은 상태에서 적을 파괴하면 카드 1장 드로우.' },
+  nocturne_fade: { name: '환영 소실', description: '파괴될 때 내 코어가 상대보다 낮으면 가장 강한 적의 공격력 -1.' },
+
+  arborian_pulse: { name: '생장 맥동', description: '같은 시리즈 아군이 있으면 소환 시 체력이 가장 낮은 기존 아군의 최대 체력/체력 +1.' },
+  arborian_root: { name: '깊은 뿌리', description: '다른 아르보리아가 2체 이상이면 소환 시 자신의 최대 체력/체력 +2.' },
+  arborian_sap: { name: '수액 돌진', description: '자신의 체력이 가득 차 있고 다른 아르보리아가 있으면 공격 피해 +1.' },
+  arborian_seedfall: { name: '낙엽 발아', description: '파괴될 때 빈 필드가 있으면 1/1 새싹 토큰 1체 소환.' },
+
+  tempest_afterburner: { name: '애프터버너', description: '같은 시리즈 아군이 있으면 소환된 턴에도 즉시 공격 가능.' },
+  tempest_overcurrent: { name: '과전류 돌입', description: '남은 에너지가 2 이하이면 공격 피해 +1.' },
+  tempest_recharge: { name: '전격 재충전', description: '전투로 적을 파괴하면 자신의 공격력 +1.' },
+  tempest_residual: { name: '잔류 낙뢰', description: '파괴될 때 다른 템페스트가 남아 있으면 상대 코어 1 피해.' },
+
+  abyss_devour_echo: { name: '포식 반향', description: '전투로 적을 파괴하면 내 코어 1 회복.' },
+  abyss_grave_armor: { name: '묘향 갑주', description: '소환할 때 상대 묘지가 2장 이상이면 보호막 1 획득.' },
+  abyss_void_edge: { name: '공허 칼날', description: '공격할 때 상대 묘지가 4장 이상이면 그 전투 피해 +1.' },
+  abyss_last_curse: { name: '최후의 저주', description: '파괴될 때 상대 묘지가 3장 이상이면 상대 코어 1 피해.' },
+
+  primal_packguard: { name: '군집 수호', description: '같은 시리즈 아군이 있으면 소환 시 보호막 1과 체력 +1.' },
+  primal_alpha: { name: '알파의 포효', description: '다른 프라이멀 아군이 2체 이상이면 공격 피해 +1.' },
+  primal_hunt: { name: '야생 사냥', description: '전투로 적을 파괴하면 자신의 최대 체력/체력 +1.' },
+  primal_spirit_guard: { name: '수호령 계승', description: '파괴될 때 남은 프라이멀 1체의 보호막 +1.' },
+
+  chrono_priority: { name: '시간 선점', description: '소환 후 에너지가 2 이상 남아 있으면 공격력 +1과 보호막 1.' },
+  chrono_accel_strike: { name: '가속 타격', description: '공격할 때 에너지가 1 이상 남아 있으면 그 전투 피해 +1.' },
+  chrono_forecast: { name: '미래 확보', description: '에너지가 1 이상 남은 상태로 적을 파괴하면 카드 1장 드로우.' },
+  chrono_restore: { name: '시간 복원', description: '파괴될 때 남은 크로노리움 중 체력이 가장 낮은 1체의 체력 2 회복.' },
+
+  arcana_rewrite: { name: '규약 재기록', description: '내 묘지에 주문이 2장 이상이면 소환 시 카드 1장 드로우.' },
+  arcana_conduit: { name: '마력 도관', description: '내 아르카나 주문이 해결될 때 이 패시브를 가진 아군 1체가 보호막 1 획득.' },
+  arcana_runeblade: { name: '룬 블레이드', description: '내 묘지에 주문이 3장 이상이면 공격 피해 +1.' },
+  arcana_sealburst: { name: '봉인 잔광', description: '파괴될 때 내 묘지에 주문이 4장 이상이면 가장 강한 적의 공격력 -1.' },
+
+  beast_plating_passive: { name: '야수 장갑', description: '같은 시리즈 아군이 있으면 소환 시 보호막 1 획득.' },
+  beast_alloy_strike: { name: '합금 충격', description: '보호막을 가진 상태로 공격하면 그 전투 피해 +1.' },
+  beast_predatory_repair: { name: '포식 수복', description: '전투로 적을 파괴하면 자신의 체력 2 회복.' },
+  beast_legacy: { name: '강철 유산', description: '파괴될 때 남은 비스트포지 1체의 공격력 +1.' },
+
+  phantom_backstage: { name: '비밀 무대', description: '내 함정이 1장 이상 세트되어 있으면 소환 시 보호막 1 획득.' },
+  phantom_ambush: { name: '기습 배우', description: '내 함정이 세트되어 있으면 공격 피해 +1.' },
+  phantom_encore_passive: { name: '앙코르 트릭', description: '내 팬텀 함정이 발동하면 이 패시브를 가진 아군 1체 +1/+1.' },
+  phantom_smoke: { name: '퇴장 연막', description: '파괴될 때 가장 강한 적의 공격력 -1.' },
+
+  astral_formation_wall: { name: '편대 방벽', description: '소환 후 아스트라가 2체 이상이면 아스트라 전원 보호막 +1.' },
+  astral_photon_thrust: { name: '광자 추진', description: '다른 아스트라가 있으면 공격 피해 +1.' },
+  astral_supply: { name: '함대 보급', description: '전투로 적을 파괴하면 자신의 보호막 +1.' },
+  astral_lastship: { name: '잔존 편대', description: '파괴될 때 남은 아스트라 1체의 보호막 +1.' },
+};
+
 export function seriesSignatureDescription(card: CardDefinition): string {
   if (!card.seriesSignature) return '';
   const meta = SERIES_SIGNATURE_META[card.seriesSignature];
@@ -340,31 +416,9 @@ export function seriesSignatureDescription(card: CardDefinition): string {
 }
 
 export function tacticalAbilityDescription(card: CardDefinition): string {
-  if (!isUnitCard(card) || !card.seriesId) return '';
-  if (card.seriesId === 'abyss_reaper') {
-    switch (card.abyssTacticalPassive) {
-      case 'devour_echo': return '포식 반향 · 이 카드가 전투로 적을 파괴하면 내 코어 1 회복.';
-      case 'grave_armor': return '묘향 갑주 · 소환할 때 상대 묘지가 2장 이상이면 보호막 1 획득.';
-      case 'void_edge': return '공허 칼날 · 공격할 때 상대 묘지가 4장 이상이면 그 전투 피해 +1.';
-      case 'last_curse': return '최후의 저주 · 이 카드가 파괴될 때 상대 묘지가 3장 이상이면 상대 코어 1 피해.';
-      default: return '포식 반향 · 이 카드가 전투로 적을 파괴하면 내 코어 1 회복.';
-    }
-  }
-  switch (card.seriesId) {
-    case 'luminaknights': return '집결 출격 · 같은 시리즈 아군이 이미 있으면 소환 시 자신 +1/+1.';
-    case 'kaisergear': return '중장 장갑 · 같은 시리즈 아군이 있으면 소환 시 보호막 1 획득.';
-    case 'eclipsion': return '잔향 포식 · 이 유닛이 파괴될 때 내 묘지가 4장 이상이면 상대 코어에 1 피해.';
-    case 'nocturne': return '월영 회귀 · 공격 선언 시 내 코어가 상대보다 낮으면 코어 1 회복.';
-    case 'arborian': return '생장 맥동 · 같은 시리즈 유닛을 소환하면 기존 아군 1장의 최대 체력/체력 +1.';
-    case 'tempest_drive': return '애프터버너 · 같은 시리즈 아군이 있으면 소환된 턴에도 즉시 공격 가능.';
-    case 'primal_guardian': return '군집 수호 · 같은 시리즈 아군이 있으면 소환 시 보호막 1과 체력 +1.';
-    case 'chronorium': return '시간 선점 · 소환 후 에너지가 2 이상 남아 있으면 공격력 +1과 보호막 1.';
-    case 'arcana_protocol': return '규약 재기록 · 내 묘지에 주문이 2장 이상이면 소환 시 카드 1장 드로우.';
-    case 'beastforge': return '합금 충격 · 보호막을 가진 상태로 공격하면 그 전투에서 공격 피해 +1.';
-    case 'phantom_carnival': return '앙코르 트릭 · 내 함정이 발동할 때 내 팬텀 카니발 유닛 1장을 +1/+1.';
-    case 'astral_armada': return '편대 방벽 · 같은 시리즈 유닛이 2장 이상이 되면 소환 시 편대 전원 보호막 +1.';
-    default: return '';
-  }
+  if (!isUnitCard(card) || !card.seriesTacticalPassive) return '';
+  const meta = SERIES_TACTICAL_META[card.seriesTacticalPassive];
+  return `${meta.name} · ${meta.description}`;
 }
 
 export const CARDS: CardDefinition[] = [
@@ -2086,13 +2140,35 @@ for (const series of CARD_SERIES) {
   });
 }
 
-/* v31i: Abyss Reaper units no longer all share one tactical passive. */
-const V31I_ABYSS_PASSIVES: AbyssTacticalPassive[] = ['devour_echo', 'grave_armor', 'void_edge', 'last_curse'];
-const v31iAbyssUnits = CARDS
-  .filter((card) => card.seriesId === 'abyss_reaper' && (card.kind === 'unit' || card.kind === 'fusion' || card.kind === 'evolution'))
-  .sort((a, b) => a.cost - b.cost || a.rarity.localeCompare(b.rarity) || a.id.localeCompare(b.id));
-for (const [index, card] of v31iAbyssUnits.entries()) {
-  card.abyssTacticalPassive = V31I_ABYSS_PASSIVES[index % V31I_ABYSS_PASSIVES.length];
+/* v31j: every series has four distinct tactical passives, distributed evenly
+ * across that series' units / fusion / evolution cards. The four v31h series
+ * signature effects remain separate, so each archetype now has at least eight
+ * named mechanics (4 signatures + 4 unit passives) without stacking one series
+ * above the others.
+ */
+const V31J_SERIES_PASSIVES: Record<SeriesId, [SeriesTacticalPassive, SeriesTacticalPassive, SeriesTacticalPassive, SeriesTacticalPassive]> = {
+  luminaknights: ['lumina_rally', 'lumina_cover', 'lumina_combo', 'lumina_victory'],
+  kaisergear: ['kaiser_armor', 'kaiser_thruster', 'kaiser_salvage', 'kaiser_emergency'],
+  eclipsion: ['eclipse_gloom', 'eclipse_graveblade', 'eclipse_feast', 'eclipse_afterimage'],
+  nocturne: ['nocturne_veil', 'nocturne_moonreturn', 'nocturne_dreamdraw', 'nocturne_fade'],
+  arborian: ['arborian_pulse', 'arborian_root', 'arborian_sap', 'arborian_seedfall'],
+  tempest_drive: ['tempest_afterburner', 'tempest_overcurrent', 'tempest_recharge', 'tempest_residual'],
+  abyss_reaper: ['abyss_devour_echo', 'abyss_grave_armor', 'abyss_void_edge', 'abyss_last_curse'],
+  primal_guardian: ['primal_packguard', 'primal_alpha', 'primal_hunt', 'primal_spirit_guard'],
+  chronorium: ['chrono_priority', 'chrono_accel_strike', 'chrono_forecast', 'chrono_restore'],
+  arcana_protocol: ['arcana_rewrite', 'arcana_conduit', 'arcana_runeblade', 'arcana_sealburst'],
+  beastforge: ['beast_plating_passive', 'beast_alloy_strike', 'beast_predatory_repair', 'beast_legacy'],
+  phantom_carnival: ['phantom_backstage', 'phantom_ambush', 'phantom_encore_passive', 'phantom_smoke'],
+  astral_armada: ['astral_formation_wall', 'astral_photon_thrust', 'astral_supply', 'astral_lastship'],
+};
+
+for (const card of CARDS) delete card.seriesTacticalPassive;
+for (const series of CARD_SERIES) {
+  const passives = V31J_SERIES_PASSIVES[series.id];
+  const units = CARDS
+    .filter((card) => card.seriesId === series.id && (card.kind === 'unit' || card.kind === 'fusion' || card.kind === 'evolution'))
+    .sort((a, b) => a.cost - b.cost || a.rarity.localeCompare(b.rarity) || a.id.localeCompare(b.id));
+  for (const [index, card] of units.entries()) card.seriesTacticalPassive = passives[index % passives.length];
 }
 
 export function extraSummonRuleDescription(card: CardDefinition): string {

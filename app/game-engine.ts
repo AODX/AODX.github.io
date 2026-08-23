@@ -1621,6 +1621,46 @@ function applySeriesAbility(
 
 type TrapResolution = { negated: boolean; retaliation: number };
 
+function tacticalFormation(state: MatchState, playerId: string, seriesId: SeriesId) {
+  return state.boards[playerId].units
+    .map((unit, index) => ({ unit, index, card: unit ? CARD_BY_ID[unit.cardId] : undefined }))
+    .filter((entry): entry is { unit: UnitState; index: number; card: CardDefinition } => Boolean(entry.unit && entry.card?.seriesId === seriesId));
+}
+
+function tacticalEnemyFormation(state: MatchState, playerId: string) {
+  const opponentId = otherPlayer(state, playerId);
+  return state.boards[opponentId].units
+    .map((unit, index) => ({ unit, index, card: unit ? CARD_BY_ID[unit.cardId] : undefined }))
+    .filter((entry): entry is { unit: UnitState; index: number; card: CardDefinition | undefined } => Boolean(entry.unit));
+}
+
+function weakenStrongestEnemy(state: MatchState, ownerId: string, amount: number, label: string, sourceCard?: CardDefinition): void {
+  const opponentId = otherPlayer(state, ownerId);
+  const target = tacticalEnemyFormation(state, ownerId).sort((a, b) => b.unit.attack - a.unit.attack || a.unit.health - b.unit.health)[0];
+  if (!target || target.unit.attack <= 0) return;
+  const reduced = Math.min(amount, target.unit.attack);
+  target.unit.attack -= reduced;
+  appendLog(state, `전술 · ${label} — 「${target.card?.name ?? '적 유닛'}」 공격력 -${reduced}.`, 'special');
+  appendVisual(state, { kind: 'buff', vfx: 'tactical-weaken', cardId: sourceCard?.id, ownerId, targetOwnerId: opponentId, targetZone: target.index, amount: reduced, label });
+}
+
+function buffSurvivingSeriesUnit(
+  state: MatchState,
+  ownerId: string,
+  seriesId: SeriesId,
+  sourceCard: CardDefinition,
+  mode: 'shield' | 'attack',
+  amount: number,
+  label: string,
+): void {
+  const target = tacticalFormation(state, ownerId, seriesId).sort((a, b) => a.unit.health - b.unit.health || a.unit.attack - b.unit.attack)[0];
+  if (!target) return;
+  if (mode === 'shield') target.unit.shield += amount;
+  else target.unit.attack += amount;
+  appendLog(state, `전술 · ${label} — 「${target.card.name}」 ${mode === 'shield' ? `보호막 +${amount}` : `공격력 +${amount}`}.`, 'special');
+  appendVisual(state, { kind: 'buff', vfx: 'tactical-inherit', cardId: sourceCard.id, ownerId, targetZone: target.index, amount, label });
+}
+
 function applyTacticalOnSummon(
   state: MatchState,
   privateStates: Record<string, PrivateState>,
@@ -1628,68 +1668,95 @@ function applyTacticalOnSummon(
   zone: number,
   card: CardDefinition,
 ): void {
-  if (!card.seriesId) return;
+  if (!card.seriesId || !card.seriesTacticalPassive) return;
   const unit = state.boards[playerId].units[zone];
   if (!unit) return;
-  const allies = state.boards[playerId].units
-    .map((item, index) => ({ item, index, card: item ? CARD_BY_ID[item.cardId] : undefined }))
-    .filter(({ item, index, card: allyCard }) => item && index !== zone && allyCard?.seriesId === card.seriesId);
+  const passive = card.seriesTacticalPassive;
+  const formation = tacticalFormation(state, playerId, card.seriesId);
+  const allies = formation.filter((entry) => entry.index !== zone);
   const opponentId = otherPlayer(state, playerId);
 
-  switch (card.seriesId) {
-    case 'luminaknights':
+  switch (passive) {
+    case 'lumina_rally':
       if (allies.length > 0) {
         unit.attack += 1; unit.health += 1; unit.maxHealth += 1;
         appendLog(state, `전술 · 집결 출격 — 「${card.name}」 +1/+1.`, 'special');
         appendVisual(state, { kind: 'buff', vfx: 'tactical-rally', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '집결 출격' });
       }
       break;
-    case 'kaisergear':
+    case 'lumina_cover': {
+      if (allies.length < 2) break;
+      const target = [...allies].sort((a, b) => a.unit.health - b.unit.health)[0];
+      target.unit.shield += 1;
+      appendLog(state, `전술 · 동료 엄호 — 「${target.card.name}」 보호막 +1.`, 'special');
+      appendVisual(state, { kind: 'buff', vfx: 'tactical-cover', cardId: card.id, ownerId: playerId, targetZone: target.index, amount: 1, label: '동료 엄호' });
+      break;
+    }
+    case 'kaiser_armor':
       if (allies.length > 0) {
         unit.shield += 1;
-        appendLog(state, `전술 · 중장 장갑 — 「${card.name}」 보호막 1.`, 'special');
+        appendLog(state, `전술 · 중장 장갑 — 「${card.name}」 보호막 +1.`, 'special');
         appendVisual(state, { kind: 'buff', vfx: 'tactical-armor', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '중장 장갑' });
       }
       break;
-    case 'arborian':
-      if (allies.length > 0) {
-        const target = allies.sort((a, b) => (a.item?.health ?? 99) - (b.item?.health ?? 99))[0];
-        if (target.item) {
-          target.item.health += 1; target.item.maxHealth += 1;
-          appendLog(state, '전술 · 생장 맥동 — 기존 아르보리아 유닛의 체력이 성장했습니다.', 'special');
-          appendVisual(state, { kind: 'buff', vfx: 'tactical-growth', cardId: target.card?.id, ownerId: playerId, targetZone: target.index, amount: 1, label: '생장 맥동' });
-        }
+    case 'eclipse_gloom':
+      if ((state.graveyards[playerId]?.length ?? 0) >= 3) {
+        unit.shield += 1;
+        appendLog(state, `전술 · 일식 장막 — 「${card.name}」 보호막 +1.`, 'special');
+        appendVisual(state, { kind: 'buff', vfx: 'tactical-eclipse-veil', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '일식 장막' });
       }
       break;
-    case 'tempest_drive':
+    case 'nocturne_veil':
+      if ((state.core[playerId] ?? 0) < (state.core[opponentId] ?? 0)) {
+        unit.shield += 1;
+        appendLog(state, `전술 · 월영 장막 — 「${card.name}」 보호막 +1.`, 'special');
+        appendVisual(state, { kind: 'buff', vfx: 'tactical-moon-veil', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '월영 장막' });
+      }
+      break;
+    case 'arborian_pulse': {
+      if (!allies.length) break;
+      const target = [...allies].sort((a, b) => a.unit.health - b.unit.health)[0];
+      target.unit.health += 1; target.unit.maxHealth += 1;
+      appendLog(state, `전술 · 생장 맥동 — 「${target.card.name}」 최대 체력/체력 +1.`, 'special');
+      appendVisual(state, { kind: 'buff', vfx: 'tactical-growth', cardId: card.id, ownerId: playerId, targetZone: target.index, amount: 1, label: '생장 맥동' });
+      break;
+    }
+    case 'arborian_root':
+      if (allies.length >= 2) {
+        unit.health += 2; unit.maxHealth += 2;
+        appendLog(state, `전술 · 깊은 뿌리 — 「${card.name}」 최대 체력/체력 +2.`, 'special');
+        appendVisual(state, { kind: 'buff', vfx: 'tactical-root', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 2, label: '깊은 뿌리' });
+      }
+      break;
+    case 'tempest_afterburner':
       if (allies.length > 0 && !unit.canAttack) {
         unit.canAttack = true;
-        appendLog(state, `전술 · 애프터버너 — 「${card.name}」이(가) 즉시 공격 가능 상태가 되었습니다.`, 'special');
+        appendLog(state, `전술 · 애프터버너 — 「${card.name}」이(가) 즉시 공격 가능.`, 'special');
         appendVisual(state, { kind: 'energy', vfx: 'tactical-afterburner', cardId: card.id, ownerId: playerId, targetZone: zone, label: '애프터버너' });
       }
       break;
-    case 'abyss_reaper':
-      if (card.abyssTacticalPassive === 'grave_armor' && (state.graveyards[opponentId]?.length ?? 0) >= 2) {
+    case 'abyss_grave_armor':
+      if ((state.graveyards[opponentId]?.length ?? 0) >= 2) {
         unit.shield += 1;
-        appendLog(state, `전술 · 묘향 갑주 — 「${card.name}」이(가) 상대 묘지의 기운을 받아 보호막 1 획득.`, 'special');
+        appendLog(state, `전술 · 묘향 갑주 — 「${card.name}」 보호막 +1.`, 'special');
         appendVisual(state, { kind: 'buff', vfx: 'tactical-grave-armor', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '묘향 갑주' });
       }
       break;
-    case 'primal_guardian':
+    case 'primal_packguard':
       if (allies.length > 0) {
         unit.shield += 1; unit.health += 1; unit.maxHealth += 1;
-        appendLog(state, `전술 · 군집 수호 — 「${card.name}」 보호막 1 · 체력 +1.`, 'special');
+        appendLog(state, `전술 · 군집 수호 — 「${card.name}」 보호막 +1 · 체력 +1.`, 'special');
         appendVisual(state, { kind: 'buff', vfx: 'tactical-packguard', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '군집 수호' });
       }
       break;
-    case 'chronorium':
+    case 'chrono_priority':
       if ((state.energy[playerId]?.current ?? 0) >= 2) {
         unit.attack += 1; unit.shield += 1;
-        appendLog(state, `전술 · 시간 선점 — 「${card.name}」 공격력 +1 · 보호막 1.`, 'special');
+        appendLog(state, `전술 · 시간 선점 — 「${card.name}」 공격력 +1 · 보호막 +1.`, 'special');
         appendVisual(state, { kind: 'buff', vfx: 'tactical-chrono', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '시간 선점' });
       }
       break;
-    case 'arcana_protocol': {
+    case 'arcana_rewrite': {
       const spellCount = (state.graveyards[playerId] ?? []).filter((id) => CARD_BY_ID[id]?.kind === 'spell').length;
       if (spellCount >= 2 && drawCards(state, privateStates[playerId], playerId, 1)) {
         appendLog(state, `전술 · 규약 재기록 — 「${card.name}」 효과로 카드 1장 드로우.`, 'special');
@@ -1697,17 +1764,30 @@ function applyTacticalOnSummon(
       }
       break;
     }
-    case 'astral_armada': {
-      const formation = state.boards[playerId].units.filter((item) => item && CARD_BY_ID[item.cardId]?.seriesId === 'astral_armada');
-      if (formation.length >= 2) {
-        for (const ally of formation) if (ally) ally.shield += 1;
-        appendLog(state, `전술 · 편대 방벽 — 아스트라 아르마다 ${formation.length}장에 보호막 1.`, 'special');
-        appendVisual(state, { kind: 'buff', vfx: 'tactical-formation', cardId: card.id, ownerId: playerId, amount: 1, label: '편대 방벽' });
+    case 'beast_plating_passive':
+      if (allies.length > 0) {
+        unit.shield += 1;
+        appendLog(state, `전술 · 야수 장갑 — 「${card.name}」 보호막 +1.`, 'special');
+        appendVisual(state, { kind: 'buff', vfx: 'tactical-beast-plating', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '야수 장갑' });
+      }
+      break;
+    case 'phantom_backstage': {
+      const setCount = state.boards[playerId].secrets.filter(Boolean).length;
+      if (setCount > 0) {
+        unit.shield += 1;
+        appendLog(state, `전술 · 비밀 무대 — 「${card.name}」 보호막 +1.`, 'special');
+        appendVisual(state, { kind: 'buff', vfx: 'tactical-backstage', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '비밀 무대' });
       }
       break;
     }
+    case 'astral_formation_wall':
+      if (formation.length >= 2) {
+        for (const ally of formation) ally.unit.shield += 1;
+        appendLog(state, `전술 · 편대 방벽 — 아스트라 ${formation.length}체 보호막 +1.`, 'special');
+        appendVisual(state, { kind: 'buff', vfx: 'tactical-formation', cardId: card.id, ownerId: playerId, amount: 1, label: '편대 방벽' });
+      }
+      break;
     default:
-      void opponentId;
       break;
   }
 }
@@ -1716,71 +1796,271 @@ function applyTacticalOnAttackStart(state: MatchState, playerId: string, attacke
   const attacker = state.boards[playerId].units[attackerIndex];
   if (!attacker) return 0;
   const card = CARD_BY_ID[attacker.cardId];
-  if (!card?.seriesId) return 0;
+  if (!card?.seriesId || !card.seriesTacticalPassive) return 0;
+  const passive = card.seriesTacticalPassive;
   const opponentId = otherPlayer(state, playerId);
-  if (card.seriesId === 'nocturne' && (state.core[playerId] ?? 0) < (state.core[opponentId] ?? 0)) {
-    const healed = healCore(state, playerId, 1);
-    if (healed > 0) {
-      statsFor(state, playerId).healing += healed;
-      appendLog(state, `전술 · 월영 회귀 — 「${card.name}」 공격 선언으로 코어 1 회복.`, 'special');
-      appendVisual(state, { kind: 'heal', vfx: 'tactical-moon-return', cardId: card.id, ownerId: playerId, targetOwnerId: playerId, sourceZone: attackerIndex, amount: healed, label: '월영 회귀' });
+  const formation = tacticalFormation(state, playerId, card.seriesId);
+  const otherAllies = formation.filter((entry) => entry.index !== attackerIndex);
+  let bonus = 0;
+
+  const addBonus = (amount: number, label: string, vfx: string) => {
+    bonus += amount;
+    appendLog(state, `전술 · ${label} — 「${card.name}」의 이번 공격 피해 +${amount}.`, 'special');
+    appendVisual(state, { kind: 'buff', vfx, cardId: card.id, ownerId: playerId, sourceZone: attackerIndex, amount, label });
+  };
+
+  switch (passive) {
+    case 'lumina_combo':
+      if (otherAllies.length > 0) addBonus(1, '연계 돌격', 'tactical-combo');
+      break;
+    case 'kaiser_thruster':
+      if (attacker.shield > 0) {
+        attacker.shield -= 1;
+        addBonus(2, '장갑 추진', 'tactical-thruster');
+      }
+      break;
+    case 'eclipse_graveblade':
+      if ((state.graveyards[playerId]?.length ?? 0) >= 4) addBonus(1, '묘지 공명검', 'tactical-graveblade');
+      break;
+    case 'nocturne_moonreturn': {
+      if ((state.core[playerId] ?? 0) < (state.core[opponentId] ?? 0)) {
+        const healed = healCore(state, playerId, 1);
+        if (healed > 0) {
+          statsFor(state, playerId).healing += healed;
+          appendLog(state, `전술 · 월영 회귀 — 「${card.name}」 공격 선언으로 코어 ${healed} 회복.`, 'special');
+          appendVisual(state, { kind: 'heal', vfx: 'tactical-moon-return', cardId: card.id, ownerId: playerId, targetOwnerId: playerId, sourceZone: attackerIndex, amount: healed, label: '월영 회귀' });
+        }
+      }
+      break;
     }
+    case 'arborian_sap':
+      if (otherAllies.length > 0 && attacker.health >= attacker.maxHealth) addBonus(1, '수액 돌진', 'tactical-sap');
+      break;
+    case 'tempest_overcurrent':
+      if ((state.energy[playerId]?.current ?? 0) <= 2) addBonus(1, '과전류 돌입', 'tactical-overcurrent');
+      break;
+    case 'abyss_void_edge':
+      if ((state.graveyards[opponentId]?.length ?? 0) >= 4) addBonus(1, '공허 칼날', 'tactical-void-edge');
+      break;
+    case 'primal_alpha':
+      if (otherAllies.length >= 2) addBonus(1, '알파의 포효', 'tactical-alpha');
+      break;
+    case 'chrono_accel_strike':
+      if ((state.energy[playerId]?.current ?? 0) >= 1) addBonus(1, '가속 타격', 'tactical-chrono-strike');
+      break;
+    case 'arcana_runeblade': {
+      const spells = (state.graveyards[playerId] ?? []).filter((id) => CARD_BY_ID[id]?.kind === 'spell').length;
+      if (spells >= 3) addBonus(1, '룬 블레이드', 'tactical-runeblade');
+      break;
+    }
+    case 'beast_alloy_strike':
+      if (attacker.shield > 0) addBonus(1, '합금 충격', 'tactical-alloy');
+      break;
+    case 'phantom_ambush':
+      if (state.boards[playerId].secrets.some(Boolean)) addBonus(1, '기습 배우', 'tactical-ambush');
+      break;
+    case 'astral_photon_thrust':
+      if (otherAllies.length > 0) addBonus(1, '광자 추진', 'tactical-photon');
+      break;
+    default:
+      break;
   }
-  if (card.seriesId === 'beastforge' && attacker.shield > 0) {
-    appendLog(state, `전술 · 합금 충격 — 「${card.name}」의 이번 공격 피해 +1.`, 'special');
-    return 1;
-  }
-  if (card.seriesId === 'abyss_reaper' && card.abyssTacticalPassive === 'void_edge' && (state.graveyards[opponentId]?.length ?? 0) >= 4) {
-    appendLog(state, `전술 · 공허 칼날 — 「${card.name}」의 이번 공격 피해 +1.`, 'special');
-    appendVisual(state, { kind: 'buff', vfx: 'tactical-void-edge', cardId: card.id, ownerId: playerId, sourceZone: attackerIndex, amount: 1, label: '공허 칼날' });
-    return 1;
-  }
-  return 0;
+  return bonus;
 }
 
-function applyTacticalOnKill(state: MatchState, playerId: string, attackerIndex: number): void {
+function applyTacticalOnKill(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  playerId: string,
+  attackerIndex: number,
+): void {
   const attacker = state.boards[playerId].units[attackerIndex];
   const card = attacker ? CARD_BY_ID[attacker.cardId] : undefined;
-  if (card?.seriesId !== 'abyss_reaper' || card.abyssTacticalPassive !== 'devour_echo') return;
-  const healed = healCore(state, playerId, 1);
-  if (healed <= 0) return;
-  statsFor(state, playerId).healing += healed;
-  appendLog(state, `전술 · 포식 반향 — 「${card.name}」이(가) 적을 파괴해 코어 1 회복.`, 'special');
-  appendVisual(state, { kind: 'heal', vfx: 'tactical-devour', cardId: card.id, ownerId: playerId, targetOwnerId: playerId, sourceZone: attackerIndex, amount: healed, label: '포식 반향' });
+  if (!attacker || !card?.seriesId || !card.seriesTacticalPassive) return;
+  const passive = card.seriesTacticalPassive;
+  const opponentId = otherPlayer(state, playerId);
+  const formation = tacticalFormation(state, playerId, card.seriesId);
+
+  switch (passive) {
+    case 'lumina_victory':
+      if (formation.length >= 2 && drawCards(state, privateStates[playerId], playerId, 1)) {
+        appendLog(state, `전술 · 승전 신호 — 「${card.name}」의 승리로 카드 1장 드로우.`, 'special');
+        appendVisual(state, { kind: 'draw', vfx: 'tactical-victory', cardId: card.id, ownerId: playerId, sourceZone: attackerIndex, amount: 1, label: '승전 신호' });
+      }
+      break;
+    case 'kaiser_salvage':
+      attacker.shield += 1;
+      appendLog(state, `전술 · 전투 수복 — 「${card.name}」 보호막 +1.`, 'special');
+      appendVisual(state, { kind: 'buff', vfx: 'tactical-salvage', cardId: card.id, ownerId: playerId, sourceZone: attackerIndex, amount: 1, label: '전투 수복' });
+      break;
+    case 'eclipse_feast':
+      if ((state.graveyards[playerId]?.length ?? 0) >= 5) {
+        const healed = healCore(state, playerId, 1);
+        if (healed > 0) {
+          statsFor(state, playerId).healing += healed;
+          appendLog(state, `전술 · 잔향 섭식 — 코어 ${healed} 회복.`, 'special');
+          appendVisual(state, { kind: 'heal', vfx: 'tactical-eclipse-feast', cardId: card.id, ownerId: playerId, targetOwnerId: playerId, sourceZone: attackerIndex, amount: healed, label: '잔향 섭식' });
+        }
+      }
+      break;
+    case 'nocturne_dreamdraw':
+      if ((state.core[playerId] ?? 0) < (state.core[opponentId] ?? 0) && drawCards(state, privateStates[playerId], playerId, 1)) {
+        appendLog(state, `전술 · 몽중 전리품 — 카드 1장 드로우.`, 'special');
+        appendVisual(state, { kind: 'draw', vfx: 'tactical-dreamdraw', cardId: card.id, ownerId: playerId, sourceZone: attackerIndex, amount: 1, label: '몽중 전리품' });
+      }
+      break;
+    case 'tempest_recharge':
+      attacker.attack += 1;
+      appendLog(state, `전술 · 전격 재충전 — 「${card.name}」 공격력 +1.`, 'special');
+      appendVisual(state, { kind: 'buff', vfx: 'tactical-recharge', cardId: card.id, ownerId: playerId, sourceZone: attackerIndex, amount: 1, label: '전격 재충전' });
+      break;
+    case 'abyss_devour_echo': {
+      const healed = healCore(state, playerId, 1);
+      if (healed > 0) {
+        statsFor(state, playerId).healing += healed;
+        appendLog(state, `전술 · 포식 반향 — 「${card.name}」이(가) 적을 파괴해 코어 1 회복.`, 'special');
+        appendVisual(state, { kind: 'heal', vfx: 'tactical-devour', cardId: card.id, ownerId: playerId, targetOwnerId: playerId, sourceZone: attackerIndex, amount: healed, label: '포식 반향' });
+      }
+      break;
+    }
+    case 'primal_hunt':
+      attacker.health += 1; attacker.maxHealth += 1;
+      appendLog(state, `전술 · 야생 사냥 — 「${card.name}」 최대 체력/체력 +1.`, 'special');
+      appendVisual(state, { kind: 'buff', vfx: 'tactical-hunt', cardId: card.id, ownerId: playerId, sourceZone: attackerIndex, amount: 1, label: '야생 사냥' });
+      break;
+    case 'chrono_forecast':
+      if ((state.energy[playerId]?.current ?? 0) >= 1 && drawCards(state, privateStates[playerId], playerId, 1)) {
+        appendLog(state, `전술 · 미래 확보 — 카드 1장 드로우.`, 'special');
+        appendVisual(state, { kind: 'draw', vfx: 'tactical-forecast', cardId: card.id, ownerId: playerId, sourceZone: attackerIndex, amount: 1, label: '미래 확보' });
+      }
+      break;
+    case 'beast_predatory_repair': {
+      const before = attacker.health;
+      attacker.health = Math.min(attacker.maxHealth, attacker.health + 2);
+      const healed = attacker.health - before;
+      if (healed > 0) {
+        appendLog(state, `전술 · 포식 수복 — 「${card.name}」 체력 ${healed} 회복.`, 'special');
+        appendVisual(state, { kind: 'heal', vfx: 'tactical-beast-repair', cardId: card.id, ownerId: playerId, sourceZone: attackerIndex, amount: healed, label: '포식 수복' });
+      }
+      break;
+    }
+    case 'astral_supply':
+      attacker.shield += 1;
+      appendLog(state, `전술 · 함대 보급 — 「${card.name}」 보호막 +1.`, 'special');
+      appendVisual(state, { kind: 'buff', vfx: 'tactical-supply', cardId: card.id, ownerId: playerId, sourceZone: attackerIndex, amount: 1, label: '함대 보급' });
+      break;
+    default:
+      break;
+  }
 }
 
 function applyTacticalOnDestroyed(state: MatchState, ownerId: string, card: CardDefinition | undefined): void {
-  if (!card) return;
+  if (!card?.seriesId || !card.seriesTacticalPassive) return;
+  const passive = card.seriesTacticalPassive;
   const opponentId = otherPlayer(state, ownerId);
-  if (card.seriesId === 'eclipsion') {
-    if ((state.graveyards[ownerId]?.length ?? 0) < 4) return;
-    const actual = damageCore(state, opponentId, 1);
-    if (actual <= 0) return;
-    statsFor(state, ownerId).coreDamage += actual;
-    appendLog(state, `전술 · 잔향 포식 — 「${card.name}」의 파괴 잔향이 상대 코어에 1 피해.`, 'special');
-    appendVisual(state, { kind: 'core', vfx: 'tactical-echo', cardId: card.id, ownerId, targetOwnerId: opponentId, amount: actual, label: '잔향 포식' });
-    return;
+
+  switch (passive) {
+    case 'kaiser_emergency':
+      buffSurvivingSeriesUnit(state, ownerId, 'kaisergear', card, 'shield', 1, '잔해 회수');
+      break;
+    case 'eclipse_afterimage':
+      if ((state.graveyards[ownerId]?.length ?? 0) >= 4) {
+        const actual = damageCore(state, opponentId, 1);
+        if (actual > 0) {
+          statsFor(state, ownerId).coreDamage += actual;
+          appendLog(state, `전술 · 잔향 포식 — 「${card.name}」의 잔향이 상대 코어에 ${actual} 피해.`, 'special');
+          appendVisual(state, { kind: 'core', vfx: 'tactical-echo', cardId: card.id, ownerId, targetOwnerId: opponentId, amount: actual, label: '잔향 포식' });
+        }
+      }
+      break;
+    case 'nocturne_fade':
+      if ((state.core[ownerId] ?? 0) < (state.core[opponentId] ?? 0)) weakenStrongestEnemy(state, ownerId, 1, '환영 소실', card);
+      break;
+    case 'arborian_seedfall': {
+      const zone = summonSeriesToken(state, ownerId, 1, 1, '아르보리아 새싹', 'tactical-seedfall');
+      if (zone >= 0) appendLog(state, `전술 · 낙엽 발아 — 1/1 새싹 토큰을 소환했습니다.`, 'special');
+      break;
+    }
+    case 'tempest_residual':
+      if (tacticalFormation(state, ownerId, 'tempest_drive').length > 0) {
+        const actual = damageCore(state, opponentId, 1);
+        if (actual > 0) {
+          statsFor(state, ownerId).coreDamage += actual;
+          appendLog(state, `전술 · 잔류 낙뢰 — 상대 코어 ${actual} 피해.`, 'special');
+          appendVisual(state, { kind: 'core', vfx: 'tactical-residual', cardId: card.id, ownerId, targetOwnerId: opponentId, amount: actual, label: '잔류 낙뢰' });
+        }
+      }
+      break;
+    case 'abyss_last_curse':
+      if ((state.graveyards[opponentId]?.length ?? 0) >= 3) {
+        const actual = damageCore(state, opponentId, 1);
+        if (actual > 0) {
+          statsFor(state, ownerId).coreDamage += actual;
+          appendLog(state, `전술 · 최후의 저주 — 「${card.name}」이(가) 파괴되며 상대 코어에 ${actual} 피해.`, 'special');
+          appendVisual(state, { kind: 'core', vfx: 'tactical-last-curse', cardId: card.id, ownerId, targetOwnerId: opponentId, amount: actual, label: '최후의 저주' });
+        }
+      }
+      break;
+    case 'primal_spirit_guard':
+      buffSurvivingSeriesUnit(state, ownerId, 'primal_guardian', card, 'shield', 1, '수호령 계승');
+      break;
+    case 'chrono_restore': {
+      const target = tacticalFormation(state, ownerId, 'chronorium').sort((a, b) => a.unit.health - b.unit.health)[0];
+      if (!target) break;
+      const before = target.unit.health;
+      target.unit.health = Math.min(target.unit.maxHealth, target.unit.health + 2);
+      const healed = target.unit.health - before;
+      if (healed > 0) {
+        appendLog(state, `전술 · 시간 복원 — 「${target.card.name}」 체력 ${healed} 회복.`, 'special');
+        appendVisual(state, { kind: 'heal', vfx: 'tactical-restore', cardId: card.id, ownerId, targetZone: target.index, amount: healed, label: '시간 복원' });
+      }
+      break;
+    }
+    case 'arcana_sealburst': {
+      const spells = (state.graveyards[ownerId] ?? []).filter((id) => CARD_BY_ID[id]?.kind === 'spell').length;
+      if (spells >= 4) weakenStrongestEnemy(state, ownerId, 1, '봉인 잔광', card);
+      break;
+    }
+    case 'beast_legacy':
+      buffSurvivingSeriesUnit(state, ownerId, 'beastforge', card, 'attack', 1, '강철 유산');
+      break;
+    case 'phantom_smoke':
+      weakenStrongestEnemy(state, ownerId, 1, '퇴장 연막', card);
+      break;
+    case 'astral_lastship':
+      buffSurvivingSeriesUnit(state, ownerId, 'astral_armada', card, 'shield', 1, '잔존 편대');
+      break;
+    default:
+      break;
   }
-  if (card.seriesId === 'abyss_reaper' && card.abyssTacticalPassive === 'last_curse') {
-    if ((state.graveyards[opponentId]?.length ?? 0) < 3) return;
-    const actual = damageCore(state, opponentId, 1);
-    if (actual <= 0) return;
-    statsFor(state, ownerId).coreDamage += actual;
-    appendLog(state, `전술 · 최후의 저주 — 「${card.name}」이(가) 파괴되며 상대 코어에 1 피해.`, 'special');
-    appendVisual(state, { kind: 'core', vfx: 'tactical-last-curse', cardId: card.id, ownerId, targetOwnerId: opponentId, amount: actual, label: '최후의 저주' });
-  }
+}
+
+function applyTacticalOnSpellResolved(
+  state: MatchState,
+  playerId: string,
+  spellCard: CardDefinition,
+): void {
+  if (spellCard.kind !== 'spell' || spellCard.seriesId !== 'arcana_protocol') return;
+  const candidates = tacticalFormation(state, playerId, 'arcana_protocol')
+    .filter((entry) => entry.card.seriesTacticalPassive === 'arcana_conduit')
+    .sort((a, b) => a.unit.shield - b.unit.shield || a.unit.health - b.unit.health);
+  const target = candidates[0];
+  if (!target) return;
+  target.unit.shield += 1;
+  appendLog(state, `전술 · 마력 도관 — 「${target.card.name}」 보호막 +1.`, 'special');
+  appendVisual(state, { kind: 'buff', vfx: 'tactical-conduit', cardId: target.card.id, ownerId: playerId, targetZone: target.index, amount: 1, label: '마력 도관' });
 }
 
 function applyTacticalOnTrap(state: MatchState, trapOwnerId: string, trapCard: CardDefinition): void {
   if (trapCard.seriesId !== 'phantom_carnival') return;
-  const targetIndex = state.boards[trapOwnerId].units.findIndex((unit) => unit && CARD_BY_ID[unit.cardId]?.seriesId === 'phantom_carnival');
-  if (targetIndex < 0) return;
-  const unit = state.boards[trapOwnerId].units[targetIndex];
-  if (!unit) return;
-  unit.attack += 1; unit.health += 1; unit.maxHealth += 1;
-  const targetCard = CARD_BY_ID[unit.cardId];
-  appendLog(state, `전술 · 앙코르 트릭 — 「${targetCard?.name ?? '팬텀 유닛'}」 +1/+1.`, 'special');
-  appendVisual(state, { kind: 'buff', vfx: 'tactical-encore', cardId: targetCard?.id, ownerId: trapOwnerId, targetZone: targetIndex, amount: 1, label: '앙코르 트릭' });
+  const candidates = tacticalFormation(state, trapOwnerId, 'phantom_carnival')
+    .filter((entry) => entry.card.seriesTacticalPassive === 'phantom_encore_passive')
+    .sort((a, b) => a.unit.attack + a.unit.health - (b.unit.attack + b.unit.health));
+  const target = candidates[0];
+  if (!target) return;
+  target.unit.attack += 1; target.unit.health += 1; target.unit.maxHealth += 1;
+  appendLog(state, `전술 · 앙코르 트릭 — 「${target.card.name}」 +1/+1.`, 'special');
+  appendVisual(state, { kind: 'buff', vfx: 'tactical-encore', cardId: target.card.id, ownerId: trapOwnerId, targetZone: target.index, amount: 1, label: '앙코르 트릭' });
 }
 
 function activateTrapAt(
@@ -2081,6 +2361,7 @@ function resolveSpellContinuation(
     }
     applySeriesAbility(state, privateStates, continuation.actorId, card);
     applySeriesSignature(state, privateStates, continuation.actorId, card);
+    applyTacticalOnSpellResolved(state, continuation.actorId, card);
     appendLog(state, `주문 「${card.name}」 효과 처리 완료.`, 'system');
   } else {
     if (trapResult.retaliation > 0) {
@@ -2622,7 +2903,7 @@ function resolveUnitAttack(
       if (pierceDamage > 0) appendVisual(state, { kind: 'core', vfx: 'pierce-impact', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: opponentId, sourceZone: continuation.attackerIndex, amount: pierceDamage, label: '관통 피해' });
     }
   }
-  if (defenderReport.destroyed) applyTacticalOnKill(state, playerId, continuation.attackerIndex);
+  if (defenderReport.destroyed) applyTacticalOnKill(state, privateStates, playerId, continuation.attackerIndex);
   attacker.canAttack = false;
   appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) ${defenderCard?.name ?? '적 유닛'}에게 ${attackerDamage} 피해 · 반격 ${defenderDamage} 피해.`, 'attack');
   destroyDefeatedUnits(state, privateStates);
