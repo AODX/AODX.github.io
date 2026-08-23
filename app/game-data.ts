@@ -2401,9 +2401,6 @@ export function starterCollection(): Record<string, number> {
 export function validateDeck(cardIds: string[], collection?: Record<string, number>): string | null {
   if (cardIds.length !== DECK_SIZE) return `메인 덱은 정확히 ${DECK_SIZE}장이어야 합니다.`;
   const counts = countCards(cardIds);
-  let unitCount = 0;
-  let spellCount = 0;
-  let trapCount = 0;
 
   for (const [cardId, quantity] of Object.entries(counts)) {
     const card = CARD_BY_ID[cardId];
@@ -2411,14 +2408,12 @@ export function validateDeck(cardIds: string[], collection?: Record<string, numb
     if (isExtraDeckCard(card)) return `${card.name}은(는) 엑스트라 덱에 넣어야 합니다.`;
     if (quantity > MAX_COPIES[card.rarity]) return `${card.name}은(는) 최대 ${MAX_COPIES[card.rarity]}장까지 넣을 수 있습니다.`;
     if (collection && quantity > (collection[cardId] ?? 0)) return `${card.name}의 보유 수량이 부족합니다.`;
-    if (card.kind === 'unit') unitCount += quantity;
-    if (card.kind === 'spell') spellCount += quantity;
-    if (card.kind === 'trap') trapCount += quantity;
   }
 
-  if (unitCount < 22) return '유닛 카드는 최소 22장 필요합니다.';
-  if (spellCount > 14) return '주문 카드는 최대 14장까지 넣을 수 있습니다.';
-  if (trapCount > 10) return '함정 카드는 최대 10장까지 넣을 수 있습니다.';
+  // v32j: 카드 종류 비율은 덱 닥터의 '추천'으로만 안내합니다.
+  // 예전의 유닛 최소 22 / 주문 최대 14 / 함정 최대 10 하드 제한은
+  // 메인 45장 + 엑스트라 6장을 모두 채워도 저장 버튼을 막는 원인이었습니다.
+  // 현재 공식 덱 규칙은 장수/보유량/카드별 복사 제한/메인·엑스트라 구분만 강제합니다.
   return null;
 }
 
