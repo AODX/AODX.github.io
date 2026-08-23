@@ -92,6 +92,10 @@ export interface VisualEvent {
   shieldAmount?: number;
   healthAmount?: number;
   label?: string;
+  /** Human-readable resolution text that is safe to reveal to both duelists once the event resolves. */
+  detail?: string;
+  /** Source/material cards used to create this event (for fusion/evolution cinematics). */
+  sourceCardIds?: string[];
   createdAt: number;
 }
 
@@ -438,13 +442,14 @@ function consumeTrap(state: MatchState, privateState: PrivateState, ownerId: str
   privateState.secrets[trapIndex] = null;
   state.boards[ownerId].secrets[trapIndex] = null;
   state.graveyards[ownerId].push(card.id);
-  appendLog(state, `함정 「${card.name}」 발동!`, 'trap');
+  appendLog(state, `함정 「${card.name}」 발동 — ${card.text}`, 'trap');
   appendVisual(state, {
     kind: 'trap',
     vfx: resolveCardVfx(card, 'activation'),
     cardId: card.id,
     ownerId,
     label: card.name,
+    detail: card.text,
   });
 }
 
@@ -1507,10 +1512,10 @@ export function summonExtra(
 
   if (card.kind === 'fusion') {
     appendLog(state, `공명 융합 — 「${card.name}」 강림!`, 'fusion');
-    appendVisual(state, { kind: 'fusion', vfx: resolveCardVfx(card, 'summon'), cardId: card.id, ownerId: playerId, targetZone: summonZone, label: card.name });
+    appendVisual(state, { kind: 'fusion', vfx: resolveCardVfx(card, 'summon'), cardId: card.id, ownerId: playerId, targetZone: summonZone, label: card.name, detail: card.fusionRecipe?.label ?? '소재를 공명시켜 새로운 존재로 융합', sourceCardIds: units.map((item) => item.cardId) });
   } else {
     appendLog(state, `계승 진화 — 「${card.name}」 각성!`, 'evolution');
-    appendVisual(state, { kind: 'evolution', vfx: resolveCardVfx(card, 'summon'), cardId: card.id, ownerId: playerId, targetZone: summonZone, label: card.name });
+    appendVisual(state, { kind: 'evolution', vfx: resolveCardVfx(card, 'summon'), cardId: card.id, ownerId: playerId, targetZone: summonZone, label: card.name, detail: card.evolutionRecipe?.label ?? '원본의 힘을 계승해 상위 형태로 각성', sourceCardIds: evolvedSource ? [evolvedSource.cardId] : units.map((item) => item.cardId) });
   }
 
   continueSummonResolution(state, privateStates, {
@@ -1741,10 +1746,12 @@ export function attack(
   }
 
   const bonusDamage = applyTacticalOnAttackStart(state, playerId, attackerIndex);
+  const declaredTargetCard = target.kind === 'unit' ? CARD_BY_ID[state.boards[opponentId].units[target.unitIndex]?.cardId ?? ''] : undefined;
   appendVisual(state, {
     kind: 'attack', vfx: resolveCardVfx(attackerCard, 'attack'), cardId: attackerCard?.id, ownerId: playerId,
     targetOwnerId: opponentId, sourceZone: attackerIndex, targetZone: target.kind === 'unit' ? target.unitIndex : undefined,
     amount: attacker.attack + bonusDamage, label: attackerCard?.name ?? '유닛 공격',
+    detail: target.kind === 'unit' ? `${declaredTargetCard?.name ?? '적 유닛'}을 향해 공격` : `상대 코어를 향해 직접 공격`,
   });
 
   if (target.kind === 'core') {

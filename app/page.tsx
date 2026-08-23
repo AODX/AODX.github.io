@@ -255,7 +255,7 @@ function getAudioContext(): AudioContext | null {
   return sharedAudioContext;
 }
 
-type UiSound = 'click' | 'card' | 'remove' | 'auto' | 'save' | 'pack' | 'reveal' | 'success' | 'summon' | 'attack' | 'spell' | 'trap' | 'damage' | 'shield' | 'corehit' | 'destroy' | 'draw' | 'turn';
+type UiSound = 'click' | 'card' | 'remove' | 'auto' | 'save' | 'pack' | 'reveal' | 'success' | 'summon' | 'fusion' | 'evolution' | 'attack' | 'impact' | 'spell' | 'trap' | 'damage' | 'shield' | 'corehit' | 'destroy' | 'draw' | 'turn';
 
 function playUiSound(kind: UiSound): void {
   const context = getAudioContext();
@@ -268,7 +268,7 @@ function playUiSound(kind: UiSound): void {
   compressor.ratio.value = 7;
   compressor.attack.value = 0.002;
   compressor.release.value = 0.12;
-  const combatSound = kind === 'summon' || kind === 'attack' || kind === 'spell' || kind === 'trap' || kind === 'damage' || kind === 'shield' || kind === 'corehit' || kind === 'destroy' || kind === 'draw' || kind === 'turn';
+  const combatSound = kind === 'summon' || kind === 'fusion' || kind === 'evolution' || kind === 'attack' || kind === 'impact' || kind === 'spell' || kind === 'trap' || kind === 'damage' || kind === 'shield' || kind === 'corehit' || kind === 'destroy' || kind === 'draw' || kind === 'turn';
   const soundGain = Math.min(1.15, Math.max(0.001, globalSoundVolume) * (combatSound ? 1.22 : 1));
   master.gain.setValueAtTime(soundGain, now);
   master.connect(compressor);
@@ -350,11 +350,28 @@ function playUiSound(kind: UiSound): void {
       tone('triangle', 260, 880, 0.34, 0.025, 0.035);
       noise(0.2, 0.022, 0.09, 900);
       break;
+    case 'fusion':
+      tone('sine', 92, 310, 0.52, 0.034);
+      tone('triangle', 210, 760, 0.46, 0.030, 0.06);
+      tone('sine', 420, 1260, 0.34, 0.022, 0.18);
+      noise(0.32, 0.028, 0.12, 820);
+      tone('square', 128, 74, 0.22, 0.016, 0.38);
+      break;
+    case 'evolution':
+      tone('triangle', 190, 620, 0.48, 0.03);
+      tone('sine', 360, 1120, 0.42, 0.022, 0.08);
+      tone('sine', 720, 1680, 0.34, 0.016, 0.20);
+      noise(0.24, 0.018, 0.19, 1250);
+      break;
     case 'attack':
-      noise(0.18, 0.065, 0, 300);
-      tone('sawtooth', 260, 72, 0.18, 0.052);
-      tone('square', 560, 190, 0.10, 0.018, 0.02);
-      tone('sine', 95, 52, 0.20, 0.035, 0.018);
+      noise(0.13, 0.052, 0, 520);
+      tone('sawtooth', 420, 92, 0.16, 0.042);
+      tone('triangle', 780, 220, 0.11, 0.016, 0.015);
+      break;
+    case 'impact':
+      noise(0.16, 0.078, 0, 160);
+      tone('square', 180, 62, 0.13, 0.044);
+      tone('sine', 76, 46, 0.20, 0.038, 0.01);
       break;
     case 'spell':
       tone('sine', 320, 1180, 0.35, 0.024);
@@ -1359,9 +1376,12 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   const [deckCards, setDeckCards] = useState<string[]>(defaultDeck?.cards ?? []);
   const [extraCards, setExtraCards] = useState<string[]>(defaultDeck?.extra_cards ?? []);
   const [search, setSearch] = useState('');
+  const [deckZone, setDeckZone] = useState<'main' | 'extra'>('main');
   const [kind, setKind] = useState<'all' | CardKind>('all');
   const [element, setElement] = useState<'all' | Element>('all');
   const [seriesFilter, setSeriesFilter] = useState<'all' | SeriesId>('all');
+  const [rarityFilter, setRarityFilter] = useState<'all' | Rarity>('all');
+  const [costFilter, setCostFilter] = useState<'all' | '0-1' | '2' | '3' | '4' | '5' | '6' | '7+'>('all');
   const [sort, setSort] = useState<'recommended' | 'cost' | 'rarity' | 'name'>('recommended');
   const [autoStyle, setAutoStyle] = useState<'balanced' | 'aggro' | 'control' | 'theme'>('balanced');
   const [busy, setBusy] = useState(false);
@@ -1398,11 +1418,22 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     return (Object.entries(score).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'solar') as Element;
   }, [collection]);
 
+  useEffect(() => {
+    if (deckZone === 'main' && (kind === 'fusion' || kind === 'evolution')) setKind('all');
+    if (deckZone === 'extra' && kind !== 'all' && kind !== 'fusion' && kind !== 'evolution') setKind('all');
+  }, [deckZone, kind]);
+
   const filtered = useMemo(() => CARDS.filter((card) => {
     if (!collection[card.id]) return false;
+    if (deckZone === 'main' && isExtraDeckCard(card)) return false;
+    if (deckZone === 'extra' && !isExtraDeckCard(card)) return false;
     if (kind !== 'all' && card.kind !== kind) return false;
     if (element !== 'all' && card.element !== element) return false;
     if (seriesFilter !== 'all' && card.seriesId !== seriesFilter) return false;
+    if (rarityFilter !== 'all' && card.rarity !== rarityFilter) return false;
+    if (costFilter === '0-1' && card.cost > 1) return false;
+    if (costFilter !== 'all' && costFilter !== '0-1' && costFilter !== '7+' && card.cost !== Number(costFilter)) return false;
+    if (costFilter === '7+' && card.cost < 7) return false;
     if (search && !`${card.name} ${card.text} ${card.subtitle} ${card.series ?? ''}`.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   }).sort((a, b) => {
@@ -1411,7 +1442,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     if (sort === 'name') return a.name.localeCompare(b.name, 'ko');
     const score = (card: CardDefinition) => rarityWeight[card.rarity] * 7 + (card.element === dominantElement ? 5 : 0) - card.cost * 0.35;
     return score(b) - score(a);
-  }), [collection, kind, element, seriesFilter, search, sort, dominantElement]);
+  }), [collection, deckZone, kind, element, seriesFilter, rarityFilter, costFilter, search, sort, dominantElement]);
 
   function usedCopies(cardId: string): number {
     return (mainCounts[cardId] ?? 0) + (extraCounts[cardId] ?? 0);
@@ -1451,6 +1482,15 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     setExtraCards([]);
     setMessage('덱을 비웠습니다. 자동 구성 또는 카드 추가로 다시 채울 수 있습니다.');
     playUiSound('remove');
+  }
+
+  function resetDeckFilters() {
+    setSearch('');
+    setKind('all');
+    setElement('all');
+    setSeriesFilter('all');
+    setRarityFilter('all');
+    setCostFilter('all');
   }
 
   function scoreCard(card: CardDefinition, style: typeof autoStyle, primary: Element): number {
@@ -1587,6 +1627,10 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     return bins;
   }, [deckCards]);
   const curveMax = Math.max(1, ...costCurve);
+  const mainProgress = Math.min(100, Math.round((deckCards.length / DECK_SIZE) * 100));
+  const extraProgress = Math.min(100, Math.round((extraCards.length / EXTRA_DECK_SIZE) * 100));
+  const deckListEntries = useMemo(() => Object.entries(mainCounts).sort(([a], [b]) => (CARD_BY_ID[a]?.cost ?? 0) - (CARD_BY_ID[b]?.cost ?? 0) || (CARD_BY_ID[a]?.name ?? '').localeCompare(CARD_BY_ID[b]?.name ?? '', 'ko')), [mainCounts]);
+  const activeFilterCount = [kind !== 'all', element !== 'all', seriesFilter !== 'all', rarityFilter !== 'all', costFilter !== 'all', Boolean(search)].filter(Boolean).length;
   const deckDoctor = useMemo(() => {
     const early = deckCards.filter((id) => (CARD_BY_ID[id]?.cost ?? 99) <= 2).length;
     const late = deckCards.filter((id) => (CARD_BY_ID[id]?.cost ?? 0) >= 6).length;
@@ -1627,25 +1671,29 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   }, [deckCards, extraCards, unitCount, spellCount, trapCount, averageCost, validation, seriesFilter]);
 
   return (
-    <div className="v9-deck-page">
-      <section className="v9-deck-top">
-        <div>
-          <span className="eyebrow">DECK STUDIO</span>
-          <h2>덱 구성</h2>
-          <p>보유 카드에서 45장 + 엑스트라 6장을 고릅니다. 처음이라면 자동 구성을 먼저 사용해보세요.</p>
+    <div className="v9-deck-page v31e-deck-lab">
+      <section className="v31e-build-hero panel">
+        <div className="v31e-build-hero-copy">
+          <span className="eyebrow">DECK BUILD · TACTICAL LAB</span>
+          <h2>{deckName || '새 덱'}</h2>
+          <p>카드 풀을 필터링하고 클릭으로 추가한 뒤, 오른쪽 덱 리스트에서 수량을 바로 조정합니다. 메인 45장과 엑스트라 6장을 한 화면에서 완성할 수 있습니다.</p>
+          <div className="v31e-build-progress" aria-label="덱 완성도">
+            <span><small>MAIN DECK</small><b>{deckCards.length}/{DECK_SIZE}</b><i><em style={{ width: `${mainProgress}%` }} /></i></span>
+            <span><small>EXTRA DECK</small><b>{extraCards.length}/{EXTRA_DECK_SIZE}</b><i><em style={{ width: `${extraProgress}%` }} /></i></span>
+          </div>
         </div>
-        <div className={`v9-deck-ready ${validation ? 'invalid' : 'valid'}`}>
-          <b>{validation ? '구성 중' : '대전 가능'}</b>
-          <span>MAIN {deckCards.length}/{DECK_SIZE}</span>
-          <span>EXTRA {extraCards.length}/{EXTRA_DECK_SIZE}</span>
+        <div className="v31e-build-hero-actions">
+          <div className={`v31e-build-status ${validation ? 'building' : 'ready'}`}><i /><span><small>BUILD STATUS</small><b>{validation ? '구성 중' : '대전 준비 완료'}</b></span></div>
+          <button className="ghost-button" onClick={() => autoBuild(autoStyle)}>추천 자동 구성</button>
+          <button className="primary-button" disabled={busy || Boolean(validation)} onClick={saveDeck}>{busy ? '저장 중...' : '현재 덱 저장'}</button>
         </div>
       </section>
 
-      <section className="v9-auto-builder panel">
+      <section className="v9-auto-builder panel v31e-auto-builder">
         <div className="v9-auto-copy">
-          <span className="eyebrow">AUTO BUILD</span>
-          <h3>자동으로 덱 짜기</h3>
-          <p>보유 카드와 카드 성능을 분석해 규칙에 맞는 덱을 즉시 구성합니다.</p>
+          <span className="eyebrow">BUILD PROFILE</span>
+          <h3>덱 방향을 먼저 정하세요</h3>
+          <p>자동 구성은 시작점일 뿐입니다. 이후 카드별 수량을 직접 조정해 마무리할 수 있습니다.</p>
         </div>
         <div className="v9-auto-controls">
           <div className="v9-style-pills">
@@ -1655,11 +1703,11 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
               <button key={id} className={autoStyle === id ? 'active' : ''} onClick={() => setAutoStyle(id)}>{label}</button>
             ))}
           </div>
-          <button className="v9-auto-button" onClick={() => autoBuild(autoStyle)}>추천 덱 자동 구성</button>
+          <button className="v9-auto-button" onClick={() => autoBuild(autoStyle)}>이 방향으로 자동 구성</button>
         </div>
       </section>
 
-      <section className="v9-deck-manager panel">
+      <section className="v9-deck-manager panel v31e-deck-manager">
         <div className="v9-deck-select-row">
           <select value={selectedDeckId} onChange={(event: ChangeEvent<HTMLSelectElement>) => setSelectedDeckId(event.target.value)}>
             {hub.decks.map((deck) => <option key={deck.id} value={deck.id}>{deck.is_active ? '★ ' : ''}{deck.name}</option>)}
@@ -1667,19 +1715,27 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
           </select>
           <input value={deckName} onChange={(event: ChangeEvent<HTMLInputElement>) => setDeckName(event.target.value)} maxLength={24} placeholder="덱 이름" />
           <div className="v9-deck-counts"><span>유닛 <b>{unitCount}</b></span><span>주문 <b>{spellCount}</b></span><span>함정 <b>{trapCount}</b></span></div>
-          <button className="v9-clear-button" onClick={clearDeck}>비우기</button>
+          <button className="v9-clear-button" onClick={clearDeck}>전체 비우기</button>
         </div>
         {message && <p className="v9-deck-message">{message}</p>}
         {validation && <p className="v9-validation">{validation}</p>}
       </section>
 
-      <div className="v9-deck-workspace">
-        <section className="v9-card-library panel">
-          <header className="v9-library-head"><div><h3>내 카드</h3><small>{filtered.length}종 표시</small></div><span>카드를 누르면 덱에 추가됩니다.</span></header>
-          <div className="v9-filter-row">
-            <input value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)} placeholder="카드 검색" />
+      <div className="v9-deck-workspace v31e-deck-workspace">
+        <section className="v9-card-library panel v31e-card-library">
+          <header className="v9-library-head v31e-library-head">
+            <div><span className="eyebrow">CARD LIBRARY</span><h3>카드 선택</h3><small>{filtered.length}종 표시 · 필터 {activeFilterCount}개 적용</small></div>
+            <div className="v31e-library-zone-tabs" role="tablist" aria-label="덱 영역 선택">
+              <button type="button" className={deckZone === 'main' ? 'active' : ''} onClick={() => setDeckZone('main')}><span>MAIN</span><b>{deckCards.length}/{DECK_SIZE}</b></button>
+              <button type="button" className={deckZone === 'extra' ? 'active' : ''} onClick={() => setDeckZone('extra')}><span>EXTRA</span><b>{extraCards.length}/{EXTRA_DECK_SIZE}</b></button>
+            </div>
+          </header>
+
+          <div className="v9-filter-row v31e-filter-row">
+            <input value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)} placeholder="카드명 · 효과 · 시리즈 검색" />
             <select value={kind} onChange={(event: ChangeEvent<HTMLSelectElement>) => setKind(event.target.value as 'all' | CardKind)}>
-              <option value="all">모든 종류</option><option value="unit">유닛</option><option value="spell">주문</option><option value="trap">함정</option><option value="fusion">공명 융합</option><option value="evolution">계승 진화</option>
+              <option value="all">모든 종류</option>
+              {deckZone === 'main' ? <><option value="unit">유닛</option><option value="spell">주문</option><option value="trap">함정</option></> : <><option value="fusion">공명 융합</option><option value="evolution">계승 진화</option></>}
             </select>
             <select value={element} onChange={(event: ChangeEvent<HTMLSelectElement>) => setElement(event.target.value as 'all' | Element)}>
               <option value="all">모든 속성</option>{Object.entries(ELEMENT_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
@@ -1691,47 +1747,76 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
               <option value="recommended">추천순</option><option value="cost">비용순</option><option value="rarity">등급순</option><option value="name">이름순</option>
             </select>
           </div>
-          <div className="collection-grid deck-grid v9-card-grid">
+
+          <div className="v31e-filter-chips">
+            <div><small>COST</small>{(['all', '0-1', '2', '3', '4', '5', '6', '7+'] as const).map((id) => <button type="button" key={id} className={costFilter === id ? 'active' : ''} onClick={() => setCostFilter(id)}>{id === 'all' ? 'ALL' : id}</button>)}</div>
+            <div><small>RARITY</small>{(['all', 'common', 'rare', 'epic', 'legendary'] as const).map((id) => <button type="button" key={id} className={`${rarityFilter === id ? 'active' : ''} rarity-${id}`} onClick={() => setRarityFilter(id)}>{id === 'all' ? 'ALL' : RARITY_LABEL[id]}</button>)}</div>
+            <button type="button" className="v31e-filter-reset" disabled={activeFilterCount === 0} onClick={resetDeckFilters}>필터 초기화</button>
+          </div>
+
+          <div className="collection-grid deck-grid v9-card-grid v31e-card-grid">
             {filtered.map((card) => {
               const max = Math.min(MAX_COPIES[card.rarity], collection[card.id] ?? 0);
-              const full = usedCopies(card.id) >= max || (isExtraDeckCard(card) ? extraCards.length >= EXTRA_DECK_SIZE : deckCards.length >= DECK_SIZE);
-              return <CardFace key={card.id} card={card} compact quantity={Math.max(0, (collection[card.id] ?? 0) - usedCopies(card.id))} disabled={full} onClick={() => addCard(card)} />;
+              const inDeck = usedCopies(card.id);
+              const full = inDeck >= max || (isExtraDeckCard(card) ? extraCards.length >= EXTRA_DECK_SIZE : deckCards.length >= DECK_SIZE);
+              return (
+                <div className={`v31e-library-card ${full ? 'is-full' : ''}`} key={card.id}>
+                  <CardFace card={card} compact quantity={Math.max(0, (collection[card.id] ?? 0) - inDeck)} disabled={full} onClick={() => addCard(card)} />
+                  <div className="v31e-library-card-meta"><span>덱 {inDeck}/{max}</span><small>보유 {collection[card.id] ?? 0}</small></div>
+                  <button type="button" className="v31e-library-add" disabled={full} onClick={(event) => { event.stopPropagation(); addCard(card); }} aria-label={`${card.name} 덱에 추가`}>＋</button>
+                </div>
+              );
             })}
+            {filtered.length === 0 && <div className="v31e-library-empty"><b>조건에 맞는 카드가 없습니다.</b><span>필터를 줄이거나 다른 덱 영역을 확인해보세요.</span><button type="button" onClick={resetDeckFilters}>필터 초기화</button></div>}
           </div>
         </section>
 
-        <aside className="v9-current-deck panel">
-          <header className="v9-current-head"><div><span className="eyebrow">CURRENT DECK</span><h3>{deckName || '새 덱'}</h3></div><div><b>{deckCards.length}</b><small>/ {DECK_SIZE}</small></div></header>
+        <aside className="v9-current-deck panel v31e-current-deck">
+          <header className="v9-current-head v31e-current-head"><div><span className="eyebrow">DECK CONTENTS</span><h3>{deckName || '새 덱'}</h3><small>{selectedDeck?.is_active ? '현재 대전 덱' : '편집 중인 덱'}</small></div><div><b>{deckCards.length}</b><small>/ {DECK_SIZE}</small></div></header>
+          <div className="v31e-mini-progress"><span><i style={{ width: `${mainProgress}%` }} /></span><em>EXTRA {extraCards.length}/{EXTRA_DECK_SIZE}</em></div>
+
           <section className={`v22-deck-doctor grade-${deckDoctor.score >= 90 ? 's' : deckDoctor.score >= 75 ? 'a' : deckDoctor.score >= 55 ? 'b' : 'c'}`}>
             <div className="v22-doctor-score"><span><b>{deckDoctor.score}</b><small>/100</small></span><div><small>DECK HEALTH</small><strong>{deckDoctor.label}</strong><em>{deckDoctor.focusSeries && deckDoctor.focusSeriesCount >= 8 ? `${SERIES_BY_ID[deckDoctor.focusSeries].shortName} ${deckDoctor.focusSeriesCount}장 · LINK ${deckDoctor.seriesLinkCount}장` : `${ELEMENT_LABEL[deckDoctor.focusElement]} 중심`} · 초반 {deckDoctor.early}장 · 고비용 {deckDoctor.late}장</em></div></div>
             <div className="v22-doctor-meter"><i style={{ width: `${deckDoctor.score}%` }} /></div>
             <ul>{deckDoctor.tips.map((tip) => <li key={tip}>{tip}</li>)}</ul>
           </section>
+
           <section className="v20-deck-analytics" aria-label="덱 비용 분석">
             <div className="v20-deck-metrics"><span><small>평균 비용</small><b>{averageCost.toFixed(1)}</b></span><span><small>유닛</small><b>{unitCount}</b></span><span><small>주문 / 함정</small><b>{spellCount} / {trapCount}</b></span></div>
             <div className="v20-cost-curve">{costCurve.map((count, index) => <span key={index}><i style={{ height: `${Math.max(8, (count / curveMax) * 100)}%` }} /><b>{count}</b><small>{['0-1','2','3','4','5','6','7+'][index]}</small></span>)}</div>
           </section>
-          <div className="v9-deck-list-scroll">
-            {Object.entries(mainCounts).sort(([a], [b]) => (CARD_BY_ID[a]?.cost ?? 0) - (CARD_BY_ID[b]?.cost ?? 0)).map(([cardId, quantity]) => {
+
+          <div className="v31e-deck-list-title"><span>MAIN DECK</span><b>{deckListEntries.length}종 · {deckCards.length}장</b></div>
+          <div className="v9-deck-list-scroll v31e-deck-list-scroll">
+            {deckListEntries.map(([cardId, quantity]) => {
               const card = CARD_BY_ID[cardId];
               if (!card) return null;
-              return <button className="v9-deck-row" key={cardId} onClick={() => removeMain(cardId)} style={cardStyle(card)}><i>{card.cost}</i><span><b>{card.name}</b><small>{ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}</small></span><strong>×{quantity}</strong><em>−</em></button>;
+              const max = Math.min(MAX_COPIES[card.rarity], collection[card.id] ?? 0);
+              return (
+                <div className="v9-deck-row v31e-deck-row" key={cardId} style={cardStyle(card)}>
+                  <button type="button" className="v31e-deck-row-card" onClick={() => requestCardInspection(card.id)}>
+                    <i>{card.cost}</i><span><b>{card.name}</b><small>{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}</small></span>
+                  </button>
+                  <div className="v31e-deck-stepper"><button type="button" onClick={() => removeMain(cardId)} aria-label={`${card.name} 1장 제거`}>−</button><strong>×{quantity}</strong><button type="button" disabled={usedCopies(card.id) >= max || deckCards.length >= DECK_SIZE} onClick={() => addCard(card)} aria-label={`${card.name} 1장 추가`}>＋</button></div>
+                </div>
+              );
             })}
-            {deckCards.length === 0 && <div className="v9-empty-deck"><b>아직 카드가 없습니다.</b><span>자동 구성 버튼을 누르거나 왼쪽 카드에서 추가하세요.</span></div>}
+            {deckCards.length === 0 && <div className="v9-empty-deck"><b>아직 카드가 없습니다.</b><span>왼쪽 카드 풀에서 ＋ 버튼을 누르거나 자동 구성을 사용하세요.</span></div>}
           </div>
 
-          <div className="v9-extra-zone">
+          <div className="v9-extra-zone v31e-extra-zone">
             <div className="v9-extra-title"><span>EXTRA DECK</span><b>{extraCards.length}/{EXTRA_DECK_SIZE}</b></div>
-            <div className="v9-extra-grid">
+            <div className="v9-extra-grid v31e-extra-grid">
               {extraCards.map((cardId, index) => {
                 const card = CARD_BY_ID[cardId];
-                return card ? <CardFace key={`${cardId}-${index}`} card={card} compact onClick={() => removeExtra(cardId)} /> : null;
+                if (!card) return null;
+                return <div className="v31e-extra-slot" key={`${cardId}-${index}`}><CardFace card={card} compact onClick={() => requestCardInspection(card.id)} /><button type="button" onClick={() => removeExtra(cardId)} aria-label={`${card.name} 제거`}>−</button><small>{card.kind === 'fusion' ? 'FUSION' : 'ASCENSION'}</small></div>;
               })}
-              {Array.from({ length: Math.max(0, EXTRA_DECK_SIZE - extraCards.length) }, (_, index) => <span className="v9-extra-empty" key={index}>＋</span>)}
+              {Array.from({ length: Math.max(0, EXTRA_DECK_SIZE - extraCards.length) }, (_, index) => <button type="button" className="v9-extra-empty" key={index} onClick={() => setDeckZone('extra')}>＋</button>)}
             </div>
           </div>
 
-          <div className="v9-deck-actions">
+          <div className="v9-deck-actions v31e-deck-actions">
             <button className="ghost-button" disabled={!selectedDeckId || selectedDeck?.is_active || busy || Boolean(validation)} onClick={activateDeck}>대전 덱으로 지정</button>
             <button className="primary-button" disabled={busy || Boolean(validation)} onClick={saveDeck}>{busy ? '저장 중...' : '덱 저장'}</button>
           </div>
@@ -1739,6 +1824,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
       </div>
     </div>
   );
+
 }
 
 function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void }) {
@@ -2258,9 +2344,14 @@ function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualE
     '--sx': `${source.x}%`, '--sy': `${source.y}%`, '--tx': `${target.x}%`, '--ty': `${target.y}%`,
     '--fx-accent': card ? ELEMENT_ACCENT[card.element] : '#7ddcff',
   } as CSSProperties;
-  const cinematicCardKinds: VisualEvent['kind'][] = ['summon', 'special', 'fusion', 'evolution', 'spell', 'trap'];
+  const cinematicCardKinds: VisualEvent['kind'][] = ['summon', 'special', 'spell'];
   const showCardCutIn = Boolean(card && cinematicCardKinds.includes(event.kind));
   const vfxClass = event.vfx ? `vfx-${event.vfx.replace(/[^a-z0-9-]/gi, '-')}` : 'vfx-generic';
+  const sourceCards = (event.sourceCardIds ?? []).map((cardId) => CARD_BY_ID[cardId]).filter((candidate): candidate is CardDefinition => Boolean(candidate));
+  const trapTrigger = card?.kind === 'trap' ? trapTriggerDescription(card.trapTrigger) : '';
+  const trapEffect = card?.kind === 'trap' ? effectDescription(card.trapEffect, card.trapTrigger) : '';
+  const extraTitle = event.kind === 'fusion' ? 'RESONANCE FUSION' : 'INHERIT ASCENSION';
+  const extraKorean = event.kind === 'fusion' ? '공명 융합' : '계승 진화';
   return (
     <div className={`v18-cinematic-layer kind-${event.kind} ${vfxClass} ${mine ? 'from-me' : 'from-opponent'} element-${card?.element ?? 'neutral'} rarity-${card?.rarity ?? 'common'}`} key={event.id} style={fxStyle} aria-live="polite">
       <span className="v22-cinematic-letterbox" aria-hidden="true" />
@@ -2273,7 +2364,57 @@ function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualE
       <span className="v18-impact-ring" aria-hidden="true" />
       <span className="v18-impact-flare" aria-hidden="true" />
       {(event.kind === 'destroy' || event.kind === 'core' || event.kind === 'defense') && <span className="v18-shard-field" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ '--piece': index } as CSSProperties} />)}</span>}
-      {(event.kind === 'fusion' || event.kind === 'evolution' || event.kind === 'special' || event.kind === 'summon') && <span className="v18-summon-gate" aria-hidden="true"><i /><i /><i /></span>}
+      {(event.kind === 'special' || event.kind === 'summon') && <span className="v18-summon-gate" aria-hidden="true"><i /><i /><i /></span>}
+
+      {event.kind === 'attack' && card && (
+        <div className="v31e-attack-stage" aria-label={`${card.name} 공격 ${event.amount ?? 0}`}>
+          <div className="v31e-attack-source-card">
+            <CardIllustration card={card} hero />
+            <span><small>{mine ? 'YOUR ATTACK' : 'ENEMY ATTACK'}</small><b>{card.name}</b></span>
+          </div>
+          <div className="v31e-attack-power"><small>ATTACK</small><strong>{event.amount ?? '?'}</strong><span>{event.detail ?? '공격 선언'}</span></div>
+          <span className="v31e-slash-trails" aria-hidden="true"><i /><i /><i /></span>
+          <span className="v31e-target-reticle" aria-hidden="true"><i /><i /></span>
+          <span className="v31e-impact-burst" aria-hidden="true">{Array.from({ length: 10 }, (_, index) => <i key={index} style={{ '--spark': index } as CSSProperties} />)}</span>
+        </div>
+      )}
+
+      {(event.kind === 'fusion' || event.kind === 'evolution') && card && (
+        <div className={`v31e-extra-cinematic ${event.kind}`}>
+          <div className="v31e-extra-title"><small>{mine ? 'YOUR EXTRA SUMMON' : 'OPPONENT EXTRA SUMMON'}</small><b>{extraTitle}</b><span>{extraKorean}</span></div>
+          <div className="v31e-extra-ritual">
+            <div className="v31e-source-materials">
+              {sourceCards.length > 0 ? sourceCards.slice(0, 3).map((sourceCard, index) => (
+                <div className="v31e-source-card" key={`${sourceCard.id}-${index}`} style={{ '--source-index': index } as CSSProperties}>
+                  <CardIllustration card={sourceCard} hero />
+                  <small>{sourceCard.name}</small>
+                </div>
+              )) : <span className="v31e-source-placeholder"><i /><i /><i /></span>}
+            </div>
+            <div className="v31e-ritual-core" aria-hidden="true"><i /><i /><i /><b>{event.kind === 'fusion' ? 'F' : 'A'}</b></div>
+            <div className="v31e-result-card">
+              <CardIllustration card={card} hero />
+              <span><small>{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]}</small><b>{card.name}</b></span>
+            </div>
+          </div>
+          <p>{event.detail ?? (event.kind === 'fusion' ? '소재의 공명을 하나의 존재로 결속합니다.' : '원본의 힘을 계승해 상위 형태로 각성합니다.')}</p>
+        </div>
+      )}
+
+      {event.kind === 'trap' && card && (
+        <div className="v31e-trap-reveal">
+          <div className="v31e-trap-card"><CardIllustration card={card} hero /><span>TRAP</span></div>
+          <div className="v31e-trap-copy">
+            <small>{mine ? 'MY TRAP RESOLVED' : 'OPPONENT TRAP RESOLVED'}</small>
+            <h2>{card.name}</h2>
+            <div><b>TRIGGER</b><span>{trapTrigger || '함정 발동 조건 충족'}</span></div>
+            <div><b>RESULT</b><span>{event.detail ?? card.text}</span></div>
+            {trapEffect && trapEffect !== event.detail && <p>판정 · {trapEffect}</p>}
+          </div>
+          <span className="v31e-trap-seal" aria-hidden="true"><i /><i /><i /></span>
+        </div>
+      )}
+
       {showCardCutIn && card && (
         <div className="v18-card-cutin">
           <CardIllustration card={card} hero />
@@ -2283,7 +2424,7 @@ function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualE
       <div className="v18-event-banner">
         <small>{mine ? 'MY ACTION' : event.ownerId ? 'OPPONENT ACTION' : 'DUEL EVENT'}</small>
         <b>{duelEventLabel(event)}</b>
-        <span>{event.label ?? card?.name ?? owner?.display_name ?? duelEventLocation(event)}</span>
+        <span>{event.detail ?? event.label ?? card?.name ?? owner?.display_name ?? duelEventLocation(event)}</span>
       </div>
       {event.kind === 'defense' && ((event.shieldAmount ?? 0) > 0 || (event.healthAmount ?? 0) > 0) ? (
         <span className="v31-damage-stack">
@@ -2688,11 +2829,12 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     const [next, ...rest] = vfxQueue;
     setVfxQueue(rest);
     setActiveVfx(next);
-    const duration = next.kind === 'fusion' || next.kind === 'evolution' ? 1850
-      : next.kind === 'trap' ? 1550
-        : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? 1350
-          : next.kind === 'attack' || next.kind === 'core' || next.kind === 'destroy' ? 1150
-            : next.kind === 'defense' ? 1250
+    const duration = next.kind === 'fusion' || next.kind === 'evolution' ? 2450
+      : next.kind === 'trap' ? 2250
+        : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? 1450
+          : next.kind === 'attack' ? 980
+            : next.kind === 'core' || next.kind === 'destroy' ? 1120
+              : next.kind === 'defense' ? 1220
               : next.kind === 'heal' || next.kind === 'buff' || next.kind === 'energy' ? 900
               : next.kind === 'draw' ? 1250
                 : next.kind === 'turn' ? 850
@@ -2706,17 +2848,21 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   useEffect(() => {
     if (!activeVfx) return;
     const sound: UiSound = activeVfx.kind === 'attack' ? 'attack'
-      : activeVfx.kind === 'spell' ? 'spell'
-        : activeVfx.kind === 'trap' || activeVfx.kind === 'set' ? 'trap'
-          : activeVfx.kind === 'core' ? 'corehit'
-            : activeVfx.kind === 'destroy' ? 'destroy'
-              : activeVfx.kind === 'defense' && (activeVfx.shieldAmount ?? 0) > 0 && (activeVfx.healthAmount ?? 0) === 0 ? 'shield'
-                : activeVfx.kind === 'defense' ? 'damage'
-                  : activeVfx.kind === 'heal' || activeVfx.kind === 'buff' || activeVfx.kind === 'energy' ? 'success'
-                    : activeVfx.kind === 'draw' ? 'draw'
-                      : activeVfx.kind === 'turn' ? 'turn'
-                      : 'summon';
+      : activeVfx.kind === 'fusion' ? 'fusion'
+        : activeVfx.kind === 'evolution' ? 'evolution'
+          : activeVfx.kind === 'spell' ? 'spell'
+            : activeVfx.kind === 'trap' || activeVfx.kind === 'set' ? 'trap'
+              : activeVfx.kind === 'core' ? 'corehit'
+                : activeVfx.kind === 'destroy' ? 'destroy'
+                  : activeVfx.kind === 'defense' && (activeVfx.shieldAmount ?? 0) > 0 && (activeVfx.healthAmount ?? 0) === 0 ? 'shield'
+                    : activeVfx.kind === 'defense' ? 'damage'
+                      : activeVfx.kind === 'heal' || activeVfx.kind === 'buff' || activeVfx.kind === 'energy' ? 'success'
+                        : activeVfx.kind === 'draw' ? 'draw'
+                          : activeVfx.kind === 'turn' ? 'turn'
+                            : 'summon';
     playUiSound(sound);
+    const impactTimer = activeVfx.kind === 'attack' ? window.setTimeout(() => playUiSound('impact'), 270) : undefined;
+    return () => { if (impactTimer) window.clearTimeout(impactTimer); };
   }, [activeVfx?.id]);
 
   useEffect(() => {
@@ -3430,7 +3576,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
 
         <section className="v18-event-feed">
           <header><span>DUEL FEED</span><button type="button" onClick={() => setLogOpen(true)}>전체 기록</button></header>
-          <div>{recentEvents.length > 0 ? recentEvents.map((event) => <div className={`v18-feed-item kind-${event.kind}`} key={event.id}><i /> <span><b><NicknameText name={eventActorName(event)} styleId={eventActorStyle(event)} /> · {duelEventLabel(event)}</b><small>{event.label ?? (duelEventLocation(event) || '결투 행동')}</small></span></div>) : <p>아직 기록된 행동이 없습니다.</p>}</div>
+          <div>{recentEvents.length > 0 ? recentEvents.map((event) => <div className={`v18-feed-item kind-${event.kind}`} key={event.id}><i /> <span><b><NicknameText name={eventActorName(event)} styleId={eventActorStyle(event)} /> · {duelEventLabel(event)}</b><small>{event.detail ? `${event.label ? `${event.label} · ` : ``}${event.detail}` : event.label ?? (duelEventLocation(event) || '결투 행동')}</small></span></div>) : <p>아직 기록된 행동이 없습니다.</p>}</div>
         </section>
       </aside>
 
