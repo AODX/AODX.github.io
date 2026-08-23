@@ -5765,3 +5765,216 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
   html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v32-series-theme-grid { grid-template-columns:1fr!important; }
   html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v32e-room-roster-grid { grid-template-columns:1fr!important; }
 }
+
+/* ========================================================================
+   V32H — PACK OPENING + READABILITY HOTFIX
+   - The pack opening is rendered through document.body. Re-attach the v19/v23
+     presentation context so CardFace keeps the same shipped styling as the app.
+   - Keep the reveal card bounded by BOTH viewport width and height.
+   - Never lock body/html scrolling: the fixed overlay owns its own scrolling,
+     so closing a pack cannot leave the shop page stuck with overflow:hidden.
+   - Raise secondary shop/card copy without changing the desktop shell geometry.
+   ======================================================================== */
+
+.pack-experience-layer.v19-client.v23-client {
+  box-sizing:border-box!important;
+  color:var(--v23-text,#edf5fa)!important;
+  background:
+    radial-gradient(circle at 50% 38%,color-mix(in srgb,var(--pack-accent,#7c8cff) 10%,transparent),transparent 42%),
+    rgba(2,4,9,.945)!important;
+  backdrop-filter:blur(22px) saturate(.9)!important;
+  -webkit-backdrop-filter:blur(22px) saturate(.9)!important;
+  overflow:auto!important;
+  overscroll-behavior:contain!important;
+  touch-action:pan-y!important;
+  -webkit-overflow-scrolling:touch;
+}
+
+.pack-experience-layer.v23-client .pack-experience-modal {
+  width:min(1160px,calc(100vw - 20px))!important;
+  max-width:1160px!important;
+  min-width:0!important;
+  overflow:hidden!important;
+}
+
+.pack-experience-layer.v23-client :is(.sealed-pack-stage,.single-card-reveal-stage,.pack-summary-stage) {
+  min-width:0!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+}
+
+/* Reveal mode: the card must never cover progress/actions on short or narrow screens. */
+.pack-experience-layer.v23-client .single-card-reveal-stage {
+  grid-template-rows:auto minmax(0,1fr) auto!important;
+  align-content:stretch!important;
+  gap:clamp(10px,1.7dvh,18px)!important;
+  padding:clamp(12px,2.2vw,28px)!important;
+  overflow:auto!important;
+}
+.pack-experience-layer.v23-client .reveal-progress,
+.pack-experience-layer.v23-client .reveal-actions {
+  width:min(100%,600px)!important;
+  max-width:600px!important;
+  min-width:0!important;
+  margin-inline:auto!important;
+}
+.pack-experience-layer.v23-client .reveal-card-focus {
+  width:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  height:auto!important;
+  align-self:stretch!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:4px 0!important;
+}
+.pack-experience-layer.v23-client .reveal-card-focus .tcg-card {
+  width:clamp(190px,min(42vw,34dvh),290px)!important;
+  max-width:290px!important;
+  min-width:0!important;
+  min-height:0!important;
+  height:auto!important;
+  aspect-ratio:.69!important;
+  margin:auto!important;
+}
+.pack-experience-layer.v23-client .reveal-card-focus .card-stack-shadow {
+  width:clamp(190px,min(42vw,34dvh),290px)!important;
+  max-width:290px!important;
+}
+.pack-experience-layer.v23-client .reveal-tap-label {
+  bottom:clamp(4px,1dvh,10px)!important;
+  font-size:11px!important;
+}
+
+/* The portal now uses the full v23 card skin, so make reveal-card rules readable too. */
+.pack-experience-layer.v23-client .reveal-card-focus .tcg-card .card-topline b { font-size:12px!important; }
+.pack-experience-layer.v23-client .reveal-card-focus .tcg-card .card-topline small { font-size:8.5px!important; }
+.pack-experience-layer.v23-client .reveal-card-focus .tcg-card .card-subtitle {
+  min-height:25px!important;
+  padding:6px 10px 4px!important;
+  font-size:9.5px!important;
+  line-height:1.35!important;
+}
+.pack-experience-layer.v23-client .reveal-card-focus .tcg-card .card-text {
+  min-height:48px!important;
+  padding:5px 10px 8px!important;
+  font-size:9.5px!important;
+  line-height:1.5!important;
+  -webkit-line-clamp:3!important;
+}
+.pack-experience-layer.v23-client .reveal-card-focus .tcg-card .card-footer { font-size:9.5px!important; }
+
+/* Summary: no overlap/cropping. Five across on normal screens, 3+2 on narrow screens. */
+.pack-experience-layer.v23-client .pack-summary-stage {
+  align-content:start!important;
+  gap:clamp(14px,2.5dvh,24px)!important;
+  padding:clamp(14px,2.4vw,30px)!important;
+  overflow:auto!important;
+}
+.pack-experience-layer.v23-client .summary-card-row {
+  width:min(100%,900px)!important;
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  gap:clamp(7px,1.1vw,13px)!important;
+  align-items:start!important;
+  justify-content:center!important;
+  margin-inline:auto!important;
+}
+.pack-experience-layer.v23-client .summary-card-row>div { min-width:0!important;width:100%!important; }
+.pack-experience-layer.v23-client .summary-card-row .tcg-card.compact {
+  width:100%!important;
+  max-width:150px!important;
+  min-width:0!important;
+  min-height:0!important;
+  height:auto!important;
+  aspect-ratio:.69!important;
+  margin-inline:auto!important;
+}
+.pack-experience-layer.v23-client .summary-burst p { font-size:13px!important;line-height:1.55!important; }
+
+/* Store copy: secondary text was substantially smaller than its headings. */
+.v23-client .pack-product-copy>p {
+  font-size:12px!important;
+  line-height:1.58!important;
+  color:#9aabba!important;
+}
+.v23-client .v25-pack-category>header p {
+  font-size:12.5px!important;
+  line-height:1.6!important;
+  color:#92a5b5!important;
+}
+.v23-client .v25-series-pack-note {
+  min-height:42px!important;
+  padding:8px 10px!important;
+  align-items:center!important;
+}
+.v23-client .v25-series-pack-note b { font-size:11.5px!important;line-height:1.3!important; }
+.v23-client .v25-series-pack-note span {
+  min-width:0!important;
+  max-width:72%!important;
+  font-size:10px!important;
+  line-height:1.42!important;
+  color:#a5b5c2!important;
+  overflow-wrap:anywhere!important;
+}
+.v23-client .v20-pack-odds { gap:7px!important;padding:12px!important; }
+.v23-client .v20-pack-odds small { font-size:9.5px!important;line-height:1.35!important; }
+.v23-client .v20-pack-odds b { font-size:12.5px!important;line-height:1.35!important; }
+.v23-client .v20-pack-odds em {
+  font-size:10.5px!important;
+  line-height:1.55!important;
+  color:#a4b4c1!important;
+}
+.v23-client .v20-pack-odds p {
+  font-size:11px!important;
+  line-height:1.58!important;
+  color:#c2ced7!important;
+}
+
+@media (max-width:700px) {
+  .pack-experience-layer.v23-client .pack-experience-header { min-height:64px!important;padding:12px 14px!important; }
+  .pack-experience-layer.v23-client .pack-experience-header h2 { font-size:18px!important; }
+  .pack-experience-layer.v23-client .single-card-reveal-stage { padding:10px!important; }
+  .pack-experience-layer.v23-client .reveal-card-focus .tcg-card,
+  .pack-experience-layer.v23-client .reveal-card-focus .card-stack-shadow {
+    width:clamp(176px,min(54vw,32dvh),245px)!important;
+    max-width:245px!important;
+  }
+  .pack-experience-layer.v23-client .summary-card-row {
+    width:min(100%,470px)!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+  .pack-experience-layer.v23-client .summary-close { min-width:min(240px,100%)!important; }
+  .v23-client .v25-series-pack-note { align-items:flex-start!important;flex-direction:column!important;gap:4px!important; }
+  .v23-client .v25-series-pack-note span { max-width:100%!important;text-align:left!important; }
+}
+
+@media (max-height:680px) {
+  .pack-experience-layer.v23-client .pack-experience-modal {
+    height:calc(100dvh - 16px)!important;
+    max-height:calc(100dvh - 16px)!important;
+  }
+  .pack-experience-layer.v23-client .single-card-reveal-stage {
+    gap:8px!important;
+    padding:8px 12px!important;
+  }
+  .pack-experience-layer.v23-client .reveal-card-focus .tcg-card,
+  .pack-experience-layer.v23-client .reveal-card-focus .card-stack-shadow {
+    width:clamp(170px,min(38vw,29dvh),225px)!important;
+    max-width:225px!important;
+  }
+  .pack-experience-layer.v23-client .reveal-actions :is(button,.primary-button,.ghost-button) { min-height:38px!important; }
+}
+
+/* iPad keeps the same PC presentation, only with safe viewport constraints. */
+html[data-ipad="true"] .pack-experience-layer.v23-client .pack-experience-modal {
+  height:min(820px,calc(var(--ipad-vh,100dvh) - 20px))!important;
+  max-height:calc(var(--ipad-vh,100dvh) - 20px)!important;
+}
+html[data-ipad="true"] .pack-experience-layer.v23-client :is(.single-card-reveal-stage,.pack-summary-stage) {
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain!important;
+}
+
+/* Card inspection requested from a revealed pack card must sit above the body portal. */
+.v23-client .card-detail-layer { z-index:6200!important; }

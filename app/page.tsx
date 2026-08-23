@@ -2063,18 +2063,6 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
   const corePacks = PACKS.filter((pack) => pack.category === 'core');
   const seriesPacks = PACKS.filter((pack) => pack.category === 'series');
 
-  useEffect(() => {
-    if (openingStage === 'idle') return;
-    const previousBodyOverflow = document.body.style.overflow;
-    const previousHtmlOverscroll = document.documentElement.style.overscrollBehavior;
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overscrollBehavior = 'none';
-    return () => {
-      document.body.style.overflow = previousBodyOverflow;
-      document.documentElement.style.overscrollBehavior = previousHtmlOverscroll;
-    };
-  }, [openingStage]);
-
   async function buy(packId: string) {
     setBusyPack(packId);
     setError('');
@@ -2211,7 +2199,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
       )}
 
       {openingStage !== 'idle' && opened.length > 0 && typeof document !== 'undefined' ? createPortal(
-        <div className={`modal-layer pack-experience-layer stage-${openingStage}`} role="dialog" aria-modal="true" aria-label="카드 팩 개봉">
+        <div className={`modal-layer pack-experience-layer v19-client v23-client stage-${openingStage}`} data-ui-build="v32-retail" role="dialog" aria-modal="true" aria-label="카드 팩 개봉">
           <section className="pack-experience-modal" style={{ '--pack-accent': selectedPack?.accent ?? '#7c8cff' } as CSSProperties}>
             <header className="pack-experience-header"><div><span>PACK OPENING</span><h2>{selectedPack?.name ?? 'ECLIPSE PACK'}</h2></div><button className="modal-close" type="button" onClick={closeOpening} aria-label="팩 개봉 화면 닫기">×</button></header>
 
