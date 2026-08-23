@@ -4821,3 +4821,30 @@
   width:clamp(66px,5.8vw,92px);
   height:clamp(98px,8.5vw,132px);
 }
+
+/* ===== v32c pack opening viewport fix =====
+   The shop view is animated with transform/filter, which can make a nested
+   position:fixed layer behave like it belongs to the scrolled view. The pack
+   opening is now rendered through a body portal; these rules are a safety net. */
+.pack-experience-layer {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  min-height: 100dvh !important;
+  z-index: 5000 !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: auto !important;
+  overscroll-behavior: contain;
+  padding: clamp(10px,2vw,24px) !important;
+}
+.pack-experience-layer .pack-experience-modal {
+  position: relative !important;
+  margin: auto !important;
+  max-height: calc(100dvh - clamp(20px,4vw,48px)) !important;
+}
+@media (max-height:720px) {
+  .pack-experience-layer { align-items: start !important; }
+  .pack-experience-layer .pack-experience-modal { height: min(94dvh,820px) !important; }
+}
