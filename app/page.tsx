@@ -601,30 +601,120 @@ function CosmeticPreview({ item, profile }: { item: ProfileCosmetic; profile: Pr
 }
 
 const KEYWORD_DESCRIPTION: Record<Keyword, string> = {
-  guard: '수호 · 상대는 가능한 경우 이 유닛을 먼저 공격해야 합니다.',
-  charge: '속공 · 소환된 턴에도 즉시 공격할 수 있습니다.',
-  lifesteal: '흡수 · 가한 전투 피해만큼 내 코어를 회복합니다.',
-  pierce: '관통 · 유닛을 파괴하고 남은 피해를 상대 코어에 줍니다.',
-  corestrike: '직격 · 상대 수호가 없으면 다른 적 유닛을 무시하고 코어를 직접 공격할 수 있습니다.',
+  guard: '수호 · 상대는 공격 대상을 선택할 때, 가능한 경우 이 캐릭터를 먼저 공격해야 합니다.',
+  charge: '속공 · 이 캐릭터는 소환된 턴에도 즉시 공격할 수 있습니다.',
+  lifesteal: '흡수 · 이 캐릭터가 전투로 준 피해만큼 내 코어를 회복합니다.',
+  pierce: '관통 · 전투로 적 캐릭터를 파괴하면 남은 피해를 상대 코어에 이어서 줍니다.',
+  corestrike: '직격 · 상대 필드에 수호가 없다면 다른 캐릭터를 무시하고 코어를 직접 공격할 수 있습니다.',
+};
+
+const RARITY_PRESTIGE: Record<Rarity, string> = {
+  common: '기본 전술',
+  rare: '전문화 전술',
+  epic: '핵심 전개',
+  legendary: '결전급 카드',
+};
+
+const SERIES_PLAYSTYLE: Record<SeriesId, string> = {
+  luminaknights: '동료를 빠르게 전개해 집결 조건을 채운 뒤, 연계 강화와 결전 효과로 한 번에 밀어붙이는 전대형 덱입니다.',
+  kaisergear: '보호막을 전투 자원처럼 쌓고 에너지로 전환해, 단단한 기갑을 끊임없이 전개하는 요새형 덱입니다.',
+  eclipsion: '묘지와 소멸 영역을 자원으로 바꾸며 회수·부활·공명 효과를 반복하는 순환형 덱입니다.',
+  nocturne: '회복과 손패 조절로 상대의 템포를 늦추고, 바운스와 환영 효과로 유리한 교환을 만드는 컨트롤 덱입니다.',
+  arborian: '필드에 뿌리를 내리듯 캐릭터를 늘리고 체력·토큰·재생을 누적해 장기전에서 압도하는 성장형 덱입니다.',
+  tempest_drive: '속공과 에너지 회복을 연결해 한 턴에 여러 행동을 이어가며, 짧은 순간에 큰 압박을 만드는 템포 덱입니다.',
+  abyss_reaper: '상대 묘지를 먹어 자원을 끊고, 묘지가 쌓일수록 처형·흡수·추가 피해가 강해지는 포식형 덱입니다.',
+  primal_guardian: '수호 캐릭터와 토큰을 함께 세워 전선을 유지하고, 무리가 모일수록 전체 전투력이 커지는 결속형 덱입니다.',
+  chronorium: '에너지를 앞당겨 쓰고 묘지의 카드를 되감아, 상대보다 한 템포 빠른 선택을 반복하는 시간 운영 덱입니다.',
+  arcana_protocol: '주문을 연속 사용해 묘지에 마법 기록을 쌓고, 서치·회수·봉인으로 콤보를 완성하는 주문 연계 덱입니다.',
+  beastforge: '보호막과 체력을 장갑처럼 활용하면서 공격력으로 전환해, 버티는 힘을 그대로 압박으로 바꾸는 기갑 야수 덱입니다.',
+  phantom_carnival: '함정을 숨겨 상대의 행동을 유도한 뒤, 회수와 재설치로 같은 타이밍 싸움을 반복하는 심리전 덱입니다.',
+  astral_armada: '여러 함선을 편대로 전개해 보호막과 에너지를 공유하고, 함대가 갖춰지면 포격으로 마무리하는 편대형 덱입니다.',
 };
 
 function effectDescription(effect: CardDefinition['effect'] | CardDefinition['onSummon'] | CardDefinition['trapEffect'], trigger?: CardDefinition['trapTrigger']): string {
   if (!effect) return '';
-  if (effect.kind === 'damage_unit') return `대상 유닛에게 ${effect.amount} 피해`;
-  if (effect.kind === 'damage_core') return `상대 코어에 ${effect.amount} 피해`;
-  if (effect.kind === 'heal_core') return `내 코어를 ${effect.amount} 회복`;
-  if (effect.kind === 'draw') return `카드를 ${effect.amount}장 드로우`;
-  if (effect.kind === 'buff_unit') return `아군 유닛에게 공격력 +${effect.attack}, 방어력 +${effect.health}`;
-  if (effect.kind === 'shield_unit') return `아군 유닛에게 보호막 ${effect.amount} 부여`;
-  if (effect.kind === 'aoe_enemy') return `모든 적 유닛에게 ${effect.amount} 피해`;
-  if (effect.kind === 'gain_energy') return `이번 턴 에너지 ${effect.amount} 획득`;
-  if (effect.kind === 'destroy_weak') return `방어력 ${effect.maxHealth} 이하의 유닛 1장 파괴`;
-  if (effect.kind === 'summon_token') return `${effect.name} 토큰(${effect.attack}/${effect.health}) 소환`;
-  if (effect.kind === 'negate') return '발동을 무효화';
+  if (effect.kind === 'damage_unit') return `선택한 적 캐릭터 하나에게 ${effect.amount}의 피해를 줍니다`;
+  if (effect.kind === 'damage_core') return `상대 코어에 ${effect.amount}의 피해를 줍니다`;
+  if (effect.kind === 'heal_core') return `내 코어를 ${effect.amount} 회복합니다`;
+  if (effect.kind === 'draw') return `내 덱에서 카드 ${effect.amount}장을 뽑습니다`;
+  if (effect.kind === 'buff_unit') return `선택한 아군 캐릭터 하나의 공격력을 +${effect.attack}, 체력을 +${effect.health} 강화합니다`;
+  if (effect.kind === 'shield_unit') return `선택한 아군 캐릭터 하나에게 보호막 ${effect.amount}을 부여합니다`;
+  if (effect.kind === 'aoe_enemy') return `상대 필드의 모든 캐릭터에게 각각 ${effect.amount}의 피해를 줍니다`;
+  if (effect.kind === 'gain_energy') return `이번 턴에 사용할 수 있는 ENERGY를 ${effect.amount} 회복합니다`;
+  if (effect.kind === 'destroy_weak') return `현재 체력이 ${effect.maxHealth} 이하인 적 캐릭터 하나를 파괴합니다`;
+  if (effect.kind === 'summon_token') return `빈 필드에 ${effect.name} ${effect.attack}/${effect.health} 토큰 하나를 소환합니다`;
+  if (effect.kind === 'steal_unit') return '상대 캐릭터 하나의 지배권을 가져옵니다. 강탈한 캐릭터는 보호막을 잃고 이번 턴에는 공격할 수 없습니다';
+  if (effect.kind === 'revive_unit') return '내 묘지의 메인 덱 캐릭터 하나를 선택해 부활시킵니다. 등장 효과는 다시 발동하지 않으며 이번 턴에는 공격할 수 없습니다';
+  if (effect.kind === 'mass_recall') return '양쪽 필드의 모든 캐릭터를 원래 영역으로 되돌립니다. 메인 덱 캐릭터는 손패, 엑스트라 캐릭터는 엑스트라 덱으로 돌아가며 토큰은 소멸합니다';
+  if (effect.kind === 'invert_all_units') return '필드의 모든 캐릭터의 현재 공격력과 체력을 서로 맞바꿉니다';
+  if (effect.kind === 'erase_opponent_grave') return `상대 묘지의 카드 중 최대 ${effect.amount}장을 무작위로 소멸시키고, 카드 ${effect.draw}장을 뽑습니다`;
+  if (effect.kind === 'reweave_hand') return `내 남은 손패를 덱으로 되돌려 섞은 뒤, 되돌린 장수보다 ${effect.bonusDraw}장 더 많이 새로 뽑습니다`;
+  if (effect.kind === 'mirror_unit') return '선택한 적 캐릭터의 현재 공격력과 체력을 복제한 거울 토큰을 내 필드에 소환합니다. 복제 토큰은 원본의 특수 효과를 얻지 않으며 이번 턴에는 공격할 수 없습니다';
+  if (effect.kind === 'exchange_hands') return '나와 상대의 남은 손패를 서로 전부 교환합니다';
+  if (effect.kind === 'ready_unit') return '이번 턴에 소환된 아군 캐릭터 하나를 즉시 공격 가능한 상태로 만듭니다';
+  if (effect.kind === 'bounce_unit') return '선택한 캐릭터 하나를 원래 영역으로 되돌립니다. 토큰이라면 대신 소멸합니다';
+  if (effect.kind === 'heal_unit') return `선택한 아군 캐릭터 하나의 체력을 ${effect.amount} 회복합니다`;
+  if (effect.kind === 'sacrifice_draw') return `아군 캐릭터 하나를 묘지로 보내고 카드 ${effect.amount}장을 뽑습니다`;
+  if (effect.kind === 'damage_draw_if_destroyed') return `적 캐릭터 하나에게 ${effect.amount}의 피해를 줍니다. 이 피해로 파괴했다면 카드 ${effect.draw}장을 추가로 뽑습니다`;
+  if (effect.kind === 'recruit_unit') return `덱에서 비용 ${effect.maxCost} 이하의 캐릭터 하나를 찾아 필드에 전개합니다`;
+  if (effect.kind === 'recover_grave_unit') return `내 묘지의 캐릭터 ${effect.amount}장을 손패로 되돌립니다`;
+  if (effect.kind === 'draw_if_outnumbered') return `카드 ${effect.base}장을 뽑습니다. 내 필드의 캐릭터 수가 더 적다면 ${effect.bonus}장을 추가로 뽑습니다`;
+  if (effect.kind === 'swap_stats') return '선택한 캐릭터 하나의 현재 공격력과 체력을 서로 맞바꿉니다';
+  if (effect.kind === 'negate') return '대응한 효과의 발동을 무효로 합니다';
   if (effect.kind === 'negate_and_damage') return trigger === 'direct_attack'
-    ? `직접 공격을 무효화하고 공격 유닛에 ${effect.amount} 피해`
-    : `발동을 무효화하고 상대 코어에 ${effect.amount} 피해`;
+    ? `직접 공격을 무효로 하고, 공격한 캐릭터에게 ${effect.amount}의 피해를 줍니다`
+    : `대응한 효과의 발동을 무효로 하고 상대 코어에 ${effect.amount}의 피해를 줍니다`;
   return '';
+}
+
+function polishedCardText(card: CardDefinition): string {
+  let text = card.text
+    .replace(/유닛/g, '캐릭터')
+    .replace(/이번 턴 에너지/g, '이번 턴 ENERGY')
+    .replace(/비용/g, 'ENERGY')
+    .replace(/드로우/g, '카드 드로우')
+    .trim();
+  text = text
+    .replace(/^균열 소환:\s*/g, '【균열 소환】 ')
+    .replace(/^공명 융합[.:]?\s*/g, '【공명 융합】 ')
+    .replace(/^계승 진화[.:]?\s*/g, '【계승 진화】 ')
+    .replace(/소환 시/g, '【등장】')
+    .replace(/파괴될 때/g, '【파괴 시】')
+    .replace(/공격할 때/g, '【공격 시】');
+  return text;
+}
+
+function RuleText({ text, compact = false }: { text: string; compact?: boolean }) {
+  const source = text || '';
+  const tokenPattern = /(【[^】]+】|ENERGY|코어|보호막|공격력|체력|수호|속공|흡수|관통|직격|공명 융합|계승 진화|균열 소환|\+\d+|−\d+|-\d+|\d+\/\d+|\d+장|\d+체|\d+의 피해|\d+ 피해|\d+ 회복)/g;
+  return <>{source.split(tokenPattern).filter(Boolean).map((part, index) => {
+    const keyword = /^(【|수호$|속공$|흡수$|관통$|직격$|공명 융합$|계승 진화$|균열 소환$)/.test(part);
+    const number = /^(\+|−|-)?\d|\d+장$|\d+체$/.test(part);
+    const resource = /^(ENERGY|코어|보호막|공격력|체력)$/.test(part);
+    return <span key={`${part}-${index}`} className={`v31l-rule-token ${keyword ? 'keyword' : number ? 'number' : resource ? 'resource' : ''} ${compact ? 'compact' : ''}`}>{part}</span>;
+  })}</>;
+}
+
+function splitAbilityCopy(text: string): { name: string; description: string } {
+  const [name, ...rest] = text.split(' · ');
+  return { name: name || '전술 효과', description: rest.join(' · ') || text };
+}
+
+function cardRoleSummary(card: CardDefinition): string {
+  if (card.kind === 'fusion') return '엑스트라 · 공명 결전';
+  if (card.kind === 'evolution') return '엑스트라 · 계승 결전';
+  if (card.kind === 'trap') return card.trapEffect?.kind === 'negate' || card.trapEffect?.kind === 'negate_and_damage' ? '반응 · 카운터' : '반응 · 전장 제어';
+  if (card.kind === 'spell' && card.effect) {
+    if (['draw', 'recover_grave_unit', 'reweave_hand', 'draw_if_outnumbered'].includes(card.effect.kind)) return '주문 · 자원 순환';
+    if (['damage_unit', 'damage_core', 'aoe_enemy', 'destroy_weak', 'damage_draw_if_destroyed'].includes(card.effect.kind)) return '주문 · 제압';
+    if (['summon_token', 'recruit_unit', 'revive_unit', 'ready_unit'].includes(card.effect.kind)) return '주문 · 전개';
+    if (['buff_unit', 'shield_unit', 'heal_unit', 'heal_core'].includes(card.effect.kind)) return '주문 · 지원';
+    return '주문 · 특수 전술';
+  }
+  if (card.keywords?.includes('guard')) return '캐릭터 · 방어 핵심';
+  if (card.keywords?.includes('charge') || card.keywords?.includes('corestrike')) return '캐릭터 · 공격 전개';
+  if (card.onSummon?.kind === 'draw' || card.onSummon?.kind === 'gain_energy') return '캐릭터 · 자원 전개';
+  return '캐릭터 · 전장 전개';
 }
 
 function trapTriggerDescription(trigger: CardDefinition['trapTrigger']): string {
@@ -880,7 +970,7 @@ function CardFace({
         <span className="art-element">{ELEMENT_LABEL[card.element]}</span>
       </span>
       <span className="card-subtitle">{card.subtitle}</span>
-      {!compact && <span className="card-text">{card.text}</span>}
+      {!compact && <span className="card-text v31l-card-rules"><RuleText text={polishedCardText(card)} compact /></span>}
       <span className="card-footer">
         <span>{KIND_LABEL[card.kind]}</span>
         {isUnitCard(card) ? <b>{card.attack} / {card.health}</b> : <b>{ELEMENT_LABEL[card.element]}</b>}
@@ -908,10 +998,10 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
 
   const summonCondition = summonConditionDescription(card);
   const effectRows = [
-    card.onSummon ? { label: '소환 효과', value: effectDescription(card.onSummon) } : null,
-    card.effect ? { label: '카드 효과', value: effectDescription(card.effect) } : null,
-    card.trapTrigger ? { label: '발동 조건', value: trapTriggerDescription(card.trapTrigger) } : null,
-    card.trapEffect ? { label: '함정 효과', value: effectDescription(card.trapEffect, card.trapTrigger) } : null,
+    card.onSummon ? { label: '등장 효과', value: effectDescription(card.onSummon) } : null,
+    card.effect ? { label: '효과 처리', value: effectDescription(card.effect) } : null,
+    card.trapTrigger ? { label: '반응 조건', value: trapTriggerDescription(card.trapTrigger) } : null,
+    card.trapEffect ? { label: '반응 결과', value: effectDescription(card.trapEffect, card.trapTrigger) } : null,
   ].filter((row): row is { label: string; value: string } => Boolean(row?.value));
 
   const summonLabel = card.kind === 'fusion'
@@ -940,9 +1030,14 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
         </div>
 
         <div className="card-detail-content">
-          <header>
-            <div><span>{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}{card.series ? ` · ${card.series}` : ''}</span><h2 id="card-detail-title">{card.name}</h2><p>{card.subtitle}</p></div>
-            <strong className="detail-cost"><small>COST</small>{card.cost}</strong>
+          <header className="v31l-detail-header">
+            <div>
+              <span className="v31l-detail-kicker">{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}{card.series ? ` · ${card.series}` : ''}</span>
+              <h2 id="card-detail-title">{card.name}</h2>
+              <p>{card.subtitle}</p>
+              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}</div>
+            </div>
+            <strong className="detail-cost"><small>ENERGY</small>{card.cost}</strong>
           </header>
 
           {isUnitCard(card) ? (
@@ -959,68 +1054,68 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             </div>
           )}
 
-          <section className="detail-section primary-effect" id="card-detail-effect">
-            <span>카드 효과</span>
-            <p>{card.text}</p>
+          <section className="detail-section primary-effect v31l-primary-effect" id="card-detail-effect">
+            <span>ABILITY · 카드 효과</span>
+            <p><RuleText text={polishedCardText(card)} /></p>
           </section>
 
           {card.extraChoices?.length && (
             <section className="detail-section v31f-choose-detail">
-              <span>CHOOSE · 소환 시 1개 선택</span>
-              <div>{card.extraChoices.map((choice, index) => <article key={choice.id}><b>{index + 1}</b><span><strong>{choice.label}</strong><small>{choice.description}</small></span></article>)}</div>
+              <span>CHOOSE · 소환 시 원하는 효과 1개 선택</span>
+              <div>{card.extraChoices.map((choice, index) => <article key={choice.id}><b>{index + 1}</b><span><strong>{choice.label}</strong><small><RuleText text={choice.description} /></small></span></article>)}</div>
             </section>
           )}
 
           {card.seriesId && card.seriesAbility && (
             <section className={`detail-section v25-series-effect series-${card.seriesId}`}>
-              <span>SERIES LINK · {SERIES_BY_ID[card.seriesId].shortName}</span>
-              <p>{seriesAbilityDescription(card)}</p>
+              <span>SYNERGY · {SERIES_BY_ID[card.seriesId].shortName}</span>
+              <p><RuleText text={seriesAbilityDescription(card)} /></p>
             </section>
           )}
 
           {card.seriesId && card.seriesSignature && (
             <section className={`detail-section v31h-series-signature series-${card.seriesId}`}>
-              <span>시리즈 고유 효과</span>
-              <p>{seriesSignatureDescription(card)}</p>
+              <span>SIGNATURE · 시리즈 고유 효과</span>
+              {(() => { const copy = splitAbilityCopy(seriesSignatureDescription(card)); return <p className="v31l-ability-copy"><b>{copy.name}</b><RuleText text={copy.description} /></p>; })()}
             </section>
           )}
 
           {card.seriesId && (
             <section className="detail-section v25-series-profile">
-              <span>이 시리즈는 이렇게 사용</span>
-              <p>{SERIES_BY_ID[card.seriesId].mechanic}</p>
+              <span>DECK PLAN · 시리즈 운영</span>
+              <p>{SERIES_PLAYSTYLE[card.seriesId]}</p>
             </section>
           )}
 
           {tacticalAbilityDescription(card) && (
             <section className="detail-section v30-tactical-effect">
-              <span>이 카드의 전술 패시브</span>
-              <p>{tacticalAbilityDescription(card)}</p>
+              <span>PASSIVE · 전술 패시브</span>
+              {(() => { const copy = splitAbilityCopy(tacticalAbilityDescription(card)); return <p className="v31l-ability-copy"><b>{copy.name}</b><RuleText text={copy.description} /></p>; })()}
             </section>
           )}
 
           {summonCondition && (
             <section className="detail-section summon-condition">
-              <span>소환 조건</span>
-              <p>{summonCondition}</p>
+              <span>SUMMON · 소환 조건</span>
+              <p><RuleText text={summonCondition} /></p>
             </section>
           )}
 
           <section className="detail-section detail-lore">
-            <span>LORE</span>
+            <span>ARCHIVE · 카드 기록</span>
             <p>{card.flavor}</p>
           </section>
 
           {card.keywords && card.keywords.length > 0 && (
             <section className="detail-section">
-              <span>특수 효과</span>
-              <div className="keyword-list">{card.keywords.map((keyword) => <p key={keyword}><b>{KEYWORD_DESCRIPTION[keyword].split(' · ')[0]}</b>{KEYWORD_DESCRIPTION[keyword].split(' · ')[1]}</p>)}</div>
+              <span>KEYWORDS · 전투 특성</span>
+              <div className="keyword-list">{card.keywords.map((keyword) => <p key={keyword}><b>{KEYWORD_DESCRIPTION[keyword].split(' · ')[0]}</b><span>{KEYWORD_DESCRIPTION[keyword].split(' · ')[1]}</span></p>)}</div>
             </section>
           )}
 
           {effectRows.length > 0 && (
             <section className="detail-effect-grid">
-              {effectRows.map((row) => <div key={row.label}><small>{row.label}</small><b>{row.value}</b></div>)}
+              {effectRows.map((row) => <div key={row.label}><small>{row.label}</small><b><RuleText text={row.value} /></b></div>)}
             </section>
           )}
 
@@ -1342,15 +1437,15 @@ function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate:
           </div>
           <span className="v19-season-label">SEASON 01 · ASCENSION</span>
           <h1>덱을 설계하고,<br /><strong>판도를 뒤집으세요.</strong></h1>
-          <p>45장 메인 덱과 6장 엑스트라 덱. 8개 시리즈의 연계 효과와 균열 소환, 공명 융합, 계승 진화를 엮어 한 수 앞을 설계하는 온라인 전략 TCG.</p>
+          <p>45장 메인 덱과 6장 엑스트라 덱. 13개 시리즈의 고유 전술과 균열 소환, 공명 융합, 계승 진화를 조합해 나만의 승리 루트를 설계하는 온라인 전략 TCG.</p>
           <div className="v19-hero-actions">
             <button className="v19-play-button" onClick={() => onNavigate('duel')}>
               <span className="v19-action-icon"><GameIcon name="duel" /></span>
-              <span><b>대전 시작</b><small>빠른 매칭 · 친선전 · 방 대전</small></span>
+              <span><b>결투 시작</b><small>빠른 대전 · 비공개 방 · 코인 내기</small></span>
               <em>PLAY</em>
             </button>
-            <button className="v19-sub-action" onClick={() => onNavigate('deck')}><GameIcon name="deck" /><span><b>덱 편집</b><small>자동 구성과 직접 편집</small></span></button>
-            <button className="v19-sub-action" onClick={() => onNavigate('shop')}><GameIcon name="shop" /><span><b>상점</b><small>카드팩 · 프로필 스킨</small></span></button>
+            <button className="v19-sub-action" onClick={() => onNavigate('deck')}><GameIcon name="deck" /><span><b>덱 스튜디오</b><small>시리즈 설계 · 자동 구성 · 세부 조정</small></span></button>
+            <button className="v19-sub-action" onClick={() => onNavigate('shop')}><GameIcon name="shop" /><span><b>이클립스 마켓</b><small>카드팩 · 프로필 · 프레임 컬렉션</small></span></button>
           </div>
           <div className="v19-hero-stats">
             <span><small>LEVEL</small><b>{level}</b></span>
@@ -1379,11 +1474,11 @@ function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate:
 
         <article className="v19-mode-card v19-mode-ranked" onClick={() => onNavigate('duel')}>
           <div className="v19-mode-icon"><GameIcon name="duel" /></div>
-          <div><small>MATCH</small><h3>빠른 대전</h3><p>대기 중인 상대와 바로 연결합니다.</p></div><span className="v19-mode-arrow">›</span>
+          <div><small>MATCH</small><h3>빠른 대전</h3><p>활성 덱으로 대기열에 참가해 실시간 상대와 즉시 결투합니다.</p></div><span className="v19-mode-arrow">›</span>
         </article>
         <article className="v19-mode-card" onClick={() => onNavigate('duel')}>
           <div className="v19-mode-icon"><span>+</span></div>
-          <div><small>PRIVATE</small><h3>친구와 대전</h3><p>방을 만들거나 코드를 입력해 참가합니다.</p></div><span className="v19-mode-arrow">›</span>
+          <div><small>PRIVATE</small><h3>친구와 대전</h3><p>방 코드를 공유해 친구와 규칙을 정하고 결투합니다.</p></div><span className="v19-mode-arrow">›</span>
         </article>
         <article className="v19-mode-card" onClick={() => onNavigate('collection')}>
           <div className="v19-mode-icon"><GameIcon name="collection" /></div>
@@ -2213,17 +2308,17 @@ function ProfileView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
         <div className="profile-stats"><span><b>LV.{levelFromXp(hub.profile.xp)}</b><small>레벨</small></span><span><b>{hub.profile.wins}</b><small>승리</small></span><span><b>{winRate(hub.profile)}%</b><small>승률</small></span></div>
       </section>
       <section className="profile-editor panel">
-        <span className="eyebrow">CUSTOMIZE</span><h2>프로필 편집</h2>
+        <span className="eyebrow">DUELIST IDENTITY</span><h2>결투가 프로필 편집</h2>
         <label><span>플레이어 이름</span><input value={name} onChange={(event: ChangeEvent<HTMLInputElement>) => setName(event.target.value)} maxLength={16} /></label>
         <label><span>상태 메시지</span><input value={status} onChange={(event: ChangeEvent<HTMLInputElement>) => setStatus(event.target.value)} maxLength={60} /></label>
-        <label><span>프로필 아이콘</span><div className="avatar-picker">{AVATARS.map((id) => <button type="button" className={avatar === id ? 'active' : ''} key={id} onClick={() => setAvatar(id)}><Avatar id={id} /></button>)}{PROFILE_COSMETICS.filter((item) => item.kind === 'emblem' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button type="button" className={`cosmetic-icon-option ${avatar === item.id ? 'active' : ''}`} key={`avatar-${item.id}`} onClick={() => setAvatar(item.id)} title={`${item.name} · 구매한 프로필 아이콘`}><Avatar id={item.id} /></button>)}</div><small className="profile-icon-help">상점에서 구매한 문양은 여기서 프로필 아이콘으로도 사용할 수 있습니다. 선택 후 아래 ‘변경 사항 저장’을 눌러 주세요.</small></label>
+        <label><span>프로필 아이콘</span><div className="avatar-picker">{AVATARS.map((id) => <button type="button" className={avatar === id ? 'active' : ''} key={id} onClick={() => setAvatar(id)}><Avatar id={id} /></button>)}{PROFILE_COSMETICS.filter((item) => item.kind === 'emblem' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button type="button" className={`cosmetic-icon-option ${avatar === item.id ? 'active' : ''}`} key={`avatar-${item.id}`} onClick={() => setAvatar(item.id)} title={`${item.name} · 구매한 프로필 아이콘`}><Avatar id={item.id} /></button>)}</div><small className="profile-icon-help">기본 아이콘과 상점에서 획득한 문양 중 하나를 대표 아이콘으로 장착할 수 있습니다. 장착 상태는 친구 목록과 채팅, 대전 화면에도 표시됩니다.</small></label>
         <div className="v17-profile-skin-picker"><span>보유 프로필 배경</span><div><button className={theme === 'bg_default' ? 'active' : ''} onClick={() => equipCosmetic('bg_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'background' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={theme === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.name}</button>)}</div></div>
         <div className="v17-profile-skin-picker"><span>보유 프로필 프레임</span><div><button className={frame === 'frame_default' ? 'active' : ''} onClick={() => equipCosmetic('frame_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'frame' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={frame === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.name}</button>)}</div></div>
         <div className="v17-profile-skin-picker"><span>보유 프로필 문양</span><div><button className={emblem === 'emblem_default' ? 'active' : ''} onClick={() => equipCosmetic('emblem_default')}>기본 E</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'emblem' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={emblem === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.glyph} {item.name}</button>)}</div></div>
         <div className="v17-profile-skin-picker"><span>보유 카드 슬리브</span><div><button className={sleeve === 'sleeve_default' ? 'active' : ''} onClick={() => equipCosmetic('sleeve_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'sleeve' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={sleeve === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.name}</button>)}</div><div className="v26-profile-sleeve-demo"><CardFace hidden compact inspectable={false} sleeveId={sleeve} /></div></div>
         <div className="v17-profile-skin-picker v26-nickname-picker"><span>보유 닉네임 효과</span><div><button className={nicknameStyle === 'nickname_default' ? 'active' : ''} onClick={() => equipCosmetic('nickname_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'nickname' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={nicknameStyle === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}><NicknameText name={item.name} styleId={item.id} /></button>)}</div><div className="v26-nickname-equipped-preview"><small>다른 플레이어에게도 이렇게 표시됩니다</small><NicknameText name={hub.profile.display_name} styleId={nicknameStyle} /></div></div>
         {message && <p className="inline-message">{message}</p>}
-        <button className="primary-button" onClick={save}>변경 사항 저장</button>
+        <button className="primary-button" onClick={save}>프로필 설정 저장</button>
       </section>
     </div>
   );
@@ -3719,14 +3814,14 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
           {previewIsHoverOnly && hoveredHandCard && (
             <div className="v18-selected-card v29-hover-preview">
               <div className="v18-selected-art"><CardIllustration card={hoveredHandCard} compact /></div>
-              <div className="v18-selected-copy"><small>카드 미리보기 · {KIND_LABEL[hoveredHandCard.kind]} · {ELEMENT_LABEL[hoveredHandCard.element]}</small><b>{hoveredHandCard.name}</b><div><span>COST <strong>{hoveredHandCard.cost}</strong></span>{isUnitCard(hoveredHandCard) && <><span>ATK <strong>{hoveredHandCard.attack}</strong></span><span>DEF <strong>{hoveredHandCard.health}</strong></span></>}</div><p>{hoveredHandCard.text}</p>{hoveredHandCard.seriesSignature && <p className="v31h-preview-signature">{seriesSignatureDescription(hoveredHandCard)}</p>}{tacticalAbilityDescription(hoveredHandCard) && <p className="v30-preview-tactical">{tacticalAbilityDescription(hoveredHandCard)}</p>}</div>
+              <div className="v18-selected-copy"><small>카드 미리보기 · {KIND_LABEL[hoveredHandCard.kind]} · {ELEMENT_LABEL[hoveredHandCard.element]}</small><b>{hoveredHandCard.name}</b><div><span>COST <strong>{hoveredHandCard.cost}</strong></span>{isUnitCard(hoveredHandCard) && <><span>ATK <strong>{hoveredHandCard.attack}</strong></span><span>DEF <strong>{hoveredHandCard.health}</strong></span></>}</div><p><RuleText text={polishedCardText(hoveredHandCard)} /></p>{hoveredHandCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(hoveredHandCard)} /></p>}{tacticalAbilityDescription(hoveredHandCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(hoveredHandCard)} /></p>}</div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(hoveredHandCard.id)}>전체 상세</button></div>
             </div>
           )}
           {selectedCard && (
             <div className="v18-selected-card">
               <div className="v18-selected-art"><CardIllustration card={selectedCard} compact /></div>
-              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p>{selectedCard.summonMode === 'rift' ? `균열 조건 · ${extraRequirement(selectedCard)}` : selectedCard.text}</p>{selectedCard.seriesSignature && <p className="v31h-preview-signature">{seriesSignatureDescription(selectedCard)}</p>}{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical">{tacticalAbilityDescription(selectedCard)}</p>}</div>
+              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p><RuleText text={selectedCard.summonMode === 'rift' ? `【균열 조건】 ${extraRequirement(selectedCard)}` : polishedCardText(selectedCard)} /></p>{selectedCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(selectedCard)} /></p>}{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(selectedCard)} /></p>}</div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>선택 취소</button></div>
               {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button className="v18-context-primary" onClick={activateSelectedNoTarget}>주문 발동</button>}
               {selectedCard.kind === 'spell' && selectedCard.target === 'friendly_graveyard_unit' && <button className="v18-context-primary v31d-grave-target-button" disabled={!canChooseGraveyardTarget} onClick={openGraveyardTargetPicker}>묘지에서 부활 대상 선택 · {graveyardReviveTargets.length}</button>}
@@ -3742,7 +3837,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
                   <header><span>CHOOSE EFFECT</span><small>소환이 성공하면 선택한 효과 1개만 발동합니다.</small></header>
                   <div>{selectedExtraCard.extraChoices.map((choice, index) => (
                     <button type="button" className={selectedExtraChoice === index ? 'selected' : ''} key={choice.id} onClick={() => { setSelectedExtraChoice(index); setMessage(`${index + 1}. ${choice.label} 선택 · 이제 릴리스 소재를 맞춰 소환하세요.`); }}>
-                      <b>{index + 1}</b><span><strong>{choice.label}</strong><small>{choice.description}</small></span>
+                      <b>{index + 1}</b><span><strong>{choice.label}</strong><small><RuleText text={choice.description} /></small></span>
                     </button>
                   ))}</div>
                 </div>
@@ -4037,7 +4132,7 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
   return (
     <div className="duel-lobby view-stack">
       <section className="duel-hero">
-        <div><span className="eyebrow">ONLINE DUEL</span><h1>한 장의 선택이<br />전장을 뒤집는다.</h1><p>에너지와 손패를 관리하고, 얼굴을 감춘 함정으로 상대의 확신을 무너뜨리세요.</p></div>
+        <div><span className="eyebrow">ONLINE DUEL</span><h1>한 장의 선택이<br />전장을 뒤집는다.</h1><p>ENERGY와 손패의 흐름을 설계하고, 숨겨 둔 함정과 엑스트라 소환으로 상대의 다음 수까지 흔드세요.</p></div>
         <CardFace card={CARD_BY_ID.unit_crownless_titan} />
       </section>
       {!serverStatus.secureDuelReady && (
@@ -4053,11 +4148,11 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
         </section>
       )}
       <section className={`duel-mode-grid ${serverStatus.secureDuelReady ? '' : 'is-disabled'}`}>
-        <button className="mode-card ranked" disabled={busy || !activeDeck || !serverStatus.secureDuelReady} onClick={() => roomAction('quick_match')}><span>QUICK MATCH</span><h3>빠른 대전</h3><p>대기 중인 상대를 찾아 자동으로 연결합니다.</p><em>매칭 시작 →</em></button>
-        <button className="mode-card private" disabled={busy || !activeDeck || !serverStatus.secureDuelReady} onClick={() => roomAction('create_room')}><span>PRIVATE</span><h3>비공개 방</h3><p>방 코드를 공유해 친구와 결투합니다.</p><em>방 만들기 →</em></button>
-        <article className="mode-card join"><span>JOIN ROOM</span><h3>코드로 참가</h3><p>친구에게 받은 6자리 코드를 입력하세요.</p><div className="inline-form"><input value={code} onChange={(event: ChangeEvent<HTMLInputElement>) => setCode(event.target.value.toUpperCase())} maxLength={6} placeholder="ABC123" /><button disabled={busy || code.length < 6 || !serverStatus.secureDuelReady} onClick={() => roomAction('join_room', { code })}>입장</button></div></article>
+        <button className="mode-card ranked" disabled={busy || !activeDeck || !serverStatus.secureDuelReady} onClick={() => roomAction('quick_match')}><span>QUICK MATCH</span><h3>빠른 대전</h3><p>현재 대기 중인 결투가를 찾아 자동으로 연결합니다. 활성 덱이 그대로 사용됩니다.</p><em>매칭 시작 →</em></button>
+        <button className="mode-card private" disabled={busy || !activeDeck || !serverStatus.secureDuelReady} onClick={() => roomAction('create_room')}><span>PRIVATE</span><h3>비공개 방</h3><p>6자리 방 코드를 공유해 친구와 결투합니다. 원한다면 서로 COIN을 걸 수도 있습니다.</p><em>방 만들기 →</em></button>
+        <article className="mode-card join"><span>JOIN ROOM</span><h3>코드로 참가</h3><p>초대받은 6자리 DUEL CODE를 입력해 해당 방에 참가합니다.</p><div className="inline-form"><input value={code} onChange={(event: ChangeEvent<HTMLInputElement>) => setCode(event.target.value.toUpperCase())} maxLength={6} placeholder="ABC123" /><button disabled={busy || code.length < 6 || !serverStatus.secureDuelReady} onClick={() => roomAction('join_room', { code })}>입장</button></div></article>
       </section>
-      <section className="active-deck-strip panel"><span>사용 덱</span><b>{activeDeck?.name ?? '활성 덱 없음'}</b><small>MAIN {activeDeck?.cards.length ?? 0}/{DECK_SIZE} · EXTRA {activeDeck?.extra_cards?.length ?? 0}/{EXTRA_DECK_SIZE}</small>{!activeDeck && <em>덱 구성에서 활성 덱을 지정하세요.</em>}</section>
+      <section className="active-deck-strip panel"><span>ACTIVE DECK · 사용 덱</span><b>{activeDeck?.name ?? '활성 덱 없음'}</b><small>MAIN {activeDeck?.cards.length ?? 0}/{DECK_SIZE} · EXTRA {activeDeck?.extra_cards?.length ?? 0}/{EXTRA_DECK_SIZE}</small>{!activeDeck && <em>덱 구성에서 활성 덱을 지정하세요.</em>}</section>
       {message && <p className="error-banner">{message}</p>}
     </div>
   );
