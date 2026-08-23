@@ -184,7 +184,7 @@ interface DamageReport {
 const MAX_LOGS = 90;
 const MAX_VISUAL_EVENTS = 18;
 const CORE_MAX = 25;
-export const TURN_DURATION_MS = 60_000;
+export const TURN_DURATION_MS = 100_000;
 export const TRAP_RESPONSE_MS = 12_000;
 
 function clone<T>(value: T): T {
@@ -355,7 +355,7 @@ function assertActiveTurn(state: MatchState, playerId: string): void {
   if (state.status !== 'active') throw new Error('이미 종료된 결투입니다.');
   if (state.pendingTrap) throw new Error('함정 발동 여부를 결정하는 중입니다. 잠시만 기다려 주세요.');
   if (state.coinToss && Date.now() < state.coinToss.endsAt) throw new Error('선공 결정 연출이 끝날 때까지 잠시 기다려 주세요.');
-  if (state.turnEndsAt && Date.now() >= state.turnEndsAt) throw new Error('턴 제한 시간 60초가 종료되었습니다.');
+  if (state.turnEndsAt && Date.now() >= state.turnEndsAt) throw new Error('턴 제한 시간 100초가 종료되었습니다.');
   if (state.currentPlayerId !== playerId) throw new Error('상대 턴입니다.');
 }
 
@@ -1940,7 +1940,7 @@ function applyTacticalOnKill(
       const healed = attacker.health - before;
       if (healed > 0) {
         appendLog(state, `전술 · 포식 수복 — 「${card.name}」 체력 ${healed} 회복.`, 'special');
-        appendVisual(state, { kind: 'heal', vfx: 'tactical-beast-repair', cardId: card.id, ownerId: playerId, sourceZone: attackerIndex, amount: healed, label: '포식 수복' });
+        appendVisual(state, { kind: 'heal', vfx: 'tactical-beast-repair', cardId: card.id, ownerId: playerId, targetOwnerId: playerId, sourceZone: attackerIndex, targetZone: attackerIndex, amount: healed, label: '포식 수복' });
       }
       break;
     }
@@ -3202,7 +3202,7 @@ export function resolveTurnTimeout(snapshot: GameSnapshot, now = Date.now()): Ac
   }
   if (now < state.turnEndsAt) return { state, privateStates };
   const expiredPlayer = state.currentPlayerId;
-  appendLog(state, `${expiredPlayer.slice(0, 6)}의 제한 시간 60초가 종료되었습니다.`, 'system');
+  appendLog(state, `${expiredPlayer.slice(0, 6)}의 제한 시간 100초가 종료되었습니다.`, 'system');
   advanceTurn(state, privateStates, expiredPlayer, now, '시간 초과로 턴이 자동 종료되었습니다.');
   return { state, privateStates };
 }

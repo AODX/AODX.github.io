@@ -6053,3 +6053,180 @@ html[data-ipad="true"] .pack-experience-layer.v23-client :is(.single-card-reveal
     padding-bottom:14px!important;
   }
 }
+
+/* ========================================================================== 
+   v32l · Battle feedback hotfix
+   - ATTACK events stay above the duel UI and use readable creature motions.
+   - Canine / wolf / beast units use a real bite-style impact.
+   - HEAL events get an independent green popup + recovery burst.
+   - Reduced-motion users still see a static combat effect instead of nothing.
+   ========================================================================== */
+.v23-client.in-duel .v18-cinematic-layer.kind-attack {
+  z-index:225!important;
+  background:
+    radial-gradient(circle at var(--tx) var(--ty),color-mix(in srgb,var(--fx-accent) 24%,transparent),transparent 18%),
+    linear-gradient(90deg,rgba(1,5,9,.16),rgba(1,5,9,.38),rgba(1,5,9,.16))!important;
+}
+.v23-client.in-duel .v18-cinematic-layer.kind-attack .v31e-attack-stage {
+  z-index:20!important;
+}
+.v23-client.in-duel .v18-cinematic-layer.kind-attack .v18-motion-line line {
+  stroke-width:3.1!important;
+  opacity:.95!important;
+  filter:drop-shadow(0 0 5px #fff);
+}
+.v23-client.in-duel .v18-cinematic-layer.kind-attack .v18-motion-orb {
+  width:26px!important;height:26px!important;margin:-13px!important;
+  box-shadow:0 0 16px #fff,0 0 38px var(--fx-accent),0 0 74px var(--fx-accent)!important;
+}
+.v23-client.in-duel .v31e-attack-stage:not(.style-beam):not(.style-pulse) .v31e-attack-source-card {
+  animation:v32lCombatLunge 1.02s cubic-bezier(.16,.78,.18,1) both;
+}
+.v23-client.in-duel .v31e-attack-stage.style-beam .v31e-attack-source-card,
+.v23-client.in-duel .v31e-attack-stage.style-pulse .v31e-attack-source-card {
+  animation:v32lCombatBrace 1.02s ease-out both;
+}
+.v23-client.in-duel .v31e-attack-stage.style-dive .v31e-attack-source-card {
+  animation:v32lCombatDive 1.02s cubic-bezier(.12,.76,.17,1) both!important;
+}
+
+/* Canine / beast bite motion. */
+.v23-client.in-duel .v31e-attack-stage.style-bite .v32-attack-weapon,
+.v23-client.in-duel .v31e-attack-stage.style-bite .v31e-slash-trails { display:none!important; }
+.v23-client.in-duel .v31e-attack-stage.style-bite .v31e-target-reticle {
+  width:112px;height:112px;margin:-56px;border-color:rgba(255,128,117,.92);
+  border-style:dashed;box-shadow:0 0 0 12px rgba(255,74,75,.07),0 0 45px rgba(255,83,74,.34);
+}
+.v23-client.in-duel .v32-bite-fx {
+  position:absolute;left:var(--tx);top:var(--ty);z-index:19;
+  width:190px;height:158px;margin:-79px -95px;pointer-events:none;
+  filter:drop-shadow(0 0 16px color-mix(in srgb,var(--sig-core) 62%,transparent));
+  animation:v32lBiteWhole .86s .12s ease-out both;
+}
+.v23-client.in-duel .v32-bite-jaw {
+  position:absolute;left:15px;width:160px;height:62px;
+  border:3px solid color-mix(in srgb,var(--sig-secondary) 86%,white);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--sig-core) 20%,rgba(4,8,12,.85)),rgba(4,8,12,.96));
+  box-shadow:inset 0 0 22px color-mix(in srgb,var(--sig-core) 23%,transparent),0 0 22px color-mix(in srgb,var(--sig-core) 23%,transparent);
+}
+.v23-client.in-duel .v32-bite-jaw.upper {
+  top:4px;border-radius:68% 68% 20% 20%/90% 90% 18% 18%;transform-origin:50% 100%;
+  animation:v32lJawUpper .58s .18s cubic-bezier(.16,.82,.18,1) both;
+}
+.v23-client.in-duel .v32-bite-jaw.lower {
+  bottom:4px;border-radius:20% 20% 68% 68%/18% 18% 90% 90%;transform-origin:50% 0;
+  animation:v32lJawLower .58s .18s cubic-bezier(.16,.82,.18,1) both;
+}
+.v23-client.in-duel .v32-bite-jaw b {
+  position:absolute;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;
+  filter:drop-shadow(0 0 4px rgba(255,255,255,.55));
+}
+.v23-client.in-duel .v32-bite-jaw.upper b { bottom:-1px;border-top:24px solid #f6fbff; }
+.v23-client.in-duel .v32-bite-jaw.lower b { top:-1px;border-bottom:24px solid #f6fbff; }
+.v23-client.in-duel .v32-bite-jaw b:nth-child(1){left:9%}.v23-client.in-duel .v32-bite-jaw b:nth-child(2){left:24%}.v23-client.in-duel .v32-bite-jaw b:nth-child(3){left:39%}.v23-client.in-duel .v32-bite-jaw b:nth-child(4){left:54%}.v23-client.in-duel .v32-bite-jaw b:nth-child(5){left:69%}.v23-client.in-duel .v32-bite-jaw b:nth-child(6){left:84%}
+.v23-client.in-duel .v32-bite-fx>em {
+  position:absolute;left:50%;top:50%;width:28px;height:28px;margin:-14px;border-radius:50%;
+  background:#fff;box-shadow:0 0 28px #fff,0 0 70px #ff625e,0 0 105px var(--sig-core);
+  animation:v32lBiteFlash .48s .42s ease-out both;
+}
+.v23-client.in-duel .v32-bite-fx>strong {
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-5deg);
+  color:#fff;font-size:clamp(20px,2.2vw,34px);font-weight:1000;letter-spacing:.08em;
+  text-shadow:0 2px 0 #711c1f,0 0 16px #ff4d59,0 0 34px var(--sig-core);
+  animation:v32lCrunch .58s .36s ease-out both;
+}
+
+/* Healing is intentionally independent from the damage animation so recovery is
+   impossible to miss even when several visual events resolve in one server update. */
+.v23-client.in-duel .v18-cinematic-layer.kind-heal {
+  z-index:224!important;
+  background:radial-gradient(circle at var(--tx) var(--ty),rgba(65,255,160,.19),transparent 24%)!important;
+}
+.v23-client.in-duel .v18-cinematic-layer.kind-heal .v18-motion-line,
+.v23-client.in-duel .v18-cinematic-layer.kind-heal .v18-motion-orb,
+.v23-client.in-duel .v18-cinematic-layer.kind-heal .v18-impact-ring,
+.v23-client.in-duel .v18-cinematic-layer.kind-heal .v18-impact-flare { opacity:.34;filter:hue-rotate(82deg) saturate(1.35); }
+.v23-client.in-duel .v32-heal-stage {
+  position:absolute;left:var(--tx);top:var(--ty);z-index:22;width:230px;height:230px;margin:-115px;pointer-events:none;
+  --heal:#63f0a8;--heal-light:#d8ffe9;
+}
+.v23-client.in-duel .v32-heal-aura,.v23-client.in-duel .v32-heal-cross,.v23-client.in-duel .v32-heal-particles { position:absolute;inset:0; }
+.v23-client.in-duel .v32-heal-aura i {
+  position:absolute;left:50%;top:50%;border:2px solid rgba(102,245,171,.78);border-radius:50%;
+  box-shadow:0 0 24px rgba(73,238,154,.32),inset 0 0 20px rgba(73,238,154,.12);
+  transform:translate(-50%,-50%) scale(.35);opacity:0;animation:v32lHealRing .9s ease-out both;
+}
+.v23-client.in-duel .v32-heal-aura i:nth-child(1){width:72px;height:72px}.v23-client.in-duel .v32-heal-aura i:nth-child(2){width:126px;height:126px;animation-delay:.08s}.v23-client.in-duel .v32-heal-aura i:nth-child(3){width:188px;height:188px;animation-delay:.16s}
+.v23-client.in-duel .v32-heal-cross i {
+  position:absolute;left:50%;top:50%;width:78px;height:18px;margin:-9px -39px;border-radius:8px;
+  background:linear-gradient(90deg,rgba(255,255,255,.2),#eafff2 35%,#66f0aa 70%,rgba(255,255,255,.2));
+  box-shadow:0 0 22px rgba(91,245,166,.8);animation:v32lHealCross .7s .08s ease-out both;
+}
+.v23-client.in-duel .v32-heal-cross i:nth-child(2){transform:rotate(90deg)}
+.v23-client.in-duel .v32-heal-particles i {
+  position:absolute;left:50%;top:50%;width:5px;height:18px;border-radius:999px;background:linear-gradient(#eafff2,#55e99b,transparent);
+  transform-origin:50% 92px;opacity:0;animation:v32lHealParticle .86s calc(var(--heal-particle) * .025s) ease-out both;
+}
+.v23-client.in-duel .v32-heal-particles i:nth-child(1){transform:rotate(0deg) translateY(-58px)}.v23-client.in-duel .v32-heal-particles i:nth-child(2){transform:rotate(30deg) translateY(-58px)}.v23-client.in-duel .v32-heal-particles i:nth-child(3){transform:rotate(60deg) translateY(-58px)}.v23-client.in-duel .v32-heal-particles i:nth-child(4){transform:rotate(90deg) translateY(-58px)}.v23-client.in-duel .v32-heal-particles i:nth-child(5){transform:rotate(120deg) translateY(-58px)}.v23-client.in-duel .v32-heal-particles i:nth-child(6){transform:rotate(150deg) translateY(-58px)}.v23-client.in-duel .v32-heal-particles i:nth-child(7){transform:rotate(180deg) translateY(-58px)}.v23-client.in-duel .v32-heal-particles i:nth-child(8){transform:rotate(210deg) translateY(-58px)}.v23-client.in-duel .v32-heal-particles i:nth-child(9){transform:rotate(240deg) translateY(-58px)}.v23-client.in-duel .v32-heal-particles i:nth-child(10){transform:rotate(270deg) translateY(-58px)}.v23-client.in-duel .v32-heal-particles i:nth-child(11){transform:rotate(300deg) translateY(-58px)}.v23-client.in-duel .v32-heal-particles i:nth-child(12){transform:rotate(330deg) translateY(-58px)}
+.v23-client.in-duel .v32-heal-copy {
+  position:absolute;left:50%;top:50%;display:grid;justify-items:center;gap:1px;transform:translate(-50%,-50%);
+  padding:8px 13px;border:1px solid rgba(104,246,174,.42);border-radius:14px;background:rgba(3,19,13,.82);
+  box-shadow:0 12px 35px rgba(0,0,0,.45),0 0 34px rgba(72,239,154,.22);animation:v32lHealCopy 1.05s ease-out both;
+}
+.v23-client.in-duel .v32-heal-copy small{color:#91ffc5;font-size:8px;font-weight:1000;letter-spacing:.18em}.v23-client.in-duel .v32-heal-copy b{color:#7dffb7;font-size:clamp(38px,5vw,66px);line-height:.9;font-weight:1000;text-shadow:0 0 18px rgba(80,255,163,.78),0 0 34px rgba(80,255,163,.34)}.v23-client.in-duel .v32-heal-copy span{color:#d5fbe5;font-size:9px;font-weight:850}
+.v23-client.in-duel .v31-damage-popup.heal {
+  color:#6affad!important;border-color:rgba(96,255,171,.72)!important;
+  background:rgba(3,24,15,.9)!important;
+  text-shadow:0 0 12px rgba(70,255,154,.88),0 0 30px rgba(65,245,151,.42)!important;
+  box-shadow:0 0 28px rgba(70,255,154,.14);
+}
+.v23-client.in-duel .v31-damage-popup-group.heal .v31-damage-popup { font-size:clamp(34px,4.8vw,66px); }
+
+@keyframes v32lCombatLunge {
+  0%{opacity:0;left:var(--sx);top:var(--sy);transform:translate(-50%,-52%) scale(.55) rotate(-6deg)}
+  18%{opacity:1;left:var(--sx);top:var(--sy);transform:translate(-50%,-52%) scale(1.06) rotate(1deg)}
+  38%{opacity:1;left:var(--sx);top:var(--sy);transform:translate(-50%,-52%) scale(1)}
+  66%{opacity:1;left:var(--tx);top:var(--ty);transform:translate(-50%,-52%) scale(.88) rotate(5deg)}
+  82%{opacity:.92;left:var(--tx);top:var(--ty);transform:translate(-50%,-52%) scale(1.05) rotate(-2deg)}
+  100%{opacity:0;left:var(--tx);top:var(--ty);transform:translate(-50%,-52%) scale(.82)}
+}
+@keyframes v32lCombatBrace {0%{opacity:0;transform:translate(-50%,-52%) scale(.6)}20%{opacity:1;transform:translate(-50%,-52%) scale(1.08)}52%{opacity:1;transform:translate(-50%,-52%) scale(.96)}74%{opacity:1;transform:translate(-50%,-52%) scale(1.05)}100%{opacity:0;transform:translate(-50%,-52%) scale(.92)}}
+@keyframes v32lCombatDive {0%{opacity:0;left:var(--sx);top:var(--sy);transform:translate(-50%,-52%) scale(.45) rotate(-24deg)}18%{opacity:1;left:var(--sx);top:var(--sy);transform:translate(-50%,-52%) scale(1.08) rotate(-10deg)}64%{opacity:1;left:var(--tx);top:var(--ty);transform:translate(-50%,-52%) scale(.82) rotate(18deg)}100%{opacity:0;left:var(--tx);top:var(--ty);transform:translate(-50%,-52%) scale(.72) rotate(24deg)}}
+@keyframes v32lBiteWhole {0%{opacity:0;transform:scale(.45) rotate(-9deg)}18%{opacity:1;transform:scale(1.13) rotate(2deg)}72%{opacity:1;transform:scale(.98)}100%{opacity:0;transform:scale(1.22)}}
+@keyframes v32lJawUpper {0%{opacity:0;transform:translateY(-60px) rotate(-14deg)}30%{opacity:1;transform:translateY(-36px) rotate(-8deg)}68%{opacity:1;transform:translateY(18px) rotate(1deg)}100%{opacity:0;transform:translateY(10px)}}
+@keyframes v32lJawLower {0%{opacity:0;transform:translateY(60px) rotate(14deg)}30%{opacity:1;transform:translateY(36px) rotate(8deg)}68%{opacity:1;transform:translateY(-18px) rotate(-1deg)}100%{opacity:0;transform:translateY(-10px)}}
+@keyframes v32lBiteFlash {0%{opacity:0;transform:scale(.15)}30%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(4.4)}}
+@keyframes v32lCrunch {0%{opacity:0;transform:translate(-50%,-50%) scale(.25) rotate(-12deg)}42%{opacity:1;transform:translate(-50%,-50%) scale(1.22) rotate(2deg)}100%{opacity:0;transform:translate(-50%,-72%) scale(.92) rotate(-4deg)}}
+@keyframes v32lHealRing {0%{opacity:0;transform:translate(-50%,-50%) scale(.28)}25%{opacity:.9}100%{opacity:0;transform:translate(-50%,-50%) scale(1.18)}}
+@keyframes v32lHealCross {0%{opacity:0;filter:blur(4px);scale:.35}25%{opacity:1;filter:blur(0);scale:1.15}100%{opacity:0;scale:.95}}
+@keyframes v32lHealParticle {0%{opacity:0;margin-top:26px}24%{opacity:1}100%{opacity:0;margin-top:-36px}}
+@keyframes v32lHealCopy {0%{opacity:0;transform:translate(-50%,-30%) scale(.55)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.16)}72%{opacity:1;transform:translate(-50%,-62%) scale(1)}100%{opacity:0;transform:translate(-50%,-90%) scale(.94)}}
+
+@media (max-width:820px) {
+  .v23-client.in-duel .v32-bite-fx { width:150px;height:124px;margin:-62px -75px;transform:scale(.82); }
+  .v23-client.in-duel .v32-bite-jaw { left:12px;width:126px;height:48px; }
+  .v23-client.in-duel .v32-bite-jaw b { border-left-width:7px;border-right-width:7px; }
+  .v23-client.in-duel .v32-bite-jaw.upper b { border-top-width:18px; }
+  .v23-client.in-duel .v32-bite-jaw.lower b { border-bottom-width:18px; }
+  .v23-client.in-duel .v32-heal-stage { width:180px;height:180px;margin:-90px;transform:scale(.86); }
+}
+
+/* Accessibility: reduced motion removes travel, but combat feedback must remain visible. */
+@media (prefers-reduced-motion:reduce) {
+  .v23-client.in-duel .v18-cinematic-layer.kind-attack .v31e-attack-stage,
+  .v23-client.in-duel .v18-cinematic-layer.kind-heal .v32-heal-stage { opacity:1!important; }
+  .v23-client.in-duel .v31e-attack-source-card,
+  .v23-client.in-duel .v31e-attack-power,
+  .v23-client.in-duel .v31e-target-reticle,
+  .v23-client.in-duel .v32-bite-fx,
+  .v23-client.in-duel .v32-bite-jaw,
+  .v23-client.in-duel .v32-bite-fx>strong,
+  .v23-client.in-duel .v32-heal-copy,
+  .v23-client.in-duel .v32-heal-aura i,
+  .v23-client.in-duel .v32-heal-cross i {
+    animation:none!important;opacity:1!important;
+  }
+  .v23-client.in-duel .v32-bite-jaw.upper { transform:translateY(11px)!important; }
+  .v23-client.in-duel .v32-bite-jaw.lower { transform:translateY(-11px)!important; }
+  .v23-client.in-duel .v32-heal-copy { transform:translate(-50%,-50%)!important; }
+}

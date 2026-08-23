@@ -1157,7 +1157,7 @@ function GameGuideModal({ onClose }: { onClose: () => void }) {
         <header><div><span>FIELD MANUAL</span><h2 id="v20-guide-title">ECLIPSE DUEL 룰 가이드</h2><p>첫 결투 전에 핵심 규칙만 빠르게 확인할 수 있습니다.</p></div><button ref={closeButtonRef} className="modal-close" type="button" onClick={onClose} aria-label="룰 가이드 닫기">×</button></header>
         <div className="v20-guide-grid">
           <article><b>01 · 승리 조건</b><p>상대 코어 25를 0으로 만들면 승리합니다. 덱을 더 이상 뽑을 수 없는 상황도 패배로 처리됩니다.</p></article>
-          <article><b>02 · 턴 흐름</b><p>메인 단계에서 소환·주문·함정을 준비하고, 배틀 단계에서 공격합니다. 각 턴은 60초 안에 결정해야 합니다.</p></article>
+          <article><b>02 · 턴 흐름</b><p>메인 단계에서 소환·주문·함정을 준비하고, 배틀 단계에서 공격합니다. 각 턴은 100초 안에 결정해야 합니다.</p></article>
           <article><b>03 · 에너지</b><p>내 턴이 돌아올 때 최대 에너지가 성장하며 10에서 멈춥니다. 카드는 표시된 비용만큼 에너지를 사용합니다.</p></article>
           <article><b>04 · 특수 소환</b><p>균열은 조건과 에너지를, 공명 융합은 지정 소재를, 계승 진화는 조건을 만족한 필드 유닛을 요구합니다.</p></article>
           <article><b>05 · 전투 키워드</b><p><strong>수호</strong>는 공격 우선 대상, <strong>속공</strong>은 소환 턴 공격, <strong>흡수</strong>는 실제 전투 피해 회복, <strong>관통</strong>은 초과 피해를 코어에 전달합니다.</p></article>
@@ -2553,7 +2553,12 @@ function duelEventPoints(event: VisualEvent, userId: string): { source: DuelPoin
       target: event.targetZone !== undefined ? duelZonePoint(targetId, userId, event.targetZone, 'unit') : duelZonePoint(targetId, userId, undefined, 'leader'),
     };
   }
-  if (event.kind === 'core' || event.kind === 'heal' || event.kind === 'energy') {
+  if (event.kind === 'heal') {
+    const source = event.sourceZone !== undefined ? duelZonePoint(actorId, userId, event.sourceZone, 'unit') : duelZonePoint(actorId, userId, undefined, 'leader');
+    const healTargetZone = event.targetZone ?? (event.vfx === 'tactical-beast-repair' ? event.sourceZone : undefined);
+    return { source, target: healTargetZone !== undefined ? duelZonePoint(targetId, userId, healTargetZone, 'unit') : duelZonePoint(targetId, userId, undefined, 'leader') };
+  }
+  if (event.kind === 'core' || event.kind === 'energy') {
     const source = event.sourceZone !== undefined ? duelZonePoint(actorId, userId, event.sourceZone, 'unit') : duelZonePoint(actorId, userId, undefined, 'leader');
     return { source, target: duelZonePoint(targetId, userId, undefined, 'leader') };
   }
@@ -2582,7 +2587,7 @@ function duelEventPoints(event: VisualEvent, userId: string): { source: DuelPoin
 }
 
 
-type AttackCinematicStyle = 'slash' | 'beam' | 'dive' | 'scatter' | 'crush' | 'pulse';
+type AttackCinematicStyle = 'slash' | 'beam' | 'dive' | 'scatter' | 'crush' | 'pulse' | 'bite';
 
 type AttackCinematicProfile = {
   signature: string;
@@ -2638,8 +2643,27 @@ function defaultAttackProfile(card: CardDefinition): AttackCinematicProfile {
 
 function attackMotionProfile(card: CardDefinition): AttackCinematicProfile {
   const mapped = LEGENDARY_ATTACK_PROFILES[card.id];
-  if (mapped) return { ...mapped, legendary: true };
-  return defaultAttackProfile(card);
+  const base = mapped ? { ...mapped, legendary: true } : defaultAttackProfile(card);
+  const themeText = `${card.name} ${card.subtitle ?? ''} ${card.series ?? ''}`.toLowerCase();
+
+  // Animal-shaped attackers should feel like the creature is actually attacking,
+  // not like every card fires the same generic elemental projectile.
+  if (/(사냥개|늑대|하운드|wolf|hound|fang|야수|beast)/i.test(themeText)) {
+    return { ...base, style: 'bite', label: '포식 교합', finisher: 'FANG BREAK' };
+  }
+  if (!mapped && /(용|드래곤|dragon|비룡|광자포|캐논|포병|포격|함선|프리깃|드레드노트)/i.test(themeText)) {
+    return { ...base, style: 'beam', label: '집속 포격', finisher: 'BURST IMPACT' };
+  }
+  if (!mapped && /(검|검사|기사|블레이드|소드|창기병|랜서|세이버|집행)/i.test(themeText)) {
+    return { ...base, style: 'slash', label: '무장 돌격', finisher: 'CROSS SLASH' };
+  }
+  if (!mapped && /(매|hawk|새|익룡|날개|비행|기병|라이더)/i.test(themeText)) {
+    return { ...base, style: 'dive', label: '급강하 돌격', finisher: 'SKY DIVE' };
+  }
+  if (!mapped && /(타이탄|골렘|가디언|수호자|기갑|장갑|거신|중갑)/i.test(themeText)) {
+    return { ...base, style: 'crush', label: '중량 강타', finisher: 'HEAVY CRUSH' };
+  }
+  return base;
 }
 
 type ExtraCinematicStyle = 'convergence' | 'prism' | 'storm' | 'bloom' | 'forge' | 'eclipse' | 'tide' | 'star' | 'ascension' | 'wing' | 'crown' | 'rift' | 'mirror' | 'thunder' | 'root' | 'requiem';
@@ -2797,6 +2821,22 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
           <span className="v31e-target-reticle" aria-hidden="true"><i /><i /></span>
           <span className="v31e-impact-burst" aria-hidden="true">{Array.from({ length: 10 }, (_, index) => <i key={index} style={{ '--spark': index } as CSSProperties} />)}</span>
           <span className="v32-hitcall" aria-hidden="true"><b>{attackProfile.finisher}</b><small>{event.targetZone !== undefined ? 'TARGET LOCK' : 'DIRECT CORE'}</small></span>
+          {attackProfile.style === 'bite' && (
+            <span className="v32-bite-fx" aria-hidden="true">
+              <i className="v32-bite-jaw upper">{Array.from({ length: 6 }, (_, index) => <b key={`u-${index}`} style={{ '--tooth': index } as CSSProperties} />)}</i>
+              <i className="v32-bite-jaw lower">{Array.from({ length: 6 }, (_, index) => <b key={`l-${index}`} style={{ '--tooth': index } as CSSProperties} />)}</i>
+              <em /><strong>CRUNCH</strong>
+            </span>
+          )}
+        </div>
+      )}
+
+      {event.kind === 'heal' && (event.amount ?? 0) > 0 && (
+        <div className="v32-heal-stage" aria-label={`체력 ${event.amount} 회복`}>
+          <span className="v32-heal-aura" aria-hidden="true"><i /><i /><i /></span>
+          <span className="v32-heal-cross" aria-hidden="true"><i /><i /></span>
+          <span className="v32-heal-particles" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ '--heal-particle': index } as CSSProperties} />)}</span>
+          <div className="v32-heal-copy"><small>RECOVERY</small><b>+{event.amount}</b><span>{event.label ?? '체력 회복'}</span></div>
         </div>
       )}
 
@@ -2918,6 +2958,9 @@ function DuelDamagePopupLayer({ events, userId }: { events: VisualEvent[]; userI
         }
         if (event.kind === 'core' && (event.amount ?? 0) > 0) {
           return <span className="v31-damage-popup-group core" style={style} key={event.id}><strong className="v31-damage-popup health"><small>CORE</small>−{event.amount}</strong></span>;
+        }
+        if (event.kind === 'heal' && (event.amount ?? 0) > 0) {
+          return <span className="v31-damage-popup-group heal" style={style} key={event.id}><strong className="v31-damage-popup heal"><small>HEAL</small>+{event.amount}</strong></span>;
         }
         return null;
       })}
@@ -3373,7 +3416,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const timeoutSyncTurn = useRef<number>(-1);
   const announcedTurn = useRef<string>('');
   const seenVfx = useRef<Set<string>>(new Set());
-  const seenDamagePopups = useRef<Set<string>>(new Set(nullableState?.visualEvents.map((event) => event.id) ?? []));
+  const seenDamagePopups = useRef<Set<string>>(new Set(nullableState?.visualEvents.filter((event) => Date.now() - event.createdAt > 2600).map((event) => event.id) ?? []));
   const knownHandIds = useRef<Set<string>>(new Set(nullablePrivateState?.hand.map((card) => card.instanceId) ?? []));
   const actionLock = useRef(false);
 
@@ -3383,7 +3426,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   useEffect(() => {
     let unseen = visualEvents.filter((event) => !seenVfx.current.has(event.id));
     if (unseen.length === 0) return;
-    if (seenVfx.current.size === 0 && unseen.length > 1) unseen = unseen.slice(-1);
+    if (seenVfx.current.size === 0 && unseen.length > 1) {
+      const now = Date.now();
+      const recentBundle = unseen.filter((event) => now - event.createdAt <= 2600);
+      // A server action can append ATTACK -> DAMAGE/HEAL in one snapshot. Keeping only
+      // the last event made the HP number visible while the actual attack motion vanished.
+      unseen = recentBundle.length > 0 ? recentBundle.slice(-5) : unseen.slice(-1);
+    }
     visualEvents.forEach((event) => seenVfx.current.add(event.id));
     setVfxQueue((current) => [...current, ...unseen].slice(-10));
   }, [visualEventSignature]);
@@ -3392,13 +3441,14 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     const damageEvents = visualEvents.filter((event) =>
       !seenDamagePopups.current.has(event.id)
       && ((event.kind === 'defense' && ((event.shieldAmount ?? 0) > 0 || (event.healthAmount ?? 0) > 0))
-        || (event.kind === 'core' && (event.amount ?? 0) > 0)),
+        || (event.kind === 'core' && (event.amount ?? 0) > 0)
+        || (event.kind === 'heal' && (event.amount ?? 0) > 0)),
     );
     visualEvents.forEach((event) => seenDamagePopups.current.add(event.id));
     if (damageEvents.length === 0) return;
-    setDamagePopups((current) => [...current, ...damageEvents].slice(-8));
+    setDamagePopups((current) => [...current, ...damageEvents].slice(-10));
     const ids = new Set(damageEvents.map((event) => event.id));
-    window.setTimeout(() => setDamagePopups((current) => current.filter((event) => !ids.has(event.id))), 1450);
+    window.setTimeout(() => setDamagePopups((current) => current.filter((event) => !ids.has(event.id))), 1650);
   }, [visualEventSignature]);
 
   const privateHandSignature = nullablePrivateState?.hand.map((card) => card.instanceId).join('|') ?? '';
@@ -3495,21 +3545,26 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     const [next, ...rest] = vfxQueue;
     setVfxQueue(rest);
     setActiveVfx(next);
+  }, [activeVfx, vfxQueue]);
+
+  useEffect(() => {
+    if (!activeVfx) return;
+    const next = activeVfx;
     const duration = next.kind === 'fusion' || next.kind === 'evolution' ? 2450
       : next.kind === 'trap' ? 2250
         : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? 1450
-          : next.kind === 'attack' ? 980
+          : next.kind === 'attack' ? 1250
             : next.kind === 'core' || next.kind === 'destroy' ? 1120
               : next.kind === 'defense' ? 1220
-              : next.kind === 'heal' || next.kind === 'buff' || next.kind === 'energy' ? 900
-              : next.kind === 'draw' ? 1250
-                : next.kind === 'turn' ? 850
-                  : 760;
+                : next.kind === 'heal' || next.kind === 'buff' || next.kind === 'energy' ? 1050
+                  : next.kind === 'draw' ? 1250
+                    : next.kind === 'turn' ? 850
+                      : 760;
     const timer = window.setTimeout(() => {
       setActiveVfx((current) => current?.id === next.id ? null : current);
     }, duration);
     return () => window.clearTimeout(timer);
-  }, [activeVfx, vfxQueue]);
+  }, [activeVfx?.id]);
 
   useEffect(() => {
     if (!activeVfx) return;
@@ -3585,8 +3640,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const coinTossActive = Boolean(state.coinToss && coinClock < state.coinToss.endsAt);
   const turnExpiredLocally = Boolean(!coinTossActive && state.turnEndsAt && turnClock >= state.turnEndsAt);
   const myTurn = state.currentPlayerId === userId && !coinTossActive && !turnExpiredLocally;
-  const turnSecondsLeft = coinTossActive ? 60 : Math.max(0, Math.ceil(((state.turnEndsAt ?? (turnClock + 60_000)) - turnClock) / 1000));
-  const turnTimerPercent = Math.max(0, Math.min(100, (turnSecondsLeft / 60) * 100));
+  const turnSecondsLeft = coinTossActive ? 100 : Math.max(0, Math.ceil(((state.turnEndsAt ?? (turnClock + 100_000)) - turnClock) / 1000));
+  const turnTimerPercent = Math.max(0, Math.min(100, (turnSecondsLeft / 100) * 100));
   const selectedInstance = privateState.hand.find((card) => card.instanceId === selectedHand);
   const selectedCard = selectedInstance ? CARD_BY_ID[selectedInstance.cardId] : undefined;
   const selectedExtraInstance = privateState.extra.find((card) => card.instanceId === selectedExtra);
@@ -4427,7 +4482,7 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
   const [vfxQueue, setVfxQueue] = useState<VisualEvent[]>([]);
   const [damagePopups, setDamagePopups] = useState<VisualEvent[]>([]);
   const seenVfx = useRef<Set<string>>(new Set());
-  const seenDamage = useRef<Set<string>>(new Set(state?.visualEvents.map((event) => event.id) ?? []));
+  const seenDamage = useRef<Set<string>>(new Set(state?.visualEvents.filter((event) => Date.now() - event.createdAt > 2600).map((event) => event.id) ?? []));
 
   const visualEvents = state?.visualEvents ?? [];
   const visualSignature = visualEvents.map((event) => event.id).join('|');
@@ -4435,19 +4490,23 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
   useEffect(() => {
     let unseen = visualEvents.filter((event) => !seenVfx.current.has(event.id));
     if (unseen.length === 0) return;
-    if (seenVfx.current.size === 0 && unseen.length > 1) unseen = unseen.slice(-1);
+    if (seenVfx.current.size === 0 && unseen.length > 1) {
+      const now = Date.now();
+      const recentBundle = unseen.filter((event) => now - event.createdAt <= 2600);
+      unseen = recentBundle.length > 0 ? recentBundle.slice(-5) : unseen.slice(-1);
+    }
     visualEvents.forEach((event) => seenVfx.current.add(event.id));
     setVfxQueue((current) => [...current, ...unseen].slice(-10));
   }, [visualSignature]);
 
   useEffect(() => {
     const incoming = visualEvents.filter((event) => !seenDamage.current.has(event.id)
-      && ((event.kind === 'defense' && ((event.shieldAmount ?? 0) > 0 || (event.healthAmount ?? 0) > 0)) || (event.kind === 'core' && (event.amount ?? 0) > 0)));
+      && ((event.kind === 'defense' && ((event.shieldAmount ?? 0) > 0 || (event.healthAmount ?? 0) > 0)) || (event.kind === 'core' && (event.amount ?? 0) > 0) || (event.kind === 'heal' && (event.amount ?? 0) > 0)));
     visualEvents.forEach((event) => seenDamage.current.add(event.id));
     if (!incoming.length) return;
-    setDamagePopups((current) => [...current, ...incoming].slice(-8));
+    setDamagePopups((current) => [...current, ...incoming].slice(-10));
     const ids = new Set(incoming.map((event) => event.id));
-    const timer = window.setTimeout(() => setDamagePopups((current) => current.filter((event) => !ids.has(event.id))), 1450);
+    const timer = window.setTimeout(() => setDamagePopups((current) => current.filter((event) => !ids.has(event.id))), 1650);
     return () => window.clearTimeout(timer);
   }, [visualSignature]);
 
@@ -4456,17 +4515,23 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
     const [next, ...rest] = vfxQueue;
     setVfxQueue(rest);
     setActiveVfx(next);
+  }, [activeVfx, vfxQueue]);
+
+  useEffect(() => {
+    if (!activeVfx) return;
+    const next = activeVfx;
     const duration = next.kind === 'fusion' || next.kind === 'evolution' ? 2450
       : next.kind === 'trap' ? 2250
         : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? 1450
-          : next.kind === 'attack' ? 980
+          : next.kind === 'attack' ? 1250
             : next.kind === 'core' || next.kind === 'destroy' ? 1120
               : next.kind === 'defense' ? 1220
-                : next.kind === 'draw' ? 1250
-                  : 850;
+                : next.kind === 'heal' || next.kind === 'buff' || next.kind === 'energy' ? 1050
+                  : next.kind === 'draw' ? 1250
+                    : 850;
     const timer = window.setTimeout(() => setActiveVfx((current) => current?.id === next.id ? null : current), duration);
     return () => window.clearTimeout(timer);
-  }, [activeVfx, vfxQueue]);
+  }, [activeVfx?.id]);
 
   useEffect(() => {
     if (!activeVfx) return;
@@ -4479,8 +4544,9 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
                 : activeVfx.kind === 'destroy' ? 'destroy'
                   : activeVfx.kind === 'defense' && (activeVfx.shieldAmount ?? 0) > 0 && (activeVfx.healthAmount ?? 0) === 0 ? 'shield'
                     : activeVfx.kind === 'defense' ? 'damage'
-                      : activeVfx.kind === 'draw' ? 'draw'
-                        : 'summon';
+                      : activeVfx.kind === 'heal' || activeVfx.kind === 'buff' || activeVfx.kind === 'energy' ? 'success'
+                        : activeVfx.kind === 'draw' ? 'draw'
+                          : 'summon';
     playUiSound(sound);
     const impactTimer = activeVfx.kind === 'attack' ? window.setTimeout(() => playUiSound('impact'), 270) : undefined;
     return () => { if (impactTimer) window.clearTimeout(impactTimer); };
