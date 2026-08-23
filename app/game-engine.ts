@@ -2513,6 +2513,24 @@ function canAssignFusionMaterials(units: UnitState[], requirements: FusionMateri
   return Boolean(findFusionMaterialAssignment(units, requirements, fusionCard));
 }
 
+function indexCombinations(indexes: number[], count: number): number[][] {
+  if (count <= 0) return [[]];
+  const result: number[][] = [];
+  const pick = (start: number, chosen: number[]) => {
+    if (chosen.length === count) {
+      result.push([...chosen]);
+      return;
+    }
+    for (let at = start; at < indexes.length; at += 1) {
+      chosen.push(indexes[at]);
+      pick(at + 1, chosen);
+      chosen.pop();
+    }
+  };
+  pick(0, []);
+  return result;
+}
+
 function consumedCardDefinitions(units: UnitState[]): CardDefinition[] {
   return units.map((unit) => CARD_BY_ID[unit.cardId]).filter((card): card is CardDefinition => Boolean(card));
 }
@@ -2592,6 +2610,19 @@ function evolutionMatches(unit: UnitState, card: CardDefinition, turnNumber: num
     && (recipe.maxCost === undefined || source.cost <= recipe.maxCost);
 }
 
+function findEvolutionSourceAssignment(units: UnitState[], card: CardDefinition, turnNumber: number): Set<number> | null {
+  const requiredSources = card.extraSummonRule?.requiredSourceCopies ?? 1;
+  const eligibleIndexes = units
+    .map((unit, index) => evolutionMatches(unit, card, turnNumber) ? index : -1)
+    .filter((index) => index >= 0);
+  if (eligibleIndexes.length < requiredSources) return null;
+  for (const combination of indexCombinations(eligibleIndexes, requiredSources)) {
+    const primary = new Set(combination);
+    if (!extraRuleBlockReason(card, units, primary)) return primary;
+  }
+  return null;
+}
+
 export function summonExtra(
   snapshot: GameSnapshot,
   playerId: string,
@@ -2650,28 +2681,45 @@ export function summonExtra(
       state.boards[playerId].units[zone] = null;
     }
   } else {
+    const sourceCopies = card.extraSummonRule?.requiredSourceCopies ?? 1;
     const additionalTributes = card.extraSummonRule?.additionalTributes ?? 0;
-    const requiredCount = 1 + additionalTributes;
+    const requiredCount = sourceCopies + additionalTributes;
     if (uniqueZones.length !== requiredCount || units.length !== requiredCount) {
-      throw new Error(`계승 진화에는 계승 원본을 포함해 필드 캐릭터 ${requiredCount}장을 선택해야 합니다.`);
+      throw new Error(`계승 진화에는 계승 원본 ${sourceCopies}체를 포함해 필드 캐릭터 ${requiredCount}체를 선택해야 합니다.`);
     }
 
-    let sourceEntryIndex = -1;
-    let ruleReason: string | null = null;
-    for (let index = 0; index < units.length; index += 1) {
-      if (!evolutionMatches(units[index], card, state.turnNumber)) continue;
-      const reason = extraRuleBlockReason(card, units, new Set([index]));
-      if (!reason) {
-        sourceEntryIndex = index;
-        ruleReason = null;
-        break;
+    const eligibleIndexes = units
+      .map((unit, index) => evolutionMatches(unit, card, state.turnNumber) ? index : -1)
+      .filter((index) => index >= 0);
+    if (eligibleIndexes.length < sourceCopies) {
+      throw new Error(`진화 조건이 맞지 않습니다: ${card.evolutionRecipe?.label} · 생존 조건을 만족한 계승 원본 ${sourceCopies}체가 필요합니다.`);
+    }
+
+    const sourceAssignment = findEvolutionSourceAssignment(units, card, state.turnNumber);
+    if (!sourceAssignment) {
+      let bestReason: string | null = null;
+      for (const combination of indexCombinations(eligibleIndexes, sourceCopies)) {
+        bestReason = extraRuleBlockReason(card, units, new Set(combination));
+        if (bestReason) break;
       }
-      ruleReason = reason;
+      if (bestReason) throw new Error(`계승 추가 조건: ${bestReason}`);
+      throw new Error(`진화 조건이 맞지 않습니다: ${card.evolutionRecipe?.label} · 지정 원본과 추가 릴리스 조건을 모두 만족해야 합니다.`);
     }
-    if (sourceEntryIndex < 0) {
-      if (ruleReason) throw new Error(`전설 계승 추가 조건: ${ruleReason}`);
-      throw new Error(`진화 조건이 맞지 않습니다: ${card.evolutionRecipe?.label} · 지정 원본 생존 조건과 릴리스 조건을 모두 만족해야 합니다.`);
-    }
+
+    // When several valid predecessors are released together, inherit from the
+    // one carrying the most accumulated combat investment instead of choosing
+    // an arbitrary field slot.
+    const sourceEntryIndex = Array.from(sourceAssignment).sort((a, b) => {
+      const aBase = CARD_BY_ID[units[a].cardId];
+      const bBase = CARD_BY_ID[units[b].cardId];
+      const aInvestment = Math.max(0, units[a].attack - (aBase?.attack ?? units[a].attack))
+        + Math.max(0, units[a].maxHealth - (aBase?.health ?? units[a].maxHealth))
+        + units[a].shield;
+      const bInvestment = Math.max(0, units[b].attack - (bBase?.attack ?? units[b].attack))
+        + Math.max(0, units[b].maxHealth - (bBase?.health ?? units[b].maxHealth))
+        + units[b].shield;
+      return bInvestment - aInvestment;
+    })[0];
 
     evolvedSource = units[sourceEntryIndex];
     spendEnergy(state, playerId, card.cost);

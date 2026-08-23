@@ -743,8 +743,11 @@ function summonConditionDescription(card: CardDefinition): string {
     if (sources.length > 0) {
       const rounds = Math.max(1, Math.ceil(Math.max(...sources.map((source) => clientEvolutionRequiredTurnGap(source, card))) / 2));
       const sourceName = sources.length === 1 ? sources[0].name : (card.evolutionRecipe?.label ?? '지정 원본').replace(/\s*계승$/, '');
+      const sourceCopies = card.extraSummonRule?.requiredSourceCopies ?? 1;
+      const sourceText = sourceCopies > 1 ? `${sourceName} ${sourceCopies}체(각 ${rounds}라운드)` : `${sourceName}(${rounds}라운드)`;
       const extra = card.extraSummonRule ? extraSummonRuleDescription(card) : '';
-      return [`${sourceName}(${rounds}라운드)`, extra].filter(Boolean).join(' · ');
+      const cleanedExtra = sourceCopies > 1 ? extra.replace(/^계승 원본 \d+체(?: · )?/, '') : extra;
+      return [sourceText, cleanedExtra].filter(Boolean).join(' · ');
     }
     return `${card.evolutionRecipe?.label ?? '조건 유닛'} · 2라운드`;
   }
@@ -2757,7 +2760,12 @@ function extraRequirement(card: CardDefinition): string {
   }
   if (card.kind === 'evolution') {
     const sourceLabel = (card.evolutionRecipe?.label ?? '지정 원본').replace(/\s*계승$/, '');
-    return [`${sourceLabel}(${evolutionSurvivalRequirement(card)})`, premiumRule, choose].filter(Boolean).join(' · ');
+    const sourceCopies = card.extraSummonRule?.requiredSourceCopies ?? 1;
+    const sourceText = sourceCopies > 1
+      ? `${sourceLabel} ${sourceCopies}체(각 ${evolutionSurvivalRequirement(card).replace(' 유지', '')})`
+      : `${sourceLabel}(${evolutionSurvivalRequirement(card)})`;
+    const cleanedPremium = sourceCopies > 1 ? premiumRule.replace(/^계승 원본 \d+체(?: · )?/, '') : premiumRule;
+    return [sourceText, cleanedPremium, choose].filter(Boolean).join(' · ');
   }
   if (card.summonMode === 'rift') return card.riftCondition?.label ?? '균열 조건을 확인하세요.';
   return card.text;
@@ -2894,6 +2902,24 @@ function clientEvolutionReady(unit: UnitState, card: CardDefinition, currentTurn
 }
 
 
+function clientIndexCombinations(indexes: number[], count: number): number[][] {
+  if (count <= 0) return [[]];
+  const result: number[][] = [];
+  const pick = (start: number, chosen: number[]) => {
+    if (chosen.length === count) {
+      result.push([...chosen]);
+      return;
+    }
+    for (let at = start; at < indexes.length; at += 1) {
+      chosen.push(indexes[at]);
+      pick(at + 1, chosen);
+      chosen.pop();
+    }
+  };
+  pick(0, []);
+  return result;
+}
+
 function clientSelectedExtraMaterialsValid(units: UnitState[], card: CardDefinition, currentTurn: number): boolean {
   if (units.length !== extraRequiredUnitCount(card)) return false;
   if (card.kind === 'fusion') {
@@ -2901,9 +2927,13 @@ function clientSelectedExtraMaterialsValid(units: UnitState[], card: CardDefinit
     return Boolean(clientFindFusionAssignmentForExtraRule(units, materials, card));
   }
   if (card.kind === 'evolution') {
-    for (let index = 0; index < units.length; index += 1) {
-      if (!clientEvolutionReady(units[index], card, currentTurn)) continue;
-      if (!clientExtraRuleBlockReason(card, units, new Set([index]))) return true;
+    const sourceCopies = card.extraSummonRule?.requiredSourceCopies ?? 1;
+    const eligibleIndexes = units
+      .map((unit, index) => clientEvolutionReady(unit, card, currentTurn) ? index : -1)
+      .filter((index) => index >= 0);
+    if (eligibleIndexes.length < sourceCopies) return false;
+    for (const combination of clientIndexCombinations(eligibleIndexes, sourceCopies)) {
+      if (!clientExtraRuleBlockReason(card, units, new Set(combination))) return true;
     }
   }
   return false;

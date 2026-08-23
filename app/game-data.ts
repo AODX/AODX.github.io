@@ -129,6 +129,8 @@ export interface ExtraSummonRule {
   requireSameSeriesTribute?: boolean;
   /** Extra global-turn gap added to the normal evolution survival requirement. */
   sourceExtraTurnGap?: number;
+  /** Evolution only: how many valid predecessor bodies must be released together. */
+  requiredSourceCopies?: number;
 }
 
 export interface ExtraChoice {
@@ -1972,7 +1974,7 @@ for (const card of CARDS) {
 
 export function extraRequiredUnitCount(card: CardDefinition): number {
   if (card.kind === 'fusion') return (card.fusionRecipe?.materials.length ?? 0) + (card.extraSummonRule?.additionalTributes ?? 0);
-  if (card.kind === 'evolution') return 1 + (card.extraSummonRule?.additionalTributes ?? 0);
+  if (card.kind === 'evolution') return (card.extraSummonRule?.requiredSourceCopies ?? 1) + (card.extraSummonRule?.additionalTributes ?? 0);
   return 0;
 }
 
@@ -2172,28 +2174,123 @@ for (const series of CARD_SERIES) {
   for (const [index, card] of units.entries()) card.seriesTacticalPassive = passives[index % passives.length];
 }
 
+/* --------------------------------------------------------------------------
+ * v31n premium Extra Deck summon commitment
+ * --------------------------------------------------------------------------
+ * Multi-effect Extra Deck finishers should feel earned. Legendary CHOOSE
+ * cards now consume 3 bodies at minimum, while apex legends consume 4.
+ * Epic extras that stack several independent mechanics also need a real board
+ * commitment instead of being a near-free upgrade. Rift Alpha is deliberately
+ * stricter: two surviving Rift Hounds + two other allies are released together.
+ */
+function extraMechanicCount(card: CardDefinition): number {
+  let count = 0;
+  if (card.onSummon) count += 1;
+  if ((card.keywords?.length ?? 0) >= 1) count += 1;
+  if ((card.keywords?.length ?? 0) >= 2) count += 1;
+  if (card.seriesAbility) count += 1;
+  if (card.seriesSignature) count += 1;
+  if (card.seriesTacticalPassive) count += 1;
+  if (card.extraChoices?.length) count += 3;
+  return count;
+}
+
+for (const card of CARDS) {
+  if (card.kind !== 'fusion' && card.kind !== 'evolution') continue;
+
+  const mechanics = extraMechanicCount(card);
+  const isLegendaryChoose = card.rarity === 'legendary' && Boolean(card.extraChoices?.length);
+  const isApexLegend = isLegendaryChoose && (card.cost >= 7 || (card.attack ?? 0) + (card.health ?? 0) >= 20);
+
+  if (isLegendaryChoose) {
+    if (card.kind === 'fusion') {
+      card.extraSummonRule = {
+        tier: isApexLegend ? 'apex' : 'legendary',
+        additionalTributes: isApexLegend ? 2 : 1,
+        tributeMinCost: isApexLegend ? 3 : 2,
+        minTotalMaterialCost: isApexLegend ? 16 : 11,
+        requireHighRarityMaterial: isApexLegend,
+        requireSameSeriesTribute: isApexLegend && Boolean(card.seriesId),
+      };
+    } else {
+      card.extraSummonRule = {
+        tier: isApexLegend ? 'apex' : 'legendary',
+        additionalTributes: isApexLegend ? 3 : 2,
+        tributeMinCost: isApexLegend ? 3 : 2,
+        minTotalMaterialCost: isApexLegend ? 16 : 11,
+        requireHighRarityMaterial: isApexLegend,
+        requireSameSeriesTribute: isApexLegend && Boolean(card.seriesId),
+        sourceExtraTurnGap: isApexLegend ? 2 : 0,
+        requiredSourceCopies: 1,
+      };
+    }
+    continue;
+  }
+
+  // Epic extras with several independent effects get a lighter, but still
+  // meaningful, material tax. Already-simple epic extras keep their old rules.
+  if (card.rarity === 'epic' && mechanics >= 4) {
+    if (card.kind === 'fusion') {
+      const previous = card.extraSummonRule;
+      card.extraSummonRule = {
+        tier: 'elite',
+        additionalTributes: Math.max(previous?.additionalTributes ?? 0, 1),
+        tributeMinCost: Math.max(previous?.tributeMinCost ?? 0, 2),
+        minTotalMaterialCost: Math.max(previous?.minTotalMaterialCost ?? 0, 9),
+      };
+    } else {
+      const previous = card.extraSummonRule;
+      const heavyEpic = mechanics >= 5;
+      card.extraSummonRule = {
+        tier: 'elite',
+        additionalTributes: Math.max(previous?.additionalTributes ?? 0, heavyEpic ? 2 : 1),
+        tributeMinCost: Math.max(previous?.tributeMinCost ?? 0, 2),
+        minTotalMaterialCost: Math.max(previous?.minTotalMaterialCost ?? 0, heavyEpic ? 10 : 8),
+        sourceExtraTurnGap: previous?.sourceExtraTurnGap ?? 0,
+        requiredSourceCopies: previous?.requiredSourceCopies ?? 1,
+      };
+    }
+  }
+}
+
+// Requested signature condition: two Rift Hounds must survive the normal
+// predecessor window, then two more allies are released with them. The two
+// additional allies can be any cost/series, exactly as requested.
+const riftAlpha = CARDS.find((card) => card.id === 'evolution_rift_alpha');
+if (riftAlpha) {
+  riftAlpha.extraSummonRule = {
+    tier: 'legendary',
+    requiredSourceCopies: 2,
+    additionalTributes: 2,
+    tributeMinCost: 0,
+    minTotalMaterialCost: 0,
+    sourceExtraTurnGap: 0,
+  };
+}
+
 export function extraSummonRuleDescription(card: CardDefinition): string {
   const rule = card.extraSummonRule;
   if (!rule) return '';
   const parts: string[] = [];
   if (card.kind === 'fusion') {
     parts.push(`소재 ${extraRequiredUnitCount(card)}체`);
-    parts.push(`합계 ${rule.minTotalMaterialCost}+`);
-  } else if (rule.additionalTributes === 1) {
-    const namedSource = card.evolutionRecipe?.fromIds?.length === 1 ? CARDS.find((item) => item.id === card.evolutionRecipe?.fromIds?.[0]) : undefined;
-    const effectiveMin = Math.max(rule.tributeMinCost, namedSource ? rule.minTotalMaterialCost - namedSource.cost : rule.tributeMinCost);
-    parts.push(`추가 아군 1체(${effectiveMin}+)`);
-  } else if (rule.additionalTributes > 1) {
-    parts.push(`추가 아군 ${rule.additionalTributes}체(각 ${rule.tributeMinCost}+)`);
-    parts.push(`합계 ${rule.minTotalMaterialCost}+`);
+    if (rule.minTotalMaterialCost > 0) parts.push(`합계 ${rule.minTotalMaterialCost}+`);
   } else {
-    parts.push(`합계 ${rule.minTotalMaterialCost}+`);
+    const sourceCopies = rule.requiredSourceCopies ?? 1;
+    if (sourceCopies > 1) parts.push(`계승 원본 ${sourceCopies}체`);
+    if (rule.additionalTributes === 1) {
+      const namedSource = card.evolutionRecipe?.fromIds?.length === 1 ? CARDS.find((item) => item.id === card.evolutionRecipe?.fromIds?.[0]) : undefined;
+      const effectiveMin = Math.max(rule.tributeMinCost, namedSource && rule.minTotalMaterialCost > 0 ? rule.minTotalMaterialCost - namedSource.cost * sourceCopies : rule.tributeMinCost);
+      parts.push(rule.tributeMinCost > 0 ? `추가 아군 1체(${effectiveMin}+)` : '추가 아군 1체');
+    } else if (rule.additionalTributes > 1) {
+      parts.push(rule.tributeMinCost > 0 ? `추가 아군 ${rule.additionalTributes}체(각 ${rule.tributeMinCost}+)` : `추가 아군 ${rule.additionalTributes}체`);
+    }
+    if (rule.minTotalMaterialCost > 0) parts.push(`합계 ${rule.minTotalMaterialCost}+`);
   }
   if (rule.requireHighRarityMaterial) parts.push('영웅+ 1체');
   if (rule.requireSameSeriesTribute) parts.push('동일 시리즈 1체');
   return parts.join(' · ');
 }
-
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));
 
 export const STARTER_DECK: string[] = [
