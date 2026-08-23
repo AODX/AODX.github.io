@@ -975,7 +975,8 @@ async function handleAction(request: Request, body: RequestBody) {
     } else if (gameAction === 'extra_summon') {
       const extraInstanceId = cleanText(body.extraInstanceId, 80);
       const materialZones = Array.isArray(body.materialZones) ? body.materialZones.map(Number) : [];
-      next = summonExtra(snapshot, user.id, extraInstanceId, materialZones);
+      const extraChoiceIndex = body.extraChoiceIndex === undefined ? undefined : Number(body.extraChoiceIndex);
+      next = summonExtra(snapshot, user.id, extraInstanceId, materialZones, extraChoiceIndex);
     } else if (gameAction === 'battle_phase') {
       next = beginBattlePhase(snapshot, user.id);
     } else if (gameAction === 'attack') {
