@@ -665,6 +665,7 @@ function effectDescription(effect: CardDefinition['effect'] | CardDefinition['on
   if (effect.kind === 'recover_grave_unit') return `내 묘지의 캐릭터 ${effect.amount}장을 손패로 되돌립니다`;
   if (effect.kind === 'draw_if_outnumbered') return `카드 ${effect.base}장을 뽑습니다. 내 필드의 캐릭터 수가 더 적다면 ${effect.bonus}장을 추가로 뽑습니다`;
   if (effect.kind === 'swap_stats') return '선택한 캐릭터 하나의 현재 공격력과 체력을 서로 맞바꿉니다';
+  if (effect.kind === 'end_turn_next_energy') return `이 턴을 즉시 종료하고 다음 내 턴에 임시 ENERGY +${effect.amount}을 얻습니다`;
   if (effect.kind === 'negate') return '대응한 효과의 발동을 무효로 합니다';
   if (effect.kind === 'negate_and_damage') return trigger === 'direct_attack'
     ? `직접 공격을 무효로 하고, 공격한 캐릭터에게 ${effect.amount}의 피해를 줍니다`
@@ -3880,6 +3881,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const myExtraTurn = state.extraSummonTurn?.[userId] ?? {};
   const energySacrificeUsed = state.energySacrificeTurn?.[userId] === state.turnNumber;
   const fieldSacrificeUsed = state.fieldSacrificeTurn?.[userId] === state.turnNumber;
+  const energyDrawUsed = state.energyDrawTurn?.[userId] === state.turnNumber;
+  const energyDrawCost = privateState.hand.length === 0 ? 1 : 2;
+  const hasDrawableCard = (state.deckCounts[userId] ?? 0) > 0 || (state.graveyards[userId] ?? []).some((cardId) => {
+    const card = CARD_BY_ID[cardId];
+    return Boolean(card && (card.kind === 'unit' || card.kind === 'spell' || card.kind === 'trap'));
+  });
+  const canEnergyDraw = Boolean(myTurn && !interactionLocked && state.phase === 'main' && !busy && !energyDrawUsed && myEnergy.current >= energyDrawCost && hasDrawableCard);
   const selectedFieldUnitState = selectedFieldUnit !== null ? state.boards[userId].units[selectedFieldUnit] : null;
   const selectedFieldUnitCard = selectedFieldUnitState ? CARD_BY_ID[selectedFieldUnitState.cardId] : undefined;
   const canRetireSelectedFieldUnit = Boolean(selectedFieldUnitState && myTurn && !interactionLocked && state.phase === 'main' && !busy && !fieldSacrificeUsed);
@@ -4243,6 +4251,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     gameAction('draw_turn');
   }
 
+  function spendEnergyForDraw() {
+    if (!canEnergyDraw) return;
+    clearSelection();
+    setMessage(`ENERGY ${energyDrawCost}를 카드 1장으로 전환합니다. 턴은 계속됩니다.`);
+    gameAction('energy_draw');
+  }
+
   const actionGuide = !myTurn
     ? '상대 행동을 확인 중입니다. 중앙 연출과 최근 행동 기록에서 소환·주문·함정·공격을 확인할 수 있습니다.'
     : state.phase === 'battle'
@@ -4529,6 +4544,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
 
         <section className="v18-action-buttons">
           {state.phase === 'main' && <button className="v31-field-retire-action" disabled={!canRetireSelectedFieldUnit} onClick={retireSelectedFieldUnit}><span>필드 → ENERGY {myEnergy.current < 10 ? '+1' : '+0'}</span><small>{fieldSacrificeUsed ? '이번 턴 사용 완료' : selectedFieldUnitState ? `${selectedFieldUnitCard?.name ?? '선택 캐릭터'}을 묘지로 보내 빈 칸 확보 · 턴당 1회` : '내 필드 캐릭터를 먼저 선택하세요'}</small></button>}
+          {state.phase === 'main' && <button className="v32o-energy-draw-action" disabled={!canEnergyDraw} onClick={spendEnergyForDraw}><span>ENERGY {energyDrawCost} → 카드 +1</span><small>{energyDrawUsed ? '이번 턴 사용 완료' : !hasDrawableCard ? '드로우 가능한 카드 없음' : myEnergy.current < energyDrawCost ? `ENERGY ${energyDrawCost} 필요` : privateState.hand.length === 0 ? '긴급 드로우 할인 · 턴 소비 없음 · 턴당 1회' : '턴 소비 없음 · 턴당 1회'}</small></button>}
           {state.phase === 'main' && <button className="v18-secondary-action" disabled={!canSpendTurnToDraw} onClick={spendTurnToDraw}><span>＋ 카드 1장</span><small>턴을 소비해 추가 드로우</small></button>}
           {state.phase === 'main' && <button className="v18-battle-action" disabled={!myTurn || busy || interactionLocked} onClick={() => gameAction('battle_phase')}><span>전투 단계로 이동</span><small>이후 내 유닛 → 공격 대상 순서로 선택</small></button>}
           <button className="v18-end-turn" disabled={!myTurn || busy || interactionLocked} onClick={requestEndTurn}><span>턴 종료</span><small>{remainingOpportunities > 0 ? `가능 행동 ${remainingOpportunities}` : `${turnSecondsLeft}초 남음`}</small></button>

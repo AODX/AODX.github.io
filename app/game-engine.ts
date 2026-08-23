@@ -139,6 +139,10 @@ export interface MatchState {
   energySacrificeTurn?: Record<string, number>;
   /** Turn number when each player last retired one of their own field units for +1 temporary energy. */
   fieldSacrificeTurn?: Record<string, number>;
+  /** Turn number when each player last spent ENERGY to draw without ending the turn. */
+  energyDrawTurn?: Record<string, number>;
+  /** Deferred temporary ENERGY granted at the start of that player's next turn. */
+  nextTurnEnergyBonus?: Record<string, number>;
   /** Per-match hard cap: max 2 fusion summons and max 2 evolution summons per player. */
   extraSummonUsage?: Record<string, { fusion: number; evolution: number }>;
   /** Turn number when each extra summon type was last used, enforcing max once per turn per type. */
@@ -322,6 +326,8 @@ export function initializeMatch(
     turnActionTaken: false,
     energySacrificeTurn: {},
     fieldSacrificeTurn: {},
+    energyDrawTurn: {},
+    nextTurnEnergyBonus: {},
     extraSummonUsage: { [playerA]: { fusion: 0, evolution: 0 }, [playerB]: { fusion: 0, evolution: 0 } },
     extraSummonTurn: { [playerA]: {}, [playerB]: {} },
     playerOrder: [first, second],
@@ -556,6 +562,13 @@ function applyEffect(
       state.energy[actorId].current = Math.min(state.energy[actorId].max, state.energy[actorId].current + effect.amount);
       appendVisual(state, { kind: 'energy', vfx: 'energy-surge', ownerId: actorId, targetOwnerId: actorId, amount: effect.amount, label: '에너지 회복' });
       break;
+    case 'end_turn_next_energy': {
+      if (!state.nextTurnEnergyBonus) state.nextTurnEnergyBonus = {};
+      state.nextTurnEnergyBonus[actorId] = Math.min(10, Math.max(0, (state.nextTurnEnergyBonus[actorId] ?? 0) + effect.amount));
+      appendLog(state, `다음 내 턴에 임시 ENERGY +${effect.amount} 예약.`, 'special');
+      appendVisual(state, { kind: 'energy', vfx: 'light-seal-charge', cardId: sourceCard?.id, ownerId: actorId, targetOwnerId: actorId, amount: effect.amount, label: `NEXT TURN +${effect.amount}` });
+      break;
+    }
     case 'destroy_weak': {
       if (!target || !Number.isInteger(target.unitIndex)) throw new Error('대상 유닛을 선택해야 합니다.');
       const unitIndex = Number(target.unitIndex);
@@ -2375,6 +2388,11 @@ function resolveSpellContinuation(
   state.graveyards[continuation.actorId].push(card.id);
   destroyDefeatedUnits(state, privateStates);
   checkWinner(state);
+
+  if (!trapResult.negated && card.effect?.kind === 'end_turn_next_energy' && state.status === 'active' && state.currentPlayerId === continuation.actorId) {
+    appendVisual(state, { kind: 'turn', vfx: 'light-seal-end', cardId: card.id, ownerId: continuation.actorId, label: '빛의 봉인 · 턴 종료' });
+    advanceTurn(state, privateStates, continuation.actorId, Date.now(), `「${card.name}」으로 턴을 즉시 종료했습니다.`);
+  }
 }
 
 export function playCard(
@@ -2456,7 +2474,7 @@ export function playCard(
   }
 
   state.handCounts[playerId] = playerPrivate.hand.length;
-  state.turnActionTaken = true;
+  if (state.currentPlayerId === playerId) state.turnActionTaken = true;
   if (!state.pendingTrap) {
     destroyDefeatedUnits(state, privateStates);
     checkWinner(state);
@@ -3142,6 +3160,17 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
   // Deriving it from turn number also repairs stale rooms instead of relying on old state.
   nextEnergy.max = expectedEnergyMax(state, nextPlayer, state.turnNumber);
   nextEnergy.current = nextEnergy.max;
+  const queuedEnergyBonus = Math.max(0, state.nextTurnEnergyBonus?.[nextPlayer] ?? 0);
+  if (queuedEnergyBonus > 0) {
+    const beforeBonus = nextEnergy.current;
+    nextEnergy.current = Math.min(10, nextEnergy.current + queuedEnergyBonus);
+    const gainedBonus = nextEnergy.current - beforeBonus;
+    if (state.nextTurnEnergyBonus) delete state.nextTurnEnergyBonus[nextPlayer];
+    if (gainedBonus > 0) {
+      appendVisual(state, { kind: 'energy', vfx: 'light-seal-release', ownerId: nextPlayer, targetOwnerId: nextPlayer, amount: gainedBonus, label: `예약 ENERGY +${gainedBonus}` });
+      appendLog(state, `빛의 봉인 효과로 이번 턴 임시 ENERGY +${gainedBonus}.`, 'special');
+    }
+  }
   state.energy[nextPlayer] = nextEnergy;
   state.boards[nextPlayer].units.forEach((unit) => {
     if (unit) unit.canAttack = true;
@@ -3155,6 +3184,28 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
   if (drew && state.status === 'active') appendLog(state, `${nextPlayer.slice(0, 6)}의 턴 시작 · 카드 1장 드로우 · 에너지 ${nextEnergy.current}/${nextEnergy.max}.`, 'system');
   if (state.status !== 'active') state.turnEndsAt = null;
   checkWinner(state);
+}
+
+export function spendEnergyToDraw(snapshot: GameSnapshot, playerId: string): ActionResult {
+  const state = clone(snapshot.state);
+  const privateStates = clone(snapshot.privateStates);
+  assertActiveTurn(state, playerId);
+  if (state.phase !== 'main') throw new Error('메인 단계에서만 ENERGY 드로우를 사용할 수 있습니다.');
+  if (state.energyDrawTurn?.[playerId] === state.turnNumber) throw new Error('ENERGY 드로우는 한 턴에 1번만 사용할 수 있습니다.');
+
+  const playerPrivate = privateStates[playerId];
+  const cost = playerPrivate.hand.length === 0 ? 1 : 2;
+  spendEnergy(state, playerId, cost);
+  if (!state.energyDrawTurn) state.energyDrawTurn = {};
+  state.energyDrawTurn[playerId] = state.turnNumber;
+
+  const drew = drawCards(state, playerPrivate, playerId, 1);
+  appendLog(state, `${playerId.slice(0, 6)}이(가) ENERGY ${cost}를 소비해 카드 1장을 드로우했습니다. 턴은 계속됩니다.`, 'system');
+  if (drew) {
+    appendVisual(state, { kind: 'draw', vfx: 'energy-draw', ownerId: playerId, amount: 1, label: `ENERGY ${cost} → DRAW` });
+  }
+  checkWinner(state);
+  return { state, privateStates };
 }
 
 export function drawAndEndTurn(snapshot: GameSnapshot, playerId: string): ActionResult {

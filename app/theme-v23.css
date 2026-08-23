@@ -6578,3 +6578,49 @@ html[data-ipad="true"] .pack-experience-layer.v23-client :is(.single-card-reveal
   .v23-client.in-duel .v32n-cannon-fx,
   .v23-client.in-duel .v32n-shield-impact { opacity:.92!important;animation-duration:.01ms!important;animation-iteration-count:1!important; }
 }
+
+
+/* ==========================================================================
+   v32o · ENERGY draw + Light Seal readability
+   ========================================================================== */
+.v23-client.in-duel .v32o-energy-draw-action {
+  background:linear-gradient(135deg,#102b40,#17294a)!important;
+  border-color:rgba(91,194,255,.34)!important;
+  color:#d9f5ff!important;
+  box-shadow:inset 0 0 24px rgba(72,183,255,.07);
+}
+.v23-client.in-duel .v32o-energy-draw-action:not(:disabled):hover {
+  border-color:rgba(116,213,255,.62)!important;
+  box-shadow:inset 0 0 30px rgba(72,183,255,.1),0 0 18px rgba(72,183,255,.1);
+}
+.v23-client.in-duel .v32o-energy-draw-action:disabled { opacity:.45; }
+
+@media (max-width: 1180px), (max-height: 760px) {
+  .v23-client.in-duel .v32o-energy-draw-action span { font-size:10.5px!important; }
+  .v23-client.in-duel .v32o-energy-draw-action small { font-size:7.8px!important; }
+}
+
+html[data-ipad="true"] .v23-client.in-duel .v32o-energy-draw-action {
+  min-height:46px!important;
+  touch-action:manipulation;
+}
+
+
+/* v32o · Light Seal spell cinematic */
+.v23-client.in-duel .v18-cinematic-layer.vfx-light-seal .v18-motion-line,
+.v23-client.in-duel .v18-cinematic-layer.vfx-light-seal .v18-motion-orb { display:none!important; }
+.v23-client.in-duel .v18-cinematic-layer.vfx-light-seal .v18-card-cutin {
+  border-color:rgba(151,220,255,.58)!important;
+  box-shadow:0 30px 110px rgba(0,0,0,.68),0 0 80px rgba(103,194,255,.25)!important;
+}
+.v23-client.in-duel .v18-cinematic-layer.vfx-light-seal .v18-card-cutin::before {
+  content:'LIGHT SEAL';position:absolute;left:14px;top:12px;z-index:8;padding:5px 9px;border-radius:7px;
+  background:linear-gradient(135deg,#d8f5ff,#8ccaff);color:#0b1a2b;font-size:9px;font-weight:950;letter-spacing:.13em;
+  box-shadow:0 0 24px rgba(149,222,255,.4);
+}
+.v23-client.in-duel .v18-cinematic-layer.vfx-light-seal .v22-screen-flash {
+  background:radial-gradient(circle at 50% 45%,rgba(218,247,255,.88),rgba(116,194,255,.22) 28%,transparent 62%)!important;
+}
+.v23-client.in-duel .v18-cinematic-layer.vfx-light-seal .v18-impact-ring {
+  border-color:rgba(188,235,255,.62)!important;box-shadow:0 0 34px rgba(118,202,255,.28)!important;
+}

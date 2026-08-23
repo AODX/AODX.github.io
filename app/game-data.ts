@@ -75,7 +75,8 @@ export type Effect =
   | { kind: 'recruit_unit'; maxCost: number }
   | { kind: 'recover_grave_unit'; amount: number }
   | { kind: 'draw_if_outnumbered'; base: number; bonus: number }
-  | { kind: 'swap_stats' };
+  | { kind: 'swap_stats' }
+  | { kind: 'end_turn_next_energy'; amount: number };
 
 export type TrapTrigger =
   | 'spell_played'
@@ -1664,6 +1665,19 @@ export const V31D_LEGENDARY_SPELLS: CardDefinition[] = [
 ];
 CARDS.push(...V31D_LEGENDARY_SPELLS);
 
+/* --------------------------------------------------------------------------
+ * v32o Tactical spell · Light Seal
+ * -------------------------------------------------------------------------- */
+export const V32O_TACTICAL_SPELLS: CardDefinition[] = [
+  {
+    id: 'spell_v32o_light_seal', name: '빛의 봉인', subtitle: '신속 · 패배가 아니라 선택이다. 다음 턴에 다시.',
+    kind: 'spell', rarity: 'rare', element: 'neutral', cost: 0, effect: { kind: 'end_turn_next_energy', amount: 3 }, target: 'none',
+    text: '턴을 즉시 종료합니다. 다음 내 턴에 ENERGY +3을 추가로 얻습니다.',
+    flavor: '패배가 아니라 선택이다. 다음 턴에 다시.', sigil: '✦', vfx: { activation: 'light-seal' },
+  },
+];
+CARDS.push(...V32O_TACTICAL_SPELLS);
+
 
 // v31 balance pass: keep non-Legendary spells within sane efficiency bands,
 // while ensuring expensive Epic/Legendary units and Legendary spells feel worth their cost.
@@ -1708,6 +1722,7 @@ function spellEffectText(effect: Effect): string {
     case 'recover_grave_unit': return `내 묘지의 유닛 ${effect.amount}장을 손으로 되돌립니다.`;
     case 'draw_if_outnumbered': return `카드 ${effect.base}장을 뽑습니다. 필드가 열세면 ${effect.bonus}장 추가로 뽑습니다.`;
     case 'swap_stats': return '대상 유닛의 현재 공격력과 체력을 서로 바꿉니다.';
+    case 'end_turn_next_energy': return `턴을 즉시 종료합니다. 다음 내 턴에 ENERGY +${effect.amount}을 추가로 얻습니다.`;
   }
 }
 
@@ -1743,7 +1758,8 @@ function clampNonLegendarySpell(card: CardDefinition): void {
     case 'erase_opponent_grave':
     case 'reweave_hand':
     case 'mirror_unit':
-    case 'exchange_hands': break;
+    case 'exchange_hands':
+    case 'end_turn_next_energy': break;
   }
   card.text = spellEffectText(effect);
 }
@@ -1769,7 +1785,8 @@ function strengthenLegendarySpell(card: CardDefinition): void {
     case 'erase_opponent_grave':
     case 'reweave_hand':
     case 'mirror_unit':
-    case 'exchange_hands': break;
+    case 'exchange_hands':
+    case 'end_turn_next_energy': break;
   }
   card.text = spellEffectText(effect);
 }
