@@ -5978,3 +5978,78 @@ html[data-ipad="true"] .pack-experience-layer.v23-client :is(.single-card-reveal
 
 /* Card inspection requested from a revealed pack card must sit above the body portal. */
 .v23-client .card-detail-layer { z-index:6200!important; }
+
+/* ========================================================================== */
+/* v32i - Deck builder EXTRA DECK visibility / desktop-laptop clipping fix   */
+/* ========================================================================== */
+/*
+   On wide desktop/laptop layouts the right-side deck panel is viewport-bound.
+   The previous layout let MAIN DECK's internal scroller consume the remaining
+   flex space while the parent panel itself used overflow:hidden. On shorter
+   displays that could leave only the EXTRA DECK heading visible and clip the
+   actual extra cards/editor below the panel edge.
+
+   Keep the desktop composition, but make the right panel itself the final
+   vertical overflow owner. MAIN DECK receives a sensible cap and EXTRA DECK
+   flows at full height, so nothing is unreachable or cut off.
+*/
+@media (min-width:1081px) {
+  html:not([data-ipad="true"]) .v23-client .v31e-current-deck {
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior-y:contain;
+    scrollbar-gutter:stable;
+    scroll-padding-bottom:18px;
+  }
+
+  html:not([data-ipad="true"]) .v23-client .v31e-deck-list-scroll {
+    flex:0 1 auto!important;
+    min-height:112px!important;
+    max-height:clamp(150px,28dvh,290px)!important;
+  }
+
+  html:not([data-ipad="true"]) .v23-client .v31e-extra-zone.v32-extra-editor-zone {
+    flex:0 0 auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow:visible!important;
+    overscroll-behavior:auto;
+    scrollbar-gutter:auto;
+  }
+
+  html:not([data-ipad="true"]) .v23-client .v32-extra-title {
+    position:static!important;
+  }
+
+  html:not([data-ipad="true"]) .v23-client .v31e-extra-grid {
+    align-items:start!important;
+  }
+
+  html:not([data-ipad="true"]) .v23-client .v31e-deck-actions {
+    position:relative!important;
+    z-index:2;
+  }
+}
+
+/* Short notebook screens need MAIN DECK to surrender more vertical room so
+   EXTRA DECK is already visible before the user scrolls the right panel. */
+@media (min-width:1081px) and (max-height:900px) {
+  html:not([data-ipad="true"]) .v23-client .v31e-deck-list-scroll {
+    min-height:104px!important;
+    max-height:190px!important;
+  }
+}
+
+@media (min-width:1081px) and (max-height:820px) {
+  html:not([data-ipad="true"]) .v23-client .v31e-deck-list-scroll {
+    min-height:96px!important;
+    max-height:150px!important;
+  }
+  html:not([data-ipad="true"]) .v23-client .v31e-current-deck .v22-deck-doctor,
+  html:not([data-ipad="true"]) .v23-client .v31e-current-deck .v20-deck-analytics {
+    margin-bottom:6px!important;
+  }
+  html:not([data-ipad="true"]) .v23-client .v31e-extra-zone {
+    padding-bottom:14px!important;
+  }
+}
