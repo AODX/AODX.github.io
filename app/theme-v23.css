@@ -3365,3 +3365,81 @@
   font-size:11px;
   line-height:1.55;
 }
+
+/* ========================================================================== 
+   V31K5 SOCIAL COSMETIC VISIBILITY
+   Purchased profile backgrounds/frames are visible to other players in chat,
+   friend requests, the friend list, and the home social preview.
+   ========================================================================== */
+.v23-client .v31-social-skin {
+  position:relative;
+  isolation:isolate;
+  overflow:hidden;
+  background-clip:padding-box!important;
+  transition:border-color .18s ease,box-shadow .18s ease,filter .18s ease;
+}
+.v23-client .v31-social-skin:hover { filter:brightness(1.06); }
+
+.v23-client .v31-social-skin.theme-bg_eclipse_nexus {
+  background:radial-gradient(circle at 24% 18%,rgba(83,177,255,.34),transparent 31%),radial-gradient(circle at 82% 72%,rgba(91,76,230,.28),transparent 40%),linear-gradient(145deg,#0f1d38,#08101d 55%,#05080d)!important;
+  background-size:135% 135%,145% 145%,100% 100%!important;animation:v31k5SocialDrift 8.6s ease-in-out infinite alternate;
+}
+.v23-client .v31-social-skin.theme-bg_solar_cathedral {
+  background:linear-gradient(117deg,transparent 47%,rgba(255,223,151,.11) 49%,transparent 51%),radial-gradient(circle at 28% 18%,rgba(255,205,116,.36),transparent 34%),linear-gradient(145deg,#2b1a10,#130e0b 56%,#05080d)!important;
+  background-size:240% 100%,130% 130%,100% 100%!important;animation:v31k5SocialDrift 7.4s ease-in-out infinite alternate;
+}
+.v23-client .v31-social-skin.theme-bg_lunar_archive {
+  background:radial-gradient(circle at 22% 18%,rgba(207,224,255,.30),transparent 34%),radial-gradient(circle at 72% 28%,rgba(101,124,255,.25),transparent 42%),linear-gradient(145deg,#141a32,#0a1020 56%,#05080d)!important;
+  background-size:140% 140%,140% 140%,100% 100%!important;animation:v31k5SocialDrift 9s ease-in-out infinite alternate;
+}
+.v23-client .v31-social-skin.theme-bg_void_throne {
+  background:radial-gradient(circle at 24% 18%,rgba(195,111,255,.34),transparent 34%),radial-gradient(circle at 78% 78%,rgba(77,25,142,.32),transparent 42%),linear-gradient(145deg,#1d1333,#0a0c19 56%,#05070d)!important;
+  background-size:135% 135%,150% 150%,100% 100%!important;animation:v31k5SocialDrift 6.6s ease-in-out infinite alternate;
+}
+.v23-client .v31-social-skin.theme-bg_nebula_vortex {
+  background:radial-gradient(circle at 22% 25%,rgba(116,93,255,.34),transparent 28%),radial-gradient(circle at 75% 68%,rgba(56,213,255,.22),transparent 30%),linear-gradient(145deg,#12102c,#070b19 58%,#04070d)!important;
+  background-size:145% 145%,145% 145%,100% 100%!important;animation:v31k5SocialDrift 8s ease-in-out infinite alternate;
+}
+.v23-client .v31-social-skin.theme-bg_chrono_rift {
+  background:repeating-radial-gradient(circle at 50% 45%,transparent 0 28px,rgba(107,224,255,.07) 29px 30px),radial-gradient(circle at 52% 42%,rgba(70,193,255,.24),transparent 30%),linear-gradient(145deg,#0a2331,#070d1d 58%,#04070d)!important;
+  animation:v31k5ChronoPulse 5.6s steps(6,end) infinite;
+}
+.v23-client .v31-social-skin.theme-bg_aurora_tide {
+  background:radial-gradient(circle at 28% 28%,rgba(128,255,220,.22),transparent 28%),radial-gradient(circle at 74% 72%,rgba(111,186,255,.18),transparent 26%),linear-gradient(145deg,#10293a,#07111b 58%,#05080f)!important;
+  background-size:145% 145%,145% 145%,100% 100%!important;animation:v31k5SocialDrift 6.8s ease-in-out infinite alternate;
+}
+.v23-client .v31-social-skin.theme-bg_neon_midnight {
+  background:linear-gradient(90deg,rgba(102,231,255,.10) 0 2px,transparent 2px 14px,rgba(255,105,214,.08) 14px 16px,transparent 16px 100%),linear-gradient(145deg,#170d24,#090913 58%,#05060b)!important;
+  background-size:120% 100%,100% 100%!important;animation:v31k5NeonSocial 4.5s linear infinite;
+}
+.v23-client .v31-social-skin.theme-bg_starfall_garden {
+  background:radial-gradient(circle at 20% 24%,rgba(255,171,224,.20),transparent 26%),radial-gradient(circle at 78% 76%,rgba(177,140,255,.18),transparent 28%),linear-gradient(145deg,#231127,#090812 62%,#05060b)!important;
+  background-size:145% 145%,145% 145%,100% 100%!important;animation:v31k5SocialDrift 9s ease-in-out infinite alternate;
+}
+
+.v23-client .v31-social-skin.frame-frame_aurora { border-color:rgba(105,226,255,.82)!important;box-shadow:0 0 16px rgba(86,196,255,.20),inset 0 0 14px rgba(138,116,255,.09)!important; }
+.v23-client .v31-social-skin.frame-frame_royal { border-color:rgba(255,207,104,.88)!important;box-shadow:0 0 16px rgba(255,190,77,.18),inset 0 0 12px rgba(255,225,147,.08)!important; }
+.v23-client .v31-social-skin.frame-frame_rift { border-color:rgba(175,127,255,.9)!important;box-shadow:0 0 18px rgba(151,104,255,.25),inset 0 0 14px rgba(112,70,214,.12)!important; }
+.v23-client .v31-social-skin.frame-frame_astral { border-color:rgba(170,209,255,.92)!important;box-shadow:0 0 19px rgba(124,176,255,.24),inset 0 0 14px rgba(132,115,255,.10)!important; }
+.v23-client .v31-social-skin.frame-frame_prismatic_loop { border-color:rgba(241,156,255,.94)!important;box-shadow:0 0 18px rgba(92,226,255,.17),0 0 26px rgba(241,156,255,.13),inset 0 0 12px rgba(255,215,111,.08)!important; }
+.v23-client .v31-social-skin.frame-frame_ember_crown { border-color:rgba(255,155,79,.94)!important;box-shadow:0 0 18px rgba(255,82,29,.28),inset 0 0 13px rgba(255,133,34,.12)!important; }
+.v23-client .v31-social-skin.frame-frame_neon_circuit { border-color:rgba(102,239,255,.92)!important;box-shadow:0 0 17px rgba(72,225,255,.28),0 0 24px rgba(255,81,215,.10)!important; }
+.v23-client .v31-social-skin.frame-frame_moonlace { border-color:rgba(198,214,255,.94)!important;box-shadow:0 0 17px rgba(183,205,255,.18),inset 0 0 12px rgba(215,227,255,.08)!important; }
+.v23-client .v31-social-skin.frame-frame_blossom_arc { border-color:rgba(255,175,225,.94)!important;box-shadow:0 0 17px rgba(255,158,211,.22),inset 0 0 12px rgba(255,200,235,.07)!important; }
+.v23-client .v31-social-skin.frame-frame_royal_window { border-color:rgba(255,216,129,.94)!important;box-shadow:0 0 18px rgba(255,210,111,.22),inset 0 0 12px rgba(255,236,175,.08)!important; }
+
+.v23-client .chat-message.v31-social-skin { border-width:1px!important; }
+.v23-client .chat-message.v31-social-skin.mine { filter:saturate(1.04); }
+.v23-client .friend-row.v31-social-skin { padding:13px!important;border-width:1px!important; }
+.v23-client .request-list > .v31-social-skin { border-width:1px!important;border-style:solid!important;border-radius:12px;padding:10px!important; }
+.v23-client .v19-friend-grid > button.v31-social-skin { border-width:1px!important;border-style:solid!important; }
+
+@keyframes v31k5SocialDrift { from{background-position:0 0,100% 100%,50% 50%} to{background-position:8% 6%,92% 86%,50% 50%} }
+@keyframes v31k5ChronoPulse { 0%{filter:brightness(.96)} 50%{filter:brightness(1.09)} 100%{filter:brightness(1)} }
+@keyframes v31k5NeonSocial { from{background-position:0 0,50% 50%} to{background-position:28px 0,50% 50%} }
+@keyframes v31k5FramePulse { from{box-shadow:0 0 10px rgba(120,210,255,.15)} to{box-shadow:0 0 22px rgba(225,130,255,.28)} }
+@keyframes v31k5EmberPulse { from{filter:brightness(.96)} to{filter:brightness(1.09)} }
+
+@media (prefers-reduced-motion: reduce) {
+  .v23-client .v31-social-skin { animation:none!important; }
+}

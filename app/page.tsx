@@ -65,7 +65,7 @@ type Wallet = { user_id: string; coins: number };
 type CollectionRow = { card_id: string; quantity: number };
 type DeckRow = { id: string; user_id: string; name: string; cards: string[]; extra_cards: string[]; is_active: boolean; created_at: string };
 type FriendRequest = { id: string; sender_id: string; receiver_id: string; status: string; created_at: string };
-type FriendProfile = Pick<Profile, 'user_id' | 'display_name' | 'player_code' | 'avatar' | 'status_message' | 'wins' | 'losses' | 'xp' | 'nickname_style'>;
+type FriendProfile = Pick<Profile, 'user_id' | 'display_name' | 'player_code' | 'avatar' | 'status_message' | 'wins' | 'losses' | 'xp' | 'nickname_style' | 'profile_theme' | 'profile_frame'>;
 
 type HubData = {
   profile: Profile;
@@ -74,7 +74,7 @@ type HubData = {
   decks: DeckRow[];
   friendRequests: FriendRequest[];
   friends: FriendProfile[];
-  requestProfiles: Array<Pick<Profile, 'user_id' | 'display_name' | 'player_code' | 'avatar' | 'nickname_style'>>;
+  requestProfiles: Array<Pick<Profile, 'user_id' | 'display_name' | 'player_code' | 'avatar' | 'nickname_style' | 'profile_theme' | 'profile_frame'>>;
   profileCosmetics?: string[];
 };
 
@@ -100,6 +100,7 @@ type RoomRow = {
 type RoomProfile = Pick<Profile, 'user_id' | 'display_name' | 'avatar' | 'wins' | 'losses' | 'xp' | 'profile_emblem' | 'card_sleeve' | 'nickname_style'>;
 type RoomPayload = { room: RoomRow; profiles: RoomProfile[]; privateState: PrivateState | null };
 type ChatMessage = { id: number; user_id: string; display_name: string; nickname_style?: string; body: string; created_at: string };
+type ChatSkinProfile = Pick<Profile, 'user_id' | 'profile_theme' | 'profile_frame'>;
 
 type SecureServerStatus = {
   secureDuelReady: boolean;
@@ -1393,7 +1394,7 @@ function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate:
           <header><div><small>SOCIAL</small><h3>친구</h3></div><button onClick={() => onNavigate('friends')}>전체 보기</button></header>
           <div className="v19-friend-grid">
             {friends.length > 0 ? friends.map((friend) => (
-              <button key={friend.user_id} onClick={() => onNavigate('friends')}><Avatar id={friend.avatar} size="small" /><span><b><NicknameText name={friend.display_name} styleId={friend.nickname_style} /></b><small>LV.{levelFromXp(friend.xp)} · {friend.wins}승</small></span><i /></button>
+              <button key={friend.user_id} className={`v31-social-skin theme-${friend.profile_theme ?? 'bg_default'} frame-${friend.profile_frame ?? 'frame_default'}`} onClick={() => onNavigate('friends')}><Avatar id={friend.avatar} size="small" /><span><b><NicknameText name={friend.display_name} styleId={friend.nickname_style} /></b><small>LV.{levelFromXp(friend.xp)} · {friend.wins}승</small></span><i /></button>
             )) : <button className="v19-add-friend" onClick={() => onNavigate('friends')}><span>+</span><b>친구 추가</b><small>친구 코드로 결투가를 찾아보세요.</small></button>}
           </div>
         </article>
@@ -2149,14 +2150,14 @@ function FriendsView({ hub, userId, onHub }: { hub: HubData; userId: string; onH
           <h3>친구 추가</h3><p>상대의 ECLIPSE 친구 코드를 입력하세요.</p>
           <div className="inline-form"><input value={code} onChange={(event: ChangeEvent<HTMLInputElement>) => setCode(event.target.value.toUpperCase())} placeholder="ED-XXXXXXXXXX" /><button className="primary-button" onClick={requestFriend}>요청</button></div>
           {message && <p className="inline-message">{message}</p>}
-          {incoming.length > 0 && <div className="request-list"><h4>받은 요청</h4>{incoming.map((request) => { const profile = profileMap[request.sender_id]; return <div key={request.id}><Avatar id={profile?.avatar} size="small" /><span><b><NicknameText name={profile?.display_name ?? '결투가'} styleId={profile?.nickname_style} /></b><small>{profile?.player_code}</small></span><button onClick={() => respond(request.id, true)}>수락</button><button onClick={() => respond(request.id, false)}>거절</button></div>; })}</div>}
-          {outgoing.length > 0 && <div className="request-list"><h4>보낸 요청</h4>{outgoing.map((request) => { const profile = profileMap[request.receiver_id]; return <div key={request.id}><Avatar id={profile?.avatar} size="small" /><span><b><NicknameText name={profile?.display_name ?? '결투가'} styleId={profile?.nickname_style} /></b><small>응답 대기 중</small></span></div>; })}</div>}
+          {incoming.length > 0 && <div className="request-list"><h4>받은 요청</h4>{incoming.map((request) => { const profile = profileMap[request.sender_id]; return <div className={`v31-social-skin theme-${profile?.profile_theme ?? 'bg_default'} frame-${profile?.profile_frame ?? 'frame_default'}`} key={request.id}><Avatar id={profile?.avatar} size="small" /><span><b><NicknameText name={profile?.display_name ?? '결투가'} styleId={profile?.nickname_style} /></b><small>{profile?.player_code}</small></span><button onClick={() => respond(request.id, true)}>수락</button><button onClick={() => respond(request.id, false)}>거절</button></div>; })}</div>}
+          {outgoing.length > 0 && <div className="request-list"><h4>보낸 요청</h4>{outgoing.map((request) => { const profile = profileMap[request.receiver_id]; return <div className={`v31-social-skin theme-${profile?.profile_theme ?? 'bg_default'} frame-${profile?.profile_frame ?? 'frame_default'}`} key={request.id}><Avatar id={profile?.avatar} size="small" /><span><b><NicknameText name={profile?.display_name ?? '결투가'} styleId={profile?.nickname_style} /></b><small>응답 대기 중</small></span></div>; })}</div>}
         </article>
         <article className="panel friend-list-panel">
           <header><h3>친구 목록</h3><span>{hub.friends.length}명</span></header>
           <div className="friend-list">
             {hub.friends.length === 0 && <div className="empty-state"><span>♢</span><p>아직 등록된 친구가 없습니다.</p></div>}
-            {hub.friends.map((friend) => <div className="friend-row" key={friend.user_id}><Avatar id={friend.avatar} /><span><b><NicknameText name={friend.display_name} styleId={friend.nickname_style} /></b><small>{friend.status_message}</small></span><div><em>LV.{levelFromXp(friend.xp)}</em><small>{friend.wins}승 · 승률 {winRate(friend)}%</small></div><button onClick={() => remove(friend.user_id)}>삭제</button></div>)}
+            {hub.friends.map((friend) => <div className={`friend-row v31-social-skin theme-${friend.profile_theme ?? 'bg_default'} frame-${friend.profile_frame ?? 'frame_default'}`} key={friend.user_id}><Avatar id={friend.avatar} /><span><b><NicknameText name={friend.display_name} styleId={friend.nickname_style} /></b><small>{friend.status_message}</small></span><div><em>LV.{levelFromXp(friend.xp)}</em><small>{friend.wins}승 · 승률 {winRate(friend)}%</small></div><button onClick={() => remove(friend.user_id)}>삭제</button></div>)}
           </div>
         </article>
       </section>
@@ -2230,6 +2231,12 @@ function ProfileView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
 
 function ChatDrawer({ open, roomId, onClose, profile, onUnread }: { open: boolean; roomId?: string; onClose: () => void; profile: Profile; onUnread?: () => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatSkins, setChatSkins] = useState<Record<string, ChatSkinProfile>>({
+    [profile.user_id]: { user_id: profile.user_id, profile_theme: profile.profile_theme, profile_frame: profile.profile_frame },
+  });
+  const chatSkinsRef = useRef<Record<string, ChatSkinProfile>>({
+    [profile.user_id]: { user_id: profile.user_id, profile_theme: profile.profile_theme, profile_frame: profile.profile_frame },
+  });
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -2239,6 +2246,21 @@ function ChatDrawer({ open, roomId, onClose, profile, onUnread }: { open: boolea
 
   useEffect(() => { openRef.current = open; }, [open]);
   useEffect(() => { onUnreadRef.current = onUnread; }, [onUnread]);
+  useEffect(() => {
+    const own = { user_id: profile.user_id, profile_theme: profile.profile_theme, profile_frame: profile.profile_frame };
+    chatSkinsRef.current = { ...chatSkinsRef.current, [profile.user_id]: own };
+    setChatSkins((current) => ({ ...current, [profile.user_id]: own }));
+  }, [profile.user_id, profile.profile_theme, profile.profile_frame]);
+
+  async function ensureChatSkins(userIds: string[]) {
+    const missing = [...new Set(userIds)].filter((id) => id && !chatSkinsRef.current[id]);
+    if (!missing.length) return;
+    const { data } = await supabase.from('eclipse_profiles').select('user_id,profile_theme,profile_frame').in('user_id', missing);
+    if (!data?.length) return;
+    const additions = Object.fromEntries((data as ChatSkinProfile[]).map((item) => [item.user_id, item]));
+    chatSkinsRef.current = { ...chatSkinsRef.current, ...additions };
+    setChatSkins((current) => ({ ...current, ...additions }));
+  }
 
   useEffect(() => {
     let alive = true;
@@ -2249,7 +2271,9 @@ function ChatDrawer({ open, roomId, onClose, profile, onUnread }: { open: boolea
       if (roomId) query = query.eq('room_id', roomId);
       else query = query.gte('created_at', cutoff);
       const { data } = await query;
-      if (alive) setMessages(((data ?? []) as ChatMessage[]).reverse());
+      const loaded = ((data ?? []) as ChatMessage[]).reverse();
+      if (alive) setMessages(loaded);
+      void ensureChatSkins(loaded.map((message) => message.user_id));
     }
     load();
     const channel = supabase
@@ -2257,6 +2281,7 @@ function ChatDrawer({ open, roomId, onClose, profile, onUnread }: { open: boolea
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table, ...(roomId ? { filter: `room_id=eq.${roomId}` } : {}) }, (payload: any) => {
         const next = payload.new as ChatMessage;
         if (!roomId && new Date(next.created_at).getTime() < Date.now() - 30 * 60 * 1000) return;
+        void ensureChatSkins([next.user_id]);
         setMessages((current) => [...current.slice(-59), next]);
         if (next.user_id !== profile.user_id && !openRef.current) onUnreadRef.current?.();
       })
@@ -2289,7 +2314,7 @@ function ChatDrawer({ open, roomId, onClose, profile, onUnread }: { open: boolea
       <header><div><span>{roomId ? 'ROOM CHAT' : 'GLOBAL CHAT'}</span><h3>{roomId ? '결투방 채팅' : '전체 채팅'}</h3>{!roomId && <small>최근 30분 메시지만 보관됩니다.</small>}</div><button onClick={onClose}>×</button></header>
       <div className="chat-messages">
         {messages.length === 0 && <div className="empty-state"><span>···</span><p>첫 메시지를 남겨보세요.</p></div>}
-        {messages.map((message) => <div className={`chat-message ${message.user_id === profile.user_id ? 'mine' : ''}`} key={message.id}><b><NicknameText name={message.display_name} styleId={message.nickname_style} /></b><p>{message.body}</p><small>{new Date(message.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small></div>)}
+        {messages.map((message) => { const skin = chatSkins[message.user_id]; return <div className={`chat-message v31-social-skin theme-${skin?.profile_theme ?? 'bg_default'} frame-${skin?.profile_frame ?? 'frame_default'} ${message.user_id === profile.user_id ? 'mine' : ''}`} key={message.id}><b><NicknameText name={message.display_name} styleId={message.nickname_style} /></b><p>{message.body}</p><small>{new Date(message.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small></div>; })}
         <div ref={bottomRef} />
       </div>
       {error && <p className="chat-error">{error}</p>}
