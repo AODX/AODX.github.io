@@ -108,7 +108,7 @@ export interface CoinTossState {
 
 export type PendingTrapContinuation =
   | { kind: 'spell'; actorId: string; cardId: string; target?: CardActionTarget }
-  | { kind: 'summon'; actorId: string; zone: number; cardId: string; origin: SummonOrigin; remainingTriggers: TrapTrigger[] }
+  | { kind: 'summon'; actorId: string; zone: number; cardId: string; origin: SummonOrigin; remainingTriggers: TrapTrigger[]; extraChoiceIndex?: number }
   | { kind: 'attack_core'; actorId: string; attackerIndex: number; bonusDamage: number }
   | { kind: 'attack_unit'; actorId: string; attackerIndex: number; targetIndex: number; bonusDamage: number }
   | { kind: 'post_action' };
@@ -1191,13 +1191,45 @@ function summonReactionTriggers(origin: SummonOrigin): TrapTrigger[] {
   return triggers;
 }
 
+function applyExtraChoice(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  actorId: string,
+  zone: number,
+  card: CardDefinition,
+  choiceIndex: number | undefined,
+): void {
+  if (!card.extraChoices?.length) return;
+  if (!Number.isInteger(choiceIndex) || choiceIndex === undefined || !card.extraChoices[choiceIndex]) {
+    throw new Error('전설 엑스트라의 선택 효과가 지정되지 않았습니다.');
+  }
+  const choice = card.extraChoices[choiceIndex];
+  for (const effect of choice.effects) {
+    const autoTarget = effect.kind === 'buff_unit' || effect.kind === 'shield_unit'
+      ? { ownerId: actorId, unitIndex: zone }
+      : undefined;
+    applyEffect(state, privateStates, actorId, effect, autoTarget, card);
+  }
+  appendLog(state, `CHOOSE ${choiceIndex + 1} — 「${card.name}」의 ${choice.label} 발동: ${choice.description}`, 'special');
+  appendVisual(state, {
+    kind: 'special',
+    vfx: card.kind === 'fusion' ? 'legendary-fusion-choice' : 'legendary-evolution-choice',
+    cardId: card.id,
+    ownerId: actorId,
+    targetOwnerId: actorId,
+    targetZone: zone,
+    label: `CHOOSE ${choiceIndex + 1} · ${choice.label}`,
+    detail: choice.description,
+  });
+}
+
 function continueSummonResolution(
   state: MatchState,
   privateStates: Record<string, PrivateState>,
   continuation: Extract<PendingTrapContinuation, { kind: 'summon' }>,
   trapResult: TrapResolution = { negated: false, retaliation: 0 },
 ): void {
-  const { actorId, zone, cardId, origin } = continuation;
+  const { actorId, zone, cardId, origin, extraChoiceIndex } = continuation;
   const opponentId = otherPlayer(state, actorId);
   const card = CARD_BY_ID[cardId];
   const unit = state.boards[actorId].units[zone];
@@ -1237,6 +1269,9 @@ function continueSummonResolution(
   if (card.onSummon && state.boards[actorId].units[zone]) {
     const selfTarget = { ownerId: actorId, unitIndex: zone };
     applyEffect(state, privateStates, actorId, card.onSummon, card.onSummon.kind === 'shield_unit' ? selfTarget : undefined);
+  }
+  if (state.boards[actorId].units[zone] && card.extraChoices?.length) {
+    applyExtraChoice(state, privateStates, actorId, zone, card, extraChoiceIndex);
   }
   if (state.boards[actorId].units[zone]) {
     applySeriesAbility(state, privateStates, actorId, card);
@@ -1365,7 +1400,7 @@ function fusionMaterialMinimumCost(card: CardDefinition, requirement?: FusionMat
   // Broad element-only recipes were still too easy to assemble; those now need stronger bodies.
   const exactRecipe = Boolean(requirement?.cardIds?.length);
   const floor = exactRecipe
-    ? (card.rarity === 'legendary' ? 4 : 3)
+    ? 3
     : (card.rarity === 'legendary' ? 5 : 4);
   return Math.max(requirement?.minCost ?? 0, floor);
 }
@@ -1387,37 +1422,90 @@ function materialMatches(unit: UnitState, requirement: FusionMaterial, fusionCar
   return true;
 }
 
-function canAssignFusionMaterials(units: UnitState[], requirements: FusionMaterial[], fusionCard: CardDefinition, requirementIndex = 0, used = new Set<number>()): boolean {
-  if (requirementIndex >= requirements.length) return true;
+function findFusionMaterialAssignment(
+  units: UnitState[],
+  requirements: FusionMaterial[],
+  fusionCard: CardDefinition,
+  requirementIndex = 0,
+  used = new Set<number>(),
+): Set<number> | null {
+  if (requirementIndex >= requirements.length) return new Set(used);
   for (let index = 0; index < units.length; index += 1) {
     if (used.has(index) || !materialMatches(units[index], requirements[requirementIndex], fusionCard)) continue;
     used.add(index);
-    if (canAssignFusionMaterials(units, requirements, fusionCard, requirementIndex + 1, used)) return true;
+    const resolved = findFusionMaterialAssignment(units, requirements, fusionCard, requirementIndex + 1, used);
+    if (resolved) return resolved;
     used.delete(index);
   }
-  return false;
+  return null;
+}
+
+function canAssignFusionMaterials(units: UnitState[], requirements: FusionMaterial[], fusionCard: CardDefinition): boolean {
+  return Boolean(findFusionMaterialAssignment(units, requirements, fusionCard));
+}
+
+function consumedCardDefinitions(units: UnitState[]): CardDefinition[] {
+  return units.map((unit) => CARD_BY_ID[unit.cardId]).filter((card): card is CardDefinition => Boolean(card));
+}
+
+function extraRuleBlockReason(card: CardDefinition, units: UnitState[], primaryIndexes: Set<number>): string | null {
+  const rule = card.extraSummonRule;
+  if (!rule) return null;
+  const definitions = consumedCardDefinitions(units);
+  const totalCost = definitions.reduce((sum, material) => sum + material.cost, 0);
+  if (totalCost < rule.minTotalMaterialCost) return `릴리스할 캐릭터들의 비용 합이 ${rule.minTotalMaterialCost} 이상이어야 합니다. 현재 ${totalCost}.`;
+
+  const tributeIndexes = units.map((_, index) => index).filter((index) => !primaryIndexes.has(index));
+  const tributeDefinitions = tributeIndexes.map((index) => CARD_BY_ID[units[index].cardId]).filter((material): material is CardDefinition => Boolean(material));
+  if (tributeDefinitions.length !== rule.additionalTributes) return `추가 릴리스 캐릭터 ${rule.additionalTributes}장이 필요합니다.`;
+  if (tributeDefinitions.some((material) => material.cost < rule.tributeMinCost)) return `추가 릴리스 캐릭터는 각각 비용 ${rule.tributeMinCost} 이상이어야 합니다.`;
+  if (rule.requireHighRarityMaterial && !definitions.some((material) => material.rarity === 'epic' || material.rarity === 'legendary')) {
+    return '최상위 전설은 릴리스 소재 중 영웅 또는 전설 캐릭터가 1장 이상 필요합니다.';
+  }
+  if (rule.requireSameSeriesTribute && card.seriesId && !tributeDefinitions.some((material) => material.seriesId === card.seriesId)) {
+    return '최상위 시리즈 전설은 추가 릴리스 소재 중 같은 시리즈 캐릭터가 1장 이상 필요합니다.';
+  }
+  return null;
+}
+
+function findFusionAssignmentForExtraRule(
+  units: UnitState[],
+  requirements: FusionMaterial[],
+  fusionCard: CardDefinition,
+  requirementIndex = 0,
+  used = new Set<number>(),
+): Set<number> | null {
+  if (requirementIndex >= requirements.length) {
+    return extraRuleBlockReason(fusionCard, units, used) ? null : new Set(used);
+  }
+  for (let index = 0; index < units.length; index += 1) {
+    if (used.has(index) || !materialMatches(units[index], requirements[requirementIndex], fusionCard)) continue;
+    used.add(index);
+    const resolved = findFusionAssignmentForExtraRule(units, requirements, fusionCard, requirementIndex + 1, used);
+    if (resolved) return resolved;
+    used.delete(index);
+  }
+  return null;
 }
 
 function evolutionRequiredTurnGap(sourceCard: CardDefinition, evolutionCard: CardDefinition): number {
   const namedRecipe = Boolean(evolutionCard.evolutionRecipe?.fromIds?.length);
+  let baseGap = 4;
 
-  // v31c: Ascension is a premium Extra Deck payoff. Cheap predecessors now
-  // need a real setup window instead of turning into an apex card immediately.
-  // 2 global turns = 1 full round, 4 = 2 rounds, 6 = 3 rounds.
+  // Cheap predecessors need a real setup window instead of immediately turning
+  // into an apex body. 2 global turns = 1 full round.
   if (namedRecipe) {
     if (evolutionCard.rarity === 'legendary') {
-      if (sourceCard.cost <= 3) return 6;
-      if (sourceCard.cost <= 5) return 4;
-      return 2;
-    }
-    if (sourceCard.cost <= 2) return 6;
-    if (sourceCard.cost <= 4) return 4;
-    return 2;
+      if (sourceCard.cost <= 3) baseGap = 6;
+      else if (sourceCard.cost <= 5) baseGap = 4;
+      else baseGap = 2;
+    } else if (sourceCard.cost <= 2) baseGap = 6;
+    else if (sourceCard.cost <= 4) baseGap = 4;
+    else baseGap = 2;
   }
 
-  // Broad, non-named recipes are intentionally slower because they are much
-  // easier to assemble than a specific predecessor chain.
-  return 4;
+  // v31f apex legends require one additional full round of field commitment.
+  return baseGap + (evolutionCard.extraSummonRule?.sourceExtraTurnGap ?? 0);
 }
 
 function evolutionMatches(unit: UnitState, card: CardDefinition, turnNumber: number): boolean {
@@ -1440,6 +1528,7 @@ export function summonExtra(
   playerId: string,
   extraInstanceId: string,
   materialZones: number[],
+  extraChoiceIndex?: number,
 ): ActionResult {
   const state = clone(snapshot.state);
   const privateStates = clone(snapshot.privateStates);
@@ -1451,8 +1540,15 @@ export function summonExtra(
   if (card.kind !== 'fusion' && card.kind !== 'evolution') throw new Error('엑스트라 덱의 융합·진화 카드만 소환할 수 있습니다.');
   const extraKind: ExtraSummonKind = card.kind;
   assertExtraSummonAvailable(state, playerId, extraKind);
+  if (card.extraChoices?.length && (!Number.isInteger(extraChoiceIndex) || extraChoiceIndex === undefined || !card.extraChoices[extraChoiceIndex])) {
+    throw new Error('전설 엑스트라는 소환 전에 1·2·3번 효과 중 하나를 선택해야 합니다.');
+  }
+
   const uniqueZones = Array.from(new Set(materialZones.map(Number))).filter((zone) => Number.isInteger(zone) && zone >= 0 && zone <= 4);
-  const units = uniqueZones.map((zone) => state.boards[playerId].units[zone]).filter((unit): unit is UnitState => Boolean(unit));
+  const selectedEntries = uniqueZones
+    .map((zone) => ({ zone, unit: state.boards[playerId].units[zone] }))
+    .filter((entry): entry is { zone: number; unit: UnitState } => Boolean(entry.unit));
+  const units = selectedEntries.map((entry) => entry.unit);
 
   let summonZone = -1;
   let evolvedSource: UnitState | null = null;
@@ -1463,11 +1559,19 @@ export function summonExtra(
 
   if (card.kind === 'fusion') {
     const requirements = card.fusionRecipe?.materials ?? [];
+    const additionalTributes = card.extraSummonRule?.additionalTributes ?? 0;
+    const requiredCount = requirements.length + additionalTributes;
     if (requirements.length < 2) throw new Error('융합 소재 정보가 올바르지 않습니다.');
-    if (uniqueZones.length !== requirements.length || units.length !== requirements.length) {
-      throw new Error(`융합 소재 ${requirements.length}장을 선택하세요.`);
+    if (uniqueZones.length !== requiredCount || units.length !== requiredCount) {
+      throw new Error(`공명 융합에는 필드 캐릭터 ${requiredCount}장을 선택해야 합니다.`);
     }
-    if (!canAssignFusionMaterials(units, requirements, card)) throw new Error(`융합 조건이 맞지 않습니다: ${card.fusionRecipe?.label} · ${fusionRequirementSummary(card)}`);
+    const baseAssignment = findFusionMaterialAssignment(units, requirements, card);
+    if (!baseAssignment) throw new Error(`융합 조건이 맞지 않습니다: ${card.fusionRecipe?.label} · ${fusionRequirementSummary(card)}`);
+    const assignment = findFusionAssignmentForExtraRule(units, requirements, card);
+    if (!assignment) {
+      const ruleReason = extraRuleBlockReason(card, units, baseAssignment);
+      throw new Error(`전설 융합 추가 조건: ${ruleReason ?? '선택한 소재 조합이 추가 릴리스 조건을 만족하지 않습니다.'}`);
+    }
     spendEnergy(state, playerId, card.cost);
     summonZone = uniqueZones[0];
     for (const zone of uniqueZones) {
@@ -1477,18 +1581,43 @@ export function summonExtra(
       state.boards[playerId].units[zone] = null;
     }
   } else {
-    if (uniqueZones.length !== 1 || units.length !== 1) throw new Error('진화시킬 아군 유닛 1장을 선택하세요.');
-    evolvedSource = units[0];
-    if (!evolutionMatches(evolvedSource, card, state.turnNumber)) throw new Error(`진화 조건이 맞지 않습니다: ${card.evolutionRecipe?.label} · 저비용 원본은 최대 3라운드, 중비용 원본은 2라운드, 고비용 원본은 최소 1라운드 생존해야 합니다.`);
+    const additionalTributes = card.extraSummonRule?.additionalTributes ?? 0;
+    const requiredCount = 1 + additionalTributes;
+    if (uniqueZones.length !== requiredCount || units.length !== requiredCount) {
+      throw new Error(`계승 진화에는 계승 원본을 포함해 필드 캐릭터 ${requiredCount}장을 선택해야 합니다.`);
+    }
+
+    let sourceEntryIndex = -1;
+    let ruleReason: string | null = null;
+    for (let index = 0; index < units.length; index += 1) {
+      if (!evolutionMatches(units[index], card, state.turnNumber)) continue;
+      const reason = extraRuleBlockReason(card, units, new Set([index]));
+      if (!reason) {
+        sourceEntryIndex = index;
+        ruleReason = null;
+        break;
+      }
+      ruleReason = reason;
+    }
+    if (sourceEntryIndex < 0) {
+      if (ruleReason) throw new Error(`전설 계승 추가 조건: ${ruleReason}`);
+      throw new Error(`진화 조건이 맞지 않습니다: ${card.evolutionRecipe?.label} · 지정 원본 생존 조건과 릴리스 조건을 모두 만족해야 합니다.`);
+    }
+
+    evolvedSource = units[sourceEntryIndex];
     spendEnergy(state, playerId, card.cost);
-    summonZone = uniqueZones[0];
+    summonZone = selectedEntries[sourceEntryIndex].zone;
     const sourceCard = CARD_BY_ID[evolvedSource.cardId];
     inheritedAttack = Math.max(0, evolvedSource.attack - (sourceCard?.attack ?? evolvedSource.attack));
     inheritedHealth = Math.max(0, evolvedSource.maxHealth - (sourceCard?.health ?? evolvedSource.maxHealth));
     inheritedDamage = Math.max(0, evolvedSource.maxHealth - evolvedSource.health);
     inheritedShield = evolvedSource.shield;
-    state.graveyards[playerId].push(evolvedSource.cardId);
-    state.boards[playerId].units[summonZone] = null;
+    for (const zone of uniqueZones) {
+      const material = state.boards[playerId].units[zone];
+      if (!material) continue;
+      state.graveyards[playerId].push(material.cardId);
+      state.boards[playerId].units[zone] = null;
+    }
   }
 
   playerPrivate.extra.splice(extraIndex, 1);
@@ -1515,11 +1644,11 @@ export function summonExtra(
     appendVisual(state, { kind: 'fusion', vfx: resolveCardVfx(card, 'summon'), cardId: card.id, ownerId: playerId, targetZone: summonZone, label: card.name, detail: card.fusionRecipe?.label ?? '소재를 공명시켜 새로운 존재로 융합', sourceCardIds: units.map((item) => item.cardId) });
   } else {
     appendLog(state, `계승 진화 — 「${card.name}」 각성!`, 'evolution');
-    appendVisual(state, { kind: 'evolution', vfx: resolveCardVfx(card, 'summon'), cardId: card.id, ownerId: playerId, targetZone: summonZone, label: card.name, detail: card.evolutionRecipe?.label ?? '원본의 힘을 계승해 상위 형태로 각성', sourceCardIds: evolvedSource ? [evolvedSource.cardId] : units.map((item) => item.cardId) });
+    appendVisual(state, { kind: 'evolution', vfx: resolveCardVfx(card, 'summon'), cardId: card.id, ownerId: playerId, targetZone: summonZone, label: card.name, detail: card.evolutionRecipe?.label ?? '원본의 힘을 계승해 상위 형태로 각성', sourceCardIds: units.map((item) => item.cardId) });
   }
 
   continueSummonResolution(state, privateStates, {
-    kind: 'summon', actorId: playerId, zone: summonZone, cardId: card.id, origin, remainingTriggers: summonReactionTriggers(origin),
+    kind: 'summon', actorId: playerId, zone: summonZone, cardId: card.id, origin, remainingTriggers: summonReactionTriggers(origin), extraChoiceIndex,
   });
   if (!state.pendingTrap) {
     destroyDefeatedUnits(state, privateStates);

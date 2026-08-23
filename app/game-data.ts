@@ -74,6 +74,29 @@ export interface EvolutionRecipe {
   maxCost?: number;
 }
 
+export interface ExtraSummonRule {
+  tier: 'legendary' | 'apex';
+  /** Extra field units consumed in addition to the printed fusion recipe / evolution source. */
+  additionalTributes: number;
+  /** Minimum printed cost for every additional tribute. */
+  tributeMinCost: number;
+  /** Minimum sum of printed costs across every consumed unit. */
+  minTotalMaterialCost: number;
+  /** Apex legends require at least one Epic/Legendary body among all consumed units. */
+  requireHighRarityMaterial?: boolean;
+  /** Series apex cards require one additional tribute from the same series. */
+  requireSameSeriesTribute?: boolean;
+  /** Extra global-turn gap added to the normal evolution survival requirement. */
+  sourceExtraTurnGap?: number;
+}
+
+export interface ExtraChoice {
+  id: string;
+  label: string;
+  description: string;
+  effects: Effect[];
+}
+
 export interface CardSeriesDefinition {
   id: SeriesId;
   name: string;
@@ -108,6 +131,9 @@ export interface CardDefinition {
   riftCondition?: RiftCondition;
   fusionRecipe?: FusionRecipe;
   evolutionRecipe?: EvolutionRecipe;
+  extraSummonRule?: ExtraSummonRule;
+  /** Shadowverse-style CHOOSE package used by premium legendary Extra Deck cards. */
+  extraChoices?: ExtraChoice[];
   onSummon?: Effect;
   effect?: Effect;
   trapTrigger?: TrapTrigger;
@@ -1656,6 +1682,128 @@ for (const card of CARDS) {
   if (tuning.addKeywords?.length) card.keywords = Array.from(new Set([...(card.keywords ?? []), ...tuning.addKeywords]));
   if (tuning.onSummon) card.onSummon = tuning.onSummon;
   if (tuning.text) card.text = tuning.text;
+}
+
+/* --------------------------------------------------------------------------
+ * v31f premium legendary Extra Deck rules + CHOOSE effects
+ * --------------------------------------------------------------------------
+ * Legendary Extra Deck cards are meant to be match-defining payoffs, not an
+ * almost-free replacement for one field unit. Every legendary evolution now
+ * consumes at least the predecessor + 1 tribute (2 bodies total), while the
+ * cost-7 apex legends consume 3 bodies total and demand a heavier setup.
+ * Cost-7 legendary fusions also consume a third tribute on top of their
+ * printed two-material recipe. In return every legendary Extra Deck card gets
+ * three selectable on-summon modes. The player chooses exactly one mode.
+ */
+const EXTRA_CHOICE_LABELS: Record<Element, [string, string, string]> = {
+  solar: ['태양 단죄', '여명 재점화', '성광 갑주'],
+  lunar: ['월식 침식', '몽환 회수', '백야 결계'],
+  storm: ['천뢰 폭주', '전광 재배치', '뇌광 장갑'],
+  verdant: ['세계수 압살', '생명순환', '고대수피'],
+  void: ['심연 붕괴', '공허 재편', '균열 장막'],
+  neutral: ['왕권 제압', '전술 재구성', '불멸 장갑'],
+};
+
+function buildLegendaryExtraChoices(card: CardDefinition, apex: boolean): ExtraChoice[] {
+  const labels = EXTRA_CHOICE_LABELS[card.element];
+  if (card.kind === 'fusion') {
+    const aoe = apex ? 3 : 2;
+    const core = apex ? 2 : 1;
+    const draw = apex ? 2 : 1;
+    const buff = apex ? 3 : 2;
+    const shield = apex ? 3 : 2;
+    return [
+      {
+        id: 'overwhelm',
+        label: labels[0],
+        description: `모든 적 유닛에 ${aoe} 피해를 주고 상대 코어에 ${core} 피해.`,
+        effects: [{ kind: 'aoe_enemy', amount: aoe }, { kind: 'damage_core', amount: core }],
+      },
+      {
+        id: 'resonance',
+        label: labels[1],
+        description: `카드 ${draw}장을 뽑고 이번 턴 에너지 1 회복.`,
+        effects: [{ kind: 'draw', amount: draw }, { kind: 'gain_energy', amount: 1 }],
+      },
+      {
+        id: 'fortress',
+        label: labels[2],
+        description: `이 유닛에게 +${buff}/+${buff} 및 보호막 ${shield}.`,
+        effects: [{ kind: 'buff_unit', attack: buff, health: buff }, { kind: 'shield_unit', amount: shield }],
+      },
+    ];
+  }
+
+  const attack = apex ? 4 : 2;
+  const health = apex ? 2 : 2;
+  const core = apex ? 2 : 1;
+  const draw = apex ? 2 : 1;
+  const heal = apex ? 4 : 3;
+  const shield = apex ? 4 : 2;
+  const aoe = apex ? 2 : 1;
+  return [
+    {
+      id: 'inherit-power',
+      label: labels[0],
+      description: `이 유닛에게 +${attack}/+${health}를 부여하고 상대 코어에 ${core} 피해.`,
+      effects: [{ kind: 'buff_unit', attack, health }, { kind: 'damage_core', amount: core }],
+    },
+    {
+      id: 'inherit-memory',
+      label: labels[1],
+      description: `카드 ${draw}장을 뽑고 내 코어를 ${heal} 회복.`,
+      effects: [{ kind: 'draw', amount: draw }, { kind: 'heal_core', amount: heal }],
+    },
+    {
+      id: 'inherit-aegis',
+      label: labels[2],
+      description: `이 유닛에게 보호막 ${shield}를 부여하고 모든 적 유닛에 ${aoe} 피해.`,
+      effects: [{ kind: 'shield_unit', amount: shield }, { kind: 'aoe_enemy', amount: aoe }],
+    },
+  ];
+}
+
+for (const card of CARDS) {
+  if (card.rarity !== 'legendary' || (card.kind !== 'fusion' && card.kind !== 'evolution')) continue;
+  const apex = card.cost >= 7;
+  card.extraSummonRule = card.kind === 'fusion'
+    ? {
+        tier: apex ? 'apex' : 'legendary',
+        additionalTributes: apex ? 1 : 0,
+        tributeMinCost: 3,
+        minTotalMaterialCost: apex ? 13 : 10,
+        requireHighRarityMaterial: apex,
+        requireSameSeriesTribute: apex && Boolean(card.seriesId),
+      }
+    : {
+        tier: apex ? 'apex' : 'legendary',
+        additionalTributes: apex ? 2 : 1,
+        tributeMinCost: 3,
+        minTotalMaterialCost: apex ? 13 : 8,
+        requireHighRarityMaterial: apex,
+        requireSameSeriesTribute: apex && Boolean(card.seriesId),
+        sourceExtraTurnGap: apex ? 2 : 0,
+      };
+  card.extraChoices = buildLegendaryExtraChoices(card, apex);
+  const chooseText = card.extraChoices.map((choice, index) => `${index + 1}. ${choice.label}: ${choice.description}`).join(' / ');
+  card.text = `${card.text} CHOOSE — ${chooseText}`;
+}
+
+export function extraRequiredUnitCount(card: CardDefinition): number {
+  if (card.kind === 'fusion') return (card.fusionRecipe?.materials.length ?? 0) + (card.extraSummonRule?.additionalTributes ?? 0);
+  if (card.kind === 'evolution') return 1 + (card.extraSummonRule?.additionalTributes ?? 0);
+  return 0;
+}
+
+export function extraSummonRuleDescription(card: CardDefinition): string {
+  const rule = card.extraSummonRule;
+  if (!rule) return '';
+  const bodyLabel = card.kind === 'fusion'
+    ? `총 ${extraRequiredUnitCount(card)}체 릴리스`
+    : `계승 원본 포함 총 ${extraRequiredUnitCount(card)}체 릴리스`;
+  const series = rule.requireSameSeriesTribute ? ' · 추가 소재 중 같은 시리즈 1체 필요' : '';
+  const rarity = rule.requireHighRarityMaterial ? ' · 영웅/전설 소재 1체 이상' : '';
+  return `${rule.tier === 'apex' ? 'APEX 전설' : '전설'} · ${bodyLabel} · 소재 비용 합 ${rule.minTotalMaterialCost}+${series}${rarity}`;
 }
 
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));

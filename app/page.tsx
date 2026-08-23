@@ -21,6 +21,8 @@ import {
   type Rarity,
   type SeriesId,
   countCards,
+  extraRequiredUnitCount,
+  extraSummonRuleDescription,
   isExtraDeckCard,
   isUnitCard,
   seriesAbilityDescription,
@@ -634,8 +636,14 @@ function trapTriggerDescription(trigger: CardDefinition['trapTrigger']): string 
 
 function summonConditionDescription(card: CardDefinition): string {
   if (card.summonMode === 'rift') return `${card.riftCondition?.label ?? '균열 조건 충족'} · 에너지 ${card.riftCost ?? card.cost}`;
-  if (card.kind === 'fusion') return card.fusionRecipe?.label ?? '지정된 두 소재 유닛을 필드에서 묘지로 보내 공명 융합합니다.';
-  if (card.kind === 'evolution') return card.evolutionRecipe?.label ?? '조건을 만족하는 필드 유닛 1장을 계승시켜 진화합니다.';
+  if (card.kind === 'fusion') {
+    const base = card.fusionRecipe?.label ?? '지정된 소재 유닛을 필드에서 묘지로 보내 공명 융합합니다.';
+    return `${base}${card.extraSummonRule ? ` · ${extraSummonRuleDescription(card)}` : ''}`;
+  }
+  if (card.kind === 'evolution') {
+    const base = card.evolutionRecipe?.label ?? '조건을 만족하는 필드 유닛을 계승시켜 진화합니다.';
+    return `${base}${card.extraSummonRule ? ` · ${extraSummonRuleDescription(card)}` : ''}`;
+  }
   return '';
 }
 
@@ -941,6 +949,13 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             <span>카드 효과</span>
             <p>{card.text}</p>
           </section>
+
+          {card.extraChoices?.length && (
+            <section className="detail-section v31f-choose-detail">
+              <span>CHOOSE · 소환 시 1개 선택</span>
+              <div>{card.extraChoices.map((choice, index) => <article key={choice.id}><b>{index + 1}</b><span><strong>{choice.label}</strong><small>{choice.description}</small></span></article>)}</div>
+            </section>
+          )}
 
           {card.seriesId && card.seriesAbility && (
             <section className={`detail-section v25-series-effect series-${card.seriesId}`}>
@@ -2256,6 +2271,7 @@ function ChatDrawer({ open, roomId, onClose, profile, onUnread }: { open: boolea
 function duelEventLabel(event: VisualEvent): string {
   if (event.kind === 'turn') return '턴 시작';
   if (event.kind === 'summon') return '일반 소환';
+  if (event.kind === 'special' && (event.vfx === 'legendary-fusion-choice' || event.vfx === 'legendary-evolution-choice')) return '전설 선택 효과';
   if (event.kind === 'special') return '균열 소환';
   if (event.kind === 'fusion') return '공명 융합';
   if (event.kind === 'evolution') return '계승 진화';
@@ -2345,7 +2361,8 @@ function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualE
     '--fx-accent': card ? ELEMENT_ACCENT[card.element] : '#7ddcff',
   } as CSSProperties;
   const cinematicCardKinds: VisualEvent['kind'][] = ['summon', 'special', 'spell'];
-  const showCardCutIn = Boolean(card && cinematicCardKinds.includes(event.kind));
+  const legendaryChoice = event.kind === 'special' && (event.vfx === 'legendary-fusion-choice' || event.vfx === 'legendary-evolution-choice');
+  const showCardCutIn = Boolean(card && cinematicCardKinds.includes(event.kind) && !legendaryChoice);
   const vfxClass = event.vfx ? `vfx-${event.vfx.replace(/[^a-z0-9-]/gi, '-')}` : 'vfx-generic';
   const sourceCards = (event.sourceCardIds ?? []).map((cardId) => CARD_BY_ID[cardId]).filter((candidate): candidate is CardDefinition => Boolean(candidate));
   const trapTrigger = card?.kind === 'trap' ? trapTriggerDescription(card.trapTrigger) : '';
@@ -2398,6 +2415,14 @@ function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualE
             </div>
           </div>
           <p>{event.detail ?? (event.kind === 'fusion' ? '소재의 공명을 하나의 존재로 결속합니다.' : '원본의 힘을 계승해 상위 형태로 각성합니다.')}</p>
+        </div>
+      )}
+
+      {legendaryChoice && card && (
+        <div className={`v31f-choice-resolution ${event.vfx === 'legendary-fusion-choice' ? 'fusion' : 'evolution'}`}>
+          <small>{mine ? 'YOUR CHOOSE EFFECT' : 'OPPONENT CHOOSE EFFECT'}</small>
+          <div><CardIllustration card={card} compact /></div>
+          <span><b>{event.label ?? 'CHOOSE EFFECT'}</b><strong>{card.name}</strong><p>{event.detail ?? '선택 효과가 발동했습니다.'}</p></span>
         </div>
       )}
 
@@ -2540,24 +2565,24 @@ function UnitSlot({
 function clientFusionMaterialMinimumCost(card: CardDefinition, material?: NonNullable<CardDefinition['fusionRecipe']>['materials'][number]): number {
   const exactRecipe = Boolean(material?.cardIds?.length);
   const floor = exactRecipe
-    ? (card.rarity === 'legendary' ? 4 : 3)
+    ? 3
     : (card.rarity === 'legendary' ? 5 : 4);
   return Math.max(material?.minCost ?? 0, floor);
 }
 
 function clientEvolutionRequiredTurnGap(source: CardDefinition, evolutionCard: CardDefinition): number {
   const namedRecipe = Boolean(evolutionCard.evolutionRecipe?.fromIds?.length);
+  let baseGap = 4;
   if (namedRecipe) {
     if (evolutionCard.rarity === 'legendary') {
-      if (source.cost <= 3) return 6;
-      if (source.cost <= 5) return 4;
-      return 2;
-    }
-    if (source.cost <= 2) return 6;
-    if (source.cost <= 4) return 4;
-    return 2;
+      if (source.cost <= 3) baseGap = 6;
+      else if (source.cost <= 5) baseGap = 4;
+      else baseGap = 2;
+    } else if (source.cost <= 2) baseGap = 6;
+    else if (source.cost <= 4) baseGap = 4;
+    else baseGap = 2;
   }
-  return 4;
+  return baseGap + (evolutionCard.extraSummonRule?.sourceExtraTurnGap ?? 0);
 }
 
 function evolutionSurvivalRequirement(card: CardDefinition): string {
@@ -2571,16 +2596,20 @@ function evolutionSurvivalRequirement(card: CardDefinition): string {
 }
 
 function extraRequirement(card: CardDefinition): string {
+  const premiumRule = extraSummonRuleDescription(card);
+  const choose = card.extraChoices?.length ? ' · 소환 전에 CHOOSE 1/2/3 중 1개 효과 선택' : '';
   if (card.kind === 'fusion') {
     const materials = card.fusionRecipe?.materials ?? [];
     const broad = materials.filter((material) => !material.cardIds?.length);
-    if (broad.length > 0) {
-      const minCost = card.rarity === 'legendary' ? 5 : 4;
-      return `${card.fusionRecipe?.label ?? '융합 소재를 선택하세요.'} · 범용 소재는 각 비용 ${minCost} 이상`;
-    }
-    return `${card.fusionRecipe?.label ?? '융합 소재를 선택하세요.'} · 지정 소재 조합 필요`;
+    const base = broad.length > 0
+      ? `${card.fusionRecipe?.label ?? '융합 소재를 선택하세요.'} · 범용 소재는 각 비용 ${card.rarity === 'legendary' ? 5 : 4} 이상`
+      : `${card.fusionRecipe?.label ?? '융합 소재를 선택하세요.'} · 지정 소재 조합 필요`;
+    return `${base}${premiumRule ? ` · ${premiumRule}` : ''}${choose}`;
   }
-  if (card.kind === 'evolution') return `${card.evolutionRecipe?.label ?? '진화시킬 유닛을 선택하세요.'} · ${evolutionSurvivalRequirement(card)}`;
+  if (card.kind === 'evolution') {
+    const base = `${card.evolutionRecipe?.label ?? '진화시킬 유닛을 선택하세요.'} · ${evolutionSurvivalRequirement(card)}`;
+    return `${base}${premiumRule ? ` · ${premiumRule}` : ''}${choose}`;
+  }
   if (card.summonMode === 'rift') return card.riftCondition?.label ?? '균열 조건을 확인하세요.';
   return card.text;
 }
@@ -2622,15 +2651,77 @@ function clientFusionMaterialMatches(unit: UnitState, material: NonNullable<Card
   return true;
 }
 
-function clientCanAssignFusion(units: UnitState[], materials: NonNullable<CardDefinition['fusionRecipe']>['materials'], fusionCard: CardDefinition, at = 0, used = new Set<number>()): boolean {
-  if (at >= materials.length) return true;
+function clientFindFusionAssignment(
+  units: UnitState[],
+  materials: NonNullable<CardDefinition['fusionRecipe']>['materials'],
+  fusionCard: CardDefinition,
+  at = 0,
+  used = new Set<number>(),
+): Set<number> | null {
+  if (at >= materials.length) return new Set(used);
   for (let index = 0; index < units.length; index += 1) {
     if (used.has(index) || !clientFusionMaterialMatches(units[index], materials[at], fusionCard)) continue;
     used.add(index);
-    if (clientCanAssignFusion(units, materials, fusionCard, at + 1, used)) return true;
+    const resolved = clientFindFusionAssignment(units, materials, fusionCard, at + 1, used);
+    if (resolved) return resolved;
     used.delete(index);
   }
-  return false;
+  return null;
+}
+
+function clientCanAssignFusion(units: UnitState[], materials: NonNullable<CardDefinition['fusionRecipe']>['materials'], fusionCard: CardDefinition): boolean {
+  return Boolean(clientFindFusionAssignment(units, materials, fusionCard));
+}
+
+function clientExtraRuleBlockReason(card: CardDefinition, units: UnitState[], primaryIndexes: Set<number>): string | null {
+  const rule = card.extraSummonRule;
+  if (!rule) return null;
+  const definitions = units.map((unit) => CARD_BY_ID[unit.cardId]).filter((material): material is CardDefinition => Boolean(material));
+  const totalCost = definitions.reduce((sum, material) => sum + material.cost, 0);
+  if (totalCost < rule.minTotalMaterialCost) return `소재 비용 합 ${rule.minTotalMaterialCost} 이상 필요 (현재 ${totalCost})`;
+  const tributeIndexes = units.map((_, index) => index).filter((index) => !primaryIndexes.has(index));
+  const tributes = tributeIndexes.map((index) => CARD_BY_ID[units[index].cardId]).filter((material): material is CardDefinition => Boolean(material));
+  if (tributes.length !== rule.additionalTributes) return `추가 릴리스 ${rule.additionalTributes}체 필요`;
+  if (tributes.some((material) => material.cost < rule.tributeMinCost)) return `추가 릴리스는 각각 비용 ${rule.tributeMinCost} 이상 필요`;
+  if (rule.requireHighRarityMaterial && !definitions.some((material) => material.rarity === 'epic' || material.rarity === 'legendary')) return '영웅/전설 소재 1체 이상 필요';
+  if (rule.requireSameSeriesTribute && card.seriesId && !tributes.some((material) => material.seriesId === card.seriesId)) return '추가 릴리스 중 같은 시리즈 1체 필요';
+  return null;
+}
+
+function clientFindFusionAssignmentForExtraRule(
+  units: UnitState[],
+  materials: NonNullable<CardDefinition['fusionRecipe']>['materials'],
+  fusionCard: CardDefinition,
+  at = 0,
+  used = new Set<number>(),
+): Set<number> | null {
+  if (at >= materials.length) return clientExtraRuleBlockReason(fusionCard, units, used) ? null : new Set(used);
+  for (let index = 0; index < units.length; index += 1) {
+    if (used.has(index) || !clientFusionMaterialMatches(units[index], materials[at], fusionCard)) continue;
+    used.add(index);
+    const resolved = clientFindFusionAssignmentForExtraRule(units, materials, fusionCard, at + 1, used);
+    if (resolved) return resolved;
+    used.delete(index);
+  }
+  return null;
+}
+
+function clientUnitCombinations(units: UnitState[], count: number): UnitState[][] {
+  if (count <= 0) return [[]];
+  const result: UnitState[][] = [];
+  const pick = (start: number, chosen: UnitState[]) => {
+    if (chosen.length === count) {
+      result.push([...chosen]);
+      return;
+    }
+    for (let index = start; index < units.length; index += 1) {
+      chosen.push(units[index]);
+      pick(index + 1, chosen);
+      chosen.pop();
+    }
+  };
+  pick(0, []);
+  return result;
 }
 
 function clientEvolutionReady(unit: UnitState, card: CardDefinition, currentTurn: number): boolean {
@@ -2646,6 +2737,27 @@ function clientEvolutionReady(unit: UnitState, card: CardDefinition, currentTurn
     && (recipe.maxCost === undefined || source.cost <= recipe.maxCost);
 }
 
+
+function clientSelectedExtraMaterialsValid(units: UnitState[], card: CardDefinition, currentTurn: number): boolean {
+  if (units.length !== extraRequiredUnitCount(card)) return false;
+  if (card.kind === 'fusion') {
+    const materials = card.fusionRecipe?.materials ?? [];
+    return Boolean(clientFindFusionAssignmentForExtraRule(units, materials, card));
+  }
+  if (card.kind === 'evolution') {
+    for (let index = 0; index < units.length; index += 1) {
+      if (!clientEvolutionReady(units[index], card, currentTurn)) continue;
+      if (!clientExtraRuleBlockReason(card, units, new Set([index]))) return true;
+    }
+  }
+  return false;
+}
+
+function clientExtraReadyFromField(units: UnitState[], card: CardDefinition, currentTurn: number): boolean {
+  const required = extraRequiredUnitCount(card);
+  if (required <= 0 || units.length < required) return false;
+  return clientUnitCombinations(units, required).some((selection) => clientSelectedExtraMaterialsValid(selection, card, currentTurn));
+}
 
 function CoinTossOverlay({ state, profiles, userId, now }: { state: MatchState; profiles: RoomProfile[]; userId: string; now: number }) {
   const toss = state.coinToss;
@@ -2686,6 +2798,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const nullableState = room.state;
   const [selectedHand, setSelectedHand] = useState<string | null>(null);
   const [selectedExtra, setSelectedExtra] = useState<string | null>(null);
+  const [selectedExtraChoice, setSelectedExtraChoice] = useState<number | null>(null);
   const [selectedMaterials, setSelectedMaterials] = useState<number[]>([]);
   const [selectedAttacker, setSelectedAttacker] = useState<number | null>(null);
   const [selectedFieldUnit, setSelectedFieldUnit] = useState<number | null>(null);
@@ -2799,6 +2912,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   useEffect(() => {
     setSelectedHand(null);
     setSelectedExtra(null);
+    setSelectedExtraChoice(null);
     setSelectedMaterials([]);
     setSelectedAttacker(null);
     setSelectedFieldUnit(null);
@@ -2814,6 +2928,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       if (event.key !== 'Escape') return;
       setSelectedHand(null);
       setSelectedExtra(null);
+      setSelectedExtraChoice(null);
       setSelectedMaterials([]);
       setSelectedAttacker(null);
       setSelectedFieldUnit(null);
@@ -2847,7 +2962,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
 
   useEffect(() => {
     if (!activeVfx) return;
-    const sound: UiSound = activeVfx.kind === 'attack' ? 'attack'
+    const sound: UiSound = activeVfx.kind === 'special' && (activeVfx.vfx === 'legendary-fusion-choice' || activeVfx.vfx === 'legendary-evolution-choice') ? 'success'
+      : activeVfx.kind === 'attack' ? 'attack'
       : activeVfx.kind === 'fusion' ? 'fusion'
         : activeVfx.kind === 'evolution' ? 'evolution'
           : activeVfx.kind === 'spell' ? 'spell'
@@ -2927,8 +3043,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const hoveredHandCard = hoveredHandCardId ? CARD_BY_ID[hoveredHandCardId] : undefined;
   const previewCard = selectedCard ?? selectedExtraCard ?? hoveredHandCard;
   const previewIsHoverOnly = Boolean(hoveredHandCard && !selectedCard && !selectedExtraCard);
-  const requiredMaterials = selectedExtraCard?.kind === 'fusion' ? selectedExtraCard.fusionRecipe?.materials.length ?? 0 : selectedExtraCard?.kind === 'evolution' ? 1 : 0;
-  const canExtraSummon = Boolean(selectedExtraCard && selectedExtra && selectedMaterials.length === requiredMaterials && myTurn && !interactionLocked && state.phase === 'main' && !busy);
+  const requiredMaterials = selectedExtraCard ? extraRequiredUnitCount(selectedExtraCard) : 0;
+  const selectedMaterialUnits = selectedMaterials
+    .map((zone) => state.boards[userId]?.units[zone])
+    .filter((unit): unit is UnitState => Boolean(unit));
+  const selectedMaterialsValid = Boolean(selectedExtraCard && clientSelectedExtraMaterialsValid(selectedMaterialUnits, selectedExtraCard, state.turnNumber));
+  const selectedExtraChoiceReady = Boolean(!selectedExtraCard?.extraChoices?.length || (selectedExtraChoice !== null && Boolean(selectedExtraCard.extraChoices[selectedExtraChoice])));
+  const canExtraSummon = Boolean(selectedExtraCard && selectedExtra && selectedMaterials.length === requiredMaterials && selectedMaterialsValid && selectedExtraChoiceReady && myTurn && !interactionLocked && state.phase === 'main' && !busy);
   const canAttemptExtraSummon = Boolean(selectedExtraCard && selectedExtra && myTurn && !interactionLocked && state.phase === 'main' && !busy);
   const canSpendTurnToDraw = Boolean(myTurn && state.phase === 'main' && !state.turnActionTaken && !busy && (state.deckCounts[userId] ?? 0) > 0);
   const myEnergy = state.energy[userId] ?? { current: 0, max: 0 };
@@ -2979,12 +3100,11 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     if (!card || card.cost > myEnergy.current || !myTurn || interactionLocked || state.phase !== 'main') return false;
     if (card.kind === 'fusion') {
       if (myExtraUsage.fusion >= 2 || myExtraTurn.fusion === state.turnNumber) return false;
-      const materials = card.fusionRecipe?.materials ?? [];
-      return materials.length > 0 && clientCanAssignFusion(myFieldUnits, materials, card);
+      return clientExtraReadyFromField(myFieldUnits, card, state.turnNumber);
     }
     if (card.kind === 'evolution') {
       if (myExtraUsage.evolution >= 2 || myExtraTurn.evolution === state.turnNumber) return false;
-      return myFieldUnits.some((unit) => clientEvolutionReady(unit, card, state.turnNumber));
+      return clientExtraReadyFromField(myFieldUnits, card, state.turnNumber);
     }
     return false;
   });
@@ -3026,14 +3146,12 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     if (card.kind === 'fusion') {
       if (myExtraUsage.fusion >= 2) reasons.push('공명 융합은 한 게임에 최대 2번만 사용할 수 있습니다.');
       if (myExtraTurn.fusion === state.turnNumber) reasons.push('공명 융합은 한 턴에 1번만 사용할 수 있습니다.');
-      const materials = card.fusionRecipe?.materials ?? [];
-      const broad = materials.some((material) => !material.cardIds?.length);
-      const detail = broad ? `범용 소재는 각 비용 ${card.rarity === 'legendary' ? 5 : 4} 이상` : '지정 소재 조합 필요';
-      if (!materials.length || !clientCanAssignFusion(myFieldUnits, materials, card)) reasons.push(`융합 소재 조건: ${card.fusionRecipe?.label ?? '지정 소재가 필요합니다.'} · ${detail}.`);
     } else if (card.kind === 'evolution') {
       if (myExtraUsage.evolution >= 2) reasons.push('계승 진화는 한 게임에 최대 2번만 사용할 수 있습니다.');
       if (myExtraTurn.evolution === state.turnNumber) reasons.push('계승 진화는 한 턴에 1번만 사용할 수 있습니다.');
-      if (!myFieldUnits.some((unit) => clientEvolutionReady(unit, card, state.turnNumber))) reasons.push(`진화 조건: ${card.evolutionRecipe?.label ?? '조건에 맞는 아군 유닛이 필요합니다.'} · ${evolutionSurvivalRequirement(card)}.`);
+    }
+    if ((card.kind === 'fusion' || card.kind === 'evolution') && !clientExtraReadyFromField(myFieldUnits, card, state.turnNumber)) {
+      reasons.push(`소환 소재 조건: ${extraRequirement(card)}.`);
     }
     return reasons;
   }
@@ -3046,6 +3164,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   function clearSelection(note = '') {
     setSelectedHand(null);
     setSelectedExtra(null);
+    setSelectedExtraChoice(null);
     setSelectedMaterials([]);
     setSelectedAttacker(null);
     setSelectedFieldUnit(null);
@@ -3082,6 +3201,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     setMessage('');
     setSelectedHand((current) => current === instanceId ? null : instanceId);
     setSelectedExtra(null);
+    setSelectedExtraChoice(null);
     setSelectedMaterials([]);
     setSelectedAttacker(null);
     setSelectedFieldUnit(null);
@@ -3099,6 +3219,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     }
     setMessage('');
     setSelectedExtra((current) => current === instanceId ? null : instanceId);
+    setSelectedExtraChoice(null);
     setSelectedHand(null);
     setSelectedMaterials([]);
     setSelectedAttacker(null);
@@ -3137,7 +3258,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
 
   function toggleMaterial(unitIndex: number) {
     if (!selectedExtraCard || !state.boards[userId].units[unitIndex]) return;
-    const limit = selectedExtraCard.kind === 'fusion' ? selectedExtraCard.fusionRecipe?.materials.length ?? 0 : 1;
+    const limit = extraRequiredUnitCount(selectedExtraCard);
     setSelectedMaterials((current) => {
       if (current.includes(unitIndex)) return current.filter((item) => item !== unitIndex);
       if (limit <= 1) return [unitIndex];
@@ -3278,11 +3399,18 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       showSummonBlock(selectedExtraCard, blockReasons);
       return;
     }
-    if (!canExtraSummon) {
-      showSummonBlock(selectedExtraCard, [`필요한 소재를 모두 선택해야 합니다. 현재 ${selectedMaterials.length}/${requiredMaterials}장 선택.`]);
+    if (selectedExtraCard.extraChoices?.length && selectedExtraChoice === null) {
+      setMessage('전설 엑스트라는 CHOOSE 1·2·3 중 발동할 효과를 먼저 선택하세요.');
       return;
     }
-    gameAction('extra_summon', { extraInstanceId: selectedExtra, materialZones: selectedMaterials });
+    if (!canExtraSummon) {
+      const detail = selectedMaterials.length !== requiredMaterials
+        ? `필요한 소재를 모두 선택해야 합니다. 현재 ${selectedMaterials.length}/${requiredMaterials}장 선택.`
+        : '선택한 소재 조합이 이 전설의 릴리스/비용/시리즈 조건을 만족하지 않습니다.';
+      showSummonBlock(selectedExtraCard, [detail, extraRequirement(selectedExtraCard)]);
+      return;
+    }
+    gameAction('extra_summon', { extraInstanceId: selectedExtra, materialZones: selectedMaterials, extraChoiceIndex: selectedExtraChoice ?? undefined });
   }
 
   function spendTurnToDraw() {
@@ -3297,7 +3425,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       ? selectedAttacker !== null
         ? directAttackOpen ? '상대 필드가 비었습니다. 상대 리더를 눌러 직접 공격하세요.' : '공격할 상대 유닛을 선택하세요.'
         : '빛나는 내 유닛을 선택해 공격을 선언하세요.'
-      : selectedExtraCard ? `소재 ${selectedMaterials.length}/${requiredMaterials} 선택 후 특수 소환하세요.`
+      : selectedExtraCard ? `${selectedExtraCard.extraChoices?.length && selectedExtraChoice === null ? 'CHOOSE 효과 1개 선택 · ' : ''}소재 ${selectedMaterials.length}/${requiredMaterials} 선택 후 특수 소환하세요.`
         : selectedFieldUnitState ? `선택한 ${selectedFieldUnitCard?.name ?? '캐릭터'}을(를) 묘지로 보내 빈 칸을 만들고 에너지 1을 얻을 수 있습니다.`
         : selectedCard?.kind === 'unit' ? '빛나는 빈 유닛 칸을 눌러 소환하세요.'
           : selectedCard?.kind === 'trap' ? '빛나는 빈 함정 칸을 눌러 세트하세요. 세트한 함정은 나에게만 앞면으로 보입니다.'
@@ -3550,11 +3678,21 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
             </div>
           )}
           {selectedExtraCard && (
-            <div className="v18-selected-card extra">
+            <div className="v18-selected-card extra v31f-selected-extra">
               <div className="v18-selected-art"><CardIllustration card={selectedExtraCard} compact /></div>
-              <div className="v18-selected-copy"><small>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</small><b>{selectedExtraCard.name}</b><p>{extraRequirement(selectedExtraCard)}</p><span className="v18-material-progress">소재 {selectedMaterials.length} / {requiredMaterials}</span><span className="v31-extra-usage">{selectedExtraCard.kind === 'fusion' ? `이번 게임 공명 ${myExtraUsage.fusion}/2` : `이번 게임 계승 ${myExtraUsage.evolution}/2`} · 턴당 1회</span></div>
+              <div className="v18-selected-copy"><small>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</small><b>{selectedExtraCard.name}</b><p>{extraRequirement(selectedExtraCard)}</p><span className="v18-material-progress">릴리스 소재 {selectedMaterials.length} / {requiredMaterials}</span><span className="v31-extra-usage">{selectedExtraCard.kind === 'fusion' ? `이번 게임 공명 ${myExtraUsage.fusion}/2` : `이번 게임 계승 ${myExtraUsage.evolution}/2`} · 턴당 1회</span></div>
+              {selectedExtraCard.extraChoices?.length && (
+                <div className="v31f-extra-choose">
+                  <header><span>CHOOSE EFFECT</span><small>소환이 성공하면 선택한 효과 1개만 발동합니다.</small></header>
+                  <div>{selectedExtraCard.extraChoices.map((choice, index) => (
+                    <button type="button" className={selectedExtraChoice === index ? 'selected' : ''} key={choice.id} onClick={() => { setSelectedExtraChoice(index); setMessage(`${index + 1}. ${choice.label} 선택 · 이제 릴리스 소재를 맞춰 소환하세요.`); }}>
+                      <b>{index + 1}</b><span><strong>{choice.label}</strong><small>{choice.description}</small></span>
+                    </button>
+                  ))}</div>
+                </div>
+              )}
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedExtraCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('엑스트라 카드 선택을 취소했습니다.')}>선택 취소</button></div>
-              <button className="v18-context-primary" disabled={!canAttemptExtraSummon} onClick={summonSelectedExtra}>{canExtraSummon ? (selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화') : '소환 조건 확인'}</button>
+              <button className="v18-context-primary" disabled={!canAttemptExtraSummon} onClick={summonSelectedExtra}>{canExtraSummon ? (selectedExtraCard.kind === 'fusion' ? '공명 융합 발동' : '계승 진화 발동') : selectedExtraCard.extraChoices?.length && selectedExtraChoice === null ? 'CHOOSE 효과 선택 필요' : '소환 조건 확인'}</button>
             </div>
           )}
         </section>}
@@ -3610,7 +3748,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         <div className="v18-extra-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) setExtraOpen(false); }}>
           <aside className="v18-extra-drawer">
             <header><div><small>EXTRA DECK</small><b>공명 융합 · 계승 진화</b></div><button type="button" onClick={() => setExtraOpen(false)}>×</button></header>
-            <p>빛나는 카드는 강화된 소재·생존 조건과 에너지를 모두 만족한 카드입니다. 계승은 원본 비용이 낮을수록 2~3라운드까지 준비가 필요하며, 공명과 계승은 각각 한 게임 2회·한 턴 1회입니다.</p>
+            <p>빛나는 카드는 소재·생존·릴리스·에너지 조건을 모두 만족한 카드입니다. 전설 계승은 최소 2체, APEX 전설은 최대 3체를 릴리스해야 하며 강력한 전설은 소재 비용 합·고등급 소재·시리즈 조건까지 요구합니다. 전설 엑스트라는 소환 전에 CHOOSE 1/2/3 중 원하는 효과를 1개 선택합니다.</p>
             <div className="v31-extra-drawer-usage"><span>공명 융합 <b>{myExtraUsage.fusion}/2</b></span><span>계승 진화 <b>{myExtraUsage.evolution}/2</b></span></div>
             <div>{privateState.extra.map((instance) => {
               const card = CARD_BY_ID[instance.cardId];
