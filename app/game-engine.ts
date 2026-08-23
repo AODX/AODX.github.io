@@ -1668,6 +1668,13 @@ function applyTacticalOnSummon(
         appendVisual(state, { kind: 'energy', vfx: 'tactical-afterburner', cardId: card.id, ownerId: playerId, targetZone: zone, label: '애프터버너' });
       }
       break;
+    case 'abyss_reaper':
+      if (card.abyssTacticalPassive === 'grave_armor' && (state.graveyards[opponentId]?.length ?? 0) >= 2) {
+        unit.shield += 1;
+        appendLog(state, `전술 · 묘향 갑주 — 「${card.name}」이(가) 상대 묘지의 기운을 받아 보호막 1 획득.`, 'special');
+        appendVisual(state, { kind: 'buff', vfx: 'tactical-grave-armor', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '묘향 갑주' });
+      }
+      break;
     case 'primal_guardian':
       if (allies.length > 0) {
         unit.shield += 1; unit.health += 1; unit.maxHealth += 1;
@@ -1723,13 +1730,18 @@ function applyTacticalOnAttackStart(state: MatchState, playerId: string, attacke
     appendLog(state, `전술 · 합금 충격 — 「${card.name}」의 이번 공격 피해 +1.`, 'special');
     return 1;
   }
+  if (card.seriesId === 'abyss_reaper' && card.abyssTacticalPassive === 'void_edge' && (state.graveyards[opponentId]?.length ?? 0) >= 4) {
+    appendLog(state, `전술 · 공허 칼날 — 「${card.name}」의 이번 공격 피해 +1.`, 'special');
+    appendVisual(state, { kind: 'buff', vfx: 'tactical-void-edge', cardId: card.id, ownerId: playerId, sourceZone: attackerIndex, amount: 1, label: '공허 칼날' });
+    return 1;
+  }
   return 0;
 }
 
 function applyTacticalOnKill(state: MatchState, playerId: string, attackerIndex: number): void {
   const attacker = state.boards[playerId].units[attackerIndex];
   const card = attacker ? CARD_BY_ID[attacker.cardId] : undefined;
-  if (card?.seriesId !== 'abyss_reaper') return;
+  if (card?.seriesId !== 'abyss_reaper' || card.abyssTacticalPassive !== 'devour_echo') return;
   const healed = healCore(state, playerId, 1);
   if (healed <= 0) return;
   statsFor(state, playerId).healing += healed;
@@ -1738,14 +1750,25 @@ function applyTacticalOnKill(state: MatchState, playerId: string, attackerIndex:
 }
 
 function applyTacticalOnDestroyed(state: MatchState, ownerId: string, card: CardDefinition | undefined): void {
-  if (card?.seriesId !== 'eclipsion') return;
-  if ((state.graveyards[ownerId]?.length ?? 0) < 4) return;
+  if (!card) return;
   const opponentId = otherPlayer(state, ownerId);
-  const actual = damageCore(state, opponentId, 1);
-  if (actual <= 0) return;
-  statsFor(state, ownerId).coreDamage += actual;
-  appendLog(state, `전술 · 잔향 포식 — 「${card.name}」의 파괴 잔향이 상대 코어에 1 피해.`, 'special');
-  appendVisual(state, { kind: 'core', vfx: 'tactical-echo', cardId: card.id, ownerId, targetOwnerId: opponentId, amount: actual, label: '잔향 포식' });
+  if (card.seriesId === 'eclipsion') {
+    if ((state.graveyards[ownerId]?.length ?? 0) < 4) return;
+    const actual = damageCore(state, opponentId, 1);
+    if (actual <= 0) return;
+    statsFor(state, ownerId).coreDamage += actual;
+    appendLog(state, `전술 · 잔향 포식 — 「${card.name}」의 파괴 잔향이 상대 코어에 1 피해.`, 'special');
+    appendVisual(state, { kind: 'core', vfx: 'tactical-echo', cardId: card.id, ownerId, targetOwnerId: opponentId, amount: actual, label: '잔향 포식' });
+    return;
+  }
+  if (card.seriesId === 'abyss_reaper' && card.abyssTacticalPassive === 'last_curse') {
+    if ((state.graveyards[opponentId]?.length ?? 0) < 3) return;
+    const actual = damageCore(state, opponentId, 1);
+    if (actual <= 0) return;
+    statsFor(state, ownerId).coreDamage += actual;
+    appendLog(state, `전술 · 최후의 저주 — 「${card.name}」이(가) 파괴되며 상대 코어에 1 피해.`, 'special');
+    appendVisual(state, { kind: 'core', vfx: 'tactical-last-curse', cardId: card.id, ownerId, targetOwnerId: opponentId, amount: actual, label: '최후의 저주' });
+  }
 }
 
 function applyTacticalOnTrap(state: MatchState, trapOwnerId: string, trapCard: CardDefinition): void {

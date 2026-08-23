@@ -981,14 +981,14 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
 
           {card.seriesId && (
             <section className="detail-section v25-series-profile">
-              <span>시리즈 전술</span>
-              <p><b>{card.series}</b> · {SERIES_BY_ID[card.seriesId].mechanic}</p>
+              <span>이 시리즈는 이렇게 사용</span>
+              <p>{SERIES_BY_ID[card.seriesId].mechanic}</p>
             </section>
           )}
 
           {tacticalAbilityDescription(card) && (
             <section className="detail-section v30-tactical-effect">
-              <span>TACTICAL PASSIVE · 전술 패시브</span>
+              <span>이 카드의 전술 패시브</span>
               <p>{tacticalAbilityDescription(card)}</p>
             </section>
           )}

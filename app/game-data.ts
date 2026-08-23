@@ -18,6 +18,12 @@ export type SeriesAbility =
   | { kind: 'recover_series'; amount: number };
 
 
+export type AbyssTacticalPassive =
+  | 'devour_echo'
+  | 'grave_armor'
+  | 'void_edge'
+  | 'last_curse';
+
 export type SeriesSignature =
   | 'lumina_beacon' | 'lumina_reinforce' | 'lumina_united' | 'lumina_finisher'
   | 'kaiser_repair' | 'kaiser_battery' | 'kaiser_overdrive' | 'kaiser_fortress'
@@ -173,6 +179,8 @@ export interface CardDefinition {
   seriesAbility?: SeriesAbility;
   /** One of four themed signature effects unique to this card series. */
   seriesSignature?: SeriesSignature;
+  /** Individual tactical passive used by Abyss Reaper units. */
+  abyssTacticalPassive?: AbyssTacticalPassive;
 }
 
 export interface PackOdds {
@@ -333,20 +341,28 @@ export function seriesSignatureDescription(card: CardDefinition): string {
 
 export function tacticalAbilityDescription(card: CardDefinition): string {
   if (!isUnitCard(card) || !card.seriesId) return '';
+  if (card.seriesId === 'abyss_reaper') {
+    switch (card.abyssTacticalPassive) {
+      case 'devour_echo': return '포식 반향 · 이 카드가 전투로 적을 파괴하면 내 코어 1 회복.';
+      case 'grave_armor': return '묘향 갑주 · 소환할 때 상대 묘지가 2장 이상이면 보호막 1 획득.';
+      case 'void_edge': return '공허 칼날 · 공격할 때 상대 묘지가 4장 이상이면 그 전투 피해 +1.';
+      case 'last_curse': return '최후의 저주 · 이 카드가 파괴될 때 상대 묘지가 3장 이상이면 상대 코어 1 피해.';
+      default: return '포식 반향 · 이 카드가 전투로 적을 파괴하면 내 코어 1 회복.';
+    }
+  }
   switch (card.seriesId) {
-    case 'luminaknights': return '전술 · 집결 출격: 같은 시리즈 아군이 이미 있으면 소환 시 자신 +1/+1.';
-    case 'kaisergear': return '전술 · 중장 장갑: 같은 시리즈 아군이 있으면 소환 시 보호막 1 획득.';
-    case 'eclipsion': return '전술 · 잔향 포식: 이 유닛이 파괴될 때 내 묘지가 4장 이상이면 상대 코어에 1 피해.';
-    case 'nocturne': return '전술 · 월영 회귀: 공격 선언 시 내 코어가 상대보다 낮으면 코어 1 회복.';
-    case 'arborian': return '전술 · 생장 맥동: 같은 시리즈 유닛을 소환하면 기존 아군 1장의 최대 체력/체력 +1.';
-    case 'tempest_drive': return '전술 · 애프터버너: 같은 시리즈 아군이 있으면 소환된 턴에도 즉시 공격 가능.';
-    case 'abyss_reaper': return '전술 · 포식 반향: 이 유닛의 전투로 적 유닛을 파괴하면 코어 1 회복.';
-    case 'primal_guardian': return '전술 · 군집 수호: 같은 시리즈 아군이 있으면 소환 시 보호막 1과 체력 +1.';
-    case 'chronorium': return '전술 · 시간 선점: 소환 후 에너지가 2 이상 남아 있으면 공격력 +1과 보호막 1.';
-    case 'arcana_protocol': return '전술 · 규약 재기록: 내 묘지에 주문이 2장 이상이면 소환 시 카드 1장 드로우.';
-    case 'beastforge': return '전술 · 합금 충격: 보호막을 가진 상태로 공격하면 그 전투에서 공격 피해 +1.';
-    case 'phantom_carnival': return '전술 · 앙코르 트릭: 내 함정이 발동할 때 내 팬텀 카니발 유닛 1장을 +1/+1.';
-    case 'astral_armada': return '전술 · 편대 방벽: 같은 시리즈 유닛이 2장 이상이 되면 소환 시 편대 전원 보호막 +1.';
+    case 'luminaknights': return '집결 출격 · 같은 시리즈 아군이 이미 있으면 소환 시 자신 +1/+1.';
+    case 'kaisergear': return '중장 장갑 · 같은 시리즈 아군이 있으면 소환 시 보호막 1 획득.';
+    case 'eclipsion': return '잔향 포식 · 이 유닛이 파괴될 때 내 묘지가 4장 이상이면 상대 코어에 1 피해.';
+    case 'nocturne': return '월영 회귀 · 공격 선언 시 내 코어가 상대보다 낮으면 코어 1 회복.';
+    case 'arborian': return '생장 맥동 · 같은 시리즈 유닛을 소환하면 기존 아군 1장의 최대 체력/체력 +1.';
+    case 'tempest_drive': return '애프터버너 · 같은 시리즈 아군이 있으면 소환된 턴에도 즉시 공격 가능.';
+    case 'primal_guardian': return '군집 수호 · 같은 시리즈 아군이 있으면 소환 시 보호막 1과 체력 +1.';
+    case 'chronorium': return '시간 선점 · 소환 후 에너지가 2 이상 남아 있으면 공격력 +1과 보호막 1.';
+    case 'arcana_protocol': return '규약 재기록 · 내 묘지에 주문이 2장 이상이면 소환 시 카드 1장 드로우.';
+    case 'beastforge': return '합금 충격 · 보호막을 가진 상태로 공격하면 그 전투에서 공격 피해 +1.';
+    case 'phantom_carnival': return '앙코르 트릭 · 내 함정이 발동할 때 내 팬텀 카니발 유닛 1장을 +1/+1.';
+    case 'astral_armada': return '편대 방벽 · 같은 시리즈 유닛이 2장 이상이 되면 소환 시 편대 전원 보호막 +1.';
     default: return '';
   }
 }
@@ -2007,19 +2023,19 @@ const V31H_SERIES_SIGNATURES: Record<SeriesId, [SeriesSignature, SeriesSignature
 };
 
 const V31H_SERIES_MECHANICS: Record<SeriesId, string> = {
-  luminaknights: '성휘 신호 · 히어로 증원 · 연합 방진 · 결전 섬광',
-  kaisergear: '긴급 수리 · 실드 배터리 · 장갑 오버드라이브 · 황제 방벽',
-  eclipsion: '묘지의 잔향 · 공허 섭식 · 일식 재생 · 심층 공명',
-  nocturne: '월영 치유 · 환영 퇴장 · 몽환 탐색 · 거울 장막',
-  arborian: '세계수의 씨앗 · 급속 생장 · 재생 수액 · 만개',
-  tempest_drive: '애프터버너 점화 · 전압 축적 · 연쇄 낙뢰 · 초가속 모멘텀',
-  abyss_reaper: '영혼 포식 · 심연 수확 · 사형 집행 · 검은 흡수',
-  primal_guardian: '수호령 현현 · 무리의 결속 · 대지의 품 · 야생 생명력',
-  chronorium: '시간 가속 · 시간 되감기 · 미래 관측 · 상태 복원',
-  arcana_protocol: '주문 각인 · 규약 재사용 · 마법 연쇄 · 봉인식',
-  beastforge: '야수 수복 · 합금 장갑 · 포식 추적 · 장갑 격노',
-  phantom_carnival: '무대 뒤 장치 · 앙코르 회수 · 시선 돌리기 · 관객의 박수',
-  astral_armada: '정찰 드론 출격 · 편대 일제사격 · 함대 재충전 · 성해 진형',
+  luminaknights: '같은 시리즈를 많이 전개할수록 드로우·증원·단체 강화·코어 마무리가 열립니다.',
+  kaisergear: '보호막을 쌓아 버티고, 남은 보호막을 에너지와 공격 강화로 바꾸는 중장기 덱입니다.',
+  eclipsion: '묘지를 쌓고 일부 카드를 소멸시키면서 회수·부활·드로우 보상을 얻습니다.',
+  nocturne: '내 코어가 불리할 때 회복·바운스·서치로 흐름을 되찾는 역전형 컨트롤 덱입니다.',
+  arborian: '작은 토큰을 늘리고 체력을 키우며 전장을 오래 유지할수록 강해지는 성장 덱입니다.',
+  tempest_drive: '소환한 턴의 즉시 공격과 에너지 회복을 이어 빠르게 압박하는 템포 덱입니다.',
+  abyss_reaper: '상대 묘지를 먹어 자원을 끊고, 묘지가 쌓이면 처형·흡수·추가 피해로 압박합니다.',
+  primal_guardian: '아군 수를 늘려 수호령·강화·보호막을 함께 얻는 무리 전개형 덱입니다.',
+  chronorium: '에너지를 앞당기고 묘지 카드를 되감아 한 턴의 선택지를 늘리는 운영형 덱입니다.',
+  arcana_protocol: '주문을 여러 번 사용해 서치·재사용·에너지 회복·봉인 효과를 연결하는 주문 콤보 덱입니다.',
+  beastforge: '보호막으로 버티다가 장갑을 공격력으로 전환해 큰 한 방을 노리는 기갑 덱입니다.',
+  phantom_carnival: '함정을 세트·회수하고 상대 카드를 되돌리며 타이밍을 빼앗는 함정 컨트롤 덱입니다.',
+  astral_armada: '편대를 늘려 드론·보호막·에너지를 확보하고 일제사격으로 마무리하는 함대 덱입니다.',
 };
 
 for (const series of CARD_SERIES) series.mechanic = V31H_SERIES_MECHANICS[series.id];
@@ -2068,6 +2084,15 @@ for (const series of CARD_SERIES) {
     if (selectedUnits[index]) selectedUnits[index].seriesSignature = signature;
     if (selectedSupports[index]) selectedSupports[index].seriesSignature = signature;
   });
+}
+
+/* v31i: Abyss Reaper units no longer all share one tactical passive. */
+const V31I_ABYSS_PASSIVES: AbyssTacticalPassive[] = ['devour_echo', 'grave_armor', 'void_edge', 'last_curse'];
+const v31iAbyssUnits = CARDS
+  .filter((card) => card.seriesId === 'abyss_reaper' && (card.kind === 'unit' || card.kind === 'fusion' || card.kind === 'evolution'))
+  .sort((a, b) => a.cost - b.cost || a.rarity.localeCompare(b.rarity) || a.id.localeCompare(b.id));
+for (const [index, card] of v31iAbyssUnits.entries()) {
+  card.abyssTacticalPassive = V31I_ABYSS_PASSIVES[index % V31I_ABYSS_PASSIVES.length];
 }
 
 export function extraSummonRuleDescription(card: CardDefinition): string {
