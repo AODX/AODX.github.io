@@ -3688,7 +3688,10 @@
   box-shadow:0 0 18px color-mix(in srgb,var(--detail-accent,#7edfff) 54%,transparent);
 }
 .v23-client .v31l-primary-effect p { color:#d6e2ea!important;font-size:13px!important;line-height:1.72!important; }
-.v23-client .v31l-ability-copy { display:grid!important;grid-template-columns:minmax(110px,max-content) minmax(0,1fr);align-items:start;gap:10px!important; }
+.v23-client .v31l-ability-copy { display:grid!important;grid-template-columns:max-content minmax(0,1fr);align-items:start;gap:10px!important; }
+.v23-client .v31l-rule-text { display:inline;min-width:0;white-space:normal;word-break:keep-all;overflow-wrap:anywhere; }
+.v23-client .v31l-ability-copy>.v31l-rule-text { display:block;min-width:0;line-height:1.68; }
+.v23-client .v31l-rule-text>.v31l-rule-token { display:inline!important; }
 .v23-client .v31l-ability-copy>b {
   display:inline-flex;
   width:max-content;

@@ -2213,6 +2213,7 @@ function riftConditionMet(state: MatchState, playerId: string, card: CardDefinit
   const enemyUnits = state.boards[opponentId].units.filter(Boolean);
   switch (condition.kind) {
     case 'empty_board': return myUnits.length === 0;
+    case 'empty_board_and_graveyard_min': return myUnits.length === 0 && (state.graveyards[playerId]?.length ?? 0) >= condition.value;
     case 'core_below': return (state.core[playerId] ?? CORE_MAX) <= condition.value;
     case 'opponent_more_units': return enemyUnits.length > myUnits.length;
     case 'graveyard_min': return (state.graveyards[playerId]?.length ?? 0) >= condition.value;

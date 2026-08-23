@@ -687,12 +687,12 @@ function polishedCardText(card: CardDefinition): string {
 function RuleText({ text, compact = false }: { text: string; compact?: boolean }) {
   const source = text || '';
   const tokenPattern = /(【[^】]+】|ENERGY|코어|보호막|공격력|체력|수호|속공|흡수|관통|직격|공명 융합|계승 진화|균열 소환|\+\d+|−\d+|-\d+|\d+\/\d+|\d+장|\d+체|\d+의 피해|\d+ 피해|\d+ 회복)/g;
-  return <>{source.split(tokenPattern).filter(Boolean).map((part, index) => {
+  return <span className={`v31l-rule-text ${compact ? 'compact' : ''}`}>{source.split(tokenPattern).filter(Boolean).map((part, index) => {
     const keyword = /^(【|수호$|속공$|흡수$|관통$|직격$|공명 융합$|계승 진화$|균열 소환$)/.test(part);
     const number = /^(\+|−|-)?\d|\d+장$|\d+체$/.test(part);
     const resource = /^(ENERGY|코어|보호막|공격력|체력)$/.test(part);
     return <span key={`${part}-${index}`} className={`v31l-rule-token ${keyword ? 'keyword' : number ? 'number' : resource ? 'resource' : ''} ${compact ? 'compact' : ''}`}>{part}</span>;
-  })}</>;
+  })}</span>;
 }
 
 function splitAbilityCopy(text: string): { name: string; description: string } {
@@ -2770,6 +2770,7 @@ function clientRiftReady(state: MatchState, playerId: string, opponentId: string
   const myUnits = state.boards[playerId].units.filter(Boolean);
   const enemyUnits = state.boards[opponentId].units.filter(Boolean);
   if (condition.kind === 'empty_board') return myUnits.length === 0;
+  if (condition.kind === 'empty_board_and_graveyard_min') return myUnits.length === 0 && (state.graveyards[playerId]?.length ?? 0) >= condition.value;
   if (condition.kind === 'core_below') return (state.core[playerId] ?? 25) <= condition.value;
   if (condition.kind === 'opponent_more_units') return enemyUnits.length > myUnits.length;
   if (condition.kind === 'graveyard_min') return (state.graveyards[playerId]?.length ?? 0) >= condition.value;
@@ -2783,6 +2784,12 @@ function clientRiftBlockReason(state: MatchState, playerId: string, opponentId: 
   const myUnits = state.boards[playerId].units.filter(Boolean);
   const enemyUnits = state.boards[opponentId].units.filter(Boolean);
   if (condition.kind === 'empty_board' && myUnits.length > 0) return `내 필드가 비어 있어야 합니다. 현재 내 유닛 ${myUnits.length}장.`;
+  if (condition.kind === 'empty_board_and_graveyard_min') {
+    const graveCount = state.graveyards[playerId]?.length ?? 0;
+    if (myUnits.length > 0 && graveCount < condition.value) return `내 필드를 비우고 묘지에 카드 ${condition.value}장 이상을 준비해야 합니다. 현재 필드 ${myUnits.length}장 / 묘지 ${graveCount}장.`;
+    if (myUnits.length > 0) return `내 필드가 비어 있어야 합니다. 현재 내 유닛 ${myUnits.length}장.`;
+    if (graveCount < condition.value) return `내 묘지에 카드가 ${condition.value}장 이상 필요합니다. 현재 ${graveCount}장.`;
+  }
   if (condition.kind === 'core_below' && (state.core[playerId] ?? 25) > condition.value) return `내 HP가 ${condition.value} 이하일 때만 가능합니다. 현재 HP ${state.core[playerId] ?? 25}.`;
   if (condition.kind === 'opponent_more_units' && enemyUnits.length <= myUnits.length) return `상대 유닛 수가 내 유닛보다 많아야 합니다. 현재 나 ${myUnits.length} / 상대 ${enemyUnits.length}.`;
   if (condition.kind === 'graveyard_min' && (state.graveyards[playerId]?.length ?? 0) < condition.value) return `내 묘지에 카드가 ${condition.value}장 이상 필요합니다. 현재 ${state.graveyards[playerId]?.length ?? 0}장.`;
