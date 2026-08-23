@@ -2579,8 +2579,8 @@ function evolutionRequiredTurnGap(sourceCard: CardDefinition, evolutionCard: Car
   const namedRecipe = Boolean(evolutionCard.evolutionRecipe?.fromIds?.length);
   let baseGap = 4;
 
-  // Cheap predecessors need a real setup window instead of immediately turning
-  // into an apex body. 2 global turns = 1 full round.
+  // This value now defines a GLOBAL match-round unlock threshold.
+  // 2 global turns = 1 full ROUND; the source itself does not need to survive.
   if (namedRecipe) {
     if (evolutionCard.rarity === 'legendary') {
       if (sourceCard.cost <= 3) baseGap = 6;
@@ -2591,7 +2591,7 @@ function evolutionRequiredTurnGap(sourceCard: CardDefinition, evolutionCard: Car
     else baseGap = 2;
   }
 
-  // v31f apex legends require one additional full round of field commitment.
+  // v31f apex legends unlock one full ROUND later.
   return baseGap + (evolutionCard.extraSummonRule?.sourceExtraTurnGap ?? 0);
 }
 
@@ -2608,22 +2608,25 @@ function evolutionBaseMatches(unit: UnitState, card: CardDefinition): boolean {
     && (recipe.maxCost === undefined || source.cost <= recipe.maxCost);
 }
 
+function globalRoundNumber(turnNumber: number): number {
+  return Math.max(1, Math.ceil(turnNumber / 2));
+}
+
 function evolutionProgress(unit: UnitState, card: CardDefinition, turnNumber: number) {
   const source = CARD_BY_ID[unit.cardId];
   if (!source || !evolutionBaseMatches(unit, card)) return null;
   const requiredGap = evolutionRequiredTurnGap(source, card);
-  const elapsedTurns = Math.max(0, turnNumber - unit.summonedTurn);
   const requiredRounds = Math.max(1, Math.ceil(requiredGap / 2));
-  const completedRounds = Math.min(requiredRounds, Math.floor(elapsedTurns / 2));
-  const remainingRounds = Math.max(0, Math.ceil(Math.max(0, requiredGap - elapsedTurns) / 2));
+  const currentRound = globalRoundNumber(turnNumber);
+  const remainingRounds = Math.max(0, requiredRounds - currentRound);
   return {
     source,
     requiredGap,
-    elapsedTurns,
     requiredRounds,
-    completedRounds,
+    currentRound,
+    completedRounds: Math.min(requiredRounds, currentRound),
     remainingRounds,
-    ready: elapsedTurns >= requiredGap,
+    ready: currentRound >= requiredRounds,
   };
 }
 
@@ -2643,18 +2646,13 @@ function evolutionProgressFailureReasons(units: UnitState[], card: CardDefinitio
     reasons.push(`계승 원본 「${sourceLabel}」이 ${candidates.length}/${requiredSources}체입니다.`);
   }
 
-  candidates
-    .filter((entry) => !entry.progress.ready)
-    .forEach((entry, index) => {
-      const suffix = candidates.length > 1 ? ` ${index + 1}` : '';
-      reasons.push(
-        `「${entry.progress.source.name}」${suffix} — 현재 ${entry.progress.completedRounds}/${entry.progress.requiredRounds}라운드 생존 · 앞으로 ${entry.progress.remainingRounds}라운드 더 필요합니다.`,
-      );
-    });
-
-  const readyCount = candidates.filter((entry) => entry.progress.ready).length;
-  if (candidates.length >= requiredSources && readyCount < requiredSources && reasons.length === 0) {
-    reasons.push(`생존 조건을 완료한 계승 원본이 ${readyCount}/${requiredSources}체입니다.`);
+  const blockedByRound = candidates.filter((entry) => !entry.progress.ready);
+  if (blockedByRound.length > 0) {
+    const requiredRound = Math.max(...blockedByRound.map((entry) => entry.progress.requiredRounds));
+    const currentRound = globalRoundNumber(turnNumber);
+    reasons.push(
+      `ROUND ${requiredRound}부터 계승 진화할 수 있습니다. 현재 ROUND ${currentRound}${currentRound < requiredRound ? ` · 앞으로 ${requiredRound - currentRound}라운드` : ''}.`,
+    );
   }
   return reasons;
 }
@@ -2745,7 +2743,7 @@ export function summonExtra(
       throw new Error(
         progressReasons.length > 0
           ? `계승 진화 준비가 부족합니다: ${progressReasons.join(' / ')}`
-          : `진화 조건이 맞지 않습니다: ${card.evolutionRecipe?.label} · 생존 조건을 만족한 계승 원본 ${sourceCopies}체가 필요합니다.`,
+          : `진화 조건이 맞지 않습니다: ${card.evolutionRecipe?.label} · ROUND 조건을 만족한 계승 원본 ${sourceCopies}체가 필요합니다.`,
       );
     }
 

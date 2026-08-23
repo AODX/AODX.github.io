@@ -744,12 +744,12 @@ function summonConditionDescription(card: CardDefinition): string {
       const rounds = Math.max(1, Math.ceil(Math.max(...sources.map((source) => clientEvolutionRequiredTurnGap(source, card))) / 2));
       const sourceName = sources.length === 1 ? sources[0].name : (card.evolutionRecipe?.label ?? '지정 원본').replace(/\s*계승$/, '');
       const sourceCopies = card.extraSummonRule?.requiredSourceCopies ?? 1;
-      const sourceText = sourceCopies > 1 ? `${sourceName} ${sourceCopies}체(각 ${rounds}라운드 생존)` : `${sourceName}(${rounds}라운드 생존)`;
+      const sourceText = sourceCopies > 1 ? `${sourceName} ${sourceCopies}체 · ROUND ${rounds} 이후` : `${sourceName} · ROUND ${rounds} 이후`;
       const extra = card.extraSummonRule ? extraSummonRuleDescription(card) : '';
       const cleanedExtra = sourceCopies > 1 ? extra.replace(/^계승 원본 \d+체(?: · )?/, '') : extra;
       return [sourceText, cleanedExtra].filter(Boolean).join(' · ');
     }
-    return `${card.evolutionRecipe?.label ?? '조건 유닛'} · 2라운드`;
+    return `${card.evolutionRecipe?.label ?? '조건 유닛'} · ROUND 2 이후`;
   }
   return '';
 }
@@ -2738,14 +2738,14 @@ function clientEvolutionRequiredTurnGap(source: CardDefinition, evolutionCard: C
   return baseGap + (evolutionCard.extraSummonRule?.sourceExtraTurnGap ?? 0);
 }
 
-function evolutionSurvivalRequirement(card: CardDefinition): string {
+function evolutionRoundRequirement(card: CardDefinition): string {
   const sources = (card.evolutionRecipe?.fromIds ?? []).map((id) => CARD_BY_ID[id]).filter((source): source is CardDefinition => Boolean(source));
   if (sources.length > 0) {
     const longestGap = Math.max(...sources.map((source) => clientEvolutionRequiredTurnGap(source, card)));
     const rounds = Math.max(1, Math.ceil(longestGap / 2));
-    return `${rounds}라운드 유지`;
+    return `ROUND ${rounds} 이후`;
   }
-  return `비용 ${card.rarity === 'legendary' ? 6 : 5}+ 원본 · 2라운드`;
+  return `비용 ${card.rarity === 'legendary' ? 6 : 5}+ 원본 · ROUND 2 이후`;
 }
 
 function extraRequirement(card: CardDefinition): string {
@@ -2761,10 +2761,10 @@ function extraRequirement(card: CardDefinition): string {
   if (card.kind === 'evolution') {
     const sourceLabel = (card.evolutionRecipe?.label ?? '지정 원본').replace(/\s*계승$/, '');
     const sourceCopies = card.extraSummonRule?.requiredSourceCopies ?? 1;
-    const survival = evolutionSurvivalRequirement(card).replace(' 유지', '');
+    const roundGate = evolutionRoundRequirement(card);
     const sourceText = sourceCopies > 1
-      ? `${sourceLabel} ${sourceCopies}체(각 ${survival} 생존)`
-      : `${sourceLabel}(${survival} 생존)`;
+      ? `${sourceLabel} ${sourceCopies}체 · ${roundGate}`
+      : `${sourceLabel} · ${roundGate}`;
     const cleanedPremium = sourceCopies > 1 ? premiumRule.replace(/^계승 원본 \d+체(?: · )?/, '') : premiumRule;
     return [sourceText, cleanedPremium, choose].filter(Boolean).join(' · ');
   }
@@ -2900,22 +2900,25 @@ function clientEvolutionBaseMatches(unit: UnitState, card: CardDefinition): bool
     && (recipe.maxCost === undefined || source.cost <= recipe.maxCost);
 }
 
+function clientRoundNumber(currentTurn: number): number {
+  return Math.max(1, Math.ceil(currentTurn / 2));
+}
+
 function clientEvolutionProgress(unit: UnitState, card: CardDefinition, currentTurn: number) {
   const source = CARD_BY_ID[unit.cardId];
   if (!source || !clientEvolutionBaseMatches(unit, card)) return null;
   const requiredGap = clientEvolutionRequiredTurnGap(source, card);
-  const elapsedTurns = Math.max(0, currentTurn - unit.summonedTurn);
   const requiredRounds = Math.max(1, Math.ceil(requiredGap / 2));
-  const completedRounds = Math.min(requiredRounds, Math.floor(elapsedTurns / 2));
-  const remainingRounds = Math.max(0, Math.ceil(Math.max(0, requiredGap - elapsedTurns) / 2));
+  const currentRound = clientRoundNumber(currentTurn);
+  const remainingRounds = Math.max(0, requiredRounds - currentRound);
   return {
     source,
     requiredGap,
-    elapsedTurns,
     requiredRounds,
-    completedRounds,
+    currentRound,
+    completedRounds: Math.min(requiredRounds, currentRound),
     remainingRounds,
-    ready: elapsedTurns >= requiredGap,
+    ready: currentRound >= requiredRounds,
   };
 }
 
@@ -2961,17 +2964,15 @@ function clientExtraProgressReasons(units: UnitState[], card: CardDefinition, cu
     }
 
     const notReady = candidates.filter((entry) => !entry.progress.ready);
-    notReady.forEach((entry, order) => {
-      const suffix = candidates.length > 1 ? ` ${order + 1}` : '';
+    if (notReady.length > 0) {
+      const requiredRound = Math.max(...notReady.map((entry) => entry.progress.requiredRounds));
+      const currentRound = clientRoundNumber(currentTurn);
       reasons.push(
-        `「${entry.progress.source.name}」${suffix} 생존 진행도: 현재 ${entry.progress.completedRounds}/${entry.progress.requiredRounds}라운드 · 앞으로 ${entry.progress.remainingRounds}라운드 더 필요.`,
+        `아직 소환 시기가 아닙니다. ROUND ${requiredRound}부터 계승 진화할 수 있습니다. 현재 ROUND ${currentRound}${currentRound < requiredRound ? ` · 앞으로 ${requiredRound - currentRound}라운드` : ''}.`,
       );
-    });
+    }
 
     const readyCandidates = candidates.filter((entry) => entry.progress.ready);
-    if (candidates.length >= sourceCopies && readyCandidates.length < sourceCopies && notReady.length === 0) {
-      reasons.push(`생존 조건을 완료한 계승 원본이 ${readyCandidates.length}/${sourceCopies}체입니다.`);
-    }
 
     const rule = card.extraSummonRule;
     if (rule && readyCandidates.length >= sourceCopies && units.length >= requiredTotal) {
@@ -4032,7 +4033,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         <div className="v18-extra-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) setExtraOpen(false); }}>
           <aside className="v18-extra-drawer">
             <header><div><small>EXTRA DECK</small><b>공명 융합 · 계승 진화</b></div><button type="button" onClick={() => setExtraOpen(false)}>×</button></header>
-            <p>빛나는 카드는 소재·생존·릴리스·에너지 조건을 모두 만족한 카드입니다. 전설 계승은 최소 2체, APEX 전설은 최대 3체를 릴리스해야 하며 강력한 전설은 소재 비용 합·고등급 소재·시리즈 조건까지 요구합니다. 전설 엑스트라는 소환 전에 CHOOSE 1/2/3 중 원하는 효과를 1개 선택합니다.</p>
+            <p>빛나는 카드는 소재·ROUND 해금·릴리스·에너지 조건을 모두 만족한 카드입니다. 전설 계승은 최소 2체, APEX 전설은 최대 3체를 릴리스해야 하며 강력한 전설은 소재 비용 합·고등급 소재·시리즈 조건까지 요구합니다. 전설 엑스트라는 소환 전에 CHOOSE 1/2/3 중 원하는 효과를 1개 선택합니다.</p>
             <div className="v31-extra-drawer-usage"><span>공명 융합 <b>{myExtraUsage.fusion}/2</b></span><span>계승 진화 <b>{myExtraUsage.evolution}/2</b></span></div>
             <div>{privateState.extra.map((instance) => {
               const card = CARD_BY_ID[instance.cardId];
