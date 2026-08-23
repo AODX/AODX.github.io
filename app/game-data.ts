@@ -17,6 +17,22 @@ export type SeriesAbility =
   | { kind: 'gain_energy_if_series'; amount: number; minimumAllies?: number }
   | { kind: 'recover_series'; amount: number };
 
+
+export type SeriesSignature =
+  | 'lumina_beacon' | 'lumina_reinforce' | 'lumina_united' | 'lumina_finisher'
+  | 'kaiser_repair' | 'kaiser_battery' | 'kaiser_overdrive' | 'kaiser_fortress'
+  | 'eclipse_echo' | 'eclipse_devour' | 'eclipse_rebirth' | 'eclipse_resonance'
+  | 'nocturne_moonheal' | 'nocturne_illusion' | 'nocturne_dreamsearch' | 'nocturne_mirrorveil'
+  | 'arborian_seed' | 'arborian_growth' | 'arborian_regrowth' | 'arborian_bloom'
+  | 'tempest_afterburn' | 'tempest_voltage' | 'tempest_chainbolt' | 'tempest_momentum'
+  | 'abyss_feast' | 'abyss_harvest' | 'abyss_execute' | 'abyss_drain'
+  | 'primal_spirit' | 'primal_pack' | 'primal_shelter' | 'primal_vitality'
+  | 'chrono_accelerate' | 'chrono_rewind' | 'chrono_foresee' | 'chrono_reset'
+  | 'arcana_inscribe' | 'arcana_recycle' | 'arcana_chain' | 'arcana_hex'
+  | 'beast_repair' | 'beast_plating' | 'beast_hunt' | 'beast_rage'
+  | 'phantom_set' | 'phantom_encore' | 'phantom_misdirect' | 'phantom_applause'
+  | 'astral_drone' | 'astral_salvo' | 'astral_recharge' | 'astral_formation';
+
 export type Effect =
   | { kind: 'damage_unit'; amount: number }
   | { kind: 'damage_core'; amount: number }
@@ -35,7 +51,16 @@ export type Effect =
   | { kind: 'erase_opponent_grave'; amount: number; draw: number }
   | { kind: 'reweave_hand'; bonusDraw: number }
   | { kind: 'mirror_unit' }
-  | { kind: 'exchange_hands' };
+  | { kind: 'exchange_hands' }
+  | { kind: 'ready_unit' }
+  | { kind: 'bounce_unit' }
+  | { kind: 'heal_unit'; amount: number }
+  | { kind: 'sacrifice_draw'; amount: number }
+  | { kind: 'damage_draw_if_destroyed'; amount: number; draw: number }
+  | { kind: 'recruit_unit'; maxCost: number }
+  | { kind: 'recover_grave_unit'; amount: number }
+  | { kind: 'draw_if_outnumbered'; base: number; bonus: number }
+  | { kind: 'swap_stats' };
 
 export type TrapTrigger =
   | 'spell_played'
@@ -75,7 +100,7 @@ export interface EvolutionRecipe {
 }
 
 export interface ExtraSummonRule {
-  tier: 'legendary' | 'apex';
+  tier: 'elite' | 'legendary' | 'apex';
   /** Extra field units consumed in addition to the printed fusion recipe / evolution source. */
   additionalTributes: number;
   /** Minimum printed cost for every additional tribute. */
@@ -146,6 +171,8 @@ export interface CardDefinition {
   series?: string;
   seriesId?: SeriesId;
   seriesAbility?: SeriesAbility;
+  /** One of four themed signature effects unique to this card series. */
+  seriesSignature?: SeriesSignature;
 }
 
 export interface PackOdds {
@@ -229,6 +256,80 @@ export function seriesAbilityDescription(card: CardDefinition): string {
   return '';
 }
 
+
+
+export const SERIES_SIGNATURE_META: Record<SeriesSignature, { name: string; description: string }> = {
+  lumina_beacon: { name: '성휘 신호', description: '루미나이츠 2체 이상이면 1장 드로우.' },
+  lumina_reinforce: { name: '히어로 증원', description: '루미나이츠 2체 이상이면 덱의 2코스트 이하 루미나이츠 1체 전개.' },
+  lumina_united: { name: '연합 방진', description: '루미나이츠 3체 이상이면 아군 루미나이츠 전원 체력 +1.' },
+  lumina_finisher: { name: '결전 섬광', description: '루미나이츠 4체 이상이면 상대 코어 2 피해.' },
+
+  kaiser_repair: { name: '긴급 수리', description: '카이저기어 1체의 보호막 +2.' },
+  kaiser_battery: { name: '실드 배터리', description: '카이저기어 보호막 합계가 4 이상이면 에너지 1 회복.' },
+  kaiser_overdrive: { name: '장갑 오버드라이브', description: '보호막이 있는 카이저기어 1체 공격력 +1.' },
+  kaiser_fortress: { name: '황제 방벽', description: '카이저기어 3체 이상이면 전원 보호막 +1.' },
+
+  eclipse_echo: { name: '묘지의 잔향', description: '내 묘지 4장 이상이면 이클립시온 카드 1장 회수.' },
+  eclipse_devour: { name: '공허 섭식', description: '내 묘지 3장 이상이면 1장 소멸 후 상대 코어 1 피해.' },
+  eclipse_rebirth: { name: '일식 재생', description: '내 묘지 5장 이상이면 2코스트 이하 이클립시온 1체를 체력 1로 부활.' },
+  eclipse_resonance: { name: '심층 공명', description: '내 묘지 7장 이상이면 1장 드로우 + 에너지 1 회복.' },
+
+  nocturne_moonheal: { name: '월영 치유', description: '내 코어가 더 낮으면 코어 2 회복.' },
+  nocturne_illusion: { name: '환영 퇴장', description: '내 코어가 더 낮으면 3코스트 이하 적 1체를 되돌림.' },
+  nocturne_dreamsearch: { name: '몽환 탐색', description: '녹턴 미라주 2체 이상이면 덱에서 녹턴 주문 1장 서치.' },
+  nocturne_mirrorveil: { name: '거울 장막', description: '녹턴 미라주 2체 이상이면 아군 1체 보호막 +2.' },
+
+  arborian_seed: { name: '세계수의 씨앗', description: '아르보리아가 있으면 빈 칸에 1/2 새싹 토큰 소환.' },
+  arborian_growth: { name: '급속 생장', description: '아르보리아 2체 이상이면 아군 1체 체력 +2.' },
+  arborian_regrowth: { name: '재생 수액', description: '아르보리아 2체 이상이면 아군 아르보리아 전원 체력 1 회복.' },
+  arborian_bloom: { name: '만개', description: '아르보리아 3체 이상이면 코어 2 회복.' },
+
+  tempest_afterburn: { name: '애프터버너 점화', description: '이번 턴 소환한 템페스트 1체를 즉시 공격 가능하게 함.' },
+  tempest_voltage: { name: '전압 축적', description: '템페스트 2체 이상이면 에너지 1 회복.' },
+  tempest_chainbolt: { name: '연쇄 낙뢰', description: '템페스트 2체 이상이면 가장 약한 적에게 1 피해. 적이 없으면 코어 1 피해.' },
+  tempest_momentum: { name: '초가속 모멘텀', description: '템페스트 3체 이상이면 1장 드로우.' },
+
+  abyss_feast: { name: '영혼 포식', description: '상대 묘지 1장을 소멸시키고 내 코어 1 회복.' },
+  abyss_harvest: { name: '심연 수확', description: '내 묘지 4장 이상이면 1장 드로우.' },
+  abyss_execute: { name: '사형 집행', description: '상대 묘지 2장 이상이면 가장 약한 적에게 2 피해.' },
+  abyss_drain: { name: '검은 흡수', description: '상대 묘지 4장 이상이면 상대 코어 1 피해 + 내 코어 1 회복.' },
+
+  primal_spirit: { name: '수호령 현현', description: '프라이멀 2체 이상이면 빈 칸에 2/2 수호령 토큰 소환.' },
+  primal_pack: { name: '무리의 결속', description: '프라이멀 2체 이상이면 아군 1체 +1/+1.' },
+  primal_shelter: { name: '대지의 품', description: '프라이멀 3체 이상이면 아군 프라이멀 전원 보호막 +1.' },
+  primal_vitality: { name: '야생 생명력', description: '프라이멀 2체마다 코어 1 회복. 최대 2.' },
+
+  chrono_accelerate: { name: '시간 가속', description: '남은 에너지가 2 이하이면 에너지 1 회복.' },
+  chrono_rewind: { name: '시간 되감기', description: '묘지의 크로노리움 유닛 1장을 손으로 회수.' },
+  chrono_foresee: { name: '미래 관측', description: '크로노리움 2체 이상이면 1장 드로우.' },
+  chrono_reset: { name: '상태 복원', description: '크로노리움 1체 체력 2 회복 + 보호막 1.' },
+
+  arcana_inscribe: { name: '주문 각인', description: '묘지에 주문이 있으면 덱에서 아르카나 주문 1장 서치.' },
+  arcana_recycle: { name: '규약 재사용', description: '묘지 주문 3장 이상이면 아르카나 주문 1장 회수.' },
+  arcana_chain: { name: '마법 연쇄', description: '묘지 주문 2장 이상이면 에너지 1 회복.' },
+  arcana_hex: { name: '봉인식', description: '묘지 주문 4장 이상이면 가장 약한 적에게 2 피해.' },
+
+  beast_repair: { name: '야수 수복', description: '비스트포지 1체의 체력을 2 회복.' },
+  beast_plating: { name: '합금 장갑', description: '비스트포지 1체의 보호막 +2.' },
+  beast_hunt: { name: '포식 추적', description: '보호막이 있는 비스트포지가 있으면 가장 약한 적에게 2 피해.' },
+  beast_rage: { name: '장갑 격노', description: '보호막 1을 소모해 비스트포지 1체 공격력 +2.' },
+
+  phantom_set: { name: '무대 뒤 장치', description: '팬텀 2체 이상이면 덱의 팬텀 함정 1장을 바로 세트.' },
+  phantom_encore: { name: '앙코르 회수', description: '세트된 함정이 있으면 묘지의 팬텀 함정 1장 회수.' },
+  phantom_misdirect: { name: '시선 돌리기', description: '세트된 함정이 있으면 3코스트 이하 적 1체를 되돌림.' },
+  phantom_applause: { name: '관객의 박수', description: '팬텀 2체 이상 + 세트 함정이 있으면 1장 드로우.' },
+
+  astral_drone: { name: '정찰 드론 출격', description: '아스트라 2체 이상이면 빈 칸에 1/2 드론 토큰 소환.' },
+  astral_salvo: { name: '편대 일제사격', description: '아스트라 3체 이상이면 상대 코어 1 피해.' },
+  astral_recharge: { name: '함대 재충전', description: '아스트라 보호막 합계가 3 이상이면 에너지 1 회복.' },
+  astral_formation: { name: '성해 진형', description: '아스트라 3체 이상이면 아군 아스트라 전원 보호막 +1.' },
+};
+
+export function seriesSignatureDescription(card: CardDefinition): string {
+  if (!card.seriesSignature) return '';
+  const meta = SERIES_SIGNATURE_META[card.seriesSignature];
+  return `${meta.name} · ${meta.description}`;
+}
 
 export function tacticalAbilityDescription(card: CardDefinition): string {
   if (!isUnitCard(card) || !card.seriesId) return '';
@@ -333,7 +434,7 @@ export const CARDS: CardDefinition[] = [
   },
 
   {
-    id: 'spell_spark_bolt', name: '섬광탄', subtitle: '짧고 정확한 번개', kind: 'spell', rarity: 'common', element: 'storm', cost: 1,
+    id: 'spell_spark_bolt', name: '섬광탄', subtitle: '짧고 정확한 번개', kind: 'spell', rarity: 'common', element: 'storm', cost: 2,
     effect: { kind: 'damage_unit', amount: 2 }, target: 'enemy_unit', text: '적 유닛 하나에 2 피해.', flavor: '작은 번개도 정확하면 치명적이다.', sigil: 'ϟ',
   },
   {
@@ -1525,6 +1626,15 @@ function spellEffectText(effect: Effect): string {
     case 'reweave_hand': return `내 남은 손패를 덱에 섞고, 섞은 장수보다 ${effect.bonusDraw}장 더 새로 뽑습니다.`;
     case 'mirror_unit': return '적 유닛 1장의 현재 공격력과 체력을 복사한 능력 없는 거울 토큰을 내 필드에 소환합니다. 이번 턴 공격할 수 없습니다.';
     case 'exchange_hands': return '서로의 남은 손패를 전부 교환합니다.';
+    case 'ready_unit': return '이번 턴 소환한 아군 유닛 1장을 즉시 공격 가능 상태로 만듭니다.';
+    case 'bounce_unit': return '대상 유닛 1장을 원래 영역으로 되돌립니다.';
+    case 'heal_unit': return `아군 유닛 하나의 체력을 ${effect.amount} 회복합니다.`;
+    case 'sacrifice_draw': return `아군 유닛 1장을 묘지로 보내고 카드 ${effect.amount}장을 뽑습니다.`;
+    case 'damage_draw_if_destroyed': return `적 유닛 하나에 ${effect.amount} 피해. 이 피해로 파괴하면 카드 ${effect.draw}장을 뽑습니다.`;
+    case 'recruit_unit': return `덱에서 비용 ${effect.maxCost} 이하 유닛 1장을 전개합니다.`;
+    case 'recover_grave_unit': return `내 묘지의 유닛 ${effect.amount}장을 손으로 되돌립니다.`;
+    case 'draw_if_outnumbered': return `카드 ${effect.base}장을 뽑습니다. 필드가 열세면 ${effect.bonus}장 추가로 뽑습니다.`;
+    case 'swap_stats': return '대상 유닛의 현재 공격력과 체력을 서로 바꿉니다.';
   }
 }
 
@@ -1795,15 +1905,191 @@ export function extraRequiredUnitCount(card: CardDefinition): number {
   return 0;
 }
 
+
+/* --------------------------------------------------------------------------
+ * v31g readability + Extra balance + tactical spell variety
+ * --------------------------------------------------------------------------
+ * - Keep summon rules strict internally, but print them in short card-game
+ *   language instead of implementation jargon.
+ * - Tone down Phoenix Braver, which was over-rewarding its cheap predecessor.
+ * - Iron Sovereign now needs Bastion + one real tribute instead of one body.
+ * - Rework exactly 30 of the 60 v8 spells (50%) into board-manipulation,
+ *   tempo, graveyard, recruitment and conditional effects instead of mostly
+ *   energy/core-damage repeats.
+ */
+const V31G_CARD_TUNING: Record<string, Partial<Pick<CardDefinition, 'cost' | 'attack' | 'health' | 'keywords' | 'effect' | 'target' | 'text' | 'extraSummonRule'>>> = {
+  evolution_ember_phoenix: {
+    attack: 5,
+    health: 5,
+    keywords: ['charge'],
+    text: '계승 진화. 진화 전 유닛의 강화 수치와 보호막을 이어받습니다. 속공.',
+  },
+  evolution_iron_sovereign: {
+    extraSummonRule: {
+      tier: 'elite',
+      additionalTributes: 1,
+      tributeMinCost: 4,
+      minTotalMaterialCost: 6,
+    },
+  },
+
+  // Solar: finishing blows, tempo and graveyard recovery.
+  spell_v8_solar_01: { effect: { kind: 'damage_draw_if_destroyed', amount: 4, draw: 1 }, target: 'enemy_unit', text: '적 유닛 하나에 4 피해. 이 피해로 파괴하면 카드 1장을 뽑습니다.' },
+  spell_v8_solar_03: { effect: { kind: 'ready_unit' }, target: 'friendly_unit', text: '이번 턴 소환한 아군 유닛 하나는 속공이 없어도 즉시 공격할 수 있습니다.' },
+  spell_v8_solar_05: { effect: { kind: 'heal_unit', amount: 3 }, target: 'friendly_unit', text: '아군 유닛 하나의 체력을 3 회복합니다.' },
+  spell_v8_solar_07: { cost: 2, effect: { kind: 'recover_grave_unit', amount: 1 }, target: 'none', text: '내 묘지의 유닛 1장을 무작위로 손에 되돌립니다.' },
+  spell_v8_solar_09: { effect: { kind: 'bounce_unit' }, target: 'enemy_unit', text: '적 유닛 하나를 원래 영역으로 되돌립니다. 토큰은 소멸합니다.' },
+
+  // Lunar: recall, hand renewal and stat tricks.
+  spell_v8_lunar_01: { effect: { kind: 'mirror_unit' }, target: 'enemy_unit', text: '적 유닛 하나의 현재 공격력/체력을 복제한 거울 토큰을 내 필드에 소환합니다.' },
+  spell_v8_lunar_03: { effect: { kind: 'recover_grave_unit', amount: 1 }, target: 'none', text: '내 묘지의 유닛 1장을 무작위로 손에 되돌립니다.' },
+  spell_v8_lunar_05: { effect: { kind: 'swap_stats' }, target: 'enemy_unit', text: '적 유닛 하나의 현재 공격력과 체력을 서로 바꿉니다.' },
+  spell_v8_lunar_07: { effect: { kind: 'heal_unit', amount: 2 }, target: 'friendly_unit', text: '아군 유닛 하나의 체력을 2 회복합니다.' },
+  spell_v8_lunar_09: { effect: { kind: 'revive_unit' }, target: 'friendly_graveyard_unit', text: '내 묘지의 메인 덱 유닛 1장을 선택해 부활시킵니다. 소환 효과는 발동하지 않습니다.' },
+
+  // Storm: immediate attacks, kill rewards and low-cost deployment.
+  spell_v8_storm_01: { effect: { kind: 'ready_unit' }, target: 'friendly_unit', text: '이번 턴 소환한 아군 유닛 하나는 속공이 없어도 즉시 공격할 수 있습니다.' },
+  spell_v8_storm_03: { effect: { kind: 'damage_draw_if_destroyed', amount: 4, draw: 1 }, target: 'enemy_unit', text: '적 유닛 하나에 4 피해. 이 피해로 파괴하면 카드 1장을 뽑습니다.' },
+  spell_v8_storm_05: { effect: { kind: 'recruit_unit', maxCost: 2 }, target: 'none', text: '내 덱에서 비용 2 이하 유닛 1장을 무작위로 필드에 전개합니다. 소환 효과는 발동하지 않습니다.' },
+  spell_v8_storm_07: { effect: { kind: 'swap_stats' }, target: 'friendly_unit', text: '아군 유닛 하나의 현재 공격력과 체력을 서로 바꿉니다.' },
+  spell_v8_storm_09: { effect: { kind: 'damage_draw_if_destroyed', amount: 2, draw: 1 }, target: 'enemy_unit', text: '적 유닛 하나에 2 피해. 이 피해로 파괴하면 카드 1장을 뽑습니다.' },
+
+  // Verdant: recycling, sacrifice value and board catch-up.
+  spell_v8_verdant_01: { cost: 2, effect: { kind: 'recover_grave_unit', amount: 1 }, target: 'none', text: '내 묘지의 유닛 1장을 무작위로 손에 되돌립니다.' },
+  spell_v8_verdant_03: { effect: { kind: 'recruit_unit', maxCost: 5 }, target: 'none', text: '내 덱에서 비용 5 이하 유닛 1장을 무작위로 필드에 전개합니다. 소환 효과는 발동하지 않습니다.' },
+  spell_v8_verdant_05: { effect: { kind: 'heal_unit', amount: 4 }, target: 'friendly_unit', text: '아군 유닛 하나의 체력을 4 회복합니다.' },
+  spell_v8_verdant_07: { effect: { kind: 'sacrifice_draw', amount: 2 }, target: 'friendly_unit', text: '아군 유닛 하나를 묘지로 보내고 카드 2장을 뽑습니다. 토큰은 소멸합니다.' },
+  spell_v8_verdant_09: { effect: { kind: 'draw_if_outnumbered', base: 1, bonus: 1 }, target: 'none', text: '카드 1장을 뽑습니다. 상대 필드의 유닛이 더 많다면 대신 2장을 뽑습니다.' },
+
+  // Void: sacrifice, grave recursion and removal tempo.
+  spell_v8_void_01: { effect: { kind: 'sacrifice_draw', amount: 2 }, target: 'friendly_unit', text: '아군 유닛 하나를 묘지로 보내고 카드 2장을 뽑습니다. 토큰은 소멸합니다.' },
+  spell_v8_void_03: { effect: { kind: 'recover_grave_unit', amount: 1 }, target: 'none', text: '내 묘지의 유닛 1장을 무작위로 손에 되돌립니다.' },
+  spell_v8_void_05: { effect: { kind: 'bounce_unit' }, target: 'enemy_unit', text: '적 유닛 하나를 원래 영역으로 되돌립니다. 토큰은 소멸합니다.' },
+  spell_v8_void_07: { effect: { kind: 'damage_draw_if_destroyed', amount: 2, draw: 1 }, target: 'enemy_unit', text: '적 유닛 하나에 2 피해. 이 피해로 파괴하면 카드 1장을 뽑습니다.' },
+  spell_v8_void_09: { effect: { kind: 'draw_if_outnumbered', base: 1, bonus: 1 }, target: 'none', text: '카드 1장을 뽑습니다. 상대 필드의 유닛이 더 많다면 대신 2장을 뽑습니다.' },
+
+  // Neutral: utility, repositioning and flexible deck access.
+  spell_v8_neutral_01: { effect: { kind: 'swap_stats' }, target: 'friendly_unit', text: '아군 유닛 하나의 현재 공격력과 체력을 서로 바꿉니다.' },
+  spell_v8_neutral_03: { effect: { kind: 'ready_unit' }, target: 'friendly_unit', text: '이번 턴 소환한 아군 유닛 하나는 속공이 없어도 즉시 공격할 수 있습니다.' },
+  spell_v8_neutral_05: { effect: { kind: 'recruit_unit', maxCost: 3 }, target: 'none', text: '내 덱에서 비용 3 이하 유닛 1장을 무작위로 필드에 전개합니다. 소환 효과는 발동하지 않습니다.' },
+  spell_v8_neutral_07: { cost: 3, effect: { kind: 'bounce_unit' }, target: 'enemy_unit', text: '적 유닛 하나를 원래 영역으로 되돌립니다. 토큰은 소멸합니다.' },
+  spell_v8_neutral_09: { cost: 2, effect: { kind: 'recover_grave_unit', amount: 1 }, target: 'none', text: '내 묘지의 유닛 1장을 무작위로 손에 되돌립니다.' },
+};
+
+for (const card of CARDS) {
+  const tuning = V31G_CARD_TUNING[card.id];
+  if (!tuning) continue;
+  Object.assign(card, tuning);
+}
+
+
+/* --------------------------------------------------------------------------
+ * v31h series identity expansion
+ * --------------------------------------------------------------------------
+ * Each of the 13 series now owns four signature effects. Eight cards per
+ * series carry one of those four signatures so the identity is visible in
+ * actual deck play without putting extra text on every single card.
+ */
+const V31H_SERIES_SIGNATURES: Record<SeriesId, [SeriesSignature, SeriesSignature, SeriesSignature, SeriesSignature]> = {
+  luminaknights: ['lumina_beacon', 'lumina_reinforce', 'lumina_united', 'lumina_finisher'],
+  kaisergear: ['kaiser_repair', 'kaiser_battery', 'kaiser_overdrive', 'kaiser_fortress'],
+  eclipsion: ['eclipse_echo', 'eclipse_devour', 'eclipse_rebirth', 'eclipse_resonance'],
+  nocturne: ['nocturne_moonheal', 'nocturne_illusion', 'nocturne_dreamsearch', 'nocturne_mirrorveil'],
+  arborian: ['arborian_seed', 'arborian_growth', 'arborian_regrowth', 'arborian_bloom'],
+  tempest_drive: ['tempest_afterburn', 'tempest_voltage', 'tempest_chainbolt', 'tempest_momentum'],
+  abyss_reaper: ['abyss_feast', 'abyss_harvest', 'abyss_execute', 'abyss_drain'],
+  primal_guardian: ['primal_spirit', 'primal_pack', 'primal_shelter', 'primal_vitality'],
+  chronorium: ['chrono_accelerate', 'chrono_rewind', 'chrono_foresee', 'chrono_reset'],
+  arcana_protocol: ['arcana_inscribe', 'arcana_recycle', 'arcana_chain', 'arcana_hex'],
+  beastforge: ['beast_repair', 'beast_plating', 'beast_hunt', 'beast_rage'],
+  phantom_carnival: ['phantom_set', 'phantom_encore', 'phantom_misdirect', 'phantom_applause'],
+  astral_armada: ['astral_drone', 'astral_salvo', 'astral_recharge', 'astral_formation'],
+};
+
+const V31H_SERIES_MECHANICS: Record<SeriesId, string> = {
+  luminaknights: '성휘 신호 · 히어로 증원 · 연합 방진 · 결전 섬광',
+  kaisergear: '긴급 수리 · 실드 배터리 · 장갑 오버드라이브 · 황제 방벽',
+  eclipsion: '묘지의 잔향 · 공허 섭식 · 일식 재생 · 심층 공명',
+  nocturne: '월영 치유 · 환영 퇴장 · 몽환 탐색 · 거울 장막',
+  arborian: '세계수의 씨앗 · 급속 생장 · 재생 수액 · 만개',
+  tempest_drive: '애프터버너 점화 · 전압 축적 · 연쇄 낙뢰 · 초가속 모멘텀',
+  abyss_reaper: '영혼 포식 · 심연 수확 · 사형 집행 · 검은 흡수',
+  primal_guardian: '수호령 현현 · 무리의 결속 · 대지의 품 · 야생 생명력',
+  chronorium: '시간 가속 · 시간 되감기 · 미래 관측 · 상태 복원',
+  arcana_protocol: '주문 각인 · 규약 재사용 · 마법 연쇄 · 봉인식',
+  beastforge: '야수 수복 · 합금 장갑 · 포식 추적 · 장갑 격노',
+  phantom_carnival: '무대 뒤 장치 · 앙코르 회수 · 시선 돌리기 · 관객의 박수',
+  astral_armada: '정찰 드론 출격 · 편대 일제사격 · 함대 재충전 · 성해 진형',
+};
+
+for (const series of CARD_SERIES) series.mechanic = V31H_SERIES_MECHANICS[series.id];
+
+function pickFourSpread(cards: CardDefinition[]): CardDefinition[] {
+  if (cards.length <= 4) return [...cards];
+  const positions = [0, Math.round((cards.length - 1) / 3), Math.round(((cards.length - 1) * 2) / 3), cards.length - 1];
+  const picked: CardDefinition[] = [];
+  const used = new Set<string>();
+  for (const position of positions) {
+    const card = cards[Math.max(0, Math.min(cards.length - 1, position))];
+    if (card && !used.has(card.id)) { picked.push(card); used.add(card.id); }
+  }
+  for (const card of cards) {
+    if (picked.length >= 4) break;
+    if (!used.has(card.id)) { picked.push(card); used.add(card.id); }
+  }
+  return picked.slice(0, 4);
+}
+
+// Keep the series package fair: exactly two cards per signature. One is a unit,
+// the other is a support card. Existing SERIES LINK cards are skipped so a single
+// card does not receive two extra engines and one series does not win by stacking.
+// 1-cost support cards are also excluded from signature bonuses.
+for (const card of CARDS) delete card.seriesSignature;
+for (const series of CARD_SERIES) {
+  const signatures = V31H_SERIES_SIGNATURES[series.id];
+  const units = CARDS
+    .filter((card) => card.seriesId === series.id && card.kind === 'unit' && card.cost >= 2 && !card.seriesAbility)
+    .sort((a, b) => a.cost - b.cost || a.id.localeCompare(b.id));
+  const spells = CARDS
+    .filter((card) => card.seriesId === series.id && card.kind === 'spell' && card.cost >= 2 && !card.seriesAbility)
+    .sort((a, b) => a.cost - b.cost || a.id.localeCompare(b.id));
+  const traps = CARDS
+    .filter((card) => card.seriesId === series.id && card.kind === 'trap' && card.cost >= 2 && !card.seriesAbility)
+    .sort((a, b) => a.cost - b.cost || a.id.localeCompare(b.id));
+
+  const selectedUnits = pickFourSpread(units);
+  const selectedSupports = pickFourSpread(spells).slice(0, 4);
+  for (const trap of pickFourSpread(traps)) {
+    if (selectedSupports.length >= 4) break;
+    if (!selectedSupports.some((card) => card.id === trap.id)) selectedSupports.push(trap);
+  }
+
+  signatures.forEach((signature, index) => {
+    if (selectedUnits[index]) selectedUnits[index].seriesSignature = signature;
+    if (selectedSupports[index]) selectedSupports[index].seriesSignature = signature;
+  });
+}
+
 export function extraSummonRuleDescription(card: CardDefinition): string {
   const rule = card.extraSummonRule;
   if (!rule) return '';
-  const bodyLabel = card.kind === 'fusion'
-    ? `총 ${extraRequiredUnitCount(card)}체 릴리스`
-    : `계승 원본 포함 총 ${extraRequiredUnitCount(card)}체 릴리스`;
-  const series = rule.requireSameSeriesTribute ? ' · 추가 소재 중 같은 시리즈 1체 필요' : '';
-  const rarity = rule.requireHighRarityMaterial ? ' · 영웅/전설 소재 1체 이상' : '';
-  return `${rule.tier === 'apex' ? 'APEX 전설' : '전설'} · ${bodyLabel} · 소재 비용 합 ${rule.minTotalMaterialCost}+${series}${rarity}`;
+  const parts: string[] = [];
+  if (card.kind === 'fusion') {
+    parts.push(`소재 ${extraRequiredUnitCount(card)}체`);
+    parts.push(`합계 ${rule.minTotalMaterialCost}+`);
+  } else if (rule.additionalTributes === 1) {
+    const namedSource = card.evolutionRecipe?.fromIds?.length === 1 ? CARDS.find((item) => item.id === card.evolutionRecipe?.fromIds?.[0]) : undefined;
+    const effectiveMin = Math.max(rule.tributeMinCost, namedSource ? rule.minTotalMaterialCost - namedSource.cost : rule.tributeMinCost);
+    parts.push(`추가 아군 1체(${effectiveMin}+)`);
+  } else if (rule.additionalTributes > 1) {
+    parts.push(`추가 아군 ${rule.additionalTributes}체(각 ${rule.tributeMinCost}+)`);
+    parts.push(`합계 ${rule.minTotalMaterialCost}+`);
+  } else {
+    parts.push(`합계 ${rule.minTotalMaterialCost}+`);
+  }
+  if (rule.requireHighRarityMaterial) parts.push('영웅+ 1체');
+  if (rule.requireSameSeriesTribute) parts.push('동일 시리즈 1체');
+  return parts.join(' · ');
 }
 
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));

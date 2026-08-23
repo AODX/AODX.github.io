@@ -26,6 +26,7 @@ import {
   isExtraDeckCard,
   isUnitCard,
   seriesAbilityDescription,
+  seriesSignatureDescription,
   tacticalAbilityDescription,
   validateDeck,
   validateExtraDeck,
@@ -635,14 +636,21 @@ function trapTriggerDescription(trigger: CardDefinition['trapTrigger']): string 
 }
 
 function summonConditionDescription(card: CardDefinition): string {
-  if (card.summonMode === 'rift') return `${card.riftCondition?.label ?? '균열 조건 충족'} · 에너지 ${card.riftCost ?? card.cost}`;
+  if (card.summonMode === 'rift') return `${card.riftCondition?.label ?? '균열 조건'} · ENERGY ${card.riftCost ?? card.cost}`;
   if (card.kind === 'fusion') {
-    const base = card.fusionRecipe?.label ?? '지정된 소재 유닛을 필드에서 묘지로 보내 공명 융합합니다.';
-    return `${base}${card.extraSummonRule ? ` · ${extraSummonRuleDescription(card)}` : ''}`;
+    const base = card.fusionRecipe?.label ?? '지정 소재 조합';
+    const extra = card.extraSummonRule ? extraSummonRuleDescription(card) : '';
+    return [base, extra].filter(Boolean).join(' · ');
   }
   if (card.kind === 'evolution') {
-    const base = card.evolutionRecipe?.label ?? '조건을 만족하는 필드 유닛을 계승시켜 진화합니다.';
-    return `${base}${card.extraSummonRule ? ` · ${extraSummonRuleDescription(card)}` : ''}`;
+    const sources = (card.evolutionRecipe?.fromIds ?? []).map((id) => CARD_BY_ID[id]).filter((source): source is CardDefinition => Boolean(source));
+    if (sources.length > 0) {
+      const rounds = Math.max(1, Math.ceil(Math.max(...sources.map((source) => clientEvolutionRequiredTurnGap(source, card))) / 2));
+      const sourceName = sources.length === 1 ? sources[0].name : (card.evolutionRecipe?.label ?? '지정 원본').replace(/\s*계승$/, '');
+      const extra = card.extraSummonRule ? extraSummonRuleDescription(card) : '';
+      return [`${sourceName}(${rounds}라운드)`, extra].filter(Boolean).join(' · ');
+    }
+    return `${card.evolutionRecipe?.label ?? '조건 유닛'} · 2라운드`;
   }
   return '';
 }
@@ -961,6 +969,13 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             <section className={`detail-section v25-series-effect series-${card.seriesId}`}>
               <span>SERIES LINK · {SERIES_BY_ID[card.seriesId].shortName}</span>
               <p>{seriesAbilityDescription(card)}</p>
+            </section>
+          )}
+
+          {card.seriesId && card.seriesSignature && (
+            <section className={`detail-section v31h-series-signature series-${card.seriesId}`}>
+              <span>시리즈 고유 효과</span>
+              <p>{seriesSignatureDescription(card)}</p>
             </section>
           )}
 
@@ -2590,25 +2605,24 @@ function evolutionSurvivalRequirement(card: CardDefinition): string {
   if (sources.length > 0) {
     const longestGap = Math.max(...sources.map((source) => clientEvolutionRequiredTurnGap(source, card)));
     const rounds = Math.max(1, Math.ceil(longestGap / 2));
-    return `지정 원본이 ${rounds}라운드 생존 필요`;
+    return `${rounds}라운드 유지`;
   }
-  return `범용 원본 비용 ${card.rarity === 'legendary' ? 6 : 5} 이상 + 2라운드 생존`;
+  return `비용 ${card.rarity === 'legendary' ? 6 : 5}+ 원본 · 2라운드`;
 }
 
 function extraRequirement(card: CardDefinition): string {
   const premiumRule = extraSummonRuleDescription(card);
-  const choose = card.extraChoices?.length ? ' · 소환 전에 CHOOSE 1/2/3 중 1개 효과 선택' : '';
+  const choose = card.extraChoices?.length ? 'CHOOSE 1/2/3 중 1개' : '';
   if (card.kind === 'fusion') {
     const materials = card.fusionRecipe?.materials ?? [];
-    const broad = materials.filter((material) => !material.cardIds?.length);
-    const base = broad.length > 0
-      ? `${card.fusionRecipe?.label ?? '융합 소재를 선택하세요.'} · 범용 소재는 각 비용 ${card.rarity === 'legendary' ? 5 : 4} 이상`
-      : `${card.fusionRecipe?.label ?? '융합 소재를 선택하세요.'} · 지정 소재 조합 필요`;
-    return `${base}${premiumRule ? ` · ${premiumRule}` : ''}${choose}`;
+    const broad = materials.some((material) => !material.cardIds?.length);
+    const base = card.fusionRecipe?.label ?? '지정 소재 조합';
+    const broadCost = broad ? `각 ${card.rarity === 'legendary' ? 5 : 4}+` : '';
+    return [base, broadCost, premiumRule, choose].filter(Boolean).join(' · ');
   }
   if (card.kind === 'evolution') {
-    const base = `${card.evolutionRecipe?.label ?? '진화시킬 유닛을 선택하세요.'} · ${evolutionSurvivalRequirement(card)}`;
-    return `${base}${premiumRule ? ` · ${premiumRule}` : ''}${choose}`;
+    const sourceLabel = (card.evolutionRecipe?.label ?? '지정 원본').replace(/\s*계승$/, '');
+    return [`${sourceLabel}(${evolutionSurvivalRequirement(card)})`, premiumRule, choose].filter(Boolean).join(' · ');
   }
   if (card.summonMode === 'rift') return card.riftCondition?.label ?? '균열 조건을 확인하세요.';
   return card.text;
@@ -3663,14 +3677,14 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
           {previewIsHoverOnly && hoveredHandCard && (
             <div className="v18-selected-card v29-hover-preview">
               <div className="v18-selected-art"><CardIllustration card={hoveredHandCard} compact /></div>
-              <div className="v18-selected-copy"><small>카드 미리보기 · {KIND_LABEL[hoveredHandCard.kind]} · {ELEMENT_LABEL[hoveredHandCard.element]}</small><b>{hoveredHandCard.name}</b><div><span>COST <strong>{hoveredHandCard.cost}</strong></span>{isUnitCard(hoveredHandCard) && <><span>ATK <strong>{hoveredHandCard.attack}</strong></span><span>DEF <strong>{hoveredHandCard.health}</strong></span></>}</div><p>{hoveredHandCard.text}</p>{tacticalAbilityDescription(hoveredHandCard) && <p className="v30-preview-tactical">{tacticalAbilityDescription(hoveredHandCard)}</p>}</div>
+              <div className="v18-selected-copy"><small>카드 미리보기 · {KIND_LABEL[hoveredHandCard.kind]} · {ELEMENT_LABEL[hoveredHandCard.element]}</small><b>{hoveredHandCard.name}</b><div><span>COST <strong>{hoveredHandCard.cost}</strong></span>{isUnitCard(hoveredHandCard) && <><span>ATK <strong>{hoveredHandCard.attack}</strong></span><span>DEF <strong>{hoveredHandCard.health}</strong></span></>}</div><p>{hoveredHandCard.text}</p>{hoveredHandCard.seriesSignature && <p className="v31h-preview-signature">{seriesSignatureDescription(hoveredHandCard)}</p>}{tacticalAbilityDescription(hoveredHandCard) && <p className="v30-preview-tactical">{tacticalAbilityDescription(hoveredHandCard)}</p>}</div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(hoveredHandCard.id)}>전체 상세</button></div>
             </div>
           )}
           {selectedCard && (
             <div className="v18-selected-card">
               <div className="v18-selected-art"><CardIllustration card={selectedCard} compact /></div>
-              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p>{selectedCard.summonMode === 'rift' ? `균열 조건 · ${extraRequirement(selectedCard)}` : selectedCard.text}</p>{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical">{tacticalAbilityDescription(selectedCard)}</p>}</div>
+              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p>{selectedCard.summonMode === 'rift' ? `균열 조건 · ${extraRequirement(selectedCard)}` : selectedCard.text}</p>{selectedCard.seriesSignature && <p className="v31h-preview-signature">{seriesSignatureDescription(selectedCard)}</p>}{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical">{tacticalAbilityDescription(selectedCard)}</p>}</div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>선택 취소</button></div>
               {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button className="v18-context-primary" onClick={activateSelectedNoTarget}>주문 발동</button>}
               {selectedCard.kind === 'spell' && selectedCard.target === 'friendly_graveyard_unit' && <button className="v18-context-primary v31d-grave-target-button" disabled={!canChooseGraveyardTarget} onClick={openGraveyardTargetPicker}>묘지에서 부활 대상 선택 · {graveyardReviveTargets.length}</button>}

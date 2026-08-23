@@ -413,7 +413,7 @@ function recordExtraSummon(state: MatchState, playerId: string, kind: ExtraSummo
 }
 
 function isBuffCardEffect(effect: Effect): boolean {
-  return effect.kind === 'buff_unit' || effect.kind === 'shield_unit';
+  return effect.kind === 'buff_unit' || effect.kind === 'shield_unit' || effect.kind === 'ready_unit';
 }
 
 function sourceConsumesUnitBuffSlot(sourceCard: CardDefinition | undefined, effect: Effect): boolean {
@@ -583,6 +583,142 @@ function applyEffect(
         buffCardApplied: false,
       };
       appendVisual(state, { kind: 'summon', vfx: 'token-birth', ownerId: actorId, targetZone: index, label: effect.name });
+      break;
+    }
+    case 'ready_unit': {
+      if (!target || !Number.isInteger(target.unitIndex)) throw new Error('공격 준비시킬 아군 유닛을 선택해야 합니다.');
+      const unitIndex = Number(target.unitIndex);
+      const unit = state.boards[target.ownerId]?.units[unitIndex];
+      if (!unit || target.ownerId !== actorId) throw new Error('내 필드의 유닛을 선택해야 합니다.');
+      if (unit.summonedTurn !== state.turnNumber) throw new Error('이 효과는 이번 턴 소환한 유닛에게만 사용할 수 있습니다.');
+      if (sourceConsumesUnitBuffSlot(sourceCard, effect) && unit.buffCardApplied) throw new Error('이 캐릭터는 이미 버프류 카드를 1번 적용받았습니다.');
+      unit.canAttack = true;
+      if (sourceConsumesUnitBuffSlot(sourceCard, effect)) unit.buffCardApplied = true;
+      const unitCard = CARD_BY_ID[unit.cardId];
+      appendLog(state, `「${unitCard?.name ?? '아군 유닛'}」이(가) 이번 턴 즉시 공격할 수 있게 되었습니다.`, 'special');
+      appendVisual(state, { kind: 'buff', vfx: 'tempo-ready', cardId: unitCard?.id, ownerId: actorId, targetOwnerId: actorId, targetZone: unitIndex, label: '즉시 공격' });
+      break;
+    }
+    case 'bounce_unit': {
+      if (!target || !Number.isInteger(target.unitIndex)) throw new Error('되돌릴 적 유닛을 선택해야 합니다.');
+      const unitIndex = Number(target.unitIndex);
+      const board = state.boards[target.ownerId];
+      const unit = board?.units[unitIndex];
+      if (!unit || target.ownerId !== opponentId) throw new Error('적 유닛을 선택해야 합니다.');
+      board.units[unitIndex] = null;
+      const unitCard = CARD_BY_ID[unit.cardId];
+      if (unitCard?.kind === 'fusion' || unitCard?.kind === 'evolution') {
+        privateStates[target.ownerId].extra.push({ instanceId: randomId('ci'), cardId: unitCard.id });
+        state.extraCounts[target.ownerId] = privateStates[target.ownerId].extra.length;
+      } else if (unitCard?.kind === 'unit') {
+        privateStates[target.ownerId].hand.push({ instanceId: randomId('ci'), cardId: unitCard.id });
+        state.handCounts[target.ownerId] = privateStates[target.ownerId].hand.length;
+      }
+      appendLog(state, unitCard ? `「${unitCard.name}」을(를) 원래 영역으로 되돌렸습니다.` : '토큰을 필드에서 소멸시켰습니다.', 'special');
+      appendVisual(state, { kind: 'special', vfx: 'tempo-recall', cardId: unitCard?.id, ownerId: actorId, targetOwnerId: target.ownerId, targetZone: unitIndex, label: '전장 이탈' });
+      break;
+    }
+    case 'heal_unit': {
+      if (!target || !Number.isInteger(target.unitIndex)) throw new Error('회복할 아군 유닛을 선택해야 합니다.');
+      const unitIndex = Number(target.unitIndex);
+      const unit = state.boards[target.ownerId]?.units[unitIndex];
+      if (!unit || target.ownerId !== actorId) throw new Error('내 필드의 유닛을 선택해야 합니다.');
+      const before = unit.health;
+      unit.health = Math.min(unit.maxHealth, unit.health + Math.max(0, effect.amount));
+      const restored = Math.max(0, unit.health - before);
+      appendVisual(state, { kind: 'heal', vfx: 'unit-repair', cardId: unit.cardId, ownerId: actorId, targetOwnerId: actorId, targetZone: unitIndex, amount: restored, label: '유닛 회복' });
+      break;
+    }
+    case 'sacrifice_draw': {
+      if (!target || !Number.isInteger(target.unitIndex)) throw new Error('묘지로 보낼 아군 유닛을 선택해야 합니다.');
+      const unitIndex = Number(target.unitIndex);
+      const unit = state.boards[target.ownerId]?.units[unitIndex];
+      if (!unit || target.ownerId !== actorId) throw new Error('내 필드의 유닛을 선택해야 합니다.');
+      const unitCard = CARD_BY_ID[unit.cardId];
+      state.boards[actorId].units[unitIndex] = null;
+      if (unitCard) state.graveyards[actorId].push(unitCard.id);
+      const drew = drawCards(state, actorPrivate, actorId, effect.amount);
+      appendLog(state, `「${unitCard?.name ?? '토큰'}」을(를) 제물로 보내 카드 ${effect.amount}장을 뽑았습니다.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: 'sacrifice-convert', cardId: unitCard?.id, ownerId: actorId, targetOwnerId: actorId, targetZone: unitIndex, amount: drew ? effect.amount : 0, label: '제물 전환' });
+      break;
+    }
+    case 'damage_draw_if_destroyed': {
+      if (!target || !Number.isInteger(target.unitIndex)) throw new Error('공격할 적 유닛을 선택해야 합니다.');
+      const unitIndex = Number(target.unitIndex);
+      const report = damageUnit(state, target.ownerId, unitIndex, effect.amount);
+      appendVisual(state, { kind: 'defense', vfx: 'effect-impact', ownerId: actorId, targetOwnerId: target.ownerId, targetZone: unitIndex, amount: report.absorbed + report.healthDamage, shieldAmount: report.absorbed, healthAmount: report.healthDamage, label: '처치 연계 피해' });
+      if (report.destroyed && effect.draw > 0) {
+        drawCards(state, actorPrivate, actorId, effect.draw);
+        appendLog(state, `유닛을 파괴해 카드 ${effect.draw}장을 추가로 뽑았습니다.`, 'special');
+        appendVisual(state, { kind: 'draw', vfx: 'kill-draw', ownerId: actorId, amount: effect.draw, label: '처치 보상' });
+      }
+      break;
+    }
+    case 'recruit_unit': {
+      const destination = firstOpenUnit(state.boards[actorId]);
+      if (destination < 0) throw new Error('덱에서 유닛을 전개할 빈 필드 칸이 없습니다.');
+      const candidates = actorPrivate.deck
+        .map((instance, index) => ({ instance, index, card: CARD_BY_ID[instance.cardId] }))
+        .filter((entry) => entry.card?.kind === 'unit' && (entry.card.cost ?? 99) <= effect.maxCost);
+      if (candidates.length === 0) {
+        appendLog(state, `덱에 비용 ${effect.maxCost} 이하의 전개 가능한 유닛이 없습니다.`, 'system');
+        break;
+      }
+      const picked = shuffle(candidates)[0];
+      actorPrivate.deck.splice(picked.index, 1);
+      const recruitedCard = picked.card as CardDefinition;
+      const recruited = makeUnit(state, actorId, picked.instance, recruitedCard, 'normal');
+      recruited.canAttack = false;
+      state.boards[actorId].units[destination] = recruited;
+      state.deckCounts[actorId] = actorPrivate.deck.length;
+      statsFor(state, actorId).unitsSummoned += 1;
+      statsFor(state, actorId).specialSummons += 1;
+      appendLog(state, `덱에서 「${recruitedCard.name}」을(를) 직접 전개했습니다. 소환 효과는 발동하지 않습니다.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: 'deck-recruit', cardId: recruitedCard.id, ownerId: actorId, targetOwnerId: actorId, targetZone: destination, label: '덱 전개' });
+      break;
+    }
+    case 'recover_grave_unit': {
+      const grave = state.graveyards[actorId] ?? [];
+      const candidates = grave
+        .map((cardId, index) => ({ cardId, index, card: CARD_BY_ID[cardId] }))
+        .filter((entry) => entry.card?.kind === 'unit');
+      const selected = shuffle(candidates).slice(0, Math.max(0, effect.amount)).sort((a, b) => b.index - a.index);
+      if (selected.length === 0) {
+        appendLog(state, '묘지에 회수할 유닛이 없습니다.', 'system');
+        break;
+      }
+      const recoveredNames: string[] = [];
+      for (const entry of selected) {
+        grave.splice(entry.index, 1);
+        actorPrivate.hand.push({ instanceId: randomId('ci'), cardId: entry.cardId });
+        recoveredNames.push(entry.card?.name ?? entry.cardId);
+      }
+      state.handCounts[actorId] = actorPrivate.hand.length;
+      appendLog(state, `묘지에서 ${recoveredNames.map((name) => `「${name}」`).join(', ')}을(를) 손으로 회수했습니다.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: 'grave-recover', ownerId: actorId, targetOwnerId: actorId, amount: selected.length, label: '묘지 회수' });
+      break;
+    }
+    case 'draw_if_outnumbered': {
+      const myCount = state.boards[actorId].units.filter(Boolean).length;
+      const enemyCount = state.boards[opponentId].units.filter(Boolean).length;
+      const amount = effect.base + (enemyCount > myCount ? effect.bonus : 0);
+      if (amount > 0) drawCards(state, actorPrivate, actorId, amount);
+      appendLog(state, enemyCount > myCount ? `필드 열세 보너스로 카드 ${amount}장을 뽑았습니다.` : `카드 ${amount}장을 뽑았습니다.`, 'special');
+      appendVisual(state, { kind: 'draw', vfx: 'catchup-draw', ownerId: actorId, amount, label: enemyCount > myCount ? '열세 보충' : '드로우' });
+      break;
+    }
+    case 'swap_stats': {
+      if (!target || !Number.isInteger(target.unitIndex)) throw new Error('능력치를 바꿀 유닛을 선택해야 합니다.');
+      const unitIndex = Number(target.unitIndex);
+      const unit = state.boards[target.ownerId]?.units[unitIndex];
+      if (!unit) throw new Error('대상 유닛이 없습니다.');
+      const oldAttack = unit.attack;
+      const oldHealth = unit.health;
+      unit.attack = Math.max(0, oldHealth);
+      unit.health = Math.max(1, oldAttack);
+      unit.maxHealth = Math.max(1, oldAttack);
+      appendLog(state, `「${CARD_BY_ID[unit.cardId]?.name ?? '유닛'}」의 공격력과 체력을 뒤바꿨습니다.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: 'stat-inversion', cardId: unit.cardId, ownerId: actorId, targetOwnerId: target.ownerId, targetZone: unitIndex, label: '능력치 역전' });
       break;
     }
     case 'steal_unit': {
@@ -765,6 +901,625 @@ function recoverSeriesCards(
   }
   state.handCounts[playerId] = privateState.hand.length;
   return moved;
+}
+
+
+type SeriesUnitEntry = { unit: UnitState; index: number; card: CardDefinition };
+
+function seriesUnitEntries(state: MatchState, playerId: string, seriesId: SeriesId): SeriesUnitEntry[] {
+  const result: SeriesUnitEntry[] = [];
+  state.boards[playerId].units.forEach((unit, index) => {
+    if (!unit) return;
+    const card = CARD_BY_ID[unit.cardId];
+    if (!card || card.seriesId !== seriesId) return;
+    result.push({ unit, index, card });
+  });
+  return result;
+}
+
+function gainSignatureEnergy(state: MatchState, playerId: string, amount: number): number {
+  const energy = state.energy[playerId];
+  if (!energy || amount <= 0) return 0;
+  const before = energy.current;
+  energy.current = Math.min(energy.max, energy.current + amount);
+  return energy.current - before;
+}
+
+function searchSeriesCardByKind(
+  state: MatchState,
+  privateState: PrivateState,
+  playerId: string,
+  seriesId: SeriesId,
+  kind?: CardDefinition['kind'],
+): CardDefinition | undefined {
+  const index = privateState.deck.findIndex((instance) => {
+    const card = CARD_BY_ID[instance.cardId];
+    return Boolean(card && card.seriesId === seriesId && (!kind || card.kind === kind));
+  });
+  if (index < 0) return undefined;
+  const [instance] = privateState.deck.splice(index, 1);
+  privateState.hand.push(instance);
+  state.handCounts[playerId] = privateState.hand.length;
+  state.deckCounts[playerId] = privateState.deck.length;
+  statsFor(state, playerId).cardsDrawn += 1;
+  return CARD_BY_ID[instance.cardId];
+}
+
+function recoverSeriesCardByKind(
+  state: MatchState,
+  privateState: PrivateState,
+  playerId: string,
+  seriesId: SeriesId,
+  kind?: CardDefinition['kind'],
+): CardDefinition | undefined {
+  const grave = state.graveyards[playerId] ?? [];
+  const index = grave.findIndex((cardId) => {
+    const card = CARD_BY_ID[cardId];
+    const mainDeckCard = card && card.kind !== 'fusion' && card.kind !== 'evolution';
+    return Boolean(mainDeckCard && card.seriesId === seriesId && (!kind || card.kind === kind));
+  });
+  if (index < 0) return undefined;
+  const [cardId] = grave.splice(index, 1);
+  privateState.hand.push({ instanceId: randomId('ci'), cardId });
+  state.handCounts[playerId] = privateState.hand.length;
+  return CARD_BY_ID[cardId];
+}
+
+function summonSeriesToken(
+  state: MatchState,
+  playerId: string,
+  attack: number,
+  health: number,
+  name: string,
+  vfx: string,
+): number {
+  const zone = firstOpenUnit(state.boards[playerId]);
+  if (zone < 0) return -1;
+  state.boards[playerId].units[zone] = {
+    instanceId: randomId('sig-token'),
+    cardId: `token:${name}`,
+    ownerId: playerId,
+    attack,
+    health,
+    maxHealth: health,
+    shield: 0,
+    canAttack: false,
+    summonedTurn: state.turnNumber,
+    summonedBy: 'token',
+    originCardIds: [],
+    buffCardApplied: false,
+  };
+  appendVisual(state, { kind: 'summon', vfx, ownerId: playerId, targetZone: zone, label: name });
+  return zone;
+}
+
+function recruitSeriesUnitFromDeck(
+  state: MatchState,
+  privateState: PrivateState,
+  playerId: string,
+  seriesId: SeriesId,
+  maxCost: number,
+): CardDefinition | undefined {
+  const zone = firstOpenUnit(state.boards[playerId]);
+  if (zone < 0) return undefined;
+  const candidates = privateState.deck
+    .map((instance, index) => ({ instance, index, card: CARD_BY_ID[instance.cardId] }))
+    .filter((entry) => entry.card?.kind === 'unit' && entry.card.seriesId === seriesId && entry.card.cost <= maxCost);
+  if (!candidates.length) return undefined;
+  const selected = candidates.sort((a, b) => (b.card?.cost ?? 0) - (a.card?.cost ?? 0))[0];
+  const [instance] = privateState.deck.splice(selected.index, 1);
+  const card = CARD_BY_ID[instance.cardId];
+  if (!card || card.kind !== 'unit') return undefined;
+  const unit = makeUnit(state, playerId, instance, card, 'normal');
+  unit.canAttack = false;
+  state.boards[playerId].units[zone] = unit;
+  state.deckCounts[playerId] = privateState.deck.length;
+  statsFor(state, playerId).unitsSummoned += 1;
+  appendVisual(state, { kind: 'summon', vfx: 'series-reinforcement', cardId: card.id, ownerId: playerId, targetZone: zone, label: '시리즈 증원' });
+  return card;
+}
+
+function reviveSeriesUnitFromGrave(
+  state: MatchState,
+  privateState: PrivateState,
+  playerId: string,
+  seriesId: SeriesId,
+  maxCost: number,
+): CardDefinition | undefined {
+  const zone = firstOpenUnit(state.boards[playerId]);
+  if (zone < 0) return undefined;
+  const grave = state.graveyards[playerId] ?? [];
+  const candidates = grave
+    .map((cardId, index) => ({ cardId, index, card: CARD_BY_ID[cardId] }))
+    .filter((entry) => entry.card?.kind === 'unit' && entry.card.seriesId === seriesId && entry.card.cost <= maxCost);
+  if (!candidates.length) return undefined;
+  const selected = candidates.sort((a, b) => (b.card?.cost ?? 0) - (a.card?.cost ?? 0))[0];
+  grave.splice(selected.index, 1);
+  const card = selected.card;
+  if (!card || card.kind !== 'unit') return undefined;
+  const instance = { instanceId: randomId('reborn'), cardId: card.id };
+  const unit = makeUnit(state, playerId, instance, card, 'normal');
+  unit.health = 1;
+  unit.canAttack = false;
+  state.boards[playerId].units[zone] = unit;
+  statsFor(state, playerId).unitsSummoned += 1;
+  statsFor(state, playerId).specialSummons += 1;
+  appendVisual(state, { kind: 'special', vfx: 'series-rebirth', cardId: card.id, ownerId: playerId, targetZone: zone, label: '시리즈 재생' });
+  return card;
+}
+
+function bounceUnitToOwner(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  ownerId: string,
+  unitIndex: number,
+  vfx: string,
+): CardDefinition | undefined {
+  const board = state.boards[ownerId];
+  const unit = board?.units[unitIndex];
+  if (!unit) return undefined;
+  const card = CARD_BY_ID[unit.cardId];
+  board.units[unitIndex] = null;
+  if (!card) {
+    appendVisual(state, { kind: 'special', vfx, ownerId, targetZone: unitIndex, label: '토큰 소멸' });
+    return undefined;
+  }
+  const privateState = privateStates[ownerId];
+  if (card.kind === 'fusion' || card.kind === 'evolution') {
+    privateState.extra.push({ instanceId: randomId('ci'), cardId: card.id });
+    state.extraCounts[ownerId] = privateState.extra.length;
+  } else {
+    privateState.hand.push({ instanceId: randomId('ci'), cardId: card.id });
+    state.handCounts[ownerId] = privateState.hand.length;
+  }
+  appendVisual(state, { kind: 'special', vfx, cardId: card.id, ownerId, targetZone: unitIndex, label: '전장 이탈' });
+  return card;
+}
+
+function setSeriesTrapFromDeck(
+  state: MatchState,
+  privateState: PrivateState,
+  playerId: string,
+  seriesId: SeriesId,
+): CardDefinition | undefined {
+  const secretZone = firstOpenSecret(state.boards[playerId]);
+  if (secretZone < 0) return undefined;
+  const deckIndex = privateState.deck.findIndex((instance) => {
+    const card = CARD_BY_ID[instance.cardId];
+    return card?.kind === 'trap' && card.seriesId === seriesId;
+  });
+  if (deckIndex < 0) return undefined;
+  const [instance] = privateState.deck.splice(deckIndex, 1);
+  const card = CARD_BY_ID[instance.cardId];
+  if (!card || card.kind !== 'trap') return undefined;
+  privateState.secrets[secretZone] = instance;
+  state.boards[playerId].secrets[secretZone] = { occupied: true };
+  state.deckCounts[playerId] = privateState.deck.length;
+  appendVisual(state, { kind: 'set', vfx: 'phantom-backstage-set', cardId: card.id, ownerId: playerId, targetZone: secretZone, label: '함정 자동 세트' });
+  return card;
+}
+
+function applySeriesSignature(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  actorId: string,
+  sourceCard: CardDefinition,
+  sourceZone?: number,
+): void {
+  const signature = sourceCard.seriesSignature;
+  const seriesId = sourceCard.seriesId;
+  if (!signature || !seriesId) return;
+
+  const actorPrivate = privateStates[actorId];
+  const opponentId = otherPlayer(state, actorId);
+  const allies = () => seriesUnitEntries(state, actorId, seriesId);
+  const enemies = () => state.boards[opponentId].units
+    .map((unit, index) => ({ unit, index, card: unit ? CARD_BY_ID[unit.cardId] : undefined }))
+    .filter((entry): entry is { unit: UnitState; index: number; card: CardDefinition | undefined } => Boolean(entry.unit));
+  const hasSetTrap = () => state.boards[actorId].secrets.some(Boolean);
+  const emit = (label: string, detail: string, kind: VisualEventKind = 'special', amount?: number) => {
+    appendLog(state, `SERIES SIGNATURE · ${label} — ${detail}`, 'special');
+    appendVisual(state, { kind, vfx: `series-signature-${seriesId}`, cardId: sourceCard.id, ownerId: actorId, targetOwnerId: kind === 'core' ? opponentId : actorId, amount, label });
+  };
+
+  switch (signature) {
+    // LUMINAKNIGHTS — wide-board formation / reinforcement / finishing pressure.
+    case 'lumina_beacon': {
+      if (allies().length < 2 || !drawCards(state, actorPrivate, actorId, 1)) break;
+      emit('성휘 신호', '대형을 갖춰 카드 1장을 뽑았습니다.', 'draw', 1);
+      break;
+    }
+    case 'lumina_reinforce': {
+      if (allies().length < 2) break;
+      const recruited = recruitSeriesUnitFromDeck(state, actorPrivate, actorId, seriesId, 2);
+      if (recruited) emit('히어로 증원', `덱에서 「${recruited.name}」을(를) 전개했습니다.`);
+      break;
+    }
+    case 'lumina_united': {
+      const formation = allies();
+      if (formation.length < 3) break;
+      for (const entry of formation) { entry.unit.health += 1; entry.unit.maxHealth += 1; }
+      emit('연합 방진', `루미나이츠 ${formation.length}장의 체력이 +1 되었습니다.`, 'buff', 1);
+      break;
+    }
+    case 'lumina_finisher': {
+      if (allies().length < 4) break;
+      const dealt = damageCore(state, opponentId, 2);
+      if (dealt > 0) { statsFor(state, actorId).coreDamage += dealt; emit('결전 섬광', `상대 코어에 ${dealt} 피해.`, 'core', dealt); }
+      break;
+    }
+
+    // KAISERGEAR — shields are the engine; defense first, then resource efficiency.
+    case 'kaiser_repair': {
+      const target = allies().sort((a, b) => a.unit.shield - b.unit.shield)[0];
+      if (!target) break;
+      target.unit.shield += 2;
+      emit('긴급 수리', `「${target.card.name}」 보호막 +2.`, 'buff', 2);
+      break;
+    }
+    case 'kaiser_battery': {
+      const shield = allies().reduce((sum, entry) => sum + entry.unit.shield, 0);
+      if (shield < 4) break;
+      const gained = gainSignatureEnergy(state, actorId, 1);
+      if (gained > 0) emit('실드 배터리', `보호막 동력으로 에너지 ${gained} 회복.`, 'energy', gained);
+      break;
+    }
+    case 'kaiser_overdrive': {
+      const target = allies().filter((entry) => entry.unit.shield > 0).sort((a, b) => b.unit.attack - a.unit.attack)[0];
+      if (!target) break;
+      target.unit.attack += 1;
+      emit('장갑 오버드라이브', `「${target.card.name}」 공격력 +1.`, 'buff', 1);
+      break;
+    }
+    case 'kaiser_fortress': {
+      const formation = allies();
+      if (formation.length < 3) break;
+      for (const entry of formation) entry.unit.shield += 1;
+      emit('황제 방벽', `카이저기어 ${formation.length}장에 보호막 1.`, 'buff', 1);
+      break;
+    }
+
+    // ECLIPSION — use the graveyard as a second resource zone.
+    case 'eclipse_echo': {
+      if ((state.graveyards[actorId]?.length ?? 0) < 4) break;
+      const recovered = recoverSeriesCardByKind(state, actorPrivate, actorId, seriesId);
+      if (recovered) emit('묘지의 잔향', `묘지의 「${recovered.name}」을(를) 회수했습니다.`, 'draw', 1);
+      break;
+    }
+    case 'eclipse_devour': {
+      const grave = state.graveyards[actorId] ?? [];
+      if (grave.length < 3) break;
+      const [banished] = grave.splice(0, 1);
+      const dealt = damageCore(state, opponentId, 1);
+      if (dealt > 0) statsFor(state, actorId).coreDamage += dealt;
+      emit('공허 섭식', `「${CARD_BY_ID[banished]?.name ?? '묘지 카드'}」을(를) 소멸시키고 코어 ${dealt} 피해.`, 'core', dealt);
+      break;
+    }
+    case 'eclipse_rebirth': {
+      if ((state.graveyards[actorId]?.length ?? 0) < 5) break;
+      const revived = reviveSeriesUnitFromGrave(state, actorPrivate, actorId, seriesId, 2);
+      if (revived) emit('일식 재생', `「${revived.name}」을(를) 체력 1로 되살렸습니다.`);
+      break;
+    }
+    case 'eclipse_resonance': {
+      if ((state.graveyards[actorId]?.length ?? 0) < 7) break;
+      const drew = drawCards(state, actorPrivate, actorId, 1);
+      const gained = gainSignatureEnergy(state, actorId, 1);
+      if (drew || gained > 0) emit('심층 공명', `카드 ${drew ? 1 : 0}장 · 에너지 ${gained} 회복.`, drew ? 'draw' : 'energy', drew ? 1 : gained);
+      break;
+    }
+
+    // NOCTURNE MIRAGE — comeback/control tools rather than raw damage.
+    case 'nocturne_moonheal': {
+      if ((state.core[actorId] ?? 0) >= (state.core[opponentId] ?? 0)) break;
+      const healed = healCore(state, actorId, 2);
+      if (healed > 0) { statsFor(state, actorId).healing += healed; emit('월영 치유', `코어 ${healed} 회복.`, 'heal', healed); }
+      break;
+    }
+    case 'nocturne_illusion': {
+      if ((state.core[actorId] ?? 0) >= (state.core[opponentId] ?? 0)) break;
+      const target = enemies().filter((entry) => (entry.card?.cost ?? 99) <= 3).sort((a, b) => (b.card?.cost ?? 0) - (a.card?.cost ?? 0))[0];
+      if (!target) break;
+      const recalled = bounceUnitToOwner(state, privateStates, opponentId, target.index, 'nocturne-illusion');
+      emit('환영 퇴장', `「${recalled?.name ?? '토큰'}」을(를) 전장에서 되돌렸습니다.`);
+      break;
+    }
+    case 'nocturne_dreamsearch': {
+      if (allies().length < 2) break;
+      const searched = searchSeriesCardByKind(state, actorPrivate, actorId, seriesId, 'spell');
+      if (searched) emit('몽환 탐색', `덱에서 「${searched.name}」을(를) 손으로 가져왔습니다.`, 'draw', 1);
+      break;
+    }
+    case 'nocturne_mirrorveil': {
+      const formation = allies();
+      if (formation.length < 2) break;
+      const target = formation.sort((a, b) => a.unit.health - b.unit.health)[0];
+      if (!target) break;
+      target.unit.shield += 2;
+      emit('거울 장막', `「${target.card.name}」 보호막 +2.`, 'buff', 2);
+      break;
+    }
+
+    // ARBORIAN — grow a living board and outlast the opponent.
+    case 'arborian_seed': {
+      if (allies().length < 1) break;
+      const zone = summonSeriesToken(state, actorId, 1, 2, '세계수 새싹', 'arborian-seed');
+      if (zone >= 0) emit('세계수의 씨앗', '1/2 세계수 새싹 토큰을 소환했습니다.');
+      break;
+    }
+    case 'arborian_growth': {
+      const formation = allies();
+      if (formation.length < 2) break;
+      const target = formation.sort((a, b) => a.unit.health - b.unit.health)[0];
+      if (!target) break;
+      target.unit.health += 2; target.unit.maxHealth += 2;
+      emit('급속 생장', `「${target.card.name}」 체력 +2.`, 'buff', 2);
+      break;
+    }
+    case 'arborian_regrowth': {
+      const formation = allies();
+      if (formation.length < 2) break;
+      let healedTotal = 0;
+      for (const entry of formation) {
+        const before = entry.unit.health;
+        entry.unit.health = Math.min(entry.unit.maxHealth, entry.unit.health + 1);
+        healedTotal += entry.unit.health - before;
+      }
+      if (healedTotal > 0) emit('재생 수액', `전열 체력을 총 ${healedTotal} 회복.`, 'heal', healedTotal);
+      break;
+    }
+    case 'arborian_bloom': {
+      if (allies().length < 3) break;
+      const healed = healCore(state, actorId, 2);
+      if (healed > 0) { statsFor(state, actorId).healing += healed; emit('만개', `코어 ${healed} 회복.`, 'heal', healed); }
+      break;
+    }
+
+    // TEMPEST DRIVE — immediate tempo, energy, and chained pressure.
+    case 'tempest_afterburn': {
+      const candidates = allies().filter((entry) => entry.unit.summonedTurn === state.turnNumber && !entry.unit.canAttack);
+      const target = (sourceZone !== undefined ? candidates.find((entry) => entry.index === sourceZone) : undefined) ?? candidates[0];
+      if (!target) break;
+      target.unit.canAttack = true;
+      emit('애프터버너 점화', `「${target.card.name}」이(가) 즉시 공격 가능해졌습니다.`, 'energy', 1);
+      break;
+    }
+    case 'tempest_voltage': {
+      if (allies().length < 2) break;
+      const gained = gainSignatureEnergy(state, actorId, 1);
+      if (gained > 0) emit('전압 축적', `에너지 ${gained} 회복.`, 'energy', gained);
+      break;
+    }
+    case 'tempest_chainbolt': {
+      if (allies().length < 2) break;
+      const target = enemies().sort((a, b) => a.unit.health - b.unit.health)[0];
+      if (target) {
+        const report = damageUnit(state, opponentId, target.index, 1);
+        emit('연쇄 낙뢰', `「${target.card?.name ?? '적 유닛'}」에 ${report.absorbed + report.healthDamage} 피해.`, 'defense', report.absorbed + report.healthDamage);
+      } else {
+        const dealt = damageCore(state, opponentId, 1);
+        if (dealt > 0) statsFor(state, actorId).coreDamage += dealt;
+        if (dealt > 0) emit('연쇄 낙뢰', `상대 코어에 ${dealt} 피해.`, 'core', dealt);
+      }
+      break;
+    }
+    case 'tempest_momentum': {
+      if (allies().length < 3 || !drawCards(state, actorPrivate, actorId, 1)) break;
+      emit('초가속 모멘텀', '카드 1장을 뽑았습니다.', 'draw', 1);
+      break;
+    }
+
+    // ABYSS REAPER — pressure both graveyards and convert death into sustain.
+    case 'abyss_feast': {
+      const grave = state.graveyards[opponentId] ?? [];
+      if (!grave.length) break;
+      const [banished] = grave.splice(0, 1);
+      const healed = healCore(state, actorId, 1);
+      if (healed > 0) statsFor(state, actorId).healing += healed;
+      emit('영혼 포식', `상대 묘지의 「${CARD_BY_ID[banished]?.name ?? '카드'}」을(를) 소멸시키고 코어 ${healed} 회복.`, 'heal', healed);
+      break;
+    }
+    case 'abyss_harvest': {
+      if ((state.graveyards[actorId]?.length ?? 0) < 4 || !drawCards(state, actorPrivate, actorId, 1)) break;
+      emit('심연 수확', '카드 1장을 뽑았습니다.', 'draw', 1);
+      break;
+    }
+    case 'abyss_execute': {
+      if ((state.graveyards[opponentId]?.length ?? 0) < 2) break;
+      const target = enemies().sort((a, b) => a.unit.health - b.unit.health)[0];
+      if (!target) break;
+      const report = damageUnit(state, opponentId, target.index, 2);
+      emit('사형 집행', `「${target.card?.name ?? '적 유닛'}」에 ${report.absorbed + report.healthDamage} 피해.`, 'defense', report.absorbed + report.healthDamage);
+      break;
+    }
+    case 'abyss_drain': {
+      if ((state.graveyards[opponentId]?.length ?? 0) < 4) break;
+      const dealt = damageCore(state, opponentId, 1);
+      const healed = healCore(state, actorId, 1);
+      if (dealt > 0) statsFor(state, actorId).coreDamage += dealt;
+      if (healed > 0) statsFor(state, actorId).healing += healed;
+      if (dealt > 0 || healed > 0) emit('검은 흡수', `상대 코어 ${dealt} 피해 · 내 코어 ${healed} 회복.`, 'core', dealt);
+      break;
+    }
+
+    // PRIMAL GUARDIAN — pack size converts into bodies, stats, shields and recovery.
+    case 'primal_spirit': {
+      if (allies().length < 2) break;
+      const zone = summonSeriesToken(state, actorId, 2, 2, '원초 수호령', 'primal-spirit');
+      if (zone >= 0) emit('수호령 현현', '2/2 원초 수호령 토큰을 소환했습니다.');
+      break;
+    }
+    case 'primal_pack': {
+      const formation = allies();
+      if (formation.length < 2) break;
+      const target = formation.sort((a, b) => a.unit.health - b.unit.health)[0];
+      if (!target) break;
+      target.unit.attack += 1; target.unit.health += 1; target.unit.maxHealth += 1;
+      emit('무리의 결속', `「${target.card.name}」 +1/+1.`, 'buff', 1);
+      break;
+    }
+    case 'primal_shelter': {
+      const formation = allies();
+      if (formation.length < 3) break;
+      for (const entry of formation) entry.unit.shield += 1;
+      emit('대지의 품', `프라이멀 ${formation.length}장에 보호막 1.`, 'buff', 1);
+      break;
+    }
+    case 'primal_vitality': {
+      const amount = Math.min(2, Math.floor(allies().length / 2));
+      if (amount <= 0) break;
+      const healed = healCore(state, actorId, amount);
+      if (healed > 0) { statsFor(state, actorId).healing += healed; emit('야생 생명력', `코어 ${healed} 회복.`, 'heal', healed); }
+      break;
+    }
+
+    // CHRONORIUM — flexible tempo without raw burst; existing tactical passive is already strong.
+    case 'chrono_accelerate': {
+      if ((state.energy[actorId]?.current ?? 0) > 2) break;
+      const gained = gainSignatureEnergy(state, actorId, 1);
+      if (gained > 0) emit('시간 가속', `에너지 ${gained} 회복.`, 'energy', gained);
+      break;
+    }
+    case 'chrono_rewind': {
+      const recovered = recoverSeriesCardByKind(state, actorPrivate, actorId, seriesId, 'unit');
+      if (recovered) emit('시간 되감기', `묘지의 「${recovered.name}」을(를) 회수했습니다.`, 'draw', 1);
+      break;
+    }
+    case 'chrono_foresee': {
+      if (allies().length < 2 || !drawCards(state, actorPrivate, actorId, 1)) break;
+      emit('미래 관측', '카드 1장을 뽑았습니다.', 'draw', 1);
+      break;
+    }
+    case 'chrono_reset': {
+      const target = allies().sort((a, b) => a.unit.health - b.unit.health)[0];
+      if (!target) break;
+      const before = target.unit.health;
+      target.unit.health = Math.min(target.unit.maxHealth, target.unit.health + 2);
+      target.unit.shield += 1;
+      emit('상태 복원', `「${target.card.name}」 체력 ${target.unit.health - before} 회복 · 보호막 1.`, 'buff', 1);
+      break;
+    }
+
+    // ARCANA PROTOCOL — the spell graveyard is a combo counter and recursion engine.
+    case 'arcana_inscribe': {
+      const spellCount = (state.graveyards[actorId] ?? []).filter((cardId) => CARD_BY_ID[cardId]?.kind === 'spell').length;
+      if (spellCount < 1) break;
+      const searched = searchSeriesCardByKind(state, actorPrivate, actorId, seriesId, 'spell');
+      if (searched) emit('주문 각인', `덱에서 「${searched.name}」을(를) 서치했습니다.`, 'draw', 1);
+      break;
+    }
+    case 'arcana_recycle': {
+      const spellCount = (state.graveyards[actorId] ?? []).filter((cardId) => CARD_BY_ID[cardId]?.kind === 'spell').length;
+      if (spellCount < 3) break;
+      const recovered = recoverSeriesCardByKind(state, actorPrivate, actorId, seriesId, 'spell');
+      if (recovered) emit('규약 재사용', `묘지의 「${recovered.name}」을(를) 회수했습니다.`, 'draw', 1);
+      break;
+    }
+    case 'arcana_chain': {
+      const spellCount = (state.graveyards[actorId] ?? []).filter((cardId) => CARD_BY_ID[cardId]?.kind === 'spell').length;
+      if (spellCount < 2) break;
+      const gained = gainSignatureEnergy(state, actorId, 1);
+      if (gained > 0) emit('마법 연쇄', `에너지 ${gained} 회복.`, 'energy', gained);
+      break;
+    }
+    case 'arcana_hex': {
+      const spellCount = (state.graveyards[actorId] ?? []).filter((cardId) => CARD_BY_ID[cardId]?.kind === 'spell').length;
+      if (spellCount < 4) break;
+      const target = enemies().sort((a, b) => a.unit.health - b.unit.health)[0];
+      if (!target) break;
+      const report = damageUnit(state, opponentId, target.index, 2);
+      emit('봉인식', `「${target.card?.name ?? '적 유닛'}」에 ${report.absorbed + report.healthDamage} 피해.`, 'defense', report.absorbed + report.healthDamage);
+      break;
+    }
+
+    // BEASTFORGE — armor becomes offense; unlike Kaiser, shields are expendable fuel.
+    case 'beast_repair': {
+      const target = allies().sort((a, b) => a.unit.health - b.unit.health)[0];
+      if (!target) break;
+      const before = target.unit.health;
+      target.unit.health = Math.min(target.unit.maxHealth, target.unit.health + 2);
+      if (target.unit.health > before) emit('야수 수복', `「${target.card.name}」 체력 ${target.unit.health - before} 회복.`, 'heal', target.unit.health - before);
+      break;
+    }
+    case 'beast_plating': {
+      const target = allies().sort((a, b) => a.unit.shield - b.unit.shield)[0];
+      if (!target) break;
+      target.unit.shield += 2;
+      emit('합금 장갑', `「${target.card.name}」 보호막 +2.`, 'buff', 2);
+      break;
+    }
+    case 'beast_hunt': {
+      if (!allies().some((entry) => entry.unit.shield > 0)) break;
+      const target = enemies().sort((a, b) => a.unit.health - b.unit.health)[0];
+      if (!target) break;
+      const report = damageUnit(state, opponentId, target.index, 2);
+      emit('포식 추적', `「${target.card?.name ?? '적 유닛'}」에 ${report.absorbed + report.healthDamage} 피해.`, 'defense', report.absorbed + report.healthDamage);
+      break;
+    }
+    case 'beast_rage': {
+      const target = allies().filter((entry) => entry.unit.shield > 0).sort((a, b) => b.unit.attack - a.unit.attack)[0];
+      if (!target) break;
+      target.unit.shield = Math.max(0, target.unit.shield - 1);
+      target.unit.attack += 2;
+      emit('장갑 격노', `「${target.card.name}」 보호막 1 소모 · 공격력 +2.`, 'buff', 2);
+      break;
+    }
+
+    // PHANTOM CARNIVAL — traps are part of the board engine, not just reactions.
+    case 'phantom_set': {
+      if (allies().length < 2) break;
+      const trap = setSeriesTrapFromDeck(state, actorPrivate, actorId, seriesId);
+      if (trap) emit('무대 뒤 장치', `덱의 「${trap.name}」을(를) 바로 세트했습니다.`, 'set', 1);
+      break;
+    }
+    case 'phantom_encore': {
+      if (!hasSetTrap()) break;
+      const recovered = recoverSeriesCardByKind(state, actorPrivate, actorId, seriesId, 'trap');
+      if (recovered) emit('앙코르 회수', `묘지의 「${recovered.name}」을(를) 회수했습니다.`, 'draw', 1);
+      break;
+    }
+    case 'phantom_misdirect': {
+      if (!hasSetTrap()) break;
+      const target = enemies().filter((entry) => (entry.card?.cost ?? 99) <= 3).sort((a, b) => (b.card?.cost ?? 0) - (a.card?.cost ?? 0))[0];
+      if (!target) break;
+      const recalled = bounceUnitToOwner(state, privateStates, opponentId, target.index, 'phantom-misdirect');
+      emit('시선 돌리기', `「${recalled?.name ?? '토큰'}」을(를) 전장에서 되돌렸습니다.`);
+      break;
+    }
+    case 'phantom_applause': {
+      if (allies().length < 2 || !hasSetTrap() || !drawCards(state, actorPrivate, actorId, 1)) break;
+      emit('관객의 박수', '함정 무대가 완성되어 카드 1장을 뽑았습니다.', 'draw', 1);
+      break;
+    }
+
+    // ASTRAL ARMADA — formation count, drones, shields and coordinated salvo.
+    case 'astral_drone': {
+      if (allies().length < 2) break;
+      const zone = summonSeriesToken(state, actorId, 1, 2, '성해 드론', 'astral-drone');
+      if (zone >= 0) emit('정찰 드론 출격', '1/2 성해 드론 토큰을 소환했습니다.');
+      break;
+    }
+    case 'astral_salvo': {
+      if (allies().length < 3) break;
+      const dealt = damageCore(state, opponentId, 1);
+      if (dealt > 0) { statsFor(state, actorId).coreDamage += dealt; emit('편대 일제사격', `상대 코어에 ${dealt} 피해.`, 'core', dealt); }
+      break;
+    }
+    case 'astral_recharge': {
+      const shield = allies().reduce((sum, entry) => sum + entry.unit.shield, 0);
+      if (shield < 3) break;
+      const gained = gainSignatureEnergy(state, actorId, 1);
+      if (gained > 0) emit('함대 재충전', `에너지 ${gained} 회복.`, 'energy', gained);
+      break;
+    }
+    case 'astral_formation': {
+      const formation = allies();
+      if (formation.length < 3) break;
+      for (const entry of formation) entry.unit.shield += 1;
+      emit('성해 진형', `아스트라 ${formation.length}장에 보호막 1.`, 'buff', 1);
+      break;
+    }
+  }
 }
 
 function applySeriesAbility(
@@ -1022,14 +1777,17 @@ function activateTrapAt(
   applyTacticalOnTrap(state, trapOwnerId, card);
   if (card.trapEffect.kind === 'negate') {
     applySeriesAbility(state, privateStates, trapOwnerId, card);
+    applySeriesSignature(state, privateStates, trapOwnerId, card);
     return { negated: true, retaliation: 0 };
   }
   if (card.trapEffect.kind === 'negate_and_damage') {
     applySeriesAbility(state, privateStates, trapOwnerId, card);
+    applySeriesSignature(state, privateStates, trapOwnerId, card);
     return { negated: true, retaliation: card.trapEffect.amount };
   }
   applyEffect(state, privateStates, trapOwnerId, card.trapEffect, target, card);
   applySeriesAbility(state, privateStates, trapOwnerId, card);
+  applySeriesSignature(state, privateStates, trapOwnerId, card);
   return { negated: false, retaliation: 0 };
 }
 
@@ -1138,6 +1896,7 @@ function validateTarget(state: MatchState, actorId: string, card: CardDefinition
   if (!unit) throw new Error('선택한 위치에 유닛이 없습니다.');
   if (card.target === 'enemy_unit' && target.ownerId !== opponentId) throw new Error('적 유닛을 선택해야 합니다.');
   if (card.target === 'friendly_unit' && target.ownerId !== actorId) throw new Error('아군 유닛을 선택해야 합니다.');
+  if (card.effect?.kind === 'ready_unit' && unit.summonedTurn !== state.turnNumber) throw new Error('이번 턴 소환한 유닛만 즉시 공격 상태로 만들 수 있습니다.');
   if ((card.effect?.kind === 'steal_unit' || card.effect?.kind === 'mirror_unit') && firstOpenUnit(state.boards[actorId]) < 0) {
     throw new Error(card.effect.kind === 'steal_unit' ? '강탈한 유닛을 놓을 빈 유닛 칸이 없습니다.' : '거울 토큰을 소환할 빈 유닛 칸이 없습니다.');
   }
@@ -1275,6 +2034,7 @@ function continueSummonResolution(
   }
   if (state.boards[actorId].units[zone]) {
     applySeriesAbility(state, privateStates, actorId, card);
+    applySeriesSignature(state, privateStates, actorId, card, zone);
     applyTacticalOnSummon(state, privateStates, actorId, zone, card);
   }
   destroyDefeatedUnits(state, privateStates);
@@ -1297,6 +2057,7 @@ function resolveSpellContinuation(
       applyEffect(state, privateStates, continuation.actorId, card.effect, effectTarget, card);
     }
     applySeriesAbility(state, privateStates, continuation.actorId, card);
+    applySeriesSignature(state, privateStates, continuation.actorId, card);
     appendLog(state, `주문 「${card.name}」 효과 처리 완료.`, 'system');
   } else {
     if (trapResult.retaliation > 0) {
@@ -1327,6 +2088,9 @@ export function playCard(
   const { index: handIndex, instance, card } = getCardFromHand(playerPrivate, instanceId);
   if (card.kind === 'fusion' || card.kind === 'evolution') throw new Error('융합·진화 카드는 엑스트라 덱에서 소환해야 합니다.');
   validateTarget(state, playerId, card, target);
+  if (card.kind === 'spell' && card.effect?.kind === 'recruit_unit' && firstOpenUnit(state.boards[playerId]) < 0) {
+    throw new Error('덱에서 유닛을 전개할 빈 필드 칸이 없습니다.');
+  }
   if (card.kind === 'spell' && card.effect && isBuffCardEffect(card.effect) && target && Number.isInteger(target.unitIndex)) {
     const targetUnit = state.boards[target.ownerId]?.units[Number(target.unitIndex)];
     if (targetUnit?.buffCardApplied) throw new Error('이 캐릭터는 이미 버프류 카드를 1번 적용받았습니다. 다른 캐릭터를 선택하세요.');
