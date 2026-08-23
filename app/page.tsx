@@ -1245,16 +1245,11 @@ function Avatar({ id, size = 'medium' }: { id?: string; size?: 'small' | 'medium
 
 function LoadingScreen({ text = '결투장을 준비하는 중' }: { text?: string }) {
   return (
-    <main className="loading-screen v32-loading-screen" aria-busy="true" aria-live="polite">
-      <div className="v32-loading-atmosphere" aria-hidden="true"><i /><i /><i /></div>
+    <main className="loading-screen" aria-busy="true" aria-live="polite">
       <div className="loading-sigil"><span>E</span></div>
-      <span className="v32-loading-kicker">ECLIPSE NETWORK</span>
       <h1>ECLIPSE DUEL</h1>
       <p>{text}</p>
       <div className="loading-bar"><span /></div>
-      <div className="v32-loading-status" aria-hidden="true">
-        <span><i />NETWORK</span><span><i />CARD VAULT</span><span><i />DUEL ENGINE</span>
-      </div>
     </main>
   );
 }
@@ -2509,15 +2504,156 @@ function duelEventPoints(event: VisualEvent, userId: string): { source: DuelPoin
   return { source: { x: 50, y: 50 }, target };
 }
 
+
+type AttackCinematicStyle = 'slash' | 'beam' | 'dive' | 'scatter' | 'crush' | 'pulse';
+
+type AttackCinematicProfile = {
+  signature: string;
+  style: AttackCinematicStyle;
+  label: string;
+  finisher: string;
+  marker: string;
+  accent: string;
+  subAccent: string;
+  legendary: boolean;
+};
+
+const LEGENDARY_ATTACK_PROFILES: Record<string, Omit<AttackCinematicProfile, 'legendary'>> = {
+  unit_crownless_titan: { signature: 'crownless-titan', style: 'crush', label: '킹덤 브레이커', finisher: 'COLOSSAL SMASH', marker: '♜', accent: '#d6e2ee', subAccent: '#8aa2b6' },
+  unit_star_devourer: { signature: 'star-devourer', style: 'beam', label: '성식 포식광선', finisher: 'VOID NOVA BITE', marker: '✶', accent: '#8f7dff', subAccent: '#f04fff' },
+  unit_dawn_seraph: { signature: 'dawn-seraph', style: 'dive', label: '새벽 세라프 돌격', finisher: 'SERAPHIC DESCENT', marker: '✦', accent: '#ffd76e', subAccent: '#fff7c7' },
+  fusion_eclipse_chimera: { signature: 'eclipse-chimera', style: 'slash', label: '식광 교차포효', finisher: 'ECLIPSE REND', marker: '☯', accent: '#7ee7ff', subAccent: '#ffc46a' },
+  evolution_rift_alpha: { signature: 'rift-alpha', style: 'dive', label: '균열 추격난무', finisher: 'RIFT HOWL RUSH', marker: '✧', accent: '#bd6dff', subAccent: '#5bc8ff' },
+  unit_v8_solar_09: { signature: 'ancient-dawn-guardian', style: 'slash', label: '여명 수호검무', finisher: 'SUN HALO CLEAVE', marker: '☀', accent: '#ffb14d', subAccent: '#fff2a1' },
+  unit_v8_lunar_06: { signature: 'silver-mirror-knight', style: 'beam', label: '은월 반사창', finisher: 'MOON MIRROR LANCE', marker: '☾', accent: '#8aa7ff', subAccent: '#e6ecff' },
+  unit_v8_storm_03: { signature: 'abyss-storm-hawk', style: 'dive', label: '폭풍매 급강하', finisher: 'THUNDER TALON DIVE', marker: 'ϟ', accent: '#5ce6ff', subAccent: '#c7fbff' },
+  unit_v8_verdant_19: { signature: 'jade-sky-guardian', style: 'crush', label: '비취 천공돌진', finisher: 'JADE SKY RAM', marker: '❈', accent: '#7fe5a2', subAccent: '#d7ffe3' },
+  unit_v8_void_16: { signature: 'night-executor', style: 'slash', label: '서약의 야영참격', finisher: 'NIGHT OATH EXECUTION', marker: '◈', accent: '#b06cff', subAccent: '#ff7ab8' },
+  unit_v8_neutral_13: { signature: 'alloy-enforcer', style: 'crush', label: '합금 심판파쇄', finisher: 'ALLOY VERDICT', marker: '◇', accent: '#c7d2dc', subAccent: '#7de4ff' },
+  fusion_v8_01: { signature: 'solar-resonance-dragon', style: 'beam', label: '천식 공명폭광', finisher: 'SOLAR RESONANCE ROAR', marker: '☯', accent: '#ffb155', subAccent: '#6df6ff' },
+  fusion_v8_05: { signature: 'lunar-abyss-witch', style: 'pulse', label: '월식 심연연옥', finisher: 'ABYSSAL MOON CURSE', marker: '☯', accent: '#7d83ff', subAccent: '#f668ff' },
+  fusion_v8_09: { signature: 'crystal-overlord', style: 'scatter', label: '무광 수정난사', finisher: 'CRYSTAL BARRAGE', marker: '☯', accent: '#82f3ff', subAccent: '#ffffff' },
+  fusion_v8_13: { signature: 'silver-saint', style: 'pulse', label: '은정 성역심판', finisher: 'SILVER SANCTIFY', marker: '☯', accent: '#f6f8ff', subAccent: '#9fe8ff' },
+  fusion_v8_17: { signature: 'abyss-enforcer', style: 'crush', label: '결정 심연낙하', finisher: 'VOID CRUSH DECREE', marker: '☯', accent: '#9f96ff', subAccent: '#5ae4ff' },
+  fusion_v8_20: { signature: 'verdant-sungod', style: 'dive', label: '녹광 태양돌격', finisher: 'SOLAR WILD CHARGE', marker: '☯', accent: '#92f39d', subAccent: '#ffd15d' },
+  evolution_v8_06: { signature: 'eternal-guardian', style: 'crush', label: '이터널 방벽격파', finisher: 'ETERNAL SHIELD BREAK', marker: '✧', accent: '#dfe8f6', subAccent: '#89a7c8' },
+  evolution_v8_12: { signature: 'prism-dancer', style: 'pulse', label: '프리즘 윤무참', finisher: 'PRISM WALTZ', marker: '✧', accent: '#7dd8ff', subAccent: '#ffd6ff' },
+  evolution_v8_18: { signature: 'crystal-overlord-evo', style: 'beam', label: '오버로드 관통광', finisher: 'OVERLOAD LANCER', marker: '✧', accent: '#80f4ff', subAccent: '#dfffff' },
+  evolution_v8_20: { signature: 'dream-recorder', style: 'scatter', label: '몽환 기록파편', finisher: 'DREAM FRACTURE', marker: '✧', accent: '#a18fff', subAccent: '#f2d4ff' },
+};
+
+function defaultAttackProfile(card: CardDefinition): AttackCinematicProfile {
+  switch (card.element) {
+    case 'solar':
+      return { signature: 'generic-solar', style: 'slash', label: '태양 참광', finisher: 'SOLAR SLASH', marker: '☀', accent: '#ffb15a', subAccent: '#fff1a8', legendary: false };
+    case 'lunar':
+      return { signature: 'generic-lunar', style: 'beam', label: '월영 광창', finisher: 'LUNAR LANCE', marker: '☾', accent: '#8fa6ff', subAccent: '#eaf0ff', legendary: false };
+    case 'storm':
+      return { signature: 'generic-storm', style: 'dive', label: '폭풍 급습', finisher: 'TEMPEST RUSH', marker: 'ϟ', accent: '#66e9ff', subAccent: '#d4fbff', legendary: false };
+    case 'verdant':
+      return { signature: 'generic-verdant', style: 'crush', label: '세계수 맹돌', finisher: 'VERDANT CRASH', marker: '❈', accent: '#7fdc97', subAccent: '#d9ffe3', legendary: false };
+    case 'void':
+      return { signature: 'generic-void', style: 'scatter', label: '공허 파열', finisher: 'VOID BREAK', marker: '◈', accent: '#b37cff', subAccent: '#ff8cc8', legendary: false };
+    default:
+      return { signature: 'generic-neutral', style: 'pulse', label: '성철 충격파', finisher: 'IRON PULSE', marker: '◇', accent: '#d3dde6', subAccent: '#88d9ff', legendary: false };
+  }
+}
+
+function attackMotionProfile(card: CardDefinition): AttackCinematicProfile {
+  const mapped = LEGENDARY_ATTACK_PROFILES[card.id];
+  if (mapped) return { ...mapped, legendary: true };
+  return defaultAttackProfile(card);
+}
+
+type ExtraCinematicStyle = 'convergence' | 'prism' | 'storm' | 'bloom' | 'forge' | 'eclipse' | 'tide' | 'star' | 'ascension' | 'wing' | 'crown' | 'rift' | 'mirror' | 'thunder' | 'root' | 'requiem';
+
+type ExtraCinematicProfile = {
+  signature: string;
+  style: ExtraCinematicStyle;
+  label: string;
+  finisher: string;
+  rune: string;
+  accent: string;
+  secondary: string;
+  angle: string;
+  speed: string;
+  scale: string;
+  legendary: boolean;
+};
+
+const FUSION_EXTRA_STYLES: Array<{ style: ExtraCinematicStyle; label: string; finisher: string }> = [
+  { style: 'convergence', label: '공명 집속', finisher: 'RESONANCE CONVERGENCE' },
+  { style: 'prism', label: '프리즘 결속', finisher: 'PRISMATIC BIND' },
+  { style: 'storm', label: '뇌광 합주', finisher: 'TEMPEST SYNCHRONY' },
+  { style: 'bloom', label: '생명 개화', finisher: 'VERDANT GENESIS' },
+  { style: 'forge', label: '성철 제련', finisher: 'ASTRAL FORGE' },
+  { style: 'eclipse', label: '식광 교차', finisher: 'ECLIPSE CROSSING' },
+  { style: 'tide', label: '월영 조류', finisher: 'LUNAR TIDEBIND' },
+  { style: 'star', label: '성해 집성', finisher: 'STELLAR ASSEMBLY' },
+];
+
+const EVOLUTION_EXTRA_STYLES: Array<{ style: ExtraCinematicStyle; label: string; finisher: string }> = [
+  { style: 'ascension', label: '계승 각성', finisher: 'INHERITED ASCENSION' },
+  { style: 'wing', label: '광익 전개', finisher: 'CELESTIAL AWAKENING' },
+  { style: 'crown', label: '황관 계승', finisher: 'SOVEREIGN RISE' },
+  { style: 'rift', label: '균열 돌파', finisher: 'RIFT BREAKTHROUGH' },
+  { style: 'mirror', label: '거울 전승', finisher: 'MIRROR SUCCESSION' },
+  { style: 'thunder', label: '뇌광 승계', finisher: 'THUNDER INHERITANCE' },
+  { style: 'root', label: '근원 발아', finisher: 'ROOTBOUND EVOLUTION' },
+  { style: 'requiem', label: '심연 진혼', finisher: 'ABYSSAL REQUIEM' },
+];
+
+function stableCardHash(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function extraCinematicProfile(card: CardDefinition, kind: 'fusion' | 'evolution'): ExtraCinematicProfile {
+  const hash = stableCardHash(`${kind}:${card.id}`);
+  const styles = kind === 'fusion' ? FUSION_EXTRA_STYLES : EVOLUTION_EXTRA_STYLES;
+  const selected = styles[hash % styles.length];
+  const hue = hash % 360;
+  const hue2 = (hue + 52 + (hash % 61)) % 360;
+  const baseAccent = ELEMENT_ACCENT[card.element];
+  const secondary = `hsl(${hue2} 86% 72%)`;
+  const angle = `${(hash % 141) - 70}deg`;
+  const speed = `${1.7 + ((hash >> 5) % 14) / 10}s`;
+  const scale = `${0.90 + ((hash >> 9) % 17) / 100}`;
+  return {
+    signature: card.id.replace(/[^a-z0-9-]/gi, '-'),
+    style: selected.style,
+    label: selected.label,
+    finisher: selected.finisher,
+    rune: card.sigil || (kind === 'fusion' ? '☯' : '✧'),
+    accent: baseAccent,
+    secondary,
+    angle,
+    speed,
+    scale,
+    legendary: card.rarity === 'legendary',
+  };
+}
+
 function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualEvent | null; userId: string; profiles: RoomProfile[]; drawCard?: CardDefinition }) {
   if (!event) return null;
   const card = event.cardId ? CARD_BY_ID[event.cardId] : undefined;
+  const attackProfile = event.kind === 'attack' && card ? attackMotionProfile(card) : undefined;
+  const extraProfile = card && (event.kind === 'fusion' || event.kind === 'evolution') ? extraCinematicProfile(card, event.kind) : undefined;
   const owner = profiles.find((profile) => profile.user_id === event.ownerId);
   const mine = event.ownerId === userId;
   const { source, target } = duelEventPoints(event, userId);
   const fxStyle = {
     '--sx': `${source.x}%`, '--sy': `${source.y}%`, '--tx': `${target.x}%`, '--ty': `${target.y}%`,
-    '--fx-accent': card ? ELEMENT_ACCENT[card.element] : '#7ddcff',
+    '--fx-accent': attackProfile?.accent ?? extraProfile?.accent ?? (card ? ELEMENT_ACCENT[card.element] : '#7ddcff'),
+    '--fx-secondary': attackProfile?.subAccent ?? extraProfile?.secondary ?? '#f7fbff',
+    '--ritual-secondary': extraProfile?.secondary ?? '#f7fbff',
+    '--ritual-angle': extraProfile?.angle ?? '0deg',
+    '--ritual-speed': extraProfile?.speed ?? '2.4s',
+    '--ritual-scale': extraProfile?.scale ?? '1',
   } as CSSProperties;
   const cinematicCardKinds: VisualEvent['kind'][] = ['summon', 'special', 'spell'];
   const legendaryChoice = event.kind === 'special' && (event.vfx === 'legendary-fusion-choice' || event.vfx === 'legendary-evolution-choice');
@@ -2528,6 +2664,26 @@ function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualE
   const trapEffect = card?.kind === 'trap' ? effectDescription(card.trapEffect, card.trapTrigger) : '';
   const extraTitle = event.kind === 'fusion' ? 'RESONANCE FUSION' : 'INHERIT ASCENSION';
   const extraKorean = event.kind === 'fusion' ? '공명 융합' : '계승 진화';
+  const showHitStage = event.kind === 'defense' || event.kind === 'core' || event.kind === 'destroy';
+  const hitLabel = event.kind === 'destroy'
+    ? 'UNIT DESTROYED'
+    : event.kind === 'core'
+      ? 'DIRECT CORE HIT'
+      : (event.shieldAmount ?? 0) > 0 && (event.healthAmount ?? 0) > 0
+        ? 'BREAK & DAMAGE'
+        : (event.shieldAmount ?? 0) > 0
+          ? 'SHIELD IMPACT'
+          : 'HIT CONFIRMED';
+  const hitKorean = event.kind === 'destroy'
+    ? (event.detail ?? '유닛이 파괴되었습니다.')
+    : event.kind === 'core'
+      ? (event.detail ?? '리더에게 직접 타격이 들어갔습니다.')
+      : event.detail ?? '타격이 적중했습니다.';
+  const hitAmountText = event.kind === 'defense'
+    ? `${(event.shieldAmount ?? 0) > 0 ? `SHIELD -${event.shieldAmount}` : ''}${(event.shieldAmount ?? 0) > 0 && (event.healthAmount ?? 0) > 0 ? ' · ' : ''}${(event.healthAmount ?? 0) > 0 ? `HP -${event.healthAmount}` : ''}`
+    : event.kind === 'core'
+      ? `CORE -${event.amount ?? 0}`
+      : card?.name ?? 'DESTROY';
   return (
     <div className={`v18-cinematic-layer kind-${event.kind} ${vfxClass} ${mine ? 'from-me' : 'from-opponent'} element-${card?.element ?? 'neutral'} rarity-${card?.rarity ?? 'common'}`} key={event.id} style={fxStyle} aria-live="polite">
       <span className="v22-cinematic-letterbox" aria-hidden="true" />
@@ -2542,25 +2698,56 @@ function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualE
       {(event.kind === 'destroy' || event.kind === 'core' || event.kind === 'defense') && <span className="v18-shard-field" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ '--piece': index } as CSSProperties} />)}</span>}
       {(event.kind === 'special' || event.kind === 'summon') && <span className="v18-summon-gate" aria-hidden="true"><i /><i /><i /></span>}
 
-      {event.kind === 'attack' && card && (
-        <div className="v31e-attack-stage" aria-label={`${card.name} 공격 ${event.amount ?? 0}`}>
+      {event.kind === 'attack' && card && attackProfile && (
+        <div className={`v31e-attack-stage style-${attackProfile.style} ${attackProfile.legendary ? 'legendary' : 'standard'} sig-${attackProfile.signature}`} aria-label={`${card.name} 공격 ${event.amount ?? 0}`}>
+          <span className="v32-attack-backline" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ '--line-index': index } as CSSProperties} />)}</span>
           <div className="v31e-attack-source-card">
             <CardIllustration card={card} hero />
-            <span><small>{mine ? 'YOUR ATTACK' : 'ENEMY ATTACK'}</small><b>{card.name}</b></span>
+            <span><small>{attackProfile.legendary ? 'LEGENDARY ATTACK' : mine ? 'YOUR ATTACK' : 'ENEMY ATTACK'}</small><b>{card.name}</b></span>
           </div>
-          <div className="v31e-attack-power"><small>ATTACK</small><strong>{event.amount ?? '?'}</strong><span>{event.detail ?? '공격 선언'}</span></div>
+          <div className="v32-attack-avatar">
+            <span className="v32-attack-avatar-mark">{attackProfile.marker}</span>
+            <div>
+              <small>{attackProfile.legendary ? 'UNIQUE BATTLE EFFECT' : 'BATTLE MOTION'}</small>
+              <b>{attackProfile.label}</b>
+              <span>{attackProfile.finisher}</span>
+            </div>
+          </div>
+          <div className="v31e-attack-power"><small>ATTACK</small><strong>{event.amount ?? '?'}</strong><span>{event.detail ?? attackProfile.finisher}</span></div>
+          <span className="v32-attack-weapon" aria-hidden="true"><i /><i /><i /><i /></span>
           <span className="v31e-slash-trails" aria-hidden="true"><i /><i /><i /></span>
+          <span className="v32-attack-afterimage" aria-hidden="true">{Array.from({ length: 4 }, (_, index) => <i key={index} style={{ '--after-index': index } as CSSProperties} />)}</span>
           <span className="v31e-target-reticle" aria-hidden="true"><i /><i /></span>
           <span className="v31e-impact-burst" aria-hidden="true">{Array.from({ length: 10 }, (_, index) => <i key={index} style={{ '--spark': index } as CSSProperties} />)}</span>
+          <span className="v32-hitcall" aria-hidden="true"><b>{attackProfile.finisher}</b><small>{event.targetZone !== undefined ? 'TARGET LOCK' : 'DIRECT CORE'}</small></span>
         </div>
       )}
 
-      {(event.kind === 'fusion' || event.kind === 'evolution') && card && (
-        <div className={`v31e-extra-cinematic ${event.kind}`}>
+      {showHitStage && (
+        <div className={`v32-hit-stage kind-${event.kind} ${event.kind === 'defense' && (event.shieldAmount ?? 0) > 0 ? 'shielded' : ''}`} aria-hidden="true">
+          <span className="v32-hit-shockwave"><i /><i /><i /></span>
+          <span className="v32-hit-cross"><i /><i /><i /><i /></span>
+          <div className="v32-hit-panel">
+            <small>{event.kind === 'core' ? 'CORE IMPACT' : event.kind === 'destroy' ? 'UNIT BREAK' : 'HIT MOTION'}</small>
+            <b>{hitLabel}</b>
+            <span>{hitKorean}</span>
+            {hitAmountText && <strong>{hitAmountText}</strong>}
+          </div>
+        </div>
+      )}
+
+      {(event.kind === 'fusion' || event.kind === 'evolution') && card && extraProfile && (
+        <div className={`v31e-extra-cinematic ${event.kind} v32-extra-style-${extraProfile.style} v32-extra-sig-${extraProfile.signature} ${extraProfile.legendary ? 'v32-extra-legendary' : ''}`} style={{ '--ritual': extraProfile.accent } as CSSProperties}>
+          <span className="v32-extra-unique-field" aria-hidden="true">
+            <i className="v32-extra-ring ring-a" /><i className="v32-extra-ring ring-b" /><i className="v32-extra-ring ring-c" />
+            <span className="v32-extra-rune">{extraProfile.rune}</span>
+            <span className="v32-extra-rays">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ '--ray-index': index } as CSSProperties} />)}</span>
+          </span>
           <div className="v31e-extra-title"><small>{mine ? 'YOUR EXTRA SUMMON' : 'OPPONENT EXTRA SUMMON'}</small><b>{extraTitle}</b><span>{extraKorean}</span></div>
+          <div className="v32-extra-signature"><small>{extraProfile.label}</small><b>{extraProfile.finisher}</b><span>{card.name}</span></div>
           <div className="v31e-extra-ritual">
             <div className="v31e-source-materials">
-              {sourceCards.length > 0 ? sourceCards.slice(0, 3).map((sourceCard, index) => (
+              {sourceCards.length > 0 ? sourceCards.slice(0, 4).map((sourceCard, index) => (
                 <div className="v31e-source-card" key={`${sourceCard.id}-${index}`} style={{ '--source-index': index } as CSSProperties}>
                   <CardIllustration card={sourceCard} hero />
                   <small>{sourceCard.name}</small>

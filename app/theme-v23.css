@@ -4367,3 +4367,457 @@
   }
   .v23-client[data-ui-build="v32-retail"] .tcg-card:hover { transform:none!important; }
 }
+
+/* ===== v32a duel battle cinematics: varied attack motions + hit reactions ===== */
+.v23-client.in-duel .v31e-attack-stage {
+  --sig-core: var(--fx-accent);
+  --sig-secondary: var(--fx-secondary);
+}
+.v23-client.in-duel .v32-attack-backline {
+  position:absolute; inset:10% 8% 12%; z-index:1; overflow:hidden; pointer-events:none;
+}
+.v23-client.in-duel .v32-attack-backline i {
+  position:absolute; left:calc(var(--line-index) * 8.7%); top:-18%; width:2px; height:145%;
+  background:linear-gradient(transparent, color-mix(in srgb,var(--sig-core) 68%, white), transparent);
+  opacity:.28; filter:blur(.2px); transform:rotate(18deg) scaleY(0);
+  animation:v32Backline .45s calc(var(--line-index) * .018s) ease-out both;
+}
+.v23-client.in-duel .v32-attack-avatar {
+  position:absolute; left:clamp(16px,3vw,44px); top:clamp(14px,2.6vw,34px); z-index:13;
+  display:grid; grid-template-columns:44px minmax(0,1fr); gap:10px; align-items:center;
+  padding:10px 14px 10px 10px; min-width:min(420px,44vw); border:1px solid rgba(255,255,255,.10);
+  border-radius:16px; background:linear-gradient(135deg,rgba(5,10,15,.90),rgba(7,16,24,.68));
+  box-shadow:0 14px 34px rgba(0,0,0,.42),0 0 28px color-mix(in srgb,var(--sig-core) 18%, transparent);
+  animation:v32AttackAvatar .78s ease-out both;
+}
+.v23-client.in-duel .v32-attack-avatar-mark {
+  width:44px; height:44px; display:grid; place-items:center; border-radius:14px;
+  border:1px solid color-mix(in srgb,var(--sig-core) 48%,white);
+  background:radial-gradient(circle at 35% 35%, color-mix(in srgb,var(--sig-secondary) 42%, transparent), rgba(5,10,15,.92) 58%);
+  color:#fff; font-size:18px; font-weight:1000; box-shadow:0 0 22px color-mix(in srgb,var(--sig-core) 18%, transparent);
+}
+.v23-client.in-duel .v32-attack-avatar>div { min-width:0; display:grid; gap:2px; }
+.v23-client.in-duel .v32-attack-avatar small { color:color-mix(in srgb,var(--sig-core) 70%, white); font-size:8px; font-weight:1000; letter-spacing:.16em; }
+.v23-client.in-duel .v32-attack-avatar b { color:#f7fbff; font-size:clamp(15px,1.8vw,23px); line-height:1.02; letter-spacing:-.03em; }
+.v23-client.in-duel .v32-attack-avatar span { color:#a8bac7; font-size:9px; }
+.v23-client.in-duel .v32-attack-weapon,
+.v23-client.in-duel .v32-attack-afterimage,
+.v23-client.in-duel .v32-hitcall { position:absolute; pointer-events:none; }
+.v23-client.in-duel .v32-attack-weapon { left:50%; top:50%; width:min(56vw,760px); height:min(34vh,320px); transform:translate(-50%,-50%); z-index:8; }
+.v23-client.in-duel .v32-attack-weapon i {
+  position:absolute; left:50%; top:50%; width:52%; height:10px; margin-left:-26%; margin-top:-5px; border-radius:999px;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--sig-secondary) 88%, white) 24%,color-mix(in srgb,var(--sig-core) 82%, white) 70%,transparent);
+  filter:drop-shadow(0 0 10px color-mix(in srgb,var(--sig-core) 58%, transparent)); transform:scaleX(0); opacity:0;
+}
+.v23-client.in-duel .v32-attack-afterimage { left:var(--sx); top:var(--sy); width:220px; height:220px; margin:-110px; z-index:3; }
+.v23-client.in-duel .v32-attack-afterimage i {
+  position:absolute; inset:0; border:1px solid color-mix(in srgb,var(--sig-core) 38%, transparent); border-radius:24px;
+  opacity:0; transform:scale(.72); animation:v32Afterimage .58s calc(var(--after-index) * .05s) ease-out both;
+}
+.v23-client.in-duel .v32-hitcall {
+  right:clamp(18px,3vw,44px); bottom:clamp(18px,3vw,36px); z-index:13; display:grid; gap:2px; justify-items:end;
+  padding:10px 12px; border:1px solid rgba(255,255,255,.07); border-radius:14px;
+  background:linear-gradient(135deg,rgba(5,10,15,.78),rgba(7,16,24,.55)); animation:v32Hitcall .74s ease-out both;
+}
+.v23-client.in-duel .v32-hitcall b { color:#fff; font-size:clamp(13px,1.55vw,20px); letter-spacing:.04em; text-shadow:0 0 15px var(--sig-core); }
+.v23-client.in-duel .v32-hitcall small { color:color-mix(in srgb,var(--sig-secondary) 70%, white); font-size:8px; font-weight:1000; letter-spacing:.16em; }
+
+.v23-client.in-duel .v31e-attack-stage.legendary .v32-attack-avatar,
+.v23-client.in-duel .v31e-attack-stage.legendary .v31e-attack-source-card,
+.v23-client.in-duel .v31e-attack-stage.legendary .v31e-attack-power { box-shadow:0 18px 40px rgba(0,0,0,.48),0 0 40px color-mix(in srgb,var(--sig-core) 24%, transparent); }
+.v23-client.in-duel .v31e-attack-stage.legendary .v32-attack-avatar::after {
+  content:'LEGEND'; position:absolute; right:12px; top:-9px; padding:5px 8px; border-radius:999px;
+  border:1px solid color-mix(in srgb,var(--sig-core) 55%, white); background:rgba(7,13,20,.92);
+  color:color-mix(in srgb,var(--sig-secondary) 85%, white); font-size:7px; font-weight:1000; letter-spacing:.18em;
+}
+
+/* motion archetypes */
+.v23-client.in-duel .v31e-attack-stage.style-slash .v32-attack-weapon i:nth-child(1) { transform:rotate(-18deg) scaleX(0); animation:v32WeaponSlash .42s .16s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-slash .v32-attack-weapon i:nth-child(2) { transform:rotate(16deg) scaleX(0); animation:v32WeaponSlash .44s .21s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-slash .v32-attack-weapon i:nth-child(3) { transform:rotate(-8deg) scaleX(0); animation:v32WeaponSlash .40s .26s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-slash .v32-attack-weapon i:nth-child(4) { display:none; }
+
+.v23-client.in-duel .v31e-attack-stage.style-beam .v32-attack-weapon i { height:14px; margin-top:-7px; border-radius:999px; }
+.v23-client.in-duel .v31e-attack-stage.style-beam .v32-attack-weapon i:nth-child(1) { width:78%; margin-left:-39%; background:linear-gradient(90deg,transparent,var(--sig-secondary) 18%,var(--sig-core) 68%,transparent); animation:v32WeaponBeam  .5s .14s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-beam .v32-attack-weapon i:nth-child(2) { width:58%; margin-left:-29%; height:36px; margin-top:-18px; background:radial-gradient(circle,var(--sig-secondary),transparent 68%); filter:blur(8px); animation:v32BeamCore .5s .14s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-beam .v32-attack-weapon i:nth-child(3),
+.v23-client.in-duel .v31e-attack-stage.style-beam .v32-attack-weapon i:nth-child(4) { display:none; }
+.v23-client.in-duel .v31e-attack-stage.style-beam .v31e-target-reticle { width:94px; height:94px; margin:-47px; border-color:color-mix(in srgb,var(--sig-secondary) 40%, #ff6f7f); }
+
+.v23-client.in-duel .v31e-attack-stage.style-dive .v31e-attack-source-card { animation:v32SourceDive .78s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-dive .v32-attack-weapon i:nth-child(1) { width:46%; margin-left:-23%; transform:rotate(-38deg) scaleX(0); animation:v32WeaponDive .44s .15s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-dive .v32-attack-weapon i:nth-child(2) { width:16%; height:120px; margin-left:-8%; margin-top:-60px; background:linear-gradient(180deg,transparent,var(--sig-secondary),transparent); transform:rotate(-36deg) scaleY(0); animation:v32DiveFang .40s .20s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-dive .v32-attack-weapon i:nth-child(3),
+.v23-client.in-duel .v31e-attack-stage.style-dive .v32-attack-weapon i:nth-child(4) { display:none; }
+
+.v23-client.in-duel .v31e-attack-stage.style-scatter .v32-attack-weapon i:nth-child(1) { transform:rotate(-34deg) scaleX(0); animation:v32WeaponShard .38s .12s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-scatter .v32-attack-weapon i:nth-child(2) { transform:rotate(-10deg) scaleX(0); animation:v32WeaponShard .40s .17s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-scatter .v32-attack-weapon i:nth-child(3) { transform:rotate(14deg) scaleX(0); animation:v32WeaponShard .42s .20s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-scatter .v32-attack-weapon i:nth-child(4) { transform:rotate(38deg) scaleX(0); animation:v32WeaponShard .44s .24s ease-out both; display:block; }
+
+.v23-client.in-duel .v31e-attack-stage.style-crush .v32-attack-weapon i:nth-child(1) { width:26%; margin-left:-13%; height:130px; margin-top:-65px; background:linear-gradient(180deg,transparent,var(--sig-core),transparent); animation:v32WeaponCrush .44s .14s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-crush .v32-attack-weapon i:nth-child(2) { width:54%; margin-left:-27%; height:18px; margin-top:-9px; border-radius:20px; background:linear-gradient(90deg,transparent,var(--sig-secondary),transparent); animation:v32CrushPulse .46s .22s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-crush .v32-attack-weapon i:nth-child(3),
+.v23-client.in-duel .v31e-attack-stage.style-crush .v32-attack-weapon i:nth-child(4) { display:none; }
+.v23-client.in-duel .v31e-attack-stage.style-crush .v31e-target-reticle { border-radius:18px; }
+
+.v23-client.in-duel .v31e-attack-stage.style-pulse .v32-attack-weapon i:nth-child(1) { width:32%; margin-left:-16%; height:32%; max-height:120px; margin-top:-16%; max-width:120px; border-radius:50%; background:radial-gradient(circle,var(--sig-secondary),transparent 65%); animation:v32PulseBloom .44s .14s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-pulse .v32-attack-weapon i:nth-child(2) { width:62%; margin-left:-31%; height:3px; background:linear-gradient(90deg,transparent,var(--sig-core),transparent); animation:v32PulseRay .46s .20s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-pulse .v32-attack-weapon i:nth-child(3) { width:3px; height:62%; margin-left:-1px; margin-top:-31%; background:linear-gradient(180deg,transparent,var(--sig-core),transparent); animation:v32PulseRayY .46s .20s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-pulse .v32-attack-weapon i:nth-child(4) { display:none; }
+
+/* per-legend signature tone tuning */
+.v23-client.in-duel .v31e-attack-stage.sig-star-devourer,
+.v23-client.in-duel .v31e-attack-stage.sig-lunar-abyss-witch,
+.v23-client.in-duel .v31e-attack-stage.sig-dream-recorder { filter:saturate(1.08); }
+.v23-client.in-duel .v31e-attack-stage.sig-crownless-titan .v31e-impact-burst::before,
+.v23-client.in-duel .v31e-attack-stage.sig-alloy-enforcer .v31e-impact-burst::before,
+.v23-client.in-duel .v31e-attack-stage.sig-eternal-guardian .v31e-impact-burst::before { width:26px; height:26px; margin:-13px; box-shadow:0 0 30px #fff,0 0 74px var(--sig-core); }
+.v23-client.in-duel .v31e-attack-stage.sig-crystal-overlord .v31e-impact-burst i,
+.v23-client.in-duel .v31e-attack-stage.sig-crystal-overlord-evo .v31e-impact-burst i { height:48px; }
+.v23-client.in-duel .v31e-attack-stage.sig-prism-dancer .v32-attack-afterimage i,
+.v23-client.in-duel .v31e-attack-stage.sig-silver-saint .v32-attack-afterimage i { border-style:dashed; border-radius:50%; }
+.v23-client.in-duel .v31e-attack-stage.sig-eclipse-chimera .v31e-slash-trails,
+.v23-client.in-duel .v31e-attack-stage.sig-night-executor .v31e-slash-trails { transform:rotate(-10deg); }
+.v23-client.in-duel .v31e-attack-stage.sig-solar-resonance-dragon .v32-attack-avatar,
+.v23-client.in-duel .v31e-attack-stage.sig-verdant-sungod .v32-attack-avatar { background:linear-gradient(135deg,rgba(14,15,18,.92),rgba(20,18,8,.78)); }
+
+/* hit reactions */
+.v23-client.in-duel .v32-hit-stage {
+  position:absolute; left:var(--tx); top:var(--ty); width:220px; height:220px; margin:-110px; z-index:15; pointer-events:none;
+}
+.v23-client.in-duel .v32-hit-shockwave,
+.v23-client.in-duel .v32-hit-cross,
+.v23-client.in-duel .v32-hit-panel { position:absolute; inset:0; }
+.v23-client.in-duel .v32-hit-shockwave i {
+  position:absolute; left:50%; top:50%; border:1px solid rgba(255,255,255,.22); border-radius:50%; opacity:0;
+  transform:translate(-50%,-50%) scale(.5); animation:v32HitShock  .56s calc((var(--i,0)) * .06s) ease-out both;
+}
+.v23-client.in-duel .v32-hit-shockwave i:nth-child(1) { width:60px; height:60px; --i:0; }
+.v23-client.in-duel .v32-hit-shockwave i:nth-child(2) { width:110px; height:110px; --i:1; }
+.v23-client.in-duel .v32-hit-shockwave i:nth-child(3) { width:168px; height:168px; --i:2; }
+.v23-client.in-duel .v32-hit-cross i {
+  position:absolute; left:50%; top:50%; width:92px; height:2px; margin-left:-46px; margin-top:-1px;
+  background:linear-gradient(90deg,transparent,#fff,var(--fx-accent),transparent); opacity:0; animation:v32HitCross .44s .06s ease-out both;
+}
+.v23-client.in-duel .v32-hit-cross i:nth-child(2) { transform:rotate(90deg); }
+.v23-client.in-duel .v32-hit-cross i:nth-child(3) { transform:rotate(45deg); }
+.v23-client.in-duel .v32-hit-cross i:nth-child(4) { transform:rotate(-45deg); }
+.v23-client.in-duel .v32-hit-panel {
+  left:50%; top:calc(100% - 16px); inset:auto auto auto 50%; min-width:180px; max-width:280px; transform:translateX(-50%);
+  display:grid; gap:2px; justify-items:center; padding:10px 12px; border:1px solid rgba(255,255,255,.09); border-radius:14px;
+  background:linear-gradient(135deg,rgba(8,13,19,.92),rgba(7,14,23,.74)); box-shadow:0 14px 35px rgba(0,0,0,.46); animation:v32HitPanel .68s ease-out both;
+}
+.v23-client.in-duel .v32-hit-panel small { color:rgba(220,240,250,.68); font-size:7px; font-weight:1000; letter-spacing:.16em; }
+.v23-client.in-duel .v32-hit-panel b { color:#fff; font-size:16px; letter-spacing:.04em; text-shadow:0 0 14px var(--fx-accent); }
+.v23-client.in-duel .v32-hit-panel span { color:#b4c1ca; font-size:8px; text-align:center; line-height:1.36; }
+.v23-client.in-duel .v32-hit-panel strong { color:#fff3f3; font-size:9px; font-weight:1000; letter-spacing:.08em; }
+.v23-client.in-duel .v32-hit-stage.kind-core .v32-hit-panel b,
+.v23-client.in-duel .v32-hit-stage.kind-destroy .v32-hit-panel b { color:#ffd0d7; }
+.v23-client.in-duel .v32-hit-stage.shielded .v32-hit-panel b { color:#d7e6f5; }
+.v23-client.in-duel .v32-hit-stage.kind-destroy .v32-hit-cross i { background:linear-gradient(90deg,transparent,#fff,#ff6d86,transparent); }
+
+@keyframes v32Backline { 0%{opacity:0;transform:rotate(18deg) scaleY(0)} 30%{opacity:.42} 100%{opacity:0;transform:rotate(18deg) scaleY(1.08)} }
+@keyframes v32AttackAvatar { 0%{opacity:0;transform:translateY(-20px) scale(.92)} 24%{opacity:1} 100%{opacity:1;transform:translateY(0) scale(1)} }
+@keyframes v32Afterimage { 0%{opacity:0;transform:scale(.72)} 25%{opacity:.42} 100%{opacity:0;transform:scale(1.08)} }
+@keyframes v32Hitcall { 0%{opacity:0;transform:translateY(12px) scale(.92)} 24%{opacity:1} 100%{opacity:0;transform:translateY(-4px) scale(1)} }
+@keyframes v32WeaponSlash { 0%{opacity:0;transform:rotate(-18deg) scaleX(0)} 26%{opacity:1} 100%{opacity:0;transform:rotate(-18deg) scaleX(1.15)} }
+@keyframes v32WeaponBeam { 0%{opacity:0;transform:scaleX(.1)} 18%{opacity:1} 100%{opacity:0;transform:scaleX(1.18)} }
+@keyframes v32BeamCore { 0%{opacity:0;transform:scale(.2)} 24%{opacity:.8} 100%{opacity:0;transform:scale(1.2)} }
+@keyframes v32SourceDive { 0%{opacity:0;transform:translate(-50%,-52%) scale(.54) rotate(-28deg)} 20%{opacity:1;transform:translate(-50%,-58%) scale(1.04) rotate(-12deg)} 76%{opacity:1;transform:translate(calc(var(--tx) - var(--sx) - 50%),calc(var(--ty) - var(--sy) - 52%)) scale(.9) rotate(12deg)} 100%{opacity:0;transform:translate(calc(var(--tx) - var(--sx) - 50%),calc(var(--ty) - var(--sy) - 52%)) scale(.82) rotate(18deg)} }
+@keyframes v32WeaponDive { 0%{opacity:0;transform:rotate(-38deg) scaleX(0)} 22%{opacity:1} 100%{opacity:0;transform:rotate(-38deg) scaleX(1.15)} }
+@keyframes v32DiveFang { 0%{opacity:0;transform:rotate(-36deg) scaleY(0)} 26%{opacity:1} 100%{opacity:0;transform:rotate(-36deg) scaleY(1.08)} }
+@keyframes v32WeaponShard { 0%{opacity:0;transform:scaleX(0)} 22%{opacity:1} 100%{opacity:0;transform:scaleX(1.02)} }
+@keyframes v32WeaponCrush { 0%{opacity:0;transform:scaleY(0)} 24%{opacity:1} 100%{opacity:0;transform:scaleY(1.15)} }
+@keyframes v32CrushPulse { 0%{opacity:0;transform:scaleX(.2)} 18%{opacity:1} 100%{opacity:0;transform:scaleX(1.18)} }
+@keyframes v32PulseBloom { 0%{opacity:0;transform:scale(.2)} 24%{opacity:.92} 100%{opacity:0;transform:scale(1.25)} }
+@keyframes v32PulseRay { 0%{opacity:0;transform:scaleX(.1)} 18%{opacity:1} 100%{opacity:0;transform:scaleX(1.08)} }
+@keyframes v32PulseRayY { 0%{opacity:0;transform:scaleY(.1)} 18%{opacity:1} 100%{opacity:0;transform:scaleY(1.08)} }
+@keyframes v32HitShock { 0%{opacity:0;transform:translate(-50%,-50%) scale(.55)} 28%{opacity:.8} 100%{opacity:0;transform:translate(-50%,-50%) scale(1.12)} }
+@keyframes v32HitCross { 0%{opacity:0;transform:scale(.6)} 28%{opacity:1} 100%{opacity:0;transform:scale(1.12)} }
+@keyframes v32HitPanel { 0%{opacity:0;transform:translateX(-50%) translateY(10px) scale(.9)} 24%{opacity:1} 100%{opacity:0;transform:translateX(-50%) translateY(-6px) scale(1)} }
+
+@media (max-width:1180px) {
+  .v23-client.in-duel .v32-attack-avatar { min-width:min(330px,52vw); }
+  .v23-client.in-duel .v32-hit-panel { min-width:154px; }
+}
+@media (max-width:820px) {
+  .v23-client.in-duel .v32-attack-avatar { left:10px; top:10px; min-width:min(300px,66vw); padding:9px 11px 9px 9px; }
+  .v23-client.in-duel .v32-attack-avatar-mark { width:38px; height:38px; font-size:16px; }
+  .v23-client.in-duel .v32-hitcall { right:10px; bottom:10px; }
+}
+
+/* ===== v32b HOTFIX: restore full-screen loading + stop decorative text overflow ===== */
+.loading-screen {
+  position:fixed!important;
+  inset:0!important;
+  z-index:99999!important;
+  width:100vw!important;
+  min-width:100vw!important;
+  height:100dvh!important;
+  min-height:100dvh!important;
+  display:grid!important;
+  place-content:center!important;
+  justify-items:center!important;
+  gap:12px!important;
+  overflow:hidden!important;
+  text-align:center!important;
+  background:radial-gradient(circle at center,rgba(107,87,230,.15),transparent 36%),#070910!important;
+}
+.v32-loading-screen,.v32-loading-atmosphere,.v32-loading-kicker,.v32-loading-status { /* legacy v32 boot chrome */ }
+.v23-client[data-ui-build="v32-retail"] .game-logo::after {
+  content:none!important;
+  display:none!important;
+}
+.v23-client[data-ui-build="v32-retail"] :is(.game-logo,.topbar-title,.sidebar,.sidebar nav button,.v31l-detail-kicker,.v31e-extra-title,.v32-extra-signature) {
+  min-width:0;
+}
+.v23-client[data-ui-build="v32-retail"] :is(.game-logo,.topbar-title) {
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* ===== v32b EXTRA SUMMON SIGNATURE SYSTEM =====
+   Every fusion/evolution card gets deterministic card-specific angle, speed,
+   scale, secondary color and rune, while the family controls the larger motif. */
+.v23-client.in-duel .v31e-extra-cinematic {
+  overflow:hidden;
+  isolation:isolate;
+}
+.v23-client.in-duel .v31e-extra-cinematic > :not(.v32-extra-unique-field) {
+  position:relative;
+  z-index:3;
+}
+.v23-client.in-duel .v32-extra-unique-field {
+  position:absolute;
+  left:50%;
+  top:52%;
+  z-index:1;
+  width:min(64vh,620px);
+  height:min(64vh,620px);
+  transform:translate(-50%,-50%) rotate(var(--ritual-angle)) scale(var(--ritual-scale));
+  pointer-events:none;
+  filter:drop-shadow(0 0 24px color-mix(in srgb,var(--ritual) 22%,transparent));
+}
+.v23-client.in-duel .v32-extra-ring {
+  position:absolute;
+  left:50%;
+  top:50%;
+  border:1px solid color-mix(in srgb,var(--ritual) 58%,transparent);
+  transform:translate(-50%,-50%);
+  animation:v32bExtraOrbit var(--ritual-speed) linear infinite;
+}
+.v23-client.in-duel .v32-extra-ring.ring-a { width:72%;height:72%; }
+.v23-client.in-duel .v32-extra-ring.ring-b { width:52%;height:52%;animation-direction:reverse;animation-delay:-.47s; }
+.v23-client.in-duel .v32-extra-ring.ring-c { width:34%;height:34%;animation-delay:-.83s; }
+.v23-client.in-duel .v32-extra-rune {
+  position:absolute;
+  left:50%;top:50%;
+  display:grid;place-items:center;
+  width:104px;height:104px;
+  border:1px solid color-mix(in srgb,var(--ritual-secondary) 48%,transparent);
+  border-radius:50%;
+  transform:translate(-50%,-50%) rotate(calc(0deg - var(--ritual-angle)));
+  color:#f8fdff;
+  font-size:36px;
+  text-shadow:0 0 16px var(--ritual),0 0 34px var(--ritual-secondary);
+  background:radial-gradient(circle,color-mix(in srgb,var(--ritual) 18%,transparent),rgba(2,7,11,.42) 58%,transparent 70%);
+  animation:v32bRunePulse 1.15s ease-in-out infinite alternate;
+}
+.v23-client.in-duel .v32-extra-rays {
+  position:absolute;inset:0;
+}
+.v23-client.in-duel .v32-extra-rays i {
+  --ray-angle:calc(var(--ray-index) * 30deg);
+  position:absolute;
+  left:50%;top:50%;
+  width:2px;height:44%;
+  transform-origin:50% 0;
+  transform:rotate(var(--ray-angle)) scaleY(.08);
+  background:linear-gradient(var(--ritual-secondary),color-mix(in srgb,var(--ritual) 80%,transparent),transparent);
+  opacity:0;
+  animation:v32bRayBurst 1.45s calc(var(--ray-index) * .025s) ease-out infinite;
+}
+.v23-client.in-duel .v32-extra-signature {
+  z-index:6!important;
+  display:grid;
+  justify-items:center;
+  gap:2px;
+  margin-top:5px;
+  padding:5px 13px;
+  border:1px solid color-mix(in srgb,var(--ritual) 24%,transparent);
+  border-radius:999px;
+  background:linear-gradient(90deg,transparent,rgba(4,9,14,.68) 12% 88%,transparent);
+  text-align:center;
+  box-shadow:0 0 24px color-mix(in srgb,var(--ritual) 7%,transparent);
+}
+.v23-client.in-duel .v32-extra-signature small {
+  color:color-mix(in srgb,var(--ritual-secondary) 82%,white);
+  font-size:7px;
+  font-weight:1000;
+  letter-spacing:.14em;
+}
+.v23-client.in-duel .v32-extra-signature b {
+  color:#f5fbff;
+  font-size:10px;
+  font-weight:1000;
+  letter-spacing:.08em;
+  text-shadow:0 0 12px color-mix(in srgb,var(--ritual) 42%,transparent);
+}
+.v23-client.in-duel .v32-extra-signature span {
+  max-width:min(520px,68vw);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#7f95a4;
+  font-size:7px;
+}
+.v23-client.in-duel .v32-extra-legendary .v32-extra-signature {
+  border-color:color-mix(in srgb,var(--ritual-secondary) 48%,white);
+  box-shadow:0 0 32px color-mix(in srgb,var(--ritual) 17%,transparent),inset 0 0 16px color-mix(in srgb,var(--ritual-secondary) 5%,transparent);
+}
+.v23-client.in-duel .v32-extra-legendary .v32-extra-unique-field::after {
+  content:"";
+  position:absolute;inset:8%;
+  border:1px dashed color-mix(in srgb,var(--ritual-secondary) 40%,transparent);
+  border-radius:50%;
+  animation:v32bLegendHalo 4.8s linear infinite reverse;
+}
+
+/* Fusion: materials collapse inward. */
+.v23-client.in-duel .v31e-extra-cinematic.fusion .v32-extra-rune {
+  box-shadow:0 0 0 9px color-mix(in srgb,var(--ritual) 4%,transparent),0 0 48px color-mix(in srgb,var(--ritual) 28%,transparent);
+}
+.v23-client.in-duel .v31e-extra-cinematic.fusion .v31e-source-card {
+  filter:saturate(1.05) drop-shadow(0 0 10px color-mix(in srgb,var(--ritual) 16%,transparent));
+}
+.v23-client.in-duel .v31e-extra-cinematic.fusion .v31e-ritual-core {
+  animation:v31eRitualCore 1.75s ease-out both,v32bFusionCollapse 1.5s .18s ease-out both;
+}
+
+/* Evolution: inherited power rises vertically instead of collapsing laterally. */
+.v23-client.in-duel .v31e-extra-cinematic.evolution .v32-extra-unique-field {
+  width:min(58vh,560px);
+  height:min(72vh,690px);
+}
+.v23-client.in-duel .v31e-extra-cinematic.evolution .v32-extra-rays i {
+  height:54%;
+  background:linear-gradient(var(--ritual-secondary),var(--ritual),transparent 78%);
+}
+.v23-client.in-duel .v31e-extra-cinematic.evolution .v31e-result-card {
+  animation:v31eResultManifest 1.8s .40s cubic-bezier(.16,.82,.18,1) both,v32bEvolutionRise 1.55s .22s ease-out both;
+}
+
+/* ---- Fusion motif families ---- */
+.v23-client.in-duel .v32-extra-style-convergence .v32-extra-ring { border-radius:50%; }
+.v23-client.in-duel .v32-extra-style-convergence .ring-b { border-style:dashed; }
+
+.v23-client.in-duel .v32-extra-style-prism .v32-extra-ring {
+  border-radius:8%;
+  transform:translate(-50%,-50%) rotate(45deg);
+}
+.v23-client.in-duel .v32-extra-style-prism .ring-b { border-style:dashed; }
+.v23-client.in-duel .v32-extra-style-prism .v32-extra-rune { border-radius:18px;transform:translate(-50%,-50%) rotate(45deg); }
+
+.v23-client.in-duel .v32-extra-style-storm .v32-extra-ring {
+  border-radius:46% 54% 42% 58%;
+  border-style:dashed;
+  box-shadow:0 0 18px color-mix(in srgb,var(--ritual-secondary) 22%,transparent);
+}
+.v23-client.in-duel .v32-extra-style-storm .v32-extra-rays i { width:3px;transform:rotate(var(--ray-angle)) skewX(-24deg) scaleY(.08); }
+
+.v23-client.in-duel .v32-extra-style-bloom .v32-extra-ring {
+  border-radius:50% 16% 50% 16%;
+}
+.v23-client.in-duel .v32-extra-style-bloom .ring-b { transform:translate(-50%,-50%) rotate(45deg); }
+.v23-client.in-duel .v32-extra-style-bloom .v32-extra-rune { border-radius:44% 18% 44% 18%; }
+
+.v23-client.in-duel .v32-extra-style-forge .v32-extra-ring { border-radius:10px; }
+.v23-client.in-duel .v32-extra-style-forge .ring-a { transform:translate(-50%,-50%) rotate(22.5deg); }
+.v23-client.in-duel .v32-extra-style-forge .ring-b { transform:translate(-50%,-50%) rotate(-22.5deg); }
+.v23-client.in-duel .v32-extra-style-forge .v32-extra-rune { border-radius:12px; }
+
+.v23-client.in-duel .v32-extra-style-eclipse .v32-extra-ring.ring-a { border-radius:50%;transform:translate(-58%,-50%); }
+.v23-client.in-duel .v32-extra-style-eclipse .v32-extra-ring.ring-b { border-radius:50%;transform:translate(-42%,-50%); }
+.v23-client.in-duel .v32-extra-style-eclipse .v32-extra-ring.ring-c { border-radius:50%;border-color:var(--ritual-secondary); }
+
+.v23-client.in-duel .v32-extra-style-tide .v32-extra-ring { border-radius:50%;height:36%; }
+.v23-client.in-duel .v32-extra-style-tide .ring-b { height:62%;width:42%; }
+.v23-client.in-duel .v32-extra-style-tide .v32-extra-rays { transform:rotate(90deg); }
+
+.v23-client.in-duel .v32-extra-style-star .v32-extra-ring {
+  clip-path:polygon(50% 0,61% 36%,100% 50%,61% 64%,50% 100%,39% 64%,0 50%,39% 36%);
+  border-radius:0;
+  background:linear-gradient(45deg,color-mix(in srgb,var(--ritual) 4%,transparent),transparent);
+}
+.v23-client.in-duel .v32-extra-style-star .v32-extra-rune { border-radius:50%;box-shadow:0 0 45px color-mix(in srgb,var(--ritual-secondary) 30%,transparent); }
+
+/* ---- Evolution motif families ---- */
+.v23-client.in-duel .v32-extra-style-ascension .v32-extra-ring { border-radius:50%;height:84%;width:42%; }
+.v23-client.in-duel .v32-extra-style-ascension .ring-b { width:62%;height:48%; }
+.v23-client.in-duel .v32-extra-style-ascension .v32-extra-rays { transform:rotate(-90deg); }
+
+.v23-client.in-duel .v32-extra-style-wing .v32-extra-ring.ring-a { width:58%;height:82%;border-radius:80% 10% 80% 10%;transform:translate(-82%,-50%) rotate(-28deg); }
+.v23-client.in-duel .v32-extra-style-wing .v32-extra-ring.ring-b { width:58%;height:82%;border-radius:10% 80% 10% 80%;transform:translate(-18%,-50%) rotate(28deg); }
+.v23-client.in-duel .v32-extra-style-wing .ring-c { border-radius:50%; }
+
+.v23-client.in-duel .v32-extra-style-crown .v32-extra-ring { clip-path:polygon(12% 72%,0 24%,28% 45%,50% 8%,72% 45%,100% 24%,88% 72%,50% 92%);border-radius:0; }
+.v23-client.in-duel .v32-extra-style-crown .v32-extra-rune { border-radius:18px 18px 50% 50%; }
+
+.v23-client.in-duel .v32-extra-style-rift .v32-extra-ring { border-radius:8px;transform:translate(-50%,-50%) skewX(-18deg) rotate(12deg);border-style:dashed; }
+.v23-client.in-duel .v32-extra-style-rift .ring-b { transform:translate(-50%,-50%) skewX(16deg) rotate(-16deg); }
+
+.v23-client.in-duel .v32-extra-style-mirror .v32-extra-ring.ring-a { border-radius:50%;transform:translate(-62%,-50%) scaleX(.64); }
+.v23-client.in-duel .v32-extra-style-mirror .v32-extra-ring.ring-b { border-radius:50%;transform:translate(-38%,-50%) scaleX(.64); }
+.v23-client.in-duel .v32-extra-style-mirror .ring-c { border-radius:50%;border-style:dotted; }
+
+.v23-client.in-duel .v32-extra-style-thunder .v32-extra-ring { border-radius:5%;transform:translate(-50%,-50%) rotate(45deg);border-style:dashed; }
+.v23-client.in-duel .v32-extra-style-thunder .v32-extra-rays i:nth-child(odd) { transform:rotate(var(--ray-angle)) skewX(-28deg) scaleY(.08); }
+
+.v23-client.in-duel .v32-extra-style-root .v32-extra-ring { border-radius:58% 42% 62% 38%; }
+.v23-client.in-duel .v32-extra-style-root .ring-b { border-radius:38% 62% 42% 58%;transform:translate(-50%,-50%) rotate(37deg); }
+.v23-client.in-duel .v32-extra-style-root .v32-extra-rune { border-radius:60% 40% 60% 40%; }
+
+.v23-client.in-duel .v32-extra-style-requiem .v32-extra-ring { border-radius:50%;border-color:color-mix(in srgb,var(--ritual-secondary) 40%,#7a45ff);box-shadow:inset 0 0 30px rgba(63,28,111,.09); }
+.v23-client.in-duel .v32-extra-style-requiem .ring-a { border-width:2px; }
+.v23-client.in-duel .v32-extra-style-requiem .v32-extra-rune { background:radial-gradient(circle,rgba(105,55,173,.18),rgba(1,4,8,.86) 65%); }
+
+@keyframes v32bExtraOrbit {
+  to { rotate:360deg; }
+}
+@keyframes v32bRunePulse {
+  from { opacity:.64;filter:brightness(.9);scale:.92; }
+  to { opacity:1;filter:brightness(1.25);scale:1.04; }
+}
+@keyframes v32bRayBurst {
+  0% { opacity:0;transform:rotate(var(--ray-angle)) scaleY(.04); }
+  24% { opacity:.62; }
+  76% { opacity:.18; }
+  100% { opacity:0;transform:rotate(var(--ray-angle)) scaleY(1.08); }
+}
+@keyframes v32bLegendHalo { to { rotate:360deg; } }
+@keyframes v32bFusionCollapse {
+  0% { filter:brightness(.7);scale:.72; }
+  48% { filter:brightness(1.9);scale:1.12; }
+  100% { filter:brightness(1);scale:1; }
+}
+@keyframes v32bEvolutionRise {
+  0% { translate:0 24px;filter:brightness(.65); }
+  45% { translate:0 -8px;filter:brightness(1.7); }
+  100% { translate:0 0;filter:brightness(1); }
+}
+
+@media (max-width:820px) {
+  .v23-client.in-duel .v32-extra-unique-field { width:min(74vw,430px);height:min(74vw,430px); }
+  .v23-client.in-duel .v32-extra-signature { max-width:74vw; }
+  .v23-client.in-duel .v32-extra-rune { width:74px;height:74px;font-size:26px; }
+}
+
+/* Four-material premium summons stay inside the ritual frame. */
+.v23-client.in-duel .v31e-source-materials:has(.v31e-source-card:nth-child(4)) {
+  gap:6px;
+}
+.v23-client.in-duel .v31e-source-materials:has(.v31e-source-card:nth-child(4)) .v31e-source-card {
+  width:clamp(66px,5.8vw,92px);
+  height:clamp(98px,8.5vw,132px);
+}
