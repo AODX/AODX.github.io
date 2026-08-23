@@ -5354,3 +5354,414 @@
 }
 .v23-client.in-duel .v18-duel-screen.v32e-spectator-screen { --hand-h:92px!important; }
 @media (max-height:780px) { .v23-client.in-duel .v18-duel-screen.v32e-spectator-screen { --hand-h:78px!important; } }
+
+
+/* ========================================================================== 
+   v32g-iPad CORRECTED · native iPad / Safari touch layout
+   - iPadOS detection through the runtime bridge (including desktop-style UA)
+   - safe-area + VisualViewport sizing so Safari toolbars/keyboard never crop UI
+   - portrait lobby/deck/shop layout + landscape duel layout
+   - touch-sized controls, momentum scrolling, no hover-only interactions
+   - defensive width/overflow rules to prevent cards/panels from clipping/overlap
+   ========================================================================== */
+
+html[data-ipad="true"] {
+  --ipad-nav-h:72px;
+  --ipad-topbar-h:64px;
+  min-height:100%;
+  background:#05080d;
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+  overscroll-behavior:none;
+}
+html[data-ipad="true"] body {
+  min-height:var(--ipad-vh,100dvh);
+  padding-bottom:0!important;
+  overflow-x:hidden;
+  overscroll-behavior:none;
+}
+html[data-ipad="true"] *,
+html[data-ipad="true"] *::before,
+html[data-ipad="true"] *::after {
+  -webkit-tap-highlight-color:transparent;
+}
+html[data-ipad="true"] :is(button,a,input,select,textarea,[role="button"],[tabindex]) {
+  touch-action:manipulation;
+}
+html[data-ipad="true"] :is(button,.tcg-card,.unit-slot,.v31e-library-card,.v32-series-theme-grid>button) {
+  -webkit-touch-callout:none;
+}
+html[data-ipad="true"] :is(input,select,textarea) {
+  font-size:16px!important; /* prevents Safari focus zoom */
+}
+html[data-ipad="true"] .v23-client {
+  min-height:var(--ipad-vh,100dvh)!important;
+}
+html[data-ipad="true"] .v23-client:not(.in-duel) .content-area {
+  min-width:0!important;
+  overflow-x:clip!important;
+}
+html[data-ipad="true"] .v23-client :is(
+  .content-area,.v32-view-stage,.view-stack,.panel,.v19-home,.v19-hero-shell,
+  .v31e-build-hero,.v31e-auto-builder,.v32-auto-controls,.v32-series-theme-picker,
+  .v32-series-theme-grid,.v31e-deck-workspace,.v31e-card-library,.v31e-current-deck,
+  .v31e-deck-manager,.v31e-library-head,.v31e-filter-row,.v31e-card-grid,
+  .v32-extra-editor-zone,.v32-extra-edit-list,.v32-extra-edit-row,.v32-extra-stepper,
+  .duel-mode-grid,.waiting-card,.v32e-room-hub,.v32e-room-roster,.v32e-room-roster-grid,
+  .friends-layout,.profile-layout,.pack-grid,.v25-core-pack-grid,.v25-series-pack-grid,
+  .collection-grid,.shop-grid,.opening-cards
+) {
+  min-width:0!important;
+  max-width:100%;
+  box-sizing:border-box;
+}
+html[data-ipad="true"] .v23-client :is(
+  .v32-series-theme-grid,.v31e-deck-workspace,.v31e-card-grid,.v32e-room-roster-grid,
+  .pack-grid,.v25-core-pack-grid,.v25-series-pack-grid,.collection-grid,.friends-layout,.profile-layout
+) > * {
+  min-width:0!important;
+  max-width:100%;
+}
+html[data-ipad="true"] .v23-client :is(
+  .v31e-card-grid,.v31e-deck-list-scroll,.v32-extra-editor-zone,.v31e-filter-chips,
+  .collection-grid,.opening-cards,.chat-messages,.v18-command-rail,.v18-hand-scroll,
+  .v18-battle-log>div,.v18-extra-drawer,.v31d-grave-picker-card
+) {
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+}
+
+/* Touch is not hover. Prevent hover transforms from leaving cards enlarged and clipped. */
+html[data-ipad="true"][data-ipad-input="touch"] .primary-button:not(:disabled):hover,
+html[data-ipad="true"][data-ipad-input="touch"] .ghost-button:not(:disabled):hover,
+html[data-ipad="true"][data-ipad-input="touch"] .v23-client .v31e-library-card:hover,
+html[data-ipad="true"][data-ipad-input="touch"] .v23-client .v32-series-theme-grid>button:hover,
+html[data-ipad="true"][data-ipad-input="touch"] .v23-client[data-ui-build="v32-retail"] .tcg-card:hover,
+html[data-ipad="true"][data-ipad-input="touch"] .v23-client.in-duel .v18-hand-card:hover,
+html[data-ipad="true"][data-ipad-input="touch"] .v23-client .v31e-extra-slot.v32-extra-edit-slot>.v32-extra-remove-button:hover {
+  transform:none!important;
+  filter:none!important;
+}
+html[data-ipad="true"][data-ipad-input="touch"] .v23-client.in-duel .v18-hand-card.selected {
+  transform:translateY(-4px) scale(1.018)!important;
+}
+
+/* Important touch targets. Compact card bodies stay visual; their actions become finger-sized. */
+html[data-ipad="true"] .v23-client :is(
+  .topbar button,.mobile-nav button,.sidebar nav button,.v31e-build-hero-actions>button,
+  .v31e-deck-manager button,.v31e-library-zone-tabs button,.v9-auto-button,
+  .v32-extra-clear-button,.v18-header-actions button,.v18-action-buttons button,
+  .v18-extra-access button,.v18-hand-side button,.v18-extra-drawer header button,
+  .v20-guide-footer button,.detail-close-button
+) {
+  min-height:44px!important;
+}
+html[data-ipad="true"] .v23-client .card-info-hotspot,
+html[data-ipad="true"] .v23-client.in-duel .unit-info-hotspot {
+  width:38px!important;
+  height:38px!important;
+  min-width:38px!important;
+  min-height:38px!important;
+}
+html[data-ipad="true"] .v23-client .v31e-library-add {
+  width:40px!important;
+  height:40px!important;
+  right:9px!important;
+  bottom:27px!important;
+}
+html[data-ipad="true"] .v23-client .v32-extra-stepper button {
+  width:40px!important;
+  height:40px!important;
+}
+html[data-ipad="true"] .v23-client .v32-extra-clear-button { min-height:40px!important;padding-inline:12px!important; }
+html[data-ipad="true"] .v23-client .v31e-extra-slot.v32-extra-edit-slot>.v32-extra-remove-button { height:40px!important;font-size:9px!important; }
+html[data-ipad="true"] .v23-client .v32-extra-edit-row { min-height:52px!important; }
+html[data-ipad="true"] .v23-client .v32-extra-edit-card { min-height:44px!important; }
+
+/* ---------- iPad portrait: full-width app + six-item bottom navigation ---------- */
+html[data-ipad="true"][data-ipad-orientation="portrait"] {
+  --sidebar:0px;
+  --topbar:calc(var(--ipad-topbar-h) + env(safe-area-inset-top));
+}
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client:not(.in-duel) {
+  display:block!important;
+  padding-top:var(--topbar)!important;
+  padding-bottom:calc(var(--ipad-nav-h) + env(safe-area-inset-bottom))!important;
+}
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client:not(.in-duel)>.sidebar { display:none!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client:not(.in-duel)>.topbar {
+  left:0!important;
+  height:var(--topbar)!important;
+  padding:env(safe-area-inset-top) max(14px,env(safe-area-inset-right)) 0 max(14px,env(safe-area-inset-left))!important;
+  gap:10px!important;
+}
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client:not(.in-duel) .mobile-logo { display:flex!important;min-width:0; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client:not(.in-duel) .mobile-logo b { overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client:not(.in-duel) .topbar-title { display:none!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client:not(.in-duel) .topbar-actions { gap:6px!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client:not(.in-duel) :is(.currency-pill,.chat-toggle>span,.profile-chip>span,.v22-system-button>span) { display:none!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client:not(.in-duel) :is(.chat-toggle,.profile-chip,.v22-system-button) {
+  width:44px!important;
+  min-width:44px!important;
+  padding-inline:0!important;
+  justify-content:center!important;
+}
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client:not(.in-duel)>.content-area {
+  padding:16px max(16px,env(safe-area-inset-right)) 18px max(16px,env(safe-area-inset-left))!important;
+}
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client:not(.in-duel)>.mobile-nav {
+  position:fixed!important;
+  z-index:120!important;
+  left:0!important;right:0!important;bottom:0!important;
+  height:calc(var(--ipad-nav-h) + env(safe-area-inset-bottom))!important;
+  display:grid!important;
+  grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  padding:5px max(8px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px,env(safe-area-inset-left))!important;
+  border-top:1px solid rgba(150,194,220,.13)!important;
+  background:rgba(6,10,15,.97)!important;
+  backdrop-filter:blur(20px) saturate(.9)!important;
+}
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client:not(.in-duel)>.mobile-nav button {
+  min-width:0!important;
+  border:0!important;
+  background:transparent!important;
+  display:grid!important;
+  place-items:center!important;
+  align-content:center!important;
+  gap:3px!important;
+  color:#738596!important;
+}
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client:not(.in-duel)>.mobile-nav button.active {
+  color:#bcefff!important;
+  background:linear-gradient(180deg,rgba(84,190,229,.11),rgba(89,94,211,.06))!important;
+  border-radius:11px!important;
+}
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client:not(.in-duel)>.mobile-nav i { font-size:18px!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client:not(.in-duel)>.mobile-nav span { font-size:9px!important;font-weight:900!important; }
+
+/* Portrait content behaves like a native tablet page, not a squeezed desktop. */
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .view-stack { gap:14px!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v19-hero-shell { grid-template-columns:1fr!important;min-height:auto!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v19-hero-copy { padding:30px 28px!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v19-hero-copy h1 { font-size:clamp(42px,7vw,58px)!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v19-hero-stage { min-height:280px!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client :is(.friends-layout,.profile-layout,.duel-mode-grid) { grid-template-columns:1fr!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v31e-deck-workspace { grid-template-columns:1fr!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v31e-current-deck { position:static!important;max-height:none!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v31e-build-hero { grid-template-columns:1fr!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v31e-build-hero-actions { grid-template-columns:repeat(3,minmax(0,1fr))!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v31e-auto-builder { grid-template-columns:1fr!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v31e-auto-builder .v32-auto-controls {
+  grid-template-columns:1fr!important;
+  grid-template-areas:"style" "series" "action"!important;
+}
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v31e-auto-builder .v32-auto-controls>.v9-auto-button { max-width:none!important;width:100%!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v32-series-theme-grid { grid-template-columns:repeat(2,minmax(0,1fr))!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v31e-deck-manager .v9-deck-select-row { grid-template-columns:1fr 1fr!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v31e-filter-row { grid-template-columns:1fr 1fr!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v31e-filter-row input { grid-column:1/-1!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v31e-card-grid { grid-template-columns:repeat(3,minmax(0,1fr))!important;max-height:none!important;overflow:visible!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v31e-extra-grid { grid-template-columns:repeat(3,minmax(0,1fr))!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v32-extra-editor-zone { max-height:none!important;overflow:visible!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v25-core-pack-grid { grid-template-columns:repeat(2,minmax(0,1fr))!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v25-series-pack-grid { grid-template-columns:repeat(2,minmax(0,1fr))!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .collection-grid.v9-card-grid { grid-template-columns:repeat(3,minmax(0,1fr))!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v32e-room-roster-grid { grid-template-columns:repeat(2,minmax(0,1fr))!important; }
+
+/* ---------- iPad landscape: compact desktop shell ---------- */
+html[data-ipad="true"][data-ipad-orientation="landscape"] {
+  --sidebar:76px;
+  --topbar:calc(64px + env(safe-area-inset-top));
+}
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client:not(.in-duel)>.sidebar {
+  width:76px!important;
+  padding:calc(10px + env(safe-area-inset-top)) 8px max(10px,env(safe-area-inset-bottom))!important;
+}
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client:not(.in-duel) .game-logo { justify-content:center!important;padding:4px 0 16px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client:not(.in-duel) :is(.game-logo>div,.sidebar nav button>span,.sidebar-profile>span,.sidebar-profile>button) { display:none!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client:not(.in-duel) .sidebar nav { gap:5px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client:not(.in-duel) .sidebar nav button {
+  width:60px!important;height:52px!important;justify-content:center!important;padding:0!important;
+}
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client:not(.in-duel) .sidebar-profile { justify-content:center!important;padding-inline:0!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client:not(.in-duel)>.topbar {
+  left:76px!important;height:var(--topbar)!important;
+  padding:env(safe-area-inset-top) max(18px,env(safe-area-inset-right)) 0 18px!important;
+  gap:10px!important;
+}
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client:not(.in-duel)>.content-area {
+  padding:18px max(18px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) 18px!important;
+}
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client:not(.in-duel)>.mobile-nav { display:none!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client:not(.in-duel) :is(.chat-toggle>span,.profile-chip>span,.v22-system-button>span) { display:none!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client:not(.in-duel) :is(.chat-toggle,.profile-chip,.v22-system-button) { width:44px!important;min-width:44px!important;padding-inline:0!important;justify-content:center!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client .v31e-auto-builder { grid-template-columns:1fr!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client .v31e-auto-builder .v32-auto-controls { width:100%!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client .v32-series-theme-grid { grid-template-columns:repeat(3,minmax(0,1fr))!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client .v31e-deck-workspace { grid-template-columns:1fr!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client .v31e-current-deck { position:static!important;max-height:none!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client .v31e-card-grid { grid-template-columns:repeat(auto-fill,minmax(138px,1fr))!important;max-height:54dvh!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client .v31e-deck-list-scroll { max-height:420px!important; }
+
+/* Tablet card/detail dialogs: never extend behind Safari chrome or outside the viewport. */
+html[data-ipad="true"] .v23-client .card-detail-layer,
+html[data-ipad="true"] .v23-client .v20-guide-layer,
+html[data-ipad="true"] .v23-client .v22-control-layer,
+html[data-ipad="true"] .v23-client.in-duel :is(.v30-summon-block-layer,.v31d-grave-picker-layer,.v18-extra-backdrop) {
+  padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))!important;
+}
+html[data-ipad="true"] .v23-client .card-detail-modal {
+  width:min(1040px,calc(100vw - 24px))!important;
+  height:min(720px,calc(var(--ipad-vh,100dvh) - 24px))!important;
+  max-height:calc(var(--ipad-vh,100dvh) - 24px)!important;
+}
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .card-detail-modal {
+  grid-template-columns:minmax(250px,40%) minmax(0,1fr)!important;
+}
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .card-detail-visual { padding:14px!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .card-detail-content { padding:24px 22px!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .card-detail-content>header h2 { font-size:30px!important; }
+html[data-ipad="true"] .v23-client .chat-drawer {
+  height:min(760px,calc(var(--ipad-vh,100dvh) - env(safe-area-inset-top) - env(safe-area-inset-bottom)))!important;
+  max-height:var(--ipad-vh,100dvh)!important;
+  padding-bottom:env(safe-area-inset-bottom)!important;
+}
+html[data-ipad="true"][data-ipad-keyboard="open"] .v23-client .chat-drawer {
+  height:var(--ipad-vh,100dvh)!important;
+}
+
+/* Pack opening uses VisualViewport height while the Safari bars animate. */
+html[data-ipad="true"] .pack-experience-layer {
+  height:var(--ipad-vh,100dvh)!important;
+  min-height:var(--ipad-vh,100dvh)!important;
+  padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))!important;
+}
+html[data-ipad="true"] .pack-experience-layer .pack-experience-modal { max-height:calc(var(--ipad-vh,100dvh) - 20px)!important; }
+
+/* ---------- Duel: landscape is the complete iPad battle view ---------- */
+html[data-ipad="true"] .v23-client.in-duel,
+html[data-ipad="true"] .v23-client.in-duel>.content-area,
+html[data-ipad="true"] .v23-client.in-duel .v18-duel-screen {
+  height:var(--ipad-vh,100dvh)!important;
+  min-height:0!important;
+}
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client.in-duel .orientation-hint {
+  position:fixed!important;
+  inset:0!important;
+  z-index:9000!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:10px!important;
+  padding:32px!important;
+  background:radial-gradient(circle at center,rgba(79,174,214,.14),transparent 34%),rgba(3,7,11,.985)!important;
+  text-align:center!important;
+}
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client.in-duel .orientation-hint span { font-size:64px!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client.in-duel .orientation-hint b { font-size:24px!important; }
+html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client.in-duel .orientation-hint small { max-width:420px;font-size:13px!important;line-height:1.55!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .orientation-hint { display:none!important; }
+
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen {
+  --leader-col:142px!important;
+  --command-col:270px!important;
+  --header-h:58px!important;
+  --hand-h:198px!important;
+  width:100vw!important;
+  overflow:hidden!important;
+}
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-header {
+  padding:env(safe-area-inset-top) max(10px,env(safe-area-inset-right)) 0 max(10px,env(safe-area-inset-left))!important;
+  gap:8px!important;
+}
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-brand b { font-size:12px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-turn-hud { gap:6px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-turn-timer { min-width:92px!important;height:38px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-header-actions button { min-width:50px!important;height:44px!important;padding-inline:9px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-leader-rail { padding:8px 7px!important;gap:6px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-leader-card { padding:9px 8px!important;gap:6px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-hp-readout strong { font-size:32px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-mini-stats span { padding:5px 3px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-board {
+  inset:36px 7px 5px!important;
+  grid-template-rows:34px minmax(82px,1fr) 38px minmax(82px,1fr) 42px!important;
+  gap:5px!important;
+}
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-zone-row { gap:5px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-center-lane { grid-template-columns:minmax(70px,1fr) minmax(160px,220px) minmax(70px,1fr)!important;gap:8px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v22-momentum { width:165px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-command-rail { padding:8px!important;gap:6px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v29-action-coach { padding:9px 10px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v29-action-coach h3 { font-size:14px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v29-action-coach>p { font-size:10px!important;line-height:1.45!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-context-panel { padding:8px!important;overflow:hidden!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-selected-card { grid-template-columns:68px minmax(0,1fr)!important;gap:8px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-selected-art { width:68px!important;height:92px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-selected-copy p { -webkit-line-clamp:4!important;font-size:10px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-action-buttons { gap:6px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-action-buttons button { min-height:46px!important;padding:6px 8px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-event-feed { max-height:64px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-hand-dock {
+  padding:6px max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))!important;
+  grid-template-rows:30px minmax(0,1fr)!important;
+  overflow:hidden!important;
+}
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-hand-scroll {
+  gap:8px!important;
+  padding:6px 4px 5px!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  scroll-snap-type:x proximity;
+}
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-hand-card {
+  flex:0 0 108px!important;
+  max-height:158px!important;
+  scroll-snap-align:start;
+}
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-hand-card .tcg-card {
+  min-height:148px!important;
+  max-height:158px!important;
+}
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-hand-side { min-width:92px!important;padding-left:7px!important;gap:5px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-hand-side button { min-height:44px!important; }
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-extra-drawer {
+  width:min(430px,44vw)!important;
+  max-height:calc(var(--ipad-vh,100dvh) - 24px)!important;
+  overflow:auto!important;
+  padding-bottom:max(14px,env(safe-area-inset-bottom))!important;
+}
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-battle-log {
+  max-height:calc(var(--ipad-vh,100dvh) - 16px)!important;
+  padding-bottom:env(safe-area-inset-bottom)!important;
+}
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v30-summon-block-card {
+  width:min(680px,calc(100vw - 40px))!important;
+  max-height:calc(var(--ipad-vh,100dvh) - 40px)!important;
+  overflow:auto!important;
+}
+html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v31e-extra-ritual {
+  width:min(920px,92vw)!important;
+  height:min(470px,70vh)!important;
+}
+
+/* iPad mini / split-view guardrail. Keep all features visible, reduce density instead of clipping. */
+@media (max-width:1150px) {
+  html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client:not(.in-duel) .topbar-title { display:none!important; }
+  html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client:not(.in-duel) .currency-pill { padding-inline:9px!important; }
+  html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client .v32-series-theme-grid { grid-template-columns:repeat(2,minmax(0,1fr))!important; }
+  html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client .v31e-filter-row { grid-template-columns:1fr 1fr!important; }
+  html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client .v31e-filter-row input { grid-column:1/-1!important; }
+  html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen { --leader-col:130px!important;--command-col:248px!important;--hand-h:188px!important; }
+  html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-hand-card { flex-basis:100px!important; }
+  html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-hand-card .tcg-card { min-height:140px!important;max-height:148px!important; }
+}
+
+@media (max-width:780px) {
+  html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v31e-build-hero-actions { grid-template-columns:1fr!important; }
+  html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v31e-deck-manager .v9-deck-select-row { grid-template-columns:1fr!important; }
+  html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v31e-card-grid { grid-template-columns:repeat(2,minmax(0,1fr))!important; }
+  html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .collection-grid.v9-card-grid { grid-template-columns:repeat(2,minmax(0,1fr))!important; }
+  html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v32-series-theme-grid { grid-template-columns:1fr!important; }
+  html[data-ipad="true"][data-ipad-orientation="portrait"] .v23-client .v32e-room-roster-grid { grid-template-columns:1fr!important; }
+}

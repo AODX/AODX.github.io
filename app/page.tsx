@@ -1022,7 +1022,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
         : '일반 소환';
 
   return (
-    <div className="modal-layer card-detail-layer" role="presentation" onMouseDown={(event: React.MouseEvent) => { if (event.currentTarget === event.target) onClose(); }}>
+    <div className="modal-layer card-detail-layer" role="presentation" onPointerDown={(event: React.PointerEvent) => { if (event.currentTarget === event.target) onClose(); }}>
       <section className={`card-detail-modal element-${card.element} rarity-${card.rarity}`} role="dialog" aria-modal="true" aria-labelledby="card-detail-title" aria-describedby="card-detail-effect">
         <button ref={closeButtonRef} className="modal-close" type="button" onClick={onClose} aria-label="닫기">×</button>
 
@@ -1152,7 +1152,7 @@ function GameGuideModal({ onClose }: { onClose: () => void }) {
   }, [onClose]);
 
   return (
-    <div className="modal-layer v20-guide-layer" role="presentation" onMouseDown={(event: React.MouseEvent) => { if (event.currentTarget === event.target) onClose(); }}>
+    <div className="modal-layer v20-guide-layer" role="presentation" onPointerDown={(event: React.PointerEvent) => { if (event.currentTarget === event.target) onClose(); }}>
       <section className="v20-guide-modal" role="dialog" aria-modal="true" aria-labelledby="v20-guide-title">
         <header><div><span>FIELD MANUAL</span><h2 id="v20-guide-title">ECLIPSE DUEL 룰 가이드</h2><p>첫 결투 전에 핵심 규칙만 빠르게 확인할 수 있습니다.</p></div><button ref={closeButtonRef} className="modal-close" type="button" onClick={onClose} aria-label="룰 가이드 닫기">×</button></header>
         <div className="v20-guide-grid">
@@ -1208,7 +1208,7 @@ function ControlCenter({
   }, [open, onClose]);
   if (!open) return null;
   return (
-    <div className="v22-control-layer" role="presentation" onMouseDown={(event: React.MouseEvent) => { if (event.currentTarget === event.target) onClose(); }}>
+    <div className="v22-control-layer" role="presentation" onPointerDown={(event: React.PointerEvent) => { if (event.currentTarget === event.target) onClose(); }}>
       <aside className="v22-control-panel" role="dialog" aria-modal="true" aria-label="게임 설정">
         <header>
           <div><span>SYSTEM PANEL</span><h3>게임 설정</h3><p>오디오와 게임 도움말을 한곳에서 관리합니다.</p></div>
@@ -4286,7 +4286,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       </aside>
 
       <footer className="v18-hand-dock">
-        <div className="v18-hand-heading"><span><small>YOUR HAND</small><b>{privateState.hand.length} CARDS</b></span><em>{myTurn && state.phase === 'main' ? '밝게 표시된 카드는 지금 사용할 수 있습니다. 마우스를 올리면 오른쪽에 효과가 표시됩니다.' : '마우스를 올리거나 i 버튼을 눌러 카드 정보를 확인할 수 있습니다.'}</em></div>
+        <div className="v18-hand-heading"><span><small>YOUR HAND</small><b>{privateState.hand.length} CARDS</b></span><em>{myTurn && state.phase === 'main' ? '밝게 표시된 카드는 지금 사용할 수 있습니다. 카드를 선택하면 오른쪽에 효과가 표시됩니다.' : '카드를 선택하거나 i 버튼을 눌러 카드 정보를 확인할 수 있습니다.'}</em></div>
         <div className="v18-hand-scroll">
           {privateState.hand.map((instance) => {
             const card = CARD_BY_ID[instance.cardId];
@@ -4312,7 +4312,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       </aside>
 
       {extraOpen && (
-        <div className="v18-extra-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) setExtraOpen(false); }}>
+        <div className="v18-extra-backdrop" onPointerDown={(event) => { if (event.currentTarget === event.target) setExtraOpen(false); }}>
           <aside className="v18-extra-drawer">
             <header><div><small>EXTRA DECK</small><b>공명 융합 · 계승 진화</b></div><button type="button" onClick={() => setExtraOpen(false)}>×</button></header>
             <p>빛나는 카드는 소재·ROUND 해금·릴리스·에너지 조건을 모두 만족한 카드입니다. 전설 계승은 최소 2체, APEX 전설은 최대 3체를 릴리스해야 하며 강력한 전설은 소재 비용 합·고등급 소재·시리즈 조건까지 요구합니다. 전설 엑스트라는 소환 전에 CHOOSE 1/2/3 중 원하는 효과를 1개 선택합니다.</p>
@@ -4327,7 +4327,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       )}
 
       {graveTargetOpen && selectedCard?.target === 'friendly_graveyard_unit' && selectedHand && (
-        <div className="v31d-grave-picker-layer" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.currentTarget === event.target) setGraveTargetOpen(false); }}>
+        <div className="v31d-grave-picker-layer" role="dialog" aria-modal="true" onPointerDown={(event) => { if (event.currentTarget === event.target) setGraveTargetOpen(false); }}>
           <section className="v31d-grave-picker">
             <header><div><small>LEGENDARY REVIVAL</small><b>묘지에서 부활할 유닛 선택</b></div><button type="button" onClick={() => setGraveTargetOpen(false)}>×</button></header>
             <p>메인 덱 유닛 1장을 선택합니다. 부활 시 기본 능력치로 돌아오며 소환 효과는 다시 발동하지 않고 이번 턴 공격할 수 없습니다.</p>
@@ -4368,7 +4368,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       )}
 
       {summonBlock && (
-        <div className="v30-summon-block-layer" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.currentTarget === event.target) setSummonBlock(null); }}>
+        <div className="v30-summon-block-layer" role="dialog" aria-modal="true" onPointerDown={(event) => { if (event.currentTarget === event.target) setSummonBlock(null); }}>
           <section className="v30-summon-block-card">
             <div className="v30-summon-block-art"><CardIllustration card={CARD_BY_ID[summonBlock.cardId]} hero /></div>
             <div>
@@ -4706,6 +4706,59 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
       {message && <p className="error-banner">{message}</p>}
     </div>
   );
+}
+
+function IpadRuntimeBridge() {
+  useEffect(() => {
+    const root = document.documentElement;
+    const isIpad = /iPad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (!isIpad) return;
+
+    root.dataset.ipad = 'true';
+
+    const syncViewport = () => {
+      const viewport = window.visualViewport;
+      const width = Math.round(viewport?.width ?? window.innerWidth);
+      const height = Math.round(viewport?.height ?? window.innerHeight);
+      const layoutWidth = window.innerWidth;
+      const layoutHeight = window.innerHeight;
+      root.style.setProperty('--ipad-vw', `${width}px`);
+      root.style.setProperty('--ipad-vh', `${height}px`);
+      root.dataset.ipadOrientation = layoutWidth >= layoutHeight ? 'landscape' : 'portrait';
+      root.dataset.ipadKeyboard = viewport && layoutHeight - viewport.height > 120 ? 'open' : 'closed';
+    };
+
+    const onTouch = () => { root.dataset.ipadInput = 'touch'; };
+    const onPointer = (event: PointerEvent) => {
+      if (event.pointerType === 'mouse') root.dataset.ipadInput = 'pointer';
+      else if (event.pointerType === 'touch' || event.pointerType === 'pen') root.dataset.ipadInput = 'touch';
+    };
+
+    syncViewport();
+    window.addEventListener('resize', syncViewport, { passive: true });
+    window.addEventListener('orientationchange', syncViewport, { passive: true });
+    window.visualViewport?.addEventListener('resize', syncViewport, { passive: true });
+    window.visualViewport?.addEventListener('scroll', syncViewport, { passive: true });
+    document.addEventListener('touchstart', onTouch, { passive: true });
+    document.addEventListener('pointerdown', onPointer, { passive: true });
+
+    return () => {
+      window.removeEventListener('resize', syncViewport);
+      window.removeEventListener('orientationchange', syncViewport);
+      window.visualViewport?.removeEventListener('resize', syncViewport);
+      window.visualViewport?.removeEventListener('scroll', syncViewport);
+      document.removeEventListener('touchstart', onTouch);
+      document.removeEventListener('pointerdown', onPointer);
+      delete root.dataset.ipad;
+      delete root.dataset.ipadOrientation;
+      delete root.dataset.ipadKeyboard;
+      delete root.dataset.ipadInput;
+      root.style.removeProperty('--ipad-vw');
+      root.style.removeProperty('--ipad-vh');
+    };
+  }, []);
+
+  return null;
 }
 
 export default function Page() {
@@ -5074,6 +5127,7 @@ export default function Page() {
 
   return (
     <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' || roomPayload?.room.status === 'finished' ? 'in-duel' : ''}`} data-ui-build="v32-retail">
+      <IpadRuntimeBridge />
       <div className="app-backdrop" aria-hidden="true"><span className="backdrop-grid" /><span className="backdrop-orbit" /><span className="backdrop-glow" /></div>
       <aside className="sidebar">
         <button className="game-logo" onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView('home'); }}><span className="logo-glyph"><i>E</i></span><div><b>ECLIPSE</b><small>DUEL</small></div></button>
