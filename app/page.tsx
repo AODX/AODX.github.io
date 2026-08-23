@@ -943,6 +943,7 @@ function CardFace({
       aria-label={onClick ? `${card.name} 선택` : `${card.name} 상세 보기`}
       title={onClick ? `${card.name} 선택` : `${card.name} 상세 보기`}
     >
+      <span className="v32-card-finish" aria-hidden="true" />
       <span className="card-cost">{card.cost}</span>
       {card.summonMode === 'rift' && <span className="summon-badge rift">균열</span>}
       {card.kind === 'fusion' && <span className="summon-badge fusion">융합</span>}
@@ -1038,7 +1039,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
               <span className="v31l-detail-kicker">{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}{card.series ? ` · ${card.series}` : ''}</span>
               <h2 id="card-detail-title">{card.name}</h2>
               <p>{card.subtitle}</p>
-              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}</div>
+              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
             </div>
             <strong className="detail-cost"><small>ENERGY</small>{card.cost}</strong>
           </header>
@@ -1244,11 +1245,16 @@ function Avatar({ id, size = 'medium' }: { id?: string; size?: 'small' | 'medium
 
 function LoadingScreen({ text = '결투장을 준비하는 중' }: { text?: string }) {
   return (
-    <main className="loading-screen">
+    <main className="loading-screen v32-loading-screen" aria-busy="true" aria-live="polite">
+      <div className="v32-loading-atmosphere" aria-hidden="true"><i /><i /><i /></div>
       <div className="loading-sigil"><span>E</span></div>
+      <span className="v32-loading-kicker">ECLIPSE NETWORK</span>
       <h1>ECLIPSE DUEL</h1>
       <p>{text}</p>
       <div className="loading-bar"><span /></div>
+      <div className="v32-loading-status" aria-hidden="true">
+        <span><i />NETWORK</span><span><i />CARD VAULT</span><span><i />DUEL ENGINE</span>
+      </div>
     </main>
   );
 }
@@ -1381,7 +1387,7 @@ function AuthScreen({ onSession }: { onSession: (session: Session) => void }) {
           <button className="primary-button auth-submit" disabled={busy}>{busy ? <><i className="button-spinner" /> 처리 중</> : mode === 'login' ? '게임 시작' : '계정 생성'}</button>
           <div className="auth-secure"><span>◈</span><p>로그인 정보는 Supabase Auth로 보호됩니다.</p></div>
         </form>
-        <footer><span>VERSION 0.9.0 · RETAIL STABILIZED</span><span>ORIGINAL IP</span></footer>
+        <footer><span>COMMERCIAL QUALITY PASS · PRE-RELEASE</span><span>ORIGINAL IP</span></footer>
       </section>
     </main>
   );
@@ -4657,7 +4663,7 @@ export default function Page() {
   const roomChat = roomPayload && roomPayload.room.status !== 'cancelled' ? roomPayload.room.id : undefined;
 
   return (
-    <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`} data-ui-build="v31">
+    <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`} data-ui-build="v32-retail">
       <div className="app-backdrop" aria-hidden="true"><span className="backdrop-grid" /><span className="backdrop-orbit" /><span className="backdrop-glow" /></div>
       <aside className="sidebar">
         <button className="game-logo" onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView('home'); }}><span className="logo-glyph"><i>E</i></span><div><b>ECLIPSE</b><small>DUEL</small></div></button>
@@ -4677,7 +4683,10 @@ export default function Page() {
         </div>
       </header>
 
-      <section className="content-area">{error && <div className="global-error"><span>{error}</span><button onClick={() => setError('')}>×</button></div>}{content}</section>
+      <section className="content-area">
+        {error && <div className="global-error v32-global-notice" role="alert"><i aria-hidden="true">!</i><span>{error}</span><button onClick={() => setError('')} aria-label="알림 닫기">×</button></div>}
+        <div key={view} className="v32-view-stage">{content}</div>
+      </section>
 
       <nav className="mobile-nav">{NAV_ITEMS.map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView(item.id); }}><i><GameIcon name={item.id} /></i><span>{item.label}</span>{item.id === 'friends' && pendingFriendRequestCount > 0 && <b className="social-request-badge" aria-label={`받은 친구 요청 ${pendingFriendRequestCount}개`}>{pendingFriendRequestCount > 9 ? '9+' : pendingFriendRequestCount}</b>}</button>)}</nav>
       <ChatDrawer open={chatOpen} roomId={roomChat} onClose={() => setChatOpen(false)} profile={hub.profile} onUnread={() => setChatUnread(true)} />
