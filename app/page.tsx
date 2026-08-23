@@ -1547,16 +1547,24 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   const validation = mainValidation || extraValidation;
 
   useEffect(() => {
-    if (!selectedDeck) {
+    // Load a deck only when the user actually switches deck slots.
+    // `hub` can refresh for social/realtime updates while this screen is open;
+    // depending on the whole selectedDeck object made those background refreshes
+    // overwrite unsaved MAIN/EXTRA edits and made EXTRA removal look broken.
+    const deckToLoad = hub.decks.find((deck) => deck.id === selectedDeckId);
+    if (!deckToLoad) {
       setDeckName('새 덱');
       setDeckCards([]);
       setExtraCards([]);
       return;
     }
-    setDeckName(selectedDeck.name);
-    setDeckCards(Array.isArray(selectedDeck.cards) ? selectedDeck.cards : []);
-    setExtraCards(Array.isArray(selectedDeck.extra_cards) ? selectedDeck.extra_cards : []);
-  }, [selectedDeckId, selectedDeck]);
+    setDeckName(deckToLoad.name);
+    setDeckCards(Array.isArray(deckToLoad.cards) ? deckToLoad.cards : []);
+    setExtraCards(Array.isArray(deckToLoad.extra_cards) ? deckToLoad.extra_cards : []);
+    // Intentionally keyed to selectedDeckId: background hub refreshes must not
+    // destroy the local editing session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDeckId]);
 
   const rarityWeight: Record<Rarity, number> = { common: 1, rare: 2.2, epic: 3.6, legendary: 5.2 };
   const dominantElement = useMemo(() => {
@@ -1621,10 +1629,21 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   }
 
   function removeExtra(cardId: string) {
+    const card = CARD_BY_ID[cardId];
     setExtraCards((current) => {
       const index = current.lastIndexOf(cardId);
       return index < 0 ? current : [...current.slice(0, index), ...current.slice(index + 1)];
     });
+    setDeckZone('extra');
+    setMessage(`${card?.name ?? '엑스트라 카드'} 1장을 엑스트라 덱에서 제거했습니다.`);
+    playUiSound('remove');
+  }
+
+  function clearExtraDeck() {
+    if (extraCards.length === 0) return;
+    setExtraCards([]);
+    setDeckZone('extra');
+    setMessage('엑스트라 덱만 비웠습니다. 메인 덱은 그대로 유지됩니다.');
     playUiSound('remove');
   }
 
@@ -1782,6 +1801,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   const mainProgress = Math.min(100, Math.round((deckCards.length / DECK_SIZE) * 100));
   const extraProgress = Math.min(100, Math.round((extraCards.length / EXTRA_DECK_SIZE) * 100));
   const deckListEntries = useMemo(() => Object.entries(mainCounts).sort(([a], [b]) => (CARD_BY_ID[a]?.cost ?? 0) - (CARD_BY_ID[b]?.cost ?? 0) || (CARD_BY_ID[a]?.name ?? '').localeCompare(CARD_BY_ID[b]?.name ?? '', 'ko')), [mainCounts]);
+  const extraListEntries = useMemo(() => Object.entries(extraCounts).sort(([a], [b]) => (CARD_BY_ID[a]?.cost ?? 0) - (CARD_BY_ID[b]?.cost ?? 0) || (CARD_BY_ID[a]?.name ?? '').localeCompare(CARD_BY_ID[b]?.name ?? '', 'ko')), [extraCounts]);
   const activeFilterCount = [kind !== 'all', element !== 'all', seriesFilter !== 'all', rarityFilter !== 'all', costFilter !== 'all', Boolean(search)].filter(Boolean).length;
   const deckDoctor = useMemo(() => {
     const early = deckCards.filter((id) => (CARD_BY_ID[id]?.cost ?? 99) <= 2).length;
@@ -1976,19 +1996,44 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
             {deckCards.length === 0 && <div className="v9-empty-deck"><b>아직 카드가 없습니다.</b><span>왼쪽 카드 풀에서 ＋ 버튼을 누르거나 자동 구성을 사용하세요.</span></div>}
           </div>
 
-          <div className="v9-extra-zone v31e-extra-zone">
-            <div className="v9-extra-title"><span>EXTRA DECK</span><b>{extraCards.length}/{EXTRA_DECK_SIZE}</b></div>
+          <div className="v9-extra-zone v31e-extra-zone v32-extra-editor-zone">
+            <div className="v9-extra-title v32-extra-title">
+              <span><b>EXTRA DECK</b><small>카드별 − / ＋ 버튼으로 바로 수정할 수 있습니다.</small></span>
+              <div><b>{extraCards.length}/{EXTRA_DECK_SIZE}</b><button type="button" className="v32-extra-clear-button" disabled={extraCards.length === 0} onClick={clearExtraDeck}>엑스트라만 비우기</button></div>
+            </div>
+
             <div className="v9-extra-grid v31e-extra-grid">
               {extraCards.map((cardId, index) => {
                 const card = CARD_BY_ID[cardId];
                 if (!card) return null;
                 return <div className="v31e-extra-slot v32-extra-edit-slot" key={`${cardId}-${index}`}>
                   <div className="v32-extra-card-wrap"><CardFace card={card} compact onClick={() => requestCardInspection(card.id)} /></div>
-                  <button className="v32-extra-remove-button" type="button" onClick={(event) => { event.stopPropagation(); removeExtra(cardId); }} aria-label={`${card.name} 1장 제거`}><span>−</span> 1장 제거</button>
+                  <button className="v32-extra-remove-button" type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); removeExtra(cardId); }} aria-label={`${card.name} 1장 제거`}><span>−</span> 1장 제거</button>
                   <small>{card.kind === 'fusion' ? 'FUSION' : 'ASCENSION'}</small>
                 </div>;
               })}
               {Array.from({ length: Math.max(0, EXTRA_DECK_SIZE - extraCards.length) }, (_, index) => <button type="button" className="v9-extra-empty" key={index} onClick={() => setDeckZone('extra')}>＋</button>)}
+            </div>
+
+            <div className="v32-extra-edit-list" aria-label="엑스트라 덱 수량 편집">
+              {extraListEntries.map(([cardId, quantity]) => {
+                const card = CARD_BY_ID[cardId];
+                if (!card) return null;
+                const max = Math.min(MAX_COPIES[card.rarity], collection[card.id] ?? 0);
+                return (
+                  <div className="v32-extra-edit-row" key={`extra-edit-${cardId}`} style={cardStyle(card)}>
+                    <button type="button" className="v32-extra-edit-card" onClick={() => requestCardInspection(card.id)}>
+                      <i>{card.cost}</i><span><b>{card.name}</b><small>{card.kind === 'fusion' ? '공명 융합' : '계승 진화'} · {RARITY_LABEL[card.rarity]}</small></span>
+                    </button>
+                    <div className="v32-extra-stepper">
+                      <button type="button" onClick={() => removeExtra(cardId)} aria-label={`${card.name} 1장 제거`}>−</button>
+                      <strong>×{quantity}</strong>
+                      <button type="button" disabled={usedCopies(card.id) >= max || extraCards.length >= EXTRA_DECK_SIZE} onClick={() => addCard(card)} aria-label={`${card.name} 1장 추가`}>＋</button>
+                    </div>
+                  </div>
+                );
+              })}
+              {extraListEntries.length === 0 && <button type="button" className="v32-extra-empty-guide" onClick={() => setDeckZone('extra')}><b>엑스트라 덱이 비어 있습니다.</b><span>여기를 눌러 왼쪽 카드 풀을 엑스트라 카드로 전환하세요.</span></button>}
             </div>
           </div>
 

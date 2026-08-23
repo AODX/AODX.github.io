@@ -4852,11 +4852,21 @@
 /* ===== v32d deck-builder: series themes + explicit Extra Deck editing ===== */
 .v23-client .v31e-auto-builder {
   align-items:flex-start!important;
+  grid-template-columns:minmax(190px,.48fr) minmax(0,1.52fr)!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  overflow:hidden!important;
+}
+.v23-client .v31e-auto-builder>.v9-auto-copy {
+  min-width:0!important;
 }
 .v23-client .v31e-auto-builder .v32-auto-controls {
-  width:min(980px,72vw)!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
   display:grid!important;
-  grid-template-columns:1fr auto!important;
+  grid-template-columns:minmax(0,1fr) minmax(170px,260px)!important;
   grid-template-areas:
     "style action"
     "series series"!important;
@@ -4886,6 +4896,8 @@
 }
 .v23-client .v32-series-theme-picker {
   grid-area:series;
+  min-width:0;
+  max-width:100%;
   display:grid;
   gap:8px;
   padding-top:11px;
@@ -4918,6 +4930,8 @@
 }
 .v23-client .v32-series-theme-grid {
   display:grid;
+  width:100%;
+  min-width:0;
   grid-template-columns:repeat(4,minmax(0,1fr));
   gap:7px;
 }
@@ -5056,13 +5070,26 @@
 }
 
 @media (max-width:1400px) {
-  .v23-client .v31e-auto-builder .v32-auto-controls { width:min(760px,68vw)!important; }
+  .v23-client .v31e-auto-builder .v32-auto-controls { width:100%!important; }
   .v23-client .v32-series-theme-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
 }
-@media (max-width:1020px) {
-  .v23-client .v31e-auto-builder { display:grid!important; }
+/* The desktop sidebar reduces the real content width before the viewport itself
+   reaches tablet breakpoints. Collapse this block earlier so theme cards never
+   spill out of the panel or get visually cut off. */
+@media (max-width:1320px) {
+  .v23-client .v31e-auto-builder {
+    display:grid!important;
+    grid-template-columns:1fr!important;
+  }
   .v23-client .v31e-auto-builder .v32-auto-controls {
     width:100%!important;
+    max-width:100%!important;
+    grid-template-columns:minmax(0,1fr) minmax(170px,230px)!important;
+    grid-template-areas:"style action" "series series"!important;
+  }
+}
+@media (max-width:1020px) {
+  .v23-client .v31e-auto-builder .v32-auto-controls {
     grid-template-columns:1fr!important;
     grid-template-areas:"style" "series" "action"!important;
   }
@@ -5072,6 +5099,163 @@
 @media (max-width:640px) {
   .v23-client .v32-series-theme-head { align-items:start; flex-direction:column; gap:3px; }
   .v23-client .v32-series-theme-grid { grid-template-columns:1fr; }
+}
+
+/* v32f: EXTRA DECK now has a second, row-based editor in addition to the
+   visual card slots. This avoids tiny/covered controls and allows individual
+   removal without clearing the whole deck. */
+.v23-client .v32-extra-editor-zone {
+  display:grid!important;
+  gap:8px!important;
+  max-height:min(44dvh,420px)!important;
+  overflow-y:auto!important;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+.v23-client .v32-extra-title {
+  position:sticky;
+  top:0;
+  z-index:18;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:10px!important;
+  padding:4px 2px 7px!important;
+  background:linear-gradient(180deg,#080e15 68%,rgba(8,14,21,.93));
+}
+.v23-client .v32-extra-title>span {
+  min-width:0;
+  display:grid;
+  gap:2px;
+}
+.v23-client .v32-extra-title>span>b {
+  color:#c9dce7;
+  font-size:8px;
+  letter-spacing:.12em;
+}
+.v23-client .v32-extra-title>span>small {
+  color:#617687;
+  font-size:7px;
+}
+.v23-client .v32-extra-title>div {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  flex:0 0 auto;
+}
+.v23-client .v32-extra-title>div>b {
+  color:#b8d9e7;
+  font-size:9px;
+}
+.v23-client .v32-extra-clear-button {
+  min-height:27px;
+  padding:0 9px;
+  border:1px solid rgba(255,112,133,.16);
+  border-radius:7px;
+  background:#170b10;
+  color:#cf8f9a;
+  font-size:7px;
+  font-weight:850;
+}
+.v23-client .v32-extra-clear-button:hover:not(:disabled) {
+  border-color:rgba(255,112,133,.38);
+  color:#ffd0d7;
+}
+.v23-client .v32-extra-clear-button:disabled { opacity:.35; }
+.v23-client .v32-extra-edit-list {
+  display:grid;
+  gap:5px;
+  padding-top:2px;
+  border-top:1px solid rgba(255,255,255,.045);
+}
+.v23-client .v32-extra-edit-row {
+  min-width:0;
+  min-height:42px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:7px;
+  padding:4px 5px;
+  border:1px solid rgba(255,255,255,.045);
+  border-radius:9px;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--card-accent,#6dcfea) 5%,rgba(7,12,18,.94)),rgba(5,9,14,.98));
+}
+.v23-client .v32-extra-edit-card {
+  min-width:0;
+  display:grid;
+  grid-template-columns:28px minmax(0,1fr);
+  align-items:center;
+  gap:7px;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:inherit;
+  text-align:left;
+}
+.v23-client .v32-extra-edit-card>i {
+  width:27px;
+  height:27px;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:50%;
+  background:#0a151e;
+  color:#d9f2fb;
+  font-size:9px;
+  font-style:normal;
+  font-weight:950;
+}
+.v23-client .v32-extra-edit-card>span { min-width:0;display:grid;gap:1px; }
+.v23-client .v32-extra-edit-card b,
+.v23-client .v32-extra-edit-card small { overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.v23-client .v32-extra-edit-card b { color:#d7e4eb;font-size:9px; }
+.v23-client .v32-extra-edit-card small { color:#667b8c;font-size:6.5px; }
+.v23-client .v32-extra-stepper {
+  display:flex;
+  align-items:center;
+  gap:4px;
+  padding-left:6px;
+  border-left:1px solid rgba(255,255,255,.05);
+}
+.v23-client .v32-extra-stepper button {
+  width:29px;
+  height:29px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:7px;
+  background:#0a141d;
+  color:#a8bbc7;
+  font-size:16px;
+  line-height:1;
+}
+.v23-client .v32-extra-stepper button:first-child {
+  border-color:rgba(255,105,126,.15);
+  background:#180b10;
+  color:#ee9daa;
+}
+.v23-client .v32-extra-stepper button:hover:not(:disabled) { border-color:rgba(103,212,247,.28);color:#e1f9ff; }
+.v23-client .v32-extra-stepper button:first-child:hover:not(:disabled) { border-color:rgba(255,105,126,.38);color:#ffd2da; }
+.v23-client .v32-extra-stepper button:disabled { opacity:.32; }
+.v23-client .v32-extra-stepper strong { min-width:27px;text-align:center;color:#d3e1e8;font-size:8px; }
+.v23-client .v32-extra-empty-guide {
+  width:100%;
+  min-height:54px;
+  display:grid;
+  gap:2px;
+  place-items:center;
+  padding:8px;
+  border:1px dashed rgba(113,199,232,.13);
+  border-radius:9px;
+  background:#071019;
+  color:#6e8393;
+}
+.v23-client .v32-extra-empty-guide b { color:#a8bdc9;font-size:9px; }
+.v23-client .v32-extra-empty-guide span { font-size:7px; }
+@media (max-height:820px) and (min-width:1081px) {
+  .v23-client .v32-extra-editor-zone { max-height:34dvh!important; }
+}
+@media (max-width:760px) {
+  .v23-client .v32-extra-title { align-items:flex-start!important;flex-direction:column!important; }
+  .v23-client .v32-extra-title>div { width:100%;justify-content:space-between; }
 }
 
 /* ===== v32e private room spectator / rotating-player lobby ===== */
