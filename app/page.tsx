@@ -2587,7 +2587,7 @@ function duelEventPoints(event: VisualEvent, userId: string): { source: DuelPoin
 }
 
 
-type AttackCinematicStyle = 'slash' | 'beam' | 'dive' | 'scatter' | 'crush' | 'pulse' | 'bite';
+type AttackCinematicStyle = 'slash' | 'beam' | 'dive' | 'scatter' | 'crush' | 'pulse' | 'bite' | 'lance' | 'whip' | 'claw' | 'cannon' | 'arcane' | 'chrono' | 'phantom';
 
 type AttackCinematicProfile = {
   signature: string;
@@ -2601,69 +2601,186 @@ type AttackCinematicProfile = {
 };
 
 const LEGENDARY_ATTACK_PROFILES: Record<string, Omit<AttackCinematicProfile, 'legendary'>> = {
-  unit_crownless_titan: { signature: 'crownless-titan', style: 'crush', label: '킹덤 브레이커', finisher: 'COLOSSAL SMASH', marker: '♜', accent: '#d6e2ee', subAccent: '#8aa2b6' },
-  unit_star_devourer: { signature: 'star-devourer', style: 'beam', label: '성식 포식광선', finisher: 'VOID NOVA BITE', marker: '✶', accent: '#8f7dff', subAccent: '#f04fff' },
-  unit_dawn_seraph: { signature: 'dawn-seraph', style: 'dive', label: '새벽 세라프 돌격', finisher: 'SERAPHIC DESCENT', marker: '✦', accent: '#ffd76e', subAccent: '#fff7c7' },
-  fusion_eclipse_chimera: { signature: 'eclipse-chimera', style: 'slash', label: '식광 교차포효', finisher: 'ECLIPSE REND', marker: '☯', accent: '#7ee7ff', subAccent: '#ffc46a' },
-  evolution_rift_alpha: { signature: 'rift-alpha', style: 'dive', label: '균열 추격난무', finisher: 'RIFT HOWL RUSH', marker: '✧', accent: '#bd6dff', subAccent: '#5bc8ff' },
+  unit_crownless_titan: { signature: 'crownless-titan', style: 'crush', label: '거인의 왕국 분쇄', finisher: 'COLOSSAL IMPACT', marker: '♜', accent: '#d6e2ee', subAccent: '#8aa2b6' },
+  unit_star_devourer: { signature: 'star-devourer', style: 'bite', label: '별을 삼키는 포식', finisher: 'ECLIPSE MAW', marker: '✶', accent: '#8f7dff', subAccent: '#f04fff' },
+  unit_dawn_seraph: { signature: 'dawn-seraph', style: 'dive', label: '광익 강습', finisher: 'SERAPH DESCENT', marker: '✦', accent: '#ffd76e', subAccent: '#fff7c7' },
+  fusion_eclipse_chimera: { signature: 'eclipse-chimera', style: 'claw', label: '일식 교차난격', finisher: 'ECLIPSE REND', marker: '☯', accent: '#7ee7ff', subAccent: '#ffc46a' },
+  evolution_rift_alpha: { signature: 'rift-alpha', style: 'claw', label: '균열 추격난무', finisher: 'RIFT REND', marker: '✧', accent: '#bd6dff', subAccent: '#5bc8ff' },
   unit_v8_solar_09: { signature: 'ancient-dawn-guardian', style: 'slash', label: '여명 수호검무', finisher: 'SUN HALO CLEAVE', marker: '☀', accent: '#ffb14d', subAccent: '#fff2a1' },
-  unit_v8_lunar_06: { signature: 'silver-mirror-knight', style: 'beam', label: '은월 반사창', finisher: 'MOON MIRROR LANCE', marker: '☾', accent: '#8aa7ff', subAccent: '#e6ecff' },
+  unit_v8_lunar_06: { signature: 'silver-mirror-knight', style: 'lance', label: '은월 반사창', finisher: 'MOON MIRROR LANCE', marker: '☾', accent: '#8aa7ff', subAccent: '#e6ecff' },
   unit_v8_storm_03: { signature: 'abyss-storm-hawk', style: 'dive', label: '폭풍매 급강하', finisher: 'THUNDER TALON DIVE', marker: 'ϟ', accent: '#5ce6ff', subAccent: '#c7fbff' },
   unit_v8_verdant_19: { signature: 'jade-sky-guardian', style: 'crush', label: '비취 천공돌진', finisher: 'JADE SKY RAM', marker: '❈', accent: '#7fe5a2', subAccent: '#d7ffe3' },
   unit_v8_void_16: { signature: 'night-executor', style: 'slash', label: '서약의 야영참격', finisher: 'NIGHT OATH EXECUTION', marker: '◈', accent: '#b06cff', subAccent: '#ff7ab8' },
   unit_v8_neutral_13: { signature: 'alloy-enforcer', style: 'crush', label: '합금 심판파쇄', finisher: 'ALLOY VERDICT', marker: '◇', accent: '#c7d2dc', subAccent: '#7de4ff' },
-  fusion_v8_01: { signature: 'solar-resonance-dragon', style: 'beam', label: '천식 공명폭광', finisher: 'SOLAR RESONANCE ROAR', marker: '☯', accent: '#ffb155', subAccent: '#6df6ff' },
-  fusion_v8_05: { signature: 'lunar-abyss-witch', style: 'pulse', label: '월식 심연연옥', finisher: 'ABYSSAL MOON CURSE', marker: '☯', accent: '#7d83ff', subAccent: '#f668ff' },
+  fusion_v8_01: { signature: 'solar-resonance-dragon', style: 'beam', label: '천식 공명포효', finisher: 'SOLAR RESONANCE ROAR', marker: '☯', accent: '#ffb155', subAccent: '#6df6ff' },
+  fusion_v8_05: { signature: 'lunar-abyss-witch', style: 'arcane', label: '월식 심연주술', finisher: 'ABYSSAL MOON CURSE', marker: '☯', accent: '#7d83ff', subAccent: '#f668ff' },
   fusion_v8_09: { signature: 'crystal-overlord', style: 'scatter', label: '무광 수정난사', finisher: 'CRYSTAL BARRAGE', marker: '☯', accent: '#82f3ff', subAccent: '#ffffff' },
-  fusion_v8_13: { signature: 'silver-saint', style: 'pulse', label: '은정 성역심판', finisher: 'SILVER SANCTIFY', marker: '☯', accent: '#f6f8ff', subAccent: '#9fe8ff' },
+  fusion_v8_13: { signature: 'silver-saint', style: 'arcane', label: '은정 성역심판', finisher: 'SILVER SANCTIFY', marker: '☯', accent: '#f6f8ff', subAccent: '#9fe8ff' },
   fusion_v8_17: { signature: 'abyss-enforcer', style: 'crush', label: '결정 심연낙하', finisher: 'VOID CRUSH DECREE', marker: '☯', accent: '#9f96ff', subAccent: '#5ae4ff' },
   fusion_v8_20: { signature: 'verdant-sungod', style: 'dive', label: '녹광 태양돌격', finisher: 'SOLAR WILD CHARGE', marker: '☯', accent: '#92f39d', subAccent: '#ffd15d' },
   evolution_v8_06: { signature: 'eternal-guardian', style: 'crush', label: '이터널 방벽격파', finisher: 'ETERNAL SHIELD BREAK', marker: '✧', accent: '#dfe8f6', subAccent: '#89a7c8' },
-  evolution_v8_12: { signature: 'prism-dancer', style: 'pulse', label: '프리즘 윤무참', finisher: 'PRISM WALTZ', marker: '✧', accent: '#7dd8ff', subAccent: '#ffd6ff' },
+  evolution_v8_12: { signature: 'prism-dancer', style: 'phantom', label: '프리즘 윤무참', finisher: 'PRISM WALTZ', marker: '✧', accent: '#7dd8ff', subAccent: '#ffd6ff' },
   evolution_v8_18: { signature: 'crystal-overlord-evo', style: 'beam', label: '오버로드 관통광', finisher: 'OVERLOAD LANCER', marker: '✧', accent: '#80f4ff', subAccent: '#dfffff' },
-  evolution_v8_20: { signature: 'dream-recorder', style: 'scatter', label: '몽환 기록파편', finisher: 'DREAM FRACTURE', marker: '✧', accent: '#a18fff', subAccent: '#f2d4ff' },
+  evolution_v8_20: { signature: 'dream-recorder', style: 'phantom', label: '몽환 기록파편', finisher: 'DREAM FRACTURE', marker: '✧', accent: '#a18fff', subAccent: '#f2d4ff' },
+};
+
+const ATTACK_VFX_STYLE: Record<string, { style: AttackCinematicStyle; label: string; finisher: string }> = {
+  'solar-slash': { style: 'slash', label: '태양 검격', finisher: 'SOLAR SLASH' },
+  'solar-cross': { style: 'slash', label: '성광 교차참', finisher: 'SOLAR CROSS' },
+  'crescent-cut': { style: 'slash', label: '초승달 베기', finisher: 'CRESCENT CUT' },
+  'lightning-lance': { style: 'lance', label: '뇌광 창격', finisher: 'LIGHTNING LANCE' },
+  'vine-whip': { style: 'whip', label: '덩굴 채찍', finisher: 'VINE WHIP' },
+  'void-lunge': { style: 'claw', label: '공허 돌진', finisher: 'VOID LUNGE' },
+  'rift-rend': { style: 'claw', label: '균열 난격', finisher: 'RIFT REND' },
+  'eclipse-maw': { style: 'bite', label: '일식 포식', finisher: 'ECLIPSE MAW' },
+  'iron-impact': { style: 'crush', label: '장갑 충격', finisher: 'IRON IMPACT' },
+  'sovereign-hammer': { style: 'crush', label: '황제 중격', finisher: 'SOVEREIGN HAMMER' },
+  'prism-break': { style: 'scatter', label: '프리즘 파쇄', finisher: 'PRISM BREAK' },
+  'crystal-forge': { style: 'scatter', label: '수정 파쇄', finisher: 'CRYSTAL BURST' },
+  'phoenix-dive': { style: 'dive', label: '불사조 급강하', finisher: 'PHOENIX DIVE' },
+  'metal-thunder': { style: 'cannon', label: '전격 포격', finisher: 'METAL THUNDER' },
+  'rail-impact': { style: 'cannon', label: '레일 관통포', finisher: 'RAIL IMPACT' },
+  'hydra-bloom': { style: 'bite', label: '히드라 연속포식', finisher: 'HYDRA MAW' },
+  'lunar-script': { style: 'arcane', label: '월문 주술', finisher: 'LUNAR SCRIPT' },
+};
+
+const SERIES_ATTACK_STYLE: Partial<Record<SeriesId, { style: AttackCinematicStyle; label: string; finisher: string }>> = {
+  luminaknights: { style: 'slash', label: '성휘 돌격', finisher: 'LUMINA STRIKE' },
+  kaisergear: { style: 'cannon', label: '기갑 화력전개', finisher: 'KAISER FIRE' },
+  eclipsion: { style: 'claw', label: '일식 공명격', finisher: 'ECLIPSE REND' },
+  nocturne: { style: 'phantom', label: '월영 환상격', finisher: 'MIRAGE CUT' },
+  arborian: { style: 'whip', label: '세계수 휘감기', finisher: 'ROOT LASH' },
+  tempest_drive: { style: 'lance', label: '천뢰 고속창격', finisher: 'TEMPEST DRIVE' },
+  abyss_reaper: { style: 'slash', label: '심연 수확참', finisher: 'ABYSS REAP' },
+  primal_guardian: { style: 'claw', label: '원초 야수격', finisher: 'PRIMAL CLAW' },
+  chronorium: { style: 'chrono', label: '시간축 절단', finisher: 'CHRONO BREAK' },
+  arcana_protocol: { style: 'arcane', label: '마도식 발현', finisher: 'ARCANA CAST' },
+  beastforge: { style: 'claw', label: '야수기갑 강습', finisher: 'BEASTFORGE RUSH' },
+  phantom_carnival: { style: 'phantom', label: '환영 난무', finisher: 'PHANTOM ACT' },
+  astral_armada: { style: 'cannon', label: '성해함대 포격', finisher: 'ASTRAL SALVO' },
 };
 
 function defaultAttackProfile(card: CardDefinition): AttackCinematicProfile {
-  switch (card.element) {
-    case 'solar':
-      return { signature: 'generic-solar', style: 'slash', label: '태양 참광', finisher: 'SOLAR SLASH', marker: '☀', accent: '#ffb15a', subAccent: '#fff1a8', legendary: false };
-    case 'lunar':
-      return { signature: 'generic-lunar', style: 'beam', label: '월영 광창', finisher: 'LUNAR LANCE', marker: '☾', accent: '#8fa6ff', subAccent: '#eaf0ff', legendary: false };
-    case 'storm':
-      return { signature: 'generic-storm', style: 'dive', label: '폭풍 급습', finisher: 'TEMPEST RUSH', marker: 'ϟ', accent: '#66e9ff', subAccent: '#d4fbff', legendary: false };
-    case 'verdant':
-      return { signature: 'generic-verdant', style: 'crush', label: '세계수 맹돌', finisher: 'VERDANT CRASH', marker: '❈', accent: '#7fdc97', subAccent: '#d9ffe3', legendary: false };
-    case 'void':
-      return { signature: 'generic-void', style: 'scatter', label: '공허 파열', finisher: 'VOID BREAK', marker: '◈', accent: '#b37cff', subAccent: '#ff8cc8', legendary: false };
-    default:
-      return { signature: 'generic-neutral', style: 'pulse', label: '성철 충격파', finisher: 'IRON PULSE', marker: '◇', accent: '#d3dde6', subAccent: '#88d9ff', legendary: false };
-  }
+  const byElement: Record<Element, { style: AttackCinematicStyle; label: string; finisher: string; marker: string; secondary: string }> = {
+    solar: { style: 'slash', label: '태양 타격', finisher: 'SOLAR STRIKE', marker: '☀', secondary: '#fff1a8' },
+    lunar: { style: 'arcane', label: '월광 타격', finisher: 'LUNAR STRIKE', marker: '☾', secondary: '#eaf0ff' },
+    storm: { style: 'lance', label: '폭풍 타격', finisher: 'TEMPEST STRIKE', marker: 'ϟ', secondary: '#d4fbff' },
+    verdant: { style: 'whip', label: '대지 타격', finisher: 'VERDANT STRIKE', marker: '❈', secondary: '#d9ffe3' },
+    void: { style: 'claw', label: '공허 타격', finisher: 'VOID STRIKE', marker: '◈', secondary: '#ff8cc8' },
+    neutral: { style: 'crush', label: '중립 타격', finisher: 'IRON STRIKE', marker: '◇', secondary: '#88d9ff' },
+  };
+  const base = byElement[card.element];
+  return { signature: `card-${card.id.replace(/[^a-z0-9-]/gi, '-')}`, style: base.style, label: base.label, finisher: base.finisher, marker: card.sigil || base.marker, accent: card.seriesId ? SERIES_BY_ID[card.seriesId].accent : ELEMENT_ACCENT[card.element], subAccent: base.secondary, legendary: card.rarity === 'legendary' };
 }
 
-function attackMotionProfile(card: CardDefinition): AttackCinematicProfile {
-  const mapped = LEGENDARY_ATTACK_PROFILES[card.id];
-  const base = mapped ? { ...mapped, legendary: true } : defaultAttackProfile(card);
-  const themeText = `${card.name} ${card.subtitle ?? ''} ${card.series ?? ''}`.toLowerCase();
+function attackMotionProfile(card: CardDefinition, eventVfx?: string): AttackCinematicProfile {
+  const legendary = LEGENDARY_ATTACK_PROFILES[card.id];
+  if (legendary) return { ...legendary, legendary: true };
 
-  // Animal-shaped attackers should feel like the creature is actually attacking,
-  // not like every card fires the same generic elemental projectile.
-  if (/(사냥개|늑대|하운드|wolf|hound|fang|야수|beast)/i.test(themeText)) {
-    return { ...base, style: 'bite', label: '포식 교합', finisher: 'FANG BREAK' };
+  const base = defaultAttackProfile(card);
+  const roleText = `${card.name} ${card.subtitle ?? ''}`.toLowerCase();
+  const role = (style: AttackCinematicStyle, label: string, finisher: string): AttackCinematicProfile => ({ ...base, style, label, finisher });
+
+  // Physical identity wins over series name. This prevents every Beastforge card from
+  // biting just because the series itself contains the word "beast".
+  if (/(사냥개|울프|wolf|hound|팽|fang|바이트|bite|레비아탄|leviathan)/i.test(roleText)) return role('bite', '교합 돌진', 'FANG BITE');
+  if (/(타이거|재규어|라이온|그리즐리|클로|claw|predator|프레데터)/i.test(roleText)) return role('claw', '발톱 난격', 'CLAW REND');
+  if (/(라이노|코뿔소|맘모스|베어|보어|멧돼지|베히모스|타이탄|거신|골렘|colossus|혼|horn)/i.test(roleText)) return role('crush', '중량 돌진', 'HEAVY CRUSH');
+  if (/(호크|hawk|매|피닉스|phoenix|세라프|seraph|와이번|wyvern|드라군|dragoon)/i.test(roleText)) return role('dive', '공중 강습', 'AERIAL DIVE');
+  if (/(아처|archer|궁수|거너|gunner|포병|캐논|cannon|프리깃|frigate|드레드노트|dreadnought|디스트로이어|destroyer|캐리어|carrier|플래그십|함|광자|shot|샷|메카닉|mechanic|엔지니어|engineer|오퍼레이터|operator|파일럿|pilot)/i.test(roleText)) return role('cannon', '원거리 포격', 'RANGED SALVO');
+  if (/(랜서|lancer|lance|창기병|창격|스피어|spear)/i.test(roleText)) return role('lance', '관통 창격', 'LANCE THRUST');
+  if (/(세이버|saber|블레이드|blade|검|기사|knight|리퍼|reaper|집행관|executor|브레이커)/i.test(roleText)) return role('slash', '무장 참격', 'BLADE STRIKE');
+  if (/(피에로|pierrot|마임|mime|저글러|juggler|퍼펫|puppet|마리오네트|marionette|클라운|clown|일루저니스트|illusion|팬텀|phantom)/i.test(roleText)) return role('phantom', '환영 교란공격', 'PHANTOM STRIKE');
+  if (/(위버|weaver|메이지|mage|프리스트|priest|오라클|oracle|스크라이브|scribe|위치|witch|마기스터|magister|클레릭|cleric|비숍|bishop)/i.test(roleText)) {
+    if (/(시간|time|chrono|크로노|hour|리와인드|rewind)/i.test(roleText)) return role('chrono', '시간축 간섭', 'CHRONO BREAK');
+    return role('arcane', '마도식 발현', 'ARCANE BURST');
   }
-  if (!mapped && /(용|드래곤|dragon|비룡|광자포|캐논|포병|포격|함선|프리깃|드레드노트)/i.test(themeText)) {
-    return { ...base, style: 'beam', label: '집속 포격', finisher: 'BURST IMPACT' };
-  }
-  if (!mapped && /(검|검사|기사|블레이드|소드|창기병|랜서|세이버|집행)/i.test(themeText)) {
-    return { ...base, style: 'slash', label: '무장 돌격', finisher: 'CROSS SLASH' };
-  }
-  if (!mapped && /(매|hawk|새|익룡|날개|비행|기병|라이더)/i.test(themeText)) {
-    return { ...base, style: 'dive', label: '급강하 돌격', finisher: 'SKY DIVE' };
-  }
-  if (!mapped && /(타이탄|골렘|가디언|수호자|기갑|장갑|거신|중갑)/i.test(themeText)) {
-    return { ...base, style: 'crush', label: '중량 강타', finisher: 'HEAVY CRUSH' };
-  }
+
+  const authoredVfx = eventVfx && card.vfx?.attack === eventVfx ? ATTACK_VFX_STYLE[eventVfx] : undefined;
+  if (authoredVfx) return { ...base, ...authoredVfx };
+  const series = card.seriesId ? SERIES_ATTACK_STYLE[card.seriesId] : undefined;
+  if (series) return { ...base, ...series };
+  const fallbackVfx = eventVfx ? ATTACK_VFX_STYLE[eventVfx] : undefined;
+  if (fallbackVfx) return { ...base, ...fallbackVfx };
   return base;
+}
+
+type SummonCinematicStyle = 'radiance' | 'forge' | 'rift' | 'moon' | 'bloom' | 'storm' | 'abyss' | 'beast' | 'chrono' | 'arcane' | 'carnival' | 'armada' | 'phoenix' | 'eclipse' | 'neutral';
+
+type SummonCinematicProfile = {
+  style: SummonCinematicStyle;
+  label: string;
+  marker: string;
+  accent: string;
+  secondary: string;
+};
+
+const SUMMON_VFX_STYLE: Record<string, { style: SummonCinematicStyle; label: string }> = {
+  'dawn-pillar': { style: 'radiance', label: '성광 강림' },
+  'sunburst-seal': { style: 'radiance', label: '태양 인장 전개' },
+  'citadel-ascend': { style: 'forge', label: '기갑 프레임 전개' },
+  'crystal-forge': { style: 'forge', label: '수정 프레임 조립' },
+  'rift-tear': { style: 'rift', label: '균열 개방' },
+  'void-vortex': { style: 'abyss', label: '공허 소용돌이 현현' },
+  'eclipse-convergence': { style: 'eclipse', label: '일식 공명 현현' },
+  'moon-ripple': { style: 'moon', label: '월광 파문 현현' },
+  'lunar-script': { style: 'moon', label: '월문 소환식' },
+  'worldroot-rise': { style: 'bloom', label: '세계수 발아' },
+  'bloom-circle': { style: 'bloom', label: '생장진 개화' },
+  'grave-bloom': { style: 'abyss', label: '심연 묘화 현현' },
+  'storm-drop': { style: 'storm', label: '낙뢰 강하' },
+  'magnet-storm': { style: 'storm', label: '전자폭풍 전개' },
+  'phoenix-ascend': { style: 'phoenix', label: '불사조 비상' },
+  'alpha-mutation': { style: 'beast', label: '야수 변이 각성' },
+  'prism-script': { style: 'arcane', label: '프리즘 소환식' },
+};
+
+const SERIES_SUMMON_STYLE: Partial<Record<SeriesId, { style: SummonCinematicStyle; label: string }>> = {
+  luminaknights: { style: 'radiance', label: '성휘전대 출격' },
+  kaisergear: { style: 'forge', label: '황제기갑 프레임 조립' },
+  eclipsion: { style: 'eclipse', label: '일식공명 현현' },
+  nocturne: { style: 'moon', label: '월영 환상 현현' },
+  arborian: { style: 'bloom', label: '세계수권속 발아' },
+  tempest_drive: { style: 'storm', label: '천뢰기동 강하' },
+  abyss_reaper: { style: 'abyss', label: '심연포식 현현' },
+  primal_guardian: { style: 'beast', label: '원초 수호령 현현' },
+  chronorium: { style: 'chrono', label: '시간축 동기화' },
+  arcana_protocol: { style: 'arcane', label: '마도규약 소환식' },
+  beastforge: { style: 'beast', label: '야수기갑 기동' },
+  phantom_carnival: { style: 'carnival', label: '몽환무대 등장' },
+  astral_armada: { style: 'armada', label: '성해함대 워프 인' },
+};
+
+const KNOWN_SUMMON_VFX = new Set<string>([
+  ...Object.keys(SUMMON_VFX_STYLE),
+  'deck-recruit', 'grave-revival', 'mirror-incarnation', 'series-rebirth',
+]);
+
+function isSummonPresentation(event: VisualEvent, card?: CardDefinition): boolean {
+  if (event.kind === 'summon') return true;
+  if (event.kind !== 'special' || !card) return false;
+  return Boolean(event.vfx && KNOWN_SUMMON_VFX.has(event.vfx));
+}
+
+function summonMotionProfile(card: CardDefinition, eventVfx?: string): SummonCinematicProfile {
+  const text = `${card.name} ${card.subtitle ?? ''}`.toLowerCase();
+  const secondaryByElement: Record<Element, string> = { solar: '#fff1a8', lunar: '#eaf0ff', storm: '#d4fbff', verdant: '#d9ffe3', void: '#ffb0e3', neutral: '#e4f3ff' };
+  const base = { marker: card.sigil || '✦', accent: card.seriesId ? SERIES_BY_ID[card.seriesId].accent : ELEMENT_ACCENT[card.element], secondary: secondaryByElement[card.element] };
+
+  if (/(시간|time|chrono|크로노|hour|리와인드|rewind)/i.test(text)) return { ...base, style: 'chrono', label: '시간축 동기화' };
+  if (/(피닉스|phoenix|불사조)/i.test(text)) return { ...base, style: 'phoenix', label: '불사조 비상' };
+  if (/(사냥개|울프|wolf|hound|타이거|재규어|라이온|베어|라이노|맘모스|보어|그리즐리|프레데터|베히모스|레비아탄|야수)/i.test(text)) return { ...base, style: 'beast', label: '야수 코어 현현' };
+  if (/(거너|포병|프리깃|드레드노트|디스트로이어|캐리어|플래그십|함대|함선)/i.test(text)) return { ...base, style: 'armada', label: '전술 워프 인' };
+  if (/(피에로|마임|저글러|퍼펫|마리오네트|클라운|일루저니스트|팬텀)/i.test(text)) return { ...base, style: 'carnival', label: '환영무대 등장' };
+  if (/(메이지|프리스트|오라클|스크라이브|위치|마기스터|룬|마도|arcana)/i.test(text)) return { ...base, style: 'arcane', label: '마도진 현현' };
+
+  const authoredVfx = eventVfx && card.vfx?.summon === eventVfx ? SUMMON_VFX_STYLE[eventVfx] : undefined;
+  if (authoredVfx) return { ...base, ...authoredVfx };
+  const series = card.seriesId ? SERIES_SUMMON_STYLE[card.seriesId] : undefined;
+  if (series) return { ...base, ...series };
+  const fallbackVfx = eventVfx ? SUMMON_VFX_STYLE[eventVfx] : undefined;
+  if (fallbackVfx) return { ...base, ...fallbackVfx };
+  return { ...base, style: 'neutral', label: '전장 현현' };
 }
 
 type ExtraCinematicStyle = 'convergence' | 'prism' | 'storm' | 'bloom' | 'forge' | 'eclipse' | 'tide' | 'star' | 'ascension' | 'wing' | 'crown' | 'rift' | 'mirror' | 'thunder' | 'root' | 'requiem';
@@ -2704,6 +2821,38 @@ const EVOLUTION_EXTRA_STYLES: Array<{ style: ExtraCinematicStyle; label: string;
   { style: 'requiem', label: '심연 진혼', finisher: 'ABYSSAL REQUIEM' },
 ];
 
+const SERIES_FUSION_CINEMATIC: Partial<Record<SeriesId, { style: ExtraCinematicStyle; label: string; finisher: string }>> = {
+  luminaknights: { style: 'convergence', label: '성휘 합동공명', finisher: 'LUMINA CROSS' },
+  kaisergear: { style: 'forge', label: '기갑 코어 결합', finisher: 'KAISER FORGE' },
+  eclipsion: { style: 'eclipse', label: '일식 교차공명', finisher: 'ECLIPSE CONVERGENCE' },
+  nocturne: { style: 'tide', label: '월영 몽환결속', finisher: 'NOCTURNE TIDEBIND' },
+  arborian: { style: 'bloom', label: '세계수 생명융합', finisher: 'ARBORIAN GENESIS' },
+  tempest_drive: { style: 'storm', label: '천뢰 동기공명', finisher: 'TEMPEST SYNCHRONY' },
+  abyss_reaper: { style: 'eclipse', label: '심연 영혼결속', finisher: 'ABYSS CONVERGENCE' },
+  primal_guardian: { style: 'bloom', label: '원초 생명공명', finisher: 'PRIMAL GENESIS' },
+  chronorium: { style: 'prism', label: '시간축 중첩', finisher: 'CHRONO CONVERGENCE' },
+  arcana_protocol: { style: 'prism', label: '마도식 중첩', finisher: 'ARCANA SYNTHESIS' },
+  beastforge: { style: 'forge', label: '야수기갑 합금융합', finisher: 'BEASTFORGE ASSEMBLY' },
+  phantom_carnival: { style: 'prism', label: '환영무대 중첩', finisher: 'PHANTOM FINALE' },
+  astral_armada: { style: 'star', label: '성해함대 집성', finisher: 'ASTRAL ASSEMBLY' },
+};
+
+const SERIES_EVOLUTION_CINEMATIC: Partial<Record<SeriesId, { style: ExtraCinematicStyle; label: string; finisher: string }>> = {
+  luminaknights: { style: 'wing', label: '성휘 영웅각성', finisher: 'LUMINA ASCENSION' },
+  kaisergear: { style: 'crown', label: '황제기갑 승격', finisher: 'KAISER ASCENSION' },
+  eclipsion: { style: 'rift', label: '균열 계승각성', finisher: 'ECLIPSE BREAKTHROUGH' },
+  nocturne: { style: 'mirror', label: '월영 거울계승', finisher: 'NOCTURNE MIRROR' },
+  arborian: { style: 'root', label: '세계수 근원진화', finisher: 'ARBORIAN ROOTRISE' },
+  tempest_drive: { style: 'thunder', label: '천뢰 초가속승계', finisher: 'TEMPEST OVERDRIVE' },
+  abyss_reaper: { style: 'requiem', label: '심연 진혼계승', finisher: 'ABYSSAL REQUIEM' },
+  primal_guardian: { style: 'root', label: '원초 수호각성', finisher: 'PRIMAL AWAKENING' },
+  chronorium: { style: 'mirror', label: '시간축 재기록', finisher: 'CHRONO REWRITE' },
+  arcana_protocol: { style: 'mirror', label: '마도규약 승계', finisher: 'ARCANA SUCCESSION' },
+  beastforge: { style: 'crown', label: '야수기갑 알파각성', finisher: 'BEASTFORGE ALPHA' },
+  phantom_carnival: { style: 'mirror', label: '몽환 앙코르각성', finisher: 'PHANTOM ENCORE' },
+  astral_armada: { style: 'wing', label: '성해함대 기함승격', finisher: 'ASTRAL ASCENSION' },
+};
+
 function stableCardHash(value: string): number {
   let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) {
@@ -2716,11 +2865,13 @@ function stableCardHash(value: string): number {
 function extraCinematicProfile(card: CardDefinition, kind: 'fusion' | 'evolution'): ExtraCinematicProfile {
   const hash = stableCardHash(`${kind}:${card.id}`);
   const styles = kind === 'fusion' ? FUSION_EXTRA_STYLES : EVOLUTION_EXTRA_STYLES;
-  const selected = styles[hash % styles.length];
-  const hue = hash % 360;
-  const hue2 = (hue + 52 + (hash % 61)) % 360;
-  const baseAccent = ELEMENT_ACCENT[card.element];
-  const secondary = `hsl(${hue2} 86% 72%)`;
+  const seriesSelected = card.seriesId
+    ? (kind === 'fusion' ? SERIES_FUSION_CINEMATIC[card.seriesId] : SERIES_EVOLUTION_CINEMATIC[card.seriesId])
+    : undefined;
+  const selected = seriesSelected ?? styles[hash % styles.length];
+  const baseAccent = card.seriesId ? SERIES_BY_ID[card.seriesId].accent : ELEMENT_ACCENT[card.element];
+  const extraSecondary: Record<Element, string> = { solar: '#ffe7a3', lunar: '#dce5ff', storm: '#b9f5ff', verdant: '#c9ffd8', void: '#e3b8ff', neutral: '#e2edf7' };
+  const secondary = extraSecondary[card.element];
   const angle = `${(hash % 141) - 70}deg`;
   const speed = `${1.7 + ((hash >> 5) % 14) / 10}s`;
   const scale = `${0.90 + ((hash >> 9) % 17) / 100}`;
@@ -2742,23 +2893,24 @@ function extraCinematicProfile(card: CardDefinition, kind: 'fusion' | 'evolution
 function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false }: { event: VisualEvent | null; userId: string; profiles: RoomProfile[]; drawCard?: CardDefinition; spectator?: boolean }) {
   if (!event) return null;
   const card = event.cardId ? CARD_BY_ID[event.cardId] : undefined;
-  const attackProfile = event.kind === 'attack' && card ? attackMotionProfile(card) : undefined;
+  const attackProfile = event.kind === 'attack' && card ? attackMotionProfile(card, event.vfx) : undefined;
+  const summonPresentation = isSummonPresentation(event, card);
+  const summonProfile = summonPresentation && card ? summonMotionProfile(card, event.vfx) : undefined;
   const extraProfile = card && (event.kind === 'fusion' || event.kind === 'evolution') ? extraCinematicProfile(card, event.kind) : undefined;
   const owner = profiles.find((profile) => profile.user_id === event.ownerId);
   const mine = event.ownerId === userId;
   const { source, target } = duelEventPoints(event, userId);
   const fxStyle = {
     '--sx': `${source.x}%`, '--sy': `${source.y}%`, '--tx': `${target.x}%`, '--ty': `${target.y}%`,
-    '--fx-accent': attackProfile?.accent ?? extraProfile?.accent ?? (card ? ELEMENT_ACCENT[card.element] : '#7ddcff'),
-    '--fx-secondary': attackProfile?.subAccent ?? extraProfile?.secondary ?? '#f7fbff',
+    '--fx-accent': attackProfile?.accent ?? summonProfile?.accent ?? extraProfile?.accent ?? (card ? ELEMENT_ACCENT[card.element] : '#7ddcff'),
+    '--fx-secondary': attackProfile?.subAccent ?? summonProfile?.secondary ?? extraProfile?.secondary ?? '#f7fbff',
     '--ritual-secondary': extraProfile?.secondary ?? '#f7fbff',
     '--ritual-angle': extraProfile?.angle ?? '0deg',
     '--ritual-speed': extraProfile?.speed ?? '2.4s',
     '--ritual-scale': extraProfile?.scale ?? '1',
   } as CSSProperties;
-  const cinematicCardKinds: VisualEvent['kind'][] = ['summon', 'special', 'spell'];
   const legendaryChoice = event.kind === 'special' && (event.vfx === 'legendary-fusion-choice' || event.vfx === 'legendary-evolution-choice');
-  const showCardCutIn = Boolean(card && cinematicCardKinds.includes(event.kind) && !legendaryChoice);
+  const showCardCutIn = Boolean(card && !legendaryChoice && (event.kind === 'spell' || (event.kind === 'special' && !summonPresentation)));
   const vfxClass = event.vfx ? `vfx-${event.vfx.replace(/[^a-z0-9-]/gi, '-')}` : 'vfx-generic';
   const sourceCards = (event.sourceCardIds ?? []).map((cardId) => CARD_BY_ID[cardId]).filter((candidate): candidate is CardDefinition => Boolean(candidate));
   const trapTrigger = card?.kind === 'trap' ? trapTriggerDescription(card.trapTrigger) : '';
@@ -2790,14 +2942,31 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
       <span className="v22-cinematic-letterbox" aria-hidden="true" />
       <span className="v22-screen-flash" aria-hidden="true" />
       <span className="v22-element-particles" aria-hidden="true">{Array.from({ length: 18 }, (_, index) => <i key={index} style={{ '--particle': index } as CSSProperties} />)}</span>
-      <svg className="v18-motion-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        <line x1={source.x} y1={source.y} x2={target.x} y2={target.y} />
-      </svg>
-      <span className="v18-motion-orb" aria-hidden="true" />
-      <span className="v18-impact-ring" aria-hidden="true" />
-      <span className="v18-impact-flare" aria-hidden="true" />
+      {!((event.kind === 'attack') || summonPresentation || event.kind === 'fusion' || event.kind === 'evolution' || event.kind === 'heal') && (
+        <>
+          <svg className="v18-motion-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <line x1={source.x} y1={source.y} x2={target.x} y2={target.y} />
+          </svg>
+          <span className="v18-motion-orb" aria-hidden="true" />
+          <span className="v18-impact-ring" aria-hidden="true" />
+          <span className="v18-impact-flare" aria-hidden="true" />
+        </>
+      )}
       {(event.kind === 'destroy' || event.kind === 'core' || event.kind === 'defense') && <span className="v18-shard-field" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ '--piece': index } as CSSProperties} />)}</span>}
-      {(event.kind === 'special' || event.kind === 'summon') && <span className="v18-summon-gate" aria-hidden="true"><i /><i /><i /></span>}
+
+      {summonPresentation && card && summonProfile && (
+        <div className={`v32m-summon-stage style-${summonProfile.style} ${card.seriesId ? `series-${card.seriesId}` : ''}`} aria-label={`${card.name} 소환`}>
+          <span className="v32m-summon-backdrop" aria-hidden="true" />
+          <span className="v32m-summon-ring ring-a" aria-hidden="true" />
+          <span className="v32m-summon-ring ring-b" aria-hidden="true" />
+          <span className="v32m-summon-motif" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ '--motif-index': index } as CSSProperties} />)}</span>
+          <span className="v32m-summon-marker" aria-hidden="true">{summonProfile.marker}</span>
+          <div className="v32m-summon-card">
+            <CardIllustration card={card} hero />
+            <span><small>{event.kind === 'special' ? 'SPECIAL SUMMON' : 'SUMMON'}</small><b>{card.name}</b><em>{summonProfile.label}</em></span>
+          </div>
+        </div>
+      )}
 
       {event.kind === 'attack' && card && attackProfile && (
         <div className={`v31e-attack-stage style-${attackProfile.style} ${attackProfile.legendary ? 'legendary' : 'standard'} sig-${attackProfile.signature}`} aria-label={`${card.name} 공격 ${event.amount ?? 0}`}>
@@ -2806,15 +2975,20 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
             <CardIllustration card={card} hero />
             <span><small>{attackProfile.legendary ? 'LEGENDARY ATTACK' : spectator ? 'DUEL ATTACK' : mine ? 'YOUR ATTACK' : 'ENEMY ATTACK'}</small><b>{card.name}</b></span>
           </div>
+          <svg className="v32m-attack-vector" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <line className="v32m-vector-line main" x1={source.x} y1={source.y} x2={target.x} y2={target.y} />
+            <line className="v32m-vector-line echo" x1={source.x} y1={source.y} x2={target.x} y2={target.y} />
+            <path className="v32m-vector-curve" d={`M ${source.x} ${source.y} Q ${(source.x + target.x) / 2} ${Math.max(8, Math.min(92, (source.y + target.y) / 2 - 16))} ${target.x} ${target.y}`} />
+          </svg>
           <div className="v32-attack-avatar">
             <span className="v32-attack-avatar-mark">{attackProfile.marker}</span>
             <div>
-              <small>{attackProfile.legendary ? 'UNIQUE BATTLE EFFECT' : 'BATTLE MOTION'}</small>
+              <small>{card.seriesId ? SERIES_BY_ID[card.seriesId].shortName : ELEMENT_LABEL[card.element]}</small>
               <b>{attackProfile.label}</b>
               <span>{attackProfile.finisher}</span>
             </div>
           </div>
-          <div className="v31e-attack-power"><small>ATTACK</small><strong>{event.amount ?? '?'}</strong><span>{event.detail ?? attackProfile.finisher}</span></div>
+          <div className="v31e-attack-power"><small>ATTACK</small><strong>{event.amount ?? '?'}</strong><span>{attackProfile.label}</span></div>
           <span className="v32-attack-weapon" aria-hidden="true"><i /><i /><i /><i /></span>
           <span className="v31e-slash-trails" aria-hidden="true"><i /><i /><i /></span>
           <span className="v32-attack-afterimage" aria-hidden="true">{Array.from({ length: 4 }, (_, index) => <i key={index} style={{ '--after-index': index } as CSSProperties} />)}</span>

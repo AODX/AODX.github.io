@@ -6230,3 +6230,194 @@ html[data-ipad="true"] .pack-experience-layer.v23-client :is(.single-card-reveal
   .v23-client.in-duel .v32-bite-jaw.lower { transform:translateY(-11px)!important; }
   .v23-client.in-duel .v32-heal-copy { transform:translate(-50%,-50%)!important; }
 }
+
+/* ========================================================================== 
+   v32m · CARD-IDENTITY BATTLE VFX
+   - Summons now follow the card/series identity instead of one generic gate.
+   - Attack motion follows the actual role + authored card.vfx key.
+   - The series name is no longer used to guess a creature body type.
+   ========================================================================== */
+
+/* ---------- Summon presentation: centered on the actual destination zone ---------- */
+.v23-client.in-duel .v32m-summon-stage {
+  position:absolute;
+  left:clamp(132px,var(--tx),calc(100% - 132px));
+  top:clamp(118px,var(--ty),calc(100% - 118px));
+  width:264px;
+  height:236px;
+  margin:-118px -132px;
+  z-index:22;
+  pointer-events:none;
+  --summon-core:var(--fx-accent);
+  --summon-light:var(--fx-secondary);
+  filter:drop-shadow(0 18px 34px rgba(0,0,0,.52));
+}
+.v23-client.in-duel .v32m-summon-backdrop {
+  position:absolute;left:50%;top:52%;width:210px;height:150px;transform:translate(-50%,-50%) scale(.72);
+  border-radius:50%;
+  background:radial-gradient(circle,color-mix(in srgb,var(--summon-core) 26%,transparent),transparent 62%);
+  opacity:0;animation:v32mSummonBackdrop 1.2s ease-out both;
+}
+.v23-client.in-duel .v32m-summon-ring {
+  position:absolute;left:50%;top:55%;border:1.5px solid color-mix(in srgb,var(--summon-core) 76%,white);border-radius:50%;
+  box-shadow:0 0 22px color-mix(in srgb,var(--summon-core) 26%,transparent),inset 0 0 20px color-mix(in srgb,var(--summon-core) 10%,transparent);
+  opacity:0;
+}
+.v23-client.in-duel .v32m-summon-ring.ring-a { width:178px;height:74px;margin:-37px -89px;animation:v32mSummonRingA .88s ease-out both; }
+.v23-client.in-duel .v32m-summon-ring.ring-b { width:126px;height:126px;margin:-63px;animation:v32mSummonRingB 1.05s .08s ease-out both; }
+.v23-client.in-duel .v32m-summon-motif { position:absolute;left:50%;top:55%;width:1px;height:1px;z-index:3; }
+.v23-client.in-duel .v32m-summon-motif i {
+  position:absolute;left:-2px;top:-86px;width:4px;height:24px;border-radius:4px;
+  background:linear-gradient(180deg,var(--summon-light),var(--summon-core),transparent);
+  transform-origin:2px 86px;
+  transform:rotate(calc(var(--motif-index) * 30deg));
+  opacity:0;animation:v32mSummonMotif .72s calc(var(--motif-index) * .018s) ease-out both;
+  box-shadow:0 0 8px color-mix(in srgb,var(--summon-core) 38%,transparent);
+}
+.v23-client.in-duel .v32m-summon-marker {
+  position:absolute;left:50%;top:54%;z-index:4;transform:translate(-50%,-50%) scale(.55);
+  width:82px;height:82px;display:grid;place-items:center;border-radius:50%;
+  color:color-mix(in srgb,var(--summon-light) 84%,white);font-size:31px;font-weight:1000;
+  text-shadow:0 0 12px #fff,0 0 34px var(--summon-core);
+  opacity:0;animation:v32mSummonMarker .78s .08s ease-out both;
+}
+.v23-client.in-duel .v32m-summon-card {
+  position:absolute;left:50%;top:52%;z-index:9;width:116px;height:164px;overflow:hidden;
+  transform:translate(-50%,-44%) scale(.72);border:1px solid color-mix(in srgb,var(--summon-core) 70%,white);border-radius:12px;
+  background:#070b10;box-shadow:0 18px 44px rgba(0,0,0,.58),0 0 42px color-mix(in srgb,var(--summon-core) 28%,transparent);
+  opacity:0;animation:v32mSummonCard 1.12s .08s cubic-bezier(.16,.8,.18,1) both;
+}
+.v23-client.in-duel .v32m-summon-card>.card-illustration,
+.v23-client.in-duel .v32m-summon-card .card-art-image { width:100%!important;height:100%!important;object-fit:cover!important; }
+.v23-client.in-duel .v32m-summon-card>span {
+  position:absolute;left:0;right:0;bottom:0;display:grid;gap:1px;padding:23px 7px 7px;
+  background:linear-gradient(transparent,rgba(2,6,10,.96));text-align:center;
+}
+.v23-client.in-duel .v32m-summon-card small { color:var(--summon-light);font-size:6px;font-weight:1000;letter-spacing:.14em; }
+.v23-client.in-duel .v32m-summon-card b { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff;font-size:8px; }
+.v23-client.in-duel .v32m-summon-card em { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#b7c6d0;font-size:6px;font-style:normal; }
+
+/* Summon motif identities. They reuse the same small DOM but look intentionally different. */
+.v23-client.in-duel .v32m-summon-stage.style-radiance .v32m-summon-backdrop { background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--summon-core) 18%,transparent),transparent),radial-gradient(ellipse at center,#fff8,transparent 52%); }
+.v23-client.in-duel .v32m-summon-stage.style-radiance .v32m-summon-motif i { width:2px;height:54px;top:-108px;background:linear-gradient(#fff,var(--summon-core),transparent); }
+
+.v23-client.in-duel .v32m-summon-stage.style-forge .v32m-summon-ring { border-radius:18px;transform:rotate(45deg); }
+.v23-client.in-duel .v32m-summon-stage.style-forge .v32m-summon-motif i { width:14px;height:10px;left:-7px;top:-90px;border-radius:2px;background:linear-gradient(135deg,var(--summon-light),var(--summon-core)); }
+.v23-client.in-duel .v32m-summon-stage.style-forge .v32m-summon-marker { border:1px solid color-mix(in srgb,var(--summon-core) 60%,white);border-radius:14px;background:rgba(5,11,17,.48); }
+
+.v23-client.in-duel .v32m-summon-stage.style-rift .v32m-summon-ring.ring-a,
+.v23-client.in-duel .v32m-summon-stage.style-eclipse .v32m-summon-ring.ring-a { border-style:dashed;transform:rotate(-10deg) skewX(-16deg); }
+.v23-client.in-duel .v32m-summon-stage.style-rift .v32m-summon-motif i { width:3px;height:38px;top:-98px;transform:rotate(calc(var(--motif-index) * 30deg + 12deg)) skewX(-25deg);background:linear-gradient(#fff,var(--summon-core),transparent); }
+.v23-client.in-duel .v32m-summon-stage.style-eclipse .v32m-summon-backdrop { background:radial-gradient(circle at 50% 50%,rgba(0,0,0,.84) 0 25%,color-mix(in srgb,var(--summon-core) 50%,transparent) 27% 35%,transparent 55%); }
+
+.v23-client.in-duel .v32m-summon-stage.style-moon .v32m-summon-ring.ring-b { border-width:3px;border-left-color:transparent;border-bottom-color:transparent;transform:rotate(-38deg);box-shadow:12px -4px 22px color-mix(in srgb,var(--summon-core) 35%,transparent); }
+.v23-client.in-duel .v32m-summon-stage.style-moon .v32m-summon-motif i { height:13px;top:-88px;border-radius:50%;background:var(--summon-light); }
+
+.v23-client.in-duel .v32m-summon-stage.style-bloom .v32m-summon-motif i { width:14px;height:24px;left:-7px;top:-98px;border-radius:85% 10% 85% 10%;background:linear-gradient(145deg,var(--summon-light),var(--summon-core));transform:rotate(calc(var(--motif-index) * 30deg)) skewY(-12deg); }
+.v23-client.in-duel .v32m-summon-stage.style-bloom .v32m-summon-ring.ring-a { border-bottom-width:4px;box-shadow:0 16px 28px color-mix(in srgb,var(--summon-core) 30%,transparent); }
+
+.v23-client.in-duel .v32m-summon-stage.style-storm .v32m-summon-motif i { width:3px;height:46px;top:-106px;clip-path:polygon(45% 0,100% 0,62% 43%,100% 43%,12% 100%,37% 54%,0 54%);background:#fff;filter:drop-shadow(0 0 7px var(--summon-core)); }
+.v23-client.in-duel .v32m-summon-stage.style-storm .v32m-summon-ring { border-style:dotted; }
+
+.v23-client.in-duel .v32m-summon-stage.style-abyss .v32m-summon-backdrop { background:radial-gradient(circle,rgba(0,0,0,.92) 0 25%,color-mix(in srgb,var(--summon-core) 32%,transparent) 28%,transparent 68%); }
+.v23-client.in-duel .v32m-summon-stage.style-abyss .v32m-summon-motif i { width:7px;height:40px;top:-101px;border-radius:50% 50% 10% 10%;background:linear-gradient(var(--summon-core),rgba(0,0,0,.1));filter:blur(.4px); }
+
+.v23-client.in-duel .v32m-summon-stage.style-beast .v32m-summon-motif i { width:7px;height:44px;top:-104px;border-radius:90% 10% 80% 20%;background:linear-gradient(#fff,var(--summon-core),transparent);transform:rotate(calc(var(--motif-index) * 30deg + 14deg)) skewX(-22deg); }
+.v23-client.in-duel .v32m-summon-stage.style-beast .v32m-summon-ring.ring-b { border-width:3px;border-style:dashed; }
+
+.v23-client.in-duel .v32m-summon-stage.style-chrono .v32m-summon-ring.ring-b { border-width:2px;border-style:dotted;box-shadow:0 0 0 9px color-mix(in srgb,var(--summon-core) 8%,transparent),0 0 28px color-mix(in srgb,var(--summon-core) 30%,transparent); }
+.v23-client.in-duel .v32m-summon-stage.style-chrono .v32m-summon-motif i { width:2px;height:18px;top:-96px;background:var(--summon-light); }
+.v23-client.in-duel .v32m-summon-stage.style-chrono .v32m-summon-marker { animation:v32mSummonMarker .78s .08s ease-out both,v32mClockSpin 3.2s .55s linear infinite; }
+
+.v23-client.in-duel .v32m-summon-stage.style-arcane .v32m-summon-ring { border-style:dashed; }
+.v23-client.in-duel .v32m-summon-stage.style-arcane .v32m-summon-motif i { width:10px;height:10px;left:-5px;top:-94px;border:1px solid var(--summon-light);background:transparent;transform:rotate(calc(var(--motif-index) * 30deg + 45deg)); }
+
+.v23-client.in-duel .v32m-summon-stage.style-carnival .v32m-summon-backdrop { width:240px;height:190px;border-radius:12px;background:linear-gradient(100deg,rgba(34,5,48,.72),transparent 38% 62%,rgba(34,5,48,.72)),radial-gradient(ellipse at 50% 0,color-mix(in srgb,var(--summon-core) 46%,white),transparent 58%); }
+.v23-client.in-duel .v32m-summon-stage.style-carnival .v32m-summon-motif i { width:12px;height:18px;left:-6px;top:-96px;border:1px solid color-mix(in srgb,var(--summon-core) 68%,white);border-radius:2px;background:rgba(16,4,25,.8); }
+
+.v23-client.in-duel .v32m-summon-stage.style-armada .v32m-summon-ring { border-radius:8px;border-style:dashed; }
+.v23-client.in-duel .v32m-summon-stage.style-armada .v32m-summon-motif i { width:2px;height:58px;top:-110px;background:linear-gradient(#fff,var(--summon-core),transparent); }
+.v23-client.in-duel .v32m-summon-stage.style-armada .v32m-summon-backdrop { background:linear-gradient(90deg,transparent 0 12%,color-mix(in srgb,var(--summon-core) 16%,transparent) 13% 14%,transparent 15% 85%,color-mix(in srgb,var(--summon-core) 16%,transparent) 86% 87%,transparent 88%),radial-gradient(circle,color-mix(in srgb,var(--summon-core) 20%,transparent),transparent 64%); }
+
+.v23-client.in-duel .v32m-summon-stage.style-phoenix .v32m-summon-ring.ring-a { border-top-width:4px;border-left-color:transparent;border-right-color:transparent;transform:rotate(-8deg); }
+.v23-client.in-duel .v32m-summon-stage.style-phoenix .v32m-summon-motif i { width:8px;height:48px;top:-108px;border-radius:100% 0 100% 0;background:linear-gradient(#fff,var(--summon-core),transparent); }
+
+/* ---------- Attack path: each motion archetype uses the actual source -> target vector ---------- */
+.v23-client.in-duel .v32m-attack-vector { position:absolute;inset:0;z-index:6;width:100%;height:100%;overflow:visible;pointer-events:none; }
+.v23-client.in-duel .v32m-vector-line,
+.v23-client.in-duel .v32m-vector-curve { fill:none;vector-effect:non-scaling-stroke;opacity:0; }
+.v23-client.in-duel .v32m-vector-line.main { stroke:var(--sig-core);stroke-width:2.2;filter:drop-shadow(0 0 5px var(--sig-core)); }
+.v23-client.in-duel .v32m-vector-line.echo { stroke:var(--sig-secondary);stroke-width:.8;stroke-dasharray:2 3; }
+.v23-client.in-duel .v32m-vector-curve { stroke:var(--sig-core);stroke-width:2.1;filter:drop-shadow(0 0 5px var(--sig-core)); }
+
+.v23-client.in-duel .v31e-attack-stage.style-beam .v32m-vector-line.main,
+.v23-client.in-duel .v31e-attack-stage.style-lance .v32m-vector-line.main,
+.v23-client.in-duel .v31e-attack-stage.style-cannon .v32m-vector-line.main { animation:v32mVectorShot .58s .13s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-beam .v32m-vector-line.echo,
+.v23-client.in-duel .v31e-attack-stage.style-lance .v32m-vector-line.echo,
+.v23-client.in-duel .v31e-attack-stage.style-cannon .v32m-vector-line.echo { animation:v32mVectorEcho .72s .17s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-cannon .v32m-vector-line.main { stroke-width:4.2;stroke-dasharray:1 1; }
+.v23-client.in-duel .v31e-attack-stage.style-lance .v32m-vector-line.main { stroke-width:2.8; }
+
+.v23-client.in-duel .v31e-attack-stage.style-whip .v32m-vector-curve,
+.v23-client.in-duel .v31e-attack-stage.style-phantom .v32m-vector-curve,
+.v23-client.in-duel .v31e-attack-stage.style-chrono .v32m-vector-curve,
+.v23-client.in-duel .v31e-attack-stage.style-arcane .v32m-vector-curve { animation:v32mVectorCurve .72s .12s ease-out both; }
+.v23-client.in-duel .v31e-attack-stage.style-whip .v32m-vector-curve { stroke-width:3.5;stroke-linecap:round; }
+.v23-client.in-duel .v31e-attack-stage.style-phantom .v32m-vector-curve { stroke-dasharray:2 3; }
+.v23-client.in-duel .v31e-attack-stage.style-chrono .v32m-vector-curve { stroke-dasharray:1 2;stroke-width:1.5; }
+.v23-client.in-duel .v31e-attack-stage.style-arcane .v32m-vector-curve { stroke-width:2.8; }
+
+/* The old generic weapon overlay is hidden for the new semantic styles so it does not fight the card-matched motion. */
+.v23-client.in-duel .v31e-attack-stage:is(.style-lance,.style-whip,.style-claw,.style-cannon,.style-arcane,.style-chrono,.style-phantom) .v32-attack-weapon { display:none!important; }
+.v23-client.in-duel .v31e-attack-stage.style-whip .v31e-slash-trails,
+.v23-client.in-duel .v31e-attack-stage.style-cannon .v31e-slash-trails,
+.v23-client.in-duel .v31e-attack-stage.style-arcane .v31e-slash-trails,
+.v23-client.in-duel .v31e-attack-stage.style-chrono .v31e-slash-trails { display:none!important; }
+
+.v23-client.in-duel .v31e-attack-stage.style-claw .v31e-slash-trails { transform:rotate(-18deg) scaleX(.92); }
+.v23-client.in-duel .v31e-attack-stage.style-claw .v31e-slash-trails i { height:4px;border-radius:70% 10%;background:linear-gradient(90deg,transparent,#fff 22%,var(--sig-core) 64%,transparent); }
+.v23-client.in-duel .v31e-attack-stage.style-claw .v31e-slash-trails i:nth-child(1){top:39%;transform:rotate(-8deg) scaleX(0)}
+.v23-client.in-duel .v31e-attack-stage.style-claw .v31e-slash-trails i:nth-child(2){top:50%}
+.v23-client.in-duel .v31e-attack-stage.style-claw .v31e-slash-trails i:nth-child(3){top:61%;transform:rotate(8deg) scaleX(0)}
+
+.v23-client.in-duel .v31e-attack-stage.style-lance .v31e-target-reticle { border-radius:12px;width:66px;height:66px;margin:-33px;transform:rotate(45deg); }
+.v23-client.in-duel .v31e-attack-stage.style-cannon .v31e-target-reticle { border-radius:8px;border-style:dashed;width:96px;height:96px;margin:-48px; }
+.v23-client.in-duel .v31e-attack-stage.style-arcane .v31e-target-reticle { border-style:dotted;box-shadow:0 0 0 10px color-mix(in srgb,var(--sig-core) 9%,transparent),0 0 38px color-mix(in srgb,var(--sig-core) 32%,transparent); }
+.v23-client.in-duel .v31e-attack-stage.style-chrono .v31e-target-reticle { border-style:dashed;animation:v31eReticle .72s ease-out both,v32mClockSpin 2s linear infinite; }
+.v23-client.in-duel .v31e-attack-stage.style-phantom .v32-attack-afterimage i { border-style:dashed;border-radius:50%;opacity:.7; }
+
+/* Keep attack information compact: the motion should sell the card, not a giant generic HUD. */
+.v23-client.in-duel .v31e-attack-stage .v32-attack-avatar { min-width:min(300px,38vw);padding:8px 11px 8px 8px; }
+.v23-client.in-duel .v31e-attack-stage .v32-attack-avatar-mark { width:38px;height:38px;font-size:16px; }
+.v23-client.in-duel .v31e-attack-stage .v32-attack-avatar b { font-size:clamp(13px,1.35vw,19px); }
+.v23-client.in-duel .v31e-attack-stage .v31e-attack-power strong { font-size:clamp(34px,4.2vw,58px); }
+
+@keyframes v32mSummonBackdrop { 0%{opacity:0;transform:translate(-50%,-50%) scale(.45)} 34%{opacity:.86} 100%{opacity:0;transform:translate(-50%,-50%) scale(1.16)} }
+@keyframes v32mSummonRingA { 0%{opacity:0;transform:scale(.35) rotate(-28deg)} 35%{opacity:.9} 100%{opacity:0;transform:scale(1.12) rotate(8deg)} }
+@keyframes v32mSummonRingB { 0%{opacity:0;transform:scale(1.35) rotate(45deg)} 35%{opacity:.78} 100%{opacity:0;transform:scale(.78) rotate(-15deg)} }
+@keyframes v32mSummonMotif { 0%{opacity:0;filter:blur(4px)} 35%{opacity:.9;filter:blur(0)} 100%{opacity:0;filter:blur(1px)} }
+@keyframes v32mSummonMarker { 0%{opacity:0;transform:translate(-50%,-50%) scale(.35) rotate(-18deg)} 30%{opacity:1} 100%{opacity:0;transform:translate(-50%,-50%) scale(1.18) rotate(7deg)} }
+@keyframes v32mSummonCard { 0%{opacity:0;transform:translate(-50%,-20%) scale(.68);filter:brightness(2.1) blur(2px)} 28%{opacity:1} 68%{opacity:1;transform:translate(-50%,-52%) scale(1);filter:brightness(1.12) blur(0)} 100%{opacity:0;transform:translate(-50%,-56%) scale(1.03);filter:brightness(1)} }
+@keyframes v32mClockSpin { to{transform:translate(-50%,-50%) rotate(360deg)} }
+@keyframes v32mVectorShot { 0%{opacity:0;stroke-dasharray:0 100} 18%{opacity:1} 72%{opacity:1;stroke-dasharray:100 0} 100%{opacity:0;stroke-dasharray:100 0} }
+@keyframes v32mVectorEcho { 0%{opacity:0} 24%{opacity:.8} 100%{opacity:0} }
+@keyframes v32mVectorCurve { 0%{opacity:0;stroke-dasharray:0 100} 22%{opacity:.9} 75%{opacity:.9;stroke-dasharray:100 0} 100%{opacity:0} }
+
+@media (max-width:900px), (max-height:720px) {
+  .v23-client.in-duel .v32m-summon-stage { width:220px;height:200px;margin:-100px -110px;left:clamp(110px,var(--tx),calc(100% - 110px));top:clamp(100px,var(--ty),calc(100% - 100px)); }
+  .v23-client.in-duel .v32m-summon-card { width:96px;height:136px; }
+  .v23-client.in-duel .v32m-summon-ring.ring-a { width:150px;height:62px;margin:-31px -75px; }
+  .v23-client.in-duel .v32m-summon-ring.ring-b { width:108px;height:108px;margin:-54px; }
+  .v23-client.in-duel .v31e-attack-stage .v32-attack-avatar { min-width:min(250px,55vw); }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .v23-client.in-duel .v32m-summon-card { opacity:1!important;transform:translate(-50%,-50%) scale(.95)!important;filter:none!important; }
+  .v23-client.in-duel .v32m-summon-ring.ring-a,
+  .v23-client.in-duel .v32m-summon-marker { opacity:.78!important; }
+  .v23-client.in-duel .v32m-vector-line.main,
+  .v23-client.in-duel .v32m-vector-curve { opacity:.85!important;stroke-dasharray:none!important; }
+}
+@keyframes v32mClockSpinTarget { to{transform:rotate(360deg)} }
+.v23-client.in-duel .v31e-attack-stage.style-chrono .v31e-target-reticle { animation:v31eReticle .72s ease-out both,v32mClockSpinTarget 2s .72s linear infinite; }
