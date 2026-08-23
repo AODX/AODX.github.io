@@ -4848,3 +4848,228 @@
   .pack-experience-layer { align-items: start !important; }
   .pack-experience-layer .pack-experience-modal { height: min(94dvh,820px) !important; }
 }
+
+/* ===== v32d deck-builder: series themes + explicit Extra Deck editing ===== */
+.v23-client .v31e-auto-builder {
+  align-items:flex-start!important;
+}
+.v23-client .v31e-auto-builder .v32-auto-controls {
+  width:min(980px,72vw)!important;
+  display:grid!important;
+  grid-template-columns:1fr auto!important;
+  grid-template-areas:
+    "style action"
+    "series series"!important;
+  gap:12px 14px!important;
+  align-items:start!important;
+}
+.v23-client .v32-auto-style-row {
+  grid-area:style;
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.v23-client .v32-auto-style-row>small {
+  color:#617689;
+  font-size:7px;
+  font-weight:1000;
+  letter-spacing:.14em;
+  white-space:nowrap;
+}
+.v23-client .v31e-auto-builder .v32-auto-controls>.v9-auto-button {
+  grid-area:action;
+  min-height:38px!important;
+  max-width:270px;
+  white-space:nowrap;
+}
+.v23-client .v32-series-theme-picker {
+  grid-area:series;
+  display:grid;
+  gap:8px;
+  padding-top:11px;
+  border-top:1px solid rgba(255,255,255,.055);
+}
+.v23-client .v32-series-theme-head {
+  display:flex;
+  align-items:end;
+  justify-content:space-between;
+  gap:12px;
+}
+.v23-client .v32-series-theme-head>span {
+  display:grid;
+  gap:1px;
+}
+.v23-client .v32-series-theme-head small {
+  color:#688094;
+  font-size:7px;
+  font-weight:1000;
+  letter-spacing:.16em;
+}
+.v23-client .v32-series-theme-head b {
+  color:#d7e7f0;
+  font-size:12px;
+}
+.v23-client .v32-series-theme-head em {
+  color:#617382;
+  font-size:8px;
+  font-style:normal;
+}
+.v23-client .v32-series-theme-grid {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+}
+.v23-client .v32-series-theme-grid>button {
+  position:relative;
+  min-width:0;
+  min-height:50px;
+  display:grid;
+  grid-template-columns:6px minmax(0,1fr);
+  align-items:center;
+  gap:8px;
+  padding:7px 9px;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.065);
+  border-radius:10px;
+  background:linear-gradient(145deg,rgba(9,16,24,.92),rgba(5,10,16,.98));
+  color:#8da0af;
+  text-align:left;
+  transition:transform .14s ease,border-color .14s ease,box-shadow .14s ease,background .14s ease;
+}
+.v23-client .v32-series-theme-grid>button::before {
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(110deg,transparent 0 58%,color-mix(in srgb,var(--series-accent) 8%,transparent) 100%);
+}
+.v23-client .v32-series-theme-grid>button>i {
+  position:relative;
+  z-index:1;
+  width:5px;
+  height:30px;
+  border-radius:99px;
+  background:var(--series-accent);
+  box-shadow:0 0 15px color-mix(in srgb,var(--series-accent) 45%,transparent);
+}
+.v23-client .v32-series-theme-grid>button>span {
+  position:relative;
+  z-index:1;
+  min-width:0;
+  display:grid;
+  gap:2px;
+}
+.v23-client .v32-series-theme-grid>button b {
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#c8d6df;
+  font-size:9px;
+}
+.v23-client .v32-series-theme-grid>button small {
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#627687;
+  font-size:6.5px;
+}
+.v23-client .v32-series-theme-grid>button:hover {
+  transform:translateY(-1px);
+  border-color:color-mix(in srgb,var(--series-accent) 34%,rgba(255,255,255,.07));
+  box-shadow:0 8px 24px rgba(0,0,0,.18),0 0 20px color-mix(in srgb,var(--series-accent) 6%,transparent);
+}
+.v23-client .v32-series-theme-grid>button.active {
+  border-color:color-mix(in srgb,var(--series-accent) 62%,white 8%);
+  background:linear-gradient(145deg,color-mix(in srgb,var(--series-accent) 15%,#0a1118),rgba(6,11,17,.98));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--series-accent) 12%,transparent),0 0 24px color-mix(in srgb,var(--series-accent) 11%,transparent);
+}
+.v23-client .v32-series-theme-grid>button.active b {
+  color:#f0f8fc;
+}
+.v23-client .v32-series-theme-grid>button.active small {
+  color:color-mix(in srgb,var(--series-accent) 58%,#b8c8d3);
+}
+
+/* Extra Deck cards get an always-visible, full-width remove action.
+   This intentionally overrides the old tiny absolute minus button. */
+.v23-client .v31e-extra-slot.v32-extra-edit-slot {
+  display:grid!important;
+  grid-template-rows:auto auto auto!important;
+  gap:5px!important;
+  align-content:start!important;
+  padding:3px!important;
+  border:1px solid rgba(255,255,255,.045);
+  border-radius:9px;
+  background:rgba(4,8,13,.38);
+}
+.v23-client .v32-extra-card-wrap {
+  position:relative;
+  min-width:0;
+}
+.v23-client .v31e-extra-slot.v32-extra-edit-slot .v32-extra-card-wrap .tcg-card {
+  width:100%!important;
+  min-width:0!important;
+}
+.v23-client .v31e-extra-slot.v32-extra-edit-slot>.v32-extra-remove-button {
+  position:relative!important;
+  inset:auto!important;
+  z-index:3!important;
+  width:100%!important;
+  height:27px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:5px!important;
+  padding:0 7px!important;
+  border:1px solid rgba(255,105,126,.18)!important;
+  border-radius:7px!important;
+  background:linear-gradient(180deg,rgba(50,12,19,.76),rgba(25,8,13,.90))!important;
+  color:#dca0aa!important;
+  font-size:7px!important;
+  font-weight:900!important;
+  letter-spacing:.02em!important;
+  box-shadow:none!important;
+}
+.v23-client .v31e-extra-slot.v32-extra-edit-slot>.v32-extra-remove-button span {
+  color:#ff8293;
+  font-size:14px;
+  line-height:1;
+}
+.v23-client .v31e-extra-slot.v32-extra-edit-slot>.v32-extra-remove-button:hover {
+  border-color:rgba(255,112,133,.42)!important;
+  background:linear-gradient(180deg,rgba(73,17,27,.86),rgba(34,9,16,.96))!important;
+  color:#ffd2d8!important;
+  transform:translateY(-1px);
+}
+.v23-client .v31e-extra-slot.v32-extra-edit-slot>small {
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  text-align:center;
+  color:#627586;
+  font-size:5.5px;
+  font-weight:1000;
+  letter-spacing:.06em;
+}
+
+@media (max-width:1400px) {
+  .v23-client .v31e-auto-builder .v32-auto-controls { width:min(760px,68vw)!important; }
+  .v23-client .v32-series-theme-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+@media (max-width:1020px) {
+  .v23-client .v31e-auto-builder { display:grid!important; }
+  .v23-client .v31e-auto-builder .v32-auto-controls {
+    width:100%!important;
+    grid-template-columns:1fr!important;
+    grid-template-areas:"style" "series" "action"!important;
+  }
+  .v23-client .v31e-auto-builder .v32-auto-controls>.v9-auto-button { max-width:none; width:100%; }
+  .v23-client .v32-series-theme-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width:640px) {
+  .v23-client .v32-series-theme-head { align-items:start; flex-direction:column; gap:3px; }
+  .v23-client .v32-series-theme-grid { grid-template-columns:1fr; }
+}

@@ -1530,6 +1530,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   const [costFilter, setCostFilter] = useState<'all' | '0-1' | '2' | '3' | '4' | '5' | '6' | '7+'>('all');
   const [sort, setSort] = useState<'recommended' | 'cost' | 'rarity' | 'name'>('recommended');
   const [autoStyle, setAutoStyle] = useState<'balanced' | 'aggro' | 'control' | 'theme'>('balanced');
+  const [autoSeries, setAutoSeries] = useState<'all' | SeriesId>('all');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -1641,10 +1642,11 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
 
   function scoreCard(card: CardDefinition, style: typeof autoStyle, primary: Element): number {
     let score = rarityWeight[card.rarity] * 10;
-    score += card.element === primary ? (style === 'theme' ? 20 : 8) : 0;
+    score += card.element === primary ? 6 : 0;
     score += card.series ? 2 : 0;
-    if (seriesFilter !== 'all') score += card.seriesId === seriesFilter ? 28 : -4;
-    if (card.seriesAbility) score += 6;
+    if (style === 'theme' && autoSeries !== 'all') score += card.seriesId === autoSeries ? 34 : -5;
+    if (seriesFilter !== 'all') score += card.seriesId === seriesFilter ? 8 : 0;
+    if (card.seriesAbility) score += style === 'theme' && autoSeries !== 'all' && card.seriesId === autoSeries ? 11 : 6;
     if (card.summonMode === 'rift') score += 5;
     if (card.keywords?.includes('charge')) score += style === 'aggro' ? 12 : 3;
     if (card.keywords?.includes('pierce')) score += style === 'aggro' ? 10 : 4;
@@ -1681,8 +1683,8 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
         if (nextMain.filter((id) => CARD_BY_ID[id]?.kind === cardKind).length >= wanted) break;
         const owned = collection[card.id] ?? 0;
         const limit = Math.min(MAX_COPIES[card.rarity], owned);
-        const archetypeCore = seriesFilter !== 'all' && card.seriesId === seriesFilter;
-        const desiredCopies = card.rarity === 'legendary' ? 1 : card.rarity === 'epic' ? Math.min(2, limit) : Math.min((archetypeCore || (style === 'theme' && card.element === primary)) ? 3 : 2, limit);
+        const archetypeCore = style === 'theme' && autoSeries !== 'all' && card.seriesId === autoSeries;
+        const desiredCopies = card.rarity === 'legendary' ? 1 : card.rarity === 'epic' ? Math.min(2, limit) : Math.min(archetypeCore ? 3 : 2, limit);
         for (let index = counts[card.id] ?? 0; index < desiredCopies; index += 1) {
           if (nextMain.filter((id) => CARD_BY_ID[id]?.kind === cardKind).length >= wanted) break;
           nextMain.push(card.id);
@@ -1720,9 +1722,9 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
 
     setDeckCards(nextMain.slice(0, DECK_SIZE));
     setExtraCards(nextExtra.slice(0, EXTRA_DECK_SIZE));
-    const styleLabel = seriesFilter !== 'all'
-      ? `${SERIES_BY_ID[seriesFilter].shortName} 시리즈형`
-      : { balanced: '균형형', aggro: '속공형', control: '컨트롤형', theme: `${ELEMENT_LABEL[primary]} 테마형` }[style];
+    const styleLabel = style === 'theme' && autoSeries !== 'all'
+      ? `${SERIES_BY_ID[autoSeries].shortName} 시리즈 테마`
+      : { balanced: '균형형', aggro: '속공형', control: '컨트롤형', theme: '시리즈 테마형' }[style];
     const ready = nextMain.length >= DECK_SIZE && nextExtra.length >= EXTRA_DECK_SIZE;
     setMessage(ready ? `${styleLabel} 추천 덱을 완성했습니다. 저장 전에 카드 구성을 확인해보세요.` : `${styleLabel} 자동 구성을 적용했습니다. 보유 카드가 부족한 슬롯은 직접 채워주세요.`);
     playUiSound('auto');
@@ -1841,15 +1843,35 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
           <h3>덱 방향을 먼저 정하세요</h3>
           <p>자동 구성은 시작점일 뿐입니다. 이후 카드별 수량을 직접 조정해 마무리할 수 있습니다.</p>
         </div>
-        <div className="v9-auto-controls">
-          <div className="v9-style-pills">
-            {([
-              ['balanced', '균형형'], ['aggro', '속공형'], ['control', '컨트롤형'], ['theme', seriesFilter !== 'all' ? `${SERIES_BY_ID[seriesFilter].shortName} 시리즈` : `${ELEMENT_LABEL[element !== 'all' ? element : dominantElement]} 테마`],
-            ] as Array<[typeof autoStyle, string]>).map(([id, label]) => (
-              <button key={id} className={autoStyle === id ? 'active' : ''} onClick={() => setAutoStyle(id)}>{label}</button>
-            ))}
+        <div className="v9-auto-controls v32-auto-controls">
+          <div className="v32-auto-style-row">
+            <small>PLAY STYLE · 전투 성향</small>
+            <div className="v9-style-pills">
+              {([
+                ['balanced', '균형형'], ['aggro', '속공형'], ['control', '컨트롤형'],
+              ] as Array<[typeof autoStyle, string]>).map(([id, label]) => (
+                <button key={id} className={autoStyle === id ? 'active' : ''} onClick={() => { setAutoStyle(id); setAutoSeries('all'); }}>{label}</button>
+              ))}
+            </div>
           </div>
-          <button className="v9-auto-button" onClick={() => autoBuild(autoStyle)}>이 방향으로 자동 구성</button>
+          <div className="v32-series-theme-picker">
+            <div className="v32-series-theme-head"><span><small>SERIES THEME</small><b>시리즈 테마</b></span><em>원하는 시리즈를 중심으로 덱을 자동 구성합니다.</em></div>
+            <div className="v32-series-theme-grid">
+              {CARD_SERIES.map((series) => (
+                <button
+                  type="button"
+                  key={series.id}
+                  className={autoStyle === 'theme' && autoSeries === series.id ? 'active' : ''}
+                  style={{ '--series-accent': series.accent } as CSSProperties}
+                  onClick={() => { setAutoSeries(series.id); setAutoStyle('theme'); }}
+                >
+                  <i />
+                  <span><b>{series.shortName}</b><small>{series.mechanic}</small></span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <button className="v9-auto-button" onClick={() => autoBuild(autoStyle)}>{autoStyle === 'theme' && autoSeries !== 'all' ? `${SERIES_BY_ID[autoSeries].shortName} 테마로 자동 구성` : '이 방향으로 자동 구성'}</button>
         </div>
       </section>
 
@@ -1956,7 +1978,11 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
               {extraCards.map((cardId, index) => {
                 const card = CARD_BY_ID[cardId];
                 if (!card) return null;
-                return <div className="v31e-extra-slot" key={`${cardId}-${index}`}><CardFace card={card} compact onClick={() => requestCardInspection(card.id)} /><button type="button" onClick={() => removeExtra(cardId)} aria-label={`${card.name} 제거`}>−</button><small>{card.kind === 'fusion' ? 'FUSION' : 'ASCENSION'}</small></div>;
+                return <div className="v31e-extra-slot v32-extra-edit-slot" key={`${cardId}-${index}`}>
+                  <div className="v32-extra-card-wrap"><CardFace card={card} compact onClick={() => requestCardInspection(card.id)} /></div>
+                  <button className="v32-extra-remove-button" type="button" onClick={(event) => { event.stopPropagation(); removeExtra(cardId); }} aria-label={`${card.name} 1장 제거`}><span>−</span> 1장 제거</button>
+                  <small>{card.kind === 'fusion' ? 'FUSION' : 'ASCENSION'}</small>
+                </div>;
               })}
               {Array.from({ length: Math.max(0, EXTRA_DECK_SIZE - extraCards.length) }, (_, index) => <button type="button" className="v9-extra-empty" key={index} onClick={() => setDeckZone('extra')}>＋</button>)}
             </div>
