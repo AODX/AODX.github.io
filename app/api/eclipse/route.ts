@@ -32,6 +32,8 @@ interface RequestBody {
 interface RoomRow {
   id: string;
   code: string;
+  /** Private-room owner. host_id / guest_id are the two current duel seats. */
+  owner_id?: string | null;
   host_id: string;
   guest_id: string | null;
   public_match: boolean;
@@ -51,6 +53,14 @@ interface RoomRow {
   created_at: string;
   updated_at: string;
 }
+
+interface RoomMemberRow {
+  room_id: string;
+  user_id: string;
+  joined_at: string;
+}
+
+const PRIVATE_ROOM_MEMBER_LIMIT = 10;
 
 const MATCH_PRESENCE_TTL_MS = 20_000;
 const MATCH_PRESENCE_STALE_CUTOFF = () => new Date(Date.now() - MATCH_PRESENCE_TTL_MS).toISOString();
@@ -525,8 +535,78 @@ async function fetchRoom(admin: AdminDbClient, roomId: string): Promise<RoomRow>
   return data as RoomRow;
 }
 
-function assertParticipant(room: RoomRow, userId: string): void {
-  if (room.host_id !== userId && room.guest_id !== userId) throw new Error('이 결투방의 참가자가 아닙니다.');
+function roomOwnerId(room: RoomRow): string {
+  return room.owner_id || room.host_id;
+}
+
+function isRoomPlayer(room: RoomRow, userId: string): boolean {
+  return room.host_id === userId || room.guest_id === userId;
+}
+
+function assertPlayer(room: RoomRow, userId: string): void {
+  if (!isRoomPlayer(room, userId)) throw new Error('현재 대전 선수만 사용할 수 있는 기능입니다.');
+}
+
+async function roomMemberIds(admin: AdminDbClient, room: RoomRow): Promise<string[]> {
+  if (room.public_match) return [room.host_id, room.guest_id].filter(Boolean) as string[];
+  const { data, error } = await admin
+    .from('eclipse_room_members')
+    .select('user_id,joined_at')
+    .eq('room_id', room.id)
+    .order('joined_at', { ascending: true });
+  if (error) {
+    if (/eclipse_room_members|owner_id|schema cache|does not exist/i.test(error.message)) {
+      throw new Error('관전/대기방 선수 교체 DB 업그레이드가 필요합니다. sql/17_V32E_PRIVATE_ROOM_SPECTATOR_LOBBY.sql을 실행해 주세요.');
+    }
+    throw new Error(error.message);
+  }
+  const ids: string[] = ((data ?? []) as Array<{ user_id: string }>).map((row) => String(row.user_id)).filter(Boolean);
+  // Migration-safe fallback only when this private room has no member rows at all.
+  // Once membership exists, leaving a room must really remove that user instead of
+  // re-adding a departed player merely because host_id/guest_id still hold the finished-match seats.
+  if (ids.length === 0) {
+    ids.push(roomOwnerId(room), room.host_id);
+    if (room.guest_id) ids.push(room.guest_id);
+  }
+  return [...new Set(ids)];
+}
+
+async function assertRoomMember(admin: AdminDbClient, room: RoomRow, userId: string): Promise<void> {
+  if (room.public_match) {
+    assertPlayer(room, userId);
+    return;
+  }
+  const ids = await roomMemberIds(admin, room);
+  if (!ids.includes(userId)) throw new Error('이 방의 참가자 또는 관전자가 아닙니다.');
+}
+
+async function addPrivateRoomMember(admin: AdminDbClient, roomId: string, userId: string): Promise<void> {
+  const { count, error: countError } = await admin
+    .from('eclipse_room_members')
+    .select('user_id', { count: 'exact', head: true })
+    .eq('room_id', roomId);
+  if (countError) {
+    if (/eclipse_room_members|schema cache|does not exist/i.test(countError.message)) {
+      throw new Error('관전/대기방 선수 교체 DB 업그레이드가 필요합니다. sql/17_V32E_PRIVATE_ROOM_SPECTATOR_LOBBY.sql을 실행해 주세요.');
+    }
+    throw new Error(countError.message);
+  }
+  const { data: existing } = await admin.from('eclipse_room_members').select('user_id').eq('room_id', roomId).eq('user_id', userId).maybeSingle();
+  if (!existing && (count ?? 0) >= PRIVATE_ROOM_MEMBER_LIMIT) throw new Error(`한 방에는 선수/관전자 포함 최대 ${PRIVATE_ROOM_MEMBER_LIMIT}명까지 입장할 수 있습니다.`);
+  const { error } = await admin
+    .from('eclipse_room_members')
+    .upsert({ room_id: roomId, user_id: userId }, { onConflict: 'room_id,user_id' });
+  if (error) {
+    if (/eclipse_room_members|schema cache|does not exist/i.test(error.message)) {
+      throw new Error('관전/대기방 선수 교체 DB 업그레이드가 필요합니다. sql/17_V32E_PRIVATE_ROOM_SPECTATOR_LOBBY.sql을 실행해 주세요.');
+    }
+    throw new Error(error.message);
+  }
+}
+
+async function removePrivateRoomMember(admin: AdminDbClient, roomId: string, userId: string): Promise<void> {
+  const { error } = await admin.from('eclipse_room_members').delete().eq('room_id', roomId).eq('user_id', userId);
+  if (error && !/does not exist|schema cache/i.test(error.message)) throw new Error(error.message);
 }
 
 function roomWagerAmount(room: RoomRow): number {
@@ -688,7 +768,7 @@ async function normalizeTurnTimeout(admin: AdminDbClient, room: RoomRow): Promis
 
 async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: string) {
   let currentRoom = room;
-  assertParticipant(currentRoom, userId);
+  await assertRoomMember(admin, currentRoom, userId);
   if (currentRoom.status === 'finished' && currentRoom.winner_id && currentRoom.wager_locked === true && currentRoom.wager_settled !== true) {
     try {
       await settleRoomWager(admin, currentRoom, currentRoom.winner_id);
@@ -697,7 +777,10 @@ async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: strin
       console.error('late wager settlement error', error instanceof Error ? error.message : error);
     }
   }
-  const profileIds = [currentRoom.host_id, currentRoom.guest_id].filter(Boolean) as string[];
+  const memberIds = await roomMemberIds(admin, currentRoom);
+  const profileIds = currentRoom.public_match
+    ? [currentRoom.host_id, currentRoom.guest_id].filter(Boolean) as string[]
+    : memberIds;
   const { data: profiles, error: profileError } = await admin
     .from('eclipse_profiles')
     .select('user_id,display_name,avatar,wins,losses,xp,profile_emblem,card_sleeve,nickname_style')
@@ -705,7 +788,7 @@ async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: strin
   if (profileError) throw new Error(profileError.message);
 
   let privateState: PrivateState | null = null;
-  if (currentRoom.state) {
+  if (currentRoom.state && isRoomPlayer(currentRoom, userId)) {
     const { data, error } = await admin
       .from('eclipse_private_states')
       .select('state')
@@ -716,20 +799,53 @@ async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: strin
     privateState = (data?.state as PrivateState | undefined) ?? null;
   }
 
-  return { room: currentRoom, profiles: profiles ?? [], privateState };
+  return {
+    room: currentRoom,
+    profiles: profiles ?? [],
+    privateState,
+    members: memberIds.map((memberId) => ({
+      user_id: memberId,
+      role: memberId === currentRoom.host_id ? 'player_a' : memberId === currentRoom.guest_id ? 'player_b' : 'spectator',
+      is_owner: memberId === roomOwnerId(currentRoom),
+    })),
+  };
 }
 
 async function findResumableRoom(admin: AdminDbClient, userId: string): Promise<RoomRow | null> {
-  const { data, error } = await admin
+  // First preserve legacy/quick-match player resume behavior.
+  const { data: direct, error: directError } = await admin
     .from('eclipse_rooms')
     .select('*')
-    .in('status', ['waiting', 'active'])
+    .in('status', ['waiting', 'active', 'finished'])
     .or(`host_id.eq.${userId},guest_id.eq.${userId}`)
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error) throw new Error(`진행 중인 결투 확인 실패: ${error.message}`);
-  return (data as RoomRow | null) ?? null;
+  if (directError) throw new Error(`진행 중인 결투 확인 실패: ${directError.message}`);
+  if (direct) return direct as RoomRow;
+
+  // Private-room spectators also resume the room after refresh/reconnect.
+  const { data: memberships, error: memberError } = await admin
+    .from('eclipse_room_members')
+    .select('room_id,joined_at')
+    .eq('user_id', userId)
+    .order('joined_at', { ascending: false })
+    .limit(10);
+  if (memberError) {
+    if (/eclipse_room_members|schema cache|does not exist/i.test(memberError.message)) return null;
+    throw new Error(`관전방 복구 확인 실패: ${memberError.message}`);
+  }
+  for (const membership of memberships ?? []) {
+    const { data: roomData, error: roomError } = await admin
+      .from('eclipse_rooms')
+      .select('*')
+      .eq('id', membership.room_id)
+      .in('status', ['waiting', 'active', 'finished'])
+      .maybeSingle();
+    if (roomError) throw new Error(`관전방 복구 실패: ${roomError.message}`);
+    if (roomData && !(roomData as RoomRow).public_match) return roomData as RoomRow;
+  }
+  return null;
 }
 
 async function handleAction(request: Request, body: RequestBody) {
@@ -924,18 +1040,19 @@ async function handleAction(request: Request, body: RequestBody) {
       throw new Error('판돈은 0 또는 50 COIN 단위로 50~10,000 COIN까지 설정할 수 있습니다.');
     }
     let room = await fetchRoom(admin, roomId);
-    assertParticipant(room, user.id);
+    await assertRoomMember(admin, room, user.id);
     if (room.public_match) throw new Error('코인 내기는 비공개 방 대전에서만 사용할 수 있습니다.');
-    if (room.host_id !== user.id) throw new Error('방장만 판돈을 설정할 수 있습니다.');
+    if (roomOwnerId(room) !== user.id) throw new Error('방장만 판돈을 설정할 수 있습니다.');
     if (room.status !== 'waiting') throw new Error('결투가 시작된 뒤에는 판돈을 변경할 수 없습니다.');
     if (room.wager_locked === true) throw new Error('이미 판돈이 예치되어 변경할 수 없습니다.');
-    if (amount > 0 && await walletCoins(admin, user.id) < amount) throw new Error(`보유 코인이 부족합니다. ${amount.toLocaleString()} COIN이 필요합니다.`);
 
     const { data, error } = await admin
       .from('eclipse_rooms')
       .update({
         wager_amount: amount,
-        wager_host_accepted: amount > 0,
+        // 선수 교체가 가능한 방이므로 방장이 선수가 아닐 수도 있습니다.
+        // 실제 대전 선수 A/B가 각각 직접 동의하도록 둘 다 초기화합니다.
+        wager_host_accepted: false,
         wager_guest_accepted: false,
         wager_locked: false,
         wager_settled: false,
@@ -958,22 +1075,24 @@ async function handleAction(request: Request, body: RequestBody) {
     const admin = await requireAdmin();
     const roomId = cleanText(body.roomId, 64);
     let room = await fetchRoom(admin, roomId);
-    assertParticipant(room, user.id);
+    await assertRoomMember(admin, room, user.id);
+    assertPlayer(room, user.id);
     if (room.public_match) throw new Error('코인 내기는 비공개 방 대전에서만 사용할 수 있습니다.');
     if (room.status !== 'waiting') throw new Error('이미 시작된 결투입니다.');
-    if (room.guest_id !== user.id) throw new Error('초대받은 플레이어가 판돈에 동의할 수 있습니다.');
     const amount = roomWagerAmount(room);
     if (amount <= 0) return await getRoomPayload(admin, room, user.id);
     if (room.wager_locked === true) return await getRoomPayload(admin, room, user.id);
     const balance = await walletCoins(admin, user.id);
     if (balance < amount) throw new Error(`판돈이 부족합니다. 현재 ${balance.toLocaleString()} COIN / 필요 ${amount.toLocaleString()} COIN`);
 
+    const isSeatA = room.host_id === user.id;
+    const acceptField = isSeatA ? 'wager_host_accepted' : 'wager_guest_accepted';
+    const readyField = isSeatA ? 'ready_host' : 'ready_guest';
     const { data, error } = await admin
       .from('eclipse_rooms')
-      .update({ wager_guest_accepted: true, ready_guest: false })
+      .update({ [acceptField]: true, [readyField]: false })
       .eq('id', room.id)
       .eq('status', 'waiting')
-      .eq('guest_id', user.id)
       .select('*')
       .single();
     if (error || !data) {
@@ -991,13 +1110,17 @@ async function handleAction(request: Request, body: RequestBody) {
     for (let attempt = 0; attempt < 5 && !room; attempt += 1) {
       const { data, error } = await admin
         .from('eclipse_rooms')
-        .insert({ code: randomRoomCode(), host_id: user.id, public_match: false })
+        .insert({ code: randomRoomCode(), owner_id: user.id, host_id: user.id, public_match: false })
         .select('*')
         .single();
       if (!error && data) room = data as RoomRow;
-      else if (error?.code !== '23505') throw new Error(error?.message ?? '방 생성 실패');
+      else if (error?.code !== '23505') {
+        if (/owner_id|schema cache|does not exist/i.test(error?.message ?? '')) throw new Error('관전/대기방 선수 교체 DB 업그레이드가 필요합니다. sql/17_V32E_PRIVATE_ROOM_SPECTATOR_LOBBY.sql을 실행해 주세요.');
+        throw new Error(error?.message ?? '방 생성 실패');
+      }
     }
     if (!room) throw new Error('방 코드를 만들지 못했습니다. 다시 시도해 주세요.');
+    await addPrivateRoomMember(admin, room.id, user.id);
     return await getRoomPayload(admin, room, user.id);
   }
 
@@ -1014,7 +1137,7 @@ async function handleAction(request: Request, body: RequestBody) {
     if (!roomId) return { ok: true };
 
     let room = await fetchRoom(admin, roomId);
-    assertParticipant(room, user.id);
+    assertPlayer(room, user.id);
     if (!room.public_match) return { ok: true };
     if (room.status === 'cancelled') {
       return { ...(await runQuickMatch(admin, user.id)), heartbeat: true, rematched: true };
@@ -1057,16 +1180,121 @@ async function handleAction(request: Request, body: RequestBody) {
     if (findError) throw new Error(findError.message);
     if (!found) throw new Error('방 코드를 찾을 수 없습니다.');
     let room = found as RoomRow;
-    if (room.host_id === user.id || room.guest_id === user.id) return await getRoomPayload(admin, room, user.id);
-    if (room.guest_id || room.status !== 'waiting') throw new Error('이미 시작했거나 가득 찬 방입니다.');
+    if (room.public_match) throw new Error('빠른 대전 방에는 코드로 참가할 수 없습니다.');
+    if (room.status === 'cancelled') throw new Error('이미 닫힌 방입니다.');
+    await addPrivateRoomMember(admin, room.id, user.id);
+    if (isRoomPlayer(room, user.id)) return await getRoomPayload(admin, room, user.id);
+    if (room.status !== 'waiting') return { ...(await getRoomPayload(admin, room, user.id)), joinedAsSpectator: true };
+    if (room.guest_id) return { ...(await getRoomPayload(admin, room, user.id)), joinedAsSpectator: true };
     const { data, error } = await admin
       .from('eclipse_rooms')
-      .update({ guest_id: user.id, wager_guest_accepted: false, ready_guest: false })
+      .update({ guest_id: user.id, wager_host_accepted: false, wager_guest_accepted: false, ready_host: false, ready_guest: false })
       .eq('id', room.id)
+      .eq('status', 'waiting')
       .is('guest_id', null)
       .select('*')
       .single();
-    if (error || !data) throw new Error('다른 플레이어가 먼저 입장했습니다.');
+    if (error || !data) {
+      room = await fetchRoom(admin, room.id);
+      return { ...(await getRoomPayload(admin, room, user.id)), joinedAsSpectator: true };
+    }
+    room = data as RoomRow;
+    return await getRoomPayload(admin, room, user.id);
+  }
+
+  if (action === 'spectate_room') {
+    const admin = await requireAdmin();
+    const code = cleanText(body.code, 8).toUpperCase();
+    const { data: found, error: findError } = await admin.from('eclipse_rooms').select('*').eq('code', code).maybeSingle();
+    if (findError) throw new Error(findError.message);
+    if (!found) throw new Error('방 코드를 찾을 수 없습니다.');
+    const room = found as RoomRow;
+    if (room.public_match) throw new Error('빠른 대전은 관전할 수 없습니다.');
+    if (room.status === 'cancelled') throw new Error('이미 닫힌 방입니다.');
+    await addPrivateRoomMember(admin, room.id, user.id);
+    return { ...(await getRoomPayload(admin, room, user.id)), joinedAsSpectator: !isRoomPlayer(room, user.id) };
+  }
+
+  if (action === 'set_room_players') {
+    const admin = await requireAdmin();
+    const roomId = cleanText(body.roomId, 64);
+    const playerAId = cleanText(body.playerAId, 64);
+    const playerBId = cleanText(body.playerBId, 64);
+    let room = await fetchRoom(admin, roomId);
+    await assertRoomMember(admin, room, user.id);
+    if (room.public_match) throw new Error('빠른 대전 선수는 변경할 수 없습니다.');
+    if (roomOwnerId(room) !== user.id) throw new Error('방장만 다음 경기 선수를 지정할 수 있습니다.');
+    if (room.status !== 'waiting') throw new Error('대기방에서만 선수를 변경할 수 있습니다.');
+    if (!playerAId || !playerBId || playerAId === playerBId) throw new Error('서로 다른 선수 2명을 선택하세요.');
+    const members = await roomMemberIds(admin, room);
+    if (!members.includes(playerAId) || !members.includes(playerBId)) throw new Error('방에 있는 유저만 선수로 지정할 수 있습니다.');
+    // 선수로 지정되는 순간 실제 사용 가능한 활성 덱이 있는지 서버에서 확인합니다.
+    await Promise.all([activeDeck(admin, playerAId), activeDeck(admin, playerBId)]);
+    await refundRoomWager(admin, room);
+    const { data, error } = await admin
+      .from('eclipse_rooms')
+      .update({
+        host_id: playerAId,
+        guest_id: playerBId,
+        ready_host: false,
+        ready_guest: false,
+        wager_host_accepted: false,
+        wager_guest_accepted: false,
+        wager_locked: false,
+        wager_settled: false,
+      })
+      .eq('id', room.id)
+      .eq('status', 'waiting')
+      .select('*')
+      .single();
+    if (error || !data) throw new Error(error?.message ?? '선수 변경 실패');
+    room = data as RoomRow;
+    return await getRoomPayload(admin, room, user.id);
+  }
+
+  if (action === 'return_to_room_lobby') {
+    const admin = await requireAdmin();
+    const roomId = cleanText(body.roomId, 64);
+    let room = await fetchRoom(admin, roomId);
+    await assertRoomMember(admin, room, user.id);
+    if (room.public_match) throw new Error('빠른 대전은 대기방으로 돌아갈 수 없습니다.');
+    if (room.status === 'waiting') return await getRoomPayload(admin, room, user.id);
+    if (room.status !== 'finished') throw new Error('경기가 끝난 뒤 대기방으로 돌아갈 수 있습니다.');
+    if (room.winner_id) await settleRoomWager(admin, room, room.winner_id);
+    room = await fetchRoom(admin, room.id);
+    await admin.from('eclipse_private_states').delete().eq('room_id', room.id);
+    const members = await roomMemberIds(admin, room);
+    if (members.length === 0) {
+      await admin.from('eclipse_rooms').update({ status: 'cancelled' }).eq('id', room.id);
+      throw new Error('방에 남아 있는 유저가 없어 방이 종료되었습니다.');
+    }
+    const ownerId = members.includes(roomOwnerId(room)) ? roomOwnerId(room) : members[0];
+    let playerAId = members.includes(room.host_id) ? room.host_id : ownerId;
+    let playerBId = room.guest_id && members.includes(room.guest_id) && room.guest_id !== playerAId ? room.guest_id : null;
+    if (!playerBId) playerBId = members.find((id) => id !== playerAId) ?? null;
+    const { data, error } = await admin
+      .from('eclipse_rooms')
+      .update({
+        owner_id: ownerId,
+        host_id: playerAId,
+        guest_id: playerBId,
+        status: 'waiting',
+        state: null,
+        winner_id: null,
+        ready_host: false,
+        ready_guest: false,
+        wager_host_accepted: false,
+        wager_guest_accepted: false,
+        wager_locked: false,
+        wager_settled: false,
+        wager_locked_at: null,
+        wager_settled_at: null,
+        version: room.version + 1,
+      })
+      .eq('id', room.id)
+      .select('*')
+      .single();
+    if (error || !data) throw new Error(error?.message ?? '대기방 복귀 실패');
     room = data as RoomRow;
     return await getRoomPayload(admin, room, user.id);
   }
@@ -1075,7 +1303,7 @@ async function handleAction(request: Request, body: RequestBody) {
     const admin = await requireAdmin();
     const roomId = cleanText(body.roomId, 64);
     let room = await fetchRoom(admin, roomId);
-    assertParticipant(room, user.id);
+    await assertRoomMember(admin, room, user.id);
 
     // 예전 요청 경합으로 READY/READY 상태에서 멈춘 빠른대전도 다음 동기화에서
     // 자동으로 시작되도록 복구합니다.
@@ -1092,7 +1320,8 @@ async function handleAction(request: Request, body: RequestBody) {
     const admin = await requireAdmin();
     const roomId = cleanText(body.roomId, 64);
     let room = await fetchRoom(admin, roomId);
-    assertParticipant(room, user.id);
+    await assertRoomMember(admin, room, user.id);
+    assertPlayer(room, user.id);
     if (!room.guest_id) throw new Error('상대 플레이어를 기다리고 있습니다.');
     if (room.status !== 'waiting') return await getRoomPayload(admin, room, user.id);
     if (!room.public_match && roomWagerAmount(room) > 0) {
@@ -1122,7 +1351,8 @@ async function handleAction(request: Request, body: RequestBody) {
     const roomId = cleanText(body.roomId, 64);
     const gameAction = cleanText(body.gameAction, 40);
     let room = await fetchRoom(admin, roomId);
-    assertParticipant(room, user.id);
+    await assertRoomMember(admin, room, user.id);
+    assertPlayer(room, user.id);
     if (room.status !== 'active') throw new Error('진행 중인 결투가 아닙니다.');
 
     const normalized = await normalizeTurnTimeout(admin, room);
@@ -1205,21 +1435,73 @@ async function handleAction(request: Request, body: RequestBody) {
   if (action === 'leave_room') {
     const admin = await requireAdmin();
     const roomId = cleanText(body.roomId, 64);
-    const room = await fetchRoom(admin, roomId);
-    assertParticipant(room, user.id);
-    if (room.status === 'active' && room.state) {
+    let room = await fetchRoom(admin, roomId);
+
+    if (room.public_match) {
+      assertPlayer(room, user.id);
+      if (room.status === 'active' && room.state) {
+        const next = surrender(await loadSnapshot(admin, room), user.id);
+        await commitSnapshot(admin, room, next);
+        await rewardFinishedMatch(admin, room.id, next.state);
+      } else if (room.host_id === user.id) {
+        await refundRoomWager(admin, room);
+        const { error } = await admin.from('eclipse_rooms').update({ status: 'cancelled' }).eq('id', room.id);
+        if (error) throw new Error(error.message);
+      } else {
+        await refundRoomWager(admin, room);
+        const { error } = await admin.from('eclipse_rooms').update({ guest_id: null, ready_host: false, ready_guest: false, wager_guest_accepted: false }).eq('id', room.id);
+        if (error) throw new Error(error.message);
+      }
+      return { ok: true };
+    }
+
+    await assertRoomMember(admin, room, user.id);
+    const wasPlayer = isRoomPlayer(room, user.id);
+    const wasOwner = roomOwnerId(room) === user.id;
+
+    // A player leaving an active private match surrenders, while a spectator can leave silently.
+    if (room.status === 'active' && room.state && wasPlayer) {
       const next = surrender(await loadSnapshot(admin, room), user.id);
       await commitSnapshot(admin, room, next);
       await rewardFinishedMatch(admin, room.id, next.state);
-    } else if (room.host_id === user.id) {
-      await refundRoomWager(admin, room);
+      room = await fetchRoom(admin, room.id);
+    }
+
+    if (room.status === 'waiting') await refundRoomWager(admin, room);
+    await removePrivateRoomMember(admin, room.id, user.id);
+    const members = await roomMemberIds(admin, room).then((ids) => ids.filter((id) => id !== user.id));
+
+    if (members.length === 0) {
       const { error } = await admin.from('eclipse_rooms').update({ status: 'cancelled' }).eq('id', room.id);
       if (error) throw new Error(error.message);
-    } else {
-      await refundRoomWager(admin, room);
-      const { error } = await admin.from('eclipse_rooms').update({ guest_id: null, ready_host: false, ready_guest: false, wager_guest_accepted: false }).eq('id', room.id);
-      if (error) throw new Error(error.message);
+      return { ok: true };
     }
+
+    const newOwnerId = wasOwner ? members[0] : roomOwnerId(room);
+    const update: Record<string, unknown> = { owner_id: newOwnerId };
+
+    // Do not rewrite player IDs during an active/finished result snapshot; that would corrupt
+    // the public match state. Seat cleanup happens immediately in the waiting room or when
+    // somebody returns the finished room to the lobby.
+    if (room.status === 'waiting') {
+      let nextA = room.host_id;
+      let nextB = room.guest_id;
+      if (room.host_id === user.id || !members.includes(room.host_id)) nextA = members[0];
+      if (room.guest_id === user.id || (room.guest_id && !members.includes(room.guest_id)) || nextB === nextA) {
+        nextB = members.find((id) => id !== nextA) ?? null;
+      }
+      update.host_id = nextA;
+      update.guest_id = nextB;
+      update.ready_host = false;
+      update.ready_guest = false;
+      update.wager_host_accepted = false;
+      update.wager_guest_accepted = false;
+      update.wager_locked = false;
+      update.wager_settled = false;
+    }
+
+    const { error } = await admin.from('eclipse_rooms').update(update).eq('id', room.id);
+    if (error) throw new Error(error.message);
     return { ok: true };
   }
 
