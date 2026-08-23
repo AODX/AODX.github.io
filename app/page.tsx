@@ -82,6 +82,7 @@ type HubData = {
 type RoomRow = {
   id: string;
   code: string;
+  owner_id?: string | null;
   host_id: string;
   guest_id: string | null;
   public_match: boolean;
@@ -99,7 +100,8 @@ type RoomRow = {
 };
 
 type RoomProfile = Pick<Profile, 'user_id' | 'display_name' | 'avatar' | 'wins' | 'losses' | 'xp' | 'profile_emblem' | 'card_sleeve' | 'nickname_style'>;
-type RoomPayload = { room: RoomRow; profiles: RoomProfile[]; privateState: PrivateState | null };
+type RoomMemberView = { user_id: string; role: 'player_a' | 'player_b' | 'spectator'; is_owner: boolean };
+type RoomPayload = { room: RoomRow; profiles: RoomProfile[]; privateState: PrivateState | null; members?: RoomMemberView[] };
 type ChatMessage = { id: number; user_id: string; display_name: string; nickname_style?: string; body: string; created_at: string };
 type ChatSkinProfile = Pick<Profile, 'user_id' | 'profile_theme' | 'profile_frame'>;
 
@@ -119,6 +121,8 @@ type ApiResult = {
   room?: RoomRow;
   profiles?: RoomProfile[];
   privateState?: PrivateState | null;
+  members?: RoomMemberView[];
+  joinedAsSpectator?: boolean;
   cardIds?: string[];
   balance?: number;
   serverStatus?: SecureServerStatus;
@@ -2678,7 +2682,7 @@ function extraCinematicProfile(card: CardDefinition, kind: 'fusion' | 'evolution
   };
 }
 
-function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualEvent | null; userId: string; profiles: RoomProfile[]; drawCard?: CardDefinition }) {
+function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false }: { event: VisualEvent | null; userId: string; profiles: RoomProfile[]; drawCard?: CardDefinition; spectator?: boolean }) {
   if (!event) return null;
   const card = event.cardId ? CARD_BY_ID[event.cardId] : undefined;
   const attackProfile = event.kind === 'attack' && card ? attackMotionProfile(card) : undefined;
@@ -2743,7 +2747,7 @@ function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualE
           <span className="v32-attack-backline" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ '--line-index': index } as CSSProperties} />)}</span>
           <div className="v31e-attack-source-card">
             <CardIllustration card={card} hero />
-            <span><small>{attackProfile.legendary ? 'LEGENDARY ATTACK' : mine ? 'YOUR ATTACK' : 'ENEMY ATTACK'}</small><b>{card.name}</b></span>
+            <span><small>{attackProfile.legendary ? 'LEGENDARY ATTACK' : spectator ? 'DUEL ATTACK' : mine ? 'YOUR ATTACK' : 'ENEMY ATTACK'}</small><b>{card.name}</b></span>
           </div>
           <div className="v32-attack-avatar">
             <span className="v32-attack-avatar-mark">{attackProfile.marker}</span>
@@ -2783,7 +2787,7 @@ function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualE
             <span className="v32-extra-rune">{extraProfile.rune}</span>
             <span className="v32-extra-rays">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ '--ray-index': index } as CSSProperties} />)}</span>
           </span>
-          <div className="v31e-extra-title"><small>{mine ? 'YOUR EXTRA SUMMON' : 'OPPONENT EXTRA SUMMON'}</small><b>{extraTitle}</b><span>{extraKorean}</span></div>
+          <div className="v31e-extra-title"><small>{spectator ? 'EXTRA SUMMON' : mine ? 'YOUR EXTRA SUMMON' : 'OPPONENT EXTRA SUMMON'}</small><b>{extraTitle}</b><span>{extraKorean}</span></div>
           <div className="v32-extra-signature"><small>{extraProfile.label}</small><b>{extraProfile.finisher}</b><span>{card.name}</span></div>
           <div className="v31e-extra-ritual">
             <div className="v31e-source-materials">
@@ -2806,7 +2810,7 @@ function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualE
 
       {legendaryChoice && card && (
         <div className={`v31f-choice-resolution ${event.vfx === 'legendary-fusion-choice' ? 'fusion' : 'evolution'}`}>
-          <small>{mine ? 'YOUR CHOOSE EFFECT' : 'OPPONENT CHOOSE EFFECT'}</small>
+          <small>{spectator ? 'CHOOSE EFFECT' : mine ? 'YOUR CHOOSE EFFECT' : 'OPPONENT CHOOSE EFFECT'}</small>
           <div><CardIllustration card={card} compact /></div>
           <span><b>{event.label ?? 'CHOOSE EFFECT'}</b><strong>{card.name}</strong><p>{event.detail ?? '선택 효과가 발동했습니다.'}</p></span>
         </div>
@@ -2816,7 +2820,7 @@ function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualE
         <div className="v31e-trap-reveal">
           <div className="v31e-trap-card"><CardIllustration card={card} hero /><span>TRAP</span></div>
           <div className="v31e-trap-copy">
-            <small>{mine ? 'MY TRAP RESOLVED' : 'OPPONENT TRAP RESOLVED'}</small>
+            <small>{spectator ? 'TRAP RESOLVED' : mine ? 'MY TRAP RESOLVED' : 'OPPONENT TRAP RESOLVED'}</small>
             <h2>{card.name}</h2>
             <div><b>TRIGGER</b><span>{trapTrigger || '함정 발동 조건 충족'}</span></div>
             <div><b>RESULT</b><span>{event.detail ?? card.text}</span></div>
@@ -2829,11 +2833,11 @@ function DuelEffectLayer({ event, userId, profiles, drawCard }: { event: VisualE
       {showCardCutIn && card && (
         <div className="v18-card-cutin">
           <CardIllustration card={card} hero />
-          <div><small>{mine ? 'YOUR ACTION' : 'OPPONENT ACTION'} · {duelEventLabel(event)}</small><b>{card.name}</b><span>{KIND_LABEL[card.kind]} · {ELEMENT_LABEL[card.element]}</span></div>
+          <div><small>{spectator ? 'DUEL ACTION' : mine ? 'YOUR ACTION' : 'OPPONENT ACTION'} · {duelEventLabel(event)}</small><b>{card.name}</b><span>{KIND_LABEL[card.kind]} · {ELEMENT_LABEL[card.element]}</span></div>
         </div>
       )}
       <div className="v18-event-banner">
-        <small>{mine ? 'MY ACTION' : event.ownerId ? 'OPPONENT ACTION' : 'DUEL EVENT'}</small>
+        <small>{spectator ? 'DUEL EVENT' : mine ? 'MY ACTION' : event.ownerId ? 'OPPONENT ACTION' : 'DUEL EVENT'}</small>
         <b>{duelEventLabel(event)}</b>
         <span>{event.detail ?? event.label ?? card?.name ?? owner?.display_name ?? duelEventLocation(event)}</span>
       </div>
@@ -3416,7 +3420,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       timeoutSyncTurn.current = turnNumber;
       api('get_room', { roomId: room.id })
         .then((result) => {
-          if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
+          if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [] });
         })
         .catch((error) => setMessage(error instanceof Error ? error.message : '턴 시간 동기화 실패'));
     }, delay);
@@ -3695,7 +3699,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     setMessage('');
     try {
       const result = await api('game_action', { roomId: room.id, gameAction, ...extra });
-      if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
+      if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [] });
       clearSelection();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '행동 처리 실패');
@@ -4369,10 +4373,143 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
               <article><small>SUMMONS</small><b>{myMatchStats.unitsSummoned}</b><span>특수 {myMatchStats.specialSummons}</span></article>
               <article><small>HEALING</small><b>{myMatchStats.healing}</b><span>드로우 {myMatchStats.cardsDrawn}</span></article>
             </div>
-            <div className="v22-result-footer"><span>결투 기록은 결과 확정 후 계정 전적과 보상에 반영됩니다.</span><button className="primary-button" onClick={onLeave}>허브로 돌아가기</button></div>
+            <div className="v22-result-footer"><span>결투 기록은 결과 확정 후 계정 전적과 보상에 반영됩니다.</span><button className="primary-button" onClick={onLeave}>{room.public_match ? '허브로 돌아가기' : '대기방으로 돌아가기'}</button></div>
           </section>
         </div>
       )}
+    </div>
+  );
+}
+
+
+function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSyncAt }: { payload: RoomPayload; onReturnLobby: () => void; onLeave: () => void; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number }) {
+  const room = payload.room;
+  const state = room.state;
+  const playerAId = room.host_id;
+  const playerBId = room.guest_id ?? '';
+  const profileMap = Object.fromEntries(payload.profiles.map((profile) => [profile.user_id, profile]));
+  const playerA = profileMap[playerAId];
+  const playerB = profileMap[playerBId];
+  const [activeVfx, setActiveVfx] = useState<VisualEvent | null>(null);
+  const [vfxQueue, setVfxQueue] = useState<VisualEvent[]>([]);
+  const [damagePopups, setDamagePopups] = useState<VisualEvent[]>([]);
+  const seenVfx = useRef<Set<string>>(new Set());
+  const seenDamage = useRef<Set<string>>(new Set(state?.visualEvents.map((event) => event.id) ?? []));
+
+  const visualEvents = state?.visualEvents ?? [];
+  const visualSignature = visualEvents.map((event) => event.id).join('|');
+
+  useEffect(() => {
+    let unseen = visualEvents.filter((event) => !seenVfx.current.has(event.id));
+    if (unseen.length === 0) return;
+    if (seenVfx.current.size === 0 && unseen.length > 1) unseen = unseen.slice(-1);
+    visualEvents.forEach((event) => seenVfx.current.add(event.id));
+    setVfxQueue((current) => [...current, ...unseen].slice(-10));
+  }, [visualSignature]);
+
+  useEffect(() => {
+    const incoming = visualEvents.filter((event) => !seenDamage.current.has(event.id)
+      && ((event.kind === 'defense' && ((event.shieldAmount ?? 0) > 0 || (event.healthAmount ?? 0) > 0)) || (event.kind === 'core' && (event.amount ?? 0) > 0)));
+    visualEvents.forEach((event) => seenDamage.current.add(event.id));
+    if (!incoming.length) return;
+    setDamagePopups((current) => [...current, ...incoming].slice(-8));
+    const ids = new Set(incoming.map((event) => event.id));
+    const timer = window.setTimeout(() => setDamagePopups((current) => current.filter((event) => !ids.has(event.id))), 1450);
+    return () => window.clearTimeout(timer);
+  }, [visualSignature]);
+
+  useEffect(() => {
+    if (activeVfx || vfxQueue.length === 0) return;
+    const [next, ...rest] = vfxQueue;
+    setVfxQueue(rest);
+    setActiveVfx(next);
+    const duration = next.kind === 'fusion' || next.kind === 'evolution' ? 2450
+      : next.kind === 'trap' ? 2250
+        : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? 1450
+          : next.kind === 'attack' ? 980
+            : next.kind === 'core' || next.kind === 'destroy' ? 1120
+              : next.kind === 'defense' ? 1220
+                : next.kind === 'draw' ? 1250
+                  : 850;
+    const timer = window.setTimeout(() => setActiveVfx((current) => current?.id === next.id ? null : current), duration);
+    return () => window.clearTimeout(timer);
+  }, [activeVfx, vfxQueue]);
+
+  useEffect(() => {
+    if (!activeVfx) return;
+    const sound: UiSound = activeVfx.kind === 'attack' ? 'attack'
+      : activeVfx.kind === 'fusion' ? 'fusion'
+        : activeVfx.kind === 'evolution' ? 'evolution'
+          : activeVfx.kind === 'spell' ? 'spell'
+            : activeVfx.kind === 'trap' || activeVfx.kind === 'set' ? 'trap'
+              : activeVfx.kind === 'core' ? 'corehit'
+                : activeVfx.kind === 'destroy' ? 'destroy'
+                  : activeVfx.kind === 'defense' && (activeVfx.shieldAmount ?? 0) > 0 && (activeVfx.healthAmount ?? 0) === 0 ? 'shield'
+                    : activeVfx.kind === 'defense' ? 'damage'
+                      : activeVfx.kind === 'draw' ? 'draw'
+                        : 'summon';
+    playUiSound(sound);
+    const impactTimer = activeVfx.kind === 'attack' ? window.setTimeout(() => playUiSound('impact'), 270) : undefined;
+    return () => { if (impactTimer) window.clearTimeout(impactTimer); };
+  }, [activeVfx?.id]);
+
+  if (!state || !playerBId || state.playerOrder.length !== 2) return <LoadingScreen text="관전 화면을 준비하는 중" />;
+
+  const currentName = state.currentPlayerId ? profileMap[state.currentPlayerId]?.display_name ?? '플레이어' : '대기';
+  const recentEvents = state.visualEvents.slice(-7).reverse();
+  const syncAgeSeconds = Math.max(0, Math.floor((Date.now() - lastSyncAt) / 1000));
+  const displayedSyncState: 'live' | 'syncing' | 'offline' = syncState === 'offline' && syncAgeSeconds <= 8 ? 'live' : syncState;
+  const winner = state.winnerId ? profileMap[state.winnerId] : undefined;
+
+  return (
+    <div className={`v18-duel-screen v32e-spectator-screen phase-${state.phase} fx-${activeVfx?.kind ?? 'idle'}`}>
+      <DuelEffectLayer event={activeVfx} userId={playerAId} profiles={payload.profiles} spectator />
+      <DuelDamagePopupLayer events={damagePopups} userId={playerAId} />
+      <header className="v18-duel-header">
+        <div className="v18-duel-brand"><span className="v18-brand-mark">E</span><div><b>ECLIPSE DUEL</b><small>ROOM {room.code}</small></div></div>
+        <div className="v32e-spectator-badge"><i />SPECTATOR LIVE <span>{(payload.members ?? []).filter((member) => member.role === 'spectator').length}명 관전</span></div>
+        <div className="v18-turn-hud"><small>TURN {state.turnNumber}</small><div><b>{state.status === 'finished' ? 'DUEL COMPLETE' : `${currentName}의 턴`}</b><span>{state.phase === 'battle' ? 'BATTLE PHASE' : 'MAIN PHASE'}</span></div></div>
+        <div className={`v22-sync-chip ${displayedSyncState}`}><i /><span>{displayedSyncState === 'live' ? 'LIVE' : displayedSyncState === 'syncing' ? 'SYNCING' : 'RECONNECTING'}</span><small>관전 동기화</small></div>
+        <div className="v18-header-actions"><button type="button" onClick={onLeave}>관전 나가기</button></div>
+      </header>
+
+      <aside className="v18-leader-rail">
+        <section className="v18-leader-card opponent">
+          <div className="v18-leader-identity"><Avatar id={playerB?.avatar} /><span><small>PLAYER B</small><b><NicknameText name={playerB?.display_name ?? 'PLAYER B'} styleId={playerB?.nickname_style} /></b></span></div>
+          <div className="v18-hp-readout"><small>HP</small><strong>{state.core[playerBId] ?? 0}</strong><em>{state.currentPlayerId === playerBId ? 'TURN' : 'WAIT'}</em></div>
+          <DuelEnergyMeter label="ENERGY" current={state.energy[playerBId]?.current ?? 0} max={state.energy[playerBId]?.max ?? 0} opponent compact />
+          <div className="v18-mini-stats"><span>HAND <b>{state.handCounts[playerBId] ?? 0}</b></span><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div>
+        </section>
+        <div className="v18-leader-divider"><span>VS</span></div>
+        <section className="v18-leader-card mine">
+          <div className="v18-leader-identity"><Avatar id={playerA?.avatar} /><span><small>PLAYER A</small><b><NicknameText name={playerA?.display_name ?? 'PLAYER A'} styleId={playerA?.nickname_style} /></b></span></div>
+          <div className="v18-hp-readout"><small>HP</small><strong>{state.core[playerAId] ?? 0}</strong><em>{state.currentPlayerId === playerAId ? 'TURN' : 'WAIT'}</em></div>
+          <DuelEnergyMeter label="ENERGY" current={state.energy[playerAId]?.current ?? 0} max={state.energy[playerAId]?.max ?? 0} compact />
+          <div className="v18-mini-stats"><span>HAND <b>{state.handCounts[playerAId] ?? 0}</b></span><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span></div>
+        </section>
+      </aside>
+
+      <main className="v18-arena">
+        <div className="v18-arena-backdrop" aria-hidden="true"><i /><i /><i /><i /></div>
+        <div className="v18-opponent-hand-strip"><span>PLAYER B HAND · {state.handCounts[playerBId] ?? 0}</span><div>{Array.from({ length: Math.min(9, state.handCounts[playerBId] ?? 0) }, (_, index) => <CardFace key={index} hidden compact inspectable={false} sleeveId={playerB?.card_sleeve ?? 'sleeve_default'} />)}</div></div>
+        <section className="v18-board">
+          <div className="v18-zone-row v18-enemy-secrets">{state.boards[playerBId].secrets.map((secret, index) => <div className={`v18-secret-slot enemy ${secret ? 'is-set' : ''}`} key={index}>{secret ? <><span className={`v18-secret-back sleeve-${playerB?.card_sleeve ?? 'sleeve_default'}`}>{sleeveGlyph(playerB?.card_sleeve)}</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}</div>)}</div>
+          <div className="v18-zone-row v18-enemy-units">{state.boards[playerBId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerBId} index={index} enemy />)}</div>
+          <div className="v18-center-lane"><div className="v18-pile-stat"><small>PLAYER B</small><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div><div className="v29-center-status"><div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div><div className="v32e-watch-copy"><small>ROOM SPECTATE</small><b>손패와 세트 카드는 비공개</b></div></div><div className="v18-pile-stat mine"><small>PLAYER A</small><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span></div></div>
+          <div className="v18-zone-row v18-my-units">{state.boards[playerAId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerAId} index={index} />)}</div>
+          <div className="v18-zone-row v18-my-secrets">{state.boards[playerAId].secrets.map((secret, index) => <div className={`v18-secret-slot mine ${secret ? 'is-set' : ''}`} key={index}>{secret ? <><span className={`v18-secret-back sleeve-${playerA?.card_sleeve ?? 'sleeve_default'}`}>{sleeveGlyph(playerA?.card_sleeve)}</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}</div>)}</div>
+        </section>
+      </main>
+
+      <aside className="v18-command-rail v32e-spectator-rail">
+        <section className="v29-action-coach opponent"><header><span>SPECTATOR</span><b>LIVE</b></header><h3>공개 정보만 관전 중입니다</h3><p>두 선수의 필드·코어·에너지·묘지·카드 수와 모든 공격/소환 연출을 실시간으로 볼 수 있습니다.</p><small>손패 내용과 뒤집히지 않은 함정은 관전자에게 공개되지 않습니다.</small></section>
+        <section className="v18-event-feed"><header><span>DUEL FEED</span><b>LIVE</b></header><div>{recentEvents.length ? recentEvents.map((event) => <div className={`v18-feed-item kind-${event.kind}`} key={event.id}><i /><span><b>{profileMap[event.ownerId ?? '']?.display_name ?? 'SYSTEM'} · {duelEventLabel(event)}</b><small>{event.detail ?? event.label ?? (duelEventLocation(event) || '결투 행동')}</small></span></div>) : <p>아직 기록된 행동이 없습니다.</p>}</div></section>
+        <section className="v32e-spectator-roster"><small>ROOM MEMBERS</small>{payload.profiles.map((profile) => { const member = (payload.members ?? []).find((item) => item.user_id === profile.user_id); return <div key={profile.user_id}><Avatar id={profile.avatar} /><span><b><NicknameText name={profile.display_name} styleId={profile.nickname_style} /></b><small>{member?.role === 'player_a' ? 'PLAYER A' : member?.role === 'player_b' ? 'PLAYER B' : 'SPECTATOR'}{member?.is_owner ? ' · OWNER' : ''}</small></span></div>; })}</section>
+      </aside>
+
+      <footer className="v18-hand-dock v32e-spectator-footer"><div><small>SPECTATOR MODE</small><b>공정한 관전을 위해 양쪽 손패와 비공개 함정은 숨겨집니다.</b></div><div className="v32e-hand-counts"><span>PLAYER A HAND <b>{state.handCounts[playerAId] ?? 0}</b></span><span>PLAYER B HAND <b>{state.handCounts[playerBId] ?? 0}</b></span></div></footer>
+
+      {state.status === 'finished' && <div className="modal-layer v18-result-layer"><section className="v18-result-modal v22-result-modal win"><div className="v22-result-hero"><span className="result-emblem">✦</span><div><small>SPECTATOR · DUEL COMPLETE</small><h2>{winner?.display_name ?? '승자'} 승리</h2><p>{state.winReason}</p></div></div><div className="v22-result-footer"><span>다음 경기는 같은 방 대기실에서 선수 구성을 다시 정할 수 있습니다.</span><button className="primary-button" onClick={onReturnLobby}>대기방으로 돌아가기</button></div></section></div>}
     </div>
   );
 }
@@ -4383,12 +4520,18 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [wagerInput, setWagerInput] = useState('500');
+  const [playerAChoice, setPlayerAChoice] = useState('');
+  const [playerBChoice, setPlayerBChoice] = useState('');
   const roomActionLock = useRef(false);
 
   useEffect(() => {
     const amount = Math.max(0, Number(roomPayload?.room.wager_amount ?? 0));
     if (!roomPayload?.room.public_match && amount > 0) setWagerInput(String(amount));
-  }, [roomPayload?.room.id, roomPayload?.room.public_match, roomPayload?.room.wager_amount]);
+    if (roomPayload?.room) {
+      setPlayerAChoice(roomPayload.room.host_id);
+      setPlayerBChoice(roomPayload.room.guest_id ?? '');
+    }
+  }, [roomPayload?.room.id, roomPayload?.room.public_match, roomPayload?.room.wager_amount, roomPayload?.room.host_id, roomPayload?.room.guest_id]);
 
   async function roomAction(action: string, payload: Record<string, unknown> = {}) {
     if (!serverStatus.secureDuelReady) {
@@ -4400,7 +4543,8 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
     setBusy(true); setMessage('');
     try {
       const result = await api(action, payload);
-      if (result.room && result.profiles) onRoom({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
+      if (result.room && result.profiles) onRoom({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [] });
+      if (result.joinedAsSpectator) setMessage('선수 자리가 이미 차 있어 관전자로 입장했습니다. 다음 경기에는 방장이 선수로 지정할 수 있습니다.');
       return result;
     } catch (error) { setMessage(error instanceof Error ? error.message : '요청 실패'); }
     finally { roomActionLock.current = false; setBusy(false); }
@@ -4412,84 +4556,92 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
     try { const result = await api('hub'); if (result.hub) onHub(result.hub); } catch { /* ignore */ }
   }
 
+  async function returnPrivateLobby() {
+    if (!roomPayload) return;
+    await roomAction('return_to_room_lobby', { roomId: roomPayload.room.id });
+    try { const result = await api('hub'); if (result.hub) onHub(result.hub); } catch { /* ignore */ }
+  }
+
   if (roomPayload?.room.status === 'active' || roomPayload?.room.status === 'finished') {
-    return <DuelBoard payload={roomPayload} userId={userId} onRefresh={onRoom} onLeave={leaveRoom} syncState={syncState} lastSyncAt={lastSyncAt} />;
+    const room = roomPayload.room;
+    const isPlayer = room.host_id === userId || room.guest_id === userId;
+    if (!room.public_match && !isPlayer) {
+      return <SpectatorDuelBoard payload={roomPayload} onReturnLobby={returnPrivateLobby} onLeave={leaveRoom} syncState={syncState} lastSyncAt={lastSyncAt} />;
+    }
+    return <DuelBoard payload={roomPayload} userId={userId} onRefresh={onRoom} onLeave={room.public_match ? leaveRoom : returnPrivateLobby} syncState={syncState} lastSyncAt={lastSyncAt} />;
   }
 
   if (roomPayload) {
     const room = roomPayload.room;
     const profileMap = Object.fromEntries(roomPayload.profiles.map((profile) => [profile.user_id, profile]));
-    const isHost = room.host_id === userId;
-    const myReady = isHost ? room.ready_host : room.ready_guest;
+    const members = roomPayload.members ?? roomPayload.profiles.map((profile) => ({ user_id: profile.user_id, role: profile.user_id === room.host_id ? 'player_a' as const : profile.user_id === room.guest_id ? 'player_b' as const : 'spectator' as const, is_owner: profile.user_id === (room.owner_id ?? room.host_id) }));
+    const ownerId = room.owner_id ?? room.host_id;
+    const isOwner = ownerId === userId;
+    const isPlayerA = room.host_id === userId;
+    const isPlayerB = room.guest_id === userId;
+    const isPlayer = isPlayerA || isPlayerB;
+    const myReady = isPlayerA ? room.ready_host : isPlayerB ? room.ready_guest : false;
     const wagerAmount = Math.max(0, Number(room.wager_amount ?? 0));
     const wagerEnabled = !room.public_match && wagerAmount > 0;
     const wagerAgreed = !wagerEnabled || (room.wager_host_accepted === true && room.wager_guest_accepted === true);
-    const myWagerAccepted = isHost ? room.wager_host_accepted === true : room.wager_guest_accepted === true;
+    const myWagerAccepted = isPlayerA ? room.wager_host_accepted === true : isPlayerB ? room.wager_guest_accepted === true : false;
     const readyBlockedByWager = !room.public_match && wagerEnabled && !wagerAgreed;
-    const canAffordWager = hub.wallet.coins >= wagerAmount;
+    const canAffordWager = !isPlayer || hub.wallet.coins >= wagerAmount;
+    const rosterProfiles = members.map((member) => ({ member, profile: profileMap[member.user_id] })).filter((entry) => Boolean(entry.profile));
+    const playerAProfile = profileMap[room.host_id];
+    const playerBProfile = room.guest_id ? profileMap[room.guest_id] : undefined;
+    const canApplyPlayers = isOwner && playerAChoice && playerBChoice && playerAChoice !== playerBChoice && room.status === 'waiting';
+
     return (
-      <div className="waiting-room">
+      <div className="waiting-room v32e-room-hub">
         <section className="waiting-card panel">
           <span className="eyebrow">{room.public_match ? 'QUICK MATCH' : 'PRIVATE DUEL ROOM'}</span>
-          <h2>{room.public_match ? (room.guest_id ? '상대 연결 완료' : '상대 검색 중') : '결투 준비'}</h2>
+          <h2>{room.public_match ? (room.guest_id ? '상대 연결 완료' : '상대 검색 중') : '방 대기실'}</h2>
           {!room.public_match && <div className="room-code"><small>ROOM CODE</small><strong>{room.code}</strong><button onClick={() => navigator.clipboard.writeText(room.code)}>복사</button></div>}
           {room.public_match && <div className="room-code"><small>MATCH STATUS</small><strong>{room.guest_id ? 'CONNECTED' : 'SEARCHING'}</strong></div>}
-          <div className="versus-line">
-            <div><Avatar id={profileMap[room.host_id]?.avatar} size="large" /><b><NicknameText name={profileMap[room.host_id]?.display_name ?? 'HOST'} styleId={profileMap[room.host_id]?.nickname_style} /></b><span className={room.ready_host ? 'ready' : ''}>{room.ready_host ? 'READY' : 'WAITING'}</span></div>
+
+          <div className="versus-line v32e-player-seats">
+            <div><Avatar id={playerAProfile?.avatar} size="large" /><small>PLAYER A</small><b><NicknameText name={playerAProfile?.display_name ?? '선수 A'} styleId={playerAProfile?.nickname_style} /></b><span className={room.ready_host ? 'ready' : ''}>{room.ready_host ? 'READY' : 'WAITING'}</span></div>
             <strong>VS</strong>
-            <div>{room.guest_id ? <><Avatar id={profileMap[room.guest_id]?.avatar} size="large" /><b><NicknameText name={profileMap[room.guest_id]?.display_name ?? 'GUEST'} styleId={profileMap[room.guest_id]?.nickname_style} /></b><span className={room.ready_guest ? 'ready' : ''}>{room.ready_guest ? 'READY' : 'WAITING'}</span></> : <><span className="empty-avatar">?</span><b>상대 대기 중</b><span>SHARE CODE</span></>}</div>
+            <div>{room.guest_id ? <><Avatar id={playerBProfile?.avatar} size="large" /><small>PLAYER B</small><b><NicknameText name={playerBProfile?.display_name ?? '선수 B'} styleId={playerBProfile?.nickname_style} /></b><span className={room.ready_guest ? 'ready' : ''}>{room.ready_guest ? 'READY' : 'WAITING'}</span></> : <><span className="empty-avatar">?</span><small>PLAYER B</small><b>선수 대기 중</b><span>ROOM MEMBER</span></>}</div>
           </div>
 
           {!room.public_match && (
-            <section className={`v31k-wager-panel ${wagerEnabled ? 'active' : ''}`}>
-              <div className="v31k-wager-title">
-                <div><small>COIN DUEL</small><b>코인 내기</b><span>게임 안에서 사용하는 COIN만 걸 수 있습니다.</span></div>
-                <strong>{wagerEnabled ? `${wagerAmount.toLocaleString()} × 2` : 'OFF'}</strong>
+            <section className="v32e-room-roster">
+              <header><div><small>ROOM ROSTER</small><b>선수 · 관전자</b></div><span>{members.length}/10</span></header>
+              <div className="v32e-room-roster-grid">
+                {rosterProfiles.map(({ member, profile }) => <article className={`v32e-room-member role-${member.role}`} key={member.user_id}><Avatar id={profile?.avatar} /><div><b><NicknameText name={profile?.display_name ?? '결투가'} styleId={profile?.nickname_style} /></b><small>{member.role === 'player_a' ? 'PLAYER A' : member.role === 'player_b' ? 'PLAYER B' : 'SPECTATOR'}{member.is_owner ? ' · ROOM OWNER' : ''}</small></div><span>{member.role === 'spectator' ? '관전' : '대전'}</span></article>)}
               </div>
-              <div className="v31k-wager-summary">
-                <span><small>각자 판돈</small><b>{wagerAmount.toLocaleString()} COIN</b></span>
-                <i>→</i>
-                <span><small>승자 수령</small><b>{(wagerAmount * 2).toLocaleString()} COIN</b></span>
-              </div>
-
-              {isHost ? (
-                <div className="v31k-wager-host">
-                  <small>방장이 판돈을 정하면 상대가 동의한 뒤 READY할 수 있습니다.</small>
-                  <div className="v31k-wager-presets">
-                    {[0, 100, 300, 500, 1000, 2500, 5000].map((amount) => (
-                      <button key={amount} type="button" className={wagerAmount === amount ? 'selected' : ''} disabled={busy || room.wager_locked === true} onClick={() => { setWagerInput(String(amount || 500)); void roomAction('set_room_wager', { roomId: room.id, amount }); }}>{amount === 0 ? '내기 없음' : amount.toLocaleString()}</button>
-                    ))}
-                  </div>
-                  <div className="v31k-wager-custom">
-                    <input type="number" min={0} max={10000} step={50} value={wagerInput} onChange={(event) => setWagerInput(event.target.value)} aria-label="판돈 직접 입력" />
-                    <span>COIN</span>
-                    <button type="button" disabled={busy || room.wager_locked === true} onClick={() => roomAction('set_room_wager', { roomId: room.id, amount: Number(wagerInput) })}>적용</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="v31k-wager-guest">
-                  {wagerEnabled ? (
-                    <button type="button" className={myWagerAccepted ? 'accepted' : ''} disabled={busy || myWagerAccepted || !canAffordWager || room.wager_locked === true} onClick={() => roomAction('accept_room_wager', { roomId: room.id })}>
-                      {myWagerAccepted ? '판돈 동의 완료' : canAffordWager ? `${wagerAmount.toLocaleString()} COIN 내기 동의` : '코인이 부족합니다'}
-                    </button>
-                  ) : <span>현재 방은 코인을 걸지 않는 일반 친선전입니다.</span>}
+              {isOwner && members.length >= 2 && (
+                <div className="v32e-player-picker">
+                  <div><label>PLAYER A</label><select value={playerAChoice} onChange={(event) => { const value = event.target.value; setPlayerAChoice(value); if (value === playerBChoice) setPlayerBChoice(''); }}>{rosterProfiles.map(({ member, profile }) => <option key={member.user_id} value={member.user_id}>{profile?.display_name ?? member.user_id}</option>)}</select></div>
+                  <div><label>PLAYER B</label><select value={playerBChoice} onChange={(event) => setPlayerBChoice(event.target.value)}><option value="">선택하세요</option>{rosterProfiles.filter(({ member }) => member.user_id !== playerAChoice).map(({ member, profile }) => <option key={member.user_id} value={member.user_id}>{profile?.display_name ?? member.user_id}</option>)}</select></div>
+                  <button className="primary-button" disabled={busy || !canApplyPlayers} onClick={() => roomAction('set_room_players', { roomId: room.id, playerAId: playerAChoice, playerBId: playerBChoice })}>다음 경기 선수 적용</button>
+                  <small>방장은 자신이 관전자로 빠지고 다른 두 유저를 선수로 지정할 수도 있습니다.</small>
                 </div>
               )}
-
-              {wagerEnabled && (
-                <div className="v31k-wager-consent">
-                  <span className={room.wager_host_accepted ? 'ok' : ''}><i />방장 {room.wager_host_accepted ? '동의' : '대기'}</span>
-                  <span className={room.wager_guest_accepted ? 'ok' : ''}><i />상대 {room.wager_guest_accepted ? '동의' : '대기'}</span>
-                  {room.wager_locked && <em>판돈 예치 완료</em>}
-                </div>
-              )}
-              {wagerEnabled && !canAffordWager && <p className="v31k-wager-warning">내 보유 코인 {hub.wallet.coins.toLocaleString()} · 판돈이 부족합니다.</p>}
             </section>
           )}
 
-          <p>{room.public_match ? (room.guest_id ? '현재 온라인 상태가 확인된 상대입니다. 양쪽 플레이어가 준비하면 결투가 시작됩니다.' : '온라인 상태가 확인된 상대만 연결합니다. 연결이 끊긴 대기 유저는 자동으로 제외됩니다.') : wagerEnabled ? (wagerAgreed ? '판돈 합의 완료. 양쪽이 준비하면 코인이 안전하게 예치된 뒤 결투가 시작됩니다.' : '양쪽이 같은 판돈에 동의해야 결투 준비를 할 수 있습니다.') : '양쪽 플레이어가 준비하면 활성 덱으로 결투가 시작됩니다.'}</p>
+          {!room.public_match && (
+            <section className={`v31k-wager-panel ${wagerEnabled ? 'active' : ''}`}>
+              <div className="v31k-wager-title"><div><small>COIN DUEL</small><b>코인 내기</b><span>방장이 금액을 정하고 실제 두 선수가 각각 동의합니다.</span></div><strong>{wagerEnabled ? `${wagerAmount.toLocaleString()} × 2` : 'OFF'}</strong></div>
+              <div className="v31k-wager-summary"><span><small>각자 판돈</small><b>{wagerAmount.toLocaleString()} COIN</b></span><i>→</i><span><small>승자 수령</small><b>{(wagerAmount * 2).toLocaleString()} COIN</b></span></div>
+
+              {isOwner && <div className="v31k-wager-host"><small>선수를 변경하거나 판돈을 바꾸면 양쪽 READY/동의가 초기화됩니다.</small><div className="v31k-wager-presets">{[0, 100, 300, 500, 1000, 2500, 5000].map((amount) => <button key={amount} type="button" className={wagerAmount === amount ? 'selected' : ''} disabled={busy || room.wager_locked === true} onClick={() => { setWagerInput(String(amount || 500)); void roomAction('set_room_wager', { roomId: room.id, amount }); }}>{amount === 0 ? '내기 없음' : amount.toLocaleString()}</button>)}</div><div className="v31k-wager-custom"><input type="number" min={0} max={10000} step={50} value={wagerInput} onChange={(event) => setWagerInput(event.target.value)} aria-label="판돈 직접 입력" /><span>COIN</span><button type="button" disabled={busy || room.wager_locked === true} onClick={() => roomAction('set_room_wager', { roomId: room.id, amount: Number(wagerInput) })}>적용</button></div></div>}
+
+              {wagerEnabled && isPlayer && !myWagerAccepted && <div className="v31k-wager-guest"><button type="button" disabled={busy || !canAffordWager || room.wager_locked === true} onClick={() => roomAction('accept_room_wager', { roomId: room.id })}>{canAffordWager ? `${wagerAmount.toLocaleString()} COIN 내기 동의` : '코인이 부족합니다'}</button></div>}
+              {wagerEnabled && isPlayer && myWagerAccepted && <div className="v31k-wager-guest"><button type="button" className="accepted" disabled>판돈 동의 완료</button></div>}
+              {!wagerEnabled && <div className="v31k-wager-guest"><span>현재 방은 코인을 걸지 않는 일반 친선전입니다.</span></div>}
+
+              {wagerEnabled && <div className="v31k-wager-consent"><span className={room.wager_host_accepted ? 'ok' : ''}><i />PLAYER A {room.wager_host_accepted ? '동의' : '대기'}</span><span className={room.wager_guest_accepted ? 'ok' : ''}><i />PLAYER B {room.wager_guest_accepted ? '동의' : '대기'}</span>{room.wager_locked && <em>판돈 예치 완료</em>}</div>}
+              {wagerEnabled && isPlayer && !canAffordWager && <p className="v31k-wager-warning">내 보유 코인 {hub.wallet.coins.toLocaleString()} · 판돈이 부족합니다.</p>}
+            </section>
+          )}
+
+          <p>{room.public_match ? (room.guest_id ? '현재 온라인 상태가 확인된 상대입니다. 양쪽 플레이어가 준비하면 결투가 시작됩니다.' : '온라인 상태가 확인된 상대만 연결합니다.') : isPlayer ? (wagerEnabled ? (wagerAgreed ? '선수 두 명의 판돈 합의가 끝났습니다. 양쪽 READY 후 경기가 시작됩니다.' : '두 선수가 판돈에 동의하면 READY할 수 있습니다.') : '현재 PLAYER A/B 두 명이 준비하면 결투가 시작됩니다.') : '현재 관전자입니다. 경기가 시작되면 공개 정보와 모든 전투 연출을 실시간으로 볼 수 있습니다.'}</p>
           {message && <p className="error-banner">{message}</p>}
-          <div className="waiting-actions"><button className="ghost-button" disabled={busy} onClick={leaveRoom}>나가기</button><button className="primary-button" aria-busy={busy} disabled={busy || myReady || !room.guest_id || readyBlockedByWager} onClick={() => roomAction('ready', { roomId: room.id })}>{busy ? '준비 처리 중…' : myReady ? '준비 완료' : readyBlockedByWager ? '판돈 동의 필요' : '결투 준비'}</button></div>
+          <div className="waiting-actions"><button className="ghost-button" disabled={busy} onClick={leaveRoom}>방 나가기</button>{isPlayer ? <button className="primary-button" aria-busy={busy} disabled={busy || myReady || !room.guest_id || readyBlockedByWager} onClick={() => roomAction('ready', { roomId: room.id })}>{busy ? '준비 처리 중…' : myReady ? '준비 완료' : readyBlockedByWager ? '판돈 동의 필요' : '결투 준비'}</button> : <button className="primary-button" disabled>관전 대기 중</button>}</div>
         </section>
       </div>
     );
@@ -4498,28 +4650,14 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
   const activeDeck = hub.decks.find((deck) => deck.is_active);
   return (
     <div className="duel-lobby view-stack">
-      <section className="duel-hero">
-        <div><span className="eyebrow">ONLINE DUEL</span><h1>한 장의 선택이<br />전장을 뒤집는다.</h1><p>ENERGY와 손패의 흐름을 설계하고, 숨겨 둔 함정과 엑스트라 소환으로 상대의 다음 수까지 흔드세요.</p></div>
-        <CardFace card={CARD_BY_ID.unit_crownless_titan} />
-      </section>
-      {!serverStatus.secureDuelReady && (
-        <section className="duel-server-panel panel">
-          <div className="duel-server-emblem">!</div>
-          <div><span>ECLIPSE NETWORK</span><h2>온라인 대전 서비스를 점검하고 있습니다.</h2><p>{publicServerStatusMessage(serverStatus)}</p></div>
-          <ol>
-            <li><b>1</b><span>덱 구성과 카드 보관함은 계속 이용할 수 있습니다.</span></li>
-            <li><b>2</b><span>대전 서버가 복구되면 별도 설정 없이 바로 이용할 수 있습니다.</span></li>
-            <li><b>3</b><span>잠시 후 대전 메뉴에서 다시 확인해 주세요.</span></li>
-          </ol>
-          <small>현재 계정과 보유 카드 데이터는 그대로 유지됩니다.</small>
-        </section>
-      )}
+      <section className="duel-hero"><div><span className="eyebrow">ONLINE DUEL</span><h1>한 장의 선택이<br />전장을 뒤집는다.</h1><p>ENERGY와 손패의 흐름을 설계하고, 숨겨 둔 함정과 엑스트라 소환으로 상대의 다음 수까지 흔드세요.</p></div><CardFace card={CARD_BY_ID.unit_crownless_titan} /></section>
+      {!serverStatus.secureDuelReady && <section className="duel-server-panel panel"><div className="duel-server-emblem">!</div><div><span>ECLIPSE NETWORK</span><h2>온라인 대전 서비스를 점검하고 있습니다.</h2><p>{publicServerStatusMessage(serverStatus)}</p></div><ol><li><b>1</b><span>덱 구성과 카드 보관함은 계속 이용할 수 있습니다.</span></li><li><b>2</b><span>대전 서버가 복구되면 별도 설정 없이 바로 이용할 수 있습니다.</span></li><li><b>3</b><span>잠시 후 대전 메뉴에서 다시 확인해 주세요.</span></li></ol><small>현재 계정과 보유 카드 데이터는 그대로 유지됩니다.</small></section>}
       <section className={`duel-mode-grid ${serverStatus.secureDuelReady ? '' : 'is-disabled'}`}>
         <button className="mode-card ranked" disabled={busy || !activeDeck || !serverStatus.secureDuelReady} onClick={() => roomAction('quick_match')}><span>QUICK MATCH</span><h3>빠른 대전</h3><p>현재 대기 중인 결투가를 찾아 자동으로 연결합니다. 활성 덱이 그대로 사용됩니다.</p><em>매칭 시작 →</em></button>
-        <button className="mode-card private" disabled={busy || !activeDeck || !serverStatus.secureDuelReady} onClick={() => roomAction('create_room')}><span>PRIVATE</span><h3>비공개 방</h3><p>6자리 방 코드를 공유해 친구와 결투합니다. 원한다면 서로 COIN을 걸 수도 있습니다.</p><em>방 만들기 →</em></button>
-        <article className="mode-card join"><span>JOIN ROOM</span><h3>코드로 참가</h3><p>초대받은 6자리 DUEL CODE를 입력해 해당 방에 참가합니다.</p><div className="inline-form"><input value={code} onChange={(event: ChangeEvent<HTMLInputElement>) => setCode(event.target.value.toUpperCase())} maxLength={6} placeholder="ABC123" /><button disabled={busy || code.length < 6 || !serverStatus.secureDuelReady} onClick={() => roomAction('join_room', { code })}>입장</button></div></article>
+        <button className="mode-card private" disabled={busy || !activeDeck || !serverStatus.secureDuelReady} onClick={() => roomAction('create_room')}><span>PRIVATE ROOM</span><h3>방코드 대전</h3><p>친구들과 한 방에 모여 선수 2명을 정하고 나머지는 실시간으로 관전할 수 있습니다.</p><em>방 만들기 →</em></button>
+        <article className="mode-card join v32e-code-room-entry"><span>JOIN / WATCH</span><h3>방코드 입장</h3><p>같은 6자리 코드로 선수 참가 또는 관전을 선택할 수 있습니다.</p><div className="inline-form"><input value={code} onChange={(event: ChangeEvent<HTMLInputElement>) => setCode(event.target.value.toUpperCase())} maxLength={6} placeholder="ABC123" /></div><div className="v32e-code-actions"><button disabled={busy || code.length < 6 || !activeDeck || !serverStatus.secureDuelReady} onClick={() => roomAction('join_room', { code })}>선수로 참가</button><button className="ghost-button" disabled={busy || code.length < 6 || !serverStatus.secureDuelReady} onClick={() => roomAction('spectate_room', { code })}>관전으로 입장</button></div></article>
       </section>
-      <section className="active-deck-strip panel"><span>ACTIVE DECK · 사용 덱</span><b>{activeDeck?.name ?? '활성 덱 없음'}</b><small>MAIN {activeDeck?.cards.length ?? 0}/{DECK_SIZE} · EXTRA {activeDeck?.extra_cards?.length ?? 0}/{EXTRA_DECK_SIZE}</small>{!activeDeck && <em>덱 구성에서 활성 덱을 지정하세요.</em>}</section>
+      {!activeDeck && <p className="error-banner">온라인 대전을 시작하려면 덱 메뉴에서 활성 덱을 먼저 지정하세요. 관전은 활성 덱 없이도 가능합니다.</p>}
       {message && <p className="error-banner">{message}</p>}
     </div>
   );
@@ -4671,7 +4809,7 @@ export default function Page() {
         if (result.hub) setHub(result.hub);
         if (result.serverStatus) setServerStatus(result.serverStatus);
         if (result.room && result.profiles) {
-          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [] });
           setRoomSyncState('live');
           setLastRoomSyncAt(Date.now());
           setView('duel');
@@ -4765,7 +4903,7 @@ export default function Page() {
         const result = await api('get_room', { roomId });
         if (!alive) return;
         if (result.room && result.profiles) {
-          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [] });
           lastSuccessfulSync = Date.now();
           setRoomSyncState('live');
           setLastRoomSyncAt(lastSuccessfulSync);
@@ -4842,7 +4980,7 @@ export default function Page() {
         const result = await api('match_presence', { roomId });
         if (!alive) return;
         if (result.room && result.profiles) {
-          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null });
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [] });
           setRoomSyncState('live');
           setLastRoomSyncAt(Date.now());
         }
@@ -4890,7 +5028,7 @@ export default function Page() {
   const roomChat = roomPayload && roomPayload.room.status !== 'cancelled' ? roomPayload.room.id : undefined;
 
   return (
-    <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' ? 'in-duel' : ''}`} data-ui-build="v32-retail">
+    <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' || roomPayload?.room.status === 'finished' ? 'in-duel' : ''}`} data-ui-build="v32-retail">
       <div className="app-backdrop" aria-hidden="true"><span className="backdrop-grid" /><span className="backdrop-orbit" /><span className="backdrop-glow" /></div>
       <aside className="sidebar">
         <button className="game-logo" onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView('home'); }}><span className="logo-glyph"><i>E</i></span><div><b>ECLIPSE</b><small>DUEL</small></div></button>
