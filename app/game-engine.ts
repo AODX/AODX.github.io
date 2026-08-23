@@ -2595,12 +2595,10 @@ function evolutionRequiredTurnGap(sourceCard: CardDefinition, evolutionCard: Car
   return baseGap + (evolutionCard.extraSummonRule?.sourceExtraTurnGap ?? 0);
 }
 
-function evolutionMatches(unit: UnitState, card: CardDefinition, turnNumber: number): boolean {
+function evolutionBaseMatches(unit: UnitState, card: CardDefinition): boolean {
   const recipe = card.evolutionRecipe;
   const source = CARD_BY_ID[unit.cardId];
   if (!recipe || !source) return false;
-  const requiredGap = evolutionRequiredTurnGap(source, card);
-  if (turnNumber - unit.summonedTurn < requiredGap) return false;
   // If a named predecessor exists, only that exact predecessor can evolve.
   if (recipe.fromIds?.length) return recipe.fromIds.includes(source.id);
   // Broad element/cost evolutions need a higher rarity-based body floor as well.
@@ -2608,6 +2606,57 @@ function evolutionMatches(unit: UnitState, card: CardDefinition, turnNumber: num
   return (!recipe.element || source.element === recipe.element)
     && source.cost >= hardenedMinCost
     && (recipe.maxCost === undefined || source.cost <= recipe.maxCost);
+}
+
+function evolutionProgress(unit: UnitState, card: CardDefinition, turnNumber: number) {
+  const source = CARD_BY_ID[unit.cardId];
+  if (!source || !evolutionBaseMatches(unit, card)) return null;
+  const requiredGap = evolutionRequiredTurnGap(source, card);
+  const elapsedTurns = Math.max(0, turnNumber - unit.summonedTurn);
+  const requiredRounds = Math.max(1, Math.ceil(requiredGap / 2));
+  const completedRounds = Math.min(requiredRounds, Math.floor(elapsedTurns / 2));
+  const remainingRounds = Math.max(0, Math.ceil(Math.max(0, requiredGap - elapsedTurns) / 2));
+  return {
+    source,
+    requiredGap,
+    elapsedTurns,
+    requiredRounds,
+    completedRounds,
+    remainingRounds,
+    ready: elapsedTurns >= requiredGap,
+  };
+}
+
+function evolutionMatches(unit: UnitState, card: CardDefinition, turnNumber: number): boolean {
+  return Boolean(evolutionProgress(unit, card, turnNumber)?.ready);
+}
+
+function evolutionProgressFailureReasons(units: UnitState[], card: CardDefinition, turnNumber: number): string[] {
+  const reasons: string[] = [];
+  const requiredSources = card.extraSummonRule?.requiredSourceCopies ?? 1;
+  const sourceLabel = (card.evolutionRecipe?.label ?? '계승 원본').replace(/\s*계승$/, '');
+  const candidates = units
+    .map((unit) => ({ unit, progress: evolutionProgress(unit, card, turnNumber) }))
+    .filter((entry): entry is { unit: UnitState; progress: NonNullable<ReturnType<typeof evolutionProgress>> } => Boolean(entry.progress));
+
+  if (candidates.length < requiredSources) {
+    reasons.push(`계승 원본 「${sourceLabel}」이 ${candidates.length}/${requiredSources}체입니다.`);
+  }
+
+  candidates
+    .filter((entry) => !entry.progress.ready)
+    .forEach((entry, index) => {
+      const suffix = candidates.length > 1 ? ` ${index + 1}` : '';
+      reasons.push(
+        `「${entry.progress.source.name}」${suffix} — 현재 ${entry.progress.completedRounds}/${entry.progress.requiredRounds}라운드 생존 · 앞으로 ${entry.progress.remainingRounds}라운드 더 필요합니다.`,
+      );
+    });
+
+  const readyCount = candidates.filter((entry) => entry.progress.ready).length;
+  if (candidates.length >= requiredSources && readyCount < requiredSources && reasons.length === 0) {
+    reasons.push(`생존 조건을 완료한 계승 원본이 ${readyCount}/${requiredSources}체입니다.`);
+  }
+  return reasons;
 }
 
 function findEvolutionSourceAssignment(units: UnitState[], card: CardDefinition, turnNumber: number): Set<number> | null {
@@ -2692,7 +2741,12 @@ export function summonExtra(
       .map((unit, index) => evolutionMatches(unit, card, state.turnNumber) ? index : -1)
       .filter((index) => index >= 0);
     if (eligibleIndexes.length < sourceCopies) {
-      throw new Error(`진화 조건이 맞지 않습니다: ${card.evolutionRecipe?.label} · 생존 조건을 만족한 계승 원본 ${sourceCopies}체가 필요합니다.`);
+      const progressReasons = evolutionProgressFailureReasons(units, card, state.turnNumber);
+      throw new Error(
+        progressReasons.length > 0
+          ? `계승 진화 준비가 부족합니다: ${progressReasons.join(' / ')}`
+          : `진화 조건이 맞지 않습니다: ${card.evolutionRecipe?.label} · 생존 조건을 만족한 계승 원본 ${sourceCopies}체가 필요합니다.`,
+      );
     }
 
     const sourceAssignment = findEvolutionSourceAssignment(units, card, state.turnNumber);

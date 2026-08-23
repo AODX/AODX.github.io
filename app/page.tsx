@@ -744,7 +744,7 @@ function summonConditionDescription(card: CardDefinition): string {
       const rounds = Math.max(1, Math.ceil(Math.max(...sources.map((source) => clientEvolutionRequiredTurnGap(source, card))) / 2));
       const sourceName = sources.length === 1 ? sources[0].name : (card.evolutionRecipe?.label ?? '지정 원본').replace(/\s*계승$/, '');
       const sourceCopies = card.extraSummonRule?.requiredSourceCopies ?? 1;
-      const sourceText = sourceCopies > 1 ? `${sourceName} ${sourceCopies}체(각 ${rounds}라운드)` : `${sourceName}(${rounds}라운드)`;
+      const sourceText = sourceCopies > 1 ? `${sourceName} ${sourceCopies}체(각 ${rounds}라운드 생존)` : `${sourceName}(${rounds}라운드 생존)`;
       const extra = card.extraSummonRule ? extraSummonRuleDescription(card) : '';
       const cleanedExtra = sourceCopies > 1 ? extra.replace(/^계승 원본 \d+체(?: · )?/, '') : extra;
       return [sourceText, cleanedExtra].filter(Boolean).join(' · ');
@@ -2761,9 +2761,10 @@ function extraRequirement(card: CardDefinition): string {
   if (card.kind === 'evolution') {
     const sourceLabel = (card.evolutionRecipe?.label ?? '지정 원본').replace(/\s*계승$/, '');
     const sourceCopies = card.extraSummonRule?.requiredSourceCopies ?? 1;
+    const survival = evolutionSurvivalRequirement(card).replace(' 유지', '');
     const sourceText = sourceCopies > 1
-      ? `${sourceLabel} ${sourceCopies}체(각 ${evolutionSurvivalRequirement(card).replace(' 유지', '')})`
-      : `${sourceLabel}(${evolutionSurvivalRequirement(card)})`;
+      ? `${sourceLabel} ${sourceCopies}체(각 ${survival} 생존)`
+      : `${sourceLabel}(${survival} 생존)`;
     const cleanedPremium = sourceCopies > 1 ? premiumRule.replace(/^계승 원본 \d+체(?: · )?/, '') : premiumRule;
     return [sourceText, cleanedPremium, choose].filter(Boolean).join(' · ');
   }
@@ -2888,17 +2889,110 @@ function clientUnitCombinations(units: UnitState[], count: number): UnitState[][
   return result;
 }
 
-function clientEvolutionReady(unit: UnitState, card: CardDefinition, currentTurn: number): boolean {
+function clientEvolutionBaseMatches(unit: UnitState, card: CardDefinition): boolean {
   const recipe = card.evolutionRecipe;
   const source = CARD_BY_ID[unit.cardId];
   if (!recipe || !source) return false;
-  const requiredGap = clientEvolutionRequiredTurnGap(source, card);
-  if (currentTurn - unit.summonedTurn < requiredGap) return false;
   if (recipe.fromIds?.length) return recipe.fromIds.includes(source.id);
   const hardenedMinCost = Math.max(recipe.minCost ?? 0, card.rarity === 'legendary' ? 6 : 5);
   return (!recipe.element || recipe.element === source.element)
     && source.cost >= hardenedMinCost
     && (recipe.maxCost === undefined || source.cost <= recipe.maxCost);
+}
+
+function clientEvolutionProgress(unit: UnitState, card: CardDefinition, currentTurn: number) {
+  const source = CARD_BY_ID[unit.cardId];
+  if (!source || !clientEvolutionBaseMatches(unit, card)) return null;
+  const requiredGap = clientEvolutionRequiredTurnGap(source, card);
+  const elapsedTurns = Math.max(0, currentTurn - unit.summonedTurn);
+  const requiredRounds = Math.max(1, Math.ceil(requiredGap / 2));
+  const completedRounds = Math.min(requiredRounds, Math.floor(elapsedTurns / 2));
+  const remainingRounds = Math.max(0, Math.ceil(Math.max(0, requiredGap - elapsedTurns) / 2));
+  return {
+    source,
+    requiredGap,
+    elapsedTurns,
+    requiredRounds,
+    completedRounds,
+    remainingRounds,
+    ready: elapsedTurns >= requiredGap,
+  };
+}
+
+function clientEvolutionReady(unit: UnitState, card: CardDefinition, currentTurn: number): boolean {
+  const progress = clientEvolutionProgress(unit, card, currentTurn);
+  return Boolean(progress?.ready);
+}
+
+function clientExtraProgressReasons(units: UnitState[], card: CardDefinition, currentTurn: number): string[] {
+  const reasons: string[] = [];
+  const requiredTotal = extraRequiredUnitCount(card);
+
+  if (units.length < requiredTotal) {
+    reasons.push(`필드 소재가 부족합니다. 필요 ${requiredTotal}체 / 현재 ${units.length}체.`);
+  }
+
+  if (card.kind === 'fusion') {
+    const materials = card.fusionRecipe?.materials ?? [];
+    materials.forEach((material, index) => {
+      const matched = units.filter((unit) => clientFusionMaterialMatches(unit, material, card));
+      if (matched.length > 0) return;
+      const label = material.label || `소재 ${index + 1}`;
+      const minimumCost = clientFusionMaterialMinimumCost(card, material);
+      const costHint = minimumCost > 0 ? ` · 비용 ${minimumCost}+` : '';
+      reasons.push(`융합 소재 「${label}」이 없습니다${costHint}.`);
+    });
+    if (units.length >= materials.length && !clientCanAssignFusion(units, materials, card) && !reasons.some((reason) => reason.startsWith('융합 소재'))) {
+      reasons.push('현재 필드 조합으로는 지정된 융합 소재를 서로 겹치지 않게 맞출 수 없습니다.');
+    }
+    return reasons;
+  }
+
+  if (card.kind === 'evolution') {
+    const sourceCopies = card.extraSummonRule?.requiredSourceCopies ?? 1;
+    const recipe = card.evolutionRecipe;
+    const sourceLabel = (recipe?.label ?? '계승 원본').replace(/\s*계승$/, '');
+    const candidates = units
+      .map((unit, index) => ({ unit, index, progress: clientEvolutionProgress(unit, card, currentTurn) }))
+      .filter((entry): entry is { unit: UnitState; index: number; progress: NonNullable<ReturnType<typeof clientEvolutionProgress>> } => Boolean(entry.progress));
+
+    if (candidates.length < sourceCopies) {
+      reasons.push(`계승 원본이 부족합니다. 「${sourceLabel}」 ${candidates.length}/${sourceCopies}체.`);
+    }
+
+    const notReady = candidates.filter((entry) => !entry.progress.ready);
+    notReady.forEach((entry, order) => {
+      const suffix = candidates.length > 1 ? ` ${order + 1}` : '';
+      reasons.push(
+        `「${entry.progress.source.name}」${suffix} 생존 진행도: 현재 ${entry.progress.completedRounds}/${entry.progress.requiredRounds}라운드 · 앞으로 ${entry.progress.remainingRounds}라운드 더 필요.`,
+      );
+    });
+
+    const readyCandidates = candidates.filter((entry) => entry.progress.ready);
+    if (candidates.length >= sourceCopies && readyCandidates.length < sourceCopies && notReady.length === 0) {
+      reasons.push(`생존 조건을 완료한 계승 원본이 ${readyCandidates.length}/${sourceCopies}체입니다.`);
+    }
+
+    const rule = card.extraSummonRule;
+    if (rule && readyCandidates.length >= sourceCopies && units.length >= requiredTotal) {
+      let extraReason: string | null = null;
+      const selections = clientUnitCombinations(units, requiredTotal);
+      for (const selection of selections) {
+        const eligibleIndexes = selection
+          .map((unit, index) => clientEvolutionReady(unit, card, currentTurn) ? index : -1)
+          .filter((index) => index >= 0);
+        if (eligibleIndexes.length < sourceCopies) continue;
+        for (const combination of clientIndexCombinations(eligibleIndexes, sourceCopies)) {
+          const reason = clientExtraRuleBlockReason(card, selection, new Set(combination));
+          if (!reason) return reasons;
+          if (!extraReason) extraReason = reason;
+        }
+      }
+      if (extraReason) reasons.push(`추가 릴리스 조건: ${extraReason}.`);
+    }
+  }
+
+  return reasons;
 }
 
 
@@ -3337,7 +3431,9 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       if (myExtraTurn.evolution === state.turnNumber) reasons.push('계승 진화는 한 턴에 1번만 사용할 수 있습니다.');
     }
     if ((card.kind === 'fusion' || card.kind === 'evolution') && !clientExtraReadyFromField(myFieldUnits, card, state.turnNumber)) {
-      reasons.push(`소환 소재 조건: ${extraRequirement(card)}.`);
+      const progressReasons = clientExtraProgressReasons(myFieldUnits, card, state.turnNumber);
+      if (progressReasons.length > 0) reasons.push(...progressReasons);
+      else reasons.push(`소환 소재 조건: ${extraRequirement(card)}.`);
     }
     return reasons;
   }
