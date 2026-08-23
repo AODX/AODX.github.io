@@ -770,8 +770,27 @@ async function handleAction(request: Request, body: RequestBody) {
   if (action === 'update_profile') {
     const displayName = cleanText(body.displayName, 16);
     const statusMessage = cleanText(body.statusMessage, 60);
-    const avatar = cleanText(body.avatar, 24) || 'eclipse';
+    const avatar = cleanText(body.avatar, 40) || 'eclipse';
     if (displayName.length < 2) throw new Error('플레이어 이름은 2자 이상 입력하세요.');
+
+    // 기본 아이콘 외의 상점 문양을 프로필 아이콘으로 사용할 수 있습니다.
+    // 구매하지 않은 꾸미기 ID를 API로 직접 넣는 우회는 서버에서 차단합니다.
+    const builtInAvatars = new Set(['eclipse', 'nova', 'oracle', 'warden', 'reaper', 'seraph']);
+    if (!builtInAvatars.has(avatar)) {
+      if (!avatar.startsWith('emblem_')) throw new Error('사용할 수 없는 프로필 아이콘입니다.');
+      const { data: ownedIcon, error: ownedIconError } = await client
+        .from('eclipse_profile_cosmetics')
+        .select('cosmetic_id')
+        .eq('user_id', user.id)
+        .eq('cosmetic_id', avatar)
+        .maybeSingle();
+      if (ownedIconError) {
+        if (/eclipse_profile_cosmetics|does not exist|schema cache/i.test(ownedIconError.message)) throw new Error('v26 꾸미기 상점 DB 업그레이드가 필요합니다. sql/06_V26_EXPANSION_COSMETICS.sql을 한 번 실행해 주세요.');
+        throw new Error(ownedIconError.message);
+      }
+      if (!ownedIcon) throw new Error('보유하지 않은 프로필 아이콘입니다. 상점에서 먼저 구매해 주세요.');
+    }
+
     const { error } = await client
       .from('eclipse_profiles')
       .update({ display_name: displayName, status_message: statusMessage, avatar })
