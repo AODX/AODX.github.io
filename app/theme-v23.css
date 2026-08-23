@@ -3321,3 +3321,47 @@
   .v23-client .v31k-wager-presets button { padding:0 6px; }
   .v23-client.in-duel .v31k-duel-wager-badge { display:none; }
 }
+
+
+/* ========================================================================
+   V31K4 — purchased emblems can also be used as profile icons
+   ======================================================================== */
+.v23-client .avatar.avatar-cosmetic {
+  --avatar-accent:#8ddfff;
+  border-color:color-mix(in srgb, var(--avatar-accent) 62%, rgba(255,255,255,.2))!important;
+  box-shadow:0 0 0 1px rgba(255,255,255,.05),0 0 18px color-mix(in srgb, var(--avatar-accent) 34%, transparent)!important;
+}
+.v23-client .avatar.avatar-cosmetic::before {
+  background:conic-gradient(from 18deg,var(--avatar-accent),rgba(255,255,255,.95),var(--avatar-accent),rgba(23,30,48,.95),var(--avatar-accent))!important;
+}
+.v23-client .avatar.avatar-cosmetic::after {
+  background:radial-gradient(circle at 50% 38%,color-mix(in srgb,var(--avatar-accent) 24%,rgba(10,14,22,.9)),rgba(5,8,14,.94) 72%)!important;
+}
+.v23-client .avatar.avatar-cosmetic > span {
+  color:#fff!important;
+  text-shadow:0 0 10px var(--avatar-accent),0 1px 2px rgba(0,0,0,.7)!important;
+}
+.v23-client .avatar-picker .cosmetic-icon-option {
+  position:relative!important;
+}
+.v23-client .avatar-picker .cosmetic-icon-option::after {
+  content:'SHOP';
+  position:absolute;
+  right:-5px;
+  bottom:-3px;
+  padding:2px 4px;
+  border-radius:999px;
+  color:#dff6ff;
+  background:#111b28;
+  border:1px solid rgba(122,205,255,.32);
+  font-size:6px;
+  font-weight:900;
+  letter-spacing:.06em;
+}
+.v23-client .profile-icon-help {
+  display:block;
+  margin-top:9px;
+  color:#8093a4;
+  font-size:11px;
+  line-height:1.55;
+}

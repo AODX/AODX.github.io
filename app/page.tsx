@@ -1130,7 +1130,17 @@ function ControlCenter({
 }
 
 function Avatar({ id, size = 'medium' }: { id?: string; size?: 'small' | 'medium' | 'large' }) {
-  return <span className={`avatar avatar-${id || 'eclipse'} avatar-${size}`}><span>{(id || 'eclipse').slice(0, 1).toUpperCase()}</span></span>;
+  const resolvedId = id || 'eclipse';
+  const cosmeticIcon = EMBLEM_BY_ID[resolvedId];
+  return (
+    <span
+      className={`avatar avatar-${resolvedId} avatar-${size}${cosmeticIcon ? ' avatar-cosmetic' : ''}`}
+      style={cosmeticIcon ? ({ '--avatar-accent': cosmeticIcon.accent } as CSSProperties) : undefined}
+      title={cosmeticIcon?.name}
+    >
+      <span>{cosmeticIcon?.glyph ?? resolvedId.slice(0, 1).toUpperCase()}</span>
+    </span>
+  );
 }
 
 function LoadingScreen({ text = '결투장을 준비하는 중' }: { text?: string }) {
@@ -2205,10 +2215,10 @@ function ProfileView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
         <span className="eyebrow">CUSTOMIZE</span><h2>프로필 편집</h2>
         <label><span>플레이어 이름</span><input value={name} onChange={(event: ChangeEvent<HTMLInputElement>) => setName(event.target.value)} maxLength={16} /></label>
         <label><span>상태 메시지</span><input value={status} onChange={(event: ChangeEvent<HTMLInputElement>) => setStatus(event.target.value)} maxLength={60} /></label>
-        <label><span>프로필 아이콘</span><div className="avatar-picker">{AVATARS.map((id) => <button className={avatar === id ? 'active' : ''} key={id} onClick={() => setAvatar(id)}><Avatar id={id} /></button>)}</div></label>
+        <label><span>프로필 아이콘</span><div className="avatar-picker">{AVATARS.map((id) => <button type="button" className={avatar === id ? 'active' : ''} key={id} onClick={() => setAvatar(id)}><Avatar id={id} /></button>)}{PROFILE_COSMETICS.filter((item) => item.kind === 'emblem' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button type="button" className={`cosmetic-icon-option ${avatar === item.id ? 'active' : ''}`} key={`avatar-${item.id}`} onClick={() => setAvatar(item.id)} title={`${item.name} · 구매한 프로필 아이콘`}><Avatar id={item.id} /></button>)}</div><small className="profile-icon-help">상점에서 구매한 문양은 여기서 프로필 아이콘으로도 사용할 수 있습니다. 선택 후 아래 ‘변경 사항 저장’을 눌러 주세요.</small></label>
         <div className="v17-profile-skin-picker"><span>보유 프로필 배경</span><div><button className={theme === 'bg_default' ? 'active' : ''} onClick={() => equipCosmetic('bg_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'background' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={theme === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.name}</button>)}</div></div>
         <div className="v17-profile-skin-picker"><span>보유 프로필 프레임</span><div><button className={frame === 'frame_default' ? 'active' : ''} onClick={() => equipCosmetic('frame_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'frame' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={frame === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.name}</button>)}</div></div>
-        <div className="v17-profile-skin-picker"><span>보유 프로필 문양/아이콘</span><div><button className={emblem === 'emblem_default' ? 'active' : ''} onClick={() => equipCosmetic('emblem_default')}>기본 E</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'emblem' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={emblem === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.glyph} {item.name}</button>)}</div></div>
+        <div className="v17-profile-skin-picker"><span>보유 프로필 문양</span><div><button className={emblem === 'emblem_default' ? 'active' : ''} onClick={() => equipCosmetic('emblem_default')}>기본 E</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'emblem' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={emblem === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.glyph} {item.name}</button>)}</div></div>
         <div className="v17-profile-skin-picker"><span>보유 카드 슬리브</span><div><button className={sleeve === 'sleeve_default' ? 'active' : ''} onClick={() => equipCosmetic('sleeve_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'sleeve' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={sleeve === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}>{item.name}</button>)}</div><div className="v26-profile-sleeve-demo"><CardFace hidden compact inspectable={false} sleeveId={sleeve} /></div></div>
         <div className="v17-profile-skin-picker v26-nickname-picker"><span>보유 닉네임 효과</span><div><button className={nicknameStyle === 'nickname_default' ? 'active' : ''} onClick={() => equipCosmetic('nickname_default')}>기본</button>{PROFILE_COSMETICS.filter((item) => item.kind === 'nickname' && (hub.profileCosmetics ?? []).includes(item.id)).map((item) => <button className={nicknameStyle === item.id ? 'active' : ''} key={item.id} onClick={() => equipCosmetic(item.id)} style={{ '--cosmetic-accent': item.accent } as CSSProperties}><NicknameText name={item.name} styleId={item.id} /></button>)}</div><div className="v26-nickname-equipped-preview"><small>다른 플레이어에게도 이렇게 표시됩니다</small><NicknameText name={hub.profile.display_name} styleId={nicknameStyle} /></div></div>
         {message && <p className="inline-message">{message}</p>}
