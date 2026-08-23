@@ -2544,19 +2544,42 @@ function duelZonePoint(ownerId: string | undefined, userId: string, zone: number
   return { x, y: mine ? 59 : 41 };
 }
 
+function measuredDuelPoint(ownerId: string | undefined, zone: number | undefined, row: 'unit' | 'leader', fallback: DuelPoint): DuelPoint {
+  if (typeof document === 'undefined' || !ownerId) return fallback;
+  const root = document.querySelector<HTMLElement>('.v18-duel-screen');
+  if (!root) return fallback;
+  let target: HTMLElement | undefined;
+  if (row === 'leader') {
+    target = Array.from(root.querySelectorAll<HTMLElement>('[data-duel-leader-owner]')).find((node) => node.dataset.duelLeaderOwner === ownerId);
+  } else {
+    target = Array.from(root.querySelectorAll<HTMLElement>('[data-duel-unit-owner]')).find((node) => node.dataset.duelUnitOwner === ownerId && Number(node.dataset.index ?? -1) === Number(zone ?? -1));
+  }
+  if (!target) return fallback;
+  const rootRect = root.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  if (rootRect.width <= 0 || rootRect.height <= 0 || targetRect.width <= 0 || targetRect.height <= 0) return fallback;
+  const x = ((targetRect.left + targetRect.width / 2 - rootRect.left) / rootRect.width) * 100;
+  const y = ((targetRect.top + targetRect.height / 2 - rootRect.top) / rootRect.height) * 100;
+  return { x: Math.max(1, Math.min(99, x)), y: Math.max(1, Math.min(99, y)) };
+}
+
 function duelEventPoints(event: VisualEvent, userId: string): { source: DuelPoint; target: DuelPoint } {
   const actorId = event.ownerId;
   const targetId = event.targetOwnerId ?? event.ownerId;
   if (event.kind === 'attack') {
+    const sourceFallback = duelZonePoint(actorId, userId, event.sourceZone, 'unit');
+    const targetFallback = event.targetZone !== undefined ? duelZonePoint(targetId, userId, event.targetZone, 'unit') : duelZonePoint(targetId, userId, undefined, 'leader');
     return {
-      source: duelZonePoint(actorId, userId, event.sourceZone, 'unit'),
-      target: event.targetZone !== undefined ? duelZonePoint(targetId, userId, event.targetZone, 'unit') : duelZonePoint(targetId, userId, undefined, 'leader'),
+      source: measuredDuelPoint(actorId, event.sourceZone, 'unit', sourceFallback),
+      target: measuredDuelPoint(targetId, event.targetZone, event.targetZone !== undefined ? 'unit' : 'leader', targetFallback),
     };
   }
   if (event.kind === 'heal') {
-    const source = event.sourceZone !== undefined ? duelZonePoint(actorId, userId, event.sourceZone, 'unit') : duelZonePoint(actorId, userId, undefined, 'leader');
+    const sourceFallback = event.sourceZone !== undefined ? duelZonePoint(actorId, userId, event.sourceZone, 'unit') : duelZonePoint(actorId, userId, undefined, 'leader');
+    const source = event.sourceZone !== undefined ? measuredDuelPoint(actorId, event.sourceZone, 'unit', sourceFallback) : measuredDuelPoint(actorId, undefined, 'leader', sourceFallback);
     const healTargetZone = event.targetZone ?? (event.vfx === 'tactical-beast-repair' ? event.sourceZone : undefined);
-    return { source, target: healTargetZone !== undefined ? duelZonePoint(targetId, userId, healTargetZone, 'unit') : duelZonePoint(targetId, userId, undefined, 'leader') };
+    const targetFallback = healTargetZone !== undefined ? duelZonePoint(targetId, userId, healTargetZone, 'unit') : duelZonePoint(targetId, userId, undefined, 'leader');
+    return { source, target: healTargetZone !== undefined ? measuredDuelPoint(targetId, healTargetZone, 'unit', targetFallback) : measuredDuelPoint(targetId, undefined, 'leader', targetFallback) };
   }
   if (event.kind === 'core' || event.kind === 'energy') {
     const source = event.sourceZone !== undefined ? duelZonePoint(actorId, userId, event.sourceZone, 'unit') : duelZonePoint(actorId, userId, undefined, 'leader');
@@ -2582,12 +2605,15 @@ function duelEventPoints(event: VisualEvent, userId: string): { source: DuelPoin
     const target = duelZonePoint(actorId, userId, undefined, 'leader');
     return { source: { x: 50, y: 50 }, target };
   }
-  const target = duelZonePoint(targetId, userId, event.targetZone, event.kind === 'destroy' || event.kind === 'defense' || event.kind === 'buff' ? 'unit' : 'unit');
+  const targetFallback = duelZonePoint(targetId, userId, event.targetZone, 'unit');
+  const target = event.targetZone !== undefined && (event.kind === 'destroy' || event.kind === 'defense' || event.kind === 'buff')
+    ? measuredDuelPoint(targetId, event.targetZone, 'unit', targetFallback)
+    : targetFallback;
   return { source: { x: 50, y: 50 }, target };
 }
 
 
-type AttackCinematicStyle = 'slash' | 'beam' | 'dive' | 'scatter' | 'crush' | 'pulse' | 'bite' | 'lance' | 'whip' | 'claw' | 'cannon' | 'arcane' | 'chrono' | 'phantom';
+type AttackCinematicStyle = 'slash' | 'bow' | 'beam' | 'dive' | 'scatter' | 'crush' | 'pulse' | 'bite' | 'lance' | 'whip' | 'claw' | 'cannon' | 'arcane' | 'chrono' | 'phantom';
 
 type AttackCinematicProfile = {
   signature: string;
@@ -2687,7 +2713,8 @@ function attackMotionProfile(card: CardDefinition, eventVfx?: string): AttackCin
   if (/(타이거|재규어|라이온|그리즐리|클로|claw|predator|프레데터)/i.test(roleText)) return role('claw', '발톱 난격', 'CLAW REND');
   if (/(라이노|코뿔소|맘모스|베어|보어|멧돼지|베히모스|타이탄|거신|골렘|colossus|혼|horn)/i.test(roleText)) return role('crush', '중량 돌진', 'HEAVY CRUSH');
   if (/(호크|hawk|매|피닉스|phoenix|세라프|seraph|와이번|wyvern|드라군|dragoon)/i.test(roleText)) return role('dive', '공중 강습', 'AERIAL DIVE');
-  if (/(아처|archer|궁수|거너|gunner|포병|캐논|cannon|프리깃|frigate|드레드노트|dreadnought|디스트로이어|destroyer|캐리어|carrier|플래그십|함|광자|shot|샷|메카닉|mechanic|엔지니어|engineer|오퍼레이터|operator|파일럿|pilot)/i.test(roleText)) return role('cannon', '원거리 포격', 'RANGED SALVO');
+  if (/(아처|archer|궁수|보우|bow|석궁|crossbow|레인저|ranger)/i.test(roleText)) return role('bow', '활 시위 사격', 'ARROW SHOT');
+  if (/(거너|gunner|포병|캐논|cannon|프리깃|frigate|드레드노트|dreadnought|디스트로이어|destroyer|캐리어|carrier|플래그십|함|광자|shot|샷|메카닉|mechanic|엔지니어|engineer|오퍼레이터|operator|파일럿|pilot)/i.test(roleText)) return role('cannon', '원거리 포격', 'RANGED SALVO');
   if (/(랜서|lancer|lance|창기병|창격|스피어|spear)/i.test(roleText)) return role('lance', '관통 창격', 'LANCE THRUST');
   if (/(세이버|saber|블레이드|blade|검|기사|knight|리퍼|reaper|집행관|executor|브레이커)/i.test(roleText)) return role('slash', '무장 참격', 'BLADE STRIKE');
   if (/(피에로|pierrot|마임|mime|저글러|juggler|퍼펫|puppet|마리오네트|marionette|클라운|clown|일루저니스트|illusion|팬텀|phantom)/i.test(roleText)) return role('phantom', '환영 교란공격', 'PHANTOM STRIKE');
@@ -2900,8 +2927,9 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
   const owner = profiles.find((profile) => profile.user_id === event.ownerId);
   const mine = event.ownerId === userId;
   const { source, target } = duelEventPoints(event, userId);
+  const attackAngle = Math.atan2(target.y - source.y, target.x - source.x) * 180 / Math.PI;
   const fxStyle = {
-    '--sx': `${source.x}%`, '--sy': `${source.y}%`, '--tx': `${target.x}%`, '--ty': `${target.y}%`,
+    '--sx': `${source.x}%`, '--sy': `${source.y}%`, '--tx': `${target.x}%`, '--ty': `${target.y}%`, '--attack-angle': `${attackAngle}deg`,
     '--fx-accent': attackProfile?.accent ?? summonProfile?.accent ?? extraProfile?.accent ?? (card ? ELEMENT_ACCENT[card.element] : '#7ddcff'),
     '--fx-secondary': attackProfile?.subAccent ?? summonProfile?.secondary ?? extraProfile?.secondary ?? '#f7fbff',
     '--ritual-secondary': extraProfile?.secondary ?? '#f7fbff',
@@ -2990,6 +3018,10 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
           </div>
           <div className="v31e-attack-power"><small>ATTACK</small><strong>{event.amount ?? '?'}</strong><span>{attackProfile.label}</span></div>
           <span className="v32-attack-weapon" aria-hidden="true"><i /><i /><i /><i /></span>
+          {attackProfile.style === 'slash' && <span className="v32n-sword-fx" aria-hidden="true"><i className="blade" /><i className="guard" /><i className="grip" /><em /></span>}
+          {attackProfile.style === 'bow' && <span className="v32n-bow-fx" aria-hidden="true"><i className="arc" /><i className="string" /><i className="arrow" /><em /></span>}
+          {attackProfile.style === 'lance' && <span className="v32n-lance-fx" aria-hidden="true"><i className="shaft" /><i className="tip" /><em /></span>}
+          {attackProfile.style === 'cannon' && <span className="v32n-cannon-fx" aria-hidden="true"><i /><em /></span>}
           <span className="v31e-slash-trails" aria-hidden="true"><i /><i /><i /></span>
           <span className="v32-attack-afterimage" aria-hidden="true">{Array.from({ length: 4 }, (_, index) => <i key={index} style={{ '--after-index': index } as CSSProperties} />)}</span>
           <span className="v31e-target-reticle" aria-hidden="true"><i /><i /></span>
@@ -3014,6 +3046,11 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
         </div>
       )}
 
+      {event.kind === 'defense' && (event.shieldAmount ?? 0) > 0 && (
+        <span className={`v32n-shield-impact ${(event.healthAmount ?? 0) > 0 ? 'broken' : 'blocked'}`} aria-hidden="true">
+          <i className="shield-face"><b /></i><i className="shield-ring" /><strong>{(event.healthAmount ?? 0) > 0 ? 'SHIELD BREAK' : 'BLOCK'}</strong>
+        </span>
+      )}
       {showHitStage && (
         <div className={`v32-hit-stage kind-${event.kind} ${event.kind === 'defense' && (event.shieldAmount ?? 0) > 0 ? 'shielded' : ''}`} aria-hidden="true">
           <span className="v32-hit-shockwave"><i /><i /><i /></span>
@@ -3175,6 +3212,7 @@ function UnitSlot({
       className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${targetable ? 'targetable' : ''} ${attackReady ? 'attack-ready' : ''} ${attackTarget ? 'attack-target' : ''} ${hasCharge ? 'has-charge' : ''} ${hasGuard ? 'has-guard' : ''} ${hasCorestrike ? 'has-corestrike' : ''} ${unit?.buffCardApplied ? 'buff-card-used' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''}`}
       onClick={onClick}
       data-owner={owner}
+      data-duel-unit-owner={owner}
       data-index={index}
     >
       {!unit ? <span className="slot-mark">{index + 1}</span> : (
@@ -3193,7 +3231,11 @@ function UnitSlot({
           {attackTarget && <span className="v30-attack-target-badge"><i />공격 대상</span>}
           {unit.summonedBy !== 'normal' && unit.summonedBy !== 'token' && <span className={`origin-badge ${unit.summonedBy}`}>{unit.summonedBy === 'rift' ? 'RIFT' : unit.summonedBy === 'fusion' ? 'FUSION' : 'EVOLVE'}</span>}
           <span className="unit-name">{card?.name ?? unit.cardId.replace('token:', '')}</span>
-          <span className="unit-stats"><b>{unit.attack}</b><i>ATK</i><b>{unit.health}</b>{unit.shield > 0 && <em>＋{unit.shield}</em>}</span>
+          <span className="unit-stats" aria-label={`공격 ${unit.attack}, 방어 ${unit.health}${unit.shield > 0 ? `, 방어막 +${unit.shield}` : ''}`}>
+            <span className="v32n-stat attack"><b>{unit.attack}</b><i>ATK</i></span>
+            <span className="v32n-stat defense"><b>{unit.health}</b><i>DEF</i></span>
+            {unit.shield > 0 && <em className="v32n-shield-value">+{unit.shield}</em>}
+          </span>
           {!unit.canAttack && <span className="unit-state">REST</span>}
           {materialSelected && <span className="material-mark">MATERIAL</span>}
         </>
@@ -4326,6 +4368,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       <aside className="v18-leader-rail">
         <button
           type="button"
+          data-duel-leader-owner={opponentId}
           className={`v18-leader-card opponent ${selectedAttackerCanHitCore ? 'targetable direct-ready' : ''}`}
           disabled={!selectedAttackerCanHitCore || busy}
           onClick={() => selectedAttacker !== null && gameAction('attack', { attackerIndex: selectedAttacker, target: { kind: 'core' } })}
@@ -4338,7 +4381,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
 
         <div className="v18-leader-divider"><span>VS</span></div>
 
-        <section className="v18-leader-card mine">
+        <section className="v18-leader-card mine" data-duel-leader-owner={userId}>
           <div className="v18-leader-identity"><Avatar id={me?.avatar} /><i className={`v26-duel-emblem emblem-${me?.profile_emblem ?? 'emblem_default'}`} aria-hidden="true">{emblemGlyph(me?.profile_emblem)}</i><span><small>YOU</small><b><NicknameText name={me?.display_name ?? '나'} styleId={me?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[userId]}</strong><em>{myTurn ? phaseLabel : 'WAITING'}</em></div>
           <DuelEnergyMeter label="ENERGY" current={myEnergy.current} max={myEnergy.max} nextMax={!myTurn ? nextMyEnergyMax : undefined} compact />
@@ -4754,7 +4797,7 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
           <div className="v18-mini-stats"><span>HAND <b>{state.handCounts[playerBId] ?? 0}</b></span><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div>
         </section>
         <div className="v18-leader-divider"><span>VS</span></div>
-        <section className="v18-leader-card mine">
+        <section className="v18-leader-card mine" data-duel-leader-owner={userId}>
           <div className="v18-leader-identity"><Avatar id={playerA?.avatar} /><span><small>PLAYER A</small><b><NicknameText name={playerA?.display_name ?? 'PLAYER A'} styleId={playerA?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[playerAId] ?? 0}</strong><em>{state.currentPlayerId === playerAId ? 'TURN' : 'WAIT'}</em></div>
           <DuelEnergyMeter label="ENERGY" current={state.energy[playerAId]?.current ?? 0} max={state.energy[playerAId]?.max ?? 0} compact />

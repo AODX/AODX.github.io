@@ -6421,3 +6421,160 @@ html[data-ipad="true"] .pack-experience-layer.v23-client :is(.single-card-reveal
 }
 @keyframes v32mClockSpinTarget { to{transform:rotate(360deg)} }
 .v23-client.in-duel .v31e-attack-stage.style-chrono .v31e-target-reticle { animation:v31eReticle .72s ease-out both,v32mClockSpinTarget 2s .72s linear infinite; }
+
+/* ========================================================================== 
+   v32n · Direction-locked weapon VFX + public DEF/shield readability
+   - Attack origin/target are measured from the actual duel DOM slots.
+   - The source card stays on its own slot; only the weapon/projectile travels.
+   - Sword / bow / lance / cannon / bite use visibly different silhouettes.
+   - DEF and temporary shield bonus are always visible for BOTH players.
+   ========================================================================== */
+
+/* Never let the attack cut-in fly in from a fake fixed coordinate. */
+.v23-client.in-duel .v31e-attack-stage .v31e-attack-source-card {
+  left:var(--sx)!important;
+  top:var(--sy)!important;
+  animation:v32nSourceAnchor 1.02s cubic-bezier(.16,.78,.18,1) both!important;
+}
+.v23-client.in-duel .v31e-attack-stage.style-dive .v31e-attack-source-card {
+  animation:v32nSourceDiveAnchor 1.02s cubic-bezier(.16,.78,.18,1) both!important;
+}
+
+/* The exact source -> target path is visible for directional attacks. */
+.v23-client.in-duel .v31e-attack-stage.style-slash .v32m-vector-line.main,
+.v23-client.in-duel .v31e-attack-stage.style-bow .v32m-vector-line.main,
+.v23-client.in-duel .v31e-attack-stage.style-beam .v32m-vector-line.main,
+.v23-client.in-duel .v31e-attack-stage.style-lance .v32m-vector-line.main,
+.v23-client.in-duel .v31e-attack-stage.style-cannon .v32m-vector-line.main {
+  animation:v32mVectorShot .58s .12s ease-out both;
+}
+.v23-client.in-duel .v31e-attack-stage.style-slash .v32m-vector-line.echo,
+.v23-client.in-duel .v31e-attack-stage.style-bow .v32m-vector-line.echo,
+.v23-client.in-duel .v31e-attack-stage.style-beam .v32m-vector-line.echo,
+.v23-client.in-duel .v31e-attack-stage.style-lance .v32m-vector-line.echo,
+.v23-client.in-duel .v31e-attack-stage.style-cannon .v32m-vector-line.echo {
+  animation:v32mVectorEcho .72s .16s ease-out both;
+}
+.v23-client.in-duel .v31e-attack-stage.style-slash .v32m-vector-line.main { stroke-width:1.8;stroke-dasharray:5 3; }
+.v23-client.in-duel .v31e-attack-stage.style-bow .v32m-vector-line.main { stroke-width:1.45;stroke:var(--sig-secondary); }
+.v23-client.in-duel .v31e-attack-stage.style-bow .v32m-vector-line.echo { stroke-width:.65;stroke-dasharray:1.5 2.5; }
+
+/* Hide the old generic slash bars when a real weapon silhouette is used. */
+.v23-client.in-duel .v31e-attack-stage.style-slash .v32-attack-weapon,
+.v23-client.in-duel .v31e-attack-stage.style-bow .v32-attack-weapon,
+.v23-client.in-duel .v31e-attack-stage.style-lance .v32-attack-weapon,
+.v23-client.in-duel .v31e-attack-stage.style-cannon .v32-attack-weapon { display:none!important; }
+.v23-client.in-duel .v31e-attack-stage.style-bow .v31e-slash-trails,
+.v23-client.in-duel .v31e-attack-stage.style-lance .v31e-slash-trails,
+.v23-client.in-duel .v31e-attack-stage.style-cannon .v31e-slash-trails { display:none!important; }
+
+/* Sword: a recognizable blade, guard and grip at the target impact. */
+.v23-client.in-duel .v32n-sword-fx {
+  position:absolute;left:var(--tx);top:var(--ty);z-index:20;width:148px;height:34px;
+  transform:translate(-52%,-50%) rotate(var(--attack-angle));transform-origin:52% 50%;
+  filter:drop-shadow(0 0 10px var(--sig-core));animation:v32nSwordStrike .66s .10s ease-out both;
+}
+.v23-client.in-duel .v32n-sword-fx .blade {
+  position:absolute;left:20px;top:13px;width:112px;height:8px;border-radius:3px 70% 70% 3px;
+  background:linear-gradient(180deg,#fff,var(--sig-secondary) 48%,var(--sig-core) 52%,rgba(255,255,255,.35));
+  clip-path:polygon(0 16%,86% 16%,100% 50%,86% 84%,0 84%);
+  box-shadow:0 0 12px color-mix(in srgb,var(--sig-core) 65%,transparent);
+}
+.v23-client.in-duel .v32n-sword-fx .guard { position:absolute;left:17px;top:5px;width:5px;height:24px;border-radius:4px;background:#f5e5b4;box-shadow:0 0 8px var(--sig-core); }
+.v23-client.in-duel .v32n-sword-fx .grip { position:absolute;left:2px;top:13px;width:18px;height:8px;border-radius:8px;background:linear-gradient(90deg,#202832,#76665e); }
+.v23-client.in-duel .v32n-sword-fx em { position:absolute;right:-5px;top:50%;width:38px;height:38px;margin-top:-19px;border:2px solid color-mix(in srgb,var(--sig-core) 70%,white);border-radius:50%;animation:v32nImpactHalo .54s .27s ease-out both; }
+
+/* Bow: the arrow itself is visible, not a generic laser. */
+.v23-client.in-duel .v32n-bow-fx {
+  position:absolute;left:var(--tx);top:var(--ty);z-index:20;width:122px;height:54px;
+  transform:translate(-86%,-50%) rotate(var(--attack-angle));transform-origin:86% 50%;
+  filter:drop-shadow(0 0 9px var(--sig-core));animation:v32nArrowImpact .62s .13s ease-out both;
+}
+.v23-client.in-duel .v32n-bow-fx .arrow { position:absolute;left:8px;top:25px;width:102px;height:3px;border-radius:999px;background:linear-gradient(90deg,#8f7348,#f8f4df 76%); }
+.v23-client.in-duel .v32n-bow-fx .arrow::before { content:"";position:absolute;right:-12px;top:-6px;border-left:13px solid #f5fbff;border-top:7px solid transparent;border-bottom:7px solid transparent;filter:drop-shadow(0 0 5px var(--sig-core)); }
+.v23-client.in-duel .v32n-bow-fx .arrow::after { content:"";position:absolute;left:0;top:-6px;width:14px;height:15px;background:linear-gradient(135deg,var(--sig-core) 0 45%,transparent 46%),linear-gradient(45deg,var(--sig-secondary) 0 45%,transparent 46%); }
+.v23-client.in-duel .v32n-bow-fx .arc { position:absolute;left:5px;top:2px;width:34px;height:48px;border:3px solid var(--sig-core);border-left:0;border-radius:0 100% 100% 0/0 50% 50% 0;opacity:.85; }
+.v23-client.in-duel .v32n-bow-fx .string { position:absolute;left:4px;top:3px;width:2px;height:46px;background:rgba(240,250,255,.78);transform:rotate(-14deg);transform-origin:50% 50%; }
+.v23-client.in-duel .v32n-bow-fx em { position:absolute;right:-8px;top:50%;width:26px;height:26px;margin-top:-13px;border-radius:50%;background:radial-gradient(circle,#fff 0 10%,var(--sig-core) 12%,transparent 65%);animation:v32nImpactHalo .46s .29s ease-out both; }
+
+/* Lance/spear: long shaft and metal point aligned with the real attack vector. */
+.v23-client.in-duel .v32n-lance-fx {
+  position:absolute;left:var(--tx);top:var(--ty);z-index:20;width:162px;height:28px;
+  transform:translate(-92%,-50%) rotate(var(--attack-angle));transform-origin:92% 50%;
+  animation:v32nLanceHit .58s .12s ease-out both;filter:drop-shadow(0 0 10px var(--sig-core));
+}
+.v23-client.in-duel .v32n-lance-fx .shaft { position:absolute;left:0;top:12px;width:140px;height:4px;border-radius:999px;background:linear-gradient(90deg,#564b45,var(--sig-secondary)); }
+.v23-client.in-duel .v32n-lance-fx .tip { position:absolute;right:0;top:4px;border-left:22px solid #f4fbff;border-top:10px solid transparent;border-bottom:10px solid transparent;filter:drop-shadow(0 0 6px var(--sig-core)); }
+.v23-client.in-duel .v32n-lance-fx em { position:absolute;right:-8px;top:50%;width:34px;height:34px;margin-top:-17px;border:2px solid var(--sig-core);border-radius:50%;animation:v32nImpactHalo .46s .25s ease-out both; }
+
+/* Cannon/gun: a bright projectile core plus a shock ring. */
+.v23-client.in-duel .v32n-cannon-fx { position:absolute;left:var(--tx);top:var(--ty);z-index:20;width:78px;height:78px;margin:-39px;animation:v32nCannonHit .58s .18s ease-out both; }
+.v23-client.in-duel .v32n-cannon-fx i { position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px;border-radius:50%;background:#fff;box-shadow:0 0 14px #fff,0 0 38px var(--sig-core),0 0 70px var(--sig-core); }
+.v23-client.in-duel .v32n-cannon-fx em { position:absolute;inset:5px;border:3px solid color-mix(in srgb,var(--sig-core) 72%,white);border-radius:50%;animation:v32nImpactHalo .52s .18s ease-out both; }
+
+/* Shield hit: translucent blue plate similar to the requested +shield presentation. */
+.v23-client.in-duel .v32n-shield-impact {
+  position:absolute;left:var(--tx);top:var(--ty);z-index:24;width:170px;height:190px;
+  transform:translate(-50%,-52%);pointer-events:none;filter:drop-shadow(0 0 18px rgba(80,192,255,.65));
+  animation:v32nShieldWhole .95s ease-out both;
+}
+.v23-client.in-duel .v32n-shield-impact .shield-face {
+  position:absolute;left:50%;top:48%;width:116px;height:138px;transform:translate(-50%,-50%);
+  clip-path:polygon(50% 0,90% 18%,84% 64%,50% 100%,16% 64%,10% 18%);
+  background:linear-gradient(145deg,rgba(196,240,255,.52),rgba(58,150,236,.20) 42%,rgba(9,72,134,.35));
+  border:2px solid rgba(174,229,255,.92);box-shadow:inset 0 0 34px rgba(117,218,255,.26),0 0 42px rgba(63,178,255,.34);
+}
+.v23-client.in-duel .v32n-shield-impact .shield-face::before { content:"";position:absolute;inset:8px;clip-path:inherit;border:2px solid rgba(221,248,255,.5);background:linear-gradient(120deg,rgba(255,255,255,.22),transparent 34%); }
+.v23-client.in-duel .v32n-shield-impact .shield-face b { position:absolute;left:50%;top:50%;width:34px;height:34px;border:4px solid rgba(220,248,255,.88);border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 18px rgba(122,219,255,.7); }
+.v23-client.in-duel .v32n-shield-impact .shield-ring { position:absolute;left:50%;top:50%;width:138px;height:138px;margin:-69px;border:2px solid rgba(116,215,255,.7);border-radius:50%;animation:v32nShieldRing .70s .12s ease-out both; }
+.v23-client.in-duel .v32n-shield-impact strong { position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);white-space:nowrap;color:#bfeaff;font-size:12px;font-weight:1000;letter-spacing:.16em;text-shadow:0 0 12px #44bfff; }
+.v23-client.in-duel .v32n-shield-impact.broken .shield-face::after { content:"";position:absolute;left:48%;top:12%;width:4px;height:78%;background:linear-gradient(180deg,transparent,#e8fbff 18%,#7cd8ff 48%,transparent);transform:rotate(13deg);box-shadow:14px 25px 0 -1px #b7eaff,-12px 42px 0 -1px #d9f5ff; }
+
+/* ATK / DEF / +shield must be public information on both sides. */
+.v23-client.in-duel .unit-slot .unit-stats,
+.v23-client.in-duel .unit-slot.enemy .unit-stats {
+  display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:5px!important;
+  visibility:visible!important;opacity:1!important;z-index:26!important;overflow:visible!important;
+  min-width:0!important;color:#eaf4fa!important;
+}
+.v23-client.in-duel .unit-slot .v32n-stat { display:inline-flex;align-items:baseline;gap:2px;min-width:0; }
+.v23-client.in-duel .unit-slot .v32n-stat b { font-size:1.08em;font-weight:1000;line-height:1; }
+.v23-client.in-duel .unit-slot .v32n-stat i { font-size:.56em;font-style:normal;font-weight:1000;letter-spacing:.08em;color:#718797; }
+.v23-client.in-duel .unit-slot .v32n-stat.attack b { color:#ffc479; }
+.v23-client.in-duel .unit-slot .v32n-stat.defense b { color:#8ddcff; }
+.v23-client.in-duel .unit-slot .v32n-shield-value {
+  margin-left:auto;display:inline-flex;align-items:center;gap:2px;font-style:normal;font-weight:1000;
+  color:#74f3bc!important;text-shadow:0 0 9px rgba(77,239,172,.45);font-size:.92em;
+}
+.v23-client.in-duel .unit-slot .v32n-shield-value::before {
+  content:"";width:10px;height:12px;display:inline-block;clip-path:polygon(50% 0,90% 18%,82% 68%,50% 100%,18% 68%,10% 18%);
+  background:linear-gradient(145deg,#d7fbff,#63d9ff 42%,#42c98f);box-shadow:0 0 7px rgba(91,222,255,.55);
+}
+
+@keyframes v32nSourceAnchor { 0%{opacity:0;transform:translate(-50%,-52%) scale(.72)}18%{opacity:1;transform:translate(-50%,-52%) scale(1.08)}60%{opacity:1;transform:translate(-50%,-52%) scale(.98)}100%{opacity:0;transform:translate(-50%,-52%) scale(.92)} }
+@keyframes v32nSourceDiveAnchor { 0%{opacity:0;transform:translate(-50%,-62%) scale(.65) rotate(-8deg)}20%{opacity:1;transform:translate(-50%,-52%) scale(1.08) rotate(0)}70%{opacity:1;transform:translate(-50%,-48%) scale(.98)}100%{opacity:0;transform:translate(-50%,-44%) scale(.90)} }
+@keyframes v32nSwordStrike { 0%{opacity:0;transform:translate(-72%,-50%) rotate(var(--attack-angle)) scale(.55)}32%{opacity:1;transform:translate(-52%,-50%) rotate(var(--attack-angle)) scale(1.12)}72%{opacity:1}100%{opacity:0;transform:translate(-42%,-50%) rotate(var(--attack-angle)) scale(.94)} }
+@keyframes v32nArrowImpact { 0%{opacity:0;transform:translate(-130%,-50%) rotate(var(--attack-angle)) scale(.72)}42%{opacity:1;transform:translate(-86%,-50%) rotate(var(--attack-angle)) scale(1.02)}78%{opacity:1}100%{opacity:0;transform:translate(-74%,-50%) rotate(var(--attack-angle)) scale(.96)} }
+@keyframes v32nLanceHit { 0%{opacity:0;transform:translate(-130%,-50%) rotate(var(--attack-angle)) scaleX(.6)}38%{opacity:1;transform:translate(-92%,-50%) rotate(var(--attack-angle)) scaleX(1.05)}78%{opacity:1}100%{opacity:0;transform:translate(-82%,-50%) rotate(var(--attack-angle))} }
+@keyframes v32nCannonHit { 0%{opacity:0;transform:scale(.15)}28%{opacity:1;transform:scale(1.15)}100%{opacity:0;transform:scale(2.0)} }
+@keyframes v32nImpactHalo { 0%{opacity:0;transform:scale(.25)}38%{opacity:1}100%{opacity:0;transform:scale(1.9)} }
+@keyframes v32nShieldWhole { 0%{opacity:0;transform:translate(-50%,-52%) scale(.55)}18%{opacity:1;transform:translate(-50%,-52%) scale(1.08)}70%{opacity:1;transform:translate(-50%,-52%) scale(1)}100%{opacity:0;transform:translate(-50%,-52%) scale(1.12)} }
+@keyframes v32nShieldRing { 0%{opacity:0;transform:scale(.45)}30%{opacity:.9}100%{opacity:0;transform:scale(1.45)} }
+
+@media (max-width:900px), (max-height:720px) {
+  .v23-client.in-duel .v32n-sword-fx { width:112px;transform:translate(-52%,-50%) rotate(var(--attack-angle)) scale(.86); }
+  .v23-client.in-duel .v32n-bow-fx { width:98px;transform:translate(-86%,-50%) rotate(var(--attack-angle)) scale(.86); }
+  .v23-client.in-duel .v32n-lance-fx { width:124px;transform:translate(-92%,-50%) rotate(var(--attack-angle)) scale(.86); }
+  .v23-client.in-duel .v32n-shield-impact { width:138px;height:154px;transform:translate(-50%,-52%) scale(.84); }
+  .v23-client.in-duel .unit-slot .unit-stats,.v23-client.in-duel .unit-slot.enemy .unit-stats { gap:3px!important; }
+  .v23-client.in-duel .unit-slot .v32n-stat i { font-size:.5em; }
+  .v23-client.in-duel .unit-slot .v32n-shield-value::before { width:8px;height:10px; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .v23-client.in-duel .v32n-sword-fx,
+  .v23-client.in-duel .v32n-bow-fx,
+  .v23-client.in-duel .v32n-lance-fx,
+  .v23-client.in-duel .v32n-cannon-fx,
+  .v23-client.in-duel .v32n-shield-impact { opacity:.92!important;animation-duration:.01ms!important;animation-iteration-count:1!important; }
+}
