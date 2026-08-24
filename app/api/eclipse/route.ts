@@ -1,5 +1,4 @@
 import { createClient, User } from '@supabase/supabase-js';
-import { randomBytes } from 'node:crypto';
 import {
   validateDeck,
   validateExtraDeck,
@@ -502,13 +501,6 @@ async function adminFindAccounts(admin: AdminDbClient, rawQuery: unknown): Promi
   return output;
 }
 
-function makeTemporaryPassword(): string {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const bytes = randomBytes(12);
-  const body = Array.from(bytes, (value: number) => alphabet[value % alphabet.length]).join('');
-  return `ED-${body.slice(0, 4)}-${body.slice(4, 8)}-${body.slice(8, 12)}`;
-}
-
 async function adminAccountSummary(admin: AdminDbClient, userId: string): Promise<AdminAccountSummary> {
   const [{ data: authData, error: authError }, { data: profile, error: profileError }] = await Promise.all([
     admin.auth.admin.getUserById(userId),
@@ -1008,12 +1000,19 @@ async function handleAction(request: Request, body: RequestBody) {
     const targetUserId = cleanText(body.userId, 64);
     if (!targetUserId) throw new Error('비밀번호를 재설정할 계정을 선택하세요.');
     if (targetUserId === user.id) throw new Error('제작자 본인 계정은 일반 유저와 동일하게 SYSTEM > 내 비밀번호 변경을 사용하세요.');
+
+    // v32u: 제작자가 직접 정한 임시 비밀번호만 사용합니다. 서버에서 임의 생성하지 않습니다.
+    const temporaryPassword = typeof body.temporaryPassword === 'string' ? body.temporaryPassword : '';
+    if (temporaryPassword.length < 6) throw new Error('임시 비밀번호는 6자 이상 입력하세요.');
+    if (temporaryPassword.length > 72) throw new Error('임시 비밀번호는 72자 이하로 입력하세요.');
+    if (/\r|\n/.test(temporaryPassword)) throw new Error('임시 비밀번호에는 줄바꿈을 사용할 수 없습니다.');
+
     const account = await adminAccountSummary(admin, targetUserId);
-    const temporaryPassword = makeTemporaryPassword();
     const { error } = await admin.auth.admin.updateUserById(targetUserId, { password: temporaryPassword });
     if (error) throw new Error(error.message);
-    console.info('[ECLIPSE ACCOUNT RECOVERY] password reset', { adminUserId: user.id, targetUserId });
-    return { account, temporaryPassword };
+    // 비밀번호 값은 로그/응답에 남기지 않습니다.
+    console.info('[ECLIPSE ACCOUNT RECOVERY] creator-set password reset', { adminUserId: user.id, targetUserId });
+    return { account };
   }
 
   if (action === 'update_profile') {
