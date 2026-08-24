@@ -6722,3 +6722,40 @@ html[data-ipad="true"] .v23-client.in-duel .v32o-energy-draw-action {
   .v32r-issued-password > button { width: 100%; }
   .v32r-security-panel > footer { align-items: stretch; flex-direction: column; }
 }
+
+
+/* v32u - creator chooses the temporary password manually */
+.v32r-account-results article.selected {
+  border-color: rgba(111, 220, 255, .5);
+  background: rgba(66, 181, 230, .08);
+  box-shadow: inset 0 0 0 1px rgba(111, 220, 255, .08);
+}
+.v32u-manual-reset {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid rgba(108, 207, 255, .28);
+  border-radius: 16px;
+  background: rgba(53, 151, 204, .055);
+}
+.v32u-manual-reset-title { display: grid; gap: 3px; margin-bottom: 1px; }
+.v32u-manual-reset-title > span { color: #78dcff; font-size: 11px; font-weight: 900; letter-spacing: .14em; }
+.v32u-manual-reset-title > b { color: #f1fbff; font-size: 17px; }
+.v32u-manual-reset-title > small { color: #9fb3c1; font-size: 12px; overflow-wrap: anywhere; }
+.v32u-manual-reset label { margin-top: 0; }
+.v32u-password-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.v32u-password-row > button {
+  min-width: 72px;
+  border: 1px solid rgba(115, 199, 235, .25);
+  border-radius: 12px;
+  background: rgba(96, 182, 224, .08);
+  color: #dff6ff;
+  font-weight: 850;
+  cursor: pointer;
+}
+.v32u-apply-password { justify-self: end; min-width: 180px; min-height: 44px; }
+@media (max-width: 720px) {
+  .v32u-password-row { grid-template-columns: 1fr; }
+  .v32u-password-row > button, .v32u-apply-password { width: 100%; min-height: 44px; }
+}

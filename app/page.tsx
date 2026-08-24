@@ -131,7 +131,6 @@ type ApiResult = {
   canRecoverAccounts?: boolean;
   accounts?: AdminAccountSummary[];
   account?: AdminAccountSummary;
-  temporaryPassword?: string;
 };
 
 const NAV_ITEMS: Array<{ id: View; label: string; icon: string }> = [
@@ -1304,6 +1303,10 @@ function AccountRecoveryModal({ open, onClose }: { open: boolean; onClose: () =>
   const [query, setQuery] = useState('');
   const [accounts, setAccounts] = useState<AdminAccountSummary[]>([]);
   const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<AdminAccountSummary | null>(null);
+  const [temporaryPassword, setTemporaryPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [resetting, setResetting] = useState('');
   const [issued, setIssued] = useState<{ account: AdminAccountSummary; password: string } | null>(null);
   const [message, setMessage] = useState('');
@@ -1312,6 +1315,10 @@ function AccountRecoveryModal({ open, onClose }: { open: boolean; onClose: () =>
     if (!open) return;
     setQuery('');
     setAccounts([]);
+    setSelected(null);
+    setTemporaryPassword('');
+    setConfirmPassword('');
+    setShowPassword(false);
     setIssued(null);
     setMessage('');
   }, [open]);
@@ -1321,7 +1328,10 @@ function AccountRecoveryModal({ open, onClose }: { open: boolean; onClose: () =>
   async function search(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
+    setSelected(null);
     setIssued(null);
+    setTemporaryPassword('');
+    setConfirmPassword('');
     setMessage('');
     try {
       const result = await api('admin_find_accounts', { query });
@@ -1336,16 +1346,34 @@ function AccountRecoveryModal({ open, onClose }: { open: boolean; onClose: () =>
     }
   }
 
-  async function resetPassword(account: AdminAccountSummary) {
-    const ok = window.confirm(`${account.displayName} (${account.playerCode}) 계정의 기존 비밀번호를 사용할 수 없게 만들고 임시 비밀번호를 새로 발급할까요?`);
+  function chooseAccount(account: AdminAccountSummary) {
+    setSelected(account);
+    setTemporaryPassword('');
+    setConfirmPassword('');
+    setIssued(null);
+    setMessage('');
+  }
+
+  async function resetPassword(event: FormEvent) {
+    event.preventDefault();
+    if (!selected) return setMessage('비밀번호를 변경할 유저를 먼저 선택하세요.');
+    if (temporaryPassword.length < 6) return setMessage('직접 지정할 임시 비밀번호를 6자 이상 입력하세요.');
+    if (temporaryPassword.length > 72) return setMessage('임시 비밀번호는 72자 이하로 입력하세요.');
+    if (temporaryPassword !== confirmPassword) return setMessage('임시 비밀번호 확인 값이 서로 다릅니다.');
+    const ok = window.confirm(`${selected.displayName} (${selected.playerCode}) 계정의 비밀번호를 지금 입력한 값으로 변경할까요? 기존 비밀번호는 즉시 사용할 수 없게 됩니다.`);
     if (!ok) return;
-    setResetting(account.userId);
+
+    setResetting(selected.userId);
     setIssued(null);
     setMessage('');
     try {
-      const result = await api('admin_reset_password', { userId: account.userId });
-      if (!result.temporaryPassword || !result.account) throw new Error('임시 비밀번호를 받지 못했습니다.');
-      setIssued({ account: result.account, password: result.temporaryPassword });
+      const chosenPassword = temporaryPassword;
+      const result = await api('admin_reset_password', { userId: selected.userId, temporaryPassword: chosenPassword });
+      if (!result.account) throw new Error('비밀번호 변경 결과를 확인하지 못했습니다.');
+      setIssued({ account: result.account, password: chosenPassword });
+      setTemporaryPassword('');
+      setConfirmPassword('');
+      setMessage(`${result.account.displayName} 계정의 임시 비밀번호를 제작자가 지정한 값으로 변경했습니다.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '비밀번호 재설정에 실패했습니다.');
     } finally {
@@ -1357,7 +1385,7 @@ function AccountRecoveryModal({ open, onClose }: { open: boolean; onClose: () =>
     if (!issued) return;
     try {
       await navigator.clipboard.writeText(issued.password);
-      setMessage('임시 비밀번호를 클립보드에 복사했습니다.');
+      setMessage('지정한 임시 비밀번호를 클립보드에 복사했습니다.');
     } catch {
       setMessage('자동 복사가 되지 않았습니다. 화면의 임시 비밀번호를 직접 복사해 주세요.');
     }
@@ -1366,15 +1394,23 @@ function AccountRecoveryModal({ open, onClose }: { open: boolean; onClose: () =>
   return (
     <div className="v32r-security-layer" role="presentation" onPointerDown={(event: React.PointerEvent) => { if (event.currentTarget === event.target) onClose(); }}>
       <section className="v32r-security-panel admin" role="dialog" aria-modal="true" aria-label="제작자 계정 복구">
-        <header><div><span>CREATOR RECOVERY</span><h3>유저 계정 복구</h3><p>기존 비밀번호를 조회하는 기능이 아니라, 선택한 계정에 새 임시 비밀번호를 발급합니다.</p></div><button type="button" onClick={onClose} aria-label="닫기">×</button></header>
-        <div className="v32r-security-warning"><b>중요</b><span>Supabase Auth는 비밀번호를 해시로 저장하므로 제작자도 현재 비밀번호 원문을 확인할 수 없습니다. 임시 비밀번호를 발급하면 기존 비밀번호는 즉시 사용할 수 없게 됩니다.</span></div>
+        <header><div><span>CREATOR RECOVERY</span><h3>유저 계정 복구</h3><p>유저를 선택한 뒤 제작자가 직접 임시 비밀번호를 입력해서 지정합니다.</p></div><button type="button" onClick={onClose} aria-label="닫기">×</button></header>
+        <div className="v32r-security-warning"><b>중요</b><span>현재 비밀번호 원문을 조회하는 기능은 아닙니다. 아래에서 제작자가 직접 새 비밀번호를 정하면 기존 비밀번호는 즉시 사용할 수 없게 됩니다.</span></div>
         <form className="v32r-account-search" onSubmit={search}><input value={query} onChange={(event: ChangeEvent<HTMLInputElement>) => setQuery(event.target.value)} placeholder="이메일 / ED-플레이어코드 / 닉네임" minLength={2} /><button className="primary-button" type="submit" disabled={busy}>{busy ? '검색 중...' : '계정 검색'}</button></form>
         <div className="v32r-account-results">
-          {accounts.map((account) => <article key={account.userId}><div><b>{account.displayName}</b><span>{account.playerCode}</span><small>{account.email || '이메일 없음'}</small></div><button type="button" disabled={resetting === account.userId} onClick={() => resetPassword(account)}>{resetting === account.userId ? '재설정 중...' : '임시 비밀번호 발급'}</button></article>)}
+          {accounts.map((account) => <article key={account.userId} className={selected?.userId === account.userId ? 'selected' : ''}><div><b>{account.displayName}</b><span>{account.playerCode}</span><small>{account.email || '이메일 없음'}</small></div><button type="button" onClick={() => chooseAccount(account)}>{selected?.userId === account.userId ? '선택됨' : '비밀번호 지정'}</button></article>)}
         </div>
-        {issued && <div className="v32r-issued-password"><div><span>발급 완료 · {issued.account.displayName}</span><b>{issued.password}</b><small>이 값은 이 화면에서만 전달됩니다. 유저가 로그인한 뒤 SYSTEM → 내 비밀번호 변경에서 새 비밀번호로 바꾸게 해주세요.</small></div><button type="button" onClick={copyTemporaryPassword}>복사</button></div>}
+
+        {selected && <form className="v32u-manual-reset" onSubmit={resetPassword}>
+          <div className="v32u-manual-reset-title"><span>PASSWORD SET</span><b>{selected.displayName}</b><small>{selected.playerCode} · {selected.email || '이메일 없음'}</small></div>
+          <label><span>내가 지정할 임시 비밀번호</span><div className="v32u-password-row"><input type={showPassword ? 'text' : 'password'} value={temporaryPassword} onChange={(event: ChangeEvent<HTMLInputElement>) => setTemporaryPassword(event.target.value)} minLength={6} maxLength={72} autoComplete="new-password" placeholder="6자 이상 직접 입력" /><button type="button" onClick={() => setShowPassword((value) => !value)}>{showPassword ? '숨기기' : '보기'}</button></div></label>
+          <label><span>임시 비밀번호 확인</span><input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(event: ChangeEvent<HTMLInputElement>) => setConfirmPassword(event.target.value)} minLength={6} maxLength={72} autoComplete="new-password" placeholder="같은 비밀번호 한 번 더 입력" /></label>
+          <button className="primary-button v32u-apply-password" type="submit" disabled={resetting === selected.userId || !temporaryPassword || !confirmPassword}>{resetting === selected.userId ? '변경 중...' : '이 비밀번호로 변경'}</button>
+        </form>}
+
+        {issued && <div className="v32r-issued-password"><div><span>변경 완료 · {issued.account.displayName}</span><b>{issued.password}</b><small>위 비밀번호는 서버가 만든 값이 아니라 제작자가 직접 입력한 값입니다. 유저에게 전달한 뒤 필요하면 SYSTEM → 내 비밀번호 변경에서 다시 바꾸게 해주세요.</small></div><button type="button" onClick={copyTemporaryPassword}>복사</button></div>}
         {message && <p className="v32r-security-message" role="status">{message}</p>}
-        <footer><span>계정의 기존 비밀번호 원문은 저장하거나 표시하지 않습니다.</span><button type="button" onClick={onClose}>닫기</button></footer>
+        <footer><span>비밀번호는 서버 로그에 기록하지 않으며, 제작자가 입력한 값으로만 재설정합니다.</span><button type="button" onClick={onClose}>닫기</button></footer>
       </section>
     </div>
   );
