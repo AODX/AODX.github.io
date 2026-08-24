@@ -104,6 +104,7 @@ type RoomMemberView = { user_id: string; role: 'player_a' | 'player_b' | 'specta
 type RoomPayload = { room: RoomRow; profiles: RoomProfile[]; privateState: PrivateState | null; members?: RoomMemberView[] };
 type ChatMessage = { id: number; user_id: string; display_name: string; nickname_style?: string; body: string; created_at: string };
 type ChatSkinProfile = Pick<Profile, 'user_id' | 'profile_theme' | 'profile_frame'>;
+type AdminAccountSummary = { userId: string; email: string; displayName: string; playerCode: string };
 
 type SecureServerStatus = {
   secureDuelReady: boolean;
@@ -127,6 +128,10 @@ type ApiResult = {
   balance?: number;
   serverStatus?: SecureServerStatus;
   resumedRoom?: boolean;
+  canRecoverAccounts?: boolean;
+  accounts?: AdminAccountSummary[];
+  account?: AdminAccountSummary;
+  temporaryPassword?: string;
 };
 
 const NAV_ITEMS: Array<{ id: View; label: string; icon: string }> = [
@@ -681,6 +686,7 @@ function polishedCardText(card: CardDefinition): string {
     .replace(/드로우/g, '카드 드로우')
     .trim();
   text = text
+    .replace(/^전설 특수 소환\s*[·:]\s*/g, '【전설 특수 소환】 ')
     .replace(/^균열 소환:\s*/g, '【균열 소환】 ')
     .replace(/^공명 융합[.:]?\s*/g, '【공명 융합】 ')
     .replace(/^계승 진화[.:]?\s*/g, '【계승 진화】 ')
@@ -692,9 +698,9 @@ function polishedCardText(card: CardDefinition): string {
 
 function RuleText({ text, compact = false }: { text: string; compact?: boolean }) {
   const source = text || '';
-  const tokenPattern = /(【[^】]+】|ENERGY|코어|보호막|공격력|체력|수호|속공|흡수|관통|직격|공명 융합|계승 진화|균열 소환|\+\d+|−\d+|-\d+|\d+\/\d+|\d+장|\d+체|\d+의 피해|\d+ 피해|\d+ 회복)/g;
+  const tokenPattern = /(【[^】]+】|ENERGY|코어|보호막|공격력|체력|수호|속공|흡수|관통|직격|공명 융합|계승 진화|균열 소환|전설 특수 소환|\+\d+|−\d+|-\d+|\d+\/\d+|\d+장|\d+체|\d+의 피해|\d+ 피해|\d+ 회복)/g;
   return <span className={`v31l-rule-text ${compact ? 'compact' : ''}`}>{source.split(tokenPattern).filter(Boolean).map((part, index) => {
-    const keyword = /^(【|수호$|속공$|흡수$|관통$|직격$|공명 융합$|계승 진화$|균열 소환$)/.test(part);
+    const keyword = /^(【|수호$|속공$|흡수$|관통$|직격$|공명 융합$|계승 진화$|균열 소환$|전설 특수 소환$)/.test(part);
     const number = /^(\+|−|-)?\d|\d+장$|\d+체$/.test(part);
     const resource = /^(ENERGY|코어|보호막|공격력|체력)$/.test(part);
     return <span key={`${part}-${index}`} className={`v31l-rule-token ${keyword ? 'keyword' : number ? 'number' : resource ? 'resource' : ''} ${compact ? 'compact' : ''}`}>{part}</span>;
@@ -726,7 +732,7 @@ function cardRoleSummary(card: CardDefinition): string {
 function trapTriggerDescription(trigger: CardDefinition['trapTrigger']): string {
   const labels: Record<NonNullable<CardDefinition['trapTrigger']>, string> = {
     spell_played: '상대가 주문을 발동했을 때',
-    unit_summoned: '상대가 유닛을 일반 소환했을 때',
+    unit_summoned: '상대가 유닛을 소환했을 때',
     special_summoned: '상대가 특수 소환했을 때',
     fusion_summoned: '상대가 공명 융합했을 때',
     evolution_summoned: '상대가 계승 진화했을 때',
@@ -739,6 +745,7 @@ function trapTriggerDescription(trigger: CardDefinition['trapTrigger']): string 
 
 function summonConditionDescription(card: CardDefinition): string {
   if (card.summonMode === 'rift') return `${card.riftCondition?.label ?? '균열 조건'} · ENERGY ${card.riftCost ?? card.cost}`;
+  if (card.summonMode === 'legendary') return `${card.legendarySummonRule?.name ?? '전설 강림'} · ${card.legendarySummonRule?.label ?? '전설 특수 소환 조건 확인'} · ENERGY ${card.cost}`;
   if (card.kind === 'fusion') {
     const base = card.fusionRecipe?.label ?? '지정 소재 조합';
     const extra = card.extraSummonRule ? extraSummonRuleDescription(card) : '';
@@ -952,6 +959,7 @@ function CardFace({
       <span className="v32-card-finish" aria-hidden="true" />
       <span className="card-cost">{card.cost}</span>
       {card.summonMode === 'rift' && <span className="summon-badge rift">균열</span>}
+      {card.summonMode === 'legendary' && <span className="summon-badge legendary">강림</span>}
       {card.kind === 'fusion' && <span className="summon-badge fusion">융합</span>}
       {card.kind === 'evolution' && <span className="summon-badge evolution">진화</span>}
       {isUnitCard(card) && (card.keywords?.includes('charge') || card.keywords?.includes('guard') || card.keywords?.includes('corestrike')) && (
@@ -1020,7 +1028,9 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
       ? '계승 진화'
       : card.summonMode === 'rift'
         ? '균열 소환'
-        : '일반 소환';
+        : card.summonMode === 'legendary'
+          ? '전설 특수 소환'
+          : '일반 소환';
 
   return (
     <div className="modal-layer card-detail-layer" role="presentation" onPointerDown={(event: React.PointerEvent) => { if (event.currentTarget === event.target) onClose(); }}>
@@ -1175,21 +1185,27 @@ function ControlCenter({
   open,
   soundEnabled,
   soundVolume,
+  canRecoverAccounts,
   onClose,
   onToggleSound,
   onVolumeChange,
   onOpenGuide,
   onOpenProfile,
+  onOpenPasswordChange,
+  onOpenAccountRecovery,
   onSignOut,
 }: {
   open: boolean;
   soundEnabled: boolean;
   soundVolume: number;
+  canRecoverAccounts: boolean;
   onClose: () => void;
   onToggleSound: () => void;
   onVolumeChange: (volume: number) => void;
   onOpenGuide: () => void;
   onOpenProfile: () => void;
+  onOpenPasswordChange: () => void;
+  onOpenAccountRecovery: () => void;
   onSignOut: () => void;
 }) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -1228,9 +1244,138 @@ function ControlCenter({
         <section className="v22-control-actions">
           <button type="button" onClick={onOpenGuide}><span>?</span><div><b>룰 가이드</b><small>키워드와 기본 규칙 확인</small></div></button>
           <button type="button" onClick={onOpenProfile}><span>◎</span><div><b>프로필</b><small>아바타와 프로필 스킨 관리</small></div></button>
+          <button type="button" onClick={onOpenPasswordChange}><span>⌁</span><div><b>내 비밀번호 변경</b><small>로그인 비밀번호를 새 값으로 교체</small></div></button>
+          {canRecoverAccounts && <button className="v32r-admin-entry" type="button" onClick={onOpenAccountRecovery}><span>◆</span><div><b>유저 비밀번호 복구</b><small>제작자 전용 · 다른 기능은 일반 유저와 동일</small></div></button>}
         </section>
         <footer><span>ECLIPSE DUEL · COMMERCIAL BUILD v26</span><button type="button" onClick={onSignOut}>로그아웃</button></footer>
       </aside>
+    </div>
+  );
+}
+
+function PasswordChangeModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setPassword('');
+    setConfirmPassword('');
+    setMessage('');
+  }, [open]);
+
+  if (!open) return null;
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    if (password.length < 6) return setMessage('새 비밀번호는 6자 이상 입력하세요.');
+    if (password !== confirmPassword) return setMessage('비밀번호 확인 값이 서로 다릅니다.');
+    setBusy(true);
+    setMessage('');
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      setPassword('');
+      setConfirmPassword('');
+      setMessage('비밀번호가 변경되었습니다. 다음 로그인부터 새 비밀번호를 사용하세요.');
+    } catch (error) {
+      setMessage(friendlyAuthMessage(error instanceof Error ? error.message : '비밀번호 변경에 실패했습니다.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="v32r-security-layer" role="presentation" onPointerDown={(event: React.PointerEvent) => { if (event.currentTarget === event.target) onClose(); }}>
+      <form className="v32r-security-panel compact" role="dialog" aria-modal="true" aria-label="비밀번호 변경" onSubmit={save}>
+        <header><div><span>ACCOUNT SECURITY</span><h3>내 비밀번호 변경</h3><p>현재 로그인된 계정의 비밀번호를 새 값으로 바꿉니다.</p></div><button type="button" onClick={onClose} aria-label="닫기">×</button></header>
+        <label><span>새 비밀번호</span><input type="password" value={password} onChange={(event: ChangeEvent<HTMLInputElement>) => setPassword(event.target.value)} minLength={6} autoComplete="new-password" placeholder="6자 이상" /></label>
+        <label><span>새 비밀번호 확인</span><input type="password" value={confirmPassword} onChange={(event: ChangeEvent<HTMLInputElement>) => setConfirmPassword(event.target.value)} minLength={6} autoComplete="new-password" placeholder="한 번 더 입력" /></label>
+        {message && <p className="v32r-security-message" role="status">{message}</p>}
+        <div className="v32r-security-buttons"><button type="button" onClick={onClose}>취소</button><button className="primary-button" type="submit" disabled={busy}>{busy ? '변경 중...' : '비밀번호 변경'}</button></div>
+      </form>
+    </div>
+  );
+}
+
+function AccountRecoveryModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [query, setQuery] = useState('');
+  const [accounts, setAccounts] = useState<AdminAccountSummary[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [resetting, setResetting] = useState('');
+  const [issued, setIssued] = useState<{ account: AdminAccountSummary; password: string } | null>(null);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setQuery('');
+    setAccounts([]);
+    setIssued(null);
+    setMessage('');
+  }, [open]);
+
+  if (!open) return null;
+
+  async function search(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setIssued(null);
+    setMessage('');
+    try {
+      const result = await api('admin_find_accounts', { query });
+      const found = result.accounts ?? [];
+      setAccounts(found);
+      if (!found.length) setMessage('일치하는 계정을 찾지 못했습니다. 이메일, 플레이어 코드 또는 닉네임을 다시 확인하세요.');
+    } catch (error) {
+      setAccounts([]);
+      setMessage(error instanceof Error ? error.message : '계정 검색에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resetPassword(account: AdminAccountSummary) {
+    const ok = window.confirm(`${account.displayName} (${account.playerCode}) 계정의 기존 비밀번호를 사용할 수 없게 만들고 임시 비밀번호를 새로 발급할까요?`);
+    if (!ok) return;
+    setResetting(account.userId);
+    setIssued(null);
+    setMessage('');
+    try {
+      const result = await api('admin_reset_password', { userId: account.userId });
+      if (!result.temporaryPassword || !result.account) throw new Error('임시 비밀번호를 받지 못했습니다.');
+      setIssued({ account: result.account, password: result.temporaryPassword });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '비밀번호 재설정에 실패했습니다.');
+    } finally {
+      setResetting('');
+    }
+  }
+
+  async function copyTemporaryPassword() {
+    if (!issued) return;
+    try {
+      await navigator.clipboard.writeText(issued.password);
+      setMessage('임시 비밀번호를 클립보드에 복사했습니다.');
+    } catch {
+      setMessage('자동 복사가 되지 않았습니다. 화면의 임시 비밀번호를 직접 복사해 주세요.');
+    }
+  }
+
+  return (
+    <div className="v32r-security-layer" role="presentation" onPointerDown={(event: React.PointerEvent) => { if (event.currentTarget === event.target) onClose(); }}>
+      <section className="v32r-security-panel admin" role="dialog" aria-modal="true" aria-label="제작자 계정 복구">
+        <header><div><span>CREATOR RECOVERY</span><h3>유저 계정 복구</h3><p>기존 비밀번호를 조회하는 기능이 아니라, 선택한 계정에 새 임시 비밀번호를 발급합니다.</p></div><button type="button" onClick={onClose} aria-label="닫기">×</button></header>
+        <div className="v32r-security-warning"><b>중요</b><span>Supabase Auth는 비밀번호를 해시로 저장하므로 제작자도 현재 비밀번호 원문을 확인할 수 없습니다. 임시 비밀번호를 발급하면 기존 비밀번호는 즉시 사용할 수 없게 됩니다.</span></div>
+        <form className="v32r-account-search" onSubmit={search}><input value={query} onChange={(event: ChangeEvent<HTMLInputElement>) => setQuery(event.target.value)} placeholder="이메일 / ED-플레이어코드 / 닉네임" minLength={2} /><button className="primary-button" type="submit" disabled={busy}>{busy ? '검색 중...' : '계정 검색'}</button></form>
+        <div className="v32r-account-results">
+          {accounts.map((account) => <article key={account.userId}><div><b>{account.displayName}</b><span>{account.playerCode}</span><small>{account.email || '이메일 없음'}</small></div><button type="button" disabled={resetting === account.userId} onClick={() => resetPassword(account)}>{resetting === account.userId ? '재설정 중...' : '임시 비밀번호 발급'}</button></article>)}
+        </div>
+        {issued && <div className="v32r-issued-password"><div><span>발급 완료 · {issued.account.displayName}</span><b>{issued.password}</b><small>이 값은 이 화면에서만 전달됩니다. 유저가 로그인한 뒤 SYSTEM → 내 비밀번호 변경에서 새 비밀번호로 바꾸게 해주세요.</small></div><button type="button" onClick={copyTemporaryPassword}>복사</button></div>}
+        {message && <p className="v32r-security-message" role="status">{message}</p>}
+        <footer><span>계정의 기존 비밀번호 원문은 저장하거나 표시하지 않습니다.</span><button type="button" onClick={onClose}>닫기</button></footer>
+      </section>
     </div>
   );
 }
@@ -2504,7 +2649,7 @@ function duelEventLabel(event: VisualEvent): string {
   if (event.kind === 'turn') return '턴 시작';
   if (event.kind === 'summon') return '일반 소환';
   if (event.kind === 'special' && (event.vfx === 'legendary-fusion-choice' || event.vfx === 'legendary-evolution-choice')) return '전설 선택 효과';
-  if (event.kind === 'special') return '균열 소환';
+  if (event.kind === 'special') return '특수 소환';
   if (event.kind === 'fusion') return '공명 융합';
   if (event.kind === 'evolution') return '계승 진화';
   if (event.kind === 'spell') return '주문 발동';
@@ -3230,7 +3375,7 @@ function UnitSlot({
           </span>
           {attackReady && <span className="v30-attack-ready-badge"><i />공격 가능</span>}
           {attackTarget && <span className="v30-attack-target-badge"><i />공격 대상</span>}
-          {unit.summonedBy !== 'normal' && unit.summonedBy !== 'token' && <span className={`origin-badge ${unit.summonedBy}`}>{unit.summonedBy === 'rift' ? 'RIFT' : unit.summonedBy === 'fusion' ? 'FUSION' : 'EVOLVE'}</span>}
+          {unit.summonedBy !== 'normal' && unit.summonedBy !== 'token' && <span className={`origin-badge ${unit.summonedBy}`}>{unit.summonedBy === 'rift' ? 'RIFT' : unit.summonedBy === 'legendary' ? 'LEGEND' : unit.summonedBy === 'fusion' ? 'FUSION' : 'EVOLVE'}</span>}
           <span className="unit-name">{card?.name ?? unit.cardId.replace('token:', '')}</span>
           <span className="unit-stats" aria-label={`공격 ${unit.attack}, 방어 ${unit.health}${unit.shield > 0 ? `, 방어막 +${unit.shield}` : ''}`}>
             <span className="v32n-stat attack"><b>{unit.attack}</b><i>ATK</i></span>
@@ -3299,6 +3444,7 @@ function extraRequirement(card: CardDefinition): string {
     return [sourceText, cleanedPremium, choose].filter(Boolean).join(' · ');
   }
   if (card.summonMode === 'rift') return card.riftCondition?.label ?? '균열 조건을 확인하세요.';
+  if (card.summonMode === 'legendary') return `${card.legendarySummonRule?.name ?? '전설 강림'} · ${card.legendarySummonRule?.label ?? '전설 특수 소환 조건을 확인하세요.'}`;
   return card.text;
 }
 
@@ -3334,6 +3480,48 @@ function clientRiftBlockReason(state: MatchState, playerId: string, opponentId: 
   if (condition.kind === 'graveyard_min' && (state.graveyards[playerId]?.length ?? 0) < condition.value) return `내 묘지에 카드가 ${condition.value}장 이상 필요합니다. 현재 ${state.graveyards[playerId]?.length ?? 0}장.`;
   if (condition.kind === 'ally_element' && !myUnits.some((unit) => CARD_BY_ID[unit?.cardId ?? '']?.element === condition.element)) return `내 필드에 ${ELEMENT_LABEL[condition.element]} 속성 아군이 1장 이상 필요합니다.`;
   return null;
+}
+
+function clientSameLegendarySeries(source: CardDefinition | undefined, legendary: CardDefinition): boolean {
+  if (!source) return false;
+  if (legendary.seriesId) return source.seriesId === legendary.seriesId;
+  if (legendary.series) return source.series === legendary.series;
+  return false;
+}
+
+function clientLegendaryBlockReason(state: MatchState, playerId: string, opponentId: string, card: CardDefinition): string | null {
+  if (card.rarity === 'legendary' && card.kind === 'unit' && card.summonMode !== 'rift' && card.summonMode !== 'legendary') {
+    return '메인 덱 전설 유닛은 일반 소환할 수 없습니다. 전설 특수 소환 조건이 필요합니다.';
+  }
+  if (card.summonMode !== 'legendary') return null;
+  const rule = card.legendarySummonRule;
+  if (!rule) return '전설 특수 소환 조건이 설정되지 않았습니다.';
+  const myUnits = state.boards[playerId].units.filter((unit): unit is UnitState => Boolean(unit));
+  const enemyUnits = state.boards[opponentId].units.filter(Boolean);
+  const graveyard = state.graveyards[playerId] ?? [];
+  const sameSeriesCount = myUnits.filter((unit) => clientSameLegendarySeries(CARD_BY_ID[unit.cardId], card)).length;
+
+  if (rule.requireEmptyField && myUnits.length > 0) return `내 필드가 비어 있어야 합니다. 현재 내 유닛 ${myUnits.length}체.`;
+  if (rule.minimumAllies !== undefined && myUnits.length < rule.minimumAllies) return `내 필드에 유닛이 ${rule.minimumAllies}체 이상 필요합니다. 현재 ${myUnits.length}체.`;
+  if (rule.minimumSameSeries !== undefined && sameSeriesCount < rule.minimumSameSeries) return `같은 시리즈 유닛이 ${rule.minimumSameSeries}체 필요합니다. 현재 ${sameSeriesCount}체.`;
+  if (rule.graveyardMin !== undefined && graveyard.length < rule.graveyardMin) return `내 묘지에 카드가 ${rule.graveyardMin}장 이상 필요합니다. 현재 ${graveyard.length}장.`;
+  if (rule.graveyardKind && rule.graveyardKindMin !== undefined) {
+    const kindCount = graveyard.filter((cardId) => CARD_BY_ID[cardId]?.kind === rule.graveyardKind).length;
+    if (kindCount < rule.graveyardKindMin) {
+      const kindLabel = rule.graveyardKind === 'spell' ? '주문' : rule.graveyardKind === 'trap' ? '함정' : '유닛';
+      return `내 묘지에 ${kindLabel} 카드가 ${rule.graveyardKindMin}장 이상 필요합니다. 현재 ${kindCount}장.`;
+    }
+  }
+  if (rule.coreAtMost !== undefined && (state.core[playerId] ?? 25) > rule.coreAtMost) return `내 코어가 ${rule.coreAtMost} 이하여야 합니다. 현재 ${state.core[playerId] ?? 25}.`;
+  if (rule.requireOutnumbered && enemyUnits.length <= myUnits.length) return `상대 필드 유닛이 내 필드보다 많아야 합니다. 현재 나 ${myUnits.length} / 상대 ${enemyUnits.length}.`;
+
+  const releasesSpace = rule.release === 'all' ? myUnits.length > 0 : rule.release === 'same_series' && (rule.minimumSameSeries ?? 0) > 0;
+  if (!releasesSpace && !state.boards[playerId].units.some((slot) => !slot)) return '전설을 놓을 빈 유닛 칸이 없습니다.';
+  return null;
+}
+
+function clientLegendaryReady(state: MatchState, playerId: string, opponentId: string, card: CardDefinition): boolean {
+  return card.summonMode === 'legendary' && clientLegendaryBlockReason(state, playerId, opponentId, card) === null;
 }
 
 function clientFusionMaterialMatches(unit: UnitState, material: NonNullable<CardDefinition['fusionRecipe']>['materials'][number], fusionCard: CardDefinition): boolean {
@@ -3903,7 +4091,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const roundNumber = Math.max(1, Math.ceil(state.turnNumber / 2));
   const phaseLabel = state.phase === 'main' ? '메인 단계' : '전투 단계';
   const selectedHandCost = selectedCard?.summonMode === 'rift' && selectedCard.riftCost !== undefined ? `${selectedCard.cost} / 균열 ${selectedCard.riftCost}` : selectedCard?.cost;
-  const selectingUnitToSummon = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.kind === 'unit');
+  const selectingUnitToSummon = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.kind === 'unit' && selectedCard.summonMode !== 'legendary');
   const selectingTrapToSet = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.kind === 'trap');
   const selectingEnemyTarget = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.target === 'enemy_unit');
   const selectingFriendlyTarget = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.target === 'friendly_unit');
@@ -3925,6 +4113,11 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     const cost = card.riftCost ?? card.cost;
     return myTurn && !interactionLocked && state.phase === 'main' && myEnergy.current >= cost && state.boards[userId].units.some((slot) => !slot) && clientRiftReady(state, userId, opponentId, card);
   });
+  const legendarySpecialReadyInstances = privateState.hand.filter((instance) => {
+    const card = CARD_BY_ID[instance.cardId];
+    if (!card || card.kind !== 'unit' || card.summonMode !== 'legendary') return false;
+    return myTurn && !interactionLocked && state.phase === 'main' && myEnergy.current >= card.cost && clientLegendaryReady(state, userId, opponentId, card);
+  });
   const extraReadyInstances = privateState.extra.filter((instance) => {
     const card = CARD_BY_ID[instance.cardId];
     if (!card || card.cost > myEnergy.current || !myTurn || interactionLocked || state.phase !== 'main') return false;
@@ -3938,14 +4131,17 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     }
     return false;
   });
-  const specialReadyIds = new Set([...riftReadyInstances.map((item) => item.instanceId), ...extraReadyInstances.map((item) => item.instanceId)]);
+  const specialReadyIds = new Set([...riftReadyInstances.map((item) => item.instanceId), ...legendarySpecialReadyInstances.map((item) => item.instanceId), ...extraReadyInstances.map((item) => item.instanceId)]);
   const specialReadyCount = specialReadyIds.size;
-  const emptyUnitZone = state.boards[userId].units.some((slot) => !slot);
   const legendaryReadyFromHand = privateState.hand.flatMap((instance) => {
     const card = CARD_BY_ID[instance.cardId];
-    if (!card || card.rarity !== 'legendary' || card.kind !== 'unit' || !myTurn || state.phase !== 'main' || !emptyUnitZone) return [];
+    if (!card || card.rarity !== 'legendary' || card.kind !== 'unit' || !myTurn || interactionLocked || state.phase !== 'main') return [];
     const cost = card.summonMode === 'rift' ? (card.riftCost ?? card.cost) : card.cost;
-    const ready = myEnergy.current >= cost && (card.summonMode !== 'rift' || clientRiftReady(state, userId, opponentId, card));
+    const ready = card.summonMode === 'rift'
+      ? myEnergy.current >= cost && state.boards[userId].units.some((slot) => !slot) && clientRiftReady(state, userId, opponentId, card)
+      : card.summonMode === 'legendary'
+        ? myEnergy.current >= cost && clientLegendaryReady(state, userId, opponentId, card)
+        : false;
     return ready ? [{ instanceId: instance.instanceId, card, source: 'hand' as const }] : [];
   });
   const legendaryReadyFromExtra = extraReadyInstances.flatMap((instance) => {
@@ -3959,11 +4155,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     if (!myTurn) reasons.push('지금은 상대 턴입니다.');
     if (state.phase !== 'main') reasons.push('유닛 소환은 메인 단계에서만 가능합니다.');
     if (interactionLocked) reasons.push('현재 함정 발동 여부를 결정하는 중이라 다른 행동을 할 수 없습니다.');
-    if (!state.boards[userId].units.some((slot) => !slot)) reasons.push('내 유닛 칸 5개가 모두 차 있습니다.');
+    if (card.summonMode !== 'legendary' && !state.boards[userId].units.some((slot) => !slot)) reasons.push('내 유닛 칸 5개가 모두 차 있습니다.');
     const requiredEnergy = card.summonMode === 'rift' ? (card.riftCost ?? card.cost) : card.cost;
     if (myEnergy.current < requiredEnergy) reasons.push(`에너지가 부족합니다. 필요 ${requiredEnergy} / 현재 ${myEnergy.current}.`);
     const riftReason = clientRiftBlockReason(state, userId, opponentId, card);
     if (riftReason) reasons.push(riftReason);
+    const legendaryReason = clientLegendaryBlockReason(state, userId, opponentId, card);
+    if (legendaryReason) reasons.push(legendaryReason);
     return reasons;
   }
 
@@ -4074,6 +4272,20 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       return;
     }
     gameAction('play_card', { instanceId: selectedHand, zone });
+  }
+
+  function summonSelectedLegendary() {
+    if (!selectedCard || selectedCard.kind !== 'unit' || selectedCard.summonMode !== 'legendary' || !selectedHand) {
+      setMessage('먼저 손패의 전설 특수 소환 카드를 선택하세요.');
+      return;
+    }
+    const blockReasons = handSummonBlockReasons(selectedCard);
+    if (blockReasons.length > 0) {
+      showSummonBlock(selectedCard, blockReasons);
+      return;
+    }
+    setMessage(`${selectedCard.legendarySummonRule?.name ?? '전설 강림'} 발동 — 조건에 따라 릴리스가 자동 처리됩니다.`);
+    gameAction('play_card', { instanceId: selectedHand });
   }
 
   function playToSecretZone(zone: number) {
@@ -4266,7 +4478,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         : '빛나는 내 유닛을 선택해 공격을 선언하세요.'
       : selectedExtraCard ? `${selectedExtraCard.extraChoices?.length && selectedExtraChoice === null ? 'CHOOSE 효과 1개 선택 · ' : ''}소재 ${selectedMaterials.length}/${requiredMaterials} 선택 후 특수 소환하세요.`
         : selectedFieldUnitState ? `선택한 ${selectedFieldUnitCard?.name ?? '캐릭터'}을(를) 묘지로 보내 빈 칸을 만들고 에너지 1을 얻을 수 있습니다.`
-        : selectedCard?.kind === 'unit' ? '빛나는 빈 유닛 칸을 눌러 소환하세요.'
+        : selectedCard?.kind === 'unit' ? selectedCard.summonMode === 'legendary' ? '오른쪽의 전설 특수 소환 버튼을 눌러 강림 조건을 확인하거나 발동하세요.' : '빛나는 빈 유닛 칸을 눌러 소환하세요.'
           : selectedCard?.kind === 'trap' ? '빛나는 빈 함정 칸을 눌러 세트하세요. 세트한 함정은 나에게만 앞면으로 보입니다.'
             : selectedCard?.target === 'enemy_unit' ? '빛나는 적 유닛을 선택하세요.'
               : selectedCard?.target === 'friendly_unit' ? '빛나는 아군 유닛을 선택하세요.'
@@ -4276,7 +4488,9 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
 
   const playableHandCount = privateState.hand.filter((instance) => {
     const card = CARD_BY_ID[instance.cardId];
-    if (!card || !myTurn || state.phase !== 'main') return false;
+    if (!card || !myTurn || interactionLocked || state.phase !== 'main') return false;
+    if (card.kind === 'unit' && card.summonMode === 'legendary') return myEnergy.current >= card.cost && clientLegendaryReady(state, userId, opponentId, card);
+    if (card.kind === 'unit' && card.rarity === 'legendary' && card.summonMode !== 'rift') return false;
     const cost = card.summonMode === 'rift' && card.riftCost !== undefined && clientRiftReady(state, userId, opponentId, card) ? card.riftCost : card.cost;
     return myEnergy.current >= cost;
   }).length;
@@ -4298,7 +4512,9 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
           : selectedExtraCard
             ? { step: 1, kicker: 'SPECIAL SUMMON', title: '특수 소환 소재를 고르세요', detail: `필드에서 빛나는 소재를 ${requiredMaterials}장 선택한 뒤 특수 소환 버튼을 누르세요.`, tip: `현재 선택 ${selectedMaterials.length}/${requiredMaterials}` }
           : selectedCard?.kind === 'unit'
-            ? { step: 1, kicker: 'SUMMON', title: '소환할 빈 칸을 선택하세요', detail: '손패에서 유닛을 골랐습니다. 파랗게 빛나는 내 유닛 칸을 누르면 소환됩니다.', tip: `사용 에너지 ${selectedHandCost ?? selectedCard.cost} · 현재 ${myEnergy.current}/${myEnergy.max}` }
+            ? selectedCard.summonMode === 'legendary'
+              ? { step: 1, kicker: 'LEGENDARY SUMMON', title: `${selectedCard.legendarySummonRule?.name ?? '전설 강림'} 준비`, detail: selectedCard.legendarySummonRule?.label ?? '전설 특수 소환 조건을 확인하세요.', tip: `조건을 만족하면 오른쪽 “전설 특수 소환” 버튼으로 발동 · ENERGY ${selectedCard.cost}` }
+              : { step: 1, kicker: 'SUMMON', title: '소환할 빈 칸을 선택하세요', detail: '손패에서 유닛을 골랐습니다. 파랗게 빛나는 내 유닛 칸을 누르면 소환됩니다.', tip: `사용 에너지 ${selectedHandCost ?? selectedCard.cost} · 현재 ${myEnergy.current}/${myEnergy.max}` }
             : selectedCard?.kind === 'trap'
               ? { step: 1, kicker: 'SET TRAP', title: '함정을 놓을 칸을 선택하세요', detail: '아래쪽 S1~S5 중 빛나는 빈 함정 칸을 누르면 세트됩니다.', tip: '세트한 함정의 앞면은 나에게만 보입니다.' }
               : selectedCard?.target === 'enemy_unit'
@@ -4498,7 +4714,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
           </section>
         )}
         {myTurn && specialReadyCount > 0 && state.phase === 'main' && (
-          <button type="button" className="v18-special-ready" onClick={() => setExtraOpen(true)}><span>✦</span><div><b>특수 소환 가능</b><small>{specialReadyCount}장의 카드가 조건을 만족합니다.</small></div><em>보기</em></button>
+          <button type="button" className="v18-special-ready" onClick={() => legendaryReadyFromHand[0] ? chooseHand(legendaryReadyFromHand[0].instanceId) : setExtraOpen(true)}><span>✦</span><div><b>특수 소환 가능</b><small>{specialReadyCount}장의 카드가 조건을 만족합니다.</small></div><em>보기</em></button>
         )}
 
         {previewCard && <section className={`v18-context-panel has-card ${previewIsHoverOnly ? 'preview-only' : ''}`}>
@@ -4512,10 +4728,11 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
           {selectedCard && (
             <div className="v18-selected-card">
               <div className="v18-selected-art"><CardIllustration card={selectedCard} compact /></div>
-              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p><RuleText text={selectedCard.summonMode === 'rift' ? `【균열 조건】 ${extraRequirement(selectedCard)}` : polishedCardText(selectedCard)} /></p>{selectedCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(selectedCard)} /></p>}{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(selectedCard)} /></p>}</div>
+              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p><RuleText text={selectedCard.summonMode === 'rift' ? `【균열 조건】 ${extraRequirement(selectedCard)}` : selectedCard.summonMode === 'legendary' ? `【전설 특수 소환】 ${extraRequirement(selectedCard)}` : polishedCardText(selectedCard)} /></p>{selectedCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(selectedCard)} /></p>}{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(selectedCard)} /></p>}</div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>선택 취소</button></div>
               {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button className="v18-context-primary" onClick={activateSelectedNoTarget}>주문 발동</button>}
               {selectedCard.kind === 'spell' && selectedCard.target === 'friendly_graveyard_unit' && <button className="v18-context-primary v31d-grave-target-button" disabled={!canChooseGraveyardTarget} onClick={openGraveyardTargetPicker}>묘지에서 부활 대상 선택 · {graveyardReviveTargets.length}</button>}
+              {selectedCard.kind === 'unit' && selectedCard.summonMode === 'legendary' && <button className="v18-context-primary v32q-legendary-summon" type="button" onClick={summonSelectedLegendary}>{handSummonBlockReasons(selectedCard).length === 0 ? `전설 특수 소환 · ${selectedCard.legendarySummonRule?.name ?? '강림'}` : '전설 특수 소환 조건 확인'}</button>}
               {myTurn && state.phase === 'main' && <button className="v31-energy-convert" disabled={!canSacrificeSelectedForEnergy} onClick={sacrificeSelectedForEnergy}><span>손패 → ENERGY +1</span><small>{energySacrificeUsed ? '이번 턴 사용 완료' : myEnergy.current >= 10 ? '에너지 최대치' : '이 카드를 묘지로 보냅니다 · 턴당 1회'}</small></button>}
             </div>
           )}
@@ -4567,7 +4784,9 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
           {privateState.hand.map((instance) => {
             const card = CARD_BY_ID[instance.cardId];
             const effectiveCost = card?.summonMode === 'rift' && card.riftCost !== undefined && clientRiftReady(state, userId, opponentId, card) ? card.riftCost : card?.cost ?? 99;
-            const affordable = Boolean(card && myTurn && !interactionLocked && state.phase === 'main' && myEnergy.current >= effectiveCost);
+            const affordable = Boolean(card && myTurn && !interactionLocked && state.phase === 'main' && myEnergy.current >= effectiveCost
+              && (card.summonMode !== 'legendary' || clientLegendaryReady(state, userId, opponentId, card))
+              && !(card.kind === 'unit' && card.rarity === 'legendary' && card.summonMode !== 'rift' && card.summonMode !== 'legendary'));
             const legendaryReady = Boolean(card?.rarity === 'legendary' && legendaryReadyCards.some((item) => item.instanceId === instance.instanceId));
             return <div
               className={`v18-hand-card ${specialReadyIds.has(instance.instanceId) ? 'special-ready' : ''} ${legendaryReady ? 'legendary-ready' : ''} ${recentDrawnIds.has(instance.instanceId) ? 'just-drawn' : ''} ${affordable ? 'playable' : 'not-playable'} ${selectedHand === instance.instanceId ? 'selected' : ''}`}
@@ -5069,6 +5288,9 @@ export default function Page() {
   const [soundVolume, setSoundVolume] = useState(0.82);
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
+  const [accountRecoveryOpen, setAccountRecoveryOpen] = useState(false);
+  const [canRecoverAccounts, setCanRecoverAccounts] = useState(false);
 
   useEffect(() => {
     if (chatOpen) setChatUnread(false);
@@ -5158,6 +5380,7 @@ export default function Page() {
           if (!nextSession) {
             setHub(null);
             setRoomPayload(null);
+            setIsAdmin(false);
           }
         }
       }
@@ -5170,6 +5393,7 @@ export default function Page() {
         if (!changedSession) {
           setHub(null);
           setRoomPayload(null);
+          setIsAdmin(false);
         }
       });
       unsubscribe = () => authListener.data.subscription.unsubscribe();
@@ -5192,6 +5416,7 @@ export default function Page() {
       .then((result) => {
         if (!alive) return;
         if (result.hub) setHub(result.hub);
+        setCanRecoverAccounts(result.canRecoverAccounts === true);
         if (result.serverStatus) setServerStatus(result.serverStatus);
         if (result.room && result.profiles) {
           setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [] });
@@ -5446,15 +5671,20 @@ export default function Page() {
         open={settingsOpen}
         soundEnabled={soundEnabled}
         soundVolume={soundVolume}
+        canRecoverAccounts={canRecoverAccounts}
         onClose={() => setSettingsOpen(false)}
         onToggleSound={toggleSound}
         onVolumeChange={changeSoundVolume}
         onOpenGuide={() => { setSettingsOpen(false); setGuideOpen(true); }}
         onOpenProfile={() => { setSettingsOpen(false); setView('profile'); }}
+        onOpenPasswordChange={() => { setSettingsOpen(false); setPasswordChangeOpen(true); }}
+        onOpenAccountRecovery={() => { setSettingsOpen(false); setAccountRecoveryOpen(true); }}
         onSignOut={() => { setSettingsOpen(false); void supabase.auth.signOut({ scope: 'local' }); }}
       />
       {inspectedCardId && CARD_BY_ID[inspectedCardId] && <CardDetailModal card={CARD_BY_ID[inspectedCardId]} onClose={() => setInspectedCardId(null)} />}
       {guideOpen && <GameGuideModal onClose={() => setGuideOpen(false)} />}
+      <PasswordChangeModal open={passwordChangeOpen} onClose={() => setPasswordChangeOpen(false)} />
+      {canRecoverAccounts && <AccountRecoveryModal open={accountRecoveryOpen} onClose={() => setAccountRecoveryOpen(false)} />}
     </main>
   );
 }
