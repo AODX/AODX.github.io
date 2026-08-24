@@ -1,4 +1,5 @@
 import { createClient, User } from '@supabase/supabase-js';
+import { randomBytes } from 'node:crypto';
 import {
   validateDeck,
   validateExtraDeck,
@@ -412,6 +413,115 @@ async function requireUser(request: Request): Promise<{ user: User; client: User
   const { data, error } = await auth.auth.getUser(token);
   if (error || !data.user) throw new AuthRequiredError();
   return { user: data.user, client: userClient(token), token };
+}
+
+
+type AdminAccountSummary = {
+  userId: string;
+  email: string;
+  displayName: string;
+  playerCode: string;
+};
+
+// v32s: 제작자 계정은 게임 내 권한이 일반 유저와 완전히 동일합니다.
+// 아래 이메일에만 "다른 유저의 비밀번호를 임시 비밀번호로 재설정"하는 복구 기능 하나만 허용합니다.
+// 코인, 카드, 랭크, 매칭, 대전, 상점, 덱, 방 권한에는 어떠한 우대도 연결하지 않습니다.
+const ACCOUNT_RECOVERY_CREATOR_EMAIL = 'wezxcw1457@gmail.com';
+
+function canRecoverOtherAccounts(user: User): boolean {
+  const email = user.email?.trim().toLowerCase() ?? '';
+  return email === ACCOUNT_RECOVERY_CREATOR_EMAIL;
+}
+
+function requireAccountRecoveryCreator(user: User): void {
+  if (!canRecoverOtherAccounts(user)) throw new Error('제작자 계정 복구 기능을 사용할 수 없습니다.');
+}
+
+function searchPattern(value: string): string {
+  return `%${value.replace(/[\\%_]/g, (match) => `\\${match}`)}%`;
+}
+
+async function profileRowsByIds(admin: AdminDbClient, userIds: string[]): Promise<Map<string, { display_name: string; player_code: string }>> {
+  if (!userIds.length) return new Map();
+  const { data, error } = await admin
+    .from('eclipse_profiles')
+    .select('user_id,display_name,player_code')
+    .in('user_id', [...new Set(userIds)]);
+  if (error) throw new Error(error.message);
+  return new Map((data ?? []).map((row: { user_id: string; display_name: string; player_code: string }) => [row.user_id, { display_name: row.display_name, player_code: row.player_code }]));
+}
+
+async function adminFindAccounts(admin: AdminDbClient, rawQuery: unknown): Promise<AdminAccountSummary[]> {
+  const query = cleanText(rawQuery, 80);
+  if (query.length < 2) throw new Error('이메일, 플레이어 코드 또는 닉네임을 2자 이상 입력하세요.');
+  const lower = query.toLowerCase();
+
+  if (query.includes('@')) {
+    const matchedUsers: User[] = [];
+    for (let page = 1; page <= 10 && matchedUsers.length < 20; page += 1) {
+      const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (error) throw new Error(error.message);
+      const users = data.users ?? [];
+      matchedUsers.push(...users.filter((candidate) => candidate.email?.toLowerCase().includes(lower)));
+      if (users.length < 1000) break;
+    }
+    const unique = [...new Map(matchedUsers.map((candidate) => [candidate.id, candidate])).values()].slice(0, 20);
+    const profiles = await profileRowsByIds(admin, unique.map((candidate) => candidate.id));
+    return unique.map((candidate) => {
+      const profile = profiles.get(candidate.id);
+      return {
+        userId: candidate.id,
+        email: candidate.email ?? '',
+        displayName: profile?.display_name ?? '프로필 없음',
+        playerCode: profile?.player_code ?? '-',
+      };
+    });
+  }
+
+  const pattern = searchPattern(query);
+  const [codeResult, nameResult] = await Promise.all([
+    admin.from('eclipse_profiles').select('user_id,display_name,player_code').ilike('player_code', pattern).limit(12),
+    admin.from('eclipse_profiles').select('user_id,display_name,player_code').ilike('display_name', pattern).limit(12),
+  ]);
+  if (codeResult.error) throw new Error(codeResult.error.message);
+  if (nameResult.error) throw new Error(nameResult.error.message);
+
+  const rows = [...(codeResult.data ?? []), ...(nameResult.data ?? [])] as Array<{ user_id: string; display_name: string; player_code: string }>;
+  const uniqueRows = [...new Map(rows.map((row) => [row.user_id, row])).values()].slice(0, 20);
+  const output: AdminAccountSummary[] = [];
+  for (const row of uniqueRows) {
+    const { data, error } = await admin.auth.admin.getUserById(row.user_id);
+    if (error) throw new Error(error.message);
+    output.push({
+      userId: row.user_id,
+      email: data.user?.email ?? '',
+      displayName: row.display_name,
+      playerCode: row.player_code,
+    });
+  }
+  return output;
+}
+
+function makeTemporaryPassword(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = randomBytes(12);
+  const body = Array.from(bytes, (value: number) => alphabet[value % alphabet.length]).join('');
+  return `ED-${body.slice(0, 4)}-${body.slice(4, 8)}-${body.slice(8, 12)}`;
+}
+
+async function adminAccountSummary(admin: AdminDbClient, userId: string): Promise<AdminAccountSummary> {
+  const [{ data: authData, error: authError }, { data: profile, error: profileError }] = await Promise.all([
+    admin.auth.admin.getUserById(userId),
+    admin.from('eclipse_profiles').select('display_name,player_code').eq('user_id', userId).maybeSingle(),
+  ]);
+  if (authError || !authData.user) throw new Error(authError?.message ?? '계정을 찾을 수 없습니다.');
+  if (profileError) throw new Error(profileError.message);
+  return {
+    userId,
+    email: authData.user.email ?? '',
+    displayName: profile?.display_name ?? '프로필 없음',
+    playerCode: profile?.player_code ?? '-',
+  };
 }
 
 function cleanText(value: unknown, maxLength: number): string {
@@ -859,6 +969,7 @@ async function handleAction(request: Request, body: RequestBody) {
     const base = {
       hub: await getHub(client, user.id),
       user: { id: user.id, email: user.email },
+      canRecoverAccounts: canRecoverOtherAccounts(user),
       serverStatus: probe.status,
     };
 
@@ -882,6 +993,27 @@ async function handleAction(request: Request, body: RequestBody) {
     }
 
     return base;
+  }
+
+  if (action === 'admin_find_accounts') {
+    requireAccountRecoveryCreator(user);
+    const admin = await requireAdmin();
+    const accounts = (await adminFindAccounts(admin, body.query)).filter((account) => account.userId !== user.id);
+    return { accounts };
+  }
+
+  if (action === 'admin_reset_password') {
+    requireAccountRecoveryCreator(user);
+    const admin = await requireAdmin();
+    const targetUserId = cleanText(body.userId, 64);
+    if (!targetUserId) throw new Error('비밀번호를 재설정할 계정을 선택하세요.');
+    if (targetUserId === user.id) throw new Error('제작자 본인 계정은 일반 유저와 동일하게 SYSTEM > 내 비밀번호 변경을 사용하세요.');
+    const account = await adminAccountSummary(admin, targetUserId);
+    const temporaryPassword = makeTemporaryPassword();
+    const { error } = await admin.auth.admin.updateUserById(targetUserId, { password: temporaryPassword });
+    if (error) throw new Error(error.message);
+    console.info('[ECLIPSE ACCOUNT RECOVERY] password reset', { adminUserId: user.id, targetUserId });
+    return { account, temporaryPassword };
   }
 
   if (action === 'update_profile') {
@@ -1553,7 +1685,7 @@ export async function GET() {
   return Response.json({
     ok: true,
     service: 'ECLIPSE DUEL',
-    version: '0.17.0',
+    version: '0.17.1-v32r',
     projectRef,
     serverStatus: probe.status,
   });
