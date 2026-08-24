@@ -5380,7 +5380,8 @@ export default function Page() {
           if (!nextSession) {
             setHub(null);
             setRoomPayload(null);
-            setIsAdmin(false);
+            setCanRecoverAccounts(false);
+            setAccountRecoveryOpen(false);
           }
         }
       }
@@ -5393,7 +5394,8 @@ export default function Page() {
         if (!changedSession) {
           setHub(null);
           setRoomPayload(null);
-          setIsAdmin(false);
+          setCanRecoverAccounts(false);
+            setAccountRecoveryOpen(false);
         }
       });
       unsubscribe = () => authListener.data.subscription.unsubscribe();

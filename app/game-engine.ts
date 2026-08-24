@@ -12,7 +12,7 @@ import {
 
 export type MatchPhase = 'main' | 'battle';
 export type MatchStatus = 'waiting' | 'active' | 'finished';
-export type SummonOrigin = 'normal' | 'rift' | 'fusion' | 'evolution' | 'token';
+export type SummonOrigin = 'normal' | 'rift' | 'legendary' | 'fusion' | 'evolution' | 'token';
 export type ExtraSummonKind = 'fusion' | 'evolution';
 export type VisualEventKind = 'turn' | 'summon' | 'special' | 'fusion' | 'evolution' | 'spell' | 'trap' | 'set' | 'draw' | 'attack' | 'defense' | 'destroy' | 'core' | 'heal' | 'buff' | 'energy';
 
@@ -2234,6 +2234,83 @@ function riftConditionMet(state: MatchState, playerId: string, card: CardDefinit
   }
 }
 
+function sameLegendarySeries(source: CardDefinition | undefined, legendary: CardDefinition): boolean {
+  if (!source) return false;
+  if (legendary.seriesId) return source.seriesId === legendary.seriesId;
+  if (legendary.series) return source.series === legendary.series;
+  return false;
+}
+
+function legendarySameSeriesEntries(state: MatchState, playerId: string, card: CardDefinition): Array<{ zone: number; unit: UnitState; card: CardDefinition }> {
+  return state.boards[playerId].units.flatMap((unit, zone) => {
+    if (!unit) return [];
+    const source = CARD_BY_ID[unit.cardId];
+    return source && sameLegendarySeries(source, card) ? [{ zone, unit, card: source }] : [];
+  });
+}
+
+function legendarySummonBlockReason(state: MatchState, playerId: string, card: CardDefinition): string | null {
+  if (card.summonMode !== 'legendary') return null;
+  const rule = card.legendarySummonRule;
+  if (!rule) return '전설 특수 소환 조건이 설정되지 않았습니다.';
+  const opponentId = otherPlayer(state, playerId);
+  const myUnits = state.boards[playerId].units.filter((unit): unit is UnitState => Boolean(unit));
+  const enemyUnits = state.boards[opponentId].units.filter(Boolean);
+  const graveyard = state.graveyards[playerId] ?? [];
+
+  if (rule.requireEmptyField && myUnits.length > 0) return `내 필드가 비어 있어야 합니다. 현재 내 유닛 ${myUnits.length}체.`;
+  if (rule.minimumAllies !== undefined && myUnits.length < rule.minimumAllies) return `내 필드에 유닛이 ${rule.minimumAllies}체 이상 필요합니다. 현재 ${myUnits.length}체.`;
+  if (rule.minimumSameSeries !== undefined) {
+    const sameSeries = legendarySameSeriesEntries(state, playerId, card).length;
+    if (sameSeries < rule.minimumSameSeries) return `같은 시리즈 유닛이 ${rule.minimumSameSeries}체 필요합니다. 현재 ${sameSeries}체.`;
+  }
+  if (rule.graveyardMin !== undefined && graveyard.length < rule.graveyardMin) return `내 묘지에 카드가 ${rule.graveyardMin}장 이상 필요합니다. 현재 ${graveyard.length}장.`;
+  if (rule.graveyardKind && rule.graveyardKindMin !== undefined) {
+    const kindCount = graveyard.filter((cardId) => CARD_BY_ID[cardId]?.kind === rule.graveyardKind).length;
+    if (kindCount < rule.graveyardKindMin) {
+      const kindLabel = rule.graveyardKind === 'spell' ? '주문' : rule.graveyardKind === 'trap' ? '함정' : '유닛';
+      return `내 묘지에 ${kindLabel} 카드가 ${rule.graveyardKindMin}장 이상 필요합니다. 현재 ${kindCount}장.`;
+    }
+  }
+  if (rule.coreAtMost !== undefined && (state.core[playerId] ?? CORE_MAX) > rule.coreAtMost) return `내 코어가 ${rule.coreAtMost} 이하여야 합니다. 현재 ${state.core[playerId] ?? CORE_MAX}.`;
+  if (rule.requireOutnumbered && enemyUnits.length <= myUnits.length) return `상대 필드 유닛이 내 필드보다 많아야 합니다. 현재 나 ${myUnits.length} / 상대 ${enemyUnits.length}.`;
+
+  const willRelease = rule.release === 'all' ? myUnits.length > 0 : rule.release === 'same_series' && (rule.minimumSameSeries ?? 0) > 0;
+  if (!willRelease && firstOpenUnit(state.boards[playerId]) < 0) return '전설을 놓을 빈 유닛 칸이 없습니다.';
+  return null;
+}
+
+function legendaryTributeZones(state: MatchState, playerId: string, card: CardDefinition): number[] {
+  const rule = card.legendarySummonRule;
+  if (!rule || rule.release === 'none') return [];
+  if (rule.release === 'all') return state.boards[playerId].units.flatMap((unit, zone) => unit ? [zone] : []);
+
+  const required = rule.minimumSameSeries ?? 0;
+  return legendarySameSeriesEntries(state, playerId, card)
+    .sort((a, b) => a.card.cost - b.card.cost || a.zone - b.zone)
+    .slice(0, required)
+    .map((entry) => entry.zone);
+}
+
+function performLegendaryTribute(state: MatchState, playerId: string, card: CardDefinition): string[] {
+  const tributeZones = legendaryTributeZones(state, playerId, card);
+  const releasedNames: string[] = [];
+  for (const zone of tributeZones) {
+    const unit = state.boards[playerId].units[zone];
+    if (!unit) continue;
+    const source = CARD_BY_ID[unit.cardId];
+    releasedNames.push(source?.name ?? unit.cardId);
+    state.graveyards[playerId].push(unit.cardId);
+    state.boards[playerId].units[zone] = null;
+  }
+  if (releasedNames.length > 0) {
+    const ritualName = card.legendarySummonRule?.name ?? '전설 의식';
+    appendLog(state, `${ritualName} — ${releasedNames.join(', ')} 릴리스.`, 'special');
+    appendVisual(state, { kind: 'special', vfx: 'legendary-tribute', cardId: card.id, ownerId: playerId, label: `${ritualName} · 릴리스`, detail: `${releasedNames.length}체` });
+  }
+  return releasedNames;
+}
+
 function makeUnit(
   state: MatchState,
   playerId: string,
@@ -2424,25 +2501,40 @@ export function playCard(
 
   if (card.kind === 'unit') {
     const isRift = card.summonMode === 'rift';
+    const isLegendarySpecial = card.summonMode === 'legendary';
+    if (card.rarity === 'legendary' && !isRift && !isLegendarySpecial) {
+      throw new Error('메인 덱 전설 유닛은 일반 소환할 수 없습니다. 카드의 전설 특수 소환 조건을 확인하세요.');
+    }
     if (isRift && !riftConditionMet(state, playerId, card)) {
       throw new Error(`균열 소환 조건이 충족되지 않았습니다: ${card.riftCondition?.label ?? '조건 확인 필요'}`);
     }
+    if (isLegendarySpecial) {
+      const blockReason = legendarySummonBlockReason(state, playerId, card);
+      if (blockReason) throw new Error(`전설 특수 소환 조건이 충족되지 않았습니다: ${blockReason}`);
+    }
+
     spendEnergy(state, playerId, isRift ? (card.riftCost ?? card.cost) : card.cost);
-    const zone = Number.isInteger(requestedZone) ? Number(requestedZone) : firstOpenUnit(state.boards[playerId]);
+    if (isLegendarySpecial) performLegendaryTribute(state, playerId, card);
+
+    const requested = Number.isInteger(requestedZone) ? Number(requestedZone) : -1;
+    const zone = requested >= 0 && requested <= 4 && !state.boards[playerId].units[requested]
+      ? requested
+      : firstOpenUnit(state.boards[playerId]);
     if (zone < 0 || zone > 4 || state.boards[playerId].units[zone]) throw new Error('선택한 유닛 칸을 사용할 수 없습니다.');
     playerPrivate.hand.splice(handIndex, 1);
-    const origin: SummonOrigin = isRift ? 'rift' : 'normal';
+    const origin: SummonOrigin = isRift ? 'rift' : isLegendarySpecial ? 'legendary' : 'normal';
     statsFor(state, playerId).unitsSummoned += 1;
-    if (isRift) statsFor(state, playerId).specialSummons += 1;
+    if (isRift || isLegendarySpecial) statsFor(state, playerId).specialSummons += 1;
     state.boards[playerId].units[zone] = makeUnit(state, playerId, instance, card, origin);
-    appendLog(state, isRift ? `균열 소환 — 「${card.name}」!` : `${card.name} 소환.`, isRift ? 'special' : 'system');
+    appendLog(state, isRift ? `균열 소환 — 「${card.name}」!` : isLegendarySpecial ? `전설 특수 소환 — 「${card.name}」!` : `${card.name} 소환.`, isRift || isLegendarySpecial ? 'special' : 'system');
     appendVisual(state, {
-      kind: isRift ? 'special' : 'summon',
+      kind: isRift || isLegendarySpecial ? 'special' : 'summon',
       vfx: resolveCardVfx(card, 'summon'),
       cardId: card.id,
       ownerId: playerId,
       targetZone: zone,
       label: card.name,
+      detail: isLegendarySpecial ? card.legendarySummonRule?.name : undefined,
     });
     continueSummonResolution(state, privateStates, {
       kind: 'summon', actorId: playerId, zone, cardId: card.id, origin, remainingTriggers: summonReactionTriggers(origin),

@@ -6624,3 +6624,101 @@ html[data-ipad="true"] .v23-client.in-duel .v32o-energy-draw-action {
 .v23-client.in-duel .v18-cinematic-layer.vfx-light-seal .v18-impact-ring {
   border-color:rgba(188,235,255,.62)!important;box-shadow:0 0 34px rgba(118,202,255,.28)!important;
 }
+
+/* v32q · Main-deck legendary special summons */
+.v23-client .tcg-card .summon-badge.legendary {
+  background:linear-gradient(180deg,rgba(95,70,18,.96),rgba(39,28,7,.96))!important;
+  border:1px solid rgba(255,219,112,.52)!important;
+  color:#ffe8a6!important;
+  box-shadow:0 0 12px rgba(255,201,73,.18)!important;
+}
+.v23-client .tcg-card.summon-legendary {
+  box-shadow:0 16px 38px rgba(0,0,0,.34),0 0 0 1px rgba(255,216,103,.12) inset,0 0 20px rgba(239,188,68,.06)!important;
+}
+.v23-client.in-duel .origin-badge.legendary {
+  color:#ffe59d!important;
+  background:rgba(87,61,10,.82)!important;
+  border-color:rgba(255,220,116,.32)!important;
+}
+.v23-client.in-duel .v32q-legendary-summon {
+  border-color:rgba(255,213,101,.46)!important;
+  background:linear-gradient(135deg,rgba(95,67,13,.96),rgba(37,27,9,.98))!important;
+  color:#fff0b7!important;
+  box-shadow:0 10px 24px rgba(0,0,0,.24),0 0 22px rgba(235,182,58,.10)!important;
+}
+.v23-client.in-duel .v32q-legendary-summon:hover {
+  border-color:rgba(255,228,145,.72)!important;
+  filter:brightness(1.06);
+}
+
+
+/* v32r - secure account recovery (creator-only reset, never plaintext password lookup) */
+.v32r-security-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 18000;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  background: rgba(3, 8, 15, .78);
+  backdrop-filter: blur(14px);
+}
+.v32r-security-panel {
+  width: min(760px, calc(100vw - 36px));
+  max-height: min(820px, calc(100dvh - 36px));
+  overflow: auto;
+  border: 1px solid rgba(126, 180, 214, .28);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(15, 25, 35, .99), rgba(7, 13, 21, .99));
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .58), inset 0 1px rgba(255, 255, 255, .04);
+  padding: clamp(18px, 3vw, 28px);
+  color: #edf7ff;
+}
+.v32r-security-panel.compact { width: min(520px, calc(100vw - 36px)); }
+.v32r-security-panel > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 20px; }
+.v32r-security-panel > header div { min-width: 0; }
+.v32r-security-panel > header span { display: block; color: #7fd9ff; font-size: 11px; font-weight: 900; letter-spacing: .16em; }
+.v32r-security-panel > header h3 { margin: 5px 0 5px; font-size: clamp(20px, 3vw, 28px); line-height: 1.15; }
+.v32r-security-panel > header p { margin: 0; color: #9eb0bf; font-size: 14px; line-height: 1.55; }
+.v32r-security-panel > header > button { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 13px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.045); color: #fff; font-size: 25px; cursor: pointer; }
+.v32r-security-panel label { display: grid; gap: 8px; margin-top: 14px; color: #c8d8e5; font-size: 13px; font-weight: 800; }
+.v32r-security-panel input { width: 100%; min-height: 48px; box-sizing: border-box; border: 1px solid rgba(119, 180, 216, .26); border-radius: 13px; background: rgba(0, 8, 15, .72); color: #f3fbff; padding: 0 14px; font: inherit; outline: none; }
+.v32r-security-panel input:focus { border-color: rgba(100, 211, 255, .72); box-shadow: 0 0 0 3px rgba(59, 182, 235, .12); }
+.v32r-security-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.v32r-security-buttons > button { min-height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: #eef8ff; font-weight: 800; cursor: pointer; }
+.v32r-security-warning { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 16px; padding: 13px 15px; border: 1px solid rgba(246, 192, 96, .28); border-radius: 14px; background: rgba(246, 172, 49, .07); color: #dce8ef; font-size: 13px; line-height: 1.55; }
+.v32r-security-warning b { color: #ffd37a; white-space: nowrap; }
+.v32r-account-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin-bottom: 14px; }
+.v32r-account-search button { min-width: 116px; }
+.v32r-account-results { display: grid; gap: 8px; max-height: 340px; overflow: auto; padding-right: 3px; }
+.v32r-account-results article { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 12px 13px; border: 1px solid rgba(122, 174, 204, .17); border-radius: 14px; background: rgba(255,255,255,.025); }
+.v32r-account-results article > div { display: grid; min-width: 0; gap: 2px; }
+.v32r-account-results article b { font-size: 15px; color: #f1f8fc; overflow-wrap: anywhere; }
+.v32r-account-results article span { color: #72d7ff; font-size: 12px; font-weight: 900; }
+.v32r-account-results article small { color: #9fb0bd; font-size: 12px; overflow-wrap: anywhere; }
+.v32r-account-results article > button { flex: 0 0 auto; min-height: 40px; padding: 0 13px; border: 1px solid rgba(255, 196, 100, .32); border-radius: 11px; background: rgba(255, 181, 65, .09); color: #ffe0a0; font-weight: 900; cursor: pointer; }
+.v32r-account-results article > button:disabled { opacity: .5; cursor: wait; }
+.v32r-issued-password { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px; padding: 16px; border: 1px solid rgba(80, 224, 159, .34); border-radius: 16px; background: rgba(41, 190, 124, .08); }
+.v32r-issued-password > div { display: grid; gap: 5px; min-width: 0; }
+.v32r-issued-password span { color: #8cebbd; font-size: 12px; font-weight: 900; }
+.v32r-issued-password b { color: #e8fff2; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: clamp(17px, 3vw, 23px); letter-spacing: .04em; overflow-wrap: anywhere; }
+.v32r-issued-password small { color: #aac5b7; font-size: 12px; line-height: 1.5; }
+.v32r-issued-password > button { flex: 0 0 auto; min-width: 70px; min-height: 42px; border: 1px solid rgba(90, 227, 160, .34); border-radius: 12px; background: rgba(82, 219, 151, .12); color: #dfffee; font-weight: 900; cursor: pointer; }
+.v32r-security-message { margin: 14px 0 0; padding: 10px 12px; border-radius: 11px; background: rgba(93, 176, 219, .09); color: #bfe8ff; font-size: 13px; line-height: 1.5; }
+.v32r-security-panel > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.08); color: #8698a6; font-size: 11px; }
+.v32r-security-panel > footer button { min-height: 38px; padding: 0 14px; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; background: rgba(255,255,255,.045); color: #eef8ff; cursor: pointer; }
+.v22-control-actions .v32r-admin-entry { border-color: rgba(255, 196, 91, .28); background: linear-gradient(135deg, rgba(242, 171, 48, .08), rgba(114, 78, 232, .06)); }
+.v22-control-actions .v32r-admin-entry > span { color: #ffd16d; }
+@media (max-width: 720px) {
+  .v32r-security-layer { padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); align-items: start; }
+  .v32r-security-panel, .v32r-security-panel.compact { width: min(100%, calc(100vw - 20px)); max-height: none; border-radius: 18px; padding: 16px; margin: 6px 0; }
+  .v32r-account-search { grid-template-columns: 1fr; }
+  .v32r-account-search button { width: 100%; min-height: 46px; }
+  .v32r-account-results article { align-items: stretch; flex-direction: column; }
+  .v32r-account-results article > button { width: 100%; }
+  .v32r-issued-password { align-items: stretch; flex-direction: column; }
+  .v32r-issued-password > button { width: 100%; }
+  .v32r-security-panel > footer { align-items: stretch; flex-direction: column; }
+}
