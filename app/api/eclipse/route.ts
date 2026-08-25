@@ -1504,6 +1504,7 @@ async function handleAction(request: Request, body: RequestBody) {
             ownerId: cleanText(rawTarget.ownerId, 64),
             unitIndex: rawTarget.unitIndex === undefined ? undefined : Number(rawTarget.unitIndex),
             graveyardIndex: rawTarget.graveyardIndex === undefined ? undefined : Number(rawTarget.graveyardIndex),
+            deckCardId: rawTarget.deckCardId === undefined ? undefined : cleanText(rawTarget.deckCardId, 100),
           }
         : undefined;
       next = playCard(snapshot, user.id, instanceId, zone, target);
