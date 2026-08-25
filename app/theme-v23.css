@@ -6990,3 +6990,78 @@ html[data-ipad="true"] .v23-client.in-duel .v32o-energy-draw-action {
 .v32y-picker-option:hover{transform:translateY(-2px);border-color:rgba(117,205,255,.55);background:rgba(90,170,255,.08)}
 .v32y-picker-option .card-illustration{width:92px;height:92px;border-radius:10px}.v32y-picker-option span{min-width:0;align-self:center}.v32y-picker-option small{display:block;color:#78bfe8;font-size:10px}.v32y-picker-option b{display:block;margin:4px 0 5px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.v32y-picker-option em{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#aebdd0;font-size:11px;line-height:1.45;font-style:normal}
 @media(max-width:720px){.v32y-picker-layer{padding:8px}.v32y-picker-card{max-height:88vh}.v32y-picker-grid{grid-template-columns:1fr;padding:10px}.v32y-picker-option{grid-template-columns:76px minmax(0,1fr);min-height:94px}.v32y-picker-option .card-illustration{width:76px;height:76px}}
+
+
+/* ==========================================================================
+   v33b · Spectator hand reveal + reliable spectator spell playback
+   - Only spectator payloads receive both duelists' hand arrays.
+   - Both hands render face-up in spectator mode; set traps remain hidden.
+   - Spell cinematics are explicitly kept above the spectator battlefield.
+   ========================================================================== */
+.v23-client.in-duel .v32e-spectator-screen { --hand-h:118px!important; }
+@media (max-height:780px) {
+  .v23-client.in-duel .v18-duel-screen.v32e-spectator-screen { --hand-h:104px!important; }
+}
+
+.v23-client.in-duel .v32e-spectator-screen .v33b-spectator-hand-strip {
+  top:3px!important;height:62px!important;max-width:88%!important;overflow:visible!important;align-items:flex-start!important;opacity:1!important;
+}
+.v23-client.in-duel .v32e-spectator-screen .v33b-spectator-hand-strip>span {
+  height:58px;align-items:flex-start;padding-top:3px;color:#88a6b8;font-size:6.5px!important;
+}
+.v23-client.in-duel .v32e-spectator-screen .v33b-spectator-hand-strip>div {
+  display:flex;align-items:flex-start;gap:4px;max-width:min(760px,72vw);overflow-x:auto;overflow-y:visible;padding:0 3px 8px;scrollbar-width:thin;
+}
+.v23-client.in-duel .v32e-spectator-screen .v33b-spectator-hand-strip>div>em {
+  padding:9px 12px;color:#668092;font-size:7px;font-style:normal;white-space:nowrap;
+}
+.v23-client.in-duel .v32e-spectator-screen .v33b-spectator-hand-strip .v33b-spectator-hand-card {
+  position:relative;flex:0 0 42px;width:42px;height:58px;z-index:1;transition:transform .14s ease,z-index .14s ease;
+}
+.v23-client.in-duel .v32e-spectator-screen .v33b-spectator-hand-strip .v33b-spectator-hand-card .tcg-card {
+  width:42px!important;min-width:42px!important;height:58px!important;min-height:58px!important;aspect-ratio:auto!important;border-radius:5px!important;
+}
+.v23-client.in-duel .v32e-spectator-screen .v33b-spectator-hand-strip .v33b-spectator-hand-card:hover,
+.v23-client.in-duel .v32e-spectator-screen .v33b-spectator-hand-strip .v33b-spectator-hand-card:focus-within {
+  transform:translateY(4px) scale(1.45);z-index:20;
+}
+
+.v23-client.in-duel .v32e-spectator-screen .v18-board { top:66px!important; }
+
+.v23-client.in-duel .v33b-spectator-hand-dock {
+  display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;grid-template-rows:25px minmax(0,1fr)!important;gap:0 14px!important;
+  align-items:stretch!important;justify-content:stretch!important;padding:7px 14px 8px 16px!important;overflow:hidden!important;
+}
+.v23-client.in-duel .v32e-spectator-footer.v33b-spectator-hand-dock>.v33b-spectator-hand-heading {
+  grid-column:1;grid-row:1;display:flex!important;align-items:baseline!important;gap:8px!important;min-width:0;
+}
+.v23-client.in-duel .v33b-spectator-hand-heading small { color:#6f91a6!important;font-size:6.5px!important;letter-spacing:.12em!important;white-space:nowrap; }
+.v23-client.in-duel .v33b-spectator-hand-heading b { color:#d8edf7!important;font-size:10px!important;white-space:nowrap; }
+.v23-client.in-duel .v33b-spectator-hand-heading span { min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#698091;font-size:7px; }
+.v23-client.in-duel .v33b-spectator-hand-scroll {
+  grid-column:1;grid-row:2;display:flex;align-items:flex-end;gap:6px;min-width:0;min-height:0;overflow-x:auto;overflow-y:hidden;padding:2px 3px 2px 0;scrollbar-width:thin;
+}
+.v23-client.in-duel .v33b-spectator-hand-scroll>em { align-self:center;color:#637d8f;font-size:8px;font-style:normal; }
+.v23-client.in-duel .v33b-spectator-hand-scroll .v33b-spectator-hand-card { position:relative;flex:0 0 58px;width:58px;height:80px; }
+.v23-client.in-duel .v33b-spectator-hand-scroll .v33b-spectator-hand-card .tcg-card {
+  width:58px!important;min-width:58px!important;height:80px!important;min-height:80px!important;max-height:80px!important;aspect-ratio:auto!important;border-radius:7px!important;
+}
+.v23-client.in-duel .v33b-spectator-hand-scroll .v33b-spectator-hand-card:hover,
+.v23-client.in-duel .v33b-spectator-hand-scroll .v33b-spectator-hand-card:focus-within { transform:translateY(-3px);z-index:5; }
+.v23-client.in-duel .v33b-spectator-hand-meta {
+  grid-column:2;grid-row:1/3;align-self:center;display:grid;gap:5px;justify-items:end;min-width:92px;
+}
+.v23-client.in-duel .v33b-spectator-hand-meta span { color:#7c94a4;font-size:7px;font-weight:850; }
+.v23-client.in-duel .v33b-spectator-hand-meta span b { margin-left:4px;color:#d8e8ef;font-size:11px; }
+.v23-client.in-duel .v33b-spectator-hand-meta small { color:#5f7686!important;font-size:6.5px!important;letter-spacing:0!important; }
+
+/* Spell casts are public duel events. Keep their semantic VFX above every spectator panel. */
+.v23-client.in-duel .v32e-spectator-screen .v18-cinematic-layer.kind-spell { z-index:156!important;visibility:visible!important;opacity:1!important; }
+.v23-client.in-duel .v32e-spectator-screen .v18-cinematic-layer.kind-spell .v32v-spell-stage { z-index:30!important;display:block!important;visibility:visible!important;opacity:1!important; }
+.v23-client.in-duel .v32e-spectator-screen .v18-cinematic-layer.kind-spell .v18-card-cutin,
+.v23-client.in-duel .v32e-spectator-screen .v18-cinematic-layer.kind-spell .v18-event-banner { z-index:32!important; }
+
+@media (max-width:760px) {
+  .v23-client.in-duel .v33b-spectator-hand-meta { display:none!important; }
+  .v23-client.in-duel .v33b-spectator-hand-dock { grid-template-columns:minmax(0,1fr)!important; }
+}

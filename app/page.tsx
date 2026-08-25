@@ -103,7 +103,7 @@ type RoomRow = {
 
 type RoomProfile = Pick<Profile, 'user_id' | 'display_name' | 'avatar' | 'wins' | 'losses' | 'xp' | 'profile_emblem' | 'card_sleeve' | 'nickname_style'>;
 type RoomMemberView = { user_id: string; role: 'player_a' | 'player_b' | 'spectator'; is_owner: boolean };
-type RoomPayload = { room: RoomRow; profiles: RoomProfile[]; privateState: PrivateState | null; members?: RoomMemberView[] };
+type RoomPayload = { room: RoomRow; profiles: RoomProfile[]; privateState: PrivateState | null; members?: RoomMemberView[]; spectatorHands?: Record<string, PrivateState['hand']>; };
 type ChatMessage = { id: number; user_id: string; display_name: string; nickname_style?: string; body: string; created_at: string };
 type ChatSkinProfile = Pick<Profile, 'user_id' | 'profile_theme' | 'profile_frame'>;
 type AdminAccountSummary = { userId: string; email: string; displayName: string; playerCode: string };
@@ -125,6 +125,7 @@ type ApiResult = {
   profiles?: RoomProfile[];
   privateState?: PrivateState | null;
   members?: RoomMemberView[];
+  spectatorHands?: Record<string, PrivateState['hand']>;
   joinedAsSpectator?: boolean;
   cardIds?: string[];
   balance?: number;
@@ -4060,7 +4061,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       timeoutSyncTurn.current = turnNumber;
       api('get_room', { roomId: room.id })
         .then((result) => {
-          if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [] });
+          if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined });
         })
         .catch((error) => setMessage(error instanceof Error ? error.message : '턴 시간 동기화 실패'));
     }, delay);
@@ -4381,7 +4382,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     setMessage('');
     try {
       const result = await api('game_action', { roomId: room.id, gameAction, ...extra });
-      if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [] });
+      if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined });
       clearSelection();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '행동 처리 실패');
@@ -5160,25 +5161,31 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
   const profileMap = Object.fromEntries(payload.profiles.map((profile) => [profile.user_id, profile]));
   const playerA = profileMap[playerAId];
   const playerB = profileMap[playerBId];
+  const playerAHand = payload.spectatorHands?.[playerAId] ?? [];
+  const playerBHand = payload.spectatorHands?.[playerBId] ?? [];
   const [activeVfx, setActiveVfx] = useState<VisualEvent | null>(null);
   const [vfxQueue, setVfxQueue] = useState<VisualEvent[]>([]);
   const [damagePopups, setDamagePopups] = useState<VisualEvent[]>([]);
-  const seenVfx = useRef<Set<string>>(new Set());
+  // Spectators join with an existing event history. Pre-mark only stale events so a spell
+  // cast that happened just before the room refresh is never discarded by the first sync.
+  const seenVfx = useRef<Set<string>>(new Set(state?.visualEvents.filter((event) => Date.now() - event.createdAt > 3200).map((event) => event.id) ?? []));
   const seenDamage = useRef<Set<string>>(new Set(state?.visualEvents.filter((event) => Date.now() - event.createdAt > 2600).map((event) => event.id) ?? []));
 
   const visualEvents = state?.visualEvents ?? [];
   const visualSignature = visualEvents.map((event) => event.id).join('|');
 
   useEffect(() => {
-    let unseen = visualEvents.filter((event) => !seenVfx.current.has(event.id) && event.kind !== 'defense');
+    const unseen = visualEvents.filter((event) => !seenVfx.current.has(event.id) && event.kind !== 'defense');
     if (unseen.length === 0) return;
-    if (seenVfx.current.size === 0 && unseen.length > 1) {
-      const now = Date.now();
-      const recentBundle = unseen.filter((event) => now - event.createdAt <= 2600);
-      unseen = recentBundle.length > 0 ? recentBundle.slice(-5) : unseen.slice(-1);
-    }
     visualEvents.forEach((event) => seenVfx.current.add(event.id));
-    setVfxQueue((current) => [...current, ...unseen].slice(-8));
+    // Keep the complete recent action bundle. Spell activation is normally the first event
+    // in a resolution chain, so trimming to only the last few events could hide the cast
+    // from spectators while later damage/buff events remained visible.
+    setVfxQueue((current) => {
+      const merged = [...current, ...unseen];
+      const deduped = merged.filter((event, index) => merged.findIndex((item) => item.id === event.id) === index);
+      return deduped.slice(-18);
+    });
   }, [visualSignature]);
 
   useEffect(() => {
@@ -5242,6 +5249,19 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
   const displayedSyncState: 'live' | 'syncing' | 'offline' = syncState === 'offline' && syncAgeSeconds <= 8 ? 'live' : syncState;
   const winner = state.winnerId ? profileMap[state.winnerId] : undefined;
 
+  function renderSpectatorHand(hand: PrivateState['hand'], sleeveId?: string) {
+    return hand.map((instance) => {
+      const card = CARD_BY_ID[instance.cardId];
+      return (
+        <div className="v33b-spectator-hand-card" key={instance.instanceId}>
+          {card
+            ? <CardFace card={card} compact inspectable={false} onClick={() => requestCardInspection(card.id)} />
+            : <CardFace hidden compact inspectable={false} sleeveId={sleeveId ?? 'sleeve_default'} />}
+        </div>
+      );
+    });
+  }
+
   return (
     <div className={`v18-duel-screen v32e-spectator-screen phase-${state.phase} fx-${activeVfx?.kind ?? 'idle'}`}>
       <DuelEffectLayer event={activeVfx} userId={playerAId} profiles={payload.profiles} spectator />
@@ -5272,23 +5292,39 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
 
       <main className="v18-arena">
         <div className="v18-arena-backdrop" aria-hidden="true"><i /><i /><i /><i /></div>
-        <div className="v18-opponent-hand-strip"><span>PLAYER B HAND · {state.handCounts[playerBId] ?? 0}</span><div>{Array.from({ length: Math.min(9, state.handCounts[playerBId] ?? 0) }, (_, index) => <CardFace key={index} hidden compact inspectable={false} sleeveId={playerB?.card_sleeve ?? 'sleeve_default'} />)}</div></div>
+        <div className="v18-opponent-hand-strip v33b-spectator-hand-strip">
+          <span>PLAYER B HAND · {playerBHand.length || (state.handCounts[playerBId] ?? 0)}</span>
+          <div>{playerBHand.length > 0 ? renderSpectatorHand(playerBHand, playerB?.card_sleeve) : <em>손패 동기화 중</em>}</div>
+        </div>
         <section className="v18-board">
           <div className="v18-zone-row v18-enemy-secrets">{state.boards[playerBId].secrets.map((secret, index) => <div className={`v18-secret-slot enemy ${secret ? 'is-set' : ''}`} key={index}>{secret ? <><span className={`v18-secret-back sleeve-${playerB?.card_sleeve ?? 'sleeve_default'}`}>{sleeveGlyph(playerB?.card_sleeve)}</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}</div>)}</div>
           <div className="v18-zone-row v18-enemy-units">{state.boards[playerBId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerBId} index={index} enemy />)}</div>
-          <div className="v18-center-lane"><div className="v18-pile-stat"><small>PLAYER B</small><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div><div className="v29-center-status"><div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div><div className="v32e-watch-copy"><small>ROOM SPECTATE</small><b>손패와 세트 카드는 비공개</b></div></div><div className="v18-pile-stat mine"><small>PLAYER A</small><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span></div></div>
+          <div className="v18-center-lane"><div className="v18-pile-stat"><small>PLAYER B</small><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div><div className="v29-center-status"><div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div><div className="v32e-watch-copy"><small>ROOM SPECTATE</small><b>관전자 전용 · 양쪽 손패 공개</b></div></div><div className="v18-pile-stat mine"><small>PLAYER A</small><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span></div></div>
           <div className="v18-zone-row v18-my-units">{state.boards[playerAId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerAId} index={index} />)}</div>
           <div className="v18-zone-row v18-my-secrets">{state.boards[playerAId].secrets.map((secret, index) => <div className={`v18-secret-slot mine ${secret ? 'is-set' : ''}`} key={index}>{secret ? <><span className={`v18-secret-back sleeve-${playerA?.card_sleeve ?? 'sleeve_default'}`}>{sleeveGlyph(playerA?.card_sleeve)}</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}</div>)}</div>
         </section>
       </main>
 
       <aside className="v18-command-rail v32e-spectator-rail">
-        <section className="v29-action-coach opponent"><header><span>SPECTATOR</span><b>LIVE</b></header><h3>공개 정보만 관전 중입니다</h3><p>두 선수의 필드·코어·에너지·묘지·카드 수와 모든 공격/소환 연출을 실시간으로 볼 수 있습니다.</p><small>손패 내용과 뒤집히지 않은 함정은 관전자에게 공개되지 않습니다.</small></section>
+        <section className="v29-action-coach opponent"><header><span>SPECTATOR</span><b>LIVE</b></header><h3>관전자 전용 전체 손패 공개</h3><p>두 선수의 필드·코어·에너지·묘지와 양쪽 손패를 실시간으로 볼 수 있습니다.</p><small>손패는 관전자에게만 공개되며, 뒤집히지 않은 세트 함정은 계속 비공개입니다.</small></section>
         <section className="v18-event-feed"><header><span>DUEL FEED</span><b>LIVE</b></header><div>{recentEvents.length ? recentEvents.map((event) => <div className={`v18-feed-item kind-${event.kind}`} key={event.id}><i /><span><b>{profileMap[event.ownerId ?? '']?.display_name ?? 'SYSTEM'} · {duelEventLabel(event)}</b><small>{event.detail ?? event.label ?? (duelEventLocation(event) || '결투 행동')}</small></span></div>) : <p>아직 기록된 행동이 없습니다.</p>}</div></section>
         <section className="v32e-spectator-roster"><small>ROOM MEMBERS</small>{payload.profiles.map((profile) => { const member = (payload.members ?? []).find((item) => item.user_id === profile.user_id); return <div key={profile.user_id}><Avatar id={profile.avatar} /><span><b><NicknameText name={profile.display_name} styleId={profile.nickname_style} /></b><small>{member?.role === 'player_a' ? 'PLAYER A' : member?.role === 'player_b' ? 'PLAYER B' : 'SPECTATOR'}{member?.is_owner ? ' · OWNER' : ''}</small></span></div>; })}</section>
       </aside>
 
-      <footer className="v18-hand-dock v32e-spectator-footer"><div><small>SPECTATOR MODE</small><b>공정한 관전을 위해 양쪽 손패와 비공개 함정은 숨겨집니다.</b></div><div className="v32e-hand-counts"><span>PLAYER A HAND <b>{state.handCounts[playerAId] ?? 0}</b></span><span>PLAYER B HAND <b>{state.handCounts[playerBId] ?? 0}</b></span></div></footer>
+      <footer className="v18-hand-dock v32e-spectator-footer v33b-spectator-hand-dock">
+        <div className="v33b-spectator-hand-heading">
+          <small>SPECTATOR REVEAL · PLAYER A</small>
+          <b>PLAYER A HAND · {playerAHand.length || (state.handCounts[playerAId] ?? 0)}</b>
+          <span>이 손패는 관전자에게만 공개됩니다.</span>
+        </div>
+        <div className="v33b-spectator-hand-scroll">
+          {playerAHand.length > 0 ? renderSpectatorHand(playerAHand, playerA?.card_sleeve) : <em>손패를 동기화하는 중입니다.</em>}
+        </div>
+        <div className="v33b-spectator-hand-meta">
+          <span>PLAYER B <b>{playerBHand.length || (state.handCounts[playerBId] ?? 0)}</b></span>
+          <small>세트 함정은 비공개</small>
+        </div>
+      </footer>
 
       {state.status === 'finished' && <div className="modal-layer v18-result-layer"><section className="v18-result-modal v22-result-modal win"><div className="v22-result-hero"><span className="result-emblem">✦</span><div><small>SPECTATOR · DUEL COMPLETE</small><h2>{winner?.display_name ?? '승자'} 승리</h2><p>{state.winReason}</p></div></div><div className="v22-result-footer"><span>다음 경기는 같은 방 대기실에서 선수 구성을 다시 정할 수 있습니다.</span><button className="primary-button" onClick={onReturnLobby}>대기방으로 돌아가기</button></div></section></div>}
     </div>
@@ -5324,7 +5360,7 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
     setBusy(true); setMessage('');
     try {
       const result = await api(action, payload);
-      if (result.room && result.profiles) onRoom({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [] });
+      if (result.room && result.profiles) onRoom({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined });
       if (result.joinedAsSpectator) setMessage('선수 자리가 이미 차 있어 관전자로 입장했습니다. 다음 경기에는 방장이 선수로 지정할 수 있습니다.');
       return result;
     } catch (error) { setMessage(error instanceof Error ? error.message : '요청 실패'); }
@@ -5651,7 +5687,7 @@ export default function Page() {
         setCanRecoverAccounts(result.canRecoverAccounts === true);
         if (result.serverStatus) setServerStatus(result.serverStatus);
         if (result.room && result.profiles) {
-          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [] });
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined });
           setRoomSyncState('live');
           setLastRoomSyncAt(Date.now());
           setView('duel');
@@ -5745,7 +5781,7 @@ export default function Page() {
         const result = await api('get_room', { roomId });
         if (!alive) return;
         if (result.room && result.profiles) {
-          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [] });
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined });
           lastSuccessfulSync = Date.now();
           setRoomSyncState('live');
           setLastRoomSyncAt(lastSuccessfulSync);
@@ -5822,7 +5858,7 @@ export default function Page() {
         const result = await api('match_presence', { roomId });
         if (!alive) return;
         if (result.room && result.profiles) {
-          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [] });
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined });
           setRoomSyncState('live');
           setLastRoomSyncAt(Date.now());
         }
