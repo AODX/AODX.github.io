@@ -902,10 +902,33 @@ async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: strin
     privateState = (data?.state as PrivateState | undefined) ?? null;
   }
 
+  // Spectator-only reveal: return the two players' hand cards, never their deck order,
+  // extra deck, or face-down trap identities. Players still receive only their own
+  // privateState, so this cannot reveal an opponent hand to an active duelist.
+  let spectatorHands: Record<string, PrivateState['hand']> | undefined;
+  if (currentRoom.state && currentRoom.guest_id && !isRoomPlayer(currentRoom, userId)) {
+    const duelists = [currentRoom.host_id, currentRoom.guest_id];
+    const { data, error } = await admin
+      .from('eclipse_private_states')
+      .select('user_id,state')
+      .eq('room_id', currentRoom.id)
+      .in('user_id', duelists);
+    if (error) throw new Error(error.message);
+    spectatorHands = {};
+    for (const row of data ?? []) {
+      const state = row.state as PrivateState | undefined;
+      spectatorHands[String(row.user_id)] = Array.isArray(state?.hand) ? state.hand : [];
+    }
+    for (const duelistId of duelists) {
+      if (!spectatorHands[duelistId]) spectatorHands[duelistId] = [];
+    }
+  }
+
   return {
     room: currentRoom,
     profiles: profiles ?? [],
     privateState,
+    spectatorHands,
     members: memberIds.map((memberId) => ({
       user_id: memberId,
       role: memberId === currentRoom.host_id ? 'player_a' : memberId === currentRoom.guest_id ? 'player_b' : 'spectator',
