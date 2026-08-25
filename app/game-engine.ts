@@ -471,7 +471,9 @@ function damageUnit(state: MatchState, ownerId: string, unitIndex: number, amoun
   }
   const healthBefore = Math.max(0, unit.health);
   const healthDamage = Math.min(healthBefore, Math.max(0, remaining));
-  if (remaining > 0) unit.health -= remaining;
+  // Keep the state value identical to the damage we report to the UI. Overkill is
+  // handled separately by pierce, so a normal hit should never leave hidden -HP.
+  unit.health = Math.max(0, healthBefore - healthDamage);
   return { attempted: amount, absorbed, healthDamage, destroyed: unit.health <= 0 };
 }
 
@@ -2543,9 +2545,16 @@ export function playCard(
     spendEnergy(state, playerId, card.cost);
     playerPrivate.hand.splice(handIndex, 1);
     appendLog(state, `주문 「${card.name}」 발동 선언.`, 'system');
+    const spellEffectKind = card.effect?.kind;
+    const spellTargetsOpponent = card.target === 'enemy_core'
+      || spellEffectKind === 'damage_core'
+      || spellEffectKind === 'aoe_enemy'
+      || spellEffectKind === 'erase_opponent_grave'
+      || spellEffectKind === 'mass_recall';
+    const spellVisualTargetOwnerId = target?.ownerId ?? (spellTargetsOpponent ? opponentId : playerId);
     appendVisual(state, {
       kind: 'spell', vfx: resolveCardVfx(card, 'activation'), cardId: card.id, ownerId: playerId,
-      targetOwnerId: target?.ownerId, targetZone: target?.unitIndex, label: card.name,
+      targetOwnerId: spellVisualTargetOwnerId, targetZone: target?.unitIndex, label: card.name,
     });
     const continuation: Extract<PendingTrapContinuation, { kind: 'spell' }> = { kind: 'spell', actorId: playerId, cardId: card.id, target };
     const unitTarget: UnitBoardTarget | undefined = target && Number.isInteger(target.unitIndex)
@@ -3091,15 +3100,15 @@ function resolveUnitAttack(
   const defenderCard = CARD_BY_ID[defender.cardId];
   const defenderDurabilityBefore = Math.max(0, defender.health) + Math.max(0, defender.shield);
   const attackerDamage = Math.max(0, attacker.attack + continuation.bonusDamage);
-  const defenderDamage = defender.attack;
+  const defenderDamage = Math.max(0, defender.attack);
   const defenderReport = damageUnit(state, opponentId, continuation.targetIndex, attackerDamage);
   const attackerReport = damageUnit(state, playerId, continuation.attackerIndex, defenderDamage);
 
   if (defenderReport.absorbed > 0 || defenderReport.healthDamage > 0) {
-    appendVisual(state, { kind: 'defense', vfx: resolveCardVfx(defenderCard, 'defense'), cardId: defenderCard?.id, ownerId: playerId, targetOwnerId: opponentId, targetZone: continuation.targetIndex, amount: defenderReport.absorbed + defenderReport.healthDamage, shieldAmount: defenderReport.absorbed, healthAmount: defenderReport.healthDamage, label: defenderCard?.name ?? '피해' });
+    appendVisual(state, { kind: 'defense', vfx: resolveCardVfx(defenderCard, 'defense'), cardId: defenderCard?.id, ownerId: playerId, targetOwnerId: opponentId, targetZone: continuation.targetIndex, amount: defenderReport.absorbed + defenderReport.healthDamage, shieldAmount: defenderReport.absorbed, healthAmount: defenderReport.healthDamage, label: '공격 피해', detail: `${defenderCard?.name ?? '적 유닛'} · 보호막 ${defenderReport.absorbed} / HP ${defenderReport.healthDamage} 피해` });
   }
   if (attackerReport.absorbed > 0 || attackerReport.healthDamage > 0) {
-    appendVisual(state, { kind: 'defense', vfx: resolveCardVfx(attackerCard, 'defense'), cardId: attackerCard?.id, ownerId: opponentId, targetOwnerId: playerId, targetZone: continuation.attackerIndex, amount: attackerReport.absorbed + attackerReport.healthDamage, shieldAmount: attackerReport.absorbed, healthAmount: attackerReport.healthDamage, label: attackerCard?.name ?? '반격 피해' });
+    appendVisual(state, { kind: 'defense', vfx: resolveCardVfx(attackerCard, 'defense'), cardId: attackerCard?.id, ownerId: opponentId, targetOwnerId: playerId, targetZone: continuation.attackerIndex, amount: attackerReport.absorbed + attackerReport.healthDamage, shieldAmount: attackerReport.absorbed, healthAmount: attackerReport.healthDamage, label: '반격 피해', detail: `${attackerCard?.name ?? '공격 유닛'} · 반격 보호막 ${attackerReport.absorbed} / HP ${attackerReport.healthDamage} 피해` });
   }
   if (attackerCard?.keywords?.includes('lifesteal')) {
     const healed = healCore(state, playerId, defenderReport.healthDamage);

@@ -6759,3 +6759,221 @@ html[data-ipad="true"] .v23-client.in-duel .v32o-energy-draw-action {
   .v32u-password-row { grid-template-columns: 1fr; }
   .v32u-password-row > button, .v32u-apply-password { width: 100%; min-height: 44px; }
 }
+
+
+/* ========================================================================== 
+   v32v · Performance + semantic spell VFX + clean hit routing
+   - Keep every game rule and card action intact while reducing combat DOM work.
+   - Spells use localized, card-semantic effects instead of a screen color wash.
+   - One attack route at most; sword attacks no longer stack generic slash bars.
+   - Damage is rendered once at the actual target, including counter-hit labeling.
+   ========================================================================== */
+.v23-client.in-duel .v18-cinematic-layer {
+  contain:layout paint style;
+  isolation:isolate;
+}
+.v23-client.in-duel .v18-cinematic-layer.kind-spell {
+  background:transparent!important;
+}
+.v23-client.in-duel .v18-cinematic-layer.kind-spell::before {
+  background:radial-gradient(circle at var(--tx) var(--ty),color-mix(in srgb,var(--fx-accent) 14%,transparent) 0 8%,transparent 34%)!important;
+  animation:v32vSpellBackdrop .78s ease-out both!important;
+}
+.v23-client.in-duel .v18-cinematic-layer.kind-spell .v22-screen-flash,
+.v23-client.in-duel .v18-cinematic-layer.kind-spell .v18-motion-line,
+.v23-client.in-duel .v18-cinematic-layer.kind-spell .v18-motion-orb,
+.v23-client.in-duel .v18-cinematic-layer.kind-spell .v18-impact-ring,
+.v23-client.in-duel .v18-cinematic-layer.kind-spell .v18-impact-flare {
+  display:none!important;
+}
+.v23-client.in-duel .v18-cinematic-layer.kind-spell .v18-card-cutin {
+  left:clamp(76px,14vw,180px)!important;
+  top:60%!important;
+  width:min(142px,13vw)!important;
+  opacity:.96;
+}
+.v23-client.in-duel .v18-cinematic-layer.kind-spell .v18-event-banner {
+  top:9%!important;
+  min-width:min(360px,68vw)!important;
+  background:linear-gradient(90deg,transparent,rgba(3,8,13,.78) 24%,rgba(3,8,13,.78) 76%,transparent)!important;
+}
+
+/* Only the route actually rendered by React is visible. Old echo/path selectors are neutralized. */
+.v23-client.in-duel .v32v-single-route .v32m-vector-line.echo { display:none!important; }
+.v23-client.in-duel .v31e-attack-stage.style-slash .v31e-slash-trails { display:none!important; }
+.v23-client.in-duel .v31e-attack-stage .v32-attack-backline { display:none!important; }
+.v23-client.in-duel .v32v-single-route .v32m-vector-line.main,
+.v23-client.in-duel .v32v-single-route .v32m-vector-curve {
+  filter:drop-shadow(0 0 3px var(--sig-core))!important;
+}
+
+/* Local spell stage: everything is anchored to the real target position. */
+.v23-client.in-duel .v32v-spell-stage { position:absolute;inset:0;z-index:24;pointer-events:none; }
+.v23-client.in-duel .v32v-spell-anchor {
+  position:absolute;left:var(--tx);top:var(--ty);width:1px;height:1px;z-index:4;
+  filter:drop-shadow(0 0 8px color-mix(in srgb,var(--fx-accent) 52%,transparent));
+}
+.v23-client.in-duel .v32v-spell-copy {
+  position:absolute;left:var(--tx);top:calc(var(--ty) + 72px);transform:translateX(-50%);
+  min-width:150px;max-width:260px;padding:6px 10px;border:1px solid color-mix(in srgb,var(--fx-accent) 34%,transparent);
+  border-radius:9px;background:rgba(4,10,15,.74);box-shadow:0 10px 24px rgba(0,0,0,.3);text-align:center;
+  animation:v32vSpellCopy .82s ease-out both;
+}
+.v23-client.in-duel .v32v-spell-copy small { display:block;color:var(--fx-accent);font-size:6px;font-weight:950;letter-spacing:.16em; }
+.v23-client.in-duel .v32v-spell-copy b { display:block;margin-top:2px;color:#f5fbff;font-size:11px; }
+.v23-client.in-duel .v32v-spell-copy span { display:block;margin-top:1px;color:#9eb0bd;font-size:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+
+/* Flash bomb: a localized white burst with rays, never a full-screen white layer. */
+.v23-client.in-duel .v32v-spell-stage.style-flash .flash-core {
+  position:absolute;width:28px;height:28px;margin:-14px;border-radius:50%;background:#fff;
+  box-shadow:0 0 12px #fff,0 0 32px color-mix(in srgb,var(--fx-accent) 80%,white),0 0 58px color-mix(in srgb,var(--fx-accent) 38%,transparent);
+  animation:v32vFlashCore .56s ease-out both;
+}
+.v23-client.in-duel .v32v-spell-stage.style-flash .flash-ring {
+  position:absolute;width:62px;height:62px;margin:-31px;border:2px solid rgba(237,252,255,.92);border-radius:50%;
+  animation:v32vFlashRing .66s .04s ease-out both;
+}
+.v23-client.in-duel .v32v-spell-stage.style-flash .flash-rays b {
+  --a:calc(var(--ray) * 45deg);position:absolute;left:-1px;top:-2px;width:2px;height:72px;transform-origin:1px 2px;
+  background:linear-gradient(#fff,color-mix(in srgb,var(--fx-accent) 70%,white),transparent);opacity:0;
+  animation:v32vFlashRay .5s calc(var(--ray) * 8ms) ease-out both;transform:rotate(var(--a));
+}
+
+/* Sword spell: one blade + one cut, not three generic streaks. */
+.v23-client.in-duel .v32v-spell-stage.style-slash .spell-blade {
+  position:absolute;width:168px;height:7px;left:-84px;top:-3px;border-radius:100% 10%;
+  background:linear-gradient(90deg,transparent 0,#fff 28%,color-mix(in srgb,var(--fx-accent) 76%,white) 63%,transparent 100%);
+  transform:rotate(calc(var(--attack-angle) - 20deg)) scaleX(0);transform-origin:50% 50%;
+  box-shadow:0 0 12px color-mix(in srgb,var(--fx-accent) 55%,transparent);animation:v32vSpellSlash .58s ease-out both;
+}
+.v23-client.in-duel .v32v-spell-stage.style-slash .spell-cut {
+  position:absolute;width:76px;height:76px;margin:-38px;border:2px solid color-mix(in srgb,var(--fx-accent) 74%,white);border-radius:50%;
+  clip-path:polygon(0 42%,100% 0,100% 18%,0 60%);transform:rotate(-18deg);animation:v32vSpellCut .6s .16s ease-out both;
+}
+
+/* Lance spell: one straight magical spear. */
+.v23-client.in-duel .v32v-spell-stage.style-lance .spell-lance {
+  position:absolute;left:-120px;top:-2px;width:120px;height:4px;background:linear-gradient(90deg,transparent,var(--fx-accent),#fff);
+  transform:rotate(var(--attack-angle));transform-origin:120px 2px;animation:v32vLance .58s ease-out both;
+}
+.v23-client.in-duel .v32v-spell-stage.style-lance .spell-lance-tip {
+  position:absolute;width:0;height:0;left:-7px;top:-8px;border-top:8px solid transparent;border-bottom:8px solid transparent;border-left:22px solid #fff;
+  transform:rotate(var(--attack-angle));animation:v32vLanceTip .5s .12s ease-out both;
+}
+
+/* Lightning: a single compact bolt silhouette and electric ring. */
+.v23-client.in-duel .v32v-spell-stage.style-lightning .spell-bolt {
+  position:absolute;width:34px;height:112px;left:-17px;top:-78px;background:linear-gradient(#fff,var(--fx-accent));
+  clip-path:polygon(54% 0,23% 45%,48% 45%,32% 100%,82% 38%,57% 38%,76% 0);
+  animation:v32vBolt .62s ease-out both;
+}
+.v23-client.in-duel .v32v-spell-stage.style-lightning .spell-electric-ring {
+  position:absolute;width:68px;height:68px;margin:-34px;border:2px dashed color-mix(in srgb,var(--fx-accent) 75%,white);border-radius:50%;
+  animation:v32vElectricRing .68s .12s ease-out both;
+}
+
+/* Fire / supernova: compact radial blast and a few embers. */
+.v23-client.in-duel .v32v-spell-stage.style-fire .spell-fire-core {
+  position:absolute;width:54px;height:54px;margin:-27px;border-radius:50%;
+  background:radial-gradient(circle,#fff 0 12%,#ffd37c 20%,color-mix(in srgb,var(--fx-accent) 70%,#ff6a32) 48%,transparent 72%);
+  animation:v32vFireCore .66s ease-out both;
+}
+.v23-client.in-duel .v32v-spell-stage.style-fire .spell-embers b {
+  --a:calc(var(--ember) * 60deg);position:absolute;width:6px;height:13px;left:-3px;top:-6px;border-radius:50% 50% 50% 0;
+  background:#ffd37c;transform:rotate(var(--a));animation:v32vEmber .66s calc(var(--ember) * 10ms) ease-out both;
+}
+
+/* Void: slit/rift rather than tinting the entire screen purple. */
+.v23-client.in-duel .v32v-spell-stage.style-void .spell-rift {
+  position:absolute;width:18px;height:116px;left:-9px;top:-58px;border:2px solid color-mix(in srgb,var(--fx-accent) 72%,white);border-radius:50%;
+  background:linear-gradient(90deg,transparent,rgba(0,0,0,.86),transparent);transform:rotate(16deg) scaleY(.2);
+  box-shadow:0 0 18px color-mix(in srgb,var(--fx-accent) 48%,transparent);animation:v32vRift .72s ease-out both;
+}
+.v23-client.in-duel .v32v-spell-stage.style-void .spell-rift-core {
+  position:absolute;width:42px;height:42px;margin:-21px;border:1px dashed var(--fx-accent);border-radius:50%;animation:v32vRiftCore .72s .08s ease-out both;
+}
+
+/* Heal / shield / growth / utility motifs. */
+.v23-client.in-duel .v32v-spell-stage.style-heal .spell-heal-ring { position:absolute;width:72px;height:72px;margin:-36px;border:2px solid #72f1b2;border-radius:50%;animation:v32vUtilityRing .72s ease-out both; }
+.v23-client.in-duel .v32v-spell-stage.style-heal .spell-heal-cross::before,.v23-client.in-duel .v32v-spell-stage.style-heal .spell-heal-cross::after { content:"";position:absolute;left:-4px;top:-22px;width:8px;height:44px;border-radius:4px;background:#dcffec;box-shadow:0 0 12px #69eeb0;animation:v32vUtilityPop .58s ease-out both; }
+.v23-client.in-duel .v32v-spell-stage.style-heal .spell-heal-cross::after { transform:rotate(90deg); }
+.v23-client.in-duel .v32v-spell-stage.style-shield .spell-shield { position:absolute;width:64px;height:78px;left:-32px;top:-42px;clip-path:polygon(50% 0,94% 17%,86% 72%,50% 100%,14% 72%,6% 17%);border:2px solid #a9ebff;background:linear-gradient(150deg,rgba(198,243,255,.18),rgba(62,159,205,.06));animation:v32vShield .72s ease-out both; }
+.v23-client.in-duel .v32v-spell-stage.style-shield .spell-shield-ring { position:absolute;width:88px;height:88px;margin:-44px;border:1px solid rgba(151,226,255,.62);border-radius:50%;animation:v32vUtilityRing .7s .06s ease-out both; }
+.v23-client.in-duel .v32v-spell-stage.style-growth .spell-vine { position:absolute;width:8px;height:86px;left:-4px;top:-70px;border:2px solid #8ee5a4;border-top:0;border-bottom:0;border-radius:50%;transform-origin:50% 100%;animation:v32vGrow .72s ease-out both; }
+.v23-client.in-duel .v32v-spell-stage.style-growth .vine-a { transform:rotate(-27deg); }.v23-client.in-duel .v32v-spell-stage.style-growth .vine-b { transform:rotate(28deg); }
+.v23-client.in-duel .v32v-spell-stage.style-growth .spell-leaf { position:absolute;width:32px;height:18px;left:8px;top:-56px;border-radius:100% 0 100% 0;background:#99edaf;animation:v32vLeaf .65s .12s ease-out both; }
+.v23-client.in-duel .v32v-spell-stage.style-draw .spell-card { position:absolute;width:34px;height:50px;left:-17px;top:-25px;border:1px solid #c6e7ff;border-radius:4px;background:linear-gradient(145deg,#20374b,#0a111a);animation:v32vCardLift .7s ease-out both; }
+.v23-client.in-duel .v32v-spell-stage.style-draw .card-b { animation-delay:.08s;transform:rotate(10deg); }
+.v23-client.in-duel .v32v-spell-stage.style-energy .spell-energy-orb { position:absolute;width:32px;height:32px;margin:-16px;border-radius:50%;background:#e7fbff;box-shadow:0 0 18px #73dcff,0 0 38px rgba(80,188,255,.36);animation:v32vEnergy .7s ease-out both; }
+.v23-client.in-duel .v32v-spell-stage.style-energy .spell-energy-ring { position:absolute;width:74px;height:74px;margin:-37px;border:2px solid #70d9ff;border-radius:50%;animation:v32vUtilityRing .7s ease-out both; }
+.v23-client.in-duel .v32v-spell-stage.style-summon .spell-summon-ring { position:absolute;width:86px;height:36px;margin:-18px -43px;border:2px solid var(--fx-accent);border-radius:50%;animation:v32vSummonRing .74s ease-out both; }.v23-client.in-duel .v32v-spell-stage.style-summon .ring-b { transform:rotate(90deg);animation-delay:.07s; }
+.v23-client.in-duel .v32v-spell-stage.style-arcane .spell-arcane-ring { position:absolute;width:76px;height:76px;margin:-38px;border:2px dotted color-mix(in srgb,var(--fx-accent) 80%,white);border-radius:50%;animation:v32vArcane .78s ease-out both; }
+.v23-client.in-duel .v32v-spell-stage.style-arcane .spell-arcane-glyph { position:absolute;left:-14px;top:-18px;width:28px;height:36px;display:grid;place-items:center;color:#fff;font-size:26px;font-style:normal;text-shadow:0 0 14px var(--fx-accent);animation:v32vUtilityPop .62s ease-out both; }
+
+/* Damage is a single target-localized reaction. It no longer runs a second full-screen cinematic. */
+.v23-client.in-duel .v31-damage-popup-layer { contain:layout paint style; }
+.v23-client.in-duel .v32v-local-damage { min-width:1px;min-height:1px; }
+.v23-client.in-duel .v32v-local-hit-ring {
+  position:absolute;left:50%;top:50%;width:42px;height:42px;margin:-21px;border:2px solid rgba(255,132,143,.88);border-radius:50%;
+  box-shadow:0 0 18px rgba(255,80,96,.24);animation:v32vHitRing .56s ease-out both;pointer-events:none;
+}
+.v23-client.in-duel .v32v-local-damage.shielded .v32v-local-hit-ring { border-color:rgba(111,221,255,.92);box-shadow:0 0 18px rgba(71,183,255,.28); }
+.v23-client.in-duel .v32v-local-hit-cross::before,.v23-client.in-duel .v32v-local-hit-cross::after {
+  content:"";position:absolute;left:50%;top:50%;width:58px;height:2px;margin-left:-29px;background:linear-gradient(90deg,transparent,#fff,transparent);transform:rotate(38deg);animation:v32vHitCross .45s ease-out both;
+}
+.v23-client.in-duel .v32v-local-hit-cross::after { transform:rotate(-38deg); }
+.v23-client.in-duel .v32v-local-damage.counter .v31-damage-popup.health small { color:#ffc878!important; }
+
+/* Heavy full-screen filters were one of the avoidable GPU costs during chained events. */
+.v23-client.in-duel .v18-cinematic-layer.kind-trap,
+.v23-client.in-duel .v18-cinematic-layer.kind-fusion,
+.v23-client.in-duel .v18-cinematic-layer.kind-evolution { backdrop-filter:none!important; }
+
+@keyframes v32vSpellBackdrop { 0%{opacity:0}25%{opacity:1}100%{opacity:0} }
+@keyframes v32vSpellCopy { 0%{opacity:0;transform:translate(-50%,7px)}22%{opacity:1;transform:translate(-50%,0)}78%{opacity:1}100%{opacity:0;transform:translate(-50%,-5px)} }
+@keyframes v32vFlashCore { 0%{opacity:0;transform:scale(.2)}18%{opacity:1;transform:scale(1.2)}100%{opacity:0;transform:scale(2.5)} }
+@keyframes v32vFlashRing { 0%{opacity:0;transform:scale(.25)}25%{opacity:.95}100%{opacity:0;transform:scale(2.1)} }
+@keyframes v32vFlashRay { 0%{opacity:0;transform:rotate(var(--a)) scaleY(.1)}22%{opacity:1}100%{opacity:0;transform:rotate(var(--a)) scaleY(1.25)} }
+@keyframes v32vSpellSlash { 0%{opacity:0;transform:rotate(calc(var(--attack-angle) - 20deg)) scaleX(0)}25%{opacity:1}100%{opacity:0;transform:rotate(calc(var(--attack-angle) - 20deg)) scaleX(1.15)} }
+@keyframes v32vSpellCut { 0%{opacity:0;transform:rotate(-18deg) scale(.4)}30%{opacity:.9}100%{opacity:0;transform:rotate(-18deg) scale(1.35)} }
+@keyframes v32vLance { 0%{opacity:0;transform:rotate(var(--attack-angle)) scaleX(.15)}25%{opacity:1}100%{opacity:0;transform:rotate(var(--attack-angle)) scaleX(1.15)} }
+@keyframes v32vLanceTip { 0%{opacity:0;transform:rotate(var(--attack-angle)) scale(.3)}30%{opacity:1}100%{opacity:0;transform:rotate(var(--attack-angle)) scale(1.4)} }
+@keyframes v32vBolt { 0%{opacity:0;transform:translateY(-24px) scaleY(.3)}18%{opacity:1}50%{transform:translateY(0) scaleY(1.05)}100%{opacity:0;transform:translateY(8px) scaleY(.92)} }
+@keyframes v32vElectricRing { 0%{opacity:0;transform:scale(.35) rotate(-18deg)}30%{opacity:.9}100%{opacity:0;transform:scale(1.7) rotate(22deg)} }
+@keyframes v32vFireCore { 0%{opacity:0;transform:scale(.15)}25%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(2.2)} }
+@keyframes v32vEmber { 0%{opacity:0;transform:rotate(var(--a)) translateY(0) scale(.3)}22%{opacity:1}100%{opacity:0;transform:rotate(var(--a)) translateY(-72px) scale(.6)} }
+@keyframes v32vRift { 0%{opacity:0;transform:rotate(16deg) scaleY(.15)}28%{opacity:1;transform:rotate(16deg) scaleY(1)}100%{opacity:0;transform:rotate(16deg) scaleY(1.16)} }
+@keyframes v32vRiftCore { 0%{opacity:0;transform:scale(1.4) rotate(-20deg)}30%{opacity:.9}100%{opacity:0;transform:scale(.7) rotate(24deg)} }
+@keyframes v32vUtilityRing { 0%{opacity:0;transform:scale(.35)}28%{opacity:.9}100%{opacity:0;transform:scale(1.55)} }
+@keyframes v32vUtilityPop { 0%{opacity:0;transform:scale(.4)}28%{opacity:1;transform:scale(1.12)}100%{opacity:0;transform:scale(.9)} }
+@keyframes v32vShield { 0%{opacity:0;transform:scale(.55) translateY(8px)}30%{opacity:.92;transform:scale(1)}100%{opacity:0;transform:scale(1.12) translateY(-4px)} }
+@keyframes v32vGrow { 0%{opacity:0;scale:1 .18}30%{opacity:1}100%{opacity:0;scale:1 1.08} }
+@keyframes v32vLeaf { 0%{opacity:0;transform:scale(.2) rotate(-18deg)}35%{opacity:1;transform:scale(1.1) rotate(5deg)}100%{opacity:0;transform:scale(.9) rotate(14deg)} }
+@keyframes v32vCardLift { 0%{opacity:0;transform:translateY(22px) rotate(-8deg) scale(.7)}35%{opacity:1}100%{opacity:0;transform:translateY(-32px) rotate(6deg) scale(1)} }
+@keyframes v32vEnergy { 0%{opacity:0;transform:scale(.25)}30%{opacity:1}100%{opacity:0;transform:scale(1.65)} }
+@keyframes v32vSummonRing { 0%{opacity:0;transform:scale(.35) rotate(-20deg)}28%{opacity:.9}100%{opacity:0;transform:scale(1.45) rotate(28deg)} }
+@keyframes v32vArcane { 0%{opacity:0;transform:scale(.45) rotate(-35deg)}28%{opacity:.9}100%{opacity:0;transform:scale(1.28) rotate(45deg)} }
+@keyframes v32vHitRing { 0%{opacity:0;transform:scale(.2)}28%{opacity:1}100%{opacity:0;transform:scale(1.8)} }
+@keyframes v32vHitCross { 0%{opacity:0;scale:.3 1}28%{opacity:1}100%{opacity:0;scale:1.35 1} }
+
+@media (max-width:900px), (max-height:720px) {
+  .v23-client.in-duel .v18-cinematic-layer.kind-spell .v18-card-cutin { width:104px!important;left:66px!important;top:66%!important; }
+  .v23-client.in-duel .v32v-spell-copy { top:calc(var(--ty) + 58px);min-width:128px; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .v23-client.in-duel .v32v-spell-anchor > * { animation-duration:.01ms!important;animation-delay:0ms!important; }
+  .v23-client.in-duel .v32v-spell-copy { animation:none!important;opacity:1!important; }
+  .v23-client.in-duel .v32v-local-hit-ring { animation:none!important;opacity:.72!important; }
+}
+
+/* v32v performance follow-up: eight evenly-spaced healing motes are enough to read
+   clearly while cutting a third of the per-heal animated nodes. */
+.v23-client.in-duel .v32-heal-particles i:nth-child(1){transform:rotate(0deg) translateY(-58px)!important}
+.v23-client.in-duel .v32-heal-particles i:nth-child(2){transform:rotate(45deg) translateY(-58px)!important}
+.v23-client.in-duel .v32-heal-particles i:nth-child(3){transform:rotate(90deg) translateY(-58px)!important}
+.v23-client.in-duel .v32-heal-particles i:nth-child(4){transform:rotate(135deg) translateY(-58px)!important}
+.v23-client.in-duel .v32-heal-particles i:nth-child(5){transform:rotate(180deg) translateY(-58px)!important}
+.v23-client.in-duel .v32-heal-particles i:nth-child(6){transform:rotate(225deg) translateY(-58px)!important}
+.v23-client.in-duel .v32-heal-particles i:nth-child(7){transform:rotate(270deg) translateY(-58px)!important}
+.v23-client.in-duel .v32-heal-particles i:nth-child(8){transform:rotate(315deg) translateY(-58px)!important}

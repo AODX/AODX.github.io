@@ -2768,10 +2768,14 @@ function duelEventPoints(event: VisualEvent, userId: string): { source: DuelPoin
     return { source, target: duelZonePoint(targetId, userId, undefined, 'leader') };
   }
   if (event.kind === 'spell') {
-    return {
-      source: duelZonePoint(actorId, userId, undefined, 'hand'),
-      target: event.targetZone !== undefined ? duelZonePoint(targetId, userId, event.targetZone, 'unit') : duelZonePoint(targetId && targetId !== actorId ? targetId : (actorId === userId ? '__opponent__' : userId), userId, undefined, 'leader'),
-    };
+    const source = duelZonePoint(actorId, userId, undefined, 'hand');
+    if (event.targetZone !== undefined) {
+      const fallback = duelZonePoint(targetId, userId, event.targetZone, 'unit');
+      return { source, target: measuredDuelPoint(targetId, event.targetZone, 'unit', fallback) };
+    }
+    const leaderOwner = event.targetOwnerId;
+    const fallback = duelZonePoint(leaderOwner ?? (actorId === userId ? '__opponent__' : userId), userId, undefined, 'leader');
+    return { source, target: leaderOwner ? measuredDuelPoint(leaderOwner, undefined, 'leader', fallback) : fallback };
   }
   if (event.kind === 'trap') {
     return { source: duelZonePoint(actorId, userId, 2, 'secret'), target: duelZonePoint(actorId === userId ? '__opponent__' : userId, userId, event.targetZone, event.targetZone !== undefined ? 'unit' : 'leader') };
@@ -2912,6 +2916,46 @@ function attackMotionProfile(card: CardDefinition, eventVfx?: string): AttackCin
   const fallbackVfx = eventVfx ? ATTACK_VFX_STYLE[eventVfx] : undefined;
   if (fallbackVfx) return { ...base, ...fallbackVfx };
   return base;
+}
+
+
+type SpellCinematicStyle = 'flash' | 'slash' | 'lance' | 'lightning' | 'fire' | 'void' | 'heal' | 'growth' | 'shield' | 'draw' | 'energy' | 'summon' | 'arcane';
+
+type SpellCinematicProfile = {
+  style: SpellCinematicStyle;
+  label: string;
+  marker: string;
+};
+
+function spellMotionProfile(card: CardDefinition): SpellCinematicProfile {
+  const name = `${card.name} ${card.subtitle ?? ''}`.toLowerCase();
+  const effect = card.effect?.kind;
+  const marker = card.sigil || '✦';
+  const profile = (style: SpellCinematicStyle, label: string): SpellCinematicProfile => ({ style, label, marker });
+
+  // Exact authored identity wins. "섬광탄" should look like a localized flash burst,
+  // not a full-screen color wash or a generic lightning beam.
+  if (card.id === 'spell_spark_bolt' || /섬광탄/.test(name)) return profile('flash', '집속 섬광 폭발');
+  if (/(검무|참격|절단|베기|검격|칼날|blade|slash|cleave|saber)/i.test(name)) return profile('slash', '마력 참격');
+  if (/(공허의 창|태양창|천둥창|창격|lance|spear)/i.test(name)) return profile('lance', '주문 창격');
+  if (/(번개|낙뢰|전격|천둥|뇌광|뇌운|전류|lightning|thunder|bolt)/i.test(name)) return profile('lightning', '낙뢰 방전');
+  if (/(초신성|폭발|홍련|불꽃|화염|성화|백열|태양섬광|supernova|flare|blaze|flame)/i.test(name)) return profile('fire', '열광 폭발');
+
+  if (effect === 'heal_core' || effect === 'heal_unit') return profile('heal', '회복 파동');
+  if (effect === 'shield_unit' || effect === 'buff_unit' || effect === 'ready_unit' || effect === 'swap_stats') return profile('shield', '강화 각인');
+  if (effect === 'draw' || effect === 'reweave_hand' || effect === 'draw_if_outnumbered' || effect === 'sacrifice_draw') return profile('draw', '지식 전개');
+  if (effect === 'gain_energy' || effect === 'end_turn_next_energy') return profile('energy', '에너지 집속');
+  if (effect === 'summon_token' || effect === 'recruit_unit' || effect === 'revive_unit' || effect === 'recover_grave_unit') return profile('summon', '소환식 전개');
+
+  if (/(성장|숲|씨앗|덩굴|꽃잎|비취|생명|worldroot|bloom|vine|seed)/i.test(name) || card.element === 'verdant') return profile('growth', '생명맥 발아');
+  if (/(공허|심연|월식|망각|붕괴|void|abyss|eclipse)/i.test(name) || card.element === 'void') return profile('void', '공허 균열');
+
+  if (effect === 'damage_unit' || effect === 'damage_core' || effect === 'aoe_enemy' || effect === 'damage_draw_if_destroyed' || effect === 'destroy_weak') {
+    if (card.element === 'storm') return profile('lightning', '전격 방출');
+    if (card.element === 'solar') return profile('fire', '태양 폭발');
+    return profile('arcane', '마력 충격');
+  }
+  return profile('arcane', '주문 발현');
 }
 
 type SummonCinematicStyle = 'radiance' | 'forge' | 'rift' | 'moon' | 'bloom' | 'storm' | 'abyss' | 'beast' | 'chrono' | 'arcane' | 'carnival' | 'armada' | 'phoenix' | 'eclipse' | 'neutral';
@@ -3103,6 +3147,7 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
   if (!event) return null;
   const card = event.cardId ? CARD_BY_ID[event.cardId] : undefined;
   const attackProfile = event.kind === 'attack' && card ? attackMotionProfile(card, event.vfx) : undefined;
+  const spellProfile = event.kind === 'spell' && card ? spellMotionProfile(card) : undefined;
   const summonPresentation = isSummonPresentation(event, card);
   const summonProfile = summonPresentation && card ? summonMotionProfile(card, event.vfx) : undefined;
   const extraProfile = card && (event.kind === 'fusion' || event.kind === 'evolution') ? extraCinematicProfile(card, event.kind) : undefined;
@@ -3110,6 +3155,9 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
   const mine = event.ownerId === userId;
   const { source, target } = duelEventPoints(event, userId);
   const attackAngle = Math.atan2(target.y - source.y, target.x - source.x) * 180 / Math.PI;
+  const usesCurvedAttackPath = Boolean(attackProfile && ['whip', 'phantom', 'chrono', 'arcane'].includes(attackProfile.style));
+  const usesLinearAttackPath = Boolean(attackProfile && ['slash', 'bow', 'beam', 'lance', 'cannon'].includes(attackProfile.style));
+  const particleCount = event.kind === 'fusion' || event.kind === 'evolution' ? 10 : event.kind === 'attack' ? 6 : event.kind === 'special' ? 8 : event.kind === 'core' || event.kind === 'destroy' ? 6 : 4;
   const fxStyle = {
     '--sx': `${source.x}%`, '--sy': `${source.y}%`, '--tx': `${target.x}%`, '--ty': `${target.y}%`, '--attack-angle': `${attackAngle}deg`,
     '--fx-accent': attackProfile?.accent ?? summonProfile?.accent ?? extraProfile?.accent ?? (card ? ELEMENT_ACCENT[card.element] : '#7ddcff'),
@@ -3150,9 +3198,9 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
   return (
     <div className={`v18-cinematic-layer kind-${event.kind} ${vfxClass} ${mine ? 'from-me' : 'from-opponent'} element-${card?.element ?? 'neutral'} rarity-${card?.rarity ?? 'common'}`} key={event.id} style={fxStyle} aria-live="polite">
       <span className="v22-cinematic-letterbox" aria-hidden="true" />
-      <span className="v22-screen-flash" aria-hidden="true" />
-      <span className="v22-element-particles" aria-hidden="true">{Array.from({ length: 18 }, (_, index) => <i key={index} style={{ '--particle': index } as CSSProperties} />)}</span>
-      {!((event.kind === 'attack') || summonPresentation || event.kind === 'fusion' || event.kind === 'evolution' || event.kind === 'heal') && (
+      {event.kind !== 'spell' && <span className="v22-screen-flash" aria-hidden="true" />}
+      <span className="v22-element-particles" aria-hidden="true">{Array.from({ length: particleCount }, (_, index) => <i key={index} style={{ '--particle': index } as CSSProperties} />)}</span>
+      {!((event.kind === 'attack') || (event.kind === 'spell' && spellProfile) || summonPresentation || event.kind === 'fusion' || event.kind === 'evolution' || event.kind === 'heal') && (
         <>
           <svg className="v18-motion-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             <line x1={source.x} y1={source.y} x2={target.x} y2={target.y} />
@@ -3180,16 +3228,17 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
 
       {event.kind === 'attack' && card && attackProfile && (
         <div className={`v31e-attack-stage style-${attackProfile.style} ${attackProfile.legendary ? 'legendary' : 'standard'} sig-${attackProfile.signature}`} aria-label={`${card.name} 공격 ${event.amount ?? 0}`}>
-          <span className="v32-attack-backline" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ '--line-index': index } as CSSProperties} />)}</span>
           <div className="v31e-attack-source-card">
             <CardIllustration card={card} hero />
             <span><small>{attackProfile.legendary ? 'LEGENDARY ATTACK' : spectator ? 'DUEL ATTACK' : mine ? 'YOUR ATTACK' : 'ENEMY ATTACK'}</small><b>{card.name}</b></span>
           </div>
-          <svg className="v32m-attack-vector" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-            <line className="v32m-vector-line main" x1={source.x} y1={source.y} x2={target.x} y2={target.y} />
-            <line className="v32m-vector-line echo" x1={source.x} y1={source.y} x2={target.x} y2={target.y} />
-            <path className="v32m-vector-curve" d={`M ${source.x} ${source.y} Q ${(source.x + target.x) / 2} ${Math.max(8, Math.min(92, (source.y + target.y) / 2 - 16))} ${target.x} ${target.y}`} />
-          </svg>
+          {(usesLinearAttackPath || usesCurvedAttackPath) && (
+            <svg className="v32m-attack-vector v32v-single-route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              {usesCurvedAttackPath
+                ? <path className="v32m-vector-curve" d={`M ${source.x} ${source.y} Q ${(source.x + target.x) / 2} ${Math.max(8, Math.min(92, (source.y + target.y) / 2 - 16))} ${target.x} ${target.y}`} />
+                : <line className="v32m-vector-line main" x1={source.x} y1={source.y} x2={target.x} y2={target.y} />}
+            </svg>
+          )}
           <div className="v32-attack-avatar">
             <span className="v32-attack-avatar-mark">{attackProfile.marker}</span>
             <div>
@@ -3204,10 +3253,9 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
           {attackProfile.style === 'bow' && <span className="v32n-bow-fx" aria-hidden="true"><i className="arc" /><i className="string" /><i className="arrow" /><em /></span>}
           {attackProfile.style === 'lance' && <span className="v32n-lance-fx" aria-hidden="true"><i className="shaft" /><i className="tip" /><em /></span>}
           {attackProfile.style === 'cannon' && <span className="v32n-cannon-fx" aria-hidden="true"><i /><em /></span>}
-          <span className="v31e-slash-trails" aria-hidden="true"><i /><i /><i /></span>
-          <span className="v32-attack-afterimage" aria-hidden="true">{Array.from({ length: 4 }, (_, index) => <i key={index} style={{ '--after-index': index } as CSSProperties} />)}</span>
+          <span className="v32-attack-afterimage" aria-hidden="true"><i style={{ '--after-index': 0 } as CSSProperties} /></span>
           <span className="v31e-target-reticle" aria-hidden="true"><i /><i /></span>
-          <span className="v31e-impact-burst" aria-hidden="true">{Array.from({ length: 10 }, (_, index) => <i key={index} style={{ '--spark': index } as CSSProperties} />)}</span>
+          <span className="v31e-impact-burst" aria-hidden="true">{Array.from({ length: 6 }, (_, index) => <i key={index} style={{ '--spark': index } as CSSProperties} />)}</span>
           <span className="v32-hitcall" aria-hidden="true"><b>{attackProfile.finisher}</b><small>{event.targetZone !== undefined ? 'TARGET LOCK' : 'DIRECT CORE'}</small></span>
           {attackProfile.style === 'bite' && (
             <span className="v32-bite-fx" aria-hidden="true">
@@ -3219,11 +3267,32 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
         </div>
       )}
 
+      {event.kind === 'spell' && card && spellProfile && (
+        <div className={`v32v-spell-stage style-${spellProfile.style}`} aria-label={`${card.name} 주문 발동`}>
+          <span className="v32v-spell-anchor" aria-hidden="true">
+            {spellProfile.style === 'flash' && <><i className="flash-core" /><i className="flash-ring" /><span className="flash-rays">{Array.from({ length: 8 }, (_, index) => <b key={index} style={{ '--ray': index } as CSSProperties} />)}</span></>}
+            {spellProfile.style === 'slash' && <><i className="spell-blade" /><i className="spell-cut" /></>}
+            {spellProfile.style === 'lance' && <><i className="spell-lance" /><i className="spell-lance-tip" /></>}
+            {spellProfile.style === 'lightning' && <><i className="spell-bolt" /><i className="spell-electric-ring" /></>}
+            {spellProfile.style === 'fire' && <><i className="spell-fire-core" /><span className="spell-embers">{Array.from({ length: 6 }, (_, index) => <b key={index} style={{ '--ember': index } as CSSProperties} />)}</span></>}
+            {spellProfile.style === 'void' && <><i className="spell-rift" /><i className="spell-rift-core" /></>}
+            {spellProfile.style === 'heal' && <><i className="spell-heal-ring" /><i className="spell-heal-cross" /></>}
+            {spellProfile.style === 'growth' && <><i className="spell-vine vine-a" /><i className="spell-vine vine-b" /><i className="spell-leaf" /></>}
+            {spellProfile.style === 'shield' && <><i className="spell-shield" /><i className="spell-shield-ring" /></>}
+            {spellProfile.style === 'draw' && <><i className="spell-card card-a" /><i className="spell-card card-b" /></>}
+            {spellProfile.style === 'energy' && <><i className="spell-energy-orb" /><i className="spell-energy-ring" /></>}
+            {spellProfile.style === 'summon' && <><i className="spell-summon-ring ring-a" /><i className="spell-summon-ring ring-b" /></>}
+            {spellProfile.style === 'arcane' && <><i className="spell-arcane-ring" /><i className="spell-arcane-glyph">{spellProfile.marker}</i></>}
+          </span>
+          <div className="v32v-spell-copy"><small>SPELL CAST</small><b>{spellProfile.label}</b><span>{card.name}</span></div>
+        </div>
+      )}
+
       {event.kind === 'heal' && (event.amount ?? 0) > 0 && (
         <div className="v32-heal-stage" aria-label={`체력 ${event.amount} 회복`}>
           <span className="v32-heal-aura" aria-hidden="true"><i /><i /><i /></span>
           <span className="v32-heal-cross" aria-hidden="true"><i /><i /></span>
-          <span className="v32-heal-particles" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ '--heal-particle': index } as CSSProperties} />)}</span>
+          <span className="v32-heal-particles" aria-hidden="true">{Array.from({ length: 8 }, (_, index) => <i key={index} style={{ '--heal-particle': index } as CSSProperties} />)}</span>
           <div className="v32-heal-copy"><small>RECOVERY</small><b>+{event.amount}</b><span>{event.label ?? '체력 회복'}</span></div>
         </div>
       )}
@@ -3342,10 +3411,13 @@ function DuelDamagePopupLayer({ events, userId }: { events: VisualEvent[]; userI
         const { target } = duelEventPoints(event, userId);
         const style = { left: `${target.x}%`, top: `${target.y}%` } as CSSProperties;
         if (event.kind === 'defense' && ((event.shieldAmount ?? 0) > 0 || (event.healthAmount ?? 0) > 0)) {
+          const counter = /반격/.test(event.label ?? '') || /반격/.test(event.detail ?? '');
+          const shielded = (event.shieldAmount ?? 0) > 0;
           return (
-            <span className="v31-damage-popup-group" style={style} key={event.id}>
-              {(event.shieldAmount ?? 0) > 0 && <strong className="v31-damage-popup shield"><small>SHIELD</small>−{event.shieldAmount}</strong>}
-              {(event.healthAmount ?? 0) > 0 && <strong className="v31-damage-popup health"><small>DAMAGE</small>−{event.healthAmount}</strong>}
+            <span className={`v31-damage-popup-group v32v-local-damage ${counter ? 'counter' : 'primary'} ${shielded ? 'shielded' : ''}`} style={style} key={event.id}>
+              <i className="v32v-local-hit-ring" aria-hidden="true" /><i className="v32v-local-hit-cross" aria-hidden="true" />
+              {(event.shieldAmount ?? 0) > 0 && <strong className="v31-damage-popup shield"><small>{counter ? 'COUNTER SHIELD' : 'SHIELD'}</small>−{event.shieldAmount}</strong>}
+              {(event.healthAmount ?? 0) > 0 && <strong className="v31-damage-popup health"><small>{counter ? 'COUNTER' : 'DAMAGE'}</small>−{event.healthAmount}</strong>}
             </span>
           );
         }
@@ -3865,7 +3937,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const visualEventSignature = visualEvents.map((event) => event.id).join('|');
 
   useEffect(() => {
-    let unseen = visualEvents.filter((event) => !seenVfx.current.has(event.id));
+    let unseen = visualEvents.filter((event) => !seenVfx.current.has(event.id) && event.kind !== 'defense');
     if (unseen.length === 0) return;
     if (seenVfx.current.size === 0 && unseen.length > 1) {
       const now = Date.now();
@@ -3875,7 +3947,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       unseen = recentBundle.length > 0 ? recentBundle.slice(-5) : unseen.slice(-1);
     }
     visualEvents.forEach((event) => seenVfx.current.add(event.id));
-    setVfxQueue((current) => [...current, ...unseen].slice(-10));
+    setVfxQueue((current) => [...current, ...unseen].slice(-8));
   }, [visualEventSignature]);
 
   useEffect(() => {
@@ -3889,7 +3961,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     if (damageEvents.length === 0) return;
     setDamagePopups((current) => [...current, ...damageEvents].slice(-10));
     const ids = new Set(damageEvents.map((event) => event.id));
-    window.setTimeout(() => setDamagePopups((current) => current.filter((event) => !ids.has(event.id))), 1650);
+    window.setTimeout(() => setDamagePopups((current) => current.filter((event) => !ids.has(event.id))), 1250);
   }, [visualEventSignature]);
 
   const privateHandSignature = nullablePrivateState?.hand.map((card) => card.instanceId).join('|') ?? '';
@@ -3930,7 +4002,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       return;
     }
     setTurnClock(Date.now());
-    const timer = window.setInterval(() => setTurnClock(Date.now()), 250);
+    const timer = window.setInterval(() => setTurnClock(Date.now()), 500);
     return () => window.clearInterval(timer);
   }, [nullableState?.turnEndsAt, nullableState?.turnNumber, nullableState?.status]);
 
@@ -4976,7 +5048,7 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
   const visualSignature = visualEvents.map((event) => event.id).join('|');
 
   useEffect(() => {
-    let unseen = visualEvents.filter((event) => !seenVfx.current.has(event.id));
+    let unseen = visualEvents.filter((event) => !seenVfx.current.has(event.id) && event.kind !== 'defense');
     if (unseen.length === 0) return;
     if (seenVfx.current.size === 0 && unseen.length > 1) {
       const now = Date.now();
@@ -4984,7 +5056,7 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
       unseen = recentBundle.length > 0 ? recentBundle.slice(-5) : unseen.slice(-1);
     }
     visualEvents.forEach((event) => seenVfx.current.add(event.id));
-    setVfxQueue((current) => [...current, ...unseen].slice(-10));
+    setVfxQueue((current) => [...current, ...unseen].slice(-8));
   }, [visualSignature]);
 
   useEffect(() => {
@@ -4994,7 +5066,7 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
     if (!incoming.length) return;
     setDamagePopups((current) => [...current, ...incoming].slice(-10));
     const ids = new Set(incoming.map((event) => event.id));
-    const timer = window.setTimeout(() => setDamagePopups((current) => current.filter((event) => !ids.has(event.id))), 1650);
+    const timer = window.setTimeout(() => setDamagePopups((current) => current.filter((event) => !ids.has(event.id))), 1250);
     return () => window.clearTimeout(timer);
   }, [visualSignature]);
 
