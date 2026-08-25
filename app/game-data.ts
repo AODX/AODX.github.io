@@ -57,6 +57,7 @@ export type Effect =
   | { kind: 'shield_unit'; amount: number }
   | { kind: 'aoe_enemy'; amount: number }
   | { kind: 'gain_energy'; amount: number }
+  | { kind: 'increase_energy_max'; amount: number }
   | { kind: 'destroy_weak'; maxHealth: number }
   | { kind: 'summon_token'; attack: number; health: number; name: string }
   | { kind: 'steal_unit' }
@@ -1451,7 +1452,7 @@ export const V26_EXPANSION_CARDS: CardDefinition[] = [
   { id: "v26_chronorium_unit_20", name: "크로노리움 이터널 캡틴", subtitle: "시간 가속 · 에너지 재배치 전개 유닛", kind: "unit", rarity: "epic", element: "lunar", cost: 5, attack: 5, health: 8, keywords: ["pierce"], onSummon: { kind: "gain_energy", amount: 1 }, target: "none", text: "관통. 소환 시 이번 턴 에너지 1 회복.", flavor: "시간성전 크로노리움 전투기록 20. 서로 다른 역할이 한 편대의 승리 조건을 완성한다.", sigil: "✦", series: "시간성전 크로노리움", seriesId: "chronorium", seriesAbility: { kind: "search_series", amount: 1 } },
   { id: "v26_chronorium_unit_21", name: "크로노리움 크로노스 레갈리아", subtitle: "시간 가속 · 에너지 재배치 전개 유닛", kind: "unit", rarity: "legendary", element: "storm", cost: 7, attack: 8, health: 10, keywords: ["charge"], summonMode: 'legendary', legendarySummonRule: { name: '시간축 동기화', label: '내 필드의 크로노리움 유닛 2체를 릴리스', release: 'same_series', minimumSameSeries: 2 }, onSummon: { kind: "draw", amount: 1 }, target: "none", text: "전설 특수 소환 · 시간축 동기화: 내 필드의 크로노리움 유닛 2체를 릴리스. 속공. 소환 시 카드 1장을 뽑습니다.", flavor: "시간성전 크로노리움 전투기록 21. 서로 다른 역할이 한 편대의 승리 조건을 완성한다.", sigil: "✦", series: "시간성전 크로노리움", seriesId: "chronorium", seriesAbility: { kind: "search_series", amount: 1 } },
   { id: "v26_chronorium_unit_22", name: "크로노리움 제로월드 아비터", subtitle: "시간 가속 · 에너지 재배치 전개 유닛", kind: "unit", rarity: "legendary", element: "neutral", cost: 6, attack: 7, health: 11, keywords: ["charge", "lifesteal"], summonMode: 'legendary', legendarySummonRule: { name: '제로월드 판정', label: '내 묘지에 카드가 5장 이상이고 내 코어가 15 이하일 때', release: 'none', graveyardMin: 5, coreAtMost: 15 }, onSummon: { kind: "shield_unit", amount: 1 }, target: "none", text: "전설 특수 소환 · 제로월드 판정: 내 묘지에 카드가 5장 이상이고 내 코어가 15 이하일 때. 속공 · 흡수. 소환 시 아군 유닛 하나에게 보호막 1.", flavor: "시간성전 크로노리움 전투기록 22. 서로 다른 역할이 한 편대의 승리 조건을 완성한다.", sigil: "✦", series: "시간성전 크로노리움", seriesId: "chronorium", seriesAbility: { kind: "search_series", amount: 1 } },
-  { id: "v26_chronorium_spell_01", name: "크로노리움 오더 - 퀵 스타트", subtitle: "크로노리움 전용 전술 카드", kind: "spell", rarity: "common", element: "lunar", cost: 1, effect: { kind: "gain_energy", amount: 2 }, target: "none", text: "이번 턴 에너지 2 회복.", flavor: "크로노리움의 전술식은 단독 사용보다 시리즈 연계에서 더 큰 가치를 만든다.", sigil: "✧", series: "시간성전 크로노리움", seriesId: "chronorium" },
+  { id: "v26_chronorium_spell_01", name: "크로노리움 오더 - 퀵 스타트", subtitle: "크로노리움 전용 전술 카드", kind: "spell", rarity: "common", element: "lunar", cost: 1, effect: { kind: "increase_energy_max", amount: 1 }, target: "none", text: "이 대전 동안 내 보유 ENERGY 최대치 +1, ENERGY 최대 한도도 +1. 중첩 가능. 현재 ENERGY는 회복하지 않습니다.", flavor: "크로노리움의 전술식은 단독 사용보다 시리즈 연계에서 더 큰 가치를 만든다.", sigil: "✧", series: "시간성전 크로노리움", seriesId: "chronorium" },
   { id: "v26_chronorium_spell_02", name: "크로노리움 오더 - 리와인드 코드", subtitle: "크로노리움 전용 전술 카드", kind: "spell", rarity: "common", element: "storm", cost: 2, effect: { kind: "shield_unit", amount: 3 }, target: "friendly_unit", text: "아군 유닛 하나에게 보호막 3.", flavor: "크로노리움의 전술식은 단독 사용보다 시리즈 연계에서 더 큰 가치를 만든다.", sigil: "✧", series: "시간성전 크로노리움", seriesId: "chronorium" },
   { id: "v26_chronorium_spell_03", name: "크로노리움 오더 - 스톱 더 모먼트", subtitle: "크로노리움 전용 전술 카드", kind: "spell", rarity: "rare", element: "neutral", cost: 2, effect: { kind: "damage_unit", amount: 4 }, target: "enemy_unit", text: "적 유닛 하나에 4 피해.", flavor: "크로노리움의 전술식은 단독 사용보다 시리즈 연계에서 더 큰 가치를 만든다.", sigil: "✧", series: "시간성전 크로노리움", seriesId: "chronorium", seriesAbility: { kind: "gain_energy_if_series", amount: 2, minimumAllies: 3 } },
   { id: "v26_chronorium_spell_04", name: "크로노리움 오더 - 초침 가속", subtitle: "크로노리움 전용 전술 카드", kind: "spell", rarity: "rare", element: "lunar", cost: 3, effect: { kind: "draw", amount: 2 }, target: "none", text: "카드 2장을 뽑습니다.", flavor: "크로노리움의 전술식은 단독 사용보다 시리즈 연계에서 더 큰 가치를 만든다.", sigil: "✧", series: "시간성전 크로노리움", seriesId: "chronorium" },
@@ -1728,6 +1729,7 @@ function spellEffectText(effect: Effect): string {
     case 'shield_unit': return `아군 유닛 하나에게 보호막 ${effect.amount}.`;
     case 'aoe_enemy': return `모든 적 유닛에 ${effect.amount} 피해.`;
     case 'gain_energy': return `이번 턴 에너지 ${effect.amount} 회복.`;
+    case 'increase_energy_max': return `이 대전 동안 내 보유 ENERGY 최대치 +${effect.amount}, ENERGY 최대 한도도 +${effect.amount}. 중첩 가능.`;
     case 'destroy_weak': return `현재 체력이 ${effect.maxHealth} 이하인 적 유닛 하나를 파괴.`;
     case 'summon_token': return `${effect.name} ${effect.attack}/${effect.health} 토큰을 소환.`;
     case 'steal_unit': return '적 유닛 1장의 지배권을 가져옵니다. 강탈한 유닛은 이번 턴 공격할 수 없고 보호막을 잃습니다.';
@@ -1761,6 +1763,7 @@ function clampNonLegendarySpell(card: CardDefinition): void {
     case 'aoe_enemy': effect.amount = Math.min(effect.amount, 1 + tier); break;
     case 'draw': effect.amount = Math.min(effect.amount, card.rarity === 'epic' ? 2 : 1); break;
     case 'gain_energy': effect.amount = Math.min(effect.amount, card.rarity === 'epic' ? 2 : 1); break;
+    case 'increase_energy_max': break;
     case 'buff_unit': {
       const cap = 1 + tier;
       effect.attack = Math.min(effect.attack, cap);
@@ -1798,6 +1801,7 @@ function strengthenLegendarySpell(card: CardDefinition): void {
     case 'aoe_enemy': effect.amount = Math.max(effect.amount, 4); break;
     case 'draw': effect.amount = Math.max(effect.amount, 3); break;
     case 'gain_energy': effect.amount = Math.max(effect.amount, 3); break;
+    case 'increase_energy_max': break;
     case 'buff_unit': effect.attack = Math.max(effect.attack, 4); effect.health = Math.max(effect.health, 4); break;
     case 'shield_unit': effect.amount = Math.max(effect.amount, 5); break;
     case 'destroy_weak': effect.maxHealth = Math.max(effect.maxHealth, 8); break;

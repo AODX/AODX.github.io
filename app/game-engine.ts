@@ -143,6 +143,8 @@ export interface MatchState {
   energyDrawTurn?: Record<string, number>;
   /** Deferred temporary ENERGY granted at the start of that player's next turn. */
   nextTurnEnergyBonus?: Record<string, number>;
+  /** Permanent per-match ENERGY maximum bonus. Each point also raises that player's hard cap above the base cap of 10. */
+  energyMaxBonus?: Record<string, number>;
   /** Per-match hard cap: max 2 fusion summons and max 2 evolution summons per player. */
   extraSummonUsage?: Record<string, { fusion: number; evolution: number }>;
   /** Turn number when each extra summon type was last used, enforcing max once per turn per type. */
@@ -328,6 +330,7 @@ export function initializeMatch(
     fieldSacrificeTurn: {},
     energyDrawTurn: {},
     nextTurnEnergyBonus: {},
+    energyMaxBonus: { [playerA]: 0, [playerB]: 0 },
     extraSummonUsage: { [playerA]: { fusion: 0, evolution: 0 }, [playerB]: { fusion: 0, evolution: 0 } },
     extraSummonTurn: { [playerA]: {}, [playerB]: {} },
     playerOrder: [first, second],
@@ -564,6 +567,22 @@ function applyEffect(
       state.energy[actorId].current = Math.min(state.energy[actorId].max, state.energy[actorId].current + effect.amount);
       appendVisual(state, { kind: 'energy', vfx: 'energy-surge', ownerId: actorId, targetOwnerId: actorId, amount: effect.amount, label: '에너지 회복' });
       break;
+    case 'increase_energy_max': {
+      const energy = state.energy[actorId] ?? { current: 0, max: 0 };
+      const gained = Math.max(0, effect.amount);
+      if (gained <= 0) break;
+      if (!state.energyMaxBonus) state.energyMaxBonus = {};
+      state.energyMaxBonus[actorId] = Math.max(0, (state.energyMaxBonus[actorId] ?? 0) + gained);
+      const hardCap = energyHardCap(state, actorId);
+      // QUICK START expands both the current maximum and the match-long hard cap.
+      // It intentionally does not restore current ENERGY when played.
+      energy.max = Math.min(hardCap, energy.max + gained);
+      energy.current = Math.min(energy.current, hardCap);
+      state.energy[actorId] = energy;
+      appendLog(state, `보유 ENERGY 최대치 +${gained} · 최대 한도 ${hardCap} (${energy.current}/${energy.max}).`, 'special');
+      appendVisual(state, { kind: 'energy', vfx: 'energy-capacity-up', cardId: sourceCard?.id, ownerId: actorId, targetOwnerId: actorId, amount: gained, label: `MAX CAP ${hardCap}` });
+      break;
+    }
     case 'end_turn_next_energy': {
       if (!state.nextTurnEnergyBonus) state.nextTurnEnergyBonus = {};
       state.nextTurnEnergyBonus[actorId] = Math.min(10, Math.max(0, (state.nextTurnEnergyBonus[actorId] ?? 0) + effect.amount));
@@ -2958,14 +2977,15 @@ export function sacrificeHandForEnergy(
 
   const energy = state.energy[playerId];
   if (!energy) throw new Error('에너지 상태를 찾을 수 없습니다.');
-  if (energy.current >= 10) throw new Error('현재 에너지가 이미 최대 10입니다.');
+  const hardCap = energyHardCap(state, playerId);
+  if (energy.current >= hardCap) throw new Error(`현재 에너지가 이미 최대 한도 ${hardCap}입니다.`);
 
   const playerPrivate = privateStates[playerId];
   const { index, card } = getCardFromHand(playerPrivate, instanceId);
   playerPrivate.hand.splice(index, 1);
   state.graveyards[playerId].push(card.id);
   state.handCounts[playerId] = playerPrivate.hand.length;
-  energy.current = Math.min(10, energy.current + 1);
+  energy.current = Math.min(hardCap, energy.current + 1);
   if (!state.energySacrificeTurn) state.energySacrificeTurn = {};
   state.energySacrificeTurn[playerId] = state.turnNumber;
   state.turnActionTaken = true;
@@ -2992,6 +3012,7 @@ export function sacrificeFieldUnitForEnergy(
   const card = CARD_BY_ID[unit.cardId];
   const energy = state.energy[playerId];
   if (!energy) throw new Error('에너지 상태를 찾을 수 없습니다.');
+  const hardCap = energyHardCap(state, playerId);
 
   // Voluntary retirement is not treated as combat destruction, so destroy-trigger traps
   // and tactical death bonuses cannot be farmed. Real cards go to the grave; tokens vanish.
@@ -3002,7 +3023,7 @@ export function sacrificeFieldUnitForEnergy(
   state.turnActionTaken = true;
 
   const before = energy.current;
-  energy.current = Math.min(10, energy.current + 1);
+  energy.current = Math.min(hardCap, energy.current + 1);
   const gained = energy.current - before;
   const name = (card?.name ?? unit.cardId.replace('token:', '')) || '토큰';
   appendLog(state, `필드 정리 — 「${name}」을(를) ${card ? '묘지로 보내고' : '소멸시키고'}${gained > 0 ? ' 에너지 +1.' : ' 빈 유닛 칸을 확보했습니다.'}`, 'system');
@@ -3226,12 +3247,25 @@ export function respondTrap(snapshot: GameSnapshot, playerId: string, activate: 
   return { state, privateStates };
 }
 
-function expectedEnergyMax(state: MatchState, playerId: string, turnNumber = state.turnNumber): number {
-  if (!state.firstPlayerId) return Math.min(10, Math.max(1, Math.ceil(turnNumber / 2)));
+const BASE_ENERGY_HARD_CAP = 10;
+
+function energyHardCap(state: MatchState, playerId: string): number {
+  const permanentBonus = Math.max(0, state.energyMaxBonus?.[playerId] ?? 0);
+  return BASE_ENERGY_HARD_CAP + permanentBonus;
+}
+
+function baseExpectedEnergyMax(state: MatchState, playerId: string, turnNumber = state.turnNumber): number {
+  if (!state.firstPlayerId) return Math.min(BASE_ENERGY_HARD_CAP, Math.max(1, Math.ceil(turnNumber / 2)));
   const personalTurn = playerId === state.firstPlayerId
     ? Math.ceil(turnNumber / 2)
     : Math.floor(turnNumber / 2);
-  return Math.min(10, Math.max(0, personalTurn));
+  return Math.min(BASE_ENERGY_HARD_CAP, Math.max(0, personalTurn));
+}
+
+function expectedEnergyMax(state: MatchState, playerId: string, turnNumber = state.turnNumber): number {
+  const base = baseExpectedEnergyMax(state, playerId, turnNumber);
+  const permanentBonus = Math.max(0, state.energyMaxBonus?.[playerId] ?? 0);
+  return Math.min(energyHardCap(state, playerId), base + permanentBonus);
 }
 
 function repairCurrentTurnEnergy(state: MatchState): boolean {
@@ -3257,14 +3291,14 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
   state.turnActionTaken = false;
   state.turnEndsAt = now + TURN_DURATION_MS;
   const nextEnergy = state.energy[nextPlayer] ?? { current: 0, max: 0 };
-  // Energy grows once whenever that player receives a new turn: 1, 2, 3 ... up to 10.
-  // Deriving it from turn number also repairs stale rooms instead of relying on old state.
+  // Natural ENERGY grows 1, 2, 3 ... up to the base cap of 10. Permanent cap bonuses
+  // (such as QUICK START) are then added on top, so 10 can become 11, 12, and so on.
   nextEnergy.max = expectedEnergyMax(state, nextPlayer, state.turnNumber);
   nextEnergy.current = nextEnergy.max;
   const queuedEnergyBonus = Math.max(0, state.nextTurnEnergyBonus?.[nextPlayer] ?? 0);
   if (queuedEnergyBonus > 0) {
     const beforeBonus = nextEnergy.current;
-    nextEnergy.current = Math.min(10, nextEnergy.current + queuedEnergyBonus);
+    nextEnergy.current = Math.min(energyHardCap(state, nextPlayer), nextEnergy.current + queuedEnergyBonus);
     const gainedBonus = nextEnergy.current - beforeBonus;
     if (state.nextTurnEnergyBonus) delete state.nextTurnEnergyBonus[nextPlayer];
     if (gainedBonus > 0) {

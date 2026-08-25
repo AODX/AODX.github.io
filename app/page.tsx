@@ -650,6 +650,7 @@ function effectDescription(effect: CardDefinition['effect'] | CardDefinition['on
   if (effect.kind === 'shield_unit') return `선택한 아군 캐릭터 하나에게 보호막 ${effect.amount}을 부여합니다`;
   if (effect.kind === 'aoe_enemy') return `상대 필드의 모든 캐릭터에게 각각 ${effect.amount}의 피해를 줍니다`;
   if (effect.kind === 'gain_energy') return `이번 턴에 사용할 수 있는 ENERGY를 ${effect.amount} 회복합니다`;
+  if (effect.kind === 'increase_energy_max') return `이 대전 동안 내 보유 ENERGY 최대치와 최대 한도를 각각 +${effect.amount} 늘립니다. 현재 ENERGY는 회복하지 않으며 여러 번 사용하면 한도도 계속 누적됩니다`;
   if (effect.kind === 'destroy_weak') return `현재 체력이 ${effect.maxHealth} 이하인 적 캐릭터 하나를 파괴합니다`;
   if (effect.kind === 'summon_token') return `빈 필드에 ${effect.name} ${effect.attack}/${effect.health} 토큰 하나를 소환합니다`;
   if (effect.kind === 'steal_unit') return '상대 캐릭터 하나의 지배권을 가져옵니다. 강탈한 캐릭터는 보호막을 잃고 이번 턴에는 공격할 수 없습니다';
@@ -716,7 +717,7 @@ function cardRoleSummary(card: CardDefinition): string {
   if (card.kind === 'evolution') return '엑스트라 · 계승 결전';
   if (card.kind === 'trap') return card.trapEffect?.kind === 'negate' || card.trapEffect?.kind === 'negate_and_damage' ? '반응 · 카운터' : '반응 · 전장 제어';
   if (card.kind === 'spell' && card.effect) {
-    if (['draw', 'recover_grave_unit', 'reweave_hand', 'draw_if_outnumbered'].includes(card.effect.kind)) return '주문 · 자원 순환';
+    if (['draw', 'recover_grave_unit', 'reweave_hand', 'draw_if_outnumbered', 'increase_energy_max'].includes(card.effect.kind)) return '주문 · 자원 순환';
     if (['damage_unit', 'damage_core', 'aoe_enemy', 'destroy_weak', 'damage_draw_if_destroyed'].includes(card.effect.kind)) return '주문 · 제압';
     if (['summon_token', 'recruit_unit', 'revive_unit', 'ready_unit'].includes(card.effect.kind)) return '주문 · 전개';
     if (['buff_unit', 'shield_unit', 'heal_unit', 'heal_core'].includes(card.effect.kind)) return '주문 · 지원';
@@ -2944,7 +2945,7 @@ function spellMotionProfile(card: CardDefinition): SpellCinematicProfile {
   if (effect === 'heal_core' || effect === 'heal_unit') return profile('heal', '회복 파동');
   if (effect === 'shield_unit' || effect === 'buff_unit' || effect === 'ready_unit' || effect === 'swap_stats') return profile('shield', '강화 각인');
   if (effect === 'draw' || effect === 'reweave_hand' || effect === 'draw_if_outnumbered' || effect === 'sacrifice_draw') return profile('draw', '지식 전개');
-  if (effect === 'gain_energy' || effect === 'end_turn_next_energy') return profile('energy', '에너지 집속');
+  if (effect === 'gain_energy' || effect === 'increase_energy_max' || effect === 'end_turn_next_energy') return profile('energy', effect === 'increase_energy_max' ? '에너지 용량 확장' : '에너지 집속');
   if (effect === 'summon_token' || effect === 'recruit_unit' || effect === 'revive_unit' || effect === 'recover_grave_unit') return profile('summon', '소환식 전개');
 
   if (/(성장|숲|씨앗|덩굴|꽃잎|비취|생명|worldroot|bloom|vine|seed)/i.test(name) || card.element === 'verdant') return profile('growth', '생명맥 발아');
@@ -3883,18 +3884,21 @@ function CoinTossOverlay({ state, profiles, userId, now }: { state: MatchState; 
   );
 }
 
-function DuelEnergyMeter({ label, current, max, nextMax, opponent = false, compact = false }: { label: string; current: number; max: number; nextMax?: number; opponent?: boolean; compact?: boolean }) {
-  const safeCurrent = Math.max(0, Math.min(10, current));
-  const safeMax = Math.max(0, Math.min(10, max));
+function DuelEnergyMeter({ label, current, max, cap = 10, nextMax, opponent = false, compact = false }: { label: string; current: number; max: number; cap?: number; nextMax?: number; opponent?: boolean; compact?: boolean }) {
+  const safeCap = Math.max(10, Math.floor(cap));
+  const safeCurrent = Math.max(0, Math.min(safeCap, current));
+  const safeMax = Math.max(0, Math.min(safeCap, max));
+  const pipCount = Math.max(10, safeCap);
   return (
     <div className={`v15-energy-meter ${opponent ? 'opponent' : 'mine'} ${compact ? 'compact' : ''}`}>
       <div className="v15-energy-copy">
         <span>{label}</span>
         <b>{safeCurrent}<em>/ {safeMax}</em></b>
+        {safeCap > 10 && <small>한도 {safeCap}</small>}
         {typeof nextMax === 'number' && nextMax > safeMax && <small>다음 내 턴 {nextMax}</small>}
       </div>
-      <div className="v15-energy-pips" aria-label={`${label} ${safeCurrent}/${safeMax}`}>
-        {Array.from({ length: 10 }, (_, index) => <i key={index} className={index < safeCurrent ? 'active' : index < safeMax ? 'available' : 'locked'} />)}
+      <div className="v15-energy-pips" style={{ display: 'grid', gridTemplateColumns: `repeat(${pipCount}, minmax(0, 1fr))` }} aria-label={`${label} ${safeCurrent}/${safeMax} · 한도 ${safeCap}`}>
+        {Array.from({ length: pipCount }, (_, index) => <i key={index} className={index < safeCurrent ? 'active' : index < safeMax ? 'available' : 'locked'} />)}
       </div>
     </div>
   );
@@ -4173,6 +4177,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const canSpendTurnToDraw = Boolean(myTurn && state.phase === 'main' && !state.turnActionTaken && !busy && (state.deckCounts[userId] ?? 0) > 0);
   const myEnergy = state.energy[userId] ?? { current: 0, max: 0 };
   const opponentEnergy = state.energy[opponentId] ?? { current: 0, max: 0 };
+  const myEnergyHardCap = 10 + Math.max(0, state.energyMaxBonus?.[userId] ?? 0);
+  const opponentEnergyHardCap = 10 + Math.max(0, state.energyMaxBonus?.[opponentId] ?? 0);
   const myExtraUsage = state.extraSummonUsage?.[userId] ?? { fusion: 0, evolution: 0 };
   const myExtraTurn = state.extraSummonTurn?.[userId] ?? {};
   const energySacrificeUsed = state.energySacrificeTurn?.[userId] === state.turnNumber;
@@ -4187,7 +4193,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const selectedFieldUnitState = selectedFieldUnit !== null ? state.boards[userId].units[selectedFieldUnit] : null;
   const selectedFieldUnitCard = selectedFieldUnitState ? CARD_BY_ID[selectedFieldUnitState.cardId] : undefined;
   const canRetireSelectedFieldUnit = Boolean(selectedFieldUnitState && myTurn && !interactionLocked && state.phase === 'main' && !busy && !fieldSacrificeUsed);
-  const canSacrificeSelectedForEnergy = Boolean(selectedHand && selectedCard && myTurn && !interactionLocked && state.phase === 'main' && !busy && !energySacrificeUsed && myEnergy.current < 10);
+  const canSacrificeSelectedForEnergy = Boolean(selectedHand && selectedCard && myTurn && !interactionLocked && state.phase === 'main' && !busy && !energySacrificeUsed && myEnergy.current < myEnergyHardCap);
   const selectedConsumesBuffSlot = Boolean(selectedCard?.kind === 'spell' && selectedCard.effect && (selectedCard.effect.kind === 'buff_unit' || selectedCard.effect.kind === 'shield_unit'));
   const graveyardReviveTargets = (state.graveyards[userId] ?? []).flatMap((cardId, graveyardIndex) => {
     const card = CARD_BY_ID[cardId];
@@ -4195,7 +4201,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   });
   const selectingGraveyardTarget = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.target === 'friendly_graveyard_unit');
   const canChooseGraveyardTarget = Boolean(selectingGraveyardTarget && selectedCard && myEnergy.current >= selectedCard.cost && graveyardReviveTargets.length > 0 && state.boards[userId].units.some((slot) => !slot) && !busy);
-  const nextMyEnergyMax = myTurn ? myEnergy.max : Math.min(10, Math.max(1, myEnergy.max + 1));
+  const nextMyEnergyMax = myTurn ? myEnergy.max : Math.min(myEnergyHardCap, Math.max(1, myEnergy.max + 1));
   const roundNumber = Math.max(1, Math.ceil(state.turnNumber / 2));
   const phaseLabel = state.phase === 'main' ? '메인 단계' : '전투 단계';
   const selectedHandCost = selectedCard?.summonMode === 'rift' && selectedCard.riftCost !== undefined ? `${selectedCard.cost} / 균열 ${selectedCard.riftCost}` : selectedCard?.cost;
@@ -4522,8 +4528,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       setMessage('손패 에너지 전환은 한 턴에 1번만 사용할 수 있습니다.');
       return;
     }
-    if (myEnergy.current >= 10) {
-      setMessage('현재 에너지가 이미 최대 10입니다.');
+    if (myEnergy.current >= myEnergyHardCap) {
+      setMessage(`현재 에너지가 이미 최대 한도 ${myEnergyHardCap}입니다.`);
       return;
     }
     gameAction('sacrifice_energy', { instanceId: selectedHand });
@@ -4714,7 +4720,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         >
           <div className="v18-leader-identity"><Avatar id={opponent?.avatar} /><i className={`v26-duel-emblem emblem-${opponent?.profile_emblem ?? 'emblem_default'}`} aria-hidden="true">{emblemGlyph(opponent?.profile_emblem)}</i><span><small>OPPONENT</small><b><NicknameText name={opponent?.display_name ?? '상대'} styleId={opponent?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[opponentId]}</strong><em>{selectedAttackerCanHitCore ? 'DIRECT ATTACK' : 'ENEMY LEADER'}</em></div>
-          <DuelEnergyMeter label="ENERGY" current={opponentEnergy.current} max={opponentEnergy.max} opponent compact />
+          <DuelEnergyMeter label="ENERGY" current={opponentEnergy.current} max={opponentEnergy.max} cap={opponentEnergyHardCap} opponent compact />
           <div className="v18-mini-stats"><span>HAND <b>{state.handCounts[opponentId] ?? 0}</b></span><span>DECK <b>{state.deckCounts[opponentId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[opponentId]?.length ?? 0}</b></span></div>
         </button>
 
@@ -4723,7 +4729,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         <section className="v18-leader-card mine" data-duel-leader-owner={userId}>
           <div className="v18-leader-identity"><Avatar id={me?.avatar} /><i className={`v26-duel-emblem emblem-${me?.profile_emblem ?? 'emblem_default'}`} aria-hidden="true">{emblemGlyph(me?.profile_emblem)}</i><span><small>YOU</small><b><NicknameText name={me?.display_name ?? '나'} styleId={me?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[userId]}</strong><em>{myTurn ? phaseLabel : 'WAITING'}</em></div>
-          <DuelEnergyMeter label="ENERGY" current={myEnergy.current} max={myEnergy.max} nextMax={!myTurn ? nextMyEnergyMax : undefined} compact />
+          <DuelEnergyMeter label="ENERGY" current={myEnergy.current} max={myEnergy.max} cap={myEnergyHardCap} nextMax={!myTurn ? nextMyEnergyMax : undefined} compact />
           <div className="v18-mini-stats"><span>HAND <b>{privateState.hand.length}</b></span><span>DECK <b>{state.deckCounts[userId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[userId]?.length ?? 0}</b></span></div>
         </section>
       </aside>
@@ -4841,7 +4847,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
               {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button className="v18-context-primary" onClick={activateSelectedNoTarget}>주문 발동</button>}
               {selectedCard.kind === 'spell' && selectedCard.target === 'friendly_graveyard_unit' && <button className="v18-context-primary v31d-grave-target-button" disabled={!canChooseGraveyardTarget} onClick={openGraveyardTargetPicker}>묘지에서 부활 대상 선택 · {graveyardReviveTargets.length}</button>}
               {selectedCard.kind === 'unit' && selectedCard.summonMode === 'legendary' && <button className="v18-context-primary v32q-legendary-summon" type="button" onClick={summonSelectedLegendary}>{handSummonBlockReasons(selectedCard).length === 0 ? `전설 특수 소환 · ${selectedCard.legendarySummonRule?.name ?? '강림'}` : '전설 특수 소환 조건 확인'}</button>}
-              {myTurn && state.phase === 'main' && <button className="v31-energy-convert" disabled={!canSacrificeSelectedForEnergy} onClick={sacrificeSelectedForEnergy}><span>손패 → ENERGY +1</span><small>{energySacrificeUsed ? '이번 턴 사용 완료' : myEnergy.current >= 10 ? '에너지 최대치' : '이 카드를 묘지로 보냅니다 · 턴당 1회'}</small></button>}
+              {myTurn && state.phase === 'main' && <button className="v31-energy-convert" disabled={!canSacrificeSelectedForEnergy} onClick={sacrificeSelectedForEnergy}><span>손패 → ENERGY +1</span><small>{energySacrificeUsed ? '이번 턴 사용 완료' : myEnergy.current >= myEnergyHardCap ? `에너지 최대 한도 ${myEnergyHardCap}` : '이 카드를 묘지로 보냅니다 · 턴당 1회'}</small></button>}
             </div>
           )}
           {selectedExtraCard && (
@@ -4868,7 +4874,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         {selectedAttacker !== null && <button className="v18-cancel-attack" type="button" onClick={() => { setSelectedAttacker(null); setMessage('공격 유닛 선택을 취소했습니다.'); }}>공격 선택 취소</button>}
 
         <section className="v18-action-buttons">
-          {state.phase === 'main' && <button className="v31-field-retire-action" disabled={!canRetireSelectedFieldUnit} onClick={retireSelectedFieldUnit}><span>필드 → ENERGY {myEnergy.current < 10 ? '+1' : '+0'}</span><small>{fieldSacrificeUsed ? '이번 턴 사용 완료' : selectedFieldUnitState ? `${selectedFieldUnitCard?.name ?? '선택 캐릭터'}을 묘지로 보내 빈 칸 확보 · 턴당 1회` : '내 필드 캐릭터를 먼저 선택하세요'}</small></button>}
+          {state.phase === 'main' && <button className="v31-field-retire-action" disabled={!canRetireSelectedFieldUnit} onClick={retireSelectedFieldUnit}><span>필드 → ENERGY {myEnergy.current < myEnergyHardCap ? '+1' : '+0'}</span><small>{fieldSacrificeUsed ? '이번 턴 사용 완료' : selectedFieldUnitState ? `${selectedFieldUnitCard?.name ?? '선택 캐릭터'}을 묘지로 보내 빈 칸 확보 · 턴당 1회` : '내 필드 캐릭터를 먼저 선택하세요'}</small></button>}
           {state.phase === 'main' && <button className="v32o-energy-draw-action" disabled={!canEnergyDraw} onClick={spendEnergyForDraw}><span>ENERGY {energyDrawCost} → 카드 +1</span><small>{energyDrawUsed ? '이번 턴 사용 완료' : !hasDrawableCard ? '드로우 가능한 카드 없음' : myEnergy.current < energyDrawCost ? `ENERGY ${energyDrawCost} 필요` : privateState.hand.length === 0 ? '긴급 드로우 할인 · 턴 소비 없음 · 턴당 1회' : '턴 소비 없음 · 턴당 1회'}</small></button>}
           {state.phase === 'main' && <button className="v18-secondary-action" disabled={!canSpendTurnToDraw} onClick={spendTurnToDraw}><span>＋ 카드 1장</span><small>턴을 소비해 추가 드로우</small></button>}
           {state.phase === 'main' && <button className="v18-battle-action" disabled={!myTurn || busy || interactionLocked} onClick={() => gameAction('battle_phase')}><span>전투 단계로 이동</span><small>이후 내 유닛 → 공격 대상 순서로 선택</small></button>}
@@ -5136,14 +5142,14 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
         <section className="v18-leader-card opponent">
           <div className="v18-leader-identity"><Avatar id={playerB?.avatar} /><span><small>PLAYER B</small><b><NicknameText name={playerB?.display_name ?? 'PLAYER B'} styleId={playerB?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[playerBId] ?? 0}</strong><em>{state.currentPlayerId === playerBId ? 'TURN' : 'WAIT'}</em></div>
-          <DuelEnergyMeter label="ENERGY" current={state.energy[playerBId]?.current ?? 0} max={state.energy[playerBId]?.max ?? 0} opponent compact />
+          <DuelEnergyMeter label="ENERGY" current={state.energy[playerBId]?.current ?? 0} max={state.energy[playerBId]?.max ?? 0} cap={10 + Math.max(0, state.energyMaxBonus?.[playerBId] ?? 0)} opponent compact />
           <div className="v18-mini-stats"><span>HAND <b>{state.handCounts[playerBId] ?? 0}</b></span><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div>
         </section>
         <div className="v18-leader-divider"><span>VS</span></div>
         <section className="v18-leader-card mine" data-duel-leader-owner={playerAId}>
           <div className="v18-leader-identity"><Avatar id={playerA?.avatar} /><span><small>PLAYER A</small><b><NicknameText name={playerA?.display_name ?? 'PLAYER A'} styleId={playerA?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[playerAId] ?? 0}</strong><em>{state.currentPlayerId === playerAId ? 'TURN' : 'WAIT'}</em></div>
-          <DuelEnergyMeter label="ENERGY" current={state.energy[playerAId]?.current ?? 0} max={state.energy[playerAId]?.max ?? 0} compact />
+          <DuelEnergyMeter label="ENERGY" current={state.energy[playerAId]?.current ?? 0} max={state.energy[playerAId]?.max ?? 0} cap={10 + Math.max(0, state.energyMaxBonus?.[playerAId] ?? 0)} compact />
           <div className="v18-mini-stats"><span>HAND <b>{state.handCounts[playerAId] ?? 0}</b></span><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span></div>
         </section>
       </aside>
