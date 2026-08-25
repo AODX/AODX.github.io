@@ -1,3 +1,5 @@
+import { V33A_EXPANSION_CARDS } from './v33a-card-data';
+
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type CardKind = 'unit' | 'spell' | 'trap' | 'fusion' | 'evolution';
 export type MainDeckKind = 'unit' | 'spell' | 'trap';
@@ -5,6 +7,7 @@ export type ExtraDeckKind = 'fusion' | 'evolution';
 export type Element = 'solar' | 'lunar' | 'storm' | 'verdant' | 'void' | 'neutral';
 export type Keyword = 'guard' | 'charge' | 'lifesteal' | 'pierce' | 'corestrike';
 export type SummonMode = 'normal' | 'rift' | 'legendary' | 'fusion' | 'evolution';
+export type UnitType = 'vanguard' | 'artificer' | 'spirit' | 'hunter' | 'relic' | 'oracle';
 export type VfxMoment = 'summon' | 'attack' | 'defense' | 'activation' | 'destroy';
 export type SeriesId = 'luminaknights' | 'kaisergear' | 'eclipsion' | 'nocturne' | 'arborian' | 'tempest_drive' | 'abyss_reaper' | 'primal_guardian' | 'chronorium' | 'arcana_protocol' | 'beastforge' | 'phantom_carnival' | 'astral_armada';
 
@@ -84,7 +87,22 @@ export type Effect =
   | { kind: 'mill_draw'; mill: number; draw: number }
   | { kind: 'freeze_unit'; turns: number }
   | { kind: 'break_shield_damage'; amount: number }
-  | { kind: 'banish_own_grave_energy'; amount: number; energy: number };
+  | { kind: 'banish_own_grave_energy'; amount: number; energy: number }
+  | { kind: 'discard_draw'; discard: number; draw: number }
+  | { kind: 'steal_energy'; amount: number }
+  | { kind: 'shield_burst'; multiplier: number; cap: number }
+  | { kind: 'heal_draw_if_behind'; heal: number; draw: number }
+  | { kind: 'recycle_grave_draw'; amount: number; draw: number }
+  | { kind: 'damage_by_hand'; per: number; cap: number }
+  | { kind: 'damage_by_grave'; per: number; cap: number }
+  | { kind: 'buff_by_hand'; attackPer: number; healthPer: number; cap: number }
+  | { kind: 'banish_enemy_grave'; amount: number }
+  | { kind: 'field_count_blast'; per: number; cap: number }
+  | { kind: 'mass_shield'; amount: number }
+  | { kind: 'mass_buff'; attack: number; health: number }
+  | { kind: 'type_rally'; unitType: UnitType; attack: number; health: number }
+  | { kind: 'type_recruit'; unitType: UnitType; maxCost: number }
+  | { kind: 'reset_unit' };
 
 export type TrapTrigger =
   | 'spell_played'
@@ -202,6 +220,10 @@ export interface CardDefinition {
   attack?: number;
   health?: number;
   keywords?: Keyword[];
+  /** v33a freeform unit classification. Independent from the 13 named series. */
+  unitType?: UnitType;
+  /** Optional small combo family that does not participate in series-pack logic. */
+  comboTag?: string;
   summonMode?: SummonMode;
   riftCost?: number;
   riftCondition?: RiftCondition;
@@ -267,6 +289,15 @@ export const KIND_LABEL: Record<CardKind, string> = {
   trap: '함정',
   fusion: '공명 융합',
   evolution: '계승 진화',
+};
+
+export const UNIT_TYPE_LABEL: Record<UnitType, string> = {
+  vanguard: '선봉',
+  artificer: '기공사',
+  spirit: '정령',
+  hunter: '추적자',
+  relic: '유물체',
+  oracle: '예언자',
 };
 
 export const ELEMENT_LABEL: Record<Element, string> = {
@@ -1823,6 +1854,21 @@ function spellEffectText(effect: Effect): string {
     case 'freeze_unit': return `적 유닛 1장은 다음 자신의 턴에 공격할 수 없습니다.`;
     case 'break_shield_damage': return `적 유닛 1장의 보호막을 전부 제거하고 체력에 ${effect.amount} 피해.`;
     case 'banish_own_grave_energy': return `내 묘지의 메인 덱 카드 최대 ${effect.amount}장을 소멸시키고 이번 턴 ENERGY ${effect.energy} 회복.`;
+    case 'discard_draw': return `내 손패를 최대 ${effect.discard}장 버리고 카드 ${effect.draw}장을 뽑습니다.`;
+    case 'steal_energy': return `상대의 현재 ENERGY를 최대 ${effect.amount} 빼앗아 내 ENERGY로 가져옵니다.`;
+    case 'shield_burst': return `아군 유닛 1장의 보호막을 소모하고 그 수치 ×${effect.multiplier}만큼(최대 ${effect.cap}) 상대 코어에 피해.`;
+    case 'heal_draw_if_behind': return `내 코어를 ${effect.heal} 회복하고, 회복 전 코어가 상대보다 낮았다면 카드 ${effect.draw}장을 뽑습니다.`;
+    case 'recycle_grave_draw': return `내 묘지의 메인 덱 카드 최대 ${effect.amount}장을 덱으로 되돌려 섞고 카드 ${effect.draw}장을 뽑습니다.`;
+    case 'damage_by_hand': return `내 손패 수 ×${effect.per}만큼(최대 ${effect.cap}) 상대 코어에 피해.`;
+    case 'damage_by_grave': return `내 묘지 카드 수 ×${effect.per}만큼(최대 ${effect.cap}) 상대 코어에 피해.`;
+    case 'buff_by_hand': return `아군 유닛 1장에게 손패 수에 따라 공격력 +${effect.attackPer}, 체력 +${effect.healthPer}씩(최대 ${effect.cap}회) 강화.`;
+    case 'banish_enemy_grave': return `상대 묘지의 메인 덱 카드 최대 ${effect.amount}장을 무작위로 소멸시킵니다.`;
+    case 'field_count_blast': return `내 필드 유닛 수 ×${effect.per}만큼(최대 ${effect.cap}) 상대 코어에 피해.`;
+    case 'mass_shield': return `내 필드의 모든 유닛에게 보호막 ${effect.amount}.`;
+    case 'mass_buff': return `내 필드의 모든 유닛에게 공격력 +${effect.attack}, 체력 +${effect.health}.`;
+    case 'type_rally': return `${UNIT_TYPE_LABEL[effect.unitType]} 유닛 모두에게 공격력 +${effect.attack}, 체력 +${effect.health}.`;
+    case 'type_recruit': return `덱에서 비용 ${effect.maxCost} 이하 ${UNIT_TYPE_LABEL[effect.unitType]} 유닛 1장을 무작위로 전개합니다.`;
+    case 'reset_unit': return '대상 유닛 1장을 카드에 적힌 원래 공격력/체력으로 되돌리고 보호막을 제거합니다.';
   }
 }
 
@@ -2410,6 +2456,15 @@ export function extraSummonRuleDescription(card: CardDefinition): string {
   if (rule.requireSameSeriesTribute) parts.push('동일 시리즈 1체');
   return parts.join(' · ');
 }
+/* --------------------------------------------------------------------------
+ * v33a freeform expansion
+ * --------------------------------------------------------------------------
+ * 200 cards intentionally live outside the 13 named series. They use unitType
+ * and optional comboTag instead, so they can bridge existing decks without
+ * mutating any series signature/passive assignment above.
+ * -------------------------------------------------------------------------- */
+CARDS.push(...V33A_EXPANSION_CARDS);
+
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));
 
 export const STARTER_DECK: string[] = [

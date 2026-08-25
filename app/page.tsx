@@ -16,11 +16,13 @@ import {
   ELEMENT_LABEL,
   type Element,
   KIND_LABEL,
+  UNIT_TYPE_LABEL,
   MAX_COPIES,
   PACKS,
   RARITY_LABEL,
   type Rarity,
   type SeriesId,
+  type UnitType,
   countCards,
   extraRequiredUnitCount,
   extraSummonRuleDescription,
@@ -678,6 +680,21 @@ function effectDescription(effect: CardDefinition['effect'] | CardDefinition['on
   if (effect.kind === 'freeze_unit') return '선택한 적 캐릭터는 다음 자신의 턴에 공격할 수 없습니다';
   if (effect.kind === 'break_shield_damage') return `선택한 적 캐릭터의 보호막을 전부 제거하고 체력에 ${effect.amount} 피해를 줍니다`;
   if (effect.kind === 'banish_own_grave_energy') return `내 묘지의 메인 덱 카드 최대 ${effect.amount}장을 소멸시키고 이번 턴 ENERGY ${effect.energy} 회복`;
+  if (effect.kind === 'discard_draw') return `내 남은 손패에서 최대 ${effect.discard}장을 묘지로 보내고 카드 ${effect.draw}장을 뽑습니다`;
+  if (effect.kind === 'steal_energy') return `상대의 현재 ENERGY를 최대 ${effect.amount} 빼앗아 같은 만큼 내 ENERGY를 회복합니다`;
+  if (effect.kind === 'shield_burst') return `아군 캐릭터 하나의 보호막을 전부 소모하고, 보호막 1당 상대 코어에 ${effect.multiplier} 피해를 줍니다. 최대 ${effect.cap} 피해`;
+  if (effect.kind === 'heal_draw_if_behind') return `내 코어를 ${effect.heal} 회복하고, 사용 전 내 코어가 상대보다 낮았다면 카드 ${effect.draw}장을 추가로 뽑습니다`;
+  if (effect.kind === 'recycle_grave_draw') return `내 묘지의 메인 덱 카드 최대 ${effect.amount}장을 덱에 다시 섞고 카드 ${effect.draw}장을 뽑습니다`;
+  if (effect.kind === 'damage_by_hand') return `내 남은 손패 1장당 상대 코어에 ${effect.per} 피해를 줍니다. 최대 ${effect.cap} 피해`;
+  if (effect.kind === 'damage_by_grave') return `내 묘지 카드 1장당 상대 코어에 ${effect.per} 피해를 줍니다. 최대 ${effect.cap} 피해`;
+  if (effect.kind === 'buff_by_hand') return `선택한 아군 캐릭터를 내 손패 수에 따라 단계당 공격력 +${effect.attackPer}, 체력 +${effect.healthPer} 강화합니다. 최대 ${effect.cap}단계`;
+  if (effect.kind === 'banish_enemy_grave') return `상대 묘지의 메인 덱 카드 최대 ${effect.amount}장을 무작위로 소멸시킵니다`;
+  if (effect.kind === 'field_count_blast') return `내 필드 캐릭터 1체당 상대 코어에 ${effect.per} 피해를 줍니다. 최대 ${effect.cap} 피해`;
+  if (effect.kind === 'mass_shield') return `내 필드의 모든 캐릭터에게 보호막 ${effect.amount}을 부여합니다`;
+  if (effect.kind === 'mass_buff') return `내 필드의 모든 캐릭터를 공격력 +${effect.attack}, 체력 +${effect.health} 강화합니다`;
+  if (effect.kind === 'type_rally') return `내 필드의 ${UNIT_TYPE_LABEL[effect.unitType]} 타입 캐릭터 전부 공격력 +${effect.attack}, 체력 +${effect.health}`;
+  if (effect.kind === 'type_recruit') return `내 덱에서 ENERGY ${effect.maxCost} 이하 ${UNIT_TYPE_LABEL[effect.unitType]} 타입 캐릭터 1장을 무작위로 필드에 전개합니다`;
+  if (effect.kind === 'reset_unit') return '선택한 캐릭터의 공격력과 체력을 카드에 적힌 원래 수치로 되돌리고 보호막을 제거합니다';
   if (effect.kind === 'negate') return '대응한 효과의 발동을 무효로 합니다';
   if (effect.kind === 'negate_and_damage') return trigger === 'direct_attack'
     ? `직접 공격을 무효로 하고, 공격한 캐릭터에게 ${effect.amount}의 피해를 줍니다`
@@ -724,10 +741,10 @@ function cardRoleSummary(card: CardDefinition): string {
   if (card.kind === 'evolution') return '엑스트라 · 계승 결전';
   if (card.kind === 'trap') return card.trapEffect?.kind === 'negate' || card.trapEffect?.kind === 'negate_and_damage' ? '반응 · 카운터' : '반응 · 전장 제어';
   if (card.kind === 'spell' && card.effect) {
-    if (['draw', 'recover_grave_unit', 'recover_any_grave', 'reweave_hand', 'draw_if_outnumbered', 'increase_energy_max', 'tutor_card', 'tutor_series_card', 'mill_draw', 'banish_own_grave_energy'].includes(card.effect.kind)) return '주문 · 자원 순환';
-    if (['damage_unit', 'damage_core', 'aoe_enemy', 'destroy_weak', 'damage_draw_if_destroyed', 'break_shield_damage'].includes(card.effect.kind)) return '주문 · 제압';
-    if (['summon_token', 'recruit_unit', 'revive_unit', 'ready_unit'].includes(card.effect.kind)) return '주문 · 전개';
-    if (['buff_unit', 'shield_unit', 'heal_unit', 'heal_core'].includes(card.effect.kind)) return '주문 · 지원';
+    if (['draw', 'recover_grave_unit', 'recover_any_grave', 'reweave_hand', 'draw_if_outnumbered', 'increase_energy_max', 'tutor_card', 'tutor_series_card', 'mill_draw', 'banish_own_grave_energy', 'discard_draw', 'steal_energy', 'heal_draw_if_behind', 'recycle_grave_draw', 'banish_enemy_grave'].includes(card.effect.kind)) return '주문 · 자원 순환';
+    if (['damage_unit', 'damage_core', 'aoe_enemy', 'destroy_weak', 'damage_draw_if_destroyed', 'break_shield_damage', 'damage_by_hand', 'damage_by_grave', 'field_count_blast', 'shield_burst', 'reset_unit'].includes(card.effect.kind)) return '주문 · 제압';
+    if (['summon_token', 'recruit_unit', 'revive_unit', 'ready_unit', 'type_recruit'].includes(card.effect.kind)) return '주문 · 전개';
+    if (['buff_unit', 'shield_unit', 'heal_unit', 'heal_core', 'buff_by_hand', 'mass_shield', 'mass_buff', 'type_rally'].includes(card.effect.kind)) return '주문 · 지원';
     return '주문 · 특수 전술';
   }
   if (card.keywords?.includes('guard')) return '캐릭터 · 방어 핵심';
@@ -1062,7 +1079,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
               <span className="v31l-detail-kicker">{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}{card.series ? ` · ${card.series}` : ''}</span>
               <h2 id="card-detail-title">{card.name}</h2>
               <p>{card.subtitle}</p>
-              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
+              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.unitType && <i>TYPE · {UNIT_TYPE_LABEL[card.unitType]}</i>}{card.comboTag && <i>COMBO · {card.comboTag}</i>}{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
             </div>
             <strong className="detail-cost"><small>ENERGY</small>{card.cost}</strong>
           </header>
@@ -1077,7 +1094,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             <div className="detail-stat-row detail-stat-row-spell">
               <span><small>카드 종류</small><b>{KIND_LABEL[card.kind]}</b></span>
               <span><small>속성</small><b>{ELEMENT_LABEL[card.element]}</b></span>
-              <span><small>대상</small><b>{card.target === 'enemy_unit' ? '적 유닛' : card.target === 'friendly_unit' ? '아군 유닛' : card.target === 'friendly_graveyard_unit' ? '내 묘지 유닛' : card.target === 'enemy_core' ? '상대 코어' : '자동 적용'}</b></span>
+              <span><small>대상</small><b>{card.target === 'enemy_unit' ? '적 유닛' : card.target === 'friendly_unit' ? '아군 유닛' : card.target === 'friendly_graveyard_unit' ? '내 묘지 유닛' : card.target === 'friendly_graveyard_card' ? '내 묘지 카드' : card.target === 'own_deck_card' ? '내 덱 카드' : card.target === 'enemy_core' ? '상대 코어' : '자동 적용'}</b></span>
             </div>
           )}
 
@@ -1085,6 +1102,13 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             <span>ABILITY · 카드 효과</span>
             <p><RuleText text={polishedCardText(card)} /></p>
           </section>
+
+          {card.comboTag && (
+            <section className="detail-section v25-series-effect">
+              <span>MINI COMBO · 독립 상호작용</span>
+              <p><strong>{card.comboTag}</strong> · 정식 시리즈가 아닌 소규모 콤보 묶음입니다. 같은 콤보명 또는 같은 유닛 타입의 카드와 자유롭게 섞어 사용할 수 있습니다.</p>
+            </section>
+          )}
 
           {card.extraChoices?.length && (
             <section className="detail-section v31f-choose-detail">
@@ -1720,6 +1744,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   const [kind, setKind] = useState<'all' | CardKind>('all');
   const [element, setElement] = useState<'all' | Element>('all');
   const [seriesFilter, setSeriesFilter] = useState<'all' | SeriesId>('all');
+  const [unitTypeFilter, setUnitTypeFilter] = useState<'all' | UnitType>('all');
   const [rarityFilter, setRarityFilter] = useState<'all' | Rarity>('all');
   const [costFilter, setCostFilter] = useState<'all' | '0-1' | '2' | '3' | '4' | '5' | '6' | '7+'>('all');
   const [sort, setSort] = useState<'recommended' | 'cost' | 'rarity' | 'name'>('recommended');
@@ -1779,11 +1804,12 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     if (kind !== 'all' && card.kind !== kind) return false;
     if (element !== 'all' && card.element !== element) return false;
     if (seriesFilter !== 'all' && card.seriesId !== seriesFilter) return false;
+    if (unitTypeFilter !== 'all' && card.unitType !== unitTypeFilter) return false;
     if (rarityFilter !== 'all' && card.rarity !== rarityFilter) return false;
     if (costFilter === '0-1' && card.cost > 1) return false;
     if (costFilter !== 'all' && costFilter !== '0-1' && costFilter !== '7+' && card.cost !== Number(costFilter)) return false;
     if (costFilter === '7+' && card.cost < 7) return false;
-    if (search && !`${card.name} ${card.text} ${card.subtitle} ${card.series ?? ''}`.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !`${card.name} ${card.text} ${card.subtitle} ${card.series ?? ''} ${card.comboTag ?? ''} ${card.unitType ? UNIT_TYPE_LABEL[card.unitType] : ''}`.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   }).sort((a, b) => {
     if (sort === 'cost') return a.cost - b.cost || a.name.localeCompare(b.name, 'ko');
@@ -1791,7 +1817,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     if (sort === 'name') return a.name.localeCompare(b.name, 'ko');
     const score = (card: CardDefinition) => rarityWeight[card.rarity] * 7 + (card.element === dominantElement ? 5 : 0) - card.cost * 0.35;
     return score(b) - score(a);
-  }), [collection, deckZone, kind, element, seriesFilter, rarityFilter, costFilter, search, sort, dominantElement]);
+  }), [collection, deckZone, kind, element, seriesFilter, unitTypeFilter, rarityFilter, costFilter, search, sort, dominantElement]);
 
   function usedCopies(cardId: string): number {
     return (mainCounts[cardId] ?? 0) + (extraCounts[cardId] ?? 0);
@@ -1849,6 +1875,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     setKind('all');
     setElement('all');
     setSeriesFilter('all');
+    setUnitTypeFilter('all');
     setRarityFilter('all');
     setCostFilter('all');
   }
@@ -1992,7 +2019,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   const extraProgress = Math.min(100, Math.round((extraCards.length / EXTRA_DECK_SIZE) * 100));
   const deckListEntries = useMemo(() => Object.entries(mainCounts).sort(([a], [b]) => (CARD_BY_ID[a]?.cost ?? 0) - (CARD_BY_ID[b]?.cost ?? 0) || (CARD_BY_ID[a]?.name ?? '').localeCompare(CARD_BY_ID[b]?.name ?? '', 'ko')), [mainCounts]);
   const extraListEntries = useMemo(() => Object.entries(extraCounts).sort(([a], [b]) => (CARD_BY_ID[a]?.cost ?? 0) - (CARD_BY_ID[b]?.cost ?? 0) || (CARD_BY_ID[a]?.name ?? '').localeCompare(CARD_BY_ID[b]?.name ?? '', 'ko')), [extraCounts]);
-  const activeFilterCount = [kind !== 'all', element !== 'all', seriesFilter !== 'all', rarityFilter !== 'all', costFilter !== 'all', Boolean(search)].filter(Boolean).length;
+  const activeFilterCount = [kind !== 'all', element !== 'all', seriesFilter !== 'all', unitTypeFilter !== 'all', rarityFilter !== 'all', costFilter !== 'all', Boolean(search)].filter(Boolean).length;
   const deckDoctor = useMemo(() => {
     const early = deckCards.filter((id) => (CARD_BY_ID[id]?.cost ?? 99) <= 2).length;
     const late = deckCards.filter((id) => (CARD_BY_ID[id]?.cost ?? 0) >= 6).length;
@@ -2114,7 +2141,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
           </header>
 
           <div className="v9-filter-row v31e-filter-row">
-            <input value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)} placeholder="카드명 · 효과 · 시리즈 검색" />
+            <input value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)} placeholder="카드명 · 효과 · 시리즈 · 타입 · 콤보 검색" />
             <select value={kind} onChange={(event: ChangeEvent<HTMLSelectElement>) => setKind(event.target.value as 'all' | CardKind)}>
               <option value="all">모든 종류</option>
               {deckZone === 'main' ? <><option value="unit">유닛</option><option value="spell">주문</option><option value="trap">함정</option></> : <><option value="fusion">공명 융합</option><option value="evolution">계승 진화</option></>}
@@ -2124,6 +2151,9 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
             </select>
             <select value={seriesFilter} onChange={(event: ChangeEvent<HTMLSelectElement>) => setSeriesFilter(event.target.value as 'all' | SeriesId)}>
               <option value="all">모든 시리즈</option>{CARD_SERIES.map((series) => <option key={series.id} value={series.id}>{series.shortName}</option>)}
+            </select>
+            <select value={unitTypeFilter} onChange={(event: ChangeEvent<HTMLSelectElement>) => setUnitTypeFilter(event.target.value as 'all' | UnitType)}>
+              <option value="all">모든 유닛 타입</option>{Object.entries(UNIT_TYPE_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </select>
             <select value={sort} onChange={(event: ChangeEvent<HTMLSelectElement>) => setSort(event.target.value as typeof sort)}>
               <option value="recommended">추천순</option><option value="cost">비용순</option><option value="rarity">등급순</option><option value="name">이름순</option>
@@ -4208,7 +4238,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const selectedFieldUnitCard = selectedFieldUnitState ? CARD_BY_ID[selectedFieldUnitState.cardId] : undefined;
   const canRetireSelectedFieldUnit = Boolean(selectedFieldUnitState && myTurn && !interactionLocked && state.phase === 'main' && !busy && !fieldSacrificeUsed);
   const canSacrificeSelectedForEnergy = Boolean(selectedHand && selectedCard && myTurn && !interactionLocked && state.phase === 'main' && !busy && !energySacrificeUsed && myEnergy.current < myEnergyHardCap);
-  const selectedConsumesBuffSlot = Boolean(selectedCard?.kind === 'spell' && selectedCard.effect && (selectedCard.effect.kind === 'buff_unit' || selectedCard.effect.kind === 'shield_unit'));
+  const selectedConsumesBuffSlot = Boolean(selectedCard?.kind === 'spell' && selectedCard.effect && (selectedCard.effect.kind === 'buff_unit' || selectedCard.effect.kind === 'shield_unit' || selectedCard.effect.kind === 'buff_by_hand'));
   const graveyardReviveTargets = (state.graveyards[userId] ?? []).flatMap((cardId, graveyardIndex) => {
     const card = CARD_BY_ID[cardId];
     return card?.kind === 'unit' ? [{ card, graveyardIndex }] : [];

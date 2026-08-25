@@ -278,6 +278,26 @@ function recycleGraveyardIntoDeck(state: MatchState, privateState: PrivateState,
   return true;
 }
 
+const V33A_CROWN_FRAGMENT_IDS = [
+  'v33a_crown_fragment_eye',
+  'v33a_crown_fragment_ear',
+  'v33a_crown_fragment_hand',
+  'v33a_crown_fragment_heart',
+  'v33a_crown_fragment_voice',
+] as const;
+
+function checkV33AHandComboVictory(state: MatchState, privateState: PrivateState, playerId: string): boolean {
+  if (state.status !== 'active') return false;
+  const handIds = new Set(privateState.hand.map((card) => card.cardId));
+  if (!V33A_CROWN_FRAGMENT_IDS.every((cardId) => handIds.has(cardId))) return false;
+  state.status = 'finished';
+  state.winnerId = playerId;
+  state.winReason = '오관 집결 · 잊힌 왕의 귀환';
+  appendLog(state, '【오관 집결】 잊힌 왕의 다섯 조각이 손패에 모였습니다. 즉시 승리합니다.', 'victory');
+  appendVisual(state, { kind: 'special', vfx: 'forgotten-king-awakening', ownerId: playerId, label: 'FORGOTTEN KING · COMPLETE', detail: '망각왕의 오관 5종 완성' });
+  return true;
+}
+
 function drawCards(state: MatchState, privateState: PrivateState, playerId: string, amount: number): boolean {
   for (let index = 0; index < amount; index += 1) {
     if (privateState.deck.length === 0) recycleGraveyardIntoDeck(state, privateState, playerId);
@@ -296,6 +316,7 @@ function drawCards(state: MatchState, privateState: PrivateState, playerId: stri
   }
   state.handCounts[playerId] = privateState.hand.length;
   state.deckCounts[playerId] = privateState.deck.length;
+  checkV33AHandComboVictory(state, privateState, playerId);
   return true;
 }
 
@@ -425,7 +446,7 @@ function recordExtraSummon(state: MatchState, playerId: string, kind: ExtraSummo
 }
 
 function isBuffCardEffect(effect: Effect): boolean {
-  return effect.kind === 'buff_unit' || effect.kind === 'shield_unit' || effect.kind === 'ready_unit';
+  return effect.kind === 'buff_unit' || effect.kind === 'shield_unit' || effect.kind === 'ready_unit' || effect.kind === 'buff_by_hand';
 }
 
 function sourceConsumesUnitBuffSlot(sourceCard: CardDefinition | undefined, effect: Effect): boolean {
@@ -857,6 +878,202 @@ function applyEffect(
       appendVisual(state, { kind: 'energy', vfx: 'grave-energy-convert', ownerId: actorId, targetOwnerId: actorId, amount: gained, label: '영혼 연료' });
       break;
     }
+    case 'discard_draw': {
+      const discardCount = Math.min(Math.max(0, effect.discard), actorPrivate.hand.length);
+      for (let index = 0; index < discardCount; index += 1) {
+        const [discarded] = actorPrivate.hand.splice(actorPrivate.hand.length - 1, 1);
+        if (discarded) state.graveyards[actorId].push(discarded.cardId);
+      }
+      state.handCounts[actorId] = actorPrivate.hand.length;
+      const drew = drawCards(state, actorPrivate, actorId, Math.max(0, effect.draw));
+      appendLog(state, `손패 ${discardCount}장을 묘지로 보내고 카드 ${effect.draw}장을 뽑았습니다.`, 'special');
+      if (drew) appendVisual(state, { kind: 'draw', vfx: 'v33a-hand-reweave', ownerId: actorId, amount: effect.draw, label: '손패 재봉' });
+      break;
+    }
+    case 'steal_energy': {
+      const mine = state.energy[actorId];
+      const theirs = state.energy[opponentId];
+      const room = Math.max(0, mine.max - mine.current);
+      const transferred = Math.min(Math.max(0, effect.amount), Math.max(0, theirs.current), room);
+      theirs.current -= transferred;
+      mine.current += transferred;
+      appendLog(state, `상대 ENERGY ${transferred}을 빼앗았습니다.`, 'special');
+      appendVisual(state, { kind: 'energy', vfx: 'v33a-energy-siphon', ownerId: actorId, targetOwnerId: opponentId, amount: transferred, label: 'ENERGY 절도' });
+      break;
+    }
+    case 'shield_burst': {
+      if (!target || target.ownerId !== actorId || !Number.isInteger(target.unitIndex)) throw new Error('보호막을 폭발시킬 아군 유닛을 선택해야 합니다.');
+      const unitIndex = Number(target.unitIndex);
+      const unit = state.boards[actorId]?.units[unitIndex];
+      if (!unit) throw new Error('아군 유닛을 선택해야 합니다.');
+      const spent = Math.max(0, unit.shield);
+      if (spent <= 0) throw new Error('보호막이 있는 아군 유닛을 선택해야 합니다.');
+      unit.shield = 0;
+      const attempted = Math.min(Math.max(0, effect.cap), spent * Math.max(0, effect.multiplier));
+      const actual = damageCore(state, opponentId, attempted);
+      statsFor(state, actorId).coreDamage += actual;
+      appendLog(state, `보호막 ${spent}을 폭발시켜 상대 코어에 ${actual} 피해.`, 'attack');
+      appendVisual(state, { kind: 'core', vfx: 'v33a-shield-burst', cardId: unit.cardId, ownerId: actorId, targetOwnerId: opponentId, targetZone: unitIndex, amount: actual, shieldAmount: spent, label: '방벽 폭발' });
+      break;
+    }
+    case 'heal_draw_if_behind': {
+      const behind = (state.core[actorId] ?? 0) < (state.core[opponentId] ?? 0);
+      const healed = healCore(state, actorId, Math.max(0, effect.heal));
+      statsFor(state, actorId).healing += healed;
+      let drew = false;
+      if (behind && effect.draw > 0) drew = drawCards(state, actorPrivate, actorId, effect.draw);
+      appendLog(state, `코어 ${healed} 회복${behind && drew ? ` · 열세 보너스로 ${effect.draw}장 드로우` : ''}.`, 'special');
+      appendVisual(state, { kind: 'heal', vfx: 'v33a-comeback-pulse', ownerId: actorId, targetOwnerId: actorId, amount: healed, label: behind ? '역전의 숨' : '회복' });
+      break;
+    }
+    case 'recycle_grave_draw': {
+      const grave = state.graveyards[actorId] ?? [];
+      const candidates = grave
+        .map((cardId, index) => ({ cardId, index, card: CARD_BY_ID[cardId] }))
+        .filter((entry) => entry.card && ['unit','spell','trap'].includes(entry.card.kind));
+      const selected = shuffle(candidates).slice(0, Math.max(0, effect.amount)).sort((a, b) => b.index - a.index);
+      const returnedIds: string[] = [];
+      for (const entry of selected) {
+        grave.splice(entry.index, 1);
+        returnedIds.push(entry.cardId);
+      }
+      if (returnedIds.length) actorPrivate.deck = shuffle([...actorPrivate.deck, ...buildInstances(returnedIds, false)]);
+      state.deckCounts[actorId] = actorPrivate.deck.length;
+      const drew = effect.draw > 0 ? drawCards(state, actorPrivate, actorId, effect.draw) : true;
+      appendLog(state, `묘지 카드 ${returnedIds.length}장을 덱에 섞고 카드 ${effect.draw}장을 뽑았습니다.`, 'special');
+      if (drew) appendVisual(state, { kind: 'draw', vfx: 'v33a-grave-recycle', ownerId: actorId, amount: returnedIds.length, label: '묘지 환류' });
+      break;
+    }
+    case 'damage_by_hand': {
+      const attempted = Math.min(Math.max(0, effect.cap), actorPrivate.hand.length * Math.max(0, effect.per));
+      const actual = damageCore(state, opponentId, attempted);
+      statsFor(state, actorId).coreDamage += actual;
+      appendLog(state, `손패 ${actorPrivate.hand.length}장을 힘으로 바꿔 상대 코어에 ${actual} 피해.`, 'attack');
+      appendVisual(state, { kind: 'core', vfx: 'v33a-hand-barrage', ownerId: actorId, targetOwnerId: opponentId, amount: actual, label: '손안의 폭풍' });
+      break;
+    }
+    case 'damage_by_grave': {
+      const graveCount = state.graveyards[actorId]?.length ?? 0;
+      const attempted = Math.min(Math.max(0, effect.cap), graveCount * Math.max(0, effect.per));
+      const actual = damageCore(state, opponentId, attempted);
+      statsFor(state, actorId).coreDamage += actual;
+      appendLog(state, `묘지 ${graveCount}장의 잔향으로 상대 코어에 ${actual} 피해.`, 'attack');
+      appendVisual(state, { kind: 'core', vfx: 'v33a-grave-barrage', ownerId: actorId, targetOwnerId: opponentId, amount: actual, label: '묘향 포격' });
+      break;
+    }
+    case 'buff_by_hand': {
+      if (!target || target.ownerId !== actorId || !Number.isInteger(target.unitIndex)) throw new Error('강화할 아군 유닛을 선택해야 합니다.');
+      const unitIndex = Number(target.unitIndex);
+      const unit = state.boards[actorId]?.units[unitIndex];
+      if (!unit) throw new Error('아군 유닛을 선택해야 합니다.');
+      if (sourceConsumesUnitBuffSlot(sourceCard, effect) && unit.buffCardApplied) throw new Error('이 캐릭터는 이미 버프류 카드를 1번 적용받았습니다.');
+      const steps = Math.min(Math.max(0, effect.cap), actorPrivate.hand.length);
+      const attackGain = steps * Math.max(0, effect.attackPer);
+      const healthGain = steps * Math.max(0, effect.healthPer);
+      unit.attack += attackGain;
+      unit.health += healthGain;
+      unit.maxHealth += healthGain;
+      if (sourceConsumesUnitBuffSlot(sourceCard, effect)) unit.buffCardApplied = true;
+      appendLog(state, `손패 ${actorPrivate.hand.length}장 기준으로 +${attackGain}/+${healthGain} 강화.`, 'special');
+      appendVisual(state, { kind: 'buff', vfx: 'v33a-calculated-growth', cardId: unit.cardId, ownerId: actorId, targetOwnerId: actorId, targetZone: unitIndex, amount: attackGain + healthGain, label: '계산된 성장' });
+      break;
+    }
+    case 'banish_enemy_grave': {
+      const grave = state.graveyards[opponentId] ?? [];
+      const candidates = grave.map((cardId, index) => ({ cardId, index, card: CARD_BY_ID[cardId] }))
+        .filter((entry) => entry.card && ['unit','spell','trap'].includes(entry.card.kind));
+      const selected = shuffle(candidates).slice(0, Math.max(0, effect.amount)).sort((a, b) => b.index - a.index);
+      for (const entry of selected) grave.splice(entry.index, 1);
+      appendLog(state, `상대 묘지의 메인 덱 카드 ${selected.length}장을 소멸시켰습니다.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: 'v33a-memory-erasure', ownerId: actorId, targetOwnerId: opponentId, amount: selected.length, label: '기억 말소' });
+      break;
+    }
+    case 'field_count_blast': {
+      const count = state.boards[actorId].units.filter(Boolean).length;
+      const attempted = Math.min(Math.max(0, effect.cap), count * Math.max(0, effect.per));
+      const actual = damageCore(state, opponentId, attempted);
+      statsFor(state, actorId).coreDamage += actual;
+      appendLog(state, `내 필드 ${count}체의 화력을 모아 상대 코어에 ${actual} 피해.`, 'attack');
+      appendVisual(state, { kind: 'core', vfx: 'v33a-formation-volley', ownerId: actorId, targetOwnerId: opponentId, amount: actual, label: '전열 포화' });
+      break;
+    }
+    case 'mass_shield': {
+      let affected = 0;
+      for (const [index, unit] of state.boards[actorId].units.entries()) {
+        if (!unit) continue;
+        unit.shield += Math.max(0, effect.amount);
+        affected += 1;
+        appendVisual(state, { kind: 'buff', vfx: 'v33a-mass-shield', cardId: unit.cardId, ownerId: actorId, targetOwnerId: actorId, targetZone: index, amount: effect.amount, label: '집단 방벽' });
+      }
+      appendLog(state, `아군 ${affected}체에게 보호막 ${effect.amount} 부여.`, 'special');
+      break;
+    }
+    case 'mass_buff': {
+      let affected = 0;
+      for (const [index, unit] of state.boards[actorId].units.entries()) {
+        if (!unit) continue;
+        unit.attack += effect.attack;
+        unit.health += effect.health;
+        unit.maxHealth += effect.health;
+        affected += 1;
+        appendVisual(state, { kind: 'buff', vfx: 'v33a-mass-rally', cardId: unit.cardId, ownerId: actorId, targetOwnerId: actorId, targetZone: index, amount: effect.attack + effect.health, label: '무소속 진군' });
+      }
+      appendLog(state, `아군 ${affected}체 전부 +${effect.attack}/+${effect.health}.`, 'special');
+      break;
+    }
+    case 'type_rally': {
+      let affected = 0;
+      for (const [index, unit] of state.boards[actorId].units.entries()) {
+        if (!unit) continue;
+        const card = CARD_BY_ID[unit.cardId];
+        if (card?.unitType !== effect.unitType) continue;
+        unit.attack += effect.attack;
+        unit.health += effect.health;
+        unit.maxHealth += effect.health;
+        affected += 1;
+        appendVisual(state, { kind: 'buff', vfx: 'v33a-type-rally', cardId: unit.cardId, ownerId: actorId, targetOwnerId: actorId, targetZone: index, amount: effect.attack + effect.health, label: '타입 집결' });
+      }
+      appendLog(state, `${effect.unitType} 타입 아군 ${affected}체를 +${effect.attack}/+${effect.health} 강화.`, 'special');
+      break;
+    }
+    case 'type_recruit': {
+      const destination = firstOpenUnit(state.boards[actorId]);
+      if (destination < 0) throw new Error('덱에서 유닛을 전개할 빈 필드 칸이 없습니다.');
+      const candidates = actorPrivate.deck
+        .map((instance, index) => ({ instance, index, card: CARD_BY_ID[instance.cardId] }))
+        .filter((entry) => entry.card?.kind === 'unit' && entry.card.unitType === effect.unitType && entry.card.cost <= effect.maxCost);
+      if (!candidates.length) {
+        appendLog(state, `조건에 맞는 ${effect.unitType} 타입 유닛이 덱에 없습니다.`, 'system');
+        break;
+      }
+      const picked = shuffle(candidates)[0];
+      actorPrivate.deck.splice(picked.index, 1);
+      const recruitedCard = picked.card as CardDefinition;
+      const recruited = makeUnit(state, actorId, picked.instance, recruitedCard, 'normal');
+      recruited.canAttack = false;
+      state.boards[actorId].units[destination] = recruited;
+      state.deckCounts[actorId] = actorPrivate.deck.length;
+      statsFor(state, actorId).unitsSummoned += 1;
+      statsFor(state, actorId).specialSummons += 1;
+      appendLog(state, `타입 호출 — 「${recruitedCard.name}」을(를) 덱에서 전개했습니다. 등장 효과는 발동하지 않습니다.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: 'v33a-type-recruit', cardId: recruitedCard.id, ownerId: actorId, targetOwnerId: actorId, targetZone: destination, label: '타입 호출' });
+      break;
+    }
+    case 'reset_unit': {
+      if (!target || !Number.isInteger(target.unitIndex)) throw new Error('초기화할 유닛을 선택해야 합니다.');
+      const unitIndex = Number(target.unitIndex);
+      const unit = state.boards[target.ownerId]?.units[unitIndex];
+      if (!unit) throw new Error('대상 유닛이 없습니다.');
+      const printed = CARD_BY_ID[unit.cardId];
+      if (!printed || !isUnitCard(printed)) throw new Error('토큰은 원형 복귀의 대상으로 선택할 수 없습니다.');
+      unit.attack = Math.max(0, printed.attack ?? 0);
+      unit.health = Math.max(1, printed.health ?? 1);
+      unit.maxHealth = Math.max(1, printed.health ?? 1);
+      unit.shield = 0;
+      appendLog(state, `「${printed.name}」의 능력치를 카드 원래 수치로 초기화하고 보호막을 제거했습니다.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: 'v33a-unit-reset', cardId: printed.id, ownerId: actorId, targetOwnerId: target.ownerId, targetZone: unitIndex, label: '원형 복귀' });
+      break;
+    }
     case 'steal_unit': {
       if (!target || !Number.isInteger(target.unitIndex)) throw new Error('강탈할 적 유닛을 선택해야 합니다.');
       const unitIndex = Number(target.unitIndex);
@@ -991,6 +1208,9 @@ function applyEffect(
       appendVisual(state, { kind: 'special', vfx: 'hand-paradox', ownerId: actorId, targetOwnerId: opponentId, label: '손패 교환' });
       break;
     }
+  }
+  for (const playerId of state.playerOrder) {
+    if (playerId) checkV33AHandComboVictory(state, privateStates[playerId], playerId);
   }
 }
 
@@ -2350,6 +2570,8 @@ function validateTarget(state: MatchState, actorId: string, card: CardDefinition
   if (card.target === 'enemy_unit' && target.ownerId !== opponentId) throw new Error('적 유닛을 선택해야 합니다.');
   if (card.target === 'friendly_unit' && target.ownerId !== actorId) throw new Error('아군 유닛을 선택해야 합니다.');
   if (card.effect?.kind === 'ready_unit' && unit.summonedTurn !== state.turnNumber) throw new Error('이번 턴 소환한 유닛만 즉시 공격 상태로 만들 수 있습니다.');
+  if (card.effect?.kind === 'shield_burst' && unit.shield <= 0) throw new Error('보호막이 있는 아군 유닛을 선택하세요.');
+  if (card.effect?.kind === 'reset_unit' && !CARD_BY_ID[unit.cardId]) throw new Error('토큰은 원형 복귀의 대상으로 선택할 수 없습니다.');
   if ((card.effect?.kind === 'steal_unit' || card.effect?.kind === 'mirror_unit') && firstOpenUnit(state.boards[actorId]) < 0) {
     throw new Error(card.effect.kind === 'steal_unit' ? '강탈한 유닛을 놓을 빈 유닛 칸이 없습니다.' : '거울 토큰을 소환할 빈 유닛 칸이 없습니다.');
   }
@@ -2625,7 +2847,7 @@ export function playCard(
   const { index: handIndex, instance, card } = getCardFromHand(playerPrivate, instanceId);
   if (card.kind === 'fusion' || card.kind === 'evolution') throw new Error('융합·진화 카드는 엑스트라 덱에서 소환해야 합니다.');
   validateTarget(state, playerId, card, target);
-  if (card.kind === 'spell' && card.effect?.kind === 'recruit_unit' && firstOpenUnit(state.boards[playerId]) < 0) {
+  if (card.kind === 'spell' && (card.effect?.kind === 'recruit_unit' || card.effect?.kind === 'type_recruit') && firstOpenUnit(state.boards[playerId]) < 0) {
     throw new Error('덱에서 유닛을 전개할 빈 필드 칸이 없습니다.');
   }
   if (card.kind === 'spell' && card.effect && isBuffCardEffect(card.effect) && target && Number.isInteger(target.unitIndex)) {
@@ -2685,7 +2907,12 @@ export function playCard(
       || spellEffectKind === 'damage_core'
       || spellEffectKind === 'aoe_enemy'
       || spellEffectKind === 'erase_opponent_grave'
-      || spellEffectKind === 'mass_recall';
+      || spellEffectKind === 'mass_recall'
+      || spellEffectKind === 'steal_energy'
+      || spellEffectKind === 'banish_enemy_grave'
+      || spellEffectKind === 'damage_by_hand'
+      || spellEffectKind === 'damage_by_grave'
+      || spellEffectKind === 'field_count_blast';
     const spellVisualTargetOwnerId = target?.ownerId ?? (spellTargetsOpponent ? opponentId : playerId);
     appendVisual(state, {
       kind: 'spell', vfx: resolveCardVfx(card, 'activation'), cardId: card.id, ownerId: playerId,
