@@ -25,6 +25,7 @@ export interface CardActionTarget {
   ownerId: string;
   unitIndex?: number;
   graveyardIndex?: number;
+  deckCardId?: string;
 }
 
 interface UnitBoardTarget {
@@ -46,6 +47,8 @@ export interface UnitState {
   originCardIds: string[];
   /** A unit can receive at most one buff-type spell/trap card during its lifetime. */
   buffCardApplied?: boolean;
+  /** Turn number during which this unit remains unable to attack due to a spell/trap. */
+  stunnedUntilTurn?: number;
 }
 
 export interface PublicSecret {
@@ -753,6 +756,105 @@ function applyEffect(
       unit.maxHealth = Math.max(1, oldAttack);
       appendLog(state, `「${CARD_BY_ID[unit.cardId]?.name ?? '유닛'}」의 공격력과 체력을 뒤바꿨습니다.`, 'special');
       appendVisual(state, { kind: 'special', vfx: 'stat-inversion', cardId: unit.cardId, ownerId: actorId, targetOwnerId: target.ownerId, targetZone: unitIndex, label: '능력치 역전' });
+      break;
+    }
+    case 'tutor_card': {
+      const wantedId = target?.deckCardId;
+      if (!wantedId) throw new Error('덱에서 가져올 카드를 선택해야 합니다.');
+      const deckIndex = actorPrivate.deck.findIndex((instance) => instance.cardId === wantedId);
+      if (deckIndex < 0) throw new Error('선택한 카드를 현재 덱에서 찾을 수 없습니다.');
+      const [found] = actorPrivate.deck.splice(deckIndex, 1);
+      actorPrivate.hand.push(found);
+      state.handCounts[actorId] = actorPrivate.hand.length;
+      state.deckCounts[actorId] = actorPrivate.deck.length;
+      statsFor(state, actorId).cardsDrawn += 1;
+      appendLog(state, `정밀 서치 — 「${CARD_BY_ID[wantedId]?.name ?? wantedId}」을(를) 손패에 넣었습니다.`, 'special');
+      appendVisual(state, { kind: 'draw', vfx: 'precision-tutor', cardId: wantedId, ownerId: actorId, amount: 1, label: '정밀 서치' });
+      break;
+    }
+    case 'tutor_series_card': {
+      const wantedId = target?.deckCardId;
+      if (!wantedId) throw new Error('덱에서 가져올 같은 시리즈 카드를 선택해야 합니다.');
+      const wanted = CARD_BY_ID[wantedId];
+      if (!sourceCard?.seriesId || wanted?.seriesId !== sourceCard.seriesId) throw new Error('이 주문과 같은 시리즈의 카드만 선택할 수 있습니다.');
+      const deckIndex = actorPrivate.deck.findIndex((instance) => instance.cardId === wantedId);
+      if (deckIndex < 0) throw new Error('선택한 카드를 현재 덱에서 찾을 수 없습니다.');
+      const [found] = actorPrivate.deck.splice(deckIndex, 1);
+      actorPrivate.hand.push(found);
+      state.handCounts[actorId] = actorPrivate.hand.length;
+      state.deckCounts[actorId] = actorPrivate.deck.length;
+      statsFor(state, actorId).cardsDrawn += 1;
+      appendLog(state, `시리즈 서치 — 「${wanted?.name ?? wantedId}」을(를) 손패에 넣었습니다.`, 'special');
+      appendVisual(state, { kind: 'draw', vfx: 'series-tutor', cardId: wantedId, ownerId: actorId, amount: 1, label: '시리즈 서치' });
+      break;
+    }
+    case 'recover_any_grave': {
+      if (!target || target.ownerId !== actorId || !Number.isInteger(target.graveyardIndex)) throw new Error('묘지에서 회수할 카드를 선택해야 합니다.');
+      const graveIndex = Number(target.graveyardIndex);
+      const cardId = state.graveyards[actorId]?.[graveIndex];
+      const recovered = cardId ? CARD_BY_ID[cardId] : undefined;
+      if (!recovered || !['unit','spell','trap'].includes(recovered.kind)) throw new Error('메인 덱 카드만 회수할 수 있습니다.');
+      state.graveyards[actorId].splice(graveIndex, 1);
+      actorPrivate.hand.push({ instanceId: randomId('ci'), cardId });
+      state.handCounts[actorId] = actorPrivate.hand.length;
+      appendLog(state, `묘지 회수 — 「${recovered.name}」을(를) 손패로 되돌렸습니다.`, 'special');
+      appendVisual(state, { kind: 'draw', vfx: 'grave-card-recover', cardId, ownerId: actorId, amount: 1, label: '묘지 회수' });
+      break;
+    }
+    case 'mill_draw': {
+      let milled = 0;
+      for (let i = 0; i < Math.max(0, effect.mill); i += 1) {
+        const top = actorPrivate.deck.shift();
+        if (!top) break;
+        state.graveyards[actorId].push(top.cardId);
+        milled += 1;
+      }
+      state.deckCounts[actorId] = actorPrivate.deck.length;
+      if (milled > 0) appendLog(state, `덱 위 카드 ${milled}장을 묘지로 보냈습니다.`, 'special');
+      const drew = drawCards(state, actorPrivate, actorId, Math.max(0, effect.draw));
+      if (drew) appendVisual(state, { kind: 'draw', vfx: 'mill-draw-cycle', ownerId: actorId, amount: effect.draw, label: `재편 드로우 ${effect.draw}` });
+      break;
+    }
+    case 'freeze_unit': {
+      if (!target || !Number.isInteger(target.unitIndex)) throw new Error('행동을 봉인할 적 유닛을 선택해야 합니다.');
+      const unitIndex = Number(target.unitIndex);
+      const unit = state.boards[target.ownerId]?.units[unitIndex];
+      if (!unit || target.ownerId !== opponentId) throw new Error('적 유닛을 선택해야 합니다.');
+      const until = state.turnNumber + Math.max(1, effect.turns);
+      unit.stunnedUntilTurn = Math.max(unit.stunnedUntilTurn ?? 0, until);
+      unit.canAttack = false;
+      appendLog(state, `「${CARD_BY_ID[unit.cardId]?.name ?? '적 유닛'}」의 다음 공격 기회를 봉인했습니다.`, 'special');
+      appendVisual(state, { kind: 'buff', vfx: 'attack-freeze', cardId: unit.cardId, ownerId: actorId, targetOwnerId: target.ownerId, targetZone: unitIndex, label: '공격 봉인' });
+      break;
+    }
+    case 'break_shield_damage': {
+      if (!target || !Number.isInteger(target.unitIndex)) throw new Error('장갑을 파쇄할 적 유닛을 선택해야 합니다.');
+      const unitIndex = Number(target.unitIndex);
+      const unit = state.boards[target.ownerId]?.units[unitIndex];
+      if (!unit || target.ownerId !== opponentId) throw new Error('적 유닛을 선택해야 합니다.');
+      const removedShield = Math.max(0, unit.shield);
+      unit.shield = 0;
+      const report = damageUnit(state, target.ownerId, unitIndex, effect.amount);
+      appendLog(state, `보호막 ${removedShield} 파쇄 후 체력 ${report.healthDamage} 피해.`, 'attack');
+      appendVisual(state, { kind: 'defense', vfx: 'shield-shatter-spell', cardId: unit.cardId, ownerId: actorId, targetOwnerId: target.ownerId, targetZone: unitIndex, amount: report.healthDamage, shieldAmount: removedShield, healthAmount: report.healthDamage, label: '장갑 파쇄' });
+      break;
+    }
+    case 'banish_own_grave_energy': {
+      const grave = state.graveyards[actorId] ?? [];
+      let removed = 0;
+      for (let index = grave.length - 1; index >= 0 && removed < Math.max(0, effect.amount); index -= 1) {
+        const candidate = CARD_BY_ID[grave[index]];
+        if (!candidate || !['unit','spell','trap'].includes(candidate.kind)) continue;
+        grave.splice(index, 1);
+        removed += 1;
+      }
+      if (removed <= 0) throw new Error('소멸시켜 ENERGY로 바꿀 메인 덱 카드가 묘지에 없습니다.');
+      const energy = state.energy[actorId];
+      const before = energy.current;
+      energy.current = Math.min(energy.max, energy.current + Math.max(0, effect.energy));
+      const gained = energy.current - before;
+      appendLog(state, `묘지 카드 ${removed}장 소멸 · ENERGY +${gained}.`, 'special');
+      appendVisual(state, { kind: 'energy', vfx: 'grave-energy-convert', ownerId: actorId, targetOwnerId: actorId, amount: gained, label: '영혼 연료' });
       break;
     }
     case 'steal_unit': {
@@ -2216,6 +2318,20 @@ function validateTarget(state: MatchState, actorId: string, card: CardDefinition
   const opponentId = otherPlayer(state, actorId);
   if (card.target === 'none' || card.target === 'enemy_core') return;
 
+  if (card.target === 'own_deck_card') {
+    if (!target?.deckCardId) throw new Error('내 덱에서 가져올 카드를 선택하세요.');
+    return;
+  }
+
+  if (card.target === 'friendly_graveyard_card') {
+    if (!target || target.ownerId !== actorId || !Number.isInteger(target.graveyardIndex)) throw new Error('내 묘지에서 회수할 카드를 선택하세요.');
+    const graveyardIndex = Number(target.graveyardIndex);
+    const cardId = state.graveyards[actorId]?.[graveyardIndex];
+    const graveCard = cardId ? CARD_BY_ID[cardId] : undefined;
+    if (!graveCard || !['unit','spell','trap'].includes(graveCard.kind)) throw new Error('메인 덱 카드만 회수할 수 있습니다.');
+    return;
+  }
+
   if (card.target === 'friendly_graveyard_unit') {
     if (!target || target.ownerId !== actorId || !Number.isInteger(target.graveyardIndex)) throw new Error('내 묘지에서 부활할 유닛을 선택하세요.');
     const graveyardIndex = Number(target.graveyardIndex);
@@ -3308,7 +3424,10 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
   }
   state.energy[nextPlayer] = nextEnergy;
   state.boards[nextPlayer].units.forEach((unit) => {
-    if (unit) unit.canAttack = true;
+    if (!unit) return;
+    const stunnedNow = Boolean(unit.stunnedUntilTurn && unit.stunnedUntilTurn >= state.turnNumber);
+    unit.canAttack = !stunnedNow;
+    if (unit.stunnedUntilTurn && unit.stunnedUntilTurn < state.turnNumber) delete unit.stunnedUntilTurn;
   });
   appendVisual(state, { kind: 'turn', vfx: 'turn-shift', ownerId: nextPlayer, label: `TURN ${state.turnNumber}` });
   const drew = drawCards(state, privateStates[nextPlayer], nextPlayer, 1);

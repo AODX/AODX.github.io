@@ -6977,3 +6977,16 @@ html[data-ipad="true"] .v23-client.in-duel .v32o-energy-draw-action {
 .v23-client.in-duel .v32-heal-particles i:nth-child(6){transform:rotate(225deg) translateY(-58px)!important}
 .v23-client.in-duel .v32-heal-particles i:nth-child(7){transform:rotate(270deg) translateY(-58px)!important}
 .v23-client.in-duel .v32-heal-particles i:nth-child(8){transform:rotate(315deg) translateY(-58px)!important}
+
+
+/* v32y · precise deck/grave card selection */
+.v32y-picker-layer{position:fixed;inset:0;z-index:1900;background:rgba(3,8,18,.76);backdrop-filter:blur(8px);display:grid;place-items:center;padding:clamp(14px,3vw,36px)}
+.v32y-picker-card{width:min(1080px,96vw);max-height:min(82vh,820px);overflow:hidden;border:1px solid rgba(145,205,255,.3);background:linear-gradient(160deg,rgba(10,19,34,.98),rgba(5,10,22,.98));box-shadow:0 30px 90px rgba(0,0,0,.55);border-radius:18px;display:flex;flex-direction:column}
+.v32y-picker-card>header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 12px;border-bottom:1px solid rgba(255,255,255,.09)}
+.v32y-picker-card>header small{display:block;color:#7fcfff;font-size:11px;letter-spacing:.16em}.v32y-picker-card>header b{display:block;margin-top:3px;font-size:20px}.v32y-picker-card>header button{width:38px;height:38px;border-radius:50%;font-size:22px}
+.v32y-picker-card>p{margin:0;padding:12px 20px;color:#b9c8da;font-size:13px;border-bottom:1px solid rgba(255,255,255,.06)}
+.v32y-picker-grid{overflow:auto;padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.v32y-picker-option{min-height:112px;display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;text-align:left;padding:9px;border:1px solid rgba(255,255,255,.11);border-radius:13px;background:rgba(255,255,255,.035);transition:transform .15s ease,border-color .15s ease,background .15s ease}
+.v32y-picker-option:hover{transform:translateY(-2px);border-color:rgba(117,205,255,.55);background:rgba(90,170,255,.08)}
+.v32y-picker-option .card-illustration{width:92px;height:92px;border-radius:10px}.v32y-picker-option span{min-width:0;align-self:center}.v32y-picker-option small{display:block;color:#78bfe8;font-size:10px}.v32y-picker-option b{display:block;margin:4px 0 5px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.v32y-picker-option em{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#aebdd0;font-size:11px;line-height:1.45;font-style:normal}
+@media(max-width:720px){.v32y-picker-layer{padding:8px}.v32y-picker-card{max-height:88vh}.v32y-picker-grid{grid-template-columns:1fr;padding:10px}.v32y-picker-option{grid-template-columns:76px minmax(0,1fr);min-height:94px}.v32y-picker-option .card-illustration{width:76px;height:76px}}

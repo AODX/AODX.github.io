@@ -671,6 +671,13 @@ function effectDescription(effect: CardDefinition['effect'] | CardDefinition['on
   if (effect.kind === 'draw_if_outnumbered') return `카드 ${effect.base}장을 뽑습니다. 내 필드의 캐릭터 수가 더 적다면 ${effect.bonus}장을 추가로 뽑습니다`;
   if (effect.kind === 'swap_stats') return '선택한 캐릭터 하나의 현재 공격력과 체력을 서로 맞바꿉니다';
   if (effect.kind === 'end_turn_next_energy') return `이 턴을 즉시 종료하고 다음 내 턴에 임시 ENERGY +${effect.amount}을 얻습니다`;
+  if (effect.kind === 'tutor_card') return '내 덱에서 원하는 카드 1장을 선택해 손패에 넣습니다';
+  if (effect.kind === 'tutor_series_card') return '내 덱에서 이 카드와 같은 시리즈의 원하는 카드 1장을 선택해 손패에 넣습니다';
+  if (effect.kind === 'recover_any_grave') return '내 묘지에서 원하는 메인 덱 카드 1장을 선택해 손패로 되돌립니다';
+  if (effect.kind === 'mill_draw') return `내 덱 위 카드 ${effect.mill}장을 묘지로 보내고 카드 ${effect.draw}장을 뽑습니다`;
+  if (effect.kind === 'freeze_unit') return '선택한 적 캐릭터는 다음 자신의 턴에 공격할 수 없습니다';
+  if (effect.kind === 'break_shield_damage') return `선택한 적 캐릭터의 보호막을 전부 제거하고 체력에 ${effect.amount} 피해를 줍니다`;
+  if (effect.kind === 'banish_own_grave_energy') return `내 묘지의 메인 덱 카드 최대 ${effect.amount}장을 소멸시키고 이번 턴 ENERGY ${effect.energy} 회복`;
   if (effect.kind === 'negate') return '대응한 효과의 발동을 무효로 합니다';
   if (effect.kind === 'negate_and_damage') return trigger === 'direct_attack'
     ? `직접 공격을 무효로 하고, 공격한 캐릭터에게 ${effect.amount}의 피해를 줍니다`
@@ -717,8 +724,8 @@ function cardRoleSummary(card: CardDefinition): string {
   if (card.kind === 'evolution') return '엑스트라 · 계승 결전';
   if (card.kind === 'trap') return card.trapEffect?.kind === 'negate' || card.trapEffect?.kind === 'negate_and_damage' ? '반응 · 카운터' : '반응 · 전장 제어';
   if (card.kind === 'spell' && card.effect) {
-    if (['draw', 'recover_grave_unit', 'reweave_hand', 'draw_if_outnumbered', 'increase_energy_max'].includes(card.effect.kind)) return '주문 · 자원 순환';
-    if (['damage_unit', 'damage_core', 'aoe_enemy', 'destroy_weak', 'damage_draw_if_destroyed'].includes(card.effect.kind)) return '주문 · 제압';
+    if (['draw', 'recover_grave_unit', 'recover_any_grave', 'reweave_hand', 'draw_if_outnumbered', 'increase_energy_max', 'tutor_card', 'tutor_series_card', 'mill_draw', 'banish_own_grave_energy'].includes(card.effect.kind)) return '주문 · 자원 순환';
+    if (['damage_unit', 'damage_core', 'aoe_enemy', 'destroy_weak', 'damage_draw_if_destroyed', 'break_shield_damage'].includes(card.effect.kind)) return '주문 · 제압';
     if (['summon_token', 'recruit_unit', 'revive_unit', 'ready_unit'].includes(card.effect.kind)) return '주문 · 전개';
     if (['buff_unit', 'shield_unit', 'heal_unit', 'heal_core'].includes(card.effect.kind)) return '주문 · 지원';
     return '주문 · 특수 전술';
@@ -2944,14 +2951,15 @@ function spellMotionProfile(card: CardDefinition): SpellCinematicProfile {
 
   if (effect === 'heal_core' || effect === 'heal_unit') return profile('heal', '회복 파동');
   if (effect === 'shield_unit' || effect === 'buff_unit' || effect === 'ready_unit' || effect === 'swap_stats') return profile('shield', '강화 각인');
-  if (effect === 'draw' || effect === 'reweave_hand' || effect === 'draw_if_outnumbered' || effect === 'sacrifice_draw') return profile('draw', '지식 전개');
-  if (effect === 'gain_energy' || effect === 'increase_energy_max' || effect === 'end_turn_next_energy') return profile('energy', effect === 'increase_energy_max' ? '에너지 용량 확장' : '에너지 집속');
+  if (effect === 'draw' || effect === 'reweave_hand' || effect === 'draw_if_outnumbered' || effect === 'sacrifice_draw' || effect === 'tutor_card' || effect === 'tutor_series_card' || effect === 'recover_any_grave' || effect === 'mill_draw') return profile('draw', '지식 전개');
+  if (effect === 'gain_energy' || effect === 'increase_energy_max' || effect === 'end_turn_next_energy' || effect === 'banish_own_grave_energy') return profile('energy', effect === 'increase_energy_max' ? '에너지 용량 확장' : '에너지 집속');
   if (effect === 'summon_token' || effect === 'recruit_unit' || effect === 'revive_unit' || effect === 'recover_grave_unit') return profile('summon', '소환식 전개');
 
+  if (effect === 'freeze_unit') return profile('arcane', '행동 봉인');
   if (/(성장|숲|씨앗|덩굴|꽃잎|비취|생명|worldroot|bloom|vine|seed)/i.test(name) || card.element === 'verdant') return profile('growth', '생명맥 발아');
   if (/(공허|심연|월식|망각|붕괴|void|abyss|eclipse)/i.test(name) || card.element === 'void') return profile('void', '공허 균열');
 
-  if (effect === 'damage_unit' || effect === 'damage_core' || effect === 'aoe_enemy' || effect === 'damage_draw_if_destroyed' || effect === 'destroy_weak') {
+  if (effect === 'damage_unit' || effect === 'damage_core' || effect === 'aoe_enemy' || effect === 'damage_draw_if_destroyed' || effect === 'destroy_weak' || effect === 'break_shield_damage') {
     if (card.element === 'storm') return profile('lightning', '전격 방출');
     if (card.element === 'solar') return profile('fire', '태양 폭발');
     return profile('arcane', '마력 충격');
@@ -3928,6 +3936,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const [turnNotice, setTurnNotice] = useState<{ mine: boolean; turn: number } | null>(null);
   const [summonBlock, setSummonBlock] = useState<{ cardId: string; title: string; reasons: string[] } | null>(null);
   const [graveTargetOpen, setGraveTargetOpen] = useState(false);
+  const [deckTargetOpen, setDeckTargetOpen] = useState(false);
+  const [graveCardTargetOpen, setGraveCardTargetOpen] = useState(false);
   const [coinClock, setCoinClock] = useState(() => Date.now());
   const [turnClock, setTurnClock] = useState(() => Date.now());
   const timeoutSyncTurn = useRef<number>(-1);
@@ -4037,6 +4047,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     setHoveredHandCardId(null);
     setExtraOpen(false);
     setGraveTargetOpen(false);
+    setDeckTargetOpen(false);
+    setGraveCardTargetOpen(false);
     setEndTurnConfirmOpen(false);
     setMessage('');
   }, [nullableState?.turnNumber, nullableState?.currentPlayerId]);
@@ -4051,6 +4063,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       setSelectedAttacker(null);
       setSelectedFieldUnit(null);
       setGraveTargetOpen(false);
+      setDeckTargetOpen(false);
+      setGraveCardTargetOpen(false);
       setMessage('선택을 취소했습니다.');
     };
     window.addEventListener('keydown', cancel);
@@ -4199,6 +4213,18 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     const card = CARD_BY_ID[cardId];
     return card?.kind === 'unit' ? [{ card, graveyardIndex }] : [];
   });
+  const deckTutorTargets = privateState.deck
+    .map((instance) => CARD_BY_ID[instance.cardId])
+    .filter((card): card is CardDefinition => Boolean(card))
+    .filter((card, index, all) => all.findIndex((item) => item.id === card.id) === index)
+    .filter((card) => selectedCard?.effect?.kind !== 'tutor_series_card' || card.seriesId === selectedCard.seriesId)
+    .sort((a, b) => a.cost - b.cost || a.name.localeCompare(b.name, 'ko'));
+  const graveyardCardTargets = (state.graveyards[userId] ?? []).flatMap((cardId, graveyardIndex) => {
+    const card = CARD_BY_ID[cardId];
+    return card && (card.kind === 'unit' || card.kind === 'spell' || card.kind === 'trap') ? [{ card, graveyardIndex }] : [];
+  });
+  const canChooseDeckTutorTarget = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.target === 'own_deck_card' && selectedCard && myEnergy.current >= selectedCard.cost && deckTutorTargets.length > 0 && !busy);
+  const canChooseGraveCardTarget = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.target === 'friendly_graveyard_card' && selectedCard && myEnergy.current >= selectedCard.cost && graveyardCardTargets.length > 0 && !busy);
   const selectingGraveyardTarget = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.target === 'friendly_graveyard_unit');
   const canChooseGraveyardTarget = Boolean(selectingGraveyardTarget && selectedCard && myEnergy.current >= selectedCard.cost && graveyardReviveTargets.length > 0 && state.boards[userId].units.some((slot) => !slot) && !busy);
   const nextMyEnergyMax = myTurn ? myEnergy.max : Math.min(myEnergyHardCap, Math.max(1, myEnergy.max + 1));
@@ -4313,6 +4339,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     setSelectedAttacker(null);
     setSelectedFieldUnit(null);
     setGraveTargetOpen(false);
+    setDeckTargetOpen(false);
+    setGraveCardTargetOpen(false);
     if (note) setMessage(note);
   }
 
@@ -4516,6 +4544,38 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   function reviveFromGraveyard(graveyardIndex: number) {
     if (!selectedHand || !selectedCard || selectedCard.target !== 'friendly_graveyard_unit') return;
     setGraveTargetOpen(false);
+    gameAction('play_card', { instanceId: selectedHand, target: { ownerId: userId, graveyardIndex } });
+  }
+
+  function openDeckTutorPicker() {
+    if (!selectedCard || !selectedHand || selectedCard.target !== 'own_deck_card') return;
+    if (!canChooseDeckTutorTarget) {
+      setMessage(deckTutorTargets.length === 0 ? '조건에 맞는 카드가 현재 덱에 없습니다.' : `ENERGY ${selectedCard.cost}이 필요합니다.`);
+      return;
+    }
+    setDeckTargetOpen(true);
+    setMessage(selectedCard.effect?.kind === 'tutor_series_card' ? '같은 시리즈에서 가져올 카드 1장을 선택하세요.' : '덱에서 가져올 카드 1장을 선택하세요.');
+  }
+
+  function tutorFromDeck(cardId: string) {
+    if (!selectedHand || !selectedCard || selectedCard.target !== 'own_deck_card') return;
+    setDeckTargetOpen(false);
+    gameAction('play_card', { instanceId: selectedHand, target: { ownerId: userId, deckCardId: cardId } });
+  }
+
+  function openGraveCardPicker() {
+    if (!selectedCard || !selectedHand || selectedCard.target !== 'friendly_graveyard_card') return;
+    if (!canChooseGraveCardTarget) {
+      setMessage(graveyardCardTargets.length === 0 ? '회수할 수 있는 메인 덱 카드가 묘지에 없습니다.' : `ENERGY ${selectedCard.cost}이 필요합니다.`);
+      return;
+    }
+    setGraveCardTargetOpen(true);
+    setMessage('묘지에서 손패로 되돌릴 카드 1장을 선택하세요.');
+  }
+
+  function recoverCardFromGrave(graveyardIndex: number) {
+    if (!selectedHand || !selectedCard || selectedCard.target !== 'friendly_graveyard_card') return;
+    setGraveCardTargetOpen(false);
     gameAction('play_card', { instanceId: selectedHand, target: { ownerId: userId, graveyardIndex } });
   }
 
@@ -4846,6 +4906,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>선택 취소</button></div>
               {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button className="v18-context-primary" onClick={activateSelectedNoTarget}>주문 발동</button>}
               {selectedCard.kind === 'spell' && selectedCard.target === 'friendly_graveyard_unit' && <button className="v18-context-primary v31d-grave-target-button" disabled={!canChooseGraveyardTarget} onClick={openGraveyardTargetPicker}>묘지에서 부활 대상 선택 · {graveyardReviveTargets.length}</button>}
+              {selectedCard.kind === 'spell' && selectedCard.target === 'own_deck_card' && <button className="v18-context-primary v32y-card-picker-button" disabled={!canChooseDeckTutorTarget} onClick={openDeckTutorPicker}>덱에서 카드 선택 · {deckTutorTargets.length}</button>}
+              {selectedCard.kind === 'spell' && selectedCard.target === 'friendly_graveyard_card' && <button className="v18-context-primary v32y-card-picker-button" disabled={!canChooseGraveCardTarget} onClick={openGraveCardPicker}>묘지에서 카드 선택 · {graveyardCardTargets.length}</button>}
               {selectedCard.kind === 'unit' && selectedCard.summonMode === 'legendary' && <button className="v18-context-primary v32q-legendary-summon" type="button" onClick={summonSelectedLegendary}>{handSummonBlockReasons(selectedCard).length === 0 ? `전설 특수 소환 · ${selectedCard.legendarySummonRule?.name ?? '강림'}` : '전설 특수 소환 조건 확인'}</button>}
               {myTurn && state.phase === 'main' && <button className="v31-energy-convert" disabled={!canSacrificeSelectedForEnergy} onClick={sacrificeSelectedForEnergy}><span>손패 → ENERGY +1</span><small>{energySacrificeUsed ? '이번 턴 사용 완료' : myEnergy.current >= myEnergyHardCap ? `에너지 최대 한도 ${myEnergyHardCap}` : '이 카드를 묘지로 보냅니다 · 턴당 1회'}</small></button>}
             </div>
@@ -4947,6 +5009,30 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
                   <small>COST {card.cost} · {card.attack}/{card.health}</small>
                 </div>
               )) : <div className="v31d-grave-empty">부활 가능한 메인 덱 유닛이 없습니다.</div>}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {deckTargetOpen && selectedCard?.target === 'own_deck_card' && selectedHand && (
+        <div className="v32y-picker-layer" role="dialog" aria-modal="true" onPointerDown={(event) => { if (event.currentTarget === event.target) setDeckTargetOpen(false); }}>
+          <section className="v32y-picker-card">
+            <header><div><small>PRECISION SEARCH</small><b>{selectedCard.effect?.kind === 'tutor_series_card' ? '같은 시리즈 카드 선택' : '덱에서 원하는 카드 선택'}</b></div><button type="button" onClick={() => setDeckTargetOpen(false)}>×</button></header>
+            <p>현재 내 덱에 실제로 남아 있는 카드만 표시됩니다. 같은 카드가 여러 장이어도 목록에는 한 번만 표시됩니다.</p>
+            <div className="v32y-picker-grid">
+              {deckTutorTargets.map((card) => <button type="button" className="v32y-picker-option" key={card.id} disabled={busy} onClick={() => tutorFromDeck(card.id)}><CardIllustration card={card} compact /><span><small>{KIND_LABEL[card.kind]} · COST {card.cost}</small><b>{card.name}</b><em>{polishedCardText(card)}</em></span></button>)}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {graveCardTargetOpen && selectedCard?.target === 'friendly_graveyard_card' && selectedHand && (
+        <div className="v32y-picker-layer" role="dialog" aria-modal="true" onPointerDown={(event) => { if (event.currentTarget === event.target) setGraveCardTargetOpen(false); }}>
+          <section className="v32y-picker-card">
+            <header><div><small>GRAVE RECOVERY</small><b>묘지에서 카드 1장 선택</b></div><button type="button" onClick={() => setGraveCardTargetOpen(false)}>×</button></header>
+            <p>메인 덱 카드(유닛·주문·함정)만 손패로 회수할 수 있습니다.</p>
+            <div className="v32y-picker-grid">
+              {[...graveyardCardTargets].reverse().map(({ card, graveyardIndex }) => <button type="button" className="v32y-picker-option" key={`${graveyardIndex}-${card.id}`} disabled={busy} onClick={() => recoverCardFromGrave(graveyardIndex)}><CardIllustration card={card} compact /><span><small>{KIND_LABEL[card.kind]} · COST {card.cost}</small><b>{card.name}</b><em>{polishedCardText(card)}</em></span></button>)}
             </div>
           </section>
         </div>
