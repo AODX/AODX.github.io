@@ -50,8 +50,13 @@ function cardPower(card: CardDefinition): number {
   const body = isUnitCard(card) ? (card.attack ?? 0) * 1.05 + (card.health ?? 0) * 0.85 : 0;
   const keywordPower = (card.keywords?.length ?? 0) * 1.4;
   const effectPower = (card.effect ? 3 : 0) + (card.onSummon ? 3 : 0) + (card.trapEffect ? 3 : 0) + (card.extraChoices?.length ?? 0) * 1.8;
+  const temporalKinds = [card.effect?.kind, card.onSummon?.kind, card.trapEffect?.kind];
+  const temporalPower = (card.eclipseAffinity ? 1.6 : 0)
+    + (card.eclipseSummonPhases?.length ? 0.7 : 0)
+    + (temporalKinds.some((kind) => kind?.startsWith('phase_') === true) ? 3.4 : 0)
+    + (temporalKinds.some((kind) => kind === 'phase_rewind') ? 1.8 : 0);
   const efficiency = body > 0 ? body / Math.max(1, card.cost + 0.5) : 2.5 / Math.max(1, card.cost + 0.5);
-  return rarityPower(card) + body * 0.8 + keywordPower + effectPower + efficiency * 2.2 - Math.max(0, card.cost - 6) * 0.8;
+  return rarityPower(card) + body * 0.8 + keywordPower + effectPower + temporalPower + efficiency * 2.2 - Math.max(0, card.cost - 6) * 0.8;
 }
 
 function rankForDifficulty(cards: CardDefinition[], difficulty: PracticeDifficulty): CardDefinition[] {
@@ -378,7 +383,18 @@ function actionBias(snapshot: GameSnapshot, botId: string, action: PracticeBotAc
     return 12;
   }
   if (action.gameAction === 'extra_summon') return 24;
-  if (action.gameAction === 'play_card') return 10;
+  if (action.gameAction === 'play_card') {
+    const instanceId = String(action.payload?.instanceId ?? '');
+    const cardId = snapshot.privateStates[botId]?.hand.find((instance) => instance.instanceId === instanceId)?.cardId;
+    const card = cardId ? CARD_BY_ID[cardId] : undefined;
+    const temporalKind = card?.effect?.kind?.startsWith('phase_') || card?.onSummon?.kind?.startsWith('phase_');
+    if (card?.effect?.kind === 'phase_lock') {
+      const ownResonant = state.boards[botId]?.units.filter((unit) => unit?.eclipseResonance === 'resonant').length ?? 0;
+      const enemyResonant = state.boards[opponentId]?.units.filter((unit) => unit?.eclipseResonance === 'resonant').length ?? 0;
+      return 10 + (ownResonant > enemyResonant ? 16 : 2);
+    }
+    return 10 + (temporalKind ? 6 : 0);
+  }
   if (action.gameAction === 'energy_draw') return 3;
   if (action.gameAction === 'draw_turn') return state.turnActionTaken ? -100 : 1;
   if (action.gameAction === 'sacrifice_field_energy') return -14;

@@ -711,6 +711,7 @@ function effectDescription(effect: CardDefinition['effect'] | CardDefinition['on
   if (effect.kind === 'type_recruit') return `내 덱에서 ENERGY ${effect.maxCost} 이하 ${UNIT_TYPE_LABEL[effect.unitType]} 타입 캐릭터 1장을 무작위로 필드에 전개합니다`;
   if (effect.kind === 'reset_unit') return '선택한 캐릭터의 공격력과 체력을 카드에 적힌 원래 수치로 되돌리고 보호막을 제거합니다';
   if (effect.kind === 'phase_shift') return `ECLIPSE CYCLE 위상을 ${effect.steps >= 0 ? '앞으로' : '뒤로'} ${Math.abs(effect.steps)}칸 이동합니다`;
+  if (effect.kind === 'phase_rewind') return `ECLIPSE CYCLE을 현재 순서의 한 칸 전이 아니라 실제 직전 시간대로 ${Math.max(1, effect.steps ?? 1)}회 되감습니다`;
   if (effect.kind === 'phase_set') return `ECLIPSE CYCLE을 즉시 ${ECLIPSE_PHASE_LABEL[effect.phase]} 위상으로 변경합니다`;
   if (effect.kind === 'phase_lock') return `ECLIPSE CYCLE의 턴 종료 자동 이동을 ${effect.turns}턴 동안 고정합니다`;
   if (effect.kind === 'phase_draw') return `${ECLIPSE_PHASE_LABEL[effect.phase]} 위상이면 카드 ${effect.base + effect.bonus}장, 아니면 ${effect.base}장 드로우합니다`;
@@ -729,6 +730,43 @@ function effectDescription(effect: CardDefinition['effect'] | CardDefinition['on
   return '';
 }
 
+const ECLIPSE_UI_MATCH_BONUS: Record<EclipsePhase, { attack: number; health: number }> = {
+  dawn: { attack: 1, health: 1 },
+  zenith: { attack: 2, health: 0 },
+  dusk: { attack: 0, health: 2 },
+  midnight: { attack: 1, health: 1 },
+  eclipse: { attack: 2, health: 1 },
+};
+
+const ECLIPSE_UI_META: Record<EclipsePhase, { glyph: string; bonus: string; atmosphere: string }> = {
+  dawn: { glyph: '◒', bonus: 'ATK +1 · DEF +1', atmosphere: '여명의 빛' },
+  zenith: { glyph: '☼', bonus: 'ATK +2', atmosphere: '정오의 태양' },
+  dusk: { glyph: '◓', bonus: 'DEF +2', atmosphere: '황혼의 잔광' },
+  midnight: { glyph: '☾', bonus: 'ATK +1 · DEF +1', atmosphere: '심야의 달빛' },
+  eclipse: { glyph: '◉', bonus: 'ATK +2 · DEF +1', atmosphere: '개기일식 코로나' },
+};
+
+function clientCurrentEclipsePhase(state: MatchState): EclipsePhase {
+  return state.eclipsePhase ?? 'dawn';
+}
+
+function clientEclipseSummonReady(state: MatchState, card: CardDefinition): boolean {
+  return !card.eclipseSummonPhases?.length || card.eclipseSummonPhases.includes(clientCurrentEclipsePhase(state));
+}
+
+function eclipseSummonGateDescription(card: CardDefinition): string {
+  if (!card.eclipseSummonPhases?.length) return '';
+  return `시간대 전용 · ${card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ')}에서만 소환 가능`;
+}
+
+function eclipseAffinityRule(card: CardDefinition): string {
+  if (!isUnitCard(card) || !card.eclipseAffinity) return '';
+  const base = ECLIPSE_UI_MATCH_BONUS[card.eclipseAffinity];
+  const attack = base.attack + (card.rarity === 'legendary' ? 1 : 0);
+  const aligned = [`ATK +${attack}`, base.health > 0 ? `DEF +${base.health}` : ''].filter(Boolean).join(' · ');
+  return `【시간 친화】 ${ECLIPSE_PHASE_LABEL[card.eclipseAffinity]} 공명 시 ${aligned}. 친화 시간대와 순환상 2칸 이상 멀어지면 ATK -1.`;
+}
+
 function polishedCardText(card: CardDefinition): string {
   let text = card.text
     .replace(/유닛/g, '캐릭터')
@@ -744,12 +782,13 @@ function polishedCardText(card: CardDefinition): string {
     .replace(/소환 시/g, '【등장】')
     .replace(/파괴될 때/g, '【파괴 시】')
     .replace(/공격할 때/g, '【공격 시】');
-  return text;
+  const affinity = eclipseAffinityRule(card);
+  return [text, affinity].filter(Boolean).join(' ');
 }
 
 function RuleText({ text, compact = false }: { text: string; compact?: boolean }) {
   const source = text || '';
-  const tokenPattern = /(【[^】]+】|ENERGY|코어|보호막|공격력|체력|수호|속공|흡수|관통|직격|공명 융합|계승 진화|균열 소환|전설 특수 소환|\+\d+|−\d+|-\d+|\d+\/\d+|\d+장|\d+체|\d+의 피해|\d+ 피해|\d+ 회복)/g;
+  const tokenPattern = /(【[^】]+】|ENERGY|코어|보호막|공격력|체력|수호|속공|흡수|관통|직격|공명 융합|계승 진화|균열 소환|전설 특수 소환|ECLIPSE CYCLE|TIME GATE|시간 친화|시간대 소환|시간역행|\+\d+|−\d+|-\d+|\d+\/\d+|\d+장|\d+체|\d+의 피해|\d+ 피해|\d+ 회복)/g;
   return <span className={`v31l-rule-text ${compact ? 'compact' : ''}`}>{source.split(tokenPattern).filter(Boolean).map((part, index) => {
     const keyword = /^(【|수호$|속공$|흡수$|관통$|직격$|공명 융합$|계승 진화$|균열 소환$|전설 특수 소환$)/.test(part);
     const number = /^(\+|−|-)?\d|\d+장$|\d+체$/.test(part);
@@ -768,7 +807,7 @@ function cardRoleSummary(card: CardDefinition): string {
   if (card.kind === 'evolution') return '엑스트라 · 계승 결전';
   if (card.kind === 'trap') return card.trapEffect?.kind === 'negate' || card.trapEffect?.kind === 'negate_and_damage' ? '반응 · 카운터' : '반응 · 전장 제어';
   if (card.kind === 'spell' && card.effect) {
-    if (['draw', 'recover_grave_unit', 'recover_any_grave', 'reweave_hand', 'draw_if_outnumbered', 'increase_energy_max', 'tutor_card', 'tutor_series_card', 'mill_draw', 'banish_own_grave_energy', 'discard_draw', 'steal_energy', 'heal_draw_if_behind', 'recycle_grave_draw', 'banish_enemy_grave', 'phase_draw', 'phase_gain_energy', 'phase_recover_grave', 'phase_set', 'phase_shift', 'phase_lock'].includes(card.effect.kind)) return '주문 · 자원 순환';
+    if (['draw', 'recover_grave_unit', 'recover_any_grave', 'reweave_hand', 'draw_if_outnumbered', 'increase_energy_max', 'tutor_card', 'tutor_series_card', 'mill_draw', 'banish_own_grave_energy', 'discard_draw', 'steal_energy', 'heal_draw_if_behind', 'recycle_grave_draw', 'banish_enemy_grave', 'phase_draw', 'phase_gain_energy', 'phase_recover_grave', 'phase_set', 'phase_shift', 'phase_rewind', 'phase_lock'].includes(card.effect.kind)) return '주문 · 자원 순환';
     if (['damage_unit', 'damage_core', 'aoe_enemy', 'destroy_weak', 'damage_draw_if_destroyed', 'break_shield_damage', 'damage_by_hand', 'damage_by_grave', 'field_count_blast', 'shield_burst', 'reset_unit', 'phase_damage_core', 'phase_aoe_enemy'].includes(card.effect.kind)) return '주문 · 제압';
     if (['summon_token', 'recruit_unit', 'revive_unit', 'ready_unit', 'type_recruit', 'phase_summon_token'].includes(card.effect.kind)) return '주문 · 전개';
     if (['buff_unit', 'shield_unit', 'heal_unit', 'heal_core', 'buff_by_hand', 'mass_shield', 'mass_buff', 'type_rally', 'phase_heal_core', 'phase_mass_shield', 'phase_mass_buff'].includes(card.effect.kind)) return '주문 · 지원';
@@ -795,14 +834,14 @@ function trapTriggerDescription(trigger: CardDefinition['trapTrigger']): string 
 }
 
 function summonConditionDescription(card: CardDefinition): string {
-  if (card.summonMode === 'rift') return `${card.riftCondition?.label ?? '균열 조건'} · ENERGY ${card.riftCost ?? card.cost}`;
-  if (card.summonMode === 'legendary') return `${card.legendarySummonRule?.name ?? '전설 강림'} · ${card.legendarySummonRule?.label ?? '전설 특수 소환 조건 확인'} · ENERGY ${card.cost}`;
-  if (card.kind === 'fusion') {
-    const base = card.fusionRecipe?.label ?? '지정 소재 조합';
+  let base = '';
+  if (card.summonMode === 'rift') base = `${card.riftCondition?.label ?? '균열 조건'} · ENERGY ${card.riftCost ?? card.cost}`;
+  else if (card.summonMode === 'legendary') base = `${card.legendarySummonRule?.name ?? '전설 강림'} · ${card.legendarySummonRule?.label ?? '전설 특수 소환 조건 확인'} · ENERGY ${card.cost}`;
+  else if (card.kind === 'fusion') {
+    const recipe = card.fusionRecipe?.label ?? '지정 소재 조합';
     const extra = card.extraSummonRule ? extraSummonRuleDescription(card) : '';
-    return [base, extra].filter(Boolean).join(' · ');
-  }
-  if (card.kind === 'evolution') {
+    base = [recipe, extra].filter(Boolean).join(' · ');
+  } else if (card.kind === 'evolution') {
     const sources = (card.evolutionRecipe?.fromIds ?? []).map((id) => CARD_BY_ID[id]).filter((source): source is CardDefinition => Boolean(source));
     if (sources.length > 0) {
       const rounds = Math.max(1, Math.ceil(Math.max(...sources.map((source) => clientEvolutionRequiredTurnGap(source, card))) / 2));
@@ -811,11 +850,12 @@ function summonConditionDescription(card: CardDefinition): string {
       const sourceText = sourceCopies > 1 ? `${sourceName} ${sourceCopies}체 · ROUND ${rounds} 이후` : `${sourceName} · ROUND ${rounds} 이후`;
       const extra = card.extraSummonRule ? extraSummonRuleDescription(card) : '';
       const cleanedExtra = sourceCopies > 1 ? extra.replace(/^계승 원본 \d+체(?: · )?/, '') : extra;
-      return [sourceText, cleanedExtra].filter(Boolean).join(' · ');
+      base = [sourceText, cleanedExtra].filter(Boolean).join(' · ');
+    } else {
+      base = `${card.evolutionRecipe?.label ?? '조건 유닛'} · ROUND 2 이후`;
     }
-    return `${card.evolutionRecipe?.label ?? '조건 유닛'} · ROUND 2 이후`;
   }
-  return '';
+  return [eclipseSummonGateDescription(card), base].filter(Boolean).join(' · ');
 }
 
 function GameIcon({ name }: { name: View | 'chat' | 'coin' | 'logout' | 'sound' | 'settings' }) {
@@ -1106,7 +1146,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
               <span className="v31l-detail-kicker">{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}{card.series ? ` · ${card.series}` : ''}</span>
               <h2 id="card-detail-title">{card.name}</h2>
               <p>{card.subtitle}</p>
-              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.unitType && <i>TYPE · {UNIT_TYPE_LABEL[card.unitType]}</i>}{card.comboTag && <i>COMBO · {card.comboTag}</i>}{card.eclipseAffinity && <i className="v34-cycle-chip">CYCLE · {ECLIPSE_PHASE_LABEL[card.eclipseAffinity]}</i>}{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
+              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.unitType && <i>TYPE · {UNIT_TYPE_LABEL[card.unitType]}</i>}{card.comboTag && <i>COMBO · {card.comboTag}</i>}{card.eclipseAffinity && <i className="v34-cycle-chip">CYCLE · {ECLIPSE_PHASE_LABEL[card.eclipseAffinity]}</i>}{card.eclipseSummonPhases?.length ? <i className="v34-time-gate-chip">TIME GATE · {card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
             </div>
             <strong className="detail-cost"><small>ENERGY</small>{card.cost}</strong>
           </header>
@@ -1129,6 +1169,14 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             <span>ABILITY · 카드 효과</span>
             <p><RuleText text={polishedCardText(card)} /></p>
           </section>
+
+          {(card.eclipseAffinity || card.eclipseSummonPhases?.length) && (
+            <section className="detail-section v34e-time-profile">
+              <span>TIME PROFILE · 시간 친화</span>
+              <p>{card.eclipseAffinity ? <RuleText text={eclipseAffinityRule(card)} /> : '시간 친화 보정 없음'}</p>
+              {card.eclipseSummonPhases?.length ? <small>{eclipseSummonGateDescription(card)}</small> : null}
+            </section>
+          )}
 
           {card.comboTag && (
             <section className="detail-section v25-series-effect">
@@ -3690,7 +3738,7 @@ function UnitSlot({
   return (
     <button
       type="button"
-      className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${targetable ? 'targetable' : ''} ${attackReady ? 'attack-ready' : ''} ${attackTarget ? 'attack-target' : ''} ${hasCharge ? 'has-charge' : ''} ${hasGuard ? 'has-guard' : ''} ${hasCorestrike ? 'has-corestrike' : ''} ${unit?.buffCardApplied ? 'buff-card-used' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''}`}
+      className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${targetable ? 'targetable' : ''} ${attackReady ? 'attack-ready' : ''} ${attackTarget ? 'attack-target' : ''} ${hasCharge ? 'has-charge' : ''} ${hasGuard ? 'has-guard' : ''} ${hasCorestrike ? 'has-corestrike' : ''} ${unit?.buffCardApplied ? 'buff-card-used' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''} ${unit?.eclipseResonance ? `time-${unit.eclipseResonance}` : ''}`}
       onClick={onClick}
       data-owner={owner}
       data-duel-unit-owner={owner}
@@ -3711,6 +3759,8 @@ function UnitSlot({
           {attackReady && <span className="v30-attack-ready-badge"><i />공격 가능</span>}
           {attackTarget && <span className="v30-attack-target-badge"><i />공격 대상</span>}
           {unit.summonedBy !== 'normal' && unit.summonedBy !== 'token' && <span className={`origin-badge ${unit.summonedBy}`}>{unit.summonedBy === 'rift' ? 'RIFT' : unit.summonedBy === 'legendary' ? 'LEGEND' : unit.summonedBy === 'fusion' ? 'FUSION' : 'EVOLVE'}</span>}
+          {unit.eclipseResonance === 'resonant' && <span className="v34e-time-resonance-badge resonant">TIME +</span>}
+          {unit.eclipseResonance === 'strained' && <span className="v34e-time-resonance-badge strained">TIME −</span>}
           <span className="unit-name">{card?.name ?? unit.cardId.replace('token:', '')}</span>
           <span className="unit-stats" aria-label={`공격 ${unit.attack}, 방어 ${unit.health}${unit.shield > 0 ? `, 방어막 +${unit.shield}` : ''}`}>
             <span className="v32n-stat attack"><b>{unit.attack}</b><i>ATK</i></span>
@@ -4130,12 +4180,70 @@ function DuelEnergyMeter({ label, current, max, cap = 10, nextMax, opponent = fa
   );
 }
 
+type EclipsePhaseNoticeState = {
+  phase: EclipsePhase;
+  source: 'turn' | 'effect';
+  turn: number;
+  perspective: 'mine' | 'opponent' | 'spectator';
+  serial: number;
+};
+
+function useEclipsePhaseNotice(state: MatchState | null | undefined, userId?: string): EclipsePhaseNoticeState | null {
+  const [notice, setNotice] = useState<EclipsePhaseNoticeState | null>(null);
+  const previous = useRef<{ phase: EclipsePhase; turn: number } | null>(state ? { phase: clientCurrentEclipsePhase(state), turn: state.turnNumber } : null);
+
+  useEffect(() => {
+    if (!state) {
+      previous.current = null;
+      setNotice(null);
+      return;
+    }
+    const next = { phase: clientCurrentEclipsePhase(state), turn: state.turnNumber };
+    const before = previous.current;
+    previous.current = next;
+    if (!before || before.phase === next.phase || state.status !== 'active') return;
+
+    const source: EclipsePhaseNoticeState['source'] = before.turn !== next.turn ? 'turn' : 'effect';
+    const perspective: EclipsePhaseNoticeState['perspective'] = userId
+      ? state.currentPlayerId === userId ? 'mine' : 'opponent'
+      : 'spectator';
+    const nextNotice: EclipsePhaseNoticeState = { phase: next.phase, source, turn: next.turn, perspective, serial: Date.now() };
+    setNotice(nextNotice);
+    const timer = window.setTimeout(() => setNotice((current) => current?.serial === nextNotice.serial ? null : current), 1680);
+    return () => window.clearTimeout(timer);
+  }, [state?.eclipsePhase, state?.turnNumber, state?.status, state?.currentPlayerId, userId]);
+
+  return notice;
+}
+
+function EclipsePhaseShiftNotice({ notice }: { notice: EclipsePhaseNoticeState | null }) {
+  if (!notice) return null;
+  const meta = ECLIPSE_UI_META[notice.phase];
+  const turnCopy = notice.perspective === 'mine' ? '나의 턴' : notice.perspective === 'opponent' ? '상대의 턴' : `TURN ${notice.turn}`;
+  const context = notice.source === 'turn' ? `${turnCopy} · 시간대가 이동했습니다` : '카드 효과로 전장의 시간이 변경되었습니다';
+  return (
+    <div key={notice.serial} className={`v34e-phase-notice cycle-${notice.phase} source-${notice.source}`} role="status" aria-live="polite">
+      <div className="v34e-phase-notice-orb" aria-hidden="true"><span>{meta.glyph}</span></div>
+      <div className="v34e-phase-notice-copy">
+        <small>{notice.source === 'turn' ? `TURN ${notice.turn} · ECLIPSE CYCLE SHIFT` : 'ECLIPSE CYCLE · TIME ALTER'}</small>
+        <strong>{ECLIPSE_PHASE_LABEL[notice.phase]}</strong>
+        <span>{context}</span>
+      </div>
+      <div className="v34e-phase-notice-bonus"><small>시간 공명</small><b>{meta.bonus}</b></div>
+    </div>
+  );
+}
+
 function EclipseCycleHud({ state, compact = false }: { state: MatchState; compact?: boolean }) {
   const current = state.eclipsePhase ?? 'dawn';
   const locked = (state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber;
-  return <div className={`v34-cycle-hud ${compact ? 'compact' : ''}`} aria-label={`ECLIPSE CYCLE 현재 ${ECLIPSE_PHASE_LABEL[current]}`}>
-    <div className="v34-cycle-title"><span>ECLIPSE CYCLE</span><b>{ECLIPSE_PHASE_LABEL[current]}</b>{locked && <em>LOCK</em>}</div>
-    <div className="v34-cycle-track">{ECLIPSE_PHASE_ORDER.map((phase, index) => <span key={phase} className={phase === current ? 'active' : ''}><i>{index + 1}</i><small>{ECLIPSE_PHASE_LABEL[phase]}</small></span>)}</div>
+  const history = state.eclipsePhaseHistory ?? [];
+  const previous = history.length > 0 ? history[history.length - 1] : undefined;
+  const meta = ECLIPSE_UI_META[current];
+  return <div className={`v34-cycle-hud v34e-cycle-${current} ${compact ? 'compact' : ''}`} aria-label={`ECLIPSE CYCLE 현재 ${ECLIPSE_PHASE_LABEL[current]} · 공명 보정 ${meta.bonus}`}>
+    <div className="v34-cycle-title"><strong className="v34e-cycle-glyph" aria-hidden="true">{meta.glyph}</strong><span>ECLIPSE CYCLE</span><b>{ECLIPSE_PHASE_LABEL[current]}</b><small>{meta.bonus}</small>{locked && <em>LOCK</em>}</div>
+    <div className="v34-cycle-track">{ECLIPSE_PHASE_ORDER.map((phase) => <span key={phase} className={phase === current ? 'active' : ''}><i>{ECLIPSE_UI_META[phase].glyph}</i><small>{ECLIPSE_PHASE_LABEL[phase]}</small></span>)}</div>
+    <div className="v34e-cycle-history"><small>{meta.atmosphere}</small><b>{previous ? `↶ 직전 ${ECLIPSE_PHASE_LABEL[previous]}` : '↶ 직전 기록 없음'}</b></div>
   </div>;
 }
 
@@ -4183,6 +4291,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const seenDamagePopups = useRef<Set<string>>(new Set(nullableState?.visualEvents.filter((event) => Date.now() - event.createdAt > 2600).map((event) => event.id) ?? []));
   const knownHandIds = useRef<Set<string>>(new Set(nullablePrivateState?.hand.map((card) => card.instanceId) ?? []));
   const actionLock = useRef(false);
+  const eclipsePhaseNotice = useEclipsePhaseNotice(nullableState, userId);
 
   const visualEvents = nullableState?.visualEvents ?? [];
   const visualEventSignature = visualEvents.map((event) => event.id).join('|');
@@ -4487,18 +4596,18 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const myFieldUnits = state.boards[userId].units.filter((unit): unit is UnitState => Boolean(unit));
   const riftReadyInstances = privateState.hand.filter((instance) => {
     const card = CARD_BY_ID[instance.cardId];
-    if (!card || card.kind !== 'unit' || card.summonMode !== 'rift') return false;
+    if (!card || card.kind !== 'unit' || card.summonMode !== 'rift' || !clientEclipseSummonReady(state, card)) return false;
     const cost = card.riftCost ?? card.cost;
     return myTurn && !interactionLocked && state.phase === 'main' && myEnergy.current >= cost && state.boards[userId].units.some((slot) => !slot) && clientRiftReady(state, userId, opponentId, card);
   });
   const legendarySpecialReadyInstances = privateState.hand.filter((instance) => {
     const card = CARD_BY_ID[instance.cardId];
-    if (!card || card.kind !== 'unit' || card.summonMode !== 'legendary') return false;
+    if (!card || card.kind !== 'unit' || card.summonMode !== 'legendary' || !clientEclipseSummonReady(state, card)) return false;
     return myTurn && !interactionLocked && state.phase === 'main' && myEnergy.current >= card.cost && clientLegendaryReady(state, userId, opponentId, card);
   });
   const extraReadyInstances = privateState.extra.filter((instance) => {
     const card = CARD_BY_ID[instance.cardId];
-    if (!card || card.cost > myEnergy.current || !myTurn || interactionLocked || state.phase !== 'main') return false;
+    if (!card || card.cost > myEnergy.current || !myTurn || interactionLocked || state.phase !== 'main' || !clientEclipseSummonReady(state, card)) return false;
     if (card.kind === 'fusion') {
       if (myExtraUsage.fusion >= 2 || myExtraTurn.fusion === state.turnNumber) return false;
       return clientExtraReadyFromField(myFieldUnits, card, state.turnNumber);
@@ -4513,7 +4622,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const specialReadyCount = specialReadyIds.size;
   const legendaryReadyFromHand = privateState.hand.flatMap((instance) => {
     const card = CARD_BY_ID[instance.cardId];
-    if (!card || card.rarity !== 'legendary' || card.kind !== 'unit' || !myTurn || interactionLocked || state.phase !== 'main') return [];
+    if (!card || card.rarity !== 'legendary' || card.kind !== 'unit' || !myTurn || interactionLocked || state.phase !== 'main' || !clientEclipseSummonReady(state, card)) return [];
     const cost = card.summonMode === 'rift' ? (card.riftCost ?? card.cost) : card.cost;
     const ready = card.summonMode === 'rift'
       ? myEnergy.current >= cost && state.boards[userId].units.some((slot) => !slot) && clientRiftReady(state, userId, opponentId, card)
@@ -4533,6 +4642,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     if (!myTurn) reasons.push('지금은 상대 턴입니다.');
     if (state.phase !== 'main') reasons.push('유닛 소환은 메인 단계에서만 가능합니다.');
     if (interactionLocked) reasons.push('현재 함정 발동 여부를 결정하는 중이라 다른 행동을 할 수 없습니다.');
+    if (!clientEclipseSummonReady(state, card)) reasons.push(`시간대 소환 조건이 맞지 않습니다. 현재 ${ECLIPSE_PHASE_LABEL[clientCurrentEclipsePhase(state)]} · 필요 ${card.eclipseSummonPhases?.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ')}.`);
     if (card.summonMode !== 'legendary' && !state.boards[userId].units.some((slot) => !slot)) reasons.push('내 유닛 칸 5개가 모두 차 있습니다.');
     const requiredEnergy = card.summonMode === 'rift' ? (card.riftCost ?? card.cost) : card.cost;
     if (myEnergy.current < requiredEnergy) reasons.push(`에너지가 부족합니다. 필요 ${requiredEnergy} / 현재 ${myEnergy.current}.`);
@@ -4548,6 +4658,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     if (!myTurn) reasons.push('지금은 상대 턴입니다.');
     if (state.phase !== 'main') reasons.push('융합·진화는 메인 단계에서만 가능합니다.');
     if (interactionLocked) reasons.push('현재 함정 발동 여부를 결정하는 중이라 다른 행동을 할 수 없습니다.');
+    if (!clientEclipseSummonReady(state, card)) reasons.push(`시간대 소환 조건이 맞지 않습니다. 현재 ${ECLIPSE_PHASE_LABEL[clientCurrentEclipsePhase(state)]} · 필요 ${card.eclipseSummonPhases?.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ')}.`);
     if (myEnergy.current < card.cost) reasons.push(`에너지가 부족합니다. 필요 ${card.cost} / 현재 ${myEnergy.current}.`);
     if (card.kind === 'fusion') {
       if (myExtraUsage.fusion >= 2) reasons.push('공명 융합은 한 게임에 최대 2번만 사용할 수 있습니다.');
@@ -4923,6 +5034,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const playableHandCount = privateState.hand.filter((instance) => {
     const card = CARD_BY_ID[instance.cardId];
     if (!card || !myTurn || interactionLocked || state.phase !== 'main') return false;
+    if (card.kind === 'unit' && !clientEclipseSummonReady(state, card)) return false;
     if (card.kind === 'unit' && card.summonMode === 'legendary') return myEnergy.current >= card.cost && clientLegendaryReady(state, userId, opponentId, card);
     if (card.kind === 'unit' && card.rarity === 'legendary' && card.summonMode !== 'rift') return false;
     const cost = card.summonMode === 'rift' && card.riftCost !== undefined && clientRiftReady(state, userId, opponentId, card) ? card.riftCost : card.cost;
@@ -4992,12 +5104,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const displayedSyncState: 'live' | 'syncing' | 'offline' = syncState === 'offline' && syncAgeSeconds <= 8 ? 'live' : syncState;
 
   return (
-    <div className={`v18-duel-screen ${myTurn ? 'is-my-turn' : 'is-opponent-turn'} phase-${state.phase} fx-${activeVfx?.kind ?? 'idle'}`}>
+    <div className={`v18-duel-screen ${myTurn ? 'is-my-turn' : 'is-opponent-turn'} phase-${state.phase} cycle-${clientCurrentEclipsePhase(state)} fx-${activeVfx?.kind ?? 'idle'}`}>
       <DuelEffectLayer event={activeVfx} userId={userId} profiles={payload.profiles} drawCard={activeVfx?.kind === 'draw' && activeVfx.ownerId === userId ? CARD_BY_ID[drawRevealQueue[0] ?? ''] : undefined} />
       <DuelDamagePopupLayer events={damagePopups} userId={userId} />
       <BattleEmoteOverlay state={state} profiles={payload.profiles} now={turnClock} />
       <CoinTossOverlay state={state} profiles={payload.profiles} userId={userId} now={coinClock} />
-      {turnNotice && !coinTossActive && state.status === 'active' && (
+      <EclipsePhaseShiftNotice notice={eclipsePhaseNotice} />
+      {turnNotice && eclipsePhaseNotice?.source !== 'turn' && !coinTossActive && state.status === 'active' && (
         <div className={`v29-turn-notice ${turnNotice.mine ? 'mine' : 'opponent'}`} role="status" aria-live="polite">
           <small>TURN {turnNotice.turn}</small>
           <strong>{turnNotice.mine ? '나의 턴' : '상대의 턴'}</strong>
@@ -5408,6 +5521,7 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
   // cast that happened just before the room refresh is never discarded by the first sync.
   const seenVfx = useRef<Set<string>>(new Set(state?.visualEvents.filter((event) => Date.now() - event.createdAt > 3200).map((event) => event.id) ?? []));
   const seenDamage = useRef<Set<string>>(new Set(state?.visualEvents.filter((event) => Date.now() - event.createdAt > 2600).map((event) => event.id) ?? []));
+  const eclipsePhaseNotice = useEclipsePhaseNotice(state);
 
   const visualEvents = state?.visualEvents ?? [];
   const visualSignature = visualEvents.map((event) => event.id).join('|');
@@ -5501,9 +5615,10 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
   }
 
   return (
-    <div className={`v18-duel-screen v32e-spectator-screen phase-${state.phase} fx-${activeVfx?.kind ?? 'idle'}`}>
+    <div className={`v18-duel-screen v32e-spectator-screen phase-${state.phase} cycle-${clientCurrentEclipsePhase(state)} fx-${activeVfx?.kind ?? 'idle'}`}>
       <DuelEffectLayer event={activeVfx} userId={playerAId} profiles={payload.profiles} spectator />
       <DuelDamagePopupLayer events={damagePopups} userId={playerAId} />
+      <EclipsePhaseShiftNotice notice={eclipsePhaseNotice} />
       <header className="v18-duel-header">
         <div className="v18-duel-brand"><span className="v18-brand-mark">E</span><div><b>ECLIPSE DUEL</b><small>ROOM {room.code}</small></div></div>
         <div className="v32e-spectator-badge"><i />SPECTATOR LIVE <span>{(payload.members ?? []).filter((member) => member.role === 'spectator').length}명 관전</span></div>

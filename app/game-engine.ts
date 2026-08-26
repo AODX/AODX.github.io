@@ -52,6 +52,11 @@ export interface UnitState {
   buffCardApplied?: boolean;
   /** Turn number during which this unit remains unable to attack due to a spell/trap. */
   stunnedUntilTurn?: number;
+  /** Dynamic ECLIPSE CYCLE stat delta currently applied to this unit. Replaced, never stacked, whenever the clock changes. */
+  eclipseAttackModifier?: number;
+  eclipseHealthModifier?: number;
+  /** Player-facing temporal state used by the board UI. */
+  eclipseResonance?: 'resonant' | 'neutral' | 'strained';
 }
 
 export interface PublicSecret {
@@ -155,6 +160,8 @@ export interface MatchState {
   eclipsePhase?: EclipsePhase;
   /** Automatic cycle advance is skipped while current turn number is at or below this value. */
   eclipsePhaseLockUntilTurn?: number;
+  /** Actual phase-change history. Rewind spells pop from this stack instead of merely subtracting from the fixed cycle. */
+  eclipsePhaseHistory?: EclipsePhase[];
   /** Recent purchased battle emotes; retained only briefly in UI but kept in snapshot for realtime sync. */
   battleEmotes?: Array<{ id: string; senderId: string; emoteId: string; createdAt: number }>;
   /** Per-match hard cap: max 2 fusion summons and max 2 evolution summons per player. */
@@ -366,6 +373,7 @@ export function initializeMatch(
     energyMaxBonus: { [playerA]: 0, [playerB]: 0 },
     eclipsePhase: 'dawn',
     eclipsePhaseLockUntilTurn: 0,
+    eclipsePhaseHistory: [],
     battleEmotes: [],
     extraSummonUsage: { [playerA]: { fusion: 0, evolution: 0 }, [playerB]: { fusion: 0, evolution: 0 } },
     extraSummonTurn: { [playerA]: {}, [playerB]: {} },
@@ -534,9 +542,85 @@ export function currentEclipsePhase(state: MatchState): EclipsePhase {
   return state.eclipsePhase ?? 'dawn';
 }
 
-function setEclipsePhase(state: MatchState, phase: EclipsePhase, actorId?: string, reason = '위상 조율'): void {
+const ECLIPSE_MATCH_BONUS: Record<EclipsePhase, { attack: number; health: number }> = {
+  dawn: { attack: 1, health: 1 },
+  zenith: { attack: 2, health: 0 },
+  dusk: { attack: 0, health: 2 },
+  midnight: { attack: 1, health: 1 },
+  eclipse: { attack: 2, health: 1 },
+};
+
+function eclipseDistance(a: EclipsePhase, b: EclipsePhase): number {
+  const order = ECLIPSE_PHASE_ORDER;
+  const ai = order.indexOf(a);
+  const bi = order.indexOf(b);
+  if (ai < 0 || bi < 0) return 0;
+  const raw = Math.abs(ai - bi);
+  return Math.min(raw, order.length - raw);
+}
+
+function desiredEclipseModifier(card: CardDefinition | undefined, phase: EclipsePhase): { attack: number; health: number; resonance: 'resonant' | 'neutral' | 'strained' } {
+  if (!card?.eclipseAffinity || !isUnitCard(card)) return { attack: 0, health: 0, resonance: 'neutral' };
+  const distance = eclipseDistance(card.eclipseAffinity, phase);
+  if (distance === 0) {
+    const profile = ECLIPSE_MATCH_BONUS[phase];
+    const legendaryAttack = card.rarity === 'legendary' ? 1 : 0;
+    return { attack: profile.attack + legendaryAttack, health: profile.health, resonance: 'resonant' };
+  }
+  if (distance >= 2) return { attack: -1, health: 0, resonance: 'strained' };
+  return { attack: 0, health: 0, resonance: 'neutral' };
+}
+
+function refreshUnitEclipseModifier(state: MatchState, unit: UnitState): void {
+  const oldAttack = unit.eclipseAttackModifier ?? 0;
+  const oldHealth = unit.eclipseHealthModifier ?? 0;
+  if (oldAttack) unit.attack -= oldAttack;
+  if (oldHealth) {
+    unit.maxHealth = Math.max(1, unit.maxHealth - oldHealth);
+    unit.health = Math.min(unit.maxHealth, Math.max(1, unit.health - oldHealth));
+  }
+
+  const desired = desiredEclipseModifier(CARD_BY_ID[unit.cardId], currentEclipsePhase(state));
+  unit.attack = Math.max(0, unit.attack + desired.attack);
+  if (desired.health) {
+    unit.maxHealth = Math.max(1, unit.maxHealth + desired.health);
+    unit.health = Math.max(1, unit.health + desired.health);
+  }
+  unit.eclipseAttackModifier = desired.attack;
+  unit.eclipseHealthModifier = desired.health;
+  unit.eclipseResonance = desired.resonance;
+}
+
+function refreshBattlefieldEclipseModifiers(state: MatchState): void {
+  for (const playerId of state.playerOrder) {
+    if (!playerId) continue;
+    for (const unit of state.boards[playerId]?.units ?? []) {
+      if (unit) refreshUnitEclipseModifier(state, unit);
+    }
+  }
+}
+
+function setEclipsePhase(
+  state: MatchState,
+  phase: EclipsePhase,
+  actorId?: string,
+  reason = '위상 조율',
+  options: { recordHistory?: boolean } = {},
+): void {
   const before = currentEclipsePhase(state);
+  if (before === phase) {
+    refreshBattlefieldEclipseModifiers(state);
+    appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[phase]} 유지 · ${reason}`, 'special');
+    appendVisual(state, { kind: 'special', vfx: `eclipse-cycle-${phase}`, ownerId: actorId, label: `CYCLE · ${ECLIPSE_PHASE_LABEL[phase]}` });
+    return;
+  }
+  if (options.recordHistory !== false) {
+    const history = state.eclipsePhaseHistory ?? [];
+    history.push(before);
+    state.eclipsePhaseHistory = history.slice(-12);
+  }
   state.eclipsePhase = phase;
+  refreshBattlefieldEclipseModifiers(state);
   appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[before]} → ${ECLIPSE_PHASE_LABEL[phase]} · ${reason}`, 'special');
   appendVisual(state, { kind: 'special', vfx: `eclipse-cycle-${phase}`, ownerId: actorId, label: `CYCLE · ${ECLIPSE_PHASE_LABEL[phase]}` });
 }
@@ -547,6 +631,27 @@ function shiftEclipsePhase(state: MatchState, steps: number, actorId?: string, r
   const index = order.indexOf(before);
   const next = order[((index + steps) % order.length + order.length) % order.length];
   setEclipsePhase(state, next, actorId, reason);
+}
+
+function rewindEclipsePhase(state: MatchState, steps = 1, actorId?: string): void {
+  const count = Math.max(1, Math.min(5, Math.floor(steps)));
+  const history = [...(state.eclipsePhaseHistory ?? [])];
+  let target: EclipsePhase | undefined;
+  for (let index = 0; index < count; index += 1) {
+    const previous = history.pop();
+    if (!previous) break;
+    target = previous;
+  }
+  if (!target) {
+    const order = ECLIPSE_PHASE_ORDER;
+    const current = currentEclipsePhase(state);
+    const index = order.indexOf(current);
+    const fallback = order[((index - count) % order.length + order.length) % order.length];
+    setEclipsePhase(state, fallback, actorId, '시간 역행 · 이전 순환으로 복귀', { recordHistory: false });
+    return;
+  }
+  state.eclipsePhaseHistory = history;
+  setEclipsePhase(state, target, actorId, '시간 역행 · 실제 직전 시간대로 복귀', { recordHistory: false });
 }
 
 function phaseAmount(state: MatchState, phase: EclipsePhase, base: number, bonus: number): { amount: number; aligned: boolean } {
@@ -1106,12 +1211,19 @@ function applyEffect(
       unit.health = Math.max(1, printed.health ?? 1);
       unit.maxHealth = Math.max(1, printed.health ?? 1);
       unit.shield = 0;
-      appendLog(state, `「${printed.name}」의 능력치를 카드 원래 수치로 초기화하고 보호막을 제거했습니다.`, 'special');
+      unit.eclipseAttackModifier = 0;
+      unit.eclipseHealthModifier = 0;
+      refreshUnitEclipseModifier(state, unit);
+      appendLog(state, `「${printed.name}」의 능력치를 카드 원래 수치로 초기화하고 현재 시간대 보정을 다시 적용했습니다.`, 'special');
       appendVisual(state, { kind: 'special', vfx: 'v33a-unit-reset', cardId: printed.id, ownerId: actorId, targetOwnerId: target.ownerId, targetZone: unitIndex, label: '원형 복귀' });
       break;
     }
     case 'phase_shift': {
       shiftEclipsePhase(state, effect.steps, actorId, effect.steps >= 0 ? '궤도 가속' : '천체 역행');
+      break;
+    }
+    case 'phase_rewind': {
+      rewindEclipsePhase(state, effect.steps ?? 1, actorId);
       break;
     }
     case 'phase_set': {
@@ -2822,7 +2934,7 @@ function makeUnit(
   originCardIds: string[] = [],
 ): UnitState {
   if (!isUnitCard(card)) throw new Error('유닛 카드가 아닙니다.');
-  return {
+  const unit: UnitState = {
     instanceId: instance.instanceId,
     cardId: instance.cardId,
     ownerId: playerId,
@@ -2836,6 +2948,8 @@ function makeUnit(
     originCardIds,
     buffCardApplied: false,
   };
+  refreshUnitEclipseModifier(state, unit);
+  return unit;
 }
 
 function summonReactionTriggers(origin: SummonOrigin): TrapTrigger[] {
@@ -2998,6 +3112,11 @@ export function playCard(
     if (targetUnit?.buffCardApplied) throw new Error('이 캐릭터는 이미 버프류 카드를 1번 적용받았습니다. 다른 캐릭터를 선택하세요.');
   }
   const opponentId = otherPlayer(state, playerId);
+
+  if (card.kind === 'unit' && card.eclipseSummonPhases?.length && !card.eclipseSummonPhases.includes(currentEclipsePhase(state))) {
+    const allowed = card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ');
+    throw new Error(`시간대 소환 조건이 맞지 않습니다. 이 캐릭터는 ${allowed}에서만 소환할 수 있습니다. 현재 ${ECLIPSE_PHASE_LABEL[currentEclipsePhase(state)]}.`);
+  }
 
   statsFor(state, playerId).cardsPlayed += 1;
 
@@ -3309,6 +3428,10 @@ export function summonExtra(
   const playerPrivate = privateStates[playerId];
   const { index: extraIndex, instance, card } = getCardFromExtra(playerPrivate, extraInstanceId);
   if (card.kind !== 'fusion' && card.kind !== 'evolution') throw new Error('엑스트라 덱의 융합·진화 카드만 소환할 수 있습니다.');
+  if (card.eclipseSummonPhases?.length && !card.eclipseSummonPhases.includes(currentEclipsePhase(state))) {
+    const allowed = card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ');
+    throw new Error(`시간대 소환 조건이 맞지 않습니다. 이 엑스트라 캐릭터는 ${allowed}에서만 소환할 수 있습니다. 현재 ${ECLIPSE_PHASE_LABEL[currentEclipsePhase(state)]}.`);
+  }
   const extraKind: ExtraSummonKind = card.kind;
   assertExtraSummonAvailable(state, playerId, extraKind);
   if (card.extraChoices?.length && (!Number.isInteger(extraChoiceIndex) || extraChoiceIndex === undefined || !card.extraChoices[extraChoiceIndex])) {

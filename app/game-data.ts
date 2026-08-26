@@ -106,6 +106,7 @@ export type Effect =
   | { kind: 'type_recruit'; unitType: UnitType; maxCost: number }
   | { kind: 'reset_unit' }
   | { kind: 'phase_shift'; steps: number }
+  | { kind: 'phase_rewind'; steps?: number }
   | { kind: 'phase_set'; phase: EclipsePhase }
   | { kind: 'phase_lock'; turns: number }
   | { kind: 'phase_draw'; phase: EclipsePhase; base: number; bonus: number }
@@ -238,8 +239,10 @@ export interface CardDefinition {
   unitType?: UnitType;
   /** Optional small combo family that does not participate in series-pack logic. */
   comboTag?: string;
-  /** v34 global battlefield clock affinity. Matching the current ECLIPSE CYCLE phase empowers phase effects. */
+  /** v34 global battlefield clock affinity. Matching the current ECLIPSE CYCLE phase empowers phase effects and the printed body. */
   eclipseAffinity?: EclipsePhase;
+  /** Optional temporal summon gate. If present, the unit/extra can only be summoned while the battlefield is in one of these phases. */
+  eclipseSummonPhases?: EclipsePhase[];
   summonMode?: SummonMode;
   riftCost?: number;
   riftCondition?: RiftCondition;
@@ -1895,6 +1898,7 @@ function spellEffectText(effect: Effect): string {
     case 'type_recruit': return `덱에서 비용 ${effect.maxCost} 이하 ${UNIT_TYPE_LABEL[effect.unitType]} 유닛 1장을 무작위로 전개합니다.`;
     case 'reset_unit': return '대상 유닛 1장을 카드에 적힌 원래 공격력/체력으로 되돌리고 보호막을 제거합니다.';
     case 'phase_shift': return `ECLIPSE CYCLE을 ${effect.steps >= 0 ? '앞으로' : '뒤로'} ${Math.abs(effect.steps)}칸 이동합니다.`;
+    case 'phase_rewind': return `ECLIPSE CYCLE을 실제 직전 시간대로 ${Math.max(1, effect.steps ?? 1)}회 되감습니다.`;
     case 'phase_set': return `ECLIPSE CYCLE을 ${ECLIPSE_PHASE_LABEL[effect.phase]}으로 지정합니다.`;
     case 'phase_lock': return `ECLIPSE CYCLE 자동 이동을 ${effect.turns}턴 잠급니다.`;
     case 'phase_draw': return `${ECLIPSE_PHASE_LABEL[effect.phase]} 공명 시 카드 ${effect.base + effect.bonus}장, 아니면 ${effect.base}장 드로우.`;
