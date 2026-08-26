@@ -875,7 +875,7 @@ async function rewardFinishedMatch(admin: AdminDbClient, roomId: string, state: 
     const { error } = await admin.rpc('eclipse_reward_match', {
       p_room_id: roomId,
       p_user: playerId,
-      p_coins: won ? 180 : 35,
+      p_coins: won ? 100 : 35,
       p_xp: won ? 100 : 35,
       p_won: won,
     });
