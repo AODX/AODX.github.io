@@ -20,6 +20,7 @@ import {
   initializeMatch,
   playCard,
   respondTrap,
+  resolveTurnTimeout,
   sacrificeFieldUnitForEnergy,
   sacrificeHandForEnergy,
   sendBattleEmote,
@@ -135,16 +136,9 @@ export function createPracticeMatch(
   difficulty: PracticeDifficulty,
 ): GameSnapshot {
   const botDeck = buildPracticeBotDeck(difficulty);
-  const snapshot = initializeMatch(playerId, playerDeck, playerExtra, botId, botDeck.deck, botDeck.extra);
-  // Local practice intentionally has no 100-second turn loss. Trap response windows and
-  // the opening coin toss still use their normal timings, while players may pause to read.
-  snapshot.state.turnEndsAt = null;
-  return snapshot;
-}
-
-function normalizeLocalClock(result: ActionResult): ActionResult {
-  if (result.state.status === 'active') result.state.turnEndsAt = null;
-  return result;
+  // Practice uses the exact same match clock and turn rules as an online duel.
+  // The only difference is that the opponent's decisions are generated locally by AI.
+  return initializeMatch(playerId, playerDeck, playerExtra, botId, botDeck.deck, botDeck.extra);
 }
 
 export function applyPracticeGameAction(
@@ -198,10 +192,12 @@ export function applyPracticeGameAction(
     next = endTurn(snapshot, playerId);
   } else if (gameAction === 'surrender') {
     next = surrender(snapshot, playerId);
+  } else if (gameAction === 'resolve_timeout') {
+    next = resolveTurnTimeout(snapshot, Date.now());
   } else {
     throw new Error('알 수 없는 연습 모드 행동입니다.');
   }
-  return normalizeLocalClock(next);
+  return next;
 }
 
 function combinations(values: number[], count: number): number[][] {

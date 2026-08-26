@@ -20,6 +20,7 @@ export type ExtraSummonKind = 'fusion' | 'evolution';
 export type VisualEventKind = 'turn' | 'summon' | 'special' | 'fusion' | 'evolution' | 'spell' | 'trap' | 'set' | 'draw' | 'attack' | 'defense' | 'destroy' | 'core' | 'heal' | 'buff' | 'energy';
 
 const INITIAL_ECLIPSE_PHASE: EclipsePhase = 'dawn';
+const NATURAL_ECLIPSE_TURN_INTERVAL = 3;
 
 function nextNaturalEclipsePhase(phase: EclipsePhase): EclipsePhase {
   const index = ECLIPSE_PHASE_ORDER.indexOf(phase);
@@ -164,7 +165,7 @@ export interface MatchState {
   nextTurnEnergyBonus?: Record<string, number>;
   /** Permanent per-match ENERGY maximum bonus. Each point also raises that player's hard cap above the base cap of 10. */
   energyMaxBonus?: Record<string, number>;
-  /** v34 global battlefield clock. Advances automatically after every turn unless temporarily locked. */
+  /** v34 global battlefield clock. Natural progression advances exactly once after every 3 completed turns unless temporarily locked. */
   eclipsePhase?: EclipsePhase;
   /** Automatic cycle advance is skipped while current turn number is at or below this value. */
   eclipsePhaseLockUntilTurn?: number;
@@ -4195,21 +4196,23 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
     if (unit.stunnedUntilTurn && unit.stunnedUntilTurn < state.turnNumber) delete unit.stunnedUntilTurn;
   });
 
-  // v34h: refill/ready the incoming player before advancing the battlefield clock.
-  // This makes Dawn/Zenith/etc. ENERGY pulses persist instead of being overwritten by
-  // the normal turn-start refill, while still keeping the time change at turn start.
-  if ((state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber) {
-    appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[currentEclipsePhase(state)]} 고정 유지.`, 'special');
-  } else {
-    // Natural time is always sequential: 여명 → 정점 → 황혼 → 심야 → 개기일식 → 여명.
-    // If a card changes the phase, the next natural step continues from that changed phase.
-    setEclipsePhase(
-      state,
-      privateStates,
-      nextNaturalEclipsePhase(currentEclipsePhase(state)),
-      undefined,
-      '턴 종료 자동 진행',
-    );
+  // Natural ECLIPSE time moves only after each block of three completed turns.
+  // Turn 1 starts at Dawn; turns 1-3 stay in that phase, then turn 4 advances once.
+  // Card/spell phase changes still happen immediately and the next natural 3-turn tick
+  // continues sequentially from whatever phase is active at that moment.
+  const naturalEclipseTick = (state.turnNumber - 1) % NATURAL_ECLIPSE_TURN_INTERVAL === 0;
+  if (naturalEclipseTick) {
+    if ((state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber) {
+      appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[currentEclipsePhase(state)]} 고정 유지 · 3턴 자연 진행이 잠겼습니다.`, 'special');
+    } else {
+      setEclipsePhase(
+        state,
+        privateStates,
+        nextNaturalEclipsePhase(currentEclipsePhase(state)),
+        undefined,
+        '3턴 경과 · 자연 진행',
+      );
+    }
   }
   checkWinner(state);
   if (state.status !== 'active') {

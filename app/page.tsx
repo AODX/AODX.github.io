@@ -3516,6 +3516,8 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
   const extraTitle = event.kind === 'fusion' ? 'RESONANCE FUSION' : 'INHERIT ASCENSION';
   const extraKorean = event.kind === 'fusion' ? '공명 융합' : '계승 진화';
   const showHitStage = event.kind === 'defense' || event.kind === 'core' || event.kind === 'destroy';
+  // Route lines are reserved for real impact travel. Turn/draw/time/buff events must never paint an attack-looking line.
+  const showGenericMotion = (event.kind === 'core' || event.kind === 'destroy') && Boolean(event.ownerId || event.targetOwnerId || event.targetZone !== undefined);
   const hitLabel = event.kind === 'destroy'
     ? 'UNIT DESTROYED'
     : event.kind === 'core'
@@ -3540,7 +3542,7 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
       <span className="v22-cinematic-letterbox" aria-hidden="true" />
       {event.kind !== 'spell' && <span className="v22-screen-flash" aria-hidden="true" />}
       <span className="v22-element-particles" aria-hidden="true">{Array.from({ length: particleCount }, (_, index) => <i key={index} style={{ '--particle': index } as CSSProperties} />)}</span>
-      {!((event.kind === 'attack') || (event.kind === 'spell' && spellProfile) || summonPresentation || event.kind === 'fusion' || event.kind === 'evolution' || event.kind === 'heal') && (
+      {showGenericMotion && (
         <>
           <svg className="v18-motion-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             <line x1={source.x} y1={source.y} x2={target.x} y2={target.y} />
@@ -4284,12 +4286,28 @@ function useEclipsePhaseNotice(state: MatchState | null | undefined, userId?: st
 function EclipsePhaseShiftNotice({ notice }: { notice: EclipsePhaseNoticeState | null }) {
   if (!notice) return null;
   const meta = ECLIPSE_UI_META[notice.phase];
-  const sourceLabel = notice.source === 'turn' ? 'TURN FLOW' : 'CARD EFFECT';
+  const visual = ECLIPSE_ARENA_VISUAL[notice.phase];
+  const sourceLabel = notice.source === 'turn' ? '3 TURN CYCLE' : 'CARD EFFECT';
   return (
-    <div key={notice.serial} className={`v34e-phase-notice v34l-phase-toast cycle-${notice.phase} source-${notice.source}`} role="status" aria-live="polite">
-      <span className="v34l-phase-toast-glyph" aria-hidden="true">{meta.glyph}</span>
-      <span className="v34l-phase-toast-copy"><small>{sourceLabel}</small><strong>{ECLIPSE_PHASE_LABEL[notice.phase]}</strong></span>
-      <em>{meta.bonus}</em>
+    <div
+      key={notice.serial}
+      className={`v34n-phase-toast cycle-${notice.phase} source-${notice.source}`}
+      role="status"
+      aria-live="polite"
+      style={{
+        position: 'fixed', left: '50%', top: 74, zIndex: 2200, transform: 'translateX(-50%)', pointerEvents: 'none',
+        display: 'flex', alignItems: 'center', gap: 9, minWidth: 168, maxWidth: 'min(280px,72vw)', padding: '8px 12px',
+        border: `1px solid rgba(${visual.rgb},.34)`, borderRadius: 999,
+        background: `linear-gradient(90deg,rgba(${visual.rgb},.18),rgba(5,9,15,.90) 34%,rgba(5,9,15,.90))`,
+        boxShadow: `0 12px 38px rgba(0,0,0,.38),inset 3px 0 0 rgba(${visual.rgb},.72)`, backdropFilter: 'blur(10px)',
+      }}
+    >
+      <span aria-hidden="true" style={{ color: `rgb(${visual.rgb})`, fontSize: 18, lineHeight: 1 }}>{meta.glyph}</span>
+      <span style={{ display: 'grid', gap: 1, minWidth: 0 }}>
+        <small style={{ color: '#91a1ae', fontSize: 7, fontWeight: 950, letterSpacing: '.12em' }}>{sourceLabel}</small>
+        <strong style={{ color: '#f6fbff', fontSize: 14, lineHeight: 1 }}>{ECLIPSE_PHASE_LABEL[notice.phase]}</strong>
+      </span>
+      <em style={{ marginLeft: 'auto', color: `rgba(${visual.rgb},.90)`, fontSize: 8, fontStyle: 'normal', fontWeight: 900, whiteSpace: 'nowrap' }}>{meta.atmosphere}</em>
     </div>
   );
 }
@@ -4317,6 +4335,7 @@ function EclipseCycleStrip({ state }: { state: MatchState }) {
   const meta = ECLIPSE_UI_META[current];
   const visual = ECLIPSE_ARENA_VISUAL[current];
   const locked = (state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber;
+  const naturalStep = ((Math.max(1, state.turnNumber) - 1) % 3) + 1;
   return (
     <div
       className="v34m-cycle-inline"
@@ -4352,7 +4371,7 @@ function EclipseCycleStrip({ state }: { state: MatchState }) {
           </span>
         );
       })}
-      {locked && <em style={{ marginLeft: 2, color: `rgb(${visual.rgb})`, fontSize: 6.5, fontStyle: 'normal', fontWeight: 950, letterSpacing: '.08em' }}>LOCK</em>}
+      <em style={{ marginLeft: 'auto', color: `rgba(${visual.rgb},.86)`, fontSize: 6.5, fontStyle: 'normal', fontWeight: 950, letterSpacing: '.08em', flex: '0 0 auto' }}>{locked ? 'LOCK' : `${naturalStep}/3`}</em>
     </div>
   );
 }
@@ -4368,26 +4387,47 @@ function DuelTimeCriticalStyles() {
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix > .v34k-cycle-band { display:none!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-duel-brand { min-width:0!important;overflow:hidden!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-duel-brand > div:not(.v34m-cycle-inline) { flex:0 0 auto!important; }
+
+    /* v34n: the real duel arena is painted by its phase class, never by a preview-only variable. */
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-arena {
-      position:relative!important;isolation:isolate!important;background:var(--v34m-arena-bg)!important;
-      transition:background .5s ease,box-shadow .5s ease!important;
+      position:relative!important;isolation:isolate!important;overflow:hidden!important;
+      transition:background .62s ease,box-shadow .62s ease!important;
     }
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-arena-backdrop { display:none!important; }
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v34m-time-atmosphere {
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-arena-backdrop,
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v34m-time-atmosphere { display:none!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v34n-time-sky {
       position:absolute!important;inset:0!important;z-index:0!important;display:block!important;pointer-events:none!important;
-      background:var(--v34m-atmosphere-bg)!important;background-position:center!important;background-size:cover!important;
-      opacity:1!important;transition:background .5s ease!important;
+      background-position:center!important;background-size:cover!important;opacity:1!important;
+      transition:background .62s ease,filter .62s ease!important;
     }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-opponent-hand-strip,
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-board { position:relative!important;z-index:3!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-board { position:relative!important;z-index:4!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-unit-slot,
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-secret-slot {
-      background:linear-gradient(145deg,rgba(5,10,17,.58),rgba(var(--v34m-accent-rgb),.075))!important;
-      border-color:rgba(var(--v34m-accent-rgb),.20)!important;
+      background:linear-gradient(145deg,rgba(4,8,14,.50),rgba(var(--v34m-accent-rgb),.085))!important;
+      border-color:rgba(var(--v34m-accent-rgb),.24)!important;
+      backdrop-filter:blur(1.2px)!important;
     }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-arena::after {
-      background:linear-gradient(90deg,rgba(1,4,8,.18),transparent 11%,transparent 89%,rgba(1,4,8,.18)),linear-gradient(180deg,rgba(var(--v34m-accent-rgb),.025),transparent 42%,rgba(0,0,0,.06))!important;
+      z-index:2!important;pointer-events:none!important;
+      background:linear-gradient(90deg,rgba(1,4,8,.10),transparent 10%,transparent 90%,rgba(1,4,8,.10)),linear-gradient(180deg,rgba(var(--v34m-accent-rgb),.018),transparent 42%,rgba(0,0,0,.04))!important;
     }
+
+    /* Strong fallback backgrounds. These are deliberately duplicated from JSX so stale theme CSS cannot cancel the phase. */
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix.cycle-dawn .v18-arena { background:linear-gradient(180deg,#162b4a 0%,#33435d 42%,#8d5860 69%,#5b302e 84%,#140d15 100%)!important;box-shadow:inset 0 -150px 190px rgba(255,128,70,.15)!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix.cycle-zenith .v18-arena { background:linear-gradient(180deg,#1b607b 0%,#174b62 45%,#0d3145 75%,#071923 100%)!important;box-shadow:inset 0 110px 190px rgba(164,241,255,.13)!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix.cycle-dusk .v18-arena { background:linear-gradient(180deg,#3b2851 0%,#713b63 43%,#a54d58 68%,#8b3f32 82%,#21111d 100%)!important;box-shadow:inset 0 -150px 190px rgba(255,92,72,.15)!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix.cycle-midnight .v18-arena { background:linear-gradient(180deg,#071b3d 0%,#091532 48%,#050c20 76%,#02050e 100%)!important;box-shadow:inset 0 0 200px rgba(75,119,255,.12)!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix.cycle-eclipse .v18-arena { background:linear-gradient(180deg,#1a1025 0%,#110b1c 48%,#090811 76%,#030307 100%)!important;box-shadow:inset 0 0 210px rgba(126,72,194,.14)!important; }
+
+    /* Time-change toast is above every duel cinematic but remains compact and short-lived. */
+    .v23-client.in-duel .v34n-phase-toast { animation:v34nPhaseToast 1.72s ease both!important; }
+    @keyframes v34nPhaseToast {
+      0% { opacity:0;transform:translate(-50%,-8px) scale(.97); }
+      13%,78% { opacity:1;transform:translate(-50%,0) scale(1); }
+      100% { opacity:0;transform:translate(-50%,-5px) scale(.985); }
+    }
+
     @media (max-width:1250px) {
       .v23-client.in-duel .v34m-cycle-inline { max-width:330px!important;flex-basis:330px!important;margin-left:6px!important;padding-inline:6px!important;gap:3px!important; }
       .v23-client.in-duel .v34m-cycle-title { display:none!important; }
@@ -4396,6 +4436,11 @@ function DuelTimeCriticalStyles() {
       .v23-client.in-duel .v34m-cycle-inline { max-width:250px!important;flex-basis:250px!important;height:25px!important; }
       .v23-client.in-duel .v34m-cycle-phase { font-size:6.4px!important;padding-inline:0!important; }
       .v23-client.in-duel .v34m-cycle-phase.active { padding-inline:5px!important; }
+      .v23-client.in-duel .v34n-phase-toast { top:58px!important;max-width:72vw!important; }
+    }
+    @media (prefers-reduced-motion:reduce) {
+      .v23-client.in-duel .v34n-phase-toast { animation:v34nPhaseToastReduced 1.72s linear both!important; }
+      @keyframes v34nPhaseToastReduced { 0%,100%{opacity:0} 12%,82%{opacity:1} }
     }
   `}</style>;
 }
@@ -4411,7 +4456,7 @@ function BattleLeaderEmote({ state, ownerId, now }: { state: MatchState; ownerId
 
 type DuelBoardLocalAction = (gameAction: string, extra?: Record<string, unknown>) => Promise<RoomPayload>;
 
-function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt, localAction, practiceMode }: { payload: RoomPayload; userId: string; onRefresh: (payload: RoomPayload) => void; onLeave: () => void; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number; localAction?: DuelBoardLocalAction; practiceMode?: PracticeDifficulty }) {
+function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt, localAction, practiceMode, onPresentationBusyChange }: { payload: RoomPayload; userId: string; onRefresh: (payload: RoomPayload) => void; onLeave: () => void; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number; localAction?: DuelBoardLocalAction; practiceMode?: PracticeDifficulty; onPresentationBusyChange?: (busy: boolean) => void }) {
   const { room, privateState: nullablePrivateState } = payload;
   const nullableState = room.state;
   const [selectedHand, setSelectedHand] = useState<string | null>(null);
@@ -4452,8 +4497,17 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const visualEvents = nullableState?.visualEvents ?? [];
   const visualEventSignature = visualEvents.map((event) => event.id).join('|');
 
+  const snapshotHasQueuedPresentation = visualEvents.some((event) =>
+    !seenVfx.current.has(event.id)
+    && event.kind !== 'defense'
+    && !(event.kind === 'special' && event.vfx.startsWith('eclipse-cycle-')),
+  );
   useEffect(() => {
-    let unseen = visualEvents.filter((event) => !seenVfx.current.has(event.id) && event.kind !== 'defense');
+    onPresentationBusyChange?.(Boolean(activeVfx || vfxQueue.length > 0 || snapshotHasQueuedPresentation));
+  }, [activeVfx, vfxQueue.length, snapshotHasQueuedPresentation, onPresentationBusyChange]);
+
+  useEffect(() => {
+    let unseen = visualEvents.filter((event) => !seenVfx.current.has(event.id) && event.kind !== 'defense' && !(event.kind === 'special' && event.vfx.startsWith('eclipse-cycle-')));
     if (unseen.length === 0) return;
     if (seenVfx.current.size === 0 && unseen.length > 1) {
       const now = Date.now();
@@ -4523,7 +4577,6 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   }, [nullableState?.turnEndsAt, nullableState?.turnNumber, nullableState?.status]);
 
   useEffect(() => {
-    if (localAction) return;
     const endsAt = nullableState?.turnEndsAt;
     const turnNumber = nullableState?.turnNumber;
     if (!endsAt || !turnNumber || nullableState?.status !== 'active') return;
@@ -4531,6 +4584,12 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     const timer = window.setTimeout(() => {
       if (timeoutSyncTurn.current === turnNumber) return;
       timeoutSyncTurn.current = turnNumber;
+      if (localAction) {
+        localAction('resolve_timeout')
+          .then((nextPayload) => onRefresh(nextPayload))
+          .catch((error) => setMessage(error instanceof Error ? error.message : '연습 대전 턴 시간 처리 실패'));
+        return;
+      }
       api('get_room', { roomId: room.id })
         .then((result) => {
           if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? [] });
@@ -5297,13 +5356,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
         <div className="v18-turn-hud">
           <small>ROUND {roundNumber} · TURN {state.turnNumber}</small>
           <div><b>{coinTossActive ? '선공 결정' : myTurn ? 'YOUR TURN' : 'OPPONENT TURN'}</b><span>{coinTossActive ? 'OPENING' : phaseLabel}</span></div>
-          {!practiceMode && !coinTossActive && state.status === 'active' && (
+          {!coinTossActive && state.status === 'active' && (
             <div className={`v18-turn-timer ${turnSecondsLeft <= 10 ? 'danger' : turnSecondsLeft <= 20 ? 'warning' : ''}`}>
               <strong>{turnSecondsLeft}</strong><small>SEC</small><i><b style={{ width: `${turnTimerPercent}%` }} /></i>
             </div>
           )}
         </div>
-        {practiceMode ? <div className="v22-sync-chip live v35-practice-chip"><i /><span>LOCAL AI</span><small>{PRACTICE_DIFFICULTY_LABEL[practiceMode]} 봇 · 시간 제한 없음</small></div> : (
+        {practiceMode ? <div className="v22-sync-chip live v35-practice-chip"><i /><span>LOCAL AI</span><small>{PRACTICE_DIFFICULTY_LABEL[practiceMode]} 봇 · 실전 규칙/연출 동일</small></div> : (
           <div className={`v22-sync-chip ${displayedSyncState}`}>
             <i /><span>{displayedSyncState === 'live' ? 'LIVE' : displayedSyncState === 'syncing' ? 'SYNCING' : 'RECONNECTING'}</span><small>{displayedSyncState === 'live' ? '연결됨' : displayedSyncState === 'syncing' ? '백그라운드 동기화' : '연결 복구 중'}</small>
           </div>
@@ -5346,7 +5405,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       </aside>
 
       <main className="v18-arena">
-        <div className="v34m-time-atmosphere" aria-hidden="true" />
+        <div className="v34n-time-sky" aria-hidden="true" style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', background: eclipseArenaVisual.atmosphere, backgroundPosition: 'center', backgroundSize: 'cover', opacity: 1 }} />
         <div className="v18-arena-backdrop" aria-hidden="true"><i /><i /><i /><i /></div>
         <div className="v18-opponent-hand-strip" aria-label={`상대 손패 ${state.handCounts[opponentId] ?? 0}장`}>
           <span>HAND · {state.handCounts[opponentId] ?? 0}</span>
@@ -5703,7 +5762,7 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
   }, []);
 
   useEffect(() => {
-    const unseen = visualEvents.filter((event) => !seenVfx.current.has(event.id) && event.kind !== 'defense');
+    const unseen = visualEvents.filter((event) => !seenVfx.current.has(event.id) && event.kind !== 'defense' && !(event.kind === 'special' && event.vfx.startsWith('eclipse-cycle-')));
     if (unseen.length === 0) return;
     visualEvents.forEach((event) => seenVfx.current.add(event.id));
     // Keep the complete recent action bundle. Spell activation is normally the first event
@@ -5831,7 +5890,7 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
       </aside>
 
       <main className="v18-arena">
-        <div className="v34m-time-atmosphere" aria-hidden="true" />
+        <div className="v34n-time-sky" aria-hidden="true" style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', background: eclipseArenaVisual.atmosphere, backgroundPosition: 'center', backgroundSize: 'cover', opacity: 1 }} />
         <div className="v18-arena-backdrop" aria-hidden="true"><i /><i /><i /><i /></div>
         <div className="v18-opponent-hand-strip v33b-spectator-hand-strip">
           <span>PLAYER B HAND · {playerBHand.length || (state.handCounts[playerBId] ?? 0)}</span>
@@ -5878,6 +5937,7 @@ function PracticeDuel({ userId, hub, activeDeck, difficulty, onExit }: { userId:
   const [snapshot, setSnapshot] = useState<GameSnapshot>(() => createPracticeMatch(userId, activeDeck.cards, activeDeck.extra_cards, botId, difficulty));
   const snapshotRef = useRef(snapshot);
   const [botThinking, setBotThinking] = useState(false);
+  const [presentationBusy, setPresentationBusy] = useState(true);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
@@ -5949,6 +6009,10 @@ function PracticeDuel({ userId, hub, activeDeck, difficulty, onExit }: { userId:
 
   useEffect(() => {
     const current = snapshotRef.current;
+    if (presentationBusy) {
+      setBotThinking(false);
+      return undefined;
+    }
     if (current.state.status === 'finished') {
       setBotThinking(false);
       return undefined;
@@ -5981,6 +6045,7 @@ function PracticeDuel({ userId, hub, activeDeck, difficulty, onExit }: { userId:
           return;
         }
         const next = applyPracticeGameAction(latest, botId, action.gameAction, action.payload ?? {});
+        setPresentationBusy(true);
         snapshotRef.current = next;
         setSnapshot(next);
       } catch (error) {
@@ -5990,7 +6055,7 @@ function PracticeDuel({ userId, hub, activeDeck, difficulty, onExit }: { userId:
     }, thinkDelay);
 
     return () => window.clearTimeout(timer);
-  }, [botId, difficulty, snapshot]);
+  }, [botId, difficulty, presentationBusy, snapshot]);
 
   const payload = useMemo(() => buildPayload(snapshot), [buildPayload, snapshot]);
   const noopRefresh = useCallback((_payload: RoomPayload) => { /* localAction commits the authoritative snapshot */ }, []);
@@ -5998,7 +6063,7 @@ function PracticeDuel({ userId, hub, activeDeck, difficulty, onExit }: { userId:
   if (typeof document === 'undefined') return <LoadingScreen text="연습 대전을 준비하는 중" />;
 
   return createPortal(
-    <div className="v19-client in-duel v35-practice-overlay" data-ui-build="v34d-practice">
+    <div className="v19-client v23-client in-duel v35-practice-overlay" data-ui-build="v34n-practice-parity">
       <DuelBoard
         payload={payload}
         userId={userId}
@@ -6008,6 +6073,7 @@ function PracticeDuel({ userId, hub, activeDeck, difficulty, onExit }: { userId:
         lastSyncAt={Date.now()}
         localAction={localAction}
         practiceMode={difficulty}
+        onPresentationBusyChange={setPresentationBusy}
       />
       {botThinking && snapshot.state.status !== 'finished' && (
         <div className={`v35-bot-thinking difficulty-${difficulty}`} role="status" aria-live="polite">
