@@ -18,7 +18,7 @@ export interface EclipsePhaseModifier {
 }
 
 /**
- * v34i: phase-bound passives for a selected 40% of the original ECLIPSE CYCLE units. These are intentionally separate from
+ * v34j: phase-bound passives for authored existing units across the full card pool. These are intentionally separate from
  * ordinary onSummon effects: they fire when their exact battlefield time begins,
  * and also when the character is successfully summoned while that time is already active.
  */
@@ -282,7 +282,7 @@ export interface CardDefinition {
   eclipsePhaseModifiers?: Partial<Record<EclipsePhase, EclipsePhaseModifier>>;
   /** Short label shown in card details for this unit's temporal behavior. */
   temporalProfileName?: string;
-  /** v34i selected existing-unit time passives. Each pulse resolves on matching phase entry or aligned summon. */
+  /** Authored existing-unit time passives. Each pulse resolves on matching phase entry or aligned summon. */
   eclipsePhasePulses?: EclipsePhasePulse[];
   /** Optional temporal summon gate. If present, the unit/extra can only be summoned while the battlefield is in one of these phases. */
   eclipseSummonPhases?: EclipsePhase[];
@@ -2549,6 +2549,2284 @@ export function extraSummonRuleDescription(card: CardDefinition): string {
  * -------------------------------------------------------------------------- */
 CARDS.push(...V33A_EXPANSION_CARDS);
 CARDS.push(...V34_ECLIPSE_CYCLE_CARDS);
+
+
+// === v34j: TRUE GLOBAL 40% TEMPORAL REWORK ================================
+// The user requested temporal reactions on about 40% of ALL existing unit cards.
+// Total units = 508; authored temporal units after this block = 203 (39.96%).
+// No card is created here. This block only augments 155 pre-existing units;
+// the 48 already-authored v34i ECLIPSE CYCLE units are preserved as-is.
+type V34JTemporalProfileSeed = {
+  phase: EclipsePhase;
+  profileName: string;
+  label: string;
+  attack?: number;
+  health?: number;
+  weakPhase?: EclipsePhase;
+  weakAttack?: number;
+  weakHealth?: number;
+  pulse?: EclipsePhasePulse;
+};
+
+const V34J_EXISTING_TEMPORAL_PROFILES: Record<string, V34JTemporalProfileSeed> = {
+  "unit_dawn_seraph": {
+    "phase": "dawn",
+    "profileName": "여명 동조",
+    "label": "해오름 전개",
+    "attack": 3,
+    "health": 2,
+    "pulse": {
+      "phase": "dawn",
+      "name": "해오름 충전",
+      "description": "여명 진입 또는 여명에서 등장 시 ENERGY 1 회복.",
+      "effect": {
+        "kind": "gain_energy",
+        "amount": 1
+      }
+    }
+  },
+  "unit_eclipse_dragon": {
+    "phase": "eclipse",
+    "profileName": "개기 반응",
+    "label": "식광 폭주",
+    "attack": 3,
+    "health": 2,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "개기 고정",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 자동 시간 이동 1턴 고정.",
+      "effect": {
+        "kind": "phase_lock",
+        "turns": 1
+      }
+    }
+  },
+  "unit_moon_priest": {
+    "phase": "midnight",
+    "profileName": "심야 취약 반응형",
+    "label": "월하 각성",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "midnight",
+      "name": "무월 말소",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 묘지 메인 덱 카드 1장 말소.",
+      "effect": {
+        "kind": "banish_enemy_grave",
+        "amount": 1
+      }
+    }
+  },
+  "unit_star_devourer": {
+    "phase": "eclipse",
+    "profileName": "암영 동조",
+    "label": "식광 폭주",
+    "attack": 4,
+    "health": 2,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": -1,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "개기 고정",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 자동 시간 이동 1턴 고정.",
+      "effect": {
+        "kind": "phase_lock",
+        "turns": 1
+      }
+    }
+  },
+  "unit_timeweaver": {
+    "phase": "midnight",
+    "profileName": "월하 공명",
+    "label": "심야 증폭",
+    "attack": 2,
+    "health": 2
+  },
+  "unit_v8_lunar_01": {
+    "phase": "midnight",
+    "profileName": "심야 동조",
+    "label": "월하 각성",
+    "attack": 1,
+    "health": 1,
+    "pulse": {
+      "phase": "midnight",
+      "name": "자정 봉쇄",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 필드에서 가장 강한 유닛을 1턴 공격 봉쇄.",
+      "effect": {
+        "kind": "freeze_strongest",
+        "turns": 1
+      }
+    }
+  },
+  "unit_v8_lunar_03": {
+    "phase": "midnight",
+    "profileName": "심야 동조",
+    "label": "심야 증폭",
+    "attack": 2,
+    "health": 2,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0
+  },
+  "unit_v8_lunar_05": {
+    "phase": "midnight",
+    "profileName": "월하 공명",
+    "label": "자정 은폐",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0
+  },
+  "unit_v8_lunar_07": {
+    "phase": "midnight",
+    "profileName": "심야 취약 반응형",
+    "label": "월하 각성",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "midnight",
+      "name": "자정 봉쇄",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 필드에서 가장 강한 유닛을 1턴 공격 봉쇄.",
+      "effect": {
+        "kind": "freeze_strongest",
+        "turns": 1
+      }
+    }
+  },
+  "unit_v8_lunar_09": {
+    "phase": "midnight",
+    "profileName": "자정 반응",
+    "label": "심야 증폭",
+    "attack": 1,
+    "health": 1
+  },
+  "unit_v8_lunar_11": {
+    "phase": "midnight",
+    "profileName": "자정 반응",
+    "label": "자정 은폐",
+    "attack": 2,
+    "health": 2
+  },
+  "unit_v8_lunar_13": {
+    "phase": "midnight",
+    "profileName": "자정 반응",
+    "label": "심야 증폭",
+    "attack": 2,
+    "health": 1
+  },
+  "unit_v8_lunar_15": {
+    "phase": "midnight",
+    "profileName": "심야 동조",
+    "label": "심야 증폭",
+    "attack": 1,
+    "health": 1,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "midnight",
+      "name": "무월 말소",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 묘지 메인 덱 카드 1장 말소.",
+      "effect": {
+        "kind": "banish_enemy_grave",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_lunar_17": {
+    "phase": "midnight",
+    "profileName": "심야 동조",
+    "label": "심야 증폭",
+    "attack": 1,
+    "health": 1,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "midnight",
+      "name": "자정 봉쇄",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 필드에서 가장 강한 유닛을 1턴 공격 봉쇄.",
+      "effect": {
+        "kind": "freeze_strongest",
+        "turns": 1
+      }
+    }
+  },
+  "unit_v8_lunar_19": {
+    "phase": "midnight",
+    "profileName": "월하 공명",
+    "label": "심야 증폭",
+    "attack": 2,
+    "health": 2,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": -1,
+    "pulse": {
+      "phase": "midnight",
+      "name": "무월 말소",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 묘지 메인 덱 카드 1장 말소.",
+      "effect": {
+        "kind": "banish_enemy_grave",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_neutral_01": {
+    "phase": "dawn",
+    "profileName": "여명 취약 반응형",
+    "label": "새벽 각성",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "dusk",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "dawn",
+      "name": "아침 숨결",
+      "description": "여명 진입 또는 여명에서 등장 시 내 코어 2 회복.",
+      "effect": {
+        "kind": "heal_core",
+        "amount": 2
+      }
+    }
+  },
+  "unit_v8_neutral_04": {
+    "phase": "zenith",
+    "profileName": "태양 공명",
+    "label": "천정 증폭",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "zenith",
+      "name": "절정 재가속",
+      "description": "정점 진입 또는 정점에서 등장 시 기절하지 않은 내 유닛들의 공격 가능 상태 회복.",
+      "effect": {
+        "kind": "ready_all"
+      }
+    }
+  },
+  "unit_v8_neutral_07": {
+    "phase": "dawn",
+    "profileName": "여명 취약 반응형",
+    "label": "새벽 각성",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "dusk",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "dawn",
+      "name": "새벽 회수",
+      "description": "여명 진입 또는 여명에서 등장 시 내 묘지의 메인 덱 카드 1장 회수.",
+      "effect": {
+        "kind": "recover_grave",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_neutral_10": {
+    "phase": "zenith",
+    "profileName": "태양 공명",
+    "label": "천정 증폭",
+    "attack": 3,
+    "health": 1,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "zenith",
+      "name": "태양 발전",
+      "description": "정점 진입 또는 정점에서 등장 시 ENERGY 1 회복.",
+      "effect": {
+        "kind": "gain_energy",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_neutral_13": {
+    "phase": "dawn",
+    "profileName": "첫빛 공명",
+    "label": "첫빛 증폭",
+    "attack": 3,
+    "health": 2,
+    "weakPhase": "dusk",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "dawn",
+      "name": "새벽 회수",
+      "description": "여명 진입 또는 여명에서 등장 시 내 묘지의 메인 덱 카드 1장 회수.",
+      "effect": {
+        "kind": "recover_grave",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_neutral_16": {
+    "phase": "zenith",
+    "profileName": "절정 과열",
+    "label": "태양 전개",
+    "attack": 2,
+    "health": 0
+  },
+  "unit_v8_neutral_19": {
+    "phase": "dawn",
+    "profileName": "여명 취약 반응형",
+    "label": "해오름 전개",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "dusk",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "dawn",
+      "name": "새벽 회수",
+      "description": "여명 진입 또는 여명에서 등장 시 내 묘지의 메인 덱 카드 1장 회수.",
+      "effect": {
+        "kind": "recover_grave",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_solar_01": {
+    "phase": "dawn",
+    "profileName": "여명 동조",
+    "label": "첫빛 증폭",
+    "attack": 1,
+    "health": 1,
+    "weakPhase": "dusk",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "dawn",
+      "name": "새벽 회수",
+      "description": "여명 진입 또는 여명에서 등장 시 내 묘지의 메인 덱 카드 1장 회수.",
+      "effect": {
+        "kind": "recover_grave",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_solar_03": {
+    "phase": "eclipse",
+    "profileName": "개기 반응",
+    "label": "식광 폭주",
+    "attack": 2,
+    "health": 2,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "개기 고정",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 자동 시간 이동 1턴 고정.",
+      "effect": {
+        "kind": "phase_lock",
+        "turns": 1
+      }
+    }
+  },
+  "unit_v8_solar_04": {
+    "phase": "zenith",
+    "profileName": "태양 공명",
+    "label": "천정 증폭",
+    "attack": 2,
+    "health": 0,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": 0
+  },
+  "unit_v8_solar_06": {
+    "phase": "eclipse",
+    "profileName": "개기 반응",
+    "label": "개기 각성",
+    "attack": 3,
+    "health": 2
+  },
+  "unit_v8_solar_07": {
+    "phase": "dawn",
+    "profileName": "여명 동조",
+    "label": "해오름 전개",
+    "attack": 1,
+    "health": 1
+  },
+  "unit_v8_solar_09": {
+    "phase": "eclipse",
+    "profileName": "암영 동조",
+    "label": "개기 각성",
+    "attack": 4,
+    "health": 2,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "흑일 흡수",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 상대 코어 2 피해 후 그만큼 내 코어 회복.",
+      "effect": {
+        "kind": "drain_core",
+        "amount": 2
+      }
+    }
+  },
+  "unit_v8_solar_10": {
+    "phase": "zenith",
+    "profileName": "태양 공명",
+    "label": "정오 과출력",
+    "attack": 2,
+    "health": 0,
+    "pulse": {
+      "phase": "zenith",
+      "name": "절정 재가속",
+      "description": "정점 진입 또는 정점에서 등장 시 기절하지 않은 내 유닛들의 공격 가능 상태 회복.",
+      "effect": {
+        "kind": "ready_all"
+      }
+    }
+  },
+  "unit_v8_solar_12": {
+    "phase": "eclipse",
+    "profileName": "개기 반응",
+    "label": "엄브라 증폭",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "코로나 재생",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 내 필드 모든 유닛 체력 1 회복.",
+      "effect": {
+        "kind": "heal_allies",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_solar_13": {
+    "phase": "dawn",
+    "profileName": "여명 동조",
+    "label": "첫빛 증폭",
+    "attack": 1,
+    "health": 1,
+    "pulse": {
+      "phase": "dawn",
+      "name": "새벽 회수",
+      "description": "여명 진입 또는 여명에서 등장 시 내 묘지의 메인 덱 카드 1장 회수.",
+      "effect": {
+        "kind": "recover_grave",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_solar_15": {
+    "phase": "eclipse",
+    "profileName": "개기 반응",
+    "label": "개기 각성",
+    "attack": 2,
+    "health": 1,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "개기 고정",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 자동 시간 이동 1턴 고정.",
+      "effect": {
+        "kind": "phase_lock",
+        "turns": 1
+      }
+    }
+  },
+  "unit_v8_solar_16": {
+    "phase": "zenith",
+    "profileName": "정점 동조",
+    "label": "정오 과출력",
+    "attack": 2,
+    "health": 1
+  },
+  "unit_v8_solar_18": {
+    "phase": "eclipse",
+    "profileName": "개기 반응",
+    "label": "개기 각성",
+    "attack": 2,
+    "health": 1
+  },
+  "unit_v8_solar_19": {
+    "phase": "dawn",
+    "profileName": "첫빛 공명",
+    "label": "해오름 전개",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "dusk",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "dawn",
+      "name": "새벽 회수",
+      "description": "여명 진입 또는 여명에서 등장 시 내 묘지의 메인 덱 카드 1장 회수.",
+      "effect": {
+        "kind": "recover_grave",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_void_01": {
+    "phase": "midnight",
+    "profileName": "심야 취약 반응형",
+    "label": "심야 증폭",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "midnight",
+      "name": "자정 봉쇄",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 필드에서 가장 강한 유닛을 1턴 공격 봉쇄.",
+      "effect": {
+        "kind": "freeze_strongest",
+        "turns": 1
+      }
+    }
+  },
+  "unit_v8_void_03": {
+    "phase": "eclipse",
+    "profileName": "암영 동조",
+    "label": "엄브라 증폭",
+    "attack": 2,
+    "health": 1
+  },
+  "unit_v8_void_04": {
+    "phase": "midnight",
+    "profileName": "심야 동조",
+    "label": "심야 증폭",
+    "attack": 2,
+    "health": 1,
+    "pulse": {
+      "phase": "midnight",
+      "name": "무월 말소",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 묘지 메인 덱 카드 1장 말소.",
+      "effect": {
+        "kind": "banish_enemy_grave",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_void_06": {
+    "phase": "eclipse",
+    "profileName": "개기 반응",
+    "label": "개기 각성",
+    "attack": 2,
+    "health": 1
+  },
+  "unit_v8_void_07": {
+    "phase": "midnight",
+    "profileName": "심야 동조",
+    "label": "심야 증폭",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "midnight",
+      "name": "무월 말소",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 묘지 메인 덱 카드 1장 말소.",
+      "effect": {
+        "kind": "banish_enemy_grave",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_void_09": {
+    "phase": "eclipse",
+    "profileName": "개기일식 취약 반응형",
+    "label": "개기 각성",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": -1,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "코로나 재생",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 내 필드 모든 유닛 체력 1 회복.",
+      "effect": {
+        "kind": "heal_allies",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_void_10": {
+    "phase": "midnight",
+    "profileName": "월하 공명",
+    "label": "월하 각성",
+    "attack": 2,
+    "health": 2,
+    "pulse": {
+      "phase": "midnight",
+      "name": "꿈길 예지",
+      "description": "심야 진입 또는 심야에서 등장 시 카드 1장 드로우.",
+      "effect": {
+        "kind": "draw",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_void_12": {
+    "phase": "eclipse",
+    "profileName": "개기일식 취약 반응형",
+    "label": "식광 폭주",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": -1,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "식광 탈취",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 상대 ENERGY 최대 1 강탈.",
+      "effect": {
+        "kind": "steal_energy",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_void_13": {
+    "phase": "midnight",
+    "profileName": "월하 공명",
+    "label": "월하 각성",
+    "attack": 2,
+    "health": 2,
+    "pulse": {
+      "phase": "midnight",
+      "name": "자정 봉쇄",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 필드에서 가장 강한 유닛을 1턴 공격 봉쇄.",
+      "effect": {
+        "kind": "freeze_strongest",
+        "turns": 1
+      }
+    }
+  },
+  "unit_v8_void_15": {
+    "phase": "eclipse",
+    "profileName": "개기일식 취약 반응형",
+    "label": "엄브라 증폭",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": -1,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "식광 탈취",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 상대 ENERGY 최대 1 강탈.",
+      "effect": {
+        "kind": "steal_energy",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_void_16": {
+    "phase": "midnight",
+    "profileName": "자정 반응",
+    "label": "자정 은폐",
+    "attack": 3,
+    "health": 2,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": -1,
+    "pulse": {
+      "phase": "midnight",
+      "name": "월하 회수",
+      "description": "심야 진입 또는 심야에서 등장 시 내 묘지의 메인 덱 카드 1장 회수.",
+      "effect": {
+        "kind": "recover_grave",
+        "amount": 1
+      }
+    }
+  },
+  "unit_v8_void_18": {
+    "phase": "eclipse",
+    "profileName": "개기 반응",
+    "label": "개기 각성",
+    "attack": 2,
+    "health": 2
+  },
+  "unit_v8_void_19": {
+    "phase": "midnight",
+    "profileName": "심야 취약 반응형",
+    "label": "심야 증폭",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "midnight",
+      "name": "월하 회수",
+      "description": "심야 진입 또는 심야에서 등장 시 내 묘지의 메인 덱 카드 1장 회수.",
+      "effect": {
+        "kind": "recover_grave",
+        "amount": 1
+      }
+    }
+  },
+  "v26_chronorium_unit_01": {
+    "phase": "dawn",
+    "profileName": "기상 반응",
+    "label": "첫빛 증폭",
+    "attack": 1,
+    "health": 1
+  },
+  "v26_chronorium_unit_02": {
+    "phase": "zenith",
+    "profileName": "정점 동조",
+    "label": "정오 과출력",
+    "attack": 2,
+    "health": 0,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": 0
+  },
+  "v26_chronorium_unit_03": {
+    "phase": "dusk",
+    "profileName": "황혼 취약 반응형",
+    "label": "석양 전개",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "dusk",
+      "name": "황혼 잔영",
+      "description": "황혼 진입 또는 황혼에서 등장 시 1/2 황혼 잔영 1체 소환.",
+      "effect": {
+        "kind": "summon_token",
+        "attack": 1,
+        "health": 2,
+        "name": "황혼 잔영"
+      }
+    }
+  },
+  "v26_chronorium_unit_04": {
+    "phase": "midnight",
+    "profileName": "월하 공명",
+    "label": "자정 은폐",
+    "attack": 1,
+    "health": 1
+  },
+  "v26_chronorium_unit_05": {
+    "phase": "eclipse",
+    "profileName": "식광 공명",
+    "label": "식광 폭주",
+    "attack": 2,
+    "health": 1
+  },
+  "v26_chronorium_unit_06": {
+    "phase": "dawn",
+    "profileName": "여명 동조",
+    "label": "첫빛 증폭",
+    "attack": 1,
+    "health": 1,
+    "pulse": {
+      "phase": "dawn",
+      "name": "기상 명령",
+      "description": "여명 진입 또는 여명에서 등장 시 기절하지 않은 내 유닛들의 공격 가능 상태 회복.",
+      "effect": {
+        "kind": "ready_all"
+      }
+    }
+  },
+  "v26_chronorium_unit_07": {
+    "phase": "zenith",
+    "profileName": "정점 동조",
+    "label": "태양 전개",
+    "attack": 2,
+    "health": 0,
+    "pulse": {
+      "phase": "zenith",
+      "name": "정오 포격",
+      "description": "정점 진입 또는 정점에서 등장 시 상대 코어 2 피해.",
+      "effect": {
+        "kind": "damage_core",
+        "amount": 2
+      }
+    }
+  },
+  "v26_chronorium_unit_08": {
+    "phase": "dusk",
+    "profileName": "잔광 공명",
+    "label": "석양 전개",
+    "attack": 0,
+    "health": 2,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "dusk",
+      "name": "석양 안식",
+      "description": "황혼 진입 또는 황혼에서 등장 시 내 코어 2 회복.",
+      "effect": {
+        "kind": "heal_core",
+        "amount": 2
+      }
+    }
+  },
+  "v26_chronorium_unit_09": {
+    "phase": "midnight",
+    "profileName": "자정 반응",
+    "label": "월하 각성",
+    "attack": 2,
+    "health": 1
+  },
+  "v26_chronorium_unit_10": {
+    "phase": "eclipse",
+    "profileName": "개기 반응",
+    "label": "식광 폭주",
+    "attack": 2,
+    "health": 2,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "흑일 흡수",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 상대 코어 2 피해 후 그만큼 내 코어 회복.",
+      "effect": {
+        "kind": "drain_core",
+        "amount": 2
+      }
+    }
+  },
+  "v26_chronorium_unit_11": {
+    "phase": "dawn",
+    "profileName": "기상 반응",
+    "label": "해오름 전개",
+    "attack": 2,
+    "health": 1
+  },
+  "v26_chronorium_unit_12": {
+    "phase": "zenith",
+    "profileName": "태양 공명",
+    "label": "천정 증폭",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "zenith",
+      "name": "절정 재가속",
+      "description": "정점 진입 또는 정점에서 등장 시 기절하지 않은 내 유닛들의 공격 가능 상태 회복.",
+      "effect": {
+        "kind": "ready_all"
+      }
+    }
+  },
+  "v26_chronorium_unit_13": {
+    "phase": "dusk",
+    "profileName": "잔광 공명",
+    "label": "황혼 증폭",
+    "attack": 1,
+    "health": 2,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "dusk",
+      "name": "잔광 방벽",
+      "description": "황혼 진입 또는 황혼에서 등장 시 내 필드 모든 유닛 보호막 +1.",
+      "effect": {
+        "kind": "mass_shield",
+        "amount": 1
+      }
+    }
+  },
+  "v26_chronorium_unit_14": {
+    "phase": "midnight",
+    "profileName": "심야 동조",
+    "label": "심야 증폭",
+    "attack": 2,
+    "health": 1
+  },
+  "v26_chronorium_unit_15": {
+    "phase": "eclipse",
+    "profileName": "식광 공명",
+    "label": "개기 각성",
+    "attack": 2,
+    "health": 2,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "코로나 재생",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 내 필드 모든 유닛 체력 1 회복.",
+      "effect": {
+        "kind": "heal_allies",
+        "amount": 1
+      }
+    }
+  },
+  "v26_chronorium_unit_16": {
+    "phase": "dawn",
+    "profileName": "기상 반응",
+    "label": "첫빛 증폭",
+    "attack": 2,
+    "health": 2,
+    "pulse": {
+      "phase": "dawn",
+      "name": "새벽 회수",
+      "description": "여명 진입 또는 여명에서 등장 시 내 묘지의 메인 덱 카드 1장 회수.",
+      "effect": {
+        "kind": "recover_grave",
+        "amount": 1
+      }
+    }
+  },
+  "v26_chronorium_unit_17": {
+    "phase": "zenith",
+    "profileName": "정점 동조",
+    "label": "정오 과출력",
+    "attack": 3,
+    "health": 1,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "zenith",
+      "name": "정오 포격",
+      "description": "정점 진입 또는 정점에서 등장 시 상대 코어 2 피해.",
+      "effect": {
+        "kind": "damage_core",
+        "amount": 2
+      }
+    }
+  },
+  "v26_chronorium_unit_18": {
+    "phase": "dusk",
+    "profileName": "잔광 공명",
+    "label": "석양 전개",
+    "attack": 1,
+    "health": 3
+  },
+  "v26_chronorium_unit_19": {
+    "phase": "midnight",
+    "profileName": "심야 동조",
+    "label": "심야 증폭",
+    "attack": 2,
+    "health": 2,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0
+  },
+  "v26_chronorium_unit_20": {
+    "phase": "eclipse",
+    "profileName": "개기 반응",
+    "label": "개기 각성",
+    "attack": 3,
+    "health": 2,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "개기 고정",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 자동 시간 이동 1턴 고정.",
+      "effect": {
+        "kind": "phase_lock",
+        "turns": 1
+      }
+    }
+  },
+  "v26_chronorium_unit_21": {
+    "phase": "dawn",
+    "profileName": "여명 동조",
+    "label": "해오름 전개",
+    "attack": 3,
+    "health": 2,
+    "pulse": {
+      "phase": "dawn",
+      "name": "기상 명령",
+      "description": "여명 진입 또는 여명에서 등장 시 기절하지 않은 내 유닛들의 공격 가능 상태 회복.",
+      "effect": {
+        "kind": "ready_all"
+      }
+    }
+  },
+  "v26_chronorium_unit_22": {
+    "phase": "zenith",
+    "profileName": "절정 과열",
+    "label": "태양 전개",
+    "attack": 4,
+    "health": 1,
+    "pulse": {
+      "phase": "zenith",
+      "name": "천정 과출력",
+      "description": "정점 진입 또는 정점에서 등장 시 내 필드 모든 유닛 ATK +1.",
+      "effect": {
+        "kind": "mass_buff",
+        "attack": 1,
+        "health": 0
+      }
+    }
+  },
+  "v32y_chrono_unit_01": {
+    "phase": "dawn",
+    "profileName": "여명 동조",
+    "label": "해오름 전개",
+    "attack": 2,
+    "health": 1
+  },
+  "v32y_chrono_unit_02": {
+    "phase": "zenith",
+    "profileName": "정점 취약 반응형",
+    "label": "천정 증폭",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "zenith",
+      "name": "광휘 장막",
+      "description": "정점 진입 또는 정점에서 등장 시 내 필드 모든 유닛 보호막 +1.",
+      "effect": {
+        "kind": "mass_shield",
+        "amount": 1
+      }
+    }
+  },
+  "v32y_eclipse_unit_01": {
+    "phase": "eclipse",
+    "profileName": "암영 동조",
+    "label": "개기 각성",
+    "attack": 2,
+    "health": 2,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "흑일 흡수",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 상대 코어 2 피해 후 그만큼 내 코어 회복.",
+      "effect": {
+        "kind": "drain_core",
+        "amount": 2
+      }
+    }
+  },
+  "v32y_eclipse_unit_02": {
+    "phase": "eclipse",
+    "profileName": "개기 반응",
+    "label": "엄브라 증폭",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": 0
+  },
+  "v32y_lumina_unit_01": {
+    "phase": "dawn",
+    "profileName": "여명 동조",
+    "label": "새벽 각성",
+    "attack": 2,
+    "health": 1,
+    "pulse": {
+      "phase": "dawn",
+      "name": "아침 숨결",
+      "description": "여명 진입 또는 여명에서 등장 시 내 코어 2 회복.",
+      "effect": {
+        "kind": "heal_core",
+        "amount": 2
+      }
+    }
+  },
+  "v32y_lumina_unit_02": {
+    "phase": "zenith",
+    "profileName": "태양 공명",
+    "label": "태양 전개",
+    "attack": 2,
+    "health": 0
+  },
+  "v32y_nocturne_unit_01": {
+    "phase": "midnight",
+    "profileName": "월하 공명",
+    "label": "자정 은폐",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "midnight",
+      "name": "무월 말소",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 묘지 메인 덱 카드 1장 말소.",
+      "effect": {
+        "kind": "banish_enemy_grave",
+        "amount": 1
+      }
+    }
+  },
+  "v32y_nocturne_unit_02": {
+    "phase": "midnight",
+    "profileName": "월하 공명",
+    "label": "월하 각성",
+    "attack": 1,
+    "health": 1
+  },
+  "v33a_unit_001": {
+    "phase": "dawn",
+    "profileName": "여명 취약 반응형",
+    "label": "첫빛 증폭",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "dusk",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "dawn",
+      "name": "첫빛 탐색",
+      "description": "여명 진입 또는 여명에서 등장 시 카드 1장 드로우.",
+      "effect": {
+        "kind": "draw",
+        "amount": 1
+      }
+    }
+  },
+  "v33a_unit_010": {
+    "phase": "eclipse",
+    "profileName": "암영 동조",
+    "label": "식광 폭주",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": 0
+  },
+  "v33a_unit_032": {
+    "phase": "dusk",
+    "profileName": "퇴광 반응",
+    "label": "황혼 증폭",
+    "attack": 0,
+    "health": 2,
+    "pulse": {
+      "phase": "dusk",
+      "name": "잔광 방벽",
+      "description": "황혼 진입 또는 황혼에서 등장 시 내 필드 모든 유닛 보호막 +1.",
+      "effect": {
+        "kind": "mass_shield",
+        "amount": 1
+      }
+    }
+  },
+  "v33a_unit_052": {
+    "phase": "midnight",
+    "profileName": "심야 동조",
+    "label": "월하 각성",
+    "attack": 1,
+    "health": 1
+  },
+  "v33a_unit_072": {
+    "phase": "zenith",
+    "profileName": "정점 동조",
+    "label": "정오 과출력",
+    "attack": 2,
+    "health": 0
+  },
+  "v34_cycle_unit_005": {
+    "phase": "dawn",
+    "profileName": "기상 반응",
+    "label": "새벽 각성",
+    "attack": 1,
+    "health": 1,
+    "weakPhase": "dusk",
+    "weakAttack": -1,
+    "weakHealth": 0
+  },
+  "v34_cycle_unit_007": {
+    "phase": "dawn",
+    "profileName": "기상 반응",
+    "label": "새벽 각성",
+    "attack": 1,
+    "health": 1,
+    "pulse": {
+      "phase": "dawn",
+      "name": "해오름 충전",
+      "description": "여명 진입 또는 여명에서 등장 시 ENERGY 1 회복.",
+      "effect": {
+        "kind": "gain_energy",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_009": {
+    "phase": "dawn",
+    "profileName": "여명 취약 반응형",
+    "label": "새벽 각성",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "dusk",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "dawn",
+      "name": "해오름 충전",
+      "description": "여명 진입 또는 여명에서 등장 시 ENERGY 1 회복.",
+      "effect": {
+        "kind": "gain_energy",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_011": {
+    "phase": "dawn",
+    "profileName": "기상 반응",
+    "label": "해오름 전개",
+    "attack": 2,
+    "health": 1
+  },
+  "v34_cycle_unit_012": {
+    "phase": "dawn",
+    "profileName": "기상 반응",
+    "label": "새벽 각성",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "dusk",
+    "weakAttack": -1,
+    "weakHealth": 0
+  },
+  "v34_cycle_unit_014": {
+    "phase": "dawn",
+    "profileName": "여명 동조",
+    "label": "해오름 전개",
+    "attack": 2,
+    "health": 1
+  },
+  "v34_cycle_unit_015": {
+    "phase": "dawn",
+    "profileName": "첫빛 공명",
+    "label": "첫빛 증폭",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "dusk",
+    "weakAttack": -1,
+    "weakHealth": 0
+  },
+  "v34_cycle_unit_016": {
+    "phase": "dawn",
+    "profileName": "첫빛 공명",
+    "label": "해오름 전개",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "dusk",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "dawn",
+      "name": "새벽 회수",
+      "description": "여명 진입 또는 여명에서 등장 시 내 묘지의 메인 덱 카드 1장 회수.",
+      "effect": {
+        "kind": "recover_grave",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_017": {
+    "phase": "dawn",
+    "profileName": "여명 동조",
+    "label": "해오름 전개",
+    "attack": 2,
+    "health": 2
+  },
+  "v34_cycle_unit_018": {
+    "phase": "dawn",
+    "profileName": "기상 반응",
+    "label": "첫빛 증폭",
+    "attack": 2,
+    "health": 2,
+    "pulse": {
+      "phase": "dawn",
+      "name": "아침 숨결",
+      "description": "여명 진입 또는 여명에서 등장 시 내 코어 2 회복.",
+      "effect": {
+        "kind": "heal_core",
+        "amount": 2
+      }
+    }
+  },
+  "v34_cycle_unit_020": {
+    "phase": "dawn",
+    "profileName": "여명 동조",
+    "label": "새벽 각성",
+    "attack": 2,
+    "health": 2,
+    "pulse": {
+      "phase": "dawn",
+      "name": "첫빛 탐색",
+      "description": "여명 진입 또는 여명에서 등장 시 카드 1장 드로우.",
+      "effect": {
+        "kind": "draw",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_021": {
+    "phase": "dawn",
+    "profileName": "첫빛 공명",
+    "label": "새벽 각성",
+    "attack": 2,
+    "health": 2
+  },
+  "v34_cycle_unit_022": {
+    "phase": "dawn",
+    "profileName": "여명 동조",
+    "label": "첫빛 증폭",
+    "attack": 3,
+    "health": 2,
+    "weakPhase": "dusk",
+    "weakAttack": -1,
+    "weakHealth": -1,
+    "pulse": {
+      "phase": "dawn",
+      "name": "기상 명령",
+      "description": "여명 진입 또는 여명에서 등장 시 기절하지 않은 내 유닛들의 공격 가능 상태 회복.",
+      "effect": {
+        "kind": "ready_all"
+      }
+    }
+  },
+  "v34_cycle_unit_023": {
+    "phase": "dawn",
+    "profileName": "여명 동조",
+    "label": "첫빛 증폭",
+    "attack": 3,
+    "health": 2,
+    "pulse": {
+      "phase": "dawn",
+      "name": "첫빛 탐색",
+      "description": "여명 진입 또는 여명에서 등장 시 카드 1장 드로우.",
+      "effect": {
+        "kind": "draw",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_027": {
+    "phase": "zenith",
+    "profileName": "정점 동조",
+    "label": "정오 과출력",
+    "attack": 2,
+    "health": 0,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "zenith",
+      "name": "태양 발전",
+      "description": "정점 진입 또는 정점에서 등장 시 ENERGY 1 회복.",
+      "effect": {
+        "kind": "gain_energy",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_030": {
+    "phase": "zenith",
+    "profileName": "정점 동조",
+    "label": "정오 과출력",
+    "attack": 2,
+    "health": 0,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "zenith",
+      "name": "절정 재가속",
+      "description": "정점 진입 또는 정점에서 등장 시 기절하지 않은 내 유닛들의 공격 가능 상태 회복.",
+      "effect": {
+        "kind": "ready_all"
+      }
+    }
+  },
+  "v34_cycle_unit_031": {
+    "phase": "zenith",
+    "profileName": "정점 취약 반응형",
+    "label": "정오 과출력",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "zenith",
+      "name": "광휘 장막",
+      "description": "정점 진입 또는 정점에서 등장 시 내 필드 모든 유닛 보호막 +1.",
+      "effect": {
+        "kind": "mass_shield",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_033": {
+    "phase": "zenith",
+    "profileName": "정점 동조",
+    "label": "태양 전개",
+    "attack": 2,
+    "health": 0
+  },
+  "v34_cycle_unit_035": {
+    "phase": "zenith",
+    "profileName": "정점 취약 반응형",
+    "label": "정오 과출력",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "zenith",
+      "name": "정오 포격",
+      "description": "정점 진입 또는 정점에서 등장 시 상대 코어 2 피해.",
+      "effect": {
+        "kind": "damage_core",
+        "amount": 2
+      }
+    }
+  },
+  "v34_cycle_unit_036": {
+    "phase": "zenith",
+    "profileName": "절정 과열",
+    "label": "태양 전개",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": 0
+  },
+  "v34_cycle_unit_038": {
+    "phase": "zenith",
+    "profileName": "정점 동조",
+    "label": "정오 과출력",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "zenith",
+      "name": "태양 발전",
+      "description": "정점 진입 또는 정점에서 등장 시 ENERGY 1 회복.",
+      "effect": {
+        "kind": "gain_energy",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_039": {
+    "phase": "zenith",
+    "profileName": "절정 과열",
+    "label": "천정 증폭",
+    "attack": 2,
+    "health": 1,
+    "pulse": {
+      "phase": "zenith",
+      "name": "태양 발전",
+      "description": "정점 진입 또는 정점에서 등장 시 ENERGY 1 회복.",
+      "effect": {
+        "kind": "gain_energy",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_040": {
+    "phase": "zenith",
+    "profileName": "절정 과열",
+    "label": "태양 전개",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": 0
+  },
+  "v34_cycle_unit_041": {
+    "phase": "zenith",
+    "profileName": "태양 공명",
+    "label": "태양 전개",
+    "attack": 3,
+    "health": 1,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": -1
+  },
+  "v34_cycle_unit_042": {
+    "phase": "zenith",
+    "profileName": "절정 과열",
+    "label": "정오 과출력",
+    "attack": 3,
+    "health": 1,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": -1,
+    "pulse": {
+      "phase": "zenith",
+      "name": "천정 과출력",
+      "description": "정점 진입 또는 정점에서 등장 시 내 필드 모든 유닛 ATK +1.",
+      "effect": {
+        "kind": "mass_buff",
+        "attack": 1,
+        "health": 0
+      }
+    }
+  },
+  "v34_cycle_unit_044": {
+    "phase": "zenith",
+    "profileName": "절정 과열",
+    "label": "정오 과출력",
+    "attack": 3,
+    "health": 1,
+    "pulse": {
+      "phase": "zenith",
+      "name": "정오 포격",
+      "description": "정점 진입 또는 정점에서 등장 시 상대 코어 2 피해.",
+      "effect": {
+        "kind": "damage_core",
+        "amount": 2
+      }
+    }
+  },
+  "v34_cycle_unit_045": {
+    "phase": "zenith",
+    "profileName": "정점 동조",
+    "label": "태양 전개",
+    "attack": 3,
+    "health": 1
+  },
+  "v34_cycle_unit_047": {
+    "phase": "zenith",
+    "profileName": "정점 동조",
+    "label": "정오 과출력",
+    "attack": 4,
+    "health": 1,
+    "weakPhase": "midnight",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "zenith",
+      "name": "절정 재가속",
+      "description": "정점 진입 또는 정점에서 등장 시 기절하지 않은 내 유닛들의 공격 가능 상태 회복.",
+      "effect": {
+        "kind": "ready_all"
+      }
+    }
+  },
+  "v34_cycle_unit_051": {
+    "phase": "dusk",
+    "profileName": "퇴광 반응",
+    "label": "잔광 장갑",
+    "attack": 0,
+    "health": 2,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": 0
+  },
+  "v34_cycle_unit_054": {
+    "phase": "dusk",
+    "profileName": "황혼 취약 반응형",
+    "label": "잔광 장갑",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "dusk",
+      "name": "석양 안식",
+      "description": "황혼 진입 또는 황혼에서 등장 시 내 코어 2 회복.",
+      "effect": {
+        "kind": "heal_core",
+        "amount": 2
+      }
+    }
+  },
+  "v34_cycle_unit_056": {
+    "phase": "dusk",
+    "profileName": "잔광 공명",
+    "label": "석양 전개",
+    "attack": 0,
+    "health": 2,
+    "pulse": {
+      "phase": "dusk",
+      "name": "황혼 잔영",
+      "description": "황혼 진입 또는 황혼에서 등장 시 1/2 황혼 잔영 1체 소환.",
+      "effect": {
+        "kind": "summon_token",
+        "attack": 1,
+        "health": 2,
+        "name": "황혼 잔영"
+      }
+    }
+  },
+  "v34_cycle_unit_058": {
+    "phase": "dusk",
+    "profileName": "황혼 동조",
+    "label": "황혼 증폭",
+    "attack": 1,
+    "health": 2
+  },
+  "v34_cycle_unit_059": {
+    "phase": "dusk",
+    "profileName": "잔광 공명",
+    "label": "황혼 증폭",
+    "attack": 1,
+    "health": 2,
+    "pulse": {
+      "phase": "dusk",
+      "name": "저녁 회수",
+      "description": "황혼 진입 또는 황혼에서 등장 시 내 묘지의 메인 덱 카드 1장 회수.",
+      "effect": {
+        "kind": "recover_grave",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_060": {
+    "phase": "dusk",
+    "profileName": "황혼 취약 반응형",
+    "label": "잔광 장갑",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "dusk",
+      "name": "황혼 잔영",
+      "description": "황혼 진입 또는 황혼에서 등장 시 1/2 황혼 잔영 1체 소환.",
+      "effect": {
+        "kind": "summon_token",
+        "attack": 1,
+        "health": 2,
+        "name": "황혼 잔영"
+      }
+    }
+  },
+  "v34_cycle_unit_062": {
+    "phase": "dusk",
+    "profileName": "잔광 공명",
+    "label": "잔광 장갑",
+    "attack": 1,
+    "health": 2,
+    "pulse": {
+      "phase": "dusk",
+      "name": "잔광 방벽",
+      "description": "황혼 진입 또는 황혼에서 등장 시 내 필드 모든 유닛 보호막 +1.",
+      "effect": {
+        "kind": "mass_shield",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_063": {
+    "phase": "dusk",
+    "profileName": "황혼 동조",
+    "label": "석양 전개",
+    "attack": 1,
+    "health": 2,
+    "pulse": {
+      "phase": "dusk",
+      "name": "황혼 잔영",
+      "description": "황혼 진입 또는 황혼에서 등장 시 1/2 황혼 잔영 1체 소환.",
+      "effect": {
+        "kind": "summon_token",
+        "attack": 1,
+        "health": 2,
+        "name": "황혼 잔영"
+      }
+    }
+  },
+  "v34_cycle_unit_064": {
+    "phase": "dusk",
+    "profileName": "황혼 동조",
+    "label": "황혼 증폭",
+    "attack": 1,
+    "health": 2
+  },
+  "v34_cycle_unit_066": {
+    "phase": "dusk",
+    "profileName": "퇴광 반응",
+    "label": "황혼 증폭",
+    "attack": 1,
+    "health": 3,
+    "pulse": {
+      "phase": "dusk",
+      "name": "저녁 회수",
+      "description": "황혼 진입 또는 황혼에서 등장 시 내 묘지의 메인 덱 카드 1장 회수.",
+      "effect": {
+        "kind": "recover_grave",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_067": {
+    "phase": "dusk",
+    "profileName": "황혼 취약 반응형",
+    "label": "황혼 증폭",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "dusk",
+      "name": "석양 안식",
+      "description": "황혼 진입 또는 황혼에서 등장 시 내 코어 2 회복.",
+      "effect": {
+        "kind": "heal_core",
+        "amount": 2
+      }
+    }
+  },
+  "v34_cycle_unit_068": {
+    "phase": "dusk",
+    "profileName": "퇴광 반응",
+    "label": "석양 전개",
+    "attack": 1,
+    "health": 3,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": -1
+  },
+  "v34_cycle_unit_070": {
+    "phase": "dusk",
+    "profileName": "황혼 동조",
+    "label": "황혼 증폭",
+    "attack": 2,
+    "health": 3,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "dusk",
+      "name": "황혼 잔영",
+      "description": "황혼 진입 또는 황혼에서 등장 시 1/2 황혼 잔영 1체 소환.",
+      "effect": {
+        "kind": "summon_token",
+        "attack": 1,
+        "health": 2,
+        "name": "황혼 잔영"
+      }
+    }
+  },
+  "v34_cycle_unit_071": {
+    "phase": "dusk",
+    "profileName": "잔광 공명",
+    "label": "잔광 장갑",
+    "attack": 2,
+    "health": 3,
+    "pulse": {
+      "phase": "dusk",
+      "name": "석양 안식",
+      "description": "황혼 진입 또는 황혼에서 등장 시 내 코어 2 회복.",
+      "effect": {
+        "kind": "heal_core",
+        "amount": 2
+      }
+    }
+  },
+  "v34_cycle_unit_075": {
+    "phase": "midnight",
+    "profileName": "심야 취약 반응형",
+    "label": "자정 은폐",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "midnight",
+      "name": "무월 말소",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 묘지 메인 덱 카드 1장 말소.",
+      "effect": {
+        "kind": "banish_enemy_grave",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_077": {
+    "phase": "midnight",
+    "profileName": "월하 공명",
+    "label": "월하 각성",
+    "attack": 1,
+    "health": 1,
+    "pulse": {
+      "phase": "midnight",
+      "name": "꿈길 예지",
+      "description": "심야 진입 또는 심야에서 등장 시 카드 1장 드로우.",
+      "effect": {
+        "kind": "draw",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_080": {
+    "phase": "midnight",
+    "profileName": "심야 취약 반응형",
+    "label": "심야 증폭",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "midnight",
+      "name": "자정 봉쇄",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 필드에서 가장 강한 유닛을 1턴 공격 봉쇄.",
+      "effect": {
+        "kind": "freeze_strongest",
+        "turns": 1
+      }
+    }
+  },
+  "v34_cycle_unit_081": {
+    "phase": "midnight",
+    "profileName": "심야 동조",
+    "label": "자정 은폐",
+    "attack": 1,
+    "health": 1
+  },
+  "v34_cycle_unit_083": {
+    "phase": "midnight",
+    "profileName": "자정 반응",
+    "label": "자정 은폐",
+    "attack": 2,
+    "health": 1,
+    "pulse": {
+      "phase": "midnight",
+      "name": "꿈길 예지",
+      "description": "심야 진입 또는 심야에서 등장 시 카드 1장 드로우.",
+      "effect": {
+        "kind": "draw",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_084": {
+    "phase": "midnight",
+    "profileName": "자정 반응",
+    "label": "월하 각성",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "midnight",
+      "name": "무월 말소",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 묘지 메인 덱 카드 1장 말소.",
+      "effect": {
+        "kind": "banish_enemy_grave",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_086": {
+    "phase": "midnight",
+    "profileName": "월하 공명",
+    "label": "월하 각성",
+    "attack": 2,
+    "health": 1
+  },
+  "v34_cycle_unit_087": {
+    "phase": "midnight",
+    "profileName": "월하 공명",
+    "label": "월하 각성",
+    "attack": 2,
+    "health": 1
+  },
+  "v34_cycle_unit_088": {
+    "phase": "midnight",
+    "profileName": "심야 취약 반응형",
+    "label": "자정 은폐",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "midnight",
+      "name": "자정 봉쇄",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 필드에서 가장 강한 유닛을 1턴 공격 봉쇄.",
+      "effect": {
+        "kind": "freeze_strongest",
+        "turns": 1
+      }
+    }
+  },
+  "v34_cycle_unit_089": {
+    "phase": "midnight",
+    "profileName": "월하 공명",
+    "label": "자정 은폐",
+    "attack": 2,
+    "health": 2,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0
+  },
+  "v34_cycle_unit_090": {
+    "phase": "midnight",
+    "profileName": "심야 취약 반응형",
+    "label": "심야 증폭",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "midnight",
+      "name": "자정 봉쇄",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 필드에서 가장 강한 유닛을 1턴 공격 봉쇄.",
+      "effect": {
+        "kind": "freeze_strongest",
+        "turns": 1
+      }
+    }
+  },
+  "v34_cycle_unit_092": {
+    "phase": "midnight",
+    "profileName": "심야 취약 반응형",
+    "label": "심야 증폭",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "midnight",
+      "name": "월하 회수",
+      "description": "심야 진입 또는 심야에서 등장 시 내 묘지의 메인 덱 카드 1장 회수.",
+      "effect": {
+        "kind": "recover_grave",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_093": {
+    "phase": "midnight",
+    "profileName": "심야 취약 반응형",
+    "label": "심야 증폭",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "zenith",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "midnight",
+      "name": "꿈길 예지",
+      "description": "심야 진입 또는 심야에서 등장 시 카드 1장 드로우.",
+      "effect": {
+        "kind": "draw",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_095": {
+    "phase": "midnight",
+    "profileName": "심야 동조",
+    "label": "심야 증폭",
+    "attack": 3,
+    "health": 2,
+    "pulse": {
+      "phase": "midnight",
+      "name": "무월 말소",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 묘지 메인 덱 카드 1장 말소.",
+      "effect": {
+        "kind": "banish_enemy_grave",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_096": {
+    "phase": "midnight",
+    "profileName": "자정 반응",
+    "label": "자정 은폐",
+    "attack": 3,
+    "health": 2,
+    "pulse": {
+      "phase": "midnight",
+      "name": "자정 봉쇄",
+      "description": "심야 진입 또는 심야에서 등장 시 상대 필드에서 가장 강한 유닛을 1턴 공격 봉쇄.",
+      "effect": {
+        "kind": "freeze_strongest",
+        "turns": 1
+      }
+    }
+  },
+  "v34_cycle_unit_099": {
+    "phase": "eclipse",
+    "profileName": "개기일식 취약 반응형",
+    "label": "엄브라 증폭",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": -1,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "암영 말소",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 상대 묘지 메인 덱 카드 1장 말소.",
+      "effect": {
+        "kind": "banish_enemy_grave",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_101": {
+    "phase": "eclipse",
+    "profileName": "암영 동조",
+    "label": "엄브라 증폭",
+    "attack": 2,
+    "health": 1,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "식광 탈취",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 상대 ENERGY 최대 1 강탈.",
+      "effect": {
+        "kind": "steal_energy",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_102": {
+    "phase": "eclipse",
+    "profileName": "개기일식 취약 반응형",
+    "label": "식광 폭주",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": -1,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "암영 말소",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 상대 묘지 메인 덱 카드 1장 말소.",
+      "effect": {
+        "kind": "banish_enemy_grave",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_104": {
+    "phase": "eclipse",
+    "profileName": "암영 동조",
+    "label": "개기 각성",
+    "attack": 2,
+    "health": 1,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": 0
+  },
+  "v34_cycle_unit_105": {
+    "phase": "eclipse",
+    "profileName": "암영 동조",
+    "label": "개기 각성",
+    "attack": 2,
+    "health": 1
+  },
+  "v34_cycle_unit_106": {
+    "phase": "eclipse",
+    "profileName": "개기일식 취약 반응형",
+    "label": "엄브라 증폭",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": -1,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "흑일 흡수",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 상대 코어 2 피해 후 그만큼 내 코어 회복.",
+      "effect": {
+        "kind": "drain_core",
+        "amount": 2
+      }
+    }
+  },
+  "v34_cycle_unit_108": {
+    "phase": "eclipse",
+    "profileName": "식광 공명",
+    "label": "식광 폭주",
+    "attack": 2,
+    "health": 2,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "개기 고정",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 자동 시간 이동 1턴 고정.",
+      "effect": {
+        "kind": "phase_lock",
+        "turns": 1
+      }
+    }
+  },
+  "v34_cycle_unit_110": {
+    "phase": "eclipse",
+    "profileName": "개기 반응",
+    "label": "엄브라 증폭",
+    "attack": 2,
+    "health": 2,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": 0,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "흑일 흡수",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 상대 코어 2 피해 후 그만큼 내 코어 회복.",
+      "effect": {
+        "kind": "drain_core",
+        "amount": 2
+      }
+    }
+  },
+  "v34_cycle_unit_112": {
+    "phase": "eclipse",
+    "profileName": "암영 동조",
+    "label": "식광 폭주",
+    "attack": 2,
+    "health": 2,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": 0
+  },
+  "v34_cycle_unit_113": {
+    "phase": "eclipse",
+    "profileName": "식광 공명",
+    "label": "개기 각성",
+    "attack": 3,
+    "health": 2,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "암영 말소",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 상대 묘지 메인 덱 카드 1장 말소.",
+      "effect": {
+        "kind": "banish_enemy_grave",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_114": {
+    "phase": "eclipse",
+    "profileName": "개기 반응",
+    "label": "엄브라 증폭",
+    "attack": 3,
+    "health": 2,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": -1,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "개기 고정",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 자동 시간 이동 1턴 고정.",
+      "effect": {
+        "kind": "phase_lock",
+        "turns": 1
+      }
+    }
+  },
+  "v34_cycle_unit_116": {
+    "phase": "eclipse",
+    "profileName": "암영 동조",
+    "label": "엄브라 증폭",
+    "attack": 3,
+    "health": 2
+  },
+  "v34_cycle_unit_117": {
+    "phase": "eclipse",
+    "profileName": "개기일식 취약 반응형",
+    "label": "식광 폭주",
+    "attack": 0,
+    "health": 0,
+    "weakPhase": "dawn",
+    "weakAttack": -1,
+    "weakHealth": -1,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "암영 말소",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 상대 묘지 메인 덱 카드 1장 말소.",
+      "effect": {
+        "kind": "banish_enemy_grave",
+        "amount": 1
+      }
+    }
+  },
+  "v34_cycle_unit_118": {
+    "phase": "eclipse",
+    "profileName": "식광 공명",
+    "label": "개기 각성",
+    "attack": 4,
+    "health": 2,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "개기 고정",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 자동 시간 이동 1턴 고정.",
+      "effect": {
+        "kind": "phase_lock",
+        "turns": 1
+      }
+    }
+  },
+  "v34_cycle_unit_119": {
+    "phase": "eclipse",
+    "profileName": "식광 공명",
+    "label": "개기 각성",
+    "attack": 4,
+    "health": 2,
+    "pulse": {
+      "phase": "eclipse",
+      "name": "흑일 흡수",
+      "description": "개기일식 진입 또는 개기일식에서 등장 시 상대 코어 2 피해 후 그만큼 내 코어 회복.",
+      "effect": {
+        "kind": "drain_core",
+        "amount": 2
+      }
+    }
+  }
+};
+
+function v34jTemporalStatText(attack = 0, health = 0): string {
+  const parts: string[] = [];
+  if (attack) parts.push(`ATK ${attack > 0 ? '+' : ''}${attack}`);
+  if (health) parts.push(`DEF ${health > 0 ? '+' : ''}${health}`);
+  return parts.length ? parts.join(' / ') : '능력치 변화 없음';
+}
+
+for (const [cardId, profile] of Object.entries(V34J_EXISTING_TEMPORAL_PROFILES)) {
+  const card = CARDS.find((item) => item.id === cardId);
+  if (!card || card.kind !== 'unit') continue;
+  // Existing v34i profiles are intentionally not in this map, so this never replaces an authored rule.
+  card.eclipseAffinity = profile.phase;
+  const modifiers: Partial<Record<EclipsePhase, EclipsePhaseModifier>> = {};
+  if ((profile.attack ?? 0) !== 0 || (profile.health ?? 0) !== 0) {
+    modifiers[profile.phase] = { attack: profile.attack ?? 0, health: profile.health ?? 0, label: profile.label };
+  }
+  if (profile.weakPhase) {
+    modifiers[profile.weakPhase] = {
+      attack: profile.weakAttack ?? 0,
+      health: profile.weakHealth ?? 0,
+      label: `${ECLIPSE_PHASE_LABEL[profile.weakPhase]} 취약`,
+    };
+  }
+  card.eclipsePhaseModifiers = modifiers;
+  card.temporalProfileName = profile.profileName;
+  card.eclipsePhasePulses = profile.pulse ? [profile.pulse] : undefined;
+
+  const ruleParts: string[] = [];
+  if ((profile.attack ?? 0) !== 0 || (profile.health ?? 0) !== 0) {
+    ruleParts.push(`${ECLIPSE_PHASE_LABEL[profile.phase]} [${profile.label}]: ${v34jTemporalStatText(profile.attack, profile.health)}`);
+  }
+  if (profile.weakPhase) {
+    ruleParts.push(`${ECLIPSE_PHASE_LABEL[profile.weakPhase]} [${ECLIPSE_PHASE_LABEL[profile.weakPhase]} 취약]: ${v34jTemporalStatText(profile.weakAttack, profile.weakHealth)}`);
+  }
+  let temporalText = `【시간 반응 · ${profile.profileName}】 ${ruleParts.join('. ')}. 표기되지 않은 시간대는 중립.`;
+  if (profile.pulse) temporalText += ` 【시간 발동 · ${profile.pulse.name}】 ${profile.pulse.description}`;
+  card.text = `${card.text} ${temporalText}`.trim();
+}
+// === /v34j ==================================================================
 
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));
 

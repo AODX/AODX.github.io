@@ -1,6 +1,6 @@
 import type { CardDefinition } from './game-data';
 
-/** ECLIPSE DUEL v34i: original 200 ECLIPSE CYCLE cards. No new cards; 48/120 existing units receive authored temporal reactions. */
+/** ECLIPSE DUEL v34j: original 200 ECLIPSE CYCLE cards. No new cards; 48 profiles are authored here and the remaining selected existing profiles are added centrally in game-data.ts. */
 export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
   {
     "id": "v34_cycle_unit_001",

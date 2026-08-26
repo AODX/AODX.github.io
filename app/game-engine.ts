@@ -562,7 +562,7 @@ function eclipseDistance(a: EclipsePhase, b: EclipsePhase): number {
 function desiredEclipseModifier(card: CardDefinition | undefined, phase: EclipsePhase): { attack: number; health: number; resonance: 'resonant' | 'neutral' | 'strained' } {
   if (!card || !isUnitCard(card)) return { attack: 0, health: 0, resonance: 'neutral' };
 
-  // v34i: 48/120 original ECLIPSE CYCLE units have authored reactions; unlisted cards stay neutral.
+  // v34j: 203/508 existing units have authored reactions; unlisted cards stay neutral.
   // Unlisted phases are deliberately neutral, so a card can be buff-only, debuff-only,
   // or have a completely asymmetric risk/reward profile instead of inheriting one global rule.
   if (card.eclipsePhaseModifiers) {
@@ -575,7 +575,7 @@ function desiredEclipseModifier(card: CardDefinition | undefined, phase: Eclipse
     return { attack, health, resonance: hasPenalty ? 'strained' : hasBonus ? 'resonant' : 'neutral' };
   }
 
-  // v34i: only the selected existing cards with an authored profile react with persistent stats.
+  // v34j: only authored existing cards with a temporal profile react with persistent stats.
   // eclipseAffinity still identifies the card's thematic time for ordinary ECLIPSE CYCLE effects,
   // but it no longer gives every unit an automatic global buff/debuff.
   return { attack: 0, health: 0, resonance: 'neutral' };
