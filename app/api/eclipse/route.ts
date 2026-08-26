@@ -3,6 +3,7 @@ import {
   validateDeck,
   validateExtraDeck,
 } from '../../game-data';
+import { V34_BATTLE_EMOTE_BY_ID, V34_BATTLE_EMOTE_PACK_BY_ID } from '../../v34-emotes';
 import {
   GameSnapshot,
   PrivateState,
@@ -17,6 +18,7 @@ import {
   respondTrap,
   sacrificeHandForEnergy,
   sacrificeFieldUnitForEnergy,
+  sendBattleEmote,
   spendEnergyToDraw,
   summonExtra,
   surrender,
@@ -65,6 +67,32 @@ const PRIVATE_ROOM_MEMBER_LIMIT = 10;
 
 const MATCH_PRESENCE_TTL_MS = 20_000;
 const MATCH_PRESENCE_STALE_CUTOFF = () => new Date(Date.now() - MATCH_PRESENCE_TTL_MS).toISOString();
+
+
+async function readEmoteLoadout(db: UserDbClient | AdminDbClient, userId: string, fallbackOwned: string[] = []): Promise<string[]> {
+  const { data, error } = await db.from('eclipse_emote_loadouts').select('emote_ids').eq('user_id', userId).maybeSingle();
+  if (error) {
+    if (/eclipse_emote_loadouts|does not exist|schema cache/i.test(error.message)) return fallbackOwned.slice(0, 6);
+    throw new Error(error.message);
+  }
+  const ids = Array.isArray(data?.emote_ids) ? data.emote_ids.map(String) : [];
+  return ids.filter((id) => Boolean(V34_BATTLE_EMOTE_BY_ID[id])).slice(0, 6);
+}
+
+function chatEmoteIds(message: string): string[] {
+  const ids = [...message.matchAll(/:([a-z0-9_]+):/g)].map((match) => match[1]);
+  return [...new Set(ids.filter((id) => Boolean(V34_BATTLE_EMOTE_BY_ID[id])))];
+}
+
+async function assertChatEmotesEquipped(db: UserDbClient | AdminDbClient, userId: string, message: string): Promise<void> {
+  const requested = chatEmoteIds(message);
+  if (!requested.length) return;
+  const { data: ownedRows, error: ownedError } = await db.from('eclipse_battle_emotes').select('emote_id').eq('user_id', userId);
+  if (ownedError) throw new Error(ownedError.message);
+  const owned = (ownedRows ?? []).map((row: { emote_id: string }) => row.emote_id);
+  const loadout = await readEmoteLoadout(db, userId, owned);
+  if (requested.some((id) => !loadout.includes(id))) throw new Error('현재 장착한 6개 이모티콘만 채팅에서 사용할 수 있습니다. 상점 → 감정표현에서 장착을 변경해 주세요.');
+}
 
 async function touchMatchPresence(admin: AdminDbClient, userId: string): Promise<void> {
   const { error } = await admin
@@ -567,6 +595,13 @@ async function getHub(admin: UserDbClient | AdminDbClient, userId: string) {
   const cosmeticsMissing = Boolean(cosmeticsResult.error && /eclipse_profile_cosmetics|does not exist|schema cache/i.test(cosmeticsResult.error.message));
   if (cosmeticsResult.error && !cosmeticsMissing) throw new Error(cosmeticsResult.error.message);
 
+  const battleEmotesResult = await admin.from('eclipse_battle_emotes').select('emote_id').eq('user_id', userId);
+  const battleEmotesMissing = Boolean(battleEmotesResult.error && /eclipse_battle_emotes|does not exist|schema cache/i.test(battleEmotesResult.error.message));
+  if (battleEmotesResult.error && !battleEmotesMissing) throw new Error(battleEmotesResult.error.message);
+
+  const ownedBattleEmotes = battleEmotesMissing ? [] : (battleEmotesResult.data ?? []).map((row: { emote_id: string }) => row.emote_id);
+  const emoteLoadout = await readEmoteLoadout(admin, userId, ownedBattleEmotes);
+
   const friendIds = (friendsResult.data ?? []).map((row: { friend_id: string }) => row.friend_id);
   let friendProfiles: unknown[] = [];
   if (friendIds.length > 0) {
@@ -602,6 +637,8 @@ async function getHub(admin: UserDbClient | AdminDbClient, userId: string) {
     friends: friendProfiles,
     requestProfiles,
     profileCosmetics: cosmeticsMissing ? [] : (cosmeticsResult.data ?? []).map((row: { cosmetic_id: string }) => row.cosmetic_id),
+    battleEmotes: ownedBattleEmotes,
+    emoteLoadout,
   };
 }
 
@@ -924,11 +961,18 @@ async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: strin
     }
   }
 
+  const battleEmotesResult = await admin.from('eclipse_battle_emotes').select('emote_id').eq('user_id', userId);
+  const battleEmotesMissing = Boolean(battleEmotesResult.error && /eclipse_battle_emotes|does not exist|schema cache/i.test(battleEmotesResult.error.message));
+  if (battleEmotesResult.error && !battleEmotesMissing) throw new Error(battleEmotesResult.error.message);
+  const ownedBattleEmotes = battleEmotesMissing ? [] : (battleEmotesResult.data ?? []).map((row: { emote_id: string }) => row.emote_id);
+  const emoteLoadout = await readEmoteLoadout(admin, userId, ownedBattleEmotes);
+
   return {
     room: currentRoom,
     profiles: profiles ?? [],
     privateState,
     spectatorHands,
+    battleEmotes: emoteLoadout,
     members: memberIds.map((memberId) => ({
       user_id: memberId,
       role: memberId === currentRoom.host_id ? 'player_a' : memberId === currentRoom.guest_id ? 'player_b' : 'spectator',
@@ -1139,6 +1183,42 @@ async function handleAction(request: Request, body: RequestBody) {
     return { hub: await getHub(client, user.id) };
   }
 
+  if (action === 'buy_battle_emote') {
+    const emoteId = cleanText(body.emoteId, 80);
+    if (!V34_BATTLE_EMOTE_BY_ID[emoteId]) throw new Error('존재하지 않는 감정표현입니다.');
+    const { error } = await client.rpc('eclipse_buy_battle_emote_v34', { p_emote_id: emoteId });
+    if (error) {
+      if (/eclipse_buy_battle_emote_v34|schema cache|does not exist/i.test(error.message)) throw new Error('v34c 감정표현 DB 업그레이드가 필요합니다. sql/20_V34C_EMOTE_LOADOUT_NIKKE_TRICKCAL.sql을 한 번 실행해 주세요.');
+      throw new Error(error.message);
+    }
+    return { hub: await getHub(client, user.id) };
+  }
+
+  if (action === 'buy_battle_emote_pack') {
+    const packId = cleanText(body.packId, 80);
+    if (!V34_BATTLE_EMOTE_PACK_BY_ID[packId]) throw new Error('존재하지 않는 감정표현 세트입니다.');
+    const { error } = await client.rpc('eclipse_buy_battle_emote_pack_v34', { p_pack_id: packId });
+    if (error) {
+      if (/eclipse_buy_battle_emote_pack_v34|schema cache|does not exist/i.test(error.message)) throw new Error('v34c 감정표현 DB 업그레이드가 필요합니다. sql/20_V34C_EMOTE_LOADOUT_NIKKE_TRICKCAL.sql을 한 번 실행해 주세요.');
+      throw new Error(error.message);
+    }
+    return { hub: await getHub(client, user.id) };
+  }
+
+  if (action === 'set_emote_loadout') {
+    const rawIds = Array.isArray(body.emoteIds) ? body.emoteIds : [];
+    const emoteIds = rawIds.map((value) => cleanText(value, 80)).filter(Boolean);
+    if (emoteIds.length > 6) throw new Error('이모티콘은 최대 6개까지만 장착할 수 있습니다.');
+    if (new Set(emoteIds).size !== emoteIds.length) throw new Error('같은 이모티콘을 중복 장착할 수 없습니다.');
+    if (emoteIds.some((id) => !V34_BATTLE_EMOTE_BY_ID[id])) throw new Error('현재 사용할 수 없는 이모티콘이 포함되어 있습니다.');
+    const { error } = await client.rpc('eclipse_set_emote_loadout_v34', { p_emote_ids: emoteIds });
+    if (error) {
+      if (/eclipse_set_emote_loadout_v34|schema cache|does not exist/i.test(error.message)) throw new Error('v34c 감정표현 DB 업그레이드가 필요합니다. sql/20_V34C_EMOTE_LOADOUT_NIKKE_TRICKCAL.sql을 한 번 실행해 주세요.');
+      throw new Error(error.message);
+    }
+    return { hub: await getHub(client, user.id) };
+  }
+
   if (action === 'equip_profile_cosmetic') {
     const cosmeticId = cleanText(body.cosmeticId, 40);
     const { error } = await client.rpc('eclipse_equip_profile_cosmetic_v26', { p_cosmetic_id: cosmeticId });
@@ -1152,6 +1232,7 @@ async function handleAction(request: Request, body: RequestBody) {
   if (action === 'send_global_message') {
     const message = cleanText(body.message, 180);
     if (!message) throw new Error('메시지를 입력하세요.');
+    await assertChatEmotesEquipped(client, user.id, message);
     const { error } = await client.rpc('eclipse_send_global_message_v25', { p_body: message });
     if (error) {
       if (/eclipse_send_global_message_v25|schema cache|does not exist/i.test(error.message)) throw new Error('v25 글로벌 채팅 DB 업그레이드가 필요합니다. sql/05_V25_SERIES_PACKS_CHAT.sql을 한 번 실행해 주세요.');
@@ -1558,6 +1639,19 @@ async function handleAction(request: Request, body: RequestBody) {
       next = sacrificeFieldUnitForEnergy(snapshot, user.id, unitIndex);
     } else if (gameAction === 'energy_draw') {
       next = spendEnergyToDraw(snapshot, user.id);
+    } else if (gameAction === 'battle_emote') {
+      const emoteId = cleanText(body.emoteId, 80);
+      if (!V34_BATTLE_EMOTE_BY_ID[emoteId]) throw new Error('존재하지 않는 감정표현입니다.');
+      const { data: ownedRows, error: ownedError } = await admin.from('eclipse_battle_emotes').select('emote_id').eq('user_id', user.id);
+      if (ownedError) {
+        if (/eclipse_battle_emotes|does not exist|schema cache/i.test(ownedError.message)) throw new Error('v34 감정표현 DB 업그레이드가 필요합니다. sql/19_V34_ECLIPSE_CYCLE_EMOTES_200.sql을 실행해 주세요.');
+        throw new Error(ownedError.message);
+      }
+      const ownedIds = (ownedRows ?? []).map((row: { emote_id: string }) => row.emote_id);
+      if (!ownedIds.includes(emoteId)) throw new Error('상점에서 구매한 감정표현만 사용할 수 있습니다.');
+      const loadout = await readEmoteLoadout(admin, user.id, ownedIds);
+      if (!loadout.includes(emoteId)) throw new Error('현재 장착한 6개 이모티콘만 대전에서 사용할 수 있습니다. 상점 → 감정표현에서 장착을 변경해 주세요.');
+      next = sendBattleEmote(snapshot, user.id, emoteId);
     } else if (gameAction === 'end_turn') {
       next = endTurn(snapshot, user.id);
     } else if (gameAction === 'surrender') {
@@ -1582,6 +1676,7 @@ async function handleAction(request: Request, body: RequestBody) {
     const roomId = cleanText(body.roomId, 64);
     const message = cleanText(body.message, 180);
     if (!message) throw new Error('메시지를 입력하세요.');
+    await assertChatEmotesEquipped(client, user.id, message);
     const { error } = await client.rpc('eclipse_send_room_message_v5', {
       p_room_id: roomId,
       p_body: message,
