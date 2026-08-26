@@ -773,7 +773,10 @@ function eclipseAffinityRule(card: CardDefinition): string {
         health !== 0 ? `DEF ${health > 0 ? '+' : ''}${health}` : '',
       ].filter(Boolean).join(' · ') || '능력치 변화 없음';
       const polarity = attack < 0 || health < 0 ? '디버프' : attack > 0 || health > 0 ? '버프' : '중립';
-      return [`${ECLIPSE_PHASE_LABEL[phase]} [${modifier.label ?? '시간 반응'}] ${stats} (${polarity})`];
+      const extremeResult = card.temporalProfileName?.startsWith('극시공')
+        ? ` → 최종 ${Math.max(0, (card.attack ?? 0) + attack)}/${Math.max(1, (card.health ?? 1) + health)}`
+        : '';
+      return [`${ECLIPSE_PHASE_LABEL[phase]} [${modifier.label ?? '시간 반응'}] ${stats}${extremeResult} (${polarity})`];
     });
     return `【시간 반응 · ${card.temporalProfileName ?? '개별 반응'}】 ${entries.join(' / ')}. 표기되지 않은 시간대는 중립.`;
   }
@@ -806,7 +809,7 @@ function polishedCardText(card: CardDefinition): string {
 
 function RuleText({ text, compact = false }: { text: string; compact?: boolean }) {
   const source = text || '';
-  const tokenPattern = /(【[^】]+】|ENERGY|코어|보호막|공격력|체력|수호|속공|흡수|관통|직격|공명 융합|계승 진화|균열 소환|전설 특수 소환|ECLIPSE CYCLE|TIME GATE|시간 친화|시간 강화|시간 취약|시간 반응|시간대 소환|시간역행|\+\d+|−\d+|-\d+|\d+\/\d+|\d+장|\d+체|\d+의 피해|\d+ 피해|\d+ 회복)/g;
+  const tokenPattern = /(【[^】]+】|ENERGY|코어|보호막|공격력|체력|수호|속공|흡수|관통|직격|공명 융합|계승 진화|균열 소환|전설 특수 소환|ECLIPSE CYCLE|TIME GATE|시간 친화|시간 강화|시간 취약|시간 반응|시간대 소환|시간역행|극시공|시간 폭발|기능 정지|\+\d+|−\d+|-\d+|\d+\/\d+|\d+장|\d+체|\d+의 피해|\d+ 피해|\d+ 회복)/g;
   return <span className={`v31l-rule-text ${compact ? 'compact' : ''}`}>{source.split(tokenPattern).filter(Boolean).map((part, index) => {
     const keyword = /^(【|수호$|속공$|흡수$|관통$|직격$|공명 융합$|계승 진화$|균열 소환$|전설 특수 소환$)/.test(part);
     const number = /^(\+|−|-)?\d|\d+장$|\d+체$/.test(part);

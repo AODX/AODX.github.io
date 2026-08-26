@@ -396,6 +396,23 @@ function actionBias(snapshot: GameSnapshot, botId: string, action: PracticeBotAc
     const cardId = snapshot.privateStates[botId]?.hand.find((instance) => instance.instanceId === instanceId)?.cardId;
     const card = cardId ? CARD_BY_ID[cardId] : undefined;
     const temporalKind = card?.effect?.kind?.startsWith('phase_') || card?.onSummon?.kind?.startsWith('phase_');
+    const currentPhase = state.eclipsePhase ?? 'dawn';
+    if (card?.temporalProfileName?.startsWith('극시공')) {
+      // Extreme temporal units are intentionally awful outside their one payoff window.
+      // Hard/normal practice bots therefore save them for the matching phase instead of
+      // treating a 6~9 ENERGY 0/1 body as a normal curve play.
+      return card.eclipseAffinity === currentPhase ? 42 : -34;
+    }
+    const phaseSetter = card?.effect?.kind === 'phase_set' ? card.effect.phase
+      : card?.onSummon?.kind === 'phase_set' ? card.onSummon.phase
+      : null;
+    if (phaseSetter) {
+      const waitingExtremes = snapshot.privateStates[botId]?.hand.filter((instance) => {
+        const held = CARD_BY_ID[instance.cardId];
+        return held?.temporalProfileName?.startsWith('극시공') && held.eclipseAffinity === phaseSetter;
+      }).length ?? 0;
+      if (waitingExtremes > 0) return 18 + waitingExtremes * 12;
+    }
     if (card?.effect?.kind === 'phase_lock') {
       const ownResonant = state.boards[botId]?.units.filter((unit) => unit?.eclipseResonance === 'resonant').length ?? 0;
       const enemyResonant = state.boards[opponentId]?.units.filter((unit) => unit?.eclipseResonance === 'resonant').length ?? 0;

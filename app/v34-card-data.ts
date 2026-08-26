@@ -1,6 +1,6 @@
 import type { CardDefinition } from './game-data';
 
-/** ECLIPSE DUEL v34: 200 ECLIPSE CYCLE cards. */
+/** ECLIPSE DUEL v34g: 215 ECLIPSE CYCLE cards. Includes 15 extreme temporal specialists. */
 export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
   {
     "id": "v34_cycle_unit_001",
@@ -9341,5 +9341,928 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       }
     },
     "temporalProfileName": "TIME GATE 초공명"
+  },
+  {
+    "id": "v34_cycle_unit_121",
+    "name": "깨진 새벽병기 · 헤메라-0",
+    "subtitle": "극시공 실험체 · 여명 폭주형",
+    "kind": "unit",
+    "rarity": "epic",
+    "element": "solar",
+    "cost": 5,
+    "attack": 1,
+    "health": 2,
+    "unitType": "artificer",
+    "target": "none",
+    "text": "【극시공 · 여명】 기본 능력치는 1/2이며 현재 시간대가 여명이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 여명에서는 [새벽 봉인 해제] ATK +8 / DEF +5로 폭발적으로 강화됩니다. 【시간 폭발】 여명에서 등장하면 ENERGY 2 회복. 상시 키워드: 속공.",
+    "flavor": "동이 트기 전까지는 폐기물. 첫 빛이 닿는 순간에만 설계도가 완성된다.",
+    "sigil": "☀",
+    "comboTag": "극시공 실험체",
+    "eclipseAffinity": "dawn",
+    "onSummon": {
+      "kind": "phase_gain_energy",
+      "phase": "dawn",
+      "base": 0,
+      "bonus": 2
+    },
+    "keywords": [
+      "charge"
+    ],
+    "vfx": {
+      "summon": "v34-cycle-dawn",
+      "activation": "v34-phase-dawn"
+    },
+    "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": 8,
+        "health": 5,
+        "label": "새벽 봉인 해제"
+      },
+      "zenith": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "dusk": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "midnight": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "eclipse": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      }
+    },
+    "temporalProfileName": "극시공 · 여명 폭주"
+  },
+  {
+    "id": "v34_cycle_unit_122",
+    "name": "일출 전용 성채 · 아침성",
+    "subtitle": "극시공 실험체 · 여명 요새형",
+    "kind": "unit",
+    "rarity": "rare",
+    "element": "neutral",
+    "cost": 6,
+    "attack": 1,
+    "health": 2,
+    "unitType": "relic",
+    "target": "none",
+    "text": "【극시공 · 여명】 기본 능력치는 1/2이며 현재 시간대가 여명이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 여명에서는 [새벽 봉인 해제] ATK +5 / DEF +10로 폭발적으로 강화됩니다. 【시간 폭발】 여명에서 등장하면 아군 전체 보호막 +3. 상시 키워드: 수호.",
+    "flavor": "밤에는 문짝 하나 못 막는다. 그러나 해가 뜨면 성벽 전체가 깨어난다.",
+    "sigil": "◒",
+    "comboTag": "극시공 실험체",
+    "eclipseAffinity": "dawn",
+    "onSummon": {
+      "kind": "phase_mass_shield",
+      "phase": "dawn",
+      "base": 0,
+      "bonus": 3
+    },
+    "keywords": [
+      "guard"
+    ],
+    "vfx": {
+      "summon": "v34-cycle-dawn",
+      "activation": "v34-phase-dawn"
+    },
+    "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": 5,
+        "health": 10,
+        "label": "새벽 봉인 해제"
+      },
+      "zenith": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "dusk": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "midnight": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "eclipse": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      }
+    },
+    "temporalProfileName": "극시공 · 여명 요새"
+  },
+  {
+    "id": "v34_cycle_unit_123",
+    "name": "여명 최종집행자 · FIRST RAY",
+    "subtitle": "극시공 실험체 · 여명 종결형",
+    "kind": "unit",
+    "rarity": "legendary",
+    "element": "storm",
+    "cost": 8,
+    "attack": 1,
+    "health": 2,
+    "unitType": "hunter",
+    "target": "none",
+    "text": "【극시공 기동】 릴리스 없이 특수 소환 가능. 【극시공 · 여명】 기본 능력치는 1/2이며 현재 시간대가 여명이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 여명에서는 [새벽 봉인 해제] ATK +11 / DEF +7로 폭발적으로 강화됩니다. 【시간 폭발】 여명에서 등장하면 상대 코어 4 피해. 상시 키워드: 관통 · 직격.",
+    "flavor": "첫 광선이 내려오는 한순간만을 위해 모든 기능을 포기한 처형 장치.",
+    "sigil": "✦",
+    "comboTag": "극시공 실험체",
+    "eclipseAffinity": "dawn",
+    "onSummon": {
+      "kind": "phase_damage_core",
+      "phase": "dawn",
+      "base": 0,
+      "bonus": 4
+    },
+    "keywords": [
+      "pierce",
+      "corestrike"
+    ],
+    "vfx": {
+      "summon": "v34-cycle-dawn",
+      "activation": "v34-phase-dawn"
+    },
+    "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": 11,
+        "health": 7,
+        "label": "새벽 봉인 해제"
+      },
+      "zenith": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "dusk": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "midnight": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "eclipse": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      }
+    },
+    "temporalProfileName": "극시공 · 여명 종결",
+    "summonMode": "legendary",
+    "legendarySummonRule": {
+      "name": "극시공 기동",
+      "label": "릴리스 없이 특수 소환할 수 있습니다. 단, 지정 시간대가 아니면 사실상 0/1 성능입니다.",
+      "release": "none"
+    }
+  },
+  {
+    "id": "v34_cycle_unit_124",
+    "name": "정오 과열체 · SOL-13",
+    "subtitle": "극시공 실험체 · 정점 폭주형",
+    "kind": "unit",
+    "rarity": "epic",
+    "element": "solar",
+    "cost": 5,
+    "attack": 1,
+    "health": 2,
+    "unitType": "artificer",
+    "target": "none",
+    "text": "【극시공 · 정점】 기본 능력치는 1/2이며 현재 시간대가 정점이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 정점에서는 [정오 노심 해방] ATK +9 / DEF +4로 폭발적으로 강화됩니다. 【시간 폭발】 정점에서 등장하면 ENERGY 2 회복. 상시 키워드: 속공.",
+    "flavor": "그늘에서는 멈추고, 태양이 머리 위에 오르면 노심이 폭발한다.",
+    "sigil": "☼",
+    "comboTag": "극시공 실험체",
+    "eclipseAffinity": "zenith",
+    "onSummon": {
+      "kind": "phase_gain_energy",
+      "phase": "zenith",
+      "base": 0,
+      "bonus": 2
+    },
+    "keywords": [
+      "charge"
+    ],
+    "vfx": {
+      "summon": "v34-cycle-zenith",
+      "activation": "v34-phase-zenith"
+    },
+    "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "zenith": {
+        "attack": 9,
+        "health": 4,
+        "label": "정오 노심 해방"
+      },
+      "dusk": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "midnight": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "eclipse": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      }
+    },
+    "temporalProfileName": "극시공 · 정점 폭주"
+  },
+  {
+    "id": "v34_cycle_unit_125",
+    "name": "천정 고철거인 · MERIDIAN",
+    "subtitle": "극시공 실험체 · 정점 요새형",
+    "kind": "unit",
+    "rarity": "rare",
+    "element": "neutral",
+    "cost": 6,
+    "attack": 1,
+    "health": 2,
+    "unitType": "artificer",
+    "target": "none",
+    "text": "【극시공 · 정점】 기본 능력치는 1/2이며 현재 시간대가 정점이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 정점에서는 [정오 노심 해방] ATK +5 / DEF +11로 폭발적으로 강화됩니다. 【시간 폭발】 정점에서 등장하면 아군 전체 보호막 +3. 상시 키워드: 수호.",
+    "flavor": "평소에는 움직이지 않는 고철 더미. 정오에는 전장을 가르는 이동 요새.",
+    "sigil": "▣",
+    "comboTag": "극시공 실험체",
+    "eclipseAffinity": "zenith",
+    "onSummon": {
+      "kind": "phase_mass_shield",
+      "phase": "zenith",
+      "base": 0,
+      "bonus": 3
+    },
+    "keywords": [
+      "guard"
+    ],
+    "vfx": {
+      "summon": "v34-cycle-zenith",
+      "activation": "v34-phase-zenith"
+    },
+    "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "zenith": {
+        "attack": 5,
+        "health": 11,
+        "label": "정오 노심 해방"
+      },
+      "dusk": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "midnight": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "eclipse": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      }
+    },
+    "temporalProfileName": "극시공 · 정점 요새"
+  },
+  {
+    "id": "v34_cycle_unit_126",
+    "name": "무결점 포격핵 · NOON/0",
+    "subtitle": "극시공 실험체 · 정점 종결형",
+    "kind": "unit",
+    "rarity": "legendary",
+    "element": "storm",
+    "cost": 8,
+    "attack": 1,
+    "health": 2,
+    "unitType": "hunter",
+    "target": "none",
+    "text": "【극시공 기동】 릴리스 없이 특수 소환 가능. 【극시공 · 정점】 기본 능력치는 1/2이며 현재 시간대가 정점이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 정점에서는 [정오 노심 해방] ATK +12 / DEF +5로 폭발적으로 강화됩니다. 【시간 폭발】 정점에서 등장하면 상대 코어 5 피해. 상시 키워드: 관통 · 직격.",
+    "flavor": "오차가 허용되는 시간은 단 하나, 그림자가 가장 짧아지는 순간뿐이다.",
+    "sigil": "◎",
+    "comboTag": "극시공 실험체",
+    "eclipseAffinity": "zenith",
+    "onSummon": {
+      "kind": "phase_damage_core",
+      "phase": "zenith",
+      "base": 0,
+      "bonus": 5
+    },
+    "keywords": [
+      "pierce",
+      "corestrike"
+    ],
+    "vfx": {
+      "summon": "v34-cycle-zenith",
+      "activation": "v34-phase-zenith"
+    },
+    "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "zenith": {
+        "attack": 12,
+        "health": 5,
+        "label": "정오 노심 해방"
+      },
+      "dusk": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "midnight": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "eclipse": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      }
+    },
+    "temporalProfileName": "극시공 · 정점 종결",
+    "summonMode": "legendary",
+    "legendarySummonRule": {
+      "name": "극시공 기동",
+      "label": "릴리스 없이 특수 소환할 수 있습니다. 단, 지정 시간대가 아니면 사실상 0/1 성능입니다.",
+      "release": "none"
+    }
+  },
+  {
+    "id": "v34_cycle_unit_127",
+    "name": "잔광 폐기기사 · VESPER",
+    "subtitle": "극시공 실험체 · 황혼 흡수형",
+    "kind": "unit",
+    "rarity": "epic",
+    "element": "void",
+    "cost": 5,
+    "attack": 1,
+    "health": 2,
+    "unitType": "artificer",
+    "target": "none",
+    "text": "【극시공 · 황혼】 기본 능력치는 1/2이며 현재 시간대가 황혼이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 황혼에서는 [잔광 폭주] ATK +8 / DEF +6로 폭발적으로 강화됩니다. 【시간 폭발】 황혼에서 등장하면 코어 4 회복. 상시 키워드: 흡수.",
+    "flavor": "낮에는 녹슨 갑옷, 밤에는 빈 껍데기. 해가 지는 동안만 피를 되찾는다.",
+    "sigil": "◓",
+    "comboTag": "극시공 실험체",
+    "eclipseAffinity": "dusk",
+    "onSummon": {
+      "kind": "phase_heal_core",
+      "phase": "dusk",
+      "base": 0,
+      "bonus": 4
+    },
+    "keywords": [
+      "lifesteal"
+    ],
+    "vfx": {
+      "summon": "v34-cycle-dusk",
+      "activation": "v34-phase-dusk"
+    },
+    "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "zenith": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "dusk": {
+        "attack": 8,
+        "health": 6,
+        "label": "잔광 폭주"
+      },
+      "midnight": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "eclipse": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      }
+    },
+    "temporalProfileName": "극시공 · 황혼 흡수"
+  },
+  {
+    "id": "v34_cycle_unit_128",
+    "name": "황혼 매장성채 · 석양묘",
+    "subtitle": "극시공 실험체 · 황혼 요새형",
+    "kind": "unit",
+    "rarity": "rare",
+    "element": "lunar",
+    "cost": 6,
+    "attack": 1,
+    "health": 2,
+    "unitType": "relic",
+    "target": "none",
+    "text": "【극시공 · 황혼】 기본 능력치는 1/2이며 현재 시간대가 황혼이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 황혼에서는 [잔광 폭주] ATK +4 / DEF +12로 폭발적으로 강화됩니다. 【시간 폭발】 황혼에서 등장하면 아군 전체 보호막 +3. 상시 키워드: 수호.",
+    "flavor": "빛이 사라지는 속도만큼 장갑이 두꺼워진다. 완전한 밤이 오면 다시 무너진다.",
+    "sigil": "▤",
+    "comboTag": "극시공 실험체",
+    "eclipseAffinity": "dusk",
+    "onSummon": {
+      "kind": "phase_mass_shield",
+      "phase": "dusk",
+      "base": 0,
+      "bonus": 3
+    },
+    "keywords": [
+      "guard"
+    ],
+    "vfx": {
+      "summon": "v34-cycle-dusk",
+      "activation": "v34-phase-dusk"
+    },
+    "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "zenith": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "dusk": {
+        "attack": 4,
+        "health": 12,
+        "label": "잔광 폭주"
+      },
+      "midnight": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "eclipse": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      }
+    },
+    "temporalProfileName": "극시공 · 황혼 요새"
+  },
+  {
+    "id": "v34_cycle_unit_129",
+    "name": "종언의 잔광검 · LAST LIGHT",
+    "subtitle": "극시공 실험체 · 황혼 종결형",
+    "kind": "unit",
+    "rarity": "legendary",
+    "element": "solar",
+    "cost": 8,
+    "attack": 1,
+    "health": 2,
+    "unitType": "hunter",
+    "target": "none",
+    "text": "【극시공 기동】 릴리스 없이 특수 소환 가능. 【극시공 · 황혼】 기본 능력치는 1/2이며 현재 시간대가 황혼이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 황혼에서는 [잔광 폭주] ATK +11 / DEF +6로 폭발적으로 강화됩니다. 【시간 폭발】 황혼에서 등장하면 상대 코어 4 피해. 상시 키워드: 속공 · 관통.",
+    "flavor": "마지막 빛이 남아 있는 몇 분 동안만 모든 봉인이 풀린다.",
+    "sigil": "✧",
+    "comboTag": "극시공 실험체",
+    "eclipseAffinity": "dusk",
+    "onSummon": {
+      "kind": "phase_damage_core",
+      "phase": "dusk",
+      "base": 0,
+      "bonus": 4
+    },
+    "keywords": [
+      "charge",
+      "pierce"
+    ],
+    "vfx": {
+      "summon": "v34-cycle-dusk",
+      "activation": "v34-phase-dusk"
+    },
+    "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "zenith": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "dusk": {
+        "attack": 11,
+        "health": 6,
+        "label": "잔광 폭주"
+      },
+      "midnight": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "eclipse": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      }
+    },
+    "temporalProfileName": "극시공 · 황혼 종결",
+    "summonMode": "legendary",
+    "legendarySummonRule": {
+      "name": "극시공 기동",
+      "label": "릴리스 없이 특수 소환할 수 있습니다. 단, 지정 시간대가 아니면 사실상 0/1 성능입니다.",
+      "release": "none"
+    }
+  },
+  {
+    "id": "v34_cycle_unit_130",
+    "name": "심야 수면병기 · N-NULL",
+    "subtitle": "극시공 실험체 · 심야 폭주형",
+    "kind": "unit",
+    "rarity": "epic",
+    "element": "lunar",
+    "cost": 5,
+    "attack": 1,
+    "health": 2,
+    "unitType": "artificer",
+    "target": "none",
+    "text": "【극시공 · 심야】 기본 능력치는 1/2이며 현재 시간대가 심야이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 심야에서는 [자정 각성] ATK +9 / DEF +5로 폭발적으로 강화됩니다. 【시간 폭발】 심야에서 등장하면 카드 3장 드로우. 상시 키워드: 속공.",
+    "flavor": "자정 전에는 기동조차 못 한다. 00:00이 되는 순간 전술 데이터가 한꺼번에 깨어난다.",
+    "sigil": "☾",
+    "comboTag": "극시공 실험체",
+    "eclipseAffinity": "midnight",
+    "onSummon": {
+      "kind": "phase_draw",
+      "phase": "midnight",
+      "base": 0,
+      "bonus": 3
+    },
+    "keywords": [
+      "charge"
+    ],
+    "vfx": {
+      "summon": "v34-cycle-midnight",
+      "activation": "v34-phase-midnight"
+    },
+    "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "zenith": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "dusk": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "midnight": {
+        "attack": 9,
+        "health": 5,
+        "label": "자정 각성"
+      },
+      "eclipse": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      }
+    },
+    "temporalProfileName": "극시공 · 심야 폭주"
+  },
+  {
+    "id": "v34_cycle_unit_131",
+    "name": "무월의 관문 · NOCTIS",
+    "subtitle": "극시공 실험체 · 심야 요새형",
+    "kind": "unit",
+    "rarity": "rare",
+    "element": "void",
+    "cost": 6,
+    "attack": 1,
+    "health": 2,
+    "unitType": "relic",
+    "target": "none",
+    "text": "【극시공 · 심야】 기본 능력치는 1/2이며 현재 시간대가 심야이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 심야에서는 [자정 각성] ATK +4 / DEF +12로 폭발적으로 강화됩니다. 【시간 폭발】 심야에서 등장하면 묘지에서 최대 2장 회수. 상시 키워드: 수호.",
+    "flavor": "빛이 사라져야만 문이 열린다. 열린 뒤에는 쓰러진 것들까지 되돌아온다.",
+    "sigil": "◐",
+    "comboTag": "극시공 실험체",
+    "eclipseAffinity": "midnight",
+    "onSummon": {
+      "kind": "phase_recover_grave",
+      "phase": "midnight",
+      "base": 0,
+      "bonus": 2
+    },
+    "keywords": [
+      "guard"
+    ],
+    "vfx": {
+      "summon": "v34-cycle-midnight",
+      "activation": "v34-phase-midnight"
+    },
+    "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "zenith": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "dusk": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "midnight": {
+        "attack": 4,
+        "health": 12,
+        "label": "자정 각성"
+      },
+      "eclipse": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      }
+    },
+    "temporalProfileName": "극시공 · 심야 요새"
+  },
+  {
+    "id": "v34_cycle_unit_132",
+    "name": "자정의 포식왕 · 00:00",
+    "subtitle": "극시공 실험체 · 심야 종결형",
+    "kind": "unit",
+    "rarity": "legendary",
+    "element": "storm",
+    "cost": 8,
+    "attack": 1,
+    "health": 2,
+    "unitType": "hunter",
+    "target": "none",
+    "text": "【극시공 기동】 릴리스 없이 특수 소환 가능. 【극시공 · 심야】 기본 능력치는 1/2이며 현재 시간대가 심야이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 심야에서는 [자정 각성] ATK +12 / DEF +6로 폭발적으로 강화됩니다. 【시간 폭발】 심야에서 등장하면 상대 코어 5 피해. 상시 키워드: 흡수 · 관통.",
+    "flavor": "시계가 자정을 가리키는 순간, 전장은 먹이와 포식자로만 나뉜다.",
+    "sigil": "00",
+    "comboTag": "극시공 실험체",
+    "eclipseAffinity": "midnight",
+    "onSummon": {
+      "kind": "phase_damage_core",
+      "phase": "midnight",
+      "base": 0,
+      "bonus": 5
+    },
+    "keywords": [
+      "lifesteal",
+      "pierce"
+    ],
+    "vfx": {
+      "summon": "v34-cycle-midnight",
+      "activation": "v34-phase-midnight"
+    },
+    "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "zenith": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "dusk": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "midnight": {
+        "attack": 12,
+        "health": 6,
+        "label": "자정 각성"
+      },
+      "eclipse": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      }
+    },
+    "temporalProfileName": "극시공 · 심야 종결",
+    "summonMode": "legendary",
+    "legendarySummonRule": {
+      "name": "극시공 기동",
+      "label": "릴리스 없이 특수 소환할 수 있습니다. 단, 지정 시간대가 아니면 사실상 0/1 성능입니다.",
+      "release": "none"
+    }
+  },
+  {
+    "id": "v34_cycle_unit_133",
+    "name": "일식 봉인체 · BLACK ZERO",
+    "subtitle": "극시공 실험체 · 개기일식 요새형",
+    "kind": "unit",
+    "rarity": "epic",
+    "element": "void",
+    "cost": 6,
+    "attack": 1,
+    "health": 2,
+    "unitType": "relic",
+    "target": "none",
+    "text": "【극시공 · 개기일식】 기본 능력치는 1/2이며 현재 시간대가 개기일식이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 개기일식에서는 [흑일 특이점] ATK +8 / DEF +9로 폭발적으로 강화됩니다. 【시간 폭발】 개기일식에서 등장하면 ENERGY 3 회복. 상시 키워드: 수호.",
+    "flavor": "빛이 남아 있는 동안에는 봉인된 잔해. 태양이 가려지면 봉인이 장갑으로 바뀐다.",
+    "sigil": "◉",
+    "comboTag": "극시공 실험체",
+    "eclipseAffinity": "eclipse",
+    "onSummon": {
+      "kind": "phase_gain_energy",
+      "phase": "eclipse",
+      "base": 0,
+      "bonus": 3
+    },
+    "keywords": [
+      "guard"
+    ],
+    "vfx": {
+      "summon": "v34-cycle-eclipse",
+      "activation": "v34-phase-eclipse"
+    },
+    "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "zenith": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "dusk": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "midnight": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "eclipse": {
+        "attack": 8,
+        "health": 9,
+        "label": "흑일 특이점"
+      }
+    },
+    "temporalProfileName": "극시공 · 흑일 해방"
+  },
+  {
+    "id": "v34_cycle_unit_134",
+    "name": "흑일의 실패작 · CORONA-13",
+    "subtitle": "극시공 실험체 · 개기일식 폭주형",
+    "kind": "unit",
+    "rarity": "rare",
+    "element": "neutral",
+    "cost": 6,
+    "attack": 1,
+    "health": 2,
+    "unitType": "artificer",
+    "target": "none",
+    "text": "【극시공 · 개기일식】 기본 능력치는 1/2이며 현재 시간대가 개기일식이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 개기일식에서는 [흑일 특이점] ATK +10 / DEF +7로 폭발적으로 강화됩니다. 【시간 폭발】 개기일식에서 등장하면 아군 전체 +2/+2. 상시 키워드: 속공.",
+    "flavor": "실패작이라는 평가는 태양이 보일 때만 맞다. 코로나가 번지는 순간 주변까지 변질시킨다.",
+    "sigil": "⊙",
+    "comboTag": "극시공 실험체",
+    "eclipseAffinity": "eclipse",
+    "onSummon": {
+      "kind": "phase_mass_buff",
+      "phase": "eclipse",
+      "attack": 0,
+      "health": 0,
+      "bonusAttack": 2,
+      "bonusHealth": 2
+    },
+    "keywords": [
+      "charge"
+    ],
+    "vfx": {
+      "summon": "v34-cycle-eclipse",
+      "activation": "v34-phase-eclipse"
+    },
+    "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "zenith": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "dusk": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "midnight": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "eclipse": {
+        "attack": 10,
+        "health": 7,
+        "label": "흑일 특이점"
+      }
+    },
+    "temporalProfileName": "극시공 · 코로나 폭주"
+  },
+  {
+    "id": "v34_cycle_unit_135",
+    "name": "관측불가 종말체 · SINGULARITY",
+    "subtitle": "극시공 실험체 · 개기일식 최종형",
+    "kind": "unit",
+    "rarity": "legendary",
+    "element": "void",
+    "cost": 9,
+    "attack": 1,
+    "health": 2,
+    "unitType": "artificer",
+    "target": "none",
+    "text": "【극시공 기동】 릴리스 없이 특수 소환 가능. 【극시공 · 개기일식】 기본 능력치는 1/2이며 현재 시간대가 개기일식이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 개기일식에서는 [흑일 특이점] ATK +14 / DEF +9로 폭발적으로 강화됩니다. 【시간 폭발】 개기일식에서 등장하면 상대 코어 6 피해. 상시 키워드: 흡수 · 관통 · 직격.",
+    "flavor": "평상시에는 9 ENERGY짜리 0/1. 개기일식 단 한 순간에는 전장 전체가 이 카드를 피해 움직여야 한다.",
+    "sigil": "●",
+    "comboTag": "극시공 실험체",
+    "eclipseAffinity": "eclipse",
+    "onSummon": {
+      "kind": "phase_damage_core",
+      "phase": "eclipse",
+      "base": 0,
+      "bonus": 6
+    },
+    "keywords": [
+      "lifesteal",
+      "pierce",
+      "corestrike"
+    ],
+    "vfx": {
+      "summon": "v34-cycle-eclipse",
+      "activation": "v34-phase-eclipse"
+    },
+    "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "zenith": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "dusk": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "midnight": {
+        "attack": -1,
+        "health": -1,
+        "label": "기능 정지"
+      },
+      "eclipse": {
+        "attack": 14,
+        "health": 9,
+        "label": "흑일 특이점"
+      }
+    },
+    "temporalProfileName": "극시공 · 특이점 종결",
+    "summonMode": "legendary",
+    "legendarySummonRule": {
+      "name": "극시공 기동",
+      "label": "릴리스 없이 특수 소환할 수 있습니다. 단, 지정 시간대가 아니면 사실상 0/1 성능입니다.",
+      "release": "none"
+    }
   }
 ];
