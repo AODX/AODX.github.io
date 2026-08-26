@@ -16,6 +16,37 @@ export interface EclipsePhaseModifier {
   /** Short player-facing reason for this card's reaction to the selected battlefield time. */
   label?: string;
 }
+
+/**
+ * v34i: phase-bound passives for a selected 40% of the original ECLIPSE CYCLE units. These are intentionally separate from
+ * ordinary onSummon effects: they fire when their exact battlefield time begins,
+ * and also when the character is successfully summoned while that time is already active.
+ */
+export type EclipsePhasePulseEffect =
+  | { kind: 'draw'; amount: number }
+  | { kind: 'gain_energy'; amount: number }
+  | { kind: 'recover_grave'; amount: number }
+  | { kind: 'damage_core'; amount: number }
+  | { kind: 'mass_buff'; attack: number; health: number }
+  | { kind: 'ready_all' }
+  | { kind: 'mass_shield'; amount: number }
+  | { kind: 'heal_core'; amount: number }
+  | { kind: 'summon_token'; attack: number; health: number; name: string }
+  | { kind: 'freeze_strongest'; turns: number }
+  | { kind: 'drain_core'; amount: number }
+  | { kind: 'banish_enemy_grave'; amount: number }
+  | { kind: 'steal_energy'; amount: number }
+  | { kind: 'heal_allies'; amount: number }
+  | { kind: 'phase_lock'; turns: number };
+
+export interface EclipsePhasePulse {
+  phase: EclipsePhase;
+  /** Short ability name shown in TIME PROFILE and combat logs. */
+  name: string;
+  /** Exact player-facing rules copy. */
+  description: string;
+  effect: EclipsePhasePulseEffect;
+}
 export type VfxMoment = 'summon' | 'attack' | 'defense' | 'activation' | 'destroy';
 export type SeriesId = 'luminaknights' | 'kaisergear' | 'eclipsion' | 'nocturne' | 'arborian' | 'tempest_drive' | 'abyss_reaper' | 'primal_guardian' | 'chronorium' | 'arcana_protocol' | 'beastforge' | 'phantom_carnival' | 'astral_armada';
 
@@ -251,6 +282,8 @@ export interface CardDefinition {
   eclipsePhaseModifiers?: Partial<Record<EclipsePhase, EclipsePhaseModifier>>;
   /** Short label shown in card details for this unit's temporal behavior. */
   temporalProfileName?: string;
+  /** v34i selected existing-unit time passives. Each pulse resolves on matching phase entry or aligned summon. */
+  eclipsePhasePulses?: EclipsePhasePulse[];
   /** Optional temporal summon gate. If present, the unit/extra can only be summoned while the battlefield is in one of these phases. */
   eclipseSummonPhases?: EclipsePhase[];
   summonMode?: SummonMode;

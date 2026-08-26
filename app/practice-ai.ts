@@ -49,7 +49,7 @@ function rarityPower(card: CardDefinition): number {
 function cardPower(card: CardDefinition): number {
   const body = isUnitCard(card) ? (card.attack ?? 0) * 1.05 + (card.health ?? 0) * 0.85 : 0;
   const keywordPower = (card.keywords?.length ?? 0) * 1.4;
-  const effectPower = (card.effect ? 3 : 0) + (card.onSummon ? 3 : 0) + (card.trapEffect ? 3 : 0) + (card.extraChoices?.length ?? 0) * 1.8;
+  const effectPower = (card.effect ? 3 : 0) + (card.onSummon ? 3 : 0) + (card.trapEffect ? 3 : 0) + (card.extraChoices?.length ?? 0) * 1.8 + (card.eclipsePhasePulses?.length ?? 0) * 2.8;
   const temporalKinds = [card.effect?.kind, card.onSummon?.kind, card.trapEffect?.kind];
   const authoredTemporal = Object.values(card.eclipsePhaseModifiers ?? {});
   const authoredTemporalPower = authoredTemporal.reduce((sum, modifier) => {
@@ -61,6 +61,7 @@ function cardPower(card: CardDefinition): number {
   const temporalPower = (card.eclipseAffinity ? 1.6 : 0)
     + authoredTemporalPower
     + (card.eclipseSummonPhases?.length ? 0.7 : 0)
+    + (card.eclipsePhasePulses?.length ?? 0) * 2.6
     + (temporalKinds.some((kind) => kind?.startsWith('phase_') === true) ? 3.4 : 0)
     + (temporalKinds.some((kind) => kind === 'phase_rewind') ? 1.8 : 0);
   const efficiency = body > 0 ? body / Math.max(1, card.cost + 0.5) : 2.5 / Math.max(1, card.cost + 0.5);
@@ -395,8 +396,16 @@ function actionBias(snapshot: GameSnapshot, botId: string, action: PracticeBotAc
     const instanceId = String(action.payload?.instanceId ?? '');
     const cardId = snapshot.privateStates[botId]?.hand.find((instance) => instance.instanceId === instanceId)?.cardId;
     const card = cardId ? CARD_BY_ID[cardId] : undefined;
-    const temporalKind = card?.effect?.kind?.startsWith('phase_') || card?.onSummon?.kind?.startsWith('phase_');
+    const temporalKind = card?.effect?.kind?.startsWith('phase_') || card?.onSummon?.kind?.startsWith('phase_') || Boolean(card?.eclipsePhasePulses?.length);
     const currentPhase = state.eclipsePhase ?? 'dawn';
+    if (card?.eclipsePhasePulses?.length) {
+      const alignedPulse = card.eclipsePhasePulses.some((pulse) => pulse.phase === currentPhase);
+      const modifier = card.eclipsePhaseModifiers?.[currentPhase];
+      const immediateBodyGain = Math.max(0, modifier?.attack ?? 0) + Math.max(0, modifier?.health ?? 0) * 0.8;
+      const bestBodyGain = Math.max(0, ...Object.values(card.eclipsePhaseModifiers ?? {}).map((entry) => Math.max(0, entry?.attack ?? 0) + Math.max(0, entry?.health ?? 0) * 0.8));
+      if (alignedPulse) return 30 + immediateBodyGain * 2 + card.eclipsePhasePulses.length * 6;
+      if (bestBodyGain >= 5) return -18;
+    }
     if (card?.temporalProfileName?.startsWith('극시공')) {
       // Extreme temporal units are intentionally awful outside their one payoff window.
       // Hard/normal practice bots therefore save them for the matching phase instead of
@@ -409,7 +418,7 @@ function actionBias(snapshot: GameSnapshot, botId: string, action: PracticeBotAc
     if (phaseSetter) {
       const waitingExtremes = snapshot.privateStates[botId]?.hand.filter((instance) => {
         const held = CARD_BY_ID[instance.cardId];
-        return held?.temporalProfileName?.startsWith('극시공') && held.eclipseAffinity === phaseSetter;
+        return Boolean(held && ((held.temporalProfileName?.startsWith('극시공') && held.eclipseAffinity === phaseSetter) || held.eclipsePhasePulses?.some((pulse) => pulse.phase === phaseSetter)));
       }).length ?? 0;
       if (waitingExtremes > 0) return 18 + waitingExtremes * 12;
     }

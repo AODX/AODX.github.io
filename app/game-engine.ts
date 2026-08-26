@@ -562,7 +562,7 @@ function eclipseDistance(a: EclipsePhase, b: EclipsePhase): number {
 function desiredEclipseModifier(card: CardDefinition | undefined, phase: EclipsePhase): { attack: number; health: number; resonance: 'resonant' | 'neutral' | 'strained' } {
   if (!card || !isUnitCard(card)) return { attack: 0, health: 0, resonance: 'neutral' };
 
-  // v34f: a unit can now have an authored reaction to each individual time.
+  // v34i: 48/120 original ECLIPSE CYCLE units have authored reactions; unlisted cards stay neutral.
   // Unlisted phases are deliberately neutral, so a card can be buff-only, debuff-only,
   // or have a completely asymmetric risk/reward profile instead of inheriting one global rule.
   if (card.eclipsePhaseModifiers) {
@@ -575,15 +575,9 @@ function desiredEclipseModifier(card: CardDefinition | undefined, phase: Eclipse
     return { attack, health, resonance: hasPenalty ? 'strained' : hasBonus ? 'resonant' : 'neutral' };
   }
 
-  // Compatibility fallback for older cards that only define eclipseAffinity.
-  if (!card.eclipseAffinity) return { attack: 0, health: 0, resonance: 'neutral' };
-  const distance = eclipseDistance(card.eclipseAffinity, phase);
-  if (distance === 0) {
-    const profile = ECLIPSE_MATCH_BONUS[phase];
-    const legendaryAttack = card.rarity === 'legendary' ? 1 : 0;
-    return { attack: profile.attack + legendaryAttack, health: profile.health, resonance: 'resonant' };
-  }
-  if (distance >= 2) return { attack: -1, health: 0, resonance: 'strained' };
+  // v34i: only the selected existing cards with an authored profile react with persistent stats.
+  // eclipseAffinity still identifies the card's thematic time for ordinary ECLIPSE CYCLE effects,
+  // but it no longer gives every unit an automatic global buff/debuff.
   return { attack: 0, health: 0, resonance: 'neutral' };
 }
 
@@ -616,8 +610,252 @@ function refreshBattlefieldEclipseModifiers(state: MatchState): void {
   }
 }
 
+type EclipsePhasePulseDefinition = NonNullable<CardDefinition['eclipsePhasePulses']>[number];
+
+function resolveEclipsePhasePulse(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  ownerId: string,
+  sourceZone: number,
+  card: CardDefinition,
+  pulse: EclipsePhasePulseDefinition,
+): void {
+  const opponentId = otherPlayer(state, ownerId);
+  const ownerPrivate = privateStates[ownerId];
+  const effect = pulse.effect;
+  const pulseLabel = `${ECLIPSE_PHASE_LABEL[pulse.phase]} · ${pulse.name}`;
+  let detail = pulse.description;
+
+  switch (effect.kind) {
+    case 'draw': {
+      const before = ownerPrivate?.hand.length ?? 0;
+      if (ownerPrivate) drawCards(state, ownerPrivate, ownerId, Math.max(0, effect.amount));
+      const drew = Math.max(0, (ownerPrivate?.hand.length ?? before) - before);
+      detail = `카드 ${drew}장 드로우`;
+      appendVisual(state, { kind: 'draw', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: ownerId, targetZone: sourceZone, amount: drew, label: pulse.name });
+      break;
+    }
+    case 'gain_energy': {
+      const energy = state.energy[ownerId];
+      if (!energy) break;
+      const before = energy.current;
+      energy.current = Math.min(energyHardCap(state, ownerId), energy.current + Math.max(0, effect.amount));
+      const gained = energy.current - before;
+      detail = `ENERGY ${gained} 회복`;
+      appendVisual(state, { kind: 'energy', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: ownerId, targetZone: sourceZone, amount: gained, label: pulse.name });
+      break;
+    }
+    case 'recover_grave': {
+      if (!ownerPrivate) break;
+      const grave = state.graveyards[ownerId] ?? [];
+      let recovered = 0;
+      for (let index = grave.length - 1; index >= 0 && recovered < Math.max(0, effect.amount); index -= 1) {
+        const cardId = grave[index];
+        const recoveredCard = CARD_BY_ID[cardId];
+        if (!recoveredCard || recoveredCard.kind === 'fusion' || recoveredCard.kind === 'evolution') continue;
+        grave.splice(index, 1);
+        ownerPrivate.hand.push({ instanceId: randomId('ci'), cardId });
+        recovered += 1;
+      }
+      state.handCounts[ownerId] = ownerPrivate.hand.length;
+      detail = `묘지의 메인 덱 카드 ${recovered}장 회수`;
+      appendVisual(state, { kind: 'special', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: ownerId, targetZone: sourceZone, amount: recovered, label: pulse.name });
+      break;
+    }
+    case 'damage_core': {
+      const actual = damageCore(state, opponentId, Math.max(0, effect.amount));
+      statsFor(state, ownerId).coreDamage += actual;
+      detail = `상대 코어 ${actual} 피해`;
+      appendVisual(state, { kind: 'core', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: opponentId, targetZone: sourceZone, amount: actual, label: pulse.name });
+      break;
+    }
+    case 'mass_buff': {
+      let affected = 0;
+      for (const unit of state.boards[ownerId]?.units ?? []) {
+        if (!unit) continue;
+        unit.attack = Math.max(0, unit.attack + effect.attack);
+        unit.health = Math.max(1, unit.health + effect.health);
+        unit.maxHealth = Math.max(1, unit.maxHealth + effect.health);
+        affected += 1;
+      }
+      detail = `아군 ${affected}체 ATK ${effect.attack >= 0 ? '+' : ''}${effect.attack} / DEF ${effect.health >= 0 ? '+' : ''}${effect.health}`;
+      appendVisual(state, { kind: 'buff', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: ownerId, targetZone: sourceZone, amount: affected, label: pulse.name });
+      break;
+    }
+    case 'ready_all': {
+      let readied = 0;
+      for (const unit of state.boards[ownerId]?.units ?? []) {
+        if (!unit) continue;
+        const stunned = Boolean(unit.stunnedUntilTurn && unit.stunnedUntilTurn >= state.turnNumber);
+        if (stunned) continue;
+        if (!unit.canAttack) readied += 1;
+        unit.canAttack = true;
+      }
+      detail = `아군 ${readied}체 공격 준비`;
+      appendVisual(state, { kind: 'buff', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: ownerId, targetZone: sourceZone, amount: readied, label: pulse.name });
+      break;
+    }
+    case 'mass_shield': {
+      let affected = 0;
+      for (const unit of state.boards[ownerId]?.units ?? []) {
+        if (!unit) continue;
+        unit.shield += Math.max(0, effect.amount);
+        affected += 1;
+      }
+      detail = `아군 ${affected}체 보호막 +${Math.max(0, effect.amount)}`;
+      appendVisual(state, { kind: 'buff', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: ownerId, targetZone: sourceZone, amount: effect.amount, label: pulse.name });
+      break;
+    }
+    case 'heal_core': {
+      const healed = healCore(state, ownerId, Math.max(0, effect.amount));
+      statsFor(state, ownerId).healing += healed;
+      detail = `코어 ${healed} 회복`;
+      appendVisual(state, { kind: 'heal', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: ownerId, targetZone: sourceZone, amount: healed, label: pulse.name });
+      break;
+    }
+    case 'summon_token': {
+      const zone = firstOpenUnit(state.boards[ownerId]);
+      if (zone < 0) {
+        detail = '빈 유닛 칸이 없어 잔영 소환 실패';
+        break;
+      }
+      state.boards[ownerId].units[zone] = {
+        instanceId: randomId('token'),
+        cardId: `token:${effect.name}`,
+        ownerId,
+        attack: Math.max(0, effect.attack),
+        health: Math.max(1, effect.health),
+        maxHealth: Math.max(1, effect.health),
+        shield: 0,
+        canAttack: false,
+        summonedTurn: state.turnNumber,
+        summonedBy: 'token',
+        originCardIds: [card.id],
+        buffCardApplied: false,
+      };
+      detail = `${effect.name} ${Math.max(0, effect.attack)}/${Math.max(1, effect.health)} 소환`;
+      appendVisual(state, { kind: 'summon', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: ownerId, targetZone: zone, label: effect.name });
+      break;
+    }
+    case 'freeze_strongest': {
+      const candidates = (state.boards[opponentId]?.units ?? [])
+        .map((unit, index) => ({ unit, index }))
+        .filter((entry): entry is { unit: UnitState; index: number } => Boolean(entry.unit))
+        .sort((a, b) => b.unit.attack - a.unit.attack || b.unit.health - a.unit.health || a.index - b.index);
+      const target = candidates[0];
+      if (!target) {
+        detail = '빙결할 적이 없음';
+        break;
+      }
+      const until = state.turnNumber + Math.max(1, effect.turns);
+      target.unit.stunnedUntilTurn = Math.max(target.unit.stunnedUntilTurn ?? 0, until);
+      target.unit.canAttack = false;
+      const targetCard = CARD_BY_ID[target.unit.cardId];
+      detail = `${targetCard?.name ?? '가장 강한 적'} ${Math.max(1, effect.turns)}턴 공격 봉쇄`;
+      appendVisual(state, { kind: 'special', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: opponentId, targetZone: target.index, amount: effect.turns, label: pulse.name });
+      break;
+    }
+    case 'drain_core': {
+      const actual = damageCore(state, opponentId, Math.max(0, effect.amount));
+      statsFor(state, ownerId).coreDamage += actual;
+      const healed = healCore(state, ownerId, actual);
+      statsFor(state, ownerId).healing += healed;
+      detail = `상대 코어 ${actual} 흡수 · 내 코어 ${healed} 회복`;
+      appendVisual(state, { kind: 'core', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: opponentId, targetZone: sourceZone, amount: actual, label: pulse.name });
+      break;
+    }
+    case 'banish_enemy_grave': {
+      const grave = state.graveyards[opponentId] ?? [];
+      let banished = 0;
+      for (let index = grave.length - 1; index >= 0 && banished < Math.max(0, effect.amount); index -= 1) {
+        const targetCard = CARD_BY_ID[grave[index]];
+        if (!targetCard || targetCard.kind === 'fusion' || targetCard.kind === 'evolution') continue;
+        grave.splice(index, 1);
+        banished += 1;
+      }
+      detail = `상대 묘지 ${banished}장 소멸`;
+      appendVisual(state, { kind: 'special', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: opponentId, targetZone: sourceZone, amount: banished, label: pulse.name });
+      break;
+    }
+    case 'steal_energy': {
+      const mine = state.energy[ownerId];
+      const theirs = state.energy[opponentId];
+      if (!mine || !theirs) break;
+      const room = Math.max(0, energyHardCap(state, ownerId) - mine.current);
+      const stolen = Math.min(Math.max(0, effect.amount), theirs.current, room);
+      theirs.current -= stolen;
+      mine.current += stolen;
+      detail = `상대 ENERGY ${stolen} 흡수`;
+      appendVisual(state, { kind: 'energy', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: opponentId, targetZone: sourceZone, amount: stolen, label: pulse.name });
+      break;
+    }
+    case 'heal_allies': {
+      let healedTotal = 0;
+      for (const unit of state.boards[ownerId]?.units ?? []) {
+        if (!unit) continue;
+        const before = unit.health;
+        unit.health = Math.min(unit.maxHealth, unit.health + Math.max(0, effect.amount));
+        healedTotal += unit.health - before;
+      }
+      detail = `아군 전열 체력 총 ${healedTotal} 회복`;
+      appendVisual(state, { kind: 'heal', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: ownerId, targetZone: sourceZone, amount: healedTotal, label: pulse.name });
+      break;
+    }
+    case 'phase_lock': {
+      const turns = Math.max(1, effect.turns);
+      state.eclipsePhaseLockUntilTurn = Math.max(state.eclipsePhaseLockUntilTurn ?? 0, state.turnNumber + turns);
+      detail = `현재 시간 자동 진행 ${turns}턴 고정`;
+      appendVisual(state, { kind: 'special', vfx: 'eclipse-cycle-lock', cardId: card.id, ownerId, targetOwnerId: ownerId, targetZone: sourceZone, amount: turns, label: pulse.name });
+      break;
+    }
+  }
+
+  appendLog(state, `【${pulseLabel}】 「${card.name}」 시간 발동 — ${detail}.`, 'special');
+}
+
+function triggerEclipsePhasePulses(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  phase: EclipsePhase,
+): void {
+  const priority = [state.currentPlayerId, ...state.playerOrder.filter((id) => id && id !== state.currentPlayerId)].filter(Boolean) as string[];
+  for (const ownerId of priority) {
+    const units = state.boards[ownerId]?.units ?? [];
+    for (let zone = 0; zone < units.length; zone += 1) {
+      const unit = units[zone];
+      if (!unit) continue;
+      const card = CARD_BY_ID[unit.cardId];
+      if (!card?.eclipsePhasePulses?.length) continue;
+      for (const pulse of card.eclipsePhasePulses) {
+        if (pulse.phase !== phase) continue;
+        resolveEclipsePhasePulse(state, privateStates, ownerId, zone, card, pulse);
+        if (state.status === 'finished') return;
+      }
+    }
+  }
+  checkWinner(state);
+}
+
+function triggerAlignedSummonPulses(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  ownerId: string,
+  zone: number,
+  card: CardDefinition,
+): void {
+  if (!card.eclipsePhasePulses?.length || !state.boards[ownerId]?.units[zone]) return;
+  const phase = currentEclipsePhase(state);
+  for (const pulse of card.eclipsePhasePulses) {
+    if (pulse.phase !== phase) continue;
+    resolveEclipsePhasePulse(state, privateStates, ownerId, zone, card, pulse);
+    if (state.status === 'finished') return;
+  }
+  checkWinner(state);
+}
+
 function setEclipsePhase(
   state: MatchState,
+  privateStates: Record<string, PrivateState>,
   phase: EclipsePhase,
   actorId?: string,
   reason = '위상 조율',
@@ -639,17 +877,18 @@ function setEclipsePhase(
   refreshBattlefieldEclipseModifiers(state);
   appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[before]} → ${ECLIPSE_PHASE_LABEL[phase]} · ${reason}`, 'special');
   appendVisual(state, { kind: 'special', vfx: `eclipse-cycle-${phase}`, ownerId: actorId, label: `CYCLE · ${ECLIPSE_PHASE_LABEL[phase]}` });
+  triggerEclipsePhasePulses(state, privateStates, phase);
 }
 
-function shiftEclipsePhase(state: MatchState, steps: number, actorId?: string, reason = '위상 이동'): void {
+function shiftEclipsePhase(state: MatchState, privateStates: Record<string, PrivateState>, steps: number, actorId?: string, reason = '위상 이동'): void {
   const order = ECLIPSE_PHASE_ORDER;
   const before = currentEclipsePhase(state);
   const index = order.indexOf(before);
   const next = order[((index + steps) % order.length + order.length) % order.length];
-  setEclipsePhase(state, next, actorId, reason);
+  setEclipsePhase(state, privateStates, next, actorId, reason);
 }
 
-function rewindEclipsePhase(state: MatchState, steps = 1, actorId?: string): void {
+function rewindEclipsePhase(state: MatchState, privateStates: Record<string, PrivateState>, steps = 1, actorId?: string): void {
   const count = Math.max(1, Math.min(5, Math.floor(steps)));
   const history = [...(state.eclipsePhaseHistory ?? [])];
   let target: EclipsePhase | undefined;
@@ -663,11 +902,11 @@ function rewindEclipsePhase(state: MatchState, steps = 1, actorId?: string): voi
     const current = currentEclipsePhase(state);
     const index = order.indexOf(current);
     const fallback = order[((index - count) % order.length + order.length) % order.length];
-    setEclipsePhase(state, fallback, actorId, '시간 역행 · 이전 순환으로 복귀', { recordHistory: false });
+    setEclipsePhase(state, privateStates, fallback, actorId, '시간 역행 · 이전 순환으로 복귀', { recordHistory: false });
     return;
   }
   state.eclipsePhaseHistory = history;
-  setEclipsePhase(state, target, actorId, '시간 역행 · 실제 직전 시간대로 복귀', { recordHistory: false });
+  setEclipsePhase(state, privateStates, target, actorId, '시간 역행 · 실제 직전 시간대로 복귀', { recordHistory: false });
 }
 
 function phaseAmount(state: MatchState, phase: EclipsePhase, base: number, bonus: number): { amount: number; aligned: boolean } {
@@ -1235,15 +1474,15 @@ function applyEffect(
       break;
     }
     case 'phase_shift': {
-      shiftEclipsePhase(state, effect.steps, actorId, effect.steps >= 0 ? '궤도 가속' : '천체 역행');
+      shiftEclipsePhase(state, privateStates, effect.steps, actorId, effect.steps >= 0 ? '궤도 가속' : '천체 역행');
       break;
     }
     case 'phase_rewind': {
-      rewindEclipsePhase(state, effect.steps ?? 1, actorId);
+      rewindEclipsePhase(state, privateStates, effect.steps ?? 1, actorId);
       break;
     }
     case 'phase_set': {
-      setEclipsePhase(state, effect.phase, actorId, '관측자의 선택');
+      setEclipsePhase(state, privateStates, effect.phase, actorId, '관측자의 선택');
       break;
     }
     case 'phase_lock': {
@@ -3051,9 +3290,16 @@ function continueSummonResolution(
     return;
   }
 
+  const temporalPhaseBeforeSummonEffects = currentEclipsePhase(state);
   if (card.onSummon && state.boards[actorId].units[zone]) {
     const selfTarget = { ownerId: actorId, unitIndex: zone };
     applyEffect(state, privateStates, actorId, card.onSummon, card.onSummon.kind === 'shield_unit' ? selfTarget : undefined);
+  }
+  // If the printed summon effect itself changed the clock into this unit's payoff time,
+  // the phase-transition resolver already fired the pulse. Otherwise an aligned summon
+  // gets exactly one immediate pulse here. This prevents double activation.
+  if (state.boards[actorId].units[zone] && temporalPhaseBeforeSummonEffects === currentEclipsePhase(state)) {
+    triggerAlignedSummonPulses(state, privateStates, actorId, zone, card);
   }
   if (state.boards[actorId].units[zone] && card.extraChoices?.length) {
     applyExtraChoice(state, privateStates, actorId, zone, card, extraChoiceIndex);
@@ -3913,11 +4159,6 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
   state.currentPlayerId = nextPlayer;
   state.turnNumber += 1;
   state.phase = 'main';
-  if ((state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber) {
-    appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[currentEclipsePhase(state)]} 고정 유지.`, 'special');
-  } else {
-    shiftEclipsePhase(state, 1, undefined, '턴 종료 자동 진행');
-  }
   state.turnActionTaken = false;
   state.turnEndsAt = now + TURN_DURATION_MS;
   const nextEnergy = state.energy[nextPlayer] ?? { current: 0, max: 0 };
@@ -3943,6 +4184,21 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
     unit.canAttack = !stunnedNow;
     if (unit.stunnedUntilTurn && unit.stunnedUntilTurn < state.turnNumber) delete unit.stunnedUntilTurn;
   });
+
+  // v34h: refill/ready the incoming player before advancing the battlefield clock.
+  // This makes Dawn/Zenith/etc. ENERGY pulses persist instead of being overwritten by
+  // the normal turn-start refill, while still keeping the time change at turn start.
+  if ((state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber) {
+    appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[currentEclipsePhase(state)]} 고정 유지.`, 'special');
+  } else {
+    shiftEclipsePhase(state, privateStates, 1, undefined, '턴 종료 자동 진행');
+  }
+  checkWinner(state);
+  if (state.status !== 'active') {
+    state.turnEndsAt = null;
+    return;
+  }
+
   appendVisual(state, { kind: 'turn', vfx: 'turn-shift', ownerId: nextPlayer, label: `TURN ${state.turnNumber}` });
   const drew = drawCards(state, privateStates[nextPlayer], nextPlayer, 1);
   if (drew && state.status === 'active') {

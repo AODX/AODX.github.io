@@ -761,6 +761,7 @@ function eclipseSummonGateDescription(card: CardDefinition): string {
 
 function eclipseAffinityRule(card: CardDefinition): string {
   if (!isUnitCard(card)) return '';
+  const parts: string[] = [];
   const authored = card.eclipsePhaseModifiers;
   if (authored) {
     const entries = ECLIPSE_PHASE_ORDER.flatMap((phase) => {
@@ -773,18 +774,20 @@ function eclipseAffinityRule(card: CardDefinition): string {
         health !== 0 ? `DEF ${health > 0 ? '+' : ''}${health}` : '',
       ].filter(Boolean).join(' · ') || '능력치 변화 없음';
       const polarity = attack < 0 || health < 0 ? '디버프' : attack > 0 || health > 0 ? '버프' : '중립';
-      const extremeResult = card.temporalProfileName?.startsWith('극시공')
+      const showFinal = Boolean(card.temporalProfileName);
+      const finalStats = showFinal
         ? ` → 최종 ${Math.max(0, (card.attack ?? 0) + attack)}/${Math.max(1, (card.health ?? 1) + health)}`
         : '';
-      return [`${ECLIPSE_PHASE_LABEL[phase]} [${modifier.label ?? '시간 반응'}] ${stats}${extremeResult} (${polarity})`];
+      return [`${ECLIPSE_PHASE_LABEL[phase]} [${modifier.label ?? '시간 반응'}] ${stats}${finalStats} (${polarity})`];
     });
-    return `【시간 반응 · ${card.temporalProfileName ?? '개별 반응'}】 ${entries.join(' / ')}. 표기되지 않은 시간대는 중립.`;
+    if (entries.length) parts.push(`【시간 반응 · ${card.temporalProfileName ?? '개별 반응'}】 ${entries.join(' / ')}. 표기되지 않은 시간대는 중립.`);
   }
-  if (!card.eclipseAffinity) return '';
-  const base = ECLIPSE_UI_MATCH_BONUS[card.eclipseAffinity];
-  const attack = base.attack + (card.rarity === 'legendary' ? 1 : 0);
-  const aligned = [`ATK +${attack}`, base.health > 0 ? `DEF +${base.health}` : ''].filter(Boolean).join(' · ');
-  return `【시간 친화】 ${ECLIPSE_PHASE_LABEL[card.eclipseAffinity]} 공명 시 ${aligned}. 친화 시간대와 순환상 2칸 이상 멀어지면 ATK -1.`;
+
+  if (card.eclipsePhasePulses?.length) {
+    const pulses = card.eclipsePhasePulses.map((pulse) => `${ECLIPSE_PHASE_LABEL[pulse.phase]} [${pulse.name}] ${pulse.description}`);
+    parts.push(`【시간 발동】 ${pulses.join(' / ')}`);
+  }
+  return parts.join(' ');
 }
 
 function polishedCardText(card: CardDefinition): string {
@@ -802,7 +805,7 @@ function polishedCardText(card: CardDefinition): string {
     .replace(/소환 시/g, '【등장】')
     .replace(/파괴될 때/g, '【파괴 시】')
     .replace(/공격할 때/g, '【공격 시】');
-  const alreadyExplainsTime = /【시간 (?:강화|취약|반응|친화)/.test(text);
+  const alreadyExplainsTime = /【(?:시간 (?:강화|취약|반응|친화|발동)|기존 카드 재설계|극시공)/.test(text);
   const affinity = alreadyExplainsTime ? '' : eclipseAffinityRule(card);
   return [text, affinity].filter(Boolean).join(' ');
 }
@@ -1167,7 +1170,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
               <span className="v31l-detail-kicker">{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}{card.series ? ` · ${card.series}` : ''}</span>
               <h2 id="card-detail-title">{card.name}</h2>
               <p>{card.subtitle}</p>
-              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.unitType && <i>TYPE · {UNIT_TYPE_LABEL[card.unitType]}</i>}{card.comboTag && <i>COMBO · {card.comboTag}</i>}{card.eclipseAffinity && <i className="v34-cycle-chip">CYCLE · {ECLIPSE_PHASE_LABEL[card.eclipseAffinity]}</i>}{card.temporalProfileName && <i className="v34f-temporal-chip">TIME · {card.temporalProfileName}</i>}{card.eclipseSummonPhases?.length ? <i className="v34-time-gate-chip">TIME GATE · {card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
+              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.unitType && <i>TYPE · {UNIT_TYPE_LABEL[card.unitType]}</i>}{card.comboTag && <i>COMBO · {card.comboTag}</i>}{card.eclipseAffinity && <i className="v34-cycle-chip">CYCLE · {ECLIPSE_PHASE_LABEL[card.eclipseAffinity]}</i>}{card.temporalProfileName && <i className="v34f-temporal-chip">TIME · {card.temporalProfileName}</i>}{card.eclipsePhasePulses?.length ? <i className="v34f-temporal-chip">TIME TRIGGER · {card.eclipsePhasePulses.length}</i> : null}{card.eclipseSummonPhases?.length ? <i className="v34-time-gate-chip">TIME GATE · {card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
             </div>
             <strong className="detail-cost"><small>ENERGY</small>{card.cost}</strong>
           </header>
@@ -1191,10 +1194,10 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             <p><RuleText text={polishedCardText(card)} /></p>
           </section>
 
-          {(card.eclipseAffinity || card.eclipseSummonPhases?.length) && (
+          {(card.temporalProfileName || card.eclipsePhaseModifiers || card.eclipseSummonPhases?.length || card.eclipsePhasePulses?.length) && (
             <section className="detail-section v34e-time-profile">
               <span>TIME PROFILE · {card.temporalProfileName ?? '시간 반응'}</span>
-              <p>{(card.eclipsePhaseModifiers || card.eclipseAffinity) ? <RuleText text={eclipseAffinityRule(card)} /> : '시간대 능력치 반응 없음'}</p>
+              <p>{eclipseAffinityRule(card) ? <RuleText text={eclipseAffinityRule(card)} /> : '시간대 능력치 반응 없음'}</p>
               {card.eclipseSummonPhases?.length ? <small>{eclipseSummonGateDescription(card)}</small> : null}
             </section>
           )}

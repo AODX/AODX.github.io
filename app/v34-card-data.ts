@@ -1,6 +1,6 @@
 import type { CardDefinition } from './game-data';
 
-/** ECLIPSE DUEL v34g: 215 ECLIPSE CYCLE cards. Includes 15 extreme temporal specialists. */
+/** ECLIPSE DUEL v34i: original 200 ECLIPSE CYCLE cards. No new cards; 48/120 existing units receive authored temporal reactions. */
 export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
   {
     "id": "v34_cycle_unit_001",
@@ -14,7 +14,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 현재 위상이 여명이면 카드 2장, 아니면 1장 드로우. 【시간 강화】 여명 [새벽 각성]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 현재 위상이 여명이면 카드 2장, 아니면 1장 드로우. 【시간 반응 · 여명 반응형】 여명 [새벽 경계]: ATK +1 / DEF +1. 황혼 [황혼 역류]: ATK -1. 표기되지 않은 시간대는 중립.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -36,10 +36,15 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "dawn": {
         "attack": 1,
         "health": 1,
-        "label": "새벽 각성"
+        "label": "새벽 경계"
+      },
+      "dusk": {
+        "attack": -1,
+        "health": 0,
+        "label": "황혼 역류"
       }
     },
-    "temporalProfileName": "강화 전용"
+    "temporalProfileName": "여명 반응형"
   },
   {
     "id": "v34_cycle_unit_002",
@@ -53,7 +58,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 현재 위상이 여명이면 ENERGY 2, 아니면 1 회복. 【시간 취약】 황혼 [잔광 소실]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 현재 위상이 여명이면 ENERGY 2, 아니면 1 회복. 【시간 반응 · 여명 반응형】 여명 [일출 가속]: ATK +2. 황혼 [황혼 역류]: ATK -1. 표기되지 않은 시간대는 중립. 【시간 발동 · 해오름 점화】 여명으로 진입하거나 여명에서 등장하면 ENERGY 1 회복.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -72,13 +77,29 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "charge"
     ],
     "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": 2,
+        "health": 0,
+        "label": "일출 가속"
+      },
       "dusk": {
         "attack": -1,
         "health": 0,
-        "label": "잔광 소실"
+        "label": "황혼 역류"
       }
     },
-    "temporalProfileName": "취약 전용"
+    "temporalProfileName": "여명 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "dawn",
+        "name": "해오름 점화",
+        "description": "여명 진입 또는 여명에서 등장 시 ENERGY 1 회복.",
+        "effect": {
+          "kind": "gain_energy",
+          "amount": 1
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_003",
@@ -92,7 +113,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 현재 위상이 여명이면 코어 3, 아니면 1 회복. 【시간 반응】 여명 [새벽 각성]: ATK +1 / DEF +1 · 황혼 [잔광 소실]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 현재 위상이 여명이면 코어 3, 아니면 1 회복. 【시간 반응 · 여명 반응형】 여명 [백야 순환]: DEF +2. 황혼 [황혼 역류]: ATK -1 / DEF -1. 표기되지 않은 시간대는 중립.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -112,17 +133,17 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     ],
     "eclipsePhaseModifiers": {
       "dawn": {
-        "attack": 1,
-        "health": 1,
-        "label": "새벽 각성"
+        "attack": 0,
+        "health": 2,
+        "label": "백야 순환"
       },
       "dusk": {
         "attack": -1,
-        "health": 0,
-        "label": "잔광 소실"
+        "health": -1,
+        "label": "황혼 역류"
       }
     },
-    "temporalProfileName": "양면 공명"
+    "temporalProfileName": "여명 반응형"
   },
   {
     "id": "v34_cycle_unit_004",
@@ -136,7 +157,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 2,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 현재 위상이 여명이면 상대 코어 5 피해, 아니면 2 피해. 【시간 반응】 정점 [시간 전이]: ATK +1 · 개기일식 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 현재 위상이 여명이면 상대 코어 5 피해, 아니면 2 피해. 【시간 반응 · 여명 반응형】 여명 [첫별 개안]: ATK +3 / DEF +2. 표기되지 않은 시간대는 중립. 【시간 발동 · 첫빛 기록 개방】 여명으로 진입하거나 여명에서 등장하면 카드 1장 드로우.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -155,18 +176,24 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "pierce"
     ],
     "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 1,
-        "health": 0,
-        "label": "시간 전이"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
+      "dawn": {
+        "attack": 3,
+        "health": 2,
+        "label": "첫별 개안"
       }
     },
-    "temporalProfileName": "교차 공명"
+    "temporalProfileName": "여명 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "dawn",
+        "name": "첫빛 기록 개방",
+        "description": "여명 진입 또는 여명에서 등장 시 카드 1장 드로우.",
+        "effect": {
+          "kind": "draw",
+          "amount": 1
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_005",
@@ -180,7 +207,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "relic",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 아군 전체 보호막 1; 여명이면 추가 +1. 【시간 강화】 여명 [새벽 각성]: ATK +1 / DEF +1 · 개기일식 [선행 잔향]: ATK +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 아군 전체 보호막 1; 여명이면 추가 +1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -197,20 +224,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "corestrike"
-    ],
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 1,
-        "health": 1,
-        "label": "새벽 각성"
-      },
-      "eclipse": {
-        "attack": 1,
-        "health": 0,
-        "label": "선행 잔향"
-      }
-    },
-    "temporalProfileName": "이중 강화"
+    ]
   },
   {
     "id": "v34_cycle_unit_006",
@@ -224,7 +238,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 아군 전체 +1/+1; 여명이면 추가 +0/+1. 【시간 반응】 여명 [새벽 각성]: ATK +2 / DEF +1 · 황혼 [시간 붕괴]: ATK -2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 아군 전체 +1/+1; 여명이면 추가 +0/+1. 【시간 반응 · 여명 반응형】 여명 [기상 완료]: ATK +1 / DEF +2. 표기되지 않은 시간대는 중립. 【시간 발동 · 기상 신호】 여명으로 진입하거나 여명에서 등장하면 기절하지 않은 내 유닛들의 공격 가능 상태 회복.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -243,17 +257,22 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "eclipsePhaseModifiers": {
       "dawn": {
-        "attack": 2,
-        "health": 1,
-        "label": "새벽 각성"
-      },
-      "dusk": {
-        "attack": -2,
-        "health": 0,
-        "label": "시간 붕괴"
+        "attack": 1,
+        "health": 2,
+        "label": "기상 완료"
       }
     },
-    "temporalProfileName": "극단 공명"
+    "temporalProfileName": "여명 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "dawn",
+        "name": "기상 신호",
+        "description": "여명 진입 또는 여명에서 등장 시 기절하지 않은 내 유닛들의 공격 가능 상태 회복.",
+        "effect": {
+          "kind": "ready_all"
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_007",
@@ -267,7 +286,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 적 전체 1 피해; 여명이면 추가 +1. 【시간 반응】 여명 [방벽 공명]: DEF +1 · 정점 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 적 전체 1 피해; 여명이면 추가 +1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -284,20 +303,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "guard"
-    ],
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 0,
-        "health": 1,
-        "label": "방벽 공명"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
-      }
-    },
-    "temporalProfileName": "방어 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_008",
@@ -311,7 +317,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 묘지 회수 0장; 여명이면 추가 2장. 【시간 반응】 황혼 [역주기 적응]: ATK +1 / DEF +1 · 여명 [고유 시간 거부]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 묘지 회수 0장; 여명이면 추가 2장. 【시간 반응 · 여명 반응형】 여명 [안개 포문]: ATK +2. 심야 [심야 냉각]: ATK -1. 표기되지 않은 시간대는 중립. 【시간 발동 · 안개 속 회수】 여명으로 진입하거나 여명에서 등장하면 내 묘지의 메인 덱 카드 1장 회수.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -330,18 +336,29 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "charge"
     ],
     "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 1,
-        "health": 1,
-        "label": "역주기 적응"
-      },
       "dawn": {
+        "attack": 2,
+        "health": 0,
+        "label": "안개 포문"
+      },
+      "midnight": {
         "attack": -1,
         "health": 0,
-        "label": "고유 시간 거부"
+        "label": "심야 냉각"
       }
     },
-    "temporalProfileName": "역주기 적응"
+    "temporalProfileName": "여명 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "dawn",
+        "name": "안개 속 회수",
+        "description": "여명 진입 또는 여명에서 등장 시 내 묘지의 메인 덱 카드 1장 회수.",
+        "effect": {
+          "kind": "recover_grave",
+          "amount": 1
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_009",
@@ -355,7 +372,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 여명 잔영 1/2 소환; 여명이면 +1/+1. 【시간 강화】 여명 [새벽 각성]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 여명 잔영 1/2 소환; 여명이면 +1/+1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -375,15 +392,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "lifesteal"
-    ],
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 1,
-        "health": 1,
-        "label": "새벽 각성"
-      }
-    },
-    "temporalProfileName": "강화 전용"
+    ]
   },
   {
     "id": "v34_cycle_unit_010",
@@ -397,7 +406,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 ECLIPSE CYCLE을 뒤로 1칸 이동. 【시간 취약】 황혼 [잔광 소실]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 ECLIPSE CYCLE을 뒤로 1칸 이동. 【시간 반응 · 여명 반응형】 여명 [해오름 정비]: ATK +1 / DEF +1. 황혼 [황혼 역류]: ATK -1. 표기되지 않은 시간대는 중립.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -414,13 +423,18 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "pierce"
     ],
     "eclipsePhaseModifiers": {
+      "dawn": {
+        "attack": 1,
+        "health": 1,
+        "label": "해오름 정비"
+      },
       "dusk": {
         "attack": -1,
         "health": 0,
-        "label": "잔광 소실"
+        "label": "황혼 역류"
       }
     },
-    "temporalProfileName": "취약 전용"
+    "temporalProfileName": "여명 반응형"
   },
   {
     "id": "v34_cycle_unit_011",
@@ -434,7 +448,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "relic",
     "target": "none",
-    "text": "【시간 강림】 등장과 동시에 ECLIPSE CYCLE을 여명으로 변경합니다. 【ECLIPSE CYCLE · 여명】 ECLIPSE CYCLE을 즉시 여명으로 변경. 【시간 반응】 여명 [새벽 각성]: ATK +1 / DEF +1 · 황혼 [잔광 소실]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 ECLIPSE CYCLE을 즉시 여명으로 변경. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -449,20 +463,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "corestrike"
-    ],
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 1,
-        "health": 1,
-        "label": "새벽 각성"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": 0,
-        "label": "잔광 소실"
-      }
-    },
-    "temporalProfileName": "양면 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_012",
@@ -476,7 +477,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 자동 위상 이동을 2턴 동안 정지. 【시간 반응】 정점 [시간 전이]: ATK +1 · 개기일식 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 자동 위상 이동을 2턴 동안 정지. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -488,20 +489,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "vfx": {
       "summon": "v34-cycle-dawn",
       "activation": "v34-phase-dawn"
-    },
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 1,
-        "health": 0,
-        "label": "시간 전이"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
-      }
-    },
-    "temporalProfileName": "교차 공명"
+    }
   },
   {
     "id": "v34_cycle_unit_013",
@@ -515,7 +503,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 현재 위상이 여명이면 카드 2장, 아니면 1장 드로우. 【시간 강화】 여명 [새벽 각성]: ATK +1 / DEF +1 · 개기일식 [선행 잔향]: ATK +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 현재 위상이 여명이면 카드 2장, 아니면 1장 드로우. 【시간 반응 · 여명 반응형】 여명 [금빛 공명]: ATK +2 / DEF +1. 표기되지 않은 시간대는 중립. 【시간 발동 · 금빛 발전】 여명으로 진입하거나 여명에서 등장하면 ENERGY 2 회복.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -535,17 +523,23 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     ],
     "eclipsePhaseModifiers": {
       "dawn": {
-        "attack": 1,
+        "attack": 2,
         "health": 1,
-        "label": "새벽 각성"
-      },
-      "eclipse": {
-        "attack": 1,
-        "health": 0,
-        "label": "선행 잔향"
+        "label": "금빛 공명"
       }
     },
-    "temporalProfileName": "이중 강화"
+    "temporalProfileName": "여명 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "dawn",
+        "name": "금빛 발전",
+        "description": "여명 진입 또는 여명에서 등장 시 ENERGY 2 회복.",
+        "effect": {
+          "kind": "gain_energy",
+          "amount": 2
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_014",
@@ -559,7 +553,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 현재 위상이 여명이면 ENERGY 2, 아니면 1 회복. 【시간 반응】 여명 [새벽 각성]: ATK +2 / DEF +1 · 황혼 [시간 붕괴]: ATK -2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 현재 위상이 여명이면 ENERGY 2, 아니면 1 회복. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -576,20 +570,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "charge"
-    ],
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 2,
-        "health": 1,
-        "label": "새벽 각성"
-      },
-      "dusk": {
-        "attack": -2,
-        "health": 0,
-        "label": "시간 붕괴"
-      }
-    },
-    "temporalProfileName": "극단 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_015",
@@ -603,7 +584,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 7,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 현재 위상이 여명이면 코어 3, 아니면 1 회복. 【시간 반응】 여명 [방벽 공명]: DEF +1 · 정점 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 현재 위상이 여명이면 코어 3, 아니면 1 회복. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -620,20 +601,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "lifesteal"
-    ],
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 0,
-        "health": 1,
-        "label": "방벽 공명"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
-      }
-    },
-    "temporalProfileName": "방어 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_016",
@@ -647,7 +615,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 현재 위상이 여명이면 상대 코어 5 피해, 아니면 2 피해. 【시간 반응】 황혼 [역주기 적응]: ATK +1 / DEF +1 · 여명 [고유 시간 거부]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 현재 위상이 여명이면 상대 코어 5 피해, 아니면 2 피해. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -664,20 +632,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "pierce"
-    ],
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 1,
-        "health": 1,
-        "label": "역주기 적응"
-      },
-      "dawn": {
-        "attack": -1,
-        "health": 0,
-        "label": "고유 시간 거부"
-      }
-    },
-    "temporalProfileName": "역주기 적응"
+    ]
   },
   {
     "id": "v34_cycle_unit_017",
@@ -691,7 +646,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 7,
     "unitType": "relic",
     "target": "none",
-    "text": "【시간대 소환 · 여명 전용】 현재 ECLIPSE CYCLE이 여명일 때만 소환할 수 있습니다. 【ECLIPSE CYCLE · 여명】 아군 전체 보호막 1; 여명이면 추가 +1. 【시간 반응】 여명 [시간문 초공명]: ATK +3 / DEF +1 · 정점 [시간대 이탈]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 아군 전체 보호막 1; 여명이면 추가 +1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -708,23 +663,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "corestrike"
-    ],
-    "eclipseSummonPhases": [
-      "dawn"
-    ],
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 3,
-        "health": 1,
-        "label": "시간문 초공명"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_018",
@@ -738,7 +677,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 7,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 아군 전체 +1/+1; 여명이면 추가 +0/+1. 【시간 취약】 황혼 [잔광 소실]: ATK -2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 아군 전체 +1/+1; 여명이면 추가 +0/+1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -754,15 +693,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "vfx": {
       "summon": "v34-cycle-dawn",
       "activation": "v34-phase-dawn"
-    },
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": -2,
-        "health": 0,
-        "label": "잔광 소실"
-      }
-    },
-    "temporalProfileName": "취약 전용"
+    }
   },
   {
     "id": "v34_cycle_unit_019",
@@ -776,7 +707,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 적 전체 1 피해; 여명이면 추가 +1. 【시간 반응】 여명 [새벽 각성]: ATK +2 / DEF +1 · 황혼 [잔광 소실]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 적 전체 1 피해; 여명이면 추가 +1. 【시간 반응 · 여명 반응형】 여명 [백야 예지]: ATK +2 / DEF +2. 황혼 [황혼 역류]: ATK -1 / DEF -1. 표기되지 않은 시간대는 중립.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -797,16 +728,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "eclipsePhaseModifiers": {
       "dawn": {
         "attack": 2,
-        "health": 1,
-        "label": "새벽 각성"
+        "health": 2,
+        "label": "백야 예지"
       },
       "dusk": {
         "attack": -1,
-        "health": 0,
-        "label": "잔광 소실"
+        "health": -1,
+        "label": "황혼 역류"
       }
     },
-    "temporalProfileName": "양면 공명"
+    "temporalProfileName": "여명 반응형"
   },
   {
     "id": "v34_cycle_unit_020",
@@ -820,7 +751,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 묘지 회수 0장; 여명이면 추가 2장. 【시간 반응】 정점 [시간 전이]: ATK +2 · 개기일식 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 묘지 회수 0장; 여명이면 추가 2장. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -837,20 +768,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "charge"
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 2,
-        "health": 0,
-        "label": "시간 전이"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
-      }
-    },
-    "temporalProfileName": "교차 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_021",
@@ -864,7 +782,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "spirit",
     "target": "none",
-    "text": "【시간대 소환 · 여명 전용】 현재 ECLIPSE CYCLE이 여명일 때만 소환할 수 있습니다. 【ECLIPSE CYCLE · 여명】 여명 잔영 1/2 소환; 여명이면 +1/+1. 【시간 반응】 여명 [시간문 초공명]: ATK +3 / DEF +1 · 정점 [시간대 이탈]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 여명 잔영 1/2 소환; 여명이면 +1/+1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -884,23 +802,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "lifesteal"
-    ],
-    "eclipseSummonPhases": [
-      "dawn"
-    ],
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 3,
-        "health": 1,
-        "label": "시간문 초공명"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_022",
@@ -914,7 +816,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 여명】 ECLIPSE CYCLE을 뒤로 1칸 이동. 【시간 반응】 여명 [새벽 각성]: ATK +3 / DEF +1 · 황혼 [시간 붕괴]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 ECLIPSE CYCLE을 뒤로 1칸 이동. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -937,20 +839,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "pierce"
-    ],
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 3,
-        "health": 1,
-        "label": "새벽 각성"
-      },
-      "dusk": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간 붕괴"
-      }
-    },
-    "temporalProfileName": "극단 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_023",
@@ -964,7 +853,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "relic",
     "target": "none",
-    "text": "【시간 강림】 등장과 동시에 ECLIPSE CYCLE을 여명으로 변경합니다. 【ECLIPSE CYCLE · 여명】 ECLIPSE CYCLE을 즉시 여명으로 변경. 【시간 반응】 여명 [방벽 공명]: DEF +2 · 정점 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 ECLIPSE CYCLE을 즉시 여명으로 변경. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -987,20 +876,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "corestrike"
-    ],
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 0,
-        "health": 2,
-        "label": "방벽 공명"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
-      }
-    },
-    "temporalProfileName": "방어 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_024",
@@ -1010,11 +886,11 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "rarity": "legendary",
     "element": "neutral",
     "cost": 7,
-    "attack": 7,
-    "health": 8,
+    "attack": 1,
+    "health": 2,
     "unitType": "oracle",
     "target": "none",
-    "text": "【시간대 소환 · 여명 전용】 현재 ECLIPSE CYCLE이 여명일 때만 소환할 수 있습니다. 【ECLIPSE CYCLE · 여명】 자동 위상 이동을 2턴 동안 정지. 【시간 반응】 여명 [시간문 초공명]: ATK +3 / DEF +1 · 정점 [시간대 이탈]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 여명】 자동 위상 이동을 2턴 동안 정지. 【시간 반응 · 극시공 · 기존 여명 특화】 여명 [새벽 봉인 해제]: ATK +9 / DEF +7. 황혼 [황혼 역류]: ATK -1. 표기되지 않은 시간대는 중립. 【시간 발동 · 새벽 고정점】 여명으로 진입하거나 여명에서 등장하면 자동 시간 이동 1턴 고정. 【극시공】 기본 능력치는 1/2에 불과하지만 지정 시간대에서 폭발적으로 강화됩니다.",
     "flavor": "여명의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -1035,22 +911,30 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "minimumAllies": 2,
       "graveyardMin": 4
     },
-    "eclipseSummonPhases": [
-      "dawn"
-    ],
     "eclipsePhaseModifiers": {
       "dawn": {
-        "attack": 3,
-        "health": 1,
-        "label": "시간문 초공명"
+        "attack": 9,
+        "health": 7,
+        "label": "새벽 봉인 해제"
       },
-      "zenith": {
+      "dusk": {
         "attack": -1,
-        "health": -1,
-        "label": "시간대 이탈"
+        "health": 0,
+        "label": "황혼 역류"
       }
     },
-    "temporalProfileName": "TIME GATE 초공명"
+    "temporalProfileName": "극시공 · 기존 여명 특화",
+    "eclipsePhasePulses": [
+      {
+        "phase": "dawn",
+        "name": "새벽 고정점",
+        "description": "여명 진입 또는 여명에서 등장 시 자동 시간 이동 1턴 고정.",
+        "effect": {
+          "kind": "phase_lock",
+          "turns": 1
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_025",
@@ -1064,7 +948,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 현재 위상이 정점이면 코어 3, 아니면 1 회복. 【시간 강화】 정점 [태양 과충전]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 현재 위상이 정점이면 코어 3, 아니면 1 회복. 【시간 반응 · 정점 반응형】 정점 [천정 계산]: ATK +1 / DEF +1. 심야 [심야 냉각]: ATK -1. 표기되지 않은 시간대는 중립.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1086,10 +970,15 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "zenith": {
         "attack": 1,
         "health": 1,
-        "label": "태양 과충전"
+        "label": "천정 계산"
+      },
+      "midnight": {
+        "attack": -1,
+        "health": 0,
+        "label": "심야 냉각"
       }
     },
-    "temporalProfileName": "강화 전용"
+    "temporalProfileName": "정점 반응형"
   },
   {
     "id": "v34_cycle_unit_026",
@@ -1103,7 +992,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 현재 위상이 정점이면 상대 코어 5 피해, 아니면 2 피해. 【시간 취약】 심야 [심야 침식]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 현재 위상이 정점이면 상대 코어 5 피해, 아니면 2 피해. 【시간 반응 · 정점 반응형】 정점 [정오 진군]: ATK +2. 표기되지 않은 시간대는 중립. 【시간 발동 · 정오 진군】 정점으로 진입하거나 정점에서 등장하면 내 필드 모든 유닛 ATK +1.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1122,13 +1011,25 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "charge"
     ],
     "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": -1,
+      "zenith": {
+        "attack": 2,
         "health": 0,
-        "label": "심야 침식"
+        "label": "정오 진군"
       }
     },
-    "temporalProfileName": "취약 전용"
+    "temporalProfileName": "정점 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "zenith",
+        "name": "정오 진군",
+        "description": "정점 진입 또는 정점에서 등장 시 내 필드 모든 유닛 ATK +1.",
+        "effect": {
+          "kind": "mass_buff",
+          "attack": 1,
+          "health": 0
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_027",
@@ -1142,7 +1043,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "relic",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 아군 전체 보호막 1; 정점이면 추가 +1. 【시간 반응】 정점 [태양 과충전]: ATK +1 / DEF +1 · 심야 [심야 침식]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 아군 전체 보호막 1; 정점이면 추가 +1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1159,20 +1060,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "lifesteal"
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 1,
-        "health": 1,
-        "label": "태양 과충전"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": 0,
-        "label": "심야 침식"
-      }
-    },
-    "temporalProfileName": "양면 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_028",
@@ -1186,7 +1074,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 2,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 아군 전체 +1/+1; 정점이면 추가 +1/+1. 【시간 반응】 황혼 [시간 전이]: ATK +1 · 여명 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 아군 전체 +1/+1; 정점이면 추가 +1/+1. 【시간 반응 · 정점 반응형】 정점 [극점 과충전]: ATK +3 / DEF +1. 심야 [심야 냉각]: ATK -1 / DEF -1. 표기되지 않은 시간대는 중립.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1207,18 +1095,18 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "pierce"
     ],
     "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 1,
-        "health": 0,
-        "label": "시간 전이"
+      "zenith": {
+        "attack": 3,
+        "health": 1,
+        "label": "극점 과충전"
       },
-      "dawn": {
+      "midnight": {
         "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
+        "health": -1,
+        "label": "심야 냉각"
       }
     },
-    "temporalProfileName": "교차 공명"
+    "temporalProfileName": "정점 반응형"
   },
   {
     "id": "v34_cycle_unit_029",
@@ -1232,7 +1120,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 적 전체 1 피해; 정점이면 추가 +1. 【시간 강화】 여명 [선행 잔향]: ATK +1 · 정점 [태양 과충전]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 적 전체 1 피해; 정점이면 추가 +1. 【시간 반응 · 정점 반응형】 정점 [태양창 발열]: ATK +2 / DEF +1. 표기되지 않은 시간대는 중립. 【시간 발동 · 태양창 포격】 정점으로 진입하거나 정점에서 등장하면 상대 코어 2 피해.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1252,17 +1140,23 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     ],
     "eclipsePhaseModifiers": {
       "zenith": {
-        "attack": 1,
+        "attack": 2,
         "health": 1,
-        "label": "태양 과충전"
-      },
-      "dawn": {
-        "attack": 1,
-        "health": 0,
-        "label": "선행 잔향"
+        "label": "태양창 발열"
       }
     },
-    "temporalProfileName": "이중 강화"
+    "temporalProfileName": "정점 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "zenith",
+        "name": "태양창 포격",
+        "description": "정점 진입 또는 정점에서 등장 시 상대 코어 2 피해.",
+        "effect": {
+          "kind": "damage_core",
+          "amount": 2
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_030",
@@ -1276,7 +1170,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 묘지 회수 0장; 정점이면 추가 2장. 【시간 반응】 정점 [태양 과충전]: ATK +2 / DEF +1 · 심야 [시간 붕괴]: ATK -2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 묘지 회수 0장; 정점이면 추가 2장. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1290,20 +1184,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "vfx": {
       "summon": "v34-cycle-zenith",
       "activation": "v34-phase-zenith"
-    },
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 2,
-        "health": 1,
-        "label": "태양 과충전"
-      },
-      "midnight": {
-        "attack": -2,
-        "health": 0,
-        "label": "시간 붕괴"
-      }
-    },
-    "temporalProfileName": "극단 공명"
+    }
   },
   {
     "id": "v34_cycle_unit_031",
@@ -1317,7 +1198,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 정점 잔영 1/2 소환; 정점이면 +1/+1. 【시간 반응】 정점 [방벽 공명]: DEF +1 · 황혼 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 정점 잔영 1/2 소환; 정점이면 +1/+1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1337,20 +1218,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "guard"
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 0,
-        "health": 1,
-        "label": "방벽 공명"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
-      }
-    },
-    "temporalProfileName": "방어 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_032",
@@ -1364,7 +1232,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 ECLIPSE CYCLE을 뒤로 1칸 이동. 【시간 반응】 심야 [역주기 적응]: ATK +1 / DEF +1 · 정점 [고유 시간 거부]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 ECLIPSE CYCLE을 뒤로 1칸 이동. 【시간 반응 · 정점 반응형】 정점 [절정 박자]: ATK +1 / DEF +1. 표기되지 않은 시간대는 중립. 【시간 발동 · 절정 박자】 정점으로 진입하거나 정점에서 등장하면 기절하지 않은 내 유닛들의 공격 가능 상태 회복.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1381,18 +1249,23 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "charge"
     ],
     "eclipsePhaseModifiers": {
-      "midnight": {
+      "zenith": {
         "attack": 1,
         "health": 1,
-        "label": "역주기 적응"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": 0,
-        "label": "고유 시간 거부"
+        "label": "절정 박자"
       }
     },
-    "temporalProfileName": "역주기 적응"
+    "temporalProfileName": "정점 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "zenith",
+        "name": "절정 박자",
+        "description": "정점 진입 또는 정점에서 등장 시 기절하지 않은 내 유닛들의 공격 가능 상태 회복.",
+        "effect": {
+          "kind": "ready_all"
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_033",
@@ -1406,7 +1279,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "relic",
     "target": "none",
-    "text": "【시간 강림】 등장과 동시에 ECLIPSE CYCLE을 정점으로 변경합니다. 【ECLIPSE CYCLE · 정점】 ECLIPSE CYCLE을 즉시 정점으로 변경. 【시간 강화】 정점 [태양 과충전]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 ECLIPSE CYCLE을 즉시 정점으로 변경. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1421,15 +1294,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "lifesteal"
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 1,
-        "health": 1,
-        "label": "태양 과충전"
-      }
-    },
-    "temporalProfileName": "강화 전용"
+    ]
   },
   {
     "id": "v34_cycle_unit_034",
@@ -1443,7 +1308,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 자동 위상 이동을 2턴 동안 정지. 【시간 취약】 심야 [심야 침식]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 자동 위상 이동을 2턴 동안 정지. 【시간 반응 · 정점 반응형】 정점 [정오 고정]: ATK +2 / DEF +1. 심야 [심야 냉각]: ATK -1. 표기되지 않은 시간대는 중립.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1460,13 +1325,18 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "pierce"
     ],
     "eclipsePhaseModifiers": {
+      "zenith": {
+        "attack": 2,
+        "health": 1,
+        "label": "정오 고정"
+      },
       "midnight": {
         "attack": -1,
         "health": 0,
-        "label": "심야 침식"
+        "label": "심야 냉각"
       }
     },
-    "temporalProfileName": "취약 전용"
+    "temporalProfileName": "정점 반응형"
   },
   {
     "id": "v34_cycle_unit_035",
@@ -1480,7 +1350,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 현재 위상이 정점이면 카드 2장, 아니면 1장 드로우. 【시간 반응】 정점 [태양 과충전]: ATK +1 / DEF +1 · 심야 [심야 침식]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 현재 위상이 정점이면 카드 2장, 아니면 1장 드로우. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1497,20 +1367,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "corestrike"
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 1,
-        "health": 1,
-        "label": "태양 과충전"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": 0,
-        "label": "심야 침식"
-      }
-    },
-    "temporalProfileName": "양면 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_036",
@@ -1524,7 +1381,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 현재 위상이 정점이면 ENERGY 2, 아니면 1 회복. 【시간 반응】 황혼 [시간 전이]: ATK +1 · 여명 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 현재 위상이 정점이면 ENERGY 2, 아니면 1 회복. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1538,20 +1395,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "vfx": {
       "summon": "v34-cycle-zenith",
       "activation": "v34-phase-zenith"
-    },
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 1,
-        "health": 0,
-        "label": "시간 전이"
-      },
-      "dawn": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
-      }
-    },
-    "temporalProfileName": "교차 공명"
+    }
   },
   {
     "id": "v34_cycle_unit_037",
@@ -1565,7 +1409,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 현재 위상이 정점이면 코어 3, 아니면 1 회복. 【시간 강화】 여명 [선행 잔향]: ATK +1 · 정점 [태양 과충전]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 현재 위상이 정점이면 코어 3, 아니면 1 회복. 【시간 반응 · 정점 반응형】 정점 [태양 연성]: ATK +2 / DEF +1. 표기되지 않은 시간대는 중립. 【시간 발동 · 태양 연성】 정점으로 진입하거나 정점에서 등장하면 ENERGY 1 회복.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1585,17 +1429,23 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     ],
     "eclipsePhaseModifiers": {
       "zenith": {
-        "attack": 1,
+        "attack": 2,
         "health": 1,
-        "label": "태양 과충전"
-      },
-      "dawn": {
-        "attack": 1,
-        "health": 0,
-        "label": "선행 잔향"
+        "label": "태양 연성"
       }
     },
-    "temporalProfileName": "이중 강화"
+    "temporalProfileName": "정점 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "zenith",
+        "name": "태양 연성",
+        "description": "정점 진입 또는 정점에서 등장 시 ENERGY 1 회복.",
+        "effect": {
+          "kind": "gain_energy",
+          "amount": 1
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_038",
@@ -1609,7 +1459,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 현재 위상이 정점이면 상대 코어 5 피해, 아니면 2 피해. 【시간 반응】 정점 [태양 과충전]: ATK +2 / DEF +1 · 심야 [시간 붕괴]: ATK -2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 현재 위상이 정점이면 상대 코어 5 피해, 아니면 2 피해. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1626,20 +1476,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "charge"
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 2,
-        "health": 1,
-        "label": "태양 과충전"
-      },
-      "midnight": {
-        "attack": -2,
-        "health": 0,
-        "label": "시간 붕괴"
-      }
-    },
-    "temporalProfileName": "극단 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_039",
@@ -1653,7 +1490,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 7,
     "unitType": "relic",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 아군 전체 보호막 1; 정점이면 추가 +1. 【시간 반응】 정점 [방벽 공명]: DEF +1 · 황혼 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 아군 전체 보호막 1; 정점이면 추가 +1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1670,20 +1507,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "lifesteal"
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 0,
-        "health": 1,
-        "label": "방벽 공명"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
-      }
-    },
-    "temporalProfileName": "방어 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_040",
@@ -1697,7 +1521,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 아군 전체 +1/+1; 정점이면 추가 +1/+1. 【시간 반응】 심야 [역주기 적응]: ATK +1 / DEF +1 · 정점 [고유 시간 거부]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 아군 전체 +1/+1; 정점이면 추가 +1/+1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1716,20 +1540,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "pierce"
-    ],
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 1,
-        "health": 1,
-        "label": "역주기 적응"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": 0,
-        "label": "고유 시간 거부"
-      }
-    },
-    "temporalProfileName": "역주기 적응"
+    ]
   },
   {
     "id": "v34_cycle_unit_041",
@@ -1743,7 +1554,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 7,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【시간대 소환 · 정점 전용】 현재 ECLIPSE CYCLE이 정점일 때만 소환할 수 있습니다. 【ECLIPSE CYCLE · 정점】 적 전체 1 피해; 정점이면 추가 +1. 【시간 반응】 정점 [시간문 초공명]: ATK +3 / DEF +1 · 황혼 [시간대 이탈]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 적 전체 1 피해; 정점이면 추가 +1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1760,23 +1571,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "corestrike"
-    ],
-    "eclipseSummonPhases": [
-      "zenith"
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 3,
-        "health": 1,
-        "label": "시간문 초공명"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_042",
@@ -1790,7 +1585,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 7,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 묘지 회수 0장; 정점이면 추가 2장. 【시간 취약】 심야 [심야 침식]: ATK -2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 묘지 회수 0장; 정점이면 추가 2장. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1804,15 +1599,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "vfx": {
       "summon": "v34-cycle-zenith",
       "activation": "v34-phase-zenith"
-    },
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": -2,
-        "health": 0,
-        "label": "심야 침식"
-      }
-    },
-    "temporalProfileName": "취약 전용"
+    }
   },
   {
     "id": "v34_cycle_unit_043",
@@ -1826,7 +1613,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 정점 잔영 1/2 소환; 정점이면 +1/+1. 【시간 반응】 정점 [태양 과충전]: ATK +2 / DEF +1 · 심야 [심야 침식]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 정점 잔영 1/2 소환; 정점이면 +1/+1. 【시간 반응 · 정점 반응형】 정점 [광휘 결정화]: ATK +2 / DEF +2. 심야 [심야 냉각]: ATK -1. 표기되지 않은 시간대는 중립.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1850,16 +1637,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "eclipsePhaseModifiers": {
       "zenith": {
         "attack": 2,
-        "health": 1,
-        "label": "태양 과충전"
+        "health": 2,
+        "label": "광휘 결정화"
       },
       "midnight": {
         "attack": -1,
         "health": 0,
-        "label": "심야 침식"
+        "label": "심야 냉각"
       }
     },
-    "temporalProfileName": "양면 공명"
+    "temporalProfileName": "정점 반응형"
   },
   {
     "id": "v34_cycle_unit_044",
@@ -1873,7 +1660,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 ECLIPSE CYCLE을 뒤로 1칸 이동. 【시간 반응】 황혼 [시간 전이]: ATK +2 · 여명 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 ECLIPSE CYCLE을 뒤로 1칸 이동. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1888,20 +1675,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "charge"
-    ],
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 2,
-        "health": 0,
-        "label": "시간 전이"
-      },
-      "dawn": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
-      }
-    },
-    "temporalProfileName": "교차 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_045",
@@ -1915,7 +1689,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "relic",
     "target": "none",
-    "text": "【시간 강림】 등장과 동시에 ECLIPSE CYCLE을 정점으로 변경합니다. 【ECLIPSE CYCLE · 정점】 ECLIPSE CYCLE을 즉시 정점으로 변경. 【시간 강화】 여명 [선행 잔향]: ATK +1 · 정점 [태양 과충전]: ATK +1 / DEF +2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 ECLIPSE CYCLE을 즉시 정점으로 변경. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1930,20 +1704,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "lifesteal"
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 1,
-        "health": 2,
-        "label": "태양 과충전"
-      },
-      "dawn": {
-        "attack": 1,
-        "health": 0,
-        "label": "선행 잔향"
-      }
-    },
-    "temporalProfileName": "이중 강화"
+    ]
   },
   {
     "id": "v34_cycle_unit_046",
@@ -1957,7 +1718,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 정점】 자동 위상 이동을 2턴 동안 정지. 【시간 반응】 정점 [태양 과충전]: ATK +3 / DEF +1 · 심야 [시간 붕괴]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 자동 위상 이동을 2턴 동안 정지. 【시간 반응 · 정점 반응형】 정점 [백열 방벽]: ATK +3 / DEF +2. 표기되지 않은 시간대는 중립. 【시간 발동 · 백열 장막】 정점으로 진입하거나 정점에서 등장하면 내 필드 모든 유닛 보호막 +1.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -1984,16 +1745,22 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "eclipsePhaseModifiers": {
       "zenith": {
         "attack": 3,
-        "health": 1,
-        "label": "태양 과충전"
-      },
-      "midnight": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간 붕괴"
+        "health": 2,
+        "label": "백열 방벽"
       }
     },
-    "temporalProfileName": "극단 공명"
+    "temporalProfileName": "정점 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "zenith",
+        "name": "백열 장막",
+        "description": "정점 진입 또는 정점에서 등장 시 내 필드 모든 유닛 보호막 +1.",
+        "effect": {
+          "kind": "mass_shield",
+          "amount": 1
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_047",
@@ -2007,7 +1774,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【시간대 소환 · 정점 전용】 현재 ECLIPSE CYCLE이 정점일 때만 소환할 수 있습니다. 【ECLIPSE CYCLE · 정점】 현재 위상이 정점이면 카드 2장, 아니면 1장 드로우. 【시간 반응】 정점 [시간문 초공명]: ATK +3 / DEF +1 · 황혼 [시간대 이탈]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 현재 위상이 정점이면 카드 2장, 아니면 1장 드로우. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -2032,23 +1799,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "corestrike"
-    ],
-    "eclipseSummonPhases": [
-      "zenith"
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 3,
-        "health": 1,
-        "label": "시간문 초공명"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_048",
@@ -2058,11 +1809,11 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "rarity": "legendary",
     "element": "solar",
     "cost": 7,
-    "attack": 7,
-    "health": 8,
+    "attack": 1,
+    "health": 2,
     "unitType": "artificer",
     "target": "none",
-    "text": "【시간대 소환 · 정점 전용】 현재 ECLIPSE CYCLE이 정점일 때만 소환할 수 있습니다. 【ECLIPSE CYCLE · 정점】 현재 위상이 정점이면 ENERGY 2, 아니면 1 회복. 【시간 반응】 정점 [시간문 초공명]: ATK +3 / DEF +1 · 황혼 [시간대 이탈]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 정점】 현재 위상이 정점이면 ENERGY 2, 아니면 1 회복. 【시간 반응 · 극시공 · 기존 정점 특화】 정점 [절정 초과출력]: ATK +11 / DEF +4. 심야 [심야 냉각]: ATK -1. 표기되지 않은 시간대는 중립. 【시간 발동 · 천정 직격】 정점으로 진입하거나 정점에서 등장하면 상대 코어 4 피해. 【극시공】 기본 능력치는 1/2에 불과하지만 지정 시간대에서 폭발적으로 강화됩니다.",
     "flavor": "정점의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -2085,22 +1836,30 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "minimumAllies": 2,
       "graveyardMin": 4
     },
-    "eclipseSummonPhases": [
-      "zenith"
-    ],
     "eclipsePhaseModifiers": {
       "zenith": {
-        "attack": 3,
-        "health": 1,
-        "label": "시간문 초공명"
+        "attack": 11,
+        "health": 4,
+        "label": "절정 초과출력"
       },
-      "dusk": {
+      "midnight": {
         "attack": -1,
-        "health": -1,
-        "label": "시간대 이탈"
+        "health": 0,
+        "label": "심야 냉각"
       }
     },
-    "temporalProfileName": "TIME GATE 초공명"
+    "temporalProfileName": "극시공 · 기존 정점 특화",
+    "eclipsePhasePulses": [
+      {
+        "phase": "zenith",
+        "name": "천정 직격",
+        "description": "정점 진입 또는 정점에서 등장 시 상대 코어 4 피해.",
+        "effect": {
+          "kind": "damage_core",
+          "amount": 4
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_049",
@@ -2114,7 +1873,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "relic",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 아군 전체 보호막 1; 황혼이면 추가 +1. 【시간 강화】 황혼 [잔광 공명]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 아군 전체 보호막 1; 황혼이면 추가 +1. 【시간 반응 · 황혼 반응형】 황혼 [낙일 정박]: DEF +2. 여명 [여명 노출]: ATK -1. 표기되지 않은 시간대는 중립. 【시간 발동 · 낙일 방벽】 황혼으로 진입하거나 황혼에서 등장하면 내 필드 모든 유닛 보호막 +1.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2134,12 +1893,28 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     ],
     "eclipsePhaseModifiers": {
       "dusk": {
-        "attack": 1,
-        "health": 1,
-        "label": "잔광 공명"
+        "attack": 0,
+        "health": 2,
+        "label": "낙일 정박"
+      },
+      "dawn": {
+        "attack": -1,
+        "health": 0,
+        "label": "여명 노출"
       }
     },
-    "temporalProfileName": "강화 전용"
+    "temporalProfileName": "황혼 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "dusk",
+        "name": "낙일 방벽",
+        "description": "황혼 진입 또는 황혼에서 등장 시 내 필드 모든 유닛 보호막 +1.",
+        "effect": {
+          "kind": "mass_shield",
+          "amount": 1
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_050",
@@ -2153,7 +1928,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 아군 전체 +1/+1; 황혼이면 추가 +0/+1. 【시간 취약】 개기일식 [식광 불안정]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 아군 전체 +1/+1; 황혼이면 추가 +0/+1. 【시간 반응 · 황혼 반응형】 황혼 [노을 포화]: ATK +2 / DEF +1. 표기되지 않은 시간대는 중립.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2174,13 +1949,13 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "charge"
     ],
     "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": -1,
-        "health": 0,
-        "label": "식광 불안정"
+      "dusk": {
+        "attack": 2,
+        "health": 1,
+        "label": "노을 포화"
       }
     },
-    "temporalProfileName": "취약 전용"
+    "temporalProfileName": "황혼 반응형"
   },
   {
     "id": "v34_cycle_unit_051",
@@ -2194,7 +1969,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 적 전체 1 피해; 황혼이면 추가 +1. 【시간 반응】 황혼 [잔광 공명]: ATK +1 / DEF +1 · 개기일식 [식광 불안정]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 적 전체 1 피해; 황혼이면 추가 +1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2211,20 +1986,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "lifesteal"
-    ],
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 1,
-        "health": 1,
-        "label": "잔광 공명"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": 0,
-        "label": "식광 불안정"
-      }
-    },
-    "temporalProfileName": "양면 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_052",
@@ -2238,7 +2000,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 2,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 묘지 회수 0장; 황혼이면 추가 2장. 【시간 반응】 심야 [시간 전이]: ATK +1 · 정점 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 묘지 회수 0장; 황혼이면 추가 2장. 【시간 반응 · 황혼 반응형】 황혼 [황혼 장갑]: ATK +1 / DEF +3. 여명 [여명 노출]: ATK -1. 표기되지 않은 시간대는 중립.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2257,18 +2019,18 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "pierce"
     ],
     "eclipsePhaseModifiers": {
-      "midnight": {
+      "dusk": {
         "attack": 1,
-        "health": 0,
-        "label": "시간 전이"
+        "health": 3,
+        "label": "황혼 장갑"
       },
-      "zenith": {
+      "dawn": {
         "attack": -1,
         "health": 0,
-        "label": "역위상 마찰"
+        "label": "여명 노출"
       }
     },
-    "temporalProfileName": "교차 공명"
+    "temporalProfileName": "황혼 반응형"
   },
   {
     "id": "v34_cycle_unit_053",
@@ -2282,7 +2044,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 황혼 잔영 1/2 소환; 황혼이면 +1/+1. 【시간 강화】 정점 [선행 잔향]: ATK +1 · 황혼 [잔광 공명]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 황혼 잔영 1/2 소환; 황혼이면 +1/+1. 【시간 반응 · 황혼 반응형】 황혼 [저녁별 찬가]: ATK +1 / DEF +2. 표기되지 않은 시간대는 중립. 【시간 발동 · 저녁별 찬가】 황혼으로 진입하거나 황혼에서 등장하면 내 코어 2 회복.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2306,16 +2068,22 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "eclipsePhaseModifiers": {
       "dusk": {
         "attack": 1,
-        "health": 1,
-        "label": "잔광 공명"
-      },
-      "zenith": {
-        "attack": 1,
-        "health": 0,
-        "label": "선행 잔향"
+        "health": 2,
+        "label": "저녁별 찬가"
       }
     },
-    "temporalProfileName": "이중 강화"
+    "temporalProfileName": "황혼 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "dusk",
+        "name": "저녁별 찬가",
+        "description": "황혼 진입 또는 황혼에서 등장 시 내 코어 2 회복.",
+        "effect": {
+          "kind": "heal_core",
+          "amount": 2
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_054",
@@ -2329,7 +2097,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 ECLIPSE CYCLE을 뒤로 1칸 이동. 【시간 반응】 황혼 [잔광 공명]: ATK +2 / DEF +1 · 개기일식 [시간 붕괴]: ATK -2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 ECLIPSE CYCLE을 뒤로 1칸 이동. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2341,20 +2109,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "vfx": {
       "summon": "v34-cycle-dusk",
       "activation": "v34-phase-dusk"
-    },
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 2,
-        "health": 1,
-        "label": "잔광 공명"
-      },
-      "eclipse": {
-        "attack": -2,
-        "health": 0,
-        "label": "시간 붕괴"
-      }
-    },
-    "temporalProfileName": "극단 공명"
+    }
   },
   {
     "id": "v34_cycle_unit_055",
@@ -2368,7 +2123,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "relic",
     "target": "none",
-    "text": "【시간 강림】 등장과 동시에 ECLIPSE CYCLE을 황혼으로 변경합니다. 【ECLIPSE CYCLE · 황혼】 ECLIPSE CYCLE을 즉시 황혼으로 변경. 【시간 반응】 황혼 [방벽 공명]: DEF +1 · 심야 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 ECLIPSE CYCLE을 즉시 황혼으로 변경. 【시간 반응 · 황혼 반응형】 황혼 [석양 조율]: ATK +1 / DEF +2. 표기되지 않은 시간대는 중립. 【시간 발동 · 잔광 호위】 황혼으로 진입하거나 황혼에서 등장하면 1/2 잔광 호위령 1체 소환.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2386,17 +2141,25 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     ],
     "eclipsePhaseModifiers": {
       "dusk": {
-        "attack": 0,
-        "health": 1,
-        "label": "방벽 공명"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
+        "attack": 1,
+        "health": 2,
+        "label": "석양 조율"
       }
     },
-    "temporalProfileName": "방어 공명"
+    "temporalProfileName": "황혼 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "dusk",
+        "name": "잔광 호위",
+        "description": "황혼 진입 또는 황혼에서 등장 시 1/2 잔광 호위령 1체 소환.",
+        "effect": {
+          "kind": "summon_token",
+          "attack": 1,
+          "health": 2,
+          "name": "잔광 호위령"
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_056",
@@ -2410,7 +2173,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 자동 위상 이동을 2턴 동안 정지. 【시간 반응】 개기일식 [역주기 적응]: ATK +1 / DEF +1 · 황혼 [고유 시간 거부]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 자동 위상 이동을 2턴 동안 정지. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2425,20 +2188,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "charge"
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 1,
-        "health": 1,
-        "label": "역주기 적응"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": 0,
-        "label": "고유 시간 거부"
-      }
-    },
-    "temporalProfileName": "역주기 적응"
+    ]
   },
   {
     "id": "v34_cycle_unit_057",
@@ -2452,7 +2202,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 현재 위상이 황혼이면 카드 2장, 아니면 1장 드로우. 【시간 강화】 황혼 [잔광 공명]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 현재 위상이 황혼이면 카드 2장, 아니면 1장 드로우. 【시간 반응 · 황혼 반응형】 황혼 [낙일 수호]: DEF +3. 여명 [여명 노출]: ATK -1. 표기되지 않은 시간대는 중립.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2472,12 +2222,17 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     ],
     "eclipsePhaseModifiers": {
       "dusk": {
-        "attack": 1,
-        "health": 1,
-        "label": "잔광 공명"
+        "attack": 0,
+        "health": 3,
+        "label": "낙일 수호"
+      },
+      "dawn": {
+        "attack": -1,
+        "health": 0,
+        "label": "여명 노출"
       }
     },
-    "temporalProfileName": "강화 전용"
+    "temporalProfileName": "황혼 반응형"
   },
   {
     "id": "v34_cycle_unit_058",
@@ -2491,7 +2246,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 현재 위상이 황혼이면 ENERGY 2, 아니면 1 회복. 【시간 취약】 개기일식 [식광 불안정]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 현재 위상이 황혼이면 ENERGY 2, 아니면 1 회복. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2508,15 +2263,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "pierce"
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": -1,
-        "health": 0,
-        "label": "식광 불안정"
-      }
-    },
-    "temporalProfileName": "취약 전용"
+    ]
   },
   {
     "id": "v34_cycle_unit_059",
@@ -2530,7 +2277,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 현재 위상이 황혼이면 코어 3, 아니면 1 회복. 【시간 반응】 황혼 [잔광 공명]: ATK +1 / DEF +1 · 개기일식 [식광 불안정]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 현재 위상이 황혼이면 코어 3, 아니면 1 회복. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2547,20 +2294,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "corestrike"
-    ],
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 1,
-        "health": 1,
-        "label": "잔광 공명"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": 0,
-        "label": "식광 불안정"
-      }
-    },
-    "temporalProfileName": "양면 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_060",
@@ -2574,7 +2308,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 현재 위상이 황혼이면 상대 코어 5 피해, 아니면 2 피해. 【시간 반응】 심야 [시간 전이]: ATK +1 · 정점 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 현재 위상이 황혼이면 상대 코어 5 피해, 아니면 2 피해. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2588,20 +2322,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "vfx": {
       "summon": "v34-cycle-dusk",
       "activation": "v34-phase-dusk"
-    },
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 1,
-        "health": 0,
-        "label": "시간 전이"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
-      }
-    },
-    "temporalProfileName": "교차 공명"
+    }
   },
   {
     "id": "v34_cycle_unit_061",
@@ -2615,7 +2336,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "relic",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 아군 전체 보호막 1; 황혼이면 추가 +1. 【시간 강화】 정점 [선행 잔향]: ATK +1 · 황혼 [잔광 공명]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 아군 전체 보호막 1; 황혼이면 추가 +1. 【시간 반응 · 황혼 반응형】 황혼 [저녁별 예지]: ATK +1 / DEF +3. 개기일식 [식광 붕괴]: ATK -1 / DEF -1. 표기되지 않은 시간대는 중립. 【시간 발동 · 마지막 노을】 황혼으로 진입하거나 황혼에서 등장하면 내 코어 3 회복.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2636,16 +2357,27 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "eclipsePhaseModifiers": {
       "dusk": {
         "attack": 1,
-        "health": 1,
-        "label": "잔광 공명"
+        "health": 3,
+        "label": "저녁별 예지"
       },
-      "zenith": {
-        "attack": 1,
-        "health": 0,
-        "label": "선행 잔향"
+      "eclipse": {
+        "attack": -1,
+        "health": -1,
+        "label": "식광 붕괴"
       }
     },
-    "temporalProfileName": "이중 강화"
+    "temporalProfileName": "황혼 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "dusk",
+        "name": "마지막 노을",
+        "description": "황혼 진입 또는 황혼에서 등장 시 내 코어 3 회복.",
+        "effect": {
+          "kind": "heal_core",
+          "amount": 3
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_062",
@@ -2659,7 +2391,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 아군 전체 +1/+1; 황혼이면 추가 +0/+1. 【시간 반응】 황혼 [잔광 공명]: ATK +2 / DEF +1 · 개기일식 [시간 붕괴]: ATK -2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 아군 전체 +1/+1; 황혼이면 추가 +0/+1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2678,20 +2410,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "charge"
-    ],
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 2,
-        "health": 1,
-        "label": "잔광 공명"
-      },
-      "eclipse": {
-        "attack": -2,
-        "health": 0,
-        "label": "시간 붕괴"
-      }
-    },
-    "temporalProfileName": "극단 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_063",
@@ -2705,7 +2424,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 7,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 적 전체 1 피해; 황혼이면 추가 +1. 【시간 반응】 황혼 [방벽 공명]: DEF +1 · 심야 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 적 전체 1 피해; 황혼이면 추가 +1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2722,20 +2441,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "lifesteal"
-    ],
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 0,
-        "health": 1,
-        "label": "방벽 공명"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
-      }
-    },
-    "temporalProfileName": "방어 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_064",
@@ -2749,7 +2455,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 묘지 회수 0장; 황혼이면 추가 2장. 【시간 반응】 개기일식 [역주기 적응]: ATK +1 / DEF +1 · 황혼 [고유 시간 거부]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 묘지 회수 0장; 황혼이면 추가 2장. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2766,20 +2472,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "pierce"
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 1,
-        "health": 1,
-        "label": "역주기 적응"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": 0,
-        "label": "고유 시간 거부"
-      }
-    },
-    "temporalProfileName": "역주기 적응"
+    ]
   },
   {
     "id": "v34_cycle_unit_065",
@@ -2793,7 +2486,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 7,
     "unitType": "spirit",
     "target": "none",
-    "text": "【시간대 소환 · 황혼 전용】 현재 ECLIPSE CYCLE이 황혼일 때만 소환할 수 있습니다. 【ECLIPSE CYCLE · 황혼】 황혼 잔영 1/2 소환; 황혼이면 +1/+1. 【시간 반응】 황혼 [시간문 초공명]: ATK +3 / DEF +1 · 심야 [시간대 이탈]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 황혼 잔영 1/2 소환; 황혼이면 +1/+1. 【시간 반응 · 황혼 반응형】 황혼 [잔광 해석]: ATK +2 / DEF +2. 심야 [심야 냉각]: ATK -1 / DEF -1. 표기되지 않은 시간대는 중립. 【시간 발동 · 잔광 복제】 황혼으로 진입하거나 황혼에서 등장하면 2/3 잔광 수호령 1체 소환.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2814,22 +2507,32 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "keywords": [
       "corestrike"
     ],
-    "eclipseSummonPhases": [
-      "dusk"
-    ],
     "eclipsePhaseModifiers": {
       "dusk": {
-        "attack": 3,
-        "health": 1,
-        "label": "시간문 초공명"
+        "attack": 2,
+        "health": 2,
+        "label": "잔광 해석"
       },
       "midnight": {
         "attack": -1,
         "health": -1,
-        "label": "시간대 이탈"
+        "label": "심야 냉각"
       }
     },
-    "temporalProfileName": "TIME GATE 초공명"
+    "temporalProfileName": "황혼 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "dusk",
+        "name": "잔광 복제",
+        "description": "황혼 진입 또는 황혼에서 등장 시 2/3 잔광 수호령 1체 소환.",
+        "effect": {
+          "kind": "summon_token",
+          "attack": 2,
+          "health": 3,
+          "name": "잔광 수호령"
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_066",
@@ -2843,7 +2546,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 7,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 ECLIPSE CYCLE을 뒤로 1칸 이동. 【시간 취약】 개기일식 [식광 불안정]: ATK -2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 ECLIPSE CYCLE을 뒤로 1칸 이동. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2855,15 +2558,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "vfx": {
       "summon": "v34-cycle-dusk",
       "activation": "v34-phase-dusk"
-    },
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": -2,
-        "health": 0,
-        "label": "식광 불안정"
-      }
-    },
-    "temporalProfileName": "취약 전용"
+    }
   },
   {
     "id": "v34_cycle_unit_067",
@@ -2877,7 +2572,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "relic",
     "target": "none",
-    "text": "【시간 강림】 등장과 동시에 ECLIPSE CYCLE을 황혼으로 변경합니다. 【ECLIPSE CYCLE · 황혼】 ECLIPSE CYCLE을 즉시 황혼으로 변경. 【시간 반응】 황혼 [잔광 공명]: ATK +2 / DEF +1 · 개기일식 [식광 불안정]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 ECLIPSE CYCLE을 즉시 황혼으로 변경. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2892,20 +2587,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "guard"
-    ],
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 2,
-        "health": 1,
-        "label": "잔광 공명"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": 0,
-        "label": "식광 불안정"
-      }
-    },
-    "temporalProfileName": "양면 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_068",
@@ -2919,7 +2601,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 자동 위상 이동을 2턴 동안 정지. 【시간 반응】 심야 [시간 전이]: ATK +2 · 정점 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 자동 위상 이동을 2턴 동안 정지. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2934,20 +2616,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "charge"
-    ],
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 2,
-        "health": 0,
-        "label": "시간 전이"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
-      }
-    },
-    "temporalProfileName": "교차 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_069",
@@ -2961,7 +2630,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 현재 위상이 황혼이면 카드 2장, 아니면 1장 드로우. 【시간 강화】 정점 [선행 잔향]: ATK +1 · 황혼 [잔광 공명]: ATK +1 / DEF +2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 현재 위상이 황혼이면 카드 2장, 아니면 1장 드로우. 【시간 반응 · 황혼 반응형】 황혼 [저녁별 관측]: ATK +2 / DEF +2. 표기되지 않은 시간대는 중립.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -2981,17 +2650,12 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     ],
     "eclipsePhaseModifiers": {
       "dusk": {
-        "attack": 1,
+        "attack": 2,
         "health": 2,
-        "label": "잔광 공명"
-      },
-      "zenith": {
-        "attack": 1,
-        "health": 0,
-        "label": "선행 잔향"
+        "label": "저녁별 관측"
       }
     },
-    "temporalProfileName": "이중 강화"
+    "temporalProfileName": "황혼 반응형"
   },
   {
     "id": "v34_cycle_unit_070",
@@ -3005,7 +2669,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "artificer",
     "target": "none",
-    "text": "【시간대 소환 · 황혼 전용】 현재 ECLIPSE CYCLE이 황혼일 때만 소환할 수 있습니다. 【ECLIPSE CYCLE · 황혼】 현재 위상이 황혼이면 ENERGY 2, 아니면 1 회복. 【시간 반응】 황혼 [시간문 초공명]: ATK +3 / DEF +1 · 심야 [시간대 이탈]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 현재 위상이 황혼이면 ENERGY 2, 아니면 1 회복. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -3030,23 +2694,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "pierce"
-    ],
-    "eclipseSummonPhases": [
-      "dusk"
-    ],
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 3,
-        "health": 1,
-        "label": "시간문 초공명"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_071",
@@ -3060,7 +2708,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 황혼】 현재 위상이 황혼이면 코어 3, 아니면 1 회복. 【시간 반응】 황혼 [방벽 공명]: DEF +2 · 심야 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 현재 위상이 황혼이면 코어 3, 아니면 1 회복. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -3085,20 +2733,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "corestrike"
-    ],
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 0,
-        "health": 2,
-        "label": "방벽 공명"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
-      }
-    },
-    "temporalProfileName": "방어 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_072",
@@ -3108,11 +2743,11 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "rarity": "legendary",
     "element": "lunar",
     "cost": 7,
-    "attack": 7,
-    "health": 8,
+    "attack": 1,
+    "health": 3,
     "unitType": "hunter",
     "target": "none",
-    "text": "【시간대 소환 · 황혼 전용】 현재 ECLIPSE CYCLE이 황혼일 때만 소환할 수 있습니다. 【ECLIPSE CYCLE · 황혼】 현재 위상이 황혼이면 상대 코어 5 피해, 아니면 2 피해. 【시간 반응】 황혼 [시간문 초공명]: ATK +3 / DEF +1 · 심야 [시간대 이탈]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 황혼】 현재 위상이 황혼이면 상대 코어 5 피해, 아니면 2 피해. 【시간 반응 · 극시공 · 기존 황혼 특화】 황혼 [퇴광 완전개방]: ATK +5 / DEF +9. 여명 [여명 노출]: ATK -1. 표기되지 않은 시간대는 중립. 【시간 발동 · 퇴광 안식】 황혼으로 진입하거나 황혼에서 등장하면 내 필드 모든 유닛 체력 2 회복. 【극시공】 기본 능력치는 1/3에 불과하지만 지정 시간대에서 폭발적으로 강화됩니다.",
     "flavor": "황혼의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -3135,22 +2770,30 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "minimumAllies": 2,
       "graveyardMin": 4
     },
-    "eclipseSummonPhases": [
-      "dusk"
-    ],
     "eclipsePhaseModifiers": {
       "dusk": {
-        "attack": 3,
-        "health": 1,
-        "label": "시간문 초공명"
+        "attack": 5,
+        "health": 9,
+        "label": "퇴광 완전개방"
       },
-      "midnight": {
+      "dawn": {
         "attack": -1,
-        "health": -1,
-        "label": "시간대 이탈"
+        "health": 0,
+        "label": "여명 노출"
       }
     },
-    "temporalProfileName": "TIME GATE 초공명"
+    "temporalProfileName": "극시공 · 기존 황혼 특화",
+    "eclipsePhasePulses": [
+      {
+        "phase": "dusk",
+        "name": "퇴광 안식",
+        "description": "황혼 진입 또는 황혼에서 등장 시 내 필드 모든 유닛 체력 2 회복.",
+        "effect": {
+          "kind": "heal_allies",
+          "amount": 2
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_073",
@@ -3164,7 +2807,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 적 전체 1 피해; 심야이면 추가 +1. 【시간 강화】 심야 [월광 동조]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 적 전체 1 피해; 심야이면 추가 +1. 【시간 반응 · 심야 반응형】 심야 [자정 냉각]: ATK +1 / DEF +1. 정점 [정점 노출]: ATK -1. 표기되지 않은 시간대는 중립. 【시간 발동 · 자정 동결】 심야으로 진입하거나 심야에서 등장하면 상대 필드에서 가장 강한 유닛 1턴 공격 봉쇄.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3186,10 +2829,26 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "midnight": {
         "attack": 1,
         "health": 1,
-        "label": "월광 동조"
+        "label": "자정 냉각"
+      },
+      "zenith": {
+        "attack": -1,
+        "health": 0,
+        "label": "정점 노출"
       }
     },
-    "temporalProfileName": "강화 전용"
+    "temporalProfileName": "심야 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "midnight",
+        "name": "자정 동결",
+        "description": "심야 진입 또는 심야에서 등장 시 상대 필드에서 가장 강한 유닛 1턴 공격 봉쇄.",
+        "effect": {
+          "kind": "freeze_strongest",
+          "turns": 1
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_074",
@@ -3203,7 +2862,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 묘지 회수 0장; 심야이면 추가 2장. 【시간 취약】 여명 [새벽 과민]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 묘지 회수 0장; 심야이면 추가 2장. 【시간 반응 · 심야 반응형】 심야 [심야 회수]: ATK +1 / DEF +1. 표기되지 않은 시간대는 중립. 【시간 발동 · 심야 회수】 심야으로 진입하거나 심야에서 등장하면 내 묘지의 메인 덱 카드 1장 회수.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3222,13 +2881,24 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "charge"
     ],
     "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": -1,
-        "health": 0,
-        "label": "새벽 과민"
+      "midnight": {
+        "attack": 1,
+        "health": 1,
+        "label": "심야 회수"
       }
     },
-    "temporalProfileName": "취약 전용"
+    "temporalProfileName": "심야 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "midnight",
+        "name": "심야 회수",
+        "description": "심야 진입 또는 심야에서 등장 시 내 묘지의 메인 덱 카드 1장 회수.",
+        "effect": {
+          "kind": "recover_grave",
+          "amount": 1
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_075",
@@ -3242,7 +2912,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 심야 잔영 1/2 소환; 심야이면 +1/+1. 【시간 반응】 심야 [월광 동조]: ATK +1 / DEF +1 · 여명 [새벽 과민]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 심야 잔영 1/2 소환; 심야이면 +1/+1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3262,20 +2932,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "lifesteal"
-    ],
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 1,
-        "health": 1,
-        "label": "월광 동조"
-      },
-      "dawn": {
-        "attack": -1,
-        "health": 0,
-        "label": "새벽 과민"
-      }
-    },
-    "temporalProfileName": "양면 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_076",
@@ -3289,7 +2946,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 2,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 ECLIPSE CYCLE을 뒤로 1칸 이동. 【시간 반응】 개기일식 [시간 전이]: ATK +1 · 황혼 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 ECLIPSE CYCLE을 뒤로 1칸 이동. 【시간 반응 · 심야 반응형】 심야 [별그늘 포식]: ATK +3 / DEF +2. 정점 [정점 노출]: ATK -1 / DEF -1. 표기되지 않은 시간대는 중립.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3306,18 +2963,18 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "pierce"
     ],
     "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 1,
-        "health": 0,
-        "label": "시간 전이"
+      "midnight": {
+        "attack": 3,
+        "health": 2,
+        "label": "별그늘 포식"
       },
-      "dusk": {
+      "zenith": {
         "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
+        "health": -1,
+        "label": "정점 노출"
       }
     },
-    "temporalProfileName": "교차 공명"
+    "temporalProfileName": "심야 반응형"
   },
   {
     "id": "v34_cycle_unit_077",
@@ -3331,7 +2988,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "relic",
     "target": "none",
-    "text": "【시간 강림】 등장과 동시에 ECLIPSE CYCLE을 심야으로 변경합니다. 【ECLIPSE CYCLE · 심야】 ECLIPSE CYCLE을 즉시 심야으로 변경. 【시간 강화】 황혼 [선행 잔향]: ATK +1 · 심야 [월광 동조]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 ECLIPSE CYCLE을 즉시 심야으로 변경. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3346,20 +3003,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "corestrike"
-    ],
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 1,
-        "health": 1,
-        "label": "월광 동조"
-      },
-      "dusk": {
-        "attack": 1,
-        "health": 0,
-        "label": "선행 잔향"
-      }
-    },
-    "temporalProfileName": "이중 강화"
+    ]
   },
   {
     "id": "v34_cycle_unit_078",
@@ -3373,7 +3017,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 자동 위상 이동을 2턴 동안 정지. 【시간 반응】 심야 [월광 동조]: ATK +2 / DEF +1 · 여명 [시간 붕괴]: ATK -2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 자동 위상 이동을 2턴 동안 정지. 【시간 반응 · 심야 반응형】 심야 [야행 봉쇄]: DEF +2. 표기되지 않은 시간대는 중립.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3388,17 +3032,12 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "eclipsePhaseModifiers": {
       "midnight": {
-        "attack": 2,
-        "health": 1,
-        "label": "월광 동조"
-      },
-      "dawn": {
-        "attack": -2,
-        "health": 0,
-        "label": "시간 붕괴"
+        "attack": 0,
+        "health": 2,
+        "label": "야행 봉쇄"
       }
     },
-    "temporalProfileName": "극단 공명"
+    "temporalProfileName": "심야 반응형"
   },
   {
     "id": "v34_cycle_unit_079",
@@ -3412,7 +3051,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 현재 위상이 심야이면 카드 2장, 아니면 1장 드로우. 【시간 반응】 심야 [방벽 공명]: DEF +1 · 개기일식 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 현재 위상이 심야이면 카드 2장, 아니면 1장 드로우. 【시간 반응 · 심야 반응형】 심야 [꿈길 개방]: ATK +1 / DEF +1. 표기되지 않은 시간대는 중립.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3432,17 +3071,12 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     ],
     "eclipsePhaseModifiers": {
       "midnight": {
-        "attack": 0,
+        "attack": 1,
         "health": 1,
-        "label": "방벽 공명"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
+        "label": "꿈길 개방"
       }
     },
-    "temporalProfileName": "방어 공명"
+    "temporalProfileName": "심야 반응형"
   },
   {
     "id": "v34_cycle_unit_080",
@@ -3456,7 +3090,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 현재 위상이 심야이면 ENERGY 2, 아니면 1 회복. 【시간 반응】 여명 [역주기 적응]: ATK +1 / DEF +1 · 심야 [고유 시간 거부]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 현재 위상이 심야이면 ENERGY 2, 아니면 1 회복. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3473,20 +3107,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "charge"
-    ],
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 1,
-        "health": 1,
-        "label": "역주기 적응"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": 0,
-        "label": "고유 시간 거부"
-      }
-    },
-    "temporalProfileName": "역주기 적응"
+    ]
   },
   {
     "id": "v34_cycle_unit_081",
@@ -3500,7 +3121,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 현재 위상이 심야이면 코어 3, 아니면 1 회복. 【시간 강화】 심야 [월광 동조]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 현재 위상이 심야이면 코어 3, 아니면 1 회복. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3517,15 +3138,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "lifesteal"
-    ],
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 1,
-        "health": 1,
-        "label": "월광 동조"
-      }
-    },
-    "temporalProfileName": "강화 전용"
+    ]
   },
   {
     "id": "v34_cycle_unit_082",
@@ -3539,7 +3152,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 현재 위상이 심야이면 상대 코어 5 피해, 아니면 2 피해. 【시간 취약】 여명 [새벽 과민]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 현재 위상이 심야이면 상대 코어 5 피해, 아니면 2 피해. 【시간 반응 · 심야 반응형】 심야 [심야 예언]: ATK +2 / DEF +1. 표기되지 않은 시간대는 중립. 【시간 발동 · 월하 흡수】 심야으로 진입하거나 심야에서 등장하면 상대 코어 2 피해 후 그만큼 내 코어 회복.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3558,13 +3171,24 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "pierce"
     ],
     "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": -1,
-        "health": 0,
-        "label": "새벽 과민"
+      "midnight": {
+        "attack": 2,
+        "health": 1,
+        "label": "심야 예언"
       }
     },
-    "temporalProfileName": "취약 전용"
+    "temporalProfileName": "심야 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "midnight",
+        "name": "월하 흡수",
+        "description": "심야 진입 또는 심야에서 등장 시 상대 코어 2 피해 후 그만큼 내 코어 회복.",
+        "effect": {
+          "kind": "drain_core",
+          "amount": 2
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_083",
@@ -3578,7 +3202,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "relic",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 아군 전체 보호막 1; 심야이면 추가 +1. 【시간 반응】 심야 [월광 동조]: ATK +1 / DEF +1 · 여명 [새벽 과민]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 아군 전체 보호막 1; 심야이면 추가 +1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3595,20 +3219,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "corestrike"
-    ],
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 1,
-        "health": 1,
-        "label": "월광 동조"
-      },
-      "dawn": {
-        "attack": -1,
-        "health": 0,
-        "label": "새벽 과민"
-      }
-    },
-    "temporalProfileName": "양면 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_084",
@@ -3622,7 +3233,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 아군 전체 +1/+1; 심야이면 추가 +0/+1. 【시간 반응】 개기일식 [시간 전이]: ATK +1 · 황혼 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 아군 전체 +1/+1; 심야이면 추가 +0/+1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3638,20 +3249,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "vfx": {
       "summon": "v34-cycle-midnight",
       "activation": "v34-phase-midnight"
-    },
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 1,
-        "health": 0,
-        "label": "시간 전이"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
-      }
-    },
-    "temporalProfileName": "교차 공명"
+    }
   },
   {
     "id": "v34_cycle_unit_085",
@@ -3665,7 +3263,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 적 전체 1 피해; 심야이면 추가 +1. 【시간 강화】 황혼 [선행 잔향]: ATK +1 · 심야 [월광 동조]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 적 전체 1 피해; 심야이면 추가 +1. 【시간 반응 · 심야 반응형】 심야 [흑청 침식]: ATK +2 / DEF +2. 정점 [정점 노출]: ATK -1. 표기되지 않은 시간대는 중립. 【시간 발동 · 흑청 침식】 심야으로 진입하거나 심야에서 등장하면 상대 묘지 메인 덱 카드 1장 말소.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3685,17 +3283,28 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     ],
     "eclipsePhaseModifiers": {
       "midnight": {
-        "attack": 1,
-        "health": 1,
-        "label": "월광 동조"
+        "attack": 2,
+        "health": 2,
+        "label": "흑청 침식"
       },
-      "dusk": {
-        "attack": 1,
+      "zenith": {
+        "attack": -1,
         "health": 0,
-        "label": "선행 잔향"
+        "label": "정점 노출"
       }
     },
-    "temporalProfileName": "이중 강화"
+    "temporalProfileName": "심야 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "midnight",
+        "name": "흑청 침식",
+        "description": "심야 진입 또는 심야에서 등장 시 상대 묘지 메인 덱 카드 1장 말소.",
+        "effect": {
+          "kind": "banish_enemy_grave",
+          "amount": 1
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_086",
@@ -3709,7 +3318,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 묘지 회수 0장; 심야이면 추가 2장. 【시간 반응】 심야 [월광 동조]: ATK +2 / DEF +1 · 여명 [시간 붕괴]: ATK -2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 묘지 회수 0장; 심야이면 추가 2장. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3726,20 +3335,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "charge"
-    ],
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 2,
-        "health": 1,
-        "label": "월광 동조"
-      },
-      "dawn": {
-        "attack": -2,
-        "health": 0,
-        "label": "시간 붕괴"
-      }
-    },
-    "temporalProfileName": "극단 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_087",
@@ -3753,7 +3349,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 7,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 심야 잔영 1/2 소환; 심야이면 +1/+1. 【시간 반응】 심야 [방벽 공명]: DEF +1 · 개기일식 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 심야 잔영 1/2 소환; 심야이면 +1/+1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3773,20 +3369,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "lifesteal"
-    ],
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 0,
-        "health": 1,
-        "label": "방벽 공명"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
-      }
-    },
-    "temporalProfileName": "방어 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_088",
@@ -3800,7 +3383,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 ECLIPSE CYCLE을 뒤로 1칸 이동. 【시간 반응】 여명 [역주기 적응]: ATK +1 / DEF +1 · 심야 [고유 시간 거부]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 ECLIPSE CYCLE을 뒤로 1칸 이동. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3815,20 +3398,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "pierce"
-    ],
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 1,
-        "health": 1,
-        "label": "역주기 적응"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": 0,
-        "label": "고유 시간 거부"
-      }
-    },
-    "temporalProfileName": "역주기 적응"
+    ]
   },
   {
     "id": "v34_cycle_unit_089",
@@ -3842,7 +3412,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 7,
     "unitType": "relic",
     "target": "none",
-    "text": "【시간 강림】 등장과 동시에 ECLIPSE CYCLE을 심야으로 변경합니다. 【ECLIPSE CYCLE · 심야】 ECLIPSE CYCLE을 즉시 심야으로 변경. 【시간 강화】 심야 [월광 동조]: ATK +2 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 ECLIPSE CYCLE을 즉시 심야으로 변경. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3857,15 +3427,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "corestrike"
-    ],
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 2,
-        "health": 1,
-        "label": "월광 동조"
-      }
-    },
-    "temporalProfileName": "강화 전용"
+    ]
   },
   {
     "id": "v34_cycle_unit_090",
@@ -3879,7 +3441,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 7,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 자동 위상 이동을 2턴 동안 정지. 【시간 취약】 여명 [새벽 과민]: ATK -2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 자동 위상 이동을 2턴 동안 정지. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3891,15 +3453,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "vfx": {
       "summon": "v34-cycle-midnight",
       "activation": "v34-phase-midnight"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": -2,
-        "health": 0,
-        "label": "새벽 과민"
-      }
-    },
-    "temporalProfileName": "취약 전용"
+    }
   },
   {
     "id": "v34_cycle_unit_091",
@@ -3913,7 +3467,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【시간대 소환 · 심야 전용】 현재 ECLIPSE CYCLE이 심야일 때만 소환할 수 있습니다. 【ECLIPSE CYCLE · 심야】 현재 위상이 심야이면 카드 2장, 아니면 1장 드로우. 【시간 반응】 심야 [시간문 초공명]: ATK +3 / DEF +1 · 개기일식 [시간대 이탈]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 현재 위상이 심야이면 카드 2장, 아니면 1장 드로우. 【시간 반응 · 심야 반응형】 심야 [무월 기록]: ATK +2 / DEF +2. 여명 [여명 노출]: ATK -1 / DEF -1. 표기되지 않은 시간대는 중립.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3931,22 +3485,19 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "keywords": [
       "guard"
     ],
-    "eclipseSummonPhases": [
-      "midnight"
-    ],
     "eclipsePhaseModifiers": {
       "midnight": {
-        "attack": 3,
-        "health": 1,
-        "label": "시간문 초공명"
+        "attack": 2,
+        "health": 2,
+        "label": "무월 기록"
       },
-      "eclipse": {
+      "dawn": {
         "attack": -1,
         "health": -1,
-        "label": "시간대 이탈"
+        "label": "여명 노출"
       }
     },
-    "temporalProfileName": "TIME GATE 초공명"
+    "temporalProfileName": "심야 반응형"
   },
   {
     "id": "v34_cycle_unit_092",
@@ -3960,7 +3511,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 현재 위상이 심야이면 ENERGY 2, 아니면 1 회복. 【시간 반응】 개기일식 [시간 전이]: ATK +2 · 황혼 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 현재 위상이 심야이면 ENERGY 2, 아니면 1 회복. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -3977,20 +3528,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "charge"
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 2,
-        "health": 0,
-        "label": "시간 전이"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
-      }
-    },
-    "temporalProfileName": "교차 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_093",
@@ -4004,7 +3542,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 현재 위상이 심야이면 코어 3, 아니면 1 회복. 【시간 강화】 황혼 [선행 잔향]: ATK +1 · 심야 [월광 동조]: ATK +1 / DEF +2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 현재 위상이 심야이면 코어 3, 아니면 1 회복. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -4021,20 +3559,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "lifesteal"
-    ],
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 1,
-        "health": 2,
-        "label": "월광 동조"
-      },
-      "dusk": {
-        "attack": 1,
-        "health": 0,
-        "label": "선행 잔향"
-      }
-    },
-    "temporalProfileName": "이중 강화"
+    ]
   },
   {
     "id": "v34_cycle_unit_094",
@@ -4044,11 +3569,11 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "rarity": "legendary",
     "element": "solar",
     "cost": 7,
-    "attack": 7,
-    "health": 8,
+    "attack": 1,
+    "health": 2,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 심야】 현재 위상이 심야이면 상대 코어 5 피해, 아니면 2 피해. 【시간 반응】 심야 [월광 동조]: ATK +3 / DEF +1 · 여명 [시간 붕괴]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 현재 위상이 심야이면 상대 코어 5 피해, 아니면 2 피해. 【시간 반응 · 극시공 · 기존 심야 특화】 심야 [야행 완전해방]: ATK +9 / DEF +7. 정점 [정점 노출]: ATK -1. 표기되지 않은 시간대는 중립. 【시간 발동 · 야행 포식】 심야으로 진입하거나 심야에서 등장하면 상대 코어 3 피해 후 그만큼 내 코어 회복. 【극시공】 기본 능력치는 1/2에 불과하지만 지정 시간대에서 폭발적으로 강화됩니다.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -4076,17 +3601,28 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     ],
     "eclipsePhaseModifiers": {
       "midnight": {
-        "attack": 3,
-        "health": 1,
-        "label": "월광 동조"
+        "attack": 9,
+        "health": 7,
+        "label": "야행 완전해방"
       },
-      "dawn": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간 붕괴"
+      "zenith": {
+        "attack": -1,
+        "health": 0,
+        "label": "정점 노출"
       }
     },
-    "temporalProfileName": "극단 공명"
+    "temporalProfileName": "극시공 · 기존 심야 특화",
+    "eclipsePhasePulses": [
+      {
+        "phase": "midnight",
+        "name": "야행 포식",
+        "description": "심야 진입 또는 심야에서 등장 시 상대 코어 3 피해 후 그만큼 내 코어 회복.",
+        "effect": {
+          "kind": "drain_core",
+          "amount": 3
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_095",
@@ -4100,7 +3636,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "relic",
     "target": "none",
-    "text": "【시간대 소환 · 심야 전용】 현재 ECLIPSE CYCLE이 심야일 때만 소환할 수 있습니다. 【ECLIPSE CYCLE · 심야】 아군 전체 보호막 1; 심야이면 추가 +1. 【시간 반응】 심야 [시간문 초공명]: ATK +3 / DEF +1 · 개기일식 [시간대 이탈]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 아군 전체 보호막 1; 심야이면 추가 +1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -4125,23 +3661,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "corestrike"
-    ],
-    "eclipseSummonPhases": [
-      "midnight"
-    ],
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 3,
-        "health": 1,
-        "label": "시간문 초공명"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_096",
@@ -4155,7 +3675,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "oracle",
     "target": "none",
-    "text": "【시간대 소환 · 심야 전용】 현재 ECLIPSE CYCLE이 심야일 때만 소환할 수 있습니다. 【ECLIPSE CYCLE · 심야】 아군 전체 +1/+1; 심야이면 추가 +0/+1. 【시간 반응】 심야 [시간문 초공명]: ATK +3 / DEF +1 · 개기일식 [시간대 이탈]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 심야】 아군 전체 +1/+1; 심야이면 추가 +0/+1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "심야의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -4179,23 +3699,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "release": "all",
       "minimumAllies": 2,
       "graveyardMin": 4
-    },
-    "eclipseSummonPhases": [
-      "midnight"
-    ],
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 3,
-        "health": 1,
-        "label": "시간문 초공명"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    }
   },
   {
     "id": "v34_cycle_unit_097",
@@ -4209,7 +3713,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 개기일식 잔영 1/2 소환; 개기일식이면 +1/+1. 【시간 강화】 개기일식 [식광 폭주]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 개기일식 잔영 1/2 소환; 개기일식이면 +1/+1. 【시간 반응 · 개기일식 반응형】 개기일식 [식관 흡수]: ATK +1 / DEF +1. 정점 [정점 노출]: ATK -1. 표기되지 않은 시간대는 중립. 【시간 발동 · 식광 탈취】 개기일식으로 진입하거나 개기일식에서 등장하면 상대 ENERGY 최대 1 강탈.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4234,10 +3738,26 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "eclipse": {
         "attack": 1,
         "health": 1,
-        "label": "식광 폭주"
+        "label": "식관 흡수"
+      },
+      "zenith": {
+        "attack": -1,
+        "health": 0,
+        "label": "정점 노출"
       }
     },
-    "temporalProfileName": "강화 전용"
+    "temporalProfileName": "개기일식 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "eclipse",
+        "name": "식광 탈취",
+        "description": "개기일식 진입 또는 개기일식에서 등장 시 상대 ENERGY 최대 1 강탈.",
+        "effect": {
+          "kind": "steal_energy",
+          "amount": 1
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_098",
@@ -4251,7 +3771,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 ECLIPSE CYCLE을 뒤로 1칸 이동. 【시간 취약】 정점 [정오 과열]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 ECLIPSE CYCLE을 뒤로 1칸 이동. 【시간 반응 · 개기일식 반응형】 개기일식 [흑일 추격]: ATK +2. 표기되지 않은 시간대는 중립.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4268,13 +3788,13 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "charge"
     ],
     "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": -1,
+      "eclipse": {
+        "attack": 2,
         "health": 0,
-        "label": "정오 과열"
+        "label": "흑일 추격"
       }
     },
-    "temporalProfileName": "취약 전용"
+    "temporalProfileName": "개기일식 반응형"
   },
   {
     "id": "v34_cycle_unit_099",
@@ -4288,7 +3808,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "relic",
     "target": "none",
-    "text": "【시간 강림】 등장과 동시에 ECLIPSE CYCLE을 개기일식으로 변경합니다. 【ECLIPSE CYCLE · 개기일식】 ECLIPSE CYCLE을 즉시 개기일식으로 변경. 【시간 반응】 개기일식 [식광 폭주]: ATK +1 / DEF +1 · 정점 [정오 과열]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 ECLIPSE CYCLE을 즉시 개기일식으로 변경. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4303,20 +3823,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "lifesteal"
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 1,
-        "health": 1,
-        "label": "식광 폭주"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": 0,
-        "label": "정오 과열"
-      }
-    },
-    "temporalProfileName": "양면 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_100",
@@ -4330,7 +3837,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 2,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 자동 위상 이동을 2턴 동안 정지. 【시간 반응】 여명 [시간 전이]: ATK +1 · 심야 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 자동 위상 이동을 2턴 동안 정지. 【시간 반응 · 개기일식 반응형】 개기일식 [엄브라 정착]: ATK +1 / DEF +2. 표기되지 않은 시간대는 중립. 【시간 발동 · 엄브라 정착】 개기일식으로 진입하거나 개기일식에서 등장하면 자동 시간 이동 1턴 고정.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4347,18 +3854,24 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "pierce"
     ],
     "eclipsePhaseModifiers": {
-      "dawn": {
+      "eclipse": {
         "attack": 1,
-        "health": 0,
-        "label": "시간 전이"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
+        "health": 2,
+        "label": "엄브라 정착"
       }
     },
-    "temporalProfileName": "교차 공명"
+    "temporalProfileName": "개기일식 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "eclipse",
+        "name": "엄브라 정착",
+        "description": "개기일식 진입 또는 개기일식에서 등장 시 자동 시간 이동 1턴 고정.",
+        "effect": {
+          "kind": "phase_lock",
+          "turns": 1
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_101",
@@ -4372,7 +3885,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 현재 위상이 개기일식이면 카드 2장, 아니면 1장 드로우. 【시간 강화】 심야 [선행 잔향]: ATK +1 · 개기일식 [식광 폭주]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 현재 위상이 개기일식이면 카드 2장, 아니면 1장 드로우. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4389,20 +3902,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "corestrike"
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 1,
-        "health": 1,
-        "label": "식광 폭주"
-      },
-      "midnight": {
-        "attack": 1,
-        "health": 0,
-        "label": "선행 잔향"
-      }
-    },
-    "temporalProfileName": "이중 강화"
+    ]
   },
   {
     "id": "v34_cycle_unit_102",
@@ -4416,7 +3916,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 현재 위상이 개기일식이면 ENERGY 2, 아니면 1 회복. 【시간 반응】 개기일식 [식광 폭주]: ATK +2 / DEF +1 · 정점 [시간 붕괴]: ATK -2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 현재 위상이 개기일식이면 ENERGY 2, 아니면 1 회복. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4430,20 +3930,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "vfx": {
       "summon": "v34-cycle-eclipse",
       "activation": "v34-phase-eclipse"
-    },
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 2,
-        "health": 1,
-        "label": "식광 폭주"
-      },
-      "zenith": {
-        "attack": -2,
-        "health": 0,
-        "label": "시간 붕괴"
-      }
-    },
-    "temporalProfileName": "극단 공명"
+    }
   },
   {
     "id": "v34_cycle_unit_103",
@@ -4457,7 +3944,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 현재 위상이 개기일식이면 코어 3, 아니면 1 회복. 【시간 반응】 개기일식 [방벽 공명]: DEF +1 · 여명 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 현재 위상이 개기일식이면 코어 3, 아니면 1 회복. 【시간 반응 · 개기일식 반응형】 개기일식 [식의고리 회복]: ATK +1 / DEF +2. 표기되지 않은 시간대는 중립.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4477,17 +3964,12 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     ],
     "eclipsePhaseModifiers": {
       "eclipse": {
-        "attack": 0,
-        "health": 1,
-        "label": "방벽 공명"
-      },
-      "dawn": {
-        "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
+        "attack": 1,
+        "health": 2,
+        "label": "식의고리 회복"
       }
     },
-    "temporalProfileName": "방어 공명"
+    "temporalProfileName": "개기일식 반응형"
   },
   {
     "id": "v34_cycle_unit_104",
@@ -4501,7 +3983,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 3,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 현재 위상이 개기일식이면 상대 코어 5 피해, 아니면 2 피해. 【시간 반응】 정점 [역주기 적응]: ATK +1 / DEF +1 · 개기일식 [고유 시간 거부]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 현재 위상이 개기일식이면 상대 코어 5 피해, 아니면 2 피해. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4518,20 +4000,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "charge"
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 1,
-        "health": 1,
-        "label": "역주기 적응"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": 0,
-        "label": "고유 시간 거부"
-      }
-    },
-    "temporalProfileName": "역주기 적응"
+    ]
   },
   {
     "id": "v34_cycle_unit_105",
@@ -4545,7 +4014,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "relic",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 아군 전체 보호막 1; 개기일식이면 추가 +1. 【시간 강화】 개기일식 [식광 폭주]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 아군 전체 보호막 1; 개기일식이면 추가 +1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4562,15 +4031,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "lifesteal"
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 1,
-        "health": 1,
-        "label": "식광 폭주"
-      }
-    },
-    "temporalProfileName": "강화 전용"
+    ]
   },
   {
     "id": "v34_cycle_unit_106",
@@ -4584,7 +4045,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 아군 전체 +1/+1; 개기일식이면 추가 +1/+1. 【시간 취약】 정점 [정오 과열]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 아군 전체 +1/+1; 개기일식이면 추가 +1/+1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4603,15 +4064,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "pierce"
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": -1,
-        "health": 0,
-        "label": "정오 과열"
-      }
-    },
-    "temporalProfileName": "취약 전용"
+    ]
   },
   {
     "id": "v34_cycle_unit_107",
@@ -4625,7 +4078,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 적 전체 1 피해; 개기일식이면 추가 +1. 【시간 반응】 개기일식 [식광 폭주]: ATK +1 / DEF +1 · 정점 [정오 과열]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 적 전체 1 피해; 개기일식이면 추가 +1. 【시간 반응 · 개기일식 반응형】 개기일식 [코로나 해석]: ATK +2 / DEF +1. 표기되지 않은 시간대는 중립. 【시간 발동 · 코로나 소거】 개기일식으로 진입하거나 개기일식에서 등장하면 상대 묘지 메인 덱 카드 1장 말소.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4645,17 +4098,23 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     ],
     "eclipsePhaseModifiers": {
       "eclipse": {
-        "attack": 1,
+        "attack": 2,
         "health": 1,
-        "label": "식광 폭주"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": 0,
-        "label": "정오 과열"
+        "label": "코로나 해석"
       }
     },
-    "temporalProfileName": "양면 공명"
+    "temporalProfileName": "개기일식 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "eclipse",
+        "name": "코로나 소거",
+        "description": "개기일식 진입 또는 개기일식에서 등장 시 상대 묘지 메인 덱 카드 1장 말소.",
+        "effect": {
+          "kind": "banish_enemy_grave",
+          "amount": 1
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_108",
@@ -4669,7 +4128,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 묘지 회수 0장; 개기일식이면 추가 2장. 【시간 반응】 여명 [시간 전이]: ATK +1 · 심야 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 묘지 회수 0장; 개기일식이면 추가 2장. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4683,20 +4142,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "vfx": {
       "summon": "v34-cycle-eclipse",
       "activation": "v34-phase-eclipse"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 1,
-        "health": 0,
-        "label": "시간 전이"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
-      }
-    },
-    "temporalProfileName": "교차 공명"
+    }
   },
   {
     "id": "v34_cycle_unit_109",
@@ -4710,7 +4156,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 개기일식 잔영 1/2 소환; 개기일식이면 +1/+1. 【시간 강화】 심야 [선행 잔향]: ATK +1 · 개기일식 [식광 폭주]: ATK +1 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 개기일식 잔영 1/2 소환; 개기일식이면 +1/+1. 【시간 반응 · 개기일식 반응형】 개기일식 [개기 방벽]: ATK +1 / DEF +3. 표기되지 않은 시간대는 중립. 【시간 발동 · 코로나 재생막】 개기일식으로 진입하거나 개기일식에서 등장하면 내 필드 모든 유닛 체력 2 회복.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4734,16 +4180,22 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "eclipsePhaseModifiers": {
       "eclipse": {
         "attack": 1,
-        "health": 1,
-        "label": "식광 폭주"
-      },
-      "midnight": {
-        "attack": 1,
-        "health": 0,
-        "label": "선행 잔향"
+        "health": 3,
+        "label": "개기 방벽"
       }
     },
-    "temporalProfileName": "이중 강화"
+    "temporalProfileName": "개기일식 반응형",
+    "eclipsePhasePulses": [
+      {
+        "phase": "eclipse",
+        "name": "코로나 재생막",
+        "description": "개기일식 진입 또는 개기일식에서 등장 시 내 필드 모든 유닛 체력 2 회복.",
+        "effect": {
+          "kind": "heal_allies",
+          "amount": 2
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_unit_110",
@@ -4757,7 +4209,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 5,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 ECLIPSE CYCLE을 뒤로 1칸 이동. 【시간 반응】 개기일식 [식광 폭주]: ATK +2 / DEF +1 · 정점 [시간 붕괴]: ATK -2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 ECLIPSE CYCLE을 뒤로 1칸 이동. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4772,20 +4224,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "charge"
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 2,
-        "health": 1,
-        "label": "식광 폭주"
-      },
-      "zenith": {
-        "attack": -2,
-        "health": 0,
-        "label": "시간 붕괴"
-      }
-    },
-    "temporalProfileName": "극단 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_111",
@@ -4799,7 +4238,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 7,
     "unitType": "relic",
     "target": "none",
-    "text": "【시간 강림】 등장과 동시에 ECLIPSE CYCLE을 개기일식으로 변경합니다. 【ECLIPSE CYCLE · 개기일식】 ECLIPSE CYCLE을 즉시 개기일식으로 변경. 【시간 반응】 개기일식 [방벽 공명]: DEF +1 · 여명 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 ECLIPSE CYCLE을 즉시 개기일식으로 변경. 【시간 반응 · 개기일식 반응형】 개기일식 [식의고리 관측]: ATK +2 / DEF +2. 정점 [정점 노출]: ATK -1 / DEF -1. 표기되지 않은 시간대는 중립.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4817,17 +4256,17 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     ],
     "eclipsePhaseModifiers": {
       "eclipse": {
-        "attack": 0,
-        "health": 1,
-        "label": "방벽 공명"
+        "attack": 2,
+        "health": 2,
+        "label": "식의고리 관측"
       },
-      "dawn": {
+      "zenith": {
         "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
+        "health": -1,
+        "label": "정점 노출"
       }
     },
-    "temporalProfileName": "방어 공명"
+    "temporalProfileName": "개기일식 반응형"
   },
   {
     "id": "v34_cycle_unit_112",
@@ -4841,7 +4280,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 4,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 자동 위상 이동을 2턴 동안 정지. 【시간 반응】 정점 [역주기 적응]: ATK +1 / DEF +1 · 개기일식 [고유 시간 거부]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 자동 위상 이동을 2턴 동안 정지. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4856,20 +4295,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "pierce"
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 1,
-        "health": 1,
-        "label": "역주기 적응"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": 0,
-        "label": "고유 시간 거부"
-      }
-    },
-    "temporalProfileName": "역주기 적응"
+    ]
   },
   {
     "id": "v34_cycle_unit_113",
@@ -4883,7 +4309,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 7,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【시간대 소환 · 개기일식 전용】 현재 ECLIPSE CYCLE이 개기일식일 때만 소환할 수 있습니다. 【ECLIPSE CYCLE · 개기일식】 현재 위상이 개기일식이면 카드 2장, 아니면 1장 드로우. 【시간 반응】 개기일식 [시간문 초공명]: ATK +3 / DEF +1 · 여명 [시간대 이탈]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 현재 위상이 개기일식이면 카드 2장, 아니면 1장 드로우. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4900,23 +4326,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "corestrike"
-    ],
-    "eclipseSummonPhases": [
-      "eclipse"
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 3,
-        "health": 1,
-        "label": "시간문 초공명"
-      },
-      "dawn": {
-        "attack": -1,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_114",
@@ -4930,7 +4340,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 7,
     "unitType": "artificer",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 현재 위상이 개기일식이면 ENERGY 2, 아니면 1 회복. 【시간 취약】 정점 [정오 과열]: ATK -2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 현재 위상이 개기일식이면 ENERGY 2, 아니면 1 회복. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4944,15 +4354,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "vfx": {
       "summon": "v34-cycle-eclipse",
       "activation": "v34-phase-eclipse"
-    },
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": -2,
-        "health": 0,
-        "label": "정오 과열"
-      }
-    },
-    "temporalProfileName": "취약 전용"
+    }
   },
   {
     "id": "v34_cycle_unit_115",
@@ -4966,7 +4368,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "spirit",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 현재 위상이 개기일식이면 코어 3, 아니면 1 회복. 【시간 반응】 개기일식 [식광 폭주]: ATK +2 / DEF +1 · 정점 [정오 과열]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 현재 위상이 개기일식이면 코어 3, 아니면 1 회복. 【시간 반응 · 개기일식 반응형】 개기일식 [코로나 항해]: ATK +2 / DEF +2. 표기되지 않은 시간대는 중립.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -4987,16 +4389,11 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "eclipsePhaseModifiers": {
       "eclipse": {
         "attack": 2,
-        "health": 1,
-        "label": "식광 폭주"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": 0,
-        "label": "정오 과열"
+        "health": 2,
+        "label": "코로나 항해"
       }
     },
-    "temporalProfileName": "양면 공명"
+    "temporalProfileName": "개기일식 반응형"
   },
   {
     "id": "v34_cycle_unit_116",
@@ -5010,7 +4407,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 6,
     "unitType": "hunter",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 현재 위상이 개기일식이면 상대 코어 5 피해, 아니면 2 피해. 【시간 반응】 여명 [시간 전이]: ATK +2 · 심야 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 현재 위상이 개기일식이면 상대 코어 5 피해, 아니면 2 피해. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -5027,20 +4424,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "charge"
-    ],
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 2,
-        "health": 0,
-        "label": "시간 전이"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
-      }
-    },
-    "temporalProfileName": "교차 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_117",
@@ -5054,7 +4438,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "relic",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 아군 전체 보호막 1; 개기일식이면 추가 +1. 【시간 강화】 심야 [선행 잔향]: ATK +1 · 개기일식 [식광 폭주]: ATK +1 / DEF +2. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 아군 전체 보호막 1; 개기일식이면 추가 +1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -5071,20 +4455,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "lifesteal"
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 1,
-        "health": 2,
-        "label": "식광 폭주"
-      },
-      "midnight": {
-        "attack": 1,
-        "health": 0,
-        "label": "선행 잔향"
-      }
-    },
-    "temporalProfileName": "이중 강화"
+    ]
   },
   {
     "id": "v34_cycle_unit_118",
@@ -5098,7 +4469,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "oracle",
     "target": "none",
-    "text": "【ECLIPSE CYCLE · 개기일식】 아군 전체 +1/+1; 개기일식이면 추가 +1/+1. 【시간 반응】 개기일식 [식광 폭주]: ATK +3 / DEF +1 · 정점 [시간 붕괴]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 아군 전체 +1/+1; 개기일식이면 추가 +1/+1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -5125,20 +4496,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "pierce"
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 3,
-        "health": 1,
-        "label": "식광 폭주"
-      },
-      "zenith": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간 붕괴"
-      }
-    },
-    "temporalProfileName": "극단 공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_119",
@@ -5152,7 +4510,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【시간대 소환 · 개기일식 전용】 현재 ECLIPSE CYCLE이 개기일식일 때만 소환할 수 있습니다. 【ECLIPSE CYCLE · 개기일식】 적 전체 1 피해; 개기일식이면 추가 +1. 【시간 반응】 개기일식 [시간문 초공명]: ATK +3 / DEF +1 · 여명 [시간대 이탈]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 적 전체 1 피해; 개기일식이면 추가 +1. 결투 위상은 턴 종료마다 여명→정점→황혼→심야→개기일식 순으로 이동합니다.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -5177,23 +4535,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     },
     "keywords": [
       "corestrike"
-    ],
-    "eclipseSummonPhases": [
-      "eclipse"
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 3,
-        "health": 1,
-        "label": "시간문 초공명"
-      },
-      "dawn": {
-        "attack": -1,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_unit_120",
@@ -5203,11 +4545,11 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "rarity": "legendary",
     "element": "verdant",
     "cost": 7,
-    "attack": 7,
-    "health": 8,
+    "attack": 1,
+    "health": 2,
     "unitType": "artificer",
     "target": "none",
-    "text": "【시간대 소환 · 개기일식 전용】 현재 ECLIPSE CYCLE이 개기일식일 때만 소환할 수 있습니다. 【ECLIPSE CYCLE · 개기일식】 묘지 회수 0장; 개기일식이면 추가 2장. 【시간 반응】 개기일식 [시간문 초공명]: ATK +3 / DEF +1 · 여명 [시간대 이탈]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【ECLIPSE CYCLE · 개기일식】 묘지 회수 0장; 개기일식이면 추가 2장. 【시간 반응 · 극시공 · 기존 개기일식 특화】 개기일식 [암영 종말개방]: ATK +10 / DEF +8. 정점 [정점 노출]: ATK -1. 표기되지 않은 시간대는 중립. 【시간 발동 · 암영 수탈】 개기일식으로 진입하거나 개기일식에서 등장하면 상대 ENERGY 최대 2 강탈. 【극시공】 기본 능력치는 1/2에 불과하지만 지정 시간대에서 폭발적으로 강화됩니다.",
     "flavor": "개기일식의 순간을 읽는 자는 다음 턴을 기다리지 않는다. 전장의 시간을 직접 고른다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -5230,22 +4572,30 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "minimumAllies": 2,
       "graveyardMin": 4
     },
-    "eclipseSummonPhases": [
-      "eclipse"
-    ],
     "eclipsePhaseModifiers": {
       "eclipse": {
-        "attack": 3,
-        "health": 1,
-        "label": "시간문 초공명"
+        "attack": 10,
+        "health": 8,
+        "label": "암영 종말개방"
       },
-      "dawn": {
+      "zenith": {
         "attack": -1,
-        "health": -1,
-        "label": "시간대 이탈"
+        "health": 0,
+        "label": "정점 노출"
       }
     },
-    "temporalProfileName": "TIME GATE 초공명"
+    "temporalProfileName": "극시공 · 기존 개기일식 특화",
+    "eclipsePhasePulses": [
+      {
+        "phase": "eclipse",
+        "name": "암영 수탈",
+        "description": "개기일식 진입 또는 개기일식에서 등장 시 상대 ENERGY 최대 2 강탈.",
+        "effect": {
+          "kind": "steal_energy",
+          "amount": 2
+        }
+      }
+    ]
   },
   {
     "id": "v34_cycle_spell_001",
@@ -5256,14 +4606,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "solar",
     "cost": 1,
     "target": "none",
-    "text": "【위상 가속】 ECLIPSE CYCLE을 다음 시간대로 1칸 진행시킵니다. 필드의 시간 친화 캐릭터 능력치가 즉시 다시 계산됩니다.",
+    "text": "【위상 주문】 현재 위상이 여명이면 카드 2장, 아니면 1장 드로우. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
     "eclipseAffinity": "dawn",
     "effect": {
-      "kind": "phase_shift",
-      "steps": 1
+      "kind": "phase_draw",
+      "phase": "dawn",
+      "base": 1,
+      "bonus": 1
     },
     "vfx": {
       "activation": "v34-spell-dawn-1"
@@ -5278,14 +4630,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "lunar",
     "cost": 2,
     "target": "none",
-    "text": "【천체역행】 ECLIPSE CYCLE을 현재 시간대의 바로 이전 순환 시간대로 1칸 되돌립니다. 필드의 시간 친화 보정도 즉시 변경됩니다.",
+    "text": "【위상 주문】 현재 위상이 여명이면 코어 4, 아니면 2 회복. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
     "eclipseAffinity": "dawn",
     "effect": {
-      "kind": "phase_shift",
-      "steps": -1
+      "kind": "phase_heal_core",
+      "phase": "dawn",
+      "base": 2,
+      "bonus": 2
     },
     "vfx": {
       "activation": "v34-spell-dawn-2"
@@ -5300,14 +4654,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "storm",
     "cost": 2,
     "target": "none",
-    "text": "【관측자의 선택】 ECLIPSE CYCLE을 즉시 여명으로 변경합니다. 여명 친화 캐릭터의 공명을 강제로 활성화할 수 있습니다.",
+    "text": "【위상 주문】 아군 전체 보호막 1; 여명이면 추가 +1. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
     "eclipseAffinity": "dawn",
     "effect": {
-      "kind": "phase_set",
-      "phase": "dawn"
+      "kind": "phase_mass_shield",
+      "phase": "dawn",
+      "base": 1,
+      "bonus": 1
     },
     "vfx": {
       "activation": "v34-spell-dawn-3"
@@ -5322,14 +4678,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "verdant",
     "cost": 3,
     "target": "none",
-    "text": "【경계 고정】 현재 시간대를 2턴 동안 고정합니다. 턴 종료 자동 진행을 막아 원하는 공명 시간대를 유지합니다.",
+    "text": "【위상 주문】 적 전체 1 피해; 여명이면 추가 +1. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
     "eclipseAffinity": "dawn",
     "effect": {
-      "kind": "phase_lock",
-      "turns": 2
+      "kind": "phase_aoe_enemy",
+      "phase": "dawn",
+      "base": 1,
+      "bonus": 1
     },
     "vfx": {
       "activation": "v34-spell-dawn-4"
@@ -5344,16 +4702,19 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "void",
     "cost": 4,
     "target": "none",
-    "text": "【잔광 채집】 카드 1장을 드로우합니다. 현재 시간대가 여명이면 추가로 2장 드로우합니다.",
+    "text": "【위상 주문】 여명 잔영 1/2 소환; 여명이면 +1/+1. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
     "eclipseAffinity": "dawn",
     "effect": {
-      "kind": "phase_draw",
+      "kind": "phase_summon_token",
       "phase": "dawn",
-      "base": 1,
-      "bonus": 2
+      "attack": 1,
+      "health": 2,
+      "bonusAttack": 1,
+      "bonusHealth": 1,
+      "name": "여명 잔영"
     },
     "vfx": {
       "activation": "v34-spell-dawn-5"
@@ -5368,16 +4729,14 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "neutral",
     "cost": 5,
     "target": "none",
-    "text": "【코로나 폭발】 상대 코어에 2 피해. 현재 시간대가 여명이면 추가로 3 피해를 줍니다.",
+    "text": "【위상 주문】 ECLIPSE CYCLE을 즉시 여명으로 변경. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
     "eclipseAffinity": "dawn",
     "effect": {
-      "kind": "phase_damage_core",
-      "phase": "dawn",
-      "base": 2,
-      "bonus": 3
+      "kind": "phase_set",
+      "phase": "dawn"
     },
     "vfx": {
       "activation": "v34-spell-dawn-6"
@@ -5392,13 +4751,13 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "solar",
     "cost": 3,
     "target": "none",
-    "text": "【별시계 재기동】 이번 턴 ENERGY 1 회복. 현재 시간대가 여명이면 추가 ENERGY 1을 회복합니다.",
+    "text": "【위상 주문】 현재 위상이 여명이면 카드 2장, 아니면 1장 드로우. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
     "eclipseAffinity": "dawn",
     "effect": {
-      "kind": "phase_gain_energy",
+      "kind": "phase_draw",
       "phase": "dawn",
       "base": 1,
       "bonus": 1
@@ -5416,19 +4775,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "lunar",
     "cost": 6,
     "target": "none",
-    "text": "【식의 예고】 빈 칸에 여명 잔영 2/2를 소환합니다. 현재 시간대가 여명이면 4/3으로 강화되어 등장합니다.",
+    "text": "【위상 주문】 현재 위상이 여명이면 코어 4, 아니면 2 회복. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
     "eclipseAffinity": "dawn",
     "effect": {
-      "kind": "phase_summon_token",
+      "kind": "phase_heal_core",
       "phase": "dawn",
-      "attack": 2,
-      "health": 2,
-      "bonusAttack": 2,
-      "bonusHealth": 1,
-      "name": "여명 잔영"
+      "base": 2,
+      "bonus": 2
     },
     "vfx": {
       "activation": "v34-spell-dawn-8"
@@ -5443,14 +4799,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "lunar",
     "cost": 1,
     "target": "none",
-    "text": "【위상 가속】 ECLIPSE CYCLE을 다음 시간대로 1칸 진행시킵니다. 필드의 시간 친화 캐릭터 능력치가 즉시 다시 계산됩니다.",
+    "text": "【위상 주문】 현재 위상이 정점이면 ENERGY 2, 아니면 1 회복. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
     "eclipseAffinity": "zenith",
     "effect": {
-      "kind": "phase_shift",
-      "steps": 1
+      "kind": "phase_gain_energy",
+      "phase": "zenith",
+      "base": 1,
+      "bonus": 1
     },
     "vfx": {
       "activation": "v34-spell-zenith-1"
@@ -5465,14 +4823,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "storm",
     "cost": 2,
     "target": "none",
-    "text": "【천체역행】 ECLIPSE CYCLE을 현재 시간대의 바로 이전 순환 시간대로 1칸 되돌립니다. 필드의 시간 친화 보정도 즉시 변경됩니다.",
+    "text": "【위상 주문】 현재 위상이 정점이면 상대 코어 5 피해, 아니면 2 피해. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
     "eclipseAffinity": "zenith",
     "effect": {
-      "kind": "phase_shift",
-      "steps": -1
+      "kind": "phase_damage_core",
+      "phase": "zenith",
+      "base": 2,
+      "bonus": 3
     },
     "vfx": {
       "activation": "v34-spell-zenith-2"
@@ -5487,14 +4847,18 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "verdant",
     "cost": 2,
     "target": "none",
-    "text": "【관측자의 선택】 ECLIPSE CYCLE을 즉시 정점으로 변경합니다. 정점 친화 캐릭터의 공명을 강제로 활성화할 수 있습니다.",
+    "text": "【위상 주문】 아군 전체 +1/+1; 정점이면 추가 +0/+1. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
     "eclipseAffinity": "zenith",
     "effect": {
-      "kind": "phase_set",
-      "phase": "zenith"
+      "kind": "phase_mass_buff",
+      "phase": "zenith",
+      "attack": 1,
+      "health": 1,
+      "bonusAttack": 0,
+      "bonusHealth": 1
     },
     "vfx": {
       "activation": "v34-spell-zenith-3"
@@ -5509,14 +4873,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "void",
     "cost": 3,
     "target": "none",
-    "text": "【경계 고정】 현재 시간대를 2턴 동안 고정합니다. 턴 종료 자동 진행을 막아 원하는 공명 시간대를 유지합니다.",
+    "text": "【위상 주문】 묘지 회수 0장; 정점이면 추가 2장. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
     "eclipseAffinity": "zenith",
     "effect": {
-      "kind": "phase_lock",
-      "turns": 2
+      "kind": "phase_recover_grave",
+      "phase": "zenith",
+      "base": 0,
+      "bonus": 2
     },
     "vfx": {
       "activation": "v34-spell-zenith-4"
@@ -5531,16 +4897,14 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "neutral",
     "cost": 4,
     "target": "none",
-    "text": "【잔광 채집】 카드 1장을 드로우합니다. 현재 시간대가 정점이면 추가로 2장 드로우합니다.",
+    "text": "【위상 주문】 ECLIPSE CYCLE을 앞으로 1칸 이동. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
     "eclipseAffinity": "zenith",
     "effect": {
-      "kind": "phase_draw",
-      "phase": "zenith",
-      "base": 1,
-      "bonus": 2
+      "kind": "phase_shift",
+      "steps": 1
     },
     "vfx": {
       "activation": "v34-spell-zenith-5"
@@ -5555,16 +4919,14 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "solar",
     "cost": 5,
     "target": "none",
-    "text": "【코로나 폭발】 상대 코어에 2 피해. 현재 시간대가 정점이면 추가로 3 피해를 줍니다.",
+    "text": "【위상 주문】 자동 위상 이동을 2턴 동안 정지. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
     "eclipseAffinity": "zenith",
     "effect": {
-      "kind": "phase_damage_core",
-      "phase": "zenith",
-      "base": 2,
-      "bonus": 3
+      "kind": "phase_lock",
+      "turns": 2
     },
     "vfx": {
       "activation": "v34-spell-zenith-6"
@@ -5579,7 +4941,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "lunar",
     "cost": 3,
     "target": "none",
-    "text": "【별시계 재기동】 이번 턴 ENERGY 1 회복. 현재 시간대가 정점이면 추가 ENERGY 1을 회복합니다.",
+    "text": "【위상 주문】 현재 위상이 정점이면 ENERGY 2, 아니면 1 회복. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -5603,19 +4965,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "storm",
     "cost": 6,
     "target": "none",
-    "text": "【식의 예고】 빈 칸에 정점 잔영 2/2를 소환합니다. 현재 시간대가 정점이면 4/3으로 강화되어 등장합니다.",
+    "text": "【위상 주문】 현재 위상이 정점이면 상대 코어 5 피해, 아니면 2 피해. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
     "eclipseAffinity": "zenith",
     "effect": {
-      "kind": "phase_summon_token",
+      "kind": "phase_damage_core",
       "phase": "zenith",
-      "attack": 2,
-      "health": 2,
-      "bonusAttack": 2,
-      "bonusHealth": 1,
-      "name": "정점 잔영"
+      "base": 2,
+      "bonus": 3
     },
     "vfx": {
       "activation": "v34-spell-zenith-8"
@@ -5630,14 +4989,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "storm",
     "cost": 1,
     "target": "none",
-    "text": "【위상 가속】 ECLIPSE CYCLE을 다음 시간대로 1칸 진행시킵니다. 필드의 시간 친화 캐릭터 능력치가 즉시 다시 계산됩니다.",
+    "text": "【위상 주문】 현재 위상이 황혼이면 코어 3, 아니면 1 회복. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
     "eclipseAffinity": "dusk",
     "effect": {
-      "kind": "phase_shift",
-      "steps": 1
+      "kind": "phase_heal_core",
+      "phase": "dusk",
+      "base": 1,
+      "bonus": 2
     },
     "vfx": {
       "activation": "v34-spell-dusk-1"
@@ -5652,14 +5013,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "verdant",
     "cost": 2,
     "target": "none",
-    "text": "【천체역행】 ECLIPSE CYCLE을 현재 시간대의 바로 이전 순환 시간대로 1칸 되돌립니다. 필드의 시간 친화 보정도 즉시 변경됩니다.",
+    "text": "【위상 주문】 아군 전체 보호막 1; 황혼이면 추가 +2. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
     "eclipseAffinity": "dusk",
     "effect": {
-      "kind": "phase_shift",
-      "steps": -1
+      "kind": "phase_mass_shield",
+      "phase": "dusk",
+      "base": 1,
+      "bonus": 2
     },
     "vfx": {
       "activation": "v34-spell-dusk-2"
@@ -5674,14 +5037,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "void",
     "cost": 2,
     "target": "none",
-    "text": "【관측자의 선택】 ECLIPSE CYCLE을 즉시 황혼으로 변경합니다. 황혼 친화 캐릭터의 공명을 강제로 활성화할 수 있습니다.",
+    "text": "【위상 주문】 적 전체 1 피해; 황혼이면 추가 +1. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
     "eclipseAffinity": "dusk",
     "effect": {
-      "kind": "phase_set",
-      "phase": "dusk"
+      "kind": "phase_aoe_enemy",
+      "phase": "dusk",
+      "base": 1,
+      "bonus": 1
     },
     "vfx": {
       "activation": "v34-spell-dusk-3"
@@ -5696,14 +5061,19 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "neutral",
     "cost": 3,
     "target": "none",
-    "text": "【경계 고정】 현재 시간대를 2턴 동안 고정합니다. 턴 종료 자동 진행을 막아 원하는 공명 시간대를 유지합니다.",
+    "text": "【위상 주문】 황혼 잔영 2/3 소환; 황혼이면 +1/+1. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
     "eclipseAffinity": "dusk",
     "effect": {
-      "kind": "phase_lock",
-      "turns": 2
+      "kind": "phase_summon_token",
+      "phase": "dusk",
+      "attack": 2,
+      "health": 3,
+      "bonusAttack": 1,
+      "bonusHealth": 1,
+      "name": "황혼 잔영"
     },
     "vfx": {
       "activation": "v34-spell-dusk-4"
@@ -5718,16 +5088,14 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "solar",
     "cost": 4,
     "target": "none",
-    "text": "【잔광 채집】 카드 1장을 드로우합니다. 현재 시간대가 황혼이면 추가로 2장 드로우합니다.",
+    "text": "【위상 주문】 ECLIPSE CYCLE을 즉시 황혼으로 변경. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
     "eclipseAffinity": "dusk",
     "effect": {
-      "kind": "phase_draw",
-      "phase": "dusk",
-      "base": 1,
-      "bonus": 2
+      "kind": "phase_set",
+      "phase": "dusk"
     },
     "vfx": {
       "activation": "v34-spell-dusk-5"
@@ -5742,16 +5110,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "lunar",
     "cost": 5,
     "target": "none",
-    "text": "【코로나 폭발】 상대 코어에 2 피해. 현재 시간대가 황혼이면 추가로 3 피해를 줍니다.",
+    "text": "【위상 주문】 현재 위상이 황혼이면 카드 3장, 아니면 1장 드로우. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
     "eclipseAffinity": "dusk",
     "effect": {
-      "kind": "phase_damage_core",
+      "kind": "phase_draw",
       "phase": "dusk",
-      "base": 2,
-      "bonus": 3
+      "base": 1,
+      "bonus": 2
     },
     "vfx": {
       "activation": "v34-spell-dusk-6"
@@ -5766,16 +5134,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "storm",
     "cost": 3,
     "target": "none",
-    "text": "【별시계 재기동】 이번 턴 ENERGY 1 회복. 현재 시간대가 황혼이면 추가 ENERGY 1을 회복합니다.",
+    "text": "【위상 주문】 현재 위상이 황혼이면 코어 3, 아니면 1 회복. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
     "eclipseAffinity": "dusk",
     "effect": {
-      "kind": "phase_gain_energy",
+      "kind": "phase_heal_core",
       "phase": "dusk",
       "base": 1,
-      "bonus": 1
+      "bonus": 2
     },
     "vfx": {
       "activation": "v34-spell-dusk-7"
@@ -5790,19 +5158,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "verdant",
     "cost": 6,
     "target": "none",
-    "text": "【식의 예고】 빈 칸에 황혼 잔영 2/2를 소환합니다. 현재 시간대가 황혼이면 4/3으로 강화되어 등장합니다.",
+    "text": "【위상 주문】 아군 전체 보호막 1; 황혼이면 추가 +2. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
     "eclipseAffinity": "dusk",
     "effect": {
-      "kind": "phase_summon_token",
+      "kind": "phase_mass_shield",
       "phase": "dusk",
-      "attack": 2,
-      "health": 2,
-      "bonusAttack": 2,
-      "bonusHealth": 1,
-      "name": "황혼 잔영"
+      "base": 1,
+      "bonus": 2
     },
     "vfx": {
       "activation": "v34-spell-dusk-8"
@@ -5817,14 +5182,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "verdant",
     "cost": 1,
     "target": "none",
-    "text": "【위상 가속】 ECLIPSE CYCLE을 다음 시간대로 1칸 진행시킵니다. 필드의 시간 친화 캐릭터 능력치가 즉시 다시 계산됩니다.",
+    "text": "【위상 주문】 현재 위상이 심야이면 상대 코어 3 피해, 아니면 1 피해. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
     "eclipseAffinity": "midnight",
     "effect": {
-      "kind": "phase_shift",
-      "steps": 1
+      "kind": "phase_damage_core",
+      "phase": "midnight",
+      "base": 1,
+      "bonus": 2
     },
     "vfx": {
       "activation": "v34-spell-midnight-1"
@@ -5832,21 +5199,25 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
   },
   {
     "id": "v34_cycle_spell_026",
-    "name": "심야식 · 시간역행 리와인드",
-    "subtitle": "ECLIPSE CYCLE · 실제 직전 시간대를 복원하는 역행 주문",
+    "name": "심야식 · 천체역행",
+    "subtitle": "ECLIPSE CYCLE 전술 주문 · 심야",
     "kind": "spell",
     "rarity": "rare",
     "element": "void",
     "cost": 2,
     "target": "none",
-    "text": "【시간역행】 현재 순서의 한 칸 전이 아니라, 실제로 직전에 존재했던 시간대로 되돌립니다. 카드 효과로 시간대가 크게 변경된 경우에도 그 이전 상태를 복원합니다.",
-    "flavor": "시곗바늘을 거꾸로 돌리는 것이 아니다. 이미 지나간 전장의 한 장면을 다시 불러온다.",
+    "text": "【위상 주문】 아군 전체 +1/+1; 심야이면 추가 +0/+1. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
+    "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
     "eclipseAffinity": "midnight",
     "effect": {
-      "kind": "phase_rewind",
-      "steps": 1
+      "kind": "phase_mass_buff",
+      "phase": "midnight",
+      "attack": 1,
+      "health": 1,
+      "bonusAttack": 0,
+      "bonusHealth": 1
     },
     "vfx": {
       "activation": "v34-spell-midnight-2"
@@ -5861,14 +5232,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "neutral",
     "cost": 2,
     "target": "none",
-    "text": "【관측자의 선택】 ECLIPSE CYCLE을 즉시 심야으로 변경합니다. 심야 친화 캐릭터의 공명을 강제로 활성화할 수 있습니다.",
+    "text": "【위상 주문】 묘지 회수 0장; 심야이면 추가 1장. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
     "eclipseAffinity": "midnight",
     "effect": {
-      "kind": "phase_set",
-      "phase": "midnight"
+      "kind": "phase_recover_grave",
+      "phase": "midnight",
+      "base": 0,
+      "bonus": 1
     },
     "vfx": {
       "activation": "v34-spell-midnight-3"
@@ -5883,14 +5256,14 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "solar",
     "cost": 3,
     "target": "none",
-    "text": "【경계 고정】 현재 시간대를 2턴 동안 고정합니다. 턴 종료 자동 진행을 막아 원하는 공명 시간대를 유지합니다.",
+    "text": "【위상 주문】 ECLIPSE CYCLE을 뒤로 1칸 이동. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
     "eclipseAffinity": "midnight",
     "effect": {
-      "kind": "phase_lock",
-      "turns": 2
+      "kind": "phase_shift",
+      "steps": -1
     },
     "vfx": {
       "activation": "v34-spell-midnight-4"
@@ -5905,16 +5278,14 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "lunar",
     "cost": 4,
     "target": "none",
-    "text": "【잔광 채집】 카드 1장을 드로우합니다. 현재 시간대가 심야이면 추가로 2장 드로우합니다.",
+    "text": "【위상 주문】 자동 위상 이동을 1턴 동안 정지. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
     "eclipseAffinity": "midnight",
     "effect": {
-      "kind": "phase_draw",
-      "phase": "midnight",
-      "base": 1,
-      "bonus": 2
+      "kind": "phase_lock",
+      "turns": 1
     },
     "vfx": {
       "activation": "v34-spell-midnight-5"
@@ -5929,16 +5300,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "storm",
     "cost": 5,
     "target": "none",
-    "text": "【코로나 폭발】 상대 코어에 2 피해. 현재 시간대가 심야이면 추가로 3 피해를 줍니다.",
+    "text": "【위상 주문】 현재 위상이 심야이면 ENERGY 2, 아니면 1 회복. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
     "eclipseAffinity": "midnight",
     "effect": {
-      "kind": "phase_damage_core",
+      "kind": "phase_gain_energy",
       "phase": "midnight",
-      "base": 2,
-      "bonus": 3
+      "base": 1,
+      "bonus": 1
     },
     "vfx": {
       "activation": "v34-spell-midnight-6"
@@ -5953,16 +5324,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "verdant",
     "cost": 3,
     "target": "none",
-    "text": "【별시계 재기동】 이번 턴 ENERGY 1 회복. 현재 시간대가 심야이면 추가 ENERGY 1을 회복합니다.",
+    "text": "【위상 주문】 현재 위상이 심야이면 상대 코어 3 피해, 아니면 1 피해. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
     "eclipseAffinity": "midnight",
     "effect": {
-      "kind": "phase_gain_energy",
+      "kind": "phase_damage_core",
       "phase": "midnight",
       "base": 1,
-      "bonus": 1
+      "bonus": 2
     },
     "vfx": {
       "activation": "v34-spell-midnight-7"
@@ -5977,19 +5348,18 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "void",
     "cost": 6,
     "target": "none",
-    "text": "【식의 예고】 빈 칸에 심야 잔영 2/2를 소환합니다. 현재 시간대가 심야이면 4/3으로 강화되어 등장합니다.",
+    "text": "【위상 주문】 아군 전체 +1/+1; 심야이면 추가 +0/+1. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
     "eclipseAffinity": "midnight",
     "effect": {
-      "kind": "phase_summon_token",
+      "kind": "phase_mass_buff",
       "phase": "midnight",
-      "attack": 2,
-      "health": 2,
-      "bonusAttack": 2,
-      "bonusHealth": 1,
-      "name": "심야 잔영"
+      "attack": 1,
+      "health": 1,
+      "bonusAttack": 0,
+      "bonusHealth": 1
     },
     "vfx": {
       "activation": "v34-spell-midnight-8"
@@ -6004,14 +5374,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "void",
     "cost": 1,
     "target": "none",
-    "text": "【위상 가속】 ECLIPSE CYCLE을 다음 시간대로 1칸 진행시킵니다. 필드의 시간 친화 캐릭터 능력치가 즉시 다시 계산됩니다.",
+    "text": "【위상 주문】 아군 전체 보호막 1; 개기일식이면 추가 +1. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
     "eclipseAffinity": "eclipse",
     "effect": {
-      "kind": "phase_shift",
-      "steps": 1
+      "kind": "phase_mass_shield",
+      "phase": "eclipse",
+      "base": 1,
+      "bonus": 1
     },
     "vfx": {
       "activation": "v34-spell-eclipse-1"
@@ -6026,14 +5398,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "neutral",
     "cost": 2,
     "target": "none",
-    "text": "【천체역행】 ECLIPSE CYCLE을 현재 시간대의 바로 이전 순환 시간대로 1칸 되돌립니다. 필드의 시간 친화 보정도 즉시 변경됩니다.",
+    "text": "【위상 주문】 적 전체 1 피해; 개기일식이면 추가 +1. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
     "eclipseAffinity": "eclipse",
     "effect": {
-      "kind": "phase_shift",
-      "steps": -1
+      "kind": "phase_aoe_enemy",
+      "phase": "eclipse",
+      "base": 1,
+      "bonus": 1
     },
     "vfx": {
       "activation": "v34-spell-eclipse-2"
@@ -6048,14 +5422,19 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "solar",
     "cost": 2,
     "target": "none",
-    "text": "【관측자의 선택】 ECLIPSE CYCLE을 즉시 개기일식으로 변경합니다. 개기일식 친화 캐릭터의 공명을 강제로 활성화할 수 있습니다.",
+    "text": "【위상 주문】 개기일식 잔영 1/2 소환; 개기일식이면 +1/+1. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
     "eclipseAffinity": "eclipse",
     "effect": {
-      "kind": "phase_set",
-      "phase": "eclipse"
+      "kind": "phase_summon_token",
+      "phase": "eclipse",
+      "attack": 1,
+      "health": 2,
+      "bonusAttack": 1,
+      "bonusHealth": 1,
+      "name": "개기일식 잔영"
     },
     "vfx": {
       "activation": "v34-spell-eclipse-3"
@@ -6070,14 +5449,14 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "lunar",
     "cost": 3,
     "target": "none",
-    "text": "【경계 고정】 현재 시간대를 2턴 동안 고정합니다. 턴 종료 자동 진행을 막아 원하는 공명 시간대를 유지합니다.",
+    "text": "【위상 주문】 ECLIPSE CYCLE을 즉시 개기일식으로 변경. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
     "eclipseAffinity": "eclipse",
     "effect": {
-      "kind": "phase_lock",
-      "turns": 2
+      "kind": "phase_set",
+      "phase": "eclipse"
     },
     "vfx": {
       "activation": "v34-spell-eclipse-4"
@@ -6092,7 +5471,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "storm",
     "cost": 4,
     "target": "none",
-    "text": "【잔광 채집】 카드 1장을 드로우합니다. 현재 시간대가 개기일식이면 추가로 2장 드로우합니다.",
+    "text": "【위상 주문】 현재 위상이 개기일식이면 카드 2장, 아니면 1장 드로우. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -6101,7 +5480,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "kind": "phase_draw",
       "phase": "eclipse",
       "base": 1,
-      "bonus": 2
+      "bonus": 1
     },
     "vfx": {
       "activation": "v34-spell-eclipse-5"
@@ -6116,16 +5495,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "verdant",
     "cost": 5,
     "target": "none",
-    "text": "【코로나 폭발】 상대 코어에 2 피해. 현재 시간대가 개기일식이면 추가로 3 피해를 줍니다.",
+    "text": "【위상 주문】 현재 위상이 개기일식이면 코어 4, 아니면 2 회복. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
     "eclipseAffinity": "eclipse",
     "effect": {
-      "kind": "phase_damage_core",
+      "kind": "phase_heal_core",
       "phase": "eclipse",
       "base": 2,
-      "bonus": 3
+      "bonus": 2
     },
     "vfx": {
       "activation": "v34-spell-eclipse-6"
@@ -6140,13 +5519,13 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "void",
     "cost": 3,
     "target": "none",
-    "text": "【별시계 재기동】 이번 턴 ENERGY 1 회복. 현재 시간대가 개기일식이면 추가 ENERGY 1을 회복합니다.",
+    "text": "【위상 주문】 아군 전체 보호막 1; 개기일식이면 추가 +1. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
     "eclipseAffinity": "eclipse",
     "effect": {
-      "kind": "phase_gain_energy",
+      "kind": "phase_mass_shield",
       "phase": "eclipse",
       "base": 1,
       "bonus": 1
@@ -6164,19 +5543,16 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "element": "neutral",
     "cost": 6,
     "target": "none",
-    "text": "【식의 예고】 빈 칸에 식광 잔영 2/2를 소환합니다. 현재 시간대가 개기일식이면 4/3으로 강화되어 등장합니다.",
+    "text": "【위상 주문】 적 전체 1 피해; 개기일식이면 추가 +1. 위상과 발동 타이밍을 겹치면 같은 ENERGY로 더 큰 효과를 냅니다.",
     "flavor": "하늘의 움직임은 배경이 아니다. 이 결투에서는 가장 큰 자원이다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
     "eclipseAffinity": "eclipse",
     "effect": {
-      "kind": "phase_summon_token",
+      "kind": "phase_aoe_enemy",
       "phase": "eclipse",
-      "attack": 2,
-      "health": 2,
-      "bonusAttack": 2,
-      "bonusHealth": 1,
-      "name": "식광 잔영"
+      "base": 1,
+      "bonus": 1
     },
     "vfx": {
       "activation": "v34-spell-eclipse-8"
@@ -6194,7 +5570,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【공명 융합 · 여명】 현재 위상이 여명이면 상대 코어 3 피해, 아니면 1 피해. 여명 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 여명 [새벽 각성]: ATK +2 / DEF +1 · 황혼 [잔광 소실]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 여명】 현재 위상이 여명이면 상대 코어 3 피해, 아니면 1 피해. 여명 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -6229,20 +5605,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           "minCost": 2
         }
       ]
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 2,
-        "health": 1,
-        "label": "새벽 각성"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": -1,
-        "label": "잔광 소실"
-      }
-    },
-    "temporalProfileName": "양면 공명"
+    }
   },
   {
     "id": "v34_cycle_fusion_002",
@@ -6256,7 +5619,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 9,
     "unitType": "artificer",
     "target": "none",
-    "text": "【공명 융합 · 여명】 아군 전체 보호막 1; 여명이면 추가 +2. 여명 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 정점 [시간 전이]: ATK +2 / DEF +1 · 개기일식 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 여명】 아군 전체 보호막 1; 여명이면 추가 +2. 여명 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -6291,20 +5654,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           "minCost": 2
         }
       ]
-    },
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 2,
-        "health": 1,
-        "label": "시간 전이"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
-      }
-    },
-    "temporalProfileName": "교차 공명"
+    }
   },
   {
     "id": "v34_cycle_fusion_003",
@@ -6318,7 +5668,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 10,
     "unitType": "spirit",
     "target": "none",
-    "text": "【공명 융합 · 여명】 아군 전체 +1/+1; 여명이면 추가 +0/+1. 여명 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 강화】 여명 [새벽 각성]: ATK +1 / DEF +2 · 개기일식 [선행 잔향]: ATK +1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 여명】 아군 전체 +1/+1; 여명이면 추가 +0/+1. 여명 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -6394,20 +5744,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 1,
-        "health": 2,
-        "label": "새벽 각성"
-      },
-      "eclipse": {
-        "attack": 1,
-        "health": 0,
-        "label": "선행 잔향"
-      }
-    },
-    "temporalProfileName": "이중 강화"
+    ]
   },
   {
     "id": "v34_cycle_fusion_004",
@@ -6421,7 +5758,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 11,
     "unitType": "hunter",
     "target": "none",
-    "text": "【시간대 강림 · 여명 전용】 여명에서만 소환 가능. 【공명 융합 · 여명】 적 전체 1 피해; 여명이면 추가 +1. 여명 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 여명 [시간문 초공명]: ATK +3 / DEF +2 · 정점 [시간대 이탈]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 여명】 적 전체 1 피해; 여명이면 추가 +1. 여명 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -6495,23 +5832,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipseSummonPhases": [
-      "dawn"
-    ],
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 3,
-        "health": 2,
-        "label": "시간문 초공명"
-      },
-      "zenith": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_fusion_005",
@@ -6525,7 +5846,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 9,
     "unitType": "artificer",
     "target": "none",
-    "text": "【공명 융합 · 정점】 아군 전체 보호막 1; 정점이면 추가 +1. 정점 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 정점 [방벽 공명]: DEF +2 · 황혼 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 정점】 아군 전체 보호막 1; 정점이면 추가 +1. 정점 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -6560,20 +5881,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           "minCost": 2
         }
       ]
-    },
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 0,
-        "health": 2,
-        "label": "방벽 공명"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
-      }
-    },
-    "temporalProfileName": "방어 공명"
+    }
   },
   {
     "id": "v34_cycle_fusion_006",
@@ -6587,7 +5895,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 10,
     "unitType": "spirit",
     "target": "none",
-    "text": "【공명 융합 · 정점】 아군 전체 +1/+1; 정점이면 추가 +0/+1. 정점 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 심야 [역주기 적응]: ATK +2 / DEF +1 · 정점 [고유 시간 거부]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 정점】 아군 전체 +1/+1; 정점이면 추가 +0/+1. 정점 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -6624,20 +5932,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           "minCost": 2
         }
       ]
-    },
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 2,
-        "health": 1,
-        "label": "역주기 적응"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": 0,
-        "label": "고유 시간 거부"
-      }
-    },
-    "temporalProfileName": "역주기 적응"
+    }
   },
   {
     "id": "v34_cycle_fusion_007",
@@ -6651,7 +5946,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 11,
     "unitType": "hunter",
     "target": "none",
-    "text": "【공명 융합 · 정점】 적 전체 1 피해; 정점이면 추가 +1. 정점 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 강화】 정점 [태양 과충전]: ATK +2 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 정점】 적 전체 1 피해; 정점이면 추가 +1. 정점 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -6725,15 +6020,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 2,
-        "health": 1,
-        "label": "태양 과충전"
-      }
-    },
-    "temporalProfileName": "강화 전용"
+    ]
   },
   {
     "id": "v34_cycle_fusion_008",
@@ -6747,7 +6034,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 12,
     "unitType": "relic",
     "target": "none",
-    "text": "【시간대 강림 · 정점 전용】 정점에서만 소환 가능. 【공명 융합 · 정점】 묘지 회수 0장; 정점이면 추가 2장. 정점 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 정점 [시간문 초공명]: ATK +3 / DEF +2 · 황혼 [시간대 이탈]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 정점】 묘지 회수 0장; 정점이면 추가 2장. 정점 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -6821,23 +6108,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipseSummonPhases": [
-      "zenith"
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 3,
-        "health": 2,
-        "label": "시간문 초공명"
-      },
-      "dusk": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_fusion_009",
@@ -6851,7 +6122,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 10,
     "unitType": "spirit",
     "target": "none",
-    "text": "【공명 융합 · 황혼】 아군 전체 +1/+1; 황혼이면 추가 +1/+1. 황혼 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 황혼 [잔광 공명]: ATK +2 / DEF +1 · 개기일식 [식광 불안정]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 황혼】 아군 전체 +1/+1; 황혼이면 추가 +1/+1. 황혼 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -6888,20 +6159,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           "minCost": 2
         }
       ]
-    },
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 2,
-        "health": 1,
-        "label": "잔광 공명"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": -1,
-        "label": "식광 불안정"
-      }
-    },
-    "temporalProfileName": "양면 공명"
+    }
   },
   {
     "id": "v34_cycle_fusion_010",
@@ -6915,7 +6173,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 11,
     "unitType": "hunter",
     "target": "none",
-    "text": "【공명 융합 · 황혼】 적 전체 1 피해; 황혼이면 추가 +1. 황혼 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 심야 [시간 전이]: ATK +2 / DEF +1 · 정점 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 황혼】 적 전체 1 피해; 황혼이면 추가 +1. 황혼 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -6950,20 +6208,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           "minCost": 2
         }
       ]
-    },
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 2,
-        "health": 1,
-        "label": "시간 전이"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
-      }
-    },
-    "temporalProfileName": "교차 공명"
+    }
   },
   {
     "id": "v34_cycle_fusion_011",
@@ -6977,7 +6222,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 12,
     "unitType": "relic",
     "target": "none",
-    "text": "【공명 융합 · 황혼】 묘지 회수 0장; 황혼이면 추가 1장. 황혼 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 강화】 정점 [선행 잔향]: ATK +1 · 황혼 [잔광 공명]: ATK +1 / DEF +2. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 황혼】 묘지 회수 0장; 황혼이면 추가 1장. 황혼 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -7051,20 +6296,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 1,
-        "health": 2,
-        "label": "잔광 공명"
-      },
-      "zenith": {
-        "attack": 1,
-        "health": 0,
-        "label": "선행 잔향"
-      }
-    },
-    "temporalProfileName": "이중 강화"
+    ]
   },
   {
     "id": "v34_cycle_fusion_012",
@@ -7078,7 +6310,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 13,
     "unitType": "oracle",
     "target": "none",
-    "text": "【시간대 강림 · 황혼 전용】 황혼에서만 소환 가능. 【공명 융합 · 황혼】 황혼 잔영 2/3 소환; 황혼이면 +1/+1. 황혼 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 황혼 [시간문 초공명]: ATK +3 / DEF +2 · 심야 [시간대 이탈]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 황혼】 황혼 잔영 2/3 소환; 황혼이면 +1/+1. 황혼 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -7155,23 +6387,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipseSummonPhases": [
-      "dusk"
-    ],
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 3,
-        "health": 2,
-        "label": "시간문 초공명"
-      },
-      "midnight": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_fusion_013",
@@ -7185,7 +6401,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "hunter",
     "target": "none",
-    "text": "【공명 융합 · 심야】 적 전체 1 피해; 심야이면 추가 +1. 심야 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 심야 [방벽 공명]: DEF +2 · 개기일식 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 심야】 적 전체 1 피해; 심야이면 추가 +1. 심야 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -7220,20 +6436,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           "minCost": 2
         }
       ]
-    },
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 0,
-        "health": 2,
-        "label": "방벽 공명"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
-      }
-    },
-    "temporalProfileName": "방어 공명"
+    }
   },
   {
     "id": "v34_cycle_fusion_014",
@@ -7247,7 +6450,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 9,
     "unitType": "relic",
     "target": "none",
-    "text": "【공명 융합 · 심야】 묘지 회수 0장; 심야이면 추가 2장. 심야 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 여명 [역주기 적응]: ATK +2 / DEF +1 · 심야 [고유 시간 거부]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 심야】 묘지 회수 0장; 심야이면 추가 2장. 심야 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -7282,20 +6485,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           "minCost": 2
         }
       ]
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 2,
-        "health": 1,
-        "label": "역주기 적응"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": 0,
-        "label": "고유 시간 거부"
-      }
-    },
-    "temporalProfileName": "역주기 적응"
+    }
   },
   {
     "id": "v34_cycle_fusion_015",
@@ -7309,7 +6499,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 10,
     "unitType": "oracle",
     "target": "none",
-    "text": "【공명 융합 · 심야】 심야 잔영 1/2 소환; 심야이면 +1/+1. 심야 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 강화】 심야 [월광 동조]: ATK +2 / DEF +1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 심야】 심야 잔영 1/2 소환; 심야이면 +1/+1. 심야 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -7386,15 +6576,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 2,
-        "health": 1,
-        "label": "월광 동조"
-      }
-    },
-    "temporalProfileName": "강화 전용"
+    ]
   },
   {
     "id": "v34_cycle_fusion_016",
@@ -7408,7 +6590,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 11,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【시간대 강림 · 심야 전용】 심야에서만 소환 가능. 【공명 융합 · 심야】 현재 위상이 심야이면 카드 3장, 아니면 1장 드로우. 심야 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 심야 [시간문 초공명]: ATK +3 / DEF +2 · 개기일식 [시간대 이탈]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 심야】 현재 위상이 심야이면 카드 3장, 아니면 1장 드로우. 심야 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -7482,23 +6664,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipseSummonPhases": [
-      "midnight"
-    ],
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 3,
-        "health": 2,
-        "label": "시간문 초공명"
-      },
-      "eclipse": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_fusion_017",
@@ -7512,7 +6678,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 9,
     "unitType": "relic",
     "target": "none",
-    "text": "【공명 융합 · 개기일식】 묘지 회수 0장; 개기일식이면 추가 1장. 개기일식 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 개기일식 [식광 폭주]: ATK +2 / DEF +1 · 정점 [정오 과열]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 개기일식】 묘지 회수 0장; 개기일식이면 추가 1장. 개기일식 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -7547,20 +6713,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           "minCost": 2
         }
       ]
-    },
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 2,
-        "health": 1,
-        "label": "식광 폭주"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": -1,
-        "label": "정오 과열"
-      }
-    },
-    "temporalProfileName": "양면 공명"
+    }
   },
   {
     "id": "v34_cycle_fusion_018",
@@ -7574,7 +6727,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 10,
     "unitType": "oracle",
     "target": "none",
-    "text": "【공명 융합 · 개기일식】 개기일식 잔영 2/3 소환; 개기일식이면 +1/+1. 개기일식 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 여명 [시간 전이]: ATK +2 / DEF +1 · 심야 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 개기일식】 개기일식 잔영 2/3 소환; 개기일식이면 +1/+1. 개기일식 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -7612,20 +6765,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           "minCost": 2
         }
       ]
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 2,
-        "health": 1,
-        "label": "시간 전이"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
-      }
-    },
-    "temporalProfileName": "교차 공명"
+    }
   },
   {
     "id": "v34_cycle_fusion_019",
@@ -7639,7 +6779,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 11,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【공명 융합 · 개기일식】 현재 위상이 개기일식이면 카드 2장, 아니면 1장 드로우. 개기일식 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 강화】 심야 [선행 잔향]: ATK +1 · 개기일식 [식광 폭주]: ATK +1 / DEF +2. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 개기일식】 현재 위상이 개기일식이면 카드 2장, 아니면 1장 드로우. 개기일식 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -7713,20 +6853,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 1,
-        "health": 2,
-        "label": "식광 폭주"
-      },
-      "midnight": {
-        "attack": 1,
-        "health": 0,
-        "label": "선행 잔향"
-      }
-    },
-    "temporalProfileName": "이중 강화"
+    ]
   },
   {
     "id": "v34_cycle_fusion_020",
@@ -7740,7 +6867,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 12,
     "unitType": "artificer",
     "target": "none",
-    "text": "【시간대 강림 · 개기일식 전용】 개기일식에서만 소환 가능. 【공명 융합 · 개기일식】 현재 위상이 개기일식이면 ENERGY 2, 아니면 1 회복. 개기일식 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 개기일식 [시간문 초공명]: ATK +3 / DEF +2 · 여명 [시간대 이탈]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【공명 융합 · 개기일식】 현재 위상이 개기일식이면 ENERGY 2, 아니면 1 회복. 개기일식 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -7814,23 +6941,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipseSummonPhases": [
-      "eclipse"
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 3,
-        "health": 2,
-        "label": "시간문 초공명"
-      },
-      "dawn": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_evolution_001",
@@ -7844,7 +6955,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【계승 진화 · 여명】 현재 위상이 여명이면 상대 코어 3 피해, 아니면 1 피해. 여명 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 여명 [새벽 각성]: ATK +3 / DEF +1 · 황혼 [시간 붕괴]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 여명】 현재 위상이 여명이면 상대 코어 3 피해, 아니면 1 피해. 여명 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -7872,20 +6983,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "label": "여명 계승원 ENERGY 3 이상",
       "element": "solar",
       "minCost": 3
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 3,
-        "health": 1,
-        "label": "새벽 각성"
-      },
-      "dusk": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간 붕괴"
-      }
-    },
-    "temporalProfileName": "극단 공명"
+    }
   },
   {
     "id": "v34_cycle_evolution_002",
@@ -7899,7 +6997,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 9,
     "unitType": "artificer",
     "target": "none",
-    "text": "【계승 진화 · 여명】 아군 전체 보호막 1; 여명이면 추가 +2. 여명 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 여명 [방벽 공명]: DEF +2 · 정점 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 여명】 아군 전체 보호막 1; 여명이면 추가 +2. 여명 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -7927,20 +7025,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "label": "여명 계승원 ENERGY 3 이상",
       "element": "lunar",
       "minCost": 3
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 0,
-        "health": 2,
-        "label": "방벽 공명"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
-      }
-    },
-    "temporalProfileName": "방어 공명"
+    }
   },
   {
     "id": "v34_cycle_evolution_003",
@@ -7954,7 +7039,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 10,
     "unitType": "spirit",
     "target": "none",
-    "text": "【계승 진화 · 여명】 아군 전체 +1/+1; 여명이면 추가 +0/+1. 여명 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 황혼 [역주기 적응]: ATK +2 / DEF +1 · 여명 [고유 시간 거부]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 여명】 아군 전체 +1/+1; 여명이면 추가 +0/+1. 여명 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -8023,20 +7108,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 2,
-        "health": 1,
-        "label": "역주기 적응"
-      },
-      "dawn": {
-        "attack": -1,
-        "health": 0,
-        "label": "고유 시간 거부"
-      }
-    },
-    "temporalProfileName": "역주기 적응"
+    ]
   },
   {
     "id": "v34_cycle_evolution_004",
@@ -8050,7 +7122,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 11,
     "unitType": "hunter",
     "target": "none",
-    "text": "【시간대 강림 · 여명 전용】 여명에서만 소환 가능. 【계승 진화 · 여명】 적 전체 1 피해; 여명이면 추가 +1. 여명 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 여명 [시간문 초공명]: ATK +3 / DEF +2 · 정점 [시간대 이탈]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 여명】 적 전체 1 피해; 여명이면 추가 +1. 여명 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "☀",
     "comboTag": "여명 관측대",
@@ -8117,23 +7189,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipseSummonPhases": [
-      "dawn"
-    ],
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 3,
-        "health": 2,
-        "label": "시간문 초공명"
-      },
-      "zenith": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_evolution_005",
@@ -8147,7 +7203,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 9,
     "unitType": "artificer",
     "target": "none",
-    "text": "【계승 진화 · 정점】 아군 전체 보호막 1; 정점이면 추가 +1. 정점 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 취약】 심야 [심야 침식]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 정점】 아군 전체 보호막 1; 정점이면 추가 +1. 정점 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -8175,15 +7231,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "label": "정점 계승원 ENERGY 3 이상",
       "element": "lunar",
       "minCost": 3
-    },
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": -2,
-        "health": -1,
-        "label": "심야 침식"
-      }
-    },
-    "temporalProfileName": "취약 전용"
+    }
   },
   {
     "id": "v34_cycle_evolution_006",
@@ -8197,7 +7245,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 10,
     "unitType": "spirit",
     "target": "none",
-    "text": "【계승 진화 · 정점】 아군 전체 +1/+1; 정점이면 추가 +0/+1. 정점 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 정점 [태양 과충전]: ATK +2 / DEF +1 · 심야 [심야 침식]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 정점】 아군 전체 +1/+1; 정점이면 추가 +0/+1. 정점 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -8227,20 +7275,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "label": "정점 계승원 ENERGY 3 이상",
       "element": "storm",
       "minCost": 3
-    },
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 2,
-        "health": 1,
-        "label": "태양 과충전"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": -1,
-        "label": "심야 침식"
-      }
-    },
-    "temporalProfileName": "양면 공명"
+    }
   },
   {
     "id": "v34_cycle_evolution_007",
@@ -8254,7 +7289,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 11,
     "unitType": "hunter",
     "target": "none",
-    "text": "【계승 진화 · 정점】 적 전체 1 피해; 정점이면 추가 +1. 정점 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 황혼 [시간 전이]: ATK +2 / DEF +1 · 여명 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 정점】 적 전체 1 피해; 정점이면 추가 +1. 정점 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -8321,20 +7356,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 2,
-        "health": 1,
-        "label": "시간 전이"
-      },
-      "dawn": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
-      }
-    },
-    "temporalProfileName": "교차 공명"
+    ]
   },
   {
     "id": "v34_cycle_evolution_008",
@@ -8348,7 +7370,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 12,
     "unitType": "relic",
     "target": "none",
-    "text": "【시간대 강림 · 정점 전용】 정점에서만 소환 가능. 【계승 진화 · 정점】 묘지 회수 0장; 정점이면 추가 2장. 정점 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 정점 [시간문 초공명]: ATK +3 / DEF +2 · 황혼 [시간대 이탈]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 정점】 묘지 회수 0장; 정점이면 추가 2장. 정점 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "✦",
     "comboTag": "정점 돌격대",
@@ -8415,23 +7437,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipseSummonPhases": [
-      "zenith"
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 3,
-        "health": 2,
-        "label": "시간문 초공명"
-      },
-      "dusk": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_evolution_009",
@@ -8445,7 +7451,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 10,
     "unitType": "spirit",
     "target": "none",
-    "text": "【계승 진화 · 황혼】 아군 전체 +1/+1; 황혼이면 추가 +1/+1. 황혼 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 황혼 [잔광 공명]: ATK +3 / DEF +1 · 개기일식 [시간 붕괴]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 황혼】 아군 전체 +1/+1; 황혼이면 추가 +1/+1. 황혼 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -8475,20 +7481,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "label": "황혼 계승원 ENERGY 3 이상",
       "element": "storm",
       "minCost": 3
-    },
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 3,
-        "health": 1,
-        "label": "잔광 공명"
-      },
-      "eclipse": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간 붕괴"
-      }
-    },
-    "temporalProfileName": "극단 공명"
+    }
   },
   {
     "id": "v34_cycle_evolution_010",
@@ -8502,7 +7495,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 11,
     "unitType": "hunter",
     "target": "none",
-    "text": "【계승 진화 · 황혼】 적 전체 1 피해; 황혼이면 추가 +1. 황혼 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 황혼 [방벽 공명]: DEF +2 · 심야 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 황혼】 적 전체 1 피해; 황혼이면 추가 +1. 황혼 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -8530,20 +7523,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "label": "황혼 계승원 ENERGY 3 이상",
       "element": "verdant",
       "minCost": 3
-    },
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 0,
-        "health": 2,
-        "label": "방벽 공명"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
-      }
-    },
-    "temporalProfileName": "방어 공명"
+    }
   },
   {
     "id": "v34_cycle_evolution_011",
@@ -8557,7 +7537,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 12,
     "unitType": "relic",
     "target": "none",
-    "text": "【계승 진화 · 황혼】 묘지 회수 0장; 황혼이면 추가 1장. 황혼 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 개기일식 [역주기 적응]: ATK +2 / DEF +1 · 황혼 [고유 시간 거부]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 황혼】 묘지 회수 0장; 황혼이면 추가 1장. 황혼 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -8624,20 +7604,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 2,
-        "health": 1,
-        "label": "역주기 적응"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": 0,
-        "label": "고유 시간 거부"
-      }
-    },
-    "temporalProfileName": "역주기 적응"
+    ]
   },
   {
     "id": "v34_cycle_evolution_012",
@@ -8651,7 +7618,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 13,
     "unitType": "oracle",
     "target": "none",
-    "text": "【시간대 강림 · 황혼 전용】 황혼에서만 소환 가능. 【계승 진화 · 황혼】 황혼 잔영 2/3 소환; 황혼이면 +1/+1. 황혼 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 황혼 [시간문 초공명]: ATK +3 / DEF +2 · 심야 [시간대 이탈]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 황혼】 황혼 잔영 2/3 소환; 황혼이면 +1/+1. 황혼 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "◐",
     "comboTag": "황혼 공방",
@@ -8721,23 +7688,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipseSummonPhases": [
-      "dusk"
-    ],
-    "eclipsePhaseModifiers": {
-      "dusk": {
-        "attack": 3,
-        "health": 2,
-        "label": "시간문 초공명"
-      },
-      "midnight": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_evolution_013",
@@ -8751,7 +7702,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 8,
     "unitType": "hunter",
     "target": "none",
-    "text": "【계승 진화 · 심야】 적 전체 1 피해; 심야이면 추가 +1. 심야 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 취약】 여명 [새벽 과민]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 심야】 적 전체 1 피해; 심야이면 추가 +1. 심야 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -8779,15 +7730,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "label": "심야 계승원 ENERGY 3 이상",
       "element": "verdant",
       "minCost": 3
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": -2,
-        "health": -1,
-        "label": "새벽 과민"
-      }
-    },
-    "temporalProfileName": "취약 전용"
+    }
   },
   {
     "id": "v34_cycle_evolution_014",
@@ -8801,7 +7744,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 9,
     "unitType": "relic",
     "target": "none",
-    "text": "【계승 진화 · 심야】 묘지 회수 0장; 심야이면 추가 2장. 심야 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 심야 [월광 동조]: ATK +2 / DEF +1 · 여명 [새벽 과민]: ATK -1 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 심야】 묘지 회수 0장; 심야이면 추가 2장. 심야 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -8829,20 +7772,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "label": "심야 계승원 ENERGY 3 이상",
       "element": "void",
       "minCost": 3
-    },
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 2,
-        "health": 1,
-        "label": "월광 동조"
-      },
-      "dawn": {
-        "attack": -1,
-        "health": -1,
-        "label": "새벽 과민"
-      }
-    },
-    "temporalProfileName": "양면 공명"
+    }
   },
   {
     "id": "v34_cycle_evolution_015",
@@ -8856,7 +7786,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 10,
     "unitType": "oracle",
     "target": "none",
-    "text": "【계승 진화 · 심야】 심야 잔영 1/2 소환; 심야이면 +1/+1. 심야 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 개기일식 [시간 전이]: ATK +2 / DEF +1 · 황혼 [역위상 마찰]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 심야】 심야 잔영 1/2 소환; 심야이면 +1/+1. 심야 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -8926,20 +7856,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 2,
-        "health": 1,
-        "label": "시간 전이"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": 0,
-        "label": "역위상 마찰"
-      }
-    },
-    "temporalProfileName": "교차 공명"
+    ]
   },
   {
     "id": "v34_cycle_evolution_016",
@@ -8953,7 +7870,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 11,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【시간대 강림 · 심야 전용】 심야에서만 소환 가능. 【계승 진화 · 심야】 현재 위상이 심야이면 카드 3장, 아니면 1장 드로우. 심야 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 심야 [시간문 초공명]: ATK +3 / DEF +2 · 개기일식 [시간대 이탈]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 심야】 현재 위상이 심야이면 카드 3장, 아니면 1장 드로우. 심야 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "☾",
     "comboTag": "심야 기록국",
@@ -9020,23 +7937,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipseSummonPhases": [
-      "midnight"
-    ],
-    "eclipsePhaseModifiers": {
-      "midnight": {
-        "attack": 3,
-        "health": 2,
-        "label": "시간문 초공명"
-      },
-      "eclipse": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
+    ]
   },
   {
     "id": "v34_cycle_evolution_017",
@@ -9050,7 +7951,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 9,
     "unitType": "relic",
     "target": "none",
-    "text": "【계승 진화 · 개기일식】 묘지 회수 0장; 개기일식이면 추가 1장. 개기일식 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 개기일식 [식광 폭주]: ATK +3 / DEF +1 · 정점 [시간 붕괴]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 개기일식】 묘지 회수 0장; 개기일식이면 추가 1장. 개기일식 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -9078,20 +7979,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "label": "개기일식 계승원 ENERGY 3 이상",
       "element": "void",
       "minCost": 3
-    },
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 3,
-        "health": 1,
-        "label": "식광 폭주"
-      },
-      "zenith": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간 붕괴"
-      }
-    },
-    "temporalProfileName": "극단 공명"
+    }
   },
   {
     "id": "v34_cycle_evolution_018",
@@ -9105,7 +7993,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 10,
     "unitType": "oracle",
     "target": "none",
-    "text": "【계승 진화 · 개기일식】 개기일식 잔영 2/3 소환; 개기일식이면 +1/+1. 개기일식 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 개기일식 [방벽 공명]: DEF +2 · 여명 [공명 누출]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 개기일식】 개기일식 잔영 2/3 소환; 개기일식이면 +1/+1. 개기일식 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -9136,20 +8024,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
       "label": "개기일식 계승원 ENERGY 3 이상",
       "element": "neutral",
       "minCost": 3
-    },
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 0,
-        "health": 2,
-        "label": "방벽 공명"
-      },
-      "dawn": {
-        "attack": -1,
-        "health": 0,
-        "label": "공명 누출"
-      }
-    },
-    "temporalProfileName": "방어 공명"
+    }
   },
   {
     "id": "v34_cycle_evolution_019",
@@ -9163,7 +8038,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 11,
     "unitType": "vanguard",
     "target": "none",
-    "text": "【계승 진화 · 개기일식】 현재 위상이 개기일식이면 카드 2장, 아니면 1장 드로우. 개기일식 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 정점 [역주기 적응]: ATK +2 / DEF +1 · 개기일식 [고유 시간 거부]: ATK -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 개기일식】 현재 위상이 개기일식이면 카드 2장, 아니면 1장 드로우. 개기일식 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -9230,20 +8105,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipsePhaseModifiers": {
-      "zenith": {
-        "attack": 2,
-        "health": 1,
-        "label": "역주기 적응"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": 0,
-        "label": "고유 시간 거부"
-      }
-    },
-    "temporalProfileName": "역주기 적응"
+    ]
   },
   {
     "id": "v34_cycle_evolution_020",
@@ -9257,7 +8119,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
     "health": 12,
     "unitType": "artificer",
     "target": "none",
-    "text": "【시간대 강림 · 개기일식 전용】 개기일식에서만 소환 가능. 【계승 진화 · 개기일식】 현재 위상이 개기일식이면 ENERGY 2, 아니면 1 회복. 개기일식 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다. 【시간 반응】 개기일식 [시간문 초공명]: ATK +3 / DEF +2 · 여명 [시간대 이탈]: ATK -2 / DEF -1. 그 외 시간대는 중립.",
+    "text": "【계승 진화 · 개기일식】 현재 위상이 개기일식이면 ENERGY 2, 아니면 1 회복. 개기일식 위상에 도착하는 턴을 계산해 소환하면 최대 효율을 냅니다.",
     "flavor": "두 개의 시간이 겹친 자리에서, 아직 오지 않은 승리의 형태가 먼저 모습을 드러냈다.",
     "sigil": "◉",
     "comboTag": "개기일식 성약",
@@ -9324,945 +8186,6 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
           }
         ]
       }
-    ],
-    "eclipseSummonPhases": [
-      "eclipse"
-    ],
-    "eclipsePhaseModifiers": {
-      "eclipse": {
-        "attack": 3,
-        "health": 2,
-        "label": "시간문 초공명"
-      },
-      "dawn": {
-        "attack": -2,
-        "health": -1,
-        "label": "시간대 이탈"
-      }
-    },
-    "temporalProfileName": "TIME GATE 초공명"
-  },
-  {
-    "id": "v34_cycle_unit_121",
-    "name": "깨진 새벽병기 · 헤메라-0",
-    "subtitle": "극시공 실험체 · 여명 폭주형",
-    "kind": "unit",
-    "rarity": "epic",
-    "element": "solar",
-    "cost": 5,
-    "attack": 1,
-    "health": 2,
-    "unitType": "artificer",
-    "target": "none",
-    "text": "【극시공 · 여명】 기본 능력치는 1/2이며 현재 시간대가 여명이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 여명에서는 [새벽 봉인 해제] ATK +8 / DEF +5로 폭발적으로 강화됩니다. 【시간 폭발】 여명에서 등장하면 ENERGY 2 회복. 상시 키워드: 속공.",
-    "flavor": "동이 트기 전까지는 폐기물. 첫 빛이 닿는 순간에만 설계도가 완성된다.",
-    "sigil": "☀",
-    "comboTag": "극시공 실험체",
-    "eclipseAffinity": "dawn",
-    "onSummon": {
-      "kind": "phase_gain_energy",
-      "phase": "dawn",
-      "base": 0,
-      "bonus": 2
-    },
-    "keywords": [
-      "charge"
-    ],
-    "vfx": {
-      "summon": "v34-cycle-dawn",
-      "activation": "v34-phase-dawn"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 8,
-        "health": 5,
-        "label": "새벽 봉인 해제"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      }
-    },
-    "temporalProfileName": "극시공 · 여명 폭주"
-  },
-  {
-    "id": "v34_cycle_unit_122",
-    "name": "일출 전용 성채 · 아침성",
-    "subtitle": "극시공 실험체 · 여명 요새형",
-    "kind": "unit",
-    "rarity": "rare",
-    "element": "neutral",
-    "cost": 6,
-    "attack": 1,
-    "health": 2,
-    "unitType": "relic",
-    "target": "none",
-    "text": "【극시공 · 여명】 기본 능력치는 1/2이며 현재 시간대가 여명이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 여명에서는 [새벽 봉인 해제] ATK +5 / DEF +10로 폭발적으로 강화됩니다. 【시간 폭발】 여명에서 등장하면 아군 전체 보호막 +3. 상시 키워드: 수호.",
-    "flavor": "밤에는 문짝 하나 못 막는다. 그러나 해가 뜨면 성벽 전체가 깨어난다.",
-    "sigil": "◒",
-    "comboTag": "극시공 실험체",
-    "eclipseAffinity": "dawn",
-    "onSummon": {
-      "kind": "phase_mass_shield",
-      "phase": "dawn",
-      "base": 0,
-      "bonus": 3
-    },
-    "keywords": [
-      "guard"
-    ],
-    "vfx": {
-      "summon": "v34-cycle-dawn",
-      "activation": "v34-phase-dawn"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 5,
-        "health": 10,
-        "label": "새벽 봉인 해제"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      }
-    },
-    "temporalProfileName": "극시공 · 여명 요새"
-  },
-  {
-    "id": "v34_cycle_unit_123",
-    "name": "여명 최종집행자 · FIRST RAY",
-    "subtitle": "극시공 실험체 · 여명 종결형",
-    "kind": "unit",
-    "rarity": "legendary",
-    "element": "storm",
-    "cost": 8,
-    "attack": 1,
-    "health": 2,
-    "unitType": "hunter",
-    "target": "none",
-    "text": "【극시공 기동】 릴리스 없이 특수 소환 가능. 【극시공 · 여명】 기본 능력치는 1/2이며 현재 시간대가 여명이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 여명에서는 [새벽 봉인 해제] ATK +11 / DEF +7로 폭발적으로 강화됩니다. 【시간 폭발】 여명에서 등장하면 상대 코어 4 피해. 상시 키워드: 관통 · 직격.",
-    "flavor": "첫 광선이 내려오는 한순간만을 위해 모든 기능을 포기한 처형 장치.",
-    "sigil": "✦",
-    "comboTag": "극시공 실험체",
-    "eclipseAffinity": "dawn",
-    "onSummon": {
-      "kind": "phase_damage_core",
-      "phase": "dawn",
-      "base": 0,
-      "bonus": 4
-    },
-    "keywords": [
-      "pierce",
-      "corestrike"
-    ],
-    "vfx": {
-      "summon": "v34-cycle-dawn",
-      "activation": "v34-phase-dawn"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": 11,
-        "health": 7,
-        "label": "새벽 봉인 해제"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      }
-    },
-    "temporalProfileName": "극시공 · 여명 종결",
-    "summonMode": "legendary",
-    "legendarySummonRule": {
-      "name": "극시공 기동",
-      "label": "릴리스 없이 특수 소환할 수 있습니다. 단, 지정 시간대가 아니면 사실상 0/1 성능입니다.",
-      "release": "none"
-    }
-  },
-  {
-    "id": "v34_cycle_unit_124",
-    "name": "정오 과열체 · SOL-13",
-    "subtitle": "극시공 실험체 · 정점 폭주형",
-    "kind": "unit",
-    "rarity": "epic",
-    "element": "solar",
-    "cost": 5,
-    "attack": 1,
-    "health": 2,
-    "unitType": "artificer",
-    "target": "none",
-    "text": "【극시공 · 정점】 기본 능력치는 1/2이며 현재 시간대가 정점이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 정점에서는 [정오 노심 해방] ATK +9 / DEF +4로 폭발적으로 강화됩니다. 【시간 폭발】 정점에서 등장하면 ENERGY 2 회복. 상시 키워드: 속공.",
-    "flavor": "그늘에서는 멈추고, 태양이 머리 위에 오르면 노심이 폭발한다.",
-    "sigil": "☼",
-    "comboTag": "극시공 실험체",
-    "eclipseAffinity": "zenith",
-    "onSummon": {
-      "kind": "phase_gain_energy",
-      "phase": "zenith",
-      "base": 0,
-      "bonus": 2
-    },
-    "keywords": [
-      "charge"
-    ],
-    "vfx": {
-      "summon": "v34-cycle-zenith",
-      "activation": "v34-phase-zenith"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "zenith": {
-        "attack": 9,
-        "health": 4,
-        "label": "정오 노심 해방"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      }
-    },
-    "temporalProfileName": "극시공 · 정점 폭주"
-  },
-  {
-    "id": "v34_cycle_unit_125",
-    "name": "천정 고철거인 · MERIDIAN",
-    "subtitle": "극시공 실험체 · 정점 요새형",
-    "kind": "unit",
-    "rarity": "rare",
-    "element": "neutral",
-    "cost": 6,
-    "attack": 1,
-    "health": 2,
-    "unitType": "artificer",
-    "target": "none",
-    "text": "【극시공 · 정점】 기본 능력치는 1/2이며 현재 시간대가 정점이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 정점에서는 [정오 노심 해방] ATK +5 / DEF +11로 폭발적으로 강화됩니다. 【시간 폭발】 정점에서 등장하면 아군 전체 보호막 +3. 상시 키워드: 수호.",
-    "flavor": "평소에는 움직이지 않는 고철 더미. 정오에는 전장을 가르는 이동 요새.",
-    "sigil": "▣",
-    "comboTag": "극시공 실험체",
-    "eclipseAffinity": "zenith",
-    "onSummon": {
-      "kind": "phase_mass_shield",
-      "phase": "zenith",
-      "base": 0,
-      "bonus": 3
-    },
-    "keywords": [
-      "guard"
-    ],
-    "vfx": {
-      "summon": "v34-cycle-zenith",
-      "activation": "v34-phase-zenith"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "zenith": {
-        "attack": 5,
-        "health": 11,
-        "label": "정오 노심 해방"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      }
-    },
-    "temporalProfileName": "극시공 · 정점 요새"
-  },
-  {
-    "id": "v34_cycle_unit_126",
-    "name": "무결점 포격핵 · NOON/0",
-    "subtitle": "극시공 실험체 · 정점 종결형",
-    "kind": "unit",
-    "rarity": "legendary",
-    "element": "storm",
-    "cost": 8,
-    "attack": 1,
-    "health": 2,
-    "unitType": "hunter",
-    "target": "none",
-    "text": "【극시공 기동】 릴리스 없이 특수 소환 가능. 【극시공 · 정점】 기본 능력치는 1/2이며 현재 시간대가 정점이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 정점에서는 [정오 노심 해방] ATK +12 / DEF +5로 폭발적으로 강화됩니다. 【시간 폭발】 정점에서 등장하면 상대 코어 5 피해. 상시 키워드: 관통 · 직격.",
-    "flavor": "오차가 허용되는 시간은 단 하나, 그림자가 가장 짧아지는 순간뿐이다.",
-    "sigil": "◎",
-    "comboTag": "극시공 실험체",
-    "eclipseAffinity": "zenith",
-    "onSummon": {
-      "kind": "phase_damage_core",
-      "phase": "zenith",
-      "base": 0,
-      "bonus": 5
-    },
-    "keywords": [
-      "pierce",
-      "corestrike"
-    ],
-    "vfx": {
-      "summon": "v34-cycle-zenith",
-      "activation": "v34-phase-zenith"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "zenith": {
-        "attack": 12,
-        "health": 5,
-        "label": "정오 노심 해방"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      }
-    },
-    "temporalProfileName": "극시공 · 정점 종결",
-    "summonMode": "legendary",
-    "legendarySummonRule": {
-      "name": "극시공 기동",
-      "label": "릴리스 없이 특수 소환할 수 있습니다. 단, 지정 시간대가 아니면 사실상 0/1 성능입니다.",
-      "release": "none"
-    }
-  },
-  {
-    "id": "v34_cycle_unit_127",
-    "name": "잔광 폐기기사 · VESPER",
-    "subtitle": "극시공 실험체 · 황혼 흡수형",
-    "kind": "unit",
-    "rarity": "epic",
-    "element": "void",
-    "cost": 5,
-    "attack": 1,
-    "health": 2,
-    "unitType": "artificer",
-    "target": "none",
-    "text": "【극시공 · 황혼】 기본 능력치는 1/2이며 현재 시간대가 황혼이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 황혼에서는 [잔광 폭주] ATK +8 / DEF +6로 폭발적으로 강화됩니다. 【시간 폭발】 황혼에서 등장하면 코어 4 회복. 상시 키워드: 흡수.",
-    "flavor": "낮에는 녹슨 갑옷, 밤에는 빈 껍데기. 해가 지는 동안만 피를 되찾는다.",
-    "sigil": "◓",
-    "comboTag": "극시공 실험체",
-    "eclipseAffinity": "dusk",
-    "onSummon": {
-      "kind": "phase_heal_core",
-      "phase": "dusk",
-      "base": 0,
-      "bonus": 4
-    },
-    "keywords": [
-      "lifesteal"
-    ],
-    "vfx": {
-      "summon": "v34-cycle-dusk",
-      "activation": "v34-phase-dusk"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "dusk": {
-        "attack": 8,
-        "health": 6,
-        "label": "잔광 폭주"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      }
-    },
-    "temporalProfileName": "극시공 · 황혼 흡수"
-  },
-  {
-    "id": "v34_cycle_unit_128",
-    "name": "황혼 매장성채 · 석양묘",
-    "subtitle": "극시공 실험체 · 황혼 요새형",
-    "kind": "unit",
-    "rarity": "rare",
-    "element": "lunar",
-    "cost": 6,
-    "attack": 1,
-    "health": 2,
-    "unitType": "relic",
-    "target": "none",
-    "text": "【극시공 · 황혼】 기본 능력치는 1/2이며 현재 시간대가 황혼이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 황혼에서는 [잔광 폭주] ATK +4 / DEF +12로 폭발적으로 강화됩니다. 【시간 폭발】 황혼에서 등장하면 아군 전체 보호막 +3. 상시 키워드: 수호.",
-    "flavor": "빛이 사라지는 속도만큼 장갑이 두꺼워진다. 완전한 밤이 오면 다시 무너진다.",
-    "sigil": "▤",
-    "comboTag": "극시공 실험체",
-    "eclipseAffinity": "dusk",
-    "onSummon": {
-      "kind": "phase_mass_shield",
-      "phase": "dusk",
-      "base": 0,
-      "bonus": 3
-    },
-    "keywords": [
-      "guard"
-    ],
-    "vfx": {
-      "summon": "v34-cycle-dusk",
-      "activation": "v34-phase-dusk"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "dusk": {
-        "attack": 4,
-        "health": 12,
-        "label": "잔광 폭주"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      }
-    },
-    "temporalProfileName": "극시공 · 황혼 요새"
-  },
-  {
-    "id": "v34_cycle_unit_129",
-    "name": "종언의 잔광검 · LAST LIGHT",
-    "subtitle": "극시공 실험체 · 황혼 종결형",
-    "kind": "unit",
-    "rarity": "legendary",
-    "element": "solar",
-    "cost": 8,
-    "attack": 1,
-    "health": 2,
-    "unitType": "hunter",
-    "target": "none",
-    "text": "【극시공 기동】 릴리스 없이 특수 소환 가능. 【극시공 · 황혼】 기본 능력치는 1/2이며 현재 시간대가 황혼이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 황혼에서는 [잔광 폭주] ATK +11 / DEF +6로 폭발적으로 강화됩니다. 【시간 폭발】 황혼에서 등장하면 상대 코어 4 피해. 상시 키워드: 속공 · 관통.",
-    "flavor": "마지막 빛이 남아 있는 몇 분 동안만 모든 봉인이 풀린다.",
-    "sigil": "✧",
-    "comboTag": "극시공 실험체",
-    "eclipseAffinity": "dusk",
-    "onSummon": {
-      "kind": "phase_damage_core",
-      "phase": "dusk",
-      "base": 0,
-      "bonus": 4
-    },
-    "keywords": [
-      "charge",
-      "pierce"
-    ],
-    "vfx": {
-      "summon": "v34-cycle-dusk",
-      "activation": "v34-phase-dusk"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "dusk": {
-        "attack": 11,
-        "health": 6,
-        "label": "잔광 폭주"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      }
-    },
-    "temporalProfileName": "극시공 · 황혼 종결",
-    "summonMode": "legendary",
-    "legendarySummonRule": {
-      "name": "극시공 기동",
-      "label": "릴리스 없이 특수 소환할 수 있습니다. 단, 지정 시간대가 아니면 사실상 0/1 성능입니다.",
-      "release": "none"
-    }
-  },
-  {
-    "id": "v34_cycle_unit_130",
-    "name": "심야 수면병기 · N-NULL",
-    "subtitle": "극시공 실험체 · 심야 폭주형",
-    "kind": "unit",
-    "rarity": "epic",
-    "element": "lunar",
-    "cost": 5,
-    "attack": 1,
-    "health": 2,
-    "unitType": "artificer",
-    "target": "none",
-    "text": "【극시공 · 심야】 기본 능력치는 1/2이며 현재 시간대가 심야이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 심야에서는 [자정 각성] ATK +9 / DEF +5로 폭발적으로 강화됩니다. 【시간 폭발】 심야에서 등장하면 카드 3장 드로우. 상시 키워드: 속공.",
-    "flavor": "자정 전에는 기동조차 못 한다. 00:00이 되는 순간 전술 데이터가 한꺼번에 깨어난다.",
-    "sigil": "☾",
-    "comboTag": "극시공 실험체",
-    "eclipseAffinity": "midnight",
-    "onSummon": {
-      "kind": "phase_draw",
-      "phase": "midnight",
-      "base": 0,
-      "bonus": 3
-    },
-    "keywords": [
-      "charge"
-    ],
-    "vfx": {
-      "summon": "v34-cycle-midnight",
-      "activation": "v34-phase-midnight"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "midnight": {
-        "attack": 9,
-        "health": 5,
-        "label": "자정 각성"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      }
-    },
-    "temporalProfileName": "극시공 · 심야 폭주"
-  },
-  {
-    "id": "v34_cycle_unit_131",
-    "name": "무월의 관문 · NOCTIS",
-    "subtitle": "극시공 실험체 · 심야 요새형",
-    "kind": "unit",
-    "rarity": "rare",
-    "element": "void",
-    "cost": 6,
-    "attack": 1,
-    "health": 2,
-    "unitType": "relic",
-    "target": "none",
-    "text": "【극시공 · 심야】 기본 능력치는 1/2이며 현재 시간대가 심야이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 심야에서는 [자정 각성] ATK +4 / DEF +12로 폭발적으로 강화됩니다. 【시간 폭발】 심야에서 등장하면 묘지에서 최대 2장 회수. 상시 키워드: 수호.",
-    "flavor": "빛이 사라져야만 문이 열린다. 열린 뒤에는 쓰러진 것들까지 되돌아온다.",
-    "sigil": "◐",
-    "comboTag": "극시공 실험체",
-    "eclipseAffinity": "midnight",
-    "onSummon": {
-      "kind": "phase_recover_grave",
-      "phase": "midnight",
-      "base": 0,
-      "bonus": 2
-    },
-    "keywords": [
-      "guard"
-    ],
-    "vfx": {
-      "summon": "v34-cycle-midnight",
-      "activation": "v34-phase-midnight"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "midnight": {
-        "attack": 4,
-        "health": 12,
-        "label": "자정 각성"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      }
-    },
-    "temporalProfileName": "극시공 · 심야 요새"
-  },
-  {
-    "id": "v34_cycle_unit_132",
-    "name": "자정의 포식왕 · 00:00",
-    "subtitle": "극시공 실험체 · 심야 종결형",
-    "kind": "unit",
-    "rarity": "legendary",
-    "element": "storm",
-    "cost": 8,
-    "attack": 1,
-    "health": 2,
-    "unitType": "hunter",
-    "target": "none",
-    "text": "【극시공 기동】 릴리스 없이 특수 소환 가능. 【극시공 · 심야】 기본 능력치는 1/2이며 현재 시간대가 심야이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 심야에서는 [자정 각성] ATK +12 / DEF +6로 폭발적으로 강화됩니다. 【시간 폭발】 심야에서 등장하면 상대 코어 5 피해. 상시 키워드: 흡수 · 관통.",
-    "flavor": "시계가 자정을 가리키는 순간, 전장은 먹이와 포식자로만 나뉜다.",
-    "sigil": "00",
-    "comboTag": "극시공 실험체",
-    "eclipseAffinity": "midnight",
-    "onSummon": {
-      "kind": "phase_damage_core",
-      "phase": "midnight",
-      "base": 0,
-      "bonus": 5
-    },
-    "keywords": [
-      "lifesteal",
-      "pierce"
-    ],
-    "vfx": {
-      "summon": "v34-cycle-midnight",
-      "activation": "v34-phase-midnight"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "midnight": {
-        "attack": 12,
-        "health": 6,
-        "label": "자정 각성"
-      },
-      "eclipse": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      }
-    },
-    "temporalProfileName": "극시공 · 심야 종결",
-    "summonMode": "legendary",
-    "legendarySummonRule": {
-      "name": "극시공 기동",
-      "label": "릴리스 없이 특수 소환할 수 있습니다. 단, 지정 시간대가 아니면 사실상 0/1 성능입니다.",
-      "release": "none"
-    }
-  },
-  {
-    "id": "v34_cycle_unit_133",
-    "name": "일식 봉인체 · BLACK ZERO",
-    "subtitle": "극시공 실험체 · 개기일식 요새형",
-    "kind": "unit",
-    "rarity": "epic",
-    "element": "void",
-    "cost": 6,
-    "attack": 1,
-    "health": 2,
-    "unitType": "relic",
-    "target": "none",
-    "text": "【극시공 · 개기일식】 기본 능력치는 1/2이며 현재 시간대가 개기일식이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 개기일식에서는 [흑일 특이점] ATK +8 / DEF +9로 폭발적으로 강화됩니다. 【시간 폭발】 개기일식에서 등장하면 ENERGY 3 회복. 상시 키워드: 수호.",
-    "flavor": "빛이 남아 있는 동안에는 봉인된 잔해. 태양이 가려지면 봉인이 장갑으로 바뀐다.",
-    "sigil": "◉",
-    "comboTag": "극시공 실험체",
-    "eclipseAffinity": "eclipse",
-    "onSummon": {
-      "kind": "phase_gain_energy",
-      "phase": "eclipse",
-      "base": 0,
-      "bonus": 3
-    },
-    "keywords": [
-      "guard"
-    ],
-    "vfx": {
-      "summon": "v34-cycle-eclipse",
-      "activation": "v34-phase-eclipse"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "eclipse": {
-        "attack": 8,
-        "health": 9,
-        "label": "흑일 특이점"
-      }
-    },
-    "temporalProfileName": "극시공 · 흑일 해방"
-  },
-  {
-    "id": "v34_cycle_unit_134",
-    "name": "흑일의 실패작 · CORONA-13",
-    "subtitle": "극시공 실험체 · 개기일식 폭주형",
-    "kind": "unit",
-    "rarity": "rare",
-    "element": "neutral",
-    "cost": 6,
-    "attack": 1,
-    "health": 2,
-    "unitType": "artificer",
-    "target": "none",
-    "text": "【극시공 · 개기일식】 기본 능력치는 1/2이며 현재 시간대가 개기일식이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 개기일식에서는 [흑일 특이점] ATK +10 / DEF +7로 폭발적으로 강화됩니다. 【시간 폭발】 개기일식에서 등장하면 아군 전체 +2/+2. 상시 키워드: 속공.",
-    "flavor": "실패작이라는 평가는 태양이 보일 때만 맞다. 코로나가 번지는 순간 주변까지 변질시킨다.",
-    "sigil": "⊙",
-    "comboTag": "극시공 실험체",
-    "eclipseAffinity": "eclipse",
-    "onSummon": {
-      "kind": "phase_mass_buff",
-      "phase": "eclipse",
-      "attack": 0,
-      "health": 0,
-      "bonusAttack": 2,
-      "bonusHealth": 2
-    },
-    "keywords": [
-      "charge"
-    ],
-    "vfx": {
-      "summon": "v34-cycle-eclipse",
-      "activation": "v34-phase-eclipse"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "eclipse": {
-        "attack": 10,
-        "health": 7,
-        "label": "흑일 특이점"
-      }
-    },
-    "temporalProfileName": "극시공 · 코로나 폭주"
-  },
-  {
-    "id": "v34_cycle_unit_135",
-    "name": "관측불가 종말체 · SINGULARITY",
-    "subtitle": "극시공 실험체 · 개기일식 최종형",
-    "kind": "unit",
-    "rarity": "legendary",
-    "element": "void",
-    "cost": 9,
-    "attack": 1,
-    "health": 2,
-    "unitType": "artificer",
-    "target": "none",
-    "text": "【극시공 기동】 릴리스 없이 특수 소환 가능. 【극시공 · 개기일식】 기본 능력치는 1/2이며 현재 시간대가 개기일식이 아닐 때 [기능 정지] ATK -1 / DEF -1로 사실상 0/1이 됩니다. 개기일식에서는 [흑일 특이점] ATK +14 / DEF +9로 폭발적으로 강화됩니다. 【시간 폭발】 개기일식에서 등장하면 상대 코어 6 피해. 상시 키워드: 흡수 · 관통 · 직격.",
-    "flavor": "평상시에는 9 ENERGY짜리 0/1. 개기일식 단 한 순간에는 전장 전체가 이 카드를 피해 움직여야 한다.",
-    "sigil": "●",
-    "comboTag": "극시공 실험체",
-    "eclipseAffinity": "eclipse",
-    "onSummon": {
-      "kind": "phase_damage_core",
-      "phase": "eclipse",
-      "base": 0,
-      "bonus": 6
-    },
-    "keywords": [
-      "lifesteal",
-      "pierce",
-      "corestrike"
-    ],
-    "vfx": {
-      "summon": "v34-cycle-eclipse",
-      "activation": "v34-phase-eclipse"
-    },
-    "eclipsePhaseModifiers": {
-      "dawn": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "zenith": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "dusk": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "midnight": {
-        "attack": -1,
-        "health": -1,
-        "label": "기능 정지"
-      },
-      "eclipse": {
-        "attack": 14,
-        "health": 9,
-        "label": "흑일 특이점"
-      }
-    },
-    "temporalProfileName": "극시공 · 특이점 종결",
-    "summonMode": "legendary",
-    "legendarySummonRule": {
-      "name": "극시공 기동",
-      "label": "릴리스 없이 특수 소환할 수 있습니다. 단, 지정 시간대가 아니면 사실상 0/1 성능입니다.",
-      "release": "none"
-    }
+    ]
   }
 ];
