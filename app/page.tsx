@@ -4453,38 +4453,75 @@ function DuelTimeCriticalStyles() {
       .v23-client.in-duel .v34m-cycle-phase.active { padding-inline:5px!important; }
       .v23-client.in-duel .v34n-phase-toast { top:58px!important;max-width:72vw!important; }
     }
-    /* v34o: hand cards fit the actual dock instead of inheriting oversized collection-card geometry. */
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-dock { overflow:hidden!important; }
+    /* v34q: restore the original duel-hand card proportions.
+       Do not squash cards to fit one viewport; preserve the full compact-card layout. */
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix {
+      --hand-h:clamp(270px,36dvh,315px)!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-dock {
+      padding:10px 12px 12px 16px!important;
+      grid-template-rows:36px minmax(0,1fr)!important;
+      overflow:visible!important;
+    }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-scroll {
-      min-width:0!important;min-height:0!important;align-items:flex-start!important;
-      padding:7px 8px 7px 2px!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-gutter:stable!important;
+      min-width:0!important;min-height:0!important;align-items:flex-end!important;gap:11px!important;
+      padding:10px 8px 10px 2px!important;overflow-x:auto!important;overflow-y:visible!important;
+      scroll-snap-type:x proximity!important;scrollbar-gutter:stable!important;
     }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card {
-      height:calc(var(--hand-h) - 58px)!important;min-height:148px!important;max-height:188px!important;align-self:flex-start!important;overflow:visible!important;
-      flex:0 0 clamp(142px,9.1vw,172px)!important;
+      position:relative!important;flex:0 0 clamp(142px,9vw,176px)!important;height:100%!important;
+      min-height:0!important;max-height:238px!important;align-self:flex-end!important;overflow:visible!important;
+      scroll-snap-align:center!important;transition:transform .16s ease,filter .16s ease!important;
     }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact {
-      width:100%!important;height:100%!important;min-height:0!important;max-height:none!important;aspect-ratio:auto!important;
-      display:grid!important;grid-template-rows:46px minmax(0,1fr) 28px!important;gap:4px!important;padding:6px!important;
+      width:100%!important;height:100%!important;min-height:214px!important;max-height:238px!important;
+      aspect-ratio:.69!important;display:grid!important;grid-template-rows:40px minmax(97px,1fr) 26px!important;
+      gap:0!important;padding:0!important;overflow:hidden!important;
     }
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact .card-art { min-height:0!important;height:100%!important; }
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact .card-subtitle { display:none!important; }
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact .card-footer { min-height:0!important;height:28px!important;margin:0!important;padding:4px 5px 0!important;align-self:end!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact .card-art {
+      min-height:97px!important;height:100%!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact .card-subtitle,
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact .card-text { display:none!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact .card-footer {
+      min-height:27px!important;height:auto!important;padding:5px 9px!important;margin:0!important;align-self:auto!important;
+      font-size:max(10px,.52vw)!important;
+    }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline {
-      height:46px!important;min-height:46px!important;padding:23px 6px 3px!important;align-content:center!important;overflow:hidden!important;
+      height:40px!important;min-height:40px!important;padding:5px 72px 5px 43px!important;
+      display:grid!important;grid-template-columns:minmax(0,1fr)!important;align-content:center!important;justify-items:start!important;gap:1px!important;overflow:hidden!important;
     }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline b {
-      min-width:0!important;max-width:100%!important;font-size:10.4px!important;line-height:1.06!important;white-space:normal!important;overflow:hidden!important;text-overflow:clip!important;display:-webkit-box!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:2!important;word-break:keep-all!important;overflow-wrap:anywhere!important;
+      width:100%!important;min-width:0!important;max-width:100%!important;font-size:max(12px,.65vw)!important;line-height:1.12!important;
+      white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;display:block!important;word-break:normal!important;overflow-wrap:normal!important;
     }
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline small { display:none!important; }
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .card-cost { top:6px!important;left:5px!important;transform:scale(.88)!important;transform-origin:top left!important; }
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .card-info-hotspot { top:6px!important;right:5px!important;width:23px!important;height:23px!important;font-size:9px!important; }
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .summon-badge { top:42px!important;right:6px!important;max-width:38px!important;height:17px!important;font-size:6.5px!important; }
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v30-card-traits { top:43px!important;right:6px!important;gap:2px!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline small {
+      display:block!important;width:100%!important;font-size:max(9px,.49vw)!important;line-height:1.05!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .card-cost {
+      top:8px!important;left:8px!important;transform:none!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .card-info-hotspot {
+      top:7px!important;right:7px!important;width:27px!important;height:27px!important;font-size:11px!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .summon-badge {
+      top:44px!important;right:8px!important;max-width:none!important;height:auto!important;font-size:7px!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v30-card-traits {
+      top:45px!important;right:8px!important;gap:3px!important;
+    }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card:hover,
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card:focus-within { transform:translateY(-3px) scale(1.015)!important; }
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card.selected { transform:translateY(-4px) scale(1.02)!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card:focus-within { transform:translateY(-10px) scale(1.035)!important;z-index:55!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card.selected { transform:translateY(-12px) scale(1.045)!important;z-index:56!important; }
 
+    /* Short screens keep the cards full-size and give the hand more room instead of shrinking them. */
+    @media (max-height:900px) {
+      .v23-client.in-duel .v18-duel-screen.v34m-time-fix { --hand-h:clamp(270px,38dvh,300px)!important; }
+    }
+    @media (max-width:1700px) {
+      .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card { flex-basis:132px!important;max-height:215px!important; }
+      .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact { min-height:196px!important;max-height:215px!important; }
+    }
     /* v34o: leader names keep a real text column instead of being squeezed by avatar/emblem. */
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix { --leader-col:clamp(205px,12vw,238px)!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-card { min-width:0!important; }
@@ -4523,12 +4560,6 @@ function DuelTimeCriticalStyles() {
       border:1px solid!important;border-radius:999px!important;font-size:7px!important;line-height:1!important;font-weight:1000!important;font-style:normal!important;letter-spacing:-.02em!important;
     }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .v34o-temporal-delta.negative { opacity:.84!important;text-decoration:underline dotted!important;text-underline-offset:2px!important; }
-
-    @media (max-height:760px) {
-      .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-scroll { padding-top:5px!important;padding-bottom:5px!important; }
-      .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card { flex-basis:132px!important;max-height:168px!important; }
-      .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline { height:42px!important;min-height:42px!important;padding:21px 5px 2px!important; }
-    }
 
     @media (prefers-reduced-motion:reduce) {
       .v23-client.in-duel .v34n-phase-toast { animation:v34nPhaseToastReduced 1.72s linear both!important; }
