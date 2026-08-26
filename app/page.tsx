@@ -759,6 +759,34 @@ const ECLIPSE_UI_META: Record<EclipsePhase, { glyph: string; bonus: string; atmo
   eclipse: { glyph: '◉', bonus: 'ATK +2 · DEF +1', atmosphere: '개기일식 코로나' },
 };
 
+const ECLIPSE_ARENA_VISUAL: Record<EclipsePhase, { rgb: string; arena: string; atmosphere: string }> = {
+  dawn: {
+    rgb: '255,170,104',
+    arena: 'linear-gradient(180deg,#14243d 0%,#25364f 44%,#6f4a53 70%,#351f2a 84%,#110d16 100%)',
+    atmosphere: 'radial-gradient(circle at 18% 77%,rgba(255,250,216,.98) 0 2.1%,rgba(255,201,112,.84) 3.2%,rgba(255,132,79,.34) 8%,transparent 19%), radial-gradient(ellipse at 22% 84%,rgba(255,141,84,.34),transparent 38%), linear-gradient(180deg,rgba(23,46,80,.20),rgba(79,69,96,.11) 50%,rgba(226,111,72,.24) 80%,rgba(18,11,20,.18)), url(/ui/duel-arena.svg) center/cover no-repeat',
+  },
+  zenith: {
+    rgb: '126,225,255',
+    arena: 'linear-gradient(180deg,#174a62 0%,#123a50 46%,#0b283a 76%,#06151f 100%)',
+    atmosphere: 'radial-gradient(circle at 53% 10%,rgba(255,255,235,.99) 0 2.4%,rgba(176,240,255,.72) 3.5%,rgba(97,207,241,.25) 9%,transparent 20%), radial-gradient(ellipse at 50% 30%,rgba(76,206,238,.18),transparent 45%), linear-gradient(180deg,rgba(71,194,225,.20),rgba(14,71,93,.10) 58%,rgba(4,24,35,.16)), url(/ui/duel-arena.svg) center/cover no-repeat',
+  },
+  dusk: {
+    rgb: '239,112,145',
+    arena: 'linear-gradient(180deg,#322241 0%,#59314f 43%,#8d4050 68%,#79372f 81%,#1d111c 100%)',
+    atmosphere: 'radial-gradient(circle at 80% 78%,rgba(255,241,190,.98) 0 2%,rgba(255,165,84,.84) 3.2%,rgba(230,74,104,.35) 8%,transparent 19%), radial-gradient(ellipse at 77% 84%,rgba(231,83,106,.34),transparent 37%), linear-gradient(180deg,rgba(86,45,120,.18),rgba(151,57,95,.15) 52%,rgba(239,105,64,.23) 80%,rgba(26,12,22,.17)), url(/ui/duel-arena.svg) center/cover no-repeat',
+  },
+  midnight: {
+    rgb: '116,151,255',
+    arena: 'linear-gradient(180deg,#07152f 0%,#071126 48%,#050b1a 76%,#02050d 100%)',
+    atmosphere: 'radial-gradient(circle at 82% 15%,rgba(244,250,255,.99) 0 2.8%,rgba(161,205,240,.48) 3.8%,rgba(78,128,204,.15) 9%,transparent 18%), radial-gradient(circle at 12% 20%,rgba(234,245,255,.82) 0 .8px,transparent 1.5px), radial-gradient(circle at 30% 32%,rgba(205,229,255,.72) 0 .8px,transparent 1.5px), radial-gradient(circle at 52% 17%,rgba(229,243,255,.76) 0 .8px,transparent 1.5px), radial-gradient(circle at 68% 39%,rgba(192,221,255,.68) 0 .8px,transparent 1.5px), radial-gradient(circle at 91% 48%,rgba(220,237,255,.70) 0 .8px,transparent 1.5px), linear-gradient(180deg,rgba(9,28,70,.24),rgba(7,15,42,.20) 60%,rgba(2,6,18,.18)), url(/ui/duel-arena.svg) center/cover no-repeat',
+  },
+  eclipse: {
+    rgb: '255,204,100',
+    arena: 'linear-gradient(180deg,#140d1d 0%,#0d0916 48%,#080710 76%,#030307 100%)',
+    atmosphere: 'radial-gradient(circle at 50% 18%,#010104 0 5.1%,#07070a 5.5%,rgba(255,236,180,.99) 6.2%,rgba(255,165,69,.60) 7.4%,rgba(121,80,211,.19) 13%,transparent 23%), radial-gradient(circle at 50% 18%,rgba(255,198,96,.14),transparent 33%), radial-gradient(circle at 50% 35%,rgba(91,56,157,.17),transparent 47%), linear-gradient(180deg,rgba(25,14,40,.25),rgba(11,8,20,.22) 62%,rgba(3,3,7,.20)), url(/ui/duel-arena.svg) center/cover no-repeat',
+  },
+};
+
 function clientCurrentEclipsePhase(state: MatchState): EclipsePhase {
   return state.eclipsePhase ?? 'dawn';
 }
@@ -4286,29 +4314,90 @@ function EclipseCycleHud({ state, compact = false }: { state: MatchState; compac
  */
 function EclipseCycleStrip({ state }: { state: MatchState }) {
   const current = clientCurrentEclipsePhase(state);
-  const currentIndex = Math.max(0, ECLIPSE_PHASE_ORDER.indexOf(current));
-  const next = ECLIPSE_PHASE_ORDER[(currentIndex + 1) % ECLIPSE_PHASE_ORDER.length] ?? 'dawn';
   const meta = ECLIPSE_UI_META[current];
+  const visual = ECLIPSE_ARENA_VISUAL[current];
   const locked = (state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber;
   return (
-    <section className={`v34k-cycle-band v34l-cycle-rail cycle-${current}`} aria-label={`ECLIPSE CYCLE · 현재 ${ECLIPSE_PHASE_LABEL[current]} · 여명, 정점, 황혼, 심야, 개기일식 순서`}>
-      <div className="v34l-cycle-heading">
-        <small>ECLIPSE CYCLE</small>
-        <strong><i aria-hidden="true">{meta.glyph}</i>{ECLIPSE_PHASE_LABEL[current]}</strong>
-      </div>
-      <ol className="v34k-cycle-sequence v34l-cycle-sequence" aria-label="시간대 진행 순서">
-        {ECLIPSE_PHASE_ORDER.map((phase, index) => (
-          <li key={phase} className={phase === current ? 'active' : ''} aria-current={phase === current ? 'step' : undefined}>
-            <span>{index + 1}</span><b>{ECLIPSE_PHASE_LABEL[phase]}</b>{index < ECLIPSE_PHASE_ORDER.length - 1 && <i aria-hidden="true">→</i>}
-          </li>
-        ))}
-      </ol>
-      <div className="v34l-cycle-next">
-        <small>{locked ? 'TIME LOCK' : 'NEXT'}</small>
-        <b>{locked ? ECLIPSE_PHASE_LABEL[current] : ECLIPSE_PHASE_LABEL[next]}</b>
-      </div>
-    </section>
+    <div
+      className="v34m-cycle-inline"
+      aria-label={`ECLIPSE CYCLE · 현재 ${ECLIPSE_PHASE_LABEL[current]} · 여명, 정점, 황혼, 심야, 개기일식 순서`}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, maxWidth: 'min(470px,38vw)', height: 28,
+        marginLeft: 10, padding: '0 9px', overflow: 'hidden', whiteSpace: 'nowrap', flex: '0 1 470px',
+        border: `1px solid rgba(${visual.rgb},.22)`, borderRadius: 999,
+        background: `linear-gradient(90deg,rgba(${visual.rgb},.11),rgba(5,10,16,.76) 28%,rgba(5,10,16,.76))`,
+        boxShadow: `inset 0 0 0 1px rgba(${visual.rgb},.025)`,
+      }}
+    >
+      <span className="v34m-cycle-title" style={{ color: `rgba(${visual.rgb},.74)`, fontSize: 7, fontWeight: 950, letterSpacing: '.12em', flex: '0 0 auto' }}>ECLIPSE CYCLE</span>
+      <span aria-hidden="true" style={{ width: 1, height: 12, background: `rgba(${visual.rgb},.20)`, flex: '0 0 auto' }} />
+      {ECLIPSE_PHASE_ORDER.map((phase, index) => {
+        const active = phase === current;
+        return (
+          <span key={phase} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0, flex: active ? '0 0 auto' : '0 1 auto' }}>
+            {index > 0 && <i aria-hidden="true" style={{ color: '#40505e', fontStyle: 'normal', fontSize: 8, lineHeight: 1, flex: '0 0 auto' }}>›</i>}
+            <b
+              className={`v34m-cycle-phase ${active ? 'active' : ''}`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 3, minWidth: 0, padding: active ? '4px 7px' : '3px 1px',
+                overflow: 'hidden', textOverflow: 'ellipsis', borderRadius: 999,
+                color: active ? '#f5fbff' : '#758492', background: active ? `rgba(${visual.rgb},.16)` : 'transparent',
+                boxShadow: active ? `inset 0 0 0 1px rgba(${visual.rgb},.25)` : 'none',
+                fontSize: 'clamp(7px,.52vw,9px)', lineHeight: 1, fontWeight: active ? 950 : 820,
+              }}
+            >
+              {active && <i aria-hidden="true" style={{ color: `rgb(${visual.rgb})`, fontStyle: 'normal', fontSize: 9 }}>{meta.glyph}</i>}
+              {ECLIPSE_PHASE_LABEL[phase]}
+            </b>
+          </span>
+        );
+      })}
+      {locked && <em style={{ marginLeft: 2, color: `rgb(${visual.rgb})`, fontSize: 6.5, fontStyle: 'normal', fontWeight: 950, letterSpacing: '.08em' }}>LOCK</em>}
+    </div>
   );
+}
+
+function DuelTimeCriticalStyles() {
+  return <style>{`
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix {
+      --cycle-h:0px!important;
+      grid-template-rows:var(--header-h) minmax(0,1fr) var(--hand-h)!important;
+      grid-template-areas:"header header header" "leaders arena command" "leaders hand command"!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix > .v34l-cycle-rail,
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix > .v34k-cycle-band { display:none!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-duel-brand { min-width:0!important;overflow:hidden!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-duel-brand > div:not(.v34m-cycle-inline) { flex:0 0 auto!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-arena {
+      position:relative!important;isolation:isolate!important;background:var(--v34m-arena-bg)!important;
+      transition:background .5s ease,box-shadow .5s ease!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-arena-backdrop { display:none!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v34m-time-atmosphere {
+      position:absolute!important;inset:0!important;z-index:0!important;display:block!important;pointer-events:none!important;
+      background:var(--v34m-atmosphere-bg)!important;background-position:center!important;background-size:cover!important;
+      opacity:1!important;transition:background .5s ease!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-opponent-hand-strip,
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-board { position:relative!important;z-index:3!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-unit-slot,
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-secret-slot {
+      background:linear-gradient(145deg,rgba(5,10,17,.58),rgba(var(--v34m-accent-rgb),.075))!important;
+      border-color:rgba(var(--v34m-accent-rgb),.20)!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-arena::after {
+      background:linear-gradient(90deg,rgba(1,4,8,.18),transparent 11%,transparent 89%,rgba(1,4,8,.18)),linear-gradient(180deg,rgba(var(--v34m-accent-rgb),.025),transparent 42%,rgba(0,0,0,.06))!important;
+    }
+    @media (max-width:1250px) {
+      .v23-client.in-duel .v34m-cycle-inline { max-width:330px!important;flex-basis:330px!important;margin-left:6px!important;padding-inline:6px!important;gap:3px!important; }
+      .v23-client.in-duel .v34m-cycle-title { display:none!important; }
+    }
+    @media (max-width:980px) {
+      .v23-client.in-duel .v34m-cycle-inline { max-width:250px!important;flex-basis:250px!important;height:25px!important; }
+      .v23-client.in-duel .v34m-cycle-phase { font-size:6.4px!important;padding-inline:0!important; }
+      .v23-client.in-duel .v34m-cycle-phase.active { padding-inline:5px!important; }
+    }
+  `}</style>;
 }
 
 /** One player's newest emote is anchored to that player's leader/name plate. */
@@ -5173,9 +5262,17 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const duelWagerAmount = practiceMode || room.public_match ? 0 : Math.max(0, Number(room.wager_amount ?? 0));
   const syncAgeSeconds = Math.max(0, Math.floor((Date.now() - lastSyncAt) / 1000));
   const displayedSyncState: 'live' | 'syncing' | 'offline' = syncState === 'offline' && syncAgeSeconds <= 8 ? 'live' : syncState;
+  const currentEclipsePhase = clientCurrentEclipsePhase(state);
+  const eclipseArenaVisual = ECLIPSE_ARENA_VISUAL[currentEclipsePhase];
+  const eclipseArenaStyle = {
+    '--v34m-accent-rgb': eclipseArenaVisual.rgb,
+    '--v34m-arena-bg': eclipseArenaVisual.arena,
+    '--v34m-atmosphere-bg': eclipseArenaVisual.atmosphere,
+  } as CSSProperties;
 
   return (
-    <div className={`v18-duel-screen ${myTurn ? 'is-my-turn' : 'is-opponent-turn'} phase-${state.phase} cycle-${clientCurrentEclipsePhase(state)} fx-${activeVfx?.kind ?? 'idle'}`}>
+    <div className={`v18-duel-screen v34m-time-fix ${myTurn ? 'is-my-turn' : 'is-opponent-turn'} phase-${state.phase} cycle-${currentEclipsePhase} fx-${activeVfx?.kind ?? 'idle'}`} style={eclipseArenaStyle}>
+      <DuelTimeCriticalStyles />
       <DuelEffectLayer event={activeVfx} userId={userId} profiles={payload.profiles} drawCard={activeVfx?.kind === 'draw' && activeVfx.ownerId === userId ? CARD_BY_ID[drawRevealQueue[0] ?? ''] : undefined} />
       <DuelDamagePopupLayer events={damagePopups} userId={userId} />
       <CoinTossOverlay state={state} profiles={payload.profiles} userId={userId} now={coinClock} />
@@ -5194,6 +5291,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
         <div className="v18-duel-brand">
           <span className="v18-brand-mark">E</span>
           <div><b>ECLIPSE DUEL</b><small>{practiceMode ? `PRACTICE · ${PRACTICE_DIFFICULTY_LABEL[practiceMode]}` : `ROOM ${room.code}`}</small></div>
+          <EclipseCycleStrip state={state} />
         </div>
         {duelWagerAmount > 0 && <div className="v31k-duel-wager-badge"><small>COIN DUEL</small><b>{duelWagerAmount.toLocaleString()} EACH</b><span>PRIZE {(duelWagerAmount * 2).toLocaleString()}</span></div>}
         <div className="v18-turn-hud">
@@ -5216,7 +5314,6 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
           <button type="button" className="danger" disabled={busy || state.status !== 'active'} onClick={() => setSurrenderOpen(true)}>항복</button>
         </div>
       </header>
-      <EclipseCycleStrip state={state} />
       {emoteOpen && <div className="v34-emote-picker">
         <header><span>BATTLE EMOTE</span><b>구매한 감정표현</b></header>
         {(payload.battleEmotes ?? []).length > 0 ? <div>{(payload.battleEmotes ?? []).map((emoteId) => { const item = V34_BATTLE_EMOTE_BY_ID[emoteId]; return item ? <button type="button" key={emoteId} disabled={emoteBusy} onClick={() => sendEmote(emoteId)} title={item.name}><img src={item.asset} alt={item.name} /><small>{item.name}</small></button> : null; })}</div> : <p>보유한 감정표현이 없습니다. 상점 → 감정표현에서 구매할 수 있습니다.</p>}
@@ -5249,6 +5346,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       </aside>
 
       <main className="v18-arena">
+        <div className="v34m-time-atmosphere" aria-hidden="true" />
         <div className="v18-arena-backdrop" aria-hidden="true"><i /><i /><i /><i /></div>
         <div className="v18-opponent-hand-strip" aria-label={`상대 손패 ${state.handCounts[opponentId] ?? 0}장`}>
           <span>HAND · {state.handCounts[opponentId] ?? 0}</span>
@@ -5692,19 +5790,27 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
     });
   }
 
+  const currentEclipsePhase = clientCurrentEclipsePhase(state);
+  const eclipseArenaVisual = ECLIPSE_ARENA_VISUAL[currentEclipsePhase];
+  const eclipseArenaStyle = {
+    '--v34m-accent-rgb': eclipseArenaVisual.rgb,
+    '--v34m-arena-bg': eclipseArenaVisual.arena,
+    '--v34m-atmosphere-bg': eclipseArenaVisual.atmosphere,
+  } as CSSProperties;
+
   return (
-    <div className={`v18-duel-screen v32e-spectator-screen phase-${state.phase} cycle-${clientCurrentEclipsePhase(state)} fx-${activeVfx?.kind ?? 'idle'}`}>
+    <div className={`v18-duel-screen v34m-time-fix v32e-spectator-screen phase-${state.phase} cycle-${currentEclipsePhase} fx-${activeVfx?.kind ?? 'idle'}`} style={eclipseArenaStyle}>
+      <DuelTimeCriticalStyles />
       <DuelEffectLayer event={activeVfx} userId={playerAId} profiles={payload.profiles} spectator />
       <DuelDamagePopupLayer events={damagePopups} userId={playerAId} />
       <EclipsePhaseShiftNotice notice={eclipsePhaseNotice} />
       <header className="v18-duel-header">
-        <div className="v18-duel-brand"><span className="v18-brand-mark">E</span><div><b>ECLIPSE DUEL</b><small>ROOM {room.code}</small></div></div>
+        <div className="v18-duel-brand"><span className="v18-brand-mark">E</span><div><b>ECLIPSE DUEL</b><small>ROOM {room.code}</small></div><EclipseCycleStrip state={state} /></div>
         <div className="v32e-spectator-badge"><i />SPECTATOR LIVE <span>{(payload.members ?? []).filter((member) => member.role === 'spectator').length}명 관전</span></div>
         <div className="v18-turn-hud"><small>TURN {state.turnNumber}</small><div><b>{state.status === 'finished' ? 'DUEL COMPLETE' : `${currentName}의 턴`}</b><span>{state.phase === 'battle' ? 'BATTLE PHASE' : 'MAIN PHASE'}</span></div></div>
         <div className={`v22-sync-chip ${displayedSyncState}`}><i /><span>{displayedSyncState === 'live' ? 'LIVE' : displayedSyncState === 'syncing' ? 'SYNCING' : 'RECONNECTING'}</span><small>관전 동기화</small></div>
         <div className="v18-header-actions"><button type="button" onClick={onLeave}>관전 나가기</button></div>
       </header>
-      <EclipseCycleStrip state={state} />
 
       <aside className="v18-leader-rail">
         <section className="v18-leader-card opponent" data-duel-leader-owner={playerBId}>
@@ -5725,6 +5831,7 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
       </aside>
 
       <main className="v18-arena">
+        <div className="v34m-time-atmosphere" aria-hidden="true" />
         <div className="v18-arena-backdrop" aria-hidden="true"><i /><i /><i /><i /></div>
         <div className="v18-opponent-hand-strip v33b-spectator-hand-strip">
           <span>PLAYER B HAND · {playerBHand.length || (state.handCounts[playerBId] ?? 0)}</span>

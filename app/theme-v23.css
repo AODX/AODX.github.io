@@ -8876,3 +8876,56 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
    secondary orb/decorations so dawn/sunset/moon/eclipse never render doubled. */
 .v23-client.in-duel .v18-duel-screen .v18-arena-backdrop::before,
 .v23-client.in-duel .v18-duel-screen .v18-arena-backdrop > i { display:none!important; }
+
+/* ========================================================================
+   v34m · ACTUAL DUEL TIME VISUAL FAILSAFE
+   The compact cycle lives inside the header; there is no dedicated cycle row.
+   The page component also injects the same critical rules so stale CSS bundles
+   cannot leave the cycle as a raw vertical list or suppress the phase backdrop.
+   ======================================================================== */
+.v23-client.in-duel .v18-duel-screen.v34m-time-fix {
+  --cycle-h:0px!important;
+  grid-template-rows:var(--header-h) minmax(0,1fr) var(--hand-h)!important;
+  grid-template-areas:
+    "header header header"
+    "leaders arena command"
+    "leaders hand command"!important;
+}
+.v23-client.in-duel .v18-duel-screen.v34m-time-fix > .v34l-cycle-rail,
+.v23-client.in-duel .v18-duel-screen.v34m-time-fix > .v34k-cycle-band { display:none!important; }
+.v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-duel-brand { min-width:0!important;overflow:hidden!important; }
+.v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-arena {
+  position:relative!important;
+  isolation:isolate!important;
+  background:var(--v34m-arena-bg)!important;
+  transition:background .5s ease,box-shadow .5s ease!important;
+}
+.v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-arena-backdrop { display:none!important; }
+.v23-client.in-duel .v18-duel-screen.v34m-time-fix .v34m-time-atmosphere {
+  position:absolute!important;
+  inset:0!important;
+  z-index:0!important;
+  display:block!important;
+  pointer-events:none!important;
+  background:var(--v34m-atmosphere-bg)!important;
+  background-position:center!important;
+  background-size:cover!important;
+  opacity:1!important;
+  transition:background .5s ease!important;
+}
+.v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-opponent-hand-strip,
+.v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-board { position:relative!important;z-index:3!important; }
+.v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-unit-slot,
+.v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-secret-slot {
+  background:linear-gradient(145deg,rgba(5,10,17,.58),rgba(var(--v34m-accent-rgb),.075))!important;
+  border-color:rgba(var(--v34m-accent-rgb),.20)!important;
+}
+@media (max-width:1250px) {
+  .v23-client.in-duel .v34m-cycle-inline { max-width:330px!important;flex-basis:330px!important;margin-left:6px!important;padding-inline:6px!important;gap:3px!important; }
+  .v23-client.in-duel .v34m-cycle-title { display:none!important; }
+}
+@media (max-width:980px) {
+  .v23-client.in-duel .v34m-cycle-inline { max-width:250px!important;flex-basis:250px!important;height:25px!important; }
+  .v23-client.in-duel .v34m-cycle-phase { font-size:6.4px!important;padding-inline:0!important; }
+  .v23-client.in-duel .v34m-cycle-phase.active { padding-inline:5px!important; }
+}
