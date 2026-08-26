@@ -8422,3 +8422,457 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
     linear-gradient(90deg,rgba(var(--v34f-phase-rgb,150,190,220),.055),transparent 48%),
     linear-gradient(180deg,rgba(6,10,16,.985),rgba(3,6,10,.995))!important;
 }
+
+/* ========================================================================
+   v34l · FINAL TIME UI / ATMOSPHERE / RESOURCE ACTION REPAIR
+   - Cycle rail is a natural seam between the header and the board.
+   - No floating CURRENT box and no text collision.
+   - The arena itself carries the time-of-day strongly enough to read at a glance.
+   - Hand -> ENERGY is restored to the normal full-width command-button language.
+   ======================================================================== */
+
+.v23-client.in-duel .v18-duel-screen {
+  --cycle-h:42px;
+  grid-template-rows:var(--header-h) var(--cycle-h) minmax(0,1fr) var(--hand-h)!important;
+  grid-template-areas:
+    "header header header"
+    "leaders cycle command"
+    "leaders arena command"
+    "leaders hand command"!important;
+}
+
+/* Time rail: one continuous status line, flush with the arena rather than a detached panel. */
+.v23-client.in-duel .v34l-cycle-rail {
+  --phase-rgb:var(--v34f-phase-rgb,150,190,220);
+  grid-area:cycle!important;
+  position:relative!important;
+  inset:auto!important;
+  z-index:36!important;
+  width:100%!important;
+  height:var(--cycle-h)!important;
+  min-width:0!important;
+  margin:0!important;
+  padding:0 14px!important;
+  display:grid!important;
+  grid-template-columns:minmax(112px,150px) minmax(0,1fr) minmax(72px,92px)!important;
+  align-items:center!important;
+  gap:10px!important;
+  overflow:hidden!important;
+  border:0!important;
+  border-bottom:1px solid rgba(var(--phase-rgb),.24)!important;
+  border-radius:0!important;
+  background:
+    linear-gradient(90deg,rgba(var(--phase-rgb),.115),rgba(5,10,16,.94) 20%,rgba(5,10,16,.94) 80%,rgba(var(--phase-rgb),.075))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025),inset 0 -10px 22px rgba(var(--phase-rgb),.025)!important;
+  transform:none!important;
+  pointer-events:none!important;
+}
+.v23-client.in-duel .v34l-cycle-heading {
+  min-width:0!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  white-space:nowrap!important;
+}
+.v23-client.in-duel .v34l-cycle-heading > small {
+  color:rgba(var(--phase-rgb),.62)!important;
+  font-size:7px!important;
+  line-height:1!important;
+  font-weight:950!important;
+  letter-spacing:.12em!important;
+}
+.v23-client.in-duel .v34l-cycle-heading > strong {
+  min-width:0!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:4px!important;
+  color:#eef7fb!important;
+  font-size:11px!important;
+  line-height:1!important;
+  font-weight:950!important;
+}
+.v23-client.in-duel .v34l-cycle-heading > strong i {
+  color:rgb(var(--phase-rgb))!important;
+  font-size:15px!important;
+  font-style:normal!important;
+  line-height:1!important;
+}
+.v23-client.in-duel .v34l-cycle-sequence {
+  list-style:none!important;
+  min-width:0!important;
+  height:100%!important;
+  margin:0!important;
+  padding:0!important;
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  align-items:center!important;
+  gap:2px!important;
+  overflow:hidden!important;
+}
+.v23-client.in-duel .v34l-cycle-sequence > li {
+  position:relative!important;
+  min-width:0!important;
+  height:28px!important;
+  margin:0!important;
+  padding:0 11px 0 5px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:5px!important;
+  overflow:visible!important;
+  border:0!important;
+  border-radius:7px!important;
+  background:transparent!important;
+  color:#758493!important;
+  opacity:.75!important;
+  white-space:nowrap!important;
+}
+.v23-client.in-duel .v34k-cycle-sequence > li:not(:last-child)::after,
+.v23-client.in-duel .v34l-cycle-sequence > li:not(:last-child)::after { content:none!important; }
+.v23-client.in-duel .v34l-cycle-sequence > li > span {
+  flex:0 0 17px!important;
+  width:17px!important;
+  height:17px!important;
+  display:grid!important;
+  place-items:center!important;
+  border:1px solid rgba(139,164,183,.16)!important;
+  border-radius:50%!important;
+  background:rgba(255,255,255,.03)!important;
+  color:#7f90a0!important;
+  font-size:7px!important;
+  line-height:1!important;
+  font-weight:950!important;
+}
+.v23-client.in-duel .v34l-cycle-sequence > li > b {
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  color:inherit!important;
+  font-size:9px!important;
+  line-height:1!important;
+  font-weight:900!important;
+}
+/* Override the old circle styling that used to catch every <i> in the sequence. */
+.v23-client.in-duel .v34l-cycle-sequence > li > i {
+  position:absolute!important;
+  right:1px!important;
+  top:50%!important;
+  width:auto!important;
+  height:auto!important;
+  flex:0 0 auto!important;
+  display:block!important;
+  place-items:unset!important;
+  border:0!important;
+  border-radius:0!important;
+  background:none!important;
+  color:#3e4d5b!important;
+  font-size:8px!important;
+  line-height:1!important;
+  font-style:normal!important;
+  font-weight:900!important;
+  transform:translateY(-52%)!important;
+}
+.v23-client.in-duel .v34l-cycle-sequence > li.active {
+  opacity:1!important;
+  color:#f2f8fb!important;
+  background:linear-gradient(180deg,rgba(var(--phase-rgb),.145),rgba(var(--phase-rgb),.065))!important;
+  box-shadow:inset 0 -2px 0 rgba(var(--phase-rgb),.68)!important;
+}
+.v23-client.in-duel .v34l-cycle-sequence > li.active > span {
+  border-color:rgba(var(--phase-rgb),.42)!important;
+  background:rgba(var(--phase-rgb),.18)!important;
+  color:rgb(var(--phase-rgb))!important;
+}
+.v23-client.in-duel .v34l-cycle-next {
+  min-width:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:5px!important;
+  white-space:nowrap!important;
+}
+.v23-client.in-duel .v34l-cycle-next small {
+  color:rgba(var(--phase-rgb),.56)!important;
+  font-size:6px!important;
+  line-height:1!important;
+  font-weight:950!important;
+  letter-spacing:.12em!important;
+}
+.v23-client.in-duel .v34l-cycle-next b {
+  color:#b9c7d1!important;
+  font-size:8px!important;
+  line-height:1!important;
+  font-weight:900!important;
+}
+
+/* Phase-change toast: compact and temporary, attached to the top edge of the arena. */
+.v23-client.in-duel .v34l-phase-toast {
+  --phase-rgb:var(--v34f-phase-rgb,150,190,220);
+  position:fixed!important;
+  left:calc(var(--leader-col) + 18px)!important;
+  top:calc(var(--header-h) + var(--cycle-h) + 9px)!important;
+  width:auto!important;
+  min-width:154px!important;
+  max-width:220px!important;
+  min-height:0!important;
+  padding:7px 10px!important;
+  display:grid!important;
+  grid-template-columns:24px auto auto!important;
+  align-items:center!important;
+  gap:7px!important;
+  border:1px solid rgba(var(--phase-rgb),.24)!important;
+  border-radius:10px!important;
+  background:rgba(5,10,16,.78)!important;
+  backdrop-filter:blur(8px)!important;
+  box-shadow:0 8px 26px rgba(0,0,0,.25),inset 2px 0 0 rgba(var(--phase-rgb),.62)!important;
+  transform:none!important;
+  pointer-events:none!important;
+  animation:v34lPhaseToast 1.38s ease both!important;
+}
+.v23-client.in-duel .v34l-phase-toast-glyph {
+  width:24px!important;height:24px!important;display:grid!important;place-items:center!important;
+  color:rgb(var(--phase-rgb))!important;font-size:15px!important;line-height:1!important;
+}
+.v23-client.in-duel .v34l-phase-toast-copy { display:grid!important;gap:1px!important;min-width:0!important; }
+.v23-client.in-duel .v34l-phase-toast-copy small { color:#6e8292!important;font-size:5.5px!important;line-height:1!important;font-weight:950!important;letter-spacing:.11em!important; }
+.v23-client.in-duel .v34l-phase-toast-copy strong { color:#f2f8fb!important;font-size:12px!important;line-height:1.05!important;font-weight:950!important; }
+.v23-client.in-duel .v34l-phase-toast > em { color:rgba(var(--phase-rgb),.82)!important;font-size:7px!important;line-height:1!important;font-style:normal!important;font-weight:850!important;white-space:nowrap!important; }
+.v23-client.in-duel .v34l-phase-toast .v34e-phase-notice-orb,
+.v23-client.in-duel .v34l-phase-toast .v34e-phase-notice-copy,
+.v23-client.in-duel .v34l-phase-toast .v34e-phase-notice-bonus { display:none!important; }
+@keyframes v34lPhaseToast {
+  0% { opacity:0;transform:translateY(-5px) scale(.98); }
+  14%,76% { opacity:1;transform:translateY(0) scale(1); }
+  100% { opacity:0;transform:translateY(-3px) scale(.995); }
+}
+
+/* ===== Readable, unmistakable battlefield atmosphere =====
+   Important: color is painted on BOTH the arena and the backdrop so it still
+   works even if one legacy layer is hidden by a browser/layout variation. */
+.v23-client.in-duel .v18-duel-screen .v18-arena {
+  isolation:isolate!important;
+  transition:background .55s ease,box-shadow .55s ease!important;
+}
+.v23-client.in-duel .v18-duel-screen .v18-arena-backdrop {
+  z-index:0!important;
+  opacity:1!important;
+  transition:background .55s ease,filter .55s ease!important;
+}
+.v23-client.in-duel .v18-duel-screen .v18-board,
+.v23-client.in-duel .v18-duel-screen .v18-opponent-hand-strip { z-index:6!important; }
+
+/* Dawn: cool upper sky + clearly warm sunrise horizon. */
+.v23-client.in-duel .v18-duel-screen.cycle-dawn .v18-arena {
+  background:linear-gradient(180deg,#14233c 0%,#29354e 42%,#74505a 69%,#40252d 82%,#160f18 100%)!important;
+  box-shadow:inset 0 -120px 170px rgba(236,112,73,.10)!important;
+}
+.v23-client.in-duel .v18-duel-screen.cycle-dawn .v18-arena-backdrop {
+  background:
+    radial-gradient(circle at 20% 76%,rgba(255,249,207,.98) 0 1.6%,rgba(255,201,111,.74) 2.7%,rgba(255,133,83,.31) 7%,transparent 18%),
+    radial-gradient(ellipse at 24% 82%,rgba(255,158,91,.30),transparent 36%),
+    linear-gradient(180deg,rgba(19,38,69,.32),rgba(67,64,91,.18) 48%,rgba(222,109,74,.20) 77%,rgba(24,13,22,.30)),
+    url('/ui/duel-arena.svg') center/cover no-repeat!important;
+  filter:saturate(1.18) brightness(1.08)!important;
+}
+/* Zenith: bright cyan daylight and a high sun. */
+.v23-client.in-duel .v18-duel-screen.cycle-zenith .v18-arena {
+  background:linear-gradient(180deg,#17465c 0%,#12384d 45%,#0b2638 74%,#06151f 100%)!important;
+  box-shadow:inset 0 80px 180px rgba(162,235,255,.08)!important;
+}
+.v23-client.in-duel .v18-duel-screen.cycle-zenith .v18-arena-backdrop {
+  background:
+    radial-gradient(circle at 52% 9%,rgba(255,255,239,.98) 0 1.4%,rgba(214,250,255,.82) 2.8%,rgba(105,226,255,.24) 7%,transparent 17%),
+    linear-gradient(180deg,rgba(70,176,211,.25),rgba(23,96,124,.16) 50%,rgba(5,27,40,.26)),
+    url('/ui/duel-arena.svg') center/cover no-repeat!important;
+  filter:saturate(1.08) brightness(1.12)!important;
+}
+/* Dusk: violet upper sky and orange/red sunset. */
+.v23-client.in-duel .v18-duel-screen.cycle-dusk .v18-arena {
+  background:linear-gradient(180deg,#302242 0%,#55304f 44%,#8d4050 68%,#7a382f 80%,#20121d 100%)!important;
+  box-shadow:inset 0 -120px 170px rgba(255,100,76,.10)!important;
+}
+.v23-client.in-duel .v18-duel-screen.cycle-dusk .v18-arena-backdrop {
+  background:
+    radial-gradient(circle at 79% 77%,rgba(255,239,180,.96) 0 1.5%,rgba(255,160,83,.75) 2.8%,rgba(229,73,104,.30) 7.5%,transparent 18%),
+    radial-gradient(ellipse at 77% 82%,rgba(229,83,106,.28),transparent 34%),
+    linear-gradient(180deg,rgba(80,43,114,.18),rgba(151,57,95,.17) 50%,rgba(238,106,64,.20) 79%,rgba(29,13,24,.25)),
+    url('/ui/duel-arena.svg') center/cover no-repeat!important;
+  filter:saturate(1.18) brightness(1.04)!important;
+}
+/* Midnight: unmistakably blue-black, moon + stars. */
+.v23-client.in-duel .v18-duel-screen.cycle-midnight .v18-arena {
+  background:linear-gradient(180deg,#07142f 0%,#071126 48%,#050b1b 74%,#02050d 100%)!important;
+  box-shadow:inset 0 0 180px rgba(75,112,231,.08)!important;
+}
+.v23-client.in-duel .v18-duel-screen.cycle-midnight .v18-arena-backdrop {
+  background:
+    radial-gradient(circle at 81% 14%,rgba(241,248,255,.97) 0 2.4%,rgba(156,203,239,.46) 3.4%,rgba(78,128,204,.14) 8%,transparent 16%),
+    radial-gradient(circle at 12% 18%,rgba(231,244,255,.85) 0 .7px,transparent 1.4px),
+    radial-gradient(circle at 28% 31%,rgba(198,225,255,.72) 0 .7px,transparent 1.4px),
+    radial-gradient(circle at 51% 16%,rgba(226,241,255,.76) 0 .7px,transparent 1.4px),
+    radial-gradient(circle at 68% 38%,rgba(186,218,255,.66) 0 .7px,transparent 1.4px),
+    radial-gradient(circle at 91% 48%,rgba(218,235,255,.68) 0 .7px,transparent 1.4px),
+    linear-gradient(180deg,rgba(9,28,70,.24),rgba(7,15,42,.23) 58%,rgba(2,6,18,.28)),
+    url('/ui/duel-arena.svg') center/cover no-repeat!important;
+  filter:saturate(1.12) brightness(.98)!important;
+}
+/* Eclipse: black solar disk with gold corona and violet darkness. */
+.v23-client.in-duel .v18-duel-screen.cycle-eclipse .v18-arena {
+  background:linear-gradient(180deg,#130d1d 0%,#0d0916 48%,#080710 76%,#030307 100%)!important;
+  box-shadow:inset 0 0 200px rgba(109,67,178,.10)!important;
+}
+.v23-client.in-duel .v18-duel-screen.cycle-eclipse .v18-arena-backdrop {
+  background:
+    radial-gradient(circle at 50% 17%,#020205 0 4.9%,#08070b 5.3%,rgba(255,235,177,.98) 5.9%,rgba(255,165,69,.56) 7%,rgba(122,82,212,.18) 12%,transparent 22%),
+    radial-gradient(circle at 50% 17%,rgba(255,199,98,.13),transparent 31%),
+    radial-gradient(circle at 50% 34%,rgba(91,56,157,.16),transparent 46%),
+    linear-gradient(180deg,rgba(24,14,39,.28),rgba(11,8,20,.26) 60%,rgba(3,3,7,.30)),
+    url('/ui/duel-arena.svg') center/cover no-repeat!important;
+  filter:saturate(1.04) contrast(1.08)!important;
+}
+
+/* The phase must be visible through the board instead of being hidden by opaque navy slots. */
+.v23-client.in-duel .v18-duel-screen .v18-unit-slot,
+.v23-client.in-duel .v18-duel-screen .v18-secret-slot {
+  background:linear-gradient(145deg,rgba(5,10,17,.57),rgba(var(--v34f-phase-rgb,150,190,220),.075))!important;
+  border-color:rgba(var(--v34f-phase-rgb,150,190,220),.20)!important;
+  backdrop-filter:blur(1.5px)!important;
+}
+.v23-client.in-duel .v18-duel-screen .v18-center-lane {
+  background:linear-gradient(90deg,transparent,rgba(var(--v34f-phase-rgb,150,190,220),.045),transparent)!important;
+  border-radius:10px!important;
+}
+.v23-client.in-duel .v18-duel-screen .v18-arena::after {
+  z-index:2!important;
+  background:
+    linear-gradient(90deg,rgba(1,4,8,.22),transparent 10%,transparent 90%,rgba(1,4,8,.22)),
+    linear-gradient(180deg,rgba(var(--v34f-phase-rgb,150,190,220),.018),transparent 36%,rgba(0,0,0,.07))!important;
+}
+
+/* Carry time through the chrome enough to feel like one battlefield, not a wallpaper swap. */
+.v23-client.in-duel .v18-duel-screen .v18-duel-header {
+  border-bottom-color:rgba(var(--v34f-phase-rgb,150,190,220),.20)!important;
+  box-shadow:inset 0 -1px 0 rgba(var(--v34f-phase-rgb,150,190,220),.06)!important;
+}
+.v23-client.in-duel .v18-duel-screen .v18-leader-card,
+.v23-client.in-duel .v18-duel-screen .v29-action-coach,
+.v23-client.in-duel .v18-duel-screen .v18-context-panel {
+  border-color:rgba(var(--v34f-phase-rgb,150,190,220),.13)!important;
+}
+
+/* Hand -> ENERGY: full width, same visual grammar as the normal action buttons. */
+.v23-client.in-duel .v18-context-panel .v18-selected-card > .v31-energy-convert {
+  grid-column:1 / -1!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:50px!important;
+  margin-top:7px!important;
+  padding:8px 11px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  justify-content:center!important;
+  gap:2px!important;
+  overflow:hidden!important;
+  border:1px solid rgba(93,206,251,.24)!important;
+  border-radius:9px!important;
+  background:linear-gradient(135deg,#15324a,#172944)!important;
+  color:#dcf7ff!important;
+  text-align:left!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+.v23-client.in-duel .v18-context-panel .v31-energy-convert > span {
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  word-break:keep-all!important;
+  color:#e1f8ff!important;
+  font-size:10.5px!important;
+  line-height:1.2!important;
+  font-weight:950!important;
+  letter-spacing:0!important;
+}
+.v23-client.in-duel .v18-context-panel .v31-energy-convert > small {
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  margin:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  word-break:keep-all!important;
+  color:#86a8b8!important;
+  font-size:7.5px!important;
+  line-height:1.25!important;
+  text-align:left!important;
+}
+.v23-client.in-duel .v18-context-panel .v31-energy-convert:not(:disabled):hover {
+  border-color:rgba(101,218,255,.45)!important;
+  background:linear-gradient(135deg,#193b56,#1a3150)!important;
+}
+.v23-client.in-duel .v18-context-panel .v31-energy-convert:disabled { opacity:.46!important; }
+
+/* Do not let the v34k emergency rule reshape these ordinary resource buttons again. */
+.v23-client.in-duel .v18-action-buttons .v31-field-retire-action,
+.v23-client.in-duel .v18-action-buttons .v32o-energy-draw-action {
+  display:block!important;
+  min-width:0!important;
+  width:100%!important;
+  padding:8px 10px!important;
+  text-align:left!important;
+}
+.v23-client.in-duel .v18-action-buttons .v31-field-retire-action > span,
+.v23-client.in-duel .v18-action-buttons .v32o-energy-draw-action > span,
+.v23-client.in-duel .v18-action-buttons .v31-field-retire-action > small,
+.v23-client.in-duel .v18-action-buttons .v32o-energy-draw-action > small {
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  word-break:keep-all!important;
+  text-align:left!important;
+}
+.v23-client.in-duel .v18-action-buttons .v31-field-retire-action > span,
+.v23-client.in-duel .v18-action-buttons .v32o-energy-draw-action > span { font-size:10.5px!important;line-height:1.2!important; }
+.v23-client.in-duel .v18-action-buttons .v31-field-retire-action > small,
+.v23-client.in-duel .v18-action-buttons .v32o-energy-draw-action > small { margin-top:3px!important;font-size:7.5px!important;line-height:1.25!important;color:#738a9c!important; }
+
+@media (max-width:1180px), (max-height:760px) {
+  .v23-client.in-duel .v18-duel-screen { --cycle-h:38px; }
+  .v23-client.in-duel .v34l-cycle-rail { grid-template-columns:96px minmax(0,1fr) 58px!important;padding:0 8px!important;gap:5px!important; }
+  .v23-client.in-duel .v34l-cycle-heading > small { display:none!important; }
+  .v23-client.in-duel .v34l-cycle-heading > strong { font-size:9px!important; }
+  .v23-client.in-duel .v34l-cycle-sequence > li { height:25px!important;padding:0 8px 0 3px!important;gap:3px!important; }
+  .v23-client.in-duel .v34l-cycle-sequence > li > span { width:15px!important;height:15px!important;flex-basis:15px!important;font-size:6px!important; }
+  .v23-client.in-duel .v34l-cycle-sequence > li > b { font-size:7.5px!important; }
+  .v23-client.in-duel .v34l-cycle-next small { display:none!important; }
+  .v23-client.in-duel .v34l-cycle-next b { font-size:7px!important; }
+}
+@media (max-width:860px) {
+  .v23-client.in-duel .v18-duel-screen { --cycle-h:36px; }
+  .v23-client.in-duel .v34l-cycle-rail { grid-template-columns:62px minmax(0,1fr)!important;padding:0 5px!important;gap:3px!important; }
+  .v23-client.in-duel .v34l-cycle-heading > strong i { display:none!important; }
+  .v23-client.in-duel .v34l-cycle-heading > strong { font-size:8px!important; }
+  .v23-client.in-duel .v34l-cycle-next { display:none!important; }
+  .v23-client.in-duel .v34l-cycle-sequence > li { padding:0 4px!important; }
+  .v23-client.in-duel .v34l-cycle-sequence > li > i { display:none!important; }
+  .v23-client.in-duel .v34l-cycle-sequence > li > b { font-size:6.5px!important; }
+  .v23-client.in-duel .v34l-phase-toast { left:calc(var(--leader-col) + 8px)!important;min-width:132px!important;padding:6px 8px!important; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .v23-client.in-duel .v34l-phase-toast { animation:v34lPhaseToastReduced 1.38s linear both!important; }
+  .v23-client.in-duel .v18-arena,
+  .v23-client.in-duel .v18-arena-backdrop { transition:none!important; }
+}
+@keyframes v34lPhaseToastReduced { 0%,100%{opacity:0} 12%,80%{opacity:1} }
+
+/* v34l atmosphere uses a single celestial body per phase. Disable the older
+   secondary orb/decorations so dawn/sunset/moon/eclipse never render doubled. */
+.v23-client.in-duel .v18-duel-screen .v18-arena-backdrop::before,
+.v23-client.in-duel .v18-duel-screen .v18-arena-backdrop > i { display:none!important; }

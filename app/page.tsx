@@ -457,6 +457,19 @@ function levelFromXp(xp: number): number {
   return Math.max(1, Math.floor(Math.sqrt(Math.max(0, xp) / 100)) + 1);
 }
 
+/** v34l: level-up coin curve. Lv.2=500, Lv.3=1000, Lv.4=1500 ... */
+function levelAchievementCoins(level: number): number {
+  return level <= 1 ? 0 : Math.max(0, level - 1) * 500;
+}
+
+function levelAchievementCoinsBetween(beforeXp: number, afterXp: number): number {
+  const beforeLevel = levelFromXp(beforeXp);
+  const afterLevel = levelFromXp(afterXp);
+  let reward = 0;
+  for (let level = beforeLevel + 1; level <= afterLevel; level += 1) reward += levelAchievementCoins(level);
+  return reward;
+}
+
 function winRate(profile: Profile | FriendProfile): number {
   const total = profile.wins + profile.losses;
   return total === 0 ? 0 : Math.round((profile.wins / total) * 100);
@@ -4243,17 +4256,12 @@ function useEclipsePhaseNotice(state: MatchState | null | undefined, userId?: st
 function EclipsePhaseShiftNotice({ notice }: { notice: EclipsePhaseNoticeState | null }) {
   if (!notice) return null;
   const meta = ECLIPSE_UI_META[notice.phase];
-  const turnCopy = notice.perspective === 'mine' ? '나의 턴' : notice.perspective === 'opponent' ? '상대의 턴' : `TURN ${notice.turn}`;
-  const context = notice.source === 'turn' ? `${turnCopy} · 시간대가 이동했습니다` : '카드 효과로 전장의 시간이 변경되었습니다';
+  const sourceLabel = notice.source === 'turn' ? 'TURN FLOW' : 'CARD EFFECT';
   return (
-    <div key={notice.serial} className={`v34e-phase-notice cycle-${notice.phase} source-${notice.source}`} role="status" aria-live="polite">
-      <div className="v34e-phase-notice-orb" aria-hidden="true"><span>{meta.glyph}</span></div>
-      <div className="v34e-phase-notice-copy">
-        <small>{notice.source === 'turn' ? `TURN ${notice.turn} · ECLIPSE CYCLE SHIFT` : 'ECLIPSE CYCLE · TIME ALTER'}</small>
-        <strong>{ECLIPSE_PHASE_LABEL[notice.phase]}</strong>
-        <span>{context}</span>
-      </div>
-      <div className="v34e-phase-notice-bonus"><small>시간 공명</small><b>{meta.bonus}</b></div>
+    <div key={notice.serial} className={`v34e-phase-notice v34l-phase-toast cycle-${notice.phase} source-${notice.source}`} role="status" aria-live="polite">
+      <span className="v34l-phase-toast-glyph" aria-hidden="true">{meta.glyph}</span>
+      <span className="v34l-phase-toast-copy"><small>{sourceLabel}</small><strong>{ECLIPSE_PHASE_LABEL[notice.phase]}</strong></span>
+      <em>{meta.bonus}</em>
     </div>
   );
 }
@@ -4278,24 +4286,26 @@ function EclipseCycleHud({ state, compact = false }: { state: MatchState; compac
  */
 function EclipseCycleStrip({ state }: { state: MatchState }) {
   const current = clientCurrentEclipsePhase(state);
+  const currentIndex = Math.max(0, ECLIPSE_PHASE_ORDER.indexOf(current));
+  const next = ECLIPSE_PHASE_ORDER[(currentIndex + 1) % ECLIPSE_PHASE_ORDER.length] ?? 'dawn';
   const meta = ECLIPSE_UI_META[current];
   const locked = (state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber;
   return (
-    <section className={`v34k-cycle-band cycle-${current}`} aria-label={`ECLIPSE CYCLE · 현재 ${ECLIPSE_PHASE_LABEL[current]} · 순서 여명, 정점, 황혼, 심야, 개기일식`}>
-      <div className="v34k-cycle-current">
-        <strong aria-hidden="true">{meta.glyph}</strong>
-        <span><small>CURRENT</small><b>{ECLIPSE_PHASE_LABEL[current]}</b></span>
+    <section className={`v34k-cycle-band v34l-cycle-rail cycle-${current}`} aria-label={`ECLIPSE CYCLE · 현재 ${ECLIPSE_PHASE_LABEL[current]} · 여명, 정점, 황혼, 심야, 개기일식 순서`}>
+      <div className="v34l-cycle-heading">
+        <small>ECLIPSE CYCLE</small>
+        <strong><i aria-hidden="true">{meta.glyph}</i>{ECLIPSE_PHASE_LABEL[current]}</strong>
       </div>
-      <ol className="v34k-cycle-sequence" aria-label="시간대 진행 순서">
+      <ol className="v34k-cycle-sequence v34l-cycle-sequence" aria-label="시간대 진행 순서">
         {ECLIPSE_PHASE_ORDER.map((phase, index) => (
           <li key={phase} className={phase === current ? 'active' : ''} aria-current={phase === current ? 'step' : undefined}>
-            <i>{index + 1}</i><b>{ECLIPSE_PHASE_LABEL[phase]}</b>
+            <span>{index + 1}</span><b>{ECLIPSE_PHASE_LABEL[phase]}</b>{index < ECLIPSE_PHASE_ORDER.length - 1 && <i aria-hidden="true">→</i>}
           </li>
         ))}
       </ol>
-      <div className="v34k-cycle-state">
-        <small>{locked ? 'TIME LOCK' : 'AUTO FLOW'}</small>
-        <b>{locked ? '고정' : '턴마다 다음 시간'}</b>
+      <div className="v34l-cycle-next">
+        <small>{locked ? 'TIME LOCK' : 'NEXT'}</small>
+        <b>{locked ? ECLIPSE_PHASE_LABEL[current] : ECLIPSE_PHASE_LABEL[next]}</b>
       </div>
     </section>
   );
@@ -4569,6 +4579,10 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const profileMap = Object.fromEntries(payload.profiles.map((profile) => [profile.user_id, profile]));
   const me = profileMap[userId];
   const opponent = profileMap[opponentId];
+  const matchXpReward = state.status === 'finished' ? (state.winnerId === userId ? 100 : 35) : 0;
+  const levelUpCoinBonus = !practiceMode && matchXpReward > 0 && me
+    ? levelAchievementCoinsBetween(Math.max(0, (me.xp ?? 0) - matchXpReward), me.xp ?? 0)
+    : 0;
   const pendingTrapInstance = pendingTrap?.ownerId === userId ? privateState.secrets[pendingTrap.trapZone] : null;
   const pendingTrapCard = pendingTrapInstance ? CARD_BY_ID[pendingTrapInstance.cardId] : undefined;
   const trapResponseSeconds = pendingTrap ? Math.max(0, Math.ceil((pendingTrap.endsAt - turnClock) / 1000)) : 0;
@@ -5349,7 +5363,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
               {selectedCard.kind === 'spell' && selectedCard.target === 'own_deck_card' && <button className="v18-context-primary v32y-card-picker-button" disabled={!canChooseDeckTutorTarget} onClick={openDeckTutorPicker}>덱에서 카드 선택 · {deckTutorTargets.length}</button>}
               {selectedCard.kind === 'spell' && selectedCard.target === 'friendly_graveyard_card' && <button className="v18-context-primary v32y-card-picker-button" disabled={!canChooseGraveCardTarget} onClick={openGraveCardPicker}>묘지에서 카드 선택 · {graveyardCardTargets.length}</button>}
               {selectedCard.kind === 'unit' && selectedCard.summonMode === 'legendary' && <button className="v18-context-primary v32q-legendary-summon" type="button" onClick={summonSelectedLegendary}>{handSummonBlockReasons(selectedCard).length === 0 ? `전설 특수 소환 · ${selectedCard.legendarySummonRule?.name ?? '강림'}` : '전설 특수 소환 조건 확인'}</button>}
-              {myTurn && state.phase === 'main' && <button className="v31-energy-convert" disabled={!canSacrificeSelectedForEnergy} onClick={sacrificeSelectedForEnergy}><span>손패 → ENERGY +1</span><small>{energySacrificeUsed ? '이번 턴 사용 완료' : myEnergy.current >= myEnergyHardCap ? `에너지 최대 한도 ${myEnergyHardCap}` : '이 카드를 묘지로 보냅니다 · 턴당 1회'}</small></button>}
+              {myTurn && state.phase === 'main' && <button className="v18-context-primary v31-energy-convert" disabled={!canSacrificeSelectedForEnergy} onClick={sacrificeSelectedForEnergy}><span>손패 → ENERGY +1</span><small>{energySacrificeUsed ? '이번 턴 사용 완료' : myEnergy.current >= myEnergyHardCap ? `에너지 최대 한도 ${myEnergyHardCap}` : '이 카드를 묘지로 보냅니다 · 턴당 1회'}</small></button>}
             </div>
           )}
           {selectedExtraCard && (
@@ -5545,7 +5559,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
             <div className="v22-result-hero">
               <span className="result-emblem">{state.winnerId === userId ? '✦' : '◇'}</span>
               <div><small>DUEL COMPLETE · TURN {state.turnNumber}</small><h2>{state.winnerId === userId ? 'VICTORY' : 'DEFEAT'}</h2><p>{state.winReason}</p></div>
-              <strong>{practiceMode ? 'PRACTICE · 보상/전적 반영 없음' : state.winnerId === userId ? `+180 COIN · +100 XP${duelWagerAmount > 0 ? ` · 내기 +${duelWagerAmount.toLocaleString()}` : ''}` : `+35 COIN · +35 XP${duelWagerAmount > 0 ? ` · 내기 -${duelWagerAmount.toLocaleString()}` : ''}`}</strong>
+              <strong>{practiceMode ? 'PRACTICE · 보상/전적 반영 없음' : state.winnerId === userId ? `+100 COIN · +100 XP${levelUpCoinBonus > 0 ? ` · LEVEL UP +${levelUpCoinBonus.toLocaleString()} COIN` : ''}${duelWagerAmount > 0 ? ` · 내기 +${duelWagerAmount.toLocaleString()}` : ''}` : `+35 COIN · +35 XP${duelWagerAmount > 0 ? ` · 내기 -${duelWagerAmount.toLocaleString()}` : ''}`}</strong>
             </div>
             <div className="v22-result-stats">
               <article><small>CORE DAMAGE</small><b>{myMatchStats.coreDamage}</b><span>상대 {opponentMatchStats.coreDamage}</span></article>
