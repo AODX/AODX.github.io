@@ -560,7 +560,23 @@ function eclipseDistance(a: EclipsePhase, b: EclipsePhase): number {
 }
 
 function desiredEclipseModifier(card: CardDefinition | undefined, phase: EclipsePhase): { attack: number; health: number; resonance: 'resonant' | 'neutral' | 'strained' } {
-  if (!card?.eclipseAffinity || !isUnitCard(card)) return { attack: 0, health: 0, resonance: 'neutral' };
+  if (!card || !isUnitCard(card)) return { attack: 0, health: 0, resonance: 'neutral' };
+
+  // v34f: a unit can now have an authored reaction to each individual time.
+  // Unlisted phases are deliberately neutral, so a card can be buff-only, debuff-only,
+  // or have a completely asymmetric risk/reward profile instead of inheriting one global rule.
+  if (card.eclipsePhaseModifiers) {
+    const authored = card.eclipsePhaseModifiers[phase];
+    if (!authored) return { attack: 0, health: 0, resonance: 'neutral' };
+    const attack = Math.trunc(authored.attack ?? 0);
+    const health = Math.trunc(authored.health ?? 0);
+    const hasPenalty = attack < 0 || health < 0;
+    const hasBonus = attack > 0 || health > 0;
+    return { attack, health, resonance: hasPenalty ? 'strained' : hasBonus ? 'resonant' : 'neutral' };
+  }
+
+  // Compatibility fallback for older cards that only define eclipseAffinity.
+  if (!card.eclipseAffinity) return { attack: 0, health: 0, resonance: 'neutral' };
   const distance = eclipseDistance(card.eclipseAffinity, phase);
   if (distance === 0) {
     const profile = ECLIPSE_MATCH_BONUS[phase];

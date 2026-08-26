@@ -7801,3 +7801,260 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
   0%,100% { opacity:0;transform:translate(-50%,-50%); }
   12%,78% { opacity:1;transform:translate(-50%,-50%); }
 }
+
+/* ========================================================================
+   v34f · TEMPORAL UX / CLEAR BATTLEFIELD
+   The cycle is now a slim global rail at the header seam. The battlefield
+   keeps only battle-flow information, while every major duel surface inherits
+   the current phase atmosphere.
+   ======================================================================== */
+.v23-client.in-duel .v18-duel-screen.cycle-dawn { --v34f-phase-rgb:255,169,98; --v34f-phase-soft:rgba(255,169,98,.075); }
+.v23-client.in-duel .v18-duel-screen.cycle-zenith { --v34f-phase-rgb:126,225,255; --v34f-phase-soft:rgba(126,225,255,.07); }
+.v23-client.in-duel .v18-duel-screen.cycle-dusk { --v34f-phase-rgb:239,112,145; --v34f-phase-soft:rgba(239,112,145,.075); }
+.v23-client.in-duel .v18-duel-screen.cycle-midnight { --v34f-phase-rgb:116,151,255; --v34f-phase-soft:rgba(116,151,255,.072); }
+.v23-client.in-duel .v18-duel-screen.cycle-eclipse { --v34f-phase-rgb:255,204,100; --v34f-phase-soft:rgba(155,112,217,.075); }
+
+/* Make the whole duel, not only the SVG arena, breathe with the phase. */
+.v23-client.in-duel .v18-duel-screen .v18-duel-header {
+  border-bottom-color:rgba(var(--v34f-phase-rgb,150,190,220),.19)!important;
+  background:
+    linear-gradient(90deg,var(--v34f-phase-soft,rgba(150,190,220,.05)),transparent 31%,transparent 69%,var(--v34f-phase-soft,rgba(150,190,220,.05))),
+    linear-gradient(180deg,rgba(8,13,20,.985),rgba(5,9,14,.97))!important;
+  transition:background .65s ease,border-color .65s ease!important;
+}
+.v23-client.in-duel .v18-duel-screen .v18-leader-rail {
+  border-right-color:rgba(var(--v34f-phase-rgb,150,190,220),.13)!important;
+  background:linear-gradient(90deg,rgba(5,9,14,.985),rgba(var(--v34f-phase-rgb,150,190,220),.035))!important;
+  transition:background .65s ease,border-color .65s ease!important;
+}
+.v23-client.in-duel .v18-duel-screen .v18-command-rail {
+  border-left-color:rgba(var(--v34f-phase-rgb,150,190,220),.13)!important;
+  background:linear-gradient(90deg,rgba(var(--v34f-phase-rgb,150,190,220),.032),rgba(5,8,13,.985))!important;
+  transition:background .65s ease,border-color .65s ease!important;
+}
+.v23-client.in-duel .v18-duel-screen .v18-hand-dock {
+  border-top-color:rgba(var(--v34f-phase-rgb,150,190,220),.15)!important;
+  background:
+    linear-gradient(90deg,rgba(var(--v34f-phase-rgb,150,190,220),.035),transparent 40%),
+    linear-gradient(180deg,#070b11,#05080d)!important;
+  transition:background .65s ease,border-color .65s ease!important;
+}
+.v23-client.in-duel .v18-duel-screen .v18-leader-card,
+.v23-client.in-duel .v18-duel-screen .v18-unit-slot,
+.v23-client.in-duel .v18-duel-screen .v18-secret-slot,
+.v23-client.in-duel .v18-duel-screen .v29-action-coach {
+  border-color:rgba(var(--v34f-phase-rgb,150,190,220),.14)!important;
+  transition:border-color .6s ease,box-shadow .6s ease!important;
+}
+.v23-client.in-duel .v18-duel-screen .v18-leader-card::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(145deg,rgba(var(--v34f-phase-rgb,150,190,220),.045),transparent 45%);
+  opacity:.8;
+}
+.v23-client.in-duel .v18-duel-screen.cycle-eclipse .v18-leader-card::after {
+  background:radial-gradient(circle at 78% 20%,rgba(255,204,100,.055),transparent 32%),linear-gradient(145deg,rgba(121,83,184,.055),transparent 48%);
+}
+
+/* Persistent cycle status: sequence only, outside the map's center lane. */
+.v23-client.in-duel .v34f-cycle-strip {
+  --phase-rgb:var(--v34f-phase-rgb,150,190,220);
+  position:absolute!important;
+  z-index:47!important;
+  top:var(--header-h)!important;
+  left:var(--leader-col)!important;
+  right:var(--command-col)!important;
+  width:min(410px,calc(100% - var(--leader-col) - var(--command-col) - 20px))!important;
+  height:34px!important;
+  margin-inline:auto!important;
+  transform:translateY(-50%)!important;
+  display:grid!important;
+  grid-template-columns:auto minmax(0,1fr) auto!important;
+  align-items:center!important;
+  gap:7px!important;
+  padding:3px 7px!important;
+  border:1px solid rgba(var(--phase-rgb),.27)!important;
+  border-radius:999px!important;
+  background:linear-gradient(90deg,rgba(var(--phase-rgb),.13),rgba(4,8,14,.91) 28%,rgba(4,8,14,.91) 72%,rgba(var(--phase-rgb),.10))!important;
+  box-shadow:0 6px 18px rgba(0,0,0,.32),inset 0 0 18px rgba(var(--phase-rgb),.04)!important;
+  backdrop-filter:blur(10px) saturate(1.05)!important;
+  pointer-events:none!important;
+}
+.v23-client.in-duel .v34f-cycle-now {
+  display:flex!important;
+  align-items:center!important;
+  gap:5px!important;
+  min-width:58px!important;
+  padding-right:6px!important;
+  border-right:1px solid rgba(var(--phase-rgb),.15)!important;
+}
+.v23-client.in-duel .v34f-cycle-now > strong { color:rgb(var(--phase-rgb))!important;font-size:17px!important;line-height:1!important; }
+.v23-client.in-duel .v34f-cycle-now > span { display:grid!important;gap:0!important;min-width:0!important; }
+.v23-client.in-duel .v34f-cycle-now small { color:rgba(var(--phase-rgb),.72)!important;font-size:5px!important;line-height:1!important;font-weight:950!important;letter-spacing:.13em!important; }
+.v23-client.in-duel .v34f-cycle-now b { color:#eef7fb!important;font-size:8px!important;line-height:1.2!important;white-space:nowrap!important; }
+.v23-client.in-duel .v34f-cycle-order {
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  align-items:center!important;
+  gap:2px!important;
+  min-width:0!important;
+}
+.v23-client.in-duel .v34f-cycle-order > span {
+  position:relative!important;
+  min-width:0!important;
+  height:25px!important;
+  display:grid!important;
+  grid-template-columns:11px auto!important;
+  grid-template-rows:1fr 1fr!important;
+  align-items:center!important;
+  justify-content:center!important;
+  column-gap:2px!important;
+  padding:1px 2px!important;
+  border:1px solid transparent!important;
+  border-radius:8px!important;
+  opacity:.46!important;
+}
+.v23-client.in-duel .v34f-cycle-order > span:not(:last-child)::after {
+  content:"›";position:absolute;right:-4px;top:50%;transform:translateY(-52%);color:#566574;font-size:8px;
+}
+.v23-client.in-duel .v34f-cycle-order > span.active {
+  opacity:1!important;
+  border-color:rgba(var(--phase-rgb),.24)!important;
+  background:rgba(var(--phase-rgb),.105)!important;
+  box-shadow:inset 0 0 12px rgba(var(--phase-rgb),.06)!important;
+}
+.v23-client.in-duel .v34f-cycle-order i { grid-row:1/3;display:grid!important;place-items:center!important;width:10px!important;height:10px!important;border-radius:50%!important;background:rgba(255,255,255,.055)!important;color:#7d8b98!important;font-size:5px!important;font-style:normal!important;font-weight:950!important; }
+.v23-client.in-duel .v34f-cycle-order span.active i { background:rgba(var(--phase-rgb),.18)!important;color:rgb(var(--phase-rgb))!important; }
+.v23-client.in-duel .v34f-cycle-order em { align-self:end!important;color:#a9b9c7!important;font-size:8px!important;line-height:1!important;font-style:normal!important;text-align:center!important; }
+.v23-client.in-duel .v34f-cycle-order small { align-self:start!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;color:#82909d!important;font-size:5px!important;line-height:1!important;text-align:center!important; }
+.v23-client.in-duel .v34f-cycle-order span.active em,
+.v23-client.in-duel .v34f-cycle-order span.active small { color:rgb(var(--phase-rgb))!important; }
+.v23-client.in-duel .v34f-cycle-lock { padding:3px 5px!important;border:1px solid rgba(var(--phase-rgb),.22)!important;border-radius:999px!important;color:rgb(var(--phase-rgb))!important;font-size:5.5px!important;letter-spacing:.08em!important; }
+
+/* The battlefield center is once again only battlefield information. */
+.v23-client.in-duel .v18-center-lane {
+  grid-template-columns:minmax(70px,1fr) minmax(150px,235px) minmax(70px,1fr)!important;
+  gap:8px!important;
+}
+.v23-client.in-duel .v34f-battle-flow-center {
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:7px!important;
+  width:100%!important;
+  min-width:0!important;
+  padding:0!important;
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+.v23-client.in-duel .v34f-battle-flow-center > .v18-field-core {
+  flex:0 0 32px!important;
+  width:32px!important;
+  height:32px!important;
+  opacity:.42!important;
+}
+.v23-client.in-duel .v34f-battle-flow-center > .v22-momentum { width:min(156px,calc(100% - 38px))!important;padding:4px 6px!important; }
+.v23-client.in-duel .v34f-battle-flow-center > .v32e-watch-copy { max-width:150px!important;padding:4px 7px!important; }
+
+/* A phase change is now a short translucent toast, never a central modal. */
+.v23-client.in-duel .v34e-phase-notice {
+  position:fixed!important;
+  left:calc(var(--leader-col,145px) + 12px)!important;
+  right:auto!important;
+  top:calc(var(--header-h,64px) + 14px)!important;
+  z-index:191!important;
+  width:min(270px,calc(100vw - var(--leader-col,145px) - var(--command-col,210px) - 24px))!important;
+  min-width:210px!important;
+  min-height:52px!important;
+  grid-template-columns:34px minmax(0,1fr)!important;
+  gap:8px!important;
+  padding:7px 10px!important;
+  transform:none!important;
+  border-radius:12px!important;
+  background:linear-gradient(100deg,rgba(var(--phase-rgb),.16),rgba(4,8,14,.80) 42%,rgba(4,8,14,.72))!important;
+  backdrop-filter:blur(10px) saturate(1.05)!important;
+  box-shadow:0 8px 25px rgba(0,0,0,.30),inset 0 0 22px rgba(var(--phase-rgb),.04)!important;
+  animation:v34fPhaseToast 1.38s ease both!important;
+}
+.v23-client.in-duel .v34e-phase-notice::before { opacity:.09!important; }
+.v23-client.in-duel .v34e-phase-notice::after { left:50px!important;right:10px!important;bottom:5px!important;opacity:.55!important; }
+.v23-client.in-duel .v34e-phase-notice-orb { width:32px!important;height:32px!important;border-width:1px!important;box-shadow:inset 0 0 12px rgba(var(--phase-rgb),.10)!important; }
+.v23-client.in-duel .v34e-phase-notice-orb::before { inset:5px!important; }
+.v23-client.in-duel .v34e-phase-notice-orb span { font-size:18px!important;filter:drop-shadow(0 0 7px rgba(var(--phase-rgb),.22))!important; }
+.v23-client.in-duel .v34e-phase-notice-copy { gap:1px!important; }
+.v23-client.in-duel .v34e-phase-notice-copy small { font-size:5.5px!important;letter-spacing:.11em!important; }
+.v23-client.in-duel .v34e-phase-notice-copy strong { font-size:17px!important;line-height:1!important;letter-spacing:-.02em!important; }
+.v23-client.in-duel .v34e-phase-notice-copy span { font-size:7px!important;line-height:1.2!important;color:#9eafbc!important; }
+.v23-client.in-duel .v34e-phase-notice-bonus { display:none!important; }
+@keyframes v34fPhaseToast {
+  0% { opacity:0;transform:translateY(-8px) scale(.97);filter:blur(2px); }
+  13% { opacity:1;transform:translateY(0) scale(1);filter:blur(0); }
+  72% { opacity:1;transform:translateY(0) scale(1);filter:blur(0); }
+  100% { opacity:0;transform:translateY(-5px) scale(.99);filter:blur(1px); }
+}
+
+/* Emotes belong to the leader who sent them instead of a global top overlay. */
+.v23-client.in-duel .v34f-leader-emote {
+  position:relative!important;
+  z-index:22!important;
+  align-self:center!important;
+  width:min(126px,100%)!important;
+  min-height:44px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:3px!important;
+  margin:-3px 0 -2px!important;
+  padding:2px 6px 2px 2px!important;
+  border:1px solid rgba(var(--v34f-phase-rgb,150,190,220),.22)!important;
+  border-radius:999px!important;
+  background:rgba(5,9,15,.76)!important;
+  box-shadow:0 6px 18px rgba(0,0,0,.28),inset 0 0 14px rgba(var(--v34f-phase-rgb,150,190,220),.045)!important;
+  backdrop-filter:blur(8px)!important;
+  pointer-events:none!important;
+  animation:v34fLeaderEmote 4.25s both!important;
+}
+.v23-client.in-duel .v34f-leader-emote img { width:42px!important;height:42px!important;object-fit:contain!important;flex:0 0 42px!important;filter:drop-shadow(0 4px 5px rgba(0,0,0,.25))!important; }
+.v23-client.in-duel .v34f-leader-emote small { min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;color:#dce8ef!important;font-size:6.5px!important;font-weight:850!important; }
+@keyframes v34fLeaderEmote {
+  0% { opacity:0;transform:translateY(7px) scale(.82); }
+  9% { opacity:1;transform:translateY(0) scale(1.04); }
+  15%,80% { opacity:1;transform:translateY(0) scale(1); }
+  100% { opacity:0;transform:translateY(-5px) scale(.96); }
+}
+
+/* Card detail language for explicit, per-card temporal strengths/weaknesses. */
+.v23-client .v34f-temporal-chip {
+  border-color:rgba(126,198,255,.24)!important;
+  background:linear-gradient(90deg,rgba(85,145,210,.10),rgba(113,88,181,.08))!important;
+  color:#c8def7!important;
+}
+
+@media (max-width:960px) {
+  .v23-client.in-duel .v34f-cycle-strip { width:min(330px,calc(100% - var(--leader-col) - var(--command-col) - 12px))!important;height:30px!important;padding-inline:5px!important;gap:4px!important; }
+  .v23-client.in-duel .v34f-cycle-now { min-width:45px!important;padding-right:4px!important; }
+  .v23-client.in-duel .v34f-cycle-now > strong { font-size:14px!important; }
+  .v23-client.in-duel .v34f-cycle-now b { font-size:7px!important; }
+  .v23-client.in-duel .v34f-cycle-order > span { grid-template-columns:10px auto!important;height:22px!important; }
+  .v23-client.in-duel .v34f-cycle-order small { display:none!important; }
+  .v23-client.in-duel .v34f-cycle-order em { align-self:center!important;grid-row:1/3!important;font-size:8px!important; }
+  .v23-client.in-duel .v34e-phase-notice { min-width:188px!important;width:min(235px,calc(100vw - var(--leader-col,124px) - var(--command-col,194px) - 16px))!important; }
+}
+@media (max-width:700px) {
+  .v23-client.in-duel .v34e-phase-notice { left:calc(var(--leader-col,90px) + 6px)!important;top:calc(var(--header-h,48px) + 7px)!important;min-width:170px!important;width:min(210px,calc(100vw - var(--leader-col,90px) - var(--command-col,146px) - 12px))!important;min-height:44px!important;padding:5px 7px!important;grid-template-columns:27px minmax(0,1fr)!important;gap:6px!important; }
+  .v23-client.in-duel .v34e-phase-notice-orb { width:26px!important;height:26px!important; }
+  .v23-client.in-duel .v34e-phase-notice-orb span { font-size:14px!important; }
+  .v23-client.in-duel .v34e-phase-notice-copy strong { font-size:14px!important; }
+  .v23-client.in-duel .v34e-phase-notice-copy span { font-size:6px!important; }
+  .v23-client.in-duel .v34f-leader-emote { min-height:34px!important;padding:1px 4px!important; }
+  .v23-client.in-duel .v34f-leader-emote img { width:32px!important;height:32px!important;flex-basis:32px!important; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .v23-client.in-duel .v34e-phase-notice { animation:v34fPhaseToastReduced 1.38s linear both!important; }
+  .v23-client.in-duel .v34f-leader-emote { animation:v34fLeaderEmoteReduced 4.25s linear both!important; }
+}
+@keyframes v34fPhaseToastReduced { 0%,100%{opacity:0} 12%,78%{opacity:1} }
+@keyframes v34fLeaderEmoteReduced { 0%,100%{opacity:0} 8%,82%{opacity:1} }

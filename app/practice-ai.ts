@@ -51,7 +51,15 @@ function cardPower(card: CardDefinition): number {
   const keywordPower = (card.keywords?.length ?? 0) * 1.4;
   const effectPower = (card.effect ? 3 : 0) + (card.onSummon ? 3 : 0) + (card.trapEffect ? 3 : 0) + (card.extraChoices?.length ?? 0) * 1.8;
   const temporalKinds = [card.effect?.kind, card.onSummon?.kind, card.trapEffect?.kind];
+  const authoredTemporal = Object.values(card.eclipsePhaseModifiers ?? {});
+  const authoredTemporalPower = authoredTemporal.reduce((sum, modifier) => {
+    if (!modifier) return sum;
+    const positive = Math.max(0, modifier.attack ?? 0) + Math.max(0, modifier.health ?? 0) * 0.8;
+    const negative = Math.max(0, -(modifier.attack ?? 0)) + Math.max(0, -(modifier.health ?? 0)) * 0.8;
+    return sum + positive * 0.52 - negative * 0.16;
+  }, 0);
   const temporalPower = (card.eclipseAffinity ? 1.6 : 0)
+    + authoredTemporalPower
     + (card.eclipseSummonPhases?.length ? 0.7 : 0)
     + (temporalKinds.some((kind) => kind?.startsWith('phase_') === true) ? 3.4 : 0)
     + (temporalKinds.some((kind) => kind === 'phase_rewind') ? 1.8 : 0);

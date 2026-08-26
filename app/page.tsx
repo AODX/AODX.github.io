@@ -760,7 +760,24 @@ function eclipseSummonGateDescription(card: CardDefinition): string {
 }
 
 function eclipseAffinityRule(card: CardDefinition): string {
-  if (!isUnitCard(card) || !card.eclipseAffinity) return '';
+  if (!isUnitCard(card)) return '';
+  const authored = card.eclipsePhaseModifiers;
+  if (authored) {
+    const entries = ECLIPSE_PHASE_ORDER.flatMap((phase) => {
+      const modifier = authored[phase];
+      if (!modifier) return [];
+      const attack = Math.trunc(modifier.attack ?? 0);
+      const health = Math.trunc(modifier.health ?? 0);
+      const stats = [
+        attack !== 0 ? `ATK ${attack > 0 ? '+' : ''}${attack}` : '',
+        health !== 0 ? `DEF ${health > 0 ? '+' : ''}${health}` : '',
+      ].filter(Boolean).join(' · ') || '능력치 변화 없음';
+      const polarity = attack < 0 || health < 0 ? '디버프' : attack > 0 || health > 0 ? '버프' : '중립';
+      return [`${ECLIPSE_PHASE_LABEL[phase]} [${modifier.label ?? '시간 반응'}] ${stats} (${polarity})`];
+    });
+    return `【시간 반응 · ${card.temporalProfileName ?? '개별 반응'}】 ${entries.join(' / ')}. 표기되지 않은 시간대는 중립.`;
+  }
+  if (!card.eclipseAffinity) return '';
   const base = ECLIPSE_UI_MATCH_BONUS[card.eclipseAffinity];
   const attack = base.attack + (card.rarity === 'legendary' ? 1 : 0);
   const aligned = [`ATK +${attack}`, base.health > 0 ? `DEF +${base.health}` : ''].filter(Boolean).join(' · ');
@@ -782,13 +799,14 @@ function polishedCardText(card: CardDefinition): string {
     .replace(/소환 시/g, '【등장】')
     .replace(/파괴될 때/g, '【파괴 시】')
     .replace(/공격할 때/g, '【공격 시】');
-  const affinity = eclipseAffinityRule(card);
+  const alreadyExplainsTime = /【시간 (?:강화|취약|반응|친화)/.test(text);
+  const affinity = alreadyExplainsTime ? '' : eclipseAffinityRule(card);
   return [text, affinity].filter(Boolean).join(' ');
 }
 
 function RuleText({ text, compact = false }: { text: string; compact?: boolean }) {
   const source = text || '';
-  const tokenPattern = /(【[^】]+】|ENERGY|코어|보호막|공격력|체력|수호|속공|흡수|관통|직격|공명 융합|계승 진화|균열 소환|전설 특수 소환|ECLIPSE CYCLE|TIME GATE|시간 친화|시간대 소환|시간역행|\+\d+|−\d+|-\d+|\d+\/\d+|\d+장|\d+체|\d+의 피해|\d+ 피해|\d+ 회복)/g;
+  const tokenPattern = /(【[^】]+】|ENERGY|코어|보호막|공격력|체력|수호|속공|흡수|관통|직격|공명 융합|계승 진화|균열 소환|전설 특수 소환|ECLIPSE CYCLE|TIME GATE|시간 친화|시간 강화|시간 취약|시간 반응|시간대 소환|시간역행|\+\d+|−\d+|-\d+|\d+\/\d+|\d+장|\d+체|\d+의 피해|\d+ 피해|\d+ 회복)/g;
   return <span className={`v31l-rule-text ${compact ? 'compact' : ''}`}>{source.split(tokenPattern).filter(Boolean).map((part, index) => {
     const keyword = /^(【|수호$|속공$|흡수$|관통$|직격$|공명 융합$|계승 진화$|균열 소환$|전설 특수 소환$)/.test(part);
     const number = /^(\+|−|-)?\d|\d+장$|\d+체$/.test(part);
@@ -1146,7 +1164,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
               <span className="v31l-detail-kicker">{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}{card.series ? ` · ${card.series}` : ''}</span>
               <h2 id="card-detail-title">{card.name}</h2>
               <p>{card.subtitle}</p>
-              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.unitType && <i>TYPE · {UNIT_TYPE_LABEL[card.unitType]}</i>}{card.comboTag && <i>COMBO · {card.comboTag}</i>}{card.eclipseAffinity && <i className="v34-cycle-chip">CYCLE · {ECLIPSE_PHASE_LABEL[card.eclipseAffinity]}</i>}{card.eclipseSummonPhases?.length ? <i className="v34-time-gate-chip">TIME GATE · {card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
+              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.unitType && <i>TYPE · {UNIT_TYPE_LABEL[card.unitType]}</i>}{card.comboTag && <i>COMBO · {card.comboTag}</i>}{card.eclipseAffinity && <i className="v34-cycle-chip">CYCLE · {ECLIPSE_PHASE_LABEL[card.eclipseAffinity]}</i>}{card.temporalProfileName && <i className="v34f-temporal-chip">TIME · {card.temporalProfileName}</i>}{card.eclipseSummonPhases?.length ? <i className="v34-time-gate-chip">TIME GATE · {card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
             </div>
             <strong className="detail-cost"><small>ENERGY</small>{card.cost}</strong>
           </header>
@@ -1172,8 +1190,8 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
 
           {(card.eclipseAffinity || card.eclipseSummonPhases?.length) && (
             <section className="detail-section v34e-time-profile">
-              <span>TIME PROFILE · 시간 친화</span>
-              <p>{card.eclipseAffinity ? <RuleText text={eclipseAffinityRule(card)} /> : '시간 친화 보정 없음'}</p>
+              <span>TIME PROFILE · {card.temporalProfileName ?? '시간 반응'}</span>
+              <p>{(card.eclipsePhaseModifiers || card.eclipseAffinity) ? <RuleText text={eclipseAffinityRule(card)} /> : '시간대 능력치 반응 없음'}</p>
               {card.eclipseSummonPhases?.length ? <small>{eclipseSummonGateDescription(card)}</small> : null}
             </section>
           )}
@@ -4209,7 +4227,7 @@ function useEclipsePhaseNotice(state: MatchState | null | undefined, userId?: st
       : 'spectator';
     const nextNotice: EclipsePhaseNoticeState = { phase: next.phase, source, turn: next.turn, perspective, serial: Date.now() };
     setNotice(nextNotice);
-    const timer = window.setTimeout(() => setNotice((current) => current?.serial === nextNotice.serial ? null : current), 1680);
+    const timer = window.setTimeout(() => setNotice((current) => current?.serial === nextNotice.serial ? null : current), 1380);
     return () => window.clearTimeout(timer);
   }, [state?.eclipsePhase, state?.turnNumber, state?.status, state?.currentPlayerId, userId]);
 
@@ -4247,10 +4265,37 @@ function EclipseCycleHud({ state, compact = false }: { state: MatchState; compac
   </div>;
 }
 
-function BattleEmoteOverlay({ state, profiles, now }: { state: MatchState; profiles: RoomProfile[]; now: number }) {
-  const profileMap = Object.fromEntries(profiles.map((profile) => [profile.user_id, profile]));
-  const recent = (state.battleEmotes ?? []).filter((entry) => now - entry.createdAt < 4300).slice(-4);
-  return <div className="v34-battle-emote-overlay">{recent.map((entry) => { const item = V34_BATTLE_EMOTE_BY_ID[entry.emoteId]; if (!item) return null; const who = profileMap[entry.senderId]; return <div className="v34-battle-emote-bubble" key={entry.id}><img src={item.asset} alt={item.name} /><span><b>{who?.display_name ?? 'PLAYER'}</b><small>{item.name}</small></span></div>; })}</div>;
+/**
+ * v34f: the cycle is a thin status rail, not a battlefield panel.
+ * It intentionally lives at the header/arena seam so units and the center lane
+ * never have to compete with the game's global clock.
+ */
+function EclipseCycleStrip({ state }: { state: MatchState }) {
+  const current = clientCurrentEclipsePhase(state);
+  const meta = ECLIPSE_UI_META[current];
+  const locked = (state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber;
+  return (
+    <div className={`v34f-cycle-strip cycle-${current}`} aria-label={`현재 시간 ${ECLIPSE_PHASE_LABEL[current]} · ${meta.bonus}`}>
+      <div className="v34f-cycle-now"><strong aria-hidden="true">{meta.glyph}</strong><span><small>NOW</small><b>{ECLIPSE_PHASE_LABEL[current]}</b></span></div>
+      <div className="v34f-cycle-order" aria-label="시간 순서">
+        {ECLIPSE_PHASE_ORDER.map((phase, index) => (
+          <span key={phase} className={phase === current ? 'active' : ''} title={`${index + 1}. ${ECLIPSE_PHASE_LABEL[phase]}`}>
+            <i>{index + 1}</i><em aria-hidden="true">{ECLIPSE_UI_META[phase].glyph}</em><small>{ECLIPSE_PHASE_LABEL[phase]}</small>
+          </span>
+        ))}
+      </div>
+      {locked && <b className="v34f-cycle-lock">LOCK</b>}
+    </div>
+  );
+}
+
+/** One player's newest emote is anchored to that player's leader/name plate. */
+function BattleLeaderEmote({ state, ownerId, now }: { state: MatchState; ownerId: string; now: number }) {
+  const entry = [...(state.battleEmotes ?? [])].reverse().find((candidate) => candidate.senderId === ownerId && now - candidate.createdAt < 4300);
+  if (!entry) return null;
+  const item = V34_BATTLE_EMOTE_BY_ID[entry.emoteId];
+  if (!item) return null;
+  return <span key={entry.id} className="v34f-leader-emote" role="status" aria-label={`감정표현 ${item.name}`}><img src={item.asset} alt="" /><small>{item.name}</small></span>;
 }
 
 type DuelBoardLocalAction = (gameAction: string, extra?: Record<string, unknown>) => Promise<RoomPayload>;
@@ -5107,7 +5152,6 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     <div className={`v18-duel-screen ${myTurn ? 'is-my-turn' : 'is-opponent-turn'} phase-${state.phase} cycle-${clientCurrentEclipsePhase(state)} fx-${activeVfx?.kind ?? 'idle'}`}>
       <DuelEffectLayer event={activeVfx} userId={userId} profiles={payload.profiles} drawCard={activeVfx?.kind === 'draw' && activeVfx.ownerId === userId ? CARD_BY_ID[drawRevealQueue[0] ?? ''] : undefined} />
       <DuelDamagePopupLayer events={damagePopups} userId={userId} />
-      <BattleEmoteOverlay state={state} profiles={payload.profiles} now={turnClock} />
       <CoinTossOverlay state={state} profiles={payload.profiles} userId={userId} now={coinClock} />
       <EclipsePhaseShiftNotice notice={eclipsePhaseNotice} />
       {turnNotice && eclipsePhaseNotice?.source !== 'turn' && !coinTossActive && state.status === 'active' && (
@@ -5146,6 +5190,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
           <button type="button" className="danger" disabled={busy || state.status !== 'active'} onClick={() => setSurrenderOpen(true)}>항복</button>
         </div>
       </header>
+      <EclipseCycleStrip state={state} />
       {emoteOpen && <div className="v34-emote-picker">
         <header><span>BATTLE EMOTE</span><b>구매한 감정표현</b></header>
         {(payload.battleEmotes ?? []).length > 0 ? <div>{(payload.battleEmotes ?? []).map((emoteId) => { const item = V34_BATTLE_EMOTE_BY_ID[emoteId]; return item ? <button type="button" key={emoteId} disabled={emoteBusy} onClick={() => sendEmote(emoteId)} title={item.name}><img src={item.asset} alt={item.name} /><small>{item.name}</small></button> : null; })}</div> : <p>보유한 감정표현이 없습니다. 상점 → 감정표현에서 구매할 수 있습니다.</p>}
@@ -5159,6 +5204,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
           disabled={!selectedAttackerCanHitCore || busy}
           onClick={() => selectedAttacker !== null && gameAction('attack', { attackerIndex: selectedAttacker, target: { kind: 'core' } })}
         >
+          <BattleLeaderEmote state={state} ownerId={opponentId} now={turnClock} />
           <div className="v18-leader-identity"><Avatar id={opponent?.avatar} /><i className={`v26-duel-emblem emblem-${opponent?.profile_emblem ?? 'emblem_default'}`} aria-hidden="true">{emblemGlyph(opponent?.profile_emblem)}</i><span><small>OPPONENT</small><b><NicknameText name={opponent?.display_name ?? '상대'} styleId={opponent?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[opponentId]}</strong><em>{selectedAttackerCanHitCore ? 'DIRECT ATTACK' : 'ENEMY LEADER'}</em></div>
           <DuelEnergyMeter label="ENERGY" current={opponentEnergy.current} max={opponentEnergy.max} cap={opponentEnergyHardCap} opponent compact />
@@ -5168,6 +5214,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
         <div className="v18-leader-divider"><span>VS</span></div>
 
         <section className="v18-leader-card mine" data-duel-leader-owner={userId}>
+          <BattleLeaderEmote state={state} ownerId={userId} now={turnClock} />
           <div className="v18-leader-identity"><Avatar id={me?.avatar} /><i className={`v26-duel-emblem emblem-${me?.profile_emblem ?? 'emblem_default'}`} aria-hidden="true">{emblemGlyph(me?.profile_emblem)}</i><span><small>YOU</small><b><NicknameText name={me?.display_name ?? '나'} styleId={me?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[userId]}</strong><em>{myTurn ? phaseLabel : 'WAITING'}</em></div>
           <DuelEnergyMeter label="ENERGY" current={myEnergy.current} max={myEnergy.max} cap={myEnergyHardCap} nextMax={!myTurn ? nextMyEnergyMax : undefined} compact />
@@ -5199,9 +5246,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
 
           <div className="v18-center-lane">
             <div className="v18-pile-stat"><small>OPPONENT</small><span>DECK <b>{state.deckCounts[opponentId]}</b></span><span>GRAVE <b>{state.graveyards[opponentId]?.length ?? 0}</b></span></div>
-            <div className="v29-center-status v34-cycle-center-status">
+            <div className="v29-center-status v34f-battle-flow-center">
               <div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div>
-              <EclipseCycleHud state={state} />
               <div className={`v22-momentum ${momentumLabel === '유리' ? 'ahead' : momentumLabel === '불리' ? 'behind' : 'even'}`}>
                 <span><small>BATTLE FLOW</small><b>{momentumLabel}</b></span>
                 <i><b style={{ left: `${momentumPercent}%` }} /></i>
@@ -5517,6 +5563,7 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
   const [activeVfx, setActiveVfx] = useState<VisualEvent | null>(null);
   const [vfxQueue, setVfxQueue] = useState<VisualEvent[]>([]);
   const [damagePopups, setDamagePopups] = useState<VisualEvent[]>([]);
+  const [spectatorEmoteClock, setSpectatorEmoteClock] = useState(() => Date.now());
   // Spectators join with an existing event history. Pre-mark only stale events so a spell
   // cast that happened just before the room refresh is never discarded by the first sync.
   const seenVfx = useRef<Set<string>>(new Set(state?.visualEvents.filter((event) => Date.now() - event.createdAt > 3200).map((event) => event.id) ?? []));
@@ -5525,6 +5572,11 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
 
   const visualEvents = state?.visualEvents ?? [];
   const visualSignature = visualEvents.map((event) => event.id).join('|');
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setSpectatorEmoteClock(Date.now()), 500);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const unseen = visualEvents.filter((event) => !seenVfx.current.has(event.id) && event.kind !== 'defense');
@@ -5626,9 +5678,11 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
         <div className={`v22-sync-chip ${displayedSyncState}`}><i /><span>{displayedSyncState === 'live' ? 'LIVE' : displayedSyncState === 'syncing' ? 'SYNCING' : 'RECONNECTING'}</span><small>관전 동기화</small></div>
         <div className="v18-header-actions"><button type="button" onClick={onLeave}>관전 나가기</button></div>
       </header>
+      <EclipseCycleStrip state={state} />
 
       <aside className="v18-leader-rail">
-        <section className="v18-leader-card opponent">
+        <section className="v18-leader-card opponent" data-duel-leader-owner={playerBId}>
+          <BattleLeaderEmote state={state} ownerId={playerBId} now={spectatorEmoteClock} />
           <div className="v18-leader-identity"><Avatar id={playerB?.avatar} /><span><small>PLAYER B</small><b><NicknameText name={playerB?.display_name ?? 'PLAYER B'} styleId={playerB?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[playerBId] ?? 0}</strong><em>{state.currentPlayerId === playerBId ? 'TURN' : 'WAIT'}</em></div>
           <DuelEnergyMeter label="ENERGY" current={state.energy[playerBId]?.current ?? 0} max={state.energy[playerBId]?.max ?? 0} cap={10 + Math.max(0, state.energyMaxBonus?.[playerBId] ?? 0)} opponent compact />
@@ -5636,6 +5690,7 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
         </section>
         <div className="v18-leader-divider"><span>VS</span></div>
         <section className="v18-leader-card mine" data-duel-leader-owner={playerAId}>
+          <BattleLeaderEmote state={state} ownerId={playerAId} now={spectatorEmoteClock} />
           <div className="v18-leader-identity"><Avatar id={playerA?.avatar} /><span><small>PLAYER A</small><b><NicknameText name={playerA?.display_name ?? 'PLAYER A'} styleId={playerA?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[playerAId] ?? 0}</strong><em>{state.currentPlayerId === playerAId ? 'TURN' : 'WAIT'}</em></div>
           <DuelEnergyMeter label="ENERGY" current={state.energy[playerAId]?.current ?? 0} max={state.energy[playerAId]?.max ?? 0} cap={10 + Math.max(0, state.energyMaxBonus?.[playerAId] ?? 0)} compact />
@@ -5652,7 +5707,7 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
         <section className="v18-board">
           <div className="v18-zone-row v18-enemy-secrets">{state.boards[playerBId].secrets.map((secret, index) => <div className={`v18-secret-slot enemy ${secret ? 'is-set' : ''}`} key={index}>{secret ? <><span className={`v18-secret-back sleeve-${playerB?.card_sleeve ?? 'sleeve_default'}`}>{sleeveGlyph(playerB?.card_sleeve)}</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}</div>)}</div>
           <div className="v18-zone-row v18-enemy-units">{state.boards[playerBId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerBId} index={index} enemy />)}</div>
-          <div className="v18-center-lane"><div className="v18-pile-stat"><small>PLAYER B</small><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div><div className="v29-center-status v34-cycle-center-status"><div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div><EclipseCycleHud state={state} compact /><div className="v32e-watch-copy"><small>ROOM SPECTATE</small><b>관전자 전용 · 양쪽 손패 공개</b></div></div><div className="v18-pile-stat mine"><small>PLAYER A</small><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span></div></div>
+          <div className="v18-center-lane"><div className="v18-pile-stat"><small>PLAYER B</small><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div><div className="v29-center-status v34f-battle-flow-center"><div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div><div className="v32e-watch-copy"><small>ROOM SPECTATE</small><b>양쪽 손패 공개</b></div></div><div className="v18-pile-stat mine"><small>PLAYER A</small><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span></div></div>
           <div className="v18-zone-row v18-my-units">{state.boards[playerAId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerAId} index={index} />)}</div>
           <div className="v18-zone-row v18-my-secrets">{state.boards[playerAId].secrets.map((secret, index) => <div className={`v18-secret-slot mine ${secret ? 'is-set' : ''}`} key={index}>{secret ? <><span className={`v18-secret-back sleeve-${playerA?.card_sleeve ?? 'sleeve_default'}`}>{sleeveGlyph(playerA?.card_sleeve)}</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}</div>)}</div>
         </section>

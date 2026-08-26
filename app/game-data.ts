@@ -10,6 +10,12 @@ export type Keyword = 'guard' | 'charge' | 'lifesteal' | 'pierce' | 'corestrike'
 export type SummonMode = 'normal' | 'rift' | 'legendary' | 'fusion' | 'evolution';
 export type UnitType = 'vanguard' | 'artificer' | 'spirit' | 'hunter' | 'relic' | 'oracle';
 export type EclipsePhase = 'dawn' | 'zenith' | 'dusk' | 'midnight' | 'eclipse';
+export interface EclipsePhaseModifier {
+  attack?: number;
+  health?: number;
+  /** Short player-facing reason for this card's reaction to the selected battlefield time. */
+  label?: string;
+}
 export type VfxMoment = 'summon' | 'attack' | 'defense' | 'activation' | 'destroy';
 export type SeriesId = 'luminaknights' | 'kaisergear' | 'eclipsion' | 'nocturne' | 'arborian' | 'tempest_drive' | 'abyss_reaper' | 'primal_guardian' | 'chronorium' | 'arcana_protocol' | 'beastforge' | 'phantom_carnival' | 'astral_armada';
 
@@ -239,8 +245,12 @@ export interface CardDefinition {
   unitType?: UnitType;
   /** Optional small combo family that does not participate in series-pack logic. */
   comboTag?: string;
-  /** v34 global battlefield clock affinity. Matching the current ECLIPSE CYCLE phase empowers phase effects and the printed body. */
+  /** v34 global battlefield clock identity. Used by phase effects and as the card's thematic cycle marker. */
   eclipseAffinity?: EclipsePhase;
+  /** Explicit body changes by battlefield time. Unlisted phases are neutral. Positive values are buffs; negative values are debuffs. */
+  eclipsePhaseModifiers?: Partial<Record<EclipsePhase, EclipsePhaseModifier>>;
+  /** Short label shown in card details for this unit's temporal behavior. */
+  temporalProfileName?: string;
   /** Optional temporal summon gate. If present, the unit/extra can only be summoned while the battlefield is in one of these phases. */
   eclipseSummonPhases?: EclipsePhase[];
   summonMode?: SummonMode;
