@@ -2,6 +2,9 @@ import {
   CARD_BY_ID,
   CardDefinition,
   Effect,
+  EclipsePhase,
+  ECLIPSE_PHASE_LABEL,
+  ECLIPSE_PHASE_ORDER,
   FusionMaterial,
   SeriesId,
   TrapTrigger,
@@ -148,6 +151,12 @@ export interface MatchState {
   nextTurnEnergyBonus?: Record<string, number>;
   /** Permanent per-match ENERGY maximum bonus. Each point also raises that player's hard cap above the base cap of 10. */
   energyMaxBonus?: Record<string, number>;
+  /** v34 global battlefield clock. Advances automatically after every turn unless temporarily locked. */
+  eclipsePhase?: EclipsePhase;
+  /** Automatic cycle advance is skipped while current turn number is at or below this value. */
+  eclipsePhaseLockUntilTurn?: number;
+  /** Recent purchased battle emotes; retained only briefly in UI but kept in snapshot for realtime sync. */
+  battleEmotes?: Array<{ id: string; senderId: string; emoteId: string; createdAt: number }>;
   /** Per-match hard cap: max 2 fusion summons and max 2 evolution summons per player. */
   extraSummonUsage?: Record<string, { fusion: number; evolution: number }>;
   /** Turn number when each extra summon type was last used, enforcing max once per turn per type. */
@@ -355,6 +364,9 @@ export function initializeMatch(
     energyDrawTurn: {},
     nextTurnEnergyBonus: {},
     energyMaxBonus: { [playerA]: 0, [playerB]: 0 },
+    eclipsePhase: 'dawn',
+    eclipsePhaseLockUntilTurn: 0,
+    battleEmotes: [],
     extraSummonUsage: { [playerA]: { fusion: 0, evolution: 0 }, [playerB]: { fusion: 0, evolution: 0 } },
     extraSummonTurn: { [playerA]: {}, [playerB]: {} },
     playerOrder: [first, second],
@@ -516,6 +528,30 @@ function healCore(state: MatchState, playerId: string, amount: number): number {
   const after = Math.min(CORE_MAX, before + Math.max(0, amount));
   state.core[playerId] = after;
   return Math.max(0, after - before);
+}
+
+export function currentEclipsePhase(state: MatchState): EclipsePhase {
+  return state.eclipsePhase ?? 'dawn';
+}
+
+function setEclipsePhase(state: MatchState, phase: EclipsePhase, actorId?: string, reason = '위상 조율'): void {
+  const before = currentEclipsePhase(state);
+  state.eclipsePhase = phase;
+  appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[before]} → ${ECLIPSE_PHASE_LABEL[phase]} · ${reason}`, 'special');
+  appendVisual(state, { kind: 'special', vfx: `eclipse-cycle-${phase}`, ownerId: actorId, label: `CYCLE · ${ECLIPSE_PHASE_LABEL[phase]}` });
+}
+
+function shiftEclipsePhase(state: MatchState, steps: number, actorId?: string, reason = '위상 이동'): void {
+  const order = ECLIPSE_PHASE_ORDER;
+  const before = currentEclipsePhase(state);
+  const index = order.indexOf(before);
+  const next = order[((index + steps) % order.length + order.length) % order.length];
+  setEclipsePhase(state, next, actorId, reason);
+}
+
+function phaseAmount(state: MatchState, phase: EclipsePhase, base: number, bonus: number): { amount: number; aligned: boolean } {
+  const aligned = currentEclipsePhase(state) === phase;
+  return { amount: Math.max(0, base + (aligned ? bonus : 0)), aligned };
 }
 
 function applyEffect(
@@ -1072,6 +1108,113 @@ function applyEffect(
       unit.shield = 0;
       appendLog(state, `「${printed.name}」의 능력치를 카드 원래 수치로 초기화하고 보호막을 제거했습니다.`, 'special');
       appendVisual(state, { kind: 'special', vfx: 'v33a-unit-reset', cardId: printed.id, ownerId: actorId, targetOwnerId: target.ownerId, targetZone: unitIndex, label: '원형 복귀' });
+      break;
+    }
+    case 'phase_shift': {
+      shiftEclipsePhase(state, effect.steps, actorId, effect.steps >= 0 ? '궤도 가속' : '천체 역행');
+      break;
+    }
+    case 'phase_set': {
+      setEclipsePhase(state, effect.phase, actorId, '관측자의 선택');
+      break;
+    }
+    case 'phase_lock': {
+      const turns = Math.max(1, effect.turns);
+      state.eclipsePhaseLockUntilTurn = Math.max(state.eclipsePhaseLockUntilTurn ?? 0, state.turnNumber + turns);
+      appendLog(state, `ECLIPSE CYCLE 자동 이동을 ${turns}턴 동안 고정했습니다.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: 'eclipse-cycle-lock', ownerId: actorId, label: `CYCLE LOCK · ${turns}` });
+      break;
+    }
+    case 'phase_draw': {
+      const { amount, aligned } = phaseAmount(state, effect.phase, effect.base, effect.bonus);
+      if (amount > 0) drawCards(state, actorPrivate, actorId, amount);
+      appendLog(state, `${ECLIPSE_PHASE_LABEL[effect.phase]} ${aligned ? '공명 성공' : '비공명'} · 카드 ${amount}장 드로우.`, 'special');
+      appendVisual(state, { kind: 'draw', vfx: aligned ? `eclipse-aligned-${effect.phase}` : 'eclipse-offphase', ownerId: actorId, amount, label: aligned ? '위상 공명 드로우' : '위상 드로우' });
+      break;
+    }
+    case 'phase_damage_core': {
+      const { amount, aligned } = phaseAmount(state, effect.phase, effect.base, effect.bonus);
+      const actual = damageCore(state, opponentId, amount);
+      statsFor(state, actorId).coreDamage += actual;
+      appendLog(state, `${ECLIPSE_PHASE_LABEL[effect.phase]} ${aligned ? '공명' : '비공명'} 포격 · 상대 코어 ${actual} 피해.`, 'attack');
+      appendVisual(state, { kind: 'core', vfx: aligned ? `eclipse-aligned-${effect.phase}` : 'eclipse-offphase', ownerId: actorId, targetOwnerId: opponentId, amount: actual, label: '위상 포격' });
+      break;
+    }
+    case 'phase_gain_energy': {
+      const { amount, aligned } = phaseAmount(state, effect.phase, effect.base, effect.bonus);
+      const energy = state.energy[actorId] ?? { current: 0, max: 0 };
+      const before = energy.current;
+      energy.current = Math.min(energyHardCap(state, actorId), energy.current + amount);
+      state.energy[actorId] = energy;
+      const gained = energy.current - before;
+      appendLog(state, `${ECLIPSE_PHASE_LABEL[effect.phase]} ${aligned ? '공명' : '비공명'} · ENERGY +${gained}.`, 'special');
+      appendVisual(state, { kind: 'energy', vfx: aligned ? `eclipse-aligned-${effect.phase}` : 'eclipse-offphase', ownerId: actorId, amount: gained, label: '위상 ENERGY' });
+      break;
+    }
+    case 'phase_heal_core': {
+      const { amount, aligned } = phaseAmount(state, effect.phase, effect.base, effect.bonus);
+      const healed = healCore(state, actorId, amount);
+      statsFor(state, actorId).healing += healed;
+      appendLog(state, `${ECLIPSE_PHASE_LABEL[effect.phase]} ${aligned ? '공명' : '비공명'} · 코어 ${healed} 회복.`, 'special');
+      appendVisual(state, { kind: 'heal', vfx: aligned ? `eclipse-aligned-${effect.phase}` : 'eclipse-offphase', ownerId: actorId, targetOwnerId: actorId, amount: healed, label: '위상 회복' });
+      break;
+    }
+    case 'phase_mass_buff': {
+      const aligned = currentEclipsePhase(state) === effect.phase;
+      const attack = Math.max(0, effect.attack + (aligned ? effect.bonusAttack : 0));
+      const health = Math.max(0, effect.health + (aligned ? effect.bonusHealth : 0));
+      let affected = 0;
+      for (const [index, unit] of state.boards[actorId].units.entries()) {
+        if (!unit) continue;
+        unit.attack += attack; unit.health += health; unit.maxHealth += health; affected += 1;
+        appendVisual(state, { kind: 'buff', vfx: aligned ? `eclipse-aligned-${effect.phase}` : 'eclipse-offphase', cardId: unit.cardId, ownerId: actorId, targetOwnerId: actorId, targetZone: index, amount: attack + health, label: '위상 전군 강화' });
+      }
+      appendLog(state, `${ECLIPSE_PHASE_LABEL[effect.phase]} ${aligned ? '공명' : '비공명'} · 아군 ${affected}체 +${attack}/+${health}.`, 'special');
+      break;
+    }
+    case 'phase_mass_shield': {
+      const { amount, aligned } = phaseAmount(state, effect.phase, effect.base, effect.bonus);
+      let affected = 0;
+      for (const [index, unit] of state.boards[actorId].units.entries()) {
+        if (!unit) continue;
+        unit.shield += amount; affected += 1;
+        appendVisual(state, { kind: 'buff', vfx: aligned ? `eclipse-aligned-${effect.phase}` : 'eclipse-offphase', cardId: unit.cardId, ownerId: actorId, targetOwnerId: actorId, targetZone: index, amount, label: '위상 방벽' });
+      }
+      appendLog(state, `${ECLIPSE_PHASE_LABEL[effect.phase]} ${aligned ? '공명' : '비공명'} · 아군 ${affected}체 보호막 +${amount}.`, 'special');
+      break;
+    }
+    case 'phase_aoe_enemy': {
+      const { amount, aligned } = phaseAmount(state, effect.phase, effect.base, effect.bonus);
+      let total = 0;
+      state.boards[opponentId].units.forEach((unit, index) => {
+        if (!unit) return;
+        const report = damageUnit(state, opponentId, index, amount); total += report.absorbed + report.healthDamage;
+        appendVisual(state, { kind: 'defense', vfx: aligned ? `eclipse-aligned-${effect.phase}` : 'eclipse-offphase', ownerId: actorId, targetOwnerId: opponentId, targetZone: index, amount: report.absorbed + report.healthDamage, label: '위상 파동' });
+      });
+      appendLog(state, `${ECLIPSE_PHASE_LABEL[effect.phase]} ${aligned ? '공명' : '비공명'} · 적 전열에 총 ${total} 피해.`, 'attack');
+      break;
+    }
+    case 'phase_recover_grave': {
+      const { amount, aligned } = phaseAmount(state, effect.phase, effect.base, effect.bonus);
+      const grave = state.graveyards[actorId] ?? [];
+      const candidates = grave.map((cardId, index) => ({ cardId, index, card: CARD_BY_ID[cardId] })).filter((entry) => entry.card && ['unit','spell','trap'].includes(entry.card.kind));
+      const selected = shuffle(candidates).slice(0, amount).sort((a, b) => b.index - a.index);
+      for (const entry of selected) { grave.splice(entry.index, 1); actorPrivate.hand.push({ instanceId: randomId('ci'), cardId: entry.cardId }); }
+      state.handCounts[actorId] = actorPrivate.hand.length;
+      appendLog(state, `${ECLIPSE_PHASE_LABEL[effect.phase]} ${aligned ? '공명' : '비공명'} · 묘지에서 ${selected.length}장 회수.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: aligned ? `eclipse-aligned-${effect.phase}` : 'eclipse-offphase', ownerId: actorId, amount: selected.length, label: '위상 회수' });
+      break;
+    }
+    case 'phase_summon_token': {
+      const slot = firstOpenUnit(state.boards[actorId]);
+      if (slot < 0) { appendLog(state, '빈 필드가 없어 위상 잔영을 소환하지 못했습니다.', 'system'); break; }
+      const aligned = currentEclipsePhase(state) === effect.phase;
+      const attack = Math.max(0, effect.attack + (aligned ? effect.bonusAttack : 0));
+      const health = Math.max(1, effect.health + (aligned ? effect.bonusHealth : 0));
+      const tokenId = randomId('token');
+      state.boards[actorId].units[slot] = { instanceId: tokenId, cardId: `token:${effect.name}`, ownerId: actorId, attack, health, maxHealth: health, shield: 0, canAttack: false, summonedTurn: state.turnNumber, summonedBy: 'token', originCardIds: [] };
+      appendLog(state, `${effect.name} ${attack}/${health} 소환${aligned ? ' · 위상 공명 강화' : ''}.`, 'special');
+      appendVisual(state, { kind: 'summon', vfx: aligned ? `eclipse-aligned-${effect.phase}` : 'eclipse-offphase', ownerId: actorId, targetOwnerId: actorId, targetZone: slot, label: effect.name });
       break;
     }
     case 'steal_unit': {
@@ -3631,6 +3774,11 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
   state.currentPlayerId = nextPlayer;
   state.turnNumber += 1;
   state.phase = 'main';
+  if ((state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber) {
+    appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[currentEclipsePhase(state)]} 고정 유지.`, 'special');
+  } else {
+    shiftEclipsePhase(state, 1, undefined, '턴 종료 자동 진행');
+  }
   state.turnActionTaken = false;
   state.turnEndsAt = now + TURN_DURATION_MS;
   const nextEnergy = state.energy[nextPlayer] ?? { current: 0, max: 0 };
@@ -3665,6 +3813,21 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
   if (drew && state.status === 'active') appendLog(state, `${nextPlayer.slice(0, 6)}의 턴 시작 · 카드 1장 드로우 · 에너지 ${nextEnergy.current}/${nextEnergy.max}.`, 'system');
   if (state.status !== 'active') state.turnEndsAt = null;
   checkWinner(state);
+}
+
+export function sendBattleEmote(snapshot: GameSnapshot, playerId: string, emoteId: string): ActionResult {
+  const state = clone(snapshot.state);
+  const privateStates = clone(snapshot.privateStates);
+  if (state.status !== 'active') throw new Error('진행 중인 결투에서만 감정표현을 사용할 수 있습니다.');
+  if (!(state.playerOrder as string[]).includes(playerId)) throw new Error('선수만 감정표현을 사용할 수 있습니다.');
+  const now = Date.now();
+  const recent = (state.battleEmotes ?? []).filter((entry) => now - entry.createdAt < 12_000);
+  const lastMine = [...recent].reverse().find((entry) => entry.senderId === playerId);
+  if (lastMine && now - lastMine.createdAt < 2200) throw new Error('감정표현은 2.2초에 한 번 사용할 수 있습니다.');
+  recent.push({ id: randomId('emote'), senderId: playerId, emoteId, createdAt: now });
+  state.battleEmotes = recent.slice(-8);
+  appendVisual(state, { kind: 'special', vfx: 'battle-emote-pop', ownerId: playerId, label: 'EMOTE' });
+  return { state, privateStates, message: '감정표현을 보냈습니다.' };
 }
 
 export function spendEnergyToDraw(snapshot: GameSnapshot, playerId: string): ActionResult {

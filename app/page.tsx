@@ -14,6 +14,9 @@ import {
   DECK_SIZE,
   EXTRA_DECK_SIZE,
   ELEMENT_LABEL,
+  ECLIPSE_PHASE_LABEL,
+  ECLIPSE_PHASE_ORDER,
+  type EclipsePhase,
   type Element,
   KIND_LABEL,
   UNIT_TYPE_LABEL,
@@ -35,6 +38,7 @@ import {
   validateExtraDeck,
 } from './game-data';
 import type { MatchState, PrivateState, UnitState, VisualEvent } from './game-engine';
+import { V34_BATTLE_EMOTES, V34_BATTLE_EMOTE_BY_ID, V34_BATTLE_EMOTE_PACKS, V34_EMOTE_SLOT_LIMIT } from './v34-emotes';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const supabaseKey =
@@ -79,6 +83,8 @@ type HubData = {
   friends: FriendProfile[];
   requestProfiles: Array<Pick<Profile, 'user_id' | 'display_name' | 'player_code' | 'avatar' | 'nickname_style' | 'profile_theme' | 'profile_frame'>>;
   profileCosmetics?: string[];
+  battleEmotes?: string[];
+  emoteLoadout?: string[];
 };
 
 type RoomRow = {
@@ -103,7 +109,7 @@ type RoomRow = {
 
 type RoomProfile = Pick<Profile, 'user_id' | 'display_name' | 'avatar' | 'wins' | 'losses' | 'xp' | 'profile_emblem' | 'card_sleeve' | 'nickname_style'>;
 type RoomMemberView = { user_id: string; role: 'player_a' | 'player_b' | 'spectator'; is_owner: boolean };
-type RoomPayload = { room: RoomRow; profiles: RoomProfile[]; privateState: PrivateState | null; members?: RoomMemberView[]; spectatorHands?: Record<string, PrivateState['hand']>; };
+type RoomPayload = { room: RoomRow; profiles: RoomProfile[]; privateState: PrivateState | null; members?: RoomMemberView[]; spectatorHands?: Record<string, PrivateState['hand']>; battleEmotes?: string[]; };
 type ChatMessage = { id: number; user_id: string; display_name: string; nickname_style?: string; body: string; created_at: string };
 type ChatSkinProfile = Pick<Profile, 'user_id' | 'profile_theme' | 'profile_frame'>;
 type AdminAccountSummary = { userId: string; email: string; displayName: string; playerCode: string };
@@ -126,6 +132,7 @@ type ApiResult = {
   privateState?: PrivateState | null;
   members?: RoomMemberView[];
   spectatorHands?: Record<string, PrivateState['hand']>;
+  battleEmotes?: string[];
   joinedAsSpectator?: boolean;
   cardIds?: string[];
   balance?: number;
@@ -696,6 +703,18 @@ function effectDescription(effect: CardDefinition['effect'] | CardDefinition['on
   if (effect.kind === 'type_rally') return `내 필드의 ${UNIT_TYPE_LABEL[effect.unitType]} 타입 캐릭터 전부 공격력 +${effect.attack}, 체력 +${effect.health}`;
   if (effect.kind === 'type_recruit') return `내 덱에서 ENERGY ${effect.maxCost} 이하 ${UNIT_TYPE_LABEL[effect.unitType]} 타입 캐릭터 1장을 무작위로 필드에 전개합니다`;
   if (effect.kind === 'reset_unit') return '선택한 캐릭터의 공격력과 체력을 카드에 적힌 원래 수치로 되돌리고 보호막을 제거합니다';
+  if (effect.kind === 'phase_shift') return `ECLIPSE CYCLE 위상을 ${effect.steps >= 0 ? '앞으로' : '뒤로'} ${Math.abs(effect.steps)}칸 이동합니다`;
+  if (effect.kind === 'phase_set') return `ECLIPSE CYCLE을 즉시 ${ECLIPSE_PHASE_LABEL[effect.phase]} 위상으로 변경합니다`;
+  if (effect.kind === 'phase_lock') return `ECLIPSE CYCLE의 턴 종료 자동 이동을 ${effect.turns}턴 동안 고정합니다`;
+  if (effect.kind === 'phase_draw') return `${ECLIPSE_PHASE_LABEL[effect.phase]} 위상이면 카드 ${effect.base + effect.bonus}장, 아니면 ${effect.base}장 드로우합니다`;
+  if (effect.kind === 'phase_damage_core') return `${ECLIPSE_PHASE_LABEL[effect.phase]} 위상이면 상대 코어에 ${effect.base + effect.bonus}, 아니면 ${effect.base} 피해를 줍니다`;
+  if (effect.kind === 'phase_gain_energy') return `${ECLIPSE_PHASE_LABEL[effect.phase]} 위상이면 ENERGY ${effect.base + effect.bonus}, 아니면 ${effect.base} 회복합니다`;
+  if (effect.kind === 'phase_heal_core') return `${ECLIPSE_PHASE_LABEL[effect.phase]} 위상이면 코어를 ${effect.base + effect.bonus}, 아니면 ${effect.base} 회복합니다`;
+  if (effect.kind === 'phase_mass_buff') return `아군 전체 +${effect.attack}/+${effect.health}. ${ECLIPSE_PHASE_LABEL[effect.phase]} 위상이면 추가 +${effect.bonusAttack}/+${effect.bonusHealth}`;
+  if (effect.kind === 'phase_mass_shield') return `아군 전체 보호막 ${effect.base}. ${ECLIPSE_PHASE_LABEL[effect.phase]} 위상이면 추가 +${effect.bonus}`;
+  if (effect.kind === 'phase_aoe_enemy') return `상대 캐릭터 전체에 ${effect.base} 피해. ${ECLIPSE_PHASE_LABEL[effect.phase]} 위상이면 추가 +${effect.bonus}`;
+  if (effect.kind === 'phase_recover_grave') return `묘지에서 ${effect.base}장 회수. ${ECLIPSE_PHASE_LABEL[effect.phase]} 위상이면 추가 ${effect.bonus}장 회수`;
+  if (effect.kind === 'phase_summon_token') return `${effect.name} ${effect.attack}/${effect.health} 소환. ${ECLIPSE_PHASE_LABEL[effect.phase]} 위상이면 +${effect.bonusAttack}/+${effect.bonusHealth}`;
   if (effect.kind === 'negate') return '대응한 효과의 발동을 무효로 합니다';
   if (effect.kind === 'negate_and_damage') return trigger === 'direct_attack'
     ? `직접 공격을 무효로 하고, 공격한 캐릭터에게 ${effect.amount}의 피해를 줍니다`
@@ -742,10 +761,10 @@ function cardRoleSummary(card: CardDefinition): string {
   if (card.kind === 'evolution') return '엑스트라 · 계승 결전';
   if (card.kind === 'trap') return card.trapEffect?.kind === 'negate' || card.trapEffect?.kind === 'negate_and_damage' ? '반응 · 카운터' : '반응 · 전장 제어';
   if (card.kind === 'spell' && card.effect) {
-    if (['draw', 'recover_grave_unit', 'recover_any_grave', 'reweave_hand', 'draw_if_outnumbered', 'increase_energy_max', 'tutor_card', 'tutor_series_card', 'mill_draw', 'banish_own_grave_energy', 'discard_draw', 'steal_energy', 'heal_draw_if_behind', 'recycle_grave_draw', 'banish_enemy_grave'].includes(card.effect.kind)) return '주문 · 자원 순환';
-    if (['damage_unit', 'damage_core', 'aoe_enemy', 'destroy_weak', 'damage_draw_if_destroyed', 'break_shield_damage', 'damage_by_hand', 'damage_by_grave', 'field_count_blast', 'shield_burst', 'reset_unit'].includes(card.effect.kind)) return '주문 · 제압';
-    if (['summon_token', 'recruit_unit', 'revive_unit', 'ready_unit', 'type_recruit'].includes(card.effect.kind)) return '주문 · 전개';
-    if (['buff_unit', 'shield_unit', 'heal_unit', 'heal_core', 'buff_by_hand', 'mass_shield', 'mass_buff', 'type_rally'].includes(card.effect.kind)) return '주문 · 지원';
+    if (['draw', 'recover_grave_unit', 'recover_any_grave', 'reweave_hand', 'draw_if_outnumbered', 'increase_energy_max', 'tutor_card', 'tutor_series_card', 'mill_draw', 'banish_own_grave_energy', 'discard_draw', 'steal_energy', 'heal_draw_if_behind', 'recycle_grave_draw', 'banish_enemy_grave', 'phase_draw', 'phase_gain_energy', 'phase_recover_grave', 'phase_set', 'phase_shift', 'phase_lock'].includes(card.effect.kind)) return '주문 · 자원 순환';
+    if (['damage_unit', 'damage_core', 'aoe_enemy', 'destroy_weak', 'damage_draw_if_destroyed', 'break_shield_damage', 'damage_by_hand', 'damage_by_grave', 'field_count_blast', 'shield_burst', 'reset_unit', 'phase_damage_core', 'phase_aoe_enemy'].includes(card.effect.kind)) return '주문 · 제압';
+    if (['summon_token', 'recruit_unit', 'revive_unit', 'ready_unit', 'type_recruit', 'phase_summon_token'].includes(card.effect.kind)) return '주문 · 전개';
+    if (['buff_unit', 'shield_unit', 'heal_unit', 'heal_core', 'buff_by_hand', 'mass_shield', 'mass_buff', 'type_rally', 'phase_heal_core', 'phase_mass_shield', 'phase_mass_buff'].includes(card.effect.kind)) return '주문 · 지원';
     return '주문 · 특수 전술';
   }
   if (card.keywords?.includes('guard')) return '캐릭터 · 방어 핵심';
@@ -1080,7 +1099,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
               <span className="v31l-detail-kicker">{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}{card.series ? ` · ${card.series}` : ''}</span>
               <h2 id="card-detail-title">{card.name}</h2>
               <p>{card.subtitle}</p>
-              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.unitType && <i>TYPE · {UNIT_TYPE_LABEL[card.unitType]}</i>}{card.comboTag && <i>COMBO · {card.comboTag}</i>}{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
+              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.unitType && <i>TYPE · {UNIT_TYPE_LABEL[card.unitType]}</i>}{card.comboTag && <i>COMBO · {card.comboTag}</i>}{card.eclipseAffinity && <i className="v34-cycle-chip">CYCLE · {ECLIPSE_PHASE_LABEL[card.eclipseAffinity]}</i>}{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
             </div>
             <strong className="detail-cost"><small>ENERGY</small>{card.cost}</strong>
           </header>
@@ -2270,9 +2289,12 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
 }
 
 function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void }) {
-  const [shopTab, setShopTab] = useState<'packs' | 'profile'>('packs');
+  const [shopTab, setShopTab] = useState<'packs' | 'profile' | 'emotes'>('packs');
   const [cosmeticFilter, setCosmeticFilter] = useState<'all' | ProfileCosmeticKind>('all');
   const [busyCosmetic, setBusyCosmetic] = useState('');
+  const [busyEmote, setBusyEmote] = useState('');
+  const [busyEmoteLoadout, setBusyEmoteLoadout] = useState(false);
+  const [emoteSelection, setEmoteSelection] = useState<string[]>(hub.emoteLoadout ?? []);
   const [busyPack, setBusyPack] = useState('');
   const [opened, setOpened] = useState<string[]>([]);
   const [revealed, setRevealed] = useState<boolean[]>([]);
@@ -2283,6 +2305,8 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
   const selectedPack = PACKS.find((pack) => pack.id === openingPackId);
   const corePacks = PACKS.filter((pack) => pack.category === 'core');
   const seriesPacks = PACKS.filter((pack) => pack.category === 'series');
+
+  useEffect(() => { setEmoteSelection(hub.emoteLoadout ?? []); }, [hub.emoteLoadout]);
 
   async function buy(packId: string) {
     setBusyPack(packId);
@@ -2318,6 +2342,62 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
       setError(reason instanceof Error ? reason.message : '프로필 아이템 구매에 실패했습니다.');
     } finally {
       setBusyCosmetic('');
+    }
+  }
+
+  async function buyBattleEmote(emoteId: string) {
+    setBusyEmote(emoteId);
+    setError('');
+    try {
+      const result = await api('buy_battle_emote', { emoteId });
+      if (result.hub) onHub(result.hub);
+      playUiSound('success');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '감정표현 구매에 실패했습니다.');
+    } finally {
+      setBusyEmote('');
+    }
+  }
+
+  async function buyBattleEmotePack(packId: string) {
+    setBusyEmote(packId);
+    setError('');
+    try {
+      const result = await api('buy_battle_emote_pack', { packId });
+      if (result.hub) onHub(result.hub);
+      playUiSound('success');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '감정표현 세트 구매에 실패했습니다.');
+    } finally {
+      setBusyEmote('');
+    }
+  }
+
+
+  function toggleEmoteLoadout(emoteId: string) {
+    if (!(hub.battleEmotes ?? []).includes(emoteId)) return;
+    setError('');
+    setEmoteSelection((current) => {
+      if (current.includes(emoteId)) return current.filter((id) => id !== emoteId);
+      if (current.length >= V34_EMOTE_SLOT_LIMIT) {
+        setError(`이모티콘은 최대 ${V34_EMOTE_SLOT_LIMIT}개까지만 장착할 수 있습니다.`);
+        return current;
+      }
+      return [...current, emoteId];
+    });
+  }
+
+  async function saveEmoteLoadout() {
+    setBusyEmoteLoadout(true);
+    setError('');
+    try {
+      const result = await api('set_emote_loadout', { emoteIds: emoteSelection });
+      if (result.hub) onHub(result.hub);
+      playUiSound('success');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '이모티콘 장착 저장에 실패했습니다.');
+    } finally {
+      setBusyEmoteLoadout(false);
     }
   }
 
@@ -2379,12 +2459,13 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
   return (
     <div className="view-stack v6-shop-view v17-shop-view">
       <section className="section-heading v6-section-heading">
-        <div><span className="eyebrow">ECLIPSE MARKET</span><h2>상점</h2><p>카드팩과 프로필 스킨을 구매해 덱과 결투가 화면을 꾸미세요.</p></div>
+        <div><span className="eyebrow">ECLIPSE MARKET</span><h2>상점</h2><p>카드팩·프로필 스킨·대전 감정표현을 구매해 덱과 결투 화면을 꾸미세요.</p></div>
         <div className="currency-pill"><small>COIN</small>{hub.wallet.coins.toLocaleString()}</div>
       </section>
       <div className="v17-shop-tabs">
         <button className={shopTab === 'packs' ? 'active' : ''} onClick={() => setShopTab('packs')}><b>카드팩</b><small>새 카드 획득</small></button>
         <button className={shopTab === 'profile' ? 'active' : ''} onClick={() => setShopTab('profile')}><b>꾸미기</b><small>배경 · 프레임 · 문양/아이콘 · 슬리브 · 닉네임</small></button>
+        <button className={shopTab === 'emotes' ? 'active' : ''} onClick={() => setShopTab('emotes')}><b>감정표현</b><small>대전 중 이모티콘 소통</small></button>
       </div>
       {error && <p className="error-banner">{error}</p>}
       {shopTab === 'packs' ? (
@@ -2396,6 +2477,59 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
           <section className="v25-pack-category v25-series-category">
             <header><div><span>SERIES BOOSTERS</span><h3>시리즈 카드팩</h3><p>같은 이름만 묶은 카드가 아니라 서로 서치·강화·회수·에너지 연계가 실제로 작동하는 아키타입 팩입니다.</p></div><small>{CARD_SERIES.length} ARCHETYPES</small></header>
             <div className="pack-grid v6-pack-grid v25-series-pack-grid">{seriesPacks.map((pack, index) => renderPackCard(pack, index))}</div>
+          </section>
+        </div>
+      ) : shopTab === 'emotes' ? (
+        <div className="v34-emote-store">
+          <header className="v34-emote-store-head"><span>CHAT + DUEL EMOTE MARKET</span><h3>감정표현</h3><p>도로롱 · NIKKE · 트릭컬은 각 6종입니다. 모든 개별 이모티콘은 1,000코인, 6종 세트는 5,000코인이며 구매한 이모티콘 중 최대 6개를 장착해 채팅과 대전에서 공통으로 사용합니다.</p></header>
+
+          <section className="v34-emote-loadout-panel">
+            <header><div><span>ACTIVE LOADOUT</span><h4>사용할 이모티콘 6개 선택</h4><p>보유한 이모티콘을 눌러 장착/해제하세요. 이곳에 장착된 이모티콘만 채팅과 대전 선택창에 표시됩니다.</p></div><strong>{emoteSelection.length}/{V34_EMOTE_SLOT_LIMIT}</strong></header>
+            <div className="v34-emote-slots">
+              {Array.from({ length: V34_EMOTE_SLOT_LIMIT }, (_, index) => {
+                const emoteId = emoteSelection[index];
+                const item = emoteId ? V34_BATTLE_EMOTE_BY_ID[emoteId] : null;
+                return <div className={`v34-emote-slot ${item ? 'filled' : 'empty'}`} key={`slot-${index}`}>{item ? <button type="button" onClick={() => toggleEmoteLoadout(item.id)} title={`${item.name} 장착 해제`}><img src={item.asset} alt={item.name} /><small>{index + 1}</small></button> : <span><b>{index + 1}</b><small>EMPTY</small></span>}</div>;
+              })}
+            </div>
+            <div className="v34-emote-owned-select">
+              {(hub.battleEmotes ?? []).filter((emoteId) => V34_BATTLE_EMOTE_BY_ID[emoteId]).map((emoteId) => {
+                const item = V34_BATTLE_EMOTE_BY_ID[emoteId];
+                const activeIndex = emoteSelection.indexOf(emoteId);
+                return <button type="button" key={emoteId} className={activeIndex >= 0 ? 'active' : ''} onClick={() => toggleEmoteLoadout(emoteId)}><img src={item.asset} alt={item.name} /><span>{item.name}</span>{activeIndex >= 0 && <b>{activeIndex + 1}</b>}</button>;
+              })}
+              {(hub.battleEmotes ?? []).filter((emoteId) => V34_BATTLE_EMOTE_BY_ID[emoteId]).length === 0 && <p>아직 보유한 이모티콘이 없습니다. 아래에서 개별 또는 세트로 구매해 주세요.</p>}
+            </div>
+            <footer><small>장착 순서는 대전/채팅 이모티콘 선택창의 표시 순서와 같습니다.</small><button type="button" className="primary-button" disabled={busyEmoteLoadout} onClick={saveEmoteLoadout}>{busyEmoteLoadout ? '저장 중...' : '6개 장착 저장'}</button></footer>
+          </section>
+
+          <section className="v34-emote-store-section">
+            <header><span>SET OFFER</span><h4>6종 묶음 세트</h4></header>
+            <div className="v34-emote-pack-grid">
+              {V34_BATTLE_EMOTE_PACKS.map((pack) => {
+                const ownedCount = pack.emoteIds.filter((emoteId) => (hub.battleEmotes ?? []).includes(emoteId)).length;
+                const fullyOwned = ownedCount === pack.emoteIds.length;
+                return <article className="v34-emote-pack-card" key={pack.id}>
+                  <div className="v34-emote-pack-preview">{pack.emoteIds.map((emoteId) => { const item = V34_BATTLE_EMOTE_BY_ID[emoteId]; return item ? <img key={emoteId} src={item.asset} alt={item.name} /> : null; })}</div>
+                  <div><small>{pack.franchise}</small><h3>{pack.name}</h3><p>{pack.description}</p><em>{ownedCount}/{pack.emoteIds.length} 보유</em></div>
+                  <footer><strong>{pack.price.toLocaleString()} COIN</strong><button className="primary-button" disabled={fullyOwned || busyEmote === pack.id || hub.wallet.coins < pack.price} onClick={() => buyBattleEmotePack(pack.id)}>{fullyOwned ? '전부 보유' : busyEmote === pack.id ? '구매 중...' : hub.wallet.coins < pack.price ? '코인 부족' : '세트 구매'}</button></footer>
+                </article>;
+              })}
+            </div>
+          </section>
+
+          <section className="v34-emote-store-section">
+            <header><span>SINGLE SALE</span><h4>개별 감정표현 · 전부 1,000코인</h4></header>
+            <div className="v34-emote-grid">
+              {V34_BATTLE_EMOTES.map((item) => {
+                const owned = (hub.battleEmotes ?? []).includes(item.id);
+                return <article className="v34-emote-product" key={item.id}>
+                  <div className="v34-emote-preview"><img src={item.asset} alt={item.name} /></div>
+                  <div><small>{item.franchise}</small><h3>{item.name}</h3><p>{item.mood.toUpperCase()} · CHAT + DUEL</p></div>
+                  <footer><strong>{item.price.toLocaleString()} COIN</strong><button className="primary-button" disabled={owned || busyEmote === item.id || hub.wallet.coins < item.price} onClick={() => buyBattleEmote(item.id)}>{owned ? '보유 중' : busyEmote === item.id ? '구매 중...' : hub.wallet.coins < item.price ? '코인 부족' : '구매'}</button></footer>
+                </article>;
+              })}
+            </div>
           </section>
         </div>
       ) : (
@@ -2626,7 +2760,28 @@ function ProfileView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   );
 }
 
-function ChatDrawer({ open, roomId, onClose, profile, onUnread }: { open: boolean; roomId?: string; onClose: () => void; profile: Profile; onUnread?: () => void }) {
+
+const CHAT_EMOTE_PATTERN = /:([a-z0-9_]+):/g;
+
+function renderChatBody(body: string) {
+  const nodes: any[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  CHAT_EMOTE_PATTERN.lastIndex = 0;
+  while ((match = CHAT_EMOTE_PATTERN.exec(body)) !== null) {
+    const [token, emoteId] = match;
+    if (match.index > lastIndex) nodes.push(<span key={`text-${lastIndex}`}>{body.slice(lastIndex, match.index)}</span>);
+    const emote = V34_BATTLE_EMOTE_BY_ID[emoteId];
+    if (emote) nodes.push(<span className="chat-inline-emote" key={`emote-${match.index}`} title={emote.name}><img src={emote.asset} alt={emote.name} /></span>);
+    else nodes.push(<span key={`token-${match.index}`}>{token}</span>);
+    lastIndex = match.index + token.length;
+  }
+  if (lastIndex < body.length) nodes.push(<span key={`tail-${lastIndex}`}>{body.slice(lastIndex)}</span>);
+  return nodes.length ? nodes : body;
+}
+
+function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }: { open: boolean; roomId?: string; onClose: () => void; profile: Profile; emoteIds?: string[]; onUnread?: () => void }) {
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatSkins, setChatSkins] = useState<Record<string, ChatSkinProfile>>({
     [profile.user_id]: { user_id: profile.user_id, profile_theme: profile.profile_theme, profile_frame: profile.profile_frame },
@@ -2636,6 +2791,8 @@ function ChatDrawer({ open, roomId, onClose, profile, onUnread }: { open: boolea
   });
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
+  const [emotePickerOpen, setEmotePickerOpen] = useState(false);
+  const ownedChatEmotes = useMemo(() => emoteIds.map((emoteId) => V34_BATTLE_EMOTE_BY_ID[emoteId]).filter(Boolean), [emoteIds]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const openRef = useRef(open);
   const onUnreadRef = useRef(onUnread);
@@ -2706,16 +2863,39 @@ function ChatDrawer({ open, roomId, onClose, profile, onUnread }: { open: boolea
     } catch (reason) { setError(reason instanceof Error ? reason.message : '전송 실패'); }
   }
 
+  function insertChatEmote(emoteId: string) {
+    const token = `:${emoteId}:`;
+    setInput((current) => {
+      const needsSpace = current.length > 0 && !/\s$/.test(current);
+      const next = `${current}${needsSpace ? ' ' : ''}${token}`;
+      return next.slice(0, 180);
+    });
+    setEmotePickerOpen(false);
+  }
+
   return (
     <aside className={`chat-drawer ${open ? 'open' : ''}`}>
       <header><div><span>{roomId ? 'ROOM CHAT' : 'GLOBAL CHAT'}</span><h3>{roomId ? '결투방 채팅' : '전체 채팅'}</h3>{!roomId && <small>최근 30분 메시지만 보관됩니다.</small>}</div><button onClick={onClose}>×</button></header>
       <div className="chat-messages">
         {messages.length === 0 && <div className="empty-state"><span>···</span><p>첫 메시지를 남겨보세요.</p></div>}
-        {messages.map((message) => { const skin = chatSkins[message.user_id]; return <div className={`chat-message v31-social-skin theme-${skin?.profile_theme ?? 'bg_default'} frame-${skin?.profile_frame ?? 'frame_default'} ${message.user_id === profile.user_id ? 'mine' : ''}`} key={message.id}><ProfileFrameFX frameId={skin?.profile_frame} /><b><NicknameText name={message.display_name} styleId={message.nickname_style} /></b><p>{message.body}</p><small>{new Date(message.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small></div>; })}
+        {messages.map((message) => {
+          const skin = chatSkins[message.user_id];
+          return <div className={`chat-message v31-social-skin theme-${skin?.profile_theme ?? 'bg_default'} frame-${skin?.profile_frame ?? 'frame_default'} ${message.user_id === profile.user_id ? 'mine' : ''}`} key={message.id}>
+            <ProfileFrameFX frameId={skin?.profile_frame} />
+            <b><NicknameText name={message.display_name} styleId={message.nickname_style} /></b>
+            <p className="chat-rich-body">{renderChatBody(message.body)}</p>
+            <small>{new Date(message.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small>
+          </div>;
+        })}
         <div ref={bottomRef} />
       </div>
+      {ownedChatEmotes.length > 0 && <div className="chat-emote-toolbar">
+        <button type="button" className={`chat-emote-toggle ${emotePickerOpen ? 'active' : ''}`} onClick={() => setEmotePickerOpen((value) => !value)}>이모티콘</button>
+        <small>보유 감정표현은 채팅에도 사용할 수 있습니다.</small>
+      </div>}
+      {ownedChatEmotes.length > 0 && emotePickerOpen && <div className="chat-emote-picker">{ownedChatEmotes.map((item) => <button type="button" key={item.id} onClick={() => insertChatEmote(item.id)} title={item.name}><img src={item.asset} alt={item.name} /><span>{item.name}</span></button>)}</div>}
       {error && <p className="chat-error">{error}</p>}
-      <form onSubmit={send}><input value={input} onChange={(event: ChangeEvent<HTMLInputElement>) => setInput(event.target.value)} maxLength={180} placeholder="메시지 입력" /><button>전송</button></form>
+      <form onSubmit={send}><input value={input} onChange={(event: ChangeEvent<HTMLInputElement>) => setInput(event.target.value)} maxLength={180} placeholder={ownedChatEmotes.length > 0 ? '메시지 또는 :이모티콘: 입력' : '메시지 입력'} /><button>전송</button></form>
     </aside>
   );
 }
@@ -3943,6 +4123,21 @@ function DuelEnergyMeter({ label, current, max, cap = 10, nextMax, opponent = fa
   );
 }
 
+function EclipseCycleHud({ state, compact = false }: { state: MatchState; compact?: boolean }) {
+  const current = state.eclipsePhase ?? 'dawn';
+  const locked = (state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber;
+  return <div className={`v34-cycle-hud ${compact ? 'compact' : ''}`} aria-label={`ECLIPSE CYCLE 현재 ${ECLIPSE_PHASE_LABEL[current]}`}>
+    <div className="v34-cycle-title"><span>ECLIPSE CYCLE</span><b>{ECLIPSE_PHASE_LABEL[current]}</b>{locked && <em>LOCK</em>}</div>
+    <div className="v34-cycle-track">{ECLIPSE_PHASE_ORDER.map((phase, index) => <span key={phase} className={phase === current ? 'active' : ''}><i>{index + 1}</i><small>{ECLIPSE_PHASE_LABEL[phase]}</small></span>)}</div>
+  </div>;
+}
+
+function BattleEmoteOverlay({ state, profiles, now }: { state: MatchState; profiles: RoomProfile[]; now: number }) {
+  const profileMap = Object.fromEntries(profiles.map((profile) => [profile.user_id, profile]));
+  const recent = (state.battleEmotes ?? []).filter((entry) => now - entry.createdAt < 4300).slice(-4);
+  return <div className="v34-battle-emote-overlay">{recent.map((entry) => { const item = V34_BATTLE_EMOTE_BY_ID[entry.emoteId]; if (!item) return null; const who = profileMap[entry.senderId]; return <div className="v34-battle-emote-bubble" key={entry.id}><img src={item.asset} alt={item.name} /><span><b>{who?.display_name ?? 'PLAYER'}</b><small>{item.name}</small></span></div>; })}</div>;
+}
+
 function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt }: { payload: RoomPayload; userId: string; onRefresh: (payload: RoomPayload) => void; onLeave: () => void; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number }) {
   const { room, privateState: nullablePrivateState } = payload;
   const nullableState = room.state;
@@ -3958,6 +4153,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const [surrenderOpen, setSurrenderOpen] = useState(false);
   const [endTurnConfirmOpen, setEndTurnConfirmOpen] = useState(false);
   const [extraOpen, setExtraOpen] = useState(false);
+  const [emoteOpen, setEmoteOpen] = useState(false);
+  const [emoteBusy, setEmoteBusy] = useState(false);
   const [activeVfx, setActiveVfx] = useState<VisualEvent | null>(null);
   const [vfxQueue, setVfxQueue] = useState<VisualEvent[]>([]);
   const [damagePopups, setDamagePopups] = useState<VisualEvent[]>([]);
@@ -4061,7 +4258,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       timeoutSyncTurn.current = turnNumber;
       api('get_room', { roomId: room.id })
         .then((result) => {
-          if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined });
+          if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? [] });
         })
         .catch((error) => setMessage(error instanceof Error ? error.message : '턴 시간 동기화 실패'));
     }, delay);
@@ -4375,6 +4572,18 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     if (note) setMessage(note);
   }
 
+  async function sendEmote(emoteId: string) {
+    if (emoteBusy || state.status !== 'active') return;
+    setEmoteBusy(true); setMessage('');
+    try {
+      const result = await api('game_action', { roomId: room.id, gameAction: 'battle_emote', emoteId });
+      if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? payload.battleEmotes ?? [] });
+      setEmoteOpen(false);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '감정표현 전송 실패');
+    } finally { setEmoteBusy(false); }
+  }
+
   async function gameAction(gameAction: string, extra: Record<string, unknown> = {}) {
     if (actionLock.current || busy) return;
     actionLock.current = true;
@@ -4382,7 +4591,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     setMessage('');
     try {
       const result = await api('game_action', { roomId: room.id, gameAction, ...extra });
-      if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined });
+      if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? [] });
       clearSelection();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '행동 처리 실패');
@@ -4766,6 +4975,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     <div className={`v18-duel-screen ${myTurn ? 'is-my-turn' : 'is-opponent-turn'} phase-${state.phase} fx-${activeVfx?.kind ?? 'idle'}`}>
       <DuelEffectLayer event={activeVfx} userId={userId} profiles={payload.profiles} drawCard={activeVfx?.kind === 'draw' && activeVfx.ownerId === userId ? CARD_BY_ID[drawRevealQueue[0] ?? ''] : undefined} />
       <DuelDamagePopupLayer events={damagePopups} userId={userId} />
+      <BattleEmoteOverlay state={state} profiles={payload.profiles} now={turnClock} />
       <CoinTossOverlay state={state} profiles={payload.profiles} userId={userId} now={coinClock} />
       {turnNotice && !coinTossActive && state.status === 'active' && (
         <div className={`v29-turn-notice ${turnNotice.mine ? 'mine' : 'opponent'}`} role="status" aria-live="polite">
@@ -4796,10 +5006,15 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
           <i /><span>{displayedSyncState === 'live' ? 'LIVE' : displayedSyncState === 'syncing' ? 'SYNCING' : 'RECONNECTING'}</span><small>{displayedSyncState === 'live' ? '연결됨' : displayedSyncState === 'syncing' ? '백그라운드 동기화' : '연결 복구 중'}</small>
         </div>
         <div className="v18-header-actions">
+          <button type="button" className={emoteOpen ? 'active v34-emote-toggle' : 'v34-emote-toggle'} onClick={() => setEmoteOpen((value) => !value)}>감정표현</button>
           <button type="button" className={logOpen ? 'active' : ''} onClick={() => setLogOpen((value) => !value)}>기록</button>
           <button type="button" className="danger" disabled={busy || state.status !== 'active'} onClick={() => setSurrenderOpen(true)}>항복</button>
         </div>
       </header>
+      {emoteOpen && <div className="v34-emote-picker">
+        <header><span>BATTLE EMOTE</span><b>구매한 감정표현</b></header>
+        {(payload.battleEmotes ?? []).length > 0 ? <div>{(payload.battleEmotes ?? []).map((emoteId) => { const item = V34_BATTLE_EMOTE_BY_ID[emoteId]; return item ? <button type="button" key={emoteId} disabled={emoteBusy} onClick={() => sendEmote(emoteId)} title={item.name}><img src={item.asset} alt={item.name} /><small>{item.name}</small></button> : null; })}</div> : <p>보유한 감정표현이 없습니다. 상점 → 감정표현에서 구매할 수 있습니다.</p>}
+      </div>}
 
       <aside className="v18-leader-rail">
         <button
@@ -4849,8 +5064,9 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
 
           <div className="v18-center-lane">
             <div className="v18-pile-stat"><small>OPPONENT</small><span>DECK <b>{state.deckCounts[opponentId]}</b></span><span>GRAVE <b>{state.graveyards[opponentId]?.length ?? 0}</b></span></div>
-            <div className="v29-center-status">
+            <div className="v29-center-status v34-cycle-center-status">
               <div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div>
+              <EclipseCycleHud state={state} />
               <div className={`v22-momentum ${momentumLabel === '유리' ? 'ahead' : momentumLabel === '불리' ? 'behind' : 'even'}`}>
                 <span><small>BATTLE FLOW</small><b>{momentumLabel}</b></span>
                 <i><b style={{ left: `${momentumPercent}%` }} /></i>
@@ -5299,7 +5515,7 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
         <section className="v18-board">
           <div className="v18-zone-row v18-enemy-secrets">{state.boards[playerBId].secrets.map((secret, index) => <div className={`v18-secret-slot enemy ${secret ? 'is-set' : ''}`} key={index}>{secret ? <><span className={`v18-secret-back sleeve-${playerB?.card_sleeve ?? 'sleeve_default'}`}>{sleeveGlyph(playerB?.card_sleeve)}</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}</div>)}</div>
           <div className="v18-zone-row v18-enemy-units">{state.boards[playerBId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerBId} index={index} enemy />)}</div>
-          <div className="v18-center-lane"><div className="v18-pile-stat"><small>PLAYER B</small><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div><div className="v29-center-status"><div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div><div className="v32e-watch-copy"><small>ROOM SPECTATE</small><b>관전자 전용 · 양쪽 손패 공개</b></div></div><div className="v18-pile-stat mine"><small>PLAYER A</small><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span></div></div>
+          <div className="v18-center-lane"><div className="v18-pile-stat"><small>PLAYER B</small><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div><div className="v29-center-status v34-cycle-center-status"><div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div><EclipseCycleHud state={state} compact /><div className="v32e-watch-copy"><small>ROOM SPECTATE</small><b>관전자 전용 · 양쪽 손패 공개</b></div></div><div className="v18-pile-stat mine"><small>PLAYER A</small><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span></div></div>
           <div className="v18-zone-row v18-my-units">{state.boards[playerAId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerAId} index={index} />)}</div>
           <div className="v18-zone-row v18-my-secrets">{state.boards[playerAId].secrets.map((secret, index) => <div className={`v18-secret-slot mine ${secret ? 'is-set' : ''}`} key={index}>{secret ? <><span className={`v18-secret-back sleeve-${playerA?.card_sleeve ?? 'sleeve_default'}`}>{sleeveGlyph(playerA?.card_sleeve)}</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}</div>)}</div>
         </section>
@@ -5360,7 +5576,7 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
     setBusy(true); setMessage('');
     try {
       const result = await api(action, payload);
-      if (result.room && result.profiles) onRoom({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined });
+      if (result.room && result.profiles) onRoom({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? [] });
       if (result.joinedAsSpectator) setMessage('선수 자리가 이미 차 있어 관전자로 입장했습니다. 다음 경기에는 방장이 선수로 지정할 수 있습니다.');
       return result;
     } catch (error) { setMessage(error instanceof Error ? error.message : '요청 실패'); }
@@ -5687,7 +5903,7 @@ export default function Page() {
         setCanRecoverAccounts(result.canRecoverAccounts === true);
         if (result.serverStatus) setServerStatus(result.serverStatus);
         if (result.room && result.profiles) {
-          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined });
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? [] });
           setRoomSyncState('live');
           setLastRoomSyncAt(Date.now());
           setView('duel');
@@ -5781,7 +5997,7 @@ export default function Page() {
         const result = await api('get_room', { roomId });
         if (!alive) return;
         if (result.room && result.profiles) {
-          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined });
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? [] });
           lastSuccessfulSync = Date.now();
           setRoomSyncState('live');
           setLastRoomSyncAt(lastSuccessfulSync);
@@ -5858,7 +6074,7 @@ export default function Page() {
         const result = await api('match_presence', { roomId });
         if (!alive) return;
         if (result.room && result.profiles) {
-          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined });
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? [] });
           setRoomSyncState('live');
           setLastRoomSyncAt(Date.now());
         }
@@ -5933,7 +6149,7 @@ export default function Page() {
       </section>
 
       <nav className="mobile-nav">{NAV_ITEMS.map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView(item.id); }}><i><GameIcon name={item.id} /></i><span>{item.label}</span>{item.id === 'friends' && pendingFriendRequestCount > 0 && <b className="social-request-badge" aria-label={`받은 친구 요청 ${pendingFriendRequestCount}개`}>{pendingFriendRequestCount > 9 ? '9+' : pendingFriendRequestCount}</b>}</button>)}</nav>
-      <ChatDrawer open={chatOpen} roomId={roomChat} onClose={() => setChatOpen(false)} profile={hub.profile} onUnread={() => setChatUnread(true)} />
+      <ChatDrawer open={chatOpen} roomId={roomChat} onClose={() => setChatOpen(false)} profile={hub.profile} emoteIds={hub.emoteLoadout ?? []} onUnread={() => setChatUnread(true)} />
       {chatOpen && <button className="chat-backdrop" aria-label="채팅 닫기" onClick={() => setChatOpen(false)} />}
       <ControlCenter
         open={settingsOpen}

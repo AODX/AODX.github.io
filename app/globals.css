@@ -2063,6 +2063,17 @@ select option {
   line-height: 1.55;
   word-break: break-word;
 }
+.chat-message p.chat-rich-body { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+.chat-inline-emote { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; }
+.chat-inline-emote img { width:40px; height:40px; object-fit:contain; filter:drop-shadow(0 4px 4px rgba(0,0,0,.18)); }
+.chat-emote-toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 13px; border-top:1px solid rgba(255,255,255,.06); }
+.chat-emote-toolbar small { color:#97a1b7; font-size:10px; }
+.chat-emote-toggle { min-width:72px; height:30px; border:1px solid rgba(255,255,255,.12); border-radius:999px; background:rgba(255,255,255,.04); color:#e4e8f8; font-size:10px; font-weight:800; }
+.chat-emote-toggle.active { border-color:rgba(255,216,117,.5); color:#ffe3a0; }
+.chat-emote-picker { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:0 13px 12px; }
+.chat-emote-picker button { display:grid; gap:4px; place-items:center; padding:6px; border:1px solid rgba(255,255,255,.1); border-radius:12px; background:rgba(255,255,255,.04); color:#dfe5ff; font-size:9px; }
+.chat-emote-picker button img { width:56px; height:56px; object-fit:contain; }
+.chat-emote-picker button span { display:block; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 .chat-message small {
   position: absolute;
@@ -4006,4 +4017,110 @@ button.mode-card:hover {
   .extra-zone .tcg-card { width: 54px; margin-left: -26px; }
   .summon-badge { top: 34px; font-size: 5px; }
   .duel-vfx { width: min(66vh, 520px); }
+}
+
+/* ================================================================
+   v34 · ECLIPSE CYCLE + PURCHASED BATTLE EMOTES
+   ================================================================ */
+.v34-cycle-chip { border-color: rgba(255, 209, 99, .56) !important; color: #ffe4a3 !important; box-shadow: inset 0 0 18px rgba(255, 198, 74, .09); }
+.v34-cycle-hud { display:grid; gap:6px; min-width:min(420px, 38vw); padding:8px 10px; border:1px solid rgba(166,185,255,.2); border-radius:12px; background:linear-gradient(135deg,rgba(11,15,31,.92),rgba(31,20,47,.88)); box-shadow:0 12px 30px rgba(0,0,0,.26), inset 0 0 30px rgba(115,97,255,.05); }
+.v34-cycle-hud.compact { min-width:265px; padding:6px 8px; }
+.v34-cycle-title { display:flex; align-items:center; gap:8px; }
+.v34-cycle-title span { font-size:9px; letter-spacing:.18em; color:#9faee2; }
+.v34-cycle-title b { font-size:13px; color:#fff2c4; }
+.v34-cycle-title em { margin-left:auto; font-size:8px; font-style:normal; color:#ff9cc4; border:1px solid rgba(255,126,177,.45); border-radius:999px; padding:2px 6px; }
+.v34-cycle-track { display:grid; grid-template-columns:repeat(5,1fr); gap:3px; }
+.v34-cycle-track > span { position:relative; min-width:0; display:flex; align-items:center; justify-content:center; gap:4px; padding:5px 4px; border-radius:8px; border:1px solid rgba(139,155,210,.14); background:rgba(255,255,255,.025); color:#7480a9; transition:.2s ease; }
+.v34-cycle-track > span i { display:grid; place-items:center; width:15px; height:15px; border-radius:50%; font-size:7px; font-style:normal; background:rgba(255,255,255,.06); }
+.v34-cycle-track > span small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:8px; }
+.v34-cycle-track > span.active { color:#fff9e8; border-color:rgba(255,216,112,.62); background:linear-gradient(135deg,rgba(255,189,75,.16),rgba(151,99,255,.2)); box-shadow:0 0 18px rgba(215,143,255,.18); transform:translateY(-1px); }
+.v34-cycle-track > span.active i { background:#ffe199; color:#1a1321; box-shadow:0 0 12px rgba(255,220,128,.5); }
+.v34-cycle-hud.compact .v34-cycle-track small { display:none; }
+.v34-cycle-hud.compact .v34-cycle-track > span { padding:4px; }
+
+.v34-emote-store { display:grid; gap:18px; }
+.v34-emote-store-section { display:grid; gap:10px; }
+.v34-emote-store-section > header { display:flex; align-items:end; justify-content:space-between; gap:10px; }
+.v34-emote-store-section > header span { color:#8fa0d6; font-size:9px; letter-spacing:.16em; }
+.v34-emote-store-section > header h4 { margin:0; font-size:16px; }
+.v34-emote-pack-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px; }
+.v34-emote-pack-card { display:grid; grid-template-columns:112px 1fr; gap:12px; align-items:center; padding:14px; min-height:138px; border:1px solid rgba(171,186,239,.18); border-radius:18px; background:linear-gradient(145deg,rgba(24,21,50,.96),rgba(21,30,55,.92)); box-shadow:0 12px 28px rgba(0,0,0,.24); }
+.v34-emote-pack-card em { display:inline-block; margin-top:6px; font-style:normal; font-size:10px; color:#ffd993; }
+.v34-emote-pack-card footer { grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; gap:8px; border-top:1px solid rgba(255,255,255,.06); padding-top:9px; }
+.v34-emote-pack-card footer strong { font-size:11px; color:#ffd985; }
+.v34-emote-pack-card footer button { min-height:30px; padding:5px 12px; font-size:10px; }
+.v34-emote-store-head { padding:18px 20px; border:1px solid rgba(151,176,255,.18); border-radius:18px; background:linear-gradient(135deg,rgba(18,25,47,.9),rgba(38,21,52,.86)); }
+.v34-emote-store-head span { color:#9caeff; font-size:10px; letter-spacing:.18em; }
+.v34-emote-store-head h3 { margin:5px 0 4px; font-size:23px; }
+.v34-emote-store-head p { margin:0; color:#aab3cc; font-size:12px; }
+.v34-emote-loadout-panel { display:grid; gap:12px; padding:15px; border:1px solid rgba(255,209,99,.25); border-radius:18px; background:linear-gradient(135deg,rgba(27,22,49,.94),rgba(15,27,48,.94)); box-shadow:0 12px 30px rgba(0,0,0,.24); }
+.v34-emote-loadout-panel > header { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+.v34-emote-loadout-panel > header span { font-size:9px; letter-spacing:.16em; color:#a9b7ee; }
+.v34-emote-loadout-panel > header h4 { margin:3px 0; font-size:17px; }
+.v34-emote-loadout-panel > header p { margin:0; color:#98a3c0; font-size:10px; }
+.v34-emote-loadout-panel > header strong { flex:0 0 auto; min-width:54px; padding:7px 10px; border:1px solid rgba(255,215,122,.35); border-radius:999px; text-align:center; color:#ffe3a0; font-size:13px; }
+.v34-emote-slots { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; }
+.v34-emote-slot { aspect-ratio:1; min-width:0; border:1px dashed rgba(160,176,223,.24); border-radius:14px; background:rgba(255,255,255,.025); overflow:hidden; }
+.v34-emote-slot.filled { border-style:solid; border-color:rgba(255,213,111,.44); background:rgba(255,208,102,.055); }
+.v34-emote-slot > span,.v34-emote-slot button { width:100%; height:100%; display:grid; place-items:center; position:relative; border:0; background:transparent; color:#8590af; }
+.v34-emote-slot > span b { font-size:16px; }
+.v34-emote-slot > span small { font-size:7px; letter-spacing:.1em; }
+.v34-emote-slot button img { width:92%; height:92%; object-fit:contain; }
+.v34-emote-slot button small { position:absolute; right:4px; top:4px; display:grid; place-items:center; width:18px; height:18px; border-radius:50%; background:#ffd76f; color:#18121f; font-weight:900; font-size:9px; }
+.v34-emote-owned-select { display:grid; grid-template-columns:repeat(auto-fill,minmax(95px,1fr)); gap:7px; max-height:250px; overflow:auto; padding:2px; }
+.v34-emote-owned-select button { position:relative; min-width:0; display:grid; gap:3px; place-items:center; padding:6px; border:1px solid rgba(255,255,255,.08); border-radius:12px; background:rgba(255,255,255,.03); color:#dfe5ff; }
+.v34-emote-owned-select button.active { border-color:rgba(255,211,101,.62); background:rgba(255,208,96,.08); box-shadow:inset 0 0 18px rgba(255,207,92,.07); }
+.v34-emote-owned-select button img { width:70px; height:70px; object-fit:contain; }
+.v34-emote-owned-select button span { width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:8px; }
+.v34-emote-owned-select button b { position:absolute; top:5px; right:5px; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#ffd76f; color:#17111f; font-size:9px; }
+.v34-emote-owned-select > p { grid-column:1/-1; margin:0; padding:18px; text-align:center; color:#8d98b8; font-size:10px; }
+.v34-emote-loadout-panel > footer { display:flex; align-items:center; justify-content:space-between; gap:10px; padding-top:8px; border-top:1px solid rgba(255,255,255,.06); }
+.v34-emote-loadout-panel > footer small { color:#8e99b6; font-size:9px; }
+.v34-emote-pack-preview { width:112px; display:grid; grid-template-columns:repeat(3,1fr); gap:3px; padding:4px; border-radius:13px; background:rgba(255,255,255,.035); }
+.v34-emote-pack-preview img { width:34px; height:34px; object-fit:contain; border-radius:6px; background:rgba(255,255,255,.025); }
+.v34-emote-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+.v34-emote-product { display:grid; grid-template-columns:92px 1fr; gap:12px; align-items:center; padding:12px; min-height:124px; border:1px solid rgba(153,169,217,.16); border-radius:16px; background:linear-gradient(145deg,rgba(17,23,42,.92),rgba(28,24,42,.92)); box-shadow:0 10px 24px rgba(0,0,0,.22); }
+.v34-emote-preview { width:92px; aspect-ratio:1; display:grid; place-items:center; border-radius:18px; background:radial-gradient(circle,rgba(255,255,255,.12),rgba(255,255,255,.02) 70%); overflow:hidden; }
+.v34-emote-preview img { width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 8px 8px rgba(0,0,0,.25)); }
+.v34-emote-product > div:nth-child(2) small { color:#8694c2; font-size:8px; letter-spacing:.12em; }
+.v34-emote-product > div:nth-child(2) h3 { font-size:14px; margin:3px 0; }
+.v34-emote-product > div:nth-child(2) p { font-size:9px; color:#7985a6; margin:0; }
+.v34-emote-product footer { grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; gap:8px; border-top:1px solid rgba(255,255,255,.06); padding-top:9px; }
+.v34-emote-product footer strong { font-size:11px; color:#ffd985; }
+.v34-emote-product footer button { min-height:30px; padding:5px 12px; font-size:10px; }
+
+.v34-emote-picker { position:fixed; z-index:115; top:68px; right:18px; width:min(430px,calc(100vw - 36px)); padding:12px; border:1px solid rgba(149,170,255,.28); border-radius:16px; background:rgba(10,14,29,.96); box-shadow:0 24px 60px rgba(0,0,0,.52),inset 0 0 28px rgba(114,91,255,.08); backdrop-filter:blur(16px); }
+.v34-emote-picker > header { display:flex; align-items:end; justify-content:space-between; gap:10px; margin-bottom:9px; }
+.v34-emote-picker > header span { font-size:8px; letter-spacing:.16em; color:#8998cf; }
+.v34-emote-picker > header b { font-size:12px; }
+.v34-emote-picker > div { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; max-height:355px; overflow:auto; }
+.v34-emote-picker button { display:grid; gap:3px; place-items:center; min-width:0; padding:5px; border:1px solid rgba(255,255,255,.08); border-radius:12px; background:rgba(255,255,255,.035); color:#dfe5ff; transition:.16s ease; }
+.v34-emote-picker button:hover { transform:translateY(-2px) scale(1.02); border-color:rgba(255,220,139,.42); background:rgba(255,207,113,.08); }
+.v34-emote-picker button img { width:68px; height:68px; object-fit:contain; }
+.v34-emote-picker button small { width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:8px; }
+.v34-emote-picker > p { margin:0; padding:16px 10px; text-align:center; color:#95a0c1; font-size:11px; }
+.v34-emote-toggle.active { color:#ffe5a4 !important; border-color:rgba(255,216,117,.46) !important; }
+
+.v34-battle-emote-overlay { pointer-events:none; position:fixed; z-index:104; inset:82px 12px auto 12px; display:flex; flex-direction:column; align-items:center; gap:7px; }
+.v34-battle-emote-bubble { animation:v34EmotePop 4.25s both; display:flex; align-items:center; gap:8px; min-width:160px; max-width:270px; padding:5px 10px 5px 5px; border:1px solid rgba(255,255,255,.24); border-radius:18px; background:rgba(9,12,25,.9); box-shadow:0 12px 30px rgba(0,0,0,.35),0 0 22px rgba(134,116,255,.12); backdrop-filter:blur(10px); }
+.v34-battle-emote-bubble img { width:72px; height:72px; object-fit:contain; margin:-10px 0 -10px -5px; filter:drop-shadow(0 6px 6px rgba(0,0,0,.26)); }
+.v34-battle-emote-bubble span { min-width:0; display:grid; gap:2px; }
+.v34-battle-emote-bubble b { font-size:10px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.v34-battle-emote-bubble small { font-size:8px; color:#aeb7d6; }
+@keyframes v34EmotePop { 0%{opacity:0;transform:translateY(-16px) scale(.68)} 10%{opacity:1;transform:translateY(0) scale(1.08)} 16%{transform:scale(1)} 80%{opacity:1} 100%{opacity:0;transform:translateY(-10px) scale(.94)} }
+
+@media (max-width: 1180px) {
+  .v18-duel-header > .v34-cycle-hud { display:none; }
+  .v34-emote-grid { grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); }
+  .v18-center-lane .v34-cycle-hud { min-width:260px; }
+}
+@media (max-width: 760px) {
+  .v34-emote-slots { grid-template-columns:repeat(3,1fr); }
+  .v34-emote-owned-select { grid-template-columns:repeat(3,1fr); }
+  .v34-emote-loadout-panel > footer { align-items:stretch; flex-direction:column; }
+  .v34-emote-grid { grid-template-columns:1fr 1fr; }
+  .v34-emote-product { grid-template-columns:72px 1fr; }
+  .v34-emote-preview { width:72px; }
+  .v34-emote-picker > div { grid-template-columns:repeat(3,1fr); }
+  .v34-emote-picker button img { width:58px; height:58px; }
 }

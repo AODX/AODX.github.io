@@ -1,4 +1,5 @@
 import { V33A_EXPANSION_CARDS } from './v33a-card-data';
+import { V34_ECLIPSE_CYCLE_CARDS } from './v34-card-data';
 
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type CardKind = 'unit' | 'spell' | 'trap' | 'fusion' | 'evolution';
@@ -8,6 +9,7 @@ export type Element = 'solar' | 'lunar' | 'storm' | 'verdant' | 'void' | 'neutra
 export type Keyword = 'guard' | 'charge' | 'lifesteal' | 'pierce' | 'corestrike';
 export type SummonMode = 'normal' | 'rift' | 'legendary' | 'fusion' | 'evolution';
 export type UnitType = 'vanguard' | 'artificer' | 'spirit' | 'hunter' | 'relic' | 'oracle';
+export type EclipsePhase = 'dawn' | 'zenith' | 'dusk' | 'midnight' | 'eclipse';
 export type VfxMoment = 'summon' | 'attack' | 'defense' | 'activation' | 'destroy';
 export type SeriesId = 'luminaknights' | 'kaisergear' | 'eclipsion' | 'nocturne' | 'arborian' | 'tempest_drive' | 'abyss_reaper' | 'primal_guardian' | 'chronorium' | 'arcana_protocol' | 'beastforge' | 'phantom_carnival' | 'astral_armada';
 
@@ -102,7 +104,19 @@ export type Effect =
   | { kind: 'mass_buff'; attack: number; health: number }
   | { kind: 'type_rally'; unitType: UnitType; attack: number; health: number }
   | { kind: 'type_recruit'; unitType: UnitType; maxCost: number }
-  | { kind: 'reset_unit' };
+  | { kind: 'reset_unit' }
+  | { kind: 'phase_shift'; steps: number }
+  | { kind: 'phase_set'; phase: EclipsePhase }
+  | { kind: 'phase_lock'; turns: number }
+  | { kind: 'phase_draw'; phase: EclipsePhase; base: number; bonus: number }
+  | { kind: 'phase_damage_core'; phase: EclipsePhase; base: number; bonus: number }
+  | { kind: 'phase_gain_energy'; phase: EclipsePhase; base: number; bonus: number }
+  | { kind: 'phase_heal_core'; phase: EclipsePhase; base: number; bonus: number }
+  | { kind: 'phase_mass_buff'; phase: EclipsePhase; attack: number; health: number; bonusAttack: number; bonusHealth: number }
+  | { kind: 'phase_mass_shield'; phase: EclipsePhase; base: number; bonus: number }
+  | { kind: 'phase_aoe_enemy'; phase: EclipsePhase; base: number; bonus: number }
+  | { kind: 'phase_recover_grave'; phase: EclipsePhase; base: number; bonus: number }
+  | { kind: 'phase_summon_token'; phase: EclipsePhase; attack: number; health: number; bonusAttack: number; bonusHealth: number; name: string };
 
 export type TrapTrigger =
   | 'spell_played'
@@ -224,6 +238,8 @@ export interface CardDefinition {
   unitType?: UnitType;
   /** Optional small combo family that does not participate in series-pack logic. */
   comboTag?: string;
+  /** v34 global battlefield clock affinity. Matching the current ECLIPSE CYCLE phase empowers phase effects. */
+  eclipseAffinity?: EclipsePhase;
   summonMode?: SummonMode;
   riftCost?: number;
   riftCondition?: RiftCondition;
@@ -298,6 +314,15 @@ export const UNIT_TYPE_LABEL: Record<UnitType, string> = {
   hunter: '추적자',
   relic: '유물체',
   oracle: '예언자',
+};
+
+export const ECLIPSE_PHASE_ORDER: EclipsePhase[] = ['dawn', 'zenith', 'dusk', 'midnight', 'eclipse'];
+export const ECLIPSE_PHASE_LABEL: Record<EclipsePhase, string> = {
+  dawn: '여명',
+  zenith: '정점',
+  dusk: '황혼',
+  midnight: '심야',
+  eclipse: '개기일식',
 };
 
 export const ELEMENT_LABEL: Record<Element, string> = {
@@ -1869,6 +1894,18 @@ function spellEffectText(effect: Effect): string {
     case 'type_rally': return `${UNIT_TYPE_LABEL[effect.unitType]} 유닛 모두에게 공격력 +${effect.attack}, 체력 +${effect.health}.`;
     case 'type_recruit': return `덱에서 비용 ${effect.maxCost} 이하 ${UNIT_TYPE_LABEL[effect.unitType]} 유닛 1장을 무작위로 전개합니다.`;
     case 'reset_unit': return '대상 유닛 1장을 카드에 적힌 원래 공격력/체력으로 되돌리고 보호막을 제거합니다.';
+    case 'phase_shift': return `ECLIPSE CYCLE을 ${effect.steps >= 0 ? '앞으로' : '뒤로'} ${Math.abs(effect.steps)}칸 이동합니다.`;
+    case 'phase_set': return `ECLIPSE CYCLE을 ${ECLIPSE_PHASE_LABEL[effect.phase]}으로 지정합니다.`;
+    case 'phase_lock': return `ECLIPSE CYCLE 자동 이동을 ${effect.turns}턴 잠급니다.`;
+    case 'phase_draw': return `${ECLIPSE_PHASE_LABEL[effect.phase]} 공명 시 카드 ${effect.base + effect.bonus}장, 아니면 ${effect.base}장 드로우.`;
+    case 'phase_damage_core': return `${ECLIPSE_PHASE_LABEL[effect.phase]} 공명 시 코어 ${effect.base + effect.bonus}, 아니면 ${effect.base} 피해.`;
+    case 'phase_gain_energy': return `${ECLIPSE_PHASE_LABEL[effect.phase]} 공명 시 ENERGY ${effect.base + effect.bonus}, 아니면 ${effect.base} 회복.`;
+    case 'phase_heal_core': return `${ECLIPSE_PHASE_LABEL[effect.phase]} 공명 시 코어 ${effect.base + effect.bonus}, 아니면 ${effect.base} 회복.`;
+    case 'phase_mass_buff': return `아군 전체 +${effect.attack}/+${effect.health}; ${ECLIPSE_PHASE_LABEL[effect.phase]} 공명 시 추가 +${effect.bonusAttack}/+${effect.bonusHealth}.`;
+    case 'phase_mass_shield': return `아군 전체 보호막 ${effect.base}; ${ECLIPSE_PHASE_LABEL[effect.phase]} 공명 시 +${effect.bonus}.`;
+    case 'phase_aoe_enemy': return `적 전체 ${effect.base} 피해; ${ECLIPSE_PHASE_LABEL[effect.phase]} 공명 시 +${effect.bonus}.`;
+    case 'phase_recover_grave': return `묘지 ${effect.base}장 회수; ${ECLIPSE_PHASE_LABEL[effect.phase]} 공명 시 +${effect.bonus}장.`;
+    case 'phase_summon_token': return `${effect.name} ${effect.attack}/${effect.health} 소환; ${ECLIPSE_PHASE_LABEL[effect.phase]} 공명 시 +${effect.bonusAttack}/+${effect.bonusHealth}.`;
   }
 }
 
@@ -2464,6 +2501,7 @@ export function extraSummonRuleDescription(card: CardDefinition): string {
  * mutating any series signature/passive assignment above.
  * -------------------------------------------------------------------------- */
 CARDS.push(...V33A_EXPANSION_CARDS);
+CARDS.push(...V34_ECLIPSE_CYCLE_CARDS);
 
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));
 
