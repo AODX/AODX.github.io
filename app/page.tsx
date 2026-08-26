@@ -3787,6 +3787,7 @@ function UnitSlot({
   enemy,
   eclipsePhase = 'dawn',
   onClick,
+  onInspect,
 }: {
   unit: UnitState | null;
   owner: string;
@@ -3799,6 +3800,7 @@ function UnitSlot({
   enemy?: boolean;
   eclipsePhase?: EclipsePhase;
   onClick?: () => void;
+  onInspect?: (cardId: string) => void;
 }) {
   const card = unit ? CARD_BY_ID[unit.cardId] : undefined;
   const hasCharge = Boolean(card?.keywords?.includes('charge'));
@@ -3829,7 +3831,7 @@ function UnitSlot({
           <span className={`unit-art ${card ? `variant-${hashString(card.id) % 6}` : ''}`} style={card ? cardStyle(card) : undefined}>
             {card ? <CardIllustration card={card} compact /> : <strong>✦</strong>}
           </span>
-          {card && <button type="button" className="unit-info-hotspot" aria-label={`${card.name} 상세 정보`} title={`${card.name} 상세 정보`} onClick={(event: React.MouseEvent<HTMLButtonElement>) => { event.preventDefault(); event.stopPropagation(); requestCardInspection(card.id); }} onKeyDown={(event: React.KeyboardEvent<HTMLButtonElement>) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); requestCardInspection(card.id); } }}>i</button>}
+          {card && <button type="button" className="unit-info-hotspot" aria-label={`${card.name} 상세 정보`} title={`${card.name} 상세 정보`} onPointerDown={(event: React.PointerEvent<HTMLButtonElement>) => { event.stopPropagation(); }} onClick={(event: React.MouseEvent<HTMLButtonElement>) => { event.preventDefault(); event.stopPropagation(); if (onInspect) onInspect(card.id); else requestCardInspection(card.id); }} onKeyDown={(event: React.KeyboardEvent<HTMLButtonElement>) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); if (onInspect) onInspect(card.id); else requestCardInspection(card.id); } }}>i</button>}
           <span className="v30-unit-traits" aria-label="유닛 전투 특성">
             {hasCharge && <i className="charge">속공</i>}
             {hasGuard && <i className="guard">수호</i>}
@@ -4454,26 +4456,27 @@ function DuelTimeCriticalStyles() {
     /* v34o: hand cards fit the actual dock instead of inheriting oversized collection-card geometry. */
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-dock { overflow:hidden!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-scroll {
-      min-width:0!important;min-height:0!important;align-items:stretch!important;
-      padding:8px 8px 8px 2px!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-gutter:stable!important;
+      min-width:0!important;min-height:0!important;align-items:flex-start!important;
+      padding:7px 8px 7px 2px!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-gutter:stable!important;
     }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card {
-      height:100%!important;min-height:0!important;max-height:none!important;align-self:stretch!important;overflow:visible!important;
-      flex-basis:clamp(134px,8.35vw,164px)!important;
+      height:calc(var(--hand-h) - 58px)!important;min-height:148px!important;max-height:188px!important;align-self:flex-start!important;overflow:visible!important;
+      flex:0 0 clamp(142px,9.1vw,172px)!important;
     }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact {
-      height:100%!important;min-height:0!important;max-height:none!important;aspect-ratio:auto!important;
-      grid-template-rows:36px minmax(0,1fr) 27px!important;
+      width:100%!important;height:100%!important;min-height:0!important;max-height:none!important;aspect-ratio:auto!important;
+      display:grid!important;grid-template-rows:46px minmax(0,1fr) 28px!important;gap:4px!important;padding:6px!important;
     }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact .card-art { min-height:0!important;height:100%!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact .card-subtitle { display:none!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact .card-footer { min-height:0!important;height:28px!important;margin:0!important;padding:4px 5px 0!important;align-self:end!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline {
-      height:36px!important;min-height:36px!important;padding:4px 31px!important;align-content:center!important;
+      height:46px!important;min-height:46px!important;padding:23px 6px 3px!important;align-content:center!important;overflow:hidden!important;
     }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline b {
-      min-width:0!important;font-size:10.5px!important;line-height:1.08!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+      min-width:0!important;max-width:100%!important;font-size:10.4px!important;line-height:1.06!important;white-space:normal!important;overflow:hidden!important;text-overflow:clip!important;display:-webkit-box!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:2!important;word-break:keep-all!important;overflow-wrap:anywhere!important;
     }
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline small {
-      min-width:0!important;font-size:7.4px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
-    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline small { display:none!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .card-cost { top:6px!important;left:5px!important;transform:scale(.88)!important;transform-origin:top left!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .card-info-hotspot { top:6px!important;right:5px!important;width:23px!important;height:23px!important;font-size:9px!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .summon-badge { top:42px!important;right:6px!important;max-width:38px!important;height:17px!important;font-size:6.5px!important; }
@@ -4488,20 +4491,28 @@ function DuelTimeCriticalStyles() {
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-identity {
       width:100%!important;min-width:0!important;display:grid!important;grid-template-columns:auto auto minmax(0,1fr)!important;align-items:center!important;column-gap:6px!important;
     }
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-identity > span { min-width:0!important;display:grid!important;overflow:visible!important; }
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-identity > span > b {
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-identity > span:not(.avatar) { min-width:0!important;display:grid!important;overflow:visible!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-identity > .avatar { width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;overflow:hidden!important;border-radius:50%!important;isolation:isolate!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-identity > .avatar::before { border-radius:50%!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-identity > span:not(.avatar) > b {
       display:block!important;min-width:0!important;max-width:100%!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;font-size:12.5px!important;letter-spacing:-.02em!important;
     }
     @media (max-width:1700px) { .v23-client.in-duel .v18-duel-screen.v34m-time-fix { --leader-col:198px!important; } }
-    @media (max-width:1450px) { .v23-client.in-duel .v18-duel-screen.v34m-time-fix { --leader-col:190px!important; } .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-identity > span > b { font-size:11.5px!important; } }
+    @media (max-width:1450px) { .v23-client.in-duel .v18-duel-screen.v34m-time-fix { --leader-col:190px!important; } .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-identity > span:not(.avatar) > b { font-size:11.5px!important; } }
 
     /* v34o: field info is a real button (not an invalid nested interactive span) and is always reachable. */
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot { cursor:pointer!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot::before,
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot::after { pointer-events:none!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-info-hotspot {
       position:absolute!important;top:7px!important;right:7px!important;z-index:80!important;width:27px!important;height:27px!important;
       display:grid!important;place-items:center!important;padding:0!important;margin:0!important;border-radius:50%!important;pointer-events:auto!important;cursor:help!important;
       border:1px solid rgba(210,235,250,.30)!important;background:rgba(3,8,13,.88)!important;color:#effaff!important;font-family:inherit!important;font-size:10px!important;font-weight:900!important;line-height:1!important;box-shadow:0 5px 16px rgba(0,0,0,.38)!important;
     }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-art,
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .v30-unit-traits,
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-name,
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-stats { pointer-events:none!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-info-hotspot:hover,
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-info-hotspot:focus-visible { border-color:#aee9ff!important;background:#122432!important;outline:2px solid rgba(125,221,255,.32)!important;outline-offset:1px!important; }
 
@@ -4515,8 +4526,8 @@ function DuelTimeCriticalStyles() {
 
     @media (max-height:760px) {
       .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-scroll { padding-top:5px!important;padding-bottom:5px!important; }
-      .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card { flex-basis:124px!important; }
-      .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline { padding-inline:29px!important; }
+      .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card { flex-basis:132px!important;max-height:168px!important; }
+      .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline { height:42px!important;min-height:42px!important;padding:21px 5px 2px!important; }
     }
 
     @media (prefers-reduced-motion:reduce) {
@@ -4537,7 +4548,7 @@ function BattleLeaderEmote({ state, ownerId, now }: { state: MatchState; ownerId
 
 type DuelBoardLocalAction = (gameAction: string, extra?: Record<string, unknown>) => Promise<RoomPayload>;
 
-function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt, localAction, practiceMode, onPresentationBusyChange }: { payload: RoomPayload; userId: string; onRefresh: (payload: RoomPayload) => void; onLeave: () => void; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number; localAction?: DuelBoardLocalAction; practiceMode?: PracticeDifficulty; onPresentationBusyChange?: (busy: boolean) => void }) {
+function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt, localAction, practiceMode, onPresentationBusyChange, onInspectCard }: { payload: RoomPayload; userId: string; onRefresh: (payload: RoomPayload) => void; onLeave: () => void; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number; localAction?: DuelBoardLocalAction; practiceMode?: PracticeDifficulty; onPresentationBusyChange?: (busy: boolean) => void; onInspectCard?: (cardId: string) => void }) {
   const { room, privateState: nullablePrivateState } = payload;
   const nullableState = room.state;
   const [selectedHand, setSelectedHand] = useState<string | null>(null);
@@ -5504,7 +5515,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
 
           <div className="v18-zone-row v18-enemy-units">
             {state.boards[opponentId].units.map((unit, index) => (
-              <UnitSlot key={index} unit={unit} owner={opponentId} index={index} eclipsePhase={clientCurrentEclipsePhase(state)} enemy targetable={Boolean(unit && (selectingEnemyTarget || (selectingAttackTarget && attackableTargetIndexes.includes(index))))} attackTarget={Boolean(unit && selectingAttackTarget && attackableTargetIndexes.includes(index))} onClick={() => targetUnit(opponentId, index)} />
+              <UnitSlot key={index} unit={unit} owner={opponentId} index={index} eclipsePhase={clientCurrentEclipsePhase(state)} enemy targetable={Boolean(unit && (selectingEnemyTarget || (selectingAttackTarget && attackableTargetIndexes.includes(index))))} attackTarget={Boolean(unit && selectingAttackTarget && attackableTargetIndexes.includes(index))} onInspect={onInspectCard} onClick={() => targetUnit(opponentId, index)} />
             ))}
           </div>
 
@@ -5532,6 +5543,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
                 materialSelected={selectedMaterials.includes(index)}
                 targetable={unit ? Boolean((selectingFriendlyTarget && (!selectedConsumesBuffSlot || !unit.buffCardApplied)) || selectingMaterials || (myTurn && !interactionLocked && state.phase === 'battle' && unit.canAttack) || (myTurn && !interactionLocked && state.phase === 'main' && !selectedCard && !selectedExtraCard && !fieldSacrificeUsed)) : selectingUnitToSummon}
                 attackReady={Boolean(unit && myTurn && !interactionLocked && state.phase === 'battle' && unit.canAttack)}
+                onInspect={onInspectCard}
                 onClick={() => unit ? targetUnit(userId, index) : playToUnitZone(index)}
               />
             ))}
@@ -5815,7 +5827,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
 }
 
 
-function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSyncAt }: { payload: RoomPayload; onReturnLobby: () => void; onLeave: () => void; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number }) {
+function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSyncAt, onInspectCard }: { payload: RoomPayload; onReturnLobby: () => void; onLeave: () => void; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number; onInspectCard?: (cardId: string) => void }) {
   const room = payload.room;
   const state = room.state;
   const playerAId = room.host_id;
@@ -5980,9 +5992,9 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
         </div>
         <section className="v18-board">
           <div className="v18-zone-row v18-enemy-secrets">{state.boards[playerBId].secrets.map((secret, index) => <div className={`v18-secret-slot enemy ${secret ? 'is-set' : ''}`} key={index}>{secret ? <><span className={`v18-secret-back sleeve-${playerB?.card_sleeve ?? 'sleeve_default'}`}>{sleeveGlyph(playerB?.card_sleeve)}</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}</div>)}</div>
-          <div className="v18-zone-row v18-enemy-units">{state.boards[playerBId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerBId} index={index} eclipsePhase={clientCurrentEclipsePhase(state)} enemy />)}</div>
+          <div className="v18-zone-row v18-enemy-units">{state.boards[playerBId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerBId} index={index} eclipsePhase={clientCurrentEclipsePhase(state)} enemy onInspect={onInspectCard} />)}</div>
           <div className="v18-center-lane"><div className="v18-pile-stat"><small>PLAYER B</small><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div><div className="v29-center-status v34f-battle-flow-center"><div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div><div className="v32e-watch-copy"><small>ROOM SPECTATE</small><b>양쪽 손패 공개</b></div></div><div className="v18-pile-stat mine"><small>PLAYER A</small><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span></div></div>
-          <div className="v18-zone-row v18-my-units">{state.boards[playerAId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerAId} index={index} eclipsePhase={clientCurrentEclipsePhase(state)} />)}</div>
+          <div className="v18-zone-row v18-my-units">{state.boards[playerAId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerAId} index={index} eclipsePhase={clientCurrentEclipsePhase(state)} onInspect={onInspectCard} />)}</div>
           <div className="v18-zone-row v18-my-secrets">{state.boards[playerAId].secrets.map((secret, index) => <div className={`v18-secret-slot mine ${secret ? 'is-set' : ''}`} key={index}>{secret ? <><span className={`v18-secret-back sleeve-${playerA?.card_sleeve ?? 'sleeve_default'}`}>{sleeveGlyph(playerA?.card_sleeve)}</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}</div>)}</div>
         </section>
       </main>
@@ -6020,10 +6032,20 @@ function PracticeDuel({ userId, hub, activeDeck, difficulty, onExit }: { userId:
   const snapshotRef = useRef(snapshot);
   const [botThinking, setBotThinking] = useState(false);
   const [presentationBusy, setPresentationBusy] = useState(true);
+  const [practiceInspectCardId, setPracticeInspectCardId] = useState<string | null>(null);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
   }, [snapshot]);
+
+  useEffect(() => {
+    const openPracticeInspector = (event: Event) => {
+      const cardId = (event as CustomEvent<string>).detail;
+      if (cardId && CARD_BY_ID[cardId]) setPracticeInspectCardId(cardId);
+    };
+    window.addEventListener(CARD_INSPECT_EVENT, openPracticeInspector);
+    return () => window.removeEventListener(CARD_INSPECT_EVENT, openPracticeInspector);
+  }, []);
 
   const buildPayload = useCallback((current: GameSnapshot): RoomPayload => {
     const label = PRACTICE_DIFFICULTY_LABEL[difficulty];
@@ -6156,7 +6178,9 @@ function PracticeDuel({ userId, hub, activeDeck, difficulty, onExit }: { userId:
         localAction={localAction}
         practiceMode={difficulty}
         onPresentationBusyChange={setPresentationBusy}
+        onInspectCard={setPracticeInspectCardId}
       />
+      {practiceInspectCardId && CARD_BY_ID[practiceInspectCardId] && <CardDetailModal card={CARD_BY_ID[practiceInspectCardId]} onClose={() => setPracticeInspectCardId(null)} />}
       {botThinking && snapshot.state.status !== 'finished' && (
         <div className={`v35-bot-thinking difficulty-${difficulty}`} role="status" aria-live="polite">
           <span className="v35-bot-thinking-orb" aria-hidden="true"><i /><i /><i /></span>
@@ -6169,7 +6193,7 @@ function PracticeDuel({ userId, hub, activeDeck, difficulty, onExit }: { userId:
 }
 
 
-function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncState, lastSyncAt }: { userId: string; hub: HubData; roomPayload: RoomPayload | null; onRoom: (room: RoomPayload | null) => void; onHub: (hub: HubData) => void; serverStatus: SecureServerStatus; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number }) {
+function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncState, lastSyncAt, onInspectCard }: { userId: string; hub: HubData; roomPayload: RoomPayload | null; onRoom: (room: RoomPayload | null) => void; onHub: (hub: HubData) => void; serverStatus: SecureServerStatus; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number; onInspectCard?: (cardId: string) => void }) {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -6221,9 +6245,9 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
     const room = roomPayload.room;
     const isPlayer = room.host_id === userId || room.guest_id === userId;
     if (!room.public_match && !isPlayer) {
-      return <SpectatorDuelBoard payload={roomPayload} onReturnLobby={returnPrivateLobby} onLeave={leaveRoom} syncState={syncState} lastSyncAt={lastSyncAt} />;
+      return <SpectatorDuelBoard payload={roomPayload} onReturnLobby={returnPrivateLobby} onLeave={leaveRoom} syncState={syncState} lastSyncAt={lastSyncAt} onInspectCard={onInspectCard} />;
     }
-    return <DuelBoard payload={roomPayload} userId={userId} onRefresh={onRoom} onLeave={room.public_match ? leaveRoom : returnPrivateLobby} syncState={syncState} lastSyncAt={lastSyncAt} />;
+    return <DuelBoard payload={roomPayload} userId={userId} onRefresh={onRoom} onLeave={room.public_match ? leaveRoom : returnPrivateLobby} syncState={syncState} lastSyncAt={lastSyncAt} onInspectCard={onInspectCard} />;
   }
 
   if (roomPayload) {
@@ -6752,7 +6776,7 @@ export default function Page() {
 
   const content = (() => {
     switch (view) {
-      case 'duel': return <DuelView userId={session.user.id} hub={hub} roomPayload={roomPayload} onRoom={setRoomPayload} onHub={setHub} serverStatus={serverStatus} syncState={roomSyncState} lastSyncAt={lastRoomSyncAt} />;
+      case 'duel': return <DuelView userId={session.user.id} hub={hub} roomPayload={roomPayload} onRoom={setRoomPayload} onHub={setHub} serverStatus={serverStatus} syncState={roomSyncState} lastSyncAt={lastRoomSyncAt} onInspectCard={setInspectedCardId} />;
       case 'deck': return <DeckBuilder hub={hub} onHub={setHub} />;
       case 'shop': return <ShopView hub={hub} onHub={setHub} />;
       case 'collection': return <CollectionView hub={hub} />;
