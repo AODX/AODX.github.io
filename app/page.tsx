@@ -4281,17 +4281,23 @@ function EclipseCycleStrip({ state }: { state: MatchState }) {
   const meta = ECLIPSE_UI_META[current];
   const locked = (state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber;
   return (
-    <div className={`v34f-cycle-strip cycle-${current}`} aria-label={`현재 시간 ${ECLIPSE_PHASE_LABEL[current]} · ${meta.bonus}`}>
-      <div className="v34f-cycle-now"><strong aria-hidden="true">{meta.glyph}</strong><span><small>NOW</small><b>{ECLIPSE_PHASE_LABEL[current]}</b></span></div>
-      <div className="v34f-cycle-order" aria-label="시간 순서">
-        {ECLIPSE_PHASE_ORDER.map((phase, index) => (
-          <span key={phase} className={phase === current ? 'active' : ''} title={`${index + 1}. ${ECLIPSE_PHASE_LABEL[phase]}`}>
-            <i>{index + 1}</i><em aria-hidden="true">{ECLIPSE_UI_META[phase].glyph}</em><small>{ECLIPSE_PHASE_LABEL[phase]}</small>
-          </span>
-        ))}
+    <section className={`v34k-cycle-band cycle-${current}`} aria-label={`ECLIPSE CYCLE · 현재 ${ECLIPSE_PHASE_LABEL[current]} · 순서 여명, 정점, 황혼, 심야, 개기일식`}>
+      <div className="v34k-cycle-current">
+        <strong aria-hidden="true">{meta.glyph}</strong>
+        <span><small>CURRENT</small><b>{ECLIPSE_PHASE_LABEL[current]}</b></span>
       </div>
-      {locked && <b className="v34f-cycle-lock">LOCK</b>}
-    </div>
+      <ol className="v34k-cycle-sequence" aria-label="시간대 진행 순서">
+        {ECLIPSE_PHASE_ORDER.map((phase, index) => (
+          <li key={phase} className={phase === current ? 'active' : ''} aria-current={phase === current ? 'step' : undefined}>
+            <i>{index + 1}</i><b>{ECLIPSE_PHASE_LABEL[phase]}</b>
+          </li>
+        ))}
+      </ol>
+      <div className="v34k-cycle-state">
+        <small>{locked ? 'TIME LOCK' : 'AUTO FLOW'}</small>
+        <b>{locked ? '고정' : '턴마다 다음 시간'}</b>
+      </div>
+    </section>
   );
 }
 

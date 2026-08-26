@@ -19,6 +19,14 @@ export type SummonOrigin = 'normal' | 'rift' | 'legendary' | 'fusion' | 'evoluti
 export type ExtraSummonKind = 'fusion' | 'evolution';
 export type VisualEventKind = 'turn' | 'summon' | 'special' | 'fusion' | 'evolution' | 'spell' | 'trap' | 'set' | 'draw' | 'attack' | 'defense' | 'destroy' | 'core' | 'heal' | 'buff' | 'energy';
 
+const INITIAL_ECLIPSE_PHASE: EclipsePhase = 'dawn';
+
+function nextNaturalEclipsePhase(phase: EclipsePhase): EclipsePhase {
+  const index = ECLIPSE_PHASE_ORDER.indexOf(phase);
+  if (index < 0) return INITIAL_ECLIPSE_PHASE;
+  return ECLIPSE_PHASE_ORDER[(index + 1) % ECLIPSE_PHASE_ORDER.length] ?? INITIAL_ECLIPSE_PHASE;
+}
+
 export interface CardInstance {
   instanceId: string;
   cardId: string;
@@ -371,7 +379,9 @@ export function initializeMatch(
     energyDrawTurn: {},
     nextTurnEnergyBonus: {},
     energyMaxBonus: { [playerA]: 0, [playerB]: 0 },
-    eclipsePhase: 'dawn',
+    // Every new duel starts at Dawn. Card/spell effects may change it later,
+    // but the natural turn clock always continues from the currently active phase.
+    eclipsePhase: INITIAL_ECLIPSE_PHASE,
     eclipsePhaseLockUntilTurn: 0,
     eclipsePhaseHistory: [],
     battleEmotes: [],
@@ -4191,7 +4201,15 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
   if ((state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber) {
     appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[currentEclipsePhase(state)]} 고정 유지.`, 'special');
   } else {
-    shiftEclipsePhase(state, privateStates, 1, undefined, '턴 종료 자동 진행');
+    // Natural time is always sequential: 여명 → 정점 → 황혼 → 심야 → 개기일식 → 여명.
+    // If a card changes the phase, the next natural step continues from that changed phase.
+    setEclipsePhase(
+      state,
+      privateStates,
+      nextNaturalEclipsePhase(currentEclipsePhase(state)),
+      undefined,
+      '턴 종료 자동 진행',
+    );
   }
   checkWinner(state);
   if (state.status !== 'active') {
