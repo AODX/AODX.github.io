@@ -42,6 +42,27 @@ export const V34_BATTLE_EMOTES: BattleEmote[] = [
   { id: 'trickcal_good', name: '트릭컬 · 좋아써!!', franchise: 'TRICKCAL', mood: 'good', price: SINGLE_PRICE, asset: '/emotes/v34/trickcal_good.png', packId: 'trickcal_bundle' },
   { id: 'trickcal_success', name: '트릭컬 · 대성공!', franchise: 'TRICKCAL', mood: 'success', price: SINGLE_PRICE, asset: '/emotes/v34/trickcal_success.png', packId: 'trickcal_bundle' },
   { id: 'trickcal_burst', name: '트릭컬 · 불 끼요옷!!', franchise: 'TRICKCAL', mood: 'burst', price: SINGLE_PRICE, asset: '/emotes/v34/trickcal_burst.png', packId: 'trickcal_bundle' },
+
+  { id: 'guardian_water', name: '가디언테일즈 · 물방울', franchise: 'GUARDIAN TALES', mood: 'sad', price: SINGLE_PRICE, asset: '/emotes/v34/guardian_water.png', packId: 'guardian_bundle' },
+  { id: 'guardian_flower', name: '가디언테일즈 · 하트꽃', franchise: 'GUARDIAN TALES', mood: 'love', price: SINGLE_PRICE, asset: '/emotes/v34/guardian_flower.png', packId: 'guardian_bundle' },
+  { id: 'guardian_rage', name: '가디언테일즈 · 분노폭발', franchise: 'GUARDIAN TALES', mood: 'rage', price: SINGLE_PRICE, asset: '/emotes/v34/guardian_rage.png', packId: 'guardian_bundle' },
+  { id: 'guardian_yahoo', name: '가디언테일즈 · 야호!', franchise: 'GUARDIAN TALES', mood: 'cheer', price: SINGLE_PRICE, asset: '/emotes/v34/guardian_yahoo.png', packId: 'guardian_bundle' },
+  { id: 'guardian_shock', name: '가디언테일즈 · 충격', franchise: 'GUARDIAN TALES', mood: 'shock', price: SINGLE_PRICE, asset: '/emotes/v34/guardian_shock.png', packId: 'guardian_bundle' },
+  { id: 'guardian_hurry', name: '가디언테일즈 · 빨리빨리', franchise: 'GUARDIAN TALES', mood: 'hurry', price: SINGLE_PRICE, asset: '/emotes/v34/guardian_hurry.png', packId: 'guardian_bundle' },
+
+  { id: 'mang_buaa', name: '망그러진 곰 · 부아아앙', franchise: '망그러진 곰', mood: 'cry', price: SINGLE_PRICE, asset: '/emotes/v34/mang_buaa.png', packId: 'mang_bundle' },
+  { id: 'mang_dirty', name: '망그러진 곰 · 꼬질..', franchise: '망그러진 곰', mood: 'tired', price: SINGLE_PRICE, asset: '/emotes/v34/mang_dirty.png', packId: 'mang_bundle' },
+  { id: 'mang_cool', name: '망그러진 곰 · 멋지다', franchise: '망그러진 곰', mood: 'cool', price: SINGLE_PRICE, asset: '/emotes/v34/mang_cool.png', packId: 'mang_bundle' },
+  { id: 'mang_best', name: '망그러진 곰 · 최고!', franchise: '망그러진 곰', mood: 'best', price: SINGLE_PRICE, asset: '/emotes/v34/mang_best.png', packId: 'mang_bundle' },
+  { id: 'mang_music', name: '망그러진 곰 · 룰루', franchise: '망그러진 곰', mood: 'music', price: SINGLE_PRICE, asset: '/emotes/v34/mang_music.png', packId: 'mang_bundle' },
+  { id: 'mang_book', name: '망그러진 곰 · 안 우는 법', franchise: '망그러진 곰', mood: 'book', price: SINGLE_PRICE, asset: '/emotes/v34/mang_book.png', packId: 'mang_bundle' },
+
+  { id: 'irem_cry', name: '이렘티콘 · 훌쩍', franchise: '이렘티콘', mood: 'cry', price: SINGLE_PRICE, asset: '/emotes/v34/irem_cry.png', packId: 'irem_bundle' },
+  { id: 'irem_yeah', name: '이렘티콘 · 이예이~', franchise: '이렘티콘', mood: 'yeah', price: SINGLE_PRICE, asset: '/emotes/v34/irem_yeah.png', packId: 'irem_bundle' },
+  { id: 'irem_bread', name: '이렘티콘 · 식빵', franchise: '이렘티콘', mood: 'sleep', price: SINGLE_PRICE, asset: '/emotes/v34/irem_bread.png', packId: 'irem_bundle' },
+  { id: 'irem_yell', name: '이렘티콘 · 대환호', franchise: '이렘티콘', mood: 'yell', price: SINGLE_PRICE, asset: '/emotes/v34/irem_yell.png', packId: 'irem_bundle' },
+  { id: 'irem_pan', name: '이렘티콘 · 냄비분노', franchise: '이렘티콘', mood: 'rage', price: SINGLE_PRICE, asset: '/emotes/v34/irem_pan.png', packId: 'irem_bundle' },
+  { id: 'irem_tears', name: '이렘티콘 · 감동눈물', franchise: '이렘티콘', mood: 'tears', price: SINGLE_PRICE, asset: '/emotes/v34/irem_tears.png', packId: 'irem_bundle' },
 ];
 
 export const V34_BATTLE_EMOTE_PACKS: BattleEmotePack[] = [
@@ -59,6 +80,21 @@ export const V34_BATTLE_EMOTE_PACKS: BattleEmotePack[] = [
     id: 'trickcal_bundle', name: '트릭컬 6종 세트', franchise: 'TRICKCAL', price: PACK_PRICE,
     description: '제공된 트릭컬 이모티콘 6종. 개별 6,000코인 대신 세트 5,000코인.',
     emoteIds: ['trickcal_sparkle','trickcal_escape','trickcal_badgame','trickcal_good','trickcal_success','trickcal_burst'], coverAsset: '/emotes/v34/trickcal_success.png',
+  },
+  {
+    id: 'guardian_bundle', name: '가디언테일즈 6종 세트', franchise: 'GUARDIAN TALES', price: PACK_PRICE,
+    description: '제공된 가디언테일즈 이모티콘 6종. 개별 6,000코인 대신 세트 5,000코인.',
+    emoteIds: ['guardian_water','guardian_flower','guardian_rage','guardian_yahoo','guardian_shock','guardian_hurry'], coverAsset: '/emotes/v34/guardian_yahoo.png',
+  },
+  {
+    id: 'mang_bundle', name: '망그러진 곰 6종 세트', franchise: '망그러진 곰', price: PACK_PRICE,
+    description: '제공된 망그러진 곰 이모티콘 6종. 개별 6,000코인 대신 세트 5,000코인.',
+    emoteIds: ['mang_buaa','mang_dirty','mang_cool','mang_best','mang_music','mang_book'], coverAsset: '/emotes/v34/mang_best.png',
+  },
+  {
+    id: 'irem_bundle', name: '이렘티콘 6종 세트', franchise: '이렘티콘', price: PACK_PRICE,
+    description: '제공된 이렘티콘 6종. 개별 6,000코인 대신 세트 5,000코인.',
+    emoteIds: ['irem_cry','irem_yeah','irem_bread','irem_yell','irem_pan','irem_tears'], coverAsset: '/emotes/v34/irem_yeah.png',
   },
 ];
 
