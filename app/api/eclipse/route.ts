@@ -1189,6 +1189,7 @@ async function handleAction(request: Request, body: RequestBody) {
     const { error } = await client.rpc('eclipse_buy_battle_emote_v34', { p_emote_id: emoteId });
     if (error) {
       if (/eclipse_buy_battle_emote_v34|schema cache|does not exist/i.test(error.message)) throw new Error('v34c 감정표현 DB 업그레이드가 필요합니다. sql/20_V34C_EMOTE_LOADOUT_NIKKE_TRICKCAL.sql을 한 번 실행해 주세요.');
+      if (/존재하지 않는 감정표현/.test(error.message) && /^(guardian_|mang_|irem_)/.test(emoteId)) throw new Error('새 이모티콘 DB 확장이 필요합니다. sql/21_V34D_ADD_GUARDIAN_MANG_IREM.sql을 한 번 실행해 주세요.');
       throw new Error(error.message);
     }
     return { hub: await getHub(client, user.id) };
@@ -1200,6 +1201,7 @@ async function handleAction(request: Request, body: RequestBody) {
     const { error } = await client.rpc('eclipse_buy_battle_emote_pack_v34', { p_pack_id: packId });
     if (error) {
       if (/eclipse_buy_battle_emote_pack_v34|schema cache|does not exist/i.test(error.message)) throw new Error('v34c 감정표현 DB 업그레이드가 필요합니다. sql/20_V34C_EMOTE_LOADOUT_NIKKE_TRICKCAL.sql을 한 번 실행해 주세요.');
+      if (/존재하지 않는 감정표현 세트/.test(error.message) && /^(guardian_bundle|mang_bundle|irem_bundle)$/.test(packId)) throw new Error('새 이모티콘 세트 DB 확장이 필요합니다. sql/21_V34D_ADD_GUARDIAN_MANG_IREM.sql을 한 번 실행해 주세요.');
       throw new Error(error.message);
     }
     return { hub: await getHub(client, user.id) };
@@ -1214,6 +1216,7 @@ async function handleAction(request: Request, body: RequestBody) {
     const { error } = await client.rpc('eclipse_set_emote_loadout_v34', { p_emote_ids: emoteIds });
     if (error) {
       if (/eclipse_set_emote_loadout_v34|schema cache|does not exist/i.test(error.message)) throw new Error('v34c 감정표현 DB 업그레이드가 필요합니다. sql/20_V34C_EMOTE_LOADOUT_NIKKE_TRICKCAL.sql을 한 번 실행해 주세요.');
+      if (/현재 사용할 수 없는 이모티콘/.test(error.message) && emoteIds.some((id) => /^(guardian_|mang_|irem_)/.test(id))) throw new Error('새 이모티콘 장착 DB 확장이 필요합니다. sql/21_V34D_ADD_GUARDIAN_MANG_IREM.sql을 한 번 실행해 주세요.');
       throw new Error(error.message);
     }
     return { hub: await getHub(client, user.id) };
