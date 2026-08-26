@@ -3785,6 +3785,7 @@ function UnitSlot({
   attackReady,
   attackTarget,
   enemy,
+  eclipsePhase = 'dawn',
   onClick,
 }: {
   unit: UnitState | null;
@@ -3796,17 +3797,29 @@ function UnitSlot({
   attackReady?: boolean;
   attackTarget?: boolean;
   enemy?: boolean;
+  eclipsePhase?: EclipsePhase;
   onClick?: () => void;
 }) {
   const card = unit ? CARD_BY_ID[unit.cardId] : undefined;
   const hasCharge = Boolean(card?.keywords?.includes('charge'));
   const hasGuard = Boolean(card?.keywords?.includes('guard'));
   const hasCorestrike = Boolean(card?.keywords?.includes('corestrike'));
+  const temporalAttack = unit?.eclipseAttackModifier ?? 0;
+  const temporalHealth = unit?.eclipseHealthModifier ?? 0;
+  const temporalVisual = ECLIPSE_ARENA_VISUAL[eclipsePhase];
+  const temporalDeltaLabel = (value: number) => `${value > 0 ? '+' : '−'}${Math.abs(value)}`;
   return (
-    <button
-      type="button"
+    <div
       className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${targetable ? 'targetable' : ''} ${attackReady ? 'attack-ready' : ''} ${attackTarget ? 'attack-target' : ''} ${hasCharge ? 'has-charge' : ''} ${hasGuard ? 'has-guard' : ''} ${hasCorestrike ? 'has-corestrike' : ''} ${unit?.buffCardApplied ? 'buff-card-used' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''} ${unit?.eclipseResonance ? `time-${unit.eclipseResonance}` : ''}`}
+      role="button"
+      tabIndex={onClick ? 0 : -1}
+      aria-label={unit ? `${card?.name ?? '유닛'} 선택` : `${index + 1}번 필드 슬롯`}
       onClick={onClick}
+      onKeyDown={(event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (!onClick || (event.key !== 'Enter' && event.key !== ' ')) return;
+        event.preventDefault();
+        onClick();
+      }}
       data-owner={owner}
       data-duel-unit-owner={owner}
       data-index={index}
@@ -3816,7 +3829,7 @@ function UnitSlot({
           <span className={`unit-art ${card ? `variant-${hashString(card.id) % 6}` : ''}`} style={card ? cardStyle(card) : undefined}>
             {card ? <CardIllustration card={card} compact /> : <strong>✦</strong>}
           </span>
-          {card && <span className="unit-info-hotspot" role="button" tabIndex={0} aria-label={`${card.name} 상세 정보`} onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); requestCardInspection(card.id); }} onKeyDown={(event: React.KeyboardEvent) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); requestCardInspection(card.id); } }}>i</span>}
+          {card && <button type="button" className="unit-info-hotspot" aria-label={`${card.name} 상세 정보`} title={`${card.name} 상세 정보`} onClick={(event: React.MouseEvent<HTMLButtonElement>) => { event.preventDefault(); event.stopPropagation(); requestCardInspection(card.id); }} onKeyDown={(event: React.KeyboardEvent<HTMLButtonElement>) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); requestCardInspection(card.id); } }}>i</button>}
           <span className="v30-unit-traits" aria-label="유닛 전투 특성">
             {hasCharge && <i className="charge">속공</i>}
             {hasGuard && <i className="guard">수호</i>}
@@ -3829,16 +3842,16 @@ function UnitSlot({
           {unit.eclipseResonance === 'resonant' && <span className="v34e-time-resonance-badge resonant">TIME +</span>}
           {unit.eclipseResonance === 'strained' && <span className="v34e-time-resonance-badge strained">TIME −</span>}
           <span className="unit-name">{card?.name ?? unit.cardId.replace('token:', '')}</span>
-          <span className="unit-stats" aria-label={`공격 ${unit.attack}, 방어 ${unit.health}${unit.shield > 0 ? `, 방어막 +${unit.shield}` : ''}`}>
-            <span className="v32n-stat attack"><b>{unit.attack}</b><i>ATK</i></span>
-            <span className="v32n-stat defense"><b>{unit.health}</b><i>DEF</i></span>
+          <span className="unit-stats" aria-label={`공격 ${unit.attack}${temporalAttack ? ` (시간 ${temporalDeltaLabel(temporalAttack)})` : ''}, 방어 ${unit.health}${temporalHealth ? ` (시간 ${temporalDeltaLabel(temporalHealth)})` : ''}${unit.shield > 0 ? `, 방어막 +${unit.shield}` : ''}`}>
+            <span className="v32n-stat attack"><b>{unit.attack}</b>{temporalAttack !== 0 && <em className={`v34o-temporal-delta ${temporalAttack > 0 ? 'positive' : 'negative'}`} style={{ color: `rgb(${temporalVisual.rgb})`, borderColor: `rgba(${temporalVisual.rgb},.34)`, background: `rgba(${temporalVisual.rgb},.11)`, textShadow: `0 0 8px rgba(${temporalVisual.rgb},.42)` }}>{temporalDeltaLabel(temporalAttack)}</em>}<i>ATK</i></span>
+            <span className="v32n-stat defense"><b>{unit.health}</b>{temporalHealth !== 0 && <em className={`v34o-temporal-delta ${temporalHealth > 0 ? 'positive' : 'negative'}`} style={{ color: `rgb(${temporalVisual.rgb})`, borderColor: `rgba(${temporalVisual.rgb},.34)`, background: `rgba(${temporalVisual.rgb},.11)`, textShadow: `0 0 8px rgba(${temporalVisual.rgb},.42)` }}>{temporalDeltaLabel(temporalHealth)}</em>}<i>DEF</i></span>
             {unit.shield > 0 && <em className="v32n-shield-value">+{unit.shield}</em>}
           </span>
           {!unit.canAttack && <span className="unit-state">REST</span>}
           {materialSelected && <span className="material-mark">MATERIAL</span>}
         </>
       )}
-    </button>
+    </div>
   );
 }
 
@@ -4438,6 +4451,74 @@ function DuelTimeCriticalStyles() {
       .v23-client.in-duel .v34m-cycle-phase.active { padding-inline:5px!important; }
       .v23-client.in-duel .v34n-phase-toast { top:58px!important;max-width:72vw!important; }
     }
+    /* v34o: hand cards fit the actual dock instead of inheriting oversized collection-card geometry. */
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-dock { overflow:hidden!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-scroll {
+      min-width:0!important;min-height:0!important;align-items:stretch!important;
+      padding:8px 8px 8px 2px!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-gutter:stable!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card {
+      height:100%!important;min-height:0!important;max-height:none!important;align-self:stretch!important;overflow:visible!important;
+      flex-basis:clamp(134px,8.35vw,164px)!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact {
+      height:100%!important;min-height:0!important;max-height:none!important;aspect-ratio:auto!important;
+      grid-template-rows:36px minmax(0,1fr) 27px!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline {
+      height:36px!important;min-height:36px!important;padding:4px 31px!important;align-content:center!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline b {
+      min-width:0!important;font-size:10.5px!important;line-height:1.08!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline small {
+      min-width:0!important;font-size:7.4px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .card-cost { top:6px!important;left:5px!important;transform:scale(.88)!important;transform-origin:top left!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .card-info-hotspot { top:6px!important;right:5px!important;width:23px!important;height:23px!important;font-size:9px!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .summon-badge { top:42px!important;right:6px!important;max-width:38px!important;height:17px!important;font-size:6.5px!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v30-card-traits { top:43px!important;right:6px!important;gap:2px!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card:hover,
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card:focus-within { transform:translateY(-3px) scale(1.015)!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card.selected { transform:translateY(-4px) scale(1.02)!important; }
+
+    /* v34o: leader names keep a real text column instead of being squeezed by avatar/emblem. */
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix { --leader-col:clamp(205px,12vw,238px)!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-card { min-width:0!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-identity {
+      width:100%!important;min-width:0!important;display:grid!important;grid-template-columns:auto auto minmax(0,1fr)!important;align-items:center!important;column-gap:6px!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-identity > span { min-width:0!important;display:grid!important;overflow:visible!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-identity > span > b {
+      display:block!important;min-width:0!important;max-width:100%!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;font-size:12.5px!important;letter-spacing:-.02em!important;
+    }
+    @media (max-width:1700px) { .v23-client.in-duel .v18-duel-screen.v34m-time-fix { --leader-col:198px!important; } }
+    @media (max-width:1450px) { .v23-client.in-duel .v18-duel-screen.v34m-time-fix { --leader-col:190px!important; } .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-identity > span > b { font-size:11.5px!important; } }
+
+    /* v34o: field info is a real button (not an invalid nested interactive span) and is always reachable. */
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot { cursor:pointer!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-info-hotspot {
+      position:absolute!important;top:7px!important;right:7px!important;z-index:80!important;width:27px!important;height:27px!important;
+      display:grid!important;place-items:center!important;padding:0!important;margin:0!important;border-radius:50%!important;pointer-events:auto!important;cursor:help!important;
+      border:1px solid rgba(210,235,250,.30)!important;background:rgba(3,8,13,.88)!important;color:#effaff!important;font-family:inherit!important;font-size:10px!important;font-weight:900!important;line-height:1!important;box-shadow:0 5px 16px rgba(0,0,0,.38)!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-info-hotspot:hover,
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-info-hotspot:focus-visible { border-color:#aee9ff!important;background:#122432!important;outline:2px solid rgba(125,221,255,.32)!important;outline-offset:1px!important; }
+
+    /* v34o: temporal stat contribution is shown separately in the active time-of-day color. */
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .v32n-stat { gap:3px!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .v34o-temporal-delta {
+      display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:22px!important;height:16px!important;padding:0 4px!important;
+      border:1px solid!important;border-radius:999px!important;font-size:7px!important;line-height:1!important;font-weight:1000!important;font-style:normal!important;letter-spacing:-.02em!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .v34o-temporal-delta.negative { opacity:.84!important;text-decoration:underline dotted!important;text-underline-offset:2px!important; }
+
+    @media (max-height:760px) {
+      .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-scroll { padding-top:5px!important;padding-bottom:5px!important; }
+      .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card { flex-basis:124px!important; }
+      .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline { padding-inline:29px!important; }
+    }
+
     @media (prefers-reduced-motion:reduce) {
       .v23-client.in-duel .v34n-phase-toast { animation:v34nPhaseToastReduced 1.72s linear both!important; }
       @keyframes v34nPhaseToastReduced { 0%,100%{opacity:0} 12%,82%{opacity:1} }
@@ -5423,7 +5504,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
 
           <div className="v18-zone-row v18-enemy-units">
             {state.boards[opponentId].units.map((unit, index) => (
-              <UnitSlot key={index} unit={unit} owner={opponentId} index={index} enemy targetable={Boolean(unit && (selectingEnemyTarget || (selectingAttackTarget && attackableTargetIndexes.includes(index))))} attackTarget={Boolean(unit && selectingAttackTarget && attackableTargetIndexes.includes(index))} onClick={() => targetUnit(opponentId, index)} />
+              <UnitSlot key={index} unit={unit} owner={opponentId} index={index} eclipsePhase={clientCurrentEclipsePhase(state)} enemy targetable={Boolean(unit && (selectingEnemyTarget || (selectingAttackTarget && attackableTargetIndexes.includes(index))))} attackTarget={Boolean(unit && selectingAttackTarget && attackableTargetIndexes.includes(index))} onClick={() => targetUnit(opponentId, index)} />
             ))}
           </div>
 
@@ -5446,6 +5527,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
                 unit={unit}
                 owner={userId}
                 index={index}
+                eclipsePhase={clientCurrentEclipsePhase(state)}
                 selected={selectedAttacker === index || selectedFieldUnit === index}
                 materialSelected={selectedMaterials.includes(index)}
                 targetable={unit ? Boolean((selectingFriendlyTarget && (!selectedConsumesBuffSlot || !unit.buffCardApplied)) || selectingMaterials || (myTurn && !interactionLocked && state.phase === 'battle' && unit.canAttack) || (myTurn && !interactionLocked && state.phase === 'main' && !selectedCard && !selectedExtraCard && !fieldSacrificeUsed)) : selectingUnitToSummon}
@@ -5898,9 +5980,9 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
         </div>
         <section className="v18-board">
           <div className="v18-zone-row v18-enemy-secrets">{state.boards[playerBId].secrets.map((secret, index) => <div className={`v18-secret-slot enemy ${secret ? 'is-set' : ''}`} key={index}>{secret ? <><span className={`v18-secret-back sleeve-${playerB?.card_sleeve ?? 'sleeve_default'}`}>{sleeveGlyph(playerB?.card_sleeve)}</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}</div>)}</div>
-          <div className="v18-zone-row v18-enemy-units">{state.boards[playerBId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerBId} index={index} enemy />)}</div>
+          <div className="v18-zone-row v18-enemy-units">{state.boards[playerBId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerBId} index={index} eclipsePhase={clientCurrentEclipsePhase(state)} enemy />)}</div>
           <div className="v18-center-lane"><div className="v18-pile-stat"><small>PLAYER B</small><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div><div className="v29-center-status v34f-battle-flow-center"><div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div><div className="v32e-watch-copy"><small>ROOM SPECTATE</small><b>양쪽 손패 공개</b></div></div><div className="v18-pile-stat mine"><small>PLAYER A</small><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span></div></div>
-          <div className="v18-zone-row v18-my-units">{state.boards[playerAId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerAId} index={index} />)}</div>
+          <div className="v18-zone-row v18-my-units">{state.boards[playerAId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerAId} index={index} eclipsePhase={clientCurrentEclipsePhase(state)} />)}</div>
           <div className="v18-zone-row v18-my-secrets">{state.boards[playerAId].secrets.map((secret, index) => <div className={`v18-secret-slot mine ${secret ? 'is-set' : ''}`} key={index}>{secret ? <><span className={`v18-secret-back sleeve-${playerA?.card_sleeve ?? 'sleeve_default'}`}>{sleeveGlyph(playerA?.card_sleeve)}</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}</div>)}</div>
         </section>
       </main>
