@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient, Session } from '@supabase/supabase-js';
-import { ChangeEvent, CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, CSSProperties, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   CARDS,
@@ -37,7 +37,14 @@ import {
   validateDeck,
   validateExtraDeck,
 } from './game-data';
-import type { MatchState, PrivateState, UnitState, VisualEvent } from './game-engine';
+import type { GameSnapshot, MatchState, PrivateState, UnitState, VisualEvent } from './game-engine';
+import {
+  PRACTICE_DIFFICULTY_LABEL,
+  applyPracticeGameAction,
+  choosePracticeBotAction,
+  createPracticeMatch,
+  type PracticeDifficulty,
+} from './practice-ai';
 import { V34_BATTLE_EMOTES, V34_BATTLE_EMOTE_BY_ID, V34_BATTLE_EMOTE_PACKS, V34_EMOTE_SLOT_LIMIT } from './v34-emotes';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
@@ -4138,7 +4145,9 @@ function BattleEmoteOverlay({ state, profiles, now }: { state: MatchState; profi
   return <div className="v34-battle-emote-overlay">{recent.map((entry) => { const item = V34_BATTLE_EMOTE_BY_ID[entry.emoteId]; if (!item) return null; const who = profileMap[entry.senderId]; return <div className="v34-battle-emote-bubble" key={entry.id}><img src={item.asset} alt={item.name} /><span><b>{who?.display_name ?? 'PLAYER'}</b><small>{item.name}</small></span></div>; })}</div>;
 }
 
-function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt }: { payload: RoomPayload; userId: string; onRefresh: (payload: RoomPayload) => void; onLeave: () => void; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number }) {
+type DuelBoardLocalAction = (gameAction: string, extra?: Record<string, unknown>) => Promise<RoomPayload>;
+
+function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt, localAction, practiceMode }: { payload: RoomPayload; userId: string; onRefresh: (payload: RoomPayload) => void; onLeave: () => void; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number; localAction?: DuelBoardLocalAction; practiceMode?: PracticeDifficulty }) {
   const { room, privateState: nullablePrivateState } = payload;
   const nullableState = room.state;
   const [selectedHand, setSelectedHand] = useState<string | null>(null);
@@ -4249,6 +4258,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   }, [nullableState?.turnEndsAt, nullableState?.turnNumber, nullableState?.status]);
 
   useEffect(() => {
+    if (localAction) return;
     const endsAt = nullableState?.turnEndsAt;
     const turnNumber = nullableState?.turnNumber;
     if (!endsAt || !turnNumber || nullableState?.status !== 'active') return;
@@ -4263,7 +4273,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
         .catch((error) => setMessage(error instanceof Error ? error.message : '턴 시간 동기화 실패'));
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [nullableState?.turnEndsAt, nullableState?.turnNumber, nullableState?.status, room.id, onRefresh]);
+  }, [nullableState?.turnEndsAt, nullableState?.turnNumber, nullableState?.status, room.id, onRefresh, localAction]);
 
   useEffect(() => {
     setSelectedHand(null);
@@ -4576,8 +4586,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     if (emoteBusy || state.status !== 'active') return;
     setEmoteBusy(true); setMessage('');
     try {
-      const result = await api('game_action', { roomId: room.id, gameAction: 'battle_emote', emoteId });
-      if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? payload.battleEmotes ?? [] });
+      if (localAction) {
+        const nextPayload = await localAction('battle_emote', { emoteId });
+        onRefresh(nextPayload);
+      } else {
+        const result = await api('game_action', { roomId: room.id, gameAction: 'battle_emote', emoteId });
+        if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? payload.battleEmotes ?? [] });
+      }
       setEmoteOpen(false);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '감정표현 전송 실패');
@@ -4590,8 +4605,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
     setBusy(true);
     setMessage('');
     try {
-      const result = await api('game_action', { roomId: room.id, gameAction, ...extra });
-      if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? [] });
+      if (localAction) {
+        const nextPayload = await localAction(gameAction, extra);
+        onRefresh(nextPayload);
+      } else {
+        const result = await api('game_action', { roomId: room.id, gameAction, ...extra });
+        if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? [] });
+      }
       clearSelection();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '행동 처리 실패');
@@ -4967,7 +4987,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
   const momentumLabel = momentum >= 4 ? '유리' : momentum <= -4 ? '불리' : '접전';
   const myMatchStats = state.matchStats?.[userId] ?? { cardsDrawn: 0, cardsPlayed: 0, unitsSummoned: 0, specialSummons: 0, coreDamage: 0, healing: 0 };
   const opponentMatchStats = state.matchStats?.[opponentId] ?? { cardsDrawn: 0, cardsPlayed: 0, unitsSummoned: 0, specialSummons: 0, coreDamage: 0, healing: 0 };
-  const duelWagerAmount = room.public_match ? 0 : Math.max(0, Number(room.wager_amount ?? 0));
+  const duelWagerAmount = practiceMode || room.public_match ? 0 : Math.max(0, Number(room.wager_amount ?? 0));
   const syncAgeSeconds = Math.max(0, Math.floor((Date.now() - lastSyncAt) / 1000));
   const displayedSyncState: 'live' | 'syncing' | 'offline' = syncState === 'offline' && syncAgeSeconds <= 8 ? 'live' : syncState;
 
@@ -4990,21 +5010,23 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
       <header className="v18-duel-header">
         <div className="v18-duel-brand">
           <span className="v18-brand-mark">E</span>
-          <div><b>ECLIPSE DUEL</b><small>ROOM {room.code}</small></div>
+          <div><b>ECLIPSE DUEL</b><small>{practiceMode ? `PRACTICE · ${PRACTICE_DIFFICULTY_LABEL[practiceMode]}` : `ROOM ${room.code}`}</small></div>
         </div>
         {duelWagerAmount > 0 && <div className="v31k-duel-wager-badge"><small>COIN DUEL</small><b>{duelWagerAmount.toLocaleString()} EACH</b><span>PRIZE {(duelWagerAmount * 2).toLocaleString()}</span></div>}
         <div className="v18-turn-hud">
           <small>ROUND {roundNumber} · TURN {state.turnNumber}</small>
           <div><b>{coinTossActive ? '선공 결정' : myTurn ? 'YOUR TURN' : 'OPPONENT TURN'}</b><span>{coinTossActive ? 'OPENING' : phaseLabel}</span></div>
-          {!coinTossActive && state.status === 'active' && (
+          {!practiceMode && !coinTossActive && state.status === 'active' && (
             <div className={`v18-turn-timer ${turnSecondsLeft <= 10 ? 'danger' : turnSecondsLeft <= 20 ? 'warning' : ''}`}>
               <strong>{turnSecondsLeft}</strong><small>SEC</small><i><b style={{ width: `${turnTimerPercent}%` }} /></i>
             </div>
           )}
         </div>
-        <div className={`v22-sync-chip ${displayedSyncState}`}>
-          <i /><span>{displayedSyncState === 'live' ? 'LIVE' : displayedSyncState === 'syncing' ? 'SYNCING' : 'RECONNECTING'}</span><small>{displayedSyncState === 'live' ? '연결됨' : displayedSyncState === 'syncing' ? '백그라운드 동기화' : '연결 복구 중'}</small>
-        </div>
+        {practiceMode ? <div className="v22-sync-chip live v35-practice-chip"><i /><span>LOCAL AI</span><small>{PRACTICE_DIFFICULTY_LABEL[practiceMode]} 봇 · 시간 제한 없음</small></div> : (
+          <div className={`v22-sync-chip ${displayedSyncState}`}>
+            <i /><span>{displayedSyncState === 'live' ? 'LIVE' : displayedSyncState === 'syncing' ? 'SYNCING' : 'RECONNECTING'}</span><small>{displayedSyncState === 'live' ? '연결됨' : displayedSyncState === 'syncing' ? '백그라운드 동기화' : '연결 복구 중'}</small>
+          </div>
+        )}
         <div className="v18-header-actions">
           <button type="button" className={emoteOpen ? 'active v34-emote-toggle' : 'v34-emote-toggle'} onClick={() => setEmoteOpen((value) => !value)}>감정표현</button>
           <button type="button" className={logOpen ? 'active' : ''} onClick={() => setLogOpen((value) => !value)}>기록</button>
@@ -5340,8 +5362,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
           <section className="v18-confirm-modal">
             <span className="eyebrow">SURRENDER</span>
             <h2>결투를 포기하시겠습니까?</h2>
-            <p>항복 즉시 상대가 승리하며 현재 경기는 패배로 기록됩니다.</p>
-            <div><button className="ghost-button" disabled={busy} onClick={() => setSurrenderOpen(false)}>계속 싸우기</button><button className="danger-button" disabled={busy} onClick={() => { setSurrenderOpen(false); void gameAction('surrender'); }}>항복하기</button></div>
+            <p>{practiceMode ? '연습 대전을 종료합니다. 연습 결과는 계정 승패 기록에 반영되지 않습니다.' : '항복 즉시 상대가 승리하며 현재 경기는 패배로 기록됩니다.'}</p>
+            <div><button className="ghost-button" disabled={busy} onClick={() => setSurrenderOpen(false)}>계속 싸우기</button><button className="danger-button" disabled={busy} onClick={() => { setSurrenderOpen(false); void gameAction('surrender'); }}>{practiceMode ? '연습 종료' : '항복하기'}</button></div>
           </section>
         </div>
       )}
@@ -5352,7 +5374,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
             <div className="v22-result-hero">
               <span className="result-emblem">{state.winnerId === userId ? '✦' : '◇'}</span>
               <div><small>DUEL COMPLETE · TURN {state.turnNumber}</small><h2>{state.winnerId === userId ? 'VICTORY' : 'DEFEAT'}</h2><p>{state.winReason}</p></div>
-              <strong>{state.winnerId === userId ? `+180 COIN · +100 XP${duelWagerAmount > 0 ? ` · 내기 +${duelWagerAmount.toLocaleString()}` : ''}` : `+35 COIN · +35 XP${duelWagerAmount > 0 ? ` · 내기 -${duelWagerAmount.toLocaleString()}` : ''}`}</strong>
+              <strong>{practiceMode ? 'PRACTICE · 보상/전적 반영 없음' : state.winnerId === userId ? `+180 COIN · +100 XP${duelWagerAmount > 0 ? ` · 내기 +${duelWagerAmount.toLocaleString()}` : ''}` : `+35 COIN · +35 XP${duelWagerAmount > 0 ? ` · 내기 -${duelWagerAmount.toLocaleString()}` : ''}`}</strong>
             </div>
             <div className="v22-result-stats">
               <article><small>CORE DAMAGE</small><b>{myMatchStats.coreDamage}</b><span>상대 {opponentMatchStats.coreDamage}</span></article>
@@ -5360,7 +5382,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt 
               <article><small>SUMMONS</small><b>{myMatchStats.unitsSummoned}</b><span>특수 {myMatchStats.specialSummons}</span></article>
               <article><small>HEALING</small><b>{myMatchStats.healing}</b><span>드로우 {myMatchStats.cardsDrawn}</span></article>
             </div>
-            <div className="v22-result-footer"><span>결투 기록은 결과 확정 후 계정 전적과 보상에 반영됩니다.</span><button className="primary-button" onClick={onLeave}>{room.public_match ? '허브로 돌아가기' : '대기방으로 돌아가기'}</button></div>
+            <div className="v22-result-footer"><span>{practiceMode ? '연습 결과는 계정 전적·코인·XP에 반영되지 않습니다.' : '결투 기록은 결과 확정 후 계정 전적과 보상에 반영됩니다.'}</span><button className="primary-button" onClick={onLeave}>{practiceMode ? '연습 메뉴로 돌아가기' : room.public_match ? '허브로 돌아가기' : '대기방으로 돌아가기'}</button></div>
           </section>
         </div>
       )}
@@ -5548,6 +5570,154 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
 }
 
 
+function PracticeDuel({ userId, hub, activeDeck, difficulty, onExit }: { userId: string; hub: HubData; activeDeck: DeckRow; difficulty: PracticeDifficulty; onExit: () => void }) {
+  const botId = `practice-bot-${difficulty}`;
+  const [snapshot, setSnapshot] = useState<GameSnapshot>(() => createPracticeMatch(userId, activeDeck.cards, activeDeck.extra_cards, botId, difficulty));
+  const snapshotRef = useRef(snapshot);
+  const [botThinking, setBotThinking] = useState(false);
+
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
+
+  const buildPayload = useCallback((current: GameSnapshot): RoomPayload => {
+    const label = PRACTICE_DIFFICULTY_LABEL[difficulty];
+    const botAvatar = difficulty === 'easy' ? 'oracle' : difficulty === 'normal' ? 'warden' : 'reaper';
+    return {
+      room: {
+        id: `practice-${difficulty}`,
+        code: `BOT-${difficulty.toUpperCase()}`,
+        owner_id: userId,
+        host_id: userId,
+        guest_id: botId,
+        public_match: false,
+        status: current.state.status === 'finished' ? 'finished' : 'active',
+        ready_host: true,
+        ready_guest: true,
+        wager_amount: 0,
+        wager_host_accepted: true,
+        wager_guest_accepted: true,
+        wager_locked: false,
+        wager_settled: false,
+        state: current.state,
+        version: current.state.visualEvents.length + current.state.turnNumber,
+        winner_id: current.state.winnerId ?? null,
+      },
+      profiles: [
+        {
+          user_id: userId,
+          display_name: hub.profile.display_name,
+          avatar: hub.profile.avatar,
+          wins: hub.profile.wins,
+          losses: hub.profile.losses,
+          xp: hub.profile.xp,
+          profile_emblem: hub.profile.profile_emblem,
+          card_sleeve: hub.profile.card_sleeve,
+          nickname_style: hub.profile.nickname_style,
+        },
+        {
+          user_id: botId,
+          display_name: `연습봇 · ${label}`,
+          avatar: botAvatar,
+          wins: 0,
+          losses: 0,
+          xp: 0,
+          profile_emblem: 'emblem_default',
+          card_sleeve: 'sleeve_default',
+          nickname_style: 'nickname_default',
+        },
+      ],
+      privateState: current.privateStates[userId] ?? null,
+      members: [
+        { user_id: userId, role: 'player_a', is_owner: true },
+        { user_id: botId, role: 'player_b', is_owner: false },
+      ],
+      battleEmotes: (hub.emoteLoadout?.length ? hub.emoteLoadout : hub.battleEmotes ?? []).slice(0, V34_EMOTE_SLOT_LIMIT),
+    };
+  }, [botId, difficulty, hub.battleEmotes, hub.emoteLoadout, hub.profile, userId]);
+
+  const localAction = useCallback(async (gameAction: string, extra: Record<string, unknown> = {}): Promise<RoomPayload> => {
+    const current = snapshotRef.current;
+    const next = applyPracticeGameAction(current, userId, gameAction, extra);
+    snapshotRef.current = next;
+    setSnapshot(next);
+    return buildPayload(next);
+  }, [buildPayload, userId]);
+
+  useEffect(() => {
+    const current = snapshotRef.current;
+    if (current.state.status === 'finished') {
+      setBotThinking(false);
+      return undefined;
+    }
+
+    const pendingOwner = current.state.pendingTrap?.ownerId;
+    const botMustRespond = pendingOwner === botId;
+    const botTurn = current.state.currentPlayerId === botId && !pendingOwner;
+    if (!botMustRespond && !botTurn) {
+      setBotThinking(false);
+      return undefined;
+    }
+
+    const coinWait = current.state.coinToss && Date.now() < current.state.coinToss.endsAt
+      ? Math.max(120, current.state.coinToss.endsAt - Date.now() + 120)
+      : 0;
+    const thinkDelay = coinWait || (difficulty === 'easy' ? 760 : difficulty === 'normal' ? 560 : 380);
+    setBotThinking(true);
+
+    const timer = window.setTimeout(() => {
+      const latest = snapshotRef.current;
+      if (latest.state.status === 'finished') {
+        setBotThinking(false);
+        return;
+      }
+      try {
+        const action = choosePracticeBotAction(latest, botId, difficulty);
+        if (!action) {
+          setBotThinking(false);
+          return;
+        }
+        const next = applyPracticeGameAction(latest, botId, action.gameAction, action.payload ?? {});
+        snapshotRef.current = next;
+        setSnapshot(next);
+      } catch (error) {
+        console.warn('[ECLIPSE PRACTICE] bot action skipped', error);
+        setBotThinking(false);
+      }
+    }, thinkDelay);
+
+    return () => window.clearTimeout(timer);
+  }, [botId, difficulty, snapshot]);
+
+  const payload = useMemo(() => buildPayload(snapshot), [buildPayload, snapshot]);
+  const noopRefresh = useCallback((_payload: RoomPayload) => { /* localAction commits the authoritative snapshot */ }, []);
+
+  if (typeof document === 'undefined') return <LoadingScreen text="연습 대전을 준비하는 중" />;
+
+  return createPortal(
+    <div className="v19-client in-duel v35-practice-overlay" data-ui-build="v34d-practice">
+      <DuelBoard
+        payload={payload}
+        userId={userId}
+        onRefresh={noopRefresh}
+        onLeave={onExit}
+        syncState="live"
+        lastSyncAt={Date.now()}
+        localAction={localAction}
+        practiceMode={difficulty}
+      />
+      {botThinking && snapshot.state.status !== 'finished' && (
+        <div className={`v35-bot-thinking difficulty-${difficulty}`} role="status" aria-live="polite">
+          <span className="v35-bot-thinking-orb" aria-hidden="true"><i /><i /><i /></span>
+          <div><small>TRAINING AI</small><b>{PRACTICE_DIFFICULTY_LABEL[difficulty]} 봇이 다음 수를 계산 중입니다</b></div>
+        </div>
+      )}
+    </div>,
+    document.body,
+  );
+}
+
+
 function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncState, lastSyncAt }: { userId: string; hub: HubData; roomPayload: RoomPayload | null; onRoom: (room: RoomPayload | null) => void; onHub: (hub: HubData) => void; serverStatus: SecureServerStatus; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number }) {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -5555,6 +5725,7 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
   const [wagerInput, setWagerInput] = useState('500');
   const [playerAChoice, setPlayerAChoice] = useState('');
   const [playerBChoice, setPlayerBChoice] = useState('');
+  const [practiceDifficulty, setPracticeDifficulty] = useState<PracticeDifficulty | null>(null);
   const roomActionLock = useRef(false);
 
   useEffect(() => {
@@ -5681,10 +5852,31 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
   }
 
   const activeDeck = hub.decks.find((deck) => deck.is_active);
+  const practiceDeckError = activeDeck ? (validateDeck(activeDeck.cards) || validateExtraDeck(activeDeck.extra_cards)) : '활성 덱이 없습니다.';
+
+  if (practiceDifficulty && activeDeck && !practiceDeckError) {
+    return <PracticeDuel userId={userId} hub={hub} activeDeck={activeDeck} difficulty={practiceDifficulty} onExit={() => setPracticeDifficulty(null)} />;
+  }
+
   return (
     <div className="duel-lobby view-stack">
-      <section className="duel-hero"><div><span className="eyebrow">ONLINE DUEL</span><h1>한 장의 선택이<br />전장을 뒤집는다.</h1><p>ENERGY와 손패의 흐름을 설계하고, 숨겨 둔 함정과 엑스트라 소환으로 상대의 다음 수까지 흔드세요.</p></div><CardFace card={CARD_BY_ID.unit_crownless_titan} /></section>
-      {!serverStatus.secureDuelReady && <section className="duel-server-panel panel"><div className="duel-server-emblem">!</div><div><span>ECLIPSE NETWORK</span><h2>온라인 대전 서비스를 점검하고 있습니다.</h2><p>{publicServerStatusMessage(serverStatus)}</p></div><ol><li><b>1</b><span>덱 구성과 카드 보관함은 계속 이용할 수 있습니다.</span></li><li><b>2</b><span>대전 서버가 복구되면 별도 설정 없이 바로 이용할 수 있습니다.</span></li><li><b>3</b><span>잠시 후 대전 메뉴에서 다시 확인해 주세요.</span></li></ol><small>현재 계정과 보유 카드 데이터는 그대로 유지됩니다.</small></section>}
+      <section className="duel-hero"><div><span className="eyebrow">DUEL ARENA</span><h1>한 장의 선택이<br />전장을 뒤집는다.</h1><p>ENERGY와 손패의 흐름을 설계하고, 숨겨 둔 함정과 엑스트라 소환으로 상대의 다음 수까지 흔드세요.</p></div><CardFace card={CARD_BY_ID.unit_crownless_titan} /></section>
+      <section className="v35-practice-panel panel">
+        <div className="v35-practice-copy"><span>PRACTICE MODE</span><h2>혼자서 봇과 실전처럼 연습</h2><p>현재 활성 덱으로 실제 대전 규칙을 그대로 연습합니다. 코인·XP·승패 기록에는 반영되지 않고, 연습 중에는 턴 시간 제한도 없습니다.</p></div>
+        <div className="v35-practice-levels">
+          {(['easy', 'normal', 'hard'] as PracticeDifficulty[]).map((difficulty) => {
+            const descriptions: Record<PracticeDifficulty, string> = {
+              easy: '합법적인 수 안에서 실수와 랜덤 선택이 많아 처음 규칙을 익히기 좋습니다.',
+              normal: '기본 전개와 공격 순서, 자원 효율을 판단하며 실제 유저와 비슷하게 플레이합니다.',
+              hard: '필드 가치·킬각·에너지 효율을 우선 계산해 가능한 수 중 가장 강한 선택을 노립니다.',
+            };
+            return <button type="button" key={difficulty} className={`v35-practice-level difficulty-${difficulty}`} disabled={!activeDeck || Boolean(practiceDeckError)} onClick={() => setPracticeDifficulty(difficulty)}><small>{difficulty.toUpperCase()}</small><b>{PRACTICE_DIFFICULTY_LABEL[difficulty]}</b><span>{descriptions[difficulty]}</span><em>연습 시작 →</em></button>;
+          })}
+        </div>
+        <footer><span><i />LOCAL TRAINING</span><small>봇 전용 덱은 보유 카드와 무관하게 자동 구성되며 계정 데이터를 사용하지 않습니다.</small></footer>
+        {practiceDeckError && <p className="v35-practice-warning">연습 모드를 시작하려면 정상적인 45장 메인 덱과 6장 엑스트라 덱을 활성화해 주세요. · {practiceDeckError}</p>}
+      </section>
+      {!serverStatus.secureDuelReady && <section className="duel-server-panel panel"><div className="duel-server-emblem">!</div><div><span>ECLIPSE NETWORK</span><h2>온라인 대전 서비스를 점검하고 있습니다.</h2><p>{publicServerStatusMessage(serverStatus)}</p></div><ol><li><b>1</b><span>덱 구성과 카드 보관함은 계속 이용할 수 있습니다.</span></li><li><b>2</b><span>연습 모드는 온라인 서버 상태와 관계없이 이용할 수 있습니다.</span></li><li><b>3</b><span>대전 서버가 복구되면 별도 설정 없이 온라인 대전도 바로 이용할 수 있습니다.</span></li></ol><small>현재 계정과 보유 카드 데이터는 그대로 유지됩니다.</small></section>}
       <section className={`duel-mode-grid ${serverStatus.secureDuelReady ? '' : 'is-disabled'}`}>
         <button className="mode-card ranked" disabled={busy || !activeDeck || !serverStatus.secureDuelReady} onClick={() => roomAction('quick_match')}><span>QUICK MATCH</span><h3>빠른 대전</h3><p>현재 대기 중인 결투가를 찾아 자동으로 연결합니다. 활성 덱이 그대로 사용됩니다.</p><em>매칭 시작 →</em></button>
         <button className="mode-card private" disabled={busy || !activeDeck || !serverStatus.secureDuelReady} onClick={() => roomAction('create_room')}><span>PRIVATE ROOM</span><h3>방코드 대전</h3><p>친구들과 한 방에 모여 선수 2명을 정하고 나머지는 실시간으로 관전할 수 있습니다.</p><em>방 만들기 →</em></button>
