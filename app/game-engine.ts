@@ -129,7 +129,7 @@ export interface CoinTossState {
 
 export type PendingTrapContinuation =
   | { kind: 'spell'; actorId: string; cardId: string; target?: CardActionTarget }
-  | { kind: 'summon'; actorId: string; zone: number; cardId: string; origin: SummonOrigin; remainingTriggers: TrapTrigger[]; extraChoiceIndex?: number }
+  | { kind: 'summon'; actorId: string; zone: number; cardId: string; origin: SummonOrigin; remainingTriggers: TrapTrigger[]; extraChoiceIndex?: number; target?: CardActionTarget }
   | { kind: 'attack_core'; actorId: string; attackerIndex: number; bonusDamage: number }
   | { kind: 'attack_unit'; actorId: string; attackerIndex: number; targetIndex: number; bonusDamage: number }
   | { kind: 'post_action' };
@@ -486,6 +486,41 @@ function recordExtraSummon(state: MatchState, playerId: string, kind: ExtraSummo
 
 function isBuffCardEffect(effect: Effect): boolean {
   return effect.kind === 'buff_unit' || effect.kind === 'shield_unit' || effect.kind === 'ready_unit' || effect.kind === 'buff_by_hand';
+}
+
+function summonEffectTargetsSelf(card: CardDefinition): boolean {
+  return /자신에게|자신의/.test(card.text ?? '');
+}
+
+function summonEffectNeedsFriendlyTarget(card: CardDefinition): boolean {
+  const effect = card.onSummon;
+  if (!effect || summonEffectTargetsSelf(card)) return false;
+  return effect.kind === 'buff_unit'
+    || effect.kind === 'shield_unit'
+    || effect.kind === 'heal_unit'
+    || effect.kind === 'ready_unit';
+}
+
+function resolveSummonEffectTarget(
+  state: MatchState,
+  actorId: string,
+  zone: number,
+  card: CardDefinition,
+  requested?: CardActionTarget,
+): CardActionTarget | undefined {
+  const effect = card.onSummon;
+  if (!effect) return undefined;
+  if (summonEffectTargetsSelf(card)) return { ownerId: actorId, unitIndex: zone };
+  if (!summonEffectNeedsFriendlyTarget(card)) return undefined;
+  if (!requested || requested.ownerId !== actorId || !Number.isInteger(requested.unitIndex)) {
+    throw new Error('등장 효과를 받을 아군 캐릭터를 선택해야 합니다.');
+  }
+
+  const requestedIndex = Number(requested.unitIndex);
+  const unitIndex = requestedIndex === -1 ? zone : requestedIndex;
+  if (unitIndex < 0 || unitIndex > 4) throw new Error('등장 효과를 받을 올바른 아군 캐릭터를 선택하세요.');
+  if (!state.boards[actorId].units[unitIndex]) throw new Error('선택한 아군 캐릭터가 필드에 없습니다.');
+  return { ownerId: actorId, unitIndex };
 }
 
 function sourceConsumesUnitBuffSlot(sourceCard: CardDefinition | undefined, effect: Effect): boolean {
@@ -3263,7 +3298,7 @@ function continueSummonResolution(
   continuation: Extract<PendingTrapContinuation, { kind: 'summon' }>,
   trapResult: TrapResolution = { negated: false, retaliation: 0 },
 ): void {
-  const { actorId, zone, cardId, origin, extraChoiceIndex } = continuation;
+  const { actorId, zone, cardId, origin, extraChoiceIndex, target } = continuation;
   const opponentId = otherPlayer(state, actorId);
   const card = CARD_BY_ID[cardId];
   const unit = state.boards[actorId].units[zone];
@@ -3306,8 +3341,8 @@ function continueSummonResolution(
 
   const temporalPhaseBeforeSummonEffects = currentEclipsePhase(state);
   if (card.onSummon && state.boards[actorId].units[zone]) {
-    const selfTarget = { ownerId: actorId, unitIndex: zone };
-    applyEffect(state, privateStates, actorId, card.onSummon, card.onSummon.kind === 'shield_unit' ? selfTarget : undefined);
+    const effectTarget = resolveSummonEffectTarget(state, actorId, zone, card, target);
+    applyEffect(state, privateStates, actorId, card.onSummon, effectTarget, card);
   }
   // If the printed summon effect itself changed the clock into this unit's payoff time,
   // the phase-transition resolver already fired the pulse. Otherwise an aligned summon
@@ -3423,6 +3458,10 @@ export function playCard(
     statsFor(state, playerId).unitsSummoned += 1;
     if (isRift || isLegendarySpecial) statsFor(state, playerId).specialSummons += 1;
     state.boards[playerId].units[zone] = makeUnit(state, playerId, instance, card, origin);
+    // Validate targeted summon effects before any trap window can be committed.
+    // This prevents a summon from entering a pending response state without the
+    // ally target that its printed [등장] effect explicitly asks the player to choose.
+    if (card.onSummon) resolveSummonEffectTarget(state, playerId, zone, card, target);
     appendLog(state, isRift ? `균열 소환 — 「${card.name}」!` : isLegendarySpecial ? `전설 특수 소환 — 「${card.name}」!` : `${card.name} 소환.`, isRift || isLegendarySpecial ? 'special' : 'system');
     appendVisual(state, {
       kind: isRift || isLegendarySpecial ? 'special' : 'summon',
@@ -3434,7 +3473,7 @@ export function playCard(
       detail: isLegendarySpecial ? card.legendarySummonRule?.name : undefined,
     });
     continueSummonResolution(state, privateStates, {
-      kind: 'summon', actorId: playerId, zone, cardId: card.id, origin, remainingTriggers: summonReactionTriggers(origin),
+      kind: 'summon', actorId: playerId, zone, cardId: card.id, origin, remainingTriggers: summonReactionTriggers(origin), target,
     });
   } else if (card.kind === 'spell') {
     spendEnergy(state, playerId, card.cost);
@@ -3695,6 +3734,7 @@ export function summonExtra(
   extraInstanceId: string,
   materialZones: number[],
   extraChoiceIndex?: number,
+  target?: CardActionTarget,
 ): ActionResult {
   const state = clone(snapshot.state);
   const privateStates = clone(snapshot.privateStates);
@@ -3825,6 +3865,7 @@ export function summonExtra(
     unit.canAttack = Boolean(card.keywords?.includes('charge')) || (evolvedSource.canAttack && evolvedSource.summonedTurn < state.turnNumber);
   }
   state.boards[playerId].units[summonZone] = unit;
+  if (card.onSummon) resolveSummonEffectTarget(state, playerId, summonZone, card, target);
   state.extraCounts[playerId] = playerPrivate.extra.length;
   state.turnActionTaken = true;
   statsFor(state, playerId).cardsPlayed += 1;
@@ -3840,7 +3881,7 @@ export function summonExtra(
   }
 
   continueSummonResolution(state, privateStates, {
-    kind: 'summon', actorId: playerId, zone: summonZone, cardId: card.id, origin, remainingTriggers: summonReactionTriggers(origin), extraChoiceIndex,
+    kind: 'summon', actorId: playerId, zone: summonZone, cardId: card.id, origin, remainingTriggers: summonReactionTriggers(origin), extraChoiceIndex, target,
   });
   if (!state.pendingTrap) {
     destroyDefeatedUnits(state, privateStates);

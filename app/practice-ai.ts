@@ -43,6 +43,25 @@ export interface PracticeBotAction {
   label: string;
 }
 
+function summonEffectNeedsFriendlyTarget(card: CardDefinition): boolean {
+  const effect = card.onSummon;
+  if (!effect || /자신에게|자신의/.test(card.text ?? '')) return false;
+  return effect.kind === 'buff_unit'
+    || effect.kind === 'shield_unit'
+    || effect.kind === 'heal_unit'
+    || effect.kind === 'ready_unit';
+}
+
+function summonTargetPayloads(snapshot: GameSnapshot, playerId: string, card: CardDefinition): Array<Record<string, unknown> | undefined> {
+  if (!summonEffectNeedsFriendlyTarget(card)) return [undefined];
+  const board = snapshot.state.boards[playerId];
+  const targets: Array<Record<string, unknown>> = [{ ownerId: playerId, unitIndex: -1 }];
+  board.units.forEach((unit, unitIndex) => {
+    if (unit) targets.push({ ownerId: playerId, unitIndex });
+  });
+  return targets;
+}
+
 function rarityPower(card: CardDefinition): number {
   return card.rarity === 'legendary' ? 10 : card.rarity === 'epic' ? 6 : card.rarity === 'rare' ? 3 : 0;
 }
@@ -160,12 +179,20 @@ export function applyPracticeGameAction(
       : undefined;
     next = playCard(snapshot, playerId, String(payload.instanceId ?? ''), payload.zone === undefined ? undefined : Number(payload.zone), target);
   } else if (gameAction === 'extra_summon') {
+    const rawTarget = payload.target && typeof payload.target === 'object' ? payload.target as Record<string, unknown> : undefined;
+    const target: CardActionTarget | undefined = rawTarget
+      ? {
+          ownerId: String(rawTarget.ownerId ?? ''),
+          unitIndex: rawTarget.unitIndex === undefined ? undefined : Number(rawTarget.unitIndex),
+        }
+      : undefined;
     next = summonExtra(
       snapshot,
       playerId,
       String(payload.extraInstanceId ?? ''),
       Array.isArray(payload.materialZones) ? payload.materialZones.map(Number) : [],
       payload.extraChoiceIndex === undefined ? undefined : Number(payload.extraChoiceIndex),
+      target,
     );
   } else if (gameAction === 'battle_phase') {
     next = beginBattlePhase(snapshot, playerId);
@@ -250,11 +277,18 @@ function enumerateBotActions(snapshot: GameSnapshot, botId: string): PracticeBot
       const card = CARD_BY_ID[instance.cardId];
       if (!card) continue;
       if (card.kind === 'unit') {
+        const summonTargets = summonTargetPayloads(snapshot, botId, card);
         if (card.summonMode === 'legendary') {
-          actions.push({ gameAction: 'play_card', payload: { instanceId: instance.instanceId }, label: `${card.name} 특수 소환` });
+          for (const target of summonTargets) {
+            actions.push({ gameAction: 'play_card', payload: { instanceId: instance.instanceId, ...(target ? { target } : {}) }, label: `${card.name} 특수 소환` });
+          }
         } else {
           ownBoard.units.forEach((unit, zone) => {
-            if (!unit) actions.push({ gameAction: 'play_card', payload: { instanceId: instance.instanceId, zone }, label: `${card.name} 소환` });
+            if (!unit) {
+              for (const target of summonTargets) {
+                actions.push({ gameAction: 'play_card', payload: { instanceId: instance.instanceId, zone, ...(target ? { target } : {}) }, label: `${card.name} 소환` });
+              }
+            }
           });
         }
       } else if (card.kind === 'trap') {
@@ -294,9 +328,12 @@ function enumerateBotActions(snapshot: GameSnapshot, botId: string): PracticeBot
       const required = extraRequiredUnitCount(card);
       if (required <= 0 || required > occupiedZones.length) continue;
       const choices = card.extraChoices?.length ? card.extraChoices.map((_, index) => index) : [undefined];
+      const summonTargets = summonTargetPayloads(snapshot, botId, card);
       for (const materialZones of combinations(occupiedZones, required)) {
         for (const extraChoiceIndex of choices) {
-          actions.push({ gameAction: 'extra_summon', payload: { extraInstanceId: instance.instanceId, materialZones, ...(extraChoiceIndex === undefined ? {} : { extraChoiceIndex }) }, label: `${card.name} 엑스트라 소환` });
+          for (const target of summonTargets) {
+            actions.push({ gameAction: 'extra_summon', payload: { extraInstanceId: instance.instanceId, materialZones, ...(extraChoiceIndex === undefined ? {} : { extraChoiceIndex }), ...(target ? { target } : {}) }, label: `${card.name} 엑스트라 소환` });
+          }
         }
       }
     }

@@ -664,6 +664,25 @@ function cardSeriesLabel(card: CardDefinition): string {
   return card.series ?? '기타';
 }
 
+function summonEffectNeedsFriendlyTarget(card: CardDefinition | undefined): boolean {
+  const effect = card?.onSummon;
+  if (!card || !effect || /자신에게|자신의/.test(card.text ?? '')) return false;
+  return effect.kind === 'buff_unit'
+    || effect.kind === 'shield_unit'
+    || effect.kind === 'heal_unit'
+    || effect.kind === 'ready_unit';
+}
+
+function summonTargetEffectLabel(card: CardDefinition | undefined): string {
+  const effect = card?.onSummon;
+  if (!effect) return '등장 효과';
+  if (effect.kind === 'shield_unit') return `보호막 ${effect.amount}`;
+  if (effect.kind === 'buff_unit') return `ATK +${effect.attack} · DEF +${effect.health}`;
+  if (effect.kind === 'heal_unit') return `체력 ${effect.amount} 회복`;
+  if (effect.kind === 'ready_unit') return '즉시 공격 가능';
+  return '등장 효과';
+}
+
 function displayEclipseAffinity(card: CardDefinition): EclipsePhase | undefined {
   return resolvedEclipseAffinity(card);
 }
@@ -4867,6 +4886,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const [selectedExtra, setSelectedExtra] = useState<string | null>(null);
   const [selectedExtraChoice, setSelectedExtraChoice] = useState<number | null>(null);
   const [selectedMaterials, setSelectedMaterials] = useState<number[]>([]);
+  const [selectedSummonZone, setSelectedSummonZone] = useState<number | null>(null);
+  const [selectedExtraEffectTarget, setSelectedExtraEffectTarget] = useState<number | 'self' | null>(null);
   const [selectedAttacker, setSelectedAttacker] = useState<number | null>(null);
   const [selectedFieldUnit, setSelectedFieldUnit] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -5008,6 +5029,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     setSelectedExtra(null);
     setSelectedExtraChoice(null);
     setSelectedMaterials([]);
+    setSelectedSummonZone(null);
+    setSelectedExtraEffectTarget(null);
     setSelectedAttacker(null);
     setSelectedFieldUnit(null);
     setHoveredHandCardId(null);
@@ -5026,6 +5049,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       setSelectedExtra(null);
       setSelectedExtraChoice(null);
       setSelectedMaterials([]);
+      setSelectedSummonZone(null);
+      setSelectedExtraEffectTarget(null);
       setSelectedAttacker(null);
       setSelectedFieldUnit(null);
       setGraveTargetOpen(false);
@@ -5156,7 +5181,10 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     .filter((unit): unit is UnitState => Boolean(unit));
   const selectedMaterialsValid = Boolean(selectedExtraCard && clientSelectedExtraMaterialsValid(selectedMaterialUnits, selectedExtraCard, state.turnNumber));
   const selectedExtraChoiceReady = Boolean(!selectedExtraCard?.extraChoices?.length || (selectedExtraChoice !== null && Boolean(selectedExtraCard.extraChoices[selectedExtraChoice])));
-  const canExtraSummon = Boolean(selectedExtraCard && selectedExtra && selectedMaterials.length === requiredMaterials && selectedMaterialsValid && selectedExtraChoiceReady && myTurn && !interactionLocked && state.phase === 'main' && !busy);
+  const selectedCardSummonNeedsTarget = Boolean(selectedCard?.kind === 'unit' && summonEffectNeedsFriendlyTarget(selectedCard));
+  const selectedExtraSummonNeedsTarget = Boolean(selectedExtraCard && summonEffectNeedsFriendlyTarget(selectedExtraCard));
+  const selectedExtraTargetReady = Boolean(!selectedExtraSummonNeedsTarget || selectedExtraEffectTarget !== null);
+  const canExtraSummon = Boolean(selectedExtraCard && selectedExtra && selectedMaterials.length === requiredMaterials && selectedMaterialsValid && selectedExtraChoiceReady && selectedExtraTargetReady && myTurn && !interactionLocked && state.phase === 'main' && !busy);
   const canAttemptExtraSummon = Boolean(selectedExtraCard && selectedExtra && myTurn && !interactionLocked && state.phase === 'main' && !busy);
   const canSpendTurnToDraw = Boolean(myTurn && state.phase === 'main' && !state.turnActionTaken && !busy && (state.deckCounts[userId] ?? 0) > 0);
   const myEnergy = state.energy[userId] ?? { current: 0, max: 0 };
@@ -5202,10 +5230,12 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const phaseLabel = state.phase === 'main' ? '메인 단계' : '전투 단계';
   const selectedHandCost = selectedCard?.summonMode === 'rift' && selectedCard.riftCost !== undefined ? `${selectedCard.cost} / 균열 ${selectedCard.riftCost}` : selectedCard?.cost;
   const selectingUnitToSummon = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.kind === 'unit' && selectedCard.summonMode !== 'legendary');
+  const selectingSummonEffectTarget = Boolean(selectedCardSummonNeedsTarget && selectedSummonZone !== null && myTurn && !interactionLocked && state.phase === 'main');
   const selectingTrapToSet = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.kind === 'trap');
   const selectingEnemyTarget = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.target === 'enemy_unit');
   const selectingFriendlyTarget = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.target === 'friendly_unit');
-  const selectingMaterials = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedExtraCard);
+  const selectingExtraEffectTarget = Boolean(selectedExtraSummonNeedsTarget && selectedMaterials.length === requiredMaterials && selectedMaterialsValid && myTurn && !interactionLocked && state.phase === 'main');
+  const selectingMaterials = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedExtraCard && !selectingExtraEffectTarget);
   const selectingAttackTarget = Boolean(myTurn && !interactionLocked && state.phase === 'battle' && selectedAttacker !== null);
   const opponentHasUnits = state.boards[opponentId].units.some(Boolean);
   const guardTargetIndexes = state.boards[opponentId].units.flatMap((unit, index) => unit && CARD_BY_ID[unit.cardId]?.keywords?.includes('guard') ? [index] : []);
@@ -5314,6 +5344,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     setSelectedExtra(null);
     setSelectedExtraChoice(null);
     setSelectedMaterials([]);
+    setSelectedSummonZone(null);
+    setSelectedExtraEffectTarget(null);
     setSelectedAttacker(null);
     setSelectedFieldUnit(null);
     setGraveTargetOpen(false);
@@ -5375,6 +5407,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     setSelectedExtra(null);
     setSelectedExtraChoice(null);
     setSelectedMaterials([]);
+    setSelectedSummonZone(null);
+    setSelectedExtraEffectTarget(null);
     setSelectedAttacker(null);
     setSelectedFieldUnit(null);
     setGraveTargetOpen(false);
@@ -5394,6 +5428,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     setSelectedExtraChoice(null);
     setSelectedHand(null);
     setSelectedMaterials([]);
+    setSelectedSummonZone(null);
+    setSelectedExtraEffectTarget(null);
     setSelectedAttacker(null);
     setSelectedFieldUnit(null);
     setGraveTargetOpen(false);
@@ -5413,6 +5449,16 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       showSummonBlock(selectedCard, blockReasons);
       return;
     }
+    if (summonEffectNeedsFriendlyTarget(selectedCard)) {
+      if (selectedSummonZone === zone) {
+        setMessage(`${selectedCard.name}의 등장 효과를 새로 소환되는 자신에게 적용합니다.`);
+        gameAction('play_card', { instanceId: selectedHand, zone, target: { ownerId: userId, unitIndex: -1 } });
+        return;
+      }
+      setSelectedSummonZone(zone);
+      setMessage(`소환 위치를 선택했습니다. 이제 ${summonTargetEffectLabel(selectedCard)}을(를) 받을 아군 캐릭터를 선택하세요. 방금 선택한 빈 칸을 다시 누르면 자신에게 적용됩니다.`);
+      return;
+    }
     gameAction('play_card', { instanceId: selectedHand, zone });
   }
 
@@ -5424,6 +5470,11 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     const blockReasons = handSummonBlockReasons(selectedCard);
     if (blockReasons.length > 0) {
       showSummonBlock(selectedCard, blockReasons);
+      return;
+    }
+    if (summonEffectNeedsFriendlyTarget(selectedCard)) {
+      setSelectedSummonZone(-1);
+      setMessage(`전설 소환 조건 확인 완료. 이제 ${summonTargetEffectLabel(selectedCard)}을(를) 받을 아군 캐릭터를 선택하세요. 오른쪽의 “소환체 자신”을 누르면 자신에게 적용됩니다.`);
       return;
     }
     setMessage(`${selectedCard.legendarySummonRule?.name ?? '전설 강림'} 발동 — 조건에 따라 릴리스가 자동 처리됩니다.`);
@@ -5461,7 +5512,27 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       setMessage('상대 턴입니다. 필드 카드는 상세 정보만 확인할 수 있습니다.');
       return;
     }
+    if (selectedCard && selectedHand && selectingSummonEffectTarget && ownerId === userId) {
+      setMessage(`${card?.name ?? '선택한 캐릭터'}에게 ${summonTargetEffectLabel(selectedCard)} 효과를 적용하고 소환합니다.`);
+      gameAction('play_card', {
+        instanceId: selectedHand,
+        ...(selectedSummonZone !== null && selectedSummonZone >= 0 ? { zone: selectedSummonZone } : {}),
+        target: { ownerId: userId, unitIndex },
+      });
+      return;
+    }
     if (selectedExtraCard && ownerId === userId && state.phase === 'main') {
+      if (selectingExtraEffectTarget) {
+        if (selectedMaterials.includes(unitIndex)) {
+          toggleMaterial(unitIndex);
+          setSelectedExtraEffectTarget(null);
+          setMessage('선택한 소재를 해제했습니다. 소재 구성을 다시 맞춰 주세요.');
+          return;
+        }
+        setSelectedExtraEffectTarget(unitIndex);
+        setMessage(`${card?.name ?? '선택한 캐릭터'}에게 ${summonTargetEffectLabel(selectedExtraCard)} 효과를 적용하도록 지정했습니다.`);
+        return;
+      }
       toggleMaterial(unitIndex);
       setMessage('엑스트라 소환 소재를 선택했습니다.');
       return;
@@ -5621,6 +5692,10 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       setMessage('전설 엑스트라는 CHOOSE 1·2·3 중 발동할 효과를 먼저 선택하세요.');
       return;
     }
+    if (selectedExtraSummonNeedsTarget && selectedExtraEffectTarget === null) {
+      setMessage(`${summonTargetEffectLabel(selectedExtraCard)}을(를) 받을 아군 캐릭터를 선택하거나 “소환체 자신”을 선택하세요.`);
+      return;
+    }
     if (!canExtraSummon) {
       const detail = selectedMaterials.length !== requiredMaterials
         ? `필요한 소재를 모두 선택해야 합니다. 현재 ${selectedMaterials.length}/${requiredMaterials}장 선택.`
@@ -5628,7 +5703,10 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       showSummonBlock(selectedExtraCard, [detail, extraRequirement(selectedExtraCard)]);
       return;
     }
-    gameAction('extra_summon', { extraInstanceId: selectedExtra, materialZones: selectedMaterials, extraChoiceIndex: selectedExtraChoice ?? undefined });
+    const target = selectedExtraSummonNeedsTarget
+      ? { ownerId: userId, unitIndex: selectedExtraEffectTarget === 'self' ? -1 : Number(selectedExtraEffectTarget) }
+      : undefined;
+    gameAction('extra_summon', { extraInstanceId: selectedExtra, materialZones: selectedMaterials, extraChoiceIndex: selectedExtraChoice ?? undefined, ...(target ? { target } : {}) });
   }
 
   function spendTurnToDraw() {
@@ -5650,9 +5728,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       ? selectedAttacker !== null
         ? directAttackOpen ? '상대 필드가 비었습니다. 상대 리더를 눌러 직접 공격하세요.' : '공격할 상대 유닛을 선택하세요.'
         : '빛나는 내 유닛을 선택해 공격을 선언하세요.'
-      : selectedExtraCard ? `${selectedExtraCard.extraChoices?.length && selectedExtraChoice === null ? 'CHOOSE 효과 1개 선택 · ' : ''}소재 ${selectedMaterials.length}/${requiredMaterials} 선택 후 특수 소환하세요.`
+      : selectedExtraCard ? selectedExtraSummonNeedsTarget && selectedMaterials.length === requiredMaterials && selectedMaterialsValid && selectedExtraEffectTarget === null
+        ? `${summonTargetEffectLabel(selectedExtraCard)}을(를) 받을 아군 캐릭터를 선택하거나 소환체 자신을 선택하세요.`
+        : `${selectedExtraCard.extraChoices?.length && selectedExtraChoice === null ? 'CHOOSE 효과 1개 선택 · ' : ''}소재 ${selectedMaterials.length}/${requiredMaterials} 선택 후 특수 소환하세요.`
         : selectedFieldUnitState ? `선택한 ${selectedFieldUnitCard?.name ?? '캐릭터'}을(를) 묘지로 보내 빈 칸을 만들고 에너지 1을 얻을 수 있습니다.`
-        : selectedCard?.kind === 'unit' ? selectedCard.summonMode === 'legendary' ? '오른쪽의 전설 특수 소환 버튼을 눌러 강림 조건을 확인하거나 발동하세요.' : '빛나는 빈 유닛 칸을 눌러 소환하세요.'
+        : selectedCard?.kind === 'unit' ? selectingSummonEffectTarget
+          ? `${summonTargetEffectLabel(selectedCard)}을(를) 받을 아군 캐릭터를 선택하세요. 소환 위치를 다시 누르면 자신에게 적용됩니다.`
+          : selectedCard.summonMode === 'legendary' ? '오른쪽의 전설 특수 소환 버튼을 눌러 강림 조건을 확인하거나 발동하세요.' : '빛나는 빈 유닛 칸을 눌러 소환하세요.'
           : selectedCard?.kind === 'trap' ? '빛나는 빈 함정 칸을 눌러 세트하세요. 세트한 함정은 나에게만 앞면으로 보입니다.'
             : selectedCard?.target === 'enemy_unit' ? '빛나는 적 유닛을 선택하세요.'
               : selectedCard?.target === 'friendly_unit' ? '빛나는 아군 유닛을 선택하세요.'
@@ -5685,9 +5767,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
         : selectedFieldUnitState
           ? { step: 1, kicker: 'FIELD RETIRE', title: `${selectedFieldUnitCard?.name ?? '캐릭터'}을 정리할까요?`, detail: '선택한 내 캐릭터를 묘지로 보내 유닛 칸을 비웁니다. 에너지가 10 미만이면 +1을 얻습니다.', tip: fieldSacrificeUsed ? '이번 턴에는 이미 필드 정리를 사용했습니다.' : '필드 정리는 턴당 1회이며 전투 파괴로 취급하지 않습니다.' }
           : selectedExtraCard
-            ? { step: 1, kicker: 'SPECIAL SUMMON', title: '특수 소환 소재를 고르세요', detail: `필드에서 빛나는 소재를 ${requiredMaterials}장 선택한 뒤 특수 소환 버튼을 누르세요.`, tip: `현재 선택 ${selectedMaterials.length}/${requiredMaterials}` }
+            ? selectedExtraSummonNeedsTarget && selectedMaterials.length === requiredMaterials && selectedMaterialsValid && selectedExtraEffectTarget === null
+              ? { step: 1, kicker: 'SUMMON TARGET', title: '등장 효과 대상을 선택하세요', detail: `${summonTargetEffectLabel(selectedExtraCard)}을(를) 받을 아군 캐릭터를 선택합니다. 소재가 아닌 아군을 누르거나 “소환체 자신”을 선택하세요.`, tip: '대상을 선택한 뒤 특수 소환 버튼을 누르면 됩니다.' }
+              : { step: 1, kicker: 'SPECIAL SUMMON', title: '특수 소환 소재를 고르세요', detail: `필드에서 빛나는 소재를 ${requiredMaterials}장 선택한 뒤 특수 소환 버튼을 누르세요.`, tip: `현재 선택 ${selectedMaterials.length}/${requiredMaterials}` }
           : selectedCard?.kind === 'unit'
-            ? selectedCard.summonMode === 'legendary'
+            ? selectingSummonEffectTarget
+              ? { step: 1, kicker: 'SUMMON TARGET', title: '등장 효과 대상을 선택하세요', detail: `${summonTargetEffectLabel(selectedCard)}을(를) 받을 아군 캐릭터를 누르세요. 새로 소환되는 자신에게 줄 수도 있습니다.`, tip: '이 단계에서는 아직 소환이 확정되지 않았습니다. 대상까지 고르면 한 번에 처리됩니다.' }
+              : selectedCard.summonMode === 'legendary'
               ? { step: 1, kicker: 'LEGENDARY SUMMON', title: `${selectedCard.legendarySummonRule?.name ?? '전설 강림'} 준비`, detail: selectedCard.legendarySummonRule?.label ?? '전설 특수 소환 조건을 확인하세요.', tip: `조건을 만족하면 오른쪽 “전설 특수 소환” 버튼으로 발동 · ENERGY ${selectedCard.cost}` }
               : { step: 1, kicker: 'SUMMON', title: '소환할 빈 칸을 선택하세요', detail: '손패에서 유닛을 골랐습니다. 파랗게 빛나는 내 유닛 칸을 누르면 소환됩니다.', tip: `사용 에너지 ${selectedHandCost ?? selectedCard.cost} · 현재 ${myEnergy.current}/${myEnergy.max}` }
             : selectedCard?.kind === 'trap'
@@ -5852,9 +5938,9 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
                 owner={userId}
                 index={index}
                 eclipsePhase={clientCurrentEclipsePhase(state)}
-                selected={selectedAttacker === index || selectedFieldUnit === index}
+                selected={selectedAttacker === index || selectedFieldUnit === index || selectedSummonZone === index || selectedExtraEffectTarget === index}
                 materialSelected={selectedMaterials.includes(index)}
-                targetable={unit ? Boolean((selectingFriendlyTarget && (!selectedConsumesBuffSlot || !unit.buffCardApplied)) || selectingMaterials || (myTurn && !interactionLocked && state.phase === 'battle' && unit.canAttack) || (myTurn && !interactionLocked && state.phase === 'main' && !selectedCard && !selectedExtraCard && !fieldSacrificeUsed)) : selectingUnitToSummon}
+                targetable={unit ? Boolean((selectingFriendlyTarget && (!selectedConsumesBuffSlot || !unit.buffCardApplied)) || selectingSummonEffectTarget || (selectingExtraEffectTarget && !selectedMaterials.includes(index)) || selectingMaterials || (myTurn && !interactionLocked && state.phase === 'battle' && unit.canAttack) || (myTurn && !interactionLocked && state.phase === 'main' && !selectedCard && !selectedExtraCard && !fieldSacrificeUsed)) : selectingUnitToSummon}
                 attackReady={Boolean(unit && myTurn && !interactionLocked && state.phase === 'battle' && unit.canAttack)}
                 onInspect={onInspectCard}
                 onClick={() => unit ? targetUnit(userId, index) : playToUnitZone(index)}
@@ -5922,6 +6008,21 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
               <div className="v18-selected-art"><CardIllustration card={selectedCard} compact /></div>
               <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p><RuleText text={selectedCard.summonMode === 'rift' ? `【균열 조건】 ${extraRequirement(selectedCard)}` : selectedCard.summonMode === 'legendary' ? `【전설 특수 소환】 ${extraRequirement(selectedCard)}` : polishedCardText(selectedCard)} /></p>{selectedCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(selectedCard)} /></p>}{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(selectedCard)} /></p>}</div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>선택 취소</button></div>
+              {selectedCard.kind === 'unit' && selectedCardSummonNeedsTarget && selectedSummonZone !== null && (
+                <div className="v36-summon-target-box">
+                  <small>등장 효과 대상 선택</small>
+                  <b>{summonTargetEffectLabel(selectedCard)}</b>
+                  <p>필드의 아군 캐릭터를 누르면 그 캐릭터에게 적용됩니다.</p>
+                  <button type="button" className="v36-self-target-button" disabled={busy} onClick={() => {
+                    if (!selectedHand) return;
+                    gameAction('play_card', {
+                      instanceId: selectedHand,
+                      ...(selectedSummonZone >= 0 ? { zone: selectedSummonZone } : {}),
+                      target: { ownerId: userId, unitIndex: -1 },
+                    });
+                  }}>새로 소환되는 자신에게 적용</button>
+                </div>
+              )}
               {selectedCard.kind === 'spell' && (selectedCard.target === 'none' || selectedCard.target === 'enemy_core') && <button className="v18-context-primary" onClick={activateSelectedNoTarget}>주문 발동</button>}
               {selectedCard.kind === 'spell' && selectedCard.target === 'friendly_graveyard_unit' && <button className="v18-context-primary v31d-grave-target-button" disabled={!canChooseGraveyardTarget} onClick={openGraveyardTargetPicker}>묘지에서 부활 대상 선택 · {graveyardReviveTargets.length}</button>}
               {selectedCard.kind === 'spell' && selectedCard.target === 'own_deck_card' && <button className="v18-context-primary v32y-card-picker-button" disabled={!canChooseDeckTutorTarget} onClick={openDeckTutorPicker}>덱에서 카드 선택 · {deckTutorTargets.length}</button>}
@@ -5944,8 +6045,16 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
                   ))}</div>
                 </div>
               )}
+              {selectedExtraSummonNeedsTarget && selectedMaterials.length === requiredMaterials && selectedMaterialsValid && (
+                <div className="v36-summon-target-box">
+                  <small>등장 효과 대상 선택</small>
+                  <b>{summonTargetEffectLabel(selectedExtraCard)}</b>
+                  <p>{selectedExtraEffectTarget === null ? '소재가 아닌 아군 캐릭터를 누르거나 소환체 자신을 선택하세요.' : selectedExtraEffectTarget === 'self' ? '새로 소환되는 캐릭터 자신에게 적용합니다.' : `${CARD_BY_ID[state.boards[userId].units[selectedExtraEffectTarget]?.cardId ?? '']?.name ?? '선택한 아군'}에게 적용합니다.`}</p>
+                  <button type="button" className={`v36-self-target-button ${selectedExtraEffectTarget === 'self' ? 'selected' : ''}`} onClick={() => { setSelectedExtraEffectTarget('self'); setMessage(`새로 소환되는 ${selectedExtraCard.name} 자신에게 ${summonTargetEffectLabel(selectedExtraCard)} 효과를 적용합니다.`); }}>소환체 자신</button>
+                </div>
+              )}
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedExtraCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('엑스트라 카드 선택을 취소했습니다.')}>선택 취소</button></div>
-              <button className="v18-context-primary" disabled={!canAttemptExtraSummon} onClick={summonSelectedExtra}>{canExtraSummon ? (selectedExtraCard.kind === 'fusion' ? '공명 융합 발동' : '계승 진화 발동') : selectedExtraCard.extraChoices?.length && selectedExtraChoice === null ? 'CHOOSE 효과 선택 필요' : '소환 조건 확인'}</button>
+              <button className="v18-context-primary" disabled={!canAttemptExtraSummon} onClick={summonSelectedExtra}>{canExtraSummon ? (selectedExtraCard.kind === 'fusion' ? '공명 융합 발동' : '계승 진화 발동') : selectedExtraCard.extraChoices?.length && selectedExtraChoice === null ? 'CHOOSE 효과 선택 필요' : selectedExtraSummonNeedsTarget && selectedMaterials.length === requiredMaterials && selectedMaterialsValid && selectedExtraEffectTarget === null ? '등장 효과 대상 선택 필요' : '소환 조건 확인'}</button>
             </div>
           )}
         </section>}
@@ -6476,7 +6585,7 @@ function PracticeDuel({ userId, hub, activeDeck, difficulty, onExit }: { userId:
   if (typeof document === 'undefined') return <LoadingScreen text="연습 대전을 준비하는 중" />;
 
   return createPortal(
-    <div className="v19-client v23-client in-duel v35-practice-overlay" data-ui-build="v34n-practice-parity">
+    <div className="v19-client v23-client in-duel v35-practice-overlay" data-ui-build="v32-retail" data-practice-mode="true">
       <DuelBoard
         payload={payload}
         userId={userId}
