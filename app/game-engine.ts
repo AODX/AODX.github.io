@@ -10,6 +10,7 @@ import {
   TrapTrigger,
   isUnitCard,
   randomId,
+  resolvedEclipsePhaseModifiers,
   resolveCardVfx,
 } from './game-data';
 
@@ -448,6 +449,8 @@ function spendEnergy(state: MatchState, playerId: string, amount: number): void 
 }
 
 const EXTRA_SUMMON_LIMIT_PER_MATCH = 2;
+const EXTRA_SUMMON_FIRST_ROUND = 3;
+const EXTRA_SUMMON_SECOND_ROUND = 5;
 
 function extraUsageFor(state: MatchState, playerId: string): { fusion: number; evolution: number } {
   if (!state.extraSummonUsage) state.extraSummonUsage = {};
@@ -465,6 +468,11 @@ function assertExtraSummonAvailable(state: MatchState, playerId: string, kind: E
   const usage = extraUsageFor(state, playerId);
   const turnUse = extraTurnFor(state, playerId);
   const label = kind === 'fusion' ? '공명 융합' : '계승 진화';
+  const round = Math.max(1, Math.ceil(state.turnNumber / 2));
+  const totalUsed = usage.fusion + usage.evolution;
+  if (round < EXTRA_SUMMON_FIRST_ROUND) throw new Error(`엑스트라 소환은 ROUND ${EXTRA_SUMMON_FIRST_ROUND}부터 사용할 수 있습니다.`);
+  if (totalUsed >= EXTRA_SUMMON_LIMIT_PER_MATCH) throw new Error(`엑스트라 소환은 공명/계승을 합쳐 한 게임에 최대 ${EXTRA_SUMMON_LIMIT_PER_MATCH}번만 사용할 수 있습니다.`);
+  if (totalUsed >= 1 && round < EXTRA_SUMMON_SECOND_ROUND) throw new Error(`두 번째 엑스트라 소환은 ROUND ${EXTRA_SUMMON_SECOND_ROUND}부터 사용할 수 있습니다.`);
   if (usage[kind] >= EXTRA_SUMMON_LIMIT_PER_MATCH) throw new Error(`${label}은 한 게임에 최대 ${EXTRA_SUMMON_LIMIT_PER_MATCH}번만 사용할 수 있습니다.`);
   if (turnUse[kind] === state.turnNumber) throw new Error(`${label}은 한 턴에 1번만 사용할 수 있습니다.`);
 }
@@ -572,24 +580,15 @@ function eclipseDistance(a: EclipsePhase, b: EclipsePhase): number {
 
 function desiredEclipseModifier(card: CardDefinition | undefined, phase: EclipsePhase): { attack: number; health: number; resonance: 'resonant' | 'neutral' | 'strained' } {
   if (!card || !isUnitCard(card)) return { attack: 0, health: 0, resonance: 'neutral' };
-
-  // v34j: 203/508 existing units have authored reactions; unlisted cards stay neutral.
-  // Unlisted phases are deliberately neutral, so a card can be buff-only, debuff-only,
-  // or have a completely asymmetric risk/reward profile instead of inheriting one global rule.
-  if (card.eclipsePhaseModifiers) {
-    const authored = card.eclipsePhaseModifiers[phase];
-    if (!authored) return { attack: 0, health: 0, resonance: 'neutral' };
-    const attack = Math.trunc(authored.attack ?? 0);
-    const health = Math.trunc(authored.health ?? 0);
-    const hasPenalty = attack < 0 || health < 0;
-    const hasBonus = attack > 0 || health > 0;
-    return { attack, health, resonance: hasPenalty ? 'strained' : hasBonus ? 'resonant' : 'neutral' };
-  }
-
-  // v34j: only authored existing cards with a temporal profile react with persistent stats.
-  // eclipseAffinity still identifies the card's thematic time for ordinary ECLIPSE CYCLE effects,
-  // but it no longer gives every unit an automatic global buff/debuff.
-  return { attack: 0, health: 0, resonance: 'neutral' };
+  if (card.temporalImmunity) return { attack: 0, health: 0, resonance: 'neutral' };
+  const profile = resolvedEclipsePhaseModifiers(card);
+  const resolved = profile?.[phase];
+  if (!resolved) return { attack: 0, health: 0, resonance: 'neutral' };
+  const attack = Math.trunc(resolved.attack ?? 0);
+  const health = Math.trunc(resolved.health ?? 0);
+  const hasPenalty = attack < 0 || health < 0;
+  const hasBonus = attack > 0 || health > 0;
+  return { attack, health, resonance: hasPenalty ? 'strained' : hasBonus ? 'resonant' : 'neutral' };
 }
 
 function refreshUnitEclipseModifier(state: MatchState, unit: UnitState): void {
@@ -3299,6 +3298,10 @@ function continueSummonResolution(
     if (openTrapWindow(state, privateStates, opponentId, nextTrigger, nextContinuation, { ownerId: actorId, unitIndex: zone })) return;
     continueSummonResolution(state, privateStates, nextContinuation);
     return;
+  }
+
+  if (card.eclipseSetOnSummon && state.boards[actorId].units[zone]) {
+    setEclipsePhase(state, privateStates, card.eclipseSetOnSummon, actorId, `「${card.name}」 · 시각 조율`);
   }
 
   const temporalPhaseBeforeSummonEffects = currentEclipsePhase(state);

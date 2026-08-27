@@ -24,6 +24,8 @@ import {
   PACKS,
   RARITY_LABEL,
   type Rarity,
+  resolvedEclipseAffinity,
+  resolvedEclipsePhaseModifiers,
   type SeriesId,
   type UnitType,
   countCards,
@@ -647,6 +649,14 @@ const KEYWORD_DESCRIPTION: Record<Keyword, string> = {
   corestrike: '직격 · 상대 필드에 수호가 없다면 다른 캐릭터를 무시하고 코어를 직접 공격할 수 있습니다.',
 };
 
+function displayEclipseAffinity(card: CardDefinition): EclipsePhase | undefined {
+  return resolvedEclipseAffinity(card);
+}
+
+function displayEclipsePhaseModifiers(card: CardDefinition) {
+  return resolvedEclipsePhaseModifiers(card);
+}
+
 const RARITY_PRESTIGE: Record<Rarity, string> = {
   common: '기본 전술',
   rare: '전문화 전술',
@@ -802,8 +812,11 @@ function eclipseSummonGateDescription(card: CardDefinition): string {
 
 function eclipseAffinityRule(card: CardDefinition): string {
   if (!isUnitCard(card)) return '';
+  if (card.temporalImmunity) {
+    return '【시간 고정】 이 캐릭터는 ECLIPSE CYCLE의 시간대 능력치 강화·약화 효과를 받지 않습니다.';
+  }
   const parts: string[] = [];
-  const authored = card.eclipsePhaseModifiers;
+  const authored = displayEclipsePhaseModifiers(card);
   if (authored) {
     const entries = ECLIPSE_PHASE_ORDER.flatMap((phase) => {
       const modifier = authored[phase];
@@ -828,6 +841,9 @@ function eclipseAffinityRule(card: CardDefinition): string {
     const pulses = card.eclipsePhasePulses.map((pulse) => `${ECLIPSE_PHASE_LABEL[pulse.phase]} [${pulse.name}] ${pulse.description}`);
     parts.push(`【시간 발동】 ${pulses.join(' / ')}`);
   }
+  if (card.eclipseSetOnSummon) {
+    parts.push(`【시각 조율】 등장 시 전장 시간을 ${ECLIPSE_PHASE_LABEL[card.eclipseSetOnSummon]}(으)로 변경.`);
+  }
   return parts.join(' ');
 }
 
@@ -846,7 +862,7 @@ function polishedCardText(card: CardDefinition): string {
     .replace(/소환 시/g, '【등장】')
     .replace(/파괴될 때/g, '【파괴 시】')
     .replace(/공격할 때/g, '【공격 시】');
-  const alreadyExplainsTime = /【(?:시간 (?:강화|취약|반응|친화|발동)|기존 카드 재설계|극시공)/.test(text);
+  const alreadyExplainsTime = /【(?:시간 (?:강화|취약|반응|친화|발동|고정)|시각 조율|기존 카드 재설계|극시공)/.test(text);
   const affinity = alreadyExplainsTime ? '' : eclipseAffinityRule(card);
   return [text, affinity].filter(Boolean).join(' ');
 }
@@ -1118,11 +1134,13 @@ function CardFace({
       {card.summonMode === 'legendary' && <span className="summon-badge legendary">강림</span>}
       {card.kind === 'fusion' && <span className="summon-badge fusion">융합</span>}
       {card.kind === 'evolution' && <span className="summon-badge evolution">진화</span>}
-      {isUnitCard(card) && (card.keywords?.includes('charge') || card.keywords?.includes('guard') || card.keywords?.includes('corestrike')) && (
+      {isUnitCard(card) && (card.keywords?.includes('charge') || card.keywords?.includes('guard') || card.keywords?.includes('corestrike') || card.keywords?.includes('pierce') || card.keywords?.includes('lifesteal')) && (
         <span className="v30-card-traits" aria-label="전투 특성">
           {card.keywords?.includes('charge') && <i className="charge">속공</i>}
           {card.keywords?.includes('guard') && <i className="guard">수호</i>}
           {card.keywords?.includes('corestrike') && <i className="corestrike">직격</i>}
+          {card.keywords?.includes('pierce') && <i className="pierce">관통</i>}
+          {card.keywords?.includes('lifesteal') && <i className="lifesteal">흡수</i>}
         </span>
       )}
       {quantity !== undefined && <span className="card-quantity">×{quantity}</span>}
@@ -1211,7 +1229,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
               <span className="v31l-detail-kicker">{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}{card.series ? ` · ${card.series}` : ''}</span>
               <h2 id="card-detail-title">{card.name}</h2>
               <p>{card.subtitle}</p>
-              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.unitType && <i>TYPE · {UNIT_TYPE_LABEL[card.unitType]}</i>}{card.comboTag && <i>COMBO · {card.comboTag}</i>}{card.eclipseAffinity && <i className="v34-cycle-chip">CYCLE · {ECLIPSE_PHASE_LABEL[card.eclipseAffinity]}</i>}{card.temporalProfileName && <i className="v34f-temporal-chip">TIME · {card.temporalProfileName}</i>}{card.eclipsePhasePulses?.length ? <i className="v34f-temporal-chip">TIME TRIGGER · {card.eclipsePhasePulses.length}</i> : null}{card.eclipseSummonPhases?.length ? <i className="v34-time-gate-chip">TIME GATE · {card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
+              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.unitType && <i>TYPE · {UNIT_TYPE_LABEL[card.unitType]}</i>}{card.comboTag && <i>COMBO · {card.comboTag}</i>}{displayEclipseAffinity(card) && <i className="v34-cycle-chip">CYCLE · {ECLIPSE_PHASE_LABEL[displayEclipseAffinity(card)!]}</i>}{card.temporalProfileName && <i className="v34f-temporal-chip">TIME · {card.temporalProfileName}</i>}{card.eclipsePhasePulses?.length ? <i className="v34f-temporal-chip">TIME TRIGGER · {card.eclipsePhasePulses.length}</i> : null}{card.eclipseSummonPhases?.length ? <i className="v34-time-gate-chip">TIME GATE · {card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
             </div>
             <strong className="detail-cost"><small>ENERGY</small>{card.cost}</strong>
           </header>
@@ -3595,7 +3613,6 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
           {attackProfile.style === 'bow' && <span className="v32n-bow-fx" aria-hidden="true"><i className="arc" /><i className="string" /><i className="arrow" /><em /></span>}
           {attackProfile.style === 'lance' && <span className="v32n-lance-fx" aria-hidden="true"><i className="shaft" /><i className="tip" /><em /></span>}
           {attackProfile.style === 'cannon' && <span className="v32n-cannon-fx" aria-hidden="true"><i /><em /></span>}
-          <span className="v32-attack-afterimage" aria-hidden="true"><i style={{ '--after-index': 0 } as CSSProperties} /></span>
           <span className="v31e-target-reticle" aria-hidden="true"><i /><i /></span>
           <span className="v31e-impact-burst" aria-hidden="true">{Array.from({ length: 6 }, (_, index) => <i key={index} style={{ '--spark': index } as CSSProperties} />)}</span>
           <span className="v32-hitcall" aria-hidden="true"><b>{attackProfile.finisher}</b><small>{event.targetZone !== undefined ? 'TARGET LOCK' : 'DIRECT CORE'}</small></span>
@@ -3806,13 +3823,15 @@ function UnitSlot({
   const hasCharge = Boolean(card?.keywords?.includes('charge'));
   const hasGuard = Boolean(card?.keywords?.includes('guard'));
   const hasCorestrike = Boolean(card?.keywords?.includes('corestrike'));
+  const hasPierce = Boolean(card?.keywords?.includes('pierce'));
+  const hasLifesteal = Boolean(card?.keywords?.includes('lifesteal'));
   const temporalAttack = unit?.eclipseAttackModifier ?? 0;
   const temporalHealth = unit?.eclipseHealthModifier ?? 0;
   const temporalVisual = ECLIPSE_ARENA_VISUAL[eclipsePhase];
   const temporalDeltaLabel = (value: number) => `${value > 0 ? '+' : '−'}${Math.abs(value)}`;
   return (
     <div
-      className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${targetable ? 'targetable' : ''} ${attackReady ? 'attack-ready' : ''} ${attackTarget ? 'attack-target' : ''} ${hasCharge ? 'has-charge' : ''} ${hasGuard ? 'has-guard' : ''} ${hasCorestrike ? 'has-corestrike' : ''} ${unit?.buffCardApplied ? 'buff-card-used' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''} ${unit?.eclipseResonance ? `time-${unit.eclipseResonance}` : ''}`}
+      className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${targetable ? 'targetable' : ''} ${attackReady ? 'attack-ready' : ''} ${attackTarget ? 'attack-target' : ''} ${hasCharge ? 'has-charge' : ''} ${hasGuard ? 'has-guard' : ''} ${hasCorestrike ? 'has-corestrike' : ''} ${hasPierce ? 'has-pierce' : ''} ${hasLifesteal ? 'has-lifesteal' : ''} ${unit?.buffCardApplied ? 'buff-card-used' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''} ${unit?.eclipseResonance ? `time-${unit.eclipseResonance}` : ''}`}
       role="button"
       tabIndex={onClick ? 0 : -1}
       aria-label={unit ? `${card?.name ?? '유닛'} 선택` : `${index + 1}번 필드 슬롯`}
@@ -3836,6 +3855,8 @@ function UnitSlot({
             {hasCharge && <i className="charge">속공</i>}
             {hasGuard && <i className="guard">수호</i>}
             {hasCorestrike && <i className="corestrike">직격</i>}
+            {hasPierce && <i className="pierce">관통</i>}
+            {hasLifesteal && <i className="lifesteal">흡수</i>}
             {unit.buffCardApplied && <i className="buff-used">BUFF 1/1</i>}
           </span>
           {attackReady && <span className="v30-attack-ready-badge"><i />공격 가능</span>}
@@ -5077,6 +5098,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const extraReadyInstances = privateState.extra.filter((instance) => {
     const card = CARD_BY_ID[instance.cardId];
     if (!card || card.cost > myEnergy.current || !myTurn || interactionLocked || state.phase !== 'main' || !clientEclipseSummonReady(state, card)) return false;
+    const totalExtraUsed = myExtraUsage.fusion + myExtraUsage.evolution;
+    if (roundNumber < 3 || totalExtraUsed >= 2 || (totalExtraUsed >= 1 && roundNumber < 5)) return false;
     if (card.kind === 'fusion') {
       if (myExtraUsage.fusion >= 2 || myExtraTurn.fusion === state.turnNumber) return false;
       return clientExtraReadyFromField(myFieldUnits, card, state.turnNumber);
@@ -5124,11 +5147,15 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
 
   function extraSummonBlockReasons(card: CardDefinition): string[] {
     const reasons: string[] = [];
+    const totalExtraUsed = myExtraUsage.fusion + myExtraUsage.evolution;
     if (!myTurn) reasons.push('지금은 상대 턴입니다.');
     if (state.phase !== 'main') reasons.push('융합·진화는 메인 단계에서만 가능합니다.');
     if (interactionLocked) reasons.push('현재 함정 발동 여부를 결정하는 중이라 다른 행동을 할 수 없습니다.');
     if (!clientEclipseSummonReady(state, card)) reasons.push(`시간대 소환 조건이 맞지 않습니다. 현재 ${ECLIPSE_PHASE_LABEL[clientCurrentEclipsePhase(state)]} · 필요 ${card.eclipseSummonPhases?.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ')}.`);
     if (myEnergy.current < card.cost) reasons.push(`에너지가 부족합니다. 필요 ${card.cost} / 현재 ${myEnergy.current}.`);
+    if (roundNumber < 3) reasons.push('엑스트라 소환은 ROUND 3부터 해금됩니다. 초반 일반 카드 전개가 우선입니다.');
+    if (totalExtraUsed >= 2) reasons.push('엑스트라 소환은 공명·계승을 합쳐 한 게임에 최대 2번만 사용할 수 있습니다.');
+    if (totalExtraUsed >= 1 && roundNumber < 5) reasons.push('두 번째 엑스트라 소환은 ROUND 5부터 사용할 수 있습니다.');
     if (card.kind === 'fusion') {
       if (myExtraUsage.fusion >= 2) reasons.push('공명 융합은 한 게임에 최대 2번만 사용할 수 있습니다.');
       if (myExtraTurn.fusion === state.turnNumber) reasons.push('공명 융합은 한 턴에 1번만 사용할 수 있습니다.');
@@ -5541,11 +5568,6 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
                   : selectedCard
                     ? { step: 1, kicker: 'PLAY CARD', title: '카드를 발동할 준비가 됐습니다', detail: '오른쪽 카드 정보 아래의 발동 버튼을 눌러 효과를 사용하세요.', tip: '카드의 상세 규칙은 “전체 상세”에서 확인할 수 있습니다.' }
                     : { step: 1, kicker: 'MAIN PHASE', title: '먼저 손패에서 카드를 선택하세요', detail: `밝게 표시된 카드 ${playableHandCount}장은 지금 사용할 수 있습니다. 유닛을 내거나 주문·함정을 사용하세요.`, tip: '공격하려면 유닛을 소환한 뒤 “전투 단계” 버튼을 누르세요.' };
-
-  const recentEvents = state.visualEvents.slice(-3).reverse();
-  const eventActorName = (event: VisualEvent) => event.ownerId === userId ? '나' : event.ownerId ? (profileMap[event.ownerId]?.display_name ?? '상대') : '시스템';
-  const eventActorStyle = (event: VisualEvent) => event.ownerId && event.ownerId !== userId ? profileMap[event.ownerId]?.nickname_style : undefined;
-
   const remainingAttackers = state.boards[userId].units.filter((unit) => Boolean(unit?.canAttack)).length;
   const remainingOpportunities = state.phase === 'battle' ? remainingAttackers : playableHandCount + specialReadyCount;
 
@@ -5807,14 +5829,10 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
         </section>
 
         <section className="v18-extra-access">
-          <button type="button" onClick={() => setExtraOpen(true)}><span>EXTRA DECK</span><b>{privateState.extra.length}</b><small>{extraReadyInstances.length > 0 ? `${extraReadyInstances.length}장 소환 가능` : '융합 · 진화'}</small></button>
-          <div className="v31-extra-limit-strip"><span>공명 <b>{myExtraUsage.fusion}/2</b></span><span>계승 <b>{myExtraUsage.evolution}/2</b></span><em>각 턴 1회</em></div>
+          <button type="button" onClick={() => setExtraOpen(true)}><span>EXTRA RESERVE</span><b>{privateState.extra.length}</b><small>{extraReadyInstances.length > 0 ? `${extraReadyInstances.length}장 소환 가능` : roundNumber < 3 ? 'ROUND 3 해금' : '융합 · 진화'}</small></button>
+          <div className="v31-extra-limit-strip"><span>전개 <b>{myExtraUsage.fusion + myExtraUsage.evolution}/2</b></span><span>2차 해금 <b>R5</b></span><em>총 2회 · 턴당 1회</em></div>
         </section>
 
-        <section className="v18-event-feed">
-          <header><span>DUEL FEED</span><button type="button" onClick={() => setLogOpen(true)}>전체 기록</button></header>
-          <div>{recentEvents.length > 0 ? recentEvents.map((event) => <div className={`v18-feed-item kind-${event.kind}`} key={event.id}><i /> <span><b><NicknameText name={eventActorName(event)} styleId={eventActorStyle(event)} /> · {duelEventLabel(event)}</b><small>{event.detail ? `${event.label ? `${event.label} · ` : ``}${event.detail}` : event.label ?? (duelEventLocation(event) || '결투 행동')}</small></span></div>) : <p>아직 기록된 행동이 없습니다.</p>}</div>
-        </section>
       </aside>
 
       <footer className="v18-hand-dock">
@@ -5848,9 +5866,9 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       {extraOpen && (
         <div className="v18-extra-backdrop" onPointerDown={(event) => { if (event.currentTarget === event.target) setExtraOpen(false); }}>
           <aside className="v18-extra-drawer">
-            <header><div><small>EXTRA DECK</small><b>공명 융합 · 계승 진화</b></div><button type="button" onClick={() => setExtraOpen(false)}>×</button></header>
-            <p>빛나는 카드는 소재·ROUND 해금·릴리스·에너지 조건을 모두 만족한 카드입니다. 전설 계승은 최소 2체, APEX 전설은 최대 3체를 릴리스해야 하며 강력한 전설은 소재 비용 합·고등급 소재·시리즈 조건까지 요구합니다. 전설 엑스트라는 소환 전에 CHOOSE 1/2/3 중 원하는 효과를 1개 선택합니다.</p>
-            <div className="v31-extra-drawer-usage"><span>공명 융합 <b>{myExtraUsage.fusion}/2</b></span><span>계승 진화 <b>{myExtraUsage.evolution}/2</b></span></div>
+            <header><div><small>EXTRA RESERVE · 6 CARDS</small><b>공명 융합 · 계승 진화</b></div><button type="button" onClick={() => setExtraOpen(false)}>×</button></header>
+            <p>엑스트라 6장은 처음부터 전부 소환할 수 있는 카드가 아니라 ‘전술 예비대’입니다. ROUND 3에 첫 전개가 열리고, ROUND 5부터 두 번째 전개가 열립니다. 한 게임에서 공명·계승을 합쳐 최대 2회만 전개할 수 있어 어떤 엑스트라를 꺼낼지 선택하는 것이 중요합니다.</p>
+            <div className="v31-extra-drawer-usage"><span>전체 전개 <b>{myExtraUsage.fusion + myExtraUsage.evolution}/2</b></span><span>현재 ROUND <b>{roundNumber}</b></span></div>
             <div>{privateState.extra.map((instance) => {
               const card = CARD_BY_ID[instance.cardId];
               const ready = specialReadyIds.has(instance.instanceId);
@@ -6387,6 +6405,22 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
     finally { roomActionLock.current = false; setBusy(false); }
   }
 
+  async function switchActiveDeck(deckId: string) {
+    if (busy) return;
+    setBusy(true);
+    setMessage('');
+    try {
+      const result = await api('set_active_deck', { deckId });
+      if (result.hub) onHub(result.hub);
+      const nextDeck = (result.hub?.decks ?? hub.decks).find((deck) => deck.id === deckId);
+      setMessage(nextDeck ? `대전 기본 덱이 “${nextDeck.name}”으로 지정되었습니다.` : '대전 기본 덱이 변경되었습니다.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '덱 지정에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function leaveRoom() {
     if (roomPayload) await roomAction('leave_room', { roomId: roomPayload.room.id });
     onRoom(null);
@@ -6509,6 +6543,27 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
         <footer><span><i />LOCAL TRAINING</span><small>봇 전용 덱은 보유 카드와 무관하게 자동 구성되며 계정 데이터를 사용하지 않습니다.</small></footer>
         {practiceDeckError && <p className="v35-practice-warning">연습 모드를 시작하려면 정상적인 45장 메인 덱과 6장 엑스트라 덱을 활성화해 주세요. · {practiceDeckError}</p>}
       </section>
+      {hub.decks.length > 0 && <section className="v35-quick-deck-panel panel">
+        <header><div><span>DUEL DECK</span><h2>대전 기본 덱 빠른 지정</h2></div><small>로그인 후 다시 들어와도 마지막으로 지정한 활성 덱이 유지됩니다.</small></header>
+        <div className="v35-quick-deck-list">
+          {hub.decks.map((deck) => {
+            const deckError = validateDeck(deck.cards) || validateExtraDeck(deck.extra_cards);
+            return (
+              <button
+                type="button"
+                key={deck.id}
+                className={`v35-quick-deck-item ${deck.is_active ? 'active' : ''}`}
+                disabled={busy || Boolean(deckError)}
+                onClick={() => switchActiveDeck(deck.id)}
+              >
+                <div><b>{deck.name}</b><small>{deck.cards.length}/{DECK_SIZE} · EXTRA {deck.extra_cards.length}/{EXTRA_DECK_SIZE}</small></div>
+                <span>{deck.is_active ? '현재 사용 중' : deckError ? '구성 오류' : '대전 덱으로 지정'}</span>
+                {deckError && <em>{deckError}</em>}
+              </button>
+            );
+          })}
+        </div>
+      </section>}
       {!serverStatus.secureDuelReady && <section className="duel-server-panel panel"><div className="duel-server-emblem">!</div><div><span>ECLIPSE NETWORK</span><h2>온라인 대전 서비스를 점검하고 있습니다.</h2><p>{publicServerStatusMessage(serverStatus)}</p></div><ol><li><b>1</b><span>덱 구성과 카드 보관함은 계속 이용할 수 있습니다.</span></li><li><b>2</b><span>연습 모드는 온라인 서버 상태와 관계없이 이용할 수 있습니다.</span></li><li><b>3</b><span>대전 서버가 복구되면 별도 설정 없이 온라인 대전도 바로 이용할 수 있습니다.</span></li></ol><small>현재 계정과 보유 카드 데이터는 그대로 유지됩니다.</small></section>}
       <section className={`duel-mode-grid ${serverStatus.secureDuelReady ? '' : 'is-disabled'}`}>
         <button className="mode-card ranked" disabled={busy || !activeDeck || !serverStatus.secureDuelReady} onClick={() => roomAction('quick_match')}><span>QUICK MATCH</span><h3>빠른 대전</h3><p>현재 대기 중인 결투가를 찾아 자동으로 연결합니다. 활성 덱이 그대로 사용됩니다.</p><em>매칭 시작 →</em></button>

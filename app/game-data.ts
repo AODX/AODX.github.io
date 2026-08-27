@@ -284,6 +284,10 @@ export interface CardDefinition {
   temporalProfileName?: string;
   /** Authored existing-unit time passives. Each pulse resolves on matching phase entry or aligned summon. */
   eclipsePhasePulses?: EclipsePhasePulse[];
+  /** A few special units ignore battlefield-time stat changes entirely. */
+  temporalImmunity?: boolean;
+  /** On a successful summon, immediately tune the battlefield clock to this phase. */
+  eclipseSetOnSummon?: EclipsePhase;
   /** Optional temporal summon gate. If present, the unit/extra can only be summoned while the battlefield is in one of these phases. */
   eclipseSummonPhases?: EclipsePhase[];
   summonMode?: SummonMode;
@@ -4828,7 +4832,111 @@ for (const [cardId, profile] of Object.entries(V34J_EXISTING_TEMPORAL_PROFILES))
 }
 // === /v34j ==================================================================
 
+// === v36 card-pool cleanup / balance pass ====================================
+// Keep IDs stable for saved decks, but shorten visible unit names, narrow the
+// raw rarity gap, and give the full unit pool a readable time identity.
+const V36_SERIES_PREFIXES = CARD_SERIES
+  .flatMap((series) => [series.name, series.shortName])
+  .filter(Boolean)
+  .sort((a, b) => b.length - a.length);
+
+function compactVisibleUnitName(name: string): string {
+  let next = name.trim();
+  for (const prefix of V36_SERIES_PREFIXES) {
+    if (next.startsWith(`${prefix} `)) {
+      next = next.slice(prefix.length + 1).trim();
+      break;
+    }
+  }
+  next = next
+    .replace(/^(?:태양|월영|성철|폭풍|공허|세계수|여명|시간|심연|천뢰|원초)계승\s+/u, '')
+    .replace(/^(?:공명융합|공명 융합|계승진화|계승 진화)\s+/u, '')
+    .replace(/^(?:시간성전|원초수호|천뢰기동|심연포식|월영몽환|수정자동기|여명성기사단)\s+/u, '');
+  return next.length > 18 ? next.replace(/^([^\s]{2,6})\s+/, '') : next;
+}
+
+function rebalanceCost(card: CardDefinition): number {
+  const raw = Math.max(0, Math.trunc(card.cost));
+  if (card.kind === 'fusion' || card.kind === 'evolution') {
+    const floor = card.rarity === 'legendary' ? 6 : card.rarity === 'epic' ? 5 : 4;
+    const cap = card.rarity === 'legendary' ? 8 : 7;
+    return Math.max(floor, Math.min(cap, raw));
+  }
+  if (card.kind === 'unit') {
+    const band: Record<Rarity, [number, number]> = {
+      common: [1, 4], rare: [2, 5], epic: [3, 6], legendary: [5, 8],
+    };
+    const [min, max] = band[card.rarity];
+    return Math.max(min, Math.min(max, raw));
+  }
+  const band: Record<Rarity, [number, number]> = {
+    common: [1, 3], rare: [2, 4], epic: [3, 5], legendary: [4, 6],
+  };
+  const [min, max] = band[card.rarity];
+  return Math.max(min, Math.min(max, raw));
+}
+
+const v36Units = CARDS.filter((card) => isUnitCard(card));
+for (const card of CARDS) {
+  card.cost = rebalanceCost(card);
+  if (!isUnitCard(card)) continue;
+  card.name = compactVisibleUnitName(card.name);
+}
+
+// A small, deterministic subset are "fixed points" that ignore time stat changes.
+for (const card of v36Units.filter((_, index) => index % 61 === 11).slice(0, 9)) {
+  card.temporalImmunity = true;
+  card.temporalProfileName = '시간 고정체';
+}
+
+// A handful of units seize the clock immediately on entry. These are spread
+// across the pool instead of concentrated in one series/rarity.
+const v36TimeSetters = v36Units.filter((_, index) => index % 47 === 9).slice(0, 12);
+for (let index = 0; index < v36TimeSetters.length; index += 1) {
+  const card = v36TimeSetters[index];
+  card.eclipseSetOnSummon = ECLIPSE_PHASE_ORDER[index % ECLIPSE_PHASE_ORDER.length];
+  const phaseName = ECLIPSE_PHASE_LABEL[card.eclipseSetOnSummon];
+  card.text = `${card.text} 【시각 조율】 등장 시 전장 시간을 ${phaseName}(으)로 변경.`.trim();
+}
+// === /v36 ====================================================================
+
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));
+
+export const DEFAULT_ECLIPSE_AFFINITY_BY_ELEMENT: Record<Element, EclipsePhase> = {
+  solar: 'dawn',
+  lunar: 'midnight',
+  storm: 'zenith',
+  verdant: 'dusk',
+  void: 'eclipse',
+  neutral: 'dawn',
+};
+
+const DEFAULT_ECLIPSE_WEAK_PHASE_BY_AFFINITY: Record<EclipsePhase, EclipsePhase> = {
+  dawn: 'midnight',
+  zenith: 'eclipse',
+  dusk: 'dawn',
+  midnight: 'zenith',
+  eclipse: 'dawn',
+};
+
+export function resolvedEclipseAffinity(card: CardDefinition | undefined): EclipsePhase | undefined {
+  if (!card || !isUnitCard(card)) return undefined;
+  return card.eclipseAffinity ?? DEFAULT_ECLIPSE_AFFINITY_BY_ELEMENT[card.element];
+}
+
+export function resolvedEclipsePhaseModifiers(card: CardDefinition | undefined): Partial<Record<EclipsePhase, EclipsePhaseModifier>> | undefined {
+  if (!card || !isUnitCard(card)) return undefined;
+  if (card.temporalImmunity) return {};
+  if (card.eclipsePhaseModifiers && Object.keys(card.eclipsePhaseModifiers).length > 0) return card.eclipsePhaseModifiers;
+
+  const affinity = resolvedEclipseAffinity(card);
+  if (!affinity) return undefined;
+  const weakPhase = DEFAULT_ECLIPSE_WEAK_PHASE_BY_AFFINITY[affinity];
+  return {
+    [affinity]: { attack: 1, health: 1, label: '기본 공명' },
+    [weakPhase]: { attack: -1, health: 0, label: `${ECLIPSE_PHASE_LABEL[weakPhase]} 약화` },
+  };
+}
 
 export const STARTER_DECK: string[] = [
   'unit_ember_squire', 'unit_ember_squire', 'unit_ember_squire',
