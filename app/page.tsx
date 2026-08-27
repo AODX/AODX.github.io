@@ -4475,7 +4475,7 @@ function EclipsePhaseShiftNotice({ notice }: { notice: EclipsePhaseNoticeState |
   if (!notice) return null;
   const meta = ECLIPSE_UI_META[notice.phase];
   const visual = ECLIPSE_ARENA_VISUAL[notice.phase];
-  const sourceLabel = notice.source === 'turn' ? '3 TURN CYCLE' : 'CARD EFFECT';
+  const sourceLabel = notice.source === 'turn' ? '6 TURN CYCLE' : 'CARD EFFECT';
   return (
     <div
       key={notice.serial}
@@ -4523,7 +4523,7 @@ function EclipseCycleStrip({ state }: { state: MatchState }) {
   const meta = ECLIPSE_UI_META[current];
   const visual = ECLIPSE_ARENA_VISUAL[current];
   const locked = (state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber;
-  const naturalStep = ((Math.max(1, state.turnNumber) - 1) % 3) + 1;
+  const naturalStep = ((Math.max(1, state.turnNumber) - 1) % 6) + 1;
   return (
     <div
       className="v34m-cycle-inline"
@@ -4559,7 +4559,7 @@ function EclipseCycleStrip({ state }: { state: MatchState }) {
           </span>
         );
       })}
-      <em style={{ marginLeft: 'auto', color: `rgba(${visual.rgb},.86)`, fontSize: 6.5, fontStyle: 'normal', fontWeight: 950, letterSpacing: '.08em', flex: '0 0 auto' }}>{locked ? 'LOCK' : `${naturalStep}/3`}</em>
+      <em style={{ marginLeft: 'auto', color: `rgba(${visual.rgb},.86)`, fontSize: 6.5, fontStyle: 'normal', fontWeight: 950, letterSpacing: '.08em', flex: '0 0 auto' }}>{locked ? 'LOCK' : `${naturalStep}/6`}</em>
     </div>
   );
 }

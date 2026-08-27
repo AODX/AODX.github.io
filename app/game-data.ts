@@ -407,7 +407,11 @@ export function seriesAbilityDescription(card: CardDefinition): string {
   if (!ability || !card.seriesId) return '';
   const name = SERIES_BY_ID[card.seriesId].shortName;
   if (ability.kind === 'search_series') return `연계: 덱에서 「${name}」 카드 ${ability.amount}장을 찾아 손에 넣습니다.`;
-  if (ability.kind === 'buff_series') return `연계: 내 필드의 「${name}」 유닛 전부 공격력 +${ability.attack}, 체력 +${ability.health}.`;
+  if (ability.kind === 'buff_series') {
+    return card.kind === 'unit' || card.kind === 'fusion' || card.kind === 'evolution'
+      ? `연계: 자신을 제외한 내 필드의 다른 「${name}」 유닛 전부 공격력 +${ability.attack}, 체력 +${ability.health}.`
+      : `연계: 내 필드의 「${name}」 유닛 전부 공격력 +${ability.attack}, 체력 +${ability.health}.`;
+  }
   if (ability.kind === 'shield_series') return `연계: 내 필드의 「${name}」 유닛 전부 보호막 ${ability.amount} 획득.`;
   if (ability.kind === 'heal_per_series') return `연계: 내 필드의 「${name}」 유닛 수만큼 코어를 ${ability.amount}씩 회복합니다. 최대 ${ability.cap}.`;
   if (ability.kind === 'damage_core_per_series') return `연계: 내 필드의 「${name}」 유닛 수만큼 상대 코어에 ${ability.amount}씩 피해. 최대 ${ability.cap}.`;

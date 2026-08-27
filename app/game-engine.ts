@@ -21,7 +21,7 @@ export type ExtraSummonKind = 'fusion' | 'evolution';
 export type VisualEventKind = 'turn' | 'summon' | 'special' | 'fusion' | 'evolution' | 'spell' | 'trap' | 'set' | 'draw' | 'attack' | 'defense' | 'destroy' | 'core' | 'heal' | 'buff' | 'energy';
 
 const INITIAL_ECLIPSE_PHASE: EclipsePhase = 'dawn';
-const NATURAL_ECLIPSE_TURN_INTERVAL = 3;
+const NATURAL_ECLIPSE_TURN_INTERVAL = 6;
 
 function nextNaturalEclipsePhase(phase: EclipsePhase): EclipsePhase {
   const index = ECLIPSE_PHASE_ORDER.indexOf(phase);
@@ -2438,6 +2438,7 @@ function applySeriesAbility(
   privateStates: Record<string, PrivateState>,
   actorId: string,
   sourceCard: CardDefinition,
+  sourceZone?: number,
 ): void {
   const ability = sourceCard.seriesAbility;
   const seriesId = sourceCard.seriesId;
@@ -2467,8 +2468,15 @@ function applySeriesAbility(
       break;
     }
     case 'buff_series': {
-      for (const unit of state.boards[actorId].units) {
+      for (let unitIndex = 0; unitIndex < state.boards[actorId].units.length; unitIndex += 1) {
+        const unit = state.boards[actorId].units[unitIndex];
         if (!unit || CARD_BY_ID[unit.cardId]?.seriesId !== seriesId) continue;
+        // A unit whose SERIES LINK grants a field-wide stat boost should support
+        // its formation, not silently buff itself on the same summon. The old
+        // behavior made a 1 ATK unit become 2 ATK first, so a TIME -1 penalty
+        // still left 1 damage even though the battlefield looked like 1 - 1.
+        // Spells/traps have no sourceZone and still buff every matching unit.
+        if (sourceZone !== undefined && unitIndex === sourceZone) continue;
         unit.attack += ability.attack;
         unit.health += ability.health;
         unit.maxHealth += ability.health;
@@ -3354,7 +3362,7 @@ function continueSummonResolution(
     applyExtraChoice(state, privateStates, actorId, zone, card, extraChoiceIndex);
   }
   if (state.boards[actorId].units[zone]) {
-    applySeriesAbility(state, privateStates, actorId, card);
+    applySeriesAbility(state, privateStates, actorId, card, zone);
     applySeriesSignature(state, privateStates, actorId, card, zone);
     applyTacticalOnSummon(state, privateStates, actorId, zone, card);
   }
@@ -4240,21 +4248,21 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
     if (unit.stunnedUntilTurn && unit.stunnedUntilTurn < state.turnNumber) delete unit.stunnedUntilTurn;
   });
 
-  // Natural ECLIPSE time moves only after each block of three completed turns.
-  // Turn 1 starts at Dawn; turns 1-3 stay in that phase, then turn 4 advances once.
-  // Card/spell phase changes still happen immediately and the next natural 3-turn tick
+  // Natural ECLIPSE time moves only after each block of six completed turns.
+  // Turn 1 starts at Dawn; turns 1-6 stay in that phase, then turn 7 advances once.
+  // Card/spell phase changes still happen immediately and the next natural 6-turn tick
   // continues sequentially from whatever phase is active at that moment.
   const naturalEclipseTick = (state.turnNumber - 1) % NATURAL_ECLIPSE_TURN_INTERVAL === 0;
   if (naturalEclipseTick) {
     if ((state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber) {
-      appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[currentEclipsePhase(state)]} 고정 유지 · 3턴 자연 진행이 잠겼습니다.`, 'special');
+      appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[currentEclipsePhase(state)]} 고정 유지 · 6턴 자연 진행이 잠겼습니다.`, 'special');
     } else {
       setEclipsePhase(
         state,
         privateStates,
         nextNaturalEclipsePhase(currentEclipsePhase(state)),
         undefined,
-        '3턴 경과 · 자연 진행',
+        '6턴 경과 · 자연 진행',
       );
     }
   }
