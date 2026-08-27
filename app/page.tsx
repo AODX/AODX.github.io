@@ -5067,6 +5067,114 @@ function DuelTimeCriticalStyles() {
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v38-temporal-row > strong { font-size:8px!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v38-temporal-phase-chip { min-height:16px!important;padding:1px 5px!important;font-size:7px!important; }
 
+    /* v39 iPad landscape: render the duel as a compact desktop canvas instead of
+       letting dozens of tablet-specific media rules squeeze each section differently.
+       The runtime bridge supplies a safe scale and virtual canvas size. */
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel,
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel > .content-area {
+      width:var(--ipad-vw,100vw)!important;
+      height:var(--ipad-vh,100dvh)!important;
+      min-width:0!important;
+      min-height:0!important;
+      overflow:hidden!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel > .content-area {
+      position:fixed!important;
+      inset:0!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix {
+      --leader-col:165px!important;
+      --command-col:305px!important;
+      --header-h:64px!important;
+      --hand-h:282px!important;
+      width:var(--ipad-duel-w,1280px)!important;
+      height:var(--ipad-duel-h,900px)!important;
+      min-width:0!important;
+      min-height:0!important;
+      max-width:none!important;
+      max-height:none!important;
+      transform:scale(var(--ipad-duel-scale,1))!important;
+      transform-origin:top left!important;
+      overflow:hidden!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-duel-header {
+      padding:0 14px!important;
+      gap:10px!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-duel-brand b { font-size:13px!important; }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-turn-timer { min-width:104px!important;height:38px!important; }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-header-actions button {
+      min-width:0!important;height:38px!important;min-height:38px!important;padding:0 11px!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-rail {
+      padding:10px 8px 10px 10px!important;gap:8px!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-card {
+      padding:11px 9px!important;gap:7px!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hp-readout strong { font-size:38px!important; }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-board {
+      inset:40px 10px 6px!important;
+      grid-template-rows:40px minmax(92px,1fr) 44px minmax(92px,1fr) 48px!important;
+      gap:6px!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-zone-row { gap:6px!important; }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-center-lane {
+      grid-template-columns:minmax(90px,1fr) minmax(190px,260px) minmax(90px,1fr)!important;gap:10px!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-command-rail {
+      padding:9px!important;gap:7px!important;overflow:auto!important;overscroll-behavior:contain!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v29-action-coach { padding:11px 12px!important; }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v29-action-coach h3 { font-size:14px!important; }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v29-action-coach > p { font-size:10px!important;line-height:1.5!important; }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-context-panel { padding:9px!important;overflow:auto!important; }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-action-buttons button {
+      min-height:45px!important;padding:7px 10px!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-dock {
+      padding:8px 11px 10px 14px!important;
+      grid-template-rows:34px minmax(0,1fr)!important;
+      overflow:hidden!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-scroll {
+      gap:10px!important;
+      padding:7px 8px 10px 2px!important;
+      overflow-x:auto!important;
+      overflow-y:hidden!important;
+      align-items:flex-start!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card {
+      flex:0 0 158px!important;
+      width:158px!important;
+      min-width:158px!important;
+      height:229px!important;
+      min-height:229px!important;
+      max-height:229px!important;
+      transform:none!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card.selected {
+      transform:translateY(-3px)!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact {
+      width:158px!important;
+      min-width:158px!important;
+      max-width:158px!important;
+      height:229px!important;
+      min-height:229px!important;
+      max-height:229px!important;
+      grid-template-rows:42px minmax(0,1fr) 29px!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-side {
+      min-width:110px!important;padding-left:10px!important;gap:7px!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-side button {
+      min-height:38px!important;height:auto!important;
+    }
+    html[data-ipad="true"][data-ipad-orientation="landscape"][data-ipad-input="touch"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card:hover {
+      transform:none!important;
+    }
+
     @media (prefers-reduced-motion:reduce) {
       .v23-client.in-duel .v34n-phase-toast { animation:v34nPhaseToastReduced 1.72s linear both!important; }
       @keyframes v34nPhaseToastReduced { 0%,100%{opacity:0} 12%,82%{opacity:1} }
@@ -7038,10 +7146,27 @@ function IpadRuntimeBridge() {
       const height = Math.round(viewport?.height ?? window.innerHeight);
       const layoutWidth = window.innerWidth;
       const layoutHeight = window.innerHeight;
+      const landscape = layoutWidth >= layoutHeight;
       root.style.setProperty('--ipad-vw', `${width}px`);
       root.style.setProperty('--ipad-vh', `${height}px`);
-      root.dataset.ipadOrientation = layoutWidth >= layoutHeight ? 'landscape' : 'portrait';
+      root.dataset.ipadOrientation = landscape ? 'landscape' : 'portrait';
       root.dataset.ipadKeyboard = viewport && layoutHeight - viewport.height > 120 ? 'open' : 'closed';
+
+      if (landscape) {
+        // Keep the duel composition identical to the desktop three-column view,
+        // then scale the whole canvas to the physical iPad viewport.
+        const desktopWidth = 1280;
+        const desktopHeight = 800;
+        const scale = Math.min(1, width / desktopWidth, height / desktopHeight);
+        const safeScale = Math.max(0.62, scale);
+        root.style.setProperty('--ipad-duel-scale', safeScale.toFixed(4));
+        root.style.setProperty('--ipad-duel-w', `${Math.round(width / safeScale)}px`);
+        root.style.setProperty('--ipad-duel-h', `${Math.round(height / safeScale)}px`);
+      } else {
+        root.style.removeProperty('--ipad-duel-scale');
+        root.style.removeProperty('--ipad-duel-w');
+        root.style.removeProperty('--ipad-duel-h');
+      }
     };
 
     const onTouch = () => { root.dataset.ipadInput = 'touch'; };
@@ -7071,6 +7196,9 @@ function IpadRuntimeBridge() {
       delete root.dataset.ipadInput;
       root.style.removeProperty('--ipad-vw');
       root.style.removeProperty('--ipad-vh');
+      root.style.removeProperty('--ipad-duel-scale');
+      root.style.removeProperty('--ipad-duel-w');
+      root.style.removeProperty('--ipad-duel-h');
     };
   }, []);
 
