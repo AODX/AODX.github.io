@@ -21,7 +21,7 @@ export type ExtraSummonKind = 'fusion' | 'evolution';
 export type VisualEventKind = 'turn' | 'summon' | 'special' | 'fusion' | 'evolution' | 'spell' | 'trap' | 'set' | 'draw' | 'attack' | 'defense' | 'destroy' | 'core' | 'heal' | 'buff' | 'energy';
 
 const INITIAL_ECLIPSE_PHASE: EclipsePhase = 'dawn';
-const NATURAL_ECLIPSE_TURN_INTERVAL = 4;
+export const NATURAL_ECLIPSE_TURN_INTERVAL = 4;
 
 function nextNaturalEclipsePhase(phase: EclipsePhase): EclipsePhase {
   const index = ECLIPSE_PHASE_ORDER.indexOf(phase);
@@ -220,7 +220,7 @@ interface DamageReport {
 
 const MAX_LOGS = 90;
 const MAX_VISUAL_EVENTS = 18;
-const CORE_MAX = 25;
+export const CORE_MAX = 50;
 export const TURN_DURATION_MS = 120_000;
 export const TRAP_RESPONSE_MS = 12_000;
 
@@ -606,6 +606,13 @@ const ECLIPSE_MATCH_BONUS: Record<EclipsePhase, { attack: number; health: number
   eclipse: { attack: 2, health: 1 },
 };
 
+const V38_ENGINE_RARITY_SCORE: Record<CardDefinition['rarity'], number> = {
+  common: 0,
+  rare: 1,
+  epic: 2,
+  legendary: 3,
+};
+
 function eclipseDistance(a: EclipsePhase, b: EclipsePhase): number {
   const order = ECLIPSE_PHASE_ORDER;
   const ai = order.indexOf(a);
@@ -846,6 +853,159 @@ function resolveEclipsePhasePulse(
       }
       detail = `아군 전열 체력 총 ${healedTotal} 회복`;
       appendVisual(state, { kind: 'heal', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: ownerId, targetZone: sourceZone, amount: healedTotal, label: pulse.name });
+      break;
+    }
+    case 'recall_strongest_enemy': {
+      const candidates = (state.boards[opponentId]?.units ?? [])
+        .map((unit, index) => ({ unit, index }))
+        .filter((entry): entry is { unit: UnitState; index: number } => Boolean(entry.unit))
+        .sort((a, b) => (b.unit.attack + b.unit.health + b.unit.shield) - (a.unit.attack + a.unit.health + a.unit.shield) || b.unit.attack - a.unit.attack || a.index - b.index);
+      const target = candidates[0];
+      if (!target) {
+        detail = '되돌릴 적 캐릭터가 없음';
+        break;
+      }
+      const targetName = CARD_BY_ID[target.unit.cardId]?.name ?? '상대 최강 캐릭터';
+      bounceUnitToOwner(state, privateStates, opponentId, target.index, `eclipse-pulse-${pulse.phase}`);
+      detail = `${targetName}을(를) 전장에서 강제 퇴장`;
+      appendVisual(state, { kind: 'special', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: opponentId, targetZone: target.index, label: pulse.name });
+      break;
+    }
+    case 'mirror_strongest_enemy': {
+      const zone = firstOpenUnit(state.boards[ownerId]);
+      const candidates = (state.boards[opponentId]?.units ?? [])
+        .map((unit, index) => ({ unit, index }))
+        .filter((entry): entry is { unit: UnitState; index: number } => Boolean(entry.unit))
+        .sort((a, b) => (b.unit.attack + b.unit.health) - (a.unit.attack + a.unit.health) || b.unit.attack - a.unit.attack || a.index - b.index);
+      const target = candidates[0];
+      if (zone < 0 || !target) {
+        detail = zone < 0 ? '빈 아군 칸이 없어 역상 복제 실패' : '복제할 적 캐릭터가 없음';
+        break;
+      }
+      const copiedAttack = Math.max(1, Math.min(effect.cap, Math.round(target.unit.attack * Math.max(0.1, effect.scale))));
+      const copiedHealth = Math.max(1, Math.min(effect.cap, Math.round(target.unit.health * Math.max(0.1, effect.scale))));
+      const targetName = CARD_BY_ID[target.unit.cardId]?.name ?? '적 캐릭터';
+      state.boards[ownerId].units[zone] = {
+        instanceId: randomId('time_mirror'),
+        cardId: `token:${targetName}의 역상`,
+        ownerId,
+        attack: copiedAttack,
+        health: copiedHealth,
+        maxHealth: copiedHealth,
+        shield: 0,
+        canAttack: false,
+        summonedTurn: state.turnNumber,
+        summonedBy: 'token',
+        originCardIds: [card.id],
+        buffCardApplied: false,
+      };
+      detail = `${targetName}의 역상 ${copiedAttack}/${copiedHealth} 소환`;
+      appendVisual(state, { kind: 'summon', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: ownerId, targetZone: zone, label: pulse.name });
+      break;
+    }
+    case 'revive_best_grave': {
+      const zone = firstOpenUnit(state.boards[ownerId]);
+      const grave = state.graveyards[ownerId] ?? [];
+      const candidates = grave
+        .map((cardId, index) => ({ cardId, index, card: CARD_BY_ID[cardId] }))
+        .filter((entry): entry is { cardId: string; index: number; card: CardDefinition } => Boolean(entry.card?.kind === 'unit'))
+        .sort((a, b) => b.card.cost - a.card.cost || V38_ENGINE_RARITY_SCORE[b.card.rarity] - V38_ENGINE_RARITY_SCORE[a.card.rarity] || b.index - a.index);
+      const selected = candidates[0];
+      if (zone < 0 || !selected) {
+        detail = zone < 0 ? '빈 아군 칸이 없어 과거 호출 실패' : '묘지에 부활 가능한 메인 덱 캐릭터가 없음';
+        break;
+      }
+      grave.splice(selected.index, 1);
+      const instance = { instanceId: randomId('time_reborn'), cardId: selected.cardId };
+      const revived = makeUnit(state, ownerId, instance, selected.card, 'normal');
+      revived.health = Math.max(1, Math.min(revived.maxHealth, Math.ceil(revived.maxHealth * Math.max(0.1, effect.healthRatio))));
+      revived.canAttack = Boolean(effect.ready);
+      state.boards[ownerId].units[zone] = revived;
+      statsFor(state, ownerId).unitsSummoned += 1;
+      statsFor(state, ownerId).specialSummons += 1;
+      detail = `${selected.card.name} 부활 · DEF ${revived.health}/${revived.maxHealth}${effect.ready ? ' · 즉시 공격 가능' : ''}`;
+      appendVisual(state, { kind: 'summon', vfx: `eclipse-pulse-${pulse.phase}`, cardId: selected.card.id, ownerId, targetOwnerId: ownerId, targetZone: zone, label: pulse.name });
+      break;
+    }
+    case 'collapse_weakest_enemy': {
+      const candidates = (state.boards[opponentId]?.units ?? [])
+        .map((unit, index) => ({ unit, index, power: unit ? Math.max(0, unit.attack) + Math.max(0, unit.health) : Number.POSITIVE_INFINITY }))
+        .filter((entry): entry is { unit: UnitState; index: number; power: number } => Boolean(entry.unit) && entry.power <= effect.maxPower)
+        .sort((a, b) => a.power - b.power || a.unit.health - b.unit.health || a.index - b.index);
+      const target = candidates[0];
+      if (!target) {
+        detail = `ATK+DEF ${effect.maxPower} 이하인 붕괴 대상이 없음`;
+        break;
+      }
+      const targetCard = CARD_BY_ID[target.unit.cardId];
+      state.boards[opponentId].units[target.index] = null;
+      if (targetCard && !target.unit.cardId.startsWith('token:')) state.graveyards[opponentId].push(targetCard.id);
+      detail = `${targetCard?.name ?? '가장 약한 적'} 즉시 파괴`;
+      appendVisual(state, { kind: 'destroy', vfx: `eclipse-pulse-${pulse.phase}`, cardId: targetCard?.id ?? card.id, ownerId, targetOwnerId: opponentId, targetZone: target.index, label: pulse.name });
+      break;
+    }
+    case 'discard_highest_cost_enemy': {
+      const opponentPrivate = privateStates[opponentId];
+      let discarded = 0;
+      const discardedNames: string[] = [];
+      while (opponentPrivate && opponentPrivate.hand.length > 0 && discarded < Math.max(1, effect.amount)) {
+        let bestIndex = 0;
+        let bestCost = -1;
+        for (let index = 0; index < opponentPrivate.hand.length; index += 1) {
+          const candidate = CARD_BY_ID[opponentPrivate.hand[index].cardId];
+          const cost = candidate?.cost ?? 0;
+          if (cost > bestCost) {
+            bestCost = cost;
+            bestIndex = index;
+          }
+        }
+        const [removed] = opponentPrivate.hand.splice(bestIndex, 1);
+        if (!removed) break;
+        state.graveyards[opponentId].push(removed.cardId);
+        discardedNames.push(CARD_BY_ID[removed.cardId]?.name ?? '카드');
+        discarded += 1;
+      }
+      if (opponentPrivate) state.handCounts[opponentId] = opponentPrivate.hand.length;
+      detail = discarded > 0 ? `상대 최고 비용 카드 ${discarded}장 폐기 · ${discardedNames.join(', ')}` : '상대 손패가 없어 미래 압수 실패';
+      appendVisual(state, { kind: 'special', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: opponentId, targetZone: sourceZone, amount: discarded, label: pulse.name });
+      break;
+    }
+    case 'reset_strongest_enemy': {
+      const candidates = (state.boards[opponentId]?.units ?? [])
+        .map((unit, index) => ({ unit, index, card: unit ? CARD_BY_ID[unit.cardId] : undefined }))
+        .filter((entry): entry is { unit: UnitState; index: number; card: CardDefinition } => Boolean(entry.unit && entry.card && isUnitCard(entry.card)))
+        .sort((a, b) => (b.unit.attack + b.unit.health + b.unit.shield) - (a.unit.attack + a.unit.health + a.unit.shield) || b.unit.attack - a.unit.attack || a.index - b.index);
+      const target = candidates[0];
+      if (!target) {
+        detail = '초기화할 적 캐릭터가 없음';
+        break;
+      }
+      target.unit.attack = Math.max(0, target.card.attack ?? 0);
+      target.unit.maxHealth = Math.max(1, target.card.health ?? 1);
+      target.unit.health = target.unit.maxHealth;
+      target.unit.shield = 0;
+      target.unit.eclipseAttackModifier = 0;
+      target.unit.eclipseHealthModifier = 0;
+      target.unit.eclipseResonance = 'neutral';
+      refreshUnitEclipseModifier(state, target.unit);
+      detail = `${target.card.name}의 누적 강화와 보호막 제거 · ${target.unit.attack}/${target.unit.health}`;
+      appendVisual(state, { kind: 'special', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: opponentId, targetZone: target.index, label: pulse.name });
+      break;
+    }
+    case 'core_equalize': {
+      const mine = Math.max(0, state.core[ownerId] ?? 0);
+      const theirs = Math.max(0, state.core[opponentId] ?? 0);
+      if (mine >= theirs) {
+        detail = '내 코어가 뒤처지지 않아 균형추가 움직이지 않음';
+        break;
+      }
+      const transfer = Math.max(1, Math.min(Math.max(1, effect.cap), Math.ceil((theirs - mine) / 4)));
+      const actual = damageCore(state, opponentId, transfer);
+      const healed = healCore(state, ownerId, transfer);
+      statsFor(state, ownerId).coreDamage += actual;
+      statsFor(state, ownerId).healing += healed;
+      detail = `코어 격차 보정 · 상대 ${actual} 피해 / 내 코어 ${healed} 회복`;
+      appendVisual(state, { kind: 'core', vfx: `eclipse-pulse-${pulse.phase}`, cardId: card.id, ownerId, targetOwnerId: opponentId, targetZone: sourceZone, amount: actual, label: pulse.name });
       break;
     }
     case 'phase_lock': {

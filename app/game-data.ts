@@ -38,7 +38,21 @@ export type EclipsePhasePulseEffect =
   | { kind: 'banish_enemy_grave'; amount: number }
   | { kind: 'steal_energy'; amount: number }
   | { kind: 'heal_allies'; amount: number }
-  | { kind: 'phase_lock'; turns: number };
+  | { kind: 'phase_lock'; turns: number }
+  /** Return the strongest enemy unit to its owner's hand/extra deck. */
+  | { kind: 'recall_strongest_enemy' }
+  /** Create a temporary mirror token using a fraction of the strongest enemy's current body. */
+  | { kind: 'mirror_strongest_enemy'; scale: number; cap: number }
+  /** Revive the highest-cost main-deck unit in my graveyard. */
+  | { kind: 'revive_best_grave'; healthRatio: number; ready?: boolean }
+  /** Destroy the weakest enemy unit if its current ATK+DEF is under the printed threshold. */
+  | { kind: 'collapse_weakest_enemy'; maxPower: number }
+  /** Force the opponent to discard one or more of the highest-cost cards in hand. */
+  | { kind: 'discard_highest_cost_enemy'; amount: number }
+  /** Strip buffs, shields and temporary stat inflation from the strongest enemy unit. */
+  | { kind: 'reset_strongest_enemy' }
+  /** When behind on core, heal mine and damage theirs by the same capped amount. */
+  | { kind: 'core_equalize'; cap: number };
 
 export interface EclipsePhasePulse {
   phase: EclipsePhase;
@@ -5070,6 +5084,123 @@ for (const card of v36Units) {
   const temporalText = `【시간 반응 · ${card.temporalProfileName}】 ${ECLIPSE_PHASE_LABEL[affinity]} [${numbers.strongLabel}]: ${v37bTemporalStatText(numbers.strongAttack, numbers.strongHealth)}. ${ECLIPSE_PHASE_LABEL[weakPhase]} [${numbers.weakLabel}]: ${v37bTemporalStatText(numbers.weakAttack, numbers.weakHealth)}. 나머지 시간대는 중립.`;
   card.text = `${base} ${temporalText}${pulseText}${suffix ? ` ${suffix}` : ''}`.trim();
 }
+
+// === v38 temporal reversal pass =============================================
+// Roughly half of all units now carry a phase-entry special. Authored specials
+// are preserved, then a deterministic fill pass adds new ones until the whole
+// unit pool reaches ~50%. The effects deliberately scale with rarity: common
+// cards get tactical nudges, while Epic/Legendary cards receive the genuinely
+// board-flipping versions. A minority trigger on the card's *weak* phase to
+// create a risk/reward timing puzzle instead of making every good effect line up
+// with a stat buff.
+const V38_RARITY_TIER: Record<Rarity, number> = { common: 0, rare: 1, epic: 2, legendary: 3 };
+
+function v38TemporalPulseFor(card: CardDefinition, sequence: number): EclipsePhasePulse {
+  const tier = V38_RARITY_TIER[card.rarity];
+  const hash = v37bStableHash(`${card.id}:v38-special`);
+  const affinity = card.eclipseAffinity ?? V37B_AFFINITY_BY_ELEMENT[card.element];
+  const weakPhase = V37B_WEAK_PHASE_BY_AFFINITY[affinity];
+  const riskTrigger = ((hash >>> 13) % (tier >= 2 ? 3 : 5)) === 0;
+  const phase = riskTrigger ? weakPhase : affinity;
+  const phaseName = ECLIPSE_PHASE_LABEL[phase];
+  const riskPrefix = riskTrigger ? '역상 승부 · ' : '';
+  const family = sequence % 16;
+
+  const make = (name: string, description: string, effect: EclipsePhasePulseEffect): EclipsePhasePulse => ({
+    phase,
+    name: `${riskPrefix}${name}`,
+    description: `${phaseName} 진입 또는 ${phaseName}에서 등장 시 ${description}`,
+    effect,
+  });
+
+  switch (family) {
+    case 0:
+      return make('기록 회수', `내 묘지의 메인 덱 카드 ${tier >= 2 ? 2 : 1}장을 손으로 되돌린다.`, { kind: 'recover_grave', amount: tier >= 2 ? 2 : 1 });
+    case 1:
+      return make('시차 압축', `ENERGY ${tier >= 3 ? 3 : tier >= 1 ? 2 : 1}을 즉시 회복한다.`, { kind: 'gain_energy', amount: tier >= 3 ? 3 : tier >= 1 ? 2 : 1 });
+    case 2:
+      return make('영점 장막', `아군 전체에 보호막 ${1 + tier}을 부여한다.`, { kind: 'mass_shield', amount: 1 + tier });
+    case 3:
+      return make('정지선', `상대의 가장 공격력이 높은 캐릭터를 ${tier >= 3 ? 2 : 1}턴 동안 공격 불가 상태로 만든다.`, { kind: 'freeze_strongest', turns: tier >= 3 ? 2 : 1 });
+    case 4:
+      return make('시간세 징수', `상대 ENERGY를 최대 ${tier >= 3 ? 3 : tier >= 2 ? 2 : 1}만큼 빼앗아 내 ENERGY로 바꾼다.`, { kind: 'steal_energy', amount: tier >= 3 ? 3 : tier >= 2 ? 2 : 1 });
+    case 5: {
+      const scale = [0.45, 0.55, 0.75, 1][tier] ?? 0.45;
+      const cap = [4, 5, 7, 9][tier] ?? 4;
+      return make('역상 복제', `상대 최강 캐릭터의 현재 능력치를 ${Math.round(scale * 100)}%만큼 복제한 잔영을 소환한다. 각 능력치는 최대 ${cap}.`, { kind: 'mirror_strongest_enemy', scale, cap });
+    }
+    case 6: {
+      const ratio = [0.25, 0.34, 0.5, 0.75][tier] ?? 0.25;
+      return make('과거 호출', `내 묘지에서 비용이 가장 높은 캐릭터 1체를 최대 체력의 ${Math.round(ratio * 100)}%로 부활시킨다.${tier >= 3 ? ' 전설은 즉시 공격 가능.' : ''}`, { kind: 'revive_best_grave', healthRatio: ratio, ready: tier >= 3 });
+    }
+    case 7:
+      return make('영점 초기화', '상대 최강 캐릭터 1체의 누적 강화와 보호막을 지우고, 현재 시간대가 반영된 기본 상태로 되돌린다.', { kind: 'reset_strongest_enemy' });
+    case 8:
+      return make('균형추', `내 코어가 뒤처져 있다면 격차에 따라 내 코어를 회복하고 상대 코어에 같은 피해를 준다. 최대 ${[2, 3, 4, 6][tier]}씩 이동.`, { kind: 'core_equalize', cap: [2, 3, 4, 6][tier] });
+    case 9:
+      if (tier === 0) return make('망각 조각', '상대 묘지의 메인 덱 카드 1장을 소멸시킨다.', { kind: 'banish_enemy_grave', amount: 1 });
+      return make('미래 압수', `상대 손에서 비용이 가장 높은 카드 ${tier >= 3 ? 2 : 1}장을 강제로 묘지로 보낸다.`, { kind: 'discard_highest_cost_enemy', amount: tier >= 3 ? 2 : 1 });
+    case 10:
+      if (tier === 0) return make('잔향 회복', '아군 전체의 체력을 1씩 회복한다.', { kind: 'heal_allies', amount: 1 });
+      return make('되감기 퇴장', '상대 최강 캐릭터 1체를 손으로 되돌린다. 엑스트라 캐릭터라면 엑스트라 덱으로 돌아간다.', { kind: 'recall_strongest_enemy' });
+    case 11:
+      return make('붕괴 경계', `현재 ATK+DEF가 ${[4, 6, 9, 12][tier]} 이하인 적 중 가장 약한 캐릭터 1체를 즉시 파괴한다.`, { kind: 'collapse_weakest_enemy', maxPower: [4, 6, 9, 12][tier] });
+    case 12:
+      if (tier === 0) return make('박동 증폭', '아군 전체의 ATK를 +1 한다.', { kind: 'mass_buff', attack: 1, health: 0 });
+      return make('재기동 명령', '공격을 마친 아군을 포함해 공격 가능한 아군 전체를 다시 공격 준비 상태로 만든다.', { kind: 'ready_all' });
+    case 13:
+      return make('시계 봉인', `현재 시간대의 자연 진행을 ${tier >= 2 ? 2 : 1}턴 동안 고정한다.`, { kind: 'phase_lock', turns: tier >= 2 ? 2 : 1 });
+    case 14:
+      return make('황혼 수혈', `상대 코어에서 ${1 + tier}을 흡수해 그만큼 내 코어를 회복한다.`, { kind: 'drain_core', amount: 1 + tier });
+    case 15:
+    default:
+      return make('망각식', `상대 묘지의 메인 덱 카드 ${tier >= 3 ? 3 : tier >= 2 ? 2 : 1}장을 소멸시킨다.`, { kind: 'banish_enemy_grave', amount: tier >= 3 ? 3 : tier >= 2 ? 2 : 1 });
+  }
+}
+
+const v38TemporalTargetCount = Math.round(v36Units.length * 0.5);
+const v38AlreadySpecial = v36Units.filter((card) => (card.eclipsePhasePulses?.length ?? 0) > 0).length;
+const v38Needed = Math.max(0, v38TemporalTargetCount - v38AlreadySpecial);
+const v38Candidates = v36Units
+  .filter((card) => !card.temporalImmunity && !(card.eclipsePhasePulses?.length))
+  .sort((a, b) => v37bStableHash(`${a.id}:v38-order`) - v37bStableHash(`${b.id}:v38-order`) || a.id.localeCompare(b.id));
+
+for (let index = 0; index < Math.min(v38Needed, v38Candidates.length); index += 1) {
+  const card = v38Candidates[index];
+  const pulse = v38TemporalPulseFor(card, index);
+  card.eclipsePhasePulses = [pulse];
+  card.text = `${card.text} 【시간 특수 · ${pulse.name}】 ${pulse.description}`.trim();
+}
+
+// Core was doubled from 25 to 50. Preserve the old *relative* low-core summon
+// windows so comeback/rift cards do not accidentally become twice as hard to
+// activate. Only explicit core-threshold gates are rescaled; damage/healing
+// numbers are intentionally left untouched.
+function v38ReplaceCoreThresholdCopy(text: string, before: number, after: number): string {
+  return text
+    .replace(new RegExp(`코어가 ${before} 이하`, 'g'), `코어가 ${after} 이하`)
+    .replace(new RegExp(`코어 ${before} 이하`, 'g'), `코어 ${after} 이하`)
+    .replace(new RegExp(`HP가 ${before} 이하`, 'g'), `HP가 ${after} 이하`)
+    .replace(new RegExp(`HP ${before} 이하`, 'g'), `HP ${after} 이하`);
+}
+
+for (const card of CARDS) {
+  if (card.riftCondition?.kind === 'core_below') {
+    const before = card.riftCondition.value;
+    const after = Math.min(49, before * 2);
+    card.riftCondition.value = after;
+    card.riftCondition.label = v38ReplaceCoreThresholdCopy(card.riftCondition.label, before, after);
+    card.text = v38ReplaceCoreThresholdCopy(card.text, before, after);
+  }
+  if (card.legendarySummonRule?.coreAtMost !== undefined) {
+    const before = card.legendarySummonRule.coreAtMost;
+    const after = Math.min(49, before * 2);
+    card.legendarySummonRule.coreAtMost = after;
+    card.legendarySummonRule.label = v38ReplaceCoreThresholdCopy(card.legendarySummonRule.label, before, after);
+    card.text = v38ReplaceCoreThresholdCopy(card.text, before, after);
+  }
+}
+// === /v38 temporal reversal pass ============================================
 // === /v37b temporal diversity ===============================================
 
 // === /v36 ====================================================================

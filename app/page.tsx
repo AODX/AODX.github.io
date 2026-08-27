@@ -40,7 +40,7 @@ import {
   validateDeck,
   validateExtraDeck,
 } from './game-data';
-import { TURN_DURATION_MS, type GameSnapshot, type MatchState, type PrivateState, type UnitState, type VisualEvent } from './game-engine';
+import { CORE_MAX, NATURAL_ECLIPSE_TURN_INTERVAL, TURN_DURATION_MS, type GameSnapshot, type MatchState, type PrivateState, type UnitState, type VisualEvent } from './game-engine';
 import {
   PRACTICE_DIFFICULTY_LABEL,
   applyPracticeGameAction,
@@ -941,6 +941,7 @@ function TemporalQuickHint({ card, currentPhase, compact = false }: { card: Card
   const positivePhases = reactions.filter((reaction) => reaction.polarity === 'buff').map((reaction) => reaction.phase);
   const negativePhases = reactions.filter((reaction) => reaction.polarity === 'debuff').map((reaction) => reaction.phase);
   const neutralPhases = reactions.filter((reaction) => reaction.polarity === 'neutral').map((reaction) => reaction.phase);
+  const pulsePhases = Array.from(new Set(card.eclipsePhasePulses?.map((pulse) => pulse.phase) ?? []));
   const activeRestrictions = [
     card.eclipseSummonPhases?.length ? { label: '소환', phases: card.eclipseSummonPhases } : null,
     card.eclipsePlayPhases?.length ? { label: '사용', phases: card.eclipsePlayPhases } : null,
@@ -969,7 +970,7 @@ function TemporalQuickHint({ card, currentPhase, compact = false }: { card: Card
       ? temporalDeltaText(currentReaction.attack, currentReaction.health)
       : '능력치 변화 없음';
 
-  const phaseGroup = (label: string, phases: EclipsePhase[], tone: 'positive' | 'negative' | 'neutral' | 'gate', keyBase = label) => {
+  const phaseGroup = (label: string, phases: EclipsePhase[], tone: 'positive' | 'negative' | 'neutral' | 'gate' | 'pulse', keyBase = label) => {
     if (phases.length === 0) return null;
     return (
       <div className={`v38-temporal-row ${tone}`} key={`${card.id}-${keyBase}`}>
@@ -996,6 +997,7 @@ function TemporalQuickHint({ card, currentPhase, compact = false }: { card: Card
       <div className="v38-temporal-list">
         {phaseGroup('강세', positivePhases, 'positive')}
         {phaseGroup('약세', negativePhases, 'negative')}
+        {phaseGroup('특수', pulsePhases, 'pulse')}
         {!compact && phaseGroup('중립', neutralPhases, 'neutral')}
         {activeRestrictions.map((restriction) => phaseGroup(`${restriction.label} 가능`, restriction.phases, 'gate', `gate-${restriction.label}`))}
       </div>
@@ -1586,7 +1588,7 @@ function GameGuideModal({ onClose }: { onClose: () => void }) {
       <section className="v20-guide-modal" role="dialog" aria-modal="true" aria-labelledby="v20-guide-title">
         <header><div><span>FIELD MANUAL</span><h2 id="v20-guide-title">ECLIPSE DUEL 룰 가이드</h2><p>첫 결투 전에 핵심 규칙만 빠르게 확인할 수 있습니다.</p></div><button ref={closeButtonRef} className="modal-close" type="button" onClick={onClose} aria-label="룰 가이드 닫기">×</button></header>
         <div className="v20-guide-grid">
-          <article><b>01 · 승리 조건</b><p>상대 코어 25를 0으로 만들면 승리합니다. 덱을 더 이상 뽑을 수 없는 상황도 패배로 처리됩니다.</p></article>
+          <article><b>01 · 승리 조건</b><p>상대 코어 {CORE_MAX}를 0으로 만들면 승리합니다. 덱을 더 이상 뽑을 수 없는 상황도 패배로 처리됩니다.</p></article>
           <article><b>02 · 턴 흐름</b><p>메인 단계에서 소환·주문·함정을 준비하고, 배틀 단계에서 공격합니다. 각 턴은 {TURN_DURATION_SECONDS}초 안에 결정해야 합니다.</p></article>
           <article><b>03 · 에너지</b><p>내 턴이 돌아올 때 최대 에너지가 성장하며 10에서 멈춥니다. 카드는 표시된 비용만큼 에너지를 사용합니다.</p></article>
           <article><b>04 · 특수 소환</b><p>균열은 조건과 에너지를, 공명 융합은 지정 소재를, 계승 진화는 조건을 만족한 필드 유닛을 요구합니다.</p></article>
@@ -4252,7 +4254,7 @@ function clientRiftReady(state: MatchState, playerId: string, opponentId: string
   const enemyUnits = state.boards[opponentId].units.filter(Boolean);
   if (condition.kind === 'empty_board') return myUnits.length === 0;
   if (condition.kind === 'empty_board_and_graveyard_min') return myUnits.length === 0 && (state.graveyards[playerId]?.length ?? 0) >= condition.value;
-  if (condition.kind === 'core_below') return (state.core[playerId] ?? 25) <= condition.value;
+  if (condition.kind === 'core_below') return (state.core[playerId] ?? CORE_MAX) <= condition.value;
   if (condition.kind === 'opponent_more_units') return enemyUnits.length > myUnits.length;
   if (condition.kind === 'graveyard_min') return (state.graveyards[playerId]?.length ?? 0) >= condition.value;
   if (condition.kind === 'ally_element') return myUnits.some((unit) => CARD_BY_ID[unit?.cardId ?? '']?.element === condition.element);
@@ -4271,7 +4273,7 @@ function clientRiftBlockReason(state: MatchState, playerId: string, opponentId: 
     if (myUnits.length > 0) return `내 필드가 비어 있어야 합니다. 현재 내 유닛 ${myUnits.length}장.`;
     if (graveCount < condition.value) return `내 묘지에 카드가 ${condition.value}장 이상 필요합니다. 현재 ${graveCount}장.`;
   }
-  if (condition.kind === 'core_below' && (state.core[playerId] ?? 25) > condition.value) return `내 HP가 ${condition.value} 이하일 때만 가능합니다. 현재 HP ${state.core[playerId] ?? 25}.`;
+  if (condition.kind === 'core_below' && (state.core[playerId] ?? CORE_MAX) > condition.value) return `내 HP가 ${condition.value} 이하일 때만 가능합니다. 현재 HP ${state.core[playerId] ?? CORE_MAX}.`;
   if (condition.kind === 'opponent_more_units' && enemyUnits.length <= myUnits.length) return `상대 유닛 수가 내 유닛보다 많아야 합니다. 현재 나 ${myUnits.length} / 상대 ${enemyUnits.length}.`;
   if (condition.kind === 'graveyard_min' && (state.graveyards[playerId]?.length ?? 0) < condition.value) return `내 묘지에 카드가 ${condition.value}장 이상 필요합니다. 현재 ${state.graveyards[playerId]?.length ?? 0}장.`;
   if (condition.kind === 'ally_element' && !myUnits.some((unit) => CARD_BY_ID[unit?.cardId ?? '']?.element === condition.element)) return `내 필드에 ${ELEMENT_LABEL[condition.element]} 속성 아군이 1장 이상 필요합니다.`;
@@ -4308,7 +4310,7 @@ function clientLegendaryBlockReason(state: MatchState, playerId: string, opponen
       return `내 묘지에 ${kindLabel} 카드가 ${rule.graveyardKindMin}장 이상 필요합니다. 현재 ${kindCount}장.`;
     }
   }
-  if (rule.coreAtMost !== undefined && (state.core[playerId] ?? 25) > rule.coreAtMost) return `내 코어가 ${rule.coreAtMost} 이하여야 합니다. 현재 ${state.core[playerId] ?? 25}.`;
+  if (rule.coreAtMost !== undefined && (state.core[playerId] ?? CORE_MAX) > rule.coreAtMost) return `내 코어가 ${rule.coreAtMost} 이하여야 합니다. 현재 ${state.core[playerId] ?? CORE_MAX}.`;
   if (rule.requireOutnumbered && enemyUnits.length <= myUnits.length) return `상대 필드 유닛이 내 필드보다 많아야 합니다. 현재 나 ${myUnits.length} / 상대 ${enemyUnits.length}.`;
 
   const releasesSpace = rule.release === 'all' ? myUnits.length > 0 : rule.release === 'same_series' && (rule.minimumSameSeries ?? 0) > 0;
@@ -4631,7 +4633,7 @@ function EclipsePhaseShiftNotice({ notice }: { notice: EclipsePhaseNoticeState |
   if (!notice) return null;
   const meta = ECLIPSE_UI_META[notice.phase];
   const visual = ECLIPSE_ARENA_VISUAL[notice.phase];
-  const sourceLabel = notice.source === 'turn' ? '6 TURN CYCLE' : 'CARD EFFECT';
+  const sourceLabel = notice.source === 'turn' ? `${NATURAL_ECLIPSE_TURN_INTERVAL} TURN CYCLE` : 'CARD EFFECT';
   return (
     <div
       key={notice.serial}
@@ -4679,11 +4681,12 @@ function EclipseCycleStrip({ state }: { state: MatchState }) {
   const meta = ECLIPSE_UI_META[current];
   const visual = ECLIPSE_ARENA_VISUAL[current];
   const locked = (state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber;
-  const naturalStep = ((Math.max(1, state.turnNumber) - 1) % 6) + 1;
+  const completedInBlock = (Math.max(1, state.turnNumber) - 1) % NATURAL_ECLIPSE_TURN_INTERVAL;
+  const turnsUntilNaturalShift = NATURAL_ECLIPSE_TURN_INTERVAL - completedInBlock;
   return (
     <div
       className="v34m-cycle-inline"
-      aria-label={`ECLIPSE CYCLE · 현재 ${ECLIPSE_PHASE_LABEL[current]} · 여명, 정점, 황혼, 심야, 개기일식 순서`}
+      aria-label={`ECLIPSE CYCLE · 현재 ${ECLIPSE_PHASE_LABEL[current]} · 자연 변경까지 ${turnsUntilNaturalShift}턴 · 여명, 정점, 황혼, 심야, 개기일식 순서`}
       style={{
         display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, maxWidth: 'min(470px,38vw)', height: 28,
         marginLeft: 10, padding: '0 9px', overflow: 'hidden', whiteSpace: 'nowrap', flex: '0 1 470px',
@@ -4715,7 +4718,7 @@ function EclipseCycleStrip({ state }: { state: MatchState }) {
           </span>
         );
       })}
-      <em style={{ marginLeft: 'auto', color: `rgba(${visual.rgb},.86)`, fontSize: 6.5, fontStyle: 'normal', fontWeight: 950, letterSpacing: '.08em', flex: '0 0 auto' }}>{locked ? 'LOCK' : `${naturalStep}/6`}</em>
+      <em title={`자연 시간 변경까지 ${turnsUntilNaturalShift}턴`} style={{ marginLeft: 'auto', color: `rgba(${visual.rgb},.86)`, fontSize: 6.5, fontStyle: 'normal', fontWeight: 950, letterSpacing: '.08em', flex: '0 0 auto' }}>{locked ? `LOCK · ${turnsUntilNaturalShift}T` : `NEXT ${turnsUntilNaturalShift}T`}</em>
     </div>
   );
 }
@@ -5049,6 +5052,7 @@ function DuelTimeCriticalStyles() {
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-phase-chip.negative { border-color:rgba(255,132,156,.38)!important;background:rgba(171,54,88,.18)!important;color:#ffd1da!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-phase-chip.neutral { border-color:rgba(174,201,255,.24)!important;background:rgba(71,91,136,.14)!important;color:#d7e6ff!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-phase-chip.gate { border-color:rgba(255,208,114,.34)!important;background:rgba(119,82,16,.16)!important;color:#ffe4ad!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-phase-chip.pulse { border-color:rgba(220,145,255,.40)!important;background:rgba(122,56,155,.20)!important;color:#f2d2ff!important;box-shadow:inset 0 0 10px rgba(218,120,255,.08)!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-selected-copy .v38-temporal-quick { margin-top:8px!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v38-temporal-quick.compact {
       position:absolute!important;left:4px!important;right:4px!important;bottom:34px!important;z-index:14!important;padding:5px 6px!important;gap:5px!important;
