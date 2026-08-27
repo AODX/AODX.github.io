@@ -40,7 +40,7 @@ import {
   validateDeck,
   validateExtraDeck,
 } from './game-data';
-import type { GameSnapshot, MatchState, PrivateState, UnitState, VisualEvent } from './game-engine';
+import { TURN_DURATION_MS, type GameSnapshot, type MatchState, type PrivateState, type UnitState, type VisualEvent } from './game-engine';
 import {
   PRACTICE_DIFFICULTY_LABEL,
   applyPracticeGameAction,
@@ -59,6 +59,8 @@ const supabaseKey =
 const supabase = createClient(supabaseUrl || 'https://invalid.supabase.co', supabaseKey || 'invalid-key', {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });
+
+const TURN_DURATION_SECONDS = Math.round(TURN_DURATION_MS / 1000);
 
 type View = 'home' | 'duel' | 'deck' | 'shop' | 'collection' | 'friends' | 'profile';
 
@@ -933,6 +935,81 @@ function temporalDeltaText(attack: number, health: number) {
   return parts.length ? parts.join(' · ') : '능력치 변화 없음';
 }
 
+function TemporalQuickHint({ card, currentPhase, compact = false }: { card: CardDefinition; currentPhase: EclipsePhase; compact?: boolean }) {
+  const reactions = temporalReactionRows(card);
+  const currentReaction = reactions.find((reaction) => reaction.phase === currentPhase) ?? null;
+  const positivePhases = reactions.filter((reaction) => reaction.polarity === 'buff').map((reaction) => reaction.phase);
+  const negativePhases = reactions.filter((reaction) => reaction.polarity === 'debuff').map((reaction) => reaction.phase);
+  const neutralPhases = reactions.filter((reaction) => reaction.polarity === 'neutral').map((reaction) => reaction.phase);
+  const activeRestrictions = [
+    card.eclipseSummonPhases?.length ? { label: '소환', phases: card.eclipseSummonPhases } : null,
+    card.eclipsePlayPhases?.length ? { label: '사용', phases: card.eclipsePlayPhases } : null,
+    card.eclipseTriggerPhases?.length ? { label: '함정', phases: card.eclipseTriggerPhases } : null,
+  ].filter((entry): entry is { label: string; phases: EclipsePhase[] } => Boolean(entry));
+  const hasTemporalInfo = Boolean(card.temporalImmunity || reactions.length || activeRestrictions.length || card.eclipseSetOnSummon || card.eclipsePhasePulses?.length);
+  if (!hasTemporalInfo) return null;
+
+  const currentStateTone = card.temporalImmunity
+    ? 'fixed'
+    : currentReaction?.polarity === 'buff'
+      ? 'buff'
+      : currentReaction?.polarity === 'debuff'
+        ? 'debuff'
+        : 'neutral';
+  const currentStateTitle = card.temporalImmunity
+    ? '시간 보정 무시'
+    : currentReaction?.polarity === 'buff'
+      ? '지금 강세'
+      : currentReaction?.polarity === 'debuff'
+        ? '지금 약세'
+        : '지금 중립';
+  const currentStateCopy = card.temporalImmunity
+    ? '어느 시간대에도 능력치 변화가 없습니다.'
+    : currentReaction
+      ? temporalDeltaText(currentReaction.attack, currentReaction.health)
+      : '능력치 변화 없음';
+
+  const phaseGroup = (label: string, phases: EclipsePhase[], tone: 'positive' | 'negative' | 'neutral' | 'gate', keyBase = label) => {
+    if (phases.length === 0) return null;
+    return (
+      <div className={`v38-temporal-row ${tone}`} key={`${card.id}-${keyBase}`}>
+        <strong>{label}</strong>
+        <div>
+          {phases.map((phase) => (
+            <span key={`${card.id}-${label}-${phase}`} className={`v38-temporal-phase-chip ${tone} ${phase} ${phase === currentPhase ? 'current' : ''}`}>{ECLIPSE_PHASE_LABEL[phase]}</span>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className={`v38-temporal-quick ${compact ? 'compact' : 'full'} tone-${currentStateTone}`}>
+      <div className="v38-temporal-current">
+        <span className={`v37-time-chip ${currentPhase}`}>{ECLIPSE_PHASE_LABEL[currentPhase]}</span>
+        <div>
+          <b>{currentStateTitle}</b>
+          <small>{currentStateCopy}</small>
+        </div>
+      </div>
+
+      <div className="v38-temporal-list">
+        {phaseGroup('강세', positivePhases, 'positive')}
+        {phaseGroup('약세', negativePhases, 'negative')}
+        {!compact && phaseGroup('중립', neutralPhases, 'neutral')}
+        {activeRestrictions.map((restriction) => phaseGroup(`${restriction.label} 가능`, restriction.phases, 'gate', `gate-${restriction.label}`))}
+      </div>
+
+      {!compact && card.eclipseSetOnSummon && (
+        <small className="v38-temporal-note">등장 시 전장 시간을 {ECLIPSE_PHASE_LABEL[card.eclipseSetOnSummon]}으로 변경</small>
+      )}
+      {!compact && card.eclipsePhasePulses?.length ? (
+        <small className="v38-temporal-note">시간 발동 {card.eclipsePhasePulses.length}개 · 상세는 전체 상세에서 확인 가능</small>
+      ) : null}
+    </div>
+  );
+}
+
 function TemporalProfileContent({ card }: { card: CardDefinition }) {
   if (!isUnitCard(card) && !card.eclipseSummonPhases?.length && !card.eclipsePhasePulses?.length && !card.eclipsePlayPhases?.length && !card.eclipseTriggerPhases?.length && !card.eclipseLifespanPhases?.length && !card.eclipseVanishPhases?.length) {
     return <p className="v37-time-empty">시간대 능력치 반응 없음</p>;
@@ -1510,7 +1587,7 @@ function GameGuideModal({ onClose }: { onClose: () => void }) {
         <header><div><span>FIELD MANUAL</span><h2 id="v20-guide-title">ECLIPSE DUEL 룰 가이드</h2><p>첫 결투 전에 핵심 규칙만 빠르게 확인할 수 있습니다.</p></div><button ref={closeButtonRef} className="modal-close" type="button" onClick={onClose} aria-label="룰 가이드 닫기">×</button></header>
         <div className="v20-guide-grid">
           <article><b>01 · 승리 조건</b><p>상대 코어 25를 0으로 만들면 승리합니다. 덱을 더 이상 뽑을 수 없는 상황도 패배로 처리됩니다.</p></article>
-          <article><b>02 · 턴 흐름</b><p>메인 단계에서 소환·주문·함정을 준비하고, 배틀 단계에서 공격합니다. 각 턴은 100초 안에 결정해야 합니다.</p></article>
+          <article><b>02 · 턴 흐름</b><p>메인 단계에서 소환·주문·함정을 준비하고, 배틀 단계에서 공격합니다. 각 턴은 {TURN_DURATION_SECONDS}초 안에 결정해야 합니다.</p></article>
           <article><b>03 · 에너지</b><p>내 턴이 돌아올 때 최대 에너지가 성장하며 10에서 멈춥니다. 카드는 표시된 비용만큼 에너지를 사용합니다.</p></article>
           <article><b>04 · 특수 소환</b><p>균열은 조건과 에너지를, 공명 융합은 지정 소재를, 계승 진화는 조건을 만족한 필드 유닛을 요구합니다.</p></article>
           <article><b>05 · 전투 키워드</b><p><strong>수호</strong>는 공격 우선 대상, <strong>속공</strong>은 소환 턴 공격, <strong>흡수</strong>는 실제 전투 피해 회복, <strong>관통</strong>은 초과 피해를 코어에 전달합니다.</p></article>
@@ -4939,6 +5016,52 @@ function DuelTimeCriticalStyles() {
     }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .v34o-temporal-delta.negative { opacity:.84!important;text-decoration:underline dotted!important;text-underline-offset:2px!important; }
 
+    /* v38: quick time-state digest for hand cards and preview panel. */
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-quick {
+      display:grid!important;gap:7px!important;padding:9px 10px!important;border-radius:14px!important;
+      border:1px solid rgba(170,225,255,.18)!important;background:rgba(8,15,24,.72)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-quick.tone-buff { border-color:rgba(98,231,188,.32)!important;background:linear-gradient(180deg,rgba(8,29,23,.88),rgba(8,15,24,.78))!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-quick.tone-debuff { border-color:rgba(255,133,156,.34)!important;background:linear-gradient(180deg,rgba(39,14,21,.9),rgba(10,14,22,.8))!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-quick.tone-fixed { border-color:rgba(214,197,255,.34)!important;background:linear-gradient(180deg,rgba(30,18,48,.9),rgba(10,14,22,.8))!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-current {
+      display:flex!important;align-items:center!important;gap:8px!important;min-width:0!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-current > div { min-width:0!important;display:grid!important;gap:2px!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-current b { font-size:12px!important;line-height:1.1!important;color:#f7fdff!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-current small,
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-note { font-size:10px!important;line-height:1.35!important;color:rgba(226,242,255,.80)!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-list { display:grid!important;gap:6px!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-row {
+      display:grid!important;grid-template-columns:42px minmax(0,1fr)!important;align-items:start!important;gap:6px!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-row > strong { font-size:10px!important;line-height:1.2!important;color:rgba(215,234,249,.88)!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-row > div {
+      display:flex!important;flex-wrap:wrap!important;gap:4px!important;min-width:0!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-phase-chip {
+      display:inline-flex!important;align-items:center!important;justify-content:center!important;padding:2px 7px!important;min-height:19px!important;border-radius:999px!important;
+      border:1px solid rgba(183,220,244,.18)!important;background:rgba(255,255,255,.045)!important;color:#effaff!important;font-size:9px!important;font-weight:900!important;line-height:1!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-phase-chip.current { box-shadow:0 0 0 1px rgba(255,255,255,.12)!important,inset 0 0 0 1px rgba(255,255,255,.06)!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-phase-chip.positive { border-color:rgba(86,231,181,.38)!important;background:rgba(48,153,122,.18)!important;color:#bffae8!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-phase-chip.negative { border-color:rgba(255,132,156,.38)!important;background:rgba(171,54,88,.18)!important;color:#ffd1da!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-phase-chip.neutral { border-color:rgba(174,201,255,.24)!important;background:rgba(71,91,136,.14)!important;color:#d7e6ff!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v38-temporal-phase-chip.gate { border-color:rgba(255,208,114,.34)!important;background:rgba(119,82,16,.16)!important;color:#ffe4ad!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-selected-copy .v38-temporal-quick { margin-top:8px!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v38-temporal-quick.compact {
+      position:absolute!important;left:4px!important;right:4px!important;bottom:34px!important;z-index:14!important;padding:5px 6px!important;gap:5px!important;
+      border-radius:11px!important;background:rgba(5,12,20,.82)!important;backdrop-filter:blur(2px)!important;pointer-events:none!important;
+    }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v38-temporal-quick.compact .v38-temporal-current { gap:5px!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v38-temporal-quick.compact .v38-temporal-current b { font-size:9px!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v38-temporal-quick.compact .v38-temporal-current small { font-size:7px!important; line-height:1.25!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v38-temporal-quick.compact .v37-time-chip { min-width:34px!important;padding:0 5px!important;font-size:8px!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v38-temporal-list { gap:4px!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v38-temporal-row { grid-template-columns:28px minmax(0,1fr)!important;gap:4px!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v38-temporal-row > strong { font-size:8px!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v38-temporal-phase-chip { min-height:16px!important;padding:1px 5px!important;font-size:7px!important; }
+
     @media (prefers-reduced-motion:reduce) {
       .v23-client.in-duel .v34n-phase-toast { animation:v34nPhaseToastReduced 1.72s linear both!important; }
       @keyframes v34nPhaseToastReduced { 0%,100%{opacity:0} 12%,82%{opacity:1} }
@@ -5244,8 +5367,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const coinTossActive = Boolean(state.coinToss && coinClock < state.coinToss.endsAt);
   const turnExpiredLocally = Boolean(!coinTossActive && state.turnEndsAt && turnClock >= state.turnEndsAt);
   const myTurn = state.currentPlayerId === userId && !coinTossActive && !turnExpiredLocally;
-  const turnSecondsLeft = coinTossActive ? 100 : Math.max(0, Math.ceil(((state.turnEndsAt ?? (turnClock + 100_000)) - turnClock) / 1000));
-  const turnTimerPercent = Math.max(0, Math.min(100, (turnSecondsLeft / 100) * 100));
+  const turnSecondsLeft = coinTossActive ? TURN_DURATION_SECONDS : Math.max(0, Math.ceil(((state.turnEndsAt ?? (turnClock + TURN_DURATION_MS)) - turnClock) / 1000));
+  const turnTimerPercent = Math.max(0, Math.min(100, (turnSecondsLeft / TURN_DURATION_SECONDS) * 100));
   const selectedInstance = privateState.hand.find((card) => card.instanceId === selectedHand);
   const selectedCard = selectedInstance ? CARD_BY_ID[selectedInstance.cardId] : undefined;
   const selectedExtraInstance = privateState.extra.find((card) => card.instanceId === selectedExtra);
@@ -6077,14 +6200,14 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
           {previewIsHoverOnly && hoveredHandCard && (
             <div className="v18-selected-card v29-hover-preview">
               <div className="v18-selected-art"><CardIllustration card={hoveredHandCard} compact /></div>
-              <div className="v18-selected-copy"><small>카드 미리보기 · {KIND_LABEL[hoveredHandCard.kind]} · {ELEMENT_LABEL[hoveredHandCard.element]}</small><b>{hoveredHandCard.name}</b><div><span>COST <strong>{hoveredHandCard.cost}</strong></span>{isUnitCard(hoveredHandCard) && <><span>ATK <strong>{hoveredHandCard.attack}</strong></span><span>DEF <strong>{hoveredHandCard.health}</strong></span></>}</div><p><RuleText text={polishedCardText(hoveredHandCard)} /></p>{hoveredHandCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(hoveredHandCard)} /></p>}{tacticalAbilityDescription(hoveredHandCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(hoveredHandCard)} /></p>}</div>
+              <div className="v18-selected-copy"><small>카드 미리보기 · {KIND_LABEL[hoveredHandCard.kind]} · {ELEMENT_LABEL[hoveredHandCard.element]}</small><b>{hoveredHandCard.name}</b><div><span>COST <strong>{hoveredHandCard.cost}</strong></span>{isUnitCard(hoveredHandCard) && <><span>ATK <strong>{hoveredHandCard.attack}</strong></span><span>DEF <strong>{hoveredHandCard.health}</strong></span></>}</div><p><RuleText text={polishedCardText(hoveredHandCard)} /></p>{hoveredHandCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(hoveredHandCard)} /></p>}{tacticalAbilityDescription(hoveredHandCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(hoveredHandCard)} /></p>}<TemporalQuickHint card={hoveredHandCard} currentPhase={currentEclipsePhase} /></div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(hoveredHandCard.id)}>전체 상세</button></div>
             </div>
           )}
           {selectedCard && (
             <div className="v18-selected-card">
               <div className="v18-selected-art"><CardIllustration card={selectedCard} compact /></div>
-              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p><RuleText text={selectedCard.summonMode === 'rift' ? `【균열 조건】 ${extraRequirement(selectedCard)}` : selectedCard.summonMode === 'legendary' ? `【전설 특수 소환】 ${extraRequirement(selectedCard)}` : polishedCardText(selectedCard)} /></p>{selectedCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(selectedCard)} /></p>}{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(selectedCard)} /></p>}</div>
+              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p><RuleText text={selectedCard.summonMode === 'rift' ? `【균열 조건】 ${extraRequirement(selectedCard)}` : selectedCard.summonMode === 'legendary' ? `【전설 특수 소환】 ${extraRequirement(selectedCard)}` : polishedCardText(selectedCard)} /></p>{selectedCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(selectedCard)} /></p>}{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(selectedCard)} /></p>}<TemporalQuickHint card={selectedCard} currentPhase={currentEclipsePhase} /></div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>선택 취소</button></div>
               {selectedCard.kind === 'unit' && selectedCardSummonNeedsTarget && selectedSummonZone !== null && (
                 <div className="v36-summon-target-box">
@@ -6156,7 +6279,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       </aside>
 
       <footer className="v18-hand-dock">
-        <div className="v18-hand-heading"><span><small>YOUR HAND</small><b>{privateState.hand.length} CARDS</b></span><em>{myTurn && state.phase === 'main' ? '밝게 표시된 카드는 지금 사용할 수 있습니다. 카드를 선택하면 오른쪽에 효과가 표시됩니다.' : '카드를 선택하거나 i 버튼을 눌러 카드 정보를 확인할 수 있습니다.'}</em></div>
+        <div className="v18-hand-heading"><span><small>YOUR HAND</small><b>{privateState.hand.length} CARDS</b></span><em>{myTurn && state.phase === 'main' ? '밝게 표시된 카드는 지금 사용할 수 있습니다. 카드 하단의 시간 힌트와 오른쪽 효과 패널을 함께 보면 타이밍을 빠르게 판단할 수 있습니다.' : '카드를 선택하거나 i 버튼을 눌러 카드 정보를 확인할 수 있습니다. 손패 하단의 시간 힌트로 유리한 시간대를 바로 확인하세요.'}</em></div>
         <div className="v18-hand-scroll">
           {privateState.hand.map((instance) => {
             const card = CARD_BY_ID[instance.cardId];
@@ -6172,7 +6295,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
               onMouseLeave={() => setHoveredHandCardId((current) => current === instance.cardId ? null : current)}
               onFocusCapture={() => setHoveredHandCardId(instance.cardId)}
               onBlurCapture={() => setHoveredHandCardId((current) => current === instance.cardId ? null : current)}
-            >{specialReadyIds.has(instance.instanceId) && !legendaryReady && <span className="v18-special-badge">SPECIAL</span>}<CardFace card={card} compact selected={selectedHand === instance.instanceId} disabled={busy} onClick={() => chooseHand(instance.instanceId)} /></div>;
+            >{specialReadyIds.has(instance.instanceId) && !legendaryReady && <span className="v18-special-badge">SPECIAL</span>}<CardFace card={card} compact selected={selectedHand === instance.instanceId} disabled={busy} onClick={() => chooseHand(instance.instanceId)} />{card && <TemporalQuickHint card={card} currentPhase={currentEclipsePhase} compact />}</div>;
           })}
         </div>
         <div className="v18-hand-side"><span>ENERGY <b>{myEnergy.current}/{myEnergy.max}</b></span><span>DECK <b>{state.deckCounts[userId] ?? 0}</b></span><button type="button" onClick={() => setExtraOpen(true)}>EXTRA {privateState.extra.length}</button></div>
