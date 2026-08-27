@@ -649,6 +649,21 @@ const KEYWORD_DESCRIPTION: Record<Keyword, string> = {
   corestrike: '직격 · 상대 필드에 수호가 없다면 다른 캐릭터를 무시하고 코어를 직접 공격할 수 있습니다.',
 };
 
+const KEYWORD_LABEL: Record<Keyword, string> = {
+  guard: '수호',
+  charge: '속공',
+  lifesteal: '흡수',
+  pierce: '관통',
+  corestrike: '직격',
+};
+
+const FILTERABLE_KEYWORDS: Keyword[] = ['guard', 'charge', 'pierce', 'corestrike', 'lifesteal'];
+
+function cardSeriesLabel(card: CardDefinition): string {
+  if (card.seriesId && SERIES_BY_ID[card.seriesId]) return SERIES_BY_ID[card.seriesId].shortName;
+  return card.series ?? '기타';
+}
+
 function displayEclipseAffinity(card: CardDefinition): EclipsePhase | undefined {
   return resolvedEclipseAffinity(card);
 }
@@ -2009,6 +2024,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   const [element, setElement] = useState<'all' | Element>('all');
   const [seriesFilter, setSeriesFilter] = useState<'all' | SeriesId>('all');
   const [unitTypeFilter, setUnitTypeFilter] = useState<'all' | UnitType>('all');
+  const [keywordFilter, setKeywordFilter] = useState<'all' | Keyword>('all');
   const [rarityFilter, setRarityFilter] = useState<'all' | Rarity>('all');
   const [costFilter, setCostFilter] = useState<'all' | '0-1' | '2' | '3' | '4' | '5' | '6' | '7+'>('all');
   const [sort, setSort] = useState<'recommended' | 'cost' | 'rarity' | 'name'>('recommended');
@@ -2069,11 +2085,12 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     if (element !== 'all' && card.element !== element) return false;
     if (seriesFilter !== 'all' && card.seriesId !== seriesFilter) return false;
     if (unitTypeFilter !== 'all' && card.unitType !== unitTypeFilter) return false;
+    if (keywordFilter !== 'all' && !card.keywords?.includes(keywordFilter)) return false;
     if (rarityFilter !== 'all' && card.rarity !== rarityFilter) return false;
     if (costFilter === '0-1' && card.cost > 1) return false;
     if (costFilter !== 'all' && costFilter !== '0-1' && costFilter !== '7+' && card.cost !== Number(costFilter)) return false;
     if (costFilter === '7+' && card.cost < 7) return false;
-    if (search && !`${card.name} ${card.text} ${card.subtitle} ${card.series ?? ''} ${card.comboTag ?? ''} ${card.unitType ? UNIT_TYPE_LABEL[card.unitType] : ''}`.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !`${card.name} ${card.text} ${card.subtitle} ${card.series ?? ''} ${card.comboTag ?? ''} ${card.unitType ? UNIT_TYPE_LABEL[card.unitType] : ''} ${(card.keywords ?? []).map((keyword) => KEYWORD_LABEL[keyword]).join(' ')}`.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   }).sort((a, b) => {
     if (sort === 'cost') return a.cost - b.cost || a.name.localeCompare(b.name, 'ko');
@@ -2081,7 +2098,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     if (sort === 'name') return a.name.localeCompare(b.name, 'ko');
     const score = (card: CardDefinition) => rarityWeight[card.rarity] * 7 + (card.element === dominantElement ? 5 : 0) - card.cost * 0.35;
     return score(b) - score(a);
-  }), [collection, deckZone, kind, element, seriesFilter, unitTypeFilter, rarityFilter, costFilter, search, sort, dominantElement]);
+  }), [collection, deckZone, kind, element, seriesFilter, unitTypeFilter, keywordFilter, rarityFilter, costFilter, search, sort, dominantElement]);
 
   function usedCopies(cardId: string): number {
     return (mainCounts[cardId] ?? 0) + (extraCounts[cardId] ?? 0);
@@ -2140,6 +2157,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
     setElement('all');
     setSeriesFilter('all');
     setUnitTypeFilter('all');
+    setKeywordFilter('all');
     setRarityFilter('all');
     setCostFilter('all');
   }
@@ -2283,7 +2301,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
   const extraProgress = Math.min(100, Math.round((extraCards.length / EXTRA_DECK_SIZE) * 100));
   const deckListEntries = useMemo(() => Object.entries(mainCounts).sort(([a], [b]) => (CARD_BY_ID[a]?.cost ?? 0) - (CARD_BY_ID[b]?.cost ?? 0) || (CARD_BY_ID[a]?.name ?? '').localeCompare(CARD_BY_ID[b]?.name ?? '', 'ko')), [mainCounts]);
   const extraListEntries = useMemo(() => Object.entries(extraCounts).sort(([a], [b]) => (CARD_BY_ID[a]?.cost ?? 0) - (CARD_BY_ID[b]?.cost ?? 0) || (CARD_BY_ID[a]?.name ?? '').localeCompare(CARD_BY_ID[b]?.name ?? '', 'ko')), [extraCounts]);
-  const activeFilterCount = [kind !== 'all', element !== 'all', seriesFilter !== 'all', unitTypeFilter !== 'all', rarityFilter !== 'all', costFilter !== 'all', Boolean(search)].filter(Boolean).length;
+  const activeFilterCount = [kind !== 'all', element !== 'all', seriesFilter !== 'all', unitTypeFilter !== 'all', keywordFilter !== 'all', rarityFilter !== 'all', costFilter !== 'all', Boolean(search)].filter(Boolean).length;
   const deckDoctor = useMemo(() => {
     const early = deckCards.filter((id) => (CARD_BY_ID[id]?.cost ?? 99) <= 2).length;
     const late = deckCards.filter((id) => (CARD_BY_ID[id]?.cost ?? 0) >= 6).length;
@@ -2419,6 +2437,9 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
             <select value={unitTypeFilter} onChange={(event: ChangeEvent<HTMLSelectElement>) => setUnitTypeFilter(event.target.value as 'all' | UnitType)}>
               <option value="all">모든 유닛 타입</option>{Object.entries(UNIT_TYPE_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </select>
+            <select value={keywordFilter} onChange={(event: ChangeEvent<HTMLSelectElement>) => setKeywordFilter(event.target.value as 'all' | Keyword)}>
+              <option value="all">모든 특성</option>{FILTERABLE_KEYWORDS.map((keyword) => <option key={keyword} value={keyword}>{KEYWORD_LABEL[keyword]}</option>)}
+            </select>
             <select value={sort} onChange={(event: ChangeEvent<HTMLSelectElement>) => setSort(event.target.value as typeof sort)}>
               <option value="recommended">추천순</option><option value="cost">비용순</option><option value="rarity">등급순</option><option value="name">이름순</option>
             </select>
@@ -2439,6 +2460,10 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
                 <div className={`v31e-library-card ${full ? 'is-full' : ''}`} key={card.id}>
                   <CardFace card={card} compact quantity={Math.max(0, (collection[card.id] ?? 0) - inDeck)} disabled={full} onClick={() => addCard(card)} />
                   <div className="v31e-library-card-meta"><span>덱 {inDeck}/{max}</span><small>보유 {collection[card.id] ?? 0}</small></div>
+                  <div className="v36-card-catalog-meta">
+                    <span className="v36-series-chip">{cardSeriesLabel(card)}</span>
+                    <div className="v36-keyword-chip-row">{card.keywords && card.keywords.length > 0 ? card.keywords.map((keyword) => <i key={keyword}>{KEYWORD_LABEL[keyword]}</i>) : <small>특성 없음</small>}</div>
+                  </div>
                   <button type="button" className="v31e-library-add" disabled={full} onClick={(event) => { event.stopPropagation(); addCard(card); }} aria-label={`${card.name} 덱에 추가`}>＋</button>
                 </div>
               );
@@ -2857,6 +2882,7 @@ function CollectionView({ hub }: { hub: HubData }) {
   const [search, setSearch] = useState('');
   const [rarity, setRarity] = useState<'all' | Rarity>('all');
   const [seriesFilter, setSeriesFilter] = useState<'all' | SeriesId>('all');
+  const [keywordFilter, setKeywordFilter] = useState<'all' | Keyword>('all');
   const collection = Object.fromEntries(hub.collection.map((row) => [row.card_id, row.quantity]));
   const ownedUnique = CARDS.filter((card) => (collection[card.id] ?? 0) > 0);
   const ownedCopies = hub.collection.reduce((sum, row) => sum + row.quantity, 0);
@@ -2869,19 +2895,20 @@ function CollectionView({ hub }: { hub: HubData }) {
   const visible = ownedUnique
     .filter((card) => rarity === 'all' || card.rarity === rarity)
     .filter((card) => seriesFilter === 'all' || card.seriesId === seriesFilter)
-    .filter((card) => !search || `${card.name} ${card.text} ${card.series ?? ''}`.toLowerCase().includes(search.toLowerCase()));
+    .filter((card) => keywordFilter === 'all' || Boolean(card.keywords?.includes(keywordFilter)))
+    .filter((card) => !search || `${card.name} ${card.text} ${card.series ?? ''} ${(card.keywords ?? []).map((keyword) => KEYWORD_LABEL[keyword]).join(' ')}`.toLowerCase().includes(search.toLowerCase()));
   return (
     <div className="view-stack">
       <section className="section-heading">
         <div><span className="eyebrow">CARD VAULT</span><h2>보관함</h2><p>{visible.length}종의 카드가 표시되고 있습니다.</p></div>
-        <div className="collection-tools"><input value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)} placeholder="카드 검색" /><select value={rarity} onChange={(event: ChangeEvent<HTMLSelectElement>) => setRarity(event.target.value as 'all' | Rarity)}><option value="all">모든 등급</option>{Object.entries(RARITY_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select><select value={seriesFilter} onChange={(event: ChangeEvent<HTMLSelectElement>) => setSeriesFilter(event.target.value as 'all' | SeriesId)}><option value="all">모든 시리즈</option>{CARD_SERIES.map((series) => <option key={series.id} value={series.id}>{series.shortName}</option>)}</select></div>
+        <div className="collection-tools"><input value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)} placeholder="카드 검색" /><select value={rarity} onChange={(event: ChangeEvent<HTMLSelectElement>) => setRarity(event.target.value as 'all' | Rarity)}><option value="all">모든 등급</option>{Object.entries(RARITY_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select><select value={seriesFilter} onChange={(event: ChangeEvent<HTMLSelectElement>) => setSeriesFilter(event.target.value as 'all' | SeriesId)}><option value="all">모든 시리즈</option>{CARD_SERIES.map((series) => <option key={series.id} value={series.id}>{series.shortName}</option>)}</select><select value={keywordFilter} onChange={(event: ChangeEvent<HTMLSelectElement>) => setKeywordFilter(event.target.value as 'all' | Keyword)}><option value="all">모든 특성</option>{FILTERABLE_KEYWORDS.map((keyword) => <option key={keyword} value={keyword}>{KEYWORD_LABEL[keyword]}</option>)}</select></div>
       </section>
       <section className="v22-vault-summary panel">
         <div className="v22-vault-completion"><span><small>COLLECTION</small><b>{completion}%</b></span><div><strong>{ownedUnique.length} / {CARDS.length}종 수집</strong><i><b style={{ width: `${completion}%` }} /></i><em>총 보유 카드 {ownedCopies.toLocaleString()}장</em></div></div>
         <div className="v22-vault-rarities">{raritySummary.map((item) => <button type="button" key={item.tier} className={`rarity-${item.tier}`} onClick={() => setRarity(item.tier)}><span>{RARITY_LABEL[item.tier]}</span><b>{item.owned}<small>/{item.total}</small></b></button>)}</div>
       </section>
       <section className="collection-grid vault-grid">
-        {visible.map((card) => <CardFace key={card.id} card={card} quantity={collection[card.id]} />)}
+        {visible.map((card) => <div className="v36-collection-card-tile" key={card.id}><CardFace card={card} quantity={collection[card.id]} /><div className="v36-card-catalog-meta"><span className="v36-series-chip">{cardSeriesLabel(card)}</span><div className="v36-keyword-chip-row">{card.keywords && card.keywords.length > 0 ? card.keywords.map((keyword) => <i key={keyword}>{KEYWORD_LABEL[keyword]}</i>) : <small>특성 없음</small>}</div><strong>보유 {collection[card.id]}장</strong></div></div>)}
       </section>
     </div>
   );

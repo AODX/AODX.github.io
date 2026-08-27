@@ -779,11 +779,11 @@
 .v23-client .v25-series-profile p b { color:#f2f8fc; }
 
 .v23-client .v9-filter-row {
-  grid-template-columns:minmax(190px,1.55fr) repeat(4,minmax(110px,.72fr))!important;
+  grid-template-columns:minmax(190px,1.55fr) repeat(6,minmax(110px,.72fr))!important;
 }
 .v23-client .collection-tools {
   display:grid!important;
-  grid-template-columns:minmax(220px,1fr) minmax(150px,.45fr) minmax(190px,.6fr);
+  grid-template-columns:minmax(220px,1fr) minmax(150px,.45fr) minmax(190px,.6fr) minmax(150px,.48fr);
   gap:8px;
 }
 
@@ -2862,6 +2862,62 @@
 .v23-client .v31e-library-card.is-full { opacity:.62; }
 .v23-client .v31e-library-card-meta { display:flex;align-items:center;justify-content:space-between;gap:5px;color:#718394;font-size:8px; }
 .v23-client .v31e-library-card-meta span { color:#a6bac7;font-weight:850; }
+.v23-client .v36-card-catalog-meta { display:grid;gap:6px;align-items:start; }
+.v23-client .v36-series-chip {
+  justify-self:start;
+  display:inline-flex;
+  align-items:center;
+  min-height:22px;
+  padding:0 10px;
+  border:1px solid rgba(111,214,247,.24);
+  border-radius:999px;
+  background:rgba(11,26,37,.88);
+  color:#b8eeff;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.04em;
+}
+.v23-client .v36-keyword-chip-row { display:flex;flex-wrap:wrap;gap:5px;min-height:20px; }
+.v23-client .v36-keyword-chip-row i,
+.v23-client .v36-keyword-chip-row small {
+  display:inline-flex;
+  align-items:center;
+  min-height:20px;
+  padding:0 8px;
+  border-radius:999px;
+  font-size:9px;
+  font-style:normal;
+  font-weight:850;
+}
+.v23-client .v36-keyword-chip-row i {
+  border:1px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.04);
+  color:#d9eef7;
+}
+.v23-client .v36-keyword-chip-row small {
+  border:1px dashed rgba(255,255,255,.08);
+  color:#6d8696;
+}
+.v23-client .v36-card-catalog-meta strong {
+  color:#91a7b6;
+  font-size:10px;
+  font-weight:850;
+}
+.v23-client .v36-collection-card-tile {
+  display:grid;
+  gap:8px;
+  padding:9px;
+  border:1px solid rgba(255,255,255,.055);
+  border-radius:15px;
+  background:linear-gradient(155deg,rgba(14,23,32,.88),rgba(7,11,17,.96));
+  box-shadow:0 12px 26px rgba(0,0,0,.18);
+}
+.v23-client .v36-collection-card-tile:hover {
+  border-color:rgba(100,204,241,.2);
+  box-shadow:0 18px 34px rgba(0,0,0,.24),0 0 26px rgba(70,179,220,.05);
+  transform:translateY(-2px);
+}
+.v23-client .v36-collection-card-tile .tcg-card { width:100%!important; }
 .v23-client .v31e-library-add { position:absolute;right:10px;bottom:29px;z-index:14;width:31px;height:31px;display:grid;place-items:center;border:1px solid rgba(119,222,255,.32);border-radius:50%;background:linear-gradient(145deg,#173142,#0c1b27);color:#d9f8ff;font-size:19px;line-height:1;box-shadow:0 8px 22px rgba(0,0,0,.35); }
 .v23-client .v31e-library-add:hover:not(:disabled) { transform:scale(1.08);border-color:rgba(134,231,255,.62);box-shadow:0 0 25px rgba(74,202,242,.15),0 8px 22px rgba(0,0,0,.4); }
 .v23-client .v31e-library-add:disabled { opacity:.34; }
