@@ -3841,8 +3841,9 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
   const extraTitle = event.kind === 'fusion' ? 'RESONANCE FUSION' : 'INHERIT ASCENSION';
   const extraKorean = event.kind === 'fusion' ? '공명 융합' : '계승 진화';
   const showHitStage = event.kind === 'defense' || event.kind === 'core' || event.kind === 'destroy';
-  // Route lines are reserved for real impact travel. Turn/draw/time/buff events must never paint an attack-looking line.
-  const showGenericMotion = (event.kind === 'core' || event.kind === 'destroy') && Boolean(event.ownerId || event.targetOwnerId || event.targetZone !== undefined);
+  // Attack travel is rendered only by the dedicated attack cinematic.
+  // Core/destroy resolution still gets its hit-stage shockwave, but no second dotted route line.
+  const showGenericMotion = false;
   const hitLabel = event.kind === 'destroy'
     ? 'UNIT DESTROYED'
     : event.kind === 'core'
@@ -4173,8 +4174,8 @@ function UnitSlot({
           {unit.eclipseResonance === 'strained' && <span className="v34e-time-resonance-badge strained">TIME −</span>}
           <span className="unit-name">{card?.name ?? unit.cardId.replace('token:', '')}</span>
           <span className="unit-stats" aria-label={`공격 ${unit.attack}${temporalAttack ? ` (시간 ${temporalDeltaLabel(temporalAttack)})` : ''}, 방어 ${unit.health}${temporalHealth ? ` (시간 ${temporalDeltaLabel(temporalHealth)})` : ''}${unit.shield > 0 ? `, 방어막 +${unit.shield}` : ''}`}>
-            <span className="v32n-stat attack"><b>{unit.attack}</b>{temporalAttack !== 0 && <em className={`v34o-temporal-delta ${temporalAttack > 0 ? 'positive' : 'negative'}`} style={{ color: `rgb(${temporalVisual.rgb})`, borderColor: `rgba(${temporalVisual.rgb},.34)`, background: `rgba(${temporalVisual.rgb},.11)`, textShadow: `0 0 8px rgba(${temporalVisual.rgb},.42)` }}>{temporalDeltaLabel(temporalAttack)}</em>}<i>ATK</i></span>
-            <span className="v32n-stat defense"><b>{unit.health}</b>{temporalHealth !== 0 && <em className={`v34o-temporal-delta ${temporalHealth > 0 ? 'positive' : 'negative'}`} style={{ color: `rgb(${temporalVisual.rgb})`, borderColor: `rgba(${temporalVisual.rgb},.34)`, background: `rgba(${temporalVisual.rgb},.11)`, textShadow: `0 0 8px rgba(${temporalVisual.rgb},.42)` }}>{temporalDeltaLabel(temporalHealth)}</em>}<i>DEF</i></span>
+            <span className="v32n-stat attack"><b>{unit.attack}</b>{temporalAttack !== 0 && <em className={`v34o-temporal-delta ${temporalAttack > 0 ? 'positive' : 'negative'}`} title={`현재 ATK ${unit.attack}에 시간 보정 ${temporalDeltaLabel(temporalAttack)} 적용됨`} style={{ color: `rgb(${temporalVisual.rgb})`, borderColor: `rgba(${temporalVisual.rgb},.34)`, background: `rgba(${temporalVisual.rgb},.11)`, textShadow: `0 0 8px rgba(${temporalVisual.rgb},.42)` }}>TIME {temporalDeltaLabel(temporalAttack)}</em>}<i>ATK</i></span>
+            <span className="v32n-stat defense"><b>{unit.health}</b>{temporalHealth !== 0 && <em className={`v34o-temporal-delta ${temporalHealth > 0 ? 'positive' : 'negative'}`} title={`현재 DEF ${unit.health}에 시간 보정 ${temporalDeltaLabel(temporalHealth)} 적용됨`} style={{ color: `rgb(${temporalVisual.rgb})`, borderColor: `rgba(${temporalVisual.rgb},.34)`, background: `rgba(${temporalVisual.rgb},.11)`, textShadow: `0 0 8px rgba(${temporalVisual.rgb},.42)` }}>TIME {temporalDeltaLabel(temporalHealth)}</em>}<i>DEF</i></span>
             {unit.shield > 0 && <em className="v32n-shield-value">+{unit.shield}</em>}
           </span>
           {!unit.canAttack && <span className="unit-state">REST</span>}

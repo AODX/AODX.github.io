@@ -21,7 +21,7 @@ export type ExtraSummonKind = 'fusion' | 'evolution';
 export type VisualEventKind = 'turn' | 'summon' | 'special' | 'fusion' | 'evolution' | 'spell' | 'trap' | 'set' | 'draw' | 'attack' | 'defense' | 'destroy' | 'core' | 'heal' | 'buff' | 'energy';
 
 const INITIAL_ECLIPSE_PHASE: EclipsePhase = 'dawn';
-const NATURAL_ECLIPSE_TURN_INTERVAL = 6;
+const NATURAL_ECLIPSE_TURN_INTERVAL = 4;
 
 function nextNaturalEclipsePhase(phase: EclipsePhase): EclipsePhase {
   const index = ECLIPSE_PHASE_ORDER.indexOf(phase);
@@ -4177,6 +4177,11 @@ export function attack(
   assertActiveTurn(state, playerId);
   if (state.phase !== 'battle') throw new Error('전투 단계에서만 공격할 수 있습니다.');
 
+  // Keep temporal stats authoritative at the exact moment combat damage is calculated.
+  // This also repairs older/stale room snapshots whose unit modifier fields were not
+  // refreshed after a phase change.
+  refreshBattlefieldEclipseModifiers(state);
+
   const opponentId = otherPlayer(state, playerId);
   const attacker = state.boards[playerId].units[attackerIndex];
   if (!attacker) throw new Error('공격할 유닛이 없습니다.');
@@ -4329,21 +4334,21 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
     if (unit.stunnedUntilTurn && unit.stunnedUntilTurn < state.turnNumber) delete unit.stunnedUntilTurn;
   });
 
-  // Natural ECLIPSE time moves only after each block of six completed turns.
-  // Turn 1 starts at Dawn; turns 1-6 stay in that phase, then turn 7 advances once.
-  // Card/spell phase changes still happen immediately and the next natural 6-turn tick
+  // Natural ECLIPSE time moves after each block of four completed turns.
+  // Turn 1 starts at Dawn; turns 1-4 stay in that phase, then turn 5 advances once.
+  // Card/spell phase changes still happen immediately and the next natural 4-turn tick
   // continues sequentially from whatever phase is active at that moment.
   const naturalEclipseTick = (state.turnNumber - 1) % NATURAL_ECLIPSE_TURN_INTERVAL === 0;
   if (naturalEclipseTick) {
     if ((state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber) {
-      appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[currentEclipsePhase(state)]} 고정 유지 · 6턴 자연 진행이 잠겼습니다.`, 'special');
+      appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[currentEclipsePhase(state)]} 고정 유지 · 4턴 자연 진행이 잠겼습니다.`, 'special');
     } else {
       setEclipsePhase(
         state,
         privateStates,
         nextNaturalEclipsePhase(currentEclipsePhase(state)),
         undefined,
-        '6턴 경과 · 자연 진행',
+        '4턴 경과 · 자연 진행',
       );
     }
   }
