@@ -5113,10 +5113,34 @@ function DuelTimeCriticalStyles() {
       padding:11px 9px!important;gap:7px!important;
     }
     html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hp-readout strong { font-size:38px!important; }
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-arena {
+      position:relative!important;
+      min-width:0!important;
+      min-height:0!important;
+      overflow:hidden!important;
+    }
+    /* v40: on iPad the generic time-fix rule accidentally changed the board from
+       absolute fill to relative flow. That left a large unused strip under the field.
+       Restore the desktop battlefield geometry so all five lanes use the arena height. */
+    html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-opponent-hand-strip {
+      position:absolute!important;
+      top:8px!important;
+      left:50%!important;
+      right:auto!important;
+      transform:translateX(-50%)!important;
+      z-index:8!important;
+    }
     html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-board {
-      inset:40px 10px 6px!important;
-      grid-template-rows:40px minmax(92px,1fr) 44px minmax(92px,1fr) 48px!important;
-      gap:6px!important;
+      position:absolute!important;
+      inset:42px 10px 8px!important;
+      width:auto!important;
+      height:auto!important;
+      margin:0!important;
+      min-width:0!important;
+      min-height:0!important;
+      grid-template-rows:40px minmax(108px,1fr) 48px minmax(108px,1fr) 48px!important;
+      gap:7px!important;
+      align-content:stretch!important;
     }
     html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-zone-row { gap:6px!important; }
     html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-center-lane {
