@@ -21,6 +21,7 @@ import {
   KIND_LABEL,
   UNIT_TYPE_LABEL,
   MAX_COPIES,
+  MAX_PRIMARY_SERIES_CARDS,
   PACKS,
   RARITY_LABEL,
   type Rarity,
@@ -2066,6 +2067,15 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
 
   const collection = useMemo(() => Object.fromEntries(hub.collection.map((row) => [row.card_id, row.quantity])), [hub.collection]);
   const mainCounts = useMemo(() => countCards(deckCards), [deckCards]);
+  const mainSeriesCounts = useMemo(() => {
+    const counts: Partial<Record<SeriesId, number>> = {};
+    for (const cardId of deckCards) {
+      const seriesId = CARD_BY_ID[cardId]?.seriesId;
+      if (!seriesId) continue;
+      counts[seriesId] = (counts[seriesId] ?? 0) + 1;
+    }
+    return counts;
+  }, [deckCards]);
   const extraCounts = useMemo(() => countCards(extraCards), [extraCards]);
   const selectedDeck = hub.decks.find((deck) => deck.id === selectedDeckId);
   const mainValidation = validateDeck(deckCards, collection);
@@ -2137,14 +2147,32 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
 
   function addCard(card: CardDefinition) {
     const max = Math.min(MAX_COPIES[card.rarity], collection[card.id] ?? 0);
-    if (usedCopies(card.id) >= max) return;
+    if (usedCopies(card.id) >= max) {
+      setMessage(`${card.name}은(는) 보유 수량/등급별 최대 편성 수에 도달했습니다.`);
+      return;
+    }
     if (isExtraDeckCard(card)) {
-      if (extraCards.length >= EXTRA_DECK_SIZE) return;
+      if (extraCards.length >= EXTRA_DECK_SIZE) {
+        setMessage(`엑스트라 덱은 최대 ${EXTRA_DECK_SIZE}장입니다.`);
+        return;
+      }
       setExtraCards((current) => [...current, card.id]);
     } else {
-      if (deckCards.length >= DECK_SIZE) return;
+      if (deckCards.length >= DECK_SIZE) {
+        setMessage(`메인 덱은 최대 ${DECK_SIZE}장입니다.`);
+        return;
+      }
+      if (card.seriesId) {
+        const seriesCount = mainSeriesCounts[card.seriesId] ?? 0;
+        if (seriesCount >= MAX_PRIMARY_SERIES_CARDS) {
+          setMessage(`「${SERIES_BY_ID[card.seriesId].shortName}」 시리즈는 최대 ${MAX_PRIMARY_SERIES_CARDS}장까지 편성할 수 있습니다. 현재 ${seriesCount}/${MAX_PRIMARY_SERIES_CARDS}장입니다. 다른 시리즈나 TIME CORE·범용 카드를 선택해 주세요.`);
+          playUiSound('click');
+          return;
+        }
+      }
       setDeckCards((current) => [...current, card.id]);
     }
+    setMessage('');
     playUiSound('card');
   }
 
@@ -2227,9 +2255,22 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
         ? { unit: 16, spell: 7, trap: 7 }
         : { unit: 18, spell: 7, trap: 5 };
     const counts: Record<string, number> = {};
+    const buildSeriesCounts: Partial<Record<SeriesId, number>> = {};
     const nextMain: string[] = [];
     const mainPool = CARDS.filter((card) => !isExtraDeckCard(card) && (collection[card.id] ?? 0) > 0)
       .sort((a, b) => scoreCard(b, style, primary) - scoreCard(a, style, primary));
+
+    const canAddMain = (card: CardDefinition): boolean => {
+      if (!card.seriesId) return true;
+      return (buildSeriesCounts[card.seriesId] ?? 0) < MAX_PRIMARY_SERIES_CARDS;
+    };
+    const pushMain = (card: CardDefinition): boolean => {
+      if (nextMain.length >= DECK_SIZE || !canAddMain(card)) return false;
+      nextMain.push(card.id);
+      counts[card.id] = (counts[card.id] ?? 0) + 1;
+      if (card.seriesId) buildSeriesCounts[card.seriesId] = (buildSeriesCounts[card.seriesId] ?? 0) + 1;
+      return true;
+    };
 
     const addFromKind = (cardKind: 'unit' | 'spell' | 'trap', wanted: number) => {
       for (const card of mainPool.filter((item) => item.kind === cardKind)) {
@@ -2240,8 +2281,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
         const desiredCopies = card.rarity === 'legendary' ? 1 : card.rarity === 'epic' ? Math.min(2, limit) : Math.min(archetypeCore ? 3 : 2, limit);
         for (let index = counts[card.id] ?? 0; index < desiredCopies; index += 1) {
           if (nextMain.filter((id) => CARD_BY_ID[id]?.kind === cardKind).length >= wanted) break;
-          nextMain.push(card.id);
-          counts[card.id] = (counts[card.id] ?? 0) + 1;
+          if (!pushMain(card)) break;
         }
       }
     };
@@ -2255,8 +2295,21 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
       const owned = collection[card.id] ?? 0;
       const limit = Math.min(MAX_COPIES[card.rarity], owned);
       while ((counts[card.id] ?? 0) < limit && nextMain.length < DECK_SIZE) {
-        nextMain.push(card.id);
-        counts[card.id] = (counts[card.id] ?? 0) + 1;
+        if (!pushMain(card)) break;
+      }
+    }
+
+    // 선택한 시리즈가 30장에 도달하면 남은 15장은 다른 시리즈/TIME CORE/범용 카드로 채웁니다.
+    // 따라서 '시리즈 테마 자동 구성' 자체가 저장 불가능한 덱을 만들지 않습니다.
+    if (nextMain.length < DECK_SIZE) {
+      const supportPool = mainPool.filter((card) => style !== 'theme' || autoSeries === 'all' || card.seriesId !== autoSeries);
+      for (const card of supportPool) {
+        if (nextMain.length >= DECK_SIZE) break;
+        const owned = collection[card.id] ?? 0;
+        const limit = Math.min(MAX_COPIES[card.rarity], owned);
+        while ((counts[card.id] ?? 0) < limit && nextMain.length < DECK_SIZE) {
+          if (!pushMain(card)) break;
+        }
       }
     }
 
@@ -2279,7 +2332,9 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
       ? `${SERIES_BY_ID[autoSeries].shortName} 시리즈 테마`
       : { balanced: '균형형', aggro: '속공형', control: '컨트롤형', theme: '시리즈 테마형' }[style];
     const ready = nextMain.length >= DECK_SIZE && nextExtra.length >= EXTRA_DECK_SIZE;
-    setMessage(ready ? `${styleLabel} 추천 덱을 완성했습니다. 저장 전에 카드 구성을 확인해보세요.` : `${styleLabel} 자동 구성을 적용했습니다. 보유 카드가 부족한 슬롯은 직접 채워주세요.`);
+    const themeSeriesCount = style === 'theme' && autoSeries !== 'all' ? (buildSeriesCounts[autoSeries] ?? 0) : null;
+    const capNote = themeSeriesCount !== null ? ` 핵심 시리즈 ${themeSeriesCount}/${MAX_PRIMARY_SERIES_CARDS}장.` : '';
+    setMessage(ready ? `${styleLabel} 추천 덱을 완성했습니다.${capNote} 단일 시리즈 최대 ${MAX_PRIMARY_SERIES_CARDS}장 규칙을 지켰습니다.` : `${styleLabel} 자동 구성을 적용했습니다.${capNote} 보유 카드가 부족한 슬롯은 직접 채워주세요.`);
     playUiSound('auto');
   }
 
@@ -2409,7 +2464,7 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
             </div>
           </div>
           <div className="v32-series-theme-picker">
-            <div className="v32-series-theme-head"><span><small>SERIES THEME</small><b>시리즈 테마</b></span><em>원하는 시리즈를 중심으로 덱을 자동 구성합니다.</em></div>
+            <div className="v32-series-theme-head"><span><small>SERIES THEME</small><b>시리즈 테마</b></span><em>선택 시리즈를 최대 {MAX_PRIMARY_SERIES_CARDS}장까지 우선 편성하고, 나머지는 보조 카드로 자동 완성합니다.</em></div>
             <div className="v32-series-theme-grid">
               {CARD_SERIES.map((series) => (
                 <button
@@ -2438,6 +2493,10 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
           <input value={deckName} onChange={(event: ChangeEvent<HTMLInputElement>) => setDeckName(event.target.value)} maxLength={24} placeholder="덱 이름" />
           <div className="v9-deck-counts"><span>유닛 <b>{unitCount}</b></span><span>주문 <b>{spellCount}</b></span><span>함정 <b>{trapCount}</b></span></div>
           <button className="v9-clear-button" onClick={clearDeck}>전체 비우기</button>
+        </div>
+        <div className="v37c-series-limit-guide" aria-label={`시리즈별 최대 ${MAX_PRIMARY_SERIES_CARDS}장 편성 제한`}>
+          <span><small>SERIES LIMIT</small><b>한 시리즈 최대 {MAX_PRIMARY_SERIES_CARDS}장</b></span>
+          <em>30장에 도달하면 해당 시리즈 카드는 더 이상 추가되지 않으며, 클릭 시 제한 안내가 표시됩니다.</em>
         </div>
         {message && <p className="v9-deck-message">{message}</p>}
         {validation && <p className="v9-validation">{validation}</p>}
@@ -2486,16 +2545,21 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
             {filtered.map((card) => {
               const max = Math.min(MAX_COPIES[card.rarity], collection[card.id] ?? 0);
               const inDeck = usedCopies(card.id);
+              const seriesCount = card.seriesId ? (mainSeriesCounts[card.seriesId] ?? 0) : 0;
+              const seriesCapped = deckZone === 'main' && Boolean(card.seriesId) && seriesCount >= MAX_PRIMARY_SERIES_CARDS;
               const full = inDeck >= max || (isExtraDeckCard(card) ? extraCards.length >= EXTRA_DECK_SIZE : deckCards.length >= DECK_SIZE);
               return (
-                <div className={`v31e-library-card ${full ? 'is-full' : ''}`} key={card.id}>
+                <div className={`v31e-library-card ${full ? 'is-full' : ''} ${seriesCapped ? 'is-series-capped' : ''}`} key={card.id}>
                   <CardFace card={card} compact quantity={Math.max(0, (collection[card.id] ?? 0) - inDeck)} disabled={full} onClick={() => addCard(card)} />
-                  <div className="v31e-library-card-meta"><span>덱 {inDeck}/{max}</span><small>보유 {collection[card.id] ?? 0}</small></div>
+                  <div className="v31e-library-card-meta">
+                    <span>덱 {inDeck}/{max}</span>
+                    {card.seriesId && deckZone === 'main' ? <small className={seriesCapped ? 'series-cap-hit' : ''}>시리즈 {seriesCount}/{MAX_PRIMARY_SERIES_CARDS}</small> : <small>보유 {collection[card.id] ?? 0}</small>}
+                  </div>
                   <div className="v36-card-catalog-meta">
                     <span className="v36-series-chip">{cardSeriesLabel(card)}</span>
                     <div className="v36-keyword-chip-row">{card.keywords && card.keywords.length > 0 ? card.keywords.map((keyword) => <i key={keyword}>{KEYWORD_LABEL[keyword]}</i>) : <small>특성 없음</small>}</div>
                   </div>
-                  <button type="button" className="v31e-library-add" disabled={full} onClick={(event) => { event.stopPropagation(); addCard(card); }} aria-label={`${card.name} 덱에 추가`}>＋</button>
+                  <button type="button" className={`v31e-library-add ${seriesCapped ? 'series-cap-hit' : ''}`} disabled={full} onClick={(event) => { event.stopPropagation(); addCard(card); }} aria-label={seriesCapped ? `${card.name} 시리즈 편성 한도 도달` : `${card.name} 덱에 추가`}>{seriesCapped ? 'MAX' : '＋'}</button>
                 </div>
               );
             })}
@@ -2524,12 +2588,14 @@ function DeckBuilder({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
               const card = CARD_BY_ID[cardId];
               if (!card) return null;
               const max = Math.min(MAX_COPIES[card.rarity], collection[card.id] ?? 0);
+              const seriesCount = card.seriesId ? (mainSeriesCounts[card.seriesId] ?? 0) : 0;
+              const seriesCapped = Boolean(card.seriesId) && seriesCount >= MAX_PRIMARY_SERIES_CARDS;
               return (
-                <div className="v9-deck-row v31e-deck-row" key={cardId} style={cardStyle(card)}>
+                <div className={`v9-deck-row v31e-deck-row ${seriesCapped ? 'is-series-capped' : ''}`} key={cardId} style={cardStyle(card)}>
                   <button type="button" className="v31e-deck-row-card" onClick={() => requestCardInspection(card.id)}>
-                    <i>{card.cost}</i><span><b>{card.name}</b><small>{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}</small></span>
+                    <i>{card.cost}</i><span><b>{card.name}</b><small>{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}{card.seriesId ? ` · 시리즈 ${seriesCount}/${MAX_PRIMARY_SERIES_CARDS}` : ''}</small></span>
                   </button>
-                  <div className="v31e-deck-stepper"><button type="button" onClick={() => removeMain(cardId)} aria-label={`${card.name} 1장 제거`}>−</button><strong>×{quantity}</strong><button type="button" disabled={usedCopies(card.id) >= max || deckCards.length >= DECK_SIZE} onClick={() => addCard(card)} aria-label={`${card.name} 1장 추가`}>＋</button></div>
+                  <div className="v31e-deck-stepper"><button type="button" onClick={() => removeMain(cardId)} aria-label={`${card.name} 1장 제거`}>−</button><strong>×{quantity}</strong><button type="button" className={seriesCapped ? 'series-cap-hit' : ''} disabled={usedCopies(card.id) >= max || deckCards.length >= DECK_SIZE} onClick={() => addCard(card)} aria-label={seriesCapped ? `${card.name} 시리즈 편성 한도 도달` : `${card.name} 1장 추가`}>{seriesCapped ? 'MAX' : '＋'}</button></div>
                 </div>
               );
             })}

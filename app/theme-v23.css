@@ -9177,3 +9177,66 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
   font-size:9.5px!important;
   letter-spacing:-.055em!important;
 }
+
+/* v37C - series deck limit clarity (30-card cap) */
+.v23-client .v37c-series-limit-guide {
+  margin-top:10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:9px 12px;
+  border:1px solid rgba(244,198,94,.22);
+  border-radius:10px;
+  background:linear-gradient(90deg,rgba(63,47,14,.26),rgba(16,22,29,.82));
+}
+.v23-client .v37c-series-limit-guide>span { display:flex;align-items:baseline;gap:8px;white-space:nowrap; }
+.v23-client .v37c-series-limit-guide small { color:#a88e53;font-size:7px;font-weight:950;letter-spacing:.13em; }
+.v23-client .v37c-series-limit-guide b { color:#ffe09a;font-size:10px; }
+.v23-client .v37c-series-limit-guide em { color:#8f9da8;font-size:8px;font-style:normal;text-align:right; }
+.v23-client .v9-deck-message,
+.v23-client .v9-validation { margin:9px 0 0!important;padding:9px 11px!important;border-radius:9px!important;font-size:9px!important;line-height:1.5!important; }
+.v23-client .v9-deck-message { border:1px solid rgba(106,205,242,.16);background:rgba(15,39,51,.56);color:#bceafa; }
+.v23-client .v9-validation { border:1px solid rgba(240,174,92,.20);background:rgba(55,35,13,.48);color:#ffd99a; }
+.v23-client .v31e-library-card.is-series-capped {
+  border-color:rgba(244,190,81,.30)!important;
+  box-shadow:inset 0 0 0 1px rgba(244,190,81,.05);
+}
+.v23-client .v31e-library-card.is-series-capped::before {
+  content:"SERIES 30/30";
+  position:absolute;
+  z-index:18;
+  left:10px;
+  top:10px;
+  min-height:20px;
+  display:flex;
+  align-items:center;
+  padding:0 7px;
+  border:1px solid rgba(255,209,105,.40);
+  border-radius:999px;
+  background:rgba(47,32,8,.92);
+  color:#ffe29a;
+  font-size:7px;
+  font-weight:950;
+  letter-spacing:.08em;
+  pointer-events:none;
+}
+.v23-client .v31e-library-card-meta .series-cap-hit { color:#f3c76d;font-weight:950; }
+.v23-client .v31e-library-add.series-cap-hit,
+.v23-client .v31e-deck-stepper button.series-cap-hit {
+  width:auto!important;
+  min-width:36px!important;
+  padding:0 6px!important;
+  border-color:rgba(244,190,81,.34)!important;
+  background:rgba(48,34,10,.86)!important;
+  color:#ffdc8a!important;
+  font-size:7px!important;
+  font-weight:950!important;
+  letter-spacing:.03em;
+}
+.v23-client .v31e-deck-row.is-series-capped { box-shadow:inset 3px 0 0 rgba(244,190,81,.48); }
+
+@media (max-width:760px) {
+  .v23-client .v37c-series-limit-guide { align-items:flex-start;flex-direction:column;gap:5px; }
+  .v23-client .v37c-series-limit-guide em { text-align:left; }
+}

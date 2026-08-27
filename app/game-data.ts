@@ -5185,7 +5185,7 @@ export const PACKS: PackDefinition[] = [
 
 export const DECK_SIZE = 45;
 export const EXTRA_DECK_SIZE = 6;
-export const MAX_PRIMARY_SERIES_CARDS = 24;
+export const MAX_PRIMARY_SERIES_CARDS = 30;
 export const MAX_COPIES: Record<Rarity, number> = {
   common: 3,
   rare: 3,
@@ -5245,7 +5245,7 @@ export function validateDeck(cardIds: string[], collection?: Record<string, numb
   // v32j: 카드 종류 비율은 덱 닥터의 '추천'으로만 안내합니다.
   // 예전의 유닛 최소 22 / 주문 최대 14 / 함정 최대 10 하드 제한은
   // 메인 45장 + 엑스트라 6장을 모두 채워도 저장 버튼을 막는 원인이었습니다.
-  // 현재 공식 덱 규칙은 장수/보유량/카드별 복사 제한/메인·엑스트라 구분만 강제합니다.
+  // 현재 공식 덱 규칙은 장수/보유량/카드별 복사 제한/메인·엑스트라 구분/단일 시리즈 최대 편성량을 강제합니다.
   return null;
 }
 
