@@ -1,5 +1,6 @@
 import { V33A_EXPANSION_CARDS } from './v33a-card-data';
 import { V34_ECLIPSE_CYCLE_CARDS } from './v34-card-data';
+import { V37_TIME_CORE_CARDS } from './v37-time-card-data';
 
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type CardKind = 'unit' | 'spell' | 'trap' | 'fusion' | 'evolution';
@@ -290,6 +291,14 @@ export interface CardDefinition {
   eclipseSetOnSummon?: EclipsePhase;
   /** Optional temporal summon gate. If present, the unit/extra can only be summoned while the battlefield is in one of these phases. */
   eclipseSummonPhases?: EclipsePhase[];
+  /** Main-deck card can only be played/set during these battlefield times. */
+  eclipsePlayPhases?: EclipsePhase[];
+  /** A set trap can only trigger while the battlefield is in one of these times. */
+  eclipseTriggerPhases?: EclipsePhase[];
+  /** Unit is automatically sent to the graveyard as soon as the battlefield leaves these times. */
+  eclipseLifespanPhases?: EclipsePhase[];
+  /** Unit is automatically sent to the graveyard when one of these times begins. */
+  eclipseVanishPhases?: EclipsePhase[];
   summonMode?: SummonMode;
   riftCost?: number;
   riftCondition?: RiftCondition;
@@ -2557,6 +2566,7 @@ export function extraSummonRuleDescription(card: CardDefinition): string {
  * -------------------------------------------------------------------------- */
 CARDS.push(...V33A_EXPANSION_CARDS);
 CARDS.push(...V34_ECLIPSE_CYCLE_CARDS);
+CARDS.push(...V37_TIME_CORE_CARDS);
 
 
 // === v34j: TRUE GLOBAL 40% TEMPORAL REWORK ================================
@@ -5002,18 +5012,19 @@ export const PACKS: PackDefinition[] = [
   ...CARD_SERIES.map((series) => ({
     id: `series_${series.id}`,
     name: series.packName,
-    tagline: `${series.tagline} · 시리즈 카드 2장 이상 보장`,
+    tagline: `${series.tagline} · 시리즈 1장 확정 + TIME CORE 혼합`,
     price: 560,
     guaranteed: 'rare' as Rarity,
     seriesId: series.id,
     category: 'series' as const,
     accent: series.accent,
-    odds: { common: 45, rare: 32, epic: 18, legendary: 5, guaranteedSlots: 1, seriesRate: 75, seriesGuaranteedSlots: 2 },
+    odds: { common: 45, rare: 32, epic: 18, legendary: 5, guaranteedSlots: 1, seriesRate: 42, seriesGuaranteedSlots: 1 },
   })),
 ];
 
 export const DECK_SIZE = 45;
 export const EXTRA_DECK_SIZE = 6;
+export const MAX_PRIMARY_SERIES_CARDS = 24;
 export const MAX_COPIES: Record<Rarity, number> = {
   common: 3,
   rare: 3,
@@ -5057,6 +5068,17 @@ export function validateDeck(cardIds: string[], collection?: Record<string, numb
     if (isExtraDeckCard(card)) return `${card.name}은(는) 엑스트라 덱에 넣어야 합니다.`;
     if (quantity > MAX_COPIES[card.rarity]) return `${card.name}은(는) 최대 ${MAX_COPIES[card.rarity]}장까지 넣을 수 있습니다.`;
     if (collection && quantity > (collection[cardId] ?? 0)) return `${card.name}의 보유 수량이 부족합니다.`;
+  }
+
+  const seriesCounts = new Map<SeriesId, number>();
+  for (const cardId of cardIds) {
+    const seriesId = CARD_BY_ID[cardId]?.seriesId;
+    if (seriesId) seriesCounts.set(seriesId, (seriesCounts.get(seriesId) ?? 0) + 1);
+  }
+  for (const [seriesId, quantity] of seriesCounts.entries()) {
+    if (quantity > MAX_PRIMARY_SERIES_CARDS) {
+      return `단일 시리즈는 메인 덱에 최대 ${MAX_PRIMARY_SERIES_CARDS}장까지 편성할 수 있습니다. 「${SERIES_BY_ID[seriesId].shortName}」 ${quantity}장 / 최대 ${MAX_PRIMARY_SERIES_CARDS}장. 나머지는 다른 시리즈나 TIME CORE·범용 카드로 구성해 주세요.`;
+    }
   }
 
   // v32j: 카드 종류 비율은 덱 닥터의 '추천'으로만 안내합니다.

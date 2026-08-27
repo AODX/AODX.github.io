@@ -593,7 +593,7 @@ function PackProductVisual({ pack }: { pack: (typeof PACKS)[number] }) {
         <i className="v23-pack-emblem">{emblem}</i>
         <strong>{pack.name}</strong>
         <small>{series ? series.mechanic : '5 CARD BOOSTER'}</small>
-        <em>{series ? `${pack.odds.seriesGuaranteedSlots ?? 2} SERIES+` : `${RARITY_LABEL[pack.guaranteed]}+ GUARANTEED`}</em>
+        <em>{series ? `${pack.odds.seriesGuaranteedSlots ?? 1} SERIES+` : `${RARITY_LABEL[pack.guaranteed]}+ GUARANTEED`}</em>
       </div>
       <div className="v23-pack-sheen" />
     </div>
@@ -933,7 +933,7 @@ function temporalDeltaText(attack: number, health: number) {
 }
 
 function TemporalProfileContent({ card }: { card: CardDefinition }) {
-  if (!isUnitCard(card) && !card.eclipseSummonPhases?.length && !card.eclipsePhasePulses?.length) {
+  if (!isUnitCard(card) && !card.eclipseSummonPhases?.length && !card.eclipsePhasePulses?.length && !card.eclipsePlayPhases?.length && !card.eclipseTriggerPhases?.length && !card.eclipseLifespanPhases?.length && !card.eclipseVanishPhases?.length) {
     return <p className="v37-time-empty">시간대 능력치 반응 없음</p>;
   }
 
@@ -1003,6 +1003,18 @@ function TemporalProfileContent({ card }: { card: CardDefinition }) {
 
       {card.eclipseSummonPhases?.length ? (
         <small className="v37-time-note">TIME GATE · {card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ')}에서만 소환 가능합니다.</small>
+      ) : null}
+      {card.eclipsePlayPhases?.length ? (
+        <small className="v37-time-note">TIME CAST · {card.eclipsePlayPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ')}에서만 사용할 수 있습니다.</small>
+      ) : null}
+      {card.eclipseTriggerPhases?.length ? (
+        <small className="v37-time-note">TIME TRAP · {card.eclipseTriggerPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ')}에서만 발동할 수 있습니다.</small>
+      ) : null}
+      {card.eclipseLifespanPhases?.length ? (
+        <small className="v37-time-note">TIME LIFE · {card.eclipseLifespanPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ')}에서만 존재하며, 시간을 벗어나면 즉시 소멸합니다.</small>
+      ) : null}
+      {card.eclipseVanishPhases?.length ? (
+        <small className="v37-time-note">TIME VANISH · {card.eclipseVanishPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ')} 도래 시 즉시 소멸합니다.</small>
       ) : null}
     </div>
   );
@@ -1370,7 +1382,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
               <span className="v31l-detail-kicker">{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}{card.series ? ` · ${card.series}` : ''}</span>
               <h2 id="card-detail-title">{card.name}</h2>
               <p>{card.subtitle}</p>
-              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.unitType && <i>TYPE · {UNIT_TYPE_LABEL[card.unitType]}</i>}{card.comboTag && <i>COMBO · {card.comboTag}</i>}{displayEclipseAffinity(card) && <i className="v34-cycle-chip">CYCLE · {ECLIPSE_PHASE_LABEL[displayEclipseAffinity(card)!]}</i>}{card.temporalProfileName && <i className="v34f-temporal-chip">TIME · {card.temporalProfileName}</i>}{card.eclipsePhasePulses?.length ? <i className="v34f-temporal-chip">TIME TRIGGER · {card.eclipsePhasePulses.length}</i> : null}{card.eclipseSummonPhases?.length ? <i className="v34-time-gate-chip">TIME GATE · {card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
+              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.unitType && <i>TYPE · {UNIT_TYPE_LABEL[card.unitType]}</i>}{card.comboTag && <i>COMBO · {card.comboTag}</i>}{displayEclipseAffinity(card) && <i className="v34-cycle-chip">CYCLE · {ECLIPSE_PHASE_LABEL[displayEclipseAffinity(card)!]}</i>}{card.temporalProfileName && <i className="v34f-temporal-chip">TIME · {card.temporalProfileName}</i>}{card.eclipsePhasePulses?.length ? <i className="v34f-temporal-chip">TIME TRIGGER · {card.eclipsePhasePulses.length}</i> : null}{card.eclipseSummonPhases?.length ? <i className="v34-time-gate-chip">TIME GATE · {card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.eclipsePlayPhases?.length ? <i className="v34-time-gate-chip">TIME CAST · {card.eclipsePlayPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.eclipseTriggerPhases?.length ? <i className="v34-time-gate-chip">TIME TRAP · {card.eclipseTriggerPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.eclipseLifespanPhases?.length ? <i className="v34-time-gate-chip">TIME LIFE</i> : null}{card.eclipseVanishPhases?.length ? <i className="v34-time-gate-chip">TIME VANISH</i> : null}{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
             </div>
             <strong className="detail-cost"><small>ENERGY</small>{card.cost}</strong>
           </header>
@@ -1394,7 +1406,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             <p><RuleText text={polishedCardText(card, { includeTime: false })} /></p>
           </section>
 
-          {(isUnitCard(card) || card.eclipseSummonPhases?.length || card.eclipsePhasePulses?.length) && (
+          {(isUnitCard(card) || card.eclipseSummonPhases?.length || card.eclipsePhasePulses?.length || card.eclipsePlayPhases?.length || card.eclipseTriggerPhases?.length || card.eclipseLifespanPhases?.length || card.eclipseVanishPhases?.length) && (
             <section className="detail-section v34e-time-profile">
               <span>TIME PROFILE · {card.temporalImmunity ? '시간 고정' : card.temporalProfileName ?? '기본 시간 반응'}</span>
               <TemporalProfileContent card={card} />
@@ -2733,7 +2745,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
           {series && <div className="v25-series-pack-note"><b>{series.shortName}</b><span>{series.mechanic}</span></div>}
           <div className="v20-pack-odds">
             <span><small>기본 슬롯</small><b>전설 {pack.odds.legendary}%</b><em>영웅 {pack.odds.epic}% · 희귀 {pack.odds.rare}% · 일반 {pack.odds.common}%</em></span>
-            <p>{pack.odds.guaranteedSlots}칸 {RARITY_LABEL[pack.guaranteed]} 이상 보장{series ? ` · 시리즈 카드 ${pack.odds.seriesGuaranteedSlots ?? 2}장 이상 보장 · 일반 슬롯 ${pack.odds.seriesRate ?? 75}% 시리즈 픽업` : ''}</p>
+            <p>{pack.odds.guaranteedSlots}칸 {RARITY_LABEL[pack.guaranteed]} 이상 보장{series ? ` · 시리즈 카드 ${pack.odds.seriesGuaranteedSlots ?? 1}장 이상 보장 · 일반 슬롯 ${pack.odds.seriesRate ?? 42}% 시리즈 픽업` : ''}</p>
           </div>
           <div className="pack-price"><b>{pack.price}</b> COIN</div>
           <button className="primary-button" disabled={busyPack === pack.id || hub.wallet.coins < pack.price} onClick={() => buy(pack.id)}>

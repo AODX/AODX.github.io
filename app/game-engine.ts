@@ -898,6 +898,26 @@ function triggerAlignedSummonPulses(
   checkWinner(state);
 }
 
+function resolveTemporalDisappearances(state: MatchState): void {
+  const phase = currentEclipsePhase(state);
+  for (const ownerId of state.playerOrder) {
+    if (!ownerId) continue;
+    for (let zone = 0; zone < state.boards[ownerId].units.length; zone += 1) {
+      const unit = state.boards[ownerId].units[zone];
+      if (!unit) continue;
+      const card = CARD_BY_ID[unit.cardId];
+      if (!card) continue;
+      const lifespanEnded = Boolean(card.eclipseLifespanPhases?.length && !card.eclipseLifespanPhases.includes(phase));
+      const vanishNow = Boolean(card.eclipseVanishPhases?.includes(phase));
+      if (!lifespanEnded && !vanishNow) continue;
+      state.boards[ownerId].units[zone] = null;
+      if (!unit.cardId.startsWith('token:')) state.graveyards[ownerId].push(unit.cardId);
+      appendLog(state, `시간 소멸 — 「${card.name}」이(가) ${ECLIPSE_PHASE_LABEL[phase]} 도래와 함께 사라졌습니다.`, 'special');
+      appendVisual(state, { kind: 'destroy', vfx: 'eclipse-time-vanish', cardId: card.id, ownerId, targetOwnerId: ownerId, targetZone: zone, label: '시간 소멸' });
+    }
+  }
+}
+
 function setEclipsePhase(
   state: MatchState,
   privateStates: Record<string, PrivateState>,
@@ -920,6 +940,7 @@ function setEclipsePhase(
   }
   state.eclipsePhase = phase;
   refreshBattlefieldEclipseModifiers(state);
+  resolveTemporalDisappearances(state);
   appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[before]} → ${ECLIPSE_PHASE_LABEL[phase]} · ${reason}`, 'special');
   appendVisual(state, { kind: 'special', vfx: `eclipse-cycle-${phase}`, ownerId: actorId, label: `CYCLE · ${ECLIPSE_PHASE_LABEL[phase]}` });
   triggerEclipsePhasePulses(state, privateStates, phase);
@@ -2995,6 +3016,9 @@ function activateTrapAt(
   if (!instance || !card || card.kind !== 'trap' || card.trapTrigger !== trigger || !card.trapEffect) {
     throw new Error('발동할 수 있는 함정 카드를 찾을 수 없습니다.');
   }
+  if (card.eclipseTriggerPhases?.length && !card.eclipseTriggerPhases.includes(currentEclipsePhase(state))) {
+    throw new Error(`이 함정은 ${card.eclipseTriggerPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ')}에서만 발동할 수 있습니다.`);
+  }
   consumeTrap(state, privateStates[trapOwnerId], trapOwnerId, trapIndex, card);
   applyTacticalOnTrap(state, trapOwnerId, card);
   if (card.trapEffect.kind === 'negate') {
@@ -3023,6 +3047,7 @@ function openTrapWindow(
 ): boolean {
   if (state.pendingTrap) return true;
   const trap = findTrap(privateStates[trapOwnerId], trigger, (card) => {
+    if (card.eclipseTriggerPhases?.length && !card.eclipseTriggerPhases.includes(currentEclipsePhase(state))) return false;
     if (!target || !card.trapEffect || (card.trapEffect.kind !== 'buff_unit' && card.trapEffect.kind !== 'shield_unit')) return true;
     return !state.boards[target.ownerId]?.units[target.unitIndex]?.buffCardApplied;
   });
@@ -3422,6 +3447,10 @@ export function playCard(
   const playerPrivate = privateStates[playerId];
   const { index: handIndex, instance, card } = getCardFromHand(playerPrivate, instanceId);
   if (card.kind === 'fusion' || card.kind === 'evolution') throw new Error('융합·진화 카드는 엑스트라 덱에서 소환해야 합니다.');
+  if (card.eclipsePlayPhases?.length && !card.eclipsePlayPhases.includes(currentEclipsePhase(state))) {
+    const allowed = card.eclipsePlayPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ');
+    throw new Error(`시간대 사용 조건이 맞지 않습니다. 「${card.name}」은(는) ${allowed}에서만 사용할 수 있습니다. 현재 ${ECLIPSE_PHASE_LABEL[currentEclipsePhase(state)]}.`);
+  }
   validateTarget(state, playerId, card, target);
   if (card.kind === 'spell' && (card.effect?.kind === 'recruit_unit' || card.effect?.kind === 'type_recruit') && firstOpenUnit(state.boards[playerId]) < 0) {
     throw new Error('덱에서 유닛을 전개할 빈 필드 칸이 없습니다.');
