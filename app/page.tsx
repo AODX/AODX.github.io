@@ -847,7 +847,8 @@ function eclipseAffinityRule(card: CardDefinition): string {
   return parts.join(' ');
 }
 
-function polishedCardText(card: CardDefinition): string {
+function polishedCardText(card: CardDefinition, options?: { includeTime?: boolean }): string {
+  const includeTime = options?.includeTime ?? false;
   let text = card.text
     .replace(/유닛/g, '캐릭터')
     .replace(/이번 턴 에너지/g, '이번 턴 ENERGY')
@@ -863,8 +864,114 @@ function polishedCardText(card: CardDefinition): string {
     .replace(/파괴될 때/g, '【파괴 시】')
     .replace(/공격할 때/g, '【공격 시】');
   const alreadyExplainsTime = /【(?:시간 (?:강화|취약|반응|친화|발동|고정)|시각 조율|기존 카드 재설계|극시공)/.test(text);
-  const affinity = alreadyExplainsTime ? '' : eclipseAffinityRule(card);
+  const affinity = includeTime && !alreadyExplainsTime ? eclipseAffinityRule(card) : '';
   return [text, affinity].filter(Boolean).join(' ');
+}
+
+type TemporalReactionView = {
+  phase: EclipsePhase;
+  label: string;
+  attack: number;
+  health: number;
+  polarity: 'buff' | 'debuff' | 'neutral';
+};
+
+function temporalReactionRows(card: CardDefinition): TemporalReactionView[] {
+  if (!isUnitCard(card) || card.temporalImmunity) return [];
+  const authored = displayEclipsePhaseModifiers(card);
+  if (!authored) return [];
+  return ECLIPSE_PHASE_ORDER.flatMap((phase) => {
+    const modifier = authored[phase];
+    if (!modifier) return [];
+    const attack = Math.trunc(modifier.attack ?? 0);
+    const health = Math.trunc(modifier.health ?? 0);
+    const polarity: TemporalReactionView['polarity'] = attack < 0 || health < 0 ? 'debuff' : attack > 0 || health > 0 ? 'buff' : 'neutral';
+    return [{ phase, label: modifier.label ?? '시간 반응', attack, health, polarity }];
+  });
+}
+
+function temporalDeltaText(attack: number, health: number) {
+  const parts = [
+    attack !== 0 ? `ATK ${attack > 0 ? '+' : ''}${attack}` : '',
+    health !== 0 ? `DEF ${health > 0 ? '+' : ''}${health}` : '',
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : '능력치 변화 없음';
+}
+
+function TemporalProfileContent({ card }: { card: CardDefinition }) {
+  if (!isUnitCard(card) && !card.eclipseSummonPhases?.length && !card.eclipsePhasePulses?.length) {
+    return <p className="v37-time-empty">시간대 능력치 반응 없음</p>;
+  }
+
+  const reactions = temporalReactionRows(card);
+  const affinity = displayEclipseAffinity(card);
+
+  return (
+    <div className="v37-time-panel">
+      {card.temporalImmunity ? (
+        <article className="v37-time-card fixed">
+          <header>
+            <span className="v37-time-chip fixed">시간 고정</span>
+            <b>시간대 보정 무시</b>
+          </header>
+          <p>ECLIPSE CYCLE이 바뀌어도 이 캐릭터는 ATK / DEF 강화·약화 효과를 받지 않습니다.</p>
+        </article>
+      ) : (
+        <>
+          <article className="v37-time-card summary">
+            <header>
+              <span className={`v37-time-chip ${affinity ?? 'neutral'}`}>{affinity ? ECLIPSE_PHASE_LABEL[affinity] : '기본'}</span>
+              <b>{card.temporalProfileName ?? '기본 시간 반응'}</b>
+            </header>
+            <p>현재 전장 시간이 아래 시간대와 일치하면 해당 능력치 보정이 적용됩니다. 표기되지 않은 시간대는 중립입니다.</p>
+          </article>
+          {reactions.length > 0 ? (
+            <div className="v37-time-grid">
+              {reactions.map((reaction) => (
+                <article className={`v37-time-card reaction ${reaction.polarity}`} key={`${card.id}-${reaction.phase}-${reaction.label}`}>
+                  <header>
+                    <span className={`v37-time-chip ${reaction.phase}`}>{ECLIPSE_PHASE_LABEL[reaction.phase]}</span>
+                    <b>{reaction.label}</b>
+                  </header>
+                  <p>{temporalDeltaText(reaction.attack, reaction.health)}</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="v37-time-empty">이 캐릭터는 시간대별 능력치 변화가 없습니다.</p>
+          )}
+        </>
+      )}
+
+      {card.eclipseSetOnSummon ? (
+        <article className="v37-time-card trigger">
+          <header>
+            <span className="v37-time-chip trigger">등장 시</span>
+            <b>시각 조율</b>
+          </header>
+          <p>이 캐릭터가 등장하면 전장 시간이 <strong>{ECLIPSE_PHASE_LABEL[card.eclipseSetOnSummon]}</strong>(으)로 즉시 변경됩니다.</p>
+        </article>
+      ) : null}
+
+      {card.eclipsePhasePulses?.length ? (
+        <div className="v37-time-grid pulses">
+          {card.eclipsePhasePulses.map((pulse) => (
+            <article className="v37-time-card pulse" key={`${card.id}-${pulse.phase}-${pulse.name}`}>
+              <header>
+                <span className={`v37-time-chip ${pulse.phase}`}>{ECLIPSE_PHASE_LABEL[pulse.phase]}</span>
+                <b>{pulse.name}</b>
+              </header>
+              <p><RuleText text={pulse.description} compact /></p>
+            </article>
+          ))}
+        </div>
+      ) : null}
+
+      {card.eclipseSummonPhases?.length ? (
+        <small className="v37-time-note">TIME GATE · {card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ')}에서만 소환 가능합니다.</small>
+      ) : null}
+    </div>
+  );
 }
 
 function RuleText({ text, compact = false }: { text: string; compact?: boolean }) {
@@ -1250,14 +1357,13 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
 
           <section className="detail-section primary-effect v31l-primary-effect" id="card-detail-effect">
             <span>ABILITY · 카드 효과</span>
-            <p><RuleText text={polishedCardText(card)} /></p>
+            <p><RuleText text={polishedCardText(card, { includeTime: false })} /></p>
           </section>
 
-          {(card.temporalProfileName || card.eclipsePhaseModifiers || card.eclipseSummonPhases?.length || card.eclipsePhasePulses?.length) && (
+          {(isUnitCard(card) || card.eclipseSummonPhases?.length || card.eclipsePhasePulses?.length) && (
             <section className="detail-section v34e-time-profile">
-              <span>TIME PROFILE · {card.temporalProfileName ?? '시간 반응'}</span>
-              <p>{eclipseAffinityRule(card) ? <RuleText text={eclipseAffinityRule(card)} /> : '시간대 능력치 반응 없음'}</p>
-              {card.eclipseSummonPhases?.length ? <small>{eclipseSummonGateDescription(card)}</small> : null}
+              <span>TIME PROFILE · {card.temporalImmunity ? '시간 고정' : card.temporalProfileName ?? '기본 시간 반응'}</span>
+              <TemporalProfileContent card={card} />
             </section>
           )}
 

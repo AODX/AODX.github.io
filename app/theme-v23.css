@@ -7607,6 +7607,39 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
 .v23-client .v34e-time-profile > span { color:#f2c977!important; }
 .v23-client .v34e-time-profile > p { margin-bottom:5px!important; }
 .v23-client .v34e-time-profile > small { display:block;color:#f3a9bf;font-size:10px;line-height:1.45;font-weight:800; }
+.v23-client .v37-time-panel { display:grid; gap:10px; }
+.v23-client .v37-time-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; }
+.v23-client .v37-time-grid.pulses { grid-template-columns:1fr; }
+.v23-client .v37-time-card {
+  display:grid; gap:7px; padding:11px 12px; border-radius:14px;
+  border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.035);
+}
+.v23-client .v37-time-card > header { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.v23-client .v37-time-card > header b { color:#f5f8ff; font-size:12px; font-weight:850; letter-spacing:-.01em; }
+.v23-client .v37-time-card > p { margin:0!important; color:#d8e3f5!important; font-size:12px!important; line-height:1.62!important; }
+.v23-client .v37-time-card.summary { background:linear-gradient(145deg,rgba(255,214,117,.08),rgba(88,72,176,.08)); }
+.v23-client .v37-time-card.fixed { background:linear-gradient(145deg,rgba(139,225,255,.08),rgba(53,106,147,.10)); }
+.v23-client .v37-time-card.trigger { background:linear-gradient(145deg,rgba(255,180,110,.08),rgba(130,74,40,.10)); }
+.v23-client .v37-time-card.reaction.buff { border-color:rgba(255,211,105,.22); box-shadow:inset 0 0 0 1px rgba(255,205,113,.06); }
+.v23-client .v37-time-card.reaction.debuff { border-color:rgba(175,182,209,.18); background:rgba(177,184,214,.05); }
+.v23-client .v37-time-card.reaction.neutral { border-color:rgba(255,255,255,.08); }
+.v23-client .v37-time-chip {
+  display:inline-flex; align-items:center; justify-content:center; min-height:22px; padding:0 9px; border-radius:999px;
+  border:1px solid rgba(255,255,255,.12); background:rgba(17,23,36,.68); color:#edf4ff; font-size:10px; font-weight:900; letter-spacing:.05em;
+}
+.v23-client .v37-time-chip.dawn { color:#ffe8b0; border-color:rgba(255,212,118,.35); background:rgba(95,67,18,.58); }
+.v23-client .v37-time-chip.zenith { color:#d4f7ff; border-color:rgba(117,220,255,.34); background:rgba(21,73,94,.58); }
+.v23-client .v37-time-chip.dusk { color:#ffd5df; border-color:rgba(255,141,172,.32); background:rgba(98,39,68,.58); }
+.v23-client .v37-time-chip.midnight { color:#d8dcff; border-color:rgba(128,145,255,.28); background:rgba(31,36,92,.62); }
+.v23-client .v37-time-chip.eclipse { color:#edd8ff; border-color:rgba(181,118,255,.34); background:rgba(62,30,88,.62); }
+.v23-client .v37-time-chip.fixed { color:#d8f7ff; border-color:rgba(125,224,255,.30); background:rgba(19,76,92,.58); }
+.v23-client .v37-time-chip.trigger { color:#ffe0b4; border-color:rgba(255,169,87,.34); background:rgba(98,52,21,.60); }
+.v23-client .v37-time-empty { margin:0!important; color:#d6deed!important; font-size:12px!important; line-height:1.6!important; }
+.v23-client .v37-time-note { display:block; color:#f3a9bf; font-size:10px; line-height:1.45; font-weight:800; }
+
+@media (max-width:760px) {
+  .v23-client .v37-time-grid { grid-template-columns:1fr; }
+}
 
 @media (max-width:1180px) {
   .v23-client.in-duel .v18-center-lane {
