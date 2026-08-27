@@ -1619,7 +1619,14 @@ async function handleAction(request: Request, body: RequestBody) {
       const extraInstanceId = cleanText(body.extraInstanceId, 80);
       const materialZones = Array.isArray(body.materialZones) ? body.materialZones.map(Number) : [];
       const extraChoiceIndex = body.extraChoiceIndex === undefined ? undefined : Number(body.extraChoiceIndex);
-      next = summonExtra(snapshot, user.id, extraInstanceId, materialZones, extraChoiceIndex);
+      const rawTarget = body.target && typeof body.target === 'object' ? body.target as Record<string, unknown> : undefined;
+      const target = rawTarget
+        ? {
+            ownerId: cleanText(rawTarget.ownerId, 64),
+            unitIndex: rawTarget.unitIndex === undefined ? undefined : Number(rawTarget.unitIndex),
+          }
+        : undefined;
+      next = summonExtra(snapshot, user.id, extraInstanceId, materialZones, extraChoiceIndex, target);
     } else if (gameAction === 'battle_phase') {
       next = beginBattlePhase(snapshot, user.id);
     } else if (gameAction === 'attack') {
