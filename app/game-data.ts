@@ -147,6 +147,7 @@ export type Effect =
   | { kind: 'phase_rewind'; steps?: number }
   | { kind: 'phase_set'; phase: EclipsePhase }
   | { kind: 'phase_lock'; turns: number }
+  | { kind: 'phase_counter_enemy'; lockTurns?: number; draw?: number; stealEnergy?: number; extraBackSteps?: number }
   | { kind: 'phase_draw'; phase: EclipsePhase; base: number; bonus: number }
   | { kind: 'phase_damage_core'; phase: EclipsePhase; base: number; bonus: number }
   | { kind: 'phase_gain_energy'; phase: EclipsePhase; base: number; bonus: number }
@@ -1961,6 +1962,15 @@ function spellEffectText(effect: Effect): string {
     case 'phase_rewind': return `ECLIPSE CYCLE을 실제 직전 시간대로 ${Math.max(1, effect.steps ?? 1)}회 되감습니다.`;
     case 'phase_set': return `ECLIPSE CYCLE을 ${ECLIPSE_PHASE_LABEL[effect.phase]}으로 지정합니다.`;
     case 'phase_lock': return `ECLIPSE CYCLE 자동 이동을 ${effect.turns}턴 잠급니다.`;
+    case 'phase_counter_enemy': {
+      const extras = [
+        effect.extraBackSteps ? `추가 ${effect.extraBackSteps}단계 역행` : '',
+        effect.lockTurns ? `${effect.lockTurns}턴 시간 고정` : '',
+        effect.draw ? `카드 ${effect.draw}장 드로우` : '',
+        effect.stealEnergy ? `상대 ENERGY ${effect.stealEnergy} 탈취` : '',
+      ].filter(Boolean);
+      return `상대가 직전 턴에 바꾼 시간을 그 변경 직전으로 되돌립니다${extras.length ? ` · ${extras.join(' · ')}` : ''}.`;
+    }
     case 'phase_draw': return `${ECLIPSE_PHASE_LABEL[effect.phase]} 공명 시 카드 ${effect.base + effect.bonus}장, 아니면 ${effect.base}장 드로우.`;
     case 'phase_damage_core': return `${ECLIPSE_PHASE_LABEL[effect.phase]} 공명 시 코어 ${effect.base + effect.bonus}, 아니면 ${effect.base} 피해.`;
     case 'phase_gain_energy': return `${ECLIPSE_PHASE_LABEL[effect.phase]} 공명 시 ENERGY ${effect.base + effect.bonus}, 아니면 ${effect.base} 회복.`;
@@ -4912,6 +4922,156 @@ for (let index = 0; index < v36TimeSetters.length; index += 1) {
   const phaseName = ECLIPSE_PHASE_LABEL[card.eclipseSetOnSummon];
   card.text = `${card.text} 【시각 조율】 등장 시 전장 시간을 ${phaseName}(으)로 변경.`.trim();
 }
+// === v37b temporal diversity pass ============================================
+// v37 established TIME CORE. v37b makes the *numbers* card-specific as well:
+// a 1 ATK body can jump by +5 at its peak time, while another card may gain
+// almost no ATK but +5/+6 DEF. Weak times are also deliberately asymmetric.
+const V37B_AFFINITY_BY_ELEMENT: Record<Element, EclipsePhase> = {
+  solar: 'dawn',
+  lunar: 'midnight',
+  storm: 'zenith',
+  verdant: 'dusk',
+  void: 'eclipse',
+  neutral: 'dawn',
+};
+
+const V37B_WEAK_PHASE_BY_AFFINITY: Record<EclipsePhase, EclipsePhase> = {
+  dawn: 'midnight',
+  zenith: 'eclipse',
+  dusk: 'dawn',
+  midnight: 'zenith',
+  eclipse: 'dawn',
+};
+
+const V37B_TEMPORAL_ROLE_LABEL: Record<UnitType, string> = {
+  vanguard: '전열 변동',
+  artificer: '기계 과부하',
+  spirit: '영체 폭주',
+  hunter: '사냥 극점',
+  relic: '요새 공명',
+  oracle: '예지 편향',
+};
+
+function v37bStableHash(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function v37bTemporalStatText(attack = 0, health = 0): string {
+  const parts: string[] = [];
+  if (attack) parts.push(`ATK ${attack > 0 ? '+' : ''}${attack}`);
+  if (health) parts.push(`DEF ${health > 0 ? '+' : ''}${health}`);
+  return parts.length ? parts.join(' / ') : '능력치 변화 없음';
+}
+
+function v37bStripGeneratedTemporalText(text: string): { base: string; suffix: string } {
+  const setterToken = '【시각 조율】';
+  const setterIndex = text.indexOf(setterToken);
+  const suffix = setterIndex >= 0 ? text.slice(setterIndex).trim() : '';
+  const beforeSetter = setterIndex >= 0 ? text.slice(0, setterIndex) : text;
+  const temporalIndex = beforeSetter.indexOf('【시간 반응 ·');
+  const base = (temporalIndex >= 0 ? beforeSetter.slice(0, temporalIndex) : beforeSetter).trim();
+  return { base, suffix };
+}
+
+function v37bTemporalNumbers(card: CardDefinition, affinity: EclipsePhase): {
+  strongAttack: number;
+  strongHealth: number;
+  weakAttack: number;
+  weakHealth: number;
+  strongLabel: string;
+  weakLabel: string;
+} {
+  const hash = v37bStableHash(card.id);
+  const rarityPower: Record<Rarity, number> = { common: 2, rare: 3, epic: 4, legendary: 5 };
+  const power = rarityPower[card.rarity];
+  const printedAttack = Math.max(0, card.attack ?? 0);
+  const printedHealth = Math.max(1, card.health ?? 1);
+  const variant = hash % 4;
+  const weakSeverity = 1 + ((hash >>> 5) % 4);
+  let strongAttack = 0;
+  let strongHealth = 0;
+  let weakAttack = 0;
+  let weakHealth = 0;
+
+  switch (card.unitType ?? 'vanguard') {
+    case 'hunter':
+      strongAttack = Math.min(5, power + 1 + (printedAttack <= 2 ? 1 : 0));
+      strongHealth = variant === 0 ? 1 : 0;
+      weakAttack = -Math.min(4, weakSeverity + (variant <= 1 ? 1 : 0));
+      weakHealth = variant === 0 ? 0 : -Math.min(2, 1 + ((hash >>> 9) % 2));
+      break;
+    case 'relic':
+      strongAttack = variant === 1 ? 1 : 0;
+      strongHealth = Math.min(6, power + 2 + (printedHealth <= 3 ? 1 : 0));
+      weakAttack = variant === 2 ? -2 : (variant === 3 ? -1 : 0);
+      weakHealth = -Math.min(4, weakSeverity + (variant <= 1 ? 1 : 0));
+      break;
+    case 'oracle':
+      strongAttack = Math.max(1, Math.ceil(power / 2) + (variant === 0 ? 1 : 0));
+      strongHealth = Math.max(1, Math.floor(power / 2) + (variant >= 2 ? 1 : 0));
+      weakAttack = -Math.min(4, 1 + ((hash >>> 6) % 3));
+      weakHealth = -Math.min(4, 1 + ((hash >>> 10) % 3));
+      break;
+    case 'artificer':
+      strongAttack = Math.min(5, power + (variant % 2));
+      strongHealth = Math.min(4, 1 + ((hash >>> 8) % Math.max(1, power - 1)));
+      weakAttack = variant % 2 === 0 ? -Math.min(4, weakSeverity + 1) : -1;
+      weakHealth = variant % 2 === 0 ? -1 : -Math.min(4, weakSeverity + 1);
+      break;
+    case 'spirit':
+      // The requested extreme case: a tiny body can gain +5 damage at Eclipse.
+      strongAttack = affinity === 'eclipse' && printedAttack <= 2
+        ? 5
+        : Math.min(5, power + 1 + (variant === 3 ? 1 : 0));
+      strongHealth = variant === 1 ? Math.min(4, power) : Math.min(3, Math.floor(power / 2));
+      weakAttack = -Math.min(4, weakSeverity + (variant === 0 ? 1 : 0));
+      weakHealth = -Math.min(3, 1 + ((hash >>> 10) % 3));
+      break;
+    case 'vanguard':
+    default:
+      strongAttack = Math.max(1, Math.min(4, Math.ceil(power / 2) + (variant <= 1 ? 1 : 0)));
+      strongHealth = Math.max(1, Math.min(5, Math.floor(power / 2) + 1 + (variant >= 2 ? 1 : 0)));
+      weakAttack = -Math.min(4, 1 + ((hash >>> 7) % 3));
+      weakHealth = -Math.min(4, 1 + ((hash >>> 11) % 3));
+      break;
+  }
+
+  return {
+    strongAttack,
+    strongHealth,
+    weakAttack,
+    weakHealth,
+    strongLabel: `${ECLIPSE_PHASE_LABEL[affinity]} 극점`,
+    weakLabel: `${ECLIPSE_PHASE_LABEL[V37B_WEAK_PHASE_BY_AFFINITY[affinity]]} 역상`,
+  };
+}
+
+for (const card of v36Units) {
+  if (card.temporalImmunity || card.id.startsWith('v37_time_')) continue;
+  const affinity = card.eclipseAffinity ?? V37B_AFFINITY_BY_ELEMENT[card.element];
+  const weakPhase = V37B_WEAK_PHASE_BY_AFFINITY[affinity];
+  const numbers = v37bTemporalNumbers(card, affinity);
+  card.eclipseAffinity = affinity;
+  card.eclipsePhaseModifiers = {
+    [affinity]: { attack: numbers.strongAttack, health: numbers.strongHealth, label: numbers.strongLabel },
+    [weakPhase]: { attack: numbers.weakAttack, health: numbers.weakHealth, label: numbers.weakLabel },
+  };
+  card.temporalProfileName = `${V37B_TEMPORAL_ROLE_LABEL[card.unitType ?? 'vanguard']} · ${ECLIPSE_PHASE_LABEL[affinity]}`;
+
+  const { base, suffix } = v37bStripGeneratedTemporalText(card.text);
+  const pulseText = card.eclipsePhasePulses?.length
+    ? ` ${card.eclipsePhasePulses.map((pulse) => `【시간 발동 · ${pulse.name}】 ${pulse.description}`).join(' ')}`
+    : '';
+  const temporalText = `【시간 반응 · ${card.temporalProfileName}】 ${ECLIPSE_PHASE_LABEL[affinity]} [${numbers.strongLabel}]: ${v37bTemporalStatText(numbers.strongAttack, numbers.strongHealth)}. ${ECLIPSE_PHASE_LABEL[weakPhase]} [${numbers.weakLabel}]: ${v37bTemporalStatText(numbers.weakAttack, numbers.weakHealth)}. 나머지 시간대는 중립.`;
+  card.text = `${base} ${temporalText}${pulseText}${suffix ? ` ${suffix}` : ''}`.trim();
+}
+// === /v37b temporal diversity ===============================================
+
 // === /v36 ====================================================================
 
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));
@@ -4946,9 +5106,10 @@ export function resolvedEclipsePhaseModifiers(card: CardDefinition | undefined):
   const affinity = resolvedEclipseAffinity(card);
   if (!affinity) return undefined;
   const weakPhase = DEFAULT_ECLIPSE_WEAK_PHASE_BY_AFFINITY[affinity];
+  const varied = v37bTemporalNumbers(card, affinity);
   return {
-    [affinity]: { attack: 1, health: 1, label: '기본 공명' },
-    [weakPhase]: { attack: -1, health: 0, label: `${ECLIPSE_PHASE_LABEL[weakPhase]} 약화` },
+    [affinity]: { attack: varied.strongAttack, health: varied.strongHealth, label: varied.strongLabel },
+    [weakPhase]: { attack: varied.weakAttack, health: varied.weakHealth, label: varied.weakLabel },
   };
 }
 

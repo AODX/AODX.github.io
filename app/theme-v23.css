@@ -9101,3 +9101,79 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
   .v23-client.in-duel .v18-duel-screen .v18-my-secrets { gap:4px!important;padding-inline:2px!important; }
 }
 /* === /v36 ================================================================== */
+
+
+/* ========================================================================== */
+/* v37b CARD NAME LEGIBILITY — keep every <=8-character title fully visible  */
+/* ========================================================================== */
+.v23-client .tcg-card:not(.compact) {
+  grid-template-rows:44px minmax(0,1fr) auto auto!important;
+}
+.v23-client .tcg-card.compact {
+  grid-template-rows:40px minmax(0,1fr) auto!important;
+}
+.v23-client .tcg-card .card-topline {
+  height:44px!important;
+  min-height:44px!important;
+  padding:5px 7px 5px 43px!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  grid-template-rows:auto auto!important;
+  align-content:center!important;
+  justify-items:start!important;
+  gap:1px!important;
+  overflow:visible!important;
+}
+.v23-client .tcg-card .card-topline b {
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  overflow:hidden!important;
+  text-overflow:clip!important;
+  white-space:nowrap!important;
+  word-break:keep-all!important;
+  font-size:11.5px!important;
+  line-height:1.3!important;
+  letter-spacing:-.025em!important;
+}
+.v23-client .tcg-card .card-topline small {
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  line-height:1.15!important;
+}
+.v23-client .tcg-card.compact .card-topline {
+  height:40px!important;
+  min-height:40px!important;
+  padding:5px 7px 4px 39px!important;
+}
+.v23-client .tcg-card.compact .card-topline b {
+  font-size:10px!important;
+  line-height:1.3!important;
+  letter-spacing:-.035em!important;
+}
+/* Keep the inspector available without sacrificing title width: move the i
+   button from the header onto the upper-right corner of the artwork. */
+.v23-client .tcg-card .card-info-hotspot {
+  top:72px!important;
+  right:7px!important;
+}
+.v23-client .tcg-card.compact .card-info-hotspot {
+  display:grid!important;
+  top:66px!important;
+  right:6px!important;
+  width:22px!important;
+  height:22px!important;
+}
+.v23-client .tcg-card.name-long .card-topline b {
+  font-size:10.2px!important;
+  letter-spacing:-.05em!important;
+}
+.v23-client .tcg-card.compact.name-long .card-topline b {
+  font-size:9.5px!important;
+  letter-spacing:-.055em!important;
+}

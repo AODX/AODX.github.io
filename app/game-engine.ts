@@ -172,6 +172,8 @@ export interface MatchState {
   eclipsePhaseLockUntilTurn?: number;
   /** Actual phase-change history. Rewind spells pop from this stack instead of merely subtracting from the fixed cycle. */
   eclipsePhaseHistory?: EclipsePhase[];
+  /** Last card/player-driven clock change. Used by TIME COUNTER spells; natural progression never overwrites it. */
+  lastManualEclipseChange?: { actorId: string; from: EclipsePhase; to: EclipsePhase; turnNumber: number };
   /** Recent purchased battle emotes; retained only briefly in UI but kept in snapshot for realtime sync. */
   battleEmotes?: Array<{ id: string; senderId: string; emoteId: string; createdAt: number }>;
   /** Per-match hard cap: max 2 fusion summons and max 2 evolution summons per player. */
@@ -939,6 +941,9 @@ function setEclipsePhase(
     state.eclipsePhaseHistory = history.slice(-12);
   }
   state.eclipsePhase = phase;
+  if (actorId) {
+    state.lastManualEclipseChange = { actorId, from: before, to: phase, turnNumber: state.turnNumber };
+  }
   refreshBattlefieldEclipseModifiers(state);
   resolveTemporalDisappearances(state);
   appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[before]} → ${ECLIPSE_PHASE_LABEL[phase]} · ${reason}`, 'special');
@@ -978,6 +983,15 @@ function rewindEclipsePhase(state: MatchState, privateStates: Record<string, Pri
 function phaseAmount(state: MatchState, phase: EclipsePhase, base: number, bonus: number): { amount: number; aligned: boolean } {
   const aligned = currentEclipsePhase(state) === phase;
   return { amount: Math.max(0, base + (aligned ? bonus : 0)), aligned };
+}
+
+function counterableEnemyTimeChange(state: MatchState, actorId: string) {
+  const opponentId = otherPlayer(state, actorId);
+  const last = state.lastManualEclipseChange;
+  if (!last || last.actorId !== opponentId) return null;
+  if (state.turnNumber - last.turnNumber !== 1) return null;
+  if (currentEclipsePhase(state) !== last.to) return null;
+  return last;
 }
 
 function applyEffect(
@@ -1556,6 +1570,40 @@ function applyEffect(
       state.eclipsePhaseLockUntilTurn = Math.max(state.eclipsePhaseLockUntilTurn ?? 0, state.turnNumber + turns);
       appendLog(state, `ECLIPSE CYCLE 자동 이동을 ${turns}턴 동안 고정했습니다.`, 'special');
       appendVisual(state, { kind: 'special', vfx: 'eclipse-cycle-lock', ownerId: actorId, label: `CYCLE LOCK · ${turns}` });
+      break;
+    }
+    case 'phase_counter_enemy': {
+      const last = counterableEnemyTimeChange(state, actorId);
+      if (!last) throw new Error('카운터할 상대의 직전 시간 변경이 없습니다. 상대가 직전 턴에 바꾼 시간이 그대로 유지 중일 때만 사용할 수 있습니다.');
+      const counteredFrom = last.from;
+      const counteredTo = last.to;
+      setEclipsePhase(state, privateStates, counteredFrom, actorId, `시간 카운터 · ${ECLIPSE_PHASE_LABEL[counteredTo]} 변경 부정`);
+
+      const extraBackSteps = Math.max(0, Math.min(2, effect.extraBackSteps ?? 0));
+      if (extraBackSteps > 0) {
+        shiftEclipsePhase(state, privateStates, -extraBackSteps, actorId, `시간 카운터 · 추가 ${extraBackSteps}단계 역행`);
+      }
+      if (effect.lockTurns) {
+        const turns = Math.max(1, effect.lockTurns);
+        state.eclipsePhaseLockUntilTurn = Math.max(state.eclipsePhaseLockUntilTurn ?? 0, state.turnNumber + turns);
+        appendLog(state, `시간 카운터 후 현재 시간을 ${turns}턴 고정했습니다.`, 'special');
+      }
+      if (effect.stealEnergy) {
+        const requested = Math.max(0, effect.stealEnergy);
+        const opponentEnergy = state.energy[opponentId] ?? { current: 0, max: 0 };
+        const actorEnergy = state.energy[actorId] ?? { current: 0, max: 0 };
+        const stolen = Math.min(requested, opponentEnergy.current, Math.max(0, energyHardCap(state, actorId) - actorEnergy.current));
+        opponentEnergy.current -= stolen;
+        actorEnergy.current += stolen;
+        state.energy[opponentId] = opponentEnergy;
+        state.energy[actorId] = actorEnergy;
+        if (stolen > 0) appendLog(state, `시간 탈취로 상대 ENERGY ${stolen}을 가져왔습니다.`, 'special');
+      }
+      if (effect.draw) {
+        drawCards(state, actorPrivate, actorId, Math.max(0, effect.draw));
+      }
+      appendLog(state, `TIME COUNTER — 상대의 ${ECLIPSE_PHASE_LABEL[counteredFrom]} → ${ECLIPSE_PHASE_LABEL[counteredTo]} 조작을 되돌렸습니다.`, 'special');
+      appendVisual(state, { kind: 'special', vfx: 'eclipse-time-counter', ownerId: actorId, targetOwnerId: opponentId, label: 'TIME COUNTER' });
       break;
     }
     case 'phase_draw': {
@@ -3451,6 +3499,9 @@ export function playCard(
     const allowed = card.eclipsePlayPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ');
     throw new Error(`시간대 사용 조건이 맞지 않습니다. 「${card.name}」은(는) ${allowed}에서만 사용할 수 있습니다. 현재 ${ECLIPSE_PHASE_LABEL[currentEclipsePhase(state)]}.`);
   }
+  if (card.kind === 'spell' && card.effect?.kind === 'phase_counter_enemy' && !counterableEnemyTimeChange(state, playerId)) {
+    throw new Error(`「${card.name}」은(는) 상대가 직전 턴에 변경한 시간이 그대로 유지 중일 때만 사용할 수 있습니다.`);
+  }
   validateTarget(state, playerId, card, target);
   if (card.kind === 'spell' && (card.effect?.kind === 'recruit_unit' || card.effect?.kind === 'type_recruit') && firstOpenUnit(state.boards[playerId]) < 0) {
     throw new Error('덱에서 유닛을 전개할 빈 필드 칸이 없습니다.');
@@ -3526,7 +3577,8 @@ export function playCard(
       || spellEffectKind === 'banish_enemy_grave'
       || spellEffectKind === 'damage_by_hand'
       || spellEffectKind === 'damage_by_grave'
-      || spellEffectKind === 'field_count_blast';
+      || spellEffectKind === 'field_count_blast'
+      || spellEffectKind === 'phase_counter_enemy';
     const spellVisualTargetOwnerId = target?.ownerId ?? (spellTargetsOpponent ? opponentId : playerId);
     appendVisual(state, {
       kind: 'spell', vfx: resolveCardVfx(card, 'activation'), cardId: card.id, ownerId: playerId,

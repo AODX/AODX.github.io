@@ -1271,7 +1271,7 @@ function CardFace({
 
   return (
     <div
-      className={`tcg-card kind-${card.kind} summon-${card.summonMode ?? 'normal'} rarity-${card.rarity} element-${card.element} ${compact ? 'compact' : ''} ${selected ? 'selected' : ''} ${disabled ? 'is-disabled' : ''}`}
+      className={`tcg-card kind-${card.kind} summon-${card.summonMode ?? 'normal'} rarity-${card.rarity} element-${card.element} ${Array.from(card.name).length >= 7 ? 'name-long' : ''} ${compact ? 'compact' : ''} ${selected ? 'selected' : ''} ${disabled ? 'is-disabled' : ''}`}
       style={cardStyle(card)}
       role="button"
       tabIndex={disabled ? -1 : 0}
@@ -4713,7 +4713,7 @@ function DuelTimeCriticalStyles() {
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline {
       height:42px!important;
       min-height:42px!important;
-      padding:5px 34px 5px 37px!important;
+      padding:5px 8px 5px 37px!important;
       display:grid!important;
       grid-template-columns:minmax(0,1fr)!important;
       align-content:center!important;
@@ -4726,10 +4726,10 @@ function DuelTimeCriticalStyles() {
       min-width:0!important;
       max-width:100%!important;
       font-size:11px!important;
-      line-height:1.12!important;
+      line-height:1.28!important;
       white-space:nowrap!important;
       overflow:hidden!important;
-      text-overflow:ellipsis!important;
+      text-overflow:clip!important;
       display:block!important;
       word-break:keep-all!important;
     }
@@ -4752,7 +4752,7 @@ function DuelTimeCriticalStyles() {
       transform:none!important;
     }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .card-info-hotspot {
-      top:7px!important;
+      top:72px!important;
       right:7px!important;
       width:27px!important;
       height:27px!important;
@@ -4805,7 +4805,7 @@ function DuelTimeCriticalStyles() {
         height:40px!important;
         min-height:40px!important;
         padding-left:36px!important;
-        padding-right:33px!important;
+        padding-right:8px!important;
       }
     }
     @media (max-height:680px) {
