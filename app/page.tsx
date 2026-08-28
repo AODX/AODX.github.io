@@ -631,6 +631,10 @@ function packEmblem(pack: (typeof PACKS)[number]): string {
   if (pack.id === 'standard') return '✦';
   if (pack.id === 'rare') return '◆';
   if (pack.id === 'legendary') return '♛';
+  if (pack.premiumTimePhase) {
+    const timeGlyphs: Record<EclipsePhase, string> = { dawn: '✧', zenith: '☼', dusk: '☽', midnight: '☾', eclipse: '◉' };
+    return timeGlyphs[pack.premiumTimePhase];
+  }
   const glyphs: Record<SeriesId, string> = {
     luminaknights: '✧',
     kaisergear: '⚙',
@@ -653,6 +657,29 @@ function PackProductVisual({ pack }: { pack: (typeof PACKS)[number] }) {
   const previews = packPreviewCards(pack);
   const emblem = packEmblem(pack);
   const series = pack.seriesId ? SERIES_BY_ID[pack.seriesId] : null;
+  const featured = pack.featuredCardId ? CARD_BY_ID[pack.featuredCardId] : undefined;
+
+  if (featured) {
+    return (
+      <div className={`pack-product-visual v23-pack-visual v46-premium-pack-visual pack-${pack.id}`}>
+        <div className="v46-premium-orbit" aria-hidden="true"><i /><i /><i /></div>
+        <div className="v46-premium-booster" aria-hidden="true">
+          <span>PREMIUM TIME</span>
+          <i>{emblem}</i>
+          <strong>{pack.premiumTimePhase ? ECLIPSE_PHASE_LABEL[pack.premiumTimePhase] : 'TIME'}</strong>
+          <small>3 CARD PICKUP</small>
+        </div>
+        <div className="v46-premium-feature-shell">
+          <span className="v46-premium-pickup-badge"><b>{pack.odds.pickupRate ?? 0.5}%</b> PICKUP</span>
+          <div className="v46-premium-feature-card" title={`${featured.name} · 클릭해서 카드 정보 보기`}>
+            <CardFace card={featured} compact onClick={() => requestCardInspection(featured.id)} />
+          </div>
+          <button type="button" className="v46-premium-info-button" onClick={() => requestCardInspection(featured.id)}>ⓘ 카드 정보 보기</button>
+        </div>
+        <div className="v23-pack-sheen" aria-hidden="true" />
+      </div>
+    );
+  }
 
   return (
     <div className={`pack-product-visual v23-pack-visual ${pack.seriesId ? `series-${pack.seriesId}` : `pack-${pack.id}`}`} aria-hidden="true">
@@ -2859,7 +2886,8 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const [error, setError] = useState('');
   const selectedPack = PACKS.find((pack) => pack.id === openingPackId);
-  const corePacks = PACKS.filter((pack) => pack.category === 'core');
+  const premiumPacks = PACKS.filter((pack) => Boolean(pack.featuredCardId));
+  const corePacks = PACKS.filter((pack) => pack.category === 'core' && !pack.featuredCardId);
   const seriesPacks = PACKS.filter((pack) => pack.category === 'series');
 
   useEffect(() => { setEmoteSelection(hub.emoteLoadout ?? []); }, [hub.emoteLoadout]);
@@ -2991,21 +3019,28 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
 
   function renderPackCard(pack: (typeof PACKS)[number], index: number) {
     const series = pack.seriesId ? SERIES_BY_ID[pack.seriesId] : null;
+    const featured = pack.featuredCardId ? CARD_BY_ID[pack.featuredCardId] : undefined;
+    const premiumPackHitRate = featured ? (1 - Math.pow(1 - (pack.odds.pickupRate ?? 0.5) / 100, 3)) * 100 : 0;
     return (
-      <article className={`pack-card v6-pack-card ${series ? `series-${series.id}` : `core-${pack.id}`}`} key={pack.id} style={{ '--pack-accent': pack.accent } as CSSProperties}>
+      <article className={`pack-card v6-pack-card ${featured ? 'v46-premium-pack-card' : ''} ${series ? `series-${series.id}` : `core-${pack.id}`}`} key={pack.id} style={{ '--pack-accent': pack.accent } as CSSProperties}>
         <PackProductVisual pack={pack} />
         <div className="pack-product-copy">
-          <span className="eyebrow">{series ? `SERIES ${String(index + 1).padStart(2, '0')} · ${series.mechanic}` : pack.id === 'premium_time' ? 'PREMIUM TIME · 3 CARDS' : 'CORE BOOSTER · 5 CARDS'}</span>
+          <span className="eyebrow">{series ? `SERIES ${String(index + 1).padStart(2, '0')} · ${series.mechanic}` : featured ? `PREMIUM TIME · ${pack.premiumTimePhase ? ECLIPSE_PHASE_LABEL[pack.premiumTimePhase] : 'PICKUP'} · 3 CARDS` : 'CORE BOOSTER · 5 CARDS'}</span>
           <h3>{pack.name}</h3>
           <p>{pack.tagline}</p>
           {series && <div className="v25-series-pack-note"><b>{series.shortName}</b><span>{series.mechanic}</span></div>}
+          {featured && <div className="v46-premium-chase-note"><span>CHASE CARD · {pack.odds.pickupRate ?? 0.5}%</span><b>{featured.name}</b><button type="button" onClick={() => requestCardInspection(featured.id)}>상세 정보</button></div>}
           <div className="v20-pack-odds">
-            <span><small>기본 슬롯</small><b>전설 {pack.odds.legendary}%</b><em>영웅 {pack.odds.epic}% · 희귀 {pack.odds.rare}% · 일반 {pack.odds.common}%</em></span>
-            <p>{pack.id === 'premium_time' ? '3칸 구성 · 각 슬롯 0.5% 확률로 시간대 최강 카드 5종 중 1장 등장 · 미당첨 시 전체 카드 풀 랜덤' : `${pack.odds.guaranteedSlots}칸 ${RARITY_LABEL[pack.guaranteed]} 이상 보장${series ? ` · 시리즈 카드 ${pack.odds.seriesGuaranteedSlots ?? 1}장 이상 보장 · 일반 슬롯 ${pack.odds.seriesRate ?? 42}% 시리즈 픽업` : ''}`}</p>
+            {featured ? (
+              <span><small>각 슬롯 독립 픽업</small><b>{featured.name} · {pack.odds.pickupRate ?? 0.5}%</b><em>팩 1개 = 3장 · 3회 독립 추첨 · 1장 이상 픽업 약 {premiumPackHitRate.toFixed(2)}%</em></span>
+            ) : (
+              <span><small>기본 슬롯</small><b>전설 {pack.odds.legendary}%</b><em>영웅 {pack.odds.epic}% · 희귀 {pack.odds.rare}% · 일반 {pack.odds.common}%</em></span>
+            )}
+            <p>{featured ? `각 카드 슬롯마다 ${pack.odds.pickupRate ?? 0.5}% 확률로 「${featured.name}」이 등장합니다. 미당첨 슬롯은 PREMIUM TIME 픽업 5종을 제외한 전체 카드 풀에서 랜덤으로 등장합니다.` : `${pack.odds.guaranteedSlots}칸 ${RARITY_LABEL[pack.guaranteed]} 이상 보장${series ? ` · 시리즈 카드 ${pack.odds.seriesGuaranteedSlots ?? 1}장 이상 보장 · 일반 슬롯 ${pack.odds.seriesRate ?? 42}% 시리즈 픽업` : ''}`}</p>
           </div>
           <div className="pack-price"><b>{pack.price}</b> COIN</div>
           <button className="primary-button" disabled={busyPack === pack.id || hub.wallet.coins < pack.price} onClick={() => buy(pack.id)}>
-            {busyPack === pack.id ? '팩을 준비하는 중...' : hub.wallet.coins < pack.price ? '코인 부족' : '팩 구매 및 개봉'}
+            {busyPack === pack.id ? '팩을 준비하는 중...' : hub.wallet.coins < pack.price ? '코인 부족' : featured ? `${featured.name} 픽업 도전` : '팩 구매 및 개봉'}
           </button>
         </div>
       </article>
@@ -3026,6 +3061,10 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
       {error && <p className="error-banner">{error}</p>}
       {shopTab === 'packs' ? (
         <div className="v25-pack-store">
+          <section className="v25-pack-category v46-premium-category">
+            <header><div><span>PREMIUM TIME PICKUP</span><h3>시간대별 프리미엄 픽업</h3><p>원하는 시간대의 최고 등급 카드를 직접 노릴 수 있습니다. 팩 앞의 픽업 카드를 누르면 구매 전에 효과·능력치·시간 강세를 전부 확인할 수 있습니다.</p></div><small>5 TIME CHASES · SLOT 0.5%</small></header>
+            <div className="pack-grid v6-pack-grid v46-premium-pack-grid">{premiumPacks.map((pack, index) => renderPackCard(pack, index))}</div>
+          </section>
           <section className="v25-pack-category">
             <header><div><span>CORE BOOSTERS</span><h3>기본 카드팩</h3><p>속성 제한 없이 전체 카드 풀에서 랜덤 획득합니다.</p></div><small>GENERAL · RARE · LEGENDARY</small></header>
             <div className="pack-grid v6-pack-grid v25-core-pack-grid">{corePacks.map((pack, index) => renderPackCard(pack, index))}</div>

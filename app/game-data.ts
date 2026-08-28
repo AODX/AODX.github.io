@@ -362,6 +362,9 @@ export interface PackDefinition {
   guaranteed: Rarity;
   pickupElement?: Element;
   seriesId?: SeriesId;
+  /** Premium TIME booster chase card. When set, each slot independently has the pack's pickup chance to draw this exact card. */
+  featuredCardId?: string;
+  premiumTimePhase?: EclipsePhase;
   category?: 'core' | 'series';
   accent: string;
   odds: PackOdds;
@@ -5519,8 +5522,29 @@ export const PACKS: PackDefinition[] = [
     odds: { common: 45, rare: 32, epic: 18, legendary: 5, guaranteedSlots: 1, seriesRate: 42, seriesGuaranteedSlots: 1 },
   })),
   {
-    id: 'premium_time', name: 'PREMIUM TIME PACK', tagline: '3장 구성 · 슬롯당 0.5% TIME LEGEND', price: 1000, guaranteed: 'common', category: 'core', accent: '#f5c56b',
-    odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0 },
+    id: 'premium_time_dawn', name: 'PREMIUM TIME · 여명', tagline: '여명의 지배자 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#ffcf73',
+    featuredCardId: 'v41_premium_dawn_lord', premiumTimePhase: 'dawn',
+    odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
+  },
+  {
+    id: 'premium_time_zenith', name: 'PREMIUM TIME · 정점', tagline: '정점의 왕 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#ffe36c',
+    featuredCardId: 'v41_premium_zenith_king', premiumTimePhase: 'zenith',
+    odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
+  },
+  {
+    id: 'premium_time_dusk', name: 'PREMIUM TIME · 황혼', tagline: '황혼의 기사 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#d591ff',
+    featuredCardId: 'v44_premium_twilight_knight', premiumTimePhase: 'dusk',
+    odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
+  },
+  {
+    id: 'premium_time_midnight', name: 'PREMIUM TIME · 심야', tagline: '심야의 침묵 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#8795ff',
+    featuredCardId: 'v41_premium_midnight_silence', premiumTimePhase: 'midnight',
+    odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
+  },
+  {
+    id: 'premium_time_eclipse', name: 'PREMIUM TIME · 개기일식', tagline: '개기일식의 조율자 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#f08ad9',
+    featuredCardId: 'v41_premium_eclipse_conductor', premiumTimePhase: 'eclipse',
+    odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
 ];
 
