@@ -5225,13 +5225,13 @@ function EclipseCycleStrip({ state }: { state: MatchState }) {
       {ECLIPSE_PHASE_ORDER.map((phase, index) => {
         const active = phase === current;
         return (
-          <span key={phase} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0, flex: active ? '0 0 auto' : '0 1 auto' }}>
+          <span key={phase} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0, flex: active || phase === 'eclipse' ? '0 0 auto' : '0 1 auto' }}>
             {index > 0 && <i aria-hidden="true" style={{ color: '#40505e', fontStyle: 'normal', fontSize: 8, lineHeight: 1, flex: '0 0 auto' }}>›</i>}
             <b
               className={`v34m-cycle-phase ${active ? 'active' : ''}`}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 3, minWidth: 0, padding: active ? '4px 7px' : '3px 1px',
-                overflow: 'hidden', textOverflow: 'ellipsis', borderRadius: 999,
+                overflow: phase === 'eclipse' ? 'visible' : 'hidden', textOverflow: phase === 'eclipse' ? 'clip' : 'ellipsis', whiteSpace: 'nowrap', borderRadius: 999,
                 color: active ? '#f5fbff' : '#758492', background: active ? `rgba(${visual.rgb},.16)` : 'transparent',
                 boxShadow: active ? `inset 0 0 0 1px rgba(${visual.rgb},.25)` : 'none',
                 fontSize: 'clamp(7px,.52vw,9px)', lineHeight: 1, fontWeight: active ? 950 : 820,
