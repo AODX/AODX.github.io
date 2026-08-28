@@ -5206,136 +5206,150 @@ for (const card of CARDS) {
 
 // === /v36 ====================================================================
 
-// === v40 battle-trait roster ================================================
-// v40 expands both authored combat traits to 50 distinct characters each.
-// 처형 is intentionally a BASIC UNIT-TO-UNIT ATTACK trait: it only destroys the
-// explicitly selected enemy unit after that normal attack resolves successfully.
-// It never triggers on direct core attacks, spell/effect damage, retaliation, or
-// secondary targets hit by 전체공격. Numeric attack damage still resolves first.
-// 전체공격 repeats the attacker's normal attack damage across the enemy formation;
+// === v45 balanced battle-trait roster ======================================
+// Previous builds concentrated 처형 around a few dark-themed series and
+// 전체공격 around fleet/mecha series. v45 deliberately redistributes both
+// traits across ALL 13 authored series while keeping the total at 50 each.
+//
+// Balance rules:
+// - Every series gets at least 2 main-deck UNIT cards with 처형 and 2 with 전체공격.
+// - No single series gets more than 4 of either trait.
+// - The same card can never carry both traits.
+// - Low-cost rush cards and cards already carrying charge/corestrike are
+//   de-prioritized because both traits are strong combat multipliers.
+// - Selection is deterministic and spread across several cost bands instead
+//   of simply giving the traits to every highest-rarity finisher.
+//
+// 처형 remains BASIC UNIT-TO-UNIT ATTACK only. It never triggers on direct core
+// attacks, effect damage, retaliation, or 전체공격 secondary targets.
+// 전체공격 repeats the normal basic-attack damage across the enemy formation;
 // only the explicitly selected target counterattacks.
-const V40_EXECUTION_CARD_IDS = new Set([
-  'unit_void_reaper',
-  'v32y_abyss_unit_01',
-  'unit_v8_void_02',
-  'unit_v8_void_16',
-  'unit_v8_void_05',
-  'evolution_rift_alpha',
-  'fusion_eclipse_chimera',
-  'fusion_v8_17',
-  'evolution_v8_11',
-  'evolution_v8_20',
-  'v26_arcana_protocol_fusion_02',
-  'unit_v8_void_20',
-  'fusion_v8_07',
-  'fusion_v8_15',
-  'v26_phantom_carnival_unit_22',
-  'v26_phantom_carnival_fusion_01',
-  'unit_v8_void_10',
-  'evolution_v8_07',
-  'evolution_v8_15',
-  'unit_v8_void_13',
-  'evolution_v8_12',
-  'fusion_v8_20',
-  'v26_phantom_carnival_fusion_02',
-  'fusion_v8_11',
-  'v26_arcana_protocol_evolution_01',
-  'v26_phantom_carnival_unit_16',
-  'unit_v8_storm_08',
-  'unit_v8_storm_11',
-  'v26_chronorium_fusion_02',
-  'v26_phantom_carnival_evolution_02',
-  'unit_v8_solar_09',
-  'unit_v8_void_04',
-  'unit_v8_void_12',
-  'unit_v8_void_18',
-  'v26_phantom_carnival_unit_19',
-  'fusion_v8_12',
-  'fusion_v8_03',
-  'unit_star_devourer',
-  'fusion_v8_04',
-  'v26_phantom_carnival_evolution_01',
-  'fusion_v8_19',
-  'unit_v8_void_07',
-  'unit_v8_void_15',
-  'unit_v8_lunar_11',
-  'v26_arcana_protocol_unit_20',
-  'evolution_v8_04',
-  'unit_v8_lunar_03',
-  'evolution_v8_19',
-  'evolution_v8_03',
-  'unit_v8_lunar_19',
-]);
+const V45_EXECUTION_QUOTA: Record<SeriesId, number> = {
+  luminaknights: 4,
+  kaisergear: 4,
+  eclipsion: 4,
+  nocturne: 4,
+  arborian: 3,
+  tempest_drive: 4,
+  abyss_reaper: 4,
+  primal_guardian: 4,
+  chronorium: 4,
+  arcana_protocol: 4,
+  beastforge: 4,
+  phantom_carnival: 4,
+  astral_armada: 3,
+};
 
-const V40_SWEEP_CARD_IDS = new Set([
-  'v26_astral_armada_unit_21',
-  'v26_astral_armada_fusion_02',
-  'v26_astral_armada_unit_22',
-  'v26_astral_armada_evolution_02',
-  'v26_astral_armada_fusion_01',
-  'fusion_tempest_colossus',
-  'fusion_v8_02',
-  'fusion_v8_18',
-  'v26_astral_armada_evolution_01',
-  'evolution_v8_06',
-  'fusion_v8_01',
-  'v26_astral_armada_unit_19',
-  'unit_v8_storm_16',
-  'fusion_v8_14',
-  'v26_astral_armada_unit_16',
-  'v26_astral_armada_unit_13',
-  'evolution_v8_09',
-  'unit_v8_storm_19',
-  'v26_chronorium_evolution_02',
-  'v26_beastforge_fusion_02',
-  'evolution_v8_18',
-  'fusion_v8_10',
-  'v26_astral_armada_unit_20',
-  'v26_astral_armada_unit_10',
-  'fusion_v8_09',
-  'unit_v8_storm_03',
-  'fusion_v8_08',
-  'fusion_v8_06',
-  'v26_astral_armada_unit_18',
-  'v26_astral_armada_unit_17',
-  'evolution_v8_01',
-  'evolution_v8_14',
-  'v26_beastforge_evolution_02',
-  'v26_chronorium_unit_21',
-  'unit_v8_storm_10',
-  'unit_v8_solar_14',
-  'v26_beastforge_evolution_01',
-  'unit_v8_neutral_18',
-  'v26_beastforge_fusion_01',
-  'unit_v8_storm_13',
-  'evolution_v8_10',
-  'unit_v8_solar_17',
-  'v26_beastforge_unit_20',
-  'evolution_v8_02',
-  'unit_v8_neutral_13',
-  'fusion_v8_13',
-  'evolution_ember_phoenix',
-  'v26_astral_armada_unit_14',
-  'unit_v8_neutral_02',
-  'fusion_v8_16',
-]);
+const V45_SWEEP_QUOTA: Record<SeriesId, number> = {
+  luminaknights: 4,
+  kaisergear: 4,
+  eclipsion: 4,
+  nocturne: 3,
+  arborian: 4,
+  tempest_drive: 4,
+  abyss_reaper: 4,
+  primal_guardian: 4,
+  chronorium: 4,
+  arcana_protocol: 3,
+  beastforge: 4,
+  phantom_carnival: 4,
+  astral_armada: 4,
+};
 
+const V45_EXECUTION_PREFIX = '처형: 이 캐릭터의 기본 공격이 적 캐릭터를 지정해 정상적으로 적중하면, 그 기본 공격 피해를 먼저 적용한 뒤 피해량과 보호막에 관계없이 지정 대상을 파괴합니다. 코어 직접 공격·효과 피해·전체공격의 추가 대상에는 발동하지 않습니다. ';
+const V45_SWEEP_PREFIX = '전체공격: 적 캐릭터를 기본 공격할 때 적 전열 전체에 같은 공격 피해를 줍니다. 반격은 지정한 대상만 합니다. ';
+
+// Remove the old v40 assignment first so redistribution is clean even when this
+// file is merged on top of an older cumulative patch.
 for (const card of CARDS) {
-  if (!isUnitCard(card)) continue;
-  if (V40_EXECUTION_CARD_IDS.has(card.id)) {
-    card.keywords = Array.from(new Set([...(card.keywords ?? []), 'execute' as Keyword]));
-    if (!/처형[:：]/.test(card.text)) {
-      card.text = `처형: 이 캐릭터의 기본 공격이 적 캐릭터를 지정해 정상적으로 적중하면, 그 기본 공격 피해를 먼저 적용한 뒤 피해량과 보호막에 관계없이 지정 대상을 파괴합니다. 코어 직접 공격·효과 피해·전체공격의 추가 대상에는 발동하지 않습니다. ${card.text}`;
-    }
+  if (card.keywords?.length) card.keywords = card.keywords.filter((keyword) => keyword !== 'execute' && keyword !== 'sweep');
+  if (card.text.startsWith(V45_EXECUTION_PREFIX)) card.text = card.text.slice(V45_EXECUTION_PREFIX.length);
+  if (card.text.startsWith(V45_SWEEP_PREFIX)) card.text = card.text.slice(V45_SWEEP_PREFIX.length);
+}
+
+const V45_RARITY_WEIGHT: Record<Rarity, number> = { common: 0, rare: 8, epic: 14, legendary: 18 };
+
+function v45TraitCandidatePenalty(card: CardDefinition, targetCost: number, trait: 'execute' | 'sweep'): number {
+  let penalty = Math.abs(card.cost - targetCost) * 100;
+  // Prefer traits on cards that cost enough for the power they gain.
+  if (card.cost <= 2) penalty += 900;
+  if (card.cost === 3 && trait === 'execute') penalty += 120;
+  // Avoid stacking explosive keywords wherever possible.
+  if (card.keywords?.includes('charge')) penalty += trait === 'execute' ? 260 : 190;
+  if (card.keywords?.includes('corestrike')) penalty += 320;
+  if (card.keywords?.includes('pierce')) penalty += trait === 'sweep' ? 90 : 30;
+  // A huge printed ATK plus sweep can end games too abruptly; favor mid-ATK bodies.
+  if (trait === 'sweep' && (card.attack ?? 0) >= 8) penalty += ((card.attack ?? 0) - 7) * 55;
+  // Execution already bypasses remaining HP, so don't over-reward the largest bodies.
+  if (trait === 'execute' && (card.attack ?? 0) >= 9) penalty += ((card.attack ?? 0) - 8) * 35;
+  // Rare/Epic/Legendary units are preferable homes for premium combat traits.
+  penalty -= V45_RARITY_WEIGHT[card.rarity];
+  return penalty;
+}
+
+function v45PickSeriesTraitUnits(
+  seriesId: SeriesId,
+  quota: number,
+  excluded: Set<string>,
+  trait: 'execute' | 'sweep',
+): CardDefinition[] {
+  const pool = CARDS.filter((card) =>
+    card.kind === 'unit'
+    && card.seriesId === seriesId
+    && !excluded.has(card.id),
+  );
+  const targetCosts = trait === 'execute' ? [4, 5, 6, 7] : [4, 5, 6, 7];
+  const picked: CardDefinition[] = [];
+  const used = new Set<string>();
+  for (let index = 0; index < quota; index += 1) {
+    const targetCost = targetCosts[index % targetCosts.length];
+    const candidate = pool
+      .filter((card) => !used.has(card.id))
+      .sort((a, b) => {
+        const diff = v45TraitCandidatePenalty(a, targetCost, trait) - v45TraitCandidatePenalty(b, targetCost, trait);
+        return diff || a.id.localeCompare(b.id);
+      })[0];
+    if (!candidate) break;
+    picked.push(candidate);
+    used.add(candidate.id);
   }
-  if (V40_SWEEP_CARD_IDS.has(card.id)) {
-    card.keywords = Array.from(new Set([...(card.keywords ?? []), 'sweep' as Keyword]));
-    if (!/전체공격[:：]/.test(card.text)) {
-      card.text = `전체공격: 적 캐릭터를 기본 공격할 때 적 전열 전체에 같은 공격 피해를 줍니다. 반격은 지정한 대상만 합니다. ${card.text}`;
-    }
+  return picked;
+}
+
+const V45_EXECUTION_CARD_IDS = new Set<string>();
+const V45_SWEEP_CARD_IDS = new Set<string>();
+
+for (const series of CARD_SERIES) {
+  for (const card of v45PickSeriesTraitUnits(series.id, V45_EXECUTION_QUOTA[series.id], new Set(), 'execute')) {
+    V45_EXECUTION_CARD_IDS.add(card.id);
   }
 }
-// === /v40 battle-trait roster ===============================================
+for (const series of CARD_SERIES) {
+  for (const card of v45PickSeriesTraitUnits(series.id, V45_SWEEP_QUOTA[series.id], V45_EXECUTION_CARD_IDS, 'sweep')) {
+    V45_SWEEP_CARD_IDS.add(card.id);
+  }
+}
+
+for (const card of CARDS) {
+  if (card.kind !== 'unit') continue;
+  if (V45_EXECUTION_CARD_IDS.has(card.id)) {
+    card.keywords = Array.from(new Set([...(card.keywords ?? []), 'execute' as Keyword]));
+    card.text = `${V45_EXECUTION_PREFIX}${card.text}`;
+  }
+  if (V45_SWEEP_CARD_IDS.has(card.id)) {
+    card.keywords = Array.from(new Set([...(card.keywords ?? []), 'sweep' as Keyword]));
+    card.text = `${V45_SWEEP_PREFIX}${card.text}`;
+  }
+}
+
+// Dev/runtime audit object. Keeping this data exported makes future balance
+// checks straightforward without duplicating the roster in another file.
+export const V45_TRAIT_DISTRIBUTION = Object.fromEntries(CARD_SERIES.map((series) => {
+  const execution = CARDS.filter((card) => card.kind === 'unit' && card.seriesId === series.id && card.keywords?.includes('execute')).map((card) => card.id);
+  const sweep = CARDS.filter((card) => card.kind === 'unit' && card.seriesId === series.id && card.keywords?.includes('sweep')).map((card) => card.id);
+  return [series.id, { execution, sweep }];
+})) as Record<SeriesId, { execution: string[]; sweep: string[] }>;
+// === /v45 balanced battle-trait roster =====================================
 
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));
 
