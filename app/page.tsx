@@ -671,7 +671,14 @@ function PackProductVisual({ pack }: { pack: (typeof PACKS)[number] }) {
         </div>
         <div className="v46-premium-feature-shell">
           <span className="v46-premium-pickup-badge"><b>{pack.odds.pickupRate ?? 0.5}%</b> PICKUP</span>
-          <button type="button" className="v47-premium-feature-card" title={`${featured.name} · 클릭해서 카드 정보 보기`} onClick={() => requestCardInspection(featured.id)}>
+          <div className="v47-premium-feature-card" title={`${featured.name} · 카드의 i 버튼으로 상세 정보 확인`}>
+            <button
+              type="button"
+              className="v47-premium-card-info"
+              aria-label={`${featured.name} 상세 정보 보기`}
+              title="카드 정보 보기"
+              onClick={() => requestCardInspection(featured.id)}
+            >i</button>
             <div className="v47-premium-feature-head">
               <span className="v47-premium-feature-cost">{featured.cost}</span>
               <span className="v47-premium-feature-title"><b>{featured.name}</b><small>{featured.subtitle}</small></span>
@@ -688,8 +695,7 @@ function PackProductVisual({ pack }: { pack: (typeof PACKS)[number] }) {
               {(featured.keywords && featured.keywords.length > 0 ? featured.keywords : []).slice(0, 4).map((keyword) => <i key={keyword}>{KEYWORD_LABEL[keyword]}</i>)}
               {(!featured.keywords || featured.keywords.length === 0) && <i>시간 마법</i>}
             </div>
-          </button>
-          <button type="button" className="v46-premium-info-button" onClick={() => requestCardInspection(featured.id)}>ⓘ 카드 정보 보기</button>
+          </div>
         </div>
         <div className="v23-pack-sheen" aria-hidden="true" />
       </div>
@@ -3112,20 +3118,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
           <h3>{pack.name}</h3>
           <p>{pack.tagline}</p>
           {series && <div className="v25-series-pack-note"><b>{series.shortName}</b><span>{series.mechanic}</span></div>}
-          {featured && <div className="v46-premium-chase-note"><span>CHASE CARD · {pack.odds.pickupRate ?? 0.5}%</span><b>{featured.name}</b><button type="button" onClick={() => requestCardInspection(featured.id)}>상세 정보</button></div>}
-          {featured && (
-            <div className="v47-premium-effect-preview">
-              <span className="v47-premium-effect-preview-title">핵심 효과 미리보기</span>
-              <div className="v47-premium-effect-grid">
-                {premiumTimeHighlights(featured).map((item) => (
-                  <article key={`${featured.id}-${item.label}`} className={`v47-premium-effect-item tone-${item.tone ?? 'feature'}`}>
-                    <b>{item.label}</b>
-                    <p>{item.detail}</p>
-                  </article>
-                ))}
-              </div>
-            </div>
-          )}
+          {featured && <div className="v46-premium-chase-note"><span>CHASE CARD · {pack.odds.pickupRate ?? 0.5}%</span><b>{featured.name}</b><small>카드의 i 버튼을 눌러 전체 효과 확인</small></div>}
           <div className="v20-pack-odds">
             {featured ? (
               <span><small>각 슬롯 독립 픽업</small><b>{featured.name} · {pack.odds.pickupRate ?? 0.5}%</b><em>팩 1개 = 3장 · 3회 독립 추첨 · 1장 이상 픽업 약 {premiumPackHitRate.toFixed(2)}%</em></span>
