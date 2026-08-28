@@ -9695,3 +9695,144 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
   .v23-client.in-duel .v43-grave-breakdown i { padding:2px 3px!important;font-size:5.5px!important; }
   .v23-client.in-duel .v43-grave-breakdown i b { font-size:6.5px!important; }
 }
+
+/* v44: sticker cosmetics use actual emote sticker sheets. Static sticker themes; animated non-sticker themes. */
+@keyframes v44ClockworkSweep { 0%{filter:hue-rotate(0deg) brightness(1);background-position:0 0,50% 50%,0 0} 50%{filter:hue-rotate(12deg) brightness(1.18);background-position:60px 0,52% 48%,0 0} 100%{filter:hue-rotate(0deg) brightness(1);background-position:120px 0,50% 50%,0 0} }
+@keyframes v44AuroraFlow { 0%{background-position:0% 50%,50% 50%,0 0} 50%{background-position:100% 50%,48% 53%,0 0} 100%{background-position:0% 50%,50% 50%,0 0} }
+@keyframes v44RecordPulse { 0%,100%{filter:brightness(.92);transform:translateZ(0)} 50%{filter:brightness(1.2) saturate(1.2)} }
+@keyframes v44ArcadeTwinkle { 0%{background-position:0 0,20px 20px,50% 50%} 100%{background-position:80px 40px,100px 60px,50% 50%} }
+
+.v23-client .theme-bg_clockwork_dawn {
+  background:
+    repeating-conic-gradient(from 0deg at 78% 24%, rgba(255,219,137,.18) 0deg 12deg, transparent 12deg 25deg),
+    radial-gradient(circle at 24% 38%, rgba(255,217,138,.42), transparent 32%),
+    linear-gradient(135deg,#4d2f12,#101723 58%,#4a4120) !important;
+  animation:v44ClockworkSweep 9s linear infinite !important;
+}
+.v23-client .theme-bg_aurora_grid {
+  background:
+    linear-gradient(115deg, transparent 0 35%, rgba(111,255,214,.35) 42%, transparent 55%),
+    radial-gradient(circle at 72% 16%, rgba(139,255,212,.35), transparent 30%),
+    linear-gradient(135deg,#072a22,#08111a 56%,#172f49) !important;
+  background-size:220% 220%,100% 100%,100% 100% !important;
+  animation:v44AuroraFlow 7s ease-in-out infinite !important;
+}
+.v23-client .theme-bg_midnight_record {
+  background:
+    repeating-radial-gradient(circle at 78% 28%, rgba(170,182,255,.18) 0 2px, transparent 3px 8px),
+    linear-gradient(120deg, rgba(190,90,255,.14), transparent 45%, rgba(90,210,255,.16)),
+    linear-gradient(135deg,#141a39,#08111a 56%,#2a1436) !important;
+  animation:v44RecordPulse 4.8s ease-in-out infinite !important;
+}
+.v23-client .theme-bg_starlight_arcade {
+  background:
+    radial-gradient(circle at 14% 22%, rgba(156,242,255,.45) 0 2px, transparent 3px),
+    radial-gradient(circle at 74% 62%, rgba(255,255,255,.42) 0 2px, transparent 3px),
+    linear-gradient(135deg,#11243d,#08111a 58%,#17204d) !important;
+  background-size:40px 40px,52px 52px,100% 100% !important;
+  animation:v44ArcadeTwinkle 5.6s linear infinite !important;
+}
+
+.v23-client .theme-bg_sticker_nikke,
+.v23-client .v31-social-skin.theme-bg_sticker_nikke {
+  background:
+    url('/emotes/v34/nikke_good.png') 10% 16% / 54px 54px no-repeat,
+    url('/emotes/v34/nikke_power.png') 78% 20% / 58px 58px no-repeat,
+    url('/emotes/v34/nikke_laugh.png') 34% 62% / 52px 52px no-repeat,
+    url('/emotes/v34/nikke_tea.png') 86% 74% / 50px 50px no-repeat,
+    linear-gradient(135deg,#3c1f12,#0c121b 58%,#1f130a) !important;
+}
+.v23-client .theme-bg_sticker_bluearchive,
+.v23-client .v31-social-skin.theme-bg_sticker_bluearchive {
+  background:
+    url('/emotes/v34/doro_mug.png') 12% 18% / 58px 58px no-repeat,
+    url('/emotes/v34/doro_thumbs.png') 76% 18% / 56px 56px no-repeat,
+    url('/emotes/v34/doro_love.png') 34% 70% / 54px 54px no-repeat,
+    url('/emotes/v34/doro_beam.png') 84% 68% / 58px 58px no-repeat,
+    linear-gradient(135deg,#203248,#0b121b 58%,#102f46) !important;
+}
+.v23-client .theme-bg_sticker_genshin,
+.v23-client .v31-social-skin.theme-bg_sticker_genshin {
+  background:
+    url('/emotes/v34/trickcal_sparkle.png') 12% 15% / 56px 56px no-repeat,
+    url('/emotes/v34/trickcal_good.png') 76% 22% / 56px 56px no-repeat,
+    url('/emotes/v34/trickcal_success.png') 38% 72% / 54px 54px no-repeat,
+    url('/emotes/v34/trickcal_burst.png') 86% 70% / 56px 56px no-repeat,
+    linear-gradient(135deg,#4b3720,#0b121b 60%,#202f4b) !important;
+}
+.v23-client .theme-bg_sticker_hsr,
+.v23-client .v31-social-skin.theme-bg_sticker_hsr {
+  background:
+    url('/emotes/v34/guardian_water.png') 12% 18% / 55px 55px no-repeat,
+    url('/emotes/v34/guardian_flower.png') 74% 17% / 55px 55px no-repeat,
+    url('/emotes/v34/guardian_yahoo.png') 36% 70% / 54px 54px no-repeat,
+    url('/emotes/v34/guardian_shock.png') 86% 69% / 54px 54px no-repeat,
+    linear-gradient(135deg,#281744,#0b121b 60%,#18233e) !important;
+}
+.v23-client .theme-bg_sticker_wuwa,
+.v23-client .v31-social-skin.theme-bg_sticker_wuwa {
+  background:
+    url('/emotes/v34/mang_buaa.png') 12% 20% / 56px 56px no-repeat,
+    url('/emotes/v34/mang_cool.png') 75% 19% / 56px 56px no-repeat,
+    url('/emotes/v34/mang_best.png') 35% 70% / 54px 54px no-repeat,
+    url('/emotes/v34/mang_music.png') 86% 70% / 54px 54px no-repeat,
+    linear-gradient(135deg,#0f2630,#091017 62%,#202020) !important;
+}
+.v23-client .theme-bg_sticker_arcade,
+.v23-client .v31-social-skin.theme-bg_sticker_arcade {
+  background:
+    url('/emotes/v34/irem_cry.png') 12% 19% / 56px 56px no-repeat,
+    url('/emotes/v34/irem_yeah.png') 76% 18% / 56px 56px no-repeat,
+    url('/emotes/v34/irem_bread.png') 36% 70% / 54px 54px no-repeat,
+    url('/emotes/v34/irem_tears.png') 86% 70% / 54px 54px no-repeat,
+    linear-gradient(135deg,#10253e,#08111a 55%,#1f1634) !important;
+}
+
+.v23-client .sleeve-sleeve_sticker_nikke { background:url('/emotes/v34/nikke_good.png') 15% 18%/36px 36px no-repeat,url('/emotes/v34/nikke_power.png') 82% 28%/38px 38px no-repeat,url('/emotes/v34/nikke_laugh.png') 40% 72%/36px 36px no-repeat,linear-gradient(145deg,#452313,#0a1018)!important; }
+.v23-client .sleeve-sleeve_sticker_bluearchive { background:url('/emotes/v34/doro_mug.png') 16% 18%/38px 38px no-repeat,url('/emotes/v34/doro_love.png') 82% 28%/38px 38px no-repeat,url('/emotes/v34/doro_beam.png') 42% 72%/36px 36px no-repeat,linear-gradient(145deg,#1d344c,#0a1018)!important; }
+.v23-client .sleeve-sleeve_sticker_genshin { background:url('/emotes/v34/trickcal_sparkle.png') 16% 18%/38px 38px no-repeat,url('/emotes/v34/trickcal_good.png') 82% 28%/38px 38px no-repeat,url('/emotes/v34/trickcal_success.png') 42% 72%/36px 36px no-repeat,linear-gradient(145deg,#4d3518,#0a1018)!important; }
+.v23-client .sleeve-sleeve_sticker_hsr { background:url('/emotes/v34/guardian_water.png') 16% 18%/38px 38px no-repeat,url('/emotes/v34/guardian_flower.png') 82% 28%/38px 38px no-repeat,url('/emotes/v34/guardian_yahoo.png') 42% 72%/36px 36px no-repeat,linear-gradient(145deg,#27164a,#0a1018)!important; }
+.v23-client .sleeve-sleeve_sticker_wuwa { background:url('/emotes/v34/mang_buaa.png') 16% 18%/38px 38px no-repeat,url('/emotes/v34/mang_cool.png') 82% 28%/38px 38px no-repeat,url('/emotes/v34/mang_best.png') 42% 72%/36px 36px no-repeat,linear-gradient(145deg,#102f36,#0a1018)!important; }
+.v23-client .sleeve-sleeve_sticker_arcade { background:url('/emotes/v34/irem_cry.png') 16% 18%/38px 38px no-repeat,url('/emotes/v34/irem_yeah.png') 82% 28%/38px 38px no-repeat,url('/emotes/v34/irem_bread.png') 42% 72%/36px 36px no-repeat,linear-gradient(145deg,#132747,#0a1018)!important; }
+.v23-client .sleeve-sleeve_sticker_eclipse { background:url('/emotes/v34/doro_beam.png') 16% 18%/38px 38px no-repeat,url('/emotes/v34/nikke_charge.png') 82% 28%/38px 38px no-repeat,url('/emotes/v34/trickcal_burst.png') 42% 72%/36px 36px no-repeat,linear-gradient(145deg,#211028,#0a1018)!important; }
+.v23-client .sleeve-sleeve_sticker_royal { background:url('/emotes/v34/guardian_flower.png') 16% 18%/38px 38px no-repeat,url('/emotes/v34/doro_love.png') 82% 28%/38px 38px no-repeat,url('/emotes/v34/nikke_tea.png') 42% 72%/36px 36px no-repeat,linear-gradient(145deg,#4c3313,#0a1018)!important; }
+.v23-client .sleeve-sleeve_sticker_sakura { background:url('/emotes/v34/trickcal_sparkle.png') 16% 18%/38px 38px no-repeat,url('/emotes/v34/irem_yeah.png') 82% 28%/38px 38px no-repeat,url('/emotes/v34/doro_love.png') 42% 72%/36px 36px no-repeat,linear-gradient(145deg,#4b2137,#0a1018)!important; }
+.v23-client .sleeve-sleeve_sticker_midnight { background:url('/emotes/v34/irem_tears.png') 16% 18%/38px 38px no-repeat,url('/emotes/v34/mang_music.png') 82% 28%/38px 38px no-repeat,url('/emotes/v34/guardian_shock.png') 42% 72%/36px 36px no-repeat,linear-gradient(145deg,#171b44,#0a1018)!important; }
+
+.v23-client .emblem-emblem_sticker_rabbit { background:url('/emotes/v34/doro_love.png') center/78% no-repeat, radial-gradient(circle,rgba(255,198,226,.35),rgba(255,255,255,.08))!important;color:transparent!important;text-shadow:none!important; }
+.v23-client .emblem-emblem_sticker_angel { background:url('/emotes/v34/guardian_flower.png') center/78% no-repeat, radial-gradient(circle,rgba(255,243,182,.35),rgba(255,255,255,.08))!important;color:transparent!important;text-shadow:none!important; }
+.v23-client .emblem-emblem_sticker_cat { background:url('/emotes/v34/nikke_laugh.png') center/78% no-repeat, radial-gradient(circle,rgba(215,215,255,.35),rgba(255,255,255,.08))!important;color:transparent!important;text-shadow:none!important; }
+.v23-client .emblem-emblem_sticker_cheer { background:url('/emotes/v34/trickcal_success.png') center/78% no-repeat, radial-gradient(circle,rgba(156,242,255,.35),rgba(255,255,255,.08))!important;color:transparent!important;text-shadow:none!important; }
+.v23-client .emblem-emblem_sticker_moon { background:url('/emotes/v34/irem_tears.png') center/78% no-repeat, radial-gradient(circle,rgba(196,212,255,.35),rgba(255,255,255,.08))!important;color:transparent!important;text-shadow:none!important; }
+.v23-client .emblem-emblem_sticker_crown { background:url('/emotes/v34/mang_best.png') center/78% no-repeat, radial-gradient(circle,rgba(255,225,155,.35),rgba(255,255,255,.08))!important;color:transparent!important;text-shadow:none!important; }
+.v23-client .emblem-emblem_sticker_gear { background:url('/emotes/v34/nikke_power.png') center/78% no-repeat, radial-gradient(circle,rgba(197,244,255,.35),rgba(255,255,255,.08))!important;color:transparent!important;text-shadow:none!important; }
+.v23-client .emblem-emblem_sticker_heart { background:url('/emotes/v34/doro_thumbs.png') center/78% no-repeat, radial-gradient(circle,rgba(255,179,216,.35),rgba(255,255,255,.08))!important;color:transparent!important;text-shadow:none!important; }
+.v23-client .emblem-emblem_sticker_pixel { background:url('/emotes/v34/irem_yeah.png') center/78% no-repeat, radial-gradient(circle,rgba(124,232,255,.35),rgba(255,255,255,.08))!important;color:transparent!important;text-shadow:none!important; }
+.v23-client .emblem-emblem_sticker_comet { background:url('/emotes/v34/trickcal_burst.png') center/78% no-repeat, radial-gradient(circle,rgba(188,238,255,.35),rgba(255,255,255,.08))!important;color:transparent!important;text-shadow:none!important; }
+
+/* v44: field info button is beside the name, not over the artwork. */
+.v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-name {
+  pointer-events:auto!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:4px!important;
+  min-width:0!important;
+  overflow:hidden!important;
+}
+.v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-name > b {
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  font:inherit!important;
+  color:inherit!important;
+}
+.v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-name .unit-info-hotspot {
+  position:static!important;
+  width:17px!important;
+  height:17px!important;
+  min-width:17px!important;
+  font-size:9px!important;
+  z-index:96!important;
+}

@@ -162,6 +162,8 @@ export interface MatchState {
   fieldSacrificeTurn?: Record<string, number>;
   /** Turn number when each player last spent ENERGY to draw without ending the turn. */
   energyDrawTurn?: Record<string, number>;
+  /** Number of ENERGY draws used during that same turn. Cost starts at 2 and rises by +1 per use. */
+  energyDrawCount?: Record<string, number>;
   /** Deferred temporary ENERGY granted at the start of that player's next turn. */
   nextTurnEnergyBonus?: Record<string, number>;
   /** Permanent per-match ENERGY maximum bonus. Each point also raises that player's hard cap above the base cap of 10. */
@@ -387,6 +389,7 @@ export function initializeMatch(
     energySacrificeTurn: {},
     fieldSacrificeTurn: {},
     energyDrawTurn: {},
+    energyDrawCount: {},
     nextTurnEnergyBonus: {},
     energyMaxBonus: { [playerA]: 0, [playerB]: 0 },
     // Every new duel starts at Dawn. Card/spell effects may change it later,
@@ -669,8 +672,21 @@ function refreshUnitEclipseModifier(state: MatchState, unit: UnitState): void {
 
   const wasDestroyed = unit.health <= 0;
   const damageTaken = Math.max(0, Math.max(1, unit.maxHealth) - Math.max(0, unit.health));
-  const baseAttack = Math.max(0, unit.attack - oldAttack);
-  const baseMaxHealth = Math.max(1, unit.maxHealth - oldHealth);
+  const printedAttack = card && isUnitCard(card) ? Math.max(0, card.attack ?? 0) : 0;
+  const printedHealth = card && isUnitCard(card) ? Math.max(1, card.health ?? 1) : 1;
+  let baseAttack = Math.max(0, unit.attack - oldAttack);
+  let baseMaxHealth = Math.max(1, unit.maxHealth - oldHealth);
+
+  // v44 hard repair: rooms created before the authoritative TIME-stat fix can
+  // still have modifier fields such as +3 while unit.attack/maxHealth remain at
+  // the printed body. In that case subtracting the modifier makes the hidden base
+  // too small, so later combat still behaves like the bonus was visual-only. Clamp
+  // the hidden base back to the printed card body before re-applying the current
+  // phase modifier.
+  if (card && isUnitCard(card)) {
+    if (oldAttack !== 0 && baseAttack < printedAttack) baseAttack = printedAttack;
+    if (oldHealth !== 0 && baseMaxHealth < printedHealth) baseMaxHealth = printedHealth;
+  }
   const baseHealth = wasDestroyed ? 0 : Math.max(1, baseMaxHealth - damageTaken);
 
   const desired = desiredEclipseModifier(card, currentEclipsePhase(state));
@@ -2080,7 +2096,7 @@ function applyEffect(
 }
 
 function seriesUnitCount(state: MatchState, playerId: string, seriesId: SeriesId): number {
-  return state.boards[playerId].units.filter((unit) => unit && CARD_BY_ID[unit.cardId]?.seriesId === seriesId).length;
+  return state.boards[playerId].units.filter((unit) => unit?.ownerId === playerId && CARD_BY_ID[unit.cardId]?.seriesId === seriesId).length;
 }
 
 function searchSeriesCards(
@@ -2130,7 +2146,7 @@ type SeriesUnitEntry = { unit: UnitState; index: number; card: CardDefinition };
 function seriesUnitEntries(state: MatchState, playerId: string, seriesId: SeriesId): SeriesUnitEntry[] {
   const result: SeriesUnitEntry[] = [];
   state.boards[playerId].units.forEach((unit, index) => {
-    if (!unit) return;
+    if (!unit || unit.ownerId !== playerId) return;
     const card = CARD_BY_ID[unit.cardId];
     if (!card || card.seriesId !== seriesId) return;
     result.push({ unit, index, card });
@@ -2853,7 +2869,7 @@ type TrapResolution = { negated: boolean; retaliation: number };
 function tacticalFormation(state: MatchState, playerId: string, seriesId: SeriesId) {
   return state.boards[playerId].units
     .map((unit, index) => ({ unit, index, card: unit ? CARD_BY_ID[unit.cardId] : undefined }))
-    .filter((entry): entry is { unit: UnitState; index: number; card: CardDefinition } => Boolean(entry.unit && entry.card?.seriesId === seriesId));
+    .filter((entry): entry is { unit: UnitState; index: number; card: CardDefinition } => Boolean(entry.unit && entry.unit.ownerId === playerId && entry.card?.seriesId === seriesId));
 }
 
 function tacticalEnemyFormation(state: MatchState, playerId: string) {
@@ -4689,16 +4705,20 @@ export function spendEnergyToDraw(snapshot: GameSnapshot, playerId: string): Act
   const privateStates = clone(snapshot.privateStates);
   assertActiveTurn(state, playerId);
   if (state.phase !== 'main') throw new Error('메인 단계에서만 ENERGY 드로우를 사용할 수 있습니다.');
-  if (state.energyDrawTurn?.[playerId] === state.turnNumber) throw new Error('ENERGY 드로우는 한 턴에 1번만 사용할 수 있습니다.');
 
   const playerPrivate = privateStates[playerId];
-  const cost = playerPrivate.hand.length === 0 ? 1 : 2;
-  spendEnergy(state, playerId, cost);
   if (!state.energyDrawTurn) state.energyDrawTurn = {};
+  if (!state.energyDrawCount) state.energyDrawCount = {};
+  const previousDraws = state.energyDrawTurn[playerId] === state.turnNumber
+    ? Math.max(1, Math.trunc(state.energyDrawCount[playerId] ?? 0))
+    : 0;
+  const cost = 2 + previousDraws;
+  spendEnergy(state, playerId, cost);
   state.energyDrawTurn[playerId] = state.turnNumber;
+  state.energyDrawCount[playerId] = previousDraws + 1;
 
   const drew = drawCards(state, playerPrivate, playerId, 1);
-  appendLog(state, `${playerId.slice(0, 6)}이(가) ENERGY ${cost}를 소비해 카드 1장을 드로우했습니다. 턴은 계속됩니다.`, 'system');
+  appendLog(state, `${playerId.slice(0, 6)}이(가) ENERGY ${cost}를 소비해 카드 1장을 드로우했습니다. 같은 턴의 다음 ENERGY 드로우 비용은 ${cost + 1}입니다.`, 'system');
   if (drew) {
     appendVisual(state, { kind: 'draw', vfx: 'energy-draw', ownerId: playerId, amount: 1, label: `ENERGY ${cost} → DRAW` });
   }

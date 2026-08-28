@@ -247,11 +247,11 @@ const PROFILE_COSMETICS: ProfileCosmetic[] = [
   { id: 'nickname_aurora', kind: 'nickname', name: '오로라 웨이브', price: 1800, rarity: 'legendary', description: '청록·보라·푸른빛이 물결처럼 이동하는 전설 닉네임 애니메이션.', accent: '#73e7da' },
   { id: 'nickname_gold', kind: 'nickname', name: '황제의 서명', price: 2100, rarity: 'legendary', description: '금빛 하이라이트가 왕관처럼 반복해서 흐르는 전설 닉네임 효과.', accent: '#ffd06f' },
 { id: 'bg_sticker_nikke', kind: 'background', name: '스티커 월 · 니케', price: 1880, rarity: 'legendary', description: '니케 이모티콘을 반짝 코팅 스티커처럼 잔뜩 붙여 만든 프로필 배경.', accent: '#ffcf92' },
-{ id: 'bg_sticker_bluearchive', kind: 'background', name: '스티커 월 · 블루아카', price: 1880, rarity: 'legendary', description: '블루아카 이모티콘을 노트와 말풍선 위에 붙인 스티커풍 배경.', accent: '#9ad8ff' },
-{ id: 'bg_sticker_genshin', kind: 'background', name: '스티커 월 · 원신', price: 1880, rarity: 'legendary', description: '원신 이모티콘 스티커가 모험 다이어리 위에 흩뿌려진 배경.', accent: '#ffe18f' },
-{ id: 'bg_sticker_hsr', kind: 'background', name: '스티커 월 · 스타레일', price: 1880, rarity: 'legendary', description: '스타레일 이모티콘 스티커가 궤도 패턴을 이루는 프로필 배경.', accent: '#d6c4ff' },
-{ id: 'bg_sticker_wuwa', kind: 'background', name: '스티커 월 · 명조', price: 1880, rarity: 'legendary', description: '명조 이모티콘 스티커가 파형 위로 흩날리는 심야풍 배경.', accent: '#9ae7ff' },
-{ id: 'bg_sticker_arcade', kind: 'background', name: '스티커 월 · 픽셀', price: 1760, rarity: 'legendary', description: '픽셀 이모티콘을 도트 패널 위에 스티커처럼 붙인 레트로 배경.', accent: '#98f8ff' },
+{ id: 'bg_sticker_bluearchive', kind: 'background', name: '스티커 월 · 도로롱', price: 1880, rarity: 'legendary', description: '도로롱 이모티콘을 노트와 말풍선 위에 붙인 스티커풍 배경.', accent: '#9ad8ff' },
+{ id: 'bg_sticker_genshin', kind: 'background', name: '스티커 월 · 트릭컬', price: 1880, rarity: 'legendary', description: '트릭컬 이모티콘 스티커가 모험 다이어리 위에 흩뿌려진 배경.', accent: '#ffe18f' },
+{ id: 'bg_sticker_hsr', kind: 'background', name: '스티커 월 · 가디언', price: 1880, rarity: 'legendary', description: '가디언 이모티콘 스티커가 궤도 패턴을 이루는 프로필 배경.', accent: '#d6c4ff' },
+{ id: 'bg_sticker_wuwa', kind: 'background', name: '스티커 월 · 망그러진곰', price: 1880, rarity: 'legendary', description: '망그러진곰 이모티콘 스티커가 파형 위로 흩날리는 심야풍 배경.', accent: '#9ae7ff' },
+{ id: 'bg_sticker_arcade', kind: 'background', name: '스티커 월 · 이렘티콘', price: 1760, rarity: 'legendary', description: '이렘티콘 이모티콘을 도트 패널 위에 스티커처럼 붙인 레트로 배경.', accent: '#98f8ff' },
 { id: 'bg_clockwork_dawn', kind: 'background', name: '클락워크 던', price: 1980, rarity: 'legendary', description: '새벽 시계 톱니와 금빛 첫빛이 돌아가는 시간 특화 배경.', accent: '#ffd98a' },
 { id: 'bg_aurora_grid', kind: 'background', name: '오로라 그리드', price: 1860, rarity: 'legendary', description: '오로라 선이 격자 패널을 타고 흐르는 미래형 프로필 배경.', accent: '#8bffd4' },
 { id: 'bg_midnight_record', kind: 'background', name: '미드나잇 레코드', price: 1740, rarity: 'legendary', description: '심야 도시와 레코드 조명이 겹쳐지는 무드형 프로필 배경.', accent: '#aab6ff' },
@@ -267,11 +267,11 @@ const PROFILE_COSMETICS: ProfileCosmetic[] = [
 { id: 'emblem_sticker_pixel', kind: 'emblem', name: '스티커 픽셀', price: 760, rarity: 'epic', description: '도트 이모티콘을 픽셀 스티커처럼 만든 아이콘.', accent: '#7ce8ff', glyph: '🕹' },
 { id: 'emblem_sticker_comet', kind: 'emblem', name: '스티커 코멧', price: 760, rarity: 'epic', description: '혜성 이모티콘 스티커가 휙 지나가는 문양.', accent: '#bceeff', glyph: '☄' },
 { id: 'sleeve_sticker_nikke', kind: 'sleeve', name: '스티커 슬리브 · 니케', price: 920, rarity: 'epic', description: '니케 이모티콘 스티커를 가득 붙인 카드 뒷면 슬리브.', accent: '#ffcf92', glyph: '⚙' },
-{ id: 'sleeve_sticker_bluearchive', kind: 'sleeve', name: '스티커 슬리브 · 블루아카', price: 920, rarity: 'epic', description: '블루아카 이모티콘 스티커를 코팅한 카드 슬리브.', accent: '#9ad8ff', glyph: '✎' },
-{ id: 'sleeve_sticker_genshin', kind: 'sleeve', name: '스티커 슬리브 · 원신', price: 920, rarity: 'epic', description: '원신 이모티콘 스티커가 모험풍으로 퍼진 카드 뒷면.', accent: '#ffe18f', glyph: '✦' },
-{ id: 'sleeve_sticker_hsr', kind: 'sleeve', name: '스티커 슬리브 · 스타레일', price: 920, rarity: 'epic', description: '스타레일 이모티콘 스티커가 궤도를 이루는 슬리브.', accent: '#d6c4ff', glyph: '🚄' },
-{ id: 'sleeve_sticker_wuwa', kind: 'sleeve', name: '스티커 슬리브 · 명조', price: 920, rarity: 'epic', description: '명조 이모티콘 스티커가 파도처럼 흩어진 카드 슬리브.', accent: '#9ae7ff', glyph: '〰' },
-{ id: 'sleeve_sticker_arcade', kind: 'sleeve', name: '스티커 슬리브 · 픽셀', price: 920, rarity: 'epic', description: '픽셀 이모티콘 스티커가 붙은 레트로 카드 뒷면.', accent: '#98f8ff', glyph: '▦' },
+{ id: 'sleeve_sticker_bluearchive', kind: 'sleeve', name: '스티커 슬리브 · 도로롱', price: 920, rarity: 'epic', description: '도로롱 이모티콘 스티커를 코팅한 카드 슬리브.', accent: '#9ad8ff', glyph: '✎' },
+{ id: 'sleeve_sticker_genshin', kind: 'sleeve', name: '스티커 슬리브 · 트릭컬', price: 920, rarity: 'epic', description: '트릭컬 이모티콘 스티커가 모험풍으로 퍼진 카드 뒷면.', accent: '#ffe18f', glyph: '✦' },
+{ id: 'sleeve_sticker_hsr', kind: 'sleeve', name: '스티커 슬리브 · 가디언', price: 920, rarity: 'epic', description: '가디언 이모티콘 스티커가 궤도를 이루는 슬리브.', accent: '#d6c4ff', glyph: '🚄' },
+{ id: 'sleeve_sticker_wuwa', kind: 'sleeve', name: '스티커 슬리브 · 망그러진곰', price: 920, rarity: 'epic', description: '망그러진곰 이모티콘 스티커가 파도처럼 흩어진 카드 슬리브.', accent: '#9ae7ff', glyph: '〰' },
+{ id: 'sleeve_sticker_arcade', kind: 'sleeve', name: '스티커 슬리브 · 이렘티콘', price: 920, rarity: 'epic', description: '이렘티콘 이모티콘 스티커가 붙은 레트로 카드 뒷면.', accent: '#98f8ff', glyph: '▦' },
 { id: 'sleeve_sticker_eclipse', kind: 'sleeve', name: '스티커 슬리브 · 이클립스', price: 960, rarity: 'epic', description: '이클립스 이모티콘 스티커로 덮인 암흑 별빛 슬리브.', accent: '#f7d38c', glyph: '◉' },
 { id: 'sleeve_sticker_royal', kind: 'sleeve', name: '스티커 슬리브 · 로열', price: 960, rarity: 'epic', description: '왕관 이모티콘 스티커를 우아하게 배치한 로열 슬리브.', accent: '#ffe19b', glyph: '♕' },
 { id: 'sleeve_sticker_sakura', kind: 'sleeve', name: '스티커 슬리브 · 사쿠라', price: 960, rarity: 'epic', description: '벚꽃 이모티콘 스티커가 흩뿌려진 화사한 슬리브.', accent: '#ffbfdc', glyph: '🌸' },
@@ -2971,7 +2971,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
           {series && <div className="v25-series-pack-note"><b>{series.shortName}</b><span>{series.mechanic}</span></div>}
           <div className="v20-pack-odds">
             <span><small>기본 슬롯</small><b>전설 {pack.odds.legendary}%</b><em>영웅 {pack.odds.epic}% · 희귀 {pack.odds.rare}% · 일반 {pack.odds.common}%</em></span>
-            <p>{pack.id === 'premium_time' ? '3칸 구성 · 각 슬롯 0.5% 확률로 시간대 최강 카드 4종 중 1장 등장 · 미당첨 시 전체 카드 풀 랜덤' : `${pack.odds.guaranteedSlots}칸 ${RARITY_LABEL[pack.guaranteed]} 이상 보장${series ? ` · 시리즈 카드 ${pack.odds.seriesGuaranteedSlots ?? 1}장 이상 보장 · 일반 슬롯 ${pack.odds.seriesRate ?? 42}% 시리즈 픽업` : ''}`}</p>
+            <p>{pack.id === 'premium_time' ? '3칸 구성 · 각 슬롯 0.5% 확률로 시간대 최강 카드 5종 중 1장 등장 · 미당첨 시 전체 카드 풀 랜덤' : `${pack.odds.guaranteedSlots}칸 ${RARITY_LABEL[pack.guaranteed]} 이상 보장${series ? ` · 시리즈 카드 ${pack.odds.seriesGuaranteedSlots ?? 1}장 이상 보장 · 일반 슬롯 ${pack.odds.seriesRate ?? 42}% 시리즈 픽업` : ''}`}</p>
           </div>
           <div className="pack-price"><b>{pack.price}</b> COIN</div>
           <button className="primary-button" disabled={busyPack === pack.id || hub.wallet.coins < pack.price} onClick={() => buy(pack.id)}>
@@ -3293,7 +3293,7 @@ const CHAT_EMOTE_PATTERN = /:([a-z0-9_]+):/g;
 const CHAT_RENDER_LIMIT = 36;
 const CHAT_ANIMATED_SKIN_LIMIT = 12;
 
-function renderChatBody(body: string) {
+function renderChatBody(body: string, onMediaLoad?: () => void) {
   const nodes: any[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -3302,7 +3302,7 @@ function renderChatBody(body: string) {
     const [token, emoteId] = match;
     if (match.index > lastIndex) nodes.push(<span key={`text-${lastIndex}`}>{body.slice(lastIndex, match.index)}</span>);
     const emote = V34_BATTLE_EMOTE_BY_ID[emoteId];
-    if (emote) nodes.push(<span className="chat-inline-emote" key={`emote-${match.index}`} title={emote.name}><img src={emote.asset} alt={emote.name} /></span>);
+    if (emote) nodes.push(<span className="chat-inline-emote" key={`emote-${match.index}`} title={emote.name}><img src={emote.asset} alt={emote.name} decoding="async" onLoad={onMediaLoad} /></span>);
     else nodes.push(<span key={`token-${match.index}`}>{token}</span>);
     lastIndex = match.index + token.length;
   }
@@ -3427,7 +3427,7 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
           return <div className={`chat-message v31-social-skin theme-${skin?.profile_theme ?? 'bg_default'} frame-${skin?.profile_frame ?? 'frame_default'} ${message.user_id === profile.user_id ? 'mine' : ''}`} key={message.id}>
             {messageIndex >= messages.length - CHAT_ANIMATED_SKIN_LIMIT && <ProfileFrameFX frameId={skin?.profile_frame} />}
             <b><NicknameText name={message.display_name} styleId={message.nickname_style} /></b>
-            <p className="chat-rich-body">{renderChatBody(message.body)}</p>
+            <div className="chat-rich-body">{renderChatBody(message.body, () => stickChatToBottom('auto'))}</div>
             <small>{new Date(message.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small>
           </div>;
         })}
@@ -4279,7 +4279,6 @@ function UnitSlot({
           <span className={`unit-art ${card ? `variant-${hashString(card.id) % 6}` : ''}`} style={card ? cardStyle(card) : undefined}>
             {card ? <CardIllustration card={card} compact /> : <strong>✦</strong>}
           </span>
-          {card && <button type="button" className="unit-info-hotspot" aria-label={`${card.name} 상세 정보`} title={`${card.name} 상세 정보`} onPointerDown={(event: React.PointerEvent<HTMLButtonElement>) => { event.stopPropagation(); }} onClick={(event: React.MouseEvent<HTMLButtonElement>) => { event.preventDefault(); event.stopPropagation(); if (onInspect) onInspect(card.id); else requestCardInspection(card.id); }} onKeyDown={(event: React.KeyboardEvent<HTMLButtonElement>) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); if (onInspect) onInspect(card.id); else requestCardInspection(card.id); } }}>i</button>}
           <span className="v30-unit-traits" aria-label="유닛 전투 특성">
             {hasCharge && <i className="charge">속공</i>}
             {hasGuard && <i className="guard">수호</i>}
@@ -4295,7 +4294,7 @@ function UnitSlot({
           {unit.summonedBy !== 'normal' && unit.summonedBy !== 'token' && <span className={`origin-badge ${unit.summonedBy}`}>{unit.summonedBy === 'rift' ? 'RIFT' : unit.summonedBy === 'legendary' ? 'LEGEND' : unit.summonedBy === 'fusion' ? 'FUSION' : 'EVOLVE'}</span>}
           {unit.eclipseResonance === 'resonant' && <span className="v34e-time-resonance-badge resonant">TIME +</span>}
           {unit.eclipseResonance === 'strained' && <span className="v34e-time-resonance-badge strained">TIME −</span>}
-          <span className="unit-name">{card?.name ?? unit.cardId.replace('token:', '')}</span>
+          <span className="unit-name"><b>{card?.name ?? unit.cardId.replace('token:', '')}</b>{card && <button type="button" className="unit-info-hotspot" aria-label={`${card.name} 상세 정보`} title={`${card.name} 상세 정보`} onPointerDown={(event: React.PointerEvent<HTMLButtonElement>) => { event.stopPropagation(); }} onClick={(event: React.MouseEvent<HTMLButtonElement>) => { event.preventDefault(); event.stopPropagation(); if (onInspect) onInspect(card.id); else requestCardInspection(card.id); }} onKeyDown={(event: React.KeyboardEvent<HTMLButtonElement>) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); if (onInspect) onInspect(card.id); else requestCardInspection(card.id); } }}>i</button>}</span>
           <span className="unit-stats" aria-label={`공격 ${unit.attack}${temporalAttack ? ` (시간 ${temporalDeltaLabel(temporalAttack)})` : ''}, 방어 ${unit.health}${temporalHealth ? ` (시간 ${temporalDeltaLabel(temporalHealth)})` : ''}${unit.shield > 0 ? `, 방어막 +${unit.shield}` : ''}`}>
             <span className="v32n-stat attack"><b>{unit.attack}</b>{temporalAttack !== 0 && <em className={`v34o-temporal-delta ${temporalAttack > 0 ? 'positive' : 'negative'}`} title={`현재 ATK ${unit.attack}에 시간 보정 ${temporalDeltaLabel(temporalAttack)} 적용됨`} style={{ color: `rgb(${temporalVisual.rgb})`, borderColor: `rgba(${temporalVisual.rgb},.34)`, background: `rgba(${temporalVisual.rgb},.11)`, textShadow: `0 0 8px rgba(${temporalVisual.rgb},.42)` }}>TIME {temporalDeltaLabel(temporalAttack)}</em>}<i>ATK</i></span>
             <span className="v32n-stat defense"><b>{unit.health}</b>{temporalHealth !== 0 && <em className={`v34o-temporal-delta ${temporalHealth > 0 ? 'positive' : 'negative'}`} title={`현재 DEF ${unit.health}에 시간 보정 ${temporalDeltaLabel(temporalHealth)} 적용됨`} style={{ color: `rgb(${temporalVisual.rgb})`, borderColor: `rgba(${temporalVisual.rgb},.34)`, background: `rgba(${temporalVisual.rgb},.11)`, textShadow: `0 0 8px rgba(${temporalVisual.rgb},.42)` }}>TIME {temporalDeltaLabel(temporalHealth)}</em>}<i>DEF</i></span>
@@ -5120,14 +5119,15 @@ function DuelTimeCriticalStyles() {
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot::before,
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot::after { pointer-events:none!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-info-hotspot {
-      position:absolute!important;top:7px!important;right:7px!important;z-index:80!important;width:27px!important;height:27px!important;
+      position:static!important;z-index:95!important;width:17px!important;height:17px!important;min-width:17px!important;
       display:grid!important;place-items:center!important;padding:0!important;margin:0!important;border-radius:50%!important;pointer-events:auto!important;cursor:help!important;
-      border:1px solid rgba(210,235,250,.30)!important;background:rgba(3,8,13,.88)!important;color:#effaff!important;font-family:inherit!important;font-size:10px!important;font-weight:900!important;line-height:1!important;box-shadow:0 5px 16px rgba(0,0,0,.38)!important;
+      border:1px solid rgba(210,235,250,.38)!important;background:rgba(3,8,13,.9)!important;color:#effaff!important;font-family:inherit!important;font-size:9px!important;font-weight:900!important;line-height:1!important;box-shadow:0 3px 10px rgba(0,0,0,.32)!important;
     }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-art,
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .v30-unit-traits,
-    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-name,
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-stats { pointer-events:none!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-name { pointer-events:auto!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:4px!important;min-width:0!important;max-width:100%!important;overflow:hidden!important; }
+    .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-name > b { min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font:inherit!important;color:inherit!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-info-hotspot:hover,
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-info-hotspot:focus-visible { border-color:#aee9ff!important;background:#122432!important;outline:2px solid rgba(125,221,255,.32)!important;outline-offset:1px!important; }
 
@@ -5653,13 +5653,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const myExtraTurn = state.extraSummonTurn?.[userId] ?? {};
   const energySacrificeUsed = state.energySacrificeTurn?.[userId] === state.turnNumber;
   const fieldSacrificeUsed = state.fieldSacrificeTurn?.[userId] === state.turnNumber;
-  const energyDrawUsed = state.energyDrawTurn?.[userId] === state.turnNumber;
-  const energyDrawCost = privateState.hand.length === 0 ? 1 : 2;
+  const energyDrawCountThisTurn = state.energyDrawTurn?.[userId] === state.turnNumber ? Math.max(1, Math.trunc(state.energyDrawCount?.[userId] ?? 0)) : 0;
+  const energyDrawCost = 2 + energyDrawCountThisTurn;
   const hasDrawableCard = (state.deckCounts[userId] ?? 0) > 0 || (state.graveyards[userId] ?? []).some((cardId) => {
     const card = CARD_BY_ID[cardId];
     return Boolean(card && (card.kind === 'unit' || card.kind === 'spell' || card.kind === 'trap'));
   });
-  const canEnergyDraw = Boolean(myTurn && !interactionLocked && state.phase === 'main' && !busy && !energyDrawUsed && myEnergy.current >= energyDrawCost && hasDrawableCard);
+  const canEnergyDraw = Boolean(myTurn && !interactionLocked && state.phase === 'main' && !busy && myEnergy.current >= energyDrawCost && hasDrawableCard);
   const selectedFieldUnitState = selectedFieldUnit !== null ? state.boards[userId].units[selectedFieldUnit] : null;
   const selectedFieldUnitCard = selectedFieldUnitState ? CARD_BY_ID[selectedFieldUnitState.cardId] : undefined;
   const canRetireSelectedFieldUnit = Boolean(selectedFieldUnitState && myTurn && !interactionLocked && state.phase === 'main' && !busy && !fieldSacrificeUsed);
@@ -6223,7 +6223,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
           ? { step: 2, kicker: 'ATTACK · STEP 2', title: directAttackOpen ? '상대 리더를 선택하세요' : '공격 대상을 선택하세요', detail: directAttackOpen ? '상대 필드가 비었습니다. 왼쪽 위 상대 리더 패널을 누르면 직접 공격합니다.' : '빨갛게 표시되는 상대 유닛을 누르면 전투가 시작됩니다.', tip: '공격 대상을 고르기 전에는 언제든 “공격 선택 취소”를 누를 수 있습니다.' }
           : { step: 2, kicker: 'ATTACK · STEP 1', title: '공격할 내 유닛을 선택하세요', detail: '전투 단계입니다. 파랗게 빛나는 내 유닛 중 공격할 카드를 먼저 누르세요.', tip: '유닛 선택 → 상대 유닛(또는 리더) 선택 순서로 공격합니다.' }
         : selectedFieldUnitState
-          ? { step: 1, kicker: 'FIELD RETIRE', title: `${selectedFieldUnitCard?.name ?? '캐릭터'}을 정리할까요?`, detail: '선택한 내 캐릭터를 묘지로 보내 유닛 칸을 비웁니다. 에너지가 10 미만이면 +1을 얻습니다.', tip: fieldSacrificeUsed ? '이번 턴에는 이미 필드 정리를 사용했습니다.' : '필드 정리는 턴당 1회이며 전투 파괴로 취급하지 않습니다.' }
+          ? { step: 1, kicker: 'FIELD RETIRE', title: `${selectedFieldUnitCard?.name ?? '캐릭터'}을 정리할까요?`, detail: '선택한 내 캐릭터를 묘지로 보내 유닛 칸을 비웁니다. 에너지가 10 미만이면 +1을 얻습니다.', tip: fieldSacrificeUsed ? '이번 턴에는 이미 필드 정리를 사용했습니다.' : '필드 정리는 같은 턴 안에서 사용할 때마다 비용 +1이며 전투 파괴로 취급하지 않습니다.' }
           : selectedExtraCard
             ? selectedExtraSummonNeedsTarget && selectedMaterials.length === requiredMaterials && selectedMaterialsValid && selectedExtraEffectTarget === null
               ? { step: 1, kicker: 'SUMMON TARGET', title: '등장 효과 대상을 선택하세요', detail: `${summonTargetEffectLabel(selectedExtraCard)}을(를) 받을 아군 캐릭터를 선택합니다. 소재가 아닌 아군을 누르거나 “소환체 자신”을 선택하세요.`, tip: '대상을 선택한 뒤 특수 소환 버튼을 누르면 됩니다.' }
@@ -6486,13 +6486,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
               {selectedCard.kind === 'spell' && selectedCard.target === 'own_deck_card' && <button className="v18-context-primary v32y-card-picker-button" disabled={!canChooseDeckTutorTarget} onClick={openDeckTutorPicker}>덱에서 카드 선택 · {deckTutorTargets.length}</button>}
               {selectedCard.kind === 'spell' && selectedCard.target === 'friendly_graveyard_card' && <button className="v18-context-primary v32y-card-picker-button" disabled={!canChooseGraveCardTarget} onClick={openGraveCardPicker}>묘지에서 카드 선택 · {graveyardCardTargets.length}</button>}
               {selectedCard.kind === 'unit' && selectedCard.summonMode === 'legendary' && <button className="v18-context-primary v32q-legendary-summon" type="button" onClick={summonSelectedLegendary}>{handSummonBlockReasons(selectedCard).length === 0 ? `전설 특수 소환 · ${selectedCard.legendarySummonRule?.name ?? '강림'}` : '전설 특수 소환 조건 확인'}</button>}
-              {myTurn && state.phase === 'main' && <button className="v18-context-primary v31-energy-convert" disabled={!canSacrificeSelectedForEnergy} onClick={sacrificeSelectedForEnergy}><span>손패 → ENERGY +1</span><small>{energySacrificeUsed ? '이번 턴 사용 완료' : myEnergy.current >= myEnergyHardCap ? `에너지 최대 한도 ${myEnergyHardCap}` : '이 카드를 묘지로 보냅니다 · 턴당 1회'}</small></button>}
+              {myTurn && state.phase === 'main' && <button className="v18-context-primary v31-energy-convert" disabled={!canSacrificeSelectedForEnergy} onClick={sacrificeSelectedForEnergy}><span>손패 → ENERGY +1</span><small>{energySacrificeUsed ? '이번 턴 사용 완료' : myEnergy.current >= myEnergyHardCap ? `에너지 최대 한도 ${myEnergyHardCap}` : '이 카드를 묘지로 보냅니다 · 같은 턴 안에서 사용할 때마다 비용 +1'}</small></button>}
             </div>
           )}
           {selectedExtraCard && (
             <div className="v18-selected-card extra v31f-selected-extra">
               <div className="v18-selected-art"><CardIllustration card={selectedExtraCard} compact /></div>
-              <div className="v18-selected-copy"><small>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</small><b>{selectedExtraCard.name}</b><p>{extraRequirement(selectedExtraCard)}</p><span className="v18-material-progress">릴리스 소재 {selectedMaterials.length} / {requiredMaterials}</span><span className="v31-extra-usage">{selectedExtraCard.kind === 'fusion' ? `이번 게임 공명 ${myExtraUsage.fusion}/2` : `이번 게임 계승 ${myExtraUsage.evolution}/2`} · 턴당 1회</span></div>
+              <div className="v18-selected-copy"><small>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</small><b>{selectedExtraCard.name}</b><p>{extraRequirement(selectedExtraCard)}</p><span className="v18-material-progress">릴리스 소재 {selectedMaterials.length} / {requiredMaterials}</span><span className="v31-extra-usage">{selectedExtraCard.kind === 'fusion' ? `이번 게임 공명 ${myExtraUsage.fusion}/2` : `이번 게임 계승 ${myExtraUsage.evolution}/2`} · 같은 턴 안에서 사용할 때마다 비용 +1</span></div>
               {selectedExtraCard.extraChoices?.length && (
                 <div className="v31f-extra-choose">
                   <header><span>CHOOSE EFFECT</span><small>소환이 성공하면 선택한 효과 1개만 발동합니다.</small></header>
@@ -6522,7 +6522,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
 
         <section className="v18-action-buttons">
           {state.phase === 'main' && <button className="v31-field-retire-action" disabled={!canRetireSelectedFieldUnit} onClick={retireSelectedFieldUnit}><span>필드 → ENERGY {myEnergy.current < myEnergyHardCap ? '+1' : '+0'}</span><small>{fieldSacrificeUsed ? '이번 턴 사용 완료' : selectedFieldUnitState ? `${selectedFieldUnitCard?.name ?? '선택 캐릭터'}을 묘지로 보내 빈 칸 확보 · 턴당 1회` : '내 필드 캐릭터를 먼저 선택하세요'}</small></button>}
-          {state.phase === 'main' && <button className="v32o-energy-draw-action" disabled={!canEnergyDraw} onClick={spendEnergyForDraw}><span>ENERGY {energyDrawCost} → 카드 +1</span><small>{energyDrawUsed ? '이번 턴 사용 완료' : !hasDrawableCard ? '드로우 가능한 카드 없음' : myEnergy.current < energyDrawCost ? `ENERGY ${energyDrawCost} 필요` : privateState.hand.length === 0 ? '긴급 드로우 할인 · 턴 소비 없음 · 턴당 1회' : '턴 소비 없음 · 턴당 1회'}</small></button>}
+          {state.phase === 'main' && <button className="v32o-energy-draw-action" disabled={!canEnergyDraw} onClick={spendEnergyForDraw}><span>ENERGY {energyDrawCost} → 카드 +1</span><small>{!hasDrawableCard ? '드로우 가능한 카드 없음' : myEnergy.current < energyDrawCost ? `ENERGY ${energyDrawCost} 필요` : energyDrawCountThisTurn > 0 ? `이번 턴 ${energyDrawCountThisTurn}회 사용 · 다음 비용 +1` : '첫 사용 2 ENERGY · 같은 턴 반복 시 비용 +1'}</small></button>}
           {state.phase === 'main' && <button className="v18-secondary-action" disabled={!canSpendTurnToDraw} onClick={spendTurnToDraw}><span>＋ 카드 1장</span><small>턴을 소비해 추가 드로우</small></button>}
           {state.phase === 'main' && <button className="v18-battle-action" disabled={!myTurn || busy || interactionLocked} onClick={() => gameAction('battle_phase')}><span>전투 단계로 이동</span><small>이후 내 유닛 → 공격 대상 순서로 선택</small></button>}
           <button className="v18-end-turn" disabled={!myTurn || busy || interactionLocked} onClick={requestEndTurn}><span>턴 종료</span><small>{remainingOpportunities > 0 ? `가능 행동 ${remainingOpportunities}` : `${turnSecondsLeft}초 남음`}</small></button>
@@ -6530,7 +6530,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
 
         <section className="v18-extra-access">
           <button type="button" onClick={() => setExtraOpen(true)}><span>EXTRA RESERVE</span><b>{privateState.extra.length}</b><small>{extraReadyInstances.length > 0 ? `${extraReadyInstances.length}장 소환 가능` : roundNumber < 3 ? 'ROUND 3 해금' : '융합 · 진화'}</small></button>
-          <div className="v31-extra-limit-strip"><span>전개 <b>{myExtraUsage.fusion + myExtraUsage.evolution}/2</b></span><span>2차 해금 <b>R5</b></span><em>총 2회 · 턴당 1회</em></div>
+          <div className="v31-extra-limit-strip"><span>전개 <b>{myExtraUsage.fusion + myExtraUsage.evolution}/2</b></span><span>2차 해금 <b>R5</b></span><em>총 2회 · 같은 턴 안에서 사용할 때마다 비용 +1</em></div>
         </section>
 
       </aside>
