@@ -40,7 +40,7 @@ import {
   validateDeck,
   validateExtraDeck,
 } from './game-data';
-import { CORE_MAX, NATURAL_ECLIPSE_TURN_INTERVAL, TURN_DURATION_MS, type GameSnapshot, type MatchState, type PrivateState, type UnitState, type VisualEvent } from './game-engine';
+import { CORE_MAX, TURN_DURATION_MS, type GameSnapshot, type MatchState, type PrivateState, type UnitState, type VisualEvent } from './game-engine';
 import {
   PRACTICE_DIFFICULTY_LABEL,
   applyPracticeGameAction,
@@ -509,6 +509,36 @@ function levelAchievementCoinsBetween(beforeXp: number, afterXp: number): number
 function winRate(profile: Profile | FriendProfile): number {
   const total = profile.wins + profile.losses;
   return total === 0 ? 0 : Math.round((profile.wins / total) * 100);
+}
+
+type GraveyardKindCounts = { unit: number; spell: number; trap: number; other: number; total: number };
+
+function graveyardKindCounts(cardIds: string[] | undefined): GraveyardKindCounts {
+  const counts: GraveyardKindCounts = { unit: 0, spell: 0, trap: 0, other: 0, total: cardIds?.length ?? 0 };
+  for (const cardId of cardIds ?? []) {
+    const card = CARD_BY_ID[cardId];
+    if (card && isUnitCard(card)) counts.unit += 1;
+    else if (card?.kind === 'spell') counts.spell += 1;
+    else if (card?.kind === 'trap') counts.trap += 1;
+    else counts.other += 1;
+  }
+  return counts;
+}
+
+function graveyardSummaryText(cardIds: string[] | undefined): string {
+  const counts = graveyardKindCounts(cardIds);
+  return `묘지 ${counts.total}장 · 유닛 ${counts.unit} · 스펠 ${counts.spell} · 함정 ${counts.trap}${counts.other ? ` · 기타 ${counts.other}` : ''}`;
+}
+
+function GraveyardBreakdown({ cardIds }: { cardIds: string[] | undefined }) {
+  const counts = graveyardKindCounts(cardIds);
+  return (
+    <span className="v43-grave-breakdown" title={graveyardSummaryText(cardIds)} aria-label={graveyardSummaryText(cardIds)}>
+      <i>UNIT <b>{counts.unit}</b></i>
+      <i>SPELL <b>{counts.spell}</b></i>
+      <i>TRAP <b>{counts.trap}</b></i>
+    </span>
+  );
 }
 
 function cardStyle(card: CardDefinition): CSSProperties {
@@ -4686,7 +4716,7 @@ function DuelEnergyMeter({ label, current, max, cap = 10, nextMax, opponent = fa
 
 type EclipsePhaseNoticeState = {
   phase: EclipsePhase;
-  source: 'turn' | 'effect';
+  source: 'unit' | 'effect';
   turn: number;
   perspective: 'mine' | 'opponent' | 'spectator';
   serial: number;
@@ -4707,7 +4737,7 @@ function useEclipsePhaseNotice(state: MatchState | null | undefined, userId?: st
     previous.current = next;
     if (!before || before.phase === next.phase || state.status !== 'active') return;
 
-    const source: EclipsePhaseNoticeState['source'] = before.turn !== next.turn ? 'turn' : 'effect';
+    const source: EclipsePhaseNoticeState['source'] = state.eclipseLastChangeSource ?? 'effect';
     const perspective: EclipsePhaseNoticeState['perspective'] = userId
       ? state.currentPlayerId === userId ? 'mine' : 'opponent'
       : 'spectator';
@@ -4715,7 +4745,7 @@ function useEclipsePhaseNotice(state: MatchState | null | undefined, userId?: st
     setNotice(nextNotice);
     const timer = window.setTimeout(() => setNotice((current) => current?.serial === nextNotice.serial ? null : current), 1380);
     return () => window.clearTimeout(timer);
-  }, [state?.eclipsePhase, state?.turnNumber, state?.status, state?.currentPlayerId, userId]);
+  }, [state?.eclipsePhase, state?.eclipseLastChangeSource, state?.turnNumber, state?.status, state?.currentPlayerId, userId]);
 
   return notice;
 }
@@ -4724,7 +4754,7 @@ function EclipsePhaseShiftNotice({ notice }: { notice: EclipsePhaseNoticeState |
   if (!notice) return null;
   const meta = ECLIPSE_UI_META[notice.phase];
   const visual = ECLIPSE_ARENA_VISUAL[notice.phase];
-  const sourceLabel = notice.source === 'turn' ? `${NATURAL_ECLIPSE_TURN_INTERVAL} TURN CYCLE` : 'CARD EFFECT';
+  const sourceLabel = notice.source === 'unit' ? 'UNIT ARRIVAL · TIME SHIFT' : 'CARD EFFECT';
   return (
     <div
       key={notice.serial}
@@ -4772,12 +4802,10 @@ function EclipseCycleStrip({ state }: { state: MatchState }) {
   const meta = ECLIPSE_UI_META[current];
   const visual = ECLIPSE_ARENA_VISUAL[current];
   const locked = (state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber;
-  const completedInBlock = (Math.max(1, state.turnNumber) - 1) % NATURAL_ECLIPSE_TURN_INTERVAL;
-  const turnsUntilNaturalShift = NATURAL_ECLIPSE_TURN_INTERVAL - completedInBlock;
   return (
     <div
       className="v34m-cycle-inline"
-      aria-label={`ECLIPSE CYCLE · 현재 ${ECLIPSE_PHASE_LABEL[current]} · 자연 변경까지 ${turnsUntilNaturalShift}턴 · 여명, 정점, 황혼, 심야, 개기일식 순서`}
+      aria-label={`ECLIPSE CYCLE · 현재 ${ECLIPSE_PHASE_LABEL[current]} · 실제 유닛 카드가 필드에 등장할 때마다 다음 시간대로 변경 · 여명, 정점, 황혼, 심야, 개기일식 순서`}
       style={{
         display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, maxWidth: 'min(470px,38vw)', height: 28,
         marginLeft: 10, padding: '0 9px', overflow: 'hidden', whiteSpace: 'nowrap', flex: '0 1 470px',
@@ -4809,7 +4837,7 @@ function EclipseCycleStrip({ state }: { state: MatchState }) {
           </span>
         );
       })}
-      <em title={`자연 시간 변경까지 ${turnsUntilNaturalShift}턴`} style={{ marginLeft: 'auto', color: `rgba(${visual.rgb},.86)`, fontSize: 6.5, fontStyle: 'normal', fontWeight: 950, letterSpacing: '.08em', flex: '0 0 auto' }}>{locked ? `LOCK · ${turnsUntilNaturalShift}T` : `NEXT ${turnsUntilNaturalShift}T`}</em>
+      <em title={locked ? '시간 고정 효과가 활성화되어 있습니다.' : '다음 실제 유닛 카드가 필드에 등장하면 시간이 1단계 이동합니다.'} style={{ marginLeft: 'auto', color: `rgba(${visual.rgb},.86)`, fontSize: 6.5, fontStyle: 'normal', fontWeight: 950, letterSpacing: '.08em', flex: '0 0 auto' }}>{locked ? 'TIME LOCK' : 'NEXT · UNIT'}</em>
     </div>
   );
 }
@@ -6257,7 +6285,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       <DuelDamagePopupLayer events={damagePopups} userId={userId} />
       <CoinTossOverlay state={state} profiles={payload.profiles} userId={userId} now={coinClock} />
       <EclipsePhaseShiftNotice notice={eclipsePhaseNotice} />
-      {turnNotice && eclipsePhaseNotice?.source !== 'turn' && !coinTossActive && state.status === 'active' && (
+      {turnNotice && !coinTossActive && state.status === 'active' && (
         <div className={`v29-turn-notice ${turnNotice.mine ? 'mine' : 'opponent'}`} role="status" aria-live="polite">
           <small>TURN {turnNotice.turn}</small>
           <strong>{turnNotice.mine ? '나의 턴' : '상대의 턴'}</strong>
@@ -6311,7 +6339,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
           <div className="v18-leader-identity"><Avatar id={opponent?.avatar} /><i className={`v26-duel-emblem emblem-${opponent?.profile_emblem ?? 'emblem_default'}`} aria-hidden="true">{emblemGlyph(opponent?.profile_emblem)}</i><span><small>OPPONENT</small><b><NicknameText name={opponent?.display_name ?? '상대'} styleId={opponent?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[opponentId]}</strong><em>{selectedAttackerCanHitCore ? 'DIRECT ATTACK' : 'ENEMY LEADER'}</em></div>
           <DuelEnergyMeter label="ENERGY" current={opponentEnergy.current} max={opponentEnergy.max} cap={opponentEnergyHardCap} opponent compact />
-          <div className="v18-mini-stats"><span>HAND <b>{state.handCounts[opponentId] ?? 0}</b></span><span>DECK <b>{state.deckCounts[opponentId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[opponentId]?.length ?? 0}</b></span></div>
+          <div className="v18-mini-stats"><span>HAND <b>{state.handCounts[opponentId] ?? 0}</b></span><span>DECK <b>{state.deckCounts[opponentId] ?? 0}</b></span><span title={graveyardSummaryText(state.graveyards[opponentId])}>GRAVE <b>{state.graveyards[opponentId]?.length ?? 0}</b></span></div>
         </button>
 
         <div className="v18-leader-divider"><span>VS</span></div>
@@ -6321,7 +6349,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
           <div className="v18-leader-identity"><Avatar id={me?.avatar} /><i className={`v26-duel-emblem emblem-${me?.profile_emblem ?? 'emblem_default'}`} aria-hidden="true">{emblemGlyph(me?.profile_emblem)}</i><span><small>YOU</small><b><NicknameText name={me?.display_name ?? '나'} styleId={me?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[userId]}</strong><em>{myTurn ? phaseLabel : 'WAITING'}</em></div>
           <DuelEnergyMeter label="ENERGY" current={myEnergy.current} max={myEnergy.max} cap={myEnergyHardCap} nextMax={!myTurn ? nextMyEnergyMax : undefined} compact />
-          <div className="v18-mini-stats"><span>HAND <b>{privateState.hand.length}</b></span><span>DECK <b>{state.deckCounts[userId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[userId]?.length ?? 0}</b></span></div>
+          <div className="v18-mini-stats"><span>HAND <b>{privateState.hand.length}</b></span><span>DECK <b>{state.deckCounts[userId] ?? 0}</b></span><span title={graveyardSummaryText(state.graveyards[userId])}>GRAVE <b>{state.graveyards[userId]?.length ?? 0}</b></span></div>
         </section>
       </aside>
 
@@ -6349,7 +6377,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
           </div>
 
           <div className="v18-center-lane">
-            <div className="v18-pile-stat"><small>OPPONENT</small><span>DECK <b>{state.deckCounts[opponentId]}</b></span><span>GRAVE <b>{state.graveyards[opponentId]?.length ?? 0}</b></span></div>
+            <div className="v18-pile-stat"><small>OPPONENT</small><span>DECK <b>{state.deckCounts[opponentId]}</b></span><span title={graveyardSummaryText(state.graveyards[opponentId])}>GRAVE <b>{state.graveyards[opponentId]?.length ?? 0}</b></span><GraveyardBreakdown cardIds={state.graveyards[opponentId]} /></div>
             <div className="v29-center-status v34f-battle-flow-center">
               <div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div>
               <div className={`v22-momentum ${momentumLabel === '유리' ? 'ahead' : momentumLabel === '불리' ? 'behind' : 'even'}`}>
@@ -6357,7 +6385,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
                 <i><b style={{ left: `${momentumPercent}%` }} /></i>
               </div>
             </div>
-            <div className="v18-pile-stat mine"><small>YOU</small><span>DECK <b>{state.deckCounts[userId]}</b></span><span>GRAVE <b>{state.graveyards[userId]?.length ?? 0}</b></span></div>
+            <div className="v18-pile-stat mine"><small>YOU</small><span>DECK <b>{state.deckCounts[userId]}</b></span><span title={graveyardSummaryText(state.graveyards[userId])}>GRAVE <b>{state.graveyards[userId]?.length ?? 0}</b></span><GraveyardBreakdown cardIds={state.graveyards[userId]} /></div>
           </div>
 
           <div className="v18-zone-row v18-my-units">
@@ -6852,7 +6880,7 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
           <div className="v18-leader-identity"><Avatar id={playerB?.avatar} /><span><small>PLAYER B</small><b><NicknameText name={playerB?.display_name ?? 'PLAYER B'} styleId={playerB?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[playerBId] ?? 0}</strong><em>{state.currentPlayerId === playerBId ? 'TURN' : 'WAIT'}</em></div>
           <DuelEnergyMeter label="ENERGY" current={state.energy[playerBId]?.current ?? 0} max={state.energy[playerBId]?.max ?? 0} cap={10 + Math.max(0, state.energyMaxBonus?.[playerBId] ?? 0)} opponent compact />
-          <div className="v18-mini-stats"><span>HAND <b>{state.handCounts[playerBId] ?? 0}</b></span><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div>
+          <div className="v18-mini-stats"><span>HAND <b>{state.handCounts[playerBId] ?? 0}</b></span><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span title={graveyardSummaryText(state.graveyards[playerBId])}>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div>
         </section>
         <div className="v18-leader-divider"><span>VS</span></div>
         <section className="v18-leader-card mine" data-duel-leader-owner={playerAId}>
@@ -6860,7 +6888,7 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
           <div className="v18-leader-identity"><Avatar id={playerA?.avatar} /><span><small>PLAYER A</small><b><NicknameText name={playerA?.display_name ?? 'PLAYER A'} styleId={playerA?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[playerAId] ?? 0}</strong><em>{state.currentPlayerId === playerAId ? 'TURN' : 'WAIT'}</em></div>
           <DuelEnergyMeter label="ENERGY" current={state.energy[playerAId]?.current ?? 0} max={state.energy[playerAId]?.max ?? 0} cap={10 + Math.max(0, state.energyMaxBonus?.[playerAId] ?? 0)} compact />
-          <div className="v18-mini-stats"><span>HAND <b>{state.handCounts[playerAId] ?? 0}</b></span><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span></div>
+          <div className="v18-mini-stats"><span>HAND <b>{state.handCounts[playerAId] ?? 0}</b></span><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span title={graveyardSummaryText(state.graveyards[playerAId])}>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span></div>
         </section>
       </aside>
 
@@ -6874,7 +6902,7 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
         <section className="v18-board">
           <div className="v18-zone-row v18-enemy-secrets">{state.boards[playerBId].secrets.map((secret, index) => renderSpectatorSecret(secret, playerBSecrets[index], index, playerBId, playerB?.card_sleeve, true))}</div>
           <div className="v18-zone-row v18-enemy-units">{state.boards[playerBId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerBId} index={index} eclipsePhase={clientCurrentEclipsePhase(state)} enemy onInspect={onInspectCard} />)}</div>
-          <div className="v18-center-lane"><div className="v18-pile-stat"><small>PLAYER B</small><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div><div className="v29-center-status v34f-battle-flow-center"><div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div><div className="v32e-watch-copy"><small>ROOM SPECTATE</small><b>양쪽 손패 · 함정 공개</b></div></div><div className="v18-pile-stat mine"><small>PLAYER A</small><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span></div></div>
+          <div className="v18-center-lane"><div className="v18-pile-stat"><small>PLAYER B</small><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span title={graveyardSummaryText(state.graveyards[playerBId])}>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span><GraveyardBreakdown cardIds={state.graveyards[playerBId]} /></div><div className="v29-center-status v34f-battle-flow-center"><div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div><div className="v32e-watch-copy"><small>ROOM SPECTATE</small><b>양쪽 손패 · 함정 공개</b></div></div><div className="v18-pile-stat mine"><small>PLAYER A</small><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span title={graveyardSummaryText(state.graveyards[playerAId])}>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span><GraveyardBreakdown cardIds={state.graveyards[playerAId]} /></div></div>
           <div className="v18-zone-row v18-my-units">{state.boards[playerAId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerAId} index={index} eclipsePhase={clientCurrentEclipsePhase(state)} onInspect={onInspectCard} />)}</div>
           <div className="v18-zone-row v18-my-secrets">{state.boards[playerAId].secrets.map((secret, index) => renderSpectatorSecret(secret, playerASecrets[index], index, playerAId, playerA?.card_sleeve))}</div>
         </section>

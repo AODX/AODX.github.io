@@ -9653,3 +9653,45 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
 
 /* Explicitly suppress the old large compact time panel on hand cards. */
 .v23-client.in-duel .v18-hand-card > .v38-temporal-quick.compact { display:none!important; }
+
+/* v43: Graveyard composition is public at a glance without opening a modal. */
+.v23-client.in-duel .v18-pile-stat {
+  display:flex!important;
+  align-items:center!important;
+  flex-wrap:wrap!important;
+  column-gap:6px!important;
+  row-gap:4px!important;
+}
+.v23-client.in-duel .v43-grave-breakdown {
+  display:flex!important;
+  flex:1 0 100%!important;
+  align-items:center!important;
+  gap:4px!important;
+  min-width:0!important;
+  padding-top:3px!important;
+  border-top:1px solid rgba(151,190,215,.10)!important;
+}
+.v23-client.in-duel .v43-grave-breakdown i {
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:2px!important;
+  min-width:0!important;
+  padding:2px 4px!important;
+  border-radius:5px!important;
+  background:rgba(103,154,187,.07)!important;
+  color:#7f98aa!important;
+  font-size:6px!important;
+  font-style:normal!important;
+  font-weight:850!important;
+  letter-spacing:.04em!important;
+  white-space:nowrap!important;
+}
+.v23-client.in-duel .v43-grave-breakdown i b {
+  color:#d9ecf8!important;
+  font-size:7px!important;
+}
+@media (max-width:760px) {
+  .v23-client.in-duel .v43-grave-breakdown { gap:2px!important; }
+  .v23-client.in-duel .v43-grave-breakdown i { padding:2px 3px!important;font-size:5.5px!important; }
+  .v23-client.in-duel .v43-grave-breakdown i b { font-size:6.5px!important; }
+}

@@ -21,9 +21,7 @@ export type ExtraSummonKind = 'fusion' | 'evolution';
 export type VisualEventKind = 'turn' | 'summon' | 'special' | 'fusion' | 'evolution' | 'spell' | 'trap' | 'set' | 'draw' | 'attack' | 'defense' | 'destroy' | 'core' | 'heal' | 'buff' | 'energy';
 
 const INITIAL_ECLIPSE_PHASE: EclipsePhase = 'dawn';
-export const NATURAL_ECLIPSE_TURN_INTERVAL = 4;
-
-function nextNaturalEclipsePhase(phase: EclipsePhase): EclipsePhase {
+function nextEclipsePhase(phase: EclipsePhase): EclipsePhase {
   const index = ECLIPSE_PHASE_ORDER.indexOf(phase);
   if (index < 0) return INITIAL_ECLIPSE_PHASE;
   return ECLIPSE_PHASE_ORDER[(index + 1) % ECLIPSE_PHASE_ORDER.length] ?? INITIAL_ECLIPSE_PHASE;
@@ -168,14 +166,19 @@ export interface MatchState {
   nextTurnEnergyBonus?: Record<string, number>;
   /** Permanent per-match ENERGY maximum bonus. Each point also raises that player's hard cap above the base cap of 10. */
   energyMaxBonus?: Record<string, number>;
-  /** v34 global battlefield clock. Natural progression advances exactly once after every 3 completed turns unless temporarily locked. */
+  /** Global battlefield clock. Natural progression advances whenever a real unit card successfully enters the field. */
   eclipsePhase?: EclipsePhase;
-  /** Automatic cycle advance is skipped while current turn number is at or below this value. */
+  /** Source of the latest clock change, used by the HUD to distinguish unit-arrival shifts from card effects. */
+  eclipseLastChangeSource?: 'unit' | 'effect';
+  /** Automatic unit-arrival cycle advance is skipped while current turn number is at or below this value. */
   eclipsePhaseLockUntilTurn?: number;
   /** Actual phase-change history. Rewind spells pop from this stack instead of merely subtracting from the fixed cycle. */
   eclipsePhaseHistory?: EclipsePhase[];
-  /** Last card/player-driven clock change. Used by TIME COUNTER spells; natural progression never overwrites it. */
+  /** Last card/player-driven clock change. Used by TIME COUNTER spells; unit-arrival progression never overwrites it. */
   lastManualEclipseChange?: { actorId: string; from: EclipsePhase; to: EclipsePhase; turnNumber: number };
+  /** Internal queue used to serialize multiple real-unit arrivals caused by one effect chain. Removed after resolution. */
+  eclipseUnitArrivalShiftQueue?: Array<{ actorId: string; cardName: string }>;
+  eclipseUnitArrivalShiftResolving?: boolean;
   /** Recent purchased battle emotes; retained only briefly in UI but kept in snapshot for realtime sync. */
   battleEmotes?: Array<{ id: string; senderId: string; emoteId: string; createdAt: number }>;
   /** Per-match hard cap: max 2 fusion summons and max 2 evolution summons per player. */
@@ -387,8 +390,9 @@ export function initializeMatch(
     nextTurnEnergyBonus: {},
     energyMaxBonus: { [playerA]: 0, [playerB]: 0 },
     // Every new duel starts at Dawn. Card/spell effects may change it later,
-    // but the natural turn clock always continues from the currently active phase.
+    // Natural time now advances when a real unit card enters the field.
     eclipsePhase: INITIAL_ECLIPSE_PHASE,
+    eclipseLastChangeSource: 'effect',
     eclipsePhaseLockUntilTurn: 0,
     eclipsePhaseHistory: [],
     battleEmotes: [],
@@ -954,6 +958,7 @@ function resolveEclipsePhasePulse(
       statsFor(state, ownerId).specialSummons += 1;
       detail = `${selected.card.name} 부활 · DEF ${revived.health}/${revived.maxHealth}${effect.ready ? ' · 즉시 공격 가능' : ''}`;
       appendVisual(state, { kind: 'summon', vfx: `eclipse-pulse-${pulse.phase}`, cardId: selected.card.id, ownerId, targetOwnerId: ownerId, targetZone: zone, label: pulse.name });
+      registerRealUnitArrivalTimeShift(state, privateStates, ownerId, selected.card.name);
       break;
     }
     case 'collapse_weakest_enemy': {
@@ -1115,7 +1120,7 @@ function setEclipsePhase(
   phase: EclipsePhase,
   actorId?: string,
   reason = '위상 조율',
-  options: { recordHistory?: boolean } = {},
+  options: { recordHistory?: boolean; source?: 'unit' | 'effect'; recordManual?: boolean } = {},
 ): void {
   const before = currentEclipsePhase(state);
   if (before === phase) {
@@ -1130,7 +1135,8 @@ function setEclipsePhase(
     state.eclipsePhaseHistory = history.slice(-12);
   }
   state.eclipsePhase = phase;
-  if (actorId) {
+  state.eclipseLastChangeSource = options.source ?? 'effect';
+  if (actorId && options.recordManual !== false) {
     state.lastManualEclipseChange = { actorId, from: before, to: phase, turnNumber: state.turnNumber };
   }
   refreshBattlefieldEclipseModifiers(state);
@@ -1138,6 +1144,49 @@ function setEclipsePhase(
   appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[before]} → ${ECLIPSE_PHASE_LABEL[phase]} · ${reason}`, 'special');
   appendVisual(state, { kind: 'special', vfx: `eclipse-cycle-${phase}`, ownerId: actorId, label: `CYCLE · ${ECLIPSE_PHASE_LABEL[phase]}` });
   triggerEclipsePhasePulses(state, privateStates, phase);
+}
+
+/**
+ * Real unit cards advance the global clock exactly once when they successfully enter the field.
+ * Tokens are intentionally excluded so a phase pulse that creates tokens cannot recursively spin
+ * the clock forever. Effect chains that recruit/revive multiple real cards are queued and resolved
+ * one by one after the current phase transition finishes.
+ */
+function registerRealUnitArrivalTimeShift(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  actorId: string,
+  cardName: string,
+): void {
+  if (!state.eclipseUnitArrivalShiftQueue) state.eclipseUnitArrivalShiftQueue = [];
+  state.eclipseUnitArrivalShiftQueue.push({ actorId, cardName });
+  if (state.eclipseUnitArrivalShiftResolving) return;
+
+  state.eclipseUnitArrivalShiftResolving = true;
+  let safety = 0;
+  try {
+    while ((state.eclipseUnitArrivalShiftQueue?.length ?? 0) > 0 && safety < 24 && state.status === 'active') {
+      safety += 1;
+      const arrival = state.eclipseUnitArrivalShiftQueue?.shift();
+      if (!arrival) break;
+      const current = currentEclipsePhase(state);
+      if ((state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber) {
+        appendLog(state, `ECLIPSE CYCLE · 「${arrival.cardName}」 등장 · 시간 고정 효과로 ${ECLIPSE_PHASE_LABEL[current]} 유지.`, 'special');
+        continue;
+      }
+      setEclipsePhase(
+        state,
+        privateStates,
+        nextEclipsePhase(current),
+        arrival.actorId,
+        `유닛 등장 · 「${arrival.cardName}」`,
+        { source: 'unit', recordManual: false },
+      );
+    }
+  } finally {
+    delete state.eclipseUnitArrivalShiftResolving;
+    delete state.eclipseUnitArrivalShiftQueue;
+  }
 }
 
 function shiftEclipsePhase(state: MatchState, privateStates: Record<string, PrivateState>, steps: number, actorId?: string, reason = '위상 이동'): void {
@@ -1398,6 +1447,7 @@ function applyEffect(
       statsFor(state, actorId).specialSummons += 1;
       appendLog(state, `덱에서 「${recruitedCard.name}」을(를) 직접 전개했습니다. 소환 효과는 발동하지 않습니다.`, 'special');
       appendVisual(state, { kind: 'special', vfx: 'deck-recruit', cardId: recruitedCard.id, ownerId: actorId, targetOwnerId: actorId, targetZone: destination, label: '덱 전개' });
+      registerRealUnitArrivalTimeShift(state, privateStates, actorId, recruitedCard.name);
       break;
     }
     case 'recover_grave_unit': {
@@ -1722,6 +1772,7 @@ function applyEffect(
       statsFor(state, actorId).specialSummons += 1;
       appendLog(state, `타입 호출 — 「${recruitedCard.name}」을(를) 덱에서 전개했습니다. 등장 효과는 발동하지 않습니다.`, 'special');
       appendVisual(state, { kind: 'special', vfx: 'v33a-type-recruit', cardId: recruitedCard.id, ownerId: actorId, targetOwnerId: actorId, targetZone: destination, label: '타입 호출' });
+      registerRealUnitArrivalTimeShift(state, privateStates, actorId, recruitedCard.name);
       break;
     }
     case 'reset_unit': {
@@ -1924,6 +1975,7 @@ function applyEffect(
       statsFor(state, actorId).specialSummons += 1;
       appendLog(state, `묘지에서 「${revivedCard.name}」을(를) 부활시켰습니다. 소환 효과는 재발동하지 않습니다.`, 'special');
       appendVisual(state, { kind: 'special', vfx: 'grave-revival', cardId: revivedCard.id, ownerId: actorId, targetOwnerId: actorId, targetZone: destination, label: '묘지 부활' });
+      registerRealUnitArrivalTimeShift(state, privateStates, actorId, revivedCard.name);
       break;
     }
     case 'mass_recall': {
@@ -3605,6 +3657,13 @@ function continueSummonResolution(
     return;
   }
 
+  // v43: every successfully resolved real unit arrival advances the global time once.
+  // This happens before the unit's own printed time-setting effect, so dedicated time manipulators
+  // can still override the natural arrival shift as part of their card text.
+  if (state.boards[actorId].units[zone]) {
+    registerRealUnitArrivalTimeShift(state, privateStates, actorId, card.name);
+  }
+
   if (card.eclipseSetOnSummon && state.boards[actorId].units[zone]) {
     setEclipsePhase(state, privateStates, card.eclipseSetOnSummon, actorId, `「${card.name}」 · 시각 조율`);
   }
@@ -4592,24 +4651,7 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
     if (unit.stunnedUntilTurn && unit.stunnedUntilTurn < state.turnNumber) delete unit.stunnedUntilTurn;
   });
 
-  // Natural ECLIPSE time moves after each block of four completed turns.
-  // Turn 1 starts at Dawn; turns 1-4 stay in that phase, then turn 5 advances once.
-  // Card/spell phase changes still happen immediately and the next natural 4-turn tick
-  // continues sequentially from whatever phase is active at that moment.
-  const naturalEclipseTick = (state.turnNumber - 1) % NATURAL_ECLIPSE_TURN_INTERVAL === 0;
-  if (naturalEclipseTick) {
-    if ((state.eclipsePhaseLockUntilTurn ?? 0) >= state.turnNumber) {
-      appendLog(state, `ECLIPSE CYCLE · ${ECLIPSE_PHASE_LABEL[currentEclipsePhase(state)]} 고정 유지 · 4턴 자연 진행이 잠겼습니다.`, 'special');
-    } else {
-      setEclipsePhase(
-        state,
-        privateStates,
-        nextNaturalEclipsePhase(currentEclipsePhase(state)),
-        undefined,
-        '4턴 경과 · 자연 진행',
-      );
-    }
-  }
+  // v43: ECLIPSE CYCLE no longer advances from turn count. Successful real-unit arrivals drive the clock.
   checkWinner(state);
   if (state.status !== 'active') {
     state.turnEndsAt = null;
