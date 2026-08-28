@@ -4276,8 +4276,8 @@ function UnitSlot({
   const hasSweep = Boolean(card?.keywords?.includes('sweep'));
   const temporalAttack = unit?.eclipseAttackModifier ?? 0;
   const temporalHealth = unit?.eclipseHealthModifier ?? 0;
-  const attackDeltaFromPrinted = unit ? unit.attack - card.attack : 0;
-  const defenseDeltaFromPrinted = unit ? unit.maxHealth - card.health : 0;
+  const attackDeltaFromPrinted = unit && card ? unit.attack - (card.attack ?? 0) : 0;
+  const defenseDeltaFromPrinted = unit && card ? unit.maxHealth - (card.health ?? 0) : 0;
   const temporalVisual = ECLIPSE_ARENA_VISUAL[eclipsePhase];
   const temporalDeltaLabel = (value: number) => `${value > 0 ? '+' : '−'}${Math.abs(value)}`;
   return (
