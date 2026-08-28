@@ -5593,6 +5593,204 @@ function DuelTimeCriticalStyles() {
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v38-temporal-row > strong { font-size:8px!important; }
     .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v38-temporal-phase-chip { min-height:16px!important;padding:1px 5px!important;font-size:7px!important; }
 
+    /* v49: desktop density normalization.
+       The duel should keep the same composition as the 1865x797 reference instead
+       of looking miniature on 1920p/1440p/4K monitors. Laptop/tablet rules below
+       remain untouched; only non-iPad desktop viewports >= 1800 CSS px use this. */
+    @media (min-width:1800px) {
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix {
+        --leader-col:clamp(232px,12.9vw,520px)!important;
+        --command-col:clamp(340px,18.8vw,760px)!important;
+        --header-h:clamp(64px,8dvh,150px)!important;
+        --hand-h:clamp(230px,29dvh,620px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-duel-header {
+        padding-inline:clamp(18px,1.15vw,44px)!important;
+        gap:clamp(12px,.85vw,30px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-duel-brand b {
+        font-size:clamp(15px,.9vw,31px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-duel-brand small {
+        font-size:clamp(9px,.5vw,18px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-turn-timer {
+        min-width:clamp(118px,7.2vw,275px)!important;
+        height:clamp(42px,5.1dvh,84px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-turn-timer strong {
+        font-size:clamp(18px,1.05vw,36px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-header-actions button {
+        min-width:clamp(60px,3.4vw,130px)!important;
+        height:clamp(40px,4.8dvh,78px)!important;
+        font-size:clamp(11px,.6vw,21px)!important;
+      }
+
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-rail {
+        padding:clamp(14px,1vw,36px) clamp(12px,.8vw,30px)!important;
+        gap:clamp(10px,.8vw,26px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-card {
+        padding:clamp(16px,1vw,34px) clamp(13px,.85vw,30px)!important;
+        gap:clamp(11px,.7vw,24px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-identity > .avatar {
+        width:clamp(48px,2.8vw,106px)!important;
+        height:clamp(48px,2.8vw,106px)!important;
+        min-width:clamp(48px,2.8vw,106px)!important;
+        min-height:clamp(48px,2.8vw,106px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-identity > span:not(.avatar) > b {
+        font-size:clamp(13px,.76vw,27px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-leader-identity small {
+        font-size:clamp(9px,.5vw,18px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hp-readout strong {
+        font-size:clamp(44px,2.8vw,104px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-mini-stats span {
+        padding:clamp(7px,.5vw,18px) clamp(4px,.3vw,12px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-mini-stats b {
+        font-size:clamp(12px,.68vw,24px)!important;
+      }
+
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-board {
+        position:absolute!important;
+        inset:clamp(42px,5.4dvh,88px) clamp(10px,.75vw,28px) clamp(8px,1.2dvh,24px)!important;
+        grid-template-rows:
+          clamp(40px,5.1dvh,80px)
+          minmax(clamp(116px,15dvh,260px),1fr)
+          clamp(48px,6.1dvh,96px)
+          minmax(clamp(116px,15dvh,260px),1fr)
+          clamp(44px,5.6dvh,88px)!important;
+        gap:clamp(7px,.72dvh,14px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-zone-row {
+        gap:clamp(8px,.66vw,24px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-unit-slot .unit-name {
+        bottom:clamp(31px,3.6dvh,60px)!important;
+        padding:clamp(12px,1.5dvh,25px) clamp(8px,.55vw,20px) clamp(6px,.75dvh,14px)!important;
+        font-size:clamp(11px,.64vw,23px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-unit-slot .unit-stats {
+        height:clamp(32px,4dvh,64px)!important;
+        padding-inline:clamp(10px,.65vw,24px)!important;
+        font-size:clamp(12px,.68vw,24px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .unit-slot .unit-info-hotspot {
+        width:clamp(17px,1vw,32px)!important;
+        height:clamp(17px,1vw,32px)!important;
+        min-width:clamp(17px,1vw,32px)!important;
+        font-size:clamp(9px,.5vw,16px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-center-lane {
+        grid-template-columns:minmax(100px,1fr) minmax(clamp(230px,17vw,650px),clamp(260px,19vw,730px)) minmax(100px,1fr)!important;
+        gap:clamp(14px,.9vw,34px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v22-momentum {
+        width:clamp(210px,12vw,460px)!important;
+      }
+
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-command-rail {
+        padding:clamp(12px,.9vw,34px)!important;
+        gap:clamp(10px,.7vw,26px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v29-action-coach {
+        padding:clamp(14px,1vw,36px)!important;
+        border-radius:clamp(14px,.8vw,26px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v29-action-coach h3 {
+        font-size:clamp(18px,1.15vw,40px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v29-action-coach > p {
+        font-size:clamp(12px,.7vw,24px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v29-coach-steps > span,
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v29-action-coach > small {
+        font-size:clamp(10px,.56vw,19px)!important;
+      }
+
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-dock {
+        padding:clamp(9px,1.05dvh,18px) clamp(14px,1vw,36px) clamp(10px,1.2dvh,24px) clamp(16px,1.15vw,42px)!important;
+        grid-template-rows:clamp(34px,4.2dvh,68px) minmax(0,1fr)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-scroll {
+        gap:clamp(10px,.72vw,28px)!important;
+        padding:clamp(7px,.8dvh,16px) clamp(8px,.55vw,22px) clamp(10px,1dvh,20px) 2px!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card {
+        flex:0 0 clamp(170px,9.6vw,370px)!important;
+        width:clamp(170px,9.6vw,370px)!important;
+        min-width:clamp(170px,9.6vw,370px)!important;
+        height:clamp(246px,13.9vw,536px)!important;
+        min-height:clamp(246px,13.9vw,536px)!important;
+        max-height:none!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact {
+        width:clamp(170px,9.6vw,370px)!important;
+        min-width:clamp(170px,9.6vw,370px)!important;
+        max-width:clamp(170px,9.6vw,370px)!important;
+        height:clamp(246px,13.9vw,536px)!important;
+        min-height:clamp(246px,13.9vw,536px)!important;
+        max-height:clamp(246px,13.9vw,536px)!important;
+        grid-template-rows:clamp(42px,2.5vw,92px) minmax(0,1fr) clamp(29px,1.75vw,64px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline {
+        height:clamp(42px,2.5vw,92px)!important;
+        min-height:clamp(42px,2.5vw,92px)!important;
+        padding:clamp(5px,.33vw,12px) clamp(8px,.48vw,18px) clamp(5px,.33vw,12px) clamp(38px,2.35vw,90px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline b {
+        font-size:clamp(11px,.68vw,24px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card .card-topline small {
+        font-size:clamp(7.5px,.45vw,16px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .card-cost {
+        top:clamp(7px,.42vw,16px)!important;
+        left:clamp(7px,.42vw,16px)!important;
+        width:clamp(29px,1.8vw,68px)!important;
+        height:clamp(29px,1.8vw,68px)!important;
+        font-size:clamp(13px,.8vw,28px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .card-info-hotspot {
+        top:clamp(72px,4.4vw,168px)!important;
+        right:clamp(7px,.42vw,16px)!important;
+        width:clamp(27px,1.6vw,60px)!important;
+        height:clamp(27px,1.6vw,60px)!important;
+        font-size:clamp(11px,.65vw,23px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .summon-badge,
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .v30-card-traits {
+        top:clamp(47px,2.8vw,108px)!important;
+        right:clamp(7px,.42vw,16px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-side {
+        min-width:clamp(118px,6.5vw,250px)!important;
+        padding-left:clamp(12px,.7vw,28px)!important;
+      }
+
+      html:not([data-ipad="true"]) .v23-client.in-duel .v29-turn-notice {
+        min-width:clamp(400px,28vw,920px)!important;
+        max-width:clamp(520px,34vw,1100px)!important;
+        padding:clamp(22px,1.4vw,52px) clamp(34px,2vw,76px)!important;
+        border-radius:clamp(18px,1.1vw,40px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v29-turn-notice small {
+        font-size:clamp(10px,.58vw,20px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v29-turn-notice strong {
+        font-size:clamp(36px,2.05vw,74px)!important;
+      }
+      html:not([data-ipad="true"]) .v23-client.in-duel .v29-turn-notice span {
+        font-size:clamp(12px,.68vw,24px)!important;
+      }
+    }
+
     /* v39 iPad landscape: render the duel as a compact desktop canvas instead of
        letting dozens of tablet-specific media rules squeeze each section differently.
        The runtime bridge supplies a safe scale and virtual canvas size. */

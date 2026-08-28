@@ -11413,3 +11413,38 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
   .auth-screen.premium-auth .auth-card-b { width: 138px !important; }
   .auth-screen.premium-auth .auth-panel { padding-top: 24px !important; padding-bottom: 24px !important; }
 }
+
+/* ========================================================================== 
+   v49 RESPONSIVE DESKTOP BASELINE
+   Keeps the duel visually proportional to the 1865x797 reference on desktop
+   monitors, while leaving the existing laptop/iPad rules in control below 1800px.
+   Critical sizes are duplicated in page.tsx because the duel also ships an inline
+   failsafe stylesheet for stale CSS bundles.
+   ========================================================================== */
+@media (min-width:1800px) {
+  html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix {
+    --leader-col:clamp(232px,12.9vw,520px)!important;
+    --command-col:clamp(340px,18.8vw,760px)!important;
+    --header-h:clamp(64px,8dvh,150px)!important;
+    --hand-h:clamp(230px,29dvh,620px)!important;
+  }
+  html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-board {
+    position:absolute!important;
+    inset:clamp(42px,5.4dvh,88px) clamp(10px,.75vw,28px) clamp(8px,1.2dvh,24px)!important;
+    grid-template-rows:clamp(40px,5.1dvh,80px) minmax(clamp(116px,15dvh,260px),1fr) clamp(48px,6.1dvh,96px) minmax(clamp(116px,15dvh,260px),1fr) clamp(44px,5.6dvh,88px)!important;
+    gap:clamp(7px,.72dvh,14px)!important;
+  }
+  html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-zone-row { gap:clamp(8px,.66vw,24px)!important; }
+  html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-command-rail { padding:clamp(12px,.9vw,34px)!important;gap:clamp(10px,.7vw,26px)!important; }
+  html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-dock { padding:clamp(9px,1.05dvh,18px) clamp(14px,1vw,36px) clamp(10px,1.2dvh,24px) clamp(16px,1.15vw,42px)!important;grid-template-rows:clamp(34px,4.2dvh,68px) minmax(0,1fr)!important; }
+  html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card,
+  html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact {
+    width:clamp(170px,9.6vw,370px)!important;
+    min-width:clamp(170px,9.6vw,370px)!important;
+    height:clamp(246px,13.9vw,536px)!important;
+    min-height:clamp(246px,13.9vw,536px)!important;
+  }
+  html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card { flex-basis:clamp(170px,9.6vw,370px)!important;max-height:none!important; }
+  html:not([data-ipad="true"]) .v23-client.in-duel .v18-duel-screen.v34m-time-fix .v18-hand-card .tcg-card.compact { max-width:clamp(170px,9.6vw,370px)!important;max-height:clamp(246px,13.9vw,536px)!important; }
+  html:not([data-ipad="true"]) .v23-client.in-duel .v29-turn-notice { min-width:clamp(400px,28vw,920px)!important;max-width:clamp(520px,34vw,1100px)!important; }
+}
