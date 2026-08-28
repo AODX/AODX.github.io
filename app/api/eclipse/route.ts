@@ -4,7 +4,9 @@ import {
   validateExtraDeck,
   PACKS,
   CARDS,
+  type CardDefinition,
   type PackDefinition,
+  type Rarity,
 } from '../../game-data';
 import { PROFILE_COSMETIC_BY_ID } from '../../profile-cosmetics';
 import { V34_BATTLE_EMOTE_BY_ID, V34_BATTLE_EMOTE_PACK_BY_ID } from '../../v34-emotes';
@@ -592,6 +594,61 @@ function drawPremiumTimePack(pack: PackDefinition): string[] {
   return Array.from({ length: 3 }, () => (Math.random() < pickupRate ? featuredCardId : randomPick(PREMIUM_TIME_MISS_POOL_IDS)));
 }
 
+const PACK_RARITY_ORDER: Rarity[] = ['common', 'rare', 'epic', 'legendary'];
+
+function drawPackRarity(odds: PackDefinition['odds']): Rarity {
+  const roll = Math.random() * 100;
+  let cursor = 0;
+  for (const rarity of PACK_RARITY_ORDER) {
+    cursor += Math.max(0, Number(odds[rarity] ?? 0));
+    if (roll < cursor) return rarity;
+  }
+  return 'common';
+}
+
+function drawGuaranteedRarePlusRarity(odds: PackDefinition['odds']): Rarity {
+  // Keep the printed Legendary probability exact even on the guaranteed
+  // Series slot: Legendary 1%, Epic 18%, otherwise Rare.
+  const legendary = Math.max(0, Math.min(100, Number(odds.legendary ?? 0)));
+  const epic = Math.max(0, Math.min(100 - legendary, Number(odds.epic ?? 0)));
+  const roll = Math.random() * 100;
+  if (roll < legendary) return 'legendary';
+  if (roll < legendary + epic) return 'epic';
+  return 'rare';
+}
+
+function randomCardByRarity(pool: readonly CardDefinition[], rarity: Rarity): CardDefinition {
+  const exact = pool.filter((card) => card.rarity === rarity);
+  if (exact.length > 0) return randomPick(exact);
+  const fallback = pool.filter((card) => !PREMIUM_TIME_FEATURED_SET.has(card.id));
+  if (fallback.length === 0) throw new Error('카드팩 후보 풀이 비어 있습니다.');
+  return randomPick(fallback);
+}
+
+function drawSeriesPack(pack: PackDefinition): string[] {
+  const seriesId = pack.seriesId;
+  if (!seriesId) throw new Error('시리즈 카드팩 정보가 올바르지 않습니다.');
+
+  const seriesPool = CARDS.filter((card) => card.seriesId === seriesId && !PREMIUM_TIME_FEATURED_SET.has(card.id));
+  const nonSeriesPool = CARDS.filter((card) => card.seriesId !== seriesId && !PREMIUM_TIME_FEATURED_SET.has(card.id));
+  if (seriesPool.length === 0 || nonSeriesPool.length === 0) throw new Error('시리즈 카드팩 후보 풀이 부족합니다.');
+
+  const opened: string[] = [];
+  // Slot 1: guaranteed same-series Rare+ card. Legendary still remains exactly 1%.
+  const guaranteedRarity = drawGuaranteedRarePlusRarity(pack.odds);
+  opened.push(randomCardByRarity(seriesPool, guaranteedRarity).id);
+
+  // Remaining four slots: exact printed rarity table, with the advertised
+  // Series pickup chance deciding whether the slot comes from this archetype.
+  const seriesRate = Math.max(0, Math.min(100, Number(pack.odds.seriesRate ?? 42))) / 100;
+  for (let index = 1; index < 5; index += 1) {
+    const rarity = drawPackRarity(pack.odds);
+    const sourcePool = Math.random() < seriesRate ? seriesPool : nonSeriesPool;
+    opened.push(randomCardByRarity(sourcePool, rarity).id);
+  }
+  return opened;
+}
+
 async function addCardsToCollection(admin: UserDbClient | AdminDbClient, userId: string, cardIds: string[]) {
   if (!cardIds.length) return;
   const uniqueIds = Array.from(new Set(cardIds));
@@ -624,6 +681,25 @@ async function buyPremiumPackLocally(admin: UserDbClient | AdminDbClient, userId
   const { error: walletUpdateError } = await admin.from('eclipse_wallets').update({ coins: nextCoins }).eq('user_id', userId);
   if (walletUpdateError) throw walletUpdateError;
   const openedIds = drawPremiumTimePack(pack);
+  try {
+    await addCardsToCollection(admin, userId, openedIds);
+  } catch (error) {
+    await admin.from('eclipse_wallets').update({ coins: currentCoins }).eq('user_id', userId);
+    throw error;
+  }
+  return { cardIds: openedIds, balance: nextCoins };
+}
+
+async function buySeriesPackLocally(admin: UserDbClient | AdminDbClient, userId: string, pack: PackDefinition) {
+  const { data: walletRow, error: walletError } = await admin.from('eclipse_wallets').select('coins').eq('user_id', userId).single();
+  if (walletError) throw walletError;
+  const currentCoins = Number((walletRow as any)?.coins ?? 0);
+  if (currentCoins < pack.price) throw new Error('코인이 부족합니다.');
+  const nextCoins = currentCoins - pack.price;
+  const { error: walletUpdateError } = await admin.from('eclipse_wallets').update({ coins: nextCoins }).eq('user_id', userId);
+  if (walletUpdateError) throw walletUpdateError;
+
+  const openedIds = drawSeriesPack(pack);
   try {
     await addCardsToCollection(admin, userId, openedIds);
   } catch (error) {
@@ -1270,6 +1346,10 @@ async function handleAction(request: Request, body: RequestBody) {
     if (!pack) throw new Error('존재하지 않는 팩입니다.');
     if (pack.featuredCardId) {
       const payload = await buyPremiumPackLocally(client, user.id, pack);
+      return { ...payload, hub: await getHub(client, user.id) };
+    }
+    if (pack.seriesId) {
+      const payload = await buySeriesPackLocally(client, user.id, pack);
       return { ...payload, hub: await getHub(client, user.id) };
     }
     const { data, error } = await client.rpc('eclipse_open_pack_v26', { p_pack_id: packId });
