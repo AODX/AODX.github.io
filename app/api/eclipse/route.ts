@@ -438,6 +438,31 @@ async function requireAdmin(): Promise<AdminDbClient> {
   return probe.client;
 }
 
+/**
+ * Shop purchases only need privileged access to the wallet/collection tables.
+ * Do not make card-pack opening depend on the duel-only eclipse_private_states
+ * migration. Prefer a valid server key when available, then gracefully fall
+ * back to the signed-in user's client on deployments whose RLS already permits
+ * owner mutations.
+ */
+async function storeMutationClient(fallback: UserDbClient): Promise<UserDbClient | AdminDbClient> {
+  const currentRef = projectRefFromUrl(serverUrl());
+  for (const configured of configuredAdminKeys()) {
+    const payload = decodeLegacyKeyPayload(configured.key);
+    const keyRef = typeof payload?.ref === 'string' ? payload.ref : null;
+    if (keyRef && keyRef !== currentRef) continue;
+    try {
+      const admin = adminClientFromKey(configured.key);
+      const { error } = await admin.from('eclipse_wallets').select('user_id', { count: 'exact', head: true });
+      if (!error) return admin;
+    } catch {
+      // Ignore a stale/misconfigured admin key here. The user-scoped client may
+      // still be allowed by the project's RLS policies.
+    }
+  }
+  return fallback;
+}
+
 async function requireUser(request: Request): Promise<{ user: User; client: UserDbClient; token: string }> {
   const authorization = request.headers.get('authorization') ?? '';
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
@@ -657,7 +682,7 @@ async function addCardsToCollection(admin: UserDbClient | AdminDbClient, userId:
     .select('card_id, quantity')
     .eq('user_id', userId)
     .in('card_id', uniqueIds);
-  if (existingError) throw existingError;
+  if (existingError) throw new Error(`보유 카드 확인 실패: ${existingError.message}`);
 
   const existingMap = new Map<string, number>((existingRows ?? []).map((row: any) => [String(row.card_id), Number(row.quantity ?? 0)]));
   const increments = new Map<string, number>();
@@ -669,17 +694,17 @@ async function addCardsToCollection(admin: UserDbClient | AdminDbClient, userId:
     quantity: (existingMap.get(cardId) ?? 0) + amount,
   }));
   const { error } = await admin.from('eclipse_collections').upsert(payload, { onConflict: 'user_id,card_id' });
-  if (error) throw error;
+  if (error) throw new Error(`카드 보관함 저장 실패: ${error.message}`);
 }
 
 async function buyPremiumPackLocally(admin: UserDbClient | AdminDbClient, userId: string, pack: PackDefinition) {
   const { data: walletRow, error: walletError } = await admin.from('eclipse_wallets').select('coins').eq('user_id', userId).single();
-  if (walletError) throw walletError;
+  if (walletError) throw new Error(`코인 정보 확인 실패: ${walletError.message}`);
   const currentCoins = Number((walletRow as any)?.coins ?? 0);
   if (currentCoins < pack.price) throw new Error('코인이 부족합니다.');
   const nextCoins = currentCoins - pack.price;
   const { error: walletUpdateError } = await admin.from('eclipse_wallets').update({ coins: nextCoins }).eq('user_id', userId);
-  if (walletUpdateError) throw walletUpdateError;
+  if (walletUpdateError) throw new Error(`팩 구매 코인 처리 실패: ${walletUpdateError.message}`);
   const openedIds = drawPremiumTimePack(pack);
   try {
     await addCardsToCollection(admin, userId, openedIds);
@@ -692,12 +717,12 @@ async function buyPremiumPackLocally(admin: UserDbClient | AdminDbClient, userId
 
 async function buySeriesPackLocally(admin: UserDbClient | AdminDbClient, userId: string, pack: PackDefinition) {
   const { data: walletRow, error: walletError } = await admin.from('eclipse_wallets').select('coins').eq('user_id', userId).single();
-  if (walletError) throw walletError;
+  if (walletError) throw new Error(`코인 정보 확인 실패: ${walletError.message}`);
   const currentCoins = Number((walletRow as any)?.coins ?? 0);
   if (currentCoins < pack.price) throw new Error('코인이 부족합니다.');
   const nextCoins = currentCoins - pack.price;
   const { error: walletUpdateError } = await admin.from('eclipse_wallets').update({ coins: nextCoins }).eq('user_id', userId);
-  if (walletUpdateError) throw walletUpdateError;
+  if (walletUpdateError) throw new Error(`팩 구매 코인 처리 실패: ${walletUpdateError.message}`);
 
   const openedIds = drawSeriesPack(pack);
   try {
@@ -1345,12 +1370,20 @@ async function handleAction(request: Request, body: RequestBody) {
     const pack = PACKS.find((entry) => entry.id === packId);
     if (!pack) throw new Error('존재하지 않는 팩입니다.');
     if (pack.featuredCardId) {
-      const payload = await buyPremiumPackLocally(client, user.id, pack);
-      return { ...payload, hub: await getHub(client, user.id) };
+      // PREMIUM TIME packs are newer than the legacy DB pack RPC. Use the
+      // store mutation client so RLS does not turn wallet/collection updates
+      // into an opaque "unknown error". This deliberately does NOT require the
+      // separate secure-duel table migration.
+      const storeClient = await storeMutationClient(client);
+      const payload = await buyPremiumPackLocally(storeClient, user.id, pack);
+      return { ...payload, hub: await getHub(storeClient, user.id) };
     }
     if (pack.seriesId) {
-      const payload = await buySeriesPackLocally(client, user.id, pack);
-      return { ...payload, hub: await getHub(client, user.id) };
+      // Series packs use the live TypeScript probability table (including the
+      // current 1% Legendary rate), so process them on the server as well.
+      const storeClient = await storeMutationClient(client);
+      const payload = await buySeriesPackLocally(storeClient, user.id, pack);
+      return { ...payload, hub: await getHub(storeClient, user.id) };
     }
     const { data, error } = await client.rpc('eclipse_open_pack_v26', { p_pack_id: packId });
     if (error) {
@@ -1983,7 +2016,13 @@ export async function POST(request: Request) {
       return Response.json({ ok: false, code: error.code, error: error.message }, { status: 503 });
     }
 
-    let message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+    let message = error instanceof Error
+      ? error.message
+      : error && typeof error === 'object' && 'message' in error
+        ? String((error as { message?: unknown }).message || '알 수 없는 오류가 발생했습니다.')
+        : typeof error === 'string' && error.trim()
+          ? error
+          : '알 수 없는 오류가 발생했습니다.';
     if (/invalid api key|no api key|apikey.*invalid|jwt malformed/i.test(message)) {
       const ref = projectRefFromUrl(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '');
       message = `Render의 서버 관리자 키가 현재 Supabase 프로젝트(${ref})와 일치하지 않습니다. ` +
