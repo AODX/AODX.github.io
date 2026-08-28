@@ -592,6 +592,21 @@ function requestCardInspection(cardId: string): void {
   window.dispatchEvent(new CustomEvent<string>(CARD_INSPECT_EVENT, { detail: cardId }));
 }
 
+function releaseDocumentScrollLock(): void {
+  if (typeof document === 'undefined') return;
+  const body = document.body;
+  const root = document.documentElement;
+  for (const target of [body, root]) {
+    target.style.removeProperty('overflow');
+    target.style.removeProperty('overflow-x');
+    target.style.removeProperty('overflow-y');
+    target.style.removeProperty('height');
+    target.style.removeProperty('max-height');
+    target.style.removeProperty('touch-action');
+    target.style.removeProperty('overscroll-behavior');
+  }
+}
+
 function packPreviewCards(pack: (typeof PACKS)[number]): CardDefinition[] {
   const rarityScore: Record<Rarity, number> = { common: 1, rare: 2, epic: 3, legendary: 4 };
   let pool = CARDS.filter((card) => !isExtraDeckCard(card));
@@ -4295,6 +4310,7 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false,
   const extraProfile = card && (event.kind === 'fusion' || event.kind === 'evolution') ? extraCinematicProfile(card, event.kind) : undefined;
   const owner = profiles.find((profile) => profile.user_id === event.ownerId);
   const mine = event.ownerId === userId;
+  if (!spectator && event.kind === 'trap' && mine) return null;
   const opponentTrapNeedsAck = Boolean(!spectator && event.kind === 'trap' && !mine && onDismiss);
   const { source, target } = duelEventPoints(event, userId);
   const attackAngle = Math.atan2(target.y - source.y, target.x - source.x) * 180 / Math.PI;
@@ -4339,11 +4355,9 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false,
     : event.kind === 'core'
       ? (event.detail ?? '리더에게 직접 타격이 들어갔습니다.')
       : event.detail ?? '타격이 적중했습니다.';
-  const hitAmountText = event.kind === 'defense'
-    ? `${(event.shieldAmount ?? 0) > 0 ? `SHIELD -${event.shieldAmount}` : ''}${(event.shieldAmount ?? 0) > 0 && (event.healthAmount ?? 0) > 0 ? ' · ' : ''}${(event.healthAmount ?? 0) > 0 ? `HP -${event.healthAmount}` : ''}`
-    : event.kind === 'core'
-      ? `CORE -${event.amount ?? 0}`
-      : card?.name ?? 'DESTROY';
+  // Numeric HP/core/heal counters are rendered once by DuelDamagePopupLayer.
+  // Keep this cinematic panel visual-only so the same damage number does not flash twice.
+  const hitAmountText = event.kind === 'destroy' ? card?.name ?? 'DESTROY' : '';
   return (
     <div
       className={`v18-cinematic-layer kind-${event.kind} ${vfxClass} ${mine ? 'from-me' : 'from-opponent'} element-${card?.element ?? 'neutral'} rarity-${card?.rarity ?? 'common'} ${opponentTrapNeedsAck ? 'v46-trap-await-ack' : ''}`}
@@ -4475,7 +4489,7 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false,
           <span className="v32-heal-aura" aria-hidden="true"><i /><i /><i /></span>
           <span className="v32-heal-cross" aria-hidden="true"><i /><i /></span>
           <span className="v32-heal-particles" aria-hidden="true">{Array.from({ length: 8 }, (_, index) => <i key={index} style={{ '--heal-particle': index } as CSSProperties} />)}</span>
-          <div className="v32-heal-copy"><small>RECOVERY</small><b>+{event.amount}</b><span>{event.label ?? '체력 회복'}</span></div>
+          <div className="v32-heal-copy"><small>RECOVERY</small><b>HEAL</b><span>{event.label ?? '체력 회복'}</span></div>
         </div>
       )}
 
@@ -4559,13 +4573,8 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false,
         <b>{duelEventLabel(event)}</b>
         <span>{event.detail ?? event.label ?? card?.name ?? owner?.display_name ?? duelEventLocation(event)}</span>
       </div>
-      {event.kind === 'defense' && ((event.shieldAmount ?? 0) > 0 || (event.healthAmount ?? 0) > 0) ? (
-        <span className="v31-damage-stack">
-          {(event.shieldAmount ?? 0) > 0 && <strong className="v18-floating-number shield-damage">−{event.shieldAmount}</strong>}
-          {(event.healthAmount ?? 0) > 0 && <strong className="v18-floating-number damage health-damage">−{event.healthAmount}</strong>}
-        </span>
-      ) : event.amount !== undefined && event.amount > 0 && ['core', 'heal', 'buff', 'energy'].includes(event.kind) && (
-        <strong className={`v18-floating-number ${event.kind === 'heal' || event.kind === 'energy' || event.kind === 'buff' ? 'positive' : 'damage'}`}>{event.kind === 'heal' || event.kind === 'energy' || event.kind === 'buff' ? '+' : '−'}{event.amount}</strong>
+      {event.amount !== undefined && event.amount > 0 && ['buff', 'energy'].includes(event.kind) && (
+        <strong className="v18-floating-number positive">+{event.amount}</strong>
       )}
       {event.kind === 'draw' && (
         <div className={`v24-draw-stage ${mine ? 'mine' : 'opponent'} ${mine && drawCard ? 'revealed' : 'concealed'}`} aria-hidden="true">
@@ -5780,14 +5789,22 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const snapshotHasQueuedPresentation = visualEvents.some((event) =>
     !seenVfx.current.has(event.id)
     && event.kind !== 'defense'
-    && !(event.kind === 'special' && event.vfx.startsWith('eclipse-cycle-')),
+    && !(event.kind === 'special' && event.vfx.startsWith('eclipse-cycle-'))
+    // The trap owner already saw the private "activate?" prompt. The resolved
+    // trap identity is intentionally revealed only to the opponent/spectators.
+    && !(event.kind === 'trap' && event.ownerId === userId),
   );
   useEffect(() => {
     onPresentationBusyChange?.(Boolean(activeVfx || vfxQueue.length > 0 || snapshotHasQueuedPresentation));
   }, [activeVfx, vfxQueue.length, snapshotHasQueuedPresentation, onPresentationBusyChange]);
 
   useEffect(() => {
-    let unseen = visualEvents.filter((event) => !seenVfx.current.has(event.id) && event.kind !== 'defense' && !(event.kind === 'special' && event.vfx.startsWith('eclipse-cycle-')));
+    let unseen = visualEvents.filter((event) =>
+      !seenVfx.current.has(event.id)
+      && event.kind !== 'defense'
+      && !(event.kind === 'special' && event.vfx.startsWith('eclipse-cycle-'))
+      && !(event.kind === 'trap' && event.ownerId === userId),
+    );
     if (unseen.length === 0) return;
     if (seenVfx.current.size === 0 && unseen.length > 1) {
       const now = Date.now();
@@ -5935,6 +5952,10 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   useEffect(() => {
     if (!activeVfx) return;
     const next = activeVfx;
+    if (next.kind === 'trap' && next.ownerId === userId) {
+      setActiveVfx(null);
+      return;
+    }
     if (next.kind === 'trap' && next.ownerId && next.ownerId !== userId) return;
     const duration = next.kind === 'fusion' || next.kind === 'evolution' ? 2450
       : next.kind === 'trap' ? 2250
@@ -6013,8 +6034,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
 
 
   useEffect(() => () => {
-    document.body.style.overflow = '';
-    document.documentElement.style.overflow = '';
+    releaseDocumentScrollLock();
   }, []);
 
   if (!nullableState || !nullablePrivateState || nullableState.playerOrder.length !== 2) return <LoadingScreen text="결투 상태를 동기화하는 중" />;
@@ -7606,12 +7626,16 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
   async function leaveRoom() {
     if (roomPayload) await roomAction('leave_room', { roomId: roomPayload.room.id });
     onRoom(null);
+    releaseDocumentScrollLock();
+    if (typeof window !== 'undefined') window.requestAnimationFrame(() => releaseDocumentScrollLock());
     try { const result = await api('hub'); if (result.hub) onHub(result.hub); } catch { /* ignore */ }
   }
 
   async function returnPrivateLobby() {
     if (!roomPayload) return;
     await roomAction('return_to_room_lobby', { roomId: roomPayload.room.id });
+    releaseDocumentScrollLock();
+    if (typeof window !== 'undefined') window.requestAnimationFrame(() => releaseDocumentScrollLock());
     try { const result = await api('hub'); if (result.hub) onHub(result.hub); } catch { /* ignore */ }
   }
 
@@ -7896,6 +7920,17 @@ export default function Page() {
   useEffect(() => {
     if (roomPayload?.room.status === 'active') setSettingsOpen(false);
   }, [roomPayload?.room.status]);
+
+  useEffect(() => {
+    const duelShellActive = roomPayload?.room.status === 'active' || roomPayload?.room.status === 'finished';
+    if (duelShellActive) return;
+    // Full-screen duel CSS intentionally locks the viewport. Force-release any
+    // stale inline lock after the result screen / room transition so the hub
+    // can scroll immediately again, even if a modal unmounts in the same frame.
+    releaseDocumentScrollLock();
+    const frame = window.requestAnimationFrame(() => releaseDocumentScrollLock());
+    return () => window.cancelAnimationFrame(frame);
+  }, [roomPayload?.room.id, roomPayload?.room.status, view]);
 
   useEffect(() => {
     const openInspector = (event: Event) => {
