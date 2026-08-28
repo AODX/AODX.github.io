@@ -10732,3 +10732,18 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
     animation-duration:12s!important;
   }
 }
+
+
+/* v46 stat display: show only the final ATK/DEF number.
+   Higher than the printed stat = green, lower = red, unchanged = normal. */
+.v23-client.in-duel .unit-slot .unit-stats .v32n-stat.buffed > b {
+  color: #79ff8f !important;
+  text-shadow: 0 0 10px rgba(121, 255, 143, .42), 0 0 18px rgba(80, 235, 110, .20) !important;
+}
+.v23-client.in-duel .unit-slot .unit-stats .v32n-stat.debuffed > b {
+  color: #ff7373 !important;
+  text-shadow: 0 0 10px rgba(255, 115, 115, .38), 0 0 18px rgba(235, 75, 75, .16) !important;
+}
+.v23-client.in-duel .unit-slot .unit-stats .v32n-stat > b {
+  transition: color .16s ease, text-shadow .16s ease;
+}
