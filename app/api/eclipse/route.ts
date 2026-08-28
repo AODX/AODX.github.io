@@ -939,10 +939,12 @@ async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: strin
     privateState = (data?.state as PrivateState | undefined) ?? null;
   }
 
-  // Spectator-only reveal: return the two players' hand cards, never their deck order,
-  // extra deck, or face-down trap identities. Players still receive only their own
-  // privateState, so this cannot reveal an opponent hand to an active duelist.
+  // Spectator-only reveal: playtest observers use the same battlefield view but are
+  // allowed to inspect BOTH players' hands and set traps. Deck order and extra deck
+  // remain private. Active duelists still receive only their own privateState, so an
+  // opponent can never obtain these reveal maps through the player payload.
   let spectatorHands: Record<string, PrivateState['hand']> | undefined;
+  let spectatorSecrets: Record<string, PrivateState['secrets']> | undefined;
   if (currentRoom.state && currentRoom.guest_id && !isRoomPlayer(currentRoom, userId)) {
     const duelists = [currentRoom.host_id, currentRoom.guest_id];
     const { data, error } = await admin
@@ -952,12 +954,15 @@ async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: strin
       .in('user_id', duelists);
     if (error) throw new Error(error.message);
     spectatorHands = {};
+    spectatorSecrets = {};
     for (const row of data ?? []) {
       const state = row.state as PrivateState | undefined;
       spectatorHands[String(row.user_id)] = Array.isArray(state?.hand) ? state.hand : [];
+      spectatorSecrets[String(row.user_id)] = Array.isArray(state?.secrets) ? state.secrets : [];
     }
     for (const duelistId of duelists) {
       if (!spectatorHands[duelistId]) spectatorHands[duelistId] = [];
+      if (!spectatorSecrets[duelistId]) spectatorSecrets[duelistId] = [];
     }
   }
 
@@ -972,6 +977,7 @@ async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: strin
     profiles: profiles ?? [],
     privateState,
     spectatorHands,
+    spectatorSecrets,
     battleEmotes: emoteLoadout,
     members: memberIds.map((memberId) => ({
       user_id: memberId,
