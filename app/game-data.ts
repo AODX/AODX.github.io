@@ -5172,10 +5172,9 @@ for (let index = 0; index < Math.min(v38Needed, v38Candidates.length); index += 
   card.text = `${card.text} 【시간 특수 · ${pulse.name}】 ${pulse.description}`.trim();
 }
 
-// Core was doubled from 25 to 50. Preserve the old *relative* low-core summon
-// windows so comeback/rift cards do not accidentally become twice as hard to
-// activate. Only explicit core-threshold gates are rescaled; damage/healing
-// numbers are intentionally left untouched.
+// v40 core maximum is 30 instead of the original 25-point rules baseline.
+// Preserve the old *relative* low-core summon windows: explicit thresholds are
+// scaled by 30/25 (not the old v38 x2 pass). Damage/healing numbers stay unchanged.
 function v38ReplaceCoreThresholdCopy(text: string, before: number, after: number): string {
   return text
     .replace(new RegExp(`코어가 ${before} 이하`, 'g'), `코어가 ${after} 이하`)
@@ -5187,14 +5186,14 @@ function v38ReplaceCoreThresholdCopy(text: string, before: number, after: number
 for (const card of CARDS) {
   if (card.riftCondition?.kind === 'core_below') {
     const before = card.riftCondition.value;
-    const after = Math.min(49, before * 2);
+    const after = Math.min(29, Math.max(1, Math.round(before * 30 / 25)));
     card.riftCondition.value = after;
     card.riftCondition.label = v38ReplaceCoreThresholdCopy(card.riftCondition.label, before, after);
     card.text = v38ReplaceCoreThresholdCopy(card.text, before, after);
   }
   if (card.legendarySummonRule?.coreAtMost !== undefined) {
     const before = card.legendarySummonRule.coreAtMost;
-    const after = Math.min(49, before * 2);
+    const after = Math.min(29, Math.max(1, Math.round(before * 30 / 25)));
     card.legendarySummonRule.coreAtMost = after;
     card.legendarySummonRule.label = v38ReplaceCoreThresholdCopy(card.legendarySummonRule.label, before, after);
     card.text = v38ReplaceCoreThresholdCopy(card.text, before, after);
@@ -5205,40 +5204,136 @@ for (const card of CARDS) {
 
 // === /v36 ====================================================================
 
-// === v39 battle-trait hotfix ================================================
-// "처형" follows the Shadowverse-style Bane rule requested by playtesters:
-// once this unit's unit-to-unit attack resolves, the struck enemy is destroyed
-// even when shields or damage prevention absorbed the numeric damage.
-// "전체공격" deals the attacker's normal attack damage to the rest of the enemy
-// formation as well; only the explicitly selected target counterattacks.
-// Keep these as authored keywords instead of card-id checks in the engine so
-// future cards can opt in without another combat-code change.
-const V39_EXECUTION_CARD_IDS = new Set([
+// === v40 battle-trait roster ================================================
+// v40 expands both authored combat traits to 50 distinct characters each.
+// 처형 is intentionally a BASIC UNIT-TO-UNIT ATTACK trait: it only destroys the
+// explicitly selected enemy unit after that normal attack resolves successfully.
+// It never triggers on direct core attacks, spell/effect damage, retaliation, or
+// secondary targets hit by 전체공격. Numeric attack damage still resolves first.
+// 전체공격 repeats the attacker's normal attack damage across the enemy formation;
+// only the explicitly selected target counterattacks.
+const V40_EXECUTION_CARD_IDS = new Set([
   'unit_void_reaper',
   'v32y_abyss_unit_01',
+  'unit_v8_void_02',
+  'unit_v8_void_16',
+  'unit_v8_void_05',
+  'evolution_rift_alpha',
+  'fusion_eclipse_chimera',
+  'fusion_v8_17',
+  'evolution_v8_11',
+  'evolution_v8_20',
+  'v26_arcana_protocol_fusion_02',
+  'unit_v8_void_20',
+  'fusion_v8_07',
+  'fusion_v8_15',
+  'v26_phantom_carnival_unit_22',
+  'v26_phantom_carnival_fusion_01',
+  'unit_v8_void_10',
+  'evolution_v8_07',
+  'evolution_v8_15',
+  'unit_v8_void_13',
+  'evolution_v8_12',
+  'fusion_v8_20',
+  'v26_phantom_carnival_fusion_02',
+  'fusion_v8_11',
+  'v26_arcana_protocol_evolution_01',
+  'v26_phantom_carnival_unit_16',
+  'unit_v8_storm_08',
+  'unit_v8_storm_11',
+  'v26_chronorium_fusion_02',
+  'v26_phantom_carnival_evolution_02',
+  'unit_v8_solar_09',
+  'unit_v8_void_04',
+  'unit_v8_void_12',
+  'unit_v8_void_18',
+  'v26_phantom_carnival_unit_19',
+  'fusion_v8_12',
+  'fusion_v8_03',
+  'unit_star_devourer',
+  'fusion_v8_04',
+  'v26_phantom_carnival_evolution_01',
+  'fusion_v8_19',
+  'unit_v8_void_07',
+  'unit_v8_void_15',
+  'unit_v8_lunar_11',
+  'v26_arcana_protocol_unit_20',
+  'evolution_v8_04',
+  'unit_v8_lunar_03',
+  'evolution_v8_19',
+  'evolution_v8_03',
+  'unit_v8_lunar_19',
 ]);
 
-const V39_SWEEP_CARD_IDS = new Set([
+const V40_SWEEP_CARD_IDS = new Set([
   'v26_astral_armada_unit_21',
   'v26_astral_armada_fusion_02',
+  'v26_astral_armada_unit_22',
+  'v26_astral_armada_evolution_02',
+  'v26_astral_armada_fusion_01',
+  'fusion_tempest_colossus',
+  'fusion_v8_02',
+  'fusion_v8_18',
+  'v26_astral_armada_evolution_01',
+  'evolution_v8_06',
+  'fusion_v8_01',
+  'v26_astral_armada_unit_19',
+  'unit_v8_storm_16',
+  'fusion_v8_14',
+  'v26_astral_armada_unit_16',
+  'v26_astral_armada_unit_13',
+  'evolution_v8_09',
+  'unit_v8_storm_19',
+  'v26_chronorium_evolution_02',
+  'v26_beastforge_fusion_02',
+  'evolution_v8_18',
+  'fusion_v8_10',
+  'v26_astral_armada_unit_20',
+  'v26_astral_armada_unit_10',
+  'fusion_v8_09',
+  'unit_v8_storm_03',
+  'fusion_v8_08',
+  'fusion_v8_06',
+  'v26_astral_armada_unit_18',
+  'v26_astral_armada_unit_17',
+  'evolution_v8_01',
+  'evolution_v8_14',
+  'v26_beastforge_evolution_02',
+  'v26_chronorium_unit_21',
+  'unit_v8_storm_10',
+  'unit_v8_solar_14',
+  'v26_beastforge_evolution_01',
+  'unit_v8_neutral_18',
+  'v26_beastforge_fusion_01',
+  'unit_v8_storm_13',
+  'evolution_v8_10',
+  'unit_v8_solar_17',
+  'v26_beastforge_unit_20',
+  'evolution_v8_02',
+  'unit_v8_neutral_13',
+  'fusion_v8_13',
+  'evolution_ember_phoenix',
+  'v26_astral_armada_unit_14',
+  'unit_v8_neutral_02',
+  'fusion_v8_16',
 ]);
 
 for (const card of CARDS) {
   if (!isUnitCard(card)) continue;
-  if (V39_EXECUTION_CARD_IDS.has(card.id)) {
+  if (V40_EXECUTION_CARD_IDS.has(card.id)) {
     card.keywords = Array.from(new Set([...(card.keywords ?? []), 'execute' as Keyword]));
     if (!/처형[:：]/.test(card.text)) {
-      card.text = `처형: 이 캐릭터의 공격이 적 캐릭터에게 적중하면 피해량과 보호막에 관계없이 그 적을 파괴합니다. ${card.text}`;
+      card.text = `처형: 이 캐릭터의 기본 공격이 적 캐릭터를 지정해 정상적으로 적중하면, 그 기본 공격 피해를 먼저 적용한 뒤 피해량과 보호막에 관계없이 지정 대상을 파괴합니다. 코어 직접 공격·효과 피해·전체공격의 추가 대상에는 발동하지 않습니다. ${card.text}`;
     }
   }
-  if (V39_SWEEP_CARD_IDS.has(card.id)) {
+  if (V40_SWEEP_CARD_IDS.has(card.id)) {
     card.keywords = Array.from(new Set([...(card.keywords ?? []), 'sweep' as Keyword]));
     if (!/전체공격[:：]/.test(card.text)) {
-      card.text = `전체공격: 적 캐릭터를 공격할 때 적 전열 전체에 같은 공격 피해를 줍니다. 반격은 지정한 대상만 합니다. ${card.text}`;
+      card.text = `전체공격: 적 캐릭터를 기본 공격할 때 적 전열 전체에 같은 공격 피해를 줍니다. 반격은 지정한 대상만 합니다. ${card.text}`;
     }
   }
 }
-// === /v39 battle-trait hotfix ===============================================
+// === /v40 battle-trait roster ===============================================
 
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));
 

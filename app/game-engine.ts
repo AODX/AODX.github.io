@@ -222,7 +222,7 @@ interface DamageReport {
 
 const MAX_LOGS = 90;
 const MAX_VISUAL_EVENTS = 18;
-export const CORE_MAX = 50;
+export const CORE_MAX = 30;
 export const MAX_UNIT_SHIELD = 3;
 export const TURN_DURATION_MS = 120_000;
 export const TRAP_RESPONSE_MS = 12_000;
@@ -4395,7 +4395,12 @@ function resolveUnitAttack(
     }
   }
 
-  if (attackerCard?.keywords?.includes('execute')) {
+  // 처형 is restricted to this successfully resolved BASIC unit-to-unit attack.
+  // Direct core attacks are handled by resolveCoreAttack() and never reach this block;
+  // effect damage, retaliation, and sweep secondary targets also do not trigger it.
+  // The normal attack damage above always resolves first, then the selected defender is destroyed.
+  const executionFromBasicAttack = attackerCard?.keywords?.includes('execute') === true;
+  if (executionFromBasicAttack) {
     appendVisual(state, {
       kind: 'special',
       vfx: 'execution-scythe',
@@ -4405,7 +4410,7 @@ function resolveUnitAttack(
       sourceZone: continuation.attackerIndex,
       targetZone: continuation.targetIndex,
       label: '처형',
-      detail: `${defenderCard?.name ?? '적 유닛'}에게 사신의 낫이 내려옵니다. 피해량과 보호막에 관계없이 파괴합니다.`,
+      detail: `${defenderCard?.name ?? '적 유닛'}에게 기본 공격이 적중했습니다. 피해 계산 후 사신의 낫으로 지정 대상을 처형합니다.`,
     });
     defender.health = 0;
   }
