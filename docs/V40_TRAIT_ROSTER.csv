@@ -1,0 +1,101 @@
+﻿trait,id,name
+처형,unit_void_reaper,공허 수확자
+처형,v32y_abyss_unit_01,어비스 리퍼 소울 헌터
+처형,unit_v8_void_02,어비스 리퍼 다크 리퍼
+처형,unit_v8_void_16,녹턴 미라주 크레센트 댄서
+처형,unit_v8_void_05,어비스 리퍼 헬 리퍼
+처형,evolution_rift_alpha,이클립시온 어센드 - 리프트 알파
+처형,fusion_eclipse_chimera,이클립시온 크로스 - 네메시스 키메라
+처형,fusion_v8_17,어비스 리퍼 크로스 - 보이드 리바이어던
+처형,evolution_v8_11,이클립시온 어센드 - 이클립스 타이런트
+처형,evolution_v8_20,녹턴 미라주 어센드 - 실버 오라클
+처형,v26_arcana_protocol_fusion_02,아르카나 프로토콜 크로스 - 금단의 아카나
+처형,unit_v8_void_20,어비스 리퍼 셰이드 하운드
+처형,fusion_v8_07,어비스 리퍼 크로스 - 어비스 타이런트
+처형,fusion_v8_15,어비스 리퍼 크로스 - 그레이브 킹
+처형,v26_phantom_carnival_unit_22,팬텀 카니발 제로 스테이지 마스터
+처형,v26_phantom_carnival_fusion_01,팬텀 카니발 크로스 - 미러 마리오네트
+처형,unit_v8_void_10,녹턴 미라주 미러 댄서
+처형,evolution_v8_07,어비스 리퍼 어센드 - 네더 드래곤
+처형,evolution_v8_15,어비스 리퍼 어센드 - 블랙 리퍼 제로
+처형,unit_v8_void_13,녹턴 미라주 실버 댄서
+처형,evolution_v8_12,녹턴 미라주 어센드 - 루나 팬텀
+처형,fusion_v8_20,녹턴 미라주 크로스 - 녹턴 마제스티
+처형,v26_phantom_carnival_fusion_02,팬텀 카니발 크로스 - 나이트메어 링마스터
+처형,fusion_v8_11,이클립시온 크로스 - 아스트라 드래곤
+처형,v26_arcana_protocol_evolution_01,아르카나 프로토콜 어센드 - 마기스터 제로
+처형,v26_phantom_carnival_unit_16,팬텀 카니발 스테이지 리퍼
+처형,unit_v8_storm_08,어비스 리퍼 베놈 리퍼
+처형,unit_v8_storm_11,어비스 리퍼 셰이드 리퍼
+처형,v26_chronorium_fusion_02,크로노리움 크로스 - 이터널 레귤레이터
+처형,v26_phantom_carnival_evolution_02,팬텀 카니발 어센드 - 엔드리스 쇼
+처형,unit_v8_solar_09,이클립시온 아스트라 레조너
+처형,unit_v8_void_04,녹턴 미라주 베일 댄서
+처형,unit_v8_void_12,이클립시온 오메가 레조너
+처형,unit_v8_void_18,이클립시온 크로노 키메라
+처형,v26_phantom_carnival_unit_19,팬텀 카니발 라스트 앙코르
+처형,fusion_v8_12,녹턴 미라주 크로스 - 미러 퀸
+처형,fusion_v8_03,이클립시온 크로스 - 크로노 레비아탄
+처형,unit_star_devourer,성식의 포식자
+처형,fusion_v8_04,녹턴 미라주 크로스 - 풀문 디바
+처형,v26_phantom_carnival_evolution_01,팬텀 카니발 어센드 - 그랜드 디렉터
+처형,fusion_v8_19,이클립시온 크로스 - 리프트 제로
+처형,unit_v8_void_07,녹턴 미라주 드림 댄서
+처형,unit_v8_void_15,이클립시온 블랙 키메라
+처형,unit_v8_lunar_11,녹턴 미라주 크레센트 팬텀
+처형,v26_arcana_protocol_unit_20,아르카나 프로토콜 코덱스 소버린
+처형,evolution_v8_04,녹턴 미라주 어센드 - 드림 이클립스
+처형,unit_v8_lunar_03,녹턴 미라주 베일 팬텀
+처형,evolution_v8_19,이클립시온 어센드 - 엔드 브링어
+처형,evolution_v8_03,이클립시온 어센드 - 오메가 레조넌트
+처형,unit_v8_lunar_19,녹턴 미라주 페이즈 팬텀
+전체공격,v26_astral_armada_unit_21,아스트라 아르마다 아르마다 소버린
+전체공격,v26_astral_armada_fusion_02,아스트라 아르마다 크로스 - 퀘이사 캐리어
+전체공격,v26_astral_armada_unit_22,아스트라 아르마다 세레스티얼 타이탄
+전체공격,v26_astral_armada_evolution_02,아스트라 아르마다 어센드 - 성해황제 오리온
+전체공격,v26_astral_armada_fusion_01,아스트라 아르마다 크로스 - 네뷸라 드레드노트
+전체공격,fusion_tempest_colossus,템페스트 드라이브 크로스 - 썬더 콜로서스
+전체공격,fusion_v8_02,카이저기어 크로스 - 기가 카이저
+전체공격,fusion_v8_18,카이저기어 크로스 - 임페리얼 타이탄
+전체공격,v26_astral_armada_evolution_01,아스트라 아르마다 어센드 - 갤럭시 제독
+전체공격,evolution_v8_06,템페스트 드라이브 어센드 - 제타 오버로드
+전체공격,fusion_v8_01,루미나이츠 크로스 - 그랜드 솔
+전체공격,v26_astral_armada_unit_19,아스트라 아르마다 오로라 플래그십
+전체공격,unit_v8_storm_16,템페스트 드라이브 스톰 랜서
+전체공격,fusion_v8_14,템페스트 드라이브 크로스 - 라이트닝 노바
+전체공격,v26_astral_armada_unit_16,아스트라 아르마다 코스모스 제독
+전체공격,v26_astral_armada_unit_13,아스트라 아르마다 네뷸라 캐리어
+전체공격,evolution_v8_09,루미나이츠 어센드 - 오메가 레이
+전체공격,unit_v8_storm_19,템페스트 드라이브 레일 랜서
+전체공격,v26_chronorium_evolution_02,크로노리움 어센드 - 크로노스 오메가
+전체공격,v26_beastforge_fusion_02,비스트포지 크로스 - 메탈 베히모스
+전체공격,evolution_v8_18,카이저기어 어센드 - 그랜드 포트리스
+전체공격,fusion_v8_10,카이저기어 크로스 - 오메가 프레임
+전체공격,v26_astral_armada_unit_20,아스트라 아르마다 갤럭시 커맨더
+전체공격,v26_astral_armada_unit_10,아스트라 아르마다 아스트라 캡틴
+전체공격,fusion_v8_09,루미나이츠 크로스 - 하이퍼 노바
+전체공격,unit_v8_storm_03,프라이멀 가디언 루인 비스트
+전체공격,fusion_v8_08,프라이멀 가디언 크로스 - 프라이멀 킹
+전체공격,fusion_v8_06,템페스트 드라이브 크로스 - 볼트 카이저
+전체공격,v26_astral_armada_unit_18,아스트라 아르마다 성해 기사함
+전체공격,v26_astral_armada_unit_17,아스트라 아르마다 펄서 드레드노트
+전체공격,evolution_v8_01,루미나이츠 어센드 - 아크 브레이버
+전체공격,evolution_v8_14,템페스트 드라이브 어센드 - 스톰 브레이커
+전체공격,v26_beastforge_evolution_02,비스트포지 어센드 - 오메가 레비아탄
+전체공격,v26_chronorium_unit_21,크로노리움 크로노스 레갈리아
+전체공격,unit_v8_storm_10,템페스트 드라이브 볼트 랜서
+전체공격,unit_v8_solar_14,카이저기어 알파 드라이버
+전체공격,v26_beastforge_evolution_01,비스트포지 어센드 - 프레데터 카이저
+전체공격,unit_v8_neutral_18,카이저기어 타이탄 프레임
+전체공격,v26_beastforge_fusion_01,비스트포지 크로스 - 기갑 키메라
+전체공격,unit_v8_storm_13,템페스트 드라이브 제타 랜서
+전체공격,evolution_v8_10,카이저기어 어센드 - 크라운 드라이버
+전체공격,unit_v8_solar_17,카이저기어 아이언 드라이버
+전체공격,v26_beastforge_unit_20,비스트포지 타이탄 팽
+전체공격,evolution_v8_02,카이저기어 어센드 - 아틀라스 기어
+전체공격,unit_v8_neutral_13,루미나이츠 노바 세이버
+전체공격,fusion_v8_13,아르보리아 크로스 - 가이아 드래곤
+전체공격,evolution_ember_phoenix,루미나이츠 어센드 - 피닉스 브레이버
+전체공격,v26_astral_armada_unit_14,아스트라 아르마다 퀘이사 포병
+전체공격,unit_v8_neutral_02,템페스트 드라이브 볼트 라이더
+전체공격,fusion_v8_16,프라이멀 가디언 크로스 - 토템 타이탄

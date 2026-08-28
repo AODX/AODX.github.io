@@ -1,0 +1,34 @@
+ECLIPSE DUEL v40 QA REPORT
+
+[PASS] TypeScript syntax transpile
+- app/game-data.ts
+- app/game-engine.ts
+- app/page.tsx
+
+[PASS] Runtime compile of game-data + game-engine
+- TypeScript compiled to CommonJS test output without errors.
+
+[PASS] Trait roster count
+- execute: 50
+- sweep: 50
+- overlap: 0
+
+[PASS] Core HP
+- CORE_MAX = 30
+- initializeMatch() starts both players at 30.
+
+[PASS] Execute direct-core exclusion
+- Execute unit attacked an empty enemy core.
+- Core took normal attack damage.
+- execution-scythe event did NOT fire.
+
+[PASS] Execute basic unit attack
+- Execute unit attacked an enemy unit with shield.
+- Normal attack/shield damage resolved first.
+- execution-scythe event fired.
+- Explicitly targeted defender was destroyed.
+
+[PASS] Sweep basic unit attack
+- Sweep unit attacked a formation with multiple enemies.
+- Secondary enemies received the same attack damage.
+- Counterattack came only from the explicitly selected defender.
