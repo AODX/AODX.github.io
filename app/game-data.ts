@@ -7,7 +7,7 @@ export type CardKind = 'unit' | 'spell' | 'trap' | 'fusion' | 'evolution';
 export type MainDeckKind = 'unit' | 'spell' | 'trap';
 export type ExtraDeckKind = 'fusion' | 'evolution';
 export type Element = 'solar' | 'lunar' | 'storm' | 'verdant' | 'void' | 'neutral';
-export type Keyword = 'guard' | 'charge' | 'lifesteal' | 'pierce' | 'corestrike';
+export type Keyword = 'guard' | 'charge' | 'lifesteal' | 'pierce' | 'corestrike' | 'execute' | 'sweep';
 export type SummonMode = 'normal' | 'rift' | 'legendary' | 'fusion' | 'evolution';
 export type UnitType = 'vanguard' | 'artificer' | 'spirit' | 'hunter' | 'relic' | 'oracle';
 export type EclipsePhase = 'dawn' | 'zenith' | 'dusk' | 'midnight' | 'eclipse';
@@ -5204,6 +5204,41 @@ for (const card of CARDS) {
 // === /v37b temporal diversity ===============================================
 
 // === /v36 ====================================================================
+
+// === v39 battle-trait hotfix ================================================
+// "처형" follows the Shadowverse-style Bane rule requested by playtesters:
+// once this unit's unit-to-unit attack resolves, the struck enemy is destroyed
+// even when shields or damage prevention absorbed the numeric damage.
+// "전체공격" deals the attacker's normal attack damage to the rest of the enemy
+// formation as well; only the explicitly selected target counterattacks.
+// Keep these as authored keywords instead of card-id checks in the engine so
+// future cards can opt in without another combat-code change.
+const V39_EXECUTION_CARD_IDS = new Set([
+  'unit_void_reaper',
+  'v32y_abyss_unit_01',
+]);
+
+const V39_SWEEP_CARD_IDS = new Set([
+  'v26_astral_armada_unit_21',
+  'v26_astral_armada_fusion_02',
+]);
+
+for (const card of CARDS) {
+  if (!isUnitCard(card)) continue;
+  if (V39_EXECUTION_CARD_IDS.has(card.id)) {
+    card.keywords = Array.from(new Set([...(card.keywords ?? []), 'execute' as Keyword]));
+    if (!/처형[:：]/.test(card.text)) {
+      card.text = `처형: 이 캐릭터의 공격이 적 캐릭터에게 적중하면 피해량과 보호막에 관계없이 그 적을 파괴합니다. ${card.text}`;
+    }
+  }
+  if (V39_SWEEP_CARD_IDS.has(card.id)) {
+    card.keywords = Array.from(new Set([...(card.keywords ?? []), 'sweep' as Keyword]));
+    if (!/전체공격[:：]/.test(card.text)) {
+      card.text = `전체공격: 적 캐릭터를 공격할 때 적 전열 전체에 같은 공격 피해를 줍니다. 반격은 지정한 대상만 합니다. ${card.text}`;
+    }
+  }
+}
+// === /v39 battle-trait hotfix ===============================================
 
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));
 

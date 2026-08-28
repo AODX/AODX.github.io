@@ -4180,3 +4180,19 @@ button.mode-card:hover {
 @keyframes v35BotThink { 0%,70%,100%{opacity:.28;scale:.72} 35%{opacity:1;scale:1.15} }
 @media (max-width: 900px) { .v35-practice-levels { grid-template-columns:1fr; } .v35-practice-level { min-height:128px; } .v35-practice-panel > footer { align-items:flex-start; flex-direction:column; } .v35-practice-panel > footer small { text-align:left; } .v35-quick-deck-panel > header { flex-direction:column; } .v35-quick-deck-panel > header small { max-width:none; text-align:left; } }
 @media (max-width: 760px) { .v35-practice-panel { padding:16px; } .v35-practice-copy h2 { font-size:21px; } .v35-bot-thinking { top:64px; } }
+
+/* v39 chat stability/readability hotfix */
+.chat-messages {
+  overflow-anchor:none;
+  overscroll-behavior:contain;
+}
+.chat-message {
+  content-visibility:auto;
+  contain-intrinsic-size:auto 78px;
+}
+.chat-inline-emote img { width:50px; height:50px; }
+.v34-battle-emote-bubble img { width:84px; height:84px; margin:-13px 0 -13px -7px; }
+@media (max-width:760px) {
+  .chat-inline-emote img { width:46px; height:46px; }
+  .v34-battle-emote-bubble img { width:76px; height:76px; }
+}

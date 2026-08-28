@@ -9240,3 +9240,284 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
   .v23-client .v37c-series-limit-guide { align-items:flex-start;flex-direction:column;gap:5px; }
   .v23-client .v37c-series-limit-guide em { text-align:left; }
 }
+
+/* ========================================================================
+   v39 HOTFIX - spectator reveal / battle traits / emote readability
+   ======================================================================== */
+
+/* New battle trait chips. Keep them visually unmistakable from ordinary tags. */
+.v23-client .v30-card-traits .execute,
+.v23-client.in-duel .v30-unit-traits .execute {
+  border-color:rgba(213,93,255,.55)!important;
+  background:linear-gradient(135deg,rgba(34,8,46,.94),rgba(104,20,112,.74))!important;
+  color:#f8d7ff!important;
+  box-shadow:0 0 12px rgba(186,61,255,.18)!important;
+}
+.v23-client .v30-card-traits .sweep,
+.v23-client.in-duel .v30-unit-traits .sweep {
+  border-color:rgba(255,172,65,.52)!important;
+  background:linear-gradient(135deg,rgba(55,24,6,.94),rgba(111,51,14,.76))!important;
+  color:#ffe0a8!important;
+  box-shadow:0 0 12px rgba(255,153,45,.15)!important;
+}
+.v23-client.in-duel .unit-slot.has-execute {
+  box-shadow:inset 0 0 0 1px rgba(202,83,255,.25),0 0 17px rgba(151,46,219,.08)!important;
+}
+.v23-client.in-duel .unit-slot.has-sweep {
+  box-shadow:inset 0 0 0 1px rgba(255,167,61,.20),0 0 17px rgba(255,132,34,.07)!important;
+}
+
+/* Spectators see the same trap zones, but with the real set card rendered in
+   the slot. This data is never included in a duelist's room payload. */
+.v23-client.in-duel .v39-spectator-secret-slot {
+  min-width:0!important;
+  overflow:hidden!important;
+  padding:2px!important;
+  border-color:rgba(112,213,255,.28)!important;
+  background:linear-gradient(145deg,rgba(13,28,42,.92),rgba(10,13,23,.96))!important;
+}
+.v23-client.in-duel .v39-spectator-secret-reveal {
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  display:grid!important;
+  grid-template-columns:34px minmax(0,1fr)!important;
+  align-items:center!important;
+  gap:5px!important;
+  padding:2px 4px!important;
+  border:0!important;
+  border-radius:7px!important;
+  background:rgba(5,13,22,.74)!important;
+  color:#eaf7ff!important;
+  text-align:left!important;
+  cursor:pointer!important;
+}
+.v23-client.in-duel .v39-spectator-secret-reveal:hover {
+  background:rgba(29,65,86,.76)!important;
+  box-shadow:inset 0 0 0 1px rgba(122,221,255,.28)!important;
+}
+.v23-client.in-duel .v39-spectator-secret-reveal .card-illustration {
+  width:32px!important;
+  height:42px!important;
+  min-width:32px!important;
+  border-radius:5px!important;
+  overflow:hidden!important;
+}
+.v23-client.in-duel .v39-spectator-secret-reveal > span {
+  min-width:0!important;
+  display:grid!important;
+  gap:1px!important;
+}
+.v23-client.in-duel .v39-spectator-secret-reveal b {
+  color:#72dfff!important;
+  font-size:6px!important;
+  font-weight:1000!important;
+  letter-spacing:.13em!important;
+}
+.v23-client.in-duel .v39-spectator-secret-reveal small {
+  display:block!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  color:#f1f7fb!important;
+  font-size:7px!important;
+  line-height:1.15!important;
+  font-weight:850!important;
+}
+
+/* EXECUTION - brief black/purple scythe cut before the destroy event. */
+.v23-client.in-duel .v39-execution-stage,
+.v23-client.in-duel .v39-sweep-stage {
+  position:absolute!important;
+  inset:0!important;
+  z-index:48!important;
+  pointer-events:none!important;
+  overflow:hidden!important;
+}
+.v23-client.in-duel .v39-execution-stage::before {
+  content:"";
+  position:absolute;
+  inset:0;
+  background:radial-gradient(circle at var(--tx) var(--ty),rgba(187,61,255,.22),transparent 27%),linear-gradient(115deg,transparent 35%,rgba(9,0,15,.48) 50%,transparent 64%);
+  animation:v39ExecutionShade 1.08s ease-out both;
+}
+.v23-client.in-duel .v39-execution-target-ring {
+  position:absolute!important;
+  left:var(--tx)!important;
+  top:var(--ty)!important;
+  width:86px!important;
+  height:86px!important;
+  transform:translate(-50%,-50%)!important;
+  border:1px solid rgba(234,173,255,.72)!important;
+  border-radius:50%!important;
+  box-shadow:0 0 22px rgba(184,51,255,.55),inset 0 0 24px rgba(78,9,112,.32)!important;
+  animation:v39ExecutionRing 1.08s ease-out both!important;
+}
+.v23-client.in-duel .v39-execution-target-ring::before,
+.v23-client.in-duel .v39-execution-target-ring::after {
+  content:"";
+  position:absolute;
+  inset:10px;
+  border:1px dashed rgba(226,161,255,.52);
+  border-radius:50%;
+}
+.v23-client.in-duel .v39-execution-target-ring::after { inset:27px; border-style:solid; }
+.v23-client.in-duel .v39-execution-target-ring i {
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:4px;
+  height:102px;
+  margin:-51px -2px;
+  background:linear-gradient(transparent,rgba(229,169,255,.85),transparent);
+  transform:rotate(calc(var(--i,0) * 60deg));
+  opacity:.65;
+}
+.v23-client.in-duel .v39-execution-target-ring i:nth-child(2){--i:1}
+.v23-client.in-duel .v39-execution-target-ring i:nth-child(3){--i:2}
+.v23-client.in-duel .v39-execution-scythe {
+  position:absolute!important;
+  left:var(--tx)!important;
+  top:var(--ty)!important;
+  width:190px!important;
+  height:190px!important;
+  transform-origin:52% 76%!important;
+  filter:drop-shadow(0 0 10px rgba(205,96,255,.75)) drop-shadow(0 15px 10px rgba(0,0,0,.65))!important;
+  animation:v39ScytheCut 1.08s cubic-bezier(.2,.78,.17,1) both!important;
+}
+.v23-client.in-duel .v39-execution-scythe .shaft {
+  position:absolute!important;
+  left:94px!important;
+  top:31px!important;
+  width:9px!important;
+  height:146px!important;
+  border-radius:7px!important;
+  background:linear-gradient(90deg,#09070c,#8e6ca4 42%,#17101d 72%,#050407)!important;
+  box-shadow:inset 1px 0 0 rgba(255,255,255,.25),0 0 8px rgba(167,69,220,.35)!important;
+  transform:rotate(9deg)!important;
+}
+.v23-client.in-duel .v39-execution-scythe .grip {
+  position:absolute!important;
+  left:83px!important;
+  top:132px!important;
+  width:34px!important;
+  height:13px!important;
+  border-radius:50%!important;
+  border:3px solid #3e2a4b!important;
+  transform:rotate(9deg)!important;
+}
+.v23-client.in-duel .v39-execution-scythe .blade {
+  position:absolute!important;
+  left:25px!important;
+  top:10px!important;
+  width:119px!important;
+  height:78px!important;
+  border-top:14px solid #edf4ff!important;
+  border-right:7px solid #ca95ea!important;
+  border-radius:58% 78% 16% 18%!important;
+  transform:rotate(-13deg) skewX(-9deg)!important;
+  box-shadow:0 -4px 10px rgba(232,180,255,.52)!important;
+}
+.v23-client.in-duel .v39-execution-copy,
+.v23-client.in-duel .v39-sweep-copy {
+  position:absolute!important;
+  left:50%!important;
+  bottom:15%!important;
+  width:min(430px,72vw)!important;
+  transform:translateX(-50%)!important;
+  display:grid!important;
+  justify-items:center!important;
+  gap:2px!important;
+  padding:8px 14px!important;
+  border:1px solid rgba(213,124,255,.30)!important;
+  border-radius:12px!important;
+  background:linear-gradient(90deg,rgba(5,6,10,.2),rgba(13,6,20,.88),rgba(5,6,10,.2))!important;
+  text-align:center!important;
+  animation:v39TraitCopy 1.08s ease both!important;
+}
+.v23-client.in-duel .v39-execution-copy small,
+.v23-client.in-duel .v39-sweep-copy small { color:#c99ee3!important;font-size:7px!important;font-weight:950!important;letter-spacing:.24em!important; }
+.v23-client.in-duel .v39-execution-copy b,
+.v23-client.in-duel .v39-sweep-copy b { color:#fff!important;font-size:26px!important;line-height:1!important;text-shadow:0 0 18px rgba(202,86,255,.78)!important; }
+.v23-client.in-duel .v39-execution-copy span,
+.v23-client.in-duel .v39-sweep-copy span { max-width:100%!important;color:#d5c9dd!important;font-size:8px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important; }
+
+/* SWEEP - a quick horizontal volley across the opponent formation. */
+.v23-client.in-duel .v39-sweep-stage::before {
+  content:"";
+  position:absolute;
+  left:14%;
+  right:14%;
+  top:var(--ty);
+  height:4px;
+  transform:translateY(-50%) scaleX(0);
+  transform-origin:50% 50%;
+  background:linear-gradient(90deg,transparent,#ffc15c 18%,#fff1c0 50%,#ffc15c 82%,transparent);
+  box-shadow:0 0 18px rgba(255,159,49,.75),0 0 45px rgba(255,105,20,.28);
+  animation:v39SweepLine 1.08s cubic-bezier(.16,.75,.26,1) both;
+}
+.v23-client.in-duel .v39-sweep-wave {
+  position:absolute!important;
+  left:50%!important;
+  top:var(--ty)!important;
+  width:68%!important;
+  height:96px!important;
+  transform:translate(-50%,-50%)!important;
+}
+.v23-client.in-duel .v39-sweep-wave i {
+  position:absolute!important;
+  inset:0!important;
+  border:2px solid rgba(255,184,83,.74)!important;
+  border-left-color:transparent!important;
+  border-right-color:transparent!important;
+  border-radius:50%!important;
+  opacity:0!important;
+  animation:v39SweepWave 1.08s ease-out both!important;
+}
+.v23-client.in-duel .v39-sweep-wave i:nth-child(2){animation-delay:.08s!important}
+.v23-client.in-duel .v39-sweep-wave i:nth-child(3){animation-delay:.16s!important}
+.v23-client.in-duel .v39-sweep-copy { border-color:rgba(255,177,71,.30)!important;background:linear-gradient(90deg,rgba(9,6,2,.2),rgba(33,18,4,.88),rgba(9,6,2,.2))!important; }
+.v23-client.in-duel .v39-sweep-copy small { color:#e9b76f!important; }
+.v23-client.in-duel .v39-sweep-copy b { text-shadow:0 0 18px rgba(255,154,44,.82)!important; }
+
+@keyframes v39ExecutionShade { 0%{opacity:0} 12%,68%{opacity:1} 100%{opacity:0} }
+@keyframes v39ExecutionRing { 0%{opacity:0;transform:translate(-50%,-50%) scale(.25) rotate(-25deg)} 18%{opacity:1;transform:translate(-50%,-50%) scale(1.06) rotate(0)} 68%{opacity:.9;transform:translate(-50%,-50%) scale(.88) rotate(36deg)} 100%{opacity:0;transform:translate(-50%,-50%) scale(1.42) rotate(60deg)} }
+@keyframes v39ScytheCut { 0%{opacity:0;transform:translate(-44%,-116%) rotate(-58deg) scale(.72)} 16%{opacity:1} 45%{opacity:1;transform:translate(-44%,-75%) rotate(-26deg) scale(1.04)} 61%{opacity:1;transform:translate(-48%,-52%) rotate(47deg) scale(1.05)} 72%{opacity:.75;transform:translate(-50%,-46%) rotate(68deg) scale(1.02)} 100%{opacity:0;transform:translate(-50%,-38%) rotate(82deg) scale(.94)} }
+@keyframes v39TraitCopy { 0%{opacity:0;transform:translateX(-50%) translateY(8px) scale(.95)} 20%,70%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)} 100%{opacity:0;transform:translateX(-50%) translateY(-4px) scale(.98)} }
+@keyframes v39SweepLine { 0%{opacity:0;transform:translateY(-50%) scaleX(.04)} 18%{opacity:1} 48%{transform:translateY(-50%) scaleX(1)} 72%{opacity:1;transform:translateY(-50%) scaleX(1)} 100%{opacity:0;transform:translateY(-50%) scaleX(.55)} }
+@keyframes v39SweepWave { 0%{opacity:0;transform:scaleX(.2) scaleY(.35)} 24%{opacity:.9} 72%{opacity:.55;transform:scaleX(1) scaleY(1.1)} 100%{opacity:0;transform:scaleX(1.16) scaleY(1.45)} }
+
+/* Reported readability issue: emotes were too small in the leader rail. */
+.v23-client.in-duel .v34f-leader-emote {
+  width:min(186px,100%)!important;
+  min-height:70px!important;
+  padding:3px 10px 3px 3px!important;
+  gap:7px!important;
+}
+.v23-client.in-duel .v34f-leader-emote img {
+  width:68px!important;
+  height:68px!important;
+  flex:0 0 68px!important;
+}
+.v23-client.in-duel .v34f-leader-emote small { font-size:9px!important; }
+
+@media (max-width:760px) {
+  .v23-client.in-duel .v34f-leader-emote { min-height:58px!important;width:min(160px,100%)!important;padding:2px 7px 2px 2px!important; }
+  .v23-client.in-duel .v34f-leader-emote img { width:54px!important;height:54px!important;flex-basis:54px!important; }
+  .v23-client.in-duel .v39-spectator-secret-reveal { grid-template-columns:28px minmax(0,1fr)!important;gap:3px!important; }
+  .v23-client.in-duel .v39-spectator-secret-reveal .card-illustration { width:27px!important;height:35px!important;min-width:27px!important; }
+  .v23-client.in-duel .v39-execution-copy,
+  .v23-client.in-duel .v39-sweep-copy { bottom:12%!important;width:min(360px,82vw)!important;padding:7px 10px!important; }
+  .v23-client.in-duel .v39-execution-copy b,
+  .v23-client.in-duel .v39-sweep-copy b { font-size:21px!important; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .v23-client.in-duel .v39-execution-scythe,
+  .v23-client.in-duel .v39-execution-target-ring,
+  .v23-client.in-duel .v39-execution-copy,
+  .v23-client.in-duel .v39-sweep-stage::before,
+  .v23-client.in-duel .v39-sweep-wave i,
+  .v23-client.in-duel .v39-sweep-copy { animation-duration:.72s!important; }
+}

@@ -65,6 +65,8 @@ export interface UnitState {
   /** Dynamic ECLIPSE CYCLE stat delta currently applied to this unit. Replaced, never stacked, whenever the clock changes. */
   eclipseAttackModifier?: number;
   eclipseHealthModifier?: number;
+  /** v39: marks that attack/maxHealth actually contain the stored temporal delta. */
+  eclipseModifierVersion?: 2;
   /** Player-facing temporal state used by the board UI. */
   eclipseResonance?: 'resonant' | 'neutral' | 'strained';
 }
@@ -221,6 +223,7 @@ interface DamageReport {
 const MAX_LOGS = 90;
 const MAX_VISUAL_EVENTS = 18;
 export const CORE_MAX = 50;
+export const MAX_UNIT_SHIELD = 3;
 export const TURN_DURATION_MS = 120_000;
 export const TRAP_RESPONSE_MS = 12_000;
 
@@ -562,9 +565,19 @@ function consumeTrap(state: MatchState, privateState: PrivateState, ownerId: str
   });
 }
 
+function grantUnitShield(unit: UnitState, amount: number): number {
+  const before = Math.max(0, Math.min(MAX_UNIT_SHIELD, Math.trunc(unit.shield ?? 0)));
+  const requested = Math.max(0, Math.trunc(amount));
+  unit.shield = Math.min(MAX_UNIT_SHIELD, before + requested);
+  return unit.shield - before;
+}
+
 function damageUnit(state: MatchState, ownerId: string, unitIndex: number, amount: number): DamageReport {
   const unit = state.boards[ownerId].units[unitIndex];
   if (!unit || amount <= 0) return { attempted: amount, absorbed: 0, healthDamage: 0, destroyed: false };
+  // Old room snapshots could contain shields above the new playtest cap. Normalize
+  // them before any combat calculation so a legacy +8 shield cannot survive.
+  unit.shield = Math.max(0, Math.min(MAX_UNIT_SHIELD, Math.trunc(unit.shield ?? 0)));
   let remaining = amount;
   let absorbed = 0;
   if (unit.shield > 0) {
@@ -636,22 +649,38 @@ function desiredEclipseModifier(card: CardDefinition | undefined, phase: Eclipse
 }
 
 function refreshUnitEclipseModifier(state: MatchState, unit: UnitState): void {
-  const oldAttack = unit.eclipseAttackModifier ?? 0;
-  const oldHealth = unit.eclipseHealthModifier ?? 0;
-  if (oldAttack) unit.attack -= oldAttack;
-  if (oldHealth) {
-    unit.maxHealth = Math.max(1, unit.maxHealth - oldHealth);
-    unit.health = Math.min(unit.maxHealth, Math.max(1, unit.health - oldHealth));
+  const card = CARD_BY_ID[unit.cardId];
+  let oldAttack = Math.trunc(unit.eclipseAttackModifier ?? 0);
+  let oldHealth = Math.trunc(unit.eclipseHealthModifier ?? 0);
+
+  // Migration for the reported "TIME number is visible but combat still uses the
+  // printed body" bug. Some older snapshots stored eclipseAttackModifier /
+  // eclipseHealthModifier for UI only without actually adding the delta to the
+  // authoritative body. If the body is still exactly the printed stat, do not
+  // subtract that UI-only delta before applying the v39 authoritative modifier.
+  if (unit.eclipseModifierVersion !== 2 && card && isUnitCard(card)) {
+    if (oldAttack > 0 && unit.attack === Math.max(0, card.attack ?? 0)) oldAttack = 0;
+    if (oldHealth > 0 && unit.maxHealth === Math.max(1, card.health ?? 1)) oldHealth = 0;
   }
 
-  const desired = desiredEclipseModifier(CARD_BY_ID[unit.cardId], currentEclipsePhase(state));
-  unit.attack = Math.max(0, unit.attack + desired.attack);
-  if (desired.health) {
-    unit.maxHealth = Math.max(1, unit.maxHealth + desired.health);
-    unit.health = Math.max(1, unit.health + desired.health);
-  }
-  unit.eclipseAttackModifier = desired.attack;
-  unit.eclipseHealthModifier = desired.health;
+  const wasDestroyed = unit.health <= 0;
+  const damageTaken = Math.max(0, Math.max(1, unit.maxHealth) - Math.max(0, unit.health));
+  const baseAttack = Math.max(0, unit.attack - oldAttack);
+  const baseMaxHealth = Math.max(1, unit.maxHealth - oldHealth);
+  const baseHealth = wasDestroyed ? 0 : Math.max(1, baseMaxHealth - damageTaken);
+
+  const desired = desiredEclipseModifier(card, currentEclipsePhase(state));
+  const effectiveAttack = Math.max(0, baseAttack + desired.attack);
+  const effectiveMaxHealth = Math.max(1, baseMaxHealth + desired.health);
+  const appliedAttack = effectiveAttack - baseAttack;
+  const appliedHealth = effectiveMaxHealth - baseMaxHealth;
+
+  unit.attack = effectiveAttack;
+  unit.maxHealth = effectiveMaxHealth;
+  unit.health = wasDestroyed ? 0 : Math.min(effectiveMaxHealth, Math.max(1, baseHealth + appliedHealth));
+  unit.eclipseAttackModifier = appliedAttack;
+  unit.eclipseHealthModifier = appliedHealth;
+  unit.eclipseModifierVersion = 2;
   unit.eclipseResonance = desired.resonance;
 }
 
@@ -753,7 +782,7 @@ function resolveEclipsePhasePulse(
       let affected = 0;
       for (const unit of state.boards[ownerId]?.units ?? []) {
         if (!unit) continue;
-        unit.shield += Math.max(0, effect.amount);
+        grantUnitShield(unit, Math.max(0, effect.amount));
         affected += 1;
       }
       detail = `아군 ${affected}체 보호막 +${Math.max(0, effect.amount)}`;
@@ -1211,7 +1240,7 @@ function applyEffect(
       const unit = state.boards[target.ownerId].units[unitIndex];
       if (!unit) throw new Error('대상 유닛이 없습니다.');
       if (sourceConsumesUnitBuffSlot(sourceCard, effect) && unit.buffCardApplied) throw new Error('이 캐릭터는 이미 버프류 카드를 1번 적용받았습니다.');
-      unit.shield += effect.amount;
+      grantUnitShield(unit, effect.amount);
       if (sourceConsumesUnitBuffSlot(sourceCard, effect)) unit.buffCardApplied = true;
       appendVisual(state, { kind: 'buff', vfx: 'shield-rise', cardId: unit.cardId, ownerId: actorId, targetOwnerId: target.ownerId, targetZone: unitIndex, amount: effect.amount, label: '보호막' });
       break;
@@ -1637,7 +1666,7 @@ function applyEffect(
       let affected = 0;
       for (const [index, unit] of state.boards[actorId].units.entries()) {
         if (!unit) continue;
-        unit.shield += Math.max(0, effect.amount);
+        grantUnitShield(unit, Math.max(0, effect.amount));
         affected += 1;
         appendVisual(state, { kind: 'buff', vfx: 'v33a-mass-shield', cardId: unit.cardId, ownerId: actorId, targetOwnerId: actorId, targetZone: index, amount: effect.amount, label: '집단 방벽' });
       }
@@ -1818,7 +1847,7 @@ function applyEffect(
       let affected = 0;
       for (const [index, unit] of state.boards[actorId].units.entries()) {
         if (!unit) continue;
-        unit.shield += amount; affected += 1;
+        grantUnitShield(unit, amount); affected += 1;
         appendVisual(state, { kind: 'buff', vfx: aligned ? `eclipse-aligned-${effect.phase}` : 'eclipse-offphase', cardId: unit.cardId, ownerId: actorId, targetOwnerId: actorId, targetZone: index, amount, label: '위상 방벽' });
       }
       appendLog(state, `${ECLIPSE_PHASE_LABEL[effect.phase]} ${aligned ? '공명' : '비공명'} · 아군 ${affected}체 보호막 +${amount}.`, 'special');
@@ -2293,7 +2322,7 @@ function applySeriesSignature(
     case 'kaiser_repair': {
       const target = allies().sort((a, b) => a.unit.shield - b.unit.shield)[0];
       if (!target) break;
-      target.unit.shield += 2;
+      grantUnitShield(target.unit, 2);
       emit('긴급 수리', `「${target.card.name}」 보호막 +2.`, 'buff', 2);
       break;
     }
@@ -2314,7 +2343,7 @@ function applySeriesSignature(
     case 'kaiser_fortress': {
       const formation = allies();
       if (formation.length < 3) break;
-      for (const entry of formation) entry.unit.shield += 1;
+      for (const entry of formation) grantUnitShield(entry.unit, 1);
       emit('황제 방벽', `카이저기어 ${formation.length}장에 보호막 1.`, 'buff', 1);
       break;
     }
@@ -2375,7 +2404,7 @@ function applySeriesSignature(
       if (formation.length < 2) break;
       const target = formation.sort((a, b) => a.unit.health - b.unit.health)[0];
       if (!target) break;
-      target.unit.shield += 2;
+      grantUnitShield(target.unit, 2);
       emit('거울 장막', `「${target.card.name}」 보호막 +2.`, 'buff', 2);
       break;
     }
@@ -2501,7 +2530,7 @@ function applySeriesSignature(
     case 'primal_shelter': {
       const formation = allies();
       if (formation.length < 3) break;
-      for (const entry of formation) entry.unit.shield += 1;
+      for (const entry of formation) grantUnitShield(entry.unit, 1);
       emit('대지의 품', `프라이멀 ${formation.length}장에 보호막 1.`, 'buff', 1);
       break;
     }
@@ -2535,7 +2564,7 @@ function applySeriesSignature(
       if (!target) break;
       const before = target.unit.health;
       target.unit.health = Math.min(target.unit.maxHealth, target.unit.health + 2);
-      target.unit.shield += 1;
+      grantUnitShield(target.unit, 1);
       emit('상태 복원', `「${target.card.name}」 체력 ${target.unit.health - before} 회복 · 보호막 1.`, 'buff', 1);
       break;
     }
@@ -2584,7 +2613,7 @@ function applySeriesSignature(
     case 'beast_plating': {
       const target = allies().sort((a, b) => a.unit.shield - b.unit.shield)[0];
       if (!target) break;
-      target.unit.shield += 2;
+      grantUnitShield(target.unit, 2);
       emit('합금 장갑', `「${target.card.name}」 보호막 +2.`, 'buff', 2);
       break;
     }
@@ -2655,7 +2684,7 @@ function applySeriesSignature(
     case 'astral_formation': {
       const formation = allies();
       if (formation.length < 3) break;
-      for (const entry of formation) entry.unit.shield += 1;
+      for (const entry of formation) grantUnitShield(entry.unit, 1);
       emit('성해 진형', `아스트라 ${formation.length}장에 보호막 1.`, 'buff', 1);
       break;
     }
@@ -2684,7 +2713,7 @@ function applySeriesAbility(
       result = searchSeriesCards(state, actorPrivate, actorId, seriesId, ability.amount);
       if (result > 0) {
         appendLog(state, `SERIES LINK — 「${seriesName}」 카드 ${result}장을 서치했습니다.`, 'special');
-        appendVisual(state, { kind: 'draw', vfx, cardId: sourceCard.id, ownerId: actorId, amount: result, label: 'SERIES SEARCH' });
+        appendVisual(state, { kind: 'draw', vfx, cardId: sourceCard.id, ownerId: actorId, targetOwnerId: actorId, amount: result, label: 'SERIES SEARCH' });
       }
       break;
     }
@@ -2692,7 +2721,7 @@ function applySeriesAbility(
       result = recoverSeriesCards(state, actorPrivate, actorId, seriesId, ability.amount, sourceCard.id);
       if (result > 0) {
         appendLog(state, `SERIES LINK — 묘지의 「${seriesName}」 카드 ${result}장을 회수했습니다.`, 'special');
-        appendVisual(state, { kind: 'draw', vfx, cardId: sourceCard.id, ownerId: actorId, amount: result, label: 'SERIES RECOVER' });
+        appendVisual(state, { kind: 'draw', vfx, cardId: sourceCard.id, ownerId: actorId, targetOwnerId: actorId, amount: result, label: 'SERIES RECOVER' });
       }
       break;
     }
@@ -2713,19 +2742,19 @@ function applySeriesAbility(
       }
       if (result > 0) {
         appendLog(state, `SERIES LINK — 「${seriesName}」 유닛 ${result}장이 강화되었습니다.`, 'special');
-        appendVisual(state, { kind: 'buff', vfx, cardId: sourceCard.id, ownerId: actorId, amount: Math.max(ability.attack, ability.health), label: 'SERIES BOOST' });
+        appendVisual(state, { kind: 'buff', vfx, cardId: sourceCard.id, ownerId: actorId, targetOwnerId: actorId, amount: Math.max(ability.attack, ability.health), label: 'SERIES BOOST' });
       }
       break;
     }
     case 'shield_series': {
       for (const unit of state.boards[actorId].units) {
         if (!unit || CARD_BY_ID[unit.cardId]?.seriesId !== seriesId) continue;
-        unit.shield += ability.amount;
+        grantUnitShield(unit, ability.amount);
         result += 1;
       }
       if (result > 0) {
         appendLog(state, `SERIES LINK — 「${seriesName}」 유닛 ${result}장에 보호막 ${ability.amount}.`, 'special');
-        appendVisual(state, { kind: 'buff', vfx, cardId: sourceCard.id, ownerId: actorId, amount: ability.amount, label: 'SERIES SHIELD' });
+        appendVisual(state, { kind: 'buff', vfx, cardId: sourceCard.id, ownerId: actorId, targetOwnerId: actorId, amount: ability.amount, label: 'SERIES SHIELD' });
       }
       break;
     }
@@ -2760,7 +2789,7 @@ function applySeriesAbility(
       result = energy.current - before;
       if (result > 0) {
         appendLog(state, `SERIES LINK — 「${seriesName}」 연계로 에너지 ${result} 회복.`, 'special');
-        appendVisual(state, { kind: 'energy', vfx, cardId: sourceCard.id, ownerId: actorId, amount: result, label: 'SERIES ENERGY' });
+        appendVisual(state, { kind: 'energy', vfx, cardId: sourceCard.id, ownerId: actorId, targetOwnerId: actorId, amount: result, label: 'SERIES ENERGY' });
       }
       break;
     }
@@ -2803,7 +2832,7 @@ function buffSurvivingSeriesUnit(
 ): void {
   const target = tacticalFormation(state, ownerId, seriesId).sort((a, b) => a.unit.health - b.unit.health || a.unit.attack - b.unit.attack)[0];
   if (!target) return;
-  if (mode === 'shield') target.unit.shield += amount;
+  if (mode === 'shield') grantUnitShield(target.unit, amount);
   else target.unit.attack += amount;
   appendLog(state, `전술 · ${label} — 「${target.card.name}」 ${mode === 'shield' ? `보호막 +${amount}` : `공격력 +${amount}`}.`, 'special');
   appendVisual(state, { kind: 'buff', vfx: 'tactical-inherit', cardId: sourceCard.id, ownerId, targetZone: target.index, amount, label });
@@ -2835,28 +2864,28 @@ function applyTacticalOnSummon(
     case 'lumina_cover': {
       if (allies.length < 2) break;
       const target = [...allies].sort((a, b) => a.unit.health - b.unit.health)[0];
-      target.unit.shield += 1;
+      grantUnitShield(target.unit, 1);
       appendLog(state, `전술 · 동료 엄호 — 「${target.card.name}」 보호막 +1.`, 'special');
       appendVisual(state, { kind: 'buff', vfx: 'tactical-cover', cardId: card.id, ownerId: playerId, targetZone: target.index, amount: 1, label: '동료 엄호' });
       break;
     }
     case 'kaiser_armor':
       if (allies.length > 0) {
-        unit.shield += 1;
+        grantUnitShield(unit, 1);
         appendLog(state, `전술 · 중장 장갑 — 「${card.name}」 보호막 +1.`, 'special');
         appendVisual(state, { kind: 'buff', vfx: 'tactical-armor', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '중장 장갑' });
       }
       break;
     case 'eclipse_gloom':
       if ((state.graveyards[playerId]?.length ?? 0) >= 3) {
-        unit.shield += 1;
+        grantUnitShield(unit, 1);
         appendLog(state, `전술 · 일식 장막 — 「${card.name}」 보호막 +1.`, 'special');
         appendVisual(state, { kind: 'buff', vfx: 'tactical-eclipse-veil', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '일식 장막' });
       }
       break;
     case 'nocturne_veil':
       if ((state.core[playerId] ?? 0) < (state.core[opponentId] ?? 0)) {
-        unit.shield += 1;
+        grantUnitShield(unit, 1);
         appendLog(state, `전술 · 월영 장막 — 「${card.name}」 보호막 +1.`, 'special');
         appendVisual(state, { kind: 'buff', vfx: 'tactical-moon-veil', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '월영 장막' });
       }
@@ -2885,21 +2914,21 @@ function applyTacticalOnSummon(
       break;
     case 'abyss_grave_armor':
       if ((state.graveyards[opponentId]?.length ?? 0) >= 2) {
-        unit.shield += 1;
+        grantUnitShield(unit, 1);
         appendLog(state, `전술 · 묘향 갑주 — 「${card.name}」 보호막 +1.`, 'special');
         appendVisual(state, { kind: 'buff', vfx: 'tactical-grave-armor', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '묘향 갑주' });
       }
       break;
     case 'primal_packguard':
       if (allies.length > 0) {
-        unit.shield += 1; unit.health += 1; unit.maxHealth += 1;
+        grantUnitShield(unit, 1); unit.health += 1; unit.maxHealth += 1;
         appendLog(state, `전술 · 군집 수호 — 「${card.name}」 보호막 +1 · 체력 +1.`, 'special');
         appendVisual(state, { kind: 'buff', vfx: 'tactical-packguard', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '군집 수호' });
       }
       break;
     case 'chrono_priority':
       if ((state.energy[playerId]?.current ?? 0) >= 2) {
-        unit.attack += 1; unit.shield += 1;
+        unit.attack += 1; grantUnitShield(unit, 1);
         appendLog(state, `전술 · 시간 선점 — 「${card.name}」 공격력 +1 · 보호막 +1.`, 'special');
         appendVisual(state, { kind: 'buff', vfx: 'tactical-chrono', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '시간 선점' });
       }
@@ -2914,7 +2943,7 @@ function applyTacticalOnSummon(
     }
     case 'beast_plating_passive':
       if (allies.length > 0) {
-        unit.shield += 1;
+        grantUnitShield(unit, 1);
         appendLog(state, `전술 · 야수 장갑 — 「${card.name}」 보호막 +1.`, 'special');
         appendVisual(state, { kind: 'buff', vfx: 'tactical-beast-plating', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '야수 장갑' });
       }
@@ -2922,7 +2951,7 @@ function applyTacticalOnSummon(
     case 'phantom_backstage': {
       const setCount = state.boards[playerId].secrets.filter(Boolean).length;
       if (setCount > 0) {
-        unit.shield += 1;
+        grantUnitShield(unit, 1);
         appendLog(state, `전술 · 비밀 무대 — 「${card.name}」 보호막 +1.`, 'special');
         appendVisual(state, { kind: 'buff', vfx: 'tactical-backstage', cardId: card.id, ownerId: playerId, targetZone: zone, amount: 1, label: '비밀 무대' });
       }
@@ -2930,7 +2959,7 @@ function applyTacticalOnSummon(
     }
     case 'astral_formation_wall':
       if (formation.length >= 2) {
-        for (const ally of formation) ally.unit.shield += 1;
+        for (const ally of formation) grantUnitShield(ally.unit, 1);
         appendLog(state, `전술 · 편대 방벽 — 아스트라 ${formation.length}체 보호막 +1.`, 'special');
         appendVisual(state, { kind: 'buff', vfx: 'tactical-formation', cardId: card.id, ownerId: playerId, amount: 1, label: '편대 방벽' });
       }
@@ -3037,7 +3066,7 @@ function applyTacticalOnKill(
       }
       break;
     case 'kaiser_salvage':
-      attacker.shield += 1;
+      grantUnitShield(attacker, 1);
       appendLog(state, `전술 · 전투 수복 — 「${card.name}」 보호막 +1.`, 'special');
       appendVisual(state, { kind: 'buff', vfx: 'tactical-salvage', cardId: card.id, ownerId: playerId, sourceZone: attackerIndex, amount: 1, label: '전투 수복' });
       break;
@@ -3093,7 +3122,7 @@ function applyTacticalOnKill(
       break;
     }
     case 'astral_supply':
-      attacker.shield += 1;
+      grantUnitShield(attacker, 1);
       appendLog(state, `전술 · 함대 보급 — 「${card.name}」 보호막 +1.`, 'special');
       appendVisual(state, { kind: 'buff', vfx: 'tactical-supply', cardId: card.id, ownerId: playerId, sourceZone: attackerIndex, amount: 1, label: '함대 보급' });
       break;
@@ -3194,7 +3223,7 @@ function applyTacticalOnSpellResolved(
     .sort((a, b) => a.unit.shield - b.unit.shield || a.unit.health - b.unit.health);
   const target = candidates[0];
   if (!target) return;
-  target.unit.shield += 1;
+  grantUnitShield(target.unit, 1);
   appendLog(state, `전술 · 마력 도관 — 「${target.card.name}」 보호막 +1.`, 'special');
   appendVisual(state, { kind: 'buff', vfx: 'tactical-conduit', cardId: target.card.id, ownerId: playerId, targetZone: target.index, amount: 1, label: '마력 도관' });
 }
@@ -4109,7 +4138,7 @@ export function summonExtra(
     unit.attack += inheritedAttack;
     unit.maxHealth += inheritedHealth;
     unit.health = Math.max(1, unit.maxHealth - inheritedDamage);
-    unit.shield = inheritedShield;
+    unit.shield = Math.min(MAX_UNIT_SHIELD, Math.max(0, inheritedShield));
     unit.buffCardApplied = Boolean(evolvedSource.buffCardApplied);
     unit.canAttack = Boolean(card.keywords?.includes('charge')) || (evolvedSource.canAttack && evolvedSource.summonedTurn < state.turnNumber);
   }
@@ -4225,6 +4254,9 @@ function resolveCoreAttack(
   continuation: Extract<PendingTrapContinuation, { kind: 'attack_core' }>,
   trapResult: TrapResolution = { negated: false, retaliation: 0 },
 ): void {
+  // A responding trap may itself move/rewind the battlefield clock. Re-resolve
+  // temporal bodies after the trap window and immediately before damage.
+  refreshBattlefieldEclipseModifiers(state);
   const playerId = continuation.actorId;
   const opponentId = otherPlayer(state, playerId);
   const attacker = state.boards[playerId].units[continuation.attackerIndex];
@@ -4263,6 +4295,9 @@ function resolveUnitAttack(
   continuation: Extract<PendingTrapContinuation, { kind: 'attack_unit' }>,
   trapResult: TrapResolution = { negated: false, retaliation: 0 },
 ): void {
+  // Same guarantee as direct attacks: TIME stats at the instant of resolution are
+  // the stats used for both outgoing damage and counterattack damage.
+  refreshBattlefieldEclipseModifiers(state);
   const playerId = continuation.actorId;
   const opponentId = otherPlayer(state, playerId);
   const attacker = state.boards[playerId].units[continuation.attackerIndex];
@@ -4299,6 +4334,45 @@ function resolveUnitAttack(
   const defenderDamage = Math.max(0, defender.attack);
   const defenderReport = damageUnit(state, opponentId, continuation.targetIndex, attackerDamage);
   const attackerReport = damageUnit(state, playerId, continuation.attackerIndex, defenderDamage);
+  const sweepReports: DamageReport[] = [];
+
+  if (attackerCard?.keywords?.includes('sweep')) {
+    appendVisual(state, {
+      kind: 'special',
+      vfx: 'sweep-volley',
+      cardId: attackerCard.id,
+      ownerId: playerId,
+      targetOwnerId: opponentId,
+      sourceZone: continuation.attackerIndex,
+      targetZone: continuation.targetIndex,
+      amount: attackerDamage,
+      label: '전체공격',
+      detail: '지정 대상 외의 적 전열에도 같은 공격 피해를 적용합니다. 반격은 지정 대상만 합니다.',
+    });
+    for (let index = 0; index < state.boards[opponentId].units.length; index += 1) {
+      if (index === continuation.targetIndex) continue;
+      const extraTarget = state.boards[opponentId].units[index];
+      if (!extraTarget) continue;
+      const extraCard = CARD_BY_ID[extraTarget.cardId];
+      const report = damageUnit(state, opponentId, index, attackerDamage);
+      sweepReports.push(report);
+      if (report.absorbed > 0 || report.healthDamage > 0) {
+        appendVisual(state, {
+          kind: 'defense',
+          vfx: 'sweep-impact',
+          cardId: extraCard?.id,
+          ownerId: playerId,
+          targetOwnerId: opponentId,
+          targetZone: index,
+          amount: report.absorbed + report.healthDamage,
+          shieldAmount: report.absorbed,
+          healthAmount: report.healthDamage,
+          label: '전체공격 피해',
+          detail: `${extraCard?.name ?? '적 유닛'} · 보호막 ${report.absorbed} / HP ${report.healthDamage} 피해`,
+        });
+      }
+    }
+  }
 
   if (defenderReport.absorbed > 0 || defenderReport.healthDamage > 0) {
     appendVisual(state, { kind: 'defense', vfx: resolveCardVfx(defenderCard, 'defense'), cardId: defenderCard?.id, ownerId: playerId, targetOwnerId: opponentId, targetZone: continuation.targetIndex, amount: defenderReport.absorbed + defenderReport.healthDamage, shieldAmount: defenderReport.absorbed, healthAmount: defenderReport.healthDamage, label: '공격 피해', detail: `${defenderCard?.name ?? '적 유닛'} · 보호막 ${defenderReport.absorbed} / HP ${defenderReport.healthDamage} 피해` });
@@ -4307,11 +4381,12 @@ function resolveUnitAttack(
     appendVisual(state, { kind: 'defense', vfx: resolveCardVfx(attackerCard, 'defense'), cardId: attackerCard?.id, ownerId: opponentId, targetOwnerId: playerId, targetZone: continuation.attackerIndex, amount: attackerReport.absorbed + attackerReport.healthDamage, shieldAmount: attackerReport.absorbed, healthAmount: attackerReport.healthDamage, label: '반격 피해', detail: `${attackerCard?.name ?? '공격 유닛'} · 반격 보호막 ${attackerReport.absorbed} / HP ${attackerReport.healthDamage} 피해` });
   }
   if (attackerCard?.keywords?.includes('lifesteal')) {
-    const healed = healCore(state, playerId, defenderReport.healthDamage);
+    const totalHealthDamage = defenderReport.healthDamage + sweepReports.reduce((sum, report) => sum + report.healthDamage, 0);
+    const healed = healCore(state, playerId, totalHealthDamage);
     statsFor(state, playerId).healing += healed;
     if (healed > 0) appendVisual(state, { kind: 'heal', vfx: 'lifesteal-return', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: playerId, sourceZone: continuation.attackerIndex, amount: healed, label: '흡수' });
   }
-  if (attackerCard?.keywords?.includes('pierce') && defender.health <= 0) {
+  if (attackerCard?.keywords?.includes('pierce') && defenderReport.destroyed) {
     const overflow = Math.max(0, attackerDamage - defenderDurabilityBefore);
     if (overflow > 0) {
       const pierceDamage = damageCore(state, opponentId, overflow);
@@ -4319,9 +4394,27 @@ function resolveUnitAttack(
       if (pierceDamage > 0) appendVisual(state, { kind: 'core', vfx: 'pierce-impact', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: opponentId, sourceZone: continuation.attackerIndex, amount: pierceDamage, label: '관통 피해' });
     }
   }
-  if (defenderReport.destroyed) applyTacticalOnKill(state, privateStates, playerId, continuation.attackerIndex);
+
+  if (attackerCard?.keywords?.includes('execute')) {
+    appendVisual(state, {
+      kind: 'special',
+      vfx: 'execution-scythe',
+      cardId: attackerCard.id,
+      ownerId: playerId,
+      targetOwnerId: opponentId,
+      sourceZone: continuation.attackerIndex,
+      targetZone: continuation.targetIndex,
+      label: '처형',
+      detail: `${defenderCard?.name ?? '적 유닛'}에게 사신의 낫이 내려옵니다. 피해량과 보호막에 관계없이 파괴합니다.`,
+    });
+    defender.health = 0;
+  }
+
+  const destroyedAny = defender.health <= 0 || sweepReports.some((report) => report.destroyed);
+  if (destroyedAny) applyTacticalOnKill(state, privateStates, playerId, continuation.attackerIndex);
   attacker.canAttack = false;
-  appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) ${defenderCard?.name ?? '적 유닛'}에게 ${attackerDamage} 피해 · 반격 ${defenderDamage} 피해.`, 'attack');
+  const traitNote = `${attackerCard?.keywords?.includes('sweep') ? ' · 전체공격' : ''}${attackerCard?.keywords?.includes('execute') ? ' · 처형' : ''}`;
+  appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) ${defenderCard?.name ?? '적 유닛'}에게 ${attackerDamage} 피해 · 반격 ${defenderDamage} 피해${traitNote}.`, 'attack');
   destroyDefeatedUnits(state, privateStates);
   checkWinner(state);
 }

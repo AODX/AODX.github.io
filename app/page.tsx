@@ -121,7 +121,7 @@ type RoomRow = {
 
 type RoomProfile = Pick<Profile, 'user_id' | 'display_name' | 'avatar' | 'wins' | 'losses' | 'xp' | 'profile_emblem' | 'card_sleeve' | 'nickname_style'>;
 type RoomMemberView = { user_id: string; role: 'player_a' | 'player_b' | 'spectator'; is_owner: boolean };
-type RoomPayload = { room: RoomRow; profiles: RoomProfile[]; privateState: PrivateState | null; members?: RoomMemberView[]; spectatorHands?: Record<string, PrivateState['hand']>; battleEmotes?: string[]; };
+type RoomPayload = { room: RoomRow; profiles: RoomProfile[]; privateState: PrivateState | null; members?: RoomMemberView[]; spectatorHands?: Record<string, PrivateState['hand']>; spectatorSecrets?: Record<string, PrivateState['secrets']>; battleEmotes?: string[]; };
 type ChatMessage = { id: number; user_id: string; display_name: string; nickname_style?: string; body: string; created_at: string };
 type ChatSkinProfile = Pick<Profile, 'user_id' | 'profile_theme' | 'profile_frame'>;
 type AdminAccountSummary = { userId: string; email: string; displayName: string; playerCode: string };
@@ -144,6 +144,7 @@ type ApiResult = {
   privateState?: PrivateState | null;
   members?: RoomMemberView[];
   spectatorHands?: Record<string, PrivateState['hand']>;
+  spectatorSecrets?: Record<string, PrivateState['secrets']>;
   battleEmotes?: string[];
   joinedAsSpectator?: boolean;
   cardIds?: string[];
@@ -650,6 +651,8 @@ const KEYWORD_DESCRIPTION: Record<Keyword, string> = {
   lifesteal: '흡수 · 이 캐릭터가 전투로 준 피해만큼 내 코어를 회복합니다.',
   pierce: '관통 · 전투로 적 캐릭터를 파괴하면 남은 피해를 상대 코어에 이어서 줍니다.',
   corestrike: '직격 · 상대 필드에 수호가 없다면 다른 캐릭터를 무시하고 코어를 직접 공격할 수 있습니다.',
+  execute: '처형 · 이 캐릭터의 공격이 적 캐릭터에게 적중하면 피해량이나 보호막에 관계없이 그 적을 파괴합니다.',
+  sweep: '전체공격 · 적 캐릭터를 공격할 때 같은 공격 피해를 적 전열 전체에 줍니다. 반격은 지정한 대상만 합니다.',
 };
 
 const KEYWORD_LABEL: Record<Keyword, string> = {
@@ -658,9 +661,11 @@ const KEYWORD_LABEL: Record<Keyword, string> = {
   lifesteal: '흡수',
   pierce: '관통',
   corestrike: '직격',
+  execute: '처형',
+  sweep: '전체공격',
 };
 
-const FILTERABLE_KEYWORDS: Keyword[] = ['guard', 'charge', 'pierce', 'corestrike', 'lifesteal'];
+const FILTERABLE_KEYWORDS: Keyword[] = ['guard', 'charge', 'pierce', 'corestrike', 'lifesteal', 'execute', 'sweep'];
 
 function cardSeriesLabel(card: CardDefinition): string {
   if (card.seriesId && SERIES_BY_ID[card.seriesId]) return SERIES_BY_ID[card.seriesId].shortName;
@@ -1367,13 +1372,15 @@ function CardFace({
       {card.summonMode === 'legendary' && <span className="summon-badge legendary">강림</span>}
       {card.kind === 'fusion' && <span className="summon-badge fusion">융합</span>}
       {card.kind === 'evolution' && <span className="summon-badge evolution">진화</span>}
-      {isUnitCard(card) && (card.keywords?.includes('charge') || card.keywords?.includes('guard') || card.keywords?.includes('corestrike') || card.keywords?.includes('pierce') || card.keywords?.includes('lifesteal')) && (
+      {isUnitCard(card) && (card.keywords?.includes('charge') || card.keywords?.includes('guard') || card.keywords?.includes('corestrike') || card.keywords?.includes('pierce') || card.keywords?.includes('lifesteal') || card.keywords?.includes('execute') || card.keywords?.includes('sweep')) && (
         <span className="v30-card-traits" aria-label="전투 특성">
           {card.keywords?.includes('charge') && <i className="charge">속공</i>}
           {card.keywords?.includes('guard') && <i className="guard">수호</i>}
           {card.keywords?.includes('corestrike') && <i className="corestrike">직격</i>}
           {card.keywords?.includes('pierce') && <i className="pierce">관통</i>}
           {card.keywords?.includes('lifesteal') && <i className="lifesteal">흡수</i>}
+          {card.keywords?.includes('execute') && <i className="execute">처형</i>}
+          {card.keywords?.includes('sweep') && <i className="sweep">전체공격</i>}
         </span>
       )}
       {quantity !== undefined && <span className="card-quantity">×{quantity}</span>}
@@ -3209,6 +3216,8 @@ function ProfileView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => vo
 
 
 const CHAT_EMOTE_PATTERN = /:([a-z0-9_]+):/g;
+const CHAT_RENDER_LIMIT = 36;
+const CHAT_ANIMATED_SKIN_LIMIT = 12;
 
 function renderChatBody(body: string) {
   const nodes: any[] = [];
@@ -3268,7 +3277,7 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
     async function load() {
       const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
       if (!roomId) await supabase.rpc('eclipse_cleanup_global_messages_v25');
-      let query = supabase.from(table).select('*').order('created_at', { ascending: false }).limit(60);
+      let query = supabase.from(table).select('*').order('created_at', { ascending: false }).limit(CHAT_RENDER_LIMIT);
       if (roomId) query = query.eq('room_id', roomId);
       else query = query.gte('created_at', cutoff);
       const { data } = await query;
@@ -3283,7 +3292,7 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
         const next = payload.new as ChatMessage;
         if (!roomId && new Date(next.created_at).getTime() < Date.now() - 30 * 60 * 1000) return;
         void ensureChatSkins([next.user_id]);
-        setMessages((current) => [...current.slice(-59), next]);
+        setMessages((current) => [...current.slice(-(CHAT_RENDER_LIMIT - 1)), next]);
         if (next.user_id !== profile.user_id && !openRef.current) onUnreadRef.current?.();
       })
       .subscribe();
@@ -3298,7 +3307,14 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
     };
   }, [roomId, table, profile.user_id]);
 
-  useEffect(() => { if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, open]);
+  useEffect(() => {
+    if (!open) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      const scroller = bottomRef.current?.parentElement;
+      if (scroller) scroller.scrollTop = scroller.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [messages.length, open]);
 
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -3325,10 +3341,10 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
       <header><div><span>{roomId ? 'ROOM CHAT' : 'GLOBAL CHAT'}</span><h3>{roomId ? '결투방 채팅' : '전체 채팅'}</h3>{!roomId && <small>최근 30분 메시지만 보관됩니다.</small>}</div><button onClick={onClose}>×</button></header>
       <div className="chat-messages">
         {messages.length === 0 && <div className="empty-state"><span>···</span><p>첫 메시지를 남겨보세요.</p></div>}
-        {messages.map((message) => {
+        {messages.map((message, messageIndex) => {
           const skin = chatSkins[message.user_id];
           return <div className={`chat-message v31-social-skin theme-${skin?.profile_theme ?? 'bg_default'} frame-${skin?.profile_frame ?? 'frame_default'} ${message.user_id === profile.user_id ? 'mine' : ''}`} key={message.id}>
-            <ProfileFrameFX frameId={skin?.profile_frame} />
+            {messageIndex >= messages.length - CHAT_ANIMATED_SKIN_LIMIT && <ProfileFrameFX frameId={skin?.profile_frame} />}
             <b><NicknameText name={message.display_name} styleId={message.nickname_style} /></b>
             <p className="chat-rich-body">{renderChatBody(message.body)}</p>
             <small>{new Date(message.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small>
@@ -3350,6 +3366,8 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
 function duelEventLabel(event: VisualEvent): string {
   if (event.kind === 'turn') return '턴 시작';
   if (event.kind === 'summon') return '일반 소환';
+  if (event.kind === 'special' && event.vfx === 'execution-scythe') return '처형';
+  if (event.kind === 'special' && event.vfx === 'sweep-volley') return '전체공격';
   if (event.kind === 'special' && (event.vfx === 'legendary-fusion-choice' || event.vfx === 'legendary-evolution-choice')) return '전설 선택 효과';
   if (event.kind === 'special') return '특수 소환';
   if (event.kind === 'fusion') return '공명 융합';
@@ -3835,7 +3853,10 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
     '--ritual-scale': extraProfile?.scale ?? '1',
   } as CSSProperties;
   const legendaryChoice = event.kind === 'special' && (event.vfx === 'legendary-fusion-choice' || event.vfx === 'legendary-evolution-choice');
-  const showCardCutIn = Boolean(card && !legendaryChoice && (event.kind === 'spell' || (event.kind === 'special' && !summonPresentation)));
+  const executionTraitEvent = event.kind === 'special' && event.vfx === 'execution-scythe';
+  const sweepTraitEvent = event.kind === 'special' && event.vfx === 'sweep-volley';
+  const battleTraitEvent = executionTraitEvent || sweepTraitEvent;
+  const showCardCutIn = Boolean(card && !legendaryChoice && !battleTraitEvent && (event.kind === 'spell' || (event.kind === 'special' && !summonPresentation)));
   const vfxClass = event.vfx ? `vfx-${event.vfx.replace(/[^a-z0-9-]/gi, '-')}` : 'vfx-generic';
   const sourceCards = (event.sourceCardIds ?? []).map((cardId) => CARD_BY_ID[cardId]).filter((candidate): candidate is CardDefinition => Boolean(candidate));
   const trapTrigger = card?.kind === 'trap' ? trapTriggerDescription(card.trapTrigger) : '';
@@ -3881,6 +3902,21 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
         </>
       )}
       {(event.kind === 'destroy' || event.kind === 'core' || event.kind === 'defense') && <span className="v18-shard-field" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ '--piece': index } as CSSProperties} />)}</span>}
+
+      {executionTraitEvent && (
+        <div className="v39-execution-stage" aria-label="처형 특성 발동">
+          <span className="v39-execution-target-ring" aria-hidden="true"><i /><i /><i /></span>
+          <span className="v39-execution-scythe" aria-hidden="true"><i className="shaft" /><i className="grip" /><i className="blade" /></span>
+          <div className="v39-execution-copy"><small>EXECUTION TRAIT</small><b>처형</b><span>{event.detail ?? '사신의 낫이 대상을 확정 파괴합니다.'}</span></div>
+        </div>
+      )}
+
+      {sweepTraitEvent && (
+        <div className="v39-sweep-stage" aria-label="전체공격 특성 발동">
+          <span className="v39-sweep-wave" aria-hidden="true"><i /><i /><i /></span>
+          <div className="v39-sweep-copy"><small>FULL FIELD STRIKE</small><b>전체공격</b><span>{event.detail ?? '적 전열 전체에 공격 피해를 적용합니다.'}</span></div>
+        </div>
+      )}
 
       {summonPresentation && card && summonProfile && (
         <div className={`v32m-summon-stage style-${summonProfile.style} ${card.seriesId ? `series-${card.seriesId}` : ''}`} aria-label={`${card.name} 소환`}>
@@ -4135,13 +4171,15 @@ function UnitSlot({
   const hasCorestrike = Boolean(card?.keywords?.includes('corestrike'));
   const hasPierce = Boolean(card?.keywords?.includes('pierce'));
   const hasLifesteal = Boolean(card?.keywords?.includes('lifesteal'));
+  const hasExecute = Boolean(card?.keywords?.includes('execute'));
+  const hasSweep = Boolean(card?.keywords?.includes('sweep'));
   const temporalAttack = unit?.eclipseAttackModifier ?? 0;
   const temporalHealth = unit?.eclipseHealthModifier ?? 0;
   const temporalVisual = ECLIPSE_ARENA_VISUAL[eclipsePhase];
   const temporalDeltaLabel = (value: number) => `${value > 0 ? '+' : '−'}${Math.abs(value)}`;
   return (
     <div
-      className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${targetable ? 'targetable' : ''} ${attackReady ? 'attack-ready' : ''} ${attackTarget ? 'attack-target' : ''} ${hasCharge ? 'has-charge' : ''} ${hasGuard ? 'has-guard' : ''} ${hasCorestrike ? 'has-corestrike' : ''} ${hasPierce ? 'has-pierce' : ''} ${hasLifesteal ? 'has-lifesteal' : ''} ${unit?.buffCardApplied ? 'buff-card-used' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''} ${unit?.eclipseResonance ? `time-${unit.eclipseResonance}` : ''}`}
+      className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${targetable ? 'targetable' : ''} ${attackReady ? 'attack-ready' : ''} ${attackTarget ? 'attack-target' : ''} ${hasCharge ? 'has-charge' : ''} ${hasGuard ? 'has-guard' : ''} ${hasCorestrike ? 'has-corestrike' : ''} ${hasPierce ? 'has-pierce' : ''} ${hasLifesteal ? 'has-lifesteal' : ''} ${hasExecute ? 'has-execute' : ''} ${hasSweep ? 'has-sweep' : ''} ${unit?.buffCardApplied ? 'buff-card-used' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''} ${unit?.eclipseResonance ? `time-${unit.eclipseResonance}` : ''}`}
       role="button"
       tabIndex={onClick ? 0 : -1}
       aria-label={unit ? `${card?.name ?? '유닛'} 선택` : `${index + 1}번 필드 슬롯`}
@@ -4167,6 +4205,8 @@ function UnitSlot({
             {hasCorestrike && <i className="corestrike">직격</i>}
             {hasPierce && <i className="pierce">관통</i>}
             {hasLifesteal && <i className="lifesteal">흡수</i>}
+            {hasExecute && <i className="execute">처형</i>}
+            {hasSweep && <i className="sweep">전체공격</i>}
             {unit.buffCardApplied && <i className="buff-used">BUFF 1/1</i>}
           </span>
           {attackReady && <span className="v30-attack-ready-badge"><i />공격 가능</span>}
@@ -5355,7 +5395,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       }
       api('get_room', { roomId: room.id })
         .then((result) => {
-          if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? [] });
+          if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, battleEmotes: result.battleEmotes ?? [] });
         })
         .catch((error) => setMessage(error instanceof Error ? error.message : '턴 시간 동기화 실패'));
     }, delay);
@@ -5412,7 +5452,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     const next = activeVfx;
     const duration = next.kind === 'fusion' || next.kind === 'evolution' ? 2450
       : next.kind === 'trap' ? 2250
-        : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? 1450
+        : next.kind === 'special' && (next.vfx === 'execution-scythe' || next.vfx === 'sweep-volley') ? 1080
+          : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? 1450
           : next.kind === 'attack' ? 1250
             : next.kind === 'core' || next.kind === 'destroy' ? 1120
               : next.kind === 'defense' ? 1220
@@ -5701,7 +5742,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
         onRefresh(nextPayload);
       } else {
         const result = await api('game_action', { roomId: room.id, gameAction: 'battle_emote', emoteId });
-        if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? payload.battleEmotes ?? [] });
+        if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, battleEmotes: result.battleEmotes ?? payload.battleEmotes ?? [] });
       }
       setEmoteOpen(false);
     } catch (error) {
@@ -5720,7 +5761,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
         onRefresh(nextPayload);
       } else {
         const result = await api('game_action', { roomId: room.id, gameAction, ...extra });
-        if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? [] });
+        if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, battleEmotes: result.battleEmotes ?? [] });
       }
       clearSelection();
     } catch (error) {
@@ -6593,6 +6634,8 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
   const playerB = profileMap[playerBId];
   const playerAHand = payload.spectatorHands?.[playerAId] ?? [];
   const playerBHand = payload.spectatorHands?.[playerBId] ?? [];
+  const playerASecrets = payload.spectatorSecrets?.[playerAId] ?? [];
+  const playerBSecrets = payload.spectatorSecrets?.[playerBId] ?? [];
   const [activeVfx, setActiveVfx] = useState<VisualEvent | null>(null);
   const [vfxQueue, setVfxQueue] = useState<VisualEvent[]>([]);
   const [damagePopups, setDamagePopups] = useState<VisualEvent[]>([]);
@@ -6648,7 +6691,8 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
     const next = activeVfx;
     const duration = next.kind === 'fusion' || next.kind === 'evolution' ? 2450
       : next.kind === 'trap' ? 2250
-        : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? 1450
+        : next.kind === 'special' && (next.vfx === 'execution-scythe' || next.vfx === 'sweep-volley') ? 1080
+          : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? 1450
           : next.kind === 'attack' ? 1250
             : next.kind === 'core' || next.kind === 'destroy' ? 1120
               : next.kind === 'defense' ? 1220
@@ -6699,6 +6743,36 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
     });
   }
 
+  function renderSpectatorSecret(
+    publicSecret: MatchState['boards'][string]['secrets'][number],
+    privateSecret: PrivateState['secrets'][number] | undefined,
+    index: number,
+    ownerId: string,
+    sleeveId?: string,
+    enemy = false,
+  ) {
+    if (!publicSecret) return <div className={`v18-secret-slot ${enemy ? 'enemy' : 'mine'}`} key={index}><span className="v18-zone-number">S{index + 1}</span></div>;
+    const revealed = privateSecret ? CARD_BY_ID[privateSecret.cardId] : undefined;
+    return (
+      <div className={`v18-secret-slot ${enemy ? 'enemy' : 'mine'} is-set v39-spectator-secret-slot`} key={index} data-spectator-secret-owner={ownerId}>
+        {revealed ? (
+          <button
+            type="button"
+            className="v39-spectator-secret-reveal"
+            title={`${revealed.name} · 관전자 공개 함정`}
+            aria-label={`${revealed.name} 함정 카드 상세 정보`}
+            onClick={() => { if (onInspectCard) onInspectCard(revealed.id); else requestCardInspection(revealed.id); }}
+          >
+            <CardIllustration card={revealed} compact />
+            <span><b>TRAP</b><small>{revealed.name}</small></span>
+          </button>
+        ) : (
+          <><span className={`v18-secret-back sleeve-${sleeveId ?? 'sleeve_default'}`}>{sleeveGlyph(sleeveId)}</span><small>SYNC</small></>
+        )}
+      </div>
+    );
+  }
+
   const currentEclipsePhase = clientCurrentEclipsePhase(state);
   const eclipseArenaVisual = ECLIPSE_ARENA_VISUAL[currentEclipsePhase];
   const eclipseArenaStyle = {
@@ -6747,16 +6821,16 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
           <div>{playerBHand.length > 0 ? renderSpectatorHand(playerBHand, playerB?.card_sleeve) : <em>손패 동기화 중</em>}</div>
         </div>
         <section className="v18-board">
-          <div className="v18-zone-row v18-enemy-secrets">{state.boards[playerBId].secrets.map((secret, index) => <div className={`v18-secret-slot enemy ${secret ? 'is-set' : ''}`} key={index}>{secret ? <><span className={`v18-secret-back sleeve-${playerB?.card_sleeve ?? 'sleeve_default'}`}>{sleeveGlyph(playerB?.card_sleeve)}</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}</div>)}</div>
+          <div className="v18-zone-row v18-enemy-secrets">{state.boards[playerBId].secrets.map((secret, index) => renderSpectatorSecret(secret, playerBSecrets[index], index, playerBId, playerB?.card_sleeve, true))}</div>
           <div className="v18-zone-row v18-enemy-units">{state.boards[playerBId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerBId} index={index} eclipsePhase={clientCurrentEclipsePhase(state)} enemy onInspect={onInspectCard} />)}</div>
-          <div className="v18-center-lane"><div className="v18-pile-stat"><small>PLAYER B</small><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div><div className="v29-center-status v34f-battle-flow-center"><div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div><div className="v32e-watch-copy"><small>ROOM SPECTATE</small><b>양쪽 손패 공개</b></div></div><div className="v18-pile-stat mine"><small>PLAYER A</small><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span></div></div>
+          <div className="v18-center-lane"><div className="v18-pile-stat"><small>PLAYER B</small><span>DECK <b>{state.deckCounts[playerBId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerBId]?.length ?? 0}</b></span></div><div className="v29-center-status v34f-battle-flow-center"><div className="v18-field-core" aria-hidden="true"><i /><i /><span>◈</span></div><div className="v32e-watch-copy"><small>ROOM SPECTATE</small><b>양쪽 손패 · 함정 공개</b></div></div><div className="v18-pile-stat mine"><small>PLAYER A</small><span>DECK <b>{state.deckCounts[playerAId] ?? 0}</b></span><span>GRAVE <b>{state.graveyards[playerAId]?.length ?? 0}</b></span></div></div>
           <div className="v18-zone-row v18-my-units">{state.boards[playerAId].units.map((unit, index) => <UnitSlot key={index} unit={unit} owner={playerAId} index={index} eclipsePhase={clientCurrentEclipsePhase(state)} onInspect={onInspectCard} />)}</div>
-          <div className="v18-zone-row v18-my-secrets">{state.boards[playerAId].secrets.map((secret, index) => <div className={`v18-secret-slot mine ${secret ? 'is-set' : ''}`} key={index}>{secret ? <><span className={`v18-secret-back sleeve-${playerA?.card_sleeve ?? 'sleeve_default'}`}>{sleeveGlyph(playerA?.card_sleeve)}</span><small>SET</small></> : <span className="v18-zone-number">S{index + 1}</span>}</div>)}</div>
+          <div className="v18-zone-row v18-my-secrets">{state.boards[playerAId].secrets.map((secret, index) => renderSpectatorSecret(secret, playerASecrets[index], index, playerAId, playerA?.card_sleeve))}</div>
         </section>
       </main>
 
       <aside className="v18-command-rail v32e-spectator-rail">
-        <section className="v29-action-coach opponent"><header><span>SPECTATOR</span><b>LIVE</b></header><h3>관전자 전용 전체 손패 공개</h3><p>두 선수의 필드·코어·에너지·묘지와 양쪽 손패를 실시간으로 볼 수 있습니다.</p><small>손패는 관전자에게만 공개되며, 뒤집히지 않은 세트 함정은 계속 비공개입니다.</small></section>
+        <section className="v29-action-coach opponent"><header><span>SPECTATOR</span><b>LIVE</b></header><h3>관전자 전용 전체 정보 공개</h3><p>두 선수의 필드·코어·에너지·묘지와 양쪽 손패, 세트된 모든 함정을 실시간으로 볼 수 있습니다.</p><small>손패와 함정 정체는 관전자에게만 공개되며 실제 플레이어 화면에는 상대 비공개 정보가 전달되지 않습니다.</small></section>
         <section className="v18-event-feed"><header><span>DUEL FEED</span><b>LIVE</b></header><div>{recentEvents.length ? recentEvents.map((event) => <div className={`v18-feed-item kind-${event.kind}`} key={event.id}><i /><span><b>{profileMap[event.ownerId ?? '']?.display_name ?? 'SYSTEM'} · {duelEventLabel(event)}</b><small>{event.detail ?? event.label ?? (duelEventLocation(event) || '결투 행동')}</small></span></div>) : <p>아직 기록된 행동이 없습니다.</p>}</div></section>
         <section className="v32e-spectator-roster"><small>ROOM MEMBERS</small>{payload.profiles.map((profile) => { const member = (payload.members ?? []).find((item) => item.user_id === profile.user_id); return <div key={profile.user_id}><Avatar id={profile.avatar} /><span><b><NicknameText name={profile.display_name} styleId={profile.nickname_style} /></b><small>{member?.role === 'player_a' ? 'PLAYER A' : member?.role === 'player_b' ? 'PLAYER B' : 'SPECTATOR'}{member?.is_owner ? ' · OWNER' : ''}</small></span></div>; })}</section>
       </aside>
@@ -6765,14 +6839,14 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
         <div className="v33b-spectator-hand-heading">
           <small>SPECTATOR REVEAL · PLAYER A</small>
           <b>PLAYER A HAND · {playerAHand.length || (state.handCounts[playerAId] ?? 0)}</b>
-          <span>이 손패는 관전자에게만 공개됩니다.</span>
+          <span>양쪽 손패와 세트 함정은 관전자에게만 공개됩니다.</span>
         </div>
         <div className="v33b-spectator-hand-scroll">
           {playerAHand.length > 0 ? renderSpectatorHand(playerAHand, playerA?.card_sleeve) : <em>손패를 동기화하는 중입니다.</em>}
         </div>
         <div className="v33b-spectator-hand-meta">
           <span>PLAYER B <b>{playerBHand.length || (state.handCounts[playerBId] ?? 0)}</b></span>
-          <small>세트 함정은 비공개</small>
+          <small>세트 함정까지 공개</small>
         </div>
       </footer>
 
@@ -6978,7 +7052,7 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
     setBusy(true); setMessage('');
     try {
       const result = await api(action, payload);
-      if (result.room && result.profiles) onRoom({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? [] });
+      if (result.room && result.profiles) onRoom({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, battleEmotes: result.battleEmotes ?? [] });
       if (result.joinedAsSpectator) setMessage('선수 자리가 이미 차 있어 관전자로 입장했습니다. 다음 경기에는 방장이 선수로 지정할 수 있습니다.');
       return result;
     } catch (error) { setMessage(error instanceof Error ? error.message : '요청 실패'); }
@@ -7383,7 +7457,7 @@ export default function Page() {
         setCanRecoverAccounts(result.canRecoverAccounts === true);
         if (result.serverStatus) setServerStatus(result.serverStatus);
         if (result.room && result.profiles) {
-          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? [] });
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, battleEmotes: result.battleEmotes ?? [] });
           setRoomSyncState('live');
           setLastRoomSyncAt(Date.now());
           setView('duel');
@@ -7477,7 +7551,7 @@ export default function Page() {
         const result = await api('get_room', { roomId });
         if (!alive) return;
         if (result.room && result.profiles) {
-          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? [] });
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, battleEmotes: result.battleEmotes ?? [] });
           lastSuccessfulSync = Date.now();
           setRoomSyncState('live');
           setLastRoomSyncAt(lastSuccessfulSync);
@@ -7554,7 +7628,7 @@ export default function Page() {
         const result = await api('match_presence', { roomId });
         if (!alive) return;
         if (result.room && result.profiles) {
-          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, battleEmotes: result.battleEmotes ?? [] });
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, battleEmotes: result.battleEmotes ?? [] });
           setRoomSyncState('live');
           setLastRoomSyncAt(Date.now());
         }
