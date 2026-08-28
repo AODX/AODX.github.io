@@ -5342,6 +5342,66 @@ for (const card of CARDS) {
   }
 }
 
+// === v46 triple-trait legendary balance pass ================================
+// charge + lifesteal + sweep together creates an immediate board-wide hit that
+// also converts every secondary hit into healing. On 7/11 legendary bodies the
+// old +7 peak / tiny inverse penalty made those cards far too safe. The five
+// affected finishers now keep the aggressive charge+sweep identity, lose the
+// multiplicative lifesteal, use a leaner printed body, and have a real weak time.
+const V46_TRIPLE_TRAIT_LEGENDARIES = new Set([
+  'v26_chronorium_unit_22',
+  'v26_arcana_protocol_unit_22',
+  'v26_beastforge_unit_22',
+  'v26_phantom_carnival_unit_22',
+  'v26_astral_armada_unit_22',
+]);
+
+for (const card of CARDS) {
+  if (card.kind !== 'unit' || !V46_TRIPLE_TRAIT_LEGENDARIES.has(card.id)) continue;
+
+  card.attack = 6;
+  card.health = 9;
+  card.keywords = (card.keywords ?? []).filter((keyword) => keyword !== 'lifesteal');
+  card.text = card.text
+    .replace(/속공 · 흡수/g, '속공')
+    .replace(/흡수 · 속공/g, '속공');
+
+  const modifiers = card.eclipsePhaseModifiers;
+  if (!modifiers) continue;
+  const entries = (Object.entries(modifiers) as Array<[EclipsePhase, EclipsePhaseModifier]>);
+  const strongest = entries
+    .filter(([, modifier]) => (modifier.attack ?? 0) > 0 || (modifier.health ?? 0) > 0)
+    .sort((a, b) => ((b[1].attack ?? 0) + (b[1].health ?? 0)) - ((a[1].attack ?? 0) + (a[1].health ?? 0)))[0];
+  const weakest = entries
+    .filter(([, modifier]) => (modifier.attack ?? 0) < 0 || (modifier.health ?? 0) < 0)
+    .sort((a, b) => ((a[1].attack ?? 0) + (a[1].health ?? 0)) - ((b[1].attack ?? 0) + (b[1].health ?? 0)))[0];
+
+  if (strongest) {
+    const [phase, modifier] = strongest;
+    const oldAttack = Math.trunc(modifier.attack ?? 0);
+    const oldHealth = Math.trunc(modifier.health ?? 0);
+    const label = modifier.label ?? `${ECLIPSE_PHASE_LABEL[phase]} 극점`;
+    const oldText = `${ECLIPSE_PHASE_LABEL[phase]} [${label}]: ${v37bTemporalStatText(oldAttack, oldHealth)}.`;
+    modifier.attack = 2;
+    modifier.health = 2;
+    const newText = `${ECLIPSE_PHASE_LABEL[phase]} [${label}]: ${v37bTemporalStatText(2, 2)}.`;
+    card.text = card.text.replace(oldText, newText);
+  }
+
+  if (weakest) {
+    const [phase, modifier] = weakest;
+    const oldAttack = Math.trunc(modifier.attack ?? 0);
+    const oldHealth = Math.trunc(modifier.health ?? 0);
+    const label = modifier.label ?? `${ECLIPSE_PHASE_LABEL[phase]} 역상`;
+    const oldText = `${ECLIPSE_PHASE_LABEL[phase]} [${label}]: ${v37bTemporalStatText(oldAttack, oldHealth)}.`;
+    modifier.attack = -3;
+    modifier.health = -2;
+    const newText = `${ECLIPSE_PHASE_LABEL[phase]} [${label}]: ${v37bTemporalStatText(-3, -2)}.`;
+    card.text = card.text.replace(oldText, newText);
+  }
+}
+// === /v46 triple-trait legendary balance pass ===============================
+
 // Dev/runtime audit object. Keeping this data exported makes future balance
 // checks straightforward without duplicating the roster in another file.
 export const V45_TRAIT_DISTRIBUTION = Object.fromEntries(CARD_SERIES.map((series) => {
