@@ -21,6 +21,7 @@ import {
   playCard,
   respondTrap,
   resolveTurnTimeout,
+  resolveExtraChoice,
   sacrificeFieldUnitForEnergy,
   sacrificeHandForEnergy,
   sendBattleEmote,
@@ -38,7 +39,7 @@ export const PRACTICE_DIFFICULTY_LABEL: Record<PracticeDifficulty, string> = {
 };
 
 export interface PracticeBotAction {
-  gameAction: 'play_card' | 'extra_summon' | 'battle_phase' | 'attack' | 'trap_response' | 'draw_turn' | 'sacrifice_energy' | 'sacrifice_field_energy' | 'energy_draw' | 'end_turn';
+  gameAction: 'play_card' | 'extra_summon' | 'battle_phase' | 'attack' | 'trap_response' | 'draw_turn' | 'sacrifice_energy' | 'sacrifice_field_energy' | 'energy_draw' | 'battle_emote' | 'end_turn' | 'surrender' | 'resolve_timeout' | 'resolve_extra_choice';
   payload?: Record<string, unknown>;
   label: string;
 }
@@ -203,6 +204,8 @@ export function applyPracticeGameAction(
       ? ({ kind: 'core' } as const)
       : ({ kind: 'unit', unitIndex: Number(rawTarget.unitIndex) } as const);
     next = attack(snapshot, playerId, Number(payload.attackerIndex), target);
+  } else if (gameAction === 'resolve_extra_choice') {
+    next = resolveExtraChoice(snapshot, playerId, Number(payload.choiceIndex ?? 0));
   } else if (gameAction === 'trap_response') {
     next = respondTrap(snapshot, playerId, payload.activate === true);
   } else if (gameAction === 'draw_turn') {
@@ -266,6 +269,11 @@ function enumerateBotActions(snapshot: GameSnapshot, botId: string): PracticeBot
       { gameAction: 'trap_response', payload: { activate: false }, label: '함정 보류' },
     ];
   }
+  if (state.pendingExtraChoice) {
+    if (state.pendingExtraChoice.ownerId !== botId) return [];
+    const choiceCard = CARD_BY_ID[state.pendingExtraChoice.cardId];
+    return (choiceCard?.extraChoices ?? []).map((choice, index) => ({ gameAction: 'resolve_extra_choice', payload: { choiceIndex: index }, label: `${choiceCard.name} · ${choice.label}` }));
+  }
   if (state.currentPlayerId !== botId) return [];
 
   const actions: PracticeBotAction[] = [];
@@ -327,13 +335,10 @@ function enumerateBotActions(snapshot: GameSnapshot, botId: string): PracticeBot
       if (!card || (card.kind !== 'fusion' && card.kind !== 'evolution')) continue;
       const required = extraRequiredUnitCount(card);
       if (required <= 0 || required > occupiedZones.length) continue;
-      const choices = card.extraChoices?.length ? card.extraChoices.map((_, index) => index) : [undefined];
       const summonTargets = summonTargetPayloads(snapshot, botId, card);
       for (const materialZones of combinations(occupiedZones, required)) {
-        for (const extraChoiceIndex of choices) {
-          for (const target of summonTargets) {
-            actions.push({ gameAction: 'extra_summon', payload: { extraInstanceId: instance.instanceId, materialZones, ...(extraChoiceIndex === undefined ? {} : { extraChoiceIndex }), ...(target ? { target } : {}) }, label: `${card.name} 엑스트라 소환` });
-          }
+        for (const target of summonTargets) {
+          actions.push({ gameAction: 'extra_summon', payload: { extraInstanceId: instance.instanceId, materialZones, ...(target ? { target } : {}) }, label: `${card.name} 엑스트라 소환` });
         }
       }
     }
@@ -425,6 +430,7 @@ function actionBias(snapshot: GameSnapshot, botId: string, action: PracticeBotAc
     return 12;
   }
   if (action.gameAction === 'extra_summon') return 24;
+  if (action.gameAction === 'resolve_extra_choice') return 26;
   if (action.gameAction === 'play_card') {
     const instanceId = String(action.payload?.instanceId ?? '');
     const cardId = snapshot.privateStates[botId]?.hand.find((instance) => instance.instanceId === instanceId)?.cardId;

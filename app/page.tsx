@@ -4276,6 +4276,8 @@ function UnitSlot({
   const hasSweep = Boolean(card?.keywords?.includes('sweep'));
   const temporalAttack = unit?.eclipseAttackModifier ?? 0;
   const temporalHealth = unit?.eclipseHealthModifier ?? 0;
+  const attackDeltaFromPrinted = unit ? unit.attack - card.attack : 0;
+  const defenseDeltaFromPrinted = unit ? unit.maxHealth - card.health : 0;
   const temporalVisual = ECLIPSE_ARENA_VISUAL[eclipsePhase];
   const temporalDeltaLabel = (value: number) => `${value > 0 ? '+' : '−'}${Math.abs(value)}`;
   return (
@@ -4316,8 +4318,8 @@ function UnitSlot({
           {unit.eclipseResonance === 'strained' && <span className="v34e-time-resonance-badge strained">TIME −</span>}
           <span className="unit-name"><b>{card?.name ?? unit.cardId.replace('token:', '')}</b>{card && <button type="button" className="unit-info-hotspot" aria-label={`${card.name} 상세 정보`} title={`${card.name} 상세 정보`} onPointerDown={(event: React.PointerEvent<HTMLButtonElement>) => { event.stopPropagation(); }} onClick={(event: React.MouseEvent<HTMLButtonElement>) => { event.preventDefault(); event.stopPropagation(); if (onInspect) onInspect(card.id); else requestCardInspection(card.id); }} onKeyDown={(event: React.KeyboardEvent<HTMLButtonElement>) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); if (onInspect) onInspect(card.id); else requestCardInspection(card.id); } }}>i</button>}</span>
           <span className="unit-stats" aria-label={`공격 ${unit.attack}${temporalAttack ? ` (시간 ${temporalDeltaLabel(temporalAttack)})` : ''}, 방어 ${unit.health}${temporalHealth ? ` (시간 ${temporalDeltaLabel(temporalHealth)})` : ''}${unit.shield > 0 ? `, 방어막 +${unit.shield}` : ''}`}>
-            <span className="v32n-stat attack"><b>{unit.attack}</b>{temporalAttack !== 0 && <em className={`v34o-temporal-delta ${temporalAttack > 0 ? 'positive' : 'negative'}`} title={`현재 ATK ${unit.attack}에 시간 보정 ${temporalDeltaLabel(temporalAttack)} 적용됨`} style={{ color: `rgb(${temporalVisual.rgb})`, borderColor: `rgba(${temporalVisual.rgb},.34)`, background: `rgba(${temporalVisual.rgb},.11)`, textShadow: `0 0 8px rgba(${temporalVisual.rgb},.42)` }}>TIME {temporalDeltaLabel(temporalAttack)}</em>}<i>ATK</i></span>
-            <span className="v32n-stat defense"><b>{unit.health}</b>{temporalHealth !== 0 && <em className={`v34o-temporal-delta ${temporalHealth > 0 ? 'positive' : 'negative'}`} title={`현재 DEF ${unit.health}에 시간 보정 ${temporalDeltaLabel(temporalHealth)} 적용됨`} style={{ color: `rgb(${temporalVisual.rgb})`, borderColor: `rgba(${temporalVisual.rgb},.34)`, background: `rgba(${temporalVisual.rgb},.11)`, textShadow: `0 0 8px rgba(${temporalVisual.rgb},.42)` }}>TIME {temporalDeltaLabel(temporalHealth)}</em>}<i>DEF</i></span>
+            <span className={`v32n-stat attack ${attackDeltaFromPrinted > 0 ? 'buffed' : attackDeltaFromPrinted < 0 ? 'debuffed' : ''}`}><b>{unit.attack}</b>{attackDeltaFromPrinted !== 0 && <strong className={attackDeltaFromPrinted > 0 ? 'buffed' : 'debuffed'}>{attackDeltaFromPrinted > 0 ? '+' : ''}{attackDeltaFromPrinted}</strong>}{temporalAttack !== 0 && <em className={`v34o-temporal-delta ${temporalAttack > 0 ? 'positive' : 'negative'}`} title={`현재 ATK ${unit.attack}에 시간 보정 ${temporalDeltaLabel(temporalAttack)} 적용됨`} style={{ color: `rgb(${temporalVisual.rgb})`, borderColor: `rgba(${temporalVisual.rgb},.34)`, background: `rgba(${temporalVisual.rgb},.11)`, textShadow: `0 0 8px rgba(${temporalVisual.rgb},.42)` }}>TIME {temporalDeltaLabel(temporalAttack)}</em>}<i>ATK</i></span>
+            <span className={`v32n-stat defense ${defenseDeltaFromPrinted > 0 ? 'buffed' : defenseDeltaFromPrinted < 0 ? 'debuffed' : ''}`}><b>{unit.health}</b>{defenseDeltaFromPrinted !== 0 && <strong className={defenseDeltaFromPrinted > 0 ? 'buffed' : 'debuffed'}>{defenseDeltaFromPrinted > 0 ? '+' : ''}{defenseDeltaFromPrinted}</strong>}{temporalHealth !== 0 && <em className={`v34o-temporal-delta ${temporalHealth > 0 ? 'positive' : 'negative'}`} title={`현재 DEF ${unit.health}에 시간 보정 ${temporalDeltaLabel(temporalHealth)} 적용됨`} style={{ color: `rgb(${temporalVisual.rgb})`, borderColor: `rgba(${temporalVisual.rgb},.34)`, background: `rgba(${temporalVisual.rgb},.11)`, textShadow: `0 0 8px rgba(${temporalVisual.rgb},.42)` }}>TIME {temporalDeltaLabel(temporalHealth)}</em>}<i>DEF</i></span>
             {unit.shield > 0 && <em className="v32n-shield-value">+{unit.shield}</em>}
           </span>
           {!unit.canAttack && <span className="unit-state">REST</span>}
@@ -5419,7 +5421,11 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       unseen = recentBundle.length > 0 ? recentBundle.slice(-5) : unseen.slice(-1);
     }
     visualEvents.forEach((event) => seenVfx.current.add(event.id));
-    setVfxQueue((current) => [...current, ...unseen].slice(-8));
+    setVfxQueue((current) => {
+      const merged = [...current, ...unseen];
+      const deduped = merged.filter((event, index) => merged.findIndex((item) => item.id === event.id) === index);
+      return deduped.slice(-8);
+    });
   }, [visualEventSignature]);
 
   useEffect(() => {
@@ -5431,7 +5437,11 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     );
     visualEvents.forEach((event) => seenDamagePopups.current.add(event.id));
     if (damageEvents.length === 0) return;
-    setDamagePopups((current) => [...current, ...damageEvents].slice(-10));
+    setDamagePopups((current) => {
+      const merged = [...current, ...damageEvents];
+      const deduped = merged.filter((event, index) => merged.findIndex((item) => item.id === event.id) === index);
+      return deduped.slice(-10);
+    });
     const ids = new Set(damageEvents.map((event) => event.id));
     window.setTimeout(() => setDamagePopups((current) => current.filter((event) => !ids.has(event.id))), 1250);
   }, [visualEventSignature]);
@@ -5624,11 +5634,18 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     playUiSound('trap');
   }, [nullableState?.pendingTrap?.id]);
 
+
+  useEffect(() => () => {
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+  }, []);
+
   if (!nullableState || !nullablePrivateState || nullableState.playerOrder.length !== 2) return <LoadingScreen text="결투 상태를 동기화하는 중" />;
   const state = nullableState;
   const privateState = nullablePrivateState;
   const pendingTrap = state.pendingTrap ?? null;
-  const interactionLocked = Boolean(pendingTrap);
+  const pendingExtraChoice = state.pendingExtraChoice ?? null;
+  const interactionLocked = Boolean(pendingTrap || pendingExtraChoice);
 
   const opponentId = state.playerOrder.find((id) => id !== userId) ?? '';
   const profileMap = Object.fromEntries(payload.profiles.map((profile) => [profile.user_id, profile]));
@@ -5640,6 +5657,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     : 0;
   const pendingTrapInstance = pendingTrap?.ownerId === userId ? privateState.secrets[pendingTrap.trapZone] : null;
   const pendingTrapCard = pendingTrapInstance ? CARD_BY_ID[pendingTrapInstance.cardId] : undefined;
+  const pendingExtraChoiceUnit = pendingExtraChoice ? state.boards[pendingExtraChoice.ownerId]?.units[pendingExtraChoice.zone] ?? null : null;
+  const pendingExtraChoiceCard = pendingExtraChoiceUnit ? CARD_BY_ID[pendingExtraChoiceUnit.cardId] : (pendingExtraChoice ? CARD_BY_ID[pendingExtraChoice.cardId] : undefined);
   const trapResponseSeconds = pendingTrap ? Math.max(0, Math.ceil((pendingTrap.endsAt - turnClock) / 1000)) : 0;
   const coinTossActive = Boolean(state.coinToss && coinClock < state.coinToss.endsAt);
   const turnExpiredLocally = Boolean(!coinTossActive && state.turnEndsAt && turnClock >= state.turnEndsAt);
@@ -5662,7 +5681,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const selectedCardSummonNeedsTarget = Boolean(selectedCard?.kind === 'unit' && summonEffectNeedsFriendlyTarget(selectedCard));
   const selectedExtraSummonNeedsTarget = Boolean(selectedExtraCard && summonEffectNeedsFriendlyTarget(selectedExtraCard));
   const selectedExtraTargetReady = Boolean(!selectedExtraSummonNeedsTarget || selectedExtraEffectTarget !== null);
-  const canExtraSummon = Boolean(selectedExtraCard && selectedExtra && selectedMaterials.length === requiredMaterials && selectedMaterialsValid && selectedExtraChoiceReady && selectedExtraTargetReady && myTurn && !interactionLocked && state.phase === 'main' && !busy);
+  const canExtraSummon = Boolean(selectedExtraCard && selectedExtra && selectedMaterials.length === requiredMaterials && selectedMaterialsValid && selectedExtraTargetReady && myTurn && !interactionLocked && state.phase === 'main' && !busy);
   const canAttemptExtraSummon = Boolean(selectedExtraCard && selectedExtra && myTurn && !interactionLocked && state.phase === 'main' && !busy);
   const canSpendTurnToDraw = Boolean(myTurn && state.phase === 'main' && !state.turnActionTaken && !busy && (state.deckCounts[userId] ?? 0) > 0);
   const myEnergy = state.energy[userId] ?? { current: 0, max: 0 };
@@ -6166,10 +6185,6 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       showSummonBlock(selectedExtraCard, blockReasons);
       return;
     }
-    if (selectedExtraCard.extraChoices?.length && selectedExtraChoice === null) {
-      setMessage('전설 엑스트라는 CHOOSE 1·2·3 중 발동할 효과를 먼저 선택하세요.');
-      return;
-    }
     if (selectedExtraSummonNeedsTarget && selectedExtraEffectTarget === null) {
       setMessage(`${summonTargetEffectLabel(selectedExtraCard)}을(를) 받을 아군 캐릭터를 선택하거나 “소환체 자신”을 선택하세요.`);
       return;
@@ -6184,7 +6199,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     const target = selectedExtraSummonNeedsTarget
       ? { ownerId: userId, unitIndex: selectedExtraEffectTarget === 'self' ? -1 : Number(selectedExtraEffectTarget) }
       : undefined;
-    gameAction('extra_summon', { extraInstanceId: selectedExtra, materialZones: selectedMaterials, extraChoiceIndex: selectedExtraChoice ?? undefined, ...(target ? { target } : {}) });
+    gameAction('extra_summon', { extraInstanceId: selectedExtra, materialZones: selectedMaterials, ...(target ? { target } : {}) });
   }
 
   function spendTurnToDraw() {
@@ -6208,7 +6223,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
         : '빛나는 내 유닛을 선택해 공격을 선언하세요.'
       : selectedExtraCard ? selectedExtraSummonNeedsTarget && selectedMaterials.length === requiredMaterials && selectedMaterialsValid && selectedExtraEffectTarget === null
         ? `${summonTargetEffectLabel(selectedExtraCard)}을(를) 받을 아군 캐릭터를 선택하거나 소환체 자신을 선택하세요.`
-        : `${selectedExtraCard.extraChoices?.length && selectedExtraChoice === null ? 'CHOOSE 효과 1개 선택 · ' : ''}소재 ${selectedMaterials.length}/${requiredMaterials} 선택 후 특수 소환하세요.`
+        : `${selectedExtraCard.extraChoices?.length ? '소환 성공 후 중앙에서 CHOOSE 효과 1개를 고릅니다 · ' : ''}소재 ${selectedMaterials.length}/${requiredMaterials} 선택 후 특수 소환하세요.`
         : selectedFieldUnitState ? `선택한 ${selectedFieldUnitCard?.name ?? '캐릭터'}을(를) 묘지로 보내 빈 칸을 만들고 에너지 1을 얻을 수 있습니다.`
         : selectedCard?.kind === 'unit' ? selectingSummonEffectTarget
           ? `${summonTargetEffectLabel(selectedCard)}을(를) 받을 아군 캐릭터를 선택하세요. 소환 위치를 다시 누르면 자신에게 적용됩니다.`
@@ -6515,11 +6530,11 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
               <div className="v18-selected-copy"><small>{selectedExtraCard.kind === 'fusion' ? '공명 융합' : '계승 진화'}</small><b>{selectedExtraCard.name}</b><p>{extraRequirement(selectedExtraCard)}</p><span className="v18-material-progress">릴리스 소재 {selectedMaterials.length} / {requiredMaterials}</span><span className="v31-extra-usage">{selectedExtraCard.kind === 'fusion' ? `이번 게임 공명 ${myExtraUsage.fusion}/2` : `이번 게임 계승 ${myExtraUsage.evolution}/2`} · 같은 턴 안에서 사용할 때마다 비용 +1</span></div>
               {selectedExtraCard.extraChoices?.length && (
                 <div className="v31f-extra-choose">
-                  <header><span>CHOOSE EFFECT</span><small>소환이 성공하면 선택한 효과 1개만 발동합니다.</small></header>
+                  <header><span>CHOOSE EFFECT</span><small>소환 성공 후 화면 중앙에 선택지가 나타나며, 그중 1개만 고를 수 있습니다.</small></header>
                   <div>{selectedExtraCard.extraChoices.map((choice, index) => (
-                    <button type="button" className={selectedExtraChoice === index ? 'selected' : ''} key={choice.id} onClick={() => { setSelectedExtraChoice(index); setMessage(`${index + 1}. ${choice.label} 선택 · 이제 릴리스 소재를 맞춰 소환하세요.`); }}>
+                    <div className="selected" key={choice.id}>
                       <b>{index + 1}</b><span><strong>{choice.label}</strong><small><RuleText text={choice.description} /></small></span>
-                    </button>
+                    </div>
                   ))}</div>
                 </div>
               )}
@@ -6532,7 +6547,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
                 </div>
               )}
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedExtraCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('엑스트라 카드 선택을 취소했습니다.')}>선택 취소</button></div>
-              <button className="v18-context-primary" disabled={!canAttemptExtraSummon} onClick={summonSelectedExtra}>{canExtraSummon ? (selectedExtraCard.kind === 'fusion' ? '공명 융합 발동' : '계승 진화 발동') : selectedExtraCard.extraChoices?.length && selectedExtraChoice === null ? 'CHOOSE 효과 선택 필요' : selectedExtraSummonNeedsTarget && selectedMaterials.length === requiredMaterials && selectedMaterialsValid && selectedExtraEffectTarget === null ? '등장 효과 대상 선택 필요' : '소환 조건 확인'}</button>
+              <button className="v18-context-primary" disabled={!canAttemptExtraSummon} onClick={summonSelectedExtra}>{canExtraSummon ? (selectedExtraCard.kind === 'fusion' ? '공명 융합 발동' : '계승 진화 발동') : selectedExtraSummonNeedsTarget && selectedMaterials.length === requiredMaterials && selectedMaterialsValid && selectedExtraEffectTarget === null ? '등장 효과 대상 선택 필요' : '소환 조건 확인'}</button>
             </div>
           )}
         </section>}
@@ -6659,6 +6674,37 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
             </section>
           ) : (
             <section className="v30-trap-waiting-card"><i /><div><small>TRAP WINDOW</small><b>상대의 함정 응답 대기 중</b><span>최대 {trapResponseSeconds}초 · 미응답 시 자동으로 넘어갑니다.</span></div></section>
+          )}
+        </div>
+      )}
+
+      {pendingExtraChoice && state.status === 'active' && (
+        <div className={`v30-trap-response-layer ${pendingExtraChoice.ownerId === userId ? 'mine' : 'waiting'}`} role="dialog" aria-modal={pendingExtraChoice.ownerId === userId ? 'true' : undefined} aria-live="assertive">
+          {pendingExtraChoice.ownerId === userId && pendingExtraChoiceCard ? (
+            <section className="v30-trap-response-card">
+              <div className="v30-trap-response-art"><CardIllustration card={pendingExtraChoiceCard} hero /></div>
+              <div className="v30-trap-response-copy">
+                <small>CHOOSE EFFECT</small>
+                <h2>발휘할 효과를 선택하세요</h2>
+                <b>{pendingExtraChoiceCard.name}</b>
+                <p>엑스트라 소환은 이미 완료되었습니다. 아래 3개 효과 중 1개를 선택하면 즉시 발휘됩니다.</p>
+                <div className="v30-trap-response-actions" style={{ display: 'grid', gap: 10 }}>
+                  {pendingExtraChoiceCard.extraChoices?.map((choice, index) => (
+                    <button
+                      key={choice.id}
+                      className={index === 0 ? 'primary-button' : 'ghost-button'}
+                      disabled={busy}
+                      onClick={() => void gameAction('resolve_extra_choice', { choiceIndex: index })}
+                    >
+                      {index + 1}. {choice.label}
+                    </button>
+                  ))}
+                </div>
+                <em>{pendingExtraChoiceCard.extraChoices?.map((choice, index) => `${index + 1}. ${choice.label} — ${choice.description}`).join(' / ')}</em>
+              </div>
+            </section>
+          ) : (
+            <section className="v30-trap-waiting-card"><i /><div><small>CHOOSE EFFECT</small><b>상대가 엑스트라 효과를 선택하는 중입니다.</b><span>선택이 완료되면 결투가 자동으로 이어집니다.</span></div></section>
           )}
         </div>
       )}

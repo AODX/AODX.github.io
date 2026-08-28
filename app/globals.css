@@ -2730,6 +2730,24 @@ button.mode-card:hover {
   font-style: normal;
 }
 
+
+.unit-stats .buffed b,
+.unit-stats strong.buffed {
+  color: #7cff8b;
+  text-shadow: 0 0 10px rgba(124, 255, 139, 0.35);
+}
+
+.unit-stats .debuffed b,
+.unit-stats strong.debuffed {
+  color: #ff7777;
+  text-shadow: 0 0 10px rgba(255, 119, 119, 0.32);
+}
+
+.unit-stats strong {
+  font-size: 8px;
+  font-weight: 900;
+}
+
 .unit-state {
   position: absolute;
   top: 4px;

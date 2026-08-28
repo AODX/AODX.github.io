@@ -146,6 +146,13 @@ export interface PendingTrapWindow {
   continuation: PendingTrapContinuation;
 }
 
+export interface PendingExtraChoiceWindow {
+  ownerId: string;
+  zone: number;
+  cardId: string;
+  openedAt: number;
+}
+
 export interface MatchState {
   status: MatchStatus;
   phase: MatchPhase;
@@ -156,6 +163,7 @@ export interface MatchState {
   turnEndsAt?: number | null;
   turnActionTaken?: boolean;
   pendingTrap?: PendingTrapWindow | null;
+  pendingExtraChoice?: PendingExtraChoiceWindow | null;
   /** Turn number when each player last converted one hand card into +1 temporary energy. */
   energySacrificeTurn?: Record<string, number>;
   /** Turn number when each player last retired one of their own field units for +1 temporary energy. */
@@ -401,6 +409,7 @@ export function initializeMatch(
     battleEmotes: [],
     extraSummonUsage: { [playerA]: { fusion: 0, evolution: 0 }, [playerB]: { fusion: 0, evolution: 0 } },
     extraSummonTurn: { [playerA]: {}, [playerB]: {} },
+    pendingExtraChoice: null,
     playerOrder: [first, second],
     core: { [playerA]: CORE_MAX, [playerB]: CORE_MAX },
     energy: {
@@ -3630,13 +3639,29 @@ function applyExtraChoice(
   });
 }
 
+function finalizeSummonPostChoice(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  actorId: string,
+  zone: number,
+  card: CardDefinition,
+): void {
+  if (state.boards[actorId].units[zone]) {
+    applySeriesAbility(state, privateStates, actorId, card, zone);
+    applySeriesSignature(state, privateStates, actorId, card, zone);
+    applyTacticalOnSummon(state, privateStates, actorId, zone, card);
+  }
+  destroyDefeatedUnits(state, privateStates);
+  checkWinner(state);
+}
+
 function continueSummonResolution(
   state: MatchState,
   privateStates: Record<string, PrivateState>,
   continuation: Extract<PendingTrapContinuation, { kind: 'summon' }>,
   trapResult: TrapResolution = { negated: false, retaliation: 0 },
 ): void {
-  const { actorId, zone, cardId, origin, extraChoiceIndex, target } = continuation;
+  const { actorId, zone, cardId, origin, target } = continuation;
   const opponentId = otherPlayer(state, actorId);
   const card = CARD_BY_ID[cardId];
   const unit = state.boards[actorId].units[zone];
@@ -3696,15 +3721,26 @@ function continueSummonResolution(
     triggerAlignedSummonPulses(state, privateStates, actorId, zone, card);
   }
   if (state.boards[actorId].units[zone] && card.extraChoices?.length) {
-    applyExtraChoice(state, privateStates, actorId, zone, card, extraChoiceIndex);
+    state.pendingExtraChoice = {
+      ownerId: actorId,
+      zone,
+      cardId: card.id,
+      openedAt: Date.now(),
+    };
+    appendLog(state, `「${card.name}」의 선택 효과를 고를 수 있습니다.`, 'special');
+    appendVisual(state, {
+      kind: 'special',
+      vfx: card.kind === 'fusion' ? 'legendary-fusion-choice' : 'legendary-evolution-choice',
+      cardId: card.id,
+      ownerId: actorId,
+      targetOwnerId: actorId,
+      targetZone: zone,
+      label: '효과 선택',
+      detail: '소환 후 발휘할 1개의 효과를 선택하세요.',
+    });
+    return;
   }
-  if (state.boards[actorId].units[zone]) {
-    applySeriesAbility(state, privateStates, actorId, card, zone);
-    applySeriesSignature(state, privateStates, actorId, card, zone);
-    applyTacticalOnSummon(state, privateStates, actorId, zone, card);
-  }
-  destroyDefeatedUnits(state, privateStates);
-  checkWinner(state);
+  finalizeSummonPostChoice(state, privateStates, actorId, zone, card);
 }
 
 function resolveSpellContinuation(
@@ -4234,7 +4270,7 @@ export function summonExtra(
   }
 
   continueSummonResolution(state, privateStates, {
-    kind: 'summon', actorId: playerId, zone: summonZone, cardId: card.id, origin, remainingTriggers: summonReactionTriggers(origin), extraChoiceIndex, target,
+    kind: 'summon', actorId: playerId, zone: summonZone, cardId: card.id, origin, remainingTriggers: summonReactionTriggers(origin), target,
   });
   if (!state.pendingTrap) {
     destroyDefeatedUnits(state, privateStates);
@@ -4577,6 +4613,28 @@ function continueAfterTrapDecision(
   }
 }
 
+export function resolveExtraChoice(snapshot: GameSnapshot, playerId: string, choiceIndex: number): ActionResult {
+  const state = clone(snapshot.state);
+  const privateStates = clone(snapshot.privateStates);
+  if (state.status !== 'active') throw new Error('이미 종료된 결투입니다.');
+  if (state.currentPlayerId !== playerId) throw new Error('상대 턴입니다.');
+  if (state.pendingTrap) throw new Error('함정 발동 여부를 결정하는 중입니다. 잠시만 기다려 주세요.');
+  const pending = state.pendingExtraChoice;
+  if (!pending) throw new Error('현재 선택할 수 있는 엑스트라 효과가 없습니다.');
+  if (pending.ownerId !== playerId) throw new Error('상대의 선택 효과 처리 중입니다.');
+  const card = CARD_BY_ID[pending.cardId];
+  const unit = state.boards[playerId]?.units[pending.zone];
+  if (!card || !unit || unit.cardId !== pending.cardId) {
+    state.pendingExtraChoice = null;
+    throw new Error('선택 효과를 적용할 유닛을 찾을 수 없습니다.');
+  }
+  if (!card.extraChoices?.[choiceIndex]) throw new Error('선택한 효과가 올바르지 않습니다.');
+  state.pendingExtraChoice = null;
+  applyExtraChoice(state, privateStates, playerId, pending.zone, card, choiceIndex);
+  finalizeSummonPostChoice(state, privateStates, playerId, pending.zone, card);
+  return { state, privateStates };
+}
+
 export function respondTrap(snapshot: GameSnapshot, playerId: string, activate: boolean): ActionResult {
   const state = clone(snapshot.state);
   const privateStates = clone(snapshot.privateStates);
@@ -4757,6 +4815,20 @@ export function resolveTurnTimeout(snapshot: GameSnapshot, now = Date.now()): Ac
     appendLog(state, '함정 응답 시간이 지나 자동으로 “사용하지 않기”가 선택되었습니다.', 'trap');
     continueAfterTrapDecision(state, privateStates, pending, { negated: false, retaliation: 0 });
     return { state, privateStates };
+  }
+
+  if (state.pendingExtraChoice) {
+    if (!state.turnEndsAt || now < state.turnEndsAt) return { state, privateStates };
+    const pending = state.pendingExtraChoice;
+    const card = CARD_BY_ID[pending.cardId];
+    if (card?.extraChoices?.[0] && state.boards[pending.ownerId]?.units[pending.zone]) {
+      state.pendingExtraChoice = null;
+      applyExtraChoice(state, privateStates, pending.ownerId, pending.zone, card, 0);
+      finalizeSummonPostChoice(state, privateStates, pending.ownerId, pending.zone, card);
+      appendLog(state, `시간 초과로 「${card.name}」의 첫 번째 선택 효과가 자동 발동되었습니다.`, 'system');
+      return { state, privateStates };
+    }
+    state.pendingExtraChoice = null;
   }
 
   repairCurrentTurnEnergy(state);
