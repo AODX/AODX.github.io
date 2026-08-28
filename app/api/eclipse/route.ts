@@ -2,7 +2,11 @@ import { createClient, User } from '@supabase/supabase-js';
 import {
   validateDeck,
   validateExtraDeck,
+  PACKS,
+  CARDS,
+  type PackDefinition,
 } from '../../game-data';
+import { PROFILE_COSMETIC_BY_ID } from '../../profile-cosmetics';
 import { V34_BATTLE_EMOTE_BY_ID, V34_BATTLE_EMOTE_PACK_BY_ID } from '../../v34-emotes';
 import {
   GameSnapshot,
@@ -561,6 +565,94 @@ function randomRoomCode(): string {
   const bytes = new Uint8Array(6);
   globalThis.crypto.getRandomValues(bytes);
   return Array.from(bytes, (value) => alphabet[value % alphabet.length]).join('');
+}
+
+
+const PREMIUM_TIME_FEATURED_IDS = [
+  'v41_premium_zenith_king',
+  'v41_premium_dawn_lord',
+  'v41_premium_eclipse_conductor',
+  'v41_premium_midnight_silence',
+] as const;
+const ALL_CARD_IDS = CARDS.map((card) => card.id);
+
+function randomPick<T>(items: readonly T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function drawPremiumTimePack(): string[] {
+  return Array.from({ length: 3 }, () => (Math.random() < 0.005 ? randomPick(PREMIUM_TIME_FEATURED_IDS) : randomPick(ALL_CARD_IDS)));
+}
+
+async function addCardsToCollection(admin: UserDbClient | AdminDbClient, userId: string, cardIds: string[]) {
+  if (!cardIds.length) return;
+  const uniqueIds = Array.from(new Set(cardIds));
+  const { data: existingRows, error: existingError } = await admin
+    .from('eclipse_collections')
+    .select('card_id, quantity')
+    .eq('user_id', userId)
+    .in('card_id', uniqueIds);
+  if (existingError) throw existingError;
+
+  const existingMap = new Map<string, number>((existingRows ?? []).map((row: any) => [String(row.card_id), Number(row.quantity ?? 0)]));
+  const increments = new Map<string, number>();
+  for (const cardId of cardIds) increments.set(cardId, (increments.get(cardId) ?? 0) + 1);
+
+  const payload = Array.from(increments.entries()).map(([cardId, amount]) => ({
+    user_id: userId,
+    card_id: cardId,
+    quantity: (existingMap.get(cardId) ?? 0) + amount,
+  }));
+  const { error } = await admin.from('eclipse_collections').upsert(payload, { onConflict: 'user_id,card_id' });
+  if (error) throw error;
+}
+
+async function buyPremiumPackLocally(admin: UserDbClient | AdminDbClient, userId: string, pack: PackDefinition) {
+  const { data: walletRow, error: walletError } = await admin.from('eclipse_wallets').select('coins').eq('user_id', userId).single();
+  if (walletError) throw walletError;
+  const currentCoins = Number((walletRow as any)?.coins ?? 0);
+  if (currentCoins < pack.price) throw new Error('코인이 부족합니다.');
+  const nextCoins = currentCoins - pack.price;
+  const { error: walletUpdateError } = await admin.from('eclipse_wallets').update({ coins: nextCoins }).eq('user_id', userId);
+  if (walletUpdateError) throw walletUpdateError;
+  const openedIds = drawPremiumTimePack();
+  try {
+    await addCardsToCollection(admin, userId, openedIds);
+  } catch (error) {
+    await admin.from('eclipse_wallets').update({ coins: currentCoins }).eq('user_id', userId);
+    throw error;
+  }
+  return { cardIds: openedIds, balance: nextCoins };
+}
+
+async function buyProfileCosmeticLocally(admin: UserDbClient | AdminDbClient, userId: string, cosmeticId: string) {
+  const cosmetic = PROFILE_COSMETIC_BY_ID[cosmeticId];
+  if (!cosmetic) throw new Error('존재하지 않는 프로필 아이템입니다.');
+
+  const { data: existingRow, error: existingError } = await admin
+    .from('eclipse_profile_cosmetics')
+    .select('cosmetic_id')
+    .eq('user_id', userId)
+    .eq('cosmetic_id', cosmeticId)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (existingRow) throw new Error('이미 보유한 아이템입니다.');
+
+  const { data: walletRow, error: walletError } = await admin.from('eclipse_wallets').select('coins').eq('user_id', userId).single();
+  if (walletError) throw walletError;
+  const currentCoins = Number((walletRow as any)?.coins ?? 0);
+  if (currentCoins < cosmetic.price) throw new Error('코인이 부족합니다.');
+  const nextCoins = currentCoins - cosmetic.price;
+  const { error: walletUpdateError } = await admin.from('eclipse_wallets').update({ coins: nextCoins }).eq('user_id', userId);
+  if (walletUpdateError) throw walletUpdateError;
+
+  const { error: insertError } = await admin.from('eclipse_profile_cosmetics').insert({ user_id: userId, cosmetic_id: cosmeticId });
+  if (insertError) {
+    await admin.from('eclipse_wallets').update({ coins: currentCoins }).eq('user_id', userId);
+    throw insertError;
+  }
+
+  return { cosmetic, balance: nextCoins };
 }
 
 async function ensureAccount(client: UserDbClient, user: User): Promise<void> {
@@ -1166,6 +1258,12 @@ async function handleAction(request: Request, body: RequestBody) {
 
   if (action === 'buy_pack') {
     const packId = cleanText(body.packId, 30);
+    if (packId === 'premium_time') {
+      const pack = PACKS.find((entry) => entry.id === packId);
+      if (!pack) throw new Error('존재하지 않는 팩입니다.');
+      const payload = await buyPremiumPackLocally(client, user.id, pack);
+      return { ...payload, hub: await getHub(client, user.id) };
+    }
     const { data, error } = await client.rpc('eclipse_open_pack_v26', { p_pack_id: packId });
     if (error) {
       if (/eclipse_open_pack_v26|schema cache|does not exist/i.test(error.message)) throw new Error('v26 카드 확장 DB 업그레이드가 필요합니다. sql/06_V26_EXPANSION_COSMETICS.sql을 한 번 실행해 주세요.');
@@ -1181,12 +1279,8 @@ async function handleAction(request: Request, body: RequestBody) {
 
   if (action === 'buy_profile_cosmetic') {
     const cosmeticId = cleanText(body.cosmeticId, 40);
-    const { error } = await client.rpc('eclipse_buy_profile_cosmetic_v26', { p_cosmetic_id: cosmeticId });
-    if (error) {
-      if (/function .*eclipse_buy_profile_cosmetic_v26.*does not exist|schema cache/i.test(error.message)) throw new Error('v26 꾸미기 상점 DB 업그레이드가 필요합니다. sql/06_V26_EXPANSION_COSMETICS.sql을 한 번 실행해 주세요.');
-      throw new Error(error.message);
-    }
-    return { hub: await getHub(client, user.id) };
+    const payload = await buyProfileCosmeticLocally(client, user.id, cosmeticId);
+    return { ...payload, hub: await getHub(client, user.id) };
   }
 
   if (action === 'buy_battle_emote') {
