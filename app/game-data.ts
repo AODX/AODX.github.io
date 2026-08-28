@@ -5519,7 +5519,7 @@ export const PACKS: PackDefinition[] = [
     seriesId: series.id,
     category: 'series' as const,
     accent: series.accent,
-    odds: { common: 45, rare: 32, epic: 18, legendary: 5, guaranteedSlots: 1, seriesRate: 42, seriesGuaranteedSlots: 1 },
+    odds: { common: 49, rare: 32, epic: 18, legendary: 1, guaranteedSlots: 1, seriesRate: 42, seriesGuaranteedSlots: 1 },
   })),
   {
     id: 'premium_time_dawn', name: 'PREMIUM TIME · 여명', tagline: '여명의 지배자 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#ffcf73',

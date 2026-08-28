@@ -653,6 +653,190 @@ function packEmblem(pack: (typeof PACKS)[number]): string {
   return pack.seriesId ? glyphs[pack.seriesId] : '✦';
 }
 
+
+type PackShowcaseMeta = {
+  family: 'premium' | 'legendary' | 'rare' | 'standard' | 'series';
+  kicker: string;
+  boosterLabel: string;
+  openingTitle: string;
+  openingDetail: string;
+  summaryTitle: string;
+  summaryDetail: string;
+  sealLabel: string;
+  slotLabel: string;
+  focusLabel: string;
+};
+
+type DuplicateMilestoneUnlock = {
+  cardId: string;
+  cardName: string;
+  threshold: number;
+  title: string;
+  detail: string;
+  rarity: Rarity;
+};
+
+const DUPLICATE_MILESTONE_TRACK = [
+  { threshold: 2, title: 'Collector Icon', detail: '2장 달성 · 카드 전용 컬렉터 아이콘 컨셉 해금' },
+  { threshold: 3, title: 'Signature Frame', detail: '3장 달성 · 카드 전용 프레임 컨셉 해금' },
+  { threshold: 4, title: 'Summon Boost', detail: '4장 달성 · 소환 연출 강화 단계 도달' },
+  { threshold: 5, title: 'Live Finish', detail: '5장 달성 · 라이브 아트 / 홀로 피니시 단계 도달' },
+] as const;
+
+function packCardCount(pack: (typeof PACKS)[number]): number {
+  return pack.featuredCardId ? 3 : 5;
+}
+
+function packShowcaseMeta(pack: (typeof PACKS)[number]): PackShowcaseMeta {
+  const cardCount = packCardCount(pack);
+  if (pack.featuredCardId) {
+    return {
+      family: 'premium',
+      kicker: `PREMIUM TIME · ${pack.premiumTimePhase ? ECLIPSE_PHASE_LABEL[pack.premiumTimePhase] : 'PICKUP'} · ${cardCount} CARDS`,
+      boosterLabel: `${cardCount} CARD PICKUP`,
+      openingTitle: 'TIME DISTORTION OPENING',
+      openingDetail: '시간 왜곡이 열리며 픽업 카드가 등장할 준비를 합니다.',
+      summaryTitle: 'PREMIUM TIME COMPLETE',
+      summaryDetail: '프리미엄 슬롯 결과와 중복 보상 단계를 한 번에 확인하세요.',
+      sealLabel: '시간 왜곡을 열어 픽업 슬롯 공개',
+      slotLabel: `${cardCount}개의 프리미엄 슬롯`,
+      focusLabel: 'CHASE PICKUP',
+    };
+  }
+  if (pack.seriesId) {
+    const series = SERIES_BY_ID[pack.seriesId];
+    return {
+      family: 'series',
+      kicker: `SERIES BOOSTER · ${series.shortName} · ${cardCount} CARDS`,
+      boosterLabel: `${series.shortName.toUpperCase()} BOOSTER`,
+      openingTitle: `${series.shortName.toUpperCase()} RESONANCE`,
+      openingDetail: `${series.mechanic} 콘셉트의 시리즈 봉인이 해제됩니다.`,
+      summaryTitle: `${series.shortName.toUpperCase()} COMPLETE`,
+      summaryDetail: '시리즈 연계 카드와 중복 수집 단계를 바로 확인할 수 있습니다.',
+      sealLabel: '시리즈 공명을 해방해 카드 공개',
+      slotLabel: `${cardCount}장의 시리즈 부스터`,
+      focusLabel: 'ARCHETYPE LINK',
+    };
+  }
+  if (pack.id === 'legendary') {
+    return {
+      family: 'legendary',
+      kicker: `LEGENDARY BOOSTER · ${cardCount} CARDS`,
+      boosterLabel: 'LEGENDARY ASCENT',
+      openingTitle: 'LEGEND GATE OPEN',
+      openingDetail: '전설 보장 슬롯이 열리며 최고 등급 카드의 실루엣이 떠오릅니다.',
+      summaryTitle: 'LEGENDARY COMPLETE',
+      summaryDetail: '전설/영웅 수확과 컬렉터 진척도를 점검하세요.',
+      sealLabel: '전설 봉인을 절개해 카드 공개',
+      slotLabel: `${cardCount}장의 전설 부스터`,
+      focusLabel: 'LEGEND GUARANTEE',
+    };
+  }
+  if (pack.id === 'rare') {
+    return {
+      family: 'rare',
+      kicker: `RARE BOOSTER · ${cardCount} CARDS`,
+      boosterLabel: 'RARE SURGE',
+      openingTitle: 'RARE CIRCUIT ONLINE',
+      openingDetail: '희귀 보장 슬롯과 추가 업그레이드 확률이 활성화됩니다.',
+      summaryTitle: 'RARE COMPLETE',
+      summaryDetail: '희귀 이상 카드 확보 현황과 중복 단계를 점검하세요.',
+      sealLabel: '희귀 회로를 기동해 카드 공개',
+      slotLabel: `${cardCount}장의 희귀 부스터`,
+      focusLabel: 'RARE GUARANTEE',
+    };
+  }
+  return {
+    family: 'standard',
+    kicker: `CORE BOOSTER · ${cardCount} CARDS`,
+    boosterLabel: 'CORE STARTER',
+    openingTitle: 'CORE BOOSTER OPEN',
+    openingDetail: '기본 카드 풀에서 새 카드가 전장 아카이브로 편입됩니다.',
+    summaryTitle: 'CORE COMPLETE',
+    summaryDetail: '기본 수집 결과와 중복 진척도를 확인하세요.',
+    sealLabel: '기본 부스터를 개봉해 카드 공개',
+    slotLabel: `${cardCount}장의 코어 부스터`,
+    focusLabel: 'BASIC COLLECTION',
+  };
+}
+
+function inferCardCollectionTier(card: CardDefinition): 'premium' | 'legendary' | 'series' | 'rare' | 'standard' {
+  if (/^v4(1|4)_premium_/.test(card.id) || /^v41_premium_/.test(card.id)) return 'premium';
+  if (card.seriesId) return 'series';
+  if (card.rarity === 'legendary' || card.kind === 'fusion' || card.kind === 'evolution') return 'legendary';
+  if (card.rarity === 'epic' || card.rarity === 'rare') return 'rare';
+  return 'standard';
+}
+
+function collectionTierLabel(card: CardDefinition): string {
+  const tier = inferCardCollectionTier(card);
+  if (tier === 'premium') return 'PREMIUM TIME';
+  if (tier === 'series') return card.seriesId ? `${SERIES_BY_ID[card.seriesId].shortName} SERIES` : 'SERIES';
+  if (tier === 'legendary') return 'LEGENDARY LINE';
+  if (tier === 'rare') return 'RARE LINE';
+  return 'CORE LINE';
+}
+
+function cardSummonQuote(card: CardDefinition): string {
+  const custom: Record<string, string> = {
+    v41_premium_dawn_lord: '새벽은 이미 시작되었다. 패배는 어제에 두어라.',
+    v41_premium_zenith_king: '태양의 정점에서, 전장의 시계는 나를 따른다.',
+    v44_premium_twilight_knight: '황혼의 검은 낮과 밤을 동시에 가른다.',
+    v41_premium_midnight_silence: '자정의 결론만 남기고 모든 소리를 거둔다.',
+    v41_premium_eclipse_conductor: '모든 리듬을 멈춰라. 일식의 박자만 남긴다.',
+  };
+  if (custom[card.id]) return custom[card.id];
+  if (card.seriesId) {
+    const series = SERIES_BY_ID[card.seriesId];
+    return `${series.shortName} 링크 연결. ${series.mechanic} 전술을 전개합니다.`;
+  }
+  if (card.kind === 'fusion') return '공명이 겹쳐지며 새로운 형상이 전장에 강림한다.';
+  if (card.kind === 'evolution') return '계승 각성 완료. 다음 단계의 힘을 해방한다.';
+  if (card.rarity === 'legendary') return '전설급 마력이 집중된다. 결정타를 준비하라.';
+  if (card.rarity === 'epic') return '희귀 파장이 증폭된다. 전열을 장악한다.';
+  if (card.kind === 'spell') return '술식 전개. 계산된 결과만을 남긴다.';
+  return '전장 진입 완료. 임무를 개시한다.';
+}
+
+function computeCardPowerProfile(card: CardDefinition): { score: number; tier: 'S' | 'A' | 'B' | 'C'; breakdown: Array<{ label: string; value: number }>; summary: string } {
+  const body = isUnitCard(card) ? Math.round(((card.attack ?? 0) * 1.45) + ((card.health ?? 0) * 1.2) + (card.cost * 1.35)) : Math.round((card.cost * 2.6) + (card.kind === 'trap' ? 6 : 4));
+  const effect = Math.round((card.onSummon ? 7 : 0) + (card.effect ? 8 : 0) + (card.trapEffect ? 9 : 0) + ((card.extraChoices?.length ?? 0) * 4));
+  const synergy = Math.round((card.seriesAbility ? 4 : 0) + (card.seriesSignature ? 5 : 0) + (tacticalAbilityDescription(card) ? 4 : 0) + (card.seriesId ? 3 : 0) + (card.comboTag ? 2 : 0));
+  const tempo = Math.round(((card.keywords?.length ?? 0) * 3.2) + (card.summonMode === 'legendary' ? 5 : 0) + (card.summonMode === 'rift' ? 3 : 0) + (card.kind === 'fusion' || card.kind === 'evolution' ? 6 : 0) + ((card.eclipsePhasePulses?.length ?? 0) * 2.5) + ((card.eclipseSummonPhases?.length ?? 0) * 1.5) + ((card.eclipsePlayPhases?.length ?? 0) * 1.2) + ((card.eclipseTriggerPhases?.length ?? 0) * 1.2) + (card.temporalImmunity ? 4 : 0));
+  const rarityBonus = card.rarity === 'legendary' ? 10 : card.rarity === 'epic' ? 7 : card.rarity === 'rare' ? 4 : 1;
+  const score = Math.max(12, Math.round(body + effect + synergy + tempo + rarityBonus));
+  const tier: 'S' | 'A' | 'B' | 'C' = score >= 55 ? 'S' : score >= 44 ? 'A' : score >= 32 ? 'B' : 'C';
+  const bestHook = card.seriesId ? `${SERIES_BY_ID[card.seriesId].shortName} 연계` : card.kind === 'spell' ? '즉시 발동 압박' : card.kind === 'trap' ? '반응 타이밍 변수' : '전장 체급';
+  return {
+    score,
+    tier,
+    breakdown: [
+      { label: 'BODY', value: body },
+      { label: 'EFFECT', value: effect },
+      { label: 'SYNERGY', value: synergy },
+      { label: 'TEMPO', value: tempo },
+    ],
+    summary: `${bestHook} 중심 카드입니다. ${tier}등급 전력으로 평가됩니다.`,
+  };
+}
+
+function findDuplicateMilestoneUnlocks(cardIds: string[], beforeCollection: Record<string, number>, afterCollection: CollectionRow[]): DuplicateMilestoneUnlock[] {
+  const afterMap = Object.fromEntries(afterCollection.map((entry) => [entry.card_id, entry.quantity]));
+  const unlocks: DuplicateMilestoneUnlock[] = [];
+  for (const cardId of Array.from(new Set(cardIds))) {
+    const card = CARD_BY_ID[cardId];
+    if (!card) continue;
+    const before = Number(beforeCollection[cardId] ?? 0);
+    const after = Number(afterMap[cardId] ?? before);
+    for (const milestone of DUPLICATE_MILESTONE_TRACK) {
+      if (before < milestone.threshold && after >= milestone.threshold) {
+        unlocks.push({ cardId, cardName: card.name, threshold: milestone.threshold, title: milestone.title, detail: milestone.detail, rarity: card.rarity });
+      }
+    }
+  }
+  return unlocks.sort((a, b) => b.threshold - a.threshold || a.cardName.localeCompare(b.cardName, 'ko'));
+}
+
 function PackProductVisual({ pack }: { pack: (typeof PACKS)[number] }) {
   const previews = packPreviewCards(pack);
   const emblem = packEmblem(pack);
@@ -667,7 +851,7 @@ function PackProductVisual({ pack }: { pack: (typeof PACKS)[number] }) {
           <span>PREMIUM TIME</span>
           <i>{emblem}</i>
           <strong>{pack.premiumTimePhase ? ECLIPSE_PHASE_LABEL[pack.premiumTimePhase] : 'TIME'}</strong>
-          <small>3 CARD PICKUP</small>
+          <small>{packShowcaseMeta(pack).slotLabel}</small>
         </div>
         <div className="v46-premium-feature-shell">
           <span className="v46-premium-pickup-badge"><b>{pack.odds.pickupRate ?? 0.5}%</b> PICKUP</span>
@@ -721,11 +905,12 @@ function PackProductVisual({ pack }: { pack: (typeof PACKS)[number] }) {
         ))}
       </div>
       <div className="v23-booster-pack">
-        <span className="v23-pack-kicker">{series ? 'SERIES BOOSTER' : 'ECLIPSE DUEL'}</span>
+        <span className="v23-pack-kicker">{packShowcaseMeta(pack).boosterLabel}</span>
         <i className="v23-pack-emblem">{emblem}</i>
         <strong>{pack.name}</strong>
-        <small>{series ? series.mechanic : '5 CARD BOOSTER'}</small>
+        <small>{series ? series.mechanic : packShowcaseMeta(pack).slotLabel}</small>
         <em>{series ? `${pack.odds.seriesGuaranteedSlots ?? 1} SERIES+` : `${RARITY_LABEL[pack.guaranteed]}+ GUARANTEED`}</em>
+        <u className="v48-pack-type-badge">{packShowcaseMeta(pack).focusLabel}</u>
       </div>
       <div className="v23-pack-sheen" />
     </div>
@@ -1634,6 +1819,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
   }, [onClose]);
 
   const summonCondition = summonConditionDescription(card);
+  const powerProfile = computeCardPowerProfile(card);
   const effectRows = [
     card.onSummon ? { label: '등장 효과', value: effectDescription(card.onSummon) } : null,
     card.effect ? { label: '효과 처리', value: effectDescription(card.effect) } : null,
@@ -1693,6 +1879,25 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
               <span><small>대상</small><b>{card.target === 'enemy_unit' ? '적 유닛' : card.target === 'friendly_unit' ? '아군 유닛' : card.target === 'friendly_graveyard_unit' ? '내 묘지 유닛' : card.target === 'friendly_graveyard_card' ? '내 묘지 카드' : card.target === 'own_deck_card' ? '내 덱 카드' : card.target === 'enemy_core' ? '상대 코어' : '자동 적용'}</b></span>
             </div>
           )}
+
+          <section className={`detail-section v48-power-score-panel tier-${powerProfile.tier.toLowerCase()}`}>
+            <span>POWER SCORE · 카드 전력 수치</span>
+            <div className="v48-power-score-shell">
+              <div className="v48-power-score-main">
+                <small>RANK {powerProfile.tier}</small>
+                <strong>{powerProfile.score}</strong>
+                <p>{powerProfile.summary}</p>
+              </div>
+              <div className="v48-power-score-breakdown">
+                {powerProfile.breakdown.map((entry) => (
+                  <article key={`${card.id}-${entry.label}`}>
+                    <b>{entry.label}</b>
+                    <strong>{entry.value}</strong>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </section>
 
           {abilityHighlights.length > 0 && (
             <section className="detail-section v47-card-highlight-panel">
@@ -2974,10 +3179,12 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
   const [openingStage, setOpeningStage] = useState<'idle' | 'sealed' | 'tearing' | 'reveal' | 'summary'>('idle');
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const [error, setError] = useState('');
+  const [duplicateMilestones, setDuplicateMilestones] = useState<DuplicateMilestoneUnlock[]>([]);
   const selectedPack = PACKS.find((pack) => pack.id === openingPackId);
   const premiumPacks = PACKS.filter((pack) => Boolean(pack.featuredCardId));
   const corePacks = PACKS.filter((pack) => pack.category === 'core' && !pack.featuredCardId);
   const seriesPacks = PACKS.filter((pack) => pack.category === 'series');
+  const openingMeta = selectedPack ? packShowcaseMeta(selectedPack) : null;
 
   useEffect(() => { setEmoteSelection(hub.emoteLoadout ?? []); }, [hub.emoteLoadout]);
 
@@ -2985,11 +3192,13 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
     setBusyPack(packId);
     setError('');
     try {
+      const previousCollection = Object.fromEntries(hub.collection.map((entry) => [entry.card_id, entry.quantity]));
       const result = await api('buy_pack', { packId });
       if (result.hub) onHub(result.hub);
       const cards = result.cardIds ?? [];
       if (cards.length === 0) throw new Error('팩에서 카드를 불러오지 못했습니다.');
       preloadCardArtwork(cards);
+      setDuplicateMilestones(result.hub?.collection ? findDuplicateMilestoneUnlocks(cards, previousCollection, result.hub.collection) : []);
       setOpeningPackId(packId);
       setOpened(cards);
       setRevealed(cards.map(() => false));
@@ -3078,7 +3287,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
     if (openingStage !== 'sealed') return;
     playUiSound('pack');
     setOpeningStage('tearing');
-    window.setTimeout(() => setOpeningStage('reveal'), 1050);
+    window.setTimeout(() => setOpeningStage('reveal'), 1280);
   }
 
   function revealCurrent() {
@@ -3104,30 +3313,36 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
     setOpeningPackId('');
     setOpeningStage('idle');
     setActiveCardIndex(0);
+    setDuplicateMilestones([]);
   }
 
   function renderPackCard(pack: (typeof PACKS)[number], index: number) {
     const series = pack.seriesId ? SERIES_BY_ID[pack.seriesId] : null;
     const featured = pack.featuredCardId ? CARD_BY_ID[pack.featuredCardId] : undefined;
     const premiumPackHitRate = featured ? (1 - Math.pow(1 - (pack.odds.pickupRate ?? 0.5) / 100, 3)) * 100 : 0;
+    const meta = packShowcaseMeta(pack);
     return (
-      <article className={`pack-card v6-pack-card ${featured ? 'v46-premium-pack-card' : ''} ${series ? `series-${series.id}` : `core-${pack.id}`}`} key={pack.id} style={{ '--pack-accent': pack.accent } as CSSProperties}>
+      <article className={`pack-card v6-pack-card v48-pack-card tier-${meta.family} ${featured ? 'v46-premium-pack-card' : ''} ${series ? `series-${series.id}` : `core-${pack.id}`}`} key={pack.id} style={{ '--pack-accent': pack.accent } as CSSProperties}>
         <PackProductVisual pack={pack} />
         <div className="pack-product-copy">
-          <span className="eyebrow">{series ? `SERIES ${String(index + 1).padStart(2, '0')} · ${series.mechanic}` : featured ? `PREMIUM TIME · ${pack.premiumTimePhase ? ECLIPSE_PHASE_LABEL[pack.premiumTimePhase] : 'PICKUP'} · 3 CARDS` : 'CORE BOOSTER · 5 CARDS'}</span>
+          <span className="eyebrow">{series ? `SERIES ${String(index + 1).padStart(2, '0')} · ${series.mechanic}` : meta.kicker}</span>
           <h3>{pack.name}</h3>
           <p>{pack.tagline}</p>
+          <div className="v48-pack-design-note"><b>{meta.boosterLabel}</b><span>{meta.openingDetail}</span></div>
           {series && <div className="v25-series-pack-note"><b>{series.shortName}</b><span>{series.mechanic}</span></div>}
           {featured && <div className="v46-premium-chase-note"><span>CHASE CARD · {pack.odds.pickupRate ?? 0.5}%</span><b>{featured.name}</b><small>카드의 i 버튼을 눌러 전체 효과 확인</small></div>}
           <div className="v20-pack-odds">
             {featured ? (
-              <span><small>각 슬롯 독립 픽업</small><b>{featured.name} · {pack.odds.pickupRate ?? 0.5}%</b><em>팩 1개 = 3장 · 3회 독립 추첨 · 1장 이상 픽업 약 {premiumPackHitRate.toFixed(2)}%</em></span>
+              <span><small>각 슬롯 독립 픽업</small><b>{featured.name} · {pack.odds.pickupRate ?? 0.5}%</b><em>팩 1개 = {packCardCount(pack)}장 · {packCardCount(pack)}회 독립 추첨 · 1장 이상 픽업 약 {premiumPackHitRate.toFixed(2)}%</em></span>
             ) : (
-              <span><small>기본 슬롯</small><b>전설 {pack.odds.legendary}%</b><em>영웅 {pack.odds.epic}% · 희귀 {pack.odds.rare}% · 일반 {pack.odds.common}%</em></span>
+              <span><small>{meta.focusLabel}</small><b>전설 {pack.odds.legendary}%</b><em>영웅 {pack.odds.epic}% · 희귀 {pack.odds.rare}% · 일반 {pack.odds.common}%</em></span>
             )}
             <p>{featured ? `각 카드 슬롯마다 ${pack.odds.pickupRate ?? 0.5}% 확률로 「${featured.name}」이 등장합니다. 미당첨 슬롯은 PREMIUM TIME 픽업 5종을 제외한 전체 카드 풀에서 랜덤으로 등장합니다.` : `${pack.odds.guaranteedSlots}칸 ${RARITY_LABEL[pack.guaranteed]} 이상 보장${series ? ` · 시리즈 카드 ${pack.odds.seriesGuaranteedSlots ?? 1}장 이상 보장 · 일반 슬롯 ${pack.odds.seriesRate ?? 42}% 시리즈 픽업` : ''}`}</p>
           </div>
-          <div className="pack-price"><b>{pack.price}</b> COIN</div>
+          <div className="v48-pack-footer-row">
+            <div className="pack-price"><b>{pack.price}</b> COIN</div>
+            <small>{meta.slotLabel}</small>
+          </div>
           <button className="primary-button" disabled={busyPack === pack.id || hub.wallet.coins < pack.price} onClick={() => buy(pack.id)}>
             {busyPack === pack.id ? '팩을 준비하는 중...' : hub.wallet.coins < pack.price ? '코인 부족' : featured ? `${featured.name} 픽업 도전` : '팩 구매 및 개봉'}
           </button>
@@ -3242,24 +3457,26 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
           <section className="pack-experience-modal" style={{ '--pack-accent': selectedPack?.accent ?? '#7c8cff' } as CSSProperties}>
             <header className="pack-experience-header"><div><span>PACK OPENING</span><h2>{selectedPack?.name ?? 'ECLIPSE PACK'}</h2></div><button className="modal-close" type="button" onClick={closeOpening} aria-label="팩 개봉 화면 닫기">×</button></header>
 
-            {(openingStage === 'sealed' || openingStage === 'tearing') && (
-              <div className="sealed-pack-stage">
+            {(openingStage === 'sealed' || openingStage === 'tearing') && openingMeta && (
+              <div className={`sealed-pack-stage tier-${openingMeta.family}`}>
                 <div className="pack-light-burst" />
-                <button className={`physical-pack ${openingStage === 'tearing' ? 'is-tearing' : ''}`} type="button" onClick={tearPack} aria-label="카드 팩 뜯기">
+                <div className="v48-opening-dramatic-copy"><small>{openingMeta.openingTitle}</small><b>{selectedPack?.name}</b><span>{openingMeta.openingDetail}</span></div>
+                <button className={`physical-pack tier-${openingMeta.family} ${openingStage === 'tearing' ? 'is-tearing' : ''}`} type="button" onClick={tearPack} aria-label="카드 팩 뜯기">
                   <span className="physical-pack-top" />
                   <span className="physical-pack-foil" />
-                  <span className="physical-pack-logo">ECLIPSE</span>
+                  <span className="physical-pack-logo">{openingMeta.boosterLabel}</span>
                   <span className="physical-pack-title">{selectedPack?.name}</span>
-                  <span className="physical-pack-count">5 CARDS</span>
+                  <span className="physical-pack-count">{openingMeta.slotLabel}</span>
                   <span className="physical-pack-tear-line"><i /></span>
                 </button>
-                <div className="pack-opening-guide"><b>{openingStage === 'sealed' ? '팩을 눌러 봉인을 뜯으세요' : '봉인을 해제하는 중...'}</b><span>{openingStage === 'sealed' ? '클릭 또는 탭' : '카드 에너지를 전개합니다'}</span></div>
+                <div className="pack-opening-guide"><b>{openingStage === 'sealed' ? '팩을 눌러 봉인을 뜯으세요' : '봉인을 해제하는 중...'}</b><span>{openingStage === 'sealed' ? openingMeta.sealLabel : '카드 에너지를 전개합니다'}</span></div>
               </div>
             )}
 
-            {openingStage === 'reveal' && (
-              <div className="single-card-reveal-stage">
+            {openingStage === 'reveal' && openingMeta && (
+              <div className={`single-card-reveal-stage tier-${openingMeta.family}`}>
                 <div className="reveal-progress"><span>{activeCardIndex + 1} / {opened.length}</span><div>{opened.map((_, index) => <i key={index} className={index < activeCardIndex || revealed[index] ? 'done' : index === activeCardIndex ? 'active' : ''} />)}</div></div>
+                <div className="v48-reveal-kicker"><small>{openingMeta.summaryTitle}</small><b>{collectionTierLabel(CARD_BY_ID[opened[activeCardIndex]])}</b><span>{cardSummonQuote(CARD_BY_ID[opened[activeCardIndex]])}</span></div>
                 <div className={`reveal-card-focus rarity-${CARD_BY_ID[opened[activeCardIndex]]?.rarity ?? 'common'} ${revealed[activeCardIndex] ? 'is-revealed' : ''}`}>
                   <div className="card-stack-shadow shadow-a" /><div className="card-stack-shadow shadow-b" />
                   <CardFace
@@ -3278,10 +3495,11 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
               </div>
             )}
 
-            {openingStage === 'summary' && (
-              <div className="pack-summary-stage">
-                <div className="summary-burst"><span>PACK COMPLETE</span><h3>새로운 카드 5장을 획득했습니다</h3><p>카드를 누르면 상세 효과와 소환 조건을 확인할 수 있습니다.</p></div>
-                <div className="summary-card-row">{opened.map((cardId, index) => <div style={{ '--delay': index } as CSSProperties} key={`${cardId}-${index}`}><CardFace card={CARD_BY_ID[cardId]} compact /></div>)}</div>
+            {openingStage === 'summary' && openingMeta && (
+              <div className={`pack-summary-stage tier-${openingMeta.family}`}>
+                <div className="summary-burst"><span>{openingMeta.summaryTitle}</span><h3>새로운 카드 {opened.length}장을 획득했습니다</h3><p>{openingMeta.summaryDetail} 카드를 누르면 상세 효과와 소환 조건을 확인할 수 있습니다.</p></div>
+                <div className="summary-card-row">{opened.map((cardId, index) => <div className="v48-summary-card-wrap" style={{ '--delay': index } as CSSProperties} key={`${cardId}-${index}`}><CardFace card={CARD_BY_ID[cardId]} compact onClick={() => requestCardInspection(cardId)} /><small>{CARD_BY_ID[cardId] ? collectionTierLabel(CARD_BY_ID[cardId]) : 'COLLECTION'}</small></div>)}</div>
+                {duplicateMilestones.length > 0 && <div className="v48-duplicate-track"><header><span>DUPLICATE VALUE</span><h4>중복 카드 컬렉터 단계 상승</h4><p>일반·희귀·전설·시리즈·프리미엄 팩에서 얻은 카드 모두 동일하게 적용됩니다.</p></header><div className="v48-duplicate-track-grid">{duplicateMilestones.map((item) => <article key={`${item.cardId}-${item.threshold}`} className={`rarity-${item.rarity}`}><small>{item.title}</small><b>{item.cardName} · {item.threshold}장</b><span>{item.detail}</span></article>)}</div></div>}
                 <button className="primary-button summary-close" type="button" onClick={closeOpening}>보관함에 저장하고 닫기</button>
               </div>
             )}
@@ -4182,6 +4400,11 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false,
           <div className="v32m-summon-card">
             <CardIllustration card={card} hero />
             <span><small>{event.kind === 'special' ? 'SPECIAL SUMMON' : 'SUMMON'}</small><b>{card.name}</b><em>{summonProfile.label}</em></span>
+          </div>
+          <div className="v48-summon-quote">
+            <small>{collectionTierLabel(card)}</small>
+            <b>{card.seriesId ? 'SERIES ENTRY' : card.rarity === 'legendary' ? 'LEGEND ENTRY' : 'SUMMON LINE'}</b>
+            <p>{cardSummonQuote(card)}</p>
           </div>
         </div>
       )}
