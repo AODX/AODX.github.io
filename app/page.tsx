@@ -1098,17 +1098,27 @@ function TemporalQuickHint({ card, currentPhase, compact = false }: { card: Card
 }
 
 
-function TemporalHandBadge({ card, currentPhase }: { card: CardDefinition; currentPhase: EclipsePhase }) {
+function TemporalHandBadge({ card, currentPhase: _currentPhase }: { card: CardDefinition; currentPhase: EclipsePhase }) {
   const reactions = temporalReactionRows(card);
-  const currentReaction = reactions.find((reaction) => reaction.phase === currentPhase) ?? null;
+  const strongPhases = reactions.filter((reaction) => reaction.polarity === 'buff').map((reaction) => ECLIPSE_PHASE_LABEL[reaction.phase]);
+  const weakPhases = reactions.filter((reaction) => reaction.polarity === 'debuff').map((reaction) => ECLIPSE_PHASE_LABEL[reaction.phase]);
   const hasTemporalInfo = Boolean(card.temporalImmunity || reactions.length || card.eclipsePhasePulses?.length || card.eclipseSummonPhases?.length || card.eclipsePlayPhases?.length || card.eclipseTriggerPhases?.length);
   if (!hasTemporalInfo) return null;
-  const tone = card.temporalImmunity ? 'fixed' : currentReaction?.polarity === 'buff' ? 'buff' : currentReaction?.polarity === 'debuff' ? 'debuff' : 'neutral';
-  const label = card.temporalImmunity ? '고정' : currentReaction?.polarity === 'buff' ? '강세' : currentReaction?.polarity === 'debuff' ? '약세' : '중립';
-  const delta = currentReaction ? temporalDeltaText(currentReaction.attack, currentReaction.health) : '';
+
+  if (card.temporalImmunity) {
+    return (
+      <span className="v42-time-state-pill fixed profile" title="시간대 능력치 보정을 받지 않습니다.">
+        <span className="fixed-row"><b>시간 고정</b><i>강세·약세 없음</i></span>
+      </span>
+    );
+  }
+
+  const strongText = strongPhases.length ? strongPhases.join('·') : '없음';
+  const weakText = weakPhases.length ? weakPhases.join('·') : '없음';
   return (
-    <span className={`v42-time-state-pill ${tone}`} title={`${ECLIPSE_PHASE_LABEL[currentPhase]} · ${label}${delta ? ` · ${delta}` : ''}`}>
-      <i>{ECLIPSE_PHASE_LABEL[currentPhase]}</i><b>{label}</b>
+    <span className="v42-time-state-pill profile" title={`강세: ${strongText} / 약세: ${weakText}`}>
+      <span className="strong-row"><b>강세</b><i>{strongText}</i></span>
+      <span className="weak-row"><b>약세</b><i>{weakText}</i></span>
     </span>
   );
 }

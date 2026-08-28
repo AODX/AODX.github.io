@@ -9651,6 +9651,60 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
 .v23-client.in-duel .v18-hand-card .v42-time-state-pill.fixed b { color:#e4c9ff!important; }
 .v23-client.in-duel .v18-hand-card .v42-time-state-pill.neutral b { color:#cbd9e8!important; }
 
+
+/* v46: hand-card TIME badge shows the card's own strong/weak phases, not the current battlefield phase. */
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.profile {
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:2px!important;
+  min-width:92px!important;
+  max-width:126px!important;
+  min-height:25px!important;
+  padding:3px 7px!important;
+  border-color:rgba(180,207,228,.3)!important;
+  background:rgba(4,9,16,.96)!important;
+}
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.profile > span {
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:4px!important;
+  min-width:0!important;
+  white-space:nowrap!important;
+}
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.profile > span b,
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.profile > span i {
+  font-size:6.5px!important;
+  line-height:1!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.profile > span b {
+  flex:0 0 auto!important;
+  min-width:20px!important;
+  text-align:center!important;
+}
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.profile > span i {
+  flex:1 1 auto!important;
+  color:#dce9f5!important;
+  opacity:.94!important;
+}
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.profile .strong-row b {
+  color:#83f2bd!important;
+  text-shadow:0 0 7px rgba(83,242,173,.28)!important;
+}
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.profile .weak-row b {
+  color:#ff9daf!important;
+  text-shadow:0 0 7px rgba(255,116,145,.25)!important;
+}
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.profile .fixed-row b {
+  color:#e4c9ff!important;
+}
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.profile .fixed-row i {
+  color:#d9c8ef!important;
+}
+
 /* Explicitly suppress the old large compact time panel on hand cards. */
 .v23-client.in-duel .v18-hand-card > .v38-temporal-quick.compact { display:none!important; }
 
