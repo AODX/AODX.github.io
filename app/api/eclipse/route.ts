@@ -576,14 +576,20 @@ const PREMIUM_TIME_FEATURED_IDS = [
   'v41_premium_midnight_silence',
   'v44_premium_twilight_knight',
 ] as const;
-const ALL_CARD_IDS = CARDS.map((card) => card.id);
+const PREMIUM_TIME_FEATURED_SET = new Set<string>(PREMIUM_TIME_FEATURED_IDS);
+// Premium TIME chase cards are excluded from the miss pool so the advertised
+// 0.5% per slot remains the real acquisition probability for the featured card.
+const PREMIUM_TIME_MISS_POOL_IDS = CARDS.map((card) => card.id).filter((cardId) => !PREMIUM_TIME_FEATURED_SET.has(cardId));
 
 function randomPick<T>(items: readonly T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-function drawPremiumTimePack(): string[] {
-  return Array.from({ length: 3 }, () => (Math.random() < 0.005 ? randomPick(PREMIUM_TIME_FEATURED_IDS) : randomPick(ALL_CARD_IDS)));
+function drawPremiumTimePack(pack: PackDefinition): string[] {
+  const featuredCardId = pack.featuredCardId;
+  if (!featuredCardId || !PREMIUM_TIME_FEATURED_SET.has(featuredCardId)) throw new Error('프리미엄 TIME 픽업 카드 정보가 올바르지 않습니다.');
+  const pickupRate = Math.max(0, Math.min(100, Number(pack.odds.pickupRate ?? 0.5))) / 100;
+  return Array.from({ length: 3 }, () => (Math.random() < pickupRate ? featuredCardId : randomPick(PREMIUM_TIME_MISS_POOL_IDS)));
 }
 
 async function addCardsToCollection(admin: UserDbClient | AdminDbClient, userId: string, cardIds: string[]) {
@@ -617,7 +623,7 @@ async function buyPremiumPackLocally(admin: UserDbClient | AdminDbClient, userId
   const nextCoins = currentCoins - pack.price;
   const { error: walletUpdateError } = await admin.from('eclipse_wallets').update({ coins: nextCoins }).eq('user_id', userId);
   if (walletUpdateError) throw walletUpdateError;
-  const openedIds = drawPremiumTimePack();
+  const openedIds = drawPremiumTimePack(pack);
   try {
     await addCardsToCollection(admin, userId, openedIds);
   } catch (error) {
@@ -1260,9 +1266,9 @@ async function handleAction(request: Request, body: RequestBody) {
 
   if (action === 'buy_pack') {
     const packId = cleanText(body.packId, 30);
-    if (packId === 'premium_time') {
-      const pack = PACKS.find((entry) => entry.id === packId);
-      if (!pack) throw new Error('존재하지 않는 팩입니다.');
+    const pack = PACKS.find((entry) => entry.id === packId);
+    if (!pack) throw new Error('존재하지 않는 팩입니다.');
+    if (pack.featuredCardId) {
       const payload = await buyPremiumPackLocally(client, user.id, pack);
       return { ...payload, hub: await getHub(client, user.id) };
     }
