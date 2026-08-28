@@ -671,9 +671,24 @@ function PackProductVisual({ pack }: { pack: (typeof PACKS)[number] }) {
         </div>
         <div className="v46-premium-feature-shell">
           <span className="v46-premium-pickup-badge"><b>{pack.odds.pickupRate ?? 0.5}%</b> PICKUP</span>
-          <div className="v46-premium-feature-card" title={`${featured.name} · 클릭해서 카드 정보 보기`}>
-            <CardFace card={featured} compact onClick={() => requestCardInspection(featured.id)} />
-          </div>
+          <button type="button" className="v47-premium-feature-card" title={`${featured.name} · 클릭해서 카드 정보 보기`} onClick={() => requestCardInspection(featured.id)}>
+            <div className="v47-premium-feature-head">
+              <span className="v47-premium-feature-cost">{featured.cost}</span>
+              <span className="v47-premium-feature-title"><b>{featured.name}</b><small>{featured.subtitle}</small></span>
+              <span className="v47-premium-feature-rarity">{featured.kind === 'spell' ? 'LEGEND SPELL' : 'CHASE UNIT'}</span>
+            </div>
+            <div className="v47-premium-feature-art">
+              <CardIllustration card={featured} hero />
+            </div>
+            <div className="v47-premium-feature-foot">
+              <span>{featured.kind === 'unit' ? `ATK ${featured.attack} · HP ${featured.health}` : 'SPELL · CONTROL'}</span>
+              <span>{cardRoleSummary(featured)}</span>
+            </div>
+            <div className="v47-premium-feature-keywords">
+              {(featured.keywords && featured.keywords.length > 0 ? featured.keywords : []).slice(0, 4).map((keyword) => <i key={keyword}>{KEYWORD_LABEL[keyword]}</i>)}
+              {(!featured.keywords || featured.keywords.length === 0) && <i>시간 마법</i>}
+            </div>
+          </button>
           <button type="button" className="v46-premium-info-button" onClick={() => requestCardInspection(featured.id)}>ⓘ 카드 정보 보기</button>
         </div>
         <div className="v23-pack-sheen" aria-hidden="true" />
@@ -900,6 +915,59 @@ function effectDescription(effect: CardDefinition['effect'] | CardDefinition['on
     ? `직접 공격을 무효로 하고, 공격한 캐릭터에게 ${effect.amount}의 피해를 줍니다`
     : `대응한 효과의 발동을 무효로 하고 상대 코어에 ${effect.amount}의 피해를 줍니다`;
   return '';
+}
+
+type CardHighlight = { label: string; detail: string; tone?: 'feature' | 'phase' | 'power' | 'control' };
+
+function premiumTimeHighlights(card: CardDefinition): CardHighlight[] {
+  switch (card.id) {
+    case 'v41_premium_dawn_lord':
+      return [
+        { label: '등장 보상', detail: '여명 설정 · 카드 2장 드로우 · ENERGY 최대치 +1 · 코어 3 회복', tone: 'feature' },
+        { label: '여명 폭발', detail: '여명 진입 시 아군 전체 +3/+3', tone: 'power' },
+        { label: '전장 제어', detail: '코어 5 회복 + 가장 강한 적 1체 1턴 동결', tone: 'control' },
+      ];
+    case 'v41_premium_zenith_king':
+      return [
+        { label: '등장 보상', detail: '정점 설정 · 2턴 고정 · 아군 전체 +3/+3 · 보호막 4', tone: 'feature' },
+        { label: '정점 폭발', detail: '정점 진입 시 아군 전체 준비 완료', tone: 'phase' },
+        { label: '마무리 압박', detail: '정점 진입 시 상대 코어 5 피해', tone: 'power' },
+      ];
+    case 'v44_premium_twilight_knight':
+      return [
+        { label: '등장 보상', detail: '황혼 설정 · 카드 1장 드로우', tone: 'feature' },
+        { label: '황혼 폭발', detail: '황혼 진입 시 아군 전체 보호막 3 + 상대 코어 5 피해', tone: 'phase' },
+        { label: '정리 능력', detail: '가장 약한 적 1체 붕괴 · 황혼 중 자신 +4/+4', tone: 'control' },
+      ];
+    case 'v41_premium_midnight_silence':
+      return [
+        { label: '주문 핵심', detail: '심야 설정 · 2턴 고정 · 적 전체 1턴 동결', tone: 'feature' },
+        { label: '손패 압박', detail: '상대 손패의 최고 비용 카드 2장 강제 버림', tone: 'control' },
+        { label: '추가 보상', detail: '심야 상태라면 상대 코어 6 피해 · 카드 2장 드로우 · ENERGY 2 획득', tone: 'power' },
+      ];
+    case 'v41_premium_eclipse_conductor':
+      return [
+        { label: '등장 보상', detail: '개기일식 설정 · 2턴 고정 · 가장 강한 적 리콜 · 상대 묘지 2장 제외', tone: 'feature' },
+        { label: '식광 폭발', detail: '개기일식 진입 시 상대 코어 5 피해', tone: 'power' },
+        { label: '재전개', detail: '묘지의 최고 비용 유닛 1체를 체력 80%로 부활', tone: 'phase' },
+      ];
+    default:
+      return [];
+  }
+}
+
+function cardAbilityHighlights(card: CardDefinition): CardHighlight[] {
+  const premium = premiumTimeHighlights(card);
+  if (premium.length > 0) return premium;
+
+  const items: CardHighlight[] = [];
+  if (card.onSummon) items.push({ label: '등장 효과', detail: effectDescription(card.onSummon), tone: 'feature' });
+  if (card.effect) items.push({ label: card.kind === 'spell' ? '주문 효과' : '효과 처리', detail: effectDescription(card.effect), tone: 'feature' });
+  if (card.trapEffect) items.push({ label: '함정 반응', detail: effectDescription(card.trapEffect, card.trapTrigger), tone: 'control' });
+  (card.eclipsePhasePulses ?? []).slice(0, 3).forEach((pulse) => {
+    items.push({ label: `${ECLIPSE_PHASE_LABEL[pulse.phase]} 발동`, detail: pulse.description, tone: 'phase' });
+  });
+  return items.slice(0, 4);
 }
 
 const ECLIPSE_UI_MATCH_BONUS: Record<EclipsePhase, { attack: number; health: number }> = {
@@ -1566,6 +1634,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
     card.trapTrigger ? { label: '반응 조건', value: trapTriggerDescription(card.trapTrigger) } : null,
     card.trapEffect ? { label: '반응 결과', value: effectDescription(card.trapEffect, card.trapTrigger) } : null,
   ].filter((row): row is { label: string; value: string } => Boolean(row?.value));
+  const abilityHighlights = cardAbilityHighlights(card);
 
   const summonLabel = card.kind === 'fusion'
     ? '공명 융합'
@@ -1617,6 +1686,20 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
               <span><small>속성</small><b>{ELEMENT_LABEL[card.element]}</b></span>
               <span><small>대상</small><b>{card.target === 'enemy_unit' ? '적 유닛' : card.target === 'friendly_unit' ? '아군 유닛' : card.target === 'friendly_graveyard_unit' ? '내 묘지 유닛' : card.target === 'friendly_graveyard_card' ? '내 묘지 카드' : card.target === 'own_deck_card' ? '내 덱 카드' : card.target === 'enemy_core' ? '상대 코어' : '자동 적용'}</b></span>
             </div>
+          )}
+
+          {abilityHighlights.length > 0 && (
+            <section className="detail-section v47-card-highlight-panel">
+              <span>HIGHLIGHTS · 한눈에 보기</span>
+              <div className="v47-card-highlight-grid">
+                {abilityHighlights.map((item) => (
+                  <article key={`${card.id}-${item.label}`} className={`v47-card-highlight-item tone-${item.tone ?? 'feature'}`}>
+                    <b>{item.label}</b>
+                    <p>{item.detail}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
           )}
 
           <section className="detail-section primary-effect v31l-primary-effect" id="card-detail-effect">
@@ -3030,6 +3113,19 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
           <p>{pack.tagline}</p>
           {series && <div className="v25-series-pack-note"><b>{series.shortName}</b><span>{series.mechanic}</span></div>}
           {featured && <div className="v46-premium-chase-note"><span>CHASE CARD · {pack.odds.pickupRate ?? 0.5}%</span><b>{featured.name}</b><button type="button" onClick={() => requestCardInspection(featured.id)}>상세 정보</button></div>}
+          {featured && (
+            <div className="v47-premium-effect-preview">
+              <span className="v47-premium-effect-preview-title">핵심 효과 미리보기</span>
+              <div className="v47-premium-effect-grid">
+                {premiumTimeHighlights(featured).map((item) => (
+                  <article key={`${featured.id}-${item.label}`} className={`v47-premium-effect-item tone-${item.tone ?? 'feature'}`}>
+                    <b>{item.label}</b>
+                    <p>{item.detail}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="v20-pack-odds">
             {featured ? (
               <span><small>각 슬롯 독립 픽업</small><b>{featured.name} · {pack.odds.pickupRate ?? 0.5}%</b><em>팩 1개 = 3장 · 3회 독립 추첨 · 1장 이상 픽업 약 {premiumPackHitRate.toFixed(2)}%</em></span>

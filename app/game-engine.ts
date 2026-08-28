@@ -3647,6 +3647,7 @@ function finalizeSummonPostChoice(
   card: CardDefinition,
 ): void {
   if (state.boards[actorId].units[zone]) {
+    applyPremiumTimeSignature(state, privateStates, actorId, card, zone);
     applySeriesAbility(state, privateStates, actorId, card, zone);
     applySeriesSignature(state, privateStates, actorId, card, zone);
     applyTacticalOnSummon(state, privateStates, actorId, zone, card);
@@ -3758,6 +3759,7 @@ function resolveSpellContinuation(
       const effectTarget = card.target === 'enemy_core' ? undefined : continuation.target;
       applyEffect(state, privateStates, continuation.actorId, card.effect, effectTarget, card);
     }
+    applyPremiumTimeSignature(state, privateStates, continuation.actorId, card);
     applySeriesAbility(state, privateStates, continuation.actorId, card);
     applySeriesSignature(state, privateStates, continuation.actorId, card);
     applyTacticalOnSpellResolved(state, continuation.actorId, card);
@@ -3777,6 +3779,142 @@ function resolveSpellContinuation(
   if (!trapResult.negated && card.effect?.kind === 'end_turn_next_energy' && state.status === 'active' && state.currentPlayerId === continuation.actorId) {
     appendVisual(state, { kind: 'turn', vfx: 'light-seal-end', cardId: card.id, ownerId: continuation.actorId, label: '빛의 봉인 · 턴 종료' });
     advanceTurn(state, privateStates, continuation.actorId, Date.now(), `「${card.name}」으로 턴을 즉시 종료했습니다.`);
+  }
+}
+
+function freezeAllEnemyUnits(state: MatchState, actorId: string, turns: number, sourceCard: CardDefinition) {
+  const opponentId = otherPlayer(state, actorId);
+  const until = state.turnNumber + Math.max(1, turns);
+  let frozen = 0;
+  for (let index = 0; index < state.boards[opponentId].units.length; index += 1) {
+    const unit = state.boards[opponentId].units[index];
+    if (!unit) continue;
+    unit.stunnedUntilTurn = Math.max(unit.stunnedUntilTurn ?? 0, until);
+    unit.canAttack = false;
+    frozen += 1;
+    appendVisual(state, {
+      kind: 'buff',
+      vfx: 'attack-freeze',
+      cardId: sourceCard.id,
+      ownerId: actorId,
+      targetOwnerId: opponentId,
+      targetZone: index,
+      label: '심야 동결',
+    });
+  }
+  appendLog(state, frozen > 0 ? `「${sourceCard.name}」이(가) 적 유닛 ${frozen}체의 움직임을 묶었습니다.` : `「${sourceCard.name}」이(가) 심야를 호출했지만 동결할 적이 없었습니다.`, 'special');
+}
+
+function discardHighestCostCardsFromOpponent(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  actorId: string,
+  amount: number,
+  sourceCard: CardDefinition,
+) {
+  const opponentId = otherPlayer(state, actorId);
+  const opponentPrivate = privateStates[opponentId];
+  const ranked = opponentPrivate.hand
+    .map((instance, index) => ({ instance, index, card: CARD_BY_ID[instance.cardId] }))
+    .filter((entry): entry is { instance: CardInstance; index: number; card: CardDefinition } => Boolean(entry.card))
+    .sort((a, b) => b.card.cost - a.card.cost || a.index - b.index)
+    .slice(0, Math.max(0, amount));
+  if (!ranked.length) {
+    appendLog(state, `「${sourceCard.name}」이(가) 손패를 잠그려 했지만 상대 손패가 비어 있었습니다.`, 'special');
+    return;
+  }
+
+  const picked = new Set(ranked.map((entry) => entry.instance.instanceId));
+  const discardedNames = ranked.map((entry) => entry.card.name);
+  opponentPrivate.hand = opponentPrivate.hand.filter((instance) => {
+    if (!picked.has(instance.instanceId)) return true;
+    state.graveyards[opponentId].push(instance.cardId);
+    return false;
+  });
+  state.handCounts[opponentId] = opponentPrivate.hand.length;
+  appendLog(state, `「${sourceCard.name}」이(가) 상대 손패의 고비용 카드 ${discardedNames.length}장을 침묵 속으로 떨어뜨렸습니다: ${discardedNames.join(', ')}`, 'special');
+  appendVisual(state, {
+    kind: 'special',
+    vfx: 'midnight-silence-rend',
+    cardId: sourceCard.id,
+    ownerId: actorId,
+    targetOwnerId: opponentId,
+    amount: discardedNames.length,
+    label: '심야 강제 버림',
+  });
+}
+
+function recallStrongestEnemyUnit(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  actorId: string,
+  sourceCard: CardDefinition,
+) {
+  const opponentId = otherPlayer(state, actorId);
+  const candidates = (state.boards[opponentId]?.units ?? [])
+    .map((unit, index) => ({ unit, index }))
+    .filter((entry): entry is { unit: UnitState; index: number } => Boolean(entry.unit))
+    .sort((a, b) => (b.unit.attack + b.unit.health + b.unit.shield) - (a.unit.attack + a.unit.health + a.unit.shield) || b.unit.attack - a.unit.attack || a.index - b.index);
+  const target = candidates[0];
+  if (!target) {
+    appendLog(state, `「${sourceCard.name}」이(가) 되돌릴 적을 찾지 못했습니다.`, 'special');
+    return;
+  }
+  const targetName = CARD_BY_ID[target.unit.cardId]?.name ?? '상대 최강 캐릭터';
+  bounceUnitToOwner(state, privateStates, opponentId, target.index, 'premium-eclipse-recall');
+  appendLog(state, `「${sourceCard.name}」이(가) ${targetName}을(를) 손패로 되돌렸습니다.`, 'special');
+}
+
+function applyPremiumTimeSignature(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  actorId: string,
+  card: CardDefinition,
+  zone?: number,
+) {
+  if (card.id === 'v41_premium_dawn_lord' && typeof zone === 'number' && state.boards[actorId].units[zone]) {
+    const actorPrivate = privateStates[actorId];
+    drawCards(state, actorPrivate, actorId, 2);
+    applyEffect(state, privateStates, actorId, { kind: 'increase_energy_max', amount: 1 }, undefined, card);
+    applyEffect(state, privateStates, actorId, { kind: 'heal_core', amount: 3 }, undefined, card);
+    appendLog(state, '「여명의 지배자」가 새벽의 보너스를 열어 카드 2장, ENERGY 최대치 +1, 코어 3 회복을 제공합니다.', 'special');
+    return;
+  }
+
+  if (card.id === 'v41_premium_zenith_king' && typeof zone === 'number' && state.boards[actorId].units[zone]) {
+    applyEffect(state, privateStates, actorId, { kind: 'phase_lock', turns: 2 }, undefined, card);
+    applyEffect(state, privateStates, actorId, { kind: 'mass_buff', attack: 3, health: 3 }, undefined, card);
+    applyEffect(state, privateStates, actorId, { kind: 'mass_shield', amount: 4 }, undefined, card);
+    appendLog(state, '「정점의 왕」이 절정 군림 효과로 2턴 시간 고정과 아군 전체 +3/+3, 보호막 4를 부여했습니다.', 'special');
+    return;
+  }
+
+  if (card.id === 'v41_premium_eclipse_conductor' && typeof zone === 'number' && state.boards[actorId].units[zone]) {
+    applyEffect(state, privateStates, actorId, { kind: 'phase_lock', turns: 2 }, undefined, card);
+    recallStrongestEnemyUnit(state, privateStates, actorId, card);
+    applyEffect(state, privateStates, actorId, { kind: 'banish_enemy_grave', amount: 2 }, undefined, card);
+    appendLog(state, '「개기일식의 조율자」가 가장 강한 적을 되돌리고 상대 묘지 2장을 소멸시켰습니다.', 'special');
+    return;
+  }
+
+  if (card.id === 'v44_premium_twilight_knight' && typeof zone === 'number' && state.boards[actorId].units[zone]) {
+    const actorPrivate = privateStates[actorId];
+    drawCards(state, actorPrivate, actorId, 1);
+    appendLog(state, '「황혼의 기사」가 황혼의 서막으로 카드 1장을 추가로 준비했습니다.', 'special');
+    return;
+  }
+
+  if (card.id === 'v41_premium_midnight_silence' && card.kind === 'spell') {
+    const actorPrivate = privateStates[actorId];
+    applyEffect(state, privateStates, actorId, { kind: 'phase_lock', turns: 2 }, undefined, card);
+    freezeAllEnemyUnits(state, actorId, 1, card);
+    discardHighestCostCardsFromOpponent(state, privateStates, actorId, 2, card);
+    if (currentEclipsePhase(state) === 'midnight') {
+      applyEffect(state, privateStates, actorId, { kind: 'damage_core', amount: 6 }, undefined, card);
+      drawCards(state, actorPrivate, actorId, 2);
+      applyEffect(state, privateStates, actorId, { kind: 'gain_energy', amount: 2 }, undefined, card);
+      appendLog(state, '심야 추가 효과 발동 — 상대 코어 6 피해, 카드 2장 드로우, 이번 턴 ENERGY 2 회복.', 'special');
+    }
   }
 }
 
