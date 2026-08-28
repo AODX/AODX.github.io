@@ -9521,3 +9521,135 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
   .v23-client.in-duel .v39-sweep-wave i,
   .v23-client.in-duel .v39-sweep-copy { animation-duration:.72s!important; }
 }
+
+/* ---------- v41 sticker/time cosmetics ---------- */
+.v23-client .theme-bg_sticker_nikke,
+.v23-client .theme-bg_sticker_bluearchive,
+.v23-client .theme-bg_sticker_genshin,
+.v23-client .theme-bg_sticker_hsr,
+.v23-client .theme-bg_sticker_wuwa,
+.v23-client .theme-bg_sticker_arcade,
+.v23-client .theme-bg_clockwork_dawn,
+.v23-client .theme-bg_starlight_arcade,
+.v23-client .theme-bg_midnight_record,
+.v23-client .theme-bg_aurora_grid {
+  position: relative;
+  overflow: hidden;
+}
+.v23-client .theme-bg_sticker_nikke::before,
+.v23-client .theme-bg_sticker_bluearchive::before,
+.v23-client .theme-bg_sticker_genshin::before,
+.v23-client .theme-bg_sticker_hsr::before,
+.v23-client .theme-bg_sticker_wuwa::before,
+.v23-client .theme-bg_sticker_arcade::before,
+.v23-client .theme-bg_clockwork_dawn::before,
+.v23-client .theme-bg_starlight_arcade::before,
+.v23-client .theme-bg_midnight_record::before,
+.v23-client .theme-bg_aurora_grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.2;
+  background-image:
+    radial-gradient(circle at 18% 22%, rgba(255,255,255,.92) 0 8px, transparent 9px),
+    radial-gradient(circle at 72% 24%, rgba(255,255,255,.86) 0 7px, transparent 8px),
+    radial-gradient(circle at 32% 74%, rgba(255,255,255,.84) 0 9px, transparent 10px),
+    radial-gradient(circle at 82% 76%, rgba(255,255,255,.8) 0 8px, transparent 9px);
+}
+.v23-client .theme-bg_sticker_nikke { background: linear-gradient(135deg,#3c1f12,#0c121b 58%,#1f130a) !important; }
+.v23-client .theme-bg_sticker_bluearchive { background: linear-gradient(135deg,#0e2947,#0b121b 58%,#102f46) !important; }
+.v23-client .theme-bg_sticker_genshin { background: linear-gradient(135deg,#4b3720,#0b121b 60%,#202f4b) !important; }
+.v23-client .theme-bg_sticker_hsr { background: linear-gradient(135deg,#281744,#0b121b 60%,#18233e) !important; }
+.v23-client .theme-bg_sticker_wuwa { background: linear-gradient(135deg,#0f2630,#091017 62%,#202020) !important; }
+.v23-client .theme-bg_sticker_arcade { background: linear-gradient(135deg,#10253e,#08111a 55%,#1f1634) !important; }
+.v23-client .theme-bg_clockwork_dawn { background: linear-gradient(135deg,#4d2f12,#101723 58%,#4a4120) !important; }
+.v23-client .theme-bg_starlight_arcade { background: linear-gradient(135deg,#11243d,#08111a 58%,#17204d) !important; }
+.v23-client .theme-bg_midnight_record { background: linear-gradient(135deg,#141a39,#08111a 56%,#2a1436) !important; }
+.v23-client .theme-bg_aurora_grid { background: linear-gradient(135deg,#072a22,#08111a 56%,#172f49) !important; }
+.v23-client .emblem-emblem_sticker_rabbit,
+.v23-client .emblem-emblem_sticker_angel,
+.v23-client .emblem-emblem_sticker_cat,
+.v23-client .emblem-emblem_sticker_cheer,
+.v23-client .emblem-emblem_sticker_moon,
+.v23-client .emblem-emblem_sticker_crown,
+.v23-client .emblem-emblem_sticker_gear,
+.v23-client .emblem-emblem_sticker_heart,
+.v23-client .emblem-emblem_sticker_pixel,
+.v23-client .emblem-emblem_sticker_comet {
+  animation: v27CometHeart 2.8s ease-in-out infinite !important;
+}
+
+/* v42 card readability: card face is a visual summary, full rules live in the inspector. */
+.v23-client .tcg-card:not(.card-back) {
+  grid-template-rows:auto minmax(104px,1fr) auto!important;
+}
+.v23-client .tcg-card:not(.card-back) .card-art {
+  min-height:116px!important;
+}
+.v23-client .tcg-card:not(.card-back):not(.compact) .card-art {
+  min-height:138px!important;
+}
+.v23-client .tcg-card:not(.card-back) .card-subtitle,
+.v23-client .tcg-card:not(.card-back) .card-text {
+  display:none!important;
+}
+.v23-client .tcg-card:not(.card-back) .v30-card-traits {
+  z-index:8!important;
+  max-width:calc(100% - 44px)!important;
+  gap:3px!important;
+  pointer-events:none!important;
+}
+.v23-client .tcg-card:not(.card-back) .v30-card-traits i {
+  padding:3px 6px!important;
+  font-size:7px!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+}
+.v23-client .tcg-card:not(.card-back) .summon-badge {
+  z-index:9!important;
+  top:45px!important;
+  left:8px!important;
+  max-width:72px!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+
+/* Hand cards: keep time information as one tiny pill instead of covering the artwork. */
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill {
+  position:absolute!important;
+  left:50%!important;
+  bottom:2px!important;
+  z-index:18!important;
+  transform:translate(-50%,45%)!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:4px!important;
+  min-height:18px!important;
+  padding:2px 7px!important;
+  border:1px solid rgba(189,215,235,.24)!important;
+  border-radius:999px!important;
+  background:rgba(5,10,17,.94)!important;
+  box-shadow:0 4px 12px rgba(0,0,0,.38)!important;
+  pointer-events:none!important;
+  white-space:nowrap!important;
+}
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill i,
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill b {
+  font-style:normal!important;
+  font-size:7px!important;
+  line-height:1!important;
+  font-weight:950!important;
+}
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill i { color:#d8e7f3!important;opacity:.84!important; }
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.buff { border-color:rgba(76,231,181,.42)!important;background:rgba(7,35,26,.96)!important; }
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.buff b { color:#aaf7df!important; }
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.debuff { border-color:rgba(255,128,151,.42)!important;background:rgba(42,12,20,.96)!important; }
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.debuff b { color:#ffc0cc!important; }
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.fixed { border-color:rgba(207,175,255,.42)!important;background:rgba(29,17,47,.96)!important; }
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.fixed b { color:#e4c9ff!important; }
+.v23-client.in-duel .v18-hand-card .v42-time-state-pill.neutral b { color:#cbd9e8!important; }
+
+/* Explicitly suppress the old large compact time panel on hand cards. */
+.v23-client.in-duel .v18-hand-card > .v38-temporal-quick.compact { display:none!important; }

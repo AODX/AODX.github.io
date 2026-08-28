@@ -246,6 +246,36 @@ const PROFILE_COSMETICS: ProfileCosmetic[] = [
   { id: 'nickname_glitch', kind: 'nickname', name: '보이드 글리치', price: 1600, rarity: 'legendary', description: '공허색 잔상과 짧은 디지털 왜곡이 발생하는 전설 닉네임 효과.', accent: '#bd7cff' },
   { id: 'nickname_aurora', kind: 'nickname', name: '오로라 웨이브', price: 1800, rarity: 'legendary', description: '청록·보라·푸른빛이 물결처럼 이동하는 전설 닉네임 애니메이션.', accent: '#73e7da' },
   { id: 'nickname_gold', kind: 'nickname', name: '황제의 서명', price: 2100, rarity: 'legendary', description: '금빛 하이라이트가 왕관처럼 반복해서 흐르는 전설 닉네임 효과.', accent: '#ffd06f' },
+{ id: 'bg_sticker_nikke', kind: 'background', name: '스티커 월 · 니케', price: 1880, rarity: 'legendary', description: '니케 이모티콘을 반짝 코팅 스티커처럼 잔뜩 붙여 만든 프로필 배경.', accent: '#ffcf92' },
+{ id: 'bg_sticker_bluearchive', kind: 'background', name: '스티커 월 · 블루아카', price: 1880, rarity: 'legendary', description: '블루아카 이모티콘을 노트와 말풍선 위에 붙인 스티커풍 배경.', accent: '#9ad8ff' },
+{ id: 'bg_sticker_genshin', kind: 'background', name: '스티커 월 · 원신', price: 1880, rarity: 'legendary', description: '원신 이모티콘 스티커가 모험 다이어리 위에 흩뿌려진 배경.', accent: '#ffe18f' },
+{ id: 'bg_sticker_hsr', kind: 'background', name: '스티커 월 · 스타레일', price: 1880, rarity: 'legendary', description: '스타레일 이모티콘 스티커가 궤도 패턴을 이루는 프로필 배경.', accent: '#d6c4ff' },
+{ id: 'bg_sticker_wuwa', kind: 'background', name: '스티커 월 · 명조', price: 1880, rarity: 'legendary', description: '명조 이모티콘 스티커가 파형 위로 흩날리는 심야풍 배경.', accent: '#9ae7ff' },
+{ id: 'bg_sticker_arcade', kind: 'background', name: '스티커 월 · 픽셀', price: 1760, rarity: 'legendary', description: '픽셀 이모티콘을 도트 패널 위에 스티커처럼 붙인 레트로 배경.', accent: '#98f8ff' },
+{ id: 'bg_clockwork_dawn', kind: 'background', name: '클락워크 던', price: 1980, rarity: 'legendary', description: '새벽 시계 톱니와 금빛 첫빛이 돌아가는 시간 특화 배경.', accent: '#ffd98a' },
+{ id: 'bg_aurora_grid', kind: 'background', name: '오로라 그리드', price: 1860, rarity: 'legendary', description: '오로라 선이 격자 패널을 타고 흐르는 미래형 프로필 배경.', accent: '#8bffd4' },
+{ id: 'bg_midnight_record', kind: 'background', name: '미드나잇 레코드', price: 1740, rarity: 'legendary', description: '심야 도시와 레코드 조명이 겹쳐지는 무드형 프로필 배경.', accent: '#aab6ff' },
+{ id: 'bg_starlight_arcade', kind: 'background', name: '스타라이트 아케이드', price: 1700, rarity: 'legendary', description: '도트 별빛과 네온 HUD가 점멸하는 아케이드 배경.', accent: '#9cf2ff' },
+{ id: 'emblem_sticker_rabbit', kind: 'emblem', name: '스티커 토끼', price: 760, rarity: 'epic', description: '토끼 이모티콘을 코팅 스티커처럼 만든 문양.', accent: '#ffc6e2', glyph: '🐰' },
+{ id: 'emblem_sticker_angel', kind: 'emblem', name: '스티커 엔젤', price: 760, rarity: 'epic', description: '천사 표정 이모티콘을 둥근 스티커로 만든 문양.', accent: '#fff3b6', glyph: '😇' },
+{ id: 'emblem_sticker_cat', kind: 'emblem', name: '스티커 냥이', price: 760, rarity: 'epic', description: '고양이 이모티콘이 코팅된 스티커형 프로필 아이콘.', accent: '#d7d7ff', glyph: '🐱' },
+{ id: 'emblem_sticker_cheer', kind: 'emblem', name: '스티커 치어', price: 760, rarity: 'epic', description: '응원 이모티콘을 반짝이 스티커로 표현한 문양.', accent: '#9cf2ff', glyph: '🎉' },
+{ id: 'emblem_sticker_moon', kind: 'emblem', name: '스티커 문페이스', price: 760, rarity: 'epic', description: '달표정 이모티콘을 야광 스티커로 만든 문양.', accent: '#c4d4ff', glyph: '🌙' },
+{ id: 'emblem_sticker_crown', kind: 'emblem', name: '스티커 크라운', price: 760, rarity: 'epic', description: '왕관 이모티콘을 큼직하게 붙여 넣은 문양.', accent: '#ffe19b', glyph: '👑' },
+{ id: 'emblem_sticker_gear', kind: 'emblem', name: '스티커 기어', price: 760, rarity: 'epic', description: '기어 이모티콘 스티커가 돌아가는 메카풍 문양.', accent: '#c5f4ff', glyph: '⚙' },
+{ id: 'emblem_sticker_heart', kind: 'emblem', name: '스티커 하트', price: 760, rarity: 'epic', description: '하트 이모티콘 스티커를 겹쳐 만든 문양.', accent: '#ffb3d8', glyph: '💖' },
+{ id: 'emblem_sticker_pixel', kind: 'emblem', name: '스티커 픽셀', price: 760, rarity: 'epic', description: '도트 이모티콘을 픽셀 스티커처럼 만든 아이콘.', accent: '#7ce8ff', glyph: '🕹' },
+{ id: 'emblem_sticker_comet', kind: 'emblem', name: '스티커 코멧', price: 760, rarity: 'epic', description: '혜성 이모티콘 스티커가 휙 지나가는 문양.', accent: '#bceeff', glyph: '☄' },
+{ id: 'sleeve_sticker_nikke', kind: 'sleeve', name: '스티커 슬리브 · 니케', price: 920, rarity: 'epic', description: '니케 이모티콘 스티커를 가득 붙인 카드 뒷면 슬리브.', accent: '#ffcf92', glyph: '⚙' },
+{ id: 'sleeve_sticker_bluearchive', kind: 'sleeve', name: '스티커 슬리브 · 블루아카', price: 920, rarity: 'epic', description: '블루아카 이모티콘 스티커를 코팅한 카드 슬리브.', accent: '#9ad8ff', glyph: '✎' },
+{ id: 'sleeve_sticker_genshin', kind: 'sleeve', name: '스티커 슬리브 · 원신', price: 920, rarity: 'epic', description: '원신 이모티콘 스티커가 모험풍으로 퍼진 카드 뒷면.', accent: '#ffe18f', glyph: '✦' },
+{ id: 'sleeve_sticker_hsr', kind: 'sleeve', name: '스티커 슬리브 · 스타레일', price: 920, rarity: 'epic', description: '스타레일 이모티콘 스티커가 궤도를 이루는 슬리브.', accent: '#d6c4ff', glyph: '🚄' },
+{ id: 'sleeve_sticker_wuwa', kind: 'sleeve', name: '스티커 슬리브 · 명조', price: 920, rarity: 'epic', description: '명조 이모티콘 스티커가 파도처럼 흩어진 카드 슬리브.', accent: '#9ae7ff', glyph: '〰' },
+{ id: 'sleeve_sticker_arcade', kind: 'sleeve', name: '스티커 슬리브 · 픽셀', price: 920, rarity: 'epic', description: '픽셀 이모티콘 스티커가 붙은 레트로 카드 뒷면.', accent: '#98f8ff', glyph: '▦' },
+{ id: 'sleeve_sticker_eclipse', kind: 'sleeve', name: '스티커 슬리브 · 이클립스', price: 960, rarity: 'epic', description: '이클립스 이모티콘 스티커로 덮인 암흑 별빛 슬리브.', accent: '#f7d38c', glyph: '◉' },
+{ id: 'sleeve_sticker_royal', kind: 'sleeve', name: '스티커 슬리브 · 로열', price: 960, rarity: 'epic', description: '왕관 이모티콘 스티커를 우아하게 배치한 로열 슬리브.', accent: '#ffe19b', glyph: '♕' },
+{ id: 'sleeve_sticker_sakura', kind: 'sleeve', name: '스티커 슬리브 · 사쿠라', price: 960, rarity: 'epic', description: '벚꽃 이모티콘 스티커가 흩뿌려진 화사한 슬리브.', accent: '#ffbfdc', glyph: '🌸' },
+{ id: 'sleeve_sticker_midnight', kind: 'sleeve', name: '스티커 슬리브 · 심야', price: 960, rarity: 'epic', description: '심야 표정 이모티콘 스티커가 빛나는 다크 슬리브.', accent: '#bcc7ff', glyph: '🌙' },
 ];
 
 
@@ -1017,6 +1047,22 @@ function TemporalQuickHint({ card, currentPhase, compact = false }: { card: Card
   );
 }
 
+
+function TemporalHandBadge({ card, currentPhase }: { card: CardDefinition; currentPhase: EclipsePhase }) {
+  const reactions = temporalReactionRows(card);
+  const currentReaction = reactions.find((reaction) => reaction.phase === currentPhase) ?? null;
+  const hasTemporalInfo = Boolean(card.temporalImmunity || reactions.length || card.eclipsePhasePulses?.length || card.eclipseSummonPhases?.length || card.eclipsePlayPhases?.length || card.eclipseTriggerPhases?.length);
+  if (!hasTemporalInfo) return null;
+  const tone = card.temporalImmunity ? 'fixed' : currentReaction?.polarity === 'buff' ? 'buff' : currentReaction?.polarity === 'debuff' ? 'debuff' : 'neutral';
+  const label = card.temporalImmunity ? '고정' : currentReaction?.polarity === 'buff' ? '강세' : currentReaction?.polarity === 'debuff' ? '약세' : '중립';
+  const delta = currentReaction ? temporalDeltaText(currentReaction.attack, currentReaction.health) : '';
+  return (
+    <span className={`v42-time-state-pill ${tone}`} title={`${ECLIPSE_PHASE_LABEL[currentPhase]} · ${label}${delta ? ` · ${delta}` : ''}`}>
+      <i>{ECLIPSE_PHASE_LABEL[currentPhase]}</i><b>{label}</b>
+    </span>
+  );
+}
+
 function TemporalProfileContent({ card }: { card: CardDefinition }) {
   if (!isUnitCard(card) && !card.eclipseSummonPhases?.length && !card.eclipsePhasePulses?.length && !card.eclipsePlayPhases?.length && !card.eclipseTriggerPhases?.length && !card.eclipseLifespanPhases?.length && !card.eclipseVanishPhases?.length) {
     return <p className="v37-time-empty">시간대 능력치 반응 없음</p>;
@@ -1401,8 +1447,6 @@ function CardFace({
         <CardIllustration card={card} compact={compact} />
         <span className="art-element">{ELEMENT_LABEL[card.element]}</span>
       </span>
-      <span className="card-subtitle">{card.subtitle}</span>
-      {!compact && <span className="card-text v31l-card-rules"><RuleText text={polishedCardText(card)} compact /></span>}
       <span className="card-footer">
         <span>{KIND_LABEL[card.kind]}</span>
         {isUnitCard(card) ? <b>{card.attack} / {card.health}</b> : <b>{ELEMENT_LABEL[card.element]}</b>}
@@ -2891,13 +2935,13 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
       <article className={`pack-card v6-pack-card ${series ? `series-${series.id}` : `core-${pack.id}`}`} key={pack.id} style={{ '--pack-accent': pack.accent } as CSSProperties}>
         <PackProductVisual pack={pack} />
         <div className="pack-product-copy">
-          <span className="eyebrow">{series ? `SERIES ${String(index + 1).padStart(2, '0')} · ${series.mechanic}` : `CORE BOOSTER · 5 CARDS`}</span>
+          <span className="eyebrow">{series ? `SERIES ${String(index + 1).padStart(2, '0')} · ${series.mechanic}` : pack.id === 'premium_time' ? 'PREMIUM TIME · 3 CARDS' : 'CORE BOOSTER · 5 CARDS'}</span>
           <h3>{pack.name}</h3>
           <p>{pack.tagline}</p>
           {series && <div className="v25-series-pack-note"><b>{series.shortName}</b><span>{series.mechanic}</span></div>}
           <div className="v20-pack-odds">
             <span><small>기본 슬롯</small><b>전설 {pack.odds.legendary}%</b><em>영웅 {pack.odds.epic}% · 희귀 {pack.odds.rare}% · 일반 {pack.odds.common}%</em></span>
-            <p>{pack.odds.guaranteedSlots}칸 {RARITY_LABEL[pack.guaranteed]} 이상 보장{series ? ` · 시리즈 카드 ${pack.odds.seriesGuaranteedSlots ?? 1}장 이상 보장 · 일반 슬롯 ${pack.odds.seriesRate ?? 42}% 시리즈 픽업` : ''}</p>
+            <p>{pack.id === 'premium_time' ? '3칸 구성 · 각 슬롯 0.5% 확률로 시간대 최강 카드 4종 중 1장 등장 · 미당첨 시 전체 카드 풀 랜덤' : `${pack.odds.guaranteedSlots}칸 ${RARITY_LABEL[pack.guaranteed]} 이상 보장${series ? ` · 시리즈 카드 ${pack.odds.seriesGuaranteedSlots ?? 1}장 이상 보장 · 일반 슬롯 ${pack.odds.seriesRate ?? 42}% 시리즈 픽업` : ''}`}</p>
           </div>
           <div className="pack-price"><b>{pack.price}</b> COIN</div>
           <button className="primary-button" disabled={busyPack === pack.id || hub.wallet.coins < pack.price} onClick={() => buy(pack.id)}>
@@ -3250,6 +3294,11 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
   const [emotePickerOpen, setEmotePickerOpen] = useState(false);
   const ownedChatEmotes = useMemo(() => emoteIds.map((emoteId) => V34_BATTLE_EMOTE_BY_ID[emoteId]).filter(Boolean), [emoteIds]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const stickChatToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const scroller = bottomRef.current?.parentElement;
+    if (!scroller) return;
+    scroller.scrollTo({ top: scroller.scrollHeight, behavior });
+  }, []);
   const openRef = useRef(open);
   const onUnreadRef = useRef(onUnread);
   const table = roomId ? 'eclipse_room_messages' : 'eclipse_global_messages';
@@ -3309,12 +3358,14 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
 
   useEffect(() => {
     if (!open) return undefined;
-    const frame = window.requestAnimationFrame(() => {
-      const scroller = bottomRef.current?.parentElement;
-      if (scroller) scroller.scrollTop = scroller.scrollHeight;
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [messages.length, open]);
+    stickChatToBottom(messages.length > 1 ? 'smooth' : 'auto');
+    const frame = window.requestAnimationFrame(() => stickChatToBottom('auto'));
+    const timers = [80, 220, 520].map((delay) => window.setTimeout(() => stickChatToBottom('auto'), delay));
+    return () => {
+      window.cancelAnimationFrame(frame);
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [messages.length, open, stickChatToBottom]);
 
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -6457,7 +6508,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       </aside>
 
       <footer className="v18-hand-dock">
-        <div className="v18-hand-heading"><span><small>YOUR HAND</small><b>{privateState.hand.length} CARDS</b></span><em>{myTurn && state.phase === 'main' ? '밝게 표시된 카드는 지금 사용할 수 있습니다. 카드 하단의 시간 힌트와 오른쪽 효과 패널을 함께 보면 타이밍을 빠르게 판단할 수 있습니다.' : '카드를 선택하거나 i 버튼을 눌러 카드 정보를 확인할 수 있습니다. 손패 하단의 시간 힌트로 유리한 시간대를 바로 확인하세요.'}</em></div>
+        <div className="v18-hand-heading"><span><small>YOUR HAND</small><b>{privateState.hand.length} CARDS</b></span><em>{myTurn && state.phase === 'main' ? '밝게 표시된 카드는 지금 사용할 수 있습니다. 효과 전문은 카드를 클릭하거나 i 버튼으로 확인하고, 작은 시간 배지만 빠르게 참고하세요.' : '카드를 선택하거나 i 버튼을 눌러 전체 효과를 확인할 수 있습니다. 카드 표면에는 특성과 특수 소환 표식만 간단히 유지됩니다.'}</em></div>
         <div className="v18-hand-scroll">
           {privateState.hand.map((instance) => {
             const card = CARD_BY_ID[instance.cardId];
@@ -6473,7 +6524,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
               onMouseLeave={() => setHoveredHandCardId((current) => current === instance.cardId ? null : current)}
               onFocusCapture={() => setHoveredHandCardId(instance.cardId)}
               onBlurCapture={() => setHoveredHandCardId((current) => current === instance.cardId ? null : current)}
-            >{specialReadyIds.has(instance.instanceId) && !legendaryReady && <span className="v18-special-badge">SPECIAL</span>}<CardFace card={card} compact selected={selectedHand === instance.instanceId} disabled={busy} onClick={() => chooseHand(instance.instanceId)} />{card && <TemporalQuickHint card={card} currentPhase={currentEclipsePhase} compact />}</div>;
+            >{specialReadyIds.has(instance.instanceId) && !legendaryReady && <span className="v18-special-badge">SPECIAL</span>}<CardFace card={card} compact selected={selectedHand === instance.instanceId} disabled={busy} onClick={() => chooseHand(instance.instanceId)} />{card && <TemporalHandBadge card={card} currentPhase={currentEclipsePhase} />}</div>;
           })}
         </div>
         <div className="v18-hand-side"><span>ENERGY <b>{myEnergy.current}/{myEnergy.max}</b></span><span>DECK <b>{state.deckCounts[userId] ?? 0}</b></span><button type="button" onClick={() => setExtraOpen(true)}>EXTRA {privateState.extra.length}</button></div>

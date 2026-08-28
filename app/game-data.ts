@@ -1,6 +1,7 @@
 import { V33A_EXPANSION_CARDS } from './v33a-card-data';
 import { V34_ECLIPSE_CYCLE_CARDS } from './v34-card-data';
 import { V37_TIME_CORE_CARDS } from './v37-time-card-data';
+import { V41_PREMIUM_TIME_CARDS } from './v41-premium-time-cards';
 
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type CardKind = 'unit' | 'spell' | 'trap' | 'fusion' | 'evolution';
@@ -2591,6 +2592,7 @@ export function extraSummonRuleDescription(card: CardDefinition): string {
 CARDS.push(...V33A_EXPANSION_CARDS);
 CARDS.push(...V34_ECLIPSE_CYCLE_CARDS);
 CARDS.push(...V37_TIME_CORE_CARDS);
+CARDS.push(...V41_PREMIUM_TIME_CARDS);
 
 
 // === v34j: TRUE GLOBAL 40% TEMPORAL REWORK ================================
@@ -5442,6 +5444,10 @@ export const PACKS: PackDefinition[] = [
     accent: series.accent,
     odds: { common: 45, rare: 32, epic: 18, legendary: 5, guaranteedSlots: 1, seriesRate: 42, seriesGuaranteedSlots: 1 },
   })),
+  {
+    id: 'premium_time', name: 'PREMIUM TIME PACK', tagline: '3장 구성 · 슬롯당 0.5% TIME LEGEND', price: 1000, guaranteed: 'common', category: 'core', accent: '#f5c56b',
+    odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0 },
+  },
 ];
 
 export const DECK_SIZE = 45;

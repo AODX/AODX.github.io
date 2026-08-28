@@ -2025,21 +2025,24 @@ select option {
 
 .chat-messages {
   min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 16px;
 }
 
 .chat-message {
   position: relative;
-  max-width: 88%;
+  max-width: 100%;
   align-self: flex-start;
-  padding: 10px 12px 17px;
+  padding: 12px 14px 18px;
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid var(--line);
   border-radius: 5px 13px 13px 13px;
+  overflow: visible;
 }
 
 .chat-message.mine {
@@ -2056,22 +2059,25 @@ select option {
   font-size: 9px;
 }
 
-.chat-message p {
+.chat-message p,
+.chat-rich-body {
   margin: 0;
   color: #d6dae6;
-  font-size: 12px;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.6;
   word-break: break-word;
+  overflow-wrap: anywhere;
 }
-.chat-message p.chat-rich-body { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
-.chat-inline-emote { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; }
-.chat-inline-emote img { width:40px; height:40px; object-fit:contain; filter:drop-shadow(0 4px 4px rgba(0,0,0,.18)); }
+.chat-rich-body { display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px; width:100%; }
+.chat-inline-emote { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; flex:0 0 auto; }
+.chat-inline-emote img { width:84px; height:84px; object-fit:contain; filter:drop-shadow(0 4px 4px rgba(0,0,0,.18)); }
 .chat-emote-toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 13px; border-top:1px solid rgba(255,255,255,.06); }
 .chat-emote-toolbar small { color:#97a1b7; font-size:10px; }
 .chat-emote-toggle { min-width:72px; height:30px; border:1px solid rgba(255,255,255,.12); border-radius:999px; background:rgba(255,255,255,.04); color:#e4e8f8; font-size:10px; font-weight:800; }
 .chat-emote-toggle.active { border-color:rgba(255,216,117,.5); color:#ffe3a0; }
 .chat-emote-picker { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:0 13px 12px; }
 .chat-emote-picker button { display:grid; gap:4px; place-items:center; padding:6px; border:1px solid rgba(255,255,255,.1); border-radius:12px; background:rgba(255,255,255,.04); color:#dfe5ff; font-size:9px; }
+.chat-emote-picker button img { width:62px; height:62px; object-fit:contain; }
 .chat-emote-picker button img { width:56px; height:56px; object-fit:contain; }
 .chat-emote-picker button span { display:block; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
@@ -4190,9 +4196,23 @@ button.mode-card:hover {
   content-visibility:auto;
   contain-intrinsic-size:auto 78px;
 }
-.chat-inline-emote img { width:50px; height:50px; }
+.chat-inline-emote img { width:96px; height:96px; }
 .v34-battle-emote-bubble img { width:84px; height:84px; margin:-13px 0 -13px -7px; }
 @media (max-width:760px) {
-  .chat-inline-emote img { width:46px; height:46px; }
+  .chat-inline-emote img { width:82px; height:82px; }
   .v34-battle-emote-bubble img { width:76px; height:76px; }
+}
+
+@media (max-width: 640px) {
+  .chat-message { padding: 11px 12px 16px; }
+  .chat-inline-emote img { width: 74px; height: 74px; }
+  .chat-rich-body { gap: 6px; }
+}
+
+/* v42 clean browse cards: details open by click/i instead of being crammed on the face. */
+.collection-grid .tcg-card .card-subtitle,
+.collection-grid .tcg-card .card-text,
+.v31e-card-grid .tcg-card .card-subtitle,
+.v31e-card-grid .tcg-card .card-text {
+  display:none!important;
 }
