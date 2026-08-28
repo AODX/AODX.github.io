@@ -18,6 +18,7 @@ import {
   endTurn,
   initializeMatch,
   playCard,
+  resolveExtraChoice,
   resolveTurnTimeout,
   respondTrap,
   sacrificeHandForEnergy,
@@ -1701,6 +1702,9 @@ async function handleAction(request: Request, body: RequestBody) {
       return await getRoomPayload(admin, room, user.id);
     }
     const snapshot = normalized.snapshot ?? await loadSnapshot(admin, room);
+    if (snapshot.state.pendingExtraChoice && gameAction !== 'resolve_extra_choice' && gameAction !== 'resolve_timeout') {
+      throw new Error('엑스트라 소환 효과를 먼저 선택하세요.');
+    }
     let next: GameSnapshot;
 
     if (gameAction === 'play_card') {
@@ -1728,6 +1732,8 @@ async function handleAction(request: Request, body: RequestBody) {
           }
         : undefined;
       next = summonExtra(snapshot, user.id, extraInstanceId, materialZones, extraChoiceIndex, target);
+    } else if (gameAction === 'resolve_extra_choice') {
+      next = resolveExtraChoice(snapshot, user.id, Number(body.choiceIndex ?? 0));
     } else if (gameAction === 'battle_phase') {
       next = beginBattlePhase(snapshot, user.id);
     } else if (gameAction === 'attack') {
