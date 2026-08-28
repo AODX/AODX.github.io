@@ -3939,7 +3939,7 @@ function extraCinematicProfile(card: CardDefinition, kind: 'fusion' | 'evolution
   };
 }
 
-function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false }: { event: VisualEvent | null; userId: string; profiles: RoomProfile[]; drawCard?: CardDefinition; spectator?: boolean }) {
+function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false, onDismiss }: { event: VisualEvent | null; userId: string; profiles: RoomProfile[]; drawCard?: CardDefinition; spectator?: boolean; onDismiss?: () => void }) {
   if (!event) return null;
   const card = event.cardId ? CARD_BY_ID[event.cardId] : undefined;
   const attackProfile = event.kind === 'attack' && card ? attackMotionProfile(card, event.vfx) : undefined;
@@ -3949,6 +3949,7 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
   const extraProfile = card && (event.kind === 'fusion' || event.kind === 'evolution') ? extraCinematicProfile(card, event.kind) : undefined;
   const owner = profiles.find((profile) => profile.user_id === event.ownerId);
   const mine = event.ownerId === userId;
+  const opponentTrapNeedsAck = Boolean(!spectator && event.kind === 'trap' && !mine && onDismiss);
   const { source, target } = duelEventPoints(event, userId);
   const attackAngle = Math.atan2(target.y - source.y, target.x - source.x) * 180 / Math.PI;
   const usesCurvedAttackPath = Boolean(attackProfile && ['whip', 'phantom', 'chrono', 'arcane'].includes(attackProfile.style));
@@ -3998,7 +3999,21 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
       ? `CORE -${event.amount ?? 0}`
       : card?.name ?? 'DESTROY';
   return (
-    <div className={`v18-cinematic-layer kind-${event.kind} ${vfxClass} ${mine ? 'from-me' : 'from-opponent'} element-${card?.element ?? 'neutral'} rarity-${card?.rarity ?? 'common'}`} key={event.id} style={fxStyle} aria-live="polite">
+    <div
+      className={`v18-cinematic-layer kind-${event.kind} ${vfxClass} ${mine ? 'from-me' : 'from-opponent'} element-${card?.element ?? 'neutral'} rarity-${card?.rarity ?? 'common'} ${opponentTrapNeedsAck ? 'v46-trap-await-ack' : ''}`}
+      key={event.id}
+      style={fxStyle}
+      aria-live="polite"
+      role={opponentTrapNeedsAck ? 'button' : undefined}
+      tabIndex={opponentTrapNeedsAck ? 0 : undefined}
+      aria-label={opponentTrapNeedsAck ? `${card?.name ?? '상대 함정'} 확인 후 닫기` : undefined}
+      onClick={opponentTrapNeedsAck ? onDismiss : undefined}
+      onKeyDown={opponentTrapNeedsAck ? (eventKey: React.KeyboardEvent<HTMLDivElement>) => {
+        if (eventKey.key !== 'Enter' && eventKey.key !== ' ') return;
+        eventKey.preventDefault();
+        onDismiss?.();
+      } : undefined}
+    >
       <span className="v22-cinematic-letterbox" aria-hidden="true" />
       {event.kind !== 'spell' && <span className="v22-screen-flash" aria-hidden="true" />}
       <span className="v22-element-particles" aria-hidden="true">{Array.from({ length: particleCount }, (_, index) => <i key={index} style={{ '--particle': index } as CSSProperties} />)}</span>
@@ -4176,6 +4191,7 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false 
             <div><b>TRIGGER</b><span>{trapTrigger || '함정 발동 조건 충족'}</span></div>
             <div><b>RESULT</b><span>{event.detail ?? card.text}</span></div>
             {trapEffect && trapEffect !== event.detail && <p>판정 · {trapEffect}</p>}
+            {opponentTrapNeedsAck && <button type="button" className="v46-trap-ack-button" onClick={(clickEvent) => { clickEvent.stopPropagation(); onDismiss?.(); }}>확인 · 클릭해서 닫기</button>}
           </div>
           <span className="v31e-trap-seal" aria-hidden="true"><i /><i /><i /></span>
         </div>
@@ -5568,6 +5584,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   useEffect(() => {
     if (!activeVfx) return;
     const next = activeVfx;
+    if (next.kind === 'trap' && next.ownerId && next.ownerId !== userId) return;
     const duration = next.kind === 'fusion' || next.kind === 'evolution' ? 2450
       : next.kind === 'trap' ? 2250
         : next.kind === 'special' && (next.vfx === 'execution-scythe' || next.vfx === 'sweep-volley') ? 1080
@@ -5583,7 +5600,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       setActiveVfx((current) => current?.id === next.id ? null : current);
     }, duration);
     return () => window.clearTimeout(timer);
-  }, [activeVfx?.id]);
+  }, [activeVfx?.id, userId]);
 
   useEffect(() => {
     if (!activeVfx) return;
@@ -6325,7 +6342,13 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   return (
     <div className={`v18-duel-screen v34m-time-fix ${myTurn ? 'is-my-turn' : 'is-opponent-turn'} phase-${state.phase} cycle-${currentEclipsePhase} fx-${activeVfx?.kind ?? 'idle'}`} style={eclipseArenaStyle}>
       <DuelTimeCriticalStyles />
-      <DuelEffectLayer event={activeVfx} userId={userId} profiles={payload.profiles} drawCard={activeVfx?.kind === 'draw' && activeVfx.ownerId === userId ? CARD_BY_ID[drawRevealQueue[0] ?? ''] : undefined} />
+      <DuelEffectLayer
+        event={activeVfx}
+        userId={userId}
+        profiles={payload.profiles}
+        drawCard={activeVfx?.kind === 'draw' && activeVfx.ownerId === userId ? CARD_BY_ID[drawRevealQueue[0] ?? ''] : undefined}
+        onDismiss={() => setActiveVfx(null)}
+      />
       <DuelDamagePopupLayer events={damagePopups} userId={userId} />
       <CoinTossOverlay state={state} profiles={payload.profiles} userId={userId} now={coinClock} />
       <EclipsePhaseShiftNotice notice={eclipsePhaseNotice} />

@@ -4275,3 +4275,33 @@ button.mode-card:hover {
 .chat-drawer .chat-rich-body > span { max-width: 100%; min-width: 0; }
 .chat-drawer .chat-inline-emote,
 .chat-drawer .chat-inline-emote img { flex: 0 0 auto !important; }
+
+/* v46: opponent trap reveal remains until the player acknowledges it. */
+.v18-cinematic-layer.v46-trap-await-ack {
+  cursor: pointer;
+}
+
+.v18-cinematic-layer.v46-trap-await-ack:focus-visible {
+  outline: 2px solid rgba(255,255,255,.9);
+  outline-offset: -6px;
+}
+
+.v46-trap-ack-button {
+  min-height: 42px;
+  margin-top: 12px;
+  padding: 9px 16px;
+  color: #f7fbff;
+  background: rgba(255,255,255,.09);
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 900;
+  letter-spacing: .03em;
+  cursor: pointer;
+}
+
+.v46-trap-ack-button:hover,
+.v46-trap-ack-button:focus-visible {
+  background: rgba(255,255,255,.16);
+  border-color: rgba(255,255,255,.55);
+}
