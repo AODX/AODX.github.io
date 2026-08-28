@@ -573,6 +573,7 @@ const PREMIUM_TIME_FEATURED_IDS = [
   'v41_premium_dawn_lord',
   'v41_premium_eclipse_conductor',
   'v41_premium_midnight_silence',
+  'v44_premium_twilight_knight',
 ] as const;
 const ALL_CARD_IDS = CARDS.map((card) => card.id);
 
