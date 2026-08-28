@@ -1,0 +1,12 @@
+ECLIPSE DUEL v45 TRAIT QA
+==========================
+Execution total: 50
+Sweep total: 50
+Minimum execution per series: 3
+Minimum sweep per series: 3
+Maximum execution per series: 4
+Maximum sweep per series: 4
+Execution/Sweep overlap cards: 0
+Series covered: 13/13
+Main-deck unit cards only: YES
+TypeScript data compile: PASS
