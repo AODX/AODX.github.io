@@ -3636,7 +3636,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
         </div>
       ) : shopTab === 'emotes' ? (
         <div className="v34-emote-store">
-          <header className="v34-emote-store-head"><span>CHAT + DUEL EMOTE MARKET</span><h3>감정표현</h3><p>도로롱 · NIKKE · 트릭컬 · 가디언테일즈 · 망그러진 곰 · 이렘티콘 · 동방티콘은 각각 6종입니다. 동방티콘은 제공받은 원본 이미지를 그대로 사용합니다. 모든 개별 이모티콘은 1,000코인, 6종 세트는 5,000코인이며 보유한 이모티콘 중 최대 6개만 장착해 채팅과 대전에서 공통으로 사용합니다.</p></header>
+          <header className="v34-emote-store-head"><span>CHAT + DUEL EMOTE MARKET</span><h3>감정표현</h3><p>도로롱 · NIKKE · 트릭컬 · 가디언테일즈 · 망그러진 곰 · 이렘티콘 · 동방티콘은 각각 6종입니다. 동방티콘은 사용자가 확인한 동일한 느낌의 깔끔 리메이크 버전으로 적용했습니다. 모든 개별 이모티콘은 1,000코인, 6종 세트는 5,000코인이며 보유한 이모티콘 중 최대 6개만 장착해 채팅과 대전에서 공통으로 사용합니다.</p></header>
 
           <section className="v34-emote-loadout-panel">
             <header><div><span>ACTIVE LOADOUT</span><h4>사용할 이모티콘 6개 선택</h4><p>보유한 이모티콘을 눌러 장착/해제하세요. 이곳에 장착된 이모티콘만 채팅과 대전 선택창에 표시됩니다.</p></div><strong>{emoteSelection.length}/{V34_EMOTE_SLOT_LIMIT}</strong></header>
