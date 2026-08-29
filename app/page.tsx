@@ -85,6 +85,7 @@ type CollectionRow = { card_id: string; quantity: number };
 type DeckRow = { id: string; user_id: string; name: string; cards: string[]; extra_cards: string[]; is_active: boolean; created_at: string };
 type FriendRequest = { id: string; sender_id: string; receiver_id: string; status: string; created_at: string };
 type FriendProfile = Pick<Profile, 'user_id' | 'display_name' | 'player_code' | 'avatar' | 'status_message' | 'wins' | 'losses' | 'xp' | 'nickname_style' | 'profile_theme' | 'profile_frame'>;
+type OnlineUserProfile = Pick<Profile, 'user_id' | 'display_name' | 'avatar' | 'wins' | 'losses' | 'xp' | 'nickname_style'>;
 
 type HubData = {
   profile: Profile;
@@ -97,6 +98,7 @@ type HubData = {
   profileCosmetics?: string[];
   battleEmotes?: string[];
   emoteLoadout?: string[];
+  onlineUsers?: OnlineUserProfile[];
 };
 
 type RoomRow = {
@@ -121,7 +123,7 @@ type RoomRow = {
 
 type RoomProfile = Pick<Profile, 'user_id' | 'display_name' | 'avatar' | 'wins' | 'losses' | 'xp' | 'profile_emblem' | 'card_sleeve' | 'nickname_style'>;
 type RoomMemberView = { user_id: string; role: 'player_a' | 'player_b' | 'spectator'; is_owner: boolean };
-type RoomPayload = { room: RoomRow; profiles: RoomProfile[]; privateState: PrivateState | null; members?: RoomMemberView[]; spectatorHands?: Record<string, PrivateState['hand']>; spectatorSecrets?: Record<string, PrivateState['secrets']>; battleEmotes?: string[]; };
+type RoomPayload = { room: RoomRow; profiles: RoomProfile[]; privateState: PrivateState | null; members?: RoomMemberView[]; spectatorHands?: Record<string, PrivateState['hand']>; spectatorSecrets?: Record<string, PrivateState['secrets']>; opponentHandReveal?: { mode: 'view' | 'discard'; targetId: string; hand: PrivateState['hand'] }; battleEmotes?: string[]; };
 type ChatMessage = { id: number; user_id: string; display_name: string; nickname_style?: string; body: string; created_at: string };
 type ChatSkinProfile = Pick<Profile, 'user_id' | 'profile_theme' | 'profile_frame'>;
 type AdminAccountSummary = { userId: string; email: string; displayName: string; playerCode: string };
@@ -145,6 +147,8 @@ type ApiResult = {
   members?: RoomMemberView[];
   spectatorHands?: Record<string, PrivateState['hand']>;
   spectatorSecrets?: Record<string, PrivateState['secrets']>;
+  opponentHandReveal?: { mode: 'view' | 'discard'; targetId: string; hand: PrivateState['hand'] };
+  onlineUsers?: OnlineUserProfile[];
   battleEmotes?: string[];
   joinedAsSpectator?: boolean;
   cardIds?: string[];
@@ -1071,6 +1075,8 @@ function effectDescription(effect: CardDefinition['effect'] | CardDefinition['on
   if (effect.kind === 'reweave_hand') return `내 남은 손패를 덱으로 되돌려 섞은 뒤, 되돌린 장수보다 ${effect.bonusDraw}장 더 많이 새로 뽑습니다`;
   if (effect.kind === 'mirror_unit') return '선택한 적 캐릭터의 현재 공격력과 체력을 복제한 거울 토큰을 내 필드에 소환합니다. 복제 토큰은 원본의 특수 효과를 얻지 않으며 이번 턴에는 공격할 수 없습니다';
   if (effect.kind === 'exchange_hands') return '나와 상대의 남은 손패를 서로 전부 교환합니다';
+  if (effect.kind === 'inspect_opponent_hand') return '상대의 현재 손패를 전부 확인합니다';
+  if (effect.kind === 'discard_opponent_hand') return '상대의 손패를 확인한 뒤 카드 1장을 선택해 묘지로 보냅니다';
   if (effect.kind === 'ready_unit') return '이번 턴에 소환된 아군 캐릭터 하나를 즉시 공격 가능한 상태로 만듭니다';
   if (effect.kind === 'bounce_unit') return '선택한 캐릭터 하나를 원래 영역으로 되돌립니다. 토큰이라면 대신 소멸합니다';
   if (effect.kind === 'heal_unit') return `선택한 아군 캐릭터 하나의 체력을 ${effect.amount} 회복합니다`;
@@ -1533,7 +1539,7 @@ function cardRoleSummary(card: CardDefinition): string {
   if (card.kind === 'evolution') return '엑스트라 · 계승 결전';
   if (card.kind === 'trap') return card.trapEffect?.kind === 'negate' || card.trapEffect?.kind === 'negate_and_damage' ? '반응 · 카운터' : '반응 · 전장 제어';
   if (card.kind === 'spell' && card.effect) {
-    if (['draw', 'recover_grave_unit', 'recover_any_grave', 'reweave_hand', 'draw_if_outnumbered', 'increase_energy_max', 'tutor_card', 'tutor_series_card', 'mill_draw', 'banish_own_grave_energy', 'discard_draw', 'steal_energy', 'heal_draw_if_behind', 'recycle_grave_draw', 'banish_enemy_grave', 'phase_draw', 'phase_gain_energy', 'phase_recover_grave', 'phase_set', 'phase_shift', 'phase_rewind', 'phase_lock'].includes(card.effect.kind)) return '주문 · 자원 순환';
+    if (['draw', 'recover_grave_unit', 'recover_any_grave', 'reweave_hand', 'inspect_opponent_hand', 'discard_opponent_hand', 'draw_if_outnumbered', 'increase_energy_max', 'tutor_card', 'tutor_series_card', 'mill_draw', 'banish_own_grave_energy', 'discard_draw', 'steal_energy', 'heal_draw_if_behind', 'recycle_grave_draw', 'banish_enemy_grave', 'phase_draw', 'phase_gain_energy', 'phase_recover_grave', 'phase_set', 'phase_shift', 'phase_rewind', 'phase_lock'].includes(card.effect.kind)) return '주문 · 자원 순환';
     if (['damage_unit', 'damage_core', 'aoe_enemy', 'destroy_weak', 'damage_draw_if_destroyed', 'break_shield_damage', 'damage_by_hand', 'damage_by_grave', 'field_count_blast', 'shield_burst', 'reset_unit', 'phase_damage_core', 'phase_aoe_enemy'].includes(card.effect.kind)) return '주문 · 제압';
     if (['summon_token', 'recruit_unit', 'revive_unit', 'ready_unit', 'type_recruit', 'phase_summon_token'].includes(card.effect.kind)) return '주문 · 전개';
     if (['buff_unit', 'shield_unit', 'heal_unit', 'heal_core', 'buff_by_hand', 'mass_shield', 'mass_buff', 'type_rally', 'phase_heal_core', 'phase_mass_shield', 'phase_mass_buff'].includes(card.effect.kind)) return '주문 · 지원';
@@ -2446,6 +2452,7 @@ function AuthScreen({ onSession }: { onSession: (session: Session) => void }) {
 }
 
 
+
 function AccountErrorScreen({ message, onRetry, onSignOut }: { message: string; onRetry: () => void; onSignOut: () => void }) {
   return (
     <main className="account-error-screen">
@@ -2511,6 +2518,15 @@ function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate:
             <span><small>LEVEL</small><b>{level}</b></span>
             <span><small>RECORD</small><b>{winTotal > 0 ? `${hub.profile.wins}승 ${hub.profile.losses}패` : '첫 대전 준비'}</b></span>
             <span><small>COLLECTION</small><b>{hub.collection.length}<em> / {CARDS.length}</em></b></span>
+          </div>
+          <div className="v49-online-users">
+            <div className="v49-online-users-head"><span><i /> LIVE PLAYERS</span><b>{hub.onlineUsers?.length ?? 0}명 접속 중</b></div>
+            <div className="v49-online-users-list">
+              {(hub.onlineUsers ?? []).slice(0, 8).map((player) => (
+                <span key={player.user_id} className="v49-online-user"><Avatar id={player.avatar} size="small" /><b>{player.display_name}{player.user_id === hub.profile.user_id ? ' · 나' : ''}</b><small>Lv.{levelFromXp(player.xp)}</small></span>
+              ))}
+              {(hub.onlineUsers?.length ?? 0) === 0 && <em>현재 확인된 접속자가 없습니다.</em>}
+            </div>
           </div>
         </div>
 
@@ -6095,7 +6111,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       }
       api('get_room', { roomId: room.id })
         .then((result) => {
-          if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, battleEmotes: result.battleEmotes ?? [] });
+          if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, opponentHandReveal: result.opponentHandReveal ?? undefined, battleEmotes: result.battleEmotes ?? [] });
         })
         .catch((error) => setMessage(error instanceof Error ? error.message : '턴 시간 동기화 실패'));
     }, delay);
@@ -6455,7 +6471,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
         onRefresh(nextPayload);
       } else {
         const result = await api('game_action', { roomId: room.id, gameAction: 'battle_emote', emoteId });
-        if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, battleEmotes: result.battleEmotes ?? payload.battleEmotes ?? [] });
+        if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, opponentHandReveal: result.opponentHandReveal ?? undefined, battleEmotes: result.battleEmotes ?? payload.battleEmotes ?? [] });
       }
       setEmoteOpen(false);
     } catch (error) {
@@ -6474,7 +6490,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
         onRefresh(nextPayload);
       } else {
         const result = await api('game_action', { roomId: room.id, gameAction, ...extra });
-        if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, battleEmotes: result.battleEmotes ?? [] });
+        if (result.room && result.profiles) onRefresh({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, opponentHandReveal: result.opponentHandReveal ?? undefined, battleEmotes: result.battleEmotes ?? [] });
       }
       clearSelection();
     } catch (error) {
@@ -7255,6 +7271,16 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
         </div>
       )}
 
+      {payload.opponentHandReveal && state.status === 'active' && (
+        <div className="v49-hand-intel-layer" role="dialog" aria-modal="true">
+          <section className="v49-hand-intel-card">
+            <header><div><small>{payload.opponentHandReveal.mode === 'discard' ? 'HAND DISRUPTION' : 'HAND INTELLIGENCE'}</small><h2>{payload.opponentHandReveal.mode === 'discard' ? '상대 손패에서 제거할 카드 1장을 선택하세요' : '상대의 현재 손패'}</h2><p>{payload.opponentHandReveal.mode === 'discard' ? '선택한 카드는 즉시 상대 묘지로 이동합니다.' : '이 창을 닫으면 손패 정보가 다시 숨겨집니다.'}</p></div></header>
+            {payload.opponentHandReveal.hand.length > 0 ? <div className="v49-hand-intel-grid">{payload.opponentHandReveal.hand.map((instance) => { const revealed = CARD_BY_ID[instance.cardId]; if (!revealed) return null; return <button type="button" key={instance.instanceId} className={`v49-hand-intel-option ${payload.opponentHandReveal?.mode === 'discard' ? 'can-discard' : ''}`} disabled={busy || payload.opponentHandReveal?.mode !== 'discard'} onClick={() => payload.opponentHandReveal?.mode === 'discard' && void gameAction('discard_opponent_hand', { instanceId: instance.instanceId })}><CardIllustration card={revealed} compact /><b>{revealed.name}</b><small>{KIND_LABEL[revealed.kind]} · COST {revealed.cost}</small></button>; })}</div> : <div className="v49-hand-intel-empty">상대의 손패가 없습니다.</div>}
+            <div className="v49-hand-intel-actions">{payload.opponentHandReveal.mode === 'view' && <button className="primary-button" disabled={busy} onClick={() => void gameAction('close_hand_reveal')}>확인 완료</button>}</div>
+          </section>
+        </div>
+      )}
+
       {pendingTrap && state.status === 'active' && (
         <div className={`v30-trap-response-layer ${pendingTrap.ownerId === userId ? 'mine' : 'waiting'}`} role="dialog" aria-modal={pendingTrap.ownerId === userId ? 'true' : undefined} aria-live="assertive">
           {pendingTrap.ownerId === userId && pendingTrapCard ? (
@@ -7671,6 +7697,9 @@ function PracticeDuel({ userId, hub, activeDeck, difficulty, onExit }: { userId:
         },
       ],
       privateState: current.privateStates[userId] ?? null,
+      opponentHandReveal: current.state.pendingHandIntel?.viewerId === userId
+        ? { mode: current.state.pendingHandIntel.mode, targetId: current.state.pendingHandIntel.targetId, hand: current.privateStates[current.state.pendingHandIntel.targetId]?.hand ?? [] }
+        : undefined,
       members: [
         { user_id: userId, role: 'player_a', is_owner: true },
         { user_id: botId, role: 'player_b', is_owner: false },
@@ -7798,7 +7827,7 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
     setBusy(true); setMessage('');
     try {
       const result = await api(action, payload);
-      if (result.room && result.profiles) onRoom({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, battleEmotes: result.battleEmotes ?? [] });
+      if (result.room && result.profiles) onRoom({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, opponentHandReveal: result.opponentHandReveal ?? undefined, battleEmotes: result.battleEmotes ?? [] });
       if (result.joinedAsSpectator) setMessage('선수 자리가 이미 차 있어 관전자로 입장했습니다. 다음 경기에는 방장이 선수로 지정할 수 있습니다.');
       return result;
     } catch (error) { setMessage(error instanceof Error ? error.message : '요청 실패'); }
@@ -8085,6 +8114,23 @@ export default function Page() {
   useEffect(() => {
     setChatUnread(false);
   }, [roomPayload?.room.id]);
+  useEffect(() => {
+    if (!session?.user.id || roomPayload?.room.status === 'active') return;
+    let alive = true;
+    const refreshOnlineUsers = async () => {
+      try {
+        const result = await api('online_users');
+        if (!alive) return;
+        setHub((current) => current ? { ...current, onlineUsers: Array.isArray(result.onlineUsers) ? result.onlineUsers : [] } : current);
+      } catch (reason) {
+        if (typeof console !== 'undefined') console.warn('[ECLIPSE ONLINE USERS]', reason instanceof Error ? reason.message : 'presence refresh failed');
+      }
+    };
+    void refreshOnlineUsers();
+    const timer = window.setInterval(() => { void refreshOnlineUsers(); }, 15_000);
+    return () => { alive = false; window.clearInterval(timer); };
+  }, [session?.user.id, roomPayload?.room.status]);
+
   const [roomSyncState, setRoomSyncState] = useState<'live' | 'syncing' | 'offline'>('live');
   const [lastRoomSyncAt, setLastRoomSyncAt] = useState(() => Date.now());
 
@@ -8218,7 +8264,7 @@ export default function Page() {
         setCanRecoverAccounts(result.canRecoverAccounts === true);
         if (result.serverStatus) setServerStatus(result.serverStatus);
         if (result.room && result.profiles) {
-          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, battleEmotes: result.battleEmotes ?? [] });
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, opponentHandReveal: result.opponentHandReveal ?? undefined, battleEmotes: result.battleEmotes ?? [] });
           setRoomSyncState('live');
           setLastRoomSyncAt(Date.now());
           setView('duel');
@@ -8312,7 +8358,7 @@ export default function Page() {
         const result = await api('get_room', { roomId });
         if (!alive) return;
         if (result.room && result.profiles) {
-          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, battleEmotes: result.battleEmotes ?? [] });
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, opponentHandReveal: result.opponentHandReveal ?? undefined, battleEmotes: result.battleEmotes ?? [] });
           lastSuccessfulSync = Date.now();
           setRoomSyncState('live');
           setLastRoomSyncAt(lastSuccessfulSync);
@@ -8389,7 +8435,7 @@ export default function Page() {
         const result = await api('match_presence', { roomId });
         if (!alive) return;
         if (result.room && result.profiles) {
-          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, battleEmotes: result.battleEmotes ?? [] });
+          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, opponentHandReveal: result.opponentHandReveal ?? undefined, battleEmotes: result.battleEmotes ?? [] });
           setRoomSyncState('live');
           setLastRoomSyncAt(Date.now());
         }

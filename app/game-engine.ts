@@ -164,6 +164,8 @@ export interface MatchState {
   turnActionTaken?: boolean;
   pendingTrap?: PendingTrapWindow | null;
   pendingExtraChoice?: PendingExtraChoiceWindow | null;
+  /** Temporary private hand-intel window granted by a spell. Only the viewer receives the revealed hand in API payloads. */
+  pendingHandIntel?: { viewerId: string; targetId: string; mode: 'view' | 'discard'; sourceCardId?: string } | null;
   /** Turn number when each player last converted one hand card into +1 temporary energy. */
   energySacrificeTurn?: Record<string, number>;
   /** Turn number when each player last retired one of their own field units for +1 temporary energy. */
@@ -2087,6 +2089,23 @@ function applyEffect(
       appendVisual(state, { kind: 'special', vfx: 'mirror-incarnation', cardId: sourceCard?.id, ownerId: actorId, targetOwnerId: actorId, targetZone: destination, label: '거울의 현현' });
       break;
     }
+    case 'inspect_opponent_hand': {
+      state.pendingHandIntel = { viewerId: actorId, targetId: opponentId, mode: 'view', sourceCardId: sourceCard?.id };
+      appendLog(state, '상대의 손패 정보를 확인했습니다.', 'special');
+      appendVisual(state, { kind: 'special', vfx: 'hand-intel-scan', cardId: sourceCard?.id, ownerId: actorId, targetOwnerId: opponentId, label: '손패 정찰' });
+      break;
+    }
+    case 'discard_opponent_hand': {
+      const opponentPrivate = privateStates[opponentId];
+      if (!opponentPrivate || opponentPrivate.hand.length === 0) {
+        appendLog(state, '상대의 손패가 없어 제거할 카드가 없습니다.', 'system');
+        break;
+      }
+      state.pendingHandIntel = { viewerId: actorId, targetId: opponentId, mode: 'discard', sourceCardId: sourceCard?.id };
+      appendLog(state, '상대 손패를 확인했습니다. 제거할 카드 1장을 선택하세요.', 'special');
+      appendVisual(state, { kind: 'special', vfx: 'hand-intel-break', cardId: sourceCard?.id, ownerId: actorId, targetOwnerId: opponentId, label: '기억 절제' });
+      break;
+    }
     case 'exchange_hands': {
       const opponentPrivate = privateStates[opponentId];
       const myHand = actorPrivate.hand;
@@ -2102,6 +2121,33 @@ function applyEffect(
   for (const playerId of state.playerOrder) {
     if (playerId) checkV33AHandComboVictory(state, privateStates[playerId], playerId);
   }
+}
+
+
+export function closeHandIntel(snapshot: GameSnapshot, playerId: string): ActionResult {
+  const next = clone(snapshot);
+  const pending = next.state.pendingHandIntel;
+  if (!pending || pending.viewerId !== playerId) return next;
+  if (pending.mode === 'discard') throw new Error('제거할 상대 손패 1장을 선택해야 합니다.');
+  next.state.pendingHandIntel = null;
+  return next;
+}
+
+export function discardRevealedOpponentHand(snapshot: GameSnapshot, playerId: string, instanceId: string): ActionResult {
+  const next = clone(snapshot);
+  const pending = next.state.pendingHandIntel;
+  if (!pending || pending.viewerId !== playerId || pending.mode !== 'discard') throw new Error('현재 상대 손패 제거 효과를 처리할 수 없습니다.');
+  const targetPrivate = next.privateStates[pending.targetId];
+  if (!targetPrivate) throw new Error('상대 손패 정보를 찾을 수 없습니다.');
+  const index = targetPrivate.hand.findIndex((card) => card.instanceId === instanceId);
+  if (index < 0) throw new Error('선택한 카드는 더 이상 상대 손패에 없습니다.');
+  const [discarded] = targetPrivate.hand.splice(index, 1);
+  if (discarded) next.state.graveyards[pending.targetId].push(discarded.cardId);
+  next.state.handCounts[pending.targetId] = targetPrivate.hand.length;
+  next.state.pendingHandIntel = null;
+  appendLog(next.state, `상대 손패에서 「${CARD_BY_ID[discarded?.cardId ?? '']?.name ?? '카드'}」 1장을 묘지로 보냈습니다.`, 'special');
+  appendVisual(next.state, { kind: 'special', vfx: 'hand-intel-discard', cardId: discarded?.cardId, ownerId: playerId, targetOwnerId: pending.targetId, label: '손패 제거' });
+  return next;
 }
 
 function seriesUnitCount(state: MatchState, playerId: string, seriesId: SeriesId): number {

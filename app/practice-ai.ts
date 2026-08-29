@@ -16,6 +16,8 @@ import {
   attack,
   beginBattlePhase,
   drawAndEndTurn,
+  closeHandIntel,
+  discardRevealedOpponentHand,
   endTurn,
   initializeMatch,
   playCard,
@@ -179,6 +181,10 @@ export function applyPracticeGameAction(
         }
       : undefined;
     next = playCard(snapshot, playerId, String(payload.instanceId ?? ''), payload.zone === undefined ? undefined : Number(payload.zone), target);
+  } else if (gameAction === 'discard_opponent_hand') {
+    next = discardRevealedOpponentHand(snapshot, playerId, String(payload.instanceId ?? ''));
+  } else if (gameAction === 'close_hand_reveal') {
+    next = closeHandIntel(snapshot, playerId);
   } else if (gameAction === 'extra_summon') {
     const rawTarget = payload.target && typeof payload.target === 'object' ? payload.target as Record<string, unknown> : undefined;
     const target: CardActionTarget | undefined = rawTarget

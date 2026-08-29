@@ -126,6 +126,8 @@ export type Effect =
   | { kind: 'reweave_hand'; bonusDraw: number }
   | { kind: 'mirror_unit' }
   | { kind: 'exchange_hands' }
+  | { kind: 'inspect_opponent_hand' }
+  | { kind: 'discard_opponent_hand' }
   | { kind: 'ready_unit' }
   | { kind: 'bounce_unit' }
   | { kind: 'heal_unit'; amount: number }
@@ -693,6 +695,14 @@ export const CARDS: CardDefinition[] = [
   {
     id: 'spell_astral_insight', name: '성운의 통찰', subtitle: '별 사이의 답', kind: 'spell', rarity: 'rare', element: 'neutral', cost: 2,
     effect: { kind: 'draw', amount: 2 }, target: 'none', text: '카드 2장을 뽑습니다.', flavor: '별을 읽는다는 것은 아직 오지 않은 선택을 보는 일이다.', sigil: '✣',
+  },
+  {
+    id: 'spell_mind_scout', name: '심상 정찰', subtitle: '감춰진 패를 읽는 시선', kind: 'spell', rarity: 'rare', element: 'lunar', cost: 2,
+    effect: { kind: 'inspect_opponent_hand' }, target: 'none', text: '상대의 현재 손패를 전부 확인합니다.', flavor: '눈에 보이지 않는 선택도 흔적은 남긴다.', sigil: '◉',
+  },
+  {
+    id: 'spell_memory_excision', name: '기억 절제', subtitle: '선택 하나를 지워내는 칼날', kind: 'spell', rarity: 'epic', element: 'void', cost: 4,
+    effect: { kind: 'discard_opponent_hand' }, target: 'none', text: '상대의 현재 손패를 전부 확인한 뒤 카드 1장을 선택해 묘지로 보냅니다.', flavor: '패배는 카드를 잃는 순간이 아니라, 선택할 가능성을 잃는 순간 시작된다.', sigil: '✂',
   },
   {
     id: 'spell_void_lance', name: '공허의 창', subtitle: '방어를 가르는 검은 선', kind: 'spell', rarity: 'rare', element: 'void', cost: 3,
@@ -1944,6 +1954,8 @@ function spellEffectText(effect: Effect): string {
     case 'reweave_hand': return `내 남은 손패를 덱에 섞고, 섞은 장수보다 ${effect.bonusDraw}장 더 새로 뽑습니다.`;
     case 'mirror_unit': return '적 유닛 1장의 현재 공격력과 체력을 복사한 능력 없는 거울 토큰을 내 필드에 소환합니다. 이번 턴 공격할 수 없습니다.';
     case 'exchange_hands': return '서로의 남은 손패를 전부 교환합니다.';
+    case 'inspect_opponent_hand': return '상대의 현재 손패를 전부 확인합니다.';
+    case 'discard_opponent_hand': return '상대의 현재 손패를 전부 확인한 뒤 카드 1장을 선택해 묘지로 보냅니다.';
     case 'ready_unit': return '이번 턴 소환한 아군 유닛 1장을 즉시 공격 가능 상태로 만듭니다.';
     case 'bounce_unit': return '대상 유닛 1장을 원래 영역으로 되돌립니다.';
     case 'heal_unit': return `아군 유닛 하나의 체력을 ${effect.amount} 회복합니다.`;
@@ -2035,6 +2047,8 @@ function clampNonLegendarySpell(card: CardDefinition): void {
     case 'reweave_hand':
     case 'mirror_unit':
     case 'exchange_hands':
+    case 'inspect_opponent_hand':
+    case 'discard_opponent_hand':
     case 'end_turn_next_energy': break;
   }
   card.text = spellEffectText(effect);
@@ -2063,6 +2077,8 @@ function strengthenLegendarySpell(card: CardDefinition): void {
     case 'reweave_hand':
     case 'mirror_unit':
     case 'exchange_hands':
+    case 'inspect_opponent_hand':
+    case 'discard_opponent_hand':
     case 'end_turn_next_energy': break;
   }
   card.text = spellEffectText(effect);
