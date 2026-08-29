@@ -9,6 +9,7 @@ import {
   type PackDefinition,
   type Rarity,
 } from '../../game-data';
+import { BOSS_RAID_BY_ID, bossRaidIdsForDay, type BossRaidId } from '../../boss-raid-data';
 import { PROFILE_COSMETIC_BY_ID } from '../../profile-cosmetics';
 import { V34_BATTLE_EMOTE_BY_ID, V34_BATTLE_EMOTE_PACK_BY_ID } from '../../v34-emotes';
 import {
@@ -870,16 +871,15 @@ type V50EconomyStateRow = {
   user_id: string;
   day_key: string;
   studied_card_ids: unknown;
-  expedition_ids: unknown;
-  active_expedition: unknown;
+  boss_raid_ids: unknown;
+  active_boss_raid: unknown;
   updated_at: string;
 };
 
-type V50ActiveExpedition = {
+type V51ActiveBossRaid = {
   runId: string;
-  expeditionId: string;
+  bossId: BossRaidId;
   startedAt: string;
-  endsAt: string;
 };
 
 const V50_DAILY_MISSIONS = [
@@ -890,11 +890,6 @@ const V50_DAILY_MISSIONS = [
 
 const V50_DAILY_CLEAR_BONUS = 40;
 
-const V50_EXPEDITIONS = [
-  { id: 'scout', name: '변두리 정찰', durationMinutes: 30, reward: 30, minUniqueCards: 0, description: '짧은 정찰 임무. 신규 결투가도 바로 보낼 수 있습니다.' },
-  { id: 'rift', name: '균열 표본 조사', durationMinutes: 120, reward: 50, minUniqueCards: 30, description: '보유 카드가 30종 이상일 때 출발 가능한 중거리 조사입니다.' },
-  { id: 'archive', name: '심층 기록고 탐사', durationMinutes: 240, reward: 70, minUniqueCards: 60, description: '보유 카드가 60종 이상일 때 가능한 장기 탐사입니다.' },
-] as const;
 
 const V50_COLLECTION_MILESTONES = [
   { id: 'unique_25', target: 25, reward: 60 },
@@ -915,11 +910,11 @@ const V50_ACHIEVEMENTS = [
 ] as const;
 
 function v50EconomyMigrationError(message: string): boolean {
-  return /eclipse_economy_state_v50|eclipse_coin_reward_ledger_v50|eclipse_grant_coins_v50|does not exist|schema cache/i.test(message);
+  return /eclipse_economy_state_v50|eclipse_coin_reward_ledger_v50|eclipse_grant_coins_v50|boss_raid_ids|active_boss_raid|does not exist|schema cache/i.test(message);
 }
 
 function v50EconomySetupMessage(): string {
-  return 'V50 코인 보상 DB 업그레이드가 필요합니다. 동봉된 V50_ECONOMY_REWARDS.sql을 Supabase SQL Editor에서 한 번 실행해 주세요.';
+  return 'V51 보스 레이드 DB 업그레이드가 필요합니다. 동봉된 V51_BOSS_RAID_UPGRADE.sql을 Supabase SQL Editor에서 한 번 실행해 주세요.';
 }
 
 function seoulDayKey(date = new Date()): string {
@@ -954,15 +949,14 @@ function v50DailyStudyCardIds(userId: string, dayKey: string): string[] {
     .map((card) => card.id);
 }
 
-function v50ParseActiveExpedition(value: unknown): V50ActiveExpedition | null {
+function v51ParseActiveBossRaid(value: unknown): V51ActiveBossRaid | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const row = value as Record<string, unknown>;
   const runId = typeof row.runId === 'string' ? row.runId : '';
-  const expeditionId = typeof row.expeditionId === 'string' ? row.expeditionId : '';
+  const bossId = typeof row.bossId === 'string' ? row.bossId as BossRaidId : '' as BossRaidId;
   const startedAt = typeof row.startedAt === 'string' ? row.startedAt : '';
-  const endsAt = typeof row.endsAt === 'string' ? row.endsAt : '';
-  if (!runId || !expeditionId || !startedAt || !endsAt) return null;
-  return { runId, expeditionId, startedAt, endsAt };
+  if (!runId || !startedAt || !BOSS_RAID_BY_ID[bossId]) return null;
+  return { runId, bossId, startedAt };
 }
 
 async function v50EnsureEconomyState(admin: AdminDbClient, userId: string): Promise<V50EconomyStateRow> {
@@ -976,7 +970,7 @@ async function v50EnsureEconomyState(admin: AdminDbClient, userId: string): Prom
   if (!data) {
     const { data: inserted, error: insertError } = await admin
       .from('eclipse_economy_state_v50')
-      .insert({ user_id: userId, day_key: dayKey, studied_card_ids: [], expedition_ids: [] })
+      .insert({ user_id: userId, day_key: dayKey, studied_card_ids: [], boss_raid_ids: [], active_boss_raid: null })
       .select('*')
       .single();
     if (insertError || !inserted) {
@@ -989,11 +983,10 @@ async function v50EnsureEconomyState(admin: AdminDbClient, userId: string): Prom
   const row = data as V50EconomyStateRow;
   if (row.day_key === dayKey) return row;
 
-  // 날짜가 바뀌면 반복형 일일 진행도만 초기화합니다.
-  // 자정 전에 출발한 원정은 보상을 잃지 않도록 active_expedition을 유지합니다.
+  // 날짜가 바뀌면 반복형 일일 진행도와 오늘의 보스 클리어 기록을 초기화합니다.
   const { data: reset, error: resetError } = await admin
     .from('eclipse_economy_state_v50')
-    .update({ day_key: dayKey, studied_card_ids: [], expedition_ids: [], updated_at: new Date().toISOString() })
+    .update({ day_key: dayKey, studied_card_ids: [], boss_raid_ids: [], active_boss_raid: null, updated_at: new Date().toISOString() })
     .eq('user_id', userId)
     .select('*')
     .single();
@@ -1064,8 +1057,9 @@ async function getV50EconomyCenter(admin: AdminDbClient, userId: string) {
   const [ledger, facts] = await Promise.all([v50LedgerKeys(admin, userId), v50EconomyFacts(admin, userId)]);
   const studyCardIds = v50DailyStudyCardIds(userId, dayKey);
   const studied = v50StringArray(state.studied_card_ids).filter((id) => studyCardIds.includes(id));
-  const usedExpeditions = v50StringArray(state.expedition_ids);
-  const active = v50ParseActiveExpedition(state.active_expedition);
+  const todayBossIds = bossRaidIdsForDay(dayKey);
+  const clearedBossIds = v50StringArray(state.boss_raid_ids).filter((id): id is BossRaidId => todayBossIds.includes(id as BossRaidId));
+  const activeRaid = v51ParseActiveBossRaid(state.active_boss_raid);
 
   const missionRows = V50_DAILY_MISSIONS.map((mission) => {
     const rewardKey = `daily:${dayKey}:${mission.id}`;
@@ -1091,6 +1085,7 @@ async function getV50EconomyCenter(admin: AdminDbClient, userId: string) {
     social_circle: facts.friendCount >= 3,
   };
 
+  const todayBosses = todayBossIds.map((bossId) => BOSS_RAID_BY_ID[bossId]).filter(Boolean);
   return {
     dayKey,
     serverNow: new Date().toISOString(),
@@ -1109,18 +1104,14 @@ async function getV50EconomyCenter(admin: AdminDbClient, userId: string) {
       studyCardIds,
       studiedCardIds: studied,
     },
-    expeditions: {
-      maxCoins: V50_EXPEDITIONS.reduce((sum, expedition) => sum + expedition.reward, 0),
-      active: active ? {
-        ...active,
-        name: V50_EXPEDITIONS.find((entry) => entry.id === active.expeditionId)?.name ?? '원정',
-        reward: V50_EXPEDITIONS.find((entry) => entry.id === active.expeditionId)?.reward ?? 0,
-      } : null,
-      options: V50_EXPEDITIONS.map((expedition) => ({
-        ...expedition,
-        usedToday: usedExpeditions.includes(expedition.id),
-        available: facts.uniqueCards >= expedition.minUniqueCards,
-        requirementText: expedition.minUniqueCards > 0 ? `카드 ${expedition.minUniqueCards}종 보유` : '조건 없음',
+    bossRaids: {
+      dailyLimit: 3,
+      clearedCount: clearedBossIds.length,
+      maxCoins: todayBosses.reduce((sum, boss) => sum + boss.reward, 0),
+      active: activeRaid && todayBossIds.includes(activeRaid.bossId) ? activeRaid : null,
+      options: todayBosses.map((boss) => ({
+        ...boss,
+        clearedToday: clearedBossIds.includes(boss.id),
       })),
     },
     collection: {
@@ -1137,7 +1128,7 @@ async function getV50EconomyCenter(admin: AdminDbClient, userId: string) {
       completed: Boolean(achievementEligibility[achievement.id]),
       claimed: ledger.has(`achievement:${achievement.id}`),
     })),
-    economyNote: '반복형 수급은 하루 최대 350코인(일일 의뢰 200 + 원정 150)으로 제한됩니다. 도감/업적 보상은 계정당 1회만 지급됩니다.',
+    economyNote: `일일 의뢰는 하루 최대 200코인입니다. 보스 레이드는 매일 무작위 3명이 등장하고 각 보스의 클리어 보상은 하루 1회만 지급됩니다. 오늘의 레이드 총 보상은 ${todayBosses.reduce((sum, boss) => sum + boss.reward, 0)}코인이며, 최종 보스 개기일식의 조율자는 700코인입니다. 도감/업적은 계정당 1회 보상입니다.`,
   };
 }
 
@@ -1168,49 +1159,60 @@ async function v50ClaimDaily(admin: AdminDbClient, userId: string, missionId: st
   await v50GrantCoins(admin, userId, `daily:${center.dayKey}:${mission.id}`, mission.reward, `daily_${mission.id}`);
 }
 
-async function v50StartExpedition(admin: AdminDbClient, userId: string, expeditionId: string): Promise<void> {
+async function v51StartBossRaid(admin: AdminDbClient, userId: string, bossId: BossRaidId): Promise<V51ActiveBossRaid> {
   const state = await v50EnsureEconomyState(admin, userId);
-  const active = v50ParseActiveExpedition(state.active_expedition);
-  if (active) throw new Error('진행 중인 원정이 있습니다. 먼저 완료 보상을 수령해 주세요.');
-  const expedition = V50_EXPEDITIONS.find((entry) => entry.id === expeditionId);
-  if (!expedition) throw new Error('존재하지 않는 원정입니다.');
-  const used = v50StringArray(state.expedition_ids);
-  if (used.includes(expedition.id)) throw new Error('이 원정은 오늘 이미 출발했습니다. 내일 다시 이용할 수 있습니다.');
-  if (used.length >= V50_EXPEDITIONS.length) throw new Error('오늘 가능한 원정을 모두 진행했습니다.');
-  const facts = await v50EconomyFacts(admin, userId);
-  if (facts.uniqueCards < expedition.minUniqueCards) throw new Error(`이 원정은 카드 ${expedition.minUniqueCards}종 이상 보유해야 출발할 수 있습니다.`);
+  const todayBossIds = bossRaidIdsForDay(state.day_key);
+  const boss = BOSS_RAID_BY_ID[bossId];
+  if (!boss || !todayBossIds.includes(bossId)) throw new Error('이 보스는 오늘의 레이드 대상이 아닙니다.');
+  const cleared = v50StringArray(state.boss_raid_ids);
+  if (cleared.includes(bossId)) throw new Error('이 보스의 오늘 클리어 보상은 이미 획득했습니다.');
 
-  const startedAt = new Date();
-  const endsAt = new Date(startedAt.getTime() + expedition.durationMinutes * 60_000);
-  const nextActive: V50ActiveExpedition = {
+  const active = v51ParseActiveBossRaid(state.active_boss_raid);
+  if (active) {
+    if (active.bossId === bossId) return active;
+    throw new Error('진행 중인 보스 레이드가 있습니다. 먼저 해당 전투를 마쳐 주세요.');
+  }
+
+  const nextActive: V51ActiveBossRaid = {
     runId: globalThis.crypto.randomUUID(),
-    expeditionId: expedition.id,
-    startedAt: startedAt.toISOString(),
-    endsAt: endsAt.toISOString(),
+    bossId,
+    startedAt: new Date().toISOString(),
   };
   const { error } = await admin
     .from('eclipse_economy_state_v50')
-    .update({ expedition_ids: [...used, expedition.id], active_expedition: nextActive, updated_at: new Date().toISOString() })
+    .update({ active_boss_raid: nextActive, updated_at: new Date().toISOString() })
     .eq('user_id', userId);
   if (error) throw new Error(error.message);
+  return nextActive;
 }
 
-async function v50ClaimExpedition(admin: AdminDbClient, userId: string): Promise<void> {
+async function v51FinishBossRaid(admin: AdminDbClient, userId: string, runId: string, bossId: BossRaidId, result: string): Promise<void> {
   const state = await v50EnsureEconomyState(admin, userId);
-  const active = v50ParseActiveExpedition(state.active_expedition);
-  if (!active) throw new Error('수령할 원정 보상이 없습니다.');
-  const expedition = V50_EXPEDITIONS.find((entry) => entry.id === active.expeditionId);
-  if (!expedition) throw new Error('원정 데이터가 올바르지 않습니다.');
-  const endTime = Date.parse(active.endsAt);
-  if (!Number.isFinite(endTime)) throw new Error('원정 종료 시간이 올바르지 않습니다. 관리자에게 문의해 주세요.');
-  if (Date.now() < endTime) {
-    const minutes = Math.max(1, Math.ceil((endTime - Date.now()) / 60_000));
-    throw new Error(`원정이 아직 진행 중입니다. 약 ${minutes}분 후 완료됩니다.`);
+  const active = v51ParseActiveBossRaid(state.active_boss_raid);
+  if (!active || active.runId !== runId || active.bossId !== bossId) throw new Error('현재 진행 중인 보스 레이드 정보가 일치하지 않습니다.');
+  const boss = BOSS_RAID_BY_ID[bossId];
+  if (!boss || !bossRaidIdsForDay(state.day_key).includes(bossId)) throw new Error('오늘의 보스 정보가 변경되었습니다. 보상 센터에서 다시 시작해 주세요.');
+
+  if (result === 'win') {
+    const elapsed = Date.now() - Date.parse(active.startedAt);
+    const minimumMs = (20 + boss.threat * 8) * 1000;
+    if (!Number.isFinite(elapsed) || elapsed < minimumMs) throw new Error('보스 전투 검증 시간이 너무 짧습니다. 전투 결과 동기화 후 다시 시도해 주세요.');
+    const cleared = v50StringArray(state.boss_raid_ids);
+    if (!cleared.includes(bossId)) {
+      await v50GrantCoins(admin, userId, `boss:${state.day_key}:${bossId}`, boss.reward, `boss_raid_${bossId}`);
+      cleared.push(bossId);
+      const { error } = await admin
+        .from('eclipse_economy_state_v50')
+        .update({ boss_raid_ids: cleared, active_boss_raid: null, updated_at: new Date().toISOString() })
+        .eq('user_id', userId);
+      if (error) throw new Error(error.message);
+      return;
+    }
   }
-  await v50GrantCoins(admin, userId, `expedition:${active.runId}`, expedition.reward, `expedition_${expedition.id}`);
+
   const { error } = await admin
     .from('eclipse_economy_state_v50')
-    .update({ active_expedition: null, updated_at: new Date().toISOString() })
+    .update({ active_boss_raid: null, updated_at: new Date().toISOString() })
     .eq('user_id', userId);
   if (error) throw new Error(error.message);
 }
@@ -1705,16 +1707,20 @@ async function handleAction(request: Request, body: RequestBody) {
     return { economy: await getV50EconomyCenter(admin, user.id), hub: await getHub(client, user.id) };
   }
 
-  if (action === 'economy_start_expedition') {
+  if (action === 'economy_start_boss_raid') {
     const admin = await requireEconomyAdmin();
-    const expeditionId = cleanText(body.expeditionId, 30);
-    await v50StartExpedition(admin, user.id, expeditionId);
+    const bossId = cleanText(body.bossId, 40) as BossRaidId;
+    await v51StartBossRaid(admin, user.id, bossId);
     return { economy: await getV50EconomyCenter(admin, user.id) };
   }
 
-  if (action === 'economy_claim_expedition') {
+  if (action === 'economy_finish_boss_raid') {
     const admin = await requireEconomyAdmin();
-    await v50ClaimExpedition(admin, user.id);
+    const bossId = cleanText(body.bossId, 40) as BossRaidId;
+    const runId = cleanText(body.runId, 80);
+    const result = cleanText(body.result, 16);
+    if (!['win', 'loss', 'abandon'].includes(result)) throw new Error('보스 레이드 결과가 올바르지 않습니다.');
+    await v51FinishBossRaid(admin, user.id, runId, bossId, result);
     return { economy: await getV50EconomyCenter(admin, user.id), hub: await getHub(client, user.id) };
   }
 
