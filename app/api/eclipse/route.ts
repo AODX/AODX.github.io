@@ -4,6 +4,7 @@ import {
   validateExtraDeck,
   PACKS,
   CARDS,
+  CARD_BY_ID,
   type CardDefinition,
   type PackDefinition,
   type Rarity,
@@ -465,6 +466,24 @@ async function storeMutationClient(fallback: UserDbClient): Promise<UserDbClient
   return fallback;
 }
 
+
+async function requireEconomyAdmin(): Promise<AdminDbClient> {
+  const currentRef = projectRefFromUrl(serverUrl());
+  for (const configured of configuredAdminKeys()) {
+    const payload = decodeLegacyKeyPayload(configured.key);
+    const keyRef = typeof payload?.ref === 'string' ? payload.ref : null;
+    if (keyRef && keyRef !== currentRef) continue;
+    try {
+      const admin = adminClientFromKey(configured.key);
+      const { error } = await admin.from('eclipse_wallets').select('user_id', { count: 'exact', head: true });
+      if (!error) return admin;
+    } catch {
+      // Continue to the next configured server key.
+    }
+  }
+  throw new ServerConfigError('보상 센터의 코인 지급을 위해 현재 Supabase 프로젝트의 SUPABASE_SECRET_KEY가 필요합니다. Render Environment의 서버 키를 확인해 주세요.');
+}
+
 async function requireUser(request: Request): Promise<{ user: User; client: UserDbClient; token: string }> {
   const authorization = request.headers.get('authorization') ?? '';
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
@@ -843,6 +862,373 @@ async function getHub(admin: UserDbClient | AdminDbClient, userId: string) {
     battleEmotes: ownedBattleEmotes,
     emoteLoadout,
   };
+}
+
+
+
+type V50EconomyStateRow = {
+  user_id: string;
+  day_key: string;
+  studied_card_ids: unknown;
+  expedition_ids: unknown;
+  active_expedition: unknown;
+  updated_at: string;
+};
+
+type V50ActiveExpedition = {
+  runId: string;
+  expeditionId: string;
+  startedAt: string;
+  endsAt: string;
+};
+
+const V50_DAILY_MISSIONS = [
+  { id: 'briefing', name: '작전 브리핑', description: '오늘의 보상 센터를 확인하고 브리핑 보상을 수령합니다.', reward: 40 },
+  { id: 'study', name: '오늘의 카드 연구', description: '오늘 지정된 카드 5장을 확인하고 연구 완료를 기록합니다.', reward: 60 },
+  { id: 'deck', name: '덱 정비 점검', description: '사용 가능한 45장 메인 덱 + 6장 엑스트라 덱을 활성화해 점검합니다.', reward: 60 },
+] as const;
+
+const V50_DAILY_CLEAR_BONUS = 40;
+
+const V50_EXPEDITIONS = [
+  { id: 'scout', name: '변두리 정찰', durationMinutes: 30, reward: 30, minUniqueCards: 0, description: '짧은 정찰 임무. 신규 결투가도 바로 보낼 수 있습니다.' },
+  { id: 'rift', name: '균열 표본 조사', durationMinutes: 120, reward: 50, minUniqueCards: 30, description: '보유 카드가 30종 이상일 때 출발 가능한 중거리 조사입니다.' },
+  { id: 'archive', name: '심층 기록고 탐사', durationMinutes: 240, reward: 70, minUniqueCards: 60, description: '보유 카드가 60종 이상일 때 가능한 장기 탐사입니다.' },
+] as const;
+
+const V50_COLLECTION_MILESTONES = [
+  { id: 'unique_25', target: 25, reward: 60 },
+  { id: 'unique_50', target: 50, reward: 90 },
+  { id: 'unique_100', target: 100, reward: 150 },
+  { id: 'unique_200', target: 200, reward: 250 },
+  { id: 'unique_300', target: 300, reward: 350 },
+  { id: 'unique_400', target: 400, reward: 450 },
+] as const;
+
+const V50_ACHIEVEMENTS = [
+  { id: 'complete_deck', name: '첫 완성 덱', description: '사용 가능한 완성 덱을 활성화합니다.', reward: 80 },
+  { id: 'first_legendary', name: '전설과의 조우', description: '전설 카드 1종 이상을 보유합니다.', reward: 80 },
+  { id: 'legendary_five', name: '전설 수집가', description: '서로 다른 전설 카드 5종 이상을 보유합니다.', reward: 120 },
+  { id: 'style_beginner', name: '스타일 입문', description: '프로필 꾸미기 아이템 1개 이상을 보유합니다.', reward: 60 },
+  { id: 'style_collector', name: '스타일 컬렉터', description: '프로필 꾸미기 아이템 5개 이상을 보유합니다.', reward: 120 },
+  { id: 'social_circle', name: '결투가 네트워크', description: '친구 3명 이상과 연결됩니다.', reward: 100 },
+] as const;
+
+function v50EconomyMigrationError(message: string): boolean {
+  return /eclipse_economy_state_v50|eclipse_coin_reward_ledger_v50|eclipse_grant_coins_v50|does not exist|schema cache/i.test(message);
+}
+
+function v50EconomySetupMessage(): string {
+  return 'V50 코인 보상 DB 업그레이드가 필요합니다. 동봉된 V50_ECONOMY_REWARDS.sql을 Supabase SQL Editor에서 한 번 실행해 주세요.';
+}
+
+function seoulDayKey(date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const read = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  return `${read('year')}-${read('month')}-${read('day')}`;
+}
+
+function v50StringArray(value: unknown): string[] {
+  return Array.isArray(value) ? [...new Set(value.map(String).filter(Boolean))] : [];
+}
+
+function v50StableHash(value: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function v50DailyStudyCardIds(userId: string, dayKey: string): string[] {
+  const pool = CARDS.filter((card) => card.kind === 'unit' || card.kind === 'spell' || card.kind === 'trap');
+  return [...pool]
+    .sort((a, b) => v50StableHash(`${dayKey}:${userId}:${a.id}`) - v50StableHash(`${dayKey}:${userId}:${b.id}`))
+    .slice(0, 5)
+    .map((card) => card.id);
+}
+
+function v50ParseActiveExpedition(value: unknown): V50ActiveExpedition | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  const runId = typeof row.runId === 'string' ? row.runId : '';
+  const expeditionId = typeof row.expeditionId === 'string' ? row.expeditionId : '';
+  const startedAt = typeof row.startedAt === 'string' ? row.startedAt : '';
+  const endsAt = typeof row.endsAt === 'string' ? row.endsAt : '';
+  if (!runId || !expeditionId || !startedAt || !endsAt) return null;
+  return { runId, expeditionId, startedAt, endsAt };
+}
+
+async function v50EnsureEconomyState(admin: AdminDbClient, userId: string): Promise<V50EconomyStateRow> {
+  const dayKey = seoulDayKey();
+  const { data, error } = await admin.from('eclipse_economy_state_v50').select('*').eq('user_id', userId).maybeSingle();
+  if (error) {
+    if (v50EconomyMigrationError(error.message)) throw new Error(v50EconomySetupMessage());
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    const { data: inserted, error: insertError } = await admin
+      .from('eclipse_economy_state_v50')
+      .insert({ user_id: userId, day_key: dayKey, studied_card_ids: [], expedition_ids: [] })
+      .select('*')
+      .single();
+    if (insertError || !inserted) {
+      if (insertError && v50EconomyMigrationError(insertError.message)) throw new Error(v50EconomySetupMessage());
+      throw new Error(insertError?.message ?? '보상 센터 상태를 만들지 못했습니다.');
+    }
+    return inserted as V50EconomyStateRow;
+  }
+
+  const row = data as V50EconomyStateRow;
+  if (row.day_key === dayKey) return row;
+
+  // 날짜가 바뀌면 반복형 일일 진행도만 초기화합니다.
+  // 자정 전에 출발한 원정은 보상을 잃지 않도록 active_expedition을 유지합니다.
+  const { data: reset, error: resetError } = await admin
+    .from('eclipse_economy_state_v50')
+    .update({ day_key: dayKey, studied_card_ids: [], expedition_ids: [], updated_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .select('*')
+    .single();
+  if (resetError || !reset) throw new Error(resetError?.message ?? '일일 보상 상태를 갱신하지 못했습니다.');
+  return reset as V50EconomyStateRow;
+}
+
+async function v50LedgerKeys(admin: AdminDbClient, userId: string): Promise<Set<string>> {
+  const { data, error } = await admin.from('eclipse_coin_reward_ledger_v50').select('reward_key').eq('user_id', userId);
+  if (error) {
+    if (v50EconomyMigrationError(error.message)) throw new Error(v50EconomySetupMessage());
+    throw new Error(error.message);
+  }
+  return new Set((data ?? []).map((row: { reward_key: string }) => String(row.reward_key)));
+}
+
+async function v50GrantCoins(admin: AdminDbClient, userId: string, rewardKey: string, coins: number, source: string): Promise<boolean> {
+  const amount = Math.max(1, Math.min(1000, Math.trunc(coins)));
+  const { data, error } = await admin.rpc('eclipse_grant_coins_v50', {
+    p_user: userId,
+    p_reward_key: rewardKey,
+    p_coins: amount,
+    p_source: source,
+  });
+  if (error) {
+    if (v50EconomyMigrationError(error.message)) throw new Error(v50EconomySetupMessage());
+    throw new Error(error.message);
+  }
+  return Boolean(data);
+}
+
+async function v50EconomyFacts(admin: AdminDbClient, userId: string) {
+  const [collectionResult, deckResult, cosmeticsResult, friendsResult, walletResult] = await Promise.all([
+    admin.from('eclipse_collections').select('card_id,quantity').eq('user_id', userId),
+    admin.from('eclipse_decks').select('cards,extra_cards').eq('user_id', userId).eq('is_active', true).maybeSingle(),
+    admin.from('eclipse_profile_cosmetics').select('cosmetic_id').eq('user_id', userId),
+    admin.from('eclipse_friends').select('friend_id', { count: 'exact', head: true }).eq('user_id', userId),
+    admin.from('eclipse_wallets').select('coins').eq('user_id', userId).single(),
+  ]);
+  if (collectionResult.error) throw new Error(collectionResult.error.message);
+  if (deckResult.error) throw new Error(deckResult.error.message);
+  const cosmeticsMissing = Boolean(cosmeticsResult.error && /eclipse_profile_cosmetics|does not exist|schema cache/i.test(cosmeticsResult.error.message));
+  if (cosmeticsResult.error && !cosmeticsMissing) throw new Error(cosmeticsResult.error.message);
+  if (friendsResult.error) throw new Error(friendsResult.error.message);
+  if (walletResult.error) throw new Error(walletResult.error.message);
+
+  const collectionRows = (collectionResult.data ?? []).filter((row: { quantity: number }) => Number(row.quantity ?? 0) > 0);
+  const collectionMap = Object.fromEntries(collectionRows.map((row: { card_id: string; quantity: number }) => [String(row.card_id), Number(row.quantity)]));
+  const uniqueCards = collectionRows.length;
+  const legendaryCards = collectionRows.filter((row: { card_id: string }) => CARD_BY_ID[String(row.card_id)]?.rarity === 'legendary').length;
+  const deckCards = Array.isArray(deckResult.data?.cards) ? deckResult.data.cards.map(String) : [];
+  const extraCards = Array.isArray(deckResult.data?.extra_cards) ? deckResult.data.extra_cards.map(String) : [];
+  const deckReady = Boolean(deckResult.data) && !validateDeck(deckCards, collectionMap) && !validateExtraDeck(extraCards, collectionMap);
+
+  return {
+    uniqueCards,
+    legendaryCards,
+    deckReady,
+    cosmeticCount: cosmeticsMissing ? 0 : (cosmeticsResult.data ?? []).length,
+    friendCount: friendsResult.count ?? 0,
+    balance: Number(walletResult.data?.coins ?? 0),
+  };
+}
+
+async function getV50EconomyCenter(admin: AdminDbClient, userId: string) {
+  const state = await v50EnsureEconomyState(admin, userId);
+  const dayKey = state.day_key;
+  const [ledger, facts] = await Promise.all([v50LedgerKeys(admin, userId), v50EconomyFacts(admin, userId)]);
+  const studyCardIds = v50DailyStudyCardIds(userId, dayKey);
+  const studied = v50StringArray(state.studied_card_ids).filter((id) => studyCardIds.includes(id));
+  const usedExpeditions = v50StringArray(state.expedition_ids);
+  const active = v50ParseActiveExpedition(state.active_expedition);
+
+  const missionRows = V50_DAILY_MISSIONS.map((mission) => {
+    const rewardKey = `daily:${dayKey}:${mission.id}`;
+    const progress = mission.id === 'study' ? studied.length : mission.id === 'deck' ? (facts.deckReady ? 1 : 0) : 1;
+    const target = mission.id === 'study' ? studyCardIds.length : 1;
+    return {
+      ...mission,
+      progress,
+      target,
+      completed: progress >= target,
+      claimed: ledger.has(rewardKey),
+    };
+  });
+  const allDailyClaimed = missionRows.every((mission) => mission.claimed);
+  const bonusKey = `daily:${dayKey}:bonus`;
+
+  const achievementEligibility: Record<string, boolean> = {
+    complete_deck: facts.deckReady,
+    first_legendary: facts.legendaryCards >= 1,
+    legendary_five: facts.legendaryCards >= 5,
+    style_beginner: facts.cosmeticCount >= 1,
+    style_collector: facts.cosmeticCount >= 5,
+    social_circle: facts.friendCount >= 3,
+  };
+
+  return {
+    dayKey,
+    serverNow: new Date().toISOString(),
+    balance: facts.balance,
+    daily: {
+      maxCoins: V50_DAILY_MISSIONS.reduce((sum, mission) => sum + mission.reward, 0) + V50_DAILY_CLEAR_BONUS,
+      missions: missionRows,
+      bonus: {
+        id: 'bonus',
+        name: '일일 의뢰 전체 완료',
+        description: '오늘의 3개 의뢰 보상을 모두 수령하면 추가 보상을 받습니다.',
+        reward: V50_DAILY_CLEAR_BONUS,
+        completed: allDailyClaimed,
+        claimed: ledger.has(bonusKey),
+      },
+      studyCardIds,
+      studiedCardIds: studied,
+    },
+    expeditions: {
+      maxCoins: V50_EXPEDITIONS.reduce((sum, expedition) => sum + expedition.reward, 0),
+      active: active ? {
+        ...active,
+        name: V50_EXPEDITIONS.find((entry) => entry.id === active.expeditionId)?.name ?? '원정',
+        reward: V50_EXPEDITIONS.find((entry) => entry.id === active.expeditionId)?.reward ?? 0,
+      } : null,
+      options: V50_EXPEDITIONS.map((expedition) => ({
+        ...expedition,
+        usedToday: usedExpeditions.includes(expedition.id),
+        available: facts.uniqueCards >= expedition.minUniqueCards,
+        requirementText: expedition.minUniqueCards > 0 ? `카드 ${expedition.minUniqueCards}종 보유` : '조건 없음',
+      })),
+    },
+    collection: {
+      uniqueCards: facts.uniqueCards,
+      milestones: V50_COLLECTION_MILESTONES.map((milestone) => ({
+        ...milestone,
+        name: `카드 ${milestone.target}종 수집`,
+        completed: facts.uniqueCards >= milestone.target,
+        claimed: ledger.has(`collection:${milestone.id}`),
+      })),
+    },
+    achievements: V50_ACHIEVEMENTS.map((achievement) => ({
+      ...achievement,
+      completed: Boolean(achievementEligibility[achievement.id]),
+      claimed: ledger.has(`achievement:${achievement.id}`),
+    })),
+    economyNote: '반복형 수급은 하루 최대 350코인(일일 의뢰 200 + 원정 150)으로 제한됩니다. 도감/업적 보상은 계정당 1회만 지급됩니다.',
+  };
+}
+
+async function v50RecordStudyCard(admin: AdminDbClient, userId: string, rawCardId: unknown) {
+  const state = await v50EnsureEconomyState(admin, userId);
+  const cardId = cleanText(rawCardId, 80);
+  const targets = v50DailyStudyCardIds(userId, state.day_key);
+  if (!targets.includes(cardId)) throw new Error('오늘의 연구 대상으로 지정된 카드를 선택해 주세요.');
+  const studied = v50StringArray(state.studied_card_ids);
+  if (!studied.includes(cardId)) studied.push(cardId);
+  const { error } = await admin
+    .from('eclipse_economy_state_v50')
+    .update({ studied_card_ids: studied, updated_at: new Date().toISOString() })
+    .eq('user_id', userId);
+  if (error) throw new Error(error.message);
+}
+
+async function v50ClaimDaily(admin: AdminDbClient, userId: string, missionId: string): Promise<void> {
+  const center = await getV50EconomyCenter(admin, userId);
+  if (missionId === 'bonus') {
+    if (!center.daily.bonus.completed) throw new Error('3개 일일 의뢰의 개별 보상을 먼저 모두 수령해 주세요.');
+    await v50GrantCoins(admin, userId, `daily:${center.dayKey}:bonus`, center.daily.bonus.reward, 'daily_bonus');
+    return;
+  }
+  const mission = center.daily.missions.find((entry) => entry.id === missionId);
+  if (!mission) throw new Error('존재하지 않는 일일 의뢰입니다.');
+  if (!mission.completed) throw new Error('아직 의뢰 조건을 완료하지 못했습니다.');
+  await v50GrantCoins(admin, userId, `daily:${center.dayKey}:${mission.id}`, mission.reward, `daily_${mission.id}`);
+}
+
+async function v50StartExpedition(admin: AdminDbClient, userId: string, expeditionId: string): Promise<void> {
+  const state = await v50EnsureEconomyState(admin, userId);
+  const active = v50ParseActiveExpedition(state.active_expedition);
+  if (active) throw new Error('진행 중인 원정이 있습니다. 먼저 완료 보상을 수령해 주세요.');
+  const expedition = V50_EXPEDITIONS.find((entry) => entry.id === expeditionId);
+  if (!expedition) throw new Error('존재하지 않는 원정입니다.');
+  const used = v50StringArray(state.expedition_ids);
+  if (used.includes(expedition.id)) throw new Error('이 원정은 오늘 이미 출발했습니다. 내일 다시 이용할 수 있습니다.');
+  if (used.length >= V50_EXPEDITIONS.length) throw new Error('오늘 가능한 원정을 모두 진행했습니다.');
+  const facts = await v50EconomyFacts(admin, userId);
+  if (facts.uniqueCards < expedition.minUniqueCards) throw new Error(`이 원정은 카드 ${expedition.minUniqueCards}종 이상 보유해야 출발할 수 있습니다.`);
+
+  const startedAt = new Date();
+  const endsAt = new Date(startedAt.getTime() + expedition.durationMinutes * 60_000);
+  const nextActive: V50ActiveExpedition = {
+    runId: globalThis.crypto.randomUUID(),
+    expeditionId: expedition.id,
+    startedAt: startedAt.toISOString(),
+    endsAt: endsAt.toISOString(),
+  };
+  const { error } = await admin
+    .from('eclipse_economy_state_v50')
+    .update({ expedition_ids: [...used, expedition.id], active_expedition: nextActive, updated_at: new Date().toISOString() })
+    .eq('user_id', userId);
+  if (error) throw new Error(error.message);
+}
+
+async function v50ClaimExpedition(admin: AdminDbClient, userId: string): Promise<void> {
+  const state = await v50EnsureEconomyState(admin, userId);
+  const active = v50ParseActiveExpedition(state.active_expedition);
+  if (!active) throw new Error('수령할 원정 보상이 없습니다.');
+  const expedition = V50_EXPEDITIONS.find((entry) => entry.id === active.expeditionId);
+  if (!expedition) throw new Error('원정 데이터가 올바르지 않습니다.');
+  const endTime = Date.parse(active.endsAt);
+  if (!Number.isFinite(endTime)) throw new Error('원정 종료 시간이 올바르지 않습니다. 관리자에게 문의해 주세요.');
+  if (Date.now() < endTime) {
+    const minutes = Math.max(1, Math.ceil((endTime - Date.now()) / 60_000));
+    throw new Error(`원정이 아직 진행 중입니다. 약 ${minutes}분 후 완료됩니다.`);
+  }
+  await v50GrantCoins(admin, userId, `expedition:${active.runId}`, expedition.reward, `expedition_${expedition.id}`);
+  const { error } = await admin
+    .from('eclipse_economy_state_v50')
+    .update({ active_expedition: null, updated_at: new Date().toISOString() })
+    .eq('user_id', userId);
+  if (error) throw new Error(error.message);
+}
+
+async function v50ClaimCollection(admin: AdminDbClient, userId: string, milestoneId: string): Promise<void> {
+  const center = await getV50EconomyCenter(admin, userId);
+  const milestone = center.collection.milestones.find((entry) => entry.id === milestoneId);
+  if (!milestone) throw new Error('존재하지 않는 도감 보상입니다.');
+  if (!milestone.completed) throw new Error(`카드 ${milestone.target}종을 모으면 수령할 수 있습니다.`);
+  await v50GrantCoins(admin, userId, `collection:${milestone.id}`, milestone.reward, 'collection_milestone');
+}
+
+async function v50ClaimAchievement(admin: AdminDbClient, userId: string, achievementId: string): Promise<void> {
+  const center = await getV50EconomyCenter(admin, userId);
+  const achievement = center.achievements.find((entry) => entry.id === achievementId);
+  if (!achievement) throw new Error('존재하지 않는 업적입니다.');
+  if (!achievement.completed) throw new Error('아직 업적 조건을 달성하지 못했습니다.');
+  await v50GrantCoins(admin, userId, `achievement:${achievement.id}`, achievement.reward, 'achievement');
 }
 
 async function getCollectionMap(admin: UserDbClient | AdminDbClient, userId: string): Promise<Record<string, number>> {
@@ -1298,6 +1684,52 @@ async function handleAction(request: Request, body: RequestBody) {
     if (profileError) throw new Error(profileError.message);
     const byId = new Map((profiles ?? []).map((profile: any) => [String(profile.user_id), profile]));
     return { onlineUsers: ids.map((id) => byId.get(id)).filter(Boolean) };
+  }
+
+
+  if (action === 'economy_center') {
+    const admin = await requireEconomyAdmin();
+    return { economy: await getV50EconomyCenter(admin, user.id) };
+  }
+
+  if (action === 'economy_record_study') {
+    const admin = await requireEconomyAdmin();
+    await v50RecordStudyCard(admin, user.id, body.cardId);
+    return { economy: await getV50EconomyCenter(admin, user.id) };
+  }
+
+  if (action === 'economy_claim_daily') {
+    const admin = await requireEconomyAdmin();
+    const missionId = cleanText(body.missionId, 30);
+    await v50ClaimDaily(admin, user.id, missionId);
+    return { economy: await getV50EconomyCenter(admin, user.id), hub: await getHub(client, user.id) };
+  }
+
+  if (action === 'economy_start_expedition') {
+    const admin = await requireEconomyAdmin();
+    const expeditionId = cleanText(body.expeditionId, 30);
+    await v50StartExpedition(admin, user.id, expeditionId);
+    return { economy: await getV50EconomyCenter(admin, user.id) };
+  }
+
+  if (action === 'economy_claim_expedition') {
+    const admin = await requireEconomyAdmin();
+    await v50ClaimExpedition(admin, user.id);
+    return { economy: await getV50EconomyCenter(admin, user.id), hub: await getHub(client, user.id) };
+  }
+
+  if (action === 'economy_claim_collection') {
+    const admin = await requireEconomyAdmin();
+    const milestoneId = cleanText(body.milestoneId, 40);
+    await v50ClaimCollection(admin, user.id, milestoneId);
+    return { economy: await getV50EconomyCenter(admin, user.id), hub: await getHub(client, user.id) };
+  }
+
+  if (action === 'economy_claim_achievement') {
+    const admin = await requireEconomyAdmin();
+    const achievementId = cleanText(body.achievementId, 40);
+    await v50ClaimAchievement(admin, user.id, achievementId);
+    return { economy: await getV50EconomyCenter(admin, user.id), hub: await getHub(client, user.id) };
   }
 
   if (action === 'admin_find_accounts') {
