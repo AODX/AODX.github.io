@@ -63,6 +63,14 @@ export const V34_BATTLE_EMOTES: BattleEmote[] = [
   { id: 'irem_yell', name: '이렘티콘 · 대환호', franchise: '이렘티콘', mood: 'yell', price: SINGLE_PRICE, asset: '/emotes/v34/irem_yell.png', packId: 'irem_bundle' },
   { id: 'irem_pan', name: '이렘티콘 · 냄비분노', franchise: '이렘티콘', mood: 'rage', price: SINGLE_PRICE, asset: '/emotes/v34/irem_pan.png', packId: 'irem_bundle' },
   { id: 'irem_tears', name: '이렘티콘 · 감동눈물', franchise: '이렘티콘', mood: 'tears', price: SINGLE_PRICE, asset: '/emotes/v34/irem_tears.png', packId: 'irem_bundle' },
+
+  // V53 · 동방티콘: 사용자가 제공한 원본 6개 PNG를 그대로 사용합니다.
+  { id: 'touhou_01', name: '동방티콘 · 01', franchise: '동방티콘', mood: 'charge', price: SINGLE_PRICE, asset: '/emotes/v34/touhou_01.png', packId: 'touhou_bundle' },
+  { id: 'touhou_02', name: '동방티콘 · 02', franchise: '동방티콘', mood: 'awkward', price: SINGLE_PRICE, asset: '/emotes/v34/touhou_02.png', packId: 'touhou_bundle' },
+  { id: 'touhou_03', name: '동방티콘 · 03', franchise: '동방티콘', mood: 'thinking', price: SINGLE_PRICE, asset: '/emotes/v34/touhou_03.png', packId: 'touhou_bundle' },
+  { id: 'touhou_04', name: '동방티콘 · 04', franchise: '동방티콘', mood: 'deadpan', price: SINGLE_PRICE, asset: '/emotes/v34/touhou_04.png', packId: 'touhou_bundle' },
+  { id: 'touhou_05', name: '동방티콘 · 05', franchise: '동방티콘', mood: 'thanks', price: SINGLE_PRICE, asset: '/emotes/v34/touhou_05.png', packId: 'touhou_bundle' },
+  { id: 'touhou_06', name: '동방티콘 · 06', franchise: '동방티콘', mood: 'cheer', price: SINGLE_PRICE, asset: '/emotes/v34/touhou_06.png', packId: 'touhou_bundle' },
 ];
 
 export const V34_BATTLE_EMOTE_PACKS: BattleEmotePack[] = [
@@ -95,6 +103,11 @@ export const V34_BATTLE_EMOTE_PACKS: BattleEmotePack[] = [
     id: 'irem_bundle', name: '이렘티콘 6종 세트', franchise: '이렘티콘', price: PACK_PRICE,
     description: '제공된 이렘티콘 6종. 개별 6,000코인 대신 세트 5,000코인.',
     emoteIds: ['irem_cry','irem_yeah','irem_bread','irem_yell','irem_pan','irem_tears'], coverAsset: '/emotes/v34/irem_yeah.png',
+  },
+  {
+    id: 'touhou_bundle', name: '동방티콘 6종 세트', franchise: '동방티콘', price: PACK_PRICE,
+    description: '사용자가 제공한 원본 동방티콘 6종을 그대로 사용하는 세트입니다. 개별 6,000코인 대신 세트 5,000코인.',
+    emoteIds: ['touhou_01','touhou_02','touhou_03','touhou_04','touhou_05','touhou_06'], coverAsset: '/emotes/v34/touhou_01.png',
   },
 ];
 

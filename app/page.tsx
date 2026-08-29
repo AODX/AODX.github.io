@@ -2721,7 +2721,7 @@ function RewardsView({ userId, hub, onHub, onBack }: { userId: string; hub: HubD
     <div className="v50-reward-center v51-reward-center">
       <header className="v50-reward-hero v51-reward-hero">
         <div>
-          <small>NON-PVP ECONOMY · V51</small>
+          <small>NON-PVP ECONOMY · V53</small>
           <h1>이클립스 보상 센터</h1>
           <p>원정은 제거되었습니다. 대신 <b>일반 카드 전용 · 13개 시리즈 전용 · 최상위 TIME 군주</b>로 구성된 대형 보스 로스터에서 매일 3명이 등장합니다.</p>
         </div>
@@ -2738,7 +2738,7 @@ function RewardsView({ userId, hub, onHub, onBack }: { userId: string; hub: HubD
       </section>
 
       <section className="v50-reward-section v51-boss-section">
-        <header><div><small>BOSS RAID</small><h2>오늘의 3보스</h2><p>일반 등급 전용 보스, 각 시리즈 전용 보스, 그리고 최상위 TIME 보스가 서로 다른 덱으로 등장합니다. TIME 5군주는 모두 최고 위협도이며 희귀하게 오늘의 레이드에 출현합니다.</p></div><strong>{economy.bossRaids.clearedCount} / 3 CLEAR</strong></header>
+        <header><div><small>BOSS RAID</small><h2>오늘의 3보스</h2><p>일반 등급 전용 보스, 각 시리즈 전용 보스, 그리고 최상위 TIME 보스가 서로 다른 덱으로 등장합니다. 보상은 위협도에 따라 ★1=200 · ★2=300 · ★3=400 · ★4=500 · ★5=700코인으로 고정됩니다.</p></div><strong>{economy.bossRaids.clearedCount} / 3 CLEAR</strong></header>
         {!activeDeckReady && <div className="v51-raid-deck-warning"><b>보스 레이드에는 완성된 활성 덱이 필요합니다.</b><span>메인 45장 + 엑스트라 6장을 정상 구성한 뒤 다시 도전하세요.</span></div>}
         {activeRaid && <div className="v51-active-raid"><span>ACTIVE RAID</span><b>{BOSS_RAID_BY_ID[activeRaid.bossId]?.name ?? '보스'}</b><small>다른 보스를 시작하기 전에 이 전투를 마쳐야 합니다.</small></div>}
         <div className="v51-boss-grid">
@@ -2762,7 +2762,7 @@ function RewardsView({ userId, hub, onHub, onBack }: { userId: string; hub: HubD
             );
           })}
         </div>
-        <div className="v51-boss-rule"><b>RAID RULE</b><span>총 19종의 보스 중 오늘 3명 등장 · 각 보스 클리어 코인 하루 1회 · 패배 시 재도전 가능 · TIME 5군주는 전부 THREAT 5 · 개기일식의 조율자 700코인</span></div>
+        <div className="v51-boss-rule"><b>RAID RULE</b><span>총 19종의 보스 중 오늘 3명 등장 · 각 보스 클리어 코인 하루 1회 · 패배 시 재도전 가능 · ★1 200 / ★2 300 / ★3 400 / ★4 500 / ★5 700 COIN</span></div>
       </section>
 
       <section className="v50-reward-section">
@@ -3636,7 +3636,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
         </div>
       ) : shopTab === 'emotes' ? (
         <div className="v34-emote-store">
-          <header className="v34-emote-store-head"><span>CHAT + DUEL EMOTE MARKET</span><h3>감정표현</h3><p>도로롱 · NIKKE · 트릭컬 · 가디언테일즈 · 망그러진 곰 · 이렘티콘은 각각 6종입니다. 모든 개별 이모티콘은 1,000코인, 6종 세트는 5,000코인이며 보유한 이모티콘 중 최대 6개만 장착해 채팅과 대전에서 공통으로 사용합니다.</p></header>
+          <header className="v34-emote-store-head"><span>CHAT + DUEL EMOTE MARKET</span><h3>감정표현</h3><p>도로롱 · NIKKE · 트릭컬 · 가디언테일즈 · 망그러진 곰 · 이렘티콘 · 동방티콘은 각각 6종입니다. 동방티콘은 제공받은 원본 이미지를 그대로 사용합니다. 모든 개별 이모티콘은 1,000코인, 6종 세트는 5,000코인이며 보유한 이모티콘 중 최대 6개만 장착해 채팅과 대전에서 공통으로 사용합니다.</p></header>
 
           <section className="v34-emote-loadout-panel">
             <header><div><span>ACTIVE LOADOUT</span><h4>사용할 이모티콘 6개 선택</h4><p>보유한 이모티콘을 눌러 장착/해제하세요. 이곳에 장착된 이모티콘만 채팅과 대전 선택창에 표시됩니다.</p></div><strong>{emoteSelection.length}/{V34_EMOTE_SLOT_LIMIT}</strong></header>
