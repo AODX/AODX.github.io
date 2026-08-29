@@ -6190,6 +6190,49 @@ function DuelTimeCriticalStyles() {
       transform:none!important;
     }
 
+    /* v56: boss raid uses the same full-screen shell as online PvP and its hand row
+       always has enough vertical room to show a complete card. The old local-raid
+       overlay could leave the hand scroller shorter than the cards, so the browser
+       showed only the lower half after an automatic vertical scroll. */
+    .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] > .v56-boss-content-area {
+      position:absolute!important;inset:0!important;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;padding:0!important;overflow:hidden!important;
+    }
+    .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v56-boss-duel-stage {
+      width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important;animation:none!important;transform:none!important;filter:none!important;
+    }
+    .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v18-duel-screen.v34m-time-fix.v56-boss-duel-layout {
+      width:100%!important;height:100%!important;min-height:0!important;--hand-h:285px!important;
+    }
+    .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v18-duel-screen.v34m-time-fix.v56-boss-duel-layout .v18-hand-dock {
+      overflow:hidden!important;contain:layout paint!important;grid-template-rows:34px minmax(0,1fr)!important;
+    }
+    .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v18-duel-screen.v34m-time-fix.v56-boss-duel-layout .v18-hand-scroll {
+      min-height:0!important;align-items:flex-start!important;overflow-x:auto!important;overflow-y:hidden!important;overscroll-behavior-x:contain!important;scrollbar-gutter:auto!important;
+    }
+    .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v18-duel-screen.v34m-time-fix.v56-boss-duel-layout .v18-hand-card {
+      flex:0 0 158px!important;width:158px!important;min-width:158px!important;height:229px!important;min-height:229px!important;max-height:229px!important;align-self:flex-start!important;overflow:visible!important;
+    }
+    .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v18-duel-screen.v34m-time-fix.v56-boss-duel-layout .v18-hand-card .tcg-card.compact {
+      width:158px!important;min-width:158px!important;max-width:158px!important;height:229px!important;min-height:229px!important;max-height:229px!important;grid-template-rows:42px minmax(0,1fr) 29px!important;
+    }
+    .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v18-duel-screen.v34m-time-fix.v56-boss-duel-layout .v18-hand-card .tcg-card.compact .card-art { min-height:0!important;height:100%!important; }
+    @media (max-width:1700px) {
+      .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v18-duel-screen.v34m-time-fix.v56-boss-duel-layout { --hand-h:270px!important; }
+      .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v18-duel-screen.v34m-time-fix.v56-boss-duel-layout .v18-hand-card { flex-basis:148px!important;width:148px!important;min-width:148px!important;height:214px!important;min-height:214px!important;max-height:214px!important; }
+      .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v18-duel-screen.v34m-time-fix.v56-boss-duel-layout .v18-hand-card .tcg-card.compact { width:148px!important;min-width:148px!important;max-width:148px!important;height:214px!important;min-height:214px!important;max-height:214px!important;grid-template-rows:40px minmax(0,1fr) 28px!important; }
+    }
+    @media (max-width:1180px) {
+      .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v18-duel-screen.v34m-time-fix.v56-boss-duel-layout { --hand-h:258px!important; }
+      .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v18-duel-screen.v34m-time-fix.v56-boss-duel-layout .v18-hand-card { flex-basis:140px!important;width:140px!important;min-width:140px!important;height:203px!important;min-height:203px!important;max-height:203px!important; }
+      .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v18-duel-screen.v34m-time-fix.v56-boss-duel-layout .v18-hand-card .tcg-card.compact { width:140px!important;min-width:140px!important;max-width:140px!important;height:203px!important;min-height:203px!important;max-height:203px!important;grid-template-rows:39px minmax(0,1fr) 27px!important; }
+    }
+    @media (max-height:680px) and (min-width:721px) {
+      .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v18-duel-screen.v34m-time-fix.v56-boss-duel-layout { --hand-h:245px!important; }
+      .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v18-duel-screen.v34m-time-fix.v56-boss-duel-layout .v18-hand-dock { grid-template-rows:31px minmax(0,1fr)!important;padding-top:7px!important;padding-bottom:7px!important; }
+      .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v18-duel-screen.v34m-time-fix.v56-boss-duel-layout .v18-hand-card { flex-basis:132px!important;width:132px!important;min-width:132px!important;height:191px!important;min-height:191px!important;max-height:191px!important; }
+      .v23-client.in-duel.v51-boss-raid-overlay[data-boss-raid="true"] .v18-duel-screen.v34m-time-fix.v56-boss-duel-layout .v18-hand-card .tcg-card.compact { width:132px!important;min-width:132px!important;max-width:132px!important;height:191px!important;min-height:191px!important;max-height:191px!important;grid-template-rows:37px minmax(0,1fr) 26px!important; }
+    }
+
     @media (prefers-reduced-motion:reduce) {
       .v23-client.in-duel .v34n-phase-toast { animation:v34nPhaseToastReduced 1.72s linear both!important; }
       @keyframes v34nPhaseToastReduced { 0%,100%{opacity:0} 12%,82%{opacity:1} }
@@ -7178,7 +7221,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   } as CSSProperties;
 
   return (
-    <div className={`v18-duel-screen v34m-time-fix ${myTurn ? 'is-my-turn' : 'is-opponent-turn'} phase-${state.phase} cycle-${currentEclipsePhase} fx-${activeVfx?.kind ?? 'idle'}`} style={eclipseArenaStyle}>
+    <div className={`v18-duel-screen v34m-time-fix ${bossRaid ? 'v56-boss-duel-layout' : ''} ${myTurn ? 'is-my-turn' : 'is-opponent-turn'} phase-${state.phase} cycle-${currentEclipsePhase} fx-${activeVfx?.kind ?? 'idle'}`} style={eclipseArenaStyle}>
       <DuelTimeCriticalStyles />
       <DuelEffectLayer
         event={activeVfx}
@@ -8055,8 +8098,12 @@ function BossRaidDuel({ userId, hub, activeDeck, boss, runId, onHub, onEconomy, 
   if (typeof document === 'undefined') return <LoadingScreen text="보스 레이드를 준비하는 중" />;
 
   return createPortal(
-    <div className={`v19-client v23-client in-duel v35-practice-overlay v51-boss-raid-overlay threat-${boss.threat}`} data-ui-build="v52-boss-raid" data-boss-raid="true">
-      <DuelBoard payload={payload} userId={userId} onRefresh={noopRefresh} onLeave={() => void handleLeave()} syncState="live" lastSyncAt={Date.now()} localAction={localAction} practiceMode="hard" bossRaid={boss} onPresentationBusyChange={setPresentationBusy} onInspectCard={setInspectCardId} />
+    <div className={`game-app v19-client v23-client in-duel v35-practice-overlay v51-boss-raid-overlay threat-${boss.threat}`} data-ui-build="v56-boss-raid" data-boss-raid="true">
+      <section className="content-area v56-boss-content-area">
+        <div className="v32-view-stage v56-boss-duel-stage">
+          <DuelBoard payload={payload} userId={userId} onRefresh={noopRefresh} onLeave={() => void handleLeave()} syncState="live" lastSyncAt={Date.now()} localAction={localAction} practiceMode="hard" bossRaid={boss} onPresentationBusyChange={setPresentationBusy} onInspectCard={setInspectCardId} />
+        </div>
+      </section>
       {inspectCardId && CARD_BY_ID[inspectCardId] && <CardDetailModal card={CARD_BY_ID[inspectCardId]} onClose={() => setInspectCardId(null)} />}
       {botThinking && snapshot.state.status !== 'finished' && <div className={`v35-bot-thinking v51-boss-thinking threat-${boss.threat}`} role="status" aria-live="polite"><span className="v35-bot-thinking-orb" aria-hidden="true"><i /><i /><i /></span><div><small>BOSS AI · THREAT {boss.threat}</small><b>{boss.name}이 다음 수를 계산 중입니다</b></div></div>}
       {(settling || settleError) && snapshot.state.status === 'finished' && <div className={`v51-raid-settle ${settleError ? 'error' : ''}`} role="status"><b>{settleError ? '보상 저장 대기' : '레이드 결과 저장 중'}</b><span>{settleError || (snapshot.state.winnerId === userId ? `+${boss.reward} COIN 보상을 확정하고 있습니다.` : '패배 결과를 정리하고 있습니다.')}</span>{settleError && <button type="button" onClick={() => void settleRaid()}>다시 저장</button>}</div>}
