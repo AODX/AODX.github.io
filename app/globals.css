@@ -4123,6 +4123,12 @@ button.mode-card:hover {
 .v34-emote-picker button img { width:68px; height:68px; object-fit:contain; }
 .v34-emote-picker button small { width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:8px; }
 .v34-emote-picker > p { margin:0; padding:16px 10px; text-align:center; color:#95a0c1; font-size:11px; }
+.v34-emote-pack-preview img[src*='/emotes/v34/touhou_'],
+.v34-emote-preview img[src*='/emotes/v34/touhou_'],
+.v34-emote-slot button img[src*='/emotes/v34/touhou_'],
+.v34-emote-owned-select button img[src*='/emotes/v34/touhou_'],
+.v34-emote-picker button img[src*='/emotes/v34/touhou_'] { image-rendering:auto; image-rendering:-webkit-optimize-contrast; image-rendering:crisp-edges; filter:contrast(1.08) saturate(1.04) drop-shadow(0 6px 6px rgba(0,0,0,.22)); }
+.chat-inline-emote img[src*='/emotes/v34/touhou_'] { image-rendering:auto; image-rendering:-webkit-optimize-contrast; image-rendering:crisp-edges; filter:contrast(1.08) saturate(1.04) drop-shadow(0 4px 4px rgba(0,0,0,.18)); }
 .v34-emote-toggle.active { color:#ffe5a4 !important; border-color:rgba(255,216,117,.46) !important; }
 
 .v34-battle-emote-overlay { pointer-events:none; position:fixed; z-index:104; inset:82px 12px auto 12px; display:flex; flex-direction:column; align-items:center; gap:7px; }
