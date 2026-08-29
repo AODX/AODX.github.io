@@ -1128,7 +1128,7 @@ async function getV50EconomyCenter(admin: AdminDbClient, userId: string) {
       completed: Boolean(achievementEligibility[achievement.id]),
       claimed: ledger.has(`achievement:${achievement.id}`),
     })),
-    economyNote: `일일 의뢰는 하루 최대 200코인입니다. 보스 레이드는 매일 무작위 3명이 등장하고 각 보스의 클리어 보상은 하루 1회만 지급됩니다. 오늘의 레이드 총 보상은 ${todayBosses.reduce((sum, boss) => sum + boss.reward, 0)}코인이며, 최종 보스 개기일식의 조율자는 700코인입니다. 도감/업적은 계정당 1회 보상입니다.`,
+    economyNote: `일일 의뢰는 하루 최대 200코인입니다. 보스 레이드는 일반 카드 전용 1종, 13개 시리즈 전용 보스, 최상위 TIME 5군주로 구성되며 매일 3명만 등장합니다. TIME 군주는 희귀 출현하고 모두 THREAT 5입니다. 오늘의 레이드 총 보상은 ${todayBosses.reduce((sum, boss) => sum + boss.reward, 0)}코인이며, 개기일식의 조율자는 700코인입니다. 각 보스 보상은 하루 1회, 도감/업적은 계정당 1회입니다.`,
   };
 }
 
