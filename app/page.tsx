@@ -62,7 +62,7 @@ const supabase = createClient(supabaseUrl || 'https://invalid.supabase.co', supa
 
 const TURN_DURATION_SECONDS = Math.round(TURN_DURATION_MS / 1000);
 
-type View = 'home' | 'duel' | 'deck' | 'shop' | 'collection' | 'friends' | 'profile';
+type View = 'home' | 'duel' | 'deck' | 'shop' | 'collection' | 'friends' | 'profile' | 'rewards';
 
 type Profile = {
   user_id: string;
@@ -99,6 +99,42 @@ type HubData = {
   battleEmotes?: string[];
   emoteLoadout?: string[];
   onlineUsers?: OnlineUserProfile[];
+};
+
+
+type EconomyMissionView = {
+  id: string;
+  name: string;
+  description: string;
+  reward: number;
+  progress: number;
+  target: number;
+  completed: boolean;
+  claimed: boolean;
+};
+
+type EconomyCenterData = {
+  dayKey: string;
+  serverNow: string;
+  balance: number;
+  economyNote: string;
+  daily: {
+    maxCoins: number;
+    missions: EconomyMissionView[];
+    bonus: { id: string; name: string; description: string; reward: number; completed: boolean; claimed: boolean };
+    studyCardIds: string[];
+    studiedCardIds: string[];
+  };
+  expeditions: {
+    maxCoins: number;
+    active: null | { runId: string; expeditionId: string; startedAt: string; endsAt: string; name: string; reward: number };
+    options: Array<{ id: string; name: string; durationMinutes: number; reward: number; minUniqueCards: number; description: string; usedToday: boolean; available: boolean; requirementText: string }>;
+  };
+  collection: {
+    uniqueCards: number;
+    milestones: Array<{ id: string; target: number; reward: number; name: string; completed: boolean; claimed: boolean }>;
+  };
+  achievements: Array<{ id: string; name: string; description: string; reward: number; completed: boolean; claimed: boolean }>;
 };
 
 type RoomRow = {
@@ -149,6 +185,7 @@ type ApiResult = {
   spectatorSecrets?: Record<string, PrivateState['secrets']>;
   opponentHandReveal?: { mode: 'view' | 'discard'; targetId: string; hand: PrivateState['hand'] };
   onlineUsers?: OnlineUserProfile[];
+  economy?: EconomyCenterData;
   battleEmotes?: string[];
   joinedAsSpectator?: boolean;
   cardIds?: string[];
@@ -1597,6 +1634,7 @@ function GameIcon({ name }: { name: View | 'chat' | 'coin' | 'logout' | 'sound' 
     deck: <><rect x="5" y="3" width="12" height="16" rx="2"/><path d="M9 7h4"/><path d="m8 21 11-3V7"/></>,
     shop: <><path d="M4 9h16l-1 12H5Z"/><path d="m6 9 1-5h10l1 5"/><path d="M9 13h6"/></>,
     collection: <><rect x="3" y="4" width="14" height="16" rx="2"/><path d="M7 8h6M7 12h6M7 16h4"/><path d="M17 7h4v13a1 1 0 0 1-1 1h-9"/></>,
+    rewards: <><path d="M4 9h16v11H4Z"/><path d="M12 9v11M3 6h18v3H3Z"/><path d="M12 6c-1.8 0-4.5-.5-4.5-2 0-1.2 1.2-2 2.3-1.4C11 3.2 12 6 12 6Zm0 0c1.8 0 4.5-.5 4.5-2 0-1.2-1.2-2-2.3-1.4C13 3.2 12 6 12 6Z"/></>,
     friends: <><circle cx="9" cy="8" r="3"/><path d="M3 20c.6-4 2.5-6 6-6s5.4 2 6 6"/><circle cx="17" cy="9" r="2"/><path d="M15 15c3.5-.5 5.5 1.2 6 4"/></>,
     profile: <><circle cx="12" cy="8" r="4"/><path d="M4 21c.7-5 3.4-7.5 8-7.5s7.3 2.5 8 7.5"/></>,
     chat: <><path d="M4 5h16v11H9l-5 4Z"/><path d="M8 9h8M8 12h5"/></>,
@@ -2560,6 +2598,10 @@ function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate:
           <div className="v19-mode-icon"><GameIcon name="collection" /></div>
           <div><small>COLLECTION</small><h3>카드 보관함</h3><p>{hub.collection.length}종 보유 · 효과와 소환 조건 확인</p></div><span className="v19-mode-arrow">›</span>
         </article>
+        <article className="v19-mode-card v50-reward-entry" onClick={() => onNavigate('rewards')}>
+          <div className="v19-mode-icon"><GameIcon name="rewards" /></div>
+          <div><small>REWARD CENTER</small><h3>코인 원정 · 일일 의뢰</h3><p>대전 없이도 하루 최대 350코인 · 도감/업적은 1회 보상</p></div><span className="v19-mode-arrow">›</span>
+        </article>
 
         <article className="v19-social-card">
           <header><div><small>SOCIAL</small><h3>친구</h3></div><button onClick={() => onNavigate('friends')}>전체 보기</button></header>
@@ -2582,6 +2624,193 @@ function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate:
           <button onClick={() => onNavigate('duel')}>{serverStatus.secureDuelReady ? '대전으로' : '확인'} ›</button>
         </article>
       </section>
+    </div>
+  );
+}
+
+
+function v50ExpeditionDurationLabel(minutes: number): string {
+  if (minutes < 60) return `${minutes}분`;
+  const hours = minutes / 60;
+  return Number.isInteger(hours) ? `${hours}시간` : `${minutes}분`;
+}
+
+function v50RemainingLabel(endsAt: string, now: number): string {
+  const remaining = Math.max(0, Date.parse(endsAt) - now);
+  if (remaining <= 0) return '완료';
+  const totalSeconds = Math.ceil(remaining / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}시간 ${minutes}분`;
+  if (minutes > 0) return `${minutes}분 ${seconds}초`;
+  return `${seconds}초`;
+}
+
+function RewardsView({ hub, onHub, onBack }: { hub: HubData; onHub: (hub: HubData) => void; onBack: () => void }) {
+  const [economy, setEconomy] = useState<EconomyCenterData | null>(null);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const [clock, setClock] = useState(() => Date.now());
+
+  const load = useCallback(async () => {
+    setError('');
+    try {
+      const result = await api('economy_center');
+      if (result.economy) setEconomy(result.economy);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '보상 센터를 불러오지 못했습니다.');
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!economy?.expeditions.active) return;
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [economy?.expeditions.active?.runId]);
+
+  async function run(action: string, payload: Record<string, unknown> = {}, key = action) {
+    if (busy) return;
+    setBusy(key);
+    setError('');
+    try {
+      const result = await api(action, payload);
+      if (result.economy) setEconomy(result.economy);
+      if (result.hub) onHub(result.hub);
+      playUiSound('success');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '요청을 처리하지 못했습니다.');
+      playUiSound('remove');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  if (!economy) {
+    return (
+      <div className="v50-reward-center">
+        <header className="v50-reward-hero"><div><small>NON-PVP ECONOMY</small><h1>이클립스 보상 센터</h1><p>대전 외 활동으로 코인을 천천히 모을 수 있는 보상 시스템입니다.</p></div><button className="ghost-button" onClick={onBack}>홈으로</button></header>
+        {error ? <div className="v50-reward-error"><b>보상 센터를 열 수 없습니다.</b><span>{error}</span><button className="primary-button" onClick={() => void load()}>다시 시도</button></div> : <div className="v50-reward-loading"><span /><b>보상 데이터를 불러오는 중...</b></div>}
+      </div>
+    );
+  }
+
+  const active = economy.expeditions.active;
+  const activeFinished = Boolean(active && Date.now() >= Date.parse(active.endsAt));
+  const dailyClaimed = economy.daily.missions.filter((mission) => mission.claimed).length;
+  const studyCards = economy.daily.studyCardIds.map((id) => CARD_BY_ID[id]).filter((card): card is CardDefinition => Boolean(card));
+
+  return (
+    <div className="v50-reward-center">
+      <header className="v50-reward-hero">
+        <div>
+          <small>NON-PVP ECONOMY · V50</small>
+          <h1>이클립스 보상 센터</h1>
+          <p>대전을 하지 않아도 꾸준히 코인을 모을 수 있지만, 반복 수급은 하루 최대 <b>{economy.daily.maxCoins + economy.expeditions.maxCoins}코인</b>으로 제한됩니다.</p>
+        </div>
+        <div className="v50-reward-hero-actions"><span><small>현재 보유</small><b>{hub.wallet.coins.toLocaleString()} COIN</b></span><button className="ghost-button" onClick={onBack}>홈으로</button></div>
+      </header>
+
+      {error && <div className="v50-reward-inline-error" role="alert"><span>!</span><b>{error}</b><button onClick={() => setError('')}>×</button></div>}
+
+      <section className="v50-economy-summary">
+        <article><small>DAILY MISSIONS</small><b>{economy.daily.maxCoins}</b><span>하루 최대 코인</span></article>
+        <article><small>EXPEDITIONS</small><b>{economy.expeditions.maxCoins}</b><span>하루 최대 코인</span></article>
+        <article><small>PACK TARGET</small><b>1,000</b><span>최고가 팩 기준 약 3일</span></article>
+        <article><small>RESET</small><b>{economy.dayKey}</b><span>한국 시간 기준 일일 초기화</span></article>
+      </section>
+
+      <section className="v50-reward-section">
+        <header><div><small>DAILY OPERATIONS</small><h2>일일 의뢰</h2><p>매일 3개 의뢰 + 전체 완료 보너스. 모두 받아도 하루 {economy.daily.maxCoins}코인을 넘지 않습니다.</p></div><strong>{dailyClaimed} / {economy.daily.missions.length}</strong></header>
+        <div className="v50-daily-grid">
+          {economy.daily.missions.map((mission) => (
+            <article key={mission.id} className={`v50-daily-card ${mission.claimed ? 'claimed' : mission.completed ? 'ready' : ''}`}>
+              <div className="v50-reward-card-top"><span>{mission.id === 'briefing' ? '◎' : mission.id === 'study' ? '◇' : '▣'}</span><b>+{mission.reward}</b></div>
+              <small>{mission.id.toUpperCase()}</small><h3>{mission.name}</h3><p>{mission.description}</p>
+              <div className="v50-progress"><i><em style={{ width: `${Math.min(100, mission.target > 0 ? mission.progress / mission.target * 100 : 0)}%` }} /></i><span>{mission.progress} / {mission.target}</span></div>
+              <button className="primary-button" disabled={mission.claimed || !mission.completed || Boolean(busy)} onClick={() => void run('economy_claim_daily', { missionId: mission.id }, `daily:${mission.id}`)}>
+                {mission.claimed ? '수령 완료' : mission.completed ? (busy === `daily:${mission.id}` ? '수령 중...' : `${mission.reward}코인 받기`) : '조건 진행 중'}
+              </button>
+            </article>
+          ))}
+          <article className={`v50-daily-card v50-daily-bonus ${economy.daily.bonus.claimed ? 'claimed' : economy.daily.bonus.completed ? 'ready' : ''}`}>
+            <div className="v50-reward-card-top"><span>✦</span><b>+{economy.daily.bonus.reward}</b></div>
+            <small>ALL CLEAR</small><h3>{economy.daily.bonus.name}</h3><p>{economy.daily.bonus.description}</p>
+            <div className="v50-progress"><i><em style={{ width: `${Math.min(100, dailyClaimed / Math.max(1, economy.daily.missions.length) * 100)}%` }} /></i><span>{dailyClaimed} / {economy.daily.missions.length}</span></div>
+            <button className="primary-button" disabled={economy.daily.bonus.claimed || !economy.daily.bonus.completed || Boolean(busy)} onClick={() => void run('economy_claim_daily', { missionId: 'bonus' }, 'daily:bonus')}>
+              {economy.daily.bonus.claimed ? '수령 완료' : economy.daily.bonus.completed ? (busy === 'daily:bonus' ? '수령 중...' : `${economy.daily.bonus.reward}코인 받기`) : '의뢰 보상 3개를 먼저 수령'}
+            </button>
+          </article>
+        </div>
+
+        <div className="v50-study-panel">
+          <header><div><small>CARD RESEARCH</small><h3>오늘의 카드 연구</h3></div><span>{economy.daily.studiedCardIds.length} / {economy.daily.studyCardIds.length} 연구 완료</span></header>
+          <div className="v50-study-grid">
+            {studyCards.map((card) => {
+              const studied = economy.daily.studiedCardIds.includes(card.id);
+              return (
+                <article key={card.id} className={studied ? 'studied' : ''}>
+                  <button className="v50-study-art" onClick={() => requestCardInspection(card.id)} title="카드 상세 보기"><CardIllustration card={card} compact /></button>
+                  <div><small>{RARITY_LABEL[card.rarity]} · {KIND_LABEL[card.kind]}</small><b>{card.name}</b><span>{studied ? '연구 기록 완료' : '상세를 확인한 뒤 연구 완료를 눌러 주세요.'}</span></div>
+                  <button className="ghost-button" disabled={studied || Boolean(busy)} onClick={() => void run('economy_record_study', { cardId: card.id }, `study:${card.id}`)}>{studied ? '완료' : busy === `study:${card.id}` ? '기록 중...' : '연구 완료'}</button>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="v50-reward-section">
+        <header><div><small>EXPEDITION</small><h2>카드 원정</h2><p>원정은 하루에 각 종류 1회만 출발할 수 있고 동시에 1개만 진행됩니다. 전부 완료해도 하루 {economy.expeditions.maxCoins}코인입니다.</p></div><strong>{active ? '진행 중' : '대기'}</strong></header>
+        {active && (
+          <div className={`v50-active-expedition ${activeFinished ? 'complete' : ''}`}>
+            <div><small>ACTIVE EXPEDITION</small><h3>{active.name}</h3><p>{activeFinished ? '탐사가 완료되었습니다. 보상을 수령하면 다음 원정을 보낼 수 있습니다.' : '탐사팀이 활동 중입니다. 게임을 종료해도 서버 시간이 계속 흐릅니다.'}</p></div>
+            <span><small>남은 시간</small><b>{v50RemainingLabel(active.endsAt, clock)}</b><em>+{active.reward} COIN</em></span>
+            <button className="primary-button" disabled={!activeFinished || Boolean(busy)} onClick={() => void run('economy_claim_expedition', {}, 'claim-expedition')}>{activeFinished ? (busy === 'claim-expedition' ? '수령 중...' : '원정 보상 받기') : '원정 진행 중'}</button>
+          </div>
+        )}
+        <div className="v50-expedition-grid">
+          {economy.expeditions.options.map((option) => (
+            <article key={option.id} className={`${option.usedToday ? 'used' : ''} ${!option.available ? 'locked' : ''}`}>
+              <div className="v50-expedition-orbit"><span>{option.id === 'scout' ? '◌' : option.id === 'rift' ? '◇' : '✦'}</span></div>
+              <small>{v50ExpeditionDurationLabel(option.durationMinutes)} · {option.requirementText}</small><h3>{option.name}</h3><p>{option.description}</p>
+              <footer><b>+{option.reward} COIN</b><button className="ghost-button" disabled={Boolean(active) || option.usedToday || !option.available || Boolean(busy)} onClick={() => void run('economy_start_expedition', { expeditionId: option.id }, `expedition:${option.id}`)}>{option.usedToday ? '오늘 완료' : !option.available ? '조건 부족' : active ? '다른 원정 진행 중' : busy === `expedition:${option.id}` ? '출발 중...' : '원정 보내기'}</button></footer>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="v50-reward-two-column">
+        <div className="v50-reward-section compact">
+          <header><div><small>COLLECTION MILESTONE</small><h2>카드 도감 보상</h2><p>카드 종류 수에 따른 계정당 1회 보상입니다.</p></div><strong>{economy.collection.uniqueCards}종</strong></header>
+          <div className="v50-milestone-list">
+            {economy.collection.milestones.map((milestone) => (
+              <article key={milestone.id} className={milestone.claimed ? 'claimed' : milestone.completed ? 'ready' : ''}>
+                <span><b>{milestone.name}</b><small>{Math.min(economy.collection.uniqueCards, milestone.target)} / {milestone.target}</small></span>
+                <em>+{milestone.reward}</em>
+                <button disabled={milestone.claimed || !milestone.completed || Boolean(busy)} onClick={() => void run('economy_claim_collection', { milestoneId: milestone.id }, `collection:${milestone.id}`)}>{milestone.claimed ? '완료' : milestone.completed ? '받기' : '잠김'}</button>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <div className="v50-reward-section compact">
+          <header><div><small>ACHIEVEMENT</small><h2>업적 보상</h2><p>기존 게임 플레이 기록을 활용한 1회성 코인 보상입니다.</p></div><strong>1회</strong></header>
+          <div className="v50-achievement-list">
+            {economy.achievements.map((achievement) => (
+              <article key={achievement.id} className={achievement.claimed ? 'claimed' : achievement.completed ? 'ready' : ''}>
+                <span className="v50-achievement-mark">{achievement.claimed ? '✓' : achievement.completed ? '!' : '·'}</span>
+                <div><b>{achievement.name}</b><small>{achievement.description}</small></div>
+                <em>+{achievement.reward}</em>
+                <button disabled={achievement.claimed || !achievement.completed || Boolean(busy)} onClick={() => void run('economy_claim_achievement', { achievementId: achievement.id }, `achievement:${achievement.id}`)}>{achievement.claimed ? '완료' : achievement.completed ? '받기' : '잠김'}</button>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <footer className="v50-economy-footer"><span>ECONOMY SAFETY</span><p>{economy.economyNote}</p><b>대전 보상과 기존 상점/팩 가격은 변경하지 않았습니다.</b></footer>
     </div>
   );
 }
@@ -8476,6 +8705,7 @@ export default function Page() {
       case 'collection': return <CollectionView hub={hub} />;
       case 'friends': return <FriendsView hub={hub} userId={session.user.id} onHub={setHub} />;
       case 'profile': return <ProfileView hub={hub} onHub={setHub} />;
+      case 'rewards': return <RewardsView hub={hub} onHub={setHub} onBack={() => setView('home')} />;
       default: return <HomeView hub={hub} onNavigate={setView} serverStatus={serverStatus} />;
     }
   })();
@@ -8494,7 +8724,7 @@ export default function Page() {
 
       <header className="topbar">
         <div className="mobile-logo"><span className="logo-glyph"><i>E</i></span><b>ECLIPSE DUEL</b></div>
-        <div className="topbar-title"><small>{NAV_ITEMS.find((item) => item.id === view)?.label ?? (view === 'profile' ? '프로필' : 'ECLIPSE')}</small><b>ECLIPSE NETWORK</b></div>
+        <div className="topbar-title"><small>{NAV_ITEMS.find((item) => item.id === view)?.label ?? (view === 'profile' ? '프로필' : view === 'rewards' ? '보상 센터' : 'ECLIPSE')}</small><b>ECLIPSE NETWORK</b></div>
         <button className={`v13-server-chip ${serverStatus.secureDuelReady ? 'ready' : 'warning'}`} onClick={() => setView('duel')} title={publicServerStatusMessage(serverStatus)}><span />{serverStatus.secureDuelReady ? '온라인' : '점검 중'}</button>
         <div className="topbar-actions v9-topbar-actions">
           <span className="currency-pill"><GameIcon name="coin" /><small>COIN</small><b>{hub.wallet.coins.toLocaleString()}</b></span>
