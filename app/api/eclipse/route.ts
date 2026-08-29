@@ -17,6 +17,8 @@ import {
   attack,
   beginBattlePhase,
   drawAndEndTurn,
+  closeHandIntel,
+  discardRevealedOpponentHand,
   endTurn,
   initializeMatch,
   playCard,
@@ -1167,6 +1169,20 @@ async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: strin
     }
   }
 
+  let opponentHandReveal: { mode: 'view' | 'discard'; targetId: string; hand: PrivateState['hand'] } | undefined;
+  const pendingHandIntel = currentRoom.state?.pendingHandIntel;
+  if (pendingHandIntel?.viewerId === userId && isRoomPlayer(currentRoom, userId)) {
+    const { data, error } = await admin
+      .from('eclipse_private_states')
+      .select('state')
+      .eq('room_id', currentRoom.id)
+      .eq('user_id', pendingHandIntel.targetId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const revealedState = data?.state as PrivateState | undefined;
+    opponentHandReveal = { mode: pendingHandIntel.mode, targetId: pendingHandIntel.targetId, hand: Array.isArray(revealedState?.hand) ? revealedState.hand : [] };
+  }
+
   const battleEmotesResult = await admin.from('eclipse_battle_emotes').select('emote_id').eq('user_id', userId);
   const battleEmotesMissing = Boolean(battleEmotesResult.error && /eclipse_battle_emotes|does not exist|schema cache/i.test(battleEmotesResult.error.message));
   if (battleEmotesResult.error && !battleEmotesMissing) throw new Error(battleEmotesResult.error.message);
@@ -1179,6 +1195,7 @@ async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: strin
     privateState,
     spectatorHands,
     spectatorSecrets,
+    opponentHandReveal,
     battleEmotes: emoteLoadout,
     members: memberIds.map((memberId) => ({
       user_id: memberId,
@@ -1259,6 +1276,28 @@ async function handleAction(request: Request, body: RequestBody) {
     }
 
     return base;
+  }
+
+  if (action === 'online_users') {
+    const admin = await requireAdmin();
+    await touchMatchPresence(admin, user.id);
+    const cutoff = new Date(Date.now() - 45_000).toISOString();
+    const { data: presenceRows, error: presenceError } = await admin
+      .from('eclipse_match_presence')
+      .select('user_id,last_seen_at')
+      .gte('last_seen_at', cutoff)
+      .order('last_seen_at', { ascending: false })
+      .limit(100);
+    if (presenceError) throw new Error(presenceError.message);
+    const ids = (presenceRows ?? []).map((row: { user_id: string }) => row.user_id);
+    if (!ids.length) return { onlineUsers: [] };
+    const { data: profiles, error: profileError } = await admin
+      .from('eclipse_profiles')
+      .select('user_id,display_name,avatar,wins,losses,xp,nickname_style')
+      .in('user_id', ids);
+    if (profileError) throw new Error(profileError.message);
+    const byId = new Map((profiles ?? []).map((profile: any) => [String(profile.user_id), profile]));
+    return { onlineUsers: ids.map((id) => byId.get(id)).filter(Boolean) };
   }
 
   if (action === 'admin_find_accounts') {
@@ -1839,6 +1878,10 @@ async function handleAction(request: Request, body: RequestBody) {
           }
         : undefined;
       next = playCard(snapshot, user.id, instanceId, zone, target);
+    } else if (gameAction === 'discard_opponent_hand') {
+      next = discardRevealedOpponentHand(snapshot, user.id, cleanText(body.instanceId, 80));
+    } else if (gameAction === 'close_hand_reveal') {
+      next = closeHandIntel(snapshot, user.id);
     } else if (gameAction === 'extra_summon') {
       const extraInstanceId = cleanText(body.extraInstanceId, 80);
       const materialZones = Array.isArray(body.materialZones) ? body.materialZones.map(Number) : [];
