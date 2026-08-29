@@ -756,6 +756,83 @@ async function buySeriesPackLocally(admin: UserDbClient | AdminDbClient, userId:
   return { cardIds: openedIds, balance: nextCoins };
 }
 
+const V53_TOUHOU_EMOTE_PREFIX = 'touhou_';
+const V53_TOUHOU_PACK_ID = 'touhou_bundle';
+
+function isV53TouhouEmote(emoteId: string): boolean {
+  return emoteId.startsWith(V53_TOUHOU_EMOTE_PREFIX) && Boolean(V34_BATTLE_EMOTE_BY_ID[emoteId]);
+}
+
+async function buyBattleEmoteLocally(admin: AdminDbClient, userId: string, emoteId: string) {
+  const emote = V34_BATTLE_EMOTE_BY_ID[emoteId];
+  if (!emote) throw new Error('존재하지 않는 감정표현입니다.');
+
+  const { data: existing, error: existingError } = await admin
+    .from('eclipse_battle_emotes')
+    .select('emote_id')
+    .eq('user_id', userId)
+    .eq('emote_id', emoteId)
+    .maybeSingle();
+  if (existingError) throw new Error(existingError.message);
+  if (existing) throw new Error('이미 보유한 감정표현입니다.');
+
+  const { data: walletRow, error: walletError } = await admin.from('eclipse_wallets').select('coins').eq('user_id', userId).single();
+  if (walletError) throw new Error(walletError.message);
+  const currentCoins = Number((walletRow as any)?.coins ?? 0);
+  if (currentCoins < emote.price) throw new Error('코인이 부족합니다.');
+  const nextCoins = currentCoins - emote.price;
+
+  const { error: walletUpdateError } = await admin.from('eclipse_wallets').update({ coins: nextCoins }).eq('user_id', userId);
+  if (walletUpdateError) throw new Error(walletUpdateError.message);
+  const { error: insertError } = await admin.from('eclipse_battle_emotes').insert({ user_id: userId, emote_id: emoteId });
+  if (insertError) {
+    await admin.from('eclipse_wallets').update({ coins: currentCoins }).eq('user_id', userId);
+    throw new Error(insertError.message);
+  }
+  return { balance: nextCoins };
+}
+
+async function buyBattleEmotePackLocally(admin: AdminDbClient, userId: string, packId: string) {
+  const pack = V34_BATTLE_EMOTE_PACK_BY_ID[packId];
+  if (!pack) throw new Error('존재하지 않는 감정표현 세트입니다.');
+
+  const { data: ownedRows, error: ownedError } = await admin
+    .from('eclipse_battle_emotes')
+    .select('emote_id')
+    .eq('user_id', userId)
+    .in('emote_id', pack.emoteIds);
+  if (ownedError) throw new Error(ownedError.message);
+  const owned = new Set((ownedRows ?? []).map((row: { emote_id: string }) => row.emote_id));
+  const missing = pack.emoteIds.filter((emoteId) => !owned.has(emoteId));
+  if (missing.length === 0) throw new Error('이미 세트의 모든 감정표현을 보유하고 있습니다.');
+
+  const { data: walletRow, error: walletError } = await admin.from('eclipse_wallets').select('coins').eq('user_id', userId).single();
+  if (walletError) throw new Error(walletError.message);
+  const currentCoins = Number((walletRow as any)?.coins ?? 0);
+  if (currentCoins < pack.price) throw new Error('코인이 부족합니다.');
+  const nextCoins = currentCoins - pack.price;
+
+  const { error: walletUpdateError } = await admin.from('eclipse_wallets').update({ coins: nextCoins }).eq('user_id', userId);
+  if (walletUpdateError) throw new Error(walletUpdateError.message);
+  const { error: insertError } = await admin.from('eclipse_battle_emotes').insert(missing.map((emoteId) => ({ user_id: userId, emote_id: emoteId })));
+  if (insertError) {
+    await admin.from('eclipse_wallets').update({ coins: currentCoins }).eq('user_id', userId);
+    throw new Error(insertError.message);
+  }
+  return { balance: nextCoins };
+}
+
+async function setEmoteLoadoutLocally(admin: AdminDbClient, userId: string, emoteIds: string[]) {
+  const { data: ownedRows, error: ownedError } = await admin.from('eclipse_battle_emotes').select('emote_id').eq('user_id', userId);
+  if (ownedError) throw new Error(ownedError.message);
+  const owned = new Set((ownedRows ?? []).map((row: { emote_id: string }) => row.emote_id));
+  if (emoteIds.some((emoteId) => !owned.has(emoteId))) throw new Error('보유하지 않은 이모티콘은 장착할 수 없습니다.');
+  const { error } = await admin
+    .from('eclipse_emote_loadouts')
+    .upsert({ user_id: userId, emote_ids: emoteIds }, { onConflict: 'user_id' });
+  if (error) throw new Error(error.message);
+}
+
 async function buyProfileCosmeticLocally(admin: UserDbClient | AdminDbClient, userId: string, cosmeticId: string) {
   const cosmetic = PROFILE_COSMETIC_BY_ID[cosmeticId];
   if (!cosmetic) throw new Error('존재하지 않는 프로필 아이템입니다.');
@@ -1128,7 +1205,7 @@ async function getV50EconomyCenter(admin: AdminDbClient, userId: string) {
       completed: Boolean(achievementEligibility[achievement.id]),
       claimed: ledger.has(`achievement:${achievement.id}`),
     })),
-    economyNote: `일일 의뢰는 하루 최대 200코인입니다. 보스 레이드는 일반 카드 전용 1종, 13개 시리즈 전용 보스, 최상위 TIME 5군주로 구성되며 매일 3명만 등장합니다. TIME 군주는 희귀 출현하고 모두 THREAT 5입니다. 오늘의 레이드 총 보상은 ${todayBosses.reduce((sum, boss) => sum + boss.reward, 0)}코인이며, 개기일식의 조율자는 700코인입니다. 각 보스 보상은 하루 1회, 도감/업적은 계정당 1회입니다.`,
+    economyNote: `일일 의뢰는 하루 최대 200코인입니다. 보스 레이드 보상은 위협도 기준으로 ★1=200, ★2=300, ★3=400, ★4=500, ★5=700코인입니다. 일반 카드 전용 1종, 13개 시리즈 전용 보스, 최상위 TIME 5군주 중 매일 3명만 등장하며, 오늘의 레이드 총 보상은 ${todayBosses.reduce((sum, boss) => sum + boss.reward, 0)}코인입니다. 각 보스 보상은 하루 1회, 도감/업적은 계정당 1회입니다.`,
   };
 }
 
@@ -1884,6 +1961,11 @@ async function handleAction(request: Request, body: RequestBody) {
   if (action === 'buy_battle_emote') {
     const emoteId = cleanText(body.emoteId, 80);
     if (!V34_BATTLE_EMOTE_BY_ID[emoteId]) throw new Error('존재하지 않는 감정표현입니다.');
+    if (isV53TouhouEmote(emoteId)) {
+      const admin = await requireEconomyAdmin();
+      await buyBattleEmoteLocally(admin, user.id, emoteId);
+      return { hub: await getHub(admin, user.id) };
+    }
     const { error } = await client.rpc('eclipse_buy_battle_emote_v34', { p_emote_id: emoteId });
     if (error) {
       if (/eclipse_buy_battle_emote_v34|schema cache|does not exist/i.test(error.message)) throw new Error('v34c 감정표현 DB 업그레이드가 필요합니다. sql/20_V34C_EMOTE_LOADOUT_NIKKE_TRICKCAL.sql을 한 번 실행해 주세요.');
@@ -1896,6 +1978,11 @@ async function handleAction(request: Request, body: RequestBody) {
   if (action === 'buy_battle_emote_pack') {
     const packId = cleanText(body.packId, 80);
     if (!V34_BATTLE_EMOTE_PACK_BY_ID[packId]) throw new Error('존재하지 않는 감정표현 세트입니다.');
+    if (packId === V53_TOUHOU_PACK_ID) {
+      const admin = await requireEconomyAdmin();
+      await buyBattleEmotePackLocally(admin, user.id, packId);
+      return { hub: await getHub(admin, user.id) };
+    }
     const { error } = await client.rpc('eclipse_buy_battle_emote_pack_v34', { p_pack_id: packId });
     if (error) {
       if (/eclipse_buy_battle_emote_pack_v34|schema cache|does not exist/i.test(error.message)) throw new Error('v34c 감정표현 DB 업그레이드가 필요합니다. sql/20_V34C_EMOTE_LOADOUT_NIKKE_TRICKCAL.sql을 한 번 실행해 주세요.');
@@ -1911,6 +1998,11 @@ async function handleAction(request: Request, body: RequestBody) {
     if (emoteIds.length > 6) throw new Error('이모티콘은 최대 6개까지만 장착할 수 있습니다.');
     if (new Set(emoteIds).size !== emoteIds.length) throw new Error('같은 이모티콘을 중복 장착할 수 없습니다.');
     if (emoteIds.some((id) => !V34_BATTLE_EMOTE_BY_ID[id])) throw new Error('현재 사용할 수 없는 이모티콘이 포함되어 있습니다.');
+    if (emoteIds.some(isV53TouhouEmote)) {
+      const admin = await requireEconomyAdmin();
+      await setEmoteLoadoutLocally(admin, user.id, emoteIds);
+      return { hub: await getHub(admin, user.id) };
+    }
     const { error } = await client.rpc('eclipse_set_emote_loadout_v34', { p_emote_ids: emoteIds });
     if (error) {
       if (/eclipse_set_emote_loadout_v34|schema cache|does not exist/i.test(error.message)) throw new Error('v34c 감정표현 DB 업그레이드가 필요합니다. sql/20_V34C_EMOTE_LOADOUT_NIKKE_TRICKCAL.sql을 한 번 실행해 주세요.');
