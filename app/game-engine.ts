@@ -199,6 +199,8 @@ export interface MatchState {
   extraSummonTurn?: Record<string, { fusion?: number; evolution?: number }>;
   playerOrder: [string, string] | [];
   core: Record<string, number>;
+  /** Optional per-player core ceiling. Normal duels stay at CORE_MAX; boss raids may exceed it. */
+  coreMax?: Record<string, number>;
   energy: Record<string, EnergyState>;
   boards: Record<string, PlayerBoard>;
   handCounts: Record<string, number>;
@@ -414,6 +416,7 @@ export function initializeMatch(
     pendingExtraChoice: null,
     playerOrder: [first, second],
     core: { [playerA]: CORE_MAX, [playerB]: CORE_MAX },
+    coreMax: { [playerA]: CORE_MAX, [playerB]: CORE_MAX },
     energy: {
       [playerA]: { current: playerA === first ? 1 : 0, max: playerA === first ? 1 : 0 },
       [playerB]: { current: playerB === first ? 1 : 0, max: playerB === first ? 1 : 0 },
@@ -620,7 +623,7 @@ function damageCore(state: MatchState, playerId: string, amount: number): number
 
 function healCore(state: MatchState, playerId: string, amount: number): number {
   const before = Math.max(0, state.core[playerId] ?? 0);
-  const after = Math.min(CORE_MAX, before + Math.max(0, amount));
+  const after = Math.min(state.coreMax?.[playerId] ?? CORE_MAX, before + Math.max(0, amount));
   state.core[playerId] = after;
   return Math.max(0, after - before);
 }

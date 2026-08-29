@@ -40,12 +40,15 @@ import {
   validateDeck,
   validateExtraDeck,
 } from './game-data';
+import { BOSS_RAID_BY_ID, type BossRaidDefinition, type BossRaidId } from './boss-raid-data';
 import { CORE_MAX, TURN_DURATION_MS, type GameSnapshot, type MatchState, type PrivateState, type UnitState, type VisualEvent } from './game-engine';
 import {
   PRACTICE_DIFFICULTY_LABEL,
   applyPracticeGameAction,
   choosePracticeBotAction,
+  chooseBossRaidAction,
   createPracticeMatch,
+  createBossRaidMatch,
   type PracticeDifficulty,
 } from './practice-ai';
 import { V34_BATTLE_EMOTES, V34_BATTLE_EMOTE_BY_ID, V34_BATTLE_EMOTE_PACKS, V34_EMOTE_SLOT_LIMIT } from './v34-emotes';
@@ -125,10 +128,12 @@ type EconomyCenterData = {
     studyCardIds: string[];
     studiedCardIds: string[];
   };
-  expeditions: {
+  bossRaids: {
+    dailyLimit: number;
+    clearedCount: number;
     maxCoins: number;
-    active: null | { runId: string; expeditionId: string; startedAt: string; endsAt: string; name: string; reward: number };
-    options: Array<{ id: string; name: string; durationMinutes: number; reward: number; minUniqueCards: number; description: string; usedToday: boolean; available: boolean; requirementText: string }>;
+    active: null | { runId: string; bossId: BossRaidId; startedAt: string };
+    options: Array<BossRaidDefinition & { clearedToday: boolean }>;
   };
   collection: {
     uniqueCards: number;
@@ -2600,7 +2605,7 @@ function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate:
         </article>
         <article className="v19-mode-card v50-reward-entry" onClick={() => onNavigate('rewards')}>
           <div className="v19-mode-icon"><GameIcon name="rewards" /></div>
-          <div><small>REWARD CENTER</small><h3>코인 원정 · 일일 의뢰</h3><p>대전 없이도 하루 최대 350코인 · 도감/업적은 1회 보상</p></div><span className="v19-mode-arrow">›</span>
+          <div><small>REWARD CENTER</small><h3>보스 레이드 · 일일 의뢰</h3><p>매일 무작위 보스 3명 · 각 보스 클리어 보상은 하루 1회</p></div><span className="v19-mode-arrow">›</span>
         </article>
 
         <article className="v19-social-card">
@@ -2629,29 +2634,18 @@ function HomeView({ hub, onNavigate, serverStatus }: { hub: HubData; onNavigate:
 }
 
 
-function v50ExpeditionDurationLabel(minutes: number): string {
-  if (minutes < 60) return `${minutes}분`;
-  const hours = minutes / 60;
-  return Number.isInteger(hours) ? `${hours}시간` : `${minutes}분`;
+function v51ThreatLabel(threat: number): string {
+  return '★'.repeat(Math.max(1, Math.min(5, threat))) + '☆'.repeat(Math.max(0, 5 - Math.min(5, threat)));
 }
 
-function v50RemainingLabel(endsAt: string, now: number): string {
-  const remaining = Math.max(0, Date.parse(endsAt) - now);
-  if (remaining <= 0) return '완료';
-  const totalSeconds = Math.ceil(remaining / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  if (hours > 0) return `${hours}시간 ${minutes}분`;
-  if (minutes > 0) return `${minutes}분 ${seconds}초`;
-  return `${seconds}초`;
-}
-
-function RewardsView({ hub, onHub, onBack }: { hub: HubData; onHub: (hub: HubData) => void; onBack: () => void }) {
+function RewardsView({ userId, hub, onHub, onBack }: { userId: string; hub: HubData; onHub: (hub: HubData) => void; onBack: () => void }) {
   const [economy, setEconomy] = useState<EconomyCenterData | null>(null);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const [clock, setClock] = useState(() => Date.now());
+  const [raidSession, setRaidSession] = useState<{ bossId: BossRaidId; runId: string } | null>(null);
+  const activeDeck = hub.decks.find((deck) => deck.is_active) ?? null;
+  const collectionMap = useMemo(() => Object.fromEntries(hub.collection.map((row) => [row.card_id, row.quantity])), [hub.collection]);
+  const activeDeckReady = Boolean(activeDeck && !validateDeck(activeDeck.cards, collectionMap) && !validateExtraDeck(activeDeck.extra_cards, collectionMap));
 
   const load = useCallback(async () => {
     setError('');
@@ -2664,11 +2658,6 @@ function RewardsView({ hub, onHub, onBack }: { hub: HubData; onHub: (hub: HubDat
   }, []);
 
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => {
-    if (!economy?.expeditions.active) return;
-    const timer = window.setInterval(() => setClock(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, [economy?.expeditions.active?.runId]);
 
   async function run(action: string, payload: Record<string, unknown> = {}, key = action) {
     if (busy) return;
@@ -2687,27 +2676,54 @@ function RewardsView({ hub, onHub, onBack }: { hub: HubData; onHub: (hub: HubDat
     }
   }
 
+  async function startBossRaid(bossId: BossRaidId) {
+    if (!activeDeck || !activeDeckReady || busy) return;
+    setBusy(`boss:${bossId}`);
+    setError('');
+    try {
+      const result = await api('economy_start_boss_raid', { bossId });
+      if (result.economy) {
+        setEconomy(result.economy);
+        const active = result.economy.bossRaids.active;
+        if (!active || active.bossId !== bossId) throw new Error('보스 레이드 시작 정보를 확인하지 못했습니다.');
+        setRaidSession({ bossId, runId: active.runId });
+      }
+      playUiSound('success');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '보스 레이드를 시작하지 못했습니다.');
+      playUiSound('remove');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  if (raidSession && activeDeck) {
+    const boss = BOSS_RAID_BY_ID[raidSession.bossId];
+    if (boss) {
+      return <BossRaidDuel userId={userId} hub={hub} activeDeck={activeDeck} boss={boss} runId={raidSession.runId} onHub={onHub} onEconomy={setEconomy} onExit={() => setRaidSession(null)} />;
+    }
+  }
+
   if (!economy) {
     return (
       <div className="v50-reward-center">
-        <header className="v50-reward-hero"><div><small>NON-PVP ECONOMY</small><h1>이클립스 보상 센터</h1><p>대전 외 활동으로 코인을 천천히 모을 수 있는 보상 시스템입니다.</p></div><button className="ghost-button" onClick={onBack}>홈으로</button></header>
+        <header className="v50-reward-hero"><div><small>NON-PVP ECONOMY</small><h1>이클립스 보상 센터</h1><p>일일 의뢰와 고난도 보스 레이드로 코인을 획득할 수 있습니다.</p></div><button className="ghost-button" onClick={onBack}>홈으로</button></header>
         {error ? <div className="v50-reward-error"><b>보상 센터를 열 수 없습니다.</b><span>{error}</span><button className="primary-button" onClick={() => void load()}>다시 시도</button></div> : <div className="v50-reward-loading"><span /><b>보상 데이터를 불러오는 중...</b></div>}
       </div>
     );
   }
 
-  const active = economy.expeditions.active;
-  const activeFinished = Boolean(active && Date.now() >= Date.parse(active.endsAt));
   const dailyClaimed = economy.daily.missions.filter((mission) => mission.claimed).length;
   const studyCards = economy.daily.studyCardIds.map((id) => CARD_BY_ID[id]).filter((card): card is CardDefinition => Boolean(card));
+  const activeRaid = economy.bossRaids.active;
 
   return (
-    <div className="v50-reward-center">
-      <header className="v50-reward-hero">
+    <div className="v50-reward-center v51-reward-center">
+      <header className="v50-reward-hero v51-reward-hero">
         <div>
-          <small>NON-PVP ECONOMY · V50</small>
+          <small>NON-PVP ECONOMY · V51</small>
           <h1>이클립스 보상 센터</h1>
-          <p>대전을 하지 않아도 꾸준히 코인을 모을 수 있지만, 반복 수급은 하루 최대 <b>{economy.daily.maxCoins + economy.expeditions.maxCoins}코인</b>으로 제한됩니다.</p>
+          <p>원정은 제거되었습니다. 대신 매일 <b>무작위 3명의 보스</b>가 등장하며, 각 보스의 클리어 코인은 하루 한 번만 받을 수 있습니다.</p>
         </div>
         <div className="v50-reward-hero-actions"><span><small>현재 보유</small><b>{hub.wallet.coins.toLocaleString()} COIN</b></span><button className="ghost-button" onClick={onBack}>홈으로</button></div>
       </header>
@@ -2716,31 +2732,55 @@ function RewardsView({ hub, onHub, onBack }: { hub: HubData; onHub: (hub: HubDat
 
       <section className="v50-economy-summary">
         <article><small>DAILY MISSIONS</small><b>{economy.daily.maxCoins}</b><span>하루 최대 코인</span></article>
-        <article><small>EXPEDITIONS</small><b>{economy.expeditions.maxCoins}</b><span>하루 최대 코인</span></article>
-        <article><small>PACK TARGET</small><b>1,000</b><span>최고가 팩 기준 약 3일</span></article>
-        <article><small>RESET</small><b>{economy.dayKey}</b><span>한국 시간 기준 일일 초기화</span></article>
+        <article><small>TODAY BOSS RAID</small><b>{economy.bossRaids.maxCoins}</b><span>3보스 전부 클리어 시</span></article>
+        <article><small>BOSS CLEAR</small><b>{economy.bossRaids.clearedCount} / {economy.bossRaids.dailyLimit}</b><span>각 보스 보상 1회</span></article>
+        <article><small>RESET</small><b>{economy.dayKey}</b><span>한국 시간 기준 매일 교체</span></article>
+      </section>
+
+      <section className="v50-reward-section v51-boss-section">
+        <header><div><small>BOSS RAID</small><h2>오늘의 3보스</h2><p>전체 보스 중 3명이 매일 무작위로 등장합니다. 최약 보스도 연습모드 어려움 AI 이상이며, 위협도가 높을수록 추가 자원과 더 깊은 수읽기를 사용합니다.</p></div><strong>{economy.bossRaids.clearedCount} / 3 CLEAR</strong></header>
+        {!activeDeckReady && <div className="v51-raid-deck-warning"><b>보스 레이드에는 완성된 활성 덱이 필요합니다.</b><span>메인 45장 + 엑스트라 6장을 정상 구성한 뒤 다시 도전하세요.</span></div>}
+        {activeRaid && <div className="v51-active-raid"><span>ACTIVE RAID</span><b>{BOSS_RAID_BY_ID[activeRaid.bossId]?.name ?? '보스'}</b><small>다른 보스를 시작하기 전에 이 전투를 마쳐야 합니다.</small></div>}
+        <div className="v51-boss-grid">
+          {economy.bossRaids.options.map((boss) => {
+            const signature = CARD_BY_ID[boss.signatureCardId];
+            const isActive = activeRaid?.bossId === boss.id;
+            const blockedByOther = Boolean(activeRaid && !isActive);
+            return (
+              <article key={boss.id} className={`v51-boss-card threat-${boss.threat} ${boss.clearedToday ? 'cleared' : ''} ${isActive ? 'active' : ''}`}>
+                <div className="v51-boss-card-art">{signature ? <CardIllustration card={signature} hero /> : <span>?</span>}<i /></div>
+                <div className="v51-boss-card-copy">
+                  <small>{ECLIPSE_PHASE_LABEL[boss.phase]} · THREAT {boss.threat}</small>
+                  <h3>{boss.name}</h3>
+                  <b>{boss.epithet}</b>
+                  <div className="v51-threat" aria-label={`위협도 ${boss.threat} / 5`}>{v51ThreatLabel(boss.threat)}</div>
+                  <p>{boss.description}</p>
+                  <ul><li>보스 코어 <strong>{boss.core}</strong></li><li>시작 ENERGY <strong>{boss.startingEnergy}</strong></li><li>대표 카드 <strong>{signature?.name ?? boss.signatureCardId}</strong></li></ul>
+                </div>
+                <footer><div><small>CLEAR REWARD</small><strong>+{boss.reward.toLocaleString()} COIN</strong></div><button className="primary-button" disabled={!activeDeckReady || boss.clearedToday || blockedByOther || Boolean(busy)} onClick={() => void startBossRaid(boss.id)}>{boss.clearedToday ? '오늘 클리어 완료' : isActive ? '전투 재개' : blockedByOther ? '다른 레이드 진행 중' : busy === `boss:${boss.id}` ? '입장 중...' : '보스 도전'}</button></footer>
+              </article>
+            );
+          })}
+        </div>
+        <div className="v51-boss-rule"><b>RAID RULE</b><span>오늘 표시된 보스 3명만 도전 · 각 보스 클리어 코인 하루 1회 · 패배 시 같은 보스 재도전 가능 · 최종 보스 보상 700코인</span></div>
       </section>
 
       <section className="v50-reward-section">
-        <header><div><small>DAILY OPERATIONS</small><h2>일일 의뢰</h2><p>매일 3개 의뢰 + 전체 완료 보너스. 모두 받아도 하루 {economy.daily.maxCoins}코인을 넘지 않습니다.</p></div><strong>{dailyClaimed} / {economy.daily.missions.length}</strong></header>
+        <header><div><small>DAILY OPERATIONS</small><h2>일일 의뢰</h2><p>기존 일일 의뢰는 그대로 유지됩니다. 3개 의뢰 + 전체 완료 보상을 모두 받아도 하루 {economy.daily.maxCoins}코인입니다.</p></div><strong>{dailyClaimed} / {economy.daily.missions.length}</strong></header>
         <div className="v50-daily-grid">
           {economy.daily.missions.map((mission) => (
             <article key={mission.id} className={`v50-daily-card ${mission.claimed ? 'claimed' : mission.completed ? 'ready' : ''}`}>
               <div className="v50-reward-card-top"><span>{mission.id === 'briefing' ? '◎' : mission.id === 'study' ? '◇' : '▣'}</span><b>+{mission.reward}</b></div>
               <small>{mission.id.toUpperCase()}</small><h3>{mission.name}</h3><p>{mission.description}</p>
               <div className="v50-progress"><i><em style={{ width: `${Math.min(100, mission.target > 0 ? mission.progress / mission.target * 100 : 0)}%` }} /></i><span>{mission.progress} / {mission.target}</span></div>
-              <button className="primary-button" disabled={mission.claimed || !mission.completed || Boolean(busy)} onClick={() => void run('economy_claim_daily', { missionId: mission.id }, `daily:${mission.id}`)}>
-                {mission.claimed ? '수령 완료' : mission.completed ? (busy === `daily:${mission.id}` ? '수령 중...' : `${mission.reward}코인 받기`) : '조건 진행 중'}
-              </button>
+              <button className="primary-button" disabled={mission.claimed || !mission.completed || Boolean(busy)} onClick={() => void run('economy_claim_daily', { missionId: mission.id }, `daily:${mission.id}`)}>{mission.claimed ? '수령 완료' : mission.completed ? (busy === `daily:${mission.id}` ? '수령 중...' : `${mission.reward}코인 받기`) : '조건 진행 중'}</button>
             </article>
           ))}
           <article className={`v50-daily-card v50-daily-bonus ${economy.daily.bonus.claimed ? 'claimed' : economy.daily.bonus.completed ? 'ready' : ''}`}>
             <div className="v50-reward-card-top"><span>✦</span><b>+{economy.daily.bonus.reward}</b></div>
             <small>ALL CLEAR</small><h3>{economy.daily.bonus.name}</h3><p>{economy.daily.bonus.description}</p>
             <div className="v50-progress"><i><em style={{ width: `${Math.min(100, dailyClaimed / Math.max(1, economy.daily.missions.length) * 100)}%` }} /></i><span>{dailyClaimed} / {economy.daily.missions.length}</span></div>
-            <button className="primary-button" disabled={economy.daily.bonus.claimed || !economy.daily.bonus.completed || Boolean(busy)} onClick={() => void run('economy_claim_daily', { missionId: 'bonus' }, 'daily:bonus')}>
-              {economy.daily.bonus.claimed ? '수령 완료' : economy.daily.bonus.completed ? (busy === 'daily:bonus' ? '수령 중...' : `${economy.daily.bonus.reward}코인 받기`) : '의뢰 보상 3개를 먼저 수령'}
-            </button>
+            <button className="primary-button" disabled={economy.daily.bonus.claimed || !economy.daily.bonus.completed || Boolean(busy)} onClick={() => void run('economy_claim_daily', { missionId: 'bonus' }, 'daily:bonus')}>{economy.daily.bonus.claimed ? '수령 완료' : economy.daily.bonus.completed ? (busy === 'daily:bonus' ? '수령 중...' : `${economy.daily.bonus.reward}코인 받기`) : '의뢰 보상 3개를 먼저 수령'}</button>
           </article>
         </div>
 
@@ -2749,68 +2789,24 @@ function RewardsView({ hub, onHub, onBack }: { hub: HubData; onHub: (hub: HubDat
           <div className="v50-study-grid">
             {studyCards.map((card) => {
               const studied = economy.daily.studiedCardIds.includes(card.id);
-              return (
-                <article key={card.id} className={studied ? 'studied' : ''}>
-                  <button className="v50-study-art" onClick={() => requestCardInspection(card.id)} title="카드 상세 보기"><CardIllustration card={card} compact /></button>
-                  <div><small>{RARITY_LABEL[card.rarity]} · {KIND_LABEL[card.kind]}</small><b>{card.name}</b><span>{studied ? '연구 기록 완료' : '상세를 확인한 뒤 연구 완료를 눌러 주세요.'}</span></div>
-                  <button className="ghost-button" disabled={studied || Boolean(busy)} onClick={() => void run('economy_record_study', { cardId: card.id }, `study:${card.id}`)}>{studied ? '완료' : busy === `study:${card.id}` ? '기록 중...' : '연구 완료'}</button>
-                </article>
-              );
+              return <article key={card.id} className={studied ? 'studied' : ''}><button className="v50-study-art" onClick={() => requestCardInspection(card.id)} title="카드 상세 보기"><CardIllustration card={card} compact /></button><div><small>{RARITY_LABEL[card.rarity]} · {KIND_LABEL[card.kind]}</small><b>{card.name}</b><span>{studied ? '연구 기록 완료' : '상세를 확인한 뒤 연구 완료를 눌러 주세요.'}</span></div><button className="ghost-button" disabled={studied || Boolean(busy)} onClick={() => void run('economy_record_study', { cardId: card.id }, `study:${card.id}`)}>{studied ? '완료' : busy === `study:${card.id}` ? '기록 중...' : '연구 완료'}</button></article>;
             })}
           </div>
-        </div>
-      </section>
-
-      <section className="v50-reward-section">
-        <header><div><small>EXPEDITION</small><h2>카드 원정</h2><p>원정은 하루에 각 종류 1회만 출발할 수 있고 동시에 1개만 진행됩니다. 전부 완료해도 하루 {economy.expeditions.maxCoins}코인입니다.</p></div><strong>{active ? '진행 중' : '대기'}</strong></header>
-        {active && (
-          <div className={`v50-active-expedition ${activeFinished ? 'complete' : ''}`}>
-            <div><small>ACTIVE EXPEDITION</small><h3>{active.name}</h3><p>{activeFinished ? '탐사가 완료되었습니다. 보상을 수령하면 다음 원정을 보낼 수 있습니다.' : '탐사팀이 활동 중입니다. 게임을 종료해도 서버 시간이 계속 흐릅니다.'}</p></div>
-            <span><small>남은 시간</small><b>{v50RemainingLabel(active.endsAt, clock)}</b><em>+{active.reward} COIN</em></span>
-            <button className="primary-button" disabled={!activeFinished || Boolean(busy)} onClick={() => void run('economy_claim_expedition', {}, 'claim-expedition')}>{activeFinished ? (busy === 'claim-expedition' ? '수령 중...' : '원정 보상 받기') : '원정 진행 중'}</button>
-          </div>
-        )}
-        <div className="v50-expedition-grid">
-          {economy.expeditions.options.map((option) => (
-            <article key={option.id} className={`${option.usedToday ? 'used' : ''} ${!option.available ? 'locked' : ''}`}>
-              <div className="v50-expedition-orbit"><span>{option.id === 'scout' ? '◌' : option.id === 'rift' ? '◇' : '✦'}</span></div>
-              <small>{v50ExpeditionDurationLabel(option.durationMinutes)} · {option.requirementText}</small><h3>{option.name}</h3><p>{option.description}</p>
-              <footer><b>+{option.reward} COIN</b><button className="ghost-button" disabled={Boolean(active) || option.usedToday || !option.available || Boolean(busy)} onClick={() => void run('economy_start_expedition', { expeditionId: option.id }, `expedition:${option.id}`)}>{option.usedToday ? '오늘 완료' : !option.available ? '조건 부족' : active ? '다른 원정 진행 중' : busy === `expedition:${option.id}` ? '출발 중...' : '원정 보내기'}</button></footer>
-            </article>
-          ))}
         </div>
       </section>
 
       <section className="v50-reward-two-column">
         <div className="v50-reward-section compact">
           <header><div><small>COLLECTION MILESTONE</small><h2>카드 도감 보상</h2><p>카드 종류 수에 따른 계정당 1회 보상입니다.</p></div><strong>{economy.collection.uniqueCards}종</strong></header>
-          <div className="v50-milestone-list">
-            {economy.collection.milestones.map((milestone) => (
-              <article key={milestone.id} className={milestone.claimed ? 'claimed' : milestone.completed ? 'ready' : ''}>
-                <span><b>{milestone.name}</b><small>{Math.min(economy.collection.uniqueCards, milestone.target)} / {milestone.target}</small></span>
-                <em>+{milestone.reward}</em>
-                <button disabled={milestone.claimed || !milestone.completed || Boolean(busy)} onClick={() => void run('economy_claim_collection', { milestoneId: milestone.id }, `collection:${milestone.id}`)}>{milestone.claimed ? '완료' : milestone.completed ? '받기' : '잠김'}</button>
-              </article>
-            ))}
-          </div>
+          <div className="v50-milestone-list">{economy.collection.milestones.map((milestone) => <article key={milestone.id} className={milestone.claimed ? 'claimed' : milestone.completed ? 'ready' : ''}><span><b>{milestone.name}</b><small>{Math.min(economy.collection.uniqueCards, milestone.target)} / {milestone.target}</small></span><em>+{milestone.reward}</em><button disabled={milestone.claimed || !milestone.completed || Boolean(busy)} onClick={() => void run('economy_claim_collection', { milestoneId: milestone.id }, `collection:${milestone.id}`)}>{milestone.claimed ? '완료' : milestone.completed ? '받기' : '잠김'}</button></article>)}</div>
         </div>
-
         <div className="v50-reward-section compact">
           <header><div><small>ACHIEVEMENT</small><h2>업적 보상</h2><p>기존 게임 플레이 기록을 활용한 1회성 코인 보상입니다.</p></div><strong>1회</strong></header>
-          <div className="v50-achievement-list">
-            {economy.achievements.map((achievement) => (
-              <article key={achievement.id} className={achievement.claimed ? 'claimed' : achievement.completed ? 'ready' : ''}>
-                <span className="v50-achievement-mark">{achievement.claimed ? '✓' : achievement.completed ? '!' : '·'}</span>
-                <div><b>{achievement.name}</b><small>{achievement.description}</small></div>
-                <em>+{achievement.reward}</em>
-                <button disabled={achievement.claimed || !achievement.completed || Boolean(busy)} onClick={() => void run('economy_claim_achievement', { achievementId: achievement.id }, `achievement:${achievement.id}`)}>{achievement.claimed ? '완료' : achievement.completed ? '받기' : '잠김'}</button>
-              </article>
-            ))}
-          </div>
+          <div className="v50-achievement-list">{economy.achievements.map((achievement) => <article key={achievement.id} className={achievement.claimed ? 'claimed' : achievement.completed ? 'ready' : ''}><span className="v50-achievement-mark">{achievement.claimed ? '✓' : achievement.completed ? '!' : '·'}</span><div><b>{achievement.name}</b><small>{achievement.description}</small></div><em>+{achievement.reward}</em><button disabled={achievement.claimed || !achievement.completed || Boolean(busy)} onClick={() => void run('economy_claim_achievement', { achievementId: achievement.id }, `achievement:${achievement.id}`)}>{achievement.claimed ? '완료' : achievement.completed ? '받기' : '잠김'}</button></article>)}</div>
         </div>
       </section>
 
-      <footer className="v50-economy-footer"><span>ECONOMY SAFETY</span><p>{economy.economyNote}</p><b>대전 보상과 기존 상점/팩 가격은 변경하지 않았습니다.</b></footer>
+      <footer className="v50-economy-footer"><span>ECONOMY SAFETY</span><p>{economy.economyNote}</p><b>기존 대전 보상·상점·팩 가격·도감·업적은 변경하지 않았습니다.</b></footer>
     </div>
   );
 }
@@ -4452,6 +4448,10 @@ type ExtraCinematicProfile = {
   speed: string;
   scale: string;
   legendary: boolean;
+  variant: number;
+  intensity: number;
+  particleCount: number;
+  constellation: Array<{ x: number; y: number; size: number; delay: number }>;
 };
 
 const FUSION_EXTRA_STYLES: Array<{ style: ExtraCinematicStyle; label: string; finisher: string }> = [
@@ -4530,6 +4530,17 @@ function extraCinematicProfile(card: CardDefinition, kind: 'fusion' | 'evolution
   const angle = `${(hash % 141) - 70}deg`;
   const speed = `${1.7 + ((hash >> 5) % 14) / 10}s`;
   const scale = `${0.90 + ((hash >> 9) % 17) / 100}`;
+  const rarityIntensity = card.rarity === 'legendary' ? 1.55 : card.rarity === 'epic' ? 1.28 : card.rarity === 'rare' ? 1.05 : 0.9;
+  const nodeCount = card.rarity === 'legendary' ? 13 : card.rarity === 'epic' ? 10 : card.rarity === 'rare' ? 8 : 6;
+  const constellation = Array.from({ length: nodeCount }, (_, index) => {
+    const mixed = stableCardHash(`${card.id}:${kind}:node:${index}`);
+    return {
+      x: 10 + (mixed % 81),
+      y: 10 + ((mixed >> 7) % 81),
+      size: 1.4 + ((mixed >> 15) % 24) / 10,
+      delay: ((mixed >> 21) % 16) / 10,
+    };
+  });
   return {
     signature: card.id.replace(/[^a-z0-9-]/gi, '-'),
     style: selected.style,
@@ -4542,6 +4553,10 @@ function extraCinematicProfile(card: CardDefinition, kind: 'fusion' | 'evolution
     speed,
     scale,
     legendary: card.rarity === 'legendary',
+    variant: hash % 12,
+    intensity: rarityIntensity,
+    particleCount: card.rarity === 'legendary' ? 24 : card.rarity === 'epic' ? 18 : card.rarity === 'rare' ? 14 : 10,
+    constellation,
   };
 }
 
@@ -4561,7 +4576,7 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false,
   const attackAngle = Math.atan2(target.y - source.y, target.x - source.x) * 180 / Math.PI;
   const usesCurvedAttackPath = Boolean(attackProfile && ['whip', 'phantom', 'chrono', 'arcane'].includes(attackProfile.style));
   const usesLinearAttackPath = Boolean(attackProfile && ['slash', 'bow', 'beam', 'lance', 'cannon'].includes(attackProfile.style));
-  const particleCount = event.kind === 'fusion' || event.kind === 'evolution' ? 10 : event.kind === 'attack' ? 6 : event.kind === 'special' ? 8 : event.kind === 'core' || event.kind === 'destroy' ? 6 : 4;
+  const particleCount = extraProfile ? extraProfile.particleCount : event.kind === 'attack' ? 6 : event.kind === 'special' ? 8 : event.kind === 'core' || event.kind === 'destroy' ? 6 : 4;
   const fxStyle = {
     '--sx': `${source.x}%`, '--sy': `${source.y}%`, '--tx': `${target.x}%`, '--ty': `${target.y}%`, '--attack-angle': `${attackAngle}deg`,
     '--fx-accent': attackProfile?.accent ?? summonProfile?.accent ?? extraProfile?.accent ?? (card ? ELEMENT_ACCENT[card.element] : '#7ddcff'),
@@ -4570,6 +4585,7 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false,
     '--ritual-angle': extraProfile?.angle ?? '0deg',
     '--ritual-speed': extraProfile?.speed ?? '2.4s',
     '--ritual-scale': extraProfile?.scale ?? '1',
+    '--ritual-intensity': extraProfile?.intensity ?? 1,
   } as CSSProperties;
   const legendaryChoice = event.kind === 'special' && (event.vfx === 'legendary-fusion-choice' || event.vfx === 'legendary-evolution-choice');
   const executionTraitEvent = event.kind === 'special' && event.vfx === 'execution-scythe';
@@ -4757,11 +4773,17 @@ function DuelEffectLayer({ event, userId, profiles, drawCard, spectator = false,
       )}
 
       {(event.kind === 'fusion' || event.kind === 'evolution') && card && extraProfile && (
-        <div className={`v31e-extra-cinematic ${event.kind} v32-extra-style-${extraProfile.style} v32-extra-sig-${extraProfile.signature} ${extraProfile.legendary ? 'v32-extra-legendary' : ''}`} style={{ '--ritual': extraProfile.accent } as CSSProperties}>
+        <div className={`v31e-extra-cinematic ${event.kind} v32-extra-style-${extraProfile.style} v32-extra-sig-${extraProfile.signature} v51-extra-variant-${extraProfile.variant} rarity-${card.rarity} ${extraProfile.legendary ? 'v32-extra-legendary' : ''}`} style={{ '--ritual': extraProfile.accent, '--ritual-secondary': extraProfile.secondary, '--ritual-intensity': extraProfile.intensity } as CSSProperties}>
           <span className="v32-extra-unique-field" aria-hidden="true">
             <i className="v32-extra-ring ring-a" /><i className="v32-extra-ring ring-b" /><i className="v32-extra-ring ring-c" />
             <span className="v32-extra-rune">{extraProfile.rune}</span>
-            <span className="v32-extra-rays">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ '--ray-index': index } as CSSProperties} />)}</span>
+            <span className="v32-extra-rays">{Array.from({ length: extraProfile.legendary ? 20 : 14 }, (_, index) => <i key={index} style={{ '--ray-index': index } as CSSProperties} />)}</span>
+            <svg className="v51-extra-constellation" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <polyline points={extraProfile.constellation.map((node) => `${node.x},${node.y}`).join(' ')} />
+              {extraProfile.constellation.map((node, index) => <circle key={index} cx={node.x} cy={node.y} r={node.size} style={{ '--node-delay': `${node.delay}s` } as CSSProperties} />)}
+            </svg>
+            <span className="v51-extra-crest"><i /><i /><i /><i /><b>{extraProfile.rune}</b></span>
+            <span className="v51-extra-burst">{Array.from({ length: extraProfile.particleCount }, (_, index) => <i key={index} style={{ '--burst-index': index, '--burst-seed': stableCardHash(`${card.id}:burst:${index}`) % 17 } as CSSProperties} />)}</span>
           </span>
           <div className="v31e-extra-title"><small>{spectator ? 'EXTRA SUMMON' : mine ? 'YOUR EXTRA SUMMON' : 'OPPONENT EXTRA SUMMON'}</small><b>{extraTitle}</b><span>{extraKorean}</span></div>
           <div className="v32-extra-signature"><small>{extraProfile.label}</small><b>{extraProfile.finisher}</b><span>{card.name}</span></div>
@@ -6186,7 +6208,7 @@ function BattleLeaderEmote({ state, ownerId, now }: { state: MatchState; ownerId
 
 type DuelBoardLocalAction = (gameAction: string, extra?: Record<string, unknown>) => Promise<RoomPayload>;
 
-function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt, localAction, practiceMode, onPresentationBusyChange, onInspectCard }: { payload: RoomPayload; userId: string; onRefresh: (payload: RoomPayload) => void; onLeave: () => void; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number; localAction?: DuelBoardLocalAction; practiceMode?: PracticeDifficulty; onPresentationBusyChange?: (busy: boolean) => void; onInspectCard?: (cardId: string) => void }) {
+function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt, localAction, practiceMode, bossRaid, onPresentationBusyChange, onInspectCard }: { payload: RoomPayload; userId: string; onRefresh: (payload: RoomPayload) => void; onLeave: () => void; syncState: 'live' | 'syncing' | 'offline'; lastSyncAt: number; localAction?: DuelBoardLocalAction; practiceMode?: PracticeDifficulty; bossRaid?: BossRaidDefinition; onPresentationBusyChange?: (busy: boolean) => void; onInspectCard?: (cardId: string) => void }) {
   const { room, privateState: nullablePrivateState } = payload;
   const nullableState = room.state;
   const [selectedHand, setSelectedHand] = useState<string | null>(null);
@@ -6400,7 +6422,9 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       return;
     }
     if (next.kind === 'trap' && next.ownerId && next.ownerId !== userId) return;
-    const duration = next.kind === 'fusion' || next.kind === 'evolution' ? 2450
+    const extraCard = next.cardId ? CARD_BY_ID[next.cardId] : undefined;
+    const extraDuration = extraCard?.rarity === 'legendary' ? 3300 : extraCard?.rarity === 'epic' ? 2900 : extraCard?.rarity === 'rare' ? 2600 : 2350;
+    const duration = next.kind === 'fusion' || next.kind === 'evolution' ? extraDuration
       : next.kind === 'trap' ? 2250
         : next.kind === 'special' && (next.vfx === 'execution-scythe' || next.vfx === 'sweep-volley') ? 1080
           : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? 1450
@@ -7179,7 +7203,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       <header className="v18-duel-header">
         <div className="v18-duel-brand">
           <span className="v18-brand-mark">E</span>
-          <div><b>ECLIPSE DUEL</b><small>{practiceMode ? `PRACTICE · ${PRACTICE_DIFFICULTY_LABEL[practiceMode]}` : `ROOM ${room.code}`}</small></div>
+          <div><b>ECLIPSE DUEL</b><small>{bossRaid ? `BOSS RAID · ${bossRaid.name}` : practiceMode ? `PRACTICE · ${PRACTICE_DIFFICULTY_LABEL[practiceMode]}` : `ROOM ${room.code}`}</small></div>
           <EclipseCycleStrip state={state} />
         </div>
         {duelWagerAmount > 0 && <div className="v31k-duel-wager-badge"><small>COIN DUEL</small><b>{duelWagerAmount.toLocaleString()} EACH</b><span>PRIZE {(duelWagerAmount * 2).toLocaleString()}</span></div>}
@@ -7192,7 +7216,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
             </div>
           )}
         </div>
-        {practiceMode ? <div className="v22-sync-chip live v35-practice-chip"><i /><span>LOCAL AI</span><small>{PRACTICE_DIFFICULTY_LABEL[practiceMode]} 봇 · 실전 규칙/연출 동일</small></div> : (
+        {bossRaid ? <div className={`v22-sync-chip live v51-boss-chip threat-${bossRaid.threat}`}><i /><span>BOSS AI · T{bossRaid.threat}</span><small>{bossRaid.name} · HARD+ 수읽기</small></div> : practiceMode ? <div className="v22-sync-chip live v35-practice-chip"><i /><span>LOCAL AI</span><small>{PRACTICE_DIFFICULTY_LABEL[practiceMode]} 봇 · 실전 규칙/연출 동일</small></div> : (
           <div className={`v22-sync-chip ${displayedSyncState}`}>
             <i /><span>{displayedSyncState === 'live' ? 'LIVE' : displayedSyncState === 'syncing' ? 'SYNCING' : 'RECONNECTING'}</span><small>{displayedSyncState === 'live' ? '연결됨' : displayedSyncState === 'syncing' ? '백그라운드 동기화' : '연결 복구 중'}</small>
           </div>
@@ -7596,8 +7620,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
           <section className="v18-confirm-modal">
             <span className="eyebrow">SURRENDER</span>
             <h2>결투를 포기하시겠습니까?</h2>
-            <p>{practiceMode ? '연습 대전을 종료합니다. 연습 결과는 계정 승패 기록에 반영되지 않습니다.' : '항복 즉시 상대가 승리하며 현재 경기는 패배로 기록됩니다.'}</p>
-            <div><button className="ghost-button" disabled={busy} onClick={() => setSurrenderOpen(false)}>계속 싸우기</button><button className="danger-button" disabled={busy} onClick={() => { setSurrenderOpen(false); void gameAction('surrender'); }}>{practiceMode ? '연습 종료' : '항복하기'}</button></div>
+            <p>{bossRaid ? '보스 레이드를 포기합니다. 코인 보상은 지급되지 않으며 같은 보스는 오늘 다시 도전할 수 있습니다.' : practiceMode ? '연습 대전을 종료합니다. 연습 결과는 계정 승패 기록에 반영되지 않습니다.' : '항복 즉시 상대가 승리하며 현재 경기는 패배로 기록됩니다.'}</p>
+            <div><button className="ghost-button" disabled={busy} onClick={() => setSurrenderOpen(false)}>계속 싸우기</button><button className="danger-button" disabled={busy} onClick={() => { setSurrenderOpen(false); void gameAction('surrender'); }}>{bossRaid ? '레이드 포기' : practiceMode ? '연습 종료' : '항복하기'}</button></div>
           </section>
         </div>
       )}
@@ -7608,7 +7632,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
             <div className="v22-result-hero">
               <span className="result-emblem">{state.winnerId === userId ? '✦' : '◇'}</span>
               <div><small>DUEL COMPLETE · TURN {state.turnNumber}</small><h2>{state.winnerId === userId ? 'VICTORY' : 'DEFEAT'}</h2><p>{state.winReason}</p></div>
-              <strong>{practiceMode ? 'PRACTICE · 보상/전적 반영 없음' : state.winnerId === userId ? `+100 COIN · +100 XP${levelUpCoinBonus > 0 ? ` · LEVEL UP +${levelUpCoinBonus.toLocaleString()} COIN` : ''}${duelWagerAmount > 0 ? ` · 내기 +${duelWagerAmount.toLocaleString()}` : ''}` : `+35 COIN · +35 XP${duelWagerAmount > 0 ? ` · 내기 -${duelWagerAmount.toLocaleString()}` : ''}`}</strong>
+              <strong>{bossRaid ? (state.winnerId === userId ? `BOSS CLEAR · +${bossRaid.reward.toLocaleString()} COIN` : 'BOSS RAID · 패배 보상 없음') : practiceMode ? 'PRACTICE · 보상/전적 반영 없음' : state.winnerId === userId ? `+100 COIN · +100 XP${levelUpCoinBonus > 0 ? ` · LEVEL UP +${levelUpCoinBonus.toLocaleString()} COIN` : ''}${duelWagerAmount > 0 ? ` · 내기 +${duelWagerAmount.toLocaleString()}` : ''}` : `+35 COIN · +35 XP${duelWagerAmount > 0 ? ` · 내기 -${duelWagerAmount.toLocaleString()}` : ''}`}</strong>
             </div>
             <div className="v22-result-stats">
               <article><small>CORE DAMAGE</small><b>{myMatchStats.coreDamage}</b><span>상대 {opponentMatchStats.coreDamage}</span></article>
@@ -7616,7 +7640,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
               <article><small>SUMMONS</small><b>{myMatchStats.unitsSummoned}</b><span>특수 {myMatchStats.specialSummons}</span></article>
               <article><small>HEALING</small><b>{myMatchStats.healing}</b><span>드로우 {myMatchStats.cardsDrawn}</span></article>
             </div>
-            <div className="v22-result-footer"><span>{practiceMode ? '연습 결과는 계정 전적·코인·XP에 반영되지 않습니다.' : '결투 기록은 결과 확정 후 계정 전적과 보상에 반영됩니다.'}</span><button className="primary-button" onClick={onLeave}>{practiceMode ? '연습 메뉴로 돌아가기' : room.public_match ? '허브로 돌아가기' : '대기방으로 돌아가기'}</button></div>
+            <div className="v22-result-footer"><span>{bossRaid ? (state.winnerId === userId ? `오늘 ${bossRaid.name} 클리어 보상은 1회만 지급됩니다.` : '패배 시 코인은 소모되지 않으며 오늘 다시 도전할 수 있습니다.') : practiceMode ? '연습 결과는 계정 전적·코인·XP에 반영되지 않습니다.' : '결투 기록은 결과 확정 후 계정 전적과 보상에 반영됩니다.'}</span><button className="primary-button" onClick={onLeave}>{bossRaid ? '보상 센터로 돌아가기' : practiceMode ? '연습 메뉴로 돌아가기' : room.public_match ? '허브로 돌아가기' : '대기방으로 돌아가기'}</button></div>
           </section>
         </div>
       )}
@@ -7690,7 +7714,9 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
   useEffect(() => {
     if (!activeVfx) return;
     const next = activeVfx;
-    const duration = next.kind === 'fusion' || next.kind === 'evolution' ? 2450
+    const extraCard = next.cardId ? CARD_BY_ID[next.cardId] : undefined;
+    const extraDuration = extraCard?.rarity === 'legendary' ? 3300 : extraCard?.rarity === 'epic' ? 2900 : extraCard?.rarity === 'rare' ? 2600 : 2350;
+    const duration = next.kind === 'fusion' || next.kind === 'evolution' ? extraDuration
       : next.kind === 'trap' ? 2250
         : next.kind === 'special' && (next.vfx === 'execution-scythe' || next.vfx === 'sweep-volley') ? 1080
           : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? 1450
@@ -7853,6 +7879,189 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
 
       {state.status === 'finished' && <div className="modal-layer v18-result-layer"><section className="v18-result-modal v22-result-modal win"><div className="v22-result-hero"><span className="result-emblem">✦</span><div><small>SPECTATOR · DUEL COMPLETE</small><h2>{winner?.display_name ?? '승자'} 승리</h2><p>{state.winReason}</p></div></div><div className="v22-result-footer"><span>다음 경기는 같은 방 대기실에서 선수 구성을 다시 정할 수 있습니다.</span><button className="primary-button" onClick={onReturnLobby}>대기방으로 돌아가기</button></div></section></div>}
     </div>
+  );
+}
+
+
+
+function BossRaidDuel({ userId, hub, activeDeck, boss, runId, onHub, onEconomy, onExit }: { userId: string; hub: HubData; activeDeck: DeckRow; boss: BossRaidDefinition; runId: string; onHub: (hub: HubData) => void; onEconomy: (economy: EconomyCenterData) => void; onExit: () => void }) {
+  const botId = `raid-boss-${boss.id}`;
+  const [snapshot, setSnapshot] = useState<GameSnapshot>(() => createBossRaidMatch(userId, activeDeck.cards, activeDeck.extra_cards, botId, boss.id));
+  const snapshotRef = useRef(snapshot);
+  const [botThinking, setBotThinking] = useState(false);
+  const [presentationBusy, setPresentationBusy] = useState(true);
+  const [inspectCardId, setInspectCardId] = useState<string | null>(null);
+  const [settleError, setSettleError] = useState('');
+  const [settling, setSettling] = useState(false);
+  const settlementPromiseRef = useRef<Promise<boolean> | null>(null);
+
+  useEffect(() => { snapshotRef.current = snapshot; }, [snapshot]);
+
+  useEffect(() => {
+    const openInspector = (event: Event) => {
+      const cardId = (event as CustomEvent<string>).detail;
+      if (cardId && CARD_BY_ID[cardId]) setInspectCardId(cardId);
+    };
+    window.addEventListener(CARD_INSPECT_EVENT, openInspector);
+    return () => window.removeEventListener(CARD_INSPECT_EVENT, openInspector);
+  }, []);
+
+  const buildPayload = useCallback((current: GameSnapshot): RoomPayload => ({
+    room: {
+      id: `boss-raid-${boss.id}`,
+      code: `BOSS-${boss.threat}`,
+      owner_id: userId,
+      host_id: userId,
+      guest_id: botId,
+      public_match: false,
+      status: current.state.status === 'finished' ? 'finished' : 'active',
+      ready_host: true,
+      ready_guest: true,
+      wager_amount: 0,
+      wager_host_accepted: true,
+      wager_guest_accepted: true,
+      wager_locked: false,
+      wager_settled: false,
+      state: current.state,
+      version: current.state.visualEvents.length + current.state.turnNumber,
+      winner_id: current.state.winnerId ?? null,
+    },
+    profiles: [
+      {
+        user_id: userId,
+        display_name: hub.profile.display_name,
+        avatar: hub.profile.avatar,
+        wins: hub.profile.wins,
+        losses: hub.profile.losses,
+        xp: hub.profile.xp,
+        profile_emblem: hub.profile.profile_emblem,
+        card_sleeve: hub.profile.card_sleeve,
+        nickname_style: hub.profile.nickname_style,
+      },
+      {
+        user_id: botId,
+        display_name: boss.name,
+        avatar: boss.avatar,
+        wins: 999,
+        losses: 0,
+        xp: boss.threat * 25_000,
+        profile_emblem: 'emblem_default',
+        card_sleeve: 'sleeve_default',
+        nickname_style: 'nickname_default',
+      },
+    ],
+    privateState: current.privateStates[userId] ?? null,
+    opponentHandReveal: current.state.pendingHandIntel?.viewerId === userId
+      ? { mode: current.state.pendingHandIntel.mode, targetId: current.state.pendingHandIntel.targetId, hand: current.privateStates[current.state.pendingHandIntel.targetId]?.hand ?? [] }
+      : undefined,
+    members: [
+      { user_id: userId, role: 'player_a', is_owner: true },
+      { user_id: botId, role: 'player_b', is_owner: false },
+    ],
+    battleEmotes: (hub.emoteLoadout?.length ? hub.emoteLoadout : hub.battleEmotes ?? []).slice(0, V34_EMOTE_SLOT_LIMIT),
+  }), [boss, botId, hub.battleEmotes, hub.emoteLoadout, hub.profile, userId]);
+
+  const localAction = useCallback(async (gameAction: string, extra: Record<string, unknown> = {}): Promise<RoomPayload> => {
+    const current = snapshotRef.current;
+    const next = applyPracticeGameAction(current, userId, gameAction, extra);
+    snapshotRef.current = next;
+    setSnapshot(next);
+    return buildPayload(next);
+  }, [buildPayload, userId]);
+
+  useEffect(() => {
+    const current = snapshotRef.current;
+    if (presentationBusy || current.state.status === 'finished') {
+      setBotThinking(false);
+      return undefined;
+    }
+    const pendingOwner = current.state.pendingTrap?.ownerId;
+    const handIntelOwner = current.state.pendingHandIntel?.viewerId;
+    const extraChoiceOwner = current.state.pendingExtraChoice?.ownerId;
+    const botMustRespond = pendingOwner === botId || handIntelOwner === botId || extraChoiceOwner === botId;
+    const botTurn = current.state.currentPlayerId === botId && !pendingOwner && !handIntelOwner && !extraChoiceOwner;
+    if (!botMustRespond && !botTurn) {
+      setBotThinking(false);
+      return undefined;
+    }
+
+    const coinWait = current.state.coinToss && Date.now() < current.state.coinToss.endsAt
+      ? Math.max(120, current.state.coinToss.endsAt - Date.now() + 120)
+      : 0;
+    const thinkDelay = coinWait || Math.max(150, 410 - boss.threat * 48);
+    setBotThinking(true);
+    const timer = window.setTimeout(() => {
+      const latest = snapshotRef.current;
+      if (latest.state.status === 'finished') { setBotThinking(false); return; }
+      try {
+        const action = chooseBossRaidAction(latest, botId, boss.id);
+        if (!action) { setBotThinking(false); return; }
+        const next = applyPracticeGameAction(latest, botId, action.gameAction, action.payload ?? {});
+        setPresentationBusy(true);
+        snapshotRef.current = next;
+        setSnapshot(next);
+      } catch (error) {
+        console.warn('[ECLIPSE BOSS RAID] boss action skipped', error);
+        setBotThinking(false);
+      }
+    }, thinkDelay);
+    return () => window.clearTimeout(timer);
+  }, [boss.id, boss.threat, botId, presentationBusy, snapshot]);
+
+  const settleRaid = useCallback(async (): Promise<boolean> => {
+    const current = snapshotRef.current;
+    if (current.state.status !== 'finished') return false;
+    if (settlementPromiseRef.current) return settlementPromiseRef.current;
+    setSettling(true);
+    setSettleError('');
+    const request = (async () => {
+      try {
+        const result = await api('economy_finish_boss_raid', {
+          runId,
+          bossId: boss.id,
+          result: current.state.winnerId === userId ? 'win' : 'loss',
+        });
+        if (result.economy) onEconomy(result.economy);
+        if (result.hub) onHub(result.hub);
+        return true;
+      } catch (reason) {
+        setSettleError(reason instanceof Error ? reason.message : '보스 레이드 결과를 저장하지 못했습니다.');
+        return false;
+      } finally {
+        setSettling(false);
+      }
+    })();
+    settlementPromiseRef.current = request;
+    const ok = await request;
+    if (!ok) settlementPromiseRef.current = null;
+    return ok;
+  }, [boss.id, onEconomy, onHub, runId, userId]);
+
+  useEffect(() => {
+    if (snapshot.state.status === 'finished') void settleRaid();
+  }, [settleRaid, snapshot.state.status]);
+
+  const handleLeave = useCallback(async () => {
+    const current = snapshotRef.current;
+    if (current.state.status === 'finished') {
+      const ok = await settleRaid();
+      if (!ok) return;
+    }
+    onExit();
+  }, [onExit, settleRaid]);
+
+  const payload = useMemo(() => buildPayload(snapshot), [buildPayload, snapshot]);
+  const noopRefresh = useCallback((_payload: RoomPayload) => { /* local raid state is authoritative for the battle */ }, []);
+  if (typeof document === 'undefined') return <LoadingScreen text="보스 레이드를 준비하는 중" />;
+
+  return createPortal(
+    <div className={`v19-client v23-client in-duel v35-practice-overlay v51-boss-raid-overlay threat-${boss.threat}`} data-ui-build="v51-boss-raid" data-boss-raid="true">
+      <DuelBoard payload={payload} userId={userId} onRefresh={noopRefresh} onLeave={() => void handleLeave()} syncState="live" lastSyncAt={Date.now()} localAction={localAction} practiceMode="hard" bossRaid={boss} onPresentationBusyChange={setPresentationBusy} onInspectCard={setInspectCardId} />
+      {inspectCardId && CARD_BY_ID[inspectCardId] && <CardDetailModal card={CARD_BY_ID[inspectCardId]} onClose={() => setInspectCardId(null)} />}
+      {botThinking && snapshot.state.status !== 'finished' && <div className={`v35-bot-thinking v51-boss-thinking threat-${boss.threat}`} role="status" aria-live="polite"><span className="v35-bot-thinking-orb" aria-hidden="true"><i /><i /><i /></span><div><small>BOSS AI · THREAT {boss.threat}</small><b>{boss.name}이 다음 수를 계산 중입니다</b></div></div>}
+      {(settling || settleError) && snapshot.state.status === 'finished' && <div className={`v51-raid-settle ${settleError ? 'error' : ''}`} role="status"><b>{settleError ? '보상 저장 대기' : '레이드 결과 저장 중'}</b><span>{settleError || (snapshot.state.winnerId === userId ? `+${boss.reward} COIN 보상을 확정하고 있습니다.` : '패배 결과를 정리하고 있습니다.')}</span>{settleError && <button type="button" onClick={() => void settleRaid()}>다시 저장</button>}</div>}
+    </div>,
+    document.body,
   );
 }
 
@@ -8705,7 +8914,7 @@ export default function Page() {
       case 'collection': return <CollectionView hub={hub} />;
       case 'friends': return <FriendsView hub={hub} userId={session.user.id} onHub={setHub} />;
       case 'profile': return <ProfileView hub={hub} onHub={setHub} />;
-      case 'rewards': return <RewardsView hub={hub} onHub={setHub} onBack={() => setView('home')} />;
+      case 'rewards': return <RewardsView userId={session.user.id} hub={hub} onHub={setHub} onBack={() => setView('home')} />;
       default: return <HomeView hub={hub} onNavigate={setView} serverStatus={serverStatus} />;
     }
   })();

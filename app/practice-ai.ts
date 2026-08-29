@@ -9,6 +9,7 @@ import {
   isExtraDeckCard,
   isUnitCard,
 } from './game-data';
+import { BOSS_RAID_BY_ID, type BossRaidId } from './boss-raid-data';
 import {
   type ActionResult,
   type CardActionTarget,
@@ -41,7 +42,7 @@ export const PRACTICE_DIFFICULTY_LABEL: Record<PracticeDifficulty, string> = {
 };
 
 export interface PracticeBotAction {
-  gameAction: 'play_card' | 'extra_summon' | 'battle_phase' | 'attack' | 'trap_response' | 'draw_turn' | 'sacrifice_energy' | 'sacrifice_field_energy' | 'energy_draw' | 'battle_emote' | 'end_turn' | 'surrender' | 'resolve_timeout' | 'resolve_extra_choice';
+  gameAction: 'play_card' | 'discard_opponent_hand' | 'close_hand_reveal' | 'extra_summon' | 'battle_phase' | 'attack' | 'trap_response' | 'draw_turn' | 'sacrifice_energy' | 'sacrifice_field_energy' | 'energy_draw' | 'battle_emote' | 'end_turn' | 'surrender' | 'resolve_timeout' | 'resolve_extra_choice';
   payload?: Record<string, unknown>;
   label: string;
 }
@@ -163,6 +164,110 @@ export function createPracticeMatch(
   return initializeMatch(playerId, playerDeck, playerExtra, botId, botDeck.deck, botDeck.extra);
 }
 
+
+function pushBossCard(deck: string[], cardId: string, copies: number): void {
+  const card = CARD_BY_ID[cardId];
+  if (!card || isExtraDeckCard(card)) return;
+  for (let index = 0; index < copies; index += 1) {
+    const used = deck.filter((id) => id === card.id).length;
+    if (used >= MAX_COPIES[card.rarity] || deck.length >= DECK_SIZE) break;
+    deck.push(card.id);
+  }
+}
+
+/**
+ * Boss decks are legal 45-card decks. They start from the same strong ranking used by
+ * the HARD practice bot, then deliberately inject the boss's time-phase package.
+ */
+export function buildBossRaidDeck(bossId: BossRaidId): { deck: string[]; extra: string[] } {
+  const boss = BOSS_RAID_BY_ID[bossId];
+  const hard = buildPracticeBotDeck('hard');
+  const deck: string[] = [];
+
+  pushBossCard(deck, boss.signatureCardId, 1);
+  for (const cardId of boss.supportCardIds) {
+    const card = CARD_BY_ID[cardId];
+    if (!card) continue;
+    const wanted = card.rarity === 'legendary' ? 1 : card.rarity === 'epic' ? 2 : 3;
+    pushBossCard(deck, cardId, wanted);
+  }
+
+  // Add other high-value cards from the HARD bot without ever breaking normal copy limits.
+  for (const cardId of hard.deck) {
+    if (deck.length >= DECK_SIZE) break;
+    pushBossCard(deck, cardId, 1);
+  }
+  if (deck.length < DECK_SIZE) {
+    const fallback = rankForDifficulty(CARDS.filter((card) => !isExtraDeckCard(card)), 'hard');
+    for (const card of fallback) {
+      if (deck.length >= DECK_SIZE) break;
+      pushBossCard(deck, card.id, MAX_COPIES[card.rarity]);
+    }
+  }
+
+  // The extra deck uses the strongest legal Extra cards so the raid AI can punish slow boards.
+  const extra = rankForDifficulty(CARDS.filter(isExtraDeckCard), 'hard').slice(0, EXTRA_DECK_SIZE).map((card) => card.id);
+  return { deck: deck.slice(0, DECK_SIZE), extra };
+}
+
+function moveBossDeckCardToHand(snapshot: GameSnapshot, botId: string, cardId: string): boolean {
+  const priv = snapshot.privateStates[botId];
+  if (!priv) return false;
+  if (priv.hand.some((instance) => instance.cardId === cardId)) return true;
+  const index = priv.deck.findIndex((instance) => instance.cardId === cardId);
+  if (index < 0) return false;
+  const [instance] = priv.deck.splice(index, 1);
+  priv.hand.push(instance);
+  snapshot.state.handCounts[botId] = priv.hand.length;
+  snapshot.state.deckCounts[botId] = priv.deck.length;
+  return true;
+}
+
+export function createBossRaidMatch(
+  playerId: string,
+  playerDeck: string[],
+  playerExtra: string[],
+  botId: string,
+  bossId: BossRaidId,
+): GameSnapshot {
+  const boss = BOSS_RAID_BY_ID[bossId];
+  const bossDeck = buildBossRaidDeck(bossId);
+  const snapshot = initializeMatch(playerId, playerDeck, playerExtra, botId, bossDeck.deck, bossDeck.extra);
+  const state = snapshot.state;
+  const priv = snapshot.privateStates[botId];
+
+  // Boss identity: more core, a phase advantage and a small permanent energy head start.
+  state.core[botId] = boss.core;
+  state.coreMax = { ...(state.coreMax ?? {}), [playerId]: state.coreMax?.[playerId] ?? 30, [botId]: boss.core };
+  state.eclipsePhase = boss.phase;
+  state.eclipseLastChangeSource = 'effect';
+  const permanentEnergyBonus = Math.max(1, boss.startingEnergy - 1);
+  state.energyMaxBonus = { ...(state.energyMaxBonus ?? {}), [botId]: permanentEnergyBonus };
+  state.energy[botId] = { current: boss.startingEnergy, max: boss.startingEnergy };
+
+  // Seed the graveyard so late-time bosses can actually satisfy their authored summon rules.
+  if (priv) {
+    let seeded = 0;
+    for (let index = priv.deck.length - 1; index >= 0 && seeded < boss.graveSeed; index -= 1) {
+      const instance = priv.deck[index];
+      if (!instance || instance.cardId === boss.signatureCardId) continue;
+      priv.deck.splice(index, 1);
+      state.graveyards[botId].push(instance.cardId);
+      seeded += 1;
+    }
+    moveBossDeckCardToHand(snapshot, botId, boss.signatureCardId);
+    for (let index = 0; index < boss.bonusOpeningCards; index += 1) {
+      const instance = priv.deck.shift();
+      if (!instance) break;
+      priv.hand.push(instance);
+    }
+    state.handCounts[botId] = priv.hand.length;
+    state.deckCounts[botId] = priv.deck.length;
+  }
+
+  return snapshot;
+}
+
 export function applyPracticeGameAction(
   snapshot: GameSnapshot,
   playerId: string,
@@ -267,6 +372,15 @@ function enumerateBotActions(snapshot: GameSnapshot, botId: string): PracticeBot
   const botPrivate = snapshot.privateStates[botId];
   const opponentId = opponentOf(snapshot, botId);
   if (!botPrivate || !opponentId || state.status !== 'active') return [];
+
+  if (state.pendingHandIntel) {
+    if (state.pendingHandIntel.viewerId !== botId) return [];
+    if (state.pendingHandIntel.mode === 'discard') {
+      const targetHand = snapshot.privateStates[state.pendingHandIntel.targetId]?.hand ?? [];
+      if (targetHand.length > 0) return targetHand.map((instance) => ({ gameAction: 'discard_opponent_hand', payload: { instanceId: instance.instanceId }, label: '상대 손패 제거' }));
+    }
+    return [{ gameAction: 'close_hand_reveal', label: '손패 확인 종료' }];
+  }
 
   if (state.pendingTrap) {
     if (state.pendingTrap.ownerId !== botId) return [];
@@ -474,6 +588,8 @@ function actionBias(snapshot: GameSnapshot, botId: string, action: PracticeBotAc
     }
     return 10 + (temporalKind ? 6 : 0);
   }
+  if (action.gameAction === 'discard_opponent_hand') return 30;
+  if (action.gameAction === 'close_hand_reveal') return 1;
   if (action.gameAction === 'energy_draw') return 3;
   if (action.gameAction === 'draw_turn') return state.turnActionTaken ? -100 : 1;
   if (action.gameAction === 'sacrifice_field_energy') return -14;
@@ -525,3 +641,75 @@ export function choosePracticeBotAction(snapshot: GameSnapshot, botId: string, d
   const nonDestructive = actions.filter((action) => action.gameAction !== 'sacrifice_field_energy');
   return randomItem(nonDestructive.length ? nonDestructive : actions);
 }
+
+function bossActionBias(snapshot: GameSnapshot, botId: string, bossId: BossRaidId, action: PracticeBotAction): number {
+  const boss = BOSS_RAID_BY_ID[bossId];
+  let bias = 0;
+  if (action.gameAction === 'play_card') {
+    const instanceId = String(action.payload?.instanceId ?? '');
+    const cardId = snapshot.privateStates[botId]?.hand.find((instance) => instance.instanceId === instanceId)?.cardId;
+    const card = cardId ? CARD_BY_ID[cardId] : undefined;
+    if (cardId === boss.signatureCardId) bias += 180 + boss.threat * 35;
+    if (card?.eclipseAffinity === boss.phase) bias += 16 + boss.threat * 4;
+    if (card?.effect?.kind === 'phase_set' && card.effect.phase === boss.phase) bias += 28;
+    if (card?.onSummon?.kind === 'phase_set' && card.onSummon.phase === boss.phase) bias += 28;
+  }
+  if (action.gameAction === 'extra_summon') bias += 22 + boss.threat * 5;
+  if (action.gameAction === 'trap_response' && action.payload?.activate === true) bias += 18 + boss.threat * 3;
+  if (action.gameAction === 'attack') bias += boss.threat * 3;
+  if (action.gameAction === 'end_turn') bias -= boss.threat * 4;
+  return bias;
+}
+
+/**
+ * Raid AI is intentionally stronger than HARD practice:
+ * - HARD evaluates the best immediate action.
+ * - Boss AI evaluates that action and, on higher threats, the best legal follow-up too.
+ */
+export function chooseBossRaidAction(snapshot: GameSnapshot, botId: string, bossId: BossRaidId): PracticeBotAction | null {
+  const actions = enumerateBotActions(snapshot, botId);
+  if (actions.length === 0) return null;
+  const boss = BOSS_RAID_BY_ID[bossId];
+
+  if (snapshot.state.pendingTrap?.ownerId === botId) {
+    const scored = scoredCandidates(snapshot, botId, actions)
+      .map((entry) => ({ ...entry, score: entry.score + bossActionBias(snapshot, botId, bossId, entry.action) }))
+      .sort((a, b) => b.score - a.score);
+    return scored[0]?.action ?? actions[0];
+  }
+
+  const immediate = scoredCandidates(snapshot, botId, actions)
+    .map((entry) => ({ ...entry, score: entry.score + bossActionBias(snapshot, botId, bossId, entry.action) }))
+    .sort((a, b) => b.score - a.score);
+
+  // Threat 1 still uses the same best-action competence as HARD, never weaker.
+  if (boss.threat === 1 || immediate.length <= 1) return immediate[0]?.action ?? actions[0];
+
+  const lookAheadCount = Math.min(immediate.length, 3 + boss.threat);
+  const followWeight = 0.26 + boss.threat * 0.07;
+  let bestAction = immediate[0]?.action ?? actions[0];
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  for (const entry of immediate.slice(0, lookAheadCount)) {
+    let total = entry.score;
+    try {
+      const next = applyPracticeGameAction(snapshot, botId, entry.action.gameAction, entry.action.payload ?? {});
+      if (next.state.status === 'finished' && next.state.winnerId === botId) return entry.action;
+      const followActions = enumerateBotActions(next, botId);
+      if (followActions.length > 0) {
+        const follow = scoredCandidates(next, botId, followActions)
+          .map((candidate) => ({ ...candidate, score: candidate.score + bossActionBias(next, botId, bossId, candidate.action) }))
+          .sort((a, b) => b.score - a.score)[0];
+        if (follow) total += follow.score * followWeight;
+      }
+    } catch {
+      total -= 100000;
+    }
+    if (total > bestScore) {
+      bestScore = total;
+      bestAction = entry.action;
+    }
+  }
+  return bestAction;
+}
+

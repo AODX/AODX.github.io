@@ -11530,25 +11530,6 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
 .v50-study-grid article>div span { color:#738197; font-size:8.5px; line-height:1.35; }
 .v50-study-grid .ghost-button { grid-column:2; min-height:32px; padding:5px 8px; font-size:9px; }
 
-.v50-active-expedition { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:18px; margin-bottom:12px; padding:16px 18px; border:1px solid rgba(105,156,255,.24); border-radius:14px; background:radial-gradient(circle at 15% 50%,rgba(74,123,220,.12),transparent 32%),rgba(9,15,25,.84); }
-.v50-active-expedition.complete { border-color:rgba(102,218,162,.34); background:radial-gradient(circle at 15% 50%,rgba(56,170,120,.13),transparent 32%),rgba(9,20,20,.84); }
-.v50-active-expedition h3 { margin:3px 0 4px; font-size:17px; }
-.v50-active-expedition p { margin:0; color:#75859b; font-size:10px; }
-.v50-active-expedition>span { display:grid; gap:1px; min-width:130px; text-align:right; }
-.v50-active-expedition>span small { color:#6f7e93; font-size:8px; }
-.v50-active-expedition>span b { color:#c7d8ff; font-size:17px; }
-.v50-active-expedition>span em { color:#edcb79; font-size:9px; font-style:normal; }
-.v50-expedition-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
-.v50-expedition-grid article { position:relative; overflow:hidden; min-height:210px; padding:17px; border:1px solid rgba(255,255,255,.08); border-radius:14px; background:linear-gradient(155deg,rgba(17,24,38,.9),rgba(8,12,20,.94)); }
-.v50-expedition-grid article.used,.v50-expedition-grid article.locked { opacity:.66; }
-.v50-expedition-grid article>small { color:#73849a; font-size:9px; }
-.v50-expedition-grid h3 { margin:6px 0 7px; font-size:17px; }
-.v50-expedition-grid p { min-height:48px; margin:0; color:#7e8ca1; font-size:10px; line-height:1.5; }
-.v50-expedition-grid footer { position:absolute; left:17px; right:17px; bottom:16px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.v50-expedition-grid footer b { color:#e8c66f; font-size:13px; }
-.v50-expedition-grid footer .ghost-button { min-height:35px; font-size:9px; }
-.v50-expedition-orbit { display:grid; place-items:center; width:42px; height:42px; margin-bottom:13px; border:1px solid rgba(107,155,255,.2); border-radius:50%; box-shadow:0 0 0 6px rgba(107,155,255,.025); color:#9dbaff; }
-
 .v50-reward-two-column { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
 .v50-reward-section.compact { padding:18px; }
 .v50-milestone-list,.v50-achievement-list { display:grid; gap:7px; }
@@ -11583,11 +11564,8 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
   .v50-reward-hero-actions>span { flex:1; }
   .v50-reward-section { padding:15px; }
   .v50-reward-section>header { align-items:flex-start; flex-direction:column; }
-  .v50-daily-grid,.v50-expedition-grid,.v50-reward-two-column { grid-template-columns:1fr; }
+  .v50-daily-grid,.v50-reward-two-column { grid-template-columns:1fr; }
   .v50-study-grid { grid-template-columns:1fr; }
-  .v50-active-expedition { grid-template-columns:1fr; }
-  .v50-active-expedition>span { text-align:left; }
-  .v50-active-expedition>.primary-button { width:100%; }
 }
 @media (max-width:420px) {
   .v50-economy-summary { grid-template-columns:1fr 1fr; }
@@ -11598,3 +11576,110 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
   .v50-achievement-list article { grid-template-columns:26px minmax(0,1fr) auto; }
   .v50-achievement-list article>button { grid-column:1 / -1; width:100%; }
 }
+
+/* ========================================================================== */
+/* V51 - BOSS RAID / UNIQUE EXTRA SUMMON / TRAP VISIBILITY FIX               */
+/* ========================================================================== */
+
+/* Trap resolution must never black out the opponent screen. Keep the reveal local and readable. */
+.v23-client.in-duel .v18-cinematic-layer.kind-trap {
+  background:transparent!important;
+  backdrop-filter:none!important;
+}
+.v23-client.in-duel .v18-cinematic-layer.kind-trap .v22-cinematic-letterbox { display:none!important; }
+.v23-client.in-duel .v18-cinematic-layer.kind-trap .v22-screen-flash { opacity:.18!important; }
+.v23-client.in-duel .v30-trap-response-layer.waiting {
+  background:transparent!important;
+  backdrop-filter:none!important;
+}
+.v23-client.in-duel .v18-cinematic-layer.kind-trap.v46-trap-await-ack .v31e-trap-reveal {
+  box-shadow:0 18px 58px rgba(0,0,0,.34),0 0 34px rgba(255,73,135,.14)!important;
+}
+
+/* Reward center: boss raid replaces the old expedition surface. */
+.v23-client .v51-reward-hero { border-color:rgba(231,97,117,.24); background:radial-gradient(circle at 83% 18%,rgba(198,49,91,.14),transparent 33%),radial-gradient(circle at 12% 72%,rgba(104,102,228,.12),transparent 38%),linear-gradient(145deg,rgba(20,20,35,.98),rgba(8,11,20,.98)); }
+.v51-boss-section { border-color:rgba(239,97,123,.15); overflow:hidden; position:relative; }
+.v51-boss-section::before { content:"";position:absolute;inset:-160px auto auto 62%;width:430px;height:430px;border-radius:50%;border:1px solid rgba(225,83,117,.09);box-shadow:0 0 0 42px rgba(225,83,117,.018),0 0 0 84px rgba(121,91,231,.012);pointer-events:none; }
+.v51-boss-grid { position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px; }
+.v51-boss-card { position:relative;display:grid;grid-template-rows:156px minmax(0,1fr) auto;min-height:480px;overflow:hidden;border:1px solid rgba(255,255,255,.085);border-radius:17px;background:linear-gradient(160deg,rgba(22,25,39,.96),rgba(7,10,17,.98)); }
+.v51-boss-card::after { content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(145deg,rgba(255,255,255,.025),transparent 40%,rgba(166,54,82,.05)); }
+.v51-boss-card.threat-4,.v51-boss-card.threat-5 { border-color:rgba(228,84,121,.25); }
+.v51-boss-card.threat-5 { box-shadow:inset 0 0 52px rgba(120,45,121,.08); }
+.v51-boss-card.cleared { opacity:.68;filter:saturate(.62); }
+.v51-boss-card.active { border-color:rgba(246,204,100,.48);box-shadow:inset 0 0 0 1px rgba(246,204,100,.12),0 0 26px rgba(246,204,100,.08); }
+.v51-boss-card-art { position:relative;overflow:hidden;background:radial-gradient(circle at 50% 30%,rgba(255,255,255,.09),transparent 58%),#080c14; }
+.v51-boss-card-art .card-illustration { width:100%;height:100%;min-height:0;border:0!important;border-radius:0!important; }
+.v51-boss-card-art::after { content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 38%,rgba(7,10,17,.97));pointer-events:none; }
+.v51-boss-card.threat-5 .v51-boss-card-art::before { content:"";position:absolute;z-index:3;inset:14px;border:1px solid rgba(240,123,210,.24);clip-path:polygon(50% 0,61% 36%,100% 50%,61% 64%,50% 100%,39% 64%,0 50%,39% 36%);animation:v51BossSigil 4.2s linear infinite;pointer-events:none; }
+.v51-boss-card-copy { position:relative;z-index:2;display:flex;flex-direction:column;padding:16px 17px 10px; }
+.v51-boss-card-copy>small { color:#8798b0;font-size:9px;font-weight:900;letter-spacing:.13em; }
+.v51-boss-card-copy h3 { margin:5px 0 2px;font-size:20px;letter-spacing:-.03em; }
+.v51-boss-card-copy>b { color:#a8b3c3;font-size:10px;font-weight:700; }
+.v51-threat { margin:8px 0 6px;color:#ebc86f;font-size:12px;letter-spacing:.11em;text-shadow:0 0 16px rgba(234,197,96,.18); }
+.v51-boss-card.threat-4 .v51-threat,.v51-boss-card.threat-5 .v51-threat { color:#ff9eb7; }
+.v51-boss-card-copy p { min-height:56px;margin:0 0 9px;color:#7f8ca0;font-size:10px;line-height:1.55; }
+.v51-boss-card-copy ul { display:grid;gap:4px;margin:auto 0 0;padding:0;list-style:none; }
+.v51-boss-card-copy li { display:flex;justify-content:space-between;gap:8px;padding-top:5px;border-top:1px solid rgba(255,255,255,.05);color:#6f7d91;font-size:9px; }
+.v51-boss-card-copy li strong { color:#d9e0eb;font-size:9px;text-align:right; }
+.v51-boss-card footer { position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px 16px;border-top:1px solid rgba(255,255,255,.06); }
+.v51-boss-card footer>div { display:grid;gap:2px; }
+.v51-boss-card footer small { color:#718099;font-size:8px;letter-spacing:.1em; }
+.v51-boss-card footer strong { color:#efd078;font-size:14px; }
+.v51-boss-card.threat-5 footer strong { color:#ffbdd5;font-size:17px; }
+.v51-boss-card footer .primary-button { min-height:38px;padding:8px 12px;font-size:9px;white-space:nowrap; }
+.v51-active-raid,.v51-raid-deck-warning { position:relative;z-index:2;display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 14px;border:1px solid rgba(240,193,86,.22);border-radius:11px;background:rgba(64,46,14,.19); }
+.v51-active-raid>span { color:#d4aa4c;font-size:8px;font-weight:950;letter-spacing:.14em; }
+.v51-active-raid>b { color:#f0d284;font-size:11px; }
+.v51-active-raid>small { margin-left:auto;color:#8c98aa;font-size:9px; }
+.v51-raid-deck-warning { border-color:rgba(255,111,116,.2);background:rgba(81,18,24,.18);align-items:flex-start;flex-direction:column;gap:2px; }
+.v51-raid-deck-warning b { color:#ffc0c2;font-size:11px; }.v51-raid-deck-warning span { color:#9e858d;font-size:9px; }
+.v51-boss-rule { position:relative;z-index:2;display:flex;gap:12px;align-items:center;margin-top:12px;padding:11px 14px;border:1px solid rgba(255,255,255,.07);border-radius:11px;background:rgba(8,12,20,.68); }
+.v51-boss-rule b { flex:0 0 auto;color:#debd67;font-size:9px;letter-spacing:.12em; }.v51-boss-rule span { color:#8491a4;font-size:9px;line-height:1.45; }
+
+/* In-duel boss identity. */
+.v23-client.in-duel .v51-boss-chip { border-color:rgba(235,101,130,.26)!important;background:rgba(77,19,36,.4)!important; }
+.v23-client.in-duel .v51-boss-chip span { color:#ffbdd0!important; }
+.v51-boss-raid-overlay::before { content:"";position:absolute;z-index:2;inset:0;pointer-events:none;border:1px solid rgba(226,82,115,.1);box-shadow:inset 0 0 70px rgba(109,22,51,.04); }
+.v51-boss-thinking { border-color:rgba(237,89,124,.24)!important; }
+.v51-raid-settle { position:absolute;z-index:10020;left:50%;bottom:28px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;max-width:min(620px,calc(100% - 28px));padding:11px 14px;border:1px solid rgba(104,211,161,.28);border-radius:11px;background:rgba(7,20,17,.94);box-shadow:0 18px 54px rgba(0,0,0,.32); }
+.v51-raid-settle b { color:#a9f2ce;font-size:10px;white-space:nowrap; }.v51-raid-settle span { color:#9db0a8;font-size:9px; }.v51-raid-settle.error { border-color:rgba(255,101,113,.3);background:rgba(43,10,16,.95); }.v51-raid-settle.error b { color:#ffc0c5; }.v51-raid-settle button { min-height:31px;border:1px solid rgba(255,255,255,.12);border-radius:8px;background:rgba(255,255,255,.06);color:#eef3fb;font-size:9px;cursor:pointer; }
+
+/* Every Extra card gets deterministic card-ID geometry; rarity controls intensity. */
+.v23-client.in-duel .v31e-extra-cinematic .v32-extra-unique-field { isolation:isolate; }
+.v23-client.in-duel .v51-extra-constellation { position:absolute;z-index:2;inset:8%;width:84%;height:84%;overflow:visible;opacity:.62;transform:rotate(var(--ritual-angle));filter:drop-shadow(0 0 calc(6px * var(--ritual-intensity)) color-mix(in srgb,var(--ritual) 55%,transparent));animation:v51Constellation 2.8s ease-in-out both; }
+.v23-client.in-duel .v51-extra-constellation polyline { fill:none;stroke:color-mix(in srgb,var(--ritual-secondary) 72%,transparent);stroke-width:.45;stroke-dasharray:2 3;vector-effect:non-scaling-stroke; }
+.v23-client.in-duel .v51-extra-constellation circle { fill:color-mix(in srgb,var(--ritual) 72%,white);stroke:rgba(255,255,255,.58);stroke-width:.28;transform-box:fill-box;transform-origin:center;animation:v51ConstellationNode .68s var(--node-delay) ease-out both; }
+.v23-client.in-duel .v51-extra-crest { position:absolute;z-index:3;left:50%;top:50%;width:38%;height:38%;transform:translate(-50%,-50%) rotate(var(--ritual-angle));border:1px solid color-mix(in srgb,var(--ritual) 58%,white);border-radius:50%;box-shadow:inset 0 0 calc(30px * var(--ritual-intensity)) color-mix(in srgb,var(--ritual) 14%,transparent),0 0 calc(22px * var(--ritual-intensity)) color-mix(in srgb,var(--ritual) 16%,transparent);animation:v51CrestRise var(--ritual-speed) cubic-bezier(.2,.8,.2,1) both; }
+.v23-client.in-duel .v51-extra-crest>i { position:absolute;left:50%;top:50%;width:72%;height:1px;transform-origin:0 50%;background:linear-gradient(90deg,color-mix(in srgb,var(--ritual-secondary) 80%,white),transparent); }
+.v23-client.in-duel .v51-extra-crest>i:nth-child(1){transform:rotate(0deg)}.v23-client.in-duel .v51-extra-crest>i:nth-child(2){transform:rotate(90deg)}.v23-client.in-duel .v51-extra-crest>i:nth-child(3){transform:rotate(180deg)}.v23-client.in-duel .v51-extra-crest>i:nth-child(4){transform:rotate(270deg)}
+.v23-client.in-duel .v51-extra-crest>b { position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#fff;font-size:clamp(24px,5vw,48px);text-shadow:0 0 calc(18px * var(--ritual-intensity)) var(--ritual); }
+.v23-client.in-duel .v51-extra-burst { position:absolute;z-index:1;left:50%;top:50%;width:1px;height:1px; }
+.v23-client.in-duel .v51-extra-burst>i { --burst-angle:calc(var(--burst-index) * 29deg + var(--burst-seed) * 3deg);position:absolute;left:-2px;top:-11px;width:4px;height:22px;border-radius:999px;background:linear-gradient(180deg,color-mix(in srgb,var(--ritual-secondary) 90%,white),transparent);transform-origin:2px calc(95px + var(--burst-seed) * 3px);transform:rotate(var(--burst-angle)) translateY(-38px) scaleY(.18);opacity:0;animation:v51ExtraBurst .95s calc(var(--burst-index) * 12ms) ease-out both; }
+.v23-client.in-duel .v31e-extra-cinematic.rarity-legendary .v51-extra-constellation { opacity:.92;stroke-width:.7; }
+.v23-client.in-duel .v31e-extra-cinematic.rarity-legendary .v51-extra-crest { width:46%;height:46%;border-width:2px;box-shadow:inset 0 0 48px color-mix(in srgb,var(--ritual) 19%,transparent),0 0 54px color-mix(in srgb,var(--ritual) 29%,transparent),0 0 110px color-mix(in srgb,var(--ritual-secondary) 12%,transparent); }
+.v23-client.in-duel .v31e-extra-cinematic.rarity-legendary .v31e-result-card { filter:drop-shadow(0 0 28px color-mix(in srgb,var(--ritual) 36%,transparent)); }
+.v23-client.in-duel .v31e-extra-cinematic.rarity-epic .v51-extra-crest { width:41%;height:41%; }
+.v23-client.in-duel .v31e-extra-cinematic.rarity-common .v51-extra-constellation { opacity:.42; }
+
+/* 12 visual grammars + unique constellation coordinates means card IDs do not share one identical summon. */
+.v23-client.in-duel .v51-extra-variant-0 .v51-extra-crest{clip-path:polygon(50% 0,61% 36%,100% 50%,61% 64%,50% 100%,39% 64%,0 50%,39% 36%)}
+.v23-client.in-duel .v51-extra-variant-1 .v51-extra-crest{border-radius:12%;transform:translate(-50%,-50%) rotate(calc(var(--ritual-angle) + 45deg))}
+.v23-client.in-duel .v51-extra-variant-2 .v51-extra-crest{border-radius:50% 8% 50% 8%;transform:translate(-50%,-50%) rotate(calc(var(--ritual-angle) - 24deg))}
+.v23-client.in-duel .v51-extra-variant-3 .v51-extra-crest{clip-path:polygon(50% 0,68% 30%,100% 36%,77% 59%,82% 100%,50% 77%,18% 100%,23% 59%,0 36%,32% 30%)}
+.v23-client.in-duel .v51-extra-variant-4 .v51-extra-crest{border-radius:50%;border-style:dashed;transform:translate(-50%,-50%) rotate(calc(var(--ritual-angle) + 90deg))}
+.v23-client.in-duel .v51-extra-variant-5 .v51-extra-crest{clip-path:polygon(50% 0,92% 25%,92% 75%,50% 100%,8% 75%,8% 25%)}
+.v23-client.in-duel .v51-extra-variant-6 .v51-extra-crest{border-radius:18% 50% 18% 50%;transform:translate(-50%,-50%) skewX(-12deg) rotate(var(--ritual-angle))}
+.v23-client.in-duel .v51-extra-variant-7 .v51-extra-crest{clip-path:polygon(50% 0,63% 37%,100% 50%,63% 63%,50% 100%,37% 63%,0 50%,37% 37%);border-style:dotted}
+.v23-client.in-duel .v51-extra-variant-8 .v51-extra-crest{border-radius:50%;transform:translate(-50%,-50%) scaleX(.66) rotate(calc(var(--ritual-angle) + 18deg))}
+.v23-client.in-duel .v51-extra-variant-9 .v51-extra-crest{border-radius:9px;transform:translate(-50%,-50%) scaleY(.72) rotate(calc(var(--ritual-angle) - 45deg))}
+.v23-client.in-duel .v51-extra-variant-10 .v51-extra-crest{clip-path:polygon(50% 0,58% 38%,86% 14%,62% 44%,100% 50%,62% 56%,86% 86%,58% 62%,50% 100%,42% 62%,14% 86%,38% 56%,0 50%,38% 44%,14% 14%,42% 38%)}
+.v23-client.in-duel .v51-extra-variant-11 .v51-extra-crest{border-radius:42% 58% 36% 64%;transform:translate(-50%,-50%) rotate(calc(var(--ritual-angle) + 135deg))}
+
+@keyframes v51Constellation { 0%{opacity:0;transform:rotate(var(--ritual-angle)) scale(.45)}28%{opacity:.9}76%{opacity:.72}100%{opacity:0;transform:rotate(calc(var(--ritual-angle) + 28deg)) scale(1.14)} }
+@keyframes v51ConstellationNode { 0%{opacity:0;transform:scale(.1)}45%{opacity:1;transform:scale(1.8)}100%{opacity:.62;transform:scale(1)} }
+@keyframes v51CrestRise { 0%{opacity:0;scale:.35;rotate:-24deg}28%{opacity:1;scale:1.08}78%{opacity:.88}100%{opacity:0;scale:1.22;rotate:18deg} }
+@keyframes v51ExtraBurst { 0%{opacity:0;transform:rotate(var(--burst-angle)) translateY(-28px) scaleY(.12)}24%{opacity:.9}100%{opacity:0;transform:rotate(var(--burst-angle)) translateY(calc(-128px - var(--burst-seed) * 4px)) scaleY(1.1)} }
+@keyframes v51BossSigil { to{transform:rotate(360deg)} }
+
+@media (max-width:1100px) { .v51-boss-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.v51-boss-card:last-child:nth-child(odd){grid-column:1 / -1} }
+@media (max-width:760px) { .v51-boss-grid{grid-template-columns:1fr}.v51-boss-card:last-child:nth-child(odd){grid-column:auto}.v51-boss-card{min-height:0;grid-template-rows:150px auto auto}.v51-active-raid{align-items:flex-start;flex-direction:column}.v51-active-raid>small{margin-left:0}.v51-boss-rule{align-items:flex-start;flex-direction:column}.v51-raid-settle{bottom:18px;align-items:flex-start;flex-direction:column} }
