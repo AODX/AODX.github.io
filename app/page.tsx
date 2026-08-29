@@ -2723,7 +2723,7 @@ function RewardsView({ userId, hub, onHub, onBack }: { userId: string; hub: HubD
         <div>
           <small>NON-PVP ECONOMY · V51</small>
           <h1>이클립스 보상 센터</h1>
-          <p>원정은 제거되었습니다. 대신 매일 <b>무작위 3명의 보스</b>가 등장하며, 각 보스의 클리어 코인은 하루 한 번만 받을 수 있습니다.</p>
+          <p>원정은 제거되었습니다. 대신 <b>일반 카드 전용 · 13개 시리즈 전용 · 최상위 TIME 군주</b>로 구성된 대형 보스 로스터에서 매일 3명이 등장합니다.</p>
         </div>
         <div className="v50-reward-hero-actions"><span><small>현재 보유</small><b>{hub.wallet.coins.toLocaleString()} COIN</b></span><button className="ghost-button" onClick={onBack}>홈으로</button></div>
       </header>
@@ -2738,7 +2738,7 @@ function RewardsView({ userId, hub, onHub, onBack }: { userId: string; hub: HubD
       </section>
 
       <section className="v50-reward-section v51-boss-section">
-        <header><div><small>BOSS RAID</small><h2>오늘의 3보스</h2><p>전체 보스 중 3명이 매일 무작위로 등장합니다. 최약 보스도 연습모드 어려움 AI 이상이며, 위협도가 높을수록 추가 자원과 더 깊은 수읽기를 사용합니다.</p></div><strong>{economy.bossRaids.clearedCount} / 3 CLEAR</strong></header>
+        <header><div><small>BOSS RAID</small><h2>오늘의 3보스</h2><p>일반 등급 전용 보스, 각 시리즈 전용 보스, 그리고 최상위 TIME 보스가 서로 다른 덱으로 등장합니다. TIME 5군주는 모두 최고 위협도이며 희귀하게 오늘의 레이드에 출현합니다.</p></div><strong>{economy.bossRaids.clearedCount} / 3 CLEAR</strong></header>
         {!activeDeckReady && <div className="v51-raid-deck-warning"><b>보스 레이드에는 완성된 활성 덱이 필요합니다.</b><span>메인 45장 + 엑스트라 6장을 정상 구성한 뒤 다시 도전하세요.</span></div>}
         {activeRaid && <div className="v51-active-raid"><span>ACTIVE RAID</span><b>{BOSS_RAID_BY_ID[activeRaid.bossId]?.name ?? '보스'}</b><small>다른 보스를 시작하기 전에 이 전투를 마쳐야 합니다.</small></div>}
         <div className="v51-boss-grid">
@@ -2750,19 +2750,19 @@ function RewardsView({ userId, hub, onHub, onBack }: { userId: string; hub: HubD
               <article key={boss.id} className={`v51-boss-card threat-${boss.threat} ${boss.clearedToday ? 'cleared' : ''} ${isActive ? 'active' : ''}`}>
                 <div className="v51-boss-card-art">{signature ? <CardIllustration card={signature} hero /> : <span>?</span>}<i /></div>
                 <div className="v51-boss-card-copy">
-                  <small>{ECLIPSE_PHASE_LABEL[boss.phase]} · THREAT {boss.threat}</small>
+                  <small>{boss.apex ? 'APEX TIME' : boss.deckKind === 'series' ? 'SERIES BOSS' : 'COMMON BOSS'} · {ECLIPSE_PHASE_LABEL[boss.phase]} · THREAT {boss.threat}</small>
                   <h3>{boss.name}</h3>
                   <b>{boss.epithet}</b>
                   <div className="v51-threat" aria-label={`위협도 ${boss.threat} / 5`}>{v51ThreatLabel(boss.threat)}</div>
                   <p>{boss.description}</p>
-                  <ul><li>보스 코어 <strong>{boss.core}</strong></li><li>시작 ENERGY <strong>{boss.startingEnergy}</strong></li><li>대표 카드 <strong>{signature?.name ?? boss.signatureCardId}</strong></li></ul>
+                  <ul><li>덱 구성 <strong>{boss.deckThemeLabel}</strong></li><li>보스 코어 <strong>{boss.core}</strong></li><li>시작 ENERGY <strong>{boss.startingEnergy}</strong></li><li>대표 카드 <strong>{signature?.name ?? boss.signatureCardId}</strong></li></ul>
                 </div>
                 <footer><div><small>CLEAR REWARD</small><strong>+{boss.reward.toLocaleString()} COIN</strong></div><button className="primary-button" disabled={!activeDeckReady || boss.clearedToday || blockedByOther || Boolean(busy)} onClick={() => void startBossRaid(boss.id)}>{boss.clearedToday ? '오늘 클리어 완료' : isActive ? '전투 재개' : blockedByOther ? '다른 레이드 진행 중' : busy === `boss:${boss.id}` ? '입장 중...' : '보스 도전'}</button></footer>
               </article>
             );
           })}
         </div>
-        <div className="v51-boss-rule"><b>RAID RULE</b><span>오늘 표시된 보스 3명만 도전 · 각 보스 클리어 코인 하루 1회 · 패배 시 같은 보스 재도전 가능 · 최종 보스 보상 700코인</span></div>
+        <div className="v51-boss-rule"><b>RAID RULE</b><span>총 19종의 보스 중 오늘 3명 등장 · 각 보스 클리어 코인 하루 1회 · 패배 시 재도전 가능 · TIME 5군주는 전부 THREAT 5 · 개기일식의 조율자 700코인</span></div>
       </section>
 
       <section className="v50-reward-section">
@@ -8055,7 +8055,7 @@ function BossRaidDuel({ userId, hub, activeDeck, boss, runId, onHub, onEconomy, 
   if (typeof document === 'undefined') return <LoadingScreen text="보스 레이드를 준비하는 중" />;
 
   return createPortal(
-    <div className={`v19-client v23-client in-duel v35-practice-overlay v51-boss-raid-overlay threat-${boss.threat}`} data-ui-build="v51-boss-raid" data-boss-raid="true">
+    <div className={`v19-client v23-client in-duel v35-practice-overlay v51-boss-raid-overlay threat-${boss.threat}`} data-ui-build="v52-boss-raid" data-boss-raid="true">
       <DuelBoard payload={payload} userId={userId} onRefresh={noopRefresh} onLeave={() => void handleLeave()} syncState="live" lastSyncAt={Date.now()} localAction={localAction} practiceMode="hard" bossRaid={boss} onPresentationBusyChange={setPresentationBusy} onInspectCard={setInspectCardId} />
       {inspectCardId && CARD_BY_ID[inspectCardId] && <CardDetailModal card={CARD_BY_ID[inspectCardId]} onClose={() => setInspectCardId(null)} />}
       {botThinking && snapshot.state.status !== 'finished' && <div className={`v35-bot-thinking v51-boss-thinking threat-${boss.threat}`} role="status" aria-live="polite"><span className="v35-bot-thinking-orb" aria-hidden="true"><i /><i /><i /></span><div><small>BOSS AI · THREAT {boss.threat}</small><b>{boss.name}이 다음 수를 계산 중입니다</b></div></div>}

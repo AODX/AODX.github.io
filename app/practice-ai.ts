@@ -4,6 +4,7 @@ import {
   DECK_SIZE,
   EXTRA_DECK_SIZE,
   MAX_COPIES,
+  MAX_PRIMARY_SERIES_CARDS,
   type CardDefinition,
   extraRequiredUnitCount,
   isExtraDeckCard,
@@ -175,16 +176,91 @@ function pushBossCard(deck: string[], cardId: string, copies: number): void {
   }
 }
 
+function pushBossExtraCard(extra: string[], cardId: string, copies: number): void {
+  const card = CARD_BY_ID[cardId];
+  if (!card || !isExtraDeckCard(card)) return;
+  for (let index = 0; index < copies; index += 1) {
+    const used = extra.filter((id) => id === card.id).length;
+    if (used >= MAX_COPIES[card.rarity] || extra.length >= EXTRA_DECK_SIZE) break;
+    extra.push(card.id);
+  }
+}
+
+function fillBossExtra(extra: string[], pool: CardDefinition[]): void {
+  const ranked = rankForDifficulty(pool.filter(isExtraDeckCard), 'hard');
+  let pass = 0;
+  while (extra.length < EXTRA_DECK_SIZE && pass < 4) {
+    for (const card of ranked) {
+      if (extra.length >= EXTRA_DECK_SIZE) break;
+      pushBossExtraCard(extra, card.id, 1);
+    }
+    pass += 1;
+  }
+}
+
+function isTemporalBossCard(card: CardDefinition): boolean {
+  return Boolean(
+    card.eclipseAffinity
+    || card.temporalProfileName
+    || card.eclipseSetOnSummon
+    || card.eclipseSummonPhases?.length
+    || card.eclipsePlayPhases?.length
+    || card.eclipseTriggerPhases?.length
+    || card.eclipsePhasePulses?.length
+    || card.seriesId === 'chronorium'
+    || /^v(?:37|41|44)_/.test(card.id),
+  );
+}
+
 /**
- * Boss decks are legal 45-card decks. They start from the same strong ranking used by
- * the HARD practice bot, then deliberately inject the boss's time-phase package.
+ * V52 raid decks have three genuinely different construction rules:
+ * - COMMON: every main-deck card is common rarity. No Extra card is used because the
+ *   current catalogue has no common-rarity Fusion/Evolution card.
+ * - SERIES: exactly up to the normal 30-card single-series cap is filled with the
+ *   requested series, then strong generic/TIME CORE support completes the legal deck.
+ * - TIME: the signature Time ruler and its authored phase package are prioritised,
+ *   followed by other temporal cards before generic high-value support.
  */
 export function buildBossRaidDeck(bossId: BossRaidId): { deck: string[]; extra: string[] } {
   const boss = BOSS_RAID_BY_ID[bossId];
-  const hard = buildPracticeBotDeck('hard');
+  const main = CARDS.filter((card) => !isExtraDeckCard(card));
+  const extraPool = CARDS.filter(isExtraDeckCard);
   const deck: string[] = [];
+  const extra: string[] = [];
+
+  if (boss.deckKind === 'common') {
+    const commons = main.filter((card) => card.rarity === 'common');
+    pushBossCard(deck, boss.signatureCardId, 1);
+    addCardsWithCopyLimits(deck, commons.filter((card) => inCostRange(card, 0, 2)), 12, 'hard');
+    addCardsWithCopyLimits(deck, commons.filter((card) => inCostRange(card, 3, 4)), 15, 'hard');
+    addCardsWithCopyLimits(deck, commons.filter((card) => inCostRange(card, 5)), 8, 'hard');
+    addCardsWithCopyLimits(deck, commons.filter((card) => card.kind === 'spell' || card.kind === 'trap'), 10, 'hard');
+    if (deck.length < DECK_SIZE) addCardsWithCopyLimits(deck, commons, DECK_SIZE - deck.length, 'hard');
+    return { deck: deck.slice(0, DECK_SIZE), extra: [] };
+  }
 
   pushBossCard(deck, boss.signatureCardId, 1);
+
+  if (boss.deckKind === 'series' && boss.seriesId) {
+    const seriesPool = main.filter((card) => card.seriesId === boss.seriesId);
+    const currentSeriesCount = deck.filter((cardId) => CARD_BY_ID[cardId]?.seriesId === boss.seriesId).length;
+    addCardsWithCopyLimits(deck, seriesPool, Math.max(0, MAX_PRIMARY_SERIES_CARDS - currentSeriesCount), 'hard');
+
+    // The final 15 cards are true support cards instead of a second full series package.
+    const genericSupport = main.filter((card) => !card.seriesId);
+    addCardsWithCopyLimits(deck, genericSupport, DECK_SIZE - deck.length, 'hard');
+    if (deck.length < DECK_SIZE) {
+      const offSeries = main.filter((card) => card.seriesId !== boss.seriesId);
+      addCardsWithCopyLimits(deck, offSeries, DECK_SIZE - deck.length, 'hard');
+    }
+
+    fillBossExtra(extra, extraPool.filter((card) => card.seriesId === boss.seriesId));
+    if (extra.length < EXTRA_DECK_SIZE) fillBossExtra(extra, extraPool.filter((card) => !card.seriesId));
+    if (extra.length < EXTRA_DECK_SIZE) fillBossExtra(extra, extraPool);
+    return { deck: deck.slice(0, DECK_SIZE), extra: extra.slice(0, EXTRA_DECK_SIZE) };
+  }
+
+  // Apex Time deck.
   for (const cardId of boss.supportCardIds) {
     const card = CARD_BY_ID[cardId];
     if (!card) continue;
@@ -192,23 +268,27 @@ export function buildBossRaidDeck(bossId: BossRaidId): { deck: string[]; extra: 
     pushBossCard(deck, cardId, wanted);
   }
 
-  // Add other high-value cards from the HARD bot without ever breaking normal copy limits.
-  for (const cardId of hard.deck) {
-    if (deck.length >= DECK_SIZE) break;
-    pushBossCard(deck, cardId, 1);
-  }
+  const alignedTemporal = main.filter((card) => isTemporalBossCard(card) && card.eclipseAffinity === boss.phase);
+  const otherTemporal = main.filter((card) => isTemporalBossCard(card) && card.eclipseAffinity !== boss.phase);
+  addCardsWithCopyLimits(deck, alignedTemporal, Math.max(0, 30 - deck.length), 'hard');
+  addCardsWithCopyLimits(deck, otherTemporal, Math.max(0, 36 - deck.length), 'hard');
+
   if (deck.length < DECK_SIZE) {
-    const fallback = rankForDifficulty(CARDS.filter((card) => !isExtraDeckCard(card)), 'hard');
-    for (const card of fallback) {
+    const hard = buildPracticeBotDeck('hard');
+    for (const cardId of hard.deck) {
       if (deck.length >= DECK_SIZE) break;
-      pushBossCard(deck, card.id, MAX_COPIES[card.rarity]);
+      pushBossCard(deck, cardId, 1);
     }
   }
+  if (deck.length < DECK_SIZE) addCardsWithCopyLimits(deck, main, DECK_SIZE - deck.length, 'hard');
 
-  // The extra deck uses the strongest legal Extra cards so the raid AI can punish slow boards.
-  const extra = rankForDifficulty(CARDS.filter(isExtraDeckCard), 'hard').slice(0, EXTRA_DECK_SIZE).map((card) => card.id);
-  return { deck: deck.slice(0, DECK_SIZE), extra };
+  fillBossExtra(extra, extraPool.filter((card) => isTemporalBossCard(card) && card.eclipseAffinity === boss.phase));
+  if (extra.length < EXTRA_DECK_SIZE) fillBossExtra(extra, extraPool.filter(isTemporalBossCard));
+  if (extra.length < EXTRA_DECK_SIZE) fillBossExtra(extra, extraPool);
+
+  return { deck: deck.slice(0, DECK_SIZE), extra: extra.slice(0, EXTRA_DECK_SIZE) };
 }
+
 
 function moveBossDeckCardToHand(snapshot: GameSnapshot, botId: string, cardId: string): boolean {
   const priv = snapshot.privateStates[botId];
@@ -650,6 +730,9 @@ function bossActionBias(snapshot: GameSnapshot, botId: string, bossId: BossRaidI
     const cardId = snapshot.privateStates[botId]?.hand.find((instance) => instance.instanceId === instanceId)?.cardId;
     const card = cardId ? CARD_BY_ID[cardId] : undefined;
     if (cardId === boss.signatureCardId) bias += 180 + boss.threat * 35;
+    if (boss.deckKind === 'series' && boss.seriesId && card?.seriesId === boss.seriesId) bias += 22 + boss.threat * 4;
+    if (boss.deckKind === 'common' && card?.rarity === 'common') bias += 8;
+    if (boss.deckKind === 'time' && card && isTemporalBossCard(card)) bias += 20 + boss.threat * 3;
     if (card?.eclipseAffinity === boss.phase) bias += 16 + boss.threat * 4;
     if (card?.effect?.kind === 'phase_set' && card.effect.phase === boss.phase) bias += 28;
     if (card?.onSummon?.kind === 'phase_set' && card.onSummon.phase === boss.phase) bias += 28;
