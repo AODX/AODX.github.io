@@ -556,6 +556,18 @@ function sourceConsumesUnitBuffSlot(sourceCard: CardDefinition | undefined, effe
   return Boolean(sourceCard && (sourceCard.kind === 'spell' || sourceCard.kind === 'trap') && isBuffCardEffect(effect));
 }
 
+function cardResolutionEffects(card: CardDefinition): Effect[] {
+  return [card.effect, ...(card.uniqueTrait?.effects ?? [])].filter((effect): effect is Effect => Boolean(effect));
+}
+
+function cardHasResolutionEffect(card: CardDefinition, kind: Effect['kind']): boolean {
+  return cardResolutionEffects(card).some((effect) => effect.kind === kind);
+}
+
+function cardHasBuffResolutionEffect(card: CardDefinition): boolean {
+  return cardResolutionEffects(card).some(isBuffCardEffect);
+}
+
 function firstOpenUnit(board: PlayerBoard): number {
   return board.units.findIndex((slot) => slot === null);
 }
@@ -3523,11 +3535,13 @@ function validateTarget(state: MatchState, actorId: string, card: CardDefinition
   if (!unit) throw new Error('선택한 위치에 유닛이 없습니다.');
   if (card.target === 'enemy_unit' && target.ownerId !== opponentId) throw new Error('적 유닛을 선택해야 합니다.');
   if (card.target === 'friendly_unit' && target.ownerId !== actorId) throw new Error('아군 유닛을 선택해야 합니다.');
-  if (card.effect?.kind === 'ready_unit' && unit.summonedTurn !== state.turnNumber) throw new Error('이번 턴 소환한 유닛만 즉시 공격 상태로 만들 수 있습니다.');
-  if (card.effect?.kind === 'shield_burst' && unit.shield <= 0) throw new Error('보호막이 있는 아군 유닛을 선택하세요.');
-  if (card.effect?.kind === 'reset_unit' && !CARD_BY_ID[unit.cardId]) throw new Error('토큰은 원형 복귀의 대상으로 선택할 수 없습니다.');
-  if ((card.effect?.kind === 'steal_unit' || card.effect?.kind === 'mirror_unit') && firstOpenUnit(state.boards[actorId]) < 0) {
-    throw new Error(card.effect.kind === 'steal_unit' ? '강탈한 유닛을 놓을 빈 유닛 칸이 없습니다.' : '거울 토큰을 소환할 빈 유닛 칸이 없습니다.');
+  if (cardHasResolutionEffect(card, 'ready_unit') && unit.summonedTurn !== state.turnNumber) throw new Error('이번 턴 소환한 유닛만 즉시 공격 상태로 만들 수 있습니다.');
+  if (cardHasResolutionEffect(card, 'shield_burst') && unit.shield <= 0) throw new Error('보호막이 있는 아군 유닛을 선택하세요.');
+  if (cardHasResolutionEffect(card, 'reset_unit') && !CARD_BY_ID[unit.cardId]) throw new Error('토큰은 원형 복귀의 대상으로 선택할 수 없습니다.');
+  const stealsUnit = cardHasResolutionEffect(card, 'steal_unit');
+  const mirrorsUnit = cardHasResolutionEffect(card, 'mirror_unit');
+  if ((stealsUnit || mirrorsUnit) && firstOpenUnit(state.boards[actorId]) < 0) {
+    throw new Error(stealsUnit ? '강탈한 유닛을 놓을 빈 유닛 칸이 없습니다.' : '거울 토큰을 소환할 빈 유닛 칸이 없습니다.');
   }
 }
 
@@ -3659,6 +3673,48 @@ function summonReactionTriggers(origin: SummonOrigin): TrapTrigger[] {
   return triggers;
 }
 
+function applyUniqueCardTrait(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  actorId: string,
+  card: CardDefinition,
+  target?: CardActionTarget,
+  sourceZone?: number,
+): void {
+  const trait = card.uniqueTrait;
+  if (!trait?.effects?.length) return;
+
+  for (const effect of trait.effects) {
+    // Extra Deck flagships use unit-targeted parts of their UNIQUE TRAIT on
+    // themselves. Spells keep the target selected by the player.
+    const selfTarget = (card.kind === 'fusion' || card.kind === 'evolution')
+      && typeof sourceZone === 'number'
+      && (effect.kind === 'buff_unit' || effect.kind === 'shield_unit' || effect.kind === 'heal_unit' || effect.kind === 'ready_unit' || effect.kind === 'reset_unit' || effect.kind === 'swap_stats')
+      ? { ownerId: actorId, unitIndex: sourceZone }
+      : target;
+
+    // Token-producing arrival traits should not corrupt the summon resolution
+    // when the player's remaining unit zones are already full.
+    if (effect.kind === 'summon_token' && firstOpenUnit(state.boards[actorId]) < 0) {
+      appendLog(state, `【UNIQUE TRAIT · ${trait.name}】 빈 유닛 칸이 없어 「${effect.name}」 소환은 건너뜁니다.`, 'system');
+      continue;
+    }
+    applyEffect(state, privateStates, actorId, effect, selfTarget, card);
+  }
+
+  appendLog(state, `【UNIQUE TRAIT · ${trait.name}】 「${card.name}」 전용 효과 발동.`, 'special');
+  appendVisual(state, {
+    kind: 'special',
+    vfx: card.kind === 'spell' ? 'unique-spell-signature' : 'unique-unit-signature',
+    cardId: card.id,
+    ownerId: actorId,
+    targetOwnerId: target?.ownerId ?? actorId,
+    targetZone: target?.unitIndex ?? sourceZone,
+    label: `UNIQUE · ${trait.name}`,
+    detail: trait.description,
+  });
+}
+
 function applyExtraChoice(
   state: MatchState,
   privateStates: Record<string, PrivateState>,
@@ -3699,6 +3755,7 @@ function finalizeSummonPostChoice(
   card: CardDefinition,
 ): void {
   if (state.boards[actorId].units[zone]) {
+    applyUniqueCardTrait(state, privateStates, actorId, card, undefined, zone);
     applyPremiumTimeSignature(state, privateStates, actorId, card, zone);
     applySeriesAbility(state, privateStates, actorId, card, zone);
     applySeriesSignature(state, privateStates, actorId, card, zone);
@@ -3817,6 +3874,7 @@ function resolveSpellContinuation(
       const effectTarget = card.target === 'enemy_core' ? undefined : continuation.target;
       applyEffect(state, privateStates, continuation.actorId, card.effect, effectTarget, card);
     }
+    applyUniqueCardTrait(state, privateStates, continuation.actorId, card, continuation.target);
     applyPremiumTimeSignature(state, privateStates, continuation.actorId, card);
     applySeriesAbility(state, privateStates, continuation.actorId, card);
     applySeriesSignature(state, privateStates, continuation.actorId, card);
@@ -4011,29 +4069,28 @@ function applyPremiumTimeSignature(
 
   if (card.id === 'v41_premium_dawn_lord' && typeof zone === 'number' && state.boards[actorId].units[zone]) {
     const actorPrivate = privateStates[actorId];
-    drawCards(state, actorPrivate, actorId, 2);
+    drawCards(state, actorPrivate, actorId, 1);
     applyEffect(state, privateStates, actorId, { kind: 'increase_energy_max', amount: 1 }, undefined, card);
-    applyEffect(state, privateStates, actorId, { kind: 'heal_core', amount: 4 }, undefined, card);
+    applyEffect(state, privateStates, actorId, { kind: 'heal_core', amount: 6 }, undefined, card);
     applyEffect(state, privateStates, actorId, { kind: 'recover_grave_unit', amount: 1 }, undefined, card);
-    appendLog(state, '「여명의 지배자」가 새벽의 보너스를 열어 카드 2장, ENERGY 최대치 +1, 코어 4 회복, 묘지 유닛 1장 회수를 제공합니다.', 'special');
+    appendLog(state, '【첫빛의 윤회】 카드 1장 드로우 · ENERGY 최대치 +1 · 코어 6 회복 · 묘지 유닛 1장 회수.', 'special');
     return;
   }
 
   if (card.id === 'v41_premium_zenith_king' && typeof zone === 'number' && state.boards[actorId].units[zone]) {
     applyEffect(state, privateStates, actorId, { kind: 'phase_lock', turns: 2 }, undefined, card);
-    applyEffect(state, privateStates, actorId, { kind: 'mass_buff', attack: 2, health: 3 }, undefined, card);
-    applyEffect(state, privateStates, actorId, { kind: 'mass_shield', amount: 4 }, undefined, card);
+    applyEffect(state, privateStates, actorId, { kind: 'mass_buff', attack: 2, health: 2 }, undefined, card);
     for (const unit of state.boards[actorId].units) if (unit) unit.canAttack = true;
-    appendLog(state, '「정점의 왕」이 절정 군림 효과로 2턴 시간 고정과 아군 전체 +2/+3, 보호막 4, 전열 준비 완료를 부여했습니다.', 'special');
+    appendLog(state, '【천정 왕권】 2턴 동안 정점을 고정하고 아군 전체 +2/+2, 전열 전체 공격 준비.', 'special');
     return;
   }
 
   if (card.id === 'v41_premium_eclipse_conductor' && typeof zone === 'number' && state.boards[actorId].units[zone]) {
     applyEffect(state, privateStates, actorId, { kind: 'phase_lock', turns: 2 }, undefined, card);
     recallStrongestEnemyUnit(state, privateStates, actorId, card);
-    applyEffect(state, privateStates, actorId, { kind: 'banish_enemy_grave', amount: 2 }, undefined, card);
+    applyEffect(state, privateStates, actorId, { kind: 'banish_enemy_grave', amount: 1 }, undefined, card);
     applyEffect(state, privateStates, actorId, { kind: 'steal_energy', amount: 1 }, undefined, card);
-    appendLog(state, '「개기일식의 조율자」가 가장 강한 적을 되돌리고 상대 묘지 2장을 소멸시키며 ENERGY 1을 흡수했습니다.', 'special');
+    appendLog(state, '【흑광 대지휘】 가장 강한 적을 퇴장시키고 상대 묘지 1장 소멸 · ENERGY 1 흡수 · 개기일식 2턴 고정.', 'special');
     return;
   }
 
@@ -4041,8 +4098,8 @@ function applyPremiumTimeSignature(
     const actorPrivate = privateStates[actorId];
     drawCards(state, actorPrivate, actorId, 1);
     const knight = state.boards[actorId].units[zone];
-    if (knight) knight.shield = Math.min(MAX_UNIT_SHIELD, (knight.shield ?? 0) + 2);
-    appendLog(state, '「황혼의 기사」가 황혼의 서막으로 카드 1장을 준비하고 자신에게 보호막 2를 둘렀습니다.', 'special');
+    if (knight) knight.shield = Math.min(MAX_UNIT_SHIELD, (knight.shield ?? 0) + 3);
+    appendLog(state, '【경계의 맹세】 카드 1장을 준비하고 자신에게 보호막 3을 둘러 황혼의 결투를 시작합니다.', 'special');
     return;
   }
 
@@ -4050,12 +4107,10 @@ function applyPremiumTimeSignature(
     const actorPrivate = privateStates[actorId];
     applyEffect(state, privateStates, actorId, { kind: 'phase_lock', turns: 2 }, undefined, card);
     freezeAllEnemyUnits(state, actorId, 1, card);
-    discardHighestCostCardsFromOpponent(state, privateStates, actorId, 2, card);
+    discardHighestCostCardsFromOpponent(state, privateStates, actorId, 1, card);
     applyEffect(state, privateStates, actorId, { kind: 'banish_enemy_grave', amount: 2 }, undefined, card);
-    applyEffect(state, privateStates, actorId, { kind: 'damage_core', amount: 5 }, undefined, card);
-    drawCards(state, actorPrivate, actorId, 2);
-    applyEffect(state, privateStates, actorId, { kind: 'gain_energy', amount: 2 }, undefined, card);
-    appendLog(state, '심야 후속 효과 발동 — 상대 묘지 2장 제외, 코어 5 피해, 카드 2장 드로우, 이번 턴 ENERGY 2 회복.', 'special');
+    drawCards(state, actorPrivate, actorId, 1);
+    appendLog(state, '【절대 무음령】 적 전열 동결 · 최고 비용 손패 1장 강제 버림 · 상대 묘지 2장 소멸 · 카드 1장 드로우.', 'special');
   }
 }
 
@@ -4082,10 +4137,13 @@ export function playCard(
     throw new Error(`「${card.name}」은(는) 상대가 직전 턴에 변경한 시간이 그대로 유지 중일 때만 사용할 수 있습니다.`);
   }
   validateTarget(state, playerId, card, target);
-  if (card.kind === 'spell' && (card.effect?.kind === 'recruit_unit' || card.effect?.kind === 'type_recruit') && firstOpenUnit(state.boards[playerId]) < 0) {
+  if (card.kind === 'spell' && (cardHasResolutionEffect(card, 'recruit_unit') || cardHasResolutionEffect(card, 'type_recruit')) && firstOpenUnit(state.boards[playerId]) < 0) {
     throw new Error('덱에서 유닛을 전개할 빈 필드 칸이 없습니다.');
   }
-  if (card.kind === 'spell' && card.effect && isBuffCardEffect(card.effect) && target && Number.isInteger(target.unitIndex)) {
+  if (card.kind === 'spell' && cardHasResolutionEffect(card, 'summon_token') && firstOpenUnit(state.boards[playerId]) < 0) {
+    throw new Error('고유 효과로 유닛을 소환할 빈 필드 칸이 없습니다.');
+  }
+  if (card.kind === 'spell' && cardHasBuffResolutionEffect(card) && target && Number.isInteger(target.unitIndex)) {
     const targetUnit = state.boards[target.ownerId]?.units[Number(target.unitIndex)];
     if (targetUnit?.buffCardApplied) throw new Error('이 캐릭터는 이미 버프류 카드를 1번 적용받았습니다. 다른 캐릭터를 선택하세요.');
   }
@@ -4146,18 +4204,18 @@ export function playCard(
     spendEnergy(state, playerId, card.cost);
     playerPrivate.hand.splice(handIndex, 1);
     appendLog(state, `주문 「${card.name}」 발동 선언.`, 'system');
-    const spellEffectKind = card.effect?.kind;
+    const spellEffectKinds = new Set(cardResolutionEffects(card).map((effect) => effect.kind));
     const spellTargetsOpponent = card.target === 'enemy_core'
-      || spellEffectKind === 'damage_core'
-      || spellEffectKind === 'aoe_enemy'
-      || spellEffectKind === 'erase_opponent_grave'
-      || spellEffectKind === 'mass_recall'
-      || spellEffectKind === 'steal_energy'
-      || spellEffectKind === 'banish_enemy_grave'
-      || spellEffectKind === 'damage_by_hand'
-      || spellEffectKind === 'damage_by_grave'
-      || spellEffectKind === 'field_count_blast'
-      || spellEffectKind === 'phase_counter_enemy';
+      || spellEffectKinds.has('damage_core')
+      || spellEffectKinds.has('aoe_enemy')
+      || spellEffectKinds.has('erase_opponent_grave')
+      || spellEffectKinds.has('mass_recall')
+      || spellEffectKinds.has('steal_energy')
+      || spellEffectKinds.has('banish_enemy_grave')
+      || spellEffectKinds.has('damage_by_hand')
+      || spellEffectKinds.has('damage_by_grave')
+      || spellEffectKinds.has('field_count_blast')
+      || spellEffectKinds.has('phase_counter_enemy');
     const spellVisualTargetOwnerId = target?.ownerId ?? (spellTargetsOpponent ? opponentId : playerId);
     appendVisual(state, {
       kind: 'spell', vfx: resolveCardVfx(card, 'activation'), cardId: card.id, ownerId: playerId,

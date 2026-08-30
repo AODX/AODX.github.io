@@ -264,6 +264,14 @@ export interface ExtraChoice {
   effects: Effect[];
 }
 
+/** A one-off named mechanic reserved for a card that must not reuse the normal series package. */
+export interface UniqueCardTrait {
+  name: string;
+  description: string;
+  /** Optional effects resolved by the engine at this card's natural timing (summon or spell resolution). */
+  effects?: Effect[];
+}
+
 export interface CardSeriesDefinition {
   id: SeriesId;
   name: string;
@@ -346,6 +354,8 @@ export interface CardDefinition {
   seriesSignature?: SeriesSignature;
   /** One of four unit passives unique to this series. */
   seriesTacticalPassive?: SeriesTacticalPassive;
+  /** Bespoke named mechanic used by representative / premium cards instead of recycled series effects. */
+  uniqueTrait?: UniqueCardTrait;
 }
 
 export interface PackOdds {
@@ -5533,15 +5543,375 @@ if (V60_ABSOLUTE_TIME_DEVOURER) {
     eclipse: { attack: 5, health: 5, label: '일식 포식' },
   };
   V60_ABSOLUTE_TIME_DEVOURER.eclipsePhasePulses = [
-    { phase: 'dawn', name: '여명 섭식', description: '여명 진입 시 상대 코어 2를 흡수한다.', effect: { kind: 'drain_core', amount: 2 } },
-    { phase: 'zenith', name: '정점 섭식', description: '정점 진입 시 상대 코어 2를 흡수한다.', effect: { kind: 'drain_core', amount: 2 } },
-    { phase: 'dusk', name: '황혼 섭식', description: '황혼 진입 시 상대 코어 2를 흡수한다.', effect: { kind: 'drain_core', amount: 2 } },
-    { phase: 'midnight', name: '심야 섭식', description: '심야 진입 시 상대 코어 2를 흡수한다.', effect: { kind: 'drain_core', amount: 2 } },
-    { phase: 'eclipse', name: '일식 섭식', description: '개기일식 진입 시 상대 코어 2를 흡수한다.', effect: { kind: 'drain_core', amount: 2 } },
+    { phase: 'dawn', name: '여명 섭식 · 생명', description: '여명 진입 시 새로 태어나는 생명을 먹어 내 코어 4를 회복한다.', effect: { kind: 'heal_core', amount: 4 } },
+    { phase: 'zenith', name: '정점 섭식 · 열원', description: '정점 진입 시 가장 뜨거운 열원을 먹어 상대 ENERGY 2를 흡수한다.', effect: { kind: 'steal_energy', amount: 2 } },
+    { phase: 'dusk', name: '황혼 섭식 · 잔광', description: '황혼 진입 시 사라지는 잔광을 먹어 상대 코어 2를 흡수한다.', effect: { kind: 'drain_core', amount: 2 } },
+    { phase: 'midnight', name: '심야 섭식 · 기억', description: '심야 진입 시 남은 기억을 먹어 상대 묘지 2장을 소멸시킨다.', effect: { kind: 'banish_enemy_grave', amount: 2 } },
+    { phase: 'eclipse', name: '일식 섭식 · 종말', description: '개기일식 진입 시 시간의 종말을 먹어 상대 코어에 4 피해를 준다.', effect: { kind: 'damage_core', amount: 4 } },
   ];
-  V60_ABSOLUTE_TIME_DEVOURER.text = '전설 특수 소환 「시간 포식 강림」: ENERGY 10. 시간대·코어·묘지 조건 없이 소환 가능. 모든 시간대에서 항상 +5/+5. 소환이 성공하면 상대 필드의 모든 유닛과 세트 함정을 시간 밖으로 삼키고, 내 코어 10 회복, 카드 3장 드로우, ENERGY 3 회복, 자신에게 보호막 3을 부여한다. 모든 시간대 진입 시 상대 코어 2를 흡수한다. 수호·속공·흡수·관통·직격·처형·전체공격.';
+  V60_ABSOLUTE_TIME_DEVOURER.uniqueTrait = { name: '시대별 섭식', description: '같은 시간을 두 번 먹지 않는다. 다섯 시간대에서 서로 다른 자원을 포식하는 0.1% 전용 고유 능력.' };
+  V60_ABSOLUTE_TIME_DEVOURER.text = '【고유 특성 · 시대별 섭식】 전설 특수 소환 「시간 포식 강림」: ENERGY 10. 시간대·코어·묘지 조건 없이 소환 가능. 모든 시간대에서 항상 +5/+5. 소환 성공 시 상대 필드 유닛과 세트 함정을 전부 시간 밖으로 삼키고, 내 코어 10 회복, 카드 3장 드로우, ENERGY 3 회복, 보호막 3. 이후 여명은 생명(코어 4 회복), 정점은 열원(상대 ENERGY 2 흡수), 황혼은 잔광(상대 코어 2 흡수), 심야는 기억(상대 묘지 2장 소멸), 개기일식은 종말(상대 코어 4 피해)로 각각 다르게 포식한다.';
 }
 // === /v60 absolute premium override =========================================
+
+/* ========================================================================== *
+ * v61 representative-card identity pass
+ * ========================================================================== *
+ * One Extra Deck finisher and one spell from each named series are promoted to
+ * true flagship cards. These cards intentionally DO NOT reuse the rotating
+ * seriesAbility / seriesSignature / seriesTacticalPassive package. Their named
+ * UNIQUE TRAIT and (for Extra cards) CHOOSE package are authored specifically
+ * around the card name and fantasy.
+ * ========================================================================== */
+type V61FlagshipOverride = {
+  uniqueTrait: UniqueCardTrait;
+  text: string;
+  target?: CardDefinition['target'];
+  extraChoices?: ExtraChoice[];
+};
+
+const V61_SERIES_FLAGSHIP_OVERRIDES: Record<string, V61FlagshipOverride> = {
+  // LUMINAKNIGHTS -----------------------------------------------------------
+  fusion_v8_09: {
+    uniqueTrait: {
+      name: '초신성 연계',
+      description: '소환 성공 시 전열 전체가 초신성의 빛에 동조한다. 아군 전체 +1/+1, 카드 1장 드로우.',
+      effects: [{ kind: 'mass_buff', attack: 1, health: 1 }, { kind: 'draw', amount: 1 }],
+    },
+    text: '【고유 특성 · 초신성 연계】 소환 성공 시 아군 전체 +1/+1, 카드 1장 드로우. CHOOSE — 초신성 브레이크 / 히어로 릴레이 / 광휘 포메이션 중 1개를 선택한다.',
+    extraChoices: [
+      { id: 'hyper-nova-break', label: '초신성 브레이크', description: '모든 적 유닛에 2 피해를 주고 상대 코어에 2 피해.', effects: [{ kind: 'aoe_enemy', amount: 2 }, { kind: 'damage_core', amount: 2 }] },
+      { id: 'hyper-nova-relay', label: '히어로 릴레이', description: '3/3 「노바 윙」 1체를 소환하고 ENERGY 1 회복.', effects: [{ kind: 'summon_token', attack: 3, health: 3, name: '노바 윙' }, { kind: 'gain_energy', amount: 1 }] },
+      { id: 'hyper-nova-formation', label: '광휘 포메이션', description: '아군 전체에게 보호막 2와 +1/+2.', effects: [{ kind: 'mass_shield', amount: 2 }, { kind: 'mass_buff', attack: 1, health: 2 }] },
+    ],
+  },
+  spell_v8_solar_04: {
+    uniqueTrait: {
+      name: '두 번째 일출',
+      description: '빛이 한 번 더 떠오른다. 카드 2장을 뽑고 3/3 「세컨드 선 브레이버」를 소환한 뒤 아군 전체 +1/+1.',
+      effects: [{ kind: 'draw', amount: 2 }, { kind: 'summon_token', attack: 3, health: 3, name: '세컨드 선 브레이버' }, { kind: 'mass_buff', attack: 1, health: 1 }],
+    },
+    target: 'none',
+    text: '【고유 주문 · 두 번째 일출】 카드 2장을 뽑고 3/3 「세컨드 선 브레이버」 1체를 소환한다. 그 후 아군 전체 +1/+1.',
+  },
+
+  // KAISERGEAR --------------------------------------------------------------
+  evolution_v8_18: {
+    uniqueTrait: {
+      name: '이동요새 전개',
+      description: '그랜드 포트리스가 전개되면 아군 전체 보호막 +2, ENERGY 1 회복.',
+      effects: [{ kind: 'mass_shield', amount: 2 }, { kind: 'gain_energy', amount: 1 }],
+    },
+    text: '【고유 특성 · 이동요새 전개】 소환 성공 시 아군 전체 보호막 +2, ENERGY 1 회복. CHOOSE — 성채 포격 / 리액터 재기동 / 황제장갑 중 1개를 선택한다.',
+    extraChoices: [
+      { id: 'grand-fortress-barrage', label: '성채 포격', description: '모든 적 유닛에 2 피해. 내 필드 유닛 수만큼 상대 코어 피해(최대 4).', effects: [{ kind: 'aoe_enemy', amount: 2 }, { kind: 'field_count_blast', per: 1, cap: 4 }] },
+      { id: 'grand-fortress-reactor', label: '리액터 재기동', description: '카드 2장을 뽑고 ENERGY 2 회복.', effects: [{ kind: 'draw', amount: 2 }, { kind: 'gain_energy', amount: 2 }] },
+      { id: 'grand-fortress-armor', label: '황제장갑', description: '이 유닛에게 +2/+3과 보호막 3.', effects: [{ kind: 'buff_unit', attack: 2, health: 3 }, { kind: 'shield_unit', amount: 3 }] },
+    ],
+  },
+  v32y_kaiser_spell_01: {
+    uniqueTrait: {
+      name: '제로 아머 브레이크',
+      description: '지정 적의 장갑을 완전히 벗겨 체력에 4 피해를 주고, 충격파로 상대 코어에 1 피해.',
+      effects: [{ kind: 'break_shield_damage', amount: 4 }, { kind: 'damage_core', amount: 1 }],
+    },
+    target: 'enemy_unit',
+    text: '【고유 주문 · 제로 아머 브레이크】 적 유닛 1장의 보호막을 전부 제거하고 체력에 4 피해. 이어 상대 코어에 1 피해.',
+  },
+
+  // ECLIPSION ---------------------------------------------------------------
+  fusion_eclipse_chimera: {
+    uniqueTrait: {
+      name: '네메시스 삼중공명',
+      description: '소환 성공 시 상대 묘지 2장을 소멸시키고, 내 묘지 유닛 1장을 회수한다.',
+      effects: [{ kind: 'banish_enemy_grave', amount: 2 }, { kind: 'recover_grave_unit', amount: 1 }],
+    },
+    text: '【고유 특성 · 네메시스 삼중공명】 소환 성공 시 상대 묘지 2장 소멸, 내 묘지 유닛 1장 회수. CHOOSE — 균열의 아가리 / 공명 재생 / 키메라 분열 중 1개를 선택한다.',
+    extraChoices: [
+      { id: 'nemesis-maw', label: '균열의 아가리', description: '내 묘지 수에 따라 상대 코어에 피해(장당 1, 최대 5) 후 상대 묘지 1장 소멸.', effects: [{ kind: 'damage_by_grave', per: 1, cap: 5 }, { kind: 'banish_enemy_grave', amount: 1 }] },
+      { id: 'nemesis-rebirth', label: '공명 재생', description: '묘지 유닛 1장을 회수하고 카드 1장을 뽑는다.', effects: [{ kind: 'recover_grave_unit', amount: 1 }, { kind: 'draw', amount: 1 }] },
+      { id: 'nemesis-split', label: '키메라 분열', description: '4/4 「네메시스 잔체」 1체를 소환하고 이 유닛 +1/+1.', effects: [{ kind: 'summon_token', attack: 4, health: 4, name: '네메시스 잔체' }, { kind: 'buff_unit', attack: 1, health: 1 }] },
+    ],
+  },
+  spell_v8_solar_09: {
+    uniqueTrait: {
+      name: '제로 호라이즌',
+      description: '지정 적을 전장 밖으로 밀어내고 그 뒤에 남은 기록까지 지운다.',
+      effects: [{ kind: 'bounce_unit' }, { kind: 'banish_enemy_grave', amount: 2 }],
+    },
+    target: 'enemy_unit',
+    text: '【고유 주문 · 제로 호라이즌】 적 유닛 1장을 원래 영역으로 되돌리고 상대 묘지의 메인 덱 카드 2장을 추가로 소멸시킨다.',
+  },
+
+  // NOCTURNE ----------------------------------------------------------------
+  fusion_v8_20: {
+    uniqueTrait: {
+      name: '몽환의 왕좌',
+      description: '소환 성공 시 카드 1장을 뽑고 코어 3 회복. 왕좌가 세워지는 순간 전장이 꿈 쪽으로 기운다.',
+      effects: [{ kind: 'draw', amount: 1 }, { kind: 'heal_core', amount: 3 }],
+    },
+    text: '【고유 특성 · 몽환의 왕좌】 소환 성공 시 카드 1장 드로우, 코어 3 회복. CHOOSE — 월궁 환영 / 백야 장막 / 꿈의 퇴장 중 1개를 선택한다.',
+    extraChoices: [
+      { id: 'nocturne-palace', label: '월궁 환영', description: '3/4 「월궁의 환영」 1체를 소환하고 카드 1장을 뽑는다.', effects: [{ kind: 'summon_token', attack: 3, health: 4, name: '월궁의 환영' }, { kind: 'draw', amount: 1 }] },
+      { id: 'nocturne-white-night', label: '백야 장막', description: '아군 전체 보호막 +3, 코어 2 회복.', effects: [{ kind: 'mass_shield', amount: 3 }, { kind: 'heal_core', amount: 2 }] },
+      { id: 'nocturne-dream-exit', label: '꿈의 퇴장', description: '모든 적 유닛에 2 피해 후 상대 코어 2 피해.', effects: [{ kind: 'aoe_enemy', amount: 2 }, { kind: 'damage_core', amount: 2 }] },
+    ],
+  },
+  spell_v8_lunar_06: {
+    uniqueTrait: {
+      name: '거울 발걸음',
+      description: '지정 적의 현재 모습을 거울 토큰으로 복제하고, 원본의 다음 공격을 봉인한다.',
+      effects: [{ kind: 'mirror_unit' }, { kind: 'freeze_unit', turns: 1 }],
+    },
+    target: 'enemy_unit',
+    text: '【고유 주문 · 거울 발걸음】 적 유닛 1장의 현재 공격력/체력을 복사한 거울 토큰을 소환하고, 그 적은 다음 자신의 턴에 공격할 수 없다.',
+  },
+
+  // ARBORIAN ----------------------------------------------------------------
+  fusion_v8_05: {
+    uniqueTrait: {
+      name: '세계근 왕국',
+      description: '소환 성공 시 아군 전체 DEF +2, 코어 3 회복. 뿌리가 필드 전체를 하나의 생명권으로 묶는다.',
+      effects: [{ kind: 'mass_buff', attack: 0, health: 2 }, { kind: 'heal_core', amount: 3 }],
+    },
+    text: '【고유 특성 · 세계근 왕국】 소환 성공 시 아군 전체 DEF +2, 코어 3 회복. CHOOSE — 고대수피 / 뿌리 증식 / 계절 순환 중 1개를 선택한다.',
+    extraChoices: [
+      { id: 'worldroot-bark', label: '고대수피', description: '아군 전체 보호막 +3.', effects: [{ kind: 'mass_shield', amount: 3 }] },
+      { id: 'worldroot-spread', label: '뿌리 증식', description: '2/5 「왕근 수호목」 1체를 소환하고 아군 전체 +0/+1.', effects: [{ kind: 'summon_token', attack: 2, health: 5, name: '왕근 수호목' }, { kind: 'mass_buff', attack: 0, health: 1 }] },
+      { id: 'worldroot-season', label: '계절 순환', description: '묘지 카드 2장을 덱으로 되돌리고 카드 2장을 뽑는다.', effects: [{ kind: 'recycle_grave_draw', amount: 2, draw: 2 }] },
+    ],
+  },
+  spell_v8_lunar_01: {
+    uniqueTrait: {
+      name: '세계근 소집',
+      description: '거대한 뿌리를 직접 전장에 불러오고 살아 있는 전열을 성장시킨다.',
+      effects: [{ kind: 'summon_token', attack: 3, health: 5, name: '세계근 수호체' }, { kind: 'mass_buff', attack: 0, health: 2 }, { kind: 'heal_core', amount: 2 }],
+    },
+    target: 'none',
+    text: '【고유 주문 · 세계근 소집】 3/5 「세계근 수호체」 1체를 소환하고 아군 전체 DEF +2, 코어 2 회복.',
+  },
+
+  // TEMPEST DRIVE -----------------------------------------------------------
+  evolution_v8_06: {
+    uniqueTrait: {
+      name: '제타 한계돌파',
+      description: '소환 성공 시 ENERGY 2 회복, 아군 전체 ATK +1. 과충전된 전열이 즉시 가속된다.',
+      effects: [{ kind: 'gain_energy', amount: 2 }, { kind: 'mass_buff', attack: 1, health: 0 }],
+    },
+    text: '【고유 특성 · 제타 한계돌파】 소환 성공 시 ENERGY 2 회복, 아군 전체 ATK +1. CHOOSE — 제타 러시 / 번개 재충전 / 맥스 볼티지 중 1개를 선택한다.',
+    extraChoices: [
+      { id: 'zeta-rush', label: '제타 러시', description: '모든 적 유닛에 2 피해, 상대 코어 2 피해.', effects: [{ kind: 'aoe_enemy', amount: 2 }, { kind: 'damage_core', amount: 2 }] },
+      { id: 'zeta-recharge', label: '번개 재충전', description: 'ENERGY 2 회복, 카드 2장 드로우.', effects: [{ kind: 'gain_energy', amount: 2 }, { kind: 'draw', amount: 2 }] },
+      { id: 'zeta-max-voltage', label: '맥스 볼티지', description: '이 유닛 +4/+1, 보호막 1.', effects: [{ kind: 'buff_unit', attack: 4, health: 1 }, { kind: 'shield_unit', amount: 1 }] },
+    ],
+  },
+  spell_v8_neutral_02: {
+    uniqueTrait: {
+      name: '오버드라이브',
+      description: '전열 전체의 출력 제한을 해제한다. ENERGY 3 회복 후 아군 전체 ATK +1, 편대 수만큼 코어 포격(최대 3).',
+      effects: [{ kind: 'gain_energy', amount: 3 }, { kind: 'mass_buff', attack: 1, health: 0 }, { kind: 'field_count_blast', per: 1, cap: 3 }],
+    },
+    target: 'none',
+    text: '【고유 주문 · 오버드라이브】 ENERGY 3 회복. 아군 전체 ATK +1. 내 필드 유닛 수만큼 상대 코어 피해(최대 3).',
+  },
+
+  // ABYSS REAPER ------------------------------------------------------------
+  fusion_v8_17: {
+    uniqueTrait: {
+      name: '공허해역 포식',
+      description: '소환 성공 시 상대 묘지 3장을 소멸시키고 그 잔향으로 코어 3 회복.',
+      effects: [{ kind: 'banish_enemy_grave', amount: 3 }, { kind: 'heal_core', amount: 3 }],
+    },
+    text: '【고유 특성 · 공허해역 포식】 소환 성공 시 상대 묘지 3장 소멸, 내 코어 3 회복. CHOOSE — 심연파 / 망자의 연료 / 리바이어던 갑피 중 1개를 선택한다.',
+    extraChoices: [
+      { id: 'void-leviathan-wave', label: '심연파', description: '내 묘지 수에 따라 상대 코어 피해(장당 1, 최대 5).', effects: [{ kind: 'damage_by_grave', per: 1, cap: 5 }] },
+      { id: 'void-leviathan-fuel', label: '망자의 연료', description: '묘지 카드 2장을 덱으로 돌리고 카드 2장 드로우, ENERGY 1 회복.', effects: [{ kind: 'recycle_grave_draw', amount: 2, draw: 2 }, { kind: 'gain_energy', amount: 1 }] },
+      { id: 'void-leviathan-hide', label: '리바이어던 갑피', description: '이 유닛 +2/+3, 보호막 3.', effects: [{ kind: 'buff_unit', attack: 2, health: 3 }, { kind: 'shield_unit', amount: 3 }] },
+    ],
+  },
+  spell_v8_void_08: {
+    uniqueTrait: {
+      name: '혈맥 연결',
+      description: '묘지의 죽음을 피의 맥처럼 이어 피해와 회복으로 변환한다.',
+      effects: [{ kind: 'damage_by_grave', per: 1, cap: 4 }, { kind: 'heal_core', amount: 3 }, { kind: 'banish_enemy_grave', amount: 1 }],
+    },
+    target: 'none',
+    text: '【고유 주문 · 혈맥 연결】 내 묘지 수에 따라 상대 코어 피해(장당 1, 최대 4), 내 코어 3 회복, 상대 묘지 1장 소멸.',
+  },
+
+  // PRIMAL GUARDIAN ---------------------------------------------------------
+  fusion_v8_08: {
+    uniqueTrait: {
+      name: '알파의 대포효',
+      description: '소환 성공 시 3/3 「원초 수호령」을 부르고 아군 전체 +1/+1.',
+      effects: [{ kind: 'summon_token', attack: 3, health: 3, name: '원초 수호령' }, { kind: 'mass_buff', attack: 1, health: 1 }],
+    },
+    text: '【고유 특성 · 알파의 대포효】 소환 성공 시 3/3 「원초 수호령」 1체 소환, 아군 전체 +1/+1. CHOOSE — 왕의 사냥 / 무리의 결속 / 대지 수호 중 1개를 선택한다.',
+    extraChoices: [
+      { id: 'primal-king-hunt', label: '왕의 사냥', description: '모든 적 유닛에 2 피해, 상대 코어 1 피해.', effects: [{ kind: 'aoe_enemy', amount: 2 }, { kind: 'damage_core', amount: 1 }] },
+      { id: 'primal-king-pack', label: '무리의 결속', description: '아군 전체 +2/+2.', effects: [{ kind: 'mass_buff', attack: 2, health: 2 }] },
+      { id: 'primal-king-earth', label: '대지 수호', description: '아군 전체 보호막 +2, 코어 3 회복.', effects: [{ kind: 'mass_shield', amount: 2 }, { kind: 'heal_core', amount: 3 }] },
+    ],
+  },
+  spell_v8_storm_06: {
+    uniqueTrait: {
+      name: '야성 해방',
+      description: '선택한 아군의 억제된 야성을 풀어 +3/+3, 동시에 코어 2 회복.',
+      effects: [{ kind: 'buff_unit', attack: 3, health: 3 }, { kind: 'heal_core', amount: 2 }],
+    },
+    target: 'friendly_unit',
+    text: '【고유 주문 · 야성 해방】 아군 유닛 1장에게 +3/+3. 이어 내 코어 2 회복.',
+  },
+
+  // CHRONORIUM --------------------------------------------------------------
+  v26_chronorium_evolution_02: {
+    uniqueTrait: {
+      name: '크로노스 오메가 시점',
+      description: '소환 성공 시 시간을 1단계 되감고 ENERGY 1 회복, 카드 1장 드로우.',
+      effects: [{ kind: 'phase_rewind', steps: 1 }, { kind: 'gain_energy', amount: 1 }, { kind: 'draw', amount: 1 }],
+    },
+    text: '【고유 특성 · 크로노스 오메가 시점】 소환 성공 시 시간을 실제 이전 시간대로 1단계 되감고 ENERGY 1 회복, 카드 1장 드로우. CHOOSE — 정지 / 가속 / 윤환 중 1개.',
+    extraChoices: [
+      { id: 'chronos-stop', label: '정지 · ZERO SECOND', description: '현재 시간을 2턴 고정하고 아군 전체 보호막 +2.', effects: [{ kind: 'phase_lock', turns: 2 }, { kind: 'mass_shield', amount: 2 }] },
+      { id: 'chronos-accelerate', label: '가속 · OMEGA DRIVE', description: '시간을 2단계 전진시키고 ENERGY 2 회복.', effects: [{ kind: 'phase_shift', steps: 2 }, { kind: 'gain_energy', amount: 2 }] },
+      { id: 'chronos-cycle', label: '윤환 · ETERNAL LOOP', description: '묘지 카드 3장을 덱으로 되돌리고 카드 2장을 뽑는다.', effects: [{ kind: 'recycle_grave_draw', amount: 3, draw: 2 }] },
+    ],
+  },
+  v26_chronorium_spell_08: {
+    uniqueTrait: {
+      name: '최후시각 00:00',
+      description: '전장의 시계를 심야 00:00으로 맞추고 잠시 정지시킨 뒤 과거 기록을 다시 순환시킨다.',
+      effects: [{ kind: 'phase_set', phase: 'midnight' }, { kind: 'phase_lock', turns: 1 }, { kind: 'recycle_grave_draw', amount: 2, draw: 2 }],
+    },
+    target: 'none',
+    text: '【고유 주문 · 최후시각 00:00】 시간을 심야로 설정하고 1턴 고정. 내 묘지 카드 2장을 덱으로 되돌린 뒤 카드 2장을 뽑는다.',
+  },
+
+  // ARCANA PROTOCOL ---------------------------------------------------------
+  v26_arcana_protocol_evolution_02: {
+    uniqueTrait: {
+      name: '무한규약 자동갱신',
+      description: '소환 성공 시 묘지 카드 2장을 덱으로 되돌리고 카드 2장 드로우, ENERGY 1 회복.',
+      effects: [{ kind: 'recycle_grave_draw', amount: 2, draw: 2 }, { kind: 'gain_energy', amount: 1 }],
+    },
+    text: '【고유 특성 · 무한규약 자동갱신】 소환 성공 시 묘지 2장 순환, 카드 2장 드로우, ENERGY 1 회복. CHOOSE — 재작성 / 금단식 / 무한루프 중 1개.',
+    extraChoices: [
+      { id: 'protocol-rewrite', label: '재작성 · REWRITE', description: '아군 전체 +1/+2, 보호막 +1.', effects: [{ kind: 'mass_buff', attack: 1, health: 2 }, { kind: 'mass_shield', amount: 1 }] },
+      { id: 'protocol-forbidden', label: '금단식 · FORBIDDEN', description: '모든 적 유닛에 2 피해, 상대 코어 3 피해.', effects: [{ kind: 'aoe_enemy', amount: 2 }, { kind: 'damage_core', amount: 3 }] },
+      { id: 'protocol-infinity', label: '무한루프 · INFINITY', description: '묘지 카드 3장을 덱으로 되돌리고 카드 3장을 뽑는다.', effects: [{ kind: 'recycle_grave_draw', amount: 3, draw: 3 }] },
+    ],
+  },
+  v26_arcana_protocol_spell_08: {
+    uniqueTrait: {
+      name: '금단규약 제13식',
+      description: '금단 조항을 강제로 실행해 묘지의 규약을 되돌리고 손패와 에너지를 동시에 확장한다.',
+      effects: [{ kind: 'recycle_grave_draw', amount: 3, draw: 2 }, { kind: 'gain_energy', amount: 1 }, { kind: 'damage_core', amount: 2 }],
+    },
+    target: 'none',
+    text: '【고유 주문 · 금단규약 제13식】 내 묘지 카드 3장을 덱으로 되돌리고 카드 2장 드로우, ENERGY 1 회복. 상대 코어에 2 피해.',
+  },
+
+  // BEASTFORGE --------------------------------------------------------------
+  v26_beastforge_evolution_02: {
+    uniqueTrait: {
+      name: '오메가 장갑포식',
+      description: '소환 성공 시 아군 전체 보호막 +2. 장갑을 먹어 치운 레비아탄 자신은 +2/+2.',
+      effects: [{ kind: 'mass_shield', amount: 2 }, { kind: 'buff_unit', attack: 2, health: 2 }],
+    },
+    text: '【고유 특성 · 오메가 장갑포식】 소환 성공 시 아군 전체 보호막 +2, 이 유닛 +2/+2. CHOOSE — 철갑 돌진 / 포지 재생 / 야수 코어 중 1개.',
+    extraChoices: [
+      { id: 'omega-leviathan-ram', label: '철갑 돌진', description: '모든 적 유닛에 2 피해, 상대 코어 2 피해.', effects: [{ kind: 'aoe_enemy', amount: 2 }, { kind: 'damage_core', amount: 2 }] },
+      { id: 'omega-leviathan-repair', label: '포지 재생', description: '아군 전체 보호막 +3, 코어 2 회복.', effects: [{ kind: 'mass_shield', amount: 3 }, { kind: 'heal_core', amount: 2 }] },
+      { id: 'omega-leviathan-core', label: '야수 코어', description: '4/4 「포지 비스트 오메가」 1체를 소환하고 ENERGY 1 회복.', effects: [{ kind: 'summon_token', attack: 4, health: 4, name: '포지 비스트 오메가' }, { kind: 'gain_energy', amount: 1 }] },
+    ],
+  },
+  v26_beastforge_spell_08: {
+    uniqueTrait: {
+      name: '오버클래드',
+      description: '선택한 아군에게 살아 움직이는 외장갑을 씌운다. +4/+4 후 ENERGY 1 회복.',
+      effects: [{ kind: 'buff_unit', attack: 4, health: 4 }, { kind: 'gain_energy', amount: 1 }],
+    },
+    target: 'friendly_unit',
+    text: '【고유 주문 · 오버클래드】 아군 유닛 1장에게 +4/+4. 이어 ENERGY 1 회복.',
+  },
+
+  // PHANTOM CARNIVAL --------------------------------------------------------
+  v26_phantom_carnival_evolution_02: {
+    uniqueTrait: {
+      name: '끝나지 않는 앙코르',
+      description: '소환 성공 시 카드 2장을 뽑고 코어 2 회복. 피날레가 끝나는 대신 다음 막이 열린다.',
+      effects: [{ kind: 'draw', amount: 2 }, { kind: 'heal_core', amount: 2 }],
+    },
+    text: '【고유 특성 · 끝나지 않는 앙코르】 소환 성공 시 카드 2장 드로우, 코어 2 회복. CHOOSE — 무대반전 / 앙코르 / 커튼콜 중 1개.',
+    extraChoices: [
+      { id: 'endless-show-reverse', label: '무대반전', description: '전장 모든 유닛의 현재 공격력과 체력을 뒤바꾼다.', effects: [{ kind: 'invert_all_units' }] },
+      { id: 'endless-show-encore', label: '앙코르', description: '카드 2장을 뽑고 3/3 「앙코르 배우」 1체 소환.', effects: [{ kind: 'draw', amount: 2 }, { kind: 'summon_token', attack: 3, health: 3, name: '앙코르 배우' }] },
+      { id: 'endless-show-curtain', label: '커튼콜', description: '모든 적 유닛에 2 피해, 상대 코어 2 피해.', effects: [{ kind: 'aoe_enemy', amount: 2 }, { kind: 'damage_core', amount: 2 }] },
+    ],
+  },
+  v26_phantom_carnival_spell_08: {
+    uniqueTrait: {
+      name: '그랜드 피날레',
+      description: '막을 강제로 내린다. 모든 유닛을 원래 영역으로 돌려보낸 뒤 카드 2장을 뽑고 상대 코어에 2 피해.',
+      effects: [{ kind: 'mass_recall' }, { kind: 'draw', amount: 2 }, { kind: 'damage_core', amount: 2 }],
+    },
+    target: 'none',
+    text: '【고유 주문 · 그랜드 피날레】 필드의 모든 유닛을 원래 영역으로 되돌린다(토큰은 소멸). 그 후 카드 2장 드로우, 상대 코어 2 피해.',
+  },
+
+  // ASTRAL ARMADA -----------------------------------------------------------
+  v26_astral_armada_evolution_02: {
+    uniqueTrait: {
+      name: '오리온 편대명령',
+      description: '소환 성공 시 2/2 「오리온 드론」 1체 소환, 아군 전체 보호막 +1, ENERGY 1 회복.',
+      effects: [{ kind: 'summon_token', attack: 2, health: 2, name: '오리온 드론' }, { kind: 'mass_shield', amount: 1 }, { kind: 'gain_energy', amount: 1 }],
+    },
+    text: '【고유 특성 · 오리온 편대명령】 소환 성공 시 2/2 오리온 드론 소환, 아군 전체 보호막 +1, ENERGY 1 회복. CHOOSE — 성해 일제사격 / 항모 전개 / 별길 재편 중 1개.',
+    extraChoices: [
+      { id: 'orion-broadside', label: '성해 일제사격', description: '모든 적 유닛에 3 피해, 상대 코어 2 피해.', effects: [{ kind: 'aoe_enemy', amount: 3 }, { kind: 'damage_core', amount: 2 }] },
+      { id: 'orion-carrier', label: '항모 전개', description: '3/3 「성해 전투정」 1체를 소환하고 아군 전체 보호막 +2.', effects: [{ kind: 'summon_token', attack: 3, health: 3, name: '성해 전투정' }, { kind: 'mass_shield', amount: 2 }] },
+      { id: 'orion-route', label: '별길 재편', description: '카드 2장 드로우, ENERGY 2 회복.', effects: [{ kind: 'draw', amount: 2 }, { kind: 'gain_energy', amount: 2 }] },
+    ],
+  },
+  v26_astral_armada_spell_08: {
+    uniqueTrait: {
+      name: '성해포격 오메가',
+      description: '함대의 모든 포문을 하나의 좌표에 동기화한다. 적 전열 3 피해, 코어 2 피해, ENERGY 1 회복.',
+      effects: [{ kind: 'aoe_enemy', amount: 3 }, { kind: 'damage_core', amount: 2 }, { kind: 'gain_energy', amount: 1 }],
+    },
+    target: 'none',
+    text: '【고유 주문 · 성해포격 오메가】 모든 적 유닛에 3 피해, 상대 코어에 2 피해. 그 후 ENERGY 1 회복.',
+  },
+};
+
+for (const [cardId, override] of Object.entries(V61_SERIES_FLAGSHIP_OVERRIDES)) {
+  const card = CARDS.find((item) => item.id === cardId);
+  if (!card) continue;
+
+  // Flagships use only their bespoke identity package; remove the rotating
+  // generic series engines that could otherwise make two flagships feel alike.
+  card.seriesAbility = undefined;
+  card.seriesSignature = undefined;
+  card.seriesTacticalPassive = undefined;
+  card.uniqueTrait = override.uniqueTrait;
+  card.text = override.text;
+
+  if (card.kind === 'fusion' || card.kind === 'evolution') {
+    card.onSummon = undefined;
+    if (override.extraChoices) card.extraChoices = override.extraChoices;
+  } else if (card.kind === 'spell') {
+    card.effect = undefined;
+    if (override.target) card.target = override.target;
+  }
+}
+
+export const V61_SERIES_FLAGSHIPS = Object.freeze(Object.fromEntries(
+  Object.keys(V61_SERIES_FLAGSHIP_OVERRIDES).map((cardId) => {
+    const card = CARDS.find((item) => item.id === cardId);
+    return [cardId, card?.uniqueTrait?.name ?? ''];
+  }),
+));
+// === /v61 representative-card identity pass ================================
 
 export const V58_TRAIT_SPECIAL_SUMMON_AUDIT = CARDS
   .filter((card) => card.kind === 'unit' && new Set(card.keywords ?? []).size >= 2)
