@@ -7182,6 +7182,90 @@ for (const [cardId, identity] of Object.entries(V66_TRUE_COMBAT_IDENTITIES)) {
 }
 // === /v66 true bespoke combat rules ========================================
 
+
+// === v68 series trait restraint =============================================
+// Non-premium series cards are intentionally kept below the premium ceiling.
+// Only genuinely difficult Legendary summons may carry three ordinary combat
+// keywords; every other series card is capped at two. This pass runs after the
+// representative-card overrides so later presentation patches cannot inflate
+// a normal series card back to four traits.
+const V68_SERIES_THIRD_TRAIT_PRIORITY: Partial<Record<SeriesId, Keyword[]>> = {
+  luminaknights: ['corestrike', 'pierce', 'charge'],
+  kaisergear: ['guard', 'pierce', 'charge'],
+  eclipsion: ['lifesteal', 'execute', 'pierce'],
+  nocturne: ['pierce', 'lifesteal', 'charge'],
+  arborian: ['guard', 'lifesteal', 'pierce'],
+  tempest_drive: ['charge', 'pierce', 'corestrike'],
+  abyss_reaper: ['execute', 'lifesteal', 'pierce'],
+  primal_guardian: ['guard', 'sweep', 'lifesteal'],
+  chronorium: ['charge', 'corestrike', 'lifesteal'],
+  arcana_protocol: ['execute', 'pierce', 'charge'],
+  beastforge: ['guard', 'charge', 'pierce'],
+  phantom_carnival: ['sweep', 'lifesteal', 'charge'],
+  astral_armada: ['corestrike', 'guard', 'charge'],
+};
+
+function v68IsVeryHardSeriesLegend(card: CardDefinition): boolean {
+  if (!card.seriesId || card.rarity !== 'legendary') return false;
+  if (card.traitSpecialSummonTier === 'apex') return true;
+
+  const extra = card.extraSummonRule;
+  if (extra) {
+    if (extra.tier === 'apex') return true;
+    if (extra.tier === 'legendary' && extra.additionalTributes >= 1 && extra.minTotalMaterialCost >= 11) return true;
+  }
+
+  const rule = card.legendarySummonRule;
+  if (rule) {
+    if ((rule.minimumAllies ?? 0) >= 3 || (rule.minimumSameSeries ?? 0) >= 3) return true;
+    if ((rule.graveyardMin ?? 0) >= 5) return true;
+    if ((rule.minimumAllies ?? 0) >= 2 && (rule.graveyardMin ?? 0) >= 4) return true;
+    if ((rule.minimumSameSeries ?? 0) >= 2 && (rule.graveyardKindMin ?? 0) >= 2) return true;
+    if (rule.requireEmptyField && (rule.coreAtMost ?? 99) <= 10) return true;
+  }
+
+  return (card.riftCost ?? 0) >= 7;
+}
+
+for (const card of CARDS) {
+  if (!card.seriesId || !isUnitCard(card)) continue;
+  const hardLegend = v68IsVeryHardSeriesLegend(card);
+  const cap = hardLegend ? 3 : 2;
+  const keywords = Array.from(new Set(card.keywords ?? []));
+
+  if (hardLegend && keywords.length < 3) {
+    const priorities = V68_SERIES_THIRD_TRAIT_PRIORITY[card.seriesId] ?? [];
+    for (const keyword of priorities) {
+      if (keywords.includes(keyword)) continue;
+      keywords.push(keyword);
+      if (keywords.length >= 3) break;
+    }
+  }
+  card.keywords = keywords.slice(0, cap);
+}
+
+// 성해황제 오리온 is a normal series Extra Deck legend, not a premium chase
+// card. Keep its original two battle keywords and remove the bespoke combat
+// trait layer entirely, per the requested hierarchy.
+const V68_ASTRAL_ORION = CARDS.find((card) => card.id === 'v26_astral_armada_evolution_02');
+if (V68_ASTRAL_ORION) {
+  V68_ASTRAL_ORION.keywords = ['charge', 'lifesteal', 'corestrike'];
+  V68_ASTRAL_ORION.uniqueTrait = undefined;
+}
+
+export const V68_SERIES_TRAIT_CAP_AUDIT = CARDS
+  .filter((card) => card.seriesId && isUnitCard(card))
+  .map((card) => ({
+    id: card.id,
+    name: card.name,
+    rarity: card.rarity,
+    traits: Array.from(new Set(card.keywords ?? [])),
+    cap: v68IsVeryHardSeriesLegend(card) ? 3 : 2,
+    veryHardLegend: v68IsVeryHardSeriesLegend(card),
+    hasUniqueCombatTrait: card.uniqueTrait?.mode === 'combat',
+  }));
+// === /v68 series trait restraint ============================================
+
 export const V61_SERIES_FLAGSHIPS = Object.freeze(Object.fromEntries(
   Object.keys(V61_SERIES_FLAGSHIP_OVERRIDES).map((cardId) => {
     const card = CARDS.find((item) => item.id === cardId);
