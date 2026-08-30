@@ -18,8 +18,8 @@ export const V60_PREMIUM_TIME_DEVOURER: CardDefinition = {
   unitType: 'spirit',
   target: 'none',
   keywords: ['guard', 'charge', 'lifesteal', 'pierce', 'corestrike', 'execute', 'sweep'],
-  text: '【고유 특성 · 시대별 섭식】 전설 특수 소환 「시간 포식 강림」: ENERGY 10. 시간대·코어·묘지 조건 없이 소환 가능. 모든 시간대에서 항상 +5/+5. 소환 성공 시 상대 필드 유닛과 세트 함정을 전부 시간 밖으로 삼키고, 내 코어 10 회복, 카드 3장 드로우, ENERGY 3 회복, 보호막 3. 이후 여명은 생명(코어 4 회복), 정점은 열원(상대 ENERGY 2 흡수), 황혼은 잔광(상대 코어 2 흡수), 심야는 기억(상대 묘지 2장 소멸), 개기일식은 종말(상대 코어 4 피해)로 각각 다르게 포식한다.',
-  uniqueTrait: { name: '시대별 섭식', description: '같은 시간을 두 번 먹지 않는다. 다섯 시간대에서 서로 다른 자원을 포식하는 0.1% 전용 고유 능력.' },
+  text: '【고유 특성 · 시대별 섭식】 개기일식 전용 전설 캐릭터. 【전설 특수 소환】 ENERGY 10만 지불하면 추가 조건 없이 소환할 수 있다. 【상시 효과】 모든 시간대에서 항상 +5/+5를 얻는다. 【등장】 상대 필드의 캐릭터와 세트 함정을 모두 제거하고, 내 코어 10 회복, 카드 3장 드로우, ENERGY 3 회복, 보호막 3을 얻는다. 【시간 포식】 여명: 코어 4 회복 / 정점: 상대 ENERGY 2 흡수 / 황혼: 상대 코어 2 흡수 / 심야: 상대 묘지 2장 소멸 / 개기일식: 상대 코어 4 피해.',
+  uniqueTrait: { name: '시대별 섭식', description: '시간대마다 다른 자원을 삼키며 계속 이득을 챙기는 최상위 고유 특성이다.' },
   flavor: '시간은 모두를 삼킨다. 하지만 끝내 시간마저 먹어 치우는 것이 나타났다.',
   sigil: '⌛',
   summonMode: 'legendary',
@@ -29,6 +29,7 @@ export const V60_PREMIUM_TIME_DEVOURER: CardDefinition = {
     release: 'none',
   },
   eclipseAffinity: 'eclipse',
+  eclipseSummonPhases: ['eclipse'],
   temporalProfileName: '전 시간대 · 상시 포식',
   eclipsePhaseModifiers: {
     dawn: { attack: 5, health: 5, label: '여명 포식' },

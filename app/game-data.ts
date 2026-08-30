@@ -5549,8 +5549,9 @@ if (V60_ABSOLUTE_TIME_DEVOURER) {
     { phase: 'midnight', name: '심야 섭식 · 기억', description: '심야 진입 시 남은 기억을 먹어 상대 묘지 2장을 소멸시킨다.', effect: { kind: 'banish_enemy_grave', amount: 2 } },
     { phase: 'eclipse', name: '일식 섭식 · 종말', description: '개기일식 진입 시 시간의 종말을 먹어 상대 코어에 4 피해를 준다.', effect: { kind: 'damage_core', amount: 4 } },
   ];
-  V60_ABSOLUTE_TIME_DEVOURER.uniqueTrait = { name: '시대별 섭식', description: '같은 시간을 두 번 먹지 않는다. 다섯 시간대에서 서로 다른 자원을 포식하는 0.1% 전용 고유 능력.' };
-  V60_ABSOLUTE_TIME_DEVOURER.text = '【고유 특성 · 시대별 섭식】 전설 특수 소환 「시간 포식 강림」: ENERGY 10. 시간대·코어·묘지 조건 없이 소환 가능. 모든 시간대에서 항상 +5/+5. 소환 성공 시 상대 필드 유닛과 세트 함정을 전부 시간 밖으로 삼키고, 내 코어 10 회복, 카드 3장 드로우, ENERGY 3 회복, 보호막 3. 이후 여명은 생명(코어 4 회복), 정점은 열원(상대 ENERGY 2 흡수), 황혼은 잔광(상대 코어 2 흡수), 심야는 기억(상대 묘지 2장 소멸), 개기일식은 종말(상대 코어 4 피해)로 각각 다르게 포식한다.';
+  V60_ABSOLUTE_TIME_DEVOURER.eclipseSummonPhases = ['eclipse'];
+  V60_ABSOLUTE_TIME_DEVOURER.uniqueTrait = { name: '시대별 섭식', description: '시간대마다 다른 자원을 삼키며 계속 이득을 챙기는 최상위 고유 특성이다.' };
+  V60_ABSOLUTE_TIME_DEVOURER.text = '【고유 특성 · 시대별 섭식】 개기일식 전용 전설 캐릭터. 【전설 특수 소환】 ENERGY 10만 지불하면 추가 조건 없이 소환할 수 있다. 【상시 효과】 모든 시간대에서 항상 +5/+5를 얻는다. 【등장】 상대 필드의 캐릭터와 세트 함정을 모두 제거하고, 내 코어 10 회복, 카드 3장 드로우, ENERGY 3 회복, 보호막 3을 얻는다. 【시간 포식】 여명: 코어 4 회복 / 정점: 상대 ENERGY 2 흡수 / 황혼: 상대 코어 2 흡수 / 심야: 상대 묘지 2장 소멸 / 개기일식: 상대 코어 4 피해.';
 }
 // === /v60 absolute premium override =========================================
 
@@ -5884,6 +5885,30 @@ const V61_SERIES_FLAGSHIP_OVERRIDES: Record<string, V61FlagshipOverride> = {
   },
 };
 
+const V61_SINGLE_PHASE_BY_SERIES: Partial<Record<SeriesId, EclipsePhase>> = {
+  luminaknights: 'dawn',
+  kaisergear: 'zenith',
+  eclipsion: 'eclipse',
+  nocturne: 'midnight',
+  arborian: 'dusk',
+  tempest_drive: 'zenith',
+  abyss_reaper: 'eclipse',
+  primal_guardian: 'dawn',
+  chronorium: 'eclipse',
+  arcana_protocol: 'midnight',
+  beastforge: 'zenith',
+  phantom_carnival: 'midnight',
+  astral_armada: 'dawn',
+};
+const V61_SINGLE_PHASE_BY_ELEMENT: Record<Element, EclipsePhase> = {
+  solar: 'dawn',
+  storm: 'zenith',
+  lunar: 'midnight',
+  verdant: 'dusk',
+  void: 'eclipse',
+  neutral: 'eclipse',
+};
+
 for (const [cardId, override] of Object.entries(V61_SERIES_FLAGSHIP_OVERRIDES)) {
   const card = CARDS.find((item) => item.id === cardId);
   if (!card) continue;
@@ -5895,6 +5920,14 @@ for (const [cardId, override] of Object.entries(V61_SERIES_FLAGSHIP_OVERRIDES)) 
   card.seriesTacticalPassive = undefined;
   card.uniqueTrait = override.uniqueTrait;
   card.text = override.text;
+
+  const singlePhase = (card.seriesId ? V61_SINGLE_PHASE_BY_SERIES[card.seriesId] : undefined) ?? V61_SINGLE_PHASE_BY_ELEMENT[card.element] ?? resolvedEclipseAffinity(card) ?? 'dawn';
+  if (card.kind === 'spell') {
+    card.eclipsePlayPhases = [singlePhase];
+  } else {
+    card.eclipseSummonPhases = [singlePhase];
+  }
+  card.eclipseAffinity = card.eclipseAffinity ?? singlePhase;
 
   if (card.kind === 'fusion' || card.kind === 'evolution') {
     card.onSummon = undefined;

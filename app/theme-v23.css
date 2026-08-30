@@ -3781,6 +3781,10 @@
   box-shadow:0 0 18px color-mix(in srgb,var(--detail-accent,#7edfff) 54%,transparent);
 }
 .v23-client .v31l-primary-effect p { color:#d6e2ea!important;font-size:13px!important;line-height:1.72!important; }
+.v23-client .v31l-paragraph-stack { display:grid!important;gap:10px!important; }
+.v23-client .v31l-paragraph-stack>p { margin:0!important; }
+.v23-client .v31l-paragraph-stack.sectioned>p { padding:10px 12px!important;border-radius:12px!important;border:1px solid rgba(255,255,255,.06)!important;background:rgba(255,255,255,.028)!important; }
+.v23-client .v31h-series-signature .v31l-paragraph-stack { gap:4px!important; }
 .v23-client .v31l-ability-copy { display:grid!important;grid-template-columns:max-content minmax(0,1fr);align-items:start;gap:10px!important; }
 .v23-client .v31l-rule-text { display:inline;min-width:0;white-space:normal;word-break:keep-all;overflow-wrap:anywhere; }
 .v23-client .v31l-ability-copy>.v31l-rule-text { display:block;min-width:0;line-height:1.68; }

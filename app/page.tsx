@@ -1596,6 +1596,25 @@ function RuleText({ text, compact = false }: { text: string; compact?: boolean }
   })}</span>;
 }
 
+function splitRuleParagraphs(text: string): string[] {
+  const source = (text || '').trim();
+  if (!source) return [];
+  const marked = source
+    .replace(/\s*(?=【[^】]+】)/g, '\n')
+    .replace(/\s*(?=\[[^\]]+\])/g, '\n')
+    .replace(/\s*\/\s*(?=\[[^\]]+\])/g, '\n');
+  const paragraphs = marked
+    .split(/\n+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return paragraphs.length ? paragraphs : [source];
+}
+
+function RuleParagraphs({ text, compact = false, tone = 'plain' }: { text: string; compact?: boolean; tone?: 'plain' | 'sectioned' }) {
+  const paragraphs = splitRuleParagraphs(text);
+  return <div className={`v31l-paragraph-stack ${tone} ${compact ? 'compact' : ''}`}>{paragraphs.map((paragraph, index) => <p key={`${paragraph}-${index}`}><RuleText text={paragraph} compact={compact} /></p>)}</div>;
+}
+
 function splitAbilityCopy(text: string): { name: string; description: string } {
   const [name, ...rest] = text.split(' · ');
   return { name: name || '전술 효과', description: rest.join(' · ') || text };
@@ -1916,7 +1935,6 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
   }, [onClose]);
 
   const summonCondition = summonConditionDescription(card);
-  const powerProfile = computeCardPowerProfile(card);
   const effectRows = [
     card.onSummon ? { label: '등장 효과', value: effectDescription(card.onSummon) } : null,
     card.effect ? { label: '효과 처리', value: effectDescription(card.effect) } : null,
@@ -1976,26 +1994,6 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
               <span><small>대상</small><b>{card.target === 'enemy_unit' ? '적 유닛' : card.target === 'friendly_unit' ? '아군 유닛' : card.target === 'friendly_graveyard_unit' ? '내 묘지 유닛' : card.target === 'friendly_graveyard_card' ? '내 묘지 카드' : card.target === 'own_deck_card' ? '내 덱 카드' : card.target === 'enemy_core' ? '상대 코어' : '자동 적용'}</b></span>
             </div>
           )}
-
-          <section className={`detail-section v48-power-score-panel tier-${powerProfile.tier.toLowerCase()}`}>
-            <span>POWER SCORE · 카드 전력 수치</span>
-            <div className="v48-power-score-shell">
-              <div className="v48-power-score-main">
-                <small>RANK {powerProfile.tier}</small>
-                <strong>{powerProfile.score}</strong>
-                <p>{powerProfile.summary}</p>
-              </div>
-              <div className="v48-power-score-breakdown">
-                {powerProfile.breakdown.map((entry) => (
-                  <article key={`${card.id}-${entry.label}`}>
-                    <b>{entry.label}</b>
-                    <strong>{entry.value}</strong>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </section>
-
           {abilityHighlights.length > 0 && (
             <section className="detail-section v47-card-highlight-panel">
               <span>HIGHLIGHTS · 한눈에 보기</span>
@@ -2012,13 +2010,13 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
 
           <section className="detail-section primary-effect v31l-primary-effect" id="card-detail-effect">
             <span>ABILITY · 카드 효과</span>
-            <p><RuleText text={polishedCardText(card, { includeTime: false })} /></p>
+            <RuleParagraphs text={polishedCardText(card, { includeTime: false })} tone="sectioned" />
           </section>
 
           {card.uniqueTrait && (
             <section className="detail-section v31h-series-signature">
               <span>UNIQUE TRAIT · 카드 전용 고유 특성</span>
-              <p className="v31l-ability-copy"><b>{card.uniqueTrait.name}</b><RuleText text={card.uniqueTrait.description} /></p>
+              <div className="v31l-ability-copy"><b>{card.uniqueTrait.name}</b><RuleParagraphs text={card.uniqueTrait.description} /></div>
             </section>
           )}
 
