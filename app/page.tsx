@@ -1239,8 +1239,7 @@ function cardAbilityHighlights(card: CardDefinition): CardHighlight[] {
   if (premium.length > 0) return premium;
 
   const items: CardHighlight[] = [];
-  if (card.uniqueTrait) items.push({ label: `UNIQUE · ${card.uniqueTrait.name}`, detail: card.uniqueTrait.description, tone: 'power' });
-  if (card.onSummon) items.push({ label: '등장 효과', detail: effectDescription(card.onSummon), tone: 'feature' });
+    if (card.onSummon) items.push({ label: '등장 효과', detail: effectDescription(card.onSummon), tone: 'feature' });
   if (card.effect) items.push({ label: card.kind === 'spell' ? '주문 효과' : '효과 처리', detail: effectDescription(card.effect), tone: 'feature' });
   if (card.trapEffect) items.push({ label: '함정 반응', detail: effectDescription(card.trapEffect, card.trapTrigger), tone: 'control' });
   (card.eclipsePhasePulses ?? []).slice(0, 3).forEach((pulse) => {
@@ -1362,6 +1361,27 @@ function polishedCardText(card: CardDefinition, options?: { includeTime?: boolea
   const alreadyExplainsTime = /【(?:시간 (?:강화|취약|반응|친화|발동|고정)|시각 조율|기존 카드 재설계|극시공)/.test(text);
   const affinity = includeTime && !alreadyExplainsTime ? eclipseAffinityRule(card) : '';
   return [text, affinity].filter(Boolean).join(' ');
+}
+
+function displayCardAbilityText(card: CardDefinition, options?: { includeTime?: boolean }): string {
+  let text = polishedCardText(card, options);
+  if (card.uniqueTrait) {
+    text = text.replace(/^【고유 (?:특성|주문) · [^】]+】\s*/u, '');
+  }
+  if (card.extraChoices?.length) {
+    text = text.replace(/\s*CHOOSE\s*[-—–].*$/iu, ` 【선택】 전용 모드 ${card.extraChoices.length}가지 중 1개를 선택한다.`);
+  }
+  return text.replace(/\s{2,}/g, ' ').trim();
+}
+
+function uniqueTraitDisplayRows(card: CardDefinition): { name: string; description: string }[] {
+  if (!card.uniqueTrait) return [];
+  if (card.uniqueTrait.highlights?.length) return card.uniqueTrait.highlights;
+  const rows = [{ name: card.uniqueTrait.name, description: card.uniqueTrait.description }];
+  (card.uniqueTrait.effects ?? []).slice(0, 2).forEach((effect, index) => {
+    rows.push({ name: `효과 ${index + 1}`, description: effectDescription(effect) });
+  });
+  return rows;
 }
 
 type TemporalReactionView = {
@@ -2008,17 +2028,23 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             </section>
           )}
 
-          <section className="detail-section primary-effect v31l-primary-effect" id="card-detail-effect">
-            <span>ABILITY · 카드 효과</span>
-            <RuleParagraphs text={polishedCardText(card, { includeTime: false })} tone="sectioned" />
-          </section>
-
           {card.uniqueTrait && (
-            <section className="detail-section v31h-series-signature">
-              <span>UNIQUE TRAIT · 카드 전용 고유 특성</span>
-              <div className="v31l-ability-copy"><b>{card.uniqueTrait.name}</b><RuleParagraphs text={card.uniqueTrait.description} /></div>
+            <section className="detail-section v62-unique-trait-panel">
+              <span>SIGNATURE KEYWORDS · 카드 전용 특성</span>
+              <div className="v62-unique-trait-title">
+                <b>{card.uniqueTrait.name}</b>
+                <p>{card.uniqueTrait.description}</p>
+              </div>
+              <div className="keyword-list v62-unique-trait-list">
+                {uniqueTraitDisplayRows(card).map((item) => <p key={`${card.id}-${item.name}`}><b>{item.name}</b><span>{item.description}</span></p>)}
+              </div>
             </section>
           )}
+
+          <section className="detail-section primary-effect v31l-primary-effect" id="card-detail-effect">
+            <span>ABILITY · 카드 효과</span>
+            <RuleParagraphs text={displayCardAbilityText(card, { includeTime: false })} tone="sectioned" />
+          </section>
 
           {(isUnitCard(card) || card.eclipseSummonPhases?.length || card.eclipsePhasePulses?.length || card.eclipsePlayPhases?.length || card.eclipseTriggerPhases?.length || card.eclipseLifespanPhases?.length || card.eclipseVanishPhases?.length) && (
             <section className="detail-section v34e-time-profile">
@@ -7405,14 +7431,14 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
           {previewIsHoverOnly && hoveredHandCard && (
             <div className="v18-selected-card v29-hover-preview">
               <div className="v18-selected-art"><CardIllustration card={hoveredHandCard} compact /></div>
-              <div className="v18-selected-copy"><small>카드 미리보기 · {KIND_LABEL[hoveredHandCard.kind]} · {ELEMENT_LABEL[hoveredHandCard.element]}</small><b>{hoveredHandCard.name}</b><div><span>COST <strong>{hoveredHandCard.cost}</strong></span>{isUnitCard(hoveredHandCard) && <><span>ATK <strong>{hoveredHandCard.attack}</strong></span><span>DEF <strong>{hoveredHandCard.health}</strong></span></>}</div><p><RuleText text={polishedCardText(hoveredHandCard)} /></p>{hoveredHandCard.uniqueTrait && <p className="v31h-preview-signature"><b>UNIQUE · {hoveredHandCard.uniqueTrait.name}</b> <RuleText text={hoveredHandCard.uniqueTrait.description} /></p>}{hoveredHandCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(hoveredHandCard)} /></p>}{tacticalAbilityDescription(hoveredHandCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(hoveredHandCard)} /></p>}<TemporalQuickHint card={hoveredHandCard} currentPhase={currentEclipsePhase} /></div>
+              <div className="v18-selected-copy"><small>카드 미리보기 · {KIND_LABEL[hoveredHandCard.kind]} · {ELEMENT_LABEL[hoveredHandCard.element]}</small><b>{hoveredHandCard.name}</b><div><span>COST <strong>{hoveredHandCard.cost}</strong></span>{isUnitCard(hoveredHandCard) && <><span>ATK <strong>{hoveredHandCard.attack}</strong></span><span>DEF <strong>{hoveredHandCard.health}</strong></span></>}</div><p><RuleText text={displayCardAbilityText(hoveredHandCard)} /></p>{hoveredHandCard.uniqueTrait && <p className="v31h-preview-signature"><b>UNIQUE · {hoveredHandCard.uniqueTrait.name}</b> <RuleText text={hoveredHandCard.uniqueTrait.description} /></p>}{hoveredHandCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(hoveredHandCard)} /></p>}{tacticalAbilityDescription(hoveredHandCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(hoveredHandCard)} /></p>}<TemporalQuickHint card={hoveredHandCard} currentPhase={currentEclipsePhase} /></div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(hoveredHandCard.id)}>전체 상세</button></div>
             </div>
           )}
           {selectedCard && (
             <div className="v18-selected-card">
               <div className="v18-selected-art"><CardIllustration card={selectedCard} compact /></div>
-              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p><RuleText text={selectedCard.summonMode === 'rift' ? `【${selectedCard.traitSpecialSummonTier ? `전투 특성 특수 소환 · ${traitSpecialTierLabel(selectedCard.traitSpecialSummonTier)}` : '균열 조건'}】 ${extraRequirement(selectedCard)}` : selectedCard.summonMode === 'legendary' ? `【전설 특수 소환】 ${extraRequirement(selectedCard)}` : polishedCardText(selectedCard)} /></p>{selectedCard.uniqueTrait && <p className="v31h-preview-signature"><b>UNIQUE · {selectedCard.uniqueTrait.name}</b> <RuleText text={selectedCard.uniqueTrait.description} /></p>}{selectedCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(selectedCard)} /></p>}{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(selectedCard)} /></p>}<TemporalQuickHint card={selectedCard} currentPhase={currentEclipsePhase} /></div>
+              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p><RuleText text={selectedCard.summonMode === 'rift' ? `【${selectedCard.traitSpecialSummonTier ? `전투 특성 특수 소환 · ${traitSpecialTierLabel(selectedCard.traitSpecialSummonTier)}` : '균열 조건'}】 ${extraRequirement(selectedCard)}` : selectedCard.summonMode === 'legendary' ? `【전설 특수 소환】 ${extraRequirement(selectedCard)}` : displayCardAbilityText(selectedCard)} /></p>{selectedCard.uniqueTrait && <p className="v31h-preview-signature"><b>UNIQUE · {selectedCard.uniqueTrait.name}</b> <RuleText text={selectedCard.uniqueTrait.description} /></p>}{selectedCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(selectedCard)} /></p>}{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(selectedCard)} /></p>}<TemporalQuickHint card={selectedCard} currentPhase={currentEclipsePhase} /></div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>선택 취소</button></div>
               {selectedCard.kind === 'unit' && selectedCardSummonNeedsTarget && selectedSummonZone !== null && (
                 <div className="v36-summon-target-box">
@@ -7549,7 +7575,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
             <header><div><small>PRECISION SEARCH</small><b>{selectedCard.effect?.kind === 'tutor_series_card' ? '같은 시리즈 카드 선택' : '덱에서 원하는 카드 선택'}</b></div><button type="button" onClick={() => setDeckTargetOpen(false)}>×</button></header>
             <p>현재 내 덱에 실제로 남아 있는 카드만 표시됩니다. 같은 카드가 여러 장이어도 목록에는 한 번만 표시됩니다.</p>
             <div className="v32y-picker-grid">
-              {deckTutorTargets.map((card) => <button type="button" className="v32y-picker-option" key={card.id} disabled={busy} onClick={() => tutorFromDeck(card.id)}><CardIllustration card={card} compact /><span><small>{KIND_LABEL[card.kind]} · COST {card.cost}</small><b>{card.name}</b><em>{polishedCardText(card)}</em></span></button>)}
+              {deckTutorTargets.map((card) => <button type="button" className="v32y-picker-option" key={card.id} disabled={busy} onClick={() => tutorFromDeck(card.id)}><CardIllustration card={card} compact /><span><small>{KIND_LABEL[card.kind]} · COST {card.cost}</small><b>{card.name}</b><em>{displayCardAbilityText(card)}</em></span></button>)}
             </div>
           </section>
         </div>
@@ -7561,7 +7587,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
             <header><div><small>GRAVE RECOVERY</small><b>묘지에서 카드 1장 선택</b></div><button type="button" onClick={() => setGraveCardTargetOpen(false)}>×</button></header>
             <p>메인 덱 카드(유닛·주문·함정)만 손패로 회수할 수 있습니다.</p>
             <div className="v32y-picker-grid">
-              {[...graveyardCardTargets].reverse().map(({ card, graveyardIndex }) => <button type="button" className="v32y-picker-option" key={`${graveyardIndex}-${card.id}`} disabled={busy} onClick={() => recoverCardFromGrave(graveyardIndex)}><CardIllustration card={card} compact /><span><small>{KIND_LABEL[card.kind]} · COST {card.cost}</small><b>{card.name}</b><em>{polishedCardText(card)}</em></span></button>)}
+              {[...graveyardCardTargets].reverse().map(({ card, graveyardIndex }) => <button type="button" className="v32y-picker-option" key={`${graveyardIndex}-${card.id}`} disabled={busy} onClick={() => recoverCardFromGrave(graveyardIndex)}><CardIllustration card={card} compact /><span><small>{KIND_LABEL[card.kind]} · COST {card.cost}</small><b>{card.name}</b><em>{displayCardAbilityText(card)}</em></span></button>)}
             </div>
           </section>
         </div>

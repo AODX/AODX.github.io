@@ -264,12 +264,19 @@ export interface ExtraChoice {
   effects: Effect[];
 }
 
+export interface UniqueCardTraitHighlight {
+  name: string;
+  description: string;
+}
+
 /** A one-off named mechanic reserved for a card that must not reuse the normal series package. */
 export interface UniqueCardTrait {
   name: string;
   description: string;
   /** Optional effects resolved by the engine at this card's natural timing (summon or spell resolution). */
   effects?: Effect[];
+  /** Optional UI rows rendered like bespoke signature keywords in the detail modal. */
+  highlights?: UniqueCardTraitHighlight[];
 }
 
 export interface CardSeriesDefinition {
@@ -5936,6 +5943,289 @@ for (const [cardId, override] of Object.entries(V61_SERIES_FLAGSHIP_OVERRIDES)) 
     card.effect = undefined;
     if (override.target) card.target = override.target;
   }
+}
+
+
+type V62UniquePresentationOverride = {
+  text?: string;
+  description?: string;
+  highlights?: UniqueCardTraitHighlight[];
+};
+
+const V62_UNIQUE_PRESENTATION_OVERRIDES: Record<string, V62UniquePresentationOverride> = {
+  fusion_v8_09: {
+    text: '【등장】 아군 전체 +1/+1, 카드 1장 드로우. 【선택】 초신성 전술 3가지 중 1개를 고른다.',
+    description: '빛을 연쇄시켜 전열 전체를 밀어붙이는 루미나이츠의 결전형 전용 특성이다.',
+    highlights: [
+      { name: '초신성 시동', description: '등장 즉시 전열 전체를 강화하고 패를 1장 보충한다.' },
+      { name: '결전 모드 선택', description: '광역 타격 / 토큰 전개 / 광휘 방진 중 하나를 골라 마무리 각을 만든다.' },
+    ],
+  },
+  spell_v8_solar_04: {
+    text: '【주문】 카드 2장을 뽑고 3/3 「세컨드 선 브레이버」 1체를 소환한다. 그 후 아군 전체 +1/+1.',
+    description: '한 번 지나간 일출을 다시 끌어와 패, 전개, 버프를 한 번에 묶는 재점화형 전용 주문이다.',
+    highlights: [
+      { name: '재점화', description: '드로우 2장으로 숨을 돌리면서 즉시 새 전열을 만든다.' },
+      { name: '두 번째 진군', description: '세컨드 선 브레이버와 전체 +1/+1로 필드를 한 번 더 밀어낸다.' },
+    ],
+  },
+  evolution_v8_18: {
+    text: '【등장】 아군 전체 보호막 +2, ENERGY 1 회복. 【선택】 요새 전개 3가지 중 1개를 고른다.',
+    description: '성채를 펼치듯 아군을 보호하고, 이후 원하는 전투 모드로 전환하는 이동요새형 전용 특성이다.',
+    highlights: [
+      { name: '이동요새 전개', description: '등장 즉시 전열 전체에 보호막을 둘러 버티는 힘을 만든다.' },
+      { name: '황제 전술 분기', description: '포격 / 재기동 / 초중장갑 중 상황에 맞는 모드 1개를 고른다.' },
+    ],
+  },
+  v32y_kaiser_spell_01: {
+    text: '【주문】 적 유닛 1장의 보호막을 전부 제거하고 체력에 4 피해. 이어 상대 코어에 1 피해.',
+    description: '장갑과 실체를 동시에 끊어내는 카이저기어식 단일 제압 전용 주문이다.',
+    highlights: [
+      { name: '장갑 해체', description: '보호막을 전부 벗긴 뒤 바로 체력에 직격 피해를 준다.' },
+      { name: '충격 전이', description: '남은 압력을 상대 코어에 1 피해로 이어 준다.' },
+    ],
+  },
+  fusion_eclipse_chimera: {
+    text: '【등장】 상대 묘지 2장을 소멸시키고 내 묘지 유닛 1장을 회수한다. 【선택】 키메라 권능 3가지 중 1개를 고른다.',
+    description: '적의 기록을 뜯어내며 자기 묘지를 다시 이어 붙이는 포식-재생형 전용 특성이다.',
+    highlights: [
+      { name: '네메시스 공명', description: '상대 묘지를 지우면서 내 핵심 유닛을 다시 손패로 가져온다.' },
+      { name: '포식 분기', description: '직접 피해 / 추가 회수 / 분열 토큰 중 하나를 골라 전장을 흔든다.' },
+    ],
+  },
+  spell_v8_solar_09: {
+    text: '【주문】 적 유닛 1장을 원래 영역으로 되돌리고 상대 묘지의 메인 덱 카드 2장을 추가로 소멸시킨다.',
+    description: '전장의 현재와 과거를 동시에 지워 버리는 추방형 전용 주문이다.',
+    highlights: [
+      { name: '수평선 추방', description: '적 유닛 1장을 필드에서 치우며 전개 템포를 끊는다.' },
+      { name: '기록 말소', description: '상대 묘지 2장을 함께 지워 후속 순환까지 약화시킨다.' },
+    ],
+  },
+  fusion_v8_20: {
+    text: '【등장】 카드 1장을 뽑고 코어 3 회복. 【선택】 꿈결 권능 3가지 중 1개를 고른다.',
+    description: '전장을 꿈 쪽으로 기울여 회복과 전개, 마무리 중 하나로 흐름을 바꾸는 몽환왕형 전용 특성이다.',
+    highlights: [
+      { name: '몽환의 왕좌', description: '등장과 동시에 드로우와 코어 회복으로 전투 호흡을 되찾는다.' },
+      { name: '꿈의 갈림길', description: '환영 소환 / 백야 방진 / 퇴장 타격 중 상황에 맞는 꿈을 고른다.' },
+    ],
+  },
+  spell_v8_lunar_06: {
+    text: '【주문】 적 유닛 1장의 현재 공격력/체력을 복사한 거울 토큰을 소환하고, 그 적은 다음 자신의 턴에 공격할 수 없다.',
+    description: '적의 형상을 훔쳐 쓰고 원본은 한 박자 늦추는 교란형 전용 주문이다.',
+    highlights: [
+      { name: '거울 복제', description: '적 유닛의 현재 능력치를 그대로 복사한 토큰을 만들어 낸다.' },
+      { name: '발걸음 봉인', description: '원본은 다음 턴에 공격할 수 없어 리듬이 끊긴다.' },
+    ],
+  },
+  fusion_v8_05: {
+    text: '【등장】 아군 전체 DEF +2, 코어 3 회복. 【선택】 세계근 권능 3가지 중 1개를 고른다.',
+    description: '필드 전체를 하나의 생명권으로 묶어 버티기와 순환을 동시에 책임지는 대수호목형 전용 특성이다.',
+    highlights: [
+      { name: '세계근 연결', description: '아군 전열 전체의 생존력을 높이고 코어까지 안정시킨다.' },
+      { name: '생명 순환 선택', description: '방호 / 뿌리 전개 / 묘지 재순환 중 필요한 흐름을 골라 쓴다.' },
+    ],
+  },
+  spell_v8_lunar_01: {
+    text: '【주문】 3/5 「세계근 수호체」 1체를 소환하고 아군 전체 DEF +2, 코어 2 회복.',
+    description: '뿌리 자체를 직접 불러와 전열을 단단하게 묶는 수비 전개형 전용 주문이다.',
+    highlights: [
+      { name: '세계근 호출', description: '3/5 수호체를 곧바로 전장에 세워 빈 필드를 메운다.' },
+      { name: '생명권 확장', description: '전열 전체 DEF +2와 코어 2 회복으로 한 번에 버틴다.' },
+    ],
+  },
+  evolution_v8_06: {
+    text: '【등장】 ENERGY 2 회복, 아군 전체 ATK +1. 【선택】 과충전 모드 3가지 중 1개를 고른다.',
+    description: '전열 전체의 출력을 올리고 이어서 원하는 가속 모드로 달려가는 초가속형 전용 특성이다.',
+    highlights: [
+      { name: '제타 돌입', description: '등장 즉시 ENERGY를 회복하고 전열 전체 화력을 밀어 올린다.' },
+      { name: '한계돌파 분기', description: '러시 / 재충전 / 자기 강화 중 한 모드를 골라 템포를 폭발시킨다.' },
+    ],
+  },
+  spell_v8_neutral_02: {
+    text: '【주문】 ENERGY 3 회복. 아군 전체 ATK +1. 내 필드 유닛 수만큼 상대 코어 피해(최대 3).',
+    description: '자원 회복과 돌진 각, 코어 압박을 한 줄로 연결하는 폭주형 전용 주문이다.',
+    highlights: [
+      { name: '출력 제한 해제', description: '즉시 ENERGY 3을 회복해 후속 플레이까지 이어 준다.' },
+      { name: '전열 동시 가속', description: '아군 전체 ATK +1 뒤 편대 수만큼 코어를 추가 포격한다.' },
+    ],
+  },
+  fusion_v8_17: {
+    text: '【등장】 상대 묘지 3장을 소멸시키고 내 코어 3 회복. 【선택】 공허 권능 3가지 중 1개를 고른다.',
+    description: '상대 묘지를 먹어치워 생존과 화력을 동시에 뽑아내는 심연 포식형 전용 특성이다.',
+    highlights: [
+      { name: '공허해역 포식', description: '상대 묘지를 지우며 자신의 코어를 회복해 장기전을 준비한다.' },
+      { name: '심연 분기', description: '직접 포격 / 묘지 순환 / 중장갑 모드 중 하나를 골라 마무리한다.' },
+    ],
+  },
+  spell_v8_void_08: {
+    text: '【주문】 내 묘지 수에 따라 상대 코어 피해(장당 1, 최대 4), 내 코어 3 회복, 상대 묘지 1장 소멸.',
+    description: '내 묘지를 연료로 상대를 태우고 생명력을 되돌려 받는 흡수형 전용 주문이다.',
+    highlights: [
+      { name: '묘지 연료화', description: '내 묘지 수가 많을수록 코어 직격 피해가 커진다.' },
+      { name: '혈맥 환류', description: '피해 뒤에 코어 회복과 적 묘지 말소까지 이어진다.' },
+    ],
+  },
+  fusion_v8_08: {
+    text: '【등장】 3/3 「원초 수호령」 1체를 소환하고 아군 전체 +1/+1. 【선택】 왕수 권능 3가지 중 1개를 고른다.',
+    description: '소환과 동시에 무리를 불러내고, 이후 사냥·결속·수호 중 한 흐름을 강하게 밀어붙이는 야수왕형 전용 특성이다.',
+    highlights: [
+      { name: '알파의 포효', description: '원초 수호령을 부르며 필드 전체를 즉시 강화한다.' },
+      { name: '무리 지휘', description: '사냥 / 집결 / 대지 수호 중 한 방향으로 전술을 확정한다.' },
+    ],
+  },
+  spell_v8_storm_06: {
+    text: '【주문】 아군 유닛 1장에게 +3/+3. 이어 내 코어 2 회복.',
+    description: '핵심 한 체에 야성을 집중시켜 싸움의 축을 단번에 바꾸는 강화형 전용 주문이다.',
+    highlights: [
+      { name: '야성 주입', description: '선택한 아군 1장을 즉시 +3/+3으로 키워 결전 카드로 만든다.' },
+      { name: '생기 환원', description: '강화와 동시에 코어 2를 회복해 반격 여력도 남긴다.' },
+    ],
+  },
+  v26_chronorium_evolution_02: {
+    text: '【등장】 시간을 1단계 되감고 ENERGY 1 회복, 카드 1장 드로우. 【선택】 시간 제어 모드 3가지 중 1개를 고른다.',
+    description: '시간축 자체를 되감고, 이후 정지·가속·윤환 중 하나를 택해 판 전체의 리듬을 바꾸는 시공간 제어형 전용 특성이다.',
+    highlights: [
+      { name: '시점 역행', description: '등장과 동시에 시간을 1단계 되감아 유리한 시간대로 다시 맞춘다.' },
+      { name: '시간 명령 선택', description: '정지 / 가속 / 윤환 중 한 명령을 골라 전장 전체 흐름을 제어한다.' },
+    ],
+  },
+  v26_chronorium_spell_08: {
+    text: '【주문】 시간을 심야로 설정하고 1턴 고정. 내 묘지 카드 2장을 덱으로 되돌린 뒤 카드 2장을 뽑는다.',
+    description: '시계를 00:00에 맞춘 뒤 묘지까지 다시 순환시키는 시각 고정형 전용 주문이다.',
+    highlights: [
+      { name: '최후시각 설정', description: '현재 시간을 심야로 바꾸고 1턴 동안 그대로 묶어 둔다.' },
+      { name: '자정 순환', description: '묘지 2장을 덱으로 되돌린 뒤 카드 2장을 뽑아 템포를 다시 잇는다.' },
+    ],
+  },
+  v26_arcana_protocol_evolution_02: {
+    text: '【등장】 묘지 카드 2장을 덱으로 되돌리고 카드 2장 드로우, ENERGY 1 회복. 【선택】 규약 모드 3가지 중 1개를 고른다.',
+    description: '규약을 다시 써서 순환과 자원을 만들고, 이후 보조·제압·루프 중 필요한 조항을 발동하는 법칙개변형 전용 특성이다.',
+    highlights: [
+      { name: '자동 갱신', description: '묘지 순환, 드로우, ENERGY 회복을 한 번에 처리한다.' },
+      { name: '조항 선택', description: '재작성 / 금단식 / 무한루프 중 한 조항을 골라 상황에 맞춘다.' },
+    ],
+  },
+  v26_arcana_protocol_spell_08: {
+    text: '【주문】 내 묘지 카드 3장을 덱으로 되돌리고 카드 2장 드로우, ENERGY 1 회복. 상대 코어에 2 피해.',
+    description: '묘지를 규약 연료로 되돌리며 손패·에너지·직접 피해를 동시에 챙기는 다목적 전용 주문이다.',
+    highlights: [
+      { name: '금단 회람', description: '묘지 3장을 덱으로 복귀시켜 리소스 고갈을 늦춘다.' },
+      { name: '제13식 집행', description: '드로우와 ENERGY 회복 뒤 상대 코어 2 피해로 압박을 남긴다.' },
+    ],
+  },
+  v26_beastforge_evolution_02: {
+    text: '【등장】 아군 전체 보호막 +2, 이 유닛 +2/+2. 【선택】 철수권능 3가지 중 1개를 고른다.',
+    description: '스스로를 두껍게 만들면서 아군까지 보호하고, 이후 돌진·재생·비스트 전개 중 하나를 고르는 기갑야수형 전용 특성이다.',
+    highlights: [
+      { name: '장갑 포식', description: '등장과 동시에 보호막을 두르고 자기 자신도 더 커진다.' },
+      { name: '포지 분기', description: '돌진 / 수복 / 비스트 생산 중 한 모드를 골라 운영을 이어 간다.' },
+    ],
+  },
+  v26_beastforge_spell_08: {
+    text: '【주문】 아군 유닛 1장에게 +4/+4. 이어 ENERGY 1 회복.',
+    description: '살아 움직이는 외장갑을 입혀 핵심 유닛을 거대화하는 단일 강화형 전용 주문이다.',
+    highlights: [
+      { name: '가동 장갑', description: '선택한 아군 1장을 즉시 +4/+4로 키워 전장 핵으로 만든다.' },
+      { name: '과열 보급', description: '강화 뒤 ENERGY 1도 함께 회복해 후속 행동을 연결한다.' },
+    ],
+  },
+  v26_phantom_carnival_evolution_02: {
+    text: '【등장】 카드 2장을 뽑고 코어 2 회복. 【선택】 피날레 연출 3가지 중 1개를 고른다.',
+    description: '무대를 한 번 접는 대신 다른 막을 여는, 변칙성과 전환성이 강한 공연형 전용 특성이다.',
+    highlights: [
+      { name: '끝나지 않는 앙코르', description: '드로우와 회복으로 다음 장면을 위한 여유를 확보한다.' },
+      { name: '무대 연출 선택', description: '능력치 뒤집기 / 추가 배우 전개 / 광역 마무리 중 하나를 고른다.' },
+    ],
+  },
+  v26_phantom_carnival_spell_08: {
+    text: '【주문】 필드의 모든 유닛을 원래 영역으로 되돌린다(토큰은 소멸). 그 후 카드 2장 드로우, 상대 코어 2 피해.',
+    description: '전장을 통째로 리셋한 뒤 마지막 박수처럼 압박을 남기는 리콜형 전용 주문이다.',
+    highlights: [
+      { name: '무대 철수', description: '필드의 모든 유닛을 원래 영역으로 되돌려 전장을 비운다.' },
+      { name: '피날레 수익', description: '정리 이후 카드 2장을 보충하고 코어 2 피해까지 남긴다.' },
+    ],
+  },
+  v26_astral_armada_evolution_02: {
+    text: '【등장】 2/2 「오리온 드론」 1체 소환, 아군 전체 보호막 +1, ENERGY 1 회복. 【선택】 함대 명령 3가지 중 1개를 고른다.',
+    description: '소형 편대를 즉시 깔고, 이후 포격·항모 전개·항로 재편 중 한 명령으로 함대 운영을 완성하는 기동함대형 전용 특성이다.',
+    highlights: [
+      { name: '편대 개시', description: '드론 소환, 보호막, ENERGY 회복을 한 번에 처리해 초반 템포를 잡는다.' },
+      { name: '오리온 명령', description: '일제사격 / 추가 함선 / 별길 재편 중 하나를 골라 전장을 넓힌다.' },
+    ],
+  },
+  v26_astral_armada_spell_08: {
+    text: '【주문】 모든 적 유닛에 3 피해, 상대 코어에 2 피해. 그 후 ENERGY 1 회복.',
+    description: '함대 전체의 화력을 하나의 좌표에 집중하는 광역 폭격형 전용 주문이다.',
+    highlights: [
+      { name: '좌표 동기화', description: '모든 적 유닛에 3 피해를 주며 전열을 약화시킨다.' },
+      { name: '오메가 포화', description: '상대 코어 2 피해 뒤 ENERGY 1을 돌려 받아 템포를 잇는다.' },
+    ],
+  },
+  v41_premium_zenith_king: {
+    text: '【전설 특수 소환】 아군 유닛 2장을 릴리스하고 소환. 【등장】 시간을 정점으로 설정하고 2턴 고정, 아군 전체 +2/+2. 【정점 군림】 정점 진입 또는 정점에서 등장 시 아군 전체를 준비 완료하고 상대 코어 5 피해, 상대 ENERGY 1 흡수, 4/4 「천정 근위」 1체를 소환한다.',
+    description: '정점 시간대를 왕의 영토로 바꾸어 전장을 한 번에 몰아붙이는 절정 지배형 프리미엄 특성이다.',
+    highlights: [
+      { name: '정오 고정', description: '등장과 동시에 시간을 정점으로 맞추고 2턴 동안 유지한다.' },
+      { name: '왕의 호령', description: '정점 트리거마다 아군 전체 준비 완료, 코어 5 피해, ENERGY 흡수까지 이어진다.' },
+      { name: '근위 소집', description: '정점이 열릴 때마다 4/4 「천정 근위」가 전장에 합류한다.' },
+    ],
+  },
+  v41_premium_dawn_lord: {
+    text: '【전설 특수 소환】 내 코어 24 이하 또는 묘지 5장 이상. 【등장】 시간을 여명으로 되돌리고 카드 1장 드로우, ENERGY 최대치 +1, 코어 6 회복, 묘지의 캐릭터 1장을 회수한다. 【첫빛 개시】 여명 진입 또는 여명에서 등장 시 최고 비용 유닛 부활, 아군 전체 체력 3 회복, 아군 전체 준비 완료, 카드 1장 드로우.',
+    description: '해가 떠오를 때마다 전열을 다시 세우는 부활-행진형 프리미엄 특성이다.',
+    highlights: [
+      { name: '여명 회귀', description: '등장만으로 시간 복귀, 패 보충, 최대 ENERGY 상승, 코어 회복을 동시에 만든다.' },
+      { name: '첫빛 부활', description: '여명마다 최고 비용 유닛을 다시 일으켜 전열을 되살린다.' },
+      { name: '일출 행진', description: '아군 전체 치유와 준비 완료로 반격이 아닌 재공세를 만든다.' },
+    ],
+  },
+  v41_premium_eclipse_conductor: {
+    text: '【전설 특수 소환】 묘지 6장 이상 + 아군 유닛 1장 릴리스. 【등장】 시간을 개기일식으로 설정하고 2턴 고정, 가장 강한 적 1체 리콜, 상대 묘지 1장 소멸, 상대 ENERGY 1 흡수. 【흑광 지휘】 개기일식 진입 또는 등장 시 최고 비용 유닛 부활, 가장 강한 적 1체 초기화, 상대 코어 4 피해, 4/4 「흑광 악장」 1체를 소환한다.',
+    description: '일식 리듬으로 적 템포를 끊고 아군 종결 자원을 되살리는 지휘형 프리미엄 특성이다.',
+    highlights: [
+      { name: '일식 고정', description: '개기일식 2턴 고정과 함께 적 핵심 유닛을 되돌려 템포를 끊는다.' },
+      { name: '무음 지휘', description: '일식마다 적 최강 유닛을 초기화하고 코어 4 피해를 누적한다.' },
+      { name: '흑광 악장', description: '추가 4/4 토큰과 부활 효과로 필드 주도권을 되찾는다.' },
+    ],
+  },
+  v44_premium_twilight_knight: {
+    text: '【전설 특수 소환】 내 묘지에 카드가 5장 이상일 때. 【등장】 시간을 황혼으로 설정하고 카드 1장 드로우, 자신에게 보호막 3 부여. 【황혼 맹세】 황혼 진입 또는 황혼에서 등장 시 코어 격차를 최대 5까지 보정하고, 아군 전체 보호막 +2, 상대 코어 2 흡수, 현재 ATK+DEF가 9 이하인 가장 약한 적 1체를 붕괴시킨다.',
+    description: '황혼의 균형을 자기 편으로 비틀어 버티기와 제거를 동시에 가져오는 균형지배형 프리미엄 특성이다.',
+    highlights: [
+      { name: '박명 개막', description: '등장 즉시 황혼으로 전환하고 드로우+보호막으로 전투 태세를 갖춘다.' },
+      { name: '경계의 저울', description: '코어 격차 보정과 상대 코어 흡수로 손해 본 흐름을 되돌린다.' },
+      { name: '저무는 판결', description: '황혼마다 약한 적 1체를 붕괴시켜 전장 균형을 무너뜨린다.' },
+    ],
+  },
+  v41_premium_midnight_silence: {
+    text: '【주문】 시간을 심야로 설정하고 2턴 동안 고정한다. 모든 적 캐릭터를 1턴 동안 동결시키고, 상대 손패의 최고 비용 카드 1장을 버리게 한다. 그 후 상대 묘지 2장을 소멸시키고 카드 1장을 드로우한다.',
+    description: '심야를 절대 정적으로 만들어 적 손패·필드·묘지를 동시에 잠그는 봉쇄형 프리미엄 주문이다.',
+    highlights: [
+      { name: '심야 고정', description: '시간을 심야로 바꾸고 2턴 동안 움직이지 못하게 만든다.' },
+      { name: '절대 무음', description: '모든 적 캐릭터를 동결시켜 다음 움직임을 묶어 둔다.' },
+      { name: '침묵의 대가', description: '최고 비용 손패 1장 버림, 묘지 2장 소멸, 1장 드로우까지 이어진다.' },
+    ],
+  },
+  v60_premium_time_devourer: {
+    text: '【전설 특수 소환】 ENERGY 10만 지불하면 추가 조건 없이 소환할 수 있다. 【상시 효과】 모든 시간대에서 항상 +5/+5. 【등장】 상대 필드의 캐릭터와 세트 함정을 모두 제거하고, 내 코어 10 회복, 카드 3장 드로우, ENERGY 3 회복, 보호막 3을 얻는다. 【시간 포식】 여명=코어 4 회복 / 정점=상대 ENERGY 2 흡수 / 황혼=상대 코어 2 흡수 / 심야=상대 묘지 2장 소멸 / 개기일식=상대 코어 4 피해.',
+    description: '모든 시간대를 각기 다른 먹이로 삼아 계속 이득을 축적하는 최상위 절대 프리미엄 특성이다.',
+    highlights: [
+      { name: '무조건 강림', description: 'ENERGY 10만 확보하면 별도 릴리스 없이 바로 강림할 수 있다.' },
+      { name: '절대 등장', description: '등장만으로 적 필드·세트 함정을 모두 지우고, 코어 10 회복 · 드로우 3장 · ENERGY 3 · 보호막 3을 얻는다.' },
+      { name: '시대별 섭식', description: '여명 회복 / 정점 ENERGY 흡수 / 황혼 코어 흡수 / 심야 묘지 포식 / 일식 종말 피해가 시간대마다 반복된다.' },
+    ],
+  },
+};
+
+for (const [cardId, override] of Object.entries(V62_UNIQUE_PRESENTATION_OVERRIDES)) {
+  const card = CARDS.find((item) => item.id === cardId);
+  if (!card?.uniqueTrait) continue;
+  if (override.text) card.text = override.text;
+  card.uniqueTrait = {
+    ...card.uniqueTrait,
+    description: override.description ?? card.uniqueTrait.description,
+    highlights: override.highlights ?? card.uniqueTrait.highlights,
+  };
 }
 
 export const V61_SERIES_FLAGSHIPS = Object.freeze(Object.fromEntries(
