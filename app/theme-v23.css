@@ -3817,11 +3817,40 @@
 }
 .v23-client .keyword-list p b { color:#9deaff!important;font-size:9px!important; }
 .v23-client .keyword-list p span { color:#99aab6!important;font-size:10px!important;line-height:1.5!important; }
+.v23-client .v65-combat-trait-panel {
+  --combat-trait-accent:#55bfff;
+  position:relative!important;
+  overflow:hidden!important;
+  border-color:rgba(85,191,255,.52)!important;
+  background:
+    linear-gradient(90deg,rgba(50,151,230,.18),rgba(14,42,72,.10) 46%,transparent 78%),
+    linear-gradient(145deg,rgba(11,31,53,.98),rgba(6,15,28,.98))!important;
+  box-shadow:
+    inset 0 1px 0 rgba(184,226,255,.08),
+    0 0 0 1px rgba(60,166,239,.07),
+    0 12px 28px rgba(0,78,138,.12)!important;
+}
+.v23-client .v65-combat-trait-panel::before {
+  content:"";
+  position:absolute;
+  inset:0 auto 0 0;
+  width:4px;
+  background:linear-gradient(180deg,#8cd8ff,#289ce8);
+  box-shadow:0 0 18px rgba(68,178,255,.72);
+}
+.v23-client .v65-combat-trait-panel>span {
+  color:#a8dfff!important;
+}
+.v23-client .v65-combat-trait-panel>span::before {
+  background:#55bfff!important;
+  box-shadow:0 0 10px rgba(85,191,255,.72)!important;
+}
 .v23-client .v65-custom-combat-traits p {
   grid-template-columns:112px minmax(0,1fr)!important;
   padding:9px 10px!important;
   border-radius:10px!important;
-  background:rgba(9,18,34,.5)!important;
+  border:1px solid rgba(91,187,255,.12)!important;
+  background:linear-gradient(90deg,rgba(36,112,175,.16),rgba(7,18,33,.66))!important;
 }
 .v23-client .v65-custom-combat-traits p b {
   color:#f3fbff!important;

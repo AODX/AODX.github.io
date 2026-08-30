@@ -3849,12 +3849,12 @@ function applyUniqueCombatTurnStart(
       }
       case 'extra_lumina_successor_light': {
         unit.shield += 2;
-        appendUniqueCombatVisual(state, card, playerId, index, 'SOLAR OVERDRIVE', '초신성 외피를 재점화해 보호막 2를 얻었습니다.');
+        appendUniqueCombatVisual(state, card, playerId, index, '태양 과부하', '초신성 외피를 재점화해 보호막 2를 얻었습니다.');
         break;
       }
       case 'extra_kaiser_emergency_bulkhead': {
         unit.shield += 3;
-        appendUniqueCombatVisual(state, card, playerId, index, 'FORTRESS MAINTENANCE', '요새 장갑을 정비해 보호막 3을 얻었습니다.');
+        appendUniqueCombatVisual(state, card, playerId, index, '요새 정비', '요새 장갑을 정비해 보호막 3을 얻었습니다.');
         break;
       }
       case 'extra_eclipsion_armor_devour': {
@@ -3862,7 +3862,7 @@ function applyUniqueCombatTurnStart(
           const before = unit.health;
           unit.health = Math.min(unit.maxHealth, unit.health + 1);
           unit.shield += 1;
-          appendUniqueCombatVisual(state, card, playerId, index, 'REGENERATIVE CARAPACE', `포식 장갑이 재생되어 체력 ${unit.health - before} 회복 / 보호막 +1.`);
+          appendUniqueCombatVisual(state, card, playerId, index, '재생 갑피', `포식 장갑이 재생되어 체력 ${unit.health - before} 회복 / 보호막 +1.`);
         }
         break;
       }
@@ -3870,7 +3870,7 @@ function applyUniqueCombatTurnStart(
         const before = unit.health;
         unit.health = Math.min(unit.maxHealth, unit.health + 1);
         unit.shield += 2;
-        appendUniqueCombatVisual(state, card, playerId, index, 'MOLTEN RECOVERY', `용융 장갑을 재생해 체력 ${unit.health - before} 회복 / 보호막 +2.`);
+        appendUniqueCombatVisual(state, card, playerId, index, '용융 복구', `용융 장갑을 재생해 체력 ${unit.health - before} 회복 / 보호막 +2.`);
         break;
       }
       case 'premium_zenith_royal_command': {
@@ -3899,7 +3899,7 @@ function applyUniqueCombatTurnStart(
         }
         unit.maxHealth += 1;
         unit.health += 1;
-        appendUniqueCombatVisual(state, card, playerId, index, 'WORLDROOT PULSE', `아군 전체를 총 ${healed} 회복하고 자신은 최대 체력 +1 / 체력 +1.`);
+        appendUniqueCombatVisual(state, card, playerId, index, '세계근 맥동', `아군 전체를 총 ${healed} 회복하고 자신은 최대 체력 +1 / 체력 +1.`);
         const otherAllies = state.boards[playerId].units.filter((ally, allyIndex) => Boolean(ally && ally.health > 0 && allyIndex !== index)).length;
         if (otherAllies >= 2) {
           let covered = 0;
@@ -3908,7 +3908,7 @@ function applyUniqueCombatTurnStart(
             ally.shield += 1;
             covered += 1;
           }
-          appendUniqueCombatVisual(state, card, playerId, index, 'ROOT BASTION', `뿌리망이 아군 ${covered}체를 감싸 보호막 +1.`);
+          appendUniqueCombatVisual(state, card, playerId, index, '뿌리 보루', `뿌리망이 아군 ${covered}체를 감싸 보호막 +1.`);
         }
         break;
       }
@@ -3981,23 +3981,23 @@ function applyUniqueCombatAttackStart(
     const defender = state.boards[opponentId].units[target.unitIndex];
     if (defender && defender.health < defender.maxHealth) {
       bonusDamage += 2;
-      appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'FUNERAL CURRENT', '상처 난 먹잇감에 심연 조류가 달라붙어 이번 공격 피해 +2.', opponentId, target.unitIndex);
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, '장례 해류', '상처 난 먹잇감에 심연 조류가 달라붙어 이번 공격 피해 +2.', opponentId, target.unitIndex);
     }
   }
 
   if (combatId === 'extra_chronorium_time_afterimage') {
     attacker.shield += 2;
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'CHRONO GUARD', '공격 순간 시간 잔상을 겹쳐 보호막 2를 얻었습니다.');
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '시각 방벽', '공격 순간 시간 잔상을 겹쳐 보호막 2를 얻었습니다.');
   }
 
   if (combatId === 'extra_arcana_forbidden_confiscation') {
     attacker.shield += 2;
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'AUDIT SHIELD', '금단 규약을 장막으로 전개해 보호막 2를 얻었습니다.');
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '감찰 방벽', '금단 규약을 장막으로 전개해 보호막 2를 얻었습니다.');
   }
 
   if (combatId === 'extra_beastforge_evolution_shell' && attacker.shield >= 3) {
     bonusDamage += 2;
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'PREDATOR PLATING', '중첩 장갑을 충격력으로 변환해 이번 공격 피해 +2.');
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '포식자 장갑', '중첩 장갑을 충격력으로 변환해 이번 공격 피해 +2.');
   }
 
   if (combatId === 'extra_astral_carrier_launch') {
@@ -4007,7 +4007,7 @@ function applyUniqueCombatAttackStart(
       ally.shield += 1;
       screened += 1;
     });
-    if (screened > 0) appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'FLEET SCREEN', `다른 아군 ${screened}체에게 편대 보호막 +1.`);
+    if (screened > 0) appendUniqueCombatVisual(state, card, playerId, attackerIndex, '함대 방진', `다른 아군 ${screened}체에게 편대 보호막 +1.`);
   }
 
   if (combatId === 'premium_zenith_royal_command') {
@@ -4037,7 +4037,7 @@ function applyUniqueCombatAttackStart(
     attacker.combatTraitAuxTurn = state.turnNumber;
     rewindEclipsePhase(state, privateStates, 1, playerId);
     bonusDamage += 2;
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'BATTLE RETAKE', '공격 순간을 실제 이전 시간대로 되감았습니다. 이번 공격 피해 +2.');
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '전투 역행', '공격 순간을 실제 이전 시간대로 되감았습니다. 이번 공격 피해 +2.');
   }
 
   if (combatId === 'astral_formation_cover' && uniqueCombatReady(attacker, state)) {
@@ -4049,7 +4049,7 @@ function applyUniqueCombatAttackStart(
       allies += 1;
     });
     if (allies >= 2) bonusDamage += 2;
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'FORMATION LINK', `다른 아군 ${allies}체에게 보호막 +1.${allies >= 2 ? ' 편대 완성으로 이번 공격 피해 +2.' : ''}`);
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '편대 연결', `다른 아군 ${allies}체에게 보호막 +1.${allies >= 2 ? ' 편대 완성으로 이번 공격 피해 +2.' : ''}`);
   }
 
   if (combatId === 'extra_eclipsion_armor_devour' && target.kind === 'unit' && uniqueCombatReady(attacker, state)) {
@@ -4060,7 +4060,7 @@ function applyUniqueCombatAttackStart(
         defender.shield -= stolen;
         attacker.shield += stolen;
         markUniqueCombatUsed(attacker, state);
-        appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'SHELL DEVOUR', `대상 보호막 ${stolen}을 뜯어 자신의 보호막으로 흡수했습니다.`, opponentId, target.unitIndex);
+        appendUniqueCombatVisual(state, card, playerId, attackerIndex, '장갑 포식', `대상 보호막 ${stolen}을 뜯어 자신의 보호막으로 흡수했습니다.`, opponentId, target.unitIndex);
       }
     }
   }
@@ -4070,8 +4070,8 @@ function applyUniqueCombatAttackStart(
     if (zone >= 0) {
       markUniqueCombatUsed(attacker, state);
       buffUnitPermanent(attacker, 1, 1);
-      appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'ROYAL PACK', '공격 개시와 동시에 2/2 「왕수의 새끼」 1체가 사냥에 합류했습니다.', playerId, zone);
-      appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'ALPHA ROAR', '무리가 호응해 본체가 영구 +1/+1.');
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, '왕수 무리', '공격 개시와 동시에 2/2 「왕수의 새끼」 1체가 사냥에 합류했습니다.', playerId, zone);
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, '알파 포효', '무리가 호응해 본체가 영구 +1/+1.');
     }
   }
 
@@ -4136,7 +4136,7 @@ function adjustUniqueCombatDamage(
   if (defenderCombat === 'extra_kaiser_emergency_bulkhead' && defender.combatTraitAuxTurn !== state.turnNumber) {
     defender.combatTraitAuxTurn = state.turnNumber;
     attackerDamage = Math.max(0, attackerDamage - 2);
-    appendUniqueCombatVisual(state, defenderCard, opponentId, targetIndex, 'COUNTER BATTERY', '비상 포대가 충격을 분산해 이번 공격에서 받는 피해 -2.', playerId, attackerIndex);
+    appendUniqueCombatVisual(state, defenderCard, opponentId, targetIndex, '반격 포대', '비상 포대가 충격을 분산해 이번 공격에서 받는 피해 -2.', playerId, attackerIndex);
   }
 
   if (attackerCombat === 'premium_eclipse_silent_beat' && uniqueCombatReady(attacker, state)) {
@@ -4151,7 +4151,7 @@ function adjustUniqueCombatDamage(
       shielded += 1;
     }
     const gained = gainSignatureEnergy(state, playerId, 1);
-    appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, 'SILENT BEAT', '상대의 반격 박자를 지워 이번 전투의 반격 피해를 0으로 만들었습니다.', opponentId, targetIndex);
+    appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, '무음 박자', '상대의 반격 박자를 지워 이번 전투의 반격 피해를 0으로 만들었습니다.', opponentId, targetIndex);
     appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, '흑광 지휘', `아군 ${shielded}체 보호막 +1 / ENERGY ${gained} 회복.`);
   }
 
@@ -4164,7 +4164,7 @@ function adjustUniqueCombatDamage(
     if (reflected > 0) {
       const dealt = damageCore(state, opponentId, reflected);
       statsFor(state, playerId).coreDamage += dealt;
-      appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, 'COUNTER MIRROR', `상대 반격을 지우고 그 힘의 절반을 반사해 상대 코어에 ${dealt} 피해.`, opponentId, targetIndex);
+      appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, '반격 거울', `상대 반격을 지우고 그 힘의 절반을 반사해 상대 코어에 ${dealt} 피해.`, opponentId, targetIndex);
     }
   }
 
@@ -4176,7 +4176,7 @@ function adjustUniqueCombatDamage(
     if (candidate) {
       markUniqueCombatUsed(attacker, state);
       const report = damageUnit(state, opponentId, candidate.index, 2);
-      appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, 'CHAIN AFTERBURN', `잔류 번개가 다른 적에게 튀어 보호막 ${report.absorbed} / HP ${report.healthDamage} 피해.`, opponentId, candidate.index);
+      appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, '연쇄 잔류폭주', `잔류 번개가 다른 적에게 튀어 보호막 ${report.absorbed} / HP ${report.healthDamage} 피해.`, opponentId, candidate.index);
     }
   }
 
@@ -4201,7 +4201,7 @@ function applyUniqueCombatLethalProtections(
       unit.health = 1;
       unit.shield += 3;
       unit.canAttack = false;
-      appendUniqueCombatVisual(state, card, ownerId, index, 'EMERGENCY BULKHEAD', '치명타 직전 격벽을 폐쇄해 체력 1로 생존하고 보호막 3을 얻었습니다.');
+      appendUniqueCombatVisual(state, card, ownerId, index, '비상 격벽', '치명타 직전 격벽을 폐쇄해 체력 1로 생존하고 보호막 3을 얻었습니다.');
     }
 
     // Dawn Lord: first OTHER allied combat death each turn is rewound.
@@ -4214,7 +4214,7 @@ function applyUniqueCombatLethalProtections(
       unit.health = 1;
       unit.shield += 2;
       unit.canAttack = false;
-      appendUniqueCombatVisual(state, dawn.card, ownerId, dawn.index, 'DAWN REBIRTH', `「${CARD_BY_ID[unit.cardId]?.name ?? '아군'}」의 전투 파괴를 되돌려 체력 1 / 보호막 2로 생환시켰습니다.`, ownerId, index);
+      appendUniqueCombatVisual(state, dawn.card, ownerId, dawn.index, '여명 생환', `「${CARD_BY_ID[unit.cardId]?.name ?? '아군'}」의 전투 파괴를 되돌려 체력 1 / 보호막 2로 생환시켰습니다.`, ownerId, index);
       const drew = drawCards(state, privateStates[ownerId], ownerId, 1);
       const gained = gainSignatureEnergy(state, ownerId, 1);
       appendUniqueCombatVisual(state, dawn.card, ownerId, dawn.index, '재기의 전령', `${drew ? '카드 1장 드로우 / ' : ''}ENERGY ${gained} 회복.`);
@@ -4255,7 +4255,7 @@ function applyUniqueCombatBeforeCleanup(
     const zone = summonSeriesToken(state, opponentId, 2, 2, '세계근 묘목', 'worldroot-seed-kingdom');
     if (zone >= 0) {
       markUniqueCombatUsed(defender, state);
-      appendUniqueCombatVisual(state, defenderCard, opponentId, targetIndex, 'SEED KINGDOM', '상처에서 2/2 「세계근 묘목」 1체가 발아했습니다.', opponentId, zone);
+      appendUniqueCombatVisual(state, defenderCard, opponentId, targetIndex, '종자 왕국', '상처에서 2/2 「세계근 묘목」 1체가 발아했습니다.', opponentId, zone);
     }
   }
 
@@ -4271,7 +4271,7 @@ function applyUniqueCombatBeforeCleanup(
     markUniqueCombatUsed(attacker, state);
     buffUnitPermanent(attacker, 1, 2);
     attacker.shield += 1;
-    appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, 'EVOLUTION SHELL', '반격을 견뎌 영구 +1/+2, 보호막 1을 획득했습니다.');
+    appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, '진화 외피', '반격을 견뎌 영구 +1/+2, 보호막 1을 획득했습니다.');
   }
 
   if (attacker && defender && defender.health > 0 && attackerCombat === 'premium_eclipse_silent_beat'
@@ -4285,7 +4285,7 @@ function applyUniqueCombatBeforeCleanup(
       && attacker.combatTraitAuxTurn === state.turnNumber && attacker.combatTraitTargetIndex === targetIndex) {
     defender.stunnedUntilTurn = Math.max(defender.stunnedUntilTurn ?? 0, state.turnNumber + 1);
     defender.canAttack = false;
-    appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, 'MOON LOCK', '반격을 거울에 빼앗긴 적을 달그림자에 묶어 다음 자신의 턴까지 공격 불가.', opponentId, targetIndex);
+    appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, '월영 봉인', '반격을 거울에 빼앗긴 적을 달그림자에 묶어 다음 자신의 턴까지 공격 불가.', opponentId, targetIndex);
   }
 
   if (attacker && defender && defender.health > 0 && attackerCombat === 'premium_twilight_dual_stance') {
@@ -4312,8 +4312,8 @@ function applyUniqueCombatBeforeCleanup(
     defender.maxHealth = Math.max(defender.health, oldAttack);
     const dealt = damageCore(state, opponentId, 2);
     statsFor(state, playerId).coreDamage += dealt;
-    appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, 'STAGE INVERSION', `생존한 상대의 현재 ATK/HP를 ${oldAttack}/${oldHealth} → ${defender.attack}/${defender.health}로 뒤집었습니다.`, opponentId, targetIndex);
-    appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, 'ENCORE TAX', `반전된 무대의 대가로 상대 코어에 ${dealt} 피해.`);
+    appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, '무대 반전', `생존한 상대의 현재 ATK/HP를 ${oldAttack}/${oldHealth} → ${defender.attack}/${defender.health}로 뒤집었습니다.`, opponentId, targetIndex);
+    appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, '앙코르 대가', `반전된 무대의 대가로 상대 코어에 ${dealt} 피해.`);
   }
 
   if (attacker && attackerCombat === 'arcana_clause_judgment' && uniqueCombatReady(attacker, state) && defender && defender.health > 0) {
@@ -4329,7 +4329,7 @@ function applyUniqueCombatBeforeCleanup(
     if (discarded && (privateStates[opponentId]?.hand.length ?? 0) === 0) {
       const dealt = damageCore(state, opponentId, 3);
       statsFor(state, playerId).coreDamage += dealt;
-      appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, 'EMPTY CLAUSE', `상대 손패가 0장이 되어 코어에 ${dealt} 피해.`);
+      appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, '공백 조항', `상대 손패가 0장이 되어 코어에 ${dealt} 피해.`);
     }
   }
 }
@@ -4348,7 +4348,7 @@ function applyUniqueCombatAfterSuccessfulAttack(
   if (combatId === 'tempest_reignite' && uniqueCombatReady(attacker, state)) {
     markUniqueCombatUsed(attacker, state);
     attacker.canAttack = true;
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'SECOND IGNITION', '잔류 전류가 다시 점화되어 이 턴에 한 번 더 공격할 수 있습니다.');
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '제2 점화', '잔류 전류가 다시 점화되어 이 턴에 한 번 더 공격할 수 있습니다.');
   }
 
   if (combatId === 'premium_zenith_royal_command' && uniqueCombatReady(attacker, state)) {
@@ -4357,7 +4357,7 @@ function applyUniqueCombatAfterSuccessfulAttack(
       markUniqueCombatUsed(attacker, state);
       ally.unit.canAttack = true;
       ally.unit.attack += 1;
-      appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'ROYAL EXTRA ORDER', `「${CARD_BY_ID[ally.unit.cardId]?.name ?? '아군'}」에게 추가 공격 명령을 내려 재공격 가능 / ATK +1.`, playerId, ally.index);
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, '왕의 추가 명령', `「${CARD_BY_ID[ally.unit.cardId]?.name ?? '아군'}」에게 추가 공격 명령을 내려 재공격 가능 / ATK +1.`, playerId, ally.index);
     }
   }
 
@@ -4374,22 +4374,22 @@ function applyUniqueCombatAfterSuccessfulAttack(
 
   if (combatId === 'extra_nocturne_counter_mirror') {
     attacker.shield += 2;
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'VELVET AFTERIMAGE', '전투가 끝난 뒤 벨벳 잔상이 겹쳐 보호막 2를 얻었습니다.');
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '벨벳 잔상', '전투가 끝난 뒤 벨벳 잔상이 겹쳐 보호막 2를 얻었습니다.');
   }
 
   if (combatId === 'extra_tempest_chain_lightning') {
     if (attacker.combatTraitAuxTurn !== state.turnNumber) {
       attacker.combatTraitAuxTurn = state.turnNumber;
       attacker.canAttack = true;
-      appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'SECOND VOLTAGE', '잔류 전압이 다시 점화되어 이 턴에 한 번 더 공격할 수 있습니다.');
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, '제2 전압', '잔류 전압이 다시 점화되어 이 턴에 한 번 더 공격할 수 있습니다.');
     }
     const gained = gainSignatureEnergy(state, playerId, 1);
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'STATIC FUEL', `잔류 전류를 회수해 ENERGY ${gained} 회복.`);
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '정전기 연료', `잔류 전류를 회수해 ENERGY ${gained} 회복.`);
   }
 
   if (combatId === 'extra_phantom_stage_inversion') {
     attacker.shield += 2;
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'APPLAUSE SHIELD', '공연의 잔광이 막을 이루어 보호막 2를 얻었습니다.');
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '갈채 방벽', '공연의 잔광이 막을 이루어 보호막 2를 얻었습니다.');
   }
 
   if (combatId === 'astral_formation_cover') {
@@ -4408,15 +4408,15 @@ function applyUniqueCombatAfterSuccessfulAttack(
     rewindEclipsePhase(state, privateStates, 1, playerId);
     const drew = drawCards(state, privateStates[playerId], playerId, 1);
     const gained = gainSignatureEnergy(state, playerId, 1);
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'AFTERIMAGE REWIND', drew ? '공격 장면을 과거에 남겨 시간을 1단계 되감고 카드 1장을 뽑았습니다.' : '공격 장면을 과거에 남겨 시간을 1단계 되감았습니다.');
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'PARADOX ECHO', `되감긴 시간의 잔향에서 ENERGY ${gained} 회복.`);
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '잔상 역행', drew ? '공격 장면을 과거에 남겨 시간을 1단계 되감고 카드 1장을 뽑았습니다.' : '공격 장면을 과거에 남겨 시간을 1단계 되감았습니다.');
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '역설 잔향', `되감긴 시간의 잔향에서 ENERGY ${gained} 회복.`);
   }
 
   if (combatId === 'extra_astral_carrier_launch') {
     const allyCount = state.boards[playerId].units.filter((unit, index) => unit && unit.health > 0 && index !== attackerIndex).length;
     if (allyCount >= 2) {
       const gained = gainSignatureEnergy(state, playerId, 1);
-      appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'WARP SUPPLY', `워프 보급선에서 ENERGY ${gained} 회복.`);
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, '공간도약 보급', `워프 보급선에서 ENERGY ${gained} 회복.`);
     }
   }
 
@@ -4443,7 +4443,7 @@ function applyUniqueCombatAfterSuccessfulAttack(
       statsFor(state, playerId).healing += healed;
       extra = ` 한 순환을 완식해 코어 ${healed} 추가 회복.`;
     }
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'DEVOUR THE HOUR', `${ECLIPSE_PHASE_LABEL[before]}을 먹고 ${ECLIPSE_PHASE_LABEL[after]}으로 이동. 영구 +1/+1.${extra}`);
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '시간 포식', `${ECLIPSE_PHASE_LABEL[before]}을 먹고 ${ECLIPSE_PHASE_LABEL[after]}으로 이동. 영구 +1/+1.${extra}`);
   }
 }
 
@@ -4481,7 +4481,7 @@ function applyUniqueCombatAfterUnitCleanup(
   if (targetDestroyed && combatId === 'extra_lumina_successor_light') {
     const dealt = damageCore(state, opponentId, 2);
     statsFor(state, playerId).coreDamage += dealt;
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'NOVA BREAK', `초신성 붕괴가 상대 코어까지 번져 ${dealt} 피해.`);
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '초신성 파쇄', `초신성 붕괴가 상대 코어까지 번져 ${dealt} 피해.`);
   }
 
   if (targetDestroyed && combatId === 'eclipsion_corpse_devour') {
@@ -4497,7 +4497,7 @@ function applyUniqueCombatAfterUnitCleanup(
   if (targetDestroyed && combatId === 'extra_eclipsion_armor_devour') {
     buffUnitPermanent(attacker, 1, 1);
     const gained = gainSignatureEnergy(state, playerId, 1);
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'MUTATION FEAST', `먹잇감의 잔재를 변이시켜 영구 +1/+1 / ENERGY ${gained} 회복.`);
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '변이 포식', `먹잇감의 잔재를 변이시켜 영구 +1/+1 / ENERGY ${gained} 회복.`);
   }
 
   if (targetDestroyed && combatId === 'abyss_funeral_feast') {
@@ -4509,13 +4509,13 @@ function applyUniqueCombatAfterUnitCleanup(
 
   if (targetDestroyed && combatId === 'extra_abyss_deep_growth') {
     const banished = banishKilledCardFromGrave(state, opponentId, destroyedCardId);
-    if (banished) appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'ABYSS MAW', '파괴한 적을 심연의 입으로 삼켜 상대 묘지에서 소멸시켰습니다.');
+    if (banished) appendUniqueCombatVisual(state, card, playerId, attackerIndex, '심연 아귀', '파괴한 적을 심연의 입으로 삼켜 상대 묘지에서 소멸시켰습니다.');
   }
 
   if (targetDestroyed && combatId === 'extra_primal_royal_pack') {
     const healed = healCore(state, playerId, 2);
     statsFor(state, playerId).healing += healed;
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'HUNT FEAST', `왕수의 사냥이 끝나 코어 ${healed} 회복.`);
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '사냥 연회', `왕수의 사냥이 끝나 코어 ${healed} 회복.`);
   }
 
   if (targetDestroyed && combatId === 'primal_alpha_hunt'
@@ -4562,7 +4562,7 @@ function applyUniqueCombatAfterUnitCleanup(
     buffUnitPermanent(attacker, 1, 1);
     const healed = healCore(state, playerId, 2);
     statsFor(state, playerId).healing += healed;
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'DEEP GROWTH', `죽음을 흡수해 영구 +1/+1 · 코어 ${healed} 회복.`);
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '심연 증식', `죽음을 흡수해 영구 +1/+1 · 코어 ${healed} 회복.`);
   }
 
   applyUniqueCombatAfterSuccessfulAttack(state, privateStates, playerId, attackerIndex);
@@ -4584,7 +4584,7 @@ function applyUniqueCombatAfterCoreAttack(
     const drew = drawCards(state, privateStates[playerId], playerId, 1);
     const ally = weakestOtherAlly(state, playerId, attackerIndex);
     if (ally) buffUnitPermanent(ally.unit, 1, 1);
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'SUCCESSOR LIGHT', `${drew ? '카드 1장 드로우. ' : ''}${ally ? `「${CARD_BY_ID[ally.unit.cardId]?.name ?? '아군'}」 영구 +1/+1.` : '강화할 다른 아군 없음.'}`);
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '후계광 전승', `${drew ? '카드 1장 드로우. ' : ''}${ally ? `「${CARD_BY_ID[ally.unit.cardId]?.name ?? '아군'}」 영구 +1/+1.` : '강화할 다른 아군 없음.'}`);
   }
 
   if (combatId === 'extra_astral_carrier_launch' && uniqueCombatReady(attacker, state)) {
@@ -4595,7 +4595,7 @@ function applyUniqueCombatAfterCoreAttack(
     }
     if (launched > 0) {
       markUniqueCombatUsed(attacker, state);
-      appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'CARRIER LAUNCH', `코어 사거리 확보로 1/1 「오리온 함재기」 ${launched}체 자동 출격.`);
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, '함재기 출격', `코어 사거리 확보로 1/1 「오리온 함재기」 ${launched}체 자동 출격.`);
     }
   }
 
@@ -4606,7 +4606,7 @@ function applyUniqueCombatAfterCoreAttack(
     if (discarded && (privateStates[opponentId]?.hand.length ?? 0) === 0) {
       const dealt = damageCore(state, opponentId, 3);
       statsFor(state, playerId).coreDamage += dealt;
-      appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'EMPTY CLAUSE', `상대 손패가 0장이 되어 코어에 ${dealt} 피해.`);
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, '공백 조항', `상대 손패가 0장이 되어 코어에 ${dealt} 피해.`);
     }
   }
 

@@ -2031,7 +2031,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
 
           {card.uniqueTrait?.mode === 'combat' && (
             <section className="detail-section v65-combat-trait-panel">
-              <span>KEYWORDS · 전투 특성</span>
+              <span>전용 전투 특성</span>
               <div className="keyword-list v65-custom-combat-traits">
                 {uniqueTraitDisplayRows(card).map((item) => <p key={`${card.id}-${item.name}`}><b>{item.name}</b><span>{item.description}</span></p>)}
               </div>
@@ -2121,7 +2121,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
 
           {card.keywords && card.keywords.length > 0 && card.uniqueTrait?.mode !== 'combat' && (
             <section className="detail-section">
-              <span>KEYWORDS · 전투 특성</span>
+              <span>전투 특성</span>
               <div className="keyword-list">{card.keywords.map((keyword) => <p key={keyword}><b>{KEYWORD_DESCRIPTION[keyword].split(' · ')[0]}</b><span>{KEYWORD_DESCRIPTION[keyword].split(' · ')[1]}</span></p>)}</div>
             </section>
           )}
