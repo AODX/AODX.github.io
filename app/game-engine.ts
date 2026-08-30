@@ -3754,9 +3754,11 @@ function continueSummonResolution(
   // v43: every successfully resolved real unit arrival advances the global time once.
   // This happens before the unit's own printed time-setting effect, so dedicated time manipulators
   // can still override the natural arrival shift as part of their card text.
+  const eclipsePhaseBeforeArrivalShift = currentEclipsePhase(state);
   if (state.boards[actorId].units[zone]) {
     registerRealUnitArrivalTimeShift(state, privateStates, actorId, card.name);
   }
+  const arrivalShiftChangedPhase = eclipsePhaseBeforeArrivalShift !== currentEclipsePhase(state);
 
   if (card.eclipseSetOnSummon && state.boards[actorId].units[zone]) {
     setEclipsePhase(state, privateStates, card.eclipseSetOnSummon, actorId, `「${card.name}」 · 시각 조율`);
@@ -3770,7 +3772,11 @@ function continueSummonResolution(
   // If the printed summon effect itself changed the clock into this unit's payoff time,
   // the phase-transition resolver already fired the pulse. Otherwise an aligned summon
   // gets exactly one immediate pulse here. This prevents double activation.
-  if (state.boards[actorId].units[zone] && temporalPhaseBeforeSummonEffects === currentEclipsePhase(state)) {
+  if (
+    state.boards[actorId].units[zone]
+    && temporalPhaseBeforeSummonEffects === currentEclipsePhase(state)
+    && !(card.id === 'v60_premium_time_devourer' && arrivalShiftChangedPhase)
+  ) {
     triggerAlignedSummonPulses(state, privateStates, actorId, zone, card);
   }
   if (state.boards[actorId].units[zone] && card.extraChoices?.length) {
@@ -3917,6 +3923,80 @@ function recallStrongestEnemyUnit(
   appendLog(state, `「${sourceCard.name}」이(가) ${targetName}을(를) 손패로 되돌렸습니다.`, 'special');
 }
 
+function applyTimeDevourerArrival(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  actorId: string,
+  card: CardDefinition,
+  zone: number,
+): void {
+  const devourer = state.boards[actorId]?.units?.[zone];
+  if (!devourer) return;
+  const opponentId = otherPlayer(state, actorId);
+  let swallowedUnits = 0;
+  let swallowedTraps = 0;
+
+  for (let index = 0; index < state.boards[opponentId].units.length; index += 1) {
+    const target = state.boards[opponentId].units[index];
+    if (!target) continue;
+    state.boards[opponentId].units[index] = null;
+    if (!target.cardId.startsWith('token:')) state.graveyards[opponentId].push(target.cardId);
+    swallowedUnits += 1;
+    appendVisual(state, {
+      kind: 'destroy',
+      vfx: 'time-devourer-field-consume',
+      cardId: target.cardId,
+      ownerId: actorId,
+      targetOwnerId: opponentId,
+      targetZone: index,
+      label: '시간 포식',
+      detail: '시간 탐식자가 상대 유닛을 시간 밖으로 삼켰습니다.',
+    });
+  }
+
+  const opponentPrivate = privateStates[opponentId];
+  if (opponentPrivate) {
+    for (let index = 0; index < opponentPrivate.secrets.length; index += 1) {
+      const secret = opponentPrivate.secrets[index];
+      if (!secret) continue;
+      opponentPrivate.secrets[index] = null;
+      state.boards[opponentId].secrets[index] = null;
+      state.graveyards[opponentId].push(secret.cardId);
+      swallowedTraps += 1;
+    }
+  }
+
+  const healed = healCore(state, actorId, 10);
+  const beforeHand = privateStates[actorId]?.hand.length ?? 0;
+  if (privateStates[actorId]) drawCards(state, privateStates[actorId], actorId, 3);
+  const drew = Math.max(0, (privateStates[actorId]?.hand.length ?? beforeHand) - beforeHand);
+  const energy = state.energy[actorId];
+  const beforeEnergy = energy?.current ?? 0;
+  if (energy) energy.current = Math.min(energyHardCap(state, actorId), energy.current + 3);
+  const gainedEnergy = Math.max(0, (energy?.current ?? beforeEnergy) - beforeEnergy);
+  devourer.shield = Math.max(devourer.shield, MAX_UNIT_SHIELD);
+  devourer.canAttack = true;
+
+  appendLog(
+    state,
+    `「시간 탐식자」 절대 등장 — 적 유닛 ${swallowedUnits}체와 세트 함정 ${swallowedTraps}장을 삼키고, 코어 ${healed} 회복 · ${drew}장 드로우 · ENERGY ${gainedEnergy} 회복 · 보호막 ${MAX_UNIT_SHIELD}.`,
+    'special',
+  );
+  appendVisual(state, {
+    kind: 'special',
+    vfx: 'time-devourer-absolute-consume',
+    cardId: card.id,
+    ownerId: actorId,
+    targetOwnerId: opponentId,
+    targetZone: zone,
+    amount: swallowedUnits + swallowedTraps,
+    shieldAmount: MAX_UNIT_SHIELD,
+    healthAmount: healed,
+    label: 'TIME DEVOURER · ABSOLUTE ARRIVAL',
+    detail: `적 필드 ${swallowedUnits + swallowedTraps}장 포식 · 코어 ${healed} 회복 · ${drew}장 드로우 · ENERGY ${gainedEnergy}`,
+  });
+}
+
 function applyPremiumTimeSignature(
   state: MatchState,
   privateStates: Record<string, PrivateState>,
@@ -3924,6 +4004,11 @@ function applyPremiumTimeSignature(
   card: CardDefinition,
   zone?: number,
 ) {
+  if (card.id === 'v60_premium_time_devourer' && typeof zone === 'number' && state.boards[actorId].units[zone]) {
+    applyTimeDevourerArrival(state, privateStates, actorId, card, zone);
+    return;
+  }
+
   if (card.id === 'v41_premium_dawn_lord' && typeof zone === 'number' && state.boards[actorId].units[zone]) {
     const actorPrivate = privateStates[actorId];
     drawCards(state, actorPrivate, actorId, 2);

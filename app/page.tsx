@@ -655,10 +655,11 @@ function releaseDocumentScrollLock(): void {
 
 function packPreviewCards(pack: (typeof PACKS)[number]): CardDefinition[] {
   const rarityScore: Record<Rarity, number> = { common: 1, rare: 2, epic: 3, legendary: 4 };
-  let pool = CARDS.filter((card) => !isExtraDeckCard(card));
+  const nonPremiumPool = CARDS.filter((card) => !/^v(?:41|44|60)_premium_/.test(card.id));
+  let pool = nonPremiumPool.filter((card) => !isExtraDeckCard(card));
 
-  if (pack.seriesId) pool = CARDS.filter((card) => card.seriesId === pack.seriesId);
-  if (pack.id === 'legendary') pool = CARDS.filter((card) => card.rarity === 'legendary' || card.rarity === 'epic');
+  if (pack.seriesId) pool = nonPremiumPool.filter((card) => card.seriesId === pack.seriesId);
+  if (pack.id === 'legendary') pool = nonPremiumPool.filter((card) => card.rarity === 'legendary' || card.rarity === 'epic');
 
   const seed = hashString(pack.id);
   const preferred = pool.slice().sort((a, b) => {
@@ -679,7 +680,7 @@ function packPreviewCards(pack: (typeof PACKS)[number]): CardDefinition[] {
     used.add(card.id);
   }
 
-  for (const fallback of CARDS.filter((card) => !isExtraDeckCard(card))) {
+  for (const fallback of nonPremiumPool.filter((card) => !isExtraDeckCard(card))) {
     if (picked.length >= 3) break;
     if (used.has(fallback.id)) continue;
     picked.push(fallback);
@@ -692,6 +693,7 @@ function packEmblem(pack: (typeof PACKS)[number]): string {
   if (pack.id === 'standard') return '✦';
   if (pack.id === 'rare') return '◆';
   if (pack.id === 'legendary') return '♛';
+  if (pack.id === 'premium_time_devourer') return '⌛';
   if (pack.premiumTimePhase) {
     const timeGlyphs: Record<EclipsePhase, string> = { dawn: '✧', zenith: '☼', dusk: '☽', midnight: '☾', eclipse: '◉' };
     return timeGlyphs[pack.premiumTimePhase];
@@ -745,11 +747,26 @@ const DUPLICATE_MILESTONE_TRACK = [
 ] as const;
 
 function packCardCount(pack: (typeof PACKS)[number]): number {
+  if (Number.isFinite(pack.cardCount) && Number(pack.cardCount) > 0) return Math.max(1, Math.trunc(Number(pack.cardCount)));
   return pack.featuredCardId ? 3 : 5;
 }
 
 function packShowcaseMeta(pack: (typeof PACKS)[number]): PackShowcaseMeta {
   const cardCount = packCardCount(pack);
+  if (pack.id === 'premium_time_devourer') {
+    return {
+      family: 'premium',
+      kicker: `PREMIUM ABSOLUTE · ${cardCount} CARD · 0.1%`,
+      boosterLabel: 'ABSOLUTE ONE',
+      openingTitle: 'TIME DEVOURER · ABSOLUTE OPENING',
+      openingDetail: '단 하나의 슬롯이 열립니다. 0.1% 확률로 시간 탐식자가 직접 강림합니다.',
+      summaryTitle: 'ABSOLUTE SLOT COMPLETE',
+      summaryDetail: '단일 슬롯의 결과를 확인합니다. 시간 탐식자는 이 전용 팩에서만 등장합니다.',
+      sealLabel: '절대 시간 봉인을 열어 단일 카드 공개',
+      slotLabel: '1개의 절대 프리미엄 슬롯',
+      focusLabel: '0.1% ABSOLUTE CHASE',
+    };
+  }
   if (pack.featuredCardId) {
     return {
       family: 'premium',
@@ -822,7 +839,7 @@ function packShowcaseMeta(pack: (typeof PACKS)[number]): PackShowcaseMeta {
 }
 
 function inferCardCollectionTier(card: CardDefinition): 'premium' | 'legendary' | 'series' | 'rare' | 'standard' {
-  if (/^v4(1|4)_premium_/.test(card.id) || /^v41_premium_/.test(card.id)) return 'premium';
+  if (/^v4(1|4)_premium_/.test(card.id) || /^v41_premium_/.test(card.id) || /^v60_premium_/.test(card.id)) return 'premium';
   if (card.seriesId) return 'series';
   if (card.rarity === 'legendary' || card.kind === 'fusion' || card.kind === 'evolution') return 'legendary';
   if (card.rarity === 'epic' || card.rarity === 'rare') return 'rare';
@@ -845,6 +862,7 @@ function cardSummonQuote(card: CardDefinition): string {
     v44_premium_twilight_knight: '황혼의 검은 낮과 밤을 동시에 가른다.',
     v41_premium_midnight_silence: '자정의 결론만 남기고 모든 소리를 거둔다.',
     v41_premium_eclipse_conductor: '모든 리듬을 멈춰라. 일식의 박자만 남긴다.',
+    v60_premium_time_devourer: '시대가 나를 삼키는 것이 아니다. 내가 시대를 삼킨다.',
   };
   if (custom[card.id]) return custom[card.id];
   if (card.seriesId) {
@@ -911,7 +929,7 @@ function PackProductVisual({ pack }: { pack: (typeof PACKS)[number] }) {
         <div className="v46-premium-booster" aria-hidden="true">
           <span>PREMIUM TIME</span>
           <i>{emblem}</i>
-          <strong>{pack.premiumTimePhase ? ECLIPSE_PHASE_LABEL[pack.premiumTimePhase] : 'TIME'}</strong>
+          <strong>{pack.premiumTimePhase ? ECLIPSE_PHASE_LABEL[pack.premiumTimePhase] : pack.id === 'premium_time_devourer' ? 'ABSOLUTE' : 'TIME'}</strong>
           <small>{packShowcaseMeta(pack).slotLabel}</small>
         </div>
         <div className="v46-premium-feature-shell">
@@ -1204,6 +1222,12 @@ function premiumTimeHighlights(card: CardDefinition): CardHighlight[] {
         { label: '등장 보상', detail: '개기일식 설정 · 2턴 고정 · 가장 강한 적 리콜 · 상대 묘지 2장 제외', tone: 'feature' },
         { label: '식광 폭발', detail: '개기일식 진입 시 상대 코어 5 피해', tone: 'power' },
         { label: '재전개', detail: '묘지의 최고 비용 유닛 1체를 체력 80%로 부활', tone: 'phase' },
+      ];
+    case 'v60_premium_time_devourer':
+      return [
+        { label: '절대 등장', detail: '적 필드 유닛·세트 함정 전부 소멸 · 내 코어 10 회복 · 카드 3장 드로우 · ENERGY 3 회복 · 보호막 3', tone: 'feature' },
+        { label: '상시 시간 버프', detail: '여명/정점/황혼/심야/개기일식 모든 시간대에서 항상 +5/+5', tone: 'phase' },
+        { label: '시간 탐식', detail: '모든 시간대 진입마다 상대 코어 2 흡수 · 7개 전투 특성 동시 보유', tone: 'power' },
       ];
     default:
       return [];
@@ -3583,7 +3607,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
   function renderPackCard(pack: (typeof PACKS)[number], index: number) {
     const series = pack.seriesId ? SERIES_BY_ID[pack.seriesId] : null;
     const featured = pack.featuredCardId ? CARD_BY_ID[pack.featuredCardId] : undefined;
-    const premiumPackHitRate = featured ? (1 - Math.pow(1 - (pack.odds.pickupRate ?? 0.5) / 100, 3)) * 100 : 0;
+    const premiumPackHitRate = featured ? (1 - Math.pow(1 - (pack.odds.pickupRate ?? 0.5) / 100, packCardCount(pack))) * 100 : 0;
     const meta = packShowcaseMeta(pack);
     return (
       <article className={`pack-card v6-pack-card v48-pack-card tier-${meta.family} ${featured ? 'v46-premium-pack-card' : ''} ${series ? `series-${series.id}` : `core-${pack.id}`}`} key={pack.id} style={{ '--pack-accent': pack.accent } as CSSProperties}>
@@ -3630,7 +3654,7 @@ function ShopView({ hub, onHub }: { hub: HubData; onHub: (hub: HubData) => void 
       {shopTab === 'packs' ? (
         <div className="v25-pack-store">
           <section className="v25-pack-category v46-premium-category">
-            <header><div><span>PREMIUM TIME PICKUP</span><h3>시간대별 프리미엄 픽업</h3><p>원하는 시간대의 최고 등급 카드를 직접 노릴 수 있습니다. 팩 앞의 픽업 카드를 누르면 구매 전에 효과·능력치·시간 강세를 전부 확인할 수 있습니다.</p></div><small>5 TIME CHASES · SLOT 0.5%</small></header>
+            <header><div><span>PREMIUM TIME PICKUP</span><h3>시간대별 프리미엄 픽업</h3><p>원하는 시간대의 최고 등급 카드와, 모든 시간을 먹어 치우는 극희귀 「시간 탐식자」를 노릴 수 있습니다. 팩 앞의 픽업 카드를 누르면 구매 전에 전체 효과를 확인할 수 있습니다.</p></div><small>5 TIME CHASES 0.5% · ABSOLUTE 0.1%</small></header>
             <div className="pack-grid v6-pack-grid v46-premium-pack-grid">{premiumPacks.map((pack, index) => renderPackCard(pack, index))}</div>
           </section>
           <section className="v25-pack-category">
@@ -4392,6 +4416,7 @@ const SUMMON_VFX_STYLE: Record<string, { style: SummonCinematicStyle; label: str
   'phoenix-ascend': { style: 'phoenix', label: '불사조 비상' },
   'alpha-mutation': { style: 'beast', label: '야수 변이 각성' },
   'prism-script': { style: 'arcane', label: '프리즘 소환식' },
+  'time-devourer-arrival': { style: 'chrono', label: '절대 시간 포식 강림' },
 };
 
 const SERIES_SUMMON_STYLE: Partial<Record<SeriesId, { style: SummonCinematicStyle; label: string }>> = {

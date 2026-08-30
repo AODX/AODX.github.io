@@ -2,6 +2,7 @@ import { V33A_EXPANSION_CARDS } from './v33a-card-data';
 import { V34_ECLIPSE_CYCLE_CARDS } from './v34-card-data';
 import { V37_TIME_CORE_CARDS } from './v37-time-card-data';
 import { V41_PREMIUM_TIME_CARDS } from './v41-premium-time-cards';
+import { V60_PREMIUM_TIME_DEVOURER } from './v60-premium-time-devourer';
 
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type CardKind = 'unit' | 'spell' | 'trap' | 'fusion' | 'evolution';
@@ -369,6 +370,8 @@ export interface PackDefinition {
   seriesId?: SeriesId;
   /** Premium TIME booster chase card. When set, each slot independently has the pack's pickup chance to draw this exact card. */
   featuredCardId?: string;
+  /** Optional pack size override. Legacy premium packs use 3; the V60 absolute pack uses exactly 1. */
+  cardCount?: number;
   premiumTimePhase?: EclipsePhase;
   category?: 'core' | 'series';
   accent: string;
@@ -2615,6 +2618,7 @@ CARDS.push(...V33A_EXPANSION_CARDS);
 CARDS.push(...V34_ECLIPSE_CYCLE_CARDS);
 CARDS.push(...V37_TIME_CORE_CARDS);
 CARDS.push(...V41_PREMIUM_TIME_CARDS);
+CARDS.push(V60_PREMIUM_TIME_DEVOURER);
 
 
 // === v34j: TRUE GLOBAL 40% TEMPORAL REWORK ================================
@@ -5497,6 +5501,48 @@ for (const card of CARDS) {
   card.text = `전투 특성 특수 소환 [${V58_TRAIT_SPECIAL_TIER_LABEL[rule.tier]}]: ${rule.condition.label}에만 소환 가능. ENERGY ${card.cost}. ${card.text}`;
 }
 
+// === v60 absolute premium override ==========================================
+// The generic v36-v45 balance passes intentionally normalize the old card pool.
+// Time Devourer is a deliberate one-off exception, so restore its authored
+// absolute stats/traits/time profile after every global balance mutation.
+const V60_ABSOLUTE_TIME_DEVOURER = CARDS.find((card) => card.id === 'v60_premium_time_devourer');
+if (V60_ABSOLUTE_TIME_DEVOURER) {
+  V60_ABSOLUTE_TIME_DEVOURER.name = '시간 탐식자';
+  V60_ABSOLUTE_TIME_DEVOURER.cost = 10;
+  V60_ABSOLUTE_TIME_DEVOURER.attack = 15;
+  V60_ABSOLUTE_TIME_DEVOURER.health = 18;
+  V60_ABSOLUTE_TIME_DEVOURER.keywords = ['guard', 'charge', 'lifesteal', 'pierce', 'corestrike', 'execute', 'sweep'];
+  V60_ABSOLUTE_TIME_DEVOURER.summonMode = 'legendary';
+  V60_ABSOLUTE_TIME_DEVOURER.traitSpecialSummonTier = undefined;
+  V60_ABSOLUTE_TIME_DEVOURER.riftCost = undefined;
+  V60_ABSOLUTE_TIME_DEVOURER.riftCondition = undefined;
+  V60_ABSOLUTE_TIME_DEVOURER.legendarySummonRule = {
+    name: '시간 포식 강림',
+    label: 'ENERGY 10을 지불하고 소환 · 시간대/코어/묘지 추가 조건 없음',
+    release: 'none',
+  };
+  V60_ABSOLUTE_TIME_DEVOURER.temporalImmunity = false;
+  V60_ABSOLUTE_TIME_DEVOURER.eclipseSetOnSummon = undefined;
+  V60_ABSOLUTE_TIME_DEVOURER.eclipseAffinity = 'eclipse';
+  V60_ABSOLUTE_TIME_DEVOURER.temporalProfileName = '전 시간대 · 상시 포식';
+  V60_ABSOLUTE_TIME_DEVOURER.eclipsePhaseModifiers = {
+    dawn: { attack: 5, health: 5, label: '여명 포식' },
+    zenith: { attack: 5, health: 5, label: '정점 포식' },
+    dusk: { attack: 5, health: 5, label: '황혼 포식' },
+    midnight: { attack: 5, health: 5, label: '심야 포식' },
+    eclipse: { attack: 5, health: 5, label: '일식 포식' },
+  };
+  V60_ABSOLUTE_TIME_DEVOURER.eclipsePhasePulses = [
+    { phase: 'dawn', name: '여명 섭식', description: '여명 진입 시 상대 코어 2를 흡수한다.', effect: { kind: 'drain_core', amount: 2 } },
+    { phase: 'zenith', name: '정점 섭식', description: '정점 진입 시 상대 코어 2를 흡수한다.', effect: { kind: 'drain_core', amount: 2 } },
+    { phase: 'dusk', name: '황혼 섭식', description: '황혼 진입 시 상대 코어 2를 흡수한다.', effect: { kind: 'drain_core', amount: 2 } },
+    { phase: 'midnight', name: '심야 섭식', description: '심야 진입 시 상대 코어 2를 흡수한다.', effect: { kind: 'drain_core', amount: 2 } },
+    { phase: 'eclipse', name: '일식 섭식', description: '개기일식 진입 시 상대 코어 2를 흡수한다.', effect: { kind: 'drain_core', amount: 2 } },
+  ];
+  V60_ABSOLUTE_TIME_DEVOURER.text = '전설 특수 소환 「시간 포식 강림」: ENERGY 10. 시간대·코어·묘지 조건 없이 소환 가능. 모든 시간대에서 항상 +5/+5. 소환이 성공하면 상대 필드의 모든 유닛과 세트 함정을 시간 밖으로 삼키고, 내 코어 10 회복, 카드 3장 드로우, ENERGY 3 회복, 자신에게 보호막 3을 부여한다. 모든 시간대 진입 시 상대 코어 2를 흡수한다. 수호·속공·흡수·관통·직격·처형·전체공격.';
+}
+// === /v60 absolute premium override =========================================
+
 export const V58_TRAIT_SPECIAL_SUMMON_AUDIT = CARDS
   .filter((card) => card.kind === 'unit' && new Set(card.keywords ?? []).size >= 2)
   .map((card) => ({
@@ -5650,6 +5696,11 @@ export const PACKS: PackDefinition[] = [
     id: 'premium_time_eclipse', name: 'PREMIUM TIME · 개기일식', tagline: '개기일식의 조율자 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#f08ad9',
     featuredCardId: 'v41_premium_eclipse_conductor', premiumTimePhase: 'eclipse',
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
+  },
+  {
+    id: 'premium_time_devourer', name: 'PREMIUM ABSOLUTE · 시간 탐식자', tagline: '단 1장 개봉 · 시간 탐식자 0.1% 극희귀 픽업', price: 1000, guaranteed: 'common', category: 'core', accent: '#8d5cff',
+    featuredCardId: 'v60_premium_time_devourer', cardCount: 1,
+    odds: { common: 99.9, rare: 0, epic: 0, legendary: 0.1, guaranteedSlots: 0, pickupRate: 0.1 },
   },
 ];
 
