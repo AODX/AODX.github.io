@@ -6228,6 +6228,318 @@ for (const [cardId, override] of Object.entries(V62_UNIQUE_PRESENTATION_OVERRIDE
   };
 }
 
+
+type V63DistinctIdentityOverride = {
+  text?: string;
+  uniqueTrait?: Partial<UniqueCardTrait>;
+  extraChoices?: ExtraChoice[];
+};
+
+const V63_DISTINCT_IDENTITY_OVERRIDES: Record<string, V63DistinctIdentityOverride> = {
+  fusion_v8_09: {
+    text: '【새벽 계승광】 소환 시 CHOOSE — 1) 왕좌 인계: 카드 2장을 뽑고 아군 전체 ATK +1 / 2) 관위 절단: 모든 적 유닛에 2 피해, 상대 코어에 3 피해 / 3) 새벽 표식: 3/4 「루미나 표기수」 1체를 소환하고 카드 1장을 뽑는다.',
+    uniqueTrait: {
+      name: '새벽 계승광',
+      description: '승리, 전개, 돌파 중 하나를 즉시 택하는 루미나나이츠의 왕위 계승 전용 특성이다.',
+      highlights: [
+        { name: '왕좌 인계', description: '전열 전체를 즉시 준비시켜 한번 더 밀어붙이는 돌격 선택지.' },
+        { name: '관위 절단', description: '적 전열과 코어를 동시에 베어 마무리 각을 만드는 결전 선택지.' },
+        { name: '새벽 표식', description: '표기수를 불러 전장을 넓히고 손패까지 보충하는 전개 선택지.' },
+      ],
+    },
+    extraChoices: [
+      { id: 'lumina-coronation', label: '왕좌 인계', description: '카드 2장을 뽑고, 아군 전체 ATK +1.', effects: [{ kind: 'draw', amount: 2 }, { kind: 'mass_buff', attack: 1, health: 0 }] },
+      { id: 'lumina-severance', label: '관위 절단', description: '모든 적 유닛에 2 피해를 주고 상대 코어에 3 피해를 준다.', effects: [{ kind: 'aoe_enemy', amount: 2 }, { kind: 'damage_core', amount: 3 }] },
+      { id: 'lumina-standard', label: '새벽 표식', description: '3/4 「루미나 표기수」 1체를 소환하고 카드 1장을 뽑는다.', effects: [{ kind: 'summon_token', attack: 3, health: 4, name: '루미나 표기수' }, { kind: 'draw', amount: 1 }] },
+    ],
+  },
+  evolution_v8_18: {
+    text: '【황제 기동도시】 소환 시 CHOOSE — 1) 도킹 시티: 아군 전체 보호막 +3, 2/6 「카이저 포탑」 1체 소환 / 2) 황제 세금: 내 필드 수만큼 상대 코어를 포격(최대 5)하고 상대 ENERGY 1을 탈취 / 3) 비상 재조립: 묘지 2장을 덱으로 되돌리고 1드로우, ENERGY 2 회복.',
+    uniqueTrait: {
+      name: '황제 기동도시',
+      description: '성벽, 포격, 재정비 중 하나를 선택해 전장 운영 방식 자체를 바꾸는 카이저기어 최종 특성이다.',
+      highlights: [
+        { name: '도킹 시티', description: '거대한 도시처럼 버티는 포탑형 수비 모드.' },
+        { name: '황제 세금', description: '내 필드 숫자만큼 전장을 압박하는 포격 모드.' },
+        { name: '비상 재조립', description: '잔해를 다시 돌려 에너지와 자원을 회복하는 정비 모드.' },
+      ],
+    },
+    extraChoices: [
+      { id: 'kaiser-dock-city', label: '도킹 시티', description: '아군 전체 보호막 +3. 2/6 「카이저 포탑」 1체를 소환한다.', effects: [{ kind: 'mass_shield', amount: 3 }, { kind: 'summon_token', attack: 2, health: 6, name: '카이저 포탑' }] },
+      { id: 'kaiser-imperial-tax', label: '황제 세금', description: '내 필드 유닛 수만큼 상대 코어에 피해를 주고(최대 5), 상대 ENERGY 1을 탈취한다.', effects: [{ kind: 'field_count_blast', per: 1, cap: 5 }, { kind: 'steal_energy', amount: 1 }] },
+      { id: 'kaiser-overhaul', label: '비상 재조립', description: '내 묘지 카드 2장을 덱으로 되돌려 섞고 카드 1장을 뽑는다. 이어 ENERGY 2 회복.', effects: [{ kind: 'recycle_grave_draw', amount: 2, draw: 1 }, { kind: 'gain_energy', amount: 2 }] },
+    ],
+  },
+  fusion_eclipse_chimera: {
+    text: '【삼월식 포식변이】 소환 시 CHOOSE — 1) 유전자 약탈: 상대 묘지 3장을 소멸시키고, 내 묘지 수만큼 상대 코어에 피해(최대 4) / 2) 사체 조립: 내 묘지 유닛 1장을 손으로 되돌리고 4/4 「키메라 잔형」 소환 / 3) 그림자 포효: 적 유닛 1장의 강화와 보호막을 초기화하고 상대 코어에 2 피해.',
+    uniqueTrait: {
+      name: '삼월식 포식변이',
+      description: '먹어 치운 것을 파괴, 복제, 붕괴 중 원하는 형태로 뽑아내는 이클립시온 전용 포식 특성이다.',
+      highlights: [
+        { name: '유전자 약탈', description: '상대 묘지를 먹어 피해로 바꾸는 포식 모드.' },
+        { name: '사체 조립', description: '죽은 자원을 손패와 토큰으로 재가공하는 복원 모드.' },
+        { name: '그림자 포효', description: '적 핵심 유닛의 강화와 보호막을 벗겨 압도감을 꺾는 붕괴 모드.' },
+      ],
+    },
+    extraChoices: [
+      { id: 'eclipse-gene-raid', label: '유전자 약탈', description: '상대 묘지 3장을 소멸시키고, 내 묘지 카드 수만큼 상대 코어에 피해를 준다(최대 4).', effects: [{ kind: 'banish_enemy_grave', amount: 3 }, { kind: 'damage_by_grave', per: 1, cap: 4 }] },
+      { id: 'eclipse-corpse-assembly', label: '사체 조립', description: '내 묘지의 유닛 1장을 손으로 되돌리고 4/4 「키메라 잔형」 1체를 소환한다.', effects: [{ kind: 'recover_grave_unit', amount: 1 }, { kind: 'summon_token', attack: 4, health: 4, name: '키메라 잔형' }] },
+      { id: 'eclipse-umbra-howl', label: '그림자 포효', description: '적 유닛 1장의 강화와 보호막을 초기화하고 상대 코어에 2 피해를 준다.', effects: [{ kind: 'reset_unit' }, { kind: 'damage_core', amount: 2 }] },
+    ],
+  },
+  fusion_v8_20: {
+    text: '【달의 뒷무대】 소환 시 CHOOSE — 1) 퇴장 마술: 필드의 모든 유닛을 원래 영역으로 되돌린다 / 2) 가면 교환: 서로의 손패를 통째로 교환한다 / 3) 벨벳 성소: 아군 전체 보호막 +3, 내 코어 3 회복.',
+    uniqueTrait: {
+      name: '달의 뒷무대',
+      description: '무대를 비우거나, 손패를 바꾸거나, 보호막 성소를 만드는 녹턴 단독 연출 특성이다.',
+      highlights: [
+        { name: '퇴장 마술', description: '무대 위 캐릭터를 전부 퇴장시키는 통째 제어 모드.' },
+        { name: '가면 교환', description: '서로의 손패를 바꿔 게임의 리듬 자체를 비튼다.' },
+        { name: '벨벳 성소', description: '밤의 막으로 아군 전열을 두껍게 감싸는 수비 모드.' },
+      ],
+    },
+    extraChoices: [
+      { id: 'nocturne-vanish-stage', label: '퇴장 마술', description: '필드의 모든 유닛을 원래 영역으로 되돌린다. 토큰은 소멸한다.', effects: [{ kind: 'mass_recall' }] },
+      { id: 'nocturne-mask-swap', label: '가면 교환', description: '서로의 손패를 통째로 교환한다.', effects: [{ kind: 'exchange_hands' }] },
+      { id: 'nocturne-velvet-sanctuary', label: '벨벳 성소', description: '아군 전체 보호막 +3. 이어 내 코어 3 회복.', effects: [{ kind: 'mass_shield', amount: 3 }, { kind: 'heal_core', amount: 3 }] },
+    ],
+  },
+  fusion_v8_05: {
+    text: '【왕목의 영토확장】 소환 시 CHOOSE — 1) 뿌리 성채: 2/6 「세계근 성벽」 소환, 아군 전체 보호막 +1 / 2) 수액 범람: 아군 전체 DEF +2, 코어 2 회복 / 3) 계절 환류: 묘지 3장을 덱으로 되돌리고 카드 2장을 뽑는다.',
+    uniqueTrait: {
+      name: '왕목의 영토확장',
+      description: '성채 설치, 생명 범람, 계절 환류 중 하나로 전장을 살아 있는 숲처럼 바꾸는 아보리안 특성이다.',
+      highlights: [
+        { name: '뿌리 성채', description: '방벽 유닛과 보호막으로 진형을 고정하는 수비 모드.' },
+        { name: '수액 범람', description: '아군 전열을 단단하게 만들고 코어까지 회복하는 유지 모드.' },
+        { name: '계절 환류', description: '묘지를 다시 계절 속으로 흘려보내 손패를 재충전한다.' },
+      ],
+    },
+    extraChoices: [
+      { id: 'arborian-root-citadel', label: '뿌리 성채', description: '2/6 「세계근 성벽」 1체를 소환하고 아군 전체 보호막 +1.', effects: [{ kind: 'summon_token', attack: 2, health: 6, name: '세계근 성벽' }, { kind: 'mass_shield', amount: 1 }] },
+      { id: 'arborian-sap-flood', label: '수액 범람', description: '아군 전체 체력 +2. 이어 내 코어 2 회복.', effects: [{ kind: 'mass_buff', attack: 0, health: 2 }, { kind: 'heal_core', amount: 2 }] },
+      { id: 'arborian-season-return', label: '계절 환류', description: '내 묘지 카드 3장을 덱으로 되돌려 섞고 카드 2장을 뽑는다.', effects: [{ kind: 'recycle_grave_draw', amount: 3, draw: 2 }] },
+    ],
+  },
+  evolution_v8_06: {
+    text: '【전광 가속계】 소환 시 CHOOSE — 1) 번개 발진: ENERGY 2 회복, 아군 전체 ATK +1 / 2) 연쇄 낙뢰: 모든 적 유닛에 1 피해, 내 필드 수만큼 상대 코어에 추가 피해(최대 4) / 3) 배터리 절도: 상대 ENERGY 2를 탈취하고 내 ENERGY 2를 회복.',
+    uniqueTrait: {
+      name: '전광 가속계',
+      description: '재공격, 연쇄 번개, 에너지 약탈 셋 중 하나를 고르는 템페스트 드라이브의 초고속 특성이다.',
+      highlights: [
+        { name: '번개 발진', description: '준비를 즉시 끝내 전열을 다시 달리게 만드는 가속 모드.' },
+        { name: '연쇄 낙뢰', description: '전열과 코어를 이어 치는 광역 번개 모드.' },
+        { name: '배터리 절도', description: '상대 연료를 빼앗아 내 출력으로 전환하는 강탈 모드.' },
+      ],
+    },
+    extraChoices: [
+      { id: 'tempest-blitz-start', label: '번개 발진', description: 'ENERGY 2를 회복하고 아군 전체 ATK +1.', effects: [{ kind: 'gain_energy', amount: 2 }, { kind: 'mass_buff', attack: 1, health: 0 }] },
+      { id: 'tempest-chain-storm', label: '연쇄 낙뢰', description: '모든 적 유닛에 1 피해를 주고, 내 필드 유닛 수만큼 상대 코어에 피해를 준다(최대 4).', effects: [{ kind: 'aoe_enemy', amount: 1 }, { kind: 'field_count_blast', per: 1, cap: 4 }] },
+      { id: 'tempest-battery-heist', label: '배터리 절도', description: '상대 ENERGY 2를 탈취하고 내 ENERGY 2를 회복한다.', effects: [{ kind: 'steal_energy', amount: 2 }, { kind: 'gain_energy', amount: 2 }] },
+    ],
+  },
+  fusion_v8_17: {
+    text: '【사해 포식해류】 소환 시 CHOOSE — 1) 장례 해일: 내 묘지 수만큼 상대 코어에 피해(최대 6), 상대 묘지 1장 소멸 / 2) 시체 정제: 묘지 3장을 덱으로 되돌리고 2드로우, ENERGY 1 회복 / 3) 심연 허물: 이 유닛 +1/+4, 보호막 2.',
+    uniqueTrait: {
+      name: '사해 포식해류',
+      description: '무덤의 양을 화력, 연료, 외피 중 원하는 형태로 바꾸는 어비스 리퍼 최종 포식 특성이다.',
+      highlights: [
+        { name: '장례 해일', description: '쌓인 묘지를 그대로 밀어 넣는 압살 모드.' },
+        { name: '시체 정제', description: '죽은 자원을 다시 연료와 손패로 정제하는 회수 모드.' },
+        { name: '심연 허물', description: '포식한 잔해를 갑피로 둘러 몸을 두껍게 만드는 방어 모드.' },
+      ],
+    },
+    extraChoices: [
+      { id: 'abyss-funeral-tide', label: '장례 해일', description: '내 묘지 카드 수만큼 상대 코어에 피해를 준다(최대 6). 그 후 상대 묘지 1장을 소멸시킨다.', effects: [{ kind: 'damage_by_grave', per: 1, cap: 6 }, { kind: 'banish_enemy_grave', amount: 1 }] },
+      { id: 'abyss-necro-refinery', label: '시체 정제', description: '내 묘지 카드 3장을 덱으로 되돌려 섞고 카드 2장을 뽑는다. 이어 ENERGY 1 회복.', effects: [{ kind: 'recycle_grave_draw', amount: 3, draw: 2 }, { kind: 'gain_energy', amount: 1 }] },
+      { id: 'abyss-deep-shell', label: '심연 허물', description: '이 유닛에게 +1/+4를 부여하고 보호막 2를 준다.', effects: [{ kind: 'buff_unit', attack: 1, health: 4 }, { kind: 'shield_unit', amount: 2 }] },
+    ],
+  },
+  fusion_v8_08: {
+    text: '【원군 본능군주】 소환 시 CHOOSE — 1) 수장 소집: 덱에서 비용 4 이하 추적자 유닛 1장을 무작위 전개하고 상대 코어에 1 피해 / 2) 무리 돌격: 추적자 아군 전체 +2/+1, 3/3 「원초 추적수」 1체 소환 / 3) 바위 울음: 아군 전체 보호막 +2, 코어 3 회복.',
+    uniqueTrait: {
+      name: '원군 본능군주',
+      description: '무리 호출, 종족 강화, 생존 포효 중 하나를 선택하는 프라이멀 가디언의 군집 지배 특성이다.',
+      highlights: [
+        { name: '수장 소집', description: '덱에서 곧바로 추적자를 끌어내는 무리 호출 모드.' },
+        { name: '무리 돌격', description: '같은 족속만 강하게 밀어 주는 종족 돌격 모드.' },
+        { name: '바위 울음', description: '원시 방패와 회복으로 전장을 버티는 생존 모드.' },
+      ],
+    },
+    extraChoices: [
+      { id: 'primal-alpha-call', label: '수장 소집', description: '덱에서 비용 4 이하 추적자 유닛 1장을 무작위로 전개하고 상대 코어에 1 피해를 준다.', effects: [{ kind: 'type_recruit', unitType: 'hunter', maxCost: 4 }, { kind: 'damage_core', amount: 1 }] },
+      { id: 'primal-pack-stampede', label: '무리 돌격', description: '추적자 유닛 모두에게 +2/+1. 3/3 「원초 추적수」 1체를 소환한다.', effects: [{ kind: 'type_rally', unitType: 'hunter', attack: 2, health: 1 }, { kind: 'summon_token', attack: 3, health: 3, name: '원초 추적수' }] },
+      { id: 'primal-stone-howl', label: '바위 울음', description: '아군 전체 보호막 +2. 이어 내 코어 3 회복.', effects: [{ kind: 'mass_shield', amount: 2 }, { kind: 'heal_core', amount: 3 }] },
+    ],
+  },
+  v26_chronorium_evolution_02: {
+    text: '【분기점 편집권】 소환 시 CHOOSE — 1) 정지 · ZERO SECOND: 시간을 2턴 고정하고 아군 전체 보호막 +2 / 2) 가속 · CROSSFADE: 시간을 2단계 전진시키고 카드 1장 드로우 / 3) 수정 · RETCON: 시간을 1단계 되감고 묘지 2장을 덱으로 되돌린 뒤 2드로우.',
+    uniqueTrait: {
+      name: '분기점 편집권',
+      description: '시간을 멈추고, 넘기고, 다시 쓰는 세 가지 편집권을 독점하는 크로노리움 대표 특성이다.',
+      highlights: [
+        { name: 'ZERO SECOND', description: '지금 순간을 얼려 버리는 정지 편집.' },
+        { name: 'CROSSFADE', description: '미래 장면으로 한 번에 건너뛰는 가속 편집.' },
+        { name: 'RETCON', description: '잘못된 장면을 되감아 손패까지 다시 만드는 수정 편집.' },
+      ],
+    },
+    extraChoices: [
+      { id: 'chrono-zero-second', label: '정지 · ZERO SECOND', description: 'ECLIPSE CYCLE 자동 이동을 2턴 잠그고 아군 전체 보호막 +2.', effects: [{ kind: 'phase_lock', turns: 2 }, { kind: 'mass_shield', amount: 2 }] },
+      { id: 'chrono-crossfade', label: '가속 · CROSSFADE', description: 'ECLIPSE CYCLE을 앞으로 2칸 이동하고 카드 1장을 뽑는다.', effects: [{ kind: 'phase_shift', steps: 2 }, { kind: 'draw', amount: 1 }] },
+      { id: 'chrono-retcon', label: '수정 · RETCON', description: 'ECLIPSE CYCLE을 실제 직전 시간대로 1회 되감고, 내 묘지 카드 2장을 덱으로 되돌려 섞은 뒤 카드 2장을 뽑는다.', effects: [{ kind: 'phase_rewind', steps: 1 }, { kind: 'recycle_grave_draw', amount: 2, draw: 2 }] },
+    ],
+  },
+  v26_arcana_protocol_evolution_02: {
+    text: '【금단규약 재편집】 소환 시 CHOOSE — 1) 재작성 · REWRITE: 손패를 새로 섞어 뽑고 추가로 1장 더 뽑는다 / 2) 감찰 · AUDIT: 상대 손패를 확인하고 카드 1장을 버리게 한다 / 3) 조항 교환 · CLAUSE EXCHANGE: 서로의 손패를 통째로 교환한다.',
+    uniqueTrait: {
+      name: '금단규약 재편집',
+      description: '내 패를 갈아엎거나, 상대 패를 들여다보거나, 아예 손패를 교환하는 아르카나 프로토콜 전용 규약 특성이다.',
+      highlights: [
+        { name: 'REWRITE', description: '손패 전체를 다시 써서 새 문장을 만드는 재편 모드.' },
+        { name: 'AUDIT', description: '상대 패를 감찰하고 한 장을 즉시 압수하는 통제 모드.' },
+        { name: 'CLAUSE EXCHANGE', description: '규약 조항처럼 손패를 통째로 바꿔 판을 뒤집는다.' },
+      ],
+    },
+    extraChoices: [
+      { id: 'arcana-rewrite', label: '재작성 · REWRITE', description: '내 손패를 덱에 넣어 섞고 같은 수 +1장 만큼 다시 뽑는다.', effects: [{ kind: 'reweave_hand', bonusDraw: 1 }] },
+      { id: 'arcana-audit', label: '감찰 · AUDIT', description: '상대 손패를 확인한 뒤 카드 1장을 버리게 한다.', effects: [{ kind: 'inspect_opponent_hand' }, { kind: 'discard_opponent_hand' }] },
+      { id: 'arcana-clause-exchange', label: '조항 교환 · CLAUSE EXCHANGE', description: '서로의 손패를 통째로 교환한다.', effects: [{ kind: 'exchange_hands' }] },
+    ],
+  },
+  v26_beastforge_evolution_02: {
+    text: '【포식장갑 진화체】 소환 시 CHOOSE — 1) 파쇄 돌진: 모든 적 유닛에 2 피해, 상대 코어에 2 피해 / 2) 포지 번식: 4/4 「포지 비스트 오메가」 1체를 소환하고 아군 전체 보호막 +2 / 3) 흡수 장갑: 이 유닛 +3/+3, 코어 2 회복.',
+    uniqueTrait: {
+      name: '포식장갑 진화체',
+      description: '철갑 돌파, 야수 생산, 자가 장갑화 셋 중 하나를 택하는 비스트포지의 살아 있는 병기 특성이다.',
+      highlights: [
+        { name: '파쇄 돌진', description: '철갑의 무게로 적 전열과 코어를 함께 짓이긴다.' },
+        { name: '포지 번식', description: '추가 병기를 생산해 필드를 기계 야수로 채운다.' },
+        { name: '흡수 장갑', description: '먹어 치운 합금을 자기 외피로 바꾸는 자가 강화 모드.' },
+      ],
+    },
+    extraChoices: [
+      { id: 'beastforge-crush-ram', label: '파쇄 돌진', description: '모든 적 유닛에 2 피해를 주고 상대 코어에 2 피해를 준다.', effects: [{ kind: 'aoe_enemy', amount: 2 }, { kind: 'damage_core', amount: 2 }] },
+      { id: 'beastforge-forge-brood', label: '포지 번식', description: '4/4 「포지 비스트 오메가」 1체를 소환하고 아군 전체 보호막 +2.', effects: [{ kind: 'summon_token', attack: 4, health: 4, name: '포지 비스트 오메가' }, { kind: 'mass_shield', amount: 2 }] },
+      { id: 'beastforge-devour-plating', label: '흡수 장갑', description: '이 유닛에게 +3/+3을 부여하고 내 코어 2를 회복한다.', effects: [{ kind: 'buff_unit', attack: 3, health: 3 }, { kind: 'heal_core', amount: 2 }] },
+    ],
+  },
+  v26_phantom_carnival_evolution_02: {
+    text: '【무한 공연권】 소환 시 CHOOSE — 1) 무대반전: 전장 모든 유닛의 현재 공격력과 체력을 뒤바꾼다 / 2) 의상 교환: 서로의 손패를 통째로 교환한다 / 3) 종막 리허설: 필드의 모든 유닛을 되돌리고 카드 1장을 뽑는다.',
+    uniqueTrait: {
+      name: '무한 공연권',
+      description: '공연 자체의 규칙을 바꾸는 팬텀 카니발의 극장장 권한 특성이다.',
+      highlights: [
+        { name: '무대반전', description: '모든 유닛의 공격과 체력을 뒤집어 장면을 전복한다.' },
+        { name: '의상 교환', description: '각본 대신 손패를 통째로 바꿔 역할을 섞는다.' },
+        { name: '종막 리허설', description: '배우를 모두 퇴장시키고 다음 막을 준비한다.' },
+      ],
+    },
+    extraChoices: [
+      { id: 'phantom-house-flip', label: '무대반전', description: '전장 모든 유닛의 현재 공격력과 체력을 뒤바꾼다.', effects: [{ kind: 'invert_all_units' }] },
+      { id: 'phantom-costume-swap', label: '의상 교환', description: '서로의 손패를 통째로 교환한다.', effects: [{ kind: 'exchange_hands' }] },
+      { id: 'phantom-curtain-rehearsal', label: '종막 리허설', description: '필드의 모든 유닛을 원래 영역으로 되돌리고 카드 1장을 뽑는다.', effects: [{ kind: 'mass_recall' }, { kind: 'draw', amount: 1 }] },
+    ],
+  },
+  v26_astral_armada_evolution_02: {
+    text: '【성도 편대지휘권】 소환 시 CHOOSE — 1) 드론 스크린: 2/2 「오리온 드론」 2체를 소환하고 아군 전체 보호막 +1 / 2) 궤도 포화: 모든 적 유닛에 3 피해, 상대 코어에 2 피해 / 3) 워프 항로: 카드 2장 드로우, ENERGY 2 회복.',
+    uniqueTrait: {
+      name: '성도 편대지휘권',
+      description: '함재기 전개, 포격 지휘, 워프 보급 셋 중 하나를 호출하는 아스트랄 아르마다 대표 사령권이다.',
+      highlights: [
+        { name: '드론 스크린', description: '두 대의 드론으로 전열을 즉시 두껍게 만드는 방진 모드.' },
+        { name: '궤도 포화', description: '함대의 화력을 일점에 모아 적 전열과 코어를 동시에 포격한다.' },
+        { name: '워프 항로', description: '보급선을 열어 손패와 에너지를 빠르게 확보한다.' },
+      ],
+    },
+    extraChoices: [
+      { id: 'astral-drone-screen', label: '드론 스크린', description: '2/2 「오리온 드론」 2체를 소환하고 아군 전체 보호막 +1.', effects: [{ kind: 'summon_token', attack: 2, health: 2, name: '오리온 드론' }, { kind: 'summon_token', attack: 2, health: 2, name: '오리온 드론' }, { kind: 'mass_shield', amount: 1 }] },
+      { id: 'astral-orbital-salvo', label: '궤도 포화', description: '모든 적 유닛에 3 피해를 주고 상대 코어에 2 피해를 준다.', effects: [{ kind: 'aoe_enemy', amount: 3 }, { kind: 'damage_core', amount: 2 }] },
+      { id: 'astral-warp-route', label: '워프 항로', description: '카드 2장을 뽑고 ENERGY 2를 회복한다.', effects: [{ kind: 'draw', amount: 2 }, { kind: 'gain_energy', amount: 2 }] },
+    ],
+  },
+  v41_premium_dawn_lord: {
+    text: '【첫빛의 윤회】 등장 시 시간을 여명으로 되돌린다. 카드 1장 드로우 / ENERGY 최대치 +1 / 코어 6 회복 / 묘지 유닛 1장 회수. 【여명 재개】 여명 진입 시 최고 비용 유닛 1체를 체력 60%로 부활시키고, 아군 전체 체력 3 회복, 전열 전체 준비, 카드 1장 드로우.',
+    uniqueTrait: {
+      description: '한 번 무너진 판을 여명으로 되감아 다시 시작하게 만드는 프리미엄 복구형 고유 특성이다.',
+      highlights: [
+        { name: '패배 삭제', description: '코어, 패, ENERGY, 묘지를 한 번에 복구해 역전 기반을 만든다.' },
+        { name: '여명 재개', description: '여명 진입 때마다 최고 비용 유닛을 다시 세워 재전개를 강요한다.' },
+        { name: '일출 행진', description: '회복과 전열 재준비가 함께 일어나 다시 공격 턴을 연다.' },
+      ],
+    },
+  },
+  v41_premium_zenith_king: {
+    text: '【천정 왕권】 등장 시 시간을 정점으로 설정하고 2턴 동안 고정한다. 아군 전체 +2/+2 후 즉시 공격 준비. 【정점 칙령】 정점 진입 시 아군 전체를 다시 준비시키고, 상대 코어에 5 피해, 상대 ENERGY 1 탈취, 4/4 「천정 근위」 1체를 소환한다.',
+    uniqueTrait: {
+      description: '정점이라는 단 한 구간을 독점해 돌격 흐름을 계속 반복시키는 프리미엄 속공형 고유 특성이다.',
+      highlights: [
+        { name: '시간 독점', description: '정점을 2턴 잠가 가장 강한 전투 구간을 혼자 사용한다.' },
+        { name: '정점 칙령', description: '코어 압박, ENERGY 탈취, 재준비, 토큰 전개가 한 번에 이어진다.' },
+        { name: '천정 근위', description: '매번 근위를 덧세워 압박이 자연스럽게 불어나도록 만든다.' },
+      ],
+    },
+  },
+  v44_premium_twilight_knight: {
+    text: '【경계의 맹세】 등장 시 시간을 황혼으로 설정하고 카드 1장을 뽑으며 자신에게 보호막 3을 부여한다. 【경계 심판】 황혼 진입 시 코어 격차를 최대 5까지 보정하고, 아군 전체 보호막 +2, 상대 코어 2 흡수, 현재 ATK+DEF가 9 이하인 가장 약한 적 1체를 붕괴시킨다.',
+    uniqueTrait: {
+      description: '뒤처진 쪽을 끌어올리고 약한 틈을 베어 균형 자체를 자신 쪽으로 기울게 하는 프리미엄 황혼 특성이다.',
+      highlights: [
+        { name: '균형 재단', description: '코어 격차를 직접 줄여 열세 게임도 강제로 중반전으로 돌린다.' },
+        { name: '저녁별 방진', description: '황혼에 들어올 때마다 전열 전체에 보호막을 재배치한다.' },
+        { name: '박명 결투', description: '기세가 꺾인 적 한 장을 정확히 붕괴시켜 판을 정리한다.' },
+      ],
+    },
+  },
+  v41_premium_midnight_silence: {
+    text: '【절대 무음령】 시간을 심야로 설정하고 2턴 동안 고정한다. 모든 적 캐릭터를 1턴 동안 동결시키고, 상대 손패의 최고 비용 카드 1장을 버리게 한다. 그 후 상대 묘지 2장을 소멸시키고 카드 1장을 드로우한다.',
+    uniqueTrait: {
+      description: '필드, 손패, 묘지까지 한 번에 잠가 상대 선택지를 말 그대로 침묵시키는 프리미엄 봉쇄 주문이다.',
+      highlights: [
+        { name: '심야 봉인', description: '심야를 2턴 잠가 상대가 시간을 이용한 반격을 하기 어렵게 만든다.' },
+        { name: '절대 무음', description: '적 전열 전체를 동결시켜 공격과 수비 템포를 동시에 묶는다.' },
+        { name: '침묵의 대가', description: '최고 비용 손패 압수 + 묘지 소멸 + 1드로우까지 이어지는 자원 봉쇄 주문이다.' },
+      ],
+    },
+  },
+  v41_premium_eclipse_conductor: {
+    text: '【흑광 대지휘】 등장 시 시간을 개기일식으로 설정하고 2턴 동안 고정한다. 가장 강한 적 1체를 리콜하고, 상대 묘지 1장을 소멸시키며, 상대 ENERGY 1을 흡수한다. 【일식 합주】 개기일식 진입 시 내 묘지 최고 비용 유닛 1체를 체력 80%로 부활시키고, 가장 강한 적 1체의 강화와 보호막을 초기화하며, 상대 코어에 4 피해를 주고, 4/4 「흑광 악장」 1체를 소환한다.',
+    uniqueTrait: {
+      description: '적의 가장 중요한 박자를 끊고, 아군의 가장 무거운 선율을 다시 세우는 프리미엄 개기일식 지휘 특성이다.',
+      highlights: [
+        { name: '리듬 단절', description: '가장 강한 적을 먼저 치워 상대 템포의 중심을 끊어 낸다.' },
+        { name: '일식 합주', description: '부활, 초기화, 코어 압박, 토큰 전개가 같은 박자에 묶여 터진다.' },
+        { name: '흑광 악장', description: '부활 이후 바로 빈 전열을 채워 압박 흐름을 이어 준다.' },
+      ],
+    },
+  },
+  v60_premium_time_devourer: {
+    text: '【시간 포식 강림】 ENERGY 10만 지불하면 추가 조건 없이 소환할 수 있다. 【절대 등장】 적 필드 유닛과 세트 함정을 모두 제거하고, 내 코어 10 회복 / 3드로우 / ENERGY 3 회복 / 보호막 3 획득. 【상시 포식】 모든 시간대에서 항상 +5/+5. 【시대별 섭식】 여명=코어 4 회복 / 정점=상대 ENERGY 2 탈취 / 황혼=상대 코어 2 흡수 / 심야=상대 묘지 2장 소멸 / 개기일식=상대 코어 4 피해.',
+    uniqueTrait: {
+      description: '시간대마다 다른 자원을 먹어 판을 장기적으로 잠식하는 절대 추격 프리미엄 특성이다.',
+      highlights: [
+        { name: '무조건 강림', description: 'ENERGY 10만 있으면 별도 의식 없이 바로 내려온다.' },
+        { name: '절대 등장', description: '나오는 즉시 적 필드와 함정을 지우고 대량의 코어·손패·ENERGY를 챙긴다.' },
+        { name: '시간식단', description: '여명 회복, 정점 ENERGY 탈취, 황혼 코어 흡수, 심야 묘지 포식, 일식 종말 피해를 반복한다.' },
+      ],
+    },
+  },
+};
+
+for (const [cardId, override] of Object.entries(V63_DISTINCT_IDENTITY_OVERRIDES)) {
+  const card = CARDS.find((item) => item.id === cardId);
+  if (!card) continue;
+  if (override.text) card.text = override.text;
+  if (override.uniqueTrait) {
+    card.uniqueTrait = {
+      ...(card.uniqueTrait ?? { name: override.uniqueTrait.name ?? '고유 특성', description: override.uniqueTrait.description ?? '' }),
+      ...override.uniqueTrait,
+      effects: override.uniqueTrait.effects ?? card.uniqueTrait?.effects,
+      highlights: override.uniqueTrait.highlights ?? card.uniqueTrait?.highlights,
+    };
+  }
+  if (override.extraChoices) card.extraChoices = override.extraChoices;
+}
+
 export const V61_SERIES_FLAGSHIPS = Object.freeze(Object.fromEntries(
   Object.keys(V61_SERIES_FLAGSHIP_OVERRIDES).map((cardId) => {
     const card = CARDS.find((item) => item.id === cardId);

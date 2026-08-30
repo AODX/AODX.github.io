@@ -1195,39 +1195,39 @@ function premiumTimeHighlights(card: CardDefinition): CardHighlight[] {
   switch (card.id) {
     case 'v41_premium_dawn_lord':
       return [
-        { label: '첫빛의 윤회', detail: '여명 설정 · 카드 1장 드로우 · ENERGY 최대치 +1 · 코어 6 회복 · 묘지 유닛 1장 회수', tone: 'feature' },
-        { label: '새벽 재기', detail: '여명 진입 시 묘지 최고 비용 유닛을 체력 60%로 부활', tone: 'power' },
-        { label: '일출 행진', detail: '아군 전체 체력 3 회복 · 전열 전체 공격 준비', tone: 'phase' },
+        { label: '패배 삭제', detail: '여명 설정 · 1드로우 · ENERGY 최대치 +1 · 코어 6 회복 · 묘지 유닛 1장 회수', tone: 'feature' },
+        { label: '여명 재개', detail: '여명 진입 시 최고 비용 유닛을 체력 60%로 부활시키고 아군 전체를 다시 세운다', tone: 'power' },
+        { label: '일출 행진', detail: '아군 전체 체력 3 회복 · 전열 전체 준비 · 카드 1장 드로우', tone: 'phase' },
       ];
     case 'v41_premium_zenith_king':
       return [
-        { label: '천정 왕권', detail: '정점 설정 · 2턴 고정 · 아군 전체 +2/+2 · 즉시 공격 준비', tone: 'feature' },
-        { label: '정오 판결', detail: '정점 진입 시 상대 코어 5 피해 · 상대 ENERGY 1 흡수', tone: 'power' },
-        { label: '천정 근위', detail: '정점 진입 시 4/4 「천정 근위」 전개', tone: 'phase' },
+        { label: '시간 독점', detail: '정점 설정 · 2턴 고정 · 아군 전체 +2/+2 · 즉시 공격 준비', tone: 'feature' },
+        { label: '정점 칙령', detail: '정점 진입 시 전열 전체 재준비 · 상대 코어 5 피해 · ENERGY 1 탈취', tone: 'power' },
+        { label: '천정 근위', detail: '정점 진입 시 4/4 「천정 근위」를 추가 전개해 압박을 키운다', tone: 'phase' },
       ];
     case 'v44_premium_twilight_knight':
       return [
-        { label: '경계의 맹세', detail: '황혼 설정 · 카드 1장 드로우 · 자신 보호막 3', tone: 'feature' },
-        { label: '경계의 저울', detail: '황혼 진입 시 코어 격차 최대 5 보정 · 아군 전체 보호막 2', tone: 'phase' },
-        { label: '박명 결투', detail: '상대 코어 2 흡수 · ATK+DEF 9 이하 최약 적 붕괴', tone: 'control' },
+        { label: '균형 재단', detail: '황혼 설정 · 1드로우 · 자신 보호막 3 · 코어 격차 최대 5 보정', tone: 'feature' },
+        { label: '저녁별 방진', detail: '황혼 진입 시 아군 전체 보호막 2를 배치해 버티는 축을 만든다', tone: 'phase' },
+        { label: '박명 결투', detail: '상대 코어 2 흡수 · ATK+DEF 9 이하의 가장 약한 적 1체 붕괴', tone: 'control' },
       ];
     case 'v41_premium_midnight_silence':
       return [
-        { label: '절대 무음령', detail: '심야 설정 · 2턴 고정 · 적 전체 1턴 동결', tone: 'feature' },
-        { label: '선택지 봉쇄', detail: '상대 최고 비용 손패 1장 강제 버림 · 상대 묘지 2장 소멸', tone: 'control' },
-        { label: '무음의 여백', detail: '직접 화력 대신 행동 자원을 지우고 카드 1장을 보충', tone: 'phase' },
+        { label: '심야 봉인', detail: '심야 설정 · 2턴 고정 · 적 전체 1턴 동결', tone: 'feature' },
+        { label: '침묵의 대가', detail: '상대 최고 비용 손패 1장 버림 · 상대 묘지 2장 소멸 · 카드 1장 드로우', tone: 'control' },
+        { label: '절대 무음', detail: '필드, 손패, 묘지를 동시에 잠가 다음 선택지를 매우 좁힌다', tone: 'phase' },
       ];
     case 'v41_premium_eclipse_conductor':
       return [
-        { label: '흑광 대지휘', detail: '개기일식 설정 · 2턴 고정 · 가장 강한 적 리콜 · 묘지 1장 소멸 · ENERGY 1 흡수', tone: 'feature' },
-        { label: '무음 지휘', detail: '가장 강한 적의 강화/보호막 초기화 · 상대 코어 4 피해', tone: 'control' },
-        { label: '저음부 귀환', detail: '묘지 최고 비용 유닛 체력 80% 부활 · 4/4 「흑광 악장」 전개', tone: 'phase' },
+        { label: '리듬 단절', detail: '개기일식 설정 · 2턴 고정 · 가장 강한 적 리콜 · 묘지 1장 소멸 · ENERGY 1 탈취', tone: 'feature' },
+        { label: '일식 합주', detail: '묘지 최고 비용 유닛 체력 80% 부활 · 가장 강한 적 초기화 · 상대 코어 4 피해', tone: 'control' },
+        { label: '흑광 악장', detail: '개기일식 진입 시 4/4 「흑광 악장」 전개로 압박 흐름을 잇는다', tone: 'phase' },
       ];
     case 'v60_premium_time_devourer':
       return [
-        { label: '절대 등장', detail: '적 필드 유닛·세트 함정 전부 포식 · 코어 10 회복 · 3장 드로우 · ENERGY 3 · 보호막 3', tone: 'feature' },
+        { label: '절대 등장', detail: '적 필드 유닛·세트 함정 전부 포식 · 코어 10 회복 · 3드로우 · ENERGY 3 · 보호막 3', tone: 'feature' },
         { label: '상시 시간 버프', detail: '여명/정점/황혼/심야/개기일식 모든 시간대에서 항상 +5/+5', tone: 'phase' },
-        { label: '시대별 섭식', detail: '여명=회복 · 정점=ENERGY 흡수 · 황혼=코어 흡수 · 심야=묘지 포식 · 일식=종말 피해', tone: 'power' },
+        { label: '시간식단', detail: '여명=회복 · 정점=ENERGY 탈취 · 황혼=코어 흡수 · 심야=묘지 포식 · 일식=종말 피해', tone: 'power' },
       ];
     default:
       return [];
