@@ -76,7 +76,7 @@ interface RoomMemberRow {
 
 const PRIVATE_ROOM_MEMBER_LIMIT = 10;
 
-const MATCH_PRESENCE_TTL_MS = 20_000;
+const MATCH_PRESENCE_TTL_MS = 75_000;
 const MATCH_PRESENCE_STALE_CUTOFF = () => new Date(Date.now() - MATCH_PRESENCE_TTL_MS).toISOString();
 
 
@@ -1745,19 +1745,23 @@ async function handleAction(request: Request, body: RequestBody) {
     return base;
   }
 
+  if (action === 'presence_ping') {
+    const admin = await requireAdmin();
+    await touchMatchPresence(admin, user.id);
+    return { ok: true, serverTime: Date.now() };
+  }
+
   if (action === 'online_users') {
     const admin = await requireAdmin();
     await touchMatchPresence(admin, user.id);
-    const cutoff = new Date(Date.now() - 45_000).toISOString();
     const { data: presenceRows, error: presenceError } = await admin
       .from('eclipse_match_presence')
       .select('user_id,last_seen_at')
-      .gte('last_seen_at', cutoff)
+      .gte('last_seen_at', MATCH_PRESENCE_STALE_CUTOFF())
       .order('last_seen_at', { ascending: false })
       .limit(100);
     if (presenceError) throw new Error(presenceError.message);
-    const ids = (presenceRows ?? []).map((row: { user_id: string }) => row.user_id);
-    if (!ids.length) return { onlineUsers: [] };
+    const ids = [...new Set([user.id, ...(presenceRows ?? []).map((row: { user_id: string }) => row.user_id)])];
     const { data: profiles, error: profileError } = await admin
       .from('eclipse_profiles')
       .select('user_id,display_name,avatar,wins,losses,xp,nickname_style')
@@ -2024,16 +2028,55 @@ async function handleAction(request: Request, body: RequestBody) {
     return { hub: await getHub(client, user.id) };
   }
 
+  if (action === 'chat_messages') {
+    const admin = await requireAdmin();
+    const roomId = cleanText(body.roomId, 64);
+    const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+
+    if (roomId) {
+      const room = await fetchRoom(admin, roomId);
+      await assertRoomMember(admin, room, user.id);
+      const { data, error } = await admin
+        .from('eclipse_room_messages')
+        .select('*')
+        .eq('room_id', roomId)
+        .order('created_at', { ascending: false })
+        .limit(36);
+      if (error) throw new Error(error.message);
+      return { messages: (data ?? []).reverse(), scope: 'room' };
+    }
+
+    const { data, error } = await admin
+      .from('eclipse_global_messages')
+      .select('*')
+      .gte('created_at', cutoff)
+      .order('created_at', { ascending: false })
+      .limit(36);
+    if (error) throw new Error(error.message);
+    return { messages: (data ?? []).reverse(), scope: 'global', cutoff };
+  }
+
   if (action === 'send_global_message') {
     const message = cleanText(body.message, 180);
     if (!message) throw new Error('메시지를 입력하세요.');
     await assertChatEmotesEquipped(client, user.id, message);
-    const { error } = await client.rpc('eclipse_send_global_message_v25', { p_body: message });
-    if (error) {
-      if (/eclipse_send_global_message_v25|schema cache|does not exist/i.test(error.message)) throw new Error('v25 글로벌 채팅 DB 업그레이드가 필요합니다. sql/05_V25_SERIES_PACKS_CHAT.sql을 한 번 실행해 주세요.');
-      throw new Error(error.message);
-    }
-    return { ok: true };
+    const admin = await requireAdmin();
+    const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    // Keep storage tidy as well as hiding expired messages in the client.
+    await admin.from('eclipse_global_messages').delete().lt('created_at', cutoff);
+    const { data: profile, error: profileError } = await admin
+      .from('eclipse_profiles')
+      .select('display_name')
+      .eq('user_id', user.id)
+      .single();
+    if (profileError) throw new Error(profileError.message);
+    const { data, error } = await admin
+      .from('eclipse_global_messages')
+      .insert({ user_id: user.id, display_name: String(profile.display_name ?? 'PLAYER'), body: message })
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+    return { ok: true, message: data };
   }
 
   if (action === 'friend_request') {
@@ -2486,14 +2529,25 @@ async function handleAction(request: Request, body: RequestBody) {
   if (action === 'send_room_message') {
     const roomId = cleanText(body.roomId, 64);
     const message = cleanText(body.message, 180);
+    if (!roomId) throw new Error('방 정보를 찾을 수 없습니다.');
     if (!message) throw new Error('메시지를 입력하세요.');
     await assertChatEmotesEquipped(client, user.id, message);
-    const { error } = await client.rpc('eclipse_send_room_message_v5', {
-      p_room_id: roomId,
-      p_body: message,
-    });
+    const admin = await requireAdmin();
+    const room = await fetchRoom(admin, roomId);
+    await assertRoomMember(admin, room, user.id);
+    const { data: profile, error: profileError } = await admin
+      .from('eclipse_profiles')
+      .select('display_name')
+      .eq('user_id', user.id)
+      .single();
+    if (profileError) throw new Error(profileError.message);
+    const { data, error } = await admin
+      .from('eclipse_room_messages')
+      .insert({ room_id: roomId, user_id: user.id, display_name: String(profile.display_name ?? 'PLAYER'), body: message })
+      .select('*')
+      .single();
     if (error) throw new Error(error.message);
-    return { ok: true };
+    return { ok: true, message: data };
   }
 
   if (action === 'leave_room') {
