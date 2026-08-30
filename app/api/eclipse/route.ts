@@ -624,10 +624,11 @@ const PREMIUM_TIME_FEATURED_IDS = [
   'v41_premium_eclipse_conductor',
   'v41_premium_midnight_silence',
   'v44_premium_twilight_knight',
+  'v60_premium_time_devourer',
 ] as const;
 const PREMIUM_TIME_FEATURED_SET = new Set<string>(PREMIUM_TIME_FEATURED_IDS);
 // Premium TIME chase cards are excluded from the miss pool so the advertised
-// 0.5% per slot remains the real acquisition probability for the featured card.
+// Each premium pack keeps its printed featured probability exact (legacy 0.5%, Time Devourer 0.1%).
 const PREMIUM_TIME_MISS_POOL_IDS = CARDS.map((card) => card.id).filter((cardId) => !PREMIUM_TIME_FEATURED_SET.has(cardId));
 
 function randomPick<T>(items: readonly T[]): T {
@@ -638,7 +639,8 @@ function drawPremiumTimePack(pack: PackDefinition): string[] {
   const featuredCardId = pack.featuredCardId;
   if (!featuredCardId || !PREMIUM_TIME_FEATURED_SET.has(featuredCardId)) throw new Error('프리미엄 TIME 픽업 카드 정보가 올바르지 않습니다.');
   const pickupRate = Math.max(0, Math.min(100, Number(pack.odds.pickupRate ?? 0.5))) / 100;
-  return Array.from({ length: 3 }, () => (Math.random() < pickupRate ? featuredCardId : randomPick(PREMIUM_TIME_MISS_POOL_IDS)));
+  const cardCount = Math.max(1, Math.min(10, Math.trunc(Number(pack.cardCount ?? 3))));
+  return Array.from({ length: cardCount }, () => (Math.random() < pickupRate ? featuredCardId : randomPick(PREMIUM_TIME_MISS_POOL_IDS)));
 }
 
 const PACK_RARITY_ORDER: Rarity[] = ['common', 'rare', 'epic', 'legendary'];
