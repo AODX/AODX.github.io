@@ -6600,162 +6600,8 @@ const V65_COMBAT_IDENTITIES: Record<string, V65CombatIdentity> = {
     description: '루미나이츠의 대표 전설답게 돌파·직격·처형을 한 몸에 묶은 결전형 전투 특성.',
     keywords: ['pierce', 'corestrike', 'execute', 'charge'],
     highlights: [
-      { name: '성휘 선봉', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
-      { name: '노바 절단', description: '적 캐릭터를 파괴하면 남은 피해를 상대 코어에 이어서 줍니다.' },
-      { name: '영웅 판결', description: '기본 공격이 적 캐릭터에 정상 적중하면 피해 적용 후 그 대상을 파괴합니다.' },
-      { name: '승리 직행', description: '상대 필드에 수호가 없다면 다른 캐릭터를 무시하고 코어를 직접 공격할 수 있습니다.' },
-    ],
-    text: '【등장】 카드 1장을 뽑습니다. 【여명 발동】 여명 진입 또는 여명에서 등장 시 내 묘지의 메인 덱 카드 1장을 회수합니다.',
-  },
-  unit_v8_solar_14: {
-    name: '알파 드라이버식 · 황제기동',
-    description: '기동력과 광역 제압을 중장갑 방호·관통까지 확장한 카이저기어 대표 전투 특성.',
-    keywords: ['charge', 'sweep', 'guard', 'pierce'],
-    highlights: [
-      { name: '황제 부스터', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
-      { name: '전방 제압포', description: '적 캐릭터를 기본 공격할 때 같은 공격 피해를 적 전열 전체에 줍니다. 반격은 지정한 대상만 합니다.' },
-      { name: '중장 프레임', description: '상대는 공격 대상을 선택할 때 가능한 경우 이 캐릭터를 먼저 공격해야 합니다.' },
-      { name: '장갑 천공', description: '적 캐릭터를 파괴하면 남은 피해를 상대 코어에 이어서 줍니다.' },
-    ],
-    text: '【등장】 카드 1장을 뽑습니다.',
-    promoteLegendary: true,
-  },
-  unit_v8_solar_09: {
-    name: '아스트라식 · 일식공명',
-    description: '공명으로 피해를 생명으로 바꾸고, 약해진 상대를 확실히 끝내는 이클립시온 대표 전투 특성.',
-    keywords: ['lifesteal', 'execute', 'pierce'],
-    highlights: [
-      { name: '공명 흡식', description: '이 캐릭터가 전투로 준 피해만큼 내 코어를 회복합니다.' },
-      { name: '일식 처단', description: '기본 공격이 적 캐릭터에 정상 적중하면 피해 적용 후 그 대상을 파괴합니다.' },
-      { name: '균열 침투', description: '적 캐릭터를 파괴하면 남은 피해를 상대 코어에 이어서 줍니다.' },
-    ],
-    text: '【등장】 이번 턴 ENERGY 1을 회복합니다. 【개기일식 발동】 개기일식 진입 또는 개기일식에서 등장 시 상대 코어 2 피해 후 그만큼 내 코어를 회복합니다.',
-  },
-  unit_v8_void_16: {
-    name: '크레센트식 · 월영무도',
-    description: '그림자 사이를 먼저 파고들어 수비선을 건너뛰는 녹턴 미라주의 대표 전투 특성.',
-    keywords: ['charge', 'corestrike', 'pierce'],
-    highlights: [
-      { name: '월영 무도', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
-      { name: '그림자 직행', description: '상대 필드에 수호가 없다면 다른 캐릭터를 무시하고 코어를 직접 공격할 수 있습니다.' },
-      { name: '환영 관통', description: '적 캐릭터를 파괴하면 남은 피해를 상대 코어에 이어서 줍니다.' },
-    ],
-    text: '【등장】 이번 턴 ENERGY 1을 회복합니다. 【심야 발동】 심야 진입 또는 심야에서 등장 시 내 묘지의 메인 덱 카드 1장을 회수합니다.',
-  },
-  unit_v8_lunar_06: {
-    name: '루트 가디언식 · 세계근방벽',
-    description: '전열을 대신 받아내면서 넓게 휩쓸고 생명력을 되찾는 아르보리아 대표 전투 특성.',
-    keywords: ['guard', 'sweep', 'lifesteal'],
-    highlights: [
-      { name: '세계근 방벽', description: '상대는 공격 대상을 선택할 때 가능한 경우 이 캐릭터를 먼저 공격해야 합니다.' },
-      { name: '뿌리 휩쓸기', description: '적 캐릭터를 기본 공격할 때 같은 공격 피해를 적 전열 전체에 줍니다. 반격은 지정한 대상만 합니다.' },
-      { name: '수액 흡수', description: '이 캐릭터가 전투로 준 피해만큼 내 코어를 회복합니다.' },
-    ],
-    text: '【등장】 카드 1장을 뽑습니다. 【심야 발동】 심야 진입 또는 심야에서 등장 시 현재 시간대의 자연 진행을 2턴 동안 고정합니다.',
-  },
-  unit_v8_neutral_02: {
-    name: '볼트 라이더식 · 뇌광집행',
-    description: '수호와 처형을 유지한 채 속공·관통까지 얻은 템페스트 드라이브 대표 전투 특성.',
-    keywords: ['guard', 'execute', 'charge', 'pierce'],
-    highlights: [
-      { name: '뇌광 기동', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
-      { name: '전압 처형', description: '기본 공격이 적 캐릭터에 정상 적중하면 피해 적용 후 그 대상을 파괴합니다.' },
-      { name: '전류 관통', description: '적 캐릭터를 파괴하면 남은 피해를 상대 코어에 이어서 줍니다.' },
-      { name: '자기장 방벽', description: '상대는 공격 대상을 선택할 때 가능한 경우 이 캐릭터를 먼저 공격해야 합니다.' },
-    ],
-    text: '【등장】 내 코어를 4 회복합니다. 【여명 발동】 내 코어가 뒤처져 있다면 격차에 따라 내 코어를 회복하고 상대 코어에 같은 피해를 줍니다. 최대 4씩 이동합니다.',
-    promoteLegendary: true,
-  },
-  unit_v8_storm_08: {
-    name: '베놈 리퍼식 · 심연단두',
-    description: '관통과 처형을 유지하면서 흡수까지 더한 어비스 리퍼 대표 전투 특성.',
-    keywords: ['pierce', 'execute', 'lifesteal'],
-    highlights: [
-      { name: '공허 절개', description: '적 캐릭터를 파괴하면 남은 피해를 상대 코어에 이어서 줍니다.' },
-      { name: '독흔 처형', description: '기본 공격이 적 캐릭터에 정상 적중하면 피해 적용 후 그 대상을 파괴합니다.' },
-      { name: '심연 흡식', description: '이 캐릭터가 전투로 준 피해만큼 내 코어를 회복합니다.' },
-    ],
-    text: '【등장】 이번 턴 ENERGY 1을 회복합니다.',
-    promoteLegendary: true,
-  },
-  unit_v8_storm_03: {
-    name: '루인 비스트식 · 원초포효',
-    description: '먹고 버티며 코어까지 물어뜯는 프라이멀 가디언 대표 전투 특성.',
-    keywords: ['lifesteal', 'corestrike', 'guard', 'sweep'],
-    highlights: [
-      { name: '생명 포식', description: '이 캐릭터가 전투로 준 피해만큼 내 코어를 회복합니다.' },
-      { name: '야수 직격', description: '상대 필드에 수호가 없다면 다른 캐릭터를 무시하고 코어를 직접 공격할 수 있습니다.' },
-      { name: '우두머리 포효', description: '상대는 공격 대상을 선택할 때 가능한 경우 이 캐릭터를 먼저 공격해야 합니다.' },
-      { name: '원초 휩쓸기', description: '적 캐릭터를 기본 공격할 때 같은 공격 피해를 적 전열 전체에 줍니다. 반격은 지정한 대상만 합니다.' },
-    ],
-    text: '【등장】 상대 코어에 2 피해를 줍니다.',
-  },
-  v26_chronorium_unit_21: {
-    name: '크로노스식 · 시간왕권',
-    description: '먼저 움직이고 코어로 직행하며 전열을 대신 받아내는 크로노리움 대표 전투 특성.',
-    keywords: ['charge', 'corestrike', 'guard'],
-    highlights: [
-      { name: '선행 시간축', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
-      { name: '황금시계 직결', description: '상대 필드에 수호가 없다면 다른 캐릭터를 무시하고 코어를 직접 공격할 수 있습니다.' },
-      { name: '역행 장막', description: '상대는 공격 대상을 선택할 때 가능한 경우 이 캐릭터를 먼저 공격해야 합니다.' },
-    ],
-    text: '【등장】 카드 1장을 뽑습니다. 【여명 발동】 여명 진입 또는 여명에서 등장 시 기절하지 않은 아군 전체를 공격 준비 상태로 만듭니다.',
-  },
-  v26_arcana_protocol_unit_21: {
-    name: '그랜드 마기스터식 · 금단판결',
-    description: '빠른 시전·코어 직결·처형 판결을 묶은 아르카나 프로토콜 대표 전투 특성.',
-    keywords: ['charge', 'corestrike', 'execute'],
-    highlights: [
-      { name: '선행 시전', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
-      { name: '규약 직결', description: '상대 필드에 수호가 없다면 다른 캐릭터를 무시하고 코어를 직접 공격할 수 있습니다.' },
-      { name: '금단 판결', description: '기본 공격이 적 캐릭터에 정상 적중하면 피해 적용 후 그 대상을 파괴합니다.' },
-    ],
-    text: '【등장】 아군 캐릭터 1체에게 보호막 1을 부여합니다. 【여명 발동】 상대 ENERGY를 최대 3만큼 빼앗아 내 ENERGY로 가져옵니다.',
-  },
-  v26_beastforge_unit_21: {
-    name: '비스트 카이저식 · 포식장갑',
-    description: '속공과 직격에 방호·관통을 덧씌운 비스트포지 대표 전투 특성.',
-    keywords: ['charge', 'corestrike', 'guard', 'pierce'],
-    highlights: [
-      { name: '야수 점화', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
-      { name: '포식 직격', description: '상대 필드에 수호가 없다면 다른 캐릭터를 무시하고 코어를 직접 공격할 수 있습니다.' },
-      { name: '합금 방벽', description: '상대는 공격 대상을 선택할 때 가능한 경우 이 캐릭터를 먼저 공격해야 합니다.' },
-      { name: '충각 관통', description: '적 캐릭터를 파괴하면 남은 피해를 상대 코어에 이어서 줍니다.' },
-    ],
-    text: '【등장】 아군 캐릭터 1체에게 보호막 2를 부여합니다.',
-  },
-  v26_phantom_carnival_unit_21: {
-    name: '팬텀 디렉터식 · 주연강탈',
-    description: '먼저 무대에 올라 코어로 직행하고 전열 전체를 휩쓰는 팬텀 카니발 대표 전투 특성.',
-    keywords: ['charge', 'corestrike', 'sweep'],
-    highlights: [
-      { name: '선행 연출', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
-      { name: '주연 직행', description: '상대 필드에 수호가 없다면 다른 캐릭터를 무시하고 코어를 직접 공격할 수 있습니다.' },
-      { name: '무대 일소', description: '적 캐릭터를 기본 공격할 때 같은 공격 피해를 적 전열 전체에 줍니다. 반격은 지정한 대상만 합니다.' },
-    ],
-    text: '【등장】 상대 코어에 1 피해를 줍니다.',
-  },
-  v26_astral_armada_unit_21: {
-    name: '아르마다 소버린식 · 기함지휘',
-    description: '워프 선봉·기함 직격·함대 방진을 함께 운용하는 아스트라 아르마다 대표 전투 특성.',
-    keywords: ['charge', 'corestrike', 'guard'],
-    highlights: [
-      { name: '워프 선봉', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
-      { name: '기함 직격', description: '상대 필드에 수호가 없다면 다른 캐릭터를 무시하고 코어를 직접 공격할 수 있습니다.' },
-      { name: '함대 방진', description: '상대는 공격 대상을 선택할 때 가능한 경우 이 캐릭터를 먼저 공격해야 합니다.' },
-    ],
-    text: '【등장】 카드 1장을 뽑습니다.',
-  },
-
-  // Series representative Extra Deck cards ---------------------------------------
-  fusion_v8_09: {
-    name: '하이퍼 노바식 · 초신성돌파',
-    description: '기존 관통을 유지하면서 속공·직격까지 더한 루미나이츠 대표 엑스트라 전투 특성.',
-    keywords: ['pierce', 'charge', 'corestrike'],
-    highlights: [
-      { name: '초신성 점화', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
-      { name: '광자 관통', description: '적 캐릭터를 파괴하면 남은 피해를 상대 코어에 이어서 줍니다.' },
-      { name: '영웅 직행', description: '상대 필드에 수호가 없다면 다른 캐릭터를 무시하고 코어를 직접 공격할 수 있습니다.' },
+      { name: '영웅계승', description: '이 캐릭터가 전투로 적을 파괴하면 턴당 1회, 공격력이 가장 낮은 다른 아군 1체를 다시 공격 가능 상태로 만들고 ATK +1 / 보호막 +1.' },
+      { name: '성광 수복', description: '이 캐릭터가 전투로 적을 파괴하면 내 코어를 1 회복합니다.' },
     ],
   },
   evolution_v8_18: {
@@ -7024,7 +6870,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     name: '자동장갑 재배열',
     description: '전열 규모를 읽어 매 턴 장갑을 다시 접는 카이저기어 전용 방어 시스템.',
     highlights: [
-      { name: '오토 포트리스', description: '내 턴 시작마다 이 캐릭터가 보호막 2를 얻습니다. 내 필드에 다른 아군이 2체 이상이면 보호막 3을 얻습니다.' },
+      { name: '오토 포트리스', description: '내 턴 시작마다 이 캐릭터가 보호막 2를 얻습니다. 내 필드에 다른 아군이 2체 이상이면 대신 보호막 3을 얻습니다.' },
+      { name: '충격 분산장', description: '턴당 1회, 이 캐릭터가 적의 공격 대상이 되면 그 전투에서 받는 공격 피해 -2, 전투 전 보호막 +1.' },
     ],
   },
   unit_v8_solar_09: {
@@ -7033,6 +6880,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '쓰러뜨린 존재의 흔적을 몸 안으로 흡수해 실제 능력치로 바꾸는 이클립시온 전용 포식 규칙.',
     highlights: [
       { name: '포식 진화', description: '이 캐릭터가 전투로 적을 파괴하면 그 카드를 상대 묘지에서 소멸시키고 이 캐릭터가 영구 +1/+1, 내 코어 1 회복.' },
+      { name: '암흑 환류', description: '이 캐릭터가 전투로 적을 파괴하면 내 ENERGY를 1 회복합니다.' },
     ],
   },
   unit_v8_void_16: {
@@ -7041,6 +6889,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '첫 칼날이 닿는 순간 그림자만 남기고 실체를 비트는 녹턴 전용 방어 규칙.',
     highlights: [
       { name: '잔상 바꿔치기', description: '턴당 1회, 이 캐릭터가 공격 대상이 되면 그 전투에서 받는 공격 피해 -3, 이 캐릭터의 반격 피해 +2.' },
+      { name: '월하 추적', description: '이 캐릭터가 자신의 현재 체력 이하인 적 캐릭터를 공격할 때 그 공격 피해 +2.' },
     ],
   },
   unit_v8_lunar_06: {
@@ -7049,6 +6898,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '상처가 생기는 순간 씨앗을 떨어뜨려 전장을 다시 채우는 아르보리아 전용 생장 규칙.',
     highlights: [
       { name: '상처의 씨앗', description: '턴당 1회, 이 캐릭터가 전투 피해를 받고 살아남으면 빈 칸에 1/2 「세계근 새싹」 1체를 소환.' },
+      { name: '발아 수호', description: '상처의 씨앗이 발동한 전투에서 이 캐릭터는 보호막 2를 얻고 체력 1을 회복합니다.' },
     ],
   },
   unit_v8_neutral_02: {
@@ -7056,6 +6906,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     name: '재점화 드라이브',
     description: '첫 공격의 잔류 전류를 즉시 다음 돌진으로 바꾸는 템페스트 드라이브 전용 규칙.',
     highlights: [
+      { name: '과전류 돌진', description: '상대 필드에 살아 있는 적 캐릭터가 2체 이상 있으면 이 캐릭터의 이번 공격 피해 +2.' },
       { name: 'SECOND IGNITION', description: '턴당 1회, 이 캐릭터가 공격을 정상적으로 끝내고 살아남으면 즉시 다시 공격할 수 있습니다.' },
     ],
   },
@@ -7064,6 +6915,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     name: '장례포식',
     description: '쓰러진 적을 묘지에 남기지 않고 다음 사냥의 힘으로 먹어 치우는 어비스 리퍼 전용 규칙.',
     highlights: [
+      { name: '장례 선고', description: '이미 피해를 입은 적 캐릭터를 공격할 때 이번 공격 피해 +2.' },
       { name: '묘비 포식', description: '이 캐릭터가 전투로 적을 파괴하면 그 카드를 상대 묘지에서 소멸시키고 이 캐릭터 ATK +2, 보호막 +1.' },
     ],
   },
@@ -7082,6 +6934,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '공격 선언 자체를 과거의 한 장면으로 되감아 유리한 시점을 다시 만드는 크로노리움 전용 규칙.',
     highlights: [
       { name: 'BATTLE RETAKE', description: '턴당 1회 공격 선언 시 ECLIPSE CYCLE을 실제 이전 시간대로 1단계 되감고, 그 공격 피해 +2.' },
+      { name: '시간 수거', description: '이 캐릭터의 공격이 정상 처리되면 카드 1장을 뽑습니다.' },
     ],
   },
   v26_arcana_protocol_unit_21: {
@@ -7089,6 +6942,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     name: '전투조항 판독',
     description: '전투 결과를 보고 상대의 선택지 또는 자신의 패를 법칙처럼 재정리하는 아르카나 프로토콜 전용 규칙.',
     highlights: [
+      { name: '계약 장막', description: '공격 선언 시 보호막 1을 얻습니다.' },
       { name: '판결 조항', description: '턴당 1회, 이 캐릭터의 공격으로 적이 살아남으면 상대 최고 비용 손패 1장을 버리게 하고, 적을 파괴했다면 대신 카드 1장을 뽑습니다.' },
     ],
   },
@@ -7098,6 +6952,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '실제로 맞은 충격을 다음 장갑층의 재료로 바꾸는 비스트포지 전용 규칙.',
     highlights: [
       { name: '생체금속 학습', description: '턴당 1회, 반격 피해를 받고 살아남으면 ATK +1, 실제 체력 피해만큼 보호막 획득(최대 3).' },
+      { name: '재생 도금', description: '내 턴 시작마다 이 캐릭터의 보호막이 1 이상이면 체력 1 회복, 보호막 +1.' },
     ],
   },
   v26_phantom_carnival_unit_21: {
@@ -7105,7 +6960,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     name: '강제 커튼콜',
     description: '쓰러지지 않은 상대조차 무대 밖으로 퇴장시켜 버리는 팬텀 카니발 전용 규칙.',
     highlights: [
-      { name: '퇴장 명령', description: '턴당 1회, 이 캐릭터가 공격한 적이 살아남으면 그 적을 손패/원래 영역으로 되돌립니다. 적을 파괴했다면 대신 카드 1장을 뽑습니다.' },
+      { name: '강제 커튼콜', description: '턴당 1회, 이 캐릭터가 공격한 적이 살아남으면 그 적을 손패/원래 영역으로 되돌립니다. 적을 파괴했다면 대신 카드 1장을 뽑습니다.' },
+      { name: '환영 갈채', description: '이 캐릭터의 공격이 정상 처리되면 보호막 1을 얻습니다.' },
     ],
   },
   v26_astral_armada_unit_21: {
@@ -7114,6 +6970,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '기함이 움직이는 순간 다른 함선이 동시에 방진을 전개하는 아스트랄 아르마다 전용 규칙.',
     highlights: [
       { name: 'FORMATION LINK', description: '턴당 1회 공격 선언 시 다른 아군 전원 보호막 +1. 다른 아군이 2체 이상이면 그 공격 피해도 +2.' },
+      { name: '오리온 지원사격', description: '이 캐릭터의 공격이 정상 처리되고 다른 아군이 2체 이상이면 내 ENERGY를 1 회복합니다.' },
     ],
   },
 
@@ -7230,6 +7087,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '아군의 첫 전투 사망을 진짜로 되돌리는 여명의 지배자 전용 프리미엄 전투 규칙.',
     highlights: [
       { name: 'DAWN REBIRTH', description: '턴당 1회, 다른 아군 캐릭터 1체가 전투로 파괴될 때 그 파괴를 막고 체력 1 + 보호막 2 상태로 남깁니다.' },
+      { name: '새벽 찬가', description: '내 턴 시작마다 다른 아군 캐릭터 전원은 체력 1을 회복하고 보호막 1을 얻습니다.' },
     ],
   },
   v41_premium_zenith_king: {
@@ -7237,7 +7095,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     name: '왕의 추가명령',
     description: '자신의 공격이 끝난 직후 다른 아군에게 두 번째 전투 명령을 내리는 정점의 왕 전용 규칙.',
     highlights: [
-      { name: 'ROYAL EXTRA ORDER', description: '턴당 1회 이 캐릭터가 공격을 끝내면, 공격력이 가장 높은 다른 아군 1체를 다시 공격 가능 상태로 만들고 ATK +1.' },
+      { name: '정점 압도', description: '이 캐릭터가 필드에서 가장 높은 ATK를 가지고 공격하면 이번 공격 피해 +2, 공격 전에 보호막 2를 얻습니다.' },
+      { name: 'ROYAL EXTRA ORDER', description: '턴당 1회, 이 캐릭터가 공격을 끝내고 살아남으면 가장 강한 다른 아군 1체를 다시 공격 가능 상태로 만들고 ATK +1.' },
     ],
   },
   v44_premium_twilight_knight: {
@@ -7245,7 +7104,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     name: '박명의 양면자세',
     description: '코어 상황에 따라 공격·방어·수급 자세가 즉시 바뀌는 황혼의 기사 전용 규칙.',
     highlights: [
-      { name: 'TWILIGHT STANCE', description: '공격 선언 시 내 코어가 더 낮으면 그 공격 피해 +3, 더 높으면 보호막 3, 같으면 카드 1장을 뽑습니다.' },
+      { name: '박명의 양면자세', description: '턴당 1회 공격 선언 시 코어 상황에 따라 효과가 달라집니다. 열세면 공격 피해 +3, 우세면 보호막 +3, 동률이면 카드 1장 드로우.' },
+      { name: '박명의 심판', description: '이 캐릭터가 공격한 적이 살아남으면 다음 자기 턴까지 공격할 수 없고, 파괴되면 카드 1장을 뽑습니다.' },
     ],
   },
   v41_premium_eclipse_conductor: {
@@ -7253,7 +7113,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     name: '무음박자',
     description: '첫 교전의 반격 리듬을 삭제하고 살아남은 상대까지 다음 턴 묶어 두는 개기일식의 조율자 전용 규칙.',
     highlights: [
-      { name: 'SILENT BEAT', description: '턴당 1회 적 캐릭터 공격 시 그 적은 반격하지 못합니다. 전투 후 살아남으면 다음 자신의 턴까지 공격 불가.' },
+      { name: 'SILENT BEAT', description: '턴당 1회 적 캐릭터를 공격할 때 그 전투의 반격 피해를 0으로 만듭니다.' },
+      { name: '무언 종결', description: 'SILENT BEAT가 적용된 적이 파괴되면 그 카드를 묘지에서 소멸시키고 카드 1장을 뽑습니다. 살아남으면 다음 자기 턴까지 공격할 수 없습니다.' },
     ],
   },
   v60_premium_time_devourer: {
@@ -7261,8 +7122,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     name: '시간대 포식순환',
     description: '공격할 때마다 지금 시간을 실제로 먹어 다음 시간대로 넘기며 계속 성장하는 시간 탐식자 전용 규칙.',
     highlights: [
-      { name: 'DEVOUR THE HOUR', description: '공격이 정상 처리될 때마다 ECLIPSE CYCLE을 앞으로 1단계 이동하고 이 캐릭터가 영구 +1/+1.' },
-      { name: '한 바퀴 포식', description: '개기일식에서 여명으로 넘어가 한 순환을 끝내면 추가로 내 코어 3 회복.' },
+      { name: 'DEVOUR THE HOUR', description: '이 캐릭터의 공격이 정상 처리될 때마다 시간을 다음 시간대로 1단계 밀고 자신은 영구 +1/+1. 개기일식에서 여명으로 넘어가면 코어 3 추가 회복.' },
+      { name: '시각 착취', description: '공격 선언 시 상대 ENERGY 1을 흡수하고 자신은 보호막 1을 얻습니다.' },
     ],
   },
 };

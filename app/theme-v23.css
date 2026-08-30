@@ -3820,16 +3820,21 @@
 .v23-client .v65-custom-combat-traits p {
   grid-template-columns:112px minmax(0,1fr)!important;
   padding:9px 10px!important;
+  border-radius:10px!important;
+  background:rgba(9,18,34,.5)!important;
 }
 .v23-client .v65-custom-combat-traits p b {
-  color:#c8f1ff!important;
-  font-size:10px!important;
+  color:#f3fbff!important;
+  font-size:10.5px!important;
+  font-weight:800!important;
   line-height:1.45!important;
 }
 .v23-client .v65-custom-combat-traits p span {
-  color:#aebfcb!important;
-  font-size:10px!important;
-  line-height:1.55!important;
+  color:#ecf5ff!important;
+  font-size:11px!important;
+  font-weight:600!important;
+  line-height:1.62!important;
+  opacity:1!important;
 }
 .v23-client .v62-unique-trait-panel {
   border:1px solid rgba(159,206,255,.14)!important;
