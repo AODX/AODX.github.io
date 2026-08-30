@@ -4013,16 +4013,16 @@ function applyPremiumTimeSignature(
     const actorPrivate = privateStates[actorId];
     drawCards(state, actorPrivate, actorId, 2);
     applyEffect(state, privateStates, actorId, { kind: 'increase_energy_max', amount: 1 }, undefined, card);
-    applyEffect(state, privateStates, actorId, { kind: 'heal_core', amount: 3 }, undefined, card);
-    appendLog(state, '「여명의 지배자」가 새벽의 보너스를 열어 카드 2장, ENERGY 최대치 +1, 코어 3 회복을 제공합니다.', 'special');
+    applyEffect(state, privateStates, actorId, { kind: 'heal_core', amount: 4 }, undefined, card);
+    appendLog(state, '「여명의 지배자」가 새벽의 보너스를 열어 카드 2장, ENERGY 최대치 +1, 코어 4 회복을 제공합니다.', 'special');
     return;
   }
 
   if (card.id === 'v41_premium_zenith_king' && typeof zone === 'number' && state.boards[actorId].units[zone]) {
     applyEffect(state, privateStates, actorId, { kind: 'phase_lock', turns: 2 }, undefined, card);
-    applyEffect(state, privateStates, actorId, { kind: 'mass_buff', attack: 3, health: 3 }, undefined, card);
+    applyEffect(state, privateStates, actorId, { kind: 'mass_buff', attack: 2, health: 3 }, undefined, card);
     applyEffect(state, privateStates, actorId, { kind: 'mass_shield', amount: 4 }, undefined, card);
-    appendLog(state, '「정점의 왕」이 절정 군림 효과로 2턴 시간 고정과 아군 전체 +3/+3, 보호막 4를 부여했습니다.', 'special');
+    appendLog(state, '「정점의 왕」이 절정 군림 효과로 2턴 시간 고정과 아군 전체 +2/+3, 보호막 4를 부여했습니다.', 'special');
     return;
   }
 
@@ -4046,12 +4046,10 @@ function applyPremiumTimeSignature(
     applyEffect(state, privateStates, actorId, { kind: 'phase_lock', turns: 2 }, undefined, card);
     freezeAllEnemyUnits(state, actorId, 1, card);
     discardHighestCostCardsFromOpponent(state, privateStates, actorId, 2, card);
-    if (currentEclipsePhase(state) === 'midnight') {
-      applyEffect(state, privateStates, actorId, { kind: 'damage_core', amount: 6 }, undefined, card);
-      drawCards(state, actorPrivate, actorId, 2);
-      applyEffect(state, privateStates, actorId, { kind: 'gain_energy', amount: 2 }, undefined, card);
-      appendLog(state, '심야 추가 효과 발동 — 상대 코어 6 피해, 카드 2장 드로우, 이번 턴 ENERGY 2 회복.', 'special');
-    }
+    applyEffect(state, privateStates, actorId, { kind: 'damage_core', amount: 5 }, undefined, card);
+    drawCards(state, actorPrivate, actorId, 2);
+    applyEffect(state, privateStates, actorId, { kind: 'gain_energy', amount: 2 }, undefined, card);
+    appendLog(state, '심야 후속 효과 발동 — 상대 코어 5 피해, 카드 2장 드로우, 이번 턴 ENERGY 2 회복.', 'special');
   }
 }
 

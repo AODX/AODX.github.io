@@ -1195,32 +1195,32 @@ function premiumTimeHighlights(card: CardDefinition): CardHighlight[] {
   switch (card.id) {
     case 'v41_premium_dawn_lord':
       return [
-        { label: '등장 보상', detail: '여명 설정 · 카드 2장 드로우 · ENERGY 최대치 +1 · 코어 3 회복', tone: 'feature' },
-        { label: '여명 폭발', detail: '여명 진입 시 아군 전체 +3/+3', tone: 'power' },
-        { label: '전장 제어', detail: '코어 5 회복 + 가장 강한 적 1체 1턴 동결', tone: 'control' },
+        { label: '등장 보상', detail: '여명 설정 · 카드 2장 드로우 · ENERGY 최대치 +1 · 코어 4 회복', tone: 'feature' },
+        { label: '여명 폭발', detail: '여명 진입 시 아군 전체 +2/+2 · 아군 전체 체력 2 회복', tone: 'power' },
+        { label: '전장 제어', detail: '가장 강한 적 1체 1턴 동결', tone: 'control' },
       ];
     case 'v41_premium_zenith_king':
       return [
-        { label: '등장 보상', detail: '정점 설정 · 2턴 고정 · 아군 전체 +3/+3 · 보호막 4', tone: 'feature' },
+        { label: '등장 보상', detail: '정점 설정 · 2턴 고정 · 아군 전체 +2/+3 · 보호막 4', tone: 'feature' },
         { label: '정점 폭발', detail: '정점 진입 시 아군 전체 준비 완료', tone: 'phase' },
-        { label: '마무리 압박', detail: '정점 진입 시 상대 코어 5 피해', tone: 'power' },
+        { label: '마무리 압박', detail: '정점 진입 시 상대 코어 4 피해 · 상대 ENERGY 1 흡수', tone: 'power' },
       ];
     case 'v44_premium_twilight_knight':
       return [
         { label: '등장 보상', detail: '황혼 설정 · 카드 1장 드로우', tone: 'feature' },
-        { label: '황혼 폭발', detail: '황혼 진입 시 아군 전체 보호막 3 + 상대 코어 5 피해', tone: 'phase' },
+        { label: '황혼 폭발', detail: '황혼 진입 시 아군 전체 보호막 3 · 코어 격차 최대 4 보정', tone: 'phase' },
         { label: '정리 능력', detail: '가장 약한 적 1체 붕괴 · 황혼 중 자신 +4/+4', tone: 'control' },
       ];
     case 'v41_premium_midnight_silence':
       return [
         { label: '주문 핵심', detail: '심야 설정 · 2턴 고정 · 적 전체 1턴 동결', tone: 'feature' },
         { label: '손패 압박', detail: '상대 손패의 최고 비용 카드 2장 강제 버림', tone: 'control' },
-        { label: '추가 보상', detail: '심야 상태라면 상대 코어 6 피해 · 카드 2장 드로우 · ENERGY 2 획득', tone: 'power' },
+        { label: '후속 보상', detail: '상대 코어 5 피해 · 카드 2장 드로우 · ENERGY 2 획득', tone: 'power' },
       ];
     case 'v41_premium_eclipse_conductor':
       return [
         { label: '등장 보상', detail: '개기일식 설정 · 2턴 고정 · 가장 강한 적 리콜 · 상대 묘지 2장 제외', tone: 'feature' },
-        { label: '식광 폭발', detail: '개기일식 진입 시 상대 코어 5 피해', tone: 'power' },
+        { label: '식광 폭발', detail: '개기일식 진입 시 상대 코어 4 피해 · 가장 강한 적 강화 해제', tone: 'power' },
         { label: '재전개', detail: '묘지의 최고 비용 유닛 1체를 체력 80%로 부활', tone: 'phase' },
       ];
     case 'v60_premium_time_devourer':
