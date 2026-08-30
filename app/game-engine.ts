@@ -4014,7 +4014,8 @@ function applyPremiumTimeSignature(
     drawCards(state, actorPrivate, actorId, 2);
     applyEffect(state, privateStates, actorId, { kind: 'increase_energy_max', amount: 1 }, undefined, card);
     applyEffect(state, privateStates, actorId, { kind: 'heal_core', amount: 4 }, undefined, card);
-    appendLog(state, '「여명의 지배자」가 새벽의 보너스를 열어 카드 2장, ENERGY 최대치 +1, 코어 4 회복을 제공합니다.', 'special');
+    applyEffect(state, privateStates, actorId, { kind: 'recover_grave_unit', amount: 1 }, undefined, card);
+    appendLog(state, '「여명의 지배자」가 새벽의 보너스를 열어 카드 2장, ENERGY 최대치 +1, 코어 4 회복, 묘지 유닛 1장 회수를 제공합니다.', 'special');
     return;
   }
 
@@ -4022,7 +4023,8 @@ function applyPremiumTimeSignature(
     applyEffect(state, privateStates, actorId, { kind: 'phase_lock', turns: 2 }, undefined, card);
     applyEffect(state, privateStates, actorId, { kind: 'mass_buff', attack: 2, health: 3 }, undefined, card);
     applyEffect(state, privateStates, actorId, { kind: 'mass_shield', amount: 4 }, undefined, card);
-    appendLog(state, '「정점의 왕」이 절정 군림 효과로 2턴 시간 고정과 아군 전체 +2/+3, 보호막 4를 부여했습니다.', 'special');
+    for (const unit of state.boards[actorId].units) if (unit) unit.canAttack = true;
+    appendLog(state, '「정점의 왕」이 절정 군림 효과로 2턴 시간 고정과 아군 전체 +2/+3, 보호막 4, 전열 준비 완료를 부여했습니다.', 'special');
     return;
   }
 
@@ -4030,14 +4032,17 @@ function applyPremiumTimeSignature(
     applyEffect(state, privateStates, actorId, { kind: 'phase_lock', turns: 2 }, undefined, card);
     recallStrongestEnemyUnit(state, privateStates, actorId, card);
     applyEffect(state, privateStates, actorId, { kind: 'banish_enemy_grave', amount: 2 }, undefined, card);
-    appendLog(state, '「개기일식의 조율자」가 가장 강한 적을 되돌리고 상대 묘지 2장을 소멸시켰습니다.', 'special');
+    applyEffect(state, privateStates, actorId, { kind: 'steal_energy', amount: 1 }, undefined, card);
+    appendLog(state, '「개기일식의 조율자」가 가장 강한 적을 되돌리고 상대 묘지 2장을 소멸시키며 ENERGY 1을 흡수했습니다.', 'special');
     return;
   }
 
   if (card.id === 'v44_premium_twilight_knight' && typeof zone === 'number' && state.boards[actorId].units[zone]) {
     const actorPrivate = privateStates[actorId];
     drawCards(state, actorPrivate, actorId, 1);
-    appendLog(state, '「황혼의 기사」가 황혼의 서막으로 카드 1장을 추가로 준비했습니다.', 'special');
+    const knight = state.boards[actorId].units[zone];
+    if (knight) knight.shield = Math.min(MAX_UNIT_SHIELD, (knight.shield ?? 0) + 2);
+    appendLog(state, '「황혼의 기사」가 황혼의 서막으로 카드 1장을 준비하고 자신에게 보호막 2를 둘렀습니다.', 'special');
     return;
   }
 
@@ -4046,10 +4051,11 @@ function applyPremiumTimeSignature(
     applyEffect(state, privateStates, actorId, { kind: 'phase_lock', turns: 2 }, undefined, card);
     freezeAllEnemyUnits(state, actorId, 1, card);
     discardHighestCostCardsFromOpponent(state, privateStates, actorId, 2, card);
+    applyEffect(state, privateStates, actorId, { kind: 'banish_enemy_grave', amount: 2 }, undefined, card);
     applyEffect(state, privateStates, actorId, { kind: 'damage_core', amount: 5 }, undefined, card);
     drawCards(state, actorPrivate, actorId, 2);
     applyEffect(state, privateStates, actorId, { kind: 'gain_energy', amount: 2 }, undefined, card);
-    appendLog(state, '심야 후속 효과 발동 — 상대 코어 5 피해, 카드 2장 드로우, 이번 턴 ENERGY 2 회복.', 'special');
+    appendLog(state, '심야 후속 효과 발동 — 상대 묘지 2장 제외, 코어 5 피해, 카드 2장 드로우, 이번 턴 ENERGY 2 회복.', 'special');
   }
 }
 
