@@ -3732,14 +3732,14 @@ function buffUnitPermanent(unit: UnitState, attack: number, health: number): voi
 function weakestOtherAlly(state: MatchState, playerId: string, sourceIndex: number): { unit: UnitState; index: number } | undefined {
   return state.boards[playerId].units
     .map((unit, index) => ({ unit, index }))
-    .filter((entry): entry is { unit: UnitState; index: number } => Boolean(entry.unit) && entry.index !== sourceIndex && entry.unit.health > 0)
+    .filter((entry): entry is { unit: UnitState; index: number } => entry.unit !== null && entry.index !== sourceIndex && entry.unit.health > 0)
     .sort((a, b) => a.unit.attack - b.unit.attack || a.unit.health - b.unit.health || a.index - b.index)[0];
 }
 
 function strongestOtherAlly(state: MatchState, playerId: string, sourceIndex: number): { unit: UnitState; index: number } | undefined {
   return state.boards[playerId].units
     .map((unit, index) => ({ unit, index }))
-    .filter((entry): entry is { unit: UnitState; index: number } => Boolean(entry.unit) && entry.index !== sourceIndex && entry.unit.health > 0)
+    .filter((entry): entry is { unit: UnitState; index: number } => entry.unit !== null && entry.index !== sourceIndex && entry.unit.health > 0)
     .sort((a, b) => b.unit.attack - a.unit.attack || b.unit.health - a.unit.health || a.index - b.index)[0];
 }
 
@@ -3962,7 +3962,7 @@ function adjustUniqueCombatDamage(
   if (attackerCombat === 'extra_tempest_chain_lightning' && uniqueCombatReady(attacker, state)) {
     const candidate = state.boards[opponentId].units
       .map((unit, index) => ({ unit, index }))
-      .filter((entry): entry is { unit: UnitState; index: number } => Boolean(entry.unit) && entry.index !== targetIndex && entry.unit.health > 0)
+      .filter((entry): entry is { unit: UnitState; index: number } => entry.unit !== null && entry.index !== targetIndex && entry.unit.health > 0)
       .sort((a, b) => a.unit.health - b.unit.health || a.unit.attack - b.unit.attack || a.index - b.index)[0];
     if (candidate) {
       markUniqueCombatUsed(attacker, state);
