@@ -4102,7 +4102,7 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
     const now = Date.now();
     const cutoffMs = now - 30 * 60 * 1000;
     const safe = loaded
-      .filter((message) => scope === 'room' || new Date(message.created_at).getTime() >= cutoffMs)
+      .filter((message) => new Date(message.created_at).getTime() >= cutoffMs)
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
       .slice(-CHAT_RENDER_LIMIT);
 
@@ -4139,7 +4139,7 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
   }
 
   function mergeScopeMessage(scope: ChatScope, next: ChatMessage) {
-    if (scope === 'global' && new Date(next.created_at).getTime() < Date.now() - 30 * 60 * 1000) return;
+    if (new Date(next.created_at).getTime() < Date.now() - 30 * 60 * 1000) return;
     setMessagesByScope((current) => {
       const currentScope = current[scope];
       const nextTime = new Date(next.created_at).getTime();
@@ -4174,7 +4174,7 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
   }
 
   function receiveRealtime(scope: ChatScope, next: ChatMessage) {
-    if (scope === 'global' && new Date(next.created_at).getTime() < Date.now() - 30 * 60 * 1000) return;
+    if (new Date(next.created_at).getTime() < Date.now() - 30 * 60 * 1000) return;
     const messageKey = next.id >= 0 ? String(next.id) : '';
     const alreadyKnown = Boolean(messageKey && seenServerMessageIdsRef.current[scope].has(messageKey));
     if (messageKey) seenServerMessageIdsRef.current[scope].add(messageKey);
@@ -4200,10 +4200,6 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
         if (!alive || !payload?.payload) return;
         receiveRealtime('global', payload.payload as ChatMessage);
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'eclipse_global_messages' }, (payload: any) => {
-        if (!alive) return;
-        receiveRealtime('global', payload.new as ChatMessage);
-      })
       .subscribe((status) => {
         if (!alive) return;
         if (status === 'SUBSCRIBED') void loadScope('global').catch(() => undefined);
@@ -4216,8 +4212,8 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
       const cutoffMs = Date.now() - 30 * 60 * 1000;
       setMessagesByScope((current) => {
         const next = {
-          ...current,
           global: current.global.filter((message) => new Date(message.created_at).getTime() >= cutoffMs),
+          room: current.room.filter((message) => new Date(message.created_at).getTime() >= cutoffMs),
         };
         messagesByScopeRef.current = next;
         return next;
@@ -4243,10 +4239,6 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
         if (!alive || !payload?.payload) return;
         receiveRealtime('room', payload.payload as ChatMessage);
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'eclipse_room_messages', filter: `room_id=eq.${roomId}` }, (payload: any) => {
-        if (!alive) return;
-        receiveRealtime('room', payload.new as ChatMessage);
-      })
       .subscribe((status) => {
         if (!alive) return;
         if (status === 'SUBSCRIBED') void loadScope('room').catch(() => undefined);
@@ -4271,13 +4263,15 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
       try {
         await syncChatScopes(notify);
       } catch {
-        // Realtime can still carry messages; the next heartbeat retries quietly.
+        // Realtime is the primary path. A later fallback/focus refresh retries quietly.
       } finally {
         syncing = false;
       }
     };
+    // One initial reconciliation catches messages written just before subscription.
     void refresh(false);
-    const timer = window.setInterval(() => { void refresh(true); }, roomId ? 3500 : 5000);
+    // Avoid constant DB traffic while Realtime is healthy. This is only a slow safety net.
+    const timer = window.setInterval(() => { void refresh(true); }, 20_000);
     const wake = () => { if (document.visibilityState === 'visible') void refresh(true); };
     window.addEventListener('focus', wake);
     document.addEventListener('visibilitychange', wake);
@@ -4363,7 +4357,7 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
         <div>
           <span>{activeScope === 'room' ? 'ROOM CHAT' : 'GLOBAL CHAT'}</span>
           <h3>{activeScope === 'room' ? '결투방 채팅' : '전체 채팅'}</h3>
-          <small>{activeScope === 'global' ? '전체 채팅은 최근 30분 메시지만 표시되며 30분이 지나면 자동으로 사라집니다.' : '이 방에 참가한 플레이어/관전자만 보는 별도 채팅입니다.'}</small>
+          <small>{activeScope === 'global' ? '전체 채팅은 최근 30분 메시지만 표시되며 30분이 지나면 자동으로 사라집니다.' : '이 방에 참가한 플레이어/관전자만 보는 별도 채팅이며 최근 30분 메시지만 표시됩니다.'}</small>
           {roomId && <div className="chat-channel-tabs" role="tablist" aria-label="채팅 채널 선택">
             <button type="button" role="tab" aria-selected={activeScope === 'global'} className={activeScope === 'global' ? 'active' : ''} onClick={() => selectScope('global')}>전체 채팅{tabUnread.global > 0 && <i>{tabUnread.global > 99 ? '99+' : tabUnread.global}</i>}</button>
             <button type="button" role="tab" aria-selected={activeScope === 'room'} className={activeScope === 'room' ? 'active' : ''} onClick={() => selectScope('room')}>방 채팅{tabUnread.room > 0 && <i>{tabUnread.room > 99 ? '99+' : tabUnread.room}</i>}</button>
@@ -9308,7 +9302,7 @@ export default function Page() {
     }
   })();
 
-  const roomChat = roomPayload && roomPayload.room.status !== 'cancelled' ? roomPayload.room.id : undefined;
+  const roomChat = view === 'duel' && roomPayload && roomPayload.room.status !== 'cancelled' ? roomPayload.room.id : undefined;
 
   return (
     <main className={`game-app v19-client v23-client view-${view} ${roomPayload?.room.status === 'active' || roomPayload?.room.status === 'finished' ? 'in-duel' : ''}`} data-ui-build="v32-retail">
