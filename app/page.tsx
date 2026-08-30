@@ -190,6 +190,11 @@ type ApiResult = {
   spectatorSecrets?: Record<string, PrivateState['secrets']>;
   opponentHandReveal?: { mode: 'view' | 'discard'; targetId: string; hand: PrivateState['hand'] };
   onlineUsers?: OnlineUserProfile[];
+  /** Chat read/send responses used by the global/room chat sync. */
+  messages?: ChatMessage[];
+  message?: ChatMessage;
+  scope?: 'global' | 'room';
+  cutoff?: string;
   economy?: EconomyCenterData;
   battleEmotes?: string[];
   joinedAsSpectator?: boolean;
