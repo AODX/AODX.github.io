@@ -6862,7 +6862,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     name: '영웅계승 릴레이',
     description: '적을 쓰러뜨린 순간 승리의 흐름을 다음 기사에게 넘기는 루미나이츠 전용 전투 규칙.',
     highlights: [
-      { name: '영웅계승', description: '이 캐릭터가 전투로 적을 파괴하면 턴당 1회, 공격력이 가장 낮은 다른 아군 1체를 다시 공격 가능 상태로 만들고 ATK +1.' },
+      { name: '영웅계승', description: '이 캐릭터가 전투로 적을 파괴하면 턴당 1회, 공격력이 가장 낮은 다른 아군 1체를 다시 공격 가능 상태로 만들고 ATK +1 / 보호막 +1.' },
+      { name: '성광 수복', description: '이 캐릭터가 전투로 적을 파괴하면 내 코어를 1 회복합니다.' },
     ],
   },
   unit_v8_solar_14: {
@@ -6890,6 +6891,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     highlights: [
       { name: '잔상 바꿔치기', description: '턴당 1회, 이 캐릭터가 공격 대상이 되면 그 전투에서 받는 공격 피해 -3, 이 캐릭터의 반격 피해 +2.' },
       { name: '월하 추적', description: '이 캐릭터가 자신의 현재 체력 이하인 적 캐릭터를 공격할 때 그 공격 피해 +2.' },
+      { name: '그림자 역보상', description: '잔상 바꿔치기가 발동하면 카드 1장을 뽑습니다.' },
     ],
   },
   unit_v8_lunar_06: {
@@ -6899,6 +6901,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     highlights: [
       { name: '상처의 씨앗', description: '턴당 1회, 이 캐릭터가 전투 피해를 받고 살아남으면 빈 칸에 1/2 「세계근 새싹」 1체를 소환.' },
       { name: '발아 수호', description: '상처의 씨앗이 발동한 전투에서 이 캐릭터는 보호막 2를 얻고 체력 1을 회복합니다.' },
+      { name: '숲의 천개', description: '내 턴 시작 시 다른 아군이 2체 이상이면 아군 캐릭터 전원에게 보호막 1을 부여합니다.' },
     ],
   },
   unit_v8_neutral_02: {
@@ -6934,7 +6937,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '공격 선언 자체를 과거의 한 장면으로 되감아 유리한 시점을 다시 만드는 크로노리움 전용 규칙.',
     highlights: [
       { name: 'BATTLE RETAKE', description: '턴당 1회 공격 선언 시 ECLIPSE CYCLE을 실제 이전 시간대로 1단계 되감고, 그 공격 피해 +2.' },
-      { name: '시간 수거', description: '이 캐릭터의 공격이 정상 처리되면 카드 1장을 뽑습니다.' },
+      { name: '시간 수거', description: 'BATTLE RETAKE가 발동한 공격을 정상적으로 끝내면 카드 1장을 뽑습니다.' },
+      { name: '시공 앵커', description: '내 턴 시작 시 보호막 2를 얻습니다. 현재 시간이 개기일식이면 대신 보호막 3을 얻습니다.' },
     ],
   },
   v26_arcana_protocol_unit_21: {
@@ -6944,6 +6948,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     highlights: [
       { name: '계약 장막', description: '공격 선언 시 보호막 1을 얻습니다.' },
       { name: '판결 조항', description: '턴당 1회, 이 캐릭터의 공격으로 적이 살아남으면 상대 최고 비용 손패 1장을 버리게 하고, 적을 파괴했다면 대신 카드 1장을 뽑습니다.' },
+      { name: '집행 수수료', description: '판결 조항이 발동하면 내 ENERGY를 1 회복합니다.' },
     ],
   },
   v26_beastforge_unit_21: {
@@ -6953,6 +6958,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     highlights: [
       { name: '생체금속 학습', description: '턴당 1회, 반격 피해를 받고 살아남으면 ATK +1, 실제 체력 피해만큼 보호막 획득(최대 3).' },
       { name: '재생 도금', description: '내 턴 시작마다 이 캐릭터의 보호막이 1 이상이면 체력 1 회복, 보호막 +1.' },
+      { name: '포식 도금', description: '공격 선언 시 이 캐릭터의 보호막이 3 이상이면 이번 공격 피해 +2.' },
     ],
   },
   v26_phantom_carnival_unit_21: {
@@ -6962,6 +6968,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     highlights: [
       { name: '강제 커튼콜', description: '턴당 1회, 이 캐릭터가 공격한 적이 살아남으면 그 적을 손패/원래 영역으로 되돌립니다. 적을 파괴했다면 대신 카드 1장을 뽑습니다.' },
       { name: '환영 갈채', description: '이 캐릭터의 공격이 정상 처리되면 보호막 1을 얻습니다.' },
+      { name: '관객 청구', description: '강제 커튼콜로 적을 퇴장시키면 상대 코어에 2 피해를 줍니다.' },
     ],
   },
   v26_astral_armada_unit_21: {
@@ -6971,6 +6978,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     highlights: [
       { name: 'FORMATION LINK', description: '턴당 1회 공격 선언 시 다른 아군 전원 보호막 +1. 다른 아군이 2체 이상이면 그 공격 피해도 +2.' },
       { name: '오리온 지원사격', description: '이 캐릭터의 공격이 정상 처리되고 다른 아군이 2체 이상이면 내 ENERGY를 1 회복합니다.' },
+      { name: '기함 포화', description: '다른 아군이 2체 이상인 상태에서 이 캐릭터의 공격이 정상 처리되면 상대 코어에 1 피해를 줍니다.' },
     ],
   },
 
@@ -6981,6 +6989,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '코어를 친 순간 다음 영웅에게 빛을 넘기는 하이퍼 노바 전용 규칙.',
     highlights: [
       { name: 'SUCCESSOR LIGHT', description: '턴당 1회 코어 직접 공격이 적중하면 카드 1장을 뽑고, 공격력이 가장 낮은 다른 아군 1체에게 영구 +1/+1.' },
+      { name: 'NOVA BREAK', description: '이 캐릭터가 전투로 적을 파괴하면 상대 코어에 2 피해를 줍니다.' },
+      { name: 'SOLAR OVERDRIVE', description: '내 턴 시작 시 이 캐릭터가 보호막 2를 얻습니다.' },
     ],
   },
   evolution_v8_18: {
@@ -6989,6 +6999,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '파괴 직전 장갑 구획을 강제로 폐쇄해 본체를 남기는 그랜드 포트리스 전용 규칙.',
     highlights: [
       { name: 'EMERGENCY BULKHEAD', description: '턴당 1회 전투로 파괴될 때 파괴되지 않고 체력 1로 남으며 보호막 3 획득.' },
+      { name: 'FORTRESS MAINTENANCE', description: '내 턴 시작마다 이 캐릭터가 보호막 3을 얻습니다.' },
+      { name: 'COUNTER BATTERY', description: '턴당 1회 공격 대상이 되면 그 전투에서 받는 공격 피해 -2.' },
     ],
   },
   fusion_eclipse_chimera: {
@@ -6997,6 +7009,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '공격 직전에 상대의 보호막을 뜯어 자기 외피로 바꾸는 네메시스 키메라 전용 규칙.',
     highlights: [
       { name: 'SHELL DEVOUR', description: '턴당 1회 적 캐릭터를 공격할 때 대상 보호막을 최대 4 제거하고, 제거한 만큼 자신이 보호막을 얻습니다.' },
+      { name: 'MUTATION FEAST', description: '이 캐릭터가 전투로 적을 파괴하면 영구 +1/+1 및 ENERGY 1 회복.' },
+      { name: 'REGENERATIVE CARAPACE', description: '내 턴 시작 시 보호막이 1 이상이면 체력 1 회복, 보호막 +1.' },
     ],
   },
   fusion_v8_20: {
@@ -7005,6 +7019,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '상대가 휘두를 반격을 거울 속으로 빼앗아 코어로 되돌리는 녹턴 마제스티 전용 규칙.',
     highlights: [
       { name: 'COUNTER MIRROR', description: '턴당 1회 적 캐릭터를 공격할 때 그 적의 반격 피해를 0으로 만들고, 원래 반격 ATK의 절반(올림)을 상대 코어에 피해로 되돌립니다.' },
+      { name: 'MOON LOCK', description: 'COUNTER MIRROR가 적용된 적이 살아남으면 다음 자기 턴까지 공격할 수 없습니다.' },
+      { name: 'VELVET AFTERIMAGE', description: '이 캐릭터의 공격이 정상 처리되면 보호막 2를 얻습니다.' },
     ],
   },
   fusion_v8_05: {
@@ -7013,6 +7029,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '내 턴이 돌아올 때마다 전장 전체에 생명력을 다시 순환시키는 월드루트 킹 전용 규칙.',
     highlights: [
       { name: 'WORLDROOT PULSE', description: '내 턴 시작마다 아군 캐릭터 전원 체력 1 회복. 이 캐릭터는 추가로 최대 체력 +1 및 체력 +1.' },
+      { name: 'SEED KINGDOM', description: '턴당 1회 이 캐릭터가 전투 피해를 받고 살아남으면 2/2 「세계근 묘목」 1체를 소환.' },
+      { name: 'ROOT BASTION', description: '내 턴 시작 시 다른 아군이 2체 이상이면 아군 캐릭터 전원 보호막 +1.' },
     ],
   },
   evolution_v8_06: {
@@ -7021,6 +7039,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '첫 타격의 전류가 다른 적에게 자동으로 점프하는 제타 오버드라이브 전용 규칙.',
     highlights: [
       { name: 'CHAIN AFTERBURN', description: '턴당 1회 적 캐릭터 공격 시, 지정 대상 외 가장 체력이 낮은 적 1체에게 추가 2 피해.' },
+      { name: 'SECOND VOLTAGE', description: '턴당 1회, 이 캐릭터가 공격을 끝내고 살아남으면 즉시 다시 공격할 수 있습니다.' },
+      { name: 'STATIC FUEL', description: '이 캐릭터의 공격이 정상 처리되면 ENERGY 1 회복.' },
     ],
   },
   fusion_v8_17: {
@@ -7029,6 +7049,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '전투로 생긴 죽음을 전부 몸집으로 바꾸는 보이드 리바이어던 전용 규칙.',
     highlights: [
       { name: 'DEEP GROWTH', description: '이 캐릭터의 공격으로 적이 파괴될 때마다 영구 +1/+1, 내 코어 2 회복.' },
+      { name: 'FUNERAL CURRENT', description: '이미 피해를 입은 적을 공격할 때 이번 공격 피해 +2.' },
+      { name: 'ABYSS MAW', description: '이 캐릭터가 전투로 파괴한 적 카드는 상대 묘지에서 소멸됩니다.' },
     ],
   },
   fusion_v8_08: {
@@ -7037,6 +7059,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '왕이 사냥을 시작하면 무리가 자동으로 따라붙는 프라이멀 킹 전용 규칙.',
     highlights: [
       { name: 'ROYAL PACK', description: '턴당 1회 공격 선언 시 빈 칸에 2/2 「왕수의 새끼」 1체를 소환.' },
+      { name: 'ALPHA ROAR', description: 'ROYAL PACK으로 토큰을 소환하면 이 캐릭터가 영구 +1/+1.' },
+      { name: 'HUNT FEAST', description: '이 캐릭터가 전투로 적을 파괴하면 내 코어를 2 회복합니다.' },
     ],
   },
   v26_chronorium_evolution_02: {
@@ -7045,6 +7069,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '공격이 끝난 뒤 그 장면을 과거로 남기고 한 단계 되돌아오는 크로노스 오메가 전용 규칙.',
     highlights: [
       { name: 'AFTERIMAGE REWIND', description: '턴당 1회 공격 종료 후 ECLIPSE CYCLE을 실제 이전 시간대로 1단계 되감고 카드 1장을 뽑습니다.' },
+      { name: 'CHRONO GUARD', description: '공격 선언 시 보호막 2를 얻습니다.' },
+      { name: 'PARADOX ECHO', description: 'AFTERIMAGE REWIND가 발동하면 ENERGY 1을 회복합니다.' },
     ],
   },
   v26_arcana_protocol_evolution_02: {
@@ -7053,6 +7079,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '공격 행동 자체를 계약 위반 판정으로 삼아 상대 패를 압수하는 프로토콜 인피니티 전용 규칙.',
     highlights: [
       { name: 'FORBIDDEN CONFISCATION', description: '턴당 1회 공격이 정상 처리되면 상대 손패에서 비용이 가장 높은 카드 1장을 자동으로 묘지로 보냅니다.' },
+      { name: 'AUDIT SHIELD', description: '공격 선언 시 보호막 2를 얻습니다.' },
+      { name: 'EMPTY CLAUSE', description: 'FORBIDDEN CONFISCATION 후 상대 손패가 0장이 되면 상대 코어에 3 피해를 줍니다.' },
     ],
   },
   v26_beastforge_evolution_02: {
@@ -7061,6 +7089,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '반격을 버텨낼수록 다음 형태로 진화하는 오메가 레비아탄 전용 규칙.',
     highlights: [
       { name: 'EVOLUTION SHELL', description: '턴당 1회 반격을 받고 살아남으면 영구 +1/+2, 보호막 1 획득.' },
+      { name: 'PREDATOR PLATING', description: '공격 선언 시 보호막이 3 이상이면 이번 공격 피해 +2.' },
+      { name: 'MOLTEN RECOVERY', description: '내 턴 시작 시 체력 1 회복 및 보호막 2 획득.' },
     ],
   },
   v26_phantom_carnival_evolution_02: {
@@ -7069,6 +7099,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '쓰러지지 않은 상대의 역할 자체를 뒤집어 버리는 엔드리스 쇼 전용 규칙.',
     highlights: [
       { name: 'STAGE INVERSION', description: '턴당 1회 공격한 적이 살아남으면 그 적의 현재 ATK와 현재 HP를 서로 뒤바꿉니다.' },
+      { name: 'APPLAUSE SHIELD', description: '이 캐릭터의 공격이 정상 처리되면 보호막 2를 얻습니다.' },
+      { name: 'ENCORE TAX', description: 'STAGE INVERSION이 발동하면 상대 코어에 2 피해를 줍니다.' },
     ],
   },
   v26_astral_armada_evolution_02: {
@@ -7077,6 +7109,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     description: '기함이 코어 사거리까지 도달하면 격납고가 자동으로 열리는 성해황제 오리온 전용 규칙.',
     highlights: [
       { name: 'CARRIER LAUNCH', description: '턴당 1회 코어 직접 공격이 적중하면 빈 칸마다 최대 2체까지 1/1 「오리온 함재기」를 소환.' },
+      { name: 'FLEET SCREEN', description: '공격 선언 시 다른 아군 전원 보호막 +1.' },
+      { name: 'WARP SUPPLY', description: '공격을 정상적으로 끝냈을 때 다른 아군이 2체 이상이면 ENERGY 1 회복.' },
     ],
   },
 
@@ -7088,6 +7122,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     highlights: [
       { name: 'DAWN REBIRTH', description: '턴당 1회, 다른 아군 캐릭터 1체가 전투로 파괴될 때 그 파괴를 막고 체력 1 + 보호막 2 상태로 남깁니다.' },
       { name: '새벽 찬가', description: '내 턴 시작마다 다른 아군 캐릭터 전원은 체력 1을 회복하고 보호막 1을 얻습니다.' },
+      { name: '재기의 전령', description: 'DAWN REBIRTH가 발동하면 카드 1장을 뽑고 ENERGY 1을 회복합니다.' },
     ],
   },
   v41_premium_zenith_king: {
@@ -7097,6 +7132,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     highlights: [
       { name: '정점 압도', description: '이 캐릭터가 필드에서 가장 높은 ATK를 가지고 공격하면 이번 공격 피해 +2, 공격 전에 보호막 2를 얻습니다.' },
       { name: 'ROYAL EXTRA ORDER', description: '턴당 1회, 이 캐릭터가 공격을 끝내고 살아남으면 가장 강한 다른 아군 1체를 다시 공격 가능 상태로 만들고 ATK +1.' },
+      { name: '왕권 유지', description: '내 턴 시작 시 다른 아군 중 ATK가 가장 높은 1체에게 ATK +1 / 보호막 +2를 부여합니다.' },
     ],
   },
   v44_premium_twilight_knight: {
@@ -7106,6 +7142,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     highlights: [
       { name: '박명의 양면자세', description: '턴당 1회 공격 선언 시 코어 상황에 따라 효과가 달라집니다. 열세면 공격 피해 +3, 우세면 보호막 +3, 동률이면 카드 1장 드로우.' },
       { name: '박명의 심판', description: '이 캐릭터가 공격한 적이 살아남으면 다음 자기 턴까지 공격할 수 없고, 파괴되면 카드 1장을 뽑습니다.' },
+      { name: '경계 흡수', description: '공격이 정상 처리되면 내 코어가 상대보다 낮을 때 코어 2 회복, 그렇지 않으면 ENERGY 1 회복.' },
     ],
   },
   v41_premium_eclipse_conductor: {
@@ -7115,6 +7152,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     highlights: [
       { name: 'SILENT BEAT', description: '턴당 1회 적 캐릭터를 공격할 때 그 전투의 반격 피해를 0으로 만듭니다.' },
       { name: '무언 종결', description: 'SILENT BEAT가 적용된 적이 파괴되면 그 카드를 묘지에서 소멸시키고 카드 1장을 뽑습니다. 살아남으면 다음 자기 턴까지 공격할 수 없습니다.' },
+      { name: '흑광 지휘', description: 'SILENT BEAT가 발동하면 아군 캐릭터 전원에게 보호막 1을 부여하고 ENERGY 1을 회복합니다.' },
     ],
   },
   v60_premium_time_devourer: {
@@ -7124,6 +7162,8 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
     highlights: [
       { name: 'DEVOUR THE HOUR', description: '이 캐릭터의 공격이 정상 처리될 때마다 시간을 다음 시간대로 1단계 밀고 자신은 영구 +1/+1. 개기일식에서 여명으로 넘어가면 코어 3 추가 회복.' },
       { name: '시각 착취', description: '공격 선언 시 상대 ENERGY 1을 흡수하고 자신은 보호막 1을 얻습니다.' },
+      { name: '연대기 비늘', description: '내 턴 시작 시 체력 3 회복 및 보호막 3 획득.' },
+      { name: '완식 포효', description: '이 캐릭터가 전투로 적을 파괴하면 그 카드를 상대 묘지에서 소멸시키고 카드 1장 드로우, 코어 2 회복.' },
     ],
   },
 };
