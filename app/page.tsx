@@ -4018,9 +4018,12 @@ function renderChatBody(body: string, onMediaLoad?: () => void) {
   return nodes.length ? nodes : body;
 }
 
-function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }: { open: boolean; roomId?: string; onClose: () => void; profile: Profile; emoteIds?: string[]; onUnread?: () => void }) {
+type ChatScope = 'global' | 'room';
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }: { open: boolean; roomId?: string; onClose: () => void; profile: Profile; emoteIds?: string[]; onUnread?: (scope: ChatScope) => void }) {
+  const [activeScope, setActiveScope] = useState<ChatScope>(roomId ? 'room' : 'global');
+  const [messagesByScope, setMessagesByScope] = useState<Record<ChatScope, ChatMessage[]>>({ global: [], room: [] });
+  const [tabUnread, setTabUnread] = useState<Record<ChatScope, number>>({ global: 0, room: 0 });
   const [chatSkins, setChatSkins] = useState<Record<string, ChatSkinProfile>>({
     [profile.user_id]: { user_id: profile.user_id, profile_theme: profile.profile_theme, profile_frame: profile.profile_frame },
   });
@@ -4029,21 +4032,36 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
   });
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
-  const [sending, setSending] = useState(false);
   const [emotePickerOpen, setEmotePickerOpen] = useState(false);
   const ownedChatEmotes = useMemo(() => emoteIds.map((emoteId) => V34_BATTLE_EMOTE_BY_ID[emoteId]).filter(Boolean), [emoteIds]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const openRef = useRef(open);
+  const activeScopeRef = useRef<ChatScope>(activeScope);
+  const onUnreadRef = useRef(onUnread);
+  const messages = messagesByScope[activeScope];
+
   const stickChatToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     const scroller = bottomRef.current?.parentElement;
     if (!scroller) return;
     scroller.scrollTo({ top: scroller.scrollHeight, behavior });
   }, []);
-  const openRef = useRef(open);
-  const onUnreadRef = useRef(onUnread);
-  const table = roomId ? 'eclipse_room_messages' : 'eclipse_global_messages';
 
   useEffect(() => { openRef.current = open; }, [open]);
+  useEffect(() => { activeScopeRef.current = activeScope; }, [activeScope]);
   useEffect(() => { onUnreadRef.current = onUnread; }, [onUnread]);
+  useEffect(() => {
+    if (roomId) {
+      setActiveScope('room');
+    } else {
+      setActiveScope('global');
+    }
+    setMessagesByScope((current) => ({ ...current, room: [] }));
+    setTabUnread((current) => ({ ...current, room: 0 }));
+  }, [roomId]);
+  useEffect(() => {
+    if (!open) return;
+    setTabUnread((current) => current[activeScope] === 0 ? current : { ...current, [activeScope]: 0 });
+  }, [open, activeScope]);
   useEffect(() => {
     const own = { user_id: profile.user_id, profile_theme: profile.profile_theme, profile_frame: profile.profile_frame };
     chatSkinsRef.current = { ...chatSkinsRef.current, [profile.user_id]: own };
@@ -4060,70 +4078,158 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
     setChatSkins((current) => ({ ...current, ...additions }));
   }
 
+  function replaceScopeMessages(scope: ChatScope, loaded: ChatMessage[]) {
+    const now = Date.now();
+    const cutoffMs = now - 30 * 60 * 1000;
+    const safe = loaded
+      .filter((message) => scope === 'room' || new Date(message.created_at).getTime() >= cutoffMs)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      .slice(-CHAT_RENDER_LIMIT);
+    setMessagesByScope((current) => {
+      const pending = current[scope].filter((message) => {
+        if (message.id >= 0) return false;
+        return !safe.some((serverMessage) => serverMessage.user_id === message.user_id
+          && serverMessage.body === message.body
+          && Math.abs(new Date(serverMessage.created_at).getTime() - new Date(message.created_at).getTime()) < 15_000);
+      });
+      const merged = [...safe, ...pending]
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        .slice(-CHAT_RENDER_LIMIT);
+      return { ...current, [scope]: merged };
+    });
+    void ensureChatSkins(safe.map((message) => message.user_id));
+  }
+
+  function mergeScopeMessage(scope: ChatScope, next: ChatMessage) {
+    if (scope === 'global' && new Date(next.created_at).getTime() < Date.now() - 30 * 60 * 1000) return;
+    setMessagesByScope((current) => {
+      const currentScope = current[scope];
+      const nextTime = new Date(next.created_at).getTime();
+      const filtered = currentScope.filter((message) => {
+        if (message.id === next.id) return false;
+        const isOptimisticTwin = message.id < 0
+          && next.id >= 0
+          && message.user_id === next.user_id
+          && message.body === next.body
+          && Math.abs(new Date(message.created_at).getTime() - nextTime) < 15_000;
+        return !isOptimisticTwin;
+      });
+      const merged = [...filtered, next]
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        .slice(-CHAT_RENDER_LIMIT);
+      return { ...current, [scope]: merged };
+    });
+  }
+
+  async function loadScope(scope: ChatScope) {
+    if (scope === 'room' && !roomId) return;
+    const result = await api('chat_messages', scope === 'room' ? { roomId } : {});
+    replaceScopeMessages(scope, Array.isArray(result.messages) ? result.messages as ChatMessage[] : []);
+  }
+
+  function receiveRealtime(scope: ChatScope, next: ChatMessage) {
+    if (scope === 'global' && new Date(next.created_at).getTime() < Date.now() - 30 * 60 * 1000) return;
+    void ensureChatSkins([next.user_id]);
+    mergeScopeMessage(scope, next);
+    if (next.user_id === profile.user_id) return;
+    const currentlyReading = openRef.current && activeScopeRef.current === scope;
+    if (!currentlyReading) {
+      setTabUnread((current) => ({ ...current, [scope]: Math.min(99, current[scope] + 1) }));
+      if (!openRef.current) onUnreadRef.current?.(scope);
+    }
+  }
+
   useEffect(() => {
     let alive = true;
-    async function load() {
-      const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-      if (!roomId) await supabase.rpc('eclipse_cleanup_global_messages_v25');
-      let query = supabase.from(table).select('*').order('created_at', { ascending: false }).limit(CHAT_RENDER_LIMIT);
-      if (roomId) query = query.eq('room_id', roomId);
-      else query = query.gte('created_at', cutoff);
-      const { data } = await query;
-      const loaded = ((data ?? []) as ChatMessage[]).reverse();
-      if (alive) setMessages(loaded);
-      void ensureChatSkins(loaded.map((message) => message.user_id));
-    }
-    load();
+    void loadScope('global').catch((reason) => {
+      if (alive) setError(reason instanceof Error ? reason.message : '전체 채팅을 불러오지 못했습니다.');
+    });
     const channel = supabase
-      .channel(`chat-${table}-${roomId ?? 'global'}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table, ...(roomId ? { filter: `room_id=eq.${roomId}` } : {}) }, (payload: any) => {
-        const next = payload.new as ChatMessage;
-        if (!roomId && new Date(next.created_at).getTime() < Date.now() - 30 * 60 * 1000) return;
-        void ensureChatSkins([next.user_id]);
-        setMessages((current) => {
-          if (current.some((message) => message.id === next.id)) return current;
-          const nextCreatedAt = new Date(next.created_at).getTime();
-          const withoutMatchingOptimistic = next.user_id === profile.user_id
-            ? current.filter((message) => {
-                if (message.id >= 0 || message.user_id !== next.user_id || message.body !== next.body) return true;
-                const optimisticCreatedAt = new Date(message.created_at).getTime();
-                return Math.abs(nextCreatedAt - optimisticCreatedAt) > 30_000;
-              })
-            : current;
-          return [...withoutMatchingOptimistic.slice(-(CHAT_RENDER_LIMIT - 1)), next];
-        });
-        if (next.user_id !== profile.user_id && !openRef.current) onUnreadRef.current?.();
+      .channel(`chat-global-v69-${profile.user_id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'eclipse_global_messages' }, (payload: any) => {
+        if (!alive) return;
+        receiveRealtime('global', payload.new as ChatMessage);
       })
-      .subscribe();
-    const expiryTimer = roomId ? undefined : window.setInterval(() => {
+      .subscribe((status) => {
+        if (!alive) return;
+        if (status === 'SUBSCRIBED') void loadScope('global').catch(() => undefined);
+        if ((status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') && openRef.current && activeScopeRef.current === 'global') {
+          void loadScope('global').catch(() => undefined);
+        }
+      });
+    const expiryTimer = window.setInterval(() => {
       const cutoffMs = Date.now() - 30 * 60 * 1000;
-      setMessages((current) => current.filter((message) => new Date(message.created_at).getTime() >= cutoffMs));
-    }, 60_000);
+      setMessagesByScope((current) => ({
+        ...current,
+        global: current.global.filter((message) => new Date(message.created_at).getTime() >= cutoffMs),
+      }));
+    }, 30_000);
     return () => {
       alive = false;
-      if (expiryTimer) window.clearInterval(expiryTimer);
-      supabase.removeChannel(channel);
+      window.clearInterval(expiryTimer);
+      void supabase.removeChannel(channel);
     };
-  }, [roomId, table, profile.user_id]);
+  }, [profile.user_id]);
+
+  useEffect(() => {
+    if (!roomId) return undefined;
+    let alive = true;
+    void loadScope('room').catch((reason) => {
+      if (alive) setError(reason instanceof Error ? reason.message : '방 채팅을 불러오지 못했습니다.');
+    });
+    const channel = supabase
+      .channel(`chat-room-v69-${roomId}-${profile.user_id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'eclipse_room_messages', filter: `room_id=eq.${roomId}` }, (payload: any) => {
+        if (!alive) return;
+        receiveRealtime('room', payload.new as ChatMessage);
+      })
+      .subscribe((status) => {
+        if (!alive) return;
+        if (status === 'SUBSCRIBED') void loadScope('room').catch(() => undefined);
+        if ((status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') && openRef.current && activeScopeRef.current === 'room') {
+          void loadScope('room').catch(() => undefined);
+        }
+      });
+    return () => {
+      alive = false;
+      void supabase.removeChannel(channel);
+    };
+  }, [roomId, profile.user_id]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    let alive = true;
+    const refresh = () => {
+      if (!alive || document.visibilityState === 'hidden') return;
+      void loadScope(activeScope).catch(() => undefined);
+    };
+    refresh();
+    // Realtime remains primary; this is a low-frequency safety net for socket hiccups/RLS edge cases.
+    const timer = window.setInterval(refresh, activeScope === 'room' ? 6000 : 8000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [open, activeScope, roomId]);
 
   useEffect(() => {
     if (!open) return undefined;
     stickChatToBottom(messages.length > 1 ? 'smooth' : 'auto');
     const frame = window.requestAnimationFrame(() => stickChatToBottom('auto'));
-    const timers = [80, 220, 520].map((delay) => window.setTimeout(() => stickChatToBottom('auto'), delay));
+    const timers = [80, 220].map((delay) => window.setTimeout(() => stickChatToBottom('auto'), delay));
     return () => {
       window.cancelAnimationFrame(frame);
       timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [messages.length, open, stickChatToBottom]);
+  }, [messages.length, open, activeScope, stickChatToBottom]);
 
   async function send(event: FormEvent) {
     event.preventDefault();
     const message = input.trim();
-    if (!message || sending) return;
-
-    const optimisticId = -Date.now();
-    const optimisticMessage: ChatMessage = {
+    if (!message) return;
+    const scope: ChatScope = activeScope === 'room' && roomId ? 'room' : 'global';
+    const optimisticId = -Math.floor(Date.now() + Math.random() * 10_000);
+    const optimistic: ChatMessage = {
       id: optimisticId,
       user_id: profile.user_id,
       display_name: profile.display_name,
@@ -4131,37 +4237,26 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
       body: message,
       created_at: new Date().toISOString(),
     };
-
-    setSending(true);
     setInput('');
     setError('');
-    setMessages((current) => [...current.slice(-(CHAT_RENDER_LIMIT - 1)), optimisticMessage]);
+    mergeScopeMessage(scope, optimistic);
     window.requestAnimationFrame(() => stickChatToBottom('smooth'));
-
     try {
-      await api(roomId ? 'send_room_message' : 'send_global_message', roomId ? { roomId, message } : { message });
-
-      // Re-read the latest rows after a successful send. Supabase Realtime can
-      // occasionally delay/self-suppress an INSERT event, so the sender must
-      // not depend on that event to see their own message.
-      const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-      let refreshQuery = supabase.from(table).select('*').order('created_at', { ascending: false }).limit(CHAT_RENDER_LIMIT);
-      if (roomId) refreshQuery = refreshQuery.eq('room_id', roomId);
-      else refreshQuery = refreshQuery.gte('created_at', cutoff);
-      const { data: refreshed } = await refreshQuery;
-      if (refreshed) {
-        const loaded = (refreshed as ChatMessage[]).reverse();
-        setMessages(loaded);
-        void ensureChatSkins(loaded.map((item) => item.user_id));
-        window.requestAnimationFrame(() => stickChatToBottom('auto'));
-      }
+      const result = await api(scope === 'room' ? 'send_room_message' : 'send_global_message', scope === 'room' ? { roomId, message } : { message });
+      if (result.message) mergeScopeMessage(scope, result.message as ChatMessage);
+      else await loadScope(scope);
     } catch (reason) {
-      setMessages((current) => current.filter((item) => item.id !== optimisticId));
-      setInput((current) => current ? current : message);
+      setMessagesByScope((current) => ({ ...current, [scope]: current[scope].filter((item) => item.id !== optimisticId) }));
+      setInput(message);
       setError(reason instanceof Error ? reason.message : '전송 실패');
-    } finally {
-      setSending(false);
     }
+  }
+
+  function selectScope(scope: ChatScope) {
+    if (scope === 'room' && !roomId) return;
+    setActiveScope(scope);
+    setTabUnread((current) => ({ ...current, [scope]: 0 }));
+    setError('');
   }
 
   function insertChatEmote(emoteId: string) {
@@ -4176,27 +4271,38 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
 
   return (
     <aside className={`chat-drawer ${open ? 'open' : ''}`}>
-      <header><div><span>{roomId ? 'ROOM CHAT' : 'GLOBAL CHAT'}</span><h3>{roomId ? '결투방 채팅' : '전체 채팅'}</h3>{!roomId && <small>최근 30분 메시지만 보관됩니다.</small>}</div><button onClick={onClose}>×</button></header>
+      <header>
+        <div>
+          <span>{activeScope === 'room' ? 'ROOM CHAT' : 'GLOBAL CHAT'}</span>
+          <h3>{activeScope === 'room' ? '결투방 채팅' : '전체 채팅'}</h3>
+          <small>{activeScope === 'global' ? '전체 채팅은 최근 30분 메시지만 표시되며 30분이 지나면 자동으로 사라집니다.' : '이 방에 참가한 플레이어/관전자만 보는 별도 채팅입니다.'}</small>
+          {roomId && <div className="chat-channel-tabs" role="tablist" aria-label="채팅 채널 선택">
+            <button type="button" role="tab" aria-selected={activeScope === 'global'} className={activeScope === 'global' ? 'active' : ''} onClick={() => selectScope('global')}>전체 채팅{tabUnread.global > 0 && <i>{tabUnread.global > 99 ? '99+' : tabUnread.global}</i>}</button>
+            <button type="button" role="tab" aria-selected={activeScope === 'room'} className={activeScope === 'room' ? 'active' : ''} onClick={() => selectScope('room')}>방 채팅{tabUnread.room > 0 && <i>{tabUnread.room > 99 ? '99+' : tabUnread.room}</i>}</button>
+          </div>}
+        </div>
+        <button onClick={onClose} aria-label="채팅 닫기">×</button>
+      </header>
       <div className="chat-messages">
-        {messages.length === 0 && <div className="empty-state"><span>···</span><p>첫 메시지를 남겨보세요.</p></div>}
+        {messages.length === 0 && <div className="empty-state"><span>···</span><p>{activeScope === 'room' ? '이 방의 첫 메시지를 남겨보세요.' : '최근 30분 동안 올라온 전체 채팅이 없습니다.'}</p></div>}
         {messages.map((message, messageIndex) => {
           const skin = chatSkins[message.user_id];
-          return <div className={`chat-message v31-social-skin theme-${skin?.profile_theme ?? 'bg_default'} frame-${skin?.profile_frame ?? 'frame_default'} ${message.user_id === profile.user_id ? 'mine' : ''} ${message.id < 0 ? 'sending' : ''}`} key={message.id}>
+          return <div className={`chat-message v31-social-skin theme-${skin?.profile_theme ?? 'bg_default'} frame-${skin?.profile_frame ?? 'frame_default'} ${message.user_id === profile.user_id ? 'mine' : ''} ${message.id < 0 ? 'sending' : ''}`} key={`${activeScope}-${message.id}`}>
             {messageIndex >= messages.length - CHAT_ANIMATED_SKIN_LIMIT && <ProfileFrameFX frameId={skin?.profile_frame} />}
             <b><NicknameText name={message.display_name} styleId={message.nickname_style} /></b>
             <div className="chat-rich-body">{renderChatBody(message.body, () => stickChatToBottom('auto'))}</div>
-            <small>{message.id < 0 ? (sending ? '전송 중…' : '방금 전') : new Date(message.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small>
+            <small>{message.id < 0 ? '전송 중…' : new Date(message.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small>
           </div>;
         })}
         <div ref={bottomRef} />
       </div>
       {ownedChatEmotes.length > 0 && <div className="chat-emote-toolbar">
         <button type="button" className={`chat-emote-toggle ${emotePickerOpen ? 'active' : ''}`} onClick={() => setEmotePickerOpen((value) => !value)}>이모티콘</button>
-        <small>보유 감정표현은 채팅에도 사용할 수 있습니다.</small>
+        <small>{activeScope === 'room' ? '방 채팅에 사용할 감정표현' : '전체 채팅에 사용할 감정표현'}</small>
       </div>}
       {ownedChatEmotes.length > 0 && emotePickerOpen && <div className="chat-emote-picker">{ownedChatEmotes.map((item) => <button type="button" key={item.id} onClick={() => insertChatEmote(item.id)} title={item.name}><img src={item.asset} alt={item.name} /><span>{item.name}</span></button>)}</div>}
       {error && <p className="chat-error">{error}</p>}
-      <form onSubmit={send}><input value={input} onChange={(event: ChangeEvent<HTMLInputElement>) => setInput(event.target.value)} maxLength={180} placeholder={ownedChatEmotes.length > 0 ? '메시지 또는 :이모티콘: 입력' : '메시지 입력'} aria-label="채팅 메시지 입력" /><button disabled={sending || !input.trim()}>{sending ? '전송 중' : '전송'}</button></form>
+      <form onSubmit={send}><input value={input} onChange={(event: ChangeEvent<HTMLInputElement>) => setInput(event.target.value)} maxLength={180} placeholder={activeScope === 'room' ? '방 채팅 메시지 입력' : '전체 채팅 메시지 입력'} /><button>전송</button></form>
     </aside>
   );
 }
@@ -8656,7 +8762,7 @@ export default function Page() {
   const [hub, setHub] = useState<HubData | null>(null);
   const [view, setView] = useState<View>('home');
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatUnreadCount, setChatUnreadCount] = useState(0);
+  const [chatUnread, setChatUnread] = useState(0);
   const [roomPayload, setRoomPayload] = useState<RoomPayload | null>(null);
   const [error, setError] = useState('');
   const [serverStatus, setServerStatus] = useState<SecureServerStatus>({
@@ -8675,29 +8781,77 @@ export default function Page() {
   const [accountRecoveryOpen, setAccountRecoveryOpen] = useState(false);
   const [canRecoverAccounts, setCanRecoverAccounts] = useState(false);
 
+  const applyHubUpdate = useCallback((nextHub: HubData) => {
+    setHub((current) => ({
+      ...nextHub,
+      onlineUsers: nextHub.onlineUsers ?? current?.onlineUsers ?? [],
+    }));
+  }, []);
+
   useEffect(() => {
-    if (chatOpen) setChatUnreadCount(0);
+    if (chatOpen) setChatUnread(0);
   }, [chatOpen]);
 
   useEffect(() => {
-    setChatUnreadCount(0);
+    setChatUnread(0);
   }, [roomPayload?.room.id]);
   useEffect(() => {
-    if (!session?.user.id || roomPayload?.room.status === 'active') return;
+    if (!session?.user.id) return;
     let alive = true;
+    let sending = false;
+    const pingPresence = async () => {
+      if (!alive || sending || document.visibilityState === 'hidden') return;
+      sending = true;
+      try {
+        await api('presence_ping');
+      } catch (reason) {
+        if (typeof console !== 'undefined') console.warn('[ECLIPSE PRESENCE PING]', reason instanceof Error ? reason.message : 'presence ping failed');
+      } finally {
+        sending = false;
+      }
+    };
+    void pingPresence();
+    const timer = window.setInterval(() => { void pingPresence(); }, 20_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') void pingPresence(); };
+    const onOnline = () => { void pingPresence(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', onOnline);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [session?.user.id]);
+
+  useEffect(() => {
+    if (!session?.user.id || !hub?.profile.user_id || roomPayload?.room.status === 'active') return;
+    let alive = true;
+    let refreshing = false;
     const refreshOnlineUsers = async () => {
+      if (!alive || refreshing || document.visibilityState === 'hidden') return;
+      refreshing = true;
       try {
         const result = await api('online_users');
         if (!alive) return;
-        setHub((current) => current ? { ...current, onlineUsers: Array.isArray(result.onlineUsers) ? result.onlineUsers : [] } : current);
+        const nextUsers = Array.isArray(result.onlineUsers) ? result.onlineUsers : [];
+        setHub((current) => current ? { ...current, onlineUsers: nextUsers } : current);
       } catch (reason) {
         if (typeof console !== 'undefined') console.warn('[ECLIPSE ONLINE USERS]', reason instanceof Error ? reason.message : 'presence refresh failed');
+      } finally {
+        refreshing = false;
       }
     };
     void refreshOnlineUsers();
-    const timer = window.setInterval(() => { void refreshOnlineUsers(); }, 15_000);
-    return () => { alive = false; window.clearInterval(timer); };
-  }, [session?.user.id, roomPayload?.room.status]);
+    const timer = window.setInterval(() => { void refreshOnlineUsers(); }, 20_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') void refreshOnlineUsers(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [session?.user.id, hub?.profile.user_id, roomPayload?.room.status]);
 
   const [roomSyncState, setRoomSyncState] = useState<'live' | 'syncing' | 'offline'>('live');
   const [lastRoomSyncAt, setLastRoomSyncAt] = useState(() => Date.now());
@@ -8865,7 +9019,7 @@ export default function Page() {
       try {
         const result = await api('hub');
         if (!alive) return;
-        if (result.hub) setHub(result.hub);
+        if (result.hub) applyHubUpdate(result.hub);
       } catch (reason) {
         if (typeof console !== 'undefined') console.warn('[ECLIPSE SOCIAL REALTIME]', reason instanceof Error ? reason.message : 'social refresh failed');
       } finally {
@@ -8906,7 +9060,7 @@ export default function Page() {
       document.removeEventListener('visibilitychange', onVisible);
       supabase.removeChannel(channel);
     };
-  }, [session?.user.id]);
+  }, [session?.user.id, applyHubUpdate]);
 
   useEffect(() => {
     if (!roomPayload?.room.id || !session) return;
@@ -8926,7 +9080,16 @@ export default function Page() {
         const result = await api('get_room', { roomId });
         if (!alive) return;
         if (result.room && result.profiles) {
-          setRoomPayload({ room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, opponentHandReveal: result.opponentHandReveal ?? undefined, battleEmotes: result.battleEmotes ?? [] });
+          setRoomPayload((current) => {
+            if (current?.room.id === result.room.id
+                && current.room.version === result.room.version
+                && current.room.status === result.room.status
+                && current.room.updated_at === result.room.updated_at
+                && (current.members?.length ?? 0) === (result.members?.length ?? 0)
+                && (current.profiles?.length ?? 0) === (result.profiles?.length ?? 0)
+                && (current.battleEmotes?.length ?? 0) === (result.battleEmotes?.length ?? 0)) return current;
+            return { room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, opponentHandReveal: result.opponentHandReveal ?? undefined, battleEmotes: result.battleEmotes ?? [] };
+          });
           lastSuccessfulSync = Date.now();
           setRoomSyncState('live');
           setLastRoomSyncAt(lastSuccessfulSync);
@@ -8974,8 +9137,8 @@ export default function Page() {
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     document.addEventListener('visibilitychange', onVisibility);
-    const pollMs = roomPayload?.room.status === 'active' ? 3000 : 8000;
-    const timer = window.setInterval(() => { void refresh(); }, pollMs);
+    const pollMs = roomPayload?.room.status === 'active' ? 8000 : 12000;
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void refresh(); }, pollMs);
 
     return () => {
       alive = false;
@@ -9038,13 +9201,13 @@ export default function Page() {
 
   const content = (() => {
     switch (view) {
-      case 'duel': return <DuelView userId={session.user.id} hub={hub} roomPayload={roomPayload} onRoom={setRoomPayload} onHub={setHub} serverStatus={serverStatus} syncState={roomSyncState} lastSyncAt={lastRoomSyncAt} onInspectCard={setInspectedCardId} />;
-      case 'deck': return <DeckBuilder hub={hub} onHub={setHub} />;
-      case 'shop': return <ShopView hub={hub} onHub={setHub} />;
+      case 'duel': return <DuelView userId={session.user.id} hub={hub} roomPayload={roomPayload} onRoom={setRoomPayload} onHub={applyHubUpdate} serverStatus={serverStatus} syncState={roomSyncState} lastSyncAt={lastRoomSyncAt} onInspectCard={setInspectedCardId} />;
+      case 'deck': return <DeckBuilder hub={hub} onHub={applyHubUpdate} />;
+      case 'shop': return <ShopView hub={hub} onHub={applyHubUpdate} />;
       case 'collection': return <CollectionView hub={hub} />;
-      case 'friends': return <FriendsView hub={hub} userId={session.user.id} onHub={setHub} />;
-      case 'profile': return <ProfileView hub={hub} onHub={setHub} />;
-      case 'rewards': return <RewardsView userId={session.user.id} hub={hub} onHub={setHub} onBack={() => setView('home')} />;
+      case 'friends': return <FriendsView hub={hub} userId={session.user.id} onHub={applyHubUpdate} />;
+      case 'profile': return <ProfileView hub={hub} onHub={applyHubUpdate} />;
+      case 'rewards': return <RewardsView userId={session.user.id} hub={hub} onHub={applyHubUpdate} onBack={() => setView('home')} />;
       default: return <HomeView hub={hub} onNavigate={setView} serverStatus={serverStatus} />;
     }
   })();
@@ -9067,7 +9230,7 @@ export default function Page() {
         <button className={`v13-server-chip ${serverStatus.secureDuelReady ? 'ready' : 'warning'}`} onClick={() => setView('duel')} title={publicServerStatusMessage(serverStatus)}><span />{serverStatus.secureDuelReady ? '온라인' : '점검 중'}</button>
         <div className="topbar-actions v9-topbar-actions">
           <span className="currency-pill"><GameIcon name="coin" /><small>COIN</small><b>{hub.wallet.coins.toLocaleString()}</b></span>
-          <button className={`chat-toggle ${chatOpen ? 'active' : ''} ${chatUnreadCount > 0 ? 'has-unread' : ''}`} aria-label={`${roomChat ? '방 채팅' : '채팅'}${chatUnreadCount > 0 ? ` - 안 읽은 메시지 ${chatUnreadCount}개` : ''}`} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen((value) => !value); }}><GameIcon name="chat" /><span>{roomChat ? '방 채팅' : '채팅'}</span>{chatUnreadCount > 0 && <b className="chat-unread-badge" aria-label={`안 읽은 메시지 ${chatUnreadCount}개`}>{chatUnreadCount > 99 ? '99+' : chatUnreadCount}</b>}</button>
+          <button className={`chat-toggle ${chatOpen ? 'active' : ''} ${chatUnread > 0 ? 'has-unread' : ''}`} aria-label={`채팅${chatUnread > 0 ? ` - 안 읽은 메시지 ${chatUnread}개` : ''}`} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen((value) => !value); }}><GameIcon name="chat" /><span>채팅</span>{chatUnread > 0 && <i className="chat-unread-dot" aria-hidden="true">{chatUnread > 99 ? '99+' : chatUnread}</i>}</button>
           <button className="profile-chip" onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView('profile'); }}><Avatar id={hub.profile.avatar} size="small" /><i className={`v26-chip-emblem emblem-${hub.profile.profile_emblem ?? 'emblem_default'}`} aria-hidden="true">{emblemGlyph(hub.profile.profile_emblem)}</i><span><NicknameText name={hub.profile.display_name} styleId={hub.profile.nickname_style} /></span></button>
           <button className={`v9-icon-button v22-system-button ${settingsOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setChatOpen(false); setSettingsOpen((value) => !value); }} title="게임 설정" aria-label="게임 설정"><GameIcon name="settings" /><span>SYSTEM</span></button>
         </div>
@@ -9079,7 +9242,7 @@ export default function Page() {
       </section>
 
       <nav className="mobile-nav">{NAV_ITEMS.map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView(item.id); }}><i><GameIcon name={item.id} /></i><span>{item.label}</span>{item.id === 'friends' && pendingFriendRequestCount > 0 && <b className="social-request-badge" aria-label={`받은 친구 요청 ${pendingFriendRequestCount}개`}>{pendingFriendRequestCount > 9 ? '9+' : pendingFriendRequestCount}</b>}</button>)}</nav>
-      <ChatDrawer open={chatOpen} roomId={roomChat} onClose={() => setChatOpen(false)} profile={hub.profile} emoteIds={hub.emoteLoadout ?? []} onUnread={() => setChatUnreadCount((current) => Math.min(999, current + 1))} />
+      <ChatDrawer open={chatOpen} roomId={roomChat} onClose={() => setChatOpen(false)} profile={hub.profile} emoteIds={hub.emoteLoadout ?? []} onUnread={() => setChatUnread((current) => Math.min(999, current + 1))} />
       {chatOpen && <button className="chat-backdrop" aria-label="채팅 닫기" onClick={() => setChatOpen(false)} />}
       <ControlCenter
         open={settingsOpen}

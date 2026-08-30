@@ -1874,46 +1874,37 @@
 }
 
 /* ========================================================================== 
-   V67 CHAT UNREAD COUNTER
-   Shows the number of unread messages from other players while chat is closed.
+   V28C CHAT UNREAD INDICATOR
+   Kakao-style unread dot for messages from another player while drawer is closed.
    ========================================================================== */
 .v23-client .chat-toggle {
   position:relative!important;
   overflow:visible!important;
 }
-.v23-client .chat-toggle .chat-unread-badge {
+.v23-client .chat-toggle .chat-unread-dot {
   position:absolute!important;
-  top:1px!important;
-  right:2px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  min-width:18px!important;
-  height:18px!important;
-  padding:0 5px!important;
+  top:5px!important;
+  right:7px!important;
+  width:10px!important;
+  height:10px!important;
+  min-width:10px!important;
   border-radius:999px!important;
   border:2px solid #081019!important;
   background:#ff4056!important;
-  color:#fff!important;
-  font-size:9px!important;
-  font-weight:900!important;
-  line-height:1!important;
-  letter-spacing:-.02em!important;
-  font-variant-numeric:tabular-nums!important;
-  box-shadow:0 0 0 1px rgba(255,89,108,.18),0 0 12px rgba(255,51,78,.65)!important;
+  box-shadow:0 0 0 1px rgba(255,89,108,.15),0 0 12px rgba(255,51,78,.72)!important;
   pointer-events:none!important;
   z-index:8!important;
-  animation:v67UnreadBadgePulse 1.65s ease-in-out infinite!important;
+  animation:v28cUnreadPing 1.65s ease-in-out infinite!important;
 }
 .v23-client .chat-toggle.has-unread svg {
-  filter:drop-shadow(0 0 5px rgba(255,71,91,.2));
+  filter:drop-shadow(0 0 5px rgba(255,71,91,.15));
 }
-@keyframes v67UnreadBadgePulse {
-  0%,100% { transform:scale(1); box-shadow:0 0 0 1px rgba(255,89,108,.18),0 0 8px rgba(255,51,78,.5); }
-  50% { transform:scale(1.07); box-shadow:0 0 0 4px rgba(255,64,86,.07),0 0 14px rgba(255,51,78,.75); }
+@keyframes v28cUnreadPing {
+  0%,100% { transform:scale(1); box-shadow:0 0 0 1px rgba(255,89,108,.15),0 0 8px rgba(255,51,78,.55); }
+  50% { transform:scale(1.12); box-shadow:0 0 0 4px rgba(255,64,86,.07),0 0 14px rgba(255,51,78,.78); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .v23-client .chat-toggle .chat-unread-badge { animation:none!important; }
+  .v23-client .chat-toggle .chat-unread-dot { animation:none!important; }
 }
 
 /* ========================================================================== 
@@ -11777,43 +11768,101 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
 @media (max-width:1100px) { .v51-boss-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.v51-boss-card:last-child:nth-child(odd){grid-column:1 / -1} }
 @media (max-width:760px) { .v51-boss-grid{grid-template-columns:1fr}.v51-boss-card:last-child:nth-child(odd){grid-column:auto}.v51-boss-card{min-height:0;grid-template-rows:150px auto auto}.v51-active-raid{align-items:flex-start;flex-direction:column}.v51-active-raid>small{margin-left:0}.v51-boss-rule{align-items:flex-start;flex-direction:column}.v51-raid-settle{bottom:18px;align-items:flex-start;flex-direction:column} }
 
-
-/* v67.1 chat visibility + optimistic send hotfix */
-.v23-client .chat-drawer form input {
-  color:#f5f9ff!important;
-  caret-color:#8fe7ff!important;
-  -webkit-text-fill-color:#f5f9ff!important;
-  opacity:1!important;
-  background:rgba(10,17,28,.96)!important;
-  border-color:rgba(125,194,255,.20)!important;
+/* ========================================================================== 
+   V69 CHAT CHANNEL SPLIT / RELIABLE VISIBILITY
+   Global and room chat are explicit tabs. Unread indicator is a numeric badge.
+   ========================================================================== */
+.v23-client .chat-channel-tabs {
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:6px!important;
+  margin-top:10px!important;
+  width:100%!important;
 }
-.v23-client .chat-drawer form input::placeholder {
-  color:#7f91a8!important;
-  -webkit-text-fill-color:#7f91a8!important;
-  opacity:1!important;
+.v23-client .chat-drawer header .chat-channel-tabs button {
+  position:relative!important;
+  width:auto!important;
+  min-width:0!important;
+  height:34px!important;
+  padding:0 10px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:6px!important;
+  border:1px solid rgba(120,174,220,.16)!important;
+  border-radius:9px!important;
+  background:rgba(7,15,24,.84)!important;
+  color:#93a9ba!important;
+  font-size:10px!important;
+  font-weight:850!important;
+  letter-spacing:.02em!important;
 }
-.v23-client .chat-drawer .chat-message .chat-rich-body,
-.v23-client .chat-drawer .chat-message .chat-rich-body > span {
-  color:#eaf4ff!important;
-  -webkit-text-fill-color:#eaf4ff!important;
-  opacity:1!important;
-  font-weight:600!important;
+.v23-client .chat-drawer header .chat-channel-tabs button.active {
+  border-color:rgba(92,199,255,.55)!important;
+  background:linear-gradient(145deg,rgba(25,91,128,.38),rgba(8,26,40,.92))!important;
+  color:#eaf8ff!important;
+  box-shadow:inset 0 0 0 1px rgba(113,212,255,.08),0 0 18px rgba(55,173,238,.08)!important;
 }
-.v23-client .chat-drawer .chat-message.mine .chat-rich-body,
-.v23-client .chat-drawer .chat-message.mine .chat-rich-body > span {
-  color:#ffffff!important;
-  -webkit-text-fill-color:#ffffff!important;
+.v23-client .chat-channel-tabs button i {
+  min-width:17px!important;
+  height:17px!important;
+  padding:0 4px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border-radius:999px!important;
+  background:#ff4056!important;
+  color:#fff!important;
+  font-size:8px!important;
+  font-style:normal!important;
+  font-weight:900!important;
+  line-height:1!important;
 }
-.v23-client .chat-drawer .chat-message.sending {
-  opacity:.88!important;
+.v23-client .chat-drawer > header {
+  min-height:98px!important;
+  height:auto!important;
+  padding-top:12px!important;
+  padding-bottom:12px!important;
+}
+.v23-client .chat-drawer header>div>small {
+  color:#9fb1c1!important;
+  font-size:9px!important;
+  line-height:1.45!important;
+}
+.v23-client .chat-message.sending {
+  opacity:.82!important;
   border-style:dashed!important;
-  border-color:rgba(119,223,255,.42)!important;
 }
-.v23-client .chat-drawer .chat-message.sending > small {
-  color:#8fe7ff!important;
+.v23-client .chat-message .chat-rich-body {
+  color:#f1f6ff!important;
   opacity:1!important;
 }
-.v23-client .chat-drawer form button:disabled {
-  cursor:not-allowed!important;
-  opacity:.46!important;
+.v23-client .chat-drawer form input {
+  color:#f7fbff!important;
+  caret-color:#77dfff!important;
+  background:#07111b!important;
+  border-color:rgba(112,185,230,.18)!important;
+}
+.v23-client .chat-drawer form input::placeholder { color:#71869a!important;opacity:1!important; }
+
+/* Numeric unread badge (replaces the old 10px dot). */
+.v23-client .chat-toggle .chat-unread-dot {
+  top:2px!important;
+  right:3px!important;
+  width:auto!important;
+  min-width:18px!important;
+  height:18px!important;
+  padding:0 4px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border:2px solid #081019!important;
+  border-radius:999px!important;
+  background:#ff4056!important;
+  color:#fff!important;
+  font-size:8px!important;
+  font-style:normal!important;
+  font-weight:950!important;
+  line-height:1!important;
+  box-shadow:0 0 0 1px rgba(255,89,108,.16),0 0 12px rgba(255,51,78,.58)!important;
 }
