@@ -1562,9 +1562,9 @@ function TemporalProfileContent({ card }: { card: CardDefinition }) {
 
 function RuleText({ text, compact = false }: { text: string; compact?: boolean }) {
   const source = text || '';
-  const tokenPattern = /(【[^】]+】|ENERGY|코어|보호막|공격력|체력|수호|속공|흡수|관통|직격|공명 융합|계승 진화|균열 소환|전설 특수 소환|ECLIPSE CYCLE|TIME GATE|시간 친화|시간 강화|시간 취약|시간 반응|시간대 소환|시간역행|극시공|시간 폭발|기능 정지|\+\d+|−\d+|-\d+|\d+\/\d+|\d+장|\d+체|\d+의 피해|\d+ 피해|\d+ 회복)/g;
+  const tokenPattern = /(【[^】]+】|ENERGY|코어|보호막|공격력|체력|수호|속공|흡수|관통|직격|공명 융합|계승 진화|균열 소환|전투 특성 특수 소환|특수 소환|전설 특수 소환|ECLIPSE CYCLE|TIME GATE|시간 친화|시간 강화|시간 취약|시간 반응|시간대 소환|시간역행|극시공|시간 폭발|기능 정지|\+\d+|−\d+|-\d+|\d+\/\d+|\d+장|\d+체|\d+의 피해|\d+ 피해|\d+ 회복)/g;
   return <span className={`v31l-rule-text ${compact ? 'compact' : ''}`}>{source.split(tokenPattern).filter(Boolean).map((part, index) => {
-    const keyword = /^(【|수호$|속공$|흡수$|관통$|직격$|공명 융합$|계승 진화$|균열 소환$|전설 특수 소환$)/.test(part);
+    const keyword = /^(【|수호$|속공$|흡수$|관통$|직격$|공명 융합$|계승 진화$|균열 소환$|전투 특성 특수 소환$|특수 소환$|전설 특수 소환$)/.test(part);
     const number = /^(\+|−|-)?\d|\d+장$|\d+체$/.test(part);
     const resource = /^(ENERGY|코어|보호막|공격력|체력)$/.test(part);
     return <span key={`${part}-${index}`} className={`v31l-rule-token ${keyword ? 'keyword' : number ? 'number' : resource ? 'resource' : ''} ${compact ? 'compact' : ''}`}>{part}</span>;
@@ -1607,9 +1607,17 @@ function trapTriggerDescription(trigger: CardDefinition['trapTrigger']): string 
   return trigger ? labels[trigger] : '';
 }
 
+function traitSpecialTierLabel(tier: CardDefinition['traitSpecialSummonTier']): string {
+  if (tier === 'light') return '경량';
+  if (tier === 'standard') return '표준';
+  if (tier === 'hard') return '고난도';
+  if (tier === 'apex') return '최상위';
+  return '';
+}
+
 function summonConditionDescription(card: CardDefinition): string {
   let base = '';
-  if (card.summonMode === 'rift') base = `${card.riftCondition?.label ?? '균열 조건'} · ENERGY ${card.riftCost ?? card.cost}`;
+  if (card.summonMode === 'rift') base = `${card.traitSpecialSummonTier ? `전투 특성 특수 소환 [${traitSpecialTierLabel(card.traitSpecialSummonTier)}]` : '균열 소환'} · ${card.riftCondition?.label ?? '조건 확인'} · ENERGY ${card.riftCost ?? card.cost}`;
   else if (card.summonMode === 'legendary') base = `${card.legendarySummonRule?.name ?? '전설 강림'} · ${card.legendarySummonRule?.label ?? '전설 특수 소환 조건 확인'} · ENERGY ${card.cost}`;
   else if (card.kind === 'fusion') {
     const recipe = card.fusionRecipe?.label ?? '지정 소재 조합';
@@ -1824,7 +1832,7 @@ function CardFace({
     >
       <span className="v32-card-finish" aria-hidden="true" />
       <span className="card-cost">{card.cost}</span>
-      {card.summonMode === 'rift' && <span className="summon-badge rift">균열</span>}
+      {card.summonMode === 'rift' && <span className="summon-badge rift">{card.traitSpecialSummonTier ? '특수' : '균열'}</span>}
       {card.summonMode === 'legendary' && <span className="summon-badge legendary">강림</span>}
       {card.kind === 'fusion' && <span className="summon-badge fusion">융합</span>}
       {card.kind === 'evolution' && <span className="summon-badge evolution">진화</span>}
@@ -1897,7 +1905,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
     : card.kind === 'evolution'
       ? '계승 진화'
       : card.summonMode === 'rift'
-        ? '균열 소환'
+        ? (card.traitSpecialSummonTier ? '전투 특성 특수 소환' : '균열 소환')
         : card.summonMode === 'legendary'
           ? '전설 특수 소환'
           : '일반 소환';
@@ -2086,8 +2094,8 @@ function GameGuideModal({ onClose }: { onClose: () => void }) {
         <div className="v20-guide-grid">
           <article><b>01 · 승리 조건</b><p>상대 코어 {CORE_MAX}를 0으로 만들면 승리합니다. 덱을 더 이상 뽑을 수 없는 상황도 패배로 처리됩니다.</p></article>
           <article><b>02 · 턴 흐름</b><p>메인 단계에서 소환·주문·함정을 준비하고, 배틀 단계에서 공격합니다. 각 턴은 {TURN_DURATION_SECONDS}초 안에 결정해야 합니다.</p></article>
-          <article><b>03 · 에너지</b><p>내 턴이 돌아올 때 최대 에너지가 성장하며 10에서 멈춥니다. 카드는 표시된 비용만큼 에너지를 사용합니다.</p></article>
-          <article><b>04 · 특수 소환</b><p>균열은 조건과 에너지를, 공명 융합은 지정 소재를, 계승 진화는 조건을 만족한 필드 유닛을 요구합니다.</p></article>
+          <article><b>03 · 에너지</b><p>기본 보관 한도 10은 처음부터 열려 있습니다. 첫 내 턴 +1, 두 번째 내 턴 +2, 세 번째 내 턴 +3처럼 자연 ENERGY가 들어오며 쓰지 않은 ENERGY는 다음 턴까지 누적됩니다. 자연 수급은 턴당 +10에서 멈추고, 최대치 증가 스펠은 보관 한도를 10보다 높일 수 있습니다.</p></article>
+          <article><b>04 · 특수 소환</b><p>균열은 조건과 에너지를, 공명 융합은 지정 소재를, 계승 진화는 조건을 만족한 필드 유닛을 요구합니다. 최종 전투 특성이 2개 이상인 메인덱 유닛도 특수 소환 전용이며, 강한 카드일수록 조건이 더 까다롭습니다.</p></article>
           <article><b>05 · 전투 키워드</b><p><strong>수호</strong>는 공격 우선 대상, <strong>속공</strong>은 소환 턴 공격, <strong>흡수</strong>는 실제 전투 피해 회복, <strong>관통</strong>은 초과 피해를 코어에 전달합니다.</p></article>
           <article><b>06 · 조작 팁</b><p>카드의 <strong>i</strong> 버튼으로 언제든 상세 정보를 볼 수 있습니다. 선택 중 <strong>Esc</strong>를 누르면 카드·공격 대상을 취소합니다.</p></article>
           <article><b>07 · 시리즈 링크</b><p>같은 시리즈 카드는 서로 서치·회수·강화·보호막·에너지·코어 압박으로 연계됩니다. 상세 보기의 <strong>SERIES LINK</strong>를 확인하고 한 시리즈를 중심으로 덱을 설계해보세요.</p></article>
@@ -5035,7 +5043,7 @@ function extraRequirement(card: CardDefinition): string {
     const cleanedPremium = sourceCopies > 1 ? premiumRule.replace(/^계승 원본 \d+체(?: · )?/, '') : premiumRule;
     return [sourceText, cleanedPremium, choose].filter(Boolean).join(' · ');
   }
-  if (card.summonMode === 'rift') return card.riftCondition?.label ?? '균열 조건을 확인하세요.';
+  if (card.summonMode === 'rift') return card.riftCondition?.label ?? (card.traitSpecialSummonTier ? '특수 소환 조건을 확인하세요.' : '균열 조건을 확인하세요.');
   if (card.summonMode === 'legendary') return `${card.legendarySummonRule?.name ?? '전설 강림'} · ${card.legendarySummonRule?.label ?? '전설 특수 소환 조건을 확인하세요.'}`;
   return card.text;
 }
@@ -5367,7 +5375,13 @@ function CoinTossOverlay({ state, profiles, userId, now }: { state: MatchState; 
   );
 }
 
-function DuelEnergyMeter({ label, current, max, cap = 10, nextMax, opponent = false, compact = false }: { label: string; current: number; max: number; cap?: number; nextMax?: number; opponent?: boolean; compact?: boolean }) {
+function clientPersonalTurnEnergyIncome(state: MatchState, playerId: string, turnNumber: number): number {
+  if (!state.firstPlayerId) return Math.min(10, Math.max(1, Math.ceil(turnNumber / 2)));
+  const personalTurn = playerId === state.firstPlayerId ? Math.ceil(turnNumber / 2) : Math.floor(turnNumber / 2);
+  return Math.min(10, Math.max(0, personalTurn));
+}
+
+function DuelEnergyMeter({ label, current, max, cap = 10, nextGain, opponent = false, compact = false }: { label: string; current: number; max: number; cap?: number; nextGain?: number; opponent?: boolean; compact?: boolean }) {
   const safeCap = Math.max(10, Math.floor(cap));
   const safeCurrent = Math.max(0, Math.min(safeCap, current));
   const safeMax = Math.max(0, Math.min(safeCap, max));
@@ -5377,8 +5391,8 @@ function DuelEnergyMeter({ label, current, max, cap = 10, nextMax, opponent = fa
       <div className="v15-energy-copy">
         <span>{label}</span>
         <b>{safeCurrent}<em>/ {safeMax}</em></b>
-        {safeCap > 10 && <small>한도 {safeCap}</small>}
-        {typeof nextMax === 'number' && nextMax > safeMax && <small>다음 내 턴 {nextMax}</small>}
+        {safeCap > 10 && <small>보관 한도 {safeCap}</small>}
+        {typeof nextGain === 'number' && nextGain > 0 && <small>다음 내 턴 +{nextGain}</small>}
       </div>
       <div className="v15-energy-pips" style={{ display: 'grid', gridTemplateColumns: `repeat(${pipCount}, minmax(0, 1fr))` }} aria-label={`${label} ${safeCurrent}/${safeMax} · 한도 ${safeCap}`}>
         {Array.from({ length: pipCount }, (_, index) => <i key={index} className={index < safeCurrent ? 'active' : index < safeMax ? 'available' : 'locked'} />)}
@@ -6586,10 +6600,10 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const canChooseGraveCardTarget = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.target === 'friendly_graveyard_card' && selectedCard && myEnergy.current >= selectedCard.cost && graveyardCardTargets.length > 0 && !busy);
   const selectingGraveyardTarget = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.target === 'friendly_graveyard_unit');
   const canChooseGraveyardTarget = Boolean(selectingGraveyardTarget && selectedCard && myEnergy.current >= selectedCard.cost && graveyardReviveTargets.length > 0 && state.boards[userId].units.some((slot) => !slot) && !busy);
-  const nextMyEnergyMax = myTurn ? myEnergy.max : Math.min(myEnergyHardCap, Math.max(1, myEnergy.max + 1));
+  const nextMyEnergyGain = state.currentPlayerId === userId ? undefined : clientPersonalTurnEnergyIncome(state, userId, state.turnNumber + 1);
   const roundNumber = Math.max(1, Math.ceil(state.turnNumber / 2));
   const phaseLabel = state.phase === 'main' ? '메인 단계' : '전투 단계';
-  const selectedHandCost = selectedCard?.summonMode === 'rift' && selectedCard.riftCost !== undefined ? `${selectedCard.cost} / 균열 ${selectedCard.riftCost}` : selectedCard?.cost;
+  const selectedHandCost = selectedCard?.summonMode === 'rift' && selectedCard.riftCost !== undefined ? (selectedCard.traitSpecialSummonTier ? `${selectedCard.riftCost} · 특수` : `${selectedCard.cost} / 균열 ${selectedCard.riftCost}`) : selectedCard?.cost;
   const selectingUnitToSummon = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.kind === 'unit' && selectedCard.summonMode !== 'legendary');
   const selectingSummonEffectTarget = Boolean(selectedCardSummonNeedsTarget && selectedSummonZone !== null && myTurn && !interactionLocked && state.phase === 'main');
   const selectingTrapToSet = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.kind === 'trap');
@@ -7122,7 +7136,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
           ? { step: 2, kicker: 'ATTACK · STEP 2', title: directAttackOpen ? '상대 리더를 선택하세요' : '공격 대상을 선택하세요', detail: directAttackOpen ? '상대 필드가 비었습니다. 왼쪽 위 상대 리더 패널을 누르면 직접 공격합니다.' : '빨갛게 표시되는 상대 유닛을 누르면 전투가 시작됩니다.', tip: '공격 대상을 고르기 전에는 언제든 “공격 선택 취소”를 누를 수 있습니다.' }
           : { step: 2, kicker: 'ATTACK · STEP 1', title: '공격할 내 유닛을 선택하세요', detail: '전투 단계입니다. 파랗게 빛나는 내 유닛 중 공격할 카드를 먼저 누르세요.', tip: '유닛 선택 → 상대 유닛(또는 리더) 선택 순서로 공격합니다.' }
         : selectedFieldUnitState
-          ? { step: 1, kicker: 'FIELD RETIRE', title: `${selectedFieldUnitCard?.name ?? '캐릭터'}을 정리할까요?`, detail: '선택한 내 캐릭터를 묘지로 보내 유닛 칸을 비웁니다. 에너지가 10 미만이면 +1을 얻습니다.', tip: fieldSacrificeUsed ? '이번 턴에는 이미 필드 정리를 사용했습니다.' : '필드 정리는 같은 턴 안에서 사용할 때마다 비용 +1이며 전투 파괴로 취급하지 않습니다.' }
+          ? { step: 1, kicker: 'FIELD RETIRE', title: `${selectedFieldUnitCard?.name ?? '캐릭터'}을 정리할까요?`, detail: `선택한 내 캐릭터를 묘지로 보내 유닛 칸을 비웁니다. ENERGY가 현재 보관 한도 ${myEnergyHardCap} 미만이면 +1을 얻습니다.`, tip: fieldSacrificeUsed ? '이번 턴에는 이미 필드 정리를 사용했습니다.' : '필드 정리는 같은 턴 안에서 사용할 때마다 비용 +1이며 전투 파괴로 취급하지 않습니다.' }
           : selectedExtraCard
             ? selectedExtraSummonNeedsTarget && selectedMaterials.length === requiredMaterials && selectedMaterialsValid && selectedExtraEffectTarget === null
               ? { step: 1, kicker: 'SUMMON TARGET', title: '등장 효과 대상을 선택하세요', detail: `${summonTargetEffectLabel(selectedExtraCard)}을(를) 받을 아군 캐릭터를 선택합니다. 소재가 아닌 아군을 누르거나 “소환체 자신”을 선택하세요.`, tip: '대상을 선택한 뒤 특수 소환 버튼을 누르면 됩니다.' }
@@ -7253,7 +7267,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
           <BattleLeaderEmote state={state} ownerId={userId} now={turnClock} />
           <div className="v18-leader-identity"><Avatar id={me?.avatar} /><i className={`v26-duel-emblem emblem-${me?.profile_emblem ?? 'emblem_default'}`} aria-hidden="true">{emblemGlyph(me?.profile_emblem)}</i><span><small>YOU</small><b><NicknameText name={me?.display_name ?? '나'} styleId={me?.nickname_style} /></b></span></div>
           <div className="v18-hp-readout"><small>HP</small><strong>{state.core[userId]}</strong><em>{myTurn ? phaseLabel : 'WAITING'}</em></div>
-          <DuelEnergyMeter label="ENERGY" current={myEnergy.current} max={myEnergy.max} cap={myEnergyHardCap} nextMax={!myTurn ? nextMyEnergyMax : undefined} compact />
+          <DuelEnergyMeter label="ENERGY" current={myEnergy.current} max={myEnergy.max} cap={myEnergyHardCap} nextGain={nextMyEnergyGain} compact />
           <div className="v18-mini-stats"><span>HAND <b>{privateState.hand.length}</b></span><span>DECK <b>{state.deckCounts[userId] ?? 0}</b></span><span title={graveyardSummaryText(state.graveyards[userId])}>GRAVE <b>{state.graveyards[userId]?.length ?? 0}</b></span></div>
         </section>
       </aside>
@@ -7369,7 +7383,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
           {selectedCard && (
             <div className="v18-selected-card">
               <div className="v18-selected-art"><CardIllustration card={selectedCard} compact /></div>
-              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p><RuleText text={selectedCard.summonMode === 'rift' ? `【균열 조건】 ${extraRequirement(selectedCard)}` : selectedCard.summonMode === 'legendary' ? `【전설 특수 소환】 ${extraRequirement(selectedCard)}` : polishedCardText(selectedCard)} /></p>{selectedCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(selectedCard)} /></p>}{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(selectedCard)} /></p>}<TemporalQuickHint card={selectedCard} currentPhase={currentEclipsePhase} /></div>
+              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p><RuleText text={selectedCard.summonMode === 'rift' ? `【${selectedCard.traitSpecialSummonTier ? `전투 특성 특수 소환 · ${traitSpecialTierLabel(selectedCard.traitSpecialSummonTier)}` : '균열 조건'}】 ${extraRequirement(selectedCard)}` : selectedCard.summonMode === 'legendary' ? `【전설 특수 소환】 ${extraRequirement(selectedCard)}` : polishedCardText(selectedCard)} /></p>{selectedCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(selectedCard)} /></p>}{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(selectedCard)} /></p>}<TemporalQuickHint card={selectedCard} currentPhase={currentEclipsePhase} /></div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>선택 취소</button></div>
               {selectedCard.kind === 'unit' && selectedCardSummonNeedsTarget && selectedSummonZone !== null && (
                 <div className="v36-summon-target-box">

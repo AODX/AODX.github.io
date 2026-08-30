@@ -10,6 +10,7 @@ export type ExtraDeckKind = 'fusion' | 'evolution';
 export type Element = 'solar' | 'lunar' | 'storm' | 'verdant' | 'void' | 'neutral';
 export type Keyword = 'guard' | 'charge' | 'lifesteal' | 'pierce' | 'corestrike' | 'execute' | 'sweep';
 export type SummonMode = 'normal' | 'rift' | 'legendary' | 'fusion' | 'evolution';
+export type TraitSpecialSummonTier = 'light' | 'standard' | 'hard' | 'apex';
 export type UnitType = 'vanguard' | 'artificer' | 'spirit' | 'hunter' | 'relic' | 'oracle';
 export type EclipsePhase = 'dawn' | 'zenith' | 'dusk' | 'midnight' | 'eclipse';
 export interface EclipsePhaseModifier {
@@ -318,6 +319,8 @@ export interface CardDefinition {
   /** Unit is automatically sent to the graveyard when one of these times begins. */
   eclipseVanishPhases?: EclipsePhase[];
   summonMode?: SummonMode;
+  /** V58: normal main-deck units with two or more final combat traits become condition-gated special summons. */
+  traitSpecialSummonTier?: TraitSpecialSummonTier;
   riftCost?: number;
   riftCondition?: RiftCondition;
   legendarySummonRule?: LegendarySummonRule;
@@ -5420,6 +5423,92 @@ for (const card of CARDS) {
   }
 }
 // === /v46 triple-trait legendary balance pass ===============================
+
+// === v58 dual-trait special-summon gate =====================================
+// Final combat traits are assigned above, so this pass deliberately runs after
+// v45/v46. Any MAIN-DECK unit that ends up with 2+ combat traits must be a
+// special summon. Existing rift/legendary summons are left untouched.
+//
+// The restriction scales with the printed body's real power instead of using
+// one blanket condition. We do not discount ENERGY here: the special-summon
+// gate is a power-control cost, not an additional buff.
+const V58_TRAIT_SPECIAL_RARITY_WEIGHT: Record<Rarity, number> = {
+  common: 0,
+  rare: 2,
+  epic: 4,
+  legendary: 8,
+};
+
+function v58TraitSpecialPower(card: CardDefinition): number {
+  const keywordCount = new Set(card.keywords ?? []).size;
+  return Math.max(0, card.cost) * 2
+    + Math.max(0, card.attack ?? 0)
+    + Math.max(0, card.health ?? 0)
+    + V58_TRAIT_SPECIAL_RARITY_WEIGHT[card.rarity]
+    + (card.onSummon ? 2 : 0)
+    + Math.max(0, keywordCount - 2) * 2;
+}
+
+function v58TraitSpecialRule(card: CardDefinition): { tier: TraitSpecialSummonTier; condition: RiftCondition } {
+  const score = v58TraitSpecialPower(card);
+  if (score <= 18) {
+    return {
+      tier: 'light',
+      condition: { kind: 'opponent_more_units', label: '상대 필드의 유닛 수가 내 유닛 수보다 많을 때' },
+    };
+  }
+  if (score <= 25) {
+    return {
+      tier: 'standard',
+      condition: { kind: 'graveyard_min', value: 2, label: '내 묘지에 카드가 2장 이상일 때' },
+    };
+  }
+  if (score <= 32) {
+    return {
+      tier: 'hard',
+      condition: { kind: 'graveyard_min', value: 3, label: '내 묘지에 카드가 3장 이상일 때' },
+    };
+  }
+  return {
+    tier: 'apex',
+    condition: { kind: 'empty_board_and_graveyard_min', value: 4, label: '내 필드가 비어 있고 묘지에 카드가 4장 이상일 때' },
+  };
+}
+
+const V58_TRAIT_SPECIAL_TIER_LABEL: Record<TraitSpecialSummonTier, string> = {
+  light: '경량',
+  standard: '표준',
+  hard: '고난도',
+  apex: '최상위',
+};
+
+for (const card of CARDS) {
+  if (card.kind !== 'unit') continue;
+  const uniqueTraits = new Set(card.keywords ?? []);
+  if (uniqueTraits.size < 2) continue;
+  const mode = card.summonMode ?? 'normal';
+  if (mode !== 'normal') continue;
+
+  const rule = v58TraitSpecialRule(card);
+  card.summonMode = 'rift';
+  card.traitSpecialSummonTier = rule.tier;
+  card.riftCost = card.cost;
+  card.riftCondition = rule.condition;
+  card.text = `전투 특성 특수 소환 [${V58_TRAIT_SPECIAL_TIER_LABEL[rule.tier]}]: ${rule.condition.label}에만 소환 가능. ENERGY ${card.cost}. ${card.text}`;
+}
+
+export const V58_TRAIT_SPECIAL_SUMMON_AUDIT = CARDS
+  .filter((card) => card.kind === 'unit' && new Set(card.keywords ?? []).size >= 2)
+  .map((card) => ({
+    id: card.id,
+    name: card.name,
+    traits: Array.from(new Set(card.keywords ?? [])),
+    summonMode: card.summonMode ?? 'normal',
+    tier: card.traitSpecialSummonTier ?? null,
+    condition: card.riftCondition?.label ?? card.legendarySummonRule?.label ?? null,
+    score: v58TraitSpecialPower(card),
+  }));
+// === /v58 dual-trait special-summon gate ====================================
 
 // Dev/runtime audit object. Keeping this data exported makes future balance
 // checks straightforward without duplicating the roster in another file.

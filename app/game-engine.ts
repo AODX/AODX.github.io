@@ -418,8 +418,11 @@ export function initializeMatch(
     core: { [playerA]: CORE_MAX, [playerB]: CORE_MAX },
     coreMax: { [playerA]: CORE_MAX, [playerB]: CORE_MAX },
     energy: {
-      [playerA]: { current: playerA === first ? 1 : 0, max: playerA === first ? 1 : 0 },
-      [playerB]: { current: playerB === first ? 1 : 0, max: playerB === first ? 1 : 0 },
+      // V58: the 10-point storage cap is open from the beginning. The first player
+      // receives the natural +1 income immediately; the second player receives its
+      // +1 when their first personal turn begins. Unspent ENERGY is carried forward.
+      [playerA]: { current: playerA === first ? 1 : 0, max: BASE_ENERGY_HARD_CAP },
+      [playerB]: { current: playerB === first ? 1 : 0, max: BASE_ENERGY_HARD_CAP },
     },
     boards: { [playerA]: emptyBoard(), [playerB]: emptyBoard() },
     handCounts: { [playerA]: 0, [playerB]: 0 },
@@ -1344,7 +1347,7 @@ function applyEffect(
       const hardCap = energyHardCap(state, actorId);
       // QUICK START expands both the current maximum and the match-long hard cap.
       // It intentionally does not restore current ENERGY when played.
-      energy.max = Math.min(hardCap, energy.max + gained);
+      energy.max = hardCap;
       energy.current = Math.min(energy.current, hardCap);
       state.energy[actorId] = energy;
       appendLog(state, `보유 ENERGY 최대치 +${gained} · 최대 한도 ${hardCap} (${energy.current}/${energy.max}).`, 'special');
@@ -4013,7 +4016,7 @@ export function playCard(
       throw new Error('메인 덱 전설 유닛은 일반 소환할 수 없습니다. 카드의 전설 특수 소환 조건을 확인하세요.');
     }
     if (isRift && !riftConditionMet(state, playerId, card)) {
-      throw new Error(`균열 소환 조건이 충족되지 않았습니다: ${card.riftCondition?.label ?? '조건 확인 필요'}`);
+      throw new Error(`${card.traitSpecialSummonTier ? '전투 특성 특수 소환' : '균열 소환'} 조건이 충족되지 않았습니다: ${card.riftCondition?.label ?? '조건 확인 필요'}`);
     }
     if (isLegendarySpecial) {
       const blockReason = legendarySummonBlockReason(state, playerId, card);
@@ -4037,7 +4040,7 @@ export function playCard(
     // This prevents a summon from entering a pending response state without the
     // ally target that its printed [등장] effect explicitly asks the player to choose.
     if (card.onSummon) resolveSummonEffectTarget(state, playerId, zone, card, target);
-    appendLog(state, isRift ? `균열 소환 — 「${card.name}」!` : isLegendarySpecial ? `전설 특수 소환 — 「${card.name}」!` : `${card.name} 소환.`, isRift || isLegendarySpecial ? 'special' : 'system');
+    appendLog(state, isRift ? `${card.traitSpecialSummonTier ? '전투 특성 특수 소환' : '균열 소환'} — 「${card.name}」!` : isLegendarySpecial ? `전설 특수 소환 — 「${card.name}」!` : `${card.name} 소환.`, isRift || isLegendarySpecial ? 'special' : 'system');
     appendVisual(state, {
       kind: isRift || isLegendarySpecial ? 'special' : 'summon',
       vfx: resolveCardVfx(card, 'summon'),
@@ -4852,31 +4855,27 @@ function energyHardCap(state: MatchState, playerId: string): number {
   return BASE_ENERGY_HARD_CAP + permanentBonus;
 }
 
-function baseExpectedEnergyMax(state: MatchState, playerId: string, turnNumber = state.turnNumber): number {
+function personalTurnEnergyIncome(state: MatchState, playerId: string, turnNumber = state.turnNumber): number {
   if (!state.firstPlayerId) return Math.min(BASE_ENERGY_HARD_CAP, Math.max(1, Math.ceil(turnNumber / 2)));
   const personalTurn = playerId === state.firstPlayerId
     ? Math.ceil(turnNumber / 2)
     : Math.floor(turnNumber / 2);
+  // Natural income grows +1, +2, +3 ... and stops growing at +10.
+  // Permanent max-increase spells only expand storage; they do not accelerate this curve.
   return Math.min(BASE_ENERGY_HARD_CAP, Math.max(0, personalTurn));
-}
-
-function expectedEnergyMax(state: MatchState, playerId: string, turnNumber = state.turnNumber): number {
-  const base = baseExpectedEnergyMax(state, playerId, turnNumber);
-  const permanentBonus = Math.max(0, state.energyMaxBonus?.[playerId] ?? 0);
-  return Math.min(energyHardCap(state, playerId), base + permanentBonus);
 }
 
 function repairCurrentTurnEnergy(state: MatchState): boolean {
   const playerId = state.currentPlayerId;
   if (!playerId || state.status !== 'active') return false;
-  const expected = expectedEnergyMax(state, playerId);
   const energy = state.energy[playerId] ?? { current: 0, max: 0 };
-  if (energy.max >= expected) return false;
-  const beforeMax = energy.max;
-  energy.max = expected;
-  // Old rooms created before the energy-growth fix can enter a turn with a stale max.
-  // Only refill the newly unlocked amount when no action has been taken yet.
-  if (!state.turnActionTaken) energy.current = Math.min(expected, Math.max(energy.current + (expected - beforeMax), expected));
+  const expectedCap = energyHardCap(state, playerId);
+  const changed = energy.max !== expectedCap || energy.current > expectedCap;
+  if (!changed) return false;
+  // V58 migration guard: old live rooms may still carry the previous 1/2/3... max.
+  // Open the full storage cap without granting free current ENERGY mid-turn.
+  energy.max = expectedCap;
+  energy.current = Math.min(expectedCap, Math.max(0, energy.current));
   state.energy[playerId] = energy;
   return true;
 }
@@ -4888,11 +4887,15 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
   state.phase = 'main';
   state.turnActionTaken = false;
   state.turnEndsAt = now + TURN_DURATION_MS;
-  const nextEnergy = state.energy[nextPlayer] ?? { current: 0, max: 0 };
-  // Natural ENERGY grows 1, 2, 3 ... up to the base cap of 10. Permanent cap bonuses
-  // (such as QUICK START) are then added on top, so 10 can become 11, 12, and so on.
-  nextEnergy.max = expectedEnergyMax(state, nextPlayer, state.turnNumber);
-  nextEnergy.current = nextEnergy.max;
+  const nextEnergy = state.energy[nextPlayer] ?? { current: 0, max: energyHardCap(state, nextPlayer) };
+  // V58 banking system: the capacity is open from the start and unused ENERGY carries
+  // over. Each personal turn adds +1, +2, +3 ... (natural income caps at +10).
+  // QUICK START / increase_energy_max keeps its original role by raising storage above 10.
+  nextEnergy.max = energyHardCap(state, nextPlayer);
+  const turnIncome = personalTurnEnergyIncome(state, nextPlayer, state.turnNumber);
+  const beforeNaturalIncome = Math.max(0, nextEnergy.current);
+  nextEnergy.current = Math.min(nextEnergy.max, beforeNaturalIncome + turnIncome);
+  const naturalIncomeGained = nextEnergy.current - beforeNaturalIncome;
   const queuedEnergyBonus = Math.max(0, state.nextTurnEnergyBonus?.[nextPlayer] ?? 0);
   if (queuedEnergyBonus > 0) {
     const beforeBonus = nextEnergy.current;
@@ -4925,7 +4928,7 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
     appendVisual(state, { kind: 'draw', vfx: 'turn-draw', ownerId: nextPlayer, label: '턴 시작 드로우' });
   }
   if (reason) appendLog(state, reason, 'system');
-  if (drew && state.status === 'active') appendLog(state, `${nextPlayer.slice(0, 6)}의 턴 시작 · 카드 1장 드로우 · 에너지 ${nextEnergy.current}/${nextEnergy.max}.`, 'system');
+  if (drew && state.status === 'active') appendLog(state, `${nextPlayer.slice(0, 6)}의 턴 시작 · 카드 1장 드로우 · 자연 ENERGY +${naturalIncomeGained} (수급 예정 +${turnIncome}) · ${nextEnergy.current}/${nextEnergy.max}.`, 'system');
   if (state.status !== 'active') state.turnEndsAt = null;
   checkWinner(state);
 }

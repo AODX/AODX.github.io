@@ -316,14 +316,16 @@ export function createBossRaidMatch(
   const state = snapshot.state;
   const priv = snapshot.privateStates[botId];
 
-  // Boss identity: more core, a phase advantage and a small permanent energy head start.
+  // Boss identity: more core, a phase advantage and a small starting ENERGY head start.
+  // V58 no longer fakes that head start by increasing the boss's permanent max: bosses
+  // use the same 10-point banking system as players, while their authored startingEnergy
+  // only changes the ENERGY they begin the raid with.
   state.core[botId] = boss.core;
   state.coreMax = { ...(state.coreMax ?? {}), [playerId]: state.coreMax?.[playerId] ?? 30, [botId]: boss.core };
   state.eclipsePhase = boss.phase;
   state.eclipseLastChangeSource = 'effect';
-  const permanentEnergyBonus = Math.max(1, boss.startingEnergy - 1);
-  state.energyMaxBonus = { ...(state.energyMaxBonus ?? {}), [botId]: permanentEnergyBonus };
-  state.energy[botId] = { current: boss.startingEnergy, max: boss.startingEnergy };
+  state.energyMaxBonus = { ...(state.energyMaxBonus ?? {}), [botId]: Math.max(0, state.energyMaxBonus?.[botId] ?? 0) };
+  state.energy[botId] = { current: Math.min(10, Math.max(0, boss.startingEnergy)), max: 10 };
 
   // Seed the graveyard so late-time bosses can actually satisfy their authored summon rules.
   if (priv) {
