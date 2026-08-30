@@ -8607,7 +8607,7 @@ export default function Page() {
   const [hub, setHub] = useState<HubData | null>(null);
   const [view, setView] = useState<View>('home');
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatUnread, setChatUnread] = useState(false);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const [roomPayload, setRoomPayload] = useState<RoomPayload | null>(null);
   const [error, setError] = useState('');
   const [serverStatus, setServerStatus] = useState<SecureServerStatus>({
@@ -8627,11 +8627,11 @@ export default function Page() {
   const [canRecoverAccounts, setCanRecoverAccounts] = useState(false);
 
   useEffect(() => {
-    if (chatOpen) setChatUnread(false);
+    if (chatOpen) setChatUnreadCount(0);
   }, [chatOpen]);
 
   useEffect(() => {
-    setChatUnread(false);
+    setChatUnreadCount(0);
   }, [roomPayload?.room.id]);
   useEffect(() => {
     if (!session?.user.id || roomPayload?.room.status === 'active') return;
@@ -9018,7 +9018,7 @@ export default function Page() {
         <button className={`v13-server-chip ${serverStatus.secureDuelReady ? 'ready' : 'warning'}`} onClick={() => setView('duel')} title={publicServerStatusMessage(serverStatus)}><span />{serverStatus.secureDuelReady ? '온라인' : '점검 중'}</button>
         <div className="topbar-actions v9-topbar-actions">
           <span className="currency-pill"><GameIcon name="coin" /><small>COIN</small><b>{hub.wallet.coins.toLocaleString()}</b></span>
-          <button className={`chat-toggle ${chatOpen ? 'active' : ''} ${chatUnread ? 'has-unread' : ''}`} aria-label={`${roomChat ? '방 채팅' : '채팅'}${chatUnread ? ' - 새 메시지 있음' : ''}`} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen((value) => !value); }}><GameIcon name="chat" /><span>{roomChat ? '방 채팅' : '채팅'}</span>{chatUnread && <i className="chat-unread-dot" aria-hidden="true" />}</button>
+          <button className={`chat-toggle ${chatOpen ? 'active' : ''} ${chatUnreadCount > 0 ? 'has-unread' : ''}`} aria-label={`${roomChat ? '방 채팅' : '채팅'}${chatUnreadCount > 0 ? ` - 안 읽은 메시지 ${chatUnreadCount}개` : ''}`} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen((value) => !value); }}><GameIcon name="chat" /><span>{roomChat ? '방 채팅' : '채팅'}</span>{chatUnreadCount > 0 && <b className="chat-unread-badge" aria-label={`안 읽은 메시지 ${chatUnreadCount}개`}>{chatUnreadCount > 99 ? '99+' : chatUnreadCount}</b>}</button>
           <button className="profile-chip" onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView('profile'); }}><Avatar id={hub.profile.avatar} size="small" /><i className={`v26-chip-emblem emblem-${hub.profile.profile_emblem ?? 'emblem_default'}`} aria-hidden="true">{emblemGlyph(hub.profile.profile_emblem)}</i><span><NicknameText name={hub.profile.display_name} styleId={hub.profile.nickname_style} /></span></button>
           <button className={`v9-icon-button v22-system-button ${settingsOpen ? 'active' : ''}`} onClick={() => { playUiSound('click'); setChatOpen(false); setSettingsOpen((value) => !value); }} title="게임 설정" aria-label="게임 설정"><GameIcon name="settings" /><span>SYSTEM</span></button>
         </div>
@@ -9030,7 +9030,7 @@ export default function Page() {
       </section>
 
       <nav className="mobile-nav">{NAV_ITEMS.map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView(item.id); }}><i><GameIcon name={item.id} /></i><span>{item.label}</span>{item.id === 'friends' && pendingFriendRequestCount > 0 && <b className="social-request-badge" aria-label={`받은 친구 요청 ${pendingFriendRequestCount}개`}>{pendingFriendRequestCount > 9 ? '9+' : pendingFriendRequestCount}</b>}</button>)}</nav>
-      <ChatDrawer open={chatOpen} roomId={roomChat} onClose={() => setChatOpen(false)} profile={hub.profile} emoteIds={hub.emoteLoadout ?? []} onUnread={() => setChatUnread(true)} />
+      <ChatDrawer open={chatOpen} roomId={roomChat} onClose={() => setChatOpen(false)} profile={hub.profile} emoteIds={hub.emoteLoadout ?? []} onUnread={() => setChatUnreadCount((current) => Math.min(999, current + 1))} />
       {chatOpen && <button className="chat-backdrop" aria-label="채팅 닫기" onClick={() => setChatOpen(false)} />}
       <ControlCenter
         open={settingsOpen}

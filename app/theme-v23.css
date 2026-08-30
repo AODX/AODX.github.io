@@ -1874,37 +1874,46 @@
 }
 
 /* ========================================================================== 
-   V28C CHAT UNREAD INDICATOR
-   Kakao-style unread dot for messages from another player while drawer is closed.
+   V67 CHAT UNREAD COUNTER
+   Shows the number of unread messages from other players while chat is closed.
    ========================================================================== */
 .v23-client .chat-toggle {
   position:relative!important;
   overflow:visible!important;
 }
-.v23-client .chat-toggle .chat-unread-dot {
+.v23-client .chat-toggle .chat-unread-badge {
   position:absolute!important;
-  top:5px!important;
-  right:7px!important;
-  width:10px!important;
-  height:10px!important;
-  min-width:10px!important;
+  top:1px!important;
+  right:2px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-width:18px!important;
+  height:18px!important;
+  padding:0 5px!important;
   border-radius:999px!important;
   border:2px solid #081019!important;
   background:#ff4056!important;
-  box-shadow:0 0 0 1px rgba(255,89,108,.15),0 0 12px rgba(255,51,78,.72)!important;
+  color:#fff!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  line-height:1!important;
+  letter-spacing:-.02em!important;
+  font-variant-numeric:tabular-nums!important;
+  box-shadow:0 0 0 1px rgba(255,89,108,.18),0 0 12px rgba(255,51,78,.65)!important;
   pointer-events:none!important;
   z-index:8!important;
-  animation:v28cUnreadPing 1.65s ease-in-out infinite!important;
+  animation:v67UnreadBadgePulse 1.65s ease-in-out infinite!important;
 }
 .v23-client .chat-toggle.has-unread svg {
-  filter:drop-shadow(0 0 5px rgba(255,71,91,.15));
+  filter:drop-shadow(0 0 5px rgba(255,71,91,.2));
 }
-@keyframes v28cUnreadPing {
-  0%,100% { transform:scale(1); box-shadow:0 0 0 1px rgba(255,89,108,.15),0 0 8px rgba(255,51,78,.55); }
-  50% { transform:scale(1.12); box-shadow:0 0 0 4px rgba(255,64,86,.07),0 0 14px rgba(255,51,78,.78); }
+@keyframes v67UnreadBadgePulse {
+  0%,100% { transform:scale(1); box-shadow:0 0 0 1px rgba(255,89,108,.18),0 0 8px rgba(255,51,78,.5); }
+  50% { transform:scale(1.07); box-shadow:0 0 0 4px rgba(255,64,86,.07),0 0 14px rgba(255,51,78,.75); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .v23-client .chat-toggle .chat-unread-dot { animation:none!important; }
+  .v23-client .chat-toggle .chat-unread-badge { animation:none!important; }
 }
 
 /* ========================================================================== 
