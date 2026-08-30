@@ -4029,6 +4029,7 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
   });
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
+  const [sending, setSending] = useState(false);
   const [emotePickerOpen, setEmotePickerOpen] = useState(false);
   const ownedChatEmotes = useMemo(() => emoteIds.map((emoteId) => V34_BATTLE_EMOTE_BY_ID[emoteId]).filter(Boolean), [emoteIds]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -4079,7 +4080,18 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
         const next = payload.new as ChatMessage;
         if (!roomId && new Date(next.created_at).getTime() < Date.now() - 30 * 60 * 1000) return;
         void ensureChatSkins([next.user_id]);
-        setMessages((current) => [...current.slice(-(CHAT_RENDER_LIMIT - 1)), next]);
+        setMessages((current) => {
+          if (current.some((message) => message.id === next.id)) return current;
+          const nextCreatedAt = new Date(next.created_at).getTime();
+          const withoutMatchingOptimistic = next.user_id === profile.user_id
+            ? current.filter((message) => {
+                if (message.id >= 0 || message.user_id !== next.user_id || message.body !== next.body) return true;
+                const optimisticCreatedAt = new Date(message.created_at).getTime();
+                return Math.abs(nextCreatedAt - optimisticCreatedAt) > 30_000;
+              })
+            : current;
+          return [...withoutMatchingOptimistic.slice(-(CHAT_RENDER_LIMIT - 1)), next];
+        });
         if (next.user_id !== profile.user_id && !openRef.current) onUnreadRef.current?.();
       })
       .subscribe();
@@ -4108,11 +4120,48 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
   async function send(event: FormEvent) {
     event.preventDefault();
     const message = input.trim();
-    if (!message) return;
-    setInput(''); setError('');
+    if (!message || sending) return;
+
+    const optimisticId = -Date.now();
+    const optimisticMessage: ChatMessage = {
+      id: optimisticId,
+      user_id: profile.user_id,
+      display_name: profile.display_name,
+      nickname_style: profile.nickname_style,
+      body: message,
+      created_at: new Date().toISOString(),
+    };
+
+    setSending(true);
+    setInput('');
+    setError('');
+    setMessages((current) => [...current.slice(-(CHAT_RENDER_LIMIT - 1)), optimisticMessage]);
+    window.requestAnimationFrame(() => stickChatToBottom('smooth'));
+
     try {
       await api(roomId ? 'send_room_message' : 'send_global_message', roomId ? { roomId, message } : { message });
-    } catch (reason) { setError(reason instanceof Error ? reason.message : '전송 실패'); }
+
+      // Re-read the latest rows after a successful send. Supabase Realtime can
+      // occasionally delay/self-suppress an INSERT event, so the sender must
+      // not depend on that event to see their own message.
+      const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+      let refreshQuery = supabase.from(table).select('*').order('created_at', { ascending: false }).limit(CHAT_RENDER_LIMIT);
+      if (roomId) refreshQuery = refreshQuery.eq('room_id', roomId);
+      else refreshQuery = refreshQuery.gte('created_at', cutoff);
+      const { data: refreshed } = await refreshQuery;
+      if (refreshed) {
+        const loaded = (refreshed as ChatMessage[]).reverse();
+        setMessages(loaded);
+        void ensureChatSkins(loaded.map((item) => item.user_id));
+        window.requestAnimationFrame(() => stickChatToBottom('auto'));
+      }
+    } catch (reason) {
+      setMessages((current) => current.filter((item) => item.id !== optimisticId));
+      setInput((current) => current ? current : message);
+      setError(reason instanceof Error ? reason.message : '전송 실패');
+    } finally {
+      setSending(false);
+    }
   }
 
   function insertChatEmote(emoteId: string) {
@@ -4132,11 +4181,11 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
         {messages.length === 0 && <div className="empty-state"><span>···</span><p>첫 메시지를 남겨보세요.</p></div>}
         {messages.map((message, messageIndex) => {
           const skin = chatSkins[message.user_id];
-          return <div className={`chat-message v31-social-skin theme-${skin?.profile_theme ?? 'bg_default'} frame-${skin?.profile_frame ?? 'frame_default'} ${message.user_id === profile.user_id ? 'mine' : ''}`} key={message.id}>
+          return <div className={`chat-message v31-social-skin theme-${skin?.profile_theme ?? 'bg_default'} frame-${skin?.profile_frame ?? 'frame_default'} ${message.user_id === profile.user_id ? 'mine' : ''} ${message.id < 0 ? 'sending' : ''}`} key={message.id}>
             {messageIndex >= messages.length - CHAT_ANIMATED_SKIN_LIMIT && <ProfileFrameFX frameId={skin?.profile_frame} />}
             <b><NicknameText name={message.display_name} styleId={message.nickname_style} /></b>
             <div className="chat-rich-body">{renderChatBody(message.body, () => stickChatToBottom('auto'))}</div>
-            <small>{new Date(message.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small>
+            <small>{message.id < 0 ? (sending ? '전송 중…' : '방금 전') : new Date(message.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</small>
           </div>;
         })}
         <div ref={bottomRef} />
@@ -4147,7 +4196,7 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
       </div>}
       {ownedChatEmotes.length > 0 && emotePickerOpen && <div className="chat-emote-picker">{ownedChatEmotes.map((item) => <button type="button" key={item.id} onClick={() => insertChatEmote(item.id)} title={item.name}><img src={item.asset} alt={item.name} /><span>{item.name}</span></button>)}</div>}
       {error && <p className="chat-error">{error}</p>}
-      <form onSubmit={send}><input value={input} onChange={(event: ChangeEvent<HTMLInputElement>) => setInput(event.target.value)} maxLength={180} placeholder={ownedChatEmotes.length > 0 ? '메시지 또는 :이모티콘: 입력' : '메시지 입력'} /><button>전송</button></form>
+      <form onSubmit={send}><input value={input} onChange={(event: ChangeEvent<HTMLInputElement>) => setInput(event.target.value)} maxLength={180} placeholder={ownedChatEmotes.length > 0 ? '메시지 또는 :이모티콘: 입력' : '메시지 입력'} aria-label="채팅 메시지 입력" /><button disabled={sending || !input.trim()}>{sending ? '전송 중' : '전송'}</button></form>
     </aside>
   );
 }
