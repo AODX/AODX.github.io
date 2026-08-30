@@ -2094,7 +2094,7 @@ function GameGuideModal({ onClose }: { onClose: () => void }) {
         <div className="v20-guide-grid">
           <article><b>01 · 승리 조건</b><p>상대 코어 {CORE_MAX}를 0으로 만들면 승리합니다. 덱을 더 이상 뽑을 수 없는 상황도 패배로 처리됩니다.</p></article>
           <article><b>02 · 턴 흐름</b><p>메인 단계에서 소환·주문·함정을 준비하고, 배틀 단계에서 공격합니다. 각 턴은 {TURN_DURATION_SECONDS}초 안에 결정해야 합니다.</p></article>
-          <article><b>03 · 에너지</b><p>기본 보관 한도 10은 처음부터 열려 있습니다. 첫 내 턴 +1, 두 번째 내 턴 +2, 세 번째 내 턴 +3처럼 자연 ENERGY가 들어오며 쓰지 않은 ENERGY는 다음 턴까지 누적됩니다. 자연 수급은 턴당 +10에서 멈추고, 최대치 증가 스펠은 보관 한도를 10보다 높일 수 있습니다.</p></article>
+          <article><b>03 · 에너지</b><p>기본 보관 한도 10은 처음부터 열려 있습니다. 내 턴이 시작될 때마다 남아 있는 ENERGY에 정확히 +1이 더해지고, 쓰지 않은 ENERGY는 다음 내 턴까지 그대로 누적됩니다. 예: 1/10을 안 쓰면 다음 내 턴 2/10, 1/10을 전부 쓰면 다음 내 턴 1/10입니다. 최대치 증가 스펠은 이 +1 규칙은 건드리지 않고 보관 한도만 10보다 높일 수 있습니다.</p></article>
           <article><b>04 · 특수 소환</b><p>균열은 조건과 에너지를, 공명 융합은 지정 소재를, 계승 진화는 조건을 만족한 필드 유닛을 요구합니다. 최종 전투 특성이 2개 이상인 메인덱 유닛도 특수 소환 전용이며, 강한 카드일수록 조건이 더 까다롭습니다.</p></article>
           <article><b>05 · 전투 키워드</b><p><strong>수호</strong>는 공격 우선 대상, <strong>속공</strong>은 소환 턴 공격, <strong>흡수</strong>는 실제 전투 피해 회복, <strong>관통</strong>은 초과 피해를 코어에 전달합니다.</p></article>
           <article><b>06 · 조작 팁</b><p>카드의 <strong>i</strong> 버튼으로 언제든 상세 정보를 볼 수 있습니다. 선택 중 <strong>Esc</strong>를 누르면 카드·공격 대상을 취소합니다.</p></article>
@@ -5375,10 +5375,8 @@ function CoinTossOverlay({ state, profiles, userId, now }: { state: MatchState; 
   );
 }
 
-function clientPersonalTurnEnergyIncome(state: MatchState, playerId: string, turnNumber: number): number {
-  if (!state.firstPlayerId) return Math.min(10, Math.max(1, Math.ceil(turnNumber / 2)));
-  const personalTurn = playerId === state.firstPlayerId ? Math.ceil(turnNumber / 2) : Math.floor(turnNumber / 2);
-  return Math.min(10, Math.max(0, personalTurn));
+function clientPersonalTurnEnergyIncome(_state: MatchState, _playerId: string, _turnNumber: number): number {
+  return 1;
 }
 
 function DuelEnergyMeter({ label, current, max, cap = 10, nextGain, opponent = false, compact = false }: { label: string; current: number; max: number; cap?: number; nextGain?: number; opponent?: boolean; compact?: boolean }) {

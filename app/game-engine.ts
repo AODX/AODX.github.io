@@ -418,7 +418,7 @@ export function initializeMatch(
     core: { [playerA]: CORE_MAX, [playerB]: CORE_MAX },
     coreMax: { [playerA]: CORE_MAX, [playerB]: CORE_MAX },
     energy: {
-      // V58: the 10-point storage cap is open from the beginning. The first player
+      // V59: the 10-point storage cap is open from the beginning. The first player
       // receives the natural +1 income immediately; the second player receives its
       // +1 when their first personal turn begins. Unspent ENERGY is carried forward.
       [playerA]: { current: playerA === first ? 1 : 0, max: BASE_ENERGY_HARD_CAP },
@@ -4855,14 +4855,11 @@ function energyHardCap(state: MatchState, playerId: string): number {
   return BASE_ENERGY_HARD_CAP + permanentBonus;
 }
 
-function personalTurnEnergyIncome(state: MatchState, playerId: string, turnNumber = state.turnNumber): number {
-  if (!state.firstPlayerId) return Math.min(BASE_ENERGY_HARD_CAP, Math.max(1, Math.ceil(turnNumber / 2)));
-  const personalTurn = playerId === state.firstPlayerId
-    ? Math.ceil(turnNumber / 2)
-    : Math.floor(turnNumber / 2);
-  // Natural income grows +1, +2, +3 ... and stops growing at +10.
-  // Permanent max-increase spells only expand storage; they do not accelerate this curve.
-  return Math.min(BASE_ENERGY_HARD_CAP, Math.max(0, personalTurn));
+function personalTurnEnergyIncome(_state: MatchState, _playerId: string, _turnNumber = _state.turnNumber): number {
+  // V59 banking rule: every personal turn adds exactly +1 natural ENERGY.
+  // Unspent ENERGY carries over, so 1/10 -> 2/10 -> 3/10 when the player spends nothing.
+  // Permanent max-increase spells only expand storage above 10; they do not increase this +1 income.
+  return 1;
 }
 
 function repairCurrentTurnEnergy(state: MatchState): boolean {
@@ -4872,7 +4869,7 @@ function repairCurrentTurnEnergy(state: MatchState): boolean {
   const expectedCap = energyHardCap(state, playerId);
   const changed = energy.max !== expectedCap || energy.current > expectedCap;
   if (!changed) return false;
-  // V58 migration guard: old live rooms may still carry the previous 1/2/3... max.
+  // V59 migration guard: old live rooms may still carry an earlier 1/2/3... max.
   // Open the full storage cap without granting free current ENERGY mid-turn.
   energy.max = expectedCap;
   energy.current = Math.min(expectedCap, Math.max(0, energy.current));
@@ -4888,8 +4885,8 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
   state.turnActionTaken = false;
   state.turnEndsAt = now + TURN_DURATION_MS;
   const nextEnergy = state.energy[nextPlayer] ?? { current: 0, max: energyHardCap(state, nextPlayer) };
-  // V58 banking system: the capacity is open from the start and unused ENERGY carries
-  // over. Each personal turn adds +1, +2, +3 ... (natural income caps at +10).
+  // V59 banking system: the capacity is open from the start and unused ENERGY carries over.
+  // Every personal turn adds exactly +1 natural ENERGY, regardless of round number.
   // QUICK START / increase_energy_max keeps its original role by raising storage above 10.
   nextEnergy.max = energyHardCap(state, nextPlayer);
   const turnIncome = personalTurnEnergyIncome(state, nextPlayer, state.turnNumber);
@@ -4928,7 +4925,7 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
     appendVisual(state, { kind: 'draw', vfx: 'turn-draw', ownerId: nextPlayer, label: '턴 시작 드로우' });
   }
   if (reason) appendLog(state, reason, 'system');
-  if (drew && state.status === 'active') appendLog(state, `${nextPlayer.slice(0, 6)}의 턴 시작 · 카드 1장 드로우 · 자연 ENERGY +${naturalIncomeGained} (수급 예정 +${turnIncome}) · ${nextEnergy.current}/${nextEnergy.max}.`, 'system');
+  if (drew && state.status === 'active') appendLog(state, `${nextPlayer.slice(0, 6)}의 턴 시작 · 카드 1장 드로우 · 남은 ENERGY 누적 후 +${naturalIncomeGained} · ${nextEnergy.current}/${nextEnergy.max}.`, 'system');
   if (state.status !== 'active') state.turnEndsAt = null;
   checkWinner(state);
 }
