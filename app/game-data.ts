@@ -6240,11 +6240,11 @@ const V63_DISTINCT_IDENTITY_OVERRIDES: Record<string, V63DistinctIdentityOverrid
     text: '【새벽 계승광】 소환 시 CHOOSE — 1) 왕좌 인계: 카드 2장을 뽑고 아군 전체 ATK +1 / 2) 관위 절단: 모든 적 유닛에 2 피해, 상대 코어에 3 피해 / 3) 새벽 표식: 3/4 「루미나 표기수」 1체를 소환하고 카드 1장을 뽑는다.',
     uniqueTrait: {
       name: '새벽 계승광',
-      description: '승리, 전개, 돌파 중 하나를 즉시 택하는 루미나나이츠의 왕위 계승 전용 특성이다.',
+      description: '빛의 왕위를 물려받은 자만 드러내는, 전장의 흐름을 세 갈래의 결단으로 나누는 루미나나이츠 고유 기질이다.',
       highlights: [
-        { name: '왕좌 인계', description: '전열 전체를 즉시 준비시켜 한번 더 밀어붙이는 돌격 선택지.' },
-        { name: '관위 절단', description: '적 전열과 코어를 동시에 베어 마무리 각을 만드는 결전 선택지.' },
-        { name: '새벽 표식', description: '표기수를 불러 전장을 넓히고 손패까지 보충하는 전개 선택지.' },
+        { name: '계승의 광휘', description: '왕관을 넘겨받은 순간 아군 전체의 기세가 함께 살아나는 지휘자의 면모.' },
+        { name: '결전의 검광', description: '빛의 검으로 적의 중심을 끊어 승부를 짧게 끝내려는 결전 성향.' },
+        { name: '기사단의 봉화', description: '새로운 기사단을 불러 모아 판을 넓히는 계승자의 확장성.' },
       ],
     },
     extraChoices: [
@@ -6257,11 +6257,11 @@ const V63_DISTINCT_IDENTITY_OVERRIDES: Record<string, V63DistinctIdentityOverrid
     text: '【황제 기동도시】 소환 시 CHOOSE — 1) 도킹 시티: 아군 전체 보호막 +3, 2/6 「카이저 포탑」 1체 소환 / 2) 황제 세금: 내 필드 수만큼 상대 코어를 포격(최대 5)하고 상대 ENERGY 1을 탈취 / 3) 비상 재조립: 묘지 2장을 덱으로 되돌리고 1드로우, ENERGY 2 회복.',
     uniqueTrait: {
       name: '황제 기동도시',
-      description: '성벽, 포격, 재정비 중 하나를 선택해 전장 운영 방식 자체를 바꾸는 카이저기어 최종 특성이다.',
+      description: '거대한 기계도시처럼 형태를 바꾸며 싸우는 카이저기어 최상위 지휘 기질이다.',
       highlights: [
-        { name: '도킹 시티', description: '거대한 도시처럼 버티는 포탑형 수비 모드.' },
-        { name: '황제 세금', description: '내 필드 숫자만큼 전장을 압박하는 포격 모드.' },
-        { name: '비상 재조립', description: '잔해를 다시 돌려 에너지와 자원을 회복하는 정비 모드.' },
+        { name: '철성 전개', description: '자신을 요새처럼 펼쳐 전장을 점령하려는 중장형 성향.' },
+        { name: '제국 징발', description: '많아진 병력을 바로 압박으로 바꾸는 황제식 징발 감각.' },
+        { name: '기계 재건', description: '무너진 전장도 부품처럼 다시 조립해 이어 가는 복구 기질.' },
       ],
     },
     extraChoices: [
@@ -6274,11 +6274,11 @@ const V63_DISTINCT_IDENTITY_OVERRIDES: Record<string, V63DistinctIdentityOverrid
     text: '【삼월식 포식변이】 소환 시 CHOOSE — 1) 유전자 약탈: 상대 묘지 3장을 소멸시키고, 내 묘지 수만큼 상대 코어에 피해(최대 4) / 2) 사체 조립: 내 묘지 유닛 1장을 손으로 되돌리고 4/4 「키메라 잔형」 소환 / 3) 그림자 포효: 적 유닛 1장의 강화와 보호막을 초기화하고 상대 코어에 2 피해.',
     uniqueTrait: {
       name: '삼월식 포식변이',
-      description: '먹어 치운 것을 파괴, 복제, 붕괴 중 원하는 형태로 뽑아내는 이클립시온 전용 포식 특성이다.',
+      description: '먹어 치운 흔적을 다른 형태의 위협으로 되돌려 주는 이클립시온의 변이형 포식 기질이다.',
       highlights: [
-        { name: '유전자 약탈', description: '상대 묘지를 먹어 피해로 바꾸는 포식 모드.' },
-        { name: '사체 조립', description: '죽은 자원을 손패와 토큰으로 재가공하는 복원 모드.' },
-        { name: '그림자 포효', description: '적 핵심 유닛의 강화와 보호막을 벗겨 압도감을 꺾는 붕괴 모드.' },
+        { name: '변이 탐식', description: '남의 잔재에서 힘의 재료를 뜯어내는 비윤리적 사냥 습성.' },
+        { name: '시체 공방', description: '버려진 것조차 새 개체로 엮어 내는 기괴한 재조합 본능.' },
+        { name: '공포 울음', description: '강한 존재의 위용을 벗겨 내는 포식자의 위협적인 울음.' },
       ],
     },
     extraChoices: [
@@ -6291,11 +6291,11 @@ const V63_DISTINCT_IDENTITY_OVERRIDES: Record<string, V63DistinctIdentityOverrid
     text: '【달의 뒷무대】 소환 시 CHOOSE — 1) 퇴장 마술: 필드의 모든 유닛을 원래 영역으로 되돌린다 / 2) 가면 교환: 서로의 손패를 통째로 교환한다 / 3) 벨벳 성소: 아군 전체 보호막 +3, 내 코어 3 회복.',
     uniqueTrait: {
       name: '달의 뒷무대',
-      description: '무대를 비우거나, 손패를 바꾸거나, 보호막 성소를 만드는 녹턴 단독 연출 특성이다.',
+      description: '한밤의 연출가처럼 장면 자체를 갈아 치우는 녹턴 계열의 연극적 기질이다.',
       highlights: [
-        { name: '퇴장 마술', description: '무대 위 캐릭터를 전부 퇴장시키는 통째 제어 모드.' },
-        { name: '가면 교환', description: '서로의 손패를 바꿔 게임의 리듬 자체를 비튼다.' },
-        { name: '벨벳 성소', description: '밤의 막으로 아군 전열을 두껍게 감싸는 수비 모드.' },
+        { name: '공연 삭제', description: '불필요한 장면을 통째로 지워 버리는 냉정한 연출 감각.' },
+        { name: '배역 혼선', description: '역할과 손패를 뒤섞어 상대를 당황시키는 사기극의 재능.' },
+        { name: '야상 장막', description: '짙은 밤의 장막 안에서 아군만 안전하게 숨겨 두는 보호 본능.' },
       ],
     },
     extraChoices: [
@@ -6308,11 +6308,11 @@ const V63_DISTINCT_IDENTITY_OVERRIDES: Record<string, V63DistinctIdentityOverrid
     text: '【왕목의 영토확장】 소환 시 CHOOSE — 1) 뿌리 성채: 2/6 「세계근 성벽」 소환, 아군 전체 보호막 +1 / 2) 수액 범람: 아군 전체 DEF +2, 코어 2 회복 / 3) 계절 환류: 묘지 3장을 덱으로 되돌리고 카드 2장을 뽑는다.',
     uniqueTrait: {
       name: '왕목의 영토확장',
-      description: '성채 설치, 생명 범람, 계절 환류 중 하나로 전장을 살아 있는 숲처럼 바꾸는 아보리안 특성이다.',
+      description: '숲의 계절을 전장 위에 그대로 펼쳐 놓는 아보리안의 생장형 기질이다.',
       highlights: [
-        { name: '뿌리 성채', description: '방벽 유닛과 보호막으로 진형을 고정하는 수비 모드.' },
-        { name: '수액 범람', description: '아군 전열을 단단하게 만들고 코어까지 회복하는 유지 모드.' },
-        { name: '계절 환류', description: '묘지를 다시 계절 속으로 흘려보내 손패를 재충전한다.' },
+        { name: '거목 주권', description: '움직이기보다 자리 잡고 번성하는 거목 특유의 안정감.' },
+        { name: '생장 범람', description: '생명력을 주변 전체로 흘려보내는 풍요로운 생장 성향.' },
+        { name: '사계 회귀', description: '끝난 계절도 다시 돌아오게 만드는 자연 순환의 집념.' },
       ],
     },
     extraChoices: [
@@ -6325,11 +6325,11 @@ const V63_DISTINCT_IDENTITY_OVERRIDES: Record<string, V63DistinctIdentityOverrid
     text: '【전광 가속계】 소환 시 CHOOSE — 1) 번개 발진: ENERGY 2 회복, 아군 전체 ATK +1 / 2) 연쇄 낙뢰: 모든 적 유닛에 1 피해, 내 필드 수만큼 상대 코어에 추가 피해(최대 4) / 3) 배터리 절도: 상대 ENERGY 2를 탈취하고 내 ENERGY 2를 회복.',
     uniqueTrait: {
       name: '전광 가속계',
-      description: '재공격, 연쇄 번개, 에너지 약탈 셋 중 하나를 고르는 템페스트 드라이브의 초고속 특성이다.',
+      description: '속도와 전압으로 승부를 내는 템페스트 드라이브의 폭주형 기질이다.',
       highlights: [
-        { name: '번개 발진', description: '준비를 즉시 끝내 전열을 다시 달리게 만드는 가속 모드.' },
-        { name: '연쇄 낙뢰', description: '전열과 코어를 이어 치는 광역 번개 모드.' },
-        { name: '배터리 절도', description: '상대 연료를 빼앗아 내 출력으로 전환하는 강탈 모드.' },
+        { name: '초속 점화', description: '생각보다 먼저 달려 나가는 번개 같은 출발 감각.' },
+        { name: '연쇄 방전', description: '하나의 스파크를 여러 피해로 번지는 연쇄 파괴 성향.' },
+        { name: '전압 강탈', description: '남의 힘을 내 속도로 바꿔 버리는 날카로운 강탈 본능.' },
       ],
     },
     extraChoices: [
@@ -6342,11 +6342,11 @@ const V63_DISTINCT_IDENTITY_OVERRIDES: Record<string, V63DistinctIdentityOverrid
     text: '【사해 포식해류】 소환 시 CHOOSE — 1) 장례 해일: 내 묘지 수만큼 상대 코어에 피해(최대 6), 상대 묘지 1장 소멸 / 2) 시체 정제: 묘지 3장을 덱으로 되돌리고 2드로우, ENERGY 1 회복 / 3) 심연 허물: 이 유닛 +1/+4, 보호막 2.',
     uniqueTrait: {
       name: '사해 포식해류',
-      description: '무덤의 양을 화력, 연료, 외피 중 원하는 형태로 바꾸는 어비스 리퍼 최종 포식 특성이다.',
+      description: '죽음 그 자체를 재료로 써 버리는 어비스 리퍼의 심연 포식 기질이다.',
       highlights: [
-        { name: '장례 해일', description: '쌓인 묘지를 그대로 밀어 넣는 압살 모드.' },
-        { name: '시체 정제', description: '죽은 자원을 다시 연료와 손패로 정제하는 회수 모드.' },
-        { name: '심연 허물', description: '포식한 잔해를 갑피로 둘러 몸을 두껍게 만드는 방어 모드.' },
+        { name: '망자의 조류', description: '죽음이 많을수록 더 거세지는 장송의 파도 같은 공격성.' },
+        { name: '심연 정제', description: '사라진 흔적도 낭비하지 않는 냉혹한 재활용 습관.' },
+        { name: '포식 외피', description: '삼킨 잔해를 외피로 걸쳐 자신을 더 깊게 잠그는 습성.' },
       ],
     },
     extraChoices: [
@@ -6359,11 +6359,11 @@ const V63_DISTINCT_IDENTITY_OVERRIDES: Record<string, V63DistinctIdentityOverrid
     text: '【원군 본능군주】 소환 시 CHOOSE — 1) 수장 소집: 덱에서 비용 4 이하 추적자 유닛 1장을 무작위 전개하고 상대 코어에 1 피해 / 2) 무리 돌격: 추적자 아군 전체 +2/+1, 3/3 「원초 추적수」 1체 소환 / 3) 바위 울음: 아군 전체 보호막 +2, 코어 3 회복.',
     uniqueTrait: {
       name: '원군 본능군주',
-      description: '무리 호출, 종족 강화, 생존 포효 중 하나를 선택하는 프라이멀 가디언의 군집 지배 특성이다.',
+      description: '짐승의 왕처럼 무리를 한 호흡으로 다루는 프라이멀 가디언의 군집 지배 기질이다.',
       highlights: [
-        { name: '수장 소집', description: '덱에서 곧바로 추적자를 끌어내는 무리 호출 모드.' },
-        { name: '무리 돌격', description: '같은 족속만 강하게 밀어 주는 종족 돌격 모드.' },
-        { name: '바위 울음', description: '원시 방패와 회복으로 전장을 버티는 생존 모드.' },
+        { name: '우두머리 호출', description: '부르면 곧바로 달려오는 무리의 신뢰를 지닌 우두머리성.' },
+        { name: '군집 본능', description: '집단이 함께 움직일 때 가장 강해지는 사냥 무리의 본능.' },
+        { name: '대지 포효', description: '대지와 동료를 함께 지켜 내는 야수왕의 보호 본성.' },
       ],
     },
     extraChoices: [
@@ -6376,11 +6376,11 @@ const V63_DISTINCT_IDENTITY_OVERRIDES: Record<string, V63DistinctIdentityOverrid
     text: '【분기점 편집권】 소환 시 CHOOSE — 1) 정지 · ZERO SECOND: 시간을 2턴 고정하고 아군 전체 보호막 +2 / 2) 가속 · CROSSFADE: 시간을 2단계 전진시키고 카드 1장 드로우 / 3) 수정 · RETCON: 시간을 1단계 되감고 묘지 2장을 덱으로 되돌린 뒤 2드로우.',
     uniqueTrait: {
       name: '분기점 편집권',
-      description: '시간을 멈추고, 넘기고, 다시 쓰는 세 가지 편집권을 독점하는 크로노리움 대표 특성이다.',
+      description: '전장의 시간선을 직접 편집한다는 발상에서 태어난 크로노리움의 초월적 기질이다.',
       highlights: [
-        { name: 'ZERO SECOND', description: '지금 순간을 얼려 버리는 정지 편집.' },
-        { name: 'CROSSFADE', description: '미래 장면으로 한 번에 건너뛰는 가속 편집.' },
-        { name: 'RETCON', description: '잘못된 장면을 되감아 손패까지 다시 만드는 수정 편집.' },
+        { name: '정지 프레임', description: '아무도 다음 장면으로 넘어가지 못하게 붙잡는 정지감.' },
+        { name: '도약 컷', description: '필요한 미래 장면으로 성급히 뛰어드는 조급한 편집 감각.' },
+        { name: '재서술 권한', description: '마음에 들지 않는 결과를 다시 써 버리는 작가적 오만함.' },
       ],
     },
     extraChoices: [
@@ -6393,11 +6393,11 @@ const V63_DISTINCT_IDENTITY_OVERRIDES: Record<string, V63DistinctIdentityOverrid
     text: '【금단규약 재편집】 소환 시 CHOOSE — 1) 재작성 · REWRITE: 손패를 새로 섞어 뽑고 추가로 1장 더 뽑는다 / 2) 감찰 · AUDIT: 상대 손패를 확인하고 카드 1장을 버리게 한다 / 3) 조항 교환 · CLAUSE EXCHANGE: 서로의 손패를 통째로 교환한다.',
     uniqueTrait: {
       name: '금단규약 재편집',
-      description: '내 패를 갈아엎거나, 상대 패를 들여다보거나, 아예 손패를 교환하는 아르카나 프로토콜 전용 규약 특성이다.',
+      description: '규칙과 손패를 하나의 문서처럼 다루는 아르카나 프로토콜의 통제형 기질이다.',
       highlights: [
-        { name: 'REWRITE', description: '손패 전체를 다시 써서 새 문장을 만드는 재편 모드.' },
-        { name: 'AUDIT', description: '상대 패를 감찰하고 한 장을 즉시 압수하는 통제 모드.' },
-        { name: 'CLAUSE EXCHANGE', description: '규약 조항처럼 손패를 통째로 바꿔 판을 뒤집는다.' },
+        { name: '개정 본능', description: '마음에 들지 않는 흐름을 통째로 다시 적는 재서술 성향.' },
+        { name: '감찰 시선', description: '상대가 숨기고 있던 선택지까지 관리하려 드는 감시 기질.' },
+        { name: '조항 전도', description: '협약 하나로 양측의 입장을 뒤바꾸는 냉정한 계약 감각.' },
       ],
     },
     extraChoices: [
@@ -6410,11 +6410,11 @@ const V63_DISTINCT_IDENTITY_OVERRIDES: Record<string, V63DistinctIdentityOverrid
     text: '【포식장갑 진화체】 소환 시 CHOOSE — 1) 파쇄 돌진: 모든 적 유닛에 2 피해, 상대 코어에 2 피해 / 2) 포지 번식: 4/4 「포지 비스트 오메가」 1체를 소환하고 아군 전체 보호막 +2 / 3) 흡수 장갑: 이 유닛 +3/+3, 코어 2 회복.',
     uniqueTrait: {
       name: '포식장갑 진화체',
-      description: '철갑 돌파, 야수 생산, 자가 장갑화 셋 중 하나를 택하는 비스트포지의 살아 있는 병기 특성이다.',
+      description: '살아 있는 철갑 병기라는 존재감을 그대로 보여 주는 비스트포지의 포식장갑 기질이다.',
       highlights: [
-        { name: '파쇄 돌진', description: '철갑의 무게로 적 전열과 코어를 함께 짓이긴다.' },
-        { name: '포지 번식', description: '추가 병기를 생산해 필드를 기계 야수로 채운다.' },
-        { name: '흡수 장갑', description: '먹어 치운 합금을 자기 외피로 바꾸는 자가 강화 모드.' },
+        { name: '충각 본능', description: '생각보다 먼저 들이받아 형세를 무너뜨리는 충각성.' },
+        { name: '금속 번식', description: '전장을 자기 종족으로 증식시키려는 공장형 본능.' },
+        { name: '생체 도금', description: '상처조차 장갑 재료로 바꿔 버리는 생체금속 감각.' },
       ],
     },
     extraChoices: [
@@ -6427,11 +6427,11 @@ const V63_DISTINCT_IDENTITY_OVERRIDES: Record<string, V63DistinctIdentityOverrid
     text: '【무한 공연권】 소환 시 CHOOSE — 1) 무대반전: 전장 모든 유닛의 현재 공격력과 체력을 뒤바꾼다 / 2) 의상 교환: 서로의 손패를 통째로 교환한다 / 3) 종막 리허설: 필드의 모든 유닛을 되돌리고 카드 1장을 뽑는다.',
     uniqueTrait: {
       name: '무한 공연권',
-      description: '공연 자체의 규칙을 바꾸는 팬텀 카니발의 극장장 권한 특성이다.',
+      description: '공연의 룰조차 연출의 일부로 바꾸는 팬텀 카니발 극장장의 변칙 기질이다.',
       highlights: [
-        { name: '무대반전', description: '모든 유닛의 공격과 체력을 뒤집어 장면을 전복한다.' },
-        { name: '의상 교환', description: '각본 대신 손패를 통째로 바꿔 역할을 섞는다.' },
-        { name: '종막 리허설', description: '배우를 모두 퇴장시키고 다음 막을 준비한다.' },
+        { name: '질서 반전', description: '정해진 상하관계를 한순간에 뒤집는 반전 연출 본능.' },
+        { name: '배역 미궁', description: '누가 주역인지조차 헷갈리게 만드는 환상극 특유의 장난기.' },
+        { name: '종막 순환', description: '끝과 시작을 같은 무대에서 동시에 다루는 연출 감각.' },
       ],
     },
     extraChoices: [
@@ -6444,11 +6444,11 @@ const V63_DISTINCT_IDENTITY_OVERRIDES: Record<string, V63DistinctIdentityOverrid
     text: '【성도 편대지휘권】 소환 시 CHOOSE — 1) 드론 스크린: 2/2 「오리온 드론」 2체를 소환하고 아군 전체 보호막 +1 / 2) 궤도 포화: 모든 적 유닛에 3 피해, 상대 코어에 2 피해 / 3) 워프 항로: 카드 2장 드로우, ENERGY 2 회복.',
     uniqueTrait: {
       name: '성도 편대지휘권',
-      description: '함재기 전개, 포격 지휘, 워프 보급 셋 중 하나를 호출하는 아스트랄 아르마다 대표 사령권이다.',
+      description: '우주 함대의 사령권을 쥔 존재만 보여 줄 수 있는 아스트랄 아르마다의 함대 기질이다.',
       highlights: [
-        { name: '드론 스크린', description: '두 대의 드론으로 전열을 즉시 두껍게 만드는 방진 모드.' },
-        { name: '궤도 포화', description: '함대의 화력을 일점에 모아 적 전열과 코어를 동시에 포격한다.' },
-        { name: '워프 항로', description: '보급선을 열어 손패와 에너지를 빠르게 확보한다.' },
+        { name: '궤도 장막', description: '작은 기체를 겹겹이 띄워 진형을 감싸는 함대식 방호 감각.' },
+        { name: '함대 포화', description: '한 좌표를 아예 지워 버릴 듯 쏟아붓는 함대 포격 성향.' },
+        { name: '성도 항로', description: '교전 중에도 보급선을 잇는 침착한 항로 운용 능력.' },
       ],
     },
     extraChoices: [
@@ -6460,66 +6460,66 @@ const V63_DISTINCT_IDENTITY_OVERRIDES: Record<string, V63DistinctIdentityOverrid
   v41_premium_dawn_lord: {
     text: '【첫빛의 윤회】 등장 시 시간을 여명으로 되돌린다. 카드 1장 드로우 / ENERGY 최대치 +1 / 코어 6 회복 / 묘지 유닛 1장 회수. 【여명 재개】 여명 진입 시 최고 비용 유닛 1체를 체력 60%로 부활시키고, 아군 전체 체력 3 회복, 전열 전체 준비, 카드 1장 드로우.',
     uniqueTrait: {
-      description: '한 번 무너진 판을 여명으로 되감아 다시 시작하게 만드는 프리미엄 복구형 고유 특성이다.',
+      description: '끝났다고 여겨진 흐름조차 새벽처럼 다시 열어 버리는 프리미엄 부활 기질이다.',
       highlights: [
-        { name: '패배 삭제', description: '코어, 패, ENERGY, 묘지를 한 번에 복구해 역전 기반을 만든다.' },
-        { name: '여명 재개', description: '여명 진입 때마다 최고 비용 유닛을 다시 세워 재전개를 강요한다.' },
-        { name: '일출 행진', description: '회복과 전열 재준비가 함께 일어나 다시 공격 턴을 연다.' },
+        { name: '역전의 새벽', description: '패색이 짙을수록 오히려 더 강하게 다시 출발하는 역전의 성향.' },
+        { name: '부흥의 심장', description: '전열의 핵심을 가장 먼저 다시 일으키는 새벽의 집요함.' },
+        { name: '태양 행렬', description: '쓰러졌다가도 다시 전진하게 만드는 부흥의 리듬.' },
       ],
     },
   },
   v41_premium_zenith_king: {
     text: '【천정 왕권】 등장 시 시간을 정점으로 설정하고 2턴 동안 고정한다. 아군 전체 +2/+2 후 즉시 공격 준비. 【정점 칙령】 정점 진입 시 아군 전체를 다시 준비시키고, 상대 코어에 5 피해, 상대 ENERGY 1 탈취, 4/4 「천정 근위」 1체를 소환한다.',
     uniqueTrait: {
-      description: '정점이라는 단 한 구간을 독점해 돌격 흐름을 계속 반복시키는 프리미엄 속공형 고유 특성이다.',
+      description: '가장 뜨거운 시간대를 자신만의 왕국으로 점유해 버리는 프리미엄 정점 지배 기질이다.',
       highlights: [
-        { name: '시간 독점', description: '정점을 2턴 잠가 가장 강한 전투 구간을 혼자 사용한다.' },
-        { name: '정점 칙령', description: '코어 압박, ENERGY 탈취, 재준비, 토큰 전개가 한 번에 이어진다.' },
-        { name: '천정 근위', description: '매번 근위를 덧세워 압박이 자연스럽게 불어나도록 만든다.' },
+        { name: '정상 독점', description: '가장 유리한 순간을 길게 붙잡고 놓지 않는 왕의 독선.' },
+        { name: '군주의 박동', description: '명령 하나로 전장의 흐름을 즉시 바꾸는 절대 군주의 위압감.' },
+        { name: '왕실 팽창', description: '왕을 중심으로 세력이 점점 두터워지는 정점 왕실의 상징.' },
       ],
     },
   },
   v44_premium_twilight_knight: {
     text: '【경계의 맹세】 등장 시 시간을 황혼으로 설정하고 카드 1장을 뽑으며 자신에게 보호막 3을 부여한다. 【경계 심판】 황혼 진입 시 코어 격차를 최대 5까지 보정하고, 아군 전체 보호막 +2, 상대 코어 2 흡수, 현재 ATK+DEF가 9 이하인 가장 약한 적 1체를 붕괴시킨다.',
     uniqueTrait: {
-      description: '뒤처진 쪽을 끌어올리고 약한 틈을 베어 균형 자체를 자신 쪽으로 기울게 하는 프리미엄 황혼 특성이다.',
+      description: '해가 기우는 찰나의 균형을 읽고 자신의 편으로 무게추를 옮기는 프리미엄 황혼 기질이다.',
       highlights: [
-        { name: '균형 재단', description: '코어 격차를 직접 줄여 열세 게임도 강제로 중반전으로 돌린다.' },
-        { name: '저녁별 방진', description: '황혼에 들어올 때마다 전열 전체에 보호막을 재배치한다.' },
-        { name: '박명 결투', description: '기세가 꺾인 적 한 장을 정확히 붕괴시켜 판을 정리한다.' },
+        { name: '황혼 저울', description: '불리함을 방치하지 않고 기준선 자체를 바꾸려는 성향.' },
+        { name: '경계 방진', description: '완전히 어두워지기 전, 마지막 빛으로 진형을 정돈하는 습관.' },
+        { name: '박명의 냉정', description: '약해진 틈을 결코 놓치지 않는 결투자의 냉정함.' },
       ],
     },
   },
   v41_premium_midnight_silence: {
     text: '【절대 무음령】 시간을 심야로 설정하고 2턴 동안 고정한다. 모든 적 캐릭터를 1턴 동안 동결시키고, 상대 손패의 최고 비용 카드 1장을 버리게 한다. 그 후 상대 묘지 2장을 소멸시키고 카드 1장을 드로우한다.',
     uniqueTrait: {
-      description: '필드, 손패, 묘지까지 한 번에 잠가 상대 선택지를 말 그대로 침묵시키는 프리미엄 봉쇄 주문이다.',
+      description: '상대의 움직임 자체를 입 다물게 만드는 프리미엄 심야 봉쇄 기질이다.',
       highlights: [
-        { name: '심야 봉인', description: '심야를 2턴 잠가 상대가 시간을 이용한 반격을 하기 어렵게 만든다.' },
-        { name: '절대 무음', description: '적 전열 전체를 동결시켜 공격과 수비 템포를 동시에 묶는다.' },
-        { name: '침묵의 대가', description: '최고 비용 손패 압수 + 묘지 소멸 + 1드로우까지 이어지는 자원 봉쇄 주문이다.' },
+        { name: '무음 성역', description: '가장 깊은 밤을 길게 늘여 모두를 숨죽이게 만드는 정적.' },
+        { name: '정적 지배', description: '전장 전체의 소리를 지워 상대 판단까지 흔들어 버리는 성향.' },
+        { name: '침묵 과금', description: '상대가 내지 못한 말과 선택지가 결국 손실로 돌아오게 만드는 냉혹함.' },
       ],
     },
   },
   v41_premium_eclipse_conductor: {
     text: '【흑광 대지휘】 등장 시 시간을 개기일식으로 설정하고 2턴 동안 고정한다. 가장 강한 적 1체를 리콜하고, 상대 묘지 1장을 소멸시키며, 상대 ENERGY 1을 흡수한다. 【일식 합주】 개기일식 진입 시 내 묘지 최고 비용 유닛 1체를 체력 80%로 부활시키고, 가장 강한 적 1체의 강화와 보호막을 초기화하며, 상대 코어에 4 피해를 주고, 4/4 「흑광 악장」 1체를 소환한다.',
     uniqueTrait: {
-      description: '적의 가장 중요한 박자를 끊고, 아군의 가장 무거운 선율을 다시 세우는 프리미엄 개기일식 지휘 특성이다.',
+      description: '빛이 꺼진 무대에서 지휘봉 하나로 전장의 박자를 다시 짜는 프리미엄 일식 지휘 기질이다.',
       highlights: [
-        { name: '리듬 단절', description: '가장 강한 적을 먼저 치워 상대 템포의 중심을 끊어 낸다.' },
-        { name: '일식 합주', description: '부활, 초기화, 코어 압박, 토큰 전개가 같은 박자에 묶여 터진다.' },
-        { name: '흑광 악장', description: '부활 이후 바로 빈 전열을 채워 압박 흐름을 이어 준다.' },
+        { name: '암전 지휘', description: '상대의 핵심 박자를 끊어 공연 전체를 흔드는 지휘자적 감각.' },
+        { name: '흑광 합주', description: '어둠 속 여러 음을 한 번에 터뜨리는 대편성 지휘 성향.' },
+        { name: '서곡 증식', description: '비어 있는 순간조차 새로운 악장으로 이어 붙이는 집요함.' },
       ],
     },
   },
   v60_premium_time_devourer: {
     text: '【시간 포식 강림】 ENERGY 10만 지불하면 추가 조건 없이 소환할 수 있다. 【절대 등장】 적 필드 유닛과 세트 함정을 모두 제거하고, 내 코어 10 회복 / 3드로우 / ENERGY 3 회복 / 보호막 3 획득. 【상시 포식】 모든 시간대에서 항상 +5/+5. 【시대별 섭식】 여명=코어 4 회복 / 정점=상대 ENERGY 2 탈취 / 황혼=상대 코어 2 흡수 / 심야=상대 묘지 2장 소멸 / 개기일식=상대 코어 4 피해.',
     uniqueTrait: {
-      description: '시간대마다 다른 자원을 먹어 판을 장기적으로 잠식하는 절대 추격 프리미엄 특성이다.',
+      description: '시간 그 자체를 먹이로 삼아 끝없이 몸집을 키우는 절대 프리미엄 포식 기질이다.',
       highlights: [
-        { name: '무조건 강림', description: 'ENERGY 10만 있으면 별도 의식 없이 바로 내려온다.' },
-        { name: '절대 등장', description: '나오는 즉시 적 필드와 함정을 지우고 대량의 코어·손패·ENERGY를 챙긴다.' },
-        { name: '시간식단', description: '여명 회복, 정점 ENERGY 탈취, 황혼 코어 흡수, 심야 묘지 포식, 일식 종말 피해를 반복한다.' },
+        { name: '포식 충동', description: '기회만 보이면 망설임 없이 모습을 드러내는 절대 포식자의 자신감.' },
+        { name: '재난 현현', description: '등장 자체가 하나의 재난처럼 느껴지는 압도적 현현.' },
+        { name: '오시 식성', description: '각 시간대를 전부 다른 맛으로 소비하는 괴물다운 식성.' },
       ],
     },
   },
