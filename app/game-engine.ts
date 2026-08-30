@@ -8,6 +8,7 @@ import {
   FusionMaterial,
   SeriesId,
   TrapTrigger,
+  UniqueCombatTraitId,
   isUnitCard,
   randomId,
   resolvedEclipsePhaseModifiers,
@@ -67,6 +68,10 @@ export interface UnitState {
   eclipseModifierVersion?: 2;
   /** Player-facing temporal state used by the board UI. */
   eclipseResonance?: 'resonant' | 'neutral' | 'strained';
+  /** v66 bespoke combat mechanics: generic per-turn latch and short-lived target memory. */
+  combatTraitUsedTurn?: number;
+  combatTraitAuxTurn?: number;
+  combatTraitTargetIndex?: number;
 }
 
 export interface PublicSecret {
@@ -3665,6 +3670,576 @@ function makeUnit(
   return unit;
 }
 
+
+function uniqueCombatTraitId(card: CardDefinition | undefined): UniqueCombatTraitId | undefined {
+  return card?.uniqueTrait?.mode === 'combat' ? card.uniqueTrait.combatId : undefined;
+}
+
+function uniqueCombatReady(unit: UnitState, state: MatchState): boolean {
+  return unit.combatTraitUsedTurn !== state.turnNumber;
+}
+
+function markUniqueCombatUsed(unit: UnitState, state: MatchState): void {
+  unit.combatTraitUsedTurn = state.turnNumber;
+}
+
+function findUniqueCombatUnit(
+  state: MatchState,
+  playerId: string,
+  combatId: UniqueCombatTraitId,
+): { unit: UnitState; index: number; card: CardDefinition } | undefined {
+  for (let index = 0; index < state.boards[playerId].units.length; index += 1) {
+    const unit = state.boards[playerId].units[index];
+    if (!unit || unit.health <= 0) continue;
+    const card = CARD_BY_ID[unit.cardId];
+    if (card && uniqueCombatTraitId(card) === combatId) return { unit, index, card };
+  }
+  return undefined;
+}
+
+function appendUniqueCombatVisual(
+  state: MatchState,
+  card: CardDefinition | undefined,
+  ownerId: string,
+  sourceZone: number,
+  label: string,
+  detail: string,
+  targetOwnerId?: string,
+  targetZone?: number,
+): void {
+  appendLog(state, `【전용 전투 특성 · ${label}】 ${detail}`, 'special');
+  appendVisual(state, {
+    kind: 'special',
+    vfx: 'unique-combat-trait',
+    cardId: card?.id,
+    ownerId,
+    targetOwnerId: targetOwnerId ?? ownerId,
+    sourceZone,
+    targetZone,
+    label,
+    detail,
+  });
+}
+
+function buffUnitPermanent(unit: UnitState, attack: number, health: number): void {
+  if (attack) unit.attack = Math.max(0, unit.attack + attack);
+  if (health) {
+    unit.maxHealth = Math.max(1, unit.maxHealth + health);
+    unit.health = Math.max(1, unit.health + health);
+  }
+}
+
+function weakestOtherAlly(state: MatchState, playerId: string, sourceIndex: number): { unit: UnitState; index: number } | undefined {
+  return state.boards[playerId].units
+    .map((unit, index) => ({ unit, index }))
+    .filter((entry): entry is { unit: UnitState; index: number } => Boolean(entry.unit) && entry.index !== sourceIndex && entry.unit.health > 0)
+    .sort((a, b) => a.unit.attack - b.unit.attack || a.unit.health - b.unit.health || a.index - b.index)[0];
+}
+
+function strongestOtherAlly(state: MatchState, playerId: string, sourceIndex: number): { unit: UnitState; index: number } | undefined {
+  return state.boards[playerId].units
+    .map((unit, index) => ({ unit, index }))
+    .filter((entry): entry is { unit: UnitState; index: number } => Boolean(entry.unit) && entry.index !== sourceIndex && entry.unit.health > 0)
+    .sort((a, b) => b.unit.attack - a.unit.attack || b.unit.health - a.unit.health || a.index - b.index)[0];
+}
+
+function discardHighestCostEnemyCard(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  actorId: string,
+  sourceCard: CardDefinition | undefined,
+  sourceZone: number,
+): boolean {
+  const opponentId = otherPlayer(state, actorId);
+  const opponentPrivate = privateStates[opponentId];
+  if (!opponentPrivate?.hand.length) return false;
+  let bestIndex = 0;
+  let bestCost = -1;
+  for (let index = 0; index < opponentPrivate.hand.length; index += 1) {
+    const card = CARD_BY_ID[opponentPrivate.hand[index].cardId];
+    const cost = card?.cost ?? 0;
+    if (cost > bestCost) {
+      bestCost = cost;
+      bestIndex = index;
+    }
+  }
+  const [removed] = opponentPrivate.hand.splice(bestIndex, 1);
+  if (!removed) return false;
+  state.graveyards[opponentId].push(removed.cardId);
+  state.handCounts[opponentId] = opponentPrivate.hand.length;
+  appendUniqueCombatVisual(
+    state,
+    sourceCard,
+    actorId,
+    sourceZone,
+    '규약 압수',
+    `상대 최고 비용 손패 「${CARD_BY_ID[removed.cardId]?.name ?? '카드'}」을(를) 묘지로 보냈습니다.`,
+    opponentId,
+  );
+  return true;
+}
+
+function banishKilledCardFromGrave(state: MatchState, ownerId: string, cardId: string | undefined): boolean {
+  if (!cardId) return false;
+  const grave = state.graveyards[ownerId] ?? [];
+  for (let index = grave.length - 1; index >= 0; index -= 1) {
+    if (grave[index] !== cardId) continue;
+    grave.splice(index, 1);
+    return true;
+  }
+  return false;
+}
+
+function applyUniqueCombatTurnStart(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  playerId: string,
+): void {
+  for (let index = 0; index < state.boards[playerId].units.length; index += 1) {
+    const unit = state.boards[playerId].units[index];
+    if (!unit || unit.health <= 0) continue;
+    const card = CARD_BY_ID[unit.cardId];
+    switch (uniqueCombatTraitId(card)) {
+      case 'kaiser_auto_armor': {
+        const allyCount = state.boards[playerId].units.filter(Boolean).length - 1;
+        const amount = allyCount >= 2 ? 3 : 2;
+        unit.shield += amount;
+        appendUniqueCombatVisual(state, card, playerId, index, '오토 포트리스', `전열 규모를 읽어 보호막 ${amount}을 재전개했습니다.`);
+        break;
+      }
+      case 'extra_arborian_worldroot_pulse': {
+        let healed = 0;
+        for (const ally of state.boards[playerId].units) {
+          if (!ally || ally.health <= 0) continue;
+          const before = ally.health;
+          ally.health = Math.min(ally.maxHealth, ally.health + 1);
+          healed += ally.health - before;
+        }
+        unit.maxHealth += 1;
+        unit.health += 1;
+        appendUniqueCombatVisual(state, card, playerId, index, 'WORLDROOT PULSE', `아군 전체를 총 ${healed} 회복하고 자신은 최대 체력 +1 / 체력 +1.`);
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  void privateStates;
+}
+
+function applyUniqueCombatAttackStart(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  playerId: string,
+  attackerIndex: number,
+  target: { kind: 'unit'; unitIndex: number } | { kind: 'core' },
+): number {
+  const opponentId = otherPlayer(state, playerId);
+  const attacker = state.boards[playerId].units[attackerIndex];
+  if (!attacker) return 0;
+  const card = CARD_BY_ID[attacker.cardId];
+  const combatId = uniqueCombatTraitId(card);
+  let bonusDamage = 0;
+
+  if (combatId === 'primal_alpha_hunt' && target.kind === 'unit') {
+    const defender = state.boards[opponentId].units[target.unitIndex];
+    if (defender && defender.attack >= attacker.attack) {
+      bonusDamage += 3;
+      attacker.combatTraitAuxTurn = state.turnNumber;
+      attacker.combatTraitTargetIndex = target.unitIndex;
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, '강자 표식', `자신 이상의 ATK를 가진 적을 사냥합니다. 이번 공격 피해 +3.`, opponentId, target.unitIndex);
+    }
+  }
+
+  if (combatId === 'chronorium_battle_rewind' && uniqueCombatReady(attacker, state)) {
+    markUniqueCombatUsed(attacker, state);
+    rewindEclipsePhase(state, privateStates, 1, playerId);
+    bonusDamage += 2;
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'BATTLE RETAKE', '공격 순간을 실제 이전 시간대로 되감았습니다. 이번 공격 피해 +2.');
+  }
+
+  if (combatId === 'astral_formation_cover' && uniqueCombatReady(attacker, state)) {
+    markUniqueCombatUsed(attacker, state);
+    let allies = 0;
+    state.boards[playerId].units.forEach((ally, index) => {
+      if (!ally || index === attackerIndex || ally.health <= 0) return;
+      ally.shield += 1;
+      allies += 1;
+    });
+    if (allies >= 2) bonusDamage += 2;
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'FORMATION LINK', `다른 아군 ${allies}체에게 보호막 +1.${allies >= 2 ? ' 편대 완성으로 이번 공격 피해 +2.' : ''}`);
+  }
+
+  if (combatId === 'extra_eclipsion_armor_devour' && target.kind === 'unit' && uniqueCombatReady(attacker, state)) {
+    const defender = state.boards[opponentId].units[target.unitIndex];
+    if (defender) {
+      const stolen = Math.min(4, Math.max(0, defender.shield));
+      if (stolen > 0) {
+        defender.shield -= stolen;
+        attacker.shield += stolen;
+        markUniqueCombatUsed(attacker, state);
+        appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'SHELL DEVOUR', `대상 보호막 ${stolen}을 뜯어 자신의 보호막으로 흡수했습니다.`, opponentId, target.unitIndex);
+      }
+    }
+  }
+
+  if (combatId === 'extra_primal_royal_pack' && uniqueCombatReady(attacker, state)) {
+    const zone = summonSeriesToken(state, playerId, 2, 2, '왕수의 새끼', 'primal-royal-pack');
+    if (zone >= 0) {
+      markUniqueCombatUsed(attacker, state);
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'ROYAL PACK', '공격 개시와 동시에 2/2 「왕수의 새끼」 1체가 사냥에 합류했습니다.', playerId, zone);
+    }
+  }
+
+  if (combatId === 'premium_twilight_dual_stance' && uniqueCombatReady(attacker, state)) {
+    markUniqueCombatUsed(attacker, state);
+    const myCore = state.core[playerId] ?? 0;
+    const enemyCore = state.core[opponentId] ?? 0;
+    if (myCore < enemyCore) {
+      bonusDamage += 3;
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, '박명 · 공격면', '내 코어가 더 낮아 이번 공격 피해 +3.');
+    } else if (myCore > enemyCore) {
+      attacker.shield += 3;
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, '박명 · 방어면', '내 코어가 더 높아 공격 전에 보호막 3을 전개했습니다.');
+    } else {
+      const drew = drawCards(state, privateStates[playerId], playerId, 1);
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, '박명 · 균형면', drew ? '코어가 같아 카드 1장을 뽑았습니다.' : '코어가 같지만 덱에 카드가 없어 드로우하지 못했습니다.');
+    }
+  }
+
+  return bonusDamage;
+}
+
+type UniqueCombatDamageAdjustment = {
+  attackerDamage: number;
+  defenderDamage: number;
+};
+
+function adjustUniqueCombatDamage(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  playerId: string,
+  attackerIndex: number,
+  targetIndex: number,
+  attackerDamage: number,
+  defenderDamage: number,
+): UniqueCombatDamageAdjustment {
+  const opponentId = otherPlayer(state, playerId);
+  const attacker = state.boards[playerId].units[attackerIndex];
+  const defender = state.boards[opponentId].units[targetIndex];
+  if (!attacker || !defender) return { attackerDamage, defenderDamage };
+  const attackerCard = CARD_BY_ID[attacker.cardId];
+  const defenderCard = CARD_BY_ID[defender.cardId];
+  const attackerCombat = uniqueCombatTraitId(attackerCard);
+  const defenderCombat = uniqueCombatTraitId(defenderCard);
+
+  if (defenderCombat === 'nocturne_moon_evasion' && uniqueCombatReady(defender, state)) {
+    markUniqueCombatUsed(defender, state);
+    attackerDamage = Math.max(0, attackerDamage - 3);
+    defenderDamage += 2;
+    appendUniqueCombatVisual(state, defenderCard, opponentId, targetIndex, '잔상 바꿔치기', '첫 피격을 그림자로 흘렸습니다. 받는 공격 피해 -3 / 반격 피해 +2.', playerId, attackerIndex);
+  }
+
+  if (attackerCombat === 'premium_eclipse_silent_beat' && uniqueCombatReady(attacker, state)) {
+    markUniqueCombatUsed(attacker, state);
+    attacker.combatTraitAuxTurn = state.turnNumber;
+    attacker.combatTraitTargetIndex = targetIndex;
+    defenderDamage = 0;
+    appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, 'SILENT BEAT', '상대의 반격 박자를 지워 이번 전투의 반격 피해를 0으로 만들었습니다.', opponentId, targetIndex);
+  }
+
+  if (attackerCombat === 'extra_nocturne_counter_mirror' && uniqueCombatReady(attacker, state)) {
+    markUniqueCombatUsed(attacker, state);
+    const reflected = Math.ceil(Math.max(0, defenderDamage) / 2);
+    defenderDamage = 0;
+    if (reflected > 0) {
+      const dealt = damageCore(state, opponentId, reflected);
+      statsFor(state, playerId).coreDamage += dealt;
+      appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, 'COUNTER MIRROR', `상대 반격을 지우고 그 힘의 절반을 반사해 상대 코어에 ${dealt} 피해.`, opponentId, targetIndex);
+    }
+  }
+
+  if (attackerCombat === 'extra_tempest_chain_lightning' && uniqueCombatReady(attacker, state)) {
+    const candidate = state.boards[opponentId].units
+      .map((unit, index) => ({ unit, index }))
+      .filter((entry): entry is { unit: UnitState; index: number } => Boolean(entry.unit) && entry.index !== targetIndex && entry.unit.health > 0)
+      .sort((a, b) => a.unit.health - b.unit.health || a.unit.attack - b.unit.attack || a.index - b.index)[0];
+    if (candidate) {
+      markUniqueCombatUsed(attacker, state);
+      const report = damageUnit(state, opponentId, candidate.index, 2);
+      appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, 'CHAIN AFTERBURN', `잔류 번개가 다른 적에게 튀어 보호막 ${report.absorbed} / HP ${report.healthDamage} 피해.`, opponentId, candidate.index);
+    }
+  }
+
+  void privateStates;
+  return { attackerDamage, defenderDamage };
+}
+
+function applyUniqueCombatLethalProtections(
+  state: MatchState,
+  playerId: string,
+  opponentId: string,
+): void {
+  for (const ownerId of [playerId, opponentId]) {
+    // Grand Fortress Extra: self-only emergency bulkhead.
+    for (let index = 0; index < state.boards[ownerId].units.length; index += 1) {
+      const unit = state.boards[ownerId].units[index];
+      if (!unit || unit.health > 0) continue;
+      const card = CARD_BY_ID[unit.cardId];
+      if (uniqueCombatTraitId(card) !== 'extra_kaiser_emergency_bulkhead' || !uniqueCombatReady(unit, state)) continue;
+      markUniqueCombatUsed(unit, state);
+      unit.health = 1;
+      unit.shield += 3;
+      unit.canAttack = false;
+      appendUniqueCombatVisual(state, card, ownerId, index, 'EMERGENCY BULKHEAD', '치명타 직전 격벽을 폐쇄해 체력 1로 생존하고 보호막 3을 얻었습니다.');
+    }
+
+    // Dawn Lord: first OTHER allied combat death each turn is rewound.
+    const dawn = findUniqueCombatUnit(state, ownerId, 'premium_dawn_rebirth');
+    if (!dawn || !uniqueCombatReady(dawn.unit, state)) continue;
+    for (let index = 0; index < state.boards[ownerId].units.length; index += 1) {
+      const unit = state.boards[ownerId].units[index];
+      if (!unit || unit.health > 0 || index === dawn.index) continue;
+      markUniqueCombatUsed(dawn.unit, state);
+      unit.health = 1;
+      unit.shield += 2;
+      unit.canAttack = false;
+      appendUniqueCombatVisual(state, dawn.card, ownerId, dawn.index, 'DAWN REBIRTH', `「${CARD_BY_ID[unit.cardId]?.name ?? '아군'}」의 전투 파괴를 되돌려 체력 1 / 보호막 2로 생환시켰습니다.`, ownerId, index);
+      break;
+    }
+  }
+}
+
+function applyUniqueCombatBeforeCleanup(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  playerId: string,
+  attackerIndex: number,
+  targetIndex: number,
+  attackerHealthDamage: number,
+  defenderHealthDamage: number,
+): void {
+  const opponentId = otherPlayer(state, playerId);
+  const attacker = state.boards[playerId].units[attackerIndex];
+  const defender = state.boards[opponentId].units[targetIndex];
+  const attackerCard = attacker ? CARD_BY_ID[attacker.cardId] : undefined;
+  const defenderCard = defender ? CARD_BY_ID[defender.cardId] : undefined;
+  const attackerCombat = uniqueCombatTraitId(attackerCard);
+  const defenderCombat = uniqueCombatTraitId(defenderCard);
+
+  if (defender && defender.health > 0 && defenderHealthDamage > 0 && defenderCombat === 'arborian_seed_counter' && uniqueCombatReady(defender, state)) {
+    const zone = summonSeriesToken(state, opponentId, 1, 2, '세계근 새싹', 'arborian-seed-counter');
+    if (zone >= 0) {
+      markUniqueCombatUsed(defender, state);
+      appendUniqueCombatVisual(state, defenderCard, opponentId, targetIndex, '상처의 씨앗', '전투 상처에서 1/2 「세계근 새싹」이 발아했습니다.', opponentId, zone);
+    }
+  }
+
+  if (defender && defender.health > 0 && defenderHealthDamage > 0 && defenderCombat === 'beastforge_adaptive_plating' && uniqueCombatReady(defender, state)) {
+    markUniqueCombatUsed(defender, state);
+    const shield = Math.min(3, defenderHealthDamage);
+    defender.attack += 1;
+    defender.shield += shield;
+    appendUniqueCombatVisual(state, defenderCard, opponentId, targetIndex, '생체금속 학습', `피격 데이터를 학습해 ATK +1 / 보호막 +${shield}.`);
+  }
+
+  if (attacker && attacker.health > 0 && attackerHealthDamage > 0 && attackerCombat === 'extra_beastforge_evolution_shell' && uniqueCombatReady(attacker, state)) {
+    markUniqueCombatUsed(attacker, state);
+    buffUnitPermanent(attacker, 1, 2);
+    attacker.shield += 1;
+    appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, 'EVOLUTION SHELL', '반격을 견뎌 영구 +1/+2, 보호막 1을 획득했습니다.');
+  }
+
+  if (attacker && defender && defender.health > 0 && attackerCombat === 'premium_eclipse_silent_beat'
+      && attacker.combatTraitAuxTurn === state.turnNumber && attacker.combatTraitTargetIndex === targetIndex) {
+    defender.stunnedUntilTurn = Math.max(defender.stunnedUntilTurn ?? 0, state.turnNumber + 1);
+    defender.canAttack = false;
+    appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, '침묵의 잔향', '반격을 잃은 적이 살아남아도 다음 자신의 턴까지 공격할 수 없습니다.', opponentId, targetIndex);
+  }
+
+  if (attacker && defender && defender.health > 0 && attackerCombat === 'phantom_forced_curtain' && uniqueCombatReady(attacker, state)) {
+    markUniqueCombatUsed(attacker, state);
+    applyEffect(state, privateStates, playerId, { kind: 'bounce_unit' }, { ownerId: opponentId, unitIndex: targetIndex }, attackerCard);
+    appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, '강제 커튼콜', '쓰러지지 않은 상대를 무대 밖으로 강제 퇴장시켰습니다.', opponentId, targetIndex);
+  }
+
+  if (attacker && defender && defender.health > 0 && attackerCombat === 'extra_phantom_stage_inversion' && uniqueCombatReady(attacker, state)) {
+    markUniqueCombatUsed(attacker, state);
+    const oldAttack = defender.attack;
+    const oldHealth = defender.health;
+    defender.attack = Math.max(0, oldHealth);
+    defender.health = Math.max(1, oldAttack);
+    defender.maxHealth = Math.max(defender.health, oldAttack);
+    appendUniqueCombatVisual(state, attackerCard, playerId, attackerIndex, 'STAGE INVERSION', `생존한 상대의 현재 ATK/HP를 ${oldAttack}/${oldHealth} → ${defender.attack}/${defender.health}로 뒤집었습니다.`, opponentId, targetIndex);
+  }
+
+  if (attacker && attackerCombat === 'arcana_clause_judgment' && uniqueCombatReady(attacker, state) && defender && defender.health > 0) {
+    markUniqueCombatUsed(attacker, state);
+    discardHighestCostEnemyCard(state, privateStates, playerId, attackerCard, attackerIndex);
+  }
+
+  if (attacker && attackerCombat === 'extra_arcana_forbidden_confiscation' && uniqueCombatReady(attacker, state)) {
+    markUniqueCombatUsed(attacker, state);
+    discardHighestCostEnemyCard(state, privateStates, playerId, attackerCard, attackerIndex);
+  }
+}
+
+function applyUniqueCombatAfterSuccessfulAttack(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  playerId: string,
+  attackerIndex: number,
+): void {
+  const attacker = state.boards[playerId].units[attackerIndex];
+  if (!attacker || attacker.health <= 0) return;
+  const card = CARD_BY_ID[attacker.cardId];
+  const combatId = uniqueCombatTraitId(card);
+
+  if (combatId === 'tempest_reignite' && uniqueCombatReady(attacker, state)) {
+    markUniqueCombatUsed(attacker, state);
+    attacker.canAttack = true;
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'SECOND IGNITION', '잔류 전류가 다시 점화되어 이 턴에 한 번 더 공격할 수 있습니다.');
+  }
+
+  if (combatId === 'premium_zenith_royal_command' && uniqueCombatReady(attacker, state)) {
+    const ally = strongestOtherAlly(state, playerId, attackerIndex);
+    if (ally) {
+      markUniqueCombatUsed(attacker, state);
+      ally.unit.canAttack = true;
+      ally.unit.attack += 1;
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'ROYAL EXTRA ORDER', `「${CARD_BY_ID[ally.unit.cardId]?.name ?? '아군'}」에게 추가 공격 명령을 내려 재공격 가능 / ATK +1.`, playerId, ally.index);
+    }
+  }
+
+  if (combatId === 'extra_chronorium_time_afterimage' && uniqueCombatReady(attacker, state)) {
+    markUniqueCombatUsed(attacker, state);
+    rewindEclipsePhase(state, privateStates, 1, playerId);
+    const drew = drawCards(state, privateStates[playerId], playerId, 1);
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'AFTERIMAGE REWIND', drew ? '공격 장면을 과거에 남겨 시간을 1단계 되감고 카드 1장을 뽑았습니다.' : '공격 장면을 과거에 남겨 시간을 1단계 되감았습니다.');
+  }
+
+  if (combatId === 'premium_time_devour_cycle') {
+    const before = currentEclipsePhase(state);
+    shiftEclipsePhase(state, privateStates, 1, playerId, '시간 탐식 · 현재 시간대 포식');
+    const after = currentEclipsePhase(state);
+    buffUnitPermanent(attacker, 1, 1);
+    let extra = '';
+    if (before === 'eclipse' && after === 'dawn') {
+      const healed = healCore(state, playerId, 3);
+      statsFor(state, playerId).healing += healed;
+      extra = ` 한 순환을 완식해 코어 ${healed} 추가 회복.`;
+    }
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'DEVOUR THE HOUR', `${ECLIPSE_PHASE_LABEL[before]}을 먹고 ${ECLIPSE_PHASE_LABEL[after]}으로 이동. 영구 +1/+1.${extra}`);
+  }
+}
+
+function applyUniqueCombatAfterUnitCleanup(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  playerId: string,
+  attackerIndex: number,
+  targetIndex: number,
+  destroyedCardId: string | undefined,
+): void {
+  const opponentId = otherPlayer(state, playerId);
+  const attacker = state.boards[playerId].units[attackerIndex];
+  if (!attacker || attacker.health <= 0) return;
+  const card = CARD_BY_ID[attacker.cardId];
+  const combatId = uniqueCombatTraitId(card);
+  const targetDestroyed = !state.boards[opponentId].units[targetIndex];
+
+  if (targetDestroyed && combatId === 'lumina_hero_relay' && uniqueCombatReady(attacker, state)) {
+    const ally = weakestOtherAlly(state, playerId, attackerIndex);
+    if (ally) {
+      markUniqueCombatUsed(attacker, state);
+      ally.unit.canAttack = true;
+      ally.unit.attack += 1;
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, '영웅계승', `「${CARD_BY_ID[ally.unit.cardId]?.name ?? '아군'}」에게 승리의 흐름을 넘겨 재공격 가능 / ATK +1.`, playerId, ally.index);
+    }
+  }
+
+  if (targetDestroyed && combatId === 'eclipsion_corpse_devour') {
+    const banished = banishKilledCardFromGrave(state, opponentId, destroyedCardId);
+    buffUnitPermanent(attacker, 1, 1);
+    const healed = healCore(state, playerId, 1);
+    statsFor(state, playerId).healing += healed;
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '포식 진화', `${banished ? '파괴한 적을 묘지에서 소멸시키고 ' : ''}영구 +1/+1 · 코어 ${healed} 회복.`);
+  }
+
+  if (targetDestroyed && combatId === 'abyss_funeral_feast') {
+    const banished = banishKilledCardFromGrave(state, opponentId, destroyedCardId);
+    attacker.attack += 2;
+    attacker.shield += 1;
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '묘비 포식', `${banished ? '파괴한 적을 묘지에서 소멸. ' : ''}ATK +2 / 보호막 +1.`);
+  }
+
+  if (targetDestroyed && combatId === 'primal_alpha_hunt'
+      && attacker.combatTraitAuxTurn === state.turnNumber && attacker.combatTraitTargetIndex === targetIndex) {
+    const zone = summonSeriesToken(state, playerId, 2, 2, '알파 추적수', 'primal-alpha-hunt');
+    if (zone >= 0) appendUniqueCombatVisual(state, card, playerId, attackerIndex, '무리 증식', '강자 사냥에 성공해 2/2 「알파 추적수」 1체가 합류했습니다.', playerId, zone);
+  }
+
+  if (combatId === 'arcana_clause_judgment' && uniqueCombatReady(attacker, state) && targetDestroyed) {
+    markUniqueCombatUsed(attacker, state);
+    const drew = drawCards(state, privateStates[playerId], playerId, 1);
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '승소 조항', drew ? '적을 파괴해 계약상 우위를 확보하고 카드 1장을 뽑았습니다.' : '적을 파괴해 계약상 우위를 확보했습니다.');
+  }
+
+  if (combatId === 'phantom_forced_curtain' && uniqueCombatReady(attacker, state) && targetDestroyed) {
+    markUniqueCombatUsed(attacker, state);
+    const drew = drawCards(state, privateStates[playerId], playerId, 1);
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '완벽한 종막', drew ? '상대를 무대에서 완전히 제거해 카드 1장을 뽑았습니다.' : '상대를 무대에서 완전히 제거했습니다.');
+  }
+
+  if (targetDestroyed && combatId === 'extra_abyss_deep_growth') {
+    buffUnitPermanent(attacker, 1, 1);
+    const healed = healCore(state, playerId, 2);
+    statsFor(state, playerId).healing += healed;
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'DEEP GROWTH', `죽음을 흡수해 영구 +1/+1 · 코어 ${healed} 회복.`);
+  }
+
+  applyUniqueCombatAfterSuccessfulAttack(state, privateStates, playerId, attackerIndex);
+}
+
+function applyUniqueCombatAfterCoreAttack(
+  state: MatchState,
+  privateStates: Record<string, PrivateState>,
+  playerId: string,
+  attackerIndex: number,
+): void {
+  const attacker = state.boards[playerId].units[attackerIndex];
+  if (!attacker || attacker.health <= 0) return;
+  const card = CARD_BY_ID[attacker.cardId];
+  const combatId = uniqueCombatTraitId(card);
+
+  if (combatId === 'extra_lumina_successor_light' && uniqueCombatReady(attacker, state)) {
+    markUniqueCombatUsed(attacker, state);
+    const drew = drawCards(state, privateStates[playerId], playerId, 1);
+    const ally = weakestOtherAlly(state, playerId, attackerIndex);
+    if (ally) buffUnitPermanent(ally.unit, 1, 1);
+    appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'SUCCESSOR LIGHT', `${drew ? '카드 1장 드로우. ' : ''}${ally ? `「${CARD_BY_ID[ally.unit.cardId]?.name ?? '아군'}」 영구 +1/+1.` : '강화할 다른 아군 없음.'}`);
+  }
+
+  if (combatId === 'extra_astral_carrier_launch' && uniqueCombatReady(attacker, state)) {
+    let launched = 0;
+    for (let count = 0; count < 2; count += 1) {
+      if (summonSeriesToken(state, playerId, 1, 1, '오리온 함재기', 'astral-carrier-launch') < 0) break;
+      launched += 1;
+    }
+    if (launched > 0) {
+      markUniqueCombatUsed(attacker, state);
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, 'CARRIER LAUNCH', `코어 사거리 확보로 1/1 「오리온 함재기」 ${launched}체 자동 출격.`);
+    }
+  }
+
+  if (combatId === 'extra_arcana_forbidden_confiscation' && uniqueCombatReady(attacker, state)) {
+    markUniqueCombatUsed(attacker, state);
+    discardHighestCostEnemyCard(state, privateStates, playerId, card, attackerIndex);
+  }
+
+  applyUniqueCombatAfterSuccessfulAttack(state, privateStates, playerId, attackerIndex);
+}
+
 function summonReactionTriggers(origin: SummonOrigin): TrapTrigger[] {
   const triggers: TrapTrigger[] = ['unit_summoned'];
   if (origin !== 'normal' && origin !== 'token') triggers.push('special_summoned');
@@ -4736,6 +5311,7 @@ function resolveCoreAttack(
     attacker.canAttack = false;
     appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) 코어에 ${actualDamage} 피해.`, 'attack');
     appendVisual(state, { kind: 'core', vfx: 'core-break', cardId: attackerCard?.id, ownerId: playerId, targetOwnerId: opponentId, sourceZone: continuation.attackerIndex, amount: actualDamage, label: '직접 공격' });
+    applyUniqueCombatAfterCoreAttack(state, privateStates, playerId, continuation.attackerIndex);
   }
   destroyDefeatedUnits(state, privateStates);
   checkWinner(state);
@@ -4782,8 +5358,19 @@ function resolveUnitAttack(
   }
   const defenderCard = CARD_BY_ID[defender.cardId];
   const defenderDurabilityBefore = Math.max(0, defender.health) + Math.max(0, defender.shield);
-  const attackerDamage = Math.max(0, attacker.attack + continuation.bonusDamage);
-  const defenderDamage = Math.max(0, defender.attack);
+  let attackerDamage = Math.max(0, attacker.attack + continuation.bonusDamage);
+  let defenderDamage = Math.max(0, defender.attack);
+  const uniqueDamage = adjustUniqueCombatDamage(
+    state,
+    privateStates,
+    playerId,
+    continuation.attackerIndex,
+    continuation.targetIndex,
+    attackerDamage,
+    defenderDamage,
+  );
+  attackerDamage = uniqueDamage.attackerDamage;
+  defenderDamage = uniqueDamage.defenderDamage;
   const defenderReport = damageUnit(state, opponentId, continuation.targetIndex, attackerDamage);
   const attackerReport = damageUnit(state, playerId, continuation.attackerIndex, defenderDamage);
   const sweepReports: DamageReport[] = [];
@@ -4867,12 +5454,25 @@ function resolveUnitAttack(
     defender.health = 0;
   }
 
-  const destroyedAny = defender.health <= 0 || sweepReports.some((report) => report.destroyed);
+  applyUniqueCombatLethalProtections(state, playerId, opponentId);
+  applyUniqueCombatBeforeCleanup(
+    state,
+    privateStates,
+    playerId,
+    continuation.attackerIndex,
+    continuation.targetIndex,
+    attackerReport.healthDamage,
+    defenderReport.healthDamage,
+  );
+
+  const destroyedAny = state.boards[opponentId].units.some((unit) => Boolean(unit && unit.health <= 0));
   if (destroyedAny) applyTacticalOnKill(state, privateStates, playerId, continuation.attackerIndex);
   attacker.canAttack = false;
   const traitNote = `${attackerCard?.keywords?.includes('sweep') ? ' · 전체공격' : ''}${attackerCard?.keywords?.includes('execute') ? ' · 처형' : ''}`;
   appendLog(state, `${attackerCard?.name ?? '유닛'}이(가) ${defenderCard?.name ?? '적 유닛'}에게 ${attackerDamage} 피해 · 반격 ${defenderDamage} 피해${traitNote}.`, 'attack');
+  const destroyedCardId = defenderCard?.id;
   destroyDefeatedUnits(state, privateStates);
+  applyUniqueCombatAfterUnitCleanup(state, privateStates, playerId, continuation.attackerIndex, continuation.targetIndex, destroyedCardId);
   checkWinner(state);
 }
 
@@ -4913,7 +5513,8 @@ export function attack(
     if (!state.boards[opponentId].units[target.unitIndex]) throw new Error('선택한 위치에 적 유닛이 없습니다.');
   }
 
-  const bonusDamage = applyTacticalOnAttackStart(state, playerId, attackerIndex);
+  const bonusDamage = applyTacticalOnAttackStart(state, playerId, attackerIndex)
+    + applyUniqueCombatAttackStart(state, privateStates, playerId, attackerIndex, target);
   const declaredTargetCard = target.kind === 'unit' ? CARD_BY_ID[state.boards[opponentId].units[target.unitIndex]?.cardId ?? ''] : undefined;
   appendVisual(state, {
     kind: 'attack', vfx: resolveCardVfx(attackerCard, 'attack'), cardId: attackerCard?.id, ownerId: playerId,
@@ -5075,6 +5676,7 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
   if (drew && state.status === 'active') {
     appendVisual(state, { kind: 'draw', vfx: 'turn-draw', ownerId: nextPlayer, label: '턴 시작 드로우' });
   }
+  if (state.status === 'active') applyUniqueCombatTurnStart(state, privateStates, nextPlayer);
   if (reason) appendLog(state, reason, 'system');
   if (drew && state.status === 'active') appendLog(state, `${nextPlayer.slice(0, 6)}의 턴 시작 · 카드 1장 드로우 · 남은 ENERGY 누적 후 +${naturalIncomeGained} · ${nextEnergy.current}/${nextEnergy.max}.`, 'system');
   if (state.status !== 'active') state.turnEndsAt = null;

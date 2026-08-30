@@ -269,12 +269,47 @@ export interface UniqueCardTraitHighlight {
   description: string;
 }
 
+export type UniqueCombatTraitId =
+  | 'lumina_hero_relay'
+  | 'kaiser_auto_armor'
+  | 'eclipsion_corpse_devour'
+  | 'nocturne_moon_evasion'
+  | 'arborian_seed_counter'
+  | 'tempest_reignite'
+  | 'abyss_funeral_feast'
+  | 'primal_alpha_hunt'
+  | 'chronorium_battle_rewind'
+  | 'arcana_clause_judgment'
+  | 'beastforge_adaptive_plating'
+  | 'phantom_forced_curtain'
+  | 'astral_formation_cover'
+  | 'extra_lumina_successor_light'
+  | 'extra_kaiser_emergency_bulkhead'
+  | 'extra_eclipsion_armor_devour'
+  | 'extra_nocturne_counter_mirror'
+  | 'extra_arborian_worldroot_pulse'
+  | 'extra_tempest_chain_lightning'
+  | 'extra_abyss_deep_growth'
+  | 'extra_primal_royal_pack'
+  | 'extra_chronorium_time_afterimage'
+  | 'extra_arcana_forbidden_confiscation'
+  | 'extra_beastforge_evolution_shell'
+  | 'extra_phantom_stage_inversion'
+  | 'extra_astral_carrier_launch'
+  | 'premium_dawn_rebirth'
+  | 'premium_zenith_royal_command'
+  | 'premium_twilight_dual_stance'
+  | 'premium_eclipse_silent_beat'
+  | 'premium_time_devour_cycle';
+
 /** A one-off named mechanic reserved for a card that must not reuse the normal series package. */
 export interface UniqueCardTrait {
   name: string;
   description: string;
   /** Combat traits replace the ordinary keyword list in the UI; effect traits are displayed as a unique effect. */
   mode?: 'combat' | 'effect';
+  /** Truly bespoke battle rule executed by game-engine.ts. This is not an alias for guard/charge/etc. */
+  combatId?: UniqueCombatTraitId;
   /** Optional effects resolved by the engine at this card's natural timing (summon or spell resolution). */
   effects?: Effect[];
   /** Optional UI rows rendered as bespoke combat traits / signature effect clauses in the detail modal. */
@@ -6962,6 +6997,289 @@ if (V65_MIDNIGHT_SILENCE?.uniqueTrait) {
   };
 }
 // === /v65 bespoke combat-trait merge =======================================
+
+
+// === v66 true bespoke combat rules =========================================
+// IMPORTANT: these are additional battle rules. The legacy keyword array is
+// intentionally left untouched so no representative card becomes weaker.
+type V66TrueCombatIdentity = {
+  combatId: UniqueCombatTraitId;
+  name: string;
+  description: string;
+  highlights: UniqueCardTraitHighlight[];
+};
+
+const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
+  // 13 series representative legends ---------------------------------------
+  unit_v8_neutral_13: {
+    combatId: 'lumina_hero_relay',
+    name: '영웅계승 릴레이',
+    description: '적을 쓰러뜨린 순간 승리의 흐름을 다음 기사에게 넘기는 루미나이츠 전용 전투 규칙.',
+    highlights: [
+      { name: '영웅계승', description: '이 캐릭터가 전투로 적을 파괴하면 턴당 1회, 공격력이 가장 낮은 다른 아군 1체를 다시 공격 가능 상태로 만들고 ATK +1.' },
+    ],
+  },
+  unit_v8_solar_14: {
+    combatId: 'kaiser_auto_armor',
+    name: '자동장갑 재배열',
+    description: '전열 규모를 읽어 매 턴 장갑을 다시 접는 카이저기어 전용 방어 시스템.',
+    highlights: [
+      { name: '오토 포트리스', description: '내 턴 시작마다 이 캐릭터가 보호막 2를 얻습니다. 내 필드에 다른 아군이 2체 이상이면 보호막 3을 얻습니다.' },
+    ],
+  },
+  unit_v8_solar_09: {
+    combatId: 'eclipsion_corpse_devour',
+    name: '사체흡수 변이',
+    description: '쓰러뜨린 존재의 흔적을 몸 안으로 흡수해 실제 능력치로 바꾸는 이클립시온 전용 포식 규칙.',
+    highlights: [
+      { name: '포식 진화', description: '이 캐릭터가 전투로 적을 파괴하면 그 카드를 상대 묘지에서 소멸시키고 이 캐릭터가 영구 +1/+1, 내 코어 1 회복.' },
+    ],
+  },
+  unit_v8_void_16: {
+    combatId: 'nocturne_moon_evasion',
+    name: '월영 잔상회피',
+    description: '첫 칼날이 닿는 순간 그림자만 남기고 실체를 비트는 녹턴 전용 방어 규칙.',
+    highlights: [
+      { name: '잔상 바꿔치기', description: '턴당 1회, 이 캐릭터가 공격 대상이 되면 그 전투에서 받는 공격 피해 -3, 이 캐릭터의 반격 피해 +2.' },
+    ],
+  },
+  unit_v8_lunar_06: {
+    combatId: 'arborian_seed_counter',
+    name: '피격 발아',
+    description: '상처가 생기는 순간 씨앗을 떨어뜨려 전장을 다시 채우는 아르보리아 전용 생장 규칙.',
+    highlights: [
+      { name: '상처의 씨앗', description: '턴당 1회, 이 캐릭터가 전투 피해를 받고 살아남으면 빈 칸에 1/2 「세계근 새싹」 1체를 소환.' },
+    ],
+  },
+  unit_v8_neutral_02: {
+    combatId: 'tempest_reignite',
+    name: '재점화 드라이브',
+    description: '첫 공격의 잔류 전류를 즉시 다음 돌진으로 바꾸는 템페스트 드라이브 전용 규칙.',
+    highlights: [
+      { name: 'SECOND IGNITION', description: '턴당 1회, 이 캐릭터가 공격을 정상적으로 끝내고 살아남으면 즉시 다시 공격할 수 있습니다.' },
+    ],
+  },
+  unit_v8_storm_08: {
+    combatId: 'abyss_funeral_feast',
+    name: '장례포식',
+    description: '쓰러진 적을 묘지에 남기지 않고 다음 사냥의 힘으로 먹어 치우는 어비스 리퍼 전용 규칙.',
+    highlights: [
+      { name: '묘비 포식', description: '이 캐릭터가 전투로 적을 파괴하면 그 카드를 상대 묘지에서 소멸시키고 이 캐릭터 ATK +2, 보호막 +1.' },
+    ],
+  },
+  unit_v8_storm_03: {
+    combatId: 'primal_alpha_hunt',
+    name: '알파의 강자사냥',
+    description: '자신보다 강한 먹잇감을 볼수록 사냥 본능이 폭발하는 프라이멀 가디언 전용 규칙.',
+    highlights: [
+      { name: '강자 표식', description: '공격 대상의 ATK가 이 캐릭터 이상이면 그 공격 피해 +3.' },
+      { name: '무리 증식', description: '강자 표식을 받은 적을 파괴하면 빈 칸에 2/2 「알파 추적수」 1체를 소환.' },
+    ],
+  },
+  v26_chronorium_unit_21: {
+    combatId: 'chronorium_battle_rewind',
+    name: '전투시점 역행',
+    description: '공격 선언 자체를 과거의 한 장면으로 되감아 유리한 시점을 다시 만드는 크로노리움 전용 규칙.',
+    highlights: [
+      { name: 'BATTLE RETAKE', description: '턴당 1회 공격 선언 시 ECLIPSE CYCLE을 실제 이전 시간대로 1단계 되감고, 그 공격 피해 +2.' },
+    ],
+  },
+  v26_arcana_protocol_unit_21: {
+    combatId: 'arcana_clause_judgment',
+    name: '전투조항 판독',
+    description: '전투 결과를 보고 상대의 선택지 또는 자신의 패를 법칙처럼 재정리하는 아르카나 프로토콜 전용 규칙.',
+    highlights: [
+      { name: '판결 조항', description: '턴당 1회, 이 캐릭터의 공격으로 적이 살아남으면 상대 최고 비용 손패 1장을 버리게 하고, 적을 파괴했다면 대신 카드 1장을 뽑습니다.' },
+    ],
+  },
+  v26_beastforge_unit_21: {
+    combatId: 'beastforge_adaptive_plating',
+    name: '피격 적응도금',
+    description: '실제로 맞은 충격을 다음 장갑층의 재료로 바꾸는 비스트포지 전용 규칙.',
+    highlights: [
+      { name: '생체금속 학습', description: '턴당 1회, 반격 피해를 받고 살아남으면 ATK +1, 실제 체력 피해만큼 보호막 획득(최대 3).' },
+    ],
+  },
+  v26_phantom_carnival_unit_21: {
+    combatId: 'phantom_forced_curtain',
+    name: '강제 커튼콜',
+    description: '쓰러지지 않은 상대조차 무대 밖으로 퇴장시켜 버리는 팬텀 카니발 전용 규칙.',
+    highlights: [
+      { name: '퇴장 명령', description: '턴당 1회, 이 캐릭터가 공격한 적이 살아남으면 그 적을 손패/원래 영역으로 되돌립니다. 적을 파괴했다면 대신 카드 1장을 뽑습니다.' },
+    ],
+  },
+  v26_astral_armada_unit_21: {
+    combatId: 'astral_formation_cover',
+    name: '편대엄호 링크',
+    description: '기함이 움직이는 순간 다른 함선이 동시에 방진을 전개하는 아스트랄 아르마다 전용 규칙.',
+    highlights: [
+      { name: 'FORMATION LINK', description: '턴당 1회 공격 선언 시 다른 아군 전원 보호막 +1. 다른 아군이 2체 이상이면 그 공격 피해도 +2.' },
+    ],
+  },
+
+  // 13 series representative Extra Deck units ------------------------------
+  fusion_v8_09: {
+    combatId: 'extra_lumina_successor_light',
+    name: '후계광 전승',
+    description: '코어를 친 순간 다음 영웅에게 빛을 넘기는 하이퍼 노바 전용 규칙.',
+    highlights: [
+      { name: 'SUCCESSOR LIGHT', description: '턴당 1회 코어 직접 공격이 적중하면 카드 1장을 뽑고, 공격력이 가장 낮은 다른 아군 1체에게 영구 +1/+1.' },
+    ],
+  },
+  evolution_v8_18: {
+    combatId: 'extra_kaiser_emergency_bulkhead',
+    name: '비상격벽',
+    description: '파괴 직전 장갑 구획을 강제로 폐쇄해 본체를 남기는 그랜드 포트리스 전용 규칙.',
+    highlights: [
+      { name: 'EMERGENCY BULKHEAD', description: '턴당 1회 전투로 파괴될 때 파괴되지 않고 체력 1로 남으며 보호막 3 획득.' },
+    ],
+  },
+  fusion_eclipse_chimera: {
+    combatId: 'extra_eclipsion_armor_devour',
+    name: '장갑포식',
+    description: '공격 직전에 상대의 보호막을 뜯어 자기 외피로 바꾸는 네메시스 키메라 전용 규칙.',
+    highlights: [
+      { name: 'SHELL DEVOUR', description: '턴당 1회 적 캐릭터를 공격할 때 대상 보호막을 최대 4 제거하고, 제거한 만큼 자신이 보호막을 얻습니다.' },
+    ],
+  },
+  fusion_v8_20: {
+    combatId: 'extra_nocturne_counter_mirror',
+    name: '반격거울',
+    description: '상대가 휘두를 반격을 거울 속으로 빼앗아 코어로 되돌리는 녹턴 마제스티 전용 규칙.',
+    highlights: [
+      { name: 'COUNTER MIRROR', description: '턴당 1회 적 캐릭터를 공격할 때 그 적의 반격 피해를 0으로 만들고, 원래 반격 ATK의 절반(올림)을 상대 코어에 피해로 되돌립니다.' },
+    ],
+  },
+  fusion_v8_05: {
+    combatId: 'extra_arborian_worldroot_pulse',
+    name: '세계근 맥동',
+    description: '내 턴이 돌아올 때마다 전장 전체에 생명력을 다시 순환시키는 월드루트 킹 전용 규칙.',
+    highlights: [
+      { name: 'WORLDROOT PULSE', description: '내 턴 시작마다 아군 캐릭터 전원 체력 1 회복. 이 캐릭터는 추가로 최대 체력 +1 및 체력 +1.' },
+    ],
+  },
+  evolution_v8_06: {
+    combatId: 'extra_tempest_chain_lightning',
+    name: '잔류연쇄 낙뢰',
+    description: '첫 타격의 전류가 다른 적에게 자동으로 점프하는 제타 오버드라이브 전용 규칙.',
+    highlights: [
+      { name: 'CHAIN AFTERBURN', description: '턴당 1회 적 캐릭터 공격 시, 지정 대상 외 가장 체력이 낮은 적 1체에게 추가 2 피해.' },
+    ],
+  },
+  fusion_v8_17: {
+    combatId: 'extra_abyss_deep_growth',
+    name: '심연증식',
+    description: '전투로 생긴 죽음을 전부 몸집으로 바꾸는 보이드 리바이어던 전용 규칙.',
+    highlights: [
+      { name: 'DEEP GROWTH', description: '이 캐릭터의 공격으로 적이 파괴될 때마다 영구 +1/+1, 내 코어 2 회복.' },
+    ],
+  },
+  fusion_v8_08: {
+    combatId: 'extra_primal_royal_pack',
+    name: '왕수동행',
+    description: '왕이 사냥을 시작하면 무리가 자동으로 따라붙는 프라이멀 킹 전용 규칙.',
+    highlights: [
+      { name: 'ROYAL PACK', description: '턴당 1회 공격 선언 시 빈 칸에 2/2 「왕수의 새끼」 1체를 소환.' },
+    ],
+  },
+  v26_chronorium_evolution_02: {
+    combatId: 'extra_chronorium_time_afterimage',
+    name: '시간잔상',
+    description: '공격이 끝난 뒤 그 장면을 과거로 남기고 한 단계 되돌아오는 크로노스 오메가 전용 규칙.',
+    highlights: [
+      { name: 'AFTERIMAGE REWIND', description: '턴당 1회 공격 종료 후 ECLIPSE CYCLE을 실제 이전 시간대로 1단계 되감고 카드 1장을 뽑습니다.' },
+    ],
+  },
+  v26_arcana_protocol_evolution_02: {
+    combatId: 'extra_arcana_forbidden_confiscation',
+    name: '금단압수령',
+    description: '공격 행동 자체를 계약 위반 판정으로 삼아 상대 패를 압수하는 프로토콜 인피니티 전용 규칙.',
+    highlights: [
+      { name: 'FORBIDDEN CONFISCATION', description: '턴당 1회 공격이 정상 처리되면 상대 손패에서 비용이 가장 높은 카드 1장을 자동으로 묘지로 보냅니다.' },
+    ],
+  },
+  v26_beastforge_evolution_02: {
+    combatId: 'extra_beastforge_evolution_shell',
+    name: '진화외피',
+    description: '반격을 버텨낼수록 다음 형태로 진화하는 오메가 레비아탄 전용 규칙.',
+    highlights: [
+      { name: 'EVOLUTION SHELL', description: '턴당 1회 반격을 받고 살아남으면 영구 +1/+2, 보호막 1 획득.' },
+    ],
+  },
+  v26_phantom_carnival_evolution_02: {
+    combatId: 'extra_phantom_stage_inversion',
+    name: '무대반전 명령',
+    description: '쓰러지지 않은 상대의 역할 자체를 뒤집어 버리는 엔드리스 쇼 전용 규칙.',
+    highlights: [
+      { name: 'STAGE INVERSION', description: '턴당 1회 공격한 적이 살아남으면 그 적의 현재 ATK와 현재 HP를 서로 뒤바꿉니다.' },
+    ],
+  },
+  v26_astral_armada_evolution_02: {
+    combatId: 'extra_astral_carrier_launch',
+    name: '함재기 자동출격',
+    description: '기함이 코어 사거리까지 도달하면 격납고가 자동으로 열리는 성해황제 오리온 전용 규칙.',
+    highlights: [
+      { name: 'CARRIER LAUNCH', description: '턴당 1회 코어 직접 공격이 적중하면 빈 칸마다 최대 2체까지 1/1 「오리온 함재기」를 소환.' },
+    ],
+  },
+
+  // Premium representative legendary units ---------------------------------
+  v41_premium_dawn_lord: {
+    combatId: 'premium_dawn_rebirth',
+    name: '첫빛의 생환',
+    description: '아군의 첫 전투 사망을 진짜로 되돌리는 여명의 지배자 전용 프리미엄 전투 규칙.',
+    highlights: [
+      { name: 'DAWN REBIRTH', description: '턴당 1회, 다른 아군 캐릭터 1체가 전투로 파괴될 때 그 파괴를 막고 체력 1 + 보호막 2 상태로 남깁니다.' },
+    ],
+  },
+  v41_premium_zenith_king: {
+    combatId: 'premium_zenith_royal_command',
+    name: '왕의 추가명령',
+    description: '자신의 공격이 끝난 직후 다른 아군에게 두 번째 전투 명령을 내리는 정점의 왕 전용 규칙.',
+    highlights: [
+      { name: 'ROYAL EXTRA ORDER', description: '턴당 1회 이 캐릭터가 공격을 끝내면, 공격력이 가장 높은 다른 아군 1체를 다시 공격 가능 상태로 만들고 ATK +1.' },
+    ],
+  },
+  v44_premium_twilight_knight: {
+    combatId: 'premium_twilight_dual_stance',
+    name: '박명의 양면자세',
+    description: '코어 상황에 따라 공격·방어·수급 자세가 즉시 바뀌는 황혼의 기사 전용 규칙.',
+    highlights: [
+      { name: 'TWILIGHT STANCE', description: '공격 선언 시 내 코어가 더 낮으면 그 공격 피해 +3, 더 높으면 보호막 3, 같으면 카드 1장을 뽑습니다.' },
+    ],
+  },
+  v41_premium_eclipse_conductor: {
+    combatId: 'premium_eclipse_silent_beat',
+    name: '무음박자',
+    description: '첫 교전의 반격 리듬을 삭제하고 살아남은 상대까지 다음 턴 묶어 두는 개기일식의 조율자 전용 규칙.',
+    highlights: [
+      { name: 'SILENT BEAT', description: '턴당 1회 적 캐릭터 공격 시 그 적은 반격하지 못합니다. 전투 후 살아남으면 다음 자신의 턴까지 공격 불가.' },
+    ],
+  },
+  v60_premium_time_devourer: {
+    combatId: 'premium_time_devour_cycle',
+    name: '시간대 포식순환',
+    description: '공격할 때마다 지금 시간을 실제로 먹어 다음 시간대로 넘기며 계속 성장하는 시간 탐식자 전용 규칙.',
+    highlights: [
+      { name: 'DEVOUR THE HOUR', description: '공격이 정상 처리될 때마다 ECLIPSE CYCLE을 앞으로 1단계 이동하고 이 캐릭터가 영구 +1/+1.' },
+      { name: '한 바퀴 포식', description: '개기일식에서 여명으로 넘어가 한 순환을 끝내면 추가로 내 코어 3 회복.' },
+    ],
+  },
+};
+
+for (const [cardId, identity] of Object.entries(V66_TRUE_COMBAT_IDENTITIES)) {
+  const card = CARDS.find((item) => item.id === cardId);
+  if (!card) continue;
+  card.uniqueTrait = {
+    ...(card.uniqueTrait ?? { name: identity.name, description: identity.description }),
+    mode: 'combat',
+    combatId: identity.combatId,
+    name: identity.name,
+    description: identity.description,
+    highlights: identity.highlights,
+  };
+}
+// === /v66 true bespoke combat rules ========================================
 
 export const V61_SERIES_FLAGSHIPS = Object.freeze(Object.fromEntries(
   Object.keys(V61_SERIES_FLAGSHIP_OVERRIDES).map((cardId) => {
