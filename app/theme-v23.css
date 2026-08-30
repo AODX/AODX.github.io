@@ -3817,6 +3817,20 @@
 }
 .v23-client .keyword-list p b { color:#9deaff!important;font-size:9px!important; }
 .v23-client .keyword-list p span { color:#99aab6!important;font-size:10px!important;line-height:1.5!important; }
+.v23-client .v65-custom-combat-traits p {
+  grid-template-columns:112px minmax(0,1fr)!important;
+  padding:9px 10px!important;
+}
+.v23-client .v65-custom-combat-traits p b {
+  color:#c8f1ff!important;
+  font-size:10px!important;
+  line-height:1.45!important;
+}
+.v23-client .v65-custom-combat-traits p span {
+  color:#aebfcb!important;
+  font-size:10px!important;
+  line-height:1.55!important;
+}
 .v23-client .v62-unique-trait-panel {
   border:1px solid rgba(159,206,255,.14)!important;
   background:linear-gradient(145deg,rgba(13,24,38,.92),rgba(6,12,18,.97))!important;

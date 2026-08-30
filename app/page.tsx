@@ -1235,6 +1235,7 @@ function premiumTimeHighlights(card: CardDefinition): CardHighlight[] {
 }
 
 function cardAbilityHighlights(card: CardDefinition): CardHighlight[] {
+  if (card.uniqueTrait?.mode === 'combat' || card.uniqueTrait?.mode === 'effect') return [];
   const premium = premiumTimeHighlights(card);
   if (premium.length > 0) return premium;
 
@@ -1996,7 +1997,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
               <span className="v31l-detail-kicker">{RARITY_LABEL[card.rarity]} · {ELEMENT_LABEL[card.element]} · {KIND_LABEL[card.kind]}{card.series ? ` · ${card.series}` : ''}</span>
               <h2 id="card-detail-title">{card.name}</h2>
               <p>{card.subtitle}</p>
-              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.unitType && <i>TYPE · {UNIT_TYPE_LABEL[card.unitType]}</i>}{card.comboTag && <i>COMBO · {card.comboTag}</i>}{displayEclipseAffinity(card) && <i className="v34-cycle-chip">CYCLE · {ECLIPSE_PHASE_LABEL[displayEclipseAffinity(card)!]}</i>}{card.temporalProfileName && <i className="v34f-temporal-chip">TIME · {card.temporalProfileName}</i>}{card.eclipsePhasePulses?.length ? <i className="v34f-temporal-chip">TIME TRIGGER · {card.eclipsePhasePulses.length}</i> : null}{card.eclipseSummonPhases?.length ? <i className="v34-time-gate-chip">TIME GATE · {card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.eclipsePlayPhases?.length ? <i className="v34-time-gate-chip">TIME CAST · {card.eclipsePlayPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.eclipseTriggerPhases?.length ? <i className="v34-time-gate-chip">TIME TRAP · {card.eclipseTriggerPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.eclipseLifespanPhases?.length ? <i className="v34-time-gate-chip">TIME LIFE</i> : null}{card.eclipseVanishPhases?.length ? <i className="v34-time-gate-chip">TIME VANISH</i> : null}{card.uniqueTrait && <i className="v32-collector-tag">UNIQUE · {card.uniqueTrait.name}</i>}{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
+              <div className="v31l-card-classification"><i>{RARITY_PRESTIGE[card.rarity]}</i><i>{cardRoleSummary(card)}</i>{card.unitType && <i>TYPE · {UNIT_TYPE_LABEL[card.unitType]}</i>}{card.comboTag && <i>COMBO · {card.comboTag}</i>}{displayEclipseAffinity(card) && <i className="v34-cycle-chip">CYCLE · {ECLIPSE_PHASE_LABEL[displayEclipseAffinity(card)!]}</i>}{card.temporalProfileName && <i className="v34f-temporal-chip">TIME · {card.temporalProfileName}</i>}{card.eclipsePhasePulses?.length ? <i className="v34f-temporal-chip">TIME TRIGGER · {card.eclipsePhasePulses.length}</i> : null}{card.eclipseSummonPhases?.length ? <i className="v34-time-gate-chip">TIME GATE · {card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.eclipsePlayPhases?.length ? <i className="v34-time-gate-chip">TIME CAST · {card.eclipsePlayPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.eclipseTriggerPhases?.length ? <i className="v34-time-gate-chip">TIME TRAP · {card.eclipseTriggerPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' / ')}</i> : null}{card.eclipseLifespanPhases?.length ? <i className="v34-time-gate-chip">TIME LIFE</i> : null}{card.eclipseVanishPhases?.length ? <i className="v34-time-gate-chip">TIME VANISH</i> : null}{card.uniqueTrait && <i className="v32-collector-tag">{card.uniqueTrait.mode === 'combat' ? 'COMBAT' : card.uniqueTrait.mode === 'effect' ? 'UNIQUE EFFECT' : 'UNIQUE'} · {card.uniqueTrait.name}</i>}{card.seriesId && <i>{SERIES_BY_ID[card.seriesId].shortName}</i>}{(card.rarity === 'legendary' || card.rarity === 'epic') && <i className="v32-collector-tag">COLLECTOR FINISH</i>}</div>
             </div>
             <strong className="detail-cost"><small>ENERGY</small>{card.cost}</strong>
           </header>
@@ -2028,9 +2029,18 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             </section>
           )}
 
-          {card.uniqueTrait && (
+          {card.uniqueTrait?.mode === 'combat' && (
+            <section className="detail-section v65-combat-trait-panel">
+              <span>KEYWORDS · 전투 특성</span>
+              <div className="keyword-list v65-custom-combat-traits">
+                {uniqueTraitDisplayRows(card).map((item) => <p key={`${card.id}-${item.name}`}><b>{item.name}</b><span>{item.description}</span></p>)}
+              </div>
+            </section>
+          )}
+
+          {card.uniqueTrait && card.uniqueTrait.mode !== 'combat' && (
             <section className="detail-section v62-unique-trait-panel">
-              <span>SIGNATURE KEYWORDS · 카드 전용 특성</span>
+              <span>{card.uniqueTrait.mode === 'effect' ? 'UNIQUE EFFECT · 고유 효과' : 'SIGNATURE KEYWORDS · 카드 전용 특성'}</span>
               <div className="v62-unique-trait-title">
                 <b>{card.uniqueTrait.name}</b>
                 <p>{card.uniqueTrait.description}</p>
@@ -2041,10 +2051,12 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             </section>
           )}
 
-          <section className="detail-section primary-effect v31l-primary-effect" id="card-detail-effect">
-            <span>ABILITY · 카드 효과</span>
-            <RuleParagraphs text={displayCardAbilityText(card, { includeTime: false })} tone="sectioned" />
-          </section>
+          {card.uniqueTrait?.mode !== 'effect' && (
+            <section className="detail-section primary-effect v31l-primary-effect" id="card-detail-effect">
+              <span>ABILITY · 카드 효과</span>
+              <RuleParagraphs text={displayCardAbilityText(card, { includeTime: false })} tone="sectioned" />
+            </section>
+          )}
 
           {(isUnitCard(card) || card.eclipseSummonPhases?.length || card.eclipsePhasePulses?.length || card.eclipsePlayPhases?.length || card.eclipseTriggerPhases?.length || card.eclipseLifespanPhases?.length || card.eclipseVanishPhases?.length) && (
             <section className="detail-section v34e-time-profile">
@@ -2107,7 +2119,7 @@ function CardDetailModal({ card, onClose }: { card: CardDefinition; onClose: () 
             <p>{card.flavor}</p>
           </section>
 
-          {card.keywords && card.keywords.length > 0 && (
+          {card.keywords && card.keywords.length > 0 && card.uniqueTrait?.mode !== 'combat' && (
             <section className="detail-section">
               <span>KEYWORDS · 전투 특성</span>
               <div className="keyword-list">{card.keywords.map((keyword) => <p key={keyword}><b>{KEYWORD_DESCRIPTION[keyword].split(' · ')[0]}</b><span>{KEYWORD_DESCRIPTION[keyword].split(' · ')[1]}</span></p>)}</div>
@@ -7431,14 +7443,14 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
           {previewIsHoverOnly && hoveredHandCard && (
             <div className="v18-selected-card v29-hover-preview">
               <div className="v18-selected-art"><CardIllustration card={hoveredHandCard} compact /></div>
-              <div className="v18-selected-copy"><small>카드 미리보기 · {KIND_LABEL[hoveredHandCard.kind]} · {ELEMENT_LABEL[hoveredHandCard.element]}</small><b>{hoveredHandCard.name}</b><div><span>COST <strong>{hoveredHandCard.cost}</strong></span>{isUnitCard(hoveredHandCard) && <><span>ATK <strong>{hoveredHandCard.attack}</strong></span><span>DEF <strong>{hoveredHandCard.health}</strong></span></>}</div><p><RuleText text={displayCardAbilityText(hoveredHandCard)} /></p>{hoveredHandCard.uniqueTrait && <p className="v31h-preview-signature"><b>UNIQUE · {hoveredHandCard.uniqueTrait.name}</b> <RuleText text={hoveredHandCard.uniqueTrait.description} /></p>}{hoveredHandCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(hoveredHandCard)} /></p>}{tacticalAbilityDescription(hoveredHandCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(hoveredHandCard)} /></p>}<TemporalQuickHint card={hoveredHandCard} currentPhase={currentEclipsePhase} /></div>
+              <div className="v18-selected-copy"><small>카드 미리보기 · {KIND_LABEL[hoveredHandCard.kind]} · {ELEMENT_LABEL[hoveredHandCard.element]}</small><b>{hoveredHandCard.name}</b><div><span>COST <strong>{hoveredHandCard.cost}</strong></span>{isUnitCard(hoveredHandCard) && <><span>ATK <strong>{hoveredHandCard.attack}</strong></span><span>DEF <strong>{hoveredHandCard.health}</strong></span></>}</div><p><RuleText text={displayCardAbilityText(hoveredHandCard)} /></p>{hoveredHandCard.uniqueTrait && <p className="v31h-preview-signature"><b>{hoveredHandCard.uniqueTrait.mode === 'combat' ? '전투 특성' : hoveredHandCard.uniqueTrait.mode === 'effect' ? '고유 효과' : 'UNIQUE'} · {hoveredHandCard.uniqueTrait.name}</b> <RuleText text={hoveredHandCard.uniqueTrait.description} /></p>}{hoveredHandCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(hoveredHandCard)} /></p>}{tacticalAbilityDescription(hoveredHandCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(hoveredHandCard)} /></p>}<TemporalQuickHint card={hoveredHandCard} currentPhase={currentEclipsePhase} /></div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(hoveredHandCard.id)}>전체 상세</button></div>
             </div>
           )}
           {selectedCard && (
             <div className="v18-selected-card">
               <div className="v18-selected-art"><CardIllustration card={selectedCard} compact /></div>
-              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p><RuleText text={selectedCard.summonMode === 'rift' ? `【${selectedCard.traitSpecialSummonTier ? `전투 특성 특수 소환 · ${traitSpecialTierLabel(selectedCard.traitSpecialSummonTier)}` : '균열 조건'}】 ${extraRequirement(selectedCard)}` : selectedCard.summonMode === 'legendary' ? `【전설 특수 소환】 ${extraRequirement(selectedCard)}` : displayCardAbilityText(selectedCard)} /></p>{selectedCard.uniqueTrait && <p className="v31h-preview-signature"><b>UNIQUE · {selectedCard.uniqueTrait.name}</b> <RuleText text={selectedCard.uniqueTrait.description} /></p>}{selectedCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(selectedCard)} /></p>}{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(selectedCard)} /></p>}<TemporalQuickHint card={selectedCard} currentPhase={currentEclipsePhase} /></div>
+              <div className="v18-selected-copy"><small>{KIND_LABEL[selectedCard.kind]} · {ELEMENT_LABEL[selectedCard.element]}</small><b>{selectedCard.name}</b><div><span>COST <strong>{selectedHandCost}</strong></span>{isUnitCard(selectedCard) && <><span>ATK <strong>{selectedCard.attack}</strong></span><span>DEF <strong>{selectedCard.health}</strong></span></>}</div><p><RuleText text={selectedCard.summonMode === 'rift' ? `【${selectedCard.traitSpecialSummonTier ? `전투 특성 특수 소환 · ${traitSpecialTierLabel(selectedCard.traitSpecialSummonTier)}` : '균열 조건'}】 ${extraRequirement(selectedCard)}` : selectedCard.summonMode === 'legendary' ? `【전설 특수 소환】 ${extraRequirement(selectedCard)}` : displayCardAbilityText(selectedCard)} /></p>{selectedCard.uniqueTrait && <p className="v31h-preview-signature"><b>{selectedCard.uniqueTrait.mode === 'combat' ? '전투 특성' : selectedCard.uniqueTrait.mode === 'effect' ? '고유 효과' : 'UNIQUE'} · {selectedCard.uniqueTrait.name}</b> <RuleText text={selectedCard.uniqueTrait.description} /></p>}{selectedCard.seriesSignature && <p className="v31h-preview-signature"><RuleText text={seriesSignatureDescription(selectedCard)} /></p>}{tacticalAbilityDescription(selectedCard) && <p className="v30-preview-tactical"><RuleText text={tacticalAbilityDescription(selectedCard)} /></p>}<TemporalQuickHint card={selectedCard} currentPhase={currentEclipsePhase} /></div>
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('카드 선택을 취소했습니다.')}>선택 취소</button></div>
               {selectedCard.kind === 'unit' && selectedCardSummonNeedsTarget && selectedSummonZone !== null && (
                 <div className="v36-summon-target-box">

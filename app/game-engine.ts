@@ -3702,7 +3702,10 @@ function applyUniqueCardTrait(
     applyEffect(state, privateStates, actorId, effect, selfTarget, card);
   }
 
-  appendLog(state, `【UNIQUE TRAIT · ${trait.name}】 「${card.name}」 전용 효과 발동.`, 'special');
+  const isCombatTrait = trait.mode === 'combat';
+  appendLog(state, isCombatTrait
+    ? `【대표 카드 효과】 「${card.name}」의 등장 효과가 처리되었습니다.`
+    : `【UNIQUE EFFECT · ${trait.name}】 「${card.name}」 전용 효과 발동.`, 'special');
   appendVisual(state, {
     kind: 'special',
     vfx: card.kind === 'spell' ? 'unique-spell-signature' : 'unique-unit-signature',
@@ -3710,8 +3713,8 @@ function applyUniqueCardTrait(
     ownerId: actorId,
     targetOwnerId: target?.ownerId ?? actorId,
     targetZone: target?.unitIndex ?? sourceZone,
-    label: `UNIQUE · ${trait.name}`,
-    detail: trait.description,
+    label: isCombatTrait ? `ABILITY · ${card.name}` : `UNIQUE EFFECT · ${trait.name}`,
+    detail: isCombatTrait ? card.text : trait.description,
   });
 }
 
@@ -4109,8 +4112,9 @@ function applyPremiumTimeSignature(
     freezeAllEnemyUnits(state, actorId, 1, card);
     discardHighestCostCardsFromOpponent(state, privateStates, actorId, 1, card);
     applyEffect(state, privateStates, actorId, { kind: 'banish_enemy_grave', amount: 2 }, undefined, card);
-    drawCards(state, actorPrivate, actorId, 1);
-    appendLog(state, '【절대 무음령】 적 전열 동결 · 최고 비용 손패 1장 강제 버림 · 상대 묘지 2장 소멸 · 카드 1장 드로우.', 'special');
+    applyEffect(state, privateStates, actorId, { kind: 'steal_energy', amount: 1 }, undefined, card);
+    drawCards(state, actorPrivate, actorId, 2);
+    appendLog(state, '【절대 무음령】 적 전열 동결 · 최고 비용 손패 1장 강제 버림 · 상대 묘지 2장 소멸 · ENERGY 1 흡수 · 카드 2장 드로우.', 'special');
   }
 }
 
