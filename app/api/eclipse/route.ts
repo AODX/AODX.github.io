@@ -2056,6 +2056,40 @@ async function handleAction(request: Request, body: RequestBody) {
     return { messages: (data ?? []).reverse(), scope: 'global', cutoff };
   }
 
+  if (action === 'chat_sync') {
+    const admin = await requireAdmin();
+    const roomId = cleanText(body.roomId, 64);
+    const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+
+    const { data: globalData, error: globalError } = await admin
+      .from('eclipse_global_messages')
+      .select('*')
+      .gte('created_at', cutoff)
+      .order('created_at', { ascending: false })
+      .limit(36);
+    if (globalError) throw new Error(globalError.message);
+
+    let roomMessages: unknown[] = [];
+    if (roomId) {
+      const room = await fetchRoom(admin, roomId);
+      await assertRoomMember(admin, room, user.id);
+      const { data: roomData, error: roomError } = await admin
+        .from('eclipse_room_messages')
+        .select('*')
+        .eq('room_id', roomId)
+        .order('created_at', { ascending: false })
+        .limit(36);
+      if (roomError) throw new Error(roomError.message);
+      roomMessages = (roomData ?? []).reverse();
+    }
+
+    return {
+      globalMessages: (globalData ?? []).reverse(),
+      roomMessages,
+      cutoff,
+    };
+  }
+
   if (action === 'send_global_message') {
     const message = cleanText(body.message, 180);
     if (!message) throw new Error('메시지를 입력하세요.');
