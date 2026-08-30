@@ -193,6 +193,8 @@ type ApiResult = {
   onlineUsers?: OnlineUserProfile[];
   /** Chat read/send responses used by the global/room chat sync. */
   messages?: ChatMessage[];
+  globalMessages?: ChatMessage[];
+  roomMessages?: ChatMessage[];
   message?: ChatMessage;
   scope?: 'global' | 'room';
   cutoff?: string;
@@ -1812,7 +1814,7 @@ async function api(action: string, payload: Record<string, unknown> = {}, retrie
       signal: controller.signal,
     });
   } catch (error) {
-    const safeRead = action === 'bootstrap' || action === 'hub' || action === 'get_room';
+    const safeRead = action === 'bootstrap' || action === 'hub' || action === 'get_room' || action === 'chat_messages' || action === 'chat_sync';
     if (!retried && safeRead) {
       await new Promise((resolve) => window.setTimeout(resolve, 450));
       return api(action, payload, true);
@@ -4026,9 +4028,14 @@ function renderChatBody(body: string, onMediaLoad?: () => void) {
 
 type ChatScope = 'global' | 'room';
 
-function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }: { open: boolean; roomId?: string; onClose: () => void; profile: Profile; emoteIds?: string[]; onUnread?: (scope: ChatScope) => void }) {
+function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }: { open: boolean; roomId?: string; onClose: () => void; profile: Profile; emoteIds?: string[]; onUnread?: (scope: ChatScope, count?: number) => void }) {
   const [activeScope, setActiveScope] = useState<ChatScope>(roomId ? 'room' : 'global');
   const [messagesByScope, setMessagesByScope] = useState<Record<ChatScope, ChatMessage[]>>({ global: [], room: [] });
+  const messagesByScopeRef = useRef<Record<ChatScope, ChatMessage[]>>({ global: [], room: [] });
+  const scopeInitializedRef = useRef<Record<ChatScope, boolean>>({ global: false, room: false });
+  const seenServerMessageIdsRef = useRef<Record<ChatScope, Set<string>>>({ global: new Set<string>(), room: new Set<string>() });
+  const globalChatChannelRef = useRef<any>(null);
+  const roomChatChannelRef = useRef<any>(null);
   const [tabUnread, setTabUnread] = useState<Record<ChatScope, number>>({ global: 0, room: 0 });
   const [chatSkins, setChatSkins] = useState<Record<string, ChatSkinProfile>>({
     [profile.user_id]: { user_id: profile.user_id, profile_theme: profile.profile_theme, profile_frame: profile.profile_frame },
@@ -4053,6 +4060,7 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
   }, []);
 
   useEffect(() => { openRef.current = open; }, [open]);
+  useEffect(() => { messagesByScopeRef.current = messagesByScope; }, [messagesByScope]);
   useEffect(() => { activeScopeRef.current = activeScope; }, [activeScope]);
   useEffect(() => { onUnreadRef.current = onUnread; }, [onUnread]);
   useEffect(() => {
@@ -4061,7 +4069,13 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
     } else {
       setActiveScope('global');
     }
-    setMessagesByScope((current) => ({ ...current, room: [] }));
+    setMessagesByScope((current) => {
+      const next = { ...current, room: [] };
+      messagesByScopeRef.current = next;
+      return next;
+    });
+    scopeInitializedRef.current.room = false;
+    seenServerMessageIdsRef.current.room.clear();
     setTabUnread((current) => ({ ...current, room: 0 }));
   }, [roomId]);
   useEffect(() => {
@@ -4084,13 +4098,20 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
     setChatSkins((current) => ({ ...current, ...additions }));
   }
 
-  function replaceScopeMessages(scope: ChatScope, loaded: ChatMessage[]) {
+  function replaceScopeMessages(scope: ChatScope, loaded: ChatMessage[], notify = false) {
     const now = Date.now();
     const cutoffMs = now - 30 * 60 * 1000;
     const safe = loaded
       .filter((message) => scope === 'room' || new Date(message.created_at).getTime() >= cutoffMs)
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
       .slice(-CHAT_RENDER_LIMIT);
+
+    const knownServerIds = seenServerMessageIdsRef.current[scope];
+    const unseen = scopeInitializedRef.current[scope] && notify
+      ? safe.filter((message) => message.user_id !== profile.user_id && message.id >= 0 && !knownServerIds.has(String(message.id)))
+      : [];
+    safe.forEach((message) => { if (message.id >= 0) knownServerIds.add(String(message.id)); });
+
     setMessagesByScope((current) => {
       const pending = current[scope].filter((message) => {
         if (message.id >= 0) return false;
@@ -4101,9 +4122,20 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
       const merged = [...safe, ...pending]
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
         .slice(-CHAT_RENDER_LIMIT);
-      return { ...current, [scope]: merged };
+      const next = { ...current, [scope]: merged };
+      messagesByScopeRef.current = next;
+      return next;
     });
+    scopeInitializedRef.current[scope] = true;
     void ensureChatSkins(safe.map((message) => message.user_id));
+
+    if (unseen.length > 0) {
+      const currentlyReading = openRef.current && activeScopeRef.current === scope;
+      if (!currentlyReading) {
+        setTabUnread((current) => ({ ...current, [scope]: Math.min(99, current[scope] + unseen.length) }));
+        if (!openRef.current) onUnreadRef.current?.(scope, unseen.length);
+      }
+    }
   }
 
   function mergeScopeMessage(scope: ChatScope, next: ChatMessage) {
@@ -4123,25 +4155,37 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
       const merged = [...filtered, next]
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
         .slice(-CHAT_RENDER_LIMIT);
-      return { ...current, [scope]: merged };
+      const nextState = { ...current, [scope]: merged };
+      messagesByScopeRef.current = nextState;
+      return nextState;
     });
   }
 
-  async function loadScope(scope: ChatScope) {
+  async function loadScope(scope: ChatScope, notify = false) {
     if (scope === 'room' && !roomId) return;
     const result = await api('chat_messages', scope === 'room' ? { roomId } : {});
-    replaceScopeMessages(scope, Array.isArray(result.messages) ? result.messages as ChatMessage[] : []);
+    replaceScopeMessages(scope, Array.isArray(result.messages) ? result.messages as ChatMessage[] : [], notify);
+  }
+
+  async function syncChatScopes(notify = true) {
+    const result = await api('chat_sync', roomId ? { roomId } : {});
+    replaceScopeMessages('global', Array.isArray(result.globalMessages) ? result.globalMessages as ChatMessage[] : [], notify);
+    if (roomId) replaceScopeMessages('room', Array.isArray(result.roomMessages) ? result.roomMessages as ChatMessage[] : [], notify);
   }
 
   function receiveRealtime(scope: ChatScope, next: ChatMessage) {
     if (scope === 'global' && new Date(next.created_at).getTime() < Date.now() - 30 * 60 * 1000) return;
+    const messageKey = next.id >= 0 ? String(next.id) : '';
+    const alreadyKnown = Boolean(messageKey && seenServerMessageIdsRef.current[scope].has(messageKey));
+    if (messageKey) seenServerMessageIdsRef.current[scope].add(messageKey);
     void ensureChatSkins([next.user_id]);
     mergeScopeMessage(scope, next);
-    if (next.user_id === profile.user_id) return;
+    scopeInitializedRef.current[scope] = true;
+    if (alreadyKnown || next.user_id === profile.user_id) return;
     const currentlyReading = openRef.current && activeScopeRef.current === scope;
     if (!currentlyReading) {
       setTabUnread((current) => ({ ...current, [scope]: Math.min(99, current[scope] + 1) }));
-      if (!openRef.current) onUnreadRef.current?.(scope);
+      if (!openRef.current) onUnreadRef.current?.(scope, 1);
     }
   }
 
@@ -4151,7 +4195,11 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
       if (alive) setError(reason instanceof Error ? reason.message : '전체 채팅을 불러오지 못했습니다.');
     });
     const channel = supabase
-      .channel(`chat-global-v69-${profile.user_id}`)
+      .channel('chat-global-v70', { config: { broadcast: { self: false } } })
+      .on('broadcast', { event: 'chat_message' }, (payload: any) => {
+        if (!alive || !payload?.payload) return;
+        receiveRealtime('global', payload.payload as ChatMessage);
+      })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'eclipse_global_messages' }, (payload: any) => {
         if (!alive) return;
         receiveRealtime('global', payload.new as ChatMessage);
@@ -4163,16 +4211,22 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
           void loadScope('global').catch(() => undefined);
         }
       });
+    globalChatChannelRef.current = channel;
     const expiryTimer = window.setInterval(() => {
       const cutoffMs = Date.now() - 30 * 60 * 1000;
-      setMessagesByScope((current) => ({
-        ...current,
-        global: current.global.filter((message) => new Date(message.created_at).getTime() >= cutoffMs),
-      }));
+      setMessagesByScope((current) => {
+        const next = {
+          ...current,
+          global: current.global.filter((message) => new Date(message.created_at).getTime() >= cutoffMs),
+        };
+        messagesByScopeRef.current = next;
+        return next;
+      });
     }, 30_000);
     return () => {
       alive = false;
       window.clearInterval(expiryTimer);
+      if (globalChatChannelRef.current === channel) globalChatChannelRef.current = null;
       void supabase.removeChannel(channel);
     };
   }, [profile.user_id]);
@@ -4184,7 +4238,11 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
       if (alive) setError(reason instanceof Error ? reason.message : '방 채팅을 불러오지 못했습니다.');
     });
     const channel = supabase
-      .channel(`chat-room-v69-${roomId}-${profile.user_id}`)
+      .channel(`chat-room-v70-${roomId}`, { config: { broadcast: { self: false } } })
+      .on('broadcast', { event: 'chat_message' }, (payload: any) => {
+        if (!alive || !payload?.payload) return;
+        receiveRealtime('room', payload.payload as ChatMessage);
+      })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'eclipse_room_messages', filter: `room_id=eq.${roomId}` }, (payload: any) => {
         if (!alive) return;
         receiveRealtime('room', payload.new as ChatMessage);
@@ -4196,27 +4254,40 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
           void loadScope('room').catch(() => undefined);
         }
       });
+    roomChatChannelRef.current = channel;
     return () => {
       alive = false;
+      if (roomChatChannelRef.current === channel) roomChatChannelRef.current = null;
       void supabase.removeChannel(channel);
     };
   }, [roomId, profile.user_id]);
 
   useEffect(() => {
-    if (!open) return undefined;
     let alive = true;
-    const refresh = () => {
-      if (!alive || document.visibilityState === 'hidden') return;
-      void loadScope(activeScope).catch(() => undefined);
+    let syncing = false;
+    const refresh = async (notify = true) => {
+      if (!alive || syncing || document.visibilityState === 'hidden') return;
+      syncing = true;
+      try {
+        await syncChatScopes(notify);
+      } catch {
+        // Realtime can still carry messages; the next heartbeat retries quietly.
+      } finally {
+        syncing = false;
+      }
     };
-    refresh();
-    // Realtime remains primary; this is a low-frequency safety net for socket hiccups/RLS edge cases.
-    const timer = window.setInterval(refresh, activeScope === 'room' ? 6000 : 8000);
+    void refresh(false);
+    const timer = window.setInterval(() => { void refresh(true); }, roomId ? 3500 : 5000);
+    const wake = () => { if (document.visibilityState === 'visible') void refresh(true); };
+    window.addEventListener('focus', wake);
+    document.addEventListener('visibilitychange', wake);
     return () => {
       alive = false;
       window.clearInterval(timer);
+      window.removeEventListener('focus', wake);
+      document.removeEventListener('visibilitychange', wake);
     };
-  }, [open, activeScope, roomId]);
+  }, [roomId, profile.user_id]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -4249,10 +4320,21 @@ function ChatDrawer({ open, roomId, onClose, profile, emoteIds = [], onUnread }:
     window.requestAnimationFrame(() => stickChatToBottom('smooth'));
     try {
       const result = await api(scope === 'room' ? 'send_room_message' : 'send_global_message', scope === 'room' ? { roomId, message } : { message });
-      if (result.message) mergeScopeMessage(scope, result.message as ChatMessage);
-      else await loadScope(scope);
+      if (result.message) {
+        const persisted = result.message as ChatMessage;
+        if (persisted.id >= 0) seenServerMessageIdsRef.current[scope].add(String(persisted.id));
+        mergeScopeMessage(scope, persisted);
+        const channel = scope === 'room' ? roomChatChannelRef.current : globalChatChannelRef.current;
+        if (channel) void channel.send({ type: 'broadcast', event: 'chat_message', payload: persisted });
+      } else {
+        await loadScope(scope);
+      }
     } catch (reason) {
-      setMessagesByScope((current) => ({ ...current, [scope]: current[scope].filter((item) => item.id !== optimisticId) }));
+      setMessagesByScope((current) => {
+        const next = { ...current, [scope]: current[scope].filter((item) => item.id !== optimisticId) };
+        messagesByScopeRef.current = next;
+        return next;
+      });
       setInput(message);
       setError(reason instanceof Error ? reason.message : '전송 실패');
     }
@@ -9256,7 +9338,7 @@ export default function Page() {
       </section>
 
       <nav className="mobile-nav">{NAV_ITEMS.map((item) => <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { playUiSound('click'); setSettingsOpen(false); setChatOpen(false); setView(item.id); }}><i><GameIcon name={item.id} /></i><span>{item.label}</span>{item.id === 'friends' && pendingFriendRequestCount > 0 && <b className="social-request-badge" aria-label={`받은 친구 요청 ${pendingFriendRequestCount}개`}>{pendingFriendRequestCount > 9 ? '9+' : pendingFriendRequestCount}</b>}</button>)}</nav>
-      <ChatDrawer open={chatOpen} roomId={roomChat} onClose={() => setChatOpen(false)} profile={hub.profile} emoteIds={hub.emoteLoadout ?? []} onUnread={() => setChatUnread((current) => Math.min(999, current + 1))} />
+      <ChatDrawer open={chatOpen} roomId={roomChat} onClose={() => setChatOpen(false)} profile={hub.profile} emoteIds={hub.emoteLoadout ?? []} onUnread={(_scope, count = 1) => setChatUnread((current) => Math.min(999, current + count))} />
       {chatOpen && <button className="chat-backdrop" aria-label="채팅 닫기" onClick={() => setChatOpen(false)} />}
       <ControlCenter
         open={settingsOpen}
