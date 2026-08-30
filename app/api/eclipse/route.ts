@@ -1673,19 +1673,34 @@ async function getRoomPayload(admin: AdminDbClient, room: RoomRow, userId: strin
 }
 
 async function findResumableRoom(admin: AdminDbClient, userId: string): Promise<RoomRow | null> {
-  // First preserve legacy/quick-match player resume behavior.
-  const { data: direct, error: directError } = await admin
+  // Finished rooms are never auto-resumed. Otherwise a room from yesterday can
+  // keep the client in ROOM CHAT even while the user is back on the main hub.
+  const { data: activeDirect, error: activeDirectError } = await admin
     .from('eclipse_rooms')
     .select('*')
-    .in('status', ['waiting', 'active', 'finished'])
+    .eq('status', 'active')
     .or(`host_id.eq.${userId},guest_id.eq.${userId}`)
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (directError) throw new Error(`진행 중인 결투 확인 실패: ${directError.message}`);
-  if (direct) return direct as RoomRow;
+  if (activeDirectError) throw new Error(`진행 중인 결투 확인 실패: ${activeDirectError.message}`);
+  if (activeDirect) return activeDirect as RoomRow;
 
-  // Private-room spectators also resume the room after refresh/reconnect.
+  const waitingCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  const { data: waitingDirect, error: waitingDirectError } = await admin
+    .from('eclipse_rooms')
+    .select('*')
+    .eq('status', 'waiting')
+    .gte('updated_at', waitingCutoff)
+    .or(`host_id.eq.${userId},guest_id.eq.${userId}`)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (waitingDirectError) throw new Error(`대기 중인 결투 확인 실패: ${waitingDirectError.message}`);
+  if (waitingDirect) return waitingDirect as RoomRow;
+
+  // Private-room spectators may resume an active room, or a waiting room that
+  // was touched recently. Old/finished memberships never affect main chat.
   const { data: memberships, error: memberError } = await admin
     .from('eclipse_room_members')
     .select('room_id,joined_at')
@@ -1701,10 +1716,14 @@ async function findResumableRoom(admin: AdminDbClient, userId: string): Promise<
       .from('eclipse_rooms')
       .select('*')
       .eq('id', membership.room_id)
-      .in('status', ['waiting', 'active', 'finished'])
+      .in('status', ['active', 'waiting'])
       .maybeSingle();
     if (roomError) throw new Error(`관전방 복구 실패: ${roomError.message}`);
-    if (roomData && !(roomData as RoomRow).public_match) return roomData as RoomRow;
+    if (!roomData) continue;
+    const room = roomData as RoomRow;
+    if (room.public_match) continue;
+    if (room.status === 'active') return room;
+    if (room.status === 'waiting' && new Date(room.updated_at ?? 0).getTime() >= Date.now() - 30 * 60 * 1000) return room;
   }
   return null;
 }
@@ -2040,6 +2059,7 @@ async function handleAction(request: Request, body: RequestBody) {
         .from('eclipse_room_messages')
         .select('*')
         .eq('room_id', roomId)
+        .gte('created_at', cutoff)
         .order('created_at', { ascending: false })
         .limit(36);
       if (error) throw new Error(error.message);
@@ -2077,6 +2097,7 @@ async function handleAction(request: Request, body: RequestBody) {
         .from('eclipse_room_messages')
         .select('*')
         .eq('room_id', roomId)
+        .gte('created_at', cutoff)
         .order('created_at', { ascending: false })
         .limit(36);
       if (roomError) throw new Error(roomError.message);
@@ -2569,6 +2590,8 @@ async function handleAction(request: Request, body: RequestBody) {
     const admin = await requireAdmin();
     const room = await fetchRoom(admin, roomId);
     await assertRoomMember(admin, room, user.id);
+    const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    await admin.from('eclipse_room_messages').delete().eq('room_id', roomId).lt('created_at', cutoff);
     const { data: profile, error: profileError } = await admin
       .from('eclipse_profiles')
       .select('display_name')
