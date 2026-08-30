@@ -160,6 +160,7 @@ type RoomRow = {
   state: MatchState | null;
   version: number;
   winner_id: string | null;
+  updated_at?: string;
 };
 
 type RoomProfile = Pick<Profile, 'user_id' | 'display_name' | 'avatar' | 'wins' | 'losses' | 'xp' | 'profile_emblem' | 'card_sleeve' | 'nickname_style'>;
@@ -9085,15 +9086,23 @@ export default function Page() {
         const result = await api('get_room', { roomId });
         if (!alive) return;
         if (result.room && result.profiles) {
+          const nextRoom = result.room;
+          const nextProfiles = result.profiles;
+          const nextPrivateState = result.privateState ?? null;
+          const nextMembers = result.members ?? [];
+          const nextSpectatorHands = result.spectatorHands ?? undefined;
+          const nextSpectatorSecrets = result.spectatorSecrets ?? undefined;
+          const nextOpponentHandReveal = result.opponentHandReveal ?? undefined;
+          const nextBattleEmotes = result.battleEmotes ?? [];
           setRoomPayload((current) => {
-            if (current?.room.id === result.room.id
-                && current.room.version === result.room.version
-                && current.room.status === result.room.status
-                && current.room.updated_at === result.room.updated_at
-                && (current.members?.length ?? 0) === (result.members?.length ?? 0)
-                && (current.profiles?.length ?? 0) === (result.profiles?.length ?? 0)
-                && (current.battleEmotes?.length ?? 0) === (result.battleEmotes?.length ?? 0)) return current;
-            return { room: result.room, profiles: result.profiles, privateState: result.privateState ?? null, members: result.members ?? [], spectatorHands: result.spectatorHands ?? undefined, spectatorSecrets: result.spectatorSecrets ?? undefined, opponentHandReveal: result.opponentHandReveal ?? undefined, battleEmotes: result.battleEmotes ?? [] };
+            if (current?.room.id === nextRoom.id
+                && current.room.version === nextRoom.version
+                && current.room.status === nextRoom.status
+                && current.room.updated_at === nextRoom.updated_at
+                && (current.members?.length ?? 0) === nextMembers.length
+                && (current.profiles?.length ?? 0) === nextProfiles.length
+                && (current.battleEmotes?.length ?? 0) === nextBattleEmotes.length) return current;
+            return { room: nextRoom, profiles: nextProfiles, privateState: nextPrivateState, members: nextMembers, spectatorHands: nextSpectatorHands, spectatorSecrets: nextSpectatorSecrets, opponentHandReveal: nextOpponentHandReveal, battleEmotes: nextBattleEmotes };
           });
           lastSuccessfulSync = Date.now();
           setRoomSyncState('live');
