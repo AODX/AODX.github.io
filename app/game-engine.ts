@@ -4971,7 +4971,7 @@ function applyTimeDevourerArrival(
       targetOwnerId: opponentId,
       targetZone: index,
       label: '시간 포식',
-      detail: '연대포식수 크로노보로스가 상대 유닛을 시간 밖으로 삼켰습니다.',
+      detail: '시간 탐식자가 상대 유닛을 시간 밖으로 삼켰습니다.',
     });
   }
 
@@ -5000,7 +5000,7 @@ function applyTimeDevourerArrival(
 
   appendLog(
     state,
-    `「연대포식수 크로노보로스」 절대 등장 — 적 유닛 ${swallowedUnits}체와 세트 함정 ${swallowedTraps}장을 삼키고, 코어 ${healed} 회복 · ${drew}장 드로우 · ENERGY ${gainedEnergy} 회복 · 보호막 ${MAX_UNIT_SHIELD}.`,
+    `「시간 탐식자」 절대 등장 — 적 유닛 ${swallowedUnits}체와 세트 함정 ${swallowedTraps}장을 삼키고, 코어 ${healed} 회복 · ${drew}장 드로우 · ENERGY ${gainedEnergy} 회복 · 보호막 ${MAX_UNIT_SHIELD}.`,
     'special',
   );
   appendVisual(state, {

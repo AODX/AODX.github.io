@@ -3,6 +3,7 @@ import { V34_ECLIPSE_CYCLE_CARDS } from './v34-card-data';
 import { V37_TIME_CORE_CARDS } from './v37-time-card-data';
 import { V41_PREMIUM_TIME_CARDS } from './v41-premium-time-cards';
 import { V60_PREMIUM_TIME_DEVOURER } from './v60-premium-time-devourer';
+import { V74_CARD_NAME_OVERRIDES } from './v74-card-name-overrides';
 
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type CardKind = 'unit' | 'spell' | 'trap' | 'fusion' | 'evolution';
@@ -5591,7 +5592,7 @@ for (const card of CARDS) {
 // absolute stats/traits/time profile after every global balance mutation.
 const V60_ABSOLUTE_TIME_DEVOURER = CARDS.find((card) => card.id === 'v60_premium_time_devourer');
 if (V60_ABSOLUTE_TIME_DEVOURER) {
-  V60_ABSOLUTE_TIME_DEVOURER.name = '연대포식수 크로노보로스';
+  V60_ABSOLUTE_TIME_DEVOURER.name = '시간 탐식자';
   V60_ABSOLUTE_TIME_DEVOURER.cost = 10;
   V60_ABSOLUTE_TIME_DEVOURER.attack = 15;
   V60_ABSOLUTE_TIME_DEVOURER.health = 18;
@@ -6805,7 +6806,7 @@ const V65_COMBAT_IDENTITIES: Record<string, V65CombatIdentity> = {
   },
   v60_premium_time_devourer: {
     name: '시대별 섭식 · 전투형',
-    description: '기존 7개 전투 특성을 하나도 잃지 않고 연대포식수 크로노보로스만의 이름으로 통합한 절대 전투 특성.',
+    description: '기존 7개 전투 특성을 하나도 잃지 않고 시간 탐식자만의 이름으로 통합한 절대 전투 특성.',
     keywords: ['guard', 'charge', 'lifesteal', 'pierce', 'corestrike', 'execute', 'sweep'],
     highlights: [
       { name: '시간보다 먼저', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
@@ -7188,7 +7189,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
   v60_premium_time_devourer: {
     combatId: 'premium_time_devour_cycle',
     name: '시간대 포식순환',
-    description: '공격할 때마다 지금 시간을 실제로 먹어 다음 시간대로 넘기며 계속 성장하는 연대포식수 크로노보로스 전용 규칙.',
+    description: '공격할 때마다 지금 시간을 실제로 먹어 다음 시간대로 넘기며 계속 성장하는 시간 탐식자 전용 규칙.',
     highlights: [
       { name: '시간 포식', description: '이 캐릭터의 공격이 정상 처리될 때마다 시간을 다음 시간대로 1단계 밀고 자신은 영구 +1/+1. 개기일식에서 여명으로 넘어가면 코어 3 추가 회복.' },
       { name: '시각 착취', description: '공격 선언 시 상대 ENERGY 1을 흡수하고 자신은 보호막 1을 얻습니다.' },
@@ -7569,6 +7570,15 @@ export const V45_TRAIT_DISTRIBUTION = Object.fromEntries(CARD_SERIES.map((series
 })) as Record<SeriesId, { execution: string[]; sweep: string[] }>;
 // === /v45 balanced battle-trait roster =====================================
 
+// === V74 game-style card-name cleanup =======================================
+// Card IDs and gameplay rules remain unchanged; only player-facing names are
+// normalized. Every final card name is unique and at most 10 characters.
+for (const card of CARDS) {
+  const renamed = V74_CARD_NAME_OVERRIDES[card.id];
+  if (renamed) card.name = renamed;
+}
+// === /V74 game-style card-name cleanup ======================================
+
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));
 
 export const DEFAULT_ECLIPSE_AFFINITY_BY_ELEMENT: Record<Element, EclipsePhase> = {
@@ -7692,7 +7702,7 @@ export const PACKS: PackDefinition[] = [
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
   {
-    id: 'premium_time_midnight', name: 'PREMIUM TIME · 심야', tagline: '자정 봉쇄식 · 무성권역 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#8795ff',
+    id: 'premium_time_midnight', name: 'PREMIUM TIME · 심야', tagline: '심야 무성권역 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#8795ff',
     featuredCardId: 'v41_premium_midnight_silence', premiumTimePhase: 'midnight',
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
@@ -7702,7 +7712,7 @@ export const PACKS: PackDefinition[] = [
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
   {
-    id: 'premium_time_devourer', name: 'PREMIUM ABSOLUTE · 연대포식수 크로노보로스', tagline: '단 1장 개봉 · 연대포식수 크로노보로스 0.1% 극희귀 픽업', price: 1000, guaranteed: 'common', category: 'core', accent: '#8d5cff',
+    id: 'premium_time_devourer', name: 'PREMIUM ABSOLUTE · 시간 탐식자', tagline: '단 1장 개봉 · 시간 탐식자 0.1% 극희귀 픽업', price: 1000, guaranteed: 'common', category: 'core', accent: '#8d5cff',
     featuredCardId: 'v60_premium_time_devourer', cardCount: 1,
     odds: { common: 99.9, rare: 0, epic: 0, legendary: 0.1, guaranteedSlots: 0, pickupRate: 0.1 },
   },

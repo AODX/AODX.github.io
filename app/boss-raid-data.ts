@@ -392,9 +392,9 @@ export const BOSS_RAIDS: BossRaidDefinition[] = [
   },
   {
     id: 'midnight_silence',
-    name: '자정 봉쇄식 · 무성권역',
+    name: '심야 무성권역',
     epithet: '자정을 잠그는 시간 군주',
-    description: '자정 봉쇄식 · 무성권역을 중심으로 ENERGY·손패·함정 타이밍을 통제해 플레이 선택지를 계속 줄입니다.',
+    description: '심야 무성권역을 중심으로 ENERGY·손패·함정 타이밍을 통제해 플레이 선택지를 계속 줄입니다.',
     phase: 'midnight',
     signatureCardId: 'v41_premium_midnight_silence',
     reward: BOSS_REWARD_BY_THREAT[5],
