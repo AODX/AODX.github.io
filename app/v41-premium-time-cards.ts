@@ -3,7 +3,7 @@ import type { CardDefinition } from './game-data';
 export const V41_PREMIUM_TIME_CARDS: CardDefinition[] = [
   {
     id: 'v41_premium_zenith_king',
-    name: '태양전차 라그나크',
+    name: '정점의 왕',
     subtitle: 'PREMIUM TIME · 정오를 질주하는 태양전차',
     kind: 'unit',
     rarity: 'legendary',
@@ -35,7 +35,7 @@ export const V41_PREMIUM_TIME_CARDS: CardDefinition[] = [
   },
   {
     id: 'v41_premium_dawn_lord',
-    name: '여명성녀 아우렐리아',
+    name: '여명의 지배자',
     subtitle: 'PREMIUM TIME · 첫빛을 되돌리는 성녀',
     kind: 'unit',
     rarity: 'legendary',
@@ -66,7 +66,7 @@ export const V41_PREMIUM_TIME_CARDS: CardDefinition[] = [
   },
   {
     id: 'v41_premium_eclipse_conductor',
-    name: '흑일악사 모르덴',
+    name: '개기일식의 조율자',
     subtitle: 'PREMIUM TIME · 흑일을 연주하는 악사',
     kind: 'unit',
     rarity: 'legendary',
@@ -98,7 +98,7 @@ export const V41_PREMIUM_TIME_CARDS: CardDefinition[] = [
   },
   {
     id: 'v44_premium_twilight_knight',
-    name: '쌍월검사 베스퍼',
+    name: '황혼의 기사',
     subtitle: 'PREMIUM TIME · 두 달 사이를 걷는 쌍검',
     kind: 'unit',
     rarity: 'legendary',
@@ -129,7 +129,7 @@ export const V41_PREMIUM_TIME_CARDS: CardDefinition[] = [
   },
   {
     id: 'v41_premium_midnight_silence',
-    name: '자정 봉쇄식 · 무성권역',
+    name: '심야의 침묵',
     subtitle: 'PREMIUM RITUAL · 소리를 지우는 자정 결계',
     kind: 'spell',
     rarity: 'legendary',

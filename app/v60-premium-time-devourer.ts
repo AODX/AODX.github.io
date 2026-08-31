@@ -7,7 +7,7 @@ import type { CardDefinition } from './game-data';
  */
 export const V60_PREMIUM_TIME_DEVOURER: CardDefinition = {
   id: 'v60_premium_time_devourer',
-  name: '연대포식수 크로노보로스',
+  name: '시간 탐식자',
   subtitle: 'PREMIUM ABSOLUTE · 연대기를 삼키는 종말수',
   kind: 'unit',
   rarity: 'legendary',

@@ -5711,6 +5711,25 @@ function clientExtraReadyFromPool(pool: ClientExtraMaterialCandidate[], card: Ca
   return clientIndexCombinations(indexes, required).some((combination) => clientExtraMaterialsValid(combination.map((index) => pool[index]), card));
 }
 
+function clientFindReadyExtraMaterialSelection(
+  pool: ClientExtraMaterialCandidate[],
+  card: CardDefinition,
+  preferredKeys: string[] = [],
+): ClientExtraMaterialCandidate[] | null {
+  const required = extraRequiredUnitCount(card);
+  if (required < 2 || required > 3 || pool.length < required) return null;
+  const indexes = pool.map((_, index) => index);
+  const validSelections = clientIndexCombinations(indexes, required)
+    .map((combination) => combination.map((index) => pool[index]))
+    .filter((selection) => clientExtraMaterialsValid(selection, card));
+  if (validSelections.length === 0) return null;
+  if (preferredKeys.length > 0) {
+    const preferred = validSelections.find((selection) => preferredKeys.every((key) => selection.some((candidate) => candidate.key === key)));
+    if (preferred) return preferred;
+  }
+  return validSelections[0];
+}
+
 function clientExtraPoolProgressReasons(pool: ClientExtraMaterialCandidate[], card: CardDefinition): string[] {
   const recipe = card.extraMaterialRecipe;
   if (!recipe) return ['엑스트라 소환 레시피가 설정되지 않았습니다.'];
@@ -7013,6 +7032,16 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       return card?.kind === 'unit' ? [{ key: `hand:${instance.instanceId}`, cardId: card.id, card, handInstanceId: instance.instanceId }] : [];
     }),
   ];
+  const selectedExtraAutoMaterials = selectedExtraCard
+    ? clientFindReadyExtraMaterialSelection(extraMaterialPool, selectedExtraCard, selectedExtraMaterials.map((candidate) => candidate.key))
+    : null;
+  const selectedExtraCanStartSummon = Boolean(
+    selectedExtraCard
+    && selectedExtra
+    && selectedExtraAutoMaterials
+    && canAttemptExtraSummon
+    && extraSummonBlockReasons(selectedExtraCard).length === 0
+  );
   const riftReadyInstances = privateState.hand.filter((instance) => {
     const card = CARD_BY_ID[instance.cardId];
     if (!card || card.kind !== 'unit' || card.summonMode !== 'rift' || !clientEclipseSummonReady(state, card)) return false;
@@ -7483,21 +7512,36 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
       showSummonBlock(selectedExtraCard, blockReasons);
       return;
     }
+
+    const chosenMaterials = selectedMaterialCount === requiredMaterials && selectedMaterialsValid
+      ? selectedExtraMaterials
+      : clientFindReadyExtraMaterialSelection(extraMaterialPool, selectedExtraCard, selectedExtraMaterials.map((candidate) => candidate.key));
+    if (!chosenMaterials) {
+      showSummonBlock(selectedExtraCard, [
+        '현재 필드와 손패에서 이 카드의 소재 조합을 만들 수 없습니다.',
+        extraRequirement(selectedExtraCard),
+      ]);
+      return;
+    }
+
+    const materialZones = chosenMaterials.flatMap((candidate) => candidate.fieldZone !== undefined ? [candidate.fieldZone] : []);
+    const materialHandIds = chosenMaterials.flatMap((candidate) => candidate.handInstanceId ? [candidate.handInstanceId] : []);
+    if (!(selectedMaterialCount === requiredMaterials && selectedMaterialsValid)) {
+      setSelectedMaterials(materialZones);
+      setSelectedHandMaterials(materialHandIds);
+      setSelectedExtraEffectTarget(null);
+    }
+
     if (selectedExtraSummonNeedsTarget && selectedExtraEffectTarget === null) {
-      setMessage(`${summonTargetEffectLabel(selectedExtraCard)}을(를) 받을 아군 캐릭터를 선택하거나 “소환체 자신”을 선택하세요.`);
+      setMessage(`소환 소재를 자동으로 선택했습니다. ${summonTargetEffectLabel(selectedExtraCard)}을(를) 받을 아군 캐릭터를 선택하거나 “소환체 자신”을 선택하세요.`);
       return;
     }
-    if (!canExtraSummon) {
-      const detail = selectedMaterialCount !== requiredMaterials
-        ? `필요한 소재를 모두 선택해야 합니다. 현재 ${selectedMaterialCount}/${requiredMaterials}장 선택.`
-        : '선택한 소재 조합이 이 카드의 진화/융합/계승 레시피를 만족하지 않습니다.';
-      showSummonBlock(selectedExtraCard, [detail, extraRequirement(selectedExtraCard)]);
-      return;
-    }
+
     const target = selectedExtraSummonNeedsTarget
       ? { ownerId: userId, unitIndex: selectedExtraEffectTarget === 'self' ? -1 : Number(selectedExtraEffectTarget) }
       : undefined;
-    gameAction('extra_summon', { extraInstanceId: selectedExtra, materialZones: selectedMaterials, materialHandIds: selectedHandMaterials, ...(target ? { target } : {}) });
+    setMessage(`${extraSummonMethodLabel(selectedExtraCard)} 소환 — 조건을 만족하는 소재를 릴리스합니다.`);
+    gameAction('extra_summon', { extraInstanceId: selectedExtra, materialZones, materialHandIds, ...(target ? { target } : {}) });
   }
 
   function spendTurnToDraw() {
@@ -7848,7 +7892,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
           {selectedExtraCard && (
             <div className="v18-selected-card extra v31f-selected-extra">
               <div className="v18-selected-art"><CardIllustration card={selectedExtraCard} compact /></div>
-              <div className="v18-selected-copy"><small>{extraSummonMethodLabel(selectedExtraCard)}</small><b>{selectedExtraCard.name}</b><p>{extraRequirement(selectedExtraCard)}</p><span className="v18-material-progress">릴리스 소재 {selectedMaterialCount} / {requiredMaterials} · 필드 {selectedMaterials.length} + 손패 {selectedHandMaterials.length}{selectedExtraCard.extraMaterialRecipe?.requireAtLeastOneField ? ' · 진화는 필드 1장+' : ''}</span><span className="v31-extra-usage">이번 게임 {extraSummonMethodLabel(selectedExtraCard)} {myExtraUsage[resolvedExtraSummonMethod(selectedExtraCard) ?? 'evolution']}/2 · 전체 전개 {totalExtraUsed}/2</span></div>
+              <div className="v18-selected-copy"><small>{extraSummonMethodLabel(selectedExtraCard)}</small><b>{selectedExtraCard.name}</b><p>{extraRequirement(selectedExtraCard)}</p><span className="v18-material-progress">릴리스 소재 {selectedMaterialCount} / {requiredMaterials} · 필드 {selectedMaterials.length} + 손패 {selectedHandMaterials.length}{selectedExtraCard.extraMaterialRecipe?.requireAtLeastOneField ? ' · 진화는 필드 1장+' : ''}{selectedExtraCanStartSummon && !canExtraSummon ? ' · 소환 가능(소재 자동 선택)' : ''}</span><span className="v31-extra-usage">이번 게임 {extraSummonMethodLabel(selectedExtraCard)} {myExtraUsage[resolvedExtraSummonMethod(selectedExtraCard) ?? 'evolution']}/2 · 전체 전개 {totalExtraUsed}/2</span></div>
               {selectedExtraCard.extraChoices?.length && (
                 <div className="v31f-extra-choose">
                   <header><span>CHOOSE EFFECT</span><small>소환 성공 후 화면 중앙에 선택지가 나타나며, 그중 1개만 고를 수 있습니다.</small></header>
@@ -7868,7 +7912,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
                 </div>
               )}
               <div className="v18-selected-actions"><button type="button" onClick={() => requestCardInspection(selectedExtraCard.id)}>전체 상세</button><button type="button" onClick={() => clearSelection('엑스트라 카드 선택을 취소했습니다.')}>선택 취소</button></div>
-              <button className="v18-context-primary" disabled={!canAttemptExtraSummon} onClick={summonSelectedExtra}>{canExtraSummon ? `${extraSummonMethodLabel(selectedExtraCard)} 소환` : selectedExtraSummonNeedsTarget && selectedMaterialCount === requiredMaterials && selectedMaterialsValid && selectedExtraEffectTarget === null ? '등장 효과 대상 선택 필요' : '소환 조건 확인'}</button>
+              <button className="v18-context-primary" disabled={!canAttemptExtraSummon} onClick={summonSelectedExtra}>{canExtraSummon || selectedExtraCanStartSummon ? `${extraSummonMethodLabel(selectedExtraCard)} 소환하기` : selectedExtraSummonNeedsTarget && selectedMaterialCount === requiredMaterials && selectedMaterialsValid && selectedExtraEffectTarget === null ? '등장 효과 대상 선택 필요' : '소환 조건 확인'}</button>
             </div>
           )}
         </section>}

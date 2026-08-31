@@ -5658,7 +5658,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
   },
   {
     "id": "v34_cycle_fusion_003",
-    "name": "여명의 공명체 · 3",
+    "name": "여명망령 베스퍼",
     "subtitle": "ECLIPSE CYCLE · 여명 공명 융합",
     "kind": "fusion",
     "rarity": "legendary",
@@ -5936,7 +5936,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
   },
   {
     "id": "v34_cycle_fusion_007",
-    "name": "정점의 공명체 · 3",
+    "name": "정점추적자 레오크",
     "subtitle": "ECLIPSE CYCLE · 정점 공명 융합",
     "kind": "fusion",
     "rarity": "legendary",
@@ -6212,7 +6212,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
   },
   {
     "id": "v34_cycle_fusion_011",
-    "name": "황혼의 공명체 · 3",
+    "name": "황혼성기사 솔테르",
     "subtitle": "ECLIPSE CYCLE · 황혼 공명 융합",
     "kind": "fusion",
     "rarity": "legendary",
@@ -6489,7 +6489,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
   },
   {
     "id": "v34_cycle_fusion_015",
-    "name": "심야의 공명체 · 3",
+    "name": "심야기록자 노에르",
     "subtitle": "ECLIPSE CYCLE · 심야 공명 융합",
     "kind": "fusion",
     "rarity": "legendary",
@@ -6769,7 +6769,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
   },
   {
     "id": "v34_cycle_fusion_019",
-    "name": "개기일식의 공명체 · 3",
+    "name": "식광전사 카이론",
     "subtitle": "ECLIPSE CYCLE · 개기일식 공명 융합",
     "kind": "fusion",
     "rarity": "legendary",
@@ -7029,7 +7029,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
   },
   {
     "id": "v34_cycle_evolution_003",
-    "name": "여명의 계승자 · 3",
+    "name": "새벽현자 에클라",
     "subtitle": "ECLIPSE CYCLE · 여명 계승 진화",
     "kind": "evolution",
     "rarity": "legendary",
@@ -7279,7 +7279,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
   },
   {
     "id": "v34_cycle_evolution_007",
-    "name": "정점의 계승자 · 3",
+    "name": "정점투신 그라드",
     "subtitle": "ECLIPSE CYCLE · 정점 계승 진화",
     "kind": "evolution",
     "rarity": "legendary",
@@ -7527,7 +7527,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
   },
   {
     "id": "v34_cycle_evolution_011",
-    "name": "황혼의 계승자 · 3",
+    "name": "황혼계승 솔바인",
     "subtitle": "ECLIPSE CYCLE · 황혼 계승 진화",
     "kind": "evolution",
     "rarity": "legendary",
@@ -7776,7 +7776,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
   },
   {
     "id": "v34_cycle_evolution_015",
-    "name": "심야의 계승자 · 3",
+    "name": "심야예언자 루나르",
     "subtitle": "ECLIPSE CYCLE · 심야 계승 진화",
     "kind": "evolution",
     "rarity": "legendary",
@@ -8028,7 +8028,7 @@ export const V34_ECLIPSE_CYCLE_CARDS: CardDefinition[] = [
   },
   {
     "id": "v34_cycle_evolution_019",
-    "name": "개기일식의 계승자 · 3",
+    "name": "일식군주 카이록",
     "subtitle": "ECLIPSE CYCLE · 개기일식 계승 진화",
     "kind": "evolution",
     "rarity": "legendary",
