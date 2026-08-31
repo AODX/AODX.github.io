@@ -2516,6 +2516,7 @@ async function handleAction(request: Request, body: RequestBody) {
     } else if (gameAction === 'extra_summon') {
       const extraInstanceId = cleanText(body.extraInstanceId, 80);
       const materialZones = Array.isArray(body.materialZones) ? body.materialZones.map(Number) : [];
+      const materialHandIds = Array.isArray(body.materialHandIds) ? body.materialHandIds.map((value) => cleanText(value, 80)).filter(Boolean) : [];
       const extraChoiceIndex = body.extraChoiceIndex === undefined ? undefined : Number(body.extraChoiceIndex);
       const rawTarget = body.target && typeof body.target === 'object' ? body.target as Record<string, unknown> : undefined;
       const target = rawTarget
@@ -2524,7 +2525,7 @@ async function handleAction(request: Request, body: RequestBody) {
             unitIndex: rawTarget.unitIndex === undefined ? undefined : Number(rawTarget.unitIndex),
           }
         : undefined;
-      next = summonExtra(snapshot, user.id, extraInstanceId, materialZones, extraChoiceIndex, target);
+      next = summonExtra(snapshot, user.id, extraInstanceId, materialZones, extraChoiceIndex, target, materialHandIds);
     } else if (gameAction === 'resolve_extra_choice') {
       next = resolveExtraChoice(snapshot, user.id, Number(body.choiceIndex ?? 0));
     } else if (gameAction === 'battle_phase') {
