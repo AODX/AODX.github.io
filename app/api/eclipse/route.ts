@@ -29,6 +29,7 @@ import {
   respondTrap,
   sacrificeHandForEnergy,
   sacrificeFieldUnitForEnergy,
+  useSecondPlayerBonusEnergy,
   sendBattleEmote,
   spendEnergyToDraw,
   summonExtra,
@@ -2548,6 +2549,8 @@ async function handleAction(request: Request, body: RequestBody) {
       next = sacrificeFieldUnitForEnergy(snapshot, user.id, unitIndex);
     } else if (gameAction === 'energy_draw') {
       next = spendEnergyToDraw(snapshot, user.id);
+    } else if (gameAction === 'second_player_bonus_energy') {
+      next = useSecondPlayerBonusEnergy(snapshot, user.id);
     } else if (gameAction === 'battle_emote') {
       const emoteId = cleanText(body.emoteId, 80);
       if (!V34_BATTLE_EMOTE_BY_ID[emoteId]) throw new Error('존재하지 않는 감정표현입니다.');
