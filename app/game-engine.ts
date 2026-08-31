@@ -6,6 +6,9 @@ import {
   ECLIPSE_PHASE_LABEL,
   ECLIPSE_PHASE_ORDER,
   FusionMaterial,
+  ExtraSummonMethod,
+  extraRequiredUnitCount,
+  resolvedExtraSummonMethod,
   SeriesId,
   TrapTrigger,
   UniqueCombatTraitId,
@@ -17,9 +20,9 @@ import {
 
 export type MatchPhase = 'main' | 'battle';
 export type MatchStatus = 'waiting' | 'active' | 'finished';
-export type SummonOrigin = 'normal' | 'rift' | 'legendary' | 'fusion' | 'evolution' | 'token';
-export type ExtraSummonKind = 'fusion' | 'evolution';
-export type VisualEventKind = 'turn' | 'summon' | 'special' | 'fusion' | 'evolution' | 'spell' | 'trap' | 'set' | 'draw' | 'attack' | 'defense' | 'destroy' | 'core' | 'heal' | 'buff' | 'energy';
+export type SummonOrigin = 'normal' | 'rift' | 'legendary' | 'fusion' | 'evolution' | 'inheritance' | 'token';
+export type ExtraSummonKind = ExtraSummonMethod;
+export type VisualEventKind = 'turn' | 'summon' | 'special' | 'fusion' | 'evolution' | 'inheritance' | 'spell' | 'trap' | 'set' | 'draw' | 'attack' | 'defense' | 'destroy' | 'core' | 'heal' | 'buff' | 'energy';
 
 const INITIAL_ECLIPSE_PHASE: EclipsePhase = 'dawn';
 function nextEclipsePhase(phase: EclipsePhase): EclipsePhase {
@@ -101,7 +104,7 @@ export interface MatchPlayerStats {
 export interface MatchLog {
   id: string;
   text: string;
-  tone: 'normal' | 'attack' | 'system' | 'trap' | 'victory' | 'fusion' | 'evolution' | 'special';
+  tone: 'normal' | 'attack' | 'system' | 'trap' | 'victory' | 'fusion' | 'evolution' | 'inheritance' | 'special';
   createdAt: number;
 }
 
@@ -200,10 +203,10 @@ export interface MatchState {
   eclipseUnitArrivalShiftResolving?: boolean;
   /** Recent purchased battle emotes; retained only briefly in UI but kept in snapshot for realtime sync. */
   battleEmotes?: Array<{ id: string; senderId: string; emoteId: string; createdAt: number }>;
-  /** Per-match hard cap: max 2 fusion summons and max 2 evolution summons per player. */
-  extraSummonUsage?: Record<string, { fusion: number; evolution: number }>;
-  /** Turn number when each extra summon type was last used, enforcing max once per turn per type. */
-  extraSummonTurn?: Record<string, { fusion?: number; evolution?: number }>;
+  /** Per-match tracking for the three visible Extra summon methods. */
+  extraSummonUsage?: Record<string, { fusion: number; evolution: number; inheritance: number }>;
+  /** Turn number when each Extra summon method was last used. */
+  extraSummonTurn?: Record<string, { fusion?: number; evolution?: number; inheritance?: number }>;
   playerOrder: [string, string] | [];
   core: Record<string, number>;
   /** Optional per-player core ceiling. Normal duels stay at CORE_MAX; boss raids may exceed it. */
@@ -419,7 +422,7 @@ export function initializeMatch(
     eclipsePhaseLockUntilTurn: 0,
     eclipsePhaseHistory: [],
     battleEmotes: [],
-    extraSummonUsage: { [playerA]: { fusion: 0, evolution: 0 }, [playerB]: { fusion: 0, evolution: 0 } },
+    extraSummonUsage: { [playerA]: { fusion: 0, evolution: 0, inheritance: 0 }, [playerB]: { fusion: 0, evolution: 0, inheritance: 0 } },
     extraSummonTurn: { [playerA]: {}, [playerB]: {} },
     pendingExtraChoice: null,
     playerOrder: [first, second],
@@ -490,13 +493,18 @@ const EXTRA_SUMMON_LIMIT_PER_MATCH = 2;
 const EXTRA_SUMMON_FIRST_ROUND = 2;
 const EXTRA_SUMMON_SECOND_ROUND = 4;
 
-function extraUsageFor(state: MatchState, playerId: string): { fusion: number; evolution: number } {
+function extraUsageFor(state: MatchState, playerId: string): { fusion: number; evolution: number; inheritance: number } {
   if (!state.extraSummonUsage) state.extraSummonUsage = {};
-  if (!state.extraSummonUsage[playerId]) state.extraSummonUsage[playerId] = { fusion: 0, evolution: 0 };
+  const legacy = state.extraSummonUsage[playerId] as Partial<{ fusion: number; evolution: number; inheritance: number }> | undefined;
+  state.extraSummonUsage[playerId] = {
+    fusion: Math.max(0, Math.trunc(legacy?.fusion ?? 0)),
+    evolution: Math.max(0, Math.trunc(legacy?.evolution ?? 0)),
+    inheritance: Math.max(0, Math.trunc(legacy?.inheritance ?? 0)),
+  };
   return state.extraSummonUsage[playerId];
 }
 
-function extraTurnFor(state: MatchState, playerId: string): { fusion?: number; evolution?: number } {
+function extraTurnFor(state: MatchState, playerId: string): { fusion?: number; evolution?: number; inheritance?: number } {
   if (!state.extraSummonTurn) state.extraSummonTurn = {};
   if (!state.extraSummonTurn[playerId]) state.extraSummonTurn[playerId] = {};
   return state.extraSummonTurn[playerId];
@@ -505,11 +513,11 @@ function extraTurnFor(state: MatchState, playerId: string): { fusion?: number; e
 function assertExtraSummonAvailable(state: MatchState, playerId: string, kind: ExtraSummonKind): void {
   const usage = extraUsageFor(state, playerId);
   const turnUse = extraTurnFor(state, playerId);
-  const label = kind === 'fusion' ? '공명 융합' : '계승 진화';
+  const label = kind === 'fusion' ? '융합' : kind === 'inheritance' ? '계승' : '진화';
   const round = Math.max(1, Math.ceil(state.turnNumber / 2));
-  const totalUsed = usage.fusion + usage.evolution;
+  const totalUsed = usage.fusion + usage.evolution + usage.inheritance;
   if (round < EXTRA_SUMMON_FIRST_ROUND) throw new Error(`엑스트라 소환은 ROUND ${EXTRA_SUMMON_FIRST_ROUND}부터 사용할 수 있습니다.`);
-  if (totalUsed >= EXTRA_SUMMON_LIMIT_PER_MATCH) throw new Error(`엑스트라 소환은 공명/계승을 합쳐 한 게임에 최대 ${EXTRA_SUMMON_LIMIT_PER_MATCH}번만 사용할 수 있습니다.`);
+  if (totalUsed >= EXTRA_SUMMON_LIMIT_PER_MATCH) throw new Error(`엑스트라 소환은 진화/융합/계승을 합쳐 한 게임에 최대 ${EXTRA_SUMMON_LIMIT_PER_MATCH}번만 사용할 수 있습니다.`);
   if (totalUsed >= 1 && round < EXTRA_SUMMON_SECOND_ROUND) throw new Error(`두 번째 엑스트라 소환은 ROUND ${EXTRA_SUMMON_SECOND_ROUND}부터 사용할 수 있습니다.`);
   if (usage[kind] >= EXTRA_SUMMON_LIMIT_PER_MATCH) throw new Error(`${label}은 한 게임에 최대 ${EXTRA_SUMMON_LIMIT_PER_MATCH}번만 사용할 수 있습니다.`);
   if (turnUse[kind] === state.turnNumber) throw new Error(`${label}은 한 턴에 1번만 사용할 수 있습니다.`);
@@ -4621,7 +4629,7 @@ function summonReactionTriggers(origin: SummonOrigin): TrapTrigger[] {
   const triggers: TrapTrigger[] = ['unit_summoned'];
   if (origin !== 'normal' && origin !== 'token') triggers.push('special_summoned');
   if (origin === 'fusion') triggers.push('fusion_summoned');
-  if (origin === 'evolution') triggers.push('evolution_summoned');
+  if (origin === 'evolution' || origin === 'inheritance') triggers.push('evolution_summoned');
   return triggers;
 }
 
@@ -4963,7 +4971,7 @@ function applyTimeDevourerArrival(
       targetOwnerId: opponentId,
       targetZone: index,
       label: '시간 포식',
-      detail: '시간 탐식자가 상대 유닛을 시간 밖으로 삼켰습니다.',
+      detail: '연대포식수 크로노보로스가 상대 유닛을 시간 밖으로 삼켰습니다.',
     });
   }
 
@@ -4992,7 +5000,7 @@ function applyTimeDevourerArrival(
 
   appendLog(
     state,
-    `「시간 탐식자」 절대 등장 — 적 유닛 ${swallowedUnits}체와 세트 함정 ${swallowedTraps}장을 삼키고, 코어 ${healed} 회복 · ${drew}장 드로우 · ENERGY ${gainedEnergy} 회복 · 보호막 ${MAX_UNIT_SHIELD}.`,
+    `「연대포식수 크로노보로스」 절대 등장 — 적 유닛 ${swallowedUnits}체와 세트 함정 ${swallowedTraps}장을 삼키고, 코어 ${healed} 회복 · ${drew}장 드로우 · ENERGY ${gainedEnergy} 회복 · 보호막 ${MAX_UNIT_SHIELD}.`,
     'special',
   );
   appendVisual(state, {
@@ -5406,6 +5414,50 @@ function findEvolutionSourceAssignment(units: UnitState[], card: CardDefinition,
   return null;
 }
 
+type ExtraMaterialSelection = {
+  source: 'field' | 'hand';
+  cardId: string;
+  definition: CardDefinition;
+  fieldZone?: number;
+  handIndex?: number;
+  instance?: CardInstance;
+  unit?: UnitState;
+};
+
+function extraMaterialMatches(selection: ExtraMaterialSelection, requirement: FusionMaterial): boolean {
+  const source = selection.definition;
+  if (requirement.cardIds?.length && !requirement.cardIds.includes(source.id)) return false;
+  if (requirement.element && source.element !== requirement.element) return false;
+  if (requirement.minCost !== undefined && source.cost < requirement.minCost) return false;
+  return isUnitCard(source) && source.kind === 'unit';
+}
+
+function findExtraRecipeAssignment(
+  selections: ExtraMaterialSelection[],
+  requirements: FusionMaterial[],
+  requireDistinctCardIds: boolean,
+  requirementIndex = 0,
+  used = new Set<number>(),
+  assignment: number[] = [],
+): number[] | null {
+  if (requirementIndex >= requirements.length) return [...assignment];
+  for (let index = 0; index < selections.length; index += 1) {
+    if (used.has(index) || !extraMaterialMatches(selections[index], requirements[requirementIndex])) continue;
+    if (requireDistinctCardIds && assignment.some((assigned) => selections[assigned].cardId === selections[index].cardId)) continue;
+    used.add(index);
+    assignment.push(index);
+    const resolved = findExtraRecipeAssignment(selections, requirements, requireDistinctCardIds, requirementIndex + 1, used, assignment);
+    if (resolved) return resolved;
+    assignment.pop();
+    used.delete(index);
+  }
+  return null;
+}
+
+function extraMethodKorean(method: ExtraSummonMethod): string {
+  return method === 'fusion' ? '융합' : method === 'inheritance' ? '계승' : '진화';
+}
+
 export function summonExtra(
   snapshot: GameSnapshot,
   playerId: string,
@@ -5413,128 +5465,120 @@ export function summonExtra(
   materialZones: number[],
   extraChoiceIndex?: number,
   target?: CardActionTarget,
+  materialHandIds: string[] = [],
 ): ActionResult {
   const state = clone(snapshot.state);
   const privateStates = clone(snapshot.privateStates);
   assertActiveTurn(state, playerId);
-  if (state.phase !== 'main') throw new Error('메인 단계에서만 융합·진화할 수 있습니다.');
+  if (state.phase !== 'main') throw new Error('메인 단계에서만 진화·융합·계승할 수 있습니다.');
 
   const playerPrivate = privateStates[playerId];
   const { index: extraIndex, instance, card } = getCardFromExtra(playerPrivate, extraInstanceId);
-  if (card.kind !== 'fusion' && card.kind !== 'evolution') throw new Error('엑스트라 덱의 융합·진화 카드만 소환할 수 있습니다.');
+  const method = resolvedExtraSummonMethod(card);
+  const recipe = card.extraMaterialRecipe;
+  if (!method || !recipe || recipe.materials.length < 2 || recipe.materials.length > 3) {
+    throw new Error('엑스트라 소환 규칙이 올바르지 않습니다. 진화·융합·계승 소재는 2~3장이어야 합니다.');
+  }
   if (card.eclipseSummonPhases?.length && !card.eclipseSummonPhases.includes(currentEclipsePhase(state))) {
     const allowed = card.eclipseSummonPhases.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ');
     throw new Error(`시간대 소환 조건이 맞지 않습니다. 이 엑스트라 캐릭터는 ${allowed}에서만 소환할 수 있습니다. 현재 ${ECLIPSE_PHASE_LABEL[currentEclipsePhase(state)]}.`);
   }
-  const extraKind: ExtraSummonKind = card.kind;
-  assertExtraSummonAvailable(state, playerId, extraKind);
-  if (card.extraChoices?.length && (!Number.isInteger(extraChoiceIndex) || extraChoiceIndex === undefined || !card.extraChoices[extraChoiceIndex])) {
-    throw new Error('전설 엑스트라는 소환 전에 1·2·3번 효과 중 하나를 선택해야 합니다.');
-  }
+  assertExtraSummonAvailable(state, playerId, method);
 
   const uniqueZones = Array.from(new Set(materialZones.map(Number))).filter((zone) => Number.isInteger(zone) && zone >= 0 && zone <= 4);
-  const selectedEntries = uniqueZones
-    .map((zone) => ({ zone, unit: state.boards[playerId].units[zone] }))
-    .filter((entry): entry is { zone: number; unit: UnitState } => Boolean(entry.unit));
-  const units = selectedEntries.map((entry) => entry.unit);
+  const uniqueHandIds = Array.from(new Set(materialHandIds.map(String))).filter(Boolean);
+  const selections: ExtraMaterialSelection[] = [];
 
-  let summonZone = -1;
+  for (const zone of uniqueZones) {
+    const unit = state.boards[playerId].units[zone];
+    if (!unit) throw new Error(`선택한 필드 소재 ${zone + 1}번 칸에 캐릭터가 없습니다.`);
+    const definition = CARD_BY_ID[unit.cardId];
+    if (!definition || definition.kind !== 'unit') throw new Error('엑스트라 소재는 메인 덱 유닛만 사용할 수 있습니다.');
+    selections.push({ source: 'field', cardId: unit.cardId, definition, fieldZone: zone, unit });
+  }
+  for (const handId of uniqueHandIds) {
+    const handIndex = playerPrivate.hand.findIndex((entry) => entry.instanceId === handId);
+    if (handIndex < 0) throw new Error('선택한 손패 소재를 찾을 수 없습니다.');
+    const handInstance = playerPrivate.hand[handIndex];
+    const definition = CARD_BY_ID[handInstance.cardId];
+    if (!definition || definition.kind !== 'unit') throw new Error('손패에서는 유닛 카드만 엑스트라 소재로 사용할 수 있습니다.');
+    selections.push({ source: 'hand', cardId: handInstance.cardId, definition, handIndex, instance: handInstance });
+  }
+
+  const requiredCount = recipe.materials.length;
+  if (selections.length !== requiredCount) {
+    throw new Error(`${extraMethodKorean(method)}에는 필드/손패를 합쳐 소재 ${requiredCount}장이 필요합니다. 현재 ${selections.length}장 선택.`);
+  }
+  const assignment = findExtraRecipeAssignment(selections, recipe.materials, Boolean(recipe.requireDistinctCardIds));
+  if (!assignment) {
+    throw new Error(`${extraMethodKorean(method)} 조건이 맞지 않습니다: ${recipe.label}`);
+  }
+
+  if (method === 'fusion' && new Set(selections.map((selection) => selection.cardId)).size !== selections.length) {
+    throw new Error('융합 소재는 서로 다른 지정 유닛이어야 합니다. 같은 카드를 두 장 사용할 수 없습니다.');
+  }
+  if (recipe.requireAtLeastOneField && !selections.some((selection) => selection.source === 'field')) {
+    throw new Error('진화는 지정 소재 2~3장 중 최소 1장이 필드에 있어야 합니다. 나머지 소재는 손패에서 사용할 수 있습니다.');
+  }
+
+  const occupiedBefore = state.boards[playerId].units.filter(Boolean).length;
+  const fieldSelections = selections.filter((selection) => selection.source === 'field' && selection.fieldZone !== undefined);
+  if (fieldSelections.length === 0 && occupiedBefore >= state.boards[playerId].units.length) {
+    throw new Error('필드가 가득 찼습니다. 손패 소재만 사용할 때는 소환할 빈 유닛 칸이 1개 필요합니다.');
+  }
+
+  let summonZone = fieldSelections[0]?.fieldZone ?? firstOpenUnit(state.boards[playerId]);
   let evolvedSource: UnitState | null = null;
   let inheritedAttack = 0;
   let inheritedHealth = 0;
   let inheritedDamage = 0;
   let inheritedShield = 0;
 
-  if (card.kind === 'fusion') {
-    const requirements = card.fusionRecipe?.materials ?? [];
-    const additionalTributes = card.extraSummonRule?.additionalTributes ?? 0;
-    const requiredCount = requirements.length + additionalTributes;
-    if (requirements.length < 2) throw new Error('융합 소재 정보가 올바르지 않습니다.');
-    if (uniqueZones.length !== requiredCount || units.length !== requiredCount) {
-      throw new Error(`공명 융합에는 필드 캐릭터 ${requiredCount}장을 선택해야 합니다.`);
-    }
-    const baseAssignment = findFusionMaterialAssignment(units, requirements, card);
-    if (!baseAssignment) throw new Error(`융합 조건이 맞지 않습니다: ${card.fusionRecipe?.label} · ${fusionRequirementSummary(card)}`);
-    const assignment = findFusionAssignmentForExtraRule(units, requirements, card);
-    if (!assignment) {
-      const ruleReason = extraRuleBlockReason(card, units, baseAssignment);
-      throw new Error(`전설 융합 추가 조건: ${ruleReason ?? '선택한 소재 조합이 추가 릴리스 조건을 만족하지 않습니다.'}`);
-    }
-    spendEnergy(state, playerId, card.cost);
-    summonZone = uniqueZones[0];
-    for (const zone of uniqueZones) {
-      const material = state.boards[playerId].units[zone];
-      if (!material) continue;
-      state.graveyards[playerId].push(material.cardId);
-      state.boards[playerId].units[zone] = null;
-    }
-  } else {
-    const sourceCopies = card.extraSummonRule?.requiredSourceCopies ?? 1;
-    const additionalTributes = card.extraSummonRule?.additionalTributes ?? 0;
-    const requiredCount = sourceCopies + additionalTributes;
-    if (uniqueZones.length !== requiredCount || units.length !== requiredCount) {
-      throw new Error(`계승 진화에는 계승 원본 ${sourceCopies}체를 포함해 필드 캐릭터 ${requiredCount}체를 선택해야 합니다.`);
-    }
-
-    const eligibleIndexes = units
-      .map((unit, index) => evolutionMatches(unit, card, state.turnNumber) ? index : -1)
-      .filter((index) => index >= 0);
-    if (eligibleIndexes.length < sourceCopies) {
-      const progressReasons = evolutionProgressFailureReasons(units, card, state.turnNumber);
-      throw new Error(
-        progressReasons.length > 0
-          ? `계승 진화 준비가 부족합니다: ${progressReasons.join(' / ')}`
-          : `진화 조건이 맞지 않습니다: ${card.evolutionRecipe?.label} · ROUND 조건을 만족한 계승 원본 ${sourceCopies}체가 필요합니다.`,
-      );
-    }
-
-    const sourceAssignment = findEvolutionSourceAssignment(units, card, state.turnNumber);
-    if (!sourceAssignment) {
-      let bestReason: string | null = null;
-      for (const combination of indexCombinations(eligibleIndexes, sourceCopies)) {
-        bestReason = extraRuleBlockReason(card, units, new Set(combination));
-        if (bestReason) break;
-      }
-      if (bestReason) throw new Error(`계승 추가 조건: ${bestReason}`);
-      throw new Error(`진화 조건이 맞지 않습니다: ${card.evolutionRecipe?.label} · 지정 원본과 추가 릴리스 조건을 모두 만족해야 합니다.`);
-    }
-
-    // When several valid predecessors are released together, inherit from the
-    // one carrying the most accumulated combat investment instead of choosing
-    // an arbitrary field slot.
-    const sourceEntryIndex = Array.from(sourceAssignment).sort((a, b) => {
-      const aBase = CARD_BY_ID[units[a].cardId];
-      const bBase = CARD_BY_ID[units[b].cardId];
-      const aInvestment = Math.max(0, units[a].attack - (aBase?.attack ?? units[a].attack))
-        + Math.max(0, units[a].maxHealth - (aBase?.health ?? units[a].maxHealth))
-        + units[a].shield;
-      const bInvestment = Math.max(0, units[b].attack - (bBase?.attack ?? units[b].attack))
-        + Math.max(0, units[b].maxHealth - (bBase?.health ?? units[b].maxHealth))
-        + units[b].shield;
-      return bInvestment - aInvestment;
-    })[0];
-
-    evolvedSource = units[sourceEntryIndex];
-    spendEnergy(state, playerId, card.cost);
-    summonZone = selectedEntries[sourceEntryIndex].zone;
-    const sourceCard = CARD_BY_ID[evolvedSource.cardId];
-    inheritedAttack = Math.max(0, evolvedSource.attack - (sourceCard?.attack ?? evolvedSource.attack));
-    inheritedHealth = Math.max(0, evolvedSource.maxHealth - (sourceCard?.health ?? evolvedSource.maxHealth));
-    inheritedDamage = Math.max(0, evolvedSource.maxHealth - evolvedSource.health);
-    inheritedShield = evolvedSource.shield;
-    for (const zone of uniqueZones) {
-      const material = state.boards[playerId].units[zone];
-      if (!material) continue;
-      state.graveyards[playerId].push(material.cardId);
-      state.boards[playerId].units[zone] = null;
+  if (method === 'evolution') {
+    const primaryRequirement = Math.max(0, Math.min(recipe.materials.length - 1, recipe.primaryMaterialIndex ?? 0));
+    const primarySelection = selections[assignment[primaryRequirement]];
+    const evolutionFieldSource = primarySelection?.source === 'field' ? primarySelection : fieldSelections[0];
+    if (evolutionFieldSource?.unit && evolutionFieldSource.fieldZone !== undefined) {
+      evolvedSource = evolutionFieldSource.unit;
+      summonZone = evolutionFieldSource.fieldZone;
+      const sourceCard = CARD_BY_ID[evolvedSource.cardId];
+      inheritedAttack = Math.max(0, evolvedSource.attack - (sourceCard?.attack ?? evolvedSource.attack));
+      inheritedHealth = Math.max(0, evolvedSource.maxHealth - (sourceCard?.health ?? evolvedSource.maxHealth));
+      inheritedDamage = Math.max(0, evolvedSource.maxHealth - evolvedSource.health);
+      inheritedShield = evolvedSource.shield;
     }
   }
 
+  spendEnergy(state, playerId, card.cost);
+
+  // Release field materials first so their zones become available immediately.
+  for (const selection of fieldSelections) {
+    const zone = selection.fieldZone!;
+    const material = state.boards[playerId].units[zone];
+    if (!material) continue;
+    state.graveyards[playerId].push(material.cardId);
+    state.boards[playerId].units[zone] = null;
+  }
+  // Hand materials are removed by descending index so indexes stay stable.
+  const handSelections = selections
+    .filter((selection) => selection.source === 'hand' && selection.handIndex !== undefined)
+    .sort((a, b) => (b.handIndex ?? -1) - (a.handIndex ?? -1));
+  for (const selection of handSelections) {
+    const handIndex = selection.handIndex!;
+    const removed = playerPrivate.hand.splice(handIndex, 1)[0];
+    if (removed) state.graveyards[playerId].push(removed.cardId);
+  }
+
+  if (summonZone < 0 || summonZone > 4 || state.boards[playerId].units[summonZone]) {
+    summonZone = firstOpenUnit(state.boards[playerId]);
+  }
+  if (summonZone < 0) throw new Error('엑스트라 캐릭터를 놓을 빈 유닛 칸이 없습니다.');
+
   playerPrivate.extra.splice(extraIndex, 1);
-  recordExtraSummon(state, playerId, extraKind);
-  const origin: SummonOrigin = card.kind === 'fusion' ? 'fusion' : 'evolution';
-  const unit = makeUnit(state, playerId, instance, card, origin, units.map((item) => item.cardId));
-  if (card.kind === 'evolution' && evolvedSource) {
+  recordExtraSummon(state, playerId, method);
+  const origin: SummonOrigin = method;
+  const unit = makeUnit(state, playerId, instance, card, origin, selections.map((item) => item.cardId));
+  if (method === 'evolution' && evolvedSource) {
     unit.attack += inheritedAttack;
     unit.maxHealth += inheritedHealth;
     unit.health = Math.max(1, unit.maxHealth - inheritedDamage);
@@ -5544,24 +5588,28 @@ export function summonExtra(
   }
   state.boards[playerId].units[summonZone] = unit;
   if (card.onSummon) resolveSummonEffectTarget(state, playerId, summonZone, card, target);
+  state.handCounts[playerId] = playerPrivate.hand.length;
   state.extraCounts[playerId] = playerPrivate.extra.length;
   state.turnActionTaken = true;
   statsFor(state, playerId).cardsPlayed += 1;
   statsFor(state, playerId).unitsSummoned += 1;
   statsFor(state, playerId).specialSummons += 1;
 
-  if (card.kind === 'fusion') {
-    appendLog(state, `공명 융합 — 「${card.name}」 강림!`, 'fusion');
-    appendVisual(state, { kind: 'fusion', vfx: resolveCardVfx(card, 'summon'), cardId: card.id, ownerId: playerId, targetZone: summonZone, label: card.name, detail: card.fusionRecipe?.label ?? '소재를 공명시켜 새로운 존재로 융합', sourceCardIds: units.map((item) => item.cardId) });
+  if (method === 'fusion') {
+    appendLog(state, `융합 — 「${card.name}」 강림!`, 'fusion');
+    appendVisual(state, { kind: 'fusion', vfx: resolveCardVfx(card, 'summon'), cardId: card.id, ownerId: playerId, targetZone: summonZone, label: card.name, detail: recipe.label, sourceCardIds: selections.map((item) => item.cardId) });
+  } else if (method === 'inheritance') {
+    appendLog(state, `계승 — 「${card.name}」 현현!`, 'inheritance');
+    appendVisual(state, { kind: 'inheritance', vfx: resolveCardVfx(card, 'summon'), cardId: card.id, ownerId: playerId, targetZone: summonZone, label: card.name, detail: recipe.label, sourceCardIds: selections.map((item) => item.cardId) });
   } else {
-    appendLog(state, `계승 진화 — 「${card.name}」 각성!`, 'evolution');
-    appendVisual(state, { kind: 'evolution', vfx: resolveCardVfx(card, 'summon'), cardId: card.id, ownerId: playerId, targetZone: summonZone, label: card.name, detail: card.evolutionRecipe?.label ?? '원본의 힘을 계승해 상위 형태로 각성', sourceCardIds: units.map((item) => item.cardId) });
+    appendLog(state, `진화 — 「${card.name}」 각성!`, 'evolution');
+    appendVisual(state, { kind: 'evolution', vfx: resolveCardVfx(card, 'summon'), cardId: card.id, ownerId: playerId, targetZone: summonZone, label: card.name, detail: recipe.label, sourceCardIds: selections.map((item) => item.cardId) });
   }
 
   continueSummonResolution(state, privateStates, {
     kind: 'summon', actorId: playerId, zone: summonZone, cardId: card.id, origin, remainingTriggers: summonReactionTriggers(origin), target,
   });
-  if (!state.pendingTrap) {
+  if (!state.pendingTrap && !state.pendingExtraChoice) {
     destroyDefeatedUnits(state, privateStates);
     checkWinner(state);
   }

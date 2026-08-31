@@ -231,6 +231,21 @@ export interface FusionRecipe {
   materials: FusionMaterial[];
 }
 
+export type ExtraSummonMethod = 'evolution' | 'fusion' | 'inheritance';
+
+/** v71: one visible material rule shared by all three Extra summon methods. */
+export interface ExtraMaterialRecipe {
+  method: ExtraSummonMethod;
+  label: string;
+  materials: FusionMaterial[];
+  /** Fusion recipes explicitly require mutually different named cards. */
+  requireDistinctCardIds?: boolean;
+  /** Evolution keeps the first material as the lineage core for stat inheritance. */
+  primaryMaterialIndex?: number;
+  /** When true, at least one selected material must already be on the battlefield. */
+  requireAtLeastOneField?: boolean;
+}
+
 export interface EvolutionRecipe {
   label: string;
   fromIds?: string[];
@@ -379,6 +394,10 @@ export interface CardDefinition {
   legendarySummonRule?: LegendarySummonRule;
   fusionRecipe?: FusionRecipe;
   evolutionRecipe?: EvolutionRecipe;
+  /** v71: player-facing Extra summon category. Card kind stays legacy-compatible. */
+  extraSummonMethod?: ExtraSummonMethod;
+  /** v71: authoritative 2-3 material recipe. Fusion/Inheritance may use field or hand; Evolution requires at least one field material. */
+  extraMaterialRecipe?: ExtraMaterialRecipe;
   extraSummonRule?: ExtraSummonRule;
   /** Shadowverse-style CHOOSE package used by premium legendary Extra Deck cards. */
   extraChoices?: ExtraChoice[];
@@ -443,8 +462,8 @@ export const KIND_LABEL: Record<CardKind, string> = {
   unit: '유닛',
   spell: '주문',
   trap: '함정',
-  fusion: '공명 융합',
-  evolution: '계승 진화',
+  fusion: '융합',
+  evolution: '진화/계승',
 };
 
 export const UNIT_TYPE_LABEL: Record<UnitType, string> = {
@@ -2342,7 +2361,18 @@ for (const card of CARDS) {
   card.text = `${card.text} CHOOSE — ${chooseText}`;
 }
 
+export function resolvedExtraSummonMethod(card: CardDefinition): ExtraSummonMethod | null {
+  if (card.kind !== 'fusion' && card.kind !== 'evolution') return null;
+  return card.extraSummonMethod ?? (card.kind === 'fusion' ? 'fusion' : 'evolution');
+}
+
+export function extraSummonMethodLabel(card: CardDefinition): string {
+  const method = resolvedExtraSummonMethod(card);
+  return method === 'fusion' ? '융합' : method === 'inheritance' ? '계승' : method === 'evolution' ? '진화' : '';
+}
+
 export function extraRequiredUnitCount(card: CardDefinition): number {
+  if (card.extraMaterialRecipe?.materials.length) return card.extraMaterialRecipe.materials.length;
   if (card.kind === 'fusion') return (card.fusionRecipe?.materials.length ?? 0) + (card.extraSummonRule?.additionalTributes ?? 0);
   if (card.kind === 'evolution') return (card.extraSummonRule?.requiredSourceCopies ?? 1) + (card.extraSummonRule?.additionalTributes ?? 0);
   return 0;
@@ -5561,7 +5591,7 @@ for (const card of CARDS) {
 // absolute stats/traits/time profile after every global balance mutation.
 const V60_ABSOLUTE_TIME_DEVOURER = CARDS.find((card) => card.id === 'v60_premium_time_devourer');
 if (V60_ABSOLUTE_TIME_DEVOURER) {
-  V60_ABSOLUTE_TIME_DEVOURER.name = '시간 탐식자';
+  V60_ABSOLUTE_TIME_DEVOURER.name = '연대포식수 크로노보로스';
   V60_ABSOLUTE_TIME_DEVOURER.cost = 10;
   V60_ABSOLUTE_TIME_DEVOURER.attack = 15;
   V60_ABSOLUTE_TIME_DEVOURER.health = 18;
@@ -6732,7 +6762,7 @@ const V65_COMBAT_IDENTITIES: Record<string, V65CombatIdentity> = {
   // Premium pack representative legends -----------------------------------------
   v41_premium_dawn_lord: {
     name: '첫빛의 윤회 · 전투형',
-    description: '기존 흡수·속공·수호를 그대로 유지하는 여명의 지배자 전용 전투 특성.',
+    description: '기존 흡수·속공·수호를 그대로 유지하는 여명성녀 아우렐리아 전용 전투 특성.',
     keywords: ['lifesteal', 'charge', 'guard'],
     highlights: [
       { name: '여명 선봉', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
@@ -6742,7 +6772,7 @@ const V65_COMBAT_IDENTITIES: Record<string, V65CombatIdentity> = {
   },
   v41_premium_zenith_king: {
     name: '천정 왕권 · 전투형',
-    description: '기존 직격·수호·속공·관통을 그대로 유지하는 정점의 왕 전용 전투 특성.',
+    description: '기존 직격·수호·속공·관통을 그대로 유지하는 태양전차 라그나크 전용 전투 특성.',
     keywords: ['corestrike', 'guard', 'charge', 'pierce'],
     highlights: [
       { name: '왕의 선제', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
@@ -6753,7 +6783,7 @@ const V65_COMBAT_IDENTITIES: Record<string, V65CombatIdentity> = {
   },
   v44_premium_twilight_knight: {
     name: '경계의 맹세 · 전투형',
-    description: '기존 수호·관통·전체공격·속공을 그대로 유지하는 황혼의 기사 전용 전투 특성.',
+    description: '기존 수호·관통·전체공격·속공을 그대로 유지하는 쌍월검사 베스퍼 전용 전투 특성.',
     keywords: ['guard', 'pierce', 'sweep', 'charge'],
     highlights: [
       { name: '박명 선제', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
@@ -6764,7 +6794,7 @@ const V65_COMBAT_IDENTITIES: Record<string, V65CombatIdentity> = {
   },
   v41_premium_eclipse_conductor: {
     name: '흑광 대지휘 · 전투형',
-    description: '기존 관통·처형·속공·수호를 그대로 유지하는 개기일식의 조율자 전용 전투 특성.',
+    description: '기존 관통·처형·속공·수호를 그대로 유지하는 흑일악사 모르덴 전용 전투 특성.',
     keywords: ['pierce', 'execute', 'charge', 'guard'],
     highlights: [
       { name: '흑광 개막', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
@@ -6775,7 +6805,7 @@ const V65_COMBAT_IDENTITIES: Record<string, V65CombatIdentity> = {
   },
   v60_premium_time_devourer: {
     name: '시대별 섭식 · 전투형',
-    description: '기존 7개 전투 특성을 하나도 잃지 않고 시간 탐식자만의 이름으로 통합한 절대 전투 특성.',
+    description: '기존 7개 전투 특성을 하나도 잃지 않고 연대포식수 크로노보로스만의 이름으로 통합한 절대 전투 특성.',
     keywords: ['guard', 'charge', 'lifesteal', 'pierce', 'corestrike', 'execute', 'sweep'],
     highlights: [
       { name: '시간보다 먼저', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
@@ -7118,7 +7148,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
   v41_premium_dawn_lord: {
     combatId: 'premium_dawn_rebirth',
     name: '첫빛의 생환',
-    description: '아군의 첫 전투 사망을 진짜로 되돌리는 여명의 지배자 전용 프리미엄 전투 규칙.',
+    description: '아군의 첫 전투 사망을 진짜로 되돌리는 여명성녀 아우렐리아 전용 프리미엄 전투 규칙.',
     highlights: [
       { name: '여명 생환', description: '턴당 1회, 다른 아군 캐릭터 1체가 전투로 파괴될 때 그 파괴를 막고 체력 1 + 보호막 2 상태로 남깁니다.' },
       { name: '새벽 찬가', description: '내 턴 시작마다 다른 아군 캐릭터 전원은 체력 1을 회복하고 보호막 1을 얻습니다.' },
@@ -7128,7 +7158,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
   v41_premium_zenith_king: {
     combatId: 'premium_zenith_royal_command',
     name: '왕의 추가명령',
-    description: '자신의 공격이 끝난 직후 다른 아군에게 두 번째 전투 명령을 내리는 정점의 왕 전용 규칙.',
+    description: '자신의 공격이 끝난 직후 다른 아군에게 두 번째 전투 명령을 내리는 태양전차 라그나크 전용 규칙.',
     highlights: [
       { name: '정점 압도', description: '이 캐릭터가 필드에서 가장 높은 ATK를 가지고 공격하면 이번 공격 피해 +2, 공격 전에 보호막 2를 얻습니다.' },
       { name: '왕의 추가 명령', description: '턴당 1회, 이 캐릭터가 공격을 끝내고 살아남으면 가장 강한 다른 아군 1체를 다시 공격 가능 상태로 만들고 ATK +1.' },
@@ -7138,7 +7168,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
   v44_premium_twilight_knight: {
     combatId: 'premium_twilight_dual_stance',
     name: '박명의 양면자세',
-    description: '코어 상황에 따라 공격·방어·수급 자세가 즉시 바뀌는 황혼의 기사 전용 규칙.',
+    description: '코어 상황에 따라 공격·방어·수급 자세가 즉시 바뀌는 쌍월검사 베스퍼 전용 규칙.',
     highlights: [
       { name: '박명의 양면자세', description: '턴당 1회 공격 선언 시 코어 상황에 따라 효과가 달라집니다. 열세면 공격 피해 +3, 우세면 보호막 +3, 동률이면 카드 1장 드로우.' },
       { name: '박명의 심판', description: '이 캐릭터가 공격한 적이 살아남으면 다음 자기 턴까지 공격할 수 없고, 파괴되면 카드 1장을 뽑습니다.' },
@@ -7148,7 +7178,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
   v41_premium_eclipse_conductor: {
     combatId: 'premium_eclipse_silent_beat',
     name: '무음박자',
-    description: '첫 교전의 반격 리듬을 삭제하고 살아남은 상대까지 다음 턴 묶어 두는 개기일식의 조율자 전용 규칙.',
+    description: '첫 교전의 반격 리듬을 삭제하고 살아남은 상대까지 다음 턴 묶어 두는 흑일악사 모르덴 전용 규칙.',
     highlights: [
       { name: '무음 박자', description: '턴당 1회 적 캐릭터를 공격할 때 그 전투의 반격 피해를 0으로 만듭니다.' },
       { name: '무언 종결', description: '무음 박자가 적용된 적이 파괴되면 그 카드를 묘지에서 소멸시키고 카드 1장을 뽑습니다. 살아남으면 다음 자기 턴까지 공격할 수 없습니다.' },
@@ -7158,7 +7188,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
   v60_premium_time_devourer: {
     combatId: 'premium_time_devour_cycle',
     name: '시간대 포식순환',
-    description: '공격할 때마다 지금 시간을 실제로 먹어 다음 시간대로 넘기며 계속 성장하는 시간 탐식자 전용 규칙.',
+    description: '공격할 때마다 지금 시간을 실제로 먹어 다음 시간대로 넘기며 계속 성장하는 연대포식수 크로노보로스 전용 규칙.',
     highlights: [
       { name: '시간 포식', description: '이 캐릭터의 공격이 정상 처리될 때마다 시간을 다음 시간대로 1단계 밀고 자신은 영구 +1/+1. 개기일식에서 여명으로 넘어가면 코어 3 추가 회복.' },
       { name: '시각 착취', description: '공격 선언 시 상대 ENERGY 1을 흡수하고 자신은 보호막 1을 얻습니다.' },
@@ -7185,16 +7215,9 @@ for (const [cardId, identity] of Object.entries(V66_TRUE_COMBAT_IDENTITIES)) {
 
 // === v70 reachable Extra Deck pacing =========================================
 // Extra cards were rarely appearing because several independent gates stacked:
-// late ROUND unlocks, 3-4 body releases, high hidden material-cost floors and
-// single-phase flagship timing. Keep the identity/energy cost/2-per-match limit,
-// but make the actual summon line reachable during a normal duel.
-const V70_EXTRA_ADJACENT_PHASE: Record<EclipsePhase, EclipsePhase> = {
-  dawn: 'zenith',
-  zenith: 'dusk',
-  dusk: 'midnight',
-  midnight: 'eclipse',
-  eclipse: 'dawn',
-};
+// late ROUND unlocks, 3-4 body releases and high hidden material-cost floors.
+// Keep each card's original battlefield-time identity/lock intact, while making
+// the material and ROUND requirements reachable during a normal duel.
 
 function v70IsApexExtra(card: CardDefinition): boolean {
   if (card.kind !== 'fusion' && card.kind !== 'evolution') return false;
@@ -7244,13 +7267,6 @@ for (const card of CARDS) {
     };
   }
 
-  // V61 flagship Extras keep their time identity, but a one-phase window was
-  // too easy to miss. The themed phase plus the immediately following phase
-  // are both valid; unrestricted Extras remain unrestricted.
-  if (card.eclipseSummonPhases?.length === 1) {
-    const primary = card.eclipseSummonPhases[0];
-    card.eclipseSummonPhases = [primary, V70_EXTRA_ADJACENT_PHASE[primary]];
-  }
 }
 
 export const V70_EXTRA_SUMMON_AUDIT = CARDS
@@ -7266,6 +7282,176 @@ export const V70_EXTRA_SUMMON_AUDIT = CARDS
     rule: card.extraSummonRule,
   }));
 // === /v70 reachable Extra Deck pacing ========================================
+
+
+// === v71 clean three-way Extra summon system ================================
+// The old Extra rules mixed hidden cost floors, predecessor survival, extra
+// tributes and broad materials. v71 makes the printed rule authoritative:
+//   EVOLUTION   = 2 named cards, apex cards 3 named cards.
+//   FUSION      = 2 different named units, apex cards 3 different named units.
+//   INHERITANCE = 2 units of one ENERGY/element, apex cards 3.
+// Fusion/Inheritance materials can all come from field or hand. Evolution
+// specifically keeps at least one body on the battlefield before ascending.
+const V71_INHERITANCE_SERIES = new Set<SeriesId>([
+  'luminaknights',
+  'nocturne',
+  'chronorium',
+  'arcana_protocol',
+  'phantom_carnival',
+  'astral_armada',
+]);
+
+const V71_PHASE_BY_ELEMENT: Record<Element, EclipsePhase> = {
+  solar: 'dawn',
+  storm: 'zenith',
+  verdant: 'dusk',
+  lunar: 'midnight',
+  void: 'eclipse',
+  neutral: 'eclipse',
+};
+
+function v71IsPremiumMainUnit(card: CardDefinition): boolean {
+  return card.kind === 'unit' && /^v(?:41|44|60)_premium_/.test(card.id);
+}
+
+function v71MainUnitCandidates(card: CardDefinition): CardDefinition[] {
+  const pool = CARDS.filter((candidate) => candidate.kind === 'unit' && !v71IsPremiumMainUnit(candidate));
+  const targetCost = Math.max(1, card.cost - 2);
+  return pool.sort((a, b) => {
+    const aSeries = card.seriesId && a.seriesId === card.seriesId ? 0 : 1;
+    const bSeries = card.seriesId && b.seriesId === card.seriesId ? 0 : 1;
+    if (aSeries !== bSeries) return aSeries - bSeries;
+    const aElement = a.element === card.element ? 0 : 1;
+    const bElement = b.element === card.element ? 0 : 1;
+    if (aElement !== bElement) return aElement - bElement;
+    return Math.abs(a.cost - targetCost) - Math.abs(b.cost - targetCost) || a.id.localeCompare(b.id);
+  });
+}
+
+function v71PickSpecificUnit(
+  card: CardDefinition,
+  used: Set<string>,
+  requirement?: FusionMaterial,
+  preferredIds: string[] = [],
+): CardDefinition {
+  const pool = v71MainUnitCandidates(card);
+  const matches = (candidate: CardDefinition) => {
+    if (used.has(candidate.id)) return false;
+    if (requirement?.cardIds?.length && !requirement.cardIds.includes(candidate.id)) return false;
+    if (requirement?.element && candidate.element !== requirement.element) return false;
+    return true;
+  };
+  for (const id of preferredIds) {
+    const candidate = pool.find((item) => item.id === id && matches(item));
+    if (candidate) return candidate;
+  }
+  const exact = pool.find(matches);
+  if (exact) return exact;
+  const fallback = pool.find((candidate) => !used.has(candidate.id));
+  if (!fallback) throw new Error(`v71 Extra material pool is empty for ${card.id}`);
+  return fallback;
+}
+
+function v71NamedMaterial(card: CardDefinition): FusionMaterial {
+  return { label: card.name, cardIds: [card.id] };
+}
+
+const v71Extras = CARDS.filter((card) => card.kind === 'fusion' || card.kind === 'evolution');
+for (const [extraIndex, card] of v71Extras.entries()) {
+  const apex = v70IsApexExtra(card);
+  const materialCount = apex ? 3 : 2;
+  let method: ExtraSummonMethod;
+  if (card.kind === 'fusion') {
+    method = 'fusion';
+  } else if (card.seriesId) {
+    method = V71_INHERITANCE_SERIES.has(card.seriesId) ? 'inheritance' : 'evolution';
+  } else {
+    // Freeform evolutions are split deterministically so all three methods are
+    // represented outside named series as well.
+    method = extraIndex % 2 === 0 ? 'evolution' : 'inheritance';
+  }
+
+  const used = new Set<string>();
+  let materials: FusionMaterial[] = [];
+  if (method === 'fusion') {
+    const legacy = card.fusionRecipe?.materials ?? [];
+    for (let index = 0; index < materialCount; index += 1) {
+      const requirement = legacy[index];
+      const preferred = requirement?.cardIds ?? [];
+      const picked = v71PickSpecificUnit(card, used, requirement, preferred);
+      used.add(picked.id);
+      materials.push(v71NamedMaterial(picked));
+    }
+  } else if (method === 'evolution') {
+    const lineage = card.evolutionRecipe?.fromIds ?? [];
+    for (let index = 0; index < materialCount; index += 1) {
+      const preferred = index < lineage.length ? [lineage[index]] : [];
+      const picked = v71PickSpecificUnit(card, used, undefined, preferred);
+      used.add(picked.id);
+      materials.push(v71NamedMaterial(picked));
+    }
+  } else {
+    materials = Array.from({ length: materialCount }, (_, index) => ({
+      label: `${ELEMENT_LABEL[card.element]} ENERGY 유닛 ${index + 1}`,
+      element: card.element,
+    }));
+  }
+
+  const materialNames = materials.map((material) => material.cardIds?.length
+    ? CARDS.find((candidate) => candidate.id === material.cardIds?.[0])?.name ?? material.label
+    : material.label.replace(/ \d+$/, '')
+  );
+  const label = method === 'fusion'
+    ? `${materialNames.join(' + ')} 융합`
+    : method === 'evolution'
+      ? `${materialNames.join(' + ')} 진화`
+      : `${ELEMENT_LABEL[card.element]} ENERGY 유닛 ${materialCount}체 계승`;
+
+  card.extraSummonMethod = method;
+  card.extraMaterialRecipe = {
+    method,
+    label,
+    materials,
+    requireDistinctCardIds: method === 'fusion',
+    primaryMaterialIndex: method === 'evolution' ? 0 : undefined,
+    requireAtLeastOneField: method === 'evolution',
+  };
+  // No hidden tribute/cost/rarity rule remains. The visible 2-3 material recipe
+  // and ENERGY cost are the full requirement.
+  card.extraSummonRule = undefined;
+
+  if (method === 'fusion') {
+    card.fusionRecipe = { label, materials };
+    card.subtitle = card.subtitle.replace(/공명 융합/g, '융합');
+    card.text = card.text.replace(/공명 융합/g, '융합');
+  } else if (method === 'evolution') {
+    card.evolutionRecipe = { label, fromIds: materials.flatMap((material) => material.cardIds ?? []) };
+    card.subtitle = card.subtitle.replace(/계승 진화/g, '진화');
+    card.text = card.text.replace(/계승 진화/g, '진화');
+  } else {
+    card.evolutionRecipe = { label, element: card.element };
+    card.subtitle = card.subtitle.replace(/계승 진화/g, '계승');
+    card.text = card.text.replace(/계승 진화/g, '계승');
+  }
+
+  // Existing single-phase flagships stay exactly single-phase. Add a small
+  // number of new phase-locked legendary Extras so timing remains a deckbuilding
+  // identity rather than a blanket restriction.
+  if (!card.eclipseSummonPhases?.length && card.rarity === 'legendary' && extraIndex % 3 === 1) {
+    card.eclipseSummonPhases = [card.eclipseAffinity ?? V71_PHASE_BY_ELEMENT[card.element]];
+  }
+}
+
+export const V71_EXTRA_SUMMON_AUDIT = v71Extras.map((card) => ({
+  id: card.id,
+  name: card.name,
+  method: resolvedExtraSummonMethod(card),
+  materials: card.extraMaterialRecipe?.materials.length ?? 0,
+  phases: card.eclipseSummonPhases ?? [],
+  recipe: card.extraMaterialRecipe?.label ?? '',
+  requiresField: Boolean(card.extraMaterialRecipe?.requireAtLeastOneField),
+}));
+// === /v71 clean three-way Extra summon system ===============================
 
 
 // === v68 series trait restraint =============================================
@@ -7299,6 +7485,8 @@ function v68IsVeryHardSeriesLegend(card: CardDefinition): boolean {
     if (extra.tier === 'apex') return true;
     if (extra.tier === 'legendary' && extra.additionalTributes >= 1 && extra.minTotalMaterialCost >= 11) return true;
   }
+  // v71: a three-material printed Extra recipe is the new visible high-difficulty tier.
+  if (card.extraMaterialRecipe?.materials.length === 3) return true;
 
   const rule = card.legendarySummonRule;
   if (rule) {
@@ -7489,32 +7677,32 @@ export const PACKS: PackDefinition[] = [
     odds: { common: 49, rare: 32, epic: 18, legendary: 1, guaranteedSlots: 1, seriesRate: 42, seriesGuaranteedSlots: 1 },
   })),
   {
-    id: 'premium_time_dawn', name: 'PREMIUM TIME · 여명', tagline: '여명의 지배자 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#ffcf73',
+    id: 'premium_time_dawn', name: 'PREMIUM TIME · 여명', tagline: '여명성녀 아우렐리아 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#ffcf73',
     featuredCardId: 'v41_premium_dawn_lord', premiumTimePhase: 'dawn',
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
   {
-    id: 'premium_time_zenith', name: 'PREMIUM TIME · 정점', tagline: '정점의 왕 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#ffe36c',
+    id: 'premium_time_zenith', name: 'PREMIUM TIME · 정점', tagline: '태양전차 라그나크 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#ffe36c',
     featuredCardId: 'v41_premium_zenith_king', premiumTimePhase: 'zenith',
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
   {
-    id: 'premium_time_dusk', name: 'PREMIUM TIME · 황혼', tagline: '황혼의 기사 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#d591ff',
+    id: 'premium_time_dusk', name: 'PREMIUM TIME · 황혼', tagline: '쌍월검사 베스퍼 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#d591ff',
     featuredCardId: 'v44_premium_twilight_knight', premiumTimePhase: 'dusk',
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
   {
-    id: 'premium_time_midnight', name: 'PREMIUM TIME · 심야', tagline: '심야의 침묵 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#8795ff',
+    id: 'premium_time_midnight', name: 'PREMIUM TIME · 심야', tagline: '자정 봉쇄식 · 무성권역 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#8795ff',
     featuredCardId: 'v41_premium_midnight_silence', premiumTimePhase: 'midnight',
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
   {
-    id: 'premium_time_eclipse', name: 'PREMIUM TIME · 개기일식', tagline: '개기일식의 조율자 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#f08ad9',
+    id: 'premium_time_eclipse', name: 'PREMIUM TIME · 개기일식', tagline: '흑일악사 모르덴 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#f08ad9',
     featuredCardId: 'v41_premium_eclipse_conductor', premiumTimePhase: 'eclipse',
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
   {
-    id: 'premium_time_devourer', name: 'PREMIUM ABSOLUTE · 시간 탐식자', tagline: '단 1장 개봉 · 시간 탐식자 0.1% 극희귀 픽업', price: 1000, guaranteed: 'common', category: 'core', accent: '#8d5cff',
+    id: 'premium_time_devourer', name: 'PREMIUM ABSOLUTE · 연대포식수 크로노보로스', tagline: '단 1장 개봉 · 연대포식수 크로노보로스 0.1% 극희귀 픽업', price: 1000, guaranteed: 'common', category: 'core', accent: '#8d5cff',
     featuredCardId: 'v60_premium_time_devourer', cardCount: 1,
     odds: { common: 99.9, rare: 0, epic: 0, legendary: 0.1, guaranteedSlots: 0, pickupRate: 0.1 },
   },

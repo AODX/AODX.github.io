@@ -389,6 +389,7 @@ export function applyPracticeGameAction(
       Array.isArray(payload.materialZones) ? payload.materialZones.map(Number) : [],
       payload.extraChoiceIndex === undefined ? undefined : Number(payload.extraChoiceIndex),
       target,
+      Array.isArray(payload.materialHandIds) ? payload.materialHandIds.map(String) : [],
     );
   } else if (gameAction === 'battle_phase') {
     next = beginBattlePhase(snapshot, playerId);
@@ -427,10 +428,10 @@ export function applyPracticeGameAction(
   return next;
 }
 
-function combinations(values: number[], count: number): number[][] {
+function combinations<T>(values: T[], count: number): T[][] {
   if (count <= 0) return [[]];
-  const result: number[][] = [];
-  const walk = (start: number, picked: number[]) => {
+  const result: T[][] = [];
+  const walk = (start: number, picked: T[]) => {
     if (picked.length === count) {
       result.push([...picked]);
       return;
@@ -443,6 +444,39 @@ function combinations(values: number[], count: number): number[][] {
   };
   walk(0, []);
   return result;
+}
+
+type PracticeExtraMaterialRef = {
+  cardId: string;
+  card: CardDefinition;
+  fieldZone?: number;
+  handInstanceId?: string;
+};
+
+function practiceExtraMaterialMatches(ref: PracticeExtraMaterialRef, requirement: NonNullable<CardDefinition['extraMaterialRecipe']>['materials'][number]): boolean {
+  if (ref.card.kind !== 'unit') return false;
+  if (requirement.cardIds?.length && !requirement.cardIds.includes(ref.cardId)) return false;
+  if (requirement.element && ref.card.element !== requirement.element) return false;
+  if (requirement.minCost !== undefined && ref.card.cost < requirement.minCost) return false;
+  return true;
+}
+
+function practiceExtraMaterialsValid(refs: PracticeExtraMaterialRef[], card: CardDefinition, at = 0, used = new Set<number>(), assigned: number[] = []): boolean {
+  const recipe = card.extraMaterialRecipe;
+  if (!recipe || refs.length !== recipe.materials.length) return false;
+  if (recipe.requireAtLeastOneField && !refs.some((ref) => ref.fieldZone !== undefined)) return false;
+  if (at >= recipe.materials.length) return true;
+  const requirement = recipe.materials[at];
+  for (let index = 0; index < refs.length; index += 1) {
+    if (used.has(index) || !practiceExtraMaterialMatches(refs[index], requirement)) continue;
+    if (recipe.requireDistinctCardIds && assigned.some((assignedIndex) => refs[assignedIndex].cardId === refs[index].cardId)) continue;
+    used.add(index);
+    assigned.push(index);
+    if (practiceExtraMaterialsValid(refs, card, at + 1, used, assigned)) return true;
+    assigned.pop();
+    used.delete(index);
+  }
+  return false;
 }
 
 function opponentOf(snapshot: GameSnapshot, playerId: string): string {
@@ -535,16 +569,28 @@ function enumerateBotActions(snapshot: GameSnapshot, botId: string): PracticeBot
       }
     }
 
-    const occupiedZones = ownBoard.units.flatMap((unit, index) => unit ? [index] : []);
+    const extraMaterialPool: PracticeExtraMaterialRef[] = [
+      ...ownBoard.units.flatMap((unit, fieldZone) => {
+        const card = unit ? CARD_BY_ID[unit.cardId] : undefined;
+        return unit && card?.kind === 'unit' ? [{ cardId: card.id, card, fieldZone }] : [];
+      }),
+      ...botPrivate.hand.flatMap((handInstance) => {
+        const card = CARD_BY_ID[handInstance.cardId];
+        return card?.kind === 'unit' ? [{ cardId: card.id, card, handInstanceId: handInstance.instanceId }] : [];
+      }),
+    ];
     for (const instance of botPrivate.extra) {
       const card = CARD_BY_ID[instance.cardId];
       if (!card || (card.kind !== 'fusion' && card.kind !== 'evolution')) continue;
       const required = extraRequiredUnitCount(card);
-      if (required <= 0 || required > occupiedZones.length) continue;
+      if (required < 2 || required > 3 || required > extraMaterialPool.length) continue;
       const summonTargets = summonTargetPayloads(snapshot, botId, card);
-      for (const materialZones of combinations(occupiedZones, required)) {
+      for (const materialRefs of combinations(extraMaterialPool, required)) {
+        if (!practiceExtraMaterialsValid(materialRefs, card)) continue;
+        const materialZones = materialRefs.flatMap((ref) => ref.fieldZone === undefined ? [] : [ref.fieldZone]);
+        const materialHandIds = materialRefs.flatMap((ref) => ref.handInstanceId ? [ref.handInstanceId] : []);
         for (const target of summonTargets) {
-          actions.push({ gameAction: 'extra_summon', payload: { extraInstanceId: instance.instanceId, materialZones, ...(target ? { target } : {}) }, label: `${card.name} 엑스트라 소환` });
+          actions.push({ gameAction: 'extra_summon', payload: { extraInstanceId: instance.instanceId, materialZones, materialHandIds, ...(target ? { target } : {}) }, label: `${card.name} 엑스트라 소환` });
         }
       }
     }

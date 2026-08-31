@@ -11866,3 +11866,148 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
   line-height:1!important;
   box-shadow:0 0 0 1px rgba(255,89,108,.16),0 0 12px rgba(255,51,78,.58)!important;
 }
+
+/* === v71 Extra materials: field + hand =================================== */
+.v23-client .tcg-card .summon-badge.inheritance {
+  background:linear-gradient(135deg,rgba(75,126,255,.94),rgba(94,73,196,.94))!important;
+  border-color:rgba(177,200,255,.7)!important;
+  color:#f5f8ff!important;
+}
+.v23-client.in-duel .origin-badge.inheritance {
+  color:#cfdcff!important;
+  background:rgba(41,53,122,.82)!important;
+  border-color:rgba(132,158,255,.5)!important;
+}
+.v23-client.in-duel .v18-hand-card.extra-material-candidate {
+  filter:none!important;
+}
+.v23-client.in-duel .v18-hand-card.extra-material-candidate .tcg-card {
+  box-shadow:0 0 0 1px rgba(101,211,255,.18),0 8px 24px rgba(0,0,0,.24)!important;
+}
+.v23-client.in-duel .v18-hand-card.extra-material-selected {
+  transform:translateY(-12px) scale(1.045)!important;
+  z-index:58!important;
+  filter:none!important;
+}
+.v23-client.in-duel .v18-hand-card.extra-material-selected .tcg-card {
+  box-shadow:0 0 0 2px rgba(91,211,255,.95),0 0 24px rgba(68,180,255,.48),0 12px 30px rgba(0,0,0,.32)!important;
+}
+.v23-client.in-duel .v71-hand-material-badge {
+  position:absolute!important;
+  z-index:75!important;
+  top:-5px!important;
+  left:8px!important;
+  min-width:38px!important;
+  height:21px!important;
+  padding:0 8px!important;
+  display:grid!important;
+  place-items:center!important;
+  border:1px solid rgba(171,225,255,.8)!important;
+  border-radius:999px!important;
+  background:linear-gradient(135deg,rgba(18,109,174,.98),rgba(62,77,177,.98))!important;
+  box-shadow:0 0 16px rgba(75,185,255,.45)!important;
+  color:#f7fcff!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  letter-spacing:.08em!important;
+}
+/* === /v71 Extra materials =============================================== */
+
+/* === v71 premium identity art overlays =====================================
+ * Keep the lightweight existing WEBP art, but give every recent premium chase
+ * card a clearly different silhouette language. The midnight premium spell is
+ * intentionally rendered as a ritual field rather than a humanoid unit.
+ */
+.v23-client .card-illustration.is-premium-art {
+  position:relative!important;
+  isolation:isolate!important;
+  overflow:hidden!important;
+}
+.v23-client .card-illustration.is-premium-art::before,
+.v23-client .card-illustration.is-premium-art::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index:2;
+}
+.v23-client .premium-art-v41_premium_dawn_lord::before {
+  background:
+    radial-gradient(circle at 50% 34%,rgba(255,250,205,.72) 0 4%,rgba(255,205,104,.24) 5% 16%,transparent 17%),
+    repeating-conic-gradient(from 2deg at 50% 34%,rgba(255,221,124,.38) 0 2deg,transparent 2deg 13deg);
+  mask-image:radial-gradient(circle at 50% 38%,#000 0 48%,transparent 72%);
+}
+.v23-client .premium-art-v41_premium_dawn_lord::after {
+  background:
+    linear-gradient(66deg,transparent 0 37%,rgba(255,238,173,.38) 38% 39%,transparent 40% 100%),
+    linear-gradient(-66deg,transparent 0 37%,rgba(255,238,173,.38) 38% 39%,transparent 40% 100%),
+    radial-gradient(ellipse at 50% 80%,rgba(255,181,110,.26),transparent 48%);
+}
+.v23-client .premium-art-v41_premium_zenith_king::before {
+  background:
+    repeating-conic-gradient(from 0deg at 50% 38%,rgba(104,224,255,.34) 0 5deg,transparent 5deg 18deg),
+    radial-gradient(circle at 50% 38%,transparent 0 18%,rgba(255,226,111,.55) 19% 21%,transparent 22% 35%,rgba(89,210,255,.24) 36% 38%,transparent 39%);
+}
+.v23-client .premium-art-v41_premium_zenith_king::after {
+  inset:12% 10% 8%;
+  border:1px solid rgba(111,222,255,.22);
+  border-radius:42% 42% 18% 18%;
+  background:
+    repeating-linear-gradient(0deg,transparent 0 13px,rgba(105,219,255,.13) 14px 15px),
+    linear-gradient(90deg,transparent 0 22%,rgba(255,221,92,.16) 23% 26%,transparent 27% 73%,rgba(255,221,92,.16) 74% 77%,transparent 78%);
+}
+.v23-client .premium-art-v44_premium_twilight_knight::before {
+  background:
+    radial-gradient(circle at 27% 42%,transparent 0 22%,rgba(218,166,255,.58) 23% 25%,transparent 26%),
+    radial-gradient(circle at 73% 42%,transparent 0 22%,rgba(120,195,255,.54) 23% 25%,transparent 26%),
+    radial-gradient(ellipse at 50% 78%,rgba(171,102,255,.22),transparent 48%);
+}
+.v23-client .premium-art-v44_premium_twilight_knight::after {
+  background:
+    linear-gradient(58deg,transparent 0 46%,rgba(241,224,255,.72) 47% 48%,rgba(167,110,255,.28) 49% 50%,transparent 51%),
+    linear-gradient(-58deg,transparent 0 46%,rgba(210,241,255,.72) 47% 48%,rgba(104,190,255,.28) 49% 50%,transparent 51%);
+}
+.v23-client .premium-art-v41_premium_eclipse_conductor::before {
+  background:
+    radial-gradient(circle at 50% 32%,#030309 0 13%,rgba(255,218,104,.72) 14% 16%,transparent 17% 26%,rgba(173,91,255,.22) 27% 29%,transparent 30%),
+    repeating-linear-gradient(0deg,transparent 0 10%,rgba(218,191,255,.16) 10.5% 11%,transparent 11.5% 17%);
+}
+.v23-client .premium-art-v41_premium_eclipse_conductor::after {
+  background:
+    linear-gradient(74deg,transparent 0 48%,rgba(255,227,142,.62) 49% 50%,transparent 51%),
+    radial-gradient(circle at 33% 52%,rgba(203,142,255,.5) 0 1.2%,transparent 1.8%),
+    radial-gradient(circle at 66% 60%,rgba(129,203,255,.46) 0 1.2%,transparent 1.8%),
+    radial-gradient(circle at 40% 68%,rgba(255,202,127,.42) 0 1%,transparent 1.6%);
+}
+.v23-client .premium-art-v41_premium_midnight_silence .card-art-image {
+  opacity:.18!important;
+  filter:brightness(.45) saturate(.45) contrast(1.12)!important;
+}
+.v23-client .premium-art-v41_premium_midnight_silence::before {
+  background:
+    radial-gradient(circle at 50% 46%,transparent 0 10%,rgba(145,169,255,.62) 10.5% 11.5%,transparent 12% 22%,rgba(108,133,224,.42) 22.5% 23.5%,transparent 24% 34%,rgba(81,102,181,.34) 34.5% 35.5%,transparent 36%),
+    linear-gradient(180deg,rgba(3,7,18,.96),rgba(7,10,25,.92));
+}
+.v23-client .premium-art-v41_premium_midnight_silence::after {
+  inset:18% 17%;
+  border:1px solid rgba(159,178,255,.42);
+  clip-path:polygon(50% 0,61% 23%,88% 12%,77% 39%,100% 50%,77% 61%,88% 88%,61% 77%,50% 100%,39% 77%,12% 88%,23% 61%,0 50%,23% 39%,12% 12%,39% 23%);
+  background:radial-gradient(circle,transparent 0 38%,rgba(129,151,255,.12) 39% 62%,transparent 63%);
+  box-shadow:inset 0 0 22px rgba(105,130,255,.2);
+}
+.v23-client .premium-art-v60_premium_time_devourer::before {
+  background:
+    repeating-conic-gradient(from 8deg at 50% 48%,rgba(255,188,72,.52) 0 3deg,transparent 3deg 15deg,rgba(129,82,255,.34) 15deg 18deg,transparent 18deg 31deg),
+    radial-gradient(circle at 50% 48%,#020205 0 9%,rgba(245,87,196,.7) 10% 11%,transparent 12% 25%,rgba(117,94,255,.34) 26% 28%,transparent 29%);
+  transform:scale(1.16) rotate(-7deg);
+}
+.v23-client .premium-art-v60_premium_time_devourer::after {
+  inset:22% 18%;
+  border-radius:48% 52% 42% 58%;
+  border:2px solid rgba(255,200,92,.38);
+  border-left-color:rgba(212,85,255,.62);
+  border-bottom-color:rgba(92,154,255,.52);
+  transform:rotate(19deg) skewX(-8deg);
+  box-shadow:0 0 28px rgba(178,83,255,.18),inset 0 0 24px rgba(255,185,78,.10);
+}
+/* === /v71 premium identity art overlays =================================== */
