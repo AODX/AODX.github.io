@@ -1891,7 +1891,7 @@ function CardFace({
 
   return (
     <div
-      className={`tcg-card kind-${card.kind} summon-${card.summonMode ?? 'normal'} rarity-${card.rarity} element-${card.element} ${Array.from(card.name).length >= 7 ? 'name-long' : ''} ${compact ? 'compact' : ''} ${selected ? 'selected' : ''} ${disabled ? 'is-disabled' : ''}`}
+      className={`tcg-card kind-${card.kind} summon-${card.summonMode ?? 'normal'} rarity-${card.rarity} element-${card.element} ${/^v(?:41|44|60)_premium_/.test(card.id) ? 'is-premium-card' : ''} ${Array.from(card.name).length >= 7 ? 'name-long' : ''} ${compact ? 'compact' : ''} ${selected ? 'selected' : ''} ${disabled ? 'is-disabled' : ''}`}
       style={cardStyle(card)}
       role="button"
       tabIndex={disabled ? -1 : 0}

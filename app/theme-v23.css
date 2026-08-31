@@ -12011,3 +12011,117 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
   box-shadow:0 0 28px rgba(178,83,255,.18),inset 0 0 24px rgba(255,185,78,.10);
 }
 /* === /v71 premium identity art overlays =================================== */
+
+
+/* === v74.1 Premium pickup title + art visibility fix ======================= */
+.v23-client .v47-premium-feature-card {
+  min-height:228px!important;
+  grid-template-rows:minmax(48px,auto) minmax(96px,1fr) auto auto!important;
+}
+.v23-client .v47-premium-feature-head {
+  align-items:start!important;
+  min-height:48px!important;
+}
+.v23-client .v47-premium-feature-title {
+  min-width:0!important;
+  padding-right:22px!important;
+}
+.v23-client .v47-premium-feature-title b {
+  display:-webkit-box!important;
+  -webkit-box-orient:vertical!important;
+  -webkit-line-clamp:2!important;
+  white-space:normal!important;
+  word-break:keep-all!important;
+  overflow-wrap:anywhere!important;
+  overflow:hidden!important;
+  text-overflow:clip!important;
+  min-height:26px!important;
+  max-height:28px!important;
+  font-size:11.5px!important;
+  line-height:1.18!important;
+}
+.v23-client .v47-premium-feature-title small {
+  display:-webkit-box!important;
+  -webkit-box-orient:vertical!important;
+  -webkit-line-clamp:2!important;
+  overflow:hidden!important;
+  white-space:normal!important;
+  line-height:1.2!important;
+}
+.v23-client .v46-premium-chase-note b {
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  line-height:1.28!important;
+}
+/* Card art itself now carries the identity. Keep overlays subtle so bodies are visible. */
+.v23-client .premium-art-v44_premium_twilight_knight .card-art-image,
+.v23-client .premium-art-v41_premium_dawn_lord .card-art-image,
+.v23-client .premium-art-v41_premium_eclipse_conductor .card-art-image,
+.v23-client .premium-art-v41_premium_midnight_silence .card-art-image {
+  opacity:1!important;
+  filter:saturate(1.08) contrast(1.08) brightness(1.12)!important;
+  object-position:center!important;
+}
+.v23-client .premium-art-v44_premium_twilight_knight::before,
+.v23-client .premium-art-v44_premium_twilight_knight::after,
+.v23-client .premium-art-v41_premium_dawn_lord::before,
+.v23-client .premium-art-v41_premium_dawn_lord::after,
+.v23-client .premium-art-v41_premium_eclipse_conductor::before,
+.v23-client .premium-art-v41_premium_eclipse_conductor::after {
+  opacity:.18!important;
+}
+.v23-client .premium-art-v41_premium_midnight_silence::before,
+.v23-client .premium-art-v41_premium_midnight_silence::after {
+  opacity:.24!important;
+  mix-blend-mode:screen!important;
+}
+/* === /v74.1 =============================================================== */
+
+/* === v74.2 Existing-style unit visibility ================================ */
+.v23-client .tcg-card.is-premium-card .card-topline {
+  min-height:34px!important;
+  align-items:flex-start!important;
+  padding-right:29px!important;
+}
+.v23-client .tcg-card.is-premium-card .card-topline b {
+  display:-webkit-box!important;
+  -webkit-box-orient:vertical!important;
+  -webkit-line-clamp:2!important;
+  max-height:27px!important;
+  overflow:hidden!important;
+  text-overflow:clip!important;
+  white-space:normal!important;
+  word-break:keep-all!important;
+  overflow-wrap:anywhere!important;
+  line-height:1.16!important;
+}
+.v23-client .premium-art-v44_premium_twilight_knight .card-art-image,
+.v23-client .premium-art-v41_premium_dawn_lord .card-art-image,
+.v23-client .premium-art-v41_premium_eclipse_conductor .card-art-image {
+  opacity:1!important;
+  object-fit:cover!important;
+  object-position:center 48%!important;
+  filter:brightness(1.10) saturate(1.06) contrast(1.08)!important;
+}
+.v23-client .premium-art-v44_premium_twilight_knight::before,
+.v23-client .premium-art-v44_premium_twilight_knight::after,
+.v23-client .premium-art-v41_premium_dawn_lord::before,
+.v23-client .premium-art-v41_premium_dawn_lord::after,
+.v23-client .premium-art-v41_premium_eclipse_conductor::before,
+.v23-client .premium-art-v41_premium_eclipse_conductor::after {
+  opacity:.12!important;
+  mix-blend-mode:screen!important;
+}
+.v23-client .premium-art-v41_premium_midnight_silence .card-art-image {
+  opacity:1!important;
+  object-fit:cover!important;
+  object-position:center!important;
+  filter:brightness(1.16) saturate(1.12) contrast(1.08)!important;
+}
+.v23-client .premium-art-v41_premium_midnight_silence::before,
+.v23-client .premium-art-v41_premium_midnight_silence::after {
+  opacity:.18!important;
+  mix-blend-mode:screen!important;
+}
+/* === /v74.2 ============================================================= */
