@@ -1,5 +1,5 @@
 /**
- * V79: final verified premium-style artwork mapping for all legendary cards, including the previously missed fusion/evolution legendary units.
+ * V80 FIX: legendary artwork mapping with remaining legendary additions and duplicate-key correction.
  * Units follow the supplied haloed legendary-unit reference; spells/traps follow the supplied celestial-diagram reference; extra deck fusion/evolution legendary units are now included as well.
  */
 export const LEGENDARY_PREMIUM_ART: Readonly<Record<string, string>> = {
@@ -38,8 +38,8 @@ export const LEGENDARY_PREMIUM_ART: Readonly<Record<string, string>> = {
   'v26_phantom_carnival_unit_22': '/card-art/v26_phantom_carnival_unit_22_legendary_premium_v4.webp',
   'v26_phantom_carnival_spell_08': '/card-art/v26_phantom_carnival_spell_08_legendary_premium_v4.webp',
   'v26_phantom_carnival_trap_06': '/card-art/v26_phantom_carnival_trap_06_legendary_premium_v4.webp',
-  'v26_astral_armada_unit_21': '/card-art/v26_astral_armada_unit_21_legendary_premium_v4.webp',
-  'v26_astral_armada_unit_22': '/card-art/v26_astral_armada_unit_22_legendary_premium_v4.webp',
+  'v26_astral_armada_unit_21': '/card-art/v26_astral_armada_unit_21_legendary_simple_v80.webp',
+  'v26_astral_armada_unit_22': '/card-art/v26_astral_armada_unit_22_legendary_simple_v80.webp',
   'v26_astral_armada_spell_08': '/card-art/v26_astral_armada_spell_08_legendary_premium_v4.webp',
   'v26_astral_armada_trap_06': '/card-art/v26_astral_armada_trap_06_legendary_premium_v4.webp',
   'spell_v31d_sovereign_seizure': '/card-art/spell_v31d_sovereign_seizure_legendary_premium_v4.webp',
@@ -120,8 +120,6 @@ export const LEGENDARY_PREMIUM_ART: Readonly<Record<string, string>> = {
   'v26_astral_armada_evolution_02': '/card-art/v26_astral_armada_evolution_02_legendary_premium_v5.webp',
 
   // V80: remaining/unapplied legendary cards only (simple reference-matched style)
-  'v26_astral_armada_unit_21': '/card-art/v26_astral_armada_unit_21_legendary_simple_v80.webp',
-  'v26_astral_armada_unit_22': '/card-art/v26_astral_armada_unit_22_legendary_simple_v80.webp',
   'fusion_v8_08': '/card-art/fusion_v8_08_legendary_simple_v80.webp',
   'v34_cycle_fusion_003': '/card-art/v34_cycle_fusion_003_legendary_simple_v80.webp',
   'v34_cycle_fusion_004': '/card-art/v34_cycle_fusion_004_legendary_simple_v80.webp',
