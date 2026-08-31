@@ -1,0 +1,3 @@
+전설 등급 카드(unit/spell/trap)만 이름/일러스트를 교체한 패치입니다.
+포함 카드: v26 시리즈 전설 20장 + premium time 5장 + time devourer 1장 = 총 26장.
+이 패치에는 public/card-art/* 대상 카드 26장, app/game-data.ts, app/v41-premium-time-cards.ts, scripts/generate_legendary_art_patch.py 가 포함됩니다.

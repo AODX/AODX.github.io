@@ -1,0 +1,27 @@
+id,name,kind
+v26_chronorium_unit_21,크로노리움 크로노스 레갈리아,unit
+v26_chronorium_unit_22,크로노리움 제로월드 아비터,unit
+v26_chronorium_spell_08,크로노리움 오더 - 최후시각 00:00,spell
+v26_chronorium_trap_06,크로노리움 리액터 - 파이널 카운트,trap
+v26_arcana_protocol_unit_21,아르카나 프로토콜 그랜드 마기스터,unit
+v26_arcana_protocol_unit_22,아르카나 프로토콜 프로토콜 오메가,unit
+v26_arcana_protocol_spell_08,아르카나 프로토콜 오더 - 금단규약 제13식,spell
+v26_arcana_protocol_trap_06,아르카나 프로토콜 리액터 - 금서 봉인진,trap
+v26_beastforge_unit_21,비스트포지 비스트 카이저,unit
+v26_beastforge_unit_22,비스트포지 포지 레비아탄,unit
+v26_beastforge_spell_08,비스트포지 오더 - 비스트포지 오버클래드,spell
+v26_beastforge_trap_06,비스트포지 리액터 - 카이저 하울링 월,trap
+v26_phantom_carnival_unit_21,팬텀 카니발 팬텀 디렉터,unit
+v26_phantom_carnival_unit_22,팬텀 카니발 제로 스테이지 마스터,unit
+v26_phantom_carnival_spell_08,팬텀 카니발 오더 - 그랜드 피날레,spell
+v26_phantom_carnival_trap_06,팬텀 카니발 리액터 - 라스트 앙코르 함정,trap
+v26_astral_armada_unit_21,아스트라 아르마다 아르마다 소버린,unit
+v26_astral_armada_unit_22,아스트라 아르마다 세레스티얼 타이탄,unit
+v26_astral_armada_spell_08,아스트라 아르마다 오더 - 성해포격 오메가,spell
+v26_astral_armada_trap_06,아스트라 아르마다 리액터 - 아르마다 최종방어선,trap
+v41_premium_zenith_king,정점의 왕 솔라리온,unit
+v41_premium_dawn_lord,여명성녀 아우렐리아,unit
+v41_premium_eclipse_conductor,개기일식의 악사 모르덴,unit
+v44_premium_twilight_knight,황혼의 검사 베스퍼,unit
+v41_premium_midnight_silence,심야의 무성 권역,spell
+v60_premium_time_devourer,시간 탐식자 아이온,unit
