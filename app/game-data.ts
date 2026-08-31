@@ -4,6 +4,7 @@ import { V37_TIME_CORE_CARDS } from './v37-time-card-data';
 import { V41_PREMIUM_TIME_CARDS } from './v41-premium-time-cards';
 import { V60_PREMIUM_TIME_DEVOURER } from './v60-premium-time-devourer';
 import { V74_CARD_NAME_OVERRIDES } from './v74-card-name-overrides';
+import { V75_LEGENDARY_NAME_OVERRIDES } from './v75-legendary-name-overrides';
 
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type CardKind = 'unit' | 'spell' | 'trap' | 'fusion' | 'evolution';
@@ -7578,6 +7579,18 @@ for (const card of CARDS) {
   if (renamed) card.name = renamed;
 }
 // === /V74 game-style card-name cleanup ======================================
+
+
+// === V75 premium-style legendary Main Deck names ===========================
+// Apply after V74 so legendary unit / spell / trap cards can use the longer,
+// authored naming style established by the Premium Time flagship cards.
+for (const card of CARDS) {
+  if (card.rarity !== 'legendary') continue;
+  if (card.kind !== 'unit' && card.kind !== 'spell' && card.kind !== 'trap') continue;
+  const renamed = V75_LEGENDARY_NAME_OVERRIDES[card.id];
+  if (renamed) card.name = renamed;
+}
+// === /V75 premium-style legendary Main Deck names ==========================
 
 export const CARD_BY_ID: Record<string, CardDefinition> = Object.fromEntries(CARDS.map((card) => [card.id, card]));
 
