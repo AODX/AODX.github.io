@@ -41,7 +41,7 @@ import {
   validateExtraDeck,
 } from './game-data';
 import { BOSS_RAID_BY_ID, type BossRaidDefinition, type BossRaidId } from './boss-raid-data';
-import { CORE_MAX, TURN_DURATION_MS, type GameSnapshot, type MatchState, type PrivateState, type UnitState, type VisualEvent } from './game-engine';
+import { CORE_MAX, TURN_DURATION_MS, personalTurnEnergyIncome, secondPlayerBonusEnergyStatus, type GameSnapshot, type MatchState, type PrivateState, type UnitState, type VisualEvent } from './game-engine';
 import {
   PRACTICE_DIFFICULTY_LABEL,
   applyPracticeGameAction,
@@ -2170,7 +2170,7 @@ function GameGuideModal({ onClose }: { onClose: () => void }) {
         <div className="v20-guide-grid">
           <article><b>01 · 승리 조건</b><p>상대 코어 {CORE_MAX}를 0으로 만들면 승리합니다. 덱을 더 이상 뽑을 수 없는 상황도 패배로 처리됩니다.</p></article>
           <article><b>02 · 턴 흐름</b><p>메인 단계에서 소환·주문·함정을 준비하고, 배틀 단계에서 공격합니다. 각 턴은 {TURN_DURATION_SECONDS}초 안에 결정해야 합니다.</p></article>
-          <article><b>03 · 에너지</b><p>기본 보관 한도 10은 처음부터 열려 있습니다. 내 턴이 시작될 때마다 남아 있는 ENERGY에 정확히 +1이 더해지고, 쓰지 않은 ENERGY는 다음 내 턴까지 그대로 누적됩니다. 예: 1/10을 안 쓰면 다음 내 턴 2/10, 1/10을 전부 쓰면 다음 내 턴 1/10입니다. 최대치 증가 스펠은 이 +1 규칙은 건드리지 않고 보관 한도만 10보다 높일 수 있습니다.</p></article>
+          <article><b>03 · 에너지</b><p>기본 보관 한도 10은 처음부터 열려 있고, 쓰지 않은 ENERGY는 다음 내 턴까지 그대로 누적됩니다. 자연 충전량은 내 개인 턴에 따라 +1 → +2 → +3 → +4…로 증가합니다. 예: 첫 턴 1을 쓰지 않으면 두 번째 내 턴에 +2가 더해져 3/10이 됩니다. 후공 플레이어는 원하는 자기 턴에 보너스 ENERGY +1을 사용할 수 있고, 사용 후 4턴이 지나면 다시 사용할 수 있습니다. 최대치 증가 스펠은 보관 한도만 10보다 높입니다.</p></article>
           <article><b>04 · 특수 소환</b><p>균열은 조건과 에너지를, 공명 융합은 지정 소재를, 계승 진화는 조건을 만족한 필드 유닛을 요구합니다. 최종 전투 특성이 2개 이상인 메인덱 유닛도 특수 소환 전용이며, 강한 카드일수록 조건이 더 까다롭습니다.</p></article>
           <article><b>05 · 전투 키워드</b><p><strong>수호</strong>는 공격 우선 대상, <strong>속공</strong>은 소환 턴 공격, <strong>흡수</strong>는 실제 전투 피해 회복, <strong>관통</strong>은 초과 피해를 코어에 전달합니다.</p></article>
           <article><b>06 · 조작 팁</b><p>카드의 <strong>i</strong> 버튼으로 언제든 상세 정보를 볼 수 있습니다. 선택 중 <strong>Esc</strong>를 누르면 카드·공격 대상을 취소합니다.</p></article>
@@ -5299,21 +5299,17 @@ function UnitSlot({
 function clientFusionMaterialMinimumCost(card: CardDefinition, material?: NonNullable<CardDefinition['fusionRecipe']>['materials'][number]): number {
   const exactRecipe = Boolean(material?.cardIds?.length);
   const floor = exactRecipe
-    ? 3
-    : (card.rarity === 'legendary' ? 5 : 4);
+    ? 0
+    : (card.rarity === 'legendary' ? 4 : 3);
   return Math.max(material?.minCost ?? 0, floor);
 }
 
 function clientEvolutionRequiredTurnGap(source: CardDefinition, evolutionCard: CardDefinition): number {
   const namedRecipe = Boolean(evolutionCard.evolutionRecipe?.fromIds?.length);
-  let baseGap = 4;
+  let baseGap = 2;
   if (namedRecipe) {
-    if (evolutionCard.rarity === 'legendary') {
-      if (source.cost <= 3) baseGap = 6;
-      else if (source.cost <= 5) baseGap = 4;
-      else baseGap = 2;
-    } else if (source.cost <= 2) baseGap = 6;
-    else if (source.cost <= 4) baseGap = 4;
+    if (evolutionCard.rarity === 'legendary' && source.cost <= 3) baseGap = 4;
+    else if (evolutionCard.rarity !== 'legendary' && source.cost <= 2) baseGap = 4;
     else baseGap = 2;
   }
   return baseGap + (evolutionCard.extraSummonRule?.sourceExtraTurnGap ?? 0);
@@ -5323,10 +5319,10 @@ function evolutionRoundRequirement(card: CardDefinition): string {
   const sources = (card.evolutionRecipe?.fromIds ?? []).map((id) => CARD_BY_ID[id]).filter((source): source is CardDefinition => Boolean(source));
   if (sources.length > 0) {
     const longestGap = Math.max(...sources.map((source) => clientEvolutionRequiredTurnGap(source, card)));
-    const rounds = Math.max(1, Math.ceil(longestGap / 2));
+    const rounds = Math.max(2, Math.ceil(longestGap / 2));
     return `ROUND ${rounds} 이후`;
   }
-  return `비용 ${card.rarity === 'legendary' ? 6 : 5}+ 원본 · ROUND 2 이후`;
+  return `비용 ${card.rarity === 'legendary' ? 5 : 4}+ 원본 · ROUND 2 이후`;
 }
 
 function extraRequirement(card: CardDefinition): string {
@@ -5336,7 +5332,7 @@ function extraRequirement(card: CardDefinition): string {
     const materials = card.fusionRecipe?.materials ?? [];
     const broad = materials.some((material) => !material.cardIds?.length);
     const base = card.fusionRecipe?.label ?? '지정 소재 조합';
-    const broadCost = broad ? `각 ${card.rarity === 'legendary' ? 5 : 4}+` : '';
+    const broadCost = broad ? `각 ${card.rarity === 'legendary' ? 4 : 3}+` : '';
     return [base, broadCost, premiumRule, choose].filter(Boolean).join(' · ');
   }
   if (card.kind === 'evolution') {
@@ -5518,7 +5514,7 @@ function clientEvolutionBaseMatches(unit: UnitState, card: CardDefinition): bool
   const source = CARD_BY_ID[unit.cardId];
   if (!recipe || !source) return false;
   if (recipe.fromIds?.length) return recipe.fromIds.includes(source.id);
-  const hardenedMinCost = Math.max(recipe.minCost ?? 0, card.rarity === 'legendary' ? 6 : 5);
+  const hardenedMinCost = Math.max(recipe.minCost ?? 0, card.rarity === 'legendary' ? 5 : 4);
   return (!recipe.element || recipe.element === source.element)
     && source.cost >= hardenedMinCost
     && (recipe.maxCost === undefined || source.cost <= recipe.maxCost);
@@ -5679,10 +5675,6 @@ function CoinTossOverlay({ state, profiles, userId, now }: { state: MatchState; 
       <div className="coin-result"><span>{revealed ? (isMe ? 'YOU GO FIRST' : 'OPPONENT GOES FIRST') : 'FLIPPING'}</span><div><i /></div></div>
     </div>
   );
-}
-
-function clientPersonalTurnEnergyIncome(_state: MatchState, _playerId: string, _turnNumber: number): number {
-  return 1;
 }
 
 function DuelEnergyMeter({ label, current, max, cap = 10, nextGain, opponent = false, compact = false }: { label: string; current: number; max: number; cap?: number; nextGain?: number; opponent?: boolean; compact?: boolean }) {
@@ -6870,6 +6862,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const opponentEnergy = state.energy[opponentId] ?? { current: 0, max: 0 };
   const myEnergyHardCap = 10 + Math.max(0, state.energyMaxBonus?.[userId] ?? 0);
   const opponentEnergyHardCap = 10 + Math.max(0, state.energyMaxBonus?.[opponentId] ?? 0);
+  const secondEnergyStatus = secondPlayerBonusEnergyStatus(state, userId);
+  const canUseSecondEnergy = Boolean(secondEnergyStatus.eligible && secondEnergyStatus.ready && myTurn && !interactionLocked && state.phase === 'main' && !busy && myEnergy.current < myEnergyHardCap);
   const myExtraUsage = state.extraSummonUsage?.[userId] ?? { fusion: 0, evolution: 0 };
   const myExtraTurn = state.extraSummonTurn?.[userId] ?? {};
   const energySacrificeUsed = state.energySacrificeTurn?.[userId] === state.turnNumber;
@@ -6904,7 +6898,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const canChooseGraveCardTarget = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.target === 'friendly_graveyard_card' && selectedCard && myEnergy.current >= selectedCard.cost && graveyardCardTargets.length > 0 && !busy);
   const selectingGraveyardTarget = Boolean(myTurn && !interactionLocked && state.phase === 'main' && selectedCard?.target === 'friendly_graveyard_unit');
   const canChooseGraveyardTarget = Boolean(selectingGraveyardTarget && selectedCard && myEnergy.current >= selectedCard.cost && graveyardReviveTargets.length > 0 && state.boards[userId].units.some((slot) => !slot) && !busy);
-  const nextMyEnergyGain = state.currentPlayerId === userId ? undefined : clientPersonalTurnEnergyIncome(state, userId, state.turnNumber + 1);
+  const nextMyEnergyGain = state.currentPlayerId === userId ? undefined : personalTurnEnergyIncome(state, userId, state.turnNumber + 1);
   const roundNumber = Math.max(1, Math.ceil(state.turnNumber / 2));
   const phaseLabel = state.phase === 'main' ? '메인 단계' : '전투 단계';
   const selectedHandCost = selectedCard?.summonMode === 'rift' && selectedCard.riftCost !== undefined ? (selectedCard.traitSpecialSummonTier ? `${selectedCard.riftCost} · 특수` : `${selectedCard.cost} / 균열 ${selectedCard.riftCost}`) : selectedCard?.cost;
@@ -6995,9 +6989,9 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     if (interactionLocked) reasons.push('현재 함정 발동 여부를 결정하는 중이라 다른 행동을 할 수 없습니다.');
     if (!clientEclipseSummonReady(state, card)) reasons.push(`시간대 소환 조건이 맞지 않습니다. 현재 ${ECLIPSE_PHASE_LABEL[clientCurrentEclipsePhase(state)]} · 필요 ${card.eclipseSummonPhases?.map((phase) => ECLIPSE_PHASE_LABEL[phase]).join(' · ')}.`);
     if (myEnergy.current < card.cost) reasons.push(`에너지가 부족합니다. 필요 ${card.cost} / 현재 ${myEnergy.current}.`);
-    if (roundNumber < 3) reasons.push('엑스트라 소환은 ROUND 3부터 해금됩니다. 초반 일반 카드 전개가 우선입니다.');
+    if (roundNumber < 2) reasons.push('엑스트라 소환은 ROUND 2부터 해금됩니다.');
     if (totalExtraUsed >= 2) reasons.push('엑스트라 소환은 공명·계승을 합쳐 한 게임에 최대 2번만 사용할 수 있습니다.');
-    if (totalExtraUsed >= 1 && roundNumber < 5) reasons.push('두 번째 엑스트라 소환은 ROUND 5부터 사용할 수 있습니다.');
+    if (totalExtraUsed >= 1 && roundNumber < 4) reasons.push('두 번째 엑스트라 소환은 ROUND 4부터 사용할 수 있습니다.');
     if (card.kind === 'fusion') {
       if (myExtraUsage.fusion >= 2) reasons.push('공명 융합은 한 게임에 최대 2번만 사용할 수 있습니다.');
       if (myExtraTurn.fusion === state.turnNumber) reasons.push('공명 융합은 한 턴에 1번만 사용할 수 있습니다.');
@@ -7397,6 +7391,23 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     gameAction('energy_draw');
   }
 
+  function useSecondPlayerEnergyBonus() {
+    if (!secondEnergyStatus.eligible) return;
+    if (!myTurn || state.phase !== 'main') {
+      setMessage('후공 보너스 ENERGY는 내 메인 단계에서 사용할 수 있습니다.');
+      return;
+    }
+    if (!secondEnergyStatus.ready) {
+      setMessage(`후공 보너스 ENERGY 재사용까지 ${secondEnergyStatus.remainingTurns}턴 남았습니다.`);
+      return;
+    }
+    if (myEnergy.current >= myEnergyHardCap) {
+      setMessage(`현재 ENERGY가 이미 최대 한도 ${myEnergyHardCap}입니다.`);
+      return;
+    }
+    gameAction('second_player_bonus_energy');
+  }
+
   const actionGuide = !myTurn
     ? '상대 행동을 확인 중입니다. 중앙 연출과 최근 행동 기록에서 소환·주문·함정·공격을 확인할 수 있습니다.'
     : state.phase === 'battle'
@@ -7744,6 +7755,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
         {selectedAttacker !== null && <button className="v18-cancel-attack" type="button" onClick={() => { setSelectedAttacker(null); setMessage('공격 유닛 선택을 취소했습니다.'); }}>공격 선택 취소</button>}
 
         <section className="v18-action-buttons">
+          {secondEnergyStatus.eligible && state.phase === 'main' && <button className="v18-secondary-action v70-second-energy-action" disabled={!canUseSecondEnergy} onClick={useSecondPlayerEnergyBonus}><span>후공 보너스 ENERGY +1</span><small>{!secondEnergyStatus.ready ? `재사용까지 ${secondEnergyStatus.remainingTurns}턴` : myEnergy.current >= myEnergyHardCap ? `ENERGY 최대 한도 ${myEnergyHardCap}` : myTurn ? '사용 가능 · 사용 후 4턴 뒤 재충전' : '내 메인 단계에 사용 가능'}</small></button>}
           {state.phase === 'main' && <button className="v31-field-retire-action" disabled={!canRetireSelectedFieldUnit} onClick={retireSelectedFieldUnit}><span>필드 → ENERGY {myEnergy.current < myEnergyHardCap ? '+1' : '+0'}</span><small>{fieldSacrificeUsed ? '이번 턴 사용 완료' : selectedFieldUnitState ? `${selectedFieldUnitCard?.name ?? '선택 캐릭터'}을 묘지로 보내 빈 칸 확보 · 턴당 1회` : '내 필드 캐릭터를 먼저 선택하세요'}</small></button>}
           {state.phase === 'main' && <button className="v32o-energy-draw-action" disabled={!canEnergyDraw} onClick={spendEnergyForDraw}><span>ENERGY {energyDrawCost} → 카드 +1</span><small>{!hasDrawableCard ? '드로우 가능한 카드 없음' : myEnergy.current < energyDrawCost ? `ENERGY ${energyDrawCost} 필요` : energyDrawCountThisTurn > 0 ? `이번 턴 ${energyDrawCountThisTurn}회 사용 · 다음 비용 +1` : '첫 사용 2 ENERGY · 같은 턴 반복 시 비용 +1'}</small></button>}
           {state.phase === 'main' && <button className="v18-secondary-action" disabled={!canSpendTurnToDraw} onClick={spendTurnToDraw}><span>＋ 카드 1장</span><small>턴을 소비해 추가 드로우</small></button>}
@@ -7752,8 +7764,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
         </section>
 
         <section className="v18-extra-access">
-          <button type="button" onClick={() => setExtraOpen(true)}><span>EXTRA RESERVE</span><b>{privateState.extra.length}</b><small>{extraReadyInstances.length > 0 ? `${extraReadyInstances.length}장 소환 가능` : roundNumber < 3 ? 'ROUND 3 해금' : '융합 · 진화'}</small></button>
-          <div className="v31-extra-limit-strip"><span>전개 <b>{myExtraUsage.fusion + myExtraUsage.evolution}/2</b></span><span>2차 해금 <b>R5</b></span><em>총 2회 · 같은 턴 안에서 사용할 때마다 비용 +1</em></div>
+          <button type="button" onClick={() => setExtraOpen(true)}><span>EXTRA RESERVE</span><b>{privateState.extra.length}</b><small>{extraReadyInstances.length > 0 ? `${extraReadyInstances.length}장 소환 가능` : roundNumber < 2 ? 'ROUND 2 해금' : '융합 · 진화'}</small></button>
+          <div className="v31-extra-limit-strip"><span>전개 <b>{myExtraUsage.fusion + myExtraUsage.evolution}/2</b></span><span>2차 해금 <b>R4</b></span><em>총 2회 · 공명/계승은 각각 턴당 1회</em></div>
         </section>
 
       </aside>
@@ -7790,7 +7802,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
         <div className="v18-extra-backdrop" onPointerDown={(event) => { if (event.currentTarget === event.target) setExtraOpen(false); }}>
           <aside className="v18-extra-drawer">
             <header><div><small>EXTRA RESERVE · 6 CARDS</small><b>공명 융합 · 계승 진화</b></div><button type="button" onClick={() => setExtraOpen(false)}>×</button></header>
-            <p>엑스트라 6장은 처음부터 전부 소환할 수 있는 카드가 아니라 ‘전술 예비대’입니다. ROUND 3에 첫 전개가 열리고, ROUND 5부터 두 번째 전개가 열립니다. 한 게임에서 공명·계승을 합쳐 최대 2회만 전개할 수 있어 어떤 엑스트라를 꺼낼지 선택하는 것이 중요합니다.</p>
+            <p>엑스트라 6장은 ‘전술 예비대’입니다. ROUND 2에 첫 전개가 열리고, ROUND 4부터 두 번째 전개가 열립니다. 일반 엑스트라는 인쇄된 핵심 소재/원본만 맞추면 비교적 빠르게 사용할 수 있고, 최상위 전설만 추가 소재 1체를 요구합니다. 한 게임에서 공명·계승을 합쳐 최대 2회만 전개할 수 있습니다.</p>
             <div className="v31-extra-drawer-usage"><span>전체 전개 <b>{myExtraUsage.fusion + myExtraUsage.evolution}/2</b></span><span>현재 ROUND <b>{roundNumber}</b></span></div>
             <div>{privateState.extra.map((instance) => {
               const card = CARD_BY_ID[instance.cardId];

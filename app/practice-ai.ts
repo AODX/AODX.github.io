@@ -28,6 +28,8 @@ import {
   resolveExtraChoice,
   sacrificeFieldUnitForEnergy,
   sacrificeHandForEnergy,
+  secondPlayerBonusEnergyStatus,
+  useSecondPlayerBonusEnergy,
   sendBattleEmote,
   spendEnergyToDraw,
   summonExtra,
@@ -43,7 +45,7 @@ export const PRACTICE_DIFFICULTY_LABEL: Record<PracticeDifficulty, string> = {
 };
 
 export interface PracticeBotAction {
-  gameAction: 'play_card' | 'discard_opponent_hand' | 'close_hand_reveal' | 'extra_summon' | 'battle_phase' | 'attack' | 'trap_response' | 'draw_turn' | 'sacrifice_energy' | 'sacrifice_field_energy' | 'energy_draw' | 'battle_emote' | 'end_turn' | 'surrender' | 'resolve_timeout' | 'resolve_extra_choice';
+  gameAction: 'play_card' | 'discard_opponent_hand' | 'close_hand_reveal' | 'extra_summon' | 'battle_phase' | 'attack' | 'trap_response' | 'draw_turn' | 'sacrifice_energy' | 'sacrifice_field_energy' | 'energy_draw' | 'second_player_bonus_energy' | 'battle_emote' | 'end_turn' | 'surrender' | 'resolve_timeout' | 'resolve_extra_choice';
   payload?: Record<string, unknown>;
   label: string;
 }
@@ -409,6 +411,8 @@ export function applyPracticeGameAction(
     next = sacrificeFieldUnitForEnergy(snapshot, playerId, Number(payload.unitIndex));
   } else if (gameAction === 'energy_draw') {
     next = spendEnergyToDraw(snapshot, playerId);
+  } else if (gameAction === 'second_player_bonus_energy') {
+    next = useSecondPlayerBonusEnergy(snapshot, playerId);
   } else if (gameAction === 'battle_emote') {
     next = sendBattleEmote(snapshot, playerId, String(payload.emoteId ?? ''));
   } else if (gameAction === 'end_turn') {
@@ -551,6 +555,10 @@ function enumerateBotActions(snapshot: GameSnapshot, botId: string): PracticeBot
     ownBoard.units.forEach((unit, unitIndex) => {
       if (unit) actions.push({ gameAction: 'sacrifice_field_energy', payload: { unitIndex }, label: '필드 에너지 전환' });
     });
+    const secondBonus = secondPlayerBonusEnergyStatus(state, botId);
+    if (secondBonus.eligible && secondBonus.ready && (state.energy[botId]?.current ?? 0) < (state.energy[botId]?.max ?? 0)) {
+      actions.push({ gameAction: 'second_player_bonus_energy', label: '후공 보너스 에너지' });
+    }
     actions.push({ gameAction: 'energy_draw', label: '에너지 드로우' });
     actions.push({ gameAction: 'draw_turn', label: '턴 소비 드로우' });
     actions.push({ gameAction: 'battle_phase', label: '전투 단계 진입' });
@@ -673,6 +681,7 @@ function actionBias(snapshot: GameSnapshot, botId: string, action: PracticeBotAc
   if (action.gameAction === 'discard_opponent_hand') return 30;
   if (action.gameAction === 'close_hand_reveal') return 1;
   if (action.gameAction === 'energy_draw') return 3;
+  if (action.gameAction === 'second_player_bonus_energy') return 12;
   if (action.gameAction === 'draw_turn') return state.turnActionTaken ? -100 : 1;
   if (action.gameAction === 'sacrifice_field_energy') return -14;
   if (action.gameAction === 'sacrifice_energy') return 0;

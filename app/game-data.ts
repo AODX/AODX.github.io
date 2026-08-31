@@ -7183,6 +7183,91 @@ for (const [cardId, identity] of Object.entries(V66_TRUE_COMBAT_IDENTITIES)) {
 // === /v66 true bespoke combat rules ========================================
 
 
+// === v70 reachable Extra Deck pacing =========================================
+// Extra cards were rarely appearing because several independent gates stacked:
+// late ROUND unlocks, 3-4 body releases, high hidden material-cost floors and
+// single-phase flagship timing. Keep the identity/energy cost/2-per-match limit,
+// but make the actual summon line reachable during a normal duel.
+const V70_EXTRA_ADJACENT_PHASE: Record<EclipsePhase, EclipsePhase> = {
+  dawn: 'zenith',
+  zenith: 'dusk',
+  dusk: 'midnight',
+  midnight: 'eclipse',
+  eclipse: 'dawn',
+};
+
+function v70IsApexExtra(card: CardDefinition): boolean {
+  if (card.kind !== 'fusion' && card.kind !== 'evolution') return false;
+  return card.rarity === 'legendary'
+    && (card.extraSummonRule?.tier === 'apex' || card.cost >= 7 || ((card.attack ?? 0) + (card.health ?? 0)) >= 20);
+}
+
+for (const card of CARDS) {
+  if (card.kind !== 'fusion' && card.kind !== 'evolution') continue;
+  const apex = v70IsApexExtra(card);
+  const legendary = card.rarity === 'legendary';
+
+  if (card.kind === 'fusion') {
+    // Printed fusion materials remain mandatory. Ordinary Extra cards need no
+    // extra tribute; only apex legends ask for one additional body.
+    card.extraSummonRule = {
+      tier: apex ? 'apex' : legendary ? 'legendary' : 'elite',
+      additionalTributes: apex ? 1 : 0,
+      tributeMinCost: apex ? 2 : 0,
+      minTotalMaterialCost: apex ? 10 : 0,
+      requireHighRarityMaterial: apex,
+      requireSameSeriesTribute: false,
+    };
+  } else if (card.id === 'evolution_rift_alpha') {
+    // Preserve Rift Alpha's signature double-Hound ritual, but reduce the old
+    // 2 Hounds + 2 allies commitment to 2 Hounds + 1 ally.
+    card.extraSummonRule = {
+      tier: 'legendary',
+      requiredSourceCopies: 2,
+      additionalTributes: 1,
+      tributeMinCost: 0,
+      minTotalMaterialCost: 0,
+      sourceExtraTurnGap: 0,
+    };
+  } else {
+    // Evolution now normally consumes only its predecessor. Apex legends keep
+    // one extra tribute so their stronger bodies/CHOOSE packages remain earned.
+    card.extraSummonRule = {
+      tier: apex ? 'apex' : legendary ? 'legendary' : 'elite',
+      requiredSourceCopies: 1,
+      additionalTributes: apex ? 1 : 0,
+      tributeMinCost: apex ? 2 : 0,
+      minTotalMaterialCost: apex ? 8 : 0,
+      requireHighRarityMaterial: false,
+      requireSameSeriesTribute: false,
+      sourceExtraTurnGap: 0,
+    };
+  }
+
+  // V61 flagship Extras keep their time identity, but a one-phase window was
+  // too easy to miss. The themed phase plus the immediately following phase
+  // are both valid; unrestricted Extras remain unrestricted.
+  if (card.eclipseSummonPhases?.length === 1) {
+    const primary = card.eclipseSummonPhases[0];
+    card.eclipseSummonPhases = [primary, V70_EXTRA_ADJACENT_PHASE[primary]];
+  }
+}
+
+export const V70_EXTRA_SUMMON_AUDIT = CARDS
+  .filter((card) => card.kind === 'fusion' || card.kind === 'evolution')
+  .map((card) => ({
+    id: card.id,
+    name: card.name,
+    kind: card.kind,
+    rarity: card.rarity,
+    bodies: extraRequiredUnitCount(card),
+    apex: v70IsApexExtra(card),
+    phases: card.eclipseSummonPhases ?? [],
+    rule: card.extraSummonRule,
+  }));
+// === /v70 reachable Extra Deck pacing ========================================
+
+
 // === v68 series trait restraint =============================================
 // Non-premium series cards are intentionally kept below the premium ceiling.
 // Only genuinely difficult Legendary summons may carry three ordinary combat

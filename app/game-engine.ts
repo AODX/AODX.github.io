@@ -183,6 +183,8 @@ export interface MatchState {
   nextTurnEnergyBonus?: Record<string, number>;
   /** Permanent per-match ENERGY maximum bonus. Each point also raises that player's hard cap above the base cap of 10. */
   energyMaxBonus?: Record<string, number>;
+  /** Global turn number when the second player last spent the reusable +1 bonus ENERGY. */
+  secondPlayerBonusEnergyLastUsedTurn?: Record<string, number>;
   /** Global battlefield clock. Natural progression advances whenever a real unit card successfully enters the field. */
   eclipsePhase?: EclipsePhase;
   /** Source of the latest clock change, used by the HUD to distinguish unit-arrival shifts from card effects. */
@@ -409,6 +411,7 @@ export function initializeMatch(
     energyDrawCount: {},
     nextTurnEnergyBonus: {},
     energyMaxBonus: { [playerA]: 0, [playerB]: 0 },
+    secondPlayerBonusEnergyLastUsedTurn: {},
     // Every new duel starts at Dawn. Card/spell effects may change it later,
     // Natural time now advances when a real unit card enters the field.
     eclipsePhase: INITIAL_ECLIPSE_PHASE,
@@ -423,9 +426,9 @@ export function initializeMatch(
     core: { [playerA]: CORE_MAX, [playerB]: CORE_MAX },
     coreMax: { [playerA]: CORE_MAX, [playerB]: CORE_MAX },
     energy: {
-      // V59: the 10-point storage cap is open from the beginning. The first player
-      // receives the natural +1 income immediately; the second player receives its
-      // +1 when their first personal turn begins. Unspent ENERGY is carried forward.
+      // V70: the 10-point storage cap is open from the beginning. The first player
+      // receives +1 immediately; each player's later natural income follows their
+      // personal turn count (+1, +2, +3 ...). Unspent ENERGY is carried forward.
       [playerA]: { current: playerA === first ? 1 : 0, max: BASE_ENERGY_HARD_CAP },
       [playerB]: { current: playerB === first ? 1 : 0, max: BASE_ENERGY_HARD_CAP },
     },
@@ -445,6 +448,7 @@ export function initializeMatch(
   drawCards(state, privateStates[playerB], playerB, 5);
   appendLog(state, '결투가 시작되었습니다.', 'system');
   appendLog(state, `${coinSide === 'solar' ? '태양면' : '월식면'}이 나왔습니다. ${first.slice(0, 6)}의 선공입니다.`, 'system');
+  appendLog(state, '후공 플레이어는 원하는 자기 턴에 보너스 ENERGY +1을 사용할 수 있습니다. 사용 후 4턴이 지나면 다시 사용할 수 있습니다.', 'system');
   appendVisual(state, { kind: 'summon', vfx: 'duel-genesis', label: 'DUEL START' });
   appendVisual(state, { kind: 'turn', vfx: 'turn-shift', ownerId: first, label: 'FIRST TURN' });
   return { state, privateStates };
@@ -483,8 +487,8 @@ function spendEnergy(state: MatchState, playerId: string, amount: number): void 
 }
 
 const EXTRA_SUMMON_LIMIT_PER_MATCH = 2;
-const EXTRA_SUMMON_FIRST_ROUND = 3;
-const EXTRA_SUMMON_SECOND_ROUND = 5;
+const EXTRA_SUMMON_FIRST_ROUND = 2;
+const EXTRA_SUMMON_SECOND_ROUND = 4;
 
 function extraUsageFor(state: MatchState, playerId: string): { fusion: number; evolution: number } {
   if (!state.extraSummonUsage) state.extraSummonUsage = {};
@@ -5201,12 +5205,12 @@ export function playCard(
 }
 
 function fusionMaterialMinimumCost(card: CardDefinition, requirement?: FusionMaterial): number {
-  // Exact named recipes are already restrictive enough, so keep the v31 floor there.
-  // Broad element-only recipes were still too easy to assemble; those now need stronger bodies.
+  // V70: named materials are already restrictive, so do not impose a hidden cost floor.
+  // Broad recipes keep a lighter body floor so Extra Deck cards appear in real matches.
   const exactRecipe = Boolean(requirement?.cardIds?.length);
   const floor = exactRecipe
-    ? 3
-    : (card.rarity === 'legendary' ? 5 : 4);
+    ? 0
+    : (card.rarity === 'legendary' ? 4 : 3);
   return Math.max(requirement?.minCost ?? 0, floor);
 }
 
@@ -5214,7 +5218,7 @@ function fusionRequirementSummary(card: CardDefinition): string {
   const materials = card.fusionRecipe?.materials ?? [];
   const hasBroadMaterial = materials.some((requirement) => !requirement.cardIds?.length);
   if (!hasBroadMaterial) return '지정된 카드 소재 조합이 정확히 필요합니다.';
-  return `범용 소재는 각 비용 ${card.rarity === 'legendary' ? 5 : 4} 이상이어야 합니다.`;
+  return `범용 소재는 각 비용 ${card.rarity === 'legendary' ? 4 : 3} 이상이어야 합니다.`;
 }
 
 function materialMatches(unit: UnitState, requirement: FusionMaterial, fusionCard: CardDefinition): boolean {
@@ -5313,21 +5317,17 @@ function findFusionAssignmentForExtraRule(
 
 function evolutionRequiredTurnGap(sourceCard: CardDefinition, evolutionCard: CardDefinition): number {
   const namedRecipe = Boolean(evolutionCard.evolutionRecipe?.fromIds?.length);
-  let baseGap = 4;
+  let baseGap = 2;
 
-  // This value now defines a GLOBAL match-round unlock threshold.
-  // 2 global turns = 1 full ROUND; the source itself does not need to survive.
+  // V70: evolution uses a global ROUND gate rather than forcing the predecessor
+  // to remain on the field for several personal turns. Cheap named predecessors
+  // still wait until ROUND 2; all other sources are ready once Extra opens.
   if (namedRecipe) {
-    if (evolutionCard.rarity === 'legendary') {
-      if (sourceCard.cost <= 3) baseGap = 6;
-      else if (sourceCard.cost <= 5) baseGap = 4;
-      else baseGap = 2;
-    } else if (sourceCard.cost <= 2) baseGap = 6;
-    else if (sourceCard.cost <= 4) baseGap = 4;
+    if (evolutionCard.rarity === 'legendary' && sourceCard.cost <= 3) baseGap = 4;
+    else if (evolutionCard.rarity !== 'legendary' && sourceCard.cost <= 2) baseGap = 4;
     else baseGap = 2;
   }
 
-  // v31f apex legends unlock one full ROUND later.
   return baseGap + (evolutionCard.extraSummonRule?.sourceExtraTurnGap ?? 0);
 }
 
@@ -5337,8 +5337,8 @@ function evolutionBaseMatches(unit: UnitState, card: CardDefinition): boolean {
   if (!recipe || !source) return false;
   // If a named predecessor exists, only that exact predecessor can evolve.
   if (recipe.fromIds?.length) return recipe.fromIds.includes(source.id);
-  // Broad element/cost evolutions need a higher rarity-based body floor as well.
-  const hardenedMinCost = Math.max(recipe.minCost ?? 0, card.rarity === 'legendary' ? 6 : 5);
+  // V70: broad evolutions keep a modest body floor without demanding late-game units.
+  const hardenedMinCost = Math.max(recipe.minCost ?? 0, card.rarity === 'legendary' ? 5 : 4);
   return (!recipe.element || source.element === recipe.element)
     && source.cost >= hardenedMinCost
     && (recipe.maxCost === undefined || source.cost <= recipe.maxCost);
@@ -5980,11 +5980,62 @@ function energyHardCap(state: MatchState, playerId: string): number {
   return BASE_ENERGY_HARD_CAP + permanentBonus;
 }
 
-function personalTurnEnergyIncome(_state: MatchState, _playerId: string, _turnNumber = _state.turnNumber): number {
-  // V59 banking rule: every personal turn adds exactly +1 natural ENERGY.
-  // Unspent ENERGY carries over, so 1/10 -> 2/10 -> 3/10 when the player spends nothing.
-  // Permanent max-increase spells only expand storage above 10; they do not increase this +1 income.
-  return 1;
+export function personalTurnNumber(state: MatchState, playerId: string, turnNumber = state.turnNumber): number {
+  const firstPlayerId = state.firstPlayerId ?? state.playerOrder[0] ?? null;
+  if (!firstPlayerId || !(state.playerOrder as string[]).includes(playerId)) return 0;
+  return Math.max(0, Math.floor((Math.max(1, turnNumber) + (playerId === firstPlayerId ? 1 : 0)) / 2));
+}
+
+export function personalTurnEnergyIncome(state: MatchState, playerId: string, turnNumber = state.turnNumber): number {
+  // V70 banking rule: unused ENERGY still carries over, but natural income ramps
+  // with each of that player's turns: +1, +2, +3, +4 ... up to the storage cap.
+  return Math.max(1, personalTurnNumber(state, playerId, turnNumber));
+}
+
+const SECOND_PLAYER_BONUS_ENERGY_COOLDOWN_TURNS = 4;
+
+export function secondPlayerBonusEnergyStatus(state: MatchState, playerId: string): {
+  eligible: boolean;
+  ready: boolean;
+  remainingTurns: number;
+  lastUsedTurn?: number;
+} {
+  const secondPlayerId = state.playerOrder[1] ?? null;
+  const eligible = Boolean(secondPlayerId && playerId === secondPlayerId);
+  const lastUsedTurn = state.secondPlayerBonusEnergyLastUsedTurn?.[playerId];
+  const remainingTurns = lastUsedTurn === undefined
+    ? 0
+    : Math.max(0, SECOND_PLAYER_BONUS_ENERGY_COOLDOWN_TURNS - (state.turnNumber - lastUsedTurn));
+  return {
+    eligible,
+    ready: eligible && remainingTurns === 0,
+    remainingTurns,
+    ...(lastUsedTurn === undefined ? {} : { lastUsedTurn }),
+  };
+}
+
+export function useSecondPlayerBonusEnergy(snapshot: GameSnapshot, playerId: string): ActionResult {
+  const state = clone(snapshot.state);
+  const privateStates = clone(snapshot.privateStates);
+  assertActiveTurn(state, playerId);
+  if (state.phase !== 'main') throw new Error('후공 보너스 ENERGY는 메인 단계에서 사용할 수 있습니다.');
+
+  const status = secondPlayerBonusEnergyStatus(state, playerId);
+  if (!status.eligible) throw new Error('후공 플레이어만 보너스 ENERGY를 사용할 수 있습니다.');
+  if (!status.ready) throw new Error(`후공 보너스 ENERGY 재사용까지 ${status.remainingTurns}턴 남았습니다.`);
+
+  const energy = state.energy[playerId] ?? { current: 0, max: energyHardCap(state, playerId) };
+  energy.max = energyHardCap(state, playerId);
+  if (energy.current >= energy.max) throw new Error(`현재 ENERGY가 이미 최대 한도 ${energy.max}입니다.`);
+  energy.current = Math.min(energy.max, energy.current + 1);
+  state.energy[playerId] = energy;
+  if (!state.secondPlayerBonusEnergyLastUsedTurn) state.secondPlayerBonusEnergyLastUsedTurn = {};
+  state.secondPlayerBonusEnergyLastUsedTurn[playerId] = state.turnNumber;
+  state.turnActionTaken = true;
+
+  appendLog(state, `후공 보너스 ENERGY 발동 — ENERGY +1 (${energy.current}/${energy.max}). 4턴 뒤 다시 사용할 수 있습니다.`, 'system');
+  appendVisual(state, { kind: 'energy', vfx: 'energy-surge', ownerId: playerId, targetOwnerId: playerId, amount: 1, label: '후공 보너스 +1' });
+  return { state, privateStates, message: '후공 보너스 ENERGY +1을 사용했습니다. 4턴 뒤 다시 사용할 수 있습니다.' };
 }
 
 function repairCurrentTurnEnergy(state: MatchState): boolean {
@@ -6010,8 +6061,8 @@ function advanceTurn(state: MatchState, privateStates: Record<string, PrivateSta
   state.turnActionTaken = false;
   state.turnEndsAt = now + TURN_DURATION_MS;
   const nextEnergy = state.energy[nextPlayer] ?? { current: 0, max: energyHardCap(state, nextPlayer) };
-  // V59 banking system: the capacity is open from the start and unused ENERGY carries over.
-  // Every personal turn adds exactly +1 natural ENERGY, regardless of round number.
+  // V70 banking system: the capacity is open from the start and unused ENERGY carries over.
+  // Natural income increases with that player's personal turn number: +1, +2, +3 ...
   // QUICK START / increase_energy_max keeps its original role by raising storage above 10.
   nextEnergy.max = energyHardCap(state, nextPlayer);
   const turnIncome = personalTurnEnergyIncome(state, nextPlayer, state.turnNumber);
