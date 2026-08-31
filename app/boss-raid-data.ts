@@ -373,9 +373,9 @@ export const BOSS_RAIDS: BossRaidDefinition[] = [
   },
   {
     id: 'twilight_knight',
-    name: '쌍월검사 베스퍼',
+    name: '황혼의 검사 베스퍼',
     epithet: '낙일을 베는 시간 군주',
-    description: '쌍월검사 베스퍼를 중심으로 수호·돌진·시간 고정을 겹쳐 중반 이후 전투 교환을 압도합니다.',
+    description: '황혼의 검사 베스퍼를 중심으로 수호·돌진·시간 고정을 겹쳐 중반 이후 전투 교환을 압도합니다.',
     phase: 'dusk',
     signatureCardId: 'v44_premium_twilight_knight',
     reward: BOSS_REWARD_BY_THREAT[5],
@@ -411,9 +411,9 @@ export const BOSS_RAIDS: BossRaidDefinition[] = [
   },
   {
     id: 'eclipse_conductor',
-    name: '흑일악사 모르덴',
+    name: '개기일식의 악사 모르덴',
     epithet: '모든 시간대를 지휘하는 최종 시간 군주',
-    description: '흑일악사 모르덴을 중심으로 최고급 시간 조작과 시간대 전환을 연계하는 최종 보스입니다.',
+    description: '개기일식의 악사 모르덴을 중심으로 최고급 시간 조작과 시간대 전환을 연계하는 최종 보스입니다.',
     phase: 'eclipse',
     signatureCardId: 'v41_premium_eclipse_conductor',
     reward: BOSS_REWARD_BY_THREAT[5],

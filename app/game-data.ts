@@ -6784,7 +6784,7 @@ const V65_COMBAT_IDENTITIES: Record<string, V65CombatIdentity> = {
   },
   v44_premium_twilight_knight: {
     name: '경계의 맹세 · 전투형',
-    description: '기존 수호·관통·전체공격·속공을 그대로 유지하는 쌍월검사 베스퍼 전용 전투 특성.',
+    description: '기존 수호·관통·전체공격·속공을 그대로 유지하는 황혼의 검사 베스퍼 전용 전투 특성.',
     keywords: ['guard', 'pierce', 'sweep', 'charge'],
     highlights: [
       { name: '박명 선제', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
@@ -6795,7 +6795,7 @@ const V65_COMBAT_IDENTITIES: Record<string, V65CombatIdentity> = {
   },
   v41_premium_eclipse_conductor: {
     name: '흑광 대지휘 · 전투형',
-    description: '기존 관통·처형·속공·수호를 그대로 유지하는 흑일악사 모르덴 전용 전투 특성.',
+    description: '기존 관통·처형·속공·수호를 그대로 유지하는 개기일식의 악사 모르덴 전용 전투 특성.',
     keywords: ['pierce', 'execute', 'charge', 'guard'],
     highlights: [
       { name: '흑광 개막', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
@@ -7169,7 +7169,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
   v44_premium_twilight_knight: {
     combatId: 'premium_twilight_dual_stance',
     name: '박명의 양면자세',
-    description: '코어 상황에 따라 공격·방어·수급 자세가 즉시 바뀌는 쌍월검사 베스퍼 전용 규칙.',
+    description: '코어 상황에 따라 공격·방어·수급 자세가 즉시 바뀌는 황혼의 검사 베스퍼 전용 규칙.',
     highlights: [
       { name: '박명의 양면자세', description: '턴당 1회 공격 선언 시 코어 상황에 따라 효과가 달라집니다. 열세면 공격 피해 +3, 우세면 보호막 +3, 동률이면 카드 1장 드로우.' },
       { name: '박명의 심판', description: '이 캐릭터가 공격한 적이 살아남으면 다음 자기 턴까지 공격할 수 없고, 파괴되면 카드 1장을 뽑습니다.' },
@@ -7179,7 +7179,7 @@ const V66_TRUE_COMBAT_IDENTITIES: Record<string, V66TrueCombatIdentity> = {
   v41_premium_eclipse_conductor: {
     combatId: 'premium_eclipse_silent_beat',
     name: '무음박자',
-    description: '첫 교전의 반격 리듬을 삭제하고 살아남은 상대까지 다음 턴 묶어 두는 흑일악사 모르덴 전용 규칙.',
+    description: '첫 교전의 반격 리듬을 삭제하고 살아남은 상대까지 다음 턴 묶어 두는 개기일식의 악사 모르덴 전용 규칙.',
     highlights: [
       { name: '무음 박자', description: '턴당 1회 적 캐릭터를 공격할 때 그 전투의 반격 피해를 0으로 만듭니다.' },
       { name: '무언 종결', description: '무음 박자가 적용된 적이 파괴되면 그 카드를 묘지에서 소멸시키고 카드 1장을 뽑습니다. 살아남으면 다음 자기 턴까지 공격할 수 없습니다.' },
@@ -7697,7 +7697,7 @@ export const PACKS: PackDefinition[] = [
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
   {
-    id: 'premium_time_dusk', name: 'PREMIUM TIME · 황혼', tagline: '쌍월검사 베스퍼 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#d591ff',
+    id: 'premium_time_dusk', name: 'PREMIUM TIME · 황혼', tagline: '황혼의 검사 베스퍼 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#d591ff',
     featuredCardId: 'v44_premium_twilight_knight', premiumTimePhase: 'dusk',
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
@@ -7707,7 +7707,7 @@ export const PACKS: PackDefinition[] = [
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
   {
-    id: 'premium_time_eclipse', name: 'PREMIUM TIME · 개기일식', tagline: '흑일악사 모르덴 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#f08ad9',
+    id: 'premium_time_eclipse', name: 'PREMIUM TIME · 개기일식', tagline: '개기일식의 악사 모르덴 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#f08ad9',
     featuredCardId: 'v41_premium_eclipse_conductor', premiumTimePhase: 'eclipse',
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
