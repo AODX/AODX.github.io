@@ -54,6 +54,7 @@ import {
   type PracticeDifficulty,
 } from './practice-ai';
 import { V34_BATTLE_EMOTES, V34_BATTLE_EMOTE_BY_ID, V34_BATTLE_EMOTE_PACKS, V34_EMOTE_SLOT_LIMIT } from './v34-emotes';
+import { LEGENDARY_PREMIUM_ART } from './legendary-art-map';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const supabaseKey =
@@ -632,7 +633,7 @@ function hashString(value: string): number {
 }
 
 function cardArtworkPath(cardId: string): string {
-  return `/card-art/${cardId}.webp`;
+  return LEGENDARY_PREMIUM_ART[cardId] ?? `/card-art/${cardId}.webp`;
 }
 
 function preloadCardArtwork(cardIds: string[]): void {
