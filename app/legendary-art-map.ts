@@ -1,6 +1,6 @@
 /**
- * V78: final verified premium-style artwork mapping for legendary Main Deck cards.
- * Units follow the supplied haloed legendary-unit reference; spells/traps follow the supplied celestial-diagram reference.
+ * V79: final verified premium-style artwork mapping for all legendary cards, including the previously missed fusion/evolution legendary units.
+ * Units follow the supplied haloed legendary-unit reference; spells/traps follow the supplied celestial-diagram reference; extra deck fusion/evolution legendary units are now included as well.
  */
 export const LEGENDARY_PREMIUM_ART: Readonly<Record<string, string>> = {
   'unit_crownless_titan': '/card-art/unit_crownless_titan_legendary_premium_v4.webp',
@@ -96,4 +96,51 @@ export const LEGENDARY_PREMIUM_ART: Readonly<Record<string, string>> = {
   'v44_premium_twilight_knight': '/card-art/v44_premium_twilight_knight_legendary_premium_v4.webp',
   'v41_premium_midnight_silence': '/card-art/v41_premium_midnight_silence_legendary_premium_v4.webp',
   'v60_premium_time_devourer': '/card-art/v60_premium_time_devourer_legendary_premium_v4.webp',
+  'fusion_eclipse_chimera': '/card-art/fusion_eclipse_chimera_legendary_premium_v5.webp',
+  'evolution_rift_alpha': '/card-art/evolution_rift_alpha_legendary_premium_v5.webp',
+  'fusion_v8_01': '/card-art/fusion_v8_01_legendary_premium_v5.webp',
+  'fusion_v8_05': '/card-art/fusion_v8_05_legendary_premium_v5.webp',
+  'fusion_v8_09': '/card-art/fusion_v8_09_legendary_premium_v5.webp',
+  'fusion_v8_13': '/card-art/fusion_v8_13_legendary_premium_v5.webp',
+  'fusion_v8_17': '/card-art/fusion_v8_17_legendary_premium_v5.webp',
+  'fusion_v8_20': '/card-art/fusion_v8_20_legendary_premium_v5.webp',
+  'evolution_v8_06': '/card-art/evolution_v8_06_legendary_premium_v5.webp',
+  'evolution_v8_12': '/card-art/evolution_v8_12_legendary_premium_v5.webp',
+  'evolution_v8_18': '/card-art/evolution_v8_18_legendary_premium_v5.webp',
+  'evolution_v8_20': '/card-art/evolution_v8_20_legendary_premium_v5.webp',
+  'v26_chronorium_fusion_02': '/card-art/v26_chronorium_fusion_02_legendary_premium_v5.webp',
+  'v26_chronorium_evolution_02': '/card-art/v26_chronorium_evolution_02_legendary_premium_v5.webp',
+  'v26_arcana_protocol_fusion_02': '/card-art/v26_arcana_protocol_fusion_02_legendary_premium_v5.webp',
+  'v26_arcana_protocol_evolution_02': '/card-art/v26_arcana_protocol_evolution_02_legendary_premium_v5.webp',
+  'v26_beastforge_fusion_02': '/card-art/v26_beastforge_fusion_02_legendary_premium_v5.webp',
+  'v26_beastforge_evolution_02': '/card-art/v26_beastforge_evolution_02_legendary_premium_v5.webp',
+  'v26_phantom_carnival_fusion_02': '/card-art/v26_phantom_carnival_fusion_02_legendary_premium_v5.webp',
+  'v26_phantom_carnival_evolution_02': '/card-art/v26_phantom_carnival_evolution_02_legendary_premium_v5.webp',
+  'v26_astral_armada_fusion_02': '/card-art/v26_astral_armada_fusion_02_legendary_premium_v5.webp',
+  'v26_astral_armada_evolution_02': '/card-art/v26_astral_armada_evolution_02_legendary_premium_v5.webp',
+
+  // V80: remaining/unapplied legendary cards only (simple reference-matched style)
+  'v26_astral_armada_unit_21': '/card-art/v26_astral_armada_unit_21_legendary_simple_v80.webp',
+  'v26_astral_armada_unit_22': '/card-art/v26_astral_armada_unit_22_legendary_simple_v80.webp',
+  'fusion_v8_08': '/card-art/fusion_v8_08_legendary_simple_v80.webp',
+  'v34_cycle_fusion_003': '/card-art/v34_cycle_fusion_003_legendary_simple_v80.webp',
+  'v34_cycle_fusion_004': '/card-art/v34_cycle_fusion_004_legendary_simple_v80.webp',
+  'v34_cycle_fusion_007': '/card-art/v34_cycle_fusion_007_legendary_simple_v80.webp',
+  'v34_cycle_fusion_008': '/card-art/v34_cycle_fusion_008_legendary_simple_v80.webp',
+  'v34_cycle_fusion_011': '/card-art/v34_cycle_fusion_011_legendary_simple_v80.webp',
+  'v34_cycle_fusion_012': '/card-art/v34_cycle_fusion_012_legendary_simple_v80.webp',
+  'v34_cycle_fusion_015': '/card-art/v34_cycle_fusion_015_legendary_simple_v80.webp',
+  'v34_cycle_fusion_016': '/card-art/v34_cycle_fusion_016_legendary_simple_v80.webp',
+  'v34_cycle_fusion_019': '/card-art/v34_cycle_fusion_019_legendary_simple_v80.webp',
+  'v34_cycle_fusion_020': '/card-art/v34_cycle_fusion_020_legendary_simple_v80.webp',
+  'v34_cycle_evolution_003': '/card-art/v34_cycle_evolution_003_legendary_simple_v80.webp',
+  'v34_cycle_evolution_004': '/card-art/v34_cycle_evolution_004_legendary_simple_v80.webp',
+  'v34_cycle_evolution_007': '/card-art/v34_cycle_evolution_007_legendary_simple_v80.webp',
+  'v34_cycle_evolution_008': '/card-art/v34_cycle_evolution_008_legendary_simple_v80.webp',
+  'v34_cycle_evolution_011': '/card-art/v34_cycle_evolution_011_legendary_simple_v80.webp',
+  'v34_cycle_evolution_012': '/card-art/v34_cycle_evolution_012_legendary_simple_v80.webp',
+  'v34_cycle_evolution_015': '/card-art/v34_cycle_evolution_015_legendary_simple_v80.webp',
+  'v34_cycle_evolution_016': '/card-art/v34_cycle_evolution_016_legendary_simple_v80.webp',
+  'v34_cycle_evolution_019': '/card-art/v34_cycle_evolution_019_legendary_simple_v80.webp',
+  'v34_cycle_evolution_020': '/card-art/v34_cycle_evolution_020_legendary_simple_v80.webp',
 };
