@@ -5592,7 +5592,7 @@ for (const card of CARDS) {
 // absolute stats/traits/time profile after every global balance mutation.
 const V60_ABSOLUTE_TIME_DEVOURER = CARDS.find((card) => card.id === 'v60_premium_time_devourer');
 if (V60_ABSOLUTE_TIME_DEVOURER) {
-  V60_ABSOLUTE_TIME_DEVOURER.name = '시간 탐식자';
+  V60_ABSOLUTE_TIME_DEVOURER.name = '시간 탐식자 아이온';
   V60_ABSOLUTE_TIME_DEVOURER.cost = 10;
   V60_ABSOLUTE_TIME_DEVOURER.attack = 15;
   V60_ABSOLUTE_TIME_DEVOURER.health = 18;
@@ -7692,7 +7692,7 @@ export const PACKS: PackDefinition[] = [
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
   {
-    id: 'premium_time_zenith', name: 'PREMIUM TIME · 정점', tagline: '태양전차 라그나크 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#ffe36c',
+    id: 'premium_time_zenith', name: 'PREMIUM TIME · 정점', tagline: '정점의 왕 솔라리온 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#ffe36c',
     featuredCardId: 'v41_premium_zenith_king', premiumTimePhase: 'zenith',
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
@@ -7702,7 +7702,7 @@ export const PACKS: PackDefinition[] = [
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
   {
-    id: 'premium_time_midnight', name: 'PREMIUM TIME · 심야', tagline: '심야 무성권역 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#8795ff',
+    id: 'premium_time_midnight', name: 'PREMIUM TIME · 심야', tagline: '심야의 무성 권역 픽업 · 3장 모두 독립 0.5% 도전', price: 1000, guaranteed: 'common', category: 'core', accent: '#8795ff',
     featuredCardId: 'v41_premium_midnight_silence', premiumTimePhase: 'midnight',
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
@@ -7712,7 +7712,7 @@ export const PACKS: PackDefinition[] = [
     odds: { common: 99.5, rare: 0, epic: 0, legendary: 0.5, guaranteedSlots: 0, pickupRate: 0.5 },
   },
   {
-    id: 'premium_time_devourer', name: 'PREMIUM ABSOLUTE · 시간 탐식자', tagline: '단 1장 개봉 · 시간 탐식자 0.1% 극희귀 픽업', price: 1000, guaranteed: 'common', category: 'core', accent: '#8d5cff',
+    id: 'premium_time_devourer', name: 'PREMIUM ABSOLUTE · 시간 탐식자 아이온', tagline: '단 1장 개봉 · 시간 탐식자 아이온 0.1% 극희귀 픽업', price: 1000, guaranteed: 'common', category: 'core', accent: '#8d5cff',
     featuredCardId: 'v60_premium_time_devourer', cardCount: 1,
     odds: { common: 99.9, rare: 0, epic: 0, legendary: 0.1, guaranteedSlots: 0, pickupRate: 0.1 },
   },
