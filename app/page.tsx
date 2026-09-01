@@ -633,7 +633,7 @@ function hashString(value: string): number {
 }
 
 function cardArtworkPath(cardId: string): string {
-  return LEGENDARY_PREMIUM_ART[cardId] ?? `/card-art/${cardId}.webp`;
+  return LEGENDARY_PREMIUM_ART[cardId] ?? `/card-art/${cardId}.webp?v=v83-art-path-fix`;
 }
 
 function preloadCardArtwork(cardIds: string[]): void {
