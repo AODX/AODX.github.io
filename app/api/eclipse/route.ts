@@ -505,9 +505,9 @@ type AdminAccountSummary = {
   playerCode: string;
 };
 
-// v32s: 제작자 계정은 게임 내 권한이 일반 유저와 완전히 동일합니다.
-// 아래 이메일에만 "다른 유저의 비밀번호를 임시 비밀번호로 재설정"하는 복구 기능 하나만 허용합니다.
-// 코인, 카드, 랭크, 매칭, 대전, 상점, 덱, 방 권한에는 어떠한 우대도 연결하지 않습니다.
+// v32s/v76: 제작자 전용 유지보수 기능.
+// 아래 이메일에만 (1) 다른 유저 비밀번호 재설정, (2) 특정 유저에게 카드 수동 지급을 허용합니다.
+// 랭크, 매칭, 대전, 상점 가격, 덱 규칙, 승패 판정에는 어떠한 우대도 연결하지 않습니다.
 const ACCOUNT_RECOVERY_CREATOR_EMAIL = 'wezxcw1457@gmail.com';
 
 function canRecoverOtherAccounts(user: User): boolean {
@@ -596,6 +596,95 @@ async function adminAccountSummary(admin: AdminDbClient, userId: string): Promis
     email: authData.user.email ?? '',
     displayName: profile?.display_name ?? '프로필 없음',
     playerCode: profile?.player_code ?? '-',
+  };
+}
+
+function normalizedExact(value: string): string {
+  return value.replace(/\s+/g, ' ').trim().toLocaleLowerCase('ko-KR');
+}
+
+async function adminResolveGrantTarget(admin: AdminDbClient, rawTarget: unknown): Promise<AdminAccountSummary> {
+  const target = cleanText(rawTarget, 80);
+  if (!target) throw new Error('카드를 받을 유저의 닉네임, 플레이어 코드 또는 이메일을 입력하세요.');
+  const normalizedTarget = normalizedExact(target);
+  const exactMatches = new Map<string, AdminAccountSummary>();
+
+  if (target.includes('@')) {
+    for (let page = 1; page <= 10; page += 1) {
+      const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (error) throw new Error(error.message);
+      const users = data.users ?? [];
+      for (const candidate of users) {
+        if (normalizedExact(candidate.email ?? '') !== normalizedTarget) continue;
+        const account = await adminAccountSummary(admin, candidate.id);
+        exactMatches.set(account.userId, account);
+      }
+      if (users.length < 1000 || exactMatches.size > 0) break;
+    }
+  } else {
+    const [codeResult, nameResult] = await Promise.all([
+      admin.from('eclipse_profiles').select('user_id,display_name,player_code').ilike('player_code', target).limit(5),
+      admin.from('eclipse_profiles').select('user_id,display_name,player_code').ilike('display_name', target).limit(5),
+    ]);
+    if (codeResult.error) throw new Error(codeResult.error.message);
+    if (nameResult.error) throw new Error(nameResult.error.message);
+    const rows = [...(codeResult.data ?? []), ...(nameResult.data ?? [])] as Array<{ user_id: string; display_name: string; player_code: string }>;
+    for (const row of rows) {
+      const exactCode = normalizedExact(row.player_code) === normalizedTarget;
+      const exactName = normalizedExact(row.display_name) === normalizedTarget;
+      if (!exactCode && !exactName) continue;
+      const account = await adminAccountSummary(admin, row.user_id);
+      exactMatches.set(account.userId, account);
+    }
+  }
+
+  const matches = [...exactMatches.values()];
+  if (matches.length === 0) throw new Error('정확히 일치하는 유저를 찾지 못했습니다. 닉네임 또는 ED-플레이어 코드를 다시 확인하세요.');
+  if (matches.length > 1) throw new Error('같은 닉네임의 유저가 여러 명입니다. 정확한 ED-플레이어 코드를 입력하세요.');
+  return matches[0];
+}
+
+function resolveGrantCardByName(rawCardName: unknown): CardDefinition {
+  const cardName = cleanText(rawCardName, 120);
+  if (!cardName) throw new Error('지급할 카드 이름을 입력하세요.');
+  const normalizedName = normalizedExact(cardName);
+  const exact = CARDS.filter((card) => normalizedExact(card.name) === normalizedName);
+  if (exact.length === 1) return exact[0];
+  if (exact.length > 1) throw new Error('같은 이름의 카드가 여러 장 존재합니다. 카드 이름을 확인해 주세요.');
+
+  const suggestions = CARDS
+    .filter((card) => normalizedExact(card.name).includes(normalizedName) || normalizedName.includes(normalizedExact(card.name)))
+    .slice(0, 5)
+    .map((card) => card.name);
+  const suffix = suggestions.length ? ` 비슷한 카드: ${suggestions.join(' / ')}` : '';
+  throw new Error(`정확히 일치하는 카드 이름을 찾지 못했습니다.${suffix}`);
+}
+
+async function adminGrantCardByName(
+  admin: AdminDbClient,
+  rawTarget: unknown,
+  rawCardName: unknown,
+  rawQuantity: unknown,
+): Promise<{ account: AdminAccountSummary; card: Pick<CardDefinition, 'id' | 'name' | 'rarity' | 'kind'>; quantity: number; ownedQuantity: number }> {
+  const account = await adminResolveGrantTarget(admin, rawTarget);
+  const card = resolveGrantCardByName(rawCardName);
+  const numericQuantity = Number(rawQuantity ?? 1);
+  if (!Number.isInteger(numericQuantity) || numericQuantity < 1 || numericQuantity > 99) throw new Error('지급 수량은 1~99장 사이의 정수로 입력하세요.');
+
+  await addCardsToCollection(admin, account.userId, Array.from({ length: numericQuantity }, () => card.id));
+  const { data, error } = await admin
+    .from('eclipse_collections')
+    .select('quantity')
+    .eq('user_id', account.userId)
+    .eq('card_id', card.id)
+    .single();
+  if (error) throw new Error(`지급 후 보유 수량 확인 실패: ${error.message}`);
+
+  return {
+    account,
+    card: { id: card.id, name: card.name, rarity: card.rarity, kind: card.kind },
+    quantity: numericQuantity,
+    ownedQuantity: Number((data as { quantity?: number } | null)?.quantity ?? numericQuantity),
   };
 }
 
@@ -1846,6 +1935,19 @@ async function handleAction(request: Request, body: RequestBody) {
     const admin = await requireAdmin();
     const accounts = (await adminFindAccounts(admin, body.query)).filter((account) => account.userId !== user.id);
     return { accounts };
+  }
+
+  if (action === 'admin_grant_card') {
+    requireAccountRecoveryCreator(user);
+    const admin = await requireAdmin();
+    const result = await adminGrantCardByName(admin, body.targetUser, body.cardName, body.quantity);
+    console.info('[ECLIPSE CARD GRANT] creator manual grant', {
+      adminUserId: user.id,
+      targetUserId: result.account.userId,
+      cardId: result.card.id,
+      quantity: result.quantity,
+    });
+    return { grant: result };
   }
 
   if (action === 'admin_reset_password') {
