@@ -172,6 +172,7 @@ type RoomPayload = { room: RoomRow; profiles: RoomProfile[]; privateState: Priva
 type ChatMessage = { id: number; user_id: string; display_name: string; nickname_style?: string; body: string; created_at: string };
 type ChatSkinProfile = Pick<Profile, 'user_id' | 'profile_theme' | 'profile_frame'>;
 type AdminAccountSummary = { userId: string; email: string; displayName: string; playerCode: string };
+type AdminCardGrantResult = { account: AdminAccountSummary; card: { id: string; name: string; rarity: Rarity; kind: CardKind }; quantity: number; ownedQuantity: number };
 
 type SecureServerStatus = {
   secureDuelReady: boolean;
@@ -211,6 +212,7 @@ type ApiResult = {
   canRecoverAccounts?: boolean;
   accounts?: AdminAccountSummary[];
   account?: AdminAccountSummary;
+  grant?: AdminCardGrantResult;
 };
 
 const NAV_ITEMS: Array<{ id: View; label: string; icon: string }> = [
@@ -2244,7 +2246,7 @@ function ControlCenter({
           <button type="button" onClick={onOpenGuide}><span>?</span><div><b>룰 가이드</b><small>키워드와 기본 규칙 확인</small></div></button>
           <button type="button" onClick={onOpenProfile}><span>◎</span><div><b>프로필</b><small>아바타와 프로필 스킨 관리</small></div></button>
           <button type="button" onClick={onOpenPasswordChange}><span>⌁</span><div><b>내 비밀번호 변경</b><small>로그인 비밀번호를 새 값으로 교체</small></div></button>
-          {canRecoverAccounts && <button className="v32r-admin-entry" type="button" onClick={onOpenAccountRecovery}><span>◆</span><div><b>유저 비밀번호 복구</b><small>제작자 전용 · 다른 기능은 일반 유저와 동일</small></div></button>}
+          {canRecoverAccounts && <button className="v32r-admin-entry" type="button" onClick={onOpenAccountRecovery}><span>◆</span><div><b>제작자 유저 관리</b><small>비밀번호 복구 · 카드 이름으로 수동 지급</small></div></button>}
         </section>
         <footer><span>ECLIPSE DUEL · COMMERCIAL BUILD v26</span><button type="button" onClick={onSignOut}>로그아웃</button></footer>
       </aside>
@@ -2310,6 +2312,11 @@ function AccountRecoveryModal({ open, onClose }: { open: boolean; onClose: () =>
   const [resetting, setResetting] = useState('');
   const [issued, setIssued] = useState<{ account: AdminAccountSummary; password: string } | null>(null);
   const [message, setMessage] = useState('');
+  const [grantTarget, setGrantTarget] = useState('');
+  const [grantCardName, setGrantCardName] = useState('');
+  const [grantQuantity, setGrantQuantity] = useState(1);
+  const [grantBusy, setGrantBusy] = useState(false);
+  const [grantResult, setGrantResult] = useState<AdminCardGrantResult | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -2321,6 +2328,11 @@ function AccountRecoveryModal({ open, onClose }: { open: boolean; onClose: () =>
     setShowPassword(false);
     setIssued(null);
     setMessage('');
+    setGrantTarget('');
+    setGrantCardName('');
+    setGrantQuantity(1);
+    setGrantBusy(false);
+    setGrantResult(null);
   }, [open]);
 
   if (!open) return null;
@@ -2391,11 +2403,52 @@ function AccountRecoveryModal({ open, onClose }: { open: boolean; onClose: () =>
     }
   }
 
+  async function grantCard(event: FormEvent) {
+    event.preventDefault();
+    const target = grantTarget.trim();
+    const cardName = grantCardName.trim();
+    if (!target) return setMessage('카드를 받을 유저의 닉네임 또는 ED-플레이어 코드를 입력하세요.');
+    if (!cardName) return setMessage('지급할 카드 이름을 입력하세요.');
+    if (!Number.isInteger(grantQuantity) || grantQuantity < 1 || grantQuantity > 99) return setMessage('지급 수량은 1~99장으로 입력하세요.');
+    const ok = window.confirm(`${target} 유저에게 「${cardName}」 ${grantQuantity}장을 지급할까요?`);
+    if (!ok) return;
+
+    setGrantBusy(true);
+    setGrantResult(null);
+    setMessage('');
+    try {
+      const result = await api('admin_grant_card', { targetUser: target, cardName, quantity: grantQuantity });
+      if (!result.grant) throw new Error('카드 지급 결과를 확인하지 못했습니다.');
+      setGrantResult(result.grant);
+      setMessage(`${result.grant.account.displayName}에게 「${result.grant.card.name}」 ${result.grant.quantity}장을 지급했습니다. 현재 보유 ${result.grant.ownedQuantity}장.`);
+      setGrantCardName('');
+      setGrantQuantity(1);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '카드 지급에 실패했습니다.');
+    } finally {
+      setGrantBusy(false);
+    }
+  }
+
   return (
     <div className="v32r-security-layer" role="presentation" onPointerDown={(event: React.PointerEvent) => { if (event.currentTarget === event.target) onClose(); }}>
-      <section className="v32r-security-panel admin" role="dialog" aria-modal="true" aria-label="제작자 계정 복구">
-        <header><div><span>CREATOR RECOVERY</span><h3>유저 계정 복구</h3><p>유저를 선택한 뒤 제작자가 직접 임시 비밀번호를 입력해서 지정합니다.</p></div><button type="button" onClick={onClose} aria-label="닫기">×</button></header>
-        <div className="v32r-security-warning"><b>중요</b><span>현재 비밀번호 원문을 조회하는 기능은 아닙니다. 아래에서 제작자가 직접 새 비밀번호를 정하면 기존 비밀번호는 즉시 사용할 수 없게 됩니다.</span></div>
+      <section className="v32r-security-panel admin" role="dialog" aria-modal="true" aria-label="제작자 유저 관리">
+        <header><div><span>CREATOR TOOLS</span><h3>제작자 유저 관리</h3><p>유저 계정 복구와 카드 수동 지급을 한곳에서 처리합니다.</p></div><button type="button" onClick={onClose} aria-label="닫기">×</button></header>
+        <div className="v32r-security-warning"><b>권한 안내</b><span>카드 지급은 제작자 계정에서만 사용할 수 있으며, 카드 이름과 유저를 정확히 확인한 뒤 보관함 수량만 증가시킵니다.</span></div>
+
+        <form className="v76-card-grant" onSubmit={grantCard}>
+          <div className="v76-card-grant-title"><span>CARD GRANT</span><b>유저에게 카드 지급</b><small>유저 이름과 카드 이름을 직접 입력합니다. 동일 닉네임이 있으면 ED-플레이어 코드를 사용하세요.</small></div>
+          <div className="v76-card-grant-grid">
+            <label><span>받을 유저</span><input value={grantTarget} onChange={(event: ChangeEvent<HTMLInputElement>) => setGrantTarget(event.target.value)} maxLength={80} placeholder="닉네임 / ED-플레이어코드 / 이메일" /></label>
+            <label><span>카드 이름</span><input value={grantCardName} onChange={(event: ChangeEvent<HTMLInputElement>) => setGrantCardName(event.target.value)} maxLength={120} placeholder="예: 시간 탐식자" /></label>
+            <label className="v76-card-grant-quantity"><span>수량</span><input type="number" min={1} max={99} step={1} value={grantQuantity} onChange={(event: ChangeEvent<HTMLInputElement>) => setGrantQuantity(Math.max(1, Math.min(99, Number.parseInt(event.target.value || '1', 10) || 1)))} /></label>
+          </div>
+          <button className="primary-button v76-card-grant-submit" type="submit" disabled={grantBusy || !grantTarget.trim() || !grantCardName.trim()}>{grantBusy ? '지급 중...' : '카드 지급'}</button>
+          {grantResult && <div className="v76-card-grant-result"><span>지급 완료</span><b>{grantResult.account.displayName} · {grantResult.account.playerCode}</b><strong>「{grantResult.card.name}」 +{grantResult.quantity}장</strong><small>현재 보유 {grantResult.ownedQuantity}장</small></div>}
+        </form>
+
+        <div className="v76-creator-divider"><span>ACCOUNT RECOVERY</span></div>
+        <div className="v32r-security-warning"><b>비밀번호 복구</b><span>현재 비밀번호 원문을 조회하는 기능은 아닙니다. 아래에서 제작자가 직접 새 비밀번호를 정하면 기존 비밀번호는 즉시 사용할 수 없게 됩니다.</span></div>
         <form className="v32r-account-search" onSubmit={search}><input value={query} onChange={(event: ChangeEvent<HTMLInputElement>) => setQuery(event.target.value)} placeholder="이메일 / ED-플레이어코드 / 닉네임" minLength={2} /><button className="primary-button" type="submit" disabled={busy}>{busy ? '검색 중...' : '계정 검색'}</button></form>
         <div className="v32r-account-results">
           {accounts.map((account) => <article key={account.userId} className={selected?.userId === account.userId ? 'selected' : ''}><div><b>{account.displayName}</b><span>{account.playerCode}</span><small>{account.email || '이메일 없음'}</small></div><button type="button" onClick={() => chooseAccount(account)}>{selected?.userId === account.userId ? '선택됨' : '비밀번호 지정'}</button></article>)}
@@ -2410,7 +2463,7 @@ function AccountRecoveryModal({ open, onClose }: { open: boolean; onClose: () =>
 
         {issued && <div className="v32r-issued-password"><div><span>변경 완료 · {issued.account.displayName}</span><b>{issued.password}</b><small>위 비밀번호는 서버가 만든 값이 아니라 제작자가 직접 입력한 값입니다. 유저에게 전달한 뒤 필요하면 SYSTEM → 내 비밀번호 변경에서 다시 바꾸게 해주세요.</small></div><button type="button" onClick={copyTemporaryPassword}>복사</button></div>}
         {message && <p className="v32r-security-message" role="status">{message}</p>}
-        <footer><span>비밀번호는 서버 로그에 기록하지 않으며, 제작자가 입력한 값으로만 재설정합니다.</span><button type="button" onClick={onClose}>닫기</button></footer>
+        <footer><span>카드 지급은 보관함 수량만 증가시키며, 비밀번호 값은 서버 로그에 기록하지 않습니다.</span><button type="button" onClick={onClose}>닫기</button></footer>
       </section>
     </div>
   );

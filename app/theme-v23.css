@@ -6937,6 +6937,36 @@ html[data-ipad="true"] .v23-client.in-duel .v32o-energy-draw-action {
   .v32u-password-row > button, .v32u-apply-password { width: 100%; min-height: 44px; }
 }
 
+/* v76 - creator manual card grant */
+.v76-card-grant {
+  display:grid;
+  gap:14px;
+  padding:17px;
+  margin:0 0 18px;
+  border:1px solid rgba(246,199,101,.28);
+  border-radius:17px;
+  background:linear-gradient(180deg,rgba(95,68,20,.10),rgba(23,39,54,.05));
+}
+.v76-card-grant-title { display:grid;gap:3px; }
+.v76-card-grant-title>span { color:#ffd27b;font-size:11px;font-weight:950;letter-spacing:.15em; }
+.v76-card-grant-title>b { color:#fff5da;font-size:18px; }
+.v76-card-grant-title>small { color:#aebdca;font-size:12px;line-height:1.5; }
+.v76-card-grant-grid { display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.2fr) 96px;gap:10px;align-items:end; }
+.v76-card-grant-grid label { margin-top:0; }
+.v76-card-grant-quantity input { text-align:center;font-weight:900; }
+.v76-card-grant-submit { justify-self:end;min-width:150px;min-height:44px; }
+.v76-card-grant-result { display:grid;gap:3px;padding:12px 14px;border:1px solid rgba(104,225,170,.28);border-radius:13px;background:rgba(53,184,128,.075); }
+.v76-card-grant-result>span { color:#7ee5b2;font-size:10px;font-weight:950;letter-spacing:.14em; }
+.v76-card-grant-result>b { color:#ecfff6;font-size:14px; }
+.v76-card-grant-result>strong { color:#ffe2a1;font-size:14px; }
+.v76-card-grant-result>small { color:#9fb6aa;font-size:11px; }
+.v76-creator-divider { display:flex;align-items:center;gap:12px;margin:18px 0 14px;color:#718898;font-size:10px;font-weight:950;letter-spacing:.14em; }
+.v76-creator-divider::before,.v76-creator-divider::after { content:"";height:1px;flex:1;background:rgba(255,255,255,.08); }
+@media (max-width:720px) {
+  .v76-card-grant-grid { grid-template-columns:1fr; }
+  .v76-card-grant-submit { width:100%; }
+}
+
 
 /* ========================================================================== 
    v32v · Performance + semantic spell VFX + clean hit routing
