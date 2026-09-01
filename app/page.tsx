@@ -2741,6 +2741,18 @@ function RewardsView({ userId, hub, onHub, onBack }: { userId: string; hub: HubD
 
   useEffect(() => { void load(); }, [load]);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, []);
+
   async function run(action: string, payload: Record<string, unknown> = {}, key = action) {
     if (busy) return;
     setBusy(key);
@@ -6806,11 +6818,12 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     }
     if (next.kind === 'trap' && next.ownerId && next.ownerId !== userId) return;
     const extraCard = next.cardId ? CARD_BY_ID[next.cardId] : undefined;
-    const extraDuration = extraCard?.rarity === 'legendary' ? 3300 : extraCard?.rarity === 'epic' ? 2900 : extraCard?.rarity === 'rare' ? 2600 : 2350;
-    const duration = next.kind === 'fusion' || next.kind === 'evolution' ? extraDuration
+    const extraDuration = extraCard?.rarity === 'legendary' ? 3600 : extraCard?.rarity === 'epic' ? 3150 : extraCard?.rarity === 'rare' ? 2820 : 2450;
+    const premiumPresentationDuration = extraCard?.rarity === 'legendary' ? 2050 : extraCard?.rarity === 'epic' ? 1760 : 1520;
+    const duration = next.kind === 'fusion' || next.kind === 'evolution' || next.kind === 'inheritance' ? extraDuration
       : next.kind === 'trap' ? 2250
         : next.kind === 'special' && (next.vfx === 'execution-scythe' || next.vfx === 'sweep-volley') ? 1080
-          : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? 1450
+          : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? premiumPresentationDuration
           : next.kind === 'attack' ? 1250
             : next.kind === 'core' || next.kind === 'destroy' ? 1120
               : next.kind === 'defense' ? 1220
@@ -8168,11 +8181,12 @@ function SpectatorDuelBoard({ payload, onReturnLobby, onLeave, syncState, lastSy
     if (!activeVfx) return;
     const next = activeVfx;
     const extraCard = next.cardId ? CARD_BY_ID[next.cardId] : undefined;
-    const extraDuration = extraCard?.rarity === 'legendary' ? 3300 : extraCard?.rarity === 'epic' ? 2900 : extraCard?.rarity === 'rare' ? 2600 : 2350;
-    const duration = next.kind === 'fusion' || next.kind === 'evolution' ? extraDuration
+    const extraDuration = extraCard?.rarity === 'legendary' ? 3600 : extraCard?.rarity === 'epic' ? 3150 : extraCard?.rarity === 'rare' ? 2820 : 2450;
+    const premiumPresentationDuration = extraCard?.rarity === 'legendary' ? 2050 : extraCard?.rarity === 'epic' ? 1760 : 1520;
+    const duration = next.kind === 'fusion' || next.kind === 'evolution' || next.kind === 'inheritance' ? extraDuration
       : next.kind === 'trap' ? 2250
         : next.kind === 'special' && (next.vfx === 'execution-scythe' || next.vfx === 'sweep-volley') ? 1080
-          : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? 1450
+          : next.kind === 'summon' || next.kind === 'special' || next.kind === 'spell' ? premiumPresentationDuration
           : next.kind === 'attack' ? 1250
             : next.kind === 'core' || next.kind === 'destroy' ? 1120
               : next.kind === 'defense' ? 1220

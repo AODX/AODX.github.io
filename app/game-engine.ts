@@ -4351,6 +4351,7 @@ function applyUniqueCombatAfterSuccessfulAttack(
   privateStates: Record<string, PrivateState>,
   playerId: string,
   attackerIndex: number,
+  wasCoreAttack = false,
 ): void {
   const attacker = state.boards[playerId].units[attackerIndex];
   if (!attacker || attacker.health <= 0) return;
@@ -4358,9 +4359,14 @@ function applyUniqueCombatAfterSuccessfulAttack(
   const combatId = uniqueCombatTraitId(card);
 
   if (combatId === 'tempest_reignite' && uniqueCombatReady(attacker, state)) {
-    markUniqueCombatUsed(attacker, state);
-    attacker.canAttack = true;
-    appendUniqueCombatVisual(state, card, playerId, attackerIndex, '제2 점화', '잔류 전류가 다시 점화되어 이 턴에 한 번 더 공격할 수 있습니다.');
+    if (!wasCoreAttack) {
+      markUniqueCombatUsed(attacker, state);
+      attacker.canAttack = true;
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, '제2 점화', '잔류 전류가 다시 점화되어 이 턴에 한 번 더 공격할 수 있습니다.');
+    } else {
+      markUniqueCombatUsed(attacker, state);
+      appendUniqueCombatVisual(state, card, playerId, attackerIndex, '제2 점화', '상대 코어 직접 공격은 턴당 1회만 가능하므로 추가 공격은 발생하지 않습니다.');
+    }
   }
 
   if (combatId === 'premium_zenith_royal_command' && uniqueCombatReady(attacker, state)) {
@@ -4392,8 +4398,12 @@ function applyUniqueCombatAfterSuccessfulAttack(
   if (combatId === 'extra_tempest_chain_lightning') {
     if (attacker.combatTraitAuxTurn !== state.turnNumber) {
       attacker.combatTraitAuxTurn = state.turnNumber;
-      attacker.canAttack = true;
-      appendUniqueCombatVisual(state, card, playerId, attackerIndex, '제2 전압', '잔류 전압이 다시 점화되어 이 턴에 한 번 더 공격할 수 있습니다.');
+      if (!wasCoreAttack) {
+        attacker.canAttack = true;
+        appendUniqueCombatVisual(state, card, playerId, attackerIndex, '제2 전압', '잔류 전압이 다시 점화되어 이 턴에 한 번 더 공격할 수 있습니다.');
+      } else {
+        appendUniqueCombatVisual(state, card, playerId, attackerIndex, '제2 전압', '상대 코어 직접 공격은 턴당 1회만 가능하므로 추가 공격은 발생하지 않습니다.');
+      }
     }
     const gained = gainSignatureEnergy(state, playerId, 1);
     appendUniqueCombatVisual(state, card, playerId, attackerIndex, '정전기 연료', `잔류 전류를 회수해 ENERGY ${gained} 회복.`);
@@ -4577,7 +4587,7 @@ function applyUniqueCombatAfterUnitCleanup(
     appendUniqueCombatVisual(state, card, playerId, attackerIndex, '심연 증식', `죽음을 흡수해 영구 +1/+1 · 코어 ${healed} 회복.`);
   }
 
-  applyUniqueCombatAfterSuccessfulAttack(state, privateStates, playerId, attackerIndex);
+  applyUniqueCombatAfterSuccessfulAttack(state, privateStates, playerId, attackerIndex, false);
 }
 
 function applyUniqueCombatAfterCoreAttack(
@@ -4622,7 +4632,7 @@ function applyUniqueCombatAfterCoreAttack(
     }
   }
 
-  applyUniqueCombatAfterSuccessfulAttack(state, privateStates, playerId, attackerIndex);
+  applyUniqueCombatAfterSuccessfulAttack(state, privateStates, playerId, attackerIndex, true);
 }
 
 function summonReactionTriggers(origin: SummonOrigin): TrapTrigger[] {

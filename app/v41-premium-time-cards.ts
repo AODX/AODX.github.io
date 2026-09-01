@@ -13,7 +13,7 @@ export const V41_PREMIUM_TIME_CARDS: CardDefinition[] = [
     health: 12,
     unitType: 'vanguard',
     target: 'none',
-    keywords: ['corestrike', 'guard', 'charge', 'pierce'],
+    keywords: ['guard', 'charge', 'pierce'],
     text: '【고유 특성 · 천정 왕권】 정점 전용 전설 캐릭터. 【등장】 현재 시간을 정점으로 설정하고 2턴 동안 고정한다. 아군 전체 +2/+2 후 즉시 공격 준비. 【정점 전용 발동】 아군 전체를 준비 완료하고, 상대 코어에 5 피해를 주고, 상대 ENERGY 1을 흡수하며, 4/4 「천정 근위」 1체를 소환한다.',
     uniqueTrait: { name: '태양기관 폭주', description: '정점에서 태양기관을 과부하시켜 전열 전체를 전진시키는 기갑형 고유 특성이다.' },
     flavor: '정점의 태양왕이 찬란한 왕권을 들어 올리는 순간, 전장은 한낮의 절정에 굴복한다.',
