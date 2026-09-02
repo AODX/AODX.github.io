@@ -2809,6 +2809,20 @@ function RewardsView({ userId, hub, onHub, onBack }: { userId: string; hub: HubD
     };
   }, []);
 
+  useEffect(() => {
+    if (raidSession || typeof window === 'undefined') return undefined;
+    // A locally portaled boss duel can leave an inline body/html scroll lock behind
+    // when the result overlay and the duel shell unmount in the same frame.
+    // Release it immediately and once again on the next frame after returning to Rewards.
+    releaseDocumentScrollLock();
+    const frame = window.requestAnimationFrame(() => releaseDocumentScrollLock());
+    const timer = window.setTimeout(() => releaseDocumentScrollLock(), 80);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [raidSession]);
+
   async function run(action: string, payload: Record<string, unknown> = {}, key = action) {
     if (busy) return;
     setBusy(key);
@@ -8573,6 +8587,19 @@ function BossRaidDuel({ userId, hub, activeDeck, boss, runId, onHub, onEconomy, 
   useEffect(() => { snapshotRef.current = snapshot; }, [snapshot]);
 
   useEffect(() => {
+    // Boss raid is rendered through a body portal rather than roomPayload, so the
+    // normal online-duel scroll cleanup does not always observe its exit.
+    releaseDocumentScrollLock();
+    return () => {
+      releaseDocumentScrollLock();
+      if (typeof window !== 'undefined') {
+        window.requestAnimationFrame(() => releaseDocumentScrollLock());
+        window.setTimeout(() => releaseDocumentScrollLock(), 80);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const openInspector = (event: Event) => {
       const cardId = (event as CustomEvent<string>).detail;
       if (cardId && CARD_BY_ID[cardId]) setInspectCardId(cardId);
@@ -8722,6 +8749,10 @@ function BossRaidDuel({ userId, hub, activeDeck, boss, runId, onHub, onEconomy, 
       const ok = await settleRaid();
       if (!ok) return;
     }
+    // Unlock before changing back to RewardsView so wheel/touch scroll works on
+    // the very first frame after the boss result screen disappears.
+    releaseDocumentScrollLock();
+    if (typeof window !== 'undefined') window.requestAnimationFrame(() => releaseDocumentScrollLock());
     onExit();
   }, [onExit, settleRaid]);
 

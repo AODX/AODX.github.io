@@ -5643,9 +5643,9 @@ if (V60_ABSOLUTE_TIME_DEVOURER) {
     { phase: 'midnight', name: '심야 섭식 · 기억', description: '심야 진입 시 남은 기억을 먹어 상대 묘지 2장을 소멸시킨다.', effect: { kind: 'banish_enemy_grave', amount: 2 } },
     { phase: 'eclipse', name: '일식 섭식 · 종말', description: '개기일식 진입 시 시간의 종말을 먹어 상대 코어에 4 피해를 준다.', effect: { kind: 'damage_core', amount: 4 } },
   ];
-  V60_ABSOLUTE_TIME_DEVOURER.eclipseSummonPhases = ['eclipse'];
+  V60_ABSOLUTE_TIME_DEVOURER.eclipseSummonPhases = ['dusk', 'eclipse'];
   V60_ABSOLUTE_TIME_DEVOURER.uniqueTrait = { name: '시대별 섭식', description: '시간대마다 다른 자원을 삼키며 계속 이득을 챙기는 최상위 고유 특성이다.' };
-  V60_ABSOLUTE_TIME_DEVOURER.text = '【고유 특성 · 시대별 섭식】 개기일식 전용 전설 캐릭터. 【전설 특수 소환】 ENERGY 10만 지불하면 추가 조건 없이 소환할 수 있다. 【상시 효과】 모든 시간대에서 항상 +5/+5를 얻는다. 【등장】 상대 필드의 캐릭터와 세트 함정을 모두 제거하고, 내 코어 10 회복, 카드 3장 드로우, ENERGY 3 회복, 보호막 3을 얻는다. 【시간 포식】 여명: 코어 4 회복 / 정점: 상대 ENERGY 2 흡수 / 황혼: 상대 코어 2 흡수 / 심야: 상대 묘지 2장 소멸 / 개기일식: 상대 코어 4 피해.';
+  V60_ABSOLUTE_TIME_DEVOURER.text = '【고유 특성 · 시대별 섭식】 황혼·개기일식에서 소환 가능한 전설 캐릭터. 【전설 특수 소환】 필드 또는 손패의 COST 4+ 태양 유닛 1체와 COST 4+ 달 유닛 1체를 릴리스하고 ENERGY 10을 지불한다. 【상시 효과】 모든 시간대에서 항상 +5/+5를 얻는다. 【등장】 상대 필드의 캐릭터와 세트 함정을 모두 제거하고, 내 코어 10 회복, 카드 3장 드로우, ENERGY 3 회복, 보호막 3을 얻는다. 【시간 포식】 여명: 코어 4 회복 / 정점: 상대 ENERGY 2 흡수 / 황혼: 상대 코어 2 흡수 / 심야: 상대 묘지 2장 소멸 / 개기일식: 상대 코어 4 피해.';
 }
 // === /v60 absolute premium override =========================================
 
@@ -6600,7 +6600,7 @@ const V63_DISTINCT_IDENTITY_OVERRIDES: Record<string, V63DistinctIdentityOverrid
     },
   },
   v60_premium_time_devourer: {
-    text: '【시간 포식 강림】 ENERGY 10만 지불하면 추가 조건 없이 소환할 수 있다. 【절대 등장】 적 필드 유닛과 세트 함정을 모두 제거하고, 내 코어 10 회복 / 3드로우 / ENERGY 3 회복 / 보호막 3 획득. 【상시 포식】 모든 시간대에서 항상 +5/+5. 【시대별 섭식】 여명=코어 4 회복 / 정점=상대 ENERGY 2 탈취 / 황혼=상대 코어 2 흡수 / 심야=상대 묘지 2장 소멸 / 개기일식=상대 코어 4 피해.',
+    text: '【시간 포식 강림】 황혼·개기일식에서 필드 또는 손패의 COST 4+ 태양 유닛 1체와 COST 4+ 달 유닛 1체를 릴리스하고 ENERGY 10을 지불해 소환한다. 【절대 등장】 적 필드 유닛과 세트 함정을 모두 제거하고, 내 코어 10 회복 / 3드로우 / ENERGY 3 회복 / 보호막 3 획득. 【상시 포식】 모든 시간대에서 항상 +5/+5. 【시대별 섭식】 여명=코어 4 회복 / 정점=상대 ENERGY 2 탈취 / 황혼=상대 코어 2 흡수 / 심야=상대 묘지 2장 소멸 / 개기일식=상대 코어 4 피해.',
     uniqueTrait: {
       description: '시간 그 자체를 먹이로 삼아 끝없이 몸집을 키우는 절대 프리미엄 포식 기질이다.',
       highlights: [
