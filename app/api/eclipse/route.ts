@@ -648,16 +648,29 @@ function resolveGrantCardByName(rawCardName: unknown): CardDefinition {
   const cardName = cleanText(rawCardName, 120);
   if (!cardName) throw new Error('지급할 카드 이름을 입력하세요.');
   const normalizedName = normalizedExact(cardName);
-  const exact = CARDS.filter((card) => normalizedExact(card.name) === normalizedName);
+
+  // 제작자 카드 지급 전용: 정확한 카드명 또는 카드 ID를 우선 허용합니다.
+  const exact = CARDS.filter((card) =>
+    normalizedExact(card.name) === normalizedName || normalizedExact(card.id) === normalizedName,
+  );
   if (exact.length === 1) return exact[0];
-  if (exact.length > 1) throw new Error('같은 이름의 카드가 여러 장 존재합니다. 카드 이름을 확인해 주세요.');
+  if (exact.length > 1) throw new Error('같은 이름의 카드가 여러 장 존재합니다. 카드 이름 또는 카드 ID를 확인해 주세요.');
+
+  // 이름 일부만 입력해도 결과가 정확히 1장일 때는 지급할 수 있게 합니다.
+  // 예: "시간 탐식자" -> "시간 탐식자 아이온"
+  const partial = CARDS.filter((card) => normalizedExact(card.name).includes(normalizedName));
+  if (partial.length === 1) return partial[0];
+  if (partial.length > 1) {
+    const suggestions = partial.slice(0, 5).map((card) => card.name);
+    throw new Error(`여러 카드가 검색되었습니다. 이름을 조금 더 정확히 입력하세요: ${suggestions.join(' / ')}`);
+  }
 
   const suggestions = CARDS
-    .filter((card) => normalizedExact(card.name).includes(normalizedName) || normalizedName.includes(normalizedExact(card.name)))
+    .filter((card) => normalizedName.includes(normalizedExact(card.name)))
     .slice(0, 5)
     .map((card) => card.name);
   const suffix = suggestions.length ? ` 비슷한 카드: ${suggestions.join(' / ')}` : '';
-  throw new Error(`정확히 일치하는 카드 이름을 찾지 못했습니다.${suffix}`);
+  throw new Error(`카드를 찾지 못했습니다.${suffix}`);
 }
 
 async function adminGrantCardByName(
