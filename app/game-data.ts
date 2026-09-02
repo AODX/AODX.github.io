@@ -197,6 +197,13 @@ export type RiftCondition =
   | { kind: 'graveyard_min'; value: number; label: string }
   | { kind: 'ally_element'; element: Element; label: string };
 
+export interface LegendaryTributeRequirement {
+  label: string;
+  element?: Element;
+  cardIds?: string[];
+  minCost?: number;
+}
+
 export interface LegendarySummonRule {
   /** Short ritual name shown in the duel UI. */
   name: string;
@@ -217,6 +224,10 @@ export interface LegendarySummonRule {
   coreAtMost?: number;
   /** Opponent must control more units than I do. */
   requireOutnumbered?: boolean;
+  /** Fixed tribute recipe released automatically from my field before summon. */
+  tributeMaterials?: LegendaryTributeRequirement[];
+  /** When true, tribute recipe cannot reuse the same printed card id twice. */
+  requireDistinctTributeCardIds?: boolean;
   /** My field must be completely empty before the summon. */
   requireEmptyField?: boolean;
 }
@@ -5597,15 +5608,19 @@ if (V60_ABSOLUTE_TIME_DEVOURER) {
   V60_ABSOLUTE_TIME_DEVOURER.cost = 10;
   V60_ABSOLUTE_TIME_DEVOURER.attack = 15;
   V60_ABSOLUTE_TIME_DEVOURER.health = 18;
-  V60_ABSOLUTE_TIME_DEVOURER.keywords = ['guard', 'charge', 'lifesteal', 'pierce', 'corestrike', 'execute', 'sweep'];
+  V60_ABSOLUTE_TIME_DEVOURER.keywords = ['lifesteal', 'sweep'];
   V60_ABSOLUTE_TIME_DEVOURER.summonMode = 'legendary';
   V60_ABSOLUTE_TIME_DEVOURER.traitSpecialSummonTier = undefined;
   V60_ABSOLUTE_TIME_DEVOURER.riftCost = undefined;
   V60_ABSOLUTE_TIME_DEVOURER.riftCondition = undefined;
   V60_ABSOLUTE_TIME_DEVOURER.legendarySummonRule = {
     name: '시간 포식 강림',
-    label: 'ENERGY 10을 지불하고 소환 · 시간대/코어/묘지 추가 조건 없음',
+    label: '필드의 COST 5+ 태양 유닛 1체와 COST 5+ 달 유닛 1체를 릴리스하고 ENERGY 10을 지불',
     release: 'none',
+    tributeMaterials: [
+      { label: 'COST 5+ 태양 유닛', element: 'solar', minCost: 5 },
+      { label: 'COST 5+ 달 유닛', element: 'lunar', minCost: 5 },
+    ],
   };
   V60_ABSOLUTE_TIME_DEVOURER.temporalImmunity = false;
   V60_ABSOLUTE_TIME_DEVOURER.eclipseSetOnSummon = undefined;
@@ -6276,10 +6291,10 @@ const V62_UNIQUE_PRESENTATION_OVERRIDES: Record<string, V62UniquePresentationOve
     ],
   },
   v60_premium_time_devourer: {
-    text: '【전설 특수 소환】 ENERGY 10만 지불하면 추가 조건 없이 소환할 수 있다. 【상시 효과】 모든 시간대에서 항상 +5/+5. 【등장】 상대 필드의 캐릭터와 세트 함정을 모두 제거하고, 내 코어 10 회복, 카드 3장 드로우, ENERGY 3 회복, 보호막 3을 얻는다. 【시간 포식】 여명=코어 4 회복 / 정점=상대 ENERGY 2 흡수 / 황혼=상대 코어 2 흡수 / 심야=상대 묘지 2장 소멸 / 개기일식=상대 코어 4 피해.',
-    description: '모든 시간대를 각기 다른 먹이로 삼아 계속 이득을 축적하는 최상위 절대 프리미엄 특성이다.',
+    text: '【전설 특수 소환】 필드의 COST 5+ 태양 유닛 1체와 COST 5+ 달 유닛 1체를 릴리스하고 ENERGY 10을 지불하면 소환할 수 있다. 【상시 효과】 모든 시간대에서 항상 +5/+5. 【등장】 상대 필드의 캐릭터와 세트 함정을 모두 제거하고, 내 코어 10 회복, 카드 3장 드로우, ENERGY 3 회복, 보호막 3을 얻는다. 【시간 포식】 여명=코어 4 회복 / 정점=상대 ENERGY 2 흡수 / 황혼=상대 코어 2 흡수 / 심야=상대 묘지 2장 소멸 / 개기일식=상대 코어 4 피해.',
+    description: '태양과 달을 제물로 삼아 강림한 뒤, 시간대마다 다른 먹이를 삼키며 이득을 계속 축적하는 절대 프리미엄 특성이다.',
     highlights: [
-      { name: '무조건 강림', description: 'ENERGY 10만 확보하면 별도 릴리스 없이 바로 강림할 수 있다.' },
+      { name: '쌍광 강림', description: '필드의 COST 5+ 태양 유닛 1체와 COST 5+ 달 유닛 1체를 릴리스하고 ENERGY 10을 지불해야만 강림할 수 있다.' },
       { name: '절대 등장', description: '등장만으로 적 필드·세트 함정을 모두 지우고, 코어 10 회복 · 드로우 3장 · ENERGY 3 · 보호막 3을 얻는다.' },
       { name: '시대별 섭식', description: '여명 회복 / 정점 ENERGY 흡수 / 황혼 코어 흡수 / 심야 묘지 포식 / 일식 종말 피해가 시간대마다 반복된다.' },
     ],
@@ -6807,15 +6822,11 @@ const V65_COMBAT_IDENTITIES: Record<string, V65CombatIdentity> = {
   },
   v60_premium_time_devourer: {
     name: '시대별 섭식 · 전투형',
-    description: '기존 7개 전투 특성을 하나도 잃지 않고 시간 탐식자만의 이름으로 통합한 절대 전투 특성.',
-    keywords: ['guard', 'charge', 'lifesteal', 'pierce', 'corestrike', 'execute', 'sweep'],
+    description: '시간 탐식자의 전투 특성을 흡수와 전체 공격 2개로만 정리한 간결한 절대 전투 특성.',
+    keywords: ['lifesteal', 'sweep'],
     highlights: [
-      { name: '시간보다 먼저', description: '소환된 턴에도 즉시 공격할 수 있습니다.' },
       { name: '시대 포식', description: '이 캐릭터가 전투로 준 피해만큼 내 코어를 회복합니다.' },
-      { name: '시간축 절단', description: '적 캐릭터를 파괴하면 남은 피해를 코어에 이어 주며, 정상 적중한 지정 대상은 피해 적용 후 파괴합니다.' },
-      { name: '종말 직격', description: '상대 필드에 수호가 없다면 다른 캐릭터를 무시하고 코어를 직접 공격할 수 있습니다.' },
       { name: '전시대 포효', description: '적 캐릭터를 기본 공격할 때 같은 공격 피해를 적 전열 전체에 줍니다. 반격은 지정한 대상만 합니다.' },
-      { name: '절대 방벽', description: '상대는 공격 대상을 선택할 때 가능한 경우 이 캐릭터를 먼저 공격해야 합니다.' },
     ],
   },
 };

@@ -18,6 +18,8 @@ import {
   resolveCardVfx,
 } from './game-data';
 
+type LegendaryTributeRequirements = NonNullable<NonNullable<CardDefinition['legendarySummonRule']>['tributeMaterials']>;
+
 export type MatchPhase = 'main' | 'battle';
 export type MatchStatus = 'waiting' | 'active' | 'finished';
 export type SummonOrigin = 'normal' | 'rift' | 'legendary' | 'fusion' | 'evolution' | 'inheritance' | 'token';
@@ -3593,6 +3595,52 @@ function legendarySameSeriesEntries(state: MatchState, playerId: string, card: C
   });
 }
 
+function legendaryTributeRequirementMatches(source: CardDefinition, requirement: LegendaryTributeRequirements[number]): boolean {
+  if (source.kind !== 'unit') return false;
+  if (requirement.cardIds?.length && !requirement.cardIds.includes(source.id)) return false;
+  if (requirement.element && source.element !== requirement.element) return false;
+  if (requirement.minCost !== undefined && source.cost < requirement.minCost) return false;
+  return true;
+}
+
+function findLegendaryTributeAssignment(
+  candidates: Array<{ zone: number; unit: UnitState; card: CardDefinition }>,
+  requirements: LegendaryTributeRequirements,
+  requireDistinct = false,
+  at = 0,
+  used = new Set<number>(),
+  assignment: number[] = [],
+): number[] | null {
+  if (at >= requirements.length) return [...assignment];
+  const requirement = requirements[at];
+  for (let index = 0; index < candidates.length; index += 1) {
+    if (used.has(index)) continue;
+    const candidate = candidates[index];
+    if (!legendaryTributeRequirementMatches(candidate.card, requirement)) continue;
+    if (requireDistinct && assignment.some((assignedIndex) => candidates[assignedIndex].card.id === candidate.card.id)) continue;
+    used.add(index);
+    assignment.push(index);
+    const resolved = findLegendaryTributeAssignment(candidates, requirements, requireDistinct, at + 1, used, assignment);
+    if (resolved) return resolved;
+    assignment.pop();
+    used.delete(index);
+  }
+  return null;
+}
+
+function legendaryTributeAssignments(state: MatchState, playerId: string, card: CardDefinition) {
+  const requirements = card.legendarySummonRule?.tributeMaterials;
+  if (!requirements?.length) return null;
+  const candidates = state.boards[playerId].units
+    .flatMap((unit, zone) => {
+      const source = unit ? CARD_BY_ID[unit.cardId] : undefined;
+      return unit && source ? [{ zone, unit, card: source }] : [];
+    })
+    .sort((a, b) => a.card.cost - b.card.cost || a.zone - b.zone);
+  const assignment = findLegendaryTributeAssignment(candidates, requirements, card.legendarySummonRule?.requireDistinctTributeCardIds ?? false);
+  return { candidates, requirements, assignment };
+}
+
 function legendarySummonBlockReason(state: MatchState, playerId: string, card: CardDefinition): string | null {
   if (card.summonMode !== 'legendary') return null;
   const rule = card.legendarySummonRule;
@@ -3601,6 +3649,7 @@ function legendarySummonBlockReason(state: MatchState, playerId: string, card: C
   const myUnits = state.boards[playerId].units.filter((unit): unit is UnitState => Boolean(unit));
   const enemyUnits = state.boards[opponentId].units.filter(Boolean);
   const graveyard = state.graveyards[playerId] ?? [];
+  const tributePlan = legendaryTributeAssignments(state, playerId, card);
 
   if (rule.requireEmptyField && myUnits.length > 0) return `내 필드가 비어 있어야 합니다. 현재 내 유닛 ${myUnits.length}체.`;
   if (rule.minimumAllies !== undefined && myUnits.length < rule.minimumAllies) return `내 필드에 유닛이 ${rule.minimumAllies}체 이상 필요합니다. 현재 ${myUnits.length}체.`;
@@ -3618,15 +3667,31 @@ function legendarySummonBlockReason(state: MatchState, playerId: string, card: C
   }
   if (rule.coreAtMost !== undefined && (state.core[playerId] ?? CORE_MAX) > rule.coreAtMost) return `내 코어가 ${rule.coreAtMost} 이하여야 합니다. 현재 ${state.core[playerId] ?? CORE_MAX}.`;
   if (rule.requireOutnumbered && enemyUnits.length <= myUnits.length) return `상대 필드 유닛이 내 필드보다 많아야 합니다. 현재 나 ${myUnits.length} / 상대 ${enemyUnits.length}.`;
+  if (rule.tributeMaterials?.length) {
+    if (myUnits.length < rule.tributeMaterials.length) {
+      return `필드에 릴리스할 유닛이 ${rule.tributeMaterials.length}체 이상 필요합니다. 현재 ${myUnits.length}체.`;
+    }
+    for (const requirement of rule.tributeMaterials) {
+      const matched = tributePlan?.candidates.some((candidate) => legendaryTributeRequirementMatches(candidate.card, requirement));
+      if (!matched) return `필드에 릴리스 가능한 「${requirement.label}」이 없습니다.`;
+    }
+    if (!tributePlan?.assignment) return '필드의 릴리스 조합이 전설 소환 조건과 맞지 않습니다.';
+  }
 
-  const willRelease = rule.release === 'all' ? myUnits.length > 0 : rule.release === 'same_series' && (rule.minimumSameSeries ?? 0) > 0;
+  const willRelease = (rule.tributeMaterials?.length ?? 0) > 0
+    || (rule.release === 'all' ? myUnits.length > 0 : rule.release === 'same_series' && (rule.minimumSameSeries ?? 0) > 0);
   if (!willRelease && firstOpenUnit(state.boards[playerId]) < 0) return '전설을 놓을 빈 유닛 칸이 없습니다.';
   return null;
 }
 
 function legendaryTributeZones(state: MatchState, playerId: string, card: CardDefinition): number[] {
   const rule = card.legendarySummonRule;
-  if (!rule || rule.release === 'none') return [];
+  if (!rule) return [];
+  if (rule.tributeMaterials?.length) {
+    const tributePlan = legendaryTributeAssignments(state, playerId, card);
+    return tributePlan?.assignment?.map((assignmentIndex) => tributePlan.candidates[assignmentIndex]?.zone).filter((zone): zone is number => Number.isInteger(zone)) ?? [];
+  }
+  if (rule.release === 'none') return [];
   if (rule.release === 'all') return state.boards[playerId].units.flatMap((unit, zone) => unit ? [zone] : []);
 
   const required = rule.minimumSameSeries ?? 0;

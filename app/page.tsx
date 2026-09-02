@@ -42,6 +42,9 @@ import {
   validateDeck,
   validateExtraDeck,
 } from './game-data';
+
+type LegendaryTributeRequirements = NonNullable<NonNullable<CardDefinition['legendarySummonRule']>['tributeMaterials']>;
+
 import { BOSS_RAID_BY_ID, type BossRaidDefinition, type BossRaidId } from './boss-raid-data';
 import { CORE_MAX, TURN_DURATION_MS, personalTurnEnergyIncome, secondPlayerBonusEnergyStatus, type GameSnapshot, type MatchState, type PrivateState, type UnitState, type VisualEvent } from './game-engine';
 import {
@@ -5277,6 +5280,8 @@ function UnitSlot({
   index,
   selected,
   materialSelected,
+  materialHintState,
+  materialHintLabel,
   targetable,
   attackReady,
   attackTarget,
@@ -5290,6 +5295,8 @@ function UnitSlot({
   index: number;
   selected?: boolean;
   materialSelected?: boolean;
+  materialHintState?: 'candidate' | 'suggested';
+  materialHintLabel?: string;
   targetable?: boolean;
   attackReady?: boolean;
   attackTarget?: boolean;
@@ -5313,7 +5320,7 @@ function UnitSlot({
   const temporalDeltaLabel = (value: number) => `${value > 0 ? '+' : '−'}${Math.abs(value)}`;
   return (
     <div
-      className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${targetable ? 'targetable' : ''} ${attackReady ? 'attack-ready' : ''} ${attackTarget ? 'attack-target' : ''} ${hasCharge ? 'has-charge' : ''} ${hasGuard ? 'has-guard' : ''} ${hasCorestrike ? 'has-corestrike' : ''} ${hasPierce ? 'has-pierce' : ''} ${hasLifesteal ? 'has-lifesteal' : ''} ${hasExecute ? 'has-execute' : ''} ${hasSweep ? 'has-sweep' : ''} ${unit?.buffCardApplied ? 'buff-card-used' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''} ${unit?.eclipseResonance ? `time-${unit.eclipseResonance}` : ''}`}
+      className={`unit-slot ${unit ? 'occupied' : ''} ${selected ? 'selected' : ''} ${materialSelected ? 'material-selected' : ''} ${materialHintState ? 'material-hint' : ''} ${materialHintState === 'candidate' ? 'material-hint-candidate' : ''} ${materialHintState === 'suggested' ? 'material-hint-suggested' : ''} ${targetable ? 'targetable' : ''} ${attackReady ? 'attack-ready' : ''} ${attackTarget ? 'attack-target' : ''} ${hasCharge ? 'has-charge' : ''} ${hasGuard ? 'has-guard' : ''} ${hasCorestrike ? 'has-corestrike' : ''} ${hasPierce ? 'has-pierce' : ''} ${hasLifesteal ? 'has-lifesteal' : ''} ${hasExecute ? 'has-execute' : ''} ${hasSweep ? 'has-sweep' : ''} ${unit?.buffCardApplied ? 'buff-card-used' : ''} ${enemy ? 'enemy' : ''} ${unit ? `origin-${unit.summonedBy}` : ''} ${card ? `element-${card.element}` : ''} ${unit?.eclipseResonance ? `time-${unit.eclipseResonance}` : ''}`}
       role="button"
       tabIndex={onClick ? 0 : -1}
       aria-label={unit ? `${card?.name ?? '유닛'} 선택` : `${index + 1}번 필드 슬롯`}
@@ -5354,6 +5361,7 @@ function UnitSlot({
             {unit.shield > 0 && <em className="v32n-shield-value">+{unit.shield}</em>}
           </span>
           {!unit.canAttack && <span className="unit-state">REST</span>}
+          {materialHintState && materialHintLabel && <span className={`v72-material-hint-badge ${materialHintState}`}>{materialHintState === 'suggested' ? '릴리스' : '후보'} · {materialHintLabel}</span>}
           {materialSelected && <span className="material-mark">MATERIAL</span>}
         </>
       )}
@@ -5451,6 +5459,56 @@ function clientSameLegendarySeries(source: CardDefinition | undefined, legendary
   return false;
 }
 
+function clientLegendaryTributeRequirementMatches(candidate: ClientExtraMaterialCandidate, requirement: LegendaryTributeRequirements[number]): boolean {
+  if (candidate.card.kind !== 'unit') return false;
+  if (requirement.cardIds?.length && !requirement.cardIds.includes(candidate.cardId)) return false;
+  if (requirement.element && candidate.card.element !== requirement.element) return false;
+  if (requirement.minCost !== undefined && candidate.card.cost < requirement.minCost) return false;
+  return true;
+}
+
+function clientFindLegendaryTributeAssignment(
+  candidates: ClientExtraMaterialCandidate[],
+  requirements: LegendaryTributeRequirements,
+  requireDistinct = false,
+  at = 0,
+  used = new Set<number>(),
+  assignment: number[] = [],
+): number[] | null {
+  if (at >= requirements.length) return [...assignment];
+  const requirement = requirements[at];
+  for (let index = 0; index < candidates.length; index += 1) {
+    if (used.has(index) || !clientLegendaryTributeRequirementMatches(candidates[index], requirement)) continue;
+    if (requireDistinct && assignment.some((assignedIndex) => candidates[assignedIndex].cardId === candidates[index].cardId)) continue;
+    used.add(index);
+    assignment.push(index);
+    const resolved = clientFindLegendaryTributeAssignment(candidates, requirements, requireDistinct, at + 1, used, assignment);
+    if (resolved) return resolved;
+    assignment.pop();
+    used.delete(index);
+  }
+  return null;
+}
+
+function clientLegendaryTributeHintData(pool: ClientExtraMaterialCandidate[], card: CardDefinition) {
+  const requirements = card.legendarySummonRule?.tributeMaterials;
+  if (!requirements?.length) return null;
+  const candidateLabelsByKey: Record<string, string[]> = {};
+  pool.forEach((candidate) => {
+    requirements.forEach((requirement, index) => {
+      if (!clientLegendaryTributeRequirementMatches(candidate, requirement)) return;
+      const label = requirement.label || `릴리스 ${index + 1}`;
+      candidateLabelsByKey[candidate.key] = [...(candidateLabelsByKey[candidate.key] ?? []), label];
+    });
+  });
+  const assignmentIndexes = clientFindLegendaryTributeAssignment(pool, requirements, card.legendarySummonRule?.requireDistinctTributeCardIds ?? false);
+  return {
+    candidateLabelsByKey,
+    suggestedKeys: new Set((assignmentIndexes ?? []).map((index) => pool[index]?.key).filter(Boolean)),
+    assignmentIndexes,
+  };
+}
+
 function clientLegendaryBlockReason(state: MatchState, playerId: string, opponentId: string, card: CardDefinition): string | null {
   if (card.rarity === 'legendary' && card.kind === 'unit' && card.summonMode !== 'rift' && card.summonMode !== 'legendary') {
     return '메인 덱 전설 유닛은 일반 소환할 수 없습니다. 전설 특수 소환 조건이 필요합니다.';
@@ -5462,6 +5520,11 @@ function clientLegendaryBlockReason(state: MatchState, playerId: string, opponen
   const enemyUnits = state.boards[opponentId].units.filter(Boolean);
   const graveyard = state.graveyards[playerId] ?? [];
   const sameSeriesCount = myUnits.filter((unit) => clientSameLegendarySeries(CARD_BY_ID[unit.cardId], card)).length;
+  const tributePool: ClientExtraMaterialCandidate[] = state.boards[playerId].units.flatMap((unit, zone) => {
+    const source = unit ? CARD_BY_ID[unit.cardId] : undefined;
+    return unit && source ? [{ key: `field:${zone}`, cardId: source.id, card: source, fieldZone: zone }] : [];
+  });
+  const tributeHint = clientLegendaryTributeHintData(tributePool, card);
 
   if (rule.requireEmptyField && myUnits.length > 0) return `내 필드가 비어 있어야 합니다. 현재 내 유닛 ${myUnits.length}체.`;
   if (rule.minimumAllies !== undefined && myUnits.length < rule.minimumAllies) return `내 필드에 유닛이 ${rule.minimumAllies}체 이상 필요합니다. 현재 ${myUnits.length}체.`;
@@ -5476,8 +5539,16 @@ function clientLegendaryBlockReason(state: MatchState, playerId: string, opponen
   }
   if (rule.coreAtMost !== undefined && (state.core[playerId] ?? CORE_MAX) > rule.coreAtMost) return `내 코어가 ${rule.coreAtMost} 이하여야 합니다. 현재 ${state.core[playerId] ?? CORE_MAX}.`;
   if (rule.requireOutnumbered && enemyUnits.length <= myUnits.length) return `상대 필드 유닛이 내 필드보다 많아야 합니다. 현재 나 ${myUnits.length} / 상대 ${enemyUnits.length}.`;
+  if (rule.tributeMaterials?.length) {
+    if (myUnits.length < rule.tributeMaterials.length) return `필드에 릴리스할 유닛이 ${rule.tributeMaterials.length}체 이상 필요합니다. 현재 ${myUnits.length}체.`;
+    for (const requirement of rule.tributeMaterials) {
+      if (!tributePool.some((candidate) => clientLegendaryTributeRequirementMatches(candidate, requirement))) return `필드에 릴리스 가능한 「${requirement.label}」이 없습니다.`;
+    }
+    if (!tributeHint?.assignmentIndexes) return '필드의 릴리스 조합이 전설 소환 조건과 맞지 않습니다.';
+  }
 
-  const releasesSpace = rule.release === 'all' ? myUnits.length > 0 : rule.release === 'same_series' && (rule.minimumSameSeries ?? 0) > 0;
+  const releasesSpace = (rule.tributeMaterials?.length ?? 0) > 0
+    || (rule.release === 'all' ? myUnits.length > 0 : rule.release === 'same_series' && (rule.minimumSameSeries ?? 0) > 0);
   if (!releasesSpace && !state.boards[playerId].units.some((slot) => !slot)) return '전설을 놓을 빈 유닛 칸이 없습니다.';
   return null;
 }
@@ -5760,6 +5831,25 @@ function clientFindExtraMaterialAssignment(
     used.delete(index);
   }
   return null;
+}
+
+function clientExtraMaterialHintData(pool: ClientExtraMaterialCandidate[], card: CardDefinition) {
+  const recipe = card.extraMaterialRecipe;
+  if (!recipe) return null;
+  const candidateLabelsByKey: Record<string, string[]> = {};
+  pool.forEach((candidate) => {
+    recipe.materials.forEach((requirement, index) => {
+      if (!clientExtraMaterialCandidateMatches(candidate, requirement)) return;
+      const label = requirement.label || `소재 ${index + 1}`;
+      candidateLabelsByKey[candidate.key] = [...(candidateLabelsByKey[candidate.key] ?? []), label];
+    });
+  });
+  const assignmentIndexes = clientFindExtraMaterialAssignment(pool, card);
+  return {
+    candidateLabelsByKey,
+    suggestedKeys: new Set((assignmentIndexes ?? []).map((index) => pool[index]?.key).filter(Boolean)),
+    assignmentIndexes,
+  };
 }
 
 function clientExtraMaterialsValid(candidates: ClientExtraMaterialCandidate[], card: CardDefinition): boolean {
@@ -7117,6 +7207,31 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     return card?.rarity === 'legendary' ? [{ instanceId: instance.instanceId, card, source: 'extra' as const }] : [];
   });
   const legendaryReadyCards = [...legendaryReadyFromHand, ...legendaryReadyFromExtra];
+  const selectedExtraMaterialHint = selectedExtraCard ? clientExtraMaterialHintData(extraMaterialPool, selectedExtraCard) : null;
+  const legendaryTributePool = extraMaterialPool.filter((candidate): candidate is ClientExtraMaterialCandidate & { fieldZone: number } => candidate.fieldZone !== undefined);
+  const selectedLegendaryMaterialHint = selectedCard?.summonMode === 'legendary' ? clientLegendaryTributeHintData(legendaryTributePool, selectedCard) : null;
+  const selectedExtraSuggestedMaterials = selectedExtraMaterialHint?.assignmentIndexes?.map((index) => extraMaterialPool[index]).filter(Boolean) ?? [];
+  const selectedLegendarySuggestedMaterials = selectedLegendaryMaterialHint?.assignmentIndexes?.map((index) => legendaryTributePool[index]).filter(Boolean) ?? [];
+  const selectedExtraSuggestedMaterialText = selectedExtraSuggestedMaterials.length > 0
+    ? selectedExtraSuggestedMaterials.map((candidate) => `${candidate.card.name}${candidate.fieldZone !== undefined ? ` (필드 ${candidate.fieldZone + 1})` : ' (손패)'}`).join(' · ')
+    : '';
+  const selectedLegendarySuggestedMaterialText = selectedLegendarySuggestedMaterials.length > 0
+    ? selectedLegendarySuggestedMaterials.map((candidate) => `${candidate.card.name} (필드 ${candidate.fieldZone + 1})`).join(' · ')
+    : '';
+  const fieldMaterialHintFor = (zone: number) => {
+    const extraKey = `field:${zone}`;
+    const extraLabels = selectedExtraMaterialHint?.candidateLabelsByKey[extraKey];
+    if (extraLabels?.length) return { state: selectedExtraMaterialHint?.suggestedKeys.has(extraKey) ? 'suggested' as const : 'candidate' as const, label: extraLabels.join(' / ') };
+    const legendaryLabels = selectedLegendaryMaterialHint?.candidateLabelsByKey[extraKey];
+    if (legendaryLabels?.length) return { state: selectedLegendaryMaterialHint?.suggestedKeys.has(extraKey) ? 'suggested' as const : 'candidate' as const, label: legendaryLabels.join(' / ') };
+    return null;
+  };
+  const handMaterialHintFor = (instanceId: string) => {
+    const key = `hand:${instanceId}`;
+    const labels = selectedExtraMaterialHint?.candidateLabelsByKey[key];
+    if (labels?.length) return { state: selectedExtraMaterialHint?.suggestedKeys.has(key) ? 'suggested' as const : 'candidate' as const, label: labels.join(' / ') };
+    return null;
+  };
 
   function handSummonBlockReasons(card: CardDefinition): string[] {
     const reasons: string[] = [];
@@ -7812,7 +7927,9 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
           </div>
 
           <div className="v18-zone-row v18-my-units">
-            {state.boards[userId].units.map((unit, index) => (
+            {state.boards[userId].units.map((unit, index) => {
+              const materialHint = unit ? fieldMaterialHintFor(index) : null;
+              return (
               <UnitSlot
                 key={index}
                 unit={unit}
@@ -7821,12 +7938,14 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
                 eclipsePhase={clientCurrentEclipsePhase(state)}
                 selected={selectedAttacker === index || selectedFieldUnit === index || selectedSummonZone === index || selectedExtraEffectTarget === index}
                 materialSelected={selectedMaterials.includes(index)}
+                materialHintState={materialHint?.state}
+                materialHintLabel={materialHint?.label}
                 targetable={unit ? Boolean((selectingFriendlyTarget && (!selectedConsumesBuffSlot || !unit.buffCardApplied)) || selectingSummonEffectTarget || (selectingExtraEffectTarget && !selectedMaterials.includes(index)) || selectingMaterials || (myTurn && !interactionLocked && state.phase === 'battle' && unit.canAttack) || (myTurn && !interactionLocked && state.phase === 'main' && !selectedCard && !selectedExtraCard && !fieldSacrificeUsed)) : selectingUnitToSummon}
                 attackReady={Boolean(unit && myTurn && !interactionLocked && state.phase === 'battle' && unit.canAttack)}
                 onInspect={onInspectCard}
                 onClick={() => unit ? targetUnit(userId, index) : playToUnitZone(index)}
               />
-            ))}
+            );})}
           </div>
 
           <div className="v18-zone-row v18-my-secrets">
@@ -7908,14 +8027,17 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
               {selectedCard.kind === 'spell' && selectedCard.target === 'friendly_graveyard_unit' && <button className="v18-context-primary v31d-grave-target-button" disabled={!canChooseGraveyardTarget} onClick={openGraveyardTargetPicker}>묘지에서 부활 대상 선택 · {graveyardReviveTargets.length}</button>}
               {selectedCard.kind === 'spell' && selectedCard.target === 'own_deck_card' && <button className="v18-context-primary v32y-card-picker-button" disabled={!canChooseDeckTutorTarget} onClick={openDeckTutorPicker}>덱에서 카드 선택 · {deckTutorTargets.length}</button>}
               {selectedCard.kind === 'spell' && selectedCard.target === 'friendly_graveyard_card' && <button className="v18-context-primary v32y-card-picker-button" disabled={!canChooseGraveCardTarget} onClick={openGraveCardPicker}>묘지에서 카드 선택 · {graveyardCardTargets.length}</button>}
-              {selectedCard.kind === 'unit' && selectedCard.summonMode === 'legendary' && <button className="v18-context-primary v32q-legendary-summon" type="button" onClick={summonSelectedLegendary}>{handSummonBlockReasons(selectedCard).length === 0 ? `전설 특수 소환 · ${selectedCard.legendarySummonRule?.name ?? '강림'}` : '전설 특수 소환 조건 확인'}</button>}
+              {selectedCard.kind === 'unit' && selectedCard.summonMode === 'legendary' && <>
+                <button className="v18-context-primary v32q-legendary-summon" type="button" onClick={summonSelectedLegendary}>{handSummonBlockReasons(selectedCard).length === 0 ? `전설 특수 소환 · ${selectedCard.legendarySummonRule?.name ?? '강림'}` : '전설 특수 소환 조건 확인'}</button>
+                {selectedLegendarySuggestedMaterialText && <small className="v72-material-guide">추천 릴리스: {selectedLegendarySuggestedMaterialText}</small>}
+              </>}
               {myTurn && state.phase === 'main' && <button className="v18-context-primary v31-energy-convert" disabled={!canSacrificeSelectedForEnergy} onClick={sacrificeSelectedForEnergy}><span>손패 → ENERGY +1</span><small>{energySacrificeUsed ? '이번 턴 사용 완료' : myEnergy.current >= myEnergyHardCap ? `에너지 최대 한도 ${myEnergyHardCap}` : '이 카드를 묘지로 보냅니다 · 같은 턴 안에서 사용할 때마다 비용 +1'}</small></button>}
             </div>
           )}
           {selectedExtraCard && (
             <div className="v18-selected-card extra v31f-selected-extra">
               <div className="v18-selected-art"><CardIllustration card={selectedExtraCard} compact /></div>
-              <div className="v18-selected-copy"><small>{extraSummonMethodLabel(selectedExtraCard)}</small><b>{selectedExtraCard.name}</b><p>{extraRequirement(selectedExtraCard)}</p><span className="v18-material-progress">릴리스 소재 {selectedMaterialCount} / {requiredMaterials} · 필드 {selectedMaterials.length} + 손패 {selectedHandMaterials.length}{selectedExtraCard.extraMaterialRecipe?.requireAtLeastOneField ? ' · 진화는 필드 1장+' : ''}</span><span className="v31-extra-usage">이번 게임 {extraSummonMethodLabel(selectedExtraCard)} {myExtraUsage[resolvedExtraSummonMethod(selectedExtraCard) ?? 'evolution']}/2 · 전체 전개 {totalExtraUsed}/2</span></div>
+              <div className="v18-selected-copy"><small>{extraSummonMethodLabel(selectedExtraCard)}</small><b>{selectedExtraCard.name}</b><p>{extraRequirement(selectedExtraCard)}</p><span className="v18-material-progress">릴리스 소재 {selectedMaterialCount} / {requiredMaterials} · 필드 {selectedMaterials.length} + 손패 {selectedHandMaterials.length}{selectedExtraCard.extraMaterialRecipe?.requireAtLeastOneField ? ' · 진화는 필드 1장+' : ''}</span>{selectedExtraSuggestedMaterialText && <small className="v72-material-guide">추천 릴리스: {selectedExtraSuggestedMaterialText}</small>}<span className="v31-extra-usage">이번 게임 {extraSummonMethodLabel(selectedExtraCard)} {myExtraUsage[resolvedExtraSummonMethod(selectedExtraCard) ?? 'evolution']}/2 · 전체 전개 {totalExtraUsed}/2</span></div>
               {selectedExtraCard.extraChoices?.length && (
                 <div className="v31f-extra-choose">
                   <header><span>CHOOSE EFFECT</span><small>소환 성공 후 화면 중앙에 선택지가 나타나며, 그중 1개만 고를 수 있습니다.</small></header>
@@ -7964,19 +8086,20 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
         <div className="v18-hand-scroll">
           {privateState.hand.map((instance) => {
             const card = CARD_BY_ID[instance.cardId];
+            const handMaterialHint = handMaterialHintFor(instance.instanceId);
             const effectiveCost = card?.summonMode === 'rift' && card.riftCost !== undefined && clientRiftReady(state, userId, opponentId, card) ? card.riftCost : card?.cost ?? 99;
             const affordable = Boolean(card && myTurn && !interactionLocked && state.phase === 'main' && myEnergy.current >= effectiveCost
               && (card.summonMode !== 'legendary' || clientLegendaryReady(state, userId, opponentId, card))
               && !(card.kind === 'unit' && card.rarity === 'legendary' && card.summonMode !== 'rift' && card.summonMode !== 'legendary'));
             const legendaryReady = Boolean(card?.rarity === 'legendary' && legendaryReadyCards.some((item) => item.instanceId === instance.instanceId));
             return <div
-              className={`v18-hand-card ${specialReadyIds.has(instance.instanceId) ? 'special-ready' : ''} ${legendaryReady ? 'legendary-ready' : ''} ${recentDrawnIds.has(instance.instanceId) ? 'just-drawn' : ''} ${affordable ? 'playable' : 'not-playable'} ${selectedHand === instance.instanceId ? 'selected' : ''} ${selectedHandMaterials.includes(instance.instanceId) ? 'extra-material-selected' : ''} ${selectedExtraCard && card?.kind === 'unit' ? 'extra-material-candidate' : ''}`}
+              className={`v18-hand-card ${specialReadyIds.has(instance.instanceId) ? 'special-ready' : ''} ${legendaryReady ? 'legendary-ready' : ''} ${recentDrawnIds.has(instance.instanceId) ? 'just-drawn' : ''} ${affordable ? 'playable' : 'not-playable'} ${selectedHand === instance.instanceId ? 'selected' : ''} ${selectedHandMaterials.includes(instance.instanceId) ? 'extra-material-selected' : ''} ${handMaterialHint ? 'extra-material-candidate' : ''} ${handMaterialHint?.state === 'suggested' ? 'extra-material-hinted' : ''}`}
               key={instance.instanceId}
               onMouseEnter={() => setHoveredHandCardId(instance.cardId)}
               onMouseLeave={() => setHoveredHandCardId((current) => current === instance.cardId ? null : current)}
               onFocusCapture={() => setHoveredHandCardId(instance.cardId)}
               onBlurCapture={() => setHoveredHandCardId((current) => current === instance.cardId ? null : current)}
-            >{selectedHandMaterials.includes(instance.instanceId) && <span className="v71-hand-material-badge">소재</span>}{specialReadyIds.has(instance.instanceId) && !legendaryReady && <span className="v18-special-badge">SPECIAL</span>}<CardFace card={card} compact selected={selectedHand === instance.instanceId} disabled={busy} onClick={() => chooseHand(instance.instanceId)} />{card && <TemporalHandBadge card={card} currentPhase={currentEclipsePhase} />}</div>;
+            >{selectedHandMaterials.includes(instance.instanceId) && <span className="v71-hand-material-badge">소재</span>}{handMaterialHint?.label && <span className={`v72-hand-material-hint-badge ${handMaterialHint.state}`}>{handMaterialHint.state === 'suggested' ? '릴리스' : '후보'} · {handMaterialHint.label}</span>}{specialReadyIds.has(instance.instanceId) && !legendaryReady && <span className="v18-special-badge">SPECIAL</span>}<CardFace card={card} compact selected={selectedHand === instance.instanceId} disabled={busy} onClick={() => chooseHand(instance.instanceId)} />{card && <TemporalHandBadge card={card} currentPhase={currentEclipsePhase} />}</div>;
           })}
         </div>
         <div className="v18-hand-side"><span>ENERGY <b>{myEnergy.current}/{myEnergy.max}</b></span><span>DECK <b>{state.deckCounts[userId] ?? 0}</b></span><button type="button" onClick={() => setExtraOpen(true)}>EXTRA {privateState.extra.length}</button></div>

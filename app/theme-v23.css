@@ -11941,6 +11941,68 @@ html[data-ipad="true"][data-ipad-orientation="landscape"] .v23-client.in-duel .v
   font-weight:900!important;
   letter-spacing:.08em!important;
 }
+.v23-client.in-duel .unit-slot.material-hint {
+  position:relative!important;
+}
+.v23-client.in-duel .unit-slot.material-hint::after {
+  content:'';
+  position:absolute;
+  inset:4px;
+  border-radius:18px;
+  border:2px solid rgba(137,211,255,.45);
+  background:rgba(137,211,255,.08);
+  box-shadow:0 0 18px rgba(76,167,255,.14);
+  pointer-events:none;
+}
+.v23-client.in-duel .unit-slot.material-hint-suggested::after {
+  border-color:rgba(255,217,116,.92);
+  background:rgba(255,210,96,.16);
+  box-shadow:0 0 28px rgba(255,196,62,.3);
+}
+.v23-client.in-duel .v72-material-hint-badge,
+.v23-client.in-duel .v72-hand-material-hint-badge {
+  position:absolute!important;
+  z-index:78!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:0 10px!important;
+  min-height:22px!important;
+  border-radius:999px!important;
+  border:1px solid rgba(171,225,255,.72)!important;
+  background:rgba(17,38,74,.9)!important;
+  color:#f8fbff!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  letter-spacing:.04em!important;
+  backdrop-filter:blur(8px)!important;
+  box-shadow:0 0 16px rgba(76,167,255,.28)!important;
+}
+.v23-client.in-duel .v72-material-hint-badge {
+  left:10px!important;
+  right:10px!important;
+  top:8px!important;
+}
+.v23-client.in-duel .v72-hand-material-hint-badge {
+  left:8px!important;
+  right:8px!important;
+  top:20px!important;
+}
+.v23-client.in-duel .v72-material-hint-badge.suggested,
+.v23-client.in-duel .v72-hand-material-hint-badge.suggested {
+  border-color:rgba(255,223,132,.92)!important;
+  background:rgba(87,56,8,.92)!important;
+  box-shadow:0 0 18px rgba(255,199,79,.34)!important;
+}
+.v23-client.in-duel .v18-hand-card.extra-material-hinted .tcg-card {
+  box-shadow:0 0 0 2px rgba(255,223,132,.92),0 0 24px rgba(255,199,79,.28),0 12px 30px rgba(0,0,0,.32)!important;
+}
+.v23-client.in-duel .v72-material-guide {
+  display:block!important;
+  margin-top:6px!important;
+  color:#ffe9a5!important;
+  font-size:11px!important;
+  line-height:1.45!important;
+}
 /* === /v71 Extra materials =============================================== */
 
 /* === v71 premium identity art overlays =====================================
