@@ -5509,7 +5509,7 @@ function clientLegendaryTributeHintData(pool: ClientExtraMaterialCandidate[], ca
   };
 }
 
-function clientLegendaryBlockReason(state: MatchState, playerId: string, opponentId: string, card: CardDefinition): string | null {
+function clientLegendaryBlockReason(state: MatchState, playerId: string, opponentId: string, card: CardDefinition, privateState?: PrivateState, excludedHandInstanceId?: string): string | null {
   if (card.rarity === 'legendary' && card.kind === 'unit' && card.summonMode !== 'rift' && card.summonMode !== 'legendary') {
     return '메인 덱 전설 유닛은 일반 소환할 수 없습니다. 전설 특수 소환 조건이 필요합니다.';
   }
@@ -5523,6 +5523,24 @@ function clientLegendaryBlockReason(state: MatchState, playerId: string, opponen
   const tributePool: ClientExtraMaterialCandidate[] = state.boards[playerId].units.flatMap((unit, zone) => {
     const source = unit ? CARD_BY_ID[unit.cardId] : undefined;
     return unit && source ? [{ key: `field:${zone}`, cardId: source.id, card: source, fieldZone: zone }] : [];
+  });
+  if (rule.allowHandTributes && privateState) {
+    for (const instance of privateState.hand) {
+      if (instance.instanceId === excludedHandInstanceId) continue;
+      const source = CARD_BY_ID[instance.cardId];
+      if (source?.kind !== 'unit') continue;
+      tributePool.push({ key: `hand:${instance.instanceId}`, cardId: source.id, card: source, handInstanceId: instance.instanceId });
+    }
+  }
+  const boardFull = !state.boards[playerId].units.some((slot) => !slot);
+  tributePool.sort((a, b) => {
+    const aField = a.fieldZone !== undefined;
+    const bField = b.fieldZone !== undefined;
+    if (aField !== bField) {
+      if (boardFull) return aField ? -1 : 1;
+      return aField ? 1 : -1;
+    }
+    return a.card.cost - b.card.cost;
   });
   const tributeHint = clientLegendaryTributeHintData(tributePool, card);
 
@@ -5540,21 +5558,22 @@ function clientLegendaryBlockReason(state: MatchState, playerId: string, opponen
   if (rule.coreAtMost !== undefined && (state.core[playerId] ?? CORE_MAX) > rule.coreAtMost) return `내 코어가 ${rule.coreAtMost} 이하여야 합니다. 현재 ${state.core[playerId] ?? CORE_MAX}.`;
   if (rule.requireOutnumbered && enemyUnits.length <= myUnits.length) return `상대 필드 유닛이 내 필드보다 많아야 합니다. 현재 나 ${myUnits.length} / 상대 ${enemyUnits.length}.`;
   if (rule.tributeMaterials?.length) {
-    if (myUnits.length < rule.tributeMaterials.length) return `필드에 릴리스할 유닛이 ${rule.tributeMaterials.length}체 이상 필요합니다. 현재 ${myUnits.length}체.`;
+    if (tributePool.length < rule.tributeMaterials.length) return `${rule.allowHandTributes ? '필드 또는 손패에' : '필드에'} 릴리스할 유닛이 ${rule.tributeMaterials.length}체 이상 필요합니다. 현재 ${tributePool.length}체.`;
     for (const requirement of rule.tributeMaterials) {
-      if (!tributePool.some((candidate) => clientLegendaryTributeRequirementMatches(candidate, requirement))) return `필드에 릴리스 가능한 「${requirement.label}」이 없습니다.`;
+      if (!tributePool.some((candidate) => clientLegendaryTributeRequirementMatches(candidate, requirement))) return `${rule.allowHandTributes ? '필드 또는 손패에' : '필드에'} 릴리스 가능한 「${requirement.label}」이 없습니다.`;
     }
-    if (!tributeHint?.assignmentIndexes) return '필드의 릴리스 조합이 전설 소환 조건과 맞지 않습니다.';
+    if (!tributeHint?.assignmentIndexes) return `${rule.allowHandTributes ? '필드/손패의' : '필드의'} 릴리스 조합이 전설 소환 조건과 맞지 않습니다.`;
   }
 
-  const releasesSpace = (rule.tributeMaterials?.length ?? 0) > 0
+  const tributeReleasesField = Boolean(tributeHint?.assignmentIndexes?.some((assignmentIndex) => tributePool[assignmentIndex]?.fieldZone !== undefined));
+  const releasesSpace = tributeReleasesField
     || (rule.release === 'all' ? myUnits.length > 0 : rule.release === 'same_series' && (rule.minimumSameSeries ?? 0) > 0);
   if (!releasesSpace && !state.boards[playerId].units.some((slot) => !slot)) return '전설을 놓을 빈 유닛 칸이 없습니다.';
   return null;
 }
 
-function clientLegendaryReady(state: MatchState, playerId: string, opponentId: string, card: CardDefinition): boolean {
-  return card.summonMode === 'legendary' && clientLegendaryBlockReason(state, playerId, opponentId, card) === null;
+function clientLegendaryReady(state: MatchState, playerId: string, opponentId: string, card: CardDefinition, privateState?: PrivateState, excludedHandInstanceId?: string): boolean {
+  return card.summonMode === 'legendary' && clientLegendaryBlockReason(state, playerId, opponentId, card, privateState, excludedHandInstanceId) === null;
 }
 
 function clientFusionMaterialMatches(unit: UnitState, material: NonNullable<CardDefinition['fusionRecipe']>['materials'][number], fusionCard: CardDefinition): boolean {
@@ -7179,7 +7198,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   const legendarySpecialReadyInstances = privateState.hand.filter((instance) => {
     const card = CARD_BY_ID[instance.cardId];
     if (!card || card.kind !== 'unit' || card.summonMode !== 'legendary' || !clientEclipseSummonReady(state, card)) return false;
-    return myTurn && !interactionLocked && state.phase === 'main' && myEnergy.current >= card.cost && clientLegendaryReady(state, userId, opponentId, card);
+    return myTurn && !interactionLocked && state.phase === 'main' && myEnergy.current >= card.cost && clientLegendaryReady(state, userId, opponentId, card, privateState, instance.instanceId);
   });
   const extraReadyInstances = privateState.extra.filter((instance) => {
     const card = CARD_BY_ID[instance.cardId];
@@ -7198,7 +7217,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     const ready = card.summonMode === 'rift'
       ? myEnergy.current >= cost && state.boards[userId].units.some((slot) => !slot) && clientRiftReady(state, userId, opponentId, card)
       : card.summonMode === 'legendary'
-        ? myEnergy.current >= cost && clientLegendaryReady(state, userId, opponentId, card)
+        ? myEnergy.current >= cost && clientLegendaryReady(state, userId, opponentId, card, privateState, instance.instanceId)
         : false;
     return ready ? [{ instanceId: instance.instanceId, card, source: 'hand' as const }] : [];
   });
@@ -7208,7 +7227,18 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
   });
   const legendaryReadyCards = [...legendaryReadyFromHand, ...legendaryReadyFromExtra];
   const selectedExtraMaterialHint = selectedExtraCard ? clientExtraMaterialHintData(extraMaterialPool, selectedExtraCard) : null;
-  const legendaryTributePool = extraMaterialPool.filter((candidate): candidate is ClientExtraMaterialCandidate & { fieldZone: number } => candidate.fieldZone !== undefined);
+  const legendaryTributePool = (selectedCard?.summonMode === 'legendary' && selectedCard.legendarySummonRule?.allowHandTributes
+    ? extraMaterialPool.filter((candidate) => candidate.handInstanceId !== selectedHand)
+    : extraMaterialPool.filter((candidate) => candidate.fieldZone !== undefined)).sort((a, b) => {
+      const boardFull = !state.boards[userId].units.some((slot) => !slot);
+      const aField = a.fieldZone !== undefined;
+      const bField = b.fieldZone !== undefined;
+      if (aField !== bField) {
+        if (boardFull) return aField ? -1 : 1;
+        return aField ? 1 : -1;
+      }
+      return a.card.cost - b.card.cost;
+    });
   const selectedLegendaryMaterialHint = selectedCard?.summonMode === 'legendary' ? clientLegendaryTributeHintData(legendaryTributePool, selectedCard) : null;
   const selectedExtraSuggestedMaterials = selectedExtraMaterialHint?.assignmentIndexes?.map((index) => extraMaterialPool[index]).filter(Boolean) ?? [];
   const selectedLegendarySuggestedMaterials = selectedLegendaryMaterialHint?.assignmentIndexes?.map((index) => legendaryTributePool[index]).filter(Boolean) ?? [];
@@ -7216,7 +7246,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     ? selectedExtraSuggestedMaterials.map((candidate) => `${candidate.card.name}${candidate.fieldZone !== undefined ? ` (필드 ${candidate.fieldZone + 1})` : ' (손패)'}`).join(' · ')
     : '';
   const selectedLegendarySuggestedMaterialText = selectedLegendarySuggestedMaterials.length > 0
-    ? selectedLegendarySuggestedMaterials.map((candidate) => `${candidate.card.name} (필드 ${candidate.fieldZone + 1})`).join(' · ')
+    ? selectedLegendarySuggestedMaterials.map((candidate) => `${candidate.card.name}${candidate.fieldZone !== undefined ? ` (필드 ${candidate.fieldZone + 1})` : ' (손패)'}`).join(' · ')
     : '';
   const fieldMaterialHintFor = (zone: number) => {
     const extraKey = `field:${zone}`;
@@ -7230,6 +7260,8 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     const key = `hand:${instanceId}`;
     const labels = selectedExtraMaterialHint?.candidateLabelsByKey[key];
     if (labels?.length) return { state: selectedExtraMaterialHint?.suggestedKeys.has(key) ? 'suggested' as const : 'candidate' as const, label: labels.join(' / ') };
+    const legendaryLabels = selectedLegendaryMaterialHint?.candidateLabelsByKey[key];
+    if (legendaryLabels?.length) return { state: selectedLegendaryMaterialHint?.suggestedKeys.has(key) ? 'suggested' as const : 'candidate' as const, label: legendaryLabels.join(' / ') };
     return null;
   };
 
@@ -7244,7 +7276,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     if (myEnergy.current < requiredEnergy) reasons.push(`에너지가 부족합니다. 필요 ${requiredEnergy} / 현재 ${myEnergy.current}.`);
     const riftReason = clientRiftBlockReason(state, userId, opponentId, card);
     if (riftReason) reasons.push(riftReason);
-    const legendaryReason = clientLegendaryBlockReason(state, userId, opponentId, card);
+    const legendaryReason = clientLegendaryBlockReason(state, userId, opponentId, card, privateState, selectedHand ?? undefined);
     if (legendaryReason) reasons.push(legendaryReason);
     return reasons;
   }
@@ -7736,7 +7768,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
     const card = CARD_BY_ID[instance.cardId];
     if (!card || !myTurn || interactionLocked || state.phase !== 'main') return false;
     if (card.kind === 'unit' && !clientEclipseSummonReady(state, card)) return false;
-    if (card.kind === 'unit' && card.summonMode === 'legendary') return myEnergy.current >= card.cost && clientLegendaryReady(state, userId, opponentId, card);
+    if (card.kind === 'unit' && card.summonMode === 'legendary') return myEnergy.current >= card.cost && clientLegendaryReady(state, userId, opponentId, card, privateState, instance.instanceId);
     if (card.kind === 'unit' && card.rarity === 'legendary' && card.summonMode !== 'rift') return false;
     const cost = card.summonMode === 'rift' && card.riftCost !== undefined && clientRiftReady(state, userId, opponentId, card) ? card.riftCost : card.cost;
     return myEnergy.current >= cost;
@@ -8089,7 +8121,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
             const handMaterialHint = handMaterialHintFor(instance.instanceId);
             const effectiveCost = card?.summonMode === 'rift' && card.riftCost !== undefined && clientRiftReady(state, userId, opponentId, card) ? card.riftCost : card?.cost ?? 99;
             const affordable = Boolean(card && myTurn && !interactionLocked && state.phase === 'main' && myEnergy.current >= effectiveCost
-              && (card.summonMode !== 'legendary' || clientLegendaryReady(state, userId, opponentId, card))
+              && (card.summonMode !== 'legendary' || clientLegendaryReady(state, userId, opponentId, card, privateState, instance.instanceId))
               && !(card.kind === 'unit' && card.rarity === 'legendary' && card.summonMode !== 'rift' && card.summonMode !== 'legendary'));
             const legendaryReady = Boolean(card?.rarity === 'legendary' && legendaryReadyCards.some((item) => item.instanceId === instance.instanceId));
             return <div

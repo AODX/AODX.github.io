@@ -228,6 +228,8 @@ export interface LegendarySummonRule {
   tributeMaterials?: LegendaryTributeRequirement[];
   /** When true, tribute recipe cannot reuse the same printed card id twice. */
   requireDistinctTributeCardIds?: boolean;
+  /** When true, tribute materials may be consumed from either the battlefield or the hand. */
+  allowHandTributes?: boolean;
   /** My field must be completely empty before the summon. */
   requireEmptyField?: boolean;
 }
@@ -5615,11 +5617,12 @@ if (V60_ABSOLUTE_TIME_DEVOURER) {
   V60_ABSOLUTE_TIME_DEVOURER.riftCondition = undefined;
   V60_ABSOLUTE_TIME_DEVOURER.legendarySummonRule = {
     name: '시간 포식 강림',
-    label: '필드의 COST 5+ 태양 유닛 1체와 COST 5+ 달 유닛 1체를 릴리스하고 ENERGY 10을 지불',
+    label: '필드 또는 손패의 COST 4+ 태양 유닛 1체와 COST 4+ 달 유닛 1체를 릴리스하고 ENERGY 10을 지불',
     release: 'none',
+    allowHandTributes: true,
     tributeMaterials: [
-      { label: 'COST 5+ 태양 유닛', element: 'solar', minCost: 5 },
-      { label: 'COST 5+ 달 유닛', element: 'lunar', minCost: 5 },
+      { label: 'COST 4+ 태양 유닛', element: 'solar', minCost: 4 },
+      { label: 'COST 4+ 달 유닛', element: 'lunar', minCost: 4 },
     ],
   };
   V60_ABSOLUTE_TIME_DEVOURER.temporalImmunity = false;
@@ -6291,10 +6294,10 @@ const V62_UNIQUE_PRESENTATION_OVERRIDES: Record<string, V62UniquePresentationOve
     ],
   },
   v60_premium_time_devourer: {
-    text: '【전설 특수 소환】 필드의 COST 5+ 태양 유닛 1체와 COST 5+ 달 유닛 1체를 릴리스하고 ENERGY 10을 지불하면 소환할 수 있다. 【상시 효과】 모든 시간대에서 항상 +5/+5. 【등장】 상대 필드의 캐릭터와 세트 함정을 모두 제거하고, 내 코어 10 회복, 카드 3장 드로우, ENERGY 3 회복, 보호막 3을 얻는다. 【시간 포식】 여명=코어 4 회복 / 정점=상대 ENERGY 2 흡수 / 황혼=상대 코어 2 흡수 / 심야=상대 묘지 2장 소멸 / 개기일식=상대 코어 4 피해.',
+    text: '【전설 특수 소환】 필드 또는 손패의 COST 4+ 태양 유닛 1체와 COST 4+ 달 유닛 1체를 릴리스하고 ENERGY 10을 지불하면 소환할 수 있다. 【상시 효과】 모든 시간대에서 항상 +5/+5. 【등장】 상대 필드의 캐릭터와 세트 함정을 모두 제거하고, 내 코어 10 회복, 카드 3장 드로우, ENERGY 3 회복, 보호막 3을 얻는다. 【시간 포식】 여명=코어 4 회복 / 정점=상대 ENERGY 2 흡수 / 황혼=상대 코어 2 흡수 / 심야=상대 묘지 2장 소멸 / 개기일식=상대 코어 4 피해.',
     description: '태양과 달을 제물로 삼아 강림한 뒤, 시간대마다 다른 먹이를 삼키며 이득을 계속 축적하는 절대 프리미엄 특성이다.',
     highlights: [
-      { name: '쌍광 강림', description: '필드의 COST 5+ 태양 유닛 1체와 COST 5+ 달 유닛 1체를 릴리스하고 ENERGY 10을 지불해야만 강림할 수 있다.' },
+      { name: '쌍광 강림', description: '필드 또는 손패의 COST 4+ 태양 유닛 1체와 COST 4+ 달 유닛 1체를 릴리스하고 ENERGY 10을 지불해야만 강림할 수 있다.' },
       { name: '절대 등장', description: '등장만으로 적 필드·세트 함정을 모두 지우고, 코어 10 회복 · 드로우 3장 · ENERGY 3 · 보호막 3을 얻는다.' },
       { name: '시대별 섭식', description: '여명 회복 / 정점 ENERGY 흡수 / 황혼 코어 흡수 / 심야 묘지 포식 / 일식 종말 피해가 시간대마다 반복된다.' },
     ],

@@ -3595,6 +3595,12 @@ function legendarySameSeriesEntries(state: MatchState, playerId: string, card: C
   });
 }
 
+type LegendaryTributeCandidate = {
+  card: CardDefinition;
+  fieldZone?: number;
+  handInstanceId?: string;
+};
+
 function legendaryTributeRequirementMatches(source: CardDefinition, requirement: LegendaryTributeRequirements[number]): boolean {
   if (source.kind !== 'unit') return false;
   if (requirement.cardIds?.length && !requirement.cardIds.includes(source.id)) return false;
@@ -3604,7 +3610,7 @@ function legendaryTributeRequirementMatches(source: CardDefinition, requirement:
 }
 
 function findLegendaryTributeAssignment(
-  candidates: Array<{ zone: number; unit: UnitState; card: CardDefinition }>,
+  candidates: LegendaryTributeCandidate[],
   requirements: LegendaryTributeRequirements,
   requireDistinct = false,
   at = 0,
@@ -3628,20 +3634,45 @@ function findLegendaryTributeAssignment(
   return null;
 }
 
-function legendaryTributeAssignments(state: MatchState, playerId: string, card: CardDefinition) {
-  const requirements = card.legendarySummonRule?.tributeMaterials;
+function legendaryTributeAssignments(
+  state: MatchState,
+  playerId: string,
+  card: CardDefinition,
+  privateState?: PrivateState,
+  excludedHandInstanceId?: string,
+) {
+  const rule = card.legendarySummonRule;
+  const requirements = rule?.tributeMaterials;
   if (!requirements?.length) return null;
-  const candidates = state.boards[playerId].units
-    .flatMap((unit, zone) => {
-      const source = unit ? CARD_BY_ID[unit.cardId] : undefined;
-      return unit && source ? [{ zone, unit, card: source }] : [];
-    })
-    .sort((a, b) => a.card.cost - b.card.cost || a.zone - b.zone);
-  const assignment = findLegendaryTributeAssignment(candidates, requirements, card.legendarySummonRule?.requireDistinctTributeCardIds ?? false);
+  const candidates: LegendaryTributeCandidate[] = state.boards[playerId].units.flatMap((unit, zone) => {
+    const source = unit ? CARD_BY_ID[unit.cardId] : undefined;
+    return unit && source ? [{ fieldZone: zone, card: source }] : [];
+  });
+  if (rule?.allowHandTributes && privateState) {
+    for (const instance of privateState.hand) {
+      if (instance.instanceId === excludedHandInstanceId) continue;
+      const source = CARD_BY_ID[instance.cardId];
+      if (source?.kind !== 'unit') continue;
+      candidates.push({ handInstanceId: instance.instanceId, card: source });
+    }
+  }
+  // When the board is full, prefer a field tribute so the summon can open a slot.
+  // Otherwise prefer hand tributes, preserving an already-developed battlefield.
+  const boardFull = firstOpenUnit(state.boards[playerId]) < 0;
+  candidates.sort((a, b) => {
+    const aField = a.fieldZone !== undefined;
+    const bField = b.fieldZone !== undefined;
+    if (aField !== bField) {
+      if (boardFull) return aField ? -1 : 1;
+      return aField ? 1 : -1;
+    }
+    return a.card.cost - b.card.cost;
+  });
+  const assignment = findLegendaryTributeAssignment(candidates, requirements, rule?.requireDistinctTributeCardIds ?? false);
   return { candidates, requirements, assignment };
 }
 
-function legendarySummonBlockReason(state: MatchState, playerId: string, card: CardDefinition): string | null {
+function legendarySummonBlockReason(state: MatchState, playerId: string, card: CardDefinition, privateState?: PrivateState, excludedHandInstanceId?: string): string | null {
   if (card.summonMode !== 'legendary') return null;
   const rule = card.legendarySummonRule;
   if (!rule) return '전설 특수 소환 조건이 설정되지 않았습니다.';
@@ -3649,7 +3680,7 @@ function legendarySummonBlockReason(state: MatchState, playerId: string, card: C
   const myUnits = state.boards[playerId].units.filter((unit): unit is UnitState => Boolean(unit));
   const enemyUnits = state.boards[opponentId].units.filter(Boolean);
   const graveyard = state.graveyards[playerId] ?? [];
-  const tributePlan = legendaryTributeAssignments(state, playerId, card);
+  const tributePlan = legendaryTributeAssignments(state, playerId, card, privateState, excludedHandInstanceId);
 
   if (rule.requireEmptyField && myUnits.length > 0) return `내 필드가 비어 있어야 합니다. 현재 내 유닛 ${myUnits.length}체.`;
   if (rule.minimumAllies !== undefined && myUnits.length < rule.minimumAllies) return `내 필드에 유닛이 ${rule.minimumAllies}체 이상 필요합니다. 현재 ${myUnits.length}체.`;
@@ -3668,17 +3699,15 @@ function legendarySummonBlockReason(state: MatchState, playerId: string, card: C
   if (rule.coreAtMost !== undefined && (state.core[playerId] ?? CORE_MAX) > rule.coreAtMost) return `내 코어가 ${rule.coreAtMost} 이하여야 합니다. 현재 ${state.core[playerId] ?? CORE_MAX}.`;
   if (rule.requireOutnumbered && enemyUnits.length <= myUnits.length) return `상대 필드 유닛이 내 필드보다 많아야 합니다. 현재 나 ${myUnits.length} / 상대 ${enemyUnits.length}.`;
   if (rule.tributeMaterials?.length) {
-    if (myUnits.length < rule.tributeMaterials.length) {
-      return `필드에 릴리스할 유닛이 ${rule.tributeMaterials.length}체 이상 필요합니다. 현재 ${myUnits.length}체.`;
-    }
     for (const requirement of rule.tributeMaterials) {
       const matched = tributePlan?.candidates.some((candidate) => legendaryTributeRequirementMatches(candidate.card, requirement));
-      if (!matched) return `필드에 릴리스 가능한 「${requirement.label}」이 없습니다.`;
+      if (!matched) return `${rule.allowHandTributes ? '필드 또는 손패에' : '필드에'} 릴리스 가능한 「${requirement.label}」이 없습니다.`;
     }
-    if (!tributePlan?.assignment) return '필드의 릴리스 조합이 전설 소환 조건과 맞지 않습니다.';
+    if (!tributePlan?.assignment) return `${rule.allowHandTributes ? '필드/손패의' : '필드의'} 릴리스 조합이 전설 소환 조건과 맞지 않습니다.`;
   }
 
-  const willRelease = (rule.tributeMaterials?.length ?? 0) > 0
+  const tributeReleasesField = Boolean(tributePlan?.assignment?.some((assignmentIndex) => tributePlan.candidates[assignmentIndex]?.fieldZone !== undefined));
+  const willRelease = tributeReleasesField
     || (rule.release === 'all' ? myUnits.length > 0 : rule.release === 'same_series' && (rule.minimumSameSeries ?? 0) > 0);
   if (!willRelease && firstOpenUnit(state.boards[playerId]) < 0) return '전설을 놓을 빈 유닛 칸이 없습니다.';
   return null;
@@ -3689,7 +3718,7 @@ function legendaryTributeZones(state: MatchState, playerId: string, card: CardDe
   if (!rule) return [];
   if (rule.tributeMaterials?.length) {
     const tributePlan = legendaryTributeAssignments(state, playerId, card);
-    return tributePlan?.assignment?.map((assignmentIndex) => tributePlan.candidates[assignmentIndex]?.zone).filter((zone): zone is number => Number.isInteger(zone)) ?? [];
+    return tributePlan?.assignment?.map((assignmentIndex) => tributePlan.candidates[assignmentIndex]?.fieldZone).filter((zone): zone is number => Number.isInteger(zone)) ?? [];
   }
   if (rule.release === 'none') return [];
   if (rule.release === 'all') return state.boards[playerId].units.flatMap((unit, zone) => unit ? [zone] : []);
@@ -3701,17 +3730,51 @@ function legendaryTributeZones(state: MatchState, playerId: string, card: CardDe
     .map((entry) => entry.zone);
 }
 
-function performLegendaryTribute(state: MatchState, playerId: string, card: CardDefinition): string[] {
-  const tributeZones = legendaryTributeZones(state, playerId, card);
+function performLegendaryTribute(
+  state: MatchState,
+  privateState: PrivateState,
+  playerId: string,
+  card: CardDefinition,
+  excludedHandInstanceId?: string,
+): string[] {
+  const rule = card.legendarySummonRule;
   const releasedNames: string[] = [];
-  for (const zone of tributeZones) {
-    const unit = state.boards[playerId].units[zone];
-    if (!unit) continue;
-    const source = CARD_BY_ID[unit.cardId];
-    releasedNames.push(source?.name ?? unit.cardId);
-    state.graveyards[playerId].push(unit.cardId);
-    state.boards[playerId].units[zone] = null;
+
+  if (rule?.tributeMaterials?.length) {
+    const tributePlan = legendaryTributeAssignments(state, playerId, card, privateState, excludedHandInstanceId);
+    const assigned = tributePlan?.assignment ?? [];
+    for (const assignmentIndex of assigned) {
+      const target = tributePlan?.candidates[assignmentIndex];
+      if (!target) continue;
+      if (target.fieldZone !== undefined) {
+        const unit = state.boards[playerId].units[target.fieldZone];
+        if (!unit) continue;
+        releasedNames.push(target.card.name);
+        state.graveyards[playerId].push(unit.cardId);
+        state.boards[playerId].units[target.fieldZone] = null;
+        continue;
+      }
+      if (target.handInstanceId) {
+        const handIndex = privateState.hand.findIndex((item) => item.instanceId === target.handInstanceId);
+        if (handIndex < 0) continue;
+        const [released] = privateState.hand.splice(handIndex, 1);
+        if (!released) continue;
+        releasedNames.push(target.card.name);
+        state.graveyards[playerId].push(released.cardId);
+      }
+    }
+  } else {
+    const tributeZones = legendaryTributeZones(state, playerId, card);
+    for (const zone of tributeZones) {
+      const unit = state.boards[playerId].units[zone];
+      if (!unit) continue;
+      const source = CARD_BY_ID[unit.cardId];
+      releasedNames.push(source?.name ?? unit.cardId);
+      state.graveyards[playerId].push(unit.cardId);
+      state.boards[playerId].units[zone] = null;
+    }
   }
+
   if (releasedNames.length > 0) {
     const ritualName = card.legendarySummonRule?.name ?? '전설 의식';
     appendLog(state, `${ritualName} — ${releasedNames.join(', ')} 릴리스.`, 'special');
@@ -5205,19 +5268,21 @@ export function playCard(
       throw new Error(`${card.traitSpecialSummonTier ? '전투 특성 특수 소환' : '균열 소환'} 조건이 충족되지 않았습니다: ${card.riftCondition?.label ?? '조건 확인 필요'}`);
     }
     if (isLegendarySpecial) {
-      const blockReason = legendarySummonBlockReason(state, playerId, card);
+      const blockReason = legendarySummonBlockReason(state, playerId, card, playerPrivate, instance.instanceId);
       if (blockReason) throw new Error(`전설 특수 소환 조건이 충족되지 않았습니다: ${blockReason}`);
     }
 
     spendEnergy(state, playerId, isRift ? (card.riftCost ?? card.cost) : card.cost);
-    if (isLegendarySpecial) performLegendaryTribute(state, playerId, card);
+    if (isLegendarySpecial) performLegendaryTribute(state, playerPrivate, playerId, card, instance.instanceId);
 
     const requested = Number.isInteger(requestedZone) ? Number(requestedZone) : -1;
     const zone = requested >= 0 && requested <= 4 && !state.boards[playerId].units[requested]
       ? requested
       : firstOpenUnit(state.boards[playerId]);
     if (zone < 0 || zone > 4 || state.boards[playerId].units[zone]) throw new Error('선택한 유닛 칸을 사용할 수 없습니다.');
-    playerPrivate.hand.splice(handIndex, 1);
+    const playedHandIndex = playerPrivate.hand.findIndex((item) => item.instanceId === instance.instanceId);
+    if (playedHandIndex < 0) throw new Error('소환할 카드가 손패에서 사라졌습니다.');
+    playerPrivate.hand.splice(playedHandIndex, 1);
     const origin: SummonOrigin = isRift ? 'rift' : isLegendarySpecial ? 'legendary' : 'normal';
     statsFor(state, playerId).unitsSummoned += 1;
     if (isRift || isLegendarySpecial) statsFor(state, playerId).specialSummons += 1;
