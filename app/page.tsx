@@ -673,6 +673,15 @@ function releaseDocumentScrollLock(): void {
   }
 }
 
+function scheduleDocumentScrollUnlock(): void {
+  releaseDocumentScrollLock();
+  if (typeof window === 'undefined') return;
+  window.requestAnimationFrame(() => releaseDocumentScrollLock());
+  window.setTimeout(() => releaseDocumentScrollLock(), 0);
+  window.setTimeout(() => releaseDocumentScrollLock(), 80);
+  window.setTimeout(() => releaseDocumentScrollLock(), 220);
+}
+
 function packPreviewCards(pack: (typeof PACKS)[number]): CardDefinition[] {
   const rarityScore: Record<Rarity, number> = { common: 1, rare: 2, epic: 3, legendary: 4 };
   const nonPremiumPool = CARDS.filter((card) => !/^v(?:41|44|60)_premium_/.test(card.id));
@@ -7073,7 +7082,10 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
 
 
   useEffect(() => () => {
-    releaseDocumentScrollLock();
+    // Result overlays/portals can restore their previous overflow value one frame
+    // after the duel itself unmounts. Re-check for a short window so the hub,
+    // waiting room, and practice menu always regain wheel/touch scrolling.
+    scheduleDocumentScrollUnlock();
   }, []);
 
   if (!nullableState || !nullablePrivateState || nullableState.playerOrder.length !== 2) return <LoadingScreen text="결투 상태를 동기화하는 중" />;
@@ -8328,7 +8340,7 @@ function DuelBoard({ payload, userId, onRefresh, onLeave, syncState, lastSyncAt,
               <article><small>SUMMONS</small><b>{myMatchStats.unitsSummoned}</b><span>특수 {myMatchStats.specialSummons}</span></article>
               <article><small>HEALING</small><b>{myMatchStats.healing}</b><span>드로우 {myMatchStats.cardsDrawn}</span></article>
             </div>
-            <div className="v22-result-footer"><span>{bossRaid ? (state.winnerId === userId ? `오늘 ${bossRaid.name} 클리어 보상은 1회만 지급됩니다.` : '패배 시 코인은 소모되지 않으며 오늘 다시 도전할 수 있습니다.') : practiceMode ? '연습 결과는 계정 전적·코인·XP에 반영되지 않습니다.' : '결투 기록은 결과 확정 후 계정 전적과 보상에 반영됩니다.'}</span><button className="primary-button" onClick={onLeave}>{bossRaid ? '보상 센터로 돌아가기' : practiceMode ? '연습 메뉴로 돌아가기' : room.public_match ? '허브로 돌아가기' : '대기방으로 돌아가기'}</button></div>
+            <div className="v22-result-footer"><span>{bossRaid ? (state.winnerId === userId ? `오늘 ${bossRaid.name} 클리어 보상은 1회만 지급됩니다.` : '패배 시 코인은 소모되지 않으며 오늘 다시 도전할 수 있습니다.') : practiceMode ? '연습 결과는 계정 전적·코인·XP에 반영되지 않습니다.' : '결투 기록은 결과 확정 후 계정 전적과 보상에 반영됩니다.'}</span><button className="primary-button" onClick={() => { scheduleDocumentScrollUnlock(); onLeave(); }}>{bossRaid ? '보상 센터로 돌아가기' : practiceMode ? '연습 메뉴로 돌아가기' : room.public_match ? '허브로 돌아가기' : '대기방으로 돌아가기'}</button></div>
           </section>
         </div>
       )}
@@ -8785,6 +8797,19 @@ function PracticeDuel({ userId, hub, activeDeck, difficulty, onExit }: { userId:
   }, [snapshot]);
 
   useEffect(() => {
+    // Practice duel is rendered in a body portal. Make sure any duel/result
+    // scroll lock is cleared both when entering and after the portal disappears.
+    scheduleDocumentScrollUnlock();
+    return () => scheduleDocumentScrollUnlock();
+  }, []);
+
+  const handlePracticeExit = useCallback(() => {
+    scheduleDocumentScrollUnlock();
+    onExit();
+    scheduleDocumentScrollUnlock();
+  }, [onExit]);
+
+  useEffect(() => {
     const openPracticeInspector = (event: Event) => {
       const cardId = (event as CustomEvent<string>).detail;
       if (cardId && CARD_BY_ID[cardId]) setPracticeInspectCardId(cardId);
@@ -8921,7 +8946,7 @@ function PracticeDuel({ userId, hub, activeDeck, difficulty, onExit }: { userId:
         payload={payload}
         userId={userId}
         onRefresh={noopRefresh}
-        onLeave={onExit}
+        onLeave={handlePracticeExit}
         syncState="live"
         lastSyncAt={Date.now()}
         localAction={localAction}
@@ -8997,16 +9022,14 @@ function DuelView({ userId, hub, roomPayload, onRoom, onHub, serverStatus, syncS
   async function leaveRoom() {
     if (roomPayload) await roomAction('leave_room', { roomId: roomPayload.room.id });
     onRoom(null);
-    releaseDocumentScrollLock();
-    if (typeof window !== 'undefined') window.requestAnimationFrame(() => releaseDocumentScrollLock());
+    scheduleDocumentScrollUnlock();
     try { const result = await api('hub'); if (result.hub) onHub(result.hub); } catch { /* ignore */ }
   }
 
   async function returnPrivateLobby() {
     if (!roomPayload) return;
     await roomAction('return_to_room_lobby', { roomId: roomPayload.room.id });
-    releaseDocumentScrollLock();
-    if (typeof window !== 'undefined') window.requestAnimationFrame(() => releaseDocumentScrollLock());
+    scheduleDocumentScrollUnlock();
     try { const result = await api('hub'); if (result.hub) onHub(result.hub); } catch { /* ignore */ }
   }
 
@@ -9363,9 +9386,8 @@ export default function Page() {
     // Full-screen duel CSS intentionally locks the viewport. Force-release any
     // stale inline lock after the result screen / room transition so the hub
     // can scroll immediately again, even if a modal unmounts in the same frame.
-    releaseDocumentScrollLock();
-    const frame = window.requestAnimationFrame(() => releaseDocumentScrollLock());
-    return () => window.cancelAnimationFrame(frame);
+    scheduleDocumentScrollUnlock();
+    return undefined;
   }, [roomPayload?.room.id, roomPayload?.room.status, view]);
 
   useEffect(() => {
